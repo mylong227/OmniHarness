@@ -1,0 +1,28 @@
+#!/bin/sh
+# OmniHarness pre-commit 门禁（零依赖：仅用仓库内 node_modules 工具）。
+# 职责：铁律自检(check.mjs) + ESLint(error 阻断，warn 放行) + Prettier 增量格式化已暂存文件。
+# 由 scripts/install-hooks.mjs 通过 git config core.hooksPath 激活。
+cd "$(git rev-parse --show-toplevel)"
+
+echo "[pre-commit] OmniHarness 门禁：铁律自检..."
+if ! npm run --silent check; then
+  echo "[pre-commit] ✗ check.mjs 铁律校验未通过，提交中止。" >&2
+  exit 1
+fi
+
+echo "[pre-commit] ESLint（error 阻断，warn 放行）..."
+if ! npm run --silent lint; then
+  echo "[pre-commit] ✗ ESLint 存在 error，提交中止。" >&2
+  exit 1
+fi
+
+# 仅格式化已暂存的源码/配置/文档文件（增量，不触碰历史文件），随后重新暂存
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|js|mjs|cjs|json|md)$' || true)
+if [ -n "$STAGED" ]; then
+  echo "[pre-commit] Prettier 格式化已暂存文件..."
+  echo "$STAGED" | xargs ./node_modules/.bin/prettier --write
+  echo "$STAGED" | xargs git add
+fi
+
+echo "[pre-commit] ✓ 门禁通过"
+exit 0

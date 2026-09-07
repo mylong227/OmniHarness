@@ -1,0 +1,9 @@
+{
+  "name": "github-tools",
+  "version": "0.1.0",
+  "description": "GitHub 仓库/Issue 检索（声明 net.connect）",
+  "author": "OmniHarness Samples",
+  "permissions": ["net.connect"],
+  "entry": "index.js",
+  "source": "bundled"
+}

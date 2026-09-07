@@ -1,0 +1,2 @@
+# 最小 MSRV 声明，避免 clippy 对高版本 API 误报。
+msrv = "1.74.0"

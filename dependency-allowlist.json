@@ -1,0 +1,61 @@
+{
+  "$schema": "omniharness/dependency-allowlist/1",
+  "version": 1,
+  "policy": "docs/DEPENDENCY_POLICY.md",
+  "updatedAt": "2026-09-05",
+  "notes": [
+    "必要即可依赖：凡能实质提升项目能力、且经准入评审的优质依赖，即为本项目资产。",
+    "但必须分层隔离：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
+    "当前 dependencies 为 0 —— 既有零依赖实现（BM25 / RFC6455 / Ed25519 / N-API FFI / LCS diff）全部保留，不因政策放宽而废弃。"
+  ],
+  "allowedLicenses": [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "0BSD",
+    "Unlicense",
+    "CC0-1.0.0",
+    "BlueOak-1.0.0"
+  ],
+  "deniedLicenses": [
+    "GPL-2.0",
+    "GPL-3.0",
+    "LGPL-2.1",
+    "LGPL-3.0",
+    "AGPL-3.0",
+    "SSPL-1.0",
+    "BUSL-1.1",
+    "CC-BY-NC-4.0",
+    "UNLICENSED"
+  ],
+  "defaultBudgets": {
+    "maxInstallKb": 2048,
+    "maxTransitiveDeps": 20
+  },
+  "forbiddenLayers": ["src/ports", "src/core"],
+  "allowlist": {
+    "@huggingface/transformers": {
+      "reason": "引入本地 ONNX 嵌入模型运行时不自研不可行：自研等价物需训练/维护一个 embedding 模型与 ONNX runtime，边际成本不可接受；本依赖带来质变能力（稠密向量语义召回），补 U3 实验遗留的 BM25 词法盲区（policy vs execPolicy 语义鸿沟）。",
+      "capability": "在本地（WASM/WebGPU，免原生编译）运行 sentence-transformers 类嵌入模型，产出 384 维语义向量，供 repo-map 混合检索的语义召回支路使用。",
+      "license": "Apache-2.0",
+      "approvedAt": "2026-09-05",
+      "layer": "src/adapters/embedding",
+      "exitPlan": "若该包停更，替换为 fastembed-js 或自托管 ONNX runtime，仅需重写 src/adapters/embedding/transformersEmbedding.ts 一个文件；模型权重 Xenova/all-MiniLM-L6-v2 为社区标准、多运行时通用，无锁定。",
+      "maxInstallKb": 200000,
+      "maxTransitiveDeps": 80,
+      "budgetOverrideReason": "安装体积远超默认 2MB（含 onnxruntime-web/node、sharp、tokenizers 等传递依赖）；但体积预算为报告级，且铁律 §1.1 允许『自研边际成本显著高于引入、能带来质变能力』时引入。运行时仅模型权重（数据资产，非代码依赖）落本地，不影响冷启动分发体积。"
+    }
+  },
+  "entryTemplate": {
+    "reason": "为什么引入（不接受『大家都用』）",
+    "capability": "带来什么原本没有的能力",
+    "license": "MIT",
+    "approvedAt": "YYYY-MM-DD",
+    "layer": "src/adapters/xxx",
+    "exitPlan": "若该包废弃，替换路径是什么",
+    "maxInstallKb": 2048,
+    "maxTransitiveDeps": 20
+  }
+}

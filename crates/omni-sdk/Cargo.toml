@@ -1,0 +1,12 @@
+[package]
+name = "omni-sdk"
+description = "OmniHarness Rust SDK：JSON-RPC 2.0 客户端运行时（stdio / TCP 传输），接入运行中的 harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+omni-core = { path = "../omni-core" }
+serde.workspace = true
+serde_json.workspace = true

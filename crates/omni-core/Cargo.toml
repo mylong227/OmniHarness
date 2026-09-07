@@ -1,0 +1,13 @@
+[package]
+name = "omni-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OmniHarness Rust 内核最小闭环：agent loop + JSON-RPC 事件流"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true

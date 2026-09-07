@@ -1,0 +1,15 @@
+# OmniHarness Rust 侧链接器配置。
+# 本机 GNU 工具链的系统 gcc 链接器无法解析 Windows 反斜杠路径，
+# 改用 rustup 自带的 rust-lld（lld 正确处理 Windows 路径）。
+[target.x86_64-pc-windows-gnu]
+linker = "rust-lld"
+
+# crates.io 走 rsproxy 国内镜像（本机直连 crates.io 超时，沿用 npm 走镜像的习惯）。
+[source.crates-io]
+replace-with = "rsproxy"
+
+[source.rsproxy]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[net]
+git-fetch-with-cli = true

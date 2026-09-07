@@ -1,0 +1,9 @@
+{
+  "name": "pdf-read",
+  "version": "0.1.0",
+  "description": "读取本地 PDF 抽取文本（声明 fs.read）",
+  "author": "OmniHarness Samples",
+  "permissions": ["fs.read"],
+  "entry": "index.js",
+  "source": "bundled"
+}

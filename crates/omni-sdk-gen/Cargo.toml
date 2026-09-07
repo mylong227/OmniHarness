@@ -1,0 +1,10 @@
+[package]
+name = "omni-sdk-gen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OmniHarness 单源 schema → Rust 服务端类型生成器（对齐 TS src/schema/codeGenerator）"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,9 @@
+{
+  "name": "web-fetch",
+  "version": "0.1.0",
+  "description": "抓取网页并抽取正文文本（声明 net.connect）",
+  "author": "OmniHarness Samples",
+  "permissions": ["net.connect"],
+  "entry": "index.js",
+  "source": "bundled"
+}

@@ -1,0 +1,133 @@
+{
+  "generatedAt": "2026-09-03T14:48:10.935Z",
+  "minN": 30,
+  "live": {
+    "path": "D:\\deepseek\\omniharness\\benchmark\\runtime-telemetry.prod.log",
+    "exists": true,
+    "chainOk": true,
+    "total": 280,
+    "production": 280
+  },
+  "seed": {
+    "path": "D:\\deepseek\\omniharness\\benchmark\\runtime-telemetry.seed.log",
+    "count": 13,
+    "note": "仅呈现当前参数面，不参与收紧决策"
+  },
+  "locked": [
+    {
+      "param": "RSI 红线",
+      "note": "看板锁定 ON：禁止改自身训练/复制/自授权（严禁 OFF）"
+    },
+    {
+      "param": "依赖准入门禁",
+      "note": "看板锁定 ON：引入外部依赖须经 dependency-allowlist.json 登记 + check.mjs 四闸门准入（严禁 OFF）"
+    },
+    {
+      "param": "confinement.groupOrder",
+      "note": "结构性 SU(3) 代数，非数据可调；改动即改拒配代数"
+    }
+  ],
+  "tunable": [
+    {
+      "operator": "oobleck",
+      "param": "yieldStress",
+      "current": 0.6,
+      "floor": 0.6,
+      "ceil": 0.95,
+      "productionN": 0,
+      "status": "INSUFFICIENT_DATA",
+      "action": "KEEP",
+      "note": "production 样本 0 < MIN_N(30)，保持当前 0.6；需真实负载累积 ≥ 30 次观测"
+    },
+    {
+      "operator": "evolutionGate",
+      "param": "minGain",
+      "current": 0.05,
+      "floor": 0.05,
+      "ceil": 0.5,
+      "productionN": 0,
+      "status": "INSUFFICIENT_DATA",
+      "action": "KEEP",
+      "note": "production 样本 0 < MIN_N(30)，保持当前 0.05；需真实负载累积 ≥ 30 次观测"
+    },
+    {
+      "operator": "symmetryBreaking",
+      "param": "threshold",
+      "current": 0.7,
+      "floor": 0.7,
+      "ceil": 0.95,
+      "evidence": "instability=0.000",
+      "productionN": 40,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（instability=0.000），保持当前 0.7"
+    },
+    {
+      "operator": "immuneMonitoring",
+      "param": "threshold",
+      "current": 3,
+      "floor": 3,
+      "ceil": 12,
+      "evidence": "missedAnomaly=0.000",
+      "productionN": 40,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（missedAnomaly=0.000），保持当前 3"
+    },
+    {
+      "operator": "heatAnnealer",
+      "param": "resonanceThreshold",
+      "current": 0.6,
+      "floor": 0.6,
+      "ceil": 0.9,
+      "evidence": "driftStd=7.031 (mean=8.085)",
+      "productionN": 40,
+      "status": "EVALUATED",
+      "action": "TIGHTEN",
+      "note": "证据触发收紧：driftStd=7.031 (mean=8.085)；仅可向更安全方向（增大）落在 [current, ceil]，绝不降到 floor(0.6) 之下；具体值由运维按证据拍板。"
+    },
+    {
+      "operator": "belief",
+      "param": "particles",
+      "current": 200,
+      "floor": 200,
+      "ceil": 600,
+      "evidence": "meanConfPF=0.753",
+      "productionN": 40,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（meanConfPF=0.753），保持当前 200"
+    },
+    {
+      "operator": "crispr",
+      "param": "addressThreshold",
+      "current": 0.5,
+      "floor": 0.5,
+      "ceil": 0.95,
+      "productionN": 0,
+      "status": "INSUFFICIENT_DATA",
+      "action": "KEEP",
+      "note": "production 样本 0 < MIN_N(30)，保持当前 0.5；需真实负载累积 ≥ 30 次观测"
+    },
+    {
+      "operator": "capabilityCrystallizer",
+      "param": "densityThreshold / emergenceFloor",
+      "current": 3,
+      "floor": 3,
+      "ceil": 10,
+      "evidence": "meanFrozenPerCycle=0.525; meanEmergence=0.307(n=21)",
+      "productionN": 40,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（meanFrozenPerCycle=0.525; meanEmergence=0.307(n=21)），保持当前 3"
+    }
+  ],
+  "summary": {
+    "totalTunable": 8,
+    "tightened": 1,
+    "kept": 7,
+    "insufficient": 3,
+    "locked": 3
+  },
+  "honestBoundary": "仅基于真实运行观测（production/self-driven），seed-bootstrap（文献派生）已排除。"
+}

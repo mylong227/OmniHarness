@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-09-04T11:22:54.789Z",
+  "results": {
+    "deps": {
+      "runtime": 0,
+      "dev": 7,
+      "distMb": 3.25
+    },
+    "coldStart": {
+      "n": 20,
+      "p50Ms": 86.1,
+      "p95Ms": 95,
+      "minMs": 81.4
+    },
+    "memory": {
+      "rssMb": 49.3,
+      "loadDeltaMb": 9.1
+    },
+    "compression": {
+      "originalKb": 75.73,
+      "compressedKb": 14.63,
+      "ratio": 0.1932,
+      "savedPct": 80.7,
+      "stages": [
+        "collapse-blank:5",
+        "minify-json:1368",
+        "dedupe:175",
+        "truncate-output:61018",
+        "fold-history:0"
+      ]
+    },
+    "prefix": {
+      "variants": 20,
+      "canonicalMean": 1,
+      "canonicalMin": 1,
+      "rawMean": 0.1816,
+      "naiveMean": 0.0744
+    },
+    "toolLoading": {
+      "toolCount": 22,
+      "allBytes": 3176,
+      "avgSelectedBytes": 809.3,
+      "reductionPct": 74.5,
+      "topK": 5
+    },
+    "retrieval": {
+      "queries": 2000,
+      "totalMs": 154.7,
+      "qps": 12929,
+      "avgUs": 77.34
+    },
+    "genesisAlgebra": {
+      "ops": 50000,
+      "totalMs": 3.4,
+      "opsPerSec": 14785463,
+      "avgNs": 67.6,
+      "accTokens": 149997
+    }
+  }
+}

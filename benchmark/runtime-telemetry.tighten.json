@@ -1,0 +1,136 @@
+{
+  "generatedAt": "2026-09-03T14:48:10.464Z",
+  "minN": 30,
+  "live": {
+    "path": "D:\\deepseek\\omniharness\\benchmark\\runtime-telemetry.log",
+    "exists": true,
+    "chainOk": true,
+    "total": 704,
+    "production": 704
+  },
+  "seed": {
+    "path": "D:\\deepseek\\omniharness\\benchmark\\runtime-telemetry.seed.log",
+    "count": 13,
+    "note": "仅呈现当前参数面，不参与收紧决策"
+  },
+  "locked": [
+    {
+      "param": "RSI 红线",
+      "note": "看板锁定 ON：禁止改自身训练/复制/自授权（严禁 OFF）"
+    },
+    {
+      "param": "依赖准入门禁",
+      "note": "看板锁定 ON：引入外部依赖须经 dependency-allowlist.json 登记 + check.mjs 四闸门准入（严禁 OFF）"
+    },
+    {
+      "param": "confinement.groupOrder",
+      "note": "结构性 SU(3) 代数，非数据可调；改动即改拒配代数"
+    }
+  ],
+  "tunable": [
+    {
+      "operator": "oobleck",
+      "param": "yieldStress",
+      "current": 0.6,
+      "floor": 0.6,
+      "ceil": 0.95,
+      "evidence": "catastrophicForget=0.000",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（catastrophicForget=0.000），保持当前 0.6"
+    },
+    {
+      "operator": "evolutionGate",
+      "param": "minGain",
+      "current": 0.05,
+      "floor": 0.05,
+      "ceil": 0.5,
+      "evidence": "promotedSpurious=0.000",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（promotedSpurious=0.000），保持当前 0.05"
+    },
+    {
+      "operator": "symmetryBreaking",
+      "param": "threshold",
+      "current": 0.7,
+      "floor": 0.7,
+      "ceil": 0.95,
+      "evidence": "instability=0.500",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "TIGHTEN",
+      "note": "证据触发收紧：instability=0.500；仅可向更安全方向（增大）落在 [current, ceil]，绝不降到 floor(0.7) 之下；具体值由运维按证据拍板。"
+    },
+    {
+      "operator": "immuneMonitoring",
+      "param": "threshold",
+      "current": 3,
+      "floor": 3,
+      "ceil": 12,
+      "evidence": "missedAnomaly=0.000",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（missedAnomaly=0.000），保持当前 3"
+    },
+    {
+      "operator": "heatAnnealer",
+      "param": "resonanceThreshold",
+      "current": 0.6,
+      "floor": 0.6,
+      "ceil": 0.9,
+      "evidence": "driftStd=0.250 (mean=3.007)",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（driftStd=0.250 (mean=3.007)），保持当前 0.6"
+    },
+    {
+      "operator": "belief",
+      "param": "particles",
+      "current": 200,
+      "floor": 200,
+      "ceil": 600,
+      "evidence": "meanConfPF=0.645",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（meanConfPF=0.645），保持当前 200"
+    },
+    {
+      "operator": "crispr",
+      "param": "addressThreshold",
+      "current": 0.5,
+      "floor": 0.5,
+      "ceil": 0.95,
+      "evidence": "offTargetRate=0.344 (applied=42,rolledBack=22)",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（offTargetRate=0.344 (applied=42,rolledBack=22)），保持当前 0.5"
+    },
+    {
+      "operator": "capabilityCrystallizer",
+      "param": "densityThreshold / emergenceFloor",
+      "current": 3,
+      "floor": 3,
+      "ceil": 10,
+      "evidence": "meanFrozenPerCycle=0.016; meanEmergence=n/a(仅 0 样本<10, 不足以评估涌现)",
+      "productionN": 64,
+      "status": "EVALUATED",
+      "action": "KEEP",
+      "note": "证据未触发收紧（meanFrozenPerCycle=0.016; meanEmergence=n/a(仅 0 样本<10, 不足以评估涌现)），保持当前 3"
+    }
+  ],
+  "summary": {
+    "totalTunable": 8,
+    "tightened": 1,
+    "kept": 7,
+    "insufficient": 0,
+    "locked": 3
+  },
+  "honestBoundary": "仅基于真实运行观测（production/self-driven），seed-bootstrap（文献派生）已排除。"
+}

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="UBuIiyePJAe63SGKVR7jBm">
+<head data-page-node-id="nYkJ1uznauq7iQ5CaG4yJq">
+<meta charset="UTF-8" data-page-node-id="CegDH0IpgRzOYTCo1lHQGv">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="XVEcOekTJ2h5qnk2EL0Fs7">
+<title>OmniHarness 进度看板</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
+    --txt:#e6e9ef; --mut:#9aa3b2; --acc:#5b9dff; --grn:#3fbf7f; --ylw:#e0b341; --red:#e0594f;
+    --blu:#4aa3df; --pur:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,Roboto,"Microsoft YaHei",sans-serif;font-size:13px;line-height:1.5}
+  header{padding:18px 22px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#14171e,#0f1115)}
+  h1{margin:0 0 4px;font-size:19px;letter-spacing:.5px}
+  .sub{color:var(--mut);font-size:12px}
+  .metrics{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:108px}
+  .chip b{display:block;font-size:17px;color:var(--acc)}
+  .chip span{color:var(--mut);font-size:11px}
+  section{padding:18px 22px}
+  h2{font-size:14px;margin:0 0 12px;color:var(--blu);border-left:3px solid var(--acc);padding-left:8px}
+  /* phase grid */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:12px}
+  .pcard .st{font-size:10px;float:right;padding:1px 7px;border-radius:10px;font-weight:600}
+  .done{background:rgba(63,191,127,.15);color:var(--grn);border:1px solid rgba(63,191,127,.4)}
+  .cur{background:rgba(224,179,65,.15);color:var(--ylw);border:1px solid rgba(224,179,65,.4)}
+  .tail{background:rgba(224,89,79,.15);color:var(--red);border:1px solid rgba(224,89,79,.4)}
+  .pcard small{color:var(--mut)}
+  /* kanban */
+  .board{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:14px}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-height:200px}
+  .col h3{margin:0 0 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .col h3 .cnt{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:0 8px;font-size:11px;color:var(--mut)}
+  .kcard{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:7px;padding:9px 11px;margin-bottom:9px}
+  .kcard.pillar{border-left-color:var(--pur)}
+  .kcard.gap{border-left-color:var(--red)}
+  .kcard.mile{border-left-color:var(--grn)}
+  .kcard .t{font-weight:600;font-size:12.5px;margin-bottom:3px}
+  .kcard .d{color:var(--mut);font-size:11px}
+  .tag{display:inline-block;font-size:10px;padding:0 6px;border-radius:6px;margin-top:5px;margin-right:4px;background:rgba(91,157,255,.12);color:var(--acc)}
+  .tag.n{background:rgba(167,139,250,.14);color:var(--pur)}
+  .tag.w{background:rgba(224,179,65,.14);color:var(--ylw)}
+  /* scorecard */
+  table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:4px}
+  th,td{border:1px solid var(--line);padding:5px 7px;text-align:center}
+  th{background:var(--panel2);color:var(--mut);font-weight:600}
+  td.l{text-align:left;color:var(--txt)}
+  .y{color:var(--grn)} .p{color:var(--ylw)} .n{color:var(--mut)} .q{color:var(--red)}
+  .note{background:rgba(224,179,65,.08);border:1px solid rgba(224,179,65,.35);border-radius:8px;padding:10px 13px;color:#e9d9a8;font-size:12px;margin-top:14px}
+  .foot{color:var(--mut);font-size:11px;padding:10px 22px 26px}
+  a{color:var(--acc);text-decoration:none}
+</style>
+</head>
+<body data-page-node-id="QrzWQVqVlwSaiHkpZs2zD4">
+<header data-page-node-id="tj89qqCsATSGZeMqo7QHE0">
+  <h1 data-page-node-id="0j5IZBAMRJm8A59U8BhTGE">OmniHarness · 进度看板</h1>
+  <div class="sub" data-page-node-id="6sivGpV4HGINFk2otc4Vlp">实时数据快照 · 2026-09-05 · 分支 main · HEAD 63f9b10（多模态 Composer + 模型/推理/权限三切换器）</div>
+  <div class="metrics" data-page-node-id="jy1s4kGXBA8gD0hklsRMgJ">
+    <div class="chip" data-page-node-id="IBd1d0uIH6yiAP6zCyayfQ"><b data-page-node-id="KcXI6BOfbrMso5WrttzOxN">60</b><span data-page-node-id="9Lzd45r38iuOxAlG8lTi7B">git commits</span></div>
+    <div class="chip" data-page-node-id="FwWv72gF5pq8a7yvhT1n41"><b data-page-node-id="JEdFfOBH1BEz0gCz58JgDm">309</b><span data-page-node-id="jt2RM79NgR6jepNC81L2wS">TS 文件 / 31213 行</span></div>
+    <div class="chip" data-page-node-id="c6ZXJlgsh6ZgC2QDSPSgAN"><b data-page-node-id="dS25rQxzzpYUw3rhiMF3kC">38</b><span data-page-node-id="VV46hYhOaGfeMsxM4kLR0G">Rust crates / 5936 行</span></div>
+    <div class="chip" data-page-node-id="IK1tQYNCSju4K9pOAhqI6c"><b data-page-node-id="nnqbGLJ0DIKODM0mtlfDAw">137</b><span data-page-node-id="qLKLDqd63O1TwgT5HuayFy">测试文件</span></div>
+    <div class="chip" data-page-node-id="Ku85t1PuZnu3i5cvl0AomS"><b data-page-node-id="fX2qLA6mGdO3ICLHDxxqQg">597</b><span data-page-node-id="A1hccLDgHwaWDXhRLfgAxf">用例 (591 过 / 6 skip)</span></div>
+    <div class="chip" data-page-node-id="nUZDVT85hpHjBWFlfhkf1P"><b data-page-node-id="lXM1H88ZmNpxu9uYfGfrVG">40</b><span data-page-node-id="paizksPUsfftH6slQWmv1x">端口 / 23 适配器</span></div>
+    <div class="chip" data-page-node-id="HEVbSpCEHZ8w5pHJVdVzBQ"><b data-page-node-id="aUbXJtB5lBbtSSAfp8he89">36</b><span data-page-node-id="gVO72M3KpeWO2A26UbfoOk">Roadmap 阶段</span></div>
+  </div>
+</header>
+
+<section data-page-node-id="bWWrQjqGrqDNgvMx49jC5Y">
+  <h2 data-page-node-id="lnTbnjTtb8wBZeYnQC8mGO">一、Roadmap 阶段完成度（阶段 0–36）</h2>
+  <div class="pgrid" id="pgrid" data-page-node-id="qY2CCsOibwbgGSnWhUV8WU"></div>
+  <div class="note" data-page-node-id="UEbWJDEFiqn8dEjbWbKjRp">⚠️ 诚实尾账：阶段 8–36 主体落地（FFI / 原生沙箱 / 双 BM25 / S+ 发明层 / 密码学身份 / 安全策略 / TUI 等均已实现），但 <b data-page-node-id="ZJaivPQMLKiZPdYW7XD60v">OS 级沙箱后端（bwrap / seatbelt / landlock）仍为 fail-closed 占位，待真机运行时验证</b>；P2 提权升级真实沙箱用例为 skip 跟踪。这不影响逻辑正确性，仅影响跨平台隔离的真机验收。</div>
+</section>
+
+<section data-page-node-id="aEZC8vrcmdSsk5oLeS1NTQ">
+  <h2 data-page-node-id="4ZHih5DCDG7iwD8bMV0s9I">二、能力评分卡（OmniHarness vs 竞品，精简矩阵）</h2>
+  <table data-page-node-id="Sj3B7T4hc86rBK9XW93IAp">
+    <tr data-page-node-id="j9xwtzTG83eU99gjzn0TB0"><th data-page-node-id="roAjclAhV0VVD3NuGeBFv4">能力</th><th data-page-node-id="Lsj8UFMCRFZVCepGGKnkg4">OmniHarness</th><th data-page-node-id="QaiG1wAvx1yyYfjwEf0HOc">Codex</th><th data-page-node-id="KJHIzAWGDJYdWQHEBJsfem">Claude Code</th><th data-page-node-id="MfwWhOYhUMAEvFEjtLgC99">Gemini CLI</th><th data-page-node-id="oUEqNIMeAOQ2MSindqSfFb">OpenHands</th><th data-page-node-id="cMKkB2cKbUHLyJDnTBVQEm">Aider</th></tr>
+    <tr data-page-node-id="2ANp769CjW2pryipLvnzQ9"><td class="l" data-page-node-id="OAHGigXDQFbpf5QsScxaMW">多模型</td><td class="p" data-page-node-id="rpXltar3i0jewkaduN4e2J">◐</td><td class="p" data-page-node-id="UFbxnjsT2OwsPga2eR2nPg">◐</td><td class="n" data-page-node-id="eR8aIGndnK4jHRQQr47yzT">—</td><td class="n" data-page-node-id="A5H794gAHfQQN10TCzwfD7">—</td><td class="y" data-page-node-id="y0n2ZbRzFik3yuP9Nj2vQI">✅</td><td class="y" data-page-node-id="EEUhCTnAdC4WDvg8QBHxw8">✅</td></tr>
+    <tr data-page-node-id="9SHMB4YTjY7A75szqFfSZX"><td class="l" data-page-node-id="MmhqEx0UhfmWljqoOC0oBL">推理强度</td><td class="y" data-page-node-id="h6GybHpmnA8VxaFVRTMyIg">✅</td><td class="y" data-page-node-id="w1mhWtrzpJMHRVzaEEBCWJ">✅</td><td class="y" data-page-node-id="oGD6XrtmUf9mpIKZWqbJik">✅</td><td class="p" data-page-node-id="hPoDj1EKmriG001IOuK51T">◐</td><td class="p" data-page-node-id="GoT05q4eKCI8M3esauA6MI">◐</td><td class="p" data-page-node-id="boTGLdhg6WQyCx4O22FTt0">◐</td></tr>
+    <tr data-page-node-id="iqrCrWhN7SHenj19Gr3j2P"><td class="l" data-page-node-id="yBDHGSdyvrPArIwPt7smsx">子智能体</td><td class="y" data-page-node-id="PBpGx5im2y6JXYESbWu2YR">✅</td><td class="p" data-page-node-id="ykWVGdJ6ESRsbB9JWceJAo">◐</td><td class="y" data-page-node-id="fMJvoT6eYfspNwd4XkLK25">✅</td><td class="p" data-page-node-id="DefemEyHwxUJDTwc0LXFjV">◐</td><td class="y" data-page-node-id="bIoV0ZUWmmhWz9XDLuHP4I">✅</td><td class="p" data-page-node-id="GTsFXcnG7KdTjgNkkJlu83">◐</td></tr>
+    <tr data-page-node-id="oxclsPOccwBysrhvfjNeqB"><td class="l" data-page-node-id="RnBeLBxJyn1EE3RzPGVycP">图上下文(repo-map)</td><td class="q" data-page-node-id="vmo6NO4ejTTix64JOIqUgo">缺口</td><td class="n" data-page-node-id="sVp9DcUdiEGRb52mC9qHdF">—</td><td class="n" data-page-node-id="ipwD4Tr1qpmxs1OzPxBG6v">—</td><td class="n" data-page-node-id="93cxKXS1JfeCYDW0Wjnkh1">—</td><td class="n" data-page-node-id="pd1o3t7tgNLJh290iBSqrz">—</td><td class="y" data-page-node-id="ljit8070GYpxipmZq9FAyJ">✅</td></tr>
+    <tr data-page-node-id="hrgh4DLKR9UnQSEJpfEIZC"><td class="l" data-page-node-id="MD8ln1RHsF0dk6b1zuC9GY">原生沙箱</td><td class="y" data-page-node-id="FynY4n464IhU2DDt2JOjy7">✅</td><td class="y" data-page-node-id="xu6oqmSRVEIyGcicOTYGat">✅</td><td class="p" data-page-node-id="0G0qKgkW7HZWs63g7QrNK0">◐</td><td class="y" data-page-node-id="IWpUIClHuAdA85fzDZ58GF">✅</td><td class="y" data-page-node-id="TsuSqaGqhVqYCNwEU2aDPh">✅</td><td class="n" data-page-node-id="nfzONAkfG2A4WeiolJDuNg">—</td></tr>
+    <tr data-page-node-id="ebdXbNM192vxIjIFA2nmQW"><td class="l" data-page-node-id="FNfqf2QtBEUaAGEbIdkIqe">审计哈希链</td><td class="y" data-page-node-id="SyEil5BbyGFju3opSjqprD">✅</td><td class="q" data-page-node-id="4C6IkXqMowfjC04XQv7ljw">?</td><td class="p" data-page-node-id="x1ITz97QROSOfiFuqEGQ1R">◐</td><td class="q" data-page-node-id="l87CIX7UTMAliQP2p4HIoN">?</td><td class="y" data-page-node-id="yzEhHG3khXbOmkfbNNS8cs">✅</td><td class="n" data-page-node-id="HqkBNS8JuE3sANUuALDXUO">—</td></tr>
+    <tr data-page-node-id="6WAn0N6ufJUGu5vtiIkcX6"><td class="l" data-page-node-id="EXYVANQuz3kuaqQvuW90hF">密码学身份</td><td class="y" data-page-node-id="XpP7JlziBrrUqB5sYhcS1l">✅</td><td class="n" data-page-node-id="oXZECd06fp0XtZ56YznWFD">—</td><td class="n" data-page-node-id="BTeH4HHRsMKWqnur1TC6wx">—</td><td class="n" data-page-node-id="BrXVymcJMQSF9pG53Ul6tC">—</td><td class="n" data-page-node-id="icbANRL0CQmPZdG9ewDfVp">—</td><td class="n" data-page-node-id="xS6RWH96XiggtPV51ZM3lm">—</td></tr>
+    <tr data-page-node-id="UHxNCG2sH4U2MwR0gQu1x8"><td class="l" data-page-node-id="vevVMOmDBmrxFcTsvqNPGP">MCP 双向</td><td class="y" data-page-node-id="s4Caqzq0lEmhfEJURGygiC">✅</td><td class="y" data-page-node-id="bkhUkcMUdqNAaRAs2oOn6f">✅</td><td class="y" data-page-node-id="MDfmnVUF8Iv3CU1zDl6mUN">✅</td><td class="y" data-page-node-id="9w3HI7eXiZ48bnNS3IfG2B">✅</td><td class="y" data-page-node-id="zILsqq7tBT6eOMst2UWeb3">✅</td><td class="n" data-page-node-id="CkLky4r4M0J66uYm3panmF">—</td></tr>
+    <tr data-page-node-id="9A2AirVHlUbddlqSECcUmC"><td class="l" data-page-node-id="MNc3WhGlFr7O7aVzYjPmDr">A2A 互操作</td><td class="q" data-page-node-id="9zblo2UGCFB8Z6cRO3jxs0">缺口/机会</td><td class="n" data-page-node-id="nNbAudbYwefqS1k2UBH0Jz">—</td><td class="p" data-page-node-id="nLhyHF6xRoIVhkCWelOrax">◐</td><td class="n" data-page-node-id="DFdgjdDbKEdYuZj0GQB0zZ">—</td><td class="n" data-page-node-id="O0P24kdoUcIItzvHf7asYc">—</td><td class="n" data-page-node-id="V1nwkk0vvLhMNMoG81SwpU">—</td></tr>
+    <tr data-page-node-id="fJeEdxwODZ4RvAacvnuooH"><td class="l" data-page-node-id="mUZvV7oAaYxheL0dNdcUhl">专属 eval 集成</td><td class="p" data-page-node-id="WH8XxSJqjXfMJqkc0iSZ2N">◐</td><td class="y" data-page-node-id="vy5UNr1R0r0q0qPNvwmSw8">✅</td><td class="y" data-page-node-id="JRRcJUCBjdxn3AkVt9PXls">✅</td><td class="y" data-page-node-id="ZemC9cDYgDnBlnKfmdJBWi">✅</td><td class="y" data-page-node-id="AWKyUxPutef5P9ECEgsHoh">✅</td><td class="y" data-page-node-id="vZZmokuGhs16mYg32Qb9oG">✅</td></tr>
+  </table>
+  <div class="note" style="margin-top:12px" data-page-node-id="ArKpDI8TFmSUUkUVp0LShY">✅=一等 ◐=部分 —=无 ?=不确定。OmniHarness 在<b data-page-node-id="So80Esa8i2oADhmzGcseM1">原生沙箱 / 审计 / 密码学身份 / 双 BM25 / S+ 发明层</b>领先；真实差距仅三处：<b data-page-node-id="6vh4G5U7G7SsSaNbNN3h1k">repo-map 图上下文、专属 eval 管线、A2A 互操作</b>。详细见 <a href="LANDSCAPE_RESEARCH_2026.md" data-page-node-id="H5tOish4g6ObOJuKeOFnfg">调研文档</a> 与 <a href="RESONANCE_UPGRADE_PLAN.md" data-page-node-id="GSisbeli1rpvk7uGmLVEp0">自研升级方案</a>。</div>
+</section>
+
+<section data-page-node-id="fxAUI1YLDOTaFQkpUfMe2P">
+  <h2 data-page-node-id="jaSuWVZRaXUJLOOsg98flZ">三、任务看板（已完成 / 缺口尾账 / 自研升级 RDAA）</h2>
+  <div class="board" data-page-node-id="TTcfBM1Qq0n9nHktH5XqZN">
+    <div class="col" data-page-node-id="8axvEtVOkQNJvI2K1xXUnF">
+      <h3 data-page-node-id="1fiH5c6NYUmFivoqxkBhUB">✅ 已完成里程碑 <span class="cnt" id="c1" data-page-node-id="nSViMmwfnzaMDnGjnLDbpy"></span></h3>
+      <div id="col1" data-page-node-id="oHCg37AcAQVDob9Vk1Njjg"></div>
+    </div>
+    <div class="col" data-page-node-id="RdgwH3pOBVwdXWduoqcFxj">
+      <h3 data-page-node-id="bXEWfSAnLw7pYE9Z02KSgA">🔧 缺口 / 尾账 <span class="cnt" id="c2" data-page-node-id="l4P7eBNITKVU1HbOlf685c"></span></h3>
+      <div id="col2" data-page-node-id="SdaHpmNDqrU34ivBLBRpxE"></div>
+    </div>
+    <div class="col" data-page-node-id="DF1icxw1Z11LQ0klidO781">
+      <h3 data-page-node-id="zUZbkc6AuaM3DOeWuVzbXU">🚀 自研升级 RDAA（规划） <span class="cnt" id="c3" data-page-node-id="MRj7SzbTzCILpuYjDftFgx"></span></h3>
+      <div id="col3" data-page-node-id="bf5RpkaCXVsRCPRWwTwqL9"></div>
+    </div>
+  </div>
+</section>
+
+<div class="foot" data-page-node-id="X4TRyaj8TCQpkNrYsWNXI9">数据来源：仓库实际 `git` / `find` / `grep` 统计（2026-09-05）；竞品矩阵来自公开生态调研。本看板不替代 <a href="roadmap.md" data-page-node-id="TlKDKOmouMWryU5p0gZ8e4">roadmap.md</a> 与 <a href="LANDSCAPE_RESEARCH_2026.md" data-page-node-id="9s9aDf1OakOdhuEzci4gI0">调研文档</a>，仅作可视化快照。</div>
+
+<script>
+const phases=[
+ ["0 地基","done","已完成"],["1 遗留收尾","cur","当前/收尾"],["2 M2战斗层","done","已落地"],
+ ["3 M3插件生态","done","已落地"],["4 M4协议SDK","done","已落地"],["5 M5编排UI","done","已落地"],
+ ["6 M6发布","done","已落地"],["7 审计补齐","done","已落地"],["8 Rust内核M1","done","已落地"],
+ ["9 OS沙箱矩阵","done","逻辑落地/真机待验"],["10 FFI下沉","done","已落地"],["11 FFI接循环","done","已落地"],
+ ["12 FFI策略","done","已落地"],["13 FFI延迟基准","done","已落地"],["14 native fs","done","已落地"],
+ ["15 token估算","done","已落地"],["16 全程基准","done","已落地"],["17 别名桥","done","已落地"],
+ ["18 沙箱回归","done","已落地"],["19 插件发现","done","已落地"],["20 Spill","done","已落地"],
+ ["21 Subagent","done","已落地"],["22 Plan/Todo","done","已落地"],["23 工具BM25","done","已落地"],
+ ["24 会话BM25","done","已落地"],["25 沙箱审批","done","已落地"],["26 配置分层","done","已落地"],
+ ["27 命令规范","done","已落地"],["28 长期记忆","done","已落地"],["29 成本预算","done","已落地"],
+ ["30 目标循环","done","已落地"],["31 Workflow DAG","done","已落地"],["32 LSP","done","已落地"],
+ ["33 密码学身份","done","已落地"],["34 安全策略","done","已落地"],["35 TUI","done","已落地"],
+ ["36 独立就绪","done","已落地"]
+];
+const cls={done:"done",cur:"cur",tail:"tail"};
+const pgrid=document.getElementById("pgrid");
+phases.forEach(([n,s,t])=>{
+  const d=document.createElement("div");d.className="pcard";
+  d.innerHTML=`<span class="st ${cls[s]}">${t}</span>${n}<br><small>${s==="done"?"✓":"…"}</small>`;
+  pgrid.appendChild(d);
+});
+
+const col1=[
+ ["多模态 Composer 提交 63f9b10","textarea+粘贴/拖拽 图/视/文 + 模型/推理/权限三切换器，后端 files+reasoning 全链路受理","#19文件 +702/-117"],
+ ["S+ 发明层全落地","共振记忆/涡环包/进化闭环/QEC/免疫/宇宙网/元认知 经 SparkController 接主循环",""],
+ ["原生沙箱矩阵","landlock/seccomp 占位 + Windows RestrictedToken (Rust 551行)",""],
+ ["双 BM25 检索","M1 工具检索 + M2 会话检索，零依赖",""],
+ ["审计哈希链 + SSO","seq/prev/hash 三重篡改检出 + OIDC PKCE",""],
+ ["零依赖 TUI / MCP 双向","ANSI 渲染 + client/server/gateway",""]
+];
+const col2=[
+ ["G1 图上下文 repo-map","Aider 的 tree-sitter+PageRank 结构上下文，OmniHarness 仅有 BM25，缺 AST 图","缺口","高"],
+ ["G2 专属 eval 管线","SWE-bench / Terminal-Bench 正式跑分接 CI 回归门禁，当前仅有 evals/ 目录","缺口","高"],
+ ["G3 A2A 互操作","全行业 CLI harness 均薄；做 Vortex-A2A 差异化","缺口/机会","中"],
+ ["T1 OS 沙箱真机验证","bwrap/seatbelt/landlock 仍 fail-closed 占位，待真机运行时验证","尾账","中"],
+ ["T2 模型列表动态下发","后端无 models.list RPC，前端切换器硬编码选项","尾账","低"]
+];
+const col3=[
+ ["① Resonant Repo-Map","AST 图 × 结构共振寻址预过滤，叠加 BM25（fail-closed 回退）","pillar","新：共振检索替代排序"],
+ ["② QEC-Graded Eval","轨迹=码字，综合征早停+进化自愈，廉价预筛替代全量执行分级","pillar","新：QEC隐喻做评级"],
+ ["③ Vortex-A2A","Ed25519 签名能力胶囊 + 宇宙网共振发现，优于中心化 Agent Card","pillar","新：胶囊+共振发现"],
+ ["④ RLVR-on-Evolution","可验证奖励(编译/测试绿)接进化闭环，零标注自改进","pillar","新：RLVR接既有闭环"],
+ ["M1 共振图上下文","新增 context/repoMap.ts + 适配 resonantMemory","mile","低风险·叠加层"],
+ ["M2 QEC 评级","新增 eval/qecGrade.ts 接 evals/","mile","低风险"],
+ ["M3 SWE/Terminal 管线+CI","接现有 benchmark/ 作回归门禁","mile","中·需容器"],
+ ["M4 RLVR 自改进","新增 evolution/rlvr.ts，需 StarPO 稳定化","mile","中·RL不稳"],
+ ["M5 Vortex-A2A","新增 server/vortexA2a.ts 复用 agentIdentity","mile","中"],
+ ["M6 Mem0 记忆融合+工具分层","改 resonantMemory + tool_search","mile","低风险"]
+];
+
+function fill(id,arr,kind){
+  const el=document.getElementById(id);
+  arr.forEach(([t,d,tag,extra])=>{
+    const c=document.createElement("div");
+    c.className="kcard "+(kind==="pillar"?"pillar":kind==="gap"?"gap":kind==="mile"?"mile":"");
+    let tags="";
+    if(tag&&kind==="pillar")tags=`<span class="tag n">${tag}</span>`;
+    if(tag&&kind==="gap")tags=`<span class="tag">${tag}</span><span class="tag w">优先级 ${extra}</span>`;
+    if(tag&&kind==="mile")tags=`<span class="tag">${tag}</span>`;
+    c.innerHTML=`<div class="t">${t}</div><div class="d">${d}</div>${tags}`;
+    el.appendChild(c);
+  });
+  document.getElementById("c"+(kind==="pillar"?"3":kind==="gap"?"2":"1")).textContent=arr.length;
+}
+fill("col1",col1,"done");
+fill("col2",col2,"gap");
+fill("col3",col3,"pillar");
+</script>
+</body>
+</html>

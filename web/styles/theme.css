@@ -1,0 +1,85 @@
+/* =========================================================================
+  OmniHarness Web UI — 主题基础层：CSS 变量、reset、滚动条、过渡、焦点环，以及全局原生控件兜底（button/input/textarea/select/ghost）。须最先加载。
+  ========================================================================= */
+
+/* =========================================================================
+   OmniHarness Web UI — Codex-inspired visual reskin
+   纯 CSS 换肤：近黑单色调、发丝描边、克制强调、小圆角、细滚动条。
+   所有 class 选择器与组件一一对应，不改任何 TS 逻辑。
+   ========================================================================= */
+
+:root, [data-theme="dark"] {
+  --bg:#0a0a0a; --bg-elev:#141414; --panel:#161616; --panel-2:#1d1d1d;
+  --border:#2a2a2a; --text:#ededed; --dim:#8a8a8a;
+  --accent:#e8e8e8; --accent-2:#b9b9b9; --accent-fg:#0a0a0a;
+  --hover:rgba(255,255,255,.08);
+  --ok:#4ec97a; --err:#f0616d; --warn:#e0b341; --user:#d6d6d6;
+  --radius:8px; --space:12px; --shadow:0 12px 40px rgba(0,0,0,.6);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+[data-theme="light"] {
+  --bg:#fbfbfa; --bg-elev:#ffffff; --panel:#ffffff; --panel-2:#f1f1ef;
+  --border:#e5e5e3; --text:#1a1a1a; --dim:#6b6b6b;
+  --accent:#1c1c1c; --accent-2:#3a3a3a; --accent-fg:#ffffff;
+  --hover:rgba(0,0,0,.06);
+  --ok:#1a7f37; --err:#cf222e; --warn:#9a6700; --user:#2a2a2a;
+  --radius:8px; --space:12px; --shadow:0 12px 40px rgba(0,0,0,.12);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; }
+body {
+  background:var(--bg); color:var(--text);
+  font:13.5px/1.55 system-ui,"Segoe UI",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+
+/* 细滚动条（Codex 标志性观感） */
+* { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+::-webkit-scrollbar { width:9px; height:9px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb {
+  background:rgba(255,255,255,.13); border-radius:8px;
+  border:2px solid transparent; background-clip:padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.22); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background:rgba(0,0,0,.18); border:2px solid transparent; background-clip:padding-box; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,.3); }
+
+/* 统一的交互过渡 */
+button, .btn, .iconbtn, .session, .tab, .tool-item, .tree .node, .card, .tool, .plugin-card, .mem-row, .graph-node, .graph-card, .rail-btn {
+  transition:background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+/* 键盘焦点环（Codex 式克制描边） */
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
+.composer textarea:focus-visible, .form input:focus-visible, .form select:focus-visible { outline:none; }
+
+.app { display:grid; grid-template-rows:48px 1fr; height:100vh; }
+
+/* =========================================================================
+   全局原生控件主题化（兜底层）
+   修「裸 button/input/select/textarea 白底黑字」：所有未带 class 的原生控件
+   一律吃主题变量；已带 class 的组件（.btn/.ctl-sel/.form 等）specificity 更高不受影响。
+   ========================================================================= */
+button {
+  background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+  border-radius:8px; padding:6px 13px; cursor:pointer; font-size:13px; font-family:inherit; line-height:1.4;
+}
+button:hover { border-color:var(--dim); background:var(--hover); }
+button:disabled { opacity:.45; cursor:default; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select {
+  background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+  border-radius:8px; padding:7px 10px; font-size:13px; font-family:inherit; line-height:1.4;
+}
+input::placeholder, textarea::placeholder { color:var(--dim); }
+input:focus, textarea:focus, select:focus { outline:none; border-color:var(--accent); }
+select option, select optgroup { background:var(--panel); color:var(--text); }
+
+/* ghost 次级按钮（此前只有 .mem-actions .ghost 修饰，基础样式缺失导致裸奔） */
+.ghost {
+  background:transparent; border:1px solid var(--border); color:var(--dim);
+  border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px; font-family:inherit;
+}
+.ghost:hover { color:var(--text); background:var(--panel-2); border-color:var(--dim); }

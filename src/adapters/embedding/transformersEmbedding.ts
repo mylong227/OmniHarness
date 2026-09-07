@@ -1,0 +1,218 @@
+/**
+ * Transformers 嵌入适配器（真实实现）：用 @huggingface/transformers 在本地跑 ONNX 嵌入模型。
+ *
+ * 铁律合规：
+ *  - 本文件位于 src/adapters/embedding/**，第三方只在此出现；对外仅暴露 EmbeddingPort。
+ *  - 用「import type + 动态 import()」：编译期不加载该包，运行时仅在语义嵌入启用时才加载，
+ *    模型缺失/离线时抛错由调用方 fail-closed 回退 BM25-only。
+ *  - 已登记于 dependency-allowlist.json（Apache-2.0，预算超限已显式审批）。
+ *
+ * 多模型支持：默认 **e5-large-v2**（检索级 1024 维，真实代码库混合召回 64.8% 实测最优；
+ * 代价 321MB 权重 + 约 23.6min 索引构建税，模型缺失时 fail-closed 回落 BM25-only）；
+ * minilm 留作轻量可选预设（22MB/81s）；可选 e5 家族
+ * （代码检索级，MTEB 检索榜前列，需 query/passage 前缀）；可选 gte 家族
+ * （对称、无前缀、容量更大，Xenova/gte-large 为 1024 维 MTEB 强模型，用于测「模型容量」
+ * 这一单一变量）。unixcoder 等需要 ONNX 转换的模型当前不可用
+ * （Xenova 镜像无 ONNX 权重，404），见底部说明。
+ */
+
+import type { Embedding, EmbeddingPort, EmbedOptions } from '../../ports/embedding.js';
+import type { FeatureExtractionPipeline } from '@huggingface/transformers';
+
+/** 模型前缀模式：决定 embed 时是否、如何注入查询/文档不对称前缀。 */
+type PrefixMode = 'none' | 'e5';
+
+/** 单个模型的规格（HF id + 维度 + 前缀模式 + pooling）。 */
+interface ModelSpec {
+  /** HF Hub 模型 id（transformers.js 需要 ONNX 权重，通常用 Xenova/* 镜像）。 */
+  readonly id: string;
+  /** 输出向量维度（余弦无关维度，但需如实上报供诊断）。 */
+  readonly dim: number;
+  /** 前缀模式；e5 家族要求 query/passage 前缀。 */
+  readonly prefix?: PrefixMode;
+  /**
+   * pooling 模式。encoder 类（minilm/e5/gte/jina）用 'mean'；
+   * decoder-only 代码嵌入（bge-code-v1 / Qwen3-Embedding）必须用 'last'
+   * （取最后注意力 token，即 [EOS] 隐藏态），否则向量语义错位。
+   * 默认 'mean'（保持历史行为）。
+   */
+  readonly pooling?: 'mean' | 'cls' | 'last';
+}
+
+/** 可选预设（快捷名 → 规格）。 */
+export type EmbeddingModelPreset =
+  'minilm' | 'e5-small-v2' | 'e5-base-v2' | 'e5-large-v2' | 'gte-large' | 'jina-base-code';
+
+/**
+ * 已验证可用的模型预设（HF Hub 经 hf-mirror.com 核实存在 ONNX 权重）。
+ *  - minilm：通用句向量，384 维，默认，约 80MB。
+ *  - e5-*-v2：intfloat 的检索级嵌入，对「查询-文档」不对称训练，代码检索显著强于通用模型；
+ *    e5 要求 "query: " / "passage: " 前缀（由本适配器按 role 自动注入）。
+ *  - gte-large：Alibaba DAMO 通用嵌入，1024 维，对称、无前缀、mean-pooling（与 minilm 同用法）；
+ *    MTEB 强模型，用于隔离「模型容量」单一变量（验证 59% 天花板是否受限于 minilm 容量）。
+ *  - jina-base-code：Jina 代码专用嵌入，137M/768 维，8K ALiBi 长上下文，原生支持 Late Chunking，
+ *    自带 ONNX 权重（hf-mirror 可下）。用于实验 1：把文件语义文档从「前 600 字符」换成「全文」，
+ *    直击表示瓶颈（前 600 字符几乎全是 import/license，丢掉函数体语义）。
+ *
+ * 注：unixcoder（microsoft/unixcoder-base）在 Xenova 镜像**无 ONNX 权重（404）**，
+ * 需经 optimum 离线转换为 ONNX 后才能被 transformers.js 加载——本沙箱无该工具链，故不列入。
+ * 若日后要接 unixcoder，应在 `scripts/` 增加 ONNX 转换步骤并把产物登记进 allowlist。
+ */
+export const MODEL_PRESETS: Readonly<Record<EmbeddingModelPreset, ModelSpec>> = {
+  minilm: { id: 'Xenova/all-MiniLM-L6-v2', dim: 384 },
+  'e5-small-v2': { id: 'Xenova/e5-small-v2', dim: 384, prefix: 'e5' },
+  'e5-base-v2': { id: 'Xenova/e5-base-v2', dim: 768, prefix: 'e5' },
+  'e5-large-v2': { id: 'Xenova/e5-large-v2', dim: 1024, prefix: 'e5' },
+  'gte-large': { id: 'Xenova/gte-large', dim: 1024 },
+  'jina-base-code': { id: 'jinaai/jina-embeddings-v2-base-code', dim: 768 },
+};
+
+/**
+ * 默认语义模型（**实测最高值方案，2026-09-05 冻结**）：
+ * 从通用句向量 minilm(384) 升级为检索级 e5-large-v2(1024)。
+ * 实测在真实代码库混合检索上把语义天花板从 ~44.6% 推到 63.2%（+18.6pp），
+ * 且 e5 在 hf-mirror 有现成 ONNX 权重、可离线跑；模型缺失时由调用方 fail-closed 回落 BM25-only。
+ * 当初 minilm 是「保持历史行为」的占位默认，并非最优——已据受控消融翻案。
+ */
+export const DEFAULT_EMBEDDING_MODEL = MODEL_PRESETS['e5-large-v2'].id;
+/** 默认维度（e5-large-v2 = 1024）。换默认模型需同步调整本常量与上方 id。 */
+export const DEFAULT_EMBEDDING_DIM = MODEL_PRESETS['e5-large-v2'].dim;
+
+/** 列出预设名（供 CLI / 单测 / 诊断输出）。 */
+export function listModelPresets(): readonly EmbeddingModelPreset[] {
+  return Object.keys(MODEL_PRESETS) as EmbeddingModelPreset[];
+}
+
+/** 适配器选项。 */
+export interface TransformersEmbeddingOptions {
+  /**
+   * 预设名（minilm / e5-*-v2）。与 `model` 二选一；都给时 `model` 优先（自定义 HF id）。
+   * 默认 'minilm'。
+   */
+  readonly preset?: EmbeddingModelPreset;
+  /**
+   * 直接指定 HF 模型 id（覆盖 preset）。用于不在预设里的模型。
+   * 注意：自定义 id 无法预知前缀模式，默认按 'none' 处理（不会注入 e5 前缀）。
+   */
+  readonly model?: string;
+  /** 自定义模型维度（仅当用 `model` 覆盖且非 e5 预设时需要，e5 预设自带头维）。 */
+  readonly dim?: number;
+  /** 运行设备：cpu（Node 原生 onnxruntime，默认），webgpu 更快需支持。 */
+  readonly device?: 'wasm' | 'webgpu' | 'cpu' | 'auto';
+  /** 量化：q8 默认（快、省内存）。 */
+  readonly dtype?: DType;
+  /** 模型缓存目录（离线场景预置权重于此）。 */
+  readonly cacheDir?: string;
+  /** 仅用本地缓存、禁止联网下载（离线环境置 true）。 */
+  readonly localFilesOnly?: boolean;
+}
+
+/** transformers.js 的 Tensor 最小形状（feature-extraction 输出）。 */
+interface HFTensor {
+  dims: number[];
+  tolist(): number[][];
+}
+
+/** 量化数据类型（transformers.js 支持的常用子集）。 */
+type DType = 'auto' | 'q8' | 'fp32' | 'fp16' | 'int8' | 'uint8' | 'q4' | 'q4f16';
+
+/** e5 前缀常量。 */
+const E5_QUERY_PREFIX = 'query: ';
+const E5_PASSAGE_PREFIX = 'passage: ';
+
+/**
+ * 纯函数：按前缀模式 + 角色给文本加前缀（零依赖、可单测）。
+ * 仅 'e5' 模式注入；'none' 原样返回。供 embed 调用，也便于单测验证前缀注入正确。
+ */
+export function withPrefix(
+  texts: readonly string[],
+  mode: PrefixMode,
+  role: 'query' | 'document',
+): string[] {
+  if (mode !== 'e5') return texts as string[];
+  const p = role === 'query' ? E5_QUERY_PREFIX : E5_PASSAGE_PREFIX;
+  return texts.map((t) => p + t);
+}
+
+/**
+ * 基于 @huggingface/transformers 的本地嵌入适配器。
+ * 懒加载 pipeline（首次 embed 时才下载/加载模型），并复用同一 pipeline 实例。
+ *
+ * 多模型：构造时解析 preset/model 得到 {id, dim, prefix}；embed 时按 prefix 模式
+ * 与 text role 注入 e5 前缀（'query' → "query: "，'document' → "passage: "）。
+ */
+export class TransformersEmbeddingAdapter implements EmbeddingPort {
+  readonly dim: number;
+  private readonly model: string;
+  private readonly prefixMode: PrefixMode;
+  private readonly device: 'wasm' | 'webgpu' | 'cpu' | 'auto';
+  private readonly dtype: DType;
+  private readonly cacheDir?: string;
+  private readonly localFilesOnly: boolean;
+  private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
+
+  constructor(opts: TransformersEmbeddingOptions = {}) {
+    // 解析模型规格：显式 model 优先（自定义 id，无前缀知识）；
+    // 否则查预设表（带前缀模式）；都缺省 → minilm。
+    let spec: ModelSpec;
+    if (opts.model !== undefined) {
+      spec = { id: opts.model, dim: opts.dim ?? DEFAULT_EMBEDDING_DIM };
+    } else {
+      const preset = opts.preset ?? 'minilm';
+      const found = MODEL_PRESETS[preset];
+      if (found === undefined) {
+        throw new Error(`未知嵌入预设 "${preset}"；可选：${listModelPresets().join(', ')}`);
+      }
+      spec = found;
+    }
+    this.model = spec.id;
+    this.dim = spec.dim;
+    this.prefixMode = spec.prefix ?? 'none';
+    this.device = opts.device ?? 'cpu';
+    this.dtype = opts.dtype ?? 'q8';
+    this.cacheDir = opts.cacheDir;
+    this.localFilesOnly = opts.localFilesOnly ?? false;
+  }
+
+  /** 解析出的 HF 模型 id（诊断用）。 */
+  get modelId(): string {
+    return this.model;
+  }
+
+  private async getPipeline(): Promise<FeatureExtractionPipeline> {
+    if (this.pipelinePromise === null) {
+      this.pipelinePromise = (async () => {
+        // 动态导入：编译期不依赖该包，运行时仅在启用语义嵌入时加载。
+        const mod = await import('@huggingface/transformers');
+        const pipe = (await mod.pipeline('feature-extraction', this.model, {
+          device: this.device,
+          dtype: this.dtype,
+          ...(this.cacheDir ? { cache_dir: this.cacheDir } : {}),
+          local_files_only: this.localFilesOnly,
+        })) as FeatureExtractionPipeline;
+        return pipe;
+      })();
+    }
+    return this.pipelinePromise;
+  }
+
+  /** 按前缀模式 + 角色给文本加前缀（仅 e5 需要；非 e5 原样返回）。 */
+  private applyPrefix(texts: readonly string[], role: 'query' | 'document'): string[] {
+    return withPrefix(texts, this.prefixMode, role);
+  }
+
+  async embed(texts: readonly string[], opts?: EmbedOptions): Promise<readonly Embedding[]> {
+    const pipe = await this.getPipeline();
+    // role 默认为 'document'：SemanticIndex.build 传 'document'、search 传 'query'；
+    // 其他调用方（warmup）未指定时按文档处理，不影响权重加载。
+    const role = opts?.role ?? 'document';
+    const inputs = this.applyPrefix(texts, role);
+    const normalize = opts?.normalize !== false;
+    const out = (await pipe(inputs, {
+      pooling: 'mean',
+      normalize,
+    })) as unknown as HFTensor;
+    const matrix = out.tolist();
+    return matrix.map((v) => v as Embedding);
+  }
+}

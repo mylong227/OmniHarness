@@ -1,0 +1,18 @@
+# 编译产物 / 生成物（不应被 Prettier 改写，否则污染 diff 且无意义）
+dist/
+coverage/
+native/**/*.js
+native/**/*.d.ts
+web/
+*.min.js
+*.map
+
+# 依赖与锁文件
+node_modules/
+package-lock.json
+
+# 日志
+*.log
+
+# 工作区元信息
+.workbuddy/

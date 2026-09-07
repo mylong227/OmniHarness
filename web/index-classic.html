@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OmniHarness 工作台</title>
+<!--
+  视觉风格参考 DeepSeek Harness 开源 Web UI 的版式语言（三栏工作台）+ 借 LobeChat 的玻璃拟态/精致观感 +
+  OpenWebUI 的 DiffBlock/工件渲染，但「去品牌化」：无 DeepSeek 名称与标识，全部使用 OmniHarness 品牌与自有配色。
+  零运行时依赖、纯原生 JS、可直接由 `omniharness serve` 托管（GET / 即此文件）。
+  连接协议：POST /rpc（JSON-RPC 2.0）+ GET /events（SSE 推送 thread.event / approval.request）。
+-->
+<style>
+  :root, [data-theme="dark"] {
+    --bg:#0e1117; --bg-elev:#161b22; --panel:#1b212b; --panel-2:#212834;
+    --border:#2b3340; --text:#e6edf3; --dim:#8b98a9; --accent:#6e8bff; --accent-2:#9d7bff;
+    --ok:#3fb950; --err:#f85149; --warn:#d29922; --user:#1f6feb;
+    --radius:12px; --space:12px; --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  [data-theme="light"] {
+    --bg:#f6f8fa; --bg-elev:#ffffff; --panel:#ffffff; --panel-2:#f0f3f6;
+    --border:#d8dee4; --text:#1f2430; --dim:#5b6675; --accent:#4060e6; --accent-2:#7c4dff;
+    --ok:#1a7f37; --err:#cf222e; --warn:#9a6700; --user:#0969da;
+    --radius:12px; --space:12px; --shadow:0 8px 30px rgba(0,0,0,.12);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { background:var(--bg); color:var(--text); font:14px/1.6 system-ui,"Segoe UI",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .app { display:grid; grid-template-rows:50px 1fr; height:100vh; }
+  /* 顶栏 */
+  .topbar { display:flex; align-items:center; gap:12px; padding:0 16px; border-bottom:1px solid var(--border); background:var(--bg-elev); }
+  .brand { display:flex; align-items:center; gap:9px; font-weight:700; letter-spacing:.3px; }
+  .brand .logo { width:22px; height:22px; border-radius:7px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:0 0 0 1px var(--border); }
+  .brand small { font-weight:500; color:var(--dim); font-size:11px; }
+  .pill { font-size:12px; padding:3px 10px; border-radius:999px; border:1px solid var(--border); color:var(--dim); background:var(--panel); }
+  .pill .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle; background:var(--err); }
+  .pill.on .dot { background:var(--ok); }
+  .spacer { flex:1; }
+  .iconbtn { background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:9px; padding:6px 11px; cursor:pointer; font-size:13px; }
+  .iconbtn:hover { border-color:var(--accent); }
+  /* 三栏 */
+  .body { display:grid; grid-template-columns:264px 1fr 344px; min-height:0; }
+  .col { min-height:0; overflow:auto; border-right:1px solid var(--border); }
+  .col:last-child { border-right:none; border-left:1px solid var(--border); }
+  .col-head { position:sticky; top:0; background:var(--bg-elev); padding:11px 14px; font-size:12px; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; border-bottom:1px solid var(--border); z-index:2; }
+  .center { display:flex; flex-direction:column; min-height:0; }
+  /* 左栏 */
+  .section { padding:10px 12px; }
+  .btn { width:100%; text-align:left; background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:9px; padding:8px 11px; cursor:pointer; font-size:13px; margin-bottom:8px; }
+  .btn:hover { border-color:var(--accent); }
+  .btn.primary { background:linear-gradient(135deg,var(--accent),var(--accent-2)); border:none; color:#fff; font-weight:600; }
+  .session { padding:7px 10px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .session:hover { background:var(--panel); color:var(--text); }
+  .session.active { background:var(--panel-2); color:var(--text); border-left:2px solid var(--accent); }
+  /* 文件树 */
+  .tree { font-size:13px; }
+  .tree .node { padding:2px 0; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tree .node:hover { color:var(--accent); }
+  .tree .dir > .label::before { content:"▸ "; color:var(--dim); }
+  .tree .dir.open > .label::before { content:"▾ "; }
+  .tree .file > .label::before { content:"· "; color:var(--dim); }
+  .tree .children { margin-left:14px; display:none; }
+  .tree .dir.open > .children { display:block; }
+  /* 中栏 */
+  .stream { flex:1; overflow:auto; padding:18px 22px; min-height:0; }
+  .ev { margin-bottom:14px; animation:fade .25s ease; }
+  @keyframes fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  .ev .head { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .badge { font-size:11px; padding:1px 9px; border-radius:999px; font-weight:600; }
+  .b-user { background:rgba(31,111,235,.18); color:#9ec5ff; }
+  .b-assistant { background:rgba(63,185,80,.16); color:#7ee2a0; }
+  .b-reasoning { background:rgba(157,123,255,.16); color:#c4b1ff; }
+  .b-tool_call { background:rgba(210,153,34,.16); color:#f0c453; }
+  .b-tool_result { background:rgba(139,148,169,.14); color:var(--dim); }
+  .b-system { background:rgba(139,148,169,.12); color:var(--dim); }
+  .b-todo, .b-plan, .b-question, .b-turn_diff { background:var(--panel-2); color:var(--dim); }
+  .time { color:var(--dim); font-size:11px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:11px 14px; }
+  .card.user { background:rgba(31,111,235,.07); border-color:rgba(31,111,235,.25); }
+  /* P1.3 轨迹钻取：事件卡片可点击，hover 高亮；右栏「钻取」面板展示完整 payload */
+  .ev.clickable { cursor:pointer; transition:box-shadow .15s ease, border-color .15s ease; }
+  .ev.clickable:hover { box-shadow:0 0 0 1px var(--accent); }
+  .ev.clickable:hover .card, .ev.clickable:hover .tool { border-color:var(--accent); }
+  .ev.clickable:hover details.reasoning { border-color:var(--accent); }
+  .detail-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .detail-sum { color:var(--text); font-size:14px; margin-bottom:12px; line-height:1.5; word-break:break-word; }
+  .detail-section { margin-top:10px; }
+  .detail-h { font-size:11px; color:var(--dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
+  #detailView .empty { margin-top:24px; }
+  .content { white-space:pre-wrap; word-break:break-word; }
+  details.reasoning { background:var(--panel); border:1px dashed var(--border); border-radius:10px; padding:8px 12px; }
+  details.reasoning summary { cursor:pointer; color:var(--accent-2); font-size:13px; }
+  .tool { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:10px 13px; }
+  .tool-head { display:flex; align-items:center; gap:8px; }
+  .tool-name { font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+  .tool-status { font-size:11px; padding:1px 8px; border-radius:999px; background:var(--panel-2); color:var(--dim); }
+  .tool-status.ok { background:rgba(63,185,80,.16); color:var(--ok); }
+  .tool-status.err { background:rgba(248,81,73,.16); color:var(--err); }
+  pre.json { background:var(--bg-elev); border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-top:7px; font-size:12px; color:var(--dim); overflow:auto; max-height:240px; }
+  .tool-result { margin-top:7px; }
+  .tool-output { font-size:12px; color:var(--text); white-space:pre-wrap; word-break:break-word; max-height:200px; overflow:auto; }
+  .tool-output.collapsed { max-height:64px; overflow:hidden; position:relative; }
+  .tool-output.collapsed::after { content:"展开 ▾"; position:absolute; right:6px; bottom:2px; background:var(--panel); padding:0 6px; color:var(--accent); cursor:pointer; font-size:11px; }
+  .sysnote { text-align:center; color:var(--dim); font-size:12px; padding:4px; }
+  .todo-item { display:flex; gap:8px; align-items:center; font-size:13px; padding:2px 0; }
+  .todo-dot { width:8px; height:8px; border-radius:50%; background:var(--dim); }
+  .todo-dot.done { background:var(--ok); } .todo-dot.doing { background:var(--warn); }
+  .diff { font-family:ui-monospace,monospace; font-size:12px; border:1px solid var(--border); border-radius:8px; overflow:auto; max-height:320px; }
+  .diff .add { background:rgba(63,185,80,.12); color:var(--ok); display:block; padding:0 8px; white-space:pre; }
+  .diff .del { background:rgba(248,81,73,.12); color:var(--err); display:block; padding:0 8px; white-space:pre; }
+  .diff .ctx { color:var(--dim); display:block; padding:0 8px; white-space:pre; }
+  /* 输入 */
+  .composer { border-top:1px solid var(--border); padding:12px 16px; background:var(--bg-elev); display:flex; gap:10px; align-items:flex-end; }
+  .composer textarea { flex:1; resize:none; background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:10px 12px; font:14px/1.5 inherit; max-height:140px; }
+  .composer textarea:focus { outline:none; border-color:var(--accent); }
+  .send { background:linear-gradient(135deg,var(--accent),var(--accent-2)); border:none; color:#fff; font-weight:600; border-radius:10px; padding:10px 18px; cursor:pointer; }
+  .send:disabled { opacity:.5; cursor:default; }
+  /* 右栏 */
+  .tabs { display:flex; gap:6px; padding:10px 12px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg-elev); z-index:2; }
+  .tab { flex:1; text-align:center; padding:6px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--dim); border:1px solid transparent; }
+  .tab.active { background:var(--panel); color:var(--text); border-color:var(--border); }
+  .pane { display:none; padding:12px 14px; }
+  .pane.active { display:block; }
+  .tool-item { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .tool-item:hover { background:var(--panel); }
+  .tool-item .dot { width:8px; height:8px; border-radius:50%; background:var(--warn); flex:none; }
+  .tool-item.ok .dot { background:var(--ok); } .tool-item.err .dot { background:var(--err); }
+  .tool-item .state { margin-left:auto; color:var(--dim); font-size:11px; }
+  .metric-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  .metric { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+  .metric .n { font-size:20px; font-weight:700; }
+  .metric .l { font-size:11px; color:var(--dim); }
+  .kv { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .kv .k { color:var(--dim); } .kv .v { font-family:ui-monospace,monospace; font-size:12px; }
+  .switch { display:flex; align-items:center; justify-content:space-between; padding:9px 0; }
+  .switch input { width:38px; height:21px; appearance:none; background:var(--border); border-radius:999px; position:relative; cursor:pointer; transition:.2s; }
+  .switch input:checked { background:var(--ok); }
+  .switch input::after { content:""; position:absolute; width:17px; height:17px; border-radius:50%; background:#fff; top:2px; left:2px; transition:.2s; }
+  .switch input:checked::after { left:19px; }
+  .empty { color:var(--dim); font-size:13px; text-align:center; padding:30px 10px; }
+  .form { display:flex; flex-direction:column; gap:11px; }
+  .form label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--dim); }
+  .form select, .form input[type=text] { background:var(--panel-2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:7px 9px; font-size:13px; }
+  .form select:focus, .form input[type=text]:focus { outline:none; border-color:var(--accent); }
+  .saved { font-size:12px; color:var(--ok); min-height:14px; }
+  /* 审批弹窗 */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:50; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; padding:20px; width:420px; max-width:90vw; box-shadow:var(--shadow); }
+  .modal h3 { font-size:15px; margin-bottom:10px; }
+  .modal .meta { font-size:12px; color:var(--dim); margin-bottom:6px; }
+  .modal pre { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:9px 11px; font-size:12px; max-height:160px; overflow:auto; margin-bottom:14px; white-space:pre-wrap; word-break:break-word; }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; }
+  .modal button { border:none; border-radius:9px; padding:8px 15px; cursor:pointer; font-size:13px; }
+  .modal .allow { background:var(--ok); color:#fff; } .modal .deny { background:var(--err); color:#fff; }
+  .modal .always { background:var(--panel-2); color:var(--text); border:1px solid var(--border); }
+  /* 移动端抽屉 */
+  .drawer-toggle { display:none; }
+  .drawer-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s ease; }
+  .drawer-backdrop.show { opacity:1; pointer-events:auto; }
+  @media (max-width:880px) {
+    .body { grid-template-columns:1fr; }
+    .col.left, .col.right {
+      position:fixed; top:50px; bottom:0; width:84%; max-width:340px; z-index:41;
+      background:var(--bg); transform:translateX(-105%); transition:transform .25s ease; box-shadow:var(--shadow);
+    }
+    .col.right { left:auto; right:0; transform:translateX(105%); }
+    .col.left.open, .col.right.open { transform:translateX(0); }
+    .drawer-toggle { display:inline-flex; }
+  }
+  /* 空状态插画 */
+  .empty.illu { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:42px 16px; }
+  .empty.illu .illu-icon { font-size:32px; opacity:.5; margin-bottom:2px; }
+  .empty.illu .illu-text { font-size:13.5px; color:var(--text); font-weight:600; }
+  .empty.illu .illu-hint { font-size:12px; color:var(--dim); max-width:240px; line-height:1.5; }
+  /* 插件市场 */
+  .pm-head { display:flex; gap:8px; margin-bottom:12px; }
+  .pm-head input { flex:1; }
+  .pm-section { margin-bottom:16px; }
+  .pm-title { font-size:11px; color:var(--dim); margin:6px 0 8px; text-transform:uppercase; letter-spacing:.6px; }
+  .plugin-card { border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:var(--panel); }
+  .plugin-card .pc-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .plugin-card .pc-name { font-weight:600; font-size:14px; }
+  .plugin-card .pc-ver { color:var(--dim); font-size:11.5px; margin-left:6px; }
+  .plugin-card .pc-desc { font-size:12.5px; color:var(--dim); margin:6px 0; line-height:1.5; }
+  .plugin-card .pc-meta { font-size:11.5px; color:var(--dim); margin-bottom:6px; }
+  .plugin-card .pc-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; }
+  .src-badge { font-size:10.5px; padding:1px 8px; border-radius:999px; border:1px solid var(--border); color:var(--dim); white-space:nowrap; }
+  .src-badge.bundled { color:#7fd1ff; border-color:#2b4a5e; }
+  .src-badge.remote { color:#ffd27f; border-color:#5e4a2b; }
+  .src-badge.local { color:#9affb0; border-color:#2b5e3a; }
+  .src-badge.loaded { color:#9affb0; border-color:#2b5e3a; background:rgba(120,255,160,.08); }
+  .src-badge.unloaded { color:#ffb86b; border-color:#5e4a2b; }
+  .perm { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:6px; background:var(--bg-elev); border:1px solid var(--border); color:var(--dim); margin:3px 4px 0 0; }
+  .perm.danger { color:#ff9a9a; border-color:#5e2b2b; background:rgba(255,120,120,.08); }
+  /* ---- 编排视图 ---- */
+  .row { display:flex; gap:8px; margin:8px 0; }
+  .row .send { flex:1; }
+  #graphJson { width:100%; font-family:var(--mono); font-size:12px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px; resize:vertical; }
+  #stepEditor { display:flex; flex-direction:column; gap:8px; margin:6px 0; }
+  .step-row { display:grid; grid-template-columns:1fr 1fr auto; gap:6px; align-items:start; padding:8px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,.02); }
+  .step-row .step-prompt { grid-column:1 / -1; }
+  .step-row input, .step-row textarea { width:100%; font-size:12px; }
+  .step-del { align-self:center; padding:4px 8px; }
+  #graphStatus .graph-nodes { display:flex; flex-wrap:wrap; gap:2px; margin:8px 0; }
+  .graph-node { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:8px; border:1px solid var(--border); font-size:12.5px; }
+  .graph-node .dot { width:8px; height:8px; border-radius:50%; background:var(--dim); }
+  .graph-node.pending { opacity:.5; }
+  .graph-node.running { border-color:#c9a227; color:#ffe08a; }
+  .graph-node.running .dot { background:#ffe08a; animation:pulse 1s infinite; }
+  .graph-node.done { border-color:#2b5e3a; color:#9affb0; }
+  .graph-node.done .dot { background:#9affb0; }
+  .graph-node.failed { border-color:#5e2b2b; color:#ff9a9a; }
+  .graph-node.failed .dot { background:#ff9a9a; }
+  .graph-node.skipped { border-color:#444; color:var(--dim); }
+  .graph-node.skipped .dot { background:#888; }
+  @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+  .graph-card .btn-run { margin-left:auto; }
+  .mem-row { display:grid; grid-template-columns:1fr auto; grid-template-areas:"text actions" "meta actions"; gap:2px 10px; padding:9px 11px; border:1px solid var(--border); border-radius:9px; background:rgba(255,255,255,.02); margin-bottom:8px; }
+  .mem-text { grid-area:text; font-size:13px; line-height:1.4; }
+  .mem-meta { grid-area:meta; display:flex; gap:8px; align-items:center; font-size:11px; color:var(--dim); flex-wrap:wrap; margin-top:3px; }
+  .mem-imp { color:#c9a227; letter-spacing:1px; }
+  .mem-time { margin-left:auto; }
+  .mem-actions { grid-area:actions; display:flex; flex-direction:column; gap:5px; align-items:flex-end; }
+  .mem-actions .ghost { padding:3px 11px; font-size:11.5px; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px); z-index:60; padding:9px 16px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; border:1px solid var(--border); background:var(--bg); color:var(--text); box-shadow:var(--shadow); }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.ok { border-color:#2b5e3a; color:#9affb0; }
+  .toast.err { border-color:#5e2b2b; color:#ff9a9a; }
+  .btn-install, .btn-remove { font-size:12px; padding:4px 14px; border-radius:8px; cursor:pointer; border:1px solid var(--border); background:var(--bg-elev); color:var(--text); }
+  .btn-install:hover { border-color:#7fd1ff; color:#7fd1ff; }
+  .btn-remove:hover { border-color:#ff9a9a; color:#ff9a9a; }
+  .pc-installed { font-size:12px; color:#9affb0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="logo"></span> OmniHarness <small id="adapter">…</small></div>
+    <button class="iconbtn drawer-toggle" id="toggleLeft" title="会话 · 文件">☰</button>
+    <span class="pill" id="conn"><span class="dot"></span> 连接中</span>
+    <div class="spacer"></div>
+    <button class="iconbtn drawer-toggle" id="toggleRight" title="工具 · 设置 · 插件">⚙</button>
+    <button class="iconbtn" id="themeBtn" title="切换主题">🌓 主题</button>
+  </div>
+  <div class="body">
+    <!-- 左栏：会话 + 工作区 -->
+    <div class="col left">
+      <div class="col-head">会话</div>
+      <div class="section">
+        <button class="btn primary" id="newSession">+ 新建会话</button>
+        <div id="sessions"><div class="empty illu"><div class="illu-icon">🗂️</div><div class="illu-text">暂无会话</div><div class="illu-hint">新建会话后，历史对话会显示在这里，随时可回看。</div></div></div>
+      </div>
+      <div class="col-head">工作区</div>
+      <div class="section tree" id="tree"><div class="empty">读取中…</div></div>
+    </div>
+    <!-- 中栏：对话 + 轨迹 -->
+    <div class="col center">
+      <div class="stream" id="stream"><div class="empty illu"><div class="illu-icon">💬</div><div class="illu-text">等待任务</div><div class="illu-hint">下达任务后，模型推理、工具调用与结果将在此实时呈现。</div></div></div>
+      <div class="composer">
+        <textarea id="prompt" rows="2" placeholder="输入任务，Enter 发送（Shift+Enter 换行）…"></textarea>
+        <input id="imageUrl" type="text" placeholder="可选：图片 URL（随消息送入模型，用于截图/UI 理解）" />
+        <button class="send" id="send">发送</button>
+      </div>
+    </div>
+    <!-- 右栏：工具 / 指标 / 设置 -->
+    <div class="col right">
+      <div class="tabs">
+        <div class="tab active" data-pane="tools">工具</div>
+        <div class="tab" data-pane="metrics">指标</div>
+        <div class="tab" data-pane="settings">设置</div>
+        <div class="tab" data-pane="plugins">插件</div>
+        <div class="tab" data-pane="graph">编排</div>
+        <div class="tab" data-pane="memory">记忆</div>
+        <div class="tab" data-pane="profiles">配置集</div>
+        <div class="tab" data-pane="detail">⤢ 钻取</div>
+      </div>
+      <div class="pane active" id="pane-tools">
+        <div id="toolList"><div class="empty illu"><div class="illu-icon">🛠️</div><div class="illu-text">暂无工具调用</div><div class="illu-hint">模型执行读文件、运行命令、搜索等工具时，调用与结果会在此汇总。</div></div></div>
+      </div>
+      <div class="pane" id="pane-metrics">
+        <div class="metric-grid" id="metricGrid"></div>
+        <div style="height:14px"></div>
+        <div id="metricTypes"></div>
+      </div>
+      <div class="pane" id="pane-settings">
+        <div id="cfgView"></div>
+        <div style="height:10px"></div>
+        <div class="form">
+          <label>模型适配器
+            <select id="setModelAdapter">
+              <option value="mock">mock</option>
+              <option value="openai">openai</option>
+              <option value="anthropic">anthropic</option>
+              <option value="responses">responses</option>
+            </select>
+          </label>
+          <label>模型名
+            <input type="text" id="setModel" placeholder="如 gpt-4o / deepseek-v4-flash">
+          </label>
+          <label>审批模式
+            <select id="setApproval">
+              <option value="auto">auto</option>
+              <option value="deny">deny</option>
+              <option value="rules">rules</option>
+              <option value="guardian">guardian</option>
+            </select>
+          </label>
+          <label>沙箱
+            <select id="setSandbox">
+              <option value="passthrough">passthrough</option>
+              <option value="policy">policy</option>
+              <option value="restricted">restricted</option>
+              <option value="landlock">landlock</option>
+              <option value="seatbelt">seatbelt</option>
+              <option value="bwrap">bwrap</option>
+            </select>
+          </label>
+          <label>升级审批
+            <select id="setEscalation">
+              <option value="deny">deny</option>
+              <option value="ask">ask</option>
+              <option value="auto">auto</option>
+            </select>
+          </label>
+          <div class="saved" id="savedHint"></div>
+          <div class="switch"><span>自动审批（免人工确认）</span><input type="checkbox" id="autoApprove"></div>
+          <div class="switch"><span>浅色主题</span><input type="checkbox" id="lightTheme"></div>
+        </div>
+      </div>
+      <div class="pane" id="pane-plugins">
+        <div class="pm-head">
+          <input type="text" id="pluginSearch" placeholder="搜索插件名 / 描述…">
+          <button class="ghost" id="pluginReload">重新加载</button>
+          <button class="ghost" id="pluginRefresh">刷新</button>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">已安装</div>
+          <div id="pluginInstalled"><div class="empty">加载中…</div></div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">可获取（本地 / 内置 / 远程）</div>
+          <div id="pluginAvailable"><div class="empty">加载中…</div></div>
+        </div>
+      </div>
+      <div class="pane" id="pane-graph">
+        <div class="pm-head">
+          <button class="ghost" id="graphRefresh">刷新</button>
+          <button class="ghost" id="graphSample">载入示例</button>
+          <button class="ghost" id="graphNew">新建</button>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">已存图</div>
+          <div id="graphList"><div class="empty">加载中…</div></div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">编辑 / 运行</div>
+          <div class="form">
+            <label>图名<input type="text" id="graphName" placeholder="my-pipeline"></label>
+            <div id="stepEditor"></div>
+            <button class="ghost" id="addStep">+ 添加步骤</button>
+          </div>
+          <textarea id="graphJson" rows="9" placeholder="结构化编辑会自动同步到此 JSON；也可直接粘贴定义后运行"></textarea>
+          <div class="row">
+            <button class="send" id="graphSave">保存</button>
+            <button class="send" id="graphRun">运行</button>
+          </div>
+          <div id="graphStatus"></div>
+        </div>
+      </div>
+      <div class="pane" id="pane-memory">
+        <div class="pm-head">
+          <input type="text" id="memorySearch" placeholder="检索长期记忆（自然语言）…">
+          <button class="ghost" id="memorySearchBtn">检索</button>
+          <button class="ghost" id="memoryRefresh">刷新</button>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">新增 / 编辑记忆</div>
+          <div class="form">
+            <label>事实<input type="text" id="memText" placeholder="如：用户要求所有 TS 文件用 camelCase"></label>
+            <label>主题<input type="text" id="memTopic" placeholder="编码规范 / 项目约定 / 环境"></label>
+            <label>重要度
+              <select id="memImportance">
+                <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option>
+                <option value="4">4</option><option value="5">5</option>
+              </select>
+            </label>
+            <div class="row">
+              <button class="send" id="memorySave">保存</button>
+              <button class="ghost" id="memoryCancelEdit" style="display:none">取消编辑</button>
+            </div>
+          </div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">已存记忆（<span id="memCount">0</span>）</div>
+          <div id="memoryList"><div class="empty">加载中…</div></div>
+        </div>
+      </div>
+      <div class="pane" id="pane-profiles">
+        <div class="pm-head">
+          <button class="ghost" id="profileRefresh">刷新</button>
+          <span class="dim">运行时插件（<span id="profileActiveCount">0</span>）：<span id="profileActive">—</span></span>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">已存配置集（<span id="profileCount">0</span>）</div>
+          <div id="profileList"><div class="empty">加载中…</div></div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">保存当前运行时为配置集</div>
+          <div class="form">
+            <label>名称<input type="text" id="profileName" placeholder="如：minimal / web-dev"></label>
+            <div class="row"><button class="send" id="profileSave">保存当前为配置集</button></div>
+          </div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-title">Bundle 发布单元（可 patch 插件叠层）</div>
+          <div class="form">
+            <label>配置集（留空=当前激活）<input type="text" id="bundleProfile" placeholder="配置集 id 或名称"></label>
+            <div class="row">
+              <button class="ghost" id="bundlePack">打包 .zip</button>
+              <button class="ghost" id="bundleUnpack">解包 .zip</button>
+            </div>
+            <label>解包 zip 路径<input type="text" id="bundleZip" placeholder=".zip 绝对路径"></label>
+          </div>
+        </div>
+      </div>
+      <div class="pane" id="pane-detail">
+        <div class="pm-head"><span class="dim">点击事件流中的任意事件，在此查看完整结构化 payload</span></div>
+        <div id="detailView"><div class="empty illu"><div class="illu-icon">⤢</div><div class="illu-text">暂无钻取</div><div class="illu-hint">在中间事件流点击任意事件卡片，此处展示其类型、摘要与完整 payload。</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 审批弹窗 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>🔐 工具审批请求</h3>
+    <div class="meta" id="aprTool"></div>
+    <div class="meta" id="aprTarget"></div>
+    <pre id="aprArgs"></pre>
+    <div class="actions">
+      <button class="always" id="aprAlways">始终允许</button>
+      <button class="deny" id="aprDeny">拒绝</button>
+      <button class="allow" id="aprAllow">允许</button>
+    </div>
+  </div>
+</div>
+<!-- 文件预览弹窗 -->
+<div class="overlay" id="fileOverlay">
+  <div class="modal" style="width:720px;max-width:94vw">
+    <h3 id="fileTitle">文件</h3>
+    <div class="meta" id="fileMeta"></div>
+    <pre id="fileContent" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;max-height:56vh;overflow:auto;white-space:pre;font-family:ui-monospace,Menlo,monospace;"></pre>
+    <div class="actions"><button class="always" id="fileClose">关闭</button></div>
+  </div>
+</div>
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  let rpcId = 0, threadId = null, streamEmpty = true;
+  const toolNodes = new Map(); // callId -> {inline, item, status}
+  let approvalReq = null;
+  const sessions = new Map(); // threadId -> firstPrompt
+
+  // ---------- RPC / SSE ----------
+  async function rpc(method, params) {
+    const res = await fetch('/rpc', { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ jsonrpc:'2.0', id:++rpcId, method, params }) });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'RPC 错误');
+    return data.result;
+  }
+  function setConn(on) {
+    const el = $('#conn'); el.classList.toggle('on', on);
+    el.lastChild.textContent = on ? ' 已连接' : ' 断开';
+  }
+  const es = new EventSource('/events');
+  es.onopen = () => setConn(true);
+  es.onerror = () => setConn(false);
+  es.onmessage = (e) => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.method === 'thread.event') handleEvent(msg.params.event);
+    else if (msg.method === 'approval.request') showApproval(msg.params);
+    else if (msg.method === 'memory.changed') {
+      const memTab = document.querySelector('.tab[data-pane="memory"]');
+      if (memTab !== null && memTab.classList.contains('active')) loadMemories();
+    }
+    else if (msg.method === 'profile.applied' || msg.method === 'profile.event') {
+      const pfTab = document.querySelector('.tab[data-pane="profiles"]');
+      if (pfTab !== null && pfTab.classList.contains('active')) loadProfiles();
+    }
+    else if (msg.method === 'thread.tool_input') updateToolInput(msg.params);
+    else if (msg.method === 'graph.progress') applyGraphProgress(msg.params);
+    else if (msg.method === 'graph.done') applyGraphDone(msg.params);
+  };
+
+  // ---------- 工具函数 ----------
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function jsonView(obj) { return '<pre class="json">' + esc(JSON.stringify(obj, null, 2)) + '</pre>'; }
+  function timeOf(ts) { try { return new Date(ts).toLocaleTimeString(); } catch { return ''; } }
+  function badge(type) {
+    const map = { user:['你','b-user'], assistant:['助手','b-assistant'], reasoning:['推理','b-reasoning'],
+      tool_call:['工具调用','b-tool_call'], tool_result:['工具结果','b-tool_result'], system:['系统','b-system'],
+      todo:['待办','b-todo'], plan:['计划','b-plan'], question:['提问','b-question'], turn_diff:['变更','b-turn_diff'] };
+    const m = map[type] || [type, 'b-system'];
+    return '<span class="badge ' + m[1] + '">' + m[0] + '</span>';
+  }
+  function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+  function emptyState(icon, text, hint) {
+    return '<div class="empty illu"><div class="illu-icon">' + icon + '</div><div class="illu-text">' + esc(text) + '</div><div class="illu-hint">' + esc(hint) + '</div></div>';
+  }
+  function scrollStream() { const s = $('#stream'); s.scrollTop = s.scrollHeight; }
+  function detailSummary(ev, p) {
+    switch (ev.type) {
+      case 'tool_call': { const ks = p.args ? Object.keys(p.args) : []; return (p.name || 'tool') + (ks.length ? '(' + ks.slice(0,3).join(', ') + (ks.length>3?'…':'') + ')' : ''); }
+      case 'tool_result': return (p.ok === true ? '✓ ' : '✗ ') + String(p.error != null ? p.error : (p.output != null ? p.output : (p.ok ? '成功' : '失败'))).slice(0,140);
+      case 'user': case 'assistant': return (p.content || '').slice(0,180);
+      case 'reasoning': return '推理轨迹（' + (p.content || '').length + ' 字）';
+      case 'system': return p.content || '';
+      case 'plan': return '计划（' + (Array.isArray(p.steps) ? p.steps.length : Object.keys(p).length) + ' 项）';
+      case 'question': return (p.questions ? p.questions.length : 0) + ' 个提问';
+      case 'todo': return '待办 ' + (p.todos || []).length + ' 项';
+      case 'turn_diff': return '本回合变更（' + (p.diff || '').split('\n').length + ' 行）';
+      default: return ev.type + ' 事件';
+    }
+  }
+  function showDetail(ev) {
+    const p = ev.payload || {};
+    $('#detailView').innerHTML =
+      '<div class="detail-head">' + badge(ev.type) + '<span class="time">' + timeOf(ev.timestamp) + '</span></div>' +
+      '<div class="detail-sum">' + esc(detailSummary(ev, p)) + '</div>' +
+      '<div class="detail-section"><div class="detail-h">完整 payload</div>' + jsonView(p) + '</div>';
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+    const tab = document.querySelector('.tab[data-pane="detail"]');
+    if (tab) tab.classList.add('active');
+    $('#pane-detail').classList.add('active');
+    if (window.innerWidth <= 880) openDrawer('right');
+  }
+
+  // ---------- 事件渲染 ----------
+  // 工具参数流式增量（#B3 web）：模型流式产出参数 JSON 时逐片到达，先用「参数生成中…」占位卡片实时呈现，
+  // 等正式 tool_call 事件到达后由 renderToolCall 清除占位、显示完整体（callId 与增量 delta.id 均为模型 tool_use 块 id）。
+  const liveInputs = new Map(); // id -> { name, partial, el }
+  function updateToolInput(p) {
+    const id = p && p.id;
+    if (!id) return; // 无 id 无法挂接，降级忽略（主流协议首片即带 id）
+    if (toolNodes.has(id)) {
+      // 正式卡片已存在（罕见：增量晚于 tool_call 事件到达），直接回填渐进区块
+      const box = toolNodes.get(id).inline.querySelector('.tool-input');
+      if (box) box.textContent = (p.partialJson || '');
+      return;
+    }
+    let rec = liveInputs.get(id);
+    if (rec === undefined) {
+      const wrap = el('div', 'ev',
+        '<div class="head">' + badge('tool_call') + '<span class="time">' + timeOf(Date.now()) + '</span></div>' +
+        '<div class="tool" data-call="' + esc(id) + '">' +
+          '<div class="tool-head"><span class="tool-name">' + esc(p.name || 'tool') + '</span>' +
+          '<span class="tool-status">参数生成中…</span></div>' +
+          '<pre class="json tool-input"></pre>' +
+          '<div class="tool-result"></div>' +
+        '</div>');
+      $('#stream').appendChild(wrap); scrollStream();
+      rec = { name: p.name || 'tool', partial: '', el: wrap };
+      liveInputs.set(id, rec);
+    }
+    rec.partial = p.partialJson || '';
+    rec.el.querySelector('.tool-input').textContent = rec.partial;
+  }
+  function clearLiveInput(id) {
+    const rec = liveInputs.get(id);
+    if (rec !== undefined) { rec.el.remove(); liveInputs.delete(id); }
+  }
+  function handleEvent(ev) {
+    if (streamEmpty) { $('#stream').innerHTML = ''; streamEmpty = false; }
+    const p = ev.payload || {};
+    let node;
+    switch (ev.type) {
+      case 'user':
+      case 'assistant':
+        node = el('div', 'ev', '<div class="head">' + badge(ev.type) + '<span class="time">' + timeOf(ev.timestamp) + '</span></div>' +
+          '<div class="card ' + ev.type + '"><div class="content">' + esc(p.content || '') + '</div></div>');
+        break;
+      case 'reasoning':
+        node = el('div', 'ev', '<details class="reasoning"><summary>💭 推理轨迹</summary><div class="content" style="margin-top:6px;color:var(--dim)">' + esc(p.content || '') + '</div></details>');
+        break;
+      case 'tool_call':
+        node = renderToolCall(ev, p); break;
+      case 'tool_result':
+        attachToolResult(ev, p); return;
+      case 'system':
+        node = el('div', 'ev', '<div class="sysnote">— ' + esc(p.content || '') + ' —</div>'); break;
+      case 'todo':
+        node = el('div', 'ev', '<div class="head">' + badge('todo') + '</div>' + todoView(p.todos || [])); break;
+      case 'plan':
+        node = el('div', 'ev', '<div class="head">' + badge('plan') + '</div><div class="card">' + jsonView(p) + '</div>'); break;
+      case 'question':
+        node = el('div', 'ev', '<div class="head">' + badge('question') + '</div><div class="card">' + jsonView(p.questions || p) + '</div>'); break;
+      case 'turn_diff':
+        node = el('div', 'ev', '<div class="head">' + badge('turn_diff') + '</div><div class="diff">' + diffView(p.diff || '') + '</div>'); break;
+      default:
+        node = el('div', 'ev', '<div class="head">' + badge(ev.type) + '</div><div class="card"><div class="content">' + esc(JSON.stringify(p)) + '</div></div>');
+    }
+    node.classList.add('clickable');
+    node.onclick = () => showDetail(ev);
+    $('#stream').appendChild(node);
+    scrollStream();
+  }
+
+  function renderToolCall(ev, p) {
+    const callId = p.callId || ev.id;
+    clearLiveInput(callId); // 正式工具卡片接管，移除流式占位
+    const wrap = el('div', 'ev',
+      '<div class="head">' + badge('tool_call') + '<span class="time">' + timeOf(ev.timestamp) + '</span></div>' +
+      '<div class="tool" data-call="' + esc(callId) + '">' +
+        '<div class="tool-head"><span class="tool-name">' + esc(p.name || 'tool') + '</span>' +
+        '<span class="tool-status">运行中</span></div>' +
+        (p.args ? jsonView(p.args) : '') +
+        '<div class="tool-result"></div>' +
+      '</div>');
+    const item = el('div', 'tool-item', '<span class="dot"></span><span>' + esc(p.name || 'tool') + '</span><span class="state">…</span>');
+    item.dataset.call = callId;
+    item.onclick = () => { const t = wrap.querySelector('.tool'); if (t) { t.scrollIntoView({behavior:'smooth', block:'center'}); t.style.outline = '2px solid var(--accent)'; setTimeout(()=>t.style.outline='', 1200); } };
+    const list = $('#toolList'); if (list.querySelector('.empty')) list.innerHTML = '';
+    list.appendChild(item);
+    toolNodes.set(callId, { inline: wrap.querySelector('.tool'), item, status: 'pending' });
+    return wrap;
+  }
+  function attachToolResult(ev, p) {
+    const callId = p.callId; if (!callId) { handleEventSimple(ev, p); return; }
+    const rec = toolNodes.get(callId);
+    const ok = p.ok === true;
+    const text = p.error != null ? ('✗ ' + p.error) : (p.output != null ? p.output : (ok ? '✓ 成功' : '✗ 失败'));
+    if (rec) {
+      rec.inline.querySelector('.tool-result').innerHTML = '<div class="tool-output collapsed">' + esc(text) + '</div>';
+      const st = rec.inline.querySelector('.tool-status'); if (st) { st.className = 'tool-status ' + (ok ? 'ok' : 'err'); st.textContent = ok ? '成功' : '失败'; }
+      rec.item.classList.add(ok ? 'ok' : 'err'); rec.item.querySelector('.state').textContent = ok ? '完成' : '失败';
+      const out = rec.inline.querySelector('.tool-output'); if (out && out.scrollHeight > 70) out.onclick = (e) => { e.stopPropagation(); out.classList.toggle('collapsed'); };
+      rec.inline.classList.add('clickable'); rec.inline.onclick = () => showDetail(ev);
+    } else {
+      const wrap = el('div', 'ev', '<div class="head">' + badge('tool_result') + '</div><div class="card"><div class="tool-output">' + esc(text) + '</div></div>');
+      wrap.classList.add('clickable'); wrap.onclick = () => showDetail(ev);
+      $('#stream').appendChild(wrap); scrollStream();
+    }
+  }
+  function handleEventSimple(ev, p) {
+    const wrap = el('div', 'ev', '<div class="head">' + badge('tool_result') + '</div><div class="card"><div class="content">' + esc(JSON.stringify(p)) + '</div></div>');
+    $('#stream').appendChild(wrap); scrollStream();
+  }
+  function todoView(todos) {
+    return '<div class="card">' + todos.map(t => {
+      const cls = t.status === 'done' ? 'done' : t.status === 'doing' ? 'doing' : '';
+      return '<div class="todo-item"><span class="todo-dot ' + cls + '"></span><span>' + esc(t.content || '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function diffView(diff) {
+    return diff.split('\n').map(line => {
+      if (line.startsWith('+')) return '<span class="add">' + esc(line) + '</span>';
+      if (line.startsWith('-')) return '<span class="del">' + esc(line) + '</span>';
+      return '<span class="ctx">' + esc(line) + '</span>';
+    }).join('');
+  }
+
+  // ---------- 发送任务 ----------
+  async function send() {
+    const ta = $('#prompt'); const prompt = ta.value.trim(); if (!prompt) return;
+    const imgRaw = ($('#imageUrl').value || '').trim();
+    const params = threadId ? { threadId, prompt } : { prompt };
+    if (imgRaw) { params.images = [{ url: imgRaw }]; $('#imageUrl').value = ''; }
+    $('#send').disabled = true; ta.value = '';
+    try {
+      const res = await rpc('turns.run', params);
+      if (res && res.threadId) {
+        threadId = res.threadId;
+        if (!sessions.has(threadId)) { sessions.set(threadId, prompt); addSession(threadId, prompt); }
+      }
+    } catch (e) { alert('运行失败：' + e.message); }
+    finally { $('#send').disabled = false; }
+  }
+  function addSession(id, label) {
+    const d = document.createElement('div'); d.className = 'session' + (id === threadId ? ' active' : '');
+    d.textContent = label; d.dataset.id = id; d.title = id;
+    d.onclick = () => loadThread(id);
+    const box = $('#sessions'); if (box.querySelector('.empty')) box.innerHTML = '';
+    box.prepend(d);
+  }
+  async function loadThread(id) {
+    closeDrawers();
+    try {
+      const r = await rpc('threads.get', { threadId: id });
+      threadId = id; streamEmpty = true; toolNodes.clear(); $('#toolList').innerHTML = emptyState('🛠️', '暂无工具调用', '本会话尚未触发任何工具调用。');
+      (r.items || []).forEach(handleEvent);
+      document.querySelectorAll('.session').forEach(s => s.classList.toggle('active', s.dataset.id === id));
+    } catch (e) { alert('加载会话失败：' + e.message); }
+  }
+  $('#send').onclick = send;
+  $('#prompt').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  $('#newSession').onclick = () => { threadId = null; streamEmpty = true; toolNodes.clear(); $('#stream').innerHTML = emptyState('💬', '新会话已就绪', '输入任务开始，模型推理与工具调用将实时呈现。'); $('#toolList').innerHTML = emptyState('🛠️', '暂无工具调用', '本会话尚未触发任何工具调用。'); document.querySelectorAll('.session').forEach(s => s.classList.remove('active')); };
+
+  // ---------- 审批 ----------
+  function showApproval(req) {
+    approvalReq = req;
+    $('#aprTool').textContent = '工具：' + (req.toolName || '?');
+    $('#aprTarget').textContent = '目标：' + (req.target || '—');
+    $('#aprArgs').textContent = '';
+    $('#overlay').classList.add('show');
+  }
+  async function respond(decision, always) {
+    if (!approvalReq) return;
+    const req = approvalReq; approvalReq = null; $('#overlay').classList.remove('show');
+    try {
+      if (always) { await rpc('config.update', { autoApprove: true }); $('#autoApprove').checked = true; decision = 'allow'; }
+      await rpc('approval.respond', { requestId: req.requestId, decision });
+    } catch (e) { alert('审批响应失败：' + e.message); }
+  }
+  $('#aprAllow').onclick = () => respond('allow', false);
+  $('#aprDeny').onclick = () => respond('deny', false);
+  $('#aprAlways').onclick = () => respond('allow', true);
+
+  // ---------- 右栏交互 ----------
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+    t.classList.add('active'); $('#pane-' + t.dataset.pane).classList.add('active');
+    if (t.dataset.pane === 'profiles') loadProfiles();
+    closeDrawers();
+  });
+
+  // ---------- 移动端抽屉 ----------
+  function openDrawer(side) {
+    const col = document.querySelector('.col.' + side);
+    if (col === null) return;
+    col.classList.add('open');
+    $('#drawerBackdrop').classList.add('show');
+  }
+  function closeDrawers() {
+    document.querySelectorAll('.col.left, .col.right').forEach((c) => c.classList.remove('open'));
+    $('#drawerBackdrop').classList.remove('show');
+  }
+  $('#toggleLeft').onclick = () => openDrawer('left');
+  $('#toggleRight').onclick = () => openDrawer('right');
+  $('#drawerBackdrop').onclick = closeDrawers;
+  window.addEventListener('resize', () => { if (window.innerWidth > 880) closeDrawers(); });
+
+  // ---------- 指标 ----------
+  async function refreshMetrics() {
+    try {
+      const m = await (await fetch('/metrics')).json();
+      const et = m.eventsByType || {};
+      const cards = [['会话', m.sessions || 0], ['事件', Object.values(et).reduce((a,b)=>a+b,0)], ['工具调用', et.tool_call || 0], ['工具结果', et.tool_result || 0]];
+      $('#metricGrid').innerHTML = cards.map(c => '<div class="metric"><div class="n">' + c[1] + '</div><div class="l">' + c[0] + '</div></div>').join('');
+      $('#metricTypes').innerHTML = Object.keys(et).sort().map(k => '<div class="kv"><span class="k">' + k + '</span><span class="v">' + et[k] + '</span></div>').join('');
+    } catch {}
+  }
+  setInterval(refreshMetrics, 2000); refreshMetrics();
+
+  // ---------- 设置 / 文件树 ----------
+  async function loadConfig() {
+    try {
+      const cfg = await rpc('config.get', {});
+      $('#adapter').textContent = (cfg.modelAdapter || 'mock') + (cfg.model ? ' · ' + cfg.model : '');
+      $('#cfgView').innerHTML = '<div class="kv"><span class="k">工作区</span><span class="v">' + esc(cfg.workspace || '—') + '</span></div>';
+      $('#setModelAdapter').value = cfg.modelAdapter || 'mock';
+      $('#setModel').value = cfg.model || '';
+      $('#setApproval').value = cfg.approval || 'rules';
+      $('#setSandbox').value = cfg.sandbox || 'passthrough';
+      $('#setEscalation').value = cfg.escalation || 'deny';
+      $('#autoApprove').checked = !!cfg.autoApprove;
+    } catch {}
+  }
+  /** 保存设置（落盘到 omniharness.json）。 */
+  async function saveConfig(patch) {
+    try {
+      await rpc('config.update', patch);
+      const h = $('#savedHint'); h.textContent = '✓ 已保存'; setTimeout(() => { if (h.textContent === '✓ 已保存') h.textContent = ''; }, 1500);
+    } catch (e) { alert('保存失败：' + e.message); }
+  }
+  $('#setModelAdapter').onchange = (e) => saveConfig({ modelAdapter: e.target.value });
+  $('#setModel').onchange = (e) => { const v = e.target.value.trim(); saveConfig(v ? { model: v } : { model: undefined }); };
+  $('#setApproval').onchange = (e) => saveConfig({ approval: e.target.value });
+  $('#setSandbox').onchange = (e) => saveConfig({ sandbox: e.target.value });
+  $('#setEscalation').onchange = (e) => saveConfig({ escalation: e.target.value });
+  $('#autoApprove').onchange = (e) => saveConfig({ autoApprove: e.target.checked });
+  async function loadTree() {
+    try {
+      const r = await rpc('fs.list', { depth: 3 });
+      $('#tree').innerHTML = renderTree(r.tree || []);
+      bindTree();
+    } catch (e) { $('#tree').innerHTML = emptyState('📁', '文件树不可用', '当前工作区无法读取，或 serve 未在工作区内启动。'); }
+  }
+  function renderTree(nodes) {
+    return nodes.map(n => {
+      const p = esc(n.path);
+      if (n.type === 'dir') return '<div class="node dir" data-path="' + p + '"><span class="label">' + esc(n.name) + '</span><div class="children">' + renderTree(n.children || []) + '</div></div>';
+      return '<div class="node file" data-path="' + p + '"><span class="label">' + esc(n.name) + '</span></div>';
+    }).join('');
+  }
+  function bindTree() {
+    document.querySelectorAll('#tree .dir > .label').forEach(l => l.onclick = (e) => { e.stopPropagation(); l.parentElement.classList.toggle('open'); });
+    document.querySelectorAll('#tree .file').forEach(f => f.querySelector('.label').onclick = (e) => { e.stopPropagation(); openFile(f.dataset.path); });
+  }
+
+  // ---------- 文件预览 ----------
+  async function openFile(path) {
+    try {
+      const r = await rpc('fs.read', { path });
+      $('#fileTitle').textContent = '📄 ' + r.path;
+      const meta = (r.isBinary ? '二进制文件' : (r.truncated ? '已截断（>200KB）' : '')) + ' · ' + r.size + ' 字节';
+      $('#fileMeta').textContent = meta.trim();
+      $('#fileContent').textContent = r.isBinary ? '（二进制文件，无法预览）' : r.content;
+      $('#fileOverlay').classList.add('show');
+    } catch (e) { alert('打开失败：' + e.message); }
+  }
+  $('#fileClose').onclick = () => $('#fileOverlay').classList.remove('show');
+
+  // ---------- 插件市场 ----------
+  // 权限中文可读标签（未知权限回退原文）。危险权限（删/执行/网络/写）依旧高亮。
+  const PERM_LABELS = {
+    'fs.read': '读取文件', 'fs.write': '写入文件', 'fs.delete': '删除文件',
+    'network': '网络访问', 'shell': '执行命令', 'exec': '执行命令', 'spawn': '执行命令',
+    'env.read': '读取环境变量', 'kv': '键值存储', 'vault': '凭据保管', 'memory': '记忆读写',
+  };
+  const DANGER_PERM = /delete|shell|exec|spawn|network|fs\.write/i;
+  function permChip(p) {
+    const danger = DANGER_PERM.test(p);
+    const label = PERM_LABELS[p] || p;
+    return '<span class="perm' + (danger ? ' danger' : '') + '" title="' + esc(p) + '">' + esc(label) + '</span>';
+  }
+  // 轻提示（安装/卸载结果反馈）
+  let toastTimer = null;
+  function pluginToast(msg, ok) {
+    let t = document.getElementById('pluginToast');
+    if (!t) { t = document.createElement('div'); t.id = 'pluginToast'; t.className = 'toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.className = 'toast show ' + (ok ? 'ok' : 'err');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 2200);
+  }
+  function pluginCard(m, source, installed) {
+    const perms = (m.permissions || []).map(permChip).join('');
+    const status = installed
+      ? '<span class="src-badge ' + (m.loaded ? 'loaded' : 'unloaded') + '">' + (m.loaded ? '已加载' : '未加载') + '</span>'
+      : '';
+    const actions = installed
+      ? '<span class="pc-installed">✓ 已安装</span><button class="btn-remove" data-name="' + esc(m.name) + '">卸载</button>'
+      : '<button class="btn-install" data-name="' + esc(m.name) + '">安装</button>';
+    return '<div class="plugin-card">'
+      + '<div class="pc-head"><span class="pc-name">' + esc(m.name) + '<span class="pc-ver">v' + esc(m.version) + '</span></span>'
+      + '<span class="src-badge ' + esc(source) + '">' + esc(source) + '</span></div>'
+      + (m.description ? '<div class="pc-desc">' + esc(m.description) + '</div>' : '')
+      + (m.author ? '<div class="pc-meta">作者：' + esc(m.author) + '</div>' : '')
+      + (perms ? '<div>' + perms + '</div>' : '')
+      + '<div class="pc-foot">' + status + actions + '</div>'
+      + '</div>';
+  }
+  async function loadPlugins(query) {
+    try {
+      const [installed, all] = await Promise.all([
+        rpc('plugins.list', {}),
+        rpc('plugins.search', { query: query || '' }),
+      ]);
+      const inst = installed || [];
+      const instSet = new Set(inst.map((m) => m.name));
+      $('#pluginInstalled').innerHTML = inst.length
+        ? inst.map((m) => pluginCard(m, m.source || 'local', true)).join('')
+        : emptyState('🧩', '尚未安装任何插件', '在下方「可获取」中一键安装内置或远程插件。');
+      const avail = (all || []).filter((d) => !instSet.has(d.manifest.name));
+      $('#pluginAvailable').innerHTML = avail.length
+        ? avail.map((d) => pluginCard(d.manifest, d.source, false)).join('')
+        : emptyState('🔌', '暂无可获取插件', '远程 registry 可能离线；内置示例插件始终可用。');
+      bindPluginButtons();
+    } catch {}
+  }
+  function bindPluginButtons() {
+    document.querySelectorAll('#pane-plugins .btn-install').forEach((b) => { b.onclick = () => doPluginAction('install', b.dataset.name, b); });
+    document.querySelectorAll('#pane-plugins .btn-remove').forEach((b) => { b.onclick = () => doPluginAction('remove', b.dataset.name, b); });
+  }
+  async function doPluginAction(kind, name, btn) {
+    if (!name) return;
+    btn.disabled = true; btn.textContent = kind === 'install' ? '安装中…' : '卸载中…';
+    try {
+      if (kind === 'install') await rpc('plugins.install', { name });
+      else await rpc('plugins.remove', { name });
+      await loadPlugins($('#pluginSearch').value.trim());
+      pluginToast((kind === 'install' ? '已安装 ' : '已卸载 ') + name, true);
+    } catch (e) { alert((kind === 'install' ? '安装' : '卸载') + '失败：' + (e && e.message ? e.message : e)); btn.disabled = false; btn.textContent = kind === 'install' ? '安装' : '卸载'; }
+  }
+  let pmTimer = null;
+  $('#pluginSearch').addEventListener('input', (e) => { clearTimeout(pmTimer); pmTimer = setTimeout(() => loadPlugins(e.target.value.trim()), 250); });
+  $('#pluginRefresh').onclick = () => loadPlugins($('#pluginSearch').value.trim());
+  async function reloadPlugins() {
+    const btn = $('#pluginReload');
+    btn.disabled = true; btn.textContent = '加载中…';
+    try {
+      const res = await rpc('plugins.reload', {});
+      await loadPlugins($('#pluginSearch').value.trim());
+      if (res && res.ok && res.loaded && res.loaded.length) {
+        btn.textContent = '已加载 ' + res.loaded.length;
+        setTimeout(() => { if (!btn.disabled) btn.textContent = '重新加载'; }, 1500);
+      } else {
+        btn.textContent = '重新加载';
+      }
+    } catch (e) { alert('重新加载失败：' + (e && e.message ? e.message : e)); btn.textContent = '重新加载'; }
+    finally { btn.disabled = false; }
+  }
+  $('#pluginReload').onclick = () => reloadPlugins();
+
+  // ---------- 主题 ----------
+  function applyTheme(light) {
+    document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+    $('#lightTheme').checked = light;
+    try { localStorage.setItem('omni-theme', light ? 'light' : 'dark'); } catch {}
+  }
+  $('#themeBtn').onclick = () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'light');
+  $('#lightTheme').onchange = (e) => applyTheme(e.target.checked);
+  (function initTheme() { let t = 'dark'; try { t = localStorage.getItem('omni-theme') || 'dark'; } catch {} applyTheme(t === 'light'); })();
+
+  // ---------- 长期记忆管理（G-D / 4.3，对标 codex dedicated memories） ----------
+  let editingMemoryId = null;
+  async function loadMemories() {
+    try {
+      const r = await rpc('memory.list', {});
+      $('#memCount').textContent = r.count;
+      const list = $('#memoryList');
+      if (r.facts.length === 0) { list.innerHTML = '<div class="empty">暂无记忆。上方填入事实后点「保存」，或在会话中由模型自动沉淀。</div>'; return; }
+      list.innerHTML = r.facts.map((f) => memoryRow(f)).join('');
+      list.querySelectorAll('.mem-del').forEach((b) => b.onclick = () => deleteMemory(b.dataset.id));
+      list.querySelectorAll('.mem-edit').forEach((b) => b.onclick = () => editMemory(b.dataset.id));
+    } catch (e) { $('#memoryList').innerHTML = '<div class="empty">加载失败：' + esc(e.message) + '</div>'; }
+  }
+  function memoryRow(f) {
+    const topic = f.topic ? '<span class="badge">' + esc(f.topic) + '</span>' : '';
+    const src = f.source === 'consolidated' ? '<span class="badge b-reasoning">蒸馏</span>' : '<span class="badge b-tool_call">手动</span>';
+    const imp = '★'.repeat(f.importance) + '☆'.repeat(5 - f.importance);
+    return '<div class="mem-row" data-id="' + esc(f.id) + '">' +
+      '<div class="mem-text">' + esc(f.text) + '</div>' +
+      '<div class="mem-meta">' + topic + src + '<span class="mem-imp">' + imp + '</span><span class="mem-time">' + esc((f.createdAt || '').slice(0, 10)) + '</span></div>' +
+      '<div class="mem-actions"><button class="ghost mem-edit" data-id="' + esc(f.id) + '">编辑</button><button class="ghost mem-del" data-id="' + esc(f.id) + '">删除</button></div>' +
+      '</div>';
+  }
+  async function searchMemories() {
+    const q = $('#memorySearch').value.trim();
+    if (!q) { await loadMemories(); return; }
+    try {
+      const r = await rpc('memory.search', { query: q, limit: 20 });
+      $('#memCount').textContent = r.count;
+      const list = $('#memoryList');
+      if (r.count === 0) { list.innerHTML = '<div class="empty">未检索到相关记忆。</div>'; return; }
+      list.innerHTML = r.results.map((f) => memoryRow({ ...f, createdAt: '', source: 'tool' })).join('');
+      list.querySelectorAll('.mem-del').forEach((b) => b.onclick = () => deleteMemory(b.dataset.id));
+      list.querySelectorAll('.mem-edit').forEach((b) => b.onclick = () => editMemory(b.dataset.id));
+    } catch (e) { $('#memoryList').innerHTML = '<div class="empty">检索失败：' + esc(e.message) + '</div>'; }
+  }
+  async function addMemory() {
+    const text = $('#memText').value.trim();
+    if (!text) { toast('请填写事实'); return; }
+    const topic = $('#memTopic').value.trim() || undefined;
+    const importance = parseInt($('#memImportance').value, 10) || 3;
+    try {
+      if (editingMemoryId) {
+        await rpc('memory.update', { id: editingMemoryId, text, topic, importance });
+        toast('已更新记忆');
+      } else {
+        await rpc('memory.add', { text, topic, importance });
+        toast('已保存记忆');
+      }
+      resetMemoryForm();
+      await loadMemories();
+    } catch (e) { alert('保存失败：' + e.message); }
+  }
+  function editMemory(id) {
+    const row = document.querySelector('.mem-row[data-id="' + cssEsc(id) + '"]');
+    if (row === null) return;
+    const text = row.querySelector('.mem-text').textContent;
+    const impMatch = (row.querySelector('.mem-imp').textContent || '').indexOf('☆');
+    editingMemoryId = id;
+    $('#memText').value = text;
+    $('#memImportance').value = String(impMatch > 0 ? impMatch : 3);
+    // 主题从 badge 提取（首个非 蒸馏/手动 的 badge）
+    const badges = Array.from(row.querySelectorAll('.mem-meta .badge')).map((b) => b.textContent);
+    $('#memTopic').value = badges.find((b) => b !== '蒸馏' && b !== '手动') || '';
+    $('#memorySave').textContent = '保存修改';
+    $('#memoryCancelEdit').style.display = '';
+    toast('编辑中：修改后点「保存修改」');
+  }
+  function resetMemoryForm() {
+    editingMemoryId = null;
+    $('#memText').value = '';
+    $('#memTopic').value = '';
+    $('#memImportance').value = '3';
+    $('#memorySave').textContent = '保存';
+    $('#memoryCancelEdit').style.display = 'none';
+  }
+  async function deleteMemory(id) {
+    if (!confirm('确认删除这条记忆？')) return;
+    try { await rpc('memory.delete', { id }); toast('已删除'); await loadMemories(); }
+    catch (e) { alert('删除失败：' + e.message); }
+  }
+  function cssEsc(s) { return String(s).replace(/"/g, '\\"'); }
+  $('#memorySearchBtn').onclick = () => searchMemories();
+  $('#memorySearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchMemories(); });
+  $('#memoryRefresh').onclick = () => loadMemories();
+  $('#memorySave').onclick = () => addMemory();
+  $('#memoryCancelEdit').onclick = () => resetMemoryForm();
+
+  // ---------- 插件集 Profile + Bundle（G-E 5.1/5.2，对标 dsh 命名插件组合 + 发布单元） ----------
+  async function loadProfiles() {
+    try {
+      const [list, active] = await Promise.all([rpc('profile.list', {}), rpc('profile.active', {})]);
+      $('#profileCount').textContent = list.length;
+      const pl = $('#profileList');
+      if (list.length === 0) {
+        pl.innerHTML = '<div class="empty">暂无配置集。在下方「保存当前为配置集」创建，或用 CLI --plugin-profile 指定。</div>';
+      } else {
+        pl.innerHTML = list.map((p) => profileRow(p)).join('');
+        pl.querySelectorAll('.pf-apply').forEach((b) => b.onclick = () => applyProfileById(b.dataset.id));
+        pl.querySelectorAll('.pf-del').forEach((b) => b.onclick = () => deleteProfile(b.dataset.id));
+      }
+      const names = active.plugins ?? [];
+      $('#profileActiveCount').textContent = names.length;
+      $('#profileActive').textContent = names.length ? names.join(', ') : '—';
+    } catch (e) { $('#profileList').innerHTML = '<div class="empty">加载失败：' + esc(e.message) + '</div>'; }
+  }
+  function profileRow(p) {
+    const desc = p.description ? '<div class="mem-meta">' + esc(p.description) + '</div>' : '';
+    const plugs = (p.plugins || []).map((n) => '<span class="badge">' + esc(n) + '</span>').join('');
+    return '<div class="mem-row" data-id="' + esc(p.id) + '">' +
+      '<div class="mem-text">' + esc(p.name) + '</div>' + desc +
+      '<div class="mem-meta">' + plugs + '</div>' +
+      '<div class="mem-actions"><button class="ghost pf-apply" data-id="' + esc(p.id) + '">应用</button>' +
+      '<button class="ghost pf-del" data-id="' + esc(p.id) + '">删除</button></div>' +
+      '</div>';
+  }
+  async function saveCurrentProfile() {
+    const name = $('#profileName').value.trim();
+    if (!name) { toast('请填写配置集名称'); return; }
+    const active = await rpc('profile.active', {});
+    try {
+      await rpc('profile.save', { profile: { name, plugins: active.plugins ?? [], description: '保存于 Web 控制台' } });
+      toast('已保存配置集：' + name);
+      $('#profileName').value = '';
+      await loadProfiles();
+    } catch (e) { alert('保存失败：' + e.message); }
+  }
+  async function applyProfileById(id) {
+    try {
+      const r = await rpc('profile.apply', { id });
+      toast('已应用配置集：' + (r.name || id) + '（载入 ' + (r.loaded || []).length + '，停用 ' + (r.unloaded || []).length + '）');
+      await loadProfiles();
+    } catch (e) { alert('应用失败：' + e.message); }
+  }
+  async function deleteProfile(id) {
+    if (!confirm('确认删除该配置集？')) return;
+    try { await rpc('profile.delete', { id }); toast('已删除'); await loadProfiles(); }
+    catch (e) { alert('删除失败：' + e.message); }
+  }
+  async function packBundleUI() {
+    const id = $('#bundleProfile').value.trim();
+    let params = {};
+    if (id) { params = { id }; }
+    else { const active = await rpc('profile.active', {}); params = { profile: { name: 'current', plugins: active.plugins ?? [] } }; }
+    try {
+      const r = await rpc('bundle.pack', params);
+      $('#bundleZip').value = r.path;
+      toast('已打包：' + r.path);
+    } catch (e) { alert('打包失败：' + e.message); }
+  }
+  async function unpackBundleUI() {
+    const zip = $('#bundleZip').value.trim();
+    if (!zip) { toast('请填写 zip 路径'); return; }
+    try {
+      const r = await rpc('bundle.unpack', { zipPath: zip });
+      toast('已解包：安装 ' + (r.installed || []).length + ' 个插件' + (r.patchFile ? '，补丁层已写 ' + r.patchFile : ''));
+      await loadProfiles();
+    } catch (e) { alert('解包失败：' + e.message); }
+  }
+  $('#profileRefresh').onclick = () => loadProfiles();
+  $('#profileSave').onclick = () => saveCurrentProfile();
+  $('#bundlePack').onclick = () => packBundleUI();
+  $('#bundleUnpack').onclick = () => unpackBundleUI();
+
+  // ---------- 多 Agent 编排（G-C，对标 codex agent-graph-store） ----------
+  function nodeStatusClass(s) {
+    return s === 'running' ? 'running' : s === 'done' ? 'done' : s === 'failed' ? 'failed' : s === 'skipped' ? 'skipped' : 'pending';
+  }
+  function addStepRow(step) {
+    step = step || { id: '', dependsOn: [], prompt: '' };
+    const row = document.createElement('div');
+    row.className = 'step-row';
+    row.innerHTML =
+      '<input class="step-id" placeholder="步骤 id" value="' + esc(step.id || '') + '">' +
+      '<input class="step-dep" placeholder="依赖(逗号分隔)" value="' + esc((step.dependsOn || []).join(',')) + '">' +
+      '<button class="ghost step-del">×</button>' +
+      '<textarea class="step-prompt" rows="2" placeholder="提示词">' + esc(step.prompt || '') + '</textarea>';
+    row.querySelector('.step-del').onclick = () => { row.remove(); renderPreview(); };
+    row.querySelectorAll('input,textarea').forEach((el) => el.addEventListener('input', renderPreview));
+    $('#stepEditor').appendChild(row);
+    renderPreview();
+  }
+  function collectDef() {
+    const name = $('#graphName').value.trim();
+    const steps = Array.from(document.querySelectorAll('#stepEditor .step-row')).map((r) => {
+      const id = r.querySelector('.step-id').value.trim();
+      const dep = r.querySelector('.step-dep').value.trim();
+      const prompt = r.querySelector('.step-prompt').value;
+      if (!id || !prompt) return null;
+      const o = { id, prompt };
+      if (dep) o.dependsOn = dep.split(',').map((s) => s.trim()).filter(Boolean);
+      return o;
+    }).filter(Boolean);
+    return { name, steps, maxConcurrency: 4 };
+  }
+  function renderPreview() {
+    try { $('#graphJson').value = JSON.stringify(collectDef(), null, 2); } catch (e) { /* 忽略中间态 */ }
+  }
+  async function loadGraphs() {
+    try {
+      const list = await rpc('graph.list', {});
+      if (!list || !list.length) {
+        $('#graphList').innerHTML = emptyState('🕸️', '暂无已存图', '点「载入示例」或「新建」创建一个 DAG 编排。');
+        return;
+      }
+      $('#graphList').innerHTML = list.map((g) =>
+        '<div class="plugin-card graph-card"><div class="pc-head"><span class="pc-name">' + esc(g.name) +
+        '<span class="pc-ver">' + g.stepCount + ' 步</span></span><button class="ghost btn-run" data-id="' + esc(g.id) + '">运行</button></div>' +
+        '<div class="pc-foot"><button class="ghost" data-open="' + esc(g.id) + '">打开</button>' +
+        '<button class="btn-remove" data-del="' + esc(g.id) + '">删除</button></div></div>'
+      ).join('');
+      $('#graphList').querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => openGraph(b.dataset.open); });
+      $('#graphList').querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => delGraph(b.dataset.del); });
+      $('#graphList').querySelectorAll('[data-id]').forEach((b) => { b.onclick = () => runById(b.dataset.id); });
+    } catch (e) {
+      $('#graphList').innerHTML = emptyState('⚠️', '图列表不可用', e.message);
+    }
+  }
+  async function openGraph(id) {
+    try {
+      const def = await rpc('graph.get', { id });
+      $('#graphName').value = def.name || id;
+      $('#stepEditor').innerHTML = '';
+      (def.steps || []).forEach(addStepRow);
+      renderPreview();
+    } catch (e) { alert('打开失败：' + e.message); }
+  }
+  async function delGraph(id) {
+    if (!confirm('删除图 ' + id + '？')) return;
+    try { await rpc('graph.delete', { id }); await loadGraphs(); } catch (e) { alert('删除失败：' + e.message); }
+  }
+  async function saveGraph() {
+    try {
+      const def = JSON.parse($('#graphJson').value);
+      if (!def.name) { alert('图名不能为空'); return; }
+      const res = await rpc('graph.save', { def });
+      toast('已保存：' + res.id);
+      await loadGraphs();
+    } catch (e) { alert('保存失败：' + (e.message || e)); }
+  }
+  async function runById(id) {
+    try { const res = await rpc('graph.run', { id }); trackRun(res.runId, id); }
+    catch (e) { alert('运行失败：' + e.message); }
+  }
+  async function runGraph() {
+    let def;
+    try { def = JSON.parse($('#graphJson').value); } catch (e) { alert('JSON 解析失败：' + e.message); return; }
+    if (!def.name || !def.steps || !def.steps.length) { alert('图定义需含 name 与非空 steps'); return; }
+    try { const res = await rpc('graph.run', { def }); trackRun(res.runId, def.name); }
+    catch (e) { alert('运行失败：' + e.message); }
+  }
+  function renderRunState(state) {
+    const nodes = state.nodes || [];
+    const chips = nodes.map((n) =>
+      '<span class="graph-node ' + nodeStatusClass(n.status) + '"><span class="dot"></span>' + esc(n.id) + '</span>'
+    ).join('');
+    let html = '<div class="graph-nodes">' + chips + '</div>';
+    if (state.done) {
+      html += '<div class="saved">' + (state.ok ? '✓ 全部完成' : '✗ 存在失败步骤') + '</div>';
+      if (state.blackboard) {
+        const kv = Object.entries(state.blackboard)
+          .map(([k, v]) => '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v">' + esc(String(v || '').slice(0, 120)) + '</span></div>')
+          .join('');
+        html += '<div style="margin-top:6px">' + kv + '</div>';
+      }
+    } else {
+      html += '<div class="saved">运行中…</div>';
+    }
+    $('#graphStatus').innerHTML = html;
+  }
+  // graph 运行时推送消费（#G-E P3.4）：服务端经 SSE 广播 graph.progress / graph.done，
+  // 前端接推送实时刷新节点状态；SSE 不可用时回退轮询（两者写同一 run，幂等、done 即停）。
+  const graphRuns = new Map(); // runId -> { runId, defName, done, ok, nodes:Map, blackboard, error }
+  function renderGraphRun(r) {
+    renderRunState({
+      runId: r.runId,
+      defName: r.defName,
+      done: r.done,
+      ok: r.ok,
+      nodes: Array.from(r.nodes.values()),
+      blackboard: r.blackboard,
+      error: r.error,
+    });
+  }
+  function applyGraphProgress(p) {
+    if (p === undefined || p.runId === undefined) return;
+    let run = graphRuns.get(p.runId);
+    if (run === undefined) {
+      run = { runId: p.runId, defName: '', done: false, ok: undefined, nodes: new Map(), blackboard: undefined, error: undefined };
+    }
+    run.nodes.set(p.id, { id: p.id, status: p.status, error: p.error, steps: p.steps, durationMs: p.durationMs });
+    graphRuns.set(p.runId, run);
+    renderGraphRun(run);
+  }
+  function applyGraphDone(p) {
+    if (p === undefined || p.runId === undefined) return;
+    const run = graphRuns.get(p.runId);
+    if (run === undefined) return;
+    run.done = true;
+    run.ok = p.ok;
+    run.blackboard = p.blackboard;
+    if (p.error !== undefined) run.error = p.error;
+    renderGraphRun(run);
+  }
+  function trackRun(runId, label) {
+    const run = { runId, defName: label || '', done: false, ok: undefined, nodes: new Map(), blackboard: undefined, error: undefined };
+    graphRuns.set(runId, run);
+    renderGraphRun(run);
+    // 推送为主；SSE 未连通时回退轮询（done 即停）
+    if (es.readyState !== EventSource.OPEN) void pollRun(runId);
+  }
+  async function pollRun(runId) {
+    for (let i = 0; i < 240; i++) {
+      try {
+        const st = await rpc('graph.status', { runId });
+        let run = graphRuns.get(runId);
+        if (run === undefined) {
+          run = { runId, defName: st.defName || '', done: false, ok: undefined, nodes: new Map(), blackboard: undefined, error: undefined };
+        }
+        run.defName = st.defName;
+        run.done = st.done;
+        run.ok = st.ok;
+        run.blackboard = st.blackboard;
+        run.error = st.error;
+        const m = new Map();
+        (st.nodes || []).forEach((n) => m.set(n.id, n));
+        run.nodes = m;
+        graphRuns.set(runId, run);
+        renderGraphRun(run);
+        if (st.done) return;
+      } catch (e) { /* 运行态尚未注册，继续 */ }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  async function loadSample() {
+    const sample = {
+      name: 'sample-research',
+      steps: [
+        { id: 'plan', prompt: '列出研究主题的三个子问题。' },
+        { id: 'a', dependsOn: ['plan'], prompt: '深入调研第一个子问题并给出要点。' },
+        { id: 'b', dependsOn: ['plan'], prompt: '深入调研第二个子问题并给出要点。' },
+        { id: 'merge', dependsOn: ['a', 'b'], prompt: '综合 a 与 b 的结论，输出最终报告。' },
+      ],
+    };
+    $('#graphName').value = sample.name;
+    $('#stepEditor').innerHTML = '';
+    sample.steps.forEach(addStepRow);
+    renderPreview();
+    toast('已载入示例（未保存，可点「保存」）');
+  }
+  $('#graphRefresh').onclick = () => loadGraphs();
+  $('#graphNew').onclick = () => { $('#graphName').value = ''; $('#stepEditor').innerHTML = ''; addStepRow(); renderPreview(); };
+  $('#graphSample').onclick = () => loadSample();
+  $('#addStep').onclick = () => addStepRow();
+  $('#graphSave').onclick = () => saveGraph();
+  $('#graphRun').onclick = () => runGraph();
+  $('#stepEditor').addEventListener('input', renderPreview);
+
+  // ---------- 启动 ----------
+  loadConfig(); loadTree(); loadPlugins(); loadGraphs(); loadMemories(); loadProfiles();
+})();
+</script>
+</body>
+</html>

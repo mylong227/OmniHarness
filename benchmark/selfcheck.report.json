@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-09-03T12:39:42.734Z",
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "allPass": true
+  },
+  "properties": [
+    {
+      "prop": "安全 fail-closed",
+      "probe": "裸能力禁闭色荷结构性拒配(exposed=false)",
+      "measured": "exposed=false | reason=confined：裸能力(非单态)结构性拒配，不暴露",
+      "pass": true,
+      "evidence": [
+        "confinement.test.ts",
+        "evolutionGate.test.ts",
+        "ruleApproval.test.ts",
+        "promptInjectionGuard.test.ts",
+        "sandbox.test.ts",
+        "supervisor.test.ts"
+      ]
+    },
+    {
+      "prop": "不灾难性遗忘",
+      "probe": "重大事实冲击冻结后不可变(永存)",
+      "measured": "frozen=true | 冻结后改写.accepted=false",
+      "pass": true,
+      "evidence": [
+        "oobleckStore.test.ts",
+        "heatAnnealer.test.ts",
+        "cosmicWeb.test.ts",
+        "immuneMonitor.test.ts"
+      ]
+    },
+    {
+      "prop": "低消耗",
+      "probe": "零运行时依赖 + 退火温度单调下降(算力沿 -∇T 集中)",
+      "measured": "zeroRuntimeDeps=true | T=[0.905, 0.819, 0.741, 0.670, 0.607] 单调=true",
+      "pass": true,
+      "evidence": [
+        "scripts/check.mjs",
+        "costBudget.test.ts",
+        "budgetedModel.test.ts",
+        "heatAnnealer.test.ts"
+      ]
+    },
+    {
+      "prop": "可组合扩展",
+      "probe": "莫尔组合涌现增益 > 单技能 + 元素基元互补合法组合",
+      "measured": "emComposed=0.506 > emA=0.254 | Na+Cl=合法",
+      "pass": true,
+      "evidence": [
+        "skillComposer.test.ts",
+        "elementComposer.test.ts",
+        "capabilityCrystallizer.test.ts",
+        "crispr.test.ts"
+      ]
+    },
+    {
+      "prop": "自进化可控",
+      "probe": "默认 fail-closed: 无评估证据不晋升(任何改进须过评估才晋升)",
+      "measured": "promoted=false | 得分 0.000 < 基线 0.000 + 增益 0.05 → 隔离（未达晋升阈值）",
+      "pass": true,
+      "evidence": [
+        "evolutionGate.test.ts",
+        "discoveryEngine.test.ts",
+        "evolutionIntegration.test.ts"
+      ]
+    },
+    {
+      "prop": "表征鲁棒",
+      "probe": "涡环拓扑守恒: 还原完整 + 后端篡改检测 100%",
+      "measured": "recovered=true | tamperDetected=true",
+      "pass": true,
+      "evidence": [
+        "spill.test.ts",
+        "resonantMemory.test.ts",
+        "qec.test.ts",
+        "immuneMonitor.test.ts",
+        "symmetryBreaking.test.ts"
+      ]
+    }
+  ]
+}

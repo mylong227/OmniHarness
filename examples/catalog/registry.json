@@ -1,0 +1,51 @@
+{
+  "name": "OmniHarness 离线插件目录（占位 registry）",
+  "description": "本地 catalog 占位服务：与远程 registry 同 schema，离线可用，可被用户直接编辑扩展市场。",
+  "plugins": [
+    {
+      "name": "github-tools",
+      "version": "0.1.0",
+      "description": "GitHub 仓库/Issue/PR 操作（声明 network）",
+      "author": "OmniHarness Samples",
+      "permissions": ["network"],
+      "entry": "index.js",
+      "localPath": "examples/plugins/github-tools"
+    },
+    {
+      "name": "web-fetch",
+      "version": "0.1.0",
+      "description": "抓取网页并抽取正文（声明 network）",
+      "author": "OmniHarness Samples",
+      "permissions": ["network"],
+      "entry": "index.js",
+      "localPath": "examples/plugins/web-fetch"
+    },
+    {
+      "name": "pdf-read",
+      "version": "0.1.0",
+      "description": "读取本地 PDF 抽取文本（声明 fs.read）",
+      "author": "OmniHarness Samples",
+      "permissions": ["fs.read"],
+      "entry": "index.js",
+      "localPath": "examples/plugins/pdf-read"
+    },
+    {
+      "name": "hello-tool",
+      "version": "0.1.0",
+      "description": "演示插件：注册 hello_world 工具（声明 fs.read）",
+      "author": "OmniHarness Samples",
+      "permissions": ["fs.read"],
+      "entry": "index.js",
+      "localPath": "examples/plugins/hello-tool"
+    },
+    {
+      "name": "demo-notes",
+      "version": "0.1.0",
+      "description": "仅由离线 catalog 提供的示例插件：注册 notes_echo 工具（声明 fs.read）。用于验证文件型 registry 源端到端可用。",
+      "author": "OmniHarness Samples",
+      "permissions": ["fs.read"],
+      "entry": "index.js",
+      "localPath": "examples/plugins/demo-notes"
+    }
+  ]
+}

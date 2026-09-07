@@ -1,0 +1,40 @@
+import { McpClient } from './mcpClient.js';
+import { McpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.js';
+import type { McpInitializeResult } from './mcpProtocol.js';
+
+/**
+ * @beta
+ * 已建立的连接（握手完成）。
+ */
+export interface McpConnection {
+  readonly client: McpClient;
+  readonly info: McpInitializeResult;
+  readonly close: () => void;
+}
+
+/**
+ * @beta
+ * 连接器选项。
+ */
+export interface McpConnectorOptions extends McpStdioServerOptions {
+  readonly timeoutMs?: number;
+}
+
+/**
+ * @beta
+ * MCP 连接器：启动外部服务器 → 握手 → 返回可用客户端（启动失败即抛错）。
+ */
+export class McpConnector {
+  /** 建立连接（握手成功返回，失败关闭子进程并抛出）。 */
+  static async connect(options: McpConnectorOptions): Promise<McpConnection> {
+    const handle = McpStdioTransport.launch(options);
+    try {
+      const client = new McpClient({ transport: handle.transport, timeoutMs: options.timeoutMs });
+      const info = await Promise.race([client.initialize(), handle.failure]);
+      return { client, info, close: () => handle.close() };
+    } catch (error) {
+      handle.close();
+      throw error;
+    }
+  }
+}

@@ -1,0 +1,252 @@
+import type { ApprovalPort } from '../ports/approval.js';
+import type { EventPort } from '../ports/eventPort.js';
+import type { ModelPort } from '../ports/model.js';
+import { RetryingModel, DEFAULT_RETRY_POLICY } from '../adapters/model/retryingModel.js';
+import { BudgetedModel } from '../adapters/model/budgetedModel.js';
+import { CostBudget } from '../adapters/model/costBudget.js';
+import { MockModel } from '../adapters/model/mockModel.js';
+import {
+  ModelRouter,
+  type ModelRouterOptions,
+  type RouterStrategy,
+} from '../adapters/model/router.js';
+import { OpenAiCompatibleModel } from '../adapters/model/openaiCompatibleModel.js';
+import { AnthropicModel } from '../adapters/model/anthropicModel.js';
+import { ResponsesModel } from '../adapters/model/responsesModel.js';
+import { ConfigError } from './configLayer.js';
+import type { ModelRouterConfig } from './configFile.js';
+import type { SandboxPort } from '../ports/sandbox.js';
+import type { EscalationPort } from '../ports/escalation.js';
+import { join } from 'node:path';
+import type { SpillPort } from '../ports/spill.js';
+import { AutoApproval } from '../adapters/approval/autoApproval.js';
+import { CachedApproval } from '../adapters/approval/cachedApproval.js';
+import { TurnDiffTracker } from '../core/turnDiffTracker.js';
+import { TurnDiffHooks } from '../adapters/diff/turnDiffHooks.js';
+import { ToolHookRunner } from '../core/toolHooks.js';
+import { FileSpill } from '../adapters/spill/fileSpill.js';
+import { MemorySpill } from '../adapters/spill/memorySpill.js';
+import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
+import { ToolResultSpiller } from '../context/toolResultSpiller.js';
+import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
+import type { LspPort } from '../ports/lsp.js';
+import type { AgentIdentityPort } from '../ports/agentIdentity.js';
+import { Ed25519AgentIdentity } from '../adapters/identity/ed25519Identity.js';
+import { LspProcessAdapter } from '../adapters/lsp/lspProcess.js';
+import { fileToUri } from '../lsp/lspUri.js';
+import type { UserResponder } from '../ports/userResponder.js';
+import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
+import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
+import type { OmniHarnessConfig, SubagentPortSeed } from './omniharnessConfig.js';
+
+/** Spill 默认目录（#74：超大工具输出外溢，避免撑爆上下文）。 */
+const DEFAULT_SPILL_DIR = '.omniharness/spill';
+
+/**
+ * 装配审批端口（#M4）：未开启缓存时原样返回；开启则包一层 `CachedApproval`。
+ * 策略指纹取「审批后端名 | 沙箱后端名」——任一侧策略变化即整体失效，
+ * 避免沿用旧裁决（例如把 sandbox 从 policy 换成 restricted 后仍按旧结论放行）。
+ */
+export function buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
+  const inner = partial.approvals ?? new AutoApproval();
+  if (partial.approvalCache !== true) {
+    return inner;
+  }
+  return new CachedApproval(inner, {
+    cwd: partial.workspaceRoot,
+    policyFingerprint: `${inner.name}|${sandbox.name}`,
+    maxEntries: partial.approvalCacheMaxEntries,
+  });
+}
+
+/** 装配工具钩子（#M5）：目前只有变更追踪钩子，后续钩子在此追加注册即可。 */
+export function buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
+  const runner = new ToolHookRunner();
+  runner.add(new TurnDiffHooks(tracker, workspaceRoot).hooks());
+  return runner;
+}
+
+/**
+ * 装配模型端口（#M6 + #S29）：
+ * - 开启 `modelRetry` 则包 `RetryingModel` 退避重试；
+ * - 配置了 `costBudgetUsd` 正数则再包 `BudgetedModel`（外层，先判预算再重试，确保不重复记账、熔断优先于重试）。
+ * 二者皆可选，对上层透明（名称/接口不变）。
+ */
+export function buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
+  let inner: ModelPort;
+  if (partial.modelRouter !== undefined) {
+    inner = buildRouter(partial.modelRouter);
+  } else {
+    inner = partial.model;
+  }
+  if (partial.modelRetry === true) {
+    inner = new RetryingModel(inner, {
+      maxAttempts: partial.modelRetryMaxAttempts ?? DEFAULT_RETRY_POLICY.maxAttempts,
+      baseDelayMs: partial.modelRetryBaseDelayMs ?? DEFAULT_RETRY_POLICY.baseDelayMs,
+      maxDelayMs: DEFAULT_RETRY_POLICY.maxDelayMs,
+      jitter: DEFAULT_RETRY_POLICY.jitter,
+    });
+  }
+  if (budget !== undefined && budget.limitUsd > 0) {
+    inner = new BudgetedModel(inner, budget);
+  }
+  return inner;
+}
+
+/**
+ * 装配模型路由（#B4）：按 modelRouter 配置把多个底层适配器包成单一 ModelRouter。
+ * entries 的 adapter 复用既有模型适配器构造逻辑（按 adapter 类型名选底层适配器，默认 mock），
+ * 凭据取自环境变量（与 CLI 一致，fail-closed 缺密钥即报错）。
+ */
+export function buildRouter(cfg: ModelRouterConfig): ModelPort {
+  const VALID_STRATEGIES = new Set<string>([
+    'least-cost',
+    'round-robin',
+    'by-task',
+    'health-fallback',
+  ]);
+  if (!VALID_STRATEGIES.has(cfg.strategy)) {
+    throw new ConfigError(
+      `modelRouter.strategy 取值 "${cfg.strategy}" 非法，允许: ${[...VALID_STRATEGIES].join(' | ')}`,
+    );
+  }
+  if (cfg.entries.length === 0) {
+    throw new ConfigError('modelRouter.entries 不能为空（fail-closed）');
+  }
+  const entries: ModelRouterOptions['entries'] = cfg.entries.map((entry) => ({
+    adapter: buildRouterAdapter(entry),
+    model: entry.model,
+    pricing: entry.pricing,
+  }));
+  return new ModelRouter({
+    entries,
+    strategy: cfg.strategy as RouterStrategy,
+    taskField: cfg.taskField,
+  });
+}
+
+/** 按 adapter 类型名构造底层模型适配器（复用既有适配器类，凭据取环境变量）。 */
+export function buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
+  const type = entry.adapter ?? 'mock';
+  if (type === 'openai') {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey === undefined) {
+      throw new ConfigError('modelRouter openai 条目需要环境变量 OPENAI_API_KEY');
+    }
+    return new OpenAiCompatibleModel({
+      baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+      apiKey,
+      model: entry.model,
+    });
+  }
+  if (type === 'anthropic') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (apiKey === undefined) {
+      throw new ConfigError('modelRouter anthropic 条目需要环境变量 ANTHROPIC_API_KEY');
+    }
+    return new AnthropicModel({
+      baseUrl: process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com',
+      apiKey,
+      model: entry.model,
+    });
+  }
+  if (type === 'responses') {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey === undefined) {
+      throw new ConfigError('modelRouter responses 条目需要环境变量 OPENAI_API_KEY');
+    }
+    return new ResponsesModel({
+      baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+      apiKey,
+      model: entry.model,
+    });
+  }
+  if (type !== 'mock') {
+    throw new ConfigError(`modelRouter 未知 adapter 类型 "${type}"`);
+  }
+  return new MockModel();
+}
+
+/**
+ * 装配 LSP 端口（#S32）：仅当配置了 `lsp.serverCommand` 时构造 `LspProcessAdapter`（外启语言服务器子进程）。
+ * 服务器由用户自备——这是零依赖铁律下接入 LSP 的唯一合规方式；不配则端口为 undefined，LSP 工具不注册。
+ * rootUri 缺省用 workspaceRoot 推导的 file:// URI。
+ */
+export function buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
+  if (partial.lspServer === undefined || partial.lspServer.serverCommand.trim() === '') {
+    return undefined;
+  }
+  return new LspProcessAdapter({
+    serverCommand: partial.lspServer.serverCommand,
+    serverArgs: partial.lspServer.serverArgs,
+    rootUri: partial.lspServer.rootUri ?? fileToUri(partial.workspaceRoot),
+  });
+}
+
+/**
+ * 装配 Agent 密码学身份端口（#S33）：仅当配置了 `agentIdentity`（私钥或 runtimeId）时构造 `Ed25519AgentIdentity`。
+ * 零依赖（仅 Node 内置 node:crypto）。不配则端口为 undefined，`agent_identity` 工具不注册。
+ */
+export function buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
+  if (partial.agentIdentity === undefined) {
+    return undefined;
+  }
+  return new Ed25519AgentIdentity({
+    privateKeyPkcs8Base64: partial.agentIdentity.privateKeyPkcs8Base64,
+    agentRuntimeId: partial.agentIdentity.agentRuntimeId,
+  });
+}
+
+/** 自动选择用户回答器：TTY 交互用 Console，否则 fail-soft 的 Default。 */
+export function autoUserResponder(): UserResponder {
+  return process.stdout.isTTY ? new ConsoleUserResponder() : new DefaultUserResponder();
+}
+
+/**
+ * 构造子智能体端口种子：`tools` 字段留空，由 `defaultTools` 回填为正在构造的注册表——
+ * 子代工具子集需从父工具集裁剪，故此处存在构造期循环引用（运行时解引用，无害）。
+ */
+export function seedOf(
+  partial: OmniHarnessConfig,
+  approvals: ApprovalPort,
+  sandbox: SandboxPort,
+  events: EventPort,
+  spill: SpillPort,
+  spiller: ToolResultSpiller,
+  escalation: EscalationPort,
+  elevatedSandbox: SandboxPort,
+  longTermMemory: LongTermMemoryPort,
+  costBudget: CostBudget | undefined,
+): SubagentPortSeed {
+  return {
+    model: buildModel(partial, costBudget),
+    storage: partial.storage,
+    events,
+    sandbox,
+    approvals,
+    spill,
+    spiller,
+    workspaceRoot: partial.workspaceRoot,
+    maxSteps: partial.maxSteps,
+    escalation,
+    elevatedSandbox,
+    longTermMemory,
+    goalMaxIterations: partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS,
+    subagent: {
+      maxDepth: partial.subagentMaxDepth,
+      maxConcurrency: partial.subagentConcurrency,
+      maxSteps: partial.subagentMaxSteps,
+    },
+  };
+}
+
+/** 构建外溢端口：自定义优先，否则按 spillAdapter 选内置实现。 */
+export function buildSpill(partial: OmniHarnessConfig): SpillPort {
+  if (partial.spill !== undefined) {
+    return partial.spill;
+  }
+  if (partial.spillAdapter === 'memory') {
+    return new MemorySpill();
+  }
+  return new FileSpill(join(partial.workspaceRoot, partial.spillDir ?? DEFAULT_SPILL_DIR));
+}

@@ -1,0 +1,186 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { ProfileLoader } from './profile.js';
+import {
+  ConfigError,
+  loadBundlePatchLayer,
+  mergeConfigs,
+  normalizeConfig,
+  readEnvConfig,
+} from './configLayer.js';
+
+/** 配置文件里的 MCP 服务器声明。 */
+export interface FileMcpServer {
+  readonly name: string;
+  readonly command: string;
+  readonly args?: readonly string[];
+}
+
+/** 配置文件内容（omniharness.json，端口选择）。 */
+export interface FileConfig {
+  readonly mcpServers?: readonly FileMcpServer[];
+  readonly modelAdapter?: 'mock' | 'openai' | 'anthropic' | 'responses' | 'llamacpp';
+  readonly baseUrl?: string;
+  readonly apiKey?: string;
+  readonly model?: string;
+  readonly storageAdapter?: 'memory' | 'jsonl' | 'sqlite';
+  readonly storageDir?: string;
+  readonly approval?: 'auto' | 'deny' | 'rules' | 'guardian' | 'ask';
+  /** 推理强度（#B6，可选）：minimal / low / medium / high / xhigh，透传为模型 reasoning_effort。 */
+  readonly reasoning?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  readonly sandbox?: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
+  readonly escalation?: 'deny' | 'ask' | 'auto';
+  /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
+  readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
+  readonly workspace?: string;
+  /** 项目工作区列表（UI「添加项目」维护）：绝对路径数组，供工作区面板分组展示与快速切换。 */
+  readonly workspaces?: string[];
+  /** 激活的插件集 Profile（#G-E/P5.1）：`omniharness profile use <name>` 落盘，serve 启动时默认应用。 */
+  readonly pluginProfile?: string;
+  readonly maxSteps?: number;
+  /** 长期记忆落盘加密（#4.4 Vault 集成）：AES-256-GCM 逐行加密 memory.jsonl。 */
+  readonly longTermMemoryEncryption?: boolean;
+  /** 加密密钥文件路径（#4.4）：缺省为工作区 .omniharness/longterm/memory.key。 */
+  readonly longTermMemoryKeyFile?: string;
+  /** 智能模型路由（#B4）：按策略在多个底层模型适配器间路由，fail-closed 严格校验。 */
+  readonly modelRouter?: ModelRouterConfig;
+  /**
+   * 各厂商 API Key 集合（#模型接入页）：厂商标识 → Key。
+   * 仅落盘本地配置文件；config.get 回传时一律打码，凭据原文不出服务端。
+   */
+  readonly providerKeys?: Record<string, string>;
+}
+
+/** 模型路由条目配置（底层适配器 + 模型名 + 可选定价）。 */
+export interface ModelRouterEntryConfig {
+  readonly model: string;
+  /** 底层适配器类型（缺省 mock）；构造时复用既有的模型适配器逻辑。 */
+  readonly adapter?: string;
+  /** 每千 token 定价（USD），least-cost 用。 */
+  readonly pricing?: { readonly inputPer1k: number; readonly outputPer1k: number };
+}
+
+/** 模型路由配置（#B4）。 */
+export interface ModelRouterConfig {
+  readonly strategy: string;
+  readonly entries: readonly ModelRouterEntryConfig[];
+  /** by-task 策略下仅匹配该 role 的消息（可选）。 */
+  readonly taskField?: string;
+}
+
+/** loadLayered 的参数。 */
+export interface LayeredOptions {
+  readonly workspace: string;
+  /** 显式配置文件路径（--config），优先于向上查找。 */
+  readonly configPath?: string;
+  /** 选中的 profile 名（--profile），PATH 在 profiles/ 下查找。 */
+  readonly profile?: string;
+}
+
+/** 配置文件加载器：omniharness.json，向上逐级查找。 */
+export class ConfigFile {
+  /** 配置文件固定名。 */
+  static readonly FILE_NAME = 'omniharness.json';
+
+  /** 从目录向上查找配置文件。 */
+  static find(startDir: string): string | undefined {
+    let current = startDir;
+    while (true) {
+      const candidate = join(current, ConfigFile.FILE_NAME);
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+      const parent = dirname(current);
+      if (parent === current) {
+        return undefined;
+      }
+      current = parent;
+    }
+  }
+
+  /** 加载并解析配置文件（文件不存在返回空配置，宽松：不校验未知 key）。 */
+  static load(filePath: string): FileConfig {
+    try {
+      const raw = readFileSync(filePath, 'utf8');
+      return JSON.parse(raw) as FileConfig;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * 写回配置文件（落盘）：先归一化校验（未知 key / 枚举越界 / 类型错误 fail-closed 抛 ConfigError），
+   * 目录不存在自动创建，输出 pretty JSON。供 AppServer.config.update 持久化 UI 设置。
+   */
+  static save(filePath: string, cfg: FileConfig): void {
+    const dir = dirname(filePath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    const normalized = normalizeConfig(cfg as Record<string, unknown>);
+    writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
+  }
+
+  /**
+   * 分层加载并严格合并配置（#G6）：
+   *   用户级 ~/.omniharness/omniharness.json → 项目级 omniharness.json → profile → 环境变量
+   * 各层（除环境变量层，它天然只含已知 key）经 normalizeConfig 严格校验，未知 key / 枚举越界 / 类型错误
+   * 一律 fail-closed 抛 ConfigError。合并语义为「非零值覆盖」，CLI 参数在更上层（parseArgs）继续覆盖。
+   */
+  static loadLayered(opts: LayeredOptions): FileConfig {
+    const layers: Partial<FileConfig>[] = [];
+
+    // 用户级：固定路径 ~/.omniharness/omniharness.json（若存在）。
+    const userPath = join(homedir(), '.omniharness', 'omniharness.json');
+    if (existsSync(userPath)) {
+      layers.push(ConfigFile.readStrict(userPath));
+    }
+
+    // 项目级：显式 --config 优先，否则向上查找。
+    const projectPath = opts.configPath ?? ConfigFile.find(opts.workspace);
+    if (projectPath !== undefined && existsSync(projectPath)) {
+      layers.push(ConfigFile.readStrict(projectPath));
+    }
+
+    // profile 层：仅当指定 --profile 时加载（覆盖项目默认）。
+    if (opts.profile !== undefined) {
+      const profilePath = ProfileLoader.find(opts.workspace, opts.profile);
+      if (profilePath === undefined) {
+        throw new ConfigError(
+          `未找到 profile "${opts.profile}"（查找 ./profiles/<name>.json 与 ~/.omniharness/profiles/<name>.json）`,
+        );
+      }
+      layers.push(ProfileLoader.load(profilePath));
+    }
+
+    // bundle 补丁层（G-E 5.2/5.3）：由 `bundle unpack` 写出的 config 覆盖，叠在 profile 之上、
+    // 低于显式 env。放在 env 之前插入，使发布单元携带的推荐配置在运行时生效。
+    layers.push(loadBundlePatchLayer(opts.workspace));
+
+    // 环境变量层：最高优先级（仍低于 CLI 参数）。
+    layers.push(readEnvConfig());
+
+    return mergeConfigs(...layers);
+  }
+
+  /** 读文件并严格归一化（未知 key / 枚举越界 / 类型错误抛 ConfigError）。 */
+  private static readStrict(filePath: string): FileConfig {
+    let raw: string;
+    try {
+      raw = readFileSync(filePath, 'utf8');
+    } catch (err) {
+      throw new ConfigError(`无法读取配置文件 ${filePath}: ${(err as Error).message}`);
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      throw new ConfigError(`配置文件 ${filePath} 不是合法 JSON: ${(err as Error).message}`);
+    }
+    if (typeof parsed !== 'object' || parsed === null) {
+      throw new ConfigError(`配置文件 ${filePath} 顶层应为对象`);
+    }
+    return normalizeConfig(parsed as Record<string, unknown>);
+  }
+}

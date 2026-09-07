@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  gate:
+    name: 铁律自检 + 类型检查 + 构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      # 仅含 devDependencies（@types/node, typescript），零运行时依赖。
+      - run: npm install
+      # 阻断级铁律：零运行时依赖 / 禁止第三方裸导入 / TS 文件名 camelCase。
+      - run: npm run check
+      - run: npm run typecheck
+      - run: npm run build
+      # 工程化门禁：ESLint 仅 error 阻断（未用变量为 warn），CI 不红。
+      - run: npm run lint
+      # 公开 API 稳定性契约：每项 export 必须落在带 @public/@beta/@deprecated 标注的分区内。
+      - run: npm run api:check
+
+  test:
+    name: 单元测试（含覆盖率门禁）
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      # 原生内核（.node）在 CI 环境未构建，相关用例会自动 skip；其余用例真实执行。
+      # coverage:check = 构建 + 全量测试 + Node 内置覆盖率 + 行覆盖率阈值门禁（零依赖）。
+      - run: npm run coverage:check
+      # 集成/端到端分层：多模块真实 IO 编排（agent→门禁→存储→检查点→权限），独立于单元测试。
+      - run: npm run test:integration
+
+  security:
+    name: 安全左移（依赖 CVE + secrets + 格式）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks 需完整历史才能扫描历史提交里的凭据。
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      # 依赖漏洞门禁：运行时依赖为零，此举守住 devDependencies 供应链（构建期同样可被投毒）。
+      # 只阻断 high/critical，避免中低危噪声淹没信号导致门禁被习惯性忽略。
+      - name: 依赖漏洞扫描（npm audit）
+        run: npm audit --audit-level=high
+      # 格式门禁：此前 prettier 只在 pre-commit 钩子里跑，CI 从未校验，
+      # 未装钩子的贡献者提交的代码格式漂移无人拦截。
+      - name: 格式校验
+        run: npm run format:check
+      # secrets 检测：凭据一旦进入仓库历史即为永久泄露，必须在 PR 阶段就拦下。
+      # 注：私有仓库需配置 GITLEAKS_LICENSE（组织级 secret），否则该步骤会失败——
+      # 这是有意为之的阻断，不是可忽略的噪声；若确实无法获取许可，应改用本地 gitleaks CLI
+      # 作为 pre-commit 钩子，而不是把这一步设成 continue-on-error 自欺欺人。
+      - name: secrets 扫描（gitleaks）
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  rust:
+    name: Rust 门禁（fmt + clippy + test）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Rust 此前零门禁：本 job 补上 fmt/clippy/test 三道关卡。
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      # 格式统一校验（零依赖铁律下的代码一致性）。
+      - run: cargo fmt --all -- --check
+      # 静态分析：警告即阻断，杜绝「未检查就合并」。
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      # 真实编译 + 全量单测（含 Windows-only 后端在 ubuntu 下走 cfg 降级分支）。
+      - run: cargo test --workspace
+
+  e2e:
+    name: 端到端（smoke + stress）
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      # smoke/stress 此前游离主门禁，CI 红线碰不到；现独立 job 强制跑。
+      - run: npm run smoke
+      - run: npm run stress
+
+  wasm:
+    name: WASM 构建 + E2E
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      # omni-wasm 内核构建 + wasm E2E（此前未进主门禁）。
+      - run: npm run wasm:test

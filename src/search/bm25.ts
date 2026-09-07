@@ -1,0 +1,265 @@
+/**
+ * 零依赖 Okapi BM25 检索器（#M1 工具语义检索）。
+ * 仅依赖标准 JS，用于工具 schema 的自然语言检索，无需引入任何 BM25 库。
+ */
+
+/**
+ * @beta
+ * BM25 调参。
+ */
+export interface Bm25Options {
+  readonly k1?: number;
+  readonly b?: number;
+}
+
+/**
+ * @beta
+ * 单文档得分。
+ */
+export interface Bm25Hit {
+  readonly id: number;
+  readonly score: number;
+}
+
+/**
+ * @beta
+ * Okapi BM25 倒排索引检索器。
+ * 文档以「已分词 token 数组」形式加入；查询同样传入 token 数组。
+ */
+export class Bm25Index {
+  private readonly k1: number;
+  private readonly b: number;
+  private readonly documents: string[][] = [];
+  private readonly documentFrequency = new Map<string, number>();
+  private averageLength = 0;
+
+  constructor(options: Bm25Options = {}) {
+    this.k1 = options.k1 ?? 1.5;
+    this.b = options.b ?? 0.75;
+  }
+
+  /** 批量加入已分词文档。 */
+  addDocuments(documents: readonly (readonly string[])[]): void {
+    let total = 0;
+    for (const tokens of documents) {
+      this.documents.push([...tokens]);
+      total += tokens.length;
+      const seen = new Set<string>();
+      for (const term of tokens) {
+        if (seen.has(term)) {
+          continue;
+        }
+        seen.add(term);
+        this.documentFrequency.set(term, (this.documentFrequency.get(term) ?? 0) + 1);
+      }
+    }
+    this.averageLength = this.documents.length === 0 ? 0 : total / this.documents.length;
+  }
+
+  /** 检索：查询词（已分词）→ 降序得分，截断 limit。 */
+  search(queryTokens: readonly string[], limit: number): readonly Bm25Hit[] {
+    const count = this.documents.length;
+    if (count === 0 || limit <= 0) {
+      return [];
+    }
+    const scores = new Array<number>(count).fill(0);
+    for (const term of queryTokens) {
+      const df = this.documentFrequency.get(term);
+      if (df === undefined) {
+        continue;
+      }
+      const idf = Math.log(1 + (count - df + 0.5) / (df + 0.5));
+      for (let docId = 0; docId < count; docId += 1) {
+        const doc = this.documents[docId];
+        if (doc === undefined) {
+          continue;
+        }
+        let frequency = 0;
+        for (const token of doc) {
+          if (token === term) {
+            frequency += 1;
+          }
+        }
+        if (frequency === 0) {
+          continue;
+        }
+        const docLength = doc.length;
+        const denominator =
+          frequency +
+          this.k1 *
+            (1 - this.b + this.b * (this.averageLength === 0 ? 0 : docLength / this.averageLength));
+        scores[docId] = (scores[docId] ?? 0) + (idf * (frequency * (this.k1 + 1))) / denominator;
+      }
+    }
+    const hits: Bm25Hit[] = [];
+    for (let docId = 0; docId < count; docId += 1) {
+      const score = scores[docId] ?? 0;
+      if (score > 0) {
+        hits.push({ id: docId, score });
+      }
+    }
+    hits.sort((left, right) => right.score - left.score);
+    return hits.slice(0, limit);
+  }
+}
+
+/**
+ * @beta
+ * 文本分词：ASCII 词（长度 ≥2，小写）+ CJK 单字 / 二元组。
+ * 兼顾中英文工具名与描述（如「读取文件」/「read_file」），无需分词器依赖。
+ */
+export function tokenize(text: string): string[] {
+  const lower = text.toLowerCase();
+  const tokens: string[] = [];
+  const ascii = /[a-z0-9_]+/g;
+  let match = ascii.exec(lower);
+  while (match !== null) {
+    const word = match[0];
+    if (word.length >= 2) {
+      tokens.push(word);
+      // 蛇形词按 _ 拆出子词（read_file → read / file），提升子串召回。
+      for (const part of word.split('_')) {
+        if (part.length >= 2) {
+          tokens.push(part);
+        }
+      }
+    }
+    match = ascii.exec(lower);
+  }
+  const cjk = /[一-鿿]+/g;
+  match = cjk.exec(lower);
+  while (match !== null) {
+    const run = match[0];
+    for (let i = 0; i < run.length; i += 1) {
+      const ch = run[i];
+      if (ch !== undefined) {
+        tokens.push(ch);
+      }
+      if (i + 1 < run.length) {
+        const bigram = run.slice(i, i + 2);
+        tokens.push(bigram);
+      }
+    }
+    match = cjk.exec(lower);
+  }
+  return tokens.filter((token) => token !== '');
+}
+
+/**
+ * @beta
+ * camelCase / PascalCase 拆分（保留缩略词）：
+ * - `registerTool` → `register`, `tool`
+ * - `ContextAssembler` → `context`, `assembler`
+ * - `HTTPServer` → `http`, `server`
+ * 代码标识符多为驼峰，不拆分则 `registerTool` 退化为整词 `registertool`，
+ * 与查询中的 `registration` / `register` 永远无法字面命中。
+ */
+export function splitCamel(word: string): string[] {
+  const parts: string[] = [];
+  let buf = '';
+  const isUpper = (c: string): boolean => c >= 'A' && c <= 'Z';
+  const isLower = (c: string): boolean => c >= 'a' && c <= 'z';
+  for (let i = 0; i < word.length; i += 1) {
+    const c = word[i];
+    if (c === undefined) continue;
+    if (isUpper(c) && buf !== '') {
+      const prev = buf[buf.length - 1] ?? '';
+      const next = word[i + 1] ?? '';
+      // 边界：小写→大写（register|Tool），或 缩略词→首字母大写（HTTP|Server）
+      if (isLower(prev) || (isUpper(prev) && isLower(next))) {
+        parts.push(buf);
+        buf = c;
+        continue;
+      }
+    }
+    buf += c;
+  }
+  if (buf !== '') parts.push(buf);
+  return parts.map((p) => p.toLowerCase()).filter((p) => p.length >= 2);
+}
+
+/**
+ * 词形归并规则（后缀 → 替换）。代码与自然语言查询常见屈折/派生差异：
+ * `spilled`/`spill`、`escalation`/`escalate`、`policies`/`policy`、`tokenizer`/`tokenize`。
+ */
+const MORPH_RULES: ReadonlyArray<readonly [string, string]> = [
+  ['sses', 'ss'],
+  ['ies', 'y'],
+  ['ization', 'ize'],
+  ['ations', 'ation'],
+  ['ation', ''],
+  ['ator', 'ate'],
+  ['izer', ''],
+  ['ize', ''],
+  ['ement', ''],
+  ['ment', ''],
+  ['ness', ''],
+  ['ing', ''],
+  ['ion', ''],
+  ['ate', 'at'],
+  ['ed', ''],
+  ['ers', ''],
+  ['er', ''],
+  ['es', ''],
+  ['s', ''],
+  ['ly', ''],
+];
+
+/**
+ * @beta
+ * 词形变体集：原词 + 所有适用规则的一步归并结果。
+ * 采用「多规则并行生成」而非「首条命中即停」，因为单一后缀剥离无法统一
+ * `register`/`registration`（需不同规则才收敛到同一 `registr`）。
+ * 文档侧与查询侧使用同一函数，两侧同时展开后交集命中。
+ */
+export function morphVariants(token: string): string[] {
+  const out = new Set<string>([token]);
+  if (token.length < 4) return [...out];
+  for (const [suffix, repl] of MORPH_RULES) {
+    if (token.length > suffix.length + 2 && token.endsWith(suffix)) {
+      const stem = token.slice(0, token.length - suffix.length) + repl;
+      if (stem.length >= 3) out.add(stem);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * @beta
+ * 增强分词：在 `tokenize` 之上叠加 (1) camelCase 拆分 (2) 词形变体归并。
+ * 专供代码语料检索（repo-map / 符号索引）使用；`tokenize` 保持原语义不变，
+ * 以免波及工具检索、会话检索等既有调用方。
+ */
+export function tokenizeExpanded(text: string): string[] {
+  const out = new Set<string>();
+  const push = (w: string): void => {
+    if (w.length < 2) return;
+    const lw = w.toLowerCase();
+    out.add(lw);
+    for (const v of morphVariants(lw)) out.add(v);
+  };
+
+  const ascii = /[A-Za-z0-9_]+/g;
+  let m = ascii.exec(text);
+  while (m !== null) {
+    const word = m[0];
+    push(word);
+    for (const part of word.split('_')) push(part);
+    for (const part of splitCamel(word)) push(part);
+    m = ascii.exec(text);
+  }
+
+  // CJK 沿用单字 + 二元组（无形态变化，不参与归并）。
+  const cjk = /[一-鿿]+/g;
+  m = cjk.exec(text);
+  while (m !== null) {
+    const run = m[0];
+    for (let i = 0; i < run.length; i += 1) {
+      const ch = run[i];
+      if (ch !== undefined) out.add(ch);
+      if (i + 1 < run.length) out.add(run.slice(i, i + 2));
+    }
+    m = cjk.exec(text);
+  }
+  return [...out].filter((t) => t !== '');
+}

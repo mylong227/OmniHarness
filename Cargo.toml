@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/omni-core",
+    "crates/omni-cli",
+    "crates/omni-wasm",
+    "crates/omni-sdk-gen",
+    "crates/omni-sdk",
+    "crates/omni-napi",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://example.invalid/omniharness"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Windows 系统 API（RestrictedToken / Job Object / 进程创建 / 动态符号解析），仅 Windows target 启用。
+# 说明：windows-sys 是纯 API 绑定 crate，GNU 工具链（mingw 链接 advapi32/kernel32）即可编译，
+# 无需 MSVC / VS Build Tools。
+windows-sys = { version = "0.60", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_IO",
+    "Win32_Globalization",
+    "Win32_System_JobObjects",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_Storage",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+] }
+
+# 面向 wasm 体积的 release 优化：size + LTO + 单 codegen 单元 + panic=abort + strip。
+# 原生二进制同样受益（原型阶段可接受 abort on panic）。
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+# FFI 插件专用 profile（#65）：继承 release 的全部优化，但 panic=unwind（宿主 Node 内
+# 必须能 catch_unwind，否则内核 panic 会把 Node 一起炸掉）+ 不 strip（保证导出表完整）。
+# 独立 profile 避免污染 wasm 构建（wasm32-unknown-unknown 不支持 unwind）。
+[profile.ffi]
+inherits = "release"
+panic = "unwind"
+strip = "none"

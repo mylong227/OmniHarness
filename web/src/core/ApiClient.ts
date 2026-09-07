@@ -1,0 +1,293 @@
+// 面向对象的服务层：封装与后端的所有 JSON-RPC 2.0 通信与 /metrics 拉取。
+// 组件层只依赖本类，不直接 fetch，便于替换与单测。
+
+import type {
+  Config,
+  FileAttachment,
+  FsNode,
+  FsReadResult,
+  GraphDef,
+  GraphGetResult,
+  GraphRunResult,
+  GraphStatusResult,
+  GraphSummary,
+  MemoryListResult,
+  MemorySearchResult,
+  Metrics,
+  PluginReloadResult,
+  PluginSearchEntry,
+  PluginManifest,
+  Profile,
+  ActivePlugins,
+  ProfileApplyResult,
+  BundlePackResult,
+  BundleUnpackResult,
+  ThreadGetResult,
+  TurnRunResult,
+} from '../types/models.js';
+
+interface JsonRpcError {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+interface JsonRpcResponse<T> {
+  jsonrpc: string;
+  id: number;
+  result?: T;
+  error?: JsonRpcError;
+}
+
+export class ApiClient {
+  private nextId = 0;
+
+  /** 统一的 JSON-RPC 2.0 调用入口；失败时抛出带服务端 message 的 Error。 */
+  async rpc<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+    const id = ++this.nextId;
+    const res = await fetch('/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+    });
+    const data = (await res.json()) as JsonRpcResponse<T>;
+    if (data && data.error) {
+      throw new Error(data.error.message || 'RPC 错误');
+    }
+    return data.result as T;
+  }
+
+  /**
+   * 拉取 /metrics 并解析。服务端返回 Prometheus 文本格式（# HELP / metric lines），
+   * 此处做轻量解析：omni_sessions gauge → sessions；omni_events_total{type="x"} → eventsByType。
+   * 早期版本误用 res.json() 解析必挂，导致指标面板永远停在「读取中…」。
+   */
+  async fetchMetrics(): Promise<Metrics> {
+    const res = await fetch('/metrics');
+    if (!res.ok) throw new Error('metrics 请求失败：' + res.status);
+    const text = await res.text();
+    const metrics: Metrics = { sessions: 0, eventsByType: {} };
+    const labelOf = (line: string, key: string): string | undefined => {
+      const m = line.match(new RegExp(key + '="([^"]*)"'));
+      return m?.[1];
+    };
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (line === '' || line.startsWith('#')) continue;
+      const sp = line.lastIndexOf(' ');
+      if (sp <= 0) continue;
+      const name = line.slice(0, sp).replace(/\{.*\}$/, '').trim();
+      const value = Number(line.slice(sp + 1).trim());
+      if (!Number.isFinite(value)) continue;
+      if (name === 'omni_sessions') {
+        metrics.sessions = Math.round(value);
+      } else if (name === 'omni_events_total') {
+        const type = labelOf(line, 'type');
+        if (type !== undefined) metrics.eventsByType![type] = Math.round(value);
+      }
+    }
+    return metrics;
+  }
+
+  // ---- 任务 / 会话 ----
+  runTurn(
+    params: { threadId?: string; prompt: string; images?: { url?: string; data?: string; mediaType?: string }[]; files?: FileAttachment[] },
+  ): Promise<TurnRunResult> {
+    return this.rpc('turns.run', params);
+  }
+  getThread(threadId: string): Promise<ThreadGetResult> {
+    return this.rpc('threads.get', { threadId });
+  }
+
+  // ---- 配置 / 审批 ----
+  getConfig(): Promise<Config> {
+    return this.rpc('config.get', {});
+  }
+  updateConfig(patch: Record<string, unknown>): Promise<unknown> {
+    return this.rpc('config.update', patch);
+  }
+  /** 厂商目录（#模型接入页）：服务端单一下发，含当前厂商与其可用模型 + 该厂商合法 reasoning_effort 档位。 */
+  modelCatalog(): Promise<{
+    providers: import('../types/models.js').ProviderPreset[];
+    active?: {
+      id: string;
+      label: string;
+      defaultModel: string;
+      model?: string;
+      models: string[];
+      /** 当前厂商合法 reasoning_effort 档位（#B6 扩展，2026-09-08）：undefined/[] 用 UI 兜底。 */
+      reasoningEffort?: string[];
+    };
+  }> {
+    return this.rpc('model.catalog', {});
+  }
+  /** Token 消耗统计：按模型 / 按会话聚合调用次数与 token 用量。 */
+  usageStats(): Promise<{
+    source: 'disk' | 'live';
+    dir: string;
+    byModel: Record<string, { calls: number; prompt: number; completion: number; total: number }>;
+    total: { calls: number; prompt: number; completion: number; total: number };
+    sessions: { sessionId: string; calls: number; total: number }[];
+  }> {
+    return this.rpc('usage.stats', {});
+  }
+  /** 厂商连通探测：真实请求 /models，返回实测状态与模型清单。 */
+  probeModels(provider?: string): Promise<{ providers: import('../types/models.js').ProviderProbeResult[] }> {
+    return this.rpc('model.probe', provider ? { provider } : {});
+  }
+  /** 工作区列表（当前 + 已添加项目）。 */
+  listWorkspaces(): Promise<{ current: string; workspaces: string[] }> {
+    return this.rpc('workspace.list', {});
+  }
+  /** 全部会话存档列表（含工作区标记），供按项目收纳。 */
+  listSessions(): Promise<{
+    dir: string;
+    sessions: { sessionId: string; workspace?: string; label: string; turns: number; updatedAt: string }[];
+  }> {
+    return this.rpc('sessions.list', {});
+  }
+  /** 工作区变更记录（git 式）；传 path 时返回该文件 patch。 */
+  listChanges(path?: string): Promise<{
+    source: string;
+    branch?: string;
+    files?: { path: string; status: string; additions: number; deletions: number }[];
+    patch?: string;
+  }> {
+    return this.rpc('changes.list', path ? { path } : {});
+  }
+  /** 添加项目文件夹（服务端校验目录存在后持久化）。 */
+  addWorkspace(path: string): Promise<{ current: string; workspaces: string[] }> {
+    return this.rpc('workspace.add', { path });
+  }
+
+  /** 服务端目录浏览（+ 添加项目的文件夹选择器 / 附件文件选择器数据源）。
+   *  includeFiles=true 时同时返回当前目录下的文件清单（附件 FilePicker 复用）。 */
+  browseFs(
+    path?: string,
+    includeFiles?: boolean,
+  ): Promise<
+    | { level: 'drives'; roots: string[]; home: string }
+    | {
+        level: 'dir';
+        path: string;
+        parent?: string;
+        dirs: string[];
+        files?: { name: string; size: number; mediaType: string }[];
+      }
+  > {
+    return this.rpc('fs.browse', { path, includeFiles });
+  }
+  /** 新建文件夹（+ 新建项目）：在 parent 目录下创建 name，返回新目录绝对路径。 */
+  mkdirFs(parent: string, name: string): Promise<{ path: string }> {
+    return this.rpc('fs.mkdir', { parent, name });
+  }
+  /** 附件读取（FilePicker 选完文件后批量读 base64）：不限工作区，类型/大小白名单。
+   *  单文件失败不阻断整体，结果按 files/errors 分开返回。 */
+  attachRead(paths: string[]): Promise<{
+    files: {
+      name: string;
+      mediaType: string;
+      data: string;
+      size: number;
+      kind: 'image' | 'video' | 'audio' | 'file';
+    }[];
+    errors: { path: string; error: string }[];
+  }> {
+    return this.rpc('attach.read', { paths });
+  }
+  /** 切换项目：服务端重建运行时组件，下回合即在新工作区执行。 */
+  switchWorkspace(path: string): Promise<{ ok: boolean; workspace: string }> {
+    return this.rpc('workspace.switch', { path });
+  }
+  respondApproval(requestId: string, decision: string): Promise<unknown> {
+    return this.rpc('approval.respond', { requestId, decision });
+  }
+
+  // ---- 文件树 ----
+  listFs(depth = 3): Promise<{ tree: FsNode[] }> {
+    return this.rpc('fs.list', { depth });
+  }
+  readFs(path: string): Promise<FsReadResult> {
+    return this.rpc('fs.read', { path });
+  }
+
+  // ---- 插件 ----
+  listPlugins(): Promise<PluginManifest[]> {
+    return this.rpc('plugins.list', {});
+  }
+  searchPlugins(query = ''): Promise<PluginSearchEntry[]> {
+    return this.rpc('plugins.search', { query });
+  }
+  installPlugin(name: string): Promise<unknown> {
+    return this.rpc('plugins.install', { name });
+  }
+  removePlugin(name: string): Promise<unknown> {
+    return this.rpc('plugins.remove', { name });
+  }
+  reloadPlugins(): Promise<PluginReloadResult> {
+    return this.rpc('plugins.reload', {});
+  }
+
+  // ---- 长期记忆 ----
+  listMemory(): Promise<MemoryListResult> {
+    return this.rpc('memory.list', {});
+  }
+  searchMemory(query: string, limit = 20): Promise<MemorySearchResult> {
+    return this.rpc('memory.search', { query, limit });
+  }
+  addMemory(fact: { text: string; topic?: string; importance?: number }): Promise<unknown> {
+    return this.rpc('memory.add', fact);
+  }
+  updateMemory(fact: { id: string; text: string; topic?: string; importance?: number }): Promise<unknown> {
+    return this.rpc('memory.update', fact);
+  }
+  deleteMemory(id: string): Promise<unknown> {
+    return this.rpc('memory.delete', { id });
+  }
+
+  // ---- 插件集 Profile + Bundle ----
+  listProfiles(): Promise<Profile[]> {
+    return this.rpc('profile.list', {});
+  }
+  getActiveProfile(): Promise<ActivePlugins> {
+    return this.rpc('profile.active', {});
+  }
+  saveProfile(profile: { name: string; plugins: string[]; description: string }): Promise<unknown> {
+    return this.rpc('profile.save', { profile });
+  }
+  applyProfile(id: string): Promise<ProfileApplyResult> {
+    return this.rpc('profile.apply', { id });
+  }
+  deleteProfile(id: string): Promise<unknown> {
+    return this.rpc('profile.delete', { id });
+  }
+  packBundle(params: { id?: string; profile?: { name: string; plugins: string[] } }): Promise<BundlePackResult> {
+    return this.rpc('bundle.pack', params);
+  }
+  unpackBundle(zipPath: string): Promise<BundleUnpackResult> {
+    return this.rpc('bundle.unpack', { zipPath });
+  }
+
+  // ---- 多 Agent 编排 ----
+  listGraphs(): Promise<GraphSummary[]> {
+    return this.rpc('graph.list', {});
+  }
+  getGraph(id: string): Promise<GraphGetResult> {
+    return this.rpc('graph.get', { id });
+  }
+  deleteGraph(id: string): Promise<unknown> {
+    return this.rpc('graph.delete', { id });
+  }
+  saveGraph(def: GraphDef): Promise<{ id: string }> {
+    return this.rpc('graph.save', { def });
+  }
+  runGraphById(id: string): Promise<GraphRunResult> {
+    return this.rpc('graph.run', { id });
+  }
+  runGraph(def: GraphDef): Promise<GraphRunResult> {
+    return this.rpc('graph.run', { def });
+  }
+  graphStatus(runId: string): Promise<GraphStatusResult> {
+    return this.rpc('graph.status', { runId });
+  }
+}

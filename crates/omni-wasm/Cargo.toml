@@ -1,0 +1,13 @@
+[package]
+name = "omni-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OmniHarness wasm 插件边界：把 omni-core 编译为 wasm32 cdylib，暴露 C ABI JSON-RPC 接口供 TS 侧调用"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+omni-core = { path = "../omni-core" }
+serde_json = "1"

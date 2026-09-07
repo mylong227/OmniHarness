@@ -1,0 +1,16 @@
+{
+  "modelAdapter": "openai",
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "YOUR_API_KEY_HERE",
+  "model": "gpt-4o-mini",
+  "storageAdapter": "jsonl",
+  "storageDir": ".omniharness/sessions",
+  "approval": "rules",
+  "sandbox": "policy",
+  "escalation": "ask",
+  "elevatedSandbox": "policy",
+  "maxSteps": 32,
+  "longTermMemoryEncryption": false,
+  "longTermMemoryKeyFile": ".omniharness/memory.key",
+  "mcpServers": {}
+}

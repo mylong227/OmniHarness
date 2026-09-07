@@ -1,0 +1,10 @@
+{
+  "name": "demo-notes",
+  "version": "0.1.0",
+  "description": "离线 catalog 示例插件：注册 notes_echo 工具",
+  "author": "OmniHarness Samples",
+  "permissions": ["fs.read"],
+  "entry": "index.js",
+  "source": "remote",
+  "localPath": "examples/plugins/demo-notes"
+}

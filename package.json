@@ -1,0 +1,116 @@
+{
+  "name": "omniharness",
+  "version": "0.1.0",
+  "description": "OmniHarness —— 融合 Codex Harness 与 DeepSeek Harness 优点的全能 Agent Harness（TypeScript 实现）",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./beta": {
+      "types": "./dist/src/indexBeta.d.ts",
+      "default": "./dist/src/indexBeta.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "web",
+    "docs",
+    "examples",
+    "LICENSE",
+    "README.md",
+    "omniharness.json.example"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/omniharness/omniharness.git"
+  },
+  "homepage": "https://github.com/omniharness/omniharness#readme",
+  "bugs": {
+    "url": "https://github.com/omniharness/omniharness/issues"
+  },
+  "keywords": [
+    "agent",
+    "harness",
+    "ai",
+    "llm",
+    "codex",
+    "cli",
+    "mcp"
+  ],
+  "bin": {
+    "omniharness": "dist/src/cli/exec.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "web:build": "tsc -p web/tsconfig.json",
+    "web:watch": "tsc -p web/tsconfig.json --watch",
+    "prepare": "tsc",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "check": "node scripts/check.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "coverage:check": "node scripts/coverageGate.mjs",
+    "install-hooks": "node scripts/install-hooks.mjs",
+    "api:check": "node scripts/apiStability.mjs",
+    "changeset": "changeset",
+    "release:version": "changeset version",
+    "release:publish": "changeset publish",
+    "coverage": "npm run build && node --test --test-timeout=120000 --experimental-test-coverage --test-coverage-include='dist/**' \"dist/tests/unit/*.test.js\"",
+    "test": "npm run build && node --test --test-timeout=120000 \"dist/tests/unit/*.test.js\"",
+    "test:integration": "npm run build && node --test --test-timeout=180000 \"dist/tests/integration/*.test.js\"",
+    "smoke": "npm run build && node dist/tests/smoke.js",
+    "stress": "npm run build && node dist/tests/stress.js",
+    "ptc-stress": "npm run build && node dist/tests/ptcStress.js",
+    "bench": "npm run build && node dist/tests/bench/compactionBench.js",
+    "bench:native": "npm run native:build && npm run build && node dist/tests/bench/nativeVsJs.bench.js",
+    "bench:tokens": "npm run native:build && npm run build && node dist/tests/bench/tokenEstNative.bench.js",
+    "bench:agent": "npm run native:build && npm run build && node dist/tests/bench/agentTask.bench.js",
+    "bench:compete": "node benchmark/compete_benchmark.mjs",
+    "selfcheck": "npm run build && node benchmark/selfcheck.mjs",
+    "eval:capability": "npm run build && node benchmark/capability_swebench.mjs",
+    "eval:passk": "node --test dist/tests/unit/passK.test.js",
+    "eval:swebench": "node benchmark/capability_swebench.mjs",
+    "eval:live": "node evals/live/bench.mjs",
+    "eval:ci": "npm run build && node --test dist/tests/unit/passK.test.js && node benchmark/capability_swebench.mjs && node evals/live/bench.mjs --swebench --repeat 5 --min-pass-k 3,0.9",
+    "longrun:backfill": "npm run build && node benchmark/longrun_backfill.mjs",
+    "longrun:run": "npm run build && node benchmark/longrun_run.mjs",
+    "longrun:tighten": "npm run build && node benchmark/tighten.mjs",
+    "longrun:prod": "npm run build && node benchmark/longrun_prod_demo.mjs",
+    "longrun:prod:real": "node benchmark/longrun_prod_real.mjs",
+    "longrun:tighten:prod": "npm run build && node benchmark/tighten.mjs --live runtime-telemetry.prod.log",
+    "exec": "npm run build && node dist/src/cli/exec.js",
+    "test:wasm": "node tests/wasmE2e.mjs",
+    "rust:test": "cargo test --workspace",
+    "wasm:build": "cargo build --target wasm32-unknown-unknown -p omni-wasm",
+    "wasm:build:release": "cargo build --release --target wasm32-unknown-unknown -p omni-wasm",
+    "wasm:test": "cargo build --release --target wasm32-unknown-unknown -p omni-wasm && node tests/wasmE2e.mjs",
+    "native:build": "node scripts/nativeBuild.mjs",
+    "native:test": "npm run native:build && node tests/napiE2e.cjs"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "prettier": "^3.9.6",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.69.0"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0"
+  }
+}
