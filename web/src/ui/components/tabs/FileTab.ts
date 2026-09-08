@@ -1,9 +1,12 @@
 // 文件面板：点击文件树节点 / 产物卡片 / markdown 文件链接后，在右侧显示文件内容。
 // #OBS-14：代码类文件用内置 tokenizer 做语法高亮（分颜色，参考 WorkBuddy 点文件在
-// 编辑器里查看），非代码（md/json 等）降级为纯文本 / 自带渲染。空行保持等宽对齐。
+// 编辑器里查看）。
+// #OBS-15：markdown 文件用 renderMarkdown 渲染成真 Markdown（标题/列表/代码块/链接/表格），
+// 不再退化成纯文本；json 也进高亮。其余（txt/未知）纯文本展示。
 
 import { html, React } from '../../deps.js';
 import { highlightCode, langOf } from '../../highlight.js';
+import { renderMarkdown } from '../../format.js';
 import type { FileView } from '../../shared.js';
 
 export interface FileTabProps {
@@ -24,15 +27,18 @@ export function FileTab(props: FileTabProps): ReactElement {
   const body = ((): ReactElement | null => {
     if (fileView.content === '') return null;
     const lang = fileView.lang || langOf(fileView.title);
-    // #OBS-14：高亮代码只在真正是代码类型时走；md/json 等不在此着色（避免双渲染）。
+    // 代码类（含 json 做语法高亮）。
     const codeLike =
       lang === 'js' || lang === 'jsx' || lang === 'ts' || lang === 'tsx' ||
       lang === 'css' || lang === 'html' || lang === 'sh' || lang === 'py' ||
-      lang === 'rs' || lang === 'go' || lang === 'sql' || lang === 'java';
+      lang === 'rs' || lang === 'go' || lang === 'sql' || lang === 'java' || lang === 'json';
     if (codeLike) {
       return highlightCode(fileView.content.slice(0, MAX_PREVIEW), lang);
     }
-    // 非代码类型退化纯文本（md 用 textContent 而非 renderMarkdown——右栏窄，渲染 markdown 反而挤）。
+    // markdown 渲染成真 Markdown（#OBS-15），容器内可滚动。
+    if (lang === 'md' || lang === 'markdown') {
+      return html`<div className="file-md-scroll" spellCheck="false">${renderMarkdown(fileView.content.slice(0, MAX_PREVIEW))}</div>`;
+    }
     return html`<pre className="file-content" spellCheck="false">${fileView.content}</pre>`;
   })();
 

@@ -184,6 +184,12 @@ details.standalone summary::-webkit-details-marker { display:none; }
 .md-content pre { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; overflow:auto; font-family:var(--mono); font-size:12px; line-height:1.55; color:var(--dim); margin:8px 0; }
 .md-content pre code { background:transparent; padding:0; color:inherit; border:none; }
 .md-content blockquote { border-left:3px solid var(--dim); padding-left:10px; color:var(--dim); margin:6px 0; }
+/* #OBS-15：markdown 表格（聊天与右侧面板共用） */
+.md-content .md-table { border-collapse:collapse; margin:8px 0; display:block; overflow-x:auto; max-width:100%; }
+.md-content .md-table th, .md-content .md-table td { border:1px solid var(--border); padding:4px 10px; font-size:12.5px; text-align:left; }
+.md-content .md-table th { background:var(--panel-2); font-weight:600; color:var(--text); }
+.md-content .md-table td { color:var(--dim); }
+.md-content .md-table tr:nth-child(even) td { background:color-mix(in srgb, var(--panel) 60%, transparent); }
 .md-content.md-empty { display:none; }
 
 /* #OBS-11：失败原因摘要（工具行折叠时也直接显示，不藏在 details 里） */

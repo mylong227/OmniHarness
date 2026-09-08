@@ -294,3 +294,10 @@
 .file-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); }
 .file-meta { color:var(--dim); font-size:11px; flex:none; }
 .file-content { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12px; line-height:1.6; max-height:70vh; overflow:auto; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); tab-size:4; }
+/* #OBS-15：markdown 文件渲染容器（右侧面板），复用 .md-content 排版，可滚动防超长溢出。 */
+.file-md-scroll { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:10px 14px; max-height:70vh; overflow:auto; font-size:13px; }
+.file-md-scroll .md-content { line-height:1.7; }
+.file-md-scroll .md-content pre { white-space:pre; overflow-x:auto; }
+.file-md-scroll table { border-collapse:collapse; margin:8px 0; display:block; overflow-x:auto; }
+.file-md-scroll th, .file-md-scroll td { border:1px solid var(--border); padding:4px 10px; font-size:12.5px; }
+.file-md-scroll th { background:var(--panel-2); }

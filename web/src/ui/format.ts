@@ -197,7 +197,8 @@ type MdBlock =
   | { type: 'ul'; items: string[] }
   | { type: 'ol'; items: string[] }
   | { type: 'code'; lang: string; text: string }
-  | { type: 'quote'; text: string };
+  | { type: 'quote'; text: string }
+  | { type: 'table'; header: string[]; rows: string[][] };
 
 function parseBlocks(src: string): MdBlock[] {
   const lines = src.replace(/\r\n/g, '\n').split('\n');
@@ -249,6 +250,28 @@ function parseBlocks(src: string): MdBlock[] {
         i++;
       }
       blocks.push({ type: 'quote', text: items.join(' ').trim() });
+      continue;
+    }
+    // 表格：以 `|` 开头，下一行是纯分隔行（`|---|` / `|:--|`），收集到空行为止（#OBS-15）。
+    const sepRow = i + 1 < lines.length ? lines[i + 1]!.trim() : '';
+    // 分隔行：去掉可选首尾管道后 split('|')，每一段都只含 `-` 与可选 `:` 对齐符。
+    const isSep = ((): boolean => {
+      if (!sepRow.includes('-')) return false;
+      const inner = sepRow.replace(/^\|/, '').replace(/\|$/, '');
+      const cells = inner.split('|');
+      return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c.trim()));
+    })();
+    if (line.trim().startsWith('|') && isSep) {
+      const splitRow = (s: string): string[] =>
+        s.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+      const header = splitRow(line);
+      const rows: string[][] = [];
+      i += 2; // 跳过表头行与分隔行
+      while (i < lines.length && lines[i].trim() !== '') {
+        if (lines[i].trim().startsWith('|')) rows.push(splitRow(lines[i]));
+        i++;
+      }
+      if (header.length > 0) blocks.push({ type: 'table', header, rows });
       continue;
     }
     const paras: string[] = [line];
@@ -390,6 +413,35 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
       );
     case 'quote':
       return React.createElement('blockquote', { key, className: 'md-quote' }, ...parseInline(b.text, key));
+    case 'table':
+      return React.createElement(
+        'table',
+        { key, className: 'md-table' },
+        React.createElement(
+          'thead',
+          { key: `${key}-head` },
+          React.createElement(
+            'tr',
+            { key: `${key}-head-tr` },
+            ...b.header.map((h, ci) =>
+              React.createElement('th', { key: `${key}-th-${ci}` }, ...parseInline(h, `${key}-th-${ci}`)),
+            ),
+          ),
+        ),
+        React.createElement(
+          'tbody',
+          { key: `${key}-body` },
+          ...b.rows.map((row, ri) =>
+            React.createElement(
+              'tr',
+              { key: `${key}-tr-${ri}` },
+              ...row.map((cell, ci) =>
+                React.createElement('td', { key: `${key}-td-${ri}-${ci}` }, ...parseInline(cell, `${key}-td-${ri}-${ci}`)),
+              ),
+            ),
+          ),
+        ),
+      );
     default:
       return html`<div key=${key}></div>`;
   }
