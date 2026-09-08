@@ -1,0 +1,62 @@
+/* =========================================================================
+  OmniHarness Web UI — 语法高亮 token 颜色（#OBS-14）
+  供 FileTab 右侧面板「编辑器式」分色预览使用。
+  亮/暗主题各一套配色（跟 theme.css 的 [data-theme=] 走）。
+  每个 token 都是经 esc() 后的纯文本 span，这里只负责上色。
+  ========================================================================= */
+
+/* ---- 代码高亮容器（hl-code 由 highlight.ts::highlightCode 输出） ---- */
+.hl-code {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 70vh;
+  overflow: auto;
+  font-family: var(--mono);
+  tab-size: 4;
+  white-space: pre;
+  word-break: normal;
+}
+.hl-code code { font-family: inherit; }
+
+/* 行号 / 收尾空隙不参与着色 */
+.hl-code code { display: block; min-height: 1em; }
+
+/* ---- Token 主题色（暗色默认） ---- */
+[data-theme="dark"], :root {
+  --tok-comment: #6a737d;
+  --tok-string: #9ecbff;
+  --tok-kw: #ff7b72;
+  --tok-num: #79c0ff;
+  --tok-fn: #d2a8ff;
+  --tok-type: #7ee787;
+  --tok-prop: #79c0ff;
+  --tok-punct: #8b949e;
+  --tok-plain: #e6edf3;
+}
+[data-theme="light"] {
+  --tok-comment: #6e7781;
+  --tok-string: #0a3069;
+  --tok-kw: #cf222e;
+  --tok-num: #0550ae;
+  --tok-fn: #8250df;
+  --tok-type: #116329;
+  --tok-prop: #0550ae;
+  --tok-punct: #57606a;
+  --tok-plain: #24292f;
+}
+
+/* ---- Token 类 → 颜色 ---- */
+.tok-com { color: var(--tok-comment); font-style: italic; }
+.tok-str { color: var(--tok-string); }
+.tok-kw  { color: var(--tok-kw); }
+.tok-num { color: var(--tok-num); }
+.tok-fn  { color: var(--tok-fn); }
+.tok-type{ color: var(--tok-type); }
+.tok-prop{ color: var(--tok-prop); }
+.tok-pun { color: var(--tok-punct); }
+.tok-pln { color: var(--tok-plain); }

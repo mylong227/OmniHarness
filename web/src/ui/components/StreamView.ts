@@ -96,8 +96,13 @@ function argSummary(args: unknown): string {  if (args === null || args === unde
 }
 
 /** 工具调用行：默认只显示「调了什么 + 参数摘要 + 状态」，点击展开 args 与结果详情。 */
-function ToolCallCard(props: { ev: ThreadEvent; res?: ToolResultView; onEventClick: (ev: ThreadEvent) => void }): ReactElement {
-  const { ev, res, onEventClick } = props;
+function ToolCallCard(props: {
+  ev: ThreadEvent;
+  res?: ToolResultView;
+  onEventClick: (ev: ThreadEvent) => void;
+  onOpenFile?: (path: string) => void;
+}): ReactElement {
+  const { ev, res, onEventClick, onOpenFile } = props;
   const p = ev.payload || {};
   const [open, setOpen] = React.useState(false);
   const status = res ? (res.ok ? 'ok' : 'err') : 'pending';
@@ -120,7 +125,7 @@ function ToolCallCard(props: { ev: ThreadEvent; res?: ToolResultView; onEventCli
       <span className="time">${timeOf(ev.timestamp)}</span>
     </div>
     ${errText ? html`<div className="tc-error" title=${esc(errText)}>⚠ ${esc(truncate(errText, 160))}</div>` : null}
-    ${artifact ? html`<${ArtifactCard} info=${artifact} />` : null}
+    ${artifact ? html`<${ArtifactCard} info=${artifact} onOpen=${onOpenFile} />` : null}
     ${open
       ? html`<div className="tc-detail">
           ${p.args ? jsonView(p.args) : null}
@@ -167,19 +172,25 @@ function artifactFromTool(name: string, args: unknown): ArtifactInfo | null {
 }
 
 /**
- * 产物卡片（#OBS-11）：写类工具成功后展示——文件名 + 工作区路径 + 「下载」按钮直跳 /files。
- * 与 WorkBuddy artifact 卡片体验一致：用户无需切去资源管理器找产物。
+ * 产物卡片（#OBS-11 + #OBS-14）：写类工具成功后展示——文件名 + 工作区路径 + 下载。
+ * 点击文件名/「打开」在右侧代码编辑器面板预览（语法高亮），下载则直跳 /files。
  */
-function ArtifactCard(props: { info: ArtifactInfo }): ReactElement {
-  const { info } = props;
+function ArtifactCard(props: { info: ArtifactInfo; onOpen?: (path: string) => void }): ReactElement {
+  const { info, onOpen } = props;
   const href = `/files?path=${encodeURIComponent(info.relPath)}`;
+  const handleOpen = (e: MouseEvent): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onOpen) onOpen(info.relPath);
+  };
   return html`<div className="artifact-card">
     <span className="artifact-icon">${info.kind === 'patch' ? '🩹' : '📄'}</span>
     <div className="artifact-meta">
-      <div className="artifact-name" title=${esc(info.relPath)}>${esc(info.name)}</div>
+      <a className="artifact-name" href=${'#'} onClick=${handleOpen} title="在右侧面板打开（语法高亮）">${esc(info.name)}</a>
       <div className="artifact-path">${esc(info.relPath)}</div>
     </div>
-    <a className="artifact-download" href=${href} download=${esc(info.name)} title="下载到本地">⬇ 下载</a>
+    <a className="artifact-open" href=${'#'} onClick=${handleOpen} title="在右侧面板打开">👁 打开</a>
+    <a className="artifact-download" href=${href} download=${esc(info.name)} title="下载到本地">⬇</a>
   </div>`;
 }
 
@@ -458,6 +469,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
           ev=${ev}
           res=${toolResults[(p.callId as string) || ev.id]}
           onEventClick=${onEventClick}
+          onOpenFile=${onOpenFile}
         />`;
       case 'tool_result':
         if (toolCallIds.has((p.callId as string) || '')) return null;
