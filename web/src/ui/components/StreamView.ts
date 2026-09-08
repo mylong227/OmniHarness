@@ -286,13 +286,19 @@ function ProcessCluster(props: {
   const { block, toolResults, onEventClick, busy, renderEvent } = props;
   const text = processSummary(block.events);
   const detailsRef = React.useRef<HTMLDetailsElement | null>(null);
-  // 受控折叠：任务进行中展开便于实时观察，结束后强制收起，只留最终结果/总结，界面干净。
-  React.useEffect(() => {
+  // #OBS-12：受控折叠改用 useLayoutEffect 在 DOM 提交前同步设置 d.open，
+  // 避免「busy=true 渲了一帧 open=true → 才被 useEffect 关回 false」的闪烁，
+  // 同时把初始 HTML open 属性也固定为 busy===true——双重保险：上层漏把 busy 重置回 false
+  // （loadThread / SSE 中断 / 刷新后的历史 cluster），本组件仍按 busy===true 判定。
+  // 事件流来源不限：「历史 load」「新回合 SSE」统一收敛。
+  React.useLayoutEffect(() => {
     const d = detailsRef.current;
     if (!d) return;
     const shouldOpen = busy === true;
-    if (d.open !== shouldOpen) d.open = shouldOpen;
-  }, [busy]);
+    if (d.open !== shouldOpen) {
+      d.open = shouldOpen;
+    }
+  }, [busy, block.key]);
   const isOpen = busy === true;
   return html`<details className="ev process-cluster" ref=${detailsRef} key=${block.key} open=${isOpen}>
     <summary className="tc-line dim" title=${isOpen ? '过程进行中（自动展开）' : '点击查看执行过程'}>

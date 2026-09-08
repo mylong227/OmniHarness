@@ -32,6 +32,7 @@ interface ReactApi {
   createContext<T>(defaultValue: T): ReactContext<T>;
   useState<S>(initial: S | (() => S)): [S, Dispatch<S>];
   useEffect(effect: EffectCallback, deps?: ReadonlyArray<unknown>): void;
+  useLayoutEffect(effect: EffectCallback, deps?: ReadonlyArray<unknown>): void;
   useRef<T>(initial: T): { current: T };
   useReducer<S, A>(reducer: Reducer<S, A>, initial: S): [S, Dispatch<A>];
   useCallback<T extends (...args: never[]) => unknown>(fn: T, deps: ReadonlyArray<unknown>): T;

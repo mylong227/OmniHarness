@@ -447,6 +447,12 @@ export function App(): ReactElement {
         setEvents(r.items || []);
         setToolResults({});
         setLiveInputs([]);
+        // #OBS-12：加载历史会话或新建时必须把 busy 重置为 false。
+        // 否则上轮发送中刷新 / SSE 中断 / 切到别的会话后，busy 卡在 true，
+        // 会把已结束回合的 process-cluster 错误地持续展开——结果被过程挤下去。
+        // activeTool 同样：残留的"运行中"状态会和"换会话/刷新"语义不符。
+        setBusy(false);
+        setActiveTool(null);
         setSessions((prev) => prev.map((s) => s));
       } catch (e) {
         window.alert('加载会话失败：' + (e as Error).message);
@@ -460,6 +466,9 @@ export function App(): ReactElement {
     setEvents([]);
     setToolResults({});
     setLiveInputs([]);
+    // #OBS-12：新建会话同样把 busy 清零——避免"前一会话未结束的 busy"继续撑开历史 cluster。
+    setBusy(false);
+    setActiveTool(null);
   }, []);
 
   const showDetail = React.useCallback((ev: ThreadEvent) => {
