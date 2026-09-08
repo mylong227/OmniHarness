@@ -1,0 +1,10 @@
+{
+  "name": "demo-calc",
+  "version": "0.1.0",
+  "description": "示例工具插件：注册 calc_sum / calc_stats，演示一个插件多工具注册（无敏感权限）",
+  "author": "OmniHarness Samples",
+  "permissions": [],
+  "entry": "index.js",
+  "source": "bundled",
+  "localPath": "examples/plugins/demo-calc"
+}

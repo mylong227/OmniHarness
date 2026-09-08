@@ -15,6 +15,7 @@ import type { ToolResultView } from './components/StreamView.js';
 import { TopBar } from './components/TopBar.js';
 import { SessionPanel } from './components/SessionPanel.js';
 import { StreamView } from './components/StreamView.js';
+import { langOf } from './highlight.js';
 import { RightPanel } from './components/RightPanel.js';
 import { NavRail } from './components/NavRail.js';
 import { ApprovalModal } from './components/ApprovalModal.js';
@@ -508,6 +509,8 @@ export function App(): ReactElement {
           title: '📄 ' + r.path,
           meta: meta.trim(),
           content: r.isBinary ? '（二进制文件，无法预览）' : r.content || '',
+          // 依据路径推断语言做语法高亮；二进制不参与。
+          lang: r.isBinary ? '' : langOf(r.path),
         });
         setActivePane('file');
         setRightOpen(true);

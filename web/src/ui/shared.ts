@@ -21,6 +21,8 @@ export interface FileView {
   title: string;
   meta: string;
   content: string;
+  /** 语言 id（'js'|'ts'|'json'|...），空串表示未知 → 纯文本展示。右侧文件面板据此做语法高亮。 */
+  lang?: string;
 }
 
 export type ToastKind = 'ok' | 'err' | 'info';
