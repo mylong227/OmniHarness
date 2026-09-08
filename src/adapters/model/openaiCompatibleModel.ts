@@ -11,6 +11,7 @@ import type {
 import { ModelCallError } from '../../ports/model.js';
 import { SseParser } from './sseParser.js';
 import { log } from '../../util/logger.js';
+import { sanitizeToolRounds } from '../../util/toolRoundSanitizer.js';
 
 /** OpenAI 兼容模型适配器配置。 */
 export interface OpenAiCompatibleConfig {
@@ -170,7 +171,9 @@ export class OpenAiCompatibleModel implements ModelPort {
     // tool_calls 时强制注入 reasoning_content:""，避免 DeepSeek v4 等推理模型下轮 400。
     const thinking =
       typeof request.reasoningEffort === 'string' && request.reasoningEffort !== '';
-    const messages = this.toWireMessages(request.messages, thinking);
+    // 消息出栈前统一规整：丢弃 orphan tool、丢弃 tool_calls 响应不全的整段 assistant
+    // 回合（#OBS-8 全链路兜底，2026-09-08 二次复现，OpenAI/DeepSeek HTTP 400）。
+    const messages = this.toWireMessages(sanitizeToolRounds(request.messages), thinking);
     const body: Record<string, unknown> = {
       model: this.config.model,
       messages,
