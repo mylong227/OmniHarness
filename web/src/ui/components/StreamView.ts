@@ -1,5 +1,10 @@
 // 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
 // 事件按类型渲染，工具调用卡片聚合 args 与 result；点击任意事件卡触发钻取。
+//
+// 回合内「过程类」事件（reasoning/tool_call/tool_result）默认按 batch 折叠成单个
+// <details>，summary 显示步数与工具分布（write_file×2、bash×5、思考×3…）；
+// busy=true 时默认展开便于实时观察，busy=false 时默认收起让对话流聚焦最终结果。
+// user / assistant / question / system / todo 等「结果类」始终直显。
 
 import { html, React } from '../deps.js';
 import { badge, jsonView, todoView, diffView, timeOf, emptyState, esc, renderMarkdown, questionView } from '../format.js';
@@ -104,6 +109,107 @@ function ReasoningBlock(props: { ev: ThreadEvent }): ReactElement {
   </div>`;
 }
 
+/** 回合内过程事件类型：放进 process-cluster 折叠。 */
+const PROCESS_TYPES = new Set(['reasoning', 'tool_call', 'tool_result']);
+
+/** 单个事件块（结果类直接展示）。 */
+interface SingleBlock {
+  readonly kind: 'single';
+  readonly event: ThreadEvent;
+}
+
+/** 回合内连续过程事件合并块（reasoning/tool_call/tool_result 默认折叠）。 */
+interface ProcessBlock {
+  readonly kind: 'process';
+  readonly events: readonly ThreadEvent[];
+  /** 块首 key，React 列表 diff 用。 */
+  readonly key: string;
+}
+
+type DisplayBlock = SingleBlock | ProcessBlock;
+
+/** 把 events 拆成可视块：busy=true 时单 event 不折叠；busy=false 时把过程类打包成 process 块。
+ *  块边界 = 相邻过程事件之间的非过程事件（user/assistant/question/system/...）。
+ *  这样一个回合内多次「思考→工具→结果」自然归到一个 details，对话流读起来干净。 */
+function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean | undefined): DisplayBlock[] {
+  if (busy === true) {
+    return events.map((e) => ({ kind: 'single', event: e } as SingleBlock));
+  }
+  const blocks: DisplayBlock[] = [];
+  let buf: ThreadEvent[] = [];
+  const flush = (): void => {
+    if (buf.length === 0) return;
+    const first = buf[0]!;
+    blocks.push({
+      kind: 'process',
+      events: buf,
+      key: first.id,
+    } as ProcessBlock);
+    buf = [];
+  };
+  for (const ev of events) {
+    if (PROCESS_TYPES.has(ev.type)) {
+      buf.push(ev);
+    } else {
+      flush();
+      blocks.push({ kind: 'single', event: ev } as SingleBlock);
+    }
+  }
+  flush();
+  return blocks;
+}
+
+/** 过程块 summary 文本：「N 步 · 思考×A · write_file×2 · bash×5」。 */
+function processSummary(events: readonly ThreadEvent[]): string {
+  let thinkCount = 0;
+  const toolCounts = new Map<string, number>();
+  let stepCount = 0;
+  for (const ev of events) {
+    if (ev.type === 'reasoning') {
+      thinkCount++;
+      stepCount++;
+    } else if (ev.type === 'tool_call') {
+      stepCount++;
+      const name = (ev.payload?.name as string) || 'tool';
+      toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
+    } else if (ev.type === 'tool_result') {
+      stepCount++;
+    }
+  }
+  const parts: string[] = [];
+  if (thinkCount > 0) parts.push(`思考×${thinkCount}`);
+  // 工具名按调用次数降序、同次数字母序
+  const entries = Array.from(toolCounts.entries()).sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  );
+  for (const [name, n] of entries) parts.push(`${name}×${n}`);
+  return `${stepCount} 步 · ${parts.join(' · ')}`;
+}
+
+/** 过程块详情容器：根据忙碌态决定默认 open/closed，summary 显示步数 + 工具分布。 */
+function ProcessCluster(props: {
+  block: ProcessBlock;
+  toolResults: Record<string, ToolResultView>;
+  onEventClick: (ev: ThreadEvent) => void;
+  busy?: boolean;
+  renderEvent: (ev: ThreadEvent) => ReactElement | null;
+}): ReactElement {
+  const { block, toolResults, onEventClick, busy, renderEvent } = props;
+  const text = processSummary(block.events);
+  const openDefault = busy === true;
+  return html`<details className="ev process-cluster" key=${block.key} open=${openDefault}>
+    <summary className="tc-line dim" title=${openDefault ? '过程进行中（自动展开）' : '点击查看执行过程'}>
+      <span className="tc-chevron-cluster"></span>
+      <span className="tc-icon">⏵</span>
+      <span className="tc-summary">执行过程 · ${esc(text)}</span>
+      <span className="time">${block.events.length} 事件</span>
+    </summary>
+    <div className="process-cluster-body">
+      ${block.events.map((ev) => renderEvent(ev))}
+    </div>
+  </details>`;
+}
+
 export interface StreamViewProps {
   events: ThreadEvent[];
   toolResults: Record<string, ToolResultView>;
@@ -160,17 +266,14 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const streamRef = React.useRef<HTMLDivElement | null>(null);
 
   /**
-   * 会话结束后（busy=false）隐藏思考过程与工具调用/结果事件，只保留用户提问与助手最终回复，
-   * 让对话流干净聚焦于「结果」。回合进行中（busy=true）照常展示全过程，便于实时观察。
+   * 把 events 拆成可视块（详见 buildDisplayBlocks）：
+   *   busy=true（agent 正在干）→ 每个事件独立成块，照常顺序展示全过程
+   *   busy=false（回合结束） → 把相邻的 reasoning / tool_call / tool_result 合并成一个
+   *                          <details> 折叠块，summary 显示步数与工具分布；
+   *                          用户点开看全量细节，关闭即只看到最终结果
+   * 让对话流既能在进行中观察，又能干净聚焦于结果。
    */
-  const HIDDEN_WHEN_IDLE = React.useMemo(
-    () => new Set(['reasoning', 'tool_call', 'tool_result']),
-    [],
-  );
-  const displayEvents = React.useMemo(() => {
-    if (busy === true) return events;
-    return events.filter((e) => !HIDDEN_WHEN_IDLE.has(e.type));
-  }, [events, busy, HIDDEN_WHEN_IDLE]);
+  const blocks = React.useMemo(() => buildDisplayBlocks(events, busy), [events, busy]);
 
   const toolCallIds = React.useMemo(() => {
     const s = new Set<string>();
@@ -187,9 +290,9 @@ export function StreamView(props: StreamViewProps): ReactElement {
   React.useEffect(() => {
     const el = streamRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [displayEvents, liveInputs]);
+  }, [blocks, liveInputs]);
 
-  function renderEvent(ev: ThreadEvent): ReactElement | null {
+  const renderEvent = React.useCallback((ev: ThreadEvent): ReactElement | null => {
     const p = ev.payload || {};
     const node = (inner: ReactElement) =>
       html`<div className=${'ev clickable ' + ev.type} key=${ev.id} onClick=${() => onEventClick(ev)}>${inner}</div>`;
@@ -277,14 +380,25 @@ export function StreamView(props: StreamViewProps): ReactElement {
           html`<div className="head">${badge(ev.type)}</div><div className="card"><div className="content" spellCheck="false">${esc(JSON.stringify(p))}</div></div>`,
         );
     }
-  }
+  }, [toolCallIds, onEventClick, onOpenFile, toolResults]);
 
   return html`<div className="col center">
     <div className="stream" ref=${streamRef}>
       ${events.length === 0 && liveInputs.length === 0
         ? emptyState('💬', '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
         : html`<div className="stream-inner">
-            ${displayEvents.map((e) => renderEvent(e))}
+            ${blocks.map((b) =>
+              b.kind === 'process'
+                ? html`<${ProcessCluster}
+                    key=${b.key}
+                    block=${b}
+                    toolResults=${toolResults}
+                    onEventClick=${onEventClick}
+                    busy=${busy}
+                    renderEvent=${renderEvent}
+                  />`
+                : renderEvent(b.event),
+            )}
             ${liveInputs.map(
               (li) =>
                 html`<div className="ev" key=${li.id}>

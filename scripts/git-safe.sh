@@ -46,6 +46,16 @@
 
 set -euo pipefail
 
+# === UTF-8 强制（2026-09-08 根治乱码）===
+# 沙箱里 Windows 默认码页是 CP936/GBK，任何被 `shell` 工具包装的命令输出中文都是 mojibake。
+# 注入 C.UTF-8 后子进程的 stdout 是合法 UTF-8 字节流，JavaScript 端就能正确解码。
+# 同时 git 的 i18n.logOutputEncoding=utf-8 让 git 自身不再二次转码（避免在 wrapper 已给
+# UTF-8 字节后又把它当 GBK 解读的套娃乱码）。
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+export PYTHONIOENCODING=utf-8
+export PYTHONUTF8=1
+
 # 解析当前 .git 路径
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo '.')"
 GIT_DIR_REL="$(git rev-parse --git-dir 2>/dev/null || echo '.git')"
@@ -54,24 +64,27 @@ GIT_DIR_ABS="$(cd "$REPO_ROOT" && echo "$GIT_DIR_REL")"
 GIT_ARGS=()
 TIMEOUT_SECS=90
 
-# 子命令：rebuild
+# 重建 .git 时：除了原有的 gc/fsmonitor/maintenance/lfs 关闭项外，再加 UTF-8 输出配置。
+# core.quotePath=false 让含中文路径的 diff 不会被 \\xxx 八进制转义。
 if [[ "${1:-}" == "rebuild" ]]; then
   if [[ -d "$GIT_DIR_ABS" ]]; then
     echo "[git-safe] remove existing .git: $GIT_DIR_ABS"
     rm -rf "$GIT_DIR_ABS"
   fi
   cd "$REPO_ROOT"
-  git -c gc.auto=0 -c core.fsmonitor=false init -b main
+  git -c gc.auto=0 -c core.fsmonitor=false -c core.quotePath=false init -b main
   git -c gc.auto=0 -c core.fsmonitor=false \
       -c core.autocrlf=false -c core.filemode=false -c core.ignorecase=true \
       -c safe.directory='*' \
       config user.name '芭比咯'
   git -c gc.auto=0 -c core.fsmonitor=false config user.email 'babyl@omniharness.local'
-  # 强制把 gc/fsmonitor/maintenance 关进 local config，从源头避免下一次写操作触发自动 gc
+  # 强制把 gc/fsmonitor/maintenance/lfs/quotePath 关进 local config，从源头避免下一次写操作触发自动 gc
   git -c gc.auto=0 -c core.fsmonitor=false config --local gc.auto 0
   git -c gc.auto=0 -c core.fsmonitor=false config --local core.fsmonitor false
   git -c gc.auto=0 -c core.fsmonitor=false config --local maintenance.repo disabled
   git -c gc.auto=0 -c core.fsmonitor=false config --local filter.lfs.required false
+  git -c gc.auto=0 -c core.fsmonitor=false config --local core.quotePath false
+  git -c gc.auto=0 -c core.fsmonitor=false config --local i18n.logOutputEncoding utf-8
   # 把整个工作树纳入
   git -c gc.auto=0 -c core.fsmonitor=false add -A
   # 单一 commit 作为新基线
@@ -81,8 +94,9 @@ if [[ "${1:-}" == "rebuild" ]]; then
   exit 0
 fi
 
-# 普通命令：转发 git 但加 -c 安全配置
+# 普通命令：转发 git 但加 -c 安全配置 + UTF-8 输出 + 不转义中文路径
 GIT_ARGS+=(-c gc.auto=0 -c core.fsmonitor=false -c filter.lfs.required=false -c maintenance.repo=disabled)
+GIT_ARGS+=(-c core.quotePath=false -c i18n.logOutputEncoding=utf-8)
 
 # 一些只读命令允许在 .git 损坏时也跑（用于探测）
 case "${1:-}" in

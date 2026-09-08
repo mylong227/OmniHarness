@@ -29,3 +29,5 @@ web/_shot.html
 .omni-embed-cache/
 # git worktree 元数据（临时协作分支，勿入库）
 .omni-worktrees/
+# git-safe 安全重建脚本产生的 .git 备份目录（含整份 objects/refs/hooks，勿入库，否则会把 .git 嵌进 .git）
+.git.bak.*/

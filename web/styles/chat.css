@@ -56,6 +56,16 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 .tool-output { font-size:12px; color:var(--text); white-space:pre-wrap; word-break:break-word; max-height:200px; overflow:auto; }
 .tool-output.collapsed { max-height:64px; overflow:hidden; position:relative; }
 .tool-output.collapsed::after { content:"展开 ▾"; position:absolute; right:6px; bottom:2px; background:var(--panel); padding:0 6px; color:var(--accent); cursor:pointer; font-size:11px; }
+/* 回合过程簇：busy=true 时自动展开，busy=false 时默认收起；用户可点 summary 展开看全量。
+   summary 沿用 tc-line 视觉（无背景、无边框、暗色文字），与单条 tool_call 行同一体系。 */
+.process-cluster { background:transparent; border:0; padding:0; margin:6px 0 4px; }
+.process-cluster > summary { list-style:none; cursor:pointer; padding:2px 0 2px 2px; display:flex; align-items:center; gap:8px; color:var(--dim); font-size:12px; }
+.process-cluster > summary::-webkit-details-marker { display:none; }
+.process-cluster > summary::marker { content:''; }
+.process-cluster > summary > .tc-chevron-cluster::before { content:'▸'; font-family:var(--mono); font-size:13px; display:inline-block; width:14px; }
+.process-cluster[open] > summary > .tc-chevron-cluster::before { content:'▾'; }
+.process-cluster > summary:hover { color:var(--text); }
+.process-cluster-body { padding:4px 0 4px 16px; border-left:1px dashed var(--border); margin:6px 0 4px 6px; }
 .sysnote { text-align:center; color:var(--dim); font-size:12px; padding:4px; }
 .todo-item { display:flex; gap:8px; align-items:center; font-size:13px; padding:2px 0; }
 .todo-dot { width:8px; height:8px; border-radius:50%; background:var(--dim); }
