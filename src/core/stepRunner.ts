@@ -146,6 +146,51 @@ export class StepRunner {
   }
 
   /**
+   * 步数耗尽兜底（#OBS-9）：做一次「无工具」模型调用，强制模型基于已有上下文
+   * 直接产出最终答复。
+   *
+   * 场景：模型持续调用工具（探索/检索/验证）而从未输出文本，跑满 maxSteps 后
+   * TurnRunner 退出、finalText 为 undefined，用户侧表现为「转了很久没有任何结果」。
+   * 2026-09-08 真机复现：steps=16 / session.end hasText:false。
+   *
+   * 实现要点：
+   *  - tools 传空数组，模型无法再调工具，只能输出文本；
+   *  - 末尾追加一条显式 user 指令，避免模型回「需要更多信息」继续空转；
+   *  - 产出的文本经 recorder.assistant 入事件流，UI 与 threads.get 都能取到；
+   *  - 全程 fail-closed：任何异常都吞掉返回 undefined，绝不阻断主流程。
+   */
+  async finalize(): Promise<string | undefined> {
+    try {
+      const base = await this.buildMessages();
+      const messages: ModelMessage[] = [
+        ...base,
+        {
+          role: 'user',
+          content:
+            '【系统提示】工具调用步数已达上限。请立即基于上文中已经获得的所有信息，' +
+            '直接给出最终答复与结论；不要再请求调用任何工具，也不要说需要更多信息。',
+        },
+      ];
+      const request = { messages, tools: [], reasoningEffort: this.deps.reasoningEffort };
+      log.info('step.finalize', { messageCount: messages.length });
+      const stream = this.deps.model.stream;
+      const output =
+        stream !== undefined
+          ? await stream.call(this.deps.model, request, { onText: () => {} })
+          : await this.deps.model.generate(request);
+      if (output.usage !== undefined) {
+        this.deps.recorder.usage(output.usage, this.deps.model.name);
+      }
+      const text = output.text;
+      if (text === undefined || text.trim() === '') return undefined;
+      this.deps.recorder.assistant(text, output.reasoning);
+      return text;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * 请求模型（上下文从事件日志投影，超预算先压缩）。
    * #B3：若 live 端口非空且模型支持 stream，走流式并在 onToolInput 回调里把工具参数增量
    * 转发给 live 端口供 UI 实时渲染；否则退回原 generate 路径（行为逐字节一致，fail-closed）。
