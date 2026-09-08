@@ -9,6 +9,7 @@ import { AppendOnlyEventLog } from './eventLog.js';
 import { SessionRecorder } from './sessionRecorder.js';
 import { StepRunner } from './stepRunner.js';
 import { TurnRunner } from './turnRunner.js';
+import type { TurnOutcome } from './turnRunner.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
 import { id } from '../util/id.js';
@@ -107,14 +108,27 @@ export class Agent {
       }
       recorder.user(prompt, images);
       const runner = this.buildTurnRunner(recorder);
-      const outcome = await runner.run(this.contextOf(sessionId));
+      let outcome: TurnOutcome;
+      let persistedAt = 0;
+      try {
+        outcome = await runner.run(this.contextOf(sessionId));
+      } finally {
+        // 无论回合成功还是抛出（模型 500 / 网络中断 / 工具异常），已产生的事件都必须落盘。
+        // 旧行为是异常直接冒泡、save 被跳过——用户重进会话看到一片空白，等于历史凭空消失。
+        // save 自身失败只告警：绝不能用持久化错误掩盖原始异常。
+        persistedAt = eventLog.size();
+        await this.persist(sessionId, eventLog.all());
+      }
       // P1 进化闭环（可选、零破坏）：任务完成后若注入了 evolution 且 autoRun 开启，
       // 在 fail-closed 门禁下跑一轮 发现→评估→晋升。异常不影响主任务（fail-closed）。
       await this.runEvolutionIfEnabled(sessionId);
       // 燧内核（S+，可选、零破坏）：任务完成后若注入了 spark 且 autoRun 开启，
       // 跑一轮 燧-3/燧-4 调谐/冲刷（复用 I-P1-4 的 autoRun 钩子范式）。异常不影响主任务。
       await this.runSparkIfEnabled(sessionId);
-      await this.runtime.storage.save(sessionId, eventLog.all());
+      // 仅当收尾阶段（evolution/spark）又产生了新事件时才回写，避免长会话重复全量落盘。
+      if (eventLog.size() !== persistedAt) {
+        await this.persist(sessionId, eventLog.all());
+      }
       log.info('session.end', {
         sessionId,
         steps: outcome.steps,
@@ -127,6 +141,18 @@ export class Agent {
         events: eventLog.all(),
       };
     });
+  }
+
+  /**
+   * 落盘（fail-soft）：持久化失败只告警，不向上抛。
+   * 用于 finally 等场景——绝不能用存储错误掩盖模型/工具的原始异常。
+   */
+  private async persist(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
+    try {
+      await this.runtime.storage.save(sessionId, events);
+    } catch (err) {
+      log.warn('session.persist.failed', { sessionId, error: String(err) });
+    }
   }
 
   /** 按需注入命中技能（作为 system 事件进日志 → 投影进模型上下文）。 */

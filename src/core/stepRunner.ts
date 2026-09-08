@@ -312,17 +312,6 @@ export class StepRunner {
       this.deps.recorder.toolResult(denied.callId, false, undefined, denied.error);
       return;
     }
-    // FFI 热路径（#66）：门禁放行后优先走原生后端 in-process；内部失败自动回退下方 JS 路径。
-    if (this.deps.native !== undefined) {
-      try {
-        const result = this.deps.native.runTool(call);
-        this.recordNativeToolCall(call, result, context);
-        return;
-      } catch {
-        log.debug('tool.native.fallback', { tool: call.name, callId: call.id });
-        // 原生内核不可用或内部执行失败 → 回退下方 JS 路径（门禁已通过，不重复）
-      }
-    }
     log.info('tool.call', { tool: call.name, callId: call.id });
     this.deps.recorder.toolCall(call.id, call.name, call.arguments);
     const hookContext = {
@@ -331,8 +320,27 @@ export class StepRunner {
       target: this.targetOf(call),
       args: call.arguments,
     };
+    // pre 钩子必须先于任何执行路径（native FFI / JS）：pre 的语义是「执行前拦截/审计」，
+    // 放到执行之后就退化成事后通知，既拦不住也记不准。
+    // pre 自身抛错直接向上抛——绝不回退重跑，否则写类工具会被执行两次。
     if (this.deps.hooks !== undefined) {
       await this.deps.hooks.pre(hookContext);
+    }
+    // FFI 热路径（#66）：pre 之后才真正执行；内部失败回退下方 JS 路径
+    //（门禁已通过、pre 已执行一次，回退时不重复跑 pre）。
+    if (this.deps.native !== undefined) {
+      try {
+        const result = this.deps.native.runTool(call);
+        await this.recordToolResult(call.name, result, context.sessionId);
+        if (this.deps.hooks !== undefined) {
+          await this.deps.hooks.post(hookContext, result);
+        }
+        // U4：原生后端路径同样在写类工具成功执行后失效 repo-map 缓存。
+        this.maybeInvalidateRepoMap(call, result);
+        return;
+      } catch {
+        log.debug('tool.native.fallback', { tool: call.name, callId: call.id });
+      }
     }
     const result = await this.deps.tools.execute(call, context);
     if (this.deps.hooks !== undefined) {
@@ -341,30 +349,6 @@ export class StepRunner {
     // 钩子拿到完整结果（持久化/观测无损），入模型上下文前再外溢。
     await this.recordToolResult(call.name, result, context.sessionId);
     // U4：写类工具成功执行后主动失效 repo-map 缓存（消除 30s TTL 陈旧窗口）。
-    this.maybeInvalidateRepoMap(call, result);
-  }
-
-  /** 记录原生后端执行的工具调用（TS 侧 recorder 仍为模型上下文/持久化事件源）。 */
-  private async recordNativeToolCall(
-    call: ToolCall,
-    result: { callId: string; ok: boolean; output?: string; error?: string },
-    context: ToolContext,
-  ): Promise<void> {
-    this.deps.recorder.toolCall(call.id, call.name, call.arguments);
-    const hookContext = {
-      sessionId: context.sessionId,
-      toolName: call.name,
-      target: this.targetOf(call),
-      args: call.arguments,
-    };
-    if (this.deps.hooks !== undefined) {
-      await this.deps.hooks.pre(hookContext);
-    }
-    await this.recordToolResult(call.name, result, context.sessionId);
-    if (this.deps.hooks !== undefined) {
-      await this.deps.hooks.post(hookContext, result);
-    }
-    // U4：原生后端路径同样在写类工具成功执行后失效 repo-map 缓存。
     this.maybeInvalidateRepoMap(call, result);
   }
 

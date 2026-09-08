@@ -9,6 +9,8 @@ import { EventFactory } from './eventFactory.js';
 export class SessionRecorder {
   private readonly sid: string;
   private seq = 0;
+  /** 本回合起点在事件日志中的下标（#OBS-10）；0 = 未标记，等同全文起点。 */
+  private turnStartIndex = 0;
 
   constructor(
     private readonly log: AppendOnlyEventLog,
@@ -69,14 +71,28 @@ export class SessionRecorder {
     return this.record(EventFactory.toolResult(this.sid, callId, ok, output, error));
   }
 
-  /** 最新一条助手文本。 */
+  /**
+   * 标记本回合起点（#OBS-10）：此后 `lastAssistantText()` 只认本回合产出的 assistant。
+   *
+   * 不标记的后果：resume/fork 会话的历史 assistant 事件混在同一条事件日志里，
+   * 若本轮模型全程调工具或空输出而未产文本，`lastAssistantText()` 会取到**上一轮的
+   * 历史答案**当作本轮 finalText——用户看到「上轮回答」被原样复读，且因 finalText
+   * 非空，步数耗尽兜底也永不触发。这是比 hasText:false 更危险的静默错误答案。
+   */
+  markTurnStart(): void {
+    this.turnStartIndex = this.log.size();
+  }
+
+  /** 本回合内最新一条助手文本（不含历史回合；未标记起点时等价于全文最后一条）。 */
   lastAssistantText(): string | undefined {
-    const assistants = this.log.byType('assistant');
-    const latest = assistants.at(-1);
-    if (latest === undefined) {
-      return undefined;
+    const all = this.log.all();
+    for (let i = all.length - 1; i >= this.turnStartIndex; i--) {
+      const event = all[i]!;
+      if (event.type === 'assistant') {
+        return (event.payload as { content?: string }).content;
+      }
     }
-    return (latest.payload as { content?: string }).content;
+    return undefined;
   }
 
   /** 全部事件（上下文投影用）。 */
