@@ -154,6 +154,9 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 .tc-chevron { color:var(--dim); font-size:11px; width:10px; flex:none; }
 .tc-icon { flex:none; }
 .tc-summary { color:var(--dim); font-size:12px; font-family:var(--mono); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* WorkBuddy 范式：叙述行动作用正文色 + 正文字体（覆盖 mono/dim），读起来是人话不是日志。 */
+.tc-summary.tc-action { color:var(--text); font-family:inherit; font-size:13px; }
+.process-cluster-body .tc-summary.tc-action { color:var(--text); }
 .tc-line .tool-name { flex:none; }
 .tc-line .tool-status { flex:none; }
 .tc-line .time { flex:none; margin-left:2px; }

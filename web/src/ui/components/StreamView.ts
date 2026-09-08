@@ -107,7 +107,10 @@ function ToolCallCard(props: {
   const [open, setOpen] = React.useState(false);
   const status = res ? (res.ok ? 'ok' : 'err') : 'pending';
   const statusText = res ? (res.ok ? '成功' : '失败') : '运行中…';
-  const summary = argSummary(p.args);
+  const toolName = (p.name as string) || 'tool';
+  // WorkBuddy 范式：叙述行显示人话动作（"写入 examples/.../index.js"），
+  // 原始工具名挂 title 悬停可见；k=v 参数摘要只在展开详情里出现。
+  const description = describeToolCall(toolName, p.args);
   // #OBS-11：失败时把 error 摘要直接显示在工具行尾部（不折叠），让用户立刻看到
   // 「为什么失败」——之前要展开 details 才能看到 error，沙箱拒绝/路径越界等根因
   // 全被吞了，长会话等半天还在原地打转。
@@ -119,8 +122,7 @@ function ToolCallCard(props: {
     <div className="tc-line" onClick=${() => setOpen((o) => !o)} title=${open ? '收起详情' : '点击查看调用详情'}>
       <span className="tc-chevron">${open ? '▾' : '▸'}</span>
       <span className="tc-icon">🔧</span>
-      <span className="tool-name">${esc((p.name as string) || 'tool')}</span>
-      ${summary ? html`<span className="tc-summary">${esc(summary)}</span>` : html`<span className="tc-summary"></span>`}
+      <span className="tc-summary tc-action" title=${esc(toolName)}>${esc(description)}</span>
       <span className=${'tool-status ' + status}>${statusText}</span>
       <span className="time">${timeOf(ev.timestamp)}</span>
     </div>
@@ -151,6 +153,66 @@ function ToolCallCard(props: {
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
   return s.slice(0, n - 1) + '…';
+}
+
+/**
+ * 工具调用 → 人话叙述（WorkBuddy 范式）：对话流里用户要读的是「模型在干嘛」，
+ * 不是 `write_file{path=...}` 这种工具链原文。把工具名+参数翻译成一行中文动作，
+ * 原始参数仍在展开详情与钻取面板里可查。
+ */
+function describeToolCall(name: string, args: unknown): string {
+  const a = args && typeof args === 'object' ? (args as Record<string, unknown>) : {};
+  const str = (k: string): string => (typeof a[k] === 'string' ? (a[k] as string) : '');
+  const short = (s: string, n = 72): string => truncate(s.replace(/\s+/g, ' ').trim(), n);
+  const pathOf = (k = 'path'): string => {
+    const p = str(k) || str('file') || str('target');
+    return p ? short(p, 60) : '';
+  };
+  switch (name) {
+    case 'write_file': {
+      const p = pathOf();
+      return p ? `写入 ${p}` : '写入文件';
+    }
+    case 'apply_patch': {
+      const p = pathOf();
+      return p ? `修改 ${p}` : '修改文件';
+    }
+    case 'read_file': {
+      const p = pathOf();
+      return p ? `读取 ${p}` : '读取文件';
+    }
+    case 'list_dir': {
+      const p = pathOf();
+      return p ? `浏览目录 ${p}` : '浏览目录';
+    }
+    case 'shell':
+    case 'bash': {
+      const cmd = str('command') || str('cmd');
+      return cmd ? `执行命令 ${short(cmd)}` : '执行命令';
+    }
+    case 'search':
+    case 'grep': {
+      const q = str('pattern') || str('query');
+      return q ? `搜索 ${short(q, 48)}` : '搜索代码';
+    }
+    case 'plan_read':
+      return '查看计划';
+    case 'plan_write':
+      return '更新计划';
+    case 'plan_present':
+      return '展示计划';
+    case 'todo_write':
+      return '更新待办';
+    case 'delegate':
+    case 'subagent': {
+      const t = str('task') || str('prompt');
+      return t ? `委派子任务 ${short(t, 48)}` : '委派子任务';
+    }
+    default: {
+      const summary = argSummary(args);
+      return summary ? `${name}（${summary}）` : `调用 ${name}`;
+    }
+  }
 }
 
 /** 写类工具的产物描述：从 args 提取目标路径。仅返回"可安全下载"的工作区相对路径。 */
@@ -259,31 +321,48 @@ function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean | unde
   return blocks;
 }
 
-/** 过程块 summary 文本：「N 步 · 思考×A · write_file×2 · bash×5」。 */
+/** 过程动作分组（WorkBuddy 范式）：工具名 → 人话动词短语，summary 里按出现顺序叙述。 */
+const ACTION_GROUPS: ReadonlyArray<{ readonly verbs: string; readonly test: (n: string) => boolean }> = [
+  { verbs: '读取了 {n} 个文件', test: (n) => n === 'read_file' },
+  { verbs: '写入了 {n} 个文件', test: (n) => n === 'write_file' || n === 'apply_patch' },
+  { verbs: '执行了 {n} 条命令', test: (n) => n === 'shell' || n === 'bash' },
+  { verbs: '浏览了 {n} 次目录', test: (n) => n === 'list_dir' },
+  { verbs: '搜索了 {n} 次', test: (n) => n === 'search' || n === 'grep' },
+  { verbs: '委派了 {n} 个子任务', test: (n) => n === 'delegate' || n === 'subagent' },
+  { verbs: '更新了 {n} 次计划', test: (n) => n.startsWith('plan_') || n === 'todo_write' },
+];
+
+/** 过程块 summary 文本（叙述式）：「思考 3 次 · 读取了 2 个文件 · 执行了 5 条命令」。 */
 function processSummary(events: readonly ThreadEvent[]): string {
   let thinkCount = 0;
   const toolCounts = new Map<string, number>();
-  let stepCount = 0;
   for (const ev of events) {
     if (ev.type === 'reasoning') {
       thinkCount++;
-      stepCount++;
     } else if (ev.type === 'tool_call') {
-      stepCount++;
       const name = (ev.payload?.name as string) || 'tool';
       toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
-    } else if (ev.type === 'tool_result') {
-      stepCount++;
     }
   }
   const parts: string[] = [];
-  if (thinkCount > 0) parts.push(`思考×${thinkCount}`);
-  // 工具名按调用次数降序、同次数字母序
-  const entries = Array.from(toolCounts.entries()).sort(
-    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
-  );
-  for (const [name, n] of entries) parts.push(`${name}×${n}`);
-  return `${stepCount} 步 · ${parts.join(' · ')}`;
+  if (thinkCount > 0) parts.push(`思考 ${thinkCount} 次`);
+  // 已被分组覆盖的工具不再单独出现；未覆盖的按「工具名×n」兜底
+  const grouped = new Set<string>();
+  for (const g of ACTION_GROUPS) {
+    let n = 0;
+    for (const [name, c] of toolCounts) {
+      if (g.test(name)) {
+        n += c;
+        grouped.add(name);
+      }
+    }
+    if (n > 0) parts.push(g.verbs.replace('{n}', String(n)));
+  }
+  const rest = Array.from(toolCounts.entries())
+    .filter(([name]) => !grouped.has(name))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  for (const [name, n] of rest) parts.push(`${name}×${n}`);
+  return parts.length > 0 ? parts.join(' · ') : `${events.length} 个事件`;
 }
 
 /** 过程块详情容器：根据忙碌态决定默认 open/closed，summary 显示步数 + 工具分布。 */
@@ -323,8 +402,8 @@ function ProcessCluster(props: {
     <summary className="tc-line dim" title=${isOpen ? '过程进行中（自动展开）' : '点击查看执行过程'}>
       <span className="tc-chevron-cluster"></span>
       <span className="tc-icon">⏵</span>
-      <span className="tc-summary">执行过程 · ${esc(text)}</span>
-      <span className="time">${block.events.length} 事件</span>
+      <span className="tc-summary">执行过程 — ${esc(text)}</span>
+      <span className="time">${block.events.length} 步</span>
     </summary>
     <div className="process-cluster-body">
       ${block.events.map((ev) => renderEvent(ev))}
@@ -524,15 +603,22 @@ export function StreamView(props: StreamViewProps): ReactElement {
                 : renderEvent(b.event),
             )}
             ${liveInputs.map(
-              (li) =>
-                html`<div className="ev" key=${li.id}>
+              (li) => {
+                // 参数还在流式生成中：尽力解析 partial JSON 提取人话动作，失败则用缺参兜底描述
+                let partialArgs: unknown = {};
+                try {
+                  partialArgs = JSON.parse(li.partial);
+                } catch {
+                  partialArgs = {};
+                }
+                return html`<div className="ev" key=${li.id}>
                   <div className="tc-line">
                     <span className="tc-chevron">▸</span><span className="tc-icon">🔧</span>
-                    <span className="tool-name">${esc(li.name)}</span>
-                    <span className="tc-summary">${esc(li.partial.slice(0, 56))}</span>
-                    <span className="tool-status pending">参数生成中…</span>
+                    <span className="tc-summary tc-action">${esc(describeToolCall(li.name, partialArgs))}</span>
+                    <span className="tool-status pending">进行中…</span>
                   </div>
-                </div>`,
+                </div>`;
+              },
             )}
           </div>`}
     </div>
