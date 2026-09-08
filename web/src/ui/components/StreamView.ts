@@ -27,6 +27,45 @@ export interface ToolResultView {
   ok: boolean;
 }
 
+/**
+ * 外部链接卡片（#OBS-11）：assistant 文本里出现的 http(s) URL 提取为可点击列表。
+ * 解决"模型产出后给个部署/文档 URL，UI 里淹没在 markdown 里"——让用户一眼能看到。
+ * 不做 OG 抓取（需要后端代理 + 缓存 + 隐私边界），纯卡片样式已足以让 URL 不被忽略。
+ */
+const URL_RE = /\bhttps?:\/\/[^\s<>")'\]]+/g;
+function extractUrls(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of text.matchAll(URL_RE)) {
+    const u = m[0].replace(/[.,;:!?)]+$/, ''); // 去掉末尾标点
+    if (u && !seen.has(u)) {
+      seen.add(u);
+      out.push(u);
+    }
+  }
+  return out;
+}
+function ExternalLinkCards(props: { urls: readonly string[] }): ReactElement | null {
+  if (props.urls.length === 0) return null;
+  return html`<div className="link-cards">
+    <div className="link-cards-head">🔗 外部链接 · ${props.urls.length}</div>
+    ${props.urls.map(
+      (u) =>
+        html`<a className="link-card" href=${u} target="_blank" rel="noopener noreferrer" key=${u}>
+          <span className="link-card-host">${esc(hostOf(u))}</span>
+          <span className="link-card-url">${esc(u)}</span>
+        </a>`,
+    )}
+  </div>`;
+}
+function hostOf(u: string): string {
+  try {
+    return new URL(u).host;
+  } catch {
+    return u;
+  }
+}
+
 /** 用户/助手消息携带的附件（#B5）：以 chip 形式内联展示。 */
 function attachmentChips(files?: FileAttachment[]): ReactElement | null {
   if (!files || files.length === 0) return null;
@@ -64,6 +103,13 @@ function ToolCallCard(props: { ev: ThreadEvent; res?: ToolResultView; onEventCli
   const status = res ? (res.ok ? 'ok' : 'err') : 'pending';
   const statusText = res ? (res.ok ? '成功' : '失败') : '运行中…';
   const summary = argSummary(p.args);
+  // #OBS-11：失败时把 error 摘要直接显示在工具行尾部（不折叠），让用户立刻看到
+  // 「为什么失败」——之前要展开 details 才能看到 error，沙箱拒绝/路径越界等根因
+  // 全被吞了，长会话等半天还在原地打转。
+  const errText = res && !res.ok && res.text ? res.text.replace(/^✗\s*/, '') : '';
+  // write_file / apply_patch 成功 → 渲染「产物卡片」：文件名 + 工作区相对路径 + 下载链接。
+  // 用户不再需要切去文件管理器自己找产物，对应 WorkBuddy artifact 体验。
+  const artifact = res && res.ok ? artifactFromTool(p.name as string, p.args) : null;
   return html`<div className="ev tool_call">
     <div className="tc-line" onClick=${() => setOpen((o) => !o)} title=${open ? '收起详情' : '点击查看调用详情'}>
       <span className="tc-chevron">${open ? '▾' : '▸'}</span>
@@ -73,6 +119,8 @@ function ToolCallCard(props: { ev: ThreadEvent; res?: ToolResultView; onEventCli
       <span className=${'tool-status ' + status}>${statusText}</span>
       <span className="time">${timeOf(ev.timestamp)}</span>
     </div>
+    ${errText ? html`<div className="tc-error" title=${esc(errText)}>⚠ ${esc(truncate(errText, 160))}</div>` : null}
+    ${artifact ? html`<${ArtifactCard} info=${artifact} />` : null}
     ${open
       ? html`<div className="tc-detail">
           ${p.args ? jsonView(p.args) : null}
@@ -91,6 +139,47 @@ function ToolCallCard(props: { ev: ThreadEvent; res?: ToolResultView; onEventCli
           >⤢ 在钻取面板查看</button>
         </div>`
       : null}
+  </div>`;
+}
+
+/** 截断长字符串到指定字符数（按字形，UTF-16 单元），超长末尾加省略号。 */
+function truncate(s: string, n: number): string {
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1) + '…';
+}
+
+/** 写类工具的产物描述：从 args 提取目标路径。仅返回"可安全下载"的工作区相对路径。 */
+interface ArtifactInfo {
+  readonly name: string;       // 展示用文件名
+  readonly relPath: string;    // 相对工作区的路径（URL 编码后给 /files?path=）
+  readonly kind: 'file' | 'patch';
+}
+function artifactFromTool(name: string, args: unknown): ArtifactInfo | null {
+  if (!args || typeof args !== 'object') return null;
+  const a = args as Record<string, unknown>;
+  if (name === 'write_file' || name === 'apply_patch') {
+    const path = typeof a['path'] === 'string' ? a['path'] : '';
+    if (!path) return null;
+    const fileName = path.split(/[\\/]/).pop() || path;
+    return { name: fileName, relPath: path, kind: name === 'apply_patch' ? 'patch' : 'file' };
+  }
+  return null;
+}
+
+/**
+ * 产物卡片（#OBS-11）：写类工具成功后展示——文件名 + 工作区路径 + 「下载」按钮直跳 /files。
+ * 与 WorkBuddy artifact 卡片体验一致：用户无需切去资源管理器找产物。
+ */
+function ArtifactCard(props: { info: ArtifactInfo }): ReactElement {
+  const { info } = props;
+  const href = `/files?path=${encodeURIComponent(info.relPath)}`;
+  return html`<div className="artifact-card">
+    <span className="artifact-icon">${info.kind === 'patch' ? '🩹' : '📄'}</span>
+    <div className="artifact-meta">
+      <div className="artifact-name" title=${esc(info.relPath)}>${esc(info.name)}</div>
+      <div className="artifact-path">${esc(info.relPath)}</div>
+    </div>
+    <a className="artifact-download" href=${href} download=${esc(info.name)} title="下载到本地">⬇ 下载</a>
   </div>`;
 }
 
@@ -196,9 +285,17 @@ function ProcessCluster(props: {
 }): ReactElement {
   const { block, toolResults, onEventClick, busy, renderEvent } = props;
   const text = processSummary(block.events);
-  const openDefault = busy === true;
-  return html`<details className="ev process-cluster" key=${block.key} open=${openDefault}>
-    <summary className="tc-line dim" title=${openDefault ? '过程进行中（自动展开）' : '点击查看执行过程'}>
+  const detailsRef = React.useRef<HTMLDetailsElement | null>(null);
+  // 受控折叠：任务进行中展开便于实时观察，结束后强制收起，只留最终结果/总结，界面干净。
+  React.useEffect(() => {
+    const d = detailsRef.current;
+    if (!d) return;
+    const shouldOpen = busy === true;
+    if (d.open !== shouldOpen) d.open = shouldOpen;
+  }, [busy]);
+  const isOpen = busy === true;
+  return html`<details className="ev process-cluster" ref=${detailsRef} key=${block.key} open=${isOpen}>
+    <summary className="tc-line dim" title=${isOpen ? '过程进行中（自动展开）' : '点击查看执行过程'}>
       <span className="tc-chevron-cluster"></span>
       <span className="tc-icon">⏵</span>
       <span className="tc-summary">执行过程 · ${esc(text)}</span>
@@ -327,6 +424,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
               }}
             >${renderMarkdown((p.content as string) || '')}</div>
             ${attachmentChips(p.files as FileAttachment[] | undefined)}
+            <${ExternalLinkCards} urls=${extractUrls((p.content as string) || '')} />
             <button
               className="copy-btn"
               title="复制结果"

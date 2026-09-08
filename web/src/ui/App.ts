@@ -362,6 +362,27 @@ export function App(): ReactElement {
           });
           void refreshSessions();
         }
+        // 兜底：若后端最后一步未产出 assistant 事件（如以 tool/empty 收尾），对话流末尾只余过程事件，
+        // 用户看不到最终总结。此时把 RPC 返回的 finalText 补成一条 assistant 事件渲染到流尾。
+        // 若流中已存在同内容 assistant 事件（SSE 已推送），则跳过避免重复。
+        const finalText = res.finalText;
+        if (finalText !== undefined && finalText.trim() !== '') {
+          setEvents((prev) => {
+            const alreadyShown = prev.some(
+              (e) => e.type === 'assistant' && (e.payload?.content as string) === finalText,
+            );
+            if (alreadyShown) return prev;
+            return [
+              ...prev,
+              {
+                id: 'final-' + Date.now().toString(36),
+                type: 'assistant',
+                timestamp: Date.now(),
+                payload: { content: finalText },
+              } as ThreadEvent,
+            ];
+          });
+        }
       } catch (e) {
         const msg = (e as Error).message || '未知错误';
         // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。
@@ -502,6 +523,26 @@ export function App(): ReactElement {
   }, []);
   const toggleTheme = React.useCallback(() => setTheme((t) => (t === 'light' ? 'dark' : 'light')), []);
 
+  /** 左侧面板宽度变更：memoized 避免 Resizer 拖拽时因父级重渲染导致 effect 反复卸载/重挂。 */
+  const onLeftWidthChange = React.useCallback((w: number) => {
+    setLeftWidth(w);
+    try {
+      localStorage.setItem('omni-left-width', String(w));
+    } catch {
+      /* 忽略 */
+    }
+  }, []);
+
+  /** 右侧面板宽度变更：memoized，同上。 */
+  const onRightWidthChange = React.useCallback((w: number) => {
+    setRightWidth(w);
+    try {
+      localStorage.setItem('omni-right-width', String(w));
+    } catch {
+      /* 忽略 */
+    }
+  }, []);
+
   const toolItems: ToolItem[] = React.useMemo(() => {
     const items: ToolItem[] = [];
     for (const e of events) {
@@ -585,10 +626,7 @@ export function App(): ReactElement {
         <${Resizer}
           side="left"
           width=${leftWidth}
-          onChange=${(w: number) => {
-            setLeftWidth(w);
-            try { localStorage.setItem('omni-left-width', String(w)); } catch { /* 忽略 */ }
-          }}
+          onChange=${onLeftWidthChange}
         />
         <${StreamView}
           events=${events}
@@ -613,10 +651,7 @@ export function App(): ReactElement {
         <${Resizer}
           side="right"
           width=${rightWidth}
-          onChange=${(w: number) => {
-            setRightWidth(w);
-            try { localStorage.setItem('omni-right-width', String(w)); } catch { /* 忽略 */ }
-          }}
+          onChange=${onRightWidthChange}
         />
         <${RightPanel} activePane=${activePane} onSelect=${setActivePane} open=${rightOpen} style=${{ width: rightWidth + 'px' }}>
           ${pane}

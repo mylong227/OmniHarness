@@ -9,6 +9,7 @@ import { WsServer, type WsConnection } from './wsTransport.js';
 import { EnterpriseAuth } from '../enterprise/index.js';
 import type { Metrics } from './metrics.js';
 import { log, Logger } from '../util/logger.js';
+import { safeReadFile } from './safeFs.js';
 
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
 export class HttpBridgeTransport implements Transport {
@@ -128,6 +129,11 @@ export interface HttpServerOptions {
   readonly bridge: HttpBridgeTransport;
   readonly webDir: string;
   readonly metrics?: Metrics;
+  /**
+   * 工作区根目录（#OBS-11）：用于 GET /files 工作区文件下载的越界校验。
+   * 注入为方法而非值：AppServer 切换工作区时无需重启 HTTP 服务。
+   */
+  readonly workspaceRoot?: () => string;
 }
 
 /** 健康检查结果（供容器编排探针消费）。 */
@@ -201,6 +207,10 @@ export class HttpServer {
         this.serveHealth(response, 'ready');
       } else if (request.method === 'POST' && url === '/rpc') {
         await this.handleRpc(request, response);
+      } else if (request.method === 'GET' && url.startsWith('/files')) {
+        // #OBS-11：工作区文件下载（Agent 写出的产物、前端 artifact 卡片 download 走这里）。
+        // 路径校验与 RPC fs.read 共用 safeReadFile，fail-closed 越界/缺失统一 403/404。
+        await this.serveWorkspaceFile(url, response);
       } else if (request.method === 'GET') {
         await this.serveStatic(url, response);
       } else {
@@ -291,6 +301,55 @@ export class HttpServer {
     } catch {
       response.writeHead(404).end('Not Found');
     }
+  }
+
+  /**
+   * 工作区文件下载（#OBS-11）：GET /files?path=<rel>，路径越界/缺失统一 403/404。
+   * 复用 safeReadFile（与 RPC fs.read 同一套安全逻辑），force-download 用 Content-Disposition。
+   */
+  private async serveWorkspaceFile(url: string, response: ServerResponse): Promise<void> {
+    const ws = this.options.workspaceRoot?.();
+    if (ws === undefined || ws === '') {
+      response.writeHead(503).end('工作区未配置');
+      return;
+    }
+    const queryStart = url.indexOf('?');
+    if (queryStart === -1) {
+      response.writeHead(400).end('缺少 path 查询参数');
+      return;
+    }
+    const params = new URLSearchParams(url.slice(queryStart + 1));
+    const rel = params.get('path');
+    if (rel === null || rel === '') {
+      response.writeHead(400).end('缺少 path 查询参数');
+      return;
+    }
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(rel);
+    } catch {
+      response.writeHead(400).end('path 解码失败');
+      return;
+    }
+    const r = safeReadFile(ws, decoded);
+    if (!r.ok) {
+      // 越界/缺失：403/404 区分；其他错误统一 500。
+      const status = r.error === '路径越界工作区' ? 403
+        : r.error.startsWith('读取失败') ? 404
+        : 500;
+      response.writeHead(status).end(r.error);
+      return;
+    }
+    const fileName = decoded.split(/[\\/]/).pop() || 'download';
+    // RFC 5987 中文/特殊字符文件名：用 ASCII 兜底 + utf-8 编码（浏览器双解析时取 utf-8）。
+    const encoded = encodeURIComponent(fileName);
+    response.writeHead(200, {
+      'Content-Type': this.contentType(decoded) || 'application/octet-stream',
+      'Content-Length': String(r.size),
+      'Content-Disposition': `attachment; filename="${fileName.replace(/[\r\n"]/g, '_')}"; filename*=UTF-8''${encoded}`,
+      'Cache-Control': 'no-store',
+    });
+    response.end(r.buffer);
   }
 
   /** 读取请求体。 */

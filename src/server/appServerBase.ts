@@ -27,6 +27,7 @@ import { mergeConfigs } from '../config/configLayer.js';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
+import { safeReadFile } from './safeFs.js';
 import { homedir } from 'node:os';
 import type {
   HealthSnapshot,
@@ -1047,7 +1048,11 @@ export class AppServerBase {
 
   /** 把覆盖配置合并进项目配置文件并写盘（目录不存在自动创建）。 */
   /** 当前生效工作区根目录（UI 覆盖优先，回退启动参数 → cwd）。 */
-  protected effectiveWorkspace(): string {
+  /**
+   * 当前生效的工作区根（#OBS-11）：HTTP /files 路由与 RPC fs.read 共用。
+   * public：HTTP 路由需要直接读取以注入到 HttpServerOptions.workspaceRoot。
+   */
+  public effectiveWorkspace(): string {
     return this.fieldOverrides.workspace ?? this.displayConfig['workspace'] ?? process.cwd();
   }
 
@@ -1180,21 +1185,13 @@ export class AppServerBase {
 
   /** 读取工作区内文件内容（供 UI DiffBlock/代码视图；防目录穿越 + 二进制/超长截断）。 */
   protected readFs(params: Record<string, unknown>): unknown {
-    const base = resolve(this.effectiveWorkspace());
+    // #OBS-11：复用 safeReadFile 做工作区越界校验，与 HTTP /files 路由共一套安全逻辑。
     const rel = typeof params['path'] === 'string' ? params['path'] : '';
-    if (!rel) {
-      throw new Error('缺少 path');
+    const r = safeReadFile(this.effectiveWorkspace(), rel);
+    if (!r.ok) {
+      throw new Error(r.error);
     }
-    const target = resolve(base, rel);
-    if (!target.startsWith(base)) {
-      throw new Error('路径越界工作区');
-    }
-    let buf: Buffer;
-    try {
-      buf = readFileSync(target);
-    } catch (error) {
-      throw new Error('读取失败: ' + this.messageOf(error));
-    }
+    const buf = r.buffer;
     const isBinary = buf.includes(0);
     const max = typeof params['maxBytes'] === 'number' ? params['maxBytes'] : 200000;
     const content = isBinary ? '' : buf.toString('utf8').slice(0, max);

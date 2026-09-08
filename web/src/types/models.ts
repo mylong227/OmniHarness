@@ -24,6 +24,10 @@ export interface ThreadEvent {
 
 export interface TurnRunResult {
   threadId: string;
+  /** 回合最终总结文本（后端最后一步非 text 时可能无对应 assistant 事件，UI 兜底渲染用）。 */
+  finalText?: string;
+  /** 本回合实际执行的步数。 */
+  steps?: number;
   [key: string]: unknown;
 }
 

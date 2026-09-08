@@ -32,8 +32,10 @@
 .col:last-child { border-right:none; border-left:1px solid var(--border); }
 .col.left { flex-shrink:0; border-right:1px solid var(--border); }
 .col.right { flex-shrink:0; border-left:1px solid var(--border); }
-.resizer { width:4px; flex-shrink:0; cursor:col-resize; background:transparent; transition:background .15s ease; }
+.resizer { width:6px; flex-shrink:0; cursor:col-resize; background:transparent; transition:background .15s ease; position:relative; z-index:5; }
 .resizer:hover { background:var(--accent-2); }
+.resizer::after { content:''; position:absolute; top:0; bottom:0; left:50%; width:1px; transform:translateX(-50%); background:var(--border); opacity:.5; }
+.resizer:hover::after { opacity:0; }
 
 /* 左侧图标导航栏（Codex 招牌） */
 .rail {

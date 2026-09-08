@@ -390,7 +390,7 @@ export class CliServerCmds extends CliBuildConfig {
       }
     }
     const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
-    const server = new HttpServer({ app, bridge, webDir, metrics });
+    const server = new HttpServer({ app, bridge, webDir, metrics, workspaceRoot: () => app.effectiveWorkspace() });
     const port = this.flagNumber(serveArgs, '--port') ?? 8787;
     const actual = await server.start(port);
     process.stdout.write(`OmniHarness UI: http://localhost:${actual}\n`);
