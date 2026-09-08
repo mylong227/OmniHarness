@@ -319,6 +319,13 @@ export class CliServerCmds extends CliBuildConfig {
       printUsage();
       return 2;
     }
+    // 修复「工作区错位」：配置文件里的 workspace 字段是 UI「当前选中工作区」的运行时状态，
+    // 历史 bug 里它经 configDefaults 被合并进 args.workspace，劫持了 serve 的 workspaceRoot。
+    // 例如用户曾在 UI 切到 D:\deepseek\_omni_ws，该值落盘后，下次在 omniharness 目录启动 serve
+    // 时 workspaceRoot 却被 _omni_ws 覆盖 → 模型写 examples/... 报「路径越界」。
+    // serve 的工作区必须恒等于启动时的真实目录（--workspace 参数 > process.cwd()），
+    // 绝不从持久化的「当前工作区」状态反推。
+    args.workspace = wsRoot;
     this.applyNetworkGuard(args);
     const config = await this.buildConfig(args);
     // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。

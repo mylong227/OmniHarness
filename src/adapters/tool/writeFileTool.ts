@@ -27,7 +27,13 @@ export class WriteFileTool {
     const content = String(call.arguments['content'] ?? '');
     const guard = new WorkspaceGuard(this.workspaceRoot);
     if (!guard.isInside(relative)) {
-      return { callId: call.id, ok: false, error: `路径越界: ${relative}` };
+      return {
+        callId: call.id,
+        ok: false,
+        // 报错做人话：给出当前可写根目录，模型据此改写为相对路径，避免反复试错触发 supervisor 降级。
+        error: `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，` +
+          `请改用相对此根目录的路径（例如 examples/plugins/demo-string/index.js）`,
+      };
     }
     const absolute = resolve(this.workspaceRoot, relative);
     try {

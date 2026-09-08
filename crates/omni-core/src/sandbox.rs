@@ -220,24 +220,44 @@ impl PlatformSandbox for SeatbeltSandbox {
 }
 
 /// 判断路径是否位于根内（防目录穿越：规范后比较前缀）。
+///
+/// 相对路径须先拼接到 root 再规范化，否则 `canonicalize` 依赖进程 cwd，且对
+/// 裸文件名（如 "probe_ws.txt"）的 `parent()` 为空串、`canonicalize("")` 在
+/// Windows 上失败 → 被误判越界。与 TS 侧 `WorkspaceGuard`（`resolve(base, rel)`）
+/// 语义对齐：相对路径一律以 root 为基准解析，绝不依赖进程工作目录。
 pub fn is_inside(root: &Path, candidate: &Path) -> bool {
     let Ok(root) = dunce_canonicalize_lossy(root) else {
         return false;
     };
-    let Ok(candidate) = dunce_canonicalize_lossy(candidate) else {
+    // 相对路径先拼接到 root；绝对路径原样处理（自身已含完整定位，不依赖 cwd）。
+    let joined = if candidate.is_absolute() {
+        candidate.to_path_buf()
+    } else {
+        root.join(candidate)
+    };
+    let Ok(candidate) = dunce_canonicalize_lossy(&joined) else {
         return false;
     };
     candidate == root || candidate.starts_with(&root)
 }
 
-/// 路径规范化：存在则 canonicalize，不存在则用其父目录 canonicalize + 文件名拼接。
+/// 路径规范化：存在则 canonicalize，不存在则沿父目录**递归上溯**到首个存在的祖先，
+/// 再把剩余不存在的尾段拼回去——对齐 TS `WorkspaceGuard.realpathExisting`。
+/// 否则多级不存在目录（如 "examples/plugins/demo-string/index.js" 全链未创建时）会因
+/// 只上溯一层父目录仍 canonicalize 失败而被误判越界。
 fn dunce_canonicalize_lossy(path: &Path) -> std::io::Result<PathBuf> {
     match std::fs::canonicalize(path) {
         Ok(canonical) => Ok(canonical),
         Err(_) => {
+            let parent = match path.parent() {
+                // 裸文件名（如 "probe_ws.txt"）的 parent() 返回空串，`canonicalize("")` 在
+                // Windows 上失败；根路径无父目录。二者都说明已到顶，直接回退原路径。
+                Some(p) if !p.as_os_str().is_empty() && p != path => p,
+                _ => return Ok(path.to_path_buf()),
+            };
+            // 递归上溯父目录（多层不存在时继续向上），再拼接尾段文件名。
+            let canonical_parent = dunce_canonicalize_lossy(parent)?;
             let file_name = path.file_name().map(|n| n.to_owned());
-            let parent = path.parent().unwrap_or(Path::new("."));
-            let canonical_parent = std::fs::canonicalize(parent)?;
             match file_name {
                 Some(name) => Ok(canonical_parent.join(name)),
                 None => Ok(canonical_parent),

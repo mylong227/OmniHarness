@@ -152,3 +152,34 @@ test('app-server：threads.continue 沿用同一线程', async () => {
   const result = (continued as { result: { threadId: string } }).result;
   assert.strictEqual(result.threadId, threadId);
 });
+
+// 回归测试：UI「完全访问」（approval=auto）必须绕过 SupervisorKernel 的 fail-closed 降级，
+// 否则用户点「完全访问」后首个危险工具失败即翻 safe、永久封锁写类工具（2026-09-08 用户截图根因）。
+test('app-server：approval=auto 时 bypassSupervisorKernel 返回 no-op supervisor', async () => {
+  const { server } = buildServer();
+  // 经 config.update 写入 approval=auto（等价 UI 切到「完全访问」）。
+  await (server as unknown as {
+    updateConfig: (p: Record<string, unknown>) => Promise<unknown>;
+  }).updateConfig({ approval: 'auto' });
+  // bypassSupervisorKernel 是 protected，测试经类型擦除访问。
+  const bypassed = (server as unknown as {
+    bypassSupervisorKernel: (c: unknown) => unknown;
+  }).bypassSupervisorKernel({});
+  assert.ok(bypassed !== undefined, 'approval=auto 时应返回 no-op supervisor（bypass）');
+  assert.strictEqual(
+    (bypassed as { intercept: () => string | undefined }).intercept(),
+    undefined,
+    'no-op supervisor 不得拦截任何工具',
+  );
+});
+
+test('app-server：approval=rules 时保持生产级 SupervisorKernel', async () => {
+  const { server } = buildServer();
+  await (server as unknown as {
+    updateConfig: (p: Record<string, unknown>) => Promise<unknown>;
+  }).updateConfig({ approval: 'rules' });
+  const bypassed = (server as unknown as {
+    bypassSupervisorKernel: (c: unknown) => unknown;
+  }).bypassSupervisorKernel({});
+  assert.strictEqual(bypassed, undefined, 'approval=rules 时应保持生产级 supervisor');
+});

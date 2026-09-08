@@ -182,8 +182,17 @@ export class AppServerBase {
    * 是服务端唯一放宽点，调用方只需把它当 supervisor 覆盖项传入 `RuntimeFactory.create`。
    */
   protected bypassSupervisorKernel(config: ResolvedConfig): SupervisorPort | undefined {
-    if (!this.autoApprove) return undefined;
-    void config; // 仅 autoApprove 决定；sandbox 类型由 ToolGate / 升级路径自行处理
+    // 用户终局授权判定：满足任一即视为「完全访问」，绕过 SupervisorKernel 的 fail-closed
+    // 降级（safe/locked 会永久拦截 write_file/shell/apply_patch 等危险工具，与用户授权矛盾）。
+    //   1) 启动标志 --auto-approve（this.autoApprove）
+    //   2) UI 权限档位 approval=auto（「完全访问 / 工具全部自动放行」，经 config.update 写入
+    //      fieldOverrides.approval 并落盘；历史 bug：此处只看 autoApprove，导致用户在 UI 点
+    //      「完全访问」后 supervisor 仍照常拦截——首个危险工具失败即翻 safe 永久封锁写类工具）。
+    const approvalAuto =
+      this.fieldOverrides.approval === 'auto' ||
+      this.effectiveFileConfig().approval === 'auto';
+    if (!this.autoApprove && !approvalAuto) return undefined;
+    void config; // sandbox 类型由 ToolGate / 升级路径自行处理
     return new ServerNoopSupervisor();
   }
 

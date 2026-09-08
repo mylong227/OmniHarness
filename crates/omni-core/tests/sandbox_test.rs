@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use omni_core::sandbox::{
-    BwrapSandbox, DangerousCommands, PlatformSandbox, PolicySandbox, RestrictedTokenSandbox,
-    Sandbox, SandboxAction, SeatbeltSandbox,
+    is_inside, BwrapSandbox, DangerousCommands, PlatformSandbox, PolicySandbox,
+    RestrictedTokenSandbox, Sandbox, SandboxAction, SeatbeltSandbox,
 };
 
 fn workspace() -> PathBuf {
@@ -65,6 +65,25 @@ fn policy_sandbox_enforces_workspace_boundary() {
             .to_string(),
     });
     assert!(!outside.allowed);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn is_inside_accepts_bare_relative_path() {
+    // 回归：裸相对路径（如 "probe_ws.txt"）此前因 canonicalize 依赖 cwd 且
+    // 空 parent 规范化失败而被误判越界（2026-09-08 用户截图「write_file 路径越界」根因）。
+    // 相对路径必须先拼接到 root 再比较，与 TS WorkspaceGuard 语义对齐。
+    // 独立目录名（非共享 workspace()）：避免与其他测试并行 remove_dir_all 竞态。
+    let root = std::env::temp_dir().join(format!("omni_is_inside_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&root);
+    assert!(is_inside(&root, std::path::Path::new("probe_ws.txt")));
+    assert!(is_inside(&root, std::path::Path::new("./probe_ws.txt")));
+    assert!(is_inside(
+        &root,
+        std::path::Path::new("examples/plugins/demo-string/index.js")
+    ));
+    // 越界相对路径（..）仍须拒绝。
+    assert!(!is_inside(&root, std::path::Path::new("../escape.txt")));
     let _ = std::fs::remove_dir_all(&root);
 }
 
