@@ -24,13 +24,49 @@ function isToolOrphan(messages: readonly ModelMessage[], idx: number): boolean {
   const m = messages[idx];
   if (m === undefined || m.role !== 'tool') return false;
   const id = m.toolCallId;
-  if (id === undefined) return false;
+  if (id === undefined) return true; // 无 toolCallId 的 tool 消息无法被前置调用认领
   for (let j = idx - 1; j >= 0; j--) {
     const prev = messages[j]!;
-    if (prev.role !== 'assistant') return false; // 找不到匹配的 assistant，停止向前搜
-    if (prev.toolCalls?.some((c) => c.id === id)) return false; // 找到了合法前置
+    if (prev.role === 'assistant' && prev.toolCalls?.some((c) => c.id === id)) {
+      return false; // 找到匹配的 assistant.tool_calls.id
+    }
   }
-  return true; // 头方向没找到 assistant.tool_calls.id 匹配 → 孤儿
+  return true; // 到头都没找到匹配的前置 assistant → 孤儿
+}
+
+/**
+ * 清理消息序列中的工具调用孤儿：
+ * 1. 移除没有对应 assistant.tool_calls.id 的 tool 消息；
+ * 2. 从 assistant 消息中移除没有后续 tool 响应的 toolCalls。
+ * 防止 OpenAI/DeepSeek 兼容 API 因格式校验抛出 HTTP 400。
+ */
+function sanitizeToolRounds(messages: readonly ModelMessage[]): ModelMessage[] {
+  const referencedIds = new Set<string>();
+  for (const m of messages) {
+    if (m.role === 'assistant' && m.toolCalls) {
+      for (const tc of m.toolCalls) referencedIds.add(tc.id);
+    }
+  }
+
+  const keptToolIds = new Set<string>();
+  for (const m of messages) {
+    if (m.role === 'tool' && m.toolCallId && referencedIds.has(m.toolCallId)) {
+      keptToolIds.add(m.toolCallId);
+    }
+  }
+
+  return messages.map((m) => {
+    if (m.role === 'tool') {
+      if (m.toolCallId && keptToolIds.has(m.toolCallId)) return m;
+      return undefined;
+    }
+    if (m.role === 'assistant' && m.toolCalls) {
+      const kept = m.toolCalls.filter((tc) => keptToolIds.has(tc.id));
+      if (kept.length === m.toolCalls.length) return m;
+      return { ...m, toolCalls: kept.length > 0 ? kept : undefined };
+    }
+    return m;
+  }).filter((m): m is ModelMessage => m !== undefined);
 }
 
 /** 上下文压缩器：超预算时把较早历史折叠为摘要，保留最近消息（无模型则退化为截断）。 */
@@ -68,7 +104,7 @@ export class ContextCompactor {
     const keepCount = Math.min(this.options.keepRecent, messages.length);
     let headEnd = messages.length - keepCount;
     while (headEnd > 0 && isToolOrphan(messages, headEnd)) headEnd--;
-    const tail = messages.slice(headEnd);
+    const tail = sanitizeToolRounds(messages.slice(headEnd));
     const head = messages.slice(0, headEnd);
     if (head.length === 0) {
       log.info('compaction.done', {
