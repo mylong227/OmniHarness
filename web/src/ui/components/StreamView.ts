@@ -286,21 +286,29 @@ function ProcessCluster(props: {
   const { block, toolResults, onEventClick, busy, renderEvent } = props;
   const text = processSummary(block.events);
   const detailsRef = React.useRef<HTMLDetailsElement | null>(null);
-  // #OBS-12：受控折叠改用 useLayoutEffect 在 DOM 提交前同步设置 d.open，
-  // 避免「busy=true 渲了一帧 open=true → 才被 useEffect 关回 false」的闪烁，
-  // 同时把初始 HTML open 属性也固定为 busy===true——双重保险：上层漏把 busy 重置回 false
-  // （loadThread / SSE 中断 / 刷新后的历史 cluster），本组件仍按 busy===true 判定。
-  // 事件流来源不限：「历史 load」「新回合 SSE」统一收敛。
+  // #OBS-13：用户手动切换覆盖默认——一旦用户主动 open/close，不再让 busy 推回初始值。
+  // 用 ref 标记「用户已接管」，避免依赖引发的 effect 死循环。
+  const userToggleRef = React.useRef(false);
   React.useLayoutEffect(() => {
     const d = detailsRef.current;
     if (!d) return;
+    if (userToggleRef.current) return; // 用户已接管，不再调整
     const shouldOpen = busy === true;
     if (d.open !== shouldOpen) {
       d.open = shouldOpen;
     }
   }, [busy, block.key]);
   const isOpen = busy === true;
-  return html`<details className="ev process-cluster" ref=${detailsRef} key=${block.key} open=${isOpen}>
+  return html`<details
+    className="ev process-cluster"
+    ref=${detailsRef}
+    key=${block.key}
+    open=${isOpen}
+    onToggle=${(e: Event) => {
+      // 用户主动展开/收起后，置位标志，后续 busy 变化不再覆盖用户意图。
+      userToggleRef.current = true;
+    }}
+  >
     <summary className="tc-line dim" title=${isOpen ? '过程进行中（自动展开）' : '点击查看执行过程'}>
       <span className="tc-chevron-cluster"></span>
       <span className="tc-icon">⏵</span>
