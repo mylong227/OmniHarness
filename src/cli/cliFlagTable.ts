@@ -54,6 +54,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--output-format',
   '--model-router',
   '--model-router-file',
+  '--turn-token-budget',
   '--oidc-issuer',
   '--oidc-client-id',
   '--oidc-jwks-uri',
@@ -286,6 +287,19 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   },
   '--model-router-file': (a, argv, i) => {
     a.modelRouterFile = valueOf(argv, i, '--model-router-file');
+    return 1;
+  },
+  // V2.1 循环质量三旗标：重试默认开（--no-model-retry 显式关）、文本流式、回合 token 预算。
+  '--no-model-retry': (a) => {
+    a.modelRetry = false;
+    return 0;
+  },
+  '--stream-text': (a) => {
+    a.streamText = true;
+    return 0;
+  },
+  '--turn-token-budget': (a, argv, i) => {
+    a.turnTokenBudget = Number.parseInt(valueOf(argv, i, '--turn-token-budget'), 10);
     return 1;
   },
   // D2 服务端鉴权门禁的 OIDC 配置（仅 serve 消费，不进入 CliArgs 通用字段）。

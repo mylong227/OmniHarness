@@ -84,6 +84,12 @@ export interface CliArgs {
   modelRouter?: ModelRouterConfig;
   /** 模型路由配置文件路径（#B4，--model-router-file <path>）：读取并 merge 进 config.modelRouter。 */
   modelRouterFile?: string;
+  /** 模型重试开关（V2.1，--no-model-retry 关闭；默认开）：429/408/5xx/网络抖动指数退避重试。 */
+  modelRetry?: boolean;
+  /** 文本流式输出（V2.1，--stream-text）：模型正文 token 级流式打到 stdout，末尾不再重复打印 finalText。 */
+  streamText?: boolean;
+  /** 回合 token 预算（V2.1，--turn-token-budget N）：累计 usage 超限停止步进，交由总结收尾。 */
+  turnTokenBudget?: number;
 }
 
 /** CLI 默认值。 */

@@ -46,26 +46,30 @@ const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, 
 export class RetryingModel implements ModelPort {
   readonly name: string;
 
+  /**
+   * 流式生成：仅当内部模型真的具备 stream 能力时才定义（V2.1 修复）。
+   * 之前实现为类方法恒存在——对无 stream 的内部模型（如 mock）虚假广告，
+   * 调用时返回 undefined，上层 StepRunner 拿到 undefined 直接炸
+   * 「Cannot read properties of undefined (reading 'reasoning')」。
+   * modelRetry 默认开（A3）后该缺陷在 headless 路径必然触发，故必须修。
+   */
+  readonly stream?: (request: ModelRequest, callbacks: StreamCallbacks) => Promise<ModelOutput>;
+
   constructor(
     private readonly inner: ModelPort,
     private readonly policy: RetryPolicy = DEFAULT_RETRY_POLICY,
     private readonly delay: DelayFn = realDelay,
   ) {
     this.name = inner.name;
+    if (inner.stream !== undefined) {
+      const innerStream = inner.stream.bind(inner);
+      this.stream = (request, callbacks) => this.run(() => innerStream(request, callbacks));
+    }
   }
 
   /** 生成响应（带重试）。 */
   generate(request: ModelRequest): Promise<ModelOutput> {
     return this.run(() => this.inner.generate(request));
-  }
-
-  /** 流式生成（带重试，仅当内部模型支持 stream 时）。 */
-  stream?(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
-    const inner = this.inner.stream;
-    if (inner === undefined) {
-      return undefined as unknown as Promise<ModelOutput>;
-    }
-    return this.run(() => inner.call(this.inner, request, callbacks));
   }
 
   /** 执行 + 重试主循环。 */

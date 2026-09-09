@@ -20,6 +20,7 @@ import type { ResolvedConfig } from '../config/omniharnessConfig.js';
 import type { ExtraTool } from '../config/omniharnessConfig.js';
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
+import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { PluginRegistry } from '../plugin/registry.js';
 import { AuditSink } from '../server/audit.js';
 import { NetworkEgressGuard, parseAllowList } from '../adapters/sandbox/networkEgress.js';
@@ -167,6 +168,17 @@ export class CliBuildConfig {
       // V2：默认步数 16→32——16 在真实任务上频繁跑满无果（2026-09-08 真机复现），
       // 且失控检测（LoopGuard）已兜住空转风险，放宽不增加失控成本。
       maxSteps: args.maxSteps ?? 32,
+      // V2.1（A3）：模型重试默认开——生产环境最蠢的单点故障是一次 429 报废整回合。
+      // --no-model-retry 显式关闭；策略（3 次 / 500ms 指数退避 / 尊重 Retry-After）见 RetryingModel。
+      modelRetry: args.modelRetry ?? true,
+      // V2.1（B4）：回合 token 预算（未设不进 config，维持缺省关闭语义）。
+      ...(args.turnTokenBudget !== undefined && args.turnTokenBudget > 0
+        ? { turnTokenBudget: args.turnTokenBudget }
+        : {}),
+      // V2.1（A1）：--stream-text 时注入带文本通道的 live 视图（正文 token 级打到 stdout）。
+      ...(args.streamText === true
+        ? { live: new ConsoleLiveView(process.stderr, process.stdout) }
+        : {}),
       model,
       storage: await this.buildStorage(args),
       approvals: this.buildApproval(args, model),

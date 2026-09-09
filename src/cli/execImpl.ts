@@ -139,6 +139,9 @@ export class ExecCli extends CliAgentCmds {
             finalText: summary.finalText ?? '',
           })}\n`,
         );
+      } else if (args.streamText === true) {
+        // V2.1（A1）：正文已随流式增量打到 stdout，这里只收尾换行，避免重复打印。
+        process.stdout.write('\n');
       } else {
         process.stdout.write(`${summary.finalText ?? JSON.stringify(result.summary)}\n`);
       }

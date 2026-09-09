@@ -13,4 +13,9 @@ export interface ToolInputSink {
   readonly name: string;
   /** 模型边生成工具参数边回调（partialJson 为已累积片段，可能不完整，由消费方自行拼接）。 */
   onToolInput(delta: ToolInputDelta): void;
+  /**
+   * 模型文本增量回调（V2.1 可选）：模型边生成正文边回调。
+   * 不实现该方法的既有 sink 行为不变（fail-closed：能力可选，不强求）。
+   */
+  onTextDelta?(text: string): void;
 }

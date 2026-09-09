@@ -74,7 +74,10 @@ test('Anthropic：请求体拆分 system 与工具格式', async () => {
 
   assert.strictEqual(captured?.url, 'https://api.anthropic.com/v1/messages');
   const body = JSON.parse(String(captured?.init.body)) as Record<string, unknown>;
-  assert.strictEqual(body['system'], '你是助手');
+  // V2.1（C10 prompt caching）：system 变为独立 text block 并带 ephemeral 缓存断点。
+  assert.deepStrictEqual(body['system'], [
+    { type: 'text', text: '你是助手', cache_control: { type: 'ephemeral' } },
+  ]);
   assert.strictEqual((body['messages'] as { role: string }[])[0]?.role, 'user');
   assert.strictEqual((body['tools'] as { name: string }[])[0]?.name, 'shell');
   assert.strictEqual(

@@ -1,5 +1,6 @@
 import type { ToolContext } from '../ports/tool.js';
-import type { StepRunner } from './stepRunner.js';
+import { BudgetExceededError } from '../ports/model.js';
+import type { StepRunner, StepOutcome } from './stepRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { TurnDiffTracker } from './turnDiffTracker.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
@@ -12,6 +13,8 @@ import { log } from '../util/logger.js';
 export interface TurnOutcome {
   readonly steps: number;
   readonly finalText?: string;
+  /** 本回合累计模型 token 用量（V2.1；模型未上报 usage 时为 0）。 */
+  readonly usageTokens: number;
 }
 
 /**
@@ -46,6 +49,11 @@ export class TurnRunner {
      * 回合末强 flush——崩溃最多丢一个窗口的事件，而非整回合。
      */
     private readonly persister?: EventPersister,
+    /**
+     * 回合 token 预算（V2.1，可选，0/缺省关闭）：累计模型 usage 超限即停止步进，
+     * 交由兜底总结收尾——对标 codex 的 token 预算终止，比纯步数更贴近真实成本。
+     */
+    private readonly tokenBudget = 0,
   ) {
     this.loopGuard = loopGuard;
   }
@@ -58,11 +66,38 @@ export class TurnRunner {
     let steps = 0;
     let consecutiveEmpty = 0;
     let aborted = false;
+    let usageTokens = 0;
     while (steps < this.maxSteps) {
-      const outcome = await this.stepRunner.run(context);
+      // V2.1：成本预算熔断（B5 补全）——BudgetedModel 抛 BudgetExceededError 时
+      // 不再让整回合硬崩（异常冒泡 → 用户颗粒无收），而是记录事件、跳出循环，
+      // 交由下方 finalize 兜底总结，把已有进展交付给用户。
+      let outcome: StepOutcome;
+      try {
+        outcome = await this.stepRunner.run(context);
+      } catch (err) {
+        if (err instanceof BudgetExceededError) {
+          log.warn('turn.budget_exceeded', { steps, usageTokens });
+          this.recorder.system('【预算熔断】模型调用成本已达硬预算上限，本回合停止步进。');
+          break;
+        }
+        throw err;
+      }
       steps += 1;
+      // V2.1 token 预算累计（B4）：usage 缺失的模型不计入（绝不臆造）。
+      const stepUsage = this.stepRunner.usageOfLastStep;
+      if (stepUsage !== undefined) {
+        usageTokens += stepUsage.totalTokens;
+      }
       // V2 增量持久化：每步安排 write-behind 落盘（崩溃最多丢一个批量窗口）。
       this.persister?.schedule();
+      // V2.1：token 预算超限 → 停止步进（finalize 会总结当前进展）。
+      if (this.tokenBudget > 0 && usageTokens >= this.tokenBudget) {
+        log.warn('turn.token_budget_reached', { steps, usageTokens, budget: this.tokenBudget });
+        this.recorder.system(
+          `【预算】本回合 token 用量（${usageTokens}）已达预算上限（${this.tokenBudget}），停止步进。`,
+        );
+        break;
+      }
       if (outcome === 'tool') {
         consecutiveEmpty = 0;
         // V2 失控检测：观测本步工具调用，决定 放行/纠偏/熔断。
@@ -118,7 +153,7 @@ export class TurnRunner {
     // 任务结果（finalText/steps）正常返回，UI 不会卡在「处理中」。这是稳健性改进，
     // 与审批上行无关（审批闭环本身已验证正常）。
     void this.consolidateMemory().catch(() => {});
-    return { steps, finalText };
+    return { steps, finalText, usageTokens };
   }
 
   /**

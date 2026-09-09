@@ -83,6 +83,8 @@ const DEFAULT_SPILL_PREVIEW_BYTES = 2048;
 export interface OmniHarnessConfig {
   readonly workspaceRoot: string;
   readonly maxSteps: number;
+  /** 回合 token 预算（V2.1 / B4，可选）：累计模型 usage 超限即停止步进交由总结收尾。0/缺省关闭。 */
+  readonly turnTokenBudget?: number;
   readonly model: ModelPort;
   readonly storage: StoragePort;
   readonly approvals?: ApprovalPort;
@@ -694,6 +696,7 @@ export class ConfigFactory {
     return {
       workspaceRoot: partial.workspaceRoot,
       maxSteps: partial.maxSteps,
+      turnTokenBudget: partial.turnTokenBudget,
       reasoning: partial.reasoning,
       model,
       storage: partial.storage,

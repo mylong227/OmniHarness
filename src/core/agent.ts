@@ -122,7 +122,13 @@ export class Agent {
       if (mode === 'run') {
         recorder.sessionMeta(this.runtime.config.workspaceRoot);
       }
-      recorder.user(prompt, images);
+      // V2.1（B7）：resume 不带提示 = 崩溃/中断恢复语义——注入续跑引导而非空白用户消息，
+      // 让模型基于已持久化的历史（含 write-behind 落盘的中间事件）接着当前进度做。
+      const effectivePrompt: string =
+        mode === 'resume' && prompt.trim() === ''
+          ? '【续跑】上次任务在此中断。基于上方会话历史与当前工作区状态接着完成剩余工作，不要重复已完成的步骤。'
+          : prompt;
+      recorder.user(effectivePrompt, images);
       // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）。
       const cancel = new CancellationToken();
       this.currentCancel = cancel;
@@ -259,19 +265,34 @@ export class Agent {
       // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。
       signal: cancel.toAbortSignal(),
     });
-    return new TurnRunner(
-      step,
-      recorder,
-      this.runtime.config.maxSteps,
-      this.runtime.turnDiff,
-      this.runtime.longTermMemory,
-      this.runtime.memoryExtractor,
-      buildLoopGuard(),
-      // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
-      // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
-      // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
-      this.currentPersister,
-    );
+      return new TurnRunner(
+        step,
+        recorder,
+        this.runtime.config.maxSteps,
+        this.runtime.turnDiff,
+        this.runtime.longTermMemory,
+        this.runtime.memoryExtractor,
+        buildLoopGuard(),
+        // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
+        // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
+        // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
+        this.currentPersister,
+        // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
+        this.resolveTokenBudget(),
+      );
+    }
+
+  /**
+   * 回合 token 预算解析（V2.1 / B4）：config.turnTokenBudget 优先，
+   * env OMNI_TURN_TOKEN_BUDGET 兜底；均未设置或非法时返回 0（关闭，不设预算闸）。
+   */
+  private resolveTokenBudget(): number {
+    const fromConfig = this.runtime.config.turnTokenBudget;
+    if (typeof fromConfig === 'number' && Number.isFinite(fromConfig) && fromConfig > 0) {
+      return Math.floor(fromConfig);
+    }
+    const fromEnv = Number(process.env.OMNI_TURN_TOKEN_BUDGET);
+    return Number.isFinite(fromEnv) && fromEnv > 0 ? Math.floor(fromEnv) : 0;
   }
 
   /** 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。 */

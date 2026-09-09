@@ -11,7 +11,15 @@ import type { StoragePort } from '../../ports/storage.js';
  */
 function loadDatabaseSync(): typeof DatabaseSync {
   try {
-    return createRequire(import.meta.url)('node:sqlite') as typeof DatabaseSync;
+    // CJS require 返回模块命名空间对象（{ DatabaseSync }），不是类本身——
+    // 直接 new 模块对象会炸「not a constructor」（2026-09-09 实测修复）。
+    const mod = createRequire(import.meta.url)('node:sqlite') as {
+      DatabaseSync: typeof DatabaseSync;
+    };
+    if (typeof mod?.DatabaseSync !== 'function') {
+      throw new Error('node:sqlite 未导出 DatabaseSync');
+    }
+    return mod.DatabaseSync;
   } catch {
     throw new Error(
       'SqliteStorage 需要 node:sqlite 内置模块（Node 22+）。' +

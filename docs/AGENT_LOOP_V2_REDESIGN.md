@@ -54,3 +54,25 @@ src/core/loop/
 | nudge 上限 | 同一检测连续触发 ≥2 次仍未改观 | abort |
 
 nudge 文案要求模型「换方法」，而非重复尝试——学 Varpulis 的 additionalContext 模式。
+
+## 5. V2.1 增量落地（2026-09-09 深夜，第二轮盘点后）
+
+诚实盘点修正：上一轮「待升级清单」有误报——A2 重试瀑布（RetryingModel）、
+C8 fallback 路由（modelRouter health-fallback）、B5 成本预算（BudgetedModel）、
+B6 压缩 8 段结构（含任务目标/当前进度）、C9 SubagentTool 均已存在。
+真实缺口与本轮落地：
+
+| 项 | 落地 |
+|---|---|
+| A1 文本流式 | ToolInputSink 加可选 onTextDelta；StepRunner 转发 onText；ConsoleLiveView 文本通道（--stream-text opt-in）；execImpl 流式时不重复打印 finalText |
+| A3 重试默认开 | modelRetry 默认 true（--no-model-retry 显式关）；暴露并修复 RetryingModel 对无 stream 模型的虚假广告缺陷（undefined 上抛炸 StepRunner） |
+| B4 token 预算 | TurnRunner 累计 usage.totalTokens 超限停止步进（config.turnTokenBudget / env OMNI_TURN_TOKEN_BUDGET / --turn-token-budget） |
+| B5 熔断优雅化 | BudgetExceededError 在循环层被捕获→记系统事件→finalize 交付已有进展，不再整回合硬崩 |
+| B7 resume 语义 | resume 不带提示 = 崩溃恢复：注入「续跑」引导消费 write-behind 已落盘的中间事件 |
+| C10 prompt caching | Anthropic system 变独立 text block + cache_control ephemeral（跨回合稳定前缀命中缓存） |
+
+测试新增 loopV21.test.ts（7 测试）；modelAdapters Anthropic 断言同步更新。
+另修 sqliteStorage 惰性加载缺陷（require('node:sqlite') 返回模块对象非类，
+须解构 DatabaseSync）。验收：typecheck/build 绿；loopV21 7/7；全量 1009 测试
+994 pass / 8 fail（与 HEAD 基线逐项一致，均为遗留环境性网络类）；smoke 绿；
+Node 20 冒烟绿。

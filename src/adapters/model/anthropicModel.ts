@@ -69,7 +69,16 @@ export class AnthropicModel implements ModelPort {
       body: JSON.stringify({
         model: this.config.model,
         max_tokens: this.config.maxTokens ?? 4096,
-        system,
+        // V2.1（C10 prompt caching）：system 作为独立 text block 并打上 ephemeral
+        // 缓存断点——system 前缀跨回合稳定（不变内容 + 追加），命中缓存可省重复
+        // 计费 token。Anthropic 专属字段；system 缺省时保持原行为（不带该字段）。
+        ...(system !== undefined
+          ? {
+              system: [
+                { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+              ],
+            }
+          : {}),
         messages,
         tools: this.toTools(request.tools),
       }),

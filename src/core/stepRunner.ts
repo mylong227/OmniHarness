@@ -2,7 +2,7 @@ import type { ApprovalPort } from '../ports/approval.js';
 import type { SessionEvent } from '../ports/event.js';
 import type { SandboxPort } from '../ports/sandbox.js';
 import type { ToolContext, ToolCall, ToolDefinition, ToolPort, ToolResult } from '../ports/tool.js';
-import type { ModelMessage, ModelPort } from '../ports/model.js';
+import type { ModelMessage, ModelPort, ModelUsage } from '../ports/model.js';
 import type { EscalationPort } from '../ports/escalation.js';
 import { ContextAssembler } from '../context/contextAssembler.js';
 import {
@@ -130,6 +130,13 @@ export class StepRunner {
   private stateRestored = false;
   /** 本步模型发出的工具调用（V2 失控检测观测用；text/empty 步为空数组）。 */
   private lastToolCalls: readonly ToolCall[] = [];
+  /** 本步模型用量（V2.1 token 预算终止用；模型未上报时为 undefined）。 */
+  private lastUsage: ModelUsage | undefined;
+
+  /** 本步模型用量（TurnRunner 预算累计读；无 usage 的模型恒 undefined）。 */
+  get usageOfLastStep(): ModelUsage | undefined {
+    return this.lastUsage;
+  }
 
   /** 最近一步的工具调用（LoopGuard 观测入口；无工具步为空数组）。 */
   get toolCallsOfLastStep(): readonly ToolCall[] {
@@ -159,6 +166,8 @@ export class StepRunner {
     // 带上模型名，供服务端 token 统计按模型分组。
     if (output.usage !== undefined) {
       this.deps.recorder.usage(output.usage, this.deps.model.name);
+      // V2.1：缓存本步用量供 TurnRunner 做 token 预算终止（B4）。
+      this.lastUsage = output.usage;
     }
     if (output.toolCalls !== undefined && output.toolCalls.length > 0) {
       this.lastToolCalls = output.toolCalls.map((c) => ({
@@ -243,7 +252,8 @@ export class StepRunner {
     };
     if (this.deps.live !== undefined && stream !== undefined) {
       return stream.call(this.deps.model, request, {
-        onText: () => {},
+        // V2.1：文本增量转发给 live sink（--stream-text 时打到 stdout）；无消费方即丢弃，行为不变。
+        onText: (text) => this.deps.live!.onTextDelta?.(text),
         onToolInput: (delta) => this.deps.live!.onToolInput(delta),
       });
     }

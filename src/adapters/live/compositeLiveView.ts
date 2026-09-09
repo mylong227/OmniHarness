@@ -30,4 +30,9 @@ export class CompositeLiveView implements ToolInputSink {
   onToolInput(delta: ToolInputDelta): void {
     for (const sink of this.sinks) sink.onToolInput(delta);
   }
+
+  /** 文本增量转发（V2.1）：仅转发给声明了该能力的子 sink。 */
+  onTextDelta(text: string): void {
+    for (const sink of this.sinks) sink.onTextDelta?.(text);
+  }
 }
