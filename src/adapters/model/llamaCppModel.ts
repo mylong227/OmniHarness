@@ -143,7 +143,13 @@ export class LlamaCppModel implements ModelPort {
     if (this.config.apiKey !== undefined) {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
-    return { method: 'POST', headers, body: JSON.stringify(body) };
+    return {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
+      ...(request.signal !== undefined ? { signal: request.signal } : {}),
+    };
   }
 
   /** 工具转 Ollama 原生格式（与 OpenAI 一致，但参数对象原样下发）。 */

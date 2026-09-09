@@ -12,6 +12,9 @@ import { TurnRunner } from './turnRunner.js';
 import type { TurnOutcome } from './turnRunner.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
+import { LoopGuard } from './loop/loopGuard.js';
+import { EventPersister } from './loop/eventPersister.js';
+import { CancellationToken } from './loop/cancellation.js';
 import { id } from '../util/id.js';
 import { log, Logger } from '../util/logger.js';
 
@@ -29,10 +32,23 @@ export interface AgentResult {
 
 /** Agent 总编排：建会话 → 记录输入 → 跑回合 → 持久化。 */
 export class Agent {
+  /** 当前在跑会话的取消令牌（V2）：cancel() 可中断模型请求（signal 贯穿 fetch）。 */
+  private currentCancel: CancellationToken | undefined;
+  /** 当前在跑会话的增量持久化器（V2）：供 buildTurnRunner 注入 TurnRunner。 */
+  private currentPersister: EventPersister | undefined;
+
   constructor(
     private readonly runtime: OmniHarnessRuntime,
     private readonly skills?: SkillRegistry,
   ) {}
+
+  /**
+   * 取消当前在跑的任务（V2）：模型在飞请求被中断（CancelledError 上抛），
+   * 已产生事件仍经 finally 落盘。无在跑任务时为 no-op。
+   */
+  cancelCurrentRun(reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user'): void {
+    this.currentCancel?.cancel(reason);
+  }
 
   /** 执行一次任务（新会话）。images/files 可选，随首条用户消息送入模型（#B1/#B5）。 */
   async runTask(
@@ -107,15 +123,29 @@ export class Agent {
         recorder.sessionMeta(this.runtime.config.workspaceRoot);
       }
       recorder.user(prompt, images);
-      const runner = this.buildTurnRunner(recorder);
+      // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）。
+      const cancel = new CancellationToken();
+      this.currentCancel = cancel;
+      const persister = new EventPersister(
+        this.runtime.storage,
+        sessionId,
+        () => eventLog.all(),
+      );
+      this.currentPersister = persister;
+      const runner = this.buildTurnRunner(recorder, cancel);
       let outcome: TurnOutcome;
       let persistedAt = 0;
       try {
         outcome = await runner.run(this.contextOf(sessionId));
       } finally {
-        // 无论回合成功还是抛出（模型 500 / 网络中断 / 工具异常），已产生的事件都必须落盘。
-        // 旧行为是异常直接冒泡、save 被跳过——用户重进会话看到一片空白，等于历史凭空消失。
-        // save 自身失败只告警：绝不能用持久化错误掩盖原始异常。
+        this.currentCancel = undefined;
+        this.currentPersister = undefined;
+        // V2：回合内 write-behind 定时器已由 TurnRunner 收尾 flush+dispose；
+        // 此处兜底：无论回合成功还是抛出（模型 500 / 网络中断 / 工具异常 / 取消），
+        // 已产生的事件都必须落盘。旧行为是异常直接冒泡、save 被跳过——用户重进
+        // 会话看到一片空白，等于历史凭空消失。save 自身失败只告警：绝不能用
+        // 持久化错误掩盖原始异常。
+        persister.dispose();
         persistedAt = eventLog.size();
         await this.persist(sessionId, eventLog.all());
       }
@@ -199,8 +229,8 @@ export class Agent {
     );
   }
 
-  /** 构建回合执行器。 */
-  private buildTurnRunner(recorder: SessionRecorder): TurnRunner {
+  /** 构建回合执行器（V2：注入取消信号 + 失控检测 + 增量持久化）。 */
+  private buildTurnRunner(recorder: SessionRecorder, cancel: CancellationToken): TurnRunner {
     const step = new StepRunner({
       model: this.runtime.model,
       tools: this.runtime.tools,
@@ -226,6 +256,8 @@ export class Agent {
       repoMapEnabled: process.env.OMNI_REPO_MAP !== '0',
       // U3 混合检索：仅当运行时注入了 embedding（env OMNI_SEMANTIC_RECALL=1 构造适配器）才走混合路径。
       embedding: this.runtime.embedding,
+      // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。
+      signal: cancel.toAbortSignal(),
     });
     return new TurnRunner(
       step,
@@ -234,14 +266,25 @@ export class Agent {
       this.runtime.turnDiff,
       this.runtime.longTermMemory,
       this.runtime.memoryExtractor,
+      buildLoopGuard(),
+      // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
+      // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
+      // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
+      this.currentPersister,
     );
   }
 
-  /** 构建上下文压缩器。 */
+  /** 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。 */
   private buildCompactor(): ContextCompactor {
+    const envWindow = Number(process.env.OMNI_CONTEXT_WINDOW);
     const compactor = new ContextCompactor(this.runtime.model, {
       maxTokens: this.runtime.config.compactionMaxTokens ?? DEFAULT_MAX_TOKENS,
       keepRecent: this.runtime.config.compactionKeepRecent ?? DEFAULT_KEEP_RECENT,
+      // V2：真实窗口 token 数（env OMNI_CONTEXT_WINDOW）提供时，阈值 = floor(0.8×window)，
+      // 对齐 codex/dsh 的「按窗口百分比触发压缩」策略；未提供时维持固定阈值行为。
+      ...(Number.isFinite(envWindow) && envWindow > 0
+        ? { contextWindowTokens: envWindow }
+        : {}),
     });
     // 原生内核可用时，token 估算下沉到 Rust（单次 FFI 往返，与 JS 结果逐位一致）。
     if (this.runtime.native?.estimateTokens !== undefined) {
@@ -304,4 +347,21 @@ export class Agent {
       log.warn('spark.cycle.failed', { sessionId, error: String(err) });
     }
   }
+}
+
+/**
+ * V2 失控检测器装配（默认开，零 config schema 变更——沿用 env 开关先例）：
+ *  - `OMNI_LOOPGUARD=0` 关闭；
+ *  - `OMNI_LOOP_MAX_MS=<毫秒>` 设置会话 wall-clock 上限（超时熔断，默认不设）。
+ * 检测策略：同调用重复 ≥3 次 / 循环窗口 8 内周期 ≤4 的 A→B→A→B 模式。
+ * 首次触发注入纠偏 user 消息，同一违规连续 2 次才熔断（不误杀长任务）。
+ */
+function buildLoopGuard(): LoopGuard {
+  if (process.env.OMNI_LOOPGUARD === '0') {
+    return new LoopGuard({ maxExactRepeats: 0, cycleWindow: 0 });
+  }
+  const maxMs = Number(process.env.OMNI_LOOP_MAX_MS);
+  return new LoopGuard({
+    maxDurationMs: Number.isFinite(maxMs) && maxMs > 0 ? maxMs : 0,
+  });
 }

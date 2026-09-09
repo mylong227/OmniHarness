@@ -73,6 +73,8 @@ export class AnthropicModel implements ModelPort {
         messages,
         tools: this.toTools(request.tools),
       }),
+      // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
+      ...(request.signal !== undefined ? { signal: request.signal } : {}),
     };
   }
 

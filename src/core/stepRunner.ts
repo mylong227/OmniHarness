@@ -12,7 +12,13 @@ import {
 } from '../context/repoMapContext.js';
 import type { EmbeddingPort } from '../ports/embedding.js';
 import { loadProjectInstructionsCached } from '../context/projectInstructions.js';
-import type { ContextCompactor } from '../context/contextCompactor.js';
+import {
+  type ContextCompactor,
+  type CompactionState,
+  encodeCompactionState,
+  decodeCompactionState,
+} from '../context/contextCompactor.js';
+import { ToolScheduler } from './loop/toolScheduler.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
 import type { ToolHookRunner } from './toolHooks.js';
@@ -81,6 +87,11 @@ export interface StepRunnerDeps {
    * 行业约定（6 万+ 仓库，Linux Foundation 治理），env OMNI_PROJECT_INSTRUCTIONS=0 由装配层置 false。
    */
   readonly projectInstructionsEnabled?: boolean;
+  /**
+   * 取消信号（V2，可选）：透传给模型请求（fetch 中断）。
+   * 由 TurnRunner/Agent 层的 CancellationToken 派生并注入。
+   */
+  readonly signal?: AbortSignal;
 }
 
 /** 单步结果类型。 */
@@ -108,6 +119,22 @@ function deriveQueryText(events: readonly SessionEvent[]): string {
 export class StepRunner {
   private readonly assembler: ContextAssembler;
   private readonly gate: ToolGate;
+  /** 工具并行调度器（V2）：读类并行、写类屏障、model-order 提交。 */
+  private readonly scheduler: ToolScheduler;
+  /**
+   * 压缩状态游标（V2）：内存持有跨步复用，写回事件日志供崩溃恢复。
+   * 消灭旧缺陷「压缩结果瞬态、每步重复调摘要 LLM」（审计 P0-1）。
+   */
+  private compactionState: CompactionState | undefined;
+  /** 是否已尝试从事件日志恢复压缩游标（懒恢复，只做一次）。 */
+  private stateRestored = false;
+  /** 本步模型发出的工具调用（V2 失控检测观测用；text/empty 步为空数组）。 */
+  private lastToolCalls: readonly ToolCall[] = [];
+
+  /** 最近一步的工具调用（LoopGuard 观测入口；无工具步为空数组）。 */
+  get toolCallsOfLastStep(): readonly ToolCall[] {
+    return this.lastToolCalls;
+  }
 
   constructor(private readonly deps: StepRunnerDeps) {
     this.gate =
@@ -121,6 +148,7 @@ export class StepRunner {
         deps.elevatedSandbox,
       );
     this.assembler = new ContextAssembler(deps.fragments);
+    this.scheduler = new ToolScheduler();
   }
 
   /** 运行一步。 */
@@ -133,9 +161,15 @@ export class StepRunner {
       this.deps.recorder.usage(output.usage, this.deps.model.name);
     }
     if (output.toolCalls !== undefined && output.toolCalls.length > 0) {
+      this.lastToolCalls = output.toolCalls.map((c) => ({
+        id: c.id,
+        name: c.name,
+        arguments: c.arguments,
+      }));
       await this.runToolCalls(output.toolCalls, context);
       return 'tool';
     }
+    this.lastToolCalls = [];
     if (output.text !== undefined) {
       // 把模型同一回合的推理内容（DeepSeek v4 reasoning 模式输出）一并塞进 assistant 事件，
       // 不依赖 reasoning/assistant 事件流时序——避免下轮 HTTP 400（#OBS-5）。
@@ -200,7 +234,13 @@ export class StepRunner {
     const tools = this.effectiveTools();
     log.debug('model.request', { messageCount: messages.length, toolCount: tools.length });
     const stream = this.deps.model.stream;
-    const request = { messages, tools, reasoningEffort: this.deps.reasoningEffort };
+    const request = {
+      messages,
+      tools,
+      reasoningEffort: this.deps.reasoningEffort,
+      // V2：取消信号透传（未注入为 undefined，适配器行为不变）。
+      signal: this.deps.signal,
+    };
     if (this.deps.live !== undefined && stream !== undefined) {
       return stream.call(this.deps.model, request, {
         onText: () => {},
@@ -259,13 +299,46 @@ export class StepRunner {
     if (compactor === undefined) {
       return projected;
     }
-    const result = await compactor.compact(projected);
-    if (result.compacted) {
+    // V2：懒恢复压缩游标（进程重启/resume 后从事件日志解析最近压缩点，只做一次）。
+    if (!this.stateRestored) {
+      this.stateRestored = true;
+      this.compactionState = this.restoreCompactionState(events);
+    }
+    const result = await compactor.compact(projected, this.compactionState);
+    if (result.state !== undefined) {
+      // 游标持久化：写回事件日志（system 事件），崩溃/重启后可恢复，跨步复用摘要。
+      this.compactionState = result.state;
+      this.deps.recorder.system(encodeCompactionState(result.state));
+    } else if (result.compacted && this.compactionState === undefined) {
+      // 无游标路径（head 为空的退化压缩）：维持旧行为的提示文本。
       this.deps.recorder.system(
         `上下文压缩: 已折叠较早历史（摘要 ${result.summary?.length ?? 0} 字）`,
       );
+    } else if (result.compacted && this.compactionState !== undefined) {
+      this.deps.recorder.system(
+        `上下文压缩: 复用既有摘要（游标 upTo=${this.compactionState.compactedUpTo}）`,
+      );
     }
     return result.messages;
+  }
+
+  /**
+   * 从事件日志恢复最近一次压缩游标（倒序扫描 system 事件，fail-closed：
+   * 格式不符/无压缩点均返回 undefined，走正常压缩路径）。
+   */
+  private restoreCompactionState(events: readonly SessionEvent[]): CompactionState | undefined {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]!;
+      if (e.type !== 'system') {
+        continue;
+      }
+      const content = (e.payload as { content?: string }).content;
+      if (typeof content !== 'string' || !content.startsWith('OMNI_COMPACTION_V1')) {
+        continue;
+      }
+      return decodeCompactionState(content);
+    }
+    return undefined;
   }
 
   /**
@@ -292,11 +365,17 @@ export class StepRunner {
     }
   }
 
-  /** 串行执行全部工具调用。 */
+  /**
+   * 执行工具调用（V2）：经 ToolScheduler 调度——读类并行（有界池）、
+   * 写类屏障串行、结果按 model-order 提交。单工具执行/记录逻辑不变
+   * （runToolCall 内部已自行记录结果，此处返回占位值仅为满足调度器签名，
+   * ScheduledResult 不被消费）。
+   */
   private async runToolCalls(calls: readonly ToolCall[], context: ToolContext): Promise<void> {
-    for (const call of calls) {
+    await this.scheduler.run(calls, async (call) => {
       await this.runToolCall(call, context);
-    }
+      return { callId: call.id, ok: true };
+    });
   }
 
   /** 执行单个工具调用（审批 → 沙箱 → pre 钩子 → 执行 → post 钩子）。 */

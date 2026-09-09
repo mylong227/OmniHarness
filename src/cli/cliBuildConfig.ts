@@ -164,7 +164,9 @@ export class CliBuildConfig {
     const model = this.buildModel(args);
     const config = ConfigFactory.build({
       workspaceRoot: args.workspace,
-      maxSteps: args.maxSteps ?? 16,
+      // V2：默认步数 16→32——16 在真实任务上频繁跑满无果（2026-09-08 真机复现），
+      // 且失控检测（LoopGuard）已兜住空转风险，放宽不增加失控成本。
+      maxSteps: args.maxSteps ?? 32,
       model,
       storage: await this.buildStorage(args),
       approvals: this.buildApproval(args, model),

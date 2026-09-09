@@ -67,6 +67,11 @@ export interface ModelRequest {
   readonly tools: readonly ModelToolSpec[];
   /** 推理强度（可选，#B6）：透传为 OpenAI reasoning_effort 等，未设则后端按模型默认。 */
   readonly reasoningEffort?: string;
+  /**
+   * 取消信号（V2，可选）：透传给底层 fetch 实现协作式取消。
+   * 未提供时适配器行为不变（向后兼容）；提供时取消即中断在飞 HTTP 请求。
+   */
+  readonly signal?: AbortSignal;
 }
 
 /** 模型返回的工具调用引用。 */

@@ -1,6 +1,24 @@
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
 import type { SessionEvent } from '../../ports/event.js';
 import type { StoragePort } from '../../ports/storage.js';
+
+/**
+ * 惰性加载 node:sqlite（Node 20 兼容铁律）：顶层静态 import 会在 Node 20 上
+ * 直接炸掉整个模块加载链（ERR_UNKNOWN_BUILTIN_MODULE），连「根本不用 sqlite」
+ * 的入口（如 smoke）都无法启动。改为首次实例化时 require，Node 22+ 行为不变，
+ * Node 20 仅在真正选择 sqlite 存储时才得到清晰错误（fail-closed 可诊断）。
+ */
+function loadDatabaseSync(): typeof DatabaseSync {
+  try {
+    return createRequire(import.meta.url)('node:sqlite') as typeof DatabaseSync;
+  } catch {
+    throw new Error(
+      'SqliteStorage 需要 node:sqlite 内置模块（Node 22+）。' +
+        '当前 Node 版本不可用；请改用 --storage jsonl 或升级 Node。',
+    );
+  }
+}
 
 /** SQLite 存储适配器（node:sqlite）：events 表按会话分桶，可替换 JSONL。 */
 export class SqliteStorage implements StoragePort {
@@ -10,8 +28,9 @@ export class SqliteStorage implements StoragePort {
   private readonly db: DatabaseSync;
 
   constructor(filePath: string) {
+    const DatabaseSyncImpl = loadDatabaseSync();
     this.location = filePath;
-    this.db = new DatabaseSync(filePath);
+    this.db = new DatabaseSyncImpl(filePath);
     this.db.exec(
       'CREATE TABLE IF NOT EXISTS events (session_id TEXT, seq INTEGER, data TEXT, PRIMARY KEY (session_id, seq))',
     );
