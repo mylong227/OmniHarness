@@ -13,14 +13,11 @@
  *   1. 幂等  compress ∘ compress ≡ compress
  *   2. 单调  bytes(compress(x)) ≤ bytes(x)
  *   3. 保序  分片相对顺序不变（去重保留首次出现）
+ *
+ * OOP 收口：原模块级纯函数归拢为 `DeterministicCompressor` 类方法；保留全部原函数名
+ * 作为门面（委托单例），既有调用点（src/context/index.ts、src/index.ts、
+ * tests/unit/contextEfficiency.test.ts）无需改动。
  */
-
-const encoder = new TextEncoder();
-
-/** UTF-8 字节数（token 成本的真实代理）。 */
-export function byteLength(text: string): number {
-  return encoder.encode(text).length;
-}
 
 /** 上下文分片。 */
 export type SegmentKind = 'system' | 'user' | 'assistant' | 'tool-result' | 'history';
@@ -70,29 +67,194 @@ export interface CompressResult {
   readonly report: CompressReport;
 }
 
+/**
+ * 确定性上下文压缩引擎。
+ * 把原 `compressContext` 及其私有/导出的纯函数归拢为类方法；
+ * 无模块级可变状态（`encoder` 为无状态实例字段），可多实例并发使用。
+ */
+export class DeterministicCompressor {
+  private readonly encoder = new TextEncoder();
+
+  /** UTF-8 字节数（token 成本的真实代理）。 */
+  byteLength(text: string): number {
+    return this.encoder.encode(text).length;
+  }
+
+  /** 折叠空行与行尾空白。 */
+  collapseBlankLines(text: string): string {
+    return text
+      .split('\n')
+      .map((line) => line.replace(/[ \t]+$/u, ''))
+      .join('\n')
+      .replace(/\n{3,}/gu, '\n\n');
+  }
+
+  /** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
+  minifyJsonBlock(text: string): string {
+    const trimmed = text.trim();
+    const isJsonLike =
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'));
+    if (!isJsonLike) {
+      return text;
+    }
+    try {
+      return JSON.stringify(JSON.parse(trimmed) as unknown);
+    } catch {
+      return text;
+    }
+  }
+
+  /**
+   * 超长输出截断：保留头部与尾部，**中段替换为带原始行数的省略标记**。
+   * 省略标记保留可追溯信息（共几行、省略几行），不制造幻觉。
+   * 幂等：行数 ≤ maxLines 时原样返回。
+   */
+  truncateLongOutput(
+    text: string,
+    maxLines: number,
+    headLines: number,
+    tailLines: number,
+  ): string {
+    const lines = text.split('\n');
+    if (lines.length <= maxLines) {
+      return text;
+    }
+    const keep = Math.max(0, Math.min(headLines, lines.length));
+    const tailKeep = Math.max(0, Math.min(tailLines, lines.length - keep));
+    const head = lines.slice(0, keep);
+    const tail = tailKeep > 0 ? lines.slice(lines.length - tailKeep) : [];
+    const omitted = lines.length - keep - tailKeep;
+    return [...head, `… [${omitted} lines omitted of ${lines.length}]`, ...tail].join('\n');
+  }
+
+  /** 去除内容完全相同的重复分片，保留首次出现（保序）。 */
+  deduplicateSegments(segments: readonly ContextSegment[]): readonly ContextSegment[] {
+    const seen = new Set<string>();
+    const out: ContextSegment[] = [];
+    for (const segment of segments) {
+      const fingerprint = `${segment.kind}\u0000${segment.text}`;
+      if (seen.has(fingerprint)) {
+        continue;
+      }
+      seen.add(fingerprint);
+      out.push(segment);
+    }
+    return out;
+  }
+
+  /** 把第 N 条之后的对话轮次折叠为单行摘要；已折叠（kind==='history'）的不再处理。 */
+  foldHistorySegments(
+    segments: readonly ContextSegment[],
+    foldAfter: number,
+  ): readonly ContextSegment[] {
+    let dialogueIndex = 0;
+    return segments.map((segment) => {
+      const isDialogue = segment.kind === 'user' || segment.kind === 'assistant';
+      if (!isDialogue) {
+        return segment;
+      }
+      dialogueIndex += 1;
+      if (dialogueIndex <= foldAfter) {
+        return segment;
+      }
+      const preview = segment.text.replace(/\s+/gu, ' ').trim().slice(0, 80);
+      return {
+        key: segment.key,
+        kind: 'history' as SegmentKind,
+        text: `[folded #${dialogueIndex}] ${preview}…`,
+      };
+    });
+  }
+
+  /** 计算分片总字节数。 */
+  private totalBytes(segments: readonly ContextSegment[]): number {
+    let total = 0;
+    for (const segment of segments) {
+      total += this.byteLength(segment.text);
+    }
+    return total;
+  }
+
+  /**
+   * 确定性上下文压缩主入口。
+   * 按「去空行 → JSON 紧凑 → 去重 → 长输出截断 → 历史折叠」顺序施加，全程纯函数。
+   */
+  compress(segments: readonly ContextSegment[], options: CompressOptions = {}): CompressResult {
+    const maxLines = options.maxLines ?? 200;
+    const headLines = options.headLines ?? 40;
+    const tailLines = options.tailLines ?? 40;
+    const foldAfter = options.foldAfter ?? 8;
+    const doMinify = options.minifyJson ?? true;
+    const doDedupe = options.dedupe ?? true;
+
+    const originalBytes = this.totalBytes(segments);
+    const stages: CompressStageMetric[] = [];
+    let current = segments;
+
+    const stage = (name: string, next: readonly ContextSegment[]): void => {
+      const before = this.totalBytes(current);
+      const after = this.totalBytes(next);
+      stages.push({ stage: name, savedBytes: Math.max(0, before - after) });
+      current = next;
+    };
+
+    stage(
+      'collapse-blank',
+      current.map((segment) => ({ ...segment, text: this.collapseBlankLines(segment.text) })),
+    );
+
+    if (doMinify) {
+      stage(
+        'minify-json',
+        current.map((segment) => ({ ...segment, text: this.minifyJsonBlock(segment.text) })),
+      );
+    }
+
+    if (doDedupe) {
+      stage('dedupe', this.deduplicateSegments(current));
+    }
+
+    stage(
+      'truncate-output',
+      current.map((segment) => ({
+        ...segment,
+        text: this.truncateLongOutput(segment.text, maxLines, headLines, tailLines),
+      })),
+    );
+
+    stage('fold-history', this.foldHistorySegments(current, foldAfter));
+
+    const compressedBytes = this.totalBytes(current);
+    return {
+      segments: current,
+      report: {
+        originalBytes,
+        compressedBytes,
+        ratio: originalBytes === 0 ? 1 : compressedBytes / originalBytes,
+        savedBytes: Math.max(0, originalBytes - compressedBytes),
+        stages,
+      },
+    };
+  }
+}
+
+// ---- 门面兼容：保留原函数名，委托单例 ----
+const compressor = new DeterministicCompressor();
+
+/** UTF-8 字节数（token 成本的真实代理）。 */
+export function byteLength(text: string): number {
+  return compressor.byteLength(text);
+}
+
 /** 折叠空行与行尾空白。 */
 export function collapseBlankLines(text: string): string {
-  return text
-    .split('\n')
-    .map((line) => line.replace(/[ \t]+$/u, ''))
-    .join('\n')
-    .replace(/\n{3,}/gu, '\n\n');
+  return compressor.collapseBlankLines(text);
 }
 
 /** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
 export function minifyJsonBlock(text: string): string {
-  const trimmed = text.trim();
-  const isJsonLike =
-    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-    (trimmed.startsWith('[') && trimmed.endsWith(']'));
-  if (!isJsonLike) {
-    return text;
-  }
-  try {
-    return JSON.stringify(JSON.parse(trimmed) as unknown);
-  } catch {
-    return text;
-  }
+  return compressor.minifyJsonBlock(text);
 }
 
 /**
@@ -106,33 +268,12 @@ export function truncateLongOutput(
   headLines: number,
   tailLines: number,
 ): string {
-  const lines = text.split('\n');
-  if (lines.length <= maxLines) {
-    return text;
-  }
-  const keep = Math.max(0, Math.min(headLines, lines.length));
-  const tailKeep = Math.max(0, Math.min(tailLines, lines.length - keep));
-  const head = lines.slice(0, keep);
-  const tail = tailKeep > 0 ? lines.slice(lines.length - tailKeep) : [];
-  const omitted = lines.length - keep - tailKeep;
-  return [...head, `… [${omitted} lines omitted of ${lines.length}]`, ...tail].join('\n');
+  return compressor.truncateLongOutput(text, maxLines, headLines, tailLines);
 }
 
 /** 去除内容完全相同的重复分片，保留首次出现（保序）。 */
-export function deduplicateSegments(
-  segments: readonly ContextSegment[],
-): readonly ContextSegment[] {
-  const seen = new Set<string>();
-  const out: ContextSegment[] = [];
-  for (const segment of segments) {
-    const fingerprint = `${segment.kind}\u0000${segment.text}`;
-    if (seen.has(fingerprint)) {
-      continue;
-    }
-    seen.add(fingerprint);
-    out.push(segment);
-  }
-  return out;
+export function deduplicateSegments(segments: readonly ContextSegment[]): readonly ContextSegment[] {
+  return compressor.deduplicateSegments(segments);
 }
 
 /** 把第 N 条之后的对话轮次折叠为单行摘要；已折叠（kind==='history'）的不再处理。 */
@@ -140,32 +281,7 @@ export function foldHistorySegments(
   segments: readonly ContextSegment[],
   foldAfter: number,
 ): readonly ContextSegment[] {
-  let dialogueIndex = 0;
-  return segments.map((segment) => {
-    const isDialogue = segment.kind === 'user' || segment.kind === 'assistant';
-    if (!isDialogue) {
-      return segment;
-    }
-    dialogueIndex += 1;
-    if (dialogueIndex <= foldAfter) {
-      return segment;
-    }
-    const preview = segment.text.replace(/\s+/gu, ' ').trim().slice(0, 80);
-    return {
-      key: segment.key,
-      kind: 'history' as SegmentKind,
-      text: `[folded #${dialogueIndex}] ${preview}…`,
-    };
-  });
-}
-
-/** 计算分片总字节数。 */
-function totalBytes(segments: readonly ContextSegment[]): number {
-  let total = 0;
-  for (const segment of segments) {
-    total += byteLength(segment.text);
-  }
-  return total;
+  return compressor.foldHistorySegments(segments, foldAfter);
 }
 
 /**
@@ -176,59 +292,5 @@ export function compressContext(
   segments: readonly ContextSegment[],
   options: CompressOptions = {},
 ): CompressResult {
-  const maxLines = options.maxLines ?? 200;
-  const headLines = options.headLines ?? 40;
-  const tailLines = options.tailLines ?? 40;
-  const foldAfter = options.foldAfter ?? 8;
-  const doMinify = options.minifyJson ?? true;
-  const doDedupe = options.dedupe ?? true;
-
-  const originalBytes = totalBytes(segments);
-  const stages: CompressStageMetric[] = [];
-  let current = segments;
-
-  const stage = (name: string, next: readonly ContextSegment[]): void => {
-    const before = totalBytes(current);
-    const after = totalBytes(next);
-    stages.push({ stage: name, savedBytes: Math.max(0, before - after) });
-    current = next;
-  };
-
-  stage(
-    'collapse-blank',
-    current.map((segment) => ({ ...segment, text: collapseBlankLines(segment.text) })),
-  );
-
-  if (doMinify) {
-    stage(
-      'minify-json',
-      current.map((segment) => ({ ...segment, text: minifyJsonBlock(segment.text) })),
-    );
-  }
-
-  if (doDedupe) {
-    stage('dedupe', deduplicateSegments(current));
-  }
-
-  stage(
-    'truncate-output',
-    current.map((segment) => ({
-      ...segment,
-      text: truncateLongOutput(segment.text, maxLines, headLines, tailLines),
-    })),
-  );
-
-  stage('fold-history', foldHistorySegments(current, foldAfter));
-
-  const compressedBytes = totalBytes(current);
-  return {
-    segments: current,
-    report: {
-      originalBytes,
-      compressedBytes,
-      ratio: originalBytes === 0 ? 1 : compressedBytes / originalBytes,
-      savedBytes: Math.max(0, originalBytes - compressedBytes),
-      stages,
-    },
-  };
+  return compressor.compress(segments, options);
 }

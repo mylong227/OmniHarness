@@ -99,3 +99,52 @@ describe('SSRF 防护', () => {
     assert.strictEqual(inspectHost('169.254.169.254', opts).blocked, true);
   });
 });
+
+// ---- 双向单测：合法目标必须放行（不被过度收紧）+ 非法/危险目标必须拒绝 ----
+describe('SSRF 双向单测（合法不收紧 / 非法必拒）', () => {
+  it('方向一：合法目标必须放行——不被过度收紧（默认策略放行私有网段）', () => {
+    const def = defaultSsrfOptions();
+    // 完整 URL 用 inspectUrl；裸主机/域名用 inspectHost。
+    assert.strictEqual(inspectUrl('https://api.example.com/v1', def).blocked, false, '公网 https 应放行');
+    assert.strictEqual(
+      inspectUrl('http://127.0.0.1:8790/a2a', def).blocked,
+      false,
+      '出厂 A2A 端点（loopback）默认应放行',
+    );
+    assert.strictEqual(
+      inspectUrl('http://93.184.216.34/', def).blocked,
+      false,
+      '公网 IPv4（带 scheme）应放行',
+    );
+    assert.strictEqual(inspectHost('example.org', def).blocked, false, '普通域名应放行');
+  });
+
+  it('方向二：非法/危险目标必须拒绝（严格模式 + fail-closed）', async () => {
+    const strict = {}; // allowPrivate 未开 → 私有/loopback 一律拦截
+    const illegalHosts = [
+      '169.254.169.254',
+      'metadata.google.internal',
+      'localhost',
+      'db.internal',
+      '::1',
+      'fd00::1',
+      '999.1.1.1',
+    ];
+    for (const h of illegalHosts) {
+      assert.strictEqual(inspectHost(h, strict).blocked, true, `${h} 必须被拒`);
+    }
+    await assert.rejects(() => assertNotSsrf('file:///etc/passwd', strict), /SSRF 拦截/);
+    await assert.rejects(() => assertNotSsrf('gopher://127.0.0.1:6379/x', strict), /SSRF 拦截/);
+    await assert.rejects(() => assertNotSsrf('不是URL', strict), /SSRF 拦截/);
+  });
+
+  it('严格模式：allowPrivate=false 时私有网段被拒，元数据仍被拒（互不覆盖）', () => {
+    const strict = { allowPrivate: false };
+    assert.strictEqual(inspectHost('127.0.0.1', strict).blocked, true);
+    // 即便显式 allowMetadata=true，元数据地址也永远拦截
+    assert.strictEqual(
+      inspectHost('169.254.169.254', { ...strict, allowMetadata: true }).blocked,
+      true,
+    );
+  });
+});
