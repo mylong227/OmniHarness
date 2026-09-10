@@ -53,6 +53,7 @@ for (const f of files) {
   const lines = text.split('\n').length;
 
   let varCount = 0, anyCount = 0, classes = [], topFns = [], staticCount = 0;
+  const missingJsdoc = [];
   let membersNoAccess = 0, membersTotal = 0, publicNoJsdoc = 0, publicTotal = 0;
   const exportedClasses = [];
 
@@ -81,7 +82,14 @@ for (const f of files) {
           if (!hasAccess) membersNoAccess++;
           // public = explicit public OR no access modifier (default public)
           const isPrivate = mods.some((m) => [ts.SyntaxKind.PrivateKeyword, ts.SyntaxKind.ProtectedKeyword].includes(m.kind));
-          if (!isPrivate) { publicTotal++; if (!hasJsDoc(mem, sf)) publicNoJsdoc++; }
+          if (!isPrivate) {
+            publicTotal++;
+            if (!hasJsDoc(mem, sf)) {
+              publicNoJsdoc++;
+              const nm = mem.name ? mem.name.getText(sf) : '(ctor)';
+              missingJsdoc.push({ name: nm, line: sf.getLineAndCharacterOfPosition(mem.getStart()).line + 1 });
+            }
+          }
         } else if (!hasAccess) membersNoAccess++;
       }
       classes.push({ name: cname, methods, exported: !!exported, jsdoc: hasJsDoc(node, sf) });
@@ -99,7 +107,7 @@ for (const f of files) {
     file: fkey, lines, varCount, anyCount, fanIn: fanIn.get(fkey) || 0,
     classes, topFns, staticCount, membersNoAccess, membersTotal, publicNoJsdoc, publicTotal,
     mainClass, nameMatches, hot: isHot(f),
-    exportedCount: exportedClasses.length,
+    exportedCount: exportedClasses.length, missingJsdoc,
   });
 }
 
@@ -133,6 +141,21 @@ for (const r of report.slice().sort((a,b)=>b.fanIn-a.fanIn).slice(0,30)) console
 
 console.log('\n=== MULTI-EXPORT MODULES (>=3 exported classes, one-class-per-file candidates) ===');
 for (const r of report.filter(r=>r.classes.filter(c=>c.exported).length>=3)) console.log(r.classes.filter(c=>c.exported).map(c=>c.name).join(',') + '  ->  ' + r.file);
+
+if (process.argv.includes('--jsdoc')) {
+  const ranked = report
+    .filter((r) => r.missingJsdoc.length > 0 && !r.hot)
+    .sort((a, b) => b.missingJsdoc.length - a.missingJsdoc.length);
+  console.log('\n=== MISSING JSDoc ON PUBLIC MEMBERS (per file, top 40) ===');
+  for (const r of ranked.slice(0, 40)) {
+    console.log(r.missingJsdoc.length + '  ' + r.file + '   [' + r.missingJsdoc.map((m) => m.name).join(', ') + ']');
+  }
+}
+
+if (process.argv.includes('--html')) {
+  console.log('\n=== HOT-ZONE EXEMPT MEMBERS ONLY (should be the residual) ===');
+  for (const r of report.filter((x) => x.hot && x.membersNoAccess > 0)) console.log(r.membersNoAccess + '  ' + r.file);
+}
 
 console.log('\n=== LOW-FAN-IN NON-HOT FILES (fanIn<=1, safe first batch) ===');
 for (const r of report.filter(r=>!r.hot && r.fanIn<=1).sort((a,b)=>a.lines-b.lines)) console.log('lines ' + r.lines + ' fanIn ' + r.fanIn + '  ' + r.file);
