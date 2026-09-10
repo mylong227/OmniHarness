@@ -6,170 +6,191 @@
  * 纯函数、零依赖，不会执行命令，也不解析 shell 语法（无法安全拆分的脚本整体降级为标记 + 原文）。
  */
 
-/** 降级标记：shell 脚本含多条命令/管道，无法归约为单条命令 token 序列。 */
-export const SHELL_SCRIPT_MARKER = '__shell_script__';
-
-/** 降级标记：PowerShell 脚本（不做 PS 语法解析，整体保留）。 */
-export const POWERSHELL_SCRIPT_MARKER = '__powershell_script__';
-
-/** 降级标记：cmd 脚本（不做 cmd 语法解析，整体保留）。 */
-export const CMD_SCRIPT_MARKER = '__cmd_script__';
-
-/** 已知 POSIX shell 可执行名（比较前已取 basename 并去 .exe）。 */
-const SHELLS: ReadonlySet<string> = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh', 'fish']);
-
-/** 会把后续内容视作脚本的 shell 开关。 */
-const SHELL_SCRIPT_FLAGS: ReadonlySet<string> = new Set(['-c', '-lc', '-cl']);
-
-/** 拆分归并符：出现任一即说明不是单条简单命令，不可安全去包装。 */
-const COMPOUND_PATTERN = /&&|\|\||[|;&\n]/;
-
 /**
- * shell 词法切分：按空白分词，处理单/双引号与反斜杠转义。
- * 引号本身不保留，只保留其内容——保证「加不加引号」不改变 canonical 结果。
+ * 命令规范化器：原模块级纯函数归拢为 `CommandCanonicalizer` 静态方法族，
+ * 调用点（审批缓存键等）通过同名 `export const` 别名零改动引用。
  */
-export function tokenizeShell(input: string): string[] {
-  const tokens: string[] = [];
-  let current = '';
-  let opened = false;
-  let quote: '"' | "'" | undefined;
-  for (let i = 0; i < input.length; i += 1) {
-    const ch = input[i]!;
-    if (quote !== undefined) {
-      if (ch === quote) {
-        quote = undefined;
-      } else {
-        current += ch;
+export class CommandCanonicalizer {
+  /** 降级标记：shell 脚本含多条命令/管道，无法归约为单条命令 token 序列。 */
+  static readonly SHELL_SCRIPT_MARKER = '__shell_script__';
+
+  /** 降级标记：PowerShell 脚本（不做 PS 语法解析，整体保留）。 */
+  static readonly POWERSHELL_SCRIPT_MARKER = '__powershell_script__';
+
+  /** 降级标记：cmd 脚本（不做 cmd 语法解析，整体保留）。 */
+  static readonly CMD_SCRIPT_MARKER = '__cmd_script__';
+
+  /** 已知 POSIX shell 可执行名（比较前已取 basename 并去 .exe）。 */
+  private static readonly SHELLS: ReadonlySet<string> = new Set([
+    'bash',
+    'sh',
+    'zsh',
+    'dash',
+    'ksh',
+    'fish',
+  ]);
+
+  /** 会把后续内容视作脚本的 shell 开关。 */
+  private static readonly SHELL_SCRIPT_FLAGS: ReadonlySet<string> = new Set(['-c', '-lc', '-cl']);
+
+  /** 拆分归并符：出现任一即说明不是单条简单命令，不可安全去包装。 */
+  private static readonly COMPOUND_PATTERN = /&&|\|\||[|;&\n]/;
+
+  /**
+   * shell 词法切分：按空白分词，处理单/双引号与反斜杠转义。
+   * 引号本身不保留，只保留其内容——保证「加不加引号」不改变 canonical 结果。
+   */
+  static tokenizeShell(input: string): string[] {
+    const tokens: string[] = [];
+    let current = '';
+    let opened = false;
+    let quote: '"' | "'" | undefined;
+    for (let i = 0; i < input.length; i += 1) {
+      const ch = input[i]!;
+      if (quote !== undefined) {
+        if (ch === quote) {
+          quote = undefined;
+        } else {
+          current += ch;
+        }
+        continue;
       }
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      opened = true;
-      continue;
-    }
-    if (ch === '\\' && i + 1 < input.length) {
-      current += input[i + 1]!;
-      i += 1;
-      opened = true;
-      continue;
-    }
-    if (isWhitespace(ch)) {
-      if (opened || current !== '') {
-        tokens.push(current);
-        current = '';
-        opened = false;
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        opened = true;
+        continue;
       }
-      continue;
+      if (ch === '\\' && i + 1 < input.length) {
+        current += input[i + 1]!;
+        i += 1;
+        opened = true;
+        continue;
+      }
+      if (CommandCanonicalizer.isWhitespace(ch)) {
+        if (opened || current !== '') {
+          tokens.push(current);
+          current = '';
+          opened = false;
+        }
+        continue;
+      }
+      current += ch;
     }
-    current += ch;
-  }
-  if (opened || current !== '') {
-    tokens.push(current);
-  }
-  return tokens;
-}
-
-/**
- * 规范化命令：成功去包装时返回内层命令 token 序列；无法安全拆分时返回 `[标记, 原文]`。
- * 空输入返回空数组，调用方应视为「无可审批目标」。
- */
-export function canonicalizeCommand(command: string): string[] {
-  const raw = command.trim();
-  if (raw === '') {
-    return [];
-  }
-  const tokens = tokenizeShell(raw);
-  const powershell = extractPowerShellScript(tokens);
-  if (powershell !== undefined) {
-    return [POWERSHELL_SCRIPT_MARKER, powershell];
-  }
-  const cmd = extractCmdScript(tokens);
-  if (cmd !== undefined) {
-    return [CMD_SCRIPT_MARKER, cmd];
-  }
-  const shell = extractShellScript(tokens);
-  if (shell !== undefined) {
-    const inner = shell.script.trim();
-    // 仅内层为单条简单命令时才去包装；含管道/串联时保留脚本原文，避免误归并语义不同的命令。
-    if (inner !== '' && !COMPOUND_PATTERN.test(inner)) {
-      return tokenizeShell(inner);
+    if (opened || current !== '') {
+      tokens.push(current);
     }
-    return [SHELL_SCRIPT_MARKER, shell.shell, inner];
+    return tokens;
   }
-  return tokens;
-}
 
-/** 规范化结果的稳定字符串表示（供审批缓存键使用）。 */
-export function canonicalKeyOf(tokens: readonly string[]): string {
-  return tokens.join(' ');
-}
+  /**
+   * 规范化命令：成功去包装时返回内层命令 token 序列；无法安全拆分时返回 `[标记, 原文]`。
+   * 空输入返回空数组，调用方应视为「无可审批目标」。
+   */
+  static canonicalizeCommand(command: string): string[] {
+    const raw = command.trim();
+    if (raw === '') {
+      return [];
+    }
+    const tokens = CommandCanonicalizer.tokenizeShell(raw);
+    const powershell = CommandCanonicalizer.extractPowerShellScript(tokens);
+    if (powershell !== undefined) {
+      return [CommandCanonicalizer.POWERSHELL_SCRIPT_MARKER, powershell];
+    }
+    const cmd = CommandCanonicalizer.extractCmdScript(tokens);
+    if (cmd !== undefined) {
+      return [CommandCanonicalizer.CMD_SCRIPT_MARKER, cmd];
+    }
+    const shell = CommandCanonicalizer.extractShellScript(tokens);
+    if (shell !== undefined) {
+      const inner = shell.script.trim();
+      // 仅内层为单条简单命令时才去包装；含管道/串联时保留脚本原文，避免误归并语义不同的命令。
+      if (inner !== '' && !CommandCanonicalizer.COMPOUND_PATTERN.test(inner)) {
+        return CommandCanonicalizer.tokenizeShell(inner);
+      }
+      return [CommandCanonicalizer.SHELL_SCRIPT_MARKER, shell.shell, inner];
+    }
+    return tokens;
+  }
 
-/** 单字符是否为分词空白。 */
-function isWhitespace(ch: string): boolean {
-  return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
-}
+  /** 规范化结果的稳定字符串表示（供审批缓存键使用）。 */
+  static canonicalKeyOf(tokens: readonly string[]): string {
+    return tokens.join(' ');
+  }
 
-/** 取可执行名：去目录前缀、去 .exe 后缀、转小写（跨平台一致）。 */
-function basenameOf(program: string): string {
-  const last = program.split(/[\\/]/).at(-1) ?? program;
-  return last.toLowerCase().replace(/\.exe$/, '');
-}
+  /** 单字符是否为分词空白。 */
+  private static isWhitespace(ch: string): boolean {
+    return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
+  }
 
-/** 提取 `bash -lc "script"` 形态（tokens 长度 ≥3，末尾为脚本）。 */
-function extractShellScript(
-  tokens: readonly string[],
-): { shell: string; script: string } | undefined {
-  if (tokens.length < 3) {
-    return undefined;
+  /** 取可执行名：去目录前缀、去 .exe 后缀、转小写（跨平台一致）。 */
+  private static basenameOf(program: string): string {
+    const last = program.split(/[\\/]/).at(-1) ?? program;
+    return last.toLowerCase().replace(/\.exe$/, '');
   }
-  const shell = basenameOf(tokens[0]!);
-  if (!SHELLS.has(shell)) {
-    return undefined;
-  }
-  const flags = tokens.slice(1, -1);
-  if (!flags.some((flag) => SHELL_SCRIPT_FLAGS.has(flag))) {
-    return undefined;
-  }
-  return { shell, script: tokens[tokens.length - 1]! };
-}
 
-/** 提取 `powershell -Command "script"` 形态（-EncodedCommand 无法规范化，按原文降级）。 */
-function extractPowerShellScript(tokens: readonly string[]): string | undefined {
-  if (tokens.length < 2) {
-    return undefined;
-  }
-  const program = basenameOf(tokens[0]!);
-  if (program !== 'powershell' && program !== 'pwsh') {
-    return undefined;
-  }
-  for (let i = 1; i < tokens.length; i += 1) {
-    const flag = tokens[i]!.toLowerCase();
-    if (flag === '-encodedcommand') {
+  /** 提取 `bash -lc "script"` 形态（tokens 长度 ≥3，末尾为脚本）。 */
+  private static extractShellScript(
+    tokens: readonly string[],
+  ): { shell: string; script: string } | undefined {
+    if (tokens.length < 3) {
       return undefined;
     }
-    if (flag === '-command' || flag === '-c') {
-      const rest = tokens.slice(i + 1).join(' ');
-      return rest === '' ? undefined : rest;
+    const shell = CommandCanonicalizer.basenameOf(tokens[0]!);
+    if (!CommandCanonicalizer.SHELLS.has(shell)) {
+      return undefined;
     }
+    const flags = tokens.slice(1, -1);
+    if (!flags.some((flag) => CommandCanonicalizer.SHELL_SCRIPT_FLAGS.has(flag))) {
+      return undefined;
+    }
+    return { shell, script: tokens[tokens.length - 1]! };
   }
-  return undefined;
+
+  /** 提取 `powershell -Command "script"` 形态（-EncodedCommand 无法规范化，按原文降级）。 */
+  private static extractPowerShellScript(tokens: readonly string[]): string | undefined {
+    if (tokens.length < 2) {
+      return undefined;
+    }
+    const program = CommandCanonicalizer.basenameOf(tokens[0]!);
+    if (program !== 'powershell' && program !== 'pwsh') {
+      return undefined;
+    }
+    for (let i = 1; i < tokens.length; i += 1) {
+      const flag = tokens[i]!.toLowerCase();
+      if (flag === '-encodedcommand') {
+        return undefined;
+      }
+      if (flag === '-command' || flag === '-c') {
+        const rest = tokens.slice(i + 1).join(' ');
+        return rest === '' ? undefined : rest;
+      }
+    }
+    return undefined;
+  }
+
+  /** 提取 `cmd /c "script"` 形态（`/c` 与 `/k` 之后整体为脚本，跳过 `/d` `/s` 等开关）。 */
+  private static extractCmdScript(tokens: readonly string[]): string | undefined {
+    if (tokens.length < 2) {
+      return undefined;
+    }
+    if (CommandCanonicalizer.basenameOf(tokens[0]!) !== 'cmd') {
+      return undefined;
+    }
+    for (let i = 1; i < tokens.length; i += 1) {
+      const flag = tokens[i]!.toLowerCase();
+      if (flag === '/c' || flag === '/k') {
+        const rest = tokens.slice(i + 1).join(' ');
+        return rest === '' ? undefined : rest;
+      }
+    }
+    return undefined;
+  }
 }
 
-/** 提取 `cmd /c "script"` 形态（`/c` 与 `/k` 之后整体为脚本，跳过 `/d` `/s` 等开关）。 */
-function extractCmdScript(tokens: readonly string[]): string | undefined {
-  if (tokens.length < 2) {
-    return undefined;
-  }
-  if (basenameOf(tokens[0]!) !== 'cmd') {
-    return undefined;
-  }
-  for (let i = 1; i < tokens.length; i += 1) {
-    const flag = tokens[i]!.toLowerCase();
-    if (flag === '/c' || flag === '/k') {
-      const rest = tokens.slice(i + 1).join(' ');
-      return rest === '' ? undefined : rest;
-    }
-  }
-  return undefined;
-}
+// ---- 门面兼容：保留原导出名 ----
+export const SHELL_SCRIPT_MARKER = CommandCanonicalizer.SHELL_SCRIPT_MARKER;
+export const POWERSHELL_SCRIPT_MARKER = CommandCanonicalizer.POWERSHELL_SCRIPT_MARKER;
+export const CMD_SCRIPT_MARKER = CommandCanonicalizer.CMD_SCRIPT_MARKER;
+export const tokenizeShell = CommandCanonicalizer.tokenizeShell;
+export const canonicalizeCommand = CommandCanonicalizer.canonicalizeCommand;
+export const canonicalKeyOf = CommandCanonicalizer.canonicalKeyOf;
