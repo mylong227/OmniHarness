@@ -19,6 +19,8 @@ import { langOf } from './highlight.js';
 import { RightPanel } from './components/RightPanel.js';
 import { NavRail } from './components/NavRail.js';
 import { ApprovalModal } from './components/ApprovalModal.js';
+import { CommandPalette } from './components/CommandPalette.js';
+import type { CommandItem } from './components/CommandPalette.js';
 import { Toast } from './components/Toast.js';
 import { Resizer } from './components/Resizer.js';
 
@@ -32,6 +34,7 @@ import { MemoryTab } from './components/tabs/MemoryTab.js';
 import { ProfilesTab } from './components/tabs/ProfilesTab.js';
 import { FileTab } from './components/tabs/FileTab.js';
 import { DetailTab } from './components/tabs/DetailTab.js';
+import { RollbackTab } from './components/tabs/RollbackTab.js';
 
 import type { GraphRunState } from '../types/models.js';
 
@@ -72,6 +75,8 @@ export function App(): ReactElement {
   const [busy, setBusy] = React.useState(false);
   const [activeTool, setActiveTool] = React.useState<string | null>(null);
   const [toastState, setToastState] = React.useState<ToastState>({ message: '', kind: 'info', visible: false });
+  /** 命令面板（Cmd/Ctrl+P / K 唤起）开关。 */
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
   /** 左/右侧面板宽度（px），从 localStorage 恢复，可拖拽调整。 */
   const [leftWidth, setLeftWidth] = React.useState(248);
   const [rightWidth, setRightWidth] = React.useState(360);
@@ -156,6 +161,18 @@ export function App(): ReactElement {
     } catch {
       /* 忽略 */
     }
+  }, []);
+
+  // ---- 命令面板快捷键：Ctrl/Cmd+P 或 Ctrl/Cmd+K 唤起 / 关闭（对标 Codex / 现代编辑器） ----
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'k')) {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   // ---- 适配器信息 + 当前配置（驱动 Composer 切换器） ----
@@ -321,6 +338,7 @@ export function App(): ReactElement {
         workspace: s.workspace,
         updatedAt: s.updatedAt,
         turns: s.turns,
+        running: s.running === true,
       }));
       setSessions((prev) => {
         // 合并本进程在册但磁盘尚未保存的会话（每回合结束即落盘，此处兜底）。
@@ -423,7 +441,7 @@ export function App(): ReactElement {
       try {
         await api.updateConfig({ reasoning: v });
       } catch (e) {
-        window.alert('切换推理强度失败：' + (e as Error).message);
+        showToast('切换推理强度失败：' + (e as Error).message, 'err');
       }
     },
     [api],
@@ -434,7 +452,7 @@ export function App(): ReactElement {
       try {
         await api.updateConfig({ approval: v });
       } catch (e) {
-        window.alert('切换权限等级失败：' + (e as Error).message);
+        showToast('切换权限等级失败：' + (e as Error).message, 'err');
       }
     },
     [api],
@@ -456,7 +474,7 @@ export function App(): ReactElement {
         setActiveTool(null);
         setSessions((prev) => prev.map((s) => s));
       } catch (e) {
-        window.alert('加载会话失败：' + (e as Error).message);
+        showToast('加载会话失败：' + (e as Error).message, 'err');
       }
     },
     [api],
@@ -493,7 +511,7 @@ export function App(): ReactElement {
         }
         await api.respondApproval(req.requestId, decision);
       } catch (e) {
-        window.alert('审批响应失败：' + (e as Error).message);
+        showToast('审批响应失败：' + (e as Error).message, 'err');
       }
     },
     [approval, api],
@@ -515,7 +533,7 @@ export function App(): ReactElement {
         setActivePane('file');
         setRightOpen(true);
       } catch (e) {
-        window.alert('打开失败：' + (e as Error).message);
+        showToast('打开失败：' + (e as Error).message, 'err');
       }
     },
     [api],
@@ -579,6 +597,40 @@ export function App(): ReactElement {
     [events, showDetail],
   );
 
+  // ---- 命令面板命令集（切换面板 / 会话 / 界面） ----
+  const commands = React.useMemo<CommandItem[]>(() => {
+    const panes: { key: string; label: string }[] = [
+      { key: 'tools', label: '工具' },
+      { key: 'metrics', label: '指标' },
+      { key: 'settings', label: '设置' },
+      { key: 'plugins', label: '插件' },
+      { key: 'graph', label: '编排' },
+      { key: 'memory', label: '记忆' },
+      { key: 'profiles', label: '配置集' },
+      { key: 'detail', label: '钻取' },
+      { key: 'changes', label: '变更' },
+      { key: 'rollback', label: '回滚' },
+      { key: 'file', label: '文件' },
+    ];
+    const list: CommandItem[] = panes.map((p) => ({
+      id: 'pane-' + p.key,
+      label: '打开面板：' + p.label,
+      group: '导航',
+      run: () => {
+        setActivePane(p.key);
+        setRightOpen(true);
+      },
+    }));
+    list.push(
+      { id: 'new-session', label: '新建会话', group: '会话', run: () => newSession() },
+      { id: 'reload-sessions', label: '刷新会话列表', group: '会话', run: () => void refreshSessions() },
+      { id: 'toggle-theme', label: '切换浅色 / 深色主题', group: '界面', run: () => toggleTheme() },
+      { id: 'toggle-left', label: '切换会话面板', group: '界面', run: () => toggleLeft() },
+      { id: 'toggle-right', label: '切换工具面板', group: '界面', run: () => toggleRight() },
+    );
+    return list;
+  }, [newSession, refreshSessions, toggleTheme, toggleLeft, toggleRight, setActivePane, setRightOpen]);
+
   let pane: ReactElement;
   switch (activePane) {
     case 'metrics':
@@ -586,6 +638,9 @@ export function App(): ReactElement {
       break;
     case 'changes':
       pane = html`<${ChangesTab} />`;
+      break;
+    case 'rollback':
+      pane = html`<${RollbackTab} sessionId=${currentThreadId} onRolledBack=${loadThread} />`;
       break;
     case 'settings':
       pane = html`<${SettingsTab} theme=${theme} onToggleTheme=${toggleTheme} />`;
@@ -622,6 +677,7 @@ export function App(): ReactElement {
         onToggleTheme=${toggleTheme}
         onToggleLeft=${toggleLeft}
         onToggleRight=${toggleRight}
+        onCommandPalette=${() => setPaletteOpen(true)}
       />
       <div className="body">
         <${NavRail} activePane=${activePane} onSelect=${setActivePane} />
@@ -671,6 +727,7 @@ export function App(): ReactElement {
       </div>
       <${ApprovalModal} approval=${approval} onRespond=${respondApproval} />
       <div className=${'drawer-backdrop' + (leftOpen || rightOpen ? ' show' : '')} onClick=${closeDrawers}></div>
+      <${CommandPalette} open=${paletteOpen} commands=${commands} onClose=${() => setPaletteOpen(false)} />
       <${Toast} toast=${toastState} />
     </div>
   <//>`;

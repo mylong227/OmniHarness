@@ -120,3 +120,123 @@
 .fp-item.fp-file.selected { background:rgba(47,111,235,.12); border-color:rgba(47,111,235,.5); }
 .fp-item.fp-file.selected .fp-check { background:#2f6feb; border-color:#2f6feb; color:#fff; }
 .fp-item.fp-dir { color:var(--text); }
+
+/* 命令面板（Ctrl/Cmd+P / K） */
+.cmdk-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 200;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh;
+}
+.cmdk {
+  width: min(560px, 92vw); background: var(--surface, #1b1d23); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.cmdk-input {
+  width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--border);
+  padding: 14px 16px; font-size: 14px; background: transparent; color: inherit; outline: none;
+}
+.cmdk-list { max-height: 50vh; overflow-y: auto; padding: 6px; }
+.cmdk-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.cmdk-item.active { background: rgba(47, 111, 235, 0.16); }
+.cmdk-label { flex: 1; }
+.cmdk-hint { color: var(--dim, #8a8f99); font-size: 12px; }
+.cmdk-empty { padding: 18px; text-align: center; color: var(--dim, #8a8f99); font-size: 13px; }
+
+/* 变更面板：hunk 概览 */
+.hunk-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.hunk-chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(47, 111, 235, 0.12); border: 1px solid var(--border); color: var(--text);
+}
+
+/* ===== 内联 diff 审查（对标 Codex Review）：hunk 级 stage/revert + 行内评论 ===== */
+.review { display: flex; flex-direction: column; gap: 8px; }
+.file-actions, .hunk-actions { display: inline-flex; gap: 6px; align-items: center; }
+.hunk-btn {
+  font-size: 11px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+}
+.hunk-btn:hover:not(:disabled) { background: rgba(47, 111, 235, 0.12); border-color: var(--accent, #2f6feb); }
+.hunk-btn.danger:hover:not(:disabled) { background: rgba(220, 53, 69, 0.14); border-color: #dc3545; }
+.hunk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.hunk-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 8px; background: rgba(127, 127, 127, 0.12);
+  border-left: 3px solid var(--accent, #2f6feb); margin-top: 6px;
+}
+.hunk-header { font-family: var(--mono, monospace); font-size: 11px; color: var(--dim); }
+.diff-rows { font-family: var(--mono, monospace); font-size: 12px; line-height: 1.55; }
+.diff-meta { color: var(--dim); opacity: 0.7; padding: 1px 8px; }
+.diff-row { display: flex; align-items: flex-start; gap: 6px; padding: 0 4px; position: relative; }
+.diff-row .diff-no { width: 34px; flex: none; text-align: right; color: var(--dim); opacity: 0.6; user-select: none; }
+.diff-row .diff-sign { width: 12px; flex: none; user-select: none; }
+.diff-row .diff-text { white-space: pre-wrap; word-break: break-all; flex: 1; }
+.diff-row.add { background: rgba(46, 160, 67, 0.14); }
+.diff-row.del { background: rgba(220, 53, 69, 0.14); }
+.line-cmt {
+  position: absolute; right: 4px; top: 1px; opacity: 0; cursor: pointer;
+  border: none; background: transparent; font-size: 12px; line-height: 1.4;
+}
+.diff-row:hover .line-cmt { opacity: 1; }
+.diff-comment {
+  display: flex; gap: 8px; align-items: baseline; margin: 2px 0 2px 46px;
+  padding: 4px 8px; border-radius: 8px; font-size: 12px;
+  background: rgba(255, 193, 7, 0.14); border: 1px solid var(--border);
+}
+.diff-comment .dc-mark { flex: none; color: var(--dim); }
+.diff-comment .dc-text { flex: 1; white-space: pre-wrap; }
+.diff-comment .dc-time { flex: none; font-size: 11px; color: var(--dim); }
+.diff-comment .dc-del { border: none; background: transparent; cursor: pointer; color: var(--dim); }
+.diff-comment .dc-del:hover { color: #dc3545; }
+.diff-draft { margin: 4px 0 4px 46px; display: flex; flex-direction: column; gap: 6px; }
+.diff-draft textarea {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  font-size: 12px; padding: 6px 8px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--panel, #fff); color: var(--text);
+}
+.diff-draft .dd-actions { display: flex; gap: 6px; }
+
+/* ===== Composer：@mention 补全 + 语音输入 ===== */
+.composer-input { position: relative; }
+.mention-pop {
+  position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30;
+  min-width: 280px; max-width: 60%; max-height: 220px; overflow: auto;
+  background: var(--panel, #fff); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); padding: 4px;
+}
+.mention-item {
+  padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  font-family: var(--mono, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mention-item.active, .mention-item:hover { background: rgba(47, 111, 235, 0.12); }
+.iconbtn.mic.listening { color: #dc3545; animation: mic-pulse 1.2s ease-in-out infinite; }
+@keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* ===== 并行任务卡（对标 Codex 并行 thread 监督） ===== */
+.session-cards { display: flex; flex-direction: column; gap: 6px; }
+.task-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 4px;
+}
+.task-card:hover { border-color: var(--accent, #2f6feb); }
+.task-card.active { border-color: var(--accent, #2f6feb); background: rgba(47, 111, 235, 0.08); }
+.task-card .tc-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.task-card .tc-dot {
+  width: 8px; height: 8px; flex: none; border-radius: 50%;
+  background: rgba(127, 127, 127, 0.5);
+}
+.task-card .tc-dot.on { background: #2ea043; box-shadow: 0 0 6px rgba(46, 160, 67, 0.8); }
+.task-card .tc-label {
+  font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.task-card .tc-meta {
+  display: flex; gap: 5px; align-items: center; font-size: 11px; color: var(--dim);
+}
+.task-card .tc-ws {
+  margin-left: auto; padding: 0 6px; border-radius: 999px;
+  border: 1px solid var(--border); font-size: 10px; max-width: 45%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

@@ -15,6 +15,8 @@ export interface SessionEntry {
   workspace?: string;
   updatedAt?: string;
   turns?: number;
+  /** 服务端真实运行态（runTurn 进行中）；缺省视为空闲。 */
+  running?: boolean;
 }
 
 export interface FileView {
@@ -23,6 +25,12 @@ export interface FileView {
   content: string;
   /** 语言 id（'js'|'ts'|'json'|...），空串表示未知 → 纯文本展示。右侧文件面板据此做语法高亮。 */
   lang?: string;
+}
+
+/** 工具结果视图：事件流里内联展示的成功/失败与输出文本。 */
+export interface ToolResultView {
+  text: string;
+  ok: boolean;
 }
 
 export type ToastKind = 'ok' | 'err' | 'info';

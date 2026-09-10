@@ -16,7 +16,11 @@
     "declaration": false,
     "sourceMap": true,
     "noEmitOnError": false,
-    "allowJs": false
+    "allowJs": false,
+    // JSX：零打包器下由 tsc 直接把 JSX 编译为 React.createElement（React 由 UMD 全局经 deps.js 注入）。
+    "jsx": "react",
+    "jsxFactory": "React.createElement",
+    "jsxFragmentFactory": "React.Fragment"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
