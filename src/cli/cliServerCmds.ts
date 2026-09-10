@@ -68,6 +68,7 @@ export class CliServerCmds extends CliBuildConfig {
       registry: this.createRegistry(serverArgs, pluginsDir),
       pluginsDir,
       audit: this.createAudit(serverArgs),
+      workspaceRoot: process.cwd(),
     });
     await app.loadPlugins();
     return new Promise(() => undefined);
@@ -381,6 +382,7 @@ export class CliServerCmds extends CliBuildConfig {
       autoApprove: serveArgs.includes('--auto-approve'),
       configPath,
       pluginsDir,
+      workspaceRoot: wsRoot,
     });
     await app.loadPlugins();
     // G-E 5.1：启动后若指定插件集 profile，把运行时插件集收敛为该命名组合。

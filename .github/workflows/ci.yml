@@ -27,6 +27,21 @@ jobs:
       # 公开 API 稳定性契约：每项 export 必须落在带 @public/@beta/@deprecated 标注的分区内。
       - run: npm run api:check
 
+  web:
+    name: Web UI 构建 + 单测
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      # 此前 web 零门禁：7 处 window.alert 无人管、2 个 a11y 标记、命令面板 / 回滚 / 增量流式
+      # 等新功能全靠本地肉眼 review。现把 web 类型检查 + 单测纳入红线，回归即红。
+      - run: npm run web:build
+      - run: npm run web:test
+
   test:
     name: 单元测试（含覆盖率门禁）
     runs-on: ubuntu-latest

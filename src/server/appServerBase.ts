@@ -82,6 +82,8 @@ function inferMediaType(name: string): string {
 export class AppServerBase {
   protected options: AppServerOptions;
   protected readonly threads = new Map<string, string>();
+  /** 正在执行回合的会话 id（runTurn 进入/退出维护）：sessions.list 据此标注真实运行态（非猜测）。 */
+  protected readonly activeTurns = new Set<string>();
   /**
    * 探测结果缓存：厂商 id → 实测连通状态与真实模型清单。
    * 「检测」按钮与「启用此厂商」时填充；model.catalog 用它把 Composer 下拉

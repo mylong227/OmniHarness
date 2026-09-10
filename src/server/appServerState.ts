@@ -24,6 +24,8 @@ export interface AppServerOptions {
   readonly autoApprove?: boolean;
   /** 持久化目标配置文件路径（项目级 omniharness.json；缺省时按工作区推断并创建）。 */
   readonly configPath?: string;
+  /** 工作区根（检查点文件快照还原用；缺省回退 process.cwd()）。 */
+  readonly workspaceRoot?: string;
   /** 结构化审计日志 sink（注入后所有事件落盘 JSONL；未注入则无审计）。 */
   readonly audit?: AuditSink;
 }

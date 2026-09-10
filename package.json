@@ -55,6 +55,7 @@
     "build": "tsc",
     "web:build": "tsc -p web/tsconfig.json",
     "web:watch": "tsc -p web/tsconfig.json --watch",
+    "web:test": "npm run web:build && node --test --test-timeout=30000 \"web/test/**/*.test.mjs\"",
     "prepare": "tsc",
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",

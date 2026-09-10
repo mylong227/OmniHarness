@@ -29,5 +29,9 @@ web/_shot.html
 .omni-embed-cache/
 # git worktree 元数据（临时协作分支，勿入库）
 .omni-worktrees/
+# 检查点快照（用户数据，checkpoint.create 可重建；勿入库）
+.omni-checkpoints/
+# diff 行内评论（用户数据，ChangesTab 写入；勿入库）
+.omni/
 # git-safe 安全重建脚本产生的 .git 备份目录（含整份 objects/refs/hooks，勿入库，否则会把 .git 嵌进 .git）
 .git.bak.*/

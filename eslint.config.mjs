@@ -12,7 +12,6 @@ export default tseslint.config(
       'node_modules/**',
       'coverage/**',
       'native/**',
-      'web/**',
       'scripts/**',
       '.omni-worktrees/**', // harness 运行时 worktree 产物，非本仓库维护源码
       '**/*.mjs',

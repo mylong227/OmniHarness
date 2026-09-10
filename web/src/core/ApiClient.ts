@@ -139,10 +139,17 @@ export class ApiClient {
   listWorkspaces(): Promise<{ current: string; workspaces: string[] }> {
     return this.rpc('workspace.list', {});
   }
-  /** 全部会话存档列表（含工作区标记），供按项目收纳。 */
+  /** 全部会话存档列表（含工作区标记），供按项目收纳。running = 服务端真实运行态。 */
   listSessions(): Promise<{
     dir: string;
-    sessions: { sessionId: string; workspace?: string; label: string; turns: number; updatedAt: string }[];
+    sessions: {
+      sessionId: string;
+      workspace?: string;
+      label: string;
+      turns: number;
+      updatedAt: string;
+      running?: boolean;
+    }[];
   }> {
     return this.rpc('sessions.list', {});
   }
@@ -201,6 +208,66 @@ export class ApiClient {
   }
   respondApproval(requestId: string, decision: string): Promise<unknown> {
     return this.rpc('approval.respond', { requestId, decision });
+  }
+
+  /** 列出某会话的全部检查点（label/时间/事件数/是否含文件快照）。 */
+  listCheckpoints(sessionId: string): Promise<{
+    sessionId: string;
+    checkpoints: { label: string; ts: string; eventCount: number; hasFileSnapshot: boolean }[];
+  }> {
+    return this.rpc('checkpoint.list', { sessionId });
+  }
+  /** 为当前会话创建一个检查点（对话 + 工作区文件快照）。 */
+  createCheckpoint(
+    sessionId: string,
+    label: string,
+  ): Promise<{ ok: boolean; checkpoint: { label: string; ts: string; eventCount: number; hasFileSnapshot: boolean } }> {
+    return this.rpc('checkpoint.create', { sessionId, label });
+  }
+  /** 回滚到指定检查点（不传 label 回滚到最近一个）；对话与代码一并还原。 */
+  rollbackCheckpoint(
+    sessionId: string,
+    label?: string,
+  ): Promise<{ ok: boolean; checkpoint: { label: string; ts: string; eventCount: number; hasFileSnapshot: boolean } }> {
+    return this.rpc('checkpoint.rollback', { sessionId, label });
+  }
+
+  // ---- 内联 diff 审查（对标 Codex Review：hunk 级 stage/revert + 行内评论）----
+
+  /** stage 整个文件（git add）。 */
+  stageFile(path: string): Promise<{ ok: boolean }> {
+    return this.rpc('changes.stageFile', { path });
+  }
+  /** 丢弃整个文件的工作区改动（未跟踪文件服务端拒绝）。 */
+  revertFile(path: string): Promise<{ ok: boolean }> {
+    return this.rpc('changes.revertFile', { path });
+  }
+  /** stage 单个 hunk；isNew=true 时服务端先 git add -N。 */
+  stageHunk(path: string, hunk: string, isNew?: boolean): Promise<{ ok: boolean }> {
+    return this.rpc('changes.stageHunk', { path, hunk, isNew });
+  }
+  /** 丢弃单个 hunk 的工作区改动（git apply -R）。 */
+  revertHunk(path: string, hunk: string): Promise<{ ok: boolean }> {
+    return this.rpc('changes.revertHunk', { path, hunk });
+  }
+  /** 全部行内评论（工作区级持久化）。 */
+  listDiffComments(): Promise<{
+    comments: { id: string; path: string; side: 'old' | 'new'; line: number; text: string; ts: string }[];
+  }> {
+    return this.rpc('changes.comments.list', {});
+  }
+  /** 添加行内评论（锚定 文件 + 行号 + 侧别）。 */
+  addDiffComment(
+    path: string,
+    side: 'old' | 'new',
+    line: number,
+    text: string,
+  ): Promise<{ ok: boolean; comment: { id: string; path: string; side: 'old' | 'new'; line: number; text: string; ts: string } }> {
+    return this.rpc('changes.comments.add', { path, side, line, text });
+  }
+  /** 删除一条行内评论。 */
+  deleteDiffComment(id: string): Promise<{ ok: boolean }> {
+    return this.rpc('changes.comments.delete', { id });
   }
 
   // ---- 文件树 ----
