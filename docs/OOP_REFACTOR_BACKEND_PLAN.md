@@ -73,3 +73,12 @@
 - **热区回避**：`src/core/stepRunner.ts`、`turnRunner.ts`、`adapters/live/**`、`ports/toolInputSink.ts` 可能被并发会话改写，动手前必查 mtime。
 - **安全相关改动不得静默**：`ssrfGuard` / 沙箱 / 审批路径的收敛，必须补「合法值不被过度收紧 + 非法值必须拒绝」双向单测。
 - **纯函数强转类会降低可读性**，批次 C 若执行，务必保留原函数的输入输出语义与 JSDoc。
+
+## 4. 收口状态（2026-09-10）
+
+- Top-18 全部收敛完成：
+  - 批次 A 试点：`repoMapContext`（`3aa385b`）
+  - 批次 A：`lsaRecall` / `deterministicCompressor` / `ssrfGuard`（`1732482`，含新单测）
+  - 批次 B：`configBuilders` / `doctor` / `args` / `skillComposer` / `genesis/*` / `auditExport` / `bundle` / `render`（`aa2c60e`）
+  - 批次 C：`unifiedDiff` / `commandCanonicalizer` / `eigenspectrum` / `prefixStability`（`13976d0`）
+- **遗留项 `src/enterprise/sso.ts`（Top-18 排名第 1，10 个顶层函数，原清单未分配入任何批次）已收口**：新增 `OidcClient` 静态方法类收拢 9 个导出函数（discovery / PKCE / 授权 URL / 换码 / JWT 解码与校验 / CLI 中间态持久化），原导出名以 `export const` 门面别名保留（签名不变、调用点零改动）；既有 `EnterpriseAuth` 门禁改为委托 `OidcClient`。门禁全绿：build/typecheck 0 error、lint 0 error、sso + serverAuthGate 单测 14/14 通过、api:check 通过。
