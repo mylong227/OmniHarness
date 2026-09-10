@@ -60,7 +60,7 @@
 - ✅ `cli/cliDataCmds.ts`（570 行 / 9 方法，7 个子命令域）→ 抽出 6 个单一职责协作者：`CliArgReader`（共享参数解析，
   组合替代继承）、`KvStoreFactory`（KV 后端工厂）、`SessionCommand`、`PluginCommand`、`ProfileCommand`、
   `BundleCommand`、`AuditCommand`、`StoreCommand`；`CliBuildConfig` 的 flagValue/flagNumber/collectFlags 改为委托
-  `CliArgReader`（消重复），并删除一处既有无用 import。提交 `…`；cliDataCmds 端到端 7/7（新增单测）。
+  `CliArgReader`（消重复），并删除一处既有无用 import。提交 `8756869`；cliDataCmds 端到端 7/7（新增单测）。
 
 **剩余（待办）**
 - 候选与拆分方向：
