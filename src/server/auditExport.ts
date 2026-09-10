@@ -27,73 +27,125 @@ export interface AuditQuery {
 export type AuditFormat = 'json' | 'table' | 'csv';
 
 /**
- * @beta
- * 按查询条件过滤审计事件。
- * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
+ * 审计导出器：原模块级纯函数归拢为 `AuditExporter` 静态方法族，
+ * 调用点（CLI / RPC）通过同名 `export const` 别名零改动引用。
  */
-export function queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
-  let out = events.filter((e) => {
-    if (query.type !== undefined && e.type !== query.type) return false;
-    if (query.session !== undefined && e.sessionId !== query.session) return false;
-    if (query.actor !== undefined && e.actor !== query.actor) return false;
-    if (query.since !== undefined && (e.ts ?? '') < query.since) return false;
-    if (query.until !== undefined && (e.ts ?? '') > query.until) return false;
-    return true;
-  });
-  if (query.limit !== undefined && query.limit >= 0) {
-    out = out.slice(-query.limit);
+export class AuditExporter {
+  /**
+   * @beta
+   * 按查询条件过滤审计事件。
+   * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
+   */
+  static queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
+    let out = events.filter((e) => {
+      if (query.type !== undefined && e.type !== query.type) return false;
+      if (query.session !== undefined && e.sessionId !== query.session) return false;
+      if (query.actor !== undefined && e.actor !== query.actor) return false;
+      if (query.since !== undefined && (e.ts ?? '') < query.since) return false;
+      if (query.until !== undefined && (e.ts ?? '') > query.until) return false;
+      return true;
+    });
+    if (query.limit !== undefined && query.limit >= 0) {
+      out = out.slice(-query.limit);
+    }
+    return out;
   }
-  return out;
+
+  /**
+   * @beta
+   * 把审计事件格式化为指定格式的文本。
+   */
+  static formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
+    if (format === 'json') {
+      return JSON.stringify(events, null, 2);
+    }
+    if (format === 'csv') {
+      const header = 'ts,type,sessionId,actor';
+      const rows = events.map((e) =>
+        [e.ts ?? '', e.type, e.sessionId ?? '', e.actor ?? ''].map(AuditExporter.csvCell).join(','),
+      );
+      return [header, ...rows].join('\n') + '\n';
+    }
+    // table（默认）：TSV，便于终端阅读
+    const lines = ['ts\ttype\tsessionId\tactor'];
+    for (const e of events) {
+      lines.push([e.ts ?? '', e.type, e.sessionId ?? '', e.actor ?? ''].join('\t'));
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  /** CSV 单元格转义（RFC 4180 最简实现：含特殊字符用双引号包裹并转义内部引号）。 */
+  private static csvCell(value: string): string {
+    return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  }
+
+  /**
+   * @beta
+   * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
+   */
+  static exportAudit(events: readonly AuditEvent[], query: AuditQuery, format: AuditFormat): string {
+    return AuditExporter.formatAudit(AuditExporter.queryAudit(events, query), format);
+  }
+
+  /**
+   * @beta
+   * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
+   * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
+   */
+  static buildComplianceReport(
+    events: readonly AuditEvent[],
+    query: AuditQuery,
+    meta: ComplianceReportMeta = {},
+    chain?: AuditChainReport,
+  ): ComplianceReport {
+    const filtered = AuditExporter.queryAudit(events, query);
+    const byType: Record<string, number> = {};
+    for (const e of filtered) byType[e.type] = (byType[e.type] ?? 0) + 1;
+    const actors = Array.from(new Set(filtered.map((e) => e.actor ?? '')))
+      .filter((a) => a.length > 0)
+      .sort();
+    const times = filtered
+      .map((e) => e.ts ?? '')
+      .filter((t) => t.length > 0)
+      .sort();
+    const firstEvent = times.length > 0 ? times[0]! : null;
+    const lastEvent = times.length > 0 ? times[times.length - 1]! : null;
+    const integrityHash = crypto.createHash('sha256').update(JSON.stringify(filtered)).digest('hex');
+    return {
+      schema: 'omniharness.audit.compliance/v1',
+      generatedAt: new Date().toISOString(),
+      meta,
+      query,
+      summary: {
+        total: filtered.length,
+        byType,
+        actors,
+        firstEvent,
+        lastEvent,
+        integrityHash,
+        ...(chain !== undefined ? { chain } : {}),
+      },
+      events: filtered,
+    };
+  }
+
+  /**
+   * @beta
+   * 合规报告序列化为 JSON 文本。
+   */
+  static formatCompliance(report: ComplianceReport): string {
+    return JSON.stringify(report, null, 2);
+  }
 }
 
-/**
- * @beta
- * 把审计事件格式化为指定格式的文本。
- */
-export function formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
-  if (format === 'json') {
-    return JSON.stringify(events, null, 2);
-  }
-  if (format === 'csv') {
-    const header = 'ts,type,sessionId,actor';
-    const rows = events.map((e) =>
-      [e.ts ?? '', e.type, e.sessionId ?? '', e.actor ?? ''].map(csvCell).join(','),
-    );
-    return [header, ...rows].join('\n') + '\n';
-  }
-  // table（默认）：TSV，便于终端阅读
-  const lines = ['ts\ttype\tsessionId\tactor'];
-  for (const e of events) {
-    lines.push([e.ts ?? '', e.type, e.sessionId ?? '', e.actor ?? ''].join('\t'));
-  }
-  return lines.join('\n') + '\n';
-}
+// ---- 门面兼容：保留原导出名 ----
+export const queryAudit = AuditExporter.queryAudit;
+export const formatAudit = AuditExporter.formatAudit;
+export const exportAudit = AuditExporter.exportAudit;
+export const buildComplianceReport = AuditExporter.buildComplianceReport;
+export const formatCompliance = AuditExporter.formatCompliance;
 
-/** CSV 单元格转义（RFC 4180 最简实现：含特殊字符用双引号包裹并转义内部引号）。 */
-function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-/**
- * @beta
- * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
- */
-export function exportAudit(
-  events: readonly AuditEvent[],
-  query: AuditQuery,
-  format: AuditFormat,
-): string {
-  return formatAudit(queryAudit(events, query), format);
-}
-
-// ---------------------------------------------------------------------------
-// 合规导出（D2）：结构化合规报告（摘要 + 完整性哈希），供企业审计消费
-// ---------------------------------------------------------------------------
-
-/**
- * @beta
- * 合规报告元数据（可由调用方填入组织/生成方/备注）。
- */
+/** @beta 合规报告元数据（可由调用方填入组织/生成方/备注）。 */
 export interface ComplianceReportMeta {
   readonly organization?: string;
   readonly generatedBy?: string;
@@ -127,54 +179,4 @@ export interface ComplianceReport {
     readonly chain?: AuditChainReport;
   };
   readonly events: AuditEvent[];
-}
-
-/**
- * @beta
- * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
- * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
- */
-export function buildComplianceReport(
-  events: readonly AuditEvent[],
-  query: AuditQuery,
-  meta: ComplianceReportMeta = {},
-  chain?: AuditChainReport,
-): ComplianceReport {
-  const filtered = queryAudit(events, query);
-  const byType: Record<string, number> = {};
-  for (const e of filtered) byType[e.type] = (byType[e.type] ?? 0) + 1;
-  const actors = Array.from(new Set(filtered.map((e) => e.actor ?? '')))
-    .filter((a) => a.length > 0)
-    .sort();
-  const times = filtered
-    .map((e) => e.ts ?? '')
-    .filter((t) => t.length > 0)
-    .sort();
-  const firstEvent = times.length > 0 ? times[0]! : null;
-  const lastEvent = times.length > 0 ? times[times.length - 1]! : null;
-  const integrityHash = crypto.createHash('sha256').update(JSON.stringify(filtered)).digest('hex');
-  return {
-    schema: 'omniharness.audit.compliance/v1',
-    generatedAt: new Date().toISOString(),
-    meta,
-    query,
-    summary: {
-      total: filtered.length,
-      byType,
-      actors,
-      firstEvent,
-      lastEvent,
-      integrityHash,
-      ...(chain !== undefined ? { chain } : {}),
-    },
-    events: filtered,
-  };
-}
-
-/**
- * @beta
- * 合规报告序列化为 JSON 文本。
- */
-export function formatCompliance(report: ComplianceReport): string {
-  return JSON.stringify(report, null, 2);
 }

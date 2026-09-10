@@ -98,186 +98,200 @@ export interface UnpackBundleResult {
   readonly patchFile: string;
 }
 
-/** 规范化的清单字符串（排除 signature，供签名/校验）。 */
-function canonicalManifest(manifest: BundleManifest): string {
-  const { signature: _omit, ...rest } = manifest;
-  const keys = Object.keys(rest).sort();
-  return JSON.stringify(rest, keys);
-}
-
-/** 用密钥对清单做 HMAC-SHA256。 */
-function signManifest(manifest: BundleManifest, key: Buffer): string {
-  return createHmac('sha256', key).update(canonicalManifest(manifest)).digest('hex');
-}
-
-/** 读取或生成 HMAC 密钥（首次生成以 0600 落盘）。 */
-function resolveKey(keyFile: string): Buffer {
-  if (existsSync(keyFile)) {
-    return Buffer.from(readFileSync(keyFile, 'utf8').trim(), 'hex');
-  }
-  const key = randomBytes(32);
-  writeFileSync(keyFile, key.toString('hex'), { mode: 0o600 });
-  try {
-    chmodSync(keyFile, 0o600);
-  } catch {
-    /* 权限设置失败不致命 */
-  }
-  return key;
-}
-
-/** 递归收集目录内所有文件为 zip 条目（name 相对 base）。 */
-function collectEntries(dir: string, base: string, out: ZipEntry[]): void {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    const rel = base === '' ? entry.name : `${base}/${entry.name}`;
-    if (entry.isDirectory()) {
-      collectEntries(full, rel, out);
-    } else {
-      out.push({ name: rel, data: readFileSync(full) });
-    }
-  }
-}
-
-/** 递归复制目录（同 registry.copyDirRecursive 思路，避开 Windows \\?\ 坑）。 */
-function copyDir(source: string, target: string): void {
-  mkdirSync(target, { recursive: true });
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    const s = join(source, entry.name);
-    const t = join(target, entry.name);
-    if (entry.isDirectory()) {
-      copyDir(s, t);
-    } else {
-      copyFileSync(s, t);
-    }
-  }
-}
-
 /**
- * 打包 profile 为自包含 `.ohb` 发布单元。
- * 收集每个插件的源目录（优先 installFrom.path；仅 url 远程源则回源时再取），
- * 写入 bundle.json + plugins/，整体压缩为 zip。提供 keyFile 时附 HMAC 签名。
+ * 插件打包器：原模块级纯函数归拢为 `PluginBundler` 静态方法族，
+ * 调用点（CLI bundle 子命令）通过同名 `export const` 别名零改动引用。
  */
-export async function packBundle(options: PackBundleOptions): Promise<PackBundleResult> {
-  const staging = join(options.workspaceDir, '.omniharness', '.bundle-stage');
-  rmSync(staging, { recursive: true, force: true });
-  mkdirSync(staging, { recursive: true });
-  const pluginsStaging = join(staging, 'plugins');
-  mkdirSync(pluginsStaging, { recursive: true });
+export class PluginBundler {
+  /** 规范化的清单字符串（排除 signature，供签名/校验）。 */
+  private static canonicalManifest(manifest: BundleManifest): string {
+    const { signature: _omit, ...rest } = manifest;
+    const keys = Object.keys(rest).sort();
+    return JSON.stringify(rest, keys);
+  }
 
-  try {
-    const refs: BundlePluginRef[] = [];
-    for (const name of options.profile.plugins) {
-      const descriptor = await options.registry.get(name);
-      if (descriptor === undefined) {
-        throw new Error(`打包失败：未找到插件 ${name}`);
-      }
-      let localPath: string | undefined;
-      if (descriptor.installFrom.kind === 'path') {
-        const dest = join(pluginsStaging, name);
-        copyDir(descriptor.installFrom.path, dest);
-        localPath = `plugins/${name}`;
-      }
-      refs.push({
-        name,
-        from: descriptor.source === 'bundled' ? 'bundled' : 'path',
-        ...(localPath !== undefined ? { localPath } : {}),
-      });
+  /** 用密钥对清单做 HMAC-SHA256。 */
+  private static signManifest(manifest: BundleManifest, key: Buffer): string {
+    return createHmac('sha256', key).update(PluginBundler.canonicalManifest(manifest)).digest('hex');
+  }
+
+  /** 读取或生成 HMAC 密钥（首次生成以 0600 落盘）。 */
+  private static resolveKey(keyFile: string): Buffer {
+    if (existsSync(keyFile)) {
+      return Buffer.from(readFileSync(keyFile, 'utf8').trim(), 'hex');
     }
-
-    const patches: BundlePatch[] = options.profile.config
-      ? Object.entries(options.profile.config).map(([key, value]) => ({ key, value }))
-      : [];
-
-    const manifest: BundleManifest = {
-      name: options.profile.name,
-      version: '0.1.0',
-      plugins: refs,
-      patches,
-    };
-
-    if (options.keyFile !== undefined) {
-      const key = resolveKey(options.keyFile);
-      (manifest as { signature?: string }).signature = signManifest(manifest, key);
+    const key = randomBytes(32);
+    writeFileSync(keyFile, key.toString('hex'), { mode: 0o600 });
+    try {
+      chmodSync(keyFile, 0o600);
+    } catch {
+      /* 权限设置失败不致命 */
     }
+    return key;
+  }
 
-    writeFileSync(join(staging, 'bundle.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  /** 递归收集目录内所有文件为 zip 条目（name 相对 base）。 */
+  private static collectEntries(dir: string, base: string, out: ZipEntry[]): void {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      const rel = base === '' ? entry.name : `${base}/${entry.name}`;
+      if (entry.isDirectory()) {
+        PluginBundler.collectEntries(full, rel, out);
+      } else {
+        out.push({ name: rel, data: readFileSync(full) });
+      }
+    }
+  }
 
-    const entries: ZipEntry[] = [];
-    collectEntries(staging, '', entries);
+  /** 递归复制目录（同 registry.copyDirRecursive 思路，避开 Windows \\?\ 坑）。 */
+  private static copyDir(source: string, target: string): void {
+    mkdirSync(target, { recursive: true });
+    for (const entry of readdirSync(source, { withFileTypes: true })) {
+      const s = join(source, entry.name);
+      const t = join(target, entry.name);
+      if (entry.isDirectory()) {
+        PluginBundler.copyDir(s, t);
+      } else {
+        copyFileSync(s, t);
+      }
+    }
+  }
 
-    const outDir = options.outDir ?? join(options.workspaceDir, '.omniharness', 'bundles');
-    mkdirSync(outDir, { recursive: true });
-    const fileName = `${options.profile.name.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'bundle'}.ohb`;
-    const outPath = join(outDir, fileName);
-    writeFileSync(outPath, zipStore(entries));
-    return { path: outPath, manifest };
-  } finally {
+  /**
+   * 打包 profile 为自包含 `.ohb` 发布单元。
+   * 收集每个插件的源目录（优先 installFrom.path；仅 url 远程源则回源时再取），
+   * 写入 bundle.json + plugins/，整体压缩为 zip。提供 keyFile 时附 HMAC 签名。
+   */
+  static async packBundle(options: PackBundleOptions): Promise<PackBundleResult> {
+    const staging = join(options.workspaceDir, '.omniharness', '.bundle-stage');
     rmSync(staging, { recursive: true, force: true });
+    mkdirSync(staging, { recursive: true });
+    const pluginsStaging = join(staging, 'plugins');
+    mkdirSync(pluginsStaging, { recursive: true });
+
+    try {
+      const refs: BundlePluginRef[] = [];
+      for (const name of options.profile.plugins) {
+        const descriptor = await options.registry.get(name);
+        if (descriptor === undefined) {
+          throw new Error(`打包失败：未找到插件 ${name}`);
+        }
+        let localPath: string | undefined;
+        if (descriptor.installFrom.kind === 'path') {
+          const dest = join(pluginsStaging, name);
+          PluginBundler.copyDir(descriptor.installFrom.path, dest);
+          localPath = `plugins/${name}`;
+        }
+        refs.push({
+          name,
+          from: descriptor.source === 'bundled' ? 'bundled' : 'path',
+          ...(localPath !== undefined ? { localPath } : {}),
+        });
+      }
+
+      const patches: BundlePatch[] = options.profile.config
+        ? Object.entries(options.profile.config).map(([key, value]) => ({ key, value }))
+        : [];
+
+      const manifest: BundleManifest = {
+        name: options.profile.name,
+        version: '0.1.0',
+        plugins: refs,
+        patches,
+      };
+
+      if (options.keyFile !== undefined) {
+        const key = PluginBundler.resolveKey(options.keyFile);
+        (manifest as { signature?: string }).signature = PluginBundler.signManifest(manifest, key);
+      }
+
+      writeFileSync(
+        join(staging, 'bundle.json'),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+        'utf8',
+      );
+
+      const entries: ZipEntry[] = [];
+      PluginBundler.collectEntries(staging, '', entries);
+
+      const outDir = options.outDir ?? join(options.workspaceDir, '.omniharness', 'bundles');
+      mkdirSync(outDir, { recursive: true });
+      const fileName = `${options.profile.name.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'bundle'}.ohb`;
+      const outPath = join(outDir, fileName);
+      writeFileSync(outPath, zipStore(entries));
+      return { path: outPath, manifest };
+    } finally {
+      rmSync(staging, { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * 解包 `.ohb`：还原插件到 pluginsDir，并写入补丁层供运行时合并。
+   * 若 zipPath 附带签名且提供 keyFile，则校验（fail-closed，不匹配即抛错）。
+   */
+  static async unpackBundle(options: UnpackBundleOptions): Promise<UnpackBundleResult> {
+    if (!existsSync(options.zipPath)) {
+      throw new Error(`bundle 文件不存在: ${options.zipPath}`);
+    }
+    const buffer = readFileSync(options.zipPath);
+    const entries = unzip(buffer);
+    const manifestEntry = entries.find((e) => e.name === 'bundle.json');
+    if (manifestEntry === undefined) {
+      throw new Error('bundle 缺少 bundle.json');
+    }
+    const manifest = JSON.parse(manifestEntry.data.toString('utf8')) as BundleManifest;
+
+    if (manifest.signature !== undefined && options.keyFile !== undefined) {
+      const key = PluginBundler.resolveKey(options.keyFile);
+      const expected = PluginBundler.signManifest(manifest, key);
+      if (expected !== manifest.signature) {
+        throw new Error('bundle 签名校验失败（可能被篡改）');
+      }
+    }
+
+    // 还原插件目录（仅 plugins/ 前缀的条目）
+    const installed: string[] = [];
+    for (const entry of entries) {
+      if (!entry.name.startsWith('plugins/')) {
+        continue;
+      }
+      const rest = entry.name.slice('plugins/'.length);
+      if (rest === '') {
+        continue;
+      }
+      const sep = rest.indexOf('/');
+      const pluginName = sep === -1 ? rest : rest.slice(0, sep);
+      if (!installed.includes(pluginName)) {
+        installed.push(pluginName);
+      }
+      const dest = join(options.pluginsDir, rest);
+      mkdirSync(join(options.pluginsDir, pluginName), { recursive: true });
+      writeFileSync(dest, entry.data);
+    }
+
+    // 写入补丁层（config 覆盖），供运行时合并
+    const patchDir = join(options.workspaceDir, '.omniharness', 'bundle-patches');
+    mkdirSync(patchDir, { recursive: true });
+    const patchFile = join(patchDir, `${PluginBundler.sanitizeId(manifest.name)}.json`);
+    writeFileSync(
+      patchFile,
+      `${JSON.stringify({ name: manifest.name, patches: manifest.patches }, null, 2)}\n`,
+      'utf8',
+    );
+
+    return { manifest, installed, patchFile };
+  }
+
+  /** 文件名归一化。 */
+  private static sanitizeId(name: string): string {
+    const id = name
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return id === '' ? 'unnamed' : id;
   }
 }
 
-/**
- * 解包 `.ohb`：还原插件到 pluginsDir，并写入补丁层供运行时合并。
- * 若 zipPath 附带签名且提供 keyFile，则校验（fail-closed，不匹配即抛错）。
- */
-export async function unpackBundle(options: UnpackBundleOptions): Promise<UnpackBundleResult> {
-  if (!existsSync(options.zipPath)) {
-    throw new Error(`bundle 文件不存在: ${options.zipPath}`);
-  }
-  const buffer = readFileSync(options.zipPath);
-  const entries = unzip(buffer);
-  const manifestEntry = entries.find((e) => e.name === 'bundle.json');
-  if (manifestEntry === undefined) {
-    throw new Error('bundle 缺少 bundle.json');
-  }
-  const manifest = JSON.parse(manifestEntry.data.toString('utf8')) as BundleManifest;
-
-  if (manifest.signature !== undefined && options.keyFile !== undefined) {
-    const key = resolveKey(options.keyFile);
-    const expected = signManifest(manifest, key);
-    if (expected !== manifest.signature) {
-      throw new Error('bundle 签名校验失败（可能被篡改）');
-    }
-  }
-
-  // 还原插件目录（仅 plugins/ 前缀的条目）
-  const installed: string[] = [];
-  for (const entry of entries) {
-    if (!entry.name.startsWith('plugins/')) {
-      continue;
-    }
-    const rest = entry.name.slice('plugins/'.length);
-    if (rest === '') {
-      continue;
-    }
-    const sep = rest.indexOf('/');
-    const pluginName = sep === -1 ? rest : rest.slice(0, sep);
-    if (!installed.includes(pluginName)) {
-      installed.push(pluginName);
-    }
-    const dest = join(options.pluginsDir, rest);
-    mkdirSync(join(options.pluginsDir, pluginName), { recursive: true });
-    writeFileSync(dest, entry.data);
-  }
-
-  // 写入补丁层（config 覆盖），供运行时合并
-  const patchDir = join(options.workspaceDir, '.omniharness', 'bundle-patches');
-  mkdirSync(patchDir, { recursive: true });
-  const patchFile = join(patchDir, `${sanitizeId(manifest.name)}.json`);
-  writeFileSync(
-    patchFile,
-    `${JSON.stringify({ name: manifest.name, patches: manifest.patches }, null, 2)}\n`,
-    'utf8',
-  );
-
-  return { manifest, installed, patchFile };
-}
-
-/** 文件名归一化。 */
-function sanitizeId(name: string): string {
-  const id = name
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return id === '' ? 'unnamed' : id;
-}
+// ---- 门面兼容：保留原导出名 ----
+export const packBundle = PluginBundler.packBundle;
+export const unpackBundle = PluginBundler.unpackBundle;
