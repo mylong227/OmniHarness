@@ -21,8 +21,9 @@ import type { ConfinementEngine } from '../adapters/monitoring/confinement.js';
 import type { ConfinementVerdict, CapabilityCharge } from '../ports/confinement.js';
 import type { RuntimeTelemetryPort } from '../ports/runtimeTelemetry.js';
 import { GenesisSparkBridge } from '../genesis/sparkBridge.js';
-import type { RegimeSignals, SparkEngines } from '../genesis/operators.js';
-import { randomUUID } from 'node:crypto';
+import type { RegimeSignals } from '../genesis/operators.js';
+import { SparkEngineSet } from './sparkEngineSet.js';
+import { SparkCycleTelemetry } from './sparkCycleTelemetry.js';
 
 /** 燧内核一轮调谐/冲刷/退火/宇宙网/QEC/免疫/信念的报告。 */
 export interface SparkCycleReport {
@@ -123,58 +124,27 @@ export interface SparkControllerOptions {
  * 的 `autoRun` 钩子范式：Agent 任务完成后若 `autoRun` 开启则跑一轮 `cycle()`，异常不影响主任务（fail-closed）。
  *
  * 铁律：默认 autoRun=false（零破坏旁路）；无活跃燧能力时 cycle 返回 ran=false。
+ *
+ * 职责边界：本类只做「编排」——引擎集合归 `SparkEngineSet`，遥测发射归 `SparkCycleTelemetry`。
  */
 export class SparkController {
+  /** 是否在任务完成后自动跑一轮（供主循环读取）。 */
   public readonly autoRun: boolean;
-  private readonly resonance?: ResonantMemoryPort;
-  private readonly vortex?: VortexRingSpillAdapter;
-  private readonly annealer?: MemoryAnnealer;
-  private readonly web?: CosmicWebPort;
-  private readonly qec?: QECEncoder;
-  private readonly immune?: ImmuneMonitorPort;
-  private readonly immuneSample?: () => readonly number[];
-  private readonly naturalGradient?: NaturalGradientBelief;
-  private readonly particleFilter?: ParticleFilterBelief;
-  private readonly beliefObservation?: () => readonly number[];
-  private readonly crispr?: CRISPRSkillEditor;
-  private readonly crystallizer?: CapabilityCrystallizer;
-  private readonly etching?: InsightEtchingEngine;
-  private readonly etchProbe?: () => string;
-  private readonly elementComposer?: ElementComposer;
-  private readonly composeProbe?: () => readonly string[];
-  private readonly symmetry?: SymmetryBreakingEngine;
-  private readonly symmetryProbe?: () => readonly { capability: string; weight: number }[];
-  private readonly confinement?: ConfinementEngine;
-  private readonly confinementProbe?: () => CapabilityCharge;
-  private readonly telemetry?: RuntimeTelemetryPort;
+
+  private readonly engines: SparkEngineSet;
+  private readonly telemetry: SparkCycleTelemetry;
   /** Genesis 自适应编排桥（enableGenesis 时构造；缺省 undefined ⇒ 走 legacy 路径）。 */
   private readonly bridge?: GenesisSparkBridge;
   /** Genesis 控制器工况信号（缺省为低熵基线）。 */
   private readonly genesisSignals: RegimeSignals;
 
+  /**
+   * @param opts 燧控制器选项（可选引擎/探针/遥测与开关）
+   */
   public constructor(opts: SparkControllerOptions) {
-    this.resonance = opts.resonance;
-    this.vortex = opts.vortex;
-    this.annealer = opts.annealer;
-    this.web = opts.web;
-    this.qec = opts.qec;
-    this.immune = opts.immune;
-    this.immuneSample = opts.immuneSample;
-    this.naturalGradient = opts.naturalGradient;
-    this.particleFilter = opts.particleFilter;
-    this.beliefObservation = opts.beliefObservation;
-    this.crispr = opts.crispr;
-    this.crystallizer = opts.crystallizer;
-    this.etching = opts.etching;
-    this.etchProbe = opts.etchProbe;
-    this.elementComposer = opts.elementComposer;
-    this.composeProbe = opts.composeProbe;
-    this.symmetry = opts.symmetry;
-    this.symmetryProbe = opts.symmetryProbe;
-    this.confinement = opts.confinement;
-    this.confinementProbe = opts.confinementProbe;
-    this.telemetry = opts.telemetry;
     this.autoRun = opts.autoRun ?? false;
+    this.engines = new SparkEngineSet(opts);
+    this.telemetry = new SparkCycleTelemetry(opts.telemetry, this.autoRun);
     this.genesisSignals = opts.genesisSignals ?? {
       entropy: 0.2,
       modalityCount: 1,
@@ -183,110 +153,89 @@ export class SparkController {
     };
     this.bridge =
       opts.enableGenesis === true
-        ? new GenesisSparkBridge(this.buildSparkEngines(opts))
+        ? new GenesisSparkBridge(this.engines.toGenesisEngines())
         : undefined;
   }
 
-  /** 由既有选项镜像构造 Genesis SparkEngines（同一批引擎，零重复装配）。 */
-  private buildSparkEngines(o: SparkControllerOptions): SparkEngines {
-    return {
-      resonance: o.resonance,
-      vortex: o.vortex,
-      annealer: o.annealer,
-      web: o.web,
-      qec: o.qec,
-      immune: o.immune,
-      immuneSample: o.immuneSample,
-      naturalGradient: o.naturalGradient,
-      particleFilter: o.particleFilter,
-      beliefObservation: o.beliefObservation,
-      crispr: o.crispr,
-      crystallizer: o.crystallizer,
-      etching: o.etching,
-      etchProbe: o.etchProbe,
-      elementComposer: o.elementComposer,
-      composeProbe: o.composeProbe,
-      symmetry: o.symmetry,
-      symmetryProbe: o.symmetryProbe,
-      confinement: o.confinement,
-      confinementProbe: o.confinementProbe,
-    };
-  }
-
-  /** 跑一轮：按启用情况调度各燧能力。 */
+  /**
+   * 跑一轮：按启用情况调度各燧能力。
+   *
+   * @returns 本轮报告（无活跃能力时 `{ ran: false }`）
+   */
   public async cycle(): Promise<SparkCycleReport> {
     // Genesis 自适应编排：启用时委托桥（发射顺序由工况纯函数决定 + 守恒账本）。
     // 桥异常不连累主任务，回落既有 legacy 路径（fail-closed）。
     if (this.bridge !== undefined) {
       try {
         const r = this.bridge.cycle(this.genesisSignals);
-        this.emitTelemetry(r);
+        this.telemetry.emit(r);
         return r;
       } catch {
         // 回落 legacy
       }
     }
-    const resonance = this.resonance?.tune();
-    const vortex = this.vortex?.flush();
-    const anneal = this.annealer?.anneal();
-    const web = this.web?.consolidate();
-    const qec = this.qec?.repairAll();
+    const engines = this.engines;
+    const resonance = engines.resonance?.tune();
+    const vortex = engines.vortex?.flush();
+    const anneal = engines.annealer?.anneal();
+    const web = engines.web?.consolidate();
+    const qec = engines.qec?.repairAll();
     let immune: ImmuneSelfReport | undefined;
-    if (this.immune !== undefined) {
-      const sample = this.immuneSample?.();
-      if (sample !== undefined) this.immune.observe(sample);
-      immune = this.immune.selfCheck();
+    if (engines.immune !== undefined) {
+      const sample = engines.immuneSample?.();
+      if (sample !== undefined) engines.immune.observe(sample);
+      immune = engines.immune.selfCheck();
     }
     // (P2) 信念支柱：观测"自体"行为向量，两类信念引擎各做一次可审计 KL 分解更新。
     let ngReport: BeliefUpdateReport | undefined;
     let pfReport: BeliefUpdateReport | undefined;
-    const obs = this.beliefObservation?.();
+    const obs = engines.beliefObservation?.();
     if (obs !== undefined) {
-      if (this.naturalGradient !== undefined) ngReport = this.naturalGradient.correct(obs);
-      if (this.particleFilter !== undefined) pfReport = this.particleFilter.correct(obs);
+      if (engines.naturalGradient !== undefined) ngReport = engines.naturalGradient.correct(obs);
+      if (engines.particleFilter !== undefined) pfReport = engines.particleFilter.correct(obs);
     }
     const belief =
       ngReport !== undefined || pfReport !== undefined
         ? { naturalGradient: ngReport, particleFilter: pfReport }
         : undefined;
     // (P2, I-P2-4) CRISPR 精确编辑：任务末批量 flush 编辑队列（队列空则无产出、零破坏）。
-    const crispr = this.crispr?.flush();
+    const crispr = engines.crispr?.flush();
     const crisprReport = crispr !== undefined && crispr.length > 0 ? crispr : undefined;
     // (P2, I-P2-5) 相变固化：经验密度越阈组合冻结为原生能力（加法式、fail-closed）。
-    const crystallizer = this.crystallizer?.crystallize();
+    const crystallizer = engines.crystallizer?.crystallize();
     // (P3, I-P3-1) 刻蚀记忆：报告已刻蚀 trace 数；若提供导通探针则沿共振刻痕低阻导通。
     const etching =
-      this.etching !== undefined
+      engines.etching !== undefined
         ? {
-            traces: this.etching.traces,
+            traces: engines.etching.traces,
             conducted:
-              this.etchProbe !== undefined
-                ? this.etching.conduct(this.etchProbe()).flatMap((c: EtchConduction) => c.path)
+              engines.etchProbe !== undefined
+                ? engines.etching.conduct(engines.etchProbe()).flatMap((c: EtchConduction) => c.path)
                 : undefined,
           }
         : undefined;
     // (P3, I-P3-2) 元素组合基元：报告周期表规模；若提供组合探针则实跑一次组合。
     const elementComposer =
-      this.elementComposer !== undefined
+      engines.elementComposer !== undefined
         ? {
-            elements: this.elementComposer.elements().length,
+            elements: engines.elementComposer.elements().length,
             compound:
-              this.composeProbe !== undefined
-                ? (this.elementComposer.compose(this.composeProbe())?.symbol ?? null)
+              engines.composeProbe !== undefined
+                ? (engines.elementComposer.compose(engines.composeProbe())?.symbol ?? null)
                 : null,
           }
         : undefined;
     // (P3, I-P3-3) 对称破缺：观测使用样本，报告序参量 ρ 与对称态（能力相变可观测）。
     let symmetry: SymmetryBreakReport | undefined;
-    if (this.symmetry !== undefined) {
-      const s = this.symmetryProbe?.();
-      if (s !== undefined) this.symmetry.observe(s);
-      symmetry = this.symmetry.snapshot();
+    if (engines.symmetry !== undefined) {
+      const s = engines.symmetryProbe?.();
+      if (s !== undefined) engines.symmetry.observe(s);
+      symmetry = engines.symmetry.snapshot();
     }
     // (P3, I-P3-4) 禁闭色荷：对暴露探针裁决（裸能力结构性拒配）。
     const confinement =
-      this.confinement !== undefined && this.confinementProbe !== undefined
-        ? this.confinement.expose(this.confinementProbe())
+      engines.confinement !== undefined && engines.confinementProbe !== undefined
+        ? engines.confinement.expose(engines.confinementProbe())
         : undefined;
     if (
       resonance === undefined &&
@@ -324,107 +273,7 @@ export class SparkController {
     // (P4, I-P4-3) 长期运行遥测：每轮 cycle 为每个已启用引擎落盘一条 production 观测，
     // 携带该引擎 cycle() 已算出的真实指标（而非仅 ran:1），使 tighten 能按真实运行证据收紧。
     // 缺省不采集（telemetry 未配置），零破坏。
-    this.emitTelemetry(report);
+    this.telemetry.emit(report);
     return report;
-  }
-
-  /**
-   * 长期运行遥测发射（从统一的 SparkCycleReport 读取指标，legacy 与 Genesis 两条路径共用）。
-   * 遥测是尽力而为：失败时绝不连累主任务。
-   */
-  private emitTelemetry(report: SparkCycleReport): void {
-    if (this.telemetry === undefined) return;
-    const tel = this.telemetry;
-    try {
-      const emit = (operator: string, metrics: Record<string, number>): void => {
-        tel.record({
-          id: randomUUID(),
-          kind: 'cycle',
-          operator,
-          configSnapshot: { autoRun: this.autoRun },
-          metrics,
-          verdict: 'pass',
-          provenance: 'production',
-        });
-      };
-      const anneal = report.anneal;
-      if (anneal !== undefined) {
-        emit('heatAnnealer', {
-          temperature: anneal.temperature,
-          facts: anneal.facts,
-          drift: anneal.drift,
-        });
-      }
-      const immune = report.immune;
-      if (immune !== undefined) {
-        const la = immune.lastAnomaly;
-        emit('immuneMonitoring', {
-          lastAnomaly: la ? la.score : 0,
-          anomalyScore: la ? la.score : 0,
-          missedAnomaly: 0,
-        });
-      }
-      const belief = report.belief;
-      if (belief !== undefined) {
-        emit('belief', {
-          klNG: belief.naturalGradient?.kl?.total ?? 0,
-          klPF: belief.particleFilter?.kl?.total ?? 0,
-          confidenceNG: belief.naturalGradient?.after?.confidence ?? 0,
-          confidencePF: belief.particleFilter?.after?.confidence ?? 0,
-        });
-      }
-      const symmetry = report.symmetry;
-      if (symmetry !== undefined) {
-        const rho = symmetry.orderParameter ?? 0;
-        emit('symmetryBreaking', {
-          orderParameter: rho,
-          rho,
-          threshold: 0.6,
-          falseBreak: 0,
-        });
-      }
-      const confinement = report.confinement;
-      if (confinement !== undefined) {
-        emit('confinement', {
-          exposed: confinement.exposed ? 1 : 0,
-          confined: confinement.exposed ? 0 : 1,
-        });
-      }
-      const elementComposer = report.elementComposer;
-      if (elementComposer !== undefined) {
-        emit('elementComposer', {
-          validCombo: elementComposer.compound ? 1 : 0,
-          compound: elementComposer.compound ? 1 : 0,
-          elements: elementComposer.elements,
-        });
-      }
-      const crispr = report.crispr;
-      if (crispr !== undefined) {
-        let applied = 0;
-        let rolledBack = 0;
-        for (const c of crispr) {
-          if (c.applied) applied += 1;
-          if (c.rolledBack) rolledBack += 1;
-        }
-        emit('crispr', { applied, rolledBack });
-      }
-      const crystallizer = report.crystallizer;
-      if (crystallizer !== undefined) {
-        const ems = crystallizer.emergences;
-        const meanEm = ems.length > 0 ? ems.reduce((a, b) => a + b, 0) / ems.length : 0;
-        emit('capabilityCrystallizer', {
-          frozen: crystallizer.frozen.length,
-          alreadyFrozen: crystallizer.alreadyFrozen,
-          skipped: crystallizer.skipped.length,
-          emergence: meanEm,
-          emergenceAccepted: ems.length - crystallizer.rejectedByFloor,
-          emergenceRejected: crystallizer.rejectedByFloor,
-          // 本轮回合真正调用 composeByTwist 的组合数（已冻结跳过的不计），用于收紧时区分真涌现与空轮。
-          emergenceComposed: ems.length,
-        });
-      }
-    } catch {
-      // 遥测是尽力而为，失败时绝不连累主任务
-    }
   }
 }
