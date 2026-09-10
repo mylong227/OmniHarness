@@ -46,7 +46,15 @@
 - 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
 - 批次内以 `tsc --noEmit` 立即校验。
 
-### Phase 4 — 上帝类拆分（待办，8 文件；最高风险）
+### Phase 4 — 上帝类拆分（进行中，2/7；最高风险）
+
+**已完成（各独立提交，行为零变更 + 门禁绿 + 单测通过）**
+- ✅ `adapters/lsp/lspProcess.ts`（371 行 / 26 方法）→ 抽出 `LspJsonRpcConnection`（stdio JSON-RPC 传输/分帧/超时），
+  适配器只留 LSP 协议语义。提交 `24d0a7c`；lspProcess+lspTools 17/17。
+- ✅ `spark/sparkController.ts`（430 行 / 23 字段）→ 抽出 `SparkEngineSet`（20 引擎归拢）与
+  `SparkCycleTelemetry`（~95 行遥测映射），控制器字段 23→4。提交 `f903cde`；spark 系列 24/24。
+
+**剩余（待办）**
 - 候选与拆分方向：
   - `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 `appServerThreads` / `appServerTurns` / `appServerApprovals` 等。
   - `config/omniharnessConfig.ts`（764）→ 拆 `configLayers` / `configValidation`。
