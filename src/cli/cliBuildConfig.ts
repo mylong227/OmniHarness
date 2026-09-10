@@ -53,38 +53,27 @@ import type { ModelPort } from '../ports/model.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
 import type { LspServerConfig } from '../ports/lsp.js';
 import { ToolLoader } from './toolLoader.js';
+import { CliArgReader } from './cliArgReader.js';
 import type { CliArgs } from './args.js';
-import { CliDefaults } from './args.js';
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */
 export class CliBuildConfig {
   /** 当前活动的 MCP 网关（执行结束后由子类 closeGateway 关闭子进程）。 */
   protected gateway: McpGateway | undefined;
 
-  /** 取标志值。 */
+  /** 取标志值（委托 CliArgReader，保证解析逻辑单一来源）。 */
   protected flagValue(args: readonly string[], flag: string): string | undefined {
-    const index = args.indexOf(flag);
-    return index >= 0 ? args[index + 1] : undefined;
+    return new CliArgReader(args).value(flag);
   }
 
-  /** 取数字标志值。 */
+  /** 取数字标志值（委托 CliArgReader）。 */
   protected flagNumber(args: readonly string[], flag: string): number | undefined {
-    const value = this.flagValue(args, flag);
-    return value === undefined ? undefined : Number.parseInt(value, 10);
+    return new CliArgReader(args).number(flag);
   }
 
-  /** 收集可重复旗标的所有取值（如 --allow a --allow b）。 */
+  /** 收集可重复旗标的所有取值（如 --allow a --allow b；委托 CliArgReader）。 */
   protected collectFlags(args: readonly string[], flag: string): string[] {
-    const values: string[] = [];
-    for (let i = 0; i < args.length; i += 1) {
-      if (args[i] === flag) {
-        const value = args[i + 1];
-        if (value !== undefined) {
-          values.push(value);
-        }
-      }
-    }
-    return values;
+    return new CliArgReader(args).values(flag);
   }
 
   /** 解析 --lsp "server cmd args" 为 LSP 服务器配置（命令 + 参数）。 */

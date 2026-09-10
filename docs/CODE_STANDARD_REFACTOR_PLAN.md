@@ -46,7 +46,7 @@
 - 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
 - 批次内以 `tsc --noEmit` 立即校验。
 
-### Phase 4 — 上帝类拆分（进行中，3/7；最高风险）
+### Phase 4 — 上帝类拆分（进行中，4/7；最高风险）
 
 **已完成（各独立提交，行为零变更 + 门禁绿 + 单测通过）**
 - ✅ `adapters/lsp/lspProcess.ts`（371 行 / 26 方法）→ 抽出 `LspJsonRpcConnection`（stdio JSON-RPC 传输/分帧/超时），
@@ -57,18 +57,25 @@
   `CorpusIndexCache`（TTL/LRU 语料缓存 + 驱逐回调）、`SemanticIndexCache`（语义索引构建/缓存 + 文档装配）、
   `HybridRanker`（RRF 多路融合排序，纯算法可复用）；引擎降为薄编排门面。提交 `b44401e`；repoMapContext 16/16，
   顺带修正 LRU 驱逐对语义缓存失效的空操作 bug。
+- ✅ `cli/cliDataCmds.ts`（570 行 / 9 方法，7 个子命令域）→ 抽出 6 个单一职责协作者：`CliArgReader`（共享参数解析，
+  组合替代继承）、`KvStoreFactory`（KV 后端工厂）、`SessionCommand`、`PluginCommand`、`ProfileCommand`、
+  `BundleCommand`、`AuditCommand`、`StoreCommand`；`CliBuildConfig` 的 flagValue/flagNumber/collectFlags 改为委托
+  `CliArgReader`（消重复），并删除一处既有无用 import。提交 `…`；cliDataCmds 端到端 7/7（新增单测）。
 
 **剩余（待办）**
 - 候选与拆分方向：
   - `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 `appServerThreads` / `appServerTurns` / `appServerApprovals` 等。
   - `config/omniharnessConfig.ts`（764）→ 实为「类型声明 + 单方法工厂」，非真上帝类，拆分价值低。
   - `server/appServer.ts`（659 / 31）→ 委托 `appServerBase` + 处理器分离（已有 `appServerHandlers`）。
-  - `cli/cliDataCmds.ts`（570）→ 按子命令拆。
   - `core/stepRunner.ts`（526）→ **热区，暂缓**。
 - ⚠️ `appServer*` 两兄弟的单测在本机因 WS/端口 15s 超时**不可靠**，拆分只能靠 typecheck + api:check 兜底，须最谨慎。
 - 每个文件**独立提交**并跑全量单测，确保行为零变更。
 - 拆分范式（已验证，可复用）：读全文件找**职责缝** → 抽出新类**文件名=类名**（顺带满足规范 #2）
   → 原文件留组合门面、导出名与路径不变（调用点零改动）→ 逐文件独立提交 + 跑该模块单测。
+- 子范式（命令簇/继承链场景）：抽出协作者类，**不改继承链**（`flagValue` 等 89 处共享方法仍在根类）；协作者经
+  `CliArgReader` 组合式取参、经工厂函数注入链上能力 → 命令类不依赖继承链、可独立单测；`protected runXxx` 门面
+  签名不变 → `execImpl` 分发点零改动。**测试陷阱**：勿在测试进程内劫持 `process.stdout`（会与 `node --test` 的 TAP
+  报告器抢 stdout，致用例丢失），CLI 端到端改用子进程（仿 `cliSystem.test.ts`）。
 
 ### Phase 5 — 削减 static（待办，36 文件 / 206 处）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例 + 薄门面（沿用批次 A 已验证模式）。
