@@ -78,7 +78,7 @@ export class SsrfGuard {
    *   169.254.169.254 这类端点几乎不存在合法用途，是 SSRF 的首要攻击目标。
    * - 设 `OMNI_SSRF_STRICT=1` 可开启严格模式（连私有网段一并拦截），适用于不可信输入场景。
    */
-  defaultOptions(): SsrfOptions {
+  public defaultOptions(): SsrfOptions {
     const strict = process.env['OMNI_SSRF_STRICT'] === '1';
     return { allowPrivate: !strict, allowMetadata: false };
   }
@@ -143,7 +143,7 @@ export class SsrfGuard {
   }
 
   /** 纯字面量判定（不发起网络请求）。 */
-  inspectHost(host: string, options: SsrfOptions = {}): SsrfVerdict {
+  public inspectHost(host: string, options: SsrfOptions = {}): SsrfVerdict {
     const lower = host.toLowerCase().replace(/^\[|\]$/g, '');
     if (lower === '') {
       return { blocked: true, reason: '空主机名' };
@@ -184,7 +184,7 @@ export class SsrfGuard {
    * 同步 URL 判定（不发起网络请求、不做 DNS 解析）：适合发送前的快速拦截。
    * URL 非法或协议非 HTTP(S) 一律按拦截处理（fail-closed）。
    */
-  inspectUrl(rawUrl: string, options: SsrfOptions = {}): SsrfVerdict {
+  public inspectUrl(rawUrl: string, options: SsrfOptions = {}): SsrfVerdict {
     let url: URL;
     try {
       url = new URL(rawUrl);
@@ -201,7 +201,7 @@ export class SsrfGuard {
    * SSRF 校验：命中即抛错（fail-closed）。
    * 解析失败、协议非 http/https、URL 非法一律按拦截处理——宁可拒绝也不放行。
    */
-  async assertNotSsrf(rawUrl: string, options: SsrfOptions = {}): Promise<void> {
+  public async assertNotSsrf(rawUrl: string, options: SsrfOptions = {}): Promise<void> {
     let url: URL;
     try {
       url = new URL(rawUrl);

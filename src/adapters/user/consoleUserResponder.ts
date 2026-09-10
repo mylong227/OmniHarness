@@ -7,9 +7,9 @@ import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/userResp
  * 仅在 TTY 环境（或由调用方显式注入）时有意义；无人值守场景请用 DefaultUserResponder。
  */
 export class ConsoleUserResponder implements UserResponder {
-  readonly name = 'console';
+  public readonly name = 'console';
 
-  async ask(questions: readonly AskQuestion[]): Promise<readonly AskAnswer[]> {
+  public async ask(questions: readonly AskQuestion[]): Promise<readonly AskAnswer[]> {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answers: AskAnswer[] = [];
     try {

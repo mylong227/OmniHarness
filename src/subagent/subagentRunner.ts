@@ -16,13 +16,13 @@ import type { SubagentRequest, SubagentResult } from './subagentTypes.js';
  * 无需任何重复实现——本类只负责「隔离视图的装配」与「结果的度量」。
  */
 export class SubagentRunner {
-  constructor(
+  public constructor(
     private readonly ports: SubagentPorts,
     private readonly maxSteps: number,
   ) {}
 
   /** 执行子任务（步数超限等致命错误向外抛，由编排层统一转失败结果）。 */
-  async run(request: SubagentRequest): Promise<SubagentResult> {
+  public async run(request: SubagentRequest): Promise<SubagentResult> {
     const startedAt = Date.now();
     const bridge = new SubagentEventBridge();
     const runtime = SubagentRuntimeFactory.build(

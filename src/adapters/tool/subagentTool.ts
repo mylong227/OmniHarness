@@ -11,7 +11,7 @@ const ROOT_DEPTH = 1;
  */
 export class SubagentTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'subagent',
     description:
       '派生一个进程内子智能体独立完成子任务：独立会话、受限工具集、不可再派生子智能体。适合可并行的长任务或需要隔离上下文的试探性任务。',
@@ -31,10 +31,10 @@ export class SubagentTool {
     },
   };
 
-  constructor(private readonly orchestrator: SubagentOrchestrator) {}
+  public constructor(private readonly orchestrator: SubagentOrchestrator) {}
 
   /** 派生并执行子任务。 */
-  async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const task = String(call.arguments['task'] ?? '').trim();
     if (task === '') {
       return { callId: call.id, ok: false, error: '缺少子任务描述: task' };

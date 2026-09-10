@@ -10,7 +10,7 @@ const DEFAULT_LIMIT = 5;
  * 实现跨长对话的 recall，而无需把全部历史塞进上下文。命中经 `RetrievalPort` 返回。
  */
 export class MemorySearchTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'memory_search',
     description:
       '在已发生的会话历史（用户输入、助手回复、工具输出、系统说明）中按自然语言检索相关片段，用于跨长对话的 recall。返回命中片段的文本与角色，便于在不把所有历史塞进上下文的前提下回忆此前讨论过的细节、决定或关键信息。',
@@ -29,10 +29,10 @@ export class MemorySearchTool {
     },
   };
 
-  constructor(private readonly retrieval: RetrievalPort) {}
+  public constructor(private readonly retrieval: RetrievalPort) {}
 
   /** 执行检索并返回命中片段。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '').trim();
     if (query === '') {
       return { callId: call.id, ok: false, error: 'query 不能为空' };

@@ -28,7 +28,7 @@ import { CliAgentCmds } from './cliAgentCmds.js';
 /** OmniHarness CLI 命令入口：omniharness exec / server … */
 export class ExecCli extends CliAgentCmds {
   /** 执行并返回进程退出码。 */
-  async run(argv: readonly string[]): Promise<number> {
+  public async run(argv: readonly string[]): Promise<number> {
     if (argv.includes('--version') || argv.includes('-V')) {
       process.stdout.write(`omniharness ${(await import('../version.js')).API_VERSION}\n`);
       return 0;

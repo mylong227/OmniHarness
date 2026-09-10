@@ -43,7 +43,7 @@ export class ApiClient {
   private nextId = 0;
 
   /** 统一的 JSON-RPC 2.0 调用入口；失败时抛出带服务端 message 的 Error。 */
-  async rpc<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  public async rpc<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = ++this.nextId;
     const res = await fetch('/rpc', {
       method: 'POST',
@@ -62,7 +62,7 @@ export class ApiClient {
    * 此处做轻量解析：omni_sessions gauge → sessions；omni_events_total{type="x"} → eventsByType。
    * 早期版本误用 res.json() 解析必挂，导致指标面板永远停在「读取中…」。
    */
-  async fetchMetrics(): Promise<Metrics> {
+  public async fetchMetrics(): Promise<Metrics> {
     const res = await fetch('/metrics');
     if (!res.ok) throw new Error('metrics 请求失败：' + res.status);
     const text = await res.text();
@@ -90,24 +90,24 @@ export class ApiClient {
   }
 
   // ---- 任务 / 会话 ----
-  runTurn(
+  public runTurn(
     params: { threadId?: string; prompt: string; images?: { url?: string; data?: string; mediaType?: string }[]; files?: FileAttachment[] },
   ): Promise<TurnRunResult> {
     return this.rpc('turns.run', params);
   }
-  getThread(threadId: string): Promise<ThreadGetResult> {
+  public getThread(threadId: string): Promise<ThreadGetResult> {
     return this.rpc('threads.get', { threadId });
   }
 
   // ---- 配置 / 审批 ----
-  getConfig(): Promise<Config> {
+  public getConfig(): Promise<Config> {
     return this.rpc('config.get', {});
   }
-  updateConfig(patch: Record<string, unknown>): Promise<unknown> {
+  public updateConfig(patch: Record<string, unknown>): Promise<unknown> {
     return this.rpc('config.update', patch);
   }
   /** 厂商目录（#模型接入页）：服务端单一下发，含当前厂商与其可用模型 + 该厂商合法 reasoning_effort 档位。 */
-  modelCatalog(): Promise<{
+  public modelCatalog(): Promise<{
     providers: import('../types/models.js').ProviderPreset[];
     active?: {
       id: string;
@@ -122,7 +122,7 @@ export class ApiClient {
     return this.rpc('model.catalog', {});
   }
   /** Token 消耗统计：按模型 / 按会话聚合调用次数与 token 用量。 */
-  usageStats(): Promise<{
+  public usageStats(): Promise<{
     source: 'disk' | 'live';
     dir: string;
     byModel: Record<string, { calls: number; prompt: number; completion: number; total: number }>;
@@ -132,15 +132,15 @@ export class ApiClient {
     return this.rpc('usage.stats', {});
   }
   /** 厂商连通探测：真实请求 /models，返回实测状态与模型清单。 */
-  probeModels(provider?: string): Promise<{ providers: import('../types/models.js').ProviderProbeResult[] }> {
+  public probeModels(provider?: string): Promise<{ providers: import('../types/models.js').ProviderProbeResult[] }> {
     return this.rpc('model.probe', provider ? { provider } : {});
   }
   /** 工作区列表（当前 + 已添加项目）。 */
-  listWorkspaces(): Promise<{ current: string; workspaces: string[] }> {
+  public listWorkspaces(): Promise<{ current: string; workspaces: string[] }> {
     return this.rpc('workspace.list', {});
   }
   /** 全部会话存档列表（含工作区标记），供按项目收纳。running = 服务端真实运行态。 */
-  listSessions(): Promise<{
+  public listSessions(): Promise<{
     dir: string;
     sessions: {
       sessionId: string;
@@ -154,7 +154,7 @@ export class ApiClient {
     return this.rpc('sessions.list', {});
   }
   /** 工作区变更记录（git 式）；传 path 时返回该文件 patch。 */
-  listChanges(path?: string): Promise<{
+  public listChanges(path?: string): Promise<{
     source: string;
     branch?: string;
     files?: { path: string; status: string; additions: number; deletions: number }[];
@@ -163,13 +163,13 @@ export class ApiClient {
     return this.rpc('changes.list', path ? { path } : {});
   }
   /** 添加项目文件夹（服务端校验目录存在后持久化）。 */
-  addWorkspace(path: string): Promise<{ current: string; workspaces: string[] }> {
+  public addWorkspace(path: string): Promise<{ current: string; workspaces: string[] }> {
     return this.rpc('workspace.add', { path });
   }
 
   /** 服务端目录浏览（+ 添加项目的文件夹选择器 / 附件文件选择器数据源）。
    *  includeFiles=true 时同时返回当前目录下的文件清单（附件 FilePicker 复用）。 */
-  browseFs(
+  public browseFs(
     path?: string,
     includeFiles?: boolean,
   ): Promise<
@@ -185,12 +185,12 @@ export class ApiClient {
     return this.rpc('fs.browse', { path, includeFiles });
   }
   /** 新建文件夹（+ 新建项目）：在 parent 目录下创建 name，返回新目录绝对路径。 */
-  mkdirFs(parent: string, name: string): Promise<{ path: string }> {
+  public mkdirFs(parent: string, name: string): Promise<{ path: string }> {
     return this.rpc('fs.mkdir', { parent, name });
   }
   /** 附件读取（FilePicker 选完文件后批量读 base64）：不限工作区，类型/大小白名单。
    *  单文件失败不阻断整体，结果按 files/errors 分开返回。 */
-  attachRead(paths: string[]): Promise<{
+  public attachRead(paths: string[]): Promise<{
     files: {
       name: string;
       mediaType: string;
@@ -203,29 +203,29 @@ export class ApiClient {
     return this.rpc('attach.read', { paths });
   }
   /** 切换项目：服务端重建运行时组件，下回合即在新工作区执行。 */
-  switchWorkspace(path: string): Promise<{ ok: boolean; workspace: string }> {
+  public switchWorkspace(path: string): Promise<{ ok: boolean; workspace: string }> {
     return this.rpc('workspace.switch', { path });
   }
-  respondApproval(requestId: string, decision: string): Promise<unknown> {
+  public respondApproval(requestId: string, decision: string): Promise<unknown> {
     return this.rpc('approval.respond', { requestId, decision });
   }
 
   /** 列出某会话的全部检查点（label/时间/事件数/是否含文件快照）。 */
-  listCheckpoints(sessionId: string): Promise<{
+  public listCheckpoints(sessionId: string): Promise<{
     sessionId: string;
     checkpoints: { label: string; ts: string; eventCount: number; hasFileSnapshot: boolean }[];
   }> {
     return this.rpc('checkpoint.list', { sessionId });
   }
   /** 为当前会话创建一个检查点（对话 + 工作区文件快照）。 */
-  createCheckpoint(
+  public createCheckpoint(
     sessionId: string,
     label: string,
   ): Promise<{ ok: boolean; checkpoint: { label: string; ts: string; eventCount: number; hasFileSnapshot: boolean } }> {
     return this.rpc('checkpoint.create', { sessionId, label });
   }
   /** 回滚到指定检查点（不传 label 回滚到最近一个）；对话与代码一并还原。 */
-  rollbackCheckpoint(
+  public rollbackCheckpoint(
     sessionId: string,
     label?: string,
   ): Promise<{ ok: boolean; checkpoint: { label: string; ts: string; eventCount: number; hasFileSnapshot: boolean } }> {
@@ -235,29 +235,29 @@ export class ApiClient {
   // ---- 内联 diff 审查（对标 Codex Review：hunk 级 stage/revert + 行内评论）----
 
   /** stage 整个文件（git add）。 */
-  stageFile(path: string): Promise<{ ok: boolean }> {
+  public stageFile(path: string): Promise<{ ok: boolean }> {
     return this.rpc('changes.stageFile', { path });
   }
   /** 丢弃整个文件的工作区改动（未跟踪文件服务端拒绝）。 */
-  revertFile(path: string): Promise<{ ok: boolean }> {
+  public revertFile(path: string): Promise<{ ok: boolean }> {
     return this.rpc('changes.revertFile', { path });
   }
   /** stage 单个 hunk；isNew=true 时服务端先 git add -N。 */
-  stageHunk(path: string, hunk: string, isNew?: boolean): Promise<{ ok: boolean }> {
+  public stageHunk(path: string, hunk: string, isNew?: boolean): Promise<{ ok: boolean }> {
     return this.rpc('changes.stageHunk', { path, hunk, isNew });
   }
   /** 丢弃单个 hunk 的工作区改动（git apply -R）。 */
-  revertHunk(path: string, hunk: string): Promise<{ ok: boolean }> {
+  public revertHunk(path: string, hunk: string): Promise<{ ok: boolean }> {
     return this.rpc('changes.revertHunk', { path, hunk });
   }
   /** 全部行内评论（工作区级持久化）。 */
-  listDiffComments(): Promise<{
+  public listDiffComments(): Promise<{
     comments: { id: string; path: string; side: 'old' | 'new'; line: number; text: string; ts: string }[];
   }> {
     return this.rpc('changes.comments.list', {});
   }
   /** 添加行内评论（锚定 文件 + 行号 + 侧别）。 */
-  addDiffComment(
+  public addDiffComment(
     path: string,
     side: 'old' | 'new',
     line: number,
@@ -266,95 +266,95 @@ export class ApiClient {
     return this.rpc('changes.comments.add', { path, side, line, text });
   }
   /** 删除一条行内评论。 */
-  deleteDiffComment(id: string): Promise<{ ok: boolean }> {
+  public deleteDiffComment(id: string): Promise<{ ok: boolean }> {
     return this.rpc('changes.comments.delete', { id });
   }
 
   // ---- 文件树 ----
-  listFs(depth = 3): Promise<{ tree: FsNode[] }> {
+  public listFs(depth = 3): Promise<{ tree: FsNode[] }> {
     return this.rpc('fs.list', { depth });
   }
-  readFs(path: string): Promise<FsReadResult> {
+  public readFs(path: string): Promise<FsReadResult> {
     return this.rpc('fs.read', { path });
   }
 
   // ---- 插件 ----
-  listPlugins(): Promise<PluginManifest[]> {
+  public listPlugins(): Promise<PluginManifest[]> {
     return this.rpc('plugins.list', {});
   }
-  searchPlugins(query = ''): Promise<PluginSearchEntry[]> {
+  public searchPlugins(query = ''): Promise<PluginSearchEntry[]> {
     return this.rpc('plugins.search', { query });
   }
-  installPlugin(name: string): Promise<unknown> {
+  public installPlugin(name: string): Promise<unknown> {
     return this.rpc('plugins.install', { name });
   }
-  removePlugin(name: string): Promise<unknown> {
+  public removePlugin(name: string): Promise<unknown> {
     return this.rpc('plugins.remove', { name });
   }
-  reloadPlugins(): Promise<PluginReloadResult> {
+  public reloadPlugins(): Promise<PluginReloadResult> {
     return this.rpc('plugins.reload', {});
   }
 
   // ---- 长期记忆 ----
-  listMemory(): Promise<MemoryListResult> {
+  public listMemory(): Promise<MemoryListResult> {
     return this.rpc('memory.list', {});
   }
-  searchMemory(query: string, limit = 20): Promise<MemorySearchResult> {
+  public searchMemory(query: string, limit = 20): Promise<MemorySearchResult> {
     return this.rpc('memory.search', { query, limit });
   }
-  addMemory(fact: { text: string; topic?: string; importance?: number }): Promise<unknown> {
+  public addMemory(fact: { text: string; topic?: string; importance?: number }): Promise<unknown> {
     return this.rpc('memory.add', fact);
   }
-  updateMemory(fact: { id: string; text: string; topic?: string; importance?: number }): Promise<unknown> {
+  public updateMemory(fact: { id: string; text: string; topic?: string; importance?: number }): Promise<unknown> {
     return this.rpc('memory.update', fact);
   }
-  deleteMemory(id: string): Promise<unknown> {
+  public deleteMemory(id: string): Promise<unknown> {
     return this.rpc('memory.delete', { id });
   }
 
   // ---- 插件集 Profile + Bundle ----
-  listProfiles(): Promise<Profile[]> {
+  public listProfiles(): Promise<Profile[]> {
     return this.rpc('profile.list', {});
   }
-  getActiveProfile(): Promise<ActivePlugins> {
+  public getActiveProfile(): Promise<ActivePlugins> {
     return this.rpc('profile.active', {});
   }
-  saveProfile(profile: { name: string; plugins: string[]; description: string }): Promise<unknown> {
+  public saveProfile(profile: { name: string; plugins: string[]; description: string }): Promise<unknown> {
     return this.rpc('profile.save', { profile });
   }
-  applyProfile(id: string): Promise<ProfileApplyResult> {
+  public applyProfile(id: string): Promise<ProfileApplyResult> {
     return this.rpc('profile.apply', { id });
   }
-  deleteProfile(id: string): Promise<unknown> {
+  public deleteProfile(id: string): Promise<unknown> {
     return this.rpc('profile.delete', { id });
   }
-  packBundle(params: { id?: string; profile?: { name: string; plugins: string[] } }): Promise<BundlePackResult> {
+  public packBundle(params: { id?: string; profile?: { name: string; plugins: string[] } }): Promise<BundlePackResult> {
     return this.rpc('bundle.pack', params);
   }
-  unpackBundle(zipPath: string): Promise<BundleUnpackResult> {
+  public unpackBundle(zipPath: string): Promise<BundleUnpackResult> {
     return this.rpc('bundle.unpack', { zipPath });
   }
 
   // ---- 多 Agent 编排 ----
-  listGraphs(): Promise<GraphSummary[]> {
+  public listGraphs(): Promise<GraphSummary[]> {
     return this.rpc('graph.list', {});
   }
-  getGraph(id: string): Promise<GraphGetResult> {
+  public getGraph(id: string): Promise<GraphGetResult> {
     return this.rpc('graph.get', { id });
   }
-  deleteGraph(id: string): Promise<unknown> {
+  public deleteGraph(id: string): Promise<unknown> {
     return this.rpc('graph.delete', { id });
   }
-  saveGraph(def: GraphDef): Promise<{ id: string }> {
+  public saveGraph(def: GraphDef): Promise<{ id: string }> {
     return this.rpc('graph.save', { def });
   }
-  runGraphById(id: string): Promise<GraphRunResult> {
+  public runGraphById(id: string): Promise<GraphRunResult> {
     return this.rpc('graph.run', { id });
   }
-  runGraph(def: GraphDef): Promise<GraphRunResult> {
+  public runGraph(def: GraphDef): Promise<GraphRunResult> {
     return this.rpc('graph.run', { def });
   }
-  graphStatus(runId: string): Promise<GraphStatusResult> {
+  public graphStatus(runId: string): Promise<GraphStatusResult> {
     return this.rpc('graph.status', { runId });
   }
 }

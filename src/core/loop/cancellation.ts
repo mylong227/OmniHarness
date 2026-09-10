@@ -18,8 +18,8 @@ export type CancelReason =
 
 /** 取消异常：throwIfAborted 抛出，catch 侧可精确识别「取消」与一般错误。 */
 export class CancelledError extends Error {
-  readonly reason: CancelReason;
-  constructor(reason: CancelReason) {
+  public readonly reason: CancelReason;
+  public constructor(reason: CancelReason) {
     super(reason === 'user' ? '已取消（用户中断）' : `已取消: ${describeReason(reason)}`);
     this.name = 'CancelledError';
     this.reason = reason;
@@ -39,7 +39,7 @@ export class CancellationToken {
   private readonly listeners = new Set<AbortListener>();
   private readonly children = new Set<CancellationToken>();
 
-  constructor(private readonly parent?: CancellationToken) {
+  public constructor(private readonly parent?: CancellationToken) {
     if (parent !== undefined) {
       // 父令牌级联：父取消 → 子同步取消（reason 透传，标 parent 已足够精确）。
       parent.listen((reason) => this.cancel('parent'));
@@ -47,17 +47,17 @@ export class CancellationToken {
   }
 
   /** 是否已取消。 */
-  get isCancelled(): boolean {
+  public get isCancelled(): boolean {
     return this.aborted;
   }
 
   /** 取消原因（未取消为 undefined）。 */
-  get cancelReason(): CancelReason | undefined {
+  public get cancelReason(): CancelReason | undefined {
     return this.reason;
   }
 
   /** 取消；重复调用幂等（首次 reason 生效）。 */
-  cancel(reason: CancelReason = 'user'): void {
+  public cancel(reason: CancelReason = 'user'): void {
     if (this.aborted) {
       return;
     }
@@ -78,14 +78,14 @@ export class CancellationToken {
   }
 
   /** 已取消则抛 CancelledError（await 间隙后调用，实现协作式取消）。 */
-  throwIfAborted(): void {
+  public throwIfAborted(): void {
     if (this.aborted) {
       throw new CancelledError(this.reason ?? 'user');
     }
   }
 
   /** 注册取消回调，返回解绑函数。 */
-  listen(listener: AbortListener): () => void {
+  public listen(listener: AbortListener): () => void {
     if (this.aborted) {
       listener(this.reason ?? 'user');
       return () => {};
@@ -97,7 +97,7 @@ export class CancellationToken {
   }
 
   /** 派生子令牌：父取消 → 子取消；子取消不影响父。 */
-  child(): CancellationToken {
+  public child(): CancellationToken {
     const c = new CancellationToken();
     this.children.add(c);
     if (this.aborted) {
@@ -110,7 +110,7 @@ export class CancellationToken {
    * 兼容桥：转成标准 AbortSignal（供 fetch 等原生消费者直接使用）。
    * 零依赖实现——用 AbortController 做一次性桥接。
    */
-  toAbortSignal(): AbortSignal {
+  public toAbortSignal(): AbortSignal {
     const controller = new AbortController();
     if (this.aborted) {
       controller.abort();
@@ -121,7 +121,7 @@ export class CancellationToken {
   }
 
   /** 竞速：promise 与取消竞速，先到者胜（取消即抛 CancelledError）。 */
-  race<T>(promise: Promise<T>): Promise<T> {
+  public race<T>(promise: Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const unbind = this.listen((reason) => reject(new CancelledError(reason)));
       promise.then(

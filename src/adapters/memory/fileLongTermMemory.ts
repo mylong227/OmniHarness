@@ -27,13 +27,13 @@ import type { TextCodec } from './cipher.js';
  * 因每条文本独立加密（随机 iv），append-only 不变量仍然成立，无需整文件重加密。
  */
 export class FileLongTermMemory implements LongTermMemoryPort {
-  readonly name = 'file-longterm';
+  public readonly name = 'file-longterm';
 
   private facts: MemoryFact[] = [];
   private bm25: Bm25Index | undefined;
   private dirty = false;
 
-  constructor(
+  public constructor(
     private readonly path: string,
     private readonly codec: TextCodec = { encode: (t) => t, decode: (t) => t },
   ) {
@@ -62,7 +62,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   }
 
   /** 写入一条持久事实（内存追加 + 落盘）。 */
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     this.facts.push(fact);
     this.dirty = true;
     try {
@@ -74,7 +74,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   }
 
   /** 按自然语言召回 top-k 事实（BM25，跨全部会话）。 */
-  recall(query: string, k: number): readonly MemoryFact[] {
+  public recall(query: string, k: number): readonly MemoryFact[] {
     const trimmed = query.trim();
     if (trimmed === '' || k <= 0 || this.facts.length === 0) {
       return [];
@@ -94,22 +94,22 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   }
 
   /** 全部事实。 */
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.facts;
   }
 
   /** 事实总数。 */
-  get count(): number {
+  public get count(): number {
     return this.facts.length;
   }
 
   /** 按 ID 取单条事实。 */
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.facts.find((fact) => fact.id === id);
   }
 
   /** 编辑一条事实（内存 + 整文件原子重写）。 */
-  update(id: string, patch: MemoryFactPatch): boolean {
+  public update(id: string, patch: MemoryFactPatch): boolean {
     const idx = this.facts.findIndex((fact) => fact.id === id);
     if (idx === -1) {
       return false;
@@ -128,7 +128,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   }
 
   /** 删除一条事实（内存 + 整文件原子重写）。 */
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const idx = this.facts.findIndex((fact) => fact.id === id);
     if (idx === -1) {
       return false;

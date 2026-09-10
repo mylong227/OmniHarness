@@ -19,13 +19,13 @@ export class PluginManager {
    * @param container 服务容器
    * @param gate 可选权限门禁；提供则注册时校验插件声明的权限，超白名单即拒绝（fail-closed）。
    */
-  constructor(
+  public constructor(
     private readonly container: Container,
     private readonly gate?: PermissionGate,
   ) {}
 
   /** 注册插件；先过权限门禁，依赖就绪则立即启动（await 等待启动完成）。 */
-  async register(plugin: Plugin): Promise<void> {
+  public async register(plugin: Plugin): Promise<void> {
     if (this.plugins.has(plugin.meta.name)) {
       throw new Error(`插件重复注册: ${plugin.meta.name}`);
     }
@@ -35,7 +35,7 @@ export class PluginManager {
   }
 
   /** 注册服务并唤醒等待者，随后尝试启动新就绪插件。 */
-  async registerService(name: string, service: unknown): Promise<void> {
+  public async registerService(name: string, service: unknown): Promise<void> {
     this.container.register(name, service);
     for (const handler of this.pending.get(name) ?? []) {
       handler(service);
@@ -45,7 +45,7 @@ export class PluginManager {
   }
 
   /** 卸载插件：逆序执行清理（无副作用残留）。 */
-  async uninstall(name: string): Promise<void> {
+  public async uninstall(name: string): Promise<void> {
     const plugin = this.plugins.get(name);
     if (plugin === undefined) {
       return;
@@ -77,12 +77,12 @@ export class PluginManager {
   }
 
   /** 是否已启动。 */
-  isStarted(name: string): boolean {
+  public isStarted(name: string): boolean {
     return this.started.has(name);
   }
 
   /** 已注册插件名。 */
-  names(): string[] {
+  public names(): string[] {
     return [...this.plugins.keys()];
   }
 

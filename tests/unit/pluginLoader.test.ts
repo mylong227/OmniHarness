@@ -72,15 +72,15 @@ test('pluginLoader：扫描 pluginsDir 并把插件工具注册进 RegistryToolP
 
 /** 与 appServer.test.ts 同款的测试传输。 */
 class TestTransport implements Transport {
-  readonly sent: RpcMessage[] = [];
+  public readonly sent: RpcMessage[] = [];
   private callback: ((message: RpcMessage) => void) | undefined;
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     this.sent.push(message);
   }
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
-  async receive(method: string, params: Record<string, unknown>, id = 1): Promise<RpcMessage> {
+  public async receive(method: string, params: Record<string, unknown>, id = 1): Promise<RpcMessage> {
     await this.callback?.({ jsonrpc: '2.0', id, method, params });
     const deadline = Date.now() + 2000;
     while (Date.now() < deadline) {

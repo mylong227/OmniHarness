@@ -34,12 +34,12 @@ export class McpClient {
   private readonly pending = new Map<number, PendingRequest>();
   private nextId = 1;
 
-  constructor(private readonly options: McpClientOptions) {
+  public constructor(private readonly options: McpClientOptions) {
     options.transport.onMessage((message) => this.handle(message));
   }
 
   /** 握手，返回服务端信息与能力。 */
-  async initialize(): Promise<McpInitializeResult> {
+  public async initialize(): Promise<McpInitializeResult> {
     const result = await this.request(McpProtocol.METHOD_INITIALIZE, {
       protocolVersion: McpProtocol.PROTOCOL_VERSION,
     });
@@ -47,7 +47,7 @@ export class McpClient {
   }
 
   /** 列举远端工具。 */
-  async listTools(): Promise<readonly McpToolDescriptor[]> {
+  public async listTools(): Promise<readonly McpToolDescriptor[]> {
     const result = (await this.request(McpProtocol.METHOD_TOOLS_LIST, {})) as {
       tools?: readonly McpToolDescriptor[];
     };
@@ -55,14 +55,14 @@ export class McpClient {
   }
 
   /** 调用远端工具。 */
-  async callTool(name: string, args: Record<string, unknown>): Promise<McpCallToolResult> {
+  public async callTool(name: string, args: Record<string, unknown>): Promise<McpCallToolResult> {
     log.debug('mcp.call_tool', { name });
     const result = await this.request(McpProtocol.METHOD_TOOLS_CALL, { name, arguments: args });
     return this.asCallResult(result);
   }
 
   /** 列举远端资源。 */
-  async listResources(): Promise<readonly McpResourceDescriptor[]> {
+  public async listResources(): Promise<readonly McpResourceDescriptor[]> {
     const result = (await this.request(McpProtocol.METHOD_RESOURCES_LIST, {})) as {
       resources?: readonly McpResourceDescriptor[];
     };
@@ -70,12 +70,12 @@ export class McpClient {
   }
 
   /** 读取远端资源。 */
-  async readResource(uri: string): Promise<McpResourceContent> {
+  public async readResource(uri: string): Promise<McpResourceContent> {
     return (await this.request(McpProtocol.METHOD_RESOURCES_READ, { uri })) as McpResourceContent;
   }
 
   /** 列举远端提示模板。 */
-  async listPrompts(): Promise<readonly McpPromptDescriptor[]> {
+  public async listPrompts(): Promise<readonly McpPromptDescriptor[]> {
     const result = (await this.request(McpProtocol.METHOD_PROMPTS_LIST, {})) as {
       prompts?: readonly McpPromptDescriptor[];
     };
@@ -83,7 +83,7 @@ export class McpClient {
   }
 
   /** 获取远端提示模板。 */
-  async getPrompt(name: string, args: Record<string, unknown> = {}): Promise<string> {
+  public async getPrompt(name: string, args: Record<string, unknown> = {}): Promise<string> {
     const result = (await this.request(McpProtocol.METHOD_PROMPTS_GET, { name, arguments: args })) as {
       messages?: readonly { content?: { text?: string } }[];
     };
@@ -91,7 +91,7 @@ export class McpClient {
   }
 
   /** 心跳检测。 */
-  async ping(): Promise<boolean> {
+  public async ping(): Promise<boolean> {
     try {
       await this.request(McpProtocol.METHOD_PING, {});
       return true;

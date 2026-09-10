@@ -12,12 +12,12 @@ export interface CheckpointMeta {
 /** 检查点命名器：用户输入留空时生成时间戳名。 */
 export class CheckpointNamer {
   /** 自动命名：`checkpoint-YYYY-MM-DD-HH-MM-SS`。 */
-  static auto(now: Date = new Date()): string {
+  public static auto(now: Date = new Date()): string {
     return `checkpoint-${now.toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
   }
 
   /** 解析最终名称：有输入用输入，否则自动生成。 */
-  static resolve(input: string, now: Date = new Date()): string {
+  public static resolve(input: string, now: Date = new Date()): string {
     const trimmed = input.trim();
     return trimmed.length > 0 ? trimmed : CheckpointNamer.auto(now);
   }
@@ -25,7 +25,7 @@ export class CheckpointNamer {
 
 /** 时间展示格式化：非法时间原样返回（fail-closed 到可见原文，而不是抛错）。 */
 export class TimestampFormatter {
-  static format(ts: string, locale = 'zh-CN'): string {
+  public static format(ts: string, locale = 'zh-CN'): string {
     const d = new Date(ts);
     if (Number.isNaN(d.getTime())) return ts;
     return d.toLocaleString(locale, { hour12: false });

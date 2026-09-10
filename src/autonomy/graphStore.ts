@@ -29,7 +29,7 @@ export interface GraphSummary {
  * - 读盘全部用同步 API（serve 启动/单请求内），无额外运行时依赖。
  */
 export class GraphStore {
-  constructor(private readonly workspaceRoot: string) {}
+  public constructor(private readonly workspaceRoot: string) {}
 
   /** 图存储目录（按需创建）。 */
   private dir(): string {
@@ -41,7 +41,7 @@ export class GraphStore {
   }
 
   /** 列出全部已存图（按 id 排序，解析失败文件跳过不阻断）。 */
-  list(): GraphSummary[] {
+  public list(): GraphSummary[] {
     const dir = this.dir();
     const out: GraphSummary[] = [];
     for (const file of readdirSync(dir).sort()) {
@@ -60,7 +60,7 @@ export class GraphStore {
   }
 
   /** 按 id 取完整定义；不存在返回 undefined。 */
-  get(id: string): WorkflowDef | undefined {
+  public get(id: string): WorkflowDef | undefined {
     const path = join(this.dir(), `${id}.json`);
     if (!existsSync(path)) {
       return undefined;
@@ -72,7 +72,7 @@ export class GraphStore {
    * 保存图定义，返回其 id（= name 归一化）。
    * 缺 name 或 name 为空视为非法（fail-closed 抛错），不写盘。
    */
-  save(def: WorkflowDef): string {
+  public save(def: WorkflowDef): string {
     if (typeof def.name !== 'string' || def.name.trim().length === 0) {
       throw new Error('图定义缺少 name（保存的图必须有可读名）');
     }
@@ -88,7 +88,7 @@ export class GraphStore {
   }
 
   /** 删除图；不存在返回 false。 */
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const path = join(this.dir(), `${id}.json`);
     if (!existsSync(path)) {
       return false;

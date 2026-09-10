@@ -58,7 +58,7 @@ export class SupervisorKernel implements SupervisorPort {
     (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void
   > = [];
 
-  constructor(options: SupervisorOptions = {}) {
+  public constructor(options: SupervisorOptions = {}) {
     this.windowSize = Math.max(1, options.windowSize ?? DEFAULT_WINDOW);
     this.degradeThreshold = options.degradeThreshold ?? DEFAULT_DEGRADE;
     this.safeThreshold = options.safeThreshold ?? DEFAULT_SAFE;
@@ -68,7 +68,7 @@ export class SupervisorKernel implements SupervisorPort {
     this.sessionId = options.sessionId;
   }
 
-  report(tool: string, outcome: 'success' | 'failure', error?: string): void {
+  public report(tool: string, outcome: 'success' | 'failure', error?: string): void {
     const stat = this.stats.get(tool) ?? { window: [], consecutiveFailures: 0 };
     const ok = outcome === 'success';
     stat.window.push(ok);
@@ -87,11 +87,11 @@ export class SupervisorKernel implements SupervisorPort {
     this.evaluate();
   }
 
-  mode(): SafeMode {
+  public mode(): SafeMode {
     return this.currentMode;
   }
 
-  snapshot(): HealthSnapshot {
+  public snapshot(): HealthSnapshot {
     const entries: HealthEntry[] = [];
     for (const [tool, stat] of this.stats) {
       const total = stat.window.length;
@@ -111,7 +111,7 @@ export class SupervisorKernel implements SupervisorPort {
     return { mode: this.currentMode, entries, generatedAt: new Date().toISOString() };
   }
 
-  intercept(tool: string): string | undefined {
+  public intercept(tool: string): string | undefined {
     if (this.currentMode === 'locked') {
       if (this.hazardous.has(tool)) {
         return '监督内核(locked)：危险工具在锁定模式下零越权拒绝';
@@ -125,11 +125,11 @@ export class SupervisorKernel implements SupervisorPort {
     return undefined;
   }
 
-  onTransition(cb: (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void): void {
+  public onTransition(cb: (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void): void {
     this.listeners.push(cb);
   }
 
-  attemptRecovery(): SafeMode {
+  public attemptRecovery(): SafeMode {
     if (this.currentMode === 'nominal') {
       return this.currentMode;
     }

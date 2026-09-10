@@ -26,18 +26,18 @@ const DEFAULT_TABLE: readonly ElementDef[] = [
 ];
 
 export class ElementComposer implements ElementComposerPort {
-  readonly name = 'element-composer';
+  public readonly name = 'element-composer';
   private readonly table: Map<string, ElementDef>;
 
-  constructor(table: readonly ElementDef[] = DEFAULT_TABLE) {
+  public constructor(table: readonly ElementDef[] = DEFAULT_TABLE) {
     this.table = new Map(table.map((e) => [e.symbol, e]));
   }
 
-  elements(): readonly ElementDef[] {
+  public elements(): readonly ElementDef[] {
     return [...this.table.values()];
   }
 
-  compatible(a: string, b: string): boolean {
+  public compatible(a: string, b: string): boolean {
     const ea = this.table.get(a);
     const eb = this.table.get(b);
     if (ea === undefined || eb === undefined) {
@@ -46,7 +46,7 @@ export class ElementComposer implements ElementComposerPort {
     return ea.valence + eb.valence === 0;
   }
 
-  compose(symbols: readonly string[]): CompoundCapability | undefined {
+  public compose(symbols: readonly string[]): CompoundCapability | undefined {
     if (symbols.length < 2) return undefined; // 单元素不构成"组合"
     const defs: ElementDef[] = [];
     for (const s of symbols) {

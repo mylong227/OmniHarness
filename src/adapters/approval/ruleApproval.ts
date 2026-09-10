@@ -10,19 +10,19 @@ export interface RuleApprovalOptions {
 
 /** 规则审批适配器：deny 优先 → ask 次之 → allow → 默认决策（缺省 deny，fail-closed）。 */
 export class RuleApproval implements ApprovalPort {
-  readonly name = 'rules';
+  public readonly name = 'rules';
 
   private readonly defaultDecision: ApprovalRuleDecision;
   private readonly askHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
 
-  constructor(private readonly options: RuleApprovalOptions) {
+  public constructor(private readonly options: RuleApprovalOptions) {
     // fail-closed：未显式配置 defaultDecision 时，规则未覆盖的请求一律拒绝，而非默认放行。
     this.defaultDecision = options.defaultDecision ?? 'deny';
     this.askHandler = options.askHandler;
   }
 
   /** 裁决请求。 */
-  async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
+  public async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
     const decisions = this.matchingDecisions(request);
     if (decisions.includes('deny')) {
       return 'deny';

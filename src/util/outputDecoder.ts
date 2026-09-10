@@ -6,7 +6,7 @@ export class OutputDecoder {
   private readonly gbk = this.tryDecoder('gbk');
 
   /** 解码 Buffer。 */
-  decode(buffer: Buffer): string {
+  public decode(buffer: Buffer): string {
     const utf8Text = this.utf8.decode(buffer);
     if (!this.hasReplacement(utf8Text)) {
       return utf8Text;

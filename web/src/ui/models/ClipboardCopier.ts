@@ -7,7 +7,7 @@ export class ClipboardCopier {
    * 写入文本。无剪贴板 API 或写入被拒时 resolve（fail-closed 到「什么都没发生」），
    * 而不是 reject 让调用方必须 catch。
    */
-  static copy(text: string): Promise<void> {
+  public static copy(text: string): Promise<void> {
     try {
       const nav = navigator as { clipboard?: { writeText(t: string): Promise<void> } } | undefined;
       if (!nav?.clipboard) return Promise.resolve();

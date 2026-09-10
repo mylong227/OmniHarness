@@ -54,13 +54,13 @@ export class McpServer {
     (params: Record<string, unknown>) => Promise<unknown>
   >();
 
-  constructor(private readonly options: McpServerOptions) {
+  public constructor(private readonly options: McpServerOptions) {
     this.registerHandlers();
     options.transport.onMessage((message) => void this.handle(message));
   }
 
   /** 处理入站消息（无 id 的通知忽略）。 */
-  async handle(message: RpcMessage): Promise<void> {
+  public async handle(message: RpcMessage): Promise<void> {
     if (!JsonRpc.isRequest(message)) {
       return;
     }

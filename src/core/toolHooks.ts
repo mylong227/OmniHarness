@@ -20,12 +20,12 @@ export class ToolHookRunner {
   private readonly hooks: ToolHooks[] = [];
 
   /** 注册钩子组。 */
-  add(hooks: ToolHooks): void {
+  public add(hooks: ToolHooks): void {
     this.hooks.push(hooks);
   }
 
   /** 执行前钩子（依序）。 */
-  async pre(context: ToolHookContext): Promise<void> {
+  public async pre(context: ToolHookContext): Promise<void> {
     for (const hooks of this.hooks) {
       if (hooks.pre !== undefined) {
         await hooks.pre(context);
@@ -34,7 +34,7 @@ export class ToolHookRunner {
   }
 
   /** 执行后钩子（逆序，保证对称清理）。 */
-  async post(context: ToolHookContext, result: ToolResult): Promise<void> {
+  public async post(context: ToolHookContext, result: ToolResult): Promise<void> {
     for (const hooks of [...this.hooks].reverse()) {
       if (hooks.post !== undefined) {
         await hooks.post(context, result);

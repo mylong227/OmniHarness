@@ -16,7 +16,7 @@ export class ArtifactResolver {
    * 仅 write_file / apply_patch 视为产物型工具；路径缺失或非对象入参一律返回 null
    * （fail-closed：宁可不展示卡片，也不展示一个点不开的链接）。
    */
-  static fromTool(name: string, args: unknown): ArtifactInfo | null {
+  public static fromTool(name: string, args: unknown): ArtifactInfo | null {
     if (!args || typeof args !== 'object') return null;
     const a = args as Record<string, unknown>;
     if (name !== 'write_file' && name !== 'apply_patch') return null;

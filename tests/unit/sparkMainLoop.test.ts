@@ -26,30 +26,30 @@ import { ScriptedModel } from '../../src/eval/scriptedModel.js';
 
 /** 测试用内存长期记忆桩（仅满足端口契约）。 */
 class MemLongTermMemory implements LongTermMemoryPort {
-  readonly name = 'mem';
+  public readonly name = 'mem';
   private facts: MemoryFact[] = [];
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     this.facts.push(fact);
   }
-  recall(): readonly MemoryFact[] {
+  public recall(): readonly MemoryFact[] {
     return this.facts;
   }
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.facts;
   }
-  get count(): number {
+  public get count(): number {
     return this.facts.length;
   }
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.facts.find((f) => f.id === id);
   }
-  update(id: string, patch: { importance?: number }): boolean {
+  public update(id: string, patch: { importance?: number }): boolean {
     const f = this.facts.find((x) => x.id === id) as { importance: number } | undefined;
     if (f === undefined) return false;
     if (patch.importance !== undefined) f.importance = patch.importance;
     return true;
   }
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const i = this.facts.findIndex((f) => f.id === id);
     if (i < 0) return false;
     this.facts.splice(i, 1);

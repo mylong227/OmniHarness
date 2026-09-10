@@ -31,7 +31,7 @@ export interface McpStdioHandle {
  */
 export class McpStdioTransport {
   /** 启动子进程并建立传输。 */
-  static launch(options: McpStdioServerOptions): McpStdioHandle {
+  public static launch(options: McpStdioServerOptions): McpStdioHandle {
     const child = spawn(options.command, [...(options.args ?? [])], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: options.cwd,

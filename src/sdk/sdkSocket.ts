@@ -20,35 +20,35 @@ export interface SdkSocket {
 
 /** WebSocket 传输实现（Node 22 全局 WebSocket / 浏览器同源）。 */
 export class WebSocketSdkSocket implements SdkSocket {
-  constructor(private readonly socket: MinimalWebSocket) {}
+  public constructor(private readonly socket: MinimalWebSocket) {}
 
   /** 连接指定 URL（缺省实现取全局 WebSocket）。 */
-  static connect(url: string, factory?: (url: string) => MinimalWebSocket): WebSocketSdkSocket {
+  public static connect(url: string, factory?: (url: string) => MinimalWebSocket): WebSocketSdkSocket {
     const creator = factory ?? globalWebSocketFactory();
     return new WebSocketSdkSocket(creator(url));
   }
 
-  send(text: string): void {
+  public send(text: string): void {
     this.socket.send(text);
   }
 
-  close(): void {
+  public close(): void {
     this.socket.close();
   }
 
-  onOpen(handler: () => void): void {
+  public onOpen(handler: () => void): void {
     this.socket.onopen = () => handler();
   }
 
-  onMessage(handler: (text: string) => void): void {
+  public onMessage(handler: (text: string) => void): void {
     this.socket.onmessage = (event) => handler(String(event.data));
   }
 
-  onClose(handler: () => void): void {
+  public onClose(handler: () => void): void {
     this.socket.onclose = () => handler();
   }
 
-  onError(handler: (error: Error) => void): void {
+  public onError(handler: (error: Error) => void): void {
     this.socket.onerror = (event) =>
       handler(event instanceof Error ? event : new Error('WebSocket 错误'));
   }

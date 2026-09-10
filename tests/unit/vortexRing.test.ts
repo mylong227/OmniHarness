@@ -5,19 +5,19 @@ import { VortexRingPacket } from '../../src/adapters/spill/vortexRing.js';
 
 /** 测试用内存 Spill 桩。 */
 class MemSpill implements SpillPort {
-  readonly name = 'mem-spill';
+  public readonly name = 'mem-spill';
   private store = new Map<string, string>();
   private n = 0;
-  async spill(content: string): Promise<SpillHandle> {
+  public async spill(content: string): Promise<SpillHandle> {
     const id = `sp_${this.n++}`;
     this.store.set(id, content);
     return { id, bytes: Buffer.byteLength(content, 'utf8') };
   }
-  async read(id: string): Promise<string | undefined> {
+  public async read(id: string): Promise<string | undefined> {
     return this.store.get(id);
   }
   /** 测试专用：篡改后端内容（模拟传输中被替换）。 */
-  corrupt(id: string, content: string): void {
+  public corrupt(id: string, content: string): void {
     this.store.set(id, content);
   }
 }

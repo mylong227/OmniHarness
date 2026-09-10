@@ -33,7 +33,7 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
   private cursor = 0;
   private generated = 0;
 
-  constructor(opts: TwistDiscoveryOptions) {
+  public constructor(opts: TwistDiscoveryOptions) {
     this.skills = opts.skills;
     this.compose = opts.compose;
     this.maxCandidates = Math.max(0, opts.maxCandidates);
@@ -48,11 +48,11 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
     this.pairs = pairs;
   }
 
-  budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
+  public budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
     return { generated: this.generated, maxCandidates: this.maxCandidates };
   }
 
-  nextCandidates(): Candidate[] {
+  public nextCandidates(): Candidate[] {
     const out: Candidate[] = [];
     while (this.cursor < this.pairs.length && this.generated < this.maxCandidates) {
       const [i, j] = this.pairs[this.cursor++]!;

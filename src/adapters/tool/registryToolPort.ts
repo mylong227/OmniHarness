@@ -15,12 +15,12 @@ interface RegisteredTool {
 
 /** 工具聚合适配器：把多个工具定义+处理器组装成一个 ToolPort（可注册/替换/扩展）。 */
 export class RegistryToolPort implements ToolPort {
-  readonly name = 'registry';
+  public readonly name = 'registry';
 
   private readonly tools = new Map<string, RegisteredTool>();
 
   /** 注册一个工具；重名即抛错。 */
-  register(definition: ToolDefinition, handler: ToolHandler): void {
+  public register(definition: ToolDefinition, handler: ToolHandler): void {
     if (this.tools.has(definition.name)) {
       throw new Error(`工具重复注册: ${definition.name}`);
     }
@@ -28,22 +28,22 @@ export class RegistryToolPort implements ToolPort {
   }
 
   /** 全部工具定义。 */
-  list(): readonly ToolDefinition[] {
+  public list(): readonly ToolDefinition[] {
     return [...this.tools.values()].map((entry) => entry.definition);
   }
 
   /** 反注册工具（插件卸载回收用）；不存在返回 false。 */
-  unregister(name: string): boolean {
+  public unregister(name: string): boolean {
     return this.tools.delete(name);
   }
 
   /** 供模型上下文的子集：剔除 deferred 工具（#M1 延迟加载）。 */
-  listDirect(): readonly ToolDefinition[] {
+  public listDirect(): readonly ToolDefinition[] {
     return this.list().filter((definition) => definition.deferred !== true);
   }
 
   /** 将指定工具标记为延迟加载（deferred）。未知名忽略。 */
-  markDeferred(names: readonly string[]): void {
+  public markDeferred(names: readonly string[]): void {
     const deferredSet = new Set(names);
     for (const name of deferredSet) {
       const entry = this.tools.get(name);
@@ -58,7 +58,7 @@ export class RegistryToolPort implements ToolPort {
   }
 
   /** 执行工具调用（校验 → 分发 → 兜底错误）。 */
-  async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const entry = this.tools.get(call.name);
     if (entry === undefined) {
       return this.failure(call.id, `未知工具: ${call.name}`);

@@ -11,7 +11,7 @@ const DEFAULT_LIMIT = 5;
  * 命中结果同时登记进 `ToolDiscovery`，使被延迟加载（deferred）的工具在后续回合对模型可见、可被调用。
  */
 export class ToolSearchTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'tool_search',
     description:
       '当工具众多时，按自然语言查询检索最相关的工具定义（名称 / 描述 / 参数 schema）。返回命中工具的完整 schema，模型据此决定如何调用；被标记为「延迟加载(deferred)」的工具默认不在上下文，需先经本工具发现。',
@@ -29,13 +29,13 @@ export class ToolSearchTool {
     },
   };
 
-  constructor(
+  public constructor(
     private readonly index: ToolIndex,
     private readonly discovery: ToolDiscovery,
   ) {}
 
   /** 执行检索并登记命中 schema 供后续回合装载。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '').trim();
     if (query === '') {
       return { callId: call.id, ok: false, error: 'query 不能为空' };

@@ -24,7 +24,7 @@ export interface CodeRunResult {
  */
 export class CodeInterpreter {
   /** 运行程序（程序内可用 await call("tool", args) 与 log(...)）。 */
-  async run(code: string, deps: CodeInterpreterDeps): Promise<CodeRunResult> {
+  public async run(code: string, deps: CodeInterpreterDeps): Promise<CodeRunResult> {
     const logs: string[] = [];
     let calls = 0;
     const callFn = async (name: string, args: Record<string, unknown>): Promise<string> => {

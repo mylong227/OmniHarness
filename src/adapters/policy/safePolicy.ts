@@ -114,7 +114,7 @@ type Ast =
 
 class Parser {
   private pos = 0;
-  constructor(private readonly toks: Tok[]) {}
+  public constructor(private readonly toks: Tok[]) {}
 
   private peek(): Tok | undefined {
     return this.toks[this.pos];
@@ -123,7 +123,7 @@ class Parser {
     return this.toks[this.pos++];
   }
 
-  parse(): Ast {
+  public parse(): Ast {
     if (this.toks.length === 0) return { t: 'val', v: true }; // 空表达式 = 恒真
     const e = this.parseOr();
     if (this.pos !== this.toks.length) throw new Error('表达式存在多余 token');
@@ -269,7 +269,7 @@ export function compileExpression(src: string): Ast {
  * 零依赖安全策略求值器。
  */
 export class SafePolicyEvaluator implements PolicyPort {
-  evaluate(
+  public evaluate(
     rules: readonly PolicyRule[],
     facts: PolicyFacts,
     defaultEffect: PolicyEffect = 'ask',
@@ -291,7 +291,7 @@ export class SafePolicyEvaluator implements PolicyPort {
     return { effect: defaultEffect, matchedRule: null, warnings };
   }
 
-  test(expression: string, facts: PolicyFacts): boolean {
+  public test(expression: string, facts: PolicyFacts): boolean {
     try {
       return evalAst(compileExpression(expression), facts);
     } catch {

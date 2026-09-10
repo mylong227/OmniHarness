@@ -35,23 +35,23 @@ type SetStateAction<S, P> =
   | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null);
 
 declare class ReactComponent<P = Record<string, unknown>, S = Record<string, unknown>> {
-  constructor(props: P);
-  readonly props: Readonly<P>;
-  state: Readonly<S>;
-  context: unknown;
-  setState(action: SetStateAction<S, P>, callback?: () => void): void;
-  forceUpdate(callback?: () => void): void;
-  render(): ReactNode;
+  public constructor(props: P);
+  public readonly props: Readonly<P>;
+  public state: Readonly<S>;
+  public context: unknown;
+  public setState(action: SetStateAction<S, P>, callback?: () => void): void;
+  public forceUpdate(callback?: () => void): void;
+  public render(): ReactNode;
   // 生命周期（可选实现）
-  componentDidMount?(): void;
-  componentDidUpdate?(prevProps: Readonly<P>, prevState: Readonly<S>): void;
-  componentWillUnmount?(): void;
-  shouldComponentUpdate?(nextProps: Readonly<P>, nextState: Readonly<S>): boolean;
-  componentDidCatch?(error: Error, info: { componentStack?: string | null }): void;
+  public componentDidMount?(): void;
+  public componentDidUpdate?(prevProps: Readonly<P>, prevState: Readonly<S>): void;
+  public componentWillUnmount?(): void;
+  public shouldComponentUpdate?(nextProps: Readonly<P>, nextState: Readonly<S>): boolean;
+  public componentDidCatch?(error: Error, info: { componentStack?: string | null }): void;
 }
 
 interface ReactApi {
-  createElement(type: any, props?: Record<string, unknown> | null, ...children: unknown[]): ReactElement;
+  createElement(type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]): ReactElement;
   Fragment: unknown;
   /** class 组件基类（面向对象范式）。 */
   Component: typeof ReactComponent;

@@ -21,9 +21,9 @@ import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
 
 /** 回显模型：返回最后一条 user 消息内容（便于验证依赖注入——下游步骤 prompt 含上游产出）。 */
 class EchoModel implements ModelPort {
-  readonly name = 'echo';
+  public readonly name = 'echo';
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     const lastUser = [...request.messages].reverse().find((message) => message.role === 'user');
     return { text: lastUser !== undefined ? lastUser.content : 'done' };
   }
@@ -31,14 +31,14 @@ class EchoModel implements ModelPort {
 
 /** 含延迟的模型：观测并发峰值。 */
 class DelayModel implements ModelPort {
-  readonly name = 'delay';
+  public readonly name = 'delay';
 
-  active = 0;
-  peak = 0;
+  public active = 0;
+  public peak = 0;
 
-  constructor(private readonly failMarker?: string) {}
+  public constructor(private readonly failMarker?: string) {}
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.active += 1;
     this.peak = Math.max(this.peak, this.active);
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -108,9 +108,9 @@ function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): Subage
 
 /** 收集型事件端口。 */
 class RecordingEvents implements EventPort {
-  readonly name = 'recording';
-  readonly received: unknown[] = [];
-  emit(event: never): void {
+  public readonly name = 'recording';
+  public readonly received: unknown[] = [];
+  public emit(event: never): void {
     this.received.push(event);
   }
 }

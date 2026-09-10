@@ -32,7 +32,7 @@ export class EventPersister {
   private disposed = false;
   private lastSavedCount = 0;
 
-  constructor(
+  public constructor(
     private readonly storage: StoragePort,
     private readonly sessionId: string,
     /** 事件提供者：落盘时刻读取当前事件快照（避免 persister 持有 recorder 引用）。 */
@@ -43,7 +43,7 @@ export class EventPersister {
   }
 
   /** 事件追加后调用：安排一次延迟落盘（幂等，一个窗口内只排一个定时器）。 */
-  schedule(): void {
+  public schedule(): void {
     if (this.disposed || this.delayMs <= 0 || this.timer !== undefined) {
       return;
     }
@@ -54,7 +54,7 @@ export class EventPersister {
   }
 
   /** 显式落盘当前快照。并发 flush 串行化，避免旧快照覆盖新快照。 */
-  async flush(): Promise<void> {
+  public async flush(): Promise<void> {
     if (this.disposed || this.flushing) {
       return;
     }
@@ -74,7 +74,7 @@ export class EventPersister {
   }
 
   /** 停止定时器并标记终止（回合结束时调用；已排队的 flush 自然完成）。 */
-  dispose(): void {
+  public dispose(): void {
     this.disposed = true;
     if (this.timer !== undefined) {
       clearTimeout(this.timer);

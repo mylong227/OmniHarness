@@ -43,8 +43,16 @@ export default tseslint.config(
       'unused-imports/no-unused-imports': 'warn',
       'no-var': 'error',
       'prefer-const': 'warn',
+      // ── 代码规范门禁（docs/CODE_STANDARD.md）──
+      // 禁用 any：全库已 0 处，改 error 起长期护栏。
+      '@typescript-eslint/no-explicit-any': 'error',
+      // 严格明确访问权限：类成员必须显式 public/private/protected（禁止隐式 public）。
+      // 可自动修复，是规范 #1 的机械护栏。
+      '@typescript-eslint/explicit-member-accessibility': [
+        'error',
+        { accessibility: 'explicit' },
+      ],
       // 以下为 TS 常见写法，非 bug，关掉以免误伤
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unused-expressions': 'off',
@@ -68,6 +76,20 @@ export default tseslint.config(
             '使用 assert.strictEqual 而非 assert.equal（松等比较在 null/undefined/类型强制处与严格比较行为不同）。',
         },
       ],
+    },
+  },
+  {
+    // TODO(parallel-session): 这组文件正被 Agent-Loop 并行会话占用（未提交改动）。
+    // 暂缓 explicit-member-accessibility 门禁，避免与其改动冲突；待其收口后删除本覆盖块，
+    // 使热区文件同样纳入规范 #1。no-explicit-any 无需豁免（全库 0 处）。
+    files: [
+      'src/core/stepRunner.ts',
+      'src/core/turnRunner.ts',
+      'src/ports/toolInputSink.ts',
+      'src/adapters/live/**',
+    ],
+    rules: {
+      '@typescript-eslint/explicit-member-accessibility': 'off',
     },
   },
 );

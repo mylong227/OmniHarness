@@ -28,7 +28,7 @@ const DEFAULT_MAX_ENTRIES = 256;
  * 跨进程复用等于把一次人工确认放大成永久放行，属于权限泄漏。
  */
 export class CachedApproval implements ApprovalPort {
-  readonly name = 'cached';
+  public readonly name = 'cached';
 
   private readonly store = new Map<string, ApprovalDecision>();
   private readonly maxEntries: number;
@@ -37,7 +37,7 @@ export class CachedApproval implements ApprovalPort {
   private hitCount = 0;
   private missCount = 0;
 
-  constructor(
+  public constructor(
     private readonly inner: ApprovalPort,
     private readonly options: CachedApprovalOptions = {},
   ) {
@@ -47,27 +47,27 @@ export class CachedApproval implements ApprovalPort {
   }
 
   /** 被装饰的审批端口。 */
-  get delegate(): ApprovalPort {
+  public get delegate(): ApprovalPort {
     return this.inner;
   }
 
   /** 命中次数（可观测/测试用）。 */
-  get hits(): number {
+  public get hits(): number {
     return this.hitCount;
   }
 
   /** 未命中次数（可观测/测试用）。 */
-  get misses(): number {
+  public get misses(): number {
     return this.missCount;
   }
 
   /** 当前缓存条目数。 */
-  get size(): number {
+  public get size(): number {
     return this.store.size;
   }
 
   /** 裁决请求：命中直接返回，否则问内层后按策略写回。 */
-  async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
+  public async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
     const key = this.keyOf(request);
     const cached = this.store.get(key);
     if (cached !== undefined) {
@@ -84,7 +84,7 @@ export class CachedApproval implements ApprovalPort {
   }
 
   /** 清空缓存（策略变更、会话切换时调用）。 */
-  invalidate(): void {
+  public invalidate(): void {
     this.store.clear();
   }
 

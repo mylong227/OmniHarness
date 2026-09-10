@@ -76,12 +76,12 @@ export class DeterministicCompressor {
   private readonly encoder = new TextEncoder();
 
   /** UTF-8 字节数（token 成本的真实代理）。 */
-  byteLength(text: string): number {
+  public byteLength(text: string): number {
     return this.encoder.encode(text).length;
   }
 
   /** 折叠空行与行尾空白。 */
-  collapseBlankLines(text: string): string {
+  public collapseBlankLines(text: string): string {
     return text
       .split('\n')
       .map((line) => line.replace(/[ \t]+$/u, ''))
@@ -90,7 +90,7 @@ export class DeterministicCompressor {
   }
 
   /** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
-  minifyJsonBlock(text: string): string {
+  public minifyJsonBlock(text: string): string {
     const trimmed = text.trim();
     const isJsonLike =
       (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
@@ -110,7 +110,7 @@ export class DeterministicCompressor {
    * 省略标记保留可追溯信息（共几行、省略几行），不制造幻觉。
    * 幂等：行数 ≤ maxLines 时原样返回。
    */
-  truncateLongOutput(
+  public truncateLongOutput(
     text: string,
     maxLines: number,
     headLines: number,
@@ -129,7 +129,7 @@ export class DeterministicCompressor {
   }
 
   /** 去除内容完全相同的重复分片，保留首次出现（保序）。 */
-  deduplicateSegments(segments: readonly ContextSegment[]): readonly ContextSegment[] {
+  public deduplicateSegments(segments: readonly ContextSegment[]): readonly ContextSegment[] {
     const seen = new Set<string>();
     const out: ContextSegment[] = [];
     for (const segment of segments) {
@@ -144,7 +144,7 @@ export class DeterministicCompressor {
   }
 
   /** 把第 N 条之后的对话轮次折叠为单行摘要；已折叠（kind==='history'）的不再处理。 */
-  foldHistorySegments(
+  public foldHistorySegments(
     segments: readonly ContextSegment[],
     foldAfter: number,
   ): readonly ContextSegment[] {
@@ -180,7 +180,7 @@ export class DeterministicCompressor {
    * 确定性上下文压缩主入口。
    * 按「去空行 → JSON 紧凑 → 去重 → 长输出截断 → 历史折叠」顺序施加，全程纯函数。
    */
-  compress(segments: readonly ContextSegment[], options: CompressOptions = {}): CompressResult {
+  public compress(segments: readonly ContextSegment[], options: CompressOptions = {}): CompressResult {
     const maxLines = options.maxLines ?? 200;
     const headLines = options.headLines ?? 40;
     const tailLines = options.tailLines ?? 40;

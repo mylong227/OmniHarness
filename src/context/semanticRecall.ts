@@ -75,13 +75,13 @@ export class SemanticIndex {
   /** 单次嵌入的最大批大小（按模型维度推算，见 defaultEmbedBatchSize）。 */
   private readonly batchSize: number;
 
-  constructor(port: EmbeddingPort) {
+  public constructor(port: EmbeddingPort) {
     this.port = port;
     this.batchSize = resolveEmbedBatchSize(port.dim);
   }
 
   /** 构建索引（嵌入全部文档文本）。分块嵌入以控制单批规模，结果等价但更稳健。任何嵌入异常向上抛，由调用方 fail-closed。 */
-  async build(items: readonly RecallItem[]): Promise<void> {
+  public async build(items: readonly RecallItem[]): Promise<void> {
     this.ids.length = 0;
     this.vectors.length = 0;
     if (items.length === 0) {
@@ -105,7 +105,7 @@ export class SemanticIndex {
   }
 
   /** 查询最近邻 top-k（按余弦降序）。 */
-  async search(query: string, k = 10): Promise<RecallHit[]> {
+  public async search(query: string, k = 10): Promise<RecallHit[]> {
     if (this.ids.length === 0) {
       return [];
     }

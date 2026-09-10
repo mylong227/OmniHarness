@@ -41,14 +41,14 @@ function parseRetryAfter(value: string): number | undefined {
 
 /** OpenAI 兼容 chat/completions 客户端（DeepSeek/OpenAI/任意兼容端点）。 */
 export class OpenAiCompatibleModel implements ModelPort {
-  readonly name: string;
+  public readonly name: string;
 
-  constructor(private readonly config: OpenAiCompatibleConfig) {
+  public constructor(private readonly config: OpenAiCompatibleConfig) {
     this.name = config.model;
   }
 
   /** 生成响应。 */
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request));
     if (!response.ok) {
       throw await this.httpError(response, '模型请求失败', request);
@@ -58,7 +58,7 @@ export class OpenAiCompatibleModel implements ModelPort {
   }
 
   /** 流式生成（SSE）。 */
-  async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+  public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const init = this.buildRequest(request);
     const body = this.bodyOf(request);
     // stream_options.include_usage 让兼容端点（DeepSeek/OpenAI）在末块回传 usage，供成本护栏记账。

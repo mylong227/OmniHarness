@@ -33,14 +33,14 @@ export class ContextAssembler {
    */
   private reasoningSeen = false;
 
-  constructor(private readonly fragments: readonly string[] = []) {}
+  public constructor(private readonly fragments: readonly string[] = []) {}
 
   /**
    * 组装消息（固定碎片在前，事件投影在后）。
    * @param extraSystemFragments 动态系统碎片（如 repo-map 上下文），注入在固定碎片之后、事件之前。
    *        默认空数组，旧调用方（单参数）行为完全不变（向后兼容）。
    */
-  build(
+  public build(
     events: readonly SessionEvent[],
     extraSystemFragments: readonly string[] = [],
   ): ModelMessage[] {

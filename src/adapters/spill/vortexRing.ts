@@ -32,11 +32,11 @@ function windingNumber(content: string): number {
  * 环包仅携带固化拓扑量 + 紧凑 token；解环校验拓扑荷与校验和，fail-closed 抗污染。
  */
 export class VortexRingPacket implements VortexRingPort {
-  readonly name = 'vortex-ring';
+  public readonly name = 'vortex-ring';
 
-  constructor(private readonly spill: SpillPort) {}
+  public constructor(private readonly spill: SpillPort) {}
 
-  async seal(content: string): Promise<VortexRing> {
+  public async seal(content: string): Promise<VortexRing> {
     const handle = await this.spill.spill(content, 'vortex');
     const winding = windingNumber(content);
     const cs = checksum(content);
@@ -45,7 +45,7 @@ export class VortexRingPacket implements VortexRingPort {
     return { ringId, winding, checksum: cs, spill: handle, token };
   }
 
-  async unseal(ring: VortexRing): Promise<string | undefined> {
+  public async unseal(ring: VortexRing): Promise<string | undefined> {
     const content = await this.spill.read(ring.spill.id);
     if (content === undefined) return undefined;
     if (windingNumber(content) !== ring.winding) return undefined; // 拓扑荷破坏 → 拒绝
@@ -66,19 +66,19 @@ export class VortexRingPacket implements VortexRingPort {
  * `undefined`（fail-closed，安全）。完整内容仍由底层 SpillPort 持久化。
  */
 export class VortexRingSpillAdapter implements SpillPort {
-  readonly name = 'vortex-ring-spill';
+  public readonly name = 'vortex-ring-spill';
 
   private readonly rings = new Map<string, VortexRing>();
 
-  constructor(private readonly vortex: VortexRingPort) {}
+  public constructor(private readonly vortex: VortexRingPort) {}
 
-  async spill(content: string, _sessionId: string): Promise<SpillHandle> {
+  public async spill(content: string, _sessionId: string): Promise<SpillHandle> {
     const ring = await this.vortex.seal(content);
     this.rings.set(ring.ringId, ring);
     return { id: ring.ringId, bytes: Buffer.byteLength(content, 'utf8') };
   }
 
-  async read(id: string): Promise<string | undefined> {
+  public async read(id: string): Promise<string | undefined> {
     const ring = this.rings.get(id);
     if (ring === undefined) return undefined; // fail-closed：未知环包拒绝还原
     return this.vortex.unseal(ring);
@@ -88,7 +88,7 @@ export class VortexRingSpillAdapter implements SpillPort {
    * 燧-4 冲刷（autoRun 用）：返回当前进程内持环数。环包元信息驻留内存，
    * 解环校验在 `read` 时 fail-closed 执行；此处仅做健康检查计数。
    */
-  flush(): { readonly activeRings: number } {
+  public flush(): { readonly activeRings: number } {
     return { activeRings: this.rings.size };
   }
 }

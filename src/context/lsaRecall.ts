@@ -202,7 +202,7 @@ export class LsaEngine {
   }
 
   /** 在已索引语料上训练 LSA 模型（截断秩 k）。 */
-  train(corpus: IndexedCorpus, k = 64, seed = 1234567): LsaModel {
+  public train(corpus: IndexedCorpus, k = 64, seed = 1234567): LsaModel {
     const { vocab, termIndex, cols, vals, n } = this.buildTfIdf(corpus);
     const m = vocab.length;
     const r = k;
@@ -263,7 +263,7 @@ export class LsaEngine {
   }
 
   /** 用 LSA 模型对查询做潜语义符号召回，返回 [符号id, 分数] 降序列表（Top limit）。 */
-  query(
+  public query(
     model: LsaModel,
     q: string,
     limit = 40,

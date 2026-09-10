@@ -11,7 +11,7 @@ const STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed'];
  * 对标 dsh `packages/todo/tool-todo` 的 `todo/write`。
  */
 export class TodoWriteTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'todo_write',
     description:
       '维护当前任务的待办清单：每次调用传入完整列表（整表替换，last-write-wins）。' +
@@ -36,12 +36,12 @@ export class TodoWriteTool {
     },
   };
 
-  constructor(
+  public constructor(
     private readonly port: TodoPort,
     private readonly events?: EventPort,
   ) {}
 
-  async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['todos'];
     if (!Array.isArray(raw)) {
       return { callId: call.id, ok: false, error: 'todos 必须是数组' };
@@ -85,15 +85,15 @@ export class TodoWriteTool {
  * `todo_read`：读取当前待办清单快照。
  */
 export class TodoReadTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'todo_read',
     description: '读取当前待办清单的最新快照（由 todo_write 维护）。',
     parameters: { type: 'object', properties: {} },
   };
 
-  constructor(private readonly port: TodoPort) {}
+  public constructor(private readonly port: TodoPort) {}
 
-  async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
     const items = this.port.list();
     return {
       callId: call.id,

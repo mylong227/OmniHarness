@@ -86,7 +86,7 @@ export class LoopGuard {
   /** 会话起点：取首次观测的 ts（时间轴由调用方驱动，可测试注入）；无 ts 用挂钟。 */
   private startedAt: number | undefined = undefined;
 
-  constructor(options: LoopGuardOptions = {}) {
+  public constructor(options: LoopGuardOptions = {}) {
     this.maxExactRepeats = options.maxExactRepeats ?? DEFAULTS.maxExactRepeats;
     this.cycleWindow = options.cycleWindow ?? DEFAULTS.cycleWindow;
     this.maxCyclePeriod = options.maxCyclePeriod ?? DEFAULTS.maxCyclePeriod;
@@ -95,7 +95,7 @@ export class LoopGuard {
   }
 
   /** 观测一步并给出决策。 */
-  observe(observation: LoopObservation): LoopDecision {
+  public observe(observation: LoopObservation): LoopDecision {
     // wall-clock 检测先于模式检测：时间到了必须收尾，无论模式多「健康」。
     if (this.maxDurationMs > 0) {
       const now = observation.ts ?? Date.now();

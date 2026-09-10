@@ -23,7 +23,7 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
  * 工具门禁：审批 + 沙箱 + 计划态三道门禁统一裁决（fail-closed，任意拒绝即拦截）。
  */
 export class ToolGate {
-  constructor(
+  public constructor(
     private readonly approvals: ApprovalPort,
     private readonly sandbox: SandboxPort,
     private readonly plan?: PlanPort,
@@ -42,7 +42,7 @@ export class ToolGate {
   ) {}
 
   /** 门禁检查：通过返回 undefined，否则返回带具体原因的拒绝结果（可观测性 #OBS-1：plan/审批/沙箱各自的真实拒绝原因透传，便于 UI/日志归因）。 */
-  async gate(call: ToolCall, sessionId: string): Promise<ToolResult | undefined> {
+  public async gate(call: ToolCall, sessionId: string): Promise<ToolResult | undefined> {
     // 监督内核：确定性否决，优先级高于审批/沙箱/计划门禁（ML 层置于确定性否决之下）。
     if (this.supervisor !== undefined) {
       const verdict = this.supervisor.intercept(call.name);

@@ -124,13 +124,13 @@ export interface ModelPort {
 /** 模型调用错误（结构化，便于重试决策；#M6）。 */
 export class ModelCallError extends OmniError {
   /** HTTP 状态码（网络层错误为 undefined）。 */
-  readonly status?: number;
+  public readonly status?: number;
   /** 是否可重试（429/408/5xx 通常可重试，4xx 客户端错误通常不可）。 */
-  readonly retryable: boolean;
+  public readonly retryable: boolean;
   /** 服务端建议的等待毫秒数（Retry-After 头解析结果）。 */
-  readonly retryAfterMs?: number;
+  public readonly retryAfterMs?: number;
 
-  constructor(
+  public constructor(
     message: string,
     opts: { readonly status?: number; readonly retryable: boolean; readonly retryAfterMs?: number },
   ) {
@@ -150,13 +150,13 @@ export interface RoutePrice {
 /** 成本预算耗尽错误（#S29）：硬预算熔断时抛出，fail-closed 阻止后续模型调用。 */
 export class BudgetExceededError extends OmniError {
   /** 预算上限（USD）。 */
-  readonly limitUsd: number;
+  public readonly limitUsd: number;
   /** 已花费（USD）。 */
-  readonly spentUsd: number;
+  public readonly spentUsd: number;
   /** 被阻断的模型名。 */
-  readonly model: string;
+  public readonly model: string;
 
-  constructor(
+  public constructor(
     message: string,
     info: { readonly limitUsd: number; readonly spentUsd: number; readonly model: string },
   ) {

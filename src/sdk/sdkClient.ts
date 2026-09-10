@@ -24,17 +24,17 @@ export class SdkClient {
   private readonly opened: Promise<void>;
   private nextId = 1;
 
-  constructor(private readonly options: SdkClientOptions) {
+  public constructor(private readonly options: SdkClientOptions) {
     this.opened = this.bindSocket(options.socket);
   }
 
   /** 连接就绪。 */
-  ready(): Promise<void> {
+  public ready(): Promise<void> {
     return this.opened;
   }
 
   /** 发起 RPC 调用。 */
-  async call<T>(method: string, params: Record<string, unknown>): Promise<T> {
+  public async call<T>(method: string, params: Record<string, unknown>): Promise<T> {
     await this.opened;
     const id = this.nextId;
     this.nextId += 1;
@@ -63,7 +63,7 @@ export class SdkClient {
   }
 
   /** 订阅服务端通知，返回取消订阅函数。 */
-  on(event: string, handler: EventHandler): () => void {
+  public on(event: string, handler: EventHandler): () => void {
     const handlers = this.handlers.get(event) ?? new Set<EventHandler>();
     handlers.add(handler);
     this.handlers.set(event, handlers);
@@ -73,7 +73,7 @@ export class SdkClient {
   }
 
   /** 关闭连接（挂起请求立即失败）。 */
-  close(): void {
+  public close(): void {
     for (const [, entry] of this.pending) {
       entry.reject(new Error('SDK 连接已关闭'));
     }

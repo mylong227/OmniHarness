@@ -25,7 +25,7 @@ export class ProviderStatusResolver {
    * 优先级：探测结果 > 已保存 Key > 默认（按需 Key 与否）。
    * 探测存在时以实测为准——「保存过 Key」不等于「能连通」。
    */
-  static resolve(
+  public static resolve(
     p: ProviderPreset,
     maskedKey: string | undefined,
     probe: ProviderProbeResult | undefined,

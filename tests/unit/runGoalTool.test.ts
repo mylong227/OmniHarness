@@ -22,13 +22,13 @@ import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
  * - 判定调用（含 checker 系统提示）→ 返回注入的 YES/NO。
  */
 class GoalScriptModel implements ModelPort {
-  readonly name = 'goal-script';
+  public readonly name = 'goal-script';
 
-  readonly frames: string[][] = [];
+  public readonly frames: string[][] = [];
 
-  constructor(private readonly verdict: 'YES 已完成' | 'NO 未完成') {}
+  public constructor(private readonly verdict: 'YES 已完成' | 'NO 未完成') {}
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.frames.push(request.tools.map((tool) => tool.name));
     const isChecker = request.messages.some(
       (message) => message.role === 'system' && message.content.includes('目标达成度评审'),
@@ -42,11 +42,11 @@ class GoalScriptModel implements ModelPort {
 
 /** 收集型事件端口。 */
 class RecordingEvents implements EventPort {
-  readonly name = 'recording';
+  public readonly name = 'recording';
 
-  readonly received: SessionEvent[] = [];
+  public readonly received: SessionEvent[] = [];
 
-  emit(event: SessionEvent): void {
+  public emit(event: SessionEvent): void {
     this.received.push(event);
   }
 }

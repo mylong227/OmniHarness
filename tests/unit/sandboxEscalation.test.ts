@@ -20,8 +20,8 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 
 /** 一律拒绝的测试沙箱（用于确定性验证升级闭环）。 */
 class DenyingSandbox implements SandboxPort {
-  readonly name = 'denying';
-  async check(_action: SandboxAction): Promise<SandboxDecision> {
+  public readonly name = 'denying';
+  public async check(_action: SandboxAction): Promise<SandboxDecision> {
     return { allowed: false, reason: 'test deny', category: 'command' };
   }
 }

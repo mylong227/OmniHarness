@@ -11,16 +11,16 @@ const SAFE_ID = /^[A-Za-z0-9_-]+$/;
  * 文件外溢端口：完整内容落盘，跨进程/重启可恢复。
  */
 export class FileSpill implements SpillPort {
-  readonly name = 'file';
+  public readonly name = 'file';
 
   private readonly root: string;
 
-  constructor(directory: string) {
+  public constructor(directory: string) {
     this.root = resolve(directory);
   }
 
   /** 保存内容并返回句柄。 */
-  async spill(content: string, _sessionId: string): Promise<SpillHandle> {
+  public async spill(content: string, _sessionId: string): Promise<SpillHandle> {
     await mkdir(this.root, { recursive: true });
     const handle = { id: id('spill'), bytes: Buffer.byteLength(content, 'utf8') };
     await writeFile(this.pathOf(handle.id), content, 'utf8');
@@ -28,7 +28,7 @@ export class FileSpill implements SpillPort {
   }
 
   /** 读回内容（id 非法或文件缺失返回 undefined）。 */
-  async read(spillId: string): Promise<string | undefined> {
+  public async read(spillId: string): Promise<string | undefined> {
     if (!SAFE_ID.test(spillId)) {
       return undefined;
     }

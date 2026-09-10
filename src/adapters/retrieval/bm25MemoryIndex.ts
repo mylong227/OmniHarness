@@ -11,20 +11,20 @@ import { Bm25Index, tokenize } from '../../search/bm25.js';
  * 增量调用下 `averageLength` 仅统计增量批次的缺陷，保证打分正确）。
  */
 export class Bm25MemoryIndex implements RetrievalPort {
-  readonly name = 'bm25-memory';
+  public readonly name = 'bm25-memory';
 
   private docs: RetrievalDoc[] = [];
   private bm25: Bm25Index | undefined;
   private dirty = false;
 
   /** 索引一条会话文档。 */
-  index(doc: RetrievalDoc): void {
+  public index(doc: RetrievalDoc): void {
     this.docs.push(doc);
     this.dirty = true;
   }
 
   /** 检索：自然语言查询 → 降序得分片段，可限定 sessionId。 */
-  search(query: string, limit: number, sessionId?: string): readonly RetrievalHit[] {
+  public search(query: string, limit: number, sessionId?: string): readonly RetrievalHit[] {
     const trimmed = query.trim();
     if (trimmed === '' || limit <= 0) {
       return [];
@@ -48,7 +48,7 @@ export class Bm25MemoryIndex implements RetrievalPort {
   }
 
   /** 当前索引文档数。 */
-  get size(): number {
+  public get size(): number {
     return this.docs.length;
   }
 

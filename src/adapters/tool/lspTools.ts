@@ -37,7 +37,7 @@ function parseTarget(
  * 模型面工具：跳转到符号定义。
  */
 export class LspGoToDefinitionTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: LSP_GO_TO_DEFINITION_TOOL_NAME,
     description:
       '跳转到光标处符号的定义位置（需已配置 LSP 服务器，如 typescript-language-server）。返回 0..n 个 file:line:col 定位。',
@@ -52,9 +52,9 @@ export class LspGoToDefinitionTool {
     },
   };
 
-  constructor(private readonly lsp: LspPort) {}
+  public constructor(private readonly lsp: LspPort) {}
 
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const target = parseTarget(call);
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
@@ -80,7 +80,7 @@ export class LspGoToDefinitionTool {
  * 模型面工具：查找符号的全部引用。
  */
 export class LspFindReferencesTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: LSP_FIND_REFERENCES_TOOL_NAME,
     description:
       '查找光标处符号的全部引用位置（需已配置 LSP 服务器）。返回 file:line:col 定位列表（含声明处）。',
@@ -95,9 +95,9 @@ export class LspFindReferencesTool {
     },
   };
 
-  constructor(private readonly lsp: LspPort) {}
+  public constructor(private readonly lsp: LspPort) {}
 
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const target = parseTarget(call);
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
@@ -123,7 +123,7 @@ export class LspFindReferencesTool {
  * 模型面工具：悬停文档。
  */
 export class LspHoverTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: LSP_HOVER_TOOL_NAME,
     description:
       '获取光标处符号的悬停文档（类型签名/注释，需已配置 LSP 服务器）。返回文档文本，无则提示无文档。',
@@ -138,9 +138,9 @@ export class LspHoverTool {
     },
   };
 
-  constructor(private readonly lsp: LspPort) {}
+  public constructor(private readonly lsp: LspPort) {}
 
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const target = parseTarget(call);
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
@@ -163,7 +163,7 @@ export class LspHoverTool {
  * 模型面工具：LSP 状态自查（服务器名 + 就绪）。
  */
 export class LspStatusTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: LSP_STATUS_TOOL_NAME,
     description:
       '查看 LSP 代码导航是否就绪：返回后端名与可用性，便于在调用跳转/引用前确认已配置语言服务器。',
@@ -173,9 +173,9 @@ export class LspStatusTool {
     },
   };
 
-  constructor(private readonly lsp: LspPort) {}
+  public constructor(private readonly lsp: LspPort) {}
 
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     return { callId: call.id, ok: true, output: `LSP 代码导航可用｜后端: ${this.lsp.name}` };
   }
 }

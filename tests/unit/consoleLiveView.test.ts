@@ -7,9 +7,9 @@ import { renderToolInputProgress } from '../../src/tui/render.js';
 
 /** 内存可写流（模拟 TTY），便于断言渲染输出。 */
 class MemStream {
-  chunks: string[] = [];
-  isTTY = true;
-  write(s: string): boolean {
+  public chunks: string[] = [];
+  public isTTY = true;
+  public write(s: string): boolean {
     this.chunks.push(s);
     return true;
   }

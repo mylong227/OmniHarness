@@ -7,7 +7,7 @@ import type { McpInputSchema, McpToolDescriptor } from './mcpProtocol.js';
  */
 export class McpToolMapper {
   /** 本地工具定义 → MCP 描述。 */
-  static toDescriptor(definition: ToolDefinition): McpToolDescriptor {
+  public static toDescriptor(definition: ToolDefinition): McpToolDescriptor {
     return {
       name: definition.name,
       description: definition.description,
@@ -16,7 +16,7 @@ export class McpToolMapper {
   }
 
   /** MCP 描述 → 本地工具定义（可直接注册进 RegistryToolPort）。 */
-  static toDefinition(descriptor: McpToolDescriptor): ToolDefinition {
+  public static toDefinition(descriptor: McpToolDescriptor): ToolDefinition {
     return {
       name: descriptor.name,
       description: descriptor.description,

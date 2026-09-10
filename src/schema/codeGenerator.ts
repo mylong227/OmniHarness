@@ -6,7 +6,7 @@ import type { FieldSchema, MethodSchema, ProtocolSchema } from './protocolSchema
  */
 export class CodeGenerator {
   /** 生成 TS 客户端代码（含流式订阅）。 */
-  generateTs(schema: ProtocolSchema): string {
+  public generateTs(schema: ProtocolSchema): string {
     const methods = schema.methods.map((method) => this.tsMethod(method)).join('\n\n  ');
     const streams = schema.methods
       .filter((method) => method.stream !== undefined)
@@ -36,7 +36,7 @@ export class CodeGenerator {
   }
 
   /** 生成协议文档（markdown）。 */
-  generateDocs(schema: ProtocolSchema): string {
+  public generateDocs(schema: ProtocolSchema): string {
     const overview = [
       `# OmniHarness 协议文档（${schema.jsonrpc}）`,
       '',
@@ -56,7 +56,7 @@ export class CodeGenerator {
   }
 
   /** 生成 Python 客户端代码（含流式订阅）。 */
-  generatePython(schema: ProtocolSchema): string {
+  public generatePython(schema: ProtocolSchema): string {
     const methods = schema.methods.map((method) => this.pyMethod(method)).join('\n\n    ');
     const streams = schema.methods
       .filter((method) => method.stream !== undefined)

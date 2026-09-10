@@ -10,18 +10,18 @@ export interface PolicySandboxOptions {
 
 /** 策略沙箱适配器：危险命令黑名单 + 工作区路径白名单，命中即拒绝（fail-closed）。 */
 export class PolicySandbox implements SandboxPort {
-  readonly name = 'policy';
+  public readonly name = 'policy';
 
   private readonly guard: WorkspaceGuard;
   private readonly patterns: readonly RegExp[];
 
-  constructor(private readonly options: PolicySandboxOptions) {
+  public constructor(private readonly options: PolicySandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
     this.patterns = [...DangerousCommands.defaults(), ...(options.extraPatterns ?? [])];
   }
 
   /** 裁决动作。 */
-  async check(action: SandboxAction): Promise<SandboxDecision> {
+  public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (action.kind === 'command') {
       return this.checkCommand(action.target);
     }

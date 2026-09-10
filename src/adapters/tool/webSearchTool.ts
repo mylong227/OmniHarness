@@ -8,7 +8,7 @@ export interface WebSearchToolOptions {
 /** 网络搜索工具：可注入搜索实现，未配置时明确提示（不静默失败）。 */
 export class WebSearchTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'web_search',
     description: '搜索网络并返回结果摘要',
     parameters: {
@@ -20,10 +20,10 @@ export class WebSearchTool {
     },
   };
 
-  constructor(private readonly options: WebSearchToolOptions = {}) {}
+  public constructor(private readonly options: WebSearchToolOptions = {}) {}
 
   /** 执行搜索。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '');
     const search = this.options.search;
     if (search === undefined) {

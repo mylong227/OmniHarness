@@ -8,9 +8,9 @@ import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/userResp
  * 需要真实交互的前端应注入 {@link ConsoleUserResponder} 或自定义实现。
  */
 export class DefaultUserResponder implements UserResponder {
-  readonly name = 'default';
+  public readonly name = 'default';
 
-  async ask(questions: readonly AskQuestion[]): Promise<readonly AskAnswer[]> {
+  public async ask(questions: readonly AskQuestion[]): Promise<readonly AskAnswer[]> {
     const note = '(未配置交互式用户回答：当前运行环境非交互式/无人值守)';
     return questions.map((q) => ({ id: q.id, selected: [], custom: note }));
   }

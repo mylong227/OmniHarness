@@ -28,10 +28,10 @@ function git(args: readonly string[], cwd: string): Promise<string> {
 }
 
 export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
-  readonly name = 'git';
+  public readonly name = 'git';
 
   /** 捕获会话触碰文件相对 HEAD 的差异。 */
-  async capture(root: string): Promise<FileSnapshot> {
+  public async capture(root: string): Promise<FileSnapshot> {
     // 校验为 git 仓库（非仓库则下面的命令会抛错，fail-closed）。
     await git(['rev-parse', '--is-inside-work-tree'], root);
     const porcelain = await git(['status', '--porcelain', '-z'], root);
@@ -84,7 +84,7 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
   }
 
   /** 将快照写回工作树。 */
-  async restore(root: string, snapshot: FileSnapshot): Promise<void> {
+  public async restore(root: string, snapshot: FileSnapshot): Promise<void> {
     for (const entry of snapshot.entries) {
       const full = resolve(root, entry.relPath);
       if (entry.content === null) {

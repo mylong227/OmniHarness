@@ -9,17 +9,17 @@ import type { DelegateRequest, DelegateResult } from '../../src/a2a/a2aProtocol.
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements A2aTransport {
-  readonly sent: RpcMessage[] = [];
-  peer: PairTransport | undefined;
+  public readonly sent: RpcMessage[] = [];
+  public peer: PairTransport | undefined;
   private callback: ((message: RpcMessage) => void) | undefined;
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     this.sent.push(message);
     this.peer?.deliver(message);
   }
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
-  deliver(message: RpcMessage): void {
+  public deliver(message: RpcMessage): void {
     this.callback?.(message);
   }
 }
@@ -34,30 +34,30 @@ function pair(): { clientSide: PairTransport; serverSide: PairTransport } {
 
 /** 自验签的桩身份（仅测 A2A 验签接线，非真实密码学身份）。 */
 class StubIdentity implements AgentIdentityPort {
-  runtimeId(): string {
+  public runtimeId(): string {
     return 'r1';
   }
-  publicKeySsh(): string {
+  public publicKeySsh(): string {
     return 'ssh-ed25519 stub';
   }
-  privateKeyPkcs8Base64(): string {
+  public privateKeyPkcs8Base64(): string {
     return 'stub';
   }
-  sign(p: string): string {
+  public sign(p: string): string {
     return 'sig:' + p;
   }
-  verify(p: string, s: string): boolean {
+  public verify(p: string, s: string): boolean {
     return s === 'sig:' + p;
   }
-  signAssertion(t: string): string {
+  public signAssertion(t: string): string {
     return 'env:' + t;
   }
-  verifyAssertion(e: string): AgentIdentityClaims | null {
+  public verifyAssertion(e: string): AgentIdentityClaims | null {
     const payload = e.startsWith('AgentAssertion ') ? e.slice('AgentAssertion '.length) : e;
     if (!payload.startsWith('env:')) return null;
     return { agentRuntimeId: 'r1', taskId: payload.slice(4), timestamp: new Date().toISOString() };
   }
-  authorizationHeader(t: string): string {
+  public authorizationHeader(t: string): string {
     return 'AgentAssertion ' + this.signAssertion(t);
   }
 }

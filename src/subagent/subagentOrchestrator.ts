@@ -22,7 +22,7 @@ export class SubagentOrchestrator {
   private readonly limiter: ConcurrencyLimiter;
   private readonly tree = new Map<string, string[]>();
 
-  constructor(
+  public constructor(
     private readonly ports: SubagentPorts,
     private readonly options: SubagentOptions = {},
   ) {
@@ -30,7 +30,7 @@ export class SubagentOrchestrator {
   }
 
   /** 执行单个子任务（深度超限或执行异常均转为 ok:false 结果，不抛给调用方）。 */
-  async run(request: SubagentRequest): Promise<SubagentResult> {
+  public async run(request: SubagentRequest): Promise<SubagentResult> {
     if (request.depth >= this.maxDepth()) {
       return this.failure(
         request,
@@ -55,27 +55,27 @@ export class SubagentOrchestrator {
   }
 
   /** 批量并发执行（受同一并发闸门约束，先到先服务）。 */
-  async runAll(requests: readonly SubagentRequest[]): Promise<readonly SubagentResult[]> {
+  public async runAll(requests: readonly SubagentRequest[]): Promise<readonly SubagentResult[]> {
     return Promise.all(requests.map((request) => this.run(request)));
   }
 
   /** 某会话直接派生的子会话 ID（父子树，观测/审计用）。 */
-  childrenOf(parentSessionId: string): readonly string[] {
+  public childrenOf(parentSessionId: string): readonly string[] {
     return this.tree.get(parentSessionId) ?? [];
   }
 
   /** 当前并发上限。 */
-  maxConcurrency(): number {
+  public maxConcurrency(): number {
     return this.limiter.limitOf();
   }
 
   /** 当前最大派生深度。 */
-  maxDepth(): number {
+  public maxDepth(): number {
     return this.options.maxDepth ?? DEFAULT_MAX_DEPTH;
   }
 
   /** 单个子智能体的步数上限。 */
-  maxSteps(): number {
+  public maxSteps(): number {
     return this.options.maxSteps ?? DEFAULT_SUBAGENT_MAX_STEPS;
   }
 

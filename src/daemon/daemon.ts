@@ -27,14 +27,14 @@ export class DaemonController {
   private readonly pidFile: string;
   private readonly entry: string;
 
-  constructor(opts?: { pidFile?: string; entry?: string }) {
+  public constructor(opts?: { pidFile?: string; entry?: string }) {
     const home = homedir();
     this.pidFile = opts?.pidFile ?? resolve(home, '.omniharness', 'daemon.pid');
     this.entry = opts?.entry ?? fileURLToPath(import.meta.url);
   }
 
   /** 当前状态：PID 文件存在且进程存活才视为 running。 */
-  status(): DaemonStatus {
+  public status(): DaemonStatus {
     if (!existsSync(this.pidFile)) {
       return { running: false };
     }
@@ -58,7 +58,7 @@ export class DaemonController {
   }
 
   /** 启动常驻 serve（detached 后台）。已在运行则返回现有 PID。 */
-  start(serveArgs: readonly string[], port = 8787): number {
+  public start(serveArgs: readonly string[], port = 8787): number {
     const st = this.status();
     if (st.running && st.pid !== undefined) {
       return st.pid;
@@ -79,7 +79,7 @@ export class DaemonController {
   }
 
   /** 停止常驻 serve。无 PID 文件时静默返回 false。 */
-  stop(): boolean {
+  public stop(): boolean {
     const st = this.status();
     if (!st.running || st.pid === undefined) {
       if (existsSync(this.pidFile)) {

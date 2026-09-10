@@ -12,19 +12,19 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 
 /** 可编程传输（测试双端）。 */
 class TestTransport implements Transport {
-  readonly sent: RpcMessage[] = [];
+  public readonly sent: RpcMessage[] = [];
   private callback: ((message: RpcMessage) => void) | undefined;
 
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     this.sent.push(message);
   }
 
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
   /** 模拟客户端发送请求（轮询等待响应，容忍异步 handle）。 */
-  async receive(method: string, params: Record<string, unknown>, id = 1): Promise<RpcMessage> {
+  public async receive(method: string, params: Record<string, unknown>, id = 1): Promise<RpcMessage> {
     await this.callback?.({ jsonrpc: '2.0', id, method, params });
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
@@ -38,7 +38,7 @@ class TestTransport implements Transport {
   }
 
   /** 已发送的通知。 */
-  notifications(method: string): RpcMessage[] {
+  public notifications(method: string): RpcMessage[] {
     return this.sent.filter((message) => 'method' in message && message.method === method);
   }
 }

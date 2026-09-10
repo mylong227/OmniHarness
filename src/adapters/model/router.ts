@@ -36,21 +36,21 @@ const BY_TASK_REASON_PATTERN = /推理|分析|为什么|reason|analyze/i;
  * fail-closed：entry 为空、策略非法、或 health-fallback 全失败时一律安全报错，不静默放行。
  */
 export class ModelRouter implements ModelPort {
-  readonly name = 'model-router';
+  public readonly name = 'model-router';
 
   /** 轮询游标。 */
   private cursor = 0;
   /** 各模型累计成本（USD），least-cost 用。 */
   private readonly spend: Map<string, number> = new Map();
 
-  constructor(private readonly options: ModelRouterOptions) {
+  public constructor(private readonly options: ModelRouterOptions) {
     if (options.entries.length === 0) {
       throw new Error('ModelRouter 需要至少一个 entry（fail-closed）');
     }
   }
 
   /** 生成响应：按策略选择底层适配器并转发，成功后记账。 */
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     if (this.options.strategy === 'health-fallback') {
       return this.generateWithFallback(request);
     }
@@ -65,7 +65,7 @@ export class ModelRouter implements ModelPort {
   }
 
   /** 流式生成：转发到选中适配器（其不支持 stream 时 fail-closed 报错）。 */
-  stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+  public stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const entry = this.pick(request);
     const adapter = entry.adapter;
     if (adapter.stream === undefined) {
@@ -108,7 +108,7 @@ export class ModelRouter implements ModelPort {
   }
 
   /** 内部记账：按 pricing 估算并累加某模型成本（least-cost 用）。 */
-  recordUsage(model: string, promptTokens: number, completionTokens: number): void {
+  public recordUsage(model: string, promptTokens: number, completionTokens: number): void {
     const entry = this.options.entries.find((entry) => entry.model === model);
     const pricing = entry?.pricing;
     const cost =

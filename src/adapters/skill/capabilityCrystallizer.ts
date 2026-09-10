@@ -59,7 +59,7 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
   private readonly frozenKeys = new Set<string>();
   private readonly frozenList: FrozenCapability[] = [];
 
-  constructor(opts: CapabilityCrystallizerOptions) {
+  public constructor(opts: CapabilityCrystallizerOptions) {
     this.port = opts.skillPort;
     this.threshold = opts.densityThreshold ?? 3;
     this.decay = opts.decay ?? 1;
@@ -79,7 +79,7 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
   }
 
   /** 观测一次组合使用：经验密度累加（ETA 衰减）。单技能不构成组合，忽略。 */
-  observe(combination: readonly string[]): void {
+  public observe(combination: readonly string[]): void {
     if (combination.length < 2) return;
     const key = this.comboKey(combination);
     const prev = this.densities.get(key) ?? 0;
@@ -87,17 +87,17 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
   }
 
   /** 当前经验密度（序参量取值）。 */
-  density(combination: readonly string[]): number {
+  public density(combination: readonly string[]): number {
     return this.densities.get(this.comboKey(combination)) ?? 0;
   }
 
   /** 已冻结能力清单。 */
-  frozen(): readonly FrozenCapability[] {
+  public frozen(): readonly FrozenCapability[] {
     return [...this.frozenList];
   }
 
   /** 越阈冻结：遍历密度越界的组合，冻结为原生能力；返回本轮报告（fail-closed / 加法式）。 */
-  crystallize(): CrystallizationReport {
+  public crystallize(): CrystallizationReport {
     const frozen: string[] = [];
     let alreadyFrozen = 0;
     const skipped: string[] = [];

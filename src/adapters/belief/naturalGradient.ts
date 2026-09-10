@@ -28,13 +28,13 @@ export interface NaturalGradientOptions {
  * 每次更新附 KL 分解（均值漂移 / 方差变化 / 逐维明细）+ 重参数化不变性审计。零依赖、fail-closed。
  */
 export class NaturalGradientBelief implements MetacognitionPort {
-  readonly name = 'natural-gradient-belief';
+  public readonly name = 'natural-gradient-belief';
   private readonly dim: number;
   private readonly floor: number;
   private mean: number[];
   private variance: number[];
 
-  constructor(opts: NaturalGradientOptions = {}) {
+  public constructor(opts: NaturalGradientOptions = {}) {
     this.dim = Math.max(1, Math.floor(opts.dim ?? 3));
     this.floor = Math.max(1e-6, opts.varianceFloor ?? 1e-3);
     const m0 = opts.initialMean ?? 0;
@@ -43,7 +43,7 @@ export class NaturalGradientBelief implements MetacognitionPort {
     this.variance = new Array<number>(this.dim).fill(v0);
   }
 
-  snapshot(): BeliefSnapshot {
+  public snapshot(): BeliefSnapshot {
     const totalVar = this.variance.reduce((a, b) => a + b, 0);
     // 置信摘要：方差越小越确信（归一化到 0..1，初始方差尺度为参考）。
     const confidence = Math.max(0, Math.min(1, 1 - totalVar / (this.dim * (this.floor + 4))));
@@ -54,7 +54,7 @@ export class NaturalGradientBelief implements MetacognitionPort {
     };
   }
 
-  naturalStep(gradient: readonly number[], learningRate = 0.1): BeliefUpdateReport {
+  public naturalStep(gradient: readonly number[], learningRate = 0.1): BeliefUpdateReport {
     const before = this.snapshot();
     // 自然梯度：Δμ = η · F⁻¹ · g，对角 Fisher F=diag(1/σ²) ⇒ F⁻¹g = σ²·g。
     const lr = Math.max(0, learningRate);
@@ -65,7 +65,7 @@ export class NaturalGradientBelief implements MetacognitionPort {
     return this.report(before);
   }
 
-  correct(observation: readonly number[], observationNoise = 1): BeliefUpdateReport {
+  public correct(observation: readonly number[], observationNoise = 1): BeliefUpdateReport {
     const before = this.snapshot();
     const noise2 = Math.max(this.floor, observationNoise * observationNoise);
     for (let i = 0; i < this.dim; i++) {

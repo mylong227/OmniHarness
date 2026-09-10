@@ -26,7 +26,7 @@ export class TuiRenderer {
    * @beta
    * 按终端宽度截断（近似：CJK 计 2 宽）。
    */
-  static truncateToWidth(input: string, width: number): string {
+  public static truncateToWidth(input: string, width: number): string {
     if (width <= 0) return '';
     let cols = 0;
     let out = '';
@@ -76,7 +76,7 @@ export class TuiRenderer {
    * @beta
    * 渲染单行事件（带 ANSI 颜色 + 前缀）。
    */
-  static renderEventLine(ev: TuiEvent): string {
+  public static renderEventLine(ev: TuiEvent): string {
     const c = TuiRenderer.color(ev.kind);
     const head = `${c}${TuiRenderer.ANSI.bold}${TuiRenderer.PREFIX[ev.kind]}${TuiRenderer.ANSI.reset}`;
     const meta = ev.meta !== undefined ? ` ${TuiRenderer.ANSI.dim}[${ev.meta}]${TuiRenderer.ANSI.reset}` : '';
@@ -87,7 +87,7 @@ export class TuiRenderer {
    * @beta
    * 渲染状态行（如「运行中 / 已暂停」）。
    */
-  static renderStatusLine(status: string, detail?: string): string {
+  public static renderStatusLine(status: string, detail?: string): string {
     const d = detail !== undefined ? ` ${TuiRenderer.ANSI.dim}· ${detail}${TuiRenderer.ANSI.reset}` : '';
     return `${TuiRenderer.ANSI.bold}${TuiRenderer.ANSI.cyan}●${TuiRenderer.ANSI.reset} ${TuiRenderer.ANSI.cyan}${status}${TuiRenderer.ANSI.reset}${d}`;
   }
@@ -96,7 +96,7 @@ export class TuiRenderer {
    * @beta
    * 清行（用于进度刷新）。
    */
-  static clearLine(): string {
+  public static clearLine(): string {
     return '\x1b[2K\r';
   }
 
@@ -104,7 +104,7 @@ export class TuiRenderer {
    * @beta
    * 提示符（用户输入行前缀）。
    */
-  static prompt(prefix = 'you'): string {
+  public static prompt(prefix = 'you'): string {
     return `${TuiRenderer.ANSI.yellow}${prefix}>${TuiRenderer.ANSI.reset} `;
   }
 
@@ -112,7 +112,7 @@ export class TuiRenderer {
    * @beta
    * 渲染工具参数渐进（#B3）：供 ConsoleLiveView / TUI 复用，带 ANSI 颜色 + 前缀。
    */
-  static renderToolInputProgress(opts: { readonly name: string; readonly json: string }): string {
+  public static renderToolInputProgress(opts: { readonly name: string; readonly json: string }): string {
     const c = TuiRenderer.ANSI.cyan;
     const head = `${c}${TuiRenderer.ANSI.bold}⚙${TuiRenderer.ANSI.reset}`;
     const preview = TuiRenderer.truncateToWidth(opts.json, 64);

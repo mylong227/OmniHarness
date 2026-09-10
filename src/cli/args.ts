@@ -148,7 +148,7 @@ export class ArgParser {
    * 导致配置文件/工作区落到错位目录（如 D:\d\deepseek\...）。serve 在 GitBash 下接收的参数
    * 多为该风格，统一在此转换，避免 fs.list / config.update 落盘路径错乱。
    */
-  static toWindowsPath(p: string): string {
+  public static toWindowsPath(p: string): string {
     let s = p.trim();
     const drive = s.match(/^\/([a-zA-Z])\/(.*)$/);
     if (drive !== null) {
@@ -157,7 +157,7 @@ export class ArgParser {
     return s.replace(/\//g, '\\');
   }
 
-  static parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
+  public static parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
     const args: CliArgs = { ...CliDefaults, ...(defaults ?? {}) };
     for (let i = 0; i < argv.length; i += 1) {
       const arg = argv[i];
@@ -190,7 +190,7 @@ export class ArgParser {
   }
 
   /** 配置文件 → CLI 默认参数（仅合并已定义字段）。 */
-  static configDefaults(file: FileConfig): Partial<CliArgs> {
+  public static configDefaults(file: FileConfig): Partial<CliArgs> {
     const result: Partial<CliArgs> = {};
     if (file.mcpServers !== undefined) {
       result.mcpServers = file.mcpServers.map((server) => ({
@@ -260,7 +260,7 @@ export class ArgParser {
   }
 
   /** 打印用法。 */
-  static printUsage(): void {
+  public static printUsage(): void {
     process.stdout.write(
       [
         'OmniHarness exec',
@@ -331,7 +331,7 @@ export class ArgParser {
   }
 
   /** 提取错误消息。 */
-  static messageOf(error: unknown): string {
+  public static messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
@@ -340,13 +340,13 @@ export class ArgParser {
    * CLI 层独立维护一份小表（与 src/server/providerPresets.ts 同源同步）：
    * openai 适配器对应多家 OpenAI 兼容厂商，按预设默认 baseUrl 命中第一个匹配 providerKey 的。
    */
-  static adapterToPreset(adapter: string): AdapterPreset | undefined {
+  public static adapterToPreset(adapter: string): AdapterPreset | undefined {
     const list = ArgParser.ADAPTER_PRESETS[adapter];
     return list === undefined || list.length === 0 ? undefined : list[0];
   }
 
   /** 取适配器下所有可能厂商预设（按 baseUrl 一一对应）。 */
-  static adapterPresets(adapter: string): readonly AdapterPreset[] {
+  public static adapterPresets(adapter: string): readonly AdapterPreset[] {
     return ArgParser.ADAPTER_PRESETS[adapter] ?? [];
   }
 

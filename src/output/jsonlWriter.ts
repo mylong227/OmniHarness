@@ -3,10 +3,10 @@ import type { SessionEvent } from '../ports/event.js';
 
 /** JSONL 写出器：事件流结构化输出（stdout 或文件）。 */
 export class JsonlWriter {
-  constructor(private readonly target?: string) {}
+  public constructor(private readonly target?: string) {}
 
   /** 写出一条事件。 */
-  async write(event: SessionEvent): Promise<void> {
+  public async write(event: SessionEvent): Promise<void> {
     const line = JSON.stringify(event);
     if (this.target === undefined) {
       process.stdout.write(`${line}\n`);
@@ -16,7 +16,7 @@ export class JsonlWriter {
   }
 
   /** 批量写出。 */
-  async writeAll(events: readonly SessionEvent[]): Promise<void> {
+  public async writeAll(events: readonly SessionEvent[]): Promise<void> {
     for (const event of events) {
       await this.write(event);
     }

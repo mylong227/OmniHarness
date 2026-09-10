@@ -41,11 +41,11 @@ export interface PlanApprovalOptions {
 
 /** 规划模式审批适配器：只读白名单，其余一律拒绝。 */
 export class PlanApproval implements ApprovalPort {
-  readonly name = 'plan';
+  public readonly name = 'plan';
 
   private readonly allowed: Set<string>;
 
-  constructor(options: PlanApprovalOptions = {}) {
+  public constructor(options: PlanApprovalOptions = {}) {
     this.allowed = new Set(PLAN_ALLOWED_TOOLS);
     for (const tool of options.extraAllowedTools ?? []) {
       this.allowed.add(tool);
@@ -53,7 +53,7 @@ export class PlanApproval implements ApprovalPort {
   }
 
   /** 仅在工具命中只读白名单时放行。 */
-  async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
+  public async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
     return this.allowed.has(request.toolName) ? 'allow' : 'deny';
   }
 }

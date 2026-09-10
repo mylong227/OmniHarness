@@ -11,18 +11,18 @@ export interface GuardianApprovalOptions {
 
 /** Guardian 审批适配器：预检命中直判，未命中送 LLM 审查（移植 Codex guardian 思路，异常即拒绝）。 */
 export class GuardianApproval implements ApprovalPort {
-  readonly name = 'guardian';
+  public readonly name = 'guardian';
 
   private readonly preDenyPatterns: readonly RegExp[];
   private readonly preAllowPatterns: readonly RegExp[];
 
-  constructor(private readonly options: GuardianApprovalOptions) {
+  public constructor(private readonly options: GuardianApprovalOptions) {
     this.preDenyPatterns = options.preDenyPatterns ?? [];
     this.preAllowPatterns = options.preAllowPatterns ?? [];
   }
 
   /** 裁决请求。 */
-  async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
+  public async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
     const pre = this.preCheck(request.target);
     if (pre !== undefined) {
       return pre;

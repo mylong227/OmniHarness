@@ -9,24 +9,24 @@ import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMem
 import { QECEncoder } from '../../src/adapters/memory/qec.js';
 
 class MemLongTermMemory implements LongTermMemoryPort {
-  readonly name = 'mem';
+  public readonly name = 'mem';
   private facts: MemoryFact[] = [];
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     this.facts.push(fact);
   }
-  recall(): readonly MemoryFact[] {
+  public recall(): readonly MemoryFact[] {
     return this.facts;
   }
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.facts;
   }
-  get count(): number {
+  public get count(): number {
     return this.facts.length;
   }
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.facts.find((f) => f.id === id);
   }
-  update(id: string, patch: { importance?: number; text?: string }): boolean {
+  public update(id: string, patch: { importance?: number; text?: string }): boolean {
     const f = this.facts.find((x) => x.id === id) as
       { importance?: number; text?: string } | undefined;
     if (f === undefined) return false;
@@ -34,7 +34,7 @@ class MemLongTermMemory implements LongTermMemoryPort {
     if (patch.text !== undefined) f.text = patch.text;
     return true;
   }
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const i = this.facts.findIndex((f) => f.id === id);
     if (i < 0) return false;
     this.facts.splice(i, 1);

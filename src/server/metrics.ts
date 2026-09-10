@@ -50,7 +50,7 @@ export class Metrics {
   private readonly cost = new Map<string, { input: number; output: number; currency: string }>();
 
   /** 记录事件；model 事件顺带累计 token 用量与调用次数（按模型分组）。 */
-  recordEvent(event: SessionEvent): void {
+  public recordEvent(event: SessionEvent): void {
     this.eventsByType.set(event.type, (this.eventsByType.get(event.type) ?? 0) + 1);
     this.sessions.add(event.sessionId);
     if (event.type === 'model') {
@@ -71,7 +71,7 @@ export class Metrics {
   }
 
   /** 记录回合耗时（毫秒）。 */
-  recordTurn(latencyMs: number): void {
+  public recordTurn(latencyMs: number): void {
     if (!Number.isFinite(latencyMs)) return;
     this.turnCount += 1;
     this.turnSumMs += latencyMs;
@@ -80,14 +80,14 @@ export class Metrics {
   }
 
   /** 记录工具调用。 */
-  recordToolCall(tool: string, durationMs: number): void {
+  public recordToolCall(tool: string, durationMs: number): void {
     if (!Number.isFinite(durationMs)) return;
     const prev = this.toolCalls.get(tool) ?? { calls: 0, durationMs: 0 };
     this.toolCalls.set(tool, { calls: prev.calls + 1, durationMs: prev.durationMs + durationMs });
   }
 
   /** 记录 token 用量（按模型；total 恒为 prompt+completion，与 recordModelCall 搭配不双计）。 */
-  recordTokens(model: string, prompt: number, completion: number): void {
+  public recordTokens(model: string, prompt: number, completion: number): void {
     if (!Number.isFinite(prompt) || !Number.isFinite(completion)) return;
     const prev = this.tokens.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
     this.tokens.set(model, {
@@ -99,13 +99,13 @@ export class Metrics {
   }
 
   /** 记录一次模型调用（按模型累计调用次数）。 */
-  recordModelCall(model: string): void {
+  public recordModelCall(model: string): void {
     const prev = this.tokens.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
     this.tokens.set(model, { ...prev, calls: prev.calls + 1 });
   }
 
   /** 记录成本（按模型，货币记为 USD）。 */
-  recordCost(model: string, inputCost: number, outputCost: number): void {
+  public recordCost(model: string, inputCost: number, outputCost: number): void {
     if (!Number.isFinite(inputCost) || !Number.isFinite(outputCost)) return;
     const prev = this.cost.get(model) ?? { input: 0, output: 0, currency: 'USD' };
     this.cost.set(model, {
@@ -116,7 +116,7 @@ export class Metrics {
   }
 
   /** 快照（向后兼容，含新增字段）。 */
-  snapshot(): MetricsSnapshot {
+  public snapshot(): MetricsSnapshot {
     const turns: TurnStats = {
       count: this.turnCount,
       sumMs: this.turnSumMs,
@@ -134,7 +134,7 @@ export class Metrics {
   }
 
   /** 渲染为 Prometheus 文本格式。 */
-  toPrometheus(): string {
+  public toPrometheus(): string {
     const lines: string[] = [];
     const push = (name: string, help: string, type: string, value: string, labels?: string) => {
       lines.push(`# HELP ${name} ${help}`);

@@ -26,7 +26,7 @@ export class SessionGrouper {
    * 分组并排序：当前工作区组排最前，其余按原顺序，「更早会话」组垫底。
    * 未标记工作区的会话一律归入 EARLY_KEY（fail-closed 到可见分组，而非丢弃）。
    */
-  static group<T extends WorkspaceTagged>(sessions: readonly T[], currentWsPath: string): SessionGroup<T>[] {
+  public static group<T extends WorkspaceTagged>(sessions: readonly T[], currentWsPath: string): SessionGroup<T>[] {
     const currentKey = PathJoiner.normalize(currentWsPath);
     const byKey = new Map<string, T[]>();
     for (const s of sessions) {

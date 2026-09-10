@@ -37,7 +37,7 @@ const REQUEST_TIMEOUT_MS = 15000;
  * 这正是零依赖铁律下接入 LSP 的唯一合规方式。
  */
 export class LspProcessAdapter implements LspPort {
-  readonly name = 'lsp-process';
+  public readonly name = 'lsp-process';
 
   private proc: ChildProcess | undefined;
   private buf = Buffer.alloc(0);
@@ -47,22 +47,22 @@ export class LspProcessAdapter implements LspPort {
   private readonly pending = new Map<number, Pending>();
   private readonly opened = new Set<string>();
 
-  constructor(private readonly cfg: LspServerConfig & { readonly rootUri: string }) {}
+  public constructor(private readonly cfg: LspServerConfig & { readonly rootUri: string }) {}
 
   /** 跳转到定义（1-based 坐标 → LSP 0-based → 结果转回 1-based）。 */
-  async definition(file: string, line: number, character: number): Promise<readonly LspLocation[]> {
+  public async definition(file: string, line: number, character: number): Promise<readonly LspLocation[]> {
     return this.requestNav('textDocument/definition', file, line, character);
   }
 
   /** 查找引用（含声明处）。 */
-  async references(file: string, line: number, character: number): Promise<readonly LspLocation[]> {
+  public async references(file: string, line: number, character: number): Promise<readonly LspLocation[]> {
     return this.requestNav('textDocument/references', file, line, character, {
       includeDeclaration: true,
     });
   }
 
   /** 悬停文档。 */
-  async hover(file: string, line: number, character: number): Promise<string | undefined> {
+  public async hover(file: string, line: number, character: number): Promise<string | undefined> {
     await this.ensureStarted();
     await this.didOpen(file);
     const result = await this.request('textDocument/hover', {
@@ -73,7 +73,7 @@ export class LspProcessAdapter implements LspPort {
   }
 
   /** 关闭会话：shutdown → exit 并终止子进程；幂等（未启动直接返回）。 */
-  async shutdown(): Promise<void> {
+  public async shutdown(): Promise<void> {
     if (!this.started || this.proc === undefined) {
       return;
     }

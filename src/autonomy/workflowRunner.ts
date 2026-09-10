@@ -24,7 +24,7 @@ export const DEFAULT_WORKFLOW_CONCURRENCY = 4;
  * 工作流 DAG 中存在环。
  */
 export class WorkflowCycleError extends OmniError {
-  constructor() {
+  public constructor() {
     super(ErrorCode.WORKFLOW_CYCLE, '工作流 DAG 存在环（依赖关系无法拓扑排序）');
   }
 }
@@ -75,7 +75,7 @@ export interface WorkflowRunnerOptions {
 export class WorkflowRunner {
   private readonly maxConcurrency: number;
 
-  constructor(
+  public constructor(
     private readonly ports: SubagentPorts,
     private readonly options: WorkflowRunnerOptions = {},
   ) {
@@ -83,7 +83,7 @@ export class WorkflowRunner {
   }
 
   /** 运行工作流 DAG 直到达成或遇环 / 失败传播。 */
-  async run(def: WorkflowDef): Promise<WorkflowResult> {
+  public async run(def: WorkflowDef): Promise<WorkflowResult> {
     const byId = new Map(def.steps.map((step) => [step.id, step]));
     const levels = computeLevels(def.steps);
     const blackboard: Record<string, string> = {};

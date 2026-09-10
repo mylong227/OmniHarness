@@ -37,7 +37,7 @@ export class A2aServer {
   private handler: TaskHandler | undefined;
   private readonly declarations = new Map<string, A2aCapabilityDeclaration>();
 
-  constructor(
+  public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
   ) {
@@ -45,17 +45,17 @@ export class A2aServer {
   }
 
   /** 注入任务处理器（本地执行委托）。 */
-  setTaskHandler(handler: TaskHandler): void {
+  public setTaskHandler(handler: TaskHandler): void {
     this.handler = handler;
   }
 
   /** 查询已登记的对端能力声明。 */
-  getDeclaration(agentId: string): A2aCapabilityDeclaration | undefined {
+  public getDeclaration(agentId: string): A2aCapabilityDeclaration | undefined {
     return this.declarations.get(agentId);
   }
 
   /** 全部已登记声明。 */
-  get declarationsList(): readonly A2aCapabilityDeclaration[] {
+  public get declarationsList(): readonly A2aCapabilityDeclaration[] {
     return [...this.declarations.values()];
   }
 

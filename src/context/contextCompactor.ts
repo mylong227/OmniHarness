@@ -84,13 +84,13 @@ export const COMPACTION_MARKER = 'OMNI_COMPACTION_V1';
 export class ContextCompactor {
   private readonly estimator = new TokenEstimator();
 
-  constructor(
+  public constructor(
     private readonly model: ModelPort | undefined,
     private readonly options: CompactionOptions,
   ) {}
 
   /** 注入原生（Rust 内核）token 估算器：传入后内部估算走原生路径。 */
-  setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
+  public setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
     this.estimator.setNativeEstimator(fn);
   }
 
@@ -109,7 +109,7 @@ export class ContextCompactor {
    *  - 指纹不匹配（前缀漂移，如历史被回滚/编辑）→ 自动失效重算，绝不复用错误摘要。
    *  - 不传 state 时行为与旧版逐字节兼容（无游标，每次重算）。
    */
-  async compact(
+  public async compact(
     messages: readonly ModelMessage[],
     state?: CompactionState,
   ): Promise<CompactionResult> {

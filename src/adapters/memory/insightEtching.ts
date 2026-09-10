@@ -35,17 +35,17 @@ function buildNode(prefix: string, idx: number, branch: EtchBranch): EtchNode {
 }
 
 export class InsightEtchingEngine implements InsightEtchingPort {
-  readonly name = 'insight-etching';
+  public readonly name = 'insight-etching';
   private readonly threshold: number;
   private readonly bins: number;
   private readonly store = new Map<string, StoredTrace>();
 
-  constructor(opts: InsightEtchingOptions = {}) {
+  public constructor(opts: InsightEtchingOptions = {}) {
     this.threshold = opts.resonanceThreshold ?? 0.4;
     this.bins = opts.bins ?? 257;
   }
 
-  etch(event: EtchEvent): EtchTrace {
+  public etch(event: EtchEvent): EtchTrace {
     if (!event.id || !event.label) {
       throw new Error('刻蚀失败：事件 ID 与标签均不可为空（fail-closed）');
     }
@@ -68,7 +68,7 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     return trace;
   }
 
-  conduct(query: string, k = 1): readonly EtchConduction[] {
+  public conduct(query: string, k = 1): readonly EtchConduction[] {
     if (this.store.size === 0) return [];
     const q = eigenSpectrum(query, this.bins);
     const scored: EtchConduction[] = [];
@@ -82,7 +82,7 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     return scored.slice(0, Math.max(1, k));
   }
 
-  get traces(): number {
+  public get traces(): number {
     return this.store.size;
   }
 }

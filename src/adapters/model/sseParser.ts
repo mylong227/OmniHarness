@@ -7,7 +7,7 @@ export interface SseEvent {
 /** SSE 解析器：从流式响应逐事件解析（OpenAI / Anthropic 共用）。 */
 export class SseParser {
   /** 读取流并回调每个事件。 */
-  static async read(
+  public static async read(
     stream: ReadableStream<Uint8Array>,
     onEvent: (event: SseEvent) => void,
   ): Promise<void> {

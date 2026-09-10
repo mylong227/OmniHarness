@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
-  constructor(message: string) {
+  public constructor(message: string) {
     super(ErrorCode.CONFIG_ERROR, `配置错误: ${message}`);
   }
 }

@@ -8,7 +8,7 @@ export class WorkerRegistry {
   private readonly workers = new Map<string, Worker>();
 
   /** 注册 worker；重名即抛错。 */
-  register(worker: Worker): void {
+  public register(worker: Worker): void {
     if (this.workers.has(worker.name)) {
       throw new Error(`worker 重复注册: ${worker.name}`);
     }
@@ -16,7 +16,7 @@ export class WorkerRegistry {
   }
 
   /** 选择 worker。 */
-  get(name: string): Worker {
+  public get(name: string): Worker {
     const worker = this.workers.get(name);
     if (worker === undefined) {
       throw new Error(`未知 worker: ${name}`);
@@ -25,7 +25,7 @@ export class WorkerRegistry {
   }
 
   /** 已注册 worker 名。 */
-  names(): string[] {
+  public names(): string[] {
     return [...this.workers.keys()];
   }
 }

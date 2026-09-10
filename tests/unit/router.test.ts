@@ -5,12 +5,12 @@ import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model
 
 /** 始终成功的模型，记录调用次数与 name。 */
 class OkModel implements ModelPort {
-  readonly name: string;
-  calls = 0;
-  constructor(name: string) {
+  public readonly name: string;
+  public calls = 0;
+  public constructor(name: string) {
     this.name = name;
   }
-  async generate(_request: ModelRequest): Promise<ModelOutput> {
+  public async generate(_request: ModelRequest): Promise<ModelOutput> {
     this.calls += 1;
     return { text: `ok:${this.name}` };
   }
@@ -18,8 +18,8 @@ class OkModel implements ModelPort {
 
 /** 始终抛错的模型（模拟 5xx / 网络 / 超时）。 */
 class FailModel implements ModelPort {
-  readonly name = 'fail';
-  async generate(): Promise<ModelOutput> {
+  public readonly name = 'fail';
+  public async generate(): Promise<ModelOutput> {
     throw new Error('5xx upstream');
   }
 }

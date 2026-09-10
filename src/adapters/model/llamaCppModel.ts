@@ -33,16 +33,16 @@ export interface LlamaCppConfig {
  * 本地模型（Ollama / llama.cpp 原生 `/api/chat`）适配器。
  */
 export class LlamaCppModel implements ModelPort {
-  readonly name: string;
+  public readonly name: string;
   private readonly config: LlamaCppConfig;
 
-  constructor(config: LlamaCppConfig) {
+  public constructor(config: LlamaCppConfig) {
     this.config = config;
     this.name = config.model;
   }
 
   /** 非流式生成。 */
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(
       `${this.config.baseUrl}/api/chat`,
       this.buildRequest(request, false),
@@ -55,7 +55,7 @@ export class LlamaCppModel implements ModelPort {
   }
 
   /** 流式生成：Ollama 以换行分隔的 JSON 对象（NDJSON）推送，末条 done:true 收尾。 */
-  async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+  public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const response = await fetch(
       `${this.config.baseUrl}/api/chat`,
       this.buildRequest(request, true),

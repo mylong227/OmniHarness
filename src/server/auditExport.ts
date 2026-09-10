@@ -36,7 +36,7 @@ export class AuditExporter {
    * 按查询条件过滤审计事件。
    * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
    */
-  static queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
+  public static queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
     let out = events.filter((e) => {
       if (query.type !== undefined && e.type !== query.type) return false;
       if (query.session !== undefined && e.sessionId !== query.session) return false;
@@ -55,7 +55,7 @@ export class AuditExporter {
    * @beta
    * 把审计事件格式化为指定格式的文本。
    */
-  static formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
+  public static formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
     if (format === 'json') {
       return JSON.stringify(events, null, 2);
     }
@@ -83,7 +83,7 @@ export class AuditExporter {
    * @beta
    * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
    */
-  static exportAudit(events: readonly AuditEvent[], query: AuditQuery, format: AuditFormat): string {
+  public static exportAudit(events: readonly AuditEvent[], query: AuditQuery, format: AuditFormat): string {
     return AuditExporter.formatAudit(AuditExporter.queryAudit(events, query), format);
   }
 
@@ -92,7 +92,7 @@ export class AuditExporter {
    * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
    * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
    */
-  static buildComplianceReport(
+  public static buildComplianceReport(
     events: readonly AuditEvent[],
     query: AuditQuery,
     meta: ComplianceReportMeta = {},
@@ -133,7 +133,7 @@ export class AuditExporter {
    * @beta
    * 合规报告序列化为 JSON 文本。
    */
-  static formatCompliance(report: ComplianceReport): string {
+  public static formatCompliance(report: ComplianceReport): string {
     return JSON.stringify(report, null, 2);
   }
 }

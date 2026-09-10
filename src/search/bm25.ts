@@ -33,13 +33,13 @@ export class Bm25Index {
   private readonly documentFrequency = new Map<string, number>();
   private averageLength = 0;
 
-  constructor(options: Bm25Options = {}) {
+  public constructor(options: Bm25Options = {}) {
     this.k1 = options.k1 ?? 1.5;
     this.b = options.b ?? 0.75;
   }
 
   /** 批量加入已分词文档。 */
-  addDocuments(documents: readonly (readonly string[])[]): void {
+  public addDocuments(documents: readonly (readonly string[])[]): void {
     let total = 0;
     for (const tokens of documents) {
       this.documents.push([...tokens]);
@@ -57,7 +57,7 @@ export class Bm25Index {
   }
 
   /** 检索：查询词（已分词）→ 降序得分，截断 limit。 */
-  search(queryTokens: readonly string[], limit: number): readonly Bm25Hit[] {
+  public search(queryTokens: readonly string[], limit: number): readonly Bm25Hit[] {
     const count = this.documents.length;
     if (count === 0 || limit <= 0) {
       return [];

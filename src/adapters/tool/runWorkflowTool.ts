@@ -11,7 +11,7 @@ import { RUN_WORKFLOW_TOOL_NAME } from '../../autonomy/workflowToolNames.js';
 /** 模型面 run_workflow 工具：派生一次进程内 DAG 工作流（多步依赖编排）。 */
 export class RunWorkflowTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: RUN_WORKFLOW_TOOL_NAME,
     description:
       '派生一次进程内 DAG 工作流：多步任务按依赖关系并发编排，前序产出注入后续步骤。适合可拆成有依赖的子任务、需并行推进的复合任务。',
@@ -28,10 +28,10 @@ export class RunWorkflowTool {
     },
   };
 
-  constructor(private readonly ports: SubagentPorts) {}
+  public constructor(private readonly ports: SubagentPorts) {}
 
   /** 校验并运行工作流。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const spec = call.arguments['spec'];
     if (
       spec === undefined ||

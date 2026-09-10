@@ -6,20 +6,20 @@ export class ConcurrencyLimiter {
   private active = 0;
   private readonly waiters: Array<() => void> = [];
 
-  constructor(private readonly limit: number) {}
+  public constructor(private readonly limit: number) {}
 
   /** 当前活跃任务数（观测用）。 */
-  activeCount(): number {
+  public activeCount(): number {
     return this.active;
   }
 
   /** 并发上限。 */
-  limitOf(): number {
+  public limitOf(): number {
     return this.limit;
   }
 
   /** 获取一个执行槽位；已达上限时挂起等待。 */
-  async acquire(): Promise<void> {
+  public async acquire(): Promise<void> {
     if (this.active < this.limit) {
       this.active += 1;
       return;
@@ -30,7 +30,7 @@ export class ConcurrencyLimiter {
   }
 
   /** 释放槽位；有等待者时直接移交（活跃数不变，避免越过上限）。 */
-  release(): void {
+  public release(): void {
     const next = this.waiters.shift();
     if (next !== undefined) {
       next();
@@ -40,7 +40,7 @@ export class ConcurrencyLimiter {
   }
 
   /** 在闸门约束下执行任务（异常也保证释放）。 */
-  async run<T>(task: () => Promise<T>): Promise<T> {
+  public async run<T>(task: () => Promise<T>): Promise<T> {
     await this.acquire();
     try {
       return await task();

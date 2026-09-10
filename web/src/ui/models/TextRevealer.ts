@@ -19,18 +19,18 @@ export class TextRevealer {
    * @param onUpdate 每次推进的回调（收到当前应显示的子串）。
    * @param schedule 定时器注入点（默认 setTimeout；单测可换成手动时钟）。
    */
-  constructor(
+  public constructor(
     private readonly onUpdate: (shown: string) => void,
     private readonly schedule: (fn: () => void, ms: number) => ReturnType<typeof setTimeout> = setTimeout,
   ) {}
 
   /** 当前已揭示的子串。 */
-  get shown(): string {
+  public get shown(): string {
     return this.current === '' ? '' : this.current.slice(0, this.cursor);
   }
 
   /** 是否正在推进。 */
-  get running(): boolean {
+  public get running(): boolean {
     return this.timer !== null;
   }
 
@@ -38,7 +38,7 @@ export class TextRevealer {
    * 启动揭示：animate=false 或文本过短时直接全量推送（一次到位）。
    * 重复调用会先停掉上一轮，避免多个定时器并存互相覆盖。
    */
-  start(text: string, animate: boolean): void {
+  public start(text: string, animate: boolean): void {
     this.stop();
     this.current = text;
     if (!animate || text.length <= SHORT_TEXT) {
@@ -53,7 +53,7 @@ export class TextRevealer {
   }
 
   /** 停止推进（组件卸载 / 新文本到来时必须调用，否则定时器泄漏）。 */
-  stop(): void {
+  public stop(): void {
     if (this.timer !== null) {
       clearTimeout(this.timer);
       this.timer = null;

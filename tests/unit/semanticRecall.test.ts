@@ -14,7 +14,7 @@ import type { Embedding, EmbeddingPort } from '../../src/ports/embedding.js';
  * 仅用于单元测试，证明 SemanticIndex / rrfMerge 的算法在语义召回下成立（无需 80MB 真实模型）。
  */
 class FakeEmbedding implements EmbeddingPort {
-  readonly dim = 8;
+  public readonly dim = 8;
   // 同义词组 → 维度：授权类 / 清洗类 / 重试类
   private readonly groups: Record<string, number> = {
     authorization: 0,
@@ -30,7 +30,7 @@ class FakeEmbedding implements EmbeddingPort {
     redo: 2,
   };
 
-  async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
+  public async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
     return texts.map((t) => {
       const v = new Array<number>(this.dim).fill(0);
       for (const tok of t.toLowerCase().split(/[^a-z0-9]+/)) {
@@ -170,13 +170,13 @@ test('resolveEmbedBatchSize：env OMNI_EMBED_BATCH 可覆盖，非法值回落�
 test('SemanticIndex：批大小按维度生效（1024 维时单批 ≤36 项，不整批喂给 onnxruntime）', async () => {
   /** 记录每次 embed 收到的最大批量。 */
   class RecordingEmbedding implements EmbeddingPort {
-    readonly dim: number;
-    maxBatch = 0;
-    calls = 0;
-    constructor(dim: number) {
+    public readonly dim: number;
+    public maxBatch = 0;
+    public calls = 0;
+    public constructor(dim: number) {
       this.dim = dim;
     }
-    async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
+    public async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
       this.calls++;
       this.maxBatch = Math.max(this.maxBatch, texts.length);
       return texts.map(() => [1, 0]);

@@ -13,17 +13,17 @@ export class TurnDiffTracker {
   private valid = true;
 
   /** 是否仍可产出可信 diff。 */
-  get isValid(): boolean {
+  public get isValid(): boolean {
     return this.valid;
   }
 
   /** 本回合变更文件数。 */
-  get changedCount(): number {
+  public get changedCount(): number {
     return this.current.size;
   }
 
   /** 记录一次精确写入（before 为 null 表示新建文件；同文件多次写只保留首次 baseline）。 */
-  noteWrite(path: string, before: string | null, after: string): void {
+  public noteWrite(path: string, before: string | null, after: string): void {
     if (!this.valid || !this.baseline.has(path)) {
       this.baseline.set(path, before);
     }
@@ -31,26 +31,26 @@ export class TurnDiffTracker {
   }
 
   /** 标记本回合出现不可精确追踪的变更：清空并永久失效，直到 `reset()`。 */
-  invalidate(): void {
+  public invalidate(): void {
     this.valid = false;
     this.baseline.clear();
     this.current.clear();
   }
 
   /** 重置（新回合开始）。 */
-  reset(): void {
+  public reset(): void {
     this.valid = true;
     this.baseline.clear();
     this.current.clear();
   }
 
   /** 变更文件路径（字典序，保证渲染顺序稳定）。 */
-  changedPaths(): readonly string[] {
+  public changedPaths(): readonly string[] {
     return [...this.current.keys()].sort();
   }
 
   /** 产出整回合 unified diff；无实质差异或已失效时返回 undefined。 */
-  getUnifiedDiff(): string | undefined {
+  public getUnifiedDiff(): string | undefined {
     if (!this.valid || this.current.size === 0) {
       return undefined;
     }

@@ -19,13 +19,13 @@ export const TRACKED_WRITE_TOOLS: ReadonlySet<string> = new Set(['write_file', '
 export class TurnDiffHooks {
   private readonly baseline = new Map<string, string | null>();
 
-  constructor(
+  public constructor(
     private readonly tracker: TurnDiffTracker,
     private readonly workspaceRoot: string,
   ) {}
 
   /** 产出可注册进 `ToolHookRunner` 的钩子组。 */
-  hooks(): ToolHooks {
+  public hooks(): ToolHooks {
     return {
       pre: (context) => this.captureBaseline(context),
       post: (context, result) => this.captureResult(context, result),

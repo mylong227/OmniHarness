@@ -12,7 +12,7 @@ import { EventFactory } from '../../core/eventFactory.js';
  * 走 DefaultUserResponder（fail-soft 返回空选择），测试/前端可注入自定义实现。
  */
 export class AskUserTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'ask_user',
     description:
       '在确实需要用户做选择、确认或提供关键缺失信息时向用户提问。可一次问多个问题，每个带稳定 id（答案回显）。' +
@@ -50,12 +50,12 @@ export class AskUserTool {
     },
   };
 
-  constructor(
+  public constructor(
     private readonly responder: UserResponder,
     private readonly events?: EventPort,
   ) {}
 
-  async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['questions'];
     if (!Array.isArray(raw) || raw.length === 0) {
       return { callId: call.id, ok: false, error: 'questions 必须是非空数组' };

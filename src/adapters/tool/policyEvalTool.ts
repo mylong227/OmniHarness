@@ -17,9 +17,9 @@ export const POLICY_EVAL_TOOL_NAME = 'policy_eval';
  * @beta
  */
 export class PolicyEvalTool {
-  readonly definition: ToolDefinition;
+  public readonly definition: ToolDefinition;
 
-  constructor(private readonly policy: PolicyPort = new SafePolicyEvaluator()) {
+  public constructor(private readonly policy: PolicyPort = new SafePolicyEvaluator()) {
     this.definition = {
       name: POLICY_EVAL_TOOL_NAME,
       description:
@@ -53,7 +53,7 @@ export class PolicyEvalTool {
     };
   }
 
-  async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
     const rulesRaw = call.arguments['rules'];
     const factsRaw = call.arguments['facts'];
     if (!Array.isArray(rulesRaw) || typeof factsRaw !== 'object' || factsRaw === null) {

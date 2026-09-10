@@ -7,7 +7,7 @@ import type { WorkerOrchestrator } from '../../worker/workerOrchestrator.js';
  */
 export class DelegateTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'delegate',
     description: '把子任务委派给外部 worker（codex/claude-code/dsh 等）执行，返回结果',
     parameters: {
@@ -20,10 +20,10 @@ export class DelegateTool {
     },
   };
 
-  constructor(private readonly orchestrator: WorkerOrchestrator) {}
+  public constructor(private readonly orchestrator: WorkerOrchestrator) {}
 
   /** 委派任务。 */
-  async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const worker = String(call.arguments['worker'] ?? '');
     const task = String(call.arguments['task'] ?? '');
     try {

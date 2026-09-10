@@ -4,19 +4,19 @@ export class TokenEstimator {
   private nativeEstimator?: (messages: readonly { content: string }[]) => number;
 
   /** 注入原生（Rust 内核）批量估算器；传入则 estimateMessages 优先走原生。 */
-  setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
+  public setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
     this.nativeEstimator = fn;
   }
 
   /** 估算单段文本 token 数。 */
-  estimate(text: string): number {
+  public estimate(text: string): number {
     const cjk = this.countCjk(text);
     const other = text.length - cjk;
     return Math.ceil(cjk + other / 4);
   }
 
   /** 估算消息列表 token 数（含每条角色开销）。 */
-  estimateMessages(messages: readonly { content: string }[]): number {
+  public estimateMessages(messages: readonly { content: string }[]): number {
     if (this.nativeEstimator !== undefined) {
       return this.nativeEstimator(messages);
     }

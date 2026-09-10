@@ -6,7 +6,7 @@ import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 /** 列目录工具：仅限工作区内，列出条目（名称 + 类型）。 */
 export class ListDirTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'list_dir',
     description: '列出工作区内目录条目（名称与类型）',
     parameters: {
@@ -17,10 +17,10 @@ export class ListDirTool {
     },
   };
 
-  constructor(private readonly workspaceRoot: string) {}
+  public constructor(private readonly workspaceRoot: string) {}
 
   /** 列出目录。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '.');
     const guard = new WorkspaceGuard(this.workspaceRoot);
     if (!guard.isInside(relative)) {

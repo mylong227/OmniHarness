@@ -106,11 +106,11 @@ export function textOf(error: unknown): string {
  * 已安装插件源：扫描 pluginsDir 下各子目录的 omni.plugin.json。
  */
 export class LocalDirSource implements RegistrySource {
-  readonly kind = 'local' as const;
+  public readonly kind = 'local' as const;
 
-  constructor(private readonly dir: string) {}
+  public constructor(private readonly dir: string) {}
 
-  async search(query?: string): Promise<PluginDescriptor[]> {
+  public async search(query?: string): Promise<PluginDescriptor[]> {
     const out: PluginDescriptor[] = [];
     for (const entry of safeReaddir(this.dir)) {
       const manifestPath = join(this.dir, entry, 'omni.plugin.json');
@@ -130,7 +130,7 @@ export class LocalDirSource implements RegistrySource {
     return out;
   }
 
-  async get(name: string): Promise<PluginDescriptor | undefined> {
+  public async get(name: string): Promise<PluginDescriptor | undefined> {
     return (await this.search()).find((d) => d.manifest.name === name);
   }
 }
@@ -140,20 +140,20 @@ export class LocalDirSource implements RegistrySource {
  * 打包内置源：仓库自带示范插件，离线可用。
  */
 export class BundledSource implements RegistrySource {
-  readonly kind = 'bundled' as const;
+  public readonly kind = 'bundled' as const;
 
   /** @param plugins 打包清单 @param baseDir localPath 的解析基准（通常仓库根） */
-  constructor(
+  public constructor(
     private readonly plugins: readonly BundledPlugin[],
     private readonly baseDir: string,
   ) {}
 
-  async search(query?: string): Promise<PluginDescriptor[]> {
+  public async search(query?: string): Promise<PluginDescriptor[]> {
     const all = this.descriptors();
     return query === undefined ? all : all.filter((d) => manifestMatches(query, d.manifest));
   }
 
-  async get(name: string): Promise<PluginDescriptor | undefined> {
+  public async get(name: string): Promise<PluginDescriptor | undefined> {
     return this.descriptors().find((d) => d.manifest.name === name);
   }
 
@@ -183,20 +183,20 @@ export class BundledSource implements RegistrySource {
  * 远程 registry 源：不可达/非 JSON 时优雅降级为空，不影响本地与打包源。
  */
 export class RemoteHttpSource implements RegistrySource {
-  readonly kind = 'remote' as const;
+  public readonly kind = 'remote' as const;
 
   /** @param indexUrl 索引地址 @param fetcher 可注入拉取器（测试用） */
-  constructor(
+  public constructor(
     private readonly indexUrl: string,
     private readonly fetcher: RemoteFetcher = httpsJson,
   ) {}
 
-  async search(query?: string): Promise<PluginDescriptor[]> {
+  public async search(query?: string): Promise<PluginDescriptor[]> {
     const all = await this.index();
     return query === undefined ? all : all.filter((d) => manifestMatches(query, d.manifest));
   }
 
-  async get(name: string): Promise<PluginDescriptor | undefined> {
+  public async get(name: string): Promise<PluginDescriptor | undefined> {
     return (await this.index()).find((d) => d.manifest.name === name);
   }
 
@@ -236,19 +236,19 @@ export class RemoteHttpSource implements RegistrySource {
  * 这是「真实 registry 占位服务」的落地：换一个可达的 HTTP 索引即可无缝升级为远程。
  */
 export class FileRegistrySource implements RegistrySource {
-  readonly kind = 'remote' as const;
+  public readonly kind = 'remote' as const;
 
-  constructor(
+  public constructor(
     private readonly catalogPath: string,
     private readonly baseDir: string = dirname(catalogPath),
   ) {}
 
-  async search(query?: string): Promise<PluginDescriptor[]> {
+  public async search(query?: string): Promise<PluginDescriptor[]> {
     const all = await this.catalog();
     return query === undefined ? all : all.filter((d) => manifestMatches(query, d.manifest));
   }
 
-  async get(name: string): Promise<PluginDescriptor | undefined> {
+  public async get(name: string): Promise<PluginDescriptor | undefined> {
     return (await this.catalog()).find((d) => d.manifest.name === name);
   }
 

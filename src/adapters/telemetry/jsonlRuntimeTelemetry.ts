@@ -59,14 +59,14 @@ export interface JsonlRuntimeTelemetryOptions {
  * `read` 返回 []、`verify` 返回 `{ ok: true, count: 0 }`——即零破坏旁路。
  */
 export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
-  readonly name = 'jsonl-runtime-telemetry';
+  public readonly name = 'jsonl-runtime-telemetry';
   private readonly target: string | undefined;
   /** 已写入的最大链序号。 */
   private seq = 0;
   /** 上一条记录哈希。 */
   private prev = GENESIS;
 
-  constructor(options: JsonlRuntimeTelemetryOptions = {}) {
+  public constructor(options: JsonlRuntimeTelemetryOptions = {}) {
     if (options.path !== undefined) {
       this.target = options.path;
     } else if (options.dir !== undefined) {
@@ -83,7 +83,7 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
   }
 
   /** 记录一条观测（未配置目标时 no-op）。返回链序号。 */
-  record(obs: RuntimeTelemetryInput): number | undefined {
+  public record(obs: RuntimeTelemetryInput): number | undefined {
     if (this.target === undefined) return undefined;
     const id = obs.id || randomUUID();
     const ts = obs.ts || new Date().toISOString();
@@ -110,7 +110,7 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
   }
 
   /** 读取全部观测（坏行跳过，fail-closed）。 */
-  read(): readonly RuntimeObservation[] {
+  public read(): readonly RuntimeObservation[] {
     if (this.target === undefined || !existsSync(this.target)) return [];
     const content = readFileSync(this.target, 'utf8');
     const out: RuntimeObservation[] = [];
@@ -130,7 +130,7 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
    * 校验哈希链完整性：顺序、前驱指针、逐条哈希三重比对。
    * 改内容 / 删条目 / 插条目均可检出。
    */
-  verify(): TelemetryChainReport {
+  public verify(): TelemetryChainReport {
     const events = this.read();
     if (events.length === 0) return { ok: true, count: 0 };
     const hasChain = events.some(

@@ -41,7 +41,7 @@ export class MoireComposer {
   }
 
   /** 单个技能的能力场（N×N 正弦光栅）。显式声明优先，否则按文本确定性派生。 */
-  static capabilityFieldOf(skill: Skill, n: number): number[][] {
+  public static capabilityFieldOf(skill: Skill, n: number): number[][] {
     const explicit = skill.capabilityField;
     if (explicit && explicit.length === n * n) {
       const f: number[][] = [];
@@ -131,7 +131,7 @@ export class MoireComposer {
    * 乘积场「涌现强度」：先去均值，再算低通能量 / 中心化总能量。
    * 该比值越高，说明乘积场含越多「两片各自都没有」的长波莫尔结构。
    */
-  static emergenceAt(
+  public static emergenceAt(
     A: number[][],
     B: number[][],
     n: number,
@@ -176,7 +176,7 @@ export class MoireComposer {
    * 莫尔转角组合：固定 a 的场，对 b 的场扫描相对转角 θ，取涌现峰值 θ* 处的乘积场
    * 作为复合技能的能力场。返回的技能既是可用技能，又承载「两片都没有」的涌现长波。
    */
-  static composeByTwist(a: Skill, b: Skill, opts?: MoireOptions): Skill {
+  public static composeByTwist(a: Skill, b: Skill, opts?: MoireOptions): Skill {
     const { n, blurR, step, minT, maxT, floor } = MoireComposer.resolve(opts);
     const fa = MoireComposer.capabilityFieldOf(a, n);
     const fb = MoireComposer.capabilityFieldOf(b, n);

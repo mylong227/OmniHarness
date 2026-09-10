@@ -36,12 +36,12 @@ export interface Modality<A> {
  */
 export class ModalityPort {
   /** 函子 map：仅变换 data，保留 kind 与 features（特征空间不变）。 */
-  static mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
+  public static mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
     return { kind: m.kind, data: f(m.data), features: m.features };
   }
 
   /** 文本模态：确定性 n-gram 包特征（长度 32，单位化）。 */
-  static encodeText(s: string): Modality<string> {
+  public static encodeText(s: string): Modality<string> {
     return { kind: 'text', data: s, features: ModalityPort.textFeatures(s) };
   }
 
@@ -49,7 +49,7 @@ export class ModalityPort {
    * 图像模态：由原始字节计算**真实结构特征**（零依赖、可离线）。
    * 这是"视觉语义"的可计算占位；真实 CLIP 类编码器可替换本函数而代数不变。
    */
-  static encodeImage(
+  public static encodeImage(
     bytes: Uint8Array,
     width: number,
     height: number,
@@ -67,7 +67,7 @@ export class ModalityPort {
    * （fuse(a,b) ≡ fuse(b,a)，即使同种类模态也成立）。
    * 特征为两向量拼接后重新单位化。
    */
-  static fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
+  public static fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
     const ka = `${a.kind}#${ModalityPort.featureSig(a.features)}`;
     const kb = `${b.kind}#${ModalityPort.featureSig(b.features)}`;
     const [x, y] = ka <= kb ? [a, b] : [b, a];
@@ -81,7 +81,7 @@ export class ModalityPort {
   }
 
   /** 跨模态对齐度：特征向量余弦相似度 ∈ [-1, 1]。文本与图像可直接比较。 */
-  static alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
+  public static alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
     return cosine(a.features as number[], b.features as number[]);
   }
 
@@ -90,7 +90,7 @@ export class ModalityPort {
   private static readonly TEXT_DIM = 32;
 
   /** 文本 n-gram 包特征（确定性、可复现），单位化到长度 TEXT_DIM。 */
-  static textFeatures(s: string): number[] {
+  public static textFeatures(s: string): number[] {
     const v = new Array<number>(ModalityPort.TEXT_DIM).fill(0);
     const n = s.length;
     for (let i = 0; i < n; i++) {
@@ -107,7 +107,7 @@ export class ModalityPort {
    * 图像结构特征（真实可计算）：亮度均值/标准差、字节香农熵、宽高比。
    * 长度 8，单位化。作为视觉语义编码器的可计算占位。
    */
-  static imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
+  public static imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
     const count = bytes.length || 1;
     let sum = 0;
     let sumSq = 0;

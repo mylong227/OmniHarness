@@ -26,12 +26,12 @@ const EXTRA_RESTRICTED: readonly RegExp[] = [
 
 /** 受限沙箱适配器：policy 全部规则 + 网络外联/提权命令黑名单，命中即拒绝（fail-closed）。 */
 export class RestrictedSandbox implements SandboxPort {
-  readonly name = 'restricted';
+  public readonly name = 'restricted';
 
   private readonly guard: WorkspaceGuard;
   private readonly patterns: readonly RegExp[];
 
-  constructor(private readonly options: RestrictedSandboxOptions) {
+  public constructor(private readonly options: RestrictedSandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
     this.patterns = [
       ...DangerousCommands.defaults(),
@@ -41,7 +41,7 @@ export class RestrictedSandbox implements SandboxPort {
   }
 
   /** 裁决动作。 */
-  async check(action: SandboxAction): Promise<SandboxDecision> {
+  public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (action.kind === 'command') {
       return this.checkCommand(action.target);
     }

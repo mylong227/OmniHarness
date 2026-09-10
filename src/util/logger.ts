@@ -24,7 +24,7 @@ function envLevel(): LogLevel {
 export type LogSink = (line: string) => void;
 
 export class Logger {
-  constructor(
+  public constructor(
     private readonly minLevel: LogLevel = envLevel(),
     private readonly sink: LogSink = (line) => {
       process.stderr.write(line + '\n');
@@ -32,17 +32,17 @@ export class Logger {
   ) {}
 
   /** 当前异步上下文的 traceId（无则为 undefined）。 */
-  static get currentTrace(): string | undefined {
+  public static get currentTrace(): string | undefined {
     return traceStorage.getStore();
   }
 
   /** 在带 traceId 的上下文中执行 fn，期间所有日志自动携带该 traceId。 */
-  withTrace<T>(traceId: string | undefined, fn: () => T): T {
+  public withTrace<T>(traceId: string | undefined, fn: () => T): T {
     return traceStorage.run(traceId, fn);
   }
 
   /** 为传入的 traceId 生成 UUID（无则为随机值），供 HTTP 层统一建号。 */
-  static nextTraceId(provided?: string | undefined): string {
+  public static nextTraceId(provided?: string | undefined): string {
     return provided && provided.length > 0 ? provided : randomUUID();
   }
 
@@ -59,16 +59,16 @@ export class Logger {
     this.sink(JSON.stringify(entry));
   }
 
-  debug(msg: string, fields?: Record<string, unknown>): void {
+  public debug(msg: string, fields?: Record<string, unknown>): void {
     this.emit('debug', msg, fields);
   }
-  info(msg: string, fields?: Record<string, unknown>): void {
+  public info(msg: string, fields?: Record<string, unknown>): void {
     this.emit('info', msg, fields);
   }
-  warn(msg: string, fields?: Record<string, unknown>): void {
+  public warn(msg: string, fields?: Record<string, unknown>): void {
     this.emit('warn', msg, fields);
   }
-  error(msg: string, fields?: Record<string, unknown>): void {
+  public error(msg: string, fields?: Record<string, unknown>): void {
     this.emit('error', msg, fields);
   }
 }

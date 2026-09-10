@@ -31,7 +31,7 @@ export class MultimodalBridge {
    * 含图像时：每图 encodeImage 后两两 fuse，再与文本 fuse 为 tensor。
    * 视觉字节缺失宽高时以确定性占位（length, 1），真实编码器可替换本路径。
    */
-  static modelMessageToModality(msg: ModelMessage): Modality<unknown> {
+  public static modelMessageToModality(msg: ModelMessage): Modality<unknown> {
     const text = encodeText(msg.content ?? '');
     if (msg.images && msg.images.length > 0) {
       const first = msg.images[0];
@@ -66,7 +66,7 @@ export class MultimodalBridge {
   }
 
   /** 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。 */
-  static crossModalAlign(a: ModelMessage, b: ModelMessage): number {
+  public static crossModalAlign(a: ModelMessage, b: ModelMessage): number {
     return alignModality(
       MultimodalBridge.modelMessageToModality(a),
       MultimodalBridge.modelMessageToModality(b),
@@ -78,7 +78,7 @@ export class MultimodalBridge {
    * 使 BM25 索引具备"语义特征"维度（同义/同构文本更易聚类召回）。
    * 零依赖、复用 #M2 内核，不改变 RetrievalPort 契约。
    */
-  static registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
+  public static registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
     for (const d of docs) {
       const sig = MultimodalBridge.modalitySignature(d.text);
       index.index({ ...d, text: `${d.text} __modality_sig__ ${sig}` });
@@ -86,7 +86,7 @@ export class MultimodalBridge {
   }
 
   /** 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。 */
-  static modalitySignature(text: string): string {
+  public static modalitySignature(text: string): string {
     return textFeatures(text)
       .map((v) => Math.round(v * 1000))
       .join('_');

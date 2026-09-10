@@ -37,7 +37,7 @@ export class Agent {
   /** 当前在跑会话的增量持久化器（V2）：供 buildTurnRunner 注入 TurnRunner。 */
   private currentPersister: EventPersister | undefined;
 
-  constructor(
+  public constructor(
     private readonly runtime: OmniHarnessRuntime,
     private readonly skills?: SkillRegistry,
   ) {}
@@ -46,12 +46,12 @@ export class Agent {
    * 取消当前在跑的任务（V2）：模型在飞请求被中断（CancelledError 上抛），
    * 已产生事件仍经 finally 落盘。无在跑任务时为 no-op。
    */
-  cancelCurrentRun(reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user'): void {
+  public cancelCurrentRun(reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user'): void {
     this.currentCancel?.cancel(reason);
   }
 
   /** 执行一次任务（新会话）。images/files 可选，随首条用户消息送入模型（#B1/#B5）。 */
-  async runTask(
+  public async runTask(
     prompt: string,
     images?: readonly ImageContent[],
     files?: readonly FileAttachment[],
@@ -60,7 +60,7 @@ export class Agent {
   }
 
   /** 续跑历史会话：加载原会话历史事件后继续（同一 sessionId）。 */
-  async resume(
+  public async resume(
     sessionId: string,
     prompt: string,
     images?: readonly ImageContent[],
@@ -70,7 +70,7 @@ export class Agent {
   }
 
   /** 分叉会话：复制历史事件到新 sessionId，独立演进不影响原会话。 */
-  async fork(
+  public async fork(
     sourceSessionId: string,
     prompt: string,
     images?: readonly ImageContent[],
@@ -80,7 +80,7 @@ export class Agent {
   }
 
   /** 回放会话：加载并广播全部历史事件。 */
-  async replay(sessionId: string): Promise<readonly SessionEvent[]> {
+  public async replay(sessionId: string): Promise<readonly SessionEvent[]> {
     const events = await this.runtime.storage.load(sessionId);
     for (const event of events) {
       this.runtime.events.emit(event);

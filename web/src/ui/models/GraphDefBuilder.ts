@@ -28,7 +28,7 @@ const MAX_CONCURRENCY = 4;
 /** 图定义构建器。 */
 export class GraphDefBuilder {
   /** 从草稿行构建定义：丢弃 id 或 prompt 为空的行；依赖按逗号切分并去空白。 */
-  static build(name: string, steps: readonly StepDraft[]): GraphDef {
+  public static build(name: string, steps: readonly StepDraft[]): GraphDef {
     const cleaned: GraphStepDef[] = steps
       .filter((s) => s.id.trim() !== '' && s.prompt.trim() !== '')
       .map((s) => {
@@ -44,12 +44,12 @@ export class GraphDefBuilder {
   }
 
   /** 把服务端返回的 dependsOn 数组还原成编辑器的逗号串。 */
-  static depText(dependsOn: readonly string[] | undefined): string {
+  public static depText(dependsOn: readonly string[] | undefined): string {
     return (dependsOn || []).join(',');
   }
 
   /** 节点状态 → CSS 类名；未知状态一律 pending（fail-closed 到最保守展示）。 */
-  static statusClass(status: string): string {
+  public static statusClass(status: string): string {
     if (status === 'running') return 'running';
     if (status === 'done') return 'done';
     if (status === 'failed') return 'failed';

@@ -52,7 +52,7 @@ export class McpGateway {
   /** 解析后的 MCP 白名单（undefined=全部允许）。 */
   private readonly allowedServers: readonly string[] | undefined;
 
-  constructor(private readonly options: McpGatewayOptions) {
+  public constructor(private readonly options: McpGatewayOptions) {
     // 选项优先，其次 env；env 为空串/未设置则回落为「全部允许」。
     const envAllow = process.env.OMNI_MCP_ALLOWLIST?.split(',')
       .map((s) => s.trim())
@@ -63,12 +63,12 @@ export class McpGateway {
   }
 
   /** 已桥接的工具名（含服务器前缀）。 */
-  bridgedTools(): readonly string[] {
+  public bridgedTools(): readonly string[] {
     return [...this.bridged];
   }
 
   /** 连接全部服务器并注册工具（单服务器失败不影响其余）。 */
-  async connectAll(): Promise<readonly McpBridgeResult[]> {
+  public async connectAll(): Promise<readonly McpBridgeResult[]> {
     const results: McpBridgeResult[] = [];
     for (const server of this.options.servers) {
       results.push(await this.connectOne(server));
@@ -145,7 +145,7 @@ export class McpGateway {
   }
 
   /** 关闭全部子进程连接。 */
-  close(): void {
+  public close(): void {
     for (const handle of this.handles) {
       handle.close();
     }
@@ -158,7 +158,7 @@ export class McpGateway {
   }
 
   /** 工具执行上下文（供测试与调用方复用）。 */
-  context(): ToolContext {
+  public context(): ToolContext {
     return this.options.context;
   }
 }

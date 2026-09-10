@@ -24,18 +24,18 @@ export interface ScriptStep {
  * 脚本化模型：严格 replay 给定脚本，绝不随机。
  */
 export class ScriptedModel implements ModelPort {
-  readonly name = 'scripted';
+  public readonly name = 'scripted';
 
   private turn = 0;
 
   /** @param script 模型响应序列 @param finalText 脚本耗尽后的兜底终态文本 */
-  constructor(
+  public constructor(
     private readonly script: readonly ScriptStep[],
     private readonly finalText = '任务完成（eval）',
   ) {}
 
   /** 生成响应：顺序取脚本步，耗尽则返回 finalText。 */
-  async generate(_req: ModelRequest): Promise<ModelOutput> {
+  public async generate(_req: ModelRequest): Promise<ModelOutput> {
     const step = this.script[this.turn] ?? { text: this.finalText };
     this.turn += 1;
     if (step.toolCalls !== undefined && step.toolCalls.length > 0) {

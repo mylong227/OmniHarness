@@ -54,7 +54,7 @@ function avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {
  * 构建边权。零运行时依赖。
  */
 export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort {
-  readonly name = 'cosmic-web-memory';
+  public readonly name = 'cosmic-web-memory';
   private readonly memory: LongTermMemoryPort;
   private readonly adhesionThreshold: number;
   private readonly bekensteinCap: number;
@@ -62,7 +62,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
   private readonly bins: number;
   private readonly nodes = new Map<string, WebNode>();
 
-  constructor(memory: LongTermMemoryPort, opts: CosmicWebOptions = {}) {
+  public constructor(memory: LongTermMemoryPort, opts: CosmicWebOptions = {}) {
     this.memory = memory;
     this.adhesionThreshold = clamp(opts.adhesionThreshold ?? 0.75, 0, 1);
     this.bekensteinCap = Math.max(1, Math.floor(opts.bekensteinCap ?? 64));
@@ -80,7 +80,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     }
   }
 
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     const s = eigenSpectrum(fact.text, this.bins);
     let bestId: string | undefined;
     let bestRes = this.adhesionThreshold; // 必须严格 ≥ 阈值才黏附
@@ -103,7 +103,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     this.nodes.set(fact.id, { repId: fact.id, centroid: s, members: [fact.id], text: fact.text });
   }
 
-  consolidate(): WebConsolidationReport {
+  public consolidate(): WebConsolidationReport {
     let collapsed = 0;
     while (this.nodes.size > this.bekensteinCap) {
       // 最小簇。
@@ -154,7 +154,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     return { nodes: this.nodes.size, collapsed, fibers: this.computeFibers() };
   }
 
-  fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
+  public fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
     if (k <= 0) return [];
     let bestId: string | undefined;
     let bestRes = -1;
@@ -190,19 +190,19 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
   }
 
   // ── LongTermMemoryPort 委托（drop-in 替换） ──
-  recall(query: string, k: number): readonly MemoryFact[] {
+  public recall(query: string, k: number): readonly MemoryFact[] {
     return this.memory.recall(query, k);
   }
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.memory.all();
   }
-  get count(): number {
+  public get count(): number {
     return this.memory.count;
   }
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.memory.get(id);
   }
-  update(id: string, patch: MemoryFactPatch): boolean {
+  public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.memory.update(id, patch);
     if (ok) {
       const node = this.nodes.get(id);
@@ -216,7 +216,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     }
     return ok;
   }
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const ok = this.memory.delete(id);
     if (ok) this.nodes.delete(id);
     return ok;

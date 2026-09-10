@@ -18,21 +18,21 @@ import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool.js'
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements Transport {
-  readonly sent: RpcMessage[] = [];
-  peer: PairTransport | undefined;
+  public readonly sent: RpcMessage[] = [];
+  public peer: PairTransport | undefined;
   private callback: ((message: RpcMessage) => void) | undefined;
 
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     this.sent.push(message);
     this.peer?.deliver(message);
   }
 
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
   /** 接收对端消息。 */
-  deliver(message: RpcMessage): void {
+  public deliver(message: RpcMessage): void {
     this.callback?.(message);
   }
 }

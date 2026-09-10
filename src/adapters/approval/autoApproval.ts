@@ -2,10 +2,10 @@ import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../port
 
 /** 自动放行审批适配器：默认允许一切（M0 兜底，生产请换策略/人工/LLM 审查）。 */
 export class AutoApproval implements ApprovalPort {
-  readonly name = 'auto';
+  public readonly name = 'auto';
 
   /** 全部放行。 */
-  async decide(_request: ApprovalRequest): Promise<ApprovalDecision> {
+  public async decide(_request: ApprovalRequest): Promise<ApprovalDecision> {
     return 'allow';
   }
 }

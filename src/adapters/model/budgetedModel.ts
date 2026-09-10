@@ -12,16 +12,16 @@ import type { CostBudget } from './costBudget.js';
  * 且预算熔断优先于重试退避（熔断后不再发起任何网络调用）。
  */
 export class BudgetedModel implements ModelPort {
-  readonly name: string;
+  public readonly name: string;
 
-  constructor(
+  public constructor(
     private readonly inner: ModelPort,
     private readonly budget: CostBudget,
   ) {
     this.name = inner.name;
   }
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.budget.ensureWithin(this.inner.name);
     const out = await this.inner.generate(request);
     if (out.usage !== undefined) {
@@ -30,7 +30,7 @@ export class BudgetedModel implements ModelPort {
     return out;
   }
 
-  async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+  public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     this.budget.ensureWithin(this.inner.name);
     const out =
       this.inner.stream !== undefined

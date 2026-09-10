@@ -17,7 +17,7 @@ export interface CodeExecutorOptions {
  */
 export class CodeExecutorTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'run_code',
     description:
       '执行一段 TypeScript/JavaScript 程序；程序内可用 await call("工具名", 参数) 调用工具、log(...) 输出',
@@ -32,10 +32,10 @@ export class CodeExecutorTool {
 
   private readonly interpreter = new CodeInterpreter();
 
-  constructor(private readonly options: CodeExecutorOptions) {}
+  public constructor(private readonly options: CodeExecutorOptions) {}
 
   /** 执行程序。 */
-  async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const code = String(call.arguments['code'] ?? '');
     const result = await this.interpreter.run(code, {
       execute: (inner) => this.executeGated(inner, context),

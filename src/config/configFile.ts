@@ -81,10 +81,10 @@ export interface LayeredOptions {
 /** 配置文件加载器：omniharness.json，向上逐级查找。 */
 export class ConfigFile {
   /** 配置文件固定名。 */
-  static readonly FILE_NAME = 'omniharness.json';
+  public static readonly FILE_NAME = 'omniharness.json';
 
   /** 从目录向上查找配置文件。 */
-  static find(startDir: string): string | undefined {
+  public static find(startDir: string): string | undefined {
     let current = startDir;
     while (true) {
       const candidate = join(current, ConfigFile.FILE_NAME);
@@ -100,7 +100,7 @@ export class ConfigFile {
   }
 
   /** 加载并解析配置文件（文件不存在返回空配置，宽松：不校验未知 key）。 */
-  static load(filePath: string): FileConfig {
+  public static load(filePath: string): FileConfig {
     try {
       const raw = readFileSync(filePath, 'utf8');
       return JSON.parse(raw) as FileConfig;
@@ -113,7 +113,7 @@ export class ConfigFile {
    * 写回配置文件（落盘）：先归一化校验（未知 key / 枚举越界 / 类型错误 fail-closed 抛 ConfigError），
    * 目录不存在自动创建，输出 pretty JSON。供 AppServer.config.update 持久化 UI 设置。
    */
-  static save(filePath: string, cfg: FileConfig): void {
+  public static save(filePath: string, cfg: FileConfig): void {
     const dir = dirname(filePath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -128,7 +128,7 @@ export class ConfigFile {
    * 各层（除环境变量层，它天然只含已知 key）经 normalizeConfig 严格校验，未知 key / 枚举越界 / 类型错误
    * 一律 fail-closed 抛 ConfigError。合并语义为「非零值覆盖」，CLI 参数在更上层（parseArgs）继续覆盖。
    */
-  static loadLayered(opts: LayeredOptions): FileConfig {
+  public static loadLayered(opts: LayeredOptions): FileConfig {
     const layers: Partial<FileConfig>[] = [];
 
     // 用户级：固定路径 ~/.omniharness/omniharness.json（若存在）。

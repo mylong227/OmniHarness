@@ -7,7 +7,7 @@ import type { CostBudget } from '../model/costBudget.js';
  * 仅当配置了 `costBudgetUsd` 时注册。
  */
 export class BudgetStatusTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'budget_status',
     description:
       '查询本次会话的模型调用成本预算状态：硬预算上限（USD）、已花费、剩余、输入/输出 token 累计、是否已熔断。临近上限时据此主动收敛用量，避免被硬预算阻断。',
@@ -17,10 +17,10 @@ export class BudgetStatusTool {
     },
   };
 
-  constructor(private readonly budget: CostBudget) {}
+  public constructor(private readonly budget: CostBudget) {}
 
   /** 返回当前预算快照。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const snap = this.budget.snapshot();
     return {
       callId: call.id,

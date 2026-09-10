@@ -9,19 +9,19 @@ export class ToastService {
   private sink: ToastSink | null = null;
 
   /** 由 App 在挂载时绑定到 React 状态，使 toast 真正渲染出来。 */
-  bind(sink: ToastSink): void {
+  public bind(sink: ToastSink): void {
     this.sink = sink;
   }
 
-  show(message: string, kind: ToastKind = 'info'): void {
+  public show(message: string, kind: ToastKind = 'info'): void {
     this.sink?.(message, kind);
   }
 
-  ok(message: string): void {
+  public ok(message: string): void {
     this.show(message, 'ok');
   }
 
-  err(message: string): void {
+  public err(message: string): void {
     this.show(message, 'err');
   }
 }

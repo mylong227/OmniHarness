@@ -34,13 +34,13 @@ const def = (name: string, description: string): ToolDefinition => ({
 
 /** 脚本化模型：按预设逐回合返回工具调用或文本，并记录每回合收到的工具集。 */
 class ScriptedModel implements ModelPort {
-  readonly name = 'scripted';
+  public readonly name = 'scripted';
   public receivedTools: ModelToolSpec[][] = [];
   private index = 0;
 
-  constructor(private readonly script: Array<{ toolCalls?: ToolCall[]; text?: string }>) {}
+  public constructor(private readonly script: Array<{ toolCalls?: ToolCall[]; text?: string }>) {}
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.receivedTools.push([...request.tools]);
     const step = this.script[this.index] ?? { text: 'done' };
     this.index += 1;

@@ -142,7 +142,7 @@ export function withPrefix(
  * 与 text role 注入 e5 前缀（'query' → "query: "，'document' → "passage: "）。
  */
 export class TransformersEmbeddingAdapter implements EmbeddingPort {
-  readonly dim: number;
+  public readonly dim: number;
   private readonly model: string;
   private readonly prefixMode: PrefixMode;
   private readonly device: 'wasm' | 'webgpu' | 'cpu' | 'auto';
@@ -151,7 +151,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   private readonly localFilesOnly: boolean;
   private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
 
-  constructor(opts: TransformersEmbeddingOptions = {}) {
+  public constructor(opts: TransformersEmbeddingOptions = {}) {
     // 解析模型规格：显式 model 优先（自定义 id，无前缀知识）；
     // 否则查预设表（带前缀模式）；都缺省 → minilm。
     let spec: ModelSpec;
@@ -175,7 +175,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   }
 
   /** 解析出的 HF 模型 id（诊断用）。 */
-  get modelId(): string {
+  public get modelId(): string {
     return this.model;
   }
 
@@ -201,7 +201,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     return withPrefix(texts, this.prefixMode, role);
   }
 
-  async embed(texts: readonly string[], opts?: EmbedOptions): Promise<readonly Embedding[]> {
+  public async embed(texts: readonly string[], opts?: EmbedOptions): Promise<readonly Embedding[]> {
     const pipe = await this.getPipeline();
     // role 默认为 'document'：SemanticIndex.build 传 'document'、search 传 'query'；
     // 其他调用方（warmup）未指定时按文档处理，不影响权重加载。

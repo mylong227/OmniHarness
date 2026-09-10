@@ -61,7 +61,7 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
   private readonly queueBuf: CrisprEditSpec[] = [];
   private applied = 0;
 
-  constructor(opts: CRISPRSkillEditorOptions) {
+  public constructor(opts: CRISPRSkillEditorOptions) {
     this.port = opts.skillPort;
     this.audit = opts.audit;
     this.addressThreshold = opts.addressThreshold ?? 0.5;
@@ -69,12 +69,12 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
   }
 
   /** 排入编辑队列（供主循环任务末批量 flush）。 */
-  queue(spec: CrisprEditSpec): void {
+  public queue(spec: CrisprEditSpec): void {
     this.queueBuf.push(spec);
   }
 
   /** 批量执行队列；空队列返回空数组（主循环据此判断本阶段是否产出）。 */
-  flush(): readonly CrisprEditReport[] {
+  public flush(): readonly CrisprEditReport[] {
     const out: CrisprEditReport[] = [];
     while (this.queueBuf.length > 0) {
       const spec = this.queueBuf.shift()!;
@@ -84,12 +84,12 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
   }
 
   /** 已成功应用（提交）的编辑数。 */
-  appliedCount(): number {
+  public appliedCount(): number {
     return this.applied;
   }
 
   /** 精确编辑一次：语义寻址 → 定点 patch → 差异测试（fail-closed 回滚）。 */
-  edit(spec: CrisprEditSpec): CrisprEditReport {
+  public edit(spec: CrisprEditSpec): CrisprEditReport {
     // 1) 定位：精确名优先；否则语义寻址（skill-RNA 共振匹配）。
     const exact = this.port.get(spec.target);
     let target: Skill | undefined = exact;

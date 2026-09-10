@@ -103,18 +103,18 @@ export function matchesCron(expr: string, date: Date): boolean {
 export class RoutineScheduler {
   private readonly storePath: string;
 
-  constructor(storePath: string = defaultStorePath()) {
+  public constructor(storePath: string = defaultStorePath()) {
     this.storePath = storePath;
   }
 
   /** 列出全部任务。 */
-  list(): Routine[] {
+  public list(): Routine[] {
     const store = this.load();
     return [...store.routines];
   }
 
   /** 新增/覆盖任务（按 name 幂等）。 */
-  add(routine: Routine): void {
+  public add(routine: Routine): void {
     const store = this.load();
     const idx = store.routines.findIndex((r) => r.name === routine.name);
     if (idx >= 0) {
@@ -127,7 +127,7 @@ export class RoutineScheduler {
   }
 
   /** 删除任务；不存在返回 false。 */
-  remove(name: string): boolean {
+  public remove(name: string): boolean {
     const store = this.load();
     const before = store.routines.length;
     store.routines = store.routines.filter((r) => r.name !== name);
@@ -137,7 +137,7 @@ export class RoutineScheduler {
   }
 
   /** 标记任务已执行（更新 lastRun）。 */
-  markRun(name: string, at: number): void {
+  public markRun(name: string, at: number): void {
     const store = this.load();
     const exists = store.routines.some((r) => r.name === name);
     if (!exists) return;
@@ -146,7 +146,7 @@ export class RoutineScheduler {
   }
 
   /** 返回截至 now 应执行的任务（interval 到期 / cron 命中且距上次≥1 分钟）。 */
-  runDue(now: number = Date.now()): Routine[] {
+  public runDue(now: number = Date.now()): Routine[] {
     const store = this.load();
     const due: Routine[] = [];
     for (const routine of store.routines) {

@@ -44,7 +44,7 @@ const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, 
  * 对上层完全透明——`name`/`generate`/`stream` 行为与内部模型一致。
  */
 export class RetryingModel implements ModelPort {
-  readonly name: string;
+  public readonly name: string;
 
   /**
    * 流式生成：仅当内部模型真的具备 stream 能力时才定义（V2.1 修复）。
@@ -53,9 +53,9 @@ export class RetryingModel implements ModelPort {
    * 「Cannot read properties of undefined (reading 'reasoning')」。
    * modelRetry 默认开（A3）后该缺陷在 headless 路径必然触发，故必须修。
    */
-  readonly stream?: (request: ModelRequest, callbacks: StreamCallbacks) => Promise<ModelOutput>;
+  public readonly stream?: (request: ModelRequest, callbacks: StreamCallbacks) => Promise<ModelOutput>;
 
-  constructor(
+  public constructor(
     private readonly inner: ModelPort,
     private readonly policy: RetryPolicy = DEFAULT_RETRY_POLICY,
     private readonly delay: DelayFn = realDelay,
@@ -68,7 +68,7 @@ export class RetryingModel implements ModelPort {
   }
 
   /** 生成响应（带重试）。 */
-  generate(request: ModelRequest): Promise<ModelOutput> {
+  public generate(request: ModelRequest): Promise<ModelOutput> {
     return this.run(() => this.inner.generate(request));
   }
 

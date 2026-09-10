@@ -5,9 +5,9 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sa
  * fail-closed 拒绝并说明原因——绝不谎称已隔离（审计明确 Landlock/seatbelt/bwrap 本环境不适用）。
  */
 export class UnsupportedSandbox implements SandboxPort {
-  readonly name: string;
+  public readonly name: string;
 
-  constructor(
+  public constructor(
     profileName: string,
     private readonly reason: string,
   ) {
@@ -15,7 +15,7 @@ export class UnsupportedSandbox implements SandboxPort {
   }
 
   /** 一律拒绝，附平台不支持原因。 */
-  async check(_action: SandboxAction): Promise<SandboxDecision> {
+  public async check(_action: SandboxAction): Promise<SandboxDecision> {
     return { allowed: false, reason: `平台不支持的沙箱后端: ${this.reason}`, category: 'os' };
   }
 }

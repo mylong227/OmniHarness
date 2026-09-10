@@ -107,14 +107,14 @@ describe('MemorySearchTool', () => {
 
 /** 探测型检索端口：记录被索引进的文档。 */
 class SpyRetrieval implements RetrievalPort {
-  readonly name = 'spy';
+  public readonly name = 'spy';
   public docs: RetrievalDoc[] = [];
 
-  index(doc: RetrievalDoc): void {
+  public index(doc: RetrievalDoc): void {
     this.docs.push(doc);
   }
 
-  search(): readonly RetrievalHit[] {
+  public search(): readonly RetrievalHit[] {
     return [];
   }
 }
@@ -143,13 +143,13 @@ describe('SessionRecorder 接入检索索引（#M2）', () => {
 
 /** 脚本化模型：按预设逐回合返回文本。 */
 class ScriptedModel implements ModelPort {
-  readonly name = 'scripted';
+  public readonly name = 'scripted';
 
-  constructor(private readonly script: Array<{ text?: string }>) {}
+  public constructor(private readonly script: Array<{ text?: string }>) {}
 
   private index = 0;
 
-  async generate(_request: ModelRequest): Promise<ModelOutput> {
+  public async generate(_request: ModelRequest): Promise<ModelOutput> {
     const step = this.script[this.index] ?? { text: 'done' };
     this.index += 1;
     return { text: step.text ?? 'done' };

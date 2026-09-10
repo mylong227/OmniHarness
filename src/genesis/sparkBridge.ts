@@ -58,11 +58,11 @@ export function initialState(signals: RegimeSignals): HarnessState {
  */
 export class GenesisSparkBridge {
   /** 最近一次 cycle 的账本（守恒校验用；未跑为 undefined）。 */
-  lastLedger: Ledger | undefined;
+  public lastLedger: Ledger | undefined;
 
-  constructor(private readonly engines: SparkEngines) {}
+  public constructor(private readonly engines: SparkEngines) {}
 
-  cycle(signals: RegimeSignals): SparkCycleReport {
+  public cycle(signals: RegimeSignals): SparkCycleReport {
     const regime = deriveRegime(signals);
     const order = planHarnessRegime(regime);
     let state = initialState(signals);

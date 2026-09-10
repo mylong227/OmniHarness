@@ -18,7 +18,7 @@ import { scrubVolatile } from './canonical.js';
  */
 export class PrefixStability {
   /** 字节级公共前缀长度（UTF-16 code unit 计）。 */
-  static commonPrefixLength(a: string, b: string): number {
+  public static commonPrefixLength(a: string, b: string): number {
     const limit = Math.min(a.length, b.length);
     let i = 0;
     while (i < limit && a.charCodeAt(i) === b.charCodeAt(i)) {
@@ -31,7 +31,7 @@ export class PrefixStability {
    * 前缀复用率：以 `cached` 为已缓存前缀时，`incoming` 能复用的比例。
    * 定律：prefixReuse(x, x) ≡ 1；prefixReuse 对第二参数非递减于公共前缀。
    */
-  static prefixReuse(cached: string, incoming: string): number {
+  public static prefixReuse(cached: string, incoming: string): number {
     if (cached.length === 0) {
       return 1;
     }
@@ -39,7 +39,7 @@ export class PrefixStability {
   }
 
   /** 按 (tier, key) 规范排序后拼接——使分片遍历顺序不再影响字节输出。 */
-  static buildStablePrompt(
+  public static buildStablePrompt(
     segments: readonly PromptSegment[],
     options: PromptBuildOptions = {},
   ): string {
@@ -70,7 +70,7 @@ export class PrefixStability {
   }
 
   /** 确定性洗牌：模拟注册表 / 遍历顺序在不同运行间的抖动。 */
-  static reorderDeterministic<T>(items: readonly T[], seed: number): T[] {
+  public static reorderDeterministic<T>(items: readonly T[], seed: number): T[] {
     const random = PrefixStability.lcg(seed);
     const out = [...items];
     for (let i = out.length - 1; i > 0; i -= 1) {
@@ -95,7 +95,7 @@ export class PrefixStability {
   }
 
   /** 注入易变片段（时间戳 / UUID / pid），模拟真实运行时噪声。 */
-  static injectVolatile(text: string, seed: number): string {
+  public static injectVolatile(text: string, seed: number): string {
     const random = PrefixStability.lcg(seed);
     const stamp = new Date(1700000000000 + Math.floor(random() * 1e9)).toISOString();
     // 严格 8-4-4-4-12，与 scrubVolatile 的 UUID 正则完全对齐（否则残留噪声会打断前缀）。
@@ -104,7 +104,7 @@ export class PrefixStability {
   }
 
   /** 生成一个抖变体：分片顺序重排 + 注入易变片段。 */
-  static jitterSegments(
+  public static jitterSegments(
     segments: readonly PromptSegment[],
     seed: number,
   ): readonly PromptSegment[] {
@@ -122,7 +122,7 @@ export class PrefixStability {
    *
    * `canonical` 为 true 时走规范化（排序 + 擦除），用于证明规范化把复用率提到 1。
    */
-  static measurePrefixStability(
+  public static measurePrefixStability(
     segments: readonly PromptSegment[],
     variantCount: number,
     canonical: boolean,

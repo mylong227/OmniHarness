@@ -7,7 +7,7 @@ import { PatchApplier } from './patchApplier.js';
 /** 应用补丁工具：unified diff 写入工作区文件（失败不改动原文件）。 */
 export class ApplyPatchTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'apply_patch',
     description: '应用 unified diff 补丁到工作区文件（校验失败不改动原文件）',
     parameters: {
@@ -22,10 +22,10 @@ export class ApplyPatchTool {
 
   private readonly applier = new PatchApplier();
 
-  constructor(private readonly workspaceRoot: string) {}
+  public constructor(private readonly workspaceRoot: string) {}
 
   /** 应用补丁。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const patch = String(call.arguments['patch'] ?? '');
     const parsed = this.applier.parse(patch);
     const target = this.resolveTarget(call, parsed);

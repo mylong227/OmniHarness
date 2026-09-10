@@ -162,7 +162,7 @@ export class PluginBundler {
    * 收集每个插件的源目录（优先 installFrom.path；仅 url 远程源则回源时再取），
    * 写入 bundle.json + plugins/，整体压缩为 zip。提供 keyFile 时附 HMAC 签名。
    */
-  static async packBundle(options: PackBundleOptions): Promise<PackBundleResult> {
+  public static async packBundle(options: PackBundleOptions): Promise<PackBundleResult> {
     const staging = join(options.workspaceDir, '.omniharness', '.bundle-stage');
     rmSync(staging, { recursive: true, force: true });
     mkdirSync(staging, { recursive: true });
@@ -229,7 +229,7 @@ export class PluginBundler {
    * 解包 `.ohb`：还原插件到 pluginsDir，并写入补丁层供运行时合并。
    * 若 zipPath 附带签名且提供 keyFile，则校验（fail-closed，不匹配即抛错）。
    */
-  static async unpackBundle(options: UnpackBundleOptions): Promise<UnpackBundleResult> {
+  public static async unpackBundle(options: UnpackBundleOptions): Promise<UnpackBundleResult> {
     if (!existsSync(options.zipPath)) {
       throw new Error(`bundle 文件不存在: ${options.zipPath}`);
     }

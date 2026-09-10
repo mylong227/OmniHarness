@@ -2,12 +2,12 @@ import type { ModelOutput, ModelPort, ModelRequest } from '../../ports/model.js'
 
 /** 演示用模型适配器：第一步返回工具调用，后续返回最终文本（无需 API Key）。 */
 export class MockModel implements ModelPort {
-  readonly name = 'mock';
+  public readonly name = 'mock';
 
   private callCount = 0;
 
   /** 生成响应。 */
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.callCount += 1;
     if (this.shouldUseTool(request)) {
       return {

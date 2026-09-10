@@ -56,7 +56,7 @@ function randn(rng: () => number): number {
  * 零依赖、可复现（种子化 PRNG）。
  */
 export class ParticleFilterBelief implements MetacognitionPort {
-  readonly name = 'particle-filter-belief';
+  public readonly name = 'particle-filter-belief';
   private readonly dim: number;
   private readonly n: number;
   private readonly resampleFloor: number;
@@ -65,7 +65,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
   private particles: number[][];
   private weights: number[];
 
-  constructor(opts: ParticleFilterOptions = {}) {
+  public constructor(opts: ParticleFilterOptions = {}) {
     this.dim = Math.max(1, Math.floor(opts.dim ?? 3));
     this.n = Math.max(2, Math.floor(opts.particles ?? 200));
     this.resampleFloor = Math.max(0.01, opts.resampleRatio ?? 0.5) * this.n;
@@ -109,7 +109,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return { mean, variance, ess };
   }
 
-  snapshot(): BeliefSnapshot {
+  public snapshot(): BeliefSnapshot {
     const { mean, variance, ess } = this.fit();
     // 置信摘要 = 有效样本比 ESS/N（权重健康度，粒子滤波标准退化度量）：
     // 权值均衡→1（健康），单粒子主导→趋 0（退化）。与方差解耦——低方差既可能是"确信"也可能是
@@ -118,7 +118,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return { mean, variance, confidence };
   }
 
-  correct(observation: readonly number[], observationNoise = 1): BeliefUpdateReport {
+  public correct(observation: readonly number[], observationNoise = 1): BeliefUpdateReport {
     const before = this.snapshot();
     const noise2 = Math.max(1e-6, observationNoise * observationNoise);
     const dim = this.dim;
@@ -152,7 +152,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return this.report(before);
   }
 
-  naturalStep(gradient: readonly number[], learningRate = 0.1): BeliefUpdateReport {
+  public naturalStep(gradient: readonly number[], learningRate = 0.1): BeliefUpdateReport {
     const before = this.snapshot();
     const lr = Math.max(0, learningRate);
     const { variance } = this.fit();

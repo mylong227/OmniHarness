@@ -400,7 +400,7 @@ export type SubagentPortSeed = Omit<SubagentPorts, 'tools'> & {
 /** 配置装配器：填默认端口，未注入的用内置实现。 */
 export class ConfigFactory {
   /** 构造完整配置。 */
-  static build(partial: OmniHarnessConfig): ResolvedConfig {
+  public static build(partial: OmniHarnessConfig): ResolvedConfig {
     const sandbox = partial.sandbox ?? new PassthroughSandbox();
     const approvals = buildApprovals(partial, sandbox);
     let spill = buildSpill(partial);

@@ -7,26 +7,26 @@ import type { ToolCall, ToolContext, ToolDefinition, ToolPort, ToolResult } from
  * 双保险，模型口述出未授权工具也无法执行。
  */
 export class ToolSubset implements ToolPort {
-  readonly name = 'subset';
+  public readonly name = 'subset';
 
-  constructor(
+  public constructor(
     private readonly inner: ToolPort,
     private readonly allowed: ReadonlySet<string>,
   ) {}
 
   /** 白名单内的工具定义。 */
-  list(): readonly ToolDefinition[] {
+  public list(): readonly ToolDefinition[] {
     return this.inner.list().filter((definition) => this.allowed.has(definition.name));
   }
 
   /** 供模型上下文的子集：白名单 ∩ 内层 listDirect（剔除 deferred 工具）。 */
-  listDirect(): readonly ToolDefinition[] {
+  public listDirect(): readonly ToolDefinition[] {
     const inner = this.inner.listDirect?.() ?? this.inner.list();
     return inner.filter((definition) => this.allowed.has(definition.name));
   }
 
   /** 执行（白名单次校验）。 */
-  async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     if (!this.allowed.has(call.name)) {
       return { callId: call.id, ok: false, error: `子智能体未被授权调用工具: ${call.name}` };
     }
@@ -34,7 +34,7 @@ export class ToolSubset implements ToolPort {
   }
 
   /** 授权的工具名集合（观测用）。 */
-  allowedNames(): readonly string[] {
+  public allowedNames(): readonly string[] {
     return [...this.allowed];
   }
 }

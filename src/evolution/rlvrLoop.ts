@@ -44,15 +44,15 @@ export interface ReplayBuffer {
 /** 内存回放缓冲（带容量上限，超出按 FIFO 丢弃最旧）。 */
 export class InMemoryReplayBuffer implements ReplayBuffer {
   private readonly items: { candidate: CodeCandidate; reward: number }[] = [];
-  constructor(private readonly capacity = 256) {}
-  push(candidate: CodeCandidate, reward: number): void {
+  public constructor(private readonly capacity = 256) {}
+  public push(candidate: CodeCandidate, reward: number): void {
     this.items.push({ candidate, reward });
     while (this.items.length > this.capacity) this.items.shift();
   }
-  get size(): number {
+  public get size(): number {
     return this.items.length;
   }
-  get entries(): readonly { candidate: CodeCandidate; reward: number }[] {
+  public get entries(): readonly { candidate: CodeCandidate; reward: number }[] {
     return this.items;
   }
 }
@@ -94,7 +94,7 @@ export class RlvrLoop {
   private readonly samplesPerPrompt: number;
   private readonly minReward: number;
 
-  constructor(opts: RlvrLoopOptions) {
+  public constructor(opts: RlvrLoopOptions) {
     this.sampler = opts.sampler;
     this.reward = opts.reward;
     this.buffer = opts.buffer;
@@ -102,7 +102,7 @@ export class RlvrLoop {
     this.minReward = opts.minReward ?? 0;
   }
 
-  async run(prompt: string): Promise<RlvrRoundResult> {
+  public async run(prompt: string): Promise<RlvrRoundResult> {
     let kept = 0;
     let best: { candidate: CodeCandidate; reward: number } | undefined;
     for (let i = 0; i < this.samplesPerPrompt; i++) {

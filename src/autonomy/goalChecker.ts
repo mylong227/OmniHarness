@@ -19,10 +19,10 @@ export interface GoalCheck {
  * 宁可多跑几轮，也不因模型一句含糊的「完成」提前终止（自主循环里过早停止比多花几轮更危险）。
  */
 export class GoalChecker {
-  constructor(private readonly model: ModelPort) {}
+  public constructor(private readonly model: ModelPort) {}
 
   /** 判定目标是否达成。 */
-  async check(goal: string, progress: string): Promise<GoalCheck> {
+  public async check(goal: string, progress: string): Promise<GoalCheck> {
     const messages: ModelMessage[] = [
       { role: 'system', content: CHECKER_SYSTEM },
       {

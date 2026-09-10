@@ -12,13 +12,13 @@
  */
 export class CommandCanonicalizer {
   /** 降级标记：shell 脚本含多条命令/管道，无法归约为单条命令 token 序列。 */
-  static readonly SHELL_SCRIPT_MARKER = '__shell_script__';
+  public static readonly SHELL_SCRIPT_MARKER = '__shell_script__';
 
   /** 降级标记：PowerShell 脚本（不做 PS 语法解析，整体保留）。 */
-  static readonly POWERSHELL_SCRIPT_MARKER = '__powershell_script__';
+  public static readonly POWERSHELL_SCRIPT_MARKER = '__powershell_script__';
 
   /** 降级标记：cmd 脚本（不做 cmd 语法解析，整体保留）。 */
-  static readonly CMD_SCRIPT_MARKER = '__cmd_script__';
+  public static readonly CMD_SCRIPT_MARKER = '__cmd_script__';
 
   /** 已知 POSIX shell 可执行名（比较前已取 basename 并去 .exe）。 */
   private static readonly SHELLS: ReadonlySet<string> = new Set([
@@ -40,7 +40,7 @@ export class CommandCanonicalizer {
    * shell 词法切分：按空白分词，处理单/双引号与反斜杠转义。
    * 引号本身不保留，只保留其内容——保证「加不加引号」不改变 canonical 结果。
    */
-  static tokenizeShell(input: string): string[] {
+  public static tokenizeShell(input: string): string[] {
     const tokens: string[] = [];
     let current = '';
     let opened = false;
@@ -86,7 +86,7 @@ export class CommandCanonicalizer {
    * 规范化命令：成功去包装时返回内层命令 token 序列；无法安全拆分时返回 `[标记, 原文]`。
    * 空输入返回空数组，调用方应视为「无可审批目标」。
    */
-  static canonicalizeCommand(command: string): string[] {
+  public static canonicalizeCommand(command: string): string[] {
     const raw = command.trim();
     if (raw === '') {
       return [];
@@ -113,7 +113,7 @@ export class CommandCanonicalizer {
   }
 
   /** 规范化结果的稳定字符串表示（供审批缓存键使用）。 */
-  static canonicalKeyOf(tokens: readonly string[]): string {
+  public static canonicalKeyOf(tokens: readonly string[]): string {
     return tokens.join(' ');
   }
 

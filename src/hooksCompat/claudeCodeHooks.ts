@@ -15,7 +15,7 @@ import type { HookEventEnvelope } from './formats.js';
  */
 export class ClaudeCodeHooksMapper {
   /** 把一条内部事件映射为 claude-code hooks 信封。 */
-  map(event: SessionEvent, sequence: number): HookEventEnvelope {
+  public map(event: SessionEvent, sequence: number): HookEventEnvelope {
     return {
       type: this.externalType(event),
       sequence,

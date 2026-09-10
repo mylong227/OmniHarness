@@ -15,7 +15,7 @@ type CipherPayload = { iv: string; cipher: string; tag: string };
  * 满足"node:crypto 加密存储 + 环境变量回退"，可复用任意 {@link KvPort} 后端。
  */
 export class CryptoVault implements VaultPort {
-  readonly name = 'crypto';
+  public readonly name = 'crypto';
 
   private readonly kv: KvPort;
   private readonly keyFile?: string;
@@ -23,7 +23,7 @@ export class CryptoVault implements VaultPort {
   private key: Buffer | undefined;
   private readonly cache = new Map<string, CipherPayload>();
 
-  constructor(options: {
+  public constructor(options: {
     kv: KvPort;
     /** 主密钥来源优先级 1（默认 `OMNIHARNESS_VAULT_KEY`）。 */
     envVar?: string;
@@ -101,7 +101,7 @@ export class CryptoVault implements VaultPort {
     this.cache.set(name, payload);
   }
 
-  async getSecret(name: string): Promise<string | undefined> {
+  public async getSecret(name: string): Promise<string | undefined> {
     const payload = await this.readPayload(name);
     if (payload === undefined) {
       return undefined;
@@ -116,7 +116,7 @@ export class CryptoVault implements VaultPort {
     return plain.toString('utf8');
   }
 
-  async setSecret(name: string, value: string): Promise<void> {
+  public async setSecret(name: string, value: string): Promise<void> {
     const key = await this.getKey();
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', key, iv);
@@ -128,21 +128,21 @@ export class CryptoVault implements VaultPort {
     });
   }
 
-  async deleteSecret(name: string): Promise<boolean> {
+  public async deleteSecret(name: string): Promise<boolean> {
     const existed = await this.kv.delete(name);
     this.cache.delete(name);
     return existed;
   }
 
-  async hasSecret(name: string): Promise<boolean> {
+  public async hasSecret(name: string): Promise<boolean> {
     return this.kv.has(name);
   }
 
-  async listSecrets(): Promise<readonly string[]> {
+  public async listSecrets(): Promise<readonly string[]> {
     return this.kv.keys();
   }
 
-  async close(): Promise<void> {
+  public async close(): Promise<void> {
     this.cache.clear();
     this.key = undefined;
     await this.kv.close();

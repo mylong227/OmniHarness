@@ -8,9 +8,9 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sa
  * check() 一律返回 `{allowed:false}`，绝不谎称已隔离。
  */
 export class MacOsSeatbeltSandbox implements SandboxPort {
-  readonly name = 'macos-seatbelt';
+  public readonly name = 'macos-seatbelt';
 
-  constructor(private readonly workspace: string) {}
+  public constructor(private readonly workspace: string) {}
 
   /** 仅 macOS 平台且 sandbox-exec 可用才算可用。 */
   private hasSandboxExec(): boolean {
@@ -57,7 +57,7 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     }
   }
 
-  decide(action: SandboxAction): SandboxDecision {
+  public decide(action: SandboxAction): SandboxDecision {
     if (!this.hasSandboxExec()) {
       return {
         allowed: false,
@@ -68,7 +68,7 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     return this.restrictedDecision(action);
   }
 
-  async check(action: SandboxAction): Promise<SandboxDecision> {
+  public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (!this.hasSandboxExec()) {
       return {
         allowed: false,
@@ -83,7 +83,7 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
    * 返回将要执行的 sandbox-exec 命令行（含 .sb profile 路径，供测试断言）。
    * profilePath 为将要写入的 .sb 路径（dryRun 不实际写文件/执行）。
    */
-  dryRun(
+  public dryRun(
     command: string,
     args: readonly string[],
     workspace: string,
@@ -93,7 +93,7 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
   }
 
   /** 暴露生成的 .sb profile 文本，便于测试断言隔离意图。 */
-  profileText(workspace: string): string {
+  public profileText(workspace: string): string {
     return this.buildProfile(workspace);
   }
 }

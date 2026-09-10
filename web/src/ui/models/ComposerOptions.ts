@@ -51,7 +51,7 @@ export class ComposerOptions {
    * 模型候选：只列当前厂商可用清单（服务端下发优先，否则兜底内置清单），
    * 并保证当前值一定在列表里（否则下拉显示空白）。去重且去空。
    */
-  static models(current: string, providerModels?: readonly string[]): string[] {
+  public static models(current: string, providerModels?: readonly string[]): string[] {
     const pool = providerModels && providerModels.length > 0 ? providerModels : KNOWN_MODELS;
     return Array.from(new Set([current, ...pool].filter((m) => typeof m === 'string' && m !== '')));
   }
@@ -63,7 +63,7 @@ export class ComposerOptions {
    * - 未下发（undefined）→ 用内置 5 档兜底；
    * 当前值不在清单里时补到最前，防止换厂商后用户已选值丢失。
    */
-  static reasoning(current: string, levels?: readonly string[]): OptionItem[] {
+  public static reasoning(current: string, levels?: readonly string[]): OptionItem[] {
     const pool: readonly string[] = levels !== undefined ? levels : REASONING_LEVELS;
     const seen = new Set<string>();
     const out: OptionItem[] = [];
@@ -79,7 +79,7 @@ export class ComposerOptions {
   }
 
   /** 权限提示文案；未知等级返回 undefined（不显示提示，而不是显示错误文案）。 */
-  static permissionHint(value: string): string | undefined {
+  public static permissionHint(value: string): string | undefined {
     return PERMISSION_HINTS[value];
   }
 }

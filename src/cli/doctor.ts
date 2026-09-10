@@ -74,7 +74,7 @@ export class DoctorRunner {
   }
 
   /** 运行环境诊断（全 node: 内置，零依赖）。 */
-  static runDoctor(opts: DoctorOptions = {}): DoctorReport {
+  public static runDoctor(opts: DoctorOptions = {}): DoctorReport {
     const issues: string[] = [];
     const workspaceRoot = opts.workspaceRoot ?? process.cwd();
 
@@ -162,7 +162,7 @@ export class DoctorRunner {
    * 用于让 doctor 诚实报告 OS 级沙箱后端是否真的可用，而非仅凭平台瞎报。
    * @param runProbe 可注入的探测函数（默认执行 `net session`），便于单测。
    */
-  static isElevated(runProbe: () => void = DoctorRunner.defaultElevationProbe): boolean {
+  public static isElevated(runProbe: () => void = DoctorRunner.defaultElevationProbe): boolean {
     if (process.platform !== 'win32') return false;
     try {
       runProbe();
@@ -193,7 +193,7 @@ export class DoctorRunner {
   }
 
   /** 把报告以人类可读摘要打到 stdout。 */
-  static printDoctor(report: DoctorReport): void {
+  public static printDoctor(report: DoctorReport): void {
     const lines: string[] = [];
     lines.push('OmniHarness 诊断报告');
     lines.push('--------------------------------------------------');

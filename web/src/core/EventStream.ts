@@ -5,11 +5,11 @@ import type { SseEnvelope } from '../types/models.js';
 
 export class EventStream {
   private es: EventSource | null = null;
-  onMessage: ((msg: SseEnvelope) => void) | null = null;
-  onOpen: (() => void) | null = null;
-  onClose: (() => void) | null = null;
+  public onMessage: ((msg: SseEnvelope) => void) | null = null;
+  public onOpen: (() => void) | null = null;
+  public onClose: (() => void) | null = null;
 
-  connect(): void {
+  public connect(): void {
     if (this.es) return;
     const es = new EventSource('/events');
     es.onopen = () => this.onOpen?.();
@@ -27,11 +27,11 @@ export class EventStream {
   }
 
   /** EventSource.OPEN === 1；用于判断 SSE 是否连通以决定 graph 运行是否回退轮询。 */
-  get isOpen(): boolean {
+  public get isOpen(): boolean {
     return this.es ? this.es.readyState === 1 : false;
   }
 
-  close(): void {
+  public close(): void {
     if (this.es) this.es.close();
     this.es = null;
   }

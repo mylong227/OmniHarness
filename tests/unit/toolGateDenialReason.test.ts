@@ -13,21 +13,21 @@ import { ToolGate } from '../../src/core/toolGate.js';
 
 /** Mock PlanPort：可注入任意 PlanState 或 null。 */
 class StubPlan implements PlanPort {
-  readonly name = 'stub';
-  constructor(private readonly state: PlanState | null = null) {}
+  public readonly name = 'stub';
+  public constructor(private readonly state: PlanState | null = null) {}
   // 桩实现：测试不关心 write/present/decide 调用。
-  write(): void {}
-  present(): void {}
-  decide(): void {}
-  get(): PlanState | null {
+  public write(): void {}
+  public present(): void {}
+  public decide(): void {}
+  public get(): PlanState | null {
     return this.state;
   }
 }
 
 /** Mock 沙箱：永远 deny 任何动作（用于隔离验证 sandbox 拒绝原因）。 */
 class DenyingSandbox implements SandboxPort {
-  readonly name = 'denying';
-  async check(_action: SandboxAction): Promise<SandboxDecision> {
+  public readonly name = 'denying';
+  public async check(_action: SandboxAction): Promise<SandboxDecision> {
     return { allowed: false, reason: '测试沙箱拒绝原因 XYZ', category: 'command' };
   }
 }

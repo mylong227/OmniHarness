@@ -20,14 +20,14 @@ export interface ConfinementOptions {
 }
 
 export class ConfinementEngine implements ConfinementPort {
-  readonly name = 'confinement';
-  readonly groupOrder: number;
+  public readonly name = 'confinement';
+  public readonly groupOrder: number;
 
-  constructor(opts: ConfinementOptions = {}) {
+  public constructor(opts: ConfinementOptions = {}) {
     this.groupOrder = opts.groupOrder ?? 3;
   }
 
-  isSinglet(c: CapabilityCharge): boolean {
+  public isSinglet(c: CapabilityCharge): boolean {
     const g = this.groupOrder;
     return (
       mod(c.charge.color, g) === 0 &&
@@ -37,7 +37,7 @@ export class ConfinementEngine implements ConfinementPort {
     );
   }
 
-  bind(a: CapabilityCharge, b: CapabilityCharge): BoundCapability | undefined {
+  public bind(a: CapabilityCharge, b: CapabilityCharge): BoundCapability | undefined {
     const g = this.groupOrder;
     const combined: Charge = {
       color: mod(a.charge.color + b.charge.color, g),
@@ -55,7 +55,7 @@ export class ConfinementEngine implements ConfinementPort {
     return { id: `bound:${a.id}+${b.id}`, members: [a.id, b.id], charge: combined };
   }
 
-  expose(c: CapabilityCharge): ConfinementVerdict {
+  public expose(c: CapabilityCharge): ConfinementVerdict {
     if (this.isSinglet(c)) {
       return { id: c.id, exposed: true, reason: 'color-singlet：已配对束缚态，可暴露' };
     }

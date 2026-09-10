@@ -44,7 +44,7 @@ function clamp(v: number, lo: number, hi: number): number {
  * 事实数 0 或超限时只退火最重要的一批，绝不越界；温度调度与漂移均为纯函数式推导。
  */
 export class HeatEquationAnnealer implements MemoryAnnealer {
-  readonly name = 'heat-equation-annealer';
+  public readonly name = 'heat-equation-annealer';
   private readonly memory: LongTermMemoryPort;
   private readonly coupling: number;
   private readonly initialTemperature: number;
@@ -57,7 +57,7 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
   private _temperature: number;
   private _steps = 0;
 
-  constructor(memory: LongTermMemoryPort, opts: HeatAnnealerOptions = {}) {
+  public constructor(memory: LongTermMemoryPort, opts: HeatAnnealerOptions = {}) {
     this.memory = memory;
     this.coupling = clamp(opts.coupling ?? 0.15, 0.001, 1);
     this.initialTemperature = clamp(opts.initialTemperature ?? 1.0, 1e-4, 100);
@@ -69,15 +69,15 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     this._temperature = this.initialTemperature;
   }
 
-  get temperature(): number {
+  public get temperature(): number {
     return this._temperature;
   }
 
-  get steps(): number {
+  public get steps(): number {
     return this._steps;
   }
 
-  anneal(): AnnealStepReport {
+  public anneal(): AnnealStepReport {
     this._steps += 1;
     const step = this._steps;
 

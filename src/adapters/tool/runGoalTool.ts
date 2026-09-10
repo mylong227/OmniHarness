@@ -11,7 +11,7 @@ import { RUN_GOAL_TOOL_NAME } from '../../autonomy/goalToolNames.js';
 /** 模型面 run_goal 工具：派生一个进程内自主目标循环完成子目标。 */
 export class RunGoalTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: RUN_GOAL_TOOL_NAME,
     description:
       '派生一个进程内自主目标循环完成子目标：独立会话、受限工具集、不可再派生 run_goal/subagent。适合目标明确、需多轮自主推进才能完成的子任务。',
@@ -36,13 +36,13 @@ export class RunGoalTool {
     },
   };
 
-  constructor(
+  public constructor(
     private readonly ports: SubagentPorts,
     private readonly options: GoalRunnerOptions = {},
   ) {}
 
   /** 派生并运行自主目标循环。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const goal = String(call.arguments['goal'] ?? '').trim();
     if (goal === '') {
       return { callId: call.id, ok: false, error: '缺少子目标描述: goal' };

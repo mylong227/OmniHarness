@@ -27,7 +27,7 @@ export class HttpA2aTransport implements A2aTransport {
    * @param endpoint 对端 `/a2a` 端点。
    * @param ssrf SSRF 策略覆盖；缺省用 {@link defaultSsrfOptions}。
    */
-  constructor(endpoint: string, ssrf?: SsrfOptions) {
+  public constructor(endpoint: string, ssrf?: SsrfOptions) {
     this.endpoint = endpoint;
     this.ssrf = ssrf ?? defaultSsrfOptions();
   }
@@ -37,15 +37,15 @@ export class HttpA2aTransport implements A2aTransport {
    * 供持有方在建立连接前显式调用——配置错误必须显性暴露，
    * 绝不等到运行时把请求静默发到内网或云元数据服务。
    */
-  async validate(): Promise<void> {
+  public async validate(): Promise<void> {
     await assertNotSsrf(this.endpoint, this.ssrf);
   }
 
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     // 发送前同步拦截（字面量判定，零网络开销）；命中即不发请求（fail-closed）。
     const verdict = inspectUrl(this.endpoint, this.ssrf);
     if (verdict.blocked) {
@@ -68,7 +68,7 @@ export class HttpA2aTransport implements A2aTransport {
       });
   }
 
-  close(): void {}
+  public close(): void {}
 }
 
 /** 服务端 HTTP 传输：监听 POST /a2a，按 JSON-RPC id 关联回写响应。 */
@@ -77,11 +77,11 @@ export class HttpA2aServerTransport implements A2aTransport {
   private readonly resolvers = new Map<number | string, (m: RpcMessage) => void>();
   private server: http.Server | undefined;
 
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     if ('id' in message) {
       const r = this.resolvers.get(message.id);
       if (r !== undefined) {
@@ -92,7 +92,7 @@ export class HttpA2aServerTransport implements A2aTransport {
   }
 
   /** 在给定端口监听（返回实际端口）。 */
-  async listen(port: number): Promise<number> {
+  public async listen(port: number): Promise<number> {
     this.server = http.createServer((req, res) => {
       if (req.method !== 'POST') {
         res.writeHead(405);
@@ -136,7 +136,7 @@ export class HttpA2aServerTransport implements A2aTransport {
     });
   }
 
-  close(): void {
+  public close(): void {
     this.server?.close();
   }
 }

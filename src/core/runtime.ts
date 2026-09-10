@@ -109,7 +109,7 @@ export class RuntimeFactory {
    * 注：`supervisor` 为可选覆盖项（不属 ResolvedConfig 持久字段）：传入则用之，否则默认构造生产级
    * SupervisorKernel。eval / 基准 harness 可传 no-op 监督内核以纯测 agent 能力、剥离生产安全降级噪声。
    */
-  static create(config: ResolvedConfig & { supervisor?: SupervisorPort }): OmniHarnessRuntime {
+  public static create(config: ResolvedConfig & { supervisor?: SupervisorPort }): OmniHarnessRuntime {
     const container = new Container();
     container.register(ServiceKeys.model, config.model);
     container.register(ServiceKeys.tools, config.tools);

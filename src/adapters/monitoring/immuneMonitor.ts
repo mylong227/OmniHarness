@@ -26,7 +26,7 @@ const MIN_TRAIN = 4;
  * 零运行时依赖；与规则阈值监控在代数上不同——这是学习型自体分布监控（市面唯一）。
  */
 export class ImmuneMonitor implements ImmuneMonitorPort {
-  readonly name = 'immune-monitor';
+  public readonly name = 'immune-monitor';
   private readonly threshold: number;
   private readonly accelStep: number;
   private readonly audit?: AuditSinkLike;
@@ -39,14 +39,14 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
   private readonly cells = new Map<string, number>();
   private lastAnomaly: AnomalyAlert | null = null;
 
-  constructor(opts: ImmuneMonitorOptions = {}) {
+  public constructor(opts: ImmuneMonitorOptions = {}) {
     this.threshold = Math.max(0.5, opts.threshold ?? 3);
     this.accelStep = clamp(opts.accelStep ?? 0.1, 0, 0.5);
     this.audit = opts.audit;
     this.sessionId = opts.sessionId;
   }
 
-  train(sample: readonly number[]): void {
+  public train(sample: readonly number[]): void {
     // Welford：每样本 n 仅 +1（不可按维度累加，否则多维样本会倍数膨胀自体规模）。
     this.n++;
     for (let i = 0; i < sample.length; i++) {
@@ -62,7 +62,7 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     }
   }
 
-  observe(sample: readonly number[]): AnomalyAlert | null {
+  public observe(sample: readonly number[]): AnomalyAlert | null {
     if (this.n < MIN_TRAIN || this.dim === 0) return null; // 无自体基线
     let score = 0;
     const exceeded: number[] = [];
@@ -91,7 +91,7 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     return alert;
   }
 
-  selfCheck(): ImmuneSelfReport {
+  public selfCheck(): ImmuneSelfReport {
     return { selfSize: this.n, lastAnomaly: this.lastAnomaly };
   }
 }

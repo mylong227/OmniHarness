@@ -20,7 +20,7 @@ export class Ledger {
   private committedJoules = 0;
 
   /** 记录一笔待结算成本（进入 pending 与 recorded 双列）。 */
-  record(delta: Cost): void {
+  public record(delta: Cost): void {
     this.pendingTokens += delta.tokens;
     this.pendingJoules += delta.joules;
     this.recordedTokens += delta.tokens;
@@ -28,22 +28,22 @@ export class Ledger {
   }
 
   /** 结算当前所有 pending（pending 清零，转入 committed）。 */
-  commit(): void {
+  public commit(): void {
     this.committedTokens += this.pendingTokens;
     this.committedJoules += this.pendingJoules;
     this.pendingTokens = 0;
     this.pendingJoules = 0;
   }
 
-  get pending(): Cost {
+  public get pending(): Cost {
     return { tokens: this.pendingTokens, joules: this.pendingJoules };
   }
 
-  get committed(): Cost {
+  public get committed(): Cost {
     return { tokens: this.committedTokens, joules: this.committedJoules };
   }
 
-  get recorded(): Cost {
+  public get recorded(): Cost {
     return { tokens: this.recordedTokens, joules: this.recordedJoules };
   }
 
@@ -51,7 +51,7 @@ export class Ledger {
    * 守恒判定：无未结算项，且记录总额 = 结算总额。
    * 任意"记录了却未 commit"的遗漏都会令其返回 false。
    */
-  isConserved(epsilon = 1e-9): boolean {
+  public isConserved(epsilon = 1e-9): boolean {
     return (
       Math.abs(this.pendingTokens) < epsilon &&
       Math.abs(this.pendingJoules) < epsilon &&

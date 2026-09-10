@@ -102,42 +102,42 @@ export interface McpInitializeResult {
  */
 export class McpProtocol {
   /** 支持的协议版本（2025-06-18：当前稳定版，与主流 MCP 客户端互操作）。 */
-  static readonly PROTOCOL_VERSION = '2025-06-18';
+  public static readonly PROTOCOL_VERSION = '2025-06-18';
   /** 方法名：握手。 */
-  static readonly METHOD_INITIALIZE = 'initialize';
+  public static readonly METHOD_INITIALIZE = 'initialize';
   /** 方法名：列举工具。 */
-  static readonly METHOD_TOOLS_LIST = 'tools/list';
+  public static readonly METHOD_TOOLS_LIST = 'tools/list';
   /** 方法名：调用工具。 */
-  static readonly METHOD_TOOLS_CALL = 'tools/call';
+  public static readonly METHOD_TOOLS_CALL = 'tools/call';
   /** 方法名：列举资源。 */
-  static readonly METHOD_RESOURCES_LIST = 'resources/list';
+  public static readonly METHOD_RESOURCES_LIST = 'resources/list';
   /** 方法名：读取资源。 */
-  static readonly METHOD_RESOURCES_READ = 'resources/read';
+  public static readonly METHOD_RESOURCES_READ = 'resources/read';
   /** 方法名：列举提示模板。 */
-  static readonly METHOD_PROMPTS_LIST = 'prompts/list';
+  public static readonly METHOD_PROMPTS_LIST = 'prompts/list';
   /** 方法名：获取提示模板。 */
-  static readonly METHOD_PROMPTS_GET = 'prompts/get';
+  public static readonly METHOD_PROMPTS_GET = 'prompts/get';
   /** 方法名：心跳。 */
-  static readonly METHOD_PING = 'ping';
+  public static readonly METHOD_PING = 'ping';
   /** 错误码：方法不存在。 */
-  static readonly ERROR_METHOD_NOT_FOUND = -32601;
+  public static readonly ERROR_METHOD_NOT_FOUND = -32601;
   /** 错误码：参数无效。 */
-  static readonly ERROR_INVALID_PARAMS = -32602;
+  public static readonly ERROR_INVALID_PARAMS = -32602;
 
   /** 构造文本内容块。 */
-  static text(text: string): McpTextContent {
+  public static text(text: string): McpTextContent {
     return { type: 'text', text };
   }
 
   /** 由工具结果构造调用结果（失败时 isError=true）。 */
-  static toolResult(output: string | undefined, error: string | undefined): McpCallToolResult {
+  public static toolResult(output: string | undefined, error: string | undefined): McpCallToolResult {
     return error === undefined
       ? { content: [McpProtocol.text(output ?? '')], isError: false }
       : { content: [McpProtocol.text(error)], isError: true };
   }
 
   /** 构造 initialize 结果。 */
-  static initializeResult(serverInfo: McpServerInfo): McpInitializeResult {
+  public static initializeResult(serverInfo: McpServerInfo): McpInitializeResult {
     return {
       protocolVersion: McpProtocol.PROTOCOL_VERSION,
       // 声明已支持的能力；未配置后端时对应集合为空，但方法仍可应答（符合协议）。

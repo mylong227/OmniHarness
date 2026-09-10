@@ -13,13 +13,13 @@ import { CachedApproval } from '../../src/adapters/approval/cachedApproval.js';
 
 /** 计数审批端口：记录被问次数与最后一次请求，可预置裁决。 */
 class CountingApproval implements ApprovalPort {
-  readonly name = 'counting';
-  calls = 0;
-  last?: ApprovalRequest;
+  public readonly name = 'counting';
+  public calls = 0;
+  public last?: ApprovalRequest;
 
-  constructor(private readonly decision: ApprovalDecision = 'allow') {}
+  public constructor(private readonly decision: ApprovalDecision = 'allow') {}
 
-  async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
+  public async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
     this.calls += 1;
     this.last = request;
     return this.decision;

@@ -22,7 +22,7 @@ export class ToolResultSpiller {
   private readonly policy: SpillPolicy;
   private readonly exempt: readonly string[];
 
-  constructor(
+  public constructor(
     private readonly port: SpillPort,
     options: SpillerOptions,
   ) {
@@ -31,7 +31,7 @@ export class ToolResultSpiller {
   }
 
   /** 未超阈值或命中豁免则原样返回；否则外溢并替换为预览 + 读回指引。 */
-  async apply(toolName: string, result: ToolResult, sessionId: string): Promise<ToolResult> {
+  public async apply(toolName: string, result: ToolResult, sessionId: string): Promise<ToolResult> {
     const target = result.output ?? result.error;
     if (this.exempt.includes(toolName) || !this.policy.needsSpill(target)) {
       return result;

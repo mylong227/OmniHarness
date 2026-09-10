@@ -24,17 +24,17 @@ const MD_LANGS: ReadonlySet<string> = new Set(['md', 'markdown']);
 /** 文件种类分类器。 */
 export class FileKindClassifier {
   /** 是否代码类（走语法高亮）。未知语言一律否（fail-closed 到纯文本，不出错）。 */
-  static isCode(lang: string | undefined): boolean {
+  public static isCode(lang: string | undefined): boolean {
     return typeof lang === 'string' && CODE_LANGS.has(lang.toLowerCase());
   }
 
   /** 是否 markdown（走渲染器）。 */
-  static isMarkdown(lang: string | undefined): boolean {
+  public static isMarkdown(lang: string | undefined): boolean {
     return typeof lang === 'string' && MD_LANGS.has(lang.toLowerCase());
   }
 
   /** 明确分类：三选一，未知归 plain。 */
-  static classify(lang: string | undefined): 'code' | 'markdown' | 'plain' {
+  public static classify(lang: string | undefined): 'code' | 'markdown' | 'plain' {
     if (FileKindClassifier.isCode(lang)) return 'code';
     if (FileKindClassifier.isMarkdown(lang)) return 'markdown';
     return 'plain';

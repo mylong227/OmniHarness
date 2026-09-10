@@ -50,7 +50,7 @@ export class CheckpointManager {
   private readonly workspaceRoot?: string;
   private readonly stateDir?: string;
 
-  constructor(
+  public constructor(
     private readonly storage: StoragePort,
     options: CheckpointOptions = {},
   ) {
@@ -66,7 +66,7 @@ export class CheckpointManager {
   }
 
   /** 为当前 session 打快照；返回 meta。已存在同 label 则覆盖。 */
-  async snapshot(sessionId: string, label: string): Promise<CheckpointMeta> {
+  public async snapshot(sessionId: string, label: string): Promise<CheckpointMeta> {
     const events = await this.storage.load(sessionId);
     const ts = new Date().toISOString();
     const hasFileSnapshot = await this.snapshotFiles(sessionId, label);
@@ -100,7 +100,7 @@ export class CheckpointManager {
   }
 
   /** 列出该 session 的全部检查点（按 ts 升序）。 */
-  async list(sessionId: string): Promise<CheckpointMeta[]> {
+  public async list(sessionId: string): Promise<CheckpointMeta[]> {
     const index = await this.loadIndex(sessionId);
     return [...index].sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
   }
@@ -111,7 +111,7 @@ export class CheckpointManager {
    * 无快照时抛 `Error('无可用检查点')`（fail-closed，不静默跳过）。
    * 不传 label 时回滚到最近一次快照；指定 label 不存在亦 fail-closed 抛错。
    */
-  async rollback(sessionId: string, label?: string): Promise<CheckpointMeta> {
+  public async rollback(sessionId: string, label?: string): Promise<CheckpointMeta> {
     const index = await this.loadIndex(sessionId);
     if (index.length === 0) {
       throw new Error('无可用检查点');

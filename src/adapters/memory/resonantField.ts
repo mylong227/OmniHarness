@@ -54,7 +54,7 @@ function clamp(v: number, lo: number, hi: number): number {
 export class ResonantFieldEngine
   implements ResonantFieldPort, ResonantMemoryPort, CosmicWebPort, LongTermMemoryPort
 {
-  readonly name = 'resonant-field';
+  public readonly name = 'resonant-field';
 
   /** 单一频谱索引（消除双重频谱）。 */
   private readonly spectra = new Map<string, Spectrum>();
@@ -68,7 +68,7 @@ export class ResonantFieldEngine
   private readonly edgeThreshold: number;
   private readonly bins: number;
 
-  constructor(
+  public constructor(
     private readonly base: LongTermMemoryPort,
     opts: ResonantFieldOptions = {},
   ) {
@@ -101,7 +101,7 @@ export class ResonantFieldEngine
 
   // ── 写入：Burgers 黏附去重 + 建簇 ──
 
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     if (this.knownIds.has(fact.id)) {
       // 已存在：更新谱与所属簇。
       const s = eigenSpectrum(fact.text, this.bins);
@@ -135,7 +135,7 @@ export class ResonantFieldEngine
 
   // ── 共振寻址（燧-3） ──
 
-  resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
+  public resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
     if (k <= 0) return [];
     const hits: ResonantHit[] = [];
     for (const [id, s] of this.spectra) {
@@ -147,13 +147,13 @@ export class ResonantFieldEngine
     return hits.slice(0, k);
   }
 
-  resonateByText(query: string, k: number): readonly ResonantHit[] {
+  public resonateByText(query: string, k: number): readonly ResonantHit[] {
     return this.resonate(eigenSpectrum(query, this.bins), k);
   }
 
   // ── 纤维召回（宇宙网） ──
 
-  fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
+  public fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
     if (k <= 0) return [];
     let bestId: string | undefined;
     let bestRes = -1;
@@ -179,7 +179,7 @@ export class ResonantFieldEngine
 
   // ── RG 粗粒化坍缩 ──
 
-  consolidate(): WebConsolidationReport {
+  public consolidate(): WebConsolidationReport {
     let collapsed = 0;
     while (this.clusters.size > this.bekensteinCap) {
       let smallId: string | undefined;
@@ -250,26 +250,26 @@ export class ResonantFieldEngine
 
   // ── 调谐（autoRun） ──
 
-  tune(): { readonly facts: number; readonly clusters: number } {
+  public tune(): { readonly facts: number; readonly clusters: number } {
     this.seed();
     return { facts: this.base.all().length, clusters: this.clusters.size };
   }
 
   // ── LongTermMemoryPort 委托 ──
 
-  recall(query: string, k: number): readonly MemoryFact[] {
+  public recall(query: string, k: number): readonly MemoryFact[] {
     return this.resonateByText(query, k).map((h) => h.fact);
   }
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.base.all();
   }
-  get count(): number {
+  public get count(): number {
     return this.base.count;
   }
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.base.get(id);
   }
-  update(id: string, patch: MemoryFactPatch): boolean {
+  public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.base.update(id, patch);
     if (ok) {
       const f = this.base.get(id);
@@ -277,7 +277,7 @@ export class ResonantFieldEngine
     }
     return ok;
   }
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const ok = this.base.delete(id);
     if (ok) {
       this.knownIds.delete(id);

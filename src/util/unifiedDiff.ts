@@ -29,10 +29,10 @@ export class UnifiedDiff {
   private static readonly MAX_LCS_CELLS = 2_000_000;
 
   /** 默认上下文行数（unified diff 惯例）。 */
-  static readonly DEFAULT_CONTEXT_LINES = 3;
+  public static readonly DEFAULT_CONTEXT_LINES = 3;
 
   /** 计算行级差异操作序列。 */
-  static diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
+  public static diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
     const table = UnifiedDiff.lcsTable(before, after);
     if (table === undefined) {
       return [
@@ -44,7 +44,7 @@ export class UnifiedDiff {
   }
 
   /** 把操作序列切分为带上下文的 hunk。 */
-  static hunksOf(ops: readonly DiffOp[], context = UnifiedDiff.DEFAULT_CONTEXT_LINES): readonly DiffHunk[] {
+  public static hunksOf(ops: readonly DiffOp[], context = UnifiedDiff.DEFAULT_CONTEXT_LINES): readonly DiffHunk[] {
     const ranges: { start: number; end: number }[] = [];
     ops.forEach((op, index) => {
       if (op.kind === 'equal') {
@@ -63,7 +63,7 @@ export class UnifiedDiff {
   }
 
   /** 渲染单文件 unified diff（无差异时返回空串）。 */
-  static renderUnifiedDiff(
+  public static renderUnifiedDiff(
     path: string,
     before: string,
     after: string,
@@ -87,7 +87,7 @@ export class UnifiedDiff {
   }
 
   /** 拆分为行（空文本视为零行，避免产出幽灵空行）。 */
-  static splitLines(text: string): string[] {
+  public static splitLines(text: string): string[] {
     return text === '' ? [] : text.split('\n');
   }
 

@@ -10,19 +10,19 @@ export class ToolIndex {
   private tools: readonly ToolDefinition[];
   private index: Bm25Index;
 
-  constructor(tools: readonly ToolDefinition[]) {
+  public constructor(tools: readonly ToolDefinition[]) {
     this.tools = [...tools];
     this.index = this.build(this.tools);
   }
 
   /** 重建索引（工具集变化后调用，如热加载新工具）。 */
-  reindex(tools: readonly ToolDefinition[]): void {
+  public reindex(tools: readonly ToolDefinition[]): void {
     this.tools = [...tools];
     this.index = this.build(this.tools);
   }
 
   /** 检索：返回排序后的工具定义（top-K）。空查询返回空数组。 */
-  search(query: string, limit: number): ToolDefinition[] {
+  public search(query: string, limit: number): ToolDefinition[] {
     const trimmed = query.trim();
     if (trimmed === '') {
       return [];
@@ -39,7 +39,7 @@ export class ToolIndex {
   }
 
   /** 当前索引的工具数。 */
-  get size(): number {
+  public get size(): number {
     return this.tools.length;
   }
 

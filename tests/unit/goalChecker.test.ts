@@ -5,11 +5,11 @@ import { GoalChecker, parseAchieved } from '../../src/autonomy/goalChecker.js';
 
 /** 返回固定文本的模型桩。 */
 class ScriptModel implements ModelPort {
-  readonly name = 'script';
+  public readonly name = 'script';
 
-  constructor(private readonly text: string) {}
+  public constructor(private readonly text: string) {}
 
-  async generate(_request: ModelRequest): Promise<ModelOutput> {
+  public async generate(_request: ModelRequest): Promise<ModelOutput> {
     return { text: this.text };
   }
 }

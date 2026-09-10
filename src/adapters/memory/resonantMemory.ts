@@ -20,12 +20,12 @@ import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectru
  * 燧-3 从"端口"变为"真能力"，无需改动任何核心逻辑。
  */
 export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryPort {
-  readonly name = 'resonant-memory';
+  public readonly name = 'resonant-memory';
 
   private readonly spectra = new Map<string, Spectrum>();
   private dirty = true;
 
-  constructor(
+  public constructor(
     private readonly base: LongTermMemoryPort,
     private readonly bins = 257,
   ) {}
@@ -38,7 +38,7 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     this.dirty = false;
   }
 
-  resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
+  public resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
     if (k <= 0) return [];
     if (this.dirty) this.rebuild();
     const hits: ResonantHit[] = [];
@@ -51,14 +51,14 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     return hits.slice(0, k);
   }
 
-  resonateByText(query: string, k: number): readonly ResonantHit[] {
+  public resonateByText(query: string, k: number): readonly ResonantHit[] {
     return this.resonate(eigenSpectrum(query, this.bins), k);
   }
 
   // ── LongTermMemoryPort 委托 + 共振召回（drop-in 替换） ──
 
   /** 写入并标记脏：下次共振前重建本征谱。 */
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     this.base.remember(fact);
     this.dirty = true;
   }
@@ -67,29 +67,29 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
    * 共振召回：把自然语言查询映射成频谱探针，返回共振度最高的 k 条事实
    * （同频即显、异频即散）。取代 base 的 BM25 几何召回。
    */
-  recall(query: string, k: number): readonly MemoryFact[] {
+  public recall(query: string, k: number): readonly MemoryFact[] {
     return this.resonateByText(query, k).map((h) => h.fact);
   }
 
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.base.all();
   }
 
-  get count(): number {
+  public get count(): number {
     return this.base.count;
   }
 
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.base.get(id);
   }
 
-  update(id: string, patch: MemoryFactPatch): boolean {
+  public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.base.update(id, patch);
     if (ok) this.dirty = true;
     return ok;
   }
 
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const ok = this.base.delete(id);
     if (ok) this.dirty = true;
     return ok;
@@ -99,7 +99,7 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
    * 燧-3 调谐（autoRun 用）：强制重算全部本征谱，返回事实数与簇数（守恒自检：
    * 二者应相等，否则说明重建与 base 状态不一致）。供 SparkController 任务末统一调谐。
    */
-  tune(): { readonly facts: number; readonly clusters: number } {
+  public tune(): { readonly facts: number; readonly clusters: number } {
     this.rebuild();
     return { facts: this.base.all().length, clusters: this.spectra.size };
   }

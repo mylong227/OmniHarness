@@ -1,0 +1,84 @@
+# 全库代码规范重构计划
+
+> 目标：让全部 `.ts`（`src/`、`tests/`、`web/src/`）符合 `docs/CODE_STANDARD.md` 的八条规范。
+> 盘点口径：AST 全量扫描（`node scripts/auditStandards.mjs`），非正则印象。
+> 纪律：每批次完成即跑门禁（typecheck / build / web:build / lint / test），可回滚；
+> 并行会话热区文件（`core/stepRunner.ts`、`core/turnRunner.ts`、`adapters/live/**`、
+> `ports/toolInputSink.ts`）**不触碰**。
+
+## 盘点基线（改造前）
+
+| 指标 | 基线 | 现状 |
+|---|---|---|
+| `.ts` 文件数（excl dist/tests 内联） | 333 | 333 |
+| `var` 用法 | 0 | 0 ✅ |
+| `any` 用法 | 0（源码）/ 1（web shim） | 0 ✅ |
+| 隐式 public 的类成员 | **1332** | **0** ✅ |
+| 顶层 function（src） | 261（已导出 163） | 261 |
+| 缺 JSDoc 的公开成员 | 288 / 813 | 待办 |
+| 文件名 ≠ 主类名 | 69 | 待办 |
+| 上帝类（>500 行 或 >25 方法） | 8 | 待办 |
+| `static` 用量 | 206 / 36 文件 | 待办 |
+| 单文件 ≥3 个导出类 | 3 | 待办 |
+
+## 批次状态
+
+### Phase 0 — 门禁与工具（✅ 已完成）
+- `eslint.config.mjs`：`no-explicit-any` 升为 `error`；新增
+  `@typescript-eslint/explicit-member-accessibility: error`；热区文件加覆盖块豁免（TODO 待撤）。
+- 新增 `scripts/auditStandards.mjs`（AST 盘点）与 `scripts/codemod/memberAccessibility.mjs`（机械修复）。
+
+### Phase 1 — 显式访问权限（✅ 已完成）
+- 机械 codemod 补全 **1332 处** 隐式 public 成员为显式 `public`（含构造器参数属性），覆盖 **269 个文件**。
+- 语义零变更（隐式 public ≡ 显式 public）；`web/src/types/react-shim.d.ts` 手工补 12 处 + 去 `any`。
+- 门禁：typecheck / build / web:build 0 error；lint **0 error**；全量单测 1012/1028 通过
+  （8 失败均为既有的 WebSocket/端口 15s 超时环境问题，与本改动无关）。
+
+### Phase 2 — JSDoc 覆盖（待办）
+- 目标：813 个公开成员中缺文档的 288 个（src）补齐，含 `@param`/`@returns`。
+- 风险：需逐方法理解语义，**不可机械批量**；按模块分批，每批单独提交。
+- 建议顺序：`util/` → `context/` → `adapters/` 小文件 → `ports/` 接口。
+
+### Phase 3 — 文件名 = 类名（待办，69 文件）
+- 二选一策略（逐文件判定）：
+  - **改文件名**：`errors.ts` → `omniError.ts`（类名 `OmniError`）——推荐，改动集中。
+  - **改类名**：仅当类名语义弱于文件名时。
+- 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
+- 批次内以 `tsc --noEmit` 立即校验。
+
+### Phase 4 — 上帝类拆分（待办，8 文件；最高风险）
+- 候选与拆分方向：
+  - `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 `appServerThreads` / `appServerTurns` / `appServerApprovals` 等。
+  - `config/omniharnessConfig.ts`（764）→ 拆 `configLayers` / `configValidation`。
+  - `server/appServer.ts`（659 / 31）→ 委托 `appServerBase` + 处理器分离（已有 `appServerHandlers`）。
+  - `context/repoMapContext.ts`（620）→ 拆索引构建 / 检索 / 缓存。
+  - `cli/cliDataCmds.ts`（570）→ 按子命令拆。
+  - `spark/sparkController.ts`（431 / 27）→ 拆 hook 注册 / 调度。
+  - `adapters/lsp/lspProcess.ts`（372 / 26）→ 拆传输 / 协议 / 生命周期。
+  - `core/stepRunner.ts`（526）→ **热区，暂缓**。
+- 每个文件**独立提交**并跑全量单测，确保行为零变更。
+
+### Phase 5 — 削减 static（待办，36 文件 / 206 处）
+- 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例 + 薄门面（沿用批次 A 已验证模式）。
+- 优先处理 ≥4 static 的文件：
+  `mcp/mcpProtocol`(14)、`util/commandCanonicalizer`(14)、`core/eventFactory`(13)、
+  `enterprise/sso`(13)、`cli/doctor`(10)、`config/configBuilders`(10)、`util/unifiedDiff`(10)、
+  `cli/args`(9)、`context/prefixStability`(9)、`genesis/modality`(9)、`tui/render`(9)、
+  `plugin/bundle`(8)、`skill/skillComposer`(8)、`util/eigenspectrum`(8)、`genesis/multimodalBridge`(7)、
+  `server/jsonRpc`(7)、`config/configFile`(6)、`server/auditExport`(6)、`cli/toolLoader`(4)。
+
+### Phase 6 — 一文件一类（待办，3 文件）
+- `adapters/tool/lspTools`（4 类）→ 拆为每类一文件。
+- `adapters/tool/planTool`（3 类）→ 同上。
+- `plugin/registrySources`（4 类）→ 同上。
+
+### Phase 7 — 封装收紧（待办，判断批）
+- Phase 1 只是把「隐式 public」显式化；本批在其中识别**本应 private/protected** 的成员并收紧。
+- 纯人工判断 + 单测护栏，按模块小步推进。
+
+## 收口判定
+
+全部批次完成后：
+- `node scripts/auditStandards.mjs` 中：隐式 public = 0、`any` = 0、`var` = 0、
+  文件名≠类名 = 0、上帝类 = 0、单文件多类 = 0。
+- `npm run lint` / `typecheck` / `build` / `web:build` 全绿；`npm test` 无新增失败。

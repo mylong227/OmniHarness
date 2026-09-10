@@ -6,7 +6,7 @@ import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 /** 内置读文件工具：仅允许读取工作区内文件。 */
 export class ReadFileTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'read_file',
     description: '读取工作区内的文件内容',
     parameters: {
@@ -19,7 +19,7 @@ export class ReadFileTool {
   };
 
   /** 读取文件。 */
-  async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
     const guard = new WorkspaceGuard(context.workspaceRoot);
     if (!guard.isInside(relative)) {

@@ -12,7 +12,7 @@ export class LineTransport implements Transport {
   private callback: ((message: RpcMessage) => void) | undefined;
 
   /** 构造传输（stdin/stdout 或可编程双端）。 */
-  constructor(
+  public constructor(
     private readonly readLine: (onLine: (line: string) => void) => void,
     private readonly writeLine: (line: string) => void,
   ) {
@@ -29,12 +29,12 @@ export class LineTransport implements Transport {
   }
 
   /** 发送消息。 */
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     this.writeLine(JSON.stringify(message));
   }
 
   /** 订阅消息（缓冲的会先回放）。 */
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
     for (const buffered of this.queue) {
       callback(buffered);

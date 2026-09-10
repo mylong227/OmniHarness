@@ -3,7 +3,7 @@ import type { ApprovalRequest } from '../../ports/approval.js';
 /** Guardian 审查提示构建器：把审批请求转成 LLM 可判的提示词。 */
 export class GuardianPrompt {
   /** 构建审查提示消息。 */
-  static build(request: ApprovalRequest): { role: 'system' | 'user'; content: string }[] {
+  public static build(request: ApprovalRequest): { role: 'system' | 'user'; content: string }[] {
     return [
       { role: 'system', content: GuardianPrompt.systemRule() },
       { role: 'user', content: GuardianPrompt.requestText(request) },

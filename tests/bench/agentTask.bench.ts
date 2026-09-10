@@ -69,9 +69,9 @@ for (const profile of ['release', 'debug']) {
 
 // ---- 脚本化模型：驱动 3 工具任务，跑完自动复位供下一轮复用 ----
 class ScriptedModel implements ModelPort {
-  readonly name = 'scripted';
+  public readonly name = 'scripted';
   private turn = 0;
-  async generate(_req: ModelRequest): Promise<ModelOutput> {
+  public async generate(_req: ModelRequest): Promise<ModelOutput> {
     this.turn += 1;
     if (this.turn === 1) {
       return { toolCalls: [{ id: 'c1', name: 'read_file', arguments: { path: inputName } }] };
@@ -93,13 +93,13 @@ class ScriptedModel implements ModelPort {
 
 // ---- 计时模型包装：累计模型推理耗时（两种模式共用同一脚本，耗时近似，便于扣除）----
 class TimingModel implements ModelPort {
-  totalUs = 0;
-  calls = 0;
-  constructor(private readonly inner: ScriptedModel) {}
-  get name(): string {
+  public totalUs = 0;
+  public calls = 0;
+  public constructor(private readonly inner: ScriptedModel) {}
+  public get name(): string {
     return this.inner.name;
   }
-  async generate(req: ModelRequest): Promise<ModelOutput> {
+  public async generate(req: ModelRequest): Promise<ModelOutput> {
     const t0 = nowNs();
     const out = await this.inner.generate(req);
     this.totalUs += usFrom(t0);
@@ -110,15 +110,15 @@ class TimingModel implements ModelPort {
 
 // ---- 插桩原生后端：记录每次 runTool 是「真正由 Rust 执行」还是「回退 JS」----
 class InstrumentedNativeBackend implements NativeToolRunner {
-  attempts = 0;
-  fallbacks = 0; // 内核不认 → 抛错 → 回退 JS
-  nativeOk = 0; // 内核真正执行且成功
-  nativeRejected = 0; // 内核真正执行但业务拒绝（如沙箱）
-  ffiUs = 0; // runTool 的 FFI 往返耗时累计
-  estCalls = 0; // token 估算调用次数
-  estUs = 0;
-  constructor(private readonly inner: NativeBackend) {}
-  runTool(call: ToolCall): ToolResult {
+  public attempts = 0;
+  public fallbacks = 0; // 内核不认 → 抛错 → 回退 JS
+  public nativeOk = 0; // 内核真正执行且成功
+  public nativeRejected = 0; // 内核真正执行但业务拒绝（如沙箱）
+  public ffiUs = 0; // runTool 的 FFI 往返耗时累计
+  public estCalls = 0; // token 估算调用次数
+  public estUs = 0;
+  public constructor(private readonly inner: NativeBackend) {}
+  public runTool(call: ToolCall): ToolResult {
     this.attempts += 1;
     const t0 = nowNs();
     try {
@@ -133,7 +133,7 @@ class InstrumentedNativeBackend implements NativeToolRunner {
       throw e;
     }
   }
-  estimateTokens(messages: readonly { content: string }[]): number {
+  public estimateTokens(messages: readonly { content: string }[]): number {
     this.estCalls += 1;
     const t0 = nowNs();
     const r = this.inner.estimateTokens(messages);

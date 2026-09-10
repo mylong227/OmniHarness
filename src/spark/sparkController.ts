@@ -125,7 +125,7 @@ export interface SparkControllerOptions {
  * 铁律：默认 autoRun=false（零破坏旁路）；无活跃燧能力时 cycle 返回 ran=false。
  */
 export class SparkController {
-  readonly autoRun: boolean;
+  public readonly autoRun: boolean;
   private readonly resonance?: ResonantMemoryPort;
   private readonly vortex?: VortexRingSpillAdapter;
   private readonly annealer?: MemoryAnnealer;
@@ -152,7 +152,7 @@ export class SparkController {
   /** Genesis 控制器工况信号（缺省为低熵基线）。 */
   private readonly genesisSignals: RegimeSignals;
 
-  constructor(opts: SparkControllerOptions) {
+  public constructor(opts: SparkControllerOptions) {
     this.resonance = opts.resonance;
     this.vortex = opts.vortex;
     this.annealer = opts.annealer;
@@ -214,7 +214,7 @@ export class SparkController {
   }
 
   /** 跑一轮：按启用情况调度各燧能力。 */
-  async cycle(): Promise<SparkCycleReport> {
+  public async cycle(): Promise<SparkCycleReport> {
     // Genesis 自适应编排：启用时委托桥（发射顺序由工况纯函数决定 + 守恒账本）。
     // 桥异常不连累主任务，回落既有 legacy 路径（fail-closed）。
     if (this.bridge !== undefined) {

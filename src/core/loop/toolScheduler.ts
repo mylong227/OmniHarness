@@ -71,7 +71,7 @@ export class ToolScheduler {
   private readonly maxParallel: number;
   private readonly parallelCapable: (toolName: string) => boolean;
 
-  constructor(options: ToolSchedulerOptions = {}) {
+  public constructor(options: ToolSchedulerOptions = {}) {
     this.maxParallel = Math.max(1, options.maxParallel ?? 8);
     this.parallelCapable = options.parallelCapable ?? defaultParallelCapable;
   }
@@ -80,7 +80,7 @@ export class ToolScheduler {
    * 调度执行一批工具调用：连续并行安全调用并行化（有界池），写类形成屏障串行。
    * 返回结果与输入同序（model-order），上层按序记录即可。
    */
-  async run(calls: readonly ToolCall[], execute: ToolExecutor): Promise<readonly ScheduledResult[]> {
+  public async run(calls: readonly ToolCall[], execute: ToolExecutor): Promise<readonly ScheduledResult[]> {
     const results = new Array<ScheduledResult | undefined>(calls.length);
     let i = 0;
     while (i < calls.length) {

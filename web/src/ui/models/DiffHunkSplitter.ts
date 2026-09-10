@@ -15,7 +15,7 @@ export class DiffHunkSplitter {
    * 切分：优先按真实 `@@` 分块；无 `@@` 的新文件（untracked，全是 + 行）合成单一 hunk，
    * 使「新文件」也能走块级 stage。既无 @@ 也无 + 行时返回空数组。
    */
-  static split(patch: string): HunkPart[] {
+  public static split(patch: string): HunkPart[] {
     const hunks = parseHunks(patch);
     if (hunks.length > 0) return hunks.map((h) => ({ header: h.header, lines: [...h.lines] }));
     const lines = patch.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'));
@@ -24,7 +24,7 @@ export class DiffHunkSplitter {
   }
 
   /** 还原成送给服务端 git apply 的 hunk 文本（@@ 头 + 正文）。 */
-  static text(h: HunkPart): string {
+  public static text(h: HunkPart): string {
     return h.header + '\n' + h.lines.join('\n');
   }
 }

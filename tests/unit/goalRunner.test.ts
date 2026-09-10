@@ -8,23 +8,23 @@ import { GoalChecker } from '../../src/autonomy/goalChecker.js';
 
 /** 返回固定达成判定的模型桩（用于驱动 GoalRunner 的判定器）。 */
 class VerdictModel implements ModelPort {
-  readonly name = 'verdict';
+  public readonly name = 'verdict';
 
-  constructor(private readonly verdict: 'YES 已完成' | 'NO 未完成') {}
+  public constructor(private readonly verdict: 'YES 已完成' | 'NO 未完成') {}
 
-  async generate(_request: ModelRequest): Promise<ModelOutput> {
+  public async generate(_request: ModelRequest): Promise<ModelOutput> {
     return { text: this.verdict };
   }
 }
 
 /** 假 Agent：记录 runTask / resume 调用，产出可控 finalText。 */
 class FakeAgent {
-  runTaskCalls = 0;
-  resumeCalls = 0;
-  readonly prompts: string[] = [];
+  public runTaskCalls = 0;
+  public resumeCalls = 0;
+  public readonly prompts: string[] = [];
   private lastSession = 'sess-init';
 
-  async runTask(prompt: string): Promise<AgentResult> {
+  public async runTask(prompt: string): Promise<AgentResult> {
     this.runTaskCalls += 1;
     this.lastSession = `sess-${this.runTaskCalls}`;
     this.prompts.push(prompt);
@@ -36,7 +36,7 @@ class FakeAgent {
     };
   }
 
-  async resume(sessionId: string, prompt: string): Promise<AgentResult> {
+  public async resume(sessionId: string, prompt: string): Promise<AgentResult> {
     this.resumeCalls += 1;
     this.prompts.push(prompt);
     return { sessionId, finalText: `续推${this.resumeCalls}`, steps: 1, events: [] };

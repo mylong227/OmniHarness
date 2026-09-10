@@ -30,7 +30,7 @@ interface DiffCommentRecord {
  * 叶类：继承自 AppServerHandlers（→ AppServerBase），仅含构造器、方法调度与 graph/memory/线程/runGraph 处理器。
  */
 export class AppServer extends AppServerHandlers {
-  constructor(options: AppServerOptions) {
+  public constructor(options: AppServerOptions) {
     super(options);
     this.registerHandlers();
     options.transport.onMessage((message) => void this.handle(message));

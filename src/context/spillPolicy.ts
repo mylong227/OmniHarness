@@ -14,10 +14,10 @@ export interface SpillPolicyOptions {
  * 外溢策略：判定是否外溢 + 生成有界预览（纯逻辑，无 IO，便于单测）。
  */
 export class SpillPolicy {
-  constructor(private readonly options: SpillPolicyOptions) {}
+  public constructor(private readonly options: SpillPolicyOptions) {}
 
   /** 是否需要外溢（空内容不外溢）。 */
-  needsSpill(content: string | undefined): boolean {
+  public needsSpill(content: string | undefined): boolean {
     if (content === undefined) {
       return false;
     }
@@ -25,7 +25,7 @@ export class SpillPolicy {
   }
 
   /** 生成预览：保留头部，天然短内容原样返回。 */
-  preview(content: string): string {
+  public preview(content: string): string {
     const limit = this.options.previewBytes;
     if (this.byteLength(content) <= limit) {
       return content;
@@ -34,7 +34,7 @@ export class SpillPolicy {
   }
 
   /** UTF-8 字节长度。 */
-  byteLength(content: string): number {
+  public byteLength(content: string): number {
     return Buffer.byteLength(content, 'utf8');
   }
 }

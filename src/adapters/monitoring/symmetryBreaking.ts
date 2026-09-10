@@ -22,19 +22,19 @@ export interface SymmetryBreakingOptions {
 }
 
 export class SymmetryBreakingEngine implements SymmetryBreakingPort {
-  readonly name = 'symmetry-breaking';
+  public readonly name = 'symmetry-breaking';
   private readonly threshold: number;
   private readonly group: string;
   private weights = new Map<string, number>();
   private broken = false;
   private lastTransitioned = false;
 
-  constructor(opts: SymmetryBreakingOptions = {}) {
+  public constructor(opts: SymmetryBreakingOptions = {}) {
     this.threshold = opts.threshold ?? 0.7;
     this.group = opts.symmetryGroup ?? 'capability-symmetry';
   }
 
-  observe(usage: readonly UsageSample[]): boolean {
+  public observe(usage: readonly UsageSample[]): boolean {
     if (usage.length === 0) return false;
     for (const u of usage) {
       if (!u.capability || !isFinite(u.weight) || u.weight <= 0) continue;
@@ -47,7 +47,7 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     return this.lastTransitioned;
   }
 
-  snapshot(): SymmetryBreakReport {
+  public snapshot(): SymmetryBreakReport {
     const { rho, dominant } = this.compute();
     const state = this.broken ? 'broken' : rho >= this.threshold ? 'broken' : 'symmetric';
     this.broken = state === 'broken';
@@ -60,7 +60,7 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     };
   }
 
-  reset(): void {
+  public reset(): void {
     this.weights.clear();
     this.broken = false;
   }

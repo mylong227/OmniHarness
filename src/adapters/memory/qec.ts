@@ -26,16 +26,16 @@ interface Parities {
  * 零运行时依赖；syndrome 落同一记忆端口（topic `__qec_syndrome__`），跨进程重启仍可读回。
  */
 export class QECEncoder implements QECEncoderPort {
-  readonly name = 'qec-encoder';
+  public readonly name = 'qec-encoder';
   private readonly memory: LongTermMemoryPort;
   private readonly cols: number;
 
-  constructor(memory: LongTermMemoryPort, opts: QECOptions = {}) {
+  public constructor(memory: LongTermMemoryPort, opts: QECOptions = {}) {
     this.memory = memory;
     this.cols = Math.max(2, Math.floor(opts.cols ?? 8));
   }
 
-  encode(id: string): void {
+  public encode(id: string): void {
     const fact = this.memory.get(id);
     if (fact === undefined) return;
     const p = this.gridParities(fact.text, this.cols);
@@ -57,7 +57,7 @@ export class QECEncoder implements QECEncoderPort {
     }
   }
 
-  verify(id: string): QECStatus {
+  public verify(id: string): QECStatus {
     const fact = this.memory.get(id);
     if (fact === undefined) return 'uncorrectable';
     const syn = this.memory.get(`__qec_${id}`);
@@ -74,7 +74,7 @@ export class QECEncoder implements QECEncoderPort {
     return 'uncorrectable';
   }
 
-  repair(id: string): QECStatus {
+  public repair(id: string): QECStatus {
     const status = this.verify(id);
     if (status !== 'corrected') return status; // fail-closed：非单点错误绝不擅自改写
 
@@ -104,7 +104,7 @@ export class QECEncoder implements QECEncoderPort {
     return 'corrected';
   }
 
-  repairAll(): QECReport {
+  public repairAll(): QECReport {
     let checked = 0;
     let corrected = 0;
     let uncorrectable = 0;

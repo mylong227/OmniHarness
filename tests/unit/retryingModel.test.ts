@@ -10,14 +10,14 @@ import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model
 
 /** 可计数、可控抛错的假模型。 */
 class FlakyModel implements ModelPort {
-  readonly name = 'flaky';
-  calls = 0;
+  public readonly name = 'flaky';
+  public calls = 0;
   /** 第几次调用开始返回成功（Infinity 表示永不成功）。 */
-  constructor(
+  public constructor(
     private readonly succeedFrom: number,
     private readonly errorFactory: () => Error,
   ) {}
-  async generate(_req: ModelRequest): Promise<ModelOutput> {
+  public async generate(_req: ModelRequest): Promise<ModelOutput> {
     this.calls += 1;
     if (this.calls >= this.succeedFrom) {
       return { text: 'ok' };

@@ -68,7 +68,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
   private readonly privateKey: KeyObject;
   private readonly publicKey: KeyObject;
 
-  constructor(config?: AgentIdentityConfig) {
+  public constructor(config?: AgentIdentityConfig) {
     this.runtime = config?.agentRuntimeId ?? `omni-${randomSuffix()}`;
     if (config?.privateKeyPkcs8Base64 !== undefined && config.privateKeyPkcs8Base64.length > 0) {
       this.privateKey = createPrivateKey({
@@ -82,25 +82,25 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     this.publicKey = createPublicKey(this.privateKey);
   }
 
-  runtimeId(): string {
+  public runtimeId(): string {
     return this.runtime;
   }
 
-  publicKeySsh(): string {
+  public publicKeySsh(): string {
     const der = this.publicKey.export({ type: 'spki', format: 'der' }) as Buffer;
     return encodeSshEd25519(der);
   }
 
-  privateKeyPkcs8Base64(): string {
+  public privateKeyPkcs8Base64(): string {
     return (this.privateKey.export({ type: 'pkcs8', format: 'der' }) as Buffer).toString('base64');
   }
 
-  sign(payload: string): string {
+  public sign(payload: string): string {
     const sig = cryptoSign(null, Buffer.from(payload, 'utf8'), this.privateKey);
     return sig.toString('base64');
   }
 
-  verify(payload: string, signatureB64: string): boolean {
+  public verify(payload: string, signatureB64: string): boolean {
     try {
       return cryptoVerify(
         null,
@@ -113,7 +113,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     }
   }
 
-  signAssertion(taskId: string): string {
+  public signAssertion(taskId: string): string {
     const timestamp = new Date().toISOString();
     const payload = `${this.runtime}:${taskId}:${timestamp}`;
     const signature = this.sign(payload);
@@ -126,7 +126,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     return Buffer.from(JSON.stringify(envelope), 'utf8').toString('base64url');
   }
 
-  verifyAssertion(envelopeB64: string): AgentIdentityClaims | null {
+  public verifyAssertion(envelopeB64: string): AgentIdentityClaims | null {
     try {
       const envelope = JSON.parse(
         Buffer.from(envelopeB64, 'base64url').toString('utf8'),
@@ -154,7 +154,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     }
   }
 
-  authorizationHeader(taskId: string): string {
+  public authorizationHeader(taskId: string): string {
     return `AgentAssertion ${this.signAssertion(taskId)}`;
   }
 }

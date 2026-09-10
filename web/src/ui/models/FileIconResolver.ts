@@ -4,7 +4,7 @@
 /** 文件图标解析器。 */
 export class FileIconResolver {
   /** 按媒体类型返回图标；未知类型回落到回形针（fail-closed 到中性图标，不返回空）。 */
-  static emoji(mediaType: string): string {
+  public static emoji(mediaType: string): string {
     const t = (mediaType || '').toLowerCase();
     if (t.startsWith('image/')) return '🖼';
     if (t.startsWith('video/')) return '🎬';

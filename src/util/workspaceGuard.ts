@@ -3,7 +3,7 @@ import { resolve, sep, dirname } from 'node:path';
 
 /** 路径越界 / 符号链接逃逸错误。 */
 export class PathTraversalError extends Error {
-  constructor(message: string) {
+  public constructor(message: string) {
     super(message);
     this.name = 'PathTraversalError';
   }
@@ -19,12 +19,12 @@ export class PathTraversalError extends Error {
 export class WorkspaceGuard {
   private readonly base: string;
 
-  constructor(workspaceRoot: string) {
+  public constructor(workspaceRoot: string) {
     this.base = resolve(workspaceRoot);
   }
 
   /** 相对路径是否落在工作区内（词法 + 真实路径双重判定，拦截 symlink 逃逸）。 */
-  isInside(relativePath: string): boolean {
+  public isInside(relativePath: string): boolean {
     try {
       this.resolveSafe(relativePath);
       return true;
@@ -37,7 +37,7 @@ export class WorkspaceGuard {
    * 解析相对路径为安全绝对路径；一旦越界或经符号链接逃逸出工作区即抛错。
    * 调用方可直接拿返回值做实际 IO，复用同一道校验。
    */
-  resolveSafe(relativePath: string): string {
+  public resolveSafe(relativePath: string): string {
     const lexical = resolve(this.base, relativePath);
     // 1) 词法越界直接拒（最快、零 IO）。
     if (lexical !== this.base && !lexical.startsWith(this.base + sep)) {

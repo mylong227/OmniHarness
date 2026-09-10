@@ -213,7 +213,7 @@ export class RepoMapContextEngine {
    * 产出可注入 system 消息的 repo-map 上下文文本（纯 BM25，同步、零破坏）。
    * 任意失败路径均返回 null（调用方据此跳过注入，不影响主流程）。
    */
-  getRepoMapContext(root: string, q: string, opts: RepoMapContextOptions = {}): string | null {
+  public getRepoMapContext(root: string, q: string, opts: RepoMapContextOptions = {}): string | null {
     if (opts.enabled === false) {
       return null;
     }
@@ -266,7 +266,7 @@ export class RepoMapContextEngine {
    * body 窗口 = 从本符号声明行到同文件下一个符号声明行（或最多 CHUNK_BODY_MAX_LINES 行），
    * 截到末尾符号则用固定窗口。纯函数、零依赖、可单测（见 tests/unit/repoMapContext.test.ts）。
    */
-  buildChunkItems(corpus: IndexedCorpus): RecallItem[] {
+  public buildChunkItems(corpus: IndexedCorpus): RecallItem[] {
     const byFile = new Map<string, number[]>();
     for (let i = 0; i < corpus.symbols.length; i++) {
       const f = corpus.symbols[i]!.file;
@@ -422,7 +422,7 @@ export class RepoMapContextEngine {
    * 仅在调用方传入有效 EmbeddingPort 时启用；任意嵌入/召回异常 → 回落纯 BM25（fail-closed），
    * 绝不因语义层失败而崩主流程或丢上下文。
    */
-  async getHybridRepoMapContext(
+  public async getHybridRepoMapContext(
     root: string,
     q: string,
     embedding: EmbeddingPort,
@@ -569,7 +569,7 @@ export class RepoMapContextEngine {
   }
 
   /** 手动失效缓存（某个 workspace 文件结构剧变时调用，可选）。同时清语义索引缓存。 */
-  clear(root?: string): void {
+  public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();
       this.semanticCache.clear();

@@ -12,16 +12,16 @@ export interface AutoEscalationOptions {
 
 /** 自动升级适配器：非危险动作被沙箱拒绝即自动提权重试（省交互）；危险动作仍 abort 不绕过。 */
 export class AutoEscalation implements EscalationPort {
-  readonly name = 'auto';
+  public readonly name = 'auto';
 
   private readonly blockPrefixes: readonly string[];
 
-  constructor(private readonly options: AutoEscalationOptions = {}) {
+  public constructor(private readonly options: AutoEscalationOptions = {}) {
     this.blockPrefixes = options.blockPrefixes ?? ['rm ', 'del ', 'sudo', 'mkfs', 'dd '];
   }
 
   /** 危险前缀命中即 abort；否则 escalate（提权重试）。 */
-  async decide(request: EscalationRequest): Promise<EscalationDecision> {
+  public async decide(request: EscalationRequest): Promise<EscalationDecision> {
     if (this.blockPrefixes.some((prefix) => request.target.startsWith(prefix))) {
       return 'abort';
     }

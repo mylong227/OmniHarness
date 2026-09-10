@@ -12,7 +12,7 @@ export class SessionRecorder {
   /** 本回合起点在事件日志中的下标（#OBS-10）；0 = 未标记，等同全文起点。 */
   private turnStartIndex = 0;
 
-  constructor(
+  public constructor(
     private readonly log: AppendOnlyEventLog,
     private readonly events: EventPort,
     sessionId: string,
@@ -23,7 +23,7 @@ export class SessionRecorder {
   }
 
   /** 记录用户消息（images/files 可选，随首条用户消息送入模型，#B1/#B5）。 */
-  user(
+  public user(
     content: string,
     images?: readonly ImageContent[],
     files?: readonly FileAttachment[],
@@ -32,42 +32,42 @@ export class SessionRecorder {
   }
 
   /** 记录助手消息。 */
-  assistant(content: string, reasoning?: string): SessionEvent {
+  public assistant(content: string, reasoning?: string): SessionEvent {
     return this.record(EventFactory.assistant(this.sid, content, reasoning));
   }
 
   /** 记录模型调用用量（#S29 / live 跑分成本计量）；modelName 用于按模型统计。 */
-  usage(usage: ModelUsage, modelName?: string): SessionEvent {
+  public usage(usage: ModelUsage, modelName?: string): SessionEvent {
     return this.record(EventFactory.model(this.sid, usage, modelName));
   }
 
   /** 记录会话元数据（新会话首条：创建时的工作区，供按项目收纳）。 */
-  sessionMeta(workspace: string): SessionEvent {
+  public sessionMeta(workspace: string): SessionEvent {
     return this.record(EventFactory.sessionMeta(this.sid, workspace));
   }
 
   /** 记录推理轨迹。 */
-  reasoning(content: string): SessionEvent {
+  public reasoning(content: string): SessionEvent {
     return this.record(EventFactory.reasoning(this.sid, content));
   }
 
   /** 记录工具调用。 */
-  toolCall(callId: string, name: string, args: Record<string, unknown>): SessionEvent {
+  public toolCall(callId: string, name: string, args: Record<string, unknown>): SessionEvent {
     return this.record(EventFactory.toolCall(this.sid, callId, name, args));
   }
 
   /** 记录系统说明（如上下文压缩点）。 */
-  system(content: string): SessionEvent {
+  public system(content: string): SessionEvent {
     return this.record(EventFactory.system(this.sid, content));
   }
 
   /** 记录回合级变更（#M5）：本回合 unified diff，供 UI/审计查看改了什么。 */
-  turnDiff(diff: string): SessionEvent {
+  public turnDiff(diff: string): SessionEvent {
     return this.record(EventFactory.turnDiff(this.sid, diff));
   }
 
   /** 记录工具结果。 */
-  toolResult(callId: string, ok: boolean, output?: string, error?: string): SessionEvent {
+  public toolResult(callId: string, ok: boolean, output?: string, error?: string): SessionEvent {
     return this.record(EventFactory.toolResult(this.sid, callId, ok, output, error));
   }
 
@@ -79,12 +79,12 @@ export class SessionRecorder {
    * 历史答案**当作本轮 finalText——用户看到「上轮回答」被原样复读，且因 finalText
    * 非空，步数耗尽兜底也永不触发。这是比 hasText:false 更危险的静默错误答案。
    */
-  markTurnStart(): void {
+  public markTurnStart(): void {
     this.turnStartIndex = this.log.size();
   }
 
   /** 本回合内最新一条助手文本（不含历史回合；未标记起点时等价于全文最后一条）。 */
-  lastAssistantText(): string | undefined {
+  public lastAssistantText(): string | undefined {
     const all = this.log.all();
     for (let i = all.length - 1; i >= this.turnStartIndex; i--) {
       const event = all[i]!;
@@ -96,12 +96,12 @@ export class SessionRecorder {
   }
 
   /** 全部事件（上下文投影用）。 */
-  allEvents(): readonly SessionEvent[] {
+  public allEvents(): readonly SessionEvent[] {
     return this.log.all();
   }
 
   /** 会话 ID。 */
-  sessionId(): string {
+  public sessionId(): string {
     return this.sid;
   }
 

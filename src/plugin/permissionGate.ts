@@ -18,9 +18,9 @@ import { OmniError, ErrorCode } from '../errors.js';
  * 权限校验失败（fail-closed）。
  */
 export class PermissionDeniedError extends OmniError {
-  constructor(
-    readonly pluginName: string,
-    readonly missing: readonly PluginPermission[],
+  public constructor(
+    public readonly pluginName: string,
+    public readonly missing: readonly PluginPermission[],
   ) {
     super(
       ErrorCode.PERMISSION_DENIED,
@@ -44,22 +44,22 @@ export class PermissionGate {
   }
 
   /** 全部拒绝（严格默认）。 */
-  static denyAll(): PermissionGate {
+  public static denyAll(): PermissionGate {
     return new PermissionGate(new Set());
   }
 
   /** 全部放行（仅测试 / 完全信任）。 */
-  static allowAll(): PermissionGate {
+  public static allowAll(): PermissionGate {
     return new PermissionGate(new Set(ALL_PERMISSIONS));
   }
 
   /** 从权限列表构造白名单。 */
-  static fromList(permissions: readonly PluginPermission[]): PermissionGate {
+  public static fromList(permissions: readonly PluginPermission[]): PermissionGate {
     return new PermissionGate(new Set(permissions));
   }
 
   /** 校验一组权限；返回是否放行及缺失清单。 */
-  check(permissions: readonly PluginPermission[] | undefined): PermissionDecision {
+  public check(permissions: readonly PluginPermission[] | undefined): PermissionDecision {
     const missing: PluginPermission[] = [];
     for (const permission of permissions ?? []) {
       if (!this.allowed.has(permission)) {
@@ -70,7 +70,7 @@ export class PermissionGate {
   }
 
   /** 校验并抛错（供管理器 register 阶段调用）。 */
-  assertAllowed(pluginName: string, permissions: readonly PluginPermission[] | undefined): void {
+  public assertAllowed(pluginName: string, permissions: readonly PluginPermission[] | undefined): void {
     const decision = this.check(permissions);
     if (!decision.allowed) {
       throw new PermissionDeniedError(pluginName, decision.missing);

@@ -26,12 +26,12 @@ export interface MemoryExtractorOptions {
  * 通过内部游标避免每回合重复蒸馏同一段历史。
  */
 export class MemoryExtractor {
-  readonly name = 'memory-extractor';
+  public readonly name = 'memory-extractor';
 
   /** 已蒸馏事件数（游标），避免跨回合重复。 */
   private cursor = 0;
 
-  constructor(
+  public constructor(
     private readonly model: ModelPort,
     private readonly store: LongTermMemoryPort,
     private readonly opts: MemoryExtractorOptions = {},
@@ -42,7 +42,7 @@ export class MemoryExtractor {
    * 通过内部游标 `cursor` 仅处理增量事件，避免每回合重复蒸馏整段历史。
    * @returns 本次新增事实数。
    */
-  async consolidate(events: readonly SessionEvent[], sessionId: string): Promise<number> {
+  public async consolidate(events: readonly SessionEvent[], sessionId: string): Promise<number> {
     const fresh = events.slice(this.cursor);
     if (fresh.length === 0) {
       this.cursor = events.length;

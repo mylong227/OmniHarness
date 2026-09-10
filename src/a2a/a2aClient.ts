@@ -35,7 +35,7 @@ export class A2aClient {
   private nextId = 1;
   private readonly pending = new Map<number | string, Pending>();
 
-  constructor(
+  public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
   ) {
@@ -43,7 +43,7 @@ export class A2aClient {
   }
 
   /** 向对端声明本端能力（可选签名）。 */
-  async declareCapabilities(
+  public async declareCapabilities(
     agentId: string,
     capabilities: readonly A2aCapability[],
   ): Promise<void> {
@@ -58,7 +58,7 @@ export class A2aClient {
   }
 
   /** 委托一个任务给对端，返回执行结果（fail-closed：验签/超时/异常均抛错）。 */
-  async delegateTask(request: DelegateRequest): Promise<DelegateResult> {
+  public async delegateTask(request: DelegateRequest): Promise<DelegateResult> {
     const req = { ...request };
     if (this.identity !== undefined) {
       req.assertion = this.identity.authorizationHeader(request.taskId);
@@ -68,7 +68,7 @@ export class A2aClient {
   }
 
   /** 关闭底层传输。 */
-  close(): void {
+  public close(): void {
     this.transport.close?.();
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);

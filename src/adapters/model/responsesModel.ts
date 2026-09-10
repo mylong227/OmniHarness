@@ -34,26 +34,26 @@ interface StreamState {
  * OpenAI Responses API 原生适配器：instructions 独立字段 + 扁平工具 + previous_response_id 服务端续接。
  */
 export class ResponsesModel implements ModelPort {
-  readonly name: string;
+  public readonly name: string;
   private lastResponseId: string | undefined;
 
-  constructor(private readonly config: ResponsesConfig) {
+  public constructor(private readonly config: ResponsesConfig) {
     this.name = config.model;
     this.lastResponseId = config.previousResponseId;
   }
 
   /** 当前续接 ID（下一轮请求带上，由服务端持有历史上下文）。 */
-  responseId(): string | undefined {
+  public responseId(): string | undefined {
     return this.lastResponseId;
   }
 
   /** 重置续接锚点（开新会话；服务端上下文不复用）。 */
-  reset(): void {
+  public reset(): void {
     this.lastResponseId = configPrevious(this.config);
   }
 
   /** 生成响应。 */
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request, false));
     if (!response.ok) {
       throw new Error(`模型请求失败: HTTP ${response.status}`);
@@ -63,7 +63,7 @@ export class ResponsesModel implements ModelPort {
   }
 
   /** 流式生成（SSE：文本增量实时回调，终态以 response.completed 为准）。 */
-  async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+  public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request, true));
     if (!response.ok) {
       throw new Error(`模型流式请求失败: HTTP ${response.status}`);

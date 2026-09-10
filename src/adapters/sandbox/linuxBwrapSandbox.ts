@@ -8,9 +8,9 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sa
  * `{allowed:false}`，绝不谎称已隔离、绝不静默放行。
  */
 export class LinuxBwrapSandbox implements SandboxPort {
-  readonly name = 'linux-bwrap';
+  public readonly name = 'linux-bwrap';
 
-  constructor(private readonly workspace: string) {}
+  public constructor(private readonly workspace: string) {}
 
   /** 探测 bwrap 是否可用（catch 全部异常，缺二进制即视为不可用）。 */
   private hasBwrap(): boolean {
@@ -46,7 +46,7 @@ export class LinuxBwrapSandbox implements SandboxPort {
   }
 
   /** 同步审批端口：返回受限决策（与 check 同策略，但非 Promise）。 */
-  decide(action: SandboxAction): SandboxDecision {
+  public decide(action: SandboxAction): SandboxDecision {
     if (!this.hasBwrap()) {
       return {
         allowed: false,
@@ -57,7 +57,7 @@ export class LinuxBwrapSandbox implements SandboxPort {
     return this.restrictedDecision(action);
   }
 
-  async check(action: SandboxAction): Promise<SandboxDecision> {
+  public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (!this.hasBwrap()) {
       return {
         allowed: false,
@@ -72,7 +72,7 @@ export class LinuxBwrapSandbox implements SandboxPort {
    * 返回将要执行的完整 bwrap 命令行（供测试断言隔离意图）。
    * 策略：根只读 bind，workspace 可写，禁网络，随父进程退出。
    */
-  dryRun(command: string, args: readonly string[], workspace: string): string[] {
+  public dryRun(command: string, args: readonly string[], workspace: string): string[] {
     return [
       'bwrap',
       '--ro-bind',

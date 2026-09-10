@@ -34,7 +34,7 @@ export type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 /** 识别结果提取器：把事件里的 final 片段拼成一段文本。 */
 export class SpeechTranscript {
   /** 只取 isFinal 的结果，避免把中间态反复追加进输入框。 */
-  static concat(e: SpeechEventLike): string {
+  public static concat(e: SpeechEventLike): string {
     let add = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
@@ -47,7 +47,7 @@ export class SpeechTranscript {
 /** 语音识别工厂。 */
 export class SpeechRecognitionFactory {
   /** 取构造函数：标准名优先，webkit 前缀兜底；两者皆无返回 null（环境不支持）。 */
-  static ctor(): SpeechRecognitionCtor | null {
+  public static ctor(): SpeechRecognitionCtor | null {
     const w = window as unknown as {
       SpeechRecognition?: SpeechRecognitionCtor;
       webkitSpeechRecognition?: SpeechRecognitionCtor;
@@ -56,12 +56,12 @@ export class SpeechRecognitionFactory {
   }
 
   /** 是否支持语音输入（UI 据此决定是否渲染麦克风按钮）。 */
-  static supported(): boolean {
+  public static supported(): boolean {
     return SpeechRecognitionFactory.ctor() !== null;
   }
 
   /** 创建并配置一个中文连续识别器；环境不支持时返回 null。 */
-  static create(lang = 'zh-CN'): SpeechRecognitionLike | null {
+  public static create(lang = 'zh-CN'): SpeechRecognitionLike | null {
     const Ctor = SpeechRecognitionFactory.ctor();
     if (Ctor === null) return null;
     const recog = new Ctor();

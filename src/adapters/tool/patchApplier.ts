@@ -16,7 +16,7 @@ interface Hunk {
 /** Unified diff 应用器：解析并应用到文件内容（纯逻辑，失败不改动原内容）。 */
 export class PatchApplier {
   /** 应用补丁。 */
-  apply(original: string, patch: string): PatchApplierResult {
+  public apply(original: string, patch: string): PatchApplierResult {
     const parsed = this.parse(patch);
     if (!parsed.ok) {
       return { ok: false, error: parsed.error };
@@ -34,7 +34,7 @@ export class PatchApplier {
   }
 
   /** 解析补丁（仅取目标文件与 hunk，供调用方先校验）。 */
-  parse(
+  public parse(
     patch: string,
   ): { ok: true; targetFile: string; hunks: readonly Hunk[] } | { ok: false; error: string } {
     const targetFile = this.targetFileOf(patch);

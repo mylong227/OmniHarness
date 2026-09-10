@@ -27,23 +27,23 @@ import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
 
 /** 可观测模型：记录每轮可见工具名、并发峰值，可注入延迟与故障。 */
 class ObservableModel implements ModelPort {
-  readonly name = 'observable';
+  public readonly name = 'observable';
 
   private active = 0;
   private peak = 0;
-  readonly frames: string[][] = [];
+  public readonly frames: string[][] = [];
 
-  constructor(
+  public constructor(
     private readonly delayMs = 0,
     private readonly fail = false,
   ) {}
 
   /** 观测到的并发峰值。 */
-  peakOf(): number {
+  public peakOf(): number {
     return this.peak;
   }
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.active += 1;
     this.peak = Math.max(this.peak, this.active);
     this.frames.push(request.tools.map((tool) => tool.name));
@@ -66,11 +66,11 @@ class ObservableModel implements ModelPort {
  * 判别主/子代的方式：子代工具集已剔除 subagent，故 tools 里没有它即为子代视角。
  */
 class SpawnOnceModel implements ModelPort {
-  readonly name = 'spawn-once';
+  public readonly name = 'spawn-once';
 
   private parentCalls = 0;
 
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     if (!request.tools.some((tool) => tool.name === 'subagent')) {
       return { text: '子智能体产出的结论' };
     }
@@ -86,10 +86,10 @@ class SpawnOnceModel implements ModelPort {
 
 /** 收集型事件端口（验证子会话事件是否外溢到父流）。 */
 class RecordingEvents implements EventPort {
-  readonly name = 'recording';
-  readonly received: SessionEvent[] = [];
+  public readonly name = 'recording';
+  public readonly received: SessionEvent[] = [];
 
-  emit(event: SessionEvent): void {
+  public emit(event: SessionEvent): void {
     this.received.push(event);
   }
 }

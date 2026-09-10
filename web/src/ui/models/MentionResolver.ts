@@ -20,7 +20,7 @@ export class MentionResolver {
    * 从光标前文本解析 @token；未命中返回 null。
    * start 用「光标位置 - 查询词长度 - 1」反推，避免依赖正则捕获组的下标。
    */
-  static parse(textBeforeCaret: string, caret: number): MentionToken | null {
+  public static parse(textBeforeCaret: string, caret: number): MentionToken | null {
     const m = MENTION_RE.exec(textBeforeCaret);
     if (!m) return null;
     const query = m[2] ?? '';
@@ -28,13 +28,13 @@ export class MentionResolver {
   }
 
   /** 按查询词过滤候选路径（大小写无关，子串匹配），并截断到上限。 */
-  static filter(paths: readonly string[], query: string): string[] {
+  public static filter(paths: readonly string[], query: string): string[] {
     const q = query.toLowerCase();
     return paths.filter((p) => p.toLowerCase().includes(q)).slice(0, MAX_ITEMS);
   }
 
   /** 在环形列表里移动选中下标（+1 下移 / -1 上移），空列表一律 0。 */
-  static move(idx: number, count: number, delta: number): number {
+  public static move(idx: number, count: number, delta: number): number {
     if (count <= 0) return 0;
     return (idx + delta + count) % count;
   }

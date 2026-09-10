@@ -6,28 +6,28 @@ export class AppendOnlyEventLog {
   private readonly events: SessionEvent[] = [];
 
   /** 追加一条事件并返回。 */
-  append(event: SessionEvent): SessionEvent {
+  public append(event: SessionEvent): SessionEvent {
     this.events.push(event);
     return event;
   }
 
   /** 追加一条用户事件。 */
-  appendUser(sessionId: string, content: string): SessionEvent {
+  public appendUser(sessionId: string, content: string): SessionEvent {
     return this.append(EventFactory.user(sessionId, content));
   }
 
   /** 追加一条助手事件。 */
-  appendAssistant(sessionId: string, content: string): SessionEvent {
+  public appendAssistant(sessionId: string, content: string): SessionEvent {
     return this.append(EventFactory.assistant(sessionId, content));
   }
 
   /** 追加一条推理事件。 */
-  appendReasoning(sessionId: string, content: string): SessionEvent {
+  public appendReasoning(sessionId: string, content: string): SessionEvent {
     return this.append(EventFactory.reasoning(sessionId, content));
   }
 
   /** 追加一条工具调用事件。 */
-  appendToolCall(
+  public appendToolCall(
     sessionId: string,
     callId: string,
     name: string,
@@ -37,7 +37,7 @@ export class AppendOnlyEventLog {
   }
 
   /** 追加一条工具结果事件。 */
-  appendToolResult(
+  public appendToolResult(
     sessionId: string,
     callId: string,
     ok: boolean,
@@ -48,27 +48,27 @@ export class AppendOnlyEventLog {
   }
 
   /** 注入历史事件（resume/fork 用，保持追加语义不破坏顺序）。 */
-  hydrate(events: readonly SessionEvent[]): void {
+  public hydrate(events: readonly SessionEvent[]): void {
     this.events.push(...events);
   }
 
   /** 按类型过滤。 */
-  byType(type: string): SessionEvent[] {
+  public byType(type: string): SessionEvent[] {
     return this.events.filter((event) => event.type === type);
   }
 
   /** 全部事件（只读快照）。 */
-  all(): SessionEvent[] {
+  public all(): SessionEvent[] {
     return [...this.events];
   }
 
   /** 事件总数。 */
-  size(): number {
+  public size(): number {
     return this.events.length;
   }
 
   /** 最新一条事件。 */
-  latest(): SessionEvent | undefined {
+  public latest(): SessionEvent | undefined {
     return this.events.at(-1);
   }
 }

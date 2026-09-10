@@ -21,14 +21,14 @@ export interface AnthropicModelConfig {
 
 /** Anthropic Messages API 适配器（真实第二协议）。 */
 export class AnthropicModel implements ModelPort {
-  readonly name: string;
+  public readonly name: string;
 
-  constructor(private readonly config: AnthropicModelConfig) {
+  public constructor(private readonly config: AnthropicModelConfig) {
     this.name = config.model;
   }
 
   /** 生成响应。 */
-  async generate(request: ModelRequest): Promise<ModelOutput> {
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request));
     if (!response.ok) {
       throw new Error(`Anthropic 请求失败: HTTP ${response.status}`);
@@ -38,7 +38,7 @@ export class AnthropicModel implements ModelPort {
   }
 
   /** 流式生成（SSE）。 */
-  async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+  public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request));
     if (!response.ok) {
       throw new Error(`Anthropic 流式请求失败: HTTP ${response.status}`);

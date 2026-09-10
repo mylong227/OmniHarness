@@ -32,18 +32,18 @@ export class CostBudget {
   private spentUsd = 0;
   private exceededFlag = false;
 
-  constructor(
+  public constructor(
     /** 硬预算上限（USD）。 */
-    readonly limitUsd: number,
+    public readonly limitUsd: number,
     private readonly pricing: ReadonlyMap<string, RoutePrice>,
     private readonly fallback: RoutePrice = DEFAULT_FALLBACK_PRICE,
     private readonly onExceed?: (snapshot: BudgetSnapshot) => void,
     /** 是否阻断（fail-closed）：true（默认）越限抛错；false 为软预算，仅记账与标记、不阻断调用。 */
-    readonly blocking: boolean = true,
+    public readonly blocking: boolean = true,
   ) {}
 
   /** 取模型定价：精确匹配 → 最长前缀匹配 → 兜底价。 */
-  priceFor(model: string): RoutePrice {
+  public priceFor(model: string): RoutePrice {
     const exact = this.pricing.get(model);
     if (exact !== undefined) {
       return exact;
@@ -60,7 +60,7 @@ export class CostBudget {
   }
 
   /** 记录一次模型调用的用量并累计成本；越过硬预算则置位熔断并回调。 */
-  record(model: string, usage: ModelUsage): void {
+  public record(model: string, usage: ModelUsage): void {
     this.promptTokens += usage.promptTokens;
     this.completionTokens += usage.completionTokens;
     const price = this.priceFor(model);
@@ -75,7 +75,7 @@ export class CostBudget {
   }
 
   /** 预算内断言（fail-closed）：已熔断且为阻断模式时抛错，阻断下一次模型调用；软预算（blocking=false）则为空操作。 */
-  ensureWithin(model: string): void {
+  public ensureWithin(model: string): void {
     if (!this.blocking || !this.exceededFlag) {
       return;
     }
@@ -85,28 +85,28 @@ export class CostBudget {
     );
   }
 
-  get exceeded(): boolean {
+  public get exceeded(): boolean {
     return this.exceededFlag;
   }
 
-  get totalCostUsd(): number {
+  public get totalCostUsd(): number {
     return this.spentUsd;
   }
 
-  get totalPromptTokens(): number {
+  public get totalPromptTokens(): number {
     return this.promptTokens;
   }
 
-  get totalCompletionTokens(): number {
+  public get totalCompletionTokens(): number {
     return this.completionTokens;
   }
 
-  get remainingUsd(): number {
+  public get remainingUsd(): number {
     return Math.max(0, this.limitUsd - this.spentUsd);
   }
 
   /** 当前预算快照。 */
-  snapshot(): BudgetSnapshot {
+  public snapshot(): BudgetSnapshot {
     return {
       limitUsd: this.limitUsd,
       spentUsd: this.spentUsd,

@@ -11,7 +11,7 @@ const DEFAULT_RECALL_LIMIT = 5;
  * 与 #M2 `memory_search`（内存会话检索）互补——后者查"刚才聊了啥"，本工具存"值得长期记得啥"。
  */
 export class RememberTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'remember',
     description:
       '把一条值得长期跨会话保留的事实写入长期记忆（用户偏好、项目约定、关键决策、环境事实、踩过的坑、对用户的承诺等）。写入后即便进程重启也会保留，并在未来会话中经 recall 被回忆起。仅写真正 durable 的信息，临时输出与可被重新检索的琐碎内容不要用本工具。',
@@ -33,10 +33,10 @@ export class RememberTool {
     },
   };
 
-  constructor(private readonly memory: LongTermMemoryPort) {}
+  public constructor(private readonly memory: LongTermMemoryPort) {}
 
   /** 写入一条长期记忆事实。 */
-  async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const factText = String(call.arguments['fact'] ?? '').trim();
     if (factText === '') {
       return { callId: call.id, ok: false, error: 'fact 不能为空' };
@@ -71,7 +71,7 @@ export class RememberTool {
  * 使模型在新会话里"想起"此前的偏好/约定/决策/坑。
  */
 export class RecallTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'recall',
     description:
       '从长期记忆（跨会话持久事实）中按自然语言召回相关条目，用于在新会话里回忆用户偏好、项目约定、关键决策或此前踩过的坑。返回命中事实的文本与主题，便于在开工前先对齐既有约定。',
@@ -89,10 +89,10 @@ export class RecallTool {
     },
   };
 
-  constructor(private readonly memory: LongTermMemoryPort) {}
+  public constructor(private readonly memory: LongTermMemoryPort) {}
 
   /** 召回相关长期记忆事实。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '').trim();
     if (query === '') {
       return { callId: call.id, ok: false, error: 'query 不能为空' };

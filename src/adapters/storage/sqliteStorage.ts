@@ -30,12 +30,12 @@ function loadDatabaseSync(): typeof DatabaseSync {
 
 /** SQLite 存储适配器（node:sqlite）：events 表按会话分桶，可替换 JSONL。 */
 export class SqliteStorage implements StoragePort {
-  readonly name = 'sqlite';
-  readonly location: string;
+  public readonly name = 'sqlite';
+  public readonly location: string;
 
   private readonly db: DatabaseSync;
 
-  constructor(filePath: string) {
+  public constructor(filePath: string) {
     const DatabaseSyncImpl = loadDatabaseSync();
     this.location = filePath;
     this.db = new DatabaseSyncImpl(filePath);
@@ -45,7 +45,7 @@ export class SqliteStorage implements StoragePort {
   }
 
   /** 保存会话事件（整会话覆盖写）。 */
-  async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
+  public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     const del = this.db.prepare('DELETE FROM events WHERE session_id = ?');
     del.run(sessionId);
     const insert = this.db.prepare('INSERT INTO events (session_id, seq, data) VALUES (?, ?, ?)');
@@ -55,7 +55,7 @@ export class SqliteStorage implements StoragePort {
   }
 
   /** 加载会话事件（不存在返回空）。 */
-  async load(sessionId: string): Promise<readonly SessionEvent[]> {
+  public async load(sessionId: string): Promise<readonly SessionEvent[]> {
     const rows = this.db
       .prepare('SELECT data FROM events WHERE session_id = ? ORDER BY seq')
       .all(sessionId) as { data: string }[];
@@ -63,7 +63,7 @@ export class SqliteStorage implements StoragePort {
   }
 
   /** 关闭数据库。 */
-  close(): void {
+  public close(): void {
     this.db.close();
   }
 }

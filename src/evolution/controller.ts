@@ -31,13 +31,13 @@ export interface RlvrStage {
 
 /** 进化控制器实现。 */
 export class EvolutionControllerImpl implements EvolutionController {
-  readonly autoRun: boolean;
+  public readonly autoRun: boolean;
   private readonly discovery: DiscoveryEngine;
   private readonly gate: EvolutionGate;
   private readonly onPromote?: (candidate: Candidate) => void;
   private readonly rlvr?: RlvrStage;
 
-  constructor(opts: EvolutionControllerOptions) {
+  public constructor(opts: EvolutionControllerOptions) {
     this.discovery = opts.discovery;
     this.gate = opts.gate;
     this.onPromote = opts.onPromote;
@@ -46,12 +46,12 @@ export class EvolutionControllerImpl implements EvolutionController {
   }
 
   /** 评估单个候选（直接转发门禁）。 */
-  evaluate(candidate: Candidate): Promise<PromotionVerdict> {
+  public evaluate(candidate: Candidate): Promise<PromotionVerdict> {
     return this.gate.evaluate(candidate);
   }
 
   /** 跑一轮：取本批候选 → 逐一评估 → (可选)RLVR 阶段 → 晋升者触发 onPromote。 */
-  async cycle(): Promise<readonly PromotionVerdict[]> {
+  public async cycle(): Promise<readonly PromotionVerdict[]> {
     const candidates = this.discovery.nextCandidates();
     const verdicts: PromotionVerdict[] = [];
     for (const c of candidates) {
@@ -89,7 +89,7 @@ export class EvolutionControllerImpl implements EvolutionController {
   }
 
   /** 当前预算消耗。 */
-  budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
+  public budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
     return this.discovery.budgetUsed();
   }
 }

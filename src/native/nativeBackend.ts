@@ -51,7 +51,7 @@ export class NativeBackend implements NativeToolRunner {
   private constructor(private readonly kernel: NativeKernel) {}
 
   /** 尝试创建：内核不可用（.node 未构建/加载失败）或 ping 失败则返 undefined（静默回退 JS）。 */
-  static tryCreate(): NativeBackend | undefined {
+  public static tryCreate(): NativeBackend | undefined {
     const kernel = new NativeKernel();
     if (!kernel.available()) {
       return undefined;
@@ -67,7 +67,7 @@ export class NativeBackend implements NativeToolRunner {
   /** 经 Rust 内核走 审批→沙箱→执行 全链。
    * - 业务拒绝（rejected）：返回 ok:false + 拒绝原因，不抛错（合法结果）。
    * - 内核内部失败（ok:false 且未 rejected）：抛错，交由调用方回退 JS 路径。 */
-  runTool(call: ToolCall): ToolResult {
+  public runTool(call: ToolCall): ToolResult {
     // 命名桥：把 JS 标准工具名翻译成内核方言（#72）。内核找不到该名会判未知工具 → 业务拒绝。
     const nativeName = toNativeToolName(call.name);
     const r = this.kernel.toolCall(nativeName, call.arguments, call.id);
@@ -83,17 +83,17 @@ export class NativeBackend implements NativeToolRunner {
   }
 
   /** 经 Rust 内核批量估算消息 token 数（单次 FFI 往返）。 */
-  estimateTokens(messages: readonly { content: string }[]): number {
+  public estimateTokens(messages: readonly { content: string }[]): number {
     return this.kernel.estimateTokens(messages);
   }
 
   /** 经 Rust 内核渲染上下文并估算 token 数（单次 FFI 往返，算子下沉 #C4）。 */
-  contextRender(): { tokens: number; context: string } {
+  public contextRender(): { tokens: number; context: string } {
     return this.kernel.contextRender();
   }
 
   /** 经 Rust 内核对一次工具调用做审批裁决（不改状态，算子下沉 #C4）。 */
-  approvalCheck(name: string, args: Record<string, unknown>): NativeDecision {
+  public approvalCheck(name: string, args: Record<string, unknown>): NativeDecision {
     return this.kernel.approvalCheck(name, args);
   }
 }

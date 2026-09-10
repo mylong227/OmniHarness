@@ -56,7 +56,7 @@ export class FailClosedEvolutionGate implements EvolutionGate {
   private readonly audit?: AuditSinkLike;
   private readonly sessionId?: string;
 
-  constructor(opts: FailClosedEvolutionGateOptions = {}) {
+  public constructor(opts: FailClosedEvolutionGateOptions = {}) {
     this.benchmarkImpl = opts.benchmark ?? NO_BENCHMARK;
     this.baseline = opts.baseline ?? 0;
     this.minGain = opts.minGain ?? 0.05;
@@ -70,7 +70,7 @@ export class FailClosedEvolutionGate implements EvolutionGate {
     return await this.benchmarkImpl(this.baseline);
   }
 
-  async evaluate(candidate: Candidate): Promise<PromotionVerdict> {
+  public async evaluate(candidate: Candidate): Promise<PromotionVerdict> {
     const baselineScore = await this.resolveBaselineScore();
 
     const safetyPass = this.safetyImpl === undefined ? true : await this.safetyImpl(candidate);

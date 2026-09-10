@@ -54,7 +54,7 @@ export interface PluginRegistryOptions {
 export class PluginRegistry {
   private readonly sources: readonly RegistrySource[];
 
-  constructor(readonly options: PluginRegistryOptions) {
+  public constructor(public readonly options: PluginRegistryOptions) {
     // registryUrl 缺省时落回「env 覆盖后的默认值」：env > DEFAULT_REGISTRY_URL。
     // 固化回 options，便于调用方与测试核对解析结果（接口字段为 readonly，此处做一次规范化赋值）。
     const resolvedRegistryUrl =
@@ -75,7 +75,7 @@ export class PluginRegistry {
   }
 
   /** 跨源搜索（去重，源顺序即优先级）。 */
-  async search(query?: string): Promise<PluginDescriptor[]> {
+  public async search(query?: string): Promise<PluginDescriptor[]> {
     const batches = await Promise.all(this.sources.map((source) => source.search(query)));
     const seen = new Set<string>();
     const out: PluginDescriptor[] = [];
@@ -92,7 +92,7 @@ export class PluginRegistry {
   }
 
   /** 已安装插件清单（仅本地目录）。 */
-  async list(): Promise<PluginManifest[]> {
+  public async list(): Promise<PluginManifest[]> {
     if (!existsSync(this.options.pluginsDir)) {
       return [];
     }
@@ -102,7 +102,7 @@ export class PluginRegistry {
   }
 
   /** 按名取首个匹配（源顺序即优先级）。 */
-  async get(name: string): Promise<PluginDescriptor | undefined> {
+  public async get(name: string): Promise<PluginDescriptor | undefined> {
     for (const source of this.sources) {
       const descriptor = await source.get(name);
       if (descriptor !== undefined) {
@@ -116,7 +116,7 @@ export class PluginRegistry {
    * 安装插件：复制（本地/打包）或下载（远程）到 pluginsDir/<name>，
    * 并落盘权威清单 omni.plugin.json。权限非法直接抛错，不落盘半成品。
    */
-  async install(name: string): Promise<PluginManifest> {
+  public async install(name: string): Promise<PluginManifest> {
     const descriptor = await this.get(name);
     if (descriptor === undefined) {
       throw new Error(`未找到插件: ${name}（用 plugin search 查看可用项）`);
@@ -161,7 +161,7 @@ export class PluginRegistry {
   }
 
   /** 移除已安装插件。isLoaded 返回 true 时拒绝移除，避免破坏运行中的实例。 */
-  async remove(name: string, isLoaded?: (name: string) => boolean): Promise<void> {
+  public async remove(name: string, isLoaded?: (name: string) => boolean): Promise<void> {
     if (isLoaded?.(name) === true) {
       throw new Error(`插件 "${name}" 当前已加载，请先卸载再移除`);
     }

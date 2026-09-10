@@ -17,39 +17,39 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 
 /** 双端 socket（客户端与"服务端"互联）。 */
 class PairSocket implements SdkSocket {
-  readonly sent: string[] = [];
-  peer: PairSocket | undefined;
+  public readonly sent: string[] = [];
+  public peer: PairSocket | undefined;
   private messageHandler: ((text: string) => void) | undefined;
   private openHandler: (() => void) | undefined;
 
-  send(text: string): void {
+  public send(text: string): void {
     this.sent.push(text);
     this.peer?.deliver(text);
   }
 
-  close(): void {
+  public close(): void {
     this.peer = undefined;
   }
 
-  onOpen(handler: () => void): void {
+  public onOpen(handler: () => void): void {
     this.openHandler = handler;
     queueMicrotask(handler);
   }
 
-  onMessage(handler: (text: string) => void): void {
+  public onMessage(handler: (text: string) => void): void {
     this.messageHandler = handler;
   }
 
-  onClose(): void {
+  public onClose(): void {
     // 测试用：无需处理
   }
 
-  onError(): void {
+  public onError(): void {
     // 测试用：无需处理
   }
 
   /** 接收对端消息。 */
-  deliver(text: string): void {
+  public deliver(text: string): void {
     this.messageHandler?.(text);
   }
 }

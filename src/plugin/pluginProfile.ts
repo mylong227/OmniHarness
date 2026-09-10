@@ -91,14 +91,14 @@ export function sanitizeProfileName(name: string): string {
  * 与 GraphStore 同范式：list/get/save/delete + 不可解析文件在 list 中跳过（fail-closed 不阻塞）。
  */
 export class PluginProfileStore {
-  constructor(private readonly workspaceRoot: string) {}
+  public constructor(private readonly workspaceRoot: string) {}
 
   private dir(): string {
     return join(this.workspaceRoot, '.omniharness', 'pluginProfiles');
   }
 
   /** 列出全部 profile 摘要（按文件名排序，坏文件跳过不阻塞）。 */
-  list(): PluginProfileSummary[] {
+  public list(): PluginProfileSummary[] {
     const dir = this.dir();
     if (!existsSync(dir)) {
       return [];
@@ -123,7 +123,7 @@ export class PluginProfileStore {
   }
 
   /** 按 id 取完整 profile；不存在返回 undefined。 */
-  get(id: string): PluginProfile | undefined {
+  public get(id: string): PluginProfile | undefined {
     const parsed = this.readRaw(join(this.dir(), `${id}.json`));
     if (parsed === undefined) {
       return undefined;
@@ -132,7 +132,7 @@ export class PluginProfileStore {
   }
 
   /** 保存/更新 profile；返回归一化 id。缺 name/plugins 即抛错（fail-closed）。 */
-  save(profile: PluginProfile): string {
+  public save(profile: PluginProfile): string {
     if (typeof profile.name !== 'string' || profile.name.trim() === '') {
       throw new Error('profile 必须包含 name');
     }
@@ -153,7 +153,7 @@ export class PluginProfileStore {
   }
 
   /** 删除；不存在返回 false。 */
-  delete(id: string): boolean {
+  public delete(id: string): boolean {
     const path = join(this.dir(), `${id}.json`);
     if (!existsSync(path)) {
       return false;

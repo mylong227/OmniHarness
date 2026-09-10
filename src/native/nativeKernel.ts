@@ -16,7 +16,7 @@ import { OmniError, ErrorCode } from '../errors.js';
  * 原生内核不可用（.node 未构建或加载失败）——fail-closed，调用即抛。
  */
 export class NativeKernelUnavailableError extends OmniError {
-  constructor(message: string) {
+  public constructor(message: string) {
     super(ErrorCode.NATIVE_KERNEL_UNAVAILABLE, message);
   }
 }
@@ -44,7 +44,7 @@ export class NativeKernel {
   private readonly mod: NativeModule | undefined;
 
   /** 构造：加载 native/omni_napi.node；失败不抛错，available() 返回 false。 */
-  constructor() {
+  public constructor() {
     // 源码位（src/native/）向上 2 级 = 根；编译产物位（dist/src/native/）向上 3 级 = 根。
     const here = dirname(fileURLToPath(import.meta.url));
     const srcPath = join(here, '..', '..', 'native', 'omni_napi.node');
@@ -66,17 +66,17 @@ export class NativeKernel {
   }
 
   /** 内核是否可用（.node 已构建且加载成功）。 */
-  available(): boolean {
+  public available(): boolean {
     return this.mod !== undefined;
   }
 
   /** 插件文件路径（未加载时也是给出构建指引的依据）。 */
-  modulePath(): string {
+  public modulePath(): string {
     return this.pluginPath;
   }
 
   /** 底层 JSON-RPC 调用（同步；热路径专用）。ok=false 即抛错（fail-closed）。 */
-  call(method: string, params?: Record<string, unknown>): Record<string, unknown> {
+  public call(method: string, params?: Record<string, unknown>): Record<string, unknown> {
     const parsed = this.rawCall(method, params);
     if (parsed.ok !== true) {
       throw new Error(String(parsed.error ?? '原生内核调用失败'));
@@ -97,44 +97,44 @@ export class NativeKernel {
   }
 
   /** ping：验证插件加载与往返。 */
-  ping(): { ok: boolean; pong: boolean; native: boolean } {
+  public ping(): { ok: boolean; pong: boolean; native: boolean } {
     return this.call('ping') as unknown as { ok: boolean; pong: boolean; native: boolean };
   }
 
   /** 内核注册的工具元数据（native 含 shell.run，共 7 个）。 */
-  toolsList(): unknown[] {
+  public toolsList(): unknown[] {
     return this.call('tools.list').tools as unknown[];
   }
 
   /** 提交一条 Submission 并驱动状态机，返回出站 Op。 */
-  sessionSubmit(submission: unknown): unknown[] {
+  public sessionSubmit(submission: unknown): unknown[] {
     return this.call('session.submit', { submission }).ops as unknown[];
   }
 
   /** 取出尚未消费的出站操作。 */
-  sessionOps(): unknown[] {
+  public sessionOps(): unknown[] {
     return this.call('session.ops').ops as unknown[];
   }
 
   /** 模型可见上下文与 token 估算。 */
-  contextRender(): { tokens: number; context: string } {
+  public contextRender(): { tokens: number; context: string } {
     const r = this.call('context.render');
     return { tokens: r.tokens as number, context: r.context as string };
   }
 
   /** 批量估算消息 token 数（对齐 TS TokenEstimator.estimateMessages，单次 FFI 往返）。 */
-  estimateTokens(messages: readonly { content: string }[]): number {
+  public estimateTokens(messages: readonly { content: string }[]): number {
     const r = this.call('context.estimate', { messages });
     return r.tokens as number;
   }
 
   /** 对一次工具调用做审批裁决（不改状态）。 */
-  approvalCheck(name: string, args: Record<string, unknown>): NativeDecision {
+  public approvalCheck(name: string, args: Record<string, unknown>): NativeDecision {
     return this.call('approval.check', { name, args }).decision as NativeDecision;
   }
 
   /** 直接执行一次工具（审批 → 策略沙箱 → OS 沙箱 → 执行 → 记录 全链）。被拒是合法结果。 */
-  toolCall(
+  public toolCall(
     name: string,
     args: Record<string, unknown>,
     callId: string,

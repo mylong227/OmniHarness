@@ -31,18 +31,18 @@ export type { ScriptStep } from './scriptedModel.js';
  * 使「写文件」类任务无法完成、指标失真）。report/intercept 均放行，模式恒为 nominal。
  */
 class NoopSupervisor implements SupervisorPort {
-  report(): void {}
-  mode(): SafeMode {
+  public report(): void {}
+  public mode(): SafeMode {
     return 'nominal';
   }
-  snapshot(): HealthSnapshot {
+  public snapshot(): HealthSnapshot {
     return { mode: 'nominal', entries: [], generatedAt: new Date().toISOString() };
   }
-  intercept(): string | undefined {
+  public intercept(): string | undefined {
     return undefined;
   }
-  onTransition(): void {}
-  attemptRecovery(): SafeMode {
+  public onTransition(): void {}
+  public attemptRecovery(): SafeMode {
     return 'nominal';
   }
 }

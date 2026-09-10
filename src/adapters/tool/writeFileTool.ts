@@ -6,7 +6,7 @@ import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 /** 写文件工具：仅限工作区内，覆盖前自动备份 .bak（可审计）。 */
 export class WriteFileTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'write_file',
     description: '写入文件内容（工作区内；覆盖已有文件前自动生成 .bak 备份）',
     parameters: {
@@ -19,10 +19,10 @@ export class WriteFileTool {
     },
   };
 
-  constructor(private readonly workspaceRoot: string) {}
+  public constructor(private readonly workspaceRoot: string) {}
 
   /** 写入文件。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
     const content = String(call.arguments['content'] ?? '');
     const guard = new WorkspaceGuard(this.workspaceRoot);

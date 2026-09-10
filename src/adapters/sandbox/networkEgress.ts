@@ -18,9 +18,9 @@ import { OmniError, ErrorCode } from '../../errors.js';
 
 export class EgressBlockedError extends OmniError {
   /** 被拒绝的 URL。 */
-  readonly url: string;
+  public readonly url: string;
 
-  constructor(message: string, url: string) {
+  public constructor(message: string, url: string) {
     super(ErrorCode.EGRESS_BLOCKED, message);
     this.url = url;
   }
@@ -85,13 +85,13 @@ export class NetworkEgressGuard {
   private readonly allowed: ReadonlySet<string>;
   private readonly blockPrivate: boolean;
 
-  constructor(options: NetworkEgressOptions) {
+  public constructor(options: NetworkEgressOptions) {
     this.allowed = new Set(options.allowedHosts.map(toHost));
     this.blockPrivate = options.blockPrivateRanges ?? true;
   }
 
   /** 断言 URL 可外联；命中私有网段或不在白名单则抛 EgressBlockedError（fail-closed）。 */
-  assertAllowed(url: string | URL): void {
+  public assertAllowed(url: string | URL): void {
     const text = this.stringify(url);
     const host = this.hostOf(url);
     if (host !== undefined) {
@@ -110,7 +110,7 @@ export class NetworkEgressGuard {
   }
 
   /** 包一层 fetch：先校验外联地址，再放行原始 fetch。 */
-  wrapFetch(original: typeof fetch): typeof fetch {
+  public wrapFetch(original: typeof fetch): typeof fetch {
     const guard = this;
     return (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       const anyInput = input as { href?: string; url?: string } | string | URL;

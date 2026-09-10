@@ -9,7 +9,7 @@ import { CliWorker } from './cliWorker.js';
  */
 export class DshWorker {
   /** 一次性任务 worker。 */
-  static task(profile: string): CliWorker {
+  public static task(profile: string): CliWorker {
     return new CliWorker({
       name: `dsh:${profile}`,
       command: 'dsh',
@@ -19,7 +19,7 @@ export class DshWorker {
   }
 
   /** 配置转储 worker（离线可用）。 */
-  static inspect(profile: string): CliWorker {
+  public static inspect(profile: string): CliWorker {
     return new CliWorker({
       name: `dsh-inspect:${profile}`,
       command: 'dsh',

@@ -134,7 +134,7 @@ export class OidcClient {
   }
 
   /** 拉取并校验 OIDC discovery 文档。 */
-  static async fetchDiscovery(
+  public static async fetchDiscovery(
     issuer: string,
     fetchImpl: typeof fetch = globalThis.fetch,
   ): Promise<OidcDiscovery> {
@@ -165,7 +165,7 @@ export class OidcClient {
    * @beta
    * 生成 PKCE(S256) 密钥对：verifier 为 32 字节随机 base64url，challenge = SHA256(verifier) base64url。
    */
-  static generatePkcePair(): PkcePair {
+  public static generatePkcePair(): PkcePair {
     const verifier = OidcClient.b64url(crypto.randomBytes(32));
     const challenge = OidcClient.b64url(crypto.createHash('sha256').update(verifier).digest());
     return { verifier, challenge, method: 'S256' };
@@ -175,7 +175,7 @@ export class OidcClient {
    * @beta
    * 构造授权码流授权 URL（含 PKCE + state + nonce）。
    */
-  static buildAuthorizationUrl(
+  public static buildAuthorizationUrl(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
     params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
@@ -193,7 +193,7 @@ export class OidcClient {
   }
 
   /** 用授权码换取令牌集（支持 public/confidential client，PKCE 校验）。 */
-  static async exchangeCode(
+  public static async exchangeCode(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
     params: {
@@ -238,7 +238,7 @@ export class OidcClient {
    * @beta
    * 解码 JWT（不校验签名），返回 header/payload/signature/signingInput。
    */
-  static decodeJwt(token: string): JwtParts {
+  public static decodeJwt(token: string): JwtParts {
     const parts = token.split('.');
     if (parts.length !== 3) throw new Error('非法 JWT：段数不为 3');
     const header = JSON.parse(OidcClient.b64urlDecode(parts[0]!)) as Record<string, unknown>;
@@ -255,7 +255,7 @@ export class OidcClient {
    * @beta
    * 校验 id_token 的 iss/aud/exp/nonce 声明（不含签名）。
    */
-  static verifyIdTokenClaims(
+  public static verifyIdTokenClaims(
     payload: Record<string, unknown>,
     opts: { readonly issuer: string; readonly clientId: string; readonly nonce?: string },
   ): void {
@@ -279,7 +279,7 @@ export class OidcClient {
    * @beta
    * 用 RS256 JWKS 校验 JWT 签名。
    */
-  static verifyJwtSignature(token: string, jwks: { readonly keys: readonly Jwk[] }): void {
+  public static verifyJwtSignature(token: string, jwks: { readonly keys: readonly Jwk[] }): void {
     const { header, signature, signingInput } = OidcClient.decodeJwt(token);
     if (header['alg'] !== 'RS256')
       throw new Error(`仅支持 RS256 签名，收到: ${String(header['alg'])}`);
@@ -305,7 +305,7 @@ export class OidcClient {
    * @beta
    * 写入 `auth login` 中间态到文件（state + verifier + 配置）。
    */
-  static writeAuthState(path: string, state: AuthState): void {
+  public static writeAuthState(path: string, state: AuthState): void {
     writeFileSync(path, JSON.stringify(state, null, 2), 'utf8');
   }
 
@@ -313,7 +313,7 @@ export class OidcClient {
    * @beta
    * 读取 `auth login` 中间态。
    */
-  static readAuthState(path: string): AuthState {
+  public static readAuthState(path: string): AuthState {
     return JSON.parse(readFileSync(path, 'utf8')) as AuthState;
   }
 }
@@ -340,14 +340,14 @@ export const readAuthState = OidcClient.readAuthState;
 export class EnterpriseAuth {
   private jwksCache: { readonly keys: readonly Jwk[]; readonly fetchedAt: number } | undefined;
 
-  constructor(
+  public constructor(
     private readonly config: OidcProviderConfig,
     private readonly discovery: OidcDiscovery,
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
   ) {}
 
   /** 从 issuer 拉 discovery 构造门禁。 */
-  static async fromIssuer(
+  public static async fromIssuer(
     config: OidcProviderConfig,
     fetchImpl: typeof fetch = globalThis.fetch,
   ): Promise<EnterpriseAuth> {
@@ -356,7 +356,7 @@ export class EnterpriseAuth {
   }
 
   /** 校验 Authorization 头中的 Bearer 令牌；任何失败返回 null（未认证）。 */
-  async authenticate(
+  public async authenticate(
     header: string | undefined,
   ): Promise<{ readonly sub: string; readonly claims: Record<string, unknown> } | null> {
     if (header === undefined) return null;

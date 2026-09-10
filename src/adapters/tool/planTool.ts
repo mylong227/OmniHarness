@@ -10,7 +10,7 @@ import { EventFactory } from '../../core/eventFactory.js';
  * 对标 dsh `packages/plan/plan-mode`。
  */
 export class PlanWriteTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'plan_write',
     description:
       '在计划模式下起草/更新计划：传入有序 steps。每次调用全量替换当前草稿。' +
@@ -35,12 +35,12 @@ export class PlanWriteTool {
     },
   };
 
-  constructor(
+  public constructor(
     private readonly plan: PlanPort,
     private readonly events?: EventPort,
   ) {}
 
-  async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['steps'];
     if (!Array.isArray(raw) || raw.length === 0) {
       return { callId: call.id, ok: false, error: 'steps 必须是非空数组' };
@@ -78,20 +78,20 @@ export class PlanWriteTool {
  * 这是计划协作态的"出口"——批准前 ToolGate 拦截所有 mutating 工具。
  */
 export class PlanPresentTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'plan_present',
     description:
       '呈现当前计划给用户审批。返回 approve 或 reject；approve 后计划门禁解除，方可执行写类工具。',
     parameters: { type: 'object', properties: {} },
   };
 
-  constructor(
+  public constructor(
     private readonly plan: PlanPort,
     private readonly responder: UserResponder,
     private readonly events?: EventPort,
   ) {}
 
-  async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const current = this.plan.get();
     if (current === null) {
       return { callId: call.id, ok: false, error: '尚无计划可呈现，请先用 plan_write 起草' };
@@ -131,15 +131,15 @@ export class PlanPresentTool {
  * `plan_read`：读取当前计划态快照。
  */
 export class PlanReadTool {
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'plan_read',
     description: '读取当前计划草稿与审批状态。',
     parameters: { type: 'object', properties: {} },
   };
 
-  constructor(private readonly plan: PlanPort) {}
+  public constructor(private readonly plan: PlanPort) {}
 
-  async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
     const state = this.plan.get();
     if (state === null) {
       return { callId: call.id, ok: true, output: '(尚无计划)' };

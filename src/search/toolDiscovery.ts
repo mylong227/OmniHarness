@@ -13,19 +13,19 @@ export class ToolDiscovery {
   private readonly discovered = new Map<string, ToolDefinition>();
 
   /** 登记一批工具 schema（按名去重，后者覆盖前者）。 */
-  add(specs: readonly ToolDefinition[]): void {
+  public add(specs: readonly ToolDefinition[]): void {
     for (const spec of specs) {
       this.discovered.set(spec.name, spec);
     }
   }
 
   /** 已发现的工具 schema 列表。 */
-  list(): readonly ToolDefinition[] {
+  public list(): readonly ToolDefinition[] {
     return [...this.discovered.values()];
   }
 
   /** 是否已发现某工具。 */
-  has(name: string): boolean {
+  public has(name: string): boolean {
     return this.discovered.has(name);
   }
 }

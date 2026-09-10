@@ -26,7 +26,7 @@ export interface McpConnectorOptions extends McpStdioServerOptions {
  */
 export class McpConnector {
   /** 建立连接（握手成功返回，失败关闭子进程并抛出）。 */
-  static async connect(options: McpConnectorOptions): Promise<McpConnection> {
+  public static async connect(options: McpConnectorOptions): Promise<McpConnection> {
     const handle = McpStdioTransport.launch(options);
     try {
       const client = new McpClient({ transport: handle.transport, timeoutMs: options.timeoutMs });

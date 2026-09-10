@@ -16,9 +16,9 @@ export const AGENT_IDENTITY_TOOL_NAME = 'agent_identity';
  * @beta
  */
 export class AgentIdentityTool {
-  readonly definition: ToolDefinition;
+  public readonly definition: ToolDefinition;
 
-  constructor(private readonly identity: AgentIdentityPort) {
+  public constructor(private readonly identity: AgentIdentityPort) {
     this.definition = {
       name: AGENT_IDENTITY_TOOL_NAME,
       description:
@@ -42,7 +42,7 @@ export class AgentIdentityTool {
     };
   }
 
-  async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
     const op = String(call.arguments['operation'] ?? 'show');
     try {
       switch (op) {

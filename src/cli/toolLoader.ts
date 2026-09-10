@@ -5,7 +5,7 @@ import type { ExtraTool } from '../config/omniharnessConfig.js';
 /** 自定义工具加载器：从模块文件加载定制工具（定制接入专用插口）。 */
 export class ToolLoader {
   /** 加载一个工具模块（默认导出 ToolPort 或 { definition, handler }）。 */
-  static async load(filePath: string): Promise<ExtraTool | ToolPort> {
+  public static async load(filePath: string): Promise<ExtraTool | ToolPort> {
     const module = await import(pathToFileURL(filePath).href);
     const exported = module.default;
     if (this.isToolPort(exported)) {

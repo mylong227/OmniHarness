@@ -22,15 +22,15 @@ export interface CliWorkerOptions {
  * 通用 CLI worker：spawn 任意 harness CLI（codex/claude-code/dsh/opencode）。
  */
 export class CliWorker implements Worker {
-  constructor(private readonly options: CliWorkerOptions) {}
+  public constructor(private readonly options: CliWorkerOptions) {}
 
   /** 子代理名称。 */
-  get name(): string {
+  public get name(): string {
     return this.options.name;
   }
 
   /** 运行任务。 */
-  async run(request: WorkerRequest): Promise<WorkerResult> {
+  public async run(request: WorkerRequest): Promise<WorkerResult> {
     const startedAt = Date.now();
     try {
       const output = await this.spawnOutput(request);

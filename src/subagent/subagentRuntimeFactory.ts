@@ -29,7 +29,7 @@ import { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
  */
 export class SubagentRuntimeFactory {
   /** 构造子代 runtime 视图。 */
-  static build(
+  public static build(
     ports: SubagentPorts,
     tools: ToolPort,
     events: EventPort,

@@ -34,9 +34,9 @@ export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
 /** 带稳定错误码的基础错误类：所有可分类错误应继承它。 */
 export class OmniError extends Error {
   /** 稳定错误码（跨组件可关联、可查询）。 */
-  readonly code: ErrorCodeValue;
+  public readonly code: ErrorCodeValue;
 
-  constructor(code: ErrorCodeValue, message: string) {
+  public constructor(code: ErrorCodeValue, message: string) {
     super(message);
     this.name = this.constructor.name;
     this.code = code;

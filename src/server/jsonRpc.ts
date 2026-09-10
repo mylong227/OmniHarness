@@ -33,22 +33,22 @@ export type RpcMessage = RpcRequest | RpcResponse | RpcNotification;
 /** JSON-RPC 协议工具。 */
 export class JsonRpc {
   /** 是否为请求或通知（含 method）。 */
-  static isCall(message: RpcMessage): message is RpcRequest | RpcNotification {
+  public static isCall(message: RpcMessage): message is RpcRequest | RpcNotification {
     return 'method' in message;
   }
 
   /** 是否为带 id 的请求。 */
-  static isRequest(message: RpcMessage): message is RpcRequest {
+  public static isRequest(message: RpcMessage): message is RpcRequest {
     return 'method' in message && 'id' in message;
   }
 
   /** 构造响应。 */
-  static response(id: number | string, result: unknown): RpcResponse {
+  public static response(id: number | string, result: unknown): RpcResponse {
     return { jsonrpc: '2.0', id, result };
   }
 
   /** 构造请求（带 id 的调用）。 */
-  static request(
+  public static request(
     id: number | string,
     method: string,
     params?: Record<string, unknown>,
@@ -57,17 +57,17 @@ export class JsonRpc {
   }
 
   /** 构造错误响应。 */
-  static errorResponse(id: number | string, code: number, message: string): RpcResponse {
+  public static errorResponse(id: number | string, code: number, message: string): RpcResponse {
     return { jsonrpc: '2.0', id, error: { code, message } };
   }
 
   /** 构造通知。 */
-  static notify(method: string, params: Record<string, unknown>): RpcNotification {
+  public static notify(method: string, params: Record<string, unknown>): RpcNotification {
     return { jsonrpc: '2.0', method, params };
   }
 
   /** 解析消息（无效 JSON 或非 RPC 结构返回 undefined）。 */
-  static parse(raw: string): RpcMessage | undefined {
+  public static parse(raw: string): RpcMessage | undefined {
     try {
       const parsed: unknown = JSON.parse(raw);
       if (typeof parsed === 'object' && parsed !== null && 'jsonrpc' in parsed) {

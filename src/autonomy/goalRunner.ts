@@ -47,7 +47,7 @@ export interface GoalResult {
 export class GoalRunner {
   private readonly maxIterations: number;
 
-  constructor(
+  public constructor(
     private readonly agent: Agent,
     private readonly checker: GoalChecker,
     options: GoalRunnerOptions = {},
@@ -56,7 +56,7 @@ export class GoalRunner {
   }
 
   /** 运行自主目标循环直到达成或达上限。 */
-  async run(goal: string): Promise<GoalResult> {
+  public async run(goal: string): Promise<GoalResult> {
     const first = await this.agent.runTask(this.promptFor(goal, 1));
     const achievedFirst = await this.check(first, goal, 1);
     if (achievedFirst.achieved) {

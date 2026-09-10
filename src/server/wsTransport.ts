@@ -7,21 +7,21 @@ export class WsConnection {
   private buffer = Buffer.alloc(0);
   private closed = false;
   /** 消息回调（由外部接管）。 */
-  onMessage: (text: string) => void = () => undefined;
+  public onMessage: (text: string) => void = () => undefined;
   /** 关闭回调。 */
-  onClose: () => void = () => undefined;
+  public onClose: () => void = () => undefined;
 
-  constructor(
+  public constructor(
     private readonly socket: Duplex,
     /** 握手时携带的 Authorization 头（供服务端鉴权门禁消费，D2）。 */
-    readonly authorization?: string,
+    public readonly authorization?: string,
   ) {
     socket.on('data', (chunk: Buffer) => this.consume(chunk));
     socket.on('close', () => this.close());
   }
 
   /** 发送文本帧。 */
-  send(text: string): void {
+  public send(text: string): void {
     if (this.closed) {
       return;
     }
@@ -29,7 +29,7 @@ export class WsConnection {
   }
 
   /** 关闭连接。 */
-  close(): void {
+  public close(): void {
     if (this.closed) {
       return;
     }
@@ -135,7 +135,7 @@ export class WsServer {
    *  故在此单独登记，供 HttpServer.close() 强制断开——否则关闭时会永久挂起。 */
   private readonly sockets = new Set<Duplex>();
 
-  constructor(
+  public constructor(
     httpServer: Server,
     private readonly onConnection: (connection: WsConnection) => void,
   ) {
@@ -143,7 +143,7 @@ export class WsServer {
   }
 
   /** 强制断开全部已建立的 WebSocket 连接（服务关闭时调用，幂等）。 */
-  closeAll(): void {
+  public closeAll(): void {
     for (const socket of this.sockets) {
       try {
         socket.destroy();

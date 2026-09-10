@@ -15,18 +15,18 @@ const SAMPLE: LspLocation = {
 
 /** 内存假 LSP：可选 ok / empty 两种模式，验证工具渲染与边界。 */
 class FakeLsp implements LspPort {
-  readonly name = 'fake-lsp';
-  constructor(private readonly mode: 'ok' | 'empty' = 'ok') {}
-  async definition(): Promise<readonly LspLocation[]> {
+  public readonly name = 'fake-lsp';
+  public constructor(private readonly mode: 'ok' | 'empty' = 'ok') {}
+  public async definition(): Promise<readonly LspLocation[]> {
     return this.mode === 'ok' ? [SAMPLE] : [];
   }
-  async references(): Promise<readonly LspLocation[]> {
+  public async references(): Promise<readonly LspLocation[]> {
     return this.mode === 'ok' ? [SAMPLE, SAMPLE] : [];
   }
-  async hover(): Promise<string | undefined> {
+  public async hover(): Promise<string | undefined> {
     return this.mode === 'ok' ? 'doc for symbol' : undefined;
   }
-  async shutdown(): Promise<void> {
+  public async shutdown(): Promise<void> {
     /* noop */
   }
 }

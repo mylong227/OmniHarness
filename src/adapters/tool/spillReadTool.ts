@@ -7,7 +7,7 @@ import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../po
  */
 export class SpillReadTool {
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'spill_read',
     description: '按 id 读回被外溢的完整工具输出（输出过大时原文已移出上下文，此处可取回全文）',
     parameters: {
@@ -19,10 +19,10 @@ export class SpillReadTool {
     },
   };
 
-  constructor(private readonly port: SpillPort) {}
+  public constructor(private readonly port: SpillPort) {}
 
   /** 读回外溢内容。 */
-  async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const spillId = String(call.arguments['id'] ?? '');
     const content = await this.port.read(spillId);
     if (content === undefined) {

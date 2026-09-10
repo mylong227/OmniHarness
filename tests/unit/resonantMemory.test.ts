@@ -14,27 +14,27 @@ const BINS = 257;
 
 /** 测试用内存长期记忆桩（仅满足端口契约，recall 用子串匹配占位）。 */
 class MemLongTermMemory implements LongTermMemoryPort {
-  readonly name = 'mem';
+  public readonly name = 'mem';
   private facts: MemoryFact[] = [];
-  remember(fact: MemoryFact): void {
+  public remember(fact: MemoryFact): void {
     this.facts.push(fact);
   }
-  recall(query: string, k: number): readonly MemoryFact[] {
+  public recall(query: string, k: number): readonly MemoryFact[] {
     return this.facts.filter((f) => f.text.includes(query)).slice(0, k);
   }
-  all(): readonly MemoryFact[] {
+  public all(): readonly MemoryFact[] {
     return this.facts;
   }
-  get count(): number {
+  public get count(): number {
     return this.facts.length;
   }
-  get(id: string): MemoryFact | undefined {
+  public get(id: string): MemoryFact | undefined {
     return this.facts.find((f) => f.id === id);
   }
-  update(): boolean {
+  public update(): boolean {
     return false;
   }
-  delete(): boolean {
+  public delete(): boolean {
     return false;
   }
 }

@@ -20,12 +20,12 @@ export class HttpBridgeTransport implements Transport {
   /** 企业鉴权门禁（D2，opt-in）：设置后所有入站 RPC 调用需有效 Bearer 令牌，fail-closed。 */
   private readonly auth?: EnterpriseAuth;
 
-  constructor(auth?: EnterpriseAuth) {
+  public constructor(auth?: EnterpriseAuth) {
     this.auth = auth;
   }
 
   /** 发送：带 id 的走挂起响应，通知广播给 SSE/WS。 */
-  send(message: RpcMessage): void {
+  public send(message: RpcMessage): void {
     if ('id' in message && message.id !== undefined) {
       const respond = this.pending.get(message.id);
       if (respond !== undefined) {
@@ -38,12 +38,12 @@ export class HttpBridgeTransport implements Transport {
   }
 
   /** 订阅入站消息。 */
-  onMessage(callback: (message: RpcMessage) => void): void {
+  public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
   /** 处理 POST /rpc：解析请求、鉴权门禁、分发、返回响应。 */
-  async handlePost(body: string, authHeader?: string): Promise<RpcMessage> {
+  public async handlePost(body: string, authHeader?: string): Promise<RpcMessage> {
     const message = JsonRpc.parse(body);
     if (message === undefined || !JsonRpc.isRequest(message)) {
       return JsonRpc.errorResponse(-1, -32700, '无效请求');
@@ -62,7 +62,7 @@ export class HttpBridgeTransport implements Transport {
   }
 
   /** 注册 WebSocket 客户端（消息接管到同一 pending/广播）；开启门禁时先校验 Bearer 令牌。 */
-  registerWs(connection: WsConnection): void {
+  public registerWs(connection: WsConnection): void {
     this.wsClients.add(connection);
     connection.onMessage = (text: string) => {
       const message = JsonRpc.parse(text);
@@ -100,7 +100,7 @@ export class HttpBridgeTransport implements Transport {
   }
 
   /** 注册 SSE 客户端。 */
-  registerSse(response: ServerResponse): void {
+  public registerSse(response: ServerResponse): void {
     this.sseClients.add(response);
     response.on('close', () => this.sseClients.delete(response));
   }
@@ -118,7 +118,7 @@ export class HttpBridgeTransport implements Transport {
   }
 
   /** 广播一条通知给全部 SSE / WS 客户端（供 live 视图推送工具参数增量等实时事件）。 */
-  notify(method: string, params: Record<string, unknown>): void {
+  public notify(method: string, params: Record<string, unknown>): void {
     this.broadcast(JsonRpc.notify(method, params));
   }
 }
@@ -157,13 +157,13 @@ export class HttpServer {
   /** 启动时刻（用于 uptime，构造即计时）。 */
   private readonly startedAt = Date.now();
 
-  constructor(private readonly options: HttpServerOptions) {
+  public constructor(private readonly options: HttpServerOptions) {
     this.server = createServer((request, response) => void this.route(request, response));
     this.ws = new WsServer(this.server, (connection) => this.options.bridge.registerWs(connection));
   }
 
   /** 启动并返回端口。 */
-  start(port: number): Promise<number> {
+  public start(port: number): Promise<number> {
     return new Promise((resolve) => {
       this.server.listen(port, () => {
         const address = this.server.address();
@@ -179,7 +179,7 @@ export class HttpServer {
    * `closeAllConnections` 覆盖不到，漏掉会让 `server.close()` 永不回调（服务关不掉）；
    * 再断普通 HTTP 连接，最后关监听。
    */
-  close(): Promise<void> {
+  public close(): Promise<void> {
     return new Promise((resolve) => {
       this.ws.closeAll();
       this.server.closeAllConnections?.();

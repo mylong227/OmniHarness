@@ -22,7 +22,7 @@ export interface RemoteFile {
 /** 附件图标解析器（文件类附件展示用）。 */
 export class AttachmentIcon {
   /** 按媒体类型给图标；未知回落回形针。 */
-  static of(mediaType: string): string {
+  public static of(mediaType: string): string {
     const t = (mediaType || '').toLowerCase();
     if (t.startsWith('video/')) return '🎬';
     if (t.startsWith('audio/')) return '🎵';
@@ -37,7 +37,7 @@ export class AttachmentIcon {
 /** 附件草稿构建器。 */
 export class AttachmentDraftFactory {
   /** 浏览器 File → 草稿（走 FileReader 读 dataURL，取逗号后的 base64 段）。 */
-  static fromFile(file: File, id: string): Promise<AttachmentDraft> {
+  public static fromFile(file: File, id: string): Promise<AttachmentDraft> {
     const kind: AttachmentDraft['kind'] = file.type.startsWith('image/')
       ? 'image'
       : file.type.startsWith('video/')
@@ -67,7 +67,7 @@ export class AttachmentDraftFactory {
    * 服务端 attach.read 结果 → 草稿。
    * kind 只认 image/video，其余（含 audio，前端无预览控件）归 file。
    */
-  static fromRemote(f: RemoteFile, id: string): AttachmentDraft {
+  public static fromRemote(f: RemoteFile, id: string): AttachmentDraft {
     const kind: AttachmentDraft['kind'] = f.kind === 'image' || f.kind === 'video' ? f.kind : 'file';
     return {
       id,

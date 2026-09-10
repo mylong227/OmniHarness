@@ -7,13 +7,13 @@ import type { VaultPort } from '../../ports/vault.js';
  * `OMNIHARNESS_CRED_<NAME>`），写/删仅作用于进程内映射，便于临时覆盖与测试。
  */
 export class EnvVault implements VaultPort {
-  readonly name = 'env';
+  public readonly name = 'env';
 
   private readonly prefix: string;
   private readonly overrides = new Map<string, string>();
   private readonly removed = new Set<string>();
 
-  constructor(options: { envPrefix?: string } = {}) {
+  public constructor(options: { envPrefix?: string } = {}) {
     this.prefix = options.envPrefix ?? 'OMNIHARNESS_CRED_';
   }
 
@@ -21,7 +21,7 @@ export class EnvVault implements VaultPort {
     return `${this.prefix}${name.toUpperCase()}`;
   }
 
-  async getSecret(name: string): Promise<string | undefined> {
+  public async getSecret(name: string): Promise<string | undefined> {
     if (this.removed.has(name)) {
       return undefined;
     }
@@ -31,26 +31,26 @@ export class EnvVault implements VaultPort {
     return process.env[this.envKey(name)];
   }
 
-  async setSecret(name: string, value: string): Promise<void> {
+  public async setSecret(name: string, value: string): Promise<void> {
     this.overrides.set(name, value);
     this.removed.delete(name);
   }
 
-  async deleteSecret(name: string): Promise<boolean> {
+  public async deleteSecret(name: string): Promise<boolean> {
     const existed = this.overrides.has(name) || process.env[this.envKey(name)] !== undefined;
     this.overrides.delete(name);
     this.removed.add(name);
     return existed;
   }
 
-  async hasSecret(name: string): Promise<boolean> {
+  public async hasSecret(name: string): Promise<boolean> {
     if (this.removed.has(name)) {
       return false;
     }
     return this.overrides.has(name) || process.env[this.envKey(name)] !== undefined;
   }
 
-  async listSecrets(): Promise<readonly string[]> {
+  public async listSecrets(): Promise<readonly string[]> {
     const names = new Set<string>(this.overrides.keys());
     for (const key of Object.keys(process.env)) {
       if (key.startsWith(this.prefix)) {
@@ -61,7 +61,7 @@ export class EnvVault implements VaultPort {
     return [...names].sort();
   }
 
-  async close(): Promise<void> {
+  public async close(): Promise<void> {
     // 无底层资源
   }
 }

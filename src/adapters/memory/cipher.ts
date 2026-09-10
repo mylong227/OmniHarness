@@ -25,13 +25,13 @@ export interface TextCodec {
  * - 密文载荷：`iv(base64):cipher(base64):tag(base64)`，单字符串，适合逐行 JSONL 存储。
  */
 export class AesGcmTextCodec implements TextCodec {
-  readonly name = 'aes-256-gcm';
+  public readonly name = 'aes-256-gcm';
 
   private readonly envVar: string;
   private readonly keyFile?: string;
   private key: Buffer | undefined;
 
-  constructor(options?: { envVar?: string; keyFile?: string }) {
+  public constructor(options?: { envVar?: string; keyFile?: string }) {
     this.envVar = options?.envVar ?? 'OMNIHARNESS_MEMORY_KEY';
     this.keyFile = options?.keyFile;
   }
@@ -72,7 +72,7 @@ export class AesGcmTextCodec implements TextCodec {
     return createHash('sha256').update(secret, 'utf8').digest();
   }
 
-  encode(text: string): string {
+  public encode(text: string): string {
     const key = this.resolveKey();
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', key, iv);
@@ -81,7 +81,7 @@ export class AesGcmTextCodec implements TextCodec {
     return `${iv.toString('base64')}:${encrypted.toString('base64')}:${tag.toString('base64')}`;
   }
 
-  decode(payload: string): string {
+  public decode(payload: string): string {
     const key = this.resolveKey();
     const [ivB64, cipherB64, tagB64] = payload.split(':');
     if (ivB64 === undefined || cipherB64 === undefined || tagB64 === undefined) {

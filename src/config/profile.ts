@@ -15,7 +15,7 @@ import { ConfigError, normalizeConfig } from './configLayer.js';
 /** Profile 文件加载器。 */
 export class ProfileLoader {
   /** 在项目级与用户级 profiles 目录中查找名为 name 的 profile 文件。 */
-  static find(projectDir: string, name: string): string | undefined {
+  public static find(projectDir: string, name: string): string | undefined {
     const candidates = [
       join(projectDir, 'profiles', `${name}.json`),
       join(homedir(), '.omniharness', 'profiles', `${name}.json`),
@@ -24,7 +24,7 @@ export class ProfileLoader {
   }
 
   /** 读取并严格校验 profile 文件（未知 key / 枚举越界 / 类型错误一律 fail-closed 抛错）。 */
-  static load(filePath: string): FileConfig {
+  public static load(filePath: string): FileConfig {
     let raw: string;
     try {
       raw = readFileSync(filePath, 'utf8');

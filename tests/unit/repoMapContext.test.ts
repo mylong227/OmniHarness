@@ -14,8 +14,8 @@ import type { Embedding, EmbeddingPort } from '../../src/ports/embedding.js';
 
 /** 确定性伪嵌入：向量 = 各字符落桶计数。无需真实模型，足以驱动混合检索机制且不崩。 */
 class FakeEmbedding implements EmbeddingPort {
-  readonly dim = 4;
-  async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
+  public readonly dim = 4;
+  public async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
     return texts.map((t) => {
       const v = [0, 0, 0, 0];
       for (const ch of t) {
@@ -29,16 +29,16 @@ class FakeEmbedding implements EmbeddingPort {
 
 /** 故意抛错的嵌入（模型缺失/离线场景）：混合检索必须 fail-closed 回退 BM25。 */
 class ThrowingEmbedding implements EmbeddingPort {
-  readonly dim = 4;
-  async embed(): Promise<readonly Embedding[]> {
+  public readonly dim = 4;
+  public async embed(): Promise<readonly Embedding[]> {
     throw new Error('model missing');
   }
 }
 
 /** 第二套确定性伪嵌入（落桶口径不同）：用于证明 semWeight=0 时输出与嵌入内容无关。 */
 class FakeEmbeddingAlt implements EmbeddingPort {
-  readonly dim = 4;
-  async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
+  public readonly dim = 4;
+  public async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
     return texts.map((t) => {
       const v = [0, 0, 0, 0];
       for (const ch of t) {
@@ -142,8 +142,8 @@ function deepBodyRepo(): { root: string; query: string } {
  * 语义只认字符分布、BM25 只认 token，两路由此彻底隔离。
  */
 class AxisEmbedding implements EmbeddingPort {
-  readonly dim = 2;
-  async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
+  public readonly dim = 2;
+  public async embed(texts: readonly string[]): Promise<readonly Embedding[]> {
     return texts.map((t) => {
       let z = 0;
       let y = 0;

@@ -35,7 +35,7 @@ export class ShellTool {
   private readonly maxCommandLength: number;
   private readonly guard: ShellToolOptions['guard'];
 
-  constructor(options: ShellToolOptions = {}) {
+  public constructor(options: ShellToolOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxBufferBytes = options.maxBufferBytes ?? 1024 * 1024;
     this.maxCommandLength = options.maxCommandLength ?? 8192;
@@ -43,7 +43,7 @@ export class ShellTool {
   }
 
   /** 工具定义。 */
-  readonly definition: ToolDefinition = {
+  public readonly definition: ToolDefinition = {
     name: 'shell',
     description: '在工作区内执行 shell 命令并返回输出（支持管道与重定向）',
     parameters: {
@@ -65,7 +65,7 @@ export class ShellTool {
    * - 若 `workspaceRoot` 为空（调用方未注入），退回进程 cwd 并告警——这是已知的宽松路径，
    *   收紧它属于行为变更，需调用方显式确认后再开启。
    */
-  async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const command = String(call.arguments['command'] ?? '').trim();
     if (command === '') {
       return this.failure(call.id, '命令为空');

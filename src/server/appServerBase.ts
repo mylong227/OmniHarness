@@ -115,7 +115,7 @@ export class AppServerBase {
   /** 进行中的图运行态（runId → 状态），供 graph.status 查询。 */
   protected readonly graphRuns = new Map<string, GraphRunState>();
 
-  constructor(options: AppServerOptions) {
+  public constructor(options: AppServerOptions) {
     this.options = options;
     this.autoApprove = options.autoApprove ?? false;
     this.displayConfig = options.displayConfig ?? {};
@@ -1242,18 +1242,18 @@ export class AppServerBase {
  * 策略面。eval 端的 NoopSupervisor 在 `src/eval/evalHarness.ts`，不复用避免拉耦。
  */
 class ServerNoopSupervisor implements SupervisorPort {
-  report(): void {}
-  mode(): SafeMode {
+  public report(): void {}
+  public mode(): SafeMode {
     return 'nominal';
   }
-  snapshot(): HealthSnapshot {
+  public snapshot(): HealthSnapshot {
     return { mode: 'nominal', entries: [], generatedAt: new Date().toISOString() };
   }
-  intercept(): string | undefined {
+  public intercept(): string | undefined {
     return undefined;
   }
-  onTransition(): void {}
-  attemptRecovery(): SafeMode {
+  public onTransition(): void {}
+  public attemptRecovery(): SafeMode {
     return 'nominal';
   }
 }

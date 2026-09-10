@@ -18,7 +18,7 @@ export type SandboxProfile =
 export class SandboxManager {
   private readonly backends = new Map<SandboxProfile, () => SandboxPort>();
 
-  constructor(private readonly workspaceRoot: string) {
+  public constructor(private readonly workspaceRoot: string) {
     this.register('passthrough', () => new PassthroughSandbox());
     this.register('policy', () => new PolicySandbox({ workspaceRoot: this.workspaceRoot }));
     this.register('restricted', () => new RestrictedSandbox({ workspaceRoot: this.workspaceRoot }));
@@ -28,7 +28,7 @@ export class SandboxManager {
   }
 
   /** 注册后端（工厂延迟实例化，避免无谓构造）。 */
-  register(profile: SandboxProfile, factory: () => SandboxPort): void {
+  public register(profile: SandboxProfile, factory: () => SandboxPort): void {
     this.backends.set(profile, factory);
   }
 
@@ -39,7 +39,7 @@ export class SandboxManager {
    * **绝不回退 PassthroughSandbox**——回退直通等于把「拼错 profile 名」静默变成
    * 「全量放行」，是 fail-open。安全操作宁可拒绝也不放行（项目 fail-closed 铁律）。
    */
-  build(profile: SandboxProfile): SandboxPort {
+  public build(profile: SandboxProfile): SandboxPort {
     const factory = this.backends.get(profile);
     if (factory === undefined) {
       return new UnsupportedSandbox(profile, `未知沙箱 profile: ${String(profile)}`);
