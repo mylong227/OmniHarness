@@ -16,7 +16,7 @@
 | 隐式 public 的类成员 | **1332** | **20**（热区豁免块残留） |
 | 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
-| 文件名 ≠ 主类名 | 69 | 69 |
+| 文件名 ≠ 主类名 | 69 | **62**（Phase 3 批次1：−3，剩 62） |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
 | `static` 用量 | 206 / 36 文件 | **20**（Phase 5 收官：−186，6 文件，全合法） |
 | 单文件 ≥3 个导出类 | 3 | **0**（Phase 6 收官） |
@@ -39,12 +39,17 @@
 - 风险：需逐方法理解语义，**不可机械批量**；按模块分批，每批单独提交。
 - 建议顺序：`util/` → `context/` → `adapters/` 小文件 → `ports/` 接口。
 
-### Phase 3 — 文件名 = 类名（待办，69 文件）
+### Phase 3 — 文件名 = 类名（进行中，剩 62 / 69）
 - 二选一策略（逐文件判定）：
   - **改文件名**：`errors.ts` → `omniError.ts`（类名 `OmniError`）——推荐，改动集中。
   - **改类名**：仅当类名语义弱于文件名时。
-- 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
-- 批次内以 `tsc --noEmit` 立即校验。
+- 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免；
+  `ports/**` 接口文件豁免（如 `ports/model.ts` 的 `ModelCallError`）。
+- 按 fan-in 分批：低 fan-in（含相对路径 import）先动，每批 tsc+eslint+单测+独立提交；热区 stepRunner 的
+  依赖（`core/toolHooks`）暂缓，待热区收口。
+- **批次1（提交 `1ed25be`，65→62，实际基线已因 Phase 6 桶拆分降到 65）**：重命名 3 个低 fan-in 单类文件
+  `core/eventLog`→`appendOnlyEventLog` / `adapters/model/router`→`modelRouter` / `daemon/routines`→`routineScheduler`；
+  17 处 import 路径更新（含 `./eventLog.js` 相对形式漏改一次后补），门禁全绿、单测 15 用例通过。
 
 ### Phase 4 — 上帝类拆分（✅ 真项清零；仅余热区）
 

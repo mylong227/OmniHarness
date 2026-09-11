@@ -5,7 +5,7 @@ import { ToolSearchTool } from '../adapters/tool/toolSearchTool.js';
 import { MemorySearchTool } from '../adapters/tool/memorySearchTool.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
 import { RememberTool, RecallTool } from '../adapters/tool/longTermMemoryTools.js';
-import { CheckpointManager } from '../core/checkpoint.js';
+import { CheckpointManager } from '../core/checkpointManager.js';
 import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
 import { registerCheckpointTools } from '../adapters/tool/checkpointTool.js';
 import { BudgetStatusTool } from '../adapters/tool/budgetStatusTool.js';

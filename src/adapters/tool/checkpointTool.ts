@@ -1,4 +1,4 @@
-import type { CheckpointManager } from '../../core/checkpoint.js';
+import type { CheckpointManager } from '../../core/checkpointManager.js';
 import type { RegistryToolPort } from './registryToolPort.js';
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import { rollbackDefinition, makeRollbackHandler } from './rollbackTool.js';

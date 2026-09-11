@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, writeFile, readFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CheckpointManager } from '../../src/core/checkpoint.js';
+import { CheckpointManager } from '../../src/core/checkpointManager.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { GitWorkspaceSnapshot } from '../../src/adapters/workspace/gitWorkspaceSnapshot.js';
 

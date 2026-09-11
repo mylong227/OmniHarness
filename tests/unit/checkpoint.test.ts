@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CheckpointManager } from '../../src/core/checkpoint.js';
+import { CheckpointManager } from '../../src/core/checkpointManager.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import type { SessionEvent } from '../../src/ports/event.js';
 

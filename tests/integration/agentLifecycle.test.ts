@@ -9,7 +9,7 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PlanApproval } from '../../src/adapters/approval/planApproval.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { CheckpointManager } from '../../src/core/checkpoint.js';
+import { CheckpointManager } from '../../src/core/checkpointManager.js';
 
 /** 用固定端口组合构造 Agent（端到端，真实 IO）。 */
 function buildAgent(approvals: AutoApproval | PlanApproval): Agent {
