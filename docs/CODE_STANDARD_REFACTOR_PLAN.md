@@ -46,7 +46,7 @@
 - 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
 - 批次内以 `tsc --noEmit` 立即校验。
 
-### Phase 4 — 上帝类拆分（进行中，4/7；最高风险）
+### Phase 4 — 上帝类拆分（进行中，5/7；最高风险）
 
 **已完成（各独立提交，行为零变更 + 门禁绿 + 单测通过）**
 - ✅ `adapters/lsp/lspProcess.ts`（371 行 / 26 方法）→ 抽出 `LspJsonRpcConnection`（stdio JSON-RPC 传输/分帧/超时），
@@ -61,13 +61,17 @@
   组合替代继承）、`KvStoreFactory`（KV 后端工厂）、`SessionCommand`、`PluginCommand`、`ProfileCommand`、
   `BundleCommand`、`AuditCommand`、`StoreCommand`；`CliBuildConfig` 的 flagValue/flagNumber/collectFlags 改为委托
   `CliArgReader`（消重复），并删除一处既有无用 import。提交 `8756869`；cliDataCmds 端到端 7/7（新增单测）。
+- ✅ `server/appServer.ts`（659 行 / 31 方法）→ 抽出 4 个领域服务（组合替代「RPC 胶水 + 领域逻辑」混写）：
+  `RepoPathGuard`（仓库内相对路径 fail-closed 守卫，安全判定单点）、`DiffReview`（git 审查：file/hunk 级
+  stage/revert，真实 git 操作）、`DiffCommentStore`（行内评论工作区级持久化，读失败 fail-open 到空态）、
+  `SessionCheckpoints`（会话检查点列表/创建/回滚，只依赖 `StoragePort` 窄接口而非整个 ResolvedConfig）。
+  433 行 / 14 方法，全部新文件 ≤165 行且文件名=类名；RPC 名/签名/错误文案/返回结构逐字不变。
+  提交 `…`；新增服务单测 20/20（repoPathGuard 5 / diffCommentStore 5 / diffReview 6 / sessionCheckpoints 4）。
 
 **剩余（待办）**
-- 候选与拆分方向：
-  - `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 `appServerThreads` / `appServerTurns` / `appServerApprovals` 等。
-  - `config/omniharnessConfig.ts`（764）→ 实为「类型声明 + 单方法工厂」，非真上帝类，拆分价值低。
-  - `server/appServer.ts`（659 / 31）→ 委托 `appServerBase` + 处理器分离（已有 `appServerHandlers`）。
-  - `core/stepRunner.ts`（526）→ **热区，暂缓**。
+- `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 threads / turns / approvals / config / fs 等域。
+- `config/omniharnessConfig.ts`（764）、`core/stepRunner.ts`（526）→ 前者实为「类型声明 + 单方法工厂」价值低；
+  后者**热区，暂缓**。
 - ⚠️ `appServer*` 两兄弟的单测在本机因 WS/端口 15s 超时**不可靠**，拆分只能靠 typecheck + api:check 兜底，须最谨慎。
 - 每个文件**独立提交**并跑全量单测，确保行为零变更。
 - 拆分范式（已验证，可复用）：读全文件找**职责缝** → 抽出新类**文件名=类名**（顺带满足规范 #2）
@@ -76,6 +80,11 @@
   `CliArgReader` 组合式取参、经工厂函数注入链上能力 → 命令类不依赖继承链、可独立单测；`protected runXxx` 门面
   签名不变 → `execImpl` 分发点零改动。**测试陷阱**：勿在测试进程内劫持 `process.stdout`（会与 `node --test` 的 TAP
   报告器抢 stdout，致用例丢失），CLI 端到端改用子进程（仿 `cliSystem.test.ts`）。
+- 子范式（RPC 门面/服务器场景）：god 不在类自身而在「RPC 胶水与领域逻辑混写」——按**领域**（git 审查 / 评论持久化 /
+  会话检查点 / 路径安全）抽独立服务类；服务收 RPC 原始参数并自持校验（错误文案与返回结构逐字保留），门面只留
+  `handlers.set` 一行委托；服务在**构造期装配一次**（零每调用构造开销），工作区根以 **getter 注入**以兼容运行时
+  `workspace.switch`；依赖只取**窄接口**（如 `StoragePort`）而非整个 `ResolvedConfig`（接口隔离，且可用
+  `MemoryStorage` 直接单测）。服务纯逻辑用临时目录/临时 git 仓单测，绕开环境性 flaky 的集成测试。
 
 ### Phase 5 — 削减 static（待办，36 文件 / 206 处）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例 + 薄门面（沿用批次 A 已验证模式）。

@@ -1,37 +1,43 @@
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve } from 'node:path';
 import type { LongTermMemoryPort, MemoryFact, MemoryFactPatch } from '../ports/longTermMemory.js';
 import { WorkflowRunner } from '../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../autonomy/workflowTypes.js';
-import { CheckpointManager } from '../core/checkpoint.js';
-import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
 import { JsonRpc } from './jsonRpc.js';
 import type { ImageContent, FileAttachment } from '../ports/model.js';
 import { id } from '../util/id.js';
 import { AppServerHandlers } from './appServerHandlers.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
 import { PROVIDER_PRESETS } from './providerPresets.js';
+import { RepoPathGuard } from './repoPathGuard.js';
+import { DiffReview } from './diffReview.js';
+import { DiffCommentStore } from './diffCommentStore.js';
+import { SessionCheckpoints } from './sessionCheckpoints.js';
 
 export type { AppServerOptions } from './appServerState.js';
 
-/** diff 行内评论记录（锚定 文件 + 行号 + 侧别），持久化在工作区 .omni/diff-comments.json。 */
-interface DiffCommentRecord {
-  id: string;
-  path: string;
-  side: 'old' | 'new';
-  line: number;
-  text: string;
-  ts: string;
-}
-
 /**
  * app-server：JSON-RPC 原语（threads/turns/items）+ 事件推送 + 审批上行。
- * 叶类：继承自 AppServerHandlers（→ AppServerBase），仅含构造器、方法调度与 graph/memory/线程/runGraph 处理器。
+ *
+ * 叶类，薄门面：只保留「方法调度 + 线程/回合/图/记忆处理器」，把可复用的领域逻辑
+ * 组合为独立服务——`DiffReview`（git 审查）、`DiffCommentStore`（评论持久化）、
+ * `SessionCheckpoints`（会话检查点）、`RepoPathGuard`（路径安全）。服务在构造期装配一次，
+ * 每个 RPC 调用零额外构造开销。
  */
 export class AppServer extends AppServerHandlers {
+  private readonly diffReview: DiffReview;
+  private readonly diffComments: DiffCommentStore;
+  private readonly checkpoints: SessionCheckpoints;
+
   public constructor(options: AppServerOptions) {
     super(options);
+    // 工作区根以 getter 注入：支持运行时 workspace.switch 后服务仍取到最新根。
+    const workspaceRoot = (): string => this.effectiveWorkspace();
+    const guard = new RepoPathGuard(workspaceRoot);
+    this.diffReview = new DiffReview({ workspaceRoot, guard });
+    this.diffComments = new DiffCommentStore({ workspaceRoot, guard });
+    this.checkpoints = new SessionCheckpoints({
+      storage: options.config.storage,
+      workspaceRoot: options.workspaceRoot,
+    });
     this.registerHandlers();
     options.transport.onMessage((message) => void this.handle(message));
     // 启动时异步探测一次当前 active 厂商（fire-and-forget，不阻塞 listen）。
@@ -170,261 +176,32 @@ export class AppServer extends AppServerHandlers {
 
   /** 会话检查点 / 回滚 RPC（对标 Codex「回滚到检查点」）：列表 / 创建 / 回滚（对话 + 代码）。 */
   private registerCheckpointHandlers(): void {
-    this.handlers.set('checkpoint.list', (params) => this.listCheckpoints(params));
-    this.handlers.set('checkpoint.create', (params) => this.createCheckpoint(params));
-    this.handlers.set('checkpoint.rollback', (params) => this.rollbackCheckpoint(params));
+    this.handlers.set('checkpoint.list', (params) => this.checkpoints.list(params));
+    this.handlers.set('checkpoint.create', (params) => this.checkpoints.create(params));
+    this.handlers.set('checkpoint.rollback', (params) => this.checkpoints.rollback(params));
   }
 
-  /** 惰性构造检查点管理器：复用会话 StoragePort + Git 文件快照适配器。 */
-  private checkpointManagerOf(): CheckpointManager {
-    return new CheckpointManager(this.options.config.storage, {
-      snapshotter: new GitWorkspaceSnapshot(),
-      workspaceRoot: this.options.workspaceRoot ?? process.cwd(),
-    });
-  }
-
-  private async listCheckpoints(params: Record<string, unknown>): Promise<unknown> {
-    const sessionId = params['sessionId'];
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {
-      throw new Error('checkpoint.list 需要 sessionId');
-    }
-    const list = await this.checkpointManagerOf().list(sessionId);
-    return { sessionId, checkpoints: list };
-  }
-
-  private async createCheckpoint(params: Record<string, unknown>): Promise<unknown> {
-    const sessionId = params['sessionId'];
-    const label = params['label'];
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {
-      throw new Error('checkpoint.create 需要 sessionId');
-    }
-    if (typeof label !== 'string' || label.length === 0) {
-      throw new Error('checkpoint.create 需要 label');
-    }
-    const checkpoint = await this.checkpointManagerOf().snapshot(sessionId, label);
-    return { ok: true, checkpoint };
-  }
-
-  private async rollbackCheckpoint(params: Record<string, unknown>): Promise<unknown> {
-    const sessionId = params['sessionId'];
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {
-      throw new Error('checkpoint.rollback 需要 sessionId');
-    }
-    const label = typeof params['label'] === 'string' ? (params['label'] as string) : undefined;
-    const checkpoint = await this.checkpointManagerOf().rollback(sessionId, label);
-    return { ok: true, checkpoint };
-  }
-
-  // ---- 内联 diff 审查（对标 Codex Review：hunk 级 stage/revert + 行内评论）----
-
-  /** 注册 diff 审查 RPC：hunk/file 级 stage/revert（真实 git 操作）+ 行级评论（工作区级持久化）。 */
+  /** 内联 diff 审查 RPC（对标 Codex Review）：hunk/file 级 stage/revert + 行级评论。 */
   private registerReviewHandlers(): void {
-    this.handlers.set('changes.stageFile', (params) => Promise.resolve(this.changeStageFile(params)));
-    this.handlers.set('changes.revertFile', (params) => Promise.resolve(this.changeRevertFile(params)));
-    this.handlers.set('changes.stageHunk', (params) => Promise.resolve(this.changeStageHunk(params)));
-    this.handlers.set('changes.revertHunk', (params) => Promise.resolve(this.changeRevertHunk(params)));
-    this.handlers.set('changes.comments.list', () => Promise.resolve(this.listDiffComments()));
-    this.handlers.set('changes.comments.add', (params) => Promise.resolve(this.addDiffComment(params)));
+    this.handlers.set('changes.stageFile', (params) =>
+      Promise.resolve(this.diffReview.stageFile(params)),
+    );
+    this.handlers.set('changes.revertFile', (params) =>
+      Promise.resolve(this.diffReview.revertFile(params)),
+    );
+    this.handlers.set('changes.stageHunk', (params) =>
+      Promise.resolve(this.diffReview.stageHunk(params)),
+    );
+    this.handlers.set('changes.revertHunk', (params) =>
+      Promise.resolve(this.diffReview.revertHunk(params)),
+    );
+    this.handlers.set('changes.comments.list', () => Promise.resolve(this.diffComments.list()));
+    this.handlers.set('changes.comments.add', (params) =>
+      Promise.resolve(this.diffComments.add(params)),
+    );
     this.handlers.set('changes.comments.delete', (params) =>
-      Promise.resolve(this.deleteDiffComment(params)),
+      Promise.resolve(this.diffComments.remove(params)),
     );
-  }
-
-  /** 校验当前工作区为 git 仓库，返回工作区根（否则 fail-closed 抛错）。 */
-  private gitWorkspaceOrFail(): string {
-    const ws = this.effectiveWorkspace();
-    const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      cwd: ws,
-      encoding: 'utf8',
-    });
-    if (inside.status !== 0 || inside.stdout.trim() !== 'true') {
-      throw new Error('当前工作区不是 git 仓库，无法执行 stage/revert');
-    }
-    return ws;
-  }
-
-  /** 路径安全校验：仅接受仓库内相对路径（拒绝绝对路径与 .. 穿越），返回规范化相对路径。 */
-  private safeRepoPath(ws: string, raw: string): string {
-    if (raw.length === 0) throw new Error('path 不能为空');
-    if (isAbsolute(raw) || /^[a-zA-Z]:/.test(raw)) throw new Error('仅接受仓库内相对路径');
-    const abs = resolve(ws, raw);
-    const rel = relative(ws, abs);
-    if (rel.startsWith('..') || isAbsolute(rel) || rel.length === 0) {
-      throw new Error('路径越出仓库范围：' + raw);
-    }
-    return rel;
-  }
-
-  /** 单 hunk 补丁文本：`--- a/…` / `+++ b/…` 文件头 + hunk（@@ 行与正文）。 */
-  private hunkPatchText(rel: string, hunk: string): string {
-    if (!hunk.includes('@@')) throw new Error('hunk 文本缺少 @@ 头');
-    return `--- a/${rel}\n+++ b/${rel}\n${hunk.replace(/\n+$/, '')}\n`;
-  }
-
-  /** 指定文件的两字符 porcelain 状态（?? / A / M / D / R…），仓库异常返回 ''。 */
-  private fileStatus(ws: string, rel: string): string {
-    const st = spawnSync('git', ['status', '--porcelain', '--', rel], {
-      cwd: ws,
-      encoding: 'utf8',
-    });
-    return st.status === 0 ? st.stdout.slice(0, 2).trim() : '';
-  }
-
-  /** stage 整个文件（含未跟踪新文件）：`git add -- path`。 */
-  private changeStageFile(params: Record<string, unknown>): unknown {
-    const raw = params['path'];
-    if (typeof raw !== 'string') throw new Error('changes.stageFile 需要 path');
-    const ws = this.gitWorkspaceOrFail();
-    const rel = this.safeRepoPath(ws, raw);
-    const add = spawnSync('git', ['add', '--', rel], { cwd: ws, encoding: 'utf8' });
-    if (add.status !== 0) {
-      throw new Error('git add 失败：' + (add.stderr || add.stdout).trim());
-    }
-    return { ok: true };
-  }
-
-  /** 丢弃整个文件的工作区改动（还原到 index 版本）；未跟踪文件拒绝服务端删除（防误删）。 */
-  private changeRevertFile(params: Record<string, unknown>): unknown {
-    const raw = params['path'];
-    if (typeof raw !== 'string') throw new Error('changes.revertFile 需要 path');
-    const ws = this.gitWorkspaceOrFail();
-    const rel = this.safeRepoPath(ws, raw);
-    if (this.fileStatus(ws, rel) === '??') {
-      throw new Error('未跟踪文件不做服务端丢弃（防误删），请手动删除或先 stage');
-    }
-    const co = spawnSync('git', ['checkout', '--', rel], { cwd: ws, encoding: 'utf8' });
-    if (co.status !== 0) {
-      throw new Error('git checkout 失败：' + (co.stderr || co.stdout).trim());
-    }
-    return { ok: true };
-  }
-
-  /** stage 单个 hunk：`git apply --cached`。未跟踪新文件先 `git add -N` 建立意向项。 */
-  private changeStageHunk(params: Record<string, unknown>): unknown {
-    const raw = params['path'];
-    const hunk = params['hunk'];
-    if (typeof raw !== 'string') throw new Error('changes.stageHunk 需要 path');
-    if (typeof hunk !== 'string' || hunk.trim() === '') {
-      throw new Error('changes.stageHunk 需要 hunk 文本');
-    }
-    const ws = this.gitWorkspaceOrFail();
-    const rel = this.safeRepoPath(ws, raw);
-    if (params['isNew'] === true) {
-      // 未跟踪文件先进 index 意向区（intent-to-add），否则 --cached apply 无目标。
-      const addN = spawnSync('git', ['add', '-N', '--', rel], { cwd: ws, encoding: 'utf8' });
-      if (addN.status !== 0) {
-        throw new Error('git add -N 失败：' + (addN.stderr || addN.stdout).trim());
-      }
-    }
-    const apply = spawnSync(
-      'git',
-      ['apply', '--cached', '--recount', '--whitespace=nofix', '-'],
-      { cwd: ws, encoding: 'utf8', input: this.hunkPatchText(rel, hunk) },
-    );
-    if (apply.status !== 0) {
-      throw new Error('git apply --cached 失败：' + (apply.stderr || apply.stdout).trim());
-    }
-    return { ok: true };
-  }
-
-  /** 丢弃单个 hunk 的工作区改动：`git apply -R`（反向应用于工作树）。 */
-  private changeRevertHunk(params: Record<string, unknown>): unknown {
-    const raw = params['path'];
-    const hunk = params['hunk'];
-    if (typeof raw !== 'string') throw new Error('changes.revertHunk 需要 path');
-    if (typeof hunk !== 'string' || hunk.trim() === '') {
-      throw new Error('changes.revertHunk 需要 hunk 文本');
-    }
-    const ws = this.gitWorkspaceOrFail();
-    const rel = this.safeRepoPath(ws, raw);
-    const apply = spawnSync('git', ['apply', '-R', '--recount', '--whitespace=nofix', '-'], {
-      cwd: ws,
-      encoding: 'utf8',
-      input: this.hunkPatchText(rel, hunk),
-    });
-    if (apply.status !== 0) {
-      throw new Error('git apply -R 失败：' + (apply.stderr || apply.stdout).trim());
-    }
-    return { ok: true };
-  }
-
-  /** 行内评论持久化文件（工作区级，与 .omni-checkpoints 同一约定：藏在 .omni/ 下）。 */
-  private diffCommentsFile(): string {
-    return join(this.effectiveWorkspace(), '.omni', 'diff-comments.json');
-  }
-
-  /** 读取全部行内评论；文件缺失/损坏返回空数组（fail-open 到空态，不阻断 UI）。 */
-  private loadDiffComments(): DiffCommentRecord[] {
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(this.diffCommentsFile(), 'utf8'));
-      if (!Array.isArray(parsed)) return [];
-      const out: DiffCommentRecord[] = [];
-      for (const item of parsed) {
-        const c = item as Partial<DiffCommentRecord>;
-        if (
-          typeof c.id === 'string' &&
-          typeof c.path === 'string' &&
-          (c.side === 'old' || c.side === 'new') &&
-          typeof c.line === 'number' &&
-          typeof c.text === 'string' &&
-          typeof c.ts === 'string'
-        ) {
-          out.push({ id: c.id, path: c.path, side: c.side, line: c.line, text: c.text, ts: c.ts });
-        }
-      }
-      return out;
-    } catch {
-      return [];
-    }
-  }
-
-  private saveDiffComments(list: readonly DiffCommentRecord[]): void {
-    const file = this.diffCommentsFile();
-    mkdirSync(join(file, '..'), { recursive: true });
-    writeFileSync(file, JSON.stringify(list, null, 2), 'utf8');
-  }
-
-  private listDiffComments(): unknown {
-    return { comments: this.loadDiffComments() };
-  }
-
-  private addDiffComment(params: Record<string, unknown>): unknown {
-    const rawPath = params['path'];
-    const text = params['text'];
-    const line = params['line'];
-    if (typeof rawPath !== 'string' || typeof text !== 'string' || text.trim() === '') {
-      throw new Error('changes.comments.add 需要非空 path 与 text');
-    }
-    if (typeof line !== 'number' || !Number.isInteger(line) || line < 0) {
-      throw new Error('changes.comments.add 需要非负整数 line');
-    }
-    const side = params['side'] === 'old' ? 'old' : 'new';
-    const ws = this.effectiveWorkspace();
-    const rel = this.safeRepoPath(ws, rawPath);
-    const comment: DiffCommentRecord = {
-      id: id('cmt'),
-      path: rel,
-      side,
-      line,
-      text: text.trim(),
-      ts: new Date().toISOString(),
-    };
-    const list = this.loadDiffComments();
-    list.push(comment);
-    this.saveDiffComments(list);
-    return { ok: true, comment };
-  }
-
-  private deleteDiffComment(params: Record<string, unknown>): unknown {
-    const idParam = params['id'];
-    if (typeof idParam !== 'string') throw new Error('changes.comments.delete 需要 id');
-    const list = this.loadDiffComments();
-    const next = list.filter((c) => c.id !== idParam);
-    if (next.length === list.length) {
-      throw new Error('未找到评论: ' + idParam);
-    }
-    this.saveDiffComments(next);
-    return { ok: true };
   }
 
   /** 长期记忆管理 RPC（#G-D / 4.3，对标 codex dedicated memories）：列表/查看/增/改/删/检索 + 变更实时通知。 */
