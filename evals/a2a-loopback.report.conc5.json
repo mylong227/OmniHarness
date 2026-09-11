@@ -1,0 +1,326 @@
+{
+  "timestamp": "2026-09-11T16:42:21.778Z",
+  "scope": "U6 A2A 回环实测（传输层+协议层，不含 LLM）",
+  "endpoint": "http://127.0.0.1:7742/a2a",
+  "taskCount": 50,
+  "concurrency": 5,
+  "handlerHandled": 50,
+  "completed": 50,
+  "completionRate": 1,
+  "integrityOkCount": 50,
+  "integrityRate": 1,
+  "declarationLatencyMs": 54,
+  "latencyMs": {
+    "min": 4,
+    "avg": 10.82,
+    "p50": 7,
+    "p95": 28,
+    "max": 28
+  },
+  "perTask": [
+    {
+      "taskId": "bench-0",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 27
+    },
+    {
+      "taskId": "bench-1",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 28
+    },
+    {
+      "taskId": "bench-2",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 28
+    },
+    {
+      "taskId": "bench-3",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 28
+    },
+    {
+      "taskId": "bench-4",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 27
+    },
+    {
+      "taskId": "bench-5",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 23
+    },
+    {
+      "taskId": "bench-6",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 28
+    },
+    {
+      "taskId": "bench-7",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 28
+    },
+    {
+      "taskId": "bench-8",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 26
+    },
+    {
+      "taskId": "bench-9",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 24
+    },
+    {
+      "taskId": "bench-10",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 8
+    },
+    {
+      "taskId": "bench-11",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 9
+    },
+    {
+      "taskId": "bench-12",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 10
+    },
+    {
+      "taskId": "bench-13",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 10
+    },
+    {
+      "taskId": "bench-14",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 10
+    },
+    {
+      "taskId": "bench-15",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 6
+    },
+    {
+      "taskId": "bench-16",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-17",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-18",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-19",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 8
+    },
+    {
+      "taskId": "bench-20",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 9
+    },
+    {
+      "taskId": "bench-21",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 9
+    },
+    {
+      "taskId": "bench-22",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 9
+    },
+    {
+      "taskId": "bench-23",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 10
+    },
+    {
+      "taskId": "bench-24",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 10
+    },
+    {
+      "taskId": "bench-25",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-26",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 6
+    },
+    {
+      "taskId": "bench-27",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-28",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-29",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 8
+    },
+    {
+      "taskId": "bench-30",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 6
+    },
+    {
+      "taskId": "bench-31",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 6
+    },
+    {
+      "taskId": "bench-32",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 6
+    },
+    {
+      "taskId": "bench-33",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-34",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-35",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-36",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-37",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-38",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 7
+    },
+    {
+      "taskId": "bench-39",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 8
+    },
+    {
+      "taskId": "bench-40",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-41",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-42",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-43",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-44",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-45",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 4
+    },
+    {
+      "taskId": "bench-46",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 4
+    },
+    {
+      "taskId": "bench-47",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 4
+    },
+    {
+      "taskId": "bench-48",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 5
+    },
+    {
+      "taskId": "bench-49",
+      "ok": true,
+      "integrityOk": true,
+      "latencyMs": 6
+    }
+  ],
+  "gate": {
+    "minCompletion": 1,
+    "pass": true
+  }
+}
