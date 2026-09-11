@@ -20,31 +20,33 @@ export interface DiffHunk {
   readonly ops: readonly DiffOp[];
 }
 
+/** LCS 表单元格上限：超出则退化，避免大文件平方级开销。 */
+const MAX_LCS_CELLS = 2_000_000;
+
+/** 默认上下文行数（unified diff 惯例）。 */
+export const DEFAULT_CONTEXT_LINES = 3;
+
 /**
- * 行级 unified diff 引擎：原模块级纯函数归拢为 `UnifiedDiff` 静态方法族，
- * 调用点（toolResultSpiller / CLI diff 展示等）通过同名 `export const` 别名零改动引用。
+ * 行级 unified diff 引擎。
+ *
+ * 无状态、无 IO：同一实例可并发复用（默认实例见文件末尾组合根门面）。
+ * `OOP 收口`（2026-09-11）：原静态方法族改为实例方法，消除 `static`，便于按需注入与单测。
  */
 export class UnifiedDiff {
-  /** LCS 表单元格上限：超出则退化，避免大文件平方级开销。 */
-  private static readonly MAX_LCS_CELLS = 2_000_000;
-
-  /** 默认上下文行数（unified diff 惯例）。 */
-  public static readonly DEFAULT_CONTEXT_LINES = 3;
-
   /** 计算行级差异操作序列。 */
-  public static diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
-    const table = UnifiedDiff.lcsTable(before, after);
+  public diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
+    const table = this.lcsTable(before, after);
     if (table === undefined) {
       return [
         ...before.map((text): DiffOp => ({ kind: 'delete', text })),
         ...after.map((text): DiffOp => ({ kind: 'insert', text })),
       ];
     }
-    return UnifiedDiff.opsFromTable(before, after, table);
+    return this.opsFromTable(before, after, table);
   }
 
   /** 把操作序列切分为带上下文的 hunk。 */
-  public static hunksOf(ops: readonly DiffOp[], context = UnifiedDiff.DEFAULT_CONTEXT_LINES): readonly DiffHunk[] {
+  public hunksOf(ops: readonly DiffOp[], context = DEFAULT_CONTEXT_LINES): readonly DiffHunk[] {
     const ranges: { start: number; end: number }[] = [];
     ops.forEach((op, index) => {
       if (op.kind === 'equal') {
@@ -59,18 +61,18 @@ export class UnifiedDiff {
       }
       ranges.push({ start, end });
     });
-    return ranges.map((range) => UnifiedDiff.hunkOf(ops, range.start, range.end));
+    return ranges.map((range) => this.hunkOf(ops, range.start, range.end));
   }
 
   /** 渲染单文件 unified diff（无差异时返回空串）。 */
-  public static renderUnifiedDiff(
+  public renderUnifiedDiff(
     path: string,
     before: string,
     after: string,
-    context = UnifiedDiff.DEFAULT_CONTEXT_LINES,
+    context = DEFAULT_CONTEXT_LINES,
   ): string {
-    const ops = UnifiedDiff.diffLines(UnifiedDiff.splitLines(before), UnifiedDiff.splitLines(after));
-    const hunks = UnifiedDiff.hunksOf(ops, context);
+    const ops = this.diffLines(this.splitLines(before), this.splitLines(after));
+    const hunks = this.hunksOf(ops, context);
     if (hunks.length === 0) {
       return '';
     }
@@ -80,19 +82,19 @@ export class UnifiedDiff {
         `@@ -${hunk.beforeStart},${hunk.beforeCount} +${hunk.afterStart},${hunk.afterCount} @@`,
       );
       for (const op of hunk.ops) {
-        lines.push(`${UnifiedDiff.prefixOf(op.kind)}${op.text}`);
+        lines.push(`${this.prefixOf(op.kind)}${op.text}`);
       }
     }
     return lines.join('\n');
   }
 
   /** 拆分为行（空文本视为零行，避免产出幽灵空行）。 */
-  public static splitLines(text: string): string[] {
+  public splitLines(text: string): string[] {
     return text === '' ? [] : text.split('\n');
   }
 
   /** 操作前缀（unified diff 惯例）。 */
-  private static prefixOf(kind: DiffOp['kind']): string {
+  private prefixOf(kind: DiffOp['kind']): string {
     if (kind === 'insert') {
       return '+';
     }
@@ -100,9 +102,9 @@ export class UnifiedDiff {
   }
 
   /** LCS 后缀表；规模超限时返回 undefined 交由调用方退化。 */
-  private static lcsTable(a: readonly string[], b: readonly string[]): Uint32Array | undefined {
+  private lcsTable(a: readonly string[], b: readonly string[]): Uint32Array | undefined {
     const width = b.length + 1;
-    if ((a.length + 1) * width > UnifiedDiff.MAX_LCS_CELLS) {
+    if ((a.length + 1) * width > MAX_LCS_CELLS) {
       return undefined;
     }
     const table = new Uint32Array((a.length + 1) * width);
@@ -118,7 +120,7 @@ export class UnifiedDiff {
   }
 
   /** 沿 LCS 表回溯出操作序列。 */
-  private static opsFromTable(
+  private opsFromTable(
     a: readonly string[],
     b: readonly string[],
     table: Uint32Array,
@@ -152,7 +154,7 @@ export class UnifiedDiff {
   }
 
   /** 由操作区间构造 hunk（统计两侧行号与行数）。 */
-  private static hunkOf(ops: readonly DiffOp[], start: number, end: number): DiffHunk {
+  private hunkOf(ops: readonly DiffOp[], start: number, end: number): DiffHunk {
     const slice = ops.slice(start, end);
     let beforeStart = 0;
     let afterStart = 0;
@@ -184,9 +186,30 @@ export class UnifiedDiff {
   }
 }
 
-// ---- 门面兼容：保留原导出名 ----
-export const DEFAULT_CONTEXT_LINES = UnifiedDiff.DEFAULT_CONTEXT_LINES;
-export const diffLines = UnifiedDiff.diffLines;
-export const hunksOf = UnifiedDiff.hunksOf;
-export const renderUnifiedDiff = UnifiedDiff.renderUnifiedDiff;
-export const splitLines = UnifiedDiff.splitLines;
+// ---- 门面兼容：保留原导出名，委托默认实例 ----
+const unifiedDiff = new UnifiedDiff();
+
+/** 计算行级差异操作序列。 */
+export function diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
+  return unifiedDiff.diffLines(before, after);
+}
+
+/** 把操作序列切分为带上下文的 hunk。 */
+export function hunksOf(ops: readonly DiffOp[], context = DEFAULT_CONTEXT_LINES): readonly DiffHunk[] {
+  return unifiedDiff.hunksOf(ops, context);
+}
+
+/** 渲染单文件 unified diff（无差异时返回空串）。 */
+export function renderUnifiedDiff(
+  path: string,
+  before: string,
+  after: string,
+  context = DEFAULT_CONTEXT_LINES,
+): string {
+  return unifiedDiff.renderUnifiedDiff(path, before, after, context);
+}
+
+/** 拆分为行（空文本视为零行，避免产出幽灵空行）。 */
+export function splitLines(text: string): string[] {
+  return unifiedDiff.splitLines(text);
+}
