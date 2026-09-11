@@ -1,5 +1,5 @@
 import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/jsonRpc.js';
-import type { SdkSocket } from './sdkSocket.js';
+import type { SdkSocket } from './webSocketSdkSocket.js';
 
 /** SDK 客户端选项。 */
 export interface SdkClientOptions {
