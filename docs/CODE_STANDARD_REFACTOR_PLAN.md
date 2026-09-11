@@ -66,7 +66,7 @@
   stage/revert，真实 git 操作）、`DiffCommentStore`（行内评论工作区级持久化，读失败 fail-open 到空态）、
   `SessionCheckpoints`（会话检查点列表/创建/回滚，只依赖 `StoragePort` 窄接口而非整个 ResolvedConfig）。
   433 行 / 14 方法，全部新文件 ≤165 行且文件名=类名；RPC 名/签名/错误文案/返回结构逐字不变。
-  提交 `…`；新增服务单测 20/20（repoPathGuard 5 / diffCommentStore 5 / diffReview 6 / sessionCheckpoints 4）。
+  提交 `f6a6416`；新增服务单测 20/20（repoPathGuard 5 / diffCommentStore 5 / diffReview 6 / sessionCheckpoints 4）。
 
 **剩余（待办）**
 - `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 threads / turns / approvals / config / fs 等域。
