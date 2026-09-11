@@ -52,7 +52,7 @@ import type { EscalationRequest, EscalationDecision } from '../ports/escalation.
 import type { ModelPort } from '../ports/model.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
 import type { LspServerConfig } from '../ports/lsp.js';
-import { ToolLoader } from './toolLoader.js';
+import { loadToolModule } from './toolLoader.js';
 import { CliArgReader } from './cliArgReader.js';
 import type { CliArgs } from './args.js';
 
@@ -408,7 +408,7 @@ export class CliBuildConfig {
   protected async loadCustomTools(files: readonly string[]): Promise<ExtraTool[]> {
     const tools: ExtraTool[] = [];
     for (const file of files) {
-      const loaded = await ToolLoader.load(file);
+      const loaded = await loadToolModule(file);
       if ('definition' in loaded) {
         tools.push(loaded);
       }

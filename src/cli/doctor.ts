@@ -48,17 +48,18 @@ export interface DoctorReport {
 }
 
 /**
- * 运行环境诊断器：原模块级纯函数归拢为 `DoctorRunner` 静态方法族，
- * 调用点通过同名 `export const` 别名零改动继续引用。
+ * 运行环境诊断器：原是模块级纯函数，后归拢为 `DoctorRunner` 静态方法族，
+ * 现改为实例方法以消除 `static`（无隐式状态，同一实例可并发复用）。
+ * 对外门面函数（`runDoctor` / `isElevated` / `printDoctor`）签名保持不变，调用点零改动。
  */
 export class DoctorRunner {
   /** 默认插件目录（与 CLI 一致：~/.omniharness/plugins）。 */
-  private static defaultPluginsDir(): string {
+  private defaultPluginsDir(): string {
     return join(homedir(), '.omniharness', 'plugins');
   }
 
   /** 从目录向上查找 omniharness.json。 */
-  private static findConfig(startDir: string): string | undefined {
+  private findConfig(startDir: string): string | undefined {
     let current = startDir;
     while (true) {
       const candidate = join(current, 'omniharness.json');
@@ -74,7 +75,7 @@ export class DoctorRunner {
   }
 
   /** 运行环境诊断（全 node: 内置，零依赖）。 */
-  public static runDoctor(opts: DoctorOptions = {}): DoctorReport {
+  public runDoctor(opts: DoctorOptions = {}): DoctorReport {
     const issues: string[] = [];
     const workspaceRoot = opts.workspaceRoot ?? process.cwd();
 
@@ -82,13 +83,13 @@ export class DoctorRunner {
     const nodeVersion = process.version;
 
     // ② 配置文件：存在且 JSON 合法
-    const config = DoctorRunner.checkConfig(opts.configPath, workspaceRoot, issues);
+    const config = this.checkConfig(opts.configPath, workspaceRoot, issues);
 
     // ③ 沙箱后端可用性
-    const sandbox = DoctorRunner.checkSandbox(issues);
+    const sandbox = this.checkSandbox(issues);
 
     // ④ 插件目录可读
-    const pluginsDir = DoctorRunner.defaultPluginsDir();
+    const pluginsDir = this.defaultPluginsDir();
     let pluginsDirReadable = false;
     try {
       accessSync(pluginsDir);
@@ -105,7 +106,7 @@ export class DoctorRunner {
         JSON.parse(readFileSync(manifestPath, 'utf8'));
       } catch (error) {
         permissionsManifestReadable = false;
-        issues.push(`权限清单 JSON 非法: ${manifestPath} (${DoctorRunner.messageOf(error)})`);
+        issues.push(`权限清单 JSON 非法: ${manifestPath} (${this.messageOf(error)})`);
       }
     }
 
@@ -120,12 +121,12 @@ export class DoctorRunner {
   }
 
   /** 检查配置文件存在性与 JSON 合法性。 */
-  private static checkConfig(
+  private checkConfig(
     configPath: string | undefined,
     workspaceRoot: string,
     issues: string[],
   ): ConfigStatus {
-    const path = configPath ?? DoctorRunner.findConfig(workspaceRoot);
+    const path = configPath ?? this.findConfig(workspaceRoot);
     if (path === undefined || !existsSync(path)) {
       issues.push(
         `未找到 omniharness.json 配置文件（可使用 omniharness.json.example 或 init-config 生成）`,
@@ -136,19 +137,19 @@ export class DoctorRunner {
       JSON.parse(readFileSync(path, 'utf8'));
       return { exists: true, valid: true };
     } catch (error) {
-      const msg = DoctorRunner.messageOf(error);
+      const msg = this.messageOf(error);
       issues.push(`配置文件 JSON 非法: ${path} (${msg})`);
       return { exists: true, valid: false, error: msg };
     }
   }
 
   /** 探测沙箱后端：bwrap / sandbox-exec / Windows RestrictedToken。 */
-  private static checkSandbox(issues: string[]): SandboxStatus {
-    const bwrap = DoctorRunner.detectCommand('bwrap');
-    const sandboxExec = DoctorRunner.detectCommand('sandbox-exec');
+  private checkSandbox(issues: string[]): SandboxStatus {
+    const bwrap = this.detectCommand('bwrap');
+    const sandboxExec = this.detectCommand('sandbox-exec');
     // 不再仅用 process.platform 误报：RestrictedToken 真实可用需进程具备创建受限令牌的特权
     // （非管理员 Windows 上 Rust 侧 available() 实测为 false）。此处以提权探测为代理，与运行时一致。
-    const restrictedToken = DoctorRunner.isElevated();
+    const restrictedToken = this.isElevated();
     if (!bwrap && !sandboxExec && !restrictedToken) {
       issues.push('未检测到可用沙箱后端（bwrap / sandbox-exec / Windows RestrictedToken 均不可用）');
     }
@@ -162,7 +163,7 @@ export class DoctorRunner {
    * 用于让 doctor 诚实报告 OS 级沙箱后端是否真的可用，而非仅凭平台瞎报。
    * @param runProbe 可注入的探测函数（默认执行 `net session`），便于单测。
    */
-  public static isElevated(runProbe: () => void = DoctorRunner.defaultElevationProbe): boolean {
+  public isElevated(runProbe: () => void = () => this.defaultElevationProbe()): boolean {
     if (process.platform !== 'win32') return false;
     try {
       runProbe();
@@ -173,12 +174,12 @@ export class DoctorRunner {
   }
 
   /** 默认提权探测：非管理员 Windows 上 `net session` 以 Access Denied 非零码退出 → 抛错。 */
-  private static defaultElevationProbe(): void {
+  private defaultElevationProbe(): void {
     execFileSync('net', ['session'], { stdio: 'ignore', timeout: 5000 });
   }
 
   /** 用 which 探测命令是否存在（catch 视为不可用，零依赖）。 */
-  private static detectCommand(command: string): boolean {
+  private detectCommand(command: string): boolean {
     try {
       execFileSync('which', [command], { stdio: 'ignore' });
       return true;
@@ -188,12 +189,12 @@ export class DoctorRunner {
   }
 
   /** 提取错误消息文本。 */
-  private static messageOf(error: unknown): string {
+  private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
   /** 把报告以人类可读摘要打到 stdout。 */
-  public static printDoctor(report: DoctorReport): void {
+  public printDoctor(report: DoctorReport): void {
     const lines: string[] = [];
     lines.push('OmniHarness 诊断报告');
     lines.push('--------------------------------------------------');
@@ -222,7 +223,20 @@ export class DoctorRunner {
   }
 }
 
-// ---- 门面兼容：保留原导出名 ----
-export const runDoctor = DoctorRunner.runDoctor;
-export const isElevated = DoctorRunner.isElevated;
-export const printDoctor = DoctorRunner.printDoctor;
+// ---- 门面兼容：保留原导出名，委托默认实例 ----
+const doctorRunner = new DoctorRunner();
+
+/** 运行环境诊断（门面：委托默认诊断器实例）。 */
+export function runDoctor(opts: DoctorOptions = {}): DoctorReport {
+  return doctorRunner.runDoctor(opts);
+}
+
+/** 进程是否已提权（仅 Windows 有意义；门面：委托默认诊断器实例）。 */
+export function isElevated(runProbe?: () => void): boolean {
+  return doctorRunner.isElevated(runProbe);
+}
+
+/** 把报告以人类可读摘要打到 stdout（门面：委托默认诊断器实例）。 */
+export function printDoctor(report: DoctorReport): void {
+  doctorRunner.printDoctor(report);
+}

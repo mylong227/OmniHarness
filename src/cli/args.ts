@@ -34,7 +34,7 @@ export interface CliArgs {
   spillPreview?: number;
   /** 子智能体最大派生深度（#76，留空用内置默认 2）。 */
   subagentMaxDepth?: number;
-  /** 子智能体并发上限（留空用内置默认 4）。 */
+  /** 子智能体并发上限（#76，留空用内置默认 4）。 */
   subagentConcurrency?: number;
   /** 单个子智能体的步数上限（留空用内置默认 12）。 */
   subagentMaxSteps?: number;
@@ -120,13 +120,27 @@ interface AdapterPreset {
   readonly baseUrl: string;
 }
 
+/** 按 CLI --model-adapter 反查厂商预设的小表（与 src/server/providerPresets.ts 同源同步）。 */
+const ADAPTER_PRESETS: Readonly<Record<string, readonly AdapterPreset[]>> = {
+  openai: [
+    { id: 'deepseek', baseUrl: 'https://api.deepseek.com' },
+    { id: 'moonshot', baseUrl: 'https://api.moonshot.cn/v1' },
+    { id: 'zhipu', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+    { id: 'dashscope', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+    { id: 'openai', baseUrl: 'https://api.openai.com/v1' },
+  ],
+  anthropic: [{ id: 'anthropic', baseUrl: 'https://api.anthropic.com' }],
+  responses: [{ id: 'openai', baseUrl: 'https://api.openai.com/v1' }],
+  llamacpp: [{ id: 'ollama', baseUrl: 'http://localhost:11434/v1' }],
+};
+
 /**
- * CLI 参数解析器：原模块级纯函数归拢为 `ArgParser` 静态方法族，调用点通过同名
- * `export const` 别名零改动继续引用；`CliDefaults` / `CliArgs` / re-export 保持不变。
+ * CLI 参数解析器：原模块级纯函数归拢为 `ArgParser` 方法族，现改为实例方法以消除 `static`；
+ * 调用点通过同名门面函数零改动继续引用；`CliDefaults` / `CliArgs` / re-export 保持不变。
  */
 export class ArgParser {
   /** 收集非旗标的位置参数（回退为 prompt，如 `omniharness "fix bug"`）。 */
-  private static collectPositional(argv: readonly string[]): string[] {
+  private collectPositional(argv: readonly string[]): string[] {
     const out: string[] = [];
     for (let k = 0; k < argv.length; k += 1) {
       const a = argv[k];
@@ -148,7 +162,7 @@ export class ArgParser {
    * 导致配置文件/工作区落到错位目录（如 D:\d\deepseek\...）。serve 在 GitBash 下接收的参数
    * 多为该风格，统一在此转换，避免 fs.list / config.update 落盘路径错乱。
    */
-  public static toWindowsPath(p: string): string {
+  public toWindowsPath(p: string): string {
     let s = p.trim();
     const drive = s.match(/^\/([a-zA-Z])\/(.*)$/);
     if (drive !== null) {
@@ -157,7 +171,7 @@ export class ArgParser {
     return s.replace(/\//g, '\\');
   }
 
-  public static parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
+  public parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
     const args: CliArgs = { ...CliDefaults, ...(defaults ?? {}) };
     for (let i = 0; i < argv.length; i += 1) {
       const arg = argv[i];
@@ -173,7 +187,7 @@ export class ArgParser {
         continue;
       }
     }
-    const positional = ArgParser.collectPositional(argv);
+    const positional = this.collectPositional(argv);
     if (args.prompt === '' && positional.length > 0) {
       args.prompt = positional.join(' ');
     }
@@ -190,7 +204,7 @@ export class ArgParser {
   }
 
   /** 配置文件 → CLI 默认参数（仅合并已定义字段）。 */
-  public static configDefaults(file: FileConfig): Partial<CliArgs> {
+  public configDefaults(file: FileConfig): Partial<CliArgs> {
     const result: Partial<CliArgs> = {};
     if (file.mcpServers !== undefined) {
       result.mcpServers = file.mcpServers.map((server) => ({
@@ -217,7 +231,7 @@ export class ArgParser {
       (file.apiKey === undefined || file.baseUrl === undefined)
     ) {
       const providerKeys = file.providerKeys ?? {};
-      for (const preset of ArgParser.adapterPresets(file.modelAdapter)) {
+      for (const preset of this.adapterPresets(file.modelAdapter)) {
         const presetKey = providerKeys[preset.id];
         if (presetKey !== undefined) {
           if (file.apiKey === undefined) result.apiKey = presetKey;
@@ -260,7 +274,7 @@ export class ArgParser {
   }
 
   /** 打印用法。 */
-  public static printUsage(): void {
+  public printUsage(): void {
     process.stdout.write(
       [
         'OmniHarness exec',
@@ -331,7 +345,7 @@ export class ArgParser {
   }
 
   /** 提取错误消息。 */
-  public static messageOf(error: unknown): string {
+  public messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
@@ -340,35 +354,51 @@ export class ArgParser {
    * CLI 层独立维护一份小表（与 src/server/providerPresets.ts 同源同步）：
    * openai 适配器对应多家 OpenAI 兼容厂商，按预设默认 baseUrl 命中第一个匹配 providerKey 的。
    */
-  public static adapterToPreset(adapter: string): AdapterPreset | undefined {
-    const list = ArgParser.ADAPTER_PRESETS[adapter];
+  public adapterToPreset(adapter: string): AdapterPreset | undefined {
+    const list = ADAPTER_PRESETS[adapter];
     return list === undefined || list.length === 0 ? undefined : list[0];
   }
 
   /** 取适配器下所有可能厂商预设（按 baseUrl 一一对应）。 */
-  public static adapterPresets(adapter: string): readonly AdapterPreset[] {
-    return ArgParser.ADAPTER_PRESETS[adapter] ?? [];
+  public adapterPresets(adapter: string): readonly AdapterPreset[] {
+    return ADAPTER_PRESETS[adapter] ?? [];
   }
-
-  private static readonly ADAPTER_PRESETS: Readonly<Record<string, readonly AdapterPreset[]>> = {
-    openai: [
-      { id: 'deepseek', baseUrl: 'https://api.deepseek.com' },
-      { id: 'moonshot', baseUrl: 'https://api.moonshot.cn/v1' },
-      { id: 'zhipu', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
-      { id: 'dashscope', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-      { id: 'openai', baseUrl: 'https://api.openai.com/v1' },
-    ],
-    anthropic: [{ id: 'anthropic', baseUrl: 'https://api.anthropic.com' }],
-    responses: [{ id: 'openai', baseUrl: 'https://api.openai.com/v1' }],
-    llamacpp: [{ id: 'ollama', baseUrl: 'http://localhost:11434/v1' }],
-  };
 }
 
-// ---- 门面兼容：保留原导出名 ----
-export const toWindowsPath = ArgParser.toWindowsPath;
-export const parseArgs = ArgParser.parseArgs;
-export const configDefaults = ArgParser.configDefaults;
-export const printUsage = ArgParser.printUsage;
-export const messageOf = ArgParser.messageOf;
-export const adapterToPreset = ArgParser.adapterToPreset;
-export const adapterPresets = ArgParser.adapterPresets;
+// ---- 门面兼容：保留原导出名，委托默认实例 ----
+const argParser = new ArgParser();
+
+/** GitBash / MSYS 路径 → 本机 Windows 路径。 */
+export function toWindowsPath(p: string): string {
+  return argParser.toWindowsPath(p);
+}
+
+/** 解析 CLI 参数（`undefined` 表示 --help 或无任务）。 */
+export function parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
+  return argParser.parseArgs(argv, defaults);
+}
+
+/** 配置文件 → CLI 默认参数。 */
+export function configDefaults(file: FileConfig): Partial<CliArgs> {
+  return argParser.configDefaults(file);
+}
+
+/** 打印用法。 */
+export function printUsage(): void {
+  argParser.printUsage();
+}
+
+/** 提取错误消息。 */
+export function messageOf(error: unknown): string {
+  return argParser.messageOf(error);
+}
+
+/** 按适配器反查首个厂商预设。 */
+export function adapterToPreset(adapter: string): AdapterPreset | undefined {
+  return argParser.adapterToPreset(adapter);
+}
+
+/** 取适配器下所有厂商预设。 */
+export function adapterPresets(adapter: string): readonly AdapterPreset[] {
+  return argParser.adapterPresets(adapter);
+}

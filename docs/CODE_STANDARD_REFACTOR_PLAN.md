@@ -18,7 +18,7 @@
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
 | 文件名 ≠ 主类名 | 69 | 69 |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
-| `static` 用量 | 206 / 36 文件 | 206 / 36 文件 |
+| `static` 用量 | 206 / 36 文件 | **82**（Phase 5 进行中：−124） |
 | 单文件 ≥3 个导出类 | 3 | 3 |
 
 ## 批次状态
@@ -123,14 +123,20 @@
   军规⑥要「减 static」，故一律用顶层函数（若用 `class XxxAssembler { static assemble }` 会新增 16 处 static，
   与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
-### Phase 5 — 削减 static（待办，36 文件 / 206 处）
+### Phase 5 — 削减 static（进行中，206 → **82**，−124）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例 + 薄门面（沿用批次 A 已验证模式）。
-- 优先处理 ≥4 static 的文件：
-  `mcp/mcpProtocol`(14)、`util/commandCanonicalizer`(14)、`core/eventFactory`(13)、
-  `enterprise/sso`(13)、`cli/doctor`(10)、`config/configBuilders`(10)、`util/unifiedDiff`(10)、
-  `cli/args`(9)、`context/prefixStability`(9)、`genesis/modality`(9)、`tui/render`(9)、
-  `plugin/bundle`(8)、`skill/skillComposer`(8)、`util/eigenspectrum`(8)、`genesis/multimodalBridge`(7)、
-  `server/jsonRpc`(7)、`config/configFile`(6)、`server/auditExport`(6)、`cli/toolLoader`(4)。
+  门面一律用 `export function xxx(...) { return singleton.xxx(...); }`（保留原导出名与签名，外部零改动）。
+- **已完成（9 模块 `6f95857`）**：`util/unifiedDiff`、`util/commandCanonicalizer`、`util/eigenspectrum`、
+  `context/prefixStability`。
+- **已完成（5 模块 `9394581`）**：`server/auditExport`、`tui/render`、`skill/skillComposer`、
+  `genesis/modality`、`genesis/multimodalBridge`。
+- **已完成（5 模块，第三批）**：`enterprise/sso`(13)、`cli/doctor`(10)、`cli/args`(9)、
+  `plugin/bundle`(8)、`cli/toolLoader`(4)。其中 `sso` 的 `EnterpriseAuth.fromIssuer` 静态工厂
+  改为顶层工厂函数 `enterpriseAuthFromIssuer`（原无外部调用）；`args` 的 `ADAPTER_PRESETS` 私有静态表
+  降为模块级常量；`toolLoader` 唯一调用点（`cliBuildConfig`）改走门面 `loadToolModule`。
+- **待办（多为高 fan-in，需逐个评估调用点）**：`mcp/mcpProtocol`(14)、`core/eventFactory`(13)、
+  `config/configBuilders`(10)、`server/jsonRpc`(7)、`config/configFile`(6)。
+  注：`configBuilders` 已是「顶层函数 + `export const` 门面」范式（无类），需单独判定是否需要收敛。
 
 ### Phase 6 — 一文件一类（待办，3 文件）
 - `adapters/tool/lspTools`（4 类）→ 拆为每类一文件。
