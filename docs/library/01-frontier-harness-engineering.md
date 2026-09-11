@@ -1,0 +1,139 @@
+# 01 · 前沿：线束工程（Harness Engineering）
+
+> 归档时间 2026-09-12 | 覆盖 2025Q4–2026Q3
+> 一句话：**2026 年，Agent 的胜负手从「模型能力」转移到了「包裹模型的系统」——而这个系统就叫 Harness，本仓库做的正是这件事。**
+
+---
+
+## 1. 范式定性：从 Prompt Engineering 到 Harness Engineering
+
+**核心定义**（2026 年已形成共识）：`Agent = Model + Harness`。**凡不属于模型的代码、配置、执行逻辑，都是 Harness。**
+
+它包含：系统提示与指令装配、工具/技能/MCP 及其描述、基础设施（文件系统、沙箱、浏览器）、编排逻辑（子体调度、模型路由）、以及用于确定性执行的钩子与中间件（上下文压缩、语法检查、策略门禁）。
+
+**主机类比**（被广泛引用，非本文原创，但确实清晰）：
+模型 = CPU；上下文窗口 = RAM（有限、易失）；**Harness = 操作系统**；Agent 应用 = 跑在 OS 上的程序。
+Harness 负责「上下文工程」：压缩、把状态卸载到存储、把任务隔离进子体。
+
+**术语史**（可核实）：Martin Fowler 于 2026-02 撰文提出 "Harness Engineering"；Anthropic 发布《长时运行 Agent 的有效线束》；OpenAI Codex 团队据其方法产出了「3–7 人团队、约 5 个月、约 100 万行生产代码、零手写业务逻辑」的案例（**厂商自报**）。
+
+**与 Framework 的三层区别**（本文推论，用于定位本仓库）：
+
+| 层 | 例 | 立场 | 谁解决生产问题 |
+|---|---|---|---|
+| Framework | LangChain / LangGraph | 无立场，给积木 | 你自己 |
+| **Harness** | Claude Code / Codex / **OmniHarness** | **有主观立场的基础设施** | **Harness 内置** |
+| Agent（应用） | 你的业务 Agent | 定义「做什么」 | — |
+
+> **推论（重要）**：OmniHarness 的定位天然就是 Harness 层，因此**它不该去和 LangChain 竞争「积木丰富度」**，而应竞争「可靠执行的默认架构」——这正是本仓库已有的护城河方向（门禁链、审计链、沙箱矩阵）。这条推论和 `LANDSCAPE_RESEARCH_2026` 的「不做裸壳」结论一致，但给出了**更硬的理由**：层级定位决定了竞争维度。
+
+---
+
+## 2. 硬实证：只改 Harness 就能大幅提分
+
+这是 2026 年最重要的经验证据，且**全部是「模型不变、只动 Harness」**：
+
+| 案例 | 改了什么（模型完全不变） | 结果 |
+|---|---|---|
+| **LangChain**（Terminal-Bench 2.0） | 自验证循环（清单过完才准说「完成」）+ 启动前扫描目录注入环境上下文 + 反漂移检测（重复改同一文件告警）+ 推理预算重分配（规划/验证多想、实现少想）+ 失败模式分析 | 52.8% → **66.5%**，排名从前 30 外 → **前 5** |
+| **Vercel**（减法实验） | 工具数 **15 → 2** | 准确率 80% → **100%**，token **-37%**，速度 **3.5×** |
+| **上海 AI Lab · Self-Harness** | 模型基于自身执行轨迹**自动挖掘失败模式** → 提出 Harness 修改 → 回归测试决定是否采纳 | Terminal-Bench-2.0 上 Qwen3.5-35B-A3B **+104%**；MiniMax M2.5 +28%；GLM-5 +24%（**自报**） |
+
+**结论（推论）**：Harness 的「配置质量」是可测量的、且在模型不动的前提下有**两位数到三位数**的提分空间。对本仓库的意义：**我们缺的不是模型能力，而是「把自验证/反漂移/预算重分配/失败挖掘」做成默认行为**——这几项里，本仓库只有「推理预算」沾了一半（`reasoning_effort` 已接后端）。
+
+---
+
+## 3. 记忆的五层结构（2026 共识）
+
+| 层 | 内容 | 特性 | 本仓库现状 |
+|---|---|---|---|
+| ① 上下文窗口 | 模型实时视图 | 快、贵、有限 | 有 `contextAssembler` + compaction + Spill |
+| ② 便签（scratchpad） | 任务中的持久笔记，约 30K token 转摘要压到 15K；**上下文重置后的恢复源** | 中 | 有 Spill，但**无「重置 + 交接物」范式** |
+| ③ 情节记忆（episodic） | 完整历史轨迹，嵌入相似度检索 | 慢、广 | 有 `resonantMemoryEngine` + BM25 |
+| ④ 语义记忆 | 蒸馏事实与用户模型，**独立于单次对话**；中端部署常用小图存储而非纯向量 | 稳 | 有记忆端口，**无事实级蒸馏管线** |
+| ⑤ 程序性知识 | 技能 / 工具用法 / `AGENTS.md` / skills 目录；**可检查、可版本化** | 廉价 | 有 `skill/` + hooks 兼容层 |
+
+**关键权衡（2026 实测经验）**：
+- 向量优先（简单）→ **超过约 5000 条后相关性漂移**；
+- 图增强（Mem0 hybrid / Cognee / Zep）→ 关系查询强，代价是 schema 工作量；
+- OS 式分页（Letta）→ 行为可审计，代价是每次记忆操作多一次工具调用。
+
+**Anthropic 的反直觉结论（被反复引用）**：**长任务中「干净重置 + 交接物」优于「持续压缩」**。
+
+> **对本仓库的直接冲突（必须记账）**：`UPGRADE_PLAN_SYNTHESIS` 的 U2 打算让 `contextAssembler` **持续注入** repo-map。这与「长任务 clean reset 优于持续压缩」张力明显。**建议**：注入走「廉价索引」，并显式提供「重置点 + 交接物（progress 文件）」路径，而不是无脑常驻。详见 `TECH_DIRECTION_SYNTHESIS` 的 T3。
+
+---
+
+## 4. 上下文工程：对抗 Context Rot
+
+**Context Rot**：上下文越满，推理与任务完成能力越差（无关 token 越多越掉点，已在多模型上重复观察）。因此**上下文是稀缺资源，不是特性**。三种对策：
+
+1. **压缩（Compaction）**：接近满窗时智能卸载并总结。
+2. **工具输出卸载（Offloading）**：工具结果过大时**保留首尾 token，全文卸载到文件系统**，模型需要时再取。
+   > 本仓库的 `context/toolResultSpiller.ts` 正是这一条，且实现位置正确（「钩子拿到完整结果后、写上下文前外溢」）。
+3. **渐进式披露（Progressive Disclosure）**：技能/工具/MCP 不一次性全塞进上下文，**只在需要时加载元信息**。
+   > 本仓库有 `tool_search`（BM25 延迟暴露），方向一致，但**技能侧没有等价机制**。
+
+---
+
+## 5. 协议层：MCP / A2A / ACP 的 2026 状态
+
+- **MCP** 已成行业基础设施：2025 年末捐给 Linux Foundation，现归 Agentic AI Foundation（OpenAI/Google/Microsoft/AWS/Cloudflare 等共同发起）。2026-03 数据：约 **9700 万 SDK 下载/月**、**17468 个索引 server**、300+ 客户端（**厂商/社区自报**）。
+- **MCP v2.1 引入 Server Cards**：`.well-known` URL 暴露结构化元数据，客户端/注册表**无需连接即可发现能力**。
+- **SEP-2085（工具安全工作组）**：工具验证框架 + SBOM，**「默认不可信，除非来自已认证 server」**。
+- **未解问题（诚实清单）**：MCP 协议层至今**没有在「工具描述」与「用户内容」之间做语义隔离**——这是间接提示注入的结构性缺口（Willison 2025-04 提出，2026 仍开放）。
+  > **对本仓库的意义**：已有 `security/promptInjectionGuard.ts` + `ssrfGuard.ts`，但**「工具描述即不可信输入」这条没有被架构化**。这是免疫卷（30）里「阴性选择」的对口靶子。
+- **A2A**（对等委派 / Agent Card）与 **ACP**（agent 作为宿主的一等进程）是另一根轴。本仓库已有 `src/a2a/` 全套（协议/客户端/服务端/HTTP 传输）——**这是差异化领先位，不是缺口**。
+
+---
+
+## 6. 中间件与验证：hooks 与 eval 的分工
+
+- **Hooks/中间件**：在非确定性的模型调用周围做**确定性执行**——typecheck、lint、策略门禁、工具调用前后检查。
+  > 一句关键判断（源）：「Hooks 不替代 evals，它**阻止一整类 agent 本不该看见的错误**。」——这精确描述了本仓库「门禁链 fail-closed」的定位。
+- **可观测性**：日志/指标/分布式 trace。OpenAI 让 Codex agent **在运行时查询自己的 trace**（LogQL/PromQL）以验证自己的 PR。
+  > 本仓库有结构化日志 + traceId 传播 + 审计哈希链，**但 agent 不能读自己的 trace**。差距点。
+- **Eval 必须与生成器分离**：「Agent 自评时系统性地偏高」——没有 eval 的 harness 只是 demo。
+
+> 三方分工的一句话总结（源）：**文档说该做什么，遥测说有没有生效，eval 说结果好不好。**
+
+---
+
+## 7. 最深的教训：Harness 必须轻量、可丢弃
+
+**「苦涩教训」的 Agent 版**：利用算力的通用方法终将击败手工编码的人类知识。这一教训正在 Agent 开发中重演：
+- Manus **六个月内重构了五次 Harness**以移除硬编码假设；
+- LangChain 一年内对 Open Deep Research Agent 做了**三次架构重设计**；
+- Vercel 移除了 **80% 的 Agent 工具**。
+
+**推论（对本仓库至关重要）**：
+> 本仓库的「S+ 发明层」（14 个物理/生物隐喻引擎）在当前范式下是**资产还是负债**，取决于一件事：**它们是否可在模型换代后被无痛丢弃或替换**。
+> 若它们是「写死的聪明逻辑」（hard-coded heuristics），则违背苦涩教训，长期是负债；
+> 若它们只是「薄薄的、可开关的、有度量的策略层」（本仓库现状确实**默认关闭、可回归**），则合规。
+> **因此本馆的立场是**：不新增更多隐喻引擎，而是**给现有引擎补度量与可替代性**——这也解释了为什么本图书馆要做「L0–L3 成熟度分级」。
+
+**模型–Harness 共同进化**：前沿模型已在后训练阶段与特定 Harness 联合训练，产生反馈回路（发现有用原语 → 进 Harness → 下一代模型在该 Harness 上更强）。副作用：**改工具逻辑会让模型的性能变差**（模型过拟合到特定 Harness 结构）。好消息：适合你任务的 Harness 未必是模型后训练用的那个，**针对自己任务优化 Harness 仍有大量空间**。
+
+---
+
+## 8. 本卷 → 本仓库的 5 条可执行升级项
+
+| # | 动作 | 落点 | 验收 |
+|---|---|---|---|
+| H1 | **自验证循环**：完成任务前强制过清单，未过不得声明完成 | `core` 收尾步 + `hooksCompat` 预完成钩子 | 构造「假完成」用例，被抓出；成功率不降 |
+| H2 | **反漂移检测**：同一文件重复编辑 N 次告警 | 复用 `context/codeReferenceGraph` + 事件流 | 注入循环编辑用例可告警 |
+| H3 | **失败模式自动挖掘**：从轨迹聚合失败 → 提出改进 → 回归门禁决定采纳（Self-Harness 式） | `evolution/twistDiscoveryEngine` + `evals/` | 一轮挖掘产出 ≥1 条被回归门禁采纳的改进 |
+| H4 | **工具描述即不可信输入**：描述走与用户内容同级的净化 | `security/promptInjectionGuard` + `mcp/mcpToolMapper` | AgentDojo/InjecAgent 子集上拦截率提升（需先接入基准） |
+| H5 | **Agent 读自己的 trace**：只读、受控、用于自查 | 审计链 + 只读查询端口 | agent 能定位自己上一轮失败原因且无越权 |
+
+---
+
+## 参考
+
+- Martin Fowler，Harness Engineering（2026-02，术语提出）
+- Anthropic《Harness Design for Long-Running Application Development》/《Effective context engineering for AI agents》（2025-09）
+- OpenAI《Harness Engineering: Leveraging Codex in an Agent-First World》
+- LangChain Terminal-Bench 2.0 对照实验（Vercel 工具削减实验）
+- 上海 AI Lab，Self-Harness 框架（Terminal-Bench-2.0 改造实验，**自报**）
+- MCP 规范 v2.1（Server Cards）/ SEP-2085 工具验证 / Simon Willison 2025-04 语义隔离批评
+- Anthropic《Building Effective Agents》(2024-12)；Cognition《Don't Build Multi-Agents》（单写者反模式）

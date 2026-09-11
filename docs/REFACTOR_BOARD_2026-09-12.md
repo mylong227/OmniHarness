@@ -267,4 +267,6 @@
 | `docs/OOP_REFACTOR_BACKEND_PLAN.md` | 顶层函数 OO 收敛清单；Top-18 已完成，后续按判据增量 |
 | `docs/ARCHITECTURE_SPEC.md` | 目标架构说明书；P3.3 增补目录归属表 |
 | `docs/UPGRADE_BOARD_2026-09-12.md` | 能力升级（U1-U7）看板；本看板是**工程架构与写法**侧，两者并行 |
+| `docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` | **理论侧总方向**（T0–T6）；与本看板同源不同轴——它管「能力/理论债」，本看板管「代码债」。其中 T1 与本看板 P1 合并推进、T6 对应 P7 |
+| `docs/library/README.md` | **技术图书馆**（9 卷）；本看板 P4/P5/P7 的理论依据与「隐喻引擎成熟度（L0–L3）」判据来源 |
 | `docs/adr/*` | 架构决策记录；本看板新增门禁应补 ADR（依赖方向门禁、注释门禁） |
