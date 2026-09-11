@@ -3,8 +3,11 @@
  * Cody 代码图 SCIP）。这是把「代码库当互联图而非文档袋」的离线零重嵌税落地。
  *
  * 为什么是一张**新图**而不是复用既有 codeGraph：
- *   - 既有 buildCodeGraph 在 omniharness 语料上建出 429k 稠密边，PageRank 收敛至近均匀、
- *     文件召回实测 −6.1pp（负）。根因是「凡非噪声符号名都建边」导致图太密、信号被稀释。
+ *   - 既有 buildCodeGraph 在 omniharness 语料上建出 429k 稠密边，文件召回实测 −6.1pp（负）。
+ *     **根因已由 evals/rank-veto-retro.mjs 实测更正**：并非「PageRank 收敛至近均匀」——
+ *     实测稳态 KL 0.522、有效支撑率 0.593、度 Gini 0.482，分布远非均匀。
+ *     真机理是**排序对查询不敏感**：33 条真实查询的 Top-14 跨查询平均重合度 **0.936**（BM25 仅 0.058），
+ *     枢纽文件在 33/33 查询中全部出现 ⇒ 这是一记**常量偏置**，只会挤占 Top-K 预算。
  *   - 另一个不能复用的硬伤：buildCodeGraph 的名字索引用原始 camelCase 符号名，而
  *     tokenize 全小写——camelCase 符号（execPolicy / registerTool）在引用扫描里永远
  *     匹配不上，跨文件引用边系统性缺失。本模块自建**小写归一**的引用匹配修正此点。
@@ -21,7 +24,8 @@
  * 全程 fail-closed：图构建/扩散/邻域提取任一异常 → 调用方跳过第四路，不崩主流程。
  * 默认关（opt-in）：`graphSignal: true` / env OMNI_GRAPH_SIGNAL=1。
  *
- * @maturity L1 — 幂迭代存在；44 万边实测零增益（谱隙→0 时收敛到均匀分布）
+ * @maturity L1 — 幂迭代存在；44 万边实测零增益。注：早期注释把根因写成「谱隙→0 收敛到均匀」，
+ *   方向写反且已被实测证伪（谱隙 0.31、稳态远非均匀）；真机理是查询不敏感型常量偏置
  * @maturityEvidence tests/unit/codeReferenceGraph.test.ts
  */
 import { propagate } from './codeGraph.js';

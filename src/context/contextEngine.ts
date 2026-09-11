@@ -239,8 +239,11 @@ export function query(
   k = 20,
   opts: { prf?: boolean; graph?: boolean; lsa?: boolean; fileK?: number; symK?: number } = {},
 ): QueryResult {
-  // 图检索默认关闭：实测在 omniharness 语料上 429k 稠密边导致 PageRank 收敛至近均匀，
-  // 召回零增益且额外增加 token（净负面）。保留模块与 graph:true 开关供稀疏高质量边/语义权重场景使用。
+  // 图检索默认关闭：实测在本语料上净负面。
+  // 根因（evals/rank-veto-retro.mjs 实测，已更正早期「收敛至近均匀」的错误解释）：
+  // 图排序对查询不敏感——Top-14 跨查询重合度 0.936，而 BM25 仅 0.058，
+  // 等于给每条查询塞同一批枢纽文件，构成常量偏置，挤掉真正相关的文件。
+  // 保留模块与 graph:true 开关供稀疏高质量边/语义权重场景使用。
   const useGraph = opts.graph === true;
   // LSA 默认关闭：实测在「词形归并」之上叠加 LSA，召回无增益（67.0% 持平），
   // 但符号精确率从 25.5% 腰斩至 10.5%（潜语义扩展引入噪声，挤掉真相关符号）。

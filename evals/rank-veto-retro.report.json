@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-09-11T22:36:35.933Z",
+  "corpus": {
+    "symbols": 6416,
+    "files": 393
+  },
+  "queryCount": 33,
+  "fileK": 14,
+  "baseline": {
+    "route": "BM25 文件路",
+    "queryInsensitivity": 0.0583060440541502,
+    "baselineQueryInsensitivity": 0.0583060440541502,
+    "insensitivityRatio": 1,
+    "overlapJaccard": null,
+    "nodeCount": null,
+    "edgeCount": null,
+    "avgDegree": null,
+    "degreeGini": null,
+    "spectralGap": null,
+    "uniformKl": null,
+    "effectiveSupportRatio": null,
+    "verdict": "proceed"
+  },
+  "dense": {
+    "queryInsensitivity": 0.935932857991682,
+    "baselineQueryInsensitivity": 0.0583060440541502,
+    "insensitivityRatio": 16.05207269974377,
+    "overlapJaccard": null,
+    "nodeCount": 6416,
+    "edgeCount": 575788,
+    "avgDegree": 89.7425187032419,
+    "degreeGini": 0.48160260454206383,
+    "spectralGap": 0.2642446993841263,
+    "uniformKl": 0.5220719334420413,
+    "effectiveSupportRatio": 0.5932900161950522,
+    "avgOverlapWithBm25": 0.06614521281187949,
+    "verdict": "veto",
+    "reasons": [
+      "查询不敏感度 0.936 ≥ 0.5（基线 0.058）：该路由对不同查询返回近乎同一批结果，是一记常量偏置，只会挤占 Top-K 预算"
+    ],
+    "notes": []
+  },
+  "sparse": {
+    "queryInsensitivity": 0.9424409536541903,
+    "baselineQueryInsensitivity": 0.0583060440541502,
+    "insensitivityRatio": 16.163692271403686,
+    "overlapJaccard": null,
+    "nodeCount": 6416,
+    "edgeCount": 879942,
+    "avgDegree": 137.14806733167083,
+    "degreeGini": 0.5364135263859726,
+    "spectralGap": 0.30599554915622407,
+    "uniformKl": 0.5340999033744237,
+    "effectiveSupportRatio": 0.5861966864147569,
+    "avgOverlapWithBm25": 0.07401185770750988,
+    "verdict": "veto",
+    "reasons": [
+      "查询不敏感度 0.942 ≥ 0.5（基线 0.058）：该路由对不同查询返回近乎同一批结果，是一记常量偏置，只会挤占 Top-K 预算"
+    ],
+    "notes": []
+  },
+  "retro": {
+    "consistent": 3,
+    "total": 3
+  }
+}
