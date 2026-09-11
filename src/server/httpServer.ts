@@ -5,7 +5,7 @@ import { extname, join, normalize } from 'node:path';
 import type { AppServer } from './appServer.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
-import { WsServer, type WsConnection } from './wsTransport.js';
+import { WsServer, type WsConnection } from './wsConnection.js';
 import { EnterpriseAuth } from '../enterprise/index.js';
 import type { Metrics } from './metrics.js';
 import { log, nextTraceId } from '../util/logger.js';

@@ -10,7 +10,7 @@ import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.js';
 import { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
 import { AesGcmTextCodec } from '../adapters/memory/cipher.js';
 import { ResonantMemoryEngine } from '../adapters/memory/resonantMemory.js';
-import { ResonantFieldEngine } from '../adapters/memory/resonantField.js';
+import { ResonantFieldEngine } from '../adapters/memory/resonantFieldEngine.js';
 import { HeatEquationAnnealer } from '../adapters/memory/heatAnnealer.js';
 import { CosmicWebMemoryEngine } from '../adapters/memory/cosmicWeb.js';
 import { QECEncoder } from '../adapters/memory/qec.js';

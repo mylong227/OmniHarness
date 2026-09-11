@@ -17,4 +17,4 @@ export {
 } from './a2aProtocol.js';
 export { A2aClient } from './a2aClient.js';
 export { A2aServer, type TaskHandler } from './a2aServer.js';
-export { HttpA2aTransport, HttpA2aServerTransport } from './a2aTransportHttp.js';
+export { HttpA2aTransport, HttpA2aServerTransport } from './httpA2aTransport.js';

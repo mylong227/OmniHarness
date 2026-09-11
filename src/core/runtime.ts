@@ -17,7 +17,7 @@ import { NativeBackend } from '../native/nativeBackend.js';
 import type { ToolInputSink } from '../ports/toolInputSink.js';
 import type { EmbeddingPort } from '../ports/embedding.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
-import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbedding.js';
+import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
 import { MUTATING_TOOLS, ToolGate } from './toolGate.js';
 import { SupervisorKernel } from '../supervisor/supervisor.js';
