@@ -16,7 +16,7 @@
 | 隐式 public 的类成员 | **1332** | **20**（热区豁免块残留） |
 | 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
-| 文件名 ≠ 主类名 | 69 | **53**（Phase 3 批次1-4：−16，剩 53） |
+| 文件名 ≠ 主类名 | 69 | **52**（Phase 3 批次1-5：−17，剩 52） |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
 | `static` 用量 | 206 / 36 文件 | **20**（Phase 5 收官：−186，6 文件，全合法） |
 | 单文件 ≥3 个导出类 | 3 | **0**（Phase 6 收官） |
@@ -39,7 +39,7 @@
 - 风险：需逐方法理解语义，**不可机械批量**；按模块分批，每批单独提交。
 - 建议顺序：`util/` → `context/` → `adapters/` 小文件 → `ports/` 接口。
 
-### Phase 3 — 文件名 = 类名（进行中，剩 53 / 69）
+### Phase 3 — 文件名 = 类名（进行中，剩 52 / 69）
 - 二选一策略（逐文件判定）：
   - **改文件名**：`errors.ts` → `omniError.ts`（类名 `OmniError`）——推荐，改动集中。
   - **改类名**：仅当类名语义弱于文件名时。
@@ -62,6 +62,10 @@
   `adapters/memory/resonantField`→`resonantFieldEngine` / `server/wsTransport`→`wsConnection`；
   15 处 import 路径更新（含 `./`、`../` 相对形式），门禁全绿、5 个单测文件通过。
   **纪律**：codemod 必须排除 `.omni-worktrees/`（并行会话工作树），否则会误改他人源码。
+- **批次5（提交 `2c8da8e`，53→52）**：`sdk/sdkSocket`→`webSocketSdkSocket`（类 `WebSocketSdkSocket`，
+  仅 1 类+接口，干净）；2 处 import 更新（含 `./` 相对形式），门禁全绿、sdkStream 单测 7/9 通过
+  （#8 真实 WebSocket 端到端 `threads.create` 超时=既存 SDK-WS 环境性 flaky，非回归）。
+  另发现 `server/httpServer` 含 `HttpBridgeTransport`+`HttpServer` **两个类** → 属 2 类模块，暂缓/待拆分，不纳入简单重命名。
 
 ### Phase 4 — 上帝类拆分（✅ 真项清零；仅余热区）
 
