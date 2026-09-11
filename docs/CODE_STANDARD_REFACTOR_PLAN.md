@@ -86,6 +86,7 @@
   （零每调用开销），工作区根/配置一律 **getter 注入**以兼容 `workspace.switch` 与 `config.update`。
   审计口径：appServerBase 已移出上帝类清单（余 `omniharnessConfig` 伪上帝类与热区 `stepRunner`）。
   新增 9 个测试套件 / 67 用例全绿（纯临时目录 + 临时 git 仓，绕开环境性 flaky 的集成路径）。
+  提交 `4d25816`。
 
 **剩余（待办）**
 - `config/omniharnessConfig.ts`（764）、`core/stepRunner.ts`（526）→ 前者实为「类型声明 + 单方法工厂」价值低；
