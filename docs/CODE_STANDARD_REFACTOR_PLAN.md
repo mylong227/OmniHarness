@@ -18,8 +18,8 @@
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
 | 文件名 ≠ 主类名 | 69 | 69 |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
-| `static` 用量 | 206 / 36 文件 | **28**（Phase 5 进行中：−178，10 文件） |
-| 单文件 ≥3 个导出类 | 3 | 3 |
+| `static` 用量 | 206 / 36 文件 | **20**（Phase 5 收官：−186，6 文件，全合法） |
+| 单文件 ≥3 个导出类 | 3 | **0**（Phase 6 收官） |
 
 ## 批次状态
 
@@ -181,10 +181,19 @@
     继续削减将损害设计（常量必须 static，工厂构造实例为合法 smart constructor，`build` 公共 API 不可改签名）。
     Phase 5 完成。
 
-### Phase 6 — 一文件一类（待办，3 文件）
-- `adapters/tool/lspTools`（4 类）→ 拆为每类一文件。
-- `adapters/tool/planTool`（3 类）→ 同上。
-- `plugin/registrySources`（4 类）→ 同上。
+### Phase 6 — 一文件一类（✅ 已完成）
+- 三个「单文件 ≥3 导出类」的 God-module 全部按「每类一文件 + 原文件改桶再导出」拆分，调用点零改动
+  （共享函数/类型抽 `*Shared.ts`，原文件仅 `export { X } from './X'` 桶，审计按 `export class` 声明计数故不再计入多类模块）。
+- ✅ `adapters/tool/lspTools`（4 类：`LspGoToDefinitionTool` / `LspFindReferencesTool` / `LspHoverTool` / `LspStatusTool`）
+  → 4 个单类文件 + `lspToolsShared.ts`（共享 `renderLocation` / `parseTarget`）+ 原文件改桶。
+- ✅ `adapters/tool/planTool`（3 类：`PlanWriteTool` / `PlanPresentTool` / `PlanReadTool`）
+  → 3 个单类文件 + 原文件改桶。
+- ✅ `plugin/registrySources`（4 类：`LocalDirSource` / `BundledSource` / `RemoteHttpSource` / `FileRegistrySource`）
+  → 4 个单类文件 + `registrySourcesShared.ts`（类型/常量/共享函数）+ 原文件改桶
+  （`plugin/registry.ts` 经 `export *` 透出，零改动）。
+- 门禁：tsc --noEmit EXIT=0 / eslint `--config eslint.config.mjs` EXIT=0 / build EXIT=0 /
+  `auditStandards` 多类模块 = 0 / 受影响单测 26/26 通过（lspTools 9 + planTodoAsk 13 + registry 4）。
+- 单文件 ≥3 导出类：**3 → 0**（Phase 6 收官）。
 
 ### Phase 7 — 封装收紧（待办，判断批）
 - Phase 1 只是把「隐式 public」显式化；本批在其中识别**本应 private/protected** 的成员并收紧。
