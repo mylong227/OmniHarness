@@ -44,8 +44,8 @@ const DEFAULT_SPILL_DIR = '.omniharness/spill';
 
 /**
  * 端口装配器（组合根一侧）：把 `OmniHarnessConfig` parts 收敛为具体端口实例。
- * 原模块级 builder 纯函数归拢为 `ConfigBuilder` 静态方法族，调用点（runtime/Container）
- * 通过同名 `export const` 别名零改动继续引用。
+ * 原模块级 builder 纯函数归拢为 `ConfigBuilder` 方法族；OOP 收口（2026-09-11）改为实例方法
+ * 以消除 `static`，对外门面函数（同名）签名不变，调用点（runtime/Container）零改动。
  */
 export class ConfigBuilder {
   /**
@@ -53,7 +53,7 @@ export class ConfigBuilder {
    * 策略指纹取「审批后端名 | 沙箱后端名」——任一侧策略变化即整体失效，
    * 避免沿用旧裁决（例如把 sandbox 从 policy 换成 restricted 后仍按旧结论放行）。
    */
-  public static buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
+  public buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
     const inner = partial.approvals ?? new AutoApproval();
     if (partial.approvalCache !== true) {
       return inner;
@@ -66,7 +66,7 @@ export class ConfigBuilder {
   }
 
   /** 装配工具钩子（#M5）：目前只有变更追踪钩子，后续钩子在此追加注册即可。 */
-  public static buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
+  public buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
     const runner = new ToolHookRunner();
     runner.add(new TurnDiffHooks(tracker, workspaceRoot).hooks());
     return runner;
@@ -78,10 +78,10 @@ export class ConfigBuilder {
    * - 配置了 `costBudgetUsd` 正数则再包 `BudgetedModel`（外层，先判预算再重试，确保不重复记账、熔断优先于重试）。
    * 二者皆可选，对上层透明（名称/接口不变）。
    */
-  public static buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
+  public buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
     let inner: ModelPort;
     if (partial.modelRouter !== undefined) {
-      inner = ConfigBuilder.buildRouter(partial.modelRouter);
+      inner = this.buildRouter(partial.modelRouter);
     } else {
       inner = partial.model;
     }
@@ -104,7 +104,7 @@ export class ConfigBuilder {
    * entries 的 adapter 复用既有模型适配器构造逻辑（按 adapter 类型名选底层适配器，默认 mock），
    * 凭据取自环境变量（与 CLI 一致，fail-closed 缺密钥即报错）。
    */
-  public static buildRouter(cfg: ModelRouterConfig): ModelPort {
+  public buildRouter(cfg: ModelRouterConfig): ModelPort {
     const VALID_STRATEGIES = new Set<string>([
       'least-cost',
       'round-robin',
@@ -120,7 +120,7 @@ export class ConfigBuilder {
       throw new ConfigError('modelRouter.entries 不能为空（fail-closed）');
     }
     const entries: ModelRouterOptions['entries'] = cfg.entries.map((entry) => ({
-      adapter: ConfigBuilder.buildRouterAdapter(entry),
+      adapter: this.buildRouterAdapter(entry),
       model: entry.model,
       pricing: entry.pricing,
     }));
@@ -132,7 +132,7 @@ export class ConfigBuilder {
   }
 
   /** 按 adapter 类型名构造底层模型适配器（复用既有适配器类，凭据取环境变量）。 */
-  public static buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
+  public buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
     const type = entry.adapter ?? 'mock';
     if (type === 'openai') {
       const apiKey = process.env.OPENAI_API_KEY;
@@ -178,7 +178,7 @@ export class ConfigBuilder {
    * 服务器由用户自备——这是零依赖铁律下接入 LSP 的唯一合规方式；不配则端口为 undefined，LSP 工具不注册。
    * rootUri 缺省用 workspaceRoot 推导的 file:// URI。
    */
-  public static buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
+  public buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
     if (partial.lspServer === undefined || partial.lspServer.serverCommand.trim() === '') {
       return undefined;
     }
@@ -193,7 +193,7 @@ export class ConfigBuilder {
    * 装配 Agent 密码学身份端口（#S33）：仅当配置了 `agentIdentity`（私钥或 runtimeId）时构造 `Ed25519AgentIdentity`。
    * 零依赖（仅 Node 内置 node:crypto）。不配则端口为 undefined，`agent_identity` 工具不注册。
    */
-  public static buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
+  public buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
     if (partial.agentIdentity === undefined) {
       return undefined;
     }
@@ -204,7 +204,7 @@ export class ConfigBuilder {
   }
 
   /** 自动选择用户回答器：TTY 交互用 Console，否则 fail-soft 的 Default。 */
-  public static autoUserResponder(): UserResponder {
+  public autoUserResponder(): UserResponder {
     return process.stdout.isTTY ? new ConsoleUserResponder() : new DefaultUserResponder();
   }
 
@@ -212,7 +212,7 @@ export class ConfigBuilder {
    * 构造子智能体端口种子：`tools` 字段留空，由 `defaultTools` 回填为正在构造的注册表——
    * 子代工具子集需从父工具集裁剪，故此处存在构造期循环引用（运行时解引用，无害）。
    */
-  public static seedOf(
+  public seedOf(
     partial: OmniHarnessConfig,
     approvals: ApprovalPort,
     sandbox: SandboxPort,
@@ -225,7 +225,7 @@ export class ConfigBuilder {
     costBudget: CostBudget | undefined,
   ): SubagentPortSeed {
     return {
-      model: ConfigBuilder.buildModel(partial, costBudget),
+      model: this.buildModel(partial, costBudget),
       storage: partial.storage,
       events,
       sandbox,
@@ -247,7 +247,7 @@ export class ConfigBuilder {
   }
 
   /** 构建外溢端口：自定义优先，否则按 spillAdapter 选内置实现。 */
-  public static buildSpill(partial: OmniHarnessConfig): SpillPort {
+  public buildSpill(partial: OmniHarnessConfig): SpillPort {
     if (partial.spill !== undefined) {
       return partial.spill;
     }
@@ -258,14 +258,77 @@ export class ConfigBuilder {
   }
 }
 
-// ---- 门面兼容：保留原函数名（同名 export const 别名），调用点零改动 ----
-export const buildApprovals = ConfigBuilder.buildApprovals;
-export const buildHooks = ConfigBuilder.buildHooks;
-export const buildModel = ConfigBuilder.buildModel;
-export const buildRouter = ConfigBuilder.buildRouter;
-export const buildRouterAdapter = ConfigBuilder.buildRouterAdapter;
-export const buildLsp = ConfigBuilder.buildLsp;
-export const buildIdentity = ConfigBuilder.buildIdentity;
-export const autoUserResponder = ConfigBuilder.autoUserResponder;
-export const seedOf = ConfigBuilder.seedOf;
-export const buildSpill = ConfigBuilder.buildSpill;
+// ---- 门面兼容：保留原函数名（同名函数），调用点零改动 ----
+const configBuilder = new ConfigBuilder();
+
+/** 装配审批端口（门面：委托默认装配器实例）。 */
+export function buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
+  return configBuilder.buildApprovals(partial, sandbox);
+}
+
+/** 装配工具钩子（门面：委托默认装配器实例）。 */
+export function buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
+  return configBuilder.buildHooks(tracker, workspaceRoot);
+}
+
+/** 装配模型端口（门面：委托默认装配器实例）。 */
+export function buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
+  return configBuilder.buildModel(partial, budget);
+}
+
+/** 装配模型路由（门面：委托默认装配器实例）。 */
+export function buildRouter(cfg: ModelRouterConfig): ModelPort {
+  return configBuilder.buildRouter(cfg);
+}
+
+/** 按 adapter 类型名构造底层模型适配器（门面：委托默认装配器实例）。 */
+export function buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
+  return configBuilder.buildRouterAdapter(entry);
+}
+
+/** 装配 LSP 端口（门面：委托默认装配器实例）。 */
+export function buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
+  return configBuilder.buildLsp(partial);
+}
+
+/** 装配 Agent 密码学身份端口（门面：委托默认装配器实例）。 */
+export function buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
+  return configBuilder.buildIdentity(partial);
+}
+
+/** 自动选择用户回答器（门面：委托默认装配器实例）。 */
+export function autoUserResponder(): UserResponder {
+  return configBuilder.autoUserResponder();
+}
+
+/** 构造子智能体端口种子（门面：委托默认装配器实例）。 */
+export function seedOf(
+  partial: OmniHarnessConfig,
+  approvals: ApprovalPort,
+  sandbox: SandboxPort,
+  events: EventPort,
+  spill: SpillPort,
+  spiller: ToolResultSpiller,
+  escalation: EscalationPort,
+  elevatedSandbox: SandboxPort,
+  longTermMemory: LongTermMemoryPort,
+  costBudget: CostBudget | undefined,
+): SubagentPortSeed {
+  return configBuilder.seedOf(
+    partial,
+    approvals,
+    sandbox,
+    events,
+    spill,
+    spiller,
+    escalation,
+    elevatedSandbox,
+    longTermMemory,
+    costBudget,
+  );
+}
+
+/** 构建外溢端口（门面：委托默认装配器实例）。 */
+export function buildSpill(partial: OmniHarnessConfig): SpillPort {
+  return configBuilder.buildSpill(partial);
+}

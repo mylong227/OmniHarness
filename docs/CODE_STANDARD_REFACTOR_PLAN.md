@@ -134,9 +134,14 @@
   `plugin/bundle`(8)、`cli/toolLoader`(4)。其中 `sso` 的 `EnterpriseAuth.fromIssuer` 静态工厂
   改为顶层工厂函数 `enterpriseAuthFromIssuer`（原无外部调用）；`args` 的 `ADAPTER_PRESETS` 私有静态表
   降为模块级常量；`toolLoader` 唯一调用点（`cliBuildConfig`）改走门面 `loadToolModule`。
-- **待办（多为高 fan-in，需逐个评估调用点）**：`mcp/mcpProtocol`(14)、`core/eventFactory`(13)、
-  `config/configBuilders`(10)、`server/jsonRpc`(7)、`config/configFile`(6)。
-  注：`configBuilders` 已是「顶层函数 + `export const` 门面」范式（无类），需单独判定是否需要收敛。
+- **已完成（1 模块，第四批）**：`config/configBuilders`(10) —— `ConfigBuilder` 静态方法族 → 实例方法 +
+  组合根单例 + 同名门面函数（内部互调改 `this.`）。
+- **待办（判断批，均为纯无状态编解码 / 工厂 / 常量命名空间，且高 fan-in）**：
+  `mcp/mcpProtocol`(14，其中 9 处为 `readonly` 常量表)、`core/eventFactory`(13，纯静态工厂)、
+  `server/jsonRpc`(7，41 处类形式调用)、`config/configFile`(6，25 处类形式调用)。
+  按 `CODE_STANDARD.md` 第 53/83 条（「有状态或可注入者一律实例化」+「禁止过度设计：能用函数表达清晰的
+  纯逻辑不要硬塞成模式」），这些纯无状态模块的 static 属**可接受的命名空间/工厂形态**；若推进需大范围改调用点
+  （改为 `import { singleton }` + `singleton.xxx(...)`），收益主要是一致性而非架构正确性，故列为判断批。
 
 ### Phase 6 — 一文件一类（待办，3 文件）
 - `adapters/tool/lspTools`（4 类）→ 拆为每类一文件。
