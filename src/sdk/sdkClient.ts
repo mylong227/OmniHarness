@@ -1,4 +1,4 @@
-import { JsonRpc, type RpcMessage, type RpcResponse } from '../server/jsonRpc.js';
+import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/jsonRpc.js';
 import type { SdkSocket } from './sdkSocket.js';
 
 /** SDK 客户端选项。 */
@@ -95,7 +95,7 @@ export class SdkClient {
 
   /** 处理入站消息：响应按 id 关联，通知分发给订阅者。 */
   private handleMessage(text: string): void {
-    const message = JsonRpc.parse(text);
+    const message = jsonRpc.parse(text);
     if (message === undefined) {
       return;
     }

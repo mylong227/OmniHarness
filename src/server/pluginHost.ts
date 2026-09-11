@@ -7,7 +7,7 @@ import { PermissionGate } from '../plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../plugin/permission.js';
 import { applyProfile, type PluginProfile, type ApplyProfileResult } from '../plugin/pluginProfile.js';
 import type { PluginRegistry } from '../plugin/registry.js';
-import { JsonRpc } from './jsonRpc.js';
+import { jsonRpc } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 
 /** 插件宿主依赖。 */
@@ -85,7 +85,7 @@ export class PluginHost {
         this.notifyLoadError({ name, error: this.deps.messageOf(error) }),
       );
       if (loaded.length > 0) {
-        this.deps.transport.send(JsonRpc.notify('plugin.loaded', { names: loaded }));
+        this.deps.transport.send(jsonRpc.notify('plugin.loaded', { names: loaded }));
       }
     } catch (error) {
       this.notifyLoadError({ error: this.deps.messageOf(error) });
@@ -111,7 +111,7 @@ export class PluginHost {
       onUnload: (name) => this.notifyProfile('unload', name),
       onError: (name, error) =>
         this.deps.transport.send(
-          JsonRpc.notify('profile.error', { name, error: this.deps.messageOf(error) }),
+          jsonRpc.notify('profile.error', { name, error: this.deps.messageOf(error) }),
         ),
     });
   }
@@ -122,11 +122,11 @@ export class PluginHost {
     if (payload.name !== undefined) {
       body['name'] = payload.name;
     }
-    this.deps.transport.send(JsonRpc.notify('plugin.loadError', body));
+    this.deps.transport.send(jsonRpc.notify('plugin.loadError', body));
   }
 
   /** 发送 profile.event 通知。 */
   private notifyProfile(type: 'install' | 'load' | 'unload', name: string): void {
-    this.deps.transport.send(JsonRpc.notify('profile.event', { type, name }));
+    this.deps.transport.send(jsonRpc.notify('profile.event', { type, name }));
   }
 }

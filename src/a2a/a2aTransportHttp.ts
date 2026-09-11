@@ -10,7 +10,7 @@
  */
 import http from 'node:http';
 import type { RpcMessage } from '../server/jsonRpc.js';
-import { JsonRpc } from '../server/jsonRpc.js';
+import { jsonRpc } from '../server/jsonRpc.js';
 import type { A2aTransport } from './a2aProtocol.js';
 import { inspectUrl, assertNotSsrf, defaultSsrfOptions } from '../security/ssrfGuard.js';
 import type { SsrfOptions } from '../security/ssrfGuard.js';
@@ -104,7 +104,7 @@ export class HttpA2aServerTransport implements A2aTransport {
         body += chunk;
       });
       req.on('end', () => {
-        const msg = JsonRpc.parse(body);
+        const msg = jsonRpc.parse(body);
         if (msg === undefined || !('method' in msg)) {
           res.writeHead(400);
           res.end();

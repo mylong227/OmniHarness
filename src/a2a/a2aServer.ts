@@ -9,7 +9,7 @@
  * 零依赖。
  */
 import type { RpcMessage } from '../server/jsonRpc.js';
-import { JsonRpc } from '../server/jsonRpc.js';
+import { jsonRpc } from '../server/jsonRpc.js';
 import type { AgentIdentityPort } from '../ports/agentIdentity.js';
 import type {
   A2aCapabilityDeclaration,
@@ -64,12 +64,12 @@ export class A2aServer {
     const id = 'id' in message ? message.id : null;
     try {
       const result = await this.dispatch(message.method, (message as { params?: unknown }).params);
-      if (id !== null) this.transport.send(JsonRpc.response(id, result));
+      if (id !== null) this.transport.send(jsonRpc.response(id, result));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (id !== null) {
         const code = msg.includes('UNAUTHORIZED') ? A2A_ERROR_UNAUTHORIZED : A2A_ERROR_INVALID;
-        this.transport.send(JsonRpc.errorResponse(id, code, msg));
+        this.transport.send(jsonRpc.errorResponse(id, code, msg));
       }
     }
   }

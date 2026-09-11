@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import type { Duplex } from 'node:stream';
 import { HttpBridgeTransport } from '../../src/server/httpServer.js';
 import { WsConnection } from '../../src/server/wsTransport.js';
-import { JsonRpc, type RpcResponse } from '../../src/server/jsonRpc.js';
+import { jsonRpc, type RpcResponse } from '../../src/server/jsonRpc.js';
 import { EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/sso.js';
 
 function b64url(buf: Buffer | string): string {
@@ -74,7 +74,7 @@ function wireBridge(bridge: HttpBridgeTransport, dispatched: string[]): void {
       dispatched.push(message.method);
     }
     if ('id' in message) {
-      bridge.send(JsonRpc.response(message.id, { ok: true }));
+      bridge.send(jsonRpc.response(message.id, { ok: true }));
     }
   });
 }

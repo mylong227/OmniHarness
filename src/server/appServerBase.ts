@@ -4,7 +4,7 @@ import { SandboxManager, type SandboxProfile } from '../adapters/sandbox/sandbox
 import type { PluginManager } from '../plugin/pluginManager.js';
 import type { PluginProfile, ApplyProfileResult } from '../plugin/pluginProfile.js';
 import type { SupervisorPort } from '../ports/supervisor.js';
-import { JsonRpc, type RpcMessage } from './jsonRpc.js';
+import { jsonRpc, type RpcMessage } from './jsonRpc.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
 import { ServerConfigStore } from './serverConfigStore.js';
 import { FsExplorer } from './fsExplorer.js';
@@ -144,21 +144,21 @@ export class AppServerBase {
 
   /** 处理入站消息。 */
   protected async handle(message: RpcMessage): Promise<void> {
-    if (!JsonRpc.isRequest(message)) {
+    if (!jsonRpc.isRequest(message)) {
       return;
     }
     const handler = this.handlers.get(message.method);
     if (handler === undefined) {
       this.options.transport.send(
-        JsonRpc.errorResponse(message.id, -32601, `方法不存在: ${message.method}`),
+        jsonRpc.errorResponse(message.id, -32601, `方法不存在: ${message.method}`),
       );
       return;
     }
     try {
       const result = await handler(message.params ?? {});
-      this.options.transport.send(JsonRpc.response(message.id, result));
+      this.options.transport.send(jsonRpc.response(message.id, result));
     } catch (error) {
-      this.options.transport.send(JsonRpc.errorResponse(message.id, -32000, this.messageOf(error)));
+      this.options.transport.send(jsonRpc.errorResponse(message.id, -32000, this.messageOf(error)));
     }
   }
 

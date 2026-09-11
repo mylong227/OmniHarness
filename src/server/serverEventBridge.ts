@@ -1,4 +1,4 @@
-import { JsonRpc } from './jsonRpc.js';
+import { jsonRpc } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 import type { Metrics } from './metrics.js';
 import type { AuditSink } from './audit.js';
@@ -42,7 +42,7 @@ export class ServerEventBridge {
         this.deps.metrics?.recordEvent(event);
         this.deps.audit?.record({ type: event.type, sessionId: event.sessionId, detail: event });
         this.deps.transport.send(
-          JsonRpc.notify('thread.event', { threadId: event.sessionId, event }),
+          jsonRpc.notify('thread.event', { threadId: event.sessionId, event }),
         );
       },
     };
@@ -62,7 +62,7 @@ export class ServerEventBridge {
       const requestId = id('apr');
       this.pending.set(requestId, resolve);
       this.deps.transport.send(
-        JsonRpc.notify('approval.request', {
+        jsonRpc.notify('approval.request', {
           requestId,
           toolName: request.toolName,
           target: request.target,

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import type { AppServer } from './appServer.js';
-import { JsonRpc, type RpcMessage, type RpcRequest } from './jsonRpc.js';
+import { jsonRpc, type RpcMessage, type RpcRequest } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 import { WsServer, type WsConnection } from './wsTransport.js';
 import { EnterpriseAuth } from '../enterprise/index.js';
@@ -44,14 +44,14 @@ export class HttpBridgeTransport implements Transport {
 
   /** 处理 POST /rpc：解析请求、鉴权门禁、分发、返回响应。 */
   public async handlePost(body: string, authHeader?: string): Promise<RpcMessage> {
-    const message = JsonRpc.parse(body);
-    if (message === undefined || !JsonRpc.isRequest(message)) {
-      return JsonRpc.errorResponse(-1, -32700, '无效请求');
+    const message = jsonRpc.parse(body);
+    if (message === undefined || !jsonRpc.isRequest(message)) {
+      return jsonRpc.errorResponse(-1, -32700, '无效请求');
     }
     if (this.auth !== undefined) {
       const subject = await this.auth.authenticate(authHeader);
       if (subject === null) {
-        return JsonRpc.errorResponse(
+        return jsonRpc.errorResponse(
           message.id,
           -32001,
           '未认证或令牌无效（需 Authorization: Bearer <token>）',
@@ -65,15 +65,15 @@ export class HttpBridgeTransport implements Transport {
   public registerWs(connection: WsConnection): void {
     this.wsClients.add(connection);
     connection.onMessage = (text: string) => {
-      const message = JsonRpc.parse(text);
-      if (message !== undefined && JsonRpc.isRequest(message)) {
+      const message = jsonRpc.parse(text);
+      if (message !== undefined && jsonRpc.isRequest(message)) {
         void (async () => {
           if (this.auth !== undefined) {
             const subject = await this.auth.authenticate(connection.authorization);
             if (subject === null) {
               connection.send(
                 JSON.stringify(
-                  JsonRpc.errorResponse(
+                  jsonRpc.errorResponse(
                     message.id,
                     -32001,
                     '未认证或令牌无效（需 Authorization: Bearer <token>）',
@@ -119,7 +119,7 @@ export class HttpBridgeTransport implements Transport {
 
   /** 广播一条通知给全部 SSE / WS 客户端（供 live 视图推送工具参数增量等实时事件）。 */
   public notify(method: string, params: Record<string, unknown>): void {
-    this.broadcast(JsonRpc.notify(method, params));
+    this.broadcast(jsonRpc.notify(method, params));
   }
 }
 

@@ -8,7 +8,7 @@
  * 零依赖（仅 server/jsonRpc + a2aProtocol）。
  */
 import type { RpcMessage } from '../server/jsonRpc.js';
-import { JsonRpc } from '../server/jsonRpc.js';
+import { jsonRpc } from '../server/jsonRpc.js';
 import type { AgentIdentityPort } from '../ports/agentIdentity.js';
 import type {
   A2aCapability,
@@ -103,7 +103,7 @@ export class A2aClient {
         reject(new Error(`A2A 调用超时: ${method}`));
       }, DEFAULT_TIMEOUT_MS);
       this.pending.set(id, { resolve, reject, timer });
-      this.transport.send(JsonRpc.request(id, method, params as Record<string, unknown>));
+      this.transport.send(jsonRpc.request(id, method, params as Record<string, unknown>));
     });
   }
 }

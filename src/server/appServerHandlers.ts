@@ -1,7 +1,7 @@
 import { loadInstalledPlugins } from '../plugin/pluginLoader.js';
 import { PluginProfileStore, applyProfile, type PluginProfile } from '../plugin/pluginProfile.js';
 import { packBundle, unpackBundle } from '../plugin/bundle.js';
-import { JsonRpc } from './jsonRpc.js';
+import { jsonRpc } from './jsonRpc.js';
 import { AppServerBase } from './appServerBase.js';
 
 /**
@@ -65,18 +65,18 @@ export class AppServerHandlers extends AppServerBase {
       }
       const result = await applyProfile(manager, pluginsDir, registry, profile, {
         onInstall: (name) =>
-          this.options.transport.send(JsonRpc.notify('profile.event', { type: 'install', name })),
+          this.options.transport.send(jsonRpc.notify('profile.event', { type: 'install', name })),
         onLoad: (name) =>
-          this.options.transport.send(JsonRpc.notify('profile.event', { type: 'load', name })),
+          this.options.transport.send(jsonRpc.notify('profile.event', { type: 'load', name })),
         onUnload: (name) =>
-          this.options.transport.send(JsonRpc.notify('profile.event', { type: 'unload', name })),
+          this.options.transport.send(jsonRpc.notify('profile.event', { type: 'unload', name })),
         onError: (name, error) =>
           this.options.transport.send(
-            JsonRpc.notify('profile.error', { name, error: this.messageOf(error) }),
+            jsonRpc.notify('profile.error', { name, error: this.messageOf(error) }),
           ),
       });
       this.options.transport.send(
-        JsonRpc.notify('profile.applied', { name: profile.name, ...result }),
+        jsonRpc.notify('profile.applied', { name: profile.name, ...result }),
       );
       return result;
     });
@@ -188,12 +188,12 @@ export class AppServerHandlers extends AppServerBase {
         this.pluginsDir,
         (name, error) =>
           this.options.transport.send(
-            JsonRpc.notify('plugin.loadError', { name, error: this.messageOf(error) }),
+            jsonRpc.notify('plugin.loadError', { name, error: this.messageOf(error) }),
           ),
       );
       if (loaded.length > 0) {
         this.options.transport.send(
-          JsonRpc.notify('plugin.loaded', { names: loaded, reloaded: true }),
+          jsonRpc.notify('plugin.loaded', { names: loaded, reloaded: true }),
         );
       }
       return { ok: true, loaded };

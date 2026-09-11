@@ -1,4 +1,4 @@
-import { JsonRpc, type RpcMessage, type RpcResponse } from '../server/jsonRpc.js';
+import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/jsonRpc.js';
 import type { Transport } from '../server/lineTransport.js';
 import {
   McpProtocol,
@@ -133,7 +133,7 @@ export class McpClient {
 
   /** 处理入站消息（响应按 id 关联，通知忽略）。 */
   private handle(message: RpcMessage): void {
-    if (JsonRpc.isRequest(message)) {
+    if (jsonRpc.isRequest(message)) {
       return;
     }
     if (!('id' in message)) {

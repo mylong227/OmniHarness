@@ -30,25 +30,30 @@ export interface RpcError {
 /** 统一消息类型。 */
 export type RpcMessage = RpcRequest | RpcResponse | RpcNotification;
 
-/** JSON-RPC 协议工具。 */
+/**
+ * JSON-RPC 协议工具。
+ *
+ * 无隐式状态，同一实例可并发复用（默认实例见文件末尾组合根门面）。
+ * `OOP 收口`（2026-09-11）：原静态方法族改为实例方法，消除 `static`。
+ */
 export class JsonRpc {
   /** 是否为请求或通知（含 method）。 */
-  public static isCall(message: RpcMessage): message is RpcRequest | RpcNotification {
+  public isCall(message: RpcMessage): message is RpcRequest | RpcNotification {
     return 'method' in message;
   }
 
   /** 是否为带 id 的请求。 */
-  public static isRequest(message: RpcMessage): message is RpcRequest {
+  public isRequest(message: RpcMessage): message is RpcRequest {
     return 'method' in message && 'id' in message;
   }
 
   /** 构造响应。 */
-  public static response(id: number | string, result: unknown): RpcResponse {
+  public response(id: number | string, result: unknown): RpcResponse {
     return { jsonrpc: '2.0', id, result };
   }
 
   /** 构造请求（带 id 的调用）。 */
-  public static request(
+  public request(
     id: number | string,
     method: string,
     params?: Record<string, unknown>,
@@ -57,17 +62,17 @@ export class JsonRpc {
   }
 
   /** 构造错误响应。 */
-  public static errorResponse(id: number | string, code: number, message: string): RpcResponse {
+  public errorResponse(id: number | string, code: number, message: string): RpcResponse {
     return { jsonrpc: '2.0', id, error: { code, message } };
   }
 
   /** 构造通知。 */
-  public static notify(method: string, params: Record<string, unknown>): RpcNotification {
+  public notify(method: string, params: Record<string, unknown>): RpcNotification {
     return { jsonrpc: '2.0', method, params };
   }
 
   /** 解析消息（无效 JSON 或非 RPC 结构返回 undefined）。 */
-  public static parse(raw: string): RpcMessage | undefined {
+  public parse(raw: string): RpcMessage | undefined {
     try {
       const parsed: unknown = JSON.parse(raw);
       if (typeof parsed === 'object' && parsed !== null && 'jsonrpc' in parsed) {
@@ -79,3 +84,7 @@ export class JsonRpc {
     }
   }
 }
+
+// ---- 组合根门面：默认协议工具实例（调用点以 `jsonRpc.xxx` 零构造复用） ----
+/** 默认 JSON-RPC 协议工具实例（无状态）。 */
+export const jsonRpc = new JsonRpc();

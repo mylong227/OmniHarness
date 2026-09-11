@@ -1,7 +1,7 @@
 import type { LongTermMemoryPort, MemoryFact, MemoryFactPatch } from '../ports/longTermMemory.js';
 import { WorkflowRunner } from '../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../autonomy/workflowTypes.js';
-import { JsonRpc } from './jsonRpc.js';
+import { jsonRpc } from './jsonRpc.js';
 import type { ImageContent, FileAttachment } from '../ports/model.js';
 import { id } from '../util/id.js';
 import { queryAudit, type AuditQuery } from './auditExport.js';
@@ -244,7 +244,7 @@ export class AppServer extends AppServerHandlers {
         source: 'tool',
       };
       store().remember(fact);
-      this.options.transport.send(JsonRpc.notify('memory.changed', {}));
+      this.options.transport.send(jsonRpc.notify('memory.changed', {}));
       return { ok: true, id: fact.id };
     });
     this.handlers.set('memory.update', async (params) => {
@@ -260,7 +260,7 @@ export class AppServer extends AppServerHandlers {
       if (!ok) {
         throw new Error('未找到记忆: ' + idParam);
       }
-      this.options.transport.send(JsonRpc.notify('memory.changed', {}));
+      this.options.transport.send(jsonRpc.notify('memory.changed', {}));
       return { ok: true };
     });
     this.handlers.set('memory.delete', async (params) => {
@@ -272,7 +272,7 @@ export class AppServer extends AppServerHandlers {
       if (!ok) {
         throw new Error('未找到记忆: ' + idParam);
       }
-      this.options.transport.send(JsonRpc.notify('memory.changed', {}));
+      this.options.transport.send(jsonRpc.notify('memory.changed', {}));
       return { ok: true };
     });
     this.handlers.set('memory.search', async (params) => {
@@ -428,7 +428,7 @@ export class AppServer extends AppServerHandlers {
           node.steps = update.steps;
           node.durationMs = update.durationMs;
         }
-        this.options.transport.send(JsonRpc.notify('graph.progress', { runId, ...update }));
+        this.options.transport.send(jsonRpc.notify('graph.progress', { runId, ...update }));
       },
     })
       .run(def)
@@ -437,7 +437,7 @@ export class AppServer extends AppServerHandlers {
         runState.ok = result.ok;
         runState.blackboard = result.blackboard;
         this.options.transport.send(
-          JsonRpc.notify('graph.done', {
+          jsonRpc.notify('graph.done', {
             runId,
             ok: result.ok,
             blackboard: { ...result.blackboard },
@@ -448,7 +448,7 @@ export class AppServer extends AppServerHandlers {
         runState.done = true;
         runState.ok = false;
         this.options.transport.send(
-          JsonRpc.notify('graph.done', { runId, ok: false, error: this.messageOf(error) }),
+          jsonRpc.notify('graph.done', { runId, ok: false, error: this.messageOf(error) }),
         );
       });
 

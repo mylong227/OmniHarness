@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolPort } from '../ports/tool.js';
 import type { ToolGate } from '../core/toolGate.js';
 import { id } from '../util/id.js';
-import { JsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';
+import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';
 import type { Transport } from '../server/lineTransport.js';
 import { McpProtocol, type McpServerInfo, type McpResourceDescriptor, type McpResourceContent, type McpPromptDescriptor } from './mcpProtocol.js';
 import { McpToolMapper } from './mcpToolMapper.js';
@@ -61,7 +61,7 @@ export class McpServer {
 
   /** 处理入站消息（无 id 的通知忽略）。 */
   public async handle(message: RpcMessage): Promise<void> {
-    if (!JsonRpc.isRequest(message)) {
+    if (!jsonRpc.isRequest(message)) {
       return;
     }
     const handler = this.handlers.get(message.method);
@@ -71,7 +71,7 @@ export class McpServer {
     }
     try {
       const result = await handler(message.params ?? {});
-      this.options.transport.send(JsonRpc.response(message.id, result));
+      this.options.transport.send(jsonRpc.response(message.id, result));
     } catch (error) {
       this.replyError(message, McpProtocol.ERROR_INVALID_PARAMS, this.messageOf(error));
     }
@@ -174,7 +174,7 @@ export class McpServer {
 
   /** 回复错误响应。 */
   private replyError(request: RpcRequest, code: number, message: string): void {
-    this.options.transport.send(JsonRpc.errorResponse(request.id, code, message));
+    this.options.transport.send(jsonRpc.errorResponse(request.id, code, message));
   }
 
   /** 提取错误消息。 */
