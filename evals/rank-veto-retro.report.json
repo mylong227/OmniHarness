@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-09-11T22:36:35.933Z",
+  "generatedAt": "2026-09-11T23:54:13.384Z",
   "corpus": {
-    "symbols": 6416,
-    "files": 393
+    "symbols": 6495,
+    "files": 394
   },
   "queryCount": 33,
   "fileK": 14,
   "baseline": {
     "route": "BM25 文件路",
-    "queryInsensitivity": 0.0583060440541502,
-    "baselineQueryInsensitivity": 0.0583060440541502,
+    "queryInsensitivity": 0.0584904972820817,
+    "baselineQueryInsensitivity": 0.0584904972820817,
     "insensitivityRatio": 1,
     "overlapJaccard": null,
     "nodeCount": null,
@@ -22,42 +22,61 @@
     "verdict": "proceed"
   },
   "dense": {
-    "queryInsensitivity": 0.935932857991682,
-    "baselineQueryInsensitivity": 0.0583060440541502,
-    "insensitivityRatio": 16.05207269974377,
+    "queryInsensitivity": 0.9220829619726694,
+    "baselineQueryInsensitivity": 0.0584904972820817,
+    "insensitivityRatio": 15.76466271992434,
     "overlapJaccard": null,
-    "nodeCount": 6416,
-    "edgeCount": 575788,
-    "avgDegree": 89.7425187032419,
-    "degreeGini": 0.48160260454206383,
-    "spectralGap": 0.2642446993841263,
-    "uniformKl": 0.5220719334420413,
-    "effectiveSupportRatio": 0.5932900161950522,
-    "avgOverlapWithBm25": 0.06614521281187949,
+    "nodeCount": 6495,
+    "edgeCount": 583884,
+    "avgDegree": 89.89745958429562,
+    "degreeGini": 0.482461849709648,
+    "spectralGap": 0.248519522631521,
+    "uniformKl": 0.520386230024411,
+    "effectiveSupportRatio": 0.5942909706221459,
+    "avgOverlapWithBm25": 0.06382629715963048,
+    "verdict": "veto",
+    "reasons": [
+      "查询不敏感度 0.922 ≥ 0.5（基线 0.058）：该路由对不同查询返回近乎同一批结果，是一记常量偏置，只会挤占 Top-K 预算"
+    ],
+    "notes": []
+  },
+  "sparse": {
+    "queryInsensitivity": 0.9355912061794426,
+    "baselineQueryInsensitivity": 0.0584904972820817,
+    "insensitivityRatio": 15.995610392357815,
+    "overlapJaccard": null,
+    "nodeCount": 6495,
+    "edgeCount": 880632,
+    "avgDegree": 135.58614318706697,
+    "degreeGini": 0.5358833077636036,
+    "spectralGap": 0.3103429386196912,
+    "uniformKl": 0.5300423266336306,
+    "effectiveSupportRatio": 0.5885800565386929,
+    "avgOverlapWithBm25": 0.07675763581560685,
     "verdict": "veto",
     "reasons": [
       "查询不敏感度 0.936 ≥ 0.5（基线 0.058）：该路由对不同查询返回近乎同一批结果，是一记常量偏置，只会挤占 Top-K 预算"
     ],
     "notes": []
   },
-  "sparse": {
-    "queryInsensitivity": 0.9424409536541903,
-    "baselineQueryInsensitivity": 0.0583060440541502,
-    "insensitivityRatio": 16.163692271403686,
+  "layered": {
+    "queryInsensitivity": 0.03803522495118082,
+    "baselineQueryInsensitivity": 0.0584904972820817,
+    "insensitivityRatio": 0.6502804167957167,
     "overlapJaccard": null,
-    "nodeCount": 6416,
-    "edgeCount": 879942,
-    "avgDegree": 137.14806733167083,
-    "degreeGini": 0.5364135263859726,
-    "spectralGap": 0.30599554915622407,
-    "uniformKl": 0.5340999033744237,
-    "effectiveSupportRatio": 0.5861966864147569,
-    "avgOverlapWithBm25": 0.07401185770750988,
-    "verdict": "veto",
-    "reasons": [
-      "查询不敏感度 0.942 ≥ 0.5（基线 0.058）：该路由对不同查询返回近乎同一批结果，是一记常量偏置，只会挤占 Top-K 预算"
-    ],
-    "notes": []
+    "nodeCount": 6495,
+    "edgeCount": 35032,
+    "avgDegree": 5.393687451886066,
+    "degreeGini": 0.7799419033270891,
+    "spectralGap": 0.0016978565361291942,
+    "uniformKl": 0.5622689997432461,
+    "effectiveSupportRatio": 0.5699144599124065,
+    "avgOverlapWithBm25": 0.24339086242560345,
+    "verdict": "proceed",
+    "reasons": [],
+    "notes": [],
+    "denseEdgeCount": 583884,
+    "knownDeltaPp": null
   },
   "retro": {
     "consistent": 3,

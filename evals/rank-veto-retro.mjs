@@ -25,6 +25,11 @@ import { tokenizeExpanded } from '../dist/src/search/bm25Index.js';
 import { getGraphSignal, graphNeighborFileRoute } from '../dist/src/context/codeReferenceGraph.js';
 import { propagate } from '../dist/src/context/codeGraph.js';
 import { RankVetoEvaluator, jaccardOverlap } from '../dist/src/context/rankVeto.js';
+import {
+  buildLayeredCodeGraph,
+  edgeCountOf,
+  layeredFileRoute,
+} from '../dist/src/context/layeredCodeGraph.js';
 
 /** 语料根目录（与生产口径一致）。 */
 const SRC = 'src';
@@ -111,6 +116,24 @@ function graphTopFiles(corpus, sig, q, k) {
     .map((id) => (id.startsWith('file:') ? id.slice(5) : id));
 }
 
+/**
+ * 取**层化**图路由 Top-K 文件（T2 ① 候选）。
+ *
+ * 与 `graphTopFiles` 用同一套种子（符号路 BM25 Top-40），只有图不同，
+ * 因此两者可直接对照。
+ *
+ * @param corpus 已索引语料
+ * @param graph 层化图
+ * @param q 查询文本
+ * @param k 文件预算
+ * @returns 相对路径数组
+ */
+function layeredTopFiles(corpus, graph, q, k) {
+  const hits = corpus.symbolIndex.search(tokenizeExpanded(q), 40);
+  const seed = new Map(hits.map((h) => [h.id, h.score]));
+  return layeredFileRoute(corpus.symbols, graph, seed, k);
+}
+
 const t0 = Date.now();
 const corpus = indexCorpus(SRC);
 console.log(`语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`);
@@ -125,8 +148,15 @@ const baselineLists = queries.map((q) => bm25TopFiles(corpus, q, FILE_K));
 
 // ── 候选 1：稠密图路由（`corpus.codeGraph` 即 buildCodeGraph 产物）──────────
 // 与稀疏图共用同一套查询邻域扩散逻辑，仅图不同，故用 buildCodeGraph 的图手工跑一遍。
+//
+// `--selftest`：把稠密路由的探针**替换成 BM25 基线列表**，人为制造
+// 「否决器对一条已知失败的路放行」的不一致，用来验证 `--gate` **真的会红**。
+// 门禁若只验证过绿灯，等于没验证过。
+const SELFTEST = process.argv.includes('--selftest');
 const denseSig = signalOf(corpus, corpus.codeGraph);
-const denseLists = queries.map((q) => graphTopFiles(corpus, denseSig, q, FILE_K));
+const denseLists = SELFTEST
+  ? baselineLists
+  : queries.map((q) => graphTopFiles(corpus, denseSig, q, FILE_K));
 
 // ── 候选 2：稀疏引用图路由（生产 opt-in 的第四路）────────────────────────
 const sparseSig = getGraphSignal(SRC, corpus);
@@ -138,7 +168,7 @@ const sparseLists = queries.map((q) => graphTopFiles(corpus, sparseSig, q, FILE_
  * @param label 路由名
  * @param graph 图（结构性诊断用）
  * @param candidateLists 候选探针列表
- * @param knownDeltaPp 已知实测 Δpp
+ * @param knownDeltaPp 已知实测 Δpp；`null` 表示新候选、尚无已知实测
  * @returns 报告
  */
 function evaluateRoute(label, graph, candidateLists, knownDeltaPp) {
@@ -149,7 +179,11 @@ function evaluateRoute(label, graph, candidateLists, knownDeltaPp) {
     baselineProbeLists: baselineLists,
   });
   const m = report.metrics;
-  console.log(`\n── ${label}（已知实测 ${knownDeltaPp > 0 ? '+' : ''}${knownDeltaPp}pp）`);
+  const knownText =
+    knownDeltaPp === null
+      ? '新候选，无已知实测'
+      : `已知实测 ${knownDeltaPp > 0 ? '+' : ''}${knownDeltaPp}pp`;
+  console.log(`\n── ${label}（${knownText}）`);
   console.log(
     `   查询不敏感度 ${m.queryInsensitivity.toFixed(4)}   基线(${BASELINE_ROUTE}) ${m.baselineQueryInsensitivity.toFixed(
       4,
@@ -169,6 +203,19 @@ function evaluateRoute(label, graph, candidateLists, knownDeltaPp) {
 
 const dense = evaluateRoute('稠密 buildCodeGraph 图路由', corpus.codeGraph, denseLists, -6.1);
 const sparse = evaluateRoute('稀疏 codeReferenceGraph 图路由', sparseSig.graph, sparseLists, -2.6);
+
+// ── 候选 3：层化图路由（T2 ① 新候选）——────────────────────────────────
+// 尚无已知实测，因此**不进回溯一致率**，只由否决器做前置判定：
+// 放行 ⇒ 值得跑完整召回评测；否决 ⇒ 直接放弃，省下整轮实验成本。
+const tLay0 = Date.now();
+const layeredGraph = buildLayeredCodeGraph(corpus);
+const layeredLists = queries.map((q) => layeredTopFiles(corpus, layeredGraph, q, FILE_K));
+console.log(
+  `\n[稀疏化] 稠密图 ${edgeCountOf(corpus.codeGraph)} 边 → 层化图 ${edgeCountOf(
+    layeredGraph,
+  )} 边（构建 ${Date.now() - tLay0}ms）`,
+);
+const layered = evaluateRoute('层化图路由（T2 ①）', layeredGraph, layeredLists, null);
 
 // ── 反向对照：BM25 自己（已知有效，否决器必须放行，否则判据会误杀）────────
 const selfCheck = evaluator.evaluate({
@@ -198,6 +245,17 @@ for (const r of rows) {
 }
 console.log(`\n回溯一致率：${consistent}/${rows.length}`);
 
+// ── 新候选裁决：层化图路由值不值得跑完整召回评测 ─────────────────────────
+console.log('\n══════ 新候选裁决（层化图路由，T2 ①） ══════');
+console.log(`   否决器结论：${layered.report.verdict}`);
+console.log(
+  `   ⇒ ${
+    layered.report.verdict === 'veto'
+      ? '放弃完整召回评测（省下一轮实验成本），如实记为负结果'
+      : '值得跑完整召回评测（同 corpus 开关隔离对照）'
+  }`,
+);
+
 writeFileSync(
   'evals/rank-veto-retro.report.json',
   JSON.stringify(
@@ -209,6 +267,16 @@ writeFileSync(
       baseline: { route: BASELINE_ROUTE, ...selfCheck.metrics, verdict: selfCheck.verdict },
       dense: { ...dense.report.metrics, avgOverlapWithBm25: dense.avgOverlap, verdict: dense.report.verdict, reasons: dense.report.reasons, notes: dense.report.notes },
       sparse: { ...sparse.report.metrics, avgOverlapWithBm25: sparse.avgOverlap, verdict: sparse.report.verdict, reasons: sparse.report.reasons, notes: sparse.report.notes },
+      layered: {
+        ...layered.report.metrics,
+        avgOverlapWithBm25: layered.avgOverlap,
+        verdict: layered.report.verdict,
+        reasons: layered.report.reasons,
+        notes: layered.report.notes,
+        edgeCount: edgeCountOf(layeredGraph),
+        denseEdgeCount: edgeCountOf(corpus.codeGraph),
+        knownDeltaPp: null,
+      },
       retro: { consistent, total: rows.length },
     },
     null,
@@ -217,3 +285,11 @@ writeFileSync(
   'utf8',
 );
 console.log('\n报告已写入 evals/rank-veto-retro.report.json');
+
+// ── 门禁模式（`--gate`）───────────────────────────────────────────────────
+// 只有**回溯一致率**参与判定：若否决器无法复盘已知失败，说明判据已失效，必须红。
+// 新候裁决（层化图等）**不参与门禁**——它的结论本来就是待验证的，不该锁死 CI。
+if (process.argv.includes('--gate')) {
+  process.exitCode = consistent === rows.length ? 0 : 1;
+  console.log(`[gate] 回溯一致率 ${consistent}/${rows.length} ⇒ exit ${process.exitCode}`);
+}

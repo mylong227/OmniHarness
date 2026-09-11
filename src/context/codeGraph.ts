@@ -30,8 +30,13 @@ export interface CodeGraph {
   readonly adj: ReadonlyArray<ReadonlyArray<readonly [number, number]>>;
 }
 
-/** 代码停用词 + 短名过滤：这些名字当引用边太噪，直接丢弃。 */
-const NOISE_NAMES = new Set([
+/**
+ * 代码停用词 + 短名过滤：这些名字当引用边太噪，直接丢弃。
+ *
+ * 导出给 {@link buildLayeredCodeGraph} 复用（层化图与稠密图必须共用同一份噪声集，
+ * 否则两侧实验不可比）。
+ */
+export const NOISE_NAMES = new Set([
   'get',
   'set',
   'run',

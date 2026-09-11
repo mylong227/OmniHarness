@@ -77,6 +77,9 @@ jobs:
       # U5 规模化门禁：passK 单测 + SWE 本地子集 ScriptedModel replay（零 key、不联网、不付费）
       # + Pass@k 阈值门禁（--repeat 5 --min-pass-k 3,0.9）。回退即红，防止跑分能力静默劣化。
       - run: npm run eval:ci
+      # T2 排序否决器回溯门禁：否决器必须能复盘已知失败（稠密图 −6.1pp / 稀疏图 −2.6pp）
+      # 且对已知有效的 BM25 不误杀。--gate 只校验回溯一致率，新候选裁决不锁 CI。
+      - run: npm run eval:veto
 
   security:
     name: 安全左移（依赖 CVE + secrets + 格式）

@@ -1,0 +1,353 @@
+{
+  "generatedAt": "2026-09-11T23:48:10.936Z",
+  "corpus": {
+    "symbols": 6495,
+    "files": 394
+  },
+  "queryCount": 32,
+  "staleQueries": [
+    {
+      "q": "how is the chat completion provider configured",
+      "anchor": "OpenAiModelConfig"
+    }
+  ],
+  "fileK": 14,
+  "iters": 4,
+  "damping": 0.85,
+  "seedK": 40,
+  "graphs": {
+    "denseEdges": 583492,
+    "layeredEdges": 35032,
+    "sparsification": 16.655971683032657
+  },
+  "recall": {
+    "bm25": 37.984775641025635,
+    "layered": 28.880494505494504,
+    "dense": 27.54263965201465,
+    "bestFusion": 39.12087912087912,
+    "bestFusionSlots": {
+      "bm25": 4,
+      "layered": 10
+    }
+  },
+  "fusionScan": [
+    {
+      "bm25Slots": 4,
+      "layeredSlots": 10,
+      "recall": 39.12087912087912
+    },
+    {
+      "bm25Slots": 14,
+      "layeredSlots": 0,
+      "recall": 37.984775641025635
+    },
+    {
+      "bm25Slots": 6,
+      "layeredSlots": 8,
+      "recall": 37.29796245421245
+    },
+    {
+      "bm25Slots": 12,
+      "layeredSlots": 2,
+      "recall": 37.03754578754579
+    },
+    {
+      "bm25Slots": 10,
+      "layeredSlots": 4,
+      "recall": 36.070283882783876
+    },
+    {
+      "bm25Slots": 8,
+      "layeredSlots": 6,
+      "recall": 34.507783882783876
+    },
+    {
+      "bm25Slots": 2,
+      "layeredSlots": 12,
+      "recall": 32.63650412087912
+    },
+    {
+      "bm25Slots": 0,
+      "layeredSlots": 14,
+      "recall": 28.880494505494504
+    }
+  ],
+  "bootstrap": {
+    "mean": 1.1594365270146503,
+    "lo": -4.464285714285715,
+    "hi": 7.9269688644688525,
+    "ciCrossesZero": true,
+    "rounds": 2000
+  },
+  "tally": {
+    "up": 3,
+    "down": 11,
+    "flat": 18
+  },
+  "failureCriteria": {
+    "clusterOverlap": 0.24701605602635354,
+    "clusterOverlapPass": true,
+    "queryInsensitivity": 0.03783115160458848,
+    "queryInsensitivityPass": true,
+    "targetRecall": 50,
+    "targetPass": false
+  },
+  "perQuery": [
+    {
+      "q": "where is tool registration handled",
+      "anchor": "registerTool",
+      "gtSize": 4,
+      "bm25": 0.25,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "how does sandbox denial escalate to approval",
+      "anchor": "EscalationPort",
+      "gtSize": 13,
+      "bm25": 0.5384615384615384,
+      "layered": 0.38461538461538464,
+      "dense": 0.3076923076923077
+    },
+    {
+      "q": "what does ContextAssembler project events into",
+      "anchor": "class ContextAssembler",
+      "gtSize": 1,
+      "bm25": 1,
+      "layered": 1,
+      "dense": 1
+    },
+    {
+      "q": "how are images attached to model messages",
+      "anchor": "imagesOf",
+      "gtSize": 1,
+      "bm25": 1,
+      "layered": 1,
+      "dense": 1
+    },
+    {
+      "q": "where is reasoning_effort sent to the openai model",
+      "anchor": "reasoning_effort",
+      "gtSize": 6,
+      "bm25": 0.8333333333333334,
+      "layered": 0.8333333333333334,
+      "dense": 0.5
+    },
+    {
+      "q": "how does BM25 tokenize CJK text",
+      "anchor": "export function tokenize",
+      "gtSize": 3,
+      "bm25": 0.3333333333333333,
+      "layered": 1,
+      "dense": 1
+    },
+    {
+      "q": "how is the resonant memory probe mapped from text",
+      "anchor": "resonateByText",
+      "gtSize": 4,
+      "bm25": 1,
+      "layered": 0.75,
+      "dense": 0.75
+    },
+    {
+      "q": "where is the sandbox policy evaluated",
+      "anchor": "execPolicy",
+      "gtSize": 7,
+      "bm25": 0.2857142857142857,
+      "layered": 0.14285714285714285,
+      "dense": 0
+    },
+    {
+      "q": "how are tool results spilled out of context",
+      "anchor": "spill_read",
+      "gtSize": 4,
+      "bm25": 0.25,
+      "layered": 0.25,
+      "dense": 0.25
+    },
+    {
+      "q": "which component remembers decisions the operator already blessed",
+      "anchor": "ApprovalStore",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "how is a signed claim from an agent packaged",
+      "anchor": "AgentAssertionEnvelope",
+      "gtSize": 1,
+      "bm25": 1,
+      "layered": 1,
+      "dense": 1
+    },
+    {
+      "q": "which key-value store replicates records across nodes",
+      "anchor": "OobleckStore",
+      "gtSize": 1,
+      "bm25": 1,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "tuning knobs for the graph that links distant memories",
+      "anchor": "CosmicWebOptions",
+      "gtSize": 2,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "settings for the planner that gradually cools down",
+      "anchor": "HeatAnnealerOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "options controlling what gets pulled out of conversations",
+      "anchor": "MemoryExtractorOptions",
+      "gtSize": 1,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "knobs for the parity based error correction layer",
+      "anchor": "QECOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "what signals that a parity check has failed",
+      "anchor": "Syndrome",
+      "gtSize": 2,
+      "bm25": 0,
+      "layered": 0.5,
+      "dense": 0.5
+    },
+    {
+      "q": "where is the remaining spend captured at a point in time",
+      "anchor": "BudgetSnapshot",
+      "gtSize": 2,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "how is a chain of thought persisted to disk",
+      "anchor": "StoredTrace",
+      "gtSize": 1,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "what normalizes text before it is compared",
+      "anchor": "Canonicalizer",
+      "gtSize": 2,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "how long is a prior yes remembered before asking again",
+      "anchor": "CachedApprovalOptions",
+      "gtSize": 1,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "settings for the belief updater that follows curvature",
+      "anchor": "NaturalGradientOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "layered": 0.5,
+      "dense": 0.5
+    },
+    {
+      "q": "tunables for the sampler tracking many hypotheses at once",
+      "anchor": "ParticleFilterOptions",
+      "gtSize": 2,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "how is the local vector model configured",
+      "anchor": "TransformersEmbeddingOptions",
+      "gtSize": 1,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "where are ed25519 signing credentials created",
+      "anchor": "KeyPairSync",
+      "gtSize": 1,
+      "bm25": 1,
+      "layered": 1,
+      "dense": 1
+    },
+    {
+      "q": "how are orphaned tool call identifiers tracked",
+      "anchor": "ToolCallRef",
+      "gtSize": 8,
+      "bm25": 0.25,
+      "layered": 0,
+      "dense": 0.125
+    },
+    {
+      "q": "where do language server error reports come from",
+      "anchor": "Diagnostics",
+      "gtSize": 1,
+      "bm25": 1,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "how many characters of a conversation are retained",
+      "anchor": "TranscriptChars",
+      "gtSize": 1,
+      "bm25": 0,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "what does a delegated child task return",
+      "anchor": "SubagentResult",
+      "gtSize": 5,
+      "bm25": 0.2,
+      "layered": 0,
+      "dense": 0
+    },
+    {
+      "q": "what represents one entry in a multi stage plan",
+      "anchor": "PlanStep",
+      "gtSize": 3,
+      "bm25": 0,
+      "layered": 0.6666666666666666,
+      "dense": 0.6666666666666666
+    },
+    {
+      "q": "where are capabilities discovered and registered",
+      "anchor": "SkillRegistry",
+      "gtSize": 14,
+      "bm25": 0.07142857142857142,
+      "layered": 0.07142857142857142,
+      "dense": 0.07142857142857142
+    },
+    {
+      "q": "which component gates dangerous tool calls at runtime",
+      "anchor": "SupervisorKernel",
+      "gtSize": 7,
+      "bm25": 0.14285714285714285,
+      "layered": 0.14285714285714285,
+      "dense": 0.14285714285714285
+    }
+  ]
+}
