@@ -13,7 +13,7 @@ import { Bm25Index, tokenize, tokenizeExpanded } from '../search/bm25.js';
 import { extractSymbols, outlineText, type SymbolNode } from './repoMap.js';
 import { eigenSpectrum, resonance, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { buildCodeGraph, propagate, type CodeGraph } from './codeGraph.js';
-import { trainLsa, lsaQuery, type LsaModel } from './lsaRecall.js';
+import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
 
 /**
  * 空 LSA 模型（light 模式占位）：k=n=0、所有数组空。

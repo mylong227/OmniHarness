@@ -17,7 +17,7 @@ import { LineTransport } from '../server/lineTransport.js';
 import { HttpServer, HttpBridgeTransport } from '../server/httpServer.js';
 import { Metrics } from '../server/metrics.js';
 import { AppServer } from '../server/appServer.js';
-import { runDoctor as runDoctorReport, printDoctor } from './doctor.js';
+import { runDoctor as runDoctorReport, printDoctor } from './doctorRunner.js';
 import {
   fetchDiscovery,
   generatePkcePair,

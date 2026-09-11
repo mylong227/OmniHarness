@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ExecCli } from '../../src/cli/execImpl.js';
+import { ExecCli } from '../../src/cli/execCli.js';
 import { API_VERSION } from '../../src/version.js';
 
 /** 临时劫持 stdout，收集写入内容后恢复（单线程测试环境安全）。 */

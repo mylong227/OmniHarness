@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   }
 
   // 慢路径：真正要执行命令，才加载整条继承链
-  const { ExecCli } = await import('./execImpl.js');
+  const { ExecCli } = await import('./execCli.js');
   const exitCode = await new ExecCli().run(argv);
   process.exitCode = exitCode;
 }

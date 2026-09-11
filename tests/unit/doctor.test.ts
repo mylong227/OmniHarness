@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runDoctor, isElevated } from '../../src/cli/doctor.js';
+import { runDoctor, isElevated } from '../../src/cli/doctorRunner.js';
 
 test('runDoctor 返回结构包含 nodeVersion / config / sandbox / issues 字段', () => {
   const report = runDoctor();

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { trainLsa, lsaQuery } from '../../src/context/lsaRecall.js';
+import { trainLsa, lsaQuery } from '../../src/context/lsaEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
 
 /** 构造最小 IndexedCorpus（trainLsa 仅依赖 symbols[].file 与 fileText）。 */
