@@ -16,7 +16,7 @@
 | 隐式 public 的类成员 | **1332** | **20**（热区豁免块残留） |
 | 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
-| 文件名 ≠ 主类名 | 69 | **61**（Phase 3 批次1-2：−4，剩 61） |
+| 文件名 ≠ 主类名 | 69 | **58**（Phase 3 批次1-3：−11，剩 58） |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
 | `static` 用量 | 206 / 36 文件 | **20**（Phase 5 收官：−186，6 文件，全合法） |
 | 单文件 ≥3 个导出类 | 3 | **0**（Phase 6 收官） |
@@ -39,7 +39,7 @@
 - 风险：需逐方法理解语义，**不可机械批量**；按模块分批，每批单独提交。
 - 建议顺序：`util/` → `context/` → `adapters/` 小文件 → `ports/` 接口。
 
-### Phase 3 — 文件名 = 类名（进行中，剩 62 / 69）
+### Phase 3 — 文件名 = 类名（进行中，剩 58 / 69）
 - 二选一策略（逐文件判定）：
   - **改文件名**：`errors.ts` → `omniError.ts`（类名 `OmniError`）——推荐，改动集中。
   - **改类名**：仅当类名语义弱于文件名时。
@@ -52,6 +52,10 @@
   17 处 import 路径更新（含 `./eventLog.js` 相对形式漏改一次后补），门禁全绿、单测 15 用例通过。
 - **批次2（提交 `e16be43`，62→61）**：`core/checkpoint`→`checkpointManager`（类 `CheckpointManager`）；
   7 处 import 路径更新（src 4 + tests 3），门禁全绿、checkpoint 单测通过。
+- **批次3（提交 `aef7789`，61→58）**：重命名 3 个低 fan-in 单类文件
+  `cli/doctor`→`doctorRunner` / `cli/execImpl`→`execCli` / `context/lsaRecall`→`lsaEngine`；
+  9 处 import 路径更新（含 `./` 相对形式），门禁全绿、单测通过。
+  `repoMapContext`（被热区 `stepRunner` 引用）暂缓。
 
 ### Phase 4 — 上帝类拆分（✅ 真项清零；仅余热区）
 
