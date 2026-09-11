@@ -14,7 +14,7 @@
 | **计划层（U1–U7 七阶段）**       | **≈83%**  | 5 完成 / 2 部分 / 0 未启动（加权：done=1, partial=0.4）。较 09-05 版 ≈40% 大幅上修                      |
 | **执行主线（已驱动的升级动作）** | **≈100%** | U1–U7 七项**全部有代码落地**；U3 语义层、U5 eval 规模化仅剩验证/规模化缺口                             |
 
-> 一句话：U1 统一场、U4 RLVR、U6 A2A 三块「设计稿」已全部变成代码并接生产（runtime 接线 + 单测绿）；U6 回环实测本轮补齐转 ✅。剩余硬缺口集中在 **U5 官方基准规模化 + CI 接入**；U3 为已结案的诚实天花板。
+> 一句话：U1 统一场、U4 RLVR、U6 A2A 三块「设计稿」已全部变成代码并接生产（runtime 接线 + 单测绿）；U6 回环实测本轮补齐转 ✅。剩余硬缺口集中在 **U5 官方基准规模化**（CI 已齐：八 job 含零 key eval Pass@k 门禁）；U3 为已结案的诚实天花板。
 
 ---
 
@@ -27,7 +27,7 @@
 | **U2**   | repo-map 接生产循环             | ✅   | `contextEngine` + `repoMapContext`(TTL 缓存) + `contextAssembler` + `stepRunner/agent` 注入；live 真跑 3/3                                                                                                                                                                                       | —                                                                                                                                                                |
 | **U3**   | 共振语义层融合（破召回天花板）  | 🟡   | 语义骨架 + 混合检索接生产（默认关）；minilm **Hybrid 59.4%（vs 诚实基线 BM25 43.3%）**；e5-large-v2 64.8%（高召回可选预设）；2×2 消融 + 成本报告齐备（`evals/validation-2026-09-05.md` §7–§10）                                                                                                | **已结案（诚实天花板）**：KPI 67%→≥80% 未达成，瓶颈在 embedding 模型本身；codeGraph/LSA/频谱三项重评均不翻盘。换更强嵌入须端到端证增益为正，否则不再投入                 |
 | **U4**   | 进化闭环升格为 RLVR             | ✅   | `evolution/verifiableReward.ts`（编译/测试绿可验证奖励，fail-closed：异常→0）+ `rlvrLoop.ts`（**StarPO sample-filter-replay**：采样→可验证奖励打分→绿样本回放缓冲）+ `rlvrController.ts`；runtime 经 `config.evolutionRlvr` 接线（enabled+skillRegistry 才启用，缺省零破坏）；单测 `evolutionRlvr.test.ts` 绿 | 梯度级稳定化不适用（本地进化为提示词/采样驱动，非梯度训练）；端到端 autoRun 实跑未开（默认关），如需实战验证须显式开启并跑通验证命令                                     |
-| **U5**   | 专属 eval 门禁（规模化）        | 🟡   | `evals/live/bench.mjs` 任务集扩到 12+（`--repeat/--pass-k/--min-pass-rate` Pass@k 门禁）；`benchmark/swebenchTasks.mjs` SWE 风格任务子集（`--swebench` 零 key replay、`--swebench-remote` 联网子集）；真实 DeepSeek 跑分 3/3；自研套件 10/10（$0.20）                                             | ①**官方 SWE-bench Verified 子集**（当前为自研本地子集，联网子集未常态化）；②**接 CI**（`.github/workflows` 缺失，门禁只在本地跑）；③Terminal-Bench 子集；④对竞品横向对比 |
+| **U5**   | 专属 eval 门禁（规模化）        | 🟡   | `evals/live/bench.mjs` 任务集扩到 12+（`--repeat/--pass-k/--min-pass-k` Pass@k 门禁）；`benchmark/swebenchTasks.mjs` SWE 风格任务子集（`--swebench` 零 key replay、`--swebench-remote` 联网子集）；真实 DeepSeek 跑分 3/3；自研套件 10/10（$0.20）；**接 CI（本轮补齐）**：`.github/workflows/ci.yml` 自 re-init 起已存在（gate/web/test/security/rust/e2e/wasm 七 job），本轮补第 8 个 `eval` job（`npm run eval:ci` 零 key Pass@k 门禁，本地验证 exit 0） | ①**官方 SWE-bench Verified 子集**（当前为自研本地子集，联网子集未常态化）；②Terminal-Bench 子集；③对竞品横向对比 |
 | **U6**   | A2A 互操作客户端                | ✅   | `a2aProtocol/a2aClient/a2aServer/httpA2aTransport` 全落地 + runtime 接线（server 监听 + client 委托，缺省零破坏）；单测 `a2a.test.ts` 绿；**回环实测（本轮补齐）**：串行 30 任务 **完成率 100%、延迟 avg 2.5ms / p95 5ms / max 7ms**；并发 5×50 任务 **100%、avg 10.8ms / p95 28ms**（`evals/a2a-loopback.mjs` + 两份 report.json） | 已测口径为 **localhost 传输层+协议层回环**（不含 LLM 推理）；跨进程/跨机部署形态与真实子 agent 委托链路未测                                                              |
 | **U7**   | 全链路零依赖铁律自检            | ✅   | `check.mjs` 阻断级门禁 + 预提交钩子；新增模块零第三方（ports/core 恒 free）                                                                                                                                                                                                                     | —                                                                                                                                                                |
 
@@ -35,9 +35,9 @@
 
 ## 三、待补充清单（按 ROI / 依赖排序）
 
-1. **U5 eval 规模化**（唯一硬缺口，对竞品可证伪的关键）
-   - 接官方 SWE-bench Verified 子集并常态化联网跑分（现有 `--swebench-remote` 钩子已预留）。
-   - 建 `.github/workflows` CI：门禁四闸门 + 单测 + Pass@k 规模化门禁（`--min-pass-rate`）。
+1. **U5 eval 规模化**（唯一硬缺口，对竞品可证伪的关键；CI 半边本轮已补）
+   - ~~接 CI~~ ✅ 已完成：`.github/workflows/ci.yml` 早已存在（09-08 re-init 携带、`3fdde9a` 加固；此前看板误判「缺失」，系 Glob 忽略点开头目录所致）；本轮补第 8 个 `eval` job：`npm run eval:ci`（passK 单测 + SWE 本地子集零 key replay + Pass@k 阈值门禁，本地 exit 0）。
+   - 接官方 SWE-bench Verified 子集并常态化联网跑分（现有 `--swebench-remote` 钩子已预留；**须 API key，暂挂**）。
    - Terminal-Bench 子集 + 对竞品横向对比。
 
 2. **U6 跨进程/跨机扩展**（可选增强）
@@ -65,7 +65,7 @@
 
 **2026-09-08 re-init 后**：U1/U4/U6 代码随 `31878a2` 入库（无独立特性提交，见诚实边界）；随后为代码规范八条战役（Phase 3/4/5/6，`663482e` 收官：全库显式访问权限、文件名=类名、削 static、一文件一类、上帝类拆分），单测基线 835 → **1127 全绿**。
 
-**本轮新增（2026-09-12）**：`evals/a2a-loopback.mjs`（U6 回环实测脚本）+ `evals/a2a-loopback.report.json`（串行 30）+ `evals/a2a-loopback.report.conc5.json`（并发 5×50）+ 本看板。
+**本轮新增（2026-09-12）**：`evals/a2a-loopback.mjs`（U6 回环实测脚本）+ `evals/a2a-loopback.report.json`（串行 30）+ `evals/a2a-loopback.report.conc5.json`（并发 5×50）+ 本看板；随后补 `.github/workflows/ci.yml` 第 8 个 `eval` job（U5 零 key Pass@k 门禁进 CI，本地验证 exit 0），并修正「CI 缺失」误判（复核工具 Glob 忽略点开头目录所致）。
 
 ---
 

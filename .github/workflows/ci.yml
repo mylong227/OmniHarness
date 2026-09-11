@@ -59,6 +59,21 @@ jobs:
       # 集成/端到端分层：多模块真实 IO 编排（agent→门禁→存储→检查点→权限），独立于单元测试。
       - run: npm run test:integration
 
+  eval:
+    name: 零key eval 门禁（SWE replay + Pass@k）
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install
+      # U5 规模化门禁：passK 单测 + SWE 本地子集 ScriptedModel replay（零 key、不联网、不付费）
+      # + Pass@k 阈值门禁（--repeat 5 --min-pass-k 3,0.9）。回退即红，防止跑分能力静默劣化。
+      - run: npm run eval:ci
+
   security:
     name: 安全左移（依赖 CVE + secrets + 格式）
     runs-on: ubuntu-latest
