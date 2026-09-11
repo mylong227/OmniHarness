@@ -8,7 +8,7 @@
 import { createInterface } from 'node:readline';
 import { LineTransport } from '../server/lineTransport.js';
 import { McpServer } from '../mcp/mcpServer.js';
-import { McpConnector } from '../mcp/mcpConnector.js';
+import { mcpConnector } from '../mcp/mcpConnector.js';
 import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';
 import { ToolGate } from '../core/toolGate.js';
 import { parseArgs, messageOf } from './args.js';
@@ -77,7 +77,7 @@ export class CliMcpCmds extends CliServerCmds {
       process.stdout.write('用法: omniharness mcp list --server NAME=COMMAND\n');
       return 2;
     }
-    const connection = await McpConnector.connect(parseMcpServerSpec(spec));
+    const connection = await mcpConnector.connect(parseMcpServerSpec(spec));
     try {
       const tools = await connection.client.listTools();
       const info = connection.info;
@@ -103,7 +103,7 @@ export class CliMcpCmds extends CliServerCmds {
       );
       return 2;
     }
-    const connection = await McpConnector.connect(parseMcpServerSpec(spec));
+    const connection = await mcpConnector.connect(parseMcpServerSpec(spec));
     try {
       const result = await connection.client.callTool(
         tool,

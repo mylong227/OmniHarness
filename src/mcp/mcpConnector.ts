@@ -1,5 +1,5 @@
 import { McpClient } from './mcpClient.js';
-import { McpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.js';
+import { mcpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.js';
 import type { McpInitializeResult } from './mcpProtocol.js';
 
 /**
@@ -23,11 +23,13 @@ export interface McpConnectorOptions extends McpStdioServerOptions {
 /**
  * @beta
  * MCP 连接器：启动外部服务器 → 握手 → 返回可用客户端（启动失败即抛错）。
+ *
+ * 无状态连接逻辑以实例方法暴露，由组合根单例 `mcpConnector` 统一装配。
  */
 export class McpConnector {
   /** 建立连接（握手成功返回，失败关闭子进程并抛出）。 */
-  public static async connect(options: McpConnectorOptions): Promise<McpConnection> {
-    const handle = McpStdioTransport.launch(options);
+  public async connect(options: McpConnectorOptions): Promise<McpConnection> {
+    const handle = mcpStdioTransport.launch(options);
     try {
       const client = new McpClient({ transport: handle.transport, timeoutMs: options.timeoutMs });
       const info = await Promise.race([client.initialize(), handle.failure]);
@@ -38,3 +40,6 @@ export class McpConnector {
     }
   }
 }
+
+/** 组合根单例：MCP 连接逻辑的装配点。 */
+export const mcpConnector = new McpConnector();

@@ -18,7 +18,7 @@
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
 | 文件名 ≠ 主类名 | 69 | 69 |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
-| `static` 用量 | 206 / 36 文件 | **33**（Phase 5 进行中：−173，13 文件） |
+| `static` 用量 | 206 / 36 文件 | **28**（Phase 5 进行中：−178，10 文件） |
 | 单文件 ≥3 个导出类 | 3 | 3 |
 
 ## 批次状态
@@ -123,7 +123,7 @@
   军规⑥要「减 static」，故一律用顶层函数（若用 `class XxxAssembler { static assemble }` 会新增 16 处 static，
   与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
-### Phase 5 — 削减 static（进行中，206 → **33**，−173）
+### Phase 5 — 削减 static（进行中，206 → **28**，−178）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例（`export const xxx = new Xxx()`）+ 调用点
   `ClassName.xxx(...)` → `xxx.xxx(...)` 零构造复用（沿用批次 A 已验证模式）。高扇入模块用一次性 codemod
   批量重命名 `ClassName.` → `camelName.`，再手工同步 import（仅静态调用的 import 直接改 token；类名仍作
@@ -156,12 +156,17 @@
   （版本号 / 方法名 / 错误码）属合法常量命名空间，保留 static，调用点 `McpProtocol.XXX` 不动。3 处工厂调用点
   （`mcpServer` 的 `initializeResult` / `toolResult`×2）改 `mcpProtocol.xxx`，`mcpClient` / `mcp.test` 仅用常量零改动。
   static 计数 35 → 33。
+- **已完成（3 模块，第十批）**：`mcp/mcpStdioTransport`(2) / `mcp/mcpConnector`(1) / `worker/dshWorker`(2)
+  —— 三个无状态工厂类统一套「实例类 + 组合根单例」范式（`mcpStdioTransport` / `mcpConnector` / `dshWorker`），
+  调用点 `ClassName.xxx` 改 `camelName.xxx`；`mcpStdioTransport.launch` 内部 `this.failureOf` 自调用天然转实例调用。
+  调用点涉及 `mcpConnector`(`cliMcpCmds`×2 / `mcpGateway`×1)、`dshWorker`(`cliBuildConfig`×1 / `dshWorker.test`×3)、
+  `mcpStdioTransport`(`mcpConnector`×1)，import 同步引用单例。static 计数 33 → 28。
 - **待办（逐项评估批）**：
   - 工厂 / 安全 / 状态类（宜用「模块级函数」而非实例单例，避免 `new X()` 构造约束）：
-    `plugin/permissionGate`(3，私有构造器工厂)、`security/ssrfGuard`(3，常量数据)、
-    `subagent/subagentRuntimeFactory`(3)、`mcp/mcpStdioTransport`(2)、`worker/dshWorker`(2)、
-    `core/runtime`(1，核心入口工厂)、`mcp/mcpConnector`(1)、`native/nativeBackend`(1)、
-    `sdk/sdkSocket`(1，构造器带参)、`util/logger`(2，AsyncLocalStorage 状态类)。
+    `plugin/permissionGate`(3，私有构造器工厂，合法保留)、`security/ssrfGuard`(4，常量数据，保留)、
+    `subagent/subagentRuntimeFactory`(3)、`core/runtime`(1，核心入口工厂)、
+    `native/nativeBackend`(1，私有构造器工厂，保留)、`sdk/sdkSocket`(1，构造器带参)、
+    `util/logger`(2，AsyncLocalStorage 状态类)。
   - 有意保留的公共 API（调用点 43+，改动收益低、风险高）：`config/omniharnessConfig.build`(1)。
   - 误报（非真实 static）：`context/repoMap`(1，正则字符串)、`context/contextEngine`(0，数组字面量 token)。
 

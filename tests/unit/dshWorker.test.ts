@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { DshWorker } from '../../src/worker/dshWorker.js';
+import { dshWorker } from '../../src/worker/dshWorker.js';
 import { WorkerRegistry } from '../../src/worker/workerRegistry.js';
 import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.js';
 
@@ -21,7 +21,7 @@ test(
   'dsh worker：真实二进制执行成功（配置转储，离线可跑）',
   { skip: skipReason, timeout: 120000 },
   async () => {
-    const worker = DshWorker.inspect('web');
+    const worker = dshWorker.inspect('web');
     const result = await worker.run({ task: '查看配置', workspaceRoot: process.cwd() });
     assert.strictEqual(result.ok, true, `期望成功，实际: ${result.output}`);
     assert.match(result.output, /dsh-base/, '输出应为 dsh 配置树');
@@ -33,7 +33,7 @@ test(
   'dsh worker：真实二进制失败收敛为 ok:false（不抛异常）',
   { skip: skipReason, timeout: 120000 },
   async () => {
-    const worker = DshWorker.inspect('omniharness-no-such-profile');
+    const worker = dshWorker.inspect('omniharness-no-such-profile');
     const result = await worker.run({ task: '查看配置', workspaceRoot: process.cwd() });
     assert.strictEqual(result.ok, false);
     assert.ok(result.output.length > 0, '失败应有输出或错误信息');
@@ -45,7 +45,7 @@ test(
   { skip: skipReason, timeout: 120000 },
   async () => {
     const registry = new WorkerRegistry();
-    registry.register(DshWorker.inspect('web'));
+    registry.register(dshWorker.inspect('web'));
     const orchestrator = new WorkerOrchestrator(registry);
     const result = await orchestrator.delegate(
       { worker: 'dsh-inspect:web', task: '查看配置' },

@@ -6,10 +6,12 @@ import { CliWorker } from './cliWorker.js';
  *
  * - `task(profile)`：一次性任务模式 `dsh --profile <p> "<task>"`，需 dsh 侧已注册模型适配器与凭据。
  * - `inspect(profile)`：配置转储模式，离线可用，用于验证 worker 链路与真实二进制连通性。
+ *
+ * 无状态构造逻辑以实例方法暴露，由组合根单例 `dshWorker` 统一装配。
  */
 export class DshWorker {
   /** 一次性任务 worker。 */
-  public static task(profile: string): CliWorker {
+  public task(profile: string): CliWorker {
     return new CliWorker({
       name: `dsh:${profile}`,
       command: 'dsh',
@@ -19,7 +21,7 @@ export class DshWorker {
   }
 
   /** 配置转储 worker（离线可用）。 */
-  public static inspect(profile: string): CliWorker {
+  public inspect(profile: string): CliWorker {
     return new CliWorker({
       name: `dsh-inspect:${profile}`,
       command: 'dsh',
@@ -28,6 +30,9 @@ export class DshWorker {
     });
   }
 }
+
+/** 组合根单例：dsh worker 构造逻辑的装配点。 */
+export const dshWorker = new DshWorker();
 
 /** Windows 上 npm 安装的 dsh 是无扩展名 shell 脚本，不经 shell 会 ENOENT。 */
 function needsShell(): boolean {

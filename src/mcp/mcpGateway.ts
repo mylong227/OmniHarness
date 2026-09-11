@@ -1,7 +1,7 @@
 import type { ToolContext, ToolResult } from '../ports/tool.js';
 import type { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpClient } from './mcpClient.js';
-import { McpConnector, type McpConnection } from './mcpConnector.js';
+import { mcpConnector, type McpConnection } from './mcpConnector.js';
 import type { McpStdioServerOptions } from './mcpStdioTransport.js';
 import { mcpToolMapper } from './mcpToolMapper.js';
 import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.js';
@@ -87,7 +87,7 @@ export class McpGateway {
       };
     }
     try {
-      const connection = await McpConnector.connect({
+      const connection = await mcpConnector.connect({
         ...server,
         timeoutMs: this.options.timeoutMs,
       });

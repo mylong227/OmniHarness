@@ -25,7 +25,7 @@ import { PluginRegistry } from '../plugin/registry.js';
 import { AuditSink } from '../server/audit.js';
 import { NetworkEgressGuard, parseAllowList } from '../adapters/sandbox/networkEgress.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
-import { DshWorker } from '../worker/dshWorker.js';
+import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpGateway } from '../mcp/mcpGateway.js';
 import { formatBridgeResults } from '../mcp/mcpServerCommand.js';
@@ -236,7 +236,7 @@ export class CliBuildConfig {
       return undefined;
     }
     const registry = new WorkerRegistry();
-    registry.register(DshWorker.task(args.workerDsh));
+    registry.register(dshWorker.task(args.workerDsh));
     return registry;
   }
 

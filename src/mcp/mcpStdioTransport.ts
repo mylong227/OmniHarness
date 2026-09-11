@@ -28,10 +28,12 @@ export interface McpStdioHandle {
 /**
  * @beta
  * stdio 传输启动器：spawn 外部 MCP 服务器并以行式 JSON-RPC 通信。
+ *
+ * 无状态启动逻辑以实例方法暴露，由组合根单例 `mcpStdioTransport` 统一装配。
  */
 export class McpStdioTransport {
   /** 启动子进程并建立传输。 */
-  public static launch(options: McpStdioServerOptions): McpStdioHandle {
+  public launch(options: McpStdioServerOptions): McpStdioHandle {
     const child = spawn(options.command, [...(options.args ?? [])], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: options.cwd,
@@ -61,7 +63,7 @@ export class McpStdioTransport {
   }
 
   /** 进程失败信号：spawn 错误或提前退出（未处理拒绝已吞掉）。 */
-  private static failureOf(child: ChildProcess): Promise<never> {
+  private failureOf(child: ChildProcess): Promise<never> {
     const failure = new Promise<never>((_resolve, reject) => {
       child.on('error', (error: Error) => reject(error));
       child.on('exit', (code: number | null) =>
@@ -72,3 +74,6 @@ export class McpStdioTransport {
     return failure;
   }
 }
+
+/** 组合根单例：stdio 传输启动逻辑的装配点。 */
+export const mcpStdioTransport = new McpStdioTransport();
