@@ -30,35 +30,36 @@ export interface Modality<A> {
   readonly features: ReadonlyArray<number>;
 }
 
+/** 文本 n-gram 包特征维度。 */
+const TEXT_DIM = 32;
+
 /**
- * 多模态代数：原模块级纯函数归拢为 `ModalityPort` 静态方法族，
- * 调用点（multimodalBridge 等）通过同名 `export const` 别名零改动引用。
+ * 多模态代数。
+ *
+ * 无状态、无 IO：同一实例可并发复用（默认实例见文件末尾组合根门面）。
+ * `OOP 收口`（2026-09-11）：原静态方法族改为实例方法，消除 `static`。
  */
 export class ModalityPort {
   /** 函子 map：仅变换 data，保留 kind 与 features（特征空间不变）。 */
-  public static mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
+  public mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
     return { kind: m.kind, data: f(m.data), features: m.features };
   }
 
   /** 文本模态：确定性 n-gram 包特征（长度 32，单位化）。 */
-  public static encodeText(s: string): Modality<string> {
-    return { kind: 'text', data: s, features: ModalityPort.textFeatures(s) };
+  public encodeText(s: string): Modality<string> {
+    return { kind: 'text', data: s, features: this.textFeatures(s) };
   }
 
   /**
    * 图像模态：由原始字节计算**真实结构特征**（零依赖、可离线）。
    * 这是"视觉语义"的可计算占位；真实 CLIP 类编码器可替换本函数而代数不变。
    */
-  public static encodeImage(
-    bytes: Uint8Array,
-    width: number,
-    height: number,
-  ): Modality<Uint8Array> {
-    return { kind: 'image', data: bytes, features: ModalityPort.imageFeatures(bytes, width, height) };
+  public encodeImage(bytes: Uint8Array, width: number, height: number): Modality<Uint8Array> {
+    return { kind: 'image', data: bytes, features: this.imageFeatures(bytes, width, height) };
   }
 
   /** 特征签名（确定性，用于融合时的规范排序以保交换律）。 */
-  private static featureSig(f: ReadonlyArray<number>): string {
+  private featureSig(f: ReadonlyArray<number>): string {
     return f.map((v) => v.toFixed(6)).join(',');
   }
 
@@ -67,9 +68,9 @@ export class ModalityPort {
    * （fuse(a,b) ≡ fuse(b,a)，即使同种类模态也成立）。
    * 特征为两向量拼接后重新单位化。
    */
-  public static fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
-    const ka = `${a.kind}#${ModalityPort.featureSig(a.features)}`;
-    const kb = `${b.kind}#${ModalityPort.featureSig(b.features)}`;
+  public fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
+    const ka = `${a.kind}#${this.featureSig(a.features)}`;
+    const kb = `${b.kind}#${this.featureSig(b.features)}`;
     const [x, y] = ka <= kb ? [a, b] : [b, a];
     const raw = [...x.features, ...y.features];
     const len = Math.sqrt(raw.reduce((s, v) => s + v * v, 0)) || 1;
@@ -81,22 +82,20 @@ export class ModalityPort {
   }
 
   /** 跨模态对齐度：特征向量余弦相似度 ∈ [-1, 1]。文本与图像可直接比较。 */
-  public static alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
+  public alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
     return cosine(a.features as number[], b.features as number[]);
   }
 
   // ---- 真实可计算特征提取（零依赖） ----
 
-  private static readonly TEXT_DIM = 32;
-
   /** 文本 n-gram 包特征（确定性、可复现），单位化到长度 TEXT_DIM。 */
-  public static textFeatures(s: string): number[] {
-    const v = new Array<number>(ModalityPort.TEXT_DIM).fill(0);
+  public textFeatures(s: string): number[] {
+    const v = new Array<number>(TEXT_DIM).fill(0);
     const n = s.length;
     for (let i = 0; i < n; i++) {
       const c1 = s.charCodeAt(i);
       const c2 = i + 1 < n ? s.charCodeAt(i + 1) : 0;
-      const h = (c1 * 31 + c2 * 17) % ModalityPort.TEXT_DIM;
+      const h = (c1 * 31 + c2 * 17) % TEXT_DIM;
       v[h] = (v[h] ?? 0) + 1;
     }
     const len = Math.sqrt(v.reduce((s2, x) => s2 + (x ?? 0) * (x ?? 0), 0)) || 1;
@@ -107,7 +106,7 @@ export class ModalityPort {
    * 图像结构特征（真实可计算）：亮度均值/标准差、字节香农熵、宽高比。
    * 长度 8，单位化。作为视觉语义编码器的可计算占位。
    */
-  public static imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
+  public imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
     const count = bytes.length || 1;
     let sum = 0;
     let sumSq = 0;
@@ -144,11 +143,50 @@ export class ModalityPort {
   }
 }
 
-// ---- 门面兼容：保留原导出名 ----
-export const mapModality = ModalityPort.mapModality;
-export const encodeText = ModalityPort.encodeText;
-export const encodeImage = ModalityPort.encodeImage;
-export const fuseModality = ModalityPort.fuseModality;
-export const alignModality = ModalityPort.alignModality;
-export const textFeatures = ModalityPort.textFeatures;
-export const imageFeatures = ModalityPort.imageFeatures;
+// ---- 门面兼容：保留原导出名，委托默认实例 ----
+const modalityPort = new ModalityPort();
+
+/** 函子 map：仅变换 data，保留 kind 与 features（特征空间不变）。 */
+export function mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
+  return modalityPort.mapModality(m, f);
+}
+
+/** 文本模态：确定性 n-gram 包特征（长度 32，单位化）。 */
+export function encodeText(s: string): Modality<string> {
+  return modalityPort.encodeText(s);
+}
+
+/**
+ * 图像模态：由原始字节计算**真实结构特征**（零依赖、可离线）。
+ * 这是"视觉语义"的可计算占位；真实 CLIP 类编码器可替换本函数而代数不变。
+ */
+export function encodeImage(bytes: Uint8Array, width: number, height: number): Modality<Uint8Array> {
+  return modalityPort.encodeImage(bytes, width, height);
+}
+
+/**
+ * 融合（交换幺半群乘积）：按 (kind, 特征签名) 规范排序保证交换律
+ * （fuse(a,b) ≡ fuse(b,a)，即使同种类模态也成立）。
+ * 特征为两向量拼接后重新单位化。
+ */
+export function fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
+  return modalityPort.fuseModality(a, b);
+}
+
+/** 跨模态对齐度：特征向量余弦相似度 ∈ [-1, 1]。文本与图像可直接比较。 */
+export function alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
+  return modalityPort.alignModality(a, b);
+}
+
+/** 文本 n-gram 包特征（确定性、可复现），单位化到长度 TEXT_DIM。 */
+export function textFeatures(s: string): number[] {
+  return modalityPort.textFeatures(s);
+}
+
+/**
+ * 图像结构特征（真实可计算）：亮度均值/标准差、字节香农熵、宽高比。
+ * 长度 8，单位化。作为视觉语义编码器的可计算占位。
+ */
+export function imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
+  return modalityPort.imageFeatures(bytes, width, height);
+}
