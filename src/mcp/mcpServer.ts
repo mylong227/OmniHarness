@@ -3,7 +3,7 @@ import type { ToolGate } from '../core/toolGate.js';
 import { id } from '../util/id.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';
 import type { Transport } from '../server/lineTransport.js';
-import { McpProtocol, type McpServerInfo, type McpResourceDescriptor, type McpResourceContent, type McpPromptDescriptor } from './mcpProtocol.js';
+import { McpProtocol, mcpProtocol, type McpServerInfo, type McpResourceDescriptor, type McpResourceContent, type McpPromptDescriptor } from './mcpProtocol.js';
 import { mcpToolMapper } from './mcpToolMapper.js';
 
 /**
@@ -91,7 +91,7 @@ export class McpServer {
 
   /** 握手：返回协议版本与能力声明。 */
   private async initialize(): Promise<unknown> {
-    return McpProtocol.initializeResult(
+    return mcpProtocol.initializeResult(
       this.options.serverInfo ?? { name: 'omniharness', version: '0.1.0' },
     );
   }
@@ -112,10 +112,10 @@ export class McpServer {
     const call: ToolCall = { id: id('mcp'), name, arguments: this.argumentsOf(params) };
     const denied = await this.gateOf(call);
     if (denied !== undefined) {
-      return McpProtocol.toolResult(denied.output, denied.error);
+      return mcpProtocol.toolResult(denied.output, denied.error);
     }
     const result = await this.options.tools.execute(call, this.options.context);
-    return McpProtocol.toolResult(result.output, result.error);
+    return mcpProtocol.toolResult(result.output, result.error);
   }
 
   /** 列举资源（未配置后端返回空列表，符合协议）。 */

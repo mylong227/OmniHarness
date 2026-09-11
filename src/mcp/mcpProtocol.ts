@@ -99,6 +99,9 @@ export interface McpInitializeResult {
 /**
  * @beta
  * MCP 协议常量与消息构造（零依赖，JSON-RPC 2.0 承载）。
+ *
+ * 协议常量（版本号 / 方法名 / 错误码）保持 `static readonly` 命名空间；
+ * 纯构造逻辑以实例方法暴露，由组合根单例 `mcpProtocol` 统一装配。
  */
 export class McpProtocol {
   /** 支持的协议版本（2025-06-18：当前稳定版，与主流 MCP 客户端互操作）。 */
@@ -125,19 +128,19 @@ export class McpProtocol {
   public static readonly ERROR_INVALID_PARAMS = -32602;
 
   /** 构造文本内容块。 */
-  public static text(text: string): McpTextContent {
+  public text(text: string): McpTextContent {
     return { type: 'text', text };
   }
 
   /** 由工具结果构造调用结果（失败时 isError=true）。 */
-  public static toolResult(output: string | undefined, error: string | undefined): McpCallToolResult {
+  public toolResult(output: string | undefined, error: string | undefined): McpCallToolResult {
     return error === undefined
-      ? { content: [McpProtocol.text(output ?? '')], isError: false }
-      : { content: [McpProtocol.text(error)], isError: true };
+      ? { content: [this.text(output ?? '')], isError: false }
+      : { content: [this.text(error)], isError: true };
   }
 
   /** 构造 initialize 结果。 */
-  public static initializeResult(serverInfo: McpServerInfo): McpInitializeResult {
+  public initializeResult(serverInfo: McpServerInfo): McpInitializeResult {
     return {
       protocolVersion: McpProtocol.PROTOCOL_VERSION,
       // 声明已支持的能力；未配置后端时对应集合为空，但方法仍可应答（符合协议）。
@@ -146,3 +149,6 @@ export class McpProtocol {
     };
   }
 }
+
+/** 组合根单例：纯构造逻辑的统一装配点。协议常量仍经 `McpProtocol.XXX` 访问。 */
+export const mcpProtocol = new McpProtocol();

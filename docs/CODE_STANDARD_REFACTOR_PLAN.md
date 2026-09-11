@@ -18,7 +18,7 @@
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
 | 文件名 ≠ 主类名 | 69 | 69 |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
-| `static` 用量 | 206 / 36 文件 | **35**（Phase 5 进行中：−171，13 文件） |
+| `static` 用量 | 206 / 36 文件 | **33**（Phase 5 进行中：−173，13 文件） |
 | 单文件 ≥3 个导出类 | 3 | 3 |
 
 ## 批次状态
@@ -123,7 +123,7 @@
   军规⑥要「减 static」，故一律用顶层函数（若用 `class XxxAssembler { static assemble }` 会新增 16 处 static，
   与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
-### Phase 5 — 削减 static（进行中，206 → **35**，−171）
+### Phase 5 — 削减 static（进行中，206 → **33**，−173）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例（`export const xxx = new Xxx()`）+ 调用点
   `ClassName.xxx(...)` → `xxx.xxx(...)` 零构造复用（沿用批次 A 已验证模式）。高扇入模块用一次性 codemod
   批量重命名 `ClassName.` → `camelName.`，再手工同步 import（仅静态调用的 import 直接改 token；类名仍作
@@ -150,9 +150,13 @@
 - **已完成（1 模块，第八批）**：`core/eventFactory`(13) —— 13 个静态工厂方法 + `private static base`
   改实例方法 + 组合根单例 `eventFactory`；自调用原即 `this.base(...)`（非 `EventFactory.base`），去 static 后天然
   转实例调用；21 处调用点（`eventLog`(5) / `sessionRecorder`(9) / `planTool`(3) / `askUserTool`(1) /
-  `todoTool`(1) / `eventLog.test`(1)）改为 `eventFactory.xxx`，6 处 import 同步引用单例。static 计数 48 → 35。
+  `todoTool`(1) / `eventLog.test`(1)）改为 `eventFactory.xxx`，6 处 import 同步引用单例。  static 计数 48 → 35。
+- **已完成（1 模块，第九批）**：`mcp/mcpProtocol`(14→11) —— 仅 3 个纯工厂方法（`text` / `toolResult` /
+  `initializeResult`）去 static 转实例方法 + 组合根单例 `mcpProtocol`；11 个 `static readonly` 协议常量
+  （版本号 / 方法名 / 错误码）属合法常量命名空间，保留 static，调用点 `McpProtocol.XXX` 不动。3 处工厂调用点
+  （`mcpServer` 的 `initializeResult` / `toolResult`×2）改 `mcpProtocol.xxx`，`mcpClient` / `mcp.test` 仅用常量零改动。
+  static 计数 35 → 33。
 - **待办（逐项评估批）**：
-  - 高扇入巨无霸（需逐个评估调用点、权衡一致性收益）：`mcp/mcpProtocol`(14，其中 9 处 `readonly` 常量表)。
   - 工厂 / 安全 / 状态类（宜用「模块级函数」而非实例单例，避免 `new X()` 构造约束）：
     `plugin/permissionGate`(3，私有构造器工厂)、`security/ssrfGuard`(3，常量数据)、
     `subagent/subagentRuntimeFactory`(3)、`mcp/mcpStdioTransport`(2)、`worker/dshWorker`(2)、
