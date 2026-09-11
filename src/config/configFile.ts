@@ -78,16 +78,16 @@ export interface LayeredOptions {
   readonly profile?: string;
 }
 
-/** 配置文件加载器：omniharness.json，向上逐级查找。 */
+/** 配置文件加载器：omniharness.json，向上逐级查找（无隐式状态，默认实例见文件末尾）。 */
 export class ConfigFile {
   /** 配置文件固定名。 */
-  public static readonly FILE_NAME = 'omniharness.json';
+  public readonly FILE_NAME = 'omniharness.json';
 
   /** 从目录向上查找配置文件。 */
-  public static find(startDir: string): string | undefined {
+  public find(startDir: string): string | undefined {
     let current = startDir;
     while (true) {
-      const candidate = join(current, ConfigFile.FILE_NAME);
+      const candidate = join(current, this.FILE_NAME);
       if (existsSync(candidate)) {
         return candidate;
       }
@@ -100,7 +100,7 @@ export class ConfigFile {
   }
 
   /** 加载并解析配置文件（文件不存在返回空配置，宽松：不校验未知 key）。 */
-  public static load(filePath: string): FileConfig {
+  public load(filePath: string): FileConfig {
     try {
       const raw = readFileSync(filePath, 'utf8');
       return JSON.parse(raw) as FileConfig;
@@ -113,7 +113,7 @@ export class ConfigFile {
    * 写回配置文件（落盘）：先归一化校验（未知 key / 枚举越界 / 类型错误 fail-closed 抛 ConfigError），
    * 目录不存在自动创建，输出 pretty JSON。供 AppServer.config.update 持久化 UI 设置。
    */
-  public static save(filePath: string, cfg: FileConfig): void {
+  public save(filePath: string, cfg: FileConfig): void {
     const dir = dirname(filePath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -128,19 +128,19 @@ export class ConfigFile {
    * 各层（除环境变量层，它天然只含已知 key）经 normalizeConfig 严格校验，未知 key / 枚举越界 / 类型错误
    * 一律 fail-closed 抛 ConfigError。合并语义为「非零值覆盖」，CLI 参数在更上层（parseArgs）继续覆盖。
    */
-  public static loadLayered(opts: LayeredOptions): FileConfig {
+  public loadLayered(opts: LayeredOptions): FileConfig {
     const layers: Partial<FileConfig>[] = [];
 
     // 用户级：固定路径 ~/.omniharness/omniharness.json（若存在）。
     const userPath = join(homedir(), '.omniharness', 'omniharness.json');
     if (existsSync(userPath)) {
-      layers.push(ConfigFile.readStrict(userPath));
+      layers.push(this.readStrict(userPath));
     }
 
     // 项目级：显式 --config 优先，否则向上查找。
-    const projectPath = opts.configPath ?? ConfigFile.find(opts.workspace);
+    const projectPath = opts.configPath ?? this.find(opts.workspace);
     if (projectPath !== undefined && existsSync(projectPath)) {
-      layers.push(ConfigFile.readStrict(projectPath));
+      layers.push(this.readStrict(projectPath));
     }
 
     // profile 层：仅当指定 --profile 时加载（覆盖项目默认）。
@@ -165,7 +165,7 @@ export class ConfigFile {
   }
 
   /** 读文件并严格归一化（未知 key / 枚举越界 / 类型错误抛 ConfigError）。 */
-  private static readStrict(filePath: string): FileConfig {
+  private readStrict(filePath: string): FileConfig {
     let raw: string;
     try {
       raw = readFileSync(filePath, 'utf8');
@@ -184,3 +184,7 @@ export class ConfigFile {
     return normalizeConfig(parsed as Record<string, unknown>);
   }
 }
+
+// ---- 组合根门面：默认加载器实例（调用点以 `configFile.xxx` 零构造复用） ----
+/** 默认配置文件加载器实例（无状态）。 */
+export const configFile = new ConfigFile();

@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { parseArgs, CliDefaults } from '../../src/cli/args.js';
-import { ConfigFile } from '../../src/config/configFile.js';
+import { configFile } from '../../src/config/configFile.js';
 
 /** CLI 入口路径。 */
 const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');
@@ -49,16 +49,16 @@ test('ConfigFile：向上逐级查找配置文件', async () => {
   const sub = join(root, 'a', 'b');
   await mkdir(sub, { recursive: true });
 
-  const found = ConfigFile.find(sub);
+  const found = configFile.find(sub);
   assert.strictEqual(found, join(root, 'omniharness.json'));
-  const loaded = ConfigFile.load(found ?? '');
+  const loaded = configFile.load(found ?? '');
   assert.strictEqual(loaded.storageAdapter, 'jsonl');
 });
 
 test('ConfigFile：找不到返回 undefined，坏文件返回空配置', () => {
   const root = join(tmpdir(), `omniharness-none-${Date.now()}`);
-  assert.strictEqual(ConfigFile.find(root), undefined);
-  assert.deepStrictEqual(ConfigFile.load(join(root, 'omniharness.json')), {});
+  assert.strictEqual(configFile.find(root), undefined);
+  assert.deepStrictEqual(configFile.load(join(root, 'omniharness.json')), {});
 });
 
 test('session list：列出会话文件', () => {

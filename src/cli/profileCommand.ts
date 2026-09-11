@@ -8,7 +8,7 @@
  */
 
 import { join } from 'node:path';
-import { ConfigFile } from '../config/configFile.js';
+import { configFile } from '../config/configFile.js';
 import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfile.js';
 import { CliArgReader } from './cliArgReader.js';
 
@@ -126,9 +126,9 @@ export class ProfileCommand {
       return 1;
     }
     // 持久化到工作区配置，使后续 serve 默认应用该 profile（serve 读 config.pluginProfile 兜底）。
-    const configPath = ConfigFile.find(wsRoot) ?? join(wsRoot, ConfigFile.FILE_NAME);
-    const loaded = ConfigFile.load(configPath);
-    ConfigFile.save(configPath, { ...loaded, pluginProfile: id });
+    const configPath = configFile.find(wsRoot) ?? join(wsRoot, configFile.FILE_NAME);
+    const loaded = configFile.load(configPath);
+    configFile.save(configPath, { ...loaded, pluginProfile: id });
     process.stdout.write(
       `已激活插件集 profile: ${name}（已写入 ${configPath}，下次 serve 将自动应用）\n`,
     );

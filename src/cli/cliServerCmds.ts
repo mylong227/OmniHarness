@@ -37,7 +37,7 @@ import {
   generateAgentKeyMaterial,
 } from '../adapters/identity/ed25519Identity.js';
 import { DaemonController } from '../daemon/daemon.js';
-import { ConfigFile } from '../config/configFile.js';
+import { configFile } from '../config/configFile.js';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.js';
 import { PluginProfileStore } from '../plugin/pluginProfile.js';
 import { parseArgs, printUsage, toWindowsPath, CliDefaults, configDefaults } from './args.js';
@@ -301,7 +301,7 @@ export class CliServerCmds extends CliBuildConfig {
     const wsRoot = toWindowsPath(preArgs.workspace ?? process.cwd());
     const explicitConfig = this.flagValue(serveArgs, '--config');
     const foundConfig =
-      explicitConfig !== undefined ? toWindowsPath(explicitConfig) : ConfigFile.find(wsRoot);
+      explicitConfig !== undefined ? toWindowsPath(explicitConfig) : configFile.find(wsRoot);
     if (explicitConfig === undefined && foundConfig === undefined) {
       process.stderr.write(
         '[omniharness] 未找到 omniharness.json，serve 将使用内置默认配置（mock 模型）。\n',
@@ -310,10 +310,10 @@ export class CliServerCmds extends CliBuildConfig {
         '              可复制 omniharness.json.example，或运行 node scripts/init-config.mjs 生成。\n',
       );
     }
-    const configPath = foundConfig ?? join(wsRoot, ConfigFile.FILE_NAME);
+    const configPath = foundConfig ?? join(wsRoot, configFile.FILE_NAME);
     // 加载项目配置文件后，把其中字段作为 CLI 默认值：这样 serve 启动时后端实际运行配置
     // 与文件内容一致（如 approval=auto），不再出现 UI 显示 auto 后端却用 rules 的漂移。
-    const loadedFile = ConfigFile.load(configPath);
+    const loadedFile = configFile.load(configPath);
     const fileDefaults = configDefaults(loadedFile);
     const args = parseArgs(['--prompt', 'serve', ...serveArgs], fileDefaults);
     if (args === undefined) {

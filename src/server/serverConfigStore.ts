@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ConfigFile, type FileConfig } from '../config/configFile.js';
+import { configFile, type FileConfig } from '../config/configFile.js';
 import { mergeConfigs } from '../config/configLayer.js';
 import { PERSISTABLE_KEYS } from './appServerState.js';
 import { providerPresetOf, maskKey, type ProviderPreset } from './providerPresets.js';
@@ -23,7 +23,7 @@ export interface ServerConfigStoreDeps {
  * 服务端配置存储：持有 UI 覆盖态（fieldOverrides）、持久化路径与 autoApprove 开关，
  * 对外提供「可读摘要（凭据打码）/ 生效文件配置 / 更新落盘 / 工作区列表与新增」。
  *
- * 所有落盘走 `ConfigFile.save` 的归一化校验（fail-closed：非法枚举/类型直接抛错）。
+ * 所有落盘走 `configFile.save` 的归一化校验（fail-closed：非法枚举/类型直接抛错）。
  * 探测副作用（启用厂商）经注入的 `probeProvider` 回调完成——本类不直接依赖探测实现，
  * 保持「配置」与「模型」两个域的边界。
  */
@@ -87,7 +87,7 @@ export class ServerConfigStore {
 
   /** 生效的文件级配置：已落盘文件 + UI 覆盖（探测/摘要共用，避免两处取值漂移）。 */
   public fileConfig(): FileConfig {
-    return mergeConfigs(ConfigFile.load(this.configFilePath()), this.overrides);
+    return mergeConfigs(configFile.load(this.configFilePath()), this.overrides);
   }
 
   /** 当前生效工作区根目录（UI 覆盖优先，回退启动参数 → cwd）。 */
@@ -188,8 +188,8 @@ export class ServerConfigStore {
   /** 把覆盖配置合并进项目配置文件并写盘（目录不存在自动创建）。 */
   public persist(): void {
     const path = this.configFilePath();
-    const existing = ConfigFile.load(path);
-    ConfigFile.save(path, mergeConfigs(existing, this.overrides));
+    const existing = configFile.load(path);
+    configFile.save(path, mergeConfigs(existing, this.overrides));
     this.path = path;
   }
 
@@ -197,7 +197,7 @@ export class ServerConfigStore {
   private configFilePath(): string {
     return (
       this.path ??
-      join(this.deps.displayConfig['workspace'] ?? process.cwd(), ConfigFile.FILE_NAME)
+      join(this.deps.displayConfig['workspace'] ?? process.cwd(), configFile.FILE_NAME)
     );
   }
 

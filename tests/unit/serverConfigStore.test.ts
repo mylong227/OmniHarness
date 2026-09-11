@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ServerConfigStore } from '../../src/server/serverConfigStore.js';
-import { ConfigFile } from '../../src/config/configFile.js';
+import { configFile } from '../../src/config/configFile.js';
 import { maskKey } from '../../src/server/providerPresets.js';
 
 /** 在临时工作区内构造配置存储并执行。 */
@@ -61,8 +61,8 @@ test('ServerConfigStore.update：覆盖字段实时并入 fileConfig 并落盘',
   await withStore(async (ws, store) => {
     await store.update({ model: 'm-1' });
     assert.strictEqual(store.fileConfig().model, 'm-1');
-    assert.ok(existsSync(join(ws, ConfigFile.FILE_NAME)), '应写出项目配置文件');
-    assert.strictEqual(ConfigFile.load(join(ws, ConfigFile.FILE_NAME)).model, 'm-1');
+    assert.ok(existsSync(join(ws, configFile.FILE_NAME)), '应写出项目配置文件');
+    assert.strictEqual(configFile.load(join(ws, configFile.FILE_NAME)).model, 'm-1');
   });
 });
 
@@ -98,6 +98,6 @@ test('ServerConfigStore.commitWorkspaceSwitch：旧工作区一并收编进列�
 test('ServerConfigStore：未提供 configPath 时按工作区推断落盘路径', async () => {
   await withStore((ws, store) => {
     store.persist();
-    assert.ok(existsSync(join(ws, ConfigFile.FILE_NAME)));
+    assert.ok(existsSync(join(ws, configFile.FILE_NAME)));
   });
 });

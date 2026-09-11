@@ -10,7 +10,7 @@ import {
   readEnvConfig,
   validateConfig,
 } from '../../src/config/configLayer.js';
-import { ConfigFile, type FileConfig } from '../../src/config/configFile.js';
+import { configFile, type FileConfig } from '../../src/config/configFile.js';
 import { ProfileLoader } from '../../src/config/profile.js';
 
 describe('configLayer: 别名归一化', () => {
@@ -139,7 +139,7 @@ describe('profile: 查找与加载', () => {
   });
 });
 
-describe('ConfigFile.loadLayered: 分层合并 + 严格校验', () => {
+describe('configFile.loadLayered: 分层合并 + 严格校验', () => {
   let dir: string;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'oh-layered-'));
@@ -159,7 +159,7 @@ describe('ConfigFile.loadLayered: 分层合并 + 严格校验', () => {
       join(profiles, 'strict.json'),
       JSON.stringify({ approval: 'deny', sandbox: 'policy' }),
     );
-    const merged = ConfigFile.loadLayered({ workspace: dir, profile: 'strict' });
+    const merged = configFile.loadLayered({ workspace: dir, profile: 'strict' });
     assert.strictEqual(merged.model, 'base');
     assert.strictEqual(merged.approval, 'deny'); // profile 覆盖
     assert.strictEqual(merged.sandbox, 'policy');
@@ -168,18 +168,18 @@ describe('ConfigFile.loadLayered: 分层合并 + 严格校验', () => {
 
   it('项目文件含未知 key 严格抛错', () => {
     writeFileSync(join(dir, 'omniharness.json'), JSON.stringify({ weird_field: true }));
-    assert.throws(() => ConfigFile.loadLayered({ workspace: dir }), ConfigError);
+    assert.throws(() => configFile.loadLayered({ workspace: dir }), ConfigError);
   });
 
   it('未指定 profile 时不加载 profile 层', () => {
     writeFileSync(join(dir, 'omniharness.json'), JSON.stringify({ model: 'ok' }));
-    const merged = ConfigFile.loadLayered({ workspace: dir });
+    const merged = configFile.loadLayered({ workspace: dir });
     assert.strictEqual(merged.model, 'ok');
     assert.strictEqual(merged.approval, undefined);
   });
 
   it('不存在的 profile 抛 ConfigError', () => {
     writeFileSync(join(dir, 'omniharness.json'), JSON.stringify({ model: 'ok' }));
-    assert.throws(() => ConfigFile.loadLayered({ workspace: dir, profile: 'ghost' }), ConfigError);
+    assert.throws(() => configFile.loadLayered({ workspace: dir, profile: 'ghost' }), ConfigError);
   });
 });

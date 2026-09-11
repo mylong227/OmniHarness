@@ -20,7 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { Agent } from '../core/agent.js';
 import { RuntimeFactory } from '../core/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
-import { ConfigFile } from '../config/configFile.js';
+import { configFile } from '../config/configFile.js';
 import type { CliArgs } from './args.js';
 import { parseArgs, printUsage, messageOf, configDefaults } from './args.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
@@ -213,7 +213,7 @@ export class ExecCli extends CliAgentCmds {
   private loadDefaults(argv: readonly string[]): Partial<CliArgs> | undefined {
     const explicitConfig = this.flagValue(argv, '--config');
     const profile = this.flagValue(argv, '--profile');
-    if (explicitConfig === undefined && ConfigFile.find(process.cwd()) === undefined) {
+    if (explicitConfig === undefined && configFile.find(process.cwd()) === undefined) {
       process.stderr.write(
         '[omniharness] 未找到 omniharness.json，使用内置默认配置（mock 模型）。\n',
       );
@@ -221,7 +221,7 @@ export class ExecCli extends CliAgentCmds {
         '              可复制 omniharness.json.example，或运行 node scripts/init-config.mjs 生成。\n',
       );
     }
-    const merged = ConfigFile.loadLayered({
+    const merged = configFile.loadLayered({
       workspace: process.cwd(),
       configPath: explicitConfig,
       profile,
