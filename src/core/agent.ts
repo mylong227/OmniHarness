@@ -5,7 +5,7 @@ import type { ImageContent, FileAttachment } from '../ports/model.js';
 import type { OmniHarnessRuntime } from './runtime.js';
 import type { EvolutionController, PromotionVerdict } from '../ports/evolution.js';
 import type { SparkController, SparkCycleReport } from '../spark/sparkController.js';
-import { AppendOnlyEventLog } from './eventLog.js';
+import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { SessionRecorder } from './sessionRecorder.js';
 import { StepRunner } from './stepRunner.js';
 import { TurnRunner } from './turnRunner.js';

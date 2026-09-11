@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { StepRunner } from '../../src/core/stepRunner.js';
 import { TurnRunner } from '../../src/core/turnRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import type { ModelPort, ModelOutput, ModelRequest, ModelToolCallRef } from '../../src/ports/model.js';
 import type { ToolPort } from '../../src/ports/tool.js';

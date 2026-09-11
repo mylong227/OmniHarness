@@ -2,7 +2,7 @@ import type { SessionEvent } from '../ports/event.js';
 import type { EventPort } from '../ports/eventPort.js';
 import type { RetrievalDoc, RetrievalPort, RetrievalRole } from '../ports/retrieval.js';
 import type { ImageContent, FileAttachment, ModelUsage } from '../ports/model.js';
-import { AppendOnlyEventLog } from './eventLog.js';
+import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { eventFactory } from './eventFactory.js';
 
 /** 会话记录器：统一"写入日志 + 广播事件"，保证可观测性不遗漏。 */

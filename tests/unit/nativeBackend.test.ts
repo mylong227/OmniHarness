@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import type { SessionEvent } from '../../src/ports/event.js';
 import type { EventPort } from '../../src/ports/eventPort.js';
 import type { ApprovalPort } from '../../src/ports/approval.js';

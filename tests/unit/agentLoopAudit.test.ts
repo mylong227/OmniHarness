@@ -23,7 +23,7 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import { StepRunner } from '../../src/core/stepRunner.js';
 import { TurnRunner } from '../../src/core/turnRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { ToolHookRunner } from '../../src/core/toolHooks.js';
 import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model.js';
 import type { ApprovalPort } from '../../src/ports/approval.js';

@@ -9,7 +9,7 @@ import {
   ModelRouter,
   type ModelRouterOptions,
   type RouterStrategy,
-} from '../adapters/model/router.js';
+} from '../adapters/model/modelRouter.js';
 import { OpenAiCompatibleModel } from '../adapters/model/openaiCompatibleModel.js';
 import { AnthropicModel } from '../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../adapters/model/responsesModel.js';

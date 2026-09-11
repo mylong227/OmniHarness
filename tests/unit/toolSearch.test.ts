@@ -10,7 +10,7 @@ import { ToolGate } from '../../src/core/toolGate.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../src/ports/tool.js';
 import type { ModelOutput, ModelPort, ModelRequest, ModelToolSpec } from '../../src/ports/model.js';

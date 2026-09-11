@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.js';
 import { MemorySearchTool } from '../../src/adapters/tool/memorySearchTool.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
 import { createRuntime } from '../../src/core/runtime.js';

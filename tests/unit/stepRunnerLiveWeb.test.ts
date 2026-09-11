@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.js';
 import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.js';

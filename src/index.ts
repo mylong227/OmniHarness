@@ -44,7 +44,7 @@ export type {
 // @public 核心
 export { Agent } from './core/agent.js';
 export type { AgentResult } from './core/agent.js';
-export { AppendOnlyEventLog } from './core/eventLog.js';
+export { AppendOnlyEventLog } from './core/appendOnlyEventLog.js';
 export { Container } from './core/container.js';
 export { createRuntime, ServiceKeys } from './core/runtime.js';
 export type { OmniHarnessRuntime } from './core/runtime.js';
@@ -109,8 +109,8 @@ export {
   parseAllowList,
 } from './adapters/sandbox/networkEgress.js';
 export { DaemonController } from './daemon/daemon.js';
-export { RoutineScheduler, matchesCron } from './daemon/routines.js';
-export type { Routine, RoutineSchedule, RoutineModelAdapter } from './daemon/routines.js';
+export { RoutineScheduler, matchesCron } from './daemon/routineScheduler.js';
+export type { Routine, RoutineSchedule, RoutineModelAdapter } from './daemon/routineScheduler.js';
 export { ResponsesModel } from './adapters/model/responsesModel.js';
 export type { ResponsesConfig } from './adapters/model/responsesModel.js';
 export {
