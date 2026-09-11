@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SseParser } from '../../src/adapters/model/sseParser.js';
+import { sseParser } from '../../src/adapters/model/sseParser.js';
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
 import { OpenAiCompatibleModel } from '../../src/adapters/model/openaiCompatibleModel.js';
 import type { ModelRequest } from '../../src/ports/model.js';
@@ -43,13 +43,13 @@ const request: ModelRequest = {
 test('SSE 解析：多事件块拆分', async () => {
   const events: string[] = [];
   const text = ['data: {"a":1}\n\ndata: {"b":2}\n\n'];
-  await SseParser.read(streamOf(text.join('')), (event) => events.push(event.data));
+  await sseParser.read(streamOf(text.join('')), (event) => events.push(event.data));
   assert.deepStrictEqual(events, ['{"a":1}', '{"b":2}']);
 });
 
 test('SSE 解析：event 字段与跨块 data 行', async () => {
   const events: string[] = [];
-  await SseParser.read(streamOf('event: delta\ndata: line1\ndata: line2\n\n'), (event) => {
+  await sseParser.read(streamOf('event: delta\ndata: line1\ndata: line2\n\n'), (event) => {
     events.push(`${event.event}:${event.data}`);
   });
   assert.deepStrictEqual(events, ['delta:line1\nline2']);

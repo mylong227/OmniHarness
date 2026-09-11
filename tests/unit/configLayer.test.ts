@@ -11,7 +11,7 @@ import {
   validateConfig,
 } from '../../src/config/configLayer.js';
 import { configFile, type FileConfig } from '../../src/config/configFile.js';
-import { ProfileLoader } from '../../src/config/profile.js';
+import { profileLoader } from '../../src/config/profile.js';
 
 describe('configLayer: 别名归一化', () => {
   it('下划线/连字符别名归一为标准 key', () => {
@@ -120,22 +120,22 @@ describe('profile: 查找与加载', () => {
     const profiles = join(dir, 'profiles');
     mkdirSync(profiles, { recursive: true });
     writeFileSync(join(profiles, 'dev.json'), JSON.stringify({ approval: 'deny' }));
-    const found = ProfileLoader.find(dir, 'dev');
+    const found = profileLoader.find(dir, 'dev');
     assert.ok(found !== undefined);
-    assert.strictEqual(ProfileLoader.load(found).approval, 'deny');
+    assert.strictEqual(profileLoader.load(found).approval, 'deny');
   });
 
   it('profile 含未知 key 时严格抛错', () => {
     const profiles = join(dir, 'profiles');
     mkdirSync(profiles, { recursive: true });
     writeFileSync(join(profiles, 'bad.json'), JSON.stringify({ nope: 1 }));
-    const found = ProfileLoader.find(dir, 'bad');
+    const found = profileLoader.find(dir, 'bad');
     assert.ok(found !== undefined);
-    assert.throws(() => ProfileLoader.load(found), ConfigError);
+    assert.throws(() => profileLoader.load(found), ConfigError);
   });
 
   it('未找到 profile 返回 undefined', () => {
-    assert.strictEqual(ProfileLoader.find(dir, 'missing'), undefined);
+    assert.strictEqual(profileLoader.find(dir, 'missing'), undefined);
   });
 });
 

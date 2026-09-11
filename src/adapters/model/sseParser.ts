@@ -7,7 +7,7 @@ export interface SseEvent {
 /** SSE 解析器：从流式响应逐事件解析（OpenAI / Anthropic 共用）。 */
 export class SseParser {
   /** 读取流并回调每个事件。 */
-  public static async read(
+  public async read(
     stream: ReadableStream<Uint8Array>,
     onEvent: (event: SseEvent) => void,
   ): Promise<void> {
@@ -33,7 +33,7 @@ export class SseParser {
   }
 
   /** 解析单个事件块并回调。 */
-  private static emitBlock(block: string, onEvent: (event: SseEvent) => void): void {
+  private emitBlock(block: string, onEvent: (event: SseEvent) => void): void {
     let eventName = 'message';
     const dataLines: string[] = [];
     for (const line of block.split('\n')) {
@@ -48,3 +48,6 @@ export class SseParser {
     }
   }
 }
+
+/** 默认实例（无状态、可并发复用，调用点以 `sseParser.xxx` 零构造复用）。 */
+export const sseParser = new SseParser();

@@ -4,7 +4,7 @@ import { id } from '../util/id.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';
 import type { Transport } from '../server/lineTransport.js';
 import { McpProtocol, type McpServerInfo, type McpResourceDescriptor, type McpResourceContent, type McpPromptDescriptor } from './mcpProtocol.js';
-import { McpToolMapper } from './mcpToolMapper.js';
+import { mcpToolMapper } from './mcpToolMapper.js';
 
 /**
  * @beta
@@ -99,7 +99,7 @@ export class McpServer {
   /** 列举工具（本地定义 → MCP 描述）。 */
   private async listTools(): Promise<unknown> {
     return {
-      tools: this.options.tools.list().map((definition) => McpToolMapper.toDescriptor(definition)),
+      tools: this.options.tools.list().map((definition) => mcpToolMapper.toDescriptor(definition)),
     };
   }
 

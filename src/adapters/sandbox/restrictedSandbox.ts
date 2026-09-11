@@ -1,5 +1,5 @@
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sandbox.js';
-import { DangerousCommands } from './dangerousCommands.js';
+import { dangerousCommands } from './dangerousCommands.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 
 /** 受限沙箱选项（G4：restricted profile = 强化策略后端）。 */
@@ -34,7 +34,7 @@ export class RestrictedSandbox implements SandboxPort {
   public constructor(private readonly options: RestrictedSandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
     this.patterns = [
-      ...DangerousCommands.defaults(),
+      ...dangerousCommands.defaults(),
       ...EXTRA_RESTRICTED,
       ...(options.extraPatterns ?? []),
     ];

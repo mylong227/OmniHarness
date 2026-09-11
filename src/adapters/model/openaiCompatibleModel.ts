@@ -9,7 +9,7 @@ import type {
   StreamCallbacks,
 } from '../../ports/model.js';
 import { ModelCallError } from '../../ports/model.js';
-import { SseParser } from './sseParser.js';
+import { sseParser } from './sseParser.js';
 import { log } from '../../util/logger.js';
 import { sanitizeToolRounds } from '../../util/toolRoundSanitizer.js';
 
@@ -81,7 +81,7 @@ export class OpenAiCompatibleModel implements ModelPort {
       toolBlocks: [],
       usage: undefined,
     };
-    await SseParser.read(streamBody, (event) =>
+    await sseParser.read(streamBody, (event) =>
       this.handleStreamEvent(event.data, callbacks, state),
     );
     const text = state.chunks.length > 0 ? state.chunks.join('') : undefined;

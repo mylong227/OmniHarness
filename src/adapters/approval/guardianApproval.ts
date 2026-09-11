@@ -1,6 +1,6 @@
 import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../ports/approval.js';
 import type { ModelPort } from '../../ports/model.js';
-import { GuardianPrompt } from './guardianPrompt.js';
+import { guardianPrompt } from './guardianPrompt.js';
 
 /** Guardian 审批选项。 */
 export interface GuardianApprovalOptions {
@@ -45,7 +45,7 @@ export class GuardianApproval implements ApprovalPort {
   private async askGuardian(request: ApprovalRequest): Promise<ApprovalDecision> {
     try {
       const output = await this.options.model.generate({
-        messages: GuardianPrompt.build(request),
+        messages: guardianPrompt.build(request),
         tools: [],
       });
       return this.parseVerdict(output.text);

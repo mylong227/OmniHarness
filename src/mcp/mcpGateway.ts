@@ -3,7 +3,7 @@ import type { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpClient } from './mcpClient.js';
 import { McpConnector, type McpConnection } from './mcpConnector.js';
 import type { McpStdioServerOptions } from './mcpStdioTransport.js';
-import { McpToolMapper } from './mcpToolMapper.js';
+import { mcpToolMapper } from './mcpToolMapper.js';
 import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.js';
 
 /**
@@ -112,7 +112,7 @@ export class McpGateway {
       if (this.bridged.includes(prefixed)) {
         continue;
       }
-      const definition = McpToolMapper.toDefinition({ ...descriptor, name: prefixed });
+      const definition = mcpToolMapper.toDefinition({ ...descriptor, name: prefixed });
       this.options.registry.register(definition, (call) =>
         this.invoke(client, descriptor.name, call.id, call.arguments),
       );

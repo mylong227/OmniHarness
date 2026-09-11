@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
+import { SkillRegistry, skillRegistry } from '../../src/skill/skillRegistry.js';
 import type { Skill } from '../../src/skill/skill.js';
 import { Agent } from '../../src/core/agent.js';
 import { RuntimeFactory } from '../../src/core/runtime.js';
@@ -46,7 +46,7 @@ test('技能注册表：按名称命中', () => {
 });
 
 test('技能渲染：包含名称与指令', () => {
-  const rendered = SkillRegistry.render(reviewSkill);
+  const rendered = skillRegistry.render(reviewSkill);
   assert.match(rendered, /# 技能：code-review/);
   assert.match(rendered, /边界条件/);
 });

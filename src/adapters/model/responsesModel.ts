@@ -7,7 +7,7 @@ import type {
   ModelUsage,
   StreamCallbacks,
 } from '../../ports/model.js';
-import { SseParser, type SseEvent } from './sseParser.js';
+import { sseParser, type SseEvent } from './sseParser.js';
 
 /**
  * @beta
@@ -73,7 +73,7 @@ export class ResponsesModel implements ModelPort {
       return this.generate(request);
     }
     const state: StreamState = { text: [], completed: undefined };
-    await SseParser.read(streamBody, (event) => this.handleStreamEvent(event, callbacks, state));
+    await sseParser.read(streamBody, (event) => this.handleStreamEvent(event, callbacks, state));
     return state.completed === undefined
       ? { text: state.text.join('') }
       : this.parseOutput(state.completed);

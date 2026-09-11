@@ -43,7 +43,7 @@ import { RuleApproval } from '../adapters/approval/ruleApproval.js';
 import { GuardianApproval } from '../adapters/approval/guardianApproval.js';
 import { PlanApproval } from '../adapters/approval/planApproval.js';
 import type { ApprovalRule } from '../adapters/approval/approvalRule.js';
-import { DangerousCommands } from '../adapters/sandbox/dangerousCommands.js';
+import { dangerousCommands } from '../adapters/sandbox/dangerousCommands.js';
 import { SandboxManager } from '../adapters/sandbox/sandboxManager.js';
 import { DenyEscalation } from '../adapters/escalation/denyEscalation.js';
 import { AskEscalation } from '../adapters/escalation/askEscalation.js';
@@ -343,7 +343,7 @@ export class CliBuildConfig {
   protected buildGuardianApproval(model: ModelPort): GuardianApproval {
     return new GuardianApproval({
       model,
-      preDenyPatterns: DangerousCommands.defaults(),
+      preDenyPatterns: dangerousCommands.defaults(),
       preAllowPatterns: [/^(?:echo|ls|cat|pwd|git status|node --version)\b/i],
     });
   }

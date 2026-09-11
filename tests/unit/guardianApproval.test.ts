@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { GuardianApproval } from '../../src/adapters/approval/guardianApproval.js';
 import type { ApprovalRequest } from '../../src/ports/approval.js';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
-import { DangerousCommands } from '../../src/adapters/sandbox/dangerousCommands.js';
+import { dangerousCommands } from '../../src/adapters/sandbox/dangerousCommands.js';
 
 /** 构造固定输出的假模型。 */
 function fakeModel(behavior: () => ModelOutput): ModelPort {
@@ -24,7 +24,7 @@ function request(toolName: string, target: string): ApprovalRequest {
 function guardian(model: ModelPort): GuardianApproval {
   return new GuardianApproval({
     model,
-    preDenyPatterns: DangerousCommands.defaults(),
+    preDenyPatterns: dangerousCommands.defaults(),
     preAllowPatterns: [/^echo\b/i],
   });
 }

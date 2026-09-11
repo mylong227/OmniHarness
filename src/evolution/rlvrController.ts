@@ -29,7 +29,7 @@ import { verifiableRewardForCode } from './verifiableReward.js';
 export interface RlvrEvolutionOptions {
   /** 候选技能池（供燧-1 组合发现）。 */
   readonly skills: readonly Skill[];
-  /** 莫尔组合算子（通常注入 SkillRegistry.composeByTwist）。 */
+  /** 莫尔组合算子（通常注入 skillRegistry.composeByTwist）。 */
   readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
   /** 代码采样模型（生成 RLVR 候选代码变体）。 */
   readonly model: ModelPort;

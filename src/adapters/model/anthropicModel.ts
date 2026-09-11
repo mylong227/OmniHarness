@@ -9,7 +9,7 @@ import type {
   ModelToolSpec,
   StreamCallbacks,
 } from '../../ports/model.js';
-import { SseParser } from './sseParser.js';
+import { sseParser } from './sseParser.js';
 
 /** Anthropic 模型配置。 */
 export interface AnthropicModelConfig {
@@ -49,7 +49,7 @@ export class AnthropicModel implements ModelPort {
     }
     const chunks: string[] = [];
     const toolBlocks: { index: number; id?: string; name?: string; partial: string }[] = [];
-    await SseParser.read(body, (event) =>
+    await sseParser.read(body, (event) =>
       this.handleEvent(event.data, callbacks, chunks, toolBlocks),
     );
     return { text: chunks.join('') };

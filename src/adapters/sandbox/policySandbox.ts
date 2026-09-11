@@ -1,5 +1,5 @@
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sandbox.js';
-import { DangerousCommands } from './dangerousCommands.js';
+import { dangerousCommands } from './dangerousCommands.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 
 /** 策略沙箱选项。 */
@@ -17,7 +17,7 @@ export class PolicySandbox implements SandboxPort {
 
   public constructor(private readonly options: PolicySandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
-    this.patterns = [...DangerousCommands.defaults(), ...(options.extraPatterns ?? [])];
+    this.patterns = [...dangerousCommands.defaults(), ...(options.extraPatterns ?? [])];
   }
 
   /** 裁决动作。 */

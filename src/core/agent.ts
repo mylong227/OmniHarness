@@ -11,7 +11,7 @@ import { StepRunner } from './stepRunner.js';
 import { TurnRunner } from './turnRunner.js';
 import type { TurnOutcome } from './turnRunner.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
-import { SkillRegistry } from '../skill/skillRegistry.js';
+import { SkillRegistry, skillRegistry } from '../skill/skillRegistry.js';
 import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
 import { CancellationToken } from './loop/cancellation.js';
@@ -197,7 +197,7 @@ export class Agent {
       return;
     }
     for (const skill of this.skills.match(prompt)) {
-      recorder.system(SkillRegistry.render(skill));
+      recorder.system(skillRegistry.render(skill));
     }
   }
 

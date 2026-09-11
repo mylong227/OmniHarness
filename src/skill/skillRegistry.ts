@@ -49,7 +49,7 @@ export class SkillRegistry implements SkillPort {
   }
 
   /** 渲染技能指令（注入上下文的文本）。若为莫尔组合技能，附涌现元数据。 */
-  public static render(skill: Skill): string {
+  public render(skill: Skill): string {
     if (skill.moire) {
       const m = skill.moire;
       return `# 技能：${skill.name}（莫尔组合 θ*=${m.twistDeg}° 涌现=${m.emergence.toFixed(3)}）\n${skill.instructions}`;
@@ -67,3 +67,6 @@ export class SkillRegistry implements SkillPort {
     return composed as Skill & { moire: MoireMeta };
   }
 }
+
+/** 默认实例（render 为无状态方法，调用点以 `skillRegistry.xxx` 零构造复用）。 */
+export const skillRegistry = new SkillRegistry();

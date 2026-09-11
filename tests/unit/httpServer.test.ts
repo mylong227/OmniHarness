@@ -4,7 +4,7 @@ import { HttpServer, HttpBridgeTransport } from '../../src/server/httpServer.js'
 import { Metrics } from '../../src/server/metrics.js';
 import { AuditSink } from '../../src/server/audit.js';
 import { AppServer } from '../../src/server/appServer.js';
-import { SseParser } from '../../src/adapters/model/sseParser.js';
+import { sseParser } from '../../src/adapters/model/sseParser.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -66,7 +66,7 @@ async function collectSse(base: string): Promise<{ events: string[]; abort: () =
   void fetch(`${base}/events`, { signal: controller.signal })
     .then(async (response) => {
       if (response.body !== null) {
-        await SseParser.read(response.body, (event) => events.push(event.data));
+        await sseParser.read(response.body, (event) => events.push(event.data));
       }
     })
     .catch(() => undefined);

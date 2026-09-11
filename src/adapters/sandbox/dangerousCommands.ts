@@ -1,7 +1,7 @@
 /** 默认危险命令规则集合（Windows 与 Unix 常见破坏性命令）。 */
 export class DangerousCommands {
   /** 默认危险模式列表。 */
-  public static defaults(): readonly RegExp[] {
+  public defaults(): readonly RegExp[] {
     return [
       /\brm\b[^\n]*-rf\b/i,
       /\brm\b[^\n]*-fr\b/i,
@@ -17,3 +17,6 @@ export class DangerousCommands {
     ];
   }
 }
+
+/** 默认实例（无状态、可并发复用，调用点以 `dangerousCommands.xxx` 零构造复用）。 */
+export const dangerousCommands = new DangerousCommands();

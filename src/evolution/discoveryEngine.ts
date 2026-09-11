@@ -15,7 +15,7 @@ import type { Candidate, DiscoveryEngine } from '../ports/evolution.js';
 export interface TwistDiscoveryOptions {
   /** 候选技能池（待组合的基础技能）。 */
   readonly skills: readonly Skill[];
-  /** 组合算子（通常注入 SkillRegistry.composeByTwist，即燧-1）。允许第三个选项参数。 */
+  /** 组合算子（通常注入 skillRegistry.composeByTwist，即燧-1）。允许第三个选项参数。 */
   readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
   /** 硬预算：最多生成多少候选（防无限探索 / 防算力逃逸）。 */
   readonly maxCandidates: number;

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { ProfileLoader } from './profile.js';
+import { profileLoader } from './profile.js';
 import {
   ConfigError,
   loadBundlePatchLayer,
@@ -145,13 +145,13 @@ export class ConfigFile {
 
     // profile 层：仅当指定 --profile 时加载（覆盖项目默认）。
     if (opts.profile !== undefined) {
-      const profilePath = ProfileLoader.find(opts.workspace, opts.profile);
+      const profilePath = profileLoader.find(opts.workspace, opts.profile);
       if (profilePath === undefined) {
         throw new ConfigError(
           `未找到 profile "${opts.profile}"（查找 ./profiles/<name>.json 与 ~/.omniharness/profiles/<name>.json）`,
         );
       }
-      layers.push(ProfileLoader.load(profilePath));
+      layers.push(profileLoader.load(profilePath));
     }
 
     // bundle 补丁层（G-E 5.2/5.3）：由 `bundle unpack` 写出的 config 覆盖，叠在 profile 之上、

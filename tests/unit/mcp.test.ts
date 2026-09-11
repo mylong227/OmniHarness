@@ -7,7 +7,7 @@ import { McpServer } from '../../src/mcp/mcpServer.js';
 import { McpClient } from '../../src/mcp/mcpClient.js';
 import { McpGateway } from '../../src/mcp/mcpGateway.js';
 import { McpProtocol } from '../../src/mcp/mcpProtocol.js';
-import { McpToolMapper } from '../../src/mcp/mcpToolMapper.js';
+import { mcpToolMapper } from '../../src/mcp/mcpToolMapper.js';
 import { parseMcpServerSpec } from '../../src/mcp/mcpServerCommand.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
@@ -186,9 +186,9 @@ test('MCP 工具映射：本地定义与 MCP 描述双向转换', () => {
       required: ['path'],
     },
   };
-  const descriptor = McpToolMapper.toDescriptor(definition);
+  const descriptor = mcpToolMapper.toDescriptor(definition);
   assert.strictEqual(descriptor.inputSchema.type, 'object');
-  const back = McpToolMapper.toDefinition(descriptor);
+  const back = mcpToolMapper.toDefinition(descriptor);
   assert.deepStrictEqual(back, definition);
 });
 
