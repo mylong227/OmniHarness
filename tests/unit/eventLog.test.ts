@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
-import { EventFactory } from '../../src/core/eventFactory.js';
+import { eventFactory } from '../../src/core/eventFactory.js';
 
 test('事件日志：追加后大小与顺序正确', () => {
   const log = new AppendOnlyEventLog();
@@ -39,7 +39,7 @@ test('事件日志：空日志返回空', () => {
 });
 
 test('事件工厂：事件结构完整', () => {
-  const event = EventFactory.toolCall('s1', 'c1', 'shell', { command: 'ls' });
+  const event = eventFactory.toolCall('s1', 'c1', 'shell', { command: 'ls' });
   assert.strictEqual(event.type, 'tool_call');
   assert.strictEqual(event.sessionId, 's1');
   assert.ok(event.id.length > 0);

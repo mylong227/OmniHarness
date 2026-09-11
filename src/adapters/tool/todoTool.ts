@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { EventPort } from '../../ports/eventPort.js';
 import type { TodoItem, TodoPort, TodoStatus } from '../../ports/todo.js';
-import { EventFactory } from '../../core/eventFactory.js';
+import { eventFactory } from '../../core/eventFactory.js';
 
 const STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed'];
 
@@ -64,7 +64,7 @@ export class TodoWriteTool {
       items.push({ content, status });
     }
     this.port.snapshot(items);
-    this.events?.emit(EventFactory.todo(ctx.sessionId, items));
+    this.events?.emit(eventFactory.todo(ctx.sessionId, items));
     const counts = items.reduce(
       (acc, it) => {
         acc[it.status] += 1;

@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { EventPort } from '../../ports/eventPort.js';
 import type { AskOption, AskQuestion, UserResponder } from '../../ports/userResponder.js';
-import { EventFactory } from '../../core/eventFactory.js';
+import { eventFactory } from '../../core/eventFactory.js';
 
 /**
  * @beta
@@ -90,7 +90,7 @@ export class AskUserTool {
       }
       return q as AskQuestion;
     });
-    this.events?.emit(EventFactory.question(ctx.sessionId, questions));
+    this.events?.emit(eventFactory.question(ctx.sessionId, questions));
     const answers = await this.responder.ask(questions);
     return {
       callId: call.id,

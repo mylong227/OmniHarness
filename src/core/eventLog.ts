@@ -1,5 +1,5 @@
 import type { SessionEvent } from '../ports/event.js';
-import { EventFactory } from './eventFactory.js';
+import { eventFactory } from './eventFactory.js';
 
 /** 追加型事件日志：只能追加，不可修改（模型所见即所记）。 */
 export class AppendOnlyEventLog {
@@ -13,17 +13,17 @@ export class AppendOnlyEventLog {
 
   /** 追加一条用户事件。 */
   public appendUser(sessionId: string, content: string): SessionEvent {
-    return this.append(EventFactory.user(sessionId, content));
+    return this.append(eventFactory.user(sessionId, content));
   }
 
   /** 追加一条助手事件。 */
   public appendAssistant(sessionId: string, content: string): SessionEvent {
-    return this.append(EventFactory.assistant(sessionId, content));
+    return this.append(eventFactory.assistant(sessionId, content));
   }
 
   /** 追加一条推理事件。 */
   public appendReasoning(sessionId: string, content: string): SessionEvent {
-    return this.append(EventFactory.reasoning(sessionId, content));
+    return this.append(eventFactory.reasoning(sessionId, content));
   }
 
   /** 追加一条工具调用事件。 */
@@ -33,7 +33,7 @@ export class AppendOnlyEventLog {
     name: string,
     args: Record<string, unknown>,
   ): SessionEvent {
-    return this.append(EventFactory.toolCall(sessionId, callId, name, args));
+    return this.append(eventFactory.toolCall(sessionId, callId, name, args));
   }
 
   /** 追加一条工具结果事件。 */
@@ -44,7 +44,7 @@ export class AppendOnlyEventLog {
     output?: string,
     error?: string,
   ): SessionEvent {
-    return this.append(EventFactory.toolResult(sessionId, callId, ok, output, error));
+    return this.append(eventFactory.toolResult(sessionId, callId, ok, output, error));
   }
 
   /** 注入历史事件（resume/fork 用，保持追加语义不破坏顺序）。 */

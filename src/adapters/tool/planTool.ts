@@ -2,7 +2,7 @@ import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../po
 import type { EventPort } from '../../ports/eventPort.js';
 import type { PlanDraft, PlanPort, PlanStep } from '../../ports/plan.js';
 import type { UserResponder } from '../../ports/userResponder.js';
-import { EventFactory } from '../../core/eventFactory.js';
+import { eventFactory } from '../../core/eventFactory.js';
 
 /**
  * @beta
@@ -63,7 +63,7 @@ export class PlanWriteTool {
         ? { title: call.arguments['title'] as string, steps }
         : { steps };
     this.plan.write(draft);
-    this.events?.emit(EventFactory.plan(ctx.sessionId, this.plan.get()));
+    this.events?.emit(eventFactory.plan(ctx.sessionId, this.plan.get()));
     return {
       callId: call.id,
       ok: true,
@@ -97,7 +97,7 @@ export class PlanPresentTool {
       return { callId: call.id, ok: false, error: '尚无计划可呈现，请先用 plan_write 起草' };
     }
     this.plan.present();
-    this.events?.emit(EventFactory.plan(ctx.sessionId, this.plan.get()));
+    this.events?.emit(eventFactory.plan(ctx.sessionId, this.plan.get()));
     const answers = await this.responder.ask([
       {
         id: 'plan_decision',
@@ -117,7 +117,7 @@ export class PlanPresentTool {
       ? 'approve'
       : 'reject';
     this.plan.decide(decision);
-    this.events?.emit(EventFactory.plan(ctx.sessionId, this.plan.get()));
+    this.events?.emit(eventFactory.plan(ctx.sessionId, this.plan.get()));
     return {
       callId: call.id,
       ok: true,

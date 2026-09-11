@@ -2,10 +2,15 @@ import type { SessionEvent } from '../ports/event.js';
 import type { ImageContent, FileAttachment, ModelUsage } from '../ports/model.js';
 import { id } from '../util/id.js';
 
-/** 事件工厂：统一构造各类会话事件，保证结构一致。 */
+/**
+ * 事件工厂：统一构造各类会话事件，保证结构一致。
+ *
+ * `OOP 收口`（2026-09-11）：原静态方法族改为实例方法，消除 `static`。
+ * 无隐式状态，同一实例可并发复用（默认实例见文件末尾组合根门面）。
+ */
 export class EventFactory {
   /** 构造一条用户事件（images/files 可选，多模态输入，#B1/#B5）。 */
-  public static user(
+  public user(
     sessionId: string,
     content: string,
     images?: readonly ImageContent[],
@@ -27,7 +32,7 @@ export class EventFactory {
    * 直接挂在 payload.reasoning 上供 contextAssembler 投影时取用，避免依赖
    * 「reasoning 事件先于 assistant 事件到达」的脆弱顺序假设（#OBS-5）。
    */
-  public static assistant(sessionId: string, content: string, reasoning?: string): SessionEvent {
+  public assistant(sessionId: string, content: string, reasoning?: string): SessionEvent {
     const payload: Record<string, unknown> = { content };
     if (reasoning !== undefined && reasoning !== '') {
       payload['reasoning'] = reasoning;
@@ -36,12 +41,12 @@ export class EventFactory {
   }
 
   /** 构造一条推理事件。 */
-  public static reasoning(sessionId: string, content: string): SessionEvent {
+  public reasoning(sessionId: string, content: string): SessionEvent {
     return this.base(sessionId, 'reasoning', { content });
   }
 
   /** 构造一条工具调用事件。 */
-  public static toolCall(
+  public toolCall(
     sessionId: string,
     callId: string,
     name: string,
@@ -51,7 +56,7 @@ export class EventFactory {
   }
 
   /** 构造一条工具结果事件（undefined 字段不写入，保证 JSON 往返一致）。 */
-  public static toolResult(
+  public toolResult(
     sessionId: string,
     callId: string,
     ok: boolean,
@@ -69,12 +74,12 @@ export class EventFactory {
   }
 
   /** 构造一条系统事件（压缩点等内部说明）。 */
-  public static system(sessionId: string, content: string): SessionEvent {
+  public system(sessionId: string, content: string): SessionEvent {
     return this.base(sessionId, 'system', { content });
   }
 
   /** 构造一条待办快照事件（`todo_write` 触发，UI 折叠用）。 */
-  public static todo(
+  public todo(
     sessionId: string,
     todos: readonly { content: string; status: string }[],
   ): SessionEvent {
@@ -82,17 +87,17 @@ export class EventFactory {
   }
 
   /** 构造一条计划态事件（`plan_write` / `plan_present` 触发）。 */
-  public static plan(sessionId: string, plan: unknown): SessionEvent {
+  public plan(sessionId: string, plan: unknown): SessionEvent {
     return this.base(sessionId, 'plan', plan);
   }
 
   /** 构造一条提问事件（`ask_user` 触发，记录模型向人抛出的问题）。 */
-  public static question(sessionId: string, questions: unknown): SessionEvent {
+  public question(sessionId: string, questions: unknown): SessionEvent {
     return this.base(sessionId, 'question', { questions });
   }
 
   /** 构造一条回合级变更事件（#M5，payload 为本回合 unified diff）。 */
-  public static turnDiff(sessionId: string, diff: string): SessionEvent {
+  public turnDiff(sessionId: string, diff: string): SessionEvent {
     return this.base(sessionId, 'turn_diff', { diff });
   }
 
@@ -100,7 +105,7 @@ export class EventFactory {
    * 构造一条模型用量事件（#S29 / live 跑分成本计量）；payload 透传 usage。
    * modelName 可选：带上后 UI 的 token 统计表可按真实模型名分组（缺省归入 unknown）。
    */
-  public static model(sessionId: string, usage: ModelUsage, modelName?: string): SessionEvent {
+  public model(sessionId: string, usage: ModelUsage, modelName?: string): SessionEvent {
     return this.base(sessionId, 'model', { usage, model: modelName });
   }
 
@@ -108,12 +113,12 @@ export class EventFactory {
    * 构造会话元数据事件（新会话首条）：标记创建时的工作区，供 UI 按项目收纳会话。
    * 仅落日志与广播，上下文投影器不消费该类型（不进模型上下文）。
    */
-  public static sessionMeta(sessionId: string, workspace: string): SessionEvent {
+  public sessionMeta(sessionId: string, workspace: string): SessionEvent {
     return this.base(sessionId, 'session_meta', { workspace });
   }
 
   /** 构造事件基座。 */
-  private static base(
+  private base(
     sessionId: string,
     type: SessionEvent['type'],
     payload: unknown,
@@ -127,3 +132,6 @@ export class EventFactory {
     };
   }
 }
+
+/** 默认事件工厂实例（无状态，调用点以 `eventFactory.xxx(...)` 零构造复用）。 */
+export const eventFactory = new EventFactory();

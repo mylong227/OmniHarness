@@ -18,7 +18,7 @@
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
 | 文件名 ≠ 主类名 | 69 | 69 |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
-| `static` 用量 | 206 / 36 文件 | **82**（Phase 5 进行中：−124） |
+| `static` 用量 | 206 / 36 文件 | **35**（Phase 5 进行中：−171，13 文件） |
 | 单文件 ≥3 个导出类 | 3 | 3 |
 
 ## 批次状态
@@ -123,25 +123,43 @@
   军规⑥要「减 static」，故一律用顶层函数（若用 `class XxxAssembler { static assemble }` 会新增 16 处 static，
   与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
-### Phase 5 — 削减 static（进行中，206 → **82**，−124）
-- 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例 + 薄门面（沿用批次 A 已验证模式）。
-  门面一律用 `export function xxx(...) { return singleton.xxx(...); }`（保留原导出名与签名，外部零改动）。
+### Phase 5 — 削减 static（进行中，206 → **35**，−171）
+- 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例（`export const xxx = new Xxx()`）+ 调用点
+  `ClassName.xxx(...)` → `xxx.xxx(...)` 零构造复用（沿用批次 A 已验证模式）。高扇入模块用一次性 codemod
+  批量重命名 `ClassName.` → `camelName.`，再手工同步 import（仅静态调用的 import 直接改 token；类名仍作
+  类型/值的 import 保留并补 singleton）。tsc --noEmit + eslint 双门禁逐批验证。
 - **已完成（9 模块 `6f95857`）**：`util/unifiedDiff`、`util/commandCanonicalizer`、`util/eigenspectrum`、
   `context/prefixStability`。
 - **已完成（5 模块 `9394581`）**：`server/auditExport`、`tui/render`、`skill/skillComposer`、
   `genesis/modality`、`genesis/multimodalBridge`。
-- **已完成（5 模块，第三批）**：`enterprise/sso`(13)、`cli/doctor`(10)、`cli/args`(9)、
+- **已完成（5 模块，第三批 `160f968`）**：`enterprise/sso`(13)、`cli/doctor`(10)、`cli/args`(9)、
   `plugin/bundle`(8)、`cli/toolLoader`(4)。其中 `sso` 的 `EnterpriseAuth.fromIssuer` 静态工厂
   改为顶层工厂函数 `enterpriseAuthFromIssuer`（原无外部调用）；`args` 的 `ADAPTER_PRESETS` 私有静态表
   降为模块级常量；`toolLoader` 唯一调用点（`cliBuildConfig`）改走门面 `loadToolModule`。
-- **已完成（1 模块，第四批）**：`config/configBuilders`(10) —— `ConfigBuilder` 静态方法族 → 实例方法 +
+- **已完成（1 模块，第四批 `c6c8301`）**：`config/configBuilders`(10) —— `ConfigBuilder` 静态方法族 → 实例方法 +
   组合根单例 + 同名门面函数（内部互调改 `this.`）。
-- **待办（判断批，均为纯无状态编解码 / 工厂 / 常量命名空间，且高 fan-in）**：
-  `mcp/mcpProtocol`(14，其中 9 处为 `readonly` 常量表)、`core/eventFactory`(13，纯静态工厂)、
-  `server/jsonRpc`(7，41 处类形式调用)、`config/configFile`(6，25 处类形式调用)。
-  按 `CODE_STANDARD.md` 第 53/83 条（「有状态或可注入者一律实例化」+「禁止过度设计：能用函数表达清晰的
-  纯逻辑不要硬塞成模式」），这些纯无状态模块的 static 属**可接受的命名空间/工厂形态**；若推进需大范围改调用点
-  （改为 `import { singleton }` + `singleton.xxx(...)`），收益主要是一致性而非架构正确性，故列为判断批。
+- **已完成（1 模块，第五批 `b9f3f8b`）**：`config/configFile`(6) —— `ConfigFile` 静态方法族改实例类 +
+  组合根单例 + 门面；25 处类形式调用改为单例形式，导出路径零改动。
+- **已完成（1 模块，第六批 `d676a82`）**：`server/jsonRpc`(7) —— `JsonRpc` 静态方法族改实例类 +
+  组合根单例 `jsonRpc`；41 处 `JsonRpc.xxx` 调用改为 `jsonRpc.xxx`，`index.ts` 仍导出 `JsonRpc` 类（API 不变）。
+- **已完成（6 模块，第七批 `8fef6c3`）**：`adapters/approval/guardianPrompt`(3)、
+  `adapters/sandbox/dangerousCommands`(1)、`adapters/model/sseParser`(2)、`mcp/mcpToolMapper`(3)、
+  `config/profile`(2，类 `ProfileLoader`)、`skill/skillRegistry`(1) —— 纯无状态工具类改实例类 + 组合根单例；
+  调用点 `ClassName.xxx` → `xxx.xxx`，import 同步引用单例（`SkillRegistry` 保留类名用于类型/值并补 singleton）。
+  static 计数 60 → 48。
+- **已完成（1 模块，第八批）**：`core/eventFactory`(13) —— 13 个静态工厂方法 + `private static base`
+  改实例方法 + 组合根单例 `eventFactory`；自调用原即 `this.base(...)`（非 `EventFactory.base`），去 static 后天然
+  转实例调用；21 处调用点（`eventLog`(5) / `sessionRecorder`(9) / `planTool`(3) / `askUserTool`(1) /
+  `todoTool`(1) / `eventLog.test`(1)）改为 `eventFactory.xxx`，6 处 import 同步引用单例。static 计数 48 → 35。
+- **待办（逐项评估批）**：
+  - 高扇入巨无霸（需逐个评估调用点、权衡一致性收益）：`mcp/mcpProtocol`(14，其中 9 处 `readonly` 常量表)。
+  - 工厂 / 安全 / 状态类（宜用「模块级函数」而非实例单例，避免 `new X()` 构造约束）：
+    `plugin/permissionGate`(3，私有构造器工厂)、`security/ssrfGuard`(3，常量数据)、
+    `subagent/subagentRuntimeFactory`(3)、`mcp/mcpStdioTransport`(2)、`worker/dshWorker`(2)、
+    `core/runtime`(1，核心入口工厂)、`mcp/mcpConnector`(1)、`native/nativeBackend`(1)、
+    `sdk/sdkSocket`(1，构造器带参)、`util/logger`(2，AsyncLocalStorage 状态类)。
+  - 有意保留的公共 API（调用点 43+，改动收益低、风险高）：`config/omniharnessConfig.build`(1)。
+  - 误报（非真实 static）：`context/repoMap`(1，正则字符串)、`context/contextEngine`(0，数组字面量 token)。
 
 ### Phase 6 — 一文件一类（待办，3 文件）
 - `adapters/tool/lspTools`（4 类）→ 拆为每类一文件。
