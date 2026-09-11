@@ -6,7 +6,7 @@
  *   `SparkCycleReport`，但发射顺序由 `planHarnessRegime(regime)` 按工况纯函数决定，
  *   且每一笔成本进入 `Ledger` 守恒账本（Landauer/Toyabe 落地）。
  *
- * 与既有 `SparkController` 的关系：当配置 `genesis.enabled` 时，RuntimeFactory 构造本桥
+ * 与既有 `SparkController` 的关系：当配置 `genesis.enabled` 时，createRuntime 构造本桥
  * 并注入 SparkController；`cycle()` 在开头委托本桥（fail-closed：桥异常不连累主任务）。
  * 默认不启用 ⇒ 完全沿用既有行为，零回归。
  */

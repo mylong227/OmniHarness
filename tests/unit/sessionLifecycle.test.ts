@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Agent } from '../../src/core/agent.js';
-import { RuntimeFactory } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/core/runtime.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -24,7 +24,7 @@ function buildAgent(storage: MemoryStorage | JsonlStorage): Agent {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  return new Agent(RuntimeFactory.create(config));
+  return new Agent(createRuntime(config));
 }
 
 test('会话：resume 沿用同一 sessionId 且保留历史', async () => {

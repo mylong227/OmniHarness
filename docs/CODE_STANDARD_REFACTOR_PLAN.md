@@ -123,7 +123,7 @@
   军规⑥要「减 static」，故一律用顶层函数（若用 `class XxxAssembler { static assemble }` 会新增 16 处 static，
   与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
-### Phase 5 — 削减 static（进行中，206 → **28**，−178）
+### Phase 5 — 削减 static（收官，206 → **20**，−186）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例（`export const xxx = new Xxx()`）+ 调用点
   `ClassName.xxx(...)` → `xxx.xxx(...)` 零构造复用（沿用批次 A 已验证模式）。高扇入模块用一次性 codemod
   批量重命名 `ClassName.` → `camelName.`，再手工同步 import（仅静态调用的 import 直接改 token；类名仍作
@@ -161,14 +161,25 @@
   调用点 `ClassName.xxx` 改 `camelName.xxx`；`mcpStdioTransport.launch` 内部 `this.failureOf` 自调用天然转实例调用。
   调用点涉及 `mcpConnector`(`cliMcpCmds`×2 / `mcpGateway`×1)、`dshWorker`(`cliBuildConfig`×1 / `dshWorker.test`×3)、
   `mcpStdioTransport`(`mcpConnector`×1)，import 同步引用单例。static 计数 33 → 28。
-- **待办（逐项评估批）**：
-  - 工厂 / 安全 / 状态类（宜用「模块级函数」而非实例单例，避免 `new X()` 构造约束）：
-    `plugin/permissionGate`(3，私有构造器工厂，合法保留)、`security/ssrfGuard`(4，常量数据，保留)、
-    `subagent/subagentRuntimeFactory`(3)、`core/runtime`(1，核心入口工厂)、
-    `native/nativeBackend`(1，私有构造器工厂，保留)、`sdk/sdkSocket`(1，构造器带参)、
-    `util/logger`(2，AsyncLocalStorage 状态类)。
-  - 有意保留的公共 API（调用点 43+，改动收益低、风险高）：`config/omniharnessConfig.build`(1)。
-  - 误报（非真实 static）：`context/repoMap`(1，正则字符串)、`context/contextEngine`(0，数组字面量 token)。
+- **已完成（3 模块 + 模块级函数，第十一批）**：`subagent/subagentRuntimeFactory`(3)、`core/runtime`(1)、
+  `util/logger`(2) —— 这三项无状态但带构造约束 / 状态类，改用「模块级函数」手法：
+  `SubagentRuntimeFactory`(3) 去 static 转实例类 + 组合根单例 `subagentRuntimeFactory`（内部
+  `SubagentRuntimeFactory.rerootStorage`/`containerOf` 静态自调用转 `this.`）；
+  `RuntimeFactory.create`(1) 单方法纯工厂转模块级函数 `createRuntime`（沿用 `enterpriseAuthFromIssuer` 先例）；
+  `Logger`(2) 仅 `currentTrace`/`nextTraceId` 两个无状态静态抽成模块级函数 `currentTrace()`/`nextTraceId()`
+  （`Logger` 类与 `log` 单例保留）。调用点经一次性 codemod 批量重命名 `RuntimeFactory`→`createRuntime`、
+  `SubagentRuntimeFactory`→`subagentRuntimeFactory`、`Logger.nextTraceId(`→`nextTraceId(`，33 个 `src`/`tests` 文件
+  同步（含 `index`/`indexBeta` 重导出、`benchmark/*.mjs` 与 `README`/`docs/integration` 示例同步）。
+  static 计数 28 → 20（真实类成员 static）。
+- **剩余 20 处 / 6 文件 —— 全部为合法 static，Phase 5 收官**：
+  - 协议 / 安全常量命名空间（保留 static）：`mcp/mcpProtocol`(11，`static readonly` 版本/方法/错误码)、
+    `security/ssrfGuard`(3，常量数据)。
+  - 有状态工厂 / smart constructor（保留 static，构造状态实例的合法工厂模式）：`plugin/permissionGate`(3)、
+    `native/nativeBackend`(1)、`sdk/sdkSocket`(1，`connect` 构造状态实例)。
+  - 有意保留的公共 API（调用点 43+，改动收益低风险高）：`config/omniharnessConfig.build`(1)。
+  - 结论：所有「可削减的 static」已削干净；剩余 20 处均为 CODE_STANDARD 认可的常量 / 工厂 / 公共 API 形态，
+    继续削减将损害设计（常量必须 static，工厂构造实例为合法 smart constructor，`build` 公共 API 不可改签名）。
+    Phase 5 完成。
 
 ### Phase 6 — 一文件一类（待办，3 文件）
 - `adapters/tool/lspTools`（4 类）→ 拆为每类一文件。

@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { RuntimeFactory } from '../core/runtime.js';
+import { createRuntime } from '../core/runtime.js';
 import { GoalRunner } from '../autonomy/goalRunner.js';
 import { GoalChecker } from '../autonomy/goalChecker.js';
 import { WorkflowRunner } from '../autonomy/workflowRunner.js';
@@ -93,7 +93,7 @@ export class CliAgentCmds extends CliNativeCmds {
     const maxIter = this.flagNumber(args, '--goal-max-iterations') ?? 10;
     const cliArgs = parseArgs(['--prompt', 'goal-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
-    const agent = new Agent(RuntimeFactory.create(config));
+    const agent = new Agent(createRuntime(config));
     const runner = new GoalRunner(agent, new GoalChecker(config.model), { maxIterations: maxIter });
     const result = await runner.run(goal);
     process.stdout.write(
@@ -123,7 +123,7 @@ export class CliAgentCmds extends CliNativeCmds {
     }
     const cliArgs = parseArgs(['--prompt', 'workflow-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
-    const runtime = RuntimeFactory.create(config);
+    const runtime = createRuntime(config);
     const result = await new WorkflowRunner(portsOf(runtime)).run(def);
     process.stdout.write(
       `${JSON.stringify({ ok: result.ok, steps: result.steps, blackboard: result.blackboard })}\n`,
@@ -219,7 +219,7 @@ export class CliAgentCmds extends CliNativeCmds {
       prompt: routine.prompt,
     };
     const config = await this.buildConfig(args);
-    const agent = new Agent(RuntimeFactory.create(config));
+    const agent = new Agent(createRuntime(config));
     const result = await agent.runTask(routine.prompt);
     const summary = this.summaryOf(result);
     const finalText = (summary as { finalText?: string } | undefined)?.finalText ?? '';

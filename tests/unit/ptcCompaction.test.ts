@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { RuntimeFactory } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/core/runtime.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
@@ -28,7 +28,7 @@ function buildAgent(): Agent {
     events: new SilentEventPort(),
     compactionMaxTokens: 60,
   });
-  return new Agent(RuntimeFactory.create(config));
+  return new Agent(createRuntime(config));
 }
 
 test('PTC × 压缩：长会话触发压缩并记录 system 事件', async () => {

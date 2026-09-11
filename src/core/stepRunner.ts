@@ -44,7 +44,7 @@ export interface StepRunnerDeps {
   readonly hooks?: ToolHookRunner;
   /** 外溢器（#74）：超大工具输出入历史前先落后端，只留有界预览。 */
   readonly spiller?: ToolResultSpiller;
-  /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核 in-process；内核不可用由 RuntimeFactory 置空以回退 JS。 */
+  /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核 in-process；内核不可用由 createRuntime 置空以回退 JS。 */
   readonly native?: NativeToolRunner;
   /** 工具发现寄存器（#M1）：tool_search 命中后登记，使延迟加载工具后续回合对模型可见。 */
   readonly discovery?: ToolDiscovery;
@@ -78,7 +78,7 @@ export interface StepRunnerDeps {
   /**
    * 语义嵌入端口（U3 混合检索）：非空时 repo-map 走「BM25 ∪ 语义向量 RRF」混合路径，
    * 补词法盲区。默认不传 → 纯 BM25（零开销、不加载 80MB 模型）。
-   * 仅在 env OMNI_SEMANTIC_RECALL=1 由 RuntimeFactory 构造并注入；任何异常 fail-closed 回退 BM25。
+   * 仅在 env OMNI_SEMANTIC_RECALL=1 由 createRuntime 构造并注入；任何异常 fail-closed 回退 BM25。
    */
   readonly embedding?: EmbeddingPort;
   /**

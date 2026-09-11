@@ -2,7 +2,7 @@ import type { ToolPort } from '../ports/tool.js';
 import type { AgentResult } from '../core/agent.js';
 import { Agent } from '../core/agent.js';
 import { SubagentEventBridge } from './subagentEventBridge.js';
-import { SubagentRuntimeFactory } from './subagentRuntimeFactory.js';
+import { subagentRuntimeFactory } from './subagentRuntimeFactory.js';
 import { ToolSubset } from './toolSubset.js';
 import { SUBAGENT_TOOL_NAME } from './subagentTypes.js';
 import type { SubagentPorts } from './subagentPorts.js';
@@ -25,7 +25,7 @@ export class SubagentRunner {
   public async run(request: SubagentRequest): Promise<SubagentResult> {
     const startedAt = Date.now();
     const bridge = new SubagentEventBridge();
-    const runtime = SubagentRuntimeFactory.build(
+    const runtime = subagentRuntimeFactory.build(
       this.ports,
       this.toolViewOf(request),
       bridge,

@@ -18,7 +18,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { Agent } from '../core/agent.js';
-import { RuntimeFactory } from '../core/runtime.js';
+import { createRuntime } from '../core/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
 import { configFile } from '../config/configFile.js';
 import type { CliArgs } from './args.js';
@@ -119,7 +119,7 @@ export class ExecCli extends CliAgentCmds {
       if (args.print === true) {
         this.assertHeadlessSafe(args);
       }
-      const agent = new Agent(RuntimeFactory.create(config));
+      const agent = new Agent(createRuntime(config));
       const result = await this.execute(agent, args);
       if (args.output !== undefined) {
         const writer = new JsonlWriter(args.output);

@@ -8,7 +8,7 @@ import type { Transport } from './lineTransport.js';
 import { WsServer, type WsConnection } from './wsTransport.js';
 import { EnterpriseAuth } from '../enterprise/index.js';
 import type { Metrics } from './metrics.js';
-import { log, Logger } from '../util/logger.js';
+import { log, nextTraceId } from '../util/logger.js';
 import { safeReadFile } from './safeFs.js';
 
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
@@ -190,7 +190,7 @@ export class HttpServer {
   /** 路由。每条请求建独立 traceId，全程日志自动携带，便于跨调用串联。 */
   private async route(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = request.url ?? '/';
-    const traceId = Logger.nextTraceId(
+    const traceId = nextTraceId(
       typeof request.headers['x-trace-id'] === 'string' ? request.headers['x-trace-id'] : undefined,
     );
     await log.withTrace(traceId, async () => {

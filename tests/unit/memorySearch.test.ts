@@ -6,7 +6,7 @@ import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/eventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
-import { RuntimeFactory } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/core/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { Agent } from '../../src/core/agent.js';
 import type { RetrievalDoc, RetrievalHit, RetrievalPort } from '../../src/ports/retrieval.js';
@@ -169,7 +169,7 @@ describe('memory_search 端到端（记录器→检索→工具）', () => {
       storage: new MemoryStorage(),
       events: new SilentEventPort(),
     });
-    const agent = new Agent(RuntimeFactory.create(config));
+    const agent = new Agent(createRuntime(config));
     const result = await agent.runTask('开始任务');
     assert.ok(result.finalText !== undefined, '会话应正常结束并返回文本');
     // 记录器已在运行中把助手消息索引进 config.retrieval；经 memory_search 工具应可召回密钥。

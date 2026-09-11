@@ -18,7 +18,7 @@ import { SubagentTool } from '../../src/adapters/tool/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
-import { RuntimeFactory } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/core/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
 import { SubagentRunner } from '../../src/subagent/subagentRunner.js';
@@ -369,7 +369,7 @@ describe('子智能体端到端（真实主循环）', () => {
       events,
       spillAdapter: 'memory',
     });
-    const runtime = RuntimeFactory.create(config);
+    const runtime = createRuntime(config);
     const result = await new Agent(runtime).runTask('派一个子智能体去做调研');
 
     assert.ok(result.finalText !== undefined);

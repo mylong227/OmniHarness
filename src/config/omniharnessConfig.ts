@@ -146,7 +146,7 @@ export interface OmniHarnessConfig {
   readonly goalMaxIterations?: number;
   /** LSP 代码导航服务器配置（#S32，可选）：声明如何启动外部语言服务器；不配则 LSP 工具不注册。零依赖——服务器由用户自备（如 typescript-language-server）。运行时端口见 `ResolvedConfig.lsp`。 */
   readonly lspServer?: LspServerConfig;
-  /** 工具输入实时观察端口（#B3，可选）：注入自定义实时视图（TUI / web）以渐进渲染工具参数；不配则由 RuntimeFactory 默认 ConsoleLiveView（TTY 实时刷新）。 */
+  /** 工具输入实时观察端口（#B3，可选）：注入自定义实时视图（TUI / web）以渐进渲染工具参数；不配则由 createRuntime 默认 ConsoleLiveView（TTY 实时刷新）。 */
   readonly live?: ToolInputSink;
   /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省不启用，零破坏。 */
   readonly evolution?: EvolutionController;
@@ -332,7 +332,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly lsp?: LspPort;
   /** Agent 密码学身份端口（#S33，可选）：配置了 agentIdentity 时构造 Ed25519AgentIdentity，否则 undefined（agent_identity 工具不注册）。 */
   readonly identity?: AgentIdentityPort;
-  /** 工具输入实时观察端口（#B3，可选）：模型流式生成的工具参数增量经此推给 UI；RuntimeFactory 默认 ConsoleLiveView。 */
+  /** 工具输入实时观察端口（#B3，可选）：模型流式生成的工具参数增量经此推给 UI；createRuntime 默认 ConsoleLiveView。 */
   readonly live?: ToolInputSink;
   /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省不启用，零破坏。 */
   readonly evolution?: EvolutionController;

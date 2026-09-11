@@ -1,5 +1,5 @@
 import { Agent } from '../src/core/agent.js';
-import { RuntimeFactory } from '../src/core/runtime.js';
+import { createRuntime } from '../src/core/runtime.js';
 import { ConfigFactory } from '../src/config/omniharnessConfig.js';
 import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../src/adapters/event/silentEventPort.js';
@@ -33,7 +33,7 @@ async function runPtcStress(): Promise<void> {
       events: new SilentEventPort(),
       compactionMaxTokens: 60,
     });
-    const agent = new Agent(RuntimeFactory.create(config));
+    const agent = new Agent(createRuntime(config));
     const result = await agent.runTask(`组合压测 ${round}`);
     for (const event of result.events) {
       if (event.type === 'system') {

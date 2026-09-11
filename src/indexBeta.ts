@@ -43,7 +43,7 @@ export type {
 // @beta 子智能体（#76：进程内独立 Agent 循环，深度限制 + 并发限流 + 父子关系）
 export { SubagentOrchestrator } from './subagent/subagentOrchestrator.js';
 export { SubagentRunner } from './subagent/subagentRunner.js';
-export { SubagentRuntimeFactory } from './subagent/subagentRuntimeFactory.js';
+export { subagentRuntimeFactory } from './subagent/subagentRuntimeFactory.js';
 export { SubagentEventBridge } from './subagent/subagentEventBridge.js';
 export { ToolSubset } from './subagent/toolSubset.js';
 export { SubagentTool } from './adapters/tool/subagentTool.js';

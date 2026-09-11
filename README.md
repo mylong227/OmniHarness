@@ -153,7 +153,7 @@ export class MyServiceTool implements ToolPort {
 }
 
 // 2. 注入配置（或 CLI: --tool ./my-tool.js）
-import { ConfigFactory, RuntimeFactory, Agent, MockModel, MemoryStorage } from '../src/index.js';
+import { ConfigFactory, createRuntime, Agent, MockModel, MemoryStorage } from '../src/index.js';
 const config = ConfigFactory.build({
   workspaceRoot: process.cwd(),
   maxSteps: 16,
@@ -161,7 +161,7 @@ const config = ConfigFactory.build({
   storage: new MemoryStorage(),
   tools: new MyServiceTool(), // 插口替换
 });
-const agent = new Agent(RuntimeFactory.create(config));
+const agent = new Agent(createRuntime.create(config));
 ```
 
 ## 九算子自进化闭环（P0–P4 里程碑）

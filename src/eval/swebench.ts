@@ -28,7 +28,7 @@ import { dirname, join } from 'node:path';
 
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { RuntimeFactory } from '../core/runtime.js';
+import { createRuntime } from '../core/runtime.js';
 import { ToolGate } from '../core/toolGate.js';
 import { ConfigFactory } from '../config/omniharnessConfig.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
@@ -161,7 +161,7 @@ export async function runSweTask(
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const runtime = RuntimeFactory.create(config);
+  const runtime = createRuntime(config);
   // 能力评估是受控沙箱测量：解耦生产级安全监督内核（#P3）。
   // 否则单次 apply_patch 失败即被监督内核推进 safe 模式、永久拦截写类工具，阻断编码迭代；
   // 评估只测模型编码能力，不测安全 FDIR，故在此卸载监督内核并重建无监督门禁。

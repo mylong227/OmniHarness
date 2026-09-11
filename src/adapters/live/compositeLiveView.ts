@@ -5,7 +5,7 @@ import type { ToolInputSink } from '../../ports/toolInputSink.js';
  * @beta
  * 组合实时视图（#B3 web）：聚合多个 ToolInputSink，onToolInput 转发给全部子 sink。
  *
- * RuntimeFactory 默认以此作为 `runtime.live`，内置 ConsoleLiveView（TTY 实时刷新）；
+ * createRuntime 默认以此作为 `runtime.live`，内置 ConsoleLiveView（TTY 实时刷新）；
  * serve 模式下再由 CLI 注入 WebLiveView（广播给 Web UI），实现「同一份增量、多端呈现」。
  */
 export class CompositeLiveView implements ToolInputSink {

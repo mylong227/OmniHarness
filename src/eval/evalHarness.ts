@@ -2,7 +2,7 @@
 //
 // 定位：把一次性基准（tests/bench/agentTask.bench.ts 的 ScriptedModel 范式）泛化为可复用、
 // 可回归的质量回归基准。一条 EvalTask = 一段模型脚本 + 期望断言；runEvalSuite 经真实 Agent
-//（+ RuntimeFactory + 内存存储 + 自动审批 + passthrough 沙箱）跑完所有任务，收集工具调用、
+//（+ createRuntime + 内存存储 + 自动审批 + passthrough 沙箱）跑完所有任务，收集工具调用、
 // 步数、耗时，并按期望断言给出 pass/fail。纯 TS、确定性、零外部依赖，可纳入 CI。
 //
 // 铁律：零运行时依赖（仅 node: 内置）；fail-closed——断言缺失即视为「未验证」，不假通过。
@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { Agent } from '../core/agent.js';
-import { RuntimeFactory } from '../core/runtime.js';
+import { createRuntime } from '../core/runtime.js';
 import { ConfigFactory } from '../config/omniharnessConfig.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
@@ -280,7 +280,7 @@ export async function runTask(
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const agent = new Agent(RuntimeFactory.create({ ...config, supervisor: new NoopSupervisor() }));
+  const agent = new Agent(createRuntime({ ...config, supervisor: new NoopSupervisor() }));
 
   const t0 = Date.now();
   const result = await agent.runTask(task.prompt);

@@ -16,7 +16,7 @@ import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
 import { CancellationToken } from './loop/cancellation.js';
 import { id } from '../util/id.js';
-import { log, Logger } from '../util/logger.js';
+import { log, nextTraceId } from '../util/logger.js';
 
 /** 默认压缩参数。 */
 const DEFAULT_MAX_TOKENS = 8000;
@@ -99,7 +99,7 @@ export class Agent {
     const mode: 'run' | 'resume' | 'fork' =
       sourceId === undefined ? 'run' : sessionId === sourceId ? 'resume' : 'fork';
     // 单次会话绑定一个 traceId，期间所有结构化日志自动携带（AsyncLocalStorage 传播）。
-    return log.withTrace(Logger.nextTraceId(sessionId), async () => {
+    return log.withTrace(nextTraceId(sessionId), async () => {
       log.info('session.start', { sessionId, mode, sourceId });
       const eventLog = new AppendOnlyEventLog();
       if (sourceId !== undefined) {

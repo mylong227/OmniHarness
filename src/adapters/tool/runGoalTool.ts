@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { SubagentPorts } from '../../subagent/subagentPorts.js';
 import { Agent } from '../../core/agent.js';
-import { SubagentRuntimeFactory } from '../../subagent/subagentRuntimeFactory.js';
+import { subagentRuntimeFactory } from '../../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../../subagent/subagentEventBridge.js';
 import { ToolSubset } from '../../subagent/toolSubset.js';
 import { GoalRunner, type GoalRunnerOptions } from '../../autonomy/goalRunner.js';
@@ -48,7 +48,7 @@ export class RunGoalTool {
       return { callId: call.id, ok: false, error: '缺少子目标描述: goal' };
     }
     const bridge = new SubagentEventBridge();
-    const runtime = SubagentRuntimeFactory.build(
+    const runtime = subagentRuntimeFactory.build(
       this.ports,
       this.toolViewOf(call),
       bridge,

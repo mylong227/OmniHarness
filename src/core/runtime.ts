@@ -28,7 +28,7 @@ import type { ToolHookRunner } from './toolHooks.js';
 import type { EvolutionController } from '../ports/evolution.js';
 import { createRlvrEvolutionController } from '../evolution/rlvrController.js';
 import type { SparkController } from '../spark/sparkController.js';
-import { SubagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
+import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { portsOf } from '../subagent/subagentPorts.js';
 import { Agent } from './agent.js';
 import { A2aServer, A2aClient, HttpA2aTransport, HttpA2aServerTransport } from '../a2a/index.js';
@@ -102,122 +102,119 @@ export interface OmniHarnessRuntime {
   };
 }
 
-/** 运行时装配器。 */
-export class RuntimeFactory {
-  /**
-   * 由配置装配出运行时。
-   * 注：`supervisor` 为可选覆盖项（不属 ResolvedConfig 持久字段）：传入则用之，否则默认构造生产级
-   * SupervisorKernel。eval / 基准 harness 可传 no-op 监督内核以纯测 agent 能力、剥离生产安全降级噪声。
-   */
-  public static create(config: ResolvedConfig & { supervisor?: SupervisorPort }): OmniHarnessRuntime {
-    const container = new Container();
-    container.register(ServiceKeys.model, config.model);
-    container.register(ServiceKeys.tools, config.tools);
-    container.register(ServiceKeys.storage, config.storage);
-    container.register(ServiceKeys.events, config.events);
-    container.register(ServiceKeys.sandbox, config.sandbox);
-    container.register(ServiceKeys.approvals, config.approvals);
-    const supervisor =
-      config.supervisor ?? new SupervisorKernel({ hazardousTools: MUTATING_TOOLS });
-    const gate = new ToolGate(
-      config.approvals,
-      config.sandbox,
-      config.plan,
-      config.planMode,
-      config.escalation,
-      config.elevatedSandbox,
-      supervisor,
-    );
-    // U4 RLVR 进化闭环：启用时构造「可验证门禁 + RLVR sample-filter-replay」控制器并赋给 runtime.evolution，
-    // 取代/补充 config.evolution 注入。发现用 skillRegistry 的燧-1 组合，门禁默认 capabilityCoverage 基准，
-    // RLVR 奖励来自候选代码真实编译/测试绿度。缺省关，零破坏；skillRegistry 缺失则回退 config.evolution。
-    const evolutionController: EvolutionController | undefined =
-      config.evolutionRlvr?.enabled === true && config.skillRegistry !== undefined
-        ? createRlvrEvolutionController({
-            skills: config.skillRegistry.list(),
-            compose: (a, b, o) => config.skillRegistry!.composeByTwist(a, b, o),
-            model: config.model,
-            maxCandidates: config.evolutionRlvr.maxCandidates,
-            samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,
-            minReward: config.evolutionRlvr.minReward,
-            verifyCommand: config.evolutionRlvr.verifyCommand,
-            autoRun: config.evolutionRlvr.autoRun === true,
-          }).controller
-        : config.evolution;
-    const runtime: OmniHarnessRuntime = {
-      config,
-      model: config.model,
-      tools: config.tools,
-      storage: config.storage,
-      events: config.events,
-      sandbox: config.sandbox,
-      approvals: config.approvals,
-      escalation: config.escalation,
-      elevatedSandbox: config.elevatedSandbox,
-      gate,
-      supervisor,
-      spiller: config.spiller,
-      discovery: config.discovery,
-      retrieval: config.retrieval,
-      container,
-      native: config.native ? NativeBackend.tryCreate() : undefined,
-      turnDiff: config.turnDiffTracker,
-      hooks: config.hooks,
-      longTermMemory: config.longTermMemory,
-      web: config.web,
-      memoryExtractor: config.memoryExtractor,
-      // #B3 web：live 默认组合视图，内置 ConsoleLiveView（TTY 实时刷新）；
-      // serve 模式下 CLI 再注入 WebLiveView 广播给 Web UI，实现同一份增量多端呈现。
-      // config.live 仍优先（用户自定义则仅用其，绕过内置组合）。
-      live: config.live ?? new CompositeLiveView([new ConsoleLiveView()]),
-      // U3 混合检索：env OMNI_SEMANTIC_RECALL=1 时构造本地 ONNX 嵌入适配器（懒加载，首次 embed 才下载模型）。
-      // 不读环境变量外的任何配置，缺省 undefined → 纯 BM25，零破坏、零开销。
-      // OMNI_SEMANTIC_RECALL=1 开启混合检索；可叠加 OMNI_EMBEDDING_CACHE_DIR 指定权重缓存目录，
-      // OMNI_EMBEDDING_OFFLINE=1 强制仅用本地缓存（离线环境预置权重后生效）。
-      embedding:
-        process.env.OMNI_SEMANTIC_RECALL === '1'
-          ? new TransformersEmbeddingAdapter({
-              cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
-              localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
-            })
-          : undefined,
-      evolution: evolutionController,
-      spark: config.spark,
-    } as OmniHarnessRuntime;
-    // U6 A2A 互操作：启用时实例化 server（监听）+ client，server 任务处理器跑子 agent 完成对等委托。
-    // 能力胶囊 = Ed25519 签名即身份（fail-closed 验签），复用 config.identity + 子 agent 隔离运行时。
-    if (config.a2a?.enabled === true) {
-      const a2aPort = config.a2a.port ?? 8790;
-      const serverTransport = new HttpA2aServerTransport();
-      const server = new A2aServer(serverTransport, config.identity);
-      const peer = config.a2a.peerEndpoint ?? `http://localhost:${a2aPort}/a2a`;
-      const client = new A2aClient(new HttpA2aTransport(peer), config.identity);
-      server.setTaskHandler({
-        async handle(req) {
-          const start = Date.now();
-          try {
-            const sub = SubagentRuntimeFactory.build(
-              portsOf(runtime),
-              runtime.tools,
-              runtime.events,
-              runtime.config.maxSteps,
-            );
-            const result = await new Agent(sub).runTask(req.task);
-            return {
-              ok: true,
-              output: result.finalText ?? '',
-              steps: result.steps,
-              durationMs: Date.now() - start,
-            };
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            return { ok: false, output: '', steps: 0, durationMs: Date.now() - start, error: msg };
-          }
-        },
-      });
-      void serverTransport.listen(a2aPort);
-      runtime.a2a = { server, client, transport: serverTransport };
-    }
-    return runtime;
+/**
+ * 由配置装配出运行时。
+ * 注：`supervisor` 为可选覆盖项（不属 ResolvedConfig 持久字段）：传入则用之，否则默认构造生产级
+ * SupervisorKernel。eval / 基准 harness 可传 no-op 监督内核以纯测 agent 能力、剥离生产安全降级噪声。
+ */
+export function createRuntime(config: ResolvedConfig & { supervisor?: SupervisorPort }): OmniHarnessRuntime {
+  const container = new Container();
+  container.register(ServiceKeys.model, config.model);
+  container.register(ServiceKeys.tools, config.tools);
+  container.register(ServiceKeys.storage, config.storage);
+  container.register(ServiceKeys.events, config.events);
+  container.register(ServiceKeys.sandbox, config.sandbox);
+  container.register(ServiceKeys.approvals, config.approvals);
+  const supervisor =
+    config.supervisor ?? new SupervisorKernel({ hazardousTools: MUTATING_TOOLS });
+  const gate = new ToolGate(
+    config.approvals,
+    config.sandbox,
+    config.plan,
+    config.planMode,
+    config.escalation,
+    config.elevatedSandbox,
+    supervisor,
+  );
+  // U4 RLVR 进化闭环：启用时构造「可验证门禁 + RLVR sample-filter-replay」控制器并赋给 runtime.evolution，
+  // 取代/补充 config.evolution 注入。发现用 skillRegistry 的燧-1 组合，门禁默认 capabilityCoverage 基准，
+  // RLVR 奖励来自候选代码真实编译/测试绿度。缺省关，零破坏；skillRegistry 缺失则回退 config.evolution。
+  const evolutionController: EvolutionController | undefined =
+    config.evolutionRlvr?.enabled === true && config.skillRegistry !== undefined
+      ? createRlvrEvolutionController({
+          skills: config.skillRegistry.list(),
+          compose: (a, b, o) => config.skillRegistry!.composeByTwist(a, b, o),
+          model: config.model,
+          maxCandidates: config.evolutionRlvr.maxCandidates,
+          samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,
+          minReward: config.evolutionRlvr.minReward,
+          verifyCommand: config.evolutionRlvr.verifyCommand,
+          autoRun: config.evolutionRlvr.autoRun === true,
+        }).controller
+      : config.evolution;
+  const runtime: OmniHarnessRuntime = {
+    config,
+    model: config.model,
+    tools: config.tools,
+    storage: config.storage,
+    events: config.events,
+    sandbox: config.sandbox,
+    approvals: config.approvals,
+    escalation: config.escalation,
+    elevatedSandbox: config.elevatedSandbox,
+    gate,
+    supervisor,
+    spiller: config.spiller,
+    discovery: config.discovery,
+    retrieval: config.retrieval,
+    container,
+    native: config.native ? NativeBackend.tryCreate() : undefined,
+    turnDiff: config.turnDiffTracker,
+    hooks: config.hooks,
+    longTermMemory: config.longTermMemory,
+    web: config.web,
+    memoryExtractor: config.memoryExtractor,
+    // #B3 web：live 默认组合视图，内置 ConsoleLiveView（TTY 实时刷新）；
+    // serve 模式下 CLI 再注入 WebLiveView 广播给 Web UI，实现同一份增量多端呈现。
+    // config.live 仍优先（用户自定义则仅用其，绕过内置组合）。
+    live: config.live ?? new CompositeLiveView([new ConsoleLiveView()]),
+    // U3 混合检索：env OMNI_SEMANTIC_RECALL=1 时构造本地 ONNX 嵌入适配器（懒加载，首次 embed 才下载模型）。
+    // 不读环境变量外的任何配置，缺省 undefined → 纯 BM25，零破坏、零开销。
+    // OMNI_SEMANTIC_RECALL=1 开启混合检索；可叠加 OMNI_EMBEDDING_CACHE_DIR 指定权重缓存目录，
+    // OMNI_EMBEDDING_OFFLINE=1 强制仅用本地缓存（离线环境预置权重后生效）。
+    embedding:
+      process.env.OMNI_SEMANTIC_RECALL === '1'
+        ? new TransformersEmbeddingAdapter({
+            cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
+            localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+          })
+        : undefined,
+    evolution: evolutionController,
+    spark: config.spark,
+  } as OmniHarnessRuntime;
+  // U6 A2A 互操作：启用时实例化 server（监听）+ client，server 任务处理器跑子 agent 完成对等委托。
+  // 能力胶囊 = Ed25519 签名即身份（fail-closed 验签），复用 config.identity + 子 agent 隔离运行时。
+  if (config.a2a?.enabled === true) {
+    const a2aPort = config.a2a.port ?? 8790;
+    const serverTransport = new HttpA2aServerTransport();
+    const server = new A2aServer(serverTransport, config.identity);
+    const peer = config.a2a.peerEndpoint ?? `http://localhost:${a2aPort}/a2a`;
+    const client = new A2aClient(new HttpA2aTransport(peer), config.identity);
+    server.setTaskHandler({
+      async handle(req) {
+        const start = Date.now();
+        try {
+          const sub = subagentRuntimeFactory.build(
+            portsOf(runtime),
+            runtime.tools,
+            runtime.events,
+            runtime.config.maxSteps,
+          );
+          const result = await new Agent(sub).runTask(req.task);
+          return {
+            ok: true,
+            output: result.finalText ?? '',
+            steps: result.steps,
+            durationMs: Date.now() - start,
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, output: '', steps: 0, durationMs: Date.now() - start, error: msg };
+        }
+      },
+    });
+    void serverTransport.listen(a2aPort);
+    runtime.a2a = { server, client, transport: serverTransport };
   }
+  return runtime;
 }

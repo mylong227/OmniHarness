@@ -46,7 +46,7 @@ export { Agent } from './core/agent.js';
 export type { AgentResult } from './core/agent.js';
 export { AppendOnlyEventLog } from './core/eventLog.js';
 export { Container } from './core/container.js';
-export { RuntimeFactory, ServiceKeys } from './core/runtime.js';
+export { createRuntime, ServiceKeys } from './core/runtime.js';
 export type { OmniHarnessRuntime } from './core/runtime.js';
 export { SessionRecorder } from './core/sessionRecorder.js';
 export { StepRunner } from './core/stepRunner.js';

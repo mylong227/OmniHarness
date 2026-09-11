@@ -1,5 +1,5 @@
 import { Agent } from '../src/core/agent.js';
-import { RuntimeFactory } from '../src/core/runtime.js';
+import { createRuntime } from '../src/core/runtime.js';
 import { ConfigFactory } from '../src/config/omniharnessConfig.js';
 import { MockModel } from '../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';
@@ -18,7 +18,7 @@ async function runStress(): Promise<void> {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const agent = new Agent(RuntimeFactory.create(config));
+  const agent = new Agent(createRuntime(config));
 
   const rounds = 200;
   const baseline = process.memoryUsage().heapUsed;

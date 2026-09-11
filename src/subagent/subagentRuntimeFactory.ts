@@ -29,14 +29,14 @@ import { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
  */
 export class SubagentRuntimeFactory {
   /** 构造子代 runtime 视图。 */
-  public static build(
+  public build(
     ports: SubagentPorts,
     tools: ToolPort,
     events: EventPort,
     maxSteps: number,
   ): OmniHarnessRuntime {
     // 子代存储重定位到隔离工作树（worktree.path / 拷贝目录）下，杜绝共享冲突。
-    const storage = SubagentRuntimeFactory.rerootStorage(ports.storage, ports.workspaceRoot);
+    const storage = this.rerootStorage(ports.storage, ports.workspaceRoot);
     const config: ResolvedConfig = {
       workspaceRoot: ports.workspaceRoot,
       maxSteps,
@@ -82,7 +82,7 @@ export class SubagentRuntimeFactory {
         ports.escalation,
         ports.elevatedSandbox,
       ),
-      container: SubagentRuntimeFactory.containerOf(ports, tools, events, storage),
+      container: this.containerOf(ports, tools, events, storage),
       native: ports.native,
       longTermMemory: ports.longTermMemory,
       memoryExtractor: undefined,
@@ -93,7 +93,7 @@ export class SubagentRuntimeFactory {
    * 把存储根重定位到隔离工作树下 `.omni-storage` 子目录，使每个子代存储互不冲突。
    * 内存存储等无路径后端按实例隔离，直接复用；未知后端 fail-closed 原样返回（不静默共享父存储）。
    */
-  private static rerootStorage(storage: StoragePort, workspaceRoot: string): StoragePort {
+  private rerootStorage(storage: StoragePort, workspaceRoot: string): StoragePort {
     const dir = join(workspaceRoot, '.omni-storage');
     mkdirSync(dir, { recursive: true });
     if (storage instanceof JsonlStorage) {
@@ -106,7 +106,7 @@ export class SubagentRuntimeFactory {
   }
 
   /** 子代容器：与父隔离（register 重名即抛错），键名沿用标准 ServiceKeys。 */
-  private static containerOf(
+  private containerOf(
     ports: SubagentPorts,
     tools: ToolPort,
     events: EventPort,
@@ -122,3 +122,6 @@ export class SubagentRuntimeFactory {
     return container;
   }
 }
+
+/** 组合根单例：纯无状态工厂，运行时装配一次，全局复用。 */
+export const subagentRuntimeFactory = new SubagentRuntimeFactory();

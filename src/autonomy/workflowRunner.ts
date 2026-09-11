@@ -1,7 +1,7 @@
 import type { SubagentPorts } from '../subagent/subagentPorts.js';
 import { OmniError, ErrorCode } from '../errors.js';
 import { Agent } from '../core/agent.js';
-import { SubagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
+import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../subagent/subagentEventBridge.js';
 import { ToolSubset } from '../subagent/toolSubset.js';
 import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
@@ -138,7 +138,7 @@ export class WorkflowRunner {
     this.options.onNodeUpdate?.({ id: step.id, status: 'running' });
     try {
       const bridge = new SubagentEventBridge();
-      const runtime = SubagentRuntimeFactory.build(
+      const runtime = subagentRuntimeFactory.build(
         this.ports,
         this.toolViewOf(step),
         bridge,

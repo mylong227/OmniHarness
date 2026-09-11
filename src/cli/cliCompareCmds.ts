@@ -7,7 +7,7 @@
  */
 
 import { Agent } from '../core/agent.js';
-import { RuntimeFactory } from '../core/runtime.js';
+import { createRuntime } from '../core/runtime.js';
 import { ConfigFactory } from '../config/omniharnessConfig.js';
 import type { ResolvedConfig } from '../config/omniharnessConfig.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
@@ -48,7 +48,7 @@ export class CliCompareCmds extends CliDataCmds {
     prompt: string,
   ): Promise<{ modelName: string; durationMs: number; finalText?: string }> {
     const config = await this.buildCompareConfig(args, suffix);
-    const agent = new Agent(RuntimeFactory.create(config));
+    const agent = new Agent(createRuntime(config));
     const startedAt = Date.now();
     const result = await agent.runTask(prompt);
     return {

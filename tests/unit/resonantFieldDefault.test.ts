@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
-import { RuntimeFactory } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/core/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
@@ -30,8 +30,8 @@ function buildDefaultRuntime() {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  // supervisor 缺省 → RuntimeFactory 自动构造生产级 SupervisorKernel
-  return RuntimeFactory.create(config);
+  // supervisor 缺省 → createRuntime 自动构造生产级 SupervisorKernel
+  return createRuntime(config);
 }
 
 test('U1 默认开启：默认配置下长期记忆是单一 ResonantFieldEngine 实例', () => {

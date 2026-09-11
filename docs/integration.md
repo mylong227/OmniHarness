@@ -18,7 +18,7 @@ export class MyModel implements ModelPort {
 ```
 
 ```ts
-import { ConfigFactory, RuntimeFactory, Agent, MemoryStorage } from 'omniharness';
+import { ConfigFactory, createRuntime, Agent, MemoryStorage } from 'omniharness';
 
 const config = ConfigFactory.build({
   workspaceRoot: process.cwd(),
@@ -26,7 +26,7 @@ const config = ConfigFactory.build({
   model: new MyModel(), // ← 你的模型即插即用
   storage: new MemoryStorage(),
 });
-const agent = new Agent(RuntimeFactory.create(config));
+const agent = new Agent(createRuntime.create(config));
 ```
 
 内置备选：`MockModel`（离线）、`OpenAiCompatibleModel`（任意兼容端点）、`AnthropicModel`。

@@ -1,4 +1,4 @@
-// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 RuntimeFactory，
+// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 createRuntime，
 // 复用 I-P1-4 进化闭环的 autoRun 钩子范式，使"市面唯一"从端口变为真能力。断言：
 //   ① 启用 resonance 后，注入 Agent 的 longTermMemory 即共振引擎，recall 走频率域代数（drop-in）；
 //   ② 启用 vortexRing 后，注入的 spill 即涡环包适配器，外溢封成 vr_ 拓扑环、解环 fail-closed；
@@ -16,7 +16,7 @@ import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemory.j
 import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRing.js';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { Agent } from '../../src/core/agent.js';
-import { RuntimeFactory } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/core/runtime.js';
 import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -225,7 +225,7 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     tuned = true;
     return realTune();
   };
-  const agentOn = new Agent(RuntimeFactory.create(configOn));
+  const agentOn = new Agent(createRuntime(configOn));
   const resOn = await agentOn.runTask('做点事');
   assert.ok(resOn.finalText?.includes('共振完成'), '主任务应正常完成');
   assert.ok(tuned, 'spark autoRun 应在任务末调用 resonance.tune()（钩子真进主循环）');
@@ -250,7 +250,7 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     tunedOff = true;
     return realTuneOff();
   };
-  const agentOff = new Agent(RuntimeFactory.create(configOff));
+  const agentOff = new Agent(createRuntime(configOff));
   const resOff = await agentOff.runTask('做点事');
   assert.ok(resOff.finalText?.includes('正常完成'));
   assert.strictEqual(tunedOff, false, '未开 sparkAutoRun 时不应触发 燧 调谐（零破坏）');

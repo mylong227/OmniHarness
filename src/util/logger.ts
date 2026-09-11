@@ -31,19 +31,9 @@ export class Logger {
     },
   ) {}
 
-  /** 当前异步上下文的 traceId（无则为 undefined）。 */
-  public static get currentTrace(): string | undefined {
-    return traceStorage.getStore();
-  }
-
   /** 在带 traceId 的上下文中执行 fn，期间所有日志自动携带该 traceId。 */
   public withTrace<T>(traceId: string | undefined, fn: () => T): T {
     return traceStorage.run(traceId, fn);
-  }
-
-  /** 为传入的 traceId 生成 UUID（无则为随机值），供 HTTP 层统一建号。 */
-  public static nextTraceId(provided?: string | undefined): string {
-    return provided && provided.length > 0 ? provided : randomUUID();
   }
 
   private emit(level: LogLevel, msg: string, fields?: Record<string, unknown>): void {
@@ -71,6 +61,16 @@ export class Logger {
   public error(msg: string, fields?: Record<string, unknown>): void {
     this.emit('error', msg, fields);
   }
+}
+
+/** 当前异步上下文的 traceId（无则为 undefined）。 */
+export function currentTrace(): string | undefined {
+  return traceStorage.getStore();
+}
+
+/** 为传入的 traceId 生成 UUID（无则为随机值），供 HTTP 层统一建号。 */
+export function nextTraceId(provided?: string | undefined): string {
+  return provided && provided.length > 0 ? provided : randomUUID();
 }
 
 /** 默认单例：级别取自环境变量，写入 stderr。 */

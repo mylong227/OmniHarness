@@ -62,9 +62,9 @@ export interface SparkCycleReport {
 
 /** 燧内核控制器选项。 */
 export interface SparkControllerOptions {
-  /** 已封包进 RuntimeFactory 的燧-3 共振寻址引擎（resonance/memoryWeb 或 U1 统一基板传入；端口接口以兼容 ResonantFieldEngine 单一状态源）。 */
+  /** 已封包进 createRuntime 的燧-3 共振寻址引擎（resonance/memoryWeb 或 U1 统一基板传入；端口接口以兼容 ResonantFieldEngine 单一状态源）。 */
   readonly resonance?: ResonantMemoryPort;
-  /** 已封包进 RuntimeFactory 的燧-4 涡环包外溢适配器（vortexRing.enabled 时传入）。 */
+  /** 已封包进 createRuntime 的燧-4 涡环包外溢适配器（vortexRing.enabled 时传入）。 */
   readonly vortex?: VortexRingSpillAdapter;
   /** (D) 热方程记忆退火器（memoryAnnealing.enabled 时传入）。 */
   readonly annealer?: MemoryAnnealer;
@@ -119,7 +119,7 @@ export interface SparkControllerOptions {
 /**
  * 燧内核控制器（S+ 发明层主循环挂接点）。
  *
- * 把已封包进 RuntimeFactory 的燧-3（共振寻址）、燧-4（涡环包）、(D) 热方程退火、(E) 宇宙网记忆 /
+ * 把已封包进 createRuntime 的燧-3（共振寻址）、燧-4（涡环包）、(D) 热方程退火、(E) 宇宙网记忆 /
  * QEC 记忆 / 免疫监控，以及 (P2) 自然梯度信念 / 粒子滤波信念，在任务末统一调度，复用 I-P1-4 进化闭环
  * 的 `autoRun` 钩子范式：Agent 任务完成后若 `autoRun` 开启则跑一轮 `cycle()`，异常不影响主任务（fail-closed）。
  *

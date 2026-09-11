@@ -4,7 +4,7 @@ import type { ModelPort } from '../ports/model.js';
 import type { ResolvedConfig } from '../config/omniharnessConfig.js';
 import type { SkillRegistry } from '../skill/skillRegistry.js';
 import type { SupervisorPort } from '../ports/supervisor.js';
-import { RuntimeFactory } from '../core/runtime.js';
+import { createRuntime } from '../core/runtime.js';
 import { Agent } from '../core/agent.js';
 import { GraphStore } from '../autonomy/graphStore.js';
 import { portsOf, type SubagentPorts } from '../subagent/subagentPorts.js';
@@ -59,7 +59,7 @@ export class AgentRuntimeHost {
    * 该授权矛盾）。上一版曾叠加 `sandbox.name === 'passthrough'`，但生产默认 sandbox 是
    * policySandbox（用户配置文件未显式设 sandbox），导致绕过条件不命中，supervisor
    * 仍拒写文件（2026-09-07 用户截图反馈）。其余配置保持原 SupervisorKernel 不动——本判断
-   * 是服务端唯一放宽点，调用方只需把它当 supervisor 覆盖项传入 `RuntimeFactory.create`。
+   * 是服务端唯一放宽点，调用方只需把它当 supervisor 覆盖项传入 `createRuntime.create`。
    * @param config 已解析配置（当前实现仅占位，sandbox 类型由 ToolGate / 升级路径自行处理）
    * @returns 放宽用 no-op 监督内核；不满足条件时 undefined（保持生产内核）
    */
@@ -119,7 +119,7 @@ export class AgentRuntimeHost {
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
       this.agentCache = new Agent(
-        RuntimeFactory.create(
+        createRuntime(
           supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig,
         ),
         this.deps.skills,
@@ -155,7 +155,7 @@ export class AgentRuntimeHost {
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
       this.portsCache = portsOf(
-        RuntimeFactory.create(
+        createRuntime(
           supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig,
         ),
       );
