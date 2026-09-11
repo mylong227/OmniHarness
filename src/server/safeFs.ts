@@ -1,6 +1,6 @@
 // 安全文件服务（#OBS-11）：校验路径必须落在指定工作区根之下，读取并返回 Buffer。
 // 复用于：
-//  - appServerBase.readFs（RPC fs.read，前端 readFs 用）；
+//  - workspaceTree.readFile（RPC fs.read，前端 readFs 用）；
 //  - httpServer route /files（前端直接 <a href> 下载 Agent 写出的文件/产物）。
 // fail-closed：路径越界、文件不存在、工作区未配置一律返回 error 描述，绝不抛错穿透。
 import { readFileSync } from 'node:fs';

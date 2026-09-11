@@ -37,11 +37,11 @@ export class AppServerHandlers extends AppServerBase {
       return { ok: storeOf().delete(id) };
     });
     this.handlers.set('profile.active', async () => {
-      await this.ensurePlugins();
+      await this.plugins.ensure();
       return { plugins: this.pluginManager?.names() ?? [] };
     });
     this.handlers.set('profile.apply', async (params) => {
-      await this.ensurePlugins();
+      await this.plugins.ensure();
       const registry = this.options.registry;
       const manager = this.pluginManager;
       const pluginsDir = this.pluginsDir;
@@ -149,13 +149,13 @@ export class AppServerHandlers extends AppServerBase {
       return;
     }
     this.handlers.set('plugins.list', async () => {
-      await this.ensurePlugins();
+      await this.plugins.ensure();
       const list = await registry.list();
       const loaded = new Set(this.pluginManager?.names() ?? []);
       return list.map((m) => ({ ...m, loaded: loaded.has(m.name) }));
     });
     this.handlers.set('plugins.search', async (params) => {
-      await this.ensurePlugins();
+      await this.plugins.ensure();
       const query = typeof params['query'] === 'string' ? params['query'] : undefined;
       const all = await registry.search(query);
       const loaded = new Set(this.pluginManager?.names() ?? []);
@@ -179,7 +179,7 @@ export class AppServerHandlers extends AppServerBase {
       return registry.remove(name).then(() => ({ ok: true, name }));
     });
     this.handlers.set('plugins.reload', async () => {
-      await this.ensurePlugins();
+      await this.plugins.ensure();
       if (this.pluginManager === undefined || this.pluginsDir === undefined) {
         return { ok: false, reason: '插件目录未配置' };
       }

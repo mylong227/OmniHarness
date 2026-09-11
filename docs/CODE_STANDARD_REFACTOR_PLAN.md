@@ -10,16 +10,16 @@
 
 | 指标 | 基线 | 现状 |
 |---|---|---|
-| `.ts` 文件数（excl dist/tests 内联） | 333 | 333 |
+| `.ts` 文件数（excl dist/tests 内联） | 333 | 362 |
 | `var` 用法 | 0 | 0 ✅ |
 | `any` 用法 | 0（源码）/ 1（web shim） | 0 ✅ |
-| 隐式 public 的类成员 | **1332** | **0** ✅ |
-| 顶层 function（src） | 261（已导出 163） | 261 |
-| 缺 JSDoc 的公开成员 | 288 / 813 | 待办 |
-| 文件名 ≠ 主类名 | 69 | 待办 |
-| 上帝类（>500 行 或 >25 方法） | 8 | 待办 |
-| `static` 用量 | 206 / 36 文件 | 待办 |
-| 单文件 ≥3 个导出类 | 3 | 待办 |
+| 隐式 public 的类成员 | **1332** | **20**（热区豁免块残留） |
+| 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
+| 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
+| 文件名 ≠ 主类名 | 69 | 69 |
+| 上帝类（>500 行 或 >25 方法） | 8 | **2**（`omniharnessConfig` 伪上帝类、`stepRunner` 热区） |
+| `static` 用量 | 206 / 36 文件 | 206 / 36 文件 |
+| 单文件 ≥3 个导出类 | 3 | 3 |
 
 ## 批次状态
 
@@ -46,7 +46,7 @@
 - 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
 - 批次内以 `tsc --noEmit` 立即校验。
 
-### Phase 4 — 上帝类拆分（进行中，5/7；最高风险）
+### Phase 4 — 上帝类拆分（进行中，6/7；最高风险）
 
 **已完成（各独立提交，行为零变更 + 门禁绿 + 单测通过）**
 - ✅ `adapters/lsp/lspProcess.ts`（371 行 / 26 方法）→ 抽出 `LspJsonRpcConnection`（stdio JSON-RPC 传输/分帧/超时），
@@ -68,11 +68,31 @@
   433 行 / 14 方法，全部新文件 ≤165 行且文件名=类名；RPC 名/签名/错误文案/返回结构逐字不变。
   提交 `f6a6416`；新增服务单测 20/20（repoPathGuard 5 / diffCommentStore 5 / diffReview 6 / sessionCheckpoints 4）。
 
+- ✅ `server/appServerBase.ts`（1259 行 / 55 成员 = 17 字段 + 38 方法）→ **收敛为组合根**，抽出 9 个单一职责
+  协作者（全部新文件 ≤350 行且文件名=类名）：
+  - `ServerConfigStore`（UI 覆盖态 + 落盘 + 工作区列表；凭据打码，`probeProvider` 回调隔离「配置×模型」域）
+  - `FsExplorer`（跨工作区文件对话框：browse/mkdir/attach，白名单+大小+数量上限）
+  - `WorkspaceTree`（工作区内树形列举与读取，越界校验 + 复用 `safeReadFile`）
+  - `SessionArchive`（`.jsonl` 存档聚合：usage 统计 / 会话列表，磁盘空时回退进程内指标）
+  - `WorkspaceChanges`（git 优先、会话 `turn_diff` 回退的变更清单）
+  - `ModelCatalogService`（厂商探测缓存 / 模型目录 / 运行时模型覆盖解析，独占 probeCache）
+  - `PluginHost`（插件容器装配 + 加载幂等 + Profile 应用）
+  - `ServerEventBridge`（事件下行 + 审批上行；挂起 resolver 表内聚）
+  - `AgentRuntimeHost`（Agent/图端口装配、审批端口解析、Kernel 放宽判定与三类缓存失效）
+  - 另抽出 `ServerNoopSupervisor`（原嵌套类，独立成文件以满足「文件名=类名」）。
+  继承链 `AppServerBase → AppServerHandlers → AppServer` **保持不变**，对外契约（`loadPlugins` /
+  `applyPluginProfile` / `effectiveWorkspace` / `updateConfig` / `bypassSupervisorKernel`）保留薄委托，
+  `appServerHandlers.ts` 仅 5 处 `ensurePlugins()` → `plugins.ensure()`；所有服务**构造期装配一次**
+  （零每调用开销），工作区根/配置一律 **getter 注入**以兼容 `workspace.switch` 与 `config.update`。
+  审计口径：appServerBase 已移出上帝类清单（余 `omniharnessConfig` 伪上帝类与热区 `stepRunner`）。
+  新增 9 个测试套件 / 67 用例全绿（纯临时目录 + 临时 git 仓，绕开环境性 flaky 的集成路径）。
+
 **剩余（待办）**
-- `server/appServerBase.ts`（1260 行 / 55 方法）→ 按职责拆为 threads / turns / approvals / config / fs 等域。
 - `config/omniharnessConfig.ts`（764）、`core/stepRunner.ts`（526）→ 前者实为「类型声明 + 单方法工厂」价值低；
   后者**热区，暂缓**。
-- ⚠️ `appServer*` 两兄弟的单测在本机因 WS/端口 15s 超时**不可靠**，拆分只能靠 typecheck + api:check 兜底，须最谨慎。
+- ⚠️ `appServer*` 两兄弟的单测在本机因 **mock agent 单次实跑 64s > 测试内部 15s 轮询上限**而不可靠（本次实测：
+  `threads.create` 端到端 64.1s，返回结构正确），拆分只能靠 typecheck + api:check + 新协作者单测兜底，须最谨慎。
+  关键回归守卫（`bypassSupervisorKernel` 的 auto/rules 两条）不依赖长跑，仍可作真实门禁。
 - 每个文件**独立提交**并跑全量单测，确保行为零变更。
 - 拆分范式（已验证，可复用）：读全文件找**职责缝** → 抽出新类**文件名=类名**（顺带满足规范 #2）
   → 原文件留组合门面、导出名与路径不变（调用点零改动）→ 逐文件独立提交 + 跑该模块单测。

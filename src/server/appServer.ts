@@ -4,6 +4,8 @@ import type { WorkflowDef } from '../autonomy/workflowTypes.js';
 import { JsonRpc } from './jsonRpc.js';
 import type { ImageContent, FileAttachment } from '../ports/model.js';
 import { id } from '../util/id.js';
+import { queryAudit, type AuditQuery } from './auditExport.js';
+import type { AuditEvent } from './audit.js';
 import { AppServerHandlers } from './appServerHandlers.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
 import { PROVIDER_PRESETS } from './providerPresets.js';
@@ -51,7 +53,7 @@ export class AppServer extends AppServerHandlers {
     try {
       // 只探测当前 active 厂商（按 baseUrl 严格匹配 → 否则按 modelAdapter 匹配第一个有 key 的预设），
       // 不全表扫 7 个厂商，避免启动慢、流量浪费。
-      const file = this.effectiveFileConfig();
+      const file = this.configStore.fileConfig();
       const keys = file.providerKeys ?? {};
       const topKey = typeof file.apiKey === 'string' ? file.apiKey : undefined;
       const matched =
@@ -66,7 +68,7 @@ export class AppServer extends AppServerHandlers {
       const target = matched?.id;
       // 没匹配到厂商（纯 mock 或无凭据）就什么都不做，避免无意义探测。
       if (target === undefined) return;
-      await this.probeModels({ provider: target });
+      await this.modelCatalog.probe({ provider: target });
     } catch {
       // 静默失败：探测走 HTTP，UI 后台再点「检测」按钮也能补。
     }
@@ -80,14 +82,14 @@ export class AppServer extends AppServerHandlers {
     this.handlers.set('threads.get', (params) => this.getThread(params));
     this.handlers.set('turns.run', (params) => this.runTurn(params));
     this.handlers.set('approval.respond', (params) => this.respondApproval(params));
-    this.handlers.set('config.get', () => Promise.resolve(this.getConfig()));
+    this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
     this.handlers.set('config.update', (params) => Promise.resolve(this.updateConfig(params)));
-    this.handlers.set('model.catalog', () => Promise.resolve(this.modelCatalog()));
-    this.handlers.set('model.probe', (params) => this.probeModels(params));
-    this.handlers.set('usage.stats', () => Promise.resolve(this.usageStats()));
-    this.handlers.set('workspace.list', () => Promise.resolve(this.listWorkspaces()));
+    this.handlers.set('model.catalog', () => Promise.resolve(this.modelCatalog.catalog()));
+    this.handlers.set('model.probe', (params) => this.modelCatalog.probe(params));
+    this.handlers.set('usage.stats', () => Promise.resolve(this.sessionArchive.usage()));
+    this.handlers.set('workspace.list', () => Promise.resolve(this.configStore.workspaces()));
     this.handlers.set('workspace.add', (params) =>
-      Promise.resolve(this.addWorkspace(params['path'])),
+      Promise.resolve(this.configStore.addWorkspace(params['path'])),
     );
     this.handlers.set('workspace.switch', (params) =>
       Promise.resolve(this.switchWorkspace(params['path'])),
@@ -95,10 +97,10 @@ export class AppServer extends AppServerHandlers {
     this.handlers.set('audit.query', (params) => Promise.resolve(this.queryAuditRpc(params)));
     this.registerCheckpointHandlers();
     this.registerReviewHandlers();
-    this.handlers.set('fs.list', (params) => Promise.resolve(this.listFs(params)));
-    this.handlers.set('fs.read', (params) => Promise.resolve(this.readFs(params)));
+    this.handlers.set('fs.list', (params) => Promise.resolve(this.workspaceTree.list(params)));
+    this.handlers.set('fs.read', (params) => Promise.resolve(this.workspaceTree.readFile(params)));
     this.handlers.set('sessions.list', async () => {
-      const r = (await this.listSessions()) as {
+      const r = (await this.sessionArchive.list()) as {
         dir: string;
         sessions: { sessionId: string; running?: boolean }[];
       };
@@ -108,10 +110,12 @@ export class AppServer extends AppServerHandlers {
         sessions: r.sessions.map((s) => ({ ...s, running: this.activeTurns.has(s.sessionId) })),
       };
     });
-    this.handlers.set('changes.list', (params) => Promise.resolve(this.listChanges(params)));
-    this.handlers.set('fs.browse', (params) => Promise.resolve(this.browseFs(params)));
-    this.handlers.set('fs.mkdir', (params) => Promise.resolve(this.mkdirFs(params)));
-    this.handlers.set('attach.read', (params) => Promise.resolve(this.attachRead(params)));
+    this.handlers.set('changes.list', (params) => Promise.resolve(this.workspaceChanges.list(params)));
+    this.handlers.set('fs.browse', (params) => Promise.resolve(this.fsExplorer.browse(params)));
+    this.handlers.set('fs.mkdir', (params) => Promise.resolve(this.fsExplorer.mkdir(params)));
+    this.handlers.set('attach.read', (params) =>
+      Promise.resolve(this.fsExplorer.readAttachments(params)),
+    );
     this.registerPluginHandlers();
     this.registerGraphHandlers();
     this.registerMemoryHandlers();
@@ -121,13 +125,13 @@ export class AppServer extends AppServerHandlers {
 
   /** 多 Agent 编排 RPC（G-C，对标 codex agent-graph-store）：图增删查 + 运行 + 实时状态。 */
   protected registerGraphHandlers(): void {
-    this.handlers.set('graph.list', async () => this.graphStoreOf().list());
+    this.handlers.set('graph.list', async () => this.runtime.graphStore().list());
     this.handlers.set('graph.get', async (params) => {
       const idParam = params['id'];
       if (typeof idParam !== 'string' || idParam.length === 0) {
         throw new Error('graph.get 需要 id');
       }
-      const def = this.graphStoreOf().get(idParam);
+      const def = this.runtime.graphStore().get(idParam);
       if (def === undefined) {
         throw new Error('未找到图: ' + idParam);
       }
@@ -142,7 +146,7 @@ export class AppServer extends AppServerHandlers {
       ) {
         throw new Error('graph.save 需要 def（含 name 与 steps）');
       }
-      const savedId = this.graphStoreOf().save(def as WorkflowDef);
+      const savedId = this.runtime.graphStore().save(def as WorkflowDef);
       return { ok: true, id: savedId };
     });
     this.handlers.set('graph.delete', async (params) => {
@@ -150,7 +154,7 @@ export class AppServer extends AppServerHandlers {
       if (typeof idParam !== 'string' || idParam.length === 0) {
         throw new Error('graph.delete 需要 id');
       }
-      return { ok: this.graphStoreOf().delete(idParam) };
+      return { ok: this.runtime.graphStore().delete(idParam) };
     });
     this.handlers.set('graph.run', async (params) => this.runGraph(params));
     this.handlers.set('graph.status', async (params) => {
@@ -295,27 +299,25 @@ export class AppServer extends AppServerHandlers {
 
   /** 创建线程。 */
   protected async createThread(params: Record<string, unknown>): Promise<unknown> {
-    const result = await this.agentInstance().runTask(String(params['prompt'] ?? ''));
+    const result = await this.runtime.agent().runTask(String(params['prompt'] ?? ''));
     this.threads.set(result.sessionId, result.sessionId);
     return this.threadResult(result);
   }
 
   /** 续跑线程。 */
   protected async continueThread(params: Record<string, unknown>): Promise<unknown> {
-    const result = await this.agentInstance().resume(
-      String(params['threadId'] ?? ''),
-      String(params['prompt'] ?? ''),
-    );
+    const result = await this.runtime
+      .agent()
+      .resume(String(params['threadId'] ?? ''), String(params['prompt'] ?? ''));
     this.threads.set(result.sessionId, result.sessionId);
     return this.threadResult(result);
   }
 
   /** 分叉线程。 */
   protected async forkThread(params: Record<string, unknown>): Promise<unknown> {
-    const result = await this.agentInstance().fork(
-      String(params['threadId'] ?? ''),
-      String(params['prompt'] ?? ''),
-    );
+    const result = await this.runtime
+      .agent()
+      .fork(String(params['threadId'] ?? ''), String(params['prompt'] ?? ''));
     this.threads.set(result.sessionId, result.sessionId);
     return this.threadResult(result);
   }
@@ -323,7 +325,7 @@ export class AppServer extends AppServerHandlers {
   /** 获取线程事件。 */
   protected async getThread(params: Record<string, unknown>): Promise<unknown> {
     const threadId = String(params['threadId'] ?? '');
-    const items = await this.agentInstance().replay(threadId);
+    const items = await this.runtime.agent().replay(threadId);
     return { threadId, items };
   }
 
@@ -337,8 +339,8 @@ export class AppServer extends AppServerHandlers {
     this.activeTurns.add(threadId);
     try {
       const result = this.threads.has(threadId)
-        ? await this.agentInstance().resume(threadId, prompt, images, files)
-        : await this.agentInstance().runTask(prompt, images, files);
+        ? await this.runtime.agent().resume(threadId, prompt, images, files)
+        : await this.runtime.agent().runTask(prompt, images, files);
       this.threads.set(result.sessionId, result.sessionId);
       return this.threadResult(result);
     } finally {
@@ -346,15 +348,35 @@ export class AppServer extends AppServerHandlers {
     }
   }
 
-  /** 响应审批上行。 */
+  /** 响应审批上行（委托事件桥）。 */
   protected async respondApproval(params: Record<string, unknown>): Promise<unknown> {
-    const requestId = String(params['requestId'] ?? '');
-    const resolve = this.pendingApprovals.get(requestId);
-    if (resolve !== undefined) {
-      resolve(params['decision'] === 'allow' ? 'allow' : 'deny');
-      this.pendingApprovals.delete(requestId);
-    }
-    return { ok: true };
+    return this.events.respondApproval(params);
+  }
+
+  /**
+   * 审计查询 RPC：读取服务端审计 sink 并应用过滤条件返回事件数组。
+   * @param params `{ since?, until?, type?, session?, actor?, limit? }`
+   * @returns 过滤后的事件数组（未注入 audit 时为空）
+   */
+  protected queryAuditRpc(params: Record<string, unknown>): AuditEvent[] {
+    const sink = this.options.audit;
+    if (sink === undefined) return [];
+    const str = (v: unknown): string | undefined =>
+      typeof v === 'string' && v.length > 0 ? v : undefined;
+    const num = (v: unknown): number | undefined => {
+      if (typeof v === 'number' && Number.isFinite(v)) return v;
+      if (typeof v === 'string' && /^\d+$/.test(v)) return Number(v);
+      return undefined;
+    };
+    const query: AuditQuery = {
+      since: str(params['since']),
+      until: str(params['until']),
+      type: str(params['type']),
+      session: str(params['session']),
+      actor: str(params['actor']),
+      limit: num(params['limit']),
+    };
+    return queryAudit(sink.read(), query);
   }
 
   /**
@@ -362,7 +384,7 @@ export class AppServer extends AppServerHandlers {
    * 结束经 graph.done 通知。运行态存于 graphRuns 供 graph.status 查询。
    */
   protected runGraph(params: Record<string, unknown>): { runId: string; nodeCount: number } {
-    const store = this.graphStoreOf();
+    const store = this.runtime.graphStore();
     let def: WorkflowDef | undefined;
     const idParam = typeof params['id'] === 'string' ? params['id'] : undefined;
     const defArg = params['def'];
@@ -395,7 +417,7 @@ export class AppServer extends AppServerHandlers {
     }
     this.graphRuns.set(runId, runState);
 
-    const ports = this.graphPortsOf();
+    const ports = this.runtime.graphPorts();
     void new WorkflowRunner(ports, {
       maxConcurrency: def.maxConcurrency,
       onNodeUpdate: (update) => {
