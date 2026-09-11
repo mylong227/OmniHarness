@@ -12,6 +12,9 @@
  * （亮度均值/方差、字节香农熵、宽高比），零依赖、可离线运行。
  * 视觉语义编码器（如 CLIP）可作为 drop-in 适配器替换 `imageFeatures`，
  * 但代数结构（fuse/align/map）不变——这正是"架构适应力强"的体现。
+ *
+ * @maturity L3 — Modality.map 的恒等律与组合律有单测
+ * @maturityEvidence tests/unit/genesis.test.ts
  */
 
 import { cosine } from './mathutil.js';

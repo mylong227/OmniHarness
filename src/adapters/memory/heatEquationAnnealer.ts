@@ -1,3 +1,7 @@
+/**
+ * @maturity L2 — 真做扩散步；冷却调度的最优性未证
+ * @maturityEvidence tests/unit/heatAnnealer.test.ts
+ */
 import type { LongTermMemoryPort } from '../../ports/longTermMemory.js';
 import type { MemoryAnnealer, AnnealStepReport } from '../../ports/memoryAnnealing.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';

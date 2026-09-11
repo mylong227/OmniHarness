@@ -1,12 +1,17 @@
 /**
- * 能量/成本账本（Energy ledger）。
+ * 成本账本（Cost ledger）——**记账不变量**，不是物理守恒律。
  *
- * 守恒律（可推演的不变量）：每一笔成本必须被"记录（record）"且最终"结算（commit）"。
- * 闭合周期结束时，`pending === 0` 且 `recorded === committed` ⇒ 守恒（isConserved）。
+ * 不变量（可推演、可机械检出）：每一笔成本必须被"记录（record）"且最终"结算（commit）"。
+ * 闭合周期结束时，`pending === 0` 且 `recorded === committed` ⇒ 账本闭合（isConserved）。
  * 若某算子产生成本却忘记结算，isConserved 立即为假——把"未记账的耗散"变成可机械检出。
  *
- * 这是 Landauer/Toyabe（信息换能量）原理在软件层的落地：
- * 任何计算"花费"的能量都必须进入守恒账本；账本不守恒 = 系统有不可解释的能量泄漏。
+ * 措辞边界（2026-09-12，见 docs/library/20-physics.md §9）：
+ * 这是**会计恒等式**——一个可被违反、且违反即被检出的断言，**不是**热力学第一定律。
+ * 故不得引用 Landauer/Toyabe 原理为它背书：本账本不度量物理能量，也不承诺 joules 为实测值；
+ * 字段名 `joules` 是由经验系数估算的**代理值**，非实测物理量。
+ *
+ * @maturity L3 — record/commit 闭合可机械检出；记账不变量，非物理守恒
+ * @maturityEvidence tests/unit/genesis.test.ts
  */
 
 import { type Cost, emptyCost, concatCost } from './algebra.js';

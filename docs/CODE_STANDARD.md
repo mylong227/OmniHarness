@@ -102,8 +102,61 @@ npm run api:check   # 公共 API 表面稳定性
 
 - AST 盘点：`node scripts/auditStandards.mjs`（统计各规范违反量，用于跟踪收口进度）。
 - 机械修复：`node scripts/codemod/memberAccessibility.mjs [--dry]`（补全显式 `public`）。
+- 成熟度门禁：`node scripts/auditStandards.mjs --maturity`（见 §8；L2/L3 无测试即阻断，exit 1）。
+- 成熟度标注：`node scripts/codemod/maturityAnnotate.mjs [--apply]`（幂等登记，见 §8）。
 
-## 8. 例外与豁免
+## 8. 隐喻引擎成熟度声明（命名 ≠ 机制）
+
+本仓库有以物理/生物/化学命名的引擎（退火、免疫、涡环、QEC、结晶、对称破缺、宇宙网、CRISPR…）。
+**命名不等于机制**。凡以学科概念命名的实现，必须在文件顶层 JSDoc 声明成熟度等级并给出证据——
+否则文档与注释会系统性过度声明（如把记账恒等式写成「能量守恒」），最终无法被验证。
+
+### 8.1 四个等级
+
+| 等级 | 名称 | 判据 |
+| ---- | ---- | ---- |
+| **L0** | 命名级 | 只有名字像，算法是普通启发式；换名不影响行为 |
+| **L1** | 结构同构 | 数据结构 / 组合律与理论对象同构，可等式推理 |
+| **L2** | 动力学同构 | 演化规则与理论方程同构（同一差分 / 微分形式） |
+| **L3** | 可证性质 | 理论中的定理在本实现里被单测机械证明 |
+
+> **说 L3 必须是有测试**。没有测试的收敛性 / 守恒性声明，一律降级为 L1/L2。
+
+### 8.2 写法（强制）
+
+```ts
+/**
+ * ……（模块作用）
+ *
+ * @maturity L2 — 真做扩散步；冷却调度的最优性未证
+ * @maturityEvidence tests/unit/heatAnnealer.test.ts
+ */
+```
+
+- `@maturity`：等级 + 「—」+ 一句话判据，**必须写明为什么是这个等级，含尚未证明的部分**。
+- `@maturityEvidence`：**L2/L3 必填**，指向**真正 import 该模块**的测试文件（经 re-export 导入也算）。
+- 新增隐喻引擎时同步登记到 `scripts/codemod/maturityAnnotate.mjs` 的 `REGISTRY`（幂等，可反复跑）。
+
+### 8.3 门禁
+
+```bash
+node scripts/auditStandards.mjs --maturity    # 违规 exit 1（CI gate job 已接入）
+```
+
+检查项：① 等级值合法（L0–L3）；② L2/L3 必须有证据且文件存在；③ 证据仅「提及名字」而无真实
+import（如把桩数据 `const bm25 = [{id:'b'}]` 当覆盖）的，列为「名义证据」提示人工确认。
+
+### 8.4 措辞红线
+
+- 不得用物理定律为记账 / 启发式背书：`ledger` 是**记账不变量**（会计恒等式），**不是**能量守恒。
+- `qec` 是**轨迹级校验关系 + 显式冗余**，**不涉及量子力学**；理解时读作「纠删 / 校验码」。
+- 凡以 `joules` / 能量命名的估算值，必须标注「经验系数估算的代理值，非实测物理量」。
+- 引用外部数字（尤其厂商自报）须标注来源与「自报，未独立复现」。
+
+理论与分级依据：`docs/library/README.md` §4（全局映射总表）；升级主线：
+`docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` T0。
+
+## 9. 例外与豁免
 
 - 第三方 vendored 代码（`web/vendor/**`）不适用本标准。
 - 渲染用 `web/src/types/*.d.ts` 手写 shim：同样纳入规范（已补显式修饰符、去 `any`）。

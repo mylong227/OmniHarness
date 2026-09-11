@@ -60,6 +60,7 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check.mjs",
+    "audit:maturity": "node scripts/auditStandards.mjs --maturity",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

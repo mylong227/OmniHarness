@@ -7,6 +7,9 @@
  *
  * 这是 13_方案代码对账 判定的"决定性短板"的第一半：此前 OmniHarness 完全没有
  * "把实验产出变成候选能力"的机制；这里用已落地的燧-1 算子把它钉死，且有硬预算兜底。
+ *
+ * @maturity L1 — 失败模式挖掘在；是否真产出被门禁采纳的改进未量化
+ * @maturityEvidence tests/unit/discoveryEngine.test.ts
  */
 import type { Skill, MoireOptions } from '../skill/skill.js';
 import type { Candidate, DiscoveryEngine } from '../ports/evolution.js';

@@ -26,6 +26,10 @@ jobs:
       - run: npm run lint
       # 公开 API 稳定性契约：每项 export 必须落在带 @public/@beta/@deprecated 标注的分区内。
       - run: npm run api:check
+      # T0 成熟度治理门禁（docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md）：
+      # 以物理/生物/化学命名的引擎必须声明 L0–L3 等级，声称 L2/L3 须给出真实测试证据。
+      # 防止「命名好听」被当作「有机制」——无测试的 L3 声明即阻断。
+      - run: npm run audit:maturity
 
   web:
     name: Web UI 构建 + 单测

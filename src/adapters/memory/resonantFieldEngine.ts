@@ -13,6 +13,9 @@
  * drop-in 替换（委托标准读写给 base，仅把 `recall` 重写为共振寻址）。
  *
  * 零运行时依赖。
+ *
+ * @maturity L0 — 场强叠加在；与词袋冗余（实测零增益）
+ * @maturityEvidence tests/unit/resonantField.test.ts
  */
 import type {
   LongTermMemoryPort,

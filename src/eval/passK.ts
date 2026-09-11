@@ -6,6 +6,9 @@
  * 门禁：通过率 / Pass@k 低于阈值即视为不达标（exit 非 0 由调用方处理）。
  *
  * 零依赖。
+ *
+ * @maturity L1 — Pass@k 已有；置信区间与「≥5 次跑」规范化待补
+ * @maturityEvidence tests/unit/passK.test.ts
  */
 
 /** 单任务的多次采样结果（布尔：本次采样是否通过）。 */

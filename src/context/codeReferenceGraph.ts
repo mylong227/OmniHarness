@@ -20,6 +20,9 @@
  *
  * 全程 fail-closed：图构建/扩散/邻域提取任一异常 → 调用方跳过第四路，不崩主流程。
  * 默认关（opt-in）：`graphSignal: true` / env OMNI_GRAPH_SIGNAL=1。
+ *
+ * @maturity L1 — 幂迭代存在；44 万边实测零增益（谱隙→0 时收敛到均匀分布）
+ * @maturityEvidence tests/unit/codeReferenceGraph.test.ts
  */
 import { propagate } from './codeGraph.js';
 import type { CodeGraph } from './codeGraph.js';

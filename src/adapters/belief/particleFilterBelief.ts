@@ -1,3 +1,7 @@
+/**
+ * @maturity L2 — 序贯重要性重采样；有效样本数与退化处理决定成败
+ * @maturityEvidence tests/unit/particleFilter.test.ts
+ */
 import type {
   MetacognitionPort,
   BeliefSnapshot,

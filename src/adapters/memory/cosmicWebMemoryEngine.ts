@@ -1,3 +1,7 @@
+/**
+ * @maturity L0 — 邻接连通在；Kuramoto 同步动力学未实现
+ * @maturityEvidence tests/unit/cosmicWeb.test.ts
+ */
 import type {
   LongTermMemoryPort,
   MemoryFact,

@@ -12,6 +12,9 @@
  * 二者均只减不增，模态数有下界（≥1），故反复应用必在有限步内到达**不动点**
  * （长度不再变化 ⇒ plan 退化为恒等）。这是对"自适应收敛"的可证明保证，
  * 而非启发式承诺。冷却（退火）在此等价于"通过融合冗余模态降低熵"。
+ *
+ * @maturity L3 — 单调收缩⇒不动点，收敛性有单测（全库最强理论兑现）
+ * @maturityEvidence tests/unit/genesis.test.ts
  */
 
 import { type Cost, cost, emptyCost } from './algebra.js';
@@ -110,7 +113,7 @@ export function plan(regime: Regime): Operator<GenesisState> {
 
 /**
  * 单次自适应步进：感知工况 → 规划 → 应用 → 累计花费。
- * 用于集成演示与测试（配合 Ledger 守恒律）。
+ * 用于集成演示与测试（配合 Ledger 记账不变量）。
  */
 export function adaptOnce(
   state: GenesisState,

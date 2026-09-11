@@ -1,6 +1,9 @@
 /**
  * 零依赖 Okapi BM25 检索器（#M1 工具语义检索）。
  * 仅依赖标准 JS，用于工具 schema 的自然语言检索，无需引入任何 BM25 库。
+ *
+ * @maturity L1 — 主力召回；形态归并已破一层天花板（实测文件召回 67.0%）
+ * @maturityEvidence tests/unit/toolSearch.test.ts
  */
 
 /**

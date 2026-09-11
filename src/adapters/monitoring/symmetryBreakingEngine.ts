@@ -6,6 +6,9 @@
  * **可观测**算子，只检测/report，不自行固化技能（固化职责在 CapabilityCrystallizer）。
  *
  * fail-closed：已破缺后保持破缺（迟滞），不随单次低样本回弹；须显式 reset 才回对称态。
+ *
+ * @maturity L0 — 命名级；未定义序参量，无自发破缺动力学
+ * @maturityEvidence tests/unit/symmetryBreaking.test.ts
  */
 
 import type {

@@ -11,6 +11,9 @@
  * 而非 LLM 主观评判或结构启发式。过门禁的候选还需 RLVR 阶段产生「绿」样本才晋升（fail-closed 否决）。
  *
  * 零第三方依赖；模型采样器 fail-closed（生成失败 → 该样本不参与回放）。
+ *
+ * @maturity L1 — RLVR 闭环在；Echo Trap 防护未证
+ * @maturityEvidence tests/unit/evolutionRlvr.test.ts
  */
 import type { Candidate } from '../ports/evolution.js';
 import type { ModelPort } from '../ports/model.js';

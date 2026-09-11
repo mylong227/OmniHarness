@@ -9,6 +9,9 @@
  *   绝不提交、原技能保持不变，报告 `rolledBack=true`。
  *
  * 零依赖（共振复用 燧-3 的 util/eigenspectrum），异常不影响调用方。
+ *
+ * @maturity L0 — 技能改写；非基因编辑
+ * @maturityEvidence tests/unit/crispr.test.ts
  */
 import type { Skill } from '../../skill/skill.js';
 import type { SkillPort } from '../../ports/skill.js';

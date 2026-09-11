@@ -7,6 +7,9 @@
  * （验证"市面唯一"的实打实增益），且每一次晋升都受 fail-closed 门禁与审计链约束。
  *
  * 铁律：异常不影响主任务（try/catch fail-closed）；无预算则静默退出；晋升回调由调用方注入。
+ *
+ * @maturity L1 — 进化闭环在；适应度地形（NK）假设未验证
+ * @maturityEvidence tests/unit/evolutionIntegration.test.ts
  */
 import type {
   Candidate,

@@ -5,6 +5,9 @@
  * 奖励函数，取代原启发式结构相似度奖励。fail-closed：任何异常 → 奖励 0（绝不假通过）。
  *
  * 零运行时依赖（仅 node:child_process 起子进程验证）。
+ *
+ * @maturity L1 — 可验证奖励结构在；势函数覆盖率未知（T5 待体检）
+ * @maturityEvidence tests/unit/rlvr.test.ts
  */
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';

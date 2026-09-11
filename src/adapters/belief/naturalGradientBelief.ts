@@ -1,3 +1,7 @@
+/**
+ * @maturity L2 — 用自然梯度方向；流形假设未验证（待复核，或应降 L1）
+ * @maturityEvidence tests/unit/naturalGradient.test.ts
+ */
 import type {
   MetacognitionPort,
   BeliefSnapshot,

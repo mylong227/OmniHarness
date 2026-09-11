@@ -12,6 +12,9 @@
  * capabilityCrystallizer / …）均可包装为 `Operator<HarnessState>`，从而落入
  * 同一代数，无需重写——这是"整体全新且能力强大"而非"堆砌"的关键：
  * 新内核提供统一语义，既有能力作为 lawful morphism 接入。
+ *
+ * @maturity L3 — composeOperator 组合律与 identityOperator 有单测
+ * @maturityEvidence tests/unit/genesis.test.ts
  */
 
 import { type Cost, type Monoid, emptyCost, concatCost } from './algebra.js';

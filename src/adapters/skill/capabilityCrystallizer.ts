@@ -13,6 +13,9 @@
  *
  * 组合复用燧-1 莫尔转角算子（composeByTwist），但走纯函数入口（不自动注册中间产物），
  * 仅把最终组合结果以 `frozen` 标记注册为原生能力。
+ *
+ * @maturity L0 — 「结晶」目前是阈值固化，非成核动力学
+ * @maturityEvidence tests/unit/capabilityCrystallizer.test.ts
  */
 import type { Skill } from '../../skill/skill.js';
 import type { SkillPort, MoireOptions } from '../../ports/skill.js';

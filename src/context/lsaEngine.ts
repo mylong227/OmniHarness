@@ -16,6 +16,9 @@
  *
  * OOP 收口：原模块级纯函数归拢为 `LsaEngine` 类方法；保留 `trainLsa` / `lsaQuery`
  * 同名门面（委托单例）以兼容既有调用点（src/context/contextEngine.ts）。
+ *
+ * @maturity L1 — 截断 SVD 存在；实测叠加有害（Eckart–Young 是重构最优≠排序保序）
+ * @maturityEvidence tests/unit/lsaRecall.test.ts
  */
 
 import { tokenize } from '../search/bm25Index.js';

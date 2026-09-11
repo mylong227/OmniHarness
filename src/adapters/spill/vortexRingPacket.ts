@@ -1,3 +1,7 @@
+/**
+ * @maturity L0 — 打包语义，非拓扑不变量（拓扑荷只是可算代理）
+ * @maturityEvidence tests/unit/vortexRing.test.ts
+ */
 import { createHash } from 'node:crypto';
 import type { SpillHandle, SpillPort } from '../../ports/spill.js';
 import type { VortexRing, VortexRingPort } from '../../ports/vortexRing.js';

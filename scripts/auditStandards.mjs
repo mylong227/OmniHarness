@@ -152,6 +152,77 @@ if (process.argv.includes('--jsdoc')) {
   }
 }
 
+if (process.argv.includes('--maturity')) {
+  // T0 · 成熟度治理门禁（docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md）。
+  // 契约：@maturity L0|L1|L2|L3 — <判据>   +   @maturityEvidence <测试文件>（L2/L3 必填且须存在）。
+  // 目的：把「命名好听」与「有机制/有定理」机械分开——声称 L2/L3 却无测试者，一律阻断。
+  const LEVELS = ['L0', 'L1', 'L2', 'L3'];
+  const decls = [];
+  const bad = [];
+  for (const f of files) {
+    const text = fs.readFileSync(f, 'utf8');
+    const lm = text.match(/@maturity\s+([A-Za-z0-9]+)\s*(?:[—-]\s*(.*))?/);
+    if (!lm) continue;
+    const level = lm[1];
+    const note = (lm[2] ?? '').trim();
+    const em = text.match(/@maturityEvidence\s+(\S+)/);
+    const evidence = em ? em[1] : null;
+    const file = f.split(path.sep).join('/');
+    const rec = { file, level, note, evidence };
+    decls.push(rec);
+    if (!LEVELS.includes(level)) {
+      bad.push({ ...rec, why: `等级 '${level}' 非法（须为 ${LEVELS.join('/')}）` });
+    } else if ((level === 'L2' || level === 'L3') && !evidence) {
+      bad.push({ ...rec, why: `${level} 必须提供 @maturityEvidence 指向测试文件（无测试的声明一律降级）` });
+    } else if (evidence && !fs.existsSync(path.resolve(process.cwd(), evidence))) {
+      bad.push({ ...rec, why: `证据文件不存在：${evidence}` });
+    }
+  }
+
+  const byLevel = {};
+  for (const d of decls) (byLevel[d.level] ??= []).push(d);
+  console.log('\n=== MATURITY DECLARATIONS (' + decls.length + ' 个引擎已声明) ===');
+  for (const lv of LEVELS) {
+    const list = byLevel[lv] ?? [];
+    console.log(`  ${lv}: ${list.length}`);
+    for (const d of list) console.log(`      ${d.file}${d.evidence ? '   <- ' + d.evidence : ''}`);
+  }
+  // 报告级：证据是否「名义的」（测试文件未真正 import 该模块，仅提及名字）。
+  // 例：`const bm25 = [{id:'b'}]` 这种桩数据也会命中名字，但不构成覆盖。
+  const nominal = decls.filter((d) => {
+    if (!d.evidence) return false;
+    const p = path.resolve(process.cwd(), d.evidence);
+    if (!fs.existsSync(p)) return false;
+    const base = path.basename(d.file).replace(/\.ts$/, '');
+    const esc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const text = fs.readFileSync(p, 'utf8');
+    if (new RegExp(`${esc}\\.js`).test(text)) return false; // 直接 import 了本模块
+    // 经 re-export 导入也算覆盖（如测试 import 适配器，适配器再 `export { X } from './x.js'`）。
+    const reExportOf = new RegExp(`export\\s*\\{[^}]*\\}\\s*from\\s*['"][^'"]*${esc}\\.js['"]`);
+    const specRe = /from\s+['"]([^'"]+\.js)['"]/g;
+    let m;
+    while ((m = specRe.exec(text)) !== null) {
+      // 测试按 ESM 规范 import '.js'，磁盘上实际是 '.ts'——解析后须换后缀才能命中。
+      const target = path.resolve(path.dirname(p), m[1]).replace(/\.js$/, '.ts');
+      if (!fs.existsSync(target)) continue;
+      if (reExportOf.test(fs.readFileSync(target, 'utf8'))) return false;
+    }
+    return true;
+  });
+  if (nominal.length > 0) {
+    console.log('\n--- 名义证据（测试文件未出现引擎名，建议人工确认）---');
+    for (const d of nominal) console.log(`  ${d.file}  <-  ${d.evidence}`);
+  }
+
+  if (bad.length > 0) {
+    console.error('\n❌ 成熟度门禁失败（' + bad.length + ' 处）：');
+    for (const b of bad) console.error(`  - ${b.file}: ${b.why}`);
+    process.exitCode = 1;
+  } else {
+    console.log('\n✅ 成熟度门禁通过：' + decls.length + ' 项声明，L2/L3 均有存在性证据。');
+  }
+}
+
 if (process.argv.includes('--html')) {
   console.log('\n=== HOT-ZONE EXEMPT MEMBERS ONLY (should be the residual) ===');
   for (const r of report.filter((x) => x.hot && x.membersNoAccess > 0)) console.log(r.membersNoAccess + '  ' + r.file);
