@@ -10,45 +10,32 @@ import type { SandboxPort } from '../ports/sandbox.js';
 import type { StoragePort } from '../ports/storage.js';
 import type { RetrievalPort } from '../ports/retrieval.js';
 import type { EscalationPort } from '../ports/escalation.js';
-import { join } from 'node:path';
 import type { SpillPort } from '../ports/spill.js';
 import type { ToolDefinition, ToolPort } from '../ports/tool.js';
 import type { ToolHandler } from '../adapters/tool/toolHandler.js';
-import { TurnDiffTracker } from '../core/turnDiffTracker.js';
-import { ToolHookRunner } from '../core/toolHooks.js';
-import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
-import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
-import { PolicySandbox } from '../adapters/sandbox/policySandbox.js';
-import { DenyEscalation } from '../adapters/escalation/denyEscalation.js';
-import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
+import type { TurnDiffTracker } from '../core/turnDiffTracker.js';
+import type { ToolHookRunner } from '../core/toolHooks.js';
+import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
-import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.js';
-import { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
-import { AesGcmTextCodec } from '../adapters/memory/cipher.js';
-import { ToolResultSpiller } from '../context/toolResultSpiller.js';
-import { ResonantMemoryEngine } from '../adapters/memory/resonantMemory.js';
-import type { ResonantMemoryPort } from '../ports/resonantMemory.js';
-import { ResonantFieldEngine } from '../adapters/memory/resonantField.js';
-import { VortexRingPacket, VortexRingSpillAdapter } from '../adapters/spill/vortexRing.js';
-import { HeatEquationAnnealer } from '../adapters/memory/heatAnnealer.js';
-import { CosmicWebMemoryEngine } from '../adapters/memory/cosmicWeb.js';
+import type { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
 import type { CosmicWebPort } from '../ports/cosmicWeb.js';
-import { QECEncoder } from '../adapters/memory/qec.js';
-import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
-import { NaturalGradientBelief } from '../adapters/belief/naturalGradient.js';
-import { ParticleFilterBelief } from '../adapters/belief/particleFilter.js';
-import { CRISPRSkillEditor } from '../adapters/skill/crispr.js';
-import { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import { InsightEtchingEngine } from '../adapters/memory/insightEtching.js';
-import { ElementComposer } from '../adapters/skill/elementComposer.js';
-import { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreaking.js';
-import { ConfinementEngine } from '../adapters/monitoring/confinement.js';
-import { SkillRegistry } from '../skill/skillRegistry.js';
+import type { MemoryAnnealer } from '../ports/memoryAnnealing.js';
+import type { QECEncoder } from '../adapters/memory/qec.js';
+import type { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
+import type { NaturalGradientBelief } from '../adapters/belief/naturalGradient.js';
+import type { ParticleFilterBelief } from '../adapters/belief/particleFilter.js';
+import type { CRISPRSkillEditor } from '../adapters/skill/crispr.js';
+import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
+import type { InsightEtchingEngine } from '../adapters/memory/insightEtching.js';
+import type { ElementComposer } from '../adapters/skill/elementComposer.js';
+import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreaking.js';
+import type { ConfinementEngine } from '../adapters/monitoring/confinement.js';
+import type { SkillRegistry } from '../skill/skillRegistry.js';
 import type { RuntimeTelemetryPort } from '../ports/runtimeTelemetry.js';
 import type { Skill } from '../skill/skill.js';
-import { SparkController } from '../spark/sparkController.js';
-import { ToolDiscovery } from '../search/toolDiscovery.js';
-import { WorkerRegistry } from '../worker/workerRegistry.js';
+import type { SparkController } from '../spark/sparkController.js';
+import type { ToolDiscovery } from '../search/toolDiscovery.js';
+import type { WorkerRegistry } from '../worker/workerRegistry.js';
 import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
 
 import type { LspPort, LspServerConfig } from '../ports/lsp.js';
@@ -59,25 +46,14 @@ import type { UserResponder } from '../ports/userResponder.js';
 import type { TodoPort } from '../ports/todo.js';
 import type { PlanPort } from '../ports/plan.js';
 import type { EvolutionController } from '../ports/evolution.js';
-import type { MemoryAnnealer } from '../ports/memoryAnnealing.js';
 import type { RegimeSignals } from '../genesis/operators.js';
-import { MemoryTodo } from '../adapters/todo/memoryTodo.js';
-import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
-import {
-  autoUserResponder,
-  buildApprovals,
-  buildHooks,
-  buildIdentity,
-  buildLsp,
-  buildModel,
-  buildSpill,
-  seedOf,
-} from './configBuilders.js';
-import { defaultTools } from './configToolRegistry.js';
 
-/** Spill 默认参数（#74：超大工具输出外溢，避免撑爆上下文）。 */
-const DEFAULT_SPILL_MAX_INLINE_BYTES = 16384;
-const DEFAULT_SPILL_PREVIEW_BYTES = 2048;
+import { buildIdentity, buildLsp, buildModel, seedOf } from './configBuilders.js';
+import { defaultTools } from './configToolRegistry.js';
+import { assembleCorePorts } from './corePortsAssembler.js';
+import { assembleMemoryStack } from './memoryStackAssembler.js';
+import { assembleSkillStack } from './skillStackAssembler.js';
+import { assembleSpark } from './sparkAssembler.js';
 
 /** OmniHarness运行时配置：端口注入即插即用，核心零依赖具体实现。 */
 export interface OmniHarnessConfig {
@@ -397,302 +373,46 @@ export type SubagentPortSeed = Omit<SubagentPorts, 'tools'> & {
   readonly goalMaxIterations: number;
 };
 
-/** 配置装配器：填默认端口，未注入的用内置实现。 */
+/**
+ * 配置装配器（组合根）：填默认端口，未注入的用内置实现。
+ *
+ * 只做**编排**，不亲自装配具体端口——四类领域装配函数各司其职（同目录顶层函数范式，与
+ * `configToolRegistry.ts` 一致）：
+ * `assembleCorePorts`（基础设施）、`assembleMemoryStack`（长期记忆栈 + 知识算子）、
+ * `assembleSkillStack`（技能 / 能力算子栈）、`assembleSpark`（燧内核）。
+ * 本类负责确定装配顺序（记忆封包必须先于蒸馏器 / 燧内核，保证单一状态源）、
+ * 构造成本预算与模型，并把各切片拼成 `ResolvedConfig`。
+ */
 export class ConfigFactory {
-  /** 构造完整配置。 */
+  /**
+   * 构造完整配置。
+   * @param partial 未解析的运行配置（用户注入优先，缺省落内置实现）。
+   * @returns 全部端口已填默认实现的 `ResolvedConfig`。
+   */
   public static build(partial: OmniHarnessConfig): ResolvedConfig {
-    const sandbox = partial.sandbox ?? new PassthroughSandbox();
-    const approvals = buildApprovals(partial, sandbox);
-    let spill = buildSpill(partial);
-    // 燧-4 涡环包（S+）：启用时把外溢端口封成拓扑环包；必须在 spiller 构造前封好，
-    // 使主循环全部"超大输出外溢"自动走拓扑孤子传输（fail-closed 抗污染、不随内容膨胀）。
-    let vortexAdapter: VortexRingSpillAdapter | undefined;
-    if (partial.vortexRing?.enabled === true) {
-      vortexAdapter = new VortexRingSpillAdapter(new VortexRingPacket(spill));
-      spill = vortexAdapter;
-    }
-    const spiller = new ToolResultSpiller(spill, {
-      maxInlineBytes: partial.spillMaxInlineBytes ?? DEFAULT_SPILL_MAX_INLINE_BYTES,
-      previewBytes: partial.spillPreviewBytes ?? DEFAULT_SPILL_PREVIEW_BYTES,
-    });
-    const events = partial.events ?? new ConsoleEventPort();
-    const todo = partial.todo ?? new MemoryTodo();
-    const plan = partial.plan ?? new MemoryPlan();
-    const userResponder = partial.userResponder ?? autoUserResponder();
-    const planMode = partial.planMode ?? false;
-    const discovery = new ToolDiscovery();
-    const retrieval = partial.retrieval ?? new Bm25MemoryIndex();
-    const escalation = partial.escalation ?? new DenyEscalation();
-    // #G3/G4 提权复核沙箱：默认 policy（fail-closed 收紧）——escalate 后仍拦截危险命令/工作区外路径，
-    // 杜绝「启用 auto/ask 提权即静默全放行」的 fail-open；需真正全权时显式 --elevated-sandbox passthrough。
-    const elevatedSandbox =
-      partial.elevatedSandbox ?? new PolicySandbox({ workspaceRoot: partial.workspaceRoot });
-    const turnDiff = partial.turnDiff === false ? undefined : new TurnDiffTracker();
-    const hooks = turnDiff === undefined ? undefined : buildHooks(turnDiff, partial.workspaceRoot);
-    // #S29 成本预算：设正数硬预算时构造单例，BudgetedModel 与 budget_status 工具共享（含子代同一个实例）。
-    const costBudget =
-      partial.costBudgetUsd !== undefined && partial.costBudgetUsd > 0
-        ? new CostBudget(
-            partial.costBudgetUsd,
-            mergeRoutePricing(partial.routePricing),
-            DEFAULT_FALLBACK_PRICE,
-            undefined,
-            partial.costBudgetOnExceed !== 'warn',
-          )
-        : undefined;
+    const core = assembleCorePorts(partial);
+    const costBudget = buildCostBudget(partial);
     const model = buildModel(partial, costBudget);
-    // #S28 长期记忆：默认文件落盘；注入自定义 longTermMemory 则覆盖。
-    // #4.4 加密：开启 longTermMemoryEncryption 时用 AES-256-GCM 逐行加密（密钥文件缺省自动生成）。
-    const memoryPath =
-      partial.longTermMemoryPath ??
-      join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.jsonl');
-    let longTermMemory =
-      partial.longTermMemory ??
-      new FileLongTermMemory(
-        memoryPath,
-        partial.longTermMemoryEncryption === true
-          ? new AesGcmTextCodec({
-              keyFile:
-                partial.longTermMemoryKeyFile ??
-                join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.key'),
-            })
-          : undefined,
-      );
-    // 共振场统一基板（U1）：启用时把长期记忆端口封包成单一 ResonantField 引擎，
-    // 合并 燧-3 共振寻址 + 宇宙网（Burgers 黏附去重 + RG 坍缩 + 纤维召回），消除双重频谱索引。
-    // 此时不再分别启用 resonance / memoryWeb（否则会重复封包）。
-    let webEngine: (CosmicWebPort & LongTermMemoryPort) | undefined;
-    let resonanceEngine: (ResonantMemoryPort & LongTermMemoryPort) | undefined;
-    // U1 默认开启（单一状态源）：显式 enabled:false 才关。开启时长期记忆、共振、宇宙网三态合一于
-    // 同一 ResonantFieldEngine 实例（消除双重频谱索引），并同时喂给 SparkController 的
-    // resonance(燧-3 tune) 与 web(宇宙网 consolidate)，保证 RG 坍缩与调谐在任务末真实运行。
-    if (partial.resonantField?.enabled !== false) {
-      const fieldEngine = new ResonantFieldEngine(longTermMemory, {
-        adhesionThreshold: partial.resonantField?.adhesionThreshold,
-        bekensteinCap: partial.resonantField?.bekensteinCap,
-      });
-      longTermMemory = fieldEngine;
-      resonanceEngine = fieldEngine;
-      webEngine = fieldEngine;
-    } else {
-      // 宇宙网记忆（E, I-P1-2）：启用时把长期记忆端口封包成宇宙网引擎，写入走 Burgers 黏附去重、
-      // consolidate 走 RG 粗粒化坍缩（节点数受 Bekenstein 容量界约束、存储不膨胀）。
-      if (partial.memoryWeb?.enabled === true) {
-        webEngine = new CosmicWebMemoryEngine(longTermMemory, {
-          adhesionThreshold: partial.memoryWeb.adhesionThreshold,
-          bekensteinCap: partial.memoryWeb.bekensteinCap,
-        });
-        longTermMemory = webEngine;
-      }
-      // 燧-3 共振寻址（S+）：启用时把（可能已被宇宙网封包的）长期记忆端口封包成共振引擎，
-      // 使开场 primer 召回、recall 工具、回合末蒸馏全部自动走频率域共振代数（取代 BM25 几何召回）。
-      if (partial.resonance?.enabled === true) {
-        resonanceEngine = new ResonantMemoryEngine(longTermMemory, 257);
-        longTermMemory = resonanceEngine;
-      }
-    }
-    // (D) 热方程记忆退火：启用时对（可能已被共振封包的）长期记忆端口构造退火器，
-    // 任务末经 SparkController 跑频率域共振耦合的热方程扩散 + 温度退火。零侵入主循环。
-    let annealer: HeatEquationAnnealer | undefined;
-    if (partial.memoryAnnealing?.enabled === true) {
-      annealer = new HeatEquationAnnealer(longTermMemory, {
-        coupling: partial.memoryAnnealing.coupling,
-        initialTemperature: partial.memoryAnnealing.initialTemperature,
-        coolingRate: partial.memoryAnnealing.coolingRate,
-        decay: partial.memoryAnnealing.decay,
-        resonanceThreshold: partial.memoryAnnealing.resonanceThreshold,
-        maxFacts: partial.memoryAnnealing.maxFacts,
-      });
-    }
-    // (E) QEC 记忆编码器（I-P1-3）：启用时构造 QEC 编码器作用域为（最终封包的）长期记忆，
-    // 任务末经 SparkController 跑全量 2D 奇偶症状校验+纠正（单点 corrupt 自动定位纠正）。
-    let qec: QECEncoder | undefined;
-    if (partial.qec?.enabled === true) {
-      qec = new QECEncoder(longTermMemory, { cols: partial.qec.cols });
-    }
-    // (E) 免疫异常监控（I-P1-5）：启用时构造免疫监控器（接审计链告警），并对当前记忆健康度
-    // 周期采样作为"自体"行为向量；偏离自体→告警/隔离（fail-closed，不擅自改写）。
-    let immune: ImmuneMonitor | undefined;
-    if (partial.immuneMonitoring?.enabled === true) {
-      immune = new ImmuneMonitor({
-        threshold: partial.immuneMonitoring.threshold,
-      });
-    }
-    // (P2, I-P2-2/3) 信念支柱：启用时按 algorithm 构造自然梯度 / 粒子滤波信念引擎，对"自体"行为
-    // 向量周期做可审计 KL 分解更新（信息几何）。缺省不构造，零破坏。
-    let naturalGradient: NaturalGradientBelief | undefined;
-    let particleFilter: ParticleFilterBelief | undefined;
-    if (partial.belief?.enabled === true) {
-      const algo = partial.belief.algorithm ?? 'both';
-      const dim = partial.belief.dim ?? 3;
-      if (algo === 'natural-gradient' || algo === 'both') {
-        naturalGradient = new NaturalGradientBelief({
-          dim,
-          initialVariance: partial.belief.initialVariance,
-        });
-      }
-      if (algo === 'particle-filter' || algo === 'both') {
-        particleFilter = new ParticleFilterBelief({
-          dim,
-          particles: partial.belief.particles,
-          initialVariance: partial.belief.initialVariance,
-        });
-      }
-    }
-    // #S28 回合末蒸馏：模型存在且未关自动沉淀时构造；否则仅支持显式 remember。
-    const memoryExtractor =
-      partial.memoryConsolidate !== false && model !== undefined
-        ? new MemoryExtractor(model, longTermMemory, {
-            maxFactsPerTurn: partial.memoryConsolidateMaxFacts,
-          })
-        : undefined;
-    const seed = seedOf(
-      partial,
-      approvals,
-      sandbox,
-      events,
-      spill,
-      spiller,
-      escalation,
-      elevatedSandbox,
-      longTermMemory,
-      costBudget,
-    );
+    const memory = assembleMemoryStack(partial, model);
+    const skills = assembleSkillStack(partial);
     const goalMaxIterations = partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS;
     // #S32 LSP 代码导航：配置了服务器命令才构造进程级适配器；否则 undefined（LSP 工具不注册，主循环零侵入）。
     const lsp = buildLsp(partial);
     // #S33 Agent 密码学身份：配置了私钥/runtimeId 才构造 Ed25519 身份；否则 undefined（agent_identity 工具不注册）。
     const identity = buildIdentity(partial);
-    // 免疫采样器：每轮自检时观测的"自体"行为向量（记忆健康度：均值/标准差/条数）。
-    const immuneSample =
-      immune !== undefined
-        ? () => {
-            const facts = longTermMemory.all();
-            if (facts.length === 0) return [0, 0, 0];
-            const imp = facts.map((f) => f.importance);
-            const mean = imp.reduce((a, b) => a + b, 0) / imp.length;
-            const variance = imp.reduce((a, b) => a + (b - mean) ** 2, 0) / imp.length;
-            return [mean, Math.sqrt(variance), facts.length];
-          }
-        : undefined;
-    // (P2) 信念采样器：每轮经 `correct` 观测的"自体"行为向量（3 维：重要性均值/离散度/记忆负载），
-    // 维度须与信念引擎一致（默认 3）。仅信念启用时构造。
-    const beliefObservation =
-      naturalGradient !== undefined || particleFilter !== undefined
-        ? () => {
-            const facts = longTermMemory.all();
-            const imp = facts.map((f) => f.importance);
-            const mean = imp.length ? imp.reduce((a, b) => a + b, 0) / imp.length : 0;
-            const variance = imp.length
-              ? imp.reduce((a, b) => a + (b - mean) ** 2, 0) / imp.length
-              : 0;
-            return [mean, Math.sqrt(variance), Math.min(1, facts.length / 64)];
-          }
-        : undefined;
-    // (P2, I-P2-4/5) 受种技能注册表：从配置技能池构造，供 CRISPR 编辑与相变固化复用（零破坏：空池亦安全）。
-    const skillRegistry = new SkillRegistry();
-    if (partial.skills !== undefined) {
-      for (const s of partial.skills) skillRegistry.register(s);
-    }
-    // (P2, I-P2-4) CRISPR 精确技能编辑：启用时构造编辑器（接受种技能端口）。
-    let crispr: CRISPRSkillEditor | undefined;
-    if (partial.skillEditing?.enabled === true) {
-      crispr = new CRISPRSkillEditor({
-        skillPort: skillRegistry,
-        addressThreshold: partial.skillEditing.addressThreshold,
-        bins: partial.skillEditing.bins,
-      });
-    }
-    // (P2, I-P2-5) 相变固化：启用时构造固化器（接受种技能端口）。
-    let crystallizer: CapabilityCrystallizer | undefined;
-    if (partial.capabilityCrystallization?.enabled === true) {
-      crystallizer = new CapabilityCrystallizer({
-        skillPort: skillRegistry,
-        densityThreshold: partial.capabilityCrystallization.densityThreshold,
-        decay: partial.capabilityCrystallization.decay,
-        fieldSize: partial.capabilityCrystallization.fieldSize,
-        resetOnCrystallize: partial.capabilityCrystallization.resetOnCrystallize,
-      });
-    }
-    // (P3, I-P3-1) 刻蚀记忆：启用时构造引擎（分形分支树刻蚀 + 低阻导通）。
-    let etching: InsightEtchingEngine | undefined;
-    if (partial.insightEtching?.enabled === true) {
-      etching = new InsightEtchingEngine({
-        resonanceThreshold: partial.insightEtching.resonanceThreshold,
-      });
-    }
-    // (P3, I-P3-2) 元素组合基元：启用时构造有限基元周期表。
-    let elementComposer: ElementComposer | undefined;
-    if (partial.elementComposer?.enabled === true) {
-      elementComposer = new ElementComposer();
-    }
-    // (P3, I-P3-3) 对称破缺算子：启用时构造有序参量 ρ 的相变可观测引擎。
-    let symmetry: SymmetryBreakingEngine | undefined;
-    if (partial.symmetryBreaking?.enabled === true) {
-      symmetry = new SymmetryBreakingEngine({
-        threshold: partial.symmetryBreaking.threshold,
-      });
-    }
-    // (P3, I-P3-4) 禁闭色荷端口：启用时构造多维色荷张量收缩引擎。
-    let confinement: ConfinementEngine | undefined;
-    if (partial.confinement?.enabled === true) {
-      confinement = new ConfinementEngine({
-        groupOrder: partial.confinement.groupOrder,
-      });
-    }
-    // 燧内核控制器（S+）：任一燧能力启用时构造，挂接 autoRun 钩子到 Agent 主循环；
-    // 任务末统一调谐/冲刷（燧-3 重算本征谱、燧-4 冲刷持环）、(D) 退火、(E) 宇宙网/QEC/免疫，
-    // fail-closed、异常不影响主任务。
-    const spark =
-      resonanceEngine !== undefined ||
-      vortexAdapter !== undefined ||
-      annealer !== undefined ||
-      webEngine !== undefined ||
-      qec !== undefined ||
-      immune !== undefined ||
-      naturalGradient !== undefined ||
-      particleFilter !== undefined ||
-      crispr !== undefined ||
-      crystallizer !== undefined ||
-      etching !== undefined ||
-      elementComposer !== undefined ||
-      symmetry !== undefined ||
-      confinement !== undefined ||
-      partial.runtimeTelemetry !== undefined
-        ? new SparkController({
-            resonance: resonanceEngine,
-            vortex: vortexAdapter,
-            annealer,
-            web: webEngine,
-            qec,
-            immune,
-            immuneSample,
-            naturalGradient,
-            particleFilter,
-            beliefObservation,
-            crispr,
-            crystallizer,
-            etching,
-            etchProbe: etching !== undefined ? () => 'default-probe-query' : undefined,
-            elementComposer,
-            composeProbe: elementComposer !== undefined ? () => ['Na', 'Cl'] : undefined,
-            symmetry,
-            symmetryProbe:
-              symmetry !== undefined ? () => [{ capability: 'core-skill', weight: 1 }] : undefined,
-            confinement,
-            confinementProbe:
-              confinement !== undefined
-                ? () => ({
-                    id: 'probe-bare',
-                    charge: { color: 1, flavor: 0, permission: 0, expiry: 0 },
-                  })
-                : undefined,
-            telemetry: partial.runtimeTelemetry,
-            autoRun: partial.sparkAutoRun === true,
-            enableGenesis: partial.genesis?.enabled === true,
-            genesisSignals: partial.genesis?.signals,
-          })
-        : undefined;
+    const seed = seedOf(
+      partial,
+      core.ports.approvals,
+      core.ports.sandbox,
+      core.ports.events,
+      core.ports.spill,
+      core.ports.spiller,
+      core.ports.escalation,
+      core.ports.elevatedSandbox,
+      memory.stack.longTermMemory,
+      costBudget,
+    );
+    const spark = assembleSpark(partial, { vortex: core.vortex, memory, skills });
     return {
       workspaceRoot: partial.workspaceRoot,
       maxSteps: partial.maxSteps,
@@ -700,64 +420,62 @@ export class ConfigFactory {
       reasoning: partial.reasoning,
       model,
       storage: partial.storage,
-      approvals,
-      sandbox,
-      events,
+      compactionMaxTokens: partial.compactionMaxTokens,
+      compactionKeepRecent: partial.compactionKeepRecent,
+      fragments: partial.fragments,
+      native: partial.native,
+      live: partial.live,
+      evolution: partial.evolution,
+      runtimeTelemetry: partial.runtimeTelemetry,
+      costBudget,
+      goalMaxIterations,
+      lsp,
+      identity,
+      spark,
       tools:
         partial.tools ??
         defaultTools(
           seed,
           partial.extraTools,
           partial.workers,
-          { todo, plan, userResponder, planMode },
-          discovery,
-          retrieval,
+          {
+            todo: core.ports.todo,
+            plan: core.ports.plan,
+            userResponder: core.ports.userResponder,
+            planMode: core.ports.planMode,
+          },
+          core.ports.discovery,
+          core.ports.retrieval,
           partial.deferredTools,
-          longTermMemory,
+          memory.stack.longTermMemory,
           costBudget,
           lsp,
           identity,
         ),
-      compactionMaxTokens: partial.compactionMaxTokens,
-      compactionKeepRecent: partial.compactionKeepRecent,
-      spill,
-      spiller,
-      fragments: partial.fragments,
-      native: partial.native,
-      planMode,
-      userResponder,
-      todo,
-      plan,
-      discovery,
-      retrieval,
-      escalation,
-      elevatedSandbox,
-      turnDiff: partial.turnDiff !== false,
-      turnDiffTracker: turnDiff,
-      hooks,
-      longTermMemory,
-      memoryExtractor,
-      costBudget,
-      goalMaxIterations,
-      lsp,
-      identity,
-      live: partial.live,
-      evolution: partial.evolution,
-      runtimeTelemetry: partial.runtimeTelemetry,
-      spark,
-      annealer,
-      web: webEngine,
-      qecEncoder: qec,
-      immune,
-      naturalGradient,
-      particleFilter,
-      skillRegistry,
-      crispr,
-      crystallizer,
-      etching,
-      elementComposerEngine: elementComposer,
-      symmetry,
-      confinementEngine: confinement,
+      ...core.ports,
+      ...memory.stack,
+      ...skills,
     };
   }
 }
+
+/**
+ * 成本预算（#S29）：设正数硬预算时构造单例，`BudgetedModel` 与 `budget_status` 工具共享
+ * （含子代同一实例）。非正数 / 未设置即关闭。
+ *
+ * @param partial 未解析的运行配置。
+ * @returns 硬预算计量器，未启用时为 undefined。
+ */
+function buildCostBudget(partial: OmniHarnessConfig): CostBudget | undefined {
+  if (partial.costBudgetUsd === undefined || partial.costBudgetUsd <= 0) {
+    return undefined;
+  }
+  return new CostBudget(
+    partial.costBudgetUsd,
+    mergeRoutePricing(partial.routePricing),
+    DEFAULT_FALLBACK_PRICE,
+    undefined,
+    partial.costBudgetOnExceed !== 'warn',
+  );
+}
+

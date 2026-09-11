@@ -17,7 +17,7 @@
 | 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
 | 文件名 ≠ 主类名 | 69 | 69 |
-| 上帝类（>500 行 或 >25 方法） | 8 | **2**（`omniharnessConfig` 伪上帝类、`stepRunner` 热区） |
+| 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
 | `static` 用量 | 206 / 36 文件 | 206 / 36 文件 |
 | 单文件 ≥3 个导出类 | 3 | 3 |
 
@@ -46,7 +46,7 @@
 - 必须同步更新全部 import 路径（ESM `.js` 后缀）与 `api:check` 导出清单；`index.ts` 桶文件豁免。
 - 批次内以 `tsc --noEmit` 立即校验。
 
-### Phase 4 — 上帝类拆分（进行中，6/7；最高风险）
+### Phase 4 — 上帝类拆分（✅ 真项清零；仅余热区）
 
 **已完成（各独立提交，行为零变更 + 门禁绿 + 单测通过）**
 - ✅ `adapters/lsp/lspProcess.ts`（371 行 / 26 方法）→ 抽出 `LspJsonRpcConnection`（stdio JSON-RPC 传输/分帧/超时），
@@ -88,9 +88,16 @@
   新增 9 个测试套件 / 67 用例全绿（纯临时目录 + 临时 git 仓，绕开环境性 flaky 的集成路径）。
   提交 `4d25816`。
 
+- ✅ `config/omniharnessConfig.ts`（764 行）→ **组合根收敛**：真 god 是**单方法 363 行的 `ConfigFactory.build`**
+  （interface 段 316 行只是被动数据声明，无逻辑）。抽出 4 个顶层领域装配函数（+ 11 个模块级私有助手）：
+  `corePortsAssembler`(118) / `memoryStackAssembler`(230) / `skillStackAssembler`(101) / `sparkAssembler`(101)。
+  结果：文件 **764 → 480 行**、`build` **363 → 78 行**、`static` **206 → 206（中性）**、上帝类清单再减 1。
+  接口段**逐字保留**（43 个文件 import 本模块，路径与导出名不变，34 处 `ConfigFactory.build` 调用点零改动）。
+  新增 4 个测试套件 / 21 用例全绿（临时工作区 + mock 适配器，无网络、无 flaky）。
+  门禁：typecheck / build / lint(0 error) / api:check / web:build / 依赖四闸门 全绿；全量 1121 用例 8 失败**全为既有环境性**。
+
 **剩余（待办）**
-- `config/omniharnessConfig.ts`（764）、`core/stepRunner.ts`（526）→ 前者实为「类型声明 + 单方法工厂」价值低；
-  后者**热区，暂缓**。
+- `core/stepRunner.ts`（526）→ **热区，暂缓**（并行会话活跃文件）。
 - ⚠️ `appServer*` 两兄弟的单测在本机因 **mock agent 单次实跑 64s > 测试内部 15s 轮询上限**而不可靠（本次实测：
   `threads.create` 端到端 64.1s，返回结构正确），拆分只能靠 typecheck + api:check + 新协作者单测兜底，须最谨慎。
   关键回归守卫（`bypassSupervisorKernel` 的 auto/rules 两条）不依赖长跑，仍可作真实门禁。
@@ -106,6 +113,15 @@
   `handlers.set` 一行委托；服务在**构造期装配一次**（零每调用构造开销），工作区根以 **getter 注入**以兼容运行时
   `workspace.switch`；依赖只取**窄接口**（如 `StoragePort`）而非整个 `ResolvedConfig`（接口隔离，且可用
   `MemoryStorage` 直接单测）。服务纯逻辑用临时目录/临时 git 仓单测，绕开环境性 flaky 的集成测试。
+- 子范式（**组合根/装配场景**，`config/omniharnessConfig` 用）：god 不在类而在「单方法 363 行的 build」——
+  按**领域**抽顶层装配函数（`assembleCorePorts` / `assembleMemoryStack` / `assembleSkillStack` / `assembleSpark`），
+  `ConfigFactory.build` 收敛为**编排器**（定顺序 + 拼切片），不再亲自装配任何端口。
+  三条硬约束：① **保持导出路径不变**（43 个文件 import 本模块，34 处用 `ConfigFactory`）；
+  ② 领域装配函数返回**只含 `ResolvedConfig` 字段的切片**，`...spread` 合并——TS 不对 spread 做多余属性检查，
+  故**必须让切片不含内部件**，否则多余的 `resonance`/`vortexAdapter` 会静默混进配置对象（把 Spark 专用内部件
+  另置于 `sparkInput` 返回）；③ **静态/函数形态选择**：本域已有 `configToolRegistry.ts` 的**顶层函数**范式且
+  军规⑥要「减 static」，故一律用顶层函数（若用 `class XxxAssembler { static assemble }` 会新增 16 处 static，
+  与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
 ### Phase 5 — 削减 static（待办，36 文件 / 206 处）
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例 + 薄门面（沿用批次 A 已验证模式）。
