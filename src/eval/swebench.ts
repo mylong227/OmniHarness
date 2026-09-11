@@ -30,7 +30,7 @@ import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
 import { createRuntime } from '../core/runtime.js';
 import { ToolGate } from '../core/toolGate.js';
-import { ConfigFactory } from '../config/omniharnessConfig.js';
+import { ConfigFactory } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';

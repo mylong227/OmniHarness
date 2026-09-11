@@ -9,7 +9,7 @@ import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { OmniHarnessConfig } from '../../src/config/omniharnessConfig.js';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
 
 /** 构造最小可解析配置（mock 适配器，无网络）。 */
 function base(root: string, over: Partial<OmniHarnessConfig> = {}): OmniHarnessConfig {

@@ -15,9 +15,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
-import { HeatEquationAnnealer } from '../../src/adapters/memory/heatAnnealer.js';
+import { HeatEquationAnnealer } from '../../src/adapters/memory/heatEquationAnnealer.js';
 import { SparkController } from '../../src/spark/sparkController.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

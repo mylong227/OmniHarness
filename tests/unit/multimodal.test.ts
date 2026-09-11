@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openaiCompatibleModel.js';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
 import type { ModelMessage } from '../../src/ports/model.js';
 

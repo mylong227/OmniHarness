@@ -15,11 +15,11 @@
 import type { Candidate } from '../ports/evolution.js';
 import type { ModelPort } from '../ports/model.js';
 import type { Skill, MoireOptions } from '../skill/skill.js';
-import type { Benchmark } from './evolutionGate.js';
+import type { Benchmark } from './failClosedEvolutionGate.js';
 import { moireEnergy } from './benchmark.js';
-import { FailClosedEvolutionGate } from './evolutionGate.js';
-import { TwistDiscoveryEngine } from './discoveryEngine.js';
-import { EvolutionControllerImpl } from './controller.js';
+import { FailClosedEvolutionGate } from './failClosedEvolutionGate.js';
+import { TwistDiscoveryEngine } from './twistDiscoveryEngine.js';
+import { EvolutionControllerImpl } from './evolutionControllerImpl.js';
 import type { EvolutionController } from '../ports/evolution.js';
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
 import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';

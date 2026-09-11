@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
-import { QECEncoder } from '../../src/adapters/memory/qec.js';
+import { QECEncoder } from '../../src/adapters/memory/qecEncoder.js';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

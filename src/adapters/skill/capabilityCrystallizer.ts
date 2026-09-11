@@ -16,7 +16,7 @@
  */
 import type { Skill } from '../../skill/skill.js';
 import type { SkillPort, MoireOptions } from '../../ports/skill.js';
-import { composeByTwist as moireCompose } from '../../skill/skillComposer.js';
+import { composeByTwist as moireCompose } from '../../skill/moireComposer.js';
 import type {
   CapabilityCrystallizerPort,
   CrystallizationReport,

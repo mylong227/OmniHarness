@@ -12,8 +12,8 @@ import type {
   MemoryFact,
   MemoryFactPatch,
 } from '../../ports/longTermMemory.js';
-import { Bm25Index, tokenize } from '../../search/bm25.js';
-import type { TextCodec } from './cipher.js';
+import { Bm25Index, tokenize } from '../../search/bm25Index.js';
+import type { TextCodec } from './aesGcmTextCodec.js';
 
 /**
  * @beta

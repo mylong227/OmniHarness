@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Agent } from '../../src/core/agent.js';
 import { createRuntime } from '../../src/core/runtime.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';

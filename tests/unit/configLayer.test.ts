@@ -9,9 +9,9 @@ import {
   normalizeConfig,
   readEnvConfig,
   validateConfig,
-} from '../../src/config/configLayer.js';
+} from '../../src/config/configError.js';
 import { configFile, type FileConfig } from '../../src/config/configFile.js';
-import { profileLoader } from '../../src/config/profile.js';
+import { profileLoader } from '../../src/config/profileLoader.js';
 
 describe('configLayer: 别名归一化', () => {
   it('下划线/连字符别名归一为标准 key', () => {

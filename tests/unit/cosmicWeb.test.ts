@@ -6,8 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
-import { CosmicWebMemoryEngine } from '../../src/adapters/memory/cosmicWeb.js';
-import { eigenSpectrum } from '../../src/util/eigenspectrum.js';
+import { CosmicWebMemoryEngine } from '../../src/adapters/memory/cosmicWebMemoryEngine.js';
+import { eigenSpectrum } from '../../src/util/eigenSpectrum.js';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

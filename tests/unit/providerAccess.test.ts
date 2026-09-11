@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { maskKey, providerPresetOf } from '../../src/server/providerPresets.js';
 import { probeProvider } from '../../src/server/providerProbe.js';
-import { normalizeConfig, ConfigError } from '../../src/config/configLayer.js';
+import { normalizeConfig, ConfigError } from '../../src/config/configError.js';
 
 test('maskKey：保留前 3 后 4，短 Key 全打码', () => {
   assert.strictEqual(maskKey('sk-1234567890abcdef'), 'sk-****cdef');

@@ -2,8 +2,8 @@
 // 本桶导出不在语义化版本合同内，可能随时增删改。稳定 API 见 ./index.ts。
 // 外部消费方从 `omniharness/beta` 导入本桶。
 // @beta 工具语义检索（#M1：BM25 工具 schema 检索 + 延迟加载）
-export { Bm25Index, tokenize } from './search/bm25.js';
-export type { Bm25Hit, Bm25Options } from './search/bm25.js';
+export { Bm25Index, tokenize } from './search/bm25Index.js';
+export type { Bm25Hit, Bm25Options } from './search/bm25Index.js';
 export { ToolIndex } from './search/toolIndex.js';
 export { ToolDiscovery } from './search/toolDiscovery.js';
 export { ToolSearchTool } from './adapters/tool/toolSearchTool.js';
@@ -78,7 +78,7 @@ export { RUN_WORKFLOW_TOOL_NAME } from './autonomy/workflowToolNames.js';
 
 // @beta LSP 代码导航（#S32：外启语言服务器进程走 stdio JSON-RPC，零依赖铁律下唯一合规接入方式）
 export type { LspPort, LspLocation, LspPosition, LspRange, LspServerConfig } from './ports/lsp.js';
-export { LspProcessAdapter } from './adapters/lsp/lspProcess.js';
+export { LspProcessAdapter } from './adapters/lsp/lspProcessAdapter.js';
 export { fileToUri, uriToFile } from './lsp/lspUri.js';
 export {
   LspGoToDefinitionTool,
@@ -102,7 +102,7 @@ export type {
 export {
   Ed25519AgentIdentity,
   generateAgentKeyMaterial,
-} from './adapters/identity/ed25519Identity.js';
+} from './adapters/identity/ed25519AgentIdentity.js';
 export { AgentIdentityTool, AGENT_IDENTITY_TOOL_NAME } from './adapters/tool/agentIdentityTool.js';
 
 // @beta 安全策略求值（#S34：对标 codex-rs/execpolicy 的「规则 → 决策」意图，安全子集零依赖）
@@ -113,7 +113,7 @@ export type {
   PolicyEffect,
   PolicyDecision,
 } from './ports/policy.js';
-export { SafePolicyEvaluator, compileExpression } from './adapters/policy/safePolicy.js';
+export { SafePolicyEvaluator, compileExpression } from './adapters/policy/safePolicyEvaluator.js';
 export { PolicyEvalTool, POLICY_EVAL_TOOL_NAME } from './adapters/tool/policyEvalTool.js';
 
 // @beta 安全护栏：提示注入拦截（opt-in，默认关；确定性正则扫描工具结果，命中即隔离）
@@ -129,7 +129,7 @@ export {
   prompt,
   type TuiEvent,
   type TuiEventKind,
-} from './tui/render.js';
+} from './tui/tuiRenderer.js';
 export { renderStream, startInteractive, type InteractiveOptions } from './tui/interactive.js';
 
 // @beta 计划 / 待办 / 提问协作态（#77：对标 dsh plan/todo/interaction）
@@ -147,7 +147,7 @@ export type { TodoPort, TodoItem, TodoStatus } from './ports/todo.js';
 export type { PlanPort, PlanDraft, PlanState, PlanStep, PlanStatus } from './ports/plan.js';
 
 // @beta Bundle 发布单元（#G-E 5.2/5.3：自包含 .ohb + 补丁层 + 可选 HMAC 签名）
-export { packBundle, unpackBundle } from './plugin/bundle.js';
+export { packBundle, unpackBundle } from './plugin/pluginBundler.js';
 export type {
   BundlePluginRef,
   BundlePatch,
@@ -156,6 +156,6 @@ export type {
   PackBundleResult,
   UnpackBundleOptions,
   UnpackBundleResult,
-} from './plugin/bundle.js';
+} from './plugin/pluginBundler.js';
 // @beta 运行时消费 bundle 补丁层（注入 config 四层合并，叠在 profile 之上、低于 env）
-export { loadBundlePatchLayer } from './config/configLayer.js';
+export { loadBundlePatchLayer } from './config/configError.js';

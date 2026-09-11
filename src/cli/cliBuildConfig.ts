@@ -15,22 +15,22 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { NativeKernel } from '../native/nativeKernel.js';
-import { ConfigFactory } from '../config/omniharnessConfig.js';
-import type { ResolvedConfig } from '../config/omniharnessConfig.js';
-import type { ExtraTool } from '../config/omniharnessConfig.js';
+import { ConfigFactory } from '../config/configFactory.js';
+import type { ResolvedConfig } from '../config/configFactory.js';
+import type { ExtraTool } from '../config/configFactory.js';
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
-import { PluginRegistry } from '../plugin/registry.js';
-import { AuditSink } from '../server/audit.js';
-import { NetworkEgressGuard, parseAllowList } from '../adapters/sandbox/networkEgress.js';
+import { PluginRegistry } from '../plugin/pluginRegistry.js';
+import { AuditSink } from '../server/auditSink.js';
+import { NetworkEgressGuard, parseAllowList } from '../adapters/sandbox/networkEgressGuard.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpGateway } from '../mcp/mcpGateway.js';
 import { formatBridgeResults } from '../mcp/mcpServerCommand.js';
 import { MockModel } from '../adapters/model/mockModel.js';
-import { OpenAiCompatibleModel } from '../adapters/model/openaiCompatibleModel.js';
+import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
 import { AnthropicModel } from '../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../adapters/model/responsesModel.js';
 import { LlamaCppModel } from '../adapters/model/llamaCppModel.js';
@@ -54,7 +54,7 @@ import type { ModelRouterConfig } from '../config/configFile.js';
 import type { LspServerConfig } from '../ports/lsp.js';
 import { loadToolModule } from './toolLoader.js';
 import { CliArgReader } from './cliArgReader.js';
-import type { CliArgs } from './args.js';
+import type { CliArgs } from './argParser.js';
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */
 export class CliBuildConfig {

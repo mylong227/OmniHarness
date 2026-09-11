@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilter.js';
+import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilterBelief.js';
 
 const TRUE = [1, 2, 3];
 

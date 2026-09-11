@@ -45,7 +45,7 @@ import type { UserResponder } from '../ports/userResponder.js';
 import type { TodoPort } from '../ports/todo.js';
 import type { PlanPort } from '../ports/plan.js';
 import type { ToolPort } from '../ports/tool.js';
-import type { ExtraTool, SubagentPortSeed } from './omniharnessConfig.js';
+import type { ExtraTool, SubagentPortSeed } from './configFactory.js';
 
 /** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */
 export function demoWorkers(): WorkerRegistry {

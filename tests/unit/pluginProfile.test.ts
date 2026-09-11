@@ -8,9 +8,9 @@ import {
   sanitizeProfileName,
   applyProfile,
   type PluginProfile,
-} from '../../src/plugin/pluginProfile.js';
+} from '../../src/plugin/pluginProfileStore.js';
 import type { PluginManager } from '../../src/plugin/pluginManager.js';
-import type { PluginRegistry } from '../../src/plugin/registry.js';
+import type { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 
 test('sanitizeProfileName 归一化', () => {
   assert.strictEqual(sanitizeProfileName('My Profile! @v2'), 'my-profile-v2');

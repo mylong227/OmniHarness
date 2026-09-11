@@ -18,7 +18,7 @@
  * 同名门面（委托单例）以兼容既有调用点（src/context/contextEngine.ts）。
  */
 
-import { tokenize } from '../search/bm25.js';
+import { tokenize } from '../search/bm25Index.js';
 import type { IndexedCorpus } from './contextEngine.js';
 
 export interface LsaModel {

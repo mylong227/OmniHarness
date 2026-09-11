@@ -9,7 +9,7 @@ import {
   getRepoMapContext,
   getHybridRepoMapContext,
   clearRepoMapCache,
-} from '../context/repoMapContext.js';
+} from '../context/repoMapContextEngine.js';
 import type { EmbeddingPort } from '../ports/embedding.js';
 import { loadProjectInstructionsCached } from '../context/projectInstructions.js';
 import {
@@ -21,7 +21,7 @@ import {
 import { ToolScheduler } from './loop/toolScheduler.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
-import type { ToolHookRunner } from './toolHooks.js';
+import type { ToolHookRunner } from './toolHookRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
 import type { ToolDiscovery } from '../search/toolDiscovery.js';

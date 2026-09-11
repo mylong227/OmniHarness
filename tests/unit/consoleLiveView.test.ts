@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Writable } from 'node:stream';
 import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.js';
-import { renderToolInputProgress } from '../../src/tui/render.js';
+import { renderToolInputProgress } from '../../src/tui/tuiRenderer.js';
 
 /** 内存可写流（模拟 TTY），便于断言渲染输出。 */
 class MemStream {

@@ -23,7 +23,7 @@
  */
 import { propagate } from './codeGraph.js';
 import type { CodeGraph } from './codeGraph.js';
-import { tokenize } from '../search/bm25.js';
+import { tokenize } from '../search/bm25Index.js';
 import type { IndexedCorpus } from './contextEngine.js';
 
 /**

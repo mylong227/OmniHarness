@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { packBundle, unpackBundle } from '../../src/plugin/bundle.js';
-import type { PluginRegistry } from '../../src/plugin/registry.js';
-import type { PluginProfile } from '../../src/plugin/pluginProfile.js';
+import { packBundle, unpackBundle } from '../../src/plugin/pluginBundler.js';
+import type { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
+import type { PluginProfile } from '../../src/plugin/pluginProfileStore.js';
 
 /** 构造最小 registry stub：所有插件均来自本地目录。 */
 function makeRegistry(pluginPath: string): PluginRegistry {

@@ -1,13 +1,10 @@
+import { PathTraversalError } from './pathTraversalError.js';
 import { realpathSync, existsSync } from 'node:fs';
 import { resolve, sep, dirname } from 'node:path';
 
+
 /** 路径越界 / 符号链接逃逸错误。 */
-export class PathTraversalError extends Error {
-  public constructor(message: string) {
-    super(message);
-    this.name = 'PathTraversalError';
-  }
-}
+
 
 /**
  * 工作区路径守卫：阻止路径越界访问工作区之外。
@@ -78,3 +75,4 @@ export class WorkspaceGuard {
     }
   }
 }
+export { PathTraversalError };

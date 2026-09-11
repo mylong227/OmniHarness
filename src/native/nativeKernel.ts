@@ -5,21 +5,18 @@
 // 与 omni-wasm 同一套 JSON-RPC 面，但 native 具备完整系统 API（真实时钟/进程/
 // RestrictedToken OS 沙箱/shell.run 真执行）。
 
+import { NativeKernelUnavailableError } from './nativeKernelUnavailableError.js';
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { OmniError, ErrorCode } from '../errors.js';
+
 
 /**
  * @beta
  * 原生内核不可用（.node 未构建或加载失败）——fail-closed，调用即抛。
  */
-export class NativeKernelUnavailableError extends OmniError {
-  public constructor(message: string) {
-    super(ErrorCode.NATIVE_KERNEL_UNAVAILABLE, message);
-  }
-}
+
 
 /** N-API 插件暴露的最小面。 */
 interface NativeModule {
@@ -149,3 +146,4 @@ export class NativeKernel {
     };
   }
 }
+export { NativeKernelUnavailableError };

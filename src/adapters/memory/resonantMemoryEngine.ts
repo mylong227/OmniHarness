@@ -4,7 +4,7 @@ import type {
   MemoryFactPatch,
 } from '../../ports/longTermMemory.js';
 import type { ResonantHit, ResonantMemoryPort } from '../../ports/resonantMemory.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
+import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
 
 /**
  * 燧-3 共振寻址引擎：包装任意 `LongTermMemoryPort`，为每条事实预计算本征频谱，

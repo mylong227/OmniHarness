@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, readFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileLongTermMemory } from '../../src/adapters/memory/fileLongTermMemory.js';
-import { AesGcmTextCodec } from '../../src/adapters/memory/cipher.js';
+import { AesGcmTextCodec } from '../../src/adapters/memory/aesGcmTextCodec.js';
 import type { MemoryFact } from '../../src/ports/longTermMemory.js';
 
 let dir = '';

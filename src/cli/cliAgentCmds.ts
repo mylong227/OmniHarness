@@ -20,10 +20,10 @@ import { portsOf } from '../subagent/subagentPorts.js';
 import { RoutineScheduler } from '../daemon/routineScheduler.js';
 import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/routineScheduler.js';
 import { startInteractive } from '../tui/interactive.js';
-import type { TuiEvent } from '../tui/render.js';
+import type { TuiEvent } from '../tui/tuiRenderer.js';
 import { runEvalSuite, formatEvalReport, loadSuiteFromJson, SMOKE_SUITE } from '../eval/index.js';
-import { parseArgs, messageOf, CliDefaults } from './args.js';
-import type { CliArgs } from './args.js';
+import { parseArgs, messageOf, CliDefaults } from './argParser.js';
+import type { CliArgs } from './argParser.js';
 import { CliNativeCmds } from './cliNativeCmds.js';
 
 /** 自主 / 编排 / 交互类子命令。 */

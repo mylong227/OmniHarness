@@ -9,7 +9,7 @@
 
 import { join } from 'node:path';
 import { configFile } from '../config/configFile.js';
-import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfile.js';
+import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfileStore.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** profile 用法提示。 */

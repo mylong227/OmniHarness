@@ -6,7 +6,7 @@ import {
   cosine,
   defaultEmbedBatchSize,
   resolveEmbedBatchSize,
-} from '../../src/context/semanticRecall.js';
+} from '../../src/context/semanticIndex.js';
 import type { Embedding, EmbeddingPort } from '../../src/ports/embedding.js';
 
 /**

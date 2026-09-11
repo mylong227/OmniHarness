@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { InsightEtchingEngine } from '../../src/adapters/memory/insightEtching.js';
+import { InsightEtchingEngine } from '../../src/adapters/memory/insightEtchingEngine.js';
 
 test('① 刻蚀一次顿悟事件 → 分形分支树入介质，traces=1', () => {
   const e = new InsightEtchingEngine();

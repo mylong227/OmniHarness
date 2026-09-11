@@ -12,7 +12,7 @@
 import { CryptoVault } from '../adapters/vault/cryptoVault.js';
 import { EnvVault } from '../adapters/vault/envVault.js';
 import type { VaultPort } from '../ports/vault.js';
-import { messageOf } from './args.js';
+import { messageOf } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 import { KvStoreFactory, type KvHandle } from './kvStoreFactory.js';
 

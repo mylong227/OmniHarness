@@ -12,7 +12,7 @@
 
 import type { EmbeddingPort } from '../ports/embedding.js';
 import type { IndexedCorpus } from './contextEngine.js';
-import { SemanticIndex, type RecallItem } from './semanticRecall.js';
+import { SemanticIndex, type RecallItem } from './semanticIndex.js';
 import type { RecallKnobs } from './recallKnobs.js';
 
 /** 全文文件文档最大字符数（约 8K token 内，留余量；ALiBi 可外推但质量在训练窗口内最佳）。 */

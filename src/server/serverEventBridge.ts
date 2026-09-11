@@ -1,7 +1,7 @@
 import { jsonRpc } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 import type { Metrics } from './metrics.js';
-import type { AuditSink } from './audit.js';
+import type { AuditSink } from './auditSink.js';
 import { id } from '../util/id.js';
 import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../ports/approval.js';
 import type { EventPort } from '../ports/eventPort.js';

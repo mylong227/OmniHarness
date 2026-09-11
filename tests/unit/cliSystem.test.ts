@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { parseArgs, CliDefaults } from '../../src/cli/args.js';
+import { parseArgs, CliDefaults } from '../../src/cli/argParser.js';
 import { configFile } from '../../src/config/configFile.js';
 
 /** CLI 入口路径。 */

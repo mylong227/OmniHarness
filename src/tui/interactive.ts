@@ -6,7 +6,7 @@
  */
 import { createInterface, type Interface } from 'node:readline';
 import type { Writable } from 'node:stream';
-import { clearLine, prompt, renderEventLine, renderStatusLine, type TuiEvent } from './render.js';
+import { clearLine, prompt, renderEventLine, renderStatusLine, type TuiEvent } from './tuiRenderer.js';
 
 /** 把事件流渲染到可写流（纯消费，便于单测用内存流验证）。 */
 export async function renderStream(events: AsyncIterable<TuiEvent>, out: Writable): Promise<void> {

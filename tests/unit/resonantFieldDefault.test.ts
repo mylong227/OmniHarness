@@ -10,7 +10,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { createRuntime } from '../../src/core/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';

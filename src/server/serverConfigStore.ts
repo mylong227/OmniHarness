@@ -1,7 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { configFile, type FileConfig } from '../config/configFile.js';
-import { mergeConfigs } from '../config/configLayer.js';
+import { mergeConfigs } from '../config/configError.js';
 import { PERSISTABLE_KEYS } from './appServerState.js';
 import { providerPresetOf, maskKey, type ProviderPreset } from './providerPresets.js';
 

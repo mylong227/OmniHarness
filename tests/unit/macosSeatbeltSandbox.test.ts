@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MacOsSeatbeltSandbox } from '../../src/adapters/sandbox/macosSeatbeltSandbox.js';
+import { MacOsSeatbeltSandbox } from '../../src/adapters/sandbox/macOsSeatbeltSandbox.js';
 import type { SandboxAction } from '../../src/ports/sandbox.js';
 
 const WS = '/Users/dev/project';

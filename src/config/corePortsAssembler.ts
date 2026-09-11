@@ -17,12 +17,12 @@ import { MemoryTodo } from '../adapters/todo/memoryTodo.js';
 import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
 import { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import { TurnDiffTracker } from '../core/turnDiffTracker.js';
-import type { ToolHookRunner } from '../core/toolHooks.js';
+import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';
-import { VortexRingPacket, VortexRingSpillAdapter } from '../adapters/spill/vortexRing.js';
+import { VortexRingPacket, VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
 
-import { autoUserResponder, buildApprovals, buildHooks, buildSpill } from './configBuilders.js';
-import type { OmniHarnessConfig } from './omniharnessConfig.js';
+import { autoUserResponder, buildApprovals, buildHooks, buildSpill } from './configBuilder.js';
+import type { OmniHarnessConfig } from './configFactory.js';
 
 /** Spill 默认参数（#74：超大工具输出外溢，避免撑爆上下文）。 */
 const DEFAULT_SPILL_MAX_INLINE_BYTES = 16384;

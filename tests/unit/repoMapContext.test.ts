@@ -8,7 +8,7 @@ import {
   getHybridRepoMapContext,
   clearRepoMapCache,
   buildChunkItems,
-} from '../../src/context/repoMapContext.js';
+} from '../../src/context/repoMapContextEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
 import type { Embedding, EmbeddingPort } from '../../src/ports/embedding.js';
 

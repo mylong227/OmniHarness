@@ -8,7 +8,7 @@ import { assembleMemoryStack } from '../../src/config/memoryStackAssembler.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import type { LongTermMemoryPort, MemoryFact, MemoryFactPatch } from '../../src/ports/longTermMemory.js';
-import type { OmniHarnessConfig } from '../../src/config/omniharnessConfig.js';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
 
 /** 最小长期记忆桩：内存数组 + 固定标识（用于验证「注入优先」）。 */
 class StubMemory implements LongTermMemoryPort {

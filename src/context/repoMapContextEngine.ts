@@ -25,8 +25,8 @@
 
 import { query, type IndexedCorpus } from './contextEngine.js';
 import { outlineText } from './repoMap.js';
-import { tokenize, tokenizeExpanded } from '../search/bm25.js';
-import type { RecallItem } from './semanticRecall.js';
+import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
+import type { RecallItem } from './semanticIndex.js';
 import { clearGraphSignal } from './codeReferenceGraph.js';
 import type { EmbeddingPort } from '../ports/embedding.js';
 import { RecallKnobs, type RepoMapContextOptions } from './recallKnobs.js';

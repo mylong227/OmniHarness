@@ -6,7 +6,7 @@
  */
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { PolicyEffect, PolicyPort, PolicyRule } from '../../ports/policy.js';
-import { SafePolicyEvaluator } from '../../adapters/policy/safePolicy.js';
+import { SafePolicyEvaluator } from '../../adapters/policy/safePolicyEvaluator.js';
 
 /**
  * @beta

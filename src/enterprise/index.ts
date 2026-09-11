@@ -9,7 +9,7 @@ export {
   verifyJwtSignature,
   writeAuthState,
   readAuthState,
-} from './sso.js';
+} from './oidcClient.js';
 export type {
   OidcProviderConfig,
   OidcDiscovery,
@@ -18,4 +18,4 @@ export type {
   Jwk,
   JwtParts,
   AuthState,
-} from './sso.js';
+} from './oidcClient.js';

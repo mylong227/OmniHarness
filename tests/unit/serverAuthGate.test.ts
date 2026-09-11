@@ -5,7 +5,7 @@ import type { Duplex } from 'node:stream';
 import { HttpBridgeTransport } from '../../src/server/httpServer.js';
 import { WsConnection } from '../../src/server/wsConnection.js';
 import { jsonRpc, type RpcResponse } from '../../src/server/jsonRpc.js';
-import { EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/sso.js';
+import { EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.js';
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf)

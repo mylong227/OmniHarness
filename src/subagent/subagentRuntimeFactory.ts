@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EventPort } from '../ports/eventPort.js';
 import type { ToolPort } from '../ports/tool.js';
-import type { ResolvedConfig } from '../config/omniharnessConfig.js';
+import type { ResolvedConfig } from '../config/configFactory.js';
 import type { OmniHarnessRuntime } from '../core/runtime.js';
 import type { StoragePort } from '../ports/storage.js';
 import { Container } from '../core/container.js';

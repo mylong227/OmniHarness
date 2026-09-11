@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { composeByTwist, capabilityFieldOf, emergenceAt } from '../../src/skill/skillComposer.js';
+import { composeByTwist, capabilityFieldOf, emergenceAt } from '../../src/skill/moireComposer.js';
 import { SkillRegistry } from '../../src/skill/skillRegistry.js';
 import type { Skill } from '../../src/skill/skill.js';
 

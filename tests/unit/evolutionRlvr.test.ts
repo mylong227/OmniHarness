@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EvolutionControllerImpl } from '../../src/evolution/controller.js';
-import { FailClosedEvolutionGate } from '../../src/evolution/evolutionGate.js';
+import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
+import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.js';
 import { RlvrLoop, InMemoryReplayBuffer } from '../../src/evolution/rlvrLoop.js';
 import type { CodeCandidate } from '../../src/evolution/rlvrLoop.js';
 import { createRlvrEvolutionController } from '../../src/evolution/rlvrController.js';

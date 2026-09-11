@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NaturalGradientBelief } from '../../src/adapters/belief/naturalGradient.js';
+import { NaturalGradientBelief } from '../../src/adapters/belief/naturalGradientBelief.js';
 
 test('① 自然梯度沿 Fisher 度规预处理步进：Δμ = η·σ²·g；KL 仅均值漂移分量', () => {
   const b = new NaturalGradientBelief({ dim: 3, initialVariance: 4 });

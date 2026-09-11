@@ -5,7 +5,7 @@ import { MemorySearchTool } from '../../src/adapters/tool/memorySearchTool.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { createRuntime } from '../../src/core/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { Agent } from '../../src/core/agent.js';

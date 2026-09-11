@@ -16,8 +16,8 @@ import { PermissionGate, PermissionDeniedError } from '../plugin/permissionGate.
 import { isPluginPermission } from '../plugin/permission.js';
 import type { PluginPermission } from '../plugin/permission.js';
 import type { Plugin } from '../plugin/plugin.js';
-import type { PluginRegistry } from '../plugin/registry.js';
-import { messageOf } from './args.js';
+import type { PluginRegistry } from '../plugin/pluginRegistry.js';
+import { messageOf } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** 构造插件注册表的工厂（由命令继承链注入，避免命令类依赖继承链）。 */

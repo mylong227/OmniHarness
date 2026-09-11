@@ -11,9 +11,9 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfile.js';
-import { packBundle, unpackBundle } from '../plugin/bundle.js';
-import { messageOf } from './args.js';
+import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfileStore.js';
+import { packBundle, unpackBundle } from '../plugin/pluginBundler.js';
+import { messageOf } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 import type { PluginRegistryFactory } from './pluginCommand.js';
 

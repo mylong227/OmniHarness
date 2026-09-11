@@ -8,17 +8,17 @@ import type { MemoryAnnealer } from '../ports/memoryAnnealing.js';
 
 import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.js';
 import { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
-import { AesGcmTextCodec } from '../adapters/memory/cipher.js';
-import { ResonantMemoryEngine } from '../adapters/memory/resonantMemory.js';
+import { AesGcmTextCodec } from '../adapters/memory/aesGcmTextCodec.js';
+import { ResonantMemoryEngine } from '../adapters/memory/resonantMemoryEngine.js';
 import { ResonantFieldEngine } from '../adapters/memory/resonantFieldEngine.js';
-import { HeatEquationAnnealer } from '../adapters/memory/heatAnnealer.js';
-import { CosmicWebMemoryEngine } from '../adapters/memory/cosmicWeb.js';
-import { QECEncoder } from '../adapters/memory/qec.js';
+import { HeatEquationAnnealer } from '../adapters/memory/heatEquationAnnealer.js';
+import { CosmicWebMemoryEngine } from '../adapters/memory/cosmicWebMemoryEngine.js';
+import { QECEncoder } from '../adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
-import { NaturalGradientBelief } from '../adapters/belief/naturalGradient.js';
-import { ParticleFilterBelief } from '../adapters/belief/particleFilter.js';
+import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
+import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
 
-import type { OmniHarnessConfig } from './omniharnessConfig.js';
+import type { OmniHarnessConfig } from './configFactory.js';
 
 /**
  * 长期记忆栈切片：直接并入 `ResolvedConfig` 的字段子集。

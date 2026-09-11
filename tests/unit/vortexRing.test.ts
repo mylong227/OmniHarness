@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { SpillPort, SpillHandle } from '../../src/ports/spill.js';
-import { VortexRingPacket } from '../../src/adapters/spill/vortexRing.js';
+import { VortexRingPacket } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 
 /** 测试用内存 Spill 桩。 */
 class MemSpill implements SpillPort {

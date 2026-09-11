@@ -12,9 +12,9 @@ import { join } from 'node:path';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
 import { SparkController } from '../../src/spark/sparkController.js';
-import { NaturalGradientBelief } from '../../src/adapters/belief/naturalGradient.js';
-import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilter.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { NaturalGradientBelief } from '../../src/adapters/belief/naturalGradientBelief.js';
+import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilterBelief.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

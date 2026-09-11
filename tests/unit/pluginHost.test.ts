@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { PluginHost } from '../../src/server/pluginHost.js';
 import type { Transport } from '../../src/server/lineTransport.js';
 import type { RpcMessage } from '../../src/server/jsonRpc.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';

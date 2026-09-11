@@ -12,10 +12,10 @@ import { join } from 'node:path';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
 import { SparkController } from '../../src/spark/sparkController.js';
-import { CosmicWebMemoryEngine } from '../../src/adapters/memory/cosmicWeb.js';
-import { QECEncoder } from '../../src/adapters/memory/qec.js';
+import { CosmicWebMemoryEngine } from '../../src/adapters/memory/cosmicWebMemoryEngine.js';
+import { QECEncoder } from '../../src/adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../../src/adapters/monitoring/immuneMonitor.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Bm25Index, tokenize } from '../../src/search/bm25.js';
+import { Bm25Index, tokenize } from '../../src/search/bm25Index.js';
 import { ToolIndex } from '../../src/search/toolIndex.js';
 import { ToolDiscovery } from '../../src/search/toolDiscovery.js';
 import { ToolSearchTool } from '../../src/adapters/tool/toolSearchTool.js';

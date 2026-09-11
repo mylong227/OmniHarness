@@ -53,19 +53,19 @@ export { StepRunner } from './core/stepRunner.js';
 export { TurnRunner } from './core/turnRunner.js';
 
 // @public 配置
-export { ConfigFactory } from './config/omniharnessConfig.js';
-export type { ExtraTool, OmniHarnessConfig } from './config/omniharnessConfig.js';
+export { ConfigFactory } from './config/configFactory.js';
+export type { ExtraTool, OmniHarnessConfig } from './config/configFactory.js';
 // 配置分层（#G6：多层合并 + profile 覆盖 + key 别名归一化 + 严格校验）
 export { ConfigFile } from './config/configFile.js';
 export type { FileConfig, FileMcpServer, LayeredOptions } from './config/configFile.js';
-export { ProfileLoader } from './config/profile.js';
+export { ProfileLoader } from './config/profileLoader.js';
 export {
   ConfigError,
   normalizeConfig,
   validateConfig,
   readEnvConfig,
   mergeConfigs,
-} from './config/configLayer.js';
+} from './config/configError.js';
 
 // @public 适配器（各端口默认实现）
 export {
@@ -100,15 +100,15 @@ export {
   WebLiveView,
 } from './adapters/index.js';
 export type { LiveBroadcaster } from './adapters/live/webLiveView.js';
-export type { OpenAiCompatibleConfig } from './adapters/model/openaiCompatibleModel.js';
+export type { OpenAiCompatibleConfig } from './adapters/model/openAiCompatibleModel.js';
 export { LlamaCppModel } from './adapters/model/llamaCppModel.js';
 export type { LlamaCppConfig } from './adapters/model/llamaCppModel.js';
 export {
   NetworkEgressGuard,
   EgressBlockedError,
   parseAllowList,
-} from './adapters/sandbox/networkEgress.js';
-export { DaemonController } from './daemon/daemon.js';
+} from './adapters/sandbox/networkEgressGuard.js';
+export { DaemonController } from './daemon/daemonController.js';
 export { RoutineScheduler, matchesCron } from './daemon/routineScheduler.js';
 export type { Routine, RoutineSchedule, RoutineModelAdapter } from './daemon/routineScheduler.js';
 export { ResponsesModel } from './adapters/model/responsesModel.js';
@@ -130,8 +130,8 @@ export {
 export type { ToolHandler } from './adapters/tool/toolHandler.js';
 
 // @public hooks 兼容层（codex-claude / claude-code 事件格式映射）
-export { CodexHooksMapper } from './hooksCompat/codexHooks.js';
-export { ClaudeCodeHooksMapper } from './hooksCompat/claudeCodeHooks.js';
+export { CodexHooksMapper } from './hooksCompat/codexHooksMapper.js';
+export { ClaudeCodeHooksMapper } from './hooksCompat/claudeCodeHooksMapper.js';
 export { HooksCompatAdapter } from './hooksCompat/hooksCompatAdapter.js';
 export type { HookEventEnvelope, HookConsumer } from './hooksCompat/formats.js';
 
@@ -161,7 +161,7 @@ export { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, isPluginPermission } from './pl
 
 // @public 门禁 / PTC 代码执行
 export { ToolGate } from './core/toolGate.js';
-export { SupervisorKernel } from './supervisor/supervisor.js';
+export { SupervisorKernel } from './supervisor/supervisorKernel.js';
 export type {
   SupervisorPort,
   SupervisorOptions,
@@ -172,29 +172,29 @@ export type {
 } from './ports/supervisor.js';
 
 // @public 燧-3 共振寻址 / 燧-4 涡环包（发明层 S+ 原语）
-export { ResonantMemoryEngine } from './adapters/memory/resonantMemory.js';
-export { VortexRingPacket, VortexRingSpillAdapter } from './adapters/spill/vortexRing.js';
+export { ResonantMemoryEngine } from './adapters/memory/resonantMemoryEngine.js';
+export { VortexRingPacket, VortexRingSpillAdapter } from './adapters/spill/vortexRingSpillAdapter.js';
 export { SparkController } from './spark/sparkController.js';
 export type { SparkCycleReport, SparkControllerOptions } from './spark/sparkController.js';
 // @public (D) 热方程记忆重加权 / 退火调度（知识基础算子）
-export { HeatEquationAnnealer } from './adapters/memory/heatAnnealer.js';
-export type { HeatAnnealerOptions } from './adapters/memory/heatAnnealer.js';
+export { HeatEquationAnnealer } from './adapters/memory/heatEquationAnnealer.js';
+export type { HeatAnnealerOptions } from './adapters/memory/heatEquationAnnealer.js';
 export type { MemoryAnnealer, AnnealStepReport } from './ports/memoryAnnealing.js';
 // @public (E) 宇宙网记忆 / QEC 记忆 / 免疫异常监控（发明层 S+ 原语，I-P1-2/3/5）
-export { CosmicWebMemoryEngine } from './adapters/memory/cosmicWeb.js';
-export type { CosmicWebOptions } from './adapters/memory/cosmicWeb.js';
+export { CosmicWebMemoryEngine } from './adapters/memory/cosmicWebMemoryEngine.js';
+export type { CosmicWebOptions } from './adapters/memory/cosmicWebMemoryEngine.js';
 export type { CosmicWebPort, WebConsolidationReport } from './ports/cosmicWeb.js';
-export { QECEncoder } from './adapters/memory/qec.js';
-export type { QECOptions } from './adapters/memory/qec.js';
+export { QECEncoder } from './adapters/memory/qecEncoder.js';
+export type { QECOptions } from './adapters/memory/qecEncoder.js';
 export type { QECEncoderPort, QECStatus, QECReport } from './ports/qec.js';
 export { ImmuneMonitor } from './adapters/monitoring/immuneMonitor.js';
 export type { ImmuneMonitorOptions } from './adapters/monitoring/immuneMonitor.js';
 export type { ImmuneMonitorPort, AnomalyAlert, ImmuneSelfReport } from './ports/immune.js';
 // @public (P2) 信念·组合·拓扑 — 自然梯度信念 / 粒子滤波信念（I-P2-2/3，信息几何）
-export { NaturalGradientBelief } from './adapters/belief/naturalGradient.js';
-export type { NaturalGradientOptions } from './adapters/belief/naturalGradient.js';
-export { ParticleFilterBelief } from './adapters/belief/particleFilter.js';
-export type { ParticleFilterOptions } from './adapters/belief/particleFilter.js';
+export { NaturalGradientBelief } from './adapters/belief/naturalGradientBelief.js';
+export type { NaturalGradientOptions } from './adapters/belief/naturalGradientBelief.js';
+export { ParticleFilterBelief } from './adapters/belief/particleFilterBelief.js';
+export type { ParticleFilterOptions } from './adapters/belief/particleFilterBelief.js';
 export type {
   MetacognitionPort,
   BeliefSnapshot,
@@ -206,11 +206,11 @@ export {
   spectrumFromValues,
   resonance,
   type Spectrum,
-} from './util/eigenspectrum.js';
+} from './util/eigenSpectrum.js';
 
 // @public (P2) 组合·拓扑 — CRISPR 精确技能编辑（I-P2-4）+ 相变固化（I-P2-5）
-export { CRISPRSkillEditor } from './adapters/skill/crispr.js';
-export type { CRISPRSkillEditorOptions } from './adapters/skill/crispr.js';
+export { CRISPRSkillEditor } from './adapters/skill/crisprSkillEditor.js';
+export type { CRISPRSkillEditorOptions } from './adapters/skill/crisprSkillEditor.js';
 export type { CRISPRSkillEditorPort, CrisprEditSpec, CrisprEditReport } from './ports/skillEdit.js';
 export { CapabilityCrystallizer } from './adapters/skill/capabilityCrystallizer.js';
 export type { CapabilityCrystallizerOptions } from './adapters/skill/capabilityCrystallizer.js';
@@ -221,8 +221,8 @@ export type {
 } from './ports/capability.js';
 
 // @public (P3) 高原创试点 — 刻蚀记忆 / 元素组合基元 / 对称破缺 / 禁闭色荷（I-P3-1~4）
-export { InsightEtchingEngine } from './adapters/memory/insightEtching.js';
-export type { InsightEtchingOptions } from './adapters/memory/insightEtching.js';
+export { InsightEtchingEngine } from './adapters/memory/insightEtchingEngine.js';
+export type { InsightEtchingOptions } from './adapters/memory/insightEtchingEngine.js';
 export type {
   InsightEtchingPort,
   EtchEvent,
@@ -237,16 +237,16 @@ export type {
   ElementDef,
   CompoundCapability,
 } from './ports/elementComposer.js';
-export { SymmetryBreakingEngine } from './adapters/monitoring/symmetryBreaking.js';
-export type { SymmetryBreakingOptions } from './adapters/monitoring/symmetryBreaking.js';
+export { SymmetryBreakingEngine } from './adapters/monitoring/symmetryBreakingEngine.js';
+export type { SymmetryBreakingOptions } from './adapters/monitoring/symmetryBreakingEngine.js';
 export type {
   SymmetryBreakingPort,
   SymmetryBreakReport,
   SymmetryState,
   UsageSample,
 } from './ports/symmetryBreaking.js';
-export { ConfinementEngine } from './adapters/monitoring/confinement.js';
-export type { ConfinementOptions } from './adapters/monitoring/confinement.js';
+export { ConfinementEngine } from './adapters/monitoring/confinementEngine.js';
+export type { ConfinementOptions } from './adapters/monitoring/confinementEngine.js';
 export type {
   ConfinementPort,
   CapabilityCharge,
@@ -256,15 +256,15 @@ export type {
 } from './ports/confinement.js';
 
 // @public 进化闭环（P1：发现 → 评估 → 晋升，fail-closed）
-export { FailClosedEvolutionGate } from './evolution/evolutionGate.js';
+export { FailClosedEvolutionGate } from './evolution/failClosedEvolutionGate.js';
 export type {
   Benchmark,
   SafetyCheck,
   FailClosedEvolutionGateOptions,
-} from './evolution/evolutionGate.js';
-export { TwistDiscoveryEngine } from './evolution/discoveryEngine.js';
-export type { TwistDiscoveryOptions } from './evolution/discoveryEngine.js';
-export { EvolutionControllerImpl, createEvolutionController } from './evolution/controller.js';
+} from './evolution/failClosedEvolutionGate.js';
+export { TwistDiscoveryEngine } from './evolution/twistDiscoveryEngine.js';
+export type { TwistDiscoveryOptions } from './evolution/twistDiscoveryEngine.js';
+export { EvolutionControllerImpl, createEvolutionController } from './evolution/evolutionControllerImpl.js';
 export { createRlvrEvolutionController } from './evolution/rlvrController.js';
 export type { RlvrEvolutionOptions, RlvrEvolutionBundle } from './evolution/rlvrController.js';
 export {
@@ -383,8 +383,8 @@ export type {
   JwtParts,
   AuthState,
 } from './enterprise/index.js';
-export { buildComplianceReport, formatCompliance } from './server/auditExport.js';
-export type { ComplianceReport, ComplianceReportMeta } from './server/auditExport.js';
+export { buildComplianceReport, formatCompliance } from './server/auditExporter.js';
+export type { ComplianceReport, ComplianceReportMeta } from './server/auditExporter.js';
 
 // @public 版本契约（API 版本锚点，见 docs/API_STABILITY.md）
 export { API_VERSION } from './version.js';

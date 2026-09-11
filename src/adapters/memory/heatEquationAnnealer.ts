@@ -1,6 +1,6 @@
 import type { LongTermMemoryPort } from '../../ports/longTermMemory.js';
 import type { MemoryAnnealer, AnnealStepReport } from '../../ports/memoryAnnealing.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
+import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
 
 /** 退火器选项（全部有保守默认；fail-closed 边界均夹紧）。 */
 export interface HeatAnnealerOptions {

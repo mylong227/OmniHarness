@@ -16,7 +16,7 @@ import {
   fuseModality,
   alignModality,
   type Modality,
-} from '../../src/genesis/modality.js';
+} from '../../src/genesis/modalityPort.js';
 import {
   type Operator,
   identityOperator,

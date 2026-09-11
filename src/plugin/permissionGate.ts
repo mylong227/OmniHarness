@@ -1,5 +1,6 @@
 import { ALL_PERMISSIONS } from './permission.js';
 import type { PluginPermission } from './permission.js';
+import { PermissionDeniedError } from './permissionDeniedError.js';
 
 /**
  * @beta
@@ -9,24 +10,6 @@ export interface PermissionDecision {
   readonly allowed: boolean;
   /** 未被白名单放行的权限（为空即完全允许）。 */
   readonly missing: readonly PluginPermission[];
-}
-
-import { OmniError, ErrorCode } from '../errors.js';
-
-/**
- * @beta
- * 权限校验失败（fail-closed）。
- */
-export class PermissionDeniedError extends OmniError {
-  public constructor(
-    public readonly pluginName: string,
-    public readonly missing: readonly PluginPermission[],
-  ) {
-    super(
-      ErrorCode.PERMISSION_DENIED,
-      `插件 "${pluginName}" 权限未在白名单内，已拒绝: ${missing.join(', ')}`,
-    );
-  }
 }
 
 /**
@@ -77,3 +60,5 @@ export class PermissionGate {
     }
   }
 }
+
+export { PermissionDeniedError } from './permissionDeniedError.js';

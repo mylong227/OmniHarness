@@ -6,7 +6,7 @@
  */
 
 import type { FileConfig } from './configFile.js';
-import { OmniError, ErrorCode } from '../errors.js';
+import { OmniError, ErrorCode } from '../omniError.js';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname as pathDirname, resolve } from 'node:path';
-import { FileRegistrySource, PluginRegistry } from '../../src/plugin/registry.js';
+import { FileRegistrySource, PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 
 const CATALOG = JSON.stringify({
   plugins: [

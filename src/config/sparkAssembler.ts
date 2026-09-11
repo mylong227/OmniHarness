@@ -1,9 +1,9 @@
 import { SparkController } from '../spark/sparkController.js';
-import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRing.js';
+import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
 
 import type { MemoryStackAssembly } from './memoryStackAssembler.js';
 import type { SkillStack } from './skillStackAssembler.js';
-import type { OmniHarnessConfig } from './omniharnessConfig.js';
+import type { OmniHarnessConfig } from './configFactory.js';
 
 /** 燧内核装配输入：已封包的外溢/记忆/技能三栈。 */
 export interface SparkAssemblyInput {

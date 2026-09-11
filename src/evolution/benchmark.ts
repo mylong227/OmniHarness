@@ -10,7 +10,7 @@
  * 纯函数、零依赖、确定性、可单测。EvolutionGate 默认即注入此基准。
  */
 import type { Skill } from '../skill/skill.js';
-import { capabilityFieldOf } from '../skill/skillComposer.js';
+import { capabilityFieldOf } from '../skill/moireComposer.js';
 
 /** 扁平化二维场。 */
 function flatten(field: readonly (readonly number[])[]): number[] {

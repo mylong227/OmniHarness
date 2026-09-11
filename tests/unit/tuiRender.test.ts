@@ -8,7 +8,7 @@ import {
   renderStatusLine,
   truncateToWidth,
   type TuiEvent,
-} from '../../src/tui/render.js';
+} from '../../src/tui/tuiRenderer.js';
 import { renderStream } from '../../src/tui/interactive.js';
 
 function collect(out: Writable): Promise<string> {

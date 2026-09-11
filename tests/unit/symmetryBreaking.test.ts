@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SymmetryBreakingEngine } from '../../src/adapters/monitoring/symmetryBreaking.js';
+import { SymmetryBreakingEngine } from '../../src/adapters/monitoring/symmetryBreakingEngine.js';
 
 test('① 初始对称态：ρ=0、无占优能力', () => {
   const s = new SymmetryBreakingEngine();

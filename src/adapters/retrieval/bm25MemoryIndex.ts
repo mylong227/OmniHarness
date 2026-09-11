@@ -1,5 +1,5 @@
 import type { RetrievalDoc, RetrievalHit, RetrievalPort } from '../../ports/retrieval.js';
-import { Bm25Index, tokenize } from '../../search/bm25.js';
+import { Bm25Index, tokenize } from '../../search/bm25Index.js';
 
 /**
  * @beta

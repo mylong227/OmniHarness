@@ -1,8 +1,8 @@
 import type { SessionEvent } from '../ports/event.js';
 import type { EventPort } from '../ports/eventPort.js';
 import type { HookConsumer } from './formats.js';
-import { CodexHooksMapper } from './codexHooks.js';
-import { ClaudeCodeHooksMapper } from './claudeCodeHooks.js';
+import { CodexHooksMapper } from './codexHooksMapper.js';
+import { ClaudeCodeHooksMapper } from './claudeCodeHooksMapper.js';
 
 /**
  * hooks 兼容层适配器（实现 EventPort）。

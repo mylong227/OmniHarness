@@ -11,7 +11,7 @@ import {
   verifyJwtSignature,
   EnterpriseAuth,
   type OidcDiscovery,
-} from '../../src/enterprise/sso.js';
+} from '../../src/enterprise/oidcClient.js';
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf)

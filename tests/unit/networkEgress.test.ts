@@ -4,7 +4,7 @@ import {
   NetworkEgressGuard,
   EgressBlockedError,
   parseAllowList,
-} from '../../src/adapters/sandbox/networkEgress.js';
+} from '../../src/adapters/sandbox/networkEgressGuard.js';
 
 test('parseAllowList：逗号分隔去空白，空串返回空数组', () => {
   assert.deepStrictEqual(parseAllowList('example.com, api.example.com'), [

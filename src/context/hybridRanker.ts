@@ -17,7 +17,7 @@
 
 import type { IndexedCorpus } from './contextEngine.js';
 import type { SymbolNode } from './repoMap.js';
-import { rrfMerge, type RecallHit } from './semanticRecall.js';
+import { rrfMerge, type RecallHit } from './semanticIndex.js';
 import { getGraphSignal, graphNeighborFileRoute } from './codeReferenceGraph.js';
 import type { RecallKnobs } from './recallKnobs.js';
 

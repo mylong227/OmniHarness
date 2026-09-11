@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import type { FileConfig } from '../config/configFile.js';
 import type { PluginManager } from './pluginManager.js';
-import type { PluginRegistry } from './registry.js';
+import type { PluginRegistry } from './pluginRegistry.js';
 import { loadInstalledPlugins } from './pluginLoader.js';
 
 /**

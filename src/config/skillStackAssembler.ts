@@ -1,12 +1,12 @@
 import { SkillRegistry } from '../skill/skillRegistry.js';
-import { CRISPRSkillEditor } from '../adapters/skill/crispr.js';
+import { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
 import { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import { InsightEtchingEngine } from '../adapters/memory/insightEtching.js';
+import { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
 import { ElementComposer } from '../adapters/skill/elementComposer.js';
-import { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreaking.js';
-import { ConfinementEngine } from '../adapters/monitoring/confinement.js';
+import { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
+import { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
 
-import type { OmniHarnessConfig } from './omniharnessConfig.js';
+import type { OmniHarnessConfig } from './configFactory.js';
 
 /**
  * 技能 / 能力算子栈切片：直接并入 `ResolvedConfig` 的字段子集。

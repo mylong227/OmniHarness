@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { AuditChainReport, AuditEvent } from './audit.js';
+import type { AuditChainReport, AuditEvent } from './auditSink.js';
 
 /**
  * @beta

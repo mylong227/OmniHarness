@@ -1,4 +1,4 @@
-import type { CliArgs } from './args.js';
+import type { CliArgs } from './argParser.js';
 
 /**
  * CLI 枚举参数白名单（与 `CliArgs` 联合类型同源：`satisfies` 保证二者漂移即编译报错）。

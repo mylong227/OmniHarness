@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ToolResult } from '../../ports/tool.js';
-import type { ToolHookContext, ToolHooks } from '../../core/toolHooks.js';
+import type { ToolHookContext, ToolHooks } from '../../core/toolHookRunner.js';
 import type { TurnDiffTracker } from '../../core/turnDiffTracker.js';
 
 /** 参与变更追踪的写类工具：参数带 `path`，可精确定位目标文件。 */

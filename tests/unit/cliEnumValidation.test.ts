@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs } from '../../src/cli/args.js';
+import { parseArgs } from '../../src/cli/argParser.js';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
 import type { SandboxProfile } from '../../src/adapters/sandbox/sandboxManager.js';
 

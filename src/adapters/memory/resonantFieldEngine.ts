@@ -22,7 +22,7 @@ import type {
 import type { ResonantHit, ResonantMemoryPort } from '../../ports/resonantMemory.js';
 import type { CosmicWebPort, WebConsolidationReport } from '../../ports/cosmicWeb.js';
 import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/resonantField.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
+import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
 interface Cluster {

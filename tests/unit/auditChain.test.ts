@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditSink } from '../../src/server/audit.js';
-import { buildComplianceReport } from '../../src/server/auditExport.js';
+import { AuditSink } from '../../src/server/auditSink.js';
+import { buildComplianceReport } from '../../src/server/auditExporter.js';
 
 /** 建临时审计文件（每次唯一，避免跨运行互相污染）。 */
 function tmpFile(tag: string): string {

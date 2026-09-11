@@ -14,17 +14,10 @@
  *   100.64/10 CGNAT、::1/fe80::/fc00::/fd00::）无论是否在白名单内**一律拒绝**——
  *   白名单只表达「允许的公网主机」，不能用来放行内网地址（防 SSRF 打元数据服务）。
  */
-import { OmniError, ErrorCode } from '../../errors.js';
+import { EgressBlockedError } from './egressBlockedError.js';
 
-export class EgressBlockedError extends OmniError {
-  /** 被拒绝的 URL。 */
-  public readonly url: string;
 
-  public constructor(message: string, url: string) {
-    super(ErrorCode.EGRESS_BLOCKED, message);
-    this.url = url;
-  }
-}
+
 
 /** 网络外联守卫配置。 */
 export interface NetworkEgressOptions {
@@ -166,3 +159,4 @@ export function parseAllowList(raw: string | undefined): string[] {
     .map((entry) => entry.trim())
     .filter((entry) => entry !== '');
 }
+export { EgressBlockedError };

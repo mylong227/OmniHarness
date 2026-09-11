@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { SessionEvent } from '../../src/ports/event.js';
-import { CodexHooksMapper } from '../../src/hooksCompat/codexHooks.js';
-import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooks.js';
+import { CodexHooksMapper } from '../../src/hooksCompat/codexHooksMapper.js';
+import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooksMapper.js';
 import { HooksCompatAdapter } from '../../src/hooksCompat/hooksCompatAdapter.js';
 
 /** 构造测试事件。 */

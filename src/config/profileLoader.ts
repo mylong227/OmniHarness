@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { FileConfig } from './configFile.js';
-import { ConfigError, normalizeConfig } from './configLayer.js';
+import { ConfigError, normalizeConfig } from './configError.js';
 
 /** Profile 文件加载器。 */
 export class ProfileLoader {

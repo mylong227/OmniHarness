@@ -1,5 +1,5 @@
+import { WorkflowCycleError } from './workflowCycleError.js';
 import type { SubagentPorts } from '../subagent/subagentPorts.js';
-import { OmniError, ErrorCode } from '../errors.js';
 import { Agent } from '../core/agent.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../subagent/subagentEventBridge.js';
@@ -13,6 +13,7 @@ import type {
 } from './workflowTypes.js';
 import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.js';
 
+
 /**
  * @beta
  * 工作流默认同层并发上限。
@@ -23,11 +24,7 @@ export const DEFAULT_WORKFLOW_CONCURRENCY = 4;
  * @beta
  * 工作流 DAG 中存在环。
  */
-export class WorkflowCycleError extends OmniError {
-  public constructor() {
-    super(ErrorCode.WORKFLOW_CYCLE, '工作流 DAG 存在环（依赖关系无法拓扑排序）');
-  }
-}
+
 
 /**
  * @beta
@@ -240,3 +237,4 @@ export function computeLevels(steps: readonly WorkflowStep[]): readonly (readonl
   }
   return levels;
 }
+export { WorkflowCycleError };

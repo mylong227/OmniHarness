@@ -1,14 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { profileLoader } from './profile.js';
+import { profileLoader } from './profileLoader.js';
 import {
   ConfigError,
   loadBundlePatchLayer,
   mergeConfigs,
   normalizeConfig,
   readEnvConfig,
-} from './configLayer.js';
+} from './configError.js';
 
 /** 配置文件里的 MCP 服务器声明。 */
 export interface FileMcpServer {

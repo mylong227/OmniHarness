@@ -10,10 +10,10 @@ import {
   type ModelRouterOptions,
   type RouterStrategy,
 } from '../adapters/model/modelRouter.js';
-import { OpenAiCompatibleModel } from '../adapters/model/openaiCompatibleModel.js';
+import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
 import { AnthropicModel } from '../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../adapters/model/responsesModel.js';
-import { ConfigError } from './configLayer.js';
+import { ConfigError } from './configError.js';
 import type { ModelRouterConfig } from './configFile.js';
 import type { SandboxPort } from '../ports/sandbox.js';
 import type { EscalationPort } from '../ports/escalation.js';
@@ -23,7 +23,7 @@ import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { CachedApproval } from '../adapters/approval/cachedApproval.js';
 import { TurnDiffTracker } from '../core/turnDiffTracker.js';
 import { TurnDiffHooks } from '../adapters/diff/turnDiffHooks.js';
-import { ToolHookRunner } from '../core/toolHooks.js';
+import { ToolHookRunner } from '../core/toolHookRunner.js';
 import { FileSpill } from '../adapters/spill/fileSpill.js';
 import { MemorySpill } from '../adapters/spill/memorySpill.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
@@ -31,13 +31,13 @@ import { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
 import type { LspPort } from '../ports/lsp.js';
 import type { AgentIdentityPort } from '../ports/agentIdentity.js';
-import { Ed25519AgentIdentity } from '../adapters/identity/ed25519Identity.js';
-import { LspProcessAdapter } from '../adapters/lsp/lspProcess.js';
+import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
+import { LspProcessAdapter } from '../adapters/lsp/lspProcessAdapter.js';
 import { fileToUri } from '../lsp/lspUri.js';
 import type { UserResponder } from '../ports/userResponder.js';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
-import type { OmniHarnessConfig, SubagentPortSeed } from './omniharnessConfig.js';
+import type { OmniHarnessConfig, SubagentPortSeed } from './configFactory.js';
 
 /** Spill 默认目录（#74：超大工具输出外溢，避免撑爆上下文）。 */
 const DEFAULT_SPILL_DIR = '.omniharness/spill';

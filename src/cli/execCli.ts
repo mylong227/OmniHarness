@@ -21,8 +21,8 @@ import { Agent } from '../core/agent.js';
 import { createRuntime } from '../core/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
 import { configFile } from '../config/configFile.js';
-import type { CliArgs } from './args.js';
-import { parseArgs, printUsage, messageOf, configDefaults } from './args.js';
+import type { CliArgs } from './argParser.js';
+import { parseArgs, printUsage, messageOf, configDefaults } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
 
 /** OmniHarness CLI 命令入口：omniharness exec / server … */

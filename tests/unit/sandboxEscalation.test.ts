@@ -14,7 +14,7 @@ import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.js'
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
 import { ToolGate } from '../../src/core/toolGate.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 

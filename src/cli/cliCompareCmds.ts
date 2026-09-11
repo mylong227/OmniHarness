@@ -8,14 +8,14 @@
 
 import { Agent } from '../core/agent.js';
 import { createRuntime } from '../core/runtime.js';
-import { ConfigFactory } from '../config/omniharnessConfig.js';
-import type { ResolvedConfig } from '../config/omniharnessConfig.js';
+import { ConfigFactory } from '../config/configFactory.js';
+import type { ResolvedConfig } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
-import { CliDefaults, MODEL_ADAPTERS, checkEnum } from './args.js';
-import type { CliArgs } from './args.js';
+import { CliDefaults, MODEL_ADAPTERS, checkEnum } from './argParser.js';
+import type { CliArgs } from './argParser.js';
 import { CliDataCmds } from './cliDataCmds.js';
 
 /** A/B 模型对比类子命令。 */

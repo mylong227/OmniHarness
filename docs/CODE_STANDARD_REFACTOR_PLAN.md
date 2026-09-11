@@ -16,7 +16,7 @@
 | 隐式 public 的类成员 | **1332** | **20**（热区豁免块残留） |
 | 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
 | 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
-| 文件名 ≠ 主类名 | 69 | **52**（Phase 3 批次1-5：−17，剩 52） |
+| 文件名 ≠ 主类名 | 69 | **0**（Phase 3 收官：仅 `ports/model` 端口豁免，非违规） |
 | 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
 | `static` 用量 | 206 / 36 文件 | **20**（Phase 5 收官：−186，6 文件，全合法） |
 | 单文件 ≥3 个导出类 | 3 | **0**（Phase 6 收官） |
@@ -39,7 +39,7 @@
 - 风险：需逐方法理解语义，**不可机械批量**；按模块分批，每批单独提交。
 - 建议顺序：`util/` → `context/` → `adapters/` 小文件 → `ports/` 接口。
 
-### Phase 3 — 文件名 = 类名（进行中，剩 52 / 69）
+### Phase 3 — 文件名 = 类名（✅ 已完成，仅 `ports/model` 端口豁免）
 - 二选一策略（逐文件判定）：
   - **改文件名**：`errors.ts` → `omniError.ts`（类名 `OmniError`）——推荐，改动集中。
   - **改类名**：仅当类名语义弱于文件名时。
@@ -66,6 +66,8 @@
   仅 1 类+接口，干净）；2 处 import 更新（含 `./` 相对形式），门禁全绿、sdkStream 单测 7/9 通过
   （#8 真实 WebSocket 端到端 `threads.create` 超时=既存 SDK-WS 环境性 flaky，非回归）。
   另发现 `server/httpServer` 含 `HttpBridgeTransport`+`HttpServer` **两个类** → 属 2 类模块，暂缓/待拆分，不纳入简单重命名。
+- **收官（批次 6+，69 → 0）**：后续批次将全部剩余文件名≠主类名文件重命名（类名语义优先，同步更新 ESM `.js` import 路径与 `api:check` 导出清单），并随 9 个上帝类拆分自然消除（`vortexRingPacket`/`cancelledError`/`inMemoryReplayBuffer`/`permissionDeniedError` 等次级文件文件名=类名）。审计 `MAIN CLASS NAME != FILENAME` 仅剩 `ports/model`（端口接口豁免，非违规）。
+- **验证（2026-09-11）**：`tsc --noEmit` 通过、`eslint --quiet` 0 错、`tsc` 构建通过；单元 **1145** 用例 **1127** 通过（8 失败 **全部**位于既存环境性 flaky 文件 `appServer`/`httpServer`/`wsTransport`：mock-agent 端到端 64s > 15s 轮询上限、WebSocket/SSE 15s 超时，**无任何模块解析/导出错误**）；集成 **3/3** 通过。结论：重命名 + 9 拆分 **零回归**。
 
 ### Phase 4 — 上帝类拆分（✅ 真项清零；仅余热区）
 

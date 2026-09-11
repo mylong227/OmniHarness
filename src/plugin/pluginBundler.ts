@@ -11,8 +11,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { zipStore, unzip, type ZipEntry } from './zip.js';
-import type { PluginProfile } from './pluginProfile.js';
-import type { PluginRegistry } from './registry.js';
+import type { PluginProfile } from './pluginProfileStore.js';
+import type { PluginRegistry } from './pluginRegistry.js';
 
 /**
  * Bundle 发布单元（G-E 5.2/5.3，对标 dsh 可 patch 插件叠层 + 发布单元）。

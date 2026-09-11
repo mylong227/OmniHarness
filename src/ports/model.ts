@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../errors.js';
+import { OmniError, ErrorCode } from '../omniError.js';
 
 /** 单张图像输入（URL 或 base64，供多模态截图/UI 理解，#B1）。 */
 export interface ImageContent {

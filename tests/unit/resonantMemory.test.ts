@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
-import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemory.js';
+import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemoryEngine.js';
 import {
   eigenSpectrum,
   spectrumFromValues,
   resonance,
   tokenizeChunks,
   type Spectrum,
-} from '../../src/util/eigenspectrum.js';
+} from '../../src/util/eigenSpectrum.js';
 
 const BINS = 257;
 

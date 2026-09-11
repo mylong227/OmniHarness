@@ -11,7 +11,7 @@ import { McpServer } from '../mcp/mcpServer.js';
 import { mcpConnector } from '../mcp/mcpConnector.js';
 import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';
 import { ToolGate } from '../core/toolGate.js';
-import { parseArgs, messageOf } from './args.js';
+import { parseArgs, messageOf } from './argParser.js';
 import { CliServerCmds } from './cliServerCmds.js';
 
 /** MCP 网关子命令。 */

@@ -8,13 +8,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Skill } from '../../src/skill/skill.js';
-import { composeByTwist } from '../../src/skill/skillComposer.js';
+import { composeByTwist } from '../../src/skill/moireComposer.js';
 import { jointProfile, capabilityCoverage, moireEnergy } from '../../src/evolution/benchmark.js';
-import { FailClosedEvolutionGate } from '../../src/evolution/evolutionGate.js';
-import type { Benchmark } from '../../src/evolution/evolutionGate.js';
-import { TwistDiscoveryEngine } from '../../src/evolution/discoveryEngine.js';
-import { EvolutionControllerImpl } from '../../src/evolution/controller.js';
-import { AuditSink } from '../../src/server/audit.js';
+import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.js';
+import type { Benchmark } from '../../src/evolution/failClosedEvolutionGate.js';
+import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
+import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
+import { AuditSink } from '../../src/server/auditSink.js';
 import type { Candidate } from '../../src/ports/evolution.js';
 
 const N = 64;

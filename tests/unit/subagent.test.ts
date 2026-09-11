@@ -17,7 +17,7 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { SubagentTool } from '../../src/adapters/tool/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { createRuntime } from '../../src/core/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';

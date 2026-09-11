@@ -18,7 +18,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { API_VERSION } from '../version.js';
-import { printUsage } from './args.js';
+import { printUsage } from './argParser.js';
 
 /** 求助标志集合。 */
 const HELP_FLAGS: ReadonlySet<string> = new Set(['--help', '-h']);

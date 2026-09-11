@@ -8,7 +8,7 @@
  *
  * @beta 属 P0 内核升级子系统，接口仍可能微调。
  */
-import type { AuditEvent } from '../server/audit.js';
+import type { AuditEvent } from '../server/auditSink.js';
 
 /** 监督模式（FDIR 分级状态机）。 */
 export type SafeMode =

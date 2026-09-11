@@ -1,5 +1,5 @@
 import type { MemoryFact } from './longTermMemory.js';
-import type { Spectrum } from '../util/eigenspectrum.js';
+import type { Spectrum } from '../util/eigenSpectrum.js';
 
 /** 宇宙网一次 RG 粗粒化坍缩的报告。 */
 export interface WebConsolidationReport {

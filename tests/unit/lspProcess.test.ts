@@ -1,9 +1,9 @@
 import { resolve } from 'node:path';
 import { strict as assert } from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcess.js';
+import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
 import { fileToUri } from '../../src/lsp/lspUri.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 

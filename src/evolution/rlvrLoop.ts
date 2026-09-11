@@ -41,22 +41,6 @@ export interface ReplayBuffer {
   readonly entries: readonly { readonly candidate: CodeCandidate; readonly reward: number }[];
 }
 
-/** 内存回放缓冲（带容量上限，超出按 FIFO 丢弃最旧）。 */
-export class InMemoryReplayBuffer implements ReplayBuffer {
-  private readonly items: { candidate: CodeCandidate; reward: number }[] = [];
-  public constructor(private readonly capacity = 256) {}
-  public push(candidate: CodeCandidate, reward: number): void {
-    this.items.push({ candidate, reward });
-    while (this.items.length > this.capacity) this.items.shift();
-  }
-  public get size(): number {
-    return this.items.length;
-  }
-  public get entries(): readonly { candidate: CodeCandidate; reward: number }[] {
-    return this.items;
-  }
-}
-
 /** RLVR 循环选项。 */
 export interface RlvrLoopOptions {
   /** 采样器。 */
@@ -126,3 +110,5 @@ export class RlvrLoop {
     return { kept, best, bufferSize: this.buffer.size };
   }
 }
+
+export { InMemoryReplayBuffer } from './inMemoryReplayBuffer.js';

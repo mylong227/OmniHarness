@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import { NativeKernel } from '../native/nativeKernel.js';
 import { RuleApproval } from '../adapters/approval/ruleApproval.js';
 import type { LspPort } from '../ports/lsp.js';
-import { parseArgs, messageOf, CliDefaults } from './args.js';
+import { parseArgs, messageOf, CliDefaults } from './argParser.js';
 import { CliCompareCmds } from './cliCompareCmds.js';
 
 /** 原生内核 / LSP 类子命令。 */

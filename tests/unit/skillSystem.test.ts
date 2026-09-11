@@ -4,7 +4,7 @@ import { SkillRegistry, skillRegistry } from '../../src/skill/skillRegistry.js';
 import type { Skill } from '../../src/skill/skill.js';
 import { Agent } from '../../src/core/agent.js';
 import { createRuntime } from '../../src/core/runtime.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';

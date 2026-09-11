@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { queryAudit, formatAudit, exportAudit } from '../../src/server/auditExport.js';
-import { AuditSink, type AuditEvent } from '../../src/server/audit.js';
+import { queryAudit, formatAudit, exportAudit } from '../../src/server/auditExporter.js';
+import { AuditSink, type AuditEvent } from '../../src/server/auditSink.js';
 
 const sample: AuditEvent[] = [
   {

@@ -12,12 +12,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
-import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemory.js';
-import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRing.js';
+import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemoryEngine.js';
+import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { Agent } from '../../src/core/agent.js';
 import { createRuntime } from '../../src/core/runtime.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

@@ -35,12 +35,12 @@ import { protocolSchema } from '../schema/protocolSchema.js';
 import {
   Ed25519AgentIdentity,
   generateAgentKeyMaterial,
-} from '../adapters/identity/ed25519Identity.js';
-import { DaemonController } from '../daemon/daemon.js';
+} from '../adapters/identity/ed25519AgentIdentity.js';
+import { DaemonController } from '../daemon/daemonController.js';
 import { configFile } from '../config/configFile.js';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.js';
-import { PluginProfileStore } from '../plugin/pluginProfile.js';
-import { parseArgs, printUsage, toWindowsPath, CliDefaults, configDefaults } from './args.js';
+import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
+import { parseArgs, printUsage, toWindowsPath, CliDefaults, configDefaults } from './argParser.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
 
 /** 服务端 / 身份 / 后台类子命令。 */

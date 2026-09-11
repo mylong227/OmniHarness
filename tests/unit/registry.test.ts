@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PluginRegistry } from '../../src/plugin/registry.js';
+import { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 
 /** 在临时目录建一个 plugins 子目录，返回可传入 PluginRegistry 的配置。 */
 function makeOptions(

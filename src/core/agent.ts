@@ -14,7 +14,7 @@ import { ContextCompactor } from '../context/contextCompactor.js';
 import { SkillRegistry, skillRegistry } from '../skill/skillRegistry.js';
 import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
-import { CancellationToken } from './loop/cancelledError.js';
+import { CancellationToken } from './loop/cancellationToken.js';
 import { id } from '../util/id.js';
 import { log, nextTraceId } from '../util/logger.js';
 

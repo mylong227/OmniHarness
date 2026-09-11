@@ -9,7 +9,7 @@ import {
   LocalDirSource,
   PluginRegistry,
   RemoteHttpSource,
-} from '../../src/plugin/registry.js';
+} from '../../src/plugin/pluginRegistry.js';
 import {
   manifestHasDangerous,
   validateManifestPermissions,

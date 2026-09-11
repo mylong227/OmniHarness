@@ -1,8 +1,8 @@
-import type { ResolvedConfig } from '../config/omniharnessConfig.js';
-import { ConfigFactory } from '../config/omniharnessConfig.js';
+import type { ResolvedConfig } from '../config/configFactory.js';
+import { ConfigFactory } from '../config/configFactory.js';
 import { SandboxManager, type SandboxProfile } from '../adapters/sandbox/sandboxManager.js';
 import type { PluginManager } from '../plugin/pluginManager.js';
-import type { PluginProfile, ApplyProfileResult } from '../plugin/pluginProfile.js';
+import type { PluginProfile, ApplyProfileResult } from '../plugin/pluginProfileStore.js';
 import type { SupervisorPort } from '../ports/supervisor.js';
 import { jsonRpc, type RpcMessage } from './jsonRpc.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';

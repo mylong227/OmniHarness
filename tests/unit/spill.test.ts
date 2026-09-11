@@ -8,7 +8,7 @@ import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import { FileSpill } from '../../src/adapters/spill/fileSpill.js';
 import { SpillReadTool } from '../../src/adapters/tool/spillReadTool.js';
-import { ConfigFactory } from '../../src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import type { ToolResult } from '../../src/ports/tool.js';

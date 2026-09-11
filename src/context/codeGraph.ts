@@ -15,7 +15,7 @@
  * 让关联符号的分值沿边传播，再按文件聚合重排。
  */
 
-import { tokenize } from '../search/bm25.js';
+import { tokenize } from '../search/bm25Index.js';
 import type { SymbolNode } from './repoMap.js';
 
 /** 构建图所需的最小语料视图（避免与 IndexedCorpus 形成循环类型依赖）。 */

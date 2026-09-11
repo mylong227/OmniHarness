@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.js';
-import { ConfinementEngine } from '../../src/adapters/monitoring/confinement.js';
+import { ConfinementEngine } from '../../src/adapters/monitoring/confinementEngine.js';
 
 test('SparkController.cycle 经 telemetry 落盘一条 production 观测', async () => {
   const path = join(mkdtempSync(join(tmpdir(), 'spark-tel-')), 'live.log');

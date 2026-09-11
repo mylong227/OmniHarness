@@ -1,12 +1,12 @@
-import type { ResolvedConfig } from '../config/omniharnessConfig.js';
+import type { ResolvedConfig } from '../config/configFactory.js';
 import { Container } from '../core/container.js';
 import { ServiceKeys } from '../core/runtime.js';
 import { PluginManager } from '../plugin/pluginManager.js';
 import { loadInstalledPlugins } from '../plugin/pluginLoader.js';
 import { PermissionGate } from '../plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../plugin/permission.js';
-import { applyProfile, type PluginProfile, type ApplyProfileResult } from '../plugin/pluginProfile.js';
-import type { PluginRegistry } from '../plugin/registry.js';
+import { applyProfile, type PluginProfile, type ApplyProfileResult } from '../plugin/pluginProfileStore.js';
+import type { PluginRegistry } from '../plugin/pluginRegistry.js';
 import { jsonRpc } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 

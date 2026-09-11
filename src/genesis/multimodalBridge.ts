@@ -19,7 +19,7 @@ import {
   fuseModality,
   alignModality,
   textFeatures,
-} from './modality.js';
+} from './modalityPort.js';
 
 /**
  * 多模态桥接器。

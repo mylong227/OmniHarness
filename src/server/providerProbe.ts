@@ -4,10 +4,10 @@
  * 返回实测连通状态与真实模型清单——「有 Key 支持接多少显示多少」的数据来源。
  */
 import type { ModelPort } from '../ports/model.js';
-import { OpenAiCompatibleModel } from '../adapters/model/openaiCompatibleModel.js';
+import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
 import { AnthropicModel } from '../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../adapters/model/responsesModel.js';
-import { ConfigError } from '../config/configLayer.js';
+import { ConfigError } from '../config/configError.js';
 import type { ProviderPreset } from './providerPresets.js';
 import { assertNotSsrf, defaultSsrfOptions } from '../security/ssrfGuard.js';
 import { withRetry } from '../util/retry.js';

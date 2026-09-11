@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import type { ToolDefinition, ToolPort } from '../ports/tool.js';
-import type { ExtraTool } from '../config/omniharnessConfig.js';
+import type { ExtraTool } from '../config/configFactory.js';
 
 /**
  * 自定义工具加载器：从模块文件加载定制工具（定制接入专用插口）。

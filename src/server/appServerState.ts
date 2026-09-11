@@ -1,10 +1,10 @@
 import type { ApprovalPort } from '../ports/approval.js';
-import type { ResolvedConfig } from '../config/omniharnessConfig.js';
+import type { ResolvedConfig } from '../config/configFactory.js';
 import type { SkillRegistry } from '../skill/skillRegistry.js';
-import type { PluginRegistry } from '../plugin/registry.js';
+import type { PluginRegistry } from '../plugin/pluginRegistry.js';
 import type { Transport } from './lineTransport.js';
 import type { Metrics } from './metrics.js';
-import type { AuditSink } from './audit.js';
+import type { AuditSink } from './auditSink.js';
 import type { GraphNodeStatus } from '../autonomy/workflowRunner.js';
 
 /** AppServer 选项。 */

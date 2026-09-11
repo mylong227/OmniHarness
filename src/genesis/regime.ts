@@ -15,7 +15,7 @@
  */
 
 import { type Cost, cost, emptyCost } from './algebra.js';
-import { type ModalityKind } from './modality.js';
+import { type ModalityKind } from './modalityPort.js';
 import {
   type Operator,
   type OperatorResult,

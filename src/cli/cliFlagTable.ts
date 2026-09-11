@@ -1,4 +1,4 @@
-import type { CliArgs } from './args.js';
+import type { CliArgs } from './argParser.js';
 import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
 import {
