@@ -292,7 +292,7 @@
 | T4.4 | 工具描述即不可信输入（H4） | `promptInjectionGuard` + `mcpToolMapper` | 需接 `AgentDojo`/`InjecAgent` 子集才有度量   | ⬜                 |
 | T4.5 | agent 只读自省 trace（H5） | 只读 trace 通道                          | 可复现地被 agent 消费                        | ⬜                 |
 | T4.6 | eval 与生成路径隔离        | agent 自评系统性偏高                     | 隔离后自评与实测差异下降                     | ⬜                 |
-| T4.7 | Pass@k 下置信界            | 点阈值会随机红/绿                        | 复用本轮 bootstrap（2000 次）给 Pass@k 加 CI | 重复 20 次结果稳定 | ⬜  |
+| T4.7 | Pass@k 下置信界            | 点阈值会随机红/绿                        | 复用本轮 bootstrap（2000 次）给 Pass@k 加 CI | 重复 20 次结果稳定 | ✅ 本批（`4101d8c`） |
 
 #### T5 · 训练信号（RLVR）
 
@@ -446,3 +446,28 @@
 **门禁结果**：`tsc --noEmit` 0 错；`check --strict` 0 违规（398 文件）；`audit:standard:delta` 无新增违规；`audit:maturity` 26 项通过；`pre-commit` 实测 `✓ 门禁通过`。提交 `5bca373`。
 
 **下一批（按 §8 候选排序）**：T4.7 Pass@k 下置信界 → P0.2+P0.4 度量/架构门禁 → T2.3·T2.4（后置）。T3 余项（T3.2 充能/衰减/解离循环、T3.4 重置点+scratchpad）另行评估。
+
+---
+
+## 11. 第五批 · T4.7 Pass@k 置信区间（2026-09-12）
+
+> 前置：常驻强制门禁在提交路径生效（`pre-commit` 实测拦门）。本批 7 文件经钩子校验后合入。
+
+**问题**：Pass@k 用**点阈值**判门禁——估计落在阈值附近时，采样噪声会让同一系统**随机红/绿**。T2.1 已引入 bootstrap（`bootstrapGain`，2000 次/2.5·97.5 分位），但写死在 `.mjs` 且用**未固定种子**的 `Math.random()`，无法复现。
+
+| 改动             | 文件                                   | 要点                                                                                                                                                                           |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 确定性 bootstrap | `src/eval/bootstrap.ts`（新）          | 零依赖 `mulberry32`（种子化 PRNG）+ 最近秩分位 + 通用 `bootstrapInterval`；**种子固定 ⇒ 同输入恒同区间**                                                                       |
+| Pass@k 加 CI     | `src/eval/passK.ts`                    | `bootstrapPassK` 给 Pass@1..k 与通过率加 95% CI；`passKGateWithCI` **三态判定**：区间下界≥阈值=达标 / 上界<阈值=显著不达标 / 跨阈值=样本不足（fail-closed 记不达标但显式区分） |
+| CLI 接入         | `evals/live/bench.mjs`                 | 新增 `--min-pass-k-ci` / `--ci` / `--ci-rounds`，打印各 Pass@k 区间并按区间判定（点判定保留兼容）                                                                              |
+| 变活非死代码     | `package.json`                         | `eval:passk` / `eval:ci` 纳入 passKCI 单测与 CI 模式门禁                                                                                                                       |
+| 门禁噪声修复     | `scripts/auditStandards.mjs`           | `delta` 的 `git show` **stderr 静默**：新文件在 HEAD 缺失时的 fatal 属预期路径，不应污染门禁输出（门禁输出须可信）                                                             |
+| 判据登记         | `scripts/codemod/maturityAnnotate.mjs` | `passK` 判据更新为「Pass@k + 确定性 bootstrap 95% CI」                                                                                                                         |
+
+**可证伪验收**：`tests/unit/passKCI.test.ts`（新，11 例）含「同一输入重复判定 **20 次结果完全稳定**」（`verdicts.size === 1`）；另证 `bootstrapInterval` 同种子可复现、区间包住点估计、全通过⇒区间恒 1、跨越阈值⇒inconclusive（fail-closed）。单测 **21/21** 绿。
+
+**端到端实测**：`node evals/live/bench.mjs --swebench --repeat 5 --min-pass-k-ci 3,0.9` ⇒ **exit 0**，打印 `Pass@3 1.000 CI=[1.000, 1.000]` 与 `✅ 门禁达标`（零 key、可复现）。
+
+**门禁结果**：`tsc --noEmit` 0 错；`check --strict` 0 违规（399 文件）；`audit:standard:delta` 无新增；`audit:maturity` 26 项通过；eslint 0 error；`pre-commit` 实测 `✓ 门禁通过`。提交 `4101d8c`。
+
+**下一批（按 §8 候选排序）**：P0.2 + P0.4 度量/架构门禁（先立尺再动刀，工作量最大）→ T2.3·T2.4（图路判负后置）→ T4 其余（H1–H6）／T5 训练信号。T3 余项（T3.2/T3.4）另评。
