@@ -3,6 +3,8 @@ export type MemoryFactPatch = Partial<{
   text: string;
   topic: string | undefined;
   importance: number;
+  /** 失效时间（ISO，可选）：设为过去时间即可令该事实在 recall 中失效。 */
+  expiresAt: string | undefined;
 }>;
 
 /** 一条持久化的长期记忆事实（跨会话留存，进程重启后仍可读回）。 */
@@ -21,6 +23,8 @@ export interface MemoryFact {
   readonly sessionId: string;
   /** 来源：模型显式 `remember` 写入 / 回合末蒸馏 `consolidated` 沉淀。 */
   readonly source: 'tool' | 'consolidated';
+  /** 失效时间（ISO，可选）：到点后 `recall` 不再召回该事实（fail-closed 丢弃，不自动删除）。 */
+  readonly expiresAt?: string;
 }
 
 /**

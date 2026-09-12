@@ -26,6 +26,7 @@ import type { ResonantHit, ResonantMemoryPort } from '../../ports/resonantMemory
 import type { CosmicWebPort, WebConsolidationReport } from '../../ports/cosmicWeb.js';
 import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/resonantField.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
+import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
 interface Cluster {
@@ -70,6 +71,8 @@ export class ResonantFieldEngine
   private readonly bekensteinCap: number;
   private readonly edgeThreshold: number;
   private readonly bins: number;
+  private readonly halfLifeDays: number;
+  private readonly clock: () => number;
 
   public constructor(
     private readonly base: LongTermMemoryPort,
@@ -79,6 +82,8 @@ export class ResonantFieldEngine
     this.bekensteinCap = Math.max(1, Math.floor(opts.bekensteinCap ?? 64));
     this.edgeThreshold = clamp(opts.edgeThreshold ?? 0.4, 0, 1);
     this.bins = opts.bins ?? 257;
+    this.halfLifeDays = opts.halfLifeDays ?? 90;
+    this.clock = opts.clock ?? Date.now;
     this.seed();
   }
 
@@ -260,8 +265,18 @@ export class ResonantFieldEngine
 
   // ── LongTermMemoryPort 委托 ──
 
+  /**
+   * 共振召回 + 时间衰减重排：把查询映射成频谱探针取共振 top 候选，
+   * 再按「共振度 × 时间衰减」重排，失效事实丢弃。
+   *
+   * @param query 自然语言查询
+   * @param k 取回条数
+   * @returns 重排后的事实序列（衰减得分降序）
+   */
   public recall(query: string, k: number): readonly MemoryFact[] {
-    return this.resonateByText(query, k).map((h) => h.fact);
+    const hits = this.resonateByText(query, this.base.all().length);
+    const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
+    return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
   public all(): readonly MemoryFact[] {
     return this.base.all();

@@ -5,6 +5,7 @@ import type {
 } from '../../ports/longTermMemory.js';
 import type { ResonantHit, ResonantMemoryPort } from '../../ports/resonantMemory.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
+import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 
 /**
  * 燧-3 共振寻址引擎：包装任意 `LongTermMemoryPort`，为每条事实预计算本征频谱，
@@ -28,6 +29,8 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
   public constructor(
     private readonly base: LongTermMemoryPort,
     private readonly bins = 257,
+    private readonly halfLifeDays: number = 90,
+    private readonly clock: () => number = Date.now,
   ) {}
 
   private rebuild(): void {
@@ -64,11 +67,16 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
   }
 
   /**
-   * 共振召回：把自然语言查询映射成频谱探针，返回共振度最高的 k 条事实
-   * （同频即显、异频即散）。取代 base 的 BM25 几何召回。
+   * 共振召回 + 时间衰减重排：取共振 top 候选后按「共振度 × 时间衰减」重排，失效事实丢弃。
+   *
+   * @param query 自然语言查询
+   * @param k 取回条数
+   * @returns 重排后的事实序列（衰减得分降序）
    */
   public recall(query: string, k: number): readonly MemoryFact[] {
-    return this.resonateByText(query, k).map((h) => h.fact);
+    const hits = this.resonateByText(query, this.base.all().length);
+    const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
+    return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
 
   public all(): readonly MemoryFact[] {

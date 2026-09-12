@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileLongTermMemory } from '../../src/adapters/memory/fileLongTermMemory.js';
 import { AesGcmTextCodec } from '../../src/adapters/memory/aesGcmTextCodec.js';
+import { decayFactor, rankWithDecay } from '../../src/adapters/memory/timeDecay.js';
 import type { MemoryFact } from '../../src/ports/longTermMemory.js';
 
 let dir = '';
@@ -109,5 +110,80 @@ describe('FileLongTermMemory（AES-256-GCM 加密 #4.4）', () => {
     assert.strictEqual(store.get('e'), undefined);
     const reloaded = new FileLongTermMemory(p, new AesGcmTextCodec({ keyFile: key }));
     assert.strictEqual(reloaded.count, 0);
+  });
+});
+
+describe('FileLongTermMemory（T3.1 时间维度：衰减召回 + 失效丢弃 + Ghost Memory）', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = Date.parse('2026-09-12T00:00:00.000Z');
+
+  it('同等相关性下较新事实胜出（文件移动重排期旧事实不压新事实）', () => {
+    const m = new FileLongTermMemory(tmpFile('t1.jsonl'), undefined, 30, () => NOW);
+    m.remember(
+      fact({
+        id: 'old',
+        text: 'build config location is at old path',
+        createdAt: new Date(NOW - 400 * DAY).toISOString(),
+      }),
+    );
+    m.remember(
+      fact({
+        id: 'new',
+        text: 'build config location is at new path',
+        createdAt: new Date(NOW - 1 * DAY).toISOString(),
+      }),
+    );
+    const hits = m.recall('build config location', 2);
+    assert.strictEqual(hits.length, 2);
+    assert.strictEqual(hits[0]!.id, 'new');
+    assert.strictEqual(hits[1]!.id, 'old');
+  });
+
+  it('expiresAt 到点后 recall 丢弃', () => {
+    const m = new FileLongTermMemory(tmpFile('t2.jsonl'), undefined, 90, () => NOW);
+    m.remember(
+      fact({ id: 'fresh', text: 'still valid fact', createdAt: new Date(NOW - DAY).toISOString() }),
+    );
+    m.remember({
+      ...fact({
+        id: 'stale',
+        text: 'expired fact',
+        createdAt: new Date(NOW - 10 * DAY).toISOString(),
+      }),
+      expiresAt: new Date(NOW - 5 * DAY).toISOString(),
+    });
+    const ids = m.recall('fact', 10).map((h) => h.id);
+    assert.ok(ids.includes('fresh'));
+    assert.ok(!ids.includes('stale'));
+  });
+
+  it('decayFactor：越旧衰减越多，非法/过期时间不衰减', () => {
+    // 年龄近 0 → 衰减≈1（精确）
+    assert.ok(Math.abs(decayFactor(new Date(NOW).toISOString(), NOW, 30) - 1) < 1e-9);
+    // 400 天（13+ 个半衰期）→ 衰减 < 1e-3
+    assert.ok(decayFactor(new Date(NOW - 400 * DAY).toISOString(), NOW, 30) < 1e-3);
+    // 非法时间 → 不衰减
+    assert.strictEqual(decayFactor('not-a-date', NOW, 30), 1);
+  });
+
+  it('rankWithDecay：失效事实过滤 + 同分按年龄降序', () => {
+    const oldAt = new Date(NOW - 400 * DAY).toISOString();
+    const newAt = new Date(NOW - 1 * DAY).toISOString();
+    const items = [
+      { fact: fact({ id: 'old', text: 'x', createdAt: oldAt }), score: 10 },
+      { fact: fact({ id: 'new', text: 'x', createdAt: newAt }), score: 10 },
+      {
+        fact: {
+          ...fact({ id: 'exp', text: 'x', createdAt: newAt }),
+          expiresAt: new Date(NOW - 5 * DAY).toISOString(),
+        },
+        score: 100,
+      },
+    ];
+    const ranked = rankWithDecay(items, NOW, 30, 10);
+    assert.deepStrictEqual(
+      ranked.map((f) => f.id),
+      ['new', 'old'],
+    );
   });
 });

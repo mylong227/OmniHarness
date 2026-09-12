@@ -13,6 +13,7 @@ import type {
   MemoryFactPatch,
 } from '../../ports/longTermMemory.js';
 import { Bm25Index, tokenize } from '../../search/bm25Index.js';
+import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 import type { TextCodec } from './aesGcmTextCodec.js';
 
 /**
@@ -36,6 +37,8 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   public constructor(
     private readonly path: string,
     private readonly codec: TextCodec = { encode: (t) => t, decode: (t) => t },
+    private readonly halfLifeDays: number = 90,
+    private readonly clock: () => number = Date.now,
   ) {
     this.load();
   }
@@ -73,7 +76,15 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     }
   }
 
-  /** 按自然语言召回 top-k 事实（BM25，跨全部会话）。 */
+  /**
+   * 按自然语言召回 top-k 事实（BM25 + 时间衰减）。
+   * 先取全部 BM25 命中，再按「相关性 × 时间衰减」重排，落后者被自然压低；
+   * 失效（expiresAt 到点）的事实直接丢弃。
+   *
+   * @param query 自然语言查询
+   * @param k 取回条数
+   * @returns 重排后的事实序列（衰减得分降序）
+   */
   public recall(query: string, k: number): readonly MemoryFact[] {
     const trimmed = query.trim();
     if (trimmed === '' || k <= 0 || this.facts.length === 0) {
@@ -82,15 +93,15 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     if (this.dirty || this.bm25 === undefined) {
       this.rebuild();
     }
-    const hits = (this.bm25 as Bm25Index).search(tokenize(trimmed), k);
-    const out: MemoryFact[] = [];
+    const hits = (this.bm25 as Bm25Index).search(tokenize(trimmed), this.facts.length);
+    const items: ScoredFact[] = [];
     for (const hit of hits) {
       const fact = this.facts[hit.id];
       if (fact !== undefined) {
-        out.push(fact);
+        items.push({ fact, score: hit.score });
       }
     }
-    return out;
+    return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
 
   /** 全部事实。 */

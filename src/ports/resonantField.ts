@@ -41,4 +41,8 @@ export interface ResonantFieldOptions {
   readonly edgeThreshold?: number;
   /** 本征谱分箱（须与记忆引擎一致）。默认 257。 */
   readonly bins?: number;
+  /** 时间衰减半衰期（天）：recall 分数 = 相关性 × 0.5^(年龄/半衰期)。默认 90。 */
+  readonly halfLifeDays?: number;
+  /** 时钟（注入用，便于测试）；返回当前毫秒时间戳。默认 Date.now。 */
+  readonly clock?: () => number;
 }
