@@ -10,6 +10,10 @@ const DEFAULT_LIMIT = 5;
  * 实现跨长对话的 recall，而无需把全部历史塞进上下文。命中经 `RetrievalPort` 返回。
  */
 export class MemorySearchTool {
+  /**
+   * 工具定义：memory_search 工具的名称、描述与参数 schema。
+   * 在已发生的会话历史中按自然语言检索相关片段，实现跨长对话的 recall。
+   */
   public readonly definition: ToolDefinition = {
     name: 'memory_search',
     description:

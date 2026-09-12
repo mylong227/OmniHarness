@@ -24,7 +24,9 @@ export interface SymmetryBreakingOptions {
   readonly symmetryGroup?: string;
 }
 
+/** 对称破缺算子引擎：实现 {@link SymmetryBreakingPort}，检测并报告能力相变，不自行固化技能。 */
 export class SymmetryBreakingEngine implements SymmetryBreakingPort {
+  /** 端口名：对称破缺算子标识，与 SymmetryBreakingPort 契约的命名空间一致。 */
   public readonly name = 'symmetry-breaking';
   private readonly threshold: number;
   private readonly group: string;
@@ -37,6 +39,12 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     this.group = opts.symmetryGroup ?? 'capability-symmetry';
   }
 
+  /**
+   * 观测一批使用样本：累加各能力权重推进序参量 ρ（占优能力归一化主导度），ρ 越阈值即破缺
+   * （迟滞：破缺后不随单次低样本回弹）。空样本不推进；无效权重（非正/非有限）跳过。
+   * @param usage 本批使用样本（能力 + 权重）。
+   * @returns 本次是否跨越阈值发生相变（对称 → 破缺）。
+   */
   public observe(usage: readonly UsageSample[]): boolean {
     if (usage.length === 0) return false;
     for (const u of usage) {
@@ -50,6 +58,11 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     return this.lastTransitioned;
   }
 
+  /**
+   * 当前对称态快照：返回序参量 ρ、状态（ρ 已越阈值即记为 broken）、破缺后占优能力与
+   * 对称群标签（transitioned 仅为最近一次 observe 是否发生相变）。
+   * @returns 能力相变可观测报告。
+   */
   public snapshot(): SymmetryBreakReport {
     const { rho, dominant } = this.compute();
     const state = this.broken ? 'broken' : rho >= this.threshold ? 'broken' : 'symmetric';
@@ -63,6 +76,7 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     };
   }
 
+  /** 重置序参量：清空权重累积并回到对称态（显式回滚，非自动回弹）。 */
   public reset(): void {
     this.weights.clear();
     this.broken = false;

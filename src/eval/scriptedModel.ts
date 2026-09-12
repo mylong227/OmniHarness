@@ -24,6 +24,7 @@ export interface ScriptStep {
  * 脚本化模型：严格 replay 给定脚本，绝不随机。
  */
 export class ScriptedModel implements ModelPort {
+  /** 模型端口标识：固定为 'scripted'。 */
   public readonly name = 'scripted';
 
   private turn = 0;

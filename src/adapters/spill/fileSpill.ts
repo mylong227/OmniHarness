@@ -11,6 +11,7 @@ const SAFE_ID = /^[A-Za-z0-9_-]+$/;
  * 文件外溢端口：完整内容落盘，跨进程/重启可恢复。
  */
 export class FileSpill implements SpillPort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'file'）。 */
   public readonly name = 'file';
 
   private readonly root: string;

@@ -11,6 +11,10 @@ const STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed'];
  * 对标 dsh `packages/todo/tool-todo` 的 `todo/write`。
  */
 export class TodoWriteTool {
+  /**
+   * 工具定义：todo_write 工具的名称、描述与参数 schema。
+   * 全量替换待办列表（last-write-wins）并广播 todo 事件，用于长任务进度可控。
+   */
   public readonly definition: ToolDefinition = {
     name: 'todo_write',
     description:
@@ -42,6 +46,12 @@ export class TodoWriteTool {
     private readonly eventFactory: EventFactoryPort,
   ) {}
 
+  /**
+   * 执行 todo_write：校验并整表替换待办、广播 todo 事件、汇总各状态计数。
+   * @param call 模型传入的工具调用（含完整 todos 数组）。
+   * @param ctx 工具执行上下文（取 sessionId 用于广播 todo 事件）。
+   * @returns todos 非数组、content 为空或 status 非法时报错；成功返回计数摘要。
+   */
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['todos'];
     if (!Array.isArray(raw)) {

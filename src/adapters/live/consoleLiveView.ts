@@ -13,16 +13,16 @@ import { clearLine, renderToolInputProgress } from '../../tui/tuiRenderer.js';
  * 不写 stdout，以免破坏 stdout 可能的机器消费（如 JSON 输出 / 管道）。
  */
 export class ConsoleLiveView implements ToolInputSink {
-  readonly name = 'console-live-view';
+  public readonly name = 'console-live-view';
   private readonly states = new Map<string, { name: string; acc: string }>();
 
-  constructor(
+  public constructor(
     private readonly out: Writable = process.stderr,
     /** 文本流式输出通道（V2.1）：--stream-text 时为 stdout，否则 undefined（不流式）。 */
     private readonly textOut?: Writable,
   ) {}
 
-  onToolInput(delta: ToolInputDelta): void {
+  public onToolInput(delta: ToolInputDelta): void {
     // 仅 TTY 实时刷新；非 TTY（管道／重定向／CI）静默，避免把控制码刷进 stdout 或日志。
     const tty = (this.out as unknown as { isTTY?: boolean }).isTTY;
     if (!tty) return;
@@ -39,7 +39,7 @@ export class ConsoleLiveView implements ToolInputSink {
    * 文本增量流式输出（V2.1）：仅当构造时注入了文本通道（--stream-text opt-in）才写。
    * 默认不流式——exec 末尾会统一打印 finalText，重复输出会污染机器消费的 stdout。
    */
-  onTextDelta(text: string): void {
+  public onTextDelta(text: string): void {
     this.textOut?.write(text);
   }
 }

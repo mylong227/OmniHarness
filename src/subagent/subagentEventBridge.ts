@@ -9,6 +9,7 @@ import type { EventPort } from '../ports/eventPort.js';
  * 改为内部收集后随结果一并返回，既保留完整审计轨迹，又保持主会话清爽。
  */
 export class SubagentEventBridge implements EventPort {
+  /** 端口名：子会话事件桥（subagent-bridge）。 */
   public readonly name = 'subagent-bridge';
 
   private readonly collected: SessionEvent[] = [];

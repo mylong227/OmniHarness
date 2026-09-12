@@ -7,8 +7,16 @@ import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/userResp
  * 仅在 TTY 环境（或由调用方显式注入）时有意义；无人值守场景请用 DefaultUserResponder。
  */
 export class ConsoleUserResponder implements UserResponder {
+  /**
+   * 回答器标识：固定为 'console'，用于在多回答器环境区分本交互式控制台实现。
+   */
   public readonly name = 'console';
 
+  /**
+   * 通过 stdin/stdout 逐题向真人提问并收集回答。
+   * @param questions 待提问的结构化问题列表（含 id、问题、可选选项/多选标记）。
+   * @returns 与 questions 同序的回答数组；单选下整行自由输入计入 custom，多选按编号/标签解析。
+   */
   public async ask(questions: readonly AskQuestion[]): Promise<readonly AskAnswer[]> {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answers: AskAnswer[] = [];

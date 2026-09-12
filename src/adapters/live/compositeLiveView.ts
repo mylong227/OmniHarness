@@ -9,30 +9,30 @@ import type { ToolInputSink } from '../../ports/toolInputSink.js';
  * serve 模式下再由 CLI 注入 WebLiveView（广播给 Web UI），实现「同一份增量、多端呈现」。
  */
 export class CompositeLiveView implements ToolInputSink {
-  readonly name = 'composite-live-view';
+  public readonly name = 'composite-live-view';
   private readonly sinks: ToolInputSink[] = [];
 
-  constructor(initial: readonly ToolInputSink[] = []) {
+  public constructor(initial: readonly ToolInputSink[] = []) {
     this.sinks.push(...initial);
   }
 
   /** 追加一个子实时视图（去重）。 */
-  addSink(sink: ToolInputSink): void {
+  public addSink(sink: ToolInputSink): void {
     if (!this.sinks.includes(sink)) this.sinks.push(sink);
   }
 
   /** 移除一个子实时视图。 */
-  removeSink(sink: ToolInputSink): void {
+  public removeSink(sink: ToolInputSink): void {
     const idx = this.sinks.indexOf(sink);
     if (idx >= 0) this.sinks.splice(idx, 1);
   }
 
-  onToolInput(delta: ToolInputDelta): void {
+  public onToolInput(delta: ToolInputDelta): void {
     for (const sink of this.sinks) sink.onToolInput(delta);
   }
 
   /** 文本增量转发（V2.1）：仅转发给声明了该能力的子 sink。 */
-  onTextDelta(text: string): void {
+  public onTextDelta(text: string): void {
     for (const sink of this.sinks) sink.onTextDelta?.(text);
   }
 }

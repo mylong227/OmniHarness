@@ -10,6 +10,7 @@ export interface PolicySandboxOptions {
 
 /** 策略沙箱适配器：危险命令黑名单 + 工作区路径白名单，命中即拒绝（fail-closed）。 */
 export class PolicySandbox implements SandboxPort {
+  /** 适配器名，与端口契约一致：固定为 'policy'。 */
   public readonly name = 'policy';
 
   private readonly guard: WorkspaceGuard;

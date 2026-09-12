@@ -82,24 +82,38 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     this.publicKey = createPublicKey(this.privateKey);
   }
 
+  /** 运行时身份 id：显式配置的 agentRuntimeId，或自动生成的 `omni-<随机 hex>`（跨多次运行复用）。 */
   public runtimeId(): string {
     return this.runtime;
   }
 
+  /** ssh-ed25519 格式公钥：取 SPKI der 末 32 字节原始公钥编码为 `ssh-ed25519 <base64>` 串。 */
   public publicKeySsh(): string {
     const der = this.publicKey.export({ type: 'spki', format: 'der' }) as Buffer;
     return encodeSshEd25519(der);
   }
 
+  /** PKCS#8 der 的 base64 私钥（持久化用，可回传给构造配置在下次运行复用同一身份）。 */
   public privateKeyPkcs8Base64(): string {
     return (this.privateKey.export({ type: 'pkcs8', format: 'der' }) as Buffer).toString('base64');
   }
 
+  /**
+   * 对原始负载做 Ed25519 签名。
+   * @param payload 待签名的 UTF-8 文本。
+   * @returns base64 编码的签名。
+   */
   public sign(payload: string): string {
     const sig = cryptoSign(null, Buffer.from(payload, 'utf8'), this.privateKey);
     return sig.toString('base64');
   }
 
+  /**
+   * 验证原始负载的 base64 签名（fail-closed：签名非法/解码失败返回 false）。
+   * @param payload 原始负载文本。
+   * @param signatureB64 base64 编码的签名。
+   * @returns 验签是否通过。
+   */
   public verify(payload: string, signatureB64: string): boolean {
     try {
       return cryptoVerify(
@@ -113,6 +127,12 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     }
   }
 
+  /**
+   * 签一个任务断言：对 `runtimeId:taskId:当前时间戳` 签名，连同声明打包为
+   * base64url 序列化的信封（时间戳防重放）。
+   * @param taskId 单次运行的任务 id。
+   * @returns base64url 编码的断言信封。
+   */
   public signAssertion(taskId: string): string {
     const timestamp = new Date().toISOString();
     const payload = `${this.runtime}:${taskId}:${timestamp}`;
@@ -126,6 +146,11 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     return Buffer.from(JSON.stringify(envelope), 'utf8').toString('base64url');
   }
 
+  /**
+   * 验一个任务断言信封：解码并验签，成功返回声明（runtime/task/时间戳）。
+   * @param envelopeB64 base64url 编码的断言信封。
+   * @returns 验签通过的声明；格式非法/字段缺失/验签失败一律返回 null（fail-closed）。
+   */
   public verifyAssertion(envelopeB64: string): AgentIdentityClaims | null {
     try {
       const envelope = JSON.parse(
@@ -154,6 +179,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     }
   }
 
+  /** 形如 `AgentAssertion <envelope>` 的授权头（信封由 {@link signAssertion} 生成）。 */
   public authorizationHeader(taskId: string): string {
     return `AgentAssertion ${this.signAssertion(taskId)}`;
   }

@@ -18,11 +18,11 @@ export interface LiveBroadcaster {
  * 让用户在模型「思考出参数」的过程中即看到 JSON 逐字符增长（而非等工具执行完才一次性出现）。
  */
 export class WebLiveView implements ToolInputSink {
-  readonly name = 'web-live-view';
+  public readonly name = 'web-live-view';
 
-  constructor(private readonly broadcaster: LiveBroadcaster) {}
+  public constructor(private readonly broadcaster: LiveBroadcaster) {}
 
-  onToolInput(delta: ToolInputDelta): void {
+  public onToolInput(delta: ToolInputDelta): void {
     this.broadcaster.notify('thread.tool_input', {
       id: delta.id ?? null,
       name: delta.name ?? null,

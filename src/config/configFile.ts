@@ -26,7 +26,12 @@ export interface FileConfig {
   readonly model?: string;
   readonly storageAdapter?: 'memory' | 'jsonl' | 'sqlite';
   readonly storageDir?: string;
-  readonly approval?: 'auto' | 'deny' | 'rules' | 'guardian' | 'ask';
+  /**
+   * 审批档位。`plan` 为只读规划模式（写类工具一律拒绝）——
+   * CLI `--approval plan` 早已支持，此前文件枚举漏了它，导致 UI/配置文件无法选中该档
+   * （argParser 从文件读 approval 时类型上根本容不下 'plan'）。
+   */
+  readonly approval?: 'auto' | 'deny' | 'rules' | 'guardian' | 'ask' | 'plan';
   /** 推理强度（#B6，可选）：minimal / low / medium / high / xhigh，透传为模型 reasoning_effort。 */
   readonly reasoning?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   readonly sandbox?: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';

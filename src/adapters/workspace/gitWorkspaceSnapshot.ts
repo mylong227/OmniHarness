@@ -31,7 +31,9 @@ function git(args: readonly string[], cwd: string): Promise<string> {
   });
 }
 
+/** Git 工作区快照适配器：实现 WorkspaceSnapshotPort，适合 git 仓库内的工作树（按 HEAD 差异捕获/还原）。 */
 export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
+  /** 适配器名，与端口契约一致：固定为 'git'。 */
   public readonly name = 'git';
 
   /** 捕获会话触碰文件相对 HEAD 的差异。 */

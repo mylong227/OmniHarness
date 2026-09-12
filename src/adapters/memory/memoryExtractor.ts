@@ -27,6 +27,7 @@ export interface MemoryExtractorOptions {
  * 通过内部游标避免每回合重复蒸馏同一段历史。
  */
 export class MemoryExtractor implements MemoryExtractorPort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'memory-extractor'）。 */
   public readonly name = 'memory-extractor';
 
   /** 已蒸馏事件数（游标），避免跨回合重复。 */

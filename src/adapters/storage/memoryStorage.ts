@@ -3,6 +3,7 @@ import type { StoragePort } from '../../ports/storage.js';
 
 /** 内存存储适配器：会话事件仅存于进程内（不落盘）。 */
 export class MemoryStorage implements StoragePort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'memory'，不落盘）。 */
   public readonly name = 'memory';
 
   private readonly buckets = new Map<string, SessionEvent[]>();

@@ -171,6 +171,15 @@ export class ArgParser {
     return s.replace(/\//g, '\\');
   }
 
+  /**
+   * 解析 CLI 参数：以 CliDefaults（可被 defaults 覆盖）为基底，逐个消费 argv 中的旗标
+   * （查 FLAG_TABLE 调用处理器；遇 --help 直接返回 undefined），最后把非旗标位置参数
+   * 回填为 prompt（prompt 为空时）。resume/fork 模式必须显式提供 --prompt。
+   * @param argv 原始命令行参数（不含 node 与脚本入口两个元素）
+   * @param defaults 额外默认值（如配置文件合并结果），逐字段覆盖在 CliDefaults 之上
+   * @returns 解析后的完整参数；undefined 表示 --help，或既无 prompt 又无 --replay（无事可做）
+   * @throws resume/fork 模式缺 --prompt 时抛错
+   */
   public parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
     const args: CliArgs = { ...CliDefaults, ...(defaults ?? {}) };
     for (let i = 0; i < argv.length; i += 1) {
@@ -374,7 +383,10 @@ export function toWindowsPath(p: string): string {
 }
 
 /** 解析 CLI 参数（`undefined` 表示 --help 或无任务）。 */
-export function parseArgs(argv: readonly string[], defaults?: Partial<CliArgs>): CliArgs | undefined {
+export function parseArgs(
+  argv: readonly string[],
+  defaults?: Partial<CliArgs>,
+): CliArgs | undefined {
   return argParser.parseArgs(argv, defaults);
 }
 

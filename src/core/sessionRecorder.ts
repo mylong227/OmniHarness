@@ -1,7 +1,12 @@
 import type { SessionEvent } from '../ports/event.js';
 import type { EventPort } from '../ports/eventPort.js';
 import type { RetrievalDoc, RetrievalPort, RetrievalRole } from '../ports/retrieval.js';
-import type { ImageContent, FileAttachment, ModelUsage } from '../ports/model.js';
+import type {
+  ImageContent,
+  FileAttachment,
+  ModelContextSnapshot,
+  ModelUsage,
+} from '../ports/model.js';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { eventFactory } from './eventFactory.js';
 
@@ -36,9 +41,16 @@ export class SessionRecorder {
     return this.record(eventFactory.assistant(this.sid, content, reasoning));
   }
 
-  /** 记录模型调用用量（#S29 / live 跑分成本计量）；modelName 用于按模型统计。 */
-  public usage(usage: ModelUsage, modelName?: string): SessionEvent {
-    return this.record(eventFactory.model(this.sid, usage, modelName));
+  /**
+   * 记录模型调用用量（#S29 / live 跑分成本计量）；modelName 用于按模型统计。
+   * context 可选：本次请求的上下文占用快照（实测），供 UI 容量面板免重算读取。
+   */
+  public usage(
+    usage: ModelUsage,
+    modelName?: string,
+    context?: ModelContextSnapshot,
+  ): SessionEvent {
+    return this.record(eventFactory.model(this.sid, usage, modelName, context));
   }
 
   /** 记录会话元数据（新会话首条：创建时的工作区，供按项目收纳）。 */

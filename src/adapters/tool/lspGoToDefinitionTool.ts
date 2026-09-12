@@ -8,6 +8,10 @@ import { renderLocation, parseTarget } from './lspToolsShared.js';
  * 模型面工具：跳转到符号定义。
  */
 export class LspGoToDefinitionTool {
+  /**
+   * 工具定义：lsp_go_to_definition 工具的名称、描述与参数 schema。
+   * 让模型按文件路径 + 行列跳转到符号定义（需已配置 LSP 服务器）。
+   */
   public readonly definition: ToolDefinition = {
     name: LSP_GO_TO_DEFINITION_TOOL_NAME,
     description:
@@ -25,6 +29,12 @@ export class LspGoToDefinitionTool {
 
   public constructor(private readonly lsp: LspPort) {}
 
+  /**
+   * 执行 lsp_go_to_definition：解析目标位置并委托 LspPort 查询定义。
+   * @param call 模型传入的工具调用（含 file / line / character）。
+   * @param _context 工具执行上下文（本工具不依赖，保留签名兼容）。
+   * @returns 命中定义以 0..n 个 file:line:col 返回；无定义返回提示；LSP 异常返回 ok:false。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const target = parseTarget(call);
     if ('error' in target) {

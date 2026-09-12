@@ -30,7 +30,9 @@ function loadDatabaseSync(): typeof DatabaseSync {
 
 /** SQLite 存储适配器（node:sqlite）：events 表按会话分桶，可替换 JSONL。 */
 export class SqliteStorage implements StoragePort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'sqlite'）。 */
   public readonly name = 'sqlite';
+  /** 底层数据库文件路径（构造时锁定，供诊断与定位）。 */
   public readonly location: string;
 
   private readonly db: DatabaseSync;

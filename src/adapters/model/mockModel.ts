@@ -2,6 +2,7 @@ import type { ModelOutput, ModelPort, ModelRequest } from '../../ports/model.js'
 
 /** 演示用模型适配器：第一步返回工具调用，后续返回最终文本（无需 API Key）。 */
 export class MockModel implements ModelPort {
+  /** 适配器名，与端口契约一致：固定为 'mock'。 */
   public readonly name = 'mock';
 
   private callCount = 0;

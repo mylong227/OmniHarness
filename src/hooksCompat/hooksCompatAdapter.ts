@@ -11,6 +11,7 @@ import { ClaudeCodeHooksMapper } from './claudeCodeHooksMapper.js';
  * 使外部 hooks 消费者无需改动即可消费 OmniHarness 事件流。
  */
 export class HooksCompatAdapter implements EventPort {
+  /** 端口名：hooks 兼容适配器（hooks-compat）。 */
   public readonly name = 'hooks-compat';
 
   private readonly codex = new CodexHooksMapper();

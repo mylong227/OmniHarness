@@ -43,6 +43,7 @@ function toSet(t: SupervisorOptions['hazardousTools']): ReadonlySet<string> {
   return t instanceof Set ? t : new Set(t);
 }
 
+/** 生产级监督内核（FDIR 状态机，详见文件头），实现 {@link SupervisorPort}：滑动窗口健康统计 + 分级降级 + 逐级恢复。 */
 export class SupervisorKernel implements SupervisorPort {
   private readonly windowSize: number;
   private readonly degradeThreshold: number;
@@ -68,6 +69,13 @@ export class SupervisorKernel implements SupervisorPort {
     this.sessionId = options.sessionId;
   }
 
+  /**
+   * 上报一次工具执行结果：写入滑动窗口、更新连续失败计数与最近错误，并重算监督模式（可能触发降级转移）。
+   *
+   * @param tool 工具名。
+   * @param outcome 本次执行结果：'success' 或 'failure'。
+   * @param error 失败时的错误描述（记入健康快照的 lastError）。
+   */
   public report(tool: string, outcome: 'success' | 'failure', error?: string): void {
     const stat = this.stats.get(tool) ?? { window: [], consecutiveFailures: 0 };
     const ok = outcome === 'success';
@@ -87,10 +95,12 @@ export class SupervisorKernel implements SupervisorPort {
     this.evaluate();
   }
 
+  /** 当前监督模式（nominal → degraded → safe → locked 依次更严）。 */
   public mode(): SafeMode {
     return this.currentMode;
   }
 
+  /** 生成健康快照：按各工具滑动窗口算健康分与成败计数，附当前模式与 ISO 时间戳。 */
   public snapshot(): HealthSnapshot {
     const entries: HealthEntry[] = [];
     for (const [tool, stat] of this.stats) {
@@ -111,6 +121,12 @@ export class SupervisorKernel implements SupervisorPort {
     return { mode: this.currentMode, entries, generatedAt: new Date().toISOString() };
   }
 
+  /**
+   * 门禁前拦截（fail-closed，优先级高于 Approval/Sandbox）：safe/locked 模式下危险工具一律否决。
+   *
+   * @param tool 待调用的工具名。
+   * @returns 拒绝理由（即否决）；undefined 表示放行，交回后续门禁裁决。
+   */
   public intercept(tool: string): string | undefined {
     if (this.currentMode === 'locked') {
       if (this.hazardous.has(tool)) {
@@ -125,10 +141,21 @@ export class SupervisorKernel implements SupervisorPort {
     return undefined;
   }
 
+  /**
+   * 订阅模式变更：每次转移（降级或恢复）触发一次回调，附前后模式与切换后的健康快照。
+   *
+   * @param cb 转移回调 (from, to, snapshot)。
+   */
   public onTransition(cb: (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void): void {
     this.listeners.push(cb);
   }
 
+  /**
+   * 主动恢复尝试：仅当全部工具失败率未越 safe 线且无连续失败堆积时回升一级
+   * （locked→safe→degraded→nominal），否则保持原模式（fail-closed 偏严）。
+   *
+   * @returns 恢复后的当前模式（可能未变）。
+   */
   public attemptRecovery(): SafeMode {
     if (this.currentMode === 'nominal') {
       return this.currentMode;

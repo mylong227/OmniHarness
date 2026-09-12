@@ -34,6 +34,7 @@ export interface RlvrStage {
 
 /** 进化控制器实现。 */
 export class EvolutionControllerImpl implements EvolutionController {
+  /** 任务完成后是否自动跑一轮进化（默认 false，确保零破坏旁路）。 */
   public readonly autoRun: boolean;
   private readonly discovery: DiscoveryEngine;
   private readonly gate: EvolutionGate;

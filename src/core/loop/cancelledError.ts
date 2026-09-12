@@ -13,6 +13,7 @@ function describeReason(reason: CancelReason): string {
 
 /** 取消异常：throwIfAborted 抛出，catch 侧可精确识别「取消」与一般错误。 */
 export class CancelledError extends Error {
+  /** 取消原因（结构化分类，供 catch 侧区分「取消」与一般错误并做重试/UI 决策）。 */
   public readonly reason: CancelReason;
   public constructor(reason: CancelReason) {
     super(reason === 'user' ? '已取消（用户中断）' : `已取消: ${describeReason(reason)}`);

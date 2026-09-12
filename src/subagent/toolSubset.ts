@@ -7,6 +7,7 @@ import type { ToolCall, ToolContext, ToolDefinition, ToolPort, ToolResult } from
  * 双保险，模型口述出未授权工具也无法执行。
  */
 export class ToolSubset implements ToolPort {
+  /** 端口名：受限工具子集（subset）。 */
   public readonly name = 'subset';
 
   public constructor(

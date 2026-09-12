@@ -12,6 +12,10 @@ import type { AskOption, AskQuestion, UserResponder } from '../../ports/userResp
  * 走 DefaultUserResponder（fail-soft 返回空选择），测试/前端可注入自定义实现。
  */
 export class AskUserTool {
+  /**
+   * 工具定义：ask_user 工具的名称、描述与参数 schema。
+   * 让模型向用户抛出结构化单选/多选/开放问题，等回答后回灌循环。
+   */
   public readonly definition: ToolDefinition = {
     name: 'ask_user',
     description:
@@ -56,6 +60,12 @@ export class AskUserTool {
     private readonly eventFactory: EventFactoryPort,
   ) {}
 
+  /**
+   * 执行 ask_user 工具调用：校验 questions、经 UserResponder 取回答并广播 question 事件。
+   * @param call 模型传入的工具调用（含 questions 数组）。
+   * @param ctx 工具执行上下文（取 sessionId 用于事件广播）。
+   * @returns 成功时 output 为答案 JSON；questions 非数组或为空时返回 ok:false。
+   */
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['questions'];
     if (!Array.isArray(raw) || raw.length === 0) {

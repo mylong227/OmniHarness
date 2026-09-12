@@ -5,6 +5,7 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sa
  * fail-closed 拒绝并说明原因——绝不谎称已隔离（审计明确 Landlock/seatbelt/bwrap 本环境不适用）。
  */
 export class UnsupportedSandbox implements SandboxPort {
+  /** 适配器名（端口契约），取构造传入的 profile 名。 */
   public readonly name: string;
 
   public constructor(

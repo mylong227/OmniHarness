@@ -12,6 +12,9 @@ export interface AutoEscalationOptions {
 
 /** 自动升级适配器：非危险动作被沙箱拒绝即自动提权重试（省交互）；危险动作仍 abort 不绕过。 */
 export class AutoEscalation implements EscalationPort {
+  /**
+   * 升级器标识：固定为 'auto'，用于区分被沙箱拒绝后自动提权重试的实现。
+   */
   public readonly name = 'auto';
 
   private readonly blockPrefixes: readonly string[];

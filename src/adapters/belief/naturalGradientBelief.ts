@@ -32,6 +32,7 @@ export interface NaturalGradientOptions {
  * 每次更新附 KL 分解（均值漂移 / 方差变化 / 逐维明细）+ 重参数化不变性审计。零依赖、fail-closed。
  */
 export class NaturalGradientBelief implements MetacognitionPort {
+  /** 端口名：自然梯度信念标识，与 MetacognitionPort 契约的命名空间一致。 */
   public readonly name = 'natural-gradient-belief';
   private readonly dim: number;
   private readonly floor: number;
@@ -47,6 +48,10 @@ export class NaturalGradientBelief implements MetacognitionPort {
     this.variance = new Array<number>(this.dim).fill(v0);
   }
 
+  /**
+   * 当前信念快照（对角高斯均值 + 对角方差，返回副本）。
+   * @returns 置信摘要 = 1 − 总方差/(dim·(floor+4))，夹紧到 0..1（方差越小越确信）。
+   */
   public snapshot(): BeliefSnapshot {
     const totalVar = this.variance.reduce((a, b) => a + b, 0);
     // 置信摘要：方差越小越确信（归一化到 0..1，初始方差尺度为参考）。
@@ -58,6 +63,12 @@ export class NaturalGradientBelief implements MetacognitionPort {
     };
   }
 
+  /**
+   * 自然梯度步进：均值按 Δμ = η·σ²·g（逆 Fisher 度规 = 逆对角协方差）预处理后更新，方差不变。
+   * @param gradient 梯度向量（缺失维度按 0 处理）。
+   * @param learningRate 学习率 η（默认 0.1，负值夹紧为 0）。
+   * @returns 可审计 KL 分解报告（before/after/KL 分解/重参数化不变性审计）。
+   */
   public naturalStep(gradient: readonly number[], learningRate = 0.1): BeliefUpdateReport {
     const before = this.snapshot();
     // 自然梯度：Δμ = η · F⁻¹ · g，对角 Fisher F=diag(1/σ²) ⇒ F⁻¹g = σ²·g。
@@ -69,6 +80,13 @@ export class NaturalGradientBelief implements MetacognitionPort {
     return this.report(before);
   }
 
+  /**
+   * 贝叶斯高斯观测修正：按精度（1/方差 + 1/噪声²）加权闭式更新均值与方差，
+   * 后验更集中；更新后方差夹紧不低于地板。
+   * @param observation 观测向量（缺失维度按 0 处理）。
+   * @param observationNoise 观测噪声（标准差，默认 1；平方后夹紧不低于方差地板）。
+   * @returns 可审计 KL 分解报告。
+   */
   public correct(observation: readonly number[], observationNoise = 1): BeliefUpdateReport {
     const before = this.snapshot();
     const noise2 = Math.max(this.floor, observationNoise * observationNoise);

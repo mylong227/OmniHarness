@@ -36,6 +36,7 @@ const BY_TASK_REASON_PATTERN = /推理|分析|为什么|reason|analyze/i;
  * fail-closed：entry 为空、策略非法、或 health-fallback 全失败时一律安全报错，不静默放行。
  */
 export class ModelRouter implements ModelPort {
+  /** 适配器名，与端口契约一致：固定为 'model-router'。 */
   public readonly name = 'model-router';
 
   /** 轮询游标。 */

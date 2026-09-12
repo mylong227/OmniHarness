@@ -59,6 +59,7 @@ export interface JsonlRuntimeTelemetryOptions {
  * `read` 返回 []、`verify` 返回 `{ ok: true, count: 0 }`——即零破坏旁路。
  */
 export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
+  /** 端口名：JSONL 遥测 sink 标识，与 RuntimeTelemetryPort 契约的命名空间一致。 */
   public readonly name = 'jsonl-runtime-telemetry';
   private readonly target: string | undefined;
   /** 已写入的最大链序号。 */

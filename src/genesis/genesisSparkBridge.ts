@@ -62,6 +62,13 @@ export class GenesisSparkBridge {
 
   public constructor(private readonly engines: SparkEngines) {}
 
+  /**
+   * 执行一次自适应编排 cycle：由工况信号纯函数推导 regime 并规划算子发射顺序，
+   * 依次执行各算子（每笔成本记入本次新建的 Ledger 并 commit），把有报告的算子结果
+   * 按同构映射写入 SparkCycleReport 字段，账本存入 lastLedger 供守恒校验。
+   * @param signals 当前工况信号（熵、模态数、成功率等）
+   * @returns 与 SparkController.cycle() 同构的周期报告；无任何引擎产出时 ran=false
+   */
   public cycle(signals: RegimeSignals): SparkCycleReport {
     const regime = deriveRegime(signals);
     const order = planHarnessRegime(regime);

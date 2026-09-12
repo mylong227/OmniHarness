@@ -15,6 +15,7 @@ type CipherPayload = { iv: string; cipher: string; tag: string };
  * 满足"node:crypto 加密存储 + 环境变量回退"，可复用任意 {@link KvPort} 后端。
  */
 export class CryptoVault implements VaultPort {
+  /** 端口名：加密凭据后端标识，与 VaultPort 契约的适配器命名空间一致。 */
   public readonly name = 'crypto';
 
   private readonly kv: KvPort;
@@ -101,6 +102,12 @@ export class CryptoVault implements VaultPort {
     this.cache.set(name, payload);
   }
 
+  /**
+   * 读取凭据并 AES-256-GCM 解密。
+   * @param name 凭据名（即底层 KV 的键）。
+   * @returns 解密后的明文；底层 KV 无此条目返回 undefined。
+   * @throws 密文格式损坏或 GCM 认证标签校验失败时抛错（fail-closed，不返回错误明文）。
+   */
   public async getSecret(name: string): Promise<string | undefined> {
     const payload = await this.readPayload(name);
     if (payload === undefined) {
@@ -116,6 +123,12 @@ export class CryptoVault implements VaultPort {
     return plain.toString('utf8');
   }
 
+  /**
+   * 写入（或覆盖）凭据：每次生成随机 12 字节 IV，AES-256-GCM 加密后以
+   * `iv:cipher:tag` 密文落入底层 KV，并刷新本地明文密文缓存。
+   * @param name 凭据名。
+   * @param value 明文值。
+   */
   public async setSecret(name: string, value: string): Promise<void> {
     const key = await this.getKey();
     const iv = randomBytes(12);
@@ -128,20 +141,28 @@ export class CryptoVault implements VaultPort {
     });
   }
 
+  /**
+   * 删除凭据：委托底层 KV 删除，并同步失效本地缓存条目。
+   * @param name 凭据名。
+   * @returns 存在且删除成功返回 true，不存在返回 false。
+   */
   public async deleteSecret(name: string): Promise<boolean> {
     const existed = await this.kv.delete(name);
     this.cache.delete(name);
     return existed;
   }
 
+  /** 凭据是否存在（仅查底层 KV 是否有该键，不解密）。 */
   public async hasSecret(name: string): Promise<boolean> {
     return this.kv.has(name);
   }
 
+  /** 列出全部凭据名（即底层 KV 全部键，不泄露值）。 */
   public async listSecrets(): Promise<readonly string[]> {
     return this.kv.keys();
   }
 
+  /** 清空明文缓存与主密钥引用并关闭底层 KV（不删除密钥文件）。 */
   public async close(): Promise<void> {
     this.cache.clear();
     this.key = undefined;

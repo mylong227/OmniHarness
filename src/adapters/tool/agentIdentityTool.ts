@@ -16,6 +16,10 @@ export const AGENT_IDENTITY_TOOL_NAME = 'agent_identity';
  * @beta
  */
 export class AgentIdentityTool {
+  /**
+   * 工具定义：agent_identity 工具的名称、描述与参数 schema。
+   * 暴露本 runtime 的 Ed25519 密码学身份能力，支持 show / sign / verify / sign_assertion / verify_assertion 五种操作。
+   */
   public readonly definition: ToolDefinition;
 
   public constructor(private readonly identity: AgentIdentityPort) {
@@ -42,6 +46,12 @@ export class AgentIdentityTool {
     };
   }
 
+  /**
+   * 执行 agent_identity 工具调用，按 operation 分发到身份端口。
+   * @param call 模型传入的工具调用（含 operation 及相应载荷参数）。
+   * @param _ctx 工具执行上下文（本工具不依赖，保留签名兼容）。
+   * @returns 签名/验签结果或身份信息；解析或执行异常时返回 ok:false 并附带错误信息。
+   */
   public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
     const op = String(call.arguments['operation'] ?? 'show');
     try {

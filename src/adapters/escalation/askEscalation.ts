@@ -12,6 +12,9 @@ export interface AskEscalationOptions {
 
 /** 询问式升级审批适配器：提权与否完全由 askHandler 决定（不预设策略）。 */
 export class AskEscalation implements EscalationPort {
+  /**
+   * 升级器标识：固定为 'ask'，用于在多升级后端中区分交互式提权实现。
+   */
   public readonly name = 'ask';
 
   private readonly askHandler: (request: EscalationRequest) => Promise<EscalationDecision>;

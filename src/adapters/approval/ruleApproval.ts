@@ -10,6 +10,9 @@ export interface RuleApprovalOptions {
 
 /** 规则审批适配器：deny 优先 → ask 次之 → allow → 默认决策（缺省 deny，fail-closed）。 */
 export class RuleApproval implements ApprovalPort {
+  /**
+   * 审批器标识：固定为 'rules'，用于区分基于规则集的审批实现。
+   */
   public readonly name = 'rules';
 
   private readonly defaultDecision: ApprovalRuleDecision;

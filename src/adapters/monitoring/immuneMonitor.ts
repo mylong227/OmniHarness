@@ -30,6 +30,7 @@ const MIN_TRAIN = 4;
  * 零运行时依赖；与规则阈值监控在代数上不同——这是学习型自体分布监控（市面唯一）。
  */
 export class ImmuneMonitor implements ImmuneMonitorPort {
+  /** 端口名：免疫异常监控标识，与 ImmuneMonitorPort 契约的命名空间一致。 */
   public readonly name = 'immune-monitor';
   private readonly threshold: number;
   private readonly accelStep: number;
@@ -50,6 +51,10 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     this.sessionId = opts.sessionId;
   }
 
+  /**
+   * 用正常行为样本训练自体检测器：Welford 在线估计各维均值/方差（自体分布基线）。
+   * @param sample 单个正常行为特征样本（训练样本数达 4 后 observe 才有基线可用）。
+   */
   public train(sample: readonly number[]): void {
     // Welford：每样本 n 仅 +1（不可按维度累加，否则多维样本会倍数膨胀自体规模）。
     this.n++;
@@ -66,6 +71,13 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     }
   }
 
+  /**
+   * 观察一个行为样本：取与自体分布各维 z 距离的最大值为异常度，超过有效阈值（记忆细胞
+   * 按偏离签名下调后）即告警——告警写入 AuditSink 并记为 lastAnomaly；同签名二次出现阈值
+   * 进一步下调（加速响应）。无自体基线（训练样本 <4）返回 null。
+   * @param sample 行为特征样本。
+   * @returns 异常告警（异常度/签名/严重度）；正常或无基线返回 null。
+   */
   public observe(sample: readonly number[]): AnomalyAlert | null {
     if (this.n < MIN_TRAIN || this.dim === 0) return null; // 无自体基线
     let score = 0;
@@ -95,6 +107,7 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     return alert;
   }
 
+  /** 自检：返回自体模型训练样本数与最近一次观测到的异常（无则 null）。 */
   public selfCheck(): ImmuneSelfReport {
     return { selfSize: this.n, lastAnomaly: this.lastAnomaly };
   }

@@ -26,6 +26,7 @@ const EXTRA_RESTRICTED: readonly RegExp[] = [
 
 /** 受限沙箱适配器：policy 全部规则 + 网络外联/提权命令黑名单，命中即拒绝（fail-closed）。 */
 export class RestrictedSandbox implements SandboxPort {
+  /** 适配器名，与端口契约一致：固定为 'restricted'。 */
   public readonly name = 'restricted';
 
   private readonly guard: WorkspaceGuard;

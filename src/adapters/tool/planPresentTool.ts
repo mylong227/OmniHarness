@@ -10,6 +10,10 @@ import type { EventFactoryPort } from '../../ports/eventFactory.js';
  * 这是计划协作态的"出口"——批准前 ToolGate 拦截所有 mutating 工具。
  */
 export class PlanPresentTool {
+  /**
+   * 工具定义：plan_present 工具的名称、描述与参数 schema。
+   * 将当前计划呈现给用户审批，批准前 ToolGate 拦截所有 mutating 工具。
+   */
   public readonly definition: ToolDefinition = {
     name: 'plan_present',
     description:
@@ -24,6 +28,12 @@ export class PlanPresentTool {
     private readonly eventFactory: EventFactoryPort,
   ) {}
 
+  /**
+   * 执行 plan_present：呈现计划、征求 approve/reject 并据答复推进计划态。
+   * @param call 模型传入的工具调用（本工具无参数）。
+   * @param ctx 工具执行上下文（取 sessionId 用于广播 plan 事件）。
+   * @returns 批准则解除门禁；无计划或回答缺失返回 ok:false；驳回给出重新规划提示。
+   */
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const current = this.plan.get();
     if (current === null) {

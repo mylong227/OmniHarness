@@ -11,6 +11,9 @@ export interface GuardianApprovalOptions {
 
 /** Guardian 审批适配器：预检命中直判，未命中送 LLM 审查（移植 Codex guardian 思路，异常即拒绝）。 */
 export class GuardianApproval implements ApprovalPort {
+  /**
+   * 审批器标识：固定为 'guardian'，用于区分送 LLM 审查的 Guardian 实现。
+   */
   public readonly name = 'guardian';
 
   private readonly preDenyPatterns: readonly RegExp[];

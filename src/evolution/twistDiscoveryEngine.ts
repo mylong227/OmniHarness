@@ -51,10 +51,17 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
     this.pairs = pairs;
   }
 
+  /** 当前预算消耗：generated=已生成候选数，maxCandidates=构造时给定的硬上限。 */
   public budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
     return { generated: this.generated, maxCandidates: this.maxCandidates };
   }
 
+  /**
+   * 生成下一批候选：沿构造时预计算的技能无序配对（i<j）逐个游标推进，
+   * 每对经燧-1 组合算子产出组合技能，直到触及 maxCandidates 硬预算或配对用尽；
+   * 副作用为推进游标并累计 generated（绝不超出预算）。
+   * @returns 新生成的候选列表；空数组 = 预算耗尽或配对空间已用尽
+   */
   public nextCandidates(): Candidate[] {
     const out: Candidate[] = [];
     while (this.cursor < this.pairs.length && this.generated < this.maxCandidates) {

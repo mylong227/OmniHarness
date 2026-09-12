@@ -7,6 +7,10 @@ import type { CostBudget } from '../model/costBudget.js';
  * 仅当配置了 `costBudgetUsd` 时注册。
  */
 export class BudgetStatusTool {
+  /**
+   * 工具定义：budget_status 工具的名称、描述与参数 schema。
+   * 让模型自查当前成本预算（上限/已花费/剩余/token/是否熔断），临近硬预算时主动收敛用量。
+   */
   public readonly definition: ToolDefinition = {
     name: 'budget_status',
     description:

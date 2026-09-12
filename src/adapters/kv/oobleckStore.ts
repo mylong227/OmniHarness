@@ -32,6 +32,7 @@ export interface OobleckStoreOptions {
 
 /** 非牛顿固化存储：提交由冲击涌现，冻结后不可变。 */
 export class OobleckStore implements OobleckPort {
+  /** 端口名：非牛顿固化存储标识，与 OobleckPort 契约的适配器命名空间一致。 */
   public readonly name = 'oobleck';
 
   private readonly kv: KvPort;
@@ -42,6 +43,15 @@ export class OobleckStore implements OobleckPort {
     this.yieldStress = options.yieldStress ?? 0.6;
   }
 
+  /**
+   * 以冲击幅度提议写入：已冻结 → 拒绝（accepted=false，reason='frozen'）；
+   * `impact ≥ yieldStress` → 提交并永久冻结（reason='yield'，冻结涌现自冲击而非显式调用）；
+   * 否则液态覆盖、状态松弛（reason='liquid'）。
+   * @param key 逻辑键（落底层 KV 时自动加 `oobleck:` 前缀）。
+   * @param value 待写入值。
+   * @param impact 本次写入的冲击幅度，与屈服应力阈值比较。
+   * @returns 写入结果（是否接受、是否导致冻结、原因）。
+   */
   public async propose(key: string, value: string, impact: number): Promise<OobleckWriteResult> {
     const stored = await this.readStored(key);
     if (stored !== undefined && stored.rig >= 1) {
@@ -64,6 +74,7 @@ export class OobleckStore implements OobleckPort {
     return { accepted: true, frozen: false, reason: 'liquid' };
   }
 
+  /** 读取记录（含值、冻结态与本实例的屈服应力阈值）；不存在返回 undefined。 */
   public async get(key: string): Promise<OobleckRecord | undefined> {
     const stored = await this.readStored(key);
     if (stored === undefined) {
@@ -72,11 +83,13 @@ export class OobleckStore implements OobleckPort {
     return { value: stored.value, frozen: stored.rig >= 1, yieldStress: this.yieldStress };
   }
 
+  /** 是否已冻结（rig≥1）；键不存在亦为 false。 */
   public async isFrozen(key: string): Promise<boolean> {
     const stored = await this.readStored(key);
     return stored !== undefined && stored.rig >= 1;
   }
 
+  /** 删除：液态下允许并返回底层删除结果；冻结后不可变，fail-closed 拒绝返回 false。 */
   public async delete(key: string): Promise<boolean> {
     const stored = await this.readStored(key);
     if (stored !== undefined && stored.rig >= 1) {
@@ -86,6 +99,7 @@ export class OobleckStore implements OobleckPort {
     return this.kv.delete(KEY_PREFIX + key);
   }
 
+  /** 关闭底层 KvPort，释放其后端资源。 */
   public async close(): Promise<void> {
     await this.kv.close();
   }

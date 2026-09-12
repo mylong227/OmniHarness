@@ -21,6 +21,7 @@ import { rankWithDecay, type ScoredFact } from './timeDecay.js';
  * 燧-3 从"端口"变为"真能力"，无需改动任何核心逻辑。
  */
 export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryPort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'resonant-memory'）。 */
   public readonly name = 'resonant-memory';
 
   private readonly spectra = new Map<string, Spectrum>();
@@ -41,6 +42,7 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     this.dirty = false;
   }
 
+  /** 以频谱探针做共振寻址，返回按共振度降序的 top-k 命中（脏时惰性重建本征谱；k≤0 返回空）。 */
   public resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
     if (k <= 0) return [];
     if (this.dirty) this.rebuild();
@@ -54,6 +56,7 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     return hits.slice(0, k);
   }
 
+  /** 将查询文本映射为频谱探针后调用共振寻址，返回 top-k 命中。 */
   public resonateByText(query: string, k: number): readonly ResonantHit[] {
     return this.resonate(eigenSpectrum(query, this.bins), k);
   }
@@ -79,6 +82,7 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
 
+  /** 返回全部事实（委托 base 标准读）。 */
   public all(): readonly MemoryFact[] {
     return this.base.all();
   }
@@ -87,16 +91,19 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     return this.base.count;
   }
 
+  /** 按 id 取出事实（委托 base）；缺失返回 undefined。 */
   public get(id: string): MemoryFact | undefined {
     return this.base.get(id);
   }
 
+  /** 更新事实（委托 base），成功后标记脏以待下次重建本征谱；返回是否成功。 */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.base.update(id, patch);
     if (ok) this.dirty = true;
     return ok;
   }
 
+  /** 删除事实（委托 base），成功后标记脏；返回是否删除成功。 */
   public delete(id: string): boolean {
     const ok = this.base.delete(id);
     if (ok) this.dirty = true;

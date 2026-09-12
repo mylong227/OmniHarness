@@ -23,31 +23,40 @@ export class WebSocketSdkSocket implements SdkSocket {
   public constructor(private readonly socket: MinimalWebSocket) {}
 
   /** 连接指定 URL（缺省实现取全局 WebSocket）。 */
-  public static connect(url: string, factory?: (url: string) => MinimalWebSocket): WebSocketSdkSocket {
+  public static connect(
+    url: string,
+    factory?: (url: string) => MinimalWebSocket,
+  ): WebSocketSdkSocket {
     const creator = factory ?? globalWebSocketFactory();
     return new WebSocketSdkSocket(creator(url));
   }
 
+  /** 发送文本帧：原样转发给底层 WebSocket。 */
   public send(text: string): void {
     this.socket.send(text);
   }
 
+  /** 关闭底层 WebSocket 连接。 */
   public close(): void {
     this.socket.close();
   }
 
+  /** 订阅连接建立：open 事件即触发 handler。 */
   public onOpen(handler: () => void): void {
     this.socket.onopen = () => handler();
   }
 
+  /** 订阅入站消息：message 事件的 data 经 String() 归一为文本后交给 handler。 */
   public onMessage(handler: (text: string) => void): void {
     this.socket.onmessage = (event) => handler(String(event.data));
   }
 
+  /** 订阅连接关闭：close 事件即触发 handler（无事件参数）。 */
   public onClose(handler: () => void): void {
     this.socket.onclose = () => handler();
   }
 
+  /** 订阅错误：error 事件为 Error 时原样回调，否则包装为 new Error('WebSocket 错误')。 */
   public onError(handler: (error: Error) => void): void {
     this.socket.onerror = (event) =>
       handler(event instanceof Error ? event : new Error('WebSocket 错误'));

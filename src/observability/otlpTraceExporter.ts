@@ -42,6 +42,7 @@ export interface OtlpExporterOptions {
  * 默认 fetch 为全局 fetch；无端点时见 {@link NoopTraceExporter}。
  */
 export class OtlpTraceExporter implements TraceExporterPort {
+  /** 端口标识：固定为 'otlp'。 */
   public readonly name = 'otlp';
   private readonly endpoint: string;
   private readonly serviceName: string;
@@ -56,6 +57,12 @@ export class OtlpTraceExporter implements TraceExporterPort {
     this.maxBatch = options.maxBatch ?? 64;
   }
 
+  /**
+   * 导出一批 span：先入缓冲，攒到 maxBatch（缺省 64）即触发一次 {@link flush}。
+   *
+   * @param spans 待导出的 span 列表。
+   * @returns 缓冲/刷新完成的 Promise（网络失败静默，不抛错）。
+   */
   public async export(spans: readonly Span[]): Promise<void> {
     this.buffer.push(...spans);
     if (this.buffer.length >= this.maxBatch) {
@@ -63,6 +70,12 @@ export class OtlpTraceExporter implements TraceExporterPort {
     }
   }
 
+  /**
+   * 刷新缓冲：把缓冲中的 span 组装为 OTLP resourceSpans JSON，POST 到 Collector（5 秒超时）。
+   * 缓冲为空直接返回；发送失败静默丢弃该批（可观测性不得反噬业务）。
+   *
+   * @returns 发送结束后（无论成败）resolve 的 Promise。
+   */
   public async flush(): Promise<void> {
     if (this.buffer.length === 0) {
       return;
@@ -72,7 +85,9 @@ export class OtlpTraceExporter implements TraceExporterPort {
     const body = {
       resourceSpans: [
         {
-          resource: { attributes: [{ key: 'service.name', value: { stringValue: this.serviceName } }] },
+          resource: {
+            attributes: [{ key: 'service.name', value: { stringValue: this.serviceName } }],
+          },
           scopeSpans: [{ scope: { name: this.serviceName }, spans: batch }],
         },
       ],
@@ -92,7 +107,10 @@ export class OtlpTraceExporter implements TraceExporterPort {
 
 /** 无操作导出器（未配置端点时默认）。 */
 export class NoopTraceExporter implements TraceExporterPort {
+  /** 端口标识：固定为 'noop'。 */
   public readonly name = 'noop';
+  /** no-op：span 仅本地丢弃，立即 resolve。 */
   public async export(_spans: readonly Span[]): Promise<void> {}
+  /** no-op：无缓冲，立即 resolve。 */
   public async flush(): Promise<void> {}
 }

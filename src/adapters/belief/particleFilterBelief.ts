@@ -60,6 +60,7 @@ function randn(rng: () => number): number {
  * 零依赖、可复现（种子化 PRNG）。
  */
 export class ParticleFilterBelief implements MetacognitionPort {
+  /** 端口名：粒子滤波信念标识，与 MetacognitionPort 契约的命名空间一致。 */
   public readonly name = 'particle-filter-belief';
   private readonly dim: number;
   private readonly n: number;
@@ -113,6 +114,10 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return { mean, variance, ess };
   }
 
+  /**
+   * 当前信念快照：粒子集按权值加权拟合的对角高斯（均值/方差）。
+   * @returns 置信摘要 = ESS/N（有效样本比，权重健康度；权值均衡→1，单粒子主导→趋 0）。
+   */
   public snapshot(): BeliefSnapshot {
     const { mean, variance, ess } = this.fit();
     // 置信摘要 = 有效样本比 ESS/N（权重健康度，粒子滤波标准退化度量）：
@@ -122,6 +127,13 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return { mean, variance, confidence };
   }
 
+  /**
+   * 观测修正：按高斯似然重加权粒子（log 域稳定归一化，防 exp 下溢）；有效样本数 ESS
+   * 低于重采样阈值时系统重采样。fail-closed：观测离所有粒子极远（似然全溢出）时权值保持均匀、不崩溃。
+   * @param observation 观测向量（缺失维度按 0 处理）。
+   * @param observationNoise 观测噪声（标准差，默认 1）。
+   * @returns 可审计 KL 分解报告。
+   */
   public correct(observation: readonly number[], observationNoise = 1): BeliefUpdateReport {
     const before = this.snapshot();
     const noise2 = Math.max(1e-6, observationNoise * observationNoise);
@@ -156,6 +168,12 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return this.report(before);
   }
 
+  /**
+   * 粒子版自然梯度上升：每个粒子沿梯度推进一步，并叠加按各维标准差缩放的随机抖动（种子化 PRNG，可复现）。
+   * @param gradient 梯度向量（缺失维度按 0 处理）。
+   * @param learningRate 步进学习率（默认 0.1，负值夹紧为 0）。
+   * @returns 可审计 KL 分解报告。
+   */
   public naturalStep(gradient: readonly number[], learningRate = 0.1): BeliefUpdateReport {
     const before = this.snapshot();
     const lr = Math.max(0, learningRate);

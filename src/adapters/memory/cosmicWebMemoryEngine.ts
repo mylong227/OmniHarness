@@ -58,6 +58,7 @@ function avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {
  * 构建边权。零运行时依赖。
  */
 export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'cosmic-web-memory'）。 */
   public readonly name = 'cosmic-web-memory';
   private readonly memory: LongTermMemoryPort;
   private readonly adhesionThreshold: number;
@@ -84,6 +85,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     }
   }
 
+  /** 写入事实：Burgers 黏附巩固——与某节点共振≥黏附阈值则不可逆并入该节点（去重、不写新条目），否则建新节点落盘。 */
   public remember(fact: MemoryFact): void {
     const s = eigenSpectrum(fact.text, this.bins);
     let bestId: string | undefined;
@@ -107,6 +109,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     this.nodes.set(fact.id, { repId: fact.id, centroid: s, members: [fact.id], text: fact.text });
   }
 
+  /** RG 粗粒化坍缩：节点数超 Bekenstein 容量界时反复合并最小簇与最近大簇（删二写一），返回坍缩报告。 */
   public consolidate(): WebConsolidationReport {
     let collapsed = 0;
     while (this.nodes.size > this.bekensteinCap) {
@@ -158,6 +161,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     return { nodes: this.nodes.size, collapsed, fibers: this.computeFibers() };
   }
 
+  /** 纤维召回：发射频谱探针，返回共振最强节点中最多 k 条成员事实（k≤0 返回空）。 */
   public fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
     if (k <= 0) return [];
     let bestId: string | undefined;
@@ -194,18 +198,22 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
   }
 
   // ── LongTermMemoryPort 委托（drop-in 替换） ──
+  /** 召回：委托底层记忆的标准 recall（共振重排由 base 负责）。 */
   public recall(query: string, k: number): readonly MemoryFact[] {
     return this.memory.recall(query, k);
   }
+  /** 返回全部事实（委托 base 标准读）。 */
   public all(): readonly MemoryFact[] {
     return this.memory.all();
   }
   public get count(): number {
     return this.memory.count;
   }
+  /** 按 id 取出事实（委托 base）；缺失返回 undefined。 */
   public get(id: string): MemoryFact | undefined {
     return this.memory.get(id);
   }
+  /** 更新事实（委托 base）；若 patch 提供新文本则同步刷新该节点质心（目录谱）。 */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.memory.update(id, patch);
     if (ok) {
@@ -220,6 +228,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     }
     return ok;
   }
+  /** 删除事实（委托 base），成功后清理对应节点；返回是否删除成功。 */
   public delete(id: string): boolean {
     const ok = this.memory.delete(id);
     if (ok) this.nodes.delete(id);

@@ -11,6 +11,10 @@ const DEFAULT_LIMIT = 5;
  * 命中结果同时登记进 `ToolDiscovery`，使被延迟加载（deferred）的工具在后续回合对模型可见、可被调用。
  */
 export class ToolSearchTool {
+  /**
+   * 工具定义：tool_search 工具的名称、描述与参数 schema。
+   * 按自然语言检索最相关工具 schema；被延迟加载工具经本工具发现后后续回合可见、可调用。
+   */
   public readonly definition: ToolDefinition = {
     name: 'tool_search',
     description:

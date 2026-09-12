@@ -41,10 +41,17 @@ export class HttpA2aTransport implements A2aTransport {
     await assertNotSsrf(this.endpoint, this.ssrf);
   }
 
+  /** 订阅入站消息：注册回调，HTTP 响应解析为 JSON-RPC 后经此回传（供 A2aClient 按 id 关联）。 */
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
+  /**
+   * 发送一条消息：向端点 POST JSON-RPC，响应解析后经 {@link onMessage} 回传。
+   * 发送前同步做 SSRF 字面量拦截，命中即丢弃不发（fail-closed）；网络错误静默吞掉，由上层超时兜底。
+   *
+   * @param message 待发送的 JSON-RPC 消息（请求/响应/通知）。
+   */
   public send(message: RpcMessage): void {
     // 发送前同步拦截（字面量判定，零网络开销）；命中即不发请求（fail-closed）。
     const verdict = inspectUrl(this.endpoint, this.ssrf);
@@ -68,6 +75,7 @@ export class HttpA2aTransport implements A2aTransport {
       });
   }
 
+  /** 关闭传输：客户端无持久连接（fetch 单次请求即弃），no-op。 */
   public close(): void {}
 }
 
@@ -77,10 +85,17 @@ export class HttpA2aServerTransport implements A2aTransport {
   private readonly resolvers = new Map<number | string, (m: RpcMessage) => void>();
   private server: http.Server | undefined;
 
+  /** 订阅入站消息：注册处理回调，服务端收到的 POST /a2a 请求体经此转交（如 A2aServer 处理）。 */
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
 
+  /**
+   * 发送一条消息：按 JSON-RPC id 关联到挂起的 HTTP 请求并以其回写响应。
+   * 无匹配 id（通知/未知 id）时静默丢弃。
+   *
+   * @param message 待回写的 JSON-RPC 消息（须携带 id 才能关联）。
+   */
   public send(message: RpcMessage): void {
     if ('id' in message) {
       const r = this.resolvers.get(message.id);
@@ -136,6 +151,7 @@ export class HttpA2aServerTransport implements A2aTransport {
     });
   }
 
+  /** 关闭传输：停止 HTTP 服务监听，释放端口。 */
   public close(): void {
     this.server?.close();
   }

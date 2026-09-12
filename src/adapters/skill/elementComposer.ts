@@ -25,7 +25,9 @@ const DEFAULT_TABLE: readonly ElementDef[] = [
   { symbol: 'He', group: 'noble', valence: 0, tags: ['neutral', 'isolate'] },
 ];
 
+/** 元素组合基元引擎：实现 {@link ElementComposerPort}，以化合价互补判定组合合法性。 */
 export class ElementComposer implements ElementComposerPort {
+  /** 端口名：元素组合基元标识，与 ElementComposerPort 契约的命名空间一致。 */
   public readonly name = 'element-composer';
   private readonly table: Map<string, ElementDef>;
 
@@ -33,10 +35,18 @@ export class ElementComposer implements ElementComposerPort {
     this.table = new Map(table.map((e) => [e.symbol, e]));
   }
 
+  /** 元素周期表（构造时注册的有限基元集）。 */
   public elements(): readonly ElementDef[] {
     return [...this.table.values()];
   }
 
+  /**
+   * 两元素是否价互补（valence 相加为 0）。
+   * @param a 元素符号。
+   * @param b 元素符号。
+   * @returns 是否可组合。
+   * @throws 任一符号不在周期表中时抛错（fail-closed，配置错误）。
+   */
   public compatible(a: string, b: string): boolean {
     const ea = this.table.get(a);
     const eb = this.table.get(b);
@@ -46,6 +56,12 @@ export class ElementComposer implements ElementComposerPort {
     return ea.valence + eb.valence === 0;
   }
 
+  /**
+   * 组合元素基元：相邻元素两两价互补 → 复合能力（符号拼接、能力标签并集去重）。
+   * @param symbols 参与组合的元素符号序列（按化合顺序排列）。
+   * @returns 复合能力；少于两个元素或任一相邻对价不互补返回 undefined（组合不合法）。
+   * @throws 任一符号不在周期表中时抛错（fail-closed，配置错误）。
+   */
   public compose(symbols: readonly string[]): CompoundCapability | undefined {
     if (symbols.length < 2) return undefined; // 单元素不构成"组合"
     const defs: ElementDef[] = [];

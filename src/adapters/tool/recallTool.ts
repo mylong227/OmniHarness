@@ -9,6 +9,10 @@ const DEFAULT_RECALL_LIMIT = 5;
  * 使模型在新会话里"想起"此前的偏好/约定/决策/坑。
  */
 export class RecallTool {
+  /**
+   * 工具定义：recall 工具的名称、描述与参数 schema。
+   * 从长期记忆（跨会话持久事实）按自然语言召回条目，用于新会话对齐既有约定。
+   */
   public readonly definition: ToolDefinition = {
     name: 'recall',
     description:

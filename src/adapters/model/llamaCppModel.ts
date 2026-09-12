@@ -33,6 +33,7 @@ export interface LlamaCppConfig {
  * 本地模型（Ollama / llama.cpp 原生 `/api/chat`）适配器。
  */
 export class LlamaCppModel implements ModelPort {
+  /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
   private readonly config: LlamaCppConfig;
 

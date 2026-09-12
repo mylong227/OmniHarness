@@ -20,6 +20,7 @@ import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
  * 这正是零依赖铁律下接入 LSP 的唯一合规方式。
  */
 export class LspProcessAdapter implements LspPort {
+  /** 端口名（便于调试/状态展示）：固定为 'lsp-process'。 */
   public readonly name = 'lsp-process';
 
   private conn: LspJsonRpcConnection | undefined;
@@ -36,7 +37,11 @@ export class LspProcessAdapter implements LspPort {
    * @param character 编辑器 1-based 列号
    * @returns 定义位置列表（1-based 坐标）
    */
-  public async definition(file: string, line: number, character: number): Promise<readonly LspLocation[]> {
+  public async definition(
+    file: string,
+    line: number,
+    character: number,
+  ): Promise<readonly LspLocation[]> {
     return this.requestNav('textDocument/definition', file, line, character);
   }
 
@@ -48,7 +53,11 @@ export class LspProcessAdapter implements LspPort {
    * @param character 编辑器 1-based 列号
    * @returns 引用位置列表（1-based 坐标）
    */
-  public async references(file: string, line: number, character: number): Promise<readonly LspLocation[]> {
+  public async references(
+    file: string,
+    line: number,
+    character: number,
+  ): Promise<readonly LspLocation[]> {
     return this.requestNav('textDocument/references', file, line, character, {
       includeDeclaration: true,
     });

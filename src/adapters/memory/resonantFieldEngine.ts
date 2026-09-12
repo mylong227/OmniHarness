@@ -58,6 +58,7 @@ function clamp(v: number, lo: number, hi: number): number {
 export class ResonantFieldEngine
   implements ResonantFieldPort, ResonantMemoryPort, CosmicWebPort, LongTermMemoryPort
 {
+  /** 端口名；本类同时实现共振场/共振寻址/宇宙网/长期记忆四端口，共用此命名空间。 */
   public readonly name = 'resonant-field';
 
   /** 单一频谱索引（消除双重频谱）。 */
@@ -109,6 +110,11 @@ export class ResonantFieldEngine
 
   // ── 写入：Burgers 黏附去重 + 建簇 ──
 
+  /**
+   * 写入一条事实：已知 id 仅刷新频谱索引；新事实与既有簇共振度 ≥ 黏附阈值时并入该簇
+   * （Burgers 黏附去重，不重复写 base），否则写入 base 并登记为新簇质心。
+   * @param fact 待写入的持久事实。
+   */
   public remember(fact: MemoryFact): void {
     if (this.knownIds.has(fact.id)) {
       // 已存在：更新谱与所属簇。
@@ -143,6 +149,12 @@ export class ResonantFieldEngine
 
   // ── 共振寻址（燧-3） ──
 
+  /**
+   * 发射频谱探针：对全部已知事实按共振度降序取 top-k（同频即显、异频即散）。
+   * @param probe 频率域探针谱。
+   * @param k 返回条数上限（≤0 返回空数组）。
+   * @returns 共振度降序的命中数组（事实 + 共振度）。
+   */
   public resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
     if (k <= 0) return [];
     const hits: ResonantHit[] = [];
@@ -155,12 +167,24 @@ export class ResonantFieldEngine
     return hits.slice(0, k);
   }
 
+  /**
+   * 便捷共振寻址：把自然语言查询映射为频谱探针后转发 {@link resonate}。
+   * @param query 自然语言查询文本。
+   * @param k 返回条数上限。
+   * @returns 共振度降序的命中数组。
+   */
   public resonateByText(query: string, k: number): readonly ResonantHit[] {
     return this.resonate(eigenSpectrum(query, this.bins), k);
   }
 
   // ── 纤维召回（宇宙网） ──
 
+  /**
+   * 沿共振纤维（簇）召回：取与探针共振度最高的簇，按成员顺序返回其事实（至多 k 条）。
+   * @param probe 频率域探针谱。
+   * @param k 返回条数上限（≤0 返回空数组）。
+   * @returns 最共振簇的成员事实数组（已从 base 取回完整事实）。
+   */
   public fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
     if (k <= 0) return [];
     let bestId: string | undefined;
@@ -187,6 +211,11 @@ export class ResonantFieldEngine
 
   // ── RG 粗粒化坍缩 ──
 
+  /**
+   * RG 粗粒化坍缩：簇数超 Bekenstein 容量界时，反复把最小簇并入与其共振度最高的簇——
+   * 删除两侧代表事实、改写一条 `topic='__web_abstract__'` 抽象代表（删二写一，落盘委托 base）。
+   * @returns 坍缩报告：剩余节点（簇）数、本次坍缩次数、簇间纤维数。
+   */
   public consolidate(): WebConsolidationReport {
     let collapsed = 0;
     while (this.clusters.size > this.bekensteinCap) {
@@ -258,6 +287,10 @@ export class ResonantFieldEngine
 
   // ── 调谐（autoRun） ──
 
+  /**
+   * 调谐：从 base 重新播种全部频谱与簇索引（重启恢复），返回事实数与簇数（守恒自检）。
+   * @returns facts=base 事实总数，clusters=重建后的簇数。
+   */
   public tune(): { readonly facts: number; readonly clusters: number } {
     this.seed();
     return { facts: this.base.all().length, clusters: this.clusters.size };
@@ -278,15 +311,18 @@ export class ResonantFieldEngine
     const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
     return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
+  /** 全部事实（委托 base，供导出/调试）。 */
   public all(): readonly MemoryFact[] {
     return this.base.all();
   }
   public get count(): number {
     return this.base.count;
   }
+  /** 按 id 取出事实（委托 base）；缺失返回 undefined。 */
   public get(id: string): MemoryFact | undefined {
     return this.base.get(id);
   }
+  /** 更新事实（委托 base），成功后同步刷新其频谱索引；返回是否更新成功。 */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.base.update(id, patch);
     if (ok) {
@@ -295,6 +331,11 @@ export class ResonantFieldEngine
     }
     return ok;
   }
+  /**
+   * 删除事实（委托 base）：成功时同步移除本地频谱索引与已知 id，保持场与落盘一致。
+   * @param id 事实 ID。
+   * @returns 是否删除成功（base 中不存在为 false）。
+   */
   public delete(id: string): boolean {
     const ok = this.base.delete(id);
     if (ok) {

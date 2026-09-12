@@ -15,6 +15,10 @@ interface RegisteredTool {
 
 /** 工具聚合适配器：把多个工具定义+处理器组装成一个 ToolPort（可注册/替换/扩展）。 */
 export class RegistryToolPort implements ToolPort {
+  /**
+   * 端口标识：本聚合适配器在审批/日志中的名称（固定为 'registry'）。
+   * 仅用于后端区分与可观测，不参与工具匹配逻辑。
+   */
   public readonly name = 'registry';
 
   private readonly tools = new Map<string, RegisteredTool>();

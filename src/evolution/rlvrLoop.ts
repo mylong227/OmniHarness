@@ -86,6 +86,13 @@ export class RlvrLoop {
     this.minReward = opts.minReward ?? 0;
   }
 
+  /**
+   * 跑一轮 sample-filter-replay：对同 prompt 采样 samplesPerPrompt 个候选，逐一以
+   * 可验证奖励打分，把达标的绿样本推入回放缓冲（minReward>0 取 r≥阈值，否则仅保留
+   * r>0）。采样器返回 undefined 即提前结束；单候选打分异常按 0 分处理（不中断本轮）。
+   * @param prompt 任务 prompt（透传给采样器）
+   * @returns 本轮结果：新增绿样本数 kept、最佳绿样本 best（无绿样本为 undefined）与回放缓冲累计大小
+   */
   public async run(prompt: string): Promise<RlvrRoundResult> {
     let kept = 0;
     let best: { candidate: CodeCandidate; reward: number } | undefined;

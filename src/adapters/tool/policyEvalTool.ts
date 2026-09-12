@@ -17,6 +17,10 @@ export const POLICY_EVAL_TOOL_NAME = 'policy_eval';
  * @beta
  */
 export class PolicyEvalTool {
+  /**
+   * 工具定义：policy_eval 工具的名称、描述与参数 schema。
+   * 用安全策略规则集对事实求值，得到 allow/deny/ask 决策，使审批策略化、可审计、可解释。
+   */
   public readonly definition: ToolDefinition;
 
   public constructor(private readonly policy: PolicyPort = new SafePolicyEvaluator()) {
@@ -53,6 +57,12 @@ export class PolicyEvalTool {
     };
   }
 
+  /**
+   * 执行 policy_eval：解析规则与事实、委托 PolicyPort 求值并返回决策与命中规则。
+   * @param call 模型传入的工具调用（含 rules 数组、facts 对象、可选 default_effect）。
+   * @param _ctx 工具执行上下文（本工具不依赖，保留签名兼容）。
+   * @returns 成功返回 effect / matched_rule / warnings；参数非法或求值异常返回 ok:false。
+   */
   public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
     const rulesRaw = call.arguments['rules'];
     const factsRaw = call.arguments['facts'];

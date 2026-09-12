@@ -28,6 +28,7 @@ import type { TextCodec } from './aesGcmTextCodec.js';
  * 因每条文本独立加密（随机 iv），append-only 不变量仍然成立，无需整文件重加密。
  */
 export class FileLongTermMemory implements LongTermMemoryPort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'file-longterm'）。 */
   public readonly name = 'file-longterm';
 
   private facts: MemoryFact[] = [];

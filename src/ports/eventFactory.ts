@@ -1,5 +1,5 @@
 import type { SessionEvent } from './event.js';
-import type { ImageContent, FileAttachment, ModelUsage } from './model.js';
+import type { ImageContent, FileAttachment, ModelContextSnapshot, ModelUsage } from './model.js';
 
 /**
  * 事件工厂端口（P1 解耦）。
@@ -54,7 +54,12 @@ export interface EventFactoryPort {
   /** 回合级变更事件。 */
   turnDiff(sessionId: string, diff: string): SessionEvent;
   /** 模型用量事件。 */
-  model(sessionId: string, usage: ModelUsage, modelName?: string): SessionEvent;
+  model(
+    sessionId: string,
+    usage: ModelUsage,
+    modelName?: string,
+    context?: ModelContextSnapshot,
+  ): SessionEvent;
   /** 会话元数据事件。 */
   sessionMeta(sessionId: string, workspace: string): SessionEvent;
 }

@@ -11,6 +11,7 @@ import { Bm25Index, tokenize } from '../../search/bm25Index.js';
  * 增量调用下 `averageLength` 仅统计增量批次的缺陷，保证打分正确）。
  */
 export class Bm25MemoryIndex implements RetrievalPort {
+  /** 适配器名，与端口契约一致：固定为 'bm25-memory'。 */
   public readonly name = 'bm25-memory';
 
   private docs: RetrievalDoc[] = [];

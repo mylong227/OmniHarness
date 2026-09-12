@@ -9,6 +9,10 @@ import type { EventFactoryPort } from '../../ports/eventFactory.js';
  * 对标 dsh `packages/plan/plan-mode`。
  */
 export class PlanWriteTool {
+  /**
+   * 工具定义：plan_write 工具的名称、描述与参数 schema。
+   * 计划模式下全量替换草稿，起草完成后须经 plan_present 审批方可执行写类工具。
+   */
   public readonly definition: ToolDefinition = {
     name: 'plan_write',
     description:
@@ -40,6 +44,12 @@ export class PlanWriteTool {
     private readonly eventFactory: EventFactoryPort,
   ) {}
 
+  /**
+   * 执行 plan_write：校验并写入有序步骤，广播 plan 事件，回到 drafting 态。
+   * @param call 模型传入的工具调用（含 steps 与可选 title）。
+   * @param ctx 工具执行上下文（取 sessionId 用于广播 plan 事件）。
+   * @returns steps 非数组/空或描述为空时报错；成功返回起草步数与状态提示。
+   */
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['steps'];
     if (!Array.isArray(raw) || raw.length === 0) {

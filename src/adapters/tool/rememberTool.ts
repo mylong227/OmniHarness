@@ -8,6 +8,10 @@ import type { LongTermMemoryPort } from '../../ports/longTermMemory.js';
  * 与 #M2 `memory_search`（内存会话检索）互补——后者查"刚才聊了啥"，本工具存"值得长期记得啥"。
  */
 export class RememberTool {
+  /**
+   * 工具定义：remember 工具的名称、描述与参数 schema。
+   * 把一条值得长期跨会话保留的 durable fact 写入长期记忆，进程重启后仍可经 recall 回忆。
+   */
   public readonly definition: ToolDefinition = {
     name: 'remember',
     description:

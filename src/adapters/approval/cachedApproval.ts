@@ -28,6 +28,9 @@ const DEFAULT_MAX_ENTRIES = 256;
  * 跨进程复用等于把一次人工确认放大成永久放行，属于权限泄漏。
  */
 export class CachedApproval implements ApprovalPort {
+  /**
+   * 审批器标识：固定为 'cached'，用于在多审批后端中区分缓存装饰层。
+   */
   public readonly name = 'cached';
 
   private readonly store = new Map<string, ApprovalDecision>();

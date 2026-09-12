@@ -1,5 +1,10 @@
 import type { SessionEvent } from '../ports/event.js';
-import type { ImageContent, FileAttachment, ModelUsage } from '../ports/model.js';
+import type {
+  ImageContent,
+  FileAttachment,
+  ModelContextSnapshot,
+  ModelUsage,
+} from '../ports/model.js';
 import type { EventFactoryPort } from '../ports/eventFactory.js';
 import { id } from '../util/id.js';
 
@@ -105,9 +110,20 @@ export class EventFactory implements EventFactoryPort {
   /**
    * 构造一条模型用量事件（#S29 / live 跑分成本计量）；payload 透传 usage。
    * modelName 可选：带上后 UI 的 token 统计表可按真实模型名分组（缺省归入 unknown）。
+   * context 可选：本次请求的上下文占用快照（实测），供 UI 容量面板读取——
+   * 不传则 payload 无 context 字段，读取侧退回投影重算（标为估算）。
    */
-  public model(sessionId: string, usage: ModelUsage, modelName?: string): SessionEvent {
-    return this.base(sessionId, 'model', { usage, model: modelName });
+  public model(
+    sessionId: string,
+    usage: ModelUsage,
+    modelName?: string,
+    context?: ModelContextSnapshot,
+  ): SessionEvent {
+    const payload: Record<string, unknown> = { usage, model: modelName };
+    if (context !== undefined) {
+      payload['context'] = context;
+    }
+    return this.base(sessionId, 'model', payload);
   }
 
   /**

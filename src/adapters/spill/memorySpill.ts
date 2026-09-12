@@ -6,6 +6,7 @@ import { id } from '../../util/id.js';
  * 内存外溢端口（测试/临时场景）：内容随进程生命周期存在，不落盘。
  */
 export class MemorySpill implements SpillPort {
+  /** 适配器标识：用于端口注册与诊断日志归组（固定值 'memory'，不落盘）。 */
   public readonly name = 'memory';
 
   private readonly store = new Map<string, string>();

@@ -70,6 +70,13 @@ export class FailClosedEvolutionGate implements EvolutionGate {
     return await this.benchmarkImpl(this.baseline);
   }
 
+  /**
+   * 用真实基准评估单个候选并裁决是否晋升（fail-closed）。
+   * 先跑安全检查（未过即拒绝且 score 记 0），再对比基准得分与基线 + minGain 阈值；
+   * 每次裁决（无论晋升与否）都会写入审计链（如已配置）。
+   * @param candidate 待评估的候选能力
+   * @returns 晋升裁决（含得分、基线得分、安全结论与可读理由；默认拒绝）
+   */
   public async evaluate(candidate: Candidate): Promise<PromotionVerdict> {
     const baselineScore = await this.resolveBaselineScore();
 

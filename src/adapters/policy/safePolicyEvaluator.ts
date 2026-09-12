@@ -112,6 +112,7 @@ type Ast =
   | { t: 'val'; v: string | number | boolean }
   | { t: 'ident'; name: string };
 
+/** 递归下降解析器：把策略表达式 token 序列解析为 AST（纯语法层，不涉及事实求值）。 */
 class Parser {
   private pos = 0;
   public constructor(private readonly toks: Tok[]) {}
@@ -123,6 +124,7 @@ class Parser {
     return this.toks[this.pos++];
   }
 
+  /** 解析入口：token 序列 → 表达式 AST；空表达式解析为恒真字面量，存在多余 token 时抛错。 */
   public parse(): Ast {
     if (this.toks.length === 0) return { t: 'val', v: true }; // 空表达式 = 恒真
     const e = this.parseOr();
@@ -269,6 +271,14 @@ export function compileExpression(src: string): Ast {
  * 零依赖安全策略求值器。
  */
 export class SafePolicyEvaluator implements PolicyPort {
+  /**
+   * 对给定事实求值整个规则集：按序匹配，首条命中即生效；`when` 为空串视为恒真（兜底规则），
+   * 解析失败的规则 fail-closed 跳过并记入 warnings；无命中返回默认决策（默认 'ask' 保守）。
+   * @param rules 策略规则集（按声明顺序求值）。
+   * @param facts 事实表；缺失标识符在比较中按空串、在真值判定中按 false 处理。
+   * @param defaultEffect 无规则命中时的兜底效应，默认 'ask'。
+   * @returns 最终决策（效应、命中规则名——无命中为 null、求值告警）。
+   */
   public evaluate(
     rules: readonly PolicyRule[],
     facts: PolicyFacts,
@@ -291,6 +301,7 @@ export class SafePolicyEvaluator implements PolicyPort {
     return { effect: defaultEffect, matchedRule: null, warnings };
   }
 
+  /** 单独求值一条表达式（供工具/调试）：解析或求值失败一律返回 false（fail-closed，绝不意外放行）。 */
   public test(expression: string, facts: PolicyFacts): boolean {
     try {
       return evalAst(compileExpression(expression), facts);

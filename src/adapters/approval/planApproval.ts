@@ -41,6 +41,9 @@ export interface PlanApprovalOptions {
 
 /** 规划模式审批适配器：只读白名单，其余一律拒绝。 */
 export class PlanApproval implements ApprovalPort {
+  /**
+   * 审批器标识：固定为 'plan'，用于区分规划模式只读白名单实现。
+   */
   public readonly name = 'plan';
 
   private readonly allowed: Set<string>;
