@@ -13,6 +13,7 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { tempWorkspace } from '../helpers/tempWorkspace.js';
 
 /** 起一个测试服务。 */
 async function startTestServer(
@@ -20,7 +21,7 @@ async function startTestServer(
   audit?: AuditSink,
 ): Promise<{ server: HttpServer; port: number; base: string }> {
   const config = ConfigFactory.build({
-    workspaceRoot: process.cwd(),
+    workspaceRoot: tempWorkspace(),
     maxSteps: 16,
     model: new MockModel(),
     storage: new MemoryStorage(),
@@ -200,7 +201,7 @@ test('GET /readyz：组件齐备则 200，webDir/metrics 仅作诊断不参与�
 
 test('GET /readyz：缺 metrics 仍就绪（可选能力不误判为不可用）', async () => {
   const config = ConfigFactory.build({
-    workspaceRoot: process.cwd(),
+    workspaceRoot: tempWorkspace(),
     maxSteps: 4,
     model: new MockModel(),
     storage: new MemoryStorage(),
@@ -226,7 +227,7 @@ test('GET /readyz：缺 metrics 仍就绪（可选能力不误判为不可用）
 test('GET /healthz：存活探针恒 200，不依赖任何可选能力', async () => {
   // 即便核心组件缺失，存活探针也应响应 200（liveness 只证明进程未死）。
   const config = ConfigFactory.build({
-    workspaceRoot: process.cwd(),
+    workspaceRoot: tempWorkspace(),
     maxSteps: 4,
     model: new MockModel(),
     storage: new MemoryStorage(),

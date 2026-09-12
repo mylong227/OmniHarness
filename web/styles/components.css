@@ -69,6 +69,92 @@
 .dd-item:hover { background:var(--panel-2); color:var(--text); }
 .dd-item.active { background:var(--panel-2); color:var(--text); box-shadow:inset 2px 0 0 var(--accent); }
 
+/* ---- 权限档位选择器：全档列表 + 完全访问警示徽标 ---- */
+.dd.perm.danger { border-color:var(--danger, #e5484d); }
+.dd.perm.danger .dd-label { color:var(--danger, #e5484d); }
+.dd-menu.wide { min-width:280px; max-width:340px; }
+.perm-item { white-space:normal; display:flex; flex-direction:column; gap:2px; }
+.perm-item.risk-high { box-shadow:inset 2px 0 0 var(--danger, #e5484d); }
+.perm-item.full .perm-name { color:var(--danger, #e5484d); }
+.perm-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.perm-name { font-size:13px; color:var(--text); }
+.perm-badge { font-size:11px; color:var(--danger, #e5484d); background:var(--panel-2); border:1px solid var(--danger, #e5484d);
+  border-radius:6px; padding:1px 6px; white-space:nowrap; }
+.perm-desc { font-size:11px; color:var(--dim); line-height:1.4; }
+
+/* ---- 添加菜单（输入区 + 弹出） ---- */
+.addmenu { position:relative; display:inline-flex; align-items:center; cursor:pointer; user-select:none; }
+.addmenu-ico { font-size:18px; line-height:1; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center;
+  background:var(--panel-2); border:1px solid var(--border); border-radius:9px; color:var(--text); }
+.addmenu:hover .addmenu-ico { border-color:var(--dim); }
+.addmenu-pop {
+  position:absolute; bottom:calc(100% + 8px); left:0; width:300px; max-height:60vh; overflow:hidden;
+  background:var(--bg-elev); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); z-index:48;
+  display:flex; flex-direction:column;
+}
+.addmenu-search { padding:8px; border-bottom:1px solid var(--border); }
+.addmenu-input { width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+  color:var(--text); padding:7px 9px; font:13px/1.3 inherit; }
+.addmenu-input:focus { outline:none; border-color:var(--accent); }
+.addmenu-scroll { overflow:auto; padding:4px; }
+.addmenu-sec { margin-bottom:4px; }
+.addmenu-sec-title { font-size:11px; color:var(--dim); padding:6px 8px 2px; text-transform:uppercase; letter-spacing:.4px; }
+.addmenu-item { display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:8px; cursor:pointer; }
+.addmenu-item:hover { background:var(--panel-2); }
+.addmenu-item.active { box-shadow:inset 2px 0 0 var(--accent); }
+.addmenu-item.disabled { opacity:.55; cursor:default; }
+.addmenu-item.disabled:hover { background:transparent; }
+.addmenu-item-ico { font-size:16px; }
+.addmenu-item-body { display:flex; flex-direction:column; min-width:0; flex:1; }
+.addmenu-item-label { font-size:13px; color:var(--text); }
+.addmenu-item-hint { font-size:11px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.addmenu-item-on { color:var(--accent); font-size:10px; }
+.addmenu-loading { padding:8px; font-size:12px; color:var(--dim); text-align:center; }
+
+/* ---- 上下文容量面板（输入区 📊 弹出） ---- */
+.cap { position:relative; display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+  background:var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:4px 8px; }
+.cap:hover { border-color:var(--dim); }
+.cap-ico { font-size:13px; opacity:.8; }
+.cap-bar { width:46px; height:5px; border-radius:3px; background:var(--panel); overflow:hidden; display:inline-block; }
+.cap-bar-fill { display:block; height:100%; background:var(--accent); }
+.cap-pct { font-size:12px; color:var(--dim); }
+.cap-pop {
+  position:absolute; bottom:calc(100% + 8px); left:0; width:320px; max-height:64vh; overflow:auto;
+  background:var(--bg-elev); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); z-index:48; padding:12px;
+  display:flex; flex-direction:column; gap:12px;
+}
+.cap-section { display:flex; flex-direction:column; gap:8px; }
+.cap-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.cap-title { font-size:13px; font-weight:600; color:var(--text); }
+.cap-headline { font-size:12px; color:var(--text); }
+.cap-src { font-size:10px; color:var(--dim); background:var(--panel-2); border:1px solid var(--border); border-radius:5px; padding:1px 5px; }
+.cap-badge { font-size:10px; color:var(--accent); background:var(--panel-2); border:1px solid var(--accent); border-radius:5px; padding:1px 5px; }
+.cap-bar-big { height:8px; border-radius:5px; background:var(--panel); overflow:hidden; }
+.cap-bar-big .cap-bar-fill { background:var(--accent); }
+.cap-rows { display:flex; flex-direction:column; gap:5px; }
+.cap-row { display:flex; align-items:center; gap:8px; }
+.cap-row-label { width:64px; font-size:12px; color:var(--dim); flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cap-row-bar { flex:1; height:6px; border-radius:4px; background:var(--panel); overflow:hidden; }
+.cap-row-fill { display:block; height:100%; background:var(--accent); }
+.cap-row-fill.exhausted { background:var(--danger, #e5484d); }
+.cap-row-pct { width:48px; text-align:right; font-size:12px; color:var(--text); flex-shrink:0; }
+.cap-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--dim); }
+.cap-reset { color:var(--dim); }
+.cap-dim { color:var(--dim); font-size:10px; }
+.cap-quota-head { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--text); }
+.cap-empty { font-size:12px; color:var(--dim); padding:4px 0; }
+.cap-plan-row { display:flex; gap:6px; }
+.cap-plan { flex:1; background:var(--panel-2); border:1px solid var(--border); border-radius:7px; color:var(--text);
+  padding:5px 0; font-size:12px; cursor:pointer; }
+.cap-plan.active { border-color:var(--accent); color:var(--accent); }
+.cap-loading { font-size:12px; color:var(--dim); text-align:center; }
+
+/* ---- 审批弹窗：更改权限 ---- */
+.approval-change-perm { text-align:right; padding:8px 2px 0; }
+.approval-change-perm .link { background:none; border:none; color:var(--accent); font:12px/1 inherit; cursor:pointer; padding:0; }
+.approval-change-perm .link:hover { text-decoration:underline; }
+
 /* ---- FolderPicker：内嵌文件夹选择器（+ 添加项目） ---- */
 .fp-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; z-index:60; }
 .fp-modal { background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; width:460px; max-width:92vw; max-height:70vh; display:flex; flex-direction:column; box-shadow:var(--shadow); }

@@ -8,6 +8,8 @@ import type { ApprovalRequest } from '../../types/models.js';
 export interface ApprovalModalProps {
   approval: ApprovalRequest | null;
   onRespond: (decision: 'allow' | 'deny', always: boolean) => void;
+  /** 点击「更改权限」：让外层打开权限档位选择器（App 置位设置页 / 派发聚焦）。 */
+  onChangePermission?: () => void;
 }
 
 /** 隐藏态：React 的 style 必须是对象映射，不能是 CSS 字符串。 */
@@ -49,6 +51,13 @@ export class ApprovalModal extends React.Component<ApprovalModalProps> {
               允许
             </button>
           </div>
+          {this.props.onChangePermission ? (
+            <div className="approval-change-perm">
+              <button className="link" onClick={this.props.onChangePermission}>
+                更改权限
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     );

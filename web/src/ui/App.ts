@@ -553,6 +553,15 @@ export function App(): ReactElement {
   }, []);
   const toggleTheme = React.useCallback(() => setTheme((t) => (t === 'light' ? 'dark' : 'light')), []);
 
+  /** 打开右侧某面板（AddMenu 点插件等场景复用）。 */
+  const openPane = React.useCallback(
+    (key: string) => {
+      setActivePane(key);
+      setRightOpen(true);
+    },
+    [],
+  );
+
   /** 左侧面板宽度变更：memoized 避免 Resizer 拖拽时因父级重渲染导致 effect 反复卸载/重挂。 */
   const onLeftWidthChange = React.useCallback((w: number) => {
     setLeftWidth(w);
@@ -711,6 +720,10 @@ export function App(): ReactElement {
           reasoning=${reasoning}
           reasoningOptions=${reasoningOptions}
           permission=${permission}
+          threadId=${currentThreadId}
+          onToast=${showToast}
+          onOpenTab=${openPane}
+          onLoadThread=${loadThread}
           onModelChange=${changeModel}
           onReasoningChange=${changeReasoning}
           onPermissionChange=${changePermission}
@@ -725,7 +738,7 @@ export function App(): ReactElement {
           ${pane}
         <//>
       </div>
-      <${ApprovalModal} approval=${approval} onRespond=${respondApproval} />
+      <${ApprovalModal} approval=${approval} onRespond=${respondApproval} onChangePermission=${() => openPane('settings')} />
       <div className=${'drawer-backdrop' + (leftOpen || rightOpen ? ' show' : '')} onClick=${closeDrawers}></div>
       <${CommandPalette} open=${paletteOpen} commands=${commands} onClose=${() => setPaletteOpen(false)} />
       <${Toast} toast=${toastState} />

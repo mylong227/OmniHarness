@@ -53,6 +53,14 @@ export interface StreamViewProps {
   providerLabel?: string;
   reasoning: string;
   permission: string;
+  /** 当前会话 id（AddMenu / 上下文容量面板维度）。 */
+  threadId?: string | null;
+  /** 轻提示（AddMenu / 容量面板加载失败等）。 */
+  onToast?: (msg: string, kind?: 'info' | 'err') => void;
+  /** 跳到右侧某面板（AddMenu 点插件时打开「插件」页）。 */
+  onOpenTab?: (key: string) => void;
+  /** 加载历史会话（AddMenu 搜索命中为聊天时）。 */
+  onLoadThread?: (id: string) => void;
   /** 回合进行中——为真时显示思考/工具过程，结束后隐藏只留结果。 */
   busy?: boolean;
   /** 当前正在调用的工具名（无则显示"思考中"），透传给 Composer 状态条。 */
@@ -261,6 +269,11 @@ export class StreamView extends React.Component<StreamViewProps> {
       providerLabel,
       reasoning,
       permission,
+      threadId,
+      onToast,
+      onOpenTab,
+      onOpenFile,
+      onLoadThread,
       onModelChange,
       onReasoningChange,
       onPermissionChange,
@@ -294,6 +307,11 @@ export class StreamView extends React.Component<StreamViewProps> {
           providerLabel={providerLabel}
           reasoning={reasoning}
           permission={permission}
+          threadId={threadId}
+          onToast={onToast}
+          onOpenTab={onOpenTab}
+          onOpenFile={onOpenFile}
+          onLoadThread={onLoadThread}
           onModelChange={onModelChange}
           onReasoningChange={onReasoningChange}
           onPermissionChange={onPermissionChange}

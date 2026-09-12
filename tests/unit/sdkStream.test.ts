@@ -14,6 +14,7 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+import { tempWorkspace } from '../helpers/tempWorkspace.js';
 
 /** 双端 socket（客户端与"服务端"互联）。 */
 class PairSocket implements SdkSocket {
@@ -149,7 +150,7 @@ test('SDK 客户端：错误响应抛错', async () => {
 test('SDK 端到端：WebSocket 连真实服务并流式收到线程事件', async () => {
   const bridge = new HttpBridgeTransport();
   const config = ConfigFactory.build({
-    workspaceRoot: process.cwd(),
+    workspaceRoot: tempWorkspace(),
     maxSteps: 16,
     model: new MockModel(),
     storage: new MemoryStorage(),

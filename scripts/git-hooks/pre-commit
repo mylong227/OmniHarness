@@ -6,7 +6,7 @@
 cd "$(git rev-parse --show-toplevel)"
 
 echo "[pre-commit] OmniHarness 门禁：铁律自检（--strict）..."
-if ! npm run --silent check -- --strict; then
+if ! node scripts/check.mjs --strict; then
   echo "[pre-commit] ✗ check.mjs 铁律校验未通过，提交中止。" >&2
   exit 1
 fi
@@ -18,7 +18,7 @@ if ! npm run --silent audit:maturity; then
 fi
 
 echo "[pre-commit] 编码标准增量门禁（禁止本次提交新增违规）..."
-if ! npm run --silent audit:standard:delta; then
+if ! node scripts/auditStandards.mjs --delta; then
   echo "[pre-commit] ✗ 检测到本次提交新增了编码标准违规，提交中止。" >&2
   exit 1
 fi

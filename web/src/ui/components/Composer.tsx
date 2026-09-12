@@ -12,6 +12,9 @@ import { React } from '../deps.js';
 import { Dropdown } from './Dropdown.js';
 import { FilePicker } from './FilePicker.js';
 import { WorkIndicator } from './WorkIndicator.js';
+import { AddMenu } from './AddMenu.js';
+import { PermissionPicker } from './PermissionPicker.js';
+import { ContextCapacityPanel } from './ContextCapacityPanel.js';
 import { MentionResolver } from '../models/MentionResolver.js';
 import { ComposerOptions } from '../models/ComposerOptions.js';
 import { FileTreeFlattener } from '../models/FileTreeFlattener.js';
@@ -30,13 +33,6 @@ import {
 import type { FileAttachment } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
-/** AI 权限等级（映射后端 approval 枚举）。 */
-const PERMISSION_LEVELS: readonly { value: string; label: string }[] = [
-  { value: 'ask', label: '审批' },
-  { value: 'rules', label: '默认' },
-  { value: 'auto', label: '完全访问' },
-];
-
 const PICKER_ERR_BOX: Record<string, string> = { margin: '6px 14px 0' };
 
 export interface ComposerProps {
@@ -49,6 +45,16 @@ export interface ComposerProps {
   /** 当前厂商合法的 reasoning_effort 档位（见 ComposerOptions.reasoning 的三态语义）。 */
   reasoningOptions?: string[];
   permission: string;
+  /** 当前会话 id（目标 / 计划 / 绘图模式按会话持久化；上下文容量报告维度）。 */
+  threadId?: string | null;
+  /** 轻提示（AddMenu / 容量面板加载失败等）。 */
+  onToast?: (msg: string, kind?: 'info' | 'err') => void;
+  /** 跳到右侧某面板（AddMenu 点插件时打开「插件」页）。 */
+  onOpenTab?: (key: string) => void;
+  /** 打开文件（AddMenu 搜索命中为文件时）。 */
+  onOpenFile?: (path: string) => void;
+  /** 加载历史会话（AddMenu 搜索命中为聊天时）。 */
+  onLoadThread?: (id: string) => void;
   onModelChange: (v: string) => void;
   onReasoningChange: (v: string) => void;
   onPermissionChange: (v: string) => void;
@@ -353,6 +359,7 @@ export class Composer extends React.Component<ComposerProps, ComposerState> {
       busy,
       activeTool,
       api,
+      threadId,
     } = this.props;
     const { filePickerOpen, pickerErr, listening } = this.state;
     const hint = ComposerOptions.permissionHint(permission);
@@ -386,14 +393,22 @@ export class Composer extends React.Component<ComposerProps, ComposerState> {
             ]}
             onChange={onReasoningChange}
           />
-          <Dropdown
-            title="AI 权限等级"
-            icon="🛡"
-            value={permission}
-            options={PERMISSION_LEVELS.map((p) => ({ value: p.value, label: p.label }))}
-            onChange={onPermissionChange}
-          />
+          <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
           {hint ? <span className="ctl-hint">{hint}</span> : null}
+          <ContextCapacityPanel
+            threadId={threadId ?? ''}
+            api={api}
+            onToast={(m, k) => this.props.onToast?.(m, k)}
+          />
+          <AddMenu
+            threadId={threadId ?? ''}
+            api={api}
+            onAttach={() => this.setState({ pickerErr: null, filePickerOpen: true })}
+            onToast={(m, k) => this.props.onToast?.(m, k)}
+            onOpenTab={(key) => this.props.onOpenTab?.(key)}
+            onOpenFile={(p) => this.props.onOpenFile?.(p)}
+            onLoadThread={(id) => this.props.onLoadThread?.(id)}
+          />
           <button
             className="iconbtn attach"
             title="粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）"

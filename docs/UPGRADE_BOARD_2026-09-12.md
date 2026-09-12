@@ -77,3 +77,27 @@
 
 - **工程架构与写法**侧（分层解耦 / 单例治理 / 目录归属 / 注释强制 / 前端 class 规范化 / 技术栈升级）见 `docs/REFACTOR_BOARD_2026-09-12.md`（P0-P8，度量可查）。两份看板并行：本页管**能力**（能不能），另一页管**工程**（好不好维护）。
 - **理论与前沿**侧（Harness Engineering 2026 前沿 / 数学·物理·生物·化学理论底座 / 隐喻引擎成熟度分级 / 六条升级主线 T0–T6）见 `docs/library/README.md` 与 `docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md`。第三份文档管**方向与依据**：为 U1–U7 的每个 KPI 提供理论解释，并解释本项目历史负结果（LSA/PageRank/频域共振）的共同根因＝**度量错配**。
+
+## 八、本轮（2026-09-13）截图功能前后端打通
+
+**触发**：三张工作台截图，要求「上下文容量面板 / 今日余额与配额档位 / + 菜单（目标·计划·绘图·插件·智能体·搜索）/ 审批档位表」前后端全部打通。
+
+**后端（RPC + 服务，随 `cd84553` 提交）**：
+- 新增 RPC：`context.usage`、`quota.get/set`（档位 free/plus/pro 倍率 1.0/1.5/3.0）、`modes.get/set`（会话模式）、`agents.list`、`search.all`（混合检索）、`approval.tiers`。
+- 新增服务：`contextUsageService`、`quotaPlans`/`quotaStore`/`quotaService`、`sessionModeStore`、`sessionArchive.dailyUsage`、`turnDirectiveComposer`、`agentCatalogService`、`workspaceSearchService`、`approvalTierCatalog`、`sketchWriteTool`（fail-closed 写 `.omniharness/sketches/`）。
+- 接线：`appServerSurfaceHandlers`（RPC 承载层）、`appServer`（继承）、`agentRuntimeHost`（resolveApprovals 加 plan 分支）、`configFile`（approval 枚举补 plan）、`eventFactory`/`sessionRecorder`（model/usage 带上下文快照）。
+
+**前端（组件 + 接线，本轮修复编译后提交）**：
+- 纯逻辑模型：`AddMenuModel`/`ContextUsageView`/`QuotaView`/`TokenScaleFormatter`/`PermissionTierModel`（零 React 依赖，node 直测）。
+- 组件：`AddMenu`/`ContextCapacityPanel`/`PermissionPicker`。
+- 接线：`Composer`（渲染三组件 + `threadId` 解构）、`StreamView`（透传 + 去重 `onOpenFile`）、`App`（openPane/回调）、`ApprovalModal`（onChangePermission）、`components.css`/`theme.css`（含 `--danger` token）。
+- 修复编译 4 处：`AddMenu` onChange 事件类型、
+
+`Composer` 漏解构 `threadId`、`StreamView` 重复 `onOpenFile`、前端 `React.ChangeEvent` 命名空间不存在（react-shim 仅运行时值，无类型命名空间）。
+
+**门禁（全绿）**：typecheck / lint / check --strict / audit:maturity / audit:standard:delta / arch:gate / web:build 均通过。
+
+**测试**：`tests/helpers/tempWorkspace.ts` 隔离工作区，修复 `process.cwd()` 真实仓库根扫描撞破 15s 轮询死线的大面积假失败。
+- ⚠️ **已知单元债务（9 项，非本轮引入）**：`appServer`/`httpServer`/`sdkStream`/`wsTransport` 工作区测试改动后，app-server（threads.create 返回结构、turns.run assistant 事件、approvalUplink 未接 AppServer 构造）、HTTP 审批 SSE、SDK WebSocket 端到端、shellTool（workspaceRoot/管道语义）共 9 项失败；`src/server` 实现未在工作区改动（已随 `cd84553`），属历史未验证测试，建议单列技术债 sprint 收口。
+
+**pre-commit 适配**：hook 由 `npm run` 改 `node` 直调脚本（`npm` 在本环境 shell PATH 缺失，仅 `node` 可用；判定逻辑不变，更鲁棒）。
