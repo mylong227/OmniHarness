@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import type { SessionEvent } from '../ports/event.js';
 import type { StoragePort } from '../ports/storage.js';
 import type { WorkspaceSnapshotPort } from '../ports/workspaceSnapshot.js';
-import { readSnapshotFile, writeSnapshotFile } from '../adapters/workspace/gitWorkspaceSnapshot.js';
+import { readSnapshotFile, writeSnapshotFile } from './snapshotFileIo.js';
 
 /** 检查点元信息。 */
 export interface CheckpointMeta {

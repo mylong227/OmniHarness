@@ -1,7 +1,11 @@
 import { execFile } from 'node:child_process';
 import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { FileSnapshot, FileSnapshotEntry, WorkspaceSnapshotPort } from '../../ports/workspaceSnapshot.js';
+import type {
+  FileSnapshot,
+  FileSnapshotEntry,
+  WorkspaceSnapshotPort,
+} from '../../ports/workspaceSnapshot.js';
 
 /**
  * 基于 git 工作树差异的工作区快照适配器。
@@ -40,10 +44,7 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
   }
 
   /** 解析 `git status --porcelain -z` 输出为文件快照条目。 */
-  private async parsePorcelain(
-    porcelain: string,
-    root: string,
-  ): Promise<FileSnapshotEntry[]> {
+  private async parsePorcelain(porcelain: string, root: string): Promise<FileSnapshotEntry[]> {
     if (porcelain.length === 0) {
       return [];
     }
@@ -95,16 +96,4 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
       await writeFile(full, entry.content, 'utf8');
     }
   }
-}
-
-/** 从磁盘读取已保存的快照 JSON（供 CheckpointManager 持久化使用）。 */
-export async function readSnapshotFile(path: string): Promise<FileSnapshot> {
-  const raw = await readFile(path, 'utf8');
-  return JSON.parse(raw) as FileSnapshot;
-}
-
-/** 将快照写入磁盘 JSON。 */
-export async function writeSnapshotFile(path: string, snapshot: FileSnapshot): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(snapshot), 'utf8');
 }

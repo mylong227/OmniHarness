@@ -59,9 +59,8 @@ for (const f of files) {
 }
 
 // ---- 3. 白名单（冻结存量；P1/P3 清偿后从此移除对应条目） ----
-// core→adapters（8 条，docs §1.3）
+// core→adapters（7 条，docs §1.3；checkpointManager→gitWorkspaceSnapshot 已 P1 解耦清零）
 const CORE_TO_ADAPTERS_WL = new Set([
-  'core/checkpointManager->adapters/workspace/gitWorkspaceSnapshot',
   'core/runtime->adapters/memory/memoryExtractor',
   'core/runtime->adapters/live/consoleLiveView',
   'core/runtime->adapters/embedding/transformersEmbeddingAdapter',
