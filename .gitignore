@@ -35,3 +35,7 @@ web/_shot.html
 .omni/
 # git-safe 安全重建脚本产生的 .git 备份目录（含整份 objects/refs/hooks，勿入库，否则会把 .git 嵌进 .git）
 .git.bak.*/
+# 测试/运行时散落在仓库根的产物（fileLongTermMemory 等历史泄漏；密钥/密文/遥测样例，勿入库）
+/*.jsonl
+/*.key
+/*.enc
