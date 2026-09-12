@@ -63,8 +63,10 @@ for (const f of files) {
 const CORE_TO_ADAPTERS_WL = new Set([]);
 // adapters→core（0 条，docs §1.3；runGoalTool→agent 经 AgentFactoryPort 端口注入清零，P1 全部归零）
 const ADAPTERS_TO_CORE_WL = new Set([]);
-// ports 纯度：允许 ports/model.ts 内含 2 个错误类（P3.x 拆分到 errors 端口或独立模块后移除）
-const PORTS_CLASS_WL = new Set(['src/ports/model.ts']);
+// ports 纯度：存量已清零（P1.3 完成——`ports/model.ts` 的 2 个错误类迁至 `src/errors/**`，
+// 原路径仅保留 `export ... from` 再导出，公共 API 面不变）。
+// 空集合 = 「新增即红」：此后 src/ports/** 出现任何 class 声明都会阻断提交。
+const PORTS_CLASS_WL = new Set([]);
 
 // ---- 4. 判定 ----
 const caViolations = [];

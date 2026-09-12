@@ -28,7 +28,7 @@ const MAX_CONSECUTIVE_EMPTY = 3;
 export class TurnRunner {
   private readonly loopGuard: LoopGuard | undefined;
 
-  constructor(
+  public constructor(
     private readonly stepRunner: StepRunner,
     private readonly recorder: SessionRecorder,
     private readonly maxSteps: number,
@@ -59,7 +59,7 @@ export class TurnRunner {
   }
 
   /** 运行一个回合。 */
-  async run(context: ToolContext): Promise<TurnOutcome> {
+  public async run(context: ToolContext): Promise<TurnOutcome> {
     log.debug('turn.start', { maxSteps: this.maxSteps });
     // 标记回合起点：finalText 只认本回合产出的 assistant，避免 resume 时串到历史答案（#OBS-10）。
     this.recorder.markTurnStart();

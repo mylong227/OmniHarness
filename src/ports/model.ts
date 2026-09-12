@@ -1,5 +1,3 @@
-import { OmniError, ErrorCode } from '../omniError.js';
-
 /** 单张图像输入（URL 或 base64，供多模态截图/UI 理解，#B1）。 */
 export interface ImageContent {
   /** http(s) / file:// / data URI。 */
@@ -95,6 +93,40 @@ export interface ModelUsage {
   readonly promptTokens: number;
   readonly completionTokens: number;
   readonly totalTokens: number;
+  /**
+   * 命中「提示缓存」的 prompt token 数（可选）。
+   *
+   * 三个厂商各有回传字段：OpenAI 兼容 `usage.prompt_tokens_details.cached_tokens`、
+   * DeepSeek `usage.prompt_cache_hit_tokens`、Anthropic `usage.cache_read_input_tokens`。
+   * 端点未回传时为 undefined——**绝不臆造**：缺值只能表示「未知」，不能记作 0 命中，
+   * 否则会把「无数据」误算成「缓存全未命中」，拉低统计出的平均命中率。
+   */
+  readonly cachedPromptTokens?: number;
+}
+
+/**
+ * 上下文占用分类键（后端分解器、事件快照与 UI 面板共用的稳定标识）。
+ */
+export type ContextCategoryKey =
+  'messages' | 'mcpTools' | 'systemTools' | 'systemPrompt' | 'skills' | 'other';
+
+/**
+ * 一次模型请求的上下文占用快照（随 `model` 事件落日志，供 UI 容量面板读取**实测值**）。
+ *
+ * 只存 token 数、工具计数与窗口大小：中文标签与百分比是展示层推导结果，
+ * 存进日志会在改文案/改口径时留下历史脏数据，故一律由读取侧重建。
+ */
+export interface ModelContextSnapshot {
+  /** 本次请求所用的上下文窗口 token 数。 */
+  readonly windowTokens: number;
+  /** 已用 token 数。 */
+  readonly usedTokens: number;
+  /** 本轮可见的 MCP 工具条数。 */
+  readonly mcpToolCount: number;
+  /** 本轮可见的系统（内置）工具条数。 */
+  readonly systemToolCount: number;
+  /** 分类 token 数（六个键齐全，无数据为 0）。 */
+  readonly tokens: Readonly<Record<ContextCategoryKey, number>>;
 }
 
 /** 流式工具输入增量（#B3）：模型边生成工具参数边推送，用于渐进渲染工具调用参数。 */
@@ -121,25 +153,8 @@ export interface ModelPort {
   stream?(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput>;
 }
 
-/** 模型调用错误（结构化，便于重试决策；#M6）。 */
-export class ModelCallError extends OmniError {
-  /** HTTP 状态码（网络层错误为 undefined）。 */
-  public readonly status?: number;
-  /** 是否可重试（429/408/5xx 通常可重试，4xx 客户端错误通常不可）。 */
-  public readonly retryable: boolean;
-  /** 服务端建议的等待毫秒数（Retry-After 头解析结果）。 */
-  public readonly retryAfterMs?: number;
-
-  public constructor(
-    message: string,
-    opts: { readonly status?: number; readonly retryable: boolean; readonly retryAfterMs?: number },
-  ) {
-    super(ErrorCode.MODEL_CALL_ERROR, message);
-    this.status = opts.status;
-    this.retryable = opts.retryable;
-    this.retryAfterMs = opts.retryAfterMs;
-  }
-}
+/** 模型调用错误（结构化，便于重试决策；#M6）。实现已迁至 `errors/modelCallError.ts`。 */
+export { ModelCallError } from '../errors/modelCallError.js';
 
 /** 路由定价：某模型每百万 token 的输入 / 输出单价（USD，#S29）。 */
 export interface RoutePrice {
@@ -147,22 +162,5 @@ export interface RoutePrice {
   readonly outputPer1M: number;
 }
 
-/** 成本预算耗尽错误（#S29）：硬预算熔断时抛出，fail-closed 阻止后续模型调用。 */
-export class BudgetExceededError extends OmniError {
-  /** 预算上限（USD）。 */
-  public readonly limitUsd: number;
-  /** 已花费（USD）。 */
-  public readonly spentUsd: number;
-  /** 被阻断的模型名。 */
-  public readonly model: string;
-
-  public constructor(
-    message: string,
-    info: { readonly limitUsd: number; readonly spentUsd: number; readonly model: string },
-  ) {
-    super(ErrorCode.BUDGET_EXCEEDED, message);
-    this.limitUsd = info.limitUsd;
-    this.spentUsd = info.spentUsd;
-    this.model = info.model;
-  }
-}
+/** 成本预算耗尽错误（#S29）。实现已迁至 `errors/budgetExceededError.ts`。 */
+export { BudgetExceededError } from '../errors/budgetExceededError.js';
