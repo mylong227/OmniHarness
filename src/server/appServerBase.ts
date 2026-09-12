@@ -112,7 +112,8 @@ export class AppServerBase {
       autoApprove: () => this.configStore.autoApprove,
       approvalOverride: () => this.configStore.approvalOverride(),
       uplink: () => this.events.approvalPort(),
-      modelOverride: () => this.modelCatalog.resolveOverride(),
+      modelOverride: () =>
+        options.modelOverrideEnabled === false ? undefined : this.modelCatalog.resolveOverride(),
       workspaceRoot,
     });
   }

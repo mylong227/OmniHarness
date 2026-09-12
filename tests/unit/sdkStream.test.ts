@@ -158,7 +158,7 @@ test('SDK 端到端：WebSocket 连真实服务并流式收到线程事件', asy
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const app = new AppServer({ config, transport: bridge });
+  const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
   const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
   const port = await server.start(0);
 

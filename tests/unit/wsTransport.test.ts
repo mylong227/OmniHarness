@@ -23,7 +23,7 @@ async function startServer(): Promise<{ server: HttpServer; port: number }> {
     events: new SilentEventPort(),
   });
   const bridge = new HttpBridgeTransport();
-  const app = new AppServer({ config, transport: bridge });
+  const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
   const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
   const port = await server.start(0);
   return { server, port };

@@ -30,7 +30,13 @@ async function startTestServer(
     events: new SilentEventPort(),
   });
   const bridge = new HttpBridgeTransport();
-  const app = new AppServer({ config, transport: bridge, approvalUplink, audit });
+  const app = new AppServer({
+    config,
+    transport: bridge,
+    approvalUplink,
+    audit,
+    modelOverrideEnabled: false,
+  });
   const server = new HttpServer({
     app,
     bridge,
@@ -210,7 +216,7 @@ test('GET /readyz：缺 metrics 仍就绪（可选能力不误判为不可用）
     events: new SilentEventPort(),
   });
   const bridge = new HttpBridgeTransport();
-  const app = new AppServer({ config, transport: bridge });
+  const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
   // 刻意不传 metrics：验证可选能力缺失不影响就绪判定
   const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
   const port = await server.start(0);
@@ -236,7 +242,7 @@ test('GET /healthz：存活探针恒 200，不依赖任何可选能力', async (
     events: new SilentEventPort(),
   });
   const bridge = new HttpBridgeTransport();
-  const app = new AppServer({ config, transport: bridge });
+  const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
   const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
   const port = await server.start(0);
   try {

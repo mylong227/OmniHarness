@@ -26,6 +26,12 @@ export interface AppServerOptions {
   readonly configPath?: string;
   /** 工作区根（检查点文件快照还原用；缺省回退 process.cwd()）。 */
   readonly workspaceRoot?: string;
+  /**
+   * 是否允许模型目录覆盖启动模型（读落盘 omniharness.json / UI 覆盖 / 环境凭据构造真适配器）。
+   * 缺省 true（serve 模式依赖此行为热切换真模型）；嵌入方与单测注入 mock 模型时
+   * 必须显式传 false——否则测试会读到开发者本机配置，拿真实凭据打真实 API。
+   */
+  readonly modelOverrideEnabled?: boolean;
   /** 结构化审计日志 sink（注入后所有事件落盘 JSONL；未注入则无审计）。 */
   readonly audit?: AuditSink;
 }
@@ -37,7 +43,10 @@ export const AUTO_ALLOW: ApprovalPort = { name: 'auto', decide: () => Promise.re
 export const DENY_ALL: ApprovalPort = { name: 'deny', decide: () => Promise.resolve('deny') };
 
 /** 默认档审批端口（UI 切到 rules 且原配置非 rules 时回退用：放行常规工具，危险操作由沙箱层兜底）。 */
-export const RULES_DEFAULT: ApprovalPort = { name: 'rules', decide: () => Promise.resolve('allow') };
+export const RULES_DEFAULT: ApprovalPort = {
+  name: 'rules',
+  decide: () => Promise.resolve('allow'),
+};
 
 /**
  * config.update 允许持久化到配置文件的字段。

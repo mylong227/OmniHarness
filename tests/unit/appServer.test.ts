@@ -25,7 +25,11 @@ class TestTransport implements Transport {
   }
 
   /** 模拟客户端发送请求（轮询等待响应，容忍异步 handle）。 */
-  public async receive(method: string, params: Record<string, unknown>, id = 1): Promise<RpcMessage> {
+  public async receive(
+    method: string,
+    params: Record<string, unknown>,
+    id = 1,
+  ): Promise<RpcMessage> {
     await this.callback?.({ jsonrpc: '2.0', id, method, params });
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
@@ -56,7 +60,7 @@ function buildServer(approvalUplink = false): { server: AppServer; transport: Te
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const server = new AppServer({ config, transport, approvalUplink });
+  const server = new AppServer({ config, transport, approvalUplink, modelOverrideEnabled: false });
   return { server, transport };
 }
 
@@ -159,13 +163,17 @@ test('app-server：threads.continue 沿用同一线程', async () => {
 test('app-server：approval=auto 时 bypassSupervisorKernel 返回 no-op supervisor', async () => {
   const { server } = buildServer();
   // 经 config.update 写入 approval=auto（等价 UI 切到「完全访问」）。
-  await (server as unknown as {
-    updateConfig: (p: Record<string, unknown>) => Promise<unknown>;
-  }).updateConfig({ approval: 'auto' });
+  await (
+    server as unknown as {
+      updateConfig: (p: Record<string, unknown>) => Promise<unknown>;
+    }
+  ).updateConfig({ approval: 'auto' });
   // bypassSupervisorKernel 是 protected，测试经类型擦除访问。
-  const bypassed = (server as unknown as {
-    bypassSupervisorKernel: (c: unknown) => unknown;
-  }).bypassSupervisorKernel({});
+  const bypassed = (
+    server as unknown as {
+      bypassSupervisorKernel: (c: unknown) => unknown;
+    }
+  ).bypassSupervisorKernel({});
   assert.ok(bypassed !== undefined, 'approval=auto 时应返回 no-op supervisor（bypass）');
   assert.strictEqual(
     (bypassed as { intercept: () => string | undefined }).intercept(),
@@ -176,11 +184,15 @@ test('app-server：approval=auto 时 bypassSupervisorKernel 返回 no-op supervi
 
 test('app-server：approval=rules 时保持生产级 SupervisorKernel', async () => {
   const { server } = buildServer();
-  await (server as unknown as {
-    updateConfig: (p: Record<string, unknown>) => Promise<unknown>;
-  }).updateConfig({ approval: 'rules' });
-  const bypassed = (server as unknown as {
-    bypassSupervisorKernel: (c: unknown) => unknown;
-  }).bypassSupervisorKernel({});
+  await (
+    server as unknown as {
+      updateConfig: (p: Record<string, unknown>) => Promise<unknown>;
+    }
+  ).updateConfig({ approval: 'rules' });
+  const bypassed = (
+    server as unknown as {
+      bypassSupervisorKernel: (c: unknown) => unknown;
+    }
+  ).bypassSupervisorKernel({});
   assert.strictEqual(bypassed, undefined, 'approval=rules 时应保持生产级 supervisor');
 });
