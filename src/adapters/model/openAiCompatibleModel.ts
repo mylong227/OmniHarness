@@ -9,6 +9,7 @@ import type {
   StreamCallbacks,
 } from '../../ports/model.js';
 import { ModelCallError } from '../../ports/model.js';
+import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser } from './sseParser.js';
 import { log } from '../../util/logger.js';
 import { sanitizeToolRounds } from '../../util/toolRoundSanitizer.js';
@@ -41,7 +42,10 @@ function parseRetryAfter(value: string): number | undefined {
 
 /** OpenAI 兼容 chat/completions 客户端（DeepSeek/OpenAI/任意兼容端点）。 */
 export class OpenAiCompatibleModel implements ModelPort {
+  /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
+  /** 提示缓存命中量读取器（三家字段名不同，读取逻辑集中在 reader，本类只调用）。 */
+  private readonly promptCache = new PromptCacheUsageReader();
 
   public constructor(private readonly config: OpenAiCompatibleConfig) {
     this.name = config.model;
@@ -171,8 +175,7 @@ export class OpenAiCompatibleModel implements ModelPort {
     // thinking 模式判定：与下文 reasoning_effort 透传同源——非空字符串即视为已开启。
     // 该标记会传给 toWireMessages，用于在历史 assistant 消息 reasoningContent 缺失但带
     // tool_calls 时强制注入 reasoning_content:""，避免 DeepSeek v4 等推理模型下轮 400。
-    const thinking =
-      typeof request.reasoningEffort === 'string' && request.reasoningEffort !== '';
+    const thinking = typeof request.reasoningEffort === 'string' && request.reasoningEffort !== '';
     // 消息出栈前统一规整：丢弃 orphan tool、丢弃 tool_calls 响应不全的整段 assistant
     // 回合（#OBS-8 全链路兜底，2026-09-08 二次复现，OpenAI/DeepSeek HTTP 400）。
     const messages = this.toWireMessages(sanitizeToolRounds(request.messages), thinking);
@@ -305,11 +308,14 @@ export class OpenAiCompatibleModel implements ModelPort {
       output.toolCalls = message.tool_calls.map((call) => this.parseToolCall(call));
     }
     // #S29 用量：OpenAI 兼容端点返回 usage.prompt_tokens / completion_tokens / total_tokens。
+    // 另取提示缓存命中量（OpenAI `prompt_tokens_details.cached_tokens` 或 DeepSeek
+    // `prompt_cache_hit_tokens`）——缺字段时为 undefined，读者侧据此区分「未知」与「0 命中」。
     if (body.usage !== undefined) {
       output.usage = {
         promptTokens: body.usage.prompt_tokens,
         completionTokens: body.usage.completion_tokens,
         totalTokens: body.usage.total_tokens,
+        cachedPromptTokens: this.promptCache.readOpenAiCompatible(body.usage),
       };
     }
     return output;
@@ -342,7 +348,13 @@ export class OpenAiCompatibleModel implements ModelPort {
       return;
     }
     const json = JSON.parse(data) as ChatCompletionChunk & {
-      readonly usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+      readonly usage?: {
+        readonly prompt_tokens: number;
+        readonly completion_tokens: number;
+        readonly total_tokens: number;
+        readonly prompt_tokens_details?: { readonly cached_tokens?: number };
+        readonly prompt_cache_hit_tokens?: number;
+      };
     };
     // 末块（choices 为空）常带 usage，回填供成本护栏记账（与 generate 路径一致）。
     // 注意：中间块常回传 usage:null，必须用 != null 同时排除 null/undefined。
@@ -351,6 +363,7 @@ export class OpenAiCompatibleModel implements ModelPort {
         promptTokens: json.usage.prompt_tokens,
         completionTokens: json.usage.completion_tokens,
         totalTokens: json.usage.total_tokens,
+        cachedPromptTokens: this.promptCache.readOpenAiCompatible(json.usage),
       };
     }
     const delta = json.choices[0]?.delta;
@@ -423,6 +436,10 @@ interface ChatCompletionResponse {
     readonly prompt_tokens: number;
     readonly completion_tokens: number;
     readonly total_tokens: number;
+    /** OpenAI 系缓存明细（命中量在 cached_tokens）。 */
+    readonly prompt_tokens_details?: { readonly cached_tokens?: number };
+    /** DeepSeek 系缓存命中量（与 OpenAI 明细二选一，视端点而定）。 */
+    readonly prompt_cache_hit_tokens?: number;
   };
 }
 

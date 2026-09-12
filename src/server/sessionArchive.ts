@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Metrics } from './metrics.js';
+import type { LocalDay } from '../util/localDay.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';
@@ -74,7 +75,11 @@ export class SessionArchive {
         if (!name.endsWith('.jsonl')) continue;
         const scanned = this.scanUsageFile(join(dir, name), byModel);
         if (scanned.calls > 0) {
-          sessions.push({ sessionId: name.replace(/\.jsonl$/, ''), calls: scanned.calls, total: scanned.total });
+          sessions.push({
+            sessionId: name.replace(/\.jsonl$/, ''),
+            calls: scanned.calls,
+            total: scanned.total,
+          });
         }
       }
     }
@@ -117,10 +122,67 @@ export class SessionArchive {
       if (!name.endsWith('.jsonl')) continue;
       const parsed = this.scanSessionFile(join(dir, name));
       if (parsed === undefined) continue;
-      sessions.push({ sessionId: name.replace(/\.jsonl$/, ''), ...parsed, mtimeMs: mtimeOf(join(dir, name)) });
+      sessions.push({
+        sessionId: name.replace(/\.jsonl$/, ''),
+        ...parsed,
+        mtimeMs: mtimeOf(join(dir, name)),
+      });
     }
     sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
     return { dir, sessions };
+  }
+
+  /**
+   * 按「本地自然日」聚合 token 用量（配额面板用）。
+   *
+   * 与 {@link SessionArchive.usage} 的差别：usage 聚合全量历史并按模型分组，
+   * 本方法只看**某一天**，因为「今日余额」的语义边界是本地日历日（重置点 23:59），
+   * 不是滚动 24 小时——用滚动窗口会让余额在深夜悄悄回升，用户无法预期。
+   *
+   * 时间戳按事件自带的 ISO 串解析后转本地时区取日期：直接截字符串前 10 位会按 UTC 归日，
+   * 东八区用户在 08:00 前的用量会被记到前一天。归属判定统一走 {@link LocalDay}。
+   *
+   * @param day 目标本地自然日（由调用方按同一时区构造）
+   * @returns `{ byModel, total }`：各模型当日 token 数（prompt + completion）与总和
+   */
+  public dailyUsage(day: LocalDay): { byModel: Record<string, number>; total: number } {
+    const dir = this.usageDir();
+    const byModel = new Map<string, number>();
+    if (existsSync(dir)) {
+      for (const name of readdirSync(dir)) {
+        if (!name.endsWith('.jsonl')) continue;
+        this.scanDayFile(join(dir, name), day, byModel);
+      }
+    }
+    const out: Record<string, number> = {};
+    let total = 0;
+    for (const [model, tokens] of byModel) {
+      out[model] = tokens;
+      total += tokens;
+    }
+    return { byModel: out, total };
+  }
+
+  /** 扫描单个存档中属于该自然日的 model 事件，累加 token 到 byModel。 */
+  private scanDayFile(file: string, day: LocalDay, byModel: Map<string, number>): void {
+    let lines: string[] = [];
+    try {
+      lines = readFileSync(file, 'utf8').split('\n');
+    } catch {
+      return;
+    }
+    for (const line of lines) {
+      const ev = parseLine(line);
+      if (ev?.type !== 'model') continue;
+      if (!day.contains(ev.timestamp)) continue;
+      const usage = ev.payload?.['usage'] as Record<string, unknown> | undefined;
+      if (usage === undefined) continue;
+      const tokens = Number(usage['promptTokens'] ?? 0) + Number(usage['completionTokens'] ?? 0);
+      if (!Number.isFinite(tokens) || tokens <= 0) continue;
+      const model = ev.payload?.['model'];
+      const key = typeof model === 'string' && model !== '' ? model : 'unknown';
+      byModel.set(key, (byModel.get(key) ?? 0) + tokens);
+    }
   }
 
   /** usage 的扫描目录：StoragePort.location 优先，否则按工作区 + storageDir 推断。 */
@@ -132,7 +194,10 @@ export class SessionArchive {
   }
 
   /** 扫描单个存档的 model 事件，累加进 byModel，返回本文件 calls/total。 */
-  private scanUsageFile(file: string, byModel: Map<string, ModelStat>): { calls: number; total: number } {
+  private scanUsageFile(
+    file: string,
+    byModel: Map<string, ModelStat>,
+  ): { calls: number; total: number } {
     let lines: string[] = [];
     try {
       lines = readFileSync(file, 'utf8').split('\n');
@@ -158,9 +223,7 @@ export class SessionArchive {
   }
 
   /** 解析单个存档的 session_meta/user 事件；文件不可读返回 undefined。 */
-  private scanSessionFile(
-    file: string,
-  ): Omit<SessionInfo, 'sessionId' | 'mtimeMs'> | undefined {
+  private scanSessionFile(file: string): Omit<SessionInfo, 'sessionId' | 'mtimeMs'> | undefined {
     let lines: string[] = [];
     try {
       lines = readFileSync(file, 'utf8').split('\n');
@@ -190,7 +253,9 @@ export class SessionArchive {
 }
 
 /** 解析一行 JSONL；空行/坏行/非对象返回 undefined。 */
-function parseLine(line: string): { type?: string; timestamp?: string; payload?: Record<string, unknown> } | undefined {
+function parseLine(
+  line: string,
+): { type?: string; timestamp?: string; payload?: Record<string, unknown> } | undefined {
   if (line.trim() === '') return undefined;
   let parsed: unknown;
   try {

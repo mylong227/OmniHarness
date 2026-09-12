@@ -357,4 +357,53 @@ export class ApiClient {
   public graphStatus(runId: string): Promise<GraphStatusResult> {
     return this.rpc('graph.status', { runId });
   }
+
+  // ---- 工作台界面能力（上下文容量 / 配额 / 会话模式 / 权限档位 / 检索） ----
+  // 一组 RPC 支撑三块 UI：上下文容量面板、输入区「+」添加菜单、权限档位面板。
+
+  /** 上下文容量报告：六类 token 分解 + 窗口占比 + 提示缓存命中率。 */
+  public contextUsage(threadId: string): Promise<import('../types/models.js').ContextUsageReport> {
+    return this.rpc('context.usage', { threadId });
+  }
+  /** 当前模型与解析出的上下文窗口大小（容量面板标题用）。 */
+  public contextWindow(): Promise<{ model: string; windowTokens: number }> {
+    return this.rpc('context.window', {});
+  }
+  /** 今日余额（本地日内预算）× 各模型配额。 */
+  public quotaGet(): Promise<import('../types/models.js').QuotaStatus> {
+    return this.rpc('quota.get', {});
+  }
+  /** 调整配额档位与基础日预算。 */
+  public quotaSet(patch: {
+    plan?: string;
+    dailyTokens?: number;
+  }): Promise<import('../types/models.js').QuotaStatus> {
+    return this.rpc('quota.set', patch);
+  }
+  /** 读当前会话的模式（目标 / 计划 / 绘图）。 */
+  public modesGet(threadId: string): Promise<import('../types/models.js').SessionModes> {
+    return this.rpc('modes.get', { threadId });
+  }
+  /** 更新会话模式；传空串 / false 即清除该项。 */
+  public modesSet(
+    threadId: string,
+    patch: { goal?: string; planMode?: boolean; sketchMode?: boolean },
+  ): Promise<import('../types/models.js').SessionModes> {
+    return this.rpc('modes.set', { threadId, ...patch });
+  }
+  /** 审批档位表（后端单一来源，含描述与风险级别）。 */
+  public approvalTiers(): Promise<{ tiers: import('../types/models.js').ApprovalTier[] }> {
+    return this.rpc('approval.tiers', {});
+  }
+  /** 可选智能体清单（内置角色 + 编排图 + 插件）。 */
+  public agentsList(): Promise<{ agents: import('../types/models.js').AgentCatalogEntry[] }> {
+    return this.rpc('agents.list', {});
+  }
+  /** 一条查询同时搜工作区文件与历史会话。 */
+  public searchAll(
+    query: string,
+    limit?: number,
+  ): Promise<{ files: import('../types/models.js').SearchHit[]; chats: import('../types/models.js').SearchHit[] }> {
+    return this.rpc('search.all', limit === undefined ? { query } : { query, limit });
+  }
 }

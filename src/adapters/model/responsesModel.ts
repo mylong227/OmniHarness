@@ -7,6 +7,7 @@ import type {
   ModelUsage,
   StreamCallbacks,
 } from '../../ports/model.js';
+import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser, type SseEvent } from './sseParser.js';
 
 /**
@@ -34,8 +35,11 @@ interface StreamState {
  * OpenAI Responses API 原生适配器：instructions 独立字段 + 扁平工具 + previous_response_id 服务端续接。
  */
 export class ResponsesModel implements ModelPort {
+  /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
   private lastResponseId: string | undefined;
+  /** 提示缓存读取器：Responses 用 `input_tokens_details.cached_tokens` 表达命中。 */
+  private readonly promptCache = new PromptCacheUsageReader();
 
   public constructor(private readonly config: ResponsesConfig) {
     this.name = config.model;
@@ -169,11 +173,13 @@ export class ResponsesModel implements ModelPort {
       output.toolCalls = toolCalls;
     }
     // #S29 用量：Responses API 返回 usage.input_tokens / output_tokens / total_tokens。
+    // 另取提示缓存命中量 `input_tokens_details.cached_tokens`（缺字段为 undefined，与 0 命中区分）。
     if (body.usage !== undefined) {
       output.usage = {
         promptTokens: body.usage.input_tokens,
         completionTokens: body.usage.output_tokens,
         totalTokens: body.usage.total_tokens,
+        cachedPromptTokens: this.promptCache.readResponses(body.usage),
       };
     }
     return output;
@@ -281,6 +287,7 @@ interface ResponsesResponse {
     readonly input_tokens: number;
     readonly output_tokens: number;
     readonly total_tokens: number;
+    readonly input_tokens_details?: { readonly cached_tokens?: number };
   };
 }
 

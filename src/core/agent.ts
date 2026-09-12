@@ -12,6 +12,7 @@ import { TurnRunner } from './turnRunner.js';
 import type { TurnOutcome } from './turnRunner.js';
 import type { AgentPort, AgentResult } from '../ports/agent.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
+import { ContextWindowCatalog } from '../context/contextWindowCatalog.js';
 import { SkillRegistry, skillRegistry } from '../skill/skillRegistry.js';
 import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
@@ -258,6 +259,8 @@ export class Agent implements AgentPort {
       embedding: this.runtime.embedding,
       // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。
       signal: cancel.toAbortSignal(),
+      // 上下文窗口：容量快照的百分比分母（env OMNI_CONTEXT_WINDOW 优先 → 模型名表 → 缺省）。
+      contextWindowTokens: this.resolveContextWindow(),
     });
     return new TurnRunner(
       step,
@@ -287,6 +290,20 @@ export class Agent implements AgentPort {
     }
     const fromEnv = Number(process.env.OMNI_TURN_TOKEN_BUDGET);
     return Number.isFinite(fromEnv) && fromEnv > 0 ? Math.floor(fromEnv) : 0;
+  }
+
+  /**
+   * 解析上下文窗口 token 数（UI 容量面板的百分比分母）。
+   *
+   * env `OMNI_CONTEXT_WINDOW` 优先（运维可显式纠正厂商表），否则按模型名查
+   * {@link ContextWindowCatalog}。与压缩阈值口径**有意分离**：压缩何时触发是行为契约
+   * （改动会影响既有会话的折叠时机与测试基线），而窗口大小只是展示口径，两者不互相绑定。
+   */
+  private resolveContextWindow(): number {
+    const fromEnv = Number(process.env.OMNI_CONTEXT_WINDOW);
+    return new ContextWindowCatalog(Number.isFinite(fromEnv) ? fromEnv : undefined).of(
+      this.runtime.model.name,
+    );
   }
 
   /** 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。 */

@@ -9,6 +9,7 @@ import { Agent } from '../core/agent.js';
 import { GraphStore } from '../autonomy/graphStore.js';
 import { portsOf, type SubagentPorts } from '../subagent/subagentPorts.js';
 import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from './appServerState.js';
+import { PlanApproval } from '../adapters/approval/planApproval.js';
 import { ServerNoopSupervisor } from './serverNoopSupervisor.js';
 
 /** Agent/图运行时宿主依赖。 */
@@ -102,6 +103,10 @@ export class AgentRuntimeHost {
       // 默认档：优先用启动时构建的 RuleApproval；若原配置是 auto/deny 被临时切过来，
       // 回退到内置默认 rules 端口，避免仍沿用旧的 AutoApproval/DenyAll。
       approvals = config.approvals.name === 'rules' ? config.approvals : RULES_DEFAULT;
+    } else if (override === 'plan') {
+      // 计划模式（UI「+ → 计划模式」）：只读白名单，写类工具一律 deny（fail-closed）。
+      // 与 CLI `--approval plan` 同一实现，保证两条入口语义一致。
+      approvals = new PlanApproval();
     }
     return approvals;
   }
@@ -119,9 +124,7 @@ export class AgentRuntimeHost {
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
       this.agentCache = new Agent(
-        createRuntime(
-          supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig,
-        ),
+        createRuntime(supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig),
         this.deps.skills,
       );
     }
@@ -155,9 +158,7 @@ export class AgentRuntimeHost {
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
       this.portsCache = portsOf(
-        createRuntime(
-          supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig,
-        ),
+        createRuntime(supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig),
       );
     }
     return this.portsCache;

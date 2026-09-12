@@ -1,6 +1,7 @@
 import type { RetrievalPort } from '../ports/retrieval.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
 import { SpillReadTool } from '../adapters/tool/spillReadTool.js';
+import { SketchWriteTool } from '../adapters/tool/sketchWriteTool.js';
 import { ToolSearchTool } from '../adapters/tool/toolSearchTool.js';
 import { MemorySearchTool } from '../adapters/tool/memorySearchTool.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
@@ -87,6 +88,9 @@ function registerCoreTools(
   });
   const delegator = new DelegateTool(new WorkerOrchestrator(workers ?? demoWorkers()));
   const spillReader = new SpillReadTool(seed.spill);
+  // 绘图（草图）：把 Mermaid / SVG / 文本草图落成 .omniharness/sketches/ 下的文件，
+  // 与 UI 的「+ → 绘图」入口配套——入口负责把模型切到「先画后写」的回合指令，本工具负责产物落地。
+  const sketcher = new SketchWriteTool(seed.workspaceRoot);
   registry.register(shell.definition, (call, ctx) => shell.handle(call, ctx));
   registry.register(reader.definition, (call, ctx) => reader.handle(call, ctx));
   registry.register(writer.definition, (call, ctx) => writer.handle(call, ctx));
@@ -95,6 +99,7 @@ function registerCoreTools(
   registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
   registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
   registry.register(spillReader.definition, (call, ctx) => spillReader.handle(call, ctx));
+  registry.register(sketcher.definition, (call, ctx) => sketcher.handle(call, ctx));
 }
 
 /** 注册自主智能体 / 检索工具（subagent / run_goal / run_workflow / todo / ask_user / plan* / tool_search / memory_search）。 */

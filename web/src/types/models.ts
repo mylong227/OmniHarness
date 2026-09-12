@@ -258,3 +258,112 @@ export interface SseEnvelope {
   method: string;
   params: unknown;
 }
+
+// ---------------- 工作台界面能力（上下文容量 / 配额 / 模式 / 权限 / 检索） ----------------
+// 与后端 src/server/appServerSurfaceHandlers.ts 的 RPC 返回体逐字段对齐。
+
+/** 上下文占用分类键（后端 CONTEXT_CATEGORIES 的键，UI 不自造）。 */
+export type ContextCategoryKey =
+  | 'messages'
+  | 'mcpTools'
+  | 'systemTools'
+  | 'systemPrompt'
+  | 'skills'
+  | 'other';
+
+/** 上下文占用单行。 */
+export interface ContextUsageRow {
+  key: ContextCategoryKey;
+  label: string;
+  tokens: number;
+  /** 占「已用上下文」的百分比（各行之和 ≈ 100）。 */
+  percent: number;
+}
+
+/** 提示缓存命中统计。 */
+export interface ContextCacheStat {
+  promptTokens: number;
+  cachedPromptTokens: number;
+  calls: number;
+  /** 无任何调用上报缓存字段时为 undefined（UI 显示「—」）。 */
+  hitRate?: number;
+}
+
+/** `context.usage` 返回体。 */
+export interface ContextUsageReport {
+  threadId: string;
+  windowTokens: number;
+  usedTokens: number;
+  /** 已用占窗口百分比。 */
+  percent: number;
+  rows: ContextUsageRow[];
+  mcpToolCount: number;
+  systemToolCount: number;
+  /** `measured`=取最近一次真实请求的实测快照；`estimated`=按事件日志重投影；`empty`=无数据。 */
+  source: 'measured' | 'estimated' | 'empty';
+  cache: ContextCacheStat;
+  collectedAt: string;
+}
+
+/** 配额档位。 */
+export interface QuotaPlanView {
+  id: string;
+  label: string;
+  multiplier: number;
+  upgraded: boolean;
+  fallback: boolean;
+}
+
+/** 单模型配额行。 */
+export interface QuotaModelRow {
+  name: string;
+  used: number;
+  limit: number;
+  remainingPercent: number;
+}
+
+/** `quota.get` / `quota.set` 返回体。 */
+export interface QuotaStatus {
+  plan: QuotaPlanView;
+  dailyTokens: number;
+  effectiveTokens: number;
+  usedTokens: number;
+  remainingPercent: number;
+  models: QuotaModelRow[];
+  dayKey: string;
+  resetAt: string;
+  source: 'local-budget';
+}
+
+/** 审批档位（后端 `approval.tiers` 单一来源）。 */
+export interface ApprovalTier {
+  value: string;
+  label: string;
+  description: string;
+  risk: 'low' | 'medium' | 'high';
+  fullAccess: boolean;
+}
+
+/** 智能体目录条目。 */
+export interface AgentCatalogEntry {
+  id: string;
+  name: string;
+  kind: 'builtin' | 'graph' | 'plugin';
+  description: string;
+  directive?: string;
+}
+
+/** 检索命中（文件或聊天）。 */
+export interface SearchHit {
+  kind: 'file' | 'chat';
+  id: string;
+  label: string;
+  hint: string;
+}
+
+/** 会话模式（目标 / 计划 / 绘图）。 */
+export interface SessionModes {
+  goal: string;
+  planMode: boolean;
+  sketchMode: boolean;
+}

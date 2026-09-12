@@ -6,7 +6,7 @@ import type { ImageContent, FileAttachment } from '../ports/model.js';
 import { id } from '../util/id.js';
 import { queryAudit, type AuditQuery } from './auditExporter.js';
 import type { AuditEvent } from './auditSink.js';
-import { AppServerHandlers } from './appServerHandlers.js';
+import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
 import { PROVIDER_PRESETS } from './providerPresets.js';
 import { RepoPathGuard } from './repoPathGuard.js';
@@ -24,7 +24,7 @@ export type { AppServerOptions } from './appServerState.js';
  * `SessionCheckpoints`（会话检查点）、`RepoPathGuard`（路径安全）。服务在构造期装配一次，
  * 每个 RPC 调用零额外构造开销。
  */
-export class AppServer extends AppServerHandlers {
+export class AppServer extends AppServerSurfaceHandlers {
   private readonly diffReview: DiffReview;
   private readonly diffComments: DiffCommentStore;
   private readonly checkpoints: SessionCheckpoints;
@@ -110,7 +110,9 @@ export class AppServer extends AppServerHandlers {
         sessions: r.sessions.map((s) => ({ ...s, running: this.activeTurns.has(s.sessionId) })),
       };
     });
-    this.handlers.set('changes.list', (params) => Promise.resolve(this.workspaceChanges.list(params)));
+    this.handlers.set('changes.list', (params) =>
+      Promise.resolve(this.workspaceChanges.list(params)),
+    );
     this.handlers.set('fs.browse', (params) => Promise.resolve(this.fsExplorer.browse(params)));
     this.handlers.set('fs.mkdir', (params) => Promise.resolve(this.fsExplorer.mkdir(params)));
     this.handlers.set('attach.read', (params) =>
@@ -121,6 +123,7 @@ export class AppServer extends AppServerHandlers {
     this.registerMemoryHandlers();
     this.registerProfileHandlers();
     this.registerBundleHandlers();
+    this.registerSurfaceHandlers();
   }
 
   /** 多 Agent 编排 RPC（G-C，对标 codex agent-graph-store）：图增删查 + 运行 + 实时状态。 */
@@ -335,12 +338,16 @@ export class AppServer extends AppServerHandlers {
     const prompt = String(params['prompt'] ?? '');
     const images = params['images'] as readonly ImageContent[] | undefined;
     const files = params['files'] as readonly FileAttachment[] | undefined;
+    // 会话模式（UI「+」菜单的目标 / 计划 / 绘图）在此合成前置指令：
+    // 只改本回合的用户消息文本，不动系统提示词（系统提示词被缓存，改它会整体失效）。
+    // 无模式时 compose 原样返回 prompt，行为与旧版逐字节一致。
+    const effective = this.directives.compose(prompt, this.modes.get(threadId));
     // 真实运行态跟踪：并行任务卡据此显示「运行中」，而非前端猜测。
     this.activeTurns.add(threadId);
     try {
       const result = this.threads.has(threadId)
-        ? await this.runtime.agent().resume(threadId, prompt, images, files)
-        : await this.runtime.agent().runTask(prompt, images, files);
+        ? await this.runtime.agent().resume(threadId, effective, images, files)
+        : await this.runtime.agent().runTask(effective, images, files);
       this.threads.set(result.sessionId, result.sessionId);
       return this.threadResult(result);
     } finally {
