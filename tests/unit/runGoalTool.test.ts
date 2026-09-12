@@ -15,6 +15,8 @@ import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { RunGoalTool } from '../../src/adapters/tool/runGoalTool.js';
 import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.js';
 import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { AgentFactoryPort, AgentPort, OmniHarnessRuntime } from '../../src/ports/agent.js';
+import { Agent } from '../../src/core/agent.js';
 
 /**
  * 脚本化模型：区分「目标循环推进」与「达成度判定」两类调用。
@@ -119,10 +121,25 @@ function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): Subage
   };
 }
 
+/** 测试用 Agent 工厂：直接构造真实 Agent，驱动目标循环。 */
+class TestAgentFactory implements AgentFactoryPort {
+  /**
+   * 按子智能体运行时构造真实 Agent。
+   * @param runtime 子智能体运行时。
+   * @returns Agent 端口实现。
+   */
+  public create(runtime: OmniHarnessRuntime): AgentPort {
+    return new Agent(runtime);
+  }
+}
+
 describe('RunGoalTool', () => {
+  const factory = new TestAgentFactory();
   it('缺少 goal 直接拒绝', async () => {
     const tool = new RunGoalTool(
       makePorts(new GoalScriptModel('NO 未完成'), new RecordingEvents(), makeTools()),
+      {},
+      factory,
     );
     const result = await tool.handle(
       { id: 'c1', name: RUN_GOAL_TOOL_NAME, arguments: {} },
@@ -134,7 +151,7 @@ describe('RunGoalTool', () => {
 
   it('达成：首轮即判达成，子代工具集剔除 run_goal/subagent', async () => {
     const model = new GoalScriptModel('YES 已完成');
-    const tool = new RunGoalTool(makePorts(model, new RecordingEvents(), makeTools()));
+    const tool = new RunGoalTool(makePorts(model, new RecordingEvents(), makeTools()), {}, factory);
     const result = await tool.handle(
       { id: 'c2', name: RUN_GOAL_TOOL_NAME, arguments: { goal: '达成X' } },
       { sessionId: 's', workspaceRoot: process.cwd() },
@@ -151,9 +168,11 @@ describe('RunGoalTool', () => {
 
   it('未达成：跑到上限后停止，不无限循环', async () => {
     const model = new GoalScriptModel('NO 未完成');
-    const tool = new RunGoalTool(makePorts(model, new RecordingEvents(), makeTools()), {
-      maxIterations: 2,
-    });
+    const tool = new RunGoalTool(
+      makePorts(model, new RecordingEvents(), makeTools()),
+      { maxIterations: 2 },
+      factory,
+    );
     const result = await tool.handle(
       { id: 'c3', name: RUN_GOAL_TOOL_NAME, arguments: { goal: '达成Y' } },
       { sessionId: 's', workspaceRoot: process.cwd() },

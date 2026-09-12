@@ -1,6 +1,6 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { SubagentPorts } from '../../subagent/subagentPorts.js';
-import { Agent } from '../../core/agent.js';
+import type { AgentFactoryPort } from '../../ports/agent.js';
 import { subagentRuntimeFactory } from '../../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../../subagent/subagentEventBridge.js';
 import { ToolSubset } from '../../subagent/toolSubset.js';
@@ -39,6 +39,7 @@ export class RunGoalTool {
   public constructor(
     private readonly ports: SubagentPorts,
     private readonly options: GoalRunnerOptions = {},
+    private readonly agentFactory: AgentFactoryPort,
   ) {}
 
   /** 派生并运行自主目标循环。 */
@@ -54,7 +55,7 @@ export class RunGoalTool {
       bridge,
       this.ports.maxSteps,
     );
-    const agent = new Agent(runtime);
+    const agent = this.agentFactory.create(runtime);
     const runner = new GoalRunner(agent, new GoalChecker(this.ports.model), {
       ...this.options,
       maxIterations: this.maxIterationsOf(call),

@@ -10,6 +10,7 @@ import { SessionRecorder } from './sessionRecorder.js';
 import { StepRunner } from './stepRunner.js';
 import { TurnRunner } from './turnRunner.js';
 import type { TurnOutcome } from './turnRunner.js';
+import type { AgentPort, AgentResult } from '../ports/agent.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
 import { SkillRegistry, skillRegistry } from '../skill/skillRegistry.js';
 import { LoopGuard } from './loop/loopGuard.js';
@@ -22,16 +23,11 @@ import { log, nextTraceId } from '../util/logger.js';
 const DEFAULT_MAX_TOKENS = 8000;
 const DEFAULT_KEEP_RECENT = 6;
 
-/** Agent 运行结果。 */
-export interface AgentResult {
-  readonly sessionId: string;
-  readonly finalText?: string;
-  readonly steps: number;
-  readonly events: readonly SessionEvent[];
-}
+// AgentResult 契约已上移至 ports/agent.ts（端口契约），此处 re-export 以保公开 API 稳定。
+export type { AgentResult };
 
 /** Agent 总编排：建会话 → 记录输入 → 跑回合 → 持久化。 */
-export class Agent {
+export class Agent implements AgentPort {
   /** 当前在跑会话的取消令牌（V2）：cancel() 可中断模型请求（signal 贯穿 fetch）。 */
   private currentCancel: CancellationToken | undefined;
   /** 当前在跑会话的增量持久化器（V2）：供 buildTurnRunner 注入 TurnRunner。 */
@@ -46,7 +42,9 @@ export class Agent {
    * 取消当前在跑的任务（V2）：模型在飞请求被中断（CancelledError 上抛），
    * 已产生事件仍经 finally 落盘。无在跑任务时为 no-op。
    */
-  public cancelCurrentRun(reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user'): void {
+  public cancelCurrentRun(
+    reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user',
+  ): void {
     this.currentCancel?.cancel(reason);
   }
 
@@ -132,11 +130,7 @@ export class Agent {
       // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）。
       const cancel = new CancellationToken();
       this.currentCancel = cancel;
-      const persister = new EventPersister(
-        this.runtime.storage,
-        sessionId,
-        () => eventLog.all(),
-      );
+      const persister = new EventPersister(this.runtime.storage, sessionId, () => eventLog.all());
       this.currentPersister = persister;
       const runner = this.buildTurnRunner(recorder, cancel);
       let outcome: TurnOutcome;
@@ -265,22 +259,22 @@ export class Agent {
       // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。
       signal: cancel.toAbortSignal(),
     });
-      return new TurnRunner(
-        step,
-        recorder,
-        this.runtime.config.maxSteps,
-        this.runtime.turnDiff,
-        this.runtime.longTermMemory,
-        this.runtime.memoryExtractor,
-        buildLoopGuard(),
-        // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
-        // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
-        // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
-        this.currentPersister,
-        // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
-        this.resolveTokenBudget(),
-      );
-    }
+    return new TurnRunner(
+      step,
+      recorder,
+      this.runtime.config.maxSteps,
+      this.runtime.turnDiff,
+      this.runtime.longTermMemory,
+      this.runtime.memoryExtractor,
+      buildLoopGuard(),
+      // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
+      // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
+      // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
+      this.currentPersister,
+      // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
+      this.resolveTokenBudget(),
+    );
+  }
 
   /**
    * 回合 token 预算解析（V2.1 / B4）：config.turnTokenBudget 优先，
@@ -303,9 +297,7 @@ export class Agent {
       keepRecent: this.runtime.config.compactionKeepRecent ?? DEFAULT_KEEP_RECENT,
       // V2：真实窗口 token 数（env OMNI_CONTEXT_WINDOW）提供时，阈值 = floor(0.8×window)，
       // 对齐 codex/dsh 的「按窗口百分比触发压缩」策略；未提供时维持固定阈值行为。
-      ...(Number.isFinite(envWindow) && envWindow > 0
-        ? { contextWindowTokens: envWindow }
-        : {}),
+      ...(Number.isFinite(envWindow) && envWindow > 0 ? { contextWindowTokens: envWindow } : {}),
     });
     // 原生内核可用时，token 估算下沉到 Rust（单次 FFI 往返，与 JS 结果逐位一致）。
     if (this.runtime.native?.estimateTokens !== undefined) {

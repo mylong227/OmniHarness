@@ -32,6 +32,7 @@ import { SubagentOrchestrator } from '../subagent/subagentOrchestrator.js';
 import { SubagentTool } from '../adapters/tool/subagentTool.js';
 import { RunGoalTool } from '../adapters/tool/runGoalTool.js';
 import { RunWorkflowTool } from '../adapters/tool/runWorkflowTool.js';
+import { AgentFactory } from './agentFactory.js';
 import {
   LspGoToDefinitionTool,
   LspFindReferencesTool,
@@ -114,9 +115,11 @@ function registerAgentTools(
     new SubagentOrchestrator({ ...ports, tools: registry }, subagentOptions),
   );
   // #S30 自主目标循环：run_goal 派生进程内目标循环完成子目标（复用主循环 + 达成度判定）。
+  // 经 AgentFactory（组合根注入）取得 Agent，避免 runGoalTool 直接依赖 core。
   const goalRunner = new RunGoalTool(
     { ...ports, tools: registry },
     { maxIterations: seed.goalMaxIterations },
+    new AgentFactory(),
   );
   // #S31 工作流 DAG：run_workflow 派生进程内多步依赖编排（拓扑分层 + 并发闸门 + 失败传播）。
   const workflowRunner = new RunWorkflowTool({ ...ports, tools: registry });

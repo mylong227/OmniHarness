@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
-import type { AgentResult } from '../../src/core/agent.js';
-import type { Agent } from '../../src/core/agent.js';
+import type { AgentResult } from '../../src/ports/agent.js';
+import type { AgentPort } from '../../src/ports/agent.js';
 import { GoalRunner } from '../../src/autonomy/goalRunner.js';
 import { GoalChecker } from '../../src/autonomy/goalChecker.js';
 
@@ -47,7 +47,7 @@ describe('GoalRunner', () => {
   it('首轮即达成：只跑 runTask，不续跑', async () => {
     const agent = new FakeAgent();
     const runner = new GoalRunner(
-      agent as unknown as Agent,
+      agent as unknown as AgentPort,
       new GoalChecker(new VerdictModel('YES 已完成')),
       {
         maxIterations: 3,
@@ -65,7 +65,7 @@ describe('GoalRunner', () => {
   it('始终未达成：跑到上限后停止，不无限循环', async () => {
     const agent = new FakeAgent();
     const runner = new GoalRunner(
-      agent as unknown as Agent,
+      agent as unknown as AgentPort,
       new GoalChecker(new VerdictModel('NO 未完成')),
       {
         maxIterations: 3,
@@ -90,7 +90,7 @@ describe('GoalRunner', () => {
       },
     };
     const agent = new FakeAgent();
-    const runner = new GoalRunner(agent as unknown as Agent, new GoalChecker(model), {
+    const runner = new GoalRunner(agent as unknown as AgentPort, new GoalChecker(model), {
       maxIterations: 5,
     });
     const result = await runner.run('达成目标Z');
@@ -103,7 +103,7 @@ describe('GoalRunner', () => {
   it('跨迭代复用同一会话 ID（模型拥有完整上下文）', async () => {
     const agent = new FakeAgent();
     const runner = new GoalRunner(
-      agent as unknown as Agent,
+      agent as unknown as AgentPort,
       new GoalChecker(new VerdictModel('NO 未完成')),
       {
         maxIterations: 2,

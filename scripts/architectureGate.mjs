@@ -61,9 +61,8 @@ for (const f of files) {
 // ---- 3. 白名单（冻结存量；P1/P3 清偿后从此移除对应条目） ----
 // core→adapters（0 条，docs §1.3；runtime 簇 4 条 + turnRunner 1 条 + sandbox 簇 2 条 已 P1 解耦清零，存量归零）
 const CORE_TO_ADAPTERS_WL = new Set([]);
-// adapters→core（1 条，docs §1.3；已清 8：eventFactory 簇 x4 + checkpointTool/rollbackTool x2
-//   + turnDiffHooks x2 经端口注入清零，剩余 1 条为真实存量）
-const ADAPTERS_TO_CORE_WL = new Set(['adapters/tool/runGoalTool->core/agent']);
+// adapters→core（0 条，docs §1.3；runGoalTool→agent 经 AgentFactoryPort 端口注入清零，P1 全部归零）
+const ADAPTERS_TO_CORE_WL = new Set([]);
 // ports 纯度：允许 ports/model.ts 内含 2 个错误类（P3.x 拆分到 errors 端口或独立模块后移除）
 const PORTS_CLASS_WL = new Set(['src/ports/model.ts']);
 

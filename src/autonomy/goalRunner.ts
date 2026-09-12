@@ -1,4 +1,4 @@
-import type { Agent, AgentResult } from '../core/agent.js';
+import type { AgentPort, AgentResult } from '../ports/agent.js';
 import { GoalChecker } from './goalChecker.js';
 
 /**
@@ -48,7 +48,7 @@ export class GoalRunner {
   private readonly maxIterations: number;
 
   public constructor(
-    private readonly agent: Agent,
+    private readonly agent: AgentPort,
     private readonly checker: GoalChecker,
     options: GoalRunnerOptions = {},
   ) {
