@@ -1,12 +1,25 @@
 #!/bin/sh
 # OmniHarness pre-commit 门禁（零依赖：仅用仓库内 node_modules 工具）。
-# 职责：铁律自检(check.mjs) + ESLint(error 阻断，warn 放行) + Prettier 增量格式化已暂存文件。
+# 职责：铁律自检(check --strict) + 成熟度门禁 + 编码标准增量门禁 + ESLint(error 阻断) + Prettier 增量格式化。
 # 由 scripts/install-hooks.mjs 通过 git config core.hooksPath 激活。
+# 这是「编码标准任何时候都生效」的机器兜底：任何提交只要新增标准违规即被中止。
 cd "$(git rev-parse --show-toplevel)"
 
-echo "[pre-commit] OmniHarness 门禁：铁律自检..."
-if ! npm run --silent check; then
+echo "[pre-commit] OmniHarness 门禁：铁律自检（--strict）..."
+if ! npm run --silent check -- --strict; then
   echo "[pre-commit] ✗ check.mjs 铁律校验未通过，提交中止。" >&2
+  exit 1
+fi
+
+echo "[pre-commit] 成熟度门禁（L2/L3 须有测试证据）..."
+if ! npm run --silent audit:maturity; then
+  echo "[pre-commit] ✗ 成熟度门禁未通过（L2/L3 须有 @maturityEvidence 指向真实测试），提交中止。" >&2
+  exit 1
+fi
+
+echo "[pre-commit] 编码标准增量门禁（禁止本次提交新增违规）..."
+if ! npm run --silent audit:standard:delta; then
+  echo "[pre-commit] ✗ 检测到本次提交新增了编码标准违规，提交中止。" >&2
   exit 1
 fi
 

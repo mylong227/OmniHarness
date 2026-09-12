@@ -1,6 +1,11 @@
 # 全库代码规范重构计划
 
-> 目标：让全部 `.ts`（`src/`、`tests/`、`web/src/`）符合 `docs/CODE_STANDARD.md` 的八条规范。
+> **本文件是分阶段执行账（历史进度），不是独立标准。** 权威规则以 `docs/CODE_STANDARD.md` 为准；
+> 当前进度以 `docs/REFACTOR_BOARD_2026-09-12.md` 为准。自 2026-09-12 起，标准已通过常驻 skill
+> `omniharness-coding-standard` + Git 提交钩子（`scripts/git-hooks/pre-commit`）+ CI 三重强制，
+> **任何时候编码都生效**（详见 `docs/CODE_STANDARD.md` §9）。
+
+> 目标：让全部 `.ts`（`src/`、`tests/`、`web/src/`）符合 `docs/CODE_STANDARD.md` 的规范。
 > 盘点口径：AST 全量扫描（`node scripts/auditStandards.mjs`），非正则印象。
 > 纪律：每批次完成即跑门禁（typecheck / build / web:build / lint / test），可回滚；
 > 并行会话热区文件（`core/stepRunner.ts`、`core/turnRunner.ts`、`adapters/live/**`、
@@ -8,38 +13,42 @@
 
 ## 盘点基线（改造前）
 
-| 指标 | 基线 | 现状 |
-|---|---|---|
-| `.ts` 文件数（excl dist/tests 内联） | 333 | 362 |
-| `var` 用法 | 0 | 0 ✅ |
-| `any` 用法 | 0（源码）/ 1（web shim） | 0 ✅ |
-| 隐式 public 的类成员 | **1332** | **20**（热区豁免块残留） |
-| 顶层 function（src） | 261（已导出 163） | 273（已导出 163） |
-| 缺 JSDoc 的公开成员 | 288 / 813 | 281 / 918 |
-| 文件名 ≠ 主类名 | 69 | **0**（Phase 3 收官：仅 `ports/model` 端口豁免，非违规） |
-| 上帝类（>500 行 或 >25 方法） | 8 | **1**（仅 `stepRunner` 热区） |
-| `static` 用量 | 206 / 36 文件 | **20**（Phase 5 收官：−186，6 文件，全合法） |
-| 单文件 ≥3 个导出类 | 3 | **0**（Phase 6 收官） |
+| 指标                                 | 基线                     | 现状                                                     |
+| ------------------------------------ | ------------------------ | -------------------------------------------------------- |
+| `.ts` 文件数（excl dist/tests 内联） | 333                      | 362                                                      |
+| `var` 用法                           | 0                        | 0 ✅                                                     |
+| `any` 用法                           | 0（源码）/ 1（web shim） | 0 ✅                                                     |
+| 隐式 public 的类成员                 | **1332**                 | **20**（热区豁免块残留）                                 |
+| 顶层 function（src）                 | 261（已导出 163）        | 273（已导出 163）                                        |
+| 缺 JSDoc 的公开成员                  | 288 / 813                | 281 / 918                                                |
+| 文件名 ≠ 主类名                      | 69                       | **0**（Phase 3 收官：仅 `ports/model` 端口豁免，非违规） |
+| 上帝类（>500 行 或 >25 方法）        | 8                        | **1**（仅 `stepRunner` 热区）                            |
+| `static` 用量                        | 206 / 36 文件            | **20**（Phase 5 收官：−186，6 文件，全合法）             |
+| 单文件 ≥3 个导出类                   | 3                        | **0**（Phase 6 收官）                                    |
 
 ## 批次状态
 
 ### Phase 0 — 门禁与工具（✅ 已完成）
+
 - `eslint.config.mjs`：`no-explicit-any` 升为 `error`；新增
   `@typescript-eslint/explicit-member-accessibility: error`；热区文件加覆盖块豁免（TODO 待撤）。
 - 新增 `scripts/auditStandards.mjs`（AST 盘点）与 `scripts/codemod/memberAccessibility.mjs`（机械修复）。
 
 ### Phase 1 — 显式访问权限（✅ 已完成）
+
 - 机械 codemod 补全 **1332 处** 隐式 public 成员为显式 `public`（含构造器参数属性），覆盖 **269 个文件**。
 - 语义零变更（隐式 public ≡ 显式 public）；`web/src/types/react-shim.d.ts` 手工补 12 处 + 去 `any`。
 - 门禁：typecheck / build / web:build 0 error；lint **0 error**；全量单测 1012/1028 通过
   （8 失败均为既有的 WebSocket/端口 15s 超时环境问题，与本改动无关）。
 
 ### Phase 2 — JSDoc 覆盖（待办）
+
 - 目标：813 个公开成员中缺文档的 288 个（src）补齐，含 `@param`/`@returns`。
 - 风险：需逐方法理解语义，**不可机械批量**；按模块分批，每批单独提交。
 - 建议顺序：`util/` → `context/` → `adapters/` 小文件 → `ports/` 接口。
 
 ### Phase 3 — 文件名 = 类名（✅ 已完成，仅 `ports/model` 端口豁免）
+
 - 二选一策略（逐文件判定）：
   - **改文件名**：`errors.ts` → `omniError.ts`（类名 `OmniError`）——推荐，改动集中。
   - **改类名**：仅当类名语义弱于文件名时。
@@ -72,6 +81,7 @@
 ### Phase 4 — 上帝类拆分（✅ 真项清零；仅余热区）
 
 **已完成（各独立提交，行为零变更 + 门禁绿 + 单测通过）**
+
 - ✅ `adapters/lsp/lspProcess.ts`（371 行 / 26 方法）→ 抽出 `LspJsonRpcConnection`（stdio JSON-RPC 传输/分帧/超时），
   适配器只留 LSP 协议语义。提交 `24d0a7c`；lspProcess+lspTools 17/17。
 - ✅ `spark/sparkController.ts`（430 行 / 23 字段）→ 抽出 `SparkEngineSet`（20 引擎归拢）与
@@ -103,13 +113,13 @@
   - `ServerEventBridge`（事件下行 + 审批上行；挂起 resolver 表内聚）
   - `AgentRuntimeHost`（Agent/图端口装配、审批端口解析、Kernel 放宽判定与三类缓存失效）
   - 另抽出 `ServerNoopSupervisor`（原嵌套类，独立成文件以满足「文件名=类名」）。
-  继承链 `AppServerBase → AppServerHandlers → AppServer` **保持不变**，对外契约（`loadPlugins` /
-  `applyPluginProfile` / `effectiveWorkspace` / `updateConfig` / `bypassSupervisorKernel`）保留薄委托，
-  `appServerHandlers.ts` 仅 5 处 `ensurePlugins()` → `plugins.ensure()`；所有服务**构造期装配一次**
-  （零每调用开销），工作区根/配置一律 **getter 注入**以兼容 `workspace.switch` 与 `config.update`。
-  审计口径：appServerBase 已移出上帝类清单（余 `omniharnessConfig` 伪上帝类与热区 `stepRunner`）。
-  新增 9 个测试套件 / 67 用例全绿（纯临时目录 + 临时 git 仓，绕开环境性 flaky 的集成路径）。
-  提交 `4d25816`。
+    继承链 `AppServerBase → AppServerHandlers → AppServer` **保持不变**，对外契约（`loadPlugins` /
+    `applyPluginProfile` / `effectiveWorkspace` / `updateConfig` / `bypassSupervisorKernel`）保留薄委托，
+    `appServerHandlers.ts` 仅 5 处 `ensurePlugins()` → `plugins.ensure()`；所有服务**构造期装配一次**
+    （零每调用开销），工作区根/配置一律 **getter 注入**以兼容 `workspace.switch` 与 `config.update`。
+    审计口径：appServerBase 已移出上帝类清单（余 `omniharnessConfig` 伪上帝类与热区 `stepRunner`）。
+    新增 9 个测试套件 / 67 用例全绿（纯临时目录 + 临时 git 仓，绕开环境性 flaky 的集成路径）。
+    提交 `4d25816`。
 
 - ✅ `config/omniharnessConfig.ts`（764 行）→ **组合根收敛**：真 god 是**单方法 363 行的 `ConfigFactory.build`**
   （interface 段 316 行只是被动数据声明，无逻辑）。抽出 4 个顶层领域装配函数（+ 11 个模块级私有助手）：
@@ -120,6 +130,7 @@
   门禁：typecheck / build / lint(0 error) / api:check / web:build / 依赖四闸门 全绿；全量 1121 用例 8 失败**全为既有环境性**。
 
 **剩余（待办）**
+
 - `core/stepRunner.ts`（526）→ **热区，暂缓**（并行会话活跃文件）。
 - ⚠️ `appServer*` 两兄弟的单测在本机因 **mock agent 单次实跑 64s > 测试内部 15s 轮询上限**而不可靠（本次实测：
   `threads.create` 端到端 64.1s，返回结构正确），拆分只能靠 typecheck + api:check + 新协作者单测兜底，须最谨慎。
@@ -147,6 +158,7 @@
   与 Phase 5 目标冲突）。实测：文件 764 → 480 行、`build` 363 → 78 行、`static` 保持 206 不变。
 
 ### Phase 5 — 削减 static（收官，206 → **20**，−186）
+
 - 范式：`export class Xxx` 静态方法族 → 实例类 + 组合根单例（`export const xxx = new Xxx()`）+ 调用点
   `ClassName.xxx(...)` → `xxx.xxx(...)` 零构造复用（沿用批次 A 已验证模式）。高扇入模块用一次性 codemod
   批量重命名 `ClassName.` → `camelName.`，再手工同步 import（仅静态调用的 import 直接改 token；类名仍作
@@ -173,7 +185,7 @@
 - **已完成（1 模块，第八批）**：`core/eventFactory`(13) —— 13 个静态工厂方法 + `private static base`
   改实例方法 + 组合根单例 `eventFactory`；自调用原即 `this.base(...)`（非 `EventFactory.base`），去 static 后天然
   转实例调用；21 处调用点（`eventLog`(5) / `sessionRecorder`(9) / `planTool`(3) / `askUserTool`(1) /
-  `todoTool`(1) / `eventLog.test`(1)）改为 `eventFactory.xxx`，6 处 import 同步引用单例。  static 计数 48 → 35。
+  `todoTool`(1) / `eventLog.test`(1)）改为 `eventFactory.xxx`，6 处 import 同步引用单例。 static 计数 48 → 35。
 - **已完成（1 模块，第九批）**：`mcp/mcpProtocol`(14→11) —— 仅 3 个纯工厂方法（`text` / `toolResult` /
   `initializeResult`）去 static 转实例方法 + 组合根单例 `mcpProtocol`；11 个 `static readonly` 协议常量
   （版本号 / 方法名 / 错误码）属合法常量命名空间，保留 static，调用点 `McpProtocol.XXX` 不动。3 处工厂调用点
@@ -205,6 +217,7 @@
     Phase 5 完成。
 
 ### Phase 6 — 一文件一类（✅ 已完成）
+
 - 三个「单文件 ≥3 导出类」的 God-module 全部按「每类一文件 + 原文件改桶再导出」拆分，调用点零改动
   （共享函数/类型抽 `*Shared.ts`，原文件仅 `export { X } from './X'` 桶，审计按 `export class` 声明计数故不再计入多类模块）。
 - ✅ `adapters/tool/lspTools`（4 类：`LspGoToDefinitionTool` / `LspFindReferencesTool` / `LspHoverTool` / `LspStatusTool`）
@@ -219,12 +232,14 @@
 - 单文件 ≥3 导出类：**3 → 0**（Phase 6 收官）。
 
 ### Phase 7 — 封装收紧（待办，判断批）
+
 - Phase 1 只是把「隐式 public」显式化；本批在其中识别**本应 private/protected** 的成员并收紧。
 - 纯人工判断 + 单测护栏，按模块小步推进。
 
 ## 收口判定
 
 全部批次完成后：
+
 - `node scripts/auditStandards.mjs` 中：隐式 public = 0、`any` = 0、`var` = 0、
   文件名≠类名 = 0、上帝类 = 0、单文件多类 = 0。
 - `npm run lint` / `typecheck` / `build` / `web:build` 全绿；`npm test` 无新增失败。

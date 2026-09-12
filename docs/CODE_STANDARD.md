@@ -1,8 +1,14 @@
-# OmniHarness 代码规范（Code Standard）
+# OmniHarness 编码标准（Code Standard）
 
-> 本标准是仓库级强制约定，适用于**全部 `.ts` 源码**（`src/`、`tests/`、`web/src/`）。
-> 由 ESLint 门禁（`npm run lint`）与 TypeScript 严格模式共同保障；能机械校验的一律上闸门，
-> 不能机械校验的（封装、职责、设计模式）在评审批次中人工把关。
+> **常驻强制 · 任何项目 · 任何代码 · 任何时候生效。**
+> 本标准是**铁律级**编码约定，由常驻 skill `omniharness-coding-standard`（用户级，跨项目生效）
+> 在**每一次编码任务开始时自动加载并遵守**；并由 Git 提交钩子（`scripts/git-hooks/pre-commit`）
+> 与 CI 在**每一次提交/合并**强制拦截——双保险确保「任何时候编码都生效」。
+> 适用面：本仓库全部 `.ts`（`src/`、`tests/`、`web/src/`）；同时作为通用严格 TS 规范，
+> **任何项目**的 TypeScript/JavaScript 编码均须对照遵守（见 skill 的 `references/standard.md`）。
+
+> 机械校验一律上闸门（ESLint + `check.mjs` + `audit:maturity` + `audit:standard:delta`）；
+> 不能机械校验的（封装、职责、设计模式）在评审批次中人工把关，但 skill 会在每次编码时主动提示。
 
 ## 0. 与工程铁律的关系
 
@@ -40,19 +46,19 @@ export class FileName {
 
 ### 强制规则
 
-| 规则 | 要求 | 门禁 |
-|---|---|---|
-| **访问权限** | 每个类成员必须显式写 `public`/`private`/`protected`，禁止隐式 public | `explicit-member-accessibility: error` |
-| **变量声明** | 禁止 `var`；只用 `const`，必要时 `let` | `no-var: error` |
-| **禁用 any** | 禁止 `any`（含 `: any`、`as any`、`<any>`），用 `unknown` + 收窄 | `no-explicit-any: error` |
-| **类型标注** | 公开方法的入参、返回值必须显式标注 | `tsc --strict` |
-| **杜绝上帝类** | 单文件 ≤ 800 行（2026-09-12 起，架构稳定优先于机械拆分）、单类 ≤ 20 个方法为宜；超限须拆分 | 人工评审 + `check.mjs` |
-| **文件名 = 类名** | 一个文件一个主类，主类名与文件名一致（`foo.ts` → `class Foo`） | 人工评审 |
-| **单一职责** | 一个类只干一件事；方法粒度单一、可单测 | 人工评审 |
-| **JSDoc** | 公开类/方法/关键字段必须有 `/** */`，含 `@param`/`@returns` | 人工评审 |
-| **减少 `static`** | 慎用静态成员；有状态或可注入者一律实例化 + 组合根单例 | 人工评审 |
-| **组合优于继承** | 依赖通过构造注入，禁止在方法体内 `new` 具体实现 | 人工评审 |
-| **控制流** | 优先早返回（guard clause）、查表/映射、多态，减少深层 `if/else` 嵌套 | 人工评审 |
+| 规则              | 要求                                                                                       | 门禁                                   |
+| ----------------- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
+| **访问权限**      | 每个类成员必须显式写 `public`/`private`/`protected`，禁止隐式 public                       | `explicit-member-accessibility: error` |
+| **变量声明**      | 禁止 `var`；只用 `const`，必要时 `let`                                                     | `no-var: error`                        |
+| **禁用 any**      | 禁止 `any`（含 `: any`、`as any`、`<any>`），用 `unknown` + 收窄                           | `no-explicit-any: error`               |
+| **类型标注**      | 公开方法的入参、返回值必须显式标注                                                         | `tsc --strict`                         |
+| **杜绝上帝类**    | 单文件 ≤ 800 行（2026-09-12 起，架构稳定优先于机械拆分）、单类 ≤ 20 个方法为宜；超限须拆分 | 人工评审 + `check.mjs`                 |
+| **文件名 = 类名** | 一个文件一个主类，主类名与文件名一致（`foo.ts` → `class Foo`）                             | 人工评审                               |
+| **单一职责**      | 一个类只干一件事；方法粒度单一、可单测                                                     | 人工评审                               |
+| **JSDoc**         | 公开类/方法/关键字段必须有 `/** */`，含 `@param`/`@returns`                                | 人工评审                               |
+| **减少 `static`** | 慎用静态成员；有状态或可注入者一律实例化 + 组合根单例                                      | 人工评审                               |
+| **组合优于继承**  | 依赖通过构造注入，禁止在方法体内 `new` 具体实现                                            | 人工评审                               |
+| **控制流**        | 优先早返回（guard clause）、查表/映射、多态，减少深层 `if/else` 嵌套                       | 人工评审                               |
 
 ## 2. 命名与文件
 
@@ -113,12 +119,12 @@ npm run api:check   # 公共 API 表面稳定性
 
 ### 8.1 四个等级
 
-| 等级 | 名称 | 判据 |
-| ---- | ---- | ---- |
-| **L0** | 命名级 | 只有名字像，算法是普通启发式；换名不影响行为 |
-| **L1** | 结构同构 | 数据结构 / 组合律与理论对象同构，可等式推理 |
+| 等级   | 名称       | 判据                                          |
+| ------ | ---------- | --------------------------------------------- |
+| **L0** | 命名级     | 只有名字像，算法是普通启发式；换名不影响行为  |
+| **L1** | 结构同构   | 数据结构 / 组合律与理论对象同构，可等式推理   |
 | **L2** | 动力学同构 | 演化规则与理论方程同构（同一差分 / 微分形式） |
-| **L3** | 可证性质 | 理论中的定理在本实现里被单测机械证明 |
+| **L3** | 可证性质   | 理论中的定理在本实现里被单测机械证明          |
 
 > **说 L3 必须是有测试**。没有测试的收敛性 / 守恒性声明，一律降级为 L1/L2。
 
@@ -156,7 +162,24 @@ import（如把桩数据 `const bm25 = [{id:'b'}]` 当覆盖）的，列为「�
 理论与分级依据：`docs/library/README.md` §4（全局映射总表）；升级主线：
 `docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` T0。
 
-## 9. 例外与豁免
+## 9. 门禁强制（always-on）
+
+标准要「任何时候生效」，靠**两层强制**兜底，而非靠记忆：
+
+1. **Skill 层（Agent 侧）**：用户级 skill `omniharness-coding-standard` 在每次编码任务开始时加载，
+   主动提示并校验「一文件一类 / 文件名=类名 / 禁 var·any / 显式访问 / 公开 JSDoc / ≤800 行·≤80 函数 /
+   上帝类拆分 / 隐喻引擎成熟度」；改动收尾必须跑门禁（`npm run typecheck` / `lint` / `check --strict` /
+   `audit:maturity` / `audit:standard:delta`），任一非零即视为未完成。
+2. **Git 钩子层（机器侧）**：`scripts/git-hooks/pre-commit`（由 `npm run install-hooks` 经
+   `git config core.hooksPath` 激活）在每次提交自动跑 `check --strict` + `audit:maturity` +
+   `audit:standard:delta` + `lint` + Prettier 增量格式化；任一失败即中止提交。
+3. **CI 层**：合并门禁复用同一组命令（成熟度门禁已在 gate job 接入）。
+
+> `audit:standard:delta` 只阻断**本次提交新增**的违规（对比 `HEAD`），不阻挡既有历史债务
+> （如全库 281 处缺 JSDoc），但**新文件必须完全干净**。完整判定口径见 skill 的 `references/standard.md`。
+> 激活钩子：`npm run install-hooks`（仅首次；已激活则提交即自动门禁）。
+
+## 10. 例外与豁免
 
 - 第三方 vendored 代码（`web/vendor/**`）不适用本标准。
 - 渲染用 `web/src/types/*.d.ts` 手写 shim：同样纳入规范（已补显式修饰符、去 `any`）。
