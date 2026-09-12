@@ -8,9 +8,10 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool.js';
+import { tempWorkspace } from '../helpers/tempWorkspace.js';
 
 /** 测试上下文。 */
-const context: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
+const context: ToolContext = { sessionId: 's1', workspaceRoot: tempWorkspace() };
 
 /** 构造带 echo 工具的注册表。 */
 function registryWith(extra?: (name: string, call: ToolCall) => ToolResult): RegistryToolPort {

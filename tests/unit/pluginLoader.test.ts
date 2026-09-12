@@ -13,6 +13,7 @@ import { loadInstalledPlugins } from '../../src/plugin/pluginLoader.js';
 import { AppServer } from '../../src/server/appServer.js';
 import { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 import type { Transport } from '../../src/server/lineTransport.js';
+import { tempWorkspace } from '../helpers/tempWorkspace.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -80,7 +81,11 @@ class TestTransport implements Transport {
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
-  public async receive(method: string, params: Record<string, unknown>, id = 1): Promise<RpcMessage> {
+  public async receive(
+    method: string,
+    params: Record<string, unknown>,
+    id = 1,
+  ): Promise<RpcMessage> {
     await this.callback?.({ jsonrpc: '2.0', id, method, params });
     const deadline = Date.now() + 2000;
     while (Date.now() < deadline) {
@@ -97,7 +102,7 @@ test('app-server：plugins.reload 加载已安装插件并注入工具表（运�
   // 关键：先以空目录启动，模拟「市场安装前」状态
   const transport = new TestTransport();
   const config = ConfigFactory.build({
-    workspaceRoot: process.cwd(),
+    workspaceRoot: tempWorkspace(),
     maxSteps: 16,
     model: new MockModel(),
     storage: new MemoryStorage(),
@@ -110,6 +115,7 @@ test('app-server：plugins.reload 加载已安装插件并注入工具表（运�
     transport,
     pluginsDir: root,
     registry: new PluginRegistry({ pluginsDir: root }),
+    modelOverrideEnabled: false,
   });
   await server.loadPlugins();
 

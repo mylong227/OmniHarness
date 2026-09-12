@@ -10,11 +10,12 @@ import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+import { tempWorkspace } from '../helpers/tempWorkspace.js';
 
 /** 构造生产级解析配置（mock 适配器，无网络）。 */
 function buildConfig(approvals?: ApprovalPort): ResolvedConfig {
   return ConfigFactory.build({
-    workspaceRoot: process.cwd(),
+    workspaceRoot: tempWorkspace(),
     maxSteps: 4,
     model: new MockModel(),
     storage: new MemoryStorage(),
@@ -43,7 +44,7 @@ function buildHost(
     approvalOverride: () => over.approvalOverride,
     uplink: () => uplink,
     modelOverride: () => undefined,
-    workspaceRoot: () => process.cwd(),
+    workspaceRoot: () => tempWorkspace(),
   });
 }
 
