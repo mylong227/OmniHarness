@@ -4,9 +4,13 @@ import type { EventPort } from '../ports/eventPort.js';
 import type { ModelPort, RoutePrice } from '../ports/model.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
 import { mergeRoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
+import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
+import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
+import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
 
 import type { ModelRouterConfig } from './configFile.js';
 import type { SandboxPort } from '../ports/sandbox.js';
+import type { EmbeddingPort } from '../ports/embedding.js';
 import type { StoragePort } from '../ports/storage.js';
 import type { RetrievalPort } from '../ports/retrieval.js';
 import type { EscalationPort } from '../ports/escalation.js';
@@ -17,7 +21,7 @@ import type { TurnDiffTracker } from '../core/turnDiffTracker.js';
 import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
-import type { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
+import type { MemoryExtractorPort } from '../ports/memoryExtractor.js';
 import type { CosmicWebPort } from '../ports/cosmicWeb.js';
 import type { MemoryAnnealer } from '../ports/memoryAnnealing.js';
 import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
@@ -323,7 +327,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   /** 长期记忆端口（#S28）：跨会话持久 fact 存储，默认文件落盘；recall 工具与回合末蒸馏共用。 */
   readonly longTermMemory: LongTermMemoryPort;
   /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关 memoryConsolidate 时构造，回合末自动沉淀；否则 undefined（仅支持显式 remember）。 */
-  readonly memoryExtractor?: MemoryExtractor;
+  readonly memoryExtractor?: MemoryExtractorPort;
   /** 成本预算计量（#S29，可选）：配置 costBudgetUsd 正数时构造，BudgetedModel 与 budget_status 工具共享同一实例（含子代）。 */
   readonly costBudget?: CostBudget;
   /** 自主目标循环最大迭代次数（#S30，默认 10，CLI/工具可覆盖）。 */
@@ -332,8 +336,10 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly lsp?: LspPort;
   /** Agent 密码学身份端口（#S33，可选）：配置了 agentIdentity 时构造 Ed25519AgentIdentity，否则 undefined（agent_identity 工具不注册）。 */
   readonly identity?: AgentIdentityPort;
-  /** 工具输入实时观察端口（#B3，可选）：模型流式生成的工具参数增量经此推给 UI；createRuntime 默认 ConsoleLiveView。 */
+  /** 工具输入实时观察端口（#B3，可选）：模型流式生成的工具参数增量经此推给 UI；由 ConfigFactory 默认 ConsoleLiveView。 */
   readonly live?: ToolInputSink;
+  /** 语义嵌入端口（U3 混合检索，可选）：env OMNI_SEMANTIC_RECALL=1 时由 ConfigFactory 构造并注入本地 ONNX 嵌入适配器；默认 undefined（纯 BM25、零开销）。 */
+  readonly embedding?: EmbeddingPort;
   /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省不启用，零破坏。 */
   readonly evolution?: EvolutionController;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务完成后可在 fail-closed 下跑 燧-3/燧-4 调谐/冲刷/(D) 退火/(E) 宇宙网/QEC/免疫；缺省不启用，零破坏。 */
@@ -424,7 +430,14 @@ export class ConfigFactory {
       compactionKeepRecent: partial.compactionKeepRecent,
       fragments: partial.fragments,
       native: partial.native,
-      live: partial.live,
+      live: partial.live ?? new CompositeLiveView([new ConsoleLiveView()]),
+      embedding:
+        process.env.OMNI_SEMANTIC_RECALL === '1'
+          ? new TransformersEmbeddingAdapter({
+              cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
+              localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+            })
+          : undefined,
       evolution: partial.evolution,
       runtimeTelemetry: partial.runtimeTelemetry,
       costBudget,
@@ -478,4 +491,3 @@ function buildCostBudget(partial: OmniHarnessConfig): CostBudget | undefined {
     partial.costBudgetOnExceed !== 'warn',
   );
 }
-

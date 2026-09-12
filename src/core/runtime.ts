@@ -6,7 +6,7 @@ import type { StoragePort } from '../ports/storage.js';
 import type { RetrievalPort } from '../ports/retrieval.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
 import type { CosmicWebPort } from '../ports/cosmicWeb.js';
-import type { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
+import type { MemoryExtractorPort } from '../ports/memoryExtractor.js';
 import type { EscalationPort } from '../ports/escalation.js';
 import type { ToolPort } from '../ports/tool.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
@@ -16,9 +16,6 @@ import type { NativeToolRunner } from '../native/nativeBackend.js';
 import { NativeBackend } from '../native/nativeBackend.js';
 import type { ToolInputSink } from '../ports/toolInputSink.js';
 import type { EmbeddingPort } from '../ports/embedding.js';
-import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
-import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
-import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
 import { MUTATING_TOOLS, ToolGate } from './toolGate.js';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.js';
 import type { SupervisorPort } from '../ports/supervisor.js';
@@ -76,7 +73,7 @@ export interface OmniHarnessRuntime {
   /** 宇宙网记忆引擎（U1 默认开时为 ResonantFieldEngine 单一状态源，实现 CosmicWebPort）：供 runtime 直接驱动 consolidate。 */
   readonly web?: CosmicWebPort;
   /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关自动沉淀时非空，回合末由 TurnRunner 调用。 */
-  readonly memoryExtractor?: MemoryExtractor;
+  readonly memoryExtractor?: MemoryExtractorPort;
   readonly container: Container;
   /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核；内核不可用则置空以回退 TS 路径。 */
   readonly native?: NativeToolRunner;
@@ -87,7 +84,7 @@ export interface OmniHarnessRuntime {
   readonly live?: ToolInputSink;
   /**
    * 语义嵌入端口（U3 混合检索，可选）：注入后 repo-map 走「BM25 ∪ 语义向量 RRF」混合路径。
-   * 仅当 env OMNI_SEMANTIC_RECALL=1 时由 RuntimeFactory 构造并注入；默认 undefined（纯 BM25、零开销、不加载 80MB 模型）。
+   * 由 ConfigFactory 在 env OMNI_SEMANTIC_RECALL=1 时构造并注入；默认 undefined（纯 BM25、零开销）。
    */
   readonly embedding?: EmbeddingPort;
   /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省 undefined，零破坏。 */
@@ -106,8 +103,13 @@ export interface OmniHarnessRuntime {
  * 由配置装配出运行时。
  * 注：`supervisor` 为可选覆盖项（不属 ResolvedConfig 持久字段）：传入则用之，否则默认构造生产级
  * SupervisorKernel。eval / 基准 harness 可传 no-op 监督内核以纯测 agent 能力、剥离生产安全降级噪声。
+ *
+ * 注意：live / embedding 默认值（ConsoleLiveView 组合视图、本地 ONNX 嵌入适配器）由组合根
+ * `ConfigFactory.build` 装配注入，本函数不再直接 import adapters（保持 core 层零适配器依赖）。
  */
-export function createRuntime(config: ResolvedConfig & { supervisor?: SupervisorPort }): OmniHarnessRuntime {
+export function createRuntime(
+  config: ResolvedConfig & { supervisor?: SupervisorPort },
+): OmniHarnessRuntime {
   const container = new Container();
   container.register(ServiceKeys.model, config.model);
   container.register(ServiceKeys.tools, config.tools);
@@ -115,8 +117,7 @@ export function createRuntime(config: ResolvedConfig & { supervisor?: Supervisor
   container.register(ServiceKeys.events, config.events);
   container.register(ServiceKeys.sandbox, config.sandbox);
   container.register(ServiceKeys.approvals, config.approvals);
-  const supervisor =
-    config.supervisor ?? new SupervisorKernel({ hazardousTools: MUTATING_TOOLS });
+  const supervisor = config.supervisor ?? new SupervisorKernel({ hazardousTools: MUTATING_TOOLS });
   const gate = new ToolGate(
     config.approvals,
     config.sandbox,
@@ -164,21 +165,13 @@ export function createRuntime(config: ResolvedConfig & { supervisor?: Supervisor
     longTermMemory: config.longTermMemory,
     web: config.web,
     memoryExtractor: config.memoryExtractor,
-    // #B3 web：live 默认组合视图，内置 ConsoleLiveView（TTY 实时刷新）；
+    // #B3 web：live 默认组合视图由 ConfigFactory 装配（内置 ConsoleLiveView，TTY 实时刷新）；
     // serve 模式下 CLI 再注入 WebLiveView 广播给 Web UI，实现同一份增量多端呈现。
-    // config.live 仍优先（用户自定义则仅用其，绕过内置组合）。
-    live: config.live ?? new CompositeLiveView([new ConsoleLiveView()]),
-    // U3 混合检索：env OMNI_SEMANTIC_RECALL=1 时构造本地 ONNX 嵌入适配器（懒加载，首次 embed 才下载模型）。
-    // 不读环境变量外的任何配置，缺省 undefined → 纯 BM25，零破坏、零开销。
-    // OMNI_SEMANTIC_RECALL=1 开启混合检索；可叠加 OMNI_EMBEDDING_CACHE_DIR 指定权重缓存目录，
-    // OMNI_EMBEDDING_OFFLINE=1 强制仅用本地缓存（离线环境预置权重后生效）。
-    embedding:
-      process.env.OMNI_SEMANTIC_RECALL === '1'
-        ? new TransformersEmbeddingAdapter({
-            cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
-            localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
-          })
-        : undefined,
+    // config.live 非空则优先（用户自定义则仅用其，绕过内置组合）。
+    live: config.live,
+    // U3 混合检索：env OMNI_SEMANTIC_RECALL=1 时由 ConfigFactory 构造本地 ONNX 嵌入适配器
+    // （懒加载，首次 embed 才下载模型），结果经 config.embedding 注入。缺省 undefined → 纯 BM25，零破坏、零开销。
+    embedding: config.embedding,
     evolution: evolutionController,
     spark: config.spark,
   } as OmniHarnessRuntime;

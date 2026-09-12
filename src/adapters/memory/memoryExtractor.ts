@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { LongTermMemoryPort, MemoryFact } from '../../ports/longTermMemory.js';
 import type { ModelPort, ModelRequest } from '../../ports/model.js';
 import type { SessionEvent } from '../../ports/event.js';
+import type { MemoryExtractorPort } from '../../ports/memoryExtractor.js';
 
 /**
  * @beta
@@ -25,7 +26,7 @@ export interface MemoryExtractorOptions {
  * 由 `TurnRunner` 在回合末注入式调用（config 统一装配，不 new 在循环内），
  * 通过内部游标避免每回合重复蒸馏同一段历史。
  */
-export class MemoryExtractor {
+export class MemoryExtractor implements MemoryExtractorPort {
   public readonly name = 'memory-extractor';
 
   /** 已蒸馏事件数（游标），避免跨回合重复。 */

@@ -59,15 +59,10 @@ for (const f of files) {
 }
 
 // ---- 3. 白名单（冻结存量；P1/P3 清偿后从此移除对应条目） ----
-// core→adapters（7 条，docs §1.3；checkpointManager→gitWorkspaceSnapshot 已 P1 解耦清零）
+// core→adapters（2 条，docs §1.3；runtime 簇 4 条 + turnRunner 1 条 已 P1 解耦清零，剩余 2 条为 sandbox 簇真实存量）
 const CORE_TO_ADAPTERS_WL = new Set([
-  'core/runtime->adapters/memory/memoryExtractor',
-  'core/runtime->adapters/live/consoleLiveView',
-  'core/runtime->adapters/embedding/transformersEmbeddingAdapter',
-  'core/runtime->adapters/live/compositeLiveView',
   'core/stepRunner->adapters/sandbox/denial',
   'core/toolGate->adapters/sandbox/unsupportedSandbox',
-  'core/turnRunner->adapters/memory/memoryExtractor',
 ]);
 // adapters→core（1 条，docs §1.3；已清 8：eventFactory 簇 x4 + checkpointTool/rollbackTool x2
 //   + turnDiffHooks x2 经端口注入清零，剩余 1 条为真实存量）

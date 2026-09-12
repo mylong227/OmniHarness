@@ -4,7 +4,7 @@ import type { StepRunner, StepOutcome } from './stepRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { TurnDiffTracker } from './turnDiffTracker.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
-import type { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
+import type { MemoryExtractorPort } from '../ports/memoryExtractor.js';
 import { LoopGuard, type LoopDecision } from './loop/loopGuard.js';
 import type { EventPersister } from './loop/eventPersister.js';
 import { log } from '../util/logger.js';
@@ -37,7 +37,7 @@ export class TurnRunner {
     /** 长期记忆端口（#S28，可选）：回合末蒸馏沉淀的目的地。 */
     private readonly longTerm?: LongTermMemoryPort,
     /** 长期记忆蒸馏器（#S28，可选）：回合末把自上次以来的事件蒸馏为持久事实。 */
-    private readonly extractor?: MemoryExtractor,
+    private readonly extractor?: MemoryExtractorPort,
     /**
      * 失控检测器（V2，可选）：同调用重复/循环模式/wall-clock 检测。
      * 首次触发注入纠偏 user 消息（学 Varpulis additionalContext 模式），
