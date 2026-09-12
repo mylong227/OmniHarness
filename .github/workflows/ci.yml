@@ -30,6 +30,10 @@ jobs:
       # 以物理/生物/化学命名的引擎必须声明 L0–L3 等级，声称 L2/L3 须给出真实测试证据。
       # 防止「命名好听」被当作「有机制」——无测试的 L3 声明即阻断。
       - run: npm run audit:maturity
+      # P0.4 架构门禁（docs/REFACTOR_BOARD §P0.4）：core↔adapters 冻结白名单（17 条存量，新增即红）、
+      # ports 纯度、目录平铺告警。当前存量已白名单故门禁放行；任何白名单外的新增依赖方向违规即判红，
+      # 防止架构回归。后续 P1/P3 清偿后从白名单移除条目，直至升为全阻断。
+      - run: npm run arch:gate
 
   web:
     name: Web UI 构建 + 单测

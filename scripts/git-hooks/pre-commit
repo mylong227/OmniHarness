@@ -23,6 +23,12 @@ if ! npm run --silent audit:standard:delta; then
   exit 1
 fi
 
+echo "[pre-commit] 架构门禁（core↔adapters 冻结白名单，新增即红）..."
+if ! npm run --silent arch:gate; then
+  echo "[pre-commit] ✗ 检测到新增架构违规（core↔adapters 不在白名单内或 ports 纯度受损），提交中止。" >&2
+  exit 1
+fi
+
 echo "[pre-commit] ESLint（error 阻断，warn 放行）..."
 if ! npm run --silent lint; then
   echo "[pre-commit] ✗ ESLint 存在 error，提交中止。" >&2
