@@ -417,6 +417,13 @@ export function grepTopKFiles(corpus: IndexedCorpus, q: string, k = 8): string[]
   return out;
 }
 
+/**
+ * 取与查询最相关的 Top-K 文件，累加其 token 总量（用于预算/容量评估）。
+ * @param corpus 已索引语料（含文件 token 计数）
+ * @param q 查询字符串
+ * @param k 取前 k 个文件（缺省 8）
+ * @returns Top-K 文件的 token 总和
+ */
 export function grepTopKWholeFileTokens(corpus: IndexedCorpus, q: string, k = 8): number {
   const rels = grepTopKFiles(corpus, q, k);
   let total = 0;

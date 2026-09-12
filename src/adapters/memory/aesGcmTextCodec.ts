@@ -25,6 +25,7 @@ export interface TextCodec {
  * - 密文载荷：`iv(base64):cipher(base64):tag(base64)`，单字符串，适合逐行 JSONL 存储。
  */
 export class AesGcmTextCodec implements TextCodec {
+  /** 编解码器名称（标识此 AES-256-GCM 实现）。 */
   public readonly name = 'aes-256-gcm';
 
   private readonly envVar: string;
@@ -72,6 +73,11 @@ export class AesGcmTextCodec implements TextCodec {
     return createHash('sha256').update(secret, 'utf8').digest();
   }
 
+  /**
+   * 编码（加密）明文为可落盘字符串（`iv:密文:tag` 的 base64 拼接）。
+   * @param text 待加密的明文
+   * @returns 密文载荷字符串
+   */
   public encode(text: string): string {
     const key = this.resolveKey();
     const iv = randomBytes(12);
@@ -81,6 +87,11 @@ export class AesGcmTextCodec implements TextCodec {
     return `${iv.toString('base64')}:${encrypted.toString('base64')}:${tag.toString('base64')}`;
   }
 
+  /**
+   * 解码（解密）密文载荷回明文；格式损坏时抛错。
+   * @param payload 由 `encode` 产生的密文载荷字符串
+   * @returns 还原的明文
+   */
   public decode(payload: string): string {
     const key = this.resolveKey();
     const [ivB64, cipherB64, tagB64] = payload.split(':');

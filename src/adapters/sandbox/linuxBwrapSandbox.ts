@@ -8,6 +8,7 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sa
  * `{allowed:false}`，绝不谎称已隔离、绝不静默放行。
  */
 export class LinuxBwrapSandbox implements SandboxPort {
+  /** 沙箱后端名称（标识此 bwrap 实现）。 */
   public readonly name = 'linux-bwrap';
 
   public constructor(private readonly workspace: string) {}
@@ -57,6 +58,11 @@ export class LinuxBwrapSandbox implements SandboxPort {
     return this.restrictedDecision(action);
   }
 
+  /**
+   * 异步审批：bwrap 可用时返回受限决策，不可用时 fail-closed 拒绝。
+   * @param action 待审批的沙箱动作
+   * @returns 沙箱决策（允许/拒绝 + 理由 + 类别）
+   */
   public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (!this.hasBwrap()) {
       return {

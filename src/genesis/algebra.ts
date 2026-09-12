@@ -71,6 +71,11 @@ export function vectorConcat(a: readonly number[], b: readonly number[]): number
   return out;
 }
 
+/**
+ * 生成指定长度的零向量（各单位元），用于初始化多维资源计量。
+ * @param length 向量维度
+ * @returns 全零向量
+ */
 export function vectorEmpty(length: number): number[] {
   return new Array<number>(length).fill(0);
 }

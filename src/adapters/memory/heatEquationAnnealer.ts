@@ -48,6 +48,7 @@ function clamp(v: number, lo: number, hi: number): number {
  * 事实数 0 或超限时只退火最重要的一批，绝不越界；温度调度与漂移均为纯函数式推导。
  */
 export class HeatEquationAnnealer implements MemoryAnnealer {
+  /** 退火器名称（标识此离散热方程实现）。 */
   public readonly name = 'heat-equation-annealer';
   private readonly memory: LongTermMemoryPort;
   private readonly coupling: number;
@@ -81,6 +82,10 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     return this._steps;
   }
 
+  /**
+   * 执行一步退火：扩散（热方程）+ 衰减遗忘，并推进冷却调度。
+   * @returns 本步报告（步号、当前温度、参与事实数、总漂移量）
+   */
   public anneal(): AnnealStepReport {
     this._steps += 1;
     const step = this._steps;

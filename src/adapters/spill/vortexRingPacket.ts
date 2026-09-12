@@ -36,10 +36,16 @@ function windingNumber(content: string): number {
  * 环包仅携带固化拓扑量 + 紧凑 token；解环校验拓扑荷与校验和，fail-closed 抗污染。
  */
 export class VortexRingPacket implements VortexRingPort {
+  /** 适配器名称（标识此涡环包实现）。 */
   public readonly name = 'vortex-ring';
 
   public constructor(private readonly spill: SpillPort) {}
 
+  /**
+   * 封环：把内容落 Spill 并固化拓扑荷 + 校验和，返回携带紧凑 token 的涡环。
+   * @param content 待封存的明文内容
+   * @returns 涡环（含 ringId、拓扑荷、校验和与紧凑 token）
+   */
   public async seal(content: string): Promise<VortexRing> {
     const handle = await this.spill.spill(content, 'vortex');
     const winding = windingNumber(content);
@@ -49,6 +55,11 @@ export class VortexRingPacket implements VortexRingPort {
     return { ringId, winding, checksum: cs, spill: handle, token };
   }
 
+  /**
+   * 解环：重算并校验拓扑荷与校验和（fail-closed），一致则还原明文。
+   * @param ring 待解封的涡环
+   * @returns 还原的明文；若 Spill 缺失或拓扑荷/校验和不匹配则返回 `undefined`
+   */
   public async unseal(ring: VortexRing): Promise<string | undefined> {
     const content = await this.spill.read(ring.spill.id);
     if (content === undefined) return undefined;

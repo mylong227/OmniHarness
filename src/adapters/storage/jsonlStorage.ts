@@ -5,7 +5,9 @@ import type { StoragePort } from '../../ports/storage.js';
 
 /** JSONL 文件存储适配器：每个会话一个 .jsonl 文件（可观测、可回放）。 */
 export class JsonlStorage implements StoragePort {
+  /** 存储适配器名称（标识此 JSONL 文件存储实现）。 */
   public readonly name = 'jsonl';
+  /** 存储目录位置（每个会话一个 `.jsonl` 文件）。 */
   public readonly location: string;
 
   public constructor(private readonly directory: string) {

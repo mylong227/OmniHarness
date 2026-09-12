@@ -35,6 +35,7 @@ interface Parities {
  * 保留 QEC 命名是因为它是社区通名且 API 已稳定；理解时应读作「纠删 / 校验码」。
  */
 export class QECEncoder implements QECEncoderPort {
+  /** 编码器标识名（QECEncoderPort 注册键，用于诊断）。 */
   public readonly name = 'qec-encoder';
   private readonly memory: LongTermMemoryPort;
   private readonly cols: number;
@@ -44,6 +45,12 @@ export class QECEncoder implements QECEncoderPort {
     this.cols = Math.max(2, Math.floor(opts.cols ?? 8));
   }
 
+  /**
+   * 为一条记忆事实计算二维奇偶症状并落库为同名 syndrome 事实（幂等：已存在则更新）。
+   * 事实不存在则静默跳过。
+   *
+   * @param id 目标记忆事实的 id
+   */
   public encode(id: string): void {
     const fact = this.memory.get(id);
     if (fact === undefined) return;
@@ -66,6 +73,14 @@ export class QECEncoder implements QECEncoderPort {
     }
   }
 
+  /**
+   * 校验单条记忆事实：比对实时奇偶症状与存储 syndrome。
+   * 未编码（无 syndrome）视作 'ok'；恰一行+恰一列失配可定位单点错误 → 'corrected'；
+   * 多点失配或症状损坏 → 'uncorrectable'（fail-closed 绝不静默接受）。
+   *
+   * @param id 待校验记忆事实的 id
+   * @returns 校验状态：'ok' | 'corrected' | 'uncorrectable'
+   */
   public verify(id: string): QECStatus {
     const fact = this.memory.get(id);
     if (fact === undefined) return 'uncorrectable';
@@ -83,6 +98,13 @@ export class QECEncoder implements QECEncoderPort {
     return 'uncorrectable';
   }
 
+  /**
+   * 纠正单条记忆事实：仅当 verify 判定为 'corrected'（唯一定位单点错误）才改写内容，
+   * 否则原样返回状态（fail-closed：非单点错误绝不擅自改动）。纠正后刷新症状。
+   *
+   * @param id 待纠正记忆事实的 id
+   * @returns 纠正后的状态：'corrected' | 'ok' | 'uncorrectable'
+   */
   public repair(id: string): QECStatus {
     const status = this.verify(id);
     if (status !== 'corrected') return status; // fail-closed：非单点错误绝不擅自改写
@@ -113,6 +135,12 @@ export class QECEncoder implements QECEncoderPort {
     return 'corrected';
   }
 
+  /**
+   * 全量巡检并纠正：遍历所有非 syndrome 记忆事实，对 'corrected' 者调用 repair，
+   * 汇总检查/纠正/不可纠正计数。
+   *
+   * @returns 巡检报告（checked/corrected/uncorrectable）
+   */
   public repairAll(): QECReport {
     let checked = 0;
     let corrected = 0;

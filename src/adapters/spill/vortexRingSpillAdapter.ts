@@ -13,18 +13,32 @@ import type { VortexRing, VortexRingPort } from '../../ports/vortexRing.js';
  * `undefined`（fail-closed，安全）。完整内容仍由底层 SpillPort 持久化。
  */
 export class VortexRingSpillAdapter implements SpillPort {
+  /** 适配器标识名（SpillPort 注册键，用于诊断）。 */
   public readonly name = 'vortex-ring-spill';
 
   private readonly rings = new Map<string, VortexRing>();
 
   public constructor(private readonly vortex: VortexRingPort) {}
 
+  /**
+   * 把超大内容封成拓扑孤子环包并持久化：seal 后得到 ringId，记进程内元信息后返回句柄。
+   *
+   * @param content 待外溢的内容文本
+   * @param _sessionId 会话标识（当前实现环包不按会话隔离，保留接口位）
+   * @returns 外溢句柄（id=ringId，bytes=内容字节数）
+   */
   public async spill(content: string, _sessionId: string): Promise<SpillHandle> {
     const ring = await this.vortex.seal(content);
     this.rings.set(ring.ringId, ring);
     return { id: ring.ringId, bytes: Buffer.byteLength(content, 'utf8') };
   }
 
+  /**
+   * 按 ringId 还原外溢内容：未知环包返回 undefined（fail-closed 拒绝还原）。
+   *
+   * @param id 环包标识（spill 返回的句柄 id）
+   * @returns 还原后的内容文本；未知环包返回 undefined
+   */
   public async read(id: string): Promise<string | undefined> {
     const ring = this.rings.get(id);
     if (ring === undefined) return undefined; // fail-closed：未知环包拒绝还原

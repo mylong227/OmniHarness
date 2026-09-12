@@ -1,5 +1,6 @@
 import type { CheckpointManager } from '../../core/checkpointManager.js';
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolHandler } from './toolHandler.js';
 
 /** `rollback` 工具定义：回滚当前会话到指定/最近检查点。 */
 export const rollbackDefinition: ToolDefinition = {
@@ -15,8 +16,12 @@ export const rollbackDefinition: ToolDefinition = {
   },
 };
 
-/** 构造 rollback 处理函数（闭包持有 manager）。 */
-export function makeRollbackHandler(manager: CheckpointManager) {
+/**
+ * 构造 `rollback` 工具的处理函数（闭包持有 `manager`）。
+ * @param manager 检查点管理器（调用方创建并传入，保持零配置依赖）
+ * @returns 符合 `ToolHandler` 的处理函数：回滚到指定/最近检查点并返回结果
+ */
+export function makeRollbackHandler(manager: CheckpointManager): ToolHandler {
   return async function rollbackHandler(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['label'];
     const label = typeof raw === 'string' && raw.length > 0 ? raw : undefined;

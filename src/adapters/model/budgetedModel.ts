@@ -12,6 +12,7 @@ import type { CostBudget } from './costBudget.js';
  * 且预算熔断优先于重试退避（熔断后不再发起任何网络调用）。
  */
 export class BudgetedModel implements ModelPort {
+  /** 装饰后模型名称（透传内部模型名）。 */
   public readonly name: string;
 
   public constructor(
@@ -21,6 +22,11 @@ export class BudgetedModel implements ModelPort {
     this.name = inner.name;
   }
 
+  /**
+   * 生成（预算熔断优先）：调用前校验预算、成功后按 usage 记账。
+   * @param request 模型请求
+   * @returns 模型输出（含 usage 供记账）
+   */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
     this.budget.ensureWithin(this.inner.name);
     const out = await this.inner.generate(request);
@@ -30,6 +36,12 @@ export class BudgetedModel implements ModelPort {
     return out;
   }
 
+  /**
+   * 流式生成（预算熔断优先）：无原生 stream 时回退 generate 并记账。
+   * @param request   模型请求
+   * @param callbacks 流式回调
+   * @returns 模型输出（含 usage 供记账）
+   */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     this.budget.ensureWithin(this.inner.name);
     const out =

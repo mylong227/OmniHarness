@@ -35,6 +35,7 @@ function buildNode(prefix: string, idx: number, branch: EtchBranch): EtchNode {
 }
 
 export class InsightEtchingEngine implements InsightEtchingPort {
+  /** 引擎标识名（记忆检索引擎注册键，用于诊断与装配区分）。 */
   public readonly name = 'insight-etching';
   private readonly threshold: number;
   private readonly bins: number;
@@ -45,6 +46,13 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     this.bins = opts.bins ?? 257;
   }
 
+  /**
+   * 刻蚀一次顿悟事件：在内存 Map 中建立分形分支决策树，并以主标签+分支标签联合频谱
+   * 注册共振寻址。已存在同 ID 抛错（fail-closed）。
+   *
+   * @param event 待刻蚀的顿悟事件（id 与 label 必填）
+   * @returns 刻好的刻痕轨迹（含根节点与创建时间）
+   */
   public etch(event: EtchEvent): EtchTrace {
     if (!event.id || !event.label) {
       throw new Error('刻蚀失败：事件 ID 与标签均不可为空（fail-closed）');
@@ -68,6 +76,14 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     return trace;
   }
 
+  /**
+   * 对查询做频率域共振导通：返回按共振强度降序、命中阈值以上的刻痕路径序列。
+   * 无刻痕或全未命中时返回空数组（回落正常检索）。
+   *
+   * @param query 查询文本
+   * @param k 返回 Top-k（默认 1，至少 1）
+   * @returns 命中刻痕的导通序列（按共振强度降序）
+   */
   public conduct(query: string, k = 1): readonly EtchConduction[] {
     if (this.store.size === 0) return [];
     const q = eigenSpectrum(query, this.bins);

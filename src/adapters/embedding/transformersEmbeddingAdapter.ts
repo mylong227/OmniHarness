@@ -142,6 +142,7 @@ export function withPrefix(
  * 与 text role 注入 e5 前缀（'query' → "query: "，'document' → "passage: "）。
  */
 export class TransformersEmbeddingAdapter implements EmbeddingPort {
+  /** 输出向量维度（由模型规格决定，如实上报供诊断）。 */
   public readonly dim: number;
   private readonly model: string;
   private readonly prefixMode: PrefixMode;
@@ -201,6 +202,12 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     return withPrefix(texts, this.prefixMode, role);
   }
 
+  /**
+   * 批量嵌入文本为向量（懒加载并复用同一 pipeline 实例）。
+   * @param texts 待嵌入的文本列表
+   * @param opts  嵌入选项（角色前缀、是否归一化等）
+   * @returns 与输入等长的向量列表
+   */
   public async embed(texts: readonly string[], opts?: EmbedOptions): Promise<readonly Embedding[]> {
     const pipe = await this.getPipeline();
     // role 默认为 'document'：SemanticIndex.build 传 'document'、search 传 'query'；

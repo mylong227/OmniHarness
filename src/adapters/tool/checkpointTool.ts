@@ -1,6 +1,7 @@
 import type { CheckpointManager } from '../../core/checkpointManager.js';
 import type { RegistryToolPort } from './registryToolPort.js';
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolHandler } from './toolHandler.js';
 import { rollbackDefinition, makeRollbackHandler } from './rollbackTool.js';
 
 /** `checkpoint` 工具定义：为当前会话打快照。 */
@@ -17,8 +18,12 @@ export const checkpointDefinition: ToolDefinition = {
   },
 };
 
-/** 构造 checkpoint 处理函数（闭包持有 manager）。 */
-export function makeCheckpointHandler(manager: CheckpointManager) {
+/**
+ * 构造 `checkpoint` 工具的处理函数（闭包持有 `manager`）。
+ * @param manager 检查点管理器（调用方创建并传入，保持零配置依赖）
+ * @returns 符合 `ToolHandler` 的处理函数：为当前会话打快照并返回结果
+ */
+export function makeCheckpointHandler(manager: CheckpointManager): ToolHandler {
   return async function checkpointHandler(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const label =
       typeof call.arguments['label'] === 'string' ? (call.arguments['label'] as string) : '';

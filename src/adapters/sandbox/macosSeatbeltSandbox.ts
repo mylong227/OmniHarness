@@ -8,6 +8,7 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sa
  * check() 一律返回 `{allowed:false}`，绝不谎称已隔离。
  */
 export class MacOsSeatbeltSandbox implements SandboxPort {
+  /** 沙箱后端标识名（SandboxPort 注册键，用于诊断）。 */
   public readonly name = 'macos-seatbelt';
 
   public constructor(private readonly workspace: string) {}
@@ -57,6 +58,13 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     }
   }
 
+  /**
+   * 同步决策单条动作的允许性：sandbox-exec 不可用则 fail-closed 拒绝；否则按受限策略裁定
+   * （写仅限 workspace、读/命令放行、未知动作拒绝）。
+   *
+   * @param action 待裁决的沙箱动作
+   * @returns 决策结果（allowed 及可选的 reason/category）
+   */
   public decide(action: SandboxAction): SandboxDecision {
     if (!this.hasSandboxExec()) {
       return {
@@ -68,6 +76,12 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     return this.restrictedDecision(action);
   }
 
+  /**
+   * 异步校验单条动作的允许性：语义与 {@link decide} 一致，sandbox-exec 不可用即 fail-closed 拒绝。
+   *
+   * @param action 待校验的沙箱动作
+   * @returns 决策结果（allowed 及可选的 reason/category）
+   */
   public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (!this.hasSandboxExec()) {
       return {
