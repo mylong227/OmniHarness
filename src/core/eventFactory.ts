@@ -1,5 +1,6 @@
 import type { SessionEvent } from '../ports/event.js';
 import type { ImageContent, FileAttachment, ModelUsage } from '../ports/model.js';
+import type { EventFactoryPort } from '../ports/eventFactory.js';
 import { id } from '../util/id.js';
 
 /**
@@ -8,7 +9,7 @@ import { id } from '../util/id.js';
  * `OOP 收口`（2026-09-11）：原静态方法族改为实例方法，消除 `static`。
  * 无隐式状态，同一实例可并发复用（默认实例见文件末尾组合根门面）。
  */
-export class EventFactory {
+export class EventFactory implements EventFactoryPort {
   /** 构造一条用户事件（images/files 可选，多模态输入，#B1/#B5）。 */
   public user(
     sessionId: string,
@@ -118,11 +119,7 @@ export class EventFactory {
   }
 
   /** 构造事件基座。 */
-  private base(
-    sessionId: string,
-    type: SessionEvent['type'],
-    payload: unknown,
-  ): SessionEvent {
+  private base(sessionId: string, type: SessionEvent['type'], payload: unknown): SessionEvent {
     return {
       id: id(),
       type,

@@ -2,7 +2,7 @@ import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../po
 import type { PlanPort } from '../../ports/plan.js';
 import type { EventPort } from '../../ports/eventPort.js';
 import type { UserResponder } from '../../ports/userResponder.js';
-import { eventFactory } from '../../core/eventFactory.js';
+import type { EventFactoryPort } from '../../ports/eventFactory.js';
 
 /**
  * @beta
@@ -20,7 +20,8 @@ export class PlanPresentTool {
   public constructor(
     private readonly plan: PlanPort,
     private readonly responder: UserResponder,
-    private readonly events?: EventPort,
+    private readonly events: EventPort | undefined,
+    private readonly eventFactory: EventFactoryPort,
   ) {}
 
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
@@ -29,7 +30,7 @@ export class PlanPresentTool {
       return { callId: call.id, ok: false, error: '尚无计划可呈现，请先用 plan_write 起草' };
     }
     this.plan.present();
-    this.events?.emit(eventFactory.plan(ctx.sessionId, this.plan.get()));
+    this.events?.emit(this.eventFactory.plan(ctx.sessionId, this.plan.get()));
     const answers = await this.responder.ask([
       {
         id: 'plan_decision',
@@ -49,7 +50,7 @@ export class PlanPresentTool {
       ? 'approve'
       : 'reject';
     this.plan.decide(decision);
-    this.events?.emit(eventFactory.plan(ctx.sessionId, this.plan.get()));
+    this.events?.emit(this.eventFactory.plan(ctx.sessionId, this.plan.get()));
     return {
       callId: call.id,
       ok: true,

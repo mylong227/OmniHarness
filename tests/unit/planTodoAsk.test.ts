@@ -8,6 +8,7 @@ import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.js';
 import { MemoryUserResponder } from '../../src/adapters/user/memoryUserResponder.js';
 import { DefaultUserResponder } from '../../src/adapters/user/defaultUserResponder.js';
 import { ToolGate } from '../../src/core/toolGate.js';
+import { eventFactory } from '../../src/core/eventFactory.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import type { ToolCall, ToolContext } from '../../src/ports/tool.js';
@@ -23,7 +24,7 @@ const call = (name: string, args: Record<string, unknown>): ToolCall => ({
 describe('TodoTool', () => {
   it('整表写入后可读回快照', async () => {
     const port = new MemoryTodo();
-    const writer = new TodoWriteTool(port);
+    const writer = new TodoWriteTool(port, undefined, eventFactory);
     const r = await writer.handle(
       call('todo_write', {
         todos: [
@@ -44,7 +45,7 @@ describe('TodoTool', () => {
   });
 
   it('空 content 校验拒绝', async () => {
-    const r = await new TodoWriteTool(new MemoryTodo()).handle(
+    const r = await new TodoWriteTool(new MemoryTodo(), undefined, eventFactory).handle(
       call('todo_write', { todos: [{ content: '', status: 'pending' }] }),
       ctx,
     );
@@ -52,7 +53,7 @@ describe('TodoTool', () => {
   });
 
   it('非法 status 校验拒绝', async () => {
-    const r = await new TodoWriteTool(new MemoryTodo()).handle(
+    const r = await new TodoWriteTool(new MemoryTodo(), undefined, eventFactory).handle(
       call('todo_write', { todos: [{ content: 'A', status: 'bogus' }] }),
       ctx,
     );
@@ -63,7 +64,7 @@ describe('TodoTool', () => {
 describe('AskUserTool', () => {
   it('注入式回答器回传答案', async () => {
     const answers = new Map<string, AskAnswer>([['q1', { id: 'q1', selected: ['approve'] }]]);
-    const tool = new AskUserTool(new MemoryUserResponder(answers));
+    const tool = new AskUserTool(new MemoryUserResponder(answers), undefined, eventFactory);
     const r = await tool.handle(
       call('ask_user', {
         questions: [{ id: 'q1', question: '可以吗？', options: [{ label: 'approve' }] }],
@@ -79,7 +80,7 @@ describe('AskUserTool', () => {
   });
 
   it('无人值守默认回答器 fail-soft 返回说明', async () => {
-    const r = await new AskUserTool(new DefaultUserResponder()).handle(
+    const r = await new AskUserTool(new DefaultUserResponder(), undefined, eventFactory).handle(
       call('ask_user', { questions: [{ id: 'q1', question: '?' }] }),
       ctx,
     );
@@ -91,7 +92,7 @@ describe('AskUserTool', () => {
   });
 
   it('questions 非空校验', async () => {
-    const r = await new AskUserTool(new DefaultUserResponder()).handle(
+    const r = await new AskUserTool(new DefaultUserResponder(), undefined, eventFactory).handle(
       call('ask_user', { questions: [] }),
       ctx,
     );
@@ -105,8 +106,8 @@ describe('PlanTool + 计划门禁', () => {
     const responder = new MemoryUserResponder(
       new Map([['plan_decision', { id: 'plan_decision', selected: ['approve'] }]]),
     );
-    const write = new PlanWriteTool(plan);
-    const present = new PlanPresentTool(plan, responder);
+    const write = new PlanWriteTool(plan, undefined, eventFactory);
+    const present = new PlanPresentTool(plan, responder, undefined, eventFactory);
     const w = await write.handle(
       call('plan_write', { title: 'T', steps: [{ description: '做 X' }] }),
       ctx,
@@ -122,20 +123,25 @@ describe('PlanTool + 计划门禁', () => {
     const responder = new MemoryUserResponder(
       new Map([['plan_decision', { id: 'plan_decision', selected: ['reject'] }]]),
     );
-    await new PlanWriteTool(plan).handle(
+    await new PlanWriteTool(plan, undefined, eventFactory).handle(
       call('plan_write', { steps: [{ description: '做 X' }] }),
       ctx,
     );
-    const p = await new PlanPresentTool(plan, responder).handle(call('plan_present', {}), ctx);
+    const p = await new PlanPresentTool(plan, responder, undefined, eventFactory).handle(
+      call('plan_present', {}),
+      ctx,
+    );
     assert.match(p.output ?? '', /驳回/);
     assert.strictEqual(plan.get()?.status, 'rejected');
   });
 
   it('无计划时 present 报错', async () => {
-    const r = await new PlanPresentTool(new MemoryPlan(), new DefaultUserResponder()).handle(
-      call('plan_present', {}),
-      ctx,
-    );
+    const r = await new PlanPresentTool(
+      new MemoryPlan(),
+      new DefaultUserResponder(),
+      undefined,
+      eventFactory,
+    ).handle(call('plan_present', {}), ctx);
     assert.strictEqual(r.ok, false);
   });
 
@@ -146,7 +152,7 @@ describe('PlanTool + 计划门禁', () => {
     let denied = await gate.gate(call('shell', { command: 'ls' }), 's1');
     assert.notStrictEqual(denied, undefined, '无计划应被拦截');
     // 写计划但未批准 → 仍拦截
-    await new PlanWriteTool(plan).handle(
+    await new PlanWriteTool(plan, undefined, eventFactory).handle(
       call('plan_write', { steps: [{ description: 'X' }] }),
       ctx,
     );
@@ -156,7 +162,10 @@ describe('PlanTool + 计划门禁', () => {
     const responder = new MemoryUserResponder(
       new Map([['plan_decision', { id: 'plan_decision', selected: ['approve'] }]]),
     );
-    await new PlanPresentTool(plan, responder).handle(call('plan_present', {}), ctx);
+    await new PlanPresentTool(plan, responder, undefined, eventFactory).handle(
+      call('plan_present', {}),
+      ctx,
+    );
     denied = await gate.gate(call('shell', { command: 'ls' }), 's1');
     assert.strictEqual(denied, undefined, 'approved 后放行');
   });

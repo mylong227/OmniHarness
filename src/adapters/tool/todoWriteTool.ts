@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { EventPort } from '../../ports/eventPort.js';
 import type { TodoItem, TodoPort, TodoStatus } from '../../ports/todo.js';
-import { eventFactory } from '../../core/eventFactory.js';
+import type { EventFactoryPort } from '../../ports/eventFactory.js';
 
 const STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed'];
 
@@ -38,7 +38,8 @@ export class TodoWriteTool {
 
   public constructor(
     private readonly port: TodoPort,
-    private readonly events?: EventPort,
+    private readonly events: EventPort | undefined,
+    private readonly eventFactory: EventFactoryPort,
   ) {}
 
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
@@ -64,7 +65,7 @@ export class TodoWriteTool {
       items.push({ content, status });
     }
     this.port.snapshot(items);
-    this.events?.emit(eventFactory.todo(ctx.sessionId, items));
+    this.events?.emit(this.eventFactory.todo(ctx.sessionId, items));
     const counts = items.reduce(
       (acc, it) => {
         acc[it.status] += 1;

@@ -6,6 +6,7 @@ import { MemorySearchTool } from '../adapters/tool/memorySearchTool.js';
 import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
 import { RememberTool, RecallTool } from '../adapters/tool/longTermMemoryTools.js';
 import { CheckpointManager } from '../core/checkpointManager.js';
+import { eventFactory } from '../core/eventFactory.js';
 import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
 import { registerCheckpointTools } from '../adapters/tool/checkpointTool.js';
 import { BudgetStatusTool } from '../adapters/tool/budgetStatusTool.js';
@@ -120,11 +121,16 @@ function registerAgentTools(
   // #S31 工作流 DAG：run_workflow 派生进程内多步依赖编排（拓扑分层 + 并发闸门 + 失败传播）。
   const workflowRunner = new RunWorkflowTool({ ...ports, tools: registry });
   // #77 计划/待办/提问协作态工具。
-  const todoWriter = new TodoWriteTool(planning.todo, seed.events);
+  const todoWriter = new TodoWriteTool(planning.todo, seed.events, eventFactory);
   const todoReader = new TodoReadTool(planning.todo);
-  const asker = new AskUserTool(planning.userResponder, seed.events);
-  const planWriter = new PlanWriteTool(planning.plan, seed.events);
-  const planPresenter = new PlanPresentTool(planning.plan, planning.userResponder, seed.events);
+  const asker = new AskUserTool(planning.userResponder, seed.events, eventFactory);
+  const planWriter = new PlanWriteTool(planning.plan, seed.events, eventFactory);
+  const planPresenter = new PlanPresentTool(
+    planning.plan,
+    planning.userResponder,
+    seed.events,
+    eventFactory,
+  );
   const planReader = new PlanReadTool(planning.plan);
   registry.register(spawner.definition, (call, ctx) => spawner.handle(call, ctx));
   registry.register(goalRunner.definition, (call, ctx) => goalRunner.handle(call, ctx));

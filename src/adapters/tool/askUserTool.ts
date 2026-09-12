@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { EventPort } from '../../ports/eventPort.js';
+import type { EventFactoryPort } from '../../ports/eventFactory.js';
 import type { AskOption, AskQuestion, UserResponder } from '../../ports/userResponder.js';
-import { eventFactory } from '../../core/eventFactory.js';
 
 /**
  * @beta
@@ -52,7 +52,8 @@ export class AskUserTool {
 
   public constructor(
     private readonly responder: UserResponder,
-    private readonly events?: EventPort,
+    private readonly events: EventPort | undefined,
+    private readonly eventFactory: EventFactoryPort,
   ) {}
 
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
@@ -90,7 +91,7 @@ export class AskUserTool {
       }
       return q as AskQuestion;
     });
-    this.events?.emit(eventFactory.question(ctx.sessionId, questions));
+    this.events?.emit(this.eventFactory.question(ctx.sessionId, questions));
     const answers = await this.responder.ask(questions);
     return {
       callId: call.id,

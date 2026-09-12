@@ -1,7 +1,7 @@
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import type { PlanDraft, PlanPort, PlanStep } from '../../ports/plan.js';
 import type { EventPort } from '../../ports/eventPort.js';
-import { eventFactory } from '../../core/eventFactory.js';
+import type { EventFactoryPort } from '../../ports/eventFactory.js';
 
 /**
  * @beta
@@ -36,7 +36,8 @@ export class PlanWriteTool {
 
   public constructor(
     private readonly plan: PlanPort,
-    private readonly events?: EventPort,
+    private readonly events: EventPort | undefined,
+    private readonly eventFactory: EventFactoryPort,
   ) {}
 
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
@@ -62,7 +63,7 @@ export class PlanWriteTool {
         ? { title: call.arguments['title'] as string, steps }
         : { steps };
     this.plan.write(draft);
-    this.events?.emit(eventFactory.plan(ctx.sessionId, this.plan.get()));
+    this.events?.emit(this.eventFactory.plan(ctx.sessionId, this.plan.get()));
     return {
       callId: call.id,
       ok: true,
