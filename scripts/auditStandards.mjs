@@ -36,23 +36,98 @@ function key(f) {
     .replace(/\.ts$/, '');
 }
 const fanIn = new Map();
+const outgoing = new Map(); // 文件 → 其 import 解析后的模块 key 列表（出边），供 core→adapters 度量
 for (const f of files) {
   const src = fs.readFileSync(f, 'utf8');
   const re = /(?:from\s+|import\s*\(\s*)(['"])([^'"]+)\1/g;
   let m;
+  const targets = [];
   while ((m = re.exec(src))) {
     let spec = m[2];
     if (!spec.startsWith('.')) continue;
     let resolved = path.posix.normalize(path.posix.join(path.posix.dirname(key(f)), spec));
     resolved = resolved.replace(/\.js$/, '').replace(/\/index$/, '');
     fanIn.set(resolved, (fanIn.get(resolved) || 0) + 1);
+    targets.push(resolved);
   }
+  outgoing.set(key(f), targets);
 }
 
 const hasJsDoc = (node, sf) => {
   const ranges = ts.getLeadingCommentRanges(sf.text, node.pos) || [];
   return ranges.some((r) => sf.text.slice(r.pos, r.pos + 3) === '/**');
 };
+
+/**
+ * 取节点前导的 JSDoc 注释全文（若有）。供 P0.2 细粒度覆盖度量检测 @param / @returns。
+ *
+ * @param node 语法节点
+ * @param sf 源文件
+ * @returns JSDoc 文本，无则 null
+ */
+const getJsDocComment = (node, sf) => {
+  const ranges = ts.getLeadingCommentRanges(sf.text, node.pos) || [];
+  for (const r of ranges) {
+    const txt = sf.text.slice(r.pos, r.end);
+    if (txt.startsWith('/**')) return txt;
+  }
+  return null;
+};
+
+/**
+ * P0.2 注释细粒度覆盖度量（AST 实测，口径对齐 docs/REFACTOR_BOARD §1.2）：
+ *  - 类方法（排除构造器）有参 → @param 覆盖
+ *  - 类方法（排除构造器）有显式返回类型 → @returns 覆盖
+ *  - 类字段（PropertyDeclaration）→ 注释覆盖
+ *
+ * @param text 源码文本
+ * @param fileName 文件名
+ * @returns 覆盖计数对象（各维度分子/分母）
+ */
+function collectCommentMetrics(text, fileName) {
+  const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+  let methodsTotal = 0;
+  let methodsWithParams = 0;
+  let methodsWithParamsParam = 0;
+  let methodsWithRet = 0;
+  let methodsWithRetReturns = 0;
+  let propsTotal = 0;
+  let propsWithJsdoc = 0;
+  const visit = (node) => {
+    if (ts.isClassDeclaration(node)) {
+      for (const mem of node.members) {
+        if (ts.isPropertyDeclaration(mem)) {
+          propsTotal++;
+          if (getJsDocComment(mem, sf)) propsWithJsdoc++;
+        } else if (ts.isMethodDeclaration(mem) && !ts.isConstructorDeclaration(mem)) {
+          methodsTotal++;
+          const hasParams = mem.parameters.length > 0;
+          const hasRet = !!mem.type;
+          const jsdoc = getJsDocComment(mem, sf);
+          if (hasParams) {
+            methodsWithParams++;
+            if (jsdoc && /@param\b/.test(jsdoc)) methodsWithParamsParam++;
+          }
+          if (hasRet) {
+            methodsWithRet++;
+            if (jsdoc && /@returns?\b/.test(jsdoc)) methodsWithRetReturns++;
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return {
+    methodsTotal,
+    methodsWithParams,
+    methodsWithParamsParam,
+    methodsWithRet,
+    methodsWithRetReturns,
+    propsTotal,
+    propsWithJsdoc,
+  };
+}
 
 /**
  * 对单份源码文本计算标准度量（不依赖文件 IO，供全量扫描与 `--delta` 增量对比复用）。
@@ -454,6 +529,117 @@ if (process.argv.includes('--maturity')) {
   } else {
     console.log('\n✅ 成熟度门禁通过：' + decls.length + ' 项声明，L2/L3 均有存在性证据。');
   }
+}
+
+if (process.argv.includes('--p02')) {
+  // P0.2 扩展度量：注释细粒度覆盖 + core→adapters 违规 + 模块级 new 清单。
+  // 口径来源：docs/REFACTOR_BOARD_2026-09-12.md §1.2 / §1.3。数字进 §4。
+  let cm = null;
+  for (const f of files) {
+    const r = collectCommentMetrics(fs.readFileSync(f, 'utf8'), f);
+    if (!cm) cm = { ...r };
+    else for (const k of Object.keys(r)) cm[k] += r[k];
+  }
+  const pParam = cm.methodsWithParams
+    ? (cm.methodsWithParamsParam / cm.methodsWithParams) * 100
+    : 0;
+  const pRet = cm.methodsWithRet ? (cm.methodsWithRetReturns / cm.methodsWithRet) * 100 : 0;
+  const pField = cm.propsTotal ? (cm.propsWithJsdoc / cm.propsTotal) * 100 : 0;
+  console.log('\n=== P0.2 注释细粒度覆盖（类方法 + 字段，AST 实测） ===');
+  console.log(
+    `  有参方法 @param 覆盖     : ${cm.methodsWithParamsParam} / ${cm.methodsWithParams}  (${pParam.toFixed(1)}%)`,
+  );
+  console.log(
+    `  有返回方法 @returns 覆盖  : ${cm.methodsWithRetReturns} / ${cm.methodsWithRet}  (${pRet.toFixed(1)}%)`,
+  );
+  console.log(
+    `  类字段注释覆盖           : ${cm.propsWithJsdoc} / ${cm.propsTotal}  (${pField.toFixed(1)}%)`,
+  );
+  console.log(`  （类方法总数 ${cm.methodsTotal}，含私有/保护；排除构造器）`);
+
+  const ca = [];
+  for (const [from, targets] of outgoing) {
+    if (!from.startsWith('core/')) continue;
+    for (const t of targets) if (t.startsWith('adapters/')) ca.push(`${from}  ->  ${t}`);
+  }
+  console.log(`\n=== P0.2 core→adapters 违规 (${ca.length}) ===`);
+  ca.forEach((e) => console.log('  ' + e));
+
+  const VALUE_TYPES = new Set([
+    'Set',
+    'Map',
+    'WeakMap',
+    'WeakSet',
+    'Array',
+    'Float64Array',
+    'Float32Array',
+    'Uint8Array',
+    'Uint16Array',
+    'Uint32Array',
+    'Int8Array',
+    'Int16Array',
+    'Int32Array',
+    'BigInt64Array',
+    'Date',
+    'URL',
+    'URLSearchParams',
+    'Promise',
+    'AbortController',
+    'AsyncLocalStorage',
+    'RegExp',
+    'Bm25Index',
+    'TextDecoder',
+    'LspJsonRpcConnection',
+    'Error',
+    'TypeError',
+    'RangeError',
+    'SyntaxError',
+    'Buffer',
+  ]);
+  const moduleNew = [];
+  for (const f of files) {
+    const text = fs.readFileSync(f, 'utf8');
+    const re = /(?:^|\n)(export\s+)?const\s+([A-Za-z0-9_]+)\s*=\s*new\s+([A-Za-z0-9_]+)/gm;
+    let m;
+    while ((m = re.exec(text))) {
+      const cls = m[3];
+      const exported = !!m[1];
+      const stateful = !VALUE_TYPES.has(cls);
+      moduleNew.push({
+        file: f.split(path.sep).join('/'),
+        name: m[2],
+        cls,
+        exported,
+        stateful,
+      });
+    }
+  }
+  const stateful = moduleNew.filter((x) => x.stateful);
+  const exportedStateful = stateful.filter((x) => x.exported);
+  // 口径对齐 docs/REFACTOR_BOARD §1.3「隐式单例 18」= 模块级「导出」状态化单例（export const x = new Class）。
+  // 其余为：非导出模块级单例（16）+ 值对象/集合常量（8）——同属模块级有状态 new，P2 一并清偿。
+  console.log(
+    `\n=== P0.2 模块级 new 清单 (${moduleNew.length} 处；状态化 ${stateful.length} / 其中导出单例 ${exportedStateful.length} / 值类型 ${moduleNew.length - stateful.length}) ===`,
+  );
+  moduleNew
+    .slice()
+    .sort((a, b) =>
+      a.stateful === b.stateful
+        ? a.exported === b.exported
+          ? 0
+          : a.exported
+            ? -1
+            : 1
+        : a.stateful
+          ? -1
+          : 1,
+    )
+    .forEach((x) =>
+      console.log(
+        `  ${x.stateful ? (x.exported ? '*' : '+') : ' '} ${x.file}  ::  ${x.name} = new ${x.cls}()`,
+      ),
+    );
+  console.log('  (* 导出状态化单例 / + 非导出模块级单例 / 空格 值对象·集合常量)');
 }
 
 if (process.argv.includes('--html')) {

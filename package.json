@@ -63,6 +63,8 @@
     "audit:maturity": "node scripts/auditStandards.mjs --maturity",
     "audit:standard": "node scripts/auditStandards.mjs",
     "audit:standard:delta": "node scripts/auditStandards.mjs --delta",
+    "audit:metrics": "node scripts/auditStandards.mjs --p02",
+    "arch:gate": "node scripts/architectureGate.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
