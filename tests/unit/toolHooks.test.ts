@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import type { ToolHookContext, ToolHooks } from '../../src/core/toolHookRunner.js';
+import type { ToolHookContext, ToolHooks } from '../../src/ports/toolHook.js';
 import type { ToolResult } from '../../src/ports/tool.js';
 
 /** 上下文。 */

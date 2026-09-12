@@ -1,4 +1,5 @@
 import { renderUnifiedDiff } from '../util/unifiedDiff.js';
+import type { TurnDiffTrackerPort } from '../ports/turnDiffTracker.js';
 
 /**
  * 回合级变更追踪（对标 codex `turn_diff_tracker.rs`）。
@@ -7,7 +8,7 @@ import { renderUnifiedDiff } from '../util/unifiedDiff.js';
  * 关键约束：一旦出现无法精确追踪的变更（例如 shell 直接改文件），立刻 `invalidate()` 且本回合
  * **不再产出 diff**——宁可不给，也不给一份不完整、会误导人的差异。
  */
-export class TurnDiffTracker {
+export class TurnDiffTracker implements TurnDiffTrackerPort {
   private readonly baseline = new Map<string, string | null>();
   private readonly current = new Map<string, string>();
   private valid = true;

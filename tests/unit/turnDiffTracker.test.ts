@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { TurnDiffTracker } from '../../src/core/turnDiffTracker.js';
 import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.js';
 import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import type { ToolHookContext } from '../../src/core/toolHookRunner.js';
+import type { ToolHookContext } from '../../src/ports/toolHook.js';
 import type { ToolResult } from '../../src/ports/tool.js';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

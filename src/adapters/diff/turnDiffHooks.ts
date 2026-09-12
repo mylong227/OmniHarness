@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { ToolResult } from '../../ports/tool.js';
-import type { ToolHookContext, ToolHooks } from '../../core/toolHookRunner.js';
-import type { TurnDiffTracker } from '../../core/turnDiffTracker.js';
+import type { ToolHookContext, ToolHooks } from '../../ports/toolHook.js';
+import type { TurnDiffTrackerPort } from '../../ports/turnDiffTracker.js';
 
 /** 参与变更追踪的写类工具：参数带 `path`，可精确定位目标文件。 */
 export const TRACKED_WRITE_TOOLS: ReadonlySet<string> = new Set(['write_file', 'apply_patch']);
@@ -20,7 +20,7 @@ export class TurnDiffHooks {
   private readonly baseline = new Map<string, string | null>();
 
   public constructor(
-    private readonly tracker: TurnDiffTracker,
+    private readonly tracker: TurnDiffTrackerPort,
     private readonly workspaceRoot: string,
   ) {}
 
