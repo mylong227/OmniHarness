@@ -202,7 +202,12 @@ if (process.argv.includes('--delta')) {
   }
   const readGit = (revFile) => {
     try {
-      return execSync(`git show ${revFile}`, { encoding: 'utf8' });
+      // stderr 静默：新文件在 HEAD 不存在时 `git show HEAD:<f>` 会打印 fatal，
+      // 但那是预期路径（返回 '' 交由 isNew 分支处理），不应污染门禁输出。
+      return execSync(`git show ${revFile}`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
     } catch {
       return '';
     }

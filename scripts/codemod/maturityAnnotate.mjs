@@ -33,30 +33,150 @@ const APPLY = process.argv.includes('--apply');
  * 等级来自 docs/library/README.md §4 全局映射总表的实测结论，不是目标值。
  */
 const REGISTRY = [
-  ['src/genesis/algebra.ts', 'L3', '结合律/单位元/交换律有单测，可组合推演', 'tests/unit/genesis.test.ts'],
-  ['src/genesis/modalityPort.ts', 'L3', 'Modality.map 的恒等律与组合律有单测', 'tests/unit/genesis.test.ts'],
-  ['src/genesis/operator.ts', 'L3', 'composeOperator 组合律与 identityOperator 有单测', 'tests/unit/genesis.test.ts'],
-  ['src/genesis/ledger.ts', 'L3', 'record/commit 闭合可机械检出；记账不变量，非物理守恒', 'tests/unit/genesis.test.ts'],
-  ['src/genesis/regime.ts', 'L3', '单调收缩⇒不动点，收敛性有单测（全库最强理论兑现）', 'tests/unit/genesis.test.ts'],
-  ['src/adapters/memory/heatEquationAnnealer.ts', 'L2', '真做扩散步；冷却调度的最优性未证', 'tests/unit/heatAnnealer.test.ts'],
-  ['src/adapters/belief/particleFilterBelief.ts', 'L2', '序贯重要性重采样；有效样本数与退化处理决定成败', 'tests/unit/particleFilter.test.ts'],
-  ['src/adapters/belief/naturalGradientBelief.ts', 'L2', '用自然梯度方向；流形假设未验证（待复核，或应降 L1）', 'tests/unit/naturalGradient.test.ts'],
-  ['src/context/lsaEngine.ts', 'L1', '截断 SVD 存在；实测叠加有害（Eckart–Young 是重构最优≠排序保序）', 'tests/unit/lsaRecall.test.ts'],
-  ['src/context/codeReferenceGraph.ts', 'L1', '幂迭代存在；44 万边实测零增益（谱隙→0 时收敛到均匀分布）', 'tests/unit/codeReferenceGraph.test.ts'],
-  ['src/search/bm25Index.ts', 'L1', '主力召回；形态归并已破一层天花板（实测文件召回 67.0%）', 'tests/unit/toolSearch.test.ts'],
-  ['src/evolution/verifiableReward.ts', 'L1', '可验证奖励结构在；势函数覆盖率未知（T5 待体检）', 'tests/unit/rlvr.test.ts'],
-  ['src/evolution/rlvrController.ts', 'L1', 'RLVR 闭环在；Echo Trap 防护未证', 'tests/unit/evolutionRlvr.test.ts'],
-  ['src/evolution/evolutionControllerImpl.ts', 'L1', '进化闭环在；适应度地形（NK）假设未验证', 'tests/unit/evolutionIntegration.test.ts'],
-  ['src/evolution/twistDiscoveryEngine.ts', 'L1', '失败模式挖掘在；是否真产出被门禁采纳的改进未量化', 'tests/unit/discoveryEngine.test.ts'],
-  ['src/eval/passK.ts', 'L1', 'Pass@k 已有；置信区间与「≥5 次跑」规范化待补', 'tests/unit/passK.test.ts'],
-  ['src/adapters/monitoring/immuneMonitor.ts', 'L0', '框架在；未与 prompt injection 对抗集（AgentDojo/InjecAgent）接通', 'tests/unit/immuneMonitor.test.ts'],
-  ['src/adapters/skill/capabilityCrystallizer.ts', 'L0', '「结晶」目前是阈值固化，非成核动力学', 'tests/unit/capabilityCrystallizer.test.ts'],
-  ['src/adapters/monitoring/symmetryBreakingEngine.ts', 'L0', '命名级；未定义序参量，无自发破缺动力学', 'tests/unit/symmetryBreaking.test.ts'],
-  ['src/adapters/spill/vortexRingPacket.ts', 'L0', '打包语义，非拓扑不变量（拓扑荷只是可算代理）', 'tests/unit/vortexRing.test.ts'],
-  ['src/adapters/memory/qecEncoder.ts', 'L0', '用冗余/校验思想；非量子，宜称「轨迹级校验关系 + 显式冗余」', 'tests/unit/qec.test.ts'],
-  ['src/adapters/memory/cosmicWebMemoryEngine.ts', 'L0', '邻接连通在；Kuramoto 同步动力学未实现', 'tests/unit/cosmicWeb.test.ts'],
-  ['src/adapters/memory/resonantFieldEngine.ts', 'L0', '场强叠加在；与词袋冗余（实测零增益）', 'tests/unit/resonantField.test.ts'],
-  ['src/adapters/skill/crisprSkillEditor.ts', 'L0', '技能改写；非基因编辑', 'tests/unit/crispr.test.ts'],
+  [
+    'src/genesis/algebra.ts',
+    'L3',
+    '结合律/单位元/交换律有单测，可组合推演',
+    'tests/unit/genesis.test.ts',
+  ],
+  [
+    'src/genesis/modalityPort.ts',
+    'L3',
+    'Modality.map 的恒等律与组合律有单测',
+    'tests/unit/genesis.test.ts',
+  ],
+  [
+    'src/genesis/operator.ts',
+    'L3',
+    'composeOperator 组合律与 identityOperator 有单测',
+    'tests/unit/genesis.test.ts',
+  ],
+  [
+    'src/genesis/ledger.ts',
+    'L3',
+    'record/commit 闭合可机械检出；记账不变量，非物理守恒',
+    'tests/unit/genesis.test.ts',
+  ],
+  [
+    'src/genesis/regime.ts',
+    'L3',
+    '单调收缩⇒不动点，收敛性有单测（全库最强理论兑现）',
+    'tests/unit/genesis.test.ts',
+  ],
+  [
+    'src/adapters/memory/heatEquationAnnealer.ts',
+    'L2',
+    '真做扩散步；冷却调度的最优性未证',
+    'tests/unit/heatAnnealer.test.ts',
+  ],
+  [
+    'src/adapters/belief/particleFilterBelief.ts',
+    'L2',
+    '序贯重要性重采样；有效样本数与退化处理决定成败',
+    'tests/unit/particleFilter.test.ts',
+  ],
+  [
+    'src/adapters/belief/naturalGradientBelief.ts',
+    'L2',
+    '用自然梯度方向；流形假设未验证（待复核，或应降 L1）',
+    'tests/unit/naturalGradient.test.ts',
+  ],
+  [
+    'src/context/lsaEngine.ts',
+    'L1',
+    '截断 SVD 存在；实测叠加有害（Eckart–Young 是重构最优≠排序保序）',
+    'tests/unit/lsaRecall.test.ts',
+  ],
+  [
+    'src/context/codeReferenceGraph.ts',
+    'L1',
+    '幂迭代存在；44 万边实测零增益（谱隙→0 时收敛到均匀分布）',
+    'tests/unit/codeReferenceGraph.test.ts',
+  ],
+  [
+    'src/search/bm25Index.ts',
+    'L1',
+    '主力召回；形态归并已破一层天花板（实测文件召回 67.0%）',
+    'tests/unit/toolSearch.test.ts',
+  ],
+  [
+    'src/evolution/verifiableReward.ts',
+    'L1',
+    '可验证奖励结构在；势函数覆盖率未知（T5 待体检）',
+    'tests/unit/rlvr.test.ts',
+  ],
+  [
+    'src/evolution/rlvrController.ts',
+    'L1',
+    'RLVR 闭环在；Echo Trap 防护未证',
+    'tests/unit/evolutionRlvr.test.ts',
+  ],
+  [
+    'src/evolution/evolutionControllerImpl.ts',
+    'L1',
+    '进化闭环在；适应度地形（NK）假设未验证',
+    'tests/unit/evolutionIntegration.test.ts',
+  ],
+  [
+    'src/evolution/twistDiscoveryEngine.ts',
+    'L1',
+    '失败模式挖掘在；是否真产出被门禁采纳的改进未量化',
+    'tests/unit/discoveryEngine.test.ts',
+  ],
+  [
+    'src/eval/passK.ts',
+    'L1',
+    'Pass@k + 确定性 bootstrap 95% CI（消随机红/绿）；「≥5 次跑」规范化待补',
+    'tests/unit/passK.test.ts',
+  ],
+  [
+    'src/adapters/monitoring/immuneMonitor.ts',
+    'L0',
+    '框架在；未与 prompt injection 对抗集（AgentDojo/InjecAgent）接通',
+    'tests/unit/immuneMonitor.test.ts',
+  ],
+  [
+    'src/adapters/skill/capabilityCrystallizer.ts',
+    'L0',
+    '「结晶」目前是阈值固化，非成核动力学',
+    'tests/unit/capabilityCrystallizer.test.ts',
+  ],
+  [
+    'src/adapters/monitoring/symmetryBreakingEngine.ts',
+    'L0',
+    '命名级；未定义序参量，无自发破缺动力学',
+    'tests/unit/symmetryBreaking.test.ts',
+  ],
+  [
+    'src/adapters/spill/vortexRingPacket.ts',
+    'L0',
+    '打包语义，非拓扑不变量（拓扑荷只是可算代理）',
+    'tests/unit/vortexRing.test.ts',
+  ],
+  [
+    'src/adapters/memory/qecEncoder.ts',
+    'L0',
+    '用冗余/校验思想；非量子，宜称「轨迹级校验关系 + 显式冗余」',
+    'tests/unit/qec.test.ts',
+  ],
+  [
+    'src/adapters/memory/cosmicWebMemoryEngine.ts',
+    'L0',
+    '邻接连通在；Kuramoto 同步动力学未实现',
+    'tests/unit/cosmicWeb.test.ts',
+  ],
+  [
+    'src/adapters/memory/resonantFieldEngine.ts',
+    'L0',
+    '场强叠加在；与词袋冗余（实测零增益）',
+    'tests/unit/resonantField.test.ts',
+  ],
+  [
+    'src/adapters/skill/crisprSkillEditor.ts',
+    'L0',
+    '技能改写；非基因编辑',
+    'tests/unit/crispr.test.ts',
+  ],
 ];
 
 /** 在源码里已有 @maturity 声明时，就地更新等级行与证据行。 */
@@ -92,7 +212,13 @@ function insertDeclaration(text, level, note, evidence) {
     for (let j = i; j < lines.length; j++) {
       if (lines[j].includes('*/')) {
         // 在该块结束前插入，保持原块内容完整（前置空注释行分隔正文与标签）。
-        lines.splice(j, 0, ' *', ` * @maturity ${level} — ${note}`, ` * @maturityEvidence ${evidence}`);
+        lines.splice(
+          j,
+          0,
+          ' *',
+          ` * @maturity ${level} — ${note}`,
+          ` * @maturityEvidence ${evidence}`,
+        );
         return lines.join('\n');
       }
     }
@@ -115,7 +241,9 @@ for (const [rel, level, note, evidence] of REGISTRY) {
     problems.push(`证据文件缺失：${evidence}（登记于 ${rel}）`);
   }
   const before = readFileSync(abs, 'utf8');
-  const updated = replaceExisting(before, level, note, evidence) ?? insertDeclaration(before, level, note, evidence);
+  const updated =
+    replaceExisting(before, level, note, evidence) ??
+    insertDeclaration(before, level, note, evidence);
   if (updated === before) {
     skipped++;
     continue;
@@ -125,7 +253,9 @@ for (const [rel, level, note, evidence] of REGISTRY) {
   console.log(`${APPLY ? 'WRITE' : 'DRY  '} ${level}  ${rel}`);
 }
 
-console.log(`\n合计：登记 ${REGISTRY.length} 项，${APPLY ? '已写入' : '待写入'} ${changed}，无变化 ${skipped}。`);
+console.log(
+  `\n合计：登记 ${REGISTRY.length} 项，${APPLY ? '已写入' : '待写入'} ${changed}，无变化 ${skipped}。`,
+);
 if (problems.length > 0) {
   console.error('\n❌ 登记册自身有问题（未改动任何文件）：');
   for (const p of problems) console.error('  - ' + p);

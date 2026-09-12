@@ -9,12 +9,15 @@
 //
 // U5 升级：任务集从 3 扩展到 12+（含可运行测试验证：expect.run 要求测试真正变绿），
 //          新增 --repeat / --pass-k / --min-pass-rate / --min-pass-k 支持 Pass@k 规模化门禁。
+// T4.7 升级：新增 --min-pass-k-ci / --ci / --ci-rounds，用**确定性 bootstrap 95% 区间**判
+//           Pass@k——点阈值在边界会随机红/绿，区间判定三态（达标/显著不达标/样本不足）且可复现。
 //
 // 用法：
 //   node evals/live/bench.mjs                       # 默认任务集，每任务 1 次采样
 //   node evals/live/bench.mjs --repeat 3           # 每任务 3 次采样，计算 Pass@k
 //   node evals/live/bench.mjs --pass-k 3           # 打印 Pass@3
 //   node evals/live/bench.mjs --min-pass-rate 0.8  # 通过率<0.8 则 exit 非 0（CI 门禁）
+//   node evals/live/bench.mjs --repeat 5 --min-pass-k-ci 3,0.9  # 区间下界<0.9 则红（T4.7）
 //   node evals/live/bench.mjs --suite mySuite.json  # 加载自定义任务集
 //   node evals/live/bench.mjs --model deepseek-chat --base-url https://api.deepseek.com/v1 --api-key $KEY
 //
@@ -44,7 +47,10 @@ function importDist(...segments) {
 
 const { runTask } = await importDist('eval', 'evalHarness.js');
 const { OpenAiCompatibleModel } = await importDist('adapters', 'model', 'openaiCompatibleModel.js');
-const { summarizePassK, passKGate } = await importDist('eval', 'passK.js');
+const { summarizePassK, passKGate, bootstrapPassK, passKGateWithCI } = await importDist(
+  'eval',
+  'passK.js',
+);
 
 /** 解析 --flag 或返回 undefined。 */
 function flag(name) {
@@ -285,7 +291,7 @@ function parseSwebenchLiteJsonl(text) {
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     console.log(
-      '用法: node evals/live/bench.mjs [--swebench] [--swebench-remote <path|url|remote>] [--suite path.json] [--repeat N] [--pass-k K] [--min-pass-rate R] [--min-pass-k K,R] [--model m] [--base-url u] [--api-key k]',
+      '用法: node evals/live/bench.mjs [--swebench] [--swebench-remote <path|url|remote>] [--suite path.json] [--repeat N] [--pass-k K] [--min-pass-rate R] [--min-pass-k K,R] [--min-pass-k-ci K,R] [--ci] [--ci-rounds N] [--model m] [--base-url u] [--api-key k]',
     );
     return;
   }
@@ -326,6 +332,8 @@ async function main() {
   const minPassRate =
     flag('--min-pass-rate') !== undefined ? Number(flag('--min-pass-rate')) : undefined;
   const minPassKReq = parseMinPassK(flag('--min-pass-k'));
+  const minPassKCiReq = parseMinPassK(flag('--min-pass-k-ci'));
+  const ciRounds = Math.max(1, Math.floor(numFlag('--ci-rounds', 2000)));
 
   const workspaceRoot = mkdtempSync(join(tmpdir(), 'omni-live-'));
 
@@ -416,17 +424,38 @@ async function main() {
   );
   console.log(`总采样: ${summary.totalSamples}  总耗时: ${totalDuration}ms`);
 
-  // fail-closed 门禁判定。
+  // T4.7：区间判定（可选）——点阈值在边界会随机红/绿；区间判定三态且可复现。
+  const wantCI = minPassKCiReq.length > 0 || process.argv.includes('--ci');
+  let ciGate = null;
+  if (wantCI) {
+    const maxKForCI = Math.max(passKTarget, ...minPassKCiReq.map((r) => r.k), 1);
+    const report = bootstrapPassK(outcomes, maxKForCI, { rounds: ciRounds });
+    console.log('\n--- 置信区间（bootstrap 95%，种子固定 ⇒ 可复现）---');
+    for (let k = 1; k <= maxKForCI; k++) {
+      const ci = report.passAtKCI[k - 1];
+      const pt = report.summary.passAtK[k - 1];
+      if (ci === undefined) continue;
+      console.log(`Pass@${k}: ${pt?.toFixed(3)}  CI=[${ci.lo.toFixed(3)}, ${ci.hi.toFixed(3)}]`);
+    }
+    ciGate = passKGateWithCI(report, { minPassRate, minPassK: minPassKCiReq });
+  }
+
+  // fail-closed 门禁判定（点阈值 + 区间，任一不达标即红）。
   const gate = passKGate(summary, {
     minPassRate: minPassRate ?? (repeat > 1 ? undefined : 1),
     minPassK: minPassKReq,
   });
-  if (!gate.passed) {
+  const failed = !gate.passed || (ciGate !== null && !ciGate.passed);
+  if (failed) {
     console.log('\n❌ 门禁未达标:');
-    for (const f of gate.failures) console.log(`   - ${f}`);
+    if (!gate.passed) for (const f of gate.failures) console.log(`   - ${f}`);
+    if (ciGate !== null) {
+      for (const f of ciGate.failures) console.log(`   - [CI] ${f}`);
+      for (const f of ciGate.inconclusive) console.log(`   - [CI·样本不足] ${f}`);
+    }
     process.exit(2);
   }
-  if (minPassRate !== undefined || minPassKReq.length > 0) {
+  if (minPassRate !== undefined || minPassKReq.length > 0 || ciGate !== null) {
     console.log('\n✅ 门禁达标');
   }
   process.exit(0);

@@ -1,3 +1,5 @@
+import { bootstrapInterval, type BootstrapOptions, type BootstrapResult } from './bootstrap.js';
+
 /**
  * Pass@k 统计门禁（U5 专属 eval 门禁规模化核心）。
  *
@@ -5,9 +7,13 @@
  * 返回 k∈[1..maxK] 的 Pass@k（标准 unbiased estimator）。并配套 fail-closed
  * 门禁：通过率 / Pass@k 低于阈值即视为不达标（exit 非 0 由调用方处理）。
  *
+ * T4.7 起为 Pass@k 提供**确定性 bootstrap 95% 置信区间**，并把判定从「点阈值」
+ * 升级为「区间判定」——点阈值在边界会随机红/绿，区间判定给出三态结论
+ * （达标 / 显著不达标 / 样本不足），种子固定故同输入恒同结论。
+ *
  * 零依赖。
  *
- * @maturity L1 — Pass@k 已有；置信区间与「≥5 次跑」规范化待补
+ * @maturity L1 — Pass@k + 确定性 bootstrap 95% CI（消随机红/绿）；「≥5 次跑」规范化待补
  * @maturityEvidence tests/unit/passK.test.ts
  */
 
@@ -113,4 +119,89 @@ export function passKGate(
     }
   }
   return { passed: failures.length === 0, failures };
+}
+
+/** Pass@k 的点估计 + 逐 k 的 bootstrap 置信区间（T4.7）。 */
+export interface PassKCIReport {
+  /** 点估计汇总（与 {@link summarizePassK} 一致）。 */
+  readonly summary: PassKSummary;
+  /** 每个 k 的 95% 区间（索引 0 = Pass@1）。 */
+  readonly passAtKCI: readonly BootstrapResult[];
+  /** 平均通过率的 95% 区间。 */
+  readonly meanPassRateCI: BootstrapResult;
+}
+
+/**
+ * 对每个任务的采样做有放回重采样，给出 Pass@k 与平均通过率的 95% 置信区间。
+ *
+ * 复用 {@link bootstrapInterval}（同一方法、默认 2000 次）；**种子固定** ⇒ 同一
+ * 输入恒得同一区间与结论，消除「点阈值随机红/绿」。
+ *
+ * @param outcomes 每任务的多次采样结果
+ * @param maxK 最大 k（区间覆盖 Pass@1..Pass@maxK）
+ * @param opts 次数 / 种子 / 显著性（可选）
+ * @returns 点估计 + 逐 k 区间 + 平均通过率区间
+ */
+export function bootstrapPassK(
+  outcomes: readonly TaskSamples[],
+  maxK: number,
+  opts: BootstrapOptions = {},
+): PassKCIReport {
+  const summary = summarizePassK(outcomes, maxK);
+  const passAtKCI: BootstrapResult[] = [];
+  for (let k = 1; k <= maxK; k++) {
+    passAtKCI.push(bootstrapInterval(outcomes, (rs) => computePassK(rs, k)[k - 1] ?? 0, opts));
+  }
+  const meanPassRateCI = bootstrapInterval(outcomes, (rs) => meanPassRate(rs), opts);
+  return { summary, passAtKCI, meanPassRateCI };
+}
+
+/** 区间门禁结论：达标 / 显著不达标 / 样本不足（fail-closed）。 */
+export interface PassKCIGateResult {
+  /** 是否达标（无 failure 且无 inconclusive）。 */
+  readonly passed: boolean;
+  /** 显著低于阈值项（区间上界 < 阈值）。 */
+  readonly failures: readonly string[];
+  /** 样本不足项（区间跨阈值，无法判定；fail-closed 计入不达标）。 */
+  readonly inconclusive: readonly string[];
+}
+
+/**
+ * 区间版 fail-closed 门禁（T4.7）：
+ * - 区间下界 ≥ 阈值 ⇒ 达标（可信）；
+ * - 区间上界 < 阈值 ⇒ 显著不达标；
+ * - 区间跨阈值 ⇒ 样本不足，inconclusive（fail-closed：仍判不达标，但显式区分）。
+ *
+ * 因区间由固定种子 bootstrap 得到，同一结果下**重复判定恒同**，不再随机红/绿。
+ *
+ * @param report {@link bootstrapPassK} 的产出
+ * @param opts 阈值（通过率 / 逐 k）
+ * @returns 三态结论
+ */
+export function passKGateWithCI(
+  report: PassKCIReport,
+  opts: {
+    readonly minPassRate?: number;
+    readonly minPassK?: readonly { readonly k: number; readonly threshold: number }[];
+  },
+): PassKCIGateResult {
+  const failures: string[] = [];
+  const inconclusive: string[] = [];
+  const judge = (label: string, threshold: number, ci: BootstrapResult): void => {
+    if (ci.lo >= threshold) return;
+    if (ci.hi < threshold) {
+      failures.push(`${label} 区间上界 ${ci.hi.toFixed(3)} < 阈值 ${threshold}`);
+    } else {
+      inconclusive.push(
+        `${label} 区间 [${ci.lo.toFixed(3)}, ${ci.hi.toFixed(3)}] 跨阈值 ${threshold}，样本不足`,
+      );
+    }
+  };
+  judge('通过率', opts.minPassRate ?? 0, report.meanPassRateCI);
+  for (const req of opts.minPassK ?? []) {
+    const ci = report.passAtKCI[req.k - 1];
+    if (ci === undefined) continue;
+    judge(`Pass@${req.k}`, req.threshold, ci);
+  }
+  return { passed: failures.length === 0 && inconclusive.length === 0, failures, inconclusive };
 }
