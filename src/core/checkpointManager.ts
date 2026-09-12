@@ -2,16 +2,8 @@ import { join } from 'node:path';
 import type { SessionEvent } from '../ports/event.js';
 import type { StoragePort } from '../ports/storage.js';
 import type { WorkspaceSnapshotPort } from '../ports/workspaceSnapshot.js';
+import { type CheckpointMeta, type CheckpointManagerPort } from '../ports/checkpointManager.js';
 import { readSnapshotFile, writeSnapshotFile } from './snapshotFileIo.js';
-
-/** 检查点元信息。 */
-export interface CheckpointMeta {
-  readonly label: string;
-  readonly ts: string;
-  readonly eventCount: number;
-  /** 是否包含文件级快照（可用于代码回滚）。 */
-  readonly hasFileSnapshot: boolean;
-}
 
 /** 检查点管理器选项。 */
 export interface CheckpointOptions {
@@ -45,7 +37,7 @@ function checkpointKey(sessionId: string, label: string): string {
  * 若注入 `snapshotter` + `workspaceRoot`，则额外捕获工作区文件快照，回滚时**同时回滚对话与代码**
  * （对齐 Claude Code /rewind），而非仅回滚事件流。
  */
-export class CheckpointManager {
+export class CheckpointManager implements CheckpointManagerPort {
   private readonly snapshotter?: WorkspaceSnapshotPort;
   private readonly workspaceRoot?: string;
   private readonly stateDir?: string;

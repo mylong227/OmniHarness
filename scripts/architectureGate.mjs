@@ -69,13 +69,11 @@ const CORE_TO_ADAPTERS_WL = new Set([
   'core/toolGate->adapters/sandbox/unsupportedSandbox',
   'core/turnRunner->adapters/memory/memoryExtractor',
 ]);
-// adapters→core（5 条，docs §1.3；askUserTool/planWriteTool/planPresentTool/todoWriteTool
-//   →core/eventFactory 经 P1 端口注入已清零，剩余 5 条为真实存量）
+// adapters→core（3 条，docs §1.3；已清 6：eventFactory 簇 x4 + checkpointTool/rollbackTool x2
+//   经端口注入清零，剩余 3 条为真实存量）
 const ADAPTERS_TO_CORE_WL = new Set([
   'adapters/diff/turnDiffHooks->core/toolHookRunner',
   'adapters/diff/turnDiffHooks->core/turnDiffTracker',
-  'adapters/tool/checkpointTool->core/checkpointManager',
-  'adapters/tool/rollbackTool->core/checkpointManager',
   'adapters/tool/runGoalTool->core/agent',
 ]);
 // ports 纯度：允许 ports/model.ts 内含 2 个错误类（P3.x 拆分到 errors 端口或独立模块后移除）
