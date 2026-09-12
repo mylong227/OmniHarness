@@ -59,11 +59,8 @@ for (const f of files) {
 }
 
 // ---- 3. 白名单（冻结存量；P1/P3 清偿后从此移除对应条目） ----
-// core→adapters（2 条，docs §1.3；runtime 簇 4 条 + turnRunner 1 条 已 P1 解耦清零，剩余 2 条为 sandbox 簇真实存量）
-const CORE_TO_ADAPTERS_WL = new Set([
-  'core/stepRunner->adapters/sandbox/denial',
-  'core/toolGate->adapters/sandbox/unsupportedSandbox',
-]);
+// core→adapters（0 条，docs §1.3；runtime 簇 4 条 + turnRunner 1 条 + sandbox 簇 2 条 已 P1 解耦清零，存量归零）
+const CORE_TO_ADAPTERS_WL = new Set([]);
 // adapters→core（1 条，docs §1.3；已清 8：eventFactory 簇 x4 + checkpointTool/rollbackTool x2
 //   + turnDiffHooks x2 经端口注入清零，剩余 1 条为真实存量）
 const ADAPTERS_TO_CORE_WL = new Set(['adapters/tool/runGoalTool->core/agent']);

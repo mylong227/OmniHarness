@@ -1,4 +1,9 @@
-import type { SandboxDenialCategory } from '../../ports/sandbox.js';
+import type { SandboxDenialCategory } from './sandbox.js';
+
+/**
+ * 沙箱拒绝归因（G3 核心）：纯领域逻辑，零适配器依赖，置于 ports 层供 core 直接消费。
+ * 原位于 adapters/sandbox/denial.ts，因仅依赖 ports 且被 core/stepRunner 消费，P1 解耦时上移到 ports。
+ */
 
 /** OS 沙箱拒绝的典型签名（stderr/信息关键字）。移植自 Codex sandboxing/src/denial.rs 思路。 */
 const SANDBOX_DENIAL_PATTERNS: readonly RegExp[] = [

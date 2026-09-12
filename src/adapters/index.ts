@@ -3,7 +3,11 @@ export { OpenAiCompatibleModel } from './model/openAiCompatibleModel.js';
 export type { OpenAiCompatibleConfig } from './model/openAiCompatibleModel.js';
 export { LlamaCppModel } from './model/llamaCppModel.js';
 export type { LlamaCppConfig } from './model/llamaCppModel.js';
-export { NetworkEgressGuard, EgressBlockedError, parseAllowList } from './sandbox/networkEgressGuard.js';
+export {
+  NetworkEgressGuard,
+  EgressBlockedError,
+  parseAllowList,
+} from './sandbox/networkEgressGuard.js';
 export { AnthropicModel } from './model/anthropicModel.js';
 export type { AnthropicModelConfig } from './model/anthropicModel.js';
 export { SseParser } from './model/sseParser.js';
@@ -44,8 +48,8 @@ export { LinuxBwrapSandbox } from './sandbox/linuxBwrapSandbox.js';
 export { MacOsSeatbeltSandbox } from './sandbox/macOsSeatbeltSandbox.js';
 export { SandboxManager } from './sandbox/sandboxManager.js';
 export type { SandboxProfile } from './sandbox/sandboxManager.js';
-export { isLikelySandboxDenied, classifyDenial } from './sandbox/denial.js';
-export type { RuntimeFailure } from './sandbox/denial.js';
+export { isLikelySandboxDenied, classifyDenial } from '../ports/sandboxDenial.js';
+export type { RuntimeFailure } from '../ports/sandboxDenial.js';
 export { DangerousCommands } from './sandbox/dangerousCommands.js';
 export { AutoApproval } from './approval/autoApproval.js';
 export { DenyApproval } from './approval/denyApproval.js';

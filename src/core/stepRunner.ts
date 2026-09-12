@@ -25,7 +25,7 @@ import type { ToolHookRunner } from './toolHookRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
 import type { ToolDiscovery } from '../search/toolDiscovery.js';
-import { isLikelySandboxDenied } from '../adapters/sandbox/denial.js';
+import { isLikelySandboxDenied } from '../ports/sandboxDenial.js';
 import type { ToolInputSink } from '../ports/toolInputSink.js';
 import type { SupervisorPort } from '../ports/supervisor.js';
 import { log } from '../util/logger.js';

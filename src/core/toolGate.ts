@@ -1,7 +1,21 @@
 import type { ApprovalPort } from '../ports/approval.js';
 import type { SupervisorPort } from '../ports/supervisor.js';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../ports/sandbox.js';
-import { UnsupportedSandbox } from '../adapters/sandbox/unsupportedSandbox.js';
+/**
+ * 提权沙箱默认 fail-closed：未显式注入 elevatedSandbox 时一律拒绝升级，绝不静默全放行
+ * （防御性兜底，防止手动/测试构造 ToolGate 漏注入时把提权重试变成沙箱绕过）。
+ * 此前由 adapters/sandbox/UnsupportedSandbox 提供，现内联以保持 core 层零适配器依赖。
+ */
+const FAIL_CLOSED_ELEVATED_SANDBOX: SandboxPort = {
+  name: 'elevated-fail-closed',
+  async check(_action: SandboxAction): Promise<SandboxDecision> {
+    return {
+      allowed: false,
+      reason: '平台不支持的沙箱后端: 提权沙箱未注入，默认 fail-closed 拒绝升级',
+      category: 'os',
+    };
+  },
+};
 import type { PlanPort } from '../ports/plan.js';
 import type { ToolCall, ToolResult } from '../ports/tool.js';
 import type { EscalationPort } from '../ports/escalation.js';
@@ -33,10 +47,7 @@ export class ToolGate {
     /** 提权后的复核沙箱（默认 fail-closed：未显式注入时一律拒绝升级，绝不静默全放行。
      *  ConfigFactory 实际注入 PolicySandbox 做收紧；本默认仅为防御性兜底，
      *  防止任何手动构造 ToolGate 漏注入 elevatedSandbox 时把提权重试变成沙箱绕过）。 */
-    private readonly elevatedSandbox: SandboxPort = new UnsupportedSandbox(
-      'elevated',
-      '提权沙箱未注入，默认 fail-closed 拒绝升级',
-    ),
+    private readonly elevatedSandbox: SandboxPort = FAIL_CLOSED_ELEVATED_SANDBOX,
     /** 航天级监督内核（I-P0-3，可选）：最高优先级确定性否决，置于审批/沙箱/计划门禁之前。 */
     private readonly supervisor?: SupervisorPort,
   ) {}
