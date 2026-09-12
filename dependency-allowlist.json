@@ -2,7 +2,7 @@
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
-  "updatedAt": "2026-09-05",
+  "updatedAt": "2026-09-12",
   "notes": [
     "必要即可依赖：凡能实质提升项目能力、且经准入评审的优质依赖，即为本项目资产。",
     "但必须分层隔离：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
@@ -34,7 +34,10 @@
     "maxInstallKb": 2048,
     "maxTransitiveDeps": 20
   },
-  "forbiddenLayers": ["src/ports", "src/core"],
+  "forbiddenLayers": [
+    "src/ports",
+    "src/core"
+  ],
   "allowlist": {
     "@huggingface/transformers": {
       "reason": "引入本地 ONNX 嵌入模型运行时不自研不可行：自研等价物需训练/维护一个 embedding 模型与 ONNX runtime，边际成本不可接受；本依赖带来质变能力（稠密向量语义召回），补 U3 实验遗留的 BM25 词法盲区（policy vs execPolicy 语义鸿沟）。",
@@ -45,7 +48,9 @@
       "exitPlan": "若该包停更，替换为 fastembed-js 或自托管 ONNX runtime，仅需重写 src/adapters/embedding/transformersEmbedding.ts 一个文件；模型权重 Xenova/all-MiniLM-L6-v2 为社区标准、多运行时通用，无锁定。",
       "maxInstallKb": 200000,
       "maxTransitiveDeps": 80,
-      "budgetOverrideReason": "安装体积远超默认 2MB（含 onnxruntime-web/node、sharp、tokenizers 等传递依赖）；但体积预算为报告级，且铁律 §1.1 允许『自研边际成本显著高于引入、能带来质变能力』时引入。运行时仅模型权重（数据资产，非代码依赖）落本地，不影响冷启动分发体积。"
+      "budgetOverrideReason": "安装体积远超默认 2MB（含 onnxruntime-web/node、sharp、tokenizers 等传递依赖）；但体积预算为报告级，且铁律 §1.1 允许『自研边际成本显著高于引入、能带来质变能力』时引入。运行时仅模型权重（数据资产，非代码依赖）落本地，不影响冷启动分发体积。 2026-09-12 追加：实测 install 体积约 2.2GB 已超出任何合理预算，但它属于可选增强（见 optional / optionalReason），不再以预算口径阻断。",
+      "optional": true,
+      "optionalReason": "2026-09-12 重分类为 optionalDependencies：该包仅在开语义召回时经 adapters/embedding 的动态 import() 按需加载，默认安装（npm i --omit=optional）体积为 0；因此不占用默认安装体积预算，门禁仅报告其实际占用。"
     }
   },
   "entryTemplate": {

@@ -177,68 +177,119 @@ async function tryRead(
  *
  * @returns 无可用指令时返回 `null`（调用方应跳过注入，而非注入空串）。
  */
-export async function loadProjectInstructions(
-  options: ProjectInstructionsOptions,
-): Promise<ProjectInstructionsResult | null> {
-  const workspaceRoot = resolve(options.workspaceRoot);
-  const cwd = resolve(options.cwd ?? process.cwd());
-  const home = homeOf(options.home);
-  const maxBytes = options.maxBytes ?? DEFAULT_INSTRUCTIONS_MAX_BYTES;
-  const read = options.read ?? defaultReader;
-  const includeLlmsTxt = options.includeLlmsTxt !== false;
+/** 候选文件合并上下文（避免在深层循环里重复传递散参数）。 */
+interface MergeContext {
+  /** 工作区根目录（`@import` 越界判定的边界）。 */
+  readonly workspaceRoot: string;
+  /** 文件读取器。 */
+  readonly read: InstructionReader;
+  /** 总字节上限。 */
+  readonly maxBytes: number;
+}
 
-  const candidates: string[] = [];
+/** 合并中间结果（字节数随合并递增，供 `llms.txt` 段落复用同一预算）。 */
+interface MergeOutcome {
+  /** 已纳入的正文片段（含来源注释头）。 */
+  readonly sections: string[];
+  /** 已纳入的文件路径（按纳入顺序）。 */
+  readonly sources: readonly string[];
+  /** 已用字节数。 */
+  readonly usedBytes: number;
+  /** 是否因超出上限被截断。 */
+  readonly truncated: boolean;
+}
 
-  // 1. 用户级
-  if (home !== undefined) {
-    for (const dir of USER_LEVEL_DIRS) {
-      for (const name of INSTRUCTION_FILE_NAMES) {
-        candidates.push(join(home, dir, name));
-      }
-    }
+/**
+ * 收集**用户级**候选路径：home 下每个兼容目录 × 每个指令文件名。
+ *
+ * @param home 用户主目录；`undefined` 表示无可用 home（返回空）
+ * @returns 候选路径数组（优先级从低到高）
+ */
+function userLevelCandidates(home: string | undefined): string[] {
+  if (home === undefined) return [];
+  const out: string[] = [];
+  for (const dir of USER_LEVEL_DIRS) {
+    for (const name of INSTRUCTION_FILE_NAMES) out.push(join(home, dir, name));
   }
+  return out;
+}
 
-  // 2. 项目级（override 优先，存在则跳过根 AGENTS.md）
-  const overridePath = join(workspaceRoot, AGENTS_OVERRIDE_NAME);
-  const overrideExists = (await tryRead(overridePath, read)) !== null;
-  if (overrideExists) {
-    candidates.push(overridePath);
-  }
+/**
+ * 判断项目级是否存在 `AGENTS.override.md`（存在则根 `AGENTS.md` 被整体取代）。
+ *
+ * @param workspaceRoot 工作区根目录
+ * @param read          文件读取器
+ * @returns 存在且可读则为 true
+ */
+async function hasAgentsOverride(
+  workspaceRoot: string,
+  read: InstructionReader,
+): Promise<boolean> {
+  return (await tryRead(join(workspaceRoot, AGENTS_OVERRIDE_NAME), read)) !== null;
+}
+
+/**
+ * 收集**项目级**候选路径。
+ *
+ * @param workspaceRoot  工作区根目录
+ * @param overrideExists 是否已被 `AGENTS.override.md` 取代（取代后跳过根 `AGENTS.md`）
+ * @returns 候选路径数组（优先级从低到高）
+ */
+function projectLevelCandidates(workspaceRoot: string, overrideExists: boolean): string[] {
+  const out: string[] = [];
+  if (overrideExists) out.push(join(workspaceRoot, AGENTS_OVERRIDE_NAME));
   for (const name of INSTRUCTION_FILE_NAMES) {
-    if (overrideExists && name === 'AGENTS.md') {
-      continue;
-    }
-    candidates.push(join(workspaceRoot, name));
+    if (overrideExists && name === 'AGENTS.md') continue;
+    out.push(join(workspaceRoot, name));
   }
+  return out;
+}
 
-  // 3. 子目录级：workspaceRoot → cwd 的每一层（cwd 必须位于工作区内）
-  if (isInside(workspaceRoot, cwd)) {
-    const rel = relative(workspaceRoot, cwd);
-    const parts = rel === '' ? [] : rel.split(sep);
-    let current = workspaceRoot;
-    for (const part of parts) {
-      current = join(current, part);
-      for (const name of INSTRUCTION_FILE_NAMES) {
-        candidates.push(join(current, name));
-      }
-    }
+/**
+ * 收集**子目录级**候选路径：`workspaceRoot → cwd` 的每一层（越靠近 cwd 越优先）。
+ *
+ * @param workspaceRoot 工作区根目录
+ * @param cwd           当前工作目录；不在工作区内时返回空
+ * @returns 候选路径数组（优先级从低到高）
+ */
+function subdirLevelCandidates(workspaceRoot: string, cwd: string): string[] {
+  if (!isInside(workspaceRoot, cwd)) return [];
+  const rel = relative(workspaceRoot, cwd);
+  const parts = rel === '' ? [] : rel.split(sep);
+  const out: string[] = [];
+  let current = workspaceRoot;
+  for (const part of parts) {
+    current = join(current, part);
+    for (const name of INSTRUCTION_FILE_NAMES) out.push(join(current, name));
   }
+  return out;
+}
 
+/**
+ * 按序读取候选文件，展开 `@import` 并套用总字节上限（超限即停并标记截断）。
+ *
+ * @param candidates 候选路径（优先级从低到高）
+ * @param ctx        合并上下文
+ * @returns 合并中间结果
+ */
+async function mergeCandidates(
+  candidates: readonly string[],
+  ctx: MergeContext,
+): Promise<MergeOutcome> {
   const sections: string[] = [];
   const sources: string[] = [];
   let used = 0;
   let truncated = false;
 
   for (const path of candidates) {
-    const body = await tryRead(path, read);
+    const body = await tryRead(path, ctx.read);
     if (body === null || body.trim() === '') {
       continue;
     }
-    const expanded = await expandImports(body, path, workspaceRoot, read, 0);
-    const header = `<!-- 常驻指令: ${path} -->`;
-    const chunk = `${header}\n${expanded.trim()}`;
+    const expanded = await expandImports(body, path, ctx.workspaceRoot, ctx.read, 0);
+    const chunk = `<!-- 常驻指令: ${path} -->\n${expanded.trim()}`;
     const bytes = Buffer.byteLength(chunk, 'utf8');
-    if (used + bytes > maxBytes) {
+    if (used + bytes > ctx.maxBytes) {
       truncated = true;
       break;
     }
@@ -246,24 +297,80 @@ export async function loadProjectInstructions(
     sources.push(path);
     used += bytes;
   }
+  return { sections, sources, usedBytes: used, truncated };
+}
 
-  // 4. llms.txt（独立段落，不参与层级覆盖）
-  if (includeLlmsTxt) {
-    const llmsPath = join(workspaceRoot, 'llms.txt');
-    const body = await tryRead(llmsPath, read);
-    if (body !== null && body.trim() !== '') {
-      const chunk = `<!-- 文档索引: ${llmsPath} -->\n${body.trim()}`;
-      if (used + Buffer.byteLength(chunk, 'utf8') <= maxBytes) {
-        sections.push(chunk);
-        sources.push(llmsPath);
-      } else {
-        truncated = true;
-      }
-    }
+/**
+ * 追加 `llms.txt` 独立段落（文档可发现性约定，**不参与层级覆盖**）。
+ *
+ * 容量不足时不写入，仅标记截断——保证指令正文优先于文档索引。
+ *
+ * @param outcome 已有的合并结果
+ * @param ctx     合并上下文
+ * @returns 追加后的合并结果
+ */
+async function appendLlmsTxt(outcome: MergeOutcome, ctx: MergeContext): Promise<MergeOutcome> {
+  const path = join(ctx.workspaceRoot, 'llms.txt');
+  const body = await tryRead(path, ctx.read);
+  if (body === null || body.trim() === '') {
+    return outcome;
   }
+  const chunk = `<!-- 文档索引: ${path} -->\n${body.trim()}`;
+  const bytes = Buffer.byteLength(chunk, 'utf8');
+  if (outcome.usedBytes + bytes > ctx.maxBytes) {
+    return { ...outcome, truncated: true };
+  }
+  return {
+    sections: [...outcome.sections, chunk],
+    sources: [...outcome.sources, path],
+    usedBytes: outcome.usedBytes + bytes,
+    truncated: outcome.truncated,
+  };
+}
 
-  if (sections.length === 0) {
+/**
+ * 加载仓库常驻指令（AGENTS.md / CLAUDE.md / llms.txt），按业界约定分层合并。
+ *
+ * 层级（优先级从低到高）：
+ * 1. 用户级：`~/.omniharness/`、`~/.claude/` 下的同名文件；
+ * 2. 项目级：工作区根目录下的 `AGENTS.md`（存在 `AGENTS.override.md` 时整体取代）、`CLAUDE.md`、`CLAUDE.local.md`；
+ * 3. 子目录级：从工作区根到 `cwd` 的每一级同名文件（越靠近 cwd 越优先）。
+ *
+ * `llms.txt` 作为独立段落附在末尾（文档可发现性约定），不参与层级覆盖。
+ * 任何单文件读取失败都静默跳过，绝不因指令文件问题阻断主流程。
+ *
+ * @param options 加载选项（工作区根、cwd、home、容量上限、读取器）
+ * @returns 无可用指令时返回 `null`（调用方应跳过注入，而非注入空串）
+ */
+export async function loadProjectInstructions(
+  options: ProjectInstructionsOptions,
+): Promise<ProjectInstructionsResult | null> {
+  const workspaceRoot = resolve(options.workspaceRoot);
+  const cwd = resolve(options.cwd ?? process.cwd());
+  const home = homeOf(options.home);
+  const ctx: MergeContext = {
+    workspaceRoot,
+    read: options.read ?? defaultReader,
+    maxBytes: options.maxBytes ?? DEFAULT_INSTRUCTIONS_MAX_BYTES,
+  };
+
+  const overrideExists = await hasAgentsOverride(workspaceRoot, ctx.read);
+  const candidates = [
+    ...userLevelCandidates(home),
+    ...projectLevelCandidates(workspaceRoot, overrideExists),
+    ...subdirLevelCandidates(workspaceRoot, cwd),
+  ];
+
+  let outcome = await mergeCandidates(candidates, ctx);
+  if (options.includeLlmsTxt !== false) {
+    outcome = await appendLlmsTxt(outcome, ctx);
+  }
+  if (outcome.sections.length === 0) {
     return null;
   }
-  return { content: sections.join('\n\n'), sources, truncated };
+  return {
+    content: outcome.sections.join('\n\n'),
+    sources: outcome.sources,
+    truncated: outcome.truncated,
+  };
 }

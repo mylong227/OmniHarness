@@ -113,7 +113,8 @@
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.69.0"
   },
-  "dependencies": {
+  "dependencies": {},
+  "optionalDependencies": {
     "@huggingface/transformers": "^4.2.0"
   }
 }

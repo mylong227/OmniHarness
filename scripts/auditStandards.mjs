@@ -124,11 +124,20 @@ console.log('top-level fns: ' + totalTopFns + ' (exported ' + totalExportedFns +
 console.log('class members w/o explicit access modifier: ' + sum(report, 'membersNoAccess') + ' / ' + sum(report, 'membersTotal'));
 console.log('public members w/o JSDoc: ' + sum(report, 'publicNoJsdoc') + ' / ' + sum(report, 'publicTotal'));
 
-console.log('\n=== GOD CLASSES (file >500 lines OR class >25 methods) ===');
+// 口径（2026-09-12 修正）：「上帝类」是**类**的属性，故只统计**含类**的文件。
+// 无类的纯函数模块按 check.mjs 的文件上限（800 行，决策 D1）判定，不在此重复计数——
+// 否则「一文件一类」达标、函数范式的模块会被误报成上帝类（实测已误报 layeredCodeGraph）。
+console.log('\n=== GOD CLASSES (含类文件 >500 lines OR class >25 methods) ===');
+let classlessLong = 0;
 for (const r of report.slice().sort((a,b)=>b.lines-a.lines)) {
   const maxM = Math.max(0, ...r.classes.map(c=>c.methods));
+  if (r.classes.length === 0) {
+    if (r.lines > 500) classlessLong += 1; // 仅计数，不属「上帝类」
+    continue;
+  }
   if (r.lines > 500 || maxM > 25) console.log(r.lines + ' lines / ' + maxM + ' max-methods / ' + r.classes.length + ' class  ' + (r.hot?'[HOT] ':'') + r.file);
 }
+if (classlessLong > 0) console.log('(' + classlessLong + ' 个 >500 行的**无类**模块已按 D1 的 800 行上限口径排除，不计为上帝类)');
 
 console.log('\n=== FILES WHERE MAIN CLASS NAME != FILENAME (' + report.filter(r=>!r.nameMatches).length + ') ===');
 for (const r of report.filter(r=>!r.nameMatches)) console.log(r.mainClass + '  <->  ' + r.file + (r.hot?'  [HOT]':''));

@@ -114,8 +114,13 @@ export function normalizeConfig(raw: Record<string, unknown>): FileConfig {
   return out as FileConfig;
 }
 
-/** 严格校验已归一化配置的类型与枚举（未知 key 已在 normalize 阶段拦截）。 */
-export function validateConfig(cfg: FileConfig): void {
+/**
+ * 校验枚举字段：存在则必须是字符串且落在该字段的允许集合内。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 取值越界
+ */
+function validateEnumFields(cfg: FileConfig): void {
   for (const [field, allowed] of Object.entries(ENUM_VALUES)) {
     const value = (cfg as Record<string, unknown>)[field];
     if (value === undefined) {
@@ -127,6 +132,15 @@ export function validateConfig(cfg: FileConfig): void {
       );
     }
   }
+}
+
+/**
+ * 校验自由字符串字段：存在则必须是 string。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 类型不符
+ */
+function validateStringFields(cfg: FileConfig): void {
   for (const field of STRING_FIELDS) {
     const value = (cfg as Record<string, unknown>)[field];
     if (value === undefined) {
@@ -136,6 +150,15 @@ export function validateConfig(cfg: FileConfig): void {
       throw new ConfigError(`"${field}" 应为字符串，收到 ${typeof value}`);
     }
   }
+}
+
+/**
+ * 校验数字字段：存在则必须是有限正数。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 类型不符或非正数
+ */
+function validateNumberFields(cfg: FileConfig): void {
   for (const field of NUMBER_FIELDS) {
     const value = (cfg as Record<string, unknown>)[field];
     if (value === undefined) {
@@ -145,6 +168,15 @@ export function validateConfig(cfg: FileConfig): void {
       throw new ConfigError(`"${field}" 应为正数，收到 ${String(value)}`);
     }
   }
+}
+
+/**
+ * 校验布尔字段：存在则必须是 boolean。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 类型不符
+ */
+function validateBooleanFields(cfg: FileConfig): void {
   for (const field of BOOLEAN_FIELDS) {
     const value = (cfg as Record<string, unknown>)[field];
     if (value === undefined) {
@@ -154,54 +186,120 @@ export function validateConfig(cfg: FileConfig): void {
       throw new ConfigError(`"${field}" 应为布尔值，收到 ${typeof value}`);
     }
   }
-  const servers = (cfg as Record<string, unknown>).mcpServers;
-  if (servers !== undefined) {
-    if (!Array.isArray(servers)) {
-      throw new ConfigError('mcpServers 应为数组');
-    }
-    for (const [index, server] of servers.entries()) {
-      if (
-        typeof server !== 'object' ||
-        server === null ||
-        typeof (server as Record<string, unknown>).name !== 'string' ||
-        typeof (server as Record<string, unknown>).command !== 'string'
-      ) {
-        throw new ConfigError(`mcpServers[${index}] 需含字符串 name 与 command`);
-      }
-    }
-  }
-  const workspaces = (cfg as Record<string, unknown>).workspaces;
-  if (workspaces !== undefined) {
-    if (
-      !Array.isArray(workspaces) ||
-      workspaces.some((w) => typeof w !== 'string' || w.trim() === '')
-    ) {
-      throw new ConfigError('workspaces 需为非空字符串数组');
-    }
-  }
+}
 
-  const router = (cfg as Record<string, unknown>).modelRouter;
-  if (router !== undefined) {
+/**
+ * 校验 `mcpServers`：数组，每项需含字符串 `name` 与 `command`。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 结构不符
+ */
+function validateMcpServers(cfg: FileConfig): void {
+  const servers = (cfg as Record<string, unknown>).mcpServers;
+  if (servers === undefined) {
+    return;
+  }
+  if (!Array.isArray(servers)) {
+    throw new ConfigError('mcpServers 应为数组');
+  }
+  for (const [index, server] of servers.entries()) {
     if (
-      typeof router !== 'object' ||
-      router === null ||
-      typeof (router as Record<string, unknown>).strategy !== 'string' ||
-      !Array.isArray((router as Record<string, unknown>).entries)
+      typeof server !== 'object' ||
+      server === null ||
+      typeof (server as Record<string, unknown>).name !== 'string' ||
+      typeof (server as Record<string, unknown>).command !== 'string'
     ) {
-      throw new ConfigError('modelRouter 需含字符串 strategy 与数组 entries');
+      throw new ConfigError(`mcpServers[${index}] 需含字符串 name 与 command`);
     }
   }
+}
+
+/**
+ * 校验 `workspaces`：非空字符串数组。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 结构不符
+ */
+function validateWorkspaces(cfg: FileConfig): void {
+  const workspaces = (cfg as Record<string, unknown>).workspaces;
+  if (workspaces === undefined) {
+    return;
+  }
+  if (
+    !Array.isArray(workspaces) ||
+    workspaces.some((w) => typeof w !== 'string' || w.trim() === '')
+  ) {
+    throw new ConfigError('workspaces 需为非空字符串数组');
+  }
+}
+
+/**
+ * 校验 `modelRouter`：需含字符串 `strategy` 与数组 `entries`。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 结构不符
+ */
+function validateModelRouter(cfg: FileConfig): void {
+  const router = (cfg as Record<string, unknown>).modelRouter;
+  if (router === undefined) {
+    return;
+  }
+  if (
+    typeof router !== 'object' ||
+    router === null ||
+    typeof (router as Record<string, unknown>).strategy !== 'string' ||
+    !Array.isArray((router as Record<string, unknown>).entries)
+  ) {
+    throw new ConfigError('modelRouter 需含字符串 strategy 与数组 entries');
+  }
+}
+
+/**
+ * 校验 `providerKeys`：形如「厂商标识 → 非空字符串」的对象。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 结构不符
+ */
+function validateProviderKeys(cfg: FileConfig): void {
   const providerKeys = (cfg as Record<string, unknown>).providerKeys;
-  if (providerKeys !== undefined) {
-    if (typeof providerKeys !== 'object' || providerKeys === null || Array.isArray(providerKeys)) {
-      throw new ConfigError('providerKeys 应为「厂商标识 → Key」对象');
-    }
-    for (const [vendor, key] of Object.entries(providerKeys)) {
-      if (typeof key !== 'string' || key.length === 0) {
-        throw new ConfigError(`providerKeys["${vendor}"] 应为非空字符串`);
-      }
+  if (providerKeys === undefined) {
+    return;
+  }
+  if (typeof providerKeys !== 'object' || providerKeys === null || Array.isArray(providerKeys)) {
+    throw new ConfigError('providerKeys 应为「厂商标识 → Key」对象');
+  }
+  for (const [vendor, key] of Object.entries(providerKeys)) {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new ConfigError(`providerKeys["${vendor}"] 应为非空字符串`);
     }
   }
+}
+
+/**
+ * 字段校验器注册表：**顺序即报错优先级**。
+ *
+ * 拆分为按字段族的校验器，是为了让 `validateConfig` 只保留「按序执行」这一个职责
+ * （门禁函数体上限 80 行）；新增字段族时在此登记即可。
+ */
+const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
+  validateEnumFields,
+  validateStringFields,
+  validateNumberFields,
+  validateBooleanFields,
+  validateMcpServers,
+  validateWorkspaces,
+  validateModelRouter,
+  validateProviderKeys,
+];
+
+/**
+ * 严格校验已归一化配置的类型与枚举（未知 key 已在 normalize 阶段拦截）。
+ *
+ * @param cfg 已归一化的配置
+ * @throws ConfigError 任一字段族校验失败（fail-closed）
+ */
+export function validateConfig(cfg: FileConfig): void {
+  for (const validate of FIELD_VALIDATORS) validate(cfg);
 }
 
 /** 从环境变量读取配置层（OMNIHARNESS_* 映射为标准 key，数字字段做 coerce）。 */

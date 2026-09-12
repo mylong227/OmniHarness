@@ -89,6 +89,8 @@ const NODE_BUILTINS = new Set([
 
 const violations = [];
 const depReport = { count: 0 };
+/** 可选依赖的实测体积（报告级，见 `optionalDeps` 口径注释）。 */
+const optionalDepReport = [];
 const importedPkgs = new Set(); // 全量扫完后用于「未使用的已装依赖」报告
 function add(rule, where, detail) {
   violations.push({ rule, where, detail });
@@ -97,6 +99,20 @@ function add(rule, where, detail) {
 // ---- ADMISSION 段：依赖准入（必须在 add() 之后初始化）----
 const allowlistDoc = loadAllowlist();
 const allowlist = allowlistDoc?.allowlist ?? {};
+
+/**
+ * 可选依赖集合（`package.json#optionalDependencies`）。
+ *
+ * 口径（2026-09-12，P8.4）：可选依赖**不占用默认安装体积预算**——`npm i --omit=optional`
+ * 时其体积为 0，属于「按需增强」而非「默认成本」。
+ * 判据从严：只有**运行时经动态 `import()` 按需加载**的增强路径（如语义嵌入）才允许标为可选；
+ * 顶层静态 import 的依赖一律不得进此集合，否则等于绕过体积门禁。
+ */
+const optionalDeps = new Set(
+  Object.keys(
+    JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).optionalDependencies ?? {},
+  ),
+);
 const allowedLicenses = new Set(allowlistDoc?.allowedLicenses ?? []);
 const forbiddenLayers = (allowlistDoc?.forbiddenLayers ?? ['src/ports', 'src/core']).map((p) =>
   p.replace(/\/$/, ''),
@@ -130,7 +146,7 @@ function isForbiddenLayer(file) {
 function checkDependencyAdmission() {
   const pkgPath = join(ROOT, 'package.json');
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-  const deps = pkg.dependencies ?? {};
+  const deps = { ...(pkg.dependencies ?? {}), ...(pkg.optionalDependencies ?? {}) };
   const names = Object.keys(deps);
 
   if (names.length === 0) {
@@ -188,8 +204,12 @@ function checkDependencySize() {
       continue; // 未安装则跳过实测（CI install 后自动生效）
     }
     const entry = allowlist[name];
-    const maxKb = entry?.maxInstallKb ?? defaultBudgets.maxInstallKb;
     const kb = dirSizeKb(dir);
+    if (optionalDeps.has(name)) {
+      // 可选依赖：默认安装（--omit=optional）体积为 0，故只报告实测占用，不作阻断。
+      optionalDepReport.push(`node_modules/${name}: install 体积 ${kb} KB（可选·按需安装）`);
+      continue;
+    }
     if (kb > maxKb) {
       add('依赖体积预算', `node_modules/${name}`, `install 体积 ${kb} KB > 预算 ${maxKb} KB`);
     }
@@ -285,7 +305,10 @@ function checkUnusedDependencies() {
   } catch {
     return;
   }
-  const depNames = new Set(Object.keys(pkg.dependencies ?? {}));
+  const depNames = new Set([
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.optionalDependencies ?? {}),
+  ]);
   for (const name of Object.keys(allowlist)) {
     if (!depNames.has(name)) continue; // 只评估真正安装进 dependencies 的项
     if (!importedPkgs.has(name)) {
@@ -398,6 +421,11 @@ function main() {
     checkLargeFunctions(f, src);
   }
   checkUnusedDependencies(); // 4) 未使用的已装依赖（报告级）
+
+  if (optionalDepReport.length > 0) {
+    console.log(`ℹ️  可选依赖（不计入默认安装体积预算，${optionalDepReport.length} 项）：`);
+    for (const line of optionalDepReport) console.log(`  - ${line}`);
+  }
 
   if (violations.length === 0) {
     console.log(`✅ 铁律自检通过：扫描 ${files.length} 个 TS 文件，零违规。`);
