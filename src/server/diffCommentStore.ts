@@ -131,6 +131,7 @@ export class DiffCommentStore {
   /**
    * 覆盖写入全部行内评论（自动创建 `.omni/` 目录）。
    * @param list 待写入的评论列表。
+   * @returns 无返回值。
    */
   private save(list: readonly DiffCommentRecord[]): void {
     const file = this.file();

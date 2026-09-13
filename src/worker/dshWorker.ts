@@ -10,7 +10,11 @@ import { CliWorker } from './cliWorker.js';
  * 无状态构造逻辑以实例方法暴露，由组合根单例 `dshWorker` 统一装配。
  */
 export class DshWorker {
-  /** 一次性任务 worker。 */
+  /**
+   * 一次性任务 worker。
+   * @param profile dsh 侧的 profile 名（模型适配器与凭据在其上注册）
+   * @returns 以 `dsh:<profile>` 命名的 CliWorker，按 `dsh --profile <p> "<task>"` 执行任务
+   */
   public task(profile: string): CliWorker {
     return new CliWorker({
       name: `dsh:${profile}`,
@@ -20,7 +24,11 @@ export class DshWorker {
     });
   }
 
-  /** 配置转储 worker（离线可用）。 */
+  /**
+   * 配置转储 worker（离线可用）。
+   * @param profile dsh 侧的 profile 名
+   * @returns 以 `dsh-inspect:<profile>` 命名的 CliWorker，转储默认配置以验证 worker 链路与真实二进制连通性
+   */
   public inspect(profile: string): CliWorker {
     return new CliWorker({
       name: `dsh-inspect:${profile}`,

@@ -63,6 +63,7 @@ export interface QuotaDeps {
  * 不是「多给一个池子」；换算到单模型上就是同一个额度，语义最直白、也最难产生歧义。
  */
 export class QuotaService {
+  /** 档位目录：按名称查档位倍率，同时充当档位合法性校验来源。 */
   private readonly plans = new QuotaPlans();
 
   /**
@@ -122,12 +123,19 @@ export class QuotaService {
     return this.status();
   }
 
-  /** 今日（本地自然日）。 */
+  /**
+   * 今日（本地自然日）。
+   * @returns 以注入时钟（缺省系统时间）为基准的本地自然日
+   */
   private today(): LocalDay {
     return new LocalDay(this.deps.now?.() ?? new Date());
   }
 
-  /** 读当日用量：存档不可读时退化为零用量（面板显示满额，好过报错阻断）。 */
+  /**
+   * 读当日用量：存档不可读时退化为零用量（面板显示满额，好过报错阻断）。
+   * @param day 目标本地自然日
+   * @returns 按模型分组的当日用量与合计（退化时各模型用量为空、合计为 0）
+   */
   private safeDailyUsage(day: LocalDay): { byModel: Record<string, number>; total: number } {
     try {
       return this.deps.usage.dailyUsage(day);
@@ -139,6 +147,8 @@ export class QuotaService {
   /**
    * 合并「当前可用模型清单」与「当日实际有消耗的模型」并去重：
    * 只看清单会漏掉刚被切走的模型（它今天确实花了额度）；只看用量则无法预告未用模型。
+   * @param usedByModel 当日各模型已用 token（来自用量存档，含未知模型）
+   * @returns 去重后的模型名清单（先清单后用量的插入顺序）
    */
   private modelNames(usedByModel: Record<string, number>): string[] {
     const names = new Set<string>();

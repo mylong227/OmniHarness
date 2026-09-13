@@ -53,7 +53,10 @@ export class AgentCatalogService {
     };
   }
 
-  /** 内置角色（提示词层面）。 */
+  /**
+   * 内置角色（提示词层面）。
+   * @returns 全部内置角色的目录条目（id 前缀 `builtin:`）
+   */
   private builtins(): AgentCatalogEntry[] {
     return BUILTIN_AGENT_PERSONAS.map((persona) => ({
       id: 'builtin:' + persona.id,
@@ -64,7 +67,10 @@ export class AgentCatalogService {
     }));
   }
 
-  /** 已保存的编排图（真多节点执行）。 */
+  /**
+   * 已保存的编排图（真多节点执行）。
+   * @returns 编排图来源的目录条目（id 前缀 `graph:`）；取数失败降级为空数组
+   */
   private graphAgents(): AgentCatalogEntry[] {
     try {
       return this.deps.graphs().map((graph) => ({
@@ -78,7 +84,10 @@ export class AgentCatalogService {
     }
   }
 
-  /** 已安装插件。 */
+  /**
+   * 已安装插件。
+   * @returns 插件来源的目录条目（id 前缀 `plugin:`）；取数失败降级为空数组
+   */
   private async pluginAgents(): Promise<AgentCatalogEntry[]> {
     try {
       const plugins = await this.deps.plugins();

@@ -30,22 +30,49 @@ function inferMediaType(name: string): string {
   const ext = name.slice(dot + 1).toLowerCase();
   const map: Record<string, string> = {
     // 图片
-    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-    webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    bmp: 'image/bmp',
+    ico: 'image/x-icon',
     // 视频
-    mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+    mkv: 'video/x-matroska',
+    avi: 'video/x-msvideo',
     // 音频
-    mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', flac: 'audio/flac',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    m4a: 'audio/mp4',
+    flac: 'audio/flac',
     // 文本
-    txt: 'text/plain', md: 'text/markdown', json: 'application/json', csv: 'text/csv',
-    xml: 'application/xml', html: 'text/html', htm: 'text/html',
+    txt: 'text/plain',
+    md: 'text/markdown',
+    json: 'application/json',
+    csv: 'text/csv',
+    xml: 'application/xml',
+    html: 'text/html',
+    htm: 'text/html',
     // 文档
     pdf: 'application/pdf',
     // 压缩
-    zip: 'application/zip', tar: 'application/x-tar', gz: 'application/gzip',
+    zip: 'application/zip',
+    tar: 'application/x-tar',
+    gz: 'application/gzip',
     // 代码（粗略，浏览器可能不识别但能下载/查看）
-    ts: 'text/typescript', tsx: 'text/tsx', js: 'text/javascript', jsx: 'text/jsx',
-    py: 'text/x-python', rs: 'text/x-rust', go: 'text/x-go', java: 'text/x-java',
+    ts: 'text/typescript',
+    tsx: 'text/tsx',
+    js: 'text/javascript',
+    jsx: 'text/jsx',
+    py: 'text/x-python',
+    rs: 'text/x-rust',
+    go: 'text/x-go',
+    java: 'text/x-java',
   };
   return map[ext] ?? 'application/octet-stream';
 }
@@ -172,7 +199,10 @@ export class FsExplorer {
     return { files, errors };
   }
 
-  /** 盘符层响应：存在的盘符 + 用户目录。 */
+  /**
+   * 盘符层响应：存在的盘符 + 用户目录。
+   * @returns `{ level:'drives', roots, home }`；roots 为 A:–Z: 中实际存在的盘符
+   */
   private drives(): unknown {
     const roots: string[] = [];
     for (let i = 65; i <= 90; i += 1) {
@@ -182,7 +212,12 @@ export class FsExplorer {
     return { level: 'drives' as const, roots, home: homedir() };
   }
 
-  /** 目录层文件清单（按名称本地化排序；单文件 stat 失败静默跳过）。 */
+  /**
+   * 目录层文件清单（按名称本地化排序；单文件 stat 失败静默跳过）。
+   * @param entries 目录 readdir 结果（含子目录，此处仅保留普通文件）
+   * @param target 目录绝对路径（与文件名拼接做 stat）
+   * @returns 文件名、大小与推断 mediaType 的清单
+   */
   private listFiles(
     entries: readonly Dirent[],
     target: string,
@@ -202,7 +237,11 @@ export class FsExplorer {
     return files;
   }
 
-  /** 读取单个附件：校验 → 白名单 → 读盘 → base64；失败返回 `{ path, error }`。 */
+  /**
+   * 读取单个附件：校验 → 白名单 → 读盘 → base64；失败返回 `{ path, error }`。
+   * @param value 单个路径条目（期望字符串，其他类型按无效路径处理）
+   * @returns 成功时 `{ file }`（含 base64 数据与附件种类）；失败时 `{ path, error }`，不抛错
+   */
   private readOne(value: unknown): { file: AttachedFile } | { path: string; error: string } {
     if (typeof value !== 'string' || value.trim() === '') {
       return { path: String(value), error: '路径无效' };
@@ -232,7 +271,13 @@ export class FsExplorer {
       return { path: target, error: '读取失败：' + (e as Error).message };
     }
     return {
-      file: { name, mediaType, data: buf.toString('base64'), size: st.size, kind: mediaKind(mediaType) },
+      file: {
+        name,
+        mediaType,
+        data: buf.toString('base64'),
+        size: st.size,
+        kind: mediaKind(mediaType),
+      },
     };
   }
 }

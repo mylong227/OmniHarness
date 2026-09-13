@@ -27,7 +27,11 @@ export class TurnDirectiveComposer {
     return blocks.join('\n') + '\n\n' + body;
   }
 
-  /** 逐项生成模式指令块（顺序固定：目标 → 计划 → 绘图，保证提示前缀稳定可缓存）。 */
+  /**
+   * 逐项生成模式指令块（顺序固定：目标 → 计划 → 绘图，保证提示前缀稳定可缓存）。
+   * @param modes 本会话模式
+   * @returns 生效模式的指令块列表（未启用任何模式时为空数组）
+   */
   private blocks(modes: SessionModes): string[] {
     const out: string[] = [];
     if (modes.goal.trim() !== '') {
