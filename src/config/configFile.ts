@@ -88,6 +88,29 @@ export interface FileConfig {
   readonly modelCircuitBreakerThreshold?: number;
   /** 熔断开路冷却毫秒（默认 30000）。 */
   readonly modelCircuitBreakerOpenMs?: number;
+  /**
+   * (U4) RLVR 进化闭环：启用后运行时构造「可验证门禁 + RLVR sample-filter-replay」控制器——
+   * 每个过门禁的候选再跑一轮 StarPO 采样→可验证奖励（候选代码真实编译/测试绿度）打分→
+   * 绿样本进回放缓冲，仅「绿」样本才晋升。缺省关，零破坏。
+   * CLI 侧对应 `--evolution-rlvr` / `--rlvr-verify` / `--rlvr-samples` / `--rlvr-min-reward` /
+   * `--rlvr-auto-run` / `--rlvr-candidates` / `--rlvr-min-gain`。
+   */
+  readonly evolutionRlvr?: {
+    /** 启用开关（缺省 false）。 */
+    readonly enabled?: boolean;
+    /** 发现预算上限（默认 12）。 */
+    readonly maxCandidates?: number;
+    /** 每 prompt 采样数（默认 8）。 */
+    readonly samplesPerPrompt?: number;
+    /** RLVR 最低保留阈值（默认 0：仅保留 reward>0 的绿样本）。 */
+    readonly minReward?: number;
+    /** 候选代码验证命令（含 `%CODE_FILE%` 占位符）。缺省则奖励恒 0（无样本进回放，安全旁路）。 */
+    readonly verifyCommand?: string;
+    /** 门禁须超过基线的最小增益（默认 0.05）。 */
+    readonly minGain?: number;
+    /** 任务末自动跑一轮（默认 false）。 */
+    readonly autoRun?: boolean;
+  };
   /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
   readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
   readonly workspace?: string;
