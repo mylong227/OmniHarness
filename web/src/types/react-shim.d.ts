@@ -1,4 +1,5 @@
-// 环境类型声明：本工程 UI 以 UMD 全局方式本地内置 React / ReactDOM / htm（见 web/vendor/），
+// 环境类型声明：本工程 UI 以 UMD 全局方式本地内置 React / ReactDOM（见 web/vendor/；
+// htm 已于 2026-09-13 全量摘除，UI 一律用 React.createElement 编写），
 // 不安装任何 react npm 包，构建与运行时均零网络依赖。本文件仅声明 UI 实际用到的 React API 子集，
 // 使 TypeScript 在零依赖下仍能对组件进行强类型检查。
 
