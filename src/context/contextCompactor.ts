@@ -89,7 +89,9 @@ export class ContextCompactor {
     private readonly options: CompactionOptions,
   ) {}
 
-  /** 注入原生（Rust 内核）token 估算器：传入后内部估算走原生路径。 */
+  /** 注入原生（Rust 内核）token 估算器：传入后内部估算走原生路径。
+   * @returns 无返回值。
+   */
   public setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
     this.estimator.setNativeEstimator(fn);
   }
@@ -201,8 +203,7 @@ export class ContextCompactor {
           ...head,
           {
             role: 'user',
-            content:
-              `${SUMMARY_TEMPLATE}\n\n【历史结束】请输出上述对话历史的结构化摘要，直接给内容，不要寒暄。`,
+            content: `${SUMMARY_TEMPLATE}\n\n【历史结束】请输出上述对话历史的结构化摘要，直接给内容，不要寒暄。`,
           },
         ],
         tools: [],

@@ -72,7 +72,9 @@ export class CorpusIndexCache {
   /**
    * 失效缓存。
    * @param root 指定则只失效该工作区；缺省清空全部。
-   */
+   
+ * @returns 无返回值。
+*/
   public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();
@@ -100,7 +102,9 @@ export class CorpusIndexCache {
     }
   }
 
-  /** 条目数达上限时淘汰最早索引的一条（近似 LRU），并通知驱逐回调。 */
+  /** 条目数达上限时淘汰最早索引的一条（近似 LRU），并通知驱逐回调。
+   * @returns 无返回值。
+   */
   private evictIfNeeded(): void {
     if (this.cache.size < this.maxEntries) {
       return;

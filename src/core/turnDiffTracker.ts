@@ -37,7 +37,9 @@ export class TurnDiffTracker implements TurnDiffTrackerPort {
    * @param path 被写入的文件路径。
    * @param before 写入前内容快照；新建文件为 null。
    * @param after 写入后的完整内容。
-   */
+   
+ * @returns 无返回值。
+*/
   public noteWrite(path: string, before: string | null, after: string): void {
     if (!this.valid || !this.baseline.has(path)) {
       this.baseline.set(path, before);
@@ -45,14 +47,18 @@ export class TurnDiffTracker implements TurnDiffTrackerPort {
     this.current.set(path, after);
   }
 
-  /** 标记本回合出现不可精确追踪的变更：清空并永久失效，直到 `reset()`。 */
+  /** 标记本回合出现不可精确追踪的变更：清空并永久失效，直到 `reset()`。
+   * @returns 无返回值。
+   */
   public invalidate(): void {
     this.valid = false;
     this.baseline.clear();
     this.current.clear();
   }
 
-  /** 重置（新回合开始）。 */
+  /** 重置（新回合开始）。
+   * @returns 无返回值。
+   */
   public reset(): void {
     this.valid = true;
     this.baseline.clear();

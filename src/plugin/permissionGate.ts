@@ -52,8 +52,13 @@ export class PermissionGate {
     return { allowed: missing.length === 0, missing };
   }
 
-  /** 校验并抛错（供管理器 register 阶段调用）。 */
-  public assertAllowed(pluginName: string, permissions: readonly PluginPermission[] | undefined): void {
+  /** 校验并抛错（供管理器 register 阶段调用）。
+   * @returns 无返回值。
+   */
+  public assertAllowed(
+    pluginName: string,
+    permissions: readonly PluginPermission[] | undefined,
+  ): void {
     const decision = this.check(permissions);
     if (!decision.allowed) {
       throw new PermissionDeniedError(pluginName, decision.missing);

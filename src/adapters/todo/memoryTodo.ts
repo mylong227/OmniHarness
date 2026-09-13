@@ -9,7 +9,9 @@ export class MemoryTodo implements TodoPort {
 
   /** 以整表快照覆盖当前待办（会话级 last-write-wins，不增量合并）。
    * @param items 完整待办列表（内部拷贝一份，防外部后续突变）。
-   */
+   
+ * @returns 无返回值。
+*/
   public snapshot(items: readonly TodoItem[]): void {
     this.items = items.slice();
   }

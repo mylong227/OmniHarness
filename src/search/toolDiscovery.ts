@@ -12,7 +12,9 @@ import type { ToolDefinition } from '../ports/tool.js';
 export class ToolDiscovery {
   private readonly discovered = new Map<string, ToolDefinition>();
 
-  /** 登记一批工具 schema（按名去重，后者覆盖前者）。 */
+  /** 登记一批工具 schema（按名去重，后者覆盖前者）。
+   * @returns 无返回值。
+   */
   public add(specs: readonly ToolDefinition[]): void {
     for (const spec of specs) {
       this.discovered.set(spec.name, spec);

@@ -19,7 +19,10 @@ import { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import { TurnDiffTracker } from '../core/turnDiffTracker.js';
 import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';
-import { VortexRingPacket, VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
+import {
+  VortexRingPacket,
+  VortexRingSpillAdapter,
+} from '../adapters/spill/vortexRingSpillAdapter.js';
 
 import { autoUserResponder, buildApprovals, buildHooks, buildSpill } from './configBuilder.js';
 import type { OmniHarnessConfig } from './configFactory.js';
@@ -110,7 +113,9 @@ export function assembleCorePorts(partial: OmniHarnessConfig): CorePortsAssembly
       turnDiff,
       turnDiffTracker,
       hooks:
-        turnDiffTracker === undefined ? undefined : buildHooks(turnDiffTracker, partial.workspaceRoot),
+        turnDiffTracker === undefined
+          ? undefined
+          : buildHooks(turnDiffTracker, partial.workspaceRoot),
     },
     vortex,
   };

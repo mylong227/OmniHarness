@@ -66,7 +66,9 @@ export class ContextAssembler {
     return messages;
   }
 
-  /** 按事件类型追加对应消息。 */
+  /** 按事件类型追加对应消息。
+   * @returns 无返回值。
+   */
   private append(messages: ModelMessage[], event: SessionEvent): void {
     switch (event.type) {
       case 'system':
@@ -130,7 +132,9 @@ export class ContextAssembler {
     }
   }
 
-  /** 将累积的待发工具调用 flush 为一条 assistant(tool_calls) 消息。 */
+  /** 将累积的待发工具调用 flush 为一条 assistant(tool_calls) 消息。
+   * @returns 无返回值。
+   */
   private flushPendingAssistant(messages: ModelMessage[]): void {
     if (this.pendingToolCalls.length === 0) {
       return;

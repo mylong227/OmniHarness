@@ -150,7 +150,9 @@ export class RepoMapContextEngine {
   /**
    * 手动失效缓存（某个 workspace 文件结构剧变时调用，可选）。同时清语义索引缓存与图信号缓存。
    * @param root 指定则只失效该工作区；缺省清空全部（不含图信号，图按 workspace 独立缓存）。
-   */
+   
+ * @returns 无返回值。
+*/
   public clear(root?: string): void {
     this.corpusCache.clear(root);
     this.semanticCache.clear(root);

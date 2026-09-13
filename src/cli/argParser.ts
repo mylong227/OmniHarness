@@ -314,7 +314,9 @@ export class ArgParser {
     return result;
   }
 
-  /** 打印用法。 */
+  /** 打印用法。
+   * @returns 无返回值。
+   */
   public printUsage(): void {
     process.stdout.write(
       [

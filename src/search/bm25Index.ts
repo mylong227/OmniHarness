@@ -41,7 +41,9 @@ export class Bm25Index {
     this.b = options.b ?? 0.75;
   }
 
-  /** 批量加入已分词文档。 */
+  /** 批量加入已分词文档。
+   * @returns 无返回值。
+   */
   public addDocuments(documents: readonly (readonly string[])[]): void {
     let total = 0;
     for (const tokens of documents) {

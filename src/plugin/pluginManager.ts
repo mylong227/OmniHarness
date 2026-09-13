@@ -24,7 +24,9 @@ export class PluginManager {
     private readonly gate?: PermissionGate,
   ) {}
 
-  /** 注册插件；先过权限门禁，依赖就绪则立即启动（await 等待启动完成）。 */
+  /** 注册插件；先过权限门禁，依赖就绪则立即启动（await 等待启动完成）。
+   * @returns 无返回值。
+   */
   public async register(plugin: Plugin): Promise<void> {
     if (this.plugins.has(plugin.meta.name)) {
       throw new Error(`插件重复注册: ${plugin.meta.name}`);
@@ -34,7 +36,9 @@ export class PluginManager {
     await this.tryStartAll();
   }
 
-  /** 注册服务并唤醒等待者，随后尝试启动新就绪插件。 */
+  /** 注册服务并唤醒等待者，随后尝试启动新就绪插件。
+   * @returns 无返回值。
+   */
   public async registerService(name: string, service: unknown): Promise<void> {
     this.container.register(name, service);
     for (const handler of this.pending.get(name) ?? []) {
@@ -44,7 +48,9 @@ export class PluginManager {
     await this.tryStartAll();
   }
 
-  /** 卸载插件：逆序执行清理（无副作用残留）。 */
+  /** 卸载插件：逆序执行清理（无副作用残留）。
+   * @returns 无返回值。
+   */
   public async uninstall(name: string): Promise<void> {
     const plugin = this.plugins.get(name);
     if (plugin === undefined) {
@@ -86,7 +92,9 @@ export class PluginManager {
     return [...this.plugins.keys()];
   }
 
-  /** 尝试启动所有依赖已就绪且未启动的插件。 */
+  /** 尝试启动所有依赖已就绪且未启动的插件。
+   * @returns 无返回值。
+   */
   private async tryStartAll(): Promise<void> {
     for (const plugin of this.plugins.values()) {
       if (!this.started.has(plugin.meta.name) && this.dependenciesReady(plugin)) {
@@ -105,7 +113,9 @@ export class PluginManager {
     return true;
   }
 
-  /** 启动插件（幂等 + 防重入）。 */
+  /** 启动插件（幂等 + 防重入）。
+   * @returns 无返回值。
+   */
   private async start(plugin: Plugin): Promise<void> {
     if (this.started.has(plugin.meta.name) || this.starting.has(plugin.meta.name)) {
       return;
@@ -136,7 +146,9 @@ export class PluginManager {
     };
   }
 
-  /** 订阅服务就绪：已注册立即回调，否则挂起等待。 */
+  /** 订阅服务就绪：已注册立即回调，否则挂起等待。
+   * @returns 无返回值。
+   */
   private onService(name: string, handler: (service: unknown) => void): void {
     if (this.container.has(name)) {
       handler(this.container.get(name));

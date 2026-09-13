@@ -80,7 +80,9 @@ export class SemanticIndex {
     this.batchSize = resolveEmbedBatchSize(port.dim);
   }
 
-  /** 构建索引（嵌入全部文档文本）。分块嵌入以控制单批规模，结果等价但更稳健。任何嵌入异常向上抛，由调用方 fail-closed。 */
+  /** 构建索引（嵌入全部文档文本）。分块嵌入以控制单批规模，结果等价但更稳健。任何嵌入异常向上抛，由调用方 fail-closed。
+   * @returns 无返回值。
+   */
   public async build(items: readonly RecallItem[]): Promise<void> {
     this.ids.length = 0;
     this.vectors.length = 0;

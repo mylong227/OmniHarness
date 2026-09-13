@@ -39,7 +39,9 @@ export class TurnDiffHooks {
 
   /** 执行前：首次触碰某文件时读一次原始内容作为 baseline（后续同回合再写不覆盖）。
    * @param context 工具钩子上下文（工具名与参数，用于定位目标文件）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async captureBaseline(context: ToolHookContext): Promise<void> {
     const path = this.pathOf(context);
     if (path === undefined || this.baseline.has(path)) {
@@ -51,7 +53,9 @@ export class TurnDiffHooks {
   /** 执行后：成功才记录；写失败或读不到新内容一律 invalidate（不给不完整的差异）。
    * @param context 工具钩子上下文（工具名与参数）。
    * @param result 工具执行结果（仅 ok 时记账）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async captureResult(context: ToolHookContext, result: ToolResult): Promise<void> {
     const path = this.pathOf(context);
     if (path === undefined || !result.ok) {

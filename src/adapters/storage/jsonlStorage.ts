@@ -20,7 +20,9 @@ export class JsonlStorage implements StoragePort {
   /** 保存会话事件。
    * @param sessionId 会话标识（决定目标文件名）。
    * @param events 完整事件列表（整文件覆盖写，非追加；末尾补换行）。
-   */
+   
+ * @returns 无返回值。
+*/
   public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     const file = this.fileOf(sessionId);
     await mkdir(this.directory, { recursive: true });

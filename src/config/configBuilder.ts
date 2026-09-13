@@ -52,6 +52,9 @@ export class ConfigBuilder {
    * 装配审批端口（#M4）：未开启缓存时原样返回；开启则包一层 `CachedApproval`。
    * 策略指纹取「审批后端名 | 沙箱后端名」——任一侧策略变化即整体失效，
    * 避免沿用旧裁决（例如把 sandbox 从 policy 换成 restricted 后仍按旧结论放行）。
+   * @param partial 用户配置（approvals / approvalCache）
+   * @param sandbox 沙箱端口（policy 档位裁决依赖）
+   * @returns 审批端口（可含缓存包装层）
    */
   public buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
     const inner = partial.approvals ?? new AutoApproval();

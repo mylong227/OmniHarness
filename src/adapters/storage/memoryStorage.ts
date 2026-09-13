@@ -12,7 +12,9 @@ export class MemoryStorage implements StoragePort {
   /** 保存会话事件。
    * @param sessionId 会话标识（桶键）。
    * @param events 完整事件列表（浅拷贝后整体覆盖旧值）。
-   */
+   
+ * @returns 无返回值。
+*/
   public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     this.buckets.set(sessionId, [...events]);
   }

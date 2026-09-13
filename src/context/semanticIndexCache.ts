@@ -120,7 +120,9 @@ export class SemanticIndexCache {
   /**
    * 失效缓存。
    * @param root 指定则只失效该 root 下的全部配置变体；缺省清空全部。
-   */
+   
+ * @returns 无返回值。
+*/
   public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();
@@ -200,14 +202,16 @@ export class SemanticIndexCache {
       let body: string;
       if (knobs.fullFileDoc) {
         // 实验 1（Late Chunking）：长上下文代码模型（如 jina 8K）编码整文件，单向量含全文语义。
-        body = text.length > FULL_FILE_DOC_MAX_CHARS ? text.slice(0, FULL_FILE_DOC_MAX_CHARS) : text;
+        body =
+          text.length > FULL_FILE_DOC_MAX_CHARS ? text.slice(0, FULL_FILE_DOC_MAX_CHARS) : text;
       } else if (knobs.docMode === 'id') {
         // 实验 1b（浓缩身份）：rel + 符号名 + 签名，丢弃原始代码噪声。
         const names = (symbolsByFile.get(f.rel) ?? []).join(' ');
         const sigs = (sigsByFile.get(f.rel) ?? []).join(' ');
         body = `${names}\n${sigs}`;
       } else {
-        const snippet = text.length > FILE_DOC_SNIPPET_CHARS ? text.slice(0, FILE_DOC_SNIPPET_CHARS) : text;
+        const snippet =
+          text.length > FILE_DOC_SNIPPET_CHARS ? text.slice(0, FILE_DOC_SNIPPET_CHARS) : text;
         const names = (symbolsByFile.get(f.rel) ?? []).join(' ');
         body = `${names}\n${snippet}`;
       }

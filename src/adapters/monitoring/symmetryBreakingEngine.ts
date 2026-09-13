@@ -85,7 +85,9 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     };
   }
 
-  /** 重置序参量：清空权重累积并回到对称态（显式回滚，非自动回弹）。 */
+  /** 重置序参量：清空权重累积并回到对称态（显式回滚，非自动回弹）。
+   * @returns 无返回值。
+   */
   public reset(): void {
     this.weights.clear();
     this.broken = false;

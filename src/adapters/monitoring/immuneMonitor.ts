@@ -64,7 +64,9 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
   /**
    * 用正常行为样本训练自体检测器：Welford 在线估计各维均值/方差（自体分布基线）。
    * @param sample 单个正常行为特征样本（训练样本数达 4 后 observe 才有基线可用）。
-   */
+   
+ * @returns 无返回值。
+*/
   public train(sample: readonly number[]): void {
     // Welford：每样本 n 仅 +1（不可按维度累加，否则多维样本会倍数膨胀自体规模）。
     this.n++;

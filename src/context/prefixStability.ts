@@ -106,7 +106,10 @@ export class PrefixStability {
   }
 
   /** 生成一个抖变体：分片顺序重排 + 注入易变片段。 */
-  public jitterSegments(segments: readonly PromptSegment[], seed: number): readonly PromptSegment[] {
+  public jitterSegments(
+    segments: readonly PromptSegment[],
+    seed: number,
+  ): readonly PromptSegment[] {
     return this.reorderDeterministic(segments, seed).map((segment) => ({
       ...segment,
       text: this.injectVolatile(segment.text, seed),

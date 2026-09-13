@@ -290,7 +290,9 @@ export class OidcClient {
    * 校验 id_token 的 iss/aud/exp/nonce 声明（不含签名）。
    * @param payload 已解码的 JWT payload 声明集。
    * @param opts 校验基准：issuer / clientId 必须匹配，nonce 提供时必须一致；exp 过期即拒绝。
-   */
+   
+ * @returns 无返回值。
+*/
   public verifyIdTokenClaims(
     payload: Record<string, unknown>,
     opts: { readonly issuer: string; readonly clientId: string; readonly nonce?: string },
@@ -317,7 +319,9 @@ export class OidcClient {
    * 用 RS256 JWKS 校验 JWT 签名。
    * @param token 待校验的 JWT 字符串。
    * @param jwks IdP 的 JWKS 密钥集（按 kid 匹配 RSA 公钥）。
-   */
+   
+ * @returns 无返回值。
+*/
   public verifyJwtSignature(token: string, jwks: { readonly keys: readonly Jwk[] }): void {
     const { header, signature, signingInput } = this.decodeJwt(token);
     if (header['alg'] !== 'RS256')
@@ -345,7 +349,9 @@ export class OidcClient {
    * 写入 `auth login` 中间态到文件（state + verifier + 配置）。
    * @param path 中间态 JSON 文件的写入路径。
    * @param state 待持久化的认证中间态。
-   */
+   
+ * @returns 无返回值。
+*/
   public writeAuthState(path: string, state: AuthState): void {
     writeFileSync(path, JSON.stringify(state, null, 2), 'utf8');
   }

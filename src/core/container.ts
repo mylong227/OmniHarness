@@ -7,7 +7,9 @@ export class Container {
    * 注册服务；重名即抛错。
    * @param key 服务键（端口/契约名）。
    * @param instance 服务实例。
-   */
+   
+ * @returns 无返回值。
+*/
   public register<T>(key: string, instance: T): void {
     if (this.services.has(key)) {
       throw new Error(`服务重复注册: ${key}`);
@@ -19,7 +21,9 @@ export class Container {
    * 覆盖服务（自定义接入时替换默认实现）。
    * @param key 服务键（须已注册或首次注册均可）。
    * @param instance 替换后的服务实例。
-   */
+   
+ * @returns 无返回值。
+*/
   public overwrite<T>(key: string, instance: T): void {
     this.services.set(key, instance);
   }

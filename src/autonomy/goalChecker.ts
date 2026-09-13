@@ -21,7 +21,12 @@ export interface GoalCheck {
 export class GoalChecker {
   public constructor(private readonly model: ModelPort) {}
 
-  /** 判定目标是否达成。 */
+  /**
+   * 判定目标是否达成。
+   * @param goal 目标描述
+   * @param progress 最近一轮的产出/进展文本
+   * @returns 达成判定（YES/NO + 模型原话）
+   */
   public async check(goal: string, progress: string): Promise<GoalCheck> {
     const messages: ModelMessage[] = [
       { role: 'system', content: CHECKER_SYSTEM },

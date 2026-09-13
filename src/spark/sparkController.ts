@@ -210,7 +210,9 @@ export class SparkController {
             traces: engines.etching.traces,
             conducted:
               engines.etchProbe !== undefined
-                ? engines.etching.conduct(engines.etchProbe()).flatMap((c: EtchConduction) => c.path)
+                ? engines.etching
+                    .conduct(engines.etchProbe())
+                    .flatMap((c: EtchConduction) => c.path)
                 : undefined,
           }
         : undefined;

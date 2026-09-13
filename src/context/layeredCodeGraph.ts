@@ -336,12 +336,7 @@ function documentFrequency(
  * @param opt    已解析的选项（决定是否启用两项加成）
  * @returns 边权（>0）
  */
-function layerWeight(
-  target: NodeLayer,
-  host: NodeLayer,
-  df: number,
-  opt: ResolvedOptions,
-): number {
+function layerWeight(target: NodeLayer, host: NodeLayer, df: number, opt: ResolvedOptions): number {
   let w = 0.9 / (1 + Math.log2(df + 1));
   if (opt.exportBoost && target.exported) w *= 1.25;
   if (opt.crossModuleBoost && target.module !== host.module) w *= 1.15;
@@ -377,7 +372,10 @@ function pushEdge(edges: Map<number, Map<number, number>>, a: number, b: number,
  * @param ctx    预计算索引与选项
  * @returns 稀疏边集（宿主 id → 邻居 id → 权重）
  */
-function collectEdges(corpus: GraphSource, ctx: EdgeBuildContext): Map<number, Map<number, number>> {
+function collectEdges(
+  corpus: GraphSource,
+  ctx: EdgeBuildContext,
+): Map<number, Map<number, number>> {
   const { syms, layers, nameToIds, byFile, df, opt } = ctx;
   const edges = new Map<number, Map<number, number>>();
 
@@ -427,7 +425,10 @@ function collectEdges(corpus: GraphSource, ctx: EdgeBuildContext): Map<number, M
  * @param n     节点总数
  * @returns 有向带权邻接表（每个方向各一条边）
  */
-function toAdjacency(edges: ReadonlyMap<number, ReadonlyMap<number, number>>, n: number): CodeGraph {
+function toAdjacency(
+  edges: ReadonlyMap<number, ReadonlyMap<number, number>>,
+  n: number,
+): CodeGraph {
   const adj: Array<Array<readonly [number, number]>> = new Array(n);
   for (let i = 0; i < n; i += 1) {
     const m = edges.get(i);

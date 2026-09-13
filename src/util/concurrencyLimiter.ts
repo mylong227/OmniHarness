@@ -18,7 +18,9 @@ export class ConcurrencyLimiter {
     return this.limit;
   }
 
-  /** 获取一个执行槽位；已达上限时挂起等待。 */
+  /** 获取一个执行槽位；已达上限时挂起等待。
+   * @returns 无返回值。
+   */
   public async acquire(): Promise<void> {
     if (this.active < this.limit) {
       this.active += 1;
@@ -29,7 +31,9 @@ export class ConcurrencyLimiter {
     });
   }
 
-  /** 释放槽位；有等待者时直接移交（活跃数不变，避免越过上限）。 */
+  /** 释放槽位；有等待者时直接移交（活跃数不变，避免越过上限）。
+   * @returns 无返回值。
+   */
   public release(): void {
     const next = this.waiters.shift();
     if (next !== undefined) {

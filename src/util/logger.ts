@@ -49,19 +49,27 @@ export class Logger {
     this.sink(JSON.stringify(entry));
   }
 
-  /** 记录 debug 级别日志（低于日志级别阈值时被丢弃）。 */
+  /** 记录 debug 级别日志（低于日志级别阈值时被丢弃）。
+   * @returns 无返回值。
+   */
   public debug(msg: string, fields?: Record<string, unknown>): void {
     this.emit('debug', msg, fields);
   }
-  /** 记录 info 级别日志。 */
+  /** 记录 info 级别日志。
+   * @returns 无返回值。
+   */
   public info(msg: string, fields?: Record<string, unknown>): void {
     this.emit('info', msg, fields);
   }
-  /** 记录 warn 级别日志。 */
+  /** 记录 warn 级别日志。
+   * @returns 无返回值。
+   */
   public warn(msg: string, fields?: Record<string, unknown>): void {
     this.emit('warn', msg, fields);
   }
-  /** 记录 error 级别日志。 */
+  /** 记录 error 级别日志。
+   * @returns 无返回值。
+   */
   public error(msg: string, fields?: Record<string, unknown>): void {
     this.emit('error', msg, fields);
   }

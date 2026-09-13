@@ -88,7 +88,9 @@ export class MultimodalBridge {
    * 零依赖、复用 #M2 内核，不改变 RetrievalPort 契约。
    * @param index 目标检索端口（文档将被带特征签名地重新索引）。
    * @param docs 待增强索引的检索文档集合。
-   */
+   
+ * @returns 无返回值。
+*/
   public registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
     for (const d of docs) {
       const sig = this.modalitySignature(d.text);

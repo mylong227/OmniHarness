@@ -13,7 +13,6 @@ import type {
 } from './workflowTypes.js';
 import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.js';
 
-
 /**
  * @beta
  * 工作流默认同层并发上限。
@@ -24,7 +23,6 @@ export const DEFAULT_WORKFLOW_CONCURRENCY = 4;
  * @beta
  * 工作流 DAG 中存在环。
  */
-
 
 /**
  * @beta
@@ -79,7 +77,11 @@ export class WorkflowRunner {
     this.maxConcurrency = options.maxConcurrency ?? DEFAULT_WORKFLOW_CONCURRENCY;
   }
 
-  /** 运行工作流 DAG 直到达成或遇环 / 失败传播。 */
+  /**
+   * 运行工作流 DAG 直到达成或遇环 / 失败传播。
+   * @param def 工作流定义（步骤 DAG + 可选并发上限）
+   * @returns 各步骤结果与整体状态
+   */
   public async run(def: WorkflowDef): Promise<WorkflowResult> {
     const byId = new Map(def.steps.map((step) => [step.id, step]));
     const levels = computeLevels(def.steps);
@@ -126,7 +128,12 @@ export class WorkflowRunner {
     return { ok: results.every((entry) => entry.ok), steps: results, blackboard };
   }
 
-  /** 执行单步：构造隔离子智能体，注入前序产出，跑一次回合。 */
+  /**
+   * 执行单步：构造隔离子智能体，注入前序产出，跑一次回合。
+   * @param step 待执行步骤
+   * @param blackboard 前序步骤的黑板产出（按步骤 id 索引）
+   * @returns 单步结果（输出/状态/耗时）
+   */
   private async execute(
     step: WorkflowStep,
     blackboard: Record<string, string>,
@@ -170,7 +177,12 @@ export class WorkflowRunner {
     }
   }
 
-  /** 构造带前序产出的提示词。 */
+  /**
+   * 构造带前序产出的提示词。
+   * @param step 当前步骤
+   * @param blackboard 前序产出（仅取 dependsOn 引用的条目）
+   * @returns 注入依赖产出后的提示词
+   */
   private promptFor(step: WorkflowStep, blackboard: Record<string, string>): string {
     const deps = step.dependsOn ?? [];
     if (deps.length === 0) {
@@ -180,7 +192,11 @@ export class WorkflowRunner {
     return `${step.prompt}\n\n已有上下文（前序步骤产出）：\n${context}`;
   }
 
-  /** 工具视图：白名单裁剪，剔除 run_workflow/run_goal/subagent 防递归。 */
+  /**
+   * 把工作流步骤投给模型可读的工具视图（隐藏实现细节，仅暴露名称/意图）。
+   * @param step 工作流步骤
+   * @returns 单行摘要文本
+   */
   private toolViewOf(step: WorkflowStep): ToolSubset {
     const names = step.tools ?? this.ports.tools.list().map((definition) => definition.name);
     const allowed = new Set(

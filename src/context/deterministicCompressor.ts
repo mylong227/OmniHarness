@@ -180,7 +180,10 @@ export class DeterministicCompressor {
    * 确定性上下文压缩主入口。
    * 按「去空行 → JSON 紧凑 → 去重 → 长输出截断 → 历史折叠」顺序施加，全程纯函数。
    */
-  public compress(segments: readonly ContextSegment[], options: CompressOptions = {}): CompressResult {
+  public compress(
+    segments: readonly ContextSegment[],
+    options: CompressOptions = {},
+  ): CompressResult {
     const maxLines = options.maxLines ?? 200;
     const headLines = options.headLines ?? 40;
     const tailLines = options.tailLines ?? 40;
@@ -272,7 +275,9 @@ export function truncateLongOutput(
 }
 
 /** 去除内容完全相同的重复分片，保留首次出现（保序）。 */
-export function deduplicateSegments(segments: readonly ContextSegment[]): readonly ContextSegment[] {
+export function deduplicateSegments(
+  segments: readonly ContextSegment[],
+): readonly ContextSegment[] {
   return compressor.deduplicateSegments(segments);
 }
 

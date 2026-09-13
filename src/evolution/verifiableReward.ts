@@ -16,7 +16,10 @@ import { join } from 'node:path';
 import type { Candidate } from '../ports/evolution.js';
 import type { Benchmark } from './failClosedEvolutionGate.js';
 import type { CodeCandidate } from './rlvrLoop.js';
-import { FailClosedEvolutionGate, type FailClosedEvolutionGateOptions } from './failClosedEvolutionGate.js';
+import {
+  FailClosedEvolutionGate,
+  type FailClosedEvolutionGateOptions,
+} from './failClosedEvolutionGate.js';
 
 /** 可验证奖励：候选 → 0..1。1 表示「绿」（编译/测试通过），0 表示失败。 */
 export type VerifiableReward = (candidate: Candidate) => Promise<number>;

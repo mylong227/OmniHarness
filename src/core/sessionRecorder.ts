@@ -139,7 +139,9 @@ export class SessionRecorder {
    * 若本轮模型全程调工具或空输出而未产文本，`lastAssistantText()` 会取到**上一轮的
    * 历史答案**当作本轮 finalText——用户看到「上轮回答」被原样复读，且因 finalText
    * 非空，步数耗尽兜底也永不触发。这是比 hasText:false 更危险的静默错误答案。
-   */
+   
+ * @returns 无返回值。
+*/
   public markTurnStart(): void {
     this.turnStartIndex = this.log.size();
   }
@@ -190,7 +192,9 @@ export class SessionRecorder {
   /**
    * 把可检索事件文本同步索引进检索端口（#M2）；reasoning/tool_call 等非内容事件跳过。
    * @param event 刚落盘的事件，尝试抽取可检索文本建索引。
-   */
+   
+ * @returns 无返回值。
+*/
   private indexToRetrieval(event: SessionEvent): void {
     if (this.retrieval === undefined) {
       return;

@@ -27,7 +27,9 @@ export class ConsoleLiveView implements ToolInputSink {
    * 工具参数增量实时刷到 stderr（仅 TTY；非 TTY 静默）。
    *
    * @param delta 工具输入增量事件
-   */
+   
+ * @returns 无返回值。
+*/
   public onToolInput(delta: ToolInputDelta): void {
     // 仅 TTY 实时刷新；非 TTY（管道／重定向／CI）静默，避免把控制码刷进 stdout 或日志。
     const tty = (this.out as unknown as { isTTY?: boolean }).isTTY;
@@ -44,6 +46,8 @@ export class ConsoleLiveView implements ToolInputSink {
   /**
    * 文本增量流式输出（V2.1）：仅当构造时注入了文本通道（--stream-text opt-in）才写。
    * 默认不流式——exec 末尾会统一打印 finalText，重复输出会污染机器消费的 stdout。
+   * @param text 模型文本增量
+   * @returns 无返回值。
    */
   public onTextDelta(text: string): void {
     this.textOut?.write(text);

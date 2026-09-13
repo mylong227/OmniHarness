@@ -109,8 +109,12 @@ export class OtlpTraceExporter implements TraceExporterPort {
 export class NoopTraceExporter implements TraceExporterPort {
   /** 端口标识：固定为 'noop'。 */
   public readonly name = 'noop';
-  /** no-op：span 仅本地丢弃，立即 resolve。 */
+  /** no-op：span 仅本地丢弃，立即 resolve。
+   * @returns 无返回值。
+   */
   public async export(_spans: readonly Span[]): Promise<void> {}
-  /** no-op：无缓冲，立即 resolve。 */
+  /** no-op：无缓冲，立即 resolve。
+   * @returns 无返回值。
+   */
   public async flush(): Promise<void> {}
 }

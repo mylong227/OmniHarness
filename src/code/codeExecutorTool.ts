@@ -34,7 +34,12 @@ export class CodeExecutorTool {
 
   public constructor(private readonly options: CodeExecutorOptions) {}
 
-  /** 执行程序。 */
+  /**
+   * 执行程序。
+   * @param call 工具调用（arguments.code 为待执行程序）
+   * @param context 工具上下文（会话 id / 审批门禁入口）
+   * @returns 工具结果（输出或错误）
+   */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const code = String(call.arguments['code'] ?? '');
     const result = await this.interpreter.run(code, {
@@ -43,7 +48,12 @@ export class CodeExecutorTool {
     return { callId: call.id, ok: result.ok, output: result.output };
   }
 
-  /** 经门禁执行工具调用。 */
+  /**
+   * 经门禁执行工具调用。
+   * @param inner 程序内发起的工具调用
+   * @param context 工具上下文
+   * @returns 门禁放行后的执行结果；被拒时返回拒绝结果
+   */
   private async executeGated(inner: ToolCall, context: ToolContext): Promise<ToolResult> {
     const denied = await this.options.gate.gate(inner, context.sessionId);
     if (denied !== undefined) {

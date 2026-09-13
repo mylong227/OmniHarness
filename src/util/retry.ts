@@ -36,7 +36,8 @@ export function backoffMs(attempt: number, opts: BackoffParams): number {
   return Math.random() * capped;
 }
 
-const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const defaultSleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * 对 `fn` 施加重试。所有尝试失败则抛出最后一次错误。

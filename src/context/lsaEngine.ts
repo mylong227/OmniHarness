@@ -266,11 +266,7 @@ export class LsaEngine {
   }
 
   /** 用 LSA 模型对查询做潜语义符号召回，返回 [符号id, 分数] 降序列表（Top limit）。 */
-  public query(
-    model: LsaModel,
-    q: string,
-    limit = 40,
-  ): Array<{ id: number; score: number }> {
+  public query(model: LsaModel, q: string, limit = 40): Array<{ id: number; score: number }> {
     const { k, n, termIndex, symLatent, U, sigma } = model;
     // 查询词项向量（TF-IDF，idf 近似取 1）。
     const qTf = new Map<string, number>();

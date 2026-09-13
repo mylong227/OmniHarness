@@ -162,7 +162,9 @@ export class ExecCli extends CliAgentCmds {
     }
   }
 
-  /** 关闭 MCP 网关子进程（若已连接）。 */
+  /** 关闭 MCP 网关子进程（若已连接）。
+   * @returns 无返回值。
+   */
   private closeGateway(): void {
     this.gateway?.close();
     this.gateway = undefined;
@@ -175,7 +177,9 @@ export class ExecCli extends CliAgentCmds {
    * `approval=ask` / `escalation=ask` 在没有 stdin 的流水线里会一直等待人输入，
    * 表现为「任务卡住」而非报错，极难排查。此处 fail-closed 显式失败并给出可自愈的提示。
    * @param args 解析后的 CLI 参数（检查 approval / escalation 是否为 ask）。
-   */
+   
+ * @returns 无返回值。
+*/
   private assertHeadlessSafe(args: CliArgs): void {
     const interactive: string[] = [];
     if (args.approval === 'ask') {
@@ -195,7 +199,9 @@ export class ExecCli extends CliAgentCmds {
   /**
    * Aider 式安全网：执行后若处于 git 仓库则自动提交变更（opt-in；失败静默，不破坏主流程退出码）。
    * @param finalText 本次执行的最终答复文本（截断 72 字符作为提交信息）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async maybeAutoCommit(finalText: string): Promise<void> {
     try {
       execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { stdio: 'ignore' });
