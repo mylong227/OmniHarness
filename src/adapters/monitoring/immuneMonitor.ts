@@ -32,16 +32,26 @@ const MIN_TRAIN = 4;
 export class ImmuneMonitor implements ImmuneMonitorPort {
   /** 端口名：免疫异常监控标识，与 ImmuneMonitorPort 契约的命名空间一致。 */
   public readonly name = 'immune-monitor';
+  /** 异常判定阈值（z 分数，下限 0.5；记忆细胞加速只在此值上打折）。 */
   private readonly threshold: number;
+  /** 记忆细胞加速步长（夹紧到 [0, 0.5]）：同签名每现一次阈值下调的比例。 */
   private readonly accelStep: number;
+  /** 审计 sink（可选）：告警经此入链，仅记录不改写。 */
   private readonly audit?: AuditSinkLike;
+  /** 会话标识，随告警写入审计 detail。 */
   private readonly sessionId?: string;
 
+  /** 已训练样本数（自体规模；达到 MIN_TRAIN 前不判定异常）。 */
   private n = 0;
+  /** 特征维度（按首个样本长度确定，样本不足的维度以均值补齐）。 */
   private dim = 0;
+  /** Welford 各维在线均值。 */
   private readonly mean: number[] = [];
+  /** Welford 各维 M2 累计量（方差 = M2/(n-1)）。 */
   private readonly M2: number[] = [];
+  /** 记忆细胞表：偏离签名（越界维列表）→ 出现次数，用于加速响应。 */
   private readonly cells = new Map<string, number>();
+  /** 最近一次观测到的异常告警（无则 null）。 */
   private lastAnomaly: AnomalyAlert | null = null;
 
   public constructor(opts: ImmuneMonitorOptions = {}) {
@@ -107,12 +117,20 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     return alert;
   }
 
-  /** 自检：返回自体模型训练样本数与最近一次观测到的异常（无则 null）。 */
+  /** 自检：返回自体模型训练样本数与最近一次观测到的异常（无则 null）。
+   * @returns 自体规模（已训练样本数）与 lastAnomaly 的只读摘要。
+   */
   public selfCheck(): ImmuneSelfReport {
     return { selfSize: this.n, lastAnomaly: this.lastAnomaly };
   }
 }
 
+/** 数值夹紧到闭区间 [lo, hi]。
+ * @param v 待夹紧的数值。
+ * @param lo 下界。
+ * @param hi 上界。
+ * @returns v 落在区间内时原值，否则就近边界值。
+ */
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }

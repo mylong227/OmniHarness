@@ -3,11 +3,11 @@ import { createRequire } from 'node:module';
 import type { SessionEvent } from '../../ports/event.js';
 import type { StoragePort } from '../../ports/storage.js';
 
-/**
- * 惰性加载 node:sqlite（Node 20 兼容铁律）：顶层静态 import 会在 Node 20 上
+/** 惰性加载 node:sqlite（Node 20 兼容铁律）：顶层静态 import 会在 Node 20 上
  * 直接炸掉整个模块加载链（ERR_UNKNOWN_BUILTIN_MODULE），连「根本不用 sqlite」
  * 的入口（如 smoke）都无法启动。改为首次实例化时 require，Node 22+ 行为不变，
  * Node 20 仅在真正选择 sqlite 存储时才得到清晰错误（fail-closed 可诊断）。
+ * @returns node:sqlite 的 DatabaseSync 类；模块不可用时抛出带修复建议的错误。
  */
 function loadDatabaseSync(): typeof DatabaseSync {
   try {
@@ -35,8 +35,13 @@ export class SqliteStorage implements StoragePort {
   /** 底层数据库文件路径（构造时锁定，供诊断与定位）。 */
   public readonly location: string;
 
+  /** 底层数据库连接（events 表已就绪）。 */
   private readonly db: DatabaseSync;
 
+  /**
+   * 构造存储适配器：惰性加载 node:sqlite、打开数据库并确保 events 表存在。
+   * @param filePath SQLite 数据库文件路径。
+   */
   public constructor(filePath: string) {
     const DatabaseSyncImpl = loadDatabaseSync();
     this.location = filePath;
@@ -46,7 +51,10 @@ export class SqliteStorage implements StoragePort {
     );
   }
 
-  /** 保存会话事件（整会话覆盖写）。 */
+  /** 保存会话事件（整会话覆盖写）。
+   * @param sessionId 会话标识（分桶键）。
+   * @param events 完整事件列表（先删旧桶再按序号逐条插入，seq 为数组下标）。
+   */
   public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     const del = this.db.prepare('DELETE FROM events WHERE session_id = ?');
     del.run(sessionId);
@@ -56,7 +64,10 @@ export class SqliteStorage implements StoragePort {
     }
   }
 
-  /** 加载会话事件（不存在返回空）。 */
+  /** 加载会话事件（不存在返回空）。
+   * @param sessionId 会话标识。
+   * @returns 按 seq 升序解析出的事件列表。
+   */
   public async load(sessionId: string): Promise<readonly SessionEvent[]> {
     const rows = this.db
       .prepare('SELECT data FROM events WHERE session_id = ? ORDER BY seq')

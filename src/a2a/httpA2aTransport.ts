@@ -18,7 +18,9 @@ import { log } from '../util/logger.js';
 
 /** 客户端 HTTP 传输：向对端端点发请求，响应经 onMessage 回传。 */
 export class HttpA2aTransport implements A2aTransport {
+  /** 响应回调（经 {@link onMessage} 注册；未注册时响应被丢弃）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
+  /** 对端 `/a2a` 端点 URL（构造时固定）。 */
   private readonly endpoint: string;
   /** SSRF 策略：默认放行私有网段但拦截云元数据（出厂默认端点即 localhost/a2a）。 */
   private readonly ssrf: SsrfOptions;
@@ -41,7 +43,10 @@ export class HttpA2aTransport implements A2aTransport {
     await assertNotSsrf(this.endpoint, this.ssrf);
   }
 
-  /** 订阅入站消息：注册回调，HTTP 响应解析为 JSON-RPC 后经此回传（供 A2aClient 按 id 关联）。 */
+  /**
+   * 订阅入站消息：注册回调，HTTP 响应解析为 JSON-RPC 后经此回传（供 A2aClient 按 id 关联）。
+   * @param callback 收到响应消息时的处理回调（重复注册以最后一次为准）。
+   */
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
@@ -81,11 +86,17 @@ export class HttpA2aTransport implements A2aTransport {
 
 /** 服务端 HTTP 传输：监听 POST /a2a，按 JSON-RPC id 关联回写响应。 */
 export class HttpA2aServerTransport implements A2aTransport {
+  /** 入站请求处理回调（经 {@link onMessage} 注册，通常是 A2aServer 的处理入口）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
+  /** 挂起请求的 id → 响应 resolver 映射（send 命中 id 时回写对应 HTTP 响应）。 */
   private readonly resolvers = new Map<number | string, (m: RpcMessage) => void>();
+  /** 底层 node:http 服务实例（listen 后才有值）。 */
   private server: http.Server | undefined;
 
-  /** 订阅入站消息：注册处理回调，服务端收到的 POST /a2a 请求体经此转交（如 A2aServer 处理）。 */
+  /**
+   * 订阅入站消息：注册处理回调，服务端收到的 POST /a2a 请求体经此转交（如 A2aServer 处理）。
+   * @param callback 收到入站请求消息时的处理回调（重复注册以最后一次为准）。
+   */
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
@@ -106,7 +117,11 @@ export class HttpA2aServerTransport implements A2aTransport {
     }
   }
 
-  /** 在给定端口监听（返回实际端口）。 */
+  /**
+   * 在给定端口监听（返回实际端口）。
+   * @param port 期望监听的端口。
+   * @returns 实际监听的端口（当前实现与入参一致）；仅接受 POST /a2a，其余返回 405/400/500。
+   */
   public async listen(port: number): Promise<number> {
     this.server = http.createServer((req, res) => {
       if (req.method !== 'POST') {

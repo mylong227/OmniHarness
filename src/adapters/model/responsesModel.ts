@@ -37,16 +37,22 @@ interface StreamState {
 export class ResponsesModel implements ModelPort {
   /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
+  /** 最近一次响应返回的续接 ID（服务端会话锚点；尚未收到任何响应时为 undefined）。 */
   private lastResponseId: string | undefined;
   /** 提示缓存读取器：Responses 用 `input_tokens_details.cached_tokens` 表达命中。 */
   private readonly promptCache = new PromptCacheUsageReader();
 
-  public constructor(private readonly config: ResponsesConfig) {
+  public constructor(
+    /** 适配器配置：端点地址、API 密钥、模型标识与续接/存储选项。 */
+    private readonly config: ResponsesConfig,
+  ) {
     this.name = config.model;
     this.lastResponseId = config.previousResponseId;
   }
 
-  /** 当前续接 ID（下一轮请求带上，由服务端持有历史上下文）。 */
+  /** 当前续接 ID（下一轮请求带上，由服务端持有历史上下文）。
+   * @returns 当前保存的续接 ID；尚未产生任何响应且配置未指定 previousResponseId 时为 undefined。
+   */
   public responseId(): string | undefined {
     return this.lastResponseId;
   }
@@ -56,7 +62,10 @@ export class ResponsesModel implements ModelPort {
     this.lastResponseId = configPrevious(this.config);
   }
 
-  /** 生成响应。 */
+  /** 生成响应。
+   * @param request 模型请求（消息列表、工具规格与可选取消信号）。
+   * @returns 解析后的统一输出（文本、推理摘要、工具调用与用量）；HTTP 非 2xx 时抛出错误。
+   */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request, false));
     if (!response.ok) {
@@ -66,7 +75,12 @@ export class ResponsesModel implements ModelPort {
     return this.parseOutput(body);
   }
 
-  /** 流式生成（SSE：文本增量实时回调，终态以 response.completed 为准）。 */
+  /** 流式生成（SSE：文本增量实时回调，终态以 response.completed 为准）。
+   * @param request 模型请求（消息列表、工具规格与可选取消信号）。
+   * @param callbacks 流式回调集合：文本增量经 onText 实时推送。
+   * @returns 流结束后的完整输出：优先取 response.completed 终态事件的解析结果，
+   *          若流中断未收到终态则退回已累积文本拼接；响应体缺失时降级为非流式 generate。
+   */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request, true));
     if (!response.ok) {
@@ -83,12 +97,18 @@ export class ResponsesModel implements ModelPort {
       : this.parseOutput(state.completed);
   }
 
-  /** 构造请求端点。 */
+  /** 构造请求端点。
+   * @returns Responses API 完整 URL（baseUrl 追加 /responses 路径）。
+   */
   private endpoint(): string {
     return `${this.config.baseUrl}/responses`;
   }
 
-  /** 构造请求体（stream 时不带 previous_response_id 亦可，此处统一带上以支持续接）。 */
+  /** 构造请求体（stream 时不带 previous_response_id 亦可，此处统一带上以支持续接）。
+   * @param request 模型请求，决定 body 内容与是否透传取消信号。
+   * @param stream true 表示请求 SSE 流式响应，false 表示一次性 JSON 响应。
+   * @returns 可直接交给 fetch 的 RequestInit（POST 方法、鉴权头与 JSON 序列化后的请求体）。
+   */
   private buildRequest(request: ModelRequest, stream: boolean): RequestInit {
     return {
       method: 'POST',
@@ -99,7 +119,9 @@ export class ResponsesModel implements ModelPort {
     };
   }
 
-  /** 请求头。 */
+  /** 请求头。
+   * @returns 含 JSON Content-Type 与 Bearer 鉴权的请求头集合。
+   */
   private headers(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
@@ -107,7 +129,11 @@ export class ResponsesModel implements ModelPort {
     };
   }
 
-  /** 请求体。 */
+  /** 请求体。
+   * @param request 模型请求，提供消息与工具规格。
+   * @returns Responses API 请求体：model/input/tools/store，外加 instructions（非空时）
+   *          与 previous_response_id（已有续接锚点时）。
+   */
   private bodyOf(request: ModelRequest): Record<string, unknown> {
     const body: Record<string, unknown> = {
       model: this.config.model,
@@ -125,7 +151,10 @@ export class ResponsesModel implements ModelPort {
     return body;
   }
 
-  /** 提取 system 指令（Responses API 用独立 instructions 字段）。 */
+  /** 提取 system 指令（Responses API 用独立 instructions 字段）。
+   * @param messages 完整消息列表，仅筛选 role 为 system 的条目。
+   * @returns 所有 system 消息按原顺序以空行拼接的文本；无 system 消息时为空串。
+   */
   private instructionsOf(messages: readonly ModelRequest['messages'][number][]): string {
     return messages
       .filter((message) => message.role === 'system')
@@ -133,14 +162,20 @@ export class ResponsesModel implements ModelPort {
       .join('\n\n');
   }
 
-  /** 消息转 wire 输入（system 已剥离到 instructions）。 */
+  /** 消息转 wire 输入（system 已剥离到 instructions）。
+   * @param messages 完整消息列表，过滤掉 system 角色后逐条转换。
+   * @returns Responses API input 数组，每项形如 { role, content }。
+   */
   private toWireInput(messages: readonly ModelRequest['messages'][number][]): unknown[] {
     return messages
       .filter((message) => message.role !== 'system')
       .map((message) => ({ role: message.role, content: message.content }));
   }
 
-  /** 工具转 wire 格式（Responses 为扁平结构，无 function 嵌套）。 */
+  /** 工具转 wire 格式（Responses 为扁平结构，无 function 嵌套）。
+   * @param tools 统一工具规格列表。
+   * @returns Responses API tools 数组，每项为 type=function 的扁平声明。
+   */
   private toWireTools(tools: readonly ModelToolSpec[]): unknown[] {
     return tools.map((tool) => ({
       type: 'function',
@@ -150,7 +185,10 @@ export class ResponsesModel implements ModelPort {
     }));
   }
 
-  /** 解析响应为统一输出，并记录续接锚点。 */
+  /** 解析响应为统一输出，并记录续接锚点。
+   * @param body wire 层 JSON 响应。
+   * @returns 统一模型输出；副作用：以 body.id 更新 lastResponseId 供下轮续接。
+   */
   private parseOutput(body: ResponsesResponse): ModelOutput {
     this.lastResponseId = body.id;
     const items = body.output ?? [];
@@ -185,7 +223,10 @@ export class ResponsesModel implements ModelPort {
     return output;
   }
 
-  /** 收集 reasoning 摘要文本。 */
+  /** 收集 reasoning 摘要文本。
+   * @param items wire 层输出项列表。
+   * @returns 所有 reasoning 项 summary 文本按序以换行拼接；无 reasoning 项时为空串。
+   */
   private collectReasoning(items: readonly ResponsesOutputItem[]): string {
     return items
       .filter((item) => item.type === 'reasoning')
@@ -194,7 +235,10 @@ export class ResponsesModel implements ModelPort {
       .join('\n');
   }
 
-  /** 收集输出文本。 */
+  /** 收集输出文本。
+   * @param items wire 层输出项列表。
+   * @returns 所有 message 项 content 文本按序直接拼接；无 message 项时为空串。
+   */
   private collectText(items: readonly ResponsesOutputItem[]): string {
     return items
       .filter((item) => item.type === 'message')
@@ -203,7 +247,11 @@ export class ResponsesModel implements ModelPort {
       .join('');
   }
 
-  /** 收集函数调用。 */
+  /** 收集函数调用。
+   * @param items wire 层输出项列表。
+   * @returns 所有 function_call 项转成的统一工具调用引用（id/name/已解析参数对象）；
+   *          无函数调用时为空数组。
+   */
   private collectToolCalls(items: readonly ResponsesOutputItem[]): readonly ModelToolCallRef[] {
     return items
       .filter((item) => item.type === 'function_call' && item.name !== undefined)
@@ -214,7 +262,13 @@ export class ResponsesModel implements ModelPort {
       }));
   }
 
-  /** 处理流式事件。 */
+  /** 处理流式事件。
+   * @param event SSE 已分帧的事件（event 名与 data 负载）。
+   * @param callbacks 流式回调集合，文本增量经 onText 推出。
+   * @param state 跨事件共享的累积状态：text 收集增量，completed 暂存终态响应。
+   *              [DONE] 标记与无法解析的 JSON 直接忽略；仅响应
+   *              response.output_text.delta 与 response.completed 两类事件。
+   */
   private handleStreamEvent(event: SseEvent, callbacks: StreamCallbacks, state: StreamState): void {
     if (event.data === '[DONE]') {
       return;
@@ -239,13 +293,19 @@ export class ResponsesModel implements ModelPort {
     }
   }
 
-  /** 提取增量文本。 */
+  /** 提取增量文本。
+   * @param json 已解析的事件 JSON 对象。
+   * @returns 事件负载中的 delta 字符串；缺失或非字符串时为空串（调用方据此跳过空增量）。
+   */
   private deltaOf(json: Record<string, unknown>): string {
     const delta = json['delta'];
     return typeof delta === 'string' ? delta : '';
   }
 
-  /** 解析事件 JSON（无效则忽略）。 */
+  /** 解析事件 JSON（无效则忽略）。
+   * @param data SSE 事件的 data 负载文本。
+   * @returns 解析出的对象；JSON 非法或解析结果不是非空对象时返回 undefined（事件被丢弃）。
+   */
   private parseEventJson(data: string): Record<string, unknown> | undefined {
     try {
       const parsed: unknown = JSON.parse(data);
@@ -257,7 +317,10 @@ export class ResponsesModel implements ModelPort {
     }
   }
 
-  /** 解析工具参数 JSON。 */
+  /** 解析工具参数 JSON。
+   * @param raw wire 层返回的参数 JSON 字符串（可能为 undefined 或空串）。
+   * @returns 解析出的参数对象；输入为空、JSON 非法或不是对象时返回空对象（不抛错）。
+   */
   private parseArguments(raw: string | undefined): Record<string, unknown> {
     if (raw === undefined || raw === '') {
       return {};
@@ -273,7 +336,10 @@ export class ResponsesModel implements ModelPort {
   }
 }
 
-/** 取配置里的起始续接 ID。 */
+/** 取配置里的起始续接 ID。
+ * @param config 适配器配置。
+ * @returns 配置指定的 previousResponseId；未配置时为 undefined（开新会话）。
+ */
 function configPrevious(config: ResponsesConfig): string | undefined {
   return config.previousResponseId;
 }

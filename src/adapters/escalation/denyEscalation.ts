@@ -11,7 +11,10 @@ export class DenyEscalation implements EscalationPort {
    */
   public readonly name = 'deny';
 
-  /** 永远 abort，不提权。 */
+  /** 永远 abort，不提权。
+   * @param _request 升级请求（本实现不读取内容，保留参数以符合端口签名）。
+   * @returns 恒为 'abort'（fail-closed）。
+   */
   public async decide(_request: EscalationRequest): Promise<EscalationDecision> {
     return 'abort';
   }

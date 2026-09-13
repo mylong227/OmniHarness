@@ -28,12 +28,21 @@ export interface SymmetryBreakingOptions {
 export class SymmetryBreakingEngine implements SymmetryBreakingPort {
   /** 端口名：对称破缺算子标识，与 SymmetryBreakingPort 契约的命名空间一致。 */
   public readonly name = 'symmetry-breaking';
+  /** 破缺阈值（ρ 越此值即破缺；下限由调用方保证合理）。 */
   private readonly threshold: number;
+  /** 对称群标签（随报告透出）。 */
   private readonly group: string;
+  /** 各能力累计使用权重（序参量 ρ 的原始材料）。 */
   private weights = new Map<string, number>();
+  /** 是否已破缺（迟滞：置位后不随单次低样本回弹，须显式 reset）。 */
   private broken = false;
+  /** 最近一次 observe 是否发生对称 → 破缺相变。 */
   private lastTransitioned = false;
 
+  /**
+   * 构造引擎：按选项取阈值与对称群标签（缺省阈值 0.7、群 'capability-symmetry'）。
+   * @param opts 可选配置。
+   */
   public constructor(opts: SymmetryBreakingOptions = {}) {
     this.threshold = opts.threshold ?? 0.7;
     this.group = opts.symmetryGroup ?? 'capability-symmetry';
@@ -82,7 +91,9 @@ export class SymmetryBreakingEngine implements SymmetryBreakingPort {
     this.broken = false;
   }
 
-  /** 计算 ρ（占优能力主导度）与占优能力。 */
+  /** 计算 ρ（占优能力主导度）与占优能力。
+   * @returns rho = 最大权重 / 总权重（无权重时为 0），dominant 为权重最大的能力名（可能 undefined）。
+   */
   private compute(): { rho: number; dominant: string | undefined } {
     let total = 0;
     let dominant: string | undefined;

@@ -30,6 +30,11 @@ export class ConsoleUserResponder implements UserResponder {
     return answers;
   }
 
+  /** 在已建好的 readline 接口上提问一题并等待用户输入。
+   * @param rl 复用的 readline 接口（stdin/stdout）。
+   * @param q 结构化问题（含提示头、选项列表与多选标记）。
+   * @returns 本题回答（选中项或自由输入）；输入解析永不抛错。
+   */
   private askOne(rl: readline.Interface, q: AskQuestion): Promise<AskAnswer> {
     return new Promise<AskAnswer>((resolve) => {
       const header = q.header !== undefined ? `[${q.header}] ` : '';
@@ -52,6 +57,12 @@ export class ConsoleUserResponder implements UserResponder {
     });
   }
 
+  /** 把用户原始输入解析为结构化回答。
+   * @param q 原问题（决定选项集与单/多选语义）。
+   * @param raw 用户输入（已 trim；编号、标签或自由文本，多选以逗号分隔）。
+   * @returns 解析后的回答：无选项题整行计入 custom；多选下无效 token 忽略，
+   *          单选下非编号且不匹配任何标签的整行计入 custom。
+   */
   private parse(q: AskQuestion, raw: string): AskAnswer {
     if (q.options === undefined || q.options.length === 0) {
       return { id: q.id, selected: [], custom: raw };

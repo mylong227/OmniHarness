@@ -16,9 +16,13 @@ export class VortexRingSpillAdapter implements SpillPort {
   /** 适配器标识名（SpillPort 注册键，用于诊断）。 */
   public readonly name = 'vortex-ring-spill';
 
+  /** 进程内环包元信息表：ringId → VortexRing（重启即失，读回未知环包 fail-closed 返回 undefined）。 */
   private readonly rings = new Map<string, VortexRing>();
 
-  public constructor(private readonly vortex: VortexRingPort) {}
+  public constructor(
+    /** 底层燧-4 端口：seal 封包 / unseal 解环由它执行，本适配器只做元信息登记与适配。 */
+    private readonly vortex: VortexRingPort,
+  ) {}
 
   /**
    * 把超大内容封成拓扑孤子环包并持久化：seal 后得到 ringId，记进程内元信息后返回句柄。
@@ -48,6 +52,7 @@ export class VortexRingSpillAdapter implements SpillPort {
   /**
    * 燧-4 冲刷（autoRun 用）：返回当前进程内持环数。环包元信息驻留内存，
    * 解环校验在 `read` 时 fail-closed 执行；此处仅做健康检查计数。
+   * @returns 当前仍驻留进程内的环包数量。
    */
   public flush(): { readonly activeRings: number } {
     return { activeRings: this.rings.size };

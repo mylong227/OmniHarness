@@ -61,22 +61,41 @@ export class CliBuildConfig {
   /** 当前活动的 MCP 网关（执行结束后由子类 closeGateway 关闭子进程）。 */
   protected gateway: McpGateway | undefined;
 
-  /** 取标志值（委托 CliArgReader，保证解析逻辑单一来源）。 */
+  /**
+   * 取标志值（委托 CliArgReader，保证解析逻辑单一来源）。
+   * @param args 完整命令行参数列表。
+   * @param flag 旗标名（如 `--model`）。
+   * @returns 紧随旗标之后的值；旗标不存在或其后无值时返回 undefined。
+   */
   protected flagValue(args: readonly string[], flag: string): string | undefined {
     return new CliArgReader(args).value(flag);
   }
 
-  /** 取数字标志值（委托 CliArgReader）。 */
+  /**
+   * 取数字标志值（委托 CliArgReader）。
+   * @param args 完整命令行参数列表。
+   * @param flag 旗标名（如 `--max-steps`）。
+   * @returns 解析后的十进制整数；旗标缺失返回 undefined（值非法时为 NaN，与既有行为一致）。
+   */
   protected flagNumber(args: readonly string[], flag: string): number | undefined {
     return new CliArgReader(args).number(flag);
   }
 
-  /** 收集可重复旗标的所有取值（如 --allow a --allow b；委托 CliArgReader）。 */
+  /**
+   * 收集可重复旗标的所有取值（如 --allow a --allow b；委托 CliArgReader）。
+   * @param args 完整命令行参数列表。
+   * @param flag 可重复出现的旗标名。
+   * @returns 该旗标的全部取值（按出现顺序，可能为空数组）。
+   */
   protected collectFlags(args: readonly string[], flag: string): string[] {
     return new CliArgReader(args).values(flag);
   }
 
-  /** 解析 --lsp "server cmd args" 为 LSP 服务器配置（命令 + 参数）。 */
+  /**
+   * 解析 --lsp "server cmd args" 为 LSP 服务器配置（命令 + 参数）。
+   * @param raw 旗标原始取值（空白分隔的命令与参数）；undefined 或全空白视为未配置。
+   * @returns LSP 服务器配置（首个 token 为命令，其余为参数）；未配置时返回 undefined。
+   */
   protected parseLsp(raw: string | undefined): LspServerConfig | undefined {
     if (raw === undefined || raw.trim() === '') {
       return undefined;
@@ -87,7 +106,11 @@ export class CliBuildConfig {
     return { serverCommand, serverArgs };
   }
 
-  /** 解析 JSON 对象参数（缺省空对象）。 */
+  /**
+   * 解析 JSON 对象参数（缺省空对象）。
+   * @param raw JSON 文本；undefined 或全空白视为空对象。
+   * @returns 解析出的对象；文本非法 JSON 时抛 SyntaxError。
+   */
   protected parseJsonObject(raw: string | undefined): Record<string, unknown> {
     if (raw === undefined || raw.trim() === '') {
       return {};
@@ -95,7 +118,12 @@ export class CliBuildConfig {
     return JSON.parse(raw) as Record<string, unknown>;
   }
 
-  /** 构造插件注册表：--dir 覆盖安装目录，打包源基准为仓库根。 */
+  /**
+   * 构造插件注册表：--dir 覆盖安装目录，打包源基准为仓库根。
+   * @param args 完整命令行参数列表（读取 --dir / --catalog）。
+   * @param pluginsDir 显式指定的插件安装目录；缺省时依次回退 --dir 旗标、~/.omniharness/plugins。
+   * @returns 就绪的插件注册表（catalog 指向仓库内 examples/catalog/registry.json）。
+   */
   protected createRegistry(args: readonly string[], pluginsDir?: string): PluginRegistry {
     const dir =
       pluginsDir ?? this.flagValue(args, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
@@ -112,7 +140,11 @@ export class CliBuildConfig {
     });
   }
 
-  /** 构造审计 sink：--audit-dir / --audit-file 或 env OMNI_AUDIT_DIR 指定落盘位置；未指定则 no-op（不写审计）。 */
+  /**
+   * 构造审计 sink：--audit-dir / --audit-file 或 env OMNI_AUDIT_DIR 指定落盘位置；未指定则 no-op（不写审计）。
+   * @param args 完整命令行参数列表（读取 --audit-dir / --audit-file）。
+   * @returns 审计 sink；--audit-file 优先于目录级配置。
+   */
   protected createAudit(args: readonly string[]): AuditSink {
     const auditDir = this.flagValue(args, '--audit-dir') ?? process.env['OMNI_AUDIT_DIR'];
     const auditFile = this.flagValue(args, '--audit-file');
@@ -129,6 +161,8 @@ export class CliBuildConfig {
    * 若配置了 --network-allow，安装网络外联策略门（A5）：包一层 globalThis.fetch，
    * 任何不在白名单的外联地址一律抛 EgressBlockedError（fail-closed）。返回还原函数。
    * 未配置白名单时返回空操作（开放，不收紧）。
+   * @param args 解析后的 CLI 参数（读取 networkAllow 白名单）。
+   * @returns 还原函数（恢复原始 globalThis.fetch）；未配置白名单时为空操作。
    */
   protected applyNetworkGuard(args: CliArgs): () => void {
     const allowed = parseAllowList(args.networkAllow);
@@ -144,7 +178,11 @@ export class CliBuildConfig {
     };
   }
 
-  /** 装配运行时配置（端口即插即用）。 */
+  /**
+   * 装配运行时配置（端口即插即用）。
+   * @param args 解析后的 CLI 参数。
+   * @returns 已完成全部端口装配（模型 / 存储 / 审批 / 沙箱 / MCP 桥接等）的解析配置。
+   */
   protected async buildConfig(args: CliArgs): Promise<ResolvedConfig> {
     if (args.native && !new NativeKernel().available()) {
       process.stderr.write(
@@ -218,7 +256,11 @@ export class CliBuildConfig {
     return config;
   }
 
-  /** 解析模型路由配置（#B4）：--model-router-file 读取并 merge 到 --model-router（CLI 优先）。 */
+  /**
+   * 解析模型路由配置（#B4）：--model-router-file 读取并 merge 到 --model-router（CLI 优先）。
+   * @param args 解析后的 CLI 参数（读取 modelRouter / modelRouterFile）。
+   * @returns 合并后的模型路由配置；两者均未提供时返回 undefined。
+   */
   protected async resolveModelRouter(args: CliArgs): Promise<ModelRouterConfig | undefined> {
     let merged = args.modelRouter;
     if (args.modelRouterFile !== undefined) {
@@ -230,7 +272,11 @@ export class CliBuildConfig {
     return merged;
   }
 
-  /** 构建 worker 注册表（--worker-dsh 时注册真实 dsh worker 替代演示 worker）。 */
+  /**
+   * 构建 worker 注册表（--worker-dsh 时注册真实 dsh worker 替代演示 worker）。
+   * @param args 解析后的 CLI 参数（读取 workerDsh 任务名）。
+   * @returns 已注册 worker 的注册表；未配置 worker 时返回 undefined。
+   */
   protected buildWorkers(args: CliArgs): WorkerRegistry | undefined {
     if (args.workerDsh === undefined) {
       return undefined;
@@ -240,7 +286,11 @@ export class CliBuildConfig {
     return registry;
   }
 
-  /** 桥接外部 MCP 服务器的工具到本地工具注册表。 */
+  /**
+   * 桥接外部 MCP 服务器的工具到本地工具注册表。
+   * @param args 解析后的 CLI 参数（读取 mcpServers 服务器清单）。
+   * @param config 已装配的运行时配置（取其中的工具端口挂载桥接工具）。
+   */
   protected async bridgeMcpServers(args: CliArgs, config: ResolvedConfig): Promise<void> {
     if (args.mcpServers.length === 0) {
       return;
@@ -260,7 +310,11 @@ export class CliBuildConfig {
     process.stderr.write(`MCP 桥接:\n${formatBridgeResults(results)}\n`);
   }
 
-  /** 构建模型端口。 */
+  /**
+   * 构建模型端口。
+   * @param args 解析后的 CLI 参数（读取 modelAdapter / apiKey / baseUrl / model 等）。
+   * @returns 按 modelAdapter 选择的模型端口；缺省适配器回退 MockModel，密钥缺失时抛错。
+   */
   protected buildModel(
     args: CliArgs,
   ): MockModel | OpenAiCompatibleModel | AnthropicModel | ResponsesModel | LlamaCppModel {
@@ -304,7 +358,11 @@ export class CliBuildConfig {
     return new MockModel();
   }
 
-  /** 构建存储端口。 */
+  /**
+   * 构建存储端口。
+   * @param args 解析后的 CLI 参数（读取 storageAdapter / storageDir）。
+   * @returns 按适配器选择的存储端口（jsonl / sqlite；sqlite 懒加载），缺省为内存存储。
+   */
   protected async buildStorage(
     args: CliArgs,
   ): Promise<MemoryStorage | JsonlStorage | SqliteStorage> {
@@ -319,7 +377,12 @@ export class CliBuildConfig {
     return new MemoryStorage();
   }
 
-  /** 构建审批端口。 */
+  /**
+   * 构建审批端口。
+   * @param args 解析后的 CLI 参数（读取 approval 策略名等）。
+   * @param model 模型端口（guardian 策略需要 LLM 参与审批）。
+   * @returns 按策略选择的审批端口；缺省为 AutoApproval（全放行）。
+   */
   protected buildApproval(
     args: CliArgs,
     model: ModelPort,
@@ -339,7 +402,11 @@ export class CliBuildConfig {
     return new AutoApproval();
   }
 
-  /** 构建 Guardian 审批（预检直判 + 其余送 LLM 审查）。 */
+  /**
+   * 构建 Guardian 审批（预检直判 + 其余送 LLM 审查）。
+   * @param model 模型端口，用于对预检未命中的请求做 LLM 审查。
+   * @returns 配好危险命令预拒与常见只读命令预允的 Guardian 审批端口。
+   */
   protected buildGuardianApproval(model: ModelPort): GuardianApproval {
     return new GuardianApproval({
       model,
@@ -348,7 +415,11 @@ export class CliBuildConfig {
     });
   }
 
-  /** 构建规则审批（默认档：未命中显式拒绝规则时放行，只拦 rm/del 等危险前缀）。 */
+  /**
+   * 构建规则审批（默认档：未命中显式拒绝规则时放行，只拦 rm/del 等危险前缀）。
+   * @param args 解析后的 CLI 参数（approvalAsk 决定未命中规则时的询问回应）。
+   * @returns 内置读取放行 / rm、del 拒绝规则的规则审批端口。
+   */
   protected buildRuleApproval(args: CliArgs): RuleApproval {
     const rules: ApprovalRule[] = [
       { toolName: 'read_file', decision: 'allow' },
@@ -362,17 +433,29 @@ export class CliBuildConfig {
     });
   }
 
-  /** 构建沙箱端口（G4 多后端：经 SandboxManager 选 profile）。 */
+  /**
+   * 构建沙箱端口（G4 多后端：经 SandboxManager 选 profile）。
+   * @param args 解析后的 CLI 参数（读取 workspace 与 sandbox profile 名）。
+   * @returns 按 profile 构建的沙箱端口。
+   */
   protected buildSandbox(args: CliArgs): ReturnType<SandboxManager['build']> {
     return new SandboxManager(args.workspace).build(args.sandbox);
   }
 
-  /** 构建提权复核沙箱（#G3/G4：escalate 后以此复核放行）。 */
+  /**
+   * 构建提权复核沙箱（#G3/G4：escalate 后以此复核放行）。
+   * @param args 解析后的 CLI 参数（读取 workspace 与 elevatedSandbox profile 名）。
+   * @returns 提权重试时使用的沙箱端口。
+   */
   protected buildElevatedSandbox(args: CliArgs): ReturnType<SandboxManager['build']> {
     return new SandboxManager(args.workspace).build(args.elevatedSandbox);
   }
 
-  /** 构建升级审批端口（#G3/G4）。 */
+  /**
+   * 构建升级审批端口（#G3/G4）。
+   * @param args 解析后的 CLI 参数（读取 escalation 策略名）。
+   * @returns 按策略选择的升级端口（ask 交互询问 / auto 自动放行 / deny 拒绝）。
+   */
   protected buildEscalation(args: CliArgs): DenyEscalation | AskEscalation | AutoEscalation {
     if (args.escalation === 'ask') {
       return new AskEscalation({ askHandler: (req) => this.promptEscalation(req) });
@@ -383,7 +466,11 @@ export class CliBuildConfig {
     return new DenyEscalation();
   }
 
-  /** TTY 交互提权询问：非 TTY 一律 fail-closed 到 abort（不静默放行危险动作）。 */
+  /**
+   * TTY 交互提权询问：非 TTY 一律 fail-closed 到 abort（不静默放行危险动作）。
+   * @param request 升级请求（含工具名、目标与拒绝原因，用于向用户展示）。
+   * @returns 用户确认 y/yes 时 'escalate'，其余（含非 TTY）一律 'abort'。
+   */
   protected async promptEscalation(request: EscalationRequest): Promise<EscalationDecision> {
     if (!process.stdout.isTTY) {
       return 'abort';
@@ -404,7 +491,11 @@ export class CliBuildConfig {
     }
   }
 
-  /** 加载自定义工具。 */
+  /**
+   * 加载自定义工具。
+   * @param files 自定义工具模块的文件路径列表。
+   * @returns 各模块导出的工具定义（缺 definition 字段的条目被跳过）。
+   */
   protected async loadCustomTools(files: readonly string[]): Promise<ExtraTool[]> {
     const tools: ExtraTool[] = [];
     for (const file of files) {

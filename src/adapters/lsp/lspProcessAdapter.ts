@@ -23,11 +23,17 @@ export class LspProcessAdapter implements LspPort {
   /** 端口名（便于调试/状态展示）：固定为 'lsp-process'。 */
   public readonly name = 'lsp-process';
 
+  /** 当前 JSON-RPC 连接（懒启动后建立；shutdown 或握手失败后回到 undefined）。 */
   private conn: LspJsonRpcConnection | undefined;
+  /** 进行中的启动握手 Promise（并发调用共享同一次启动，避免重复 spawn）。 */
   private starting: Promise<void> | undefined;
+  /** 已发送过 didOpen 的文件集合（会话生命周期内每文件只 open 一次）。 */
   private readonly opened = new Set<string>();
 
-  public constructor(private readonly cfg: LspServerConfig & { readonly rootUri: string }) {}
+  public constructor(
+    /** 服务器配置：启动命令/参数、工作区根 URI（LSP initialize 的 rootUri）。 */
+    private readonly cfg: LspServerConfig & { readonly rootUri: string },
+  ) {}
 
   /**
    * 跳转到定义。
@@ -99,7 +105,14 @@ export class LspProcessAdapter implements LspPort {
 
   // ---- 内部：LSP 导航请求（definition / references）共用骨架 ----
 
-  /** 导航类请求共用骨架：启动 → didOpen → 请求 → 归一化。 */
+  /** 导航类请求共用骨架：启动 → didOpen → 请求 → 归一化。
+   * @param method LSP 导航方法名（textDocument/definition 或 textDocument/references）。
+   * @param file 目标文件绝对路径（内部转 file:// URI）。
+   * @param line 编辑器 1-based 行号（内部转 LSP 0-based）。
+   * @param character 编辑器 1-based 列号（内部转 LSP 0-based）。
+   * @param context 可选请求上下文（references 用 includeDeclaration 控制是否含声明处）。
+   * @returns 归一化后的位置列表（1-based 坐标、文件路径）；服务器返回空/非法时为空数组。
+   */
   private async requestNav(
     method: 'textDocument/definition' | 'textDocument/references',
     file: string,
@@ -118,7 +131,9 @@ export class LspProcessAdapter implements LspPort {
     return this.toLocations(result);
   }
 
-  /** 取当前连接；未启动即抛错（调用方须先 ensureStarted）。 */
+  /** 取当前连接；未启动即抛错（调用方须先 ensureStarted）。
+   * @returns 已建立的 JSON-RPC 连接。
+   */
   private requireConn(): LspJsonRpcConnection {
     if (this.conn === undefined) {
       throw new Error('LSP 连接尚未建立');
@@ -177,7 +192,9 @@ export class LspProcessAdapter implements LspPort {
 
   // ---- 内部：文档同步 ----
 
-  /** 首次见到某文件时发 didOpen（读盘失败则发空文本，让服务器自行解析）。 */
+  /** 首次见到某文件时发 didOpen（读盘失败则发空文本，让服务器自行解析）。
+   * @param file 要打开的文件绝对路径（转 URI 后随 languageId/version/text 一起下发）。
+   */
   private async didOpen(file: string): Promise<void> {
     if (this.opened.has(file)) {
       return;
@@ -194,7 +211,10 @@ export class LspProcessAdapter implements LspPort {
     });
   }
 
-  /** 由扩展名推断 LSP languageId。 */
+  /** 由扩展名推断 LSP languageId。
+   * @param file 文件路径（取最后一个点后的扩展名，大小写不敏感）。
+   * @returns 查表得到的 languageId；未知扩展名回退 'plaintext'。
+   */
   private langOf(file: string): string {
     const dot = file.lastIndexOf('.');
     const ext = dot >= 0 ? file.slice(dot + 1).toLowerCase() : '';
@@ -224,7 +244,10 @@ export class LspProcessAdapter implements LspPort {
 
   // ---- 内部：服务器请求应答 ----
 
-  /** 尽量应答服务器 → 客户端请求，避免握手卡死。 */
+  /** 尽量应答服务器 → 客户端请求，避免握手卡死。
+   * @param method 服务器发来的请求方法名。
+   * @returns 该方法的最小合法应答（注册能力/配置/消息请求各给空实现），未知方法返回空对象。
+   */
   private answerServerRequest(method: string): unknown {
     if (method === 'client/registerCapability') {
       return {};
@@ -240,7 +263,10 @@ export class LspProcessAdapter implements LspPort {
 
   // ---- 内部：结果归一化 ----
 
-  /** LSP Location（0-based）→ 适配器 LspLocation（1-based）。 */
+  /** LSP Location（0-based）→ 适配器 LspLocation（1-based）。
+   * @param result 服务器原始返回（单个 Location、Location 数组或 null/undefined）。
+   * @returns 转换后的位置列表（URI 转回文件路径、坐标 +1）；非法条目被逐个剔除。
+   */
   private toLocations(result: unknown): LspLocation[] {
     if (result === null || result === undefined) {
       return [];
@@ -268,7 +294,10 @@ export class LspProcessAdapter implements LspPort {
     return out;
   }
 
-  /** 悬停返回值归一化：兼容 string / MarkupContent / MarkedString[] 三种形态。 */
+  /** 悬停返回值归一化：兼容 string / MarkupContent / MarkedString[] 三种形态。
+   * @param result textDocument/hover 的原始返回。
+   * @returns 拼接后的悬停文本（数组条目以换行相连）；无 contents 或形态不识别时为 undefined。
+   */
   private hoverText(result: unknown): string | undefined {
     if (result === null || typeof result !== 'object') {
       return undefined;

@@ -21,13 +21,17 @@ import { messageOf } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** 构造插件注册表的工厂（由命令继承链注入，避免命令类依赖继承链）。 */
-export type PluginRegistryFactory = (args: readonly string[], pluginsDir?: string) => PluginRegistry;
+export type PluginRegistryFactory = (
+  args: readonly string[],
+  pluginsDir?: string,
+) => PluginRegistry;
 
 /** plugin 用法提示。 */
 const USAGE =
   '用法: omniharness plugin load --file PATH [--allow PERM ...] | plugin list | plugin search [QUERY] | plugin install <name> | plugin remove <name>\n';
 
 export class PluginCommand {
+  /** 注入的注册表工厂（load/install 等动作经它解析插件源）。 */
   private readonly createRegistry: PluginRegistryFactory;
 
   /**

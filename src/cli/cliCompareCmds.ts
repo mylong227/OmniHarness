@@ -20,7 +20,11 @@ import { CliDataCmds } from './cliDataCmds.js';
 
 /** A/B 模型对比类子命令。 */
 export class CliCompareCmds extends CliDataCmds {
-  /** A/B 模型对比：同一 prompt 两个模型分别执行。 */
+  /**
+   * A/B 模型对比：同一 prompt 两个模型分别执行。
+   * @param args 子命令参数（--prompt 必填，--adapter-a/--adapter-b 等按侧取用）。
+   * @returns 进程退出码：缺 --prompt 为 2，成功为 0（结果含两侧模型名/耗时/答复）。
+   */
   protected async runCompare(args: readonly string[]): Promise<number> {
     const prompt = this.flagValue(args, '--prompt');
     if (prompt === undefined) {
@@ -41,7 +45,13 @@ export class CliCompareCmds extends CliDataCmds {
     return 0;
   }
 
-  /** 单侧运行。 */
+  /**
+   * 单侧运行。
+   * @param args 子命令参数（按后缀读取该侧 adapter/baseUrl/apiKey/model）。
+   * @param suffix 侧别后缀（'a' 或 'b'），用于拼接旗标名。
+   * @param prompt 对比用的同一任务提示词。
+   * @returns 该侧结果：模型名、耗时（ms）与最终答复。
+   */
   protected async runCompareSide(
     args: readonly string[],
     suffix: string,
@@ -58,7 +68,12 @@ export class CliCompareCmds extends CliDataCmds {
     };
   }
 
-  /** 构建单侧对比配置。 */
+  /**
+   * 构建单侧对比配置。
+   * @param args 子命令参数（按后缀读取该侧旗标）。
+   * @param suffix 侧别后缀（'a' 或 'b'），用于拼接旗标名。
+   * @returns 独立的对比配置（内存存储 + 自动审批 + 直通沙箱 + 静默事件）。
+   */
   protected async buildCompareConfig(
     args: readonly string[],
     suffix: string,

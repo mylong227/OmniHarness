@@ -28,7 +28,13 @@ import { CliNativeCmds } from './cliNativeCmds.js';
 
 /** 自主 / 编排 / 交互类子命令。 */
 export class CliAgentCmds extends CliNativeCmds {
-  /** 按模式分发：replay / resume / fork / runTask。 */ protected async execute(
+  /**
+   * 按模式分发：replay / resume / fork / runTask。
+   * @param agent 已装配运行时的 Agent 实例。
+   * @param args 解析后的 CLI 参数（replayId / resumeId / forkId 决定分支）。
+   * @returns 会话事件列表与结果摘要（sessionId 因模式而异）。
+   */
+  protected async execute(
     agent: Agent,
     args: CliArgs,
   ): Promise<{ events: readonly import('../ports/event.js').SessionEvent[]; summary: unknown }> {
@@ -45,7 +51,12 @@ export class CliAgentCmds extends CliNativeCmds {
     return this.runNew(agent, args);
   }
 
-  /** 新会话。 */
+  /**
+   * 新会话。
+   * @param agent 已装配运行时的 Agent 实例。
+   * @param args 解析后的 CLI 参数（prompt 作为任务输入）。
+   * @returns 会话事件列表与结果摘要。
+   */
   protected async runNew(
     agent: Agent,
     args: CliArgs,
@@ -54,7 +65,12 @@ export class CliAgentCmds extends CliNativeCmds {
     return { events: result.events, summary: this.summaryOf(result) };
   }
 
-  /** 续跑会话。 */
+  /**
+   * 续跑会话。
+   * @param agent 已装配运行时的 Agent 实例。
+   * @param args 解析后的 CLI 参数（resumeId 指定续跑的会话，prompt 为追加输入）。
+   * @returns 会话事件列表与结果摘要。
+   */
   protected async runResume(
     agent: Agent,
     args: CliArgs,
@@ -63,7 +79,12 @@ export class CliAgentCmds extends CliNativeCmds {
     return { events: result.events, summary: this.summaryOf(result) };
   }
 
-  /** 分叉会话。 */
+  /**
+   * 分叉会话。
+   * @param agent 已装配运行时的 Agent 实例。
+   * @param args 解析后的 CLI 参数（forkId 指定被分叉的会话，prompt 为新分支输入）。
+   * @returns 会话事件列表与结果摘要（写入新会话，原会话不变）。
+   */
   protected async runFork(
     agent: Agent,
     args: CliArgs,
@@ -72,7 +93,11 @@ export class CliAgentCmds extends CliNativeCmds {
     return { events: result.events, summary: this.summaryOf(result) };
   }
 
-  /** 结果摘要。 */
+  /**
+   * 结果摘要。
+   * @param result Agent 一次任务运行的结果。
+   * @returns 精简摘要（sessionId / finalText / steps），供 CLI 输出。
+   */
   protected summaryOf(result: AgentResult): unknown {
     return { sessionId: result.sessionId, finalText: result.finalText, steps: result.steps };
   }
@@ -80,6 +105,8 @@ export class CliAgentCmds extends CliNativeCmds {
   /**
    * goal：自主目标循环（#S30，对标 dsh goal/ralph）。
    * 用法: omniharness goal "<目标描述>" [--model-adapter ...] [--goal-max-iterations N]
+   * @param args 子命令参数（目标描述或 --goal 旗标、--goal-max-iterations 等）。
+   * @returns 进程退出码：目标描述缺失为 2，运行成功为 0。
    */
   protected async runGoal(args: readonly string[]): Promise<number> {
     const goal =
@@ -105,6 +132,8 @@ export class CliAgentCmds extends CliNativeCmds {
   /**
    * workflow：DAG 工作流编排（#S31，对标 dsh agent-team / workflow DAG）。
    * 用法: omniharness workflow --file workflow.json [--model-adapter ...]（并发闸门见 spec 的 maxConcurrency 字段）
+   * @param args 子命令参数（--file 指定工作流 JSON 定义）。
+   * @returns 进程退出码：缺 --file 为 2，文件读取/解析失败为 1，工作流失败为 1，成功为 0。
    */
   protected async runWorkflow(args: readonly string[]): Promise<number> {
     const file = this.flagValue(args, '--file');
@@ -131,7 +160,11 @@ export class CliAgentCmds extends CliNativeCmds {
     return result.ok ? 0 : 1;
   }
 
-  /** routines add|list|remove|run：定时任务管理（D3）。 */
+  /**
+   * routines add|list|remove|run：定时任务管理（D3）。
+   * @param routineArgs 子命令参数（首个 token 为子动作，其余按动作解析）。
+   * @returns 进程退出码：用法错误为 2，其余按动作结果为 0。
+   */
   protected async runRoutines(routineArgs: readonly string[]): Promise<number> {
     const scheduler = new RoutineScheduler();
     const sub = routineArgs[0];
@@ -211,7 +244,10 @@ export class CliAgentCmds extends CliNativeCmds {
     return 2;
   }
 
-  /** 真正执行单个定时任务（复用运行时装配跑一次 Agent）。 */
+  /**
+   * 真正执行单个定时任务（复用运行时装配跑一次 Agent）。
+   * @param routine 待执行的定时任务（modelAdapter 决定模型装配，prompt 作为任务输入）。
+   */
   protected async runRoutineOnce(routine: Routine): Promise<void> {
     const args: CliArgs = {
       ...CliDefaults,
@@ -226,7 +262,11 @@ export class CliAgentCmds extends CliNativeCmds {
     process.stdout.write(`${finalText.slice(0, 200)}\n`);
   }
 
-  /** 零依赖 TUI（#S35）：交互式会话（需 TTY；非 TTY 优雅降级）。 */
+  /**
+   * 零依赖 TUI（#S35）：交互式会话（需 TTY；非 TTY 优雅降级）。
+   * @param args 子命令参数（首参数为 demo 时进入演示回声模式）。
+   * @returns 进程退出码：非 TTY 或启动失败为 1，正常退出为 0。
+   */
   protected async runTui(args: readonly string[]): Promise<number> {
     if (!process.stdout.isTTY) {
       process.stdout.write(
@@ -257,6 +297,8 @@ export class CliAgentCmds extends CliNativeCmds {
   /**
    * eval：运行评估套件（C3 质量回归基准）。
    * 用法: omniharness eval [--suite PATH.json] [--out REPORT.json]
+   * @param args 子命令参数（--suite 指定套件 JSON，--out 指定报告落盘路径）。
+   * @returns 进程退出码：存在失败用例为 1，全部通过为 0。
    */
   protected async runEval(args: readonly string[]): Promise<number> {
     const suitePath = this.flagValue(args, '--suite');

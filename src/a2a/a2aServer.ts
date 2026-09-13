@@ -27,6 +27,11 @@ import {
 
 /** 任务委托处理器（由调用方注入：通常起一个本地子 agent 跑任务）。 */
 export interface TaskHandler {
+  /**
+   * 执行一次委托任务。
+   * @param request 委托请求（taskId / 输入 / 签名断言）。
+   * @returns 任务执行结果。
+   */
   handle(request: DelegateRequest): Promise<DelegateResult>;
 }
 
@@ -34,9 +39,15 @@ export interface TaskHandler {
  * A2A 服务端。
  */
 export class A2aServer {
+  /** 注入的任务委托处理器（未配置时 task.delegate fail-closed 报错）。 */
   private handler: TaskHandler | undefined;
+  /** 已登记的对端能力声明表（agentId → 声明）。 */
   private readonly declarations = new Map<string, A2aCapabilityDeclaration>();
 
+  /**
+   * @param transport 底层传输端口（监听入站 JSON-RPC 并回写响应）。
+   * @param identity 可选的 Agent 身份端口；提供时对所有入站请求强制 fail-closed 验签。
+   */
   public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
@@ -44,21 +55,36 @@ export class A2aServer {
     this.transport.onMessage((m) => void this.onMessage(m));
   }
 
-  /** 注入任务处理器（本地执行委托）。 */
+  /**
+   * 注入任务处理器（本地执行委托）。
+   * @param handler 任务委托处理器。
+   */
   public setTaskHandler(handler: TaskHandler): void {
     this.handler = handler;
   }
 
-  /** 查询已登记的对端能力声明。 */
+  /**
+   * 查询已登记的对端能力声明。
+   * @param agentId 对端 agent 标识。
+   * @returns 该对端最近一次声明；从未登记时返回 undefined。
+   */
   public getDeclaration(agentId: string): A2aCapabilityDeclaration | undefined {
     return this.declarations.get(agentId);
   }
 
-  /** 全部已登记声明。 */
+  /**
+   * 全部已登记声明。
+   * @returns 所有对端能力声明的快照（数组拷贝，与内部表解耦）。
+   */
   public get declarationsList(): readonly A2aCapabilityDeclaration[] {
     return [...this.declarations.values()];
   }
 
+  /**
+   * 处理入站 JSON-RPC 请求：dispatch 后按 id 回写响应；错误映射为
+   * UNAUTHORIZED / INVALID 错误响应（通知类无 id 时只吞错不回写）。
+   * @param message 入站 JSON-RPC 消息（非请求/通知则忽略）。
+   */
   private async onMessage(message: RpcMessage): Promise<void> {
     if (!('method' in message)) return; // 响应，忽略
     const id = 'id' in message ? message.id : null;
@@ -74,6 +100,12 @@ export class A2aServer {
     }
   }
 
+  /**
+   * 按 A2A 方法名分发：capabilities.declare 登记（可选验签）、task.delegate 转交 handler。
+   * @param method JSON-RPC 方法名。
+   * @param params 方法参数（声明或委托请求）。
+   * @returns 方法执行结果（如 { accepted: true } 或 DelegateResult）；未知方法、验签失败或缺 handler 时抛错。
+   */
   private async dispatch(method: string, params: unknown): Promise<unknown> {
     if (method === A2A_CAPABILITIES_DECLARE) {
       const decl = params as A2aCapabilityDeclaration;

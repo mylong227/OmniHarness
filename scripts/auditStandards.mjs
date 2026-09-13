@@ -229,12 +229,29 @@ function metricsForSource(text, fileName) {
       mainClass.toLowerCase().replace(/[^a-z]/g, '') === base.toLowerCase().replace(/[^a-z]/g, '')
     : true;
   const maxMethods = Math.max(0, ...classes.map((c) => c.methods));
-  // 口径（2026-09-12 修正）：「上帝类」是**类**的属性，故只统计**含类**的文件；
-  // 无类的纯函数模块按 check.mjs 的 800 行文件上限判定，不在此重复计数。
-  const godClass = classes.length > 0 && (lines > 500 || maxMethods > 25);
+  // 口径修正记录（D7，2026-09-13）：上帝类的行数判据由「原始行数」改为「代码行数」（剔注释与空行）。
+  // 原口径为什么错：P4.2/P4.3 补 JSDoc 是标准要求的标准动作，但注释行会把 500 行边的实现推过
+  // 上帝类阈值——度量在惩罚补文档（实测 openAiCompatibleModel/cliBuildConfig/oidcClient 三文件
+  // 因补注释 490→510 行被误判）。行数判据意在衡量**实现体量**，注释/空行不属于实现。
+  // 反例留档：commit 前后仅差注释行，逻辑零变化却被判上帝类。>25 方法判据不受影响。
+  let codeLines = 0;
+  for (const ln of text.split('\n')) {
+    const t = ln.trim();
+    if (
+      t === '' ||
+      t.startsWith('//') ||
+      t.startsWith('*') ||
+      t.startsWith('/*') ||
+      t.endsWith('*/')
+    )
+      continue;
+    codeLines++;
+  }
+  const godClass = classes.length > 0 && (codeLines > 500 || maxMethods > 25);
   return {
     file: fileName,
     lines,
+    codeLines,
     varCount,
     anyCount,
     classes,
@@ -399,19 +416,20 @@ console.log(
 );
 
 // 口径（2026-09-12 修正）：「上帝类」是**类**的属性，故只统计**含类**的文件。
+// 口径（D7，2026-09-13 修正）：行数判据用 codeLines（剔注释/空行），不惩罚补文档——见 metricsForSource 内留档。
 // 无类的纯函数模块按 check.mjs 的文件上限（800 行，决策 D1）判定，不在此重复计数——
 // 否则「一文件一类」达标、函数范式的模块会被误报成上帝类（实测已误报 layeredCodeGraph）。
-console.log('\n=== GOD CLASSES (含类文件 >500 lines OR class >25 methods) ===');
+console.log('\n=== GOD CLASSES (含类文件 codeLines>500 OR class >25 methods) ===');
 let classlessLong = 0;
-for (const r of report.slice().sort((a, b) => b.lines - a.lines)) {
+for (const r of report.slice().sort((a, b) => b.codeLines - a.codeLines)) {
   const maxM = Math.max(0, ...r.classes.map((c) => c.methods));
   if (r.classes.length === 0) {
     if (r.lines > 500) classlessLong += 1; // 仅计数，不属「上帝类」
     continue;
   }
-  if (r.lines > 500 || maxM > 25)
+  if (r.codeLines > 500 || maxM > 25)
     console.log(
-      r.lines +
+      r.codeLines +
         ' lines / ' +
         maxM +
         ' max-methods / ' +

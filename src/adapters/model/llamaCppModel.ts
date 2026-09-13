@@ -35,6 +35,7 @@ export interface LlamaCppConfig {
 export class LlamaCppModel implements ModelPort {
   /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
+  /** 适配器配置：本地服务基址、模型名与可选鉴权。 */
   private readonly config: LlamaCppConfig;
 
   public constructor(config: LlamaCppConfig) {
@@ -42,7 +43,10 @@ export class LlamaCppModel implements ModelPort {
     this.name = config.model;
   }
 
-  /** 非流式生成。 */
+  /** 非流式生成。
+   * @param request 模型请求（消息与工具规格）。
+   * @returns 解析后的统一输出（文本、工具调用与 token 用量）；非 2xx 时抛出结构化 ModelCallError。
+   */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(
       `${this.config.baseUrl}/api/chat`,
@@ -55,7 +59,13 @@ export class LlamaCppModel implements ModelPort {
     return this.parseOutput(body);
   }
 
-  /** 流式生成：Ollama 以换行分隔的 JSON 对象（NDJSON）推送，末条 done:true 收尾。 */
+  /** 流式生成：Ollama 以换行分隔的 JSON 对象（NDJSON）推送，末条 done:true 收尾。
+   * @param request 模型请求（消息与工具规格）。
+   * @param callbacks 流式回调集合：文本增量实时推送；工具调用去重合入后不逐段回调。
+   * @returns 流结束后的完整输出：文本按增量顺序拼接，工具调用跨片段合并（按函数名去重、
+   *          后到覆盖参数），usage 取最后一个含计数字段的片段。响应体缺失时降级为非流式 generate；
+   *          末尾无换行的残余 JSON 片段尽力解析，非法则忽略；非 2xx 时抛出结构化错误。
+   */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const response = await fetch(
       `${this.config.baseUrl}/api/chat`,
@@ -125,7 +135,12 @@ export class LlamaCppModel implements ModelPort {
     return output;
   }
 
-  /** 构造请求体。 */
+  /** 构造请求体。
+   * @param request 模型请求，提供消息与工具规格。
+   * @param stream true 表示 NDJSON 流式响应，false 表示一次性 JSON 响应。
+   * @returns 可直接交给 fetch 的 RequestInit（POST、JSON 请求体；配置了 apiKey 时附 Bearer 头，
+   *          signal 存在时透传以支持取消）。
+   */
   private buildRequest(request: ModelRequest, stream: boolean): RequestInit {
     const tools =
       request.tools.length > 0 ? request.tools.map((tool) => this.toOllamaTool(tool)) : undefined;
@@ -153,7 +168,10 @@ export class LlamaCppModel implements ModelPort {
     };
   }
 
-  /** 工具转 Ollama 原生格式（与 OpenAI 一致，但参数对象原样下发）。 */
+  /** 工具转 Ollama 原生格式（与 OpenAI 一致，但参数对象原样下发）。
+   * @param tool 统一工具规格。
+   * @returns Ollama tools 数组元素（type=function 嵌套结构）。
+   */
   private toOllamaTool(tool: ModelToolSpec): unknown {
     return {
       type: 'function',
@@ -165,7 +183,11 @@ export class LlamaCppModel implements ModelPort {
     };
   }
 
-  /** 把 Ollama 响应解析为统一输出。 */
+  /** 把 Ollama 响应解析为统一输出。
+   * @param body wire 层 JSON 响应。
+   * @returns 统一模型输出（文本、工具调用与用量）；用量由 prompt_eval_count / eval_count 合成，
+   *          两字段皆缺时不含 usage。
+   */
   private parseOutput(body: OllamaChatResponse): ModelOutput {
     const output: { text?: string; toolCalls?: ModelToolCallRef[]; usage?: ModelUsage } = {};
     const message = body.message;
@@ -188,7 +210,10 @@ export class LlamaCppModel implements ModelPort {
     return output;
   }
 
-  /** 把 Ollama 工具调用统一为 ModelToolCallRef（Ollama 不给 id，以函数名代替）。 */
+  /** 把 Ollama 工具调用统一为 ModelToolCallRef（Ollama 不给 id，以函数名代替）。
+   * @param call wire 层工具调用（arguments 兼容对象与 JSON 字符串两种形态）。
+   * @returns 统一工具调用引用；字符串参数经解析，非法回退空对象。
+   */
   private toToolCallRef(call: OllamaToolCall): ModelToolCallRef {
     const args =
       typeof call.function.arguments === 'string'
@@ -197,7 +222,10 @@ export class LlamaCppModel implements ModelPort {
     return { id: call.function.name, name: call.function.name, arguments: args };
   }
 
-  /** 流式工具调用增量合入（按函数名去重，后到覆盖参数）。 */
+  /** 流式工具调用增量合入（按函数名去重，后到覆盖参数）。
+   * @param target 跨片段累积的工具调用列表（就地修改）。
+   * @param calls 当前片段携带的工具调用集合；同名调用覆盖参数，新名追加条目。
+   */
   private mergeToolCalls(
     target: { id: string; name: string; arguments: Record<string, unknown> }[],
     calls: readonly OllamaToolCall[],
@@ -216,7 +244,10 @@ export class LlamaCppModel implements ModelPort {
     }
   }
 
-  /** 解析工具参数 JSON（容错：非法则回退空对象）。 */
+  /** 解析工具参数 JSON（容错：非法则回退空对象）。
+   * @param raw wire 层返回的参数 JSON 字符串。
+   * @returns 解析出的参数对象；JSON 非法或不是对象时返回空对象（不抛错）。
+   */
   private parseArguments(raw: string): Record<string, unknown> {
     try {
       const parsed: unknown = JSON.parse(raw);
@@ -228,7 +259,11 @@ export class LlamaCppModel implements ModelPort {
     }
   }
 
-  /** 从流式片段顶层提取 usage（Ollama 在 done 段返回 prompt_eval_count / eval_count）。 */
+  /** 从流式片段顶层提取 usage（Ollama 在 done 段返回 prompt_eval_count / eval_count）。
+   * @param chunk 当前 NDJSON 片段。
+   * @param prev 之前累积的用量，用于缺失字段的回填补齐。
+   * @returns 合成后的用量；本片段无任何计数字段时原样返回 prev。
+   */
   private usageFromChunk(
     chunk: OllamaChatStreamChunk,
     prev: ModelUsage | undefined,
@@ -241,7 +276,11 @@ export class LlamaCppModel implements ModelPort {
     return { promptTokens: prompt, completionTokens: completion, totalTokens: prompt + completion };
   }
 
-  /** 非 2xx 转结构化错误（5xx / 429 标可重试）。 */
+  /** 非 2xx 转结构化错误（5xx / 429 标可重试）。
+   * @param response fetch 返回的非 2xx 响应。
+   * @param label 错误消息前缀（区分普通生成与流式生成）。
+   * @returns 携带 status 与 retryable 标记的 ModelCallError（不抛出，由调用方决定）。
+   */
   private httpError(response: Response, label: string): ModelCallError {
     const status = response.status;
     const retryable = status === 429 || (status >= 500 && status <= 599);
