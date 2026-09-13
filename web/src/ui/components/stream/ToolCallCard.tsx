@@ -47,7 +47,8 @@ export class ToolCallCard extends AppComponent<ToolCallCardProps, ToolCallCardSt
     const toolName = (p.name as string) || 'tool';
     const description = describeToolCall(toolName, p.args);
     const errText = res && !res.ok && res.text ? res.text.replace(/^✗\s*/, '') : '';
-    const artifact = res && res.ok ? ArtifactResolver.fromTool(toolName, p.args) : null;
+    // 产物卡片：工具成功时解析出目标文件；草图类工具的路径由结果回执给出（故透传 res.text）。
+    const artifact = res && res.ok ? ArtifactResolver.fromTool(toolName, p.args, res.text) : null;
     return (
       <div className="ev tool_call">
         <div

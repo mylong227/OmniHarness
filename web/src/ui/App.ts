@@ -32,10 +32,10 @@ import { DetailTab } from './components/tabs/DetailTab.js';
 import { RollbackTab } from './components/tabs/RollbackTab.js';
 
 /** React.Component.setState 的首参类型（用于把 Partial 补丁桥接进去）。 */
-type ReactSetStateArg = Parameters<typeof ReactComponent.prototype.setState>[0];
+type ReactSetStateArg = Parameters<typeof React.Component.prototype.setState>[0];
 
 /** 应用根组件：消费容器控制器 AppController 的全部状态与回调，装配三栏布局树。 */
-export class App extends ReactComponent<Record<string, never>, AppState> implements AppHost {
+export class App extends React.Component<Record<string, never>, AppState> implements AppHost {
   /** 根状态容器控制器（组合根 / 门面）。 */
   private readonly controller: AppController;
 
