@@ -17,6 +17,7 @@ import { QECEncoder } from '../adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
 import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
+import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 
 import type { OmniHarnessConfig } from './configFactory.js';
 
@@ -41,6 +42,11 @@ export interface MemoryStack {
   readonly particleFilter: ParticleFilterBelief | undefined;
   /** (E, I-P1-2) 宇宙网记忆引擎（可选）：`memoryWeb` 或 U1 统一基板启用时构造。 */
   readonly web: CosmicWebPort | undefined;
+  /**
+   * repo-map 上下文引擎（P2.2 单例收敛）：组合根唯一构造点，经 `ResolvedConfig`
+   * 注入 `StepRunnerDeps`；进程内 TTL 缓存状态随实例走组合根生命周期。
+   */
+  readonly repoMapContext: RepoMapContextEngine;
 }
 
 /**
@@ -97,7 +103,9 @@ export function assembleMemoryStack(
   const memory = buildMemoryPort(partial);
   const annealer = buildAnnealer(partial, memory.port);
   const qecEncoder =
-    partial.qec?.enabled === true ? new QECEncoder(memory.port, { cols: partial.qec.cols }) : undefined;
+    partial.qec?.enabled === true
+      ? new QECEncoder(memory.port, { cols: partial.qec.cols })
+      : undefined;
   const immune =
     partial.immuneMonitoring?.enabled === true
       ? new ImmuneMonitor({ threshold: partial.immuneMonitoring.threshold })
@@ -120,6 +128,7 @@ export function assembleMemoryStack(
       naturalGradient: belief.naturalGradient,
       particleFilter: belief.particleFilter,
       web: memory.web,
+      repoMapContext: new RepoMapContextEngine(),
     },
     sparkInput: {
       resonance: memory.resonance,

@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // #OBS-9：步数耗尽兜底回归测试。
 //
 // 复现场景（2026-09-08 真机）：模型持续调用工具（探索/检索）而从不输出文本，
@@ -15,7 +16,12 @@ import { TurnRunner } from '../../src/core/turnRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort, ModelOutput, ModelRequest, ModelToolCallRef } from '../../src/ports/model.js';
+import type {
+  ModelPort,
+  ModelOutput,
+  ModelRequest,
+  ModelToolCallRef,
+} from '../../src/ports/model.js';
 import type { ToolPort } from '../../src/ports/tool.js';
 import type { ApprovalPort } from '../../src/ports/approval.js';
 import type { SandboxPort } from '../../src/ports/sandbox.js';
@@ -71,6 +77,7 @@ test('① 模型一直调工具：跑满 maxSteps 后兜底产出总结（不再
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's-obs9-1',
   });
@@ -99,6 +106,7 @@ test('② 模型正常收敛：不触发兜底，不额外多调一次模型', a
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's-obs9-2',
   });
@@ -130,6 +138,7 @@ test('③ 兜底调用失败时 fail-closed：不抛错、不阻断主流程', a
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's-obs9-3',
   });

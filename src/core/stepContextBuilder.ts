@@ -2,7 +2,6 @@ import type { SessionEvent } from '../ports/event.js';
 import type { ModelMessage } from '../ports/model.js';
 import type { ToolDefinition } from '../ports/tool.js';
 import { ContextAssembler } from '../context/contextAssembler.js';
-import { getRepoMapContext, getHybridRepoMapContext } from '../context/repoMapContextEngine.js';
 import { loadProjectInstructionsCached } from '../context/projectInstructions.js';
 import {
   type CompactionState,
@@ -166,14 +165,15 @@ export class StepContextBuilder {
    */
   private async buildRepoMapContext(q: string): Promise<string | null> {
     const root = this.deps.workspaceRoot!;
+    const engine = this.deps.repoMapContext;
     if (this.deps.embedding !== undefined) {
       try {
-        return await getHybridRepoMapContext(root, q, this.deps.embedding);
+        return await engine.getHybridRepoMapContext(root, q, this.deps.embedding);
       } catch {
         // 混合检索异常 → 回落纯 BM25（不应发生，getHybridRepoMapContext 自身已 fail-closed，双保险）。
-        return getRepoMapContext(root, q);
+        return engine.getRepoMapContext(root, q);
       }
     }
-    return getRepoMapContext(root, q);
+    return engine.getRepoMapContext(root, q);
   }
 }

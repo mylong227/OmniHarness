@@ -67,6 +67,3 @@ export class SkillRegistry implements SkillPort {
     return composed as Skill & { moire: MoireMeta };
   }
 }
-
-/** 默认实例（render 为无状态方法，调用点以 `skillRegistry.xxx` 零构造复用）。 */
-export const skillRegistry = new SkillRegistry();
