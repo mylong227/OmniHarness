@@ -36,6 +36,12 @@ resources/source_image_pool_comfybench/images/
 resources/source_image_pool_gpt/images/
 *.baiduyun.uploading.cfg
 
+# Node / Rust build outputs and dependencies (never commit)
+node_modules/
+target/
+**/target/
+*.node
+
 # Editors and operating systems
 .idea/
 .vscode/
