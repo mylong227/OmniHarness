@@ -34,41 +34,52 @@ export interface IsolatedVerdict<S> {
 }
 
 /**
- * 深冻结：递归冻结对象与数组（快照防篡改的结构保证）。
- * @param value 任意结构化克隆产物
- * @returns 同一引用（已逐层冻结）
- */
-export function deepFreeze<T>(value: T): T {
-  if (value !== null && typeof value === 'object') {
-    for (const key of Object.keys(value as Record<string, unknown>)) {
-      deepFreeze((value as Record<string, unknown>)[key]);
-    }
-    Object.freeze(value);
-  }
-  return value;
-}
-
-/**
- * 隔离评估一次：生成 → 结构化克隆 → 深冻结 → 评估。
+ * 隔离评估器：生成 → 结构化克隆 → 深冻结 → 评估（D9：class 形态，禁顶层函数）。
  * 评估器拿到的快照与生成方的活对象**零共享**；生成方此后对产物的任何修改不影响本次 verdict。
- *
- * @param options 生成器 / 可选投影 / 评估器
- * @returns verdict 与本次评估使用的冻结快照
- * @throws 产物不可结构化克隆时抛错（fail-closed：拒绝退回活引用评估）
  */
-export async function evaluateIsolated<G, S = G>(
-  options: IsolatedEvaluatorOptions<G, S>,
-): Promise<IsolatedVerdict<S>> {
-  const artifact = options.generate();
-  let snapshotValue: S;
-  try {
-    snapshotValue = structuredClone<S>(
-      options.project ? options.project(artifact) : (artifact as unknown as S),
-    );
-  } catch (err) {
-    throw new Error(`隔离评估失败：产物不可结构化克隆（拒绝活引用评估）: ${String(err)}`);
+export class IsolatedEvaluator<G, S = G> {
+  /** 评估配置（生成器/投影/评估器，构造期注入）。 */
+  private readonly options: IsolatedEvaluatorOptions<G, S>;
+
+  /**
+   * @param options 生成器 / 可选投影 / 评估器
+   */
+  public constructor(options: IsolatedEvaluatorOptions<G, S>) {
+    this.options = options;
   }
-  const frozen = deepFreeze(snapshotValue);
-  const verdict = await options.evaluate(frozen);
-  return { verdict, snapshot: frozen };
+
+  /**
+   * 执行一次隔离评估。
+   * @returns verdict 与本次评估使用的冻结快照
+   * @throws 产物不可结构化克隆时抛错（fail-closed：拒绝退回活引用评估）
+   */
+  public async run(): Promise<IsolatedVerdict<S>> {
+    const artifact = this.options.generate();
+    let snapshotValue: S;
+    try {
+      snapshotValue = structuredClone<S>(
+        this.options.project ? this.options.project(artifact) : (artifact as unknown as S),
+      );
+    } catch (err) {
+      throw new Error(`隔离评估失败：产物不可结构化克隆（拒绝活引用评估）: ${String(err)}`);
+    }
+    const frozen = this.deepFreeze(snapshotValue);
+    const verdict = await this.options.evaluate(frozen);
+    return { verdict, snapshot: frozen };
+  }
+
+  /**
+   * 深冻结：递归冻结对象与数组（快照防篡改的结构保证）。
+   * @param value 任意结构化克隆产物
+   * @returns 同一引用（已逐层冻结）
+   */
+  private deepFreeze<T>(value: T): T {
+    if (value !== null && typeof value === 'object') {
+      for (const key of Object.keys(value as Record<string, unknown>)) {
+        this.deepFreeze((value as Record<string, unknown>)[key]);
+      }
+      Object.freeze(value);
+    }
+    return value;
+  }
 }

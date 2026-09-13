@@ -14,7 +14,7 @@ import type { AgentPort, AgentResult } from '../ports/agent.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
 import { ContextWindowCatalog } from '../context/contextWindowCatalog.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
-import { sparsifySkills } from '../skill/skillSparsifier.js';
+import { SkillSparsifier } from '../skill/skillSparsifier.js';
 import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
 import { CancellationToken } from './loop/cancellationToken.js';
@@ -38,6 +38,11 @@ export class Agent implements AgentPort {
   private currentCancel: CancellationToken | undefined;
   /** 当前在跑会话的增量持久化器（V2）：供 buildTurnRunner 注入 TurnRunner。 */
   private currentPersister: EventPersister | undefined;
+  /** T5.4 技能稀疏化器（D9：class 形态；预算/豁免判据见 SkillSparsifier）。 */
+  private readonly skillSparsifier = new SkillSparsifier({
+    maxSkills: SKILL_SPARSE_MAX,
+    minKeepScore: SKILL_SPARSE_MIN_KEEP,
+  });
 
   public constructor(
     /** 运行时组合根：提供模型、工具、审批、沙箱、存储、事件总线等全部依赖。 */
@@ -245,10 +250,7 @@ export class Agent implements AgentPort {
     // T5.4 技能稀疏化：按命中强度保留 top-k（名字命中级强命中豁免），剪标签级弱命中长尾，
     // 降低上下文噪声；预算与豁免判据见 skillSparsifier（确定性，无随机源）。
     const matched = this.skills.match(prompt);
-    const sparse = sparsifySkills(matched, prompt.toLowerCase(), {
-      maxSkills: SKILL_SPARSE_MAX,
-      minKeepScore: SKILL_SPARSE_MIN_KEEP,
-    });
+    const sparse = this.skillSparsifier.sparsify(matched, prompt.toLowerCase());
     for (const skill of sparse.kept) {
       recorder.system(this.skills.render(skill));
     }

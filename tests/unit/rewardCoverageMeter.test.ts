@@ -9,9 +9,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CommandRewardProbe,
   RewardCoverageMeter,
-  instrumentCommandReward,
-  honestNote,
+  RewardCoverageReport,
   COVERAGE_THRESHOLD,
 } from '../../src/evolution/rewardCoverageMeter.js';
 
@@ -21,14 +21,14 @@ test('① 区分真判负与不可验证：verified-fail ≠ unverifiable:no-com
     { cmd: 'node bad.js', status: 1 }, // 真判负 0（可验证）
     { cmd: undefined, status: null }, // 不可验证 0
   ];
-  const instrumented = instrumentCommandReward(
+  const probe = new CommandRewardProbe(
     (c: unknown) => (c as { cmd: string | undefined }).cmd,
     undefined,
     (cmd) => ({ status: outcomes.find((o) => o.cmd === cmd)!.status }),
   );
-  const r1 = await instrumented({ cmd: 'node good.js' });
-  const r2 = await instrumented({ cmd: 'node bad.js' });
-  const r3 = await instrumented({ cmd: undefined });
+  const r1 = await probe.verify({ cmd: 'node good.js' });
+  const r2 = await probe.verify({ cmd: 'node bad.js' });
+  const r3 = await probe.verify({ cmd: undefined });
   assert.deepStrictEqual([r1.verifiable, r1.reward], [true, 1]);
   assert.deepStrictEqual([r2.verifiable, r2.reward], [true, 0], '真实失败也是有效判定（可验证）');
   assert.deepStrictEqual([r3.verifiable, r3.reward], [false, 0], '无命令 ≠ 判负');
@@ -41,7 +41,7 @@ test('② 覆盖率出数：混合样本精确计数', async () => {
   };
   const meter = new RewardCoverageMeter();
   const reward = meter.wrap(
-    instrumentCommandReward(
+    new CommandRewardProbe(
       (c: unknown) => (c as { cmd: string | undefined }).cmd,
       undefined,
       (cmd) => outcomes[cmd] ?? { status: null },
@@ -50,7 +50,7 @@ test('② 覆盖率出数：混合样本精确计数', async () => {
   await reward({ cmd: 'node a.js' }); // verified
   await reward({ cmd: 'node b.js' }); // verified
   await reward({ cmd: undefined }); // unverifiable
-  await reward({ cmd: 'node ghost.js' }); // spawn 桩回 status null → status ?? -1 → verified-fail? 不——桩给出 {status:null}，status ?? -1 = -1 → verified-fail
+  await reward({ cmd: 'node ghost.js' }); // 桩回 status null → ?? -1 → verified-fail（真实跑了）
   const rep = meter.report();
   assert.strictEqual(rep.samples, 4);
   assert.strictEqual(rep.verified, 3, '桩回 null 状态按退出码 -1 计 verified-fail（真实跑了）');
@@ -61,7 +61,7 @@ test('② 覆盖率出数：混合样本精确计数', async () => {
 test('②b 全不可验证：coverage 0 且诚实降级', async () => {
   const meter = new RewardCoverageMeter();
   const reward = meter.wrap(
-    instrumentCommandReward(
+    new CommandRewardProbe(
       () => undefined,
       undefined,
       () => ({ status: 0 }),
@@ -75,17 +75,17 @@ test('②b 全不可验证：coverage 0 且诚实降级', async () => {
 });
 
 test('③ 诚实降级表述：低于阈值降级、达标用达标措辞', () => {
-  assert.match(honestNote(0.3), /稀疏/);
-  assert.match(honestNote(0.3), /不得声称有效 RLVR/);
-  assert.match(honestNote(COVERAGE_THRESHOLD), /可用/);
-  assert.match(honestNote(1), /可用/);
+  assert.match(new RewardCoverageReport(10, 3).honestNote, /稀疏/);
+  assert.match(new RewardCoverageReport(10, 3).honestNote, /不得声称有效 RLVR/);
+  assert.match(new RewardCoverageReport(10, Math.ceil(10 * COVERAGE_THRESHOLD)).honestNote, /可用/);
+  assert.match(new RewardCoverageReport(10, 10).honestNote, /可用/);
 });
 
 test('④ 确定性：同输入重复体检 20 次报告完全一致', async () => {
   const run = async () => {
     const meter = new RewardCoverageMeter();
     const reward = meter.wrap(
-      instrumentCommandReward(
+      new CommandRewardProbe(
         (c: unknown) => (c as { cmd: string }).cmd,
         undefined,
         (cmd) => ({ status: cmd.includes('bad') ? 1 : 0 }),
@@ -103,8 +103,10 @@ test('④ 确定性：同输入重复体检 20 次报告完全一致', async () 
 
 test('⑤ wrap 兼容：异常样本 fail-closed 记 0 且计为不可验证（不假通过）', async () => {
   const meter = new RewardCoverageMeter();
-  const reward = meter.wrap(async () => {
-    throw new Error('runner exploded');
+  const reward = meter.wrap({
+    verify: async () => {
+      throw new Error('runner exploded');
+    },
   });
   assert.strictEqual(await reward({}), 0);
   const rep = meter.report();
