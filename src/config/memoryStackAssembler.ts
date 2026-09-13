@@ -18,6 +18,8 @@ import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
 import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
+import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
+import type { ScratchpadPort } from '../ports/scratchpad.js';
 
 import type { OmniHarnessConfig } from './configFactory.js';
 
@@ -47,6 +49,8 @@ export interface MemoryStack {
    * 注入 `StepRunnerDeps`；进程内 TTL 缓存状态随实例走组合根生命周期。
    */
   readonly repoMapContext: RepoMapContextEngine;
+  /** 跨重置便签（T3.4）：组合根构造，上下文重置后读回交接物恢复任务。 */
+  readonly scratchpad: ScratchpadPort;
 }
 
 /**
@@ -129,6 +133,7 @@ export function assembleMemoryStack(
       particleFilter: belief.particleFilter,
       web: memory.web,
       repoMapContext: new RepoMapContextEngine(),
+      scratchpad: new FileScratchpad(() => partial.workspaceRoot ?? process.cwd()),
     },
     sparkInput: {
       resonance: memory.resonance,

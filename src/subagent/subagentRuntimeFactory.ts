@@ -13,6 +13,7 @@ import { ToolDiscovery } from '../search/toolDiscovery.js';
 import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
+import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
 import { MemoryTodo } from '../adapters/todo/memoryTodo.js';
 import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
@@ -60,6 +61,7 @@ export class SubagentRuntimeFactory {
       retrieval: new Bm25MemoryIndex(),
       longTermMemory: ports.longTermMemory,
       repoMapContext: new RepoMapContextEngine(),
+      scratchpad: new FileScratchpad(() => ports.workspaceRoot),
       memoryExtractor: undefined,
       skillRegistry: new SkillRegistry(),
     };
