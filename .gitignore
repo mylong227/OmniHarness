@@ -42,3 +42,21 @@ resources/source_image_pool_gpt/images/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# OmniHarness runtime state and regenerable caches (machine-local, never commit)
+.omni/
+.omni-*/
+.omni_diag/
+.omniharness/
+.omniharness-kv.json
+omniharness.db
+
+# Machine-local runtime config that may hold credentials.
+# Keep omniharness.json.example tracked as the distributable template.
+omniharness.json
+
+# Local logs and ad-hoc diagnostics
+*.log
+
+# Pre-operation backups of the .git directory
+.git.bak.*
