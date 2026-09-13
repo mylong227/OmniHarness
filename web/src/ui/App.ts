@@ -1,7 +1,7 @@
 // 应用根组件：装配 OO 服务层（ApiClient / EventStream / ToastService）、路由 SSE 消息到共享状态、
 // 维护三栏布局与移动端抽屉、主题与 toast。所有 Tab 通过 React Context 取用 api / toast。
 
-import { html, React, ReactDOM } from './deps.js';
+import { React, ReactDOM } from './deps.js';
 import { AppContext } from './context.js';
 import type { AppContextValue } from './context.js';
 import type { ToastKind } from '../core/ToastService.js';
@@ -643,110 +643,126 @@ export function App(): ReactElement {
   let pane: ReactElement;
   switch (activePane) {
     case 'metrics':
-      pane = html`<${MetricsTab} />`;
+      pane = React.createElement(MetricsTab, null);
       break;
     case 'changes':
-      pane = html`<${ChangesTab} />`;
+      pane = React.createElement(ChangesTab, null);
       break;
     case 'rollback':
-      pane = html`<${RollbackTab} sessionId=${currentThreadId} onRolledBack=${loadThread} />`;
+      pane = React.createElement(RollbackTab, { sessionId: currentThreadId, onRolledBack: loadThread });
       break;
     case 'settings':
-      pane = html`<${SettingsTab} theme=${theme} onToggleTheme=${toggleTheme} />`;
+      pane = React.createElement(SettingsTab, { theme, onToggleTheme: toggleTheme });
       break;
     case 'plugins':
-      pane = html`<${PluginsTab} />`;
+      pane = React.createElement(PluginsTab, null);
       break;
     case 'graph':
-      pane = html`<${GraphTab} graphRuns=${graphRuns} onRunStart=${onRunStart} />`;
+      pane = React.createElement(GraphTab, { graphRuns, onRunStart });
       break;
     case 'memory':
-      pane = html`<${MemoryTab} reloadKey=${memoryReloadKey} />`;
+      pane = React.createElement(MemoryTab, { reloadKey: memoryReloadKey });
       break;
     case 'profiles':
-      pane = html`<${ProfilesTab} reloadKey=${profilesReloadKey} />`;
+      pane = React.createElement(ProfilesTab, { reloadKey: profilesReloadKey });
       break;
     case 'file':
-      pane = html`<${FileTab} fileView=${fileView} />`;
+      pane = React.createElement(FileTab, { fileView });
       break;
     case 'detail':
-      pane = html`<${DetailTab} detailEvent=${detailEvent} />`;
+      pane = React.createElement(DetailTab, { detailEvent });
       break;
     case 'tools':
     default:
-      pane = html`<${ToolsTab} toolItems=${toolItems} onShowTool=${onShowTool} />`;
+      pane = React.createElement(ToolsTab, { toolItems, onShowTool });
       break;
   }
 
-  return html`<${AppContext.Provider} value=${ctxValue}>
-    <div className="app">
-      <${TopBar}
-        connected=${connected}
-        adapter=${adapter}
-        onToggleTheme=${toggleTheme}
-        onToggleLeft=${toggleLeft}
-        onToggleRight=${toggleRight}
-        onCommandPalette=${() => setPaletteOpen(true)}
-      />
-      <div className="body">
-        <${NavRail} activePane=${activePane} onSelect=${setActivePane} />
-        <${SessionPanel}
-          sessions=${sessions}
-          currentThreadId=${currentThreadId}
-          onSelect=${loadThread}
-          onNew=${newSession}
-          onOpenFile=${openFile}
-          onWorkspaceSwitched=${() => void refreshSessions()}
-          open=${leftOpen}
-          style=${{ width: leftWidth + 'px' }}
-        />
-        <${Resizer}
-          side="left"
-          width=${leftWidth}
-          onChange=${onLeftWidthChange}
-        />
-        <${StreamView}
-          events=${events}
-          toolResults=${toolResults}
-          liveInputs=${liveInputs}
-          onEventClick=${showDetail}
-          onOpenFile=${openFile}
-          onSend=${send}
-          busy=${busy}
-          activeTool=${activeTool}
-          model=${model}
-          modelOptions=${modelOptions}
-          providerLabel=${providerLabel}
-          reasoning=${reasoning}
-          reasoningOptions=${reasoningOptions}
-          permission=${permission}
-          threadId=${currentThreadId}
-          onToast=${showToast}
-          onOpenTab=${openPane}
-          onLoadThread=${loadThread}
-          onModelChange=${changeModel}
-          onReasoningChange=${changeReasoning}
-          onPermissionChange=${changePermission}
-          api=${api}
-        />
-        <${Resizer}
-          side="right"
-          width=${rightWidth}
-          onChange=${onRightWidthChange}
-        />
-        <${RightPanel} activePane=${activePane} onSelect=${setActivePane} open=${rightOpen} style=${{ width: rightWidth + 'px' }}>
-          ${pane}
-        <//>
-      </div>
-      <${ApprovalModal} approval=${approval} onRespond=${respondApproval} onChangePermission=${() => openPane('settings')} />
-      <div className=${'drawer-backdrop' + (leftOpen || rightOpen ? ' show' : '')} onClick=${closeDrawers}></div>
-      <${CommandPalette} open=${paletteOpen} commands=${commands} onClose=${() => setPaletteOpen(false)} />
-      <${Toast} toast=${toastState} />
-    </div>
-  <//>`;
+  return React.createElement(
+    AppContext.Provider,
+    { value: ctxValue },
+    React.createElement(
+      'div',
+      { className: 'app' },
+      React.createElement(TopBar, {
+        connected,
+        adapter,
+        onToggleTheme: toggleTheme,
+        onToggleLeft: toggleLeft,
+        onToggleRight: toggleRight,
+        onCommandPalette: () => setPaletteOpen(true),
+      }),
+      React.createElement(
+        'div',
+        { className: 'body' },
+        React.createElement(NavRail, { activePane, onSelect: setActivePane }),
+        React.createElement(SessionPanel, {
+          sessions,
+          currentThreadId,
+          onSelect: loadThread,
+          onNew: newSession,
+          onOpenFile: openFile,
+          onWorkspaceSwitched: () => void refreshSessions(),
+          open: leftOpen,
+          style: { width: leftWidth + 'px' },
+        }),
+        React.createElement(Resizer, { side: 'left', width: leftWidth, onChange: onLeftWidthChange }),
+        React.createElement(StreamView, {
+          events,
+          toolResults,
+          liveInputs,
+          onEventClick: showDetail,
+          onOpenFile: openFile,
+          onSend: send,
+          busy,
+          activeTool,
+          model,
+          modelOptions,
+          providerLabel,
+          reasoning,
+          reasoningOptions,
+          permission,
+          threadId: currentThreadId,
+          onToast: showToast,
+          onOpenTab: openPane,
+          onLoadThread: loadThread,
+          onModelChange: changeModel,
+          onReasoningChange: changeReasoning,
+          onPermissionChange: changePermission,
+          api,
+        }),
+        React.createElement(Resizer, { side: 'right', width: rightWidth, onChange: onRightWidthChange }),
+        React.createElement(
+          RightPanel,
+          {
+            activePane,
+            onSelect: setActivePane,
+            open: rightOpen,
+            style: { width: rightWidth + 'px' },
+          },
+          pane,
+        ),
+      ),
+      React.createElement(ApprovalModal, {
+        approval,
+        onRespond: respondApproval,
+        onChangePermission: () => openPane('settings'),
+      }),
+      React.createElement('div', {
+        className: 'drawer-backdrop' + (leftOpen || rightOpen ? ' show' : ''),
+        onClick: closeDrawers,
+      }),
+      React.createElement(CommandPalette, {
+        open: paletteOpen,
+        commands,
+        onClose: () => setPaletteOpen(false),
+      }),
+      React.createElement(Toast, { toast: toastState }),
+    ),
+  );
 }
 
 // 挂载入口（由 main.ts 调用，便于独立测试）。
 export function mountApp(container: Element): void {
-  ReactDOM.createRoot(container).render(html`<${App} />`);
+  ReactDOM.createRoot(container).render(React.createElement(App, null));
 }

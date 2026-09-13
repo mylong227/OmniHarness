@@ -1,9 +1,14 @@
 // 纯函数工具层：vanilla 版中散落的字符串拼接与 innerHTML 注入，统一改写为返回 React 元素的纯函数。
 // 组件层调用这些函数，既保持视觉一致（复用同一套 CSS class），又避免直接操作 DOM。
 
-import { html, React } from './deps.js';
+import { React } from './deps.js';
 import type { ThreadEvent } from '../types/models.js';
 
+/**
+ * HTML 转义：把 `& < > " '` 五个字符转成实体，供纯文本安全地放进元素子节点。
+ * @param s 任意待转义值（非字符串先经 String() 归一化）。
+ * @returns 转义后的字符串。
+ */
 export function esc(s: unknown): string {
   return String(s ?? '').replace(/[&<>"']/g, (c) => {
     switch (c) {
@@ -34,11 +39,21 @@ const BADGE_MAP: Record<string, [string, string]> = {
   turn_diff: ['变更', 'b-turn_diff'],
 };
 
+/**
+ * 事件类型徽标：命中 `BADGE_MAP` 时用「中文标签 + 专属类」，未命中回退 `b-system`。
+ * @param type 事件类型字符串（如 `tool_call`）。
+ * @returns 徽标元素。
+ */
 export function badge(type: string): ReactElement {
   const m = BADGE_MAP[type] ?? [type, 'b-system'];
-  return html`<span className="badge ${m[1]}">${m[0]}</span>`;
+  return React.createElement('span', { className: 'badge ' + m[1] }, m[0]);
 }
 
+/**
+ * 时间戳转本地时间字符串；缺失或非法时间戳一律返回空串（不抛错）。
+ * @param ts 毫秒时间戳，可空。
+ * @returns `toLocaleTimeString()` 结果，或空串。
+ */
 export function timeOf(ts?: number): string {
   if (!ts) return '';
   try {
@@ -48,44 +63,78 @@ export function timeOf(ts?: number): string {
   }
 }
 
+/**
+ * 空状态插画占位（图标 + 主文案 + 副提示）。
+ * @param icon 图标字符或短文本。
+ * @param text 主文案。
+ * @param hint 副提示文案。
+ * @returns 空状态元素。
+ */
 export function emptyState(icon: string, text: string, hint: string): ReactElement {
-  return html`<div className="empty illu">
-    <div className="illu-icon">${icon}</div>
-    <div className="illu-text">${text}</div>
-    <div className="illu-hint">${hint}</div>
-  </div>`;
+  return React.createElement(
+    'div',
+    { className: 'empty illu' },
+    React.createElement('div', { className: 'illu-icon' }, icon),
+    React.createElement('div', { className: 'illu-text' }, text),
+    React.createElement('div', { className: 'illu-hint' }, hint),
+  );
 }
 
+/**
+ * 把任意值序列化为缩进 JSON，渲染进 `<pre class="json">`（内容已转义）。
+ * @param obj 待展示的任意值（对象 / 数组 / 原始值均可）。
+ * @returns 只读的 JSON 预览元素。
+ */
 export function jsonView(obj: unknown): ReactElement {
-  return html`<pre className="json">${esc(JSON.stringify(obj, null, 2))}</pre>`;
+  return React.createElement('pre', { className: 'json' }, esc(JSON.stringify(obj, null, 2)));
 }
 
-/** 模型向用户提问的只读渲染（当前环境自动返回默认值，UI 先展示问题内容）。 */
+/**
+ * 模型向用户提问的只读渲染（当前环境自动返回默认值，UI 先展示问题内容）。
+ * @param questions 提问数组，或单个提问对象 / 字符串。
+ * @returns 提问清单元素，选项按钮恒为 disabled（非交互式环境）。
+ */
 export function questionView(questions: unknown): ReactElement {
   const items = Array.isArray(questions) ? questions : [questions];
-  return html`<div className="question-list">
-    ${items.map((q, i) => {
-      const header = typeof q === 'object' && q !== null ? String((q as Record<string, unknown>).header ?? '') : '';
-      const text = typeof q === 'object' && q !== null ? String((q as Record<string, unknown>).question ?? '') : String(q);
-      const options = Array.isArray((q as Record<string, unknown>)?.options) ? ((q as Record<string, unknown>).options as Record<string, string>[]) : [];
-      return html`<div className="question-item" key=${i}>
-        ${header ? html`<div className="question-header">${esc(header)}</div>` : null}
-        <div className="question-text">${esc(text)}</div>
-        ${options.length > 0
-          ? html`<div className="question-options">
-              ${options.map(
-                (o, j) =>
-                  html`<button className="question-option" key=${j} disabled title="当前环境自动跳过提问">
-                    <span className="opt-label">${esc(o.label ?? '')}</span>
-                    ${o.description ? html`<span className="opt-desc">${esc(o.description)}</span>` : null}
-                  </button>`,
-              )}
-            </div>`
-          : null}
-      </div>`;
-    })}
-    <div className="question-note">当前非交互式环境，已自动返回默认值继续执行。</div>
-  </div>`;
+  // 选项列表：key 由外层传入前缀，避免同层兄弟节点 key 冲突。
+  const optionList = (options: Record<string, string>[], keyPrefix: string): ReactElement =>
+    React.createElement(
+      'div',
+      { className: 'question-options' },
+      ...options.map((o, j) =>
+        React.createElement(
+          'button',
+          {
+            key: `${keyPrefix}-o-${j}`,
+            className: 'question-option',
+            disabled: true,
+            title: '当前环境自动跳过提问',
+          },
+          React.createElement('span', { className: 'opt-label' }, esc(o.label ?? '')),
+          o.description ? React.createElement('span', { className: 'opt-desc' }, esc(o.description)) : null,
+        ),
+      ),
+    );
+  return React.createElement(
+    'div',
+    { className: 'question-list' },
+    ...items.map((q, i) => {
+      const rec = typeof q === 'object' && q !== null ? (q as Record<string, unknown>) : null;
+      const header = rec ? String(rec.header ?? '') : '';
+      const text = rec ? String(rec.question ?? '') : String(q);
+      const rawOptions: unknown = rec ? rec.options : undefined;
+      const options = Array.isArray(rawOptions) ? (rawOptions as Record<string, string>[]) : [];
+      const key = `q-${i}`;
+      return React.createElement(
+        'div',
+        { key, className: 'question-item' },
+        header ? React.createElement('div', { className: 'question-header' }, esc(header)) : null,
+        React.createElement('div', { className: 'question-text' }, esc(text)),
+        options.length > 0 ? optionList(options, key) : null,
+      );
+    }),
+    React.createElement('div', { className: 'question-note' }, '当前非交互式环境，已自动返回默认值继续执行。'),
+  );
 }
 
 const PERM_LABELS: Record<string, string> = {
@@ -104,41 +153,72 @@ const PERM_LABELS: Record<string, string> = {
 
 const DANGER_PERM = /delete|shell|exec|spawn|network|fs\.write/i;
 
+/**
+ * 把权限标识渲染为一枚 chip；命中危险权限正则时追加 `danger` 高亮。
+ * @param p 权限标识（如 `fs.write` / `shell`）。
+ * @returns 权限 chip 元素。
+ */
 export function permChip(p: string): ReactElement {
   const danger = DANGER_PERM.test(p);
   const label = PERM_LABELS[p] || p;
-  return html`<span
-    key=${p}
-    className=${'perm' + (danger ? ' danger' : '')}
-    title=${esc(p)}
-    >${esc(label)}</span
-  >`;
+  return React.createElement(
+    'span',
+    { key: p, className: 'perm' + (danger ? ' danger' : ''), title: esc(p) },
+    esc(label),
+  );
 }
 
+/**
+ * 待办清单渲染：按状态给圆点上 `done` / `doing` 修饰类。
+ * @param todos 待办项数组，每项含可选 status 与 content。
+ * @returns 待办卡片元素。
+ */
 export function todoView(todos: { status?: string; content?: string }[]): ReactElement {
-  return html`<div className="card"
-    >${todos.map(
-      (t, i) =>
-        html`<div className="todo-item" key=${i}>
-          <span
-            className=${'todo-dot ' + (t.status === 'done' ? 'done' : t.status === 'doing' ? 'doing' : '')}
-          ></span
-          ><span>${esc(t.content || '')}</span>
-        </div>`,
-    )}</div
-  >`;
+  const dotClass = (status?: string): string => {
+    if (status === 'done') return 'todo-dot done';
+    if (status === 'doing') return 'todo-dot doing';
+    return 'todo-dot ';
+  };
+  return React.createElement(
+    'div',
+    { className: 'card' },
+    ...todos.map((t, i) =>
+      React.createElement(
+        'div',
+        { key: `todo-${i}`, className: 'todo-item' },
+        React.createElement('span', { className: dotClass(t.status) }),
+        React.createElement('span', null, esc(t.content || '')),
+      ),
+    ),
+  );
 }
 
+/**
+ * 统一 diff 文本逐行染色：新增行 `add`、删除行 `del`、其余 `ctx`。
+ * @param diff 原始 unified diff 文本。
+ * @returns 差异行列表元素。
+ */
 export function diffView(diff: string): ReactElement {
-  return html`<div className="diff"
-    >${diff.split('\n').map((line, i) => {
-      if (line.startsWith('+')) return html`<span className="add" key=${i}>${esc(line)}</span>`;
-      if (line.startsWith('-')) return html`<span className="del" key=${i}>${esc(line)}</span>`;
-      return html`<span className="ctx" key=${i}>${esc(line)}</span>`;
-    })}</div
-  >`;
+  const lineClass = (line: string): string => {
+    if (line.startsWith('+')) return 'add';
+    if (line.startsWith('-')) return 'del';
+    return 'ctx';
+  };
+  return React.createElement(
+    'div',
+    { className: 'diff' },
+    ...diff
+      .split('\n')
+      .map((line, i) => React.createElement('span', { key: `dl-${i}`, className: lineClass(line) }, esc(line))),
+  );
 }
 
+/**
+ * 事件在折叠态的一行摘要（纯字符串，供列表标题使用）。
+ * @param ev 线程事件。
+ * @param p 事件 payload。
+ * @returns 摘要文本，按事件类型分别截断。
+ */
 export function detailSummary(
   ev: ThreadEvent,
   p: Record<string, unknown>,
@@ -285,6 +365,12 @@ function parseBlocks(src: string): MdBlock[] {
   return blocks;
 }
 
+/**
+ * 行内 Markdown 解析：反引号代码、`**`/`__` 粗体、`*`/`_` 斜体、`[x](url)` 链接。
+ * @param text 行内文本。
+ * @param keyPrefix 生成 React key 的前缀，保证同层唯一。
+ * @returns React 子节点数组（纯文本段与元素交替）。
+ */
 function parseInline(text: string, keyPrefix: string): ReactNode[] {
   const out: ReactNode[] = [];
   let i = 0;
@@ -372,10 +458,23 @@ function parseInline(text: string, keyPrefix: string): ReactNode[] {
   return out;
 }
 
+/**
+ * Markdown 标题层级映射：为避免与页面 h1/h2 抢语义，整体下移两级（h1→h3）。
+ * @param level 源码中的 `#` 个数（1–6）。
+ * @returns 实际渲染使用的标签名。
+ */
 function mdHeadingTag(level: number): 'h3' | 'h4' | 'h5' {
-  return level === 1 ? 'h3' : level === 2 ? 'h4' : 'h5';
+  if (level === 1) return 'h3';
+  if (level === 2) return 'h4';
+  return 'h5';
 }
 
+/**
+ * 单个 Markdown 块渲染为 React 元素。
+ * @param b 解析后的块。
+ * @param idx 块序号，用于生成稳定 key。
+ * @returns 该块对应的元素。
+ */
 function renderBlock(b: MdBlock, idx: number): ReactElement {
   const key = `b-${idx}`;
   switch (b.type) {
@@ -443,12 +542,23 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
         ),
       );
     default:
-      return html`<div key=${key}></div>`;
+      return React.createElement('div', { key });
   }
 }
 
+/**
+ * 把 Markdown 源码渲染为结构化元素（零依赖解析器，不使用 innerHTML）。
+ * @param src Markdown 源码，空串或空内容时返回 `md-empty` 占位。
+ * @returns Markdown 渲染结果元素。
+ */
 export function renderMarkdown(src: string): ReactElement {
   const blocks = parseBlocks(src || '');
-  if (blocks.length === 0) return html`<div className="md-content md-empty" spellCheck="false"></div>`;
-  return React.createElement('div', { className: 'md-content', key: 'md', spellCheck: 'false' }, ...blocks.map((b, i) => renderBlock(b, i)));
+  if (blocks.length === 0) {
+    return React.createElement('div', { className: 'md-content md-empty', spellCheck: 'false' });
+  }
+  return React.createElement(
+    'div',
+    { className: 'md-content', key: 'md', spellCheck: 'false' },
+    ...blocks.map((b, i) => renderBlock(b, i)),
+  );
 }

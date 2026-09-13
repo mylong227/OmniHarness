@@ -3,7 +3,7 @@
 // 只覆盖常见语言（js/ts/json/md/css/html/shell/python/yaml），未识别语言退化为纯文本。
 // 安全：始终先 esc() 再包 span，绝不直接注入原文（与项目「不用 innerHTML」铁律一致）。
 
-import { html, React } from './deps.js';
+import { React } from './deps.js';
 
 type Tok =
   | { t: 'comment'; v: string }
@@ -333,7 +333,8 @@ const CLS: Record<Tok['t'], string> = {
 
 /**
  * 把源码渲染成带高亮的 <pre><code>。lang 小写（js/ts/...）。空返回 null。
- * 安全：每个 token 都经过 esc() 转义后才放进 span。
+ * 安全：token 文本以 React 子节点形式输出（由 React 自动转义），全链路不走 innerHTML；
+ * 原注释声称「每个 token 都经过 esc() 转义」与实现不符，已更正。
  */
 export function highlightCode(src: string, lang: string): ReactElement | null {
   const text = src ?? '';
@@ -341,10 +342,16 @@ export function highlightCode(src: string, lang: string): ReactElement | null {
   const toks = tokenize(text, lang);
   const spans = toks.map((tk, idx) => {
     const cls = CLS[tk.t];
+    // 换行 token 必须显式带上 '\n' 子节点：原 htm 实现会丢弃纯空白文本节点，
+    // 导致 tokenizeMarkdown 产出的行尾换行全部丢失（md 代码块挤成一行）。
     if (tk.t === 'plain' && tk.v === '\n') {
-      return html`<span key=${idx}>\n</span>`;
+      return React.createElement('span', { key: idx }, '\n');
     }
-    return html`<span className=${cls} key=${idx}>${tk.v}</span>`;
+    return React.createElement('span', { key: idx, className: cls }, tk.v);
   });
-  return html`<pre className=${'hl-code' + (lang ? ' hl-' + lang : '')} spellCheck="false"><code>${spans}</code></pre>`;
+  return React.createElement(
+    'pre',
+    { className: 'hl-code' + (lang ? ' hl-' + lang : ''), spellCheck: 'false' },
+    React.createElement('code', null, spans),
+  );
 }
