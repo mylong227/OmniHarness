@@ -21,11 +21,13 @@ import type {
   ThreadEvent,
 } from '../../types/models.js';
 import type { CommandItem } from '../components/CommandPalette.js';
+import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
 import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.js';
 import { AppReducers } from './AppReducers.js';
 import { SessionController } from './SessionController.js';
 import { ComposerController } from './ComposerController.js';
 import { GraphController } from './GraphController.js';
+import { ShortcutActions } from './ShortcutActions.js';
 
 /** 应用根组件的全部 UI 状态（原 useAppController 的各 useState 合集）。 */
 export interface AppState {
@@ -92,11 +94,19 @@ export class AppController {
   private readonly host: AppHost;
   /** 共享服务与纯归约器集合（组合根注入）。 */
   private readonly services: AppServices;
-  /** 按职责拆出的子控制器（会话 / 输入框 / graph）。 */
-  private readonly children: { sessions: SessionController; composer: ComposerController; graph: GraphController };
+  /** 按职责拆出的子控制器与协作件（会话 / 输入框 / graph / 快捷键解析与执行）。 */
+  private readonly children: {
+    sessions: SessionController;
+    composer: ComposerController;
+    graph: GraphController;
+    /** 全局快捷键解析器（无状态）。 */
+    keyBindings: KeyboardShortcuts;
+    /** 快捷键动作执行器（回调由组合根注入）。 */
+    shortcuts: ShortcutActions;
+  };
   /** 命令面板命令集（构造时一次性计算）。 */
   public commands: CommandItem[];
-  /** 命令面板快捷键监听句柄（卸载时移除）。 */
+  /** 全局快捷键监听句柄（卸载时移除）。 */
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
   /** 会话子控制器（只读暴露给视图层）。 */
@@ -136,7 +146,19 @@ export class AppController {
     const sessions = new SessionController(this.host, this.services);
     const graph = new GraphController(this.host, this.services);
     const composer = new ComposerController(this.host, this.services, sessions);
-    this.children = { sessions, composer, graph };
+    this.children = {
+      sessions,
+      composer,
+      graph,
+      keyBindings: new KeyboardShortcuts(),
+      shortcuts: new ShortcutActions({
+        togglePalette: () => this.host.patch((s) => ({ paletteOpen: !s.paletteOpen })),
+        newSession: () => sessions.newSession(),
+        toggleLeft: () => this.toggleLeft(),
+        toggleRight: () => this.toggleRight(),
+        toggleTheme: () => this.toggleTheme(),
+      }),
+    };
     this.commands = this.buildCommands();
     // 绑定对外回调，保证作为 props 传递给子组件时 this 正确。
     this.setActivePane = this.setActivePane.bind(this);
@@ -217,10 +239,10 @@ export class AppController {
     };
     stream.connect();
     this.keyHandler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'k')) {
-        e.preventDefault();
-        this.host.patch((s) => ({ paletteOpen: !s.paletteOpen }));
-      }
+      const action = this.children.keyBindings.resolve(e);
+      if (!action) return;
+      e.preventDefault();
+      this.children.shortcuts.run(action);
     };
     window.addEventListener('keydown', this.keyHandler);
   }

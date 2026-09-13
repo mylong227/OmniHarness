@@ -28,6 +28,7 @@
 | [TECH_DIRECTION_SYNTHESIS_2026-09-12.md](TECH_DIRECTION_SYNTHESIS_2026-09-12.md) | **总体技术方向**：UCE 四公理（归一/守恒/演变/度量）+ T0–T6 七条主线 + 反泡沫清单。只论证"为什么"                                             |
 | [REFACTOR_BOARD_2026-09-12.md](REFACTOR_BOARD_2026-09-12.md)                     | 历史账：P/T 批次执行记录 + 决策日志（D1–D9 沿用）+ 度量口径权威（§1）                                                                        |
 | [UPGRADE_BOARD_2026-09-12.md](UPGRADE_BOARD_2026-09-12.md)                       | 历史账：U1–U7 框架升级批次记录                                                                                                               |
+| [llms.txt](llms.txt)                                                             | **面向 LLM / 自动化工具的机器可读索引**（llmstxt.org 规范）：只列权威入口与一句话职责，随 `docs/` 站点发布（站点根路径即 `/llms.txt`）       |
 
 ## 2. 参考手册（长期有效的契约与指南）
 

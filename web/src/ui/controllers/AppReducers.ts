@@ -12,6 +12,7 @@ import type {
   ThreadEvent,
 } from '../../types/models.js';
 import type { CommandItem } from '../components/CommandPalette.js';
+import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
 import type { LiveInput, SessionEntry, ToolItem, ToolResultView } from '../shared.js';
 
 /** 命令面板回调依赖（buildCommands 所需）。 */
@@ -27,6 +28,9 @@ export interface CommandDeps {
 
 /** 应用根组件的纯状态归约器：无状态、无 React 依赖，全部为可单测的纯方法。 */
 export class AppReducers {
+  /** 快捷键文案来源（与全局 keydown 解析共用同一份绑定表，杜绝提示与行为漂移）。 */
+  private readonly shortcuts = new KeyboardShortcuts();
+
   /**
    * 向事件流追加一条事件。
    * @param prev 既有事件流
@@ -295,11 +299,35 @@ export class AppReducers {
       },
     }));
     list.push(
-      { id: 'new-session', label: '新建会话', group: '会话', run: () => deps.newSession() },
+      {
+        id: 'new-session',
+        label: '新建会话',
+        group: '会话',
+        hint: this.shortcuts.label('newSession'),
+        run: () => deps.newSession(),
+      },
       { id: 'reload-sessions', label: '刷新会话列表', group: '会话', run: () => void deps.refreshSessions() },
-      { id: 'toggle-theme', label: '切换浅色 / 深色主题', group: '界面', run: () => deps.toggleTheme() },
-      { id: 'toggle-left', label: '切换会话面板', group: '界面', run: () => deps.toggleLeft() },
-      { id: 'toggle-right', label: '切换工具面板', group: '界面', run: () => deps.toggleRight() },
+      {
+        id: 'toggle-theme',
+        label: '切换浅色 / 深色主题',
+        group: '界面',
+        hint: this.shortcuts.label('toggleTheme'),
+        run: () => deps.toggleTheme(),
+      },
+      {
+        id: 'toggle-left',
+        label: '切换会话面板',
+        group: '界面',
+        hint: this.shortcuts.label('toggleLeft'),
+        run: () => deps.toggleLeft(),
+      },
+      {
+        id: 'toggle-right',
+        label: '切换工具面板',
+        group: '界面',
+        hint: this.shortcuts.label('toggleRight'),
+        run: () => deps.toggleRight(),
+      },
     );
     return list;
   }
