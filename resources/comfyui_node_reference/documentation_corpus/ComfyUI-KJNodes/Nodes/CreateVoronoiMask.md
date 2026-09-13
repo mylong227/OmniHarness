@@ -1,60 +1,69 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # Create Voronoi Mask
+
 ## Documentation
+
 - Class name: `CreateVoronoiMask`
 - Category: `KJNodes/masking/generate`
 - Output node: `False`
 
 The CreateVoronoiMask node is designed to generate dynamic Voronoi diagram-based masks. It utilizes parameters such as the number of points, line width, and speed to create evolving masks over a series of frames, allowing for the creation of complex and visually interesting patterns that can be used in various graphical applications.
+
 ## Input types
+
 ### Required
+
 - **`frames`**
-    - Specifies the number of frames over which the Voronoi mask will evolve, creating a dynamic sequence of masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of frames over which the Voronoi mask will evolve, creating a dynamic sequence of masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`num_points`**
-    - Determines the number of points used to generate the Voronoi diagram, directly affecting the complexity and appearance of the resulting mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of points used to generate the Voronoi diagram, directly affecting the complexity and appearance of the resulting mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`line_width`**
-    - Controls the thickness of the lines in the Voronoi diagram, influencing the visual style of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Controls the thickness of the lines in the Voronoi diagram, influencing the visual style of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`speed`**
-    - Adjusts the rate at which the points in the Voronoi diagram move, affecting the dynamic evolution of the mask over the frames.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the rate at which the points in the Voronoi diagram move, affecting the dynamic evolution of the mask over the frames.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`frame_width`**
-    - Sets the width of the frame for the mask, defining the horizontal dimension of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the width of the frame for the mask, defining the horizontal dimension of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`frame_height`**
-    - Sets the height of the frame for the mask, defining the vertical dimension of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the height of the frame for the mask, defining the vertical dimension of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The output is a tensor representing the generated Voronoi mask, suitable for use in graphical applications.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output is a tensor representing the generated Voronoi mask, suitable for use in graphical applications.
+  - Python dtype: `torch.Tensor`
 - **`mask_inverted`**
-    - Comfy dtype: `MASK`
-    - The output is a tensor representing the inverted Voronoi mask, providing an alternative visual pattern for use in graphical applications.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output is a tensor representing the inverted Voronoi mask, providing an alternative visual pattern for use in graphical applications.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CreateVoronoiMask:
-    
+
     RETURN_TYPES = ("MASK", "MASK",)
     RETURN_NAMES = ("mask", "mask_inverted",)
     FUNCTION = "createvoronoi"
@@ -71,21 +80,21 @@ class CreateVoronoiMask:
                  "frame_width": ("INT", {"default": 512,"min": 16, "max": 4096, "step": 1}),
                  "frame_height": ("INT", {"default": 512,"min": 16, "max": 4096, "step": 1}),
         },
-    } 
+    }
 
     def createvoronoi(self, frames, num_points, line_width, speed, frame_width, frame_height):
         from scipy.spatial import Voronoi
         # Define the number of images in the batch
         batch_size = frames
         out = []
-          
+
         # Calculate aspect ratio
         aspect_ratio = frame_width / frame_height
-        
+
         # Create start and end points for each point, considering the aspect ratio
         start_points = np.random.rand(num_points, 2)
         start_points[:, 0] *= aspect_ratio
-        
+
         end_points = np.random.rand(num_points, 2)
         end_points[:, 0] *= aspect_ratio
 

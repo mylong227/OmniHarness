@@ -1,37 +1,46 @@
 ---
 tags:
-- Image
-- ImageTransformation
+  - Image
+  - ImageTransformation
 ---
 
 # Image Stack Channels
+
 ## Documentation
+
 - Class name: `JWImageStackChannels`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node is designed to stack two image tensors along their channel dimension, effectively combining them into a single tensor that retains the information from both input images.
+
 ## Input types
+
 ### Required
+
 - **`image_a`**
-    - The first image tensor to be stacked. It plays a crucial role in the stacking operation as it is combined with the second image tensor to form a single output tensor.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The first image tensor to be stacked. It plays a crucial role in the stacking operation as it is combined with the second image tensor to form a single output tensor.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`image_b`**
-    - The second image tensor to be stacked alongside the first. Its combination with the first image tensor results in a new tensor that encapsulates the data from both images.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The second image tensor to be stacked alongside the first. Its combination with the first image tensor results in a new tensor that encapsulates the data from both images.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a single image tensor that results from stacking the two input image tensors along their channel dimension.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a single image tensor that results from stacking the two input image tensors along their channel dimension.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWImageStackChannels", "Image Stack Channels")
 class _:

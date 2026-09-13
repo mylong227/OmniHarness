@@ -1,29 +1,38 @@
 ---
 tags:
-- Preview
+  - Preview
 ---
 
 # 🔧 Mask Preview
+
 ## Documentation
+
 - Class name: `MaskPreview+`
 - Category: `essentials/mask`
 - Output node: `True`
 
 The MaskPreview node is designed for generating a preview image from a given mask. It reshapes and expands the mask to fit the image format, then saves the resulting image with a specified prefix, optionally incorporating additional PNG metadata and a prompt.
+
 ## Input types
+
 ### Required
+
 - **`mask`**
-    - The mask input is the primary data used for generating the preview image. It dictates the shape and content of the output image.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask input is the primary data used for generating the preview image. It dictates the shape and content of the output image.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskPreview(SaveImage):
     def __init__(self):

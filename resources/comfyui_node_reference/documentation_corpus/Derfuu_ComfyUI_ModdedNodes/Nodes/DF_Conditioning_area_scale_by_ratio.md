@@ -1,40 +1,49 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # Conditioning area scale by ratio
+
 ## Documentation
+
 - Class name: `DF_Conditioning_area_scale_by_ratio`
 - Category: `Derfuu_Nodes/Modded nodes/Conditions`
 - Output node: `False`
 
 This node is designed to adjust the scale of conditioning areas based on a specified ratio, modifying both the dimensions and strength of the conditioning to achieve a desired effect. It allows for dynamic resizing of conditioning areas, making it suitable for applications requiring precise control over the conditioning's influence on generated content.
+
 ## Input types
+
 ### Required
+
 - **`conditioning`**
-    - The conditioning input represents the current state of conditioning areas that will be scaled. It is crucial for determining the base dimensions and strength that will be modified.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[Tuple[torch.Tensor, Dict[str, Union[int, float, Tuple[int, int, int, int]]]]]`
+  - The conditioning input represents the current state of conditioning areas that will be scaled. It is crucial for determining the base dimensions and strength that will be modified.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[Tuple[torch.Tensor, Dict[str, Union[int, float, Tuple[int, int, int, int]]]]]`
 - **`modifier`**
-    - The modifier is a scaling factor that directly influences the size of the conditioning areas, allowing for proportional resizing.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The modifier is a scaling factor that directly influences the size of the conditioning areas, allowing for proportional resizing.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`strength_modifier`**
-    - This parameter adjusts the strength of the conditioning, enabling fine-tuning of its impact on the generation process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - This parameter adjusts the strength of the conditioning, enabling fine-tuning of its impact on the generation process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - Returns the conditioning with adjusted area sizes and strength, reflecting the applied scaling modifications.
-    - Python dtype: `List[Tuple[torch.Tensor, Dict[str, Union[int, float, Tuple[int, int, int, int]]]]]`
+  - Comfy dtype: `CONDITIONING`
+  - Returns the conditioning with adjusted area sizes and strength, reflecting the applied scaling modifications.
+  - Python dtype: `List[Tuple[torch.Tensor, Dict[str, Union[int, float, Tuple[int, int, int, int]]]]]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ConditioningAreaScale_Ratio:
     def __init__(self):

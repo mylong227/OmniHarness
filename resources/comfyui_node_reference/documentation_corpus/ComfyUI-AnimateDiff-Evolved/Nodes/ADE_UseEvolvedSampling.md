@@ -1,55 +1,65 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Use Evolved Sampling 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_UseEvolvedSampling`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②`
 - Output node: `False`
 
 The ADE_UseEvolvedSampling node integrates advanced sampling techniques into the animation diffusion process, leveraging evolved model sampling configurations to enhance the quality and efficiency of generated animations. It adapts the sampling process based on model configurations and dynamic conditions, aiming to optimize the animation output with respect to visual fidelity and computational performance.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model to be used in the animation diffusion process, affecting the overall quality and characteristics of the generated animations.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `Model`
+  - Specifies the model to be used in the animation diffusion process, affecting the overall quality and characteristics of the generated animations.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `Model`
 - **`beta_schedule`**
-    - Determines the beta schedule to be applied during the sampling process, influencing the smoothness and quality of the animation transitions.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `BetaSchedules.ALIAS_LIST`
+  - Determines the beta schedule to be applied during the sampling process, influencing the smoothness and quality of the animation transitions.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `BetaSchedules.ALIAS_LIST`
+
 ### Optional
+
 - **`m_models`**
-    - Optional. Provides additional models for consideration in the animation process, potentially enhancing the diversity and richness of the output.
-    - Comfy dtype: `M_MODELS`
-    - Python dtype: `list`
+  - Optional. Provides additional models for consideration in the animation process, potentially enhancing the diversity and richness of the output.
+  - Comfy dtype: `M_MODELS`
+  - Python dtype: `list`
 - **`context_options`**
-    - Optional. Defines context-specific options that can modify the behavior of the sampling process, tailoring it to specific requirements or preferences.
-    - Comfy dtype: `CONTEXT_OPTIONS`
-    - Python dtype: `dict`
+  - Optional. Defines context-specific options that can modify the behavior of the sampling process, tailoring it to specific requirements or preferences.
+  - Comfy dtype: `CONTEXT_OPTIONS`
+  - Python dtype: `dict`
 - **`sample_settings`**
-    - Optional. Specifies settings related to the sampling process, such as resolution and temporal adjustments, directly impacting the animation's visual quality.
-    - Comfy dtype: `SAMPLE_SETTINGS`
-    - Python dtype: `dict`
+  - Optional. Specifies settings related to the sampling process, such as resolution and temporal adjustments, directly impacting the animation's visual quality.
+  - Comfy dtype: `SAMPLE_SETTINGS`
+  - Python dtype: `dict`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The enhanced model instance, equipped with evolved sampling configurations for improved animation diffusion.
-    - Python dtype: `Model`
+  - Comfy dtype: `MODEL`
+  - The enhanced model instance, equipped with evolved sampling configurations for improved animation diffusion.
+  - Python dtype: `Model`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [KSampler](../../Comfy/Nodes/KSampler.md)
-    - [ToBasicPipe](../../ComfyUI-Impact-Pack/Nodes/ToBasicPipe.md)
-    - [SamplerCustom](../../Comfy/Nodes/SamplerCustom.md)
-    - [LCMScheduler](../../ComfyUI-sampler-lcm-alternative/Nodes/LCMScheduler.md)
-
-
+  - [KSampler](../../Comfy/Nodes/KSampler.md)
+  - [ToBasicPipe](../../ComfyUI-Impact-Pack/Nodes/ToBasicPipe.md)
+  - [SamplerCustom](../../Comfy/Nodes/SamplerCustom.md)
+  - [LCMScheduler](../../ComfyUI-sampler-lcm-alternative/Nodes/LCMScheduler.md)
 
 ## Source code
+
 ```python
 class UseEvolvedSamplingNode:
     @classmethod
@@ -66,7 +76,7 @@ class UseEvolvedSamplingNode:
                 #"beta_schedule_override": ("BETA_SCHEDULE",),
             }
         }
-    
+
     RETURN_TYPES = ("MODEL",)
     CATEGORY = "Animate Diff 🎭🅐🅓/② Gen2 nodes ②"
     FUNCTION = "use_evolved_sampling"
@@ -111,7 +121,7 @@ class UseEvolvedSamplingNode:
             new_model_sampling = BetaSchedules.to_model_sampling(beta_schedule, model)
             if new_model_sampling is not None:
                 model.add_object_patch("model_sampling", new_model_sampling)
-        
+
         del m_models
         return (model,)
 

@@ -1,41 +1,50 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # ControlLoraSave
+
 ## Documentation
+
 - Class name: `ControlLoraSave`
 - Category: `stability/controlnet`
 - Output node: `True`
 
 The ControlLoraSave node is designed to save the modified state of a model and its control network to a file, incorporating LoRA (Low-Rank Adaptation) adjustments. This process involves extracting and storing LoRA parameters from the model's and control network's state dictionaries, and saving them in a specified output directory.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model parameter represents the neural network model whose state is to be saved with LoRA adjustments. It is crucial for capturing the model's current configuration and modifications.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model parameter represents the neural network model whose state is to be saved with LoRA adjustments. It is crucial for capturing the model's current configuration and modifications.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`control_net`**
-    - The control_net parameter signifies the control network associated with the model, which is essential for extracting and applying LoRA adjustments to the model's parameters.
-    - Comfy dtype: `CONTROL_NET`
-    - Python dtype: `ControlNet`
+  - The control_net parameter signifies the control network associated with the model, which is essential for extracting and applying LoRA adjustments to the model's parameters.
+  - Comfy dtype: `CONTROL_NET`
+  - Python dtype: `ControlNet`
 - **`filename_prefix`**
-    - The filename_prefix parameter specifies the prefix for the output file names, allowing for organized storage and easy identification of saved models.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The filename_prefix parameter specifies the prefix for the output file names, allowing for organized storage and easy identification of saved models.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`rank`**
-    - The rank parameter determines the rank of the LoRA adjustments, influencing the granularity and extent of modifications applied to the model's parameters.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The rank parameter determines the rank of the LoRA adjustments, influencing the granularity and extent of modifications applied to the model's parameters.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ControlLoraSave:
     def __init__(self):

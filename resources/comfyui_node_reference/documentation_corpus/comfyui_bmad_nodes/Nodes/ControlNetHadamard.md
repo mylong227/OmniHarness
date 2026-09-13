@@ -1,44 +1,53 @@
 ---
 tags:
-- ControlNet
+  - ControlNet
 ---
 
 # ControlNetHadamard
+
 ## Documentation
+
 - Class name: `ControlNetHadamard`
 - Category: `Bmad/conditioning`
 - Output node: `False`
 
 This node applies a control network to a set of images and conditions, modulating the latter based on the control network's output and a specified strength. It's designed to integrate control network effects into image conditioning, allowing for dynamic adjustments to the conditioning process.
+
 ## Input types
+
 ### Required
+
 - **`conds`**
-    - The conditions to be modulated by the control network, representing the contextual or semantic guidance for image generation.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[Dict[str, Any]]`
+  - The conditions to be modulated by the control network, representing the contextual or semantic guidance for image generation.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[Dict[str, Any]]`
 - **`control_net`**
-    - The control network to be applied, determining the nature and extent of modulation on the conditions.
-    - Comfy dtype: `CONTROL_NET`
-    - Python dtype: `torch.nn.Module`
+  - The control network to be applied, determining the nature and extent of modulation on the conditions.
+  - Comfy dtype: `CONTROL_NET`
+  - Python dtype: `torch.nn.Module`
 - **`image`**
-    - The images to which the control network adjustments are applied, serving as the basis for condition modulation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The images to which the control network adjustments are applied, serving as the basis for condition modulation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`strength`**
-    - A scalar value determining the intensity of the control network's effect on the conditions, allowing for fine-tuned control over the modulation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scalar value determining the intensity of the control network's effect on the conditions, allowing for fine-tuned control over the modulation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - The modulated conditions, adjusted by the control network to reflect the desired changes.
-    - Python dtype: `List[Dict[str, Any]]`
+  - Comfy dtype: `CONDITIONING`
+  - The modulated conditions, adjusted by the control network to reflect the desired changes.
+  - Python dtype: `List[Dict[str, Any]]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ControlNetHadamard(nodes.ControlNetApply):
     @classmethod

@@ -1,52 +1,61 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # ConditioningSetMaskAndCombine3
+
 ## Documentation
+
 - Class name: `ConditioningSetMaskAndCombine3`
 - Category: `KJNodes/masking/conditioning`
 - Output node: `False`
 
 This node is designed to apply a set of masks to conditioning data, potentially modifying the conditioning area based on specified parameters, and then combine these conditioned elements into a single output. It focuses on enhancing or altering the conditioning process by applying multiple masks with varying strengths and areas, facilitating complex conditioning scenarios.
+
 ## Input types
+
 ### Required
+
 - **`positive_i`**
-    - Specifies a set of positive conditioning elements to be masked and combined. The strength and area of the mask applied to these elements can be adjusted, affecting the final conditioning output.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[torch.Tensor]`
+  - Specifies a set of positive conditioning elements to be masked and combined. The strength and area of the mask applied to these elements can be adjusted, affecting the final conditioning output.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[torch.Tensor]`
 - **`negative_i`**
-    - Specifies a set of negative conditioning elements to be masked and combined. Similar to positive inputs, the mask's strength and area settings influence the conditioning outcome.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[torch.Tensor]`
+  - Specifies a set of negative conditioning elements to be masked and combined. Similar to positive inputs, the mask's strength and area settings influence the conditioning outcome.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[torch.Tensor]`
 - **`mask_i`**
-    - The mask applied to the conditioning elements. It defines the area and intensity of the conditioning effect.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask applied to the conditioning elements. It defines the area and intensity of the conditioning effect.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`mask_i_strength`**
-    - Defines the strength of the mask applied to the conditioning elements, affecting the intensity of the conditioning.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the strength of the mask applied to the conditioning elements, affecting the intensity of the conditioning.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`set_cond_area`**
-    - Determines whether to set the conditioning area to the bounds of the mask or use a default setting, influencing how the mask is applied.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines whether to set the conditioning area to the bounds of the mask or use a default setting, influencing how the mask is applied.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`combined_positive`**
-    - Comfy dtype: `CONDITIONING`
-    - The combined result of positive conditioning elements after mask application and processing.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `CONDITIONING`
+  - The combined result of positive conditioning elements after mask application and processing.
+  - Python dtype: `List[torch.Tensor]`
 - **`combined_negative`**
-    - Comfy dtype: `CONDITIONING`
-    - The combined result of negative conditioning elements after mask application and processing.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `CONDITIONING`
+  - The combined result of negative conditioning elements after mask application and processing.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ConditioningSetMaskAndCombine3:
     @classmethod

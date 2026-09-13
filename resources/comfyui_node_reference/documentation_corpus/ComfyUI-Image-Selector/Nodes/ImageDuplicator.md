@@ -1,38 +1,47 @@
 ---
 tags:
-- Batch
-- Image
-- ImageDuplication
+  - Batch
+  - Image
+  - ImageDuplication
 ---
 
 # ImageDuplicator
+
 ## Documentation
+
 - Class name: `ImageDuplicator`
 - Category: `image`
 - Output node: `False`
 
 The ImageDuplicator node is designed to duplicate each image in a given batch, effectively increasing the number of images by replicating them. This node serves the purpose of augmenting the dataset or preparing the data for processes that require multiple instances of the same image.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The images to be duplicated. This parameter is crucial as it directly influences the node's operation by specifying which images are to be processed and duplicated.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The images to be duplicated. This parameter is crucial as it directly influences the node's operation by specifying which images are to be processed and duplicated.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`dup_times`**
-    - Specifies the number of times each image should be duplicated. This parameter controls the extent of duplication, thereby determining the total number of images produced by the node.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of times each image should be duplicated. This parameter controls the extent of duplication, thereby determining the total number of images produced by the node.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output of the node, consisting of the original images along with their duplicates, effectively increasing the total number of images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output of the node, consisting of the original images along with their duplicates, effectively increasing the total number of images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageDuplicator:
     """

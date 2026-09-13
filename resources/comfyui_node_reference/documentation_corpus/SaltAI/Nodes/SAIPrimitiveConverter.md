@@ -1,46 +1,57 @@
 ---
 tags:
-- DataTypeConversion
-- NumericConversion
+  - DataTypeConversion
+  - NumericConversion
 ---
 
 # Primitive Value Converter
+
 ## Documentation
+
 - Class name: `SAIPrimitiveConverter`
 - Category: `SALT/Utility/Conversion`
 - Output node: `False`
 
 The SAIPrimitiveConverter node is designed to facilitate the conversion of input values between different primitive data types, such as strings, lists, and dictionaries. It dynamically processes input based on specified output types and conditions, offering flexibility in handling various data structures and formats.
+
 ## Input types
+
 ### Required
+
 - **`input_value`**
-    - The raw input value to be converted. Its role is pivotal in determining the final output, as the conversion process adapts based on this value's type and content.
-    - Comfy dtype: `*`
-    - Python dtype: `Union[str, list, dict]`
+  - The raw input value to be converted. Its role is pivotal in determining the final output, as the conversion process adapts based on this value's type and content.
+  - Comfy dtype: `*`
+  - Python dtype: `Union[str, list, dict]`
 - **`output_type`**
-    - Specifies the desired type of the conversion output, such as 'LIST', 'DICT', or 'STRING', guiding the conversion process and determining the structure of the result.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the desired type of the conversion output, such as 'LIST', 'DICT', or 'STRING', guiding the conversion process and determining the structure of the result.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`sub_data_type`**
-    - An optional parameter that further specifies the type of the elements within the input value, enhancing the conversion accuracy for complex data structures.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - An optional parameter that further specifies the type of the elements within the input value, enhancing the conversion accuracy for complex data structures.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`index_or_key`**
-    - An optional parameter used to extract a specific element from the input value when converting to a 'STRING' type, based on either an index in a list or a key in a dictionary.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional parameter used to extract a specific element from the input value when converting to a 'STRING' type, based on either an index in a list or a key in a dictionary.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`output`**
-    - Comfy dtype: `*`
-    - The result of the conversion process, which can vary in type (e.g., list, dictionary, string) based on the specified output type and conditions of the input.
-    - Python dtype: `Union[list, dict, str]`
+  - Comfy dtype: `*`
+  - The result of the conversion process, which can vary in type (e.g., list, dictionary, string) based on the specified output type and conditions of the input.
+  - Python dtype: `Union[list, dict, str]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SAIPrimitiveConverter:
     @classmethod

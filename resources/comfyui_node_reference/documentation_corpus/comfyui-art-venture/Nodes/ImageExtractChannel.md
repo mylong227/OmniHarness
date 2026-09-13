@@ -1,37 +1,46 @@
 ---
 tags:
-- Color
-- ColorChannelManipulation
+  - Color
+  - ColorChannelManipulation
 ---
 
 # Image Extract Channel
+
 ## Documentation
+
 - Class name: `ImageExtractChannel`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 This node is designed to extract a specific channel (Red, Green, Blue, or Alpha) from a given set of images. It allows for the manipulation and analysis of individual color channels, which can be crucial for various image processing tasks, such as creating masks or isolating color components.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The images from which a specific channel will be extracted. This input is crucial for determining the source images to be processed.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The images from which a specific channel will be extracted. This input is crucial for determining the source images to be processed.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`channel`**
-    - Specifies the color channel (Red, Green, Blue, or Alpha) to be extracted from the images. This choice directly affects the output by isolating the desired channel.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the color channel (Red, Green, Blue, or Alpha) to be extracted from the images. This choice directly affects the output by isolating the desired channel.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`channel_data`**
-    - Comfy dtype: `MASK`
-    - The extracted channel data from the input images, provided as a mask. This output is useful for further image processing or analysis tasks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The extracted channel data from the input images, provided as a mask. This output is useful for further image processing or analysis tasks.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilImageExtractChannel:
     @classmethod

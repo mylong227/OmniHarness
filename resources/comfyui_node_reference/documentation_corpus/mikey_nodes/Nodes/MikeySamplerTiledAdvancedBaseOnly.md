@@ -1,93 +1,104 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # Mikey Sampler Tiled Advanced Base Only
+
 ## Documentation
+
 - Class name: `MikeySamplerTiledAdvancedBaseOnly`
 - Category: `Mikey/Sampling`
 - Output node: `False`
 
 This node is designed for advanced tiled sampling without the need for smooth steps or a refiner. It focuses on generating or processing images in a tiled manner, optimizing for scenarios where seamless integration of tiles is crucial without additional refinement steps.
+
 ## Input types
+
 ### Required
+
 - **`base_model`**
-    - Specifies the base model used for sampling, setting the foundation for the generation process.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Specifies the base model used for sampling, setting the foundation for the generation process.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`samples`**
-    - The initial latent samples to be processed or refined through the sampling process.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - The initial latent samples to be processed or refined through the sampling process.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`vae`**
-    - The variational autoencoder used alongside the base model to process or refine samples.
-    - Comfy dtype: `VAE`
-    - Python dtype: `torch.nn.Module`
+  - The variational autoencoder used alongside the base model to process or refine samples.
+  - Comfy dtype: `VAE`
+  - Python dtype: `torch.nn.Module`
 - **`positive_cond_base`**
-    - Positive conditioning for the base model to guide the sampling towards desired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Positive conditioning for the base model to guide the sampling towards desired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`negative_cond_base`**
-    - Negative conditioning for the base model to steer the sampling away from undesired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Negative conditioning for the base model to steer the sampling away from undesired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`model_name`**
-    - The name of the model, typically used to identify different models within a framework or library.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - The name of the model, typically used to identify different models within a framework or library.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`seed`**
-    - Seed for random number generation, ensuring reproducibility across sampling runs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Seed for random number generation, ensuring reproducibility across sampling runs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`denoise_image`**
-    - Specifies the degree of denoising applied to the image, affecting the clarity and quality of the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the degree of denoising applied to the image, affecting the clarity and quality of the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`steps`**
-    - The number of steps to run in the sampling process, affecting the detail and quality of the generated image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of steps to run in the sampling process, affecting the detail and quality of the generated image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Controls the conditioning factor, influencing the generation's adherence to the given conditions.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the conditioning factor, influencing the generation's adherence to the given conditions.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sampler_name`**
-    - The name of the sampler used, affecting the diversity and quality of generated samples.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The name of the sampler used, affecting the diversity and quality of generated samples.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - The scheduler used to manage the sampling process, impacting the progression and variation of samples.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The scheduler used to manage the sampling process, impacting the progression and variation of samples.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`upscale_by`**
-    - The factor by which the image is upscaled, affecting the resolution and detail of the final output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The factor by which the image is upscaled, affecting the resolution and detail of the final output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`tiler_denoise`**
-    - Specifies the degree of denoising applied to each tile, affecting the consistency and quality of the tiled output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the degree of denoising applied to each tile, affecting the consistency and quality of the tiled output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`tile_size`**
-    - Defines the size of each tile in the generated image, affecting the granularity of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the size of each tile in the generated image, affecting the granularity of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`image_optional`**
-    - An optional image input that can be used to influence the sampling process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Optional[torch.Tensor]`
+  - An optional image input that can be used to influence the sampling process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Optional[torch.Tensor]`
+
 ## Output types
+
 - **`output_image`**
-    - Comfy dtype: `IMAGE`
-    - The generated image after the tiled sampling process, reflecting the combined influence of all input parameters.
-    - Python dtype: `PIL.Image`
+  - Comfy dtype: `IMAGE`
+  - The generated image after the tiled sampling process, reflecting the combined influence of all input parameters.
+  - Python dtype: `PIL.Image`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MikeySamplerTiledAdvancedBaseOnly:
     # there is no step skipped, so no smooth steps are required

@@ -1,67 +1,76 @@
 # Upper Body Tracking From PoseKps (InstanceDiffusion)
+
 ## Documentation
+
 - Class name: `UpperBodyTrackingFromPoseKps`
 - Category: `ControlNet Preprocessors/Pose Keypoint Postprocess`
 - Output node: `False`
 
 This node is designed to process pose keypoints for upper body tracking, extracting and formatting specific body parts such as the torso, arms, and face from pose detection results. It enhances the keypoints data by appending additional points for completeness and accuracy, particularly for facial features, and compiles the results into structured pose results for further analysis or visualization.
+
 ## Input types
+
 ### Required
+
 - **`pose_kps`**
-    - The input pose keypoints, which are essential for identifying and tracking the upper body parts in images or video frames. This data includes body, hands, and face keypoints along with their scores.
-    - Comfy dtype: `POSE_KEYPOINT`
-    - Python dtype: `List[ndarray]`
+  - The input pose keypoints, which are essential for identifying and tracking the upper body parts in images or video frames. This data includes body, hands, and face keypoints along with their scores.
+  - Comfy dtype: `POSE_KEYPOINT`
+  - Python dtype: `List[ndarray]`
 - **`id_include`**
-    - An optional string to include specific IDs in the tracking process, allowing for targeted analysis of pose keypoints.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional string to include specific IDs in the tracking process, allowing for targeted analysis of pose keypoints.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`Head_width_height`**
-    - Specifies the width and height for the head part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the head part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`Neck_width_height`**
-    - Specifies the width and height for the neck part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the neck part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`Shoulder_width_height`**
-    - Specifies the width and height for the shoulder part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the shoulder part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`Torso_width_height`**
-    - Specifies the width and height for the torso part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the torso part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`RArm_width_height`**
-    - Specifies the width and height for the right arm part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the right arm part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`RForearm_width_height`**
-    - Specifies the width and height for the right forearm part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the right forearm part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`LArm_width_height`**
-    - Specifies the width and height for the left arm part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the left arm part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`LForearm_width_height`**
-    - Specifies the width and height for the left forearm part, used in calculating dimensions for tracking.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the width and height for the left forearm part, used in calculating dimensions for tracking.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`tracking`**
-    - Comfy dtype: `TRACKING`
-    - Structured data representing the tracking of upper body parts, including detailed information about body keypoints, hands, and face, along with their respective scores.
-    - Python dtype: `str`
+  - Comfy dtype: `TRACKING`
+  - Structured data representing the tracking of upper body parts, including detailed information about body keypoints, hands, and face, along with their respective scores.
+  - Python dtype: `str`
 - **`prompt`**
-    - Comfy dtype: `STRING`
-    - A textual prompt or summary generated based on the tracking results, providing insights or conclusions from the analysis.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - A textual prompt or summary generated based on the tracking results, providing insights or conclusions from the analysis.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UpperBodyTrackingFromPoseKps:
     PART_NAMES = ["Head", "Neck", "Shoulder", "Torso", "RArm", "RForearm", "LArm", "LForearm"]

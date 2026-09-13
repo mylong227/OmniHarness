@@ -1,42 +1,51 @@
 ---
 tags:
-- Mask
-- MaskEnhancement
-- MaskRegion
+  - Mask
+  - MaskEnhancement
+  - MaskRegion
 ---
 
 # Arbitrary Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskArbitaryRegion`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node applies a filter to mask arbitrary regions within given masks based on specified size and threshold parameters. It enables the customization of mask regions for various applications, such as image segmentation or object isolation.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks on which the arbitrary region filtering is applied. This parameter is crucial for defining the areas to be processed.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks on which the arbitrary region filtering is applied. This parameter is crucial for defining the areas to be processed.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`size`**
-    - Specifies the size parameter for the arbitrary region filter, affecting the scale of the regions to be filtered within the masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the size parameter for the arbitrary region filter, affecting the scale of the regions to be filtered within the masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`threshold`**
-    - Determines the threshold for the arbitrary region filtering, influencing which parts of the mask are considered for processing.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the threshold for the arbitrary region filtering, influencing which parts of the mask are considered for processing.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output is a modified mask where arbitrary regions have been filtered according to the specified size and threshold.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output is a modified mask where arbitrary regions have been filtered according to the specified size and threshold.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskArbitaryRegion:
     @classmethod

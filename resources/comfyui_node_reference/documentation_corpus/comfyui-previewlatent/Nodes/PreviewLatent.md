@@ -1,33 +1,42 @@
 ---
 tags:
-- Latent
-- LatentPreview
+  - Latent
+  - LatentPreview
 ---
 
 # Preview Latent
+
 ## Documentation
+
 - Class name: `PreviewLatent`
 - Category: `latent`
 - Output node: `True`
 
 The PreviewLatent node provides a mechanism to generate visual previews of latent representations. It leverages a base model and optional parameters to produce images that visually represent the encoded information within a latent space.
+
 ## Input types
+
 ### Required
+
 - **`latent`**
-    - The latent representation to be visualized. This is the core input for generating the preview image.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The latent representation to be visualized. This is the core input for generating the preview image.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - Returns the same latent input, allowing for potential further processing or analysis.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - Returns the same latent input, allowing for potential further processing or analysis.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PreviewLatent(PreviewLatentAdvanced):
     @classmethod

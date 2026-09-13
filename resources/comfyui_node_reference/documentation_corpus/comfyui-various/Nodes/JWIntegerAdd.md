@@ -1,37 +1,46 @@
 ---
 tags:
-- DataTypeConversion
-- MathematicalFunctions
+  - DataTypeConversion
+  - MathematicalFunctions
 ---
 
 # Integer Add
+
 ## Documentation
+
 - Class name: `JWIntegerAdd`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 The JWIntegerAdd node performs the addition of two integer values, providing a simple arithmetic operation within the node network.
+
 ## Input types
+
 ### Required
+
 - **`a`**
-    - The first integer value to be added. It plays a crucial role in determining the outcome of the addition operation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The first integer value to be added. It plays a crucial role in determining the outcome of the addition operation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`b`**
-    - The second integer value to be added. It contributes equally to the result of the addition operation alongside the first integer.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The second integer value to be added. It contributes equally to the result of the addition operation alongside the first integer.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`int`**
-    - Comfy dtype: `INT`
-    - The result of adding the two input integers. This output represents the sum of the inputs.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The result of adding the two input integers. This output represents the sum of the inputs.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
         @register_node(identifier, display_name)
         class _:

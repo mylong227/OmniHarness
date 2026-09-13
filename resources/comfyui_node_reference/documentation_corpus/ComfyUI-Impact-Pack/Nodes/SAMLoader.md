@@ -1,45 +1,53 @@
 ---
 tags:
-- SAM
+  - SAM
 ---
 
 # SAMLoader (Impact)
+
 ## Documentation
+
 - Class name: `SAMLoader`
 - Category: `ImpactPack`
 - Output node: `False`
 
 The SAMLoader node is designed to dynamically load and manage different types of SAM (Spatial Attention Model) models, including ESAM (Efficient SAM) and various Vision Transformer (ViT) models. It handles model initialization, device allocation (CPU or GPU), and ensures the necessary dependencies and extensions are installed for specific model types.
+
 ## Input types
+
 ### Required
+
 - **`model_name`**
-    - Specifies the name of the SAM model to be loaded. This can include 'ESAM' for Efficient SAM models or names indicating different Vision Transformer models like 'vit_h', 'vit_l', 'vit_b'.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the SAM model to be loaded. This can include 'ESAM' for Efficient SAM models or names indicating different Vision Transformer models like 'vit_h', 'vit_l', 'vit_b'.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`device_mode`**
-    - Determines the device (CPU or GPU) on which the model will be loaded and run, with support for automatic device selection based on the model's requirements and system capabilities.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the device (CPU or GPU) on which the model will be loaded and run, with support for automatic device selection based on the model's requirements and system capabilities.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`sam_model`**
-    - Comfy dtype: `SAM_MODEL`
-    - Returns the loaded SAM model, ready for further operations such as inference. The model is wrapped in a SAMWrapper or ESAMWrapper, depending on the model type, to facilitate device management and prediction.
-    - Python dtype: `Union[SAMWrapper, ESAMWrapper]`
+  - Comfy dtype: `SAM_MODEL`
+  - Returns the loaded SAM model, ready for further operations such as inference. The model is wrapped in a SAMWrapper or ESAMWrapper, depending on the model type, to facilitate device management and prediction.
+  - Python dtype: `Union[SAMWrapper, ESAMWrapper]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [FaceDetailer](../../ComfyUI-Impact-Pack/Nodes/FaceDetailer.md)
-    - [ToDetailerPipe](../../ComfyUI-Impact-Pack/Nodes/ToDetailerPipe.md)
-    - [SAMDetectorCombined](../../ComfyUI-Impact-Pack/Nodes/SAMDetectorCombined.md)
-    - [ToDetailerPipeSDXL](../../ComfyUI-Impact-Pack/Nodes/ToDetailerPipeSDXL.md)
-    - Reroute
-    - [ImpactSimpleDetectorSEGS](../../ComfyUI-Impact-Pack/Nodes/ImpactSimpleDetectorSEGS.md)
-    - [ImpactSimpleDetectorSEGS_for_AD](../../ComfyUI-Impact-Pack/Nodes/ImpactSimpleDetectorSEGS_for_AD.md)
-    - [GroundingDinoSAMSegment (segment anything)](../../comfyui_segment_anything/Nodes/GroundingDinoSAMSegment (segment anything).md)
-
-
+  - [FaceDetailer](../../ComfyUI-Impact-Pack/Nodes/FaceDetailer.md)
+  - [ToDetailerPipe](../../ComfyUI-Impact-Pack/Nodes/ToDetailerPipe.md)
+  - [SAMDetectorCombined](../../ComfyUI-Impact-Pack/Nodes/SAMDetectorCombined.md)
+  - [ToDetailerPipeSDXL](../../ComfyUI-Impact-Pack/Nodes/ToDetailerPipeSDXL.md)
+  - Reroute
+  - [ImpactSimpleDetectorSEGS](../../ComfyUI-Impact-Pack/Nodes/ImpactSimpleDetectorSEGS.md)
+  - [ImpactSimpleDetectorSEGS_for_AD](../../ComfyUI-Impact-Pack/Nodes/ImpactSimpleDetectorSEGS_for_AD.md)
+  - [GroundingDinoSAMSegment (segment anything)](../../comfyui_segment_anything/Nodes/GroundingDinoSAMSegment (segment anything).md)
 
 ## Source code
+
 ```python
 class SAMLoader:
     @classmethod
@@ -74,7 +82,7 @@ class SAMLoader:
 
             sam_obj = core.ESAMWrapper(esam, device_mode)
             esam.sam_wrapper = sam_obj
-            
+
             print(f"Loads EfficientSAM model: (device:{device_mode})")
             return (esam, )
 

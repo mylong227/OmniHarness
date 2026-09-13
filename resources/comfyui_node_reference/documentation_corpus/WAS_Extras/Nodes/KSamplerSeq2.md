@@ -1,140 +1,149 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # KSampler Sequence (v2)
+
 ## Documentation
+
 - Class name: `KSamplerSeq2`
 - Category: `sampling`
 - Output node: `False`
 
 KSamplerSeq2 is designed for advanced sequence-based sampling in generative models, allowing for complex conditioning, noise manipulation, and latent space operations. It supports iterative sampling with customizable denoising, latent interpolation, and conditioning strategies to generate high-quality samples.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the generative model to be used for sampling. It is crucial for defining the architecture and parameters that will generate the output.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - Specifies the generative model to be used for sampling. It is crucial for defining the architecture and parameters that will generate the output.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`seed`**
-    - Determines the initial random seed for sampling, enabling reproducibility and variation in the generated sequences.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the initial random seed for sampling, enabling reproducibility and variation in the generated sequences.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`seed_mode_seq`**
-    - Controls how the seed value changes across sequence iterations, affecting the diversity and coherence of the generated samples.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Controls how the seed value changes across sequence iterations, affecting the diversity and coherence of the generated samples.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`alternate_values`**
-    - Enables or disables the alternation of certain parameters between sequence iterations, introducing variability in the sampling process.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables or disables the alternation of certain parameters between sequence iterations, introducing variability in the sampling process.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`steps`**
-    - Defines the number of steps to be taken in the sampling process, impacting the detail and quality of the generated samples.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the number of steps to be taken in the sampling process, impacting the detail and quality of the generated samples.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Sets the configuration for the sampling process, influencing the balance between fidelity to the input conditions and creativity.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the configuration for the sampling process, influencing the balance between fidelity to the input conditions and creativity.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sampler_name`**
-    - Selects the specific sampling algorithm to be used, affecting the characteristics of the generated samples.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Selects the specific sampling algorithm to be used, affecting the characteristics of the generated samples.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - Chooses the scheduling algorithm for controlling the sampling process, impacting the progression and quality of samples.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Chooses the scheduling algorithm for controlling the sampling process, impacting the progression and quality of samples.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`frame_count`**
-    - Specifies the total number of frames to be generated in the sequence, affecting the overall length and complexity of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the total number of frames to be generated in the sequence, affecting the overall length and complexity of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cond_keyframes`**
-    - Determines the number of keyframes for conditioning, influencing the variation and transitions in the generated sequence.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of keyframes for conditioning, influencing the variation and transitions in the generated sequence.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`positive_seq`**
-    - Specifies the positive conditioning sequence for the sampling, guiding the generative model towards desired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[Tuple[int, torch.Tensor]]`
+  - Specifies the positive conditioning sequence for the sampling, guiding the generative model towards desired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[Tuple[int, torch.Tensor]]`
 - **`negative_seq`**
-    - Specifies the negative conditioning sequence for the sampling, steering the generative model away from undesired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[Tuple[int, torch.Tensor]]`
+  - Specifies the negative conditioning sequence for the sampling, steering the generative model away from undesired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[Tuple[int, torch.Tensor]]`
 - **`use_conditioning_slerp`**
-    - Enables spherical linear interpolation for conditioning, allowing for smooth transitions between conditions in the sequence.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables spherical linear interpolation for conditioning, allowing for smooth transitions between conditions in the sequence.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`cond_slerp_strength`**
-    - Controls the strength of the conditioning spherical linear interpolation, affecting the smoothness of condition transitions.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the strength of the conditioning spherical linear interpolation, affecting the smoothness of condition transitions.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`latent_image`**
-    - Provides the initial latent image for the sampling process, serving as the starting point for generation.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - Provides the initial latent image for the sampling process, serving as the starting point for generation.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`use_latent_interpolation`**
-    - Enables latent space interpolation between steps, introducing smooth transitions and variations in the generated sequence.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables latent space interpolation between steps, introducing smooth transitions and variations in the generated sequence.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`latent_interpolation_mode`**
-    - Determines the method of latent space interpolation, affecting the nature of transitions between generated samples.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Determines the method of latent space interpolation, affecting the nature of transitions between generated samples.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`latent_interp_strength`**
-    - Controls the strength of latent space interpolation, influencing the degree of variation between sequence steps.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the strength of latent space interpolation, influencing the degree of variation between sequence steps.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`denoise_start`**
-    - Sets the initial denoising level for the sampling process, impacting the clarity and quality of the generated samples.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the initial denoising level for the sampling process, impacting the clarity and quality of the generated samples.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`denoise_seq`**
-    - Specifies the denoising level for subsequent steps in the sequence, allowing for dynamic adjustment of clarity.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the denoising level for subsequent steps in the sequence, allowing for dynamic adjustment of clarity.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`unsample_latents`**
-    - Determines whether to unsample latents during the sequence generation, affecting the detail and quality of the output.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether to unsample latents during the sequence generation, affecting the detail and quality of the output.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`inject_noise`**
-    - Enables the injection of noise into the latent space, introducing variability and texture to the generated samples.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables the injection of noise into the latent space, introducing variability and texture to the generated samples.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`noise_strength`**
-    - Specifies the strength of the noise to be injected, controlling the amount of variability introduced.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the strength of the noise to be injected, controlling the amount of variability introduced.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`denoise_sine`**
-    - Enables sine wave modulation of the denoise parameter, creating dynamic changes in clarity throughout the sequence.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables sine wave modulation of the denoise parameter, creating dynamic changes in clarity throughout the sequence.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`denoise_max`**
-    - Sets the maximum denoising level achievable through sine wave modulation, defining the upper limit of clarity.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the maximum denoising level achievable through sine wave modulation, defining the upper limit of clarity.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`seed_keying`**
-    - Enables seed keying to vary the seed based on specific conditions or modes, introducing further variability.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables seed keying to vary the seed based on specific conditions or modes, introducing further variability.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`seed_keying_mode`**
-    - Specifies the mode of seed keying, affecting how the seed changes throughout the sequence.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the mode of seed keying, affecting how the seed changes throughout the sequence.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`seed_divisor`**
-    - Determines the divisor used in modulo seed keying, influencing the frequency of seed changes.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the divisor used in modulo seed keying, influencing the frequency of seed changes.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - Represents the final generated sample or sequence of samples, encapsulating the result of the complex sampling process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `LATENT`
+  - Represents the final generated sample or sequence of samples, encapsulating the result of the complex sampling process.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class KSamplerSeq2:
 
@@ -194,14 +203,14 @@ class KSamplerSeq2:
             return random.randint(0, 0xffffffffffffffff)
         elif seed_mode == "fixed":
             return seed
-    
+
     def alternate_seed_modulo(self, current, seed, divisor):
         if current % divisor == 0:
             new_seed = (seed + current) % 0xffffffffffffffff
         else:
             new_seed = seed
         return new_seed
-    
+
     def alternate_seed_sine(self, current, start_seed, divisor):
         seed = 1000 * np.sin(2 * math.pi * current / divisor) + start_seed
         return seed
@@ -212,18 +221,18 @@ class KSamplerSeq2:
         cycle_position = (math.pi * 2 * curent) / total
         current_denoise = amplitude * math.sin(cycle_position) + mid_point
         return current_denoise
-    
+
     def inject_noise(self, latent_image, noise_strength):
         noise = torch.randn_like(latent_image) * noise_strength
         return latent_image + noise
 
-    def sample(self, model, seed, seed_mode_seq, alternate_values, steps, cfg, sampler_name, scheduler, 
-               frame_count, cond_keyframes, positive_seq, negative_seq, cond_slerp_strength, latent_image, 
-               use_latent_interpolation, latent_interpolation_mode, latent_interp_strength, denoise_start=1.0, 
-               denoise_seq=0.5, use_conditioning_slerp=False, unsample_latents=False, alternate_mode=False, 
-               inject_noise=True, noise_strength=0.1, denoise_sine=True, denoise_max=0.9, seed_keying=True, 
+    def sample(self, model, seed, seed_mode_seq, alternate_values, steps, cfg, sampler_name, scheduler,
+               frame_count, cond_keyframes, positive_seq, negative_seq, cond_slerp_strength, latent_image,
+               use_latent_interpolation, latent_interpolation_mode, latent_interp_strength, denoise_start=1.0,
+               denoise_seq=0.5, use_conditioning_slerp=False, unsample_latents=False, alternate_mode=False,
+               inject_noise=True, noise_strength=0.1, denoise_sine=True, denoise_max=0.9, seed_keying=True,
                seed_keying_mode="sine", seed_divisor=4):
-        
+
         if not isinstance(positive_seq, list):
             positive_seq = [positive_seq]
         if not isinstance(negative_seq, list):

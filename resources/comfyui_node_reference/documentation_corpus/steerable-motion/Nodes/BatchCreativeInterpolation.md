@@ -1,141 +1,152 @@
 ---
 tags:
-- AnimationScheduling
-- FrameInterpolation
-- VisualEffects
+  - AnimationScheduling
+  - FrameInterpolation
+  - VisualEffects
 ---
 
 # Batch Creative Interpolation 🎞️🅢🅜
+
 ## Documentation
+
 - Class name: `BatchCreativeInterpolation`
 - Category: `Steerable-Motion`
 - Output node: `False`
 
 The Batch Creative Interpolation node is designed to facilitate the generation and manipulation of frame sequences in a batch processing manner. It leverages advanced interpolation techniques to creatively adjust and enhance video frames, enabling dynamic frame rate conversion, motion smoothing, and the introduction of novel visual effects. This node is particularly useful in applications requiring high-quality video processing, animation, and effects generation, where frame-by-frame control and precision are paramount.
+
 ## Input types
+
 ### Required
+
 - **`positive`**
-    - Specifies the positive conditioning input, used to guide the interpolation process towards desired outcomes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[str]`
+  - Specifies the positive conditioning input, used to guide the interpolation process towards desired outcomes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[str]`
 - **`negative`**
-    - Specifies the negative conditioning input, used to steer the interpolation process away from undesired outcomes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `List[str]`
+  - Specifies the negative conditioning input, used to steer the interpolation process away from undesired outcomes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `List[str]`
 - **`images`**
-    - Specifies the images to be interpolated, serving as the basis for generating new frames within the sequence.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - Specifies the images to be interpolated, serving as the basis for generating new frames within the sequence.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`model`**
-    - Defines the model to be used for the interpolation process, central to generating the interpolated frames.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Defines the model to be used for the interpolation process, central to generating the interpolated frames.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`ipadapter`**
-    - Defines the IP adapter used for processing, crucial for integrating with different image processing pipelines.
-    - Comfy dtype: `IPADAPTER`
-    - Python dtype: `str`
+  - Defines the IP adapter used for processing, crucial for integrating with different image processing pipelines.
+  - Comfy dtype: `IPADAPTER`
+  - Python dtype: `str`
 - **`clip_vision`**
-    - Provides the CLIP vision model input, aiding in the contextual understanding and guidance of the interpolation process.
-    - Comfy dtype: `CLIP_VISION`
-    - Python dtype: `str`
+  - Provides the CLIP vision model input, aiding in the contextual understanding and guidance of the interpolation process.
+  - Comfy dtype: `CLIP_VISION`
+  - Python dtype: `str`
 - **`type_of_frame_distribution`**
-    - Determines the method for distributing frames, whether linearly or dynamically, to control the pacing of frame generation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Determines the method for distributing frames, whether linearly or dynamically, to control the pacing of frame generation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`linear_frame_distribution_value`**
-    - Specifies the value for linear frame distribution, influencing the uniformity of frame spacing.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the value for linear frame distribution, influencing the uniformity of frame spacing.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`dynamic_frame_distribution_values`**
-    - Defines dynamic values for frame distribution, allowing for variable pacing and timing across the sequence.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Defines dynamic values for frame distribution, allowing for variable pacing and timing across the sequence.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`type_of_key_frame_influence`**
-    - Selects the method for key frame influence, impacting how key frames affect the interpolation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Selects the method for key frame influence, impacting how key frames affect the interpolation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`linear_key_frame_influence_value`**
-    - Sets the linear influence value of key frames, determining their impact on the interpolation process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Sets the linear influence value of key frames, determining their impact on the interpolation process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`dynamic_key_frame_influence_values`**
-    - Specifies dynamic influence values for key frames, offering nuanced control over their effect.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies dynamic influence values for key frames, offering nuanced control over their effect.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`type_of_strength_distribution`**
-    - Chooses the method for distributing strength, affecting the intensity of interpolation effects.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Chooses the method for distributing strength, affecting the intensity of interpolation effects.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`linear_strength_value`**
-    - Determines the linear strength value, controlling the overall intensity of the interpolation.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Determines the linear strength value, controlling the overall intensity of the interpolation.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`dynamic_strength_values`**
-    - Provides dynamic strength values, allowing for varied intensity levels throughout the sequence.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Provides dynamic strength values, allowing for varied intensity levels throughout the sequence.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`buffer`**
-    - Sets the buffer size for processing, optimizing performance and resource utilization.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the buffer size for processing, optimizing performance and resource utilization.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`high_detail_mode`**
-    - Enables or disables high detail mode, affecting the quality and detail of the interpolated frames.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables or disables high detail mode, affecting the quality and detail of the interpolated frames.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`base_ipa_advanced_settings`**
-    - unknown
-    - Comfy dtype: `ADVANCED_IPA_SETTINGS`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `ADVANCED_IPA_SETTINGS`
+  - Python dtype: `unknown`
 - **`detail_ipa_advanced_settings`**
-    - unknown
-    - Comfy dtype: `ADVANCED_IPA_SETTINGS`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `ADVANCED_IPA_SETTINGS`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`GRAPH`**
-    - Comfy dtype: `IMAGE`
-    - Provides a graphical representation of the interpolation process, detailing key frame positions and interpolation paths.
-    - Python dtype: `str`
+  - Comfy dtype: `IMAGE`
+  - Provides a graphical representation of the interpolation process, detailing key frame positions and interpolation paths.
+  - Python dtype: `str`
 - **`POSITIVE`**
-    - Comfy dtype: `CONDITIONING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `CONDITIONING`
+  - unknown
+  - Python dtype: `unknown`
 - **`NEGATIVE`**
-    - Comfy dtype: `CONDITIONING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `CONDITIONING`
+  - unknown
+  - Python dtype: `unknown`
 - **`MODEL`**
-    - Comfy dtype: `MODEL`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `MODEL`
+  - unknown
+  - Python dtype: `unknown`
 - **`KEYFRAME_POSITIONS`**
-    - Comfy dtype: `STRING`
-    - Lists the positions of key frames within the interpolated sequence, crucial for understanding frame distribution.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `STRING`
+  - Lists the positions of key frames within the interpolated sequence, crucial for understanding frame distribution.
+  - Python dtype: `List[int]`
 - **`BATCH_SIZE`**
-    - Comfy dtype: `INT`
-    - Indicates the number of frames processed in a single batch, relevant for performance optimization.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - Indicates the number of frames processed in a single batch, relevant for performance optimization.
+  - Python dtype: `int`
 - **`BUFFER`**
-    - Comfy dtype: `INT`
-    - Specifies the buffer size used during processing, affecting memory usage and computational efficiency.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - Specifies the buffer size used during processing, affecting memory usage and computational efficiency.
+  - Python dtype: `int`
 - **`FRAMES_TO_DROP`**
-    - Comfy dtype: `STRING`
-    - Identifies frames that were dropped during the interpolation process, useful for quality control and adjustment.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `STRING`
+  - Identifies frames that were dropped during the interpolation process, useful for quality control and adjustment.
+  - Python dtype: `List[int]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchCreativeInterpolationNode:
     @classmethod
     def IS_CHANGED(cls, **kwargs):
         return float("NaN")
-    
+
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -147,16 +158,16 @@ class BatchCreativeInterpolationNode:
                 "ipadapter": ("IPADAPTER", ),
                 "clip_vision": ("CLIP_VISION",),
                 "type_of_frame_distribution": (["linear", "dynamic"],),
-                "linear_frame_distribution_value": ("INT", {"default": 16, "min": 4, "max": 64, "step": 1}),     
-                "dynamic_frame_distribution_values": ("STRING", {"multiline": True, "default": "0,10,26,40"}),                
+                "linear_frame_distribution_value": ("INT", {"default": 16, "min": 4, "max": 64, "step": 1}),
+                "dynamic_frame_distribution_values": ("STRING", {"multiline": True, "default": "0,10,26,40"}),
                 "type_of_key_frame_influence": (["linear", "dynamic"],),
                 "linear_key_frame_influence_value": ("STRING", {"multiline": False, "default": "(1.0,1.0)"}),
-                "dynamic_key_frame_influence_values": ("STRING", {"multiline": True, "default": "(1.0,1.0),(1.0,1.5)(1.0,0.5)"}),                
+                "dynamic_key_frame_influence_values": ("STRING", {"multiline": True, "default": "(1.0,1.0),(1.0,1.5)(1.0,0.5)"}),
                 "type_of_strength_distribution": (["linear", "dynamic"],),
                 "linear_strength_value": ("STRING", {"multiline": False, "default": "(0.3,0.4)"}),
-                "dynamic_strength_values": ("STRING", {"multiline": True, "default": "(0.0,1.0),(0.0,1.0),(0.0,1.0),(0.0,1.0)"}),                                                                                                                                            
-                "buffer": ("INT", {"default": 4, "min": 1, "max": 16, "step": 1}),       
-                "high_detail_mode": ("BOOLEAN", {"default": True}),                                                                                     
+                "dynamic_strength_values": ("STRING", {"multiline": True, "default": "(0.0,1.0),(0.0,1.0),(0.0,1.0),(0.0,1.0)"}),
+                "buffer": ("INT", {"default": 4, "min": 1, "max": 16, "step": 1}),
+                "high_detail_mode": ("BOOLEAN", {"default": True}),
             },
             "optional": {
                 "base_ipa_advanced_settings": ("ADVANCED_IPA_SETTINGS",),
@@ -171,7 +182,7 @@ class BatchCreativeInterpolationNode:
     CATEGORY = "Steerable-Motion"
 
     def combined_function(self,positive,negative,images,model,ipadapter,clip_vision,
-                          type_of_frame_distribution,linear_frame_distribution_value, 
+                          type_of_frame_distribution,linear_frame_distribution_value,
                           dynamic_frame_distribution_values, type_of_key_frame_influence,linear_key_frame_influence_value,
                           dynamic_key_frame_influence_values,type_of_strength_distribution,
                           linear_strength_value,dynamic_strength_values,
@@ -200,7 +211,7 @@ class BatchCreativeInterpolationNode:
                 return [keyframes[0]] + [kf + 1 for kf in keyframes[1:]]
             else:
                 return keyframes
-        
+
         def create_mask_batch(last_key_frame_position, weights, frames):
             # Hardcoded dimensions
             width, height = 512, 512
@@ -222,7 +233,7 @@ class BatchCreativeInterpolationNode:
             masks_tensor = torch.stack(masks, dim=0)
 
             return masks_tensor
-        
+
         def create_weight_batch(last_key_frame_position, weights, frames):
 
             # Map frames to their corresponding reversed weights for easy lookup
@@ -280,8 +291,8 @@ class BatchCreativeInterpolationNode:
             img_tensor = img_tensor.unsqueeze(0)
             img_tensor = img_tensor.permute([0, 2, 3, 1])
 
-            return img_tensor,                    
-        
+            return img_tensor,
+
         def extract_strength_values(type_of_key_frame_influence, dynamic_key_frame_influence_values, keyframe_positions, linear_key_frame_influence_value):
 
             if type_of_key_frame_influence == "dynamic":
@@ -304,9 +315,9 @@ class BatchCreativeInterpolationNode:
                 if len(linear_key_frame_influence_value) == 2:
                     linear_key_frame_influence_value = (linear_key_frame_influence_value[0], linear_key_frame_influence_value[1], linear_key_frame_influence_value[0])
                 return [linear_key_frame_influence_value for _ in range(len(keyframe_positions) - 1)]
-                    
+
         def extract_influence_values(type_of_key_frame_influence, dynamic_key_frame_influence_values, keyframe_positions, linear_key_frame_influence_value):
-            # Check and convert linear_key_frame_influence_value if it's a float or string float        
+            # Check and convert linear_key_frame_influence_value if it's a float or string float
             # if it's a string that starts with a parenthesis, convert it to a tuple
             if isinstance(linear_key_frame_influence_value, str) and linear_key_frame_influence_value[0] == "(":
                 linear_key_frame_influence_value = eval(linear_key_frame_influence_value)
@@ -336,7 +347,7 @@ class BatchCreativeInterpolationNode:
                 return [linear_key_frame_influence_value for _ in range(number_of_outputs)]
 
         def calculate_weights(batch_index_from, batch_index_to, strength_from, strength_to, interpolation,revert_direction_at_midpoint, last_key_frame_position,i, number_of_items,buffer):
-            
+
             # Initialize variables based on the position of the keyframe
             range_start = batch_index_from
             range_end = batch_index_to
@@ -360,10 +371,10 @@ class BatchCreativeInterpolationNode:
                 weights = diff * (1 - np.power(1 - index, 2)) + strength_from
             elif interpolation == "ease-in-out":
                 weights = diff * ((1 - np.cos(index * np.pi)) / 2) + strength_from
-            
+
             if revert_direction_at_midpoint:
                 weights = np.concatenate([weights, weights[::-1]])
-                            
+
             # Generate frame numbers
             frame_numbers = np.arange(range_start, range_start + len(weights))
 
@@ -379,8 +390,8 @@ class BatchCreativeInterpolationNode:
                 weights = weights[:-drop_count]
                 frame_numbers = frame_numbers[:-drop_count]
 
-            return weights, frame_numbers       
-        
+            return weights, frame_numbers
+
         def process_weights(frame_numbers, weights, multiplier):
             # Multiply weights by the multiplier and apply the bounds of 0.0 and 1.0
             adjusted_weights = [min(max(weight * multiplier, 0.0), 1.0) for weight in weights]
@@ -392,11 +403,11 @@ class BatchCreativeInterpolationNode:
             filtered_frame_numbers, filtered_weights = zip(*filtered_frames_and_weights) if filtered_frames_and_weights else ([], [])
 
             return list(filtered_frame_numbers), list(filtered_weights)
-            
+
         def calculate_influence_frame_number(key_frame_position, next_key_frame_position, distance):
             # Calculate the absolute distance between key frames
             key_frame_distance = abs(next_key_frame_position - key_frame_position)
-            
+
             # Apply the distance multiplier
             extended_distance = key_frame_distance * distance
 
@@ -407,15 +418,15 @@ class BatchCreativeInterpolationNode:
             else:
                 # Reverse case: influence extends backward
                 influence_frame_number = key_frame_position - extended_distance
-            
+
             # Return the result rounded to the nearest integer
             return round(influence_frame_number)
 
         # GET KEYFRAME POSITIONS
-        keyframe_positions = get_keyframe_positions(type_of_frame_distribution, dynamic_frame_distribution_values, images, linear_frame_distribution_value)                                            
+        keyframe_positions = get_keyframe_positions(type_of_frame_distribution, dynamic_frame_distribution_values, images, linear_frame_distribution_value)
         shifted_keyframes_position = [position + buffer - 2 for position in keyframe_positions]
-        shifted_keyframe_positions_string = ','.join(str(pos) for pos in shifted_keyframes_position)        
-        
+        shifted_keyframe_positions_string = ','.join(str(pos) for pos in shifted_keyframes_position)
+
         if buffer > 0:
             # add front buffer
             keyframe_positions = [position + buffer - 1 for position in keyframe_positions]
@@ -434,7 +445,7 @@ class BatchCreativeInterpolationNode:
                     "ipa_weight_type": "ease in-out",
                     "ipa_weight": 1.0,
                     "ipa_embeds_scaling": "V only",
-                    "ipa_noise_strength": 0.0,                    
+                    "ipa_noise_strength": 0.0,
                     "use_image_for_noise": False,
                     "type_of_noise": "fade",
                     "noise_blur": 0,
@@ -451,7 +462,7 @@ class BatchCreativeInterpolationNode:
                     "type_of_noise": "fade",
                     "noise_blur": 0,
                 }
-                                
+
         # GET DETAILED ADVANCED SETTINGS OR SET DEFAULTS
         if detail_ipa_advanced_settings is None:
             if high_detail_mode:
@@ -465,27 +476,27 @@ class BatchCreativeInterpolationNode:
                     "use_image_for_noise": False,
                     "type_of_noise": "fade",
                     "noise_blur": 0,
-                }                 
-        
-        strength_values = extract_strength_values(type_of_strength_distribution, dynamic_strength_values, keyframe_positions, linear_strength_value)                        
-        strength_values = [literal_eval(val) if isinstance(val, str) else val for val in strength_values]                
+                }
+
+        strength_values = extract_strength_values(type_of_strength_distribution, dynamic_strength_values, keyframe_positions, linear_strength_value)
+        strength_values = [literal_eval(val) if isinstance(val, str) else val for val in strength_values]
         corrected_strength_values = []
         for val in strength_values:
             if len(val) == 2:
                 val = (val[0], val[1], val[0])
-            corrected_strength_values.append(val)        
+            corrected_strength_values.append(val)
         strength_values = corrected_strength_values
-                                    
-        # GET KEYFRAME INFLUENCE VALUES
-        key_frame_influence_values = extract_influence_values(type_of_key_frame_influence, dynamic_key_frame_influence_values, keyframe_positions, linear_key_frame_influence_value)                
-        key_frame_influence_values = [literal_eval(val) if isinstance(val, str) else val for val in key_frame_influence_values]        
 
-        # CALCULATE LAST KEYFRAME POSITION   
+        # GET KEYFRAME INFLUENCE VALUES
+        key_frame_influence_values = extract_influence_values(type_of_key_frame_influence, dynamic_key_frame_influence_values, keyframe_positions, linear_key_frame_influence_value)
+        key_frame_influence_values = [literal_eval(val) if isinstance(val, str) else val for val in key_frame_influence_values]
+
+        # CALCULATE LAST KEYFRAME POSITION
         if len(keyframe_positions) == 4:
             last_key_frame_position = (keyframe_positions[-1]) - 1
-        else:                                                                                                                                        
+        else:
             last_key_frame_position = (keyframe_positions[-1])
-    
+
         class IPBin:
             def __init__(self):
                 self.indicies = []
@@ -498,7 +509,7 @@ class BatchCreativeInterpolationNode:
 
             def length(self):
                 return len(self.image_schedule)
-            
+
             def add(self, image, big_image, noise, big_noise, image_index, frame_numbers, weights):
                 # Map frames to their corresponding reversed weights for easy lookup
                 frame_to_weight = {frame: weights[i] for i, frame in enumerate(frame_numbers)}
@@ -508,11 +519,11 @@ class BatchCreativeInterpolationNode:
                 except ValueError:
                     self.imageBatch.append(image)
                     self.bigImageBatch.append(big_image)
-                    if noise is not None: self.noiseBatch.append(noise) 
+                    if noise is not None: self.noiseBatch.append(noise)
                     if big_noise is not None: self.bigNoiseBatch.append(big_noise)
                     self.indicies.append(image_index)
                     index = self.indicies.index(image_index)
-                
+
                 self.image_schedule.extend([index] * (frame_numbers[-1] + 1 - len(self.image_schedule)))
                 self.weight_schedule.extend([0] * (frame_numbers[0] - len(self.weight_schedule)))
                 self.weight_schedule.extend(frame_to_weight[frame] for frame in range(frame_numbers[0], frame_numbers[-1] + 1))
@@ -524,58 +535,58 @@ class BatchCreativeInterpolationNode:
         all_ipa_frame_numbers = []
         # Start with one bin
         bins = [IPBin()]
-        
+
         for i in range(len(keyframe_positions)):
-            
-            keyframe_position = keyframe_positions[i]                                    
+
+            keyframe_position = keyframe_positions[i]
             interpolation = "ease-in-out"
             # strength_from = strength_to = 1.0
-            image_index = 0    
-            if i == 0: # buffer                
-                
+            image_index = 0
+            if i == 0: # buffer
+
                 image = images[0]
                 image_index = 0
-                strength_from = strength_to = strength_values[0][1]                    
+                strength_from = strength_to = strength_values[0][1]
 
                 batch_index_from = 0
                 batch_index_to_excl = buffer
-                weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, strength_from, strength_to, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)                                    
-            
-            elif i == 1: # first image 
+                weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, strength_from, strength_to, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)
 
-                # GET IMAGE AND KEYFRAME INFLUENCE VALUES              
-                image = images[i-1]                
+            elif i == 1: # first image
+
+                # GET IMAGE AND KEYFRAME INFLUENCE VALUES
+                image = images[i-1]
                 image_index = i-1
                 key_frame_influence_from, key_frame_influence_to = key_frame_influence_values[i-1]
                 start_strength, mid_strength, end_strength = strength_values[i-1]
-                                
+
                 keyframe_position = keyframe_positions[i] + 1
                 next_key_frame_position = keyframe_positions[i+1] + 1
-                                                
-                batch_index_from = keyframe_position                
-                batch_index_to_excl = calculate_influence_frame_number(keyframe_position, next_key_frame_position, key_frame_influence_to)                
-                weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, mid_strength, end_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)                                    
-                # interpolation = "ease-in"                                
-            
+
+                batch_index_from = keyframe_position
+                batch_index_to_excl = calculate_influence_frame_number(keyframe_position, next_key_frame_position, key_frame_influence_to)
+                weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, mid_strength, end_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)
+                # interpolation = "ease-in"
+
             elif i == len(keyframe_positions) - 2: # last image
 
                 # GET IMAGE AND KEYFRAME INFLUENCE VALUES
                 image = images[i-1]
                 image_index = i - 1
-                key_frame_influence_from,key_frame_influence_to = key_frame_influence_values[i-1]       
+                key_frame_influence_from,key_frame_influence_to = key_frame_influence_values[i-1]
                 start_strength, mid_strength, end_strength = strength_values[i-1]
                 if len(keyframe_positions) == 4:
                     keyframe_position = keyframe_positions[i] - 1
-                else:                    
+                else:
                     keyframe_position = keyframe_positions[i]
 
                 previous_key_frame_position = keyframe_positions[i-1]
-                                                
+
                 batch_index_from = calculate_influence_frame_number(keyframe_position, previous_key_frame_position, key_frame_influence_from)
-                
+
                 batch_index_to_excl = keyframe_position + 1
-                weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, start_strength, mid_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)                                    
-                # interpolation =  "ease-out"    
+                weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, start_strength, mid_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)
+                # interpolation =  "ease-out"
 
             elif i == len(keyframe_positions) - 1: # buffer
 
@@ -591,39 +602,39 @@ class BatchCreativeInterpolationNode:
                     batch_index_to_excl = last_key_frame_position
 
                 weights, frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, strength_from, strength_to, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)
-            
+
             else:  # middle images
 
                 # GET IMAGE AND KEYFRAME INFLUENCE VALUES
                 image = images[i-1]
-                image_index = i - 1   
-                key_frame_influence_from,key_frame_influence_to = key_frame_influence_values[i-1]             
+                image_index = i - 1
+                key_frame_influence_from,key_frame_influence_to = key_frame_influence_values[i-1]
                 start_strength, mid_strength, end_strength = strength_values[i-1]
                 keyframe_position = keyframe_positions[i]
-                           
+
                 # CALCULATE WEIGHTS FOR FIRST HALF
-                previous_key_frame_position = keyframe_positions[i-1]   
-                batch_index_from = calculate_influence_frame_number(keyframe_position, previous_key_frame_position, key_frame_influence_from)                
+                previous_key_frame_position = keyframe_positions[i-1]
+                batch_index_from = calculate_influence_frame_number(keyframe_position, previous_key_frame_position, key_frame_influence_from)
                 batch_index_to_excl = keyframe_position + 1
-                first_half_weights, first_half_frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, start_strength, mid_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)                
-                
-                # CALCULATE WEIGHTS FOR SECOND HALF                
+                first_half_weights, first_half_frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, start_strength, mid_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)
+
+                # CALCULATE WEIGHTS FOR SECOND HALF
                 next_key_frame_position = keyframe_positions[i+1]
                 batch_index_from = keyframe_position
                 batch_index_to_excl = calculate_influence_frame_number(keyframe_position, next_key_frame_position, key_frame_influence_to) + 2
                 second_half_weights, second_half_frame_numbers = calculate_weights(batch_index_from, batch_index_to_excl, mid_strength, end_strength, interpolation, False, last_key_frame_position, i, len(keyframe_positions), buffer)
-                
-                # COMBINE FIRST AND SECOND HALF
-                weights = np.concatenate([first_half_weights, second_half_weights])                
-                frame_numbers = np.concatenate([first_half_frame_numbers, second_half_frame_numbers])
-                                                                                                                                                                                                                   
-            # PROCESS WEIGHTS
-            ipa_frame_numbers, ipa_weights = process_weights(frame_numbers, weights, 1.0)    
 
-  
+                # COMBINE FIRST AND SECOND HALF
+                weights = np.concatenate([first_half_weights, second_half_weights])
+                frame_numbers = np.concatenate([first_half_frame_numbers, second_half_frame_numbers])
+
+            # PROCESS WEIGHTS
+            ipa_frame_numbers, ipa_weights = process_weights(frame_numbers, weights, 1.0)
+
+
             prepare_for_clip_vision = PrepImageForClipVisionImport()
             prepped_image, = prepare_for_clip_vision.prep_image(image=image.unsqueeze(0), interpolation="LANCZOS", crop_position="pad", sharpening=0.1)
-            
+
             if base_ipa_advanced_settings["ipa_noise_strength"] > 0:
                 if base_ipa_advanced_settings["use_image_for_noise"]:
                     noise_image = prepped_image
@@ -640,7 +651,7 @@ class BatchCreativeInterpolationNode:
                 else:
                     noise_image = None
                 ipa_noise = IPAdapterNoiseImport()
-                big_negative_noise, = ipa_noise.make_noise(type=detail_ipa_advanced_settings["type_of_noise"], strength=detail_ipa_advanced_settings["ipa_noise_strength"], blur=detail_ipa_advanced_settings["noise_blur"], image_optional=noise_image)                    
+                big_negative_noise, = ipa_noise.make_noise(type=detail_ipa_advanced_settings["type_of_noise"], strength=detail_ipa_advanced_settings["ipa_noise_strength"], blur=detail_ipa_advanced_settings["noise_blur"], image_optional=noise_image)
             else:
                 big_negative_noise = None
 
@@ -659,15 +670,15 @@ class BatchCreativeInterpolationNode:
 
                 # Add the image to the bin
                 bins[active_index].add(prepped_image, image.unsqueeze(0), negative_noise, big_negative_noise, image_index, ipa_frame_numbers, ipa_weights)
-  
+
             all_ipa_frame_numbers.append(ipa_frame_numbers)
             all_ipa_weights.append(ipa_weights)
-        
+
         # Go through the bins and create IPAdapters for them
         for i, bin in enumerate(bins):
             ipadapter_application = IPAdapterBatchImport()
             negative_noise = torch.cat(bin.noiseBatch, dim=0) if len(bin.noiseBatch) > 0 else None
-            model, *_ = ipadapter_application.apply_ipadapter(model=model, ipadapter=ipadapter, image=torch.cat(bin.imageBatch, dim=0), weight=[x * base_ipa_advanced_settings["ipa_weight"] for x in bin.weight_schedule], weight_type=base_ipa_advanced_settings["ipa_weight_type"], start_at=base_ipa_advanced_settings["ipa_starts_at"], end_at=base_ipa_advanced_settings["ipa_ends_at"], clip_vision=clip_vision,image_negative=negative_noise,embeds_scaling=base_ipa_advanced_settings["ipa_embeds_scaling"], encode_batch_size=1, image_schedule=bin.image_schedule)                
+            model, *_ = ipadapter_application.apply_ipadapter(model=model, ipadapter=ipadapter, image=torch.cat(bin.imageBatch, dim=0), weight=[x * base_ipa_advanced_settings["ipa_weight"] for x in bin.weight_schedule], weight_type=base_ipa_advanced_settings["ipa_weight_type"], start_at=base_ipa_advanced_settings["ipa_starts_at"], end_at=base_ipa_advanced_settings["ipa_ends_at"], clip_vision=clip_vision,image_negative=negative_noise,embeds_scaling=base_ipa_advanced_settings["ipa_embeds_scaling"], encode_batch_size=1, image_schedule=bin.image_schedule)
             if high_detail_mode:
                 tiled_ipa_application = IPAdapterTiledBatchImport()
                 negative_noise = torch.cat(bin.bigNoiseBatch, dim=0) if len(bin.bigNoiseBatch) > 0 else None

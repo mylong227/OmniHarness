@@ -1,37 +1,46 @@
 ---
 tags:
-- Mask
-- MaskMorphology
+  - Mask
+  - MaskMorphology
 ---
 
 # Erode Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskErodeRegion`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node applies an erosion filter to mask regions, effectively shrinking the masked areas based on the specified number of iterations. It's designed to refine mask boundaries by eroding away the edges of masked regions.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks to be eroded. This parameter is crucial for defining the areas to be processed and refined by the erosion operation.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks to be eroded. This parameter is crucial for defining the areas to be processed and refined by the erosion operation.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`iterations`**
-    - Specifies the number of times the erosion operation is applied to each mask, allowing for adjustable intensity of the effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of times the erosion operation is applied to each mask, allowing for adjustable intensity of the effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output masks after applying the erosion filter, showcasing the refined and reduced masked regions.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output masks after applying the erosion filter, showcasing the refined and reduced masked regions.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskErodeRegion:
     @classmethod

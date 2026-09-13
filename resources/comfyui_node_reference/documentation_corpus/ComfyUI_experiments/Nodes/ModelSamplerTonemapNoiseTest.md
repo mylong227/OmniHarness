@@ -1,36 +1,45 @@
 ---
 tags:
-- ImageEnhancement
+  - ImageEnhancement
 ---
 
 # ModelSamplerTonemapNoiseTest
+
 ## Documentation
+
 - Class name: `ModelSamplerTonemapNoiseTest`
 - Category: `custom_node_experiments`
 - Output node: `False`
 
 This node applies a tonemapping technique to modify the noise prediction in a model's sampling process, aiming to enhance image generation by adjusting the noise's intensity and distribution. It utilizes the Reinhard tonemapping method to scale the noise prediction vector magnitude, thereby influencing the final image output based on a specified multiplier.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the tonemapping noise adjustment will be applied. This parameter is crucial for defining the base model that will undergo the noise modification process.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to which the tonemapping noise adjustment will be applied. This parameter is crucial for defining the base model that will undergo the noise modification process.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`multiplier`**
-    - A scalar value that influences the intensity of the tonemapping effect on the noise prediction, directly affecting the visual characteristics of the generated images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scalar value that influences the intensity of the tonemapping effect on the noise prediction, directly affecting the visual characteristics of the generated images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The modified model with the tonemapping noise adjustment applied, ready for further image generation tasks.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The modified model with the tonemapping noise adjustment applied, ready for further image generation tasks.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ModelSamplerTonemapNoiseTest:
     @classmethod
@@ -44,7 +53,7 @@ class ModelSamplerTonemapNoiseTest:
     CATEGORY = "custom_node_experiments"
 
     def patch(self, model, multiplier):
-        
+
         def sampler_tonemap_reinhard(args):
             cond = args["cond"]
             uncond = args["uncond"]

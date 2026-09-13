@@ -1,31 +1,40 @@
 # IP Adapter Pipe
+
 ## Documentation
+
 - Class name: `AV_IPAdapterPipe`
 - Category: `Art Venture/IP Adapter`
 - Output node: `False`
 
 The AV_IPAdapterPipe node is designed to facilitate the integration of IP adapter and clip vision models into a unified pipeline for enhancing image processing tasks. It abstracts the complexity of loading and applying these models, providing a streamlined interface for incorporating advanced vision capabilities into applications.
+
 ## Input types
+
 ### Required
+
 - **`ip_adapter_name`**
-    - Specifies the name of the IP adapter model to be loaded. It is crucial for identifying which IP adapter model to use in the pipeline, affecting the overall image processing outcome.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the name of the IP adapter model to be loaded. It is crucial for identifying which IP adapter model to use in the pipeline, affecting the overall image processing outcome.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`clip_name`**
-    - Determines the specific clip vision model to be loaded. This selection influences the vision processing capabilities of the pipeline, impacting the final image enhancement results.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Determines the specific clip vision model to be loaded. This selection influences the vision processing capabilities of the pipeline, impacting the final image enhancement results.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
+
 ## Output types
+
 - **`p`**
-    - Comfy dtype: `IPADAPTER`
-    - Outputs a pipeline dictionary containing the loaded IP adapter and clip vision models, ready for application in image processing tasks.
-    - Python dtype: `Dict[str, Dict[str, Any]]`
+  - Comfy dtype: `IPADAPTER`
+  - Outputs a pipeline dictionary containing the loaded IP adapter and clip vision models, ready for application in image processing tasks.
+  - Python dtype: `Dict[str, Dict[str, Any]]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
     class AV_IPAdapterPipe:
         @classmethod

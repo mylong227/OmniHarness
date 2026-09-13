@@ -1,40 +1,48 @@
 ---
 tags:
-- Crop
-- Image
-- ImageTransformation
+  - Crop
+  - Image
+  - ImageTransformation
 ---
 
 # CropFace
+
 ## Documentation
+
 - Class name: `CropFace`
 - Category: `facerestore_cf`
 - Output node: `False`
 
 The CropFace node is designed for processing images by detecting faces, cropping them, and then applying a face restoration model to enhance or restore the cropped face images. It utilizes face detection to identify faces within an image, crops these faces, and then processes each cropped face through a face restoration model to improve image quality or restore facial details.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for face detection and restoration.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for face detection and restoration.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`facedetection`**
-    - The face detection model used to identify and locate faces within the input image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `torch.nn.Module`
+  - The face detection model used to identify and locate faces within the input image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `torch.nn.Module`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a tensor of the cropped and restored faces, ready for further processing or visualization.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a tensor of the cropped and restored faces, ready for further processing or visualization.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-
-
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
 
 ## Source code
+
 ```python
 class CropFace:
     @classmethod

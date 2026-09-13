@@ -1,47 +1,58 @@
 ---
 tags:
-- DepthMap
-- DepthMapEstimation
-- Image
+  - DepthMap
+  - DepthMapEstimation
+  - Image
 ---
 
 # [Inference.Core] MiDaS Normal Map
+
 ## Documentation
+
 - Class name: `Inference_Core_MiDaS-NormalMapPreprocessor`
 - Category: `ControlNet Preprocessors/Normal and Depth Estimators`
 - Output node: `False`
 
 This node is designed to preprocess images for normal map estimation using the MiDaS model. It adjusts images based on specified parameters to enhance the quality of normal map generation, facilitating improved depth perception in visual content.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for normal map estimation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for normal map estimation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`a`**
-    - The 'a' parameter influences the intensity of the normal map effect, allowing for fine-tuning of the depth estimation process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The 'a' parameter influences the intensity of the normal map effect, allowing for fine-tuning of the depth estimation process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`bg_threshold`**
-    - The 'bg_threshold' parameter sets the sensitivity for background detection, aiding in distinguishing foreground elements from the background in the depth estimation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The 'bg_threshold' parameter sets the sensitivity for background detection, aiding in distinguishing foreground elements from the background in the depth estimation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`resolution`**
-    - Specifies the resolution for the output normal map, affecting the level of detail in the depth estimation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the resolution for the output normal map, affecting the level of detail in the depth estimation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Produces an image that represents the estimated normal map, enhancing depth perception in visual content.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - Produces an image that represents the estimated normal map, enhancing depth perception in visual content.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MIDAS_Normal_Map_Preprocessor:
     @classmethod

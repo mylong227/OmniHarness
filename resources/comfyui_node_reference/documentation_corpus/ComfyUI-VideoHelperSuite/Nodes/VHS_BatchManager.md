@@ -1,35 +1,44 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Meta Batch Manager 🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_BatchManager`
 - Category: `Video Helper Suite 🎥🅥🅗🅢`
 - Output node: `False`
 
 The BatchManager node is designed to manage and orchestrate the processing of video data in batches. It facilitates the efficient handling of large video datasets by breaking them down into smaller, manageable batches for processing, thereby optimizing resource utilization and improving performance.
+
 ## Input types
+
 ### Required
+
 - **`frames_per_batch`**
-    - Specifies the number of frames to be processed in each batch. This parameter is essential for controlling the batch size and thus directly influences the processing efficiency and resource allocation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of frames to be processed in each batch. This parameter is essential for controlling the batch size and thus directly influences the processing efficiency and resource allocation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`meta_batch`**
-    - Comfy dtype: `VHS_BatchManager`
-    - Returns the updated meta information about the batch after processing, which includes details such as the current state and any data associated with the batch.
-    - Python dtype: `CustomType`
+  - Comfy dtype: `VHS_BatchManager`
+  - Returns the updated meta information about the batch after processing, which includes details such as the current state and any data associated with the batch.
+  - Python dtype: `CustomType`
 - **`ui`**
-    - Provides a user interface component indicating the unfinished state of the batch, if applicable.
+  - Provides a user interface component indicating the unfinished state of the batch, if applicable.
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchManager:
     def __init__(self, frames_per_batch=-1):

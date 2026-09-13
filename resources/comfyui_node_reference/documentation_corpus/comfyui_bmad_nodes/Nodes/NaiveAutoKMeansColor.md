@@ -1,52 +1,61 @@
 ---
 tags:
-- Color
+  - Color
 ---
 
 # NaiveAutoKMeansColor
+
 ## Documentation
+
 - Class name: `NaiveAutoKMeansColor`
 - Category: `Bmad/CV/Color A.`
 - Output node: `False`
 
 This node is designed to automatically determine the optimal number of colors for K-means clustering on an image, and then apply the K-means algorithm to segment the image into these colors. It simplifies the process of color quantization by abstracting away the need for manual specification of the number of clusters, making it easier to use for tasks such as image simplification or color analysis.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image on which K-means clustering will be performed. This is the primary data the node operates on to determine the optimal number of colors.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image on which K-means clustering will be performed. This is the primary data the node operates on to determine the optimal number of colors.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`max_k`**
-    - The maximum number of colors (clusters) to consider for determining the optimal number through the algorithm. It sets an upper limit on the number of clusters to evaluate.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum number of colors (clusters) to consider for determining the optimal number through the algorithm. It sets an upper limit on the number of clusters to evaluate.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`rc_threshold`**
-    - A threshold for the relative compactness of clusters, used to help determine the optimal number of clusters by comparing the compactness of a cluster to the first computed compactness.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A threshold for the relative compactness of clusters, used to help determine the optimal number of clusters by comparing the compactness of a cluster to the first computed compactness.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`max_iterations`**
-    - The maximum number of iterations the K-means algorithm will execute, providing a stopping criterion for convergence.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum number of iterations the K-means algorithm will execute, providing a stopping criterion for convergence.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`eps`**
-    - The epsilon value for convergence criteria, specifying the minimum amount of change required for an iteration to be considered as making progress.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The epsilon value for convergence criteria, specifying the minimum amount of change required for an iteration to be considered as making progress.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after applying K-means clustering with the determined optimal number of colors, segmented into these colors.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after applying K-means clustering with the determined optimal number of colors, segmented into these colors.
+  - Python dtype: `torch.Tensor`
 - **`int`**
-    - Comfy dtype: `INT`
-    - The optimal number of colors (clusters) determined by the algorithm for the input image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The optimal number of colors (clusters) determined by the algorithm for the input image.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class NaiveAutoKMeansColor:
     @classmethod

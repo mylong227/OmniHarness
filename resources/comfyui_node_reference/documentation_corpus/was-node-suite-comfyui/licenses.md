@@ -1,10 +1,13 @@
 # Main License
+
 File name: `LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +27,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -46,10 +51,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 # Other detected licenses
+
 File name: `WAS_Node_Suite.py`
 
 **MIT**
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to
 # deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -62,35 +70,47 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 ```
+
 File name: `modules/BLIP/blip_med.py`
 
 **BSD-3-Clause**
+
 ```
  * SPDX-License-Identifier: BSD-3-Clause
 ```
+
 ```
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 ```
+
 File name: `modules/BLIP/blip_module.py`
 
 **BSD-3-Clause**
+
 ```
  * SPDX-License-Identifier: BSD-3-Clause
 ```
+
 ```
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 ```
+
 File name: `modules/BLIP/blip_module_license.txt`
 
 **BSD-3-Clause**
+
 ```
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
@@ -103,16 +123,20 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 File name: `repos/SAM/CONTRIBUTING.md`
 
 **MIT**
+
 ```
 By contributing to segment-anything, you agree that your contributions will be licensed
 under the LICENSE file in the root directory of this source tree.
 ```
+
 File name: `repos/SAM/LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -316,6 +340,7 @@ File name: `repos/SAM/LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -519,44 +544,57 @@ File name: `repos/SAM/LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 File name: `repos/SAM/README.md`
 
 **Apache-2.0**
+
 ```
 is licensed under the [Apache 2.0 license](
 ```
+
 File name: `repos/SAM/demo/package.json`
 
 **MIT**
+
 ```
   "license": "MIT",
 ```
+
 File name: `repos/SAM/demo/postcss.config.js`
 
 **MIT**
+
 ```
 // This source code is licensed under the license found in the
 // LICENSE file in the root directory of this source tree.
 ```
+
 File name: `repos/SAM/setup.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `res/font.ttf`
 
 **LicenseRef-scancode-proprietary-license**
+
 ```
 Free for personal and commercial use.
 ```
+
 ```
 Free for personal and commercial use.
 ```
+
 File name: `res/haarcascade_eye.xml`
 
 **BSD-3-Clause**
+
 ```
  Redistribution and use in source and binary forms, with or without modification,
  are permitted provided that the following conditions are met:
@@ -582,6 +620,7 @@ File name: `res/haarcascade_eye.xml`
  or tort (including negligence or otherwise) arising in any way out of
  the use of this software, even if advised of the possibility of such damage.
 ```
+
 ```
   IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
 
@@ -593,9 +632,11 @@ File name: `res/haarcascade_eye.xml`
                         Intel License Agreement
                 For Open Source Computer Vision Library
 ```
+
 File name: `res/haarcascade_upperbody.xml`
 
 **BSD-3-Clause**
+
 ```
 | Redistribution and use in source and binary forms, with or without
 | modification, are permitted provided that the following conditions are
@@ -606,8 +647,8 @@ File name: `res/haarcascade_upperbody.xml`
 |    * Redistributions in binary form must reproduce the above
 |      copyright notice, this list of conditions and the following
 |      disclaimer in the documentation and/or other materials provided
-|      with the distribution.  
-|    * The name of Contributor may not used to endorse or promote products 
+|      with the distribution.
+|    * The name of Contributor may not used to endorse or promote products
 |      derived from this software without specific prior written permission.
 |
 | THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -622,24 +663,31 @@ File name: `res/haarcascade_upperbody.xml`
 | NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 | SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  Back to
 ```
+
 **LicenseRef-scancode-generic-cla**
+
 ```
 | Contributors License Agreement
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 | IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
-|   By downloading, copying, installing or using the software you agree 
+|   By downloading, copying, installing or using the software you agree
 |   to this license.
 |   If you do not agree to this license, do not download, install,
 |   copy or use the software.
 ```
+
 File name: `res/lbpcascade_animeface.xml`
 
 **MIT**
+
 ```
 The MIT License (MIT)
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

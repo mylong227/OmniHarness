@@ -1,61 +1,70 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # Offset Mask
+
 ## Documentation
+
 - Class name: `OffsetMask`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 The OffsetMask node is designed to manipulate and transform masks by applying specified offsets, rotations, and potentially duplicating the mask to create a batch with varied transformations. This node allows for dynamic adjustments to mask positioning and orientation, enabling more complex mask-based operations and effects within image processing workflows.
+
 ## Input types
+
 ### Required
+
 - **`mask`**
-    - The input mask or batch of masks to be transformed. It serves as the base for applying offsets, rotations, and duplications, directly influencing the output mask's appearance and arrangement.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input mask or batch of masks to be transformed. It serves as the base for applying offsets, rotations, and duplications, directly influencing the output mask's appearance and arrangement.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`x`**
-    - Specifies the horizontal offset to apply to the mask. A positive value shifts the mask right, while a negative value shifts it left, affecting the mask's horizontal position.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the horizontal offset to apply to the mask. A positive value shifts the mask right, while a negative value shifts it left, affecting the mask's horizontal position.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`y`**
-    - Specifies the vertical offset to apply to the mask. A positive value shifts the mask down, while a negative value shifts it up, affecting the mask's vertical position.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the vertical offset to apply to the mask. A positive value shifts the mask down, while a negative value shifts it up, affecting the mask's vertical position.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`angle`**
-    - The rotation angle in degrees to apply to the mask. This transformation rotates the mask around its center, altering its orientation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The rotation angle in degrees to apply to the mask. This transformation rotates the mask around its center, altering its orientation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`duplication_factor`**
-    - The number of times the input mask is duplicated to form a batch. This parameter allows for the creation of multiple transformed copies of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of times the input mask is duplicated to form a batch. This parameter allows for the creation of multiple transformed copies of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`roll`**
-    - Determines whether edge wrapping (rolling) is applied during the offset. When true, the mask's edges wrap around, creating a continuous effect.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether edge wrapping (rolling) is applied during the offset. When true, the mask's edges wrap around, creating a continuous effect.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`incremental`**
-    - When set to true, applies the horizontal and vertical offsets incrementally across the mask batch, creating a progressive transformation effect.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - When set to true, applies the horizontal and vertical offsets incrementally across the mask batch, creating a progressive transformation effect.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`padding_mode`**
-    - Defines the padding mode used when applying offsets and rotations, affecting how the mask's edges are handled during transformation. Options include 'empty', 'border', and 'reflection'.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the padding mode used when applying offsets and rotations, affecting how the mask's edges are handled during transformation. Options include 'empty', 'border', and 'reflection'.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The transformed mask or batch of masks after applying the specified offsets, rotations, and duplications. It reflects the cumulative effect of all transformations.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The transformed mask or batch of masks after applying the specified offsets, rotations, and duplications. It reflects the cumulative effect of all transformations.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class OffsetMask:
     @classmethod
@@ -70,11 +79,11 @@ class OffsetMask:
                 "roll": ("BOOLEAN", { "default": False }),
                 "incremental": ("BOOLEAN", { "default": False }),
                 "padding_mode": (
-            [   
+            [
                 'empty',
                 'border',
                 'reflection',
-                
+
             ], {
                "default": 'empty'
             }),
@@ -86,7 +95,7 @@ class OffsetMask:
     FUNCTION = "offset"
     CATEGORY = "KJNodes/masking"
     DESCRIPTION = """
-Offsets the mask by the specified amount.  
+Offsets the mask by the specified amount.
  - mask: Input mask or mask batch
  - x: Horizontal offset
  - y: Vertical offset
@@ -127,7 +136,7 @@ Offsets the mask by the specified amount.
                 if shift_y != 0:
                     mask = torch.roll(mask, shifts=shift_y, dims=1)
         else:
-            
+
             for i in range(batch_size):
                 if incremental:
                     temp_x = min(x * (i+1), width-1)
@@ -156,7 +165,7 @@ Offsets the mask by the specified amount.
                         mask[i] = torch.cat([mask[i, :temp_y, :], torch.zeros((-temp_y, width))], dim=0)
                     elif padding_mode in ['replicate', 'reflect']:
                         mask[i] = F.pad(mask[i, -temp_y:, :], (temp_y, 0), mode=padding_mode)
-           
+
         return mask,
 
 ```

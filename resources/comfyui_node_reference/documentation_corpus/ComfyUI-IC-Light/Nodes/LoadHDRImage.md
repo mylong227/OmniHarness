@@ -1,40 +1,49 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # Load HDR Image
+
 ## Documentation
+
 - Class name: `LoadHDRImage`
 - Category: `IC-Light`
 - Output node: `False`
 
 The LoadHDRImage node is designed to load High Dynamic Range (HDR) images from a specified directory, process them to simulate different exposures, and convert them into a batch of Low Dynamic Range (LDR) images. This node facilitates the exploration of various exposure levels within an HDR image by generating multiple exposure-adjusted versions, thereby enabling enhanced image analysis and manipulation.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - Specifies the HDR image to be loaded and processed. The image is identified by its name within the input directory, and this parameter is crucial for determining which HDR image will undergo exposure adjustments.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the HDR image to be loaded and processed. The image is identified by its name within the input directory, and this parameter is crucial for determining which HDR image will undergo exposure adjustments.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`exposures`**
-    - A comma-separated string representing the exposure levels to apply to the HDR image. These values are used to simulate different lighting conditions by adjusting the brightness of the image, thereby generating multiple LDR versions.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A comma-separated string representing the exposure levels to apply to the HDR image. These values are used to simulate different lighting conditions by adjusting the brightness of the image, thereby generating multiple LDR versions.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Represents the LDR images generated from the HDR image at specified exposure levels, facilitating further image processing or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - Represents the LDR images generated from the HDR image at specified exposure levels, facilitating further image processing or analysis.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - This output type is not directly mentioned in the provided context, indicating a potential misunderstanding or error in the original feedback.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - This output type is not directly mentioned in the provided context, indicating a potential misunderstanding or error in the original feedback.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadHDRImage:
     @classmethod
@@ -51,8 +60,8 @@ class LoadHDRImage:
     RETURN_TYPES = ("IMAGE", "MASK")
     FUNCTION = "loadhdrimage"
     DESCRIPTION = """
-Loads a .hdr image from the input directory.  
-Output is a batch of LDR images with the selected exposures.  
+Loads a .hdr image from the input directory.
+Output is a batch of LDR images with the selected exposures.
 
 """
     def loadhdrimage(self, image, exposures):

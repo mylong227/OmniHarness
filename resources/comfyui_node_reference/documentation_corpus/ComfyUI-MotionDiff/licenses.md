@@ -1,10 +1,13 @@
 # Main License
+
 File name: `LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +27,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -46,54 +51,69 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 # Other detected licenses
+
 File name: `ORIGINAL_LICENSE`
 
 **BSD-3-Clause**
+
 ```
 License 1.0
 
 Copyright 2023 S-Lab
 
-Redistribution and use for non-commercial purpose in source and binary forms, with or without modification, are permitted provided that the following conditions are met: 
+Redistribution and use for non-commercial purpose in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
 non-commercial purpose
 ```
+
 File name: `clean_ch.py`
 
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 # a license agreement with MPG or you get the right to use the computer
 ```
+
 File name: `custom_mmpkg/custom_mmseg/models/losses/dice_loss.py`
 
 **Apache-2.0**
+
 ```
 segmentron/solver/loss.py (Apache-2.0 License)"""
 ```
+
 File name: `custom_mmpkg/custom_mmseg/models/losses/lovasz_loss.py`
 
 **MIT**
+
 ```
 Berman 2018 ESAT-PSI KU Leuven (MIT License)"""
 ```
+
 File name: `motiondiff_modules/mGPT/data/humanml/common/quaternion.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `motiondiff_modules/spectre/LICENSE`
 
 **CC-BY-NC-SA-4.0**
+
 ```
 Attribution-NonCommercial-ShareAlike 4.0 International
 
@@ -533,15 +553,19 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 File name: `motiondiff_modules/spectre/external/ibug/face_detection/retina_face/py_cpu_nms.py`
 
 **MIT**
+
 ```
 # Licensed under The MIT License [see LICENSE for details]
 ```
+
 File name: `motiondiff_modules/spectre/tracker/face_tracker.py`
 
 **Apache-2.0**
+
 ```
 # Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 ```

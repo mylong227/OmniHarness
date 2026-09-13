@@ -1,37 +1,46 @@
 ---
 tags:
-- ImageEnhancement
-- Scheduling
+  - ImageEnhancement
+  - Scheduling
 ---
 
 # StepsScheduleHookProvider
+
 ## Documentation
+
 - Class name: `StepsScheduleHookProvider`
 - Category: `ImpactPack/Upscale`
 - Output node: `False`
 
 The StepsScheduleHookProvider node is designed to generate hooks that adjust the number of steps in a generative process based on a simple schedule. This allows for dynamic modification of the iteration steps during the generation process, aiming to optimize or alter the progression of the generative task.
+
 ## Input types
+
 ### Required
+
 - **`schedule_for_iteration`**
-    - Specifies the scheduling strategy to be used for iteration adjustments. The choice of schedule affects how the number of steps is dynamically adjusted during the generation process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `Tuple[str]`
+  - Specifies the scheduling strategy to be used for iteration adjustments. The choice of schedule affects how the number of steps is dynamically adjusted during the generation process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `Tuple[str]`
 - **`target_steps`**
-    - Defines the target number of steps to aim for at the end of the generation process. This parameter directly influences the adjustment of steps in the generative task, aiming to reach the specified target.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the target number of steps to aim for at the end of the generation process. This parameter directly influences the adjustment of steps in the generative task, aiming to reach the specified target.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`pk_hook`**
-    - Comfy dtype: `PK_HOOK`
-    - Returns a hook configured to adjust the number of steps in the generative process according to the specified schedule and target steps.
-    - Python dtype: `Tuple[PixelKSampleHook]`
+  - Comfy dtype: `PK_HOOK`
+  - Returns a hook configured to adjust the number of steps in the generative process according to the specified schedule and target steps.
+  - Python dtype: `Tuple[PixelKSampleHook]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class StepsScheduleHookProvider:
     schedules = ["simple"]

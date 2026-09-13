@@ -1,39 +1,48 @@
 ---
 tags:
-- Image
-- ImageSave
+  - Image
+  - ImageSave
 ---
 
 # Save Image With Alpha
+
 ## Documentation
+
 - Class name: `SaveImageWithAlpha`
 - Category: `KJNodes/image`
 - Output node: `True`
 
 This node is designed for saving images with an alpha channel, allowing for transparency effects. It processes a batch of images and their corresponding masks, applies the masks as alpha channels to the images, optionally adds metadata (such as prompts or additional PNG information), and saves the resulting images with transparency to a specified location.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A batch of images to be processed and saved with alpha transparency. This input is crucial for defining the visual content of the output files.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - A batch of images to be processed and saved with alpha transparency. This input is crucial for defining the visual content of the output files.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - A batch of masks corresponding to the images, used to create the alpha channel for transparency effects. This input is essential for determining which parts of each image should be transparent.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - A batch of masks corresponding to the images, used to create the alpha channel for transparency effects. This input is essential for determining which parts of each image should be transparent.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`filename_prefix`**
-    - A prefix for the filenames of the saved images, allowing for organized storage and easy identification.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix for the filenames of the saved images, allowing for organized storage and easy identification.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`ui`**
-    - The output includes a UI component that displays the saved images, providing a visual confirmation of the operation's success.
+  - The output includes a UI component that displays the saved images, providing a visual confirmation of the operation's success.
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaveImageWithAlpha:
     def __init__(self):
@@ -43,7 +52,7 @@ class SaveImageWithAlpha:
 
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": 
+        return {"required":
                     {"images": ("IMAGE", ),
                     "mask": ("MASK", ),
                     "filename_prefix": ("STRING", {"default": "ComfyUI"})},
@@ -55,7 +64,7 @@ class SaveImageWithAlpha:
     OUTPUT_NODE = True
     CATEGORY = "KJNodes/image"
     DESCRIPTION = """
-Saves an image and mask as .PNG with the mask as the alpha channel. 
+Saves an image and mask as .PNG with the mask as the alpha channel.
 """
 
     def save_images_alpha(self, images, mask, filename_prefix="ComfyUI_image_with_alpha", prompt=None, extra_pnginfo=None):
@@ -83,7 +92,7 @@ Saves an image and mask as .PNG with the mask as the alpha channel.
             i = 255. * image.cpu().numpy()
             a = 255. * alpha.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
-            
+
              # Resize the mask to match the image size
             a_resized = Image.fromarray(a).resize(img.size, Image.LANCZOS)
             a_resized = np.clip(a_resized, 0, 255).astype(np.uint8)
@@ -96,7 +105,7 @@ Saves an image and mask as .PNG with the mask as the alpha channel.
                 if extra_pnginfo is not None:
                     for x in extra_pnginfo:
                         metadata.add_text(x, json.dumps(extra_pnginfo[x]))
-           
+
             # Increment the counter by 1 to get the next available value
             counter = file_counter() + 1
             file = f"{filename}_{counter:05}.png"

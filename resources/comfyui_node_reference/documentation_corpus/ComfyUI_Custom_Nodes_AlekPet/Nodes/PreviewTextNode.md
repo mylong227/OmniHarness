@@ -1,29 +1,38 @@
 # Preview Text Node
+
 ## Documentation
+
 - Class name: `PreviewTextNode`
 - Category: `AlekPet Nodes/extras`
 - Output node: `True`
 
 The PreviewTextNode is designed to generate a preview of text inputs, allowing users to visualize how their text will appear. It primarily serves as a user interface component within a larger system, enhancing the user experience by providing immediate feedback on text input.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The primary text input for which a preview is generated. It is essential for the node's operation, determining the content of the preview.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text input for which a preview is generated. It is essential for the node's operation, determining the content of the preview.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `STRING`
+  - unknown
+  - Python dtype: `unknown`
 - **`ui`**
-    - The user interface representation of the text preview, showcasing how the input text will be displayed.
+  - The user interface representation of the text preview, showcasing how the input text will be displayed.
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PreviewTextNode:
     def __init__(self):

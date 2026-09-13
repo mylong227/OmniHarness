@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -678,10 +680,13 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 # Other detected licenses
+
 File name: `arial.ttf`
 
 **LicenseRef-scancode-commercial-license**
+
 ```
 Trademark of The Monotype Corporation plc registered in the US Pat & TM Off. and elsewhere.NOTIFICATION OF LICENSE AGREEMENT
 This typeface is the property of Monotype Typography and its use by you is covered under the terms of a license agreement. You have obtained this typeface software either directly from Monotype or together with software distributed by one of Monotype's licensees.
@@ -691,6 +696,7 @@ Monotype can be contacted at:
 USA - (847) 718-0400		UK - 01144 01737 765959
 http://www.monotype.comMonotype Type Drawing Office - Robin Nicholas, Patricia Saunders 1982http://www.monotype.com/html/mtname/ms_arial.htmlhttp://www.monotype.com/html/mtname/ms_welcome.htmlhttp://www.monotype.com/html/type/license.htm
 ```
+
 ```
 This typeface is the property of Monotype Typography and its use by you is covered under the terms of a license agreement. You have obtained this typeface software either directly from Monotype or together with software distributed by one of Monotype's licensees.
 This software is a valuable asset of Monotype. Unless you have entered into a specific license agreement granting you additional rights, your use of this software is limited to your workstation for your own publishing use. You may not copy or distribute this software.
@@ -699,13 +705,17 @@ Monotype can be contacted at:
 USA - (847) 718-0400		UK - 01144 01737 765959
 http://www.monotype.comMonotype Type Drawing Office - Robin Nicholas, Patricia Saunders 1982http://www.monotype.com/html/mtname/ms_arial.htmlhttp://www.monotype.com/html/mtname/ms_welcome.htmlhttp://www.monotype.com/html/type/license.html
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 This typeface is the property of Monotype Typography and its use by you is covered under the terms of a license agreement. You have obtained this typeface software either directly from Monotype or together with software distributed by one of Monotype's licensees.
 ```
+
 ```
 Trademark of The Monotype Corporation plc registered in the US Pat & TM Off. and elsewhere.NOTIFICATION OF LICENSE AGREEMENT
 ```
+
 ```
 This typeface is the property of Monotype Typography and its use by you is covered under the terms of a license agreement. You have obtained this typeface software either directly from Monotype or together with software distributed by one of Monotype's licensees.
 ```

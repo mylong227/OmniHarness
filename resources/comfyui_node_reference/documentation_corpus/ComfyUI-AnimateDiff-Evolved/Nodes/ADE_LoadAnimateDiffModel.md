@@ -1,41 +1,51 @@
 ---
 tags:
-- AnimateDiff
-- AnimateDiffContext
-- Animation
+  - AnimateDiff
+  - AnimateDiffContext
+  - Animation
 ---
 
 # Load AnimateDiff Model 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_LoadAnimateDiffModel`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②`
 - Output node: `False`
 
 This node is designed to load the AnimateDiff model, facilitating the integration and application of motion models for animation purposes within the AnimateDiff framework. It serves as a foundational component in the animation pipeline, enabling users to leverage advanced animation techniques.
+
 ## Input types
+
 ### Required
+
 - **`model_name`**
-    - Specifies the name of the motion model to be loaded. This is a critical input as it determines which motion model will be utilized for animation within the AnimateDiff framework.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the motion model to be loaded. This is a critical input as it determines which motion model will be utilized for animation within the AnimateDiff framework.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`ad_settings`**
-    - Optional parameter that allows for the inclusion of specific animation settings, providing additional customization and control over the animation process.
-    - Comfy dtype: `AD_SETTINGS`
-    - Python dtype: `AnimateDiffSettings`
+  - Optional parameter that allows for the inclusion of specific animation settings, providing additional customization and control over the animation process.
+  - Comfy dtype: `AD_SETTINGS`
+  - Python dtype: `AnimateDiffSettings`
+
 ## Output types
+
 - **`MOTION_MODEL`**
-    - Comfy dtype: `MOTION_MODEL_ADE`
-    - Outputs the loaded motion model, ready for further processing and application within the animation pipeline.
-    - Python dtype: `MotionModelPatcher`
+  - Comfy dtype: `MOTION_MODEL_ADE`
+  - Outputs the loaded motion model, ready for further processing and application within the animation pipeline.
+  - Python dtype: `MotionModelPatcher`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [ADE_ApplyAnimateDiffModel](../../ComfyUI-AnimateDiff-Evolved/Nodes/ADE_ApplyAnimateDiffModel.md)
-
-
+  - [ADE_ApplyAnimateDiffModel](../../ComfyUI-AnimateDiff-Evolved/Nodes/ADE_ApplyAnimateDiffModel.md)
 
 ## Source code
+
 ```python
 class LoadAnimateDiffModelNode:
     @classmethod

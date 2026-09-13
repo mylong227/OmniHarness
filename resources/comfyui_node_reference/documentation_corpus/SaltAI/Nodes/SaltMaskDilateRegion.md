@@ -1,37 +1,46 @@
 ---
 tags:
-- Mask
-- MaskMorphology
+  - Mask
+  - MaskMorphology
 ---
 
 # Dilate Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskDilateRegion`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node applies a dilation filter to mask regions, effectively expanding the areas of interest within the masks based on the specified number of iterations. It's designed to process and modify mask regions to highlight or enlarge specific features within the masks.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks to be dilated. This parameter is crucial for defining the areas within the image that will undergo dilation, directly impacting the node's output.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks to be dilated. This parameter is crucial for defining the areas within the image that will undergo dilation, directly impacting the node's output.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`iterations`**
-    - Specifies the number of times the dilation operation is applied to the masks. This parameter controls the extent of dilation, affecting the size and visibility of features within the masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of times the dilation operation is applied to the masks. This parameter controls the extent of dilation, affecting the size and visibility of features within the masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output masks after dilation. These masks represent the modified regions with expanded areas of interest, showcasing the effect of the dilation process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output masks after dilation. These masks represent the modified regions with expanded areas of interest, showcasing the effect of the dilation process.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskDilateRegion:
     @classmethod

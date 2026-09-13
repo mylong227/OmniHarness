@@ -1,63 +1,72 @@
 # Modelscope v2v
+
 ## Documentation
+
 - Class name: `Modelscopev2v`
 - Category: `cspnodes/modelscope`
 - Output node: `False`
 
 The Modelscopev2v node is designed to transform visual content from one domain to another, leveraging advanced models to understand and manipulate visual data at a high level. It focuses on enabling complex visual transformations and enhancements, making it suitable for tasks that require deep understanding and modification of visual information.
+
 ## Input types
+
 ### Required
+
 - **`video_frames`**
-    - Specifies the video frames to be transformed. Essential for defining the visual content that will undergo transformation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - Specifies the video frames to be transformed. Essential for defining the visual content that will undergo transformation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`prompt`**
-    - A textual description of the desired transformation or outcome, guiding the model's understanding and manipulation of the visual content.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A textual description of the desired transformation or outcome, guiding the model's understanding and manipulation of the visual content.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`negative_prompt`**
-    - A textual description of undesired elements or outcomes, helping to steer the model away from certain transformations.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A textual description of undesired elements or outcomes, helping to steer the model away from certain transformations.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`model_path`**
-    - The path to the model used for the transformation, determining the specific capabilities and characteristics of the transformation process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The path to the model used for the transformation, determining the specific capabilities and characteristics of the transformation process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`strength`**
-    - Controls the intensity of the transformation, allowing for fine-tuning of the visual output's adherence to the prompt.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the intensity of the transformation, allowing for fine-tuning of the visual output's adherence to the prompt.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`num_inference_steps`**
-    - Determines the number of steps the model takes to perform the transformation, affecting the quality and detail of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of steps the model takes to perform the transformation, affecting the quality and detail of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`guidance_scale`**
-    - Adjusts the influence of the prompt on the transformation, balancing between fidelity to the prompt and the original content.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the influence of the prompt on the transformation, balancing between fidelity to the prompt and the original content.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`seed`**
-    - A seed value for random number generation, ensuring reproducibility of the transformation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for random number generation, ensuring reproducibility of the transformation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`enable_forward_chunking`**
-    - Enables or disables forward chunking, potentially improving performance for large video frames.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables or disables forward chunking, potentially improving performance for large video frames.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`enable_vae_slicing`**
-    - Enables or disables VAE slicing, which can affect the model's efficiency and output quality.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables or disables VAE slicing, which can affect the model's efficiency and output quality.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The transformed video frames, representing the visual content after undergoing the specified transformation.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The transformed video frames, representing the visual content after undergoing the specified transformation.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Modelscopev2v:
     @classmethod
@@ -67,7 +76,7 @@ class Modelscopev2v:
                 "video_frames": ("IMAGE", {}),
                 "prompt": ("STRING", {}),
                 "negative_prompt": ("STRING", {"default": None}),
-                "model_path": ("STRING", {"default": "cerspense/zeroscope_v2_XL"}),  
+                "model_path": ("STRING", {"default": "cerspense/zeroscope_v2_XL"}),
                 "strength": ("FLOAT", {"default": 0.70}),
                 "num_inference_steps": ("INT", {"default": 25}),
                 "guidance_scale": ("FLOAT", {"default": 8.50}),
@@ -113,7 +122,7 @@ class Modelscopev2v:
         # Normalize the tensor to have values between 0 and 1 if they are in the range 0-255
         if video_frames.max() > 1.0:
             video_frames = video_frames / 255.0
-        
+
         # The expected shape is (num_frames, height, width, channels)
         video_frames = video_frames.squeeze(0).permute(0, 1, 2, 3)
 

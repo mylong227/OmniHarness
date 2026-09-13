@@ -1,36 +1,45 @@
 ---
 tags:
-- Audio
+  - Audio
 ---
 
 # FL VHS Audio Converter
+
 ## Documentation
+
 - Class name: `FL_AudioConverter`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_AudioConverter node is designed to transform audio data into a format that simulates the characteristics of VHS audio quality. It processes audio inputs by adjusting their sample rate and converting them into a byte stream that represents the audio in a VHS-like quality.
+
 ## Input types
+
 ### Required
+
 - **`audio`**
-    - The 'audio' input represents the raw audio data that will be processed and converted into VHS audio quality. It is crucial for defining the audio content that will undergo transformation.
-    - Comfy dtype: `AUDIO`
-    - Python dtype: `Tuple[np.ndarray, int]`
+  - The 'audio' input represents the raw audio data that will be processed and converted into VHS audio quality. It is crucial for defining the audio content that will undergo transformation.
+  - Comfy dtype: `AUDIO`
+  - Python dtype: `Tuple[np.ndarray, int]`
 - **`sample_rate`**
-    - The 'sample_rate' input specifies the sample rate of the audio data. It plays a significant role in the conversion process by determining the resolution of the audio output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'sample_rate' input specifies the sample rate of the audio data. It plays a significant role in the conversion process by determining the resolution of the audio output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`audio`**
-    - Comfy dtype: `VHS_AUDIO`
-    - The output is a lambda function that, when called, returns the audio data bytes simulating VHS audio quality.
-    - Python dtype: `Callable[[], bytes]`
+  - Comfy dtype: `VHS_AUDIO`
+  - The output is a lambda function that, when called, returns the audio data bytes simulating VHS audio quality.
+  - Python dtype: `Callable[[], bytes]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_AudioConverter:
     @classmethod

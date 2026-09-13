@@ -1,72 +1,81 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # Stable Zero123 Batch Schedule
+
 ## Documentation
+
 - Class name: `StableZero123_BatchSchedule`
 - Category: `KJNodes/experimental`
 - Output node: `False`
 
 This node is designed to manage and schedule batch operations for the StableZero123 model, optimizing the processing of multiple inputs in a batched manner for efficiency and performance.
+
 ## Input types
+
 ### Required
+
 - **`clip_vision`**
-    - Represents the CLIP vision model input, used to provide visual context or features for processing.
-    - Comfy dtype: `CLIP_VISION`
-    - Python dtype: `str`
+  - Represents the CLIP vision model input, used to provide visual context or features for processing.
+  - Comfy dtype: `CLIP_VISION`
+  - Python dtype: `str`
 - **`init_image`**
-    - Initial image input for the model to process or modify.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Image`
+  - Initial image input for the model to process or modify.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Image`
 - **`vae`**
-    - The variational autoencoder used for encoding or decoding images in the model's processing pipeline.
-    - Comfy dtype: `VAE`
-    - Python dtype: `VAE`
+  - The variational autoencoder used for encoding or decoding images in the model's processing pipeline.
+  - Comfy dtype: `VAE`
+  - Python dtype: `VAE`
 - **`width`**
-    - Specifies the width of the output image, allowing for customization of the image dimensions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the output image, allowing for customization of the image dimensions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Specifies the height of the output image, allowing for customization of the image dimensions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the height of the output image, allowing for customization of the image dimensions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`batch_size`**
-    - Determines the number of images processed in a single batch, affecting efficiency and performance.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of images processed in a single batch, affecting efficiency and performance.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`interpolation`**
-    - Defines the interpolation method used in image processing, affecting the smoothness and quality of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the interpolation method used in image processing, affecting the smoothness and quality of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`azimuth_points_string`**
-    - A string defining azimuth points for 3D model orientation, used in scheduling the model's view direction.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string defining azimuth points for 3D model orientation, used in scheduling the model's view direction.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`elevation_points_string`**
-    - A string defining elevation points for 3D model orientation, used in scheduling the model's view direction.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string defining elevation points for 3D model orientation, used in scheduling the model's view direction.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`positive`**
-    - Comfy dtype: `CONDITIONING`
-    - The positive conditioning output from the model, used for enhancing certain features or aspects in the generated content.
-    - Python dtype: `Conditioning`
+  - Comfy dtype: `CONDITIONING`
+  - The positive conditioning output from the model, used for enhancing certain features or aspects in the generated content.
+  - Python dtype: `Conditioning`
 - **`negative`**
-    - Comfy dtype: `CONDITIONING`
-    - The negative conditioning output from the model, used for suppressing certain features or aspects in the generated content.
-    - Python dtype: `Conditioning`
+  - Comfy dtype: `CONDITIONING`
+  - The negative conditioning output from the model, used for suppressing certain features or aspects in the generated content.
+  - Python dtype: `Conditioning`
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - Represents the latent space encoding of the input, capturing the essential features for further processing or generation.
-    - Python dtype: `Latent`
+  - Comfy dtype: `LATENT`
+  - Represents the latent space encoding of the input, capturing the essential features for further processing or generation.
+  - Python dtype: `Latent`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class StableZero123_BatchSchedule:
     @classmethod
@@ -81,7 +90,7 @@ class StableZero123_BatchSchedule:
                               "azimuth_points_string": ("STRING", {"default": "0:(0.0),\n7:(1.0),\n15:(0.0)\n", "multiline": True}),
                               "elevation_points_string": ("STRING", {"default": "0:(0.0),\n7:(0.0),\n15:(0.0)\n", "multiline": True}),
                              }}
-    
+
     RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "LATENT")
     RETURN_NAMES = ("positive", "negative", "latent")
     FUNCTION = "encode"
@@ -100,14 +109,14 @@ class StableZero123_BatchSchedule:
             return 1 - (1 - t) * (1 - t)
         def ease_in_out(t):
             return 3 * t * t - 2 * t * t * t
-        
+
         # Parse the azimuth input string into a list of tuples
         azimuth_points = []
         azimuth_points_string = azimuth_points_string.rstrip(',\n')
         for point_str in azimuth_points_string.split(','):
             frame_str, azimuth_str = point_str.split(':')
             frame = int(frame_str.strip())
-            azimuth = float(azimuth_str.strip()[1:-1]) 
+            azimuth = float(azimuth_str.strip()[1:-1])
             azimuth_points.append((frame, azimuth))
         # Sort the points by frame number
         azimuth_points.sort(key=lambda x: x[0])
@@ -118,7 +127,7 @@ class StableZero123_BatchSchedule:
         for point_str in elevation_points_string.split(','):
             frame_str, elevation_str = point_str.split(':')
             frame = int(frame_str.strip())
-            elevation_val = float(elevation_str.strip()[1:-1]) 
+            elevation_val = float(elevation_str.strip()[1:-1])
             elevation_points.append((frame, elevation_val))
         # Sort the points by frame number
         elevation_points.sort(key=lambda x: x[0])
@@ -131,7 +140,7 @@ class StableZero123_BatchSchedule:
         positive_pooled_out = []
         negative_cond_out = []
         negative_pooled_out = []
-        
+
         #azimuth interpolation
         for i in range(batch_size):
             # Find the interpolated azimuth for the current frame
@@ -151,7 +160,7 @@ class StableZero123_BatchSchedule:
                     fraction = ease_out(fraction)
                 elif interpolation == "ease_in_out":
                     fraction = ease_in_out(fraction)
-                
+
                 # Use the new interpolate_angle function
                 interpolated_azimuth = interpolate_angle(azimuth_points[prev_point][1], azimuth_points[next_point][1], fraction)
             else:
@@ -172,7 +181,7 @@ class StableZero123_BatchSchedule:
                     fraction = ease_out(fraction)
                 elif interpolation == "ease_in_out":
                     fraction = ease_in_out(fraction)
-                
+
                 interpolated_elevation = interpolate_angle(elevation_points[prev_elevation_point][1], elevation_points[next_elevation_point][1], fraction)
             else:
                 interpolated_elevation = elevation_points[prev_elevation_point][1]

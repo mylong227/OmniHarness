@@ -1,53 +1,64 @@
 ---
 tags:
-- IPAdapter
+  - IPAdapter
 ---
 
 # IPAdapter Combine Embeds
+
 ## Documentation
+
 - Class name: `IPAdapterCombineEmbeds`
 - Category: `ipadapter/embeds`
 - Output node: `False`
 
 The IPAdapterCombineEmbeds node is designed to merge multiple embedding vectors into a single, unified representation. This process enhances the ability to manipulate and generate images by combining various aspects of input embeddings, thereby enabling more complex and nuanced image synthesis.
+
 ## Input types
+
 ### Required
+
 - **`embed1`**
-    - The 'embed1' parameter represents the primary embedding vector to be combined with others. It serves as the foundational vector for the combination process, influencing the final, unified embedding output.
-    - Comfy dtype: `EMBEDS`
-    - Python dtype: `torch.Tensor`
+  - The 'embed1' parameter represents the primary embedding vector to be combined with others. It serves as the foundational vector for the combination process, influencing the final, unified embedding output.
+  - Comfy dtype: `EMBEDS`
+  - Python dtype: `torch.Tensor`
 - **`method`**
-    - The 'method' parameter specifies the technique used to combine the embedding vectors, such as 'concat', 'add', 'subtract', 'average', 'norm average', 'max', or 'min'. This choice determines how the embeddings are merged, affecting the characteristics of the resulting vector.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The 'method' parameter specifies the technique used to combine the embedding vectors, such as 'concat', 'add', 'subtract', 'average', 'norm average', 'max', or 'min'. This choice determines how the embeddings are merged, affecting the characteristics of the resulting vector.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`embed2`**
-    - The 'embed2' parameter represents an optional additional embedding vector to be combined with 'embed1'. It contributes to the diversity and richness of the final embedding output.
-    - Comfy dtype: `EMBEDS`
-    - Python dtype: `Optional[torch.Tensor]`
+  - The 'embed2' parameter represents an optional additional embedding vector to be combined with 'embed1'. It contributes to the diversity and richness of the final embedding output.
+  - Comfy dtype: `EMBEDS`
+  - Python dtype: `Optional[torch.Tensor]`
 - **`embed3`**
-    - The 'embed3' parameter is another optional embedding vector that can be combined with 'embed1' and potentially 'embed2', further enriching the final embedding output.
-    - Comfy dtype: `EMBEDS`
-    - Python dtype: `Optional[torch.Tensor]`
+  - The 'embed3' parameter is another optional embedding vector that can be combined with 'embed1' and potentially 'embed2', further enriching the final embedding output.
+  - Comfy dtype: `EMBEDS`
+  - Python dtype: `Optional[torch.Tensor]`
 - **`embed4`**
-    - The 'embed4' parameter provides an option to include yet another embedding vector in the combination process, adding to the complexity and detail of the resulting unified embedding.
-    - Comfy dtype: `EMBEDS`
-    - Python dtype: `Optional[torch.Tensor]`
+  - The 'embed4' parameter provides an option to include yet another embedding vector in the combination process, adding to the complexity and detail of the resulting unified embedding.
+  - Comfy dtype: `EMBEDS`
+  - Python dtype: `Optional[torch.Tensor]`
 - **`embed5`**
-    - The 'embed5' parameter allows for the inclusion of a fifth embedding vector, maximizing the potential for creating a highly nuanced and detailed final embedding output.
-    - Comfy dtype: `EMBEDS`
-    - Python dtype: `Optional[torch.Tensor]`
+  - The 'embed5' parameter allows for the inclusion of a fifth embedding vector, maximizing the potential for creating a highly nuanced and detailed final embedding output.
+  - Comfy dtype: `EMBEDS`
+  - Python dtype: `Optional[torch.Tensor]`
+
 ## Output types
+
 - **`embeds`**
-    - Comfy dtype: `EMBEDS`
-    - The output 'embeds' represents the unified embedding vector resulting from the combination of input embeddings according to the specified method. This combined embedding can be used for advanced image manipulation and generation tasks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `EMBEDS`
+  - The output 'embeds' represents the unified embedding vector resulting from the combination of input embeddings according to the specified method. This combined embedding can be used for advanced image manipulation and generation tasks.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterCombineEmbeds:
     @classmethod

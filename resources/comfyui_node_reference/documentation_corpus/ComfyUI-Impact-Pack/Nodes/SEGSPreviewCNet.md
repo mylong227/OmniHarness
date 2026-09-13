@@ -1,34 +1,43 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # SEGSPreview (CNET Image)
+
 ## Documentation
+
 - Class name: `SEGSPreviewCNet`
 - Category: `ImpactPack/Util`
 - Output node: `True`
 
 SEGSPreviewCNet is designed to generate previews of segmentation results, specifically focusing on the control networks associated with each segmentation. It saves these previews as images, facilitating a visual inspection of how control networks influence the segmentation process.
+
 ## Input types
+
 ### Required
+
 - **`segs`**
-    - The 'segs' parameter represents the segmentation results to be previewed. It is crucial for generating the control network-based previews, as it contains the segmentation data along with associated control network information.
-    - Comfy dtype: `SEGS`
-    - Python dtype: `Tuple[Tuple[Any, Any], List[Any]]`
+  - The 'segs' parameter represents the segmentation results to be previewed. It is crucial for generating the control network-based previews, as it contains the segmentation data along with associated control network information.
+  - Comfy dtype: `SEGS`
+  - Python dtype: `Tuple[Tuple[Any, Any], List[Any]]`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `IMAGE`
+  - unknown
+  - Python dtype: `unknown`
 - **`ui`**
-    - The 'ui' parameter contains the generated preview images of the segmentation results, specifically highlighting the control networks' impact.
+  - The 'ui' parameter contains the generated preview images of the segmentation results, specifically highlighting the control networks' impact.
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SEGSPreviewCNet:
     def __init__(self):

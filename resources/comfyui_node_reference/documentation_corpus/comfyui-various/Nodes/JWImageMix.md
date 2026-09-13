@@ -1,46 +1,55 @@
 ---
 tags:
-- Image
-- ImageBlend
-- ImageComposite
+  - Image
+  - ImageBlend
+  - ImageComposite
 ---
 
 # Image Mix
+
 ## Documentation
+
 - Class name: `JWImageMix`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 The JWImageMix node is designed for blending two images together using specified blend modes and a blend factor. It supports operations like mixing and multiplying images, allowing for flexible image manipulation and combination.
+
 ## Input types
+
 ### Required
+
 - **`blend_type`**
-    - Specifies the blend mode to use for combining the images. It determines how the images are mathematically combined, affecting the visual outcome of the blend.
-    - Comfy dtype: `['mix', 'multiply']`
-    - Python dtype: `str`
+  - Specifies the blend mode to use for combining the images. It determines how the images are mathematically combined, affecting the visual outcome of the blend.
+  - Comfy dtype: `['mix', 'multiply']`
+  - Python dtype: `str`
 - **`factor`**
-    - Determines the weight of the second image in the blend. A higher factor gives more prominence to the second image, while a lower factor favors the first image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the weight of the second image in the blend. A higher factor gives more prominence to the second image, while a lower factor favors the first image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`image_a`**
-    - The first image to be blended. Acts as the base layer in the blending operation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The first image to be blended. Acts as the base layer in the blending operation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`image_b`**
-    - The second image to be blended with the first. Its contribution is controlled by the blend factor.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The second image to be blended with the first. Its contribution is controlled by the blend factor.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The result of blending the two input images according to the specified blend type and factor.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The result of blending the two input images according to the specified blend type and factor.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWImageMix", "Image Mix")
 class _:

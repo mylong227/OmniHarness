@@ -1,37 +1,46 @@
 ---
 tags:
-- Text
-- TextReplacement
+  - Text
+  - TextReplacement
 ---
 
 # Search And Replace (Mikey)
+
 ## Documentation
+
 - Class name: `SearchAndReplace`
 - Category: `Mikey/Utils`
 - Output node: `False`
 
 The SearchAndReplace node is designed to modify input text by searching for specific patterns and replacing them with new content, potentially utilizing additional information from JSON inputs to guide the replacement process. This node is part of a utility collection aimed at text manipulation, allowing for dynamic and context-sensitive alterations of text based on predefined rules or mappings.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The primary text input where search and replacement operations will be performed. It serves as the main content to be manipulated.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text input where search and replacement operations will be performed. It serves as the main content to be manipulated.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`seed`**
-    - A numerical input used to influence the randomness of certain operations within the node, ensuring reproducibility of results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A numerical input used to influence the randomness of certain operations within the node, ensuring reproducibility of results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The modified text after search and replace operations have been applied.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The modified text after search and replace operations have been applied.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SearchAndReplace:
     @classmethod

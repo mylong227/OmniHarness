@@ -1,41 +1,50 @@
 ---
 tags:
-- Image
-- Tiled
+  - Image
+  - Tiled
 ---
 
 # TTPlanet Tile Simple
+
 ## Documentation
+
 - Class name: `TTPlanet_TileSimple_Preprocessor`
 - Category: `ControlNet Preprocessors/tile`
 - Output node: `False`
 
 This node is designed for preprocessing images by applying a simple tiling effect, which involves scaling and blurring to enhance or modify the image's appearance for further processing or analysis.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed. It serves as the primary data for the tiling effect application.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed. It serves as the primary data for the tiling effect application.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`scale_factor`**
-    - Determines the scaling factor for the image, affecting the size of the tiles in the processed image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the scaling factor for the image, affecting the size of the tiles in the processed image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`blur_strength`**
-    - Adjusts the strength of the blur applied to the image, influencing the smoothness of the tile edges.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the strength of the blur applied to the image, influencing the smoothness of the tile edges.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image with the applied tiling effect, ready for further processing or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image with the applied tiling effect, ready for further processing or analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TTPlanet_TileSimple_Preprocessor:
     @classmethod
@@ -47,7 +56,7 @@ class TTPlanet_TileSimple_Preprocessor:
                 "blur_strength": ("FLOAT", {"default": 2.0, "min": 1.0, "max": 10.0, "step": 0.1}),
             }
         }
-    
+
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "execute"
 

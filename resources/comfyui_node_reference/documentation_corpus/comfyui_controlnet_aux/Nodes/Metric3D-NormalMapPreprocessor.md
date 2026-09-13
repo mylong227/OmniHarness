@@ -1,52 +1,63 @@
 ---
 tags:
-- DepthMap
-- DepthMapEstimation
-- Image
-- NormalMap
+  - DepthMap
+  - DepthMapEstimation
+  - Image
+  - NormalMap
 ---
 
 # Metric3D Normal Map
+
 ## Documentation
+
 - Class name: `Metric3D-NormalMapPreprocessor`
 - Category: `ControlNet Preprocessors/Normal and Depth Estimators`
 - Output node: `False`
 
 This node preprocesses images for normal map estimation using a 3D metric model. It leverages a pre-trained Metric3DDetector model, configurable with different backbone architectures and intrinsic camera parameters, to compute normal maps from input images. The node aims to enhance depth and normal estimation tasks by providing detailed normal maps, which are crucial for accurate 3D reconstruction and analysis.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for normal map estimation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for normal map estimation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`backbone`**
-    - Specifies the backbone architecture for the Metric3DDetector model. Different backbones offer varying levels of detail and accuracy in the normal map estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the backbone architecture for the Metric3DDetector model. Different backbones offer varying levels of detail and accuracy in the normal map estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`fx`**
-    - The focal length of the camera in the x-axis, used to calibrate the Metric3DDetector model for accurate normal map estimation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The focal length of the camera in the x-axis, used to calibrate the Metric3DDetector model for accurate normal map estimation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`fy`**
-    - The focal length of the camera in the y-axis, essential for calibrating the model to accurately estimate normal maps.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The focal length of the camera in the y-axis, essential for calibrating the model to accurately estimate normal maps.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resolution`**
-    - The resolution to which the input image is scaled before processing. This parameter can affect the detail level of the estimated normal map.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input image is scaled before processing. This parameter can affect the detail level of the estimated normal map.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image representing the estimated normal map, which visualizes the orientation of surfaces in the scene.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is an image representing the estimated normal map, which visualizes the orientation of surfaces in the scene.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Metric3D_Normal_Map_Preprocessor:
     @classmethod

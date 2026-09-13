@@ -1,107 +1,118 @@
 ---
 tags:
-- ImageScaling
-- ImageUpscaling
-- Upscale
+  - ImageScaling
+  - ImageUpscaling
+  - Upscale
 ---
 
 # Upscaler (SEGS/pipe)
+
 ## Documentation
+
 - Class name: `SEGSUpscalerPipe`
 - Category: `ImpactPack/Upscale`
 - Output node: `False`
 
 The SEGSUpscalerPipe node is designed for upscaling images using segmentation maps as guidance. It integrates with a basic pipeline to enhance image resolution while considering the segmentation details, ensuring that the upscale process respects the original image's segmented regions.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The original image to be upscaled. It serves as the primary input for the upscaling process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The original image to be upscaled. It serves as the primary input for the upscaling process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`segs`**
-    - Segmentation maps corresponding to the original image. These maps guide the upscaling process to maintain fidelity to the segmented regions.
-    - Comfy dtype: `SEGS`
-    - Python dtype: `torch.Tensor`
+  - Segmentation maps corresponding to the original image. These maps guide the upscaling process to maintain fidelity to the segmented regions.
+  - Comfy dtype: `SEGS`
+  - Python dtype: `torch.Tensor`
 - **`basic_pipe`**
-    - A collection of models and configurations used in the upscaling process, including model, clip, vae, and settings for sampling and scheduling.
-    - Comfy dtype: `BASIC_PIPE`
-    - Python dtype: `Tuple[torch.nn.Module, Any, torch.nn.Module, Dict]`
+  - A collection of models and configurations used in the upscaling process, including model, clip, vae, and settings for sampling and scheduling.
+  - Comfy dtype: `BASIC_PIPE`
+  - Python dtype: `Tuple[torch.nn.Module, Any, torch.nn.Module, Dict]`
 - **`rescale_factor`**
-    - The factor by which the image will be upscaled. It determines the increase in resolution.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The factor by which the image will be upscaled. It determines the increase in resolution.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`resampling_method`**
-    - The method used for resampling during the upscaling process, affecting the quality of the upscaled image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The method used for resampling during the upscaling process, affecting the quality of the upscaled image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`supersample`**
-    - A boolean indicating whether to apply supersampling, which can enhance the upscaling quality by reducing aliasing.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - A boolean indicating whether to apply supersampling, which can enhance the upscaling quality by reducing aliasing.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`rounding_modulus`**
-    - A value used to round the upscaled image dimensions, ensuring they are multiples of this modulus.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A value used to round the upscaled image dimensions, ensuring they are multiples of this modulus.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`seed`**
-    - The seed for random number generation, ensuring reproducibility of the upscaling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The seed for random number generation, ensuring reproducibility of the upscaling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`steps`**
-    - The number of steps to perform in the upscaling process, affecting the detail and quality of the result.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of steps to perform in the upscaling process, affecting the detail and quality of the result.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Configuration settings for the upscaling process, including parameters for the model and sampling.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `Dict`
+  - Configuration settings for the upscaling process, including parameters for the model and sampling.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `Dict`
 - **`sampler_name`**
-    - The name of the sampler to use during upscaling, influencing the texture and details of the upscaled image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The name of the sampler to use during upscaling, influencing the texture and details of the upscaled image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - The scheduler used to adjust the learning rate during the upscaling process, affecting the convergence and quality.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `Any`
+  - The scheduler used to adjust the learning rate during the upscaling process, affecting the convergence and quality.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `Any`
 - **`denoise`**
-    - A boolean indicating whether to apply denoising, which can improve the visual quality of the upscaled image by reducing noise.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `bool`
+  - A boolean indicating whether to apply denoising, which can improve the visual quality of the upscaled image by reducing noise.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `bool`
 - **`feather`**
-    - The feathering amount applied to the edges of the segmentation maps, smoothing transitions between segments.
-    - Comfy dtype: `INT`
-    - Python dtype: `float`
+  - The feathering amount applied to the edges of the segmentation maps, smoothing transitions between segments.
+  - Comfy dtype: `INT`
+  - Python dtype: `float`
 - **`inpaint_model`**
-    - The model used for inpainting missing or uncertain areas in the upscaled image, enhancing overall quality.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `torch.nn.Module`
+  - The model used for inpainting missing or uncertain areas in the upscaled image, enhancing overall quality.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `torch.nn.Module`
 - **`noise_mask_feather`**
-    - The amount of feathering applied to the noise mask, affecting the blending of noise-reduced areas.
-    - Comfy dtype: `INT`
-    - Python dtype: `float`
+  - The amount of feathering applied to the noise mask, affecting the blending of noise-reduced areas.
+  - Comfy dtype: `INT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`upscale_model_opt`**
-    - Optional configurations for the upscale model, allowing customization of the upscaling process.
-    - Comfy dtype: `UPSCALE_MODEL`
-    - Python dtype: `Dict`
+  - Optional configurations for the upscale model, allowing customization of the upscaling process.
+  - Comfy dtype: `UPSCALE_MODEL`
+  - Python dtype: `Dict`
 - **`upscaler_hook_opt`**
-    - Optional hooks to modify the behavior of the upscaler, enabling advanced customization.
-    - Comfy dtype: `UPSCALER_HOOK`
-    - Python dtype: `Dict`
+  - Optional hooks to modify the behavior of the upscaler, enabling advanced customization.
+  - Comfy dtype: `UPSCALER_HOOK`
+  - Python dtype: `Dict`
 - **`scheduler_func_opt`**
-    - Optional scheduler functions to further customize the learning rate adjustment during upscaling.
-    - Comfy dtype: `SCHEDULER_FUNC`
-    - Python dtype: `Dict`
+  - Optional scheduler functions to further customize the learning rate adjustment during upscaling.
+  - Comfy dtype: `SCHEDULER_FUNC`
+  - Python dtype: `Dict`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The upscaled image, enhanced in resolution while preserving the details and regions defined by the segmentation maps.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The upscaled image, enhanced in resolution while preserving the details and regions defined by the segmentation maps.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SEGSUpscalerPipe:
     @classmethod

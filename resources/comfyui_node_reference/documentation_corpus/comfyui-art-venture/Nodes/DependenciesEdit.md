@@ -1,66 +1,77 @@
 ---
 tags:
-- Conditioning
-- Context
+  - Conditioning
+  - Context
 ---
 
 # Dependencies Edit
+
 ## Documentation
+
 - Class name: `DependenciesEdit`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The `DependenciesEdit` node is designed to modify and update the dependencies required for art generation processes. It allows for the customization of various components such as VAE models, checkpoints, CLIP models, and more, based on the provided inputs. This node plays a crucial role in tailoring the art generation pipeline to specific needs by adjusting the underlying dependencies.
+
 ## Input types
+
 ### Required
+
 - **`dependencies`**
-    - A tuple containing the current set of dependencies, which this node will modify based on the other input parameters. It's the core input that determines the starting point for any modifications.
-    - Comfy dtype: `DEPENDENCIES`
-    - Python dtype: `Tuple`
+  - A tuple containing the current set of dependencies, which this node will modify based on the other input parameters. It's the core input that determines the starting point for any modifications.
+  - Comfy dtype: `DEPENDENCIES`
+  - Python dtype: `Tuple`
+
 ### Optional
+
 - **`ckpt_name`**
-    - Determines the checkpoint name for the model, enabling the selection from available checkpoints or specifying custom ones.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the checkpoint name for the model, enabling the selection from available checkpoints or specifying custom ones.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`vae_name`**
-    - Specifies the name of the VAE model to be used, allowing for the selection from predefined options or custom models.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the VAE model to be used, allowing for the selection from predefined options or custom models.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`clip`**
-    - Defines the CLIP model to be utilized, offering flexibility in choosing the appropriate model for the task.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `Optional[str]`
+  - Defines the CLIP model to be utilized, offering flexibility in choosing the appropriate model for the task.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `Optional[str]`
 - **`clip_skip`**
-    - Sets the number of layers to skip in the CLIP model, optimizing performance or accuracy as needed.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the number of layers to skip in the CLIP model, optimizing performance or accuracy as needed.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`positive`**
-    - A positive prompt to influence the generation process, enhancing the creative output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A positive prompt to influence the generation process, enhancing the creative output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`negative`**
-    - A negative prompt to steer away the generation from undesired directions, refining the results.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A negative prompt to steer away the generation from undesired directions, refining the results.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`lora_stack`**
-    - Specifies the LoRA stack to be applied, allowing for advanced model adaptation and fine-tuning.
-    - Comfy dtype: `LORA_STACK`
-    - Python dtype: `Optional[Tuple]`
+  - Specifies the LoRA stack to be applied, allowing for advanced model adaptation and fine-tuning.
+  - Comfy dtype: `LORA_STACK`
+  - Python dtype: `Optional[Tuple]`
 - **`cnet_stack`**
-    - Determines the ControlNet stack to be used, enabling precise control over the generation process.
-    - Comfy dtype: `CONTROL_NET_STACK`
-    - Python dtype: `Optional[Tuple]`
+  - Determines the ControlNet stack to be used, enabling precise control over the generation process.
+  - Comfy dtype: `CONTROL_NET_STACK`
+  - Python dtype: `Optional[Tuple]`
+
 ## Output types
+
 - **`dependencies`**
-    - Comfy dtype: `DEPENDENCIES`
-    - The modified set of dependencies, reflecting the updates made based on the input parameters.
-    - Python dtype: `Tuple`
+  - Comfy dtype: `DEPENDENCIES`
+  - The modified set of dependencies, reflecting the updates made based on the input parameters.
+  - Python dtype: `Tuple`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilDependenciesEdit:
     @classmethod

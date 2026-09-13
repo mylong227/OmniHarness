@@ -1,37 +1,45 @@
 # SDXL Resolution Presets (ws)
+
 ## Documentation
+
 - Class name: `SDXLResolutionPresets`
 - Category: `copilot`
 - Output node: `False`
 
 The SDXLResolutionPresets node provides a selection of predefined image resolution presets for use in image generation tasks, allowing users to easily choose from a variety of common aspect ratios and dimensions.
+
 ## Input types
+
 ### Required
+
 - **`resolution`**
-    - Specifies the desired image resolution from a predefined list of common resolutions, influencing the output image's dimensions.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the desired image resolution from a predefined list of common resolutions, influencing the output image's dimensions.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`width`**
-    - Comfy dtype: `INT`
-    - The width component of the selected resolution preset.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The width component of the selected resolution preset.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The height component of the selected resolution preset.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The height component of the selected resolution preset.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [SVD_img2vid_Conditioning](../../Comfy/Nodes/SVD_img2vid_Conditioning.md)
-    - [Eff. Loader SDXL](../../efficiency-nodes-comfyui/Nodes/Eff. Loader SDXL.md)
-    - [EmptyLatentImage](../../Comfy/Nodes/EmptyLatentImage.md)
-    - LatentGaussianNoise
-    - [CM_IntToNumber](../../ComfyMath/Nodes/CM_IntToNumber.md)
-
-
+  - [SVD_img2vid_Conditioning](../../Comfy/Nodes/SVD_img2vid_Conditioning.md)
+  - [Eff. Loader SDXL](../../efficiency-nodes-comfyui/Nodes/Eff. Loader SDXL.md)
+  - [EmptyLatentImage](../../Comfy/Nodes/EmptyLatentImage.md)
+  - LatentGaussianNoise
+  - [CM_IntToNumber](../../ComfyMath/Nodes/CM_IntToNumber.md)
 
 ## Source code
+
 ```python
 class SDXLResolutionPresets(BaseNode):
     RESOLUTIONS: list[TResolution] = [

@@ -1,60 +1,68 @@
 ---
 tags:
-- Prompt
-- PromptStyling
+  - Prompt
+  - PromptStyling
 ---
 
 # SDXL Prompt Styler
+
 ## Documentation
+
 - Class name: `SDXLPromptStyler`
 - Category: `utils`
 - Output node: `False`
 
 The SDXLPromptStyler node is designed to process and style text prompts based on specified styles and templates. It modifies the input positive and negative prompts by incorporating them into predefined templates, allowing for dynamic and context-aware text generation.
+
 ## Input types
+
 ### Required
+
 - **`text_positive`**
-    - The positive text input that will be styled according to the specified template and style. It plays a crucial role in shaping the output's positive sentiment.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The positive text input that will be styled according to the specified template and style. It plays a crucial role in shaping the output's positive sentiment.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text_negative`**
-    - The negative text input that will be combined with the template's negative prompt, if present, to tailor the output's negative sentiment.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The negative text input that will be combined with the template's negative prompt, if present, to tailor the output's negative sentiment.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`style`**
-    - Specifies the styling template to be applied to the text inputs, influencing the thematic presentation of the generated prompts.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the styling template to be applied to the text inputs, influencing the thematic presentation of the generated prompts.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`log_prompt`**
-    - Controls whether the styling process details are logged, aiding in debugging and process transparency.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Controls whether the styling process details are logged, aiding in debugging and process transparency.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`text_positive`**
-    - Comfy dtype: `STRING`
-    - The styled positive text, transformed according to the specified style and template.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The styled positive text, transformed according to the specified style and template.
+  - Python dtype: `str`
 - **`text_negative`**
-    - Comfy dtype: `STRING`
-    - The styled negative text, adjusted to complement the positive text in accordance with the template's guidelines.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The styled negative text, adjusted to complement the positive text in accordance with the template's guidelines.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - ShowText|pysssss
-    - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
-    - Demofusion From Single File
-    - IDGenerationNode
-    - [ttN pipeLoader](../../ComfyUI_tinyterraNodes/Nodes/ttN pipeLoader.md)
-    - [Eff. Loader SDXL](../../efficiency-nodes-comfyui/Nodes/Eff. Loader SDXL.md)
-    - [SDXLPromptStyler](../../comfyui-copilot/Nodes/SDXLPromptStyler.md)
-    - ComfyUIStyler
-    - NEW_PhotoMaker_Generation
-    - Reroute
-
-
+  - ShowText|pysssss
+  - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
+  - Demofusion From Single File
+  - IDGenerationNode
+  - [ttN pipeLoader](../../ComfyUI_tinyterraNodes/Nodes/ttN pipeLoader.md)
+  - [Eff. Loader SDXL](../../efficiency-nodes-comfyui/Nodes/Eff. Loader SDXL.md)
+  - [SDXLPromptStyler](../../comfyui-copilot/Nodes/SDXLPromptStyler.md)
+  - ComfyUIStyler
+  - NEW_PhotoMaker_Generation
+  - Reroute
 
 ## Source code
+
 ```python
 class SDXLPromptStyler:
 
@@ -88,7 +96,7 @@ class SDXLPromptStyler:
                                                                                              text_positive,
                                                                                              text_negative)
 
-        # If logging is enabled (log_prompt is set to "Yes"), 
+        # If logging is enabled (log_prompt is set to "Yes"),
         # print the style, positive and negative text, and positive and negative prompts to the console
         if log_prompt == "Yes":
             print(f"style: {style}")

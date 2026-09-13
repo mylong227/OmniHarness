@@ -1,36 +1,47 @@
 # Face Align
+
 ## Documentation
+
 - Class name: `FaceAlign`
 - Category: `FaceAnalysis`
 - Output node: `False`
 
 The FaceAlign node is designed for aligning faces within images based on facial keypoints. It adjusts the orientation of a face in an input image to match the orientation of a face in a target image or to a standard alignment if no target is provided, enhancing the consistency of facial analysis or recognition tasks.
+
 ## Input types
+
 ### Required
+
 - **`analysis_models`**
-    - Specifies the models used for facial analysis, particularly for detecting facial keypoints. Its role is crucial in determining the orientation and alignment of faces within images.
-    - Comfy dtype: `ANALYSIS_MODELS`
-    - Python dtype: `dict`
+  - Specifies the models used for facial analysis, particularly for detecting facial keypoints. Its role is crucial in determining the orientation and alignment of faces within images.
+  - Comfy dtype: `ANALYSIS_MODELS`
+  - Python dtype: `dict`
 - **`image_from`**
-    - The source image containing the face to be aligned. This image is processed to detect facial keypoints and adjust its orientation based on these points.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The source image containing the face to be aligned. This image is processed to detect facial keypoints and adjust its orientation based on these points.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`image_to`**
-    - An optional target image used to align the source image's face orientation with the target's face orientation. If provided, the alignment is adjusted to match the target face's orientation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - An optional target image used to align the source image's face orientation with the target's face orientation. If provided, the alignment is adjusted to match the target face's orientation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The aligned image with the face orientation adjusted either to match the target image or to a standard alignment if no target is provided.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The aligned image with the face orientation adjusted either to match the target image or to a standard alignment if no target is provided.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FaceAlign:
     @classmethod

@@ -1,60 +1,69 @@
 ---
 tags:
-- Face
+  - Face
 ---
 
 # Face Embeds Distance
+
 ## Documentation
+
 - Class name: `FaceEmbedDistance`
 - Category: `FaceAnalysis`
 - Output node: `False`
 
 The FaceEmbedDistance node calculates the distance between facial embeddings using cosine or Euclidean (L2) metrics. It supports normalization of embeddings for distance calculation, enabling a versatile approach to measuring facial similarity or dissimilarity.
+
 ## Input types
+
 ### Required
+
 - **`analysis_models`**
-    - Specifies the face analysis models to be used for generating embeddings from the input images. It plays a critical role in the accuracy of the distance measurements.
-    - Comfy dtype: `ANALYSIS_MODELS`
-    - Python dtype: `object`
+  - Specifies the face analysis models to be used for generating embeddings from the input images. It plays a critical role in the accuracy of the distance measurements.
+  - Comfy dtype: `ANALYSIS_MODELS`
+  - Python dtype: `object`
 - **`reference`**
-    - The reference image against which other images are compared. This image is used to generate a facial embedding for similarity comparison.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The reference image against which other images are compared. This image is used to generate a facial embedding for similarity comparison.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`image`**
-    - The image to be compared against the reference. It is used to generate a facial embedding for calculating the distance to the reference embedding.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The image to be compared against the reference. It is used to generate a facial embedding for calculating the distance to the reference embedding.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`similarity_metric`**
-    - Defines the metric used for calculating the distance between embeddings. Options include 'L2_norm', 'cosine', and 'euclidean', affecting the comparison's sensitivity and outcome.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the metric used for calculating the distance between embeddings. Options include 'L2_norm', 'cosine', and 'euclidean', affecting the comparison's sensitivity and outcome.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`filter_thresh`**
-    - A threshold for filtering out distances above a certain value, enhancing the focus on closer matches.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A threshold for filtering out distances above a certain value, enhancing the focus on closer matches.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`filter_best`**
-    - Limits the number of results to the best matches below the specified threshold, optimizing the search for similarity.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Limits the number of results to the best matches below the specified threshold, optimizing the search for similarity.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`generate_image_overlay`**
-    - A boolean indicating whether to overlay the reference image on top of the comparison image, visually representing the similarity measurement.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean indicating whether to overlay the reference image on top of the comparison image, visually representing the similarity measurement.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The image result of overlaying the reference image on the comparison image, if enabled, providing a visual representation of the similarity.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The image result of overlaying the reference image on the comparison image, if enabled, providing a visual representation of the similarity.
+  - Python dtype: `numpy.ndarray`
 - **`distance`**
-    - Comfy dtype: `FLOAT`
-    - The calculated distance between the facial embeddings of the reference and comparison images, quantifying their similarity.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The calculated distance between the facial embeddings of the reference and comparison images, quantifying their similarity.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FaceEmbedDistance:
     @classmethod
@@ -91,7 +100,7 @@ class FaceEmbedDistance:
             ref_emb = analysis_models.get_embeds(np.array(T.ToPILImage()(i.permute(2, 0, 1)).convert('RGB')))
             if ref_emb is not None:
                 ref.append(torch.from_numpy(ref_emb))
-        
+
         if ref == []:
             raise Exception('No face detected in reference image')
 
@@ -100,7 +109,7 @@ class FaceEmbedDistance:
 
         out = []
         out_dist = []
-        
+
         for i in image:
             img = np.array(T.ToPILImage()(i.permute(2, 0, 1)).convert('RGB'))
 
@@ -125,9 +134,9 @@ class FaceEmbedDistance:
                     else:
                         #dist = euclidean_distance(ref, img)
                         dist = np.float64(np.linalg.norm(ref - img))
-                    
+
                     norm_dist = min(1.0, 1 / analysis_models.thresholds[similarity_metric] * dist)
-           
+
             if dist <= filter_thresh:
                 print(f"\033[96mFace Analysis: value: {dist}, normalized: {norm_dist}\033[0m")
 
@@ -147,7 +156,7 @@ class FaceEmbedDistance:
 
         if not out:
             raise Exception('No image matches the filter criteria.')
-    
+
         out = torch.stack(out)
 
         # filter out the best matches
@@ -156,7 +165,7 @@ class FaceEmbedDistance:
             out_dist, idx = torch.topk(torch.tensor(out_dist), filter_best, largest=False)
             out = out[idx]
             out_dist = out_dist.cpu().numpy().tolist()
-        
+
         if out.shape[3] > 3:
             out = out[:, :, :, :3]
 

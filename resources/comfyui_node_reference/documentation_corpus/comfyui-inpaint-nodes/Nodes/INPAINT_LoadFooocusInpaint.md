@@ -1,38 +1,47 @@
 ---
 tags:
-- DepthMap
-- Image
-- Inpaint
+  - DepthMap
+  - Image
+  - Inpaint
 ---
 
 # Load Fooocus Inpaint
+
 ## Documentation
+
 - Class name: `INPAINT_LoadFooocusInpaint`
 - Category: `inpaint`
 - Output node: `False`
 
 This node is designed to load specific inpainting models, focusing on initializing and preparing the models for the inpainting process. It abstracts the complexities of loading model weights and configurations, ensuring that the models are ready for use in subsequent inpainting tasks.
+
 ## Input types
+
 ### Required
+
 - **`head`**
-    - Specifies the filename of the head model to be loaded. It is crucial for initializing the inpainting head model with the correct weights for the inpainting process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the filename of the head model to be loaded. It is crucial for initializing the inpainting head model with the correct weights for the inpainting process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`patch`**
-    - Indicates the filename of the patch model to be loaded. This model is essential for applying localized adjustments or enhancements during the inpainting process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates the filename of the patch model to be loaded. This model is essential for applying localized adjustments or enhancements during the inpainting process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`inpaint_patch`**
-    - Comfy dtype: `INPAINT_PATCH`
-    - Returns a tuple containing the initialized inpainting head model and the loaded patch model, ready for use in the inpainting process.
-    - Python dtype: `Tuple[InpaintHead, dict[str, Tensor]]`
+  - Comfy dtype: `INPAINT_PATCH`
+  - Returns a tuple containing the initialized inpainting head model and the loaded patch model, ready for use in the inpainting process.
+  - Python dtype: `Tuple[InpaintHead, dict[str, Tensor]]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadFooocusInpaint:
     @classmethod

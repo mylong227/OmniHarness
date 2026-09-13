@@ -1,45 +1,56 @@
 ---
 tags:
-- PromptComposer
+  - PromptComposer
 ---
 
 # Prompt Composer Effect (deprecated!)
+
 ## Documentation
+
 - Class name: `PromptComposerEffect`
 - Category: `AI WizArt/Prompt Composer Tools/Deprecated`
 - Output node: `False`
 
 The PromptComposerEffect node is designed to apply a specified effect with a given weight to an input text, enhancing the prompt composition process by allowing for dynamic customization based on the effect's intensity.
+
 ## Input types
+
 ### Required
+
 - **`effect`**
-    - Specifies the effect to be applied to the input text. This parameter determines the nature of the modification.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `effects`
+  - Specifies the effect to be applied to the input text. This parameter determines the nature of the modification.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `effects`
 - **`effect_weight`**
-    - Defines the intensity of the applied effect, allowing for fine-tuned control over the modification's impact.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the intensity of the applied effect, allowing for fine-tuned control over the modification's impact.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`active`**
-    - A boolean parameter that activates or deactivates the effect application, providing a way to enable or disable the effect dynamically.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean parameter that activates or deactivates the effect application, providing a way to enable or disable the effect dynamically.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`text_in_opt`**
-    - An optional input text to which an effect can be applied. It serves as the base text for further modification.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional input text to which an effect can be applied. It serves as the base text for further modification.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`text_out`**
-    - Comfy dtype: `STRING`
-    - The output text with the specified effect applied, reflecting the modifications based on the effect's weight and activation status.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output text with the specified effect applied, reflecting the modifications based on the effect's weight and activation status.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PromptComposerEffect:
     def __init__(self):

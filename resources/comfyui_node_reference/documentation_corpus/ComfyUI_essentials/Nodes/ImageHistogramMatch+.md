@@ -1,48 +1,57 @@
 ---
 tags:
-- Color
+  - Color
 ---
 
 # 🔧 Image Histogram Match
+
 ## Documentation
+
 - Class name: `ImageHistogramMatch+`
 - Category: `essentials/image processing`
 - Output node: `False`
 
 This node is designed to perform histogram matching on images, a process that adjusts the pixel values of an image so its histogram matches that of a reference image. This technique is useful for color correction and achieving consistent visual styles across different images.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image to be processed and adjusted to match the histogram of the reference image. It plays a pivotal role in the histogram matching operation, determining the final appearance of the adjusted image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image to be processed and adjusted to match the histogram of the reference image. It plays a pivotal role in the histogram matching operation, determining the final appearance of the adjusted image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`reference`**
-    - The reference image providing the desired histogram distribution for the histogram matching process. It establishes the target histogram characteristics for the image adjustment.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The reference image providing the desired histogram distribution for the histogram matching process. It establishes the target histogram characteristics for the image adjustment.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`method`**
-    - Specifies the method to be used for histogram matching. This parameter allows for the selection between different histogram matching techniques, influencing the approach and potentially the quality of the result.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the method to be used for histogram matching. This parameter allows for the selection between different histogram matching techniques, influencing the approach and potentially the quality of the result.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`factor`**
-    - A blending factor that determines the degree to which the matched histogram influences the final image, allowing for partial adjustments.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A blending factor that determines the degree to which the matched histogram influences the final image, allowing for partial adjustments.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`device`**
-    - Indicates the computational device ('cpu', 'gpu', or 'auto') where the histogram matching process will be executed, affecting performance and resource utilization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates the computational device ('cpu', 'gpu', or 'auto') where the histogram matching process will be executed, affecting performance and resource utilization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after applying histogram matching, reflecting the adjusted pixel values to match the histogram of the reference image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after applying histogram matching, reflecting the adjusted pixel values to match the histogram of the reference image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageHistogramMatch:
     @classmethod

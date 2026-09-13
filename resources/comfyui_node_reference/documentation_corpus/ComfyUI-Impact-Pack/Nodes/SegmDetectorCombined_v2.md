@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- Segmentation
+  - Image
+  - Segmentation
 ---
 
 # SEGM Detector (combined)
+
 ## Documentation
+
 - Class name: `SegmDetectorCombined_v2`
 - Category: `ImpactPack/Detector`
 - Output node: `False`
 
 The SegmDetectorCombined_v2 node is designed for image segmentation tasks, combining detection and segmentation processes to output a mask representing the segmented areas of the input image. It abstracts the complexity of underlying segmentation models and detection algorithms, providing a streamlined interface for generating segmentation masks.
+
 ## Input types
+
 ### Required
+
 - **`segm_detector`**
-    - The segmentation detector model used for detecting and segmenting objects within the image. It plays a crucial role in the overall segmentation process.
-    - Comfy dtype: `SEGM_DETECTOR`
-    - Python dtype: `object`
+  - The segmentation detector model used for detecting and segmenting objects within the image. It plays a crucial role in the overall segmentation process.
+  - Comfy dtype: `SEGM_DETECTOR`
+  - Python dtype: `object`
 - **`image`**
-    - The input image to be processed for segmentation. The image is analyzed to identify and segment relevant objects or areas.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for segmentation. The image is analyzed to identify and segment relevant objects or areas.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`threshold`**
-    - A threshold value used to determine the sensitivity of the segmentation detection. It influences the segmentation outcome by filtering out detections below this threshold.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A threshold value used to determine the sensitivity of the segmentation detection. It influences the segmentation outcome by filtering out detections below this threshold.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`dilation`**
-    - Specifies the dilation level applied to the segmentation masks, affecting the mask's boundary smoothness and size.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the dilation level applied to the segmentation masks, affecting the mask's boundary smoothness and size.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The output segmentation mask, indicating the segmented areas of the input image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output segmentation mask, indicating the segmented areas of the input image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SegmDetectorCombined:
     @classmethod

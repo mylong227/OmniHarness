@@ -1,41 +1,50 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Load Audio (Upload)🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_LoadAudioUpload`
 - Category: `Video Helper Suite 🎥🅥🅗🅢`
 - Output node: `False`
 
 The VHS_LoadAudioUpload node is designed for uploading and processing audio files within the Video Helper Suite. It allows users to upload audio files, specifying the desired starting point and duration for processing. This node is essential for integrating audio content into video projects, enabling precise control over the audio segment to be used.
+
 ## Input types
+
 ### Required
+
 - **`audio`**
-    - Specifies the audio file to be uploaded from a predefined list of available files. This selection is crucial for determining the specific audio content to be processed.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the audio file to be uploaded from a predefined list of available files. This selection is crucial for determining the specific audio content to be processed.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`start_time`**
-    - Determines the starting point, in seconds, from which the audio file should be processed. This parameter allows for selective use of audio content within a larger file.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the starting point, in seconds, from which the audio file should be processed. This parameter allows for selective use of audio content within a larger file.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`duration`**
-    - Specifies the duration, in seconds, for which the audio from the starting point should be processed. This enables precise control over the segment of the audio file to be used.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the duration, in seconds, for which the audio from the starting point should be processed. This enables precise control over the segment of the audio file to be used.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`audio`**
-    - Comfy dtype: `VHS_AUDIO`
-    - Returns the processed audio segment, allowing it to be integrated into video projects or further manipulated.
-    - Python dtype: `tuple`
+  - Comfy dtype: `VHS_AUDIO`
+  - Returns the processed audio segment, allowing it to be integrated into video projects or further manipulated.
+  - Python dtype: `tuple`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadAudioUpload:
     @classmethod
@@ -64,7 +73,7 @@ class LoadAudioUpload:
         audio_file = folder_paths.get_annotated_filepath(strip_path(kwargs['audio']))
         if audio_file is None or validate_path(audio_file) != True:
             raise Exception("audio_file is not a valid path: " + audio_file)
-        
+
         audio = get_audio(audio_file, start_time, duration)
 
         return (lambda : audio,)

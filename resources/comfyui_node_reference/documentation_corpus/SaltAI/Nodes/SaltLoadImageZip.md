@@ -1,37 +1,46 @@
 ---
 tags:
-- Audio
-- SaltNodes
+  - Audio
+  - SaltNodes
 ---
 
 # Load Images from ZIP
+
 ## Documentation
+
 - Class name: `SaltLoadImageZip`
 - Category: `SALT/Image/Loaders`
 - Output node: `False`
 
 This node is designed to load images from a ZIP file, optionally resizing them to match the dimensions of the first image encountered. It supports a variety of image formats and is capable of handling multiple images within a single ZIP archive, making it suitable for batch processing of images for further analysis or manipulation.
+
 ## Input types
+
 ### Required
+
 - **`path`**
-    - Specifies the file path to the ZIP archive containing the images to be loaded. It is crucial for locating and accessing the desired ZIP file.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the file path to the ZIP archive containing the images to be loaded. It is crucial for locating and accessing the desired ZIP file.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`resize_images_to_first`**
-    - Determines whether all loaded images should be resized to match the dimensions of the first image found in the ZIP file. This is useful for ensuring uniformity in image sizes for batch processing.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether all loaded images should be resized to match the dimensions of the first image found in the ZIP file. This is useful for ensuring uniformity in image sizes for batch processing.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - Returns a tensor containing the loaded (and possibly resized) images from the ZIP file, ready for further processing or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - Returns a tensor containing the loaded (and possibly resized) images from the ZIP file, ready for further processing or analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltLoadImageZip:
     @classmethod
@@ -42,7 +51,7 @@ class SaltLoadImageZip:
                 "resize_images_to_first": ("BOOLEAN", {"default": True})
             }
         }
-    
+
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("images",)
 
@@ -53,7 +62,7 @@ class SaltLoadImageZip:
         supported_formats = ('.png', '.jpg', '.jpeg', '.gif', '.tga', '.tiff', '.webp')
         images = []
         first_image_size = None
-        
+
         with zipfile.ZipFile(path, 'r') as z:
             for file_name in z.namelist():
                 if file_name.lower().endswith(supported_formats):

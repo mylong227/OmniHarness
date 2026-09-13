@@ -1,78 +1,87 @@
 ---
 tags:
-- Crop
-- Image
-- ImageTransformation
+  - Crop
+  - Image
+  - ImageTransformation
 ---
 
 # Batch Crop From Mask Advanced
+
 ## Documentation
+
 - Class name: `BatchCropFromMaskAdvanced`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 This node is designed for advanced cropping operations on batches of images based on their associated masks. It calculates the optimal bounding box for each mask, applies smoothing to the bounding box sizes, and adjusts the crop size dynamically to ensure consistency across the batch. This process is aimed at enhancing the focus on relevant image areas while maintaining important aspects of the image composition.
+
 ## Input types
+
 ### Required
+
 - **`original_images`**
-    - The batch of original images that will be cropped according to the calculated bounding boxes derived from their corresponding masks.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The batch of original images that will be cropped according to the calculated bounding boxes derived from their corresponding masks.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`masks`**
-    - A batch of masks used to determine the areas of interest within the corresponding images. These masks guide the cropping process by identifying non-zero regions that signify important content.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - A batch of masks used to determine the areas of interest within the corresponding images. These masks guide the cropping process by identifying non-zero regions that signify important content.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`crop_size_mult`**
-    - A multiplier applied to the size of the bounding boxes to adjust the final crop size, allowing for flexibility in the cropping process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier applied to the size of the bounding boxes to adjust the final crop size, allowing for flexibility in the cropping process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`bbox_smooth_alpha`**
-    - A smoothing factor applied to the bounding box sizes to mitigate abrupt changes and ensure a smoother transition between crop sizes.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A smoothing factor applied to the bounding box sizes to mitigate abrupt changes and ensure a smoother transition between crop sizes.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`original_images`**
-    - Comfy dtype: `IMAGE`
-    - The original images provided as input, returned without modification.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The original images provided as input, returned without modification.
+  - Python dtype: `torch.Tensor`
 - **`cropped_images`**
-    - Comfy dtype: `IMAGE`
-    - The images after being cropped according to the calculated bounding boxes and applied adjustments.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The images after being cropped according to the calculated bounding boxes and applied adjustments.
+  - Python dtype: `torch.Tensor`
 - **`cropped_masks`**
-    - Comfy dtype: `MASK`
-    - The masks after being cropped to match the dimensions of the cropped images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The masks after being cropped to match the dimensions of the cropped images.
+  - Python dtype: `torch.Tensor`
 - **`combined_crop_image`**
-    - Comfy dtype: `IMAGE`
-    - A single image created by combining the cropped images, optimized for certain use cases.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - A single image created by combining the cropped images, optimized for certain use cases.
+  - Python dtype: `torch.Tensor`
 - **`combined_crop_masks`**
-    - Comfy dtype: `MASK`
-    - A single mask created by combining the cropped masks, corresponding to the combined cropped image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - A single mask created by combining the cropped masks, corresponding to the combined cropped image.
+  - Python dtype: `torch.Tensor`
 - **`bboxes`**
-    - Comfy dtype: `BBOX`
-    - The bounding boxes calculated for each mask, used to determine the crop areas.
-    - Python dtype: `List[tuple]`
+  - Comfy dtype: `BBOX`
+  - The bounding boxes calculated for each mask, used to determine the crop areas.
+  - Python dtype: `List[tuple]`
 - **`combined_bounding_box`**
-    - Comfy dtype: `BBOX`
-    - The combined bounding box calculated from all masks, used for creating the combined cropped image and mask.
-    - Python dtype: `tuple`
+  - Comfy dtype: `BBOX`
+  - The combined bounding box calculated from all masks, used for creating the combined cropped image and mask.
+  - Python dtype: `tuple`
 - **`bbox_width`**
-    - Comfy dtype: `INT`
-    - The width of the largest bounding box calculated across all masks, adjusted for crop size and smoothing.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The width of the largest bounding box calculated across all masks, adjusted for crop size and smoothing.
+  - Python dtype: `int`
 - **`bbox_height`**
-    - Comfy dtype: `INT`
-    - The height of the largest bounding box calculated across all masks, adjusted for crop size and smoothing.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The height of the largest bounding box calculated across all masks, adjusted for crop size and smoothing.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchCropFromMaskAdvanced:
 
@@ -128,7 +137,7 @@ class BatchCropFromMaskAdvanced:
         combined_crop_out = []
         combined_cropped_images = []
         combined_cropped_masks = []
-        
+
         def calculate_bbox(mask):
             non_zero_indices = np.nonzero(np.array(mask))
 
@@ -153,11 +162,11 @@ class BatchCropFromMaskAdvanced:
         new_max_x = min(original_images[0].shape[1], round(center_x + half_box_size))
         new_min_y = max(0, round(center_y - half_box_size))
         new_max_y = min(original_images[0].shape[0], round(center_y + half_box_size))
-        
-        combined_bounding_box.append((new_min_x, new_min_y, new_max_x - new_min_x, new_max_y - new_min_y))   
-        
+
+        combined_bounding_box.append((new_min_x, new_min_y, new_max_x - new_min_x, new_max_y - new_min_y))
+
         self.max_bbox_size = 0
-        
+
         # First, calculate the maximum bounding box size across all masks
         curr_max_bbox_size = max(calculate_bbox(tensor2pil(mask)[0])[-1] for mask in masks)
         # Smooth the changes in the bounding box size

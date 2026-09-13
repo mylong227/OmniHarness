@@ -1,64 +1,74 @@
 ---
 tags:
-- Loader
-- ModelIO
+  - Loader
+  - ModelIO
 ---
 
 # BLIP Caption
+
 ## Documentation
+
 - Class name: `BLIPCaption`
 - Category: `Art Venture/Captioning`
 - Output node: `False`
 
 The `BLIPCaption` node is designed to generate textual captions for images using the BLIP model. It leverages deep learning techniques to analyze visual content and produce descriptive, human-like text based on the image's elements and context. This node can be customized with prefixes and suffixes to the generated captions, and it supports adjusting the length of the output text to fit specific requirements.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be captioned. This is the primary data the node processes to generate a textual description.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be captioned. This is the primary data the node processes to generate a textual description.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`min_length`**
-    - Specifies the minimum length of the generated caption. This parameter helps in ensuring that the captions are not too brief and convey sufficient detail.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the minimum length of the generated caption. This parameter helps in ensuring that the captions are not too brief and convey sufficient detail.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`max_length`**
-    - Sets the maximum length of the caption. This constraint ensures that the generated text is concise and to the point, avoiding overly verbose descriptions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the maximum length of the caption. This constraint ensures that the generated text is concise and to the point, avoiding overly verbose descriptions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`device_mode`**
-    - Determines the device (CPU or GPU) on which the BLIP model will run, optimizing performance based on the available hardware.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the device (CPU or GPU) on which the BLIP model will run, optimizing performance based on the available hardware.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`prefix`**
-    - An optional text to prepend to the generated caption, allowing for additional context or information to be included.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional text to prepend to the generated caption, allowing for additional context or information to be included.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`suffix`**
-    - An optional text to append to the generated caption, useful for adding extra details or clarifications.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional text to append to the generated caption, useful for adding extra details or clarifications.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`enabled`**
-    - A flag to enable or disable the caption generation feature. When disabled, it returns a default caption structure.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag to enable or disable the caption generation feature. When disabled, it returns a default caption structure.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`blip_model`**
-    - An optional pre-loaded BLIP model to be used for caption generation. If not provided, the node will load a model based on available checkpoints.
-    - Comfy dtype: `BLIP_MODEL`
-    - Python dtype: `torch.nn.Module`
+  - An optional pre-loaded BLIP model to be used for caption generation. If not provided, the node will load a model based on available checkpoints.
+  - Comfy dtype: `BLIP_MODEL`
+  - Python dtype: `torch.nn.Module`
+
 ## Output types
+
 - **`caption`**
-    - Comfy dtype: `STRING`
-    - The generated captions for the input images, enriched with optional prefixes and suffixes. These captions provide a textual representation of the visual content.
-    - Python dtype: `List[str]`
+  - Comfy dtype: `STRING`
+  - The generated captions for the input images, enriched with optional prefixes and suffixes. These captions provide a textual representation of the visual content.
+  - Python dtype: `List[str]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - ShowText|pysssss
-
-
+  - ShowText|pysssss
 
 ## Source code
+
 ```python
 class BlipCaption:
     @classmethod

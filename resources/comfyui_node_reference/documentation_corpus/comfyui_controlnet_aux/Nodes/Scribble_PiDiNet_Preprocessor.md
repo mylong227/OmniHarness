@@ -1,44 +1,55 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
-- LineExtraction
+  - DepthMap
+  - Image
+  - ImagePreprocessing
+  - LineExtraction
 ---
 
 # Scribble PiDiNet Lines
+
 ## Documentation
+
 - Class name: `Scribble_PiDiNet_Preprocessor`
 - Category: `ControlNet Preprocessors/Line Extractors`
 - Output node: `False`
 
 This node preprocesses images to extract scribble lines using the PiDiNet model, enhancing them for further processing or visualization. It focuses on generating clear, scribble-like lines from input images, making it suitable for applications requiring stylized line drawings or sketches.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for scribble line extraction.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for scribble line extraction.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`safe`**
-    - A mode that, when enabled, applies additional safety checks or constraints during the processing to ensure robustness.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - A mode that, when enabled, applies additional safety checks or constraints during the processing to ensure robustness.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`resolution`**
-    - The resolution to which the input image is scaled before processing. This affects the detail level of the extracted lines.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input image is scaled before processing. This affects the detail level of the extracted lines.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image with enhanced scribble lines, suitable for visualization or further processing.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image with enhanced scribble lines, suitable for visualization or further processing.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Scribble_PiDiNet_Preprocessor:
     @classmethod

@@ -1,155 +1,166 @@
 ---
 tags:
-- ImageScaling
-- ImageUpscaling
-- Upscale
+  - ImageScaling
+  - ImageUpscaling
+  - Upscale
 ---
 
 # SUPIR Upscale (Legacy)
+
 ## Documentation
+
 - Class name: `SUPIR_Upscale`
 - Category: `SUPIR`
 - Output node: `False`
 
 The SUPIR_Upscale node is designed to upscale images using the SUPIR model, enhancing image resolution while maintaining or improving image quality. This node is part of a suite of nodes aimed at image processing and enhancement, leveraging advanced deep learning techniques to achieve superior upscaling results.
+
 ## Input types
+
 ### Required
+
 - **`supir_model`**
-    - Specifies the SUPIR model to be used for upscaling, allowing for customization of the upscaling process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the SUPIR model to be used for upscaling, allowing for customization of the upscaling process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`sdxl_model`**
-    - Determines the secondary model used in conjunction with the SUPIR model to enhance the upscaling process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Determines the secondary model used in conjunction with the SUPIR model to enhance the upscaling process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`image`**
-    - Specifies the image to be upscaled, serving as the primary input for the upscaling process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Specifies the image to be upscaled, serving as the primary input for the upscaling process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`seed`**
-    - Sets the seed for random number generation, ensuring reproducibility of the upscaling results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the seed for random number generation, ensuring reproducibility of the upscaling results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resize_method`**
-    - Determines the method used for resizing images during the upscaling process, affecting the texture and quality of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the method used for resizing images during the upscaling process, affecting the texture and quality of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scale_by`**
-    - Specifies the factor by which the image will be upscaled, directly influencing the resolution of the output image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the factor by which the image will be upscaled, directly influencing the resolution of the output image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`steps`**
-    - Defines the number of steps to be used in the upscaling process, impacting the detail and quality of the upscaled image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the number of steps to be used in the upscaling process, impacting the detail and quality of the upscaled image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`restoration_scale`**
-    - Adjusts the scale of restoration applied to the upscaled image, affecting the balance between detail enhancement and artifact reduction.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the scale of restoration applied to the upscaled image, affecting the balance between detail enhancement and artifact reduction.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`cfg_scale`**
-    - Controls the configuration scale for the upscaling process, influencing the adherence to the input image's content and style.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the configuration scale for the upscaling process, influencing the adherence to the input image's content and style.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`a_prompt`**
-    - Provides a positive textual description to guide the upscaling process, enhancing certain aspects of the image according to the specified attributes.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Provides a positive textual description to guide the upscaling process, enhancing certain aspects of the image according to the specified attributes.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`n_prompt`**
-    - Provides a negative textual description to avoid certain aspects during the upscaling process, helping to steer the result away from undesired attributes.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Provides a negative textual description to avoid certain aspects during the upscaling process, helping to steer the result away from undesired attributes.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`s_churn`**
-    - Specifies the churn rate in the sampling process, affecting the exploration of the latent space and the diversity of the upscaled results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the churn rate in the sampling process, affecting the exploration of the latent space and the diversity of the upscaled results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`s_noise`**
-    - Sets the noise level in the sampling process, influencing the amount of randomness and potentially the detail in the upscaled image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the noise level in the sampling process, influencing the amount of randomness and potentially the detail in the upscaled image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`control_scale`**
-    - Adjusts the control scale for the upscaling process, affecting the overall control over the upscaling outcome.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the control scale for the upscaling process, affecting the overall control over the upscaling outcome.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`cfg_scale_start`**
-    - Specifies the starting configuration scale, allowing for dynamic adjustment of the cfg scale throughout the upscaling process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the starting configuration scale, allowing for dynamic adjustment of the cfg scale throughout the upscaling process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`control_scale_start`**
-    - Specifies the starting control scale, enabling dynamic adjustment of control over the upscaling outcome throughout the process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the starting control scale, enabling dynamic adjustment of control over the upscaling outcome throughout the process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`color_fix_type`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`keep_model_loaded`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`use_tiled_vae`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`encoder_tile_size_pixels`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`decoder_tile_size_latent`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
+
 ### Optional
+
 - **`captions`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`diffusion_dtype`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`encoder_dtype`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`batch_size`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`use_tiled_sampling`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`sampler_tile_size`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`sampler_tile_stride`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`fp8_unet`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`fp8_vae`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`sampler`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`upscaled_image`**
-    - Comfy dtype: `IMAGE`
-    - The result of the upscaling process, showcasing enhanced resolution and quality.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The result of the upscaling process, showcasing enhanced resolution and quality.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SUPIR_Upscale:
     upscale_methods = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
@@ -293,9 +304,9 @@ class SUPIR_Upscale:
         if not hasattr(self, "model") or self.model is None or self.current_config != custom_config:
             self.current_config = custom_config
             self.model = None
-            
+
             mm.soft_empty_cache()
-            
+
             if use_tiled_sampling:
                 config = OmegaConf.load(config_path_tiled)
                 config.model.params.sampler_config.params.tile_size = sampler_tile_size // 8
@@ -310,17 +321,17 @@ class SUPIR_Upscale:
             if mm.XFORMERS_IS_AVAILABLE:
                 config.model.params.control_stage_config.params.spatial_transformer_attn_type = "softmax-xformers"
                 config.model.params.network_config.params.spatial_transformer_attn_type = "softmax-xformers"
-                config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla-xformers" 
-                
+                config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla-xformers"
+
             config.model.params.ae_dtype = vae_dtype
             config.model.params.diffusion_dtype = model_dtype
-            
+
             self.model = instantiate_from_config(config.model).cpu()
 
             try:
                 print(f'Attempting to load SUPIR model: [{SUPIR_MODEL_PATH}]')
                 supir_state_dict = load_state_dict(SUPIR_MODEL_PATH)
-                
+
             except:
                 raise Exception("Failed to load SUPIR model")
             try:
@@ -336,10 +347,10 @@ class SUPIR_Upscale:
             #first clip model from SDXL checkpoint
             try:
                 print("Loading first clip model from SDXL checkpoint")
-                
+
                 replace_prefix = {}
                 replace_prefix["conditioner.embedders.0.transformer."] = ""
-    
+
                 sd = comfy.utils.state_dict_prefix_replace(sdxl_state_dict, replace_prefix, filter_keys=False)
                 clip_text_config = CLIPTextConfig.from_pretrained(clip_config_path)
                 self.model.conditioner.embedders[0].tokenizer = CLIPTokenizer.from_pretrained(tokenizer_path)
@@ -350,7 +361,7 @@ class SUPIR_Upscale:
                     param.requires_grad = False
             except:
                 raise Exception("Failed to load first clip model from SDXL checkpoint")
-            
+
             del sdxl_state_dict
 
             #second clip model from SDXL checkpoint
@@ -358,18 +369,18 @@ class SUPIR_Upscale:
                 print("Loading second clip model from SDXL checkpoint")
                 replace_prefix2 = {}
                 replace_prefix2["conditioner.embedders.1.model."] = ""
-                sd = comfy.utils.state_dict_prefix_replace(sd, replace_prefix2, filter_keys=True)                
+                sd = comfy.utils.state_dict_prefix_replace(sd, replace_prefix2, filter_keys=True)
                 clip_g = build_text_model_from_openai_state_dict(sd, cast_dtype=dtype)
                 self.model.conditioner.embedders[1].model = clip_g
             except:
                 raise Exception("Failed to load second clip model from SDXL checkpoint")
-        
+
             del sd, clip_g
             mm.soft_empty_cache()
 
             self.model.to(dtype)
 
-            #only unets and/or vae to fp8 
+            #only unets and/or vae to fp8
             if fp8_unet:
                 self.model.model.to(torch.float8_e4m3fn)
             if fp8_vae:
@@ -377,7 +388,7 @@ class SUPIR_Upscale:
 
             if use_tiled_vae:
                 self.model.init_tile_vae(encoder_tile_size=encoder_tile_size_pixels, decoder_tile_size=decoder_tile_size_latent)
-        
+
         upscaled_image, = ImageScaleBy.upscale(self, image, resize_method, scale_by)
         B, H, W, C = upscaled_image.shape
         new_height = H if H % 64 == 0 else ((H // 64) + 1) * 64
@@ -385,7 +396,7 @@ class SUPIR_Upscale:
         upscaled_image = upscaled_image.permute(0, 3, 1, 2)
         resized_image = F.interpolate(upscaled_image, size=(new_height, new_width), mode='bicubic', align_corners=False)
         resized_image = resized_image.to(device)
-        
+
         captions_list = []
         captions_list.append(captions)
         print("captions: ", captions_list)
@@ -435,7 +446,7 @@ class SUPIR_Upscale:
             out_stacked = torch.cat(out, dim=0).cpu().to(torch.float32).permute(0, 2, 3, 1)
         else:
             out_stacked = torch.stack(out, dim=0).cpu().to(torch.float32).permute(0, 2, 3, 1)
-            
+
         final_image, = ImageScale.upscale(self, out_stacked, resize_method, W, H, crop="disabled")
 
         return (final_image,)

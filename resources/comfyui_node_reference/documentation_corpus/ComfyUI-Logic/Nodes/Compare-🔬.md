@@ -1,35 +1,44 @@
 # Compare
+
 ## Documentation
+
 - Class name: `Compare-🔬`
 - Category: `Logic`
 - Output node: `False`
 
 The Compare node is designed to evaluate the relationship between two inputs based on a specified comparison operation (e.g., equality, inequality, greater than, less than). It abstracts the logic of comparison into a simple interface, allowing users to dynamically assess the conditions between inputs and derive a boolean result indicative of the comparison's outcome.
+
 ## Input types
+
 ### Required
+
 - **`a`**
-    - The first input to be compared. It plays a crucial role in determining the outcome of the comparison operation.
-    - Comfy dtype: `*`
-    - Python dtype: `UNKNOWN`
+  - The first input to be compared. It plays a crucial role in determining the outcome of the comparison operation.
+  - Comfy dtype: `*`
+  - Python dtype: `UNKNOWN`
 - **`b`**
-    - The second input to be compared against the first. Its value is essential in evaluating the comparison operation.
-    - Comfy dtype: `*`
-    - Python dtype: `UNKNOWN`
+  - The second input to be compared against the first. Its value is essential in evaluating the comparison operation.
+  - Comfy dtype: `*`
+  - Python dtype: `UNKNOWN`
 - **`comparison`**
-    - Specifies the type of comparison to perform between the two inputs (e.g., '==', '!=', '<', '>', '<=', '>='). This parameter dictates the logic applied in the comparison.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the type of comparison to perform between the two inputs (e.g., '==', '!=', '<', '>', '<=', '>='). This parameter dictates the logic applied in the comparison.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`B`**
-    - Comfy dtype: `BOOLEAN`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `BOOLEAN`
+  - unknown
+  - Python dtype: `unknown`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Compare:
     """

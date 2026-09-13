@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- ImageSave
+  - Image
+  - ImageSave
 ---
 
 # FL Image Caption Saver
+
 ## Documentation
+
 - Class name: `FL_ImageCaptionSaver`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_ImageCaptionSaver node is designed to save a batch of images along with their corresponding captions into specified directory, with options for file naming and overwrite control. It facilitates the organization and storage of generated images and textual descriptions, enhancing accessibility and management of visual content.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A batch of images to be saved. This input is crucial for determining the content that will be stored, directly affecting the output files created.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - A batch of images to be saved. This input is crucial for determining the content that will be stored, directly affecting the output files created.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`folder_name`**
-    - The name of the folder where images and captions will be saved. It serves as the destination path for the output, influencing the organization of saved files.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The name of the folder where images and captions will be saved. It serves as the destination path for the output, influencing the organization of saved files.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`caption_text`**
-    - The text caption to be saved alongside each image. This input provides contextual or descriptive information about the images, enriching the content's value.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The text caption to be saved alongside each image. This input provides contextual or descriptive information about the images, enriching the content's value.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`overwrite`**
-    - A boolean flag indicating whether existing files with the same name should be overwritten. This affects how the node handles file naming conflicts and storage management.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether existing files with the same name should be overwritten. This affects how the node handles file naming conflicts and storage management.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - A confirmation message detailing the number of images and captions saved and the directory where they are stored. It provides feedback on the operation's success.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - A confirmation message detailing the number of images and captions saved and the directory where they are stored. It provides feedback on the operation's success.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_ImageCaptionSaver:
     @classmethod

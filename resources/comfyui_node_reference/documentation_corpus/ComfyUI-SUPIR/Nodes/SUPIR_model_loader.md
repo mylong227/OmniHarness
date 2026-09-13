@@ -1,51 +1,60 @@
 ---
 tags:
-- Loader
-- Model
-- ModelIO
-- ModelLoader
+  - Loader
+  - Model
+  - ModelIO
+  - ModelLoader
 ---
 
 # SUPIR Model Loader (Legacy)
+
 ## Documentation
+
 - Class name: `SUPIR_model_loader`
 - Category: `SUPIR`
 - Output node: `False`
 
 This node is responsible for loading the SUPIR model, a key component in the SUPIR framework for image processing and enhancement. It handles the initialization and configuration of the model, ensuring it is ready for subsequent image processing tasks.
+
 ## Input types
+
 ### Required
+
 - **`supir_model`**
-    - Specifies the path to the SUPIR model's checkpoint files, crucial for loading the model's state for image processing tasks.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the path to the SUPIR model's checkpoint files, crucial for loading the model's state for image processing tasks.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`sdxl_model`**
-    - Specifies the path to the SDXL model's checkpoint files, which are merged with the SUPIR model to enhance its capabilities.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the path to the SDXL model's checkpoint files, which are merged with the SUPIR model to enhance its capabilities.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`fp8_unet`**
-    - A flag to determine whether to cast the UNet weights to a lower precision format to save VRAM, with a slight impact on quality.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag to determine whether to cast the UNet weights to a lower precision format to save VRAM, with a slight impact on quality.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`diffusion_dtype`**
-    - Specifies the data type for diffusion operations, with options to optimize for performance or compatibility.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the data type for diffusion operations, with options to optimize for performance or compatibility.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`SUPIR_model`**
-    - Comfy dtype: `SUPIRMODEL`
-    - The loaded and configured SUPIR model, ready for image processing tasks.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `SUPIRMODEL`
+  - The loaded and configured SUPIR model, ready for image processing tasks.
+  - Python dtype: `torch.nn.Module`
 - **`SUPIR_VAE`**
-    - Comfy dtype: `SUPIRVAE`
-    - The loaded VAE component of the SUPIR model, essential for certain image processing operations.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `SUPIRVAE`
+  - The loaded VAE component of the SUPIR model, essential for certain image processing operations.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SUPIR_model_loader:
     @classmethod
@@ -71,7 +80,7 @@ class SUPIR_model_loader:
     FUNCTION = "process"
     CATEGORY = "SUPIR"
     DESCRIPTION = """
-Old loader, not recommended to be used.  
+Old loader, not recommended to be used.
 Loads the SUPIR model and the selected SDXL model and merges them.
 """
 
@@ -113,21 +122,21 @@ Loads the SUPIR model and the selected SDXL model and merges them.
             print(f"Diffusion using {diffusion_dtype}")
             dtype = convert_dtype(diffusion_dtype)
             model_dtype = diffusion_dtype
-        
+
         if not hasattr(self, "model") or self.model is None or self.current_config != custom_config:
             self.current_config = custom_config
             self.model = None
-            
+
             mm.soft_empty_cache()
-            
+
             config = OmegaConf.load(config_path)
-           
+
             if mm.XFORMERS_IS_AVAILABLE:
                 print("Using XFORMERS")
                 config.model.params.control_stage_config.params.spatial_transformer_attn_type = "softmax-xformers"
                 config.model.params.network_config.params.spatial_transformer_attn_type = "softmax-xformers"
-                config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla-xformers" 
-                
+                config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla-xformers"
+
             config.model.params.diffusion_dtype = model_dtype
             config.model.target = ".SUPIR.models.SUPIR_model_v2.SUPIRModel"
             pbar = comfy.utils.ProgressBar(5)
@@ -146,14 +155,14 @@ Loads the SUPIR model and the selected SDXL model and merges them.
                 pbar.update(1)
             except:
                 raise Exception("Failed to load SDXL model")
-            
+
             #first clip model from SDXL checkpoint
             try:
                 print("Loading first clip model from SDXL checkpoint")
-                
+
                 replace_prefix = {}
                 replace_prefix["conditioner.embedders.0.transformer."] = ""
-    
+
                 sd = comfy.utils.state_dict_prefix_replace(sdxl_state_dict, replace_prefix, filter_keys=False)
                 clip_text_config = CLIPTextConfig.from_pretrained(clip_config_path)
                 self.model.conditioner.embedders[0].tokenizer = CLIPTokenizer.from_pretrained(tokenizer_path)
@@ -166,7 +175,7 @@ Loads the SUPIR model and the selected SDXL model and merges them.
                 pbar.update(1)
             except:
                 raise Exception("Failed to load first clip model from SDXL checkpoint")
-            
+
             del sdxl_state_dict
 
             #second clip model from SDXL checkpoint
@@ -174,14 +183,14 @@ Loads the SUPIR model and the selected SDXL model and merges them.
                 print("Loading second clip model from SDXL checkpoint")
                 replace_prefix2 = {}
                 replace_prefix2["conditioner.embedders.1.model."] = ""
-                sd = comfy.utils.state_dict_prefix_replace(sd, replace_prefix2, filter_keys=True)                
+                sd = comfy.utils.state_dict_prefix_replace(sd, replace_prefix2, filter_keys=True)
                 clip_g = build_text_model_from_openai_state_dict(sd, device, cast_dtype=dtype)
                 self.model.conditioner.embedders[1].model = clip_g
                 self.model.conditioner.embedders[1].to(dtype)
                 pbar.update(1)
             except:
                 raise Exception("Failed to load second clip model from SDXL checkpoint")
-        
+
             del sd, clip_g
 
             try:

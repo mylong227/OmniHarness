@@ -1,59 +1,70 @@
 ---
 tags:
-- DepthMap
-- DepthMapEstimation
-- Image
+  - DepthMap
+  - DepthMapEstimation
+  - Image
 ---
 
 # [Inference.Core] MeshGraphormer Hand Refiner
+
 ## Documentation
+
 - Class name: `Inference_Core_MeshGraphormer-DepthMapPreprocessor`
 - Category: `ControlNet Preprocessors/Normal and Depth Estimators`
 - Output node: `False`
 
 This node is designed to preprocess images for depth map generation and hand pose estimation using the MeshGraphormer model. It handles the conversion of input images to a format suitable for the model, performs inference to generate depth maps and masks, and processes these outputs for further use in hand refinement tasks.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image or batch of images to be processed for depth map and mask generation. It plays a crucial role in the node's execution as it directly influences the quality and accuracy of the generated depth maps and masks.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image or batch of images to be processed for depth map and mask generation. It plays a crucial role in the node's execution as it directly influences the quality and accuracy of the generated depth maps and masks.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`mask_bbox_padding`**
-    - Determines the padding around detected bounding boxes for masks, influencing the size and coverage of the generated masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the padding around detected bounding boxes for masks, influencing the size and coverage of the generated masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resolution`**
-    - Specifies the resolution at which the depth map and mask detection should be performed, affecting the detail level of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the resolution at which the depth map and mask detection should be performed, affecting the detail level of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`mask_type`**
-    - Defines the strategy for mask generation, either based on depth values or tight bounding boxes, affecting the mask's shape and coverage.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the strategy for mask generation, either based on depth values or tight bounding boxes, affecting the mask's shape and coverage.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`mask_expand`**
-    - Controls the expansion of masks beyond their original boundaries, useful for ensuring complete coverage of hand areas in depth maps.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Controls the expansion of masks beyond their original boundaries, useful for ensuring complete coverage of hand areas in depth maps.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`rand_seed`**
-    - A seed value for random number generation, ensuring reproducibility of the mask generation process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for random number generation, ensuring reproducibility of the mask generation process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The processed images after depth map and mask generation, ready for further analysis or visualization.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed images after depth map and mask generation, ready for further analysis or visualization.
+  - Python dtype: `torch.Tensor`
 - **`INPAINTING_MASK`**
-    - Comfy dtype: `MASK`
-    - The masks indicating areas to be inpainted or further processed, typically highlighting regions of interest such as hands.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The masks indicating areas to be inpainted or further processed, typically highlighting regions of interest such as hands.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Mesh_Graphormer_Depth_Map_Preprocessor:
     @classmethod
@@ -78,7 +89,7 @@ class Mesh_Graphormer_Depth_Map_Preprocessor:
         install_deps()
         from controlnet_aux.mesh_graphormer import MeshGraphormerDetector
         model = MeshGraphormerDetector.from_pretrained().to(model_management.get_torch_device())
-        
+
         depth_map_list = []
         mask_list = []
         for single_image in image:
@@ -92,7 +103,7 @@ class Mesh_Graphormer_Depth_Map_Preprocessor:
             elif mask_type == "tight_bboxes":
                 mask = np.zeros_like(mask)
                 hand_bboxes = info["abs_boxes"]
-                for hand_bbox in hand_bboxes: 
+                for hand_bbox in hand_bboxes:
                     x_min, x_max, y_min, y_max = hand_bbox
                     mask[y_min:y_max+1, x_min:x_max+1, :] = 255 #HWC
 

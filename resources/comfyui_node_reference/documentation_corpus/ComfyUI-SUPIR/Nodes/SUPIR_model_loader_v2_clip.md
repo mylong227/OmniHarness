@@ -1,65 +1,76 @@
 ---
 tags:
-- ModelMerge
+  - ModelMerge
 ---
 
 # SUPIR Model Loader (v2) (Clip)
+
 ## Documentation
+
 - Class name: `SUPIR_model_loader_v2_clip`
 - Category: `SUPIR`
 - Output node: `False`
 
 This node is designed for loading and integrating multiple models, specifically CLIP models and the SUPIR model, into a unified framework. It handles the complexities of loading state dictionaries, adjusting data types, and configuring models for use within a larger system, ensuring that each component is correctly initialized and ready for operation.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The primary model to be loaded, serving as the central component of the node's functionality.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - The primary model to be loaded, serving as the central component of the node's functionality.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`clip_l`**
-    - A CLIP model designated for local features, contributing to the nuanced understanding and processing of visual content.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `str`
+  - A CLIP model designated for local features, contributing to the nuanced understanding and processing of visual content.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `str`
 - **`clip_g`**
-    - A CLIP model designated for global features, enhancing the node's ability to interpret and process visual information on a broader scale.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `str`
+  - A CLIP model designated for global features, enhancing the node's ability to interpret and process visual information on a broader scale.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `str`
 - **`vae`**
-    - The Variational Autoencoder (VAE) model, essential for generating and manipulating latent representations of images.
-    - Comfy dtype: `VAE`
-    - Python dtype: `str`
+  - The Variational Autoencoder (VAE) model, essential for generating and manipulating latent representations of images.
+  - Comfy dtype: `VAE`
+  - Python dtype: `str`
 - **`supir_model`**
-    - The SUPIR model to be loaded, specialized in processing or enhancing images in specific ways.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The SUPIR model to be loaded, specialized in processing or enhancing images in specific ways.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`fp8_unet`**
-    - A flag indicating whether to cast the U-Net weights to a lower precision format to save VRAM, with a slight impact on quality.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether to cast the U-Net weights to a lower precision format to save VRAM, with a slight impact on quality.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`diffusion_dtype`**
-    - Specifies the data type for diffusion operations, with options to optimize performance or memory usage.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the data type for diffusion operations, with options to optimize performance or memory usage.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`high_vram`**
-    - A flag to enable high VRAM mode, which may speed up model loading times by using Accelerate to load weights to GPU.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag to enable high VRAM mode, which may speed up model loading times by using Accelerate to load weights to GPU.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`SUPIR_model`**
-    - Comfy dtype: `SUPIRMODEL`
-    - The loaded SUPIR model, ready for integration and use within the system.
-    - Python dtype: `str`
+  - Comfy dtype: `SUPIRMODEL`
+  - The loaded SUPIR model, ready for integration and use within the system.
+  - Python dtype: `str`
 - **`SUPIR_VAE`**
-    - Comfy dtype: `SUPIRVAE`
-    - The loaded SUPIR VAE model, prepared for generating and manipulating latent representations in conjunction with the SUPIR model.
-    - Python dtype: `str`
+  - Comfy dtype: `SUPIRVAE`
+  - The loaded SUPIR VAE model, prepared for generating and manipulating latent representations in conjunction with the SUPIR model.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SUPIR_model_loader_v2_clip:
     @classmethod
@@ -91,10 +102,10 @@ class SUPIR_model_loader_v2_clip:
     FUNCTION = "process"
     CATEGORY = "SUPIR"
     DESCRIPTION = """
-Loads the SUPIR model and merges it with the SDXL model.  
+Loads the SUPIR model and merges it with the SDXL model.
 
-Diffusion type should be kept on auto, unless you have issues loading the model.  
-fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRAM but has slight quality impact.  
+Diffusion type should be kept on auto, unless you have issues loading the model.
+fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRAM but has slight quality impact.
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
 
@@ -138,20 +149,20 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
         else:
             print(f"Diffusion using {diffusion_dtype}")
             dtype = convert_dtype(diffusion_dtype)
-        
+
         if not hasattr(self, "model") or self.model is None or self.current_config != custom_config:
             self.current_config = custom_config
             self.model = None
-            
+
             mm.soft_empty_cache()
-            
+
             config = OmegaConf.load(config_path)
             if mm.XFORMERS_IS_AVAILABLE:
                 print("Using XFORMERS")
                 config.model.params.control_stage_config.params.spatial_transformer_attn_type = "softmax-xformers"
                 config.model.params.network_config.params.spatial_transformer_attn_type = "softmax-xformers"
-                config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla-xformers" 
-                
+                config.model.params.first_stage_config.params.ddconfig.attn_type = "vanilla-xformers"
+
             config.model.target = ".SUPIR.models.SUPIR_model_v2.SUPIRModel"
             pbar = comfy.utils.ProgressBar(5)
 
@@ -175,7 +186,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
                 del sdxl_state_dict
                 pbar.update(1)
             except:
-                raise Exception("Failed to load SDXL model")            
+                raise Exception("Failed to load SDXL model")
             gc.collect()
             mm.soft_empty_cache()
             #first clip model from SDXL checkpoint
@@ -189,7 +200,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
 
                 replace_prefix = {}
                 replace_prefix["conditioner.embedders.0.transformer."] = ""
-    
+
                 clip_l_sd = comfy.utils.state_dict_prefix_replace(clip_l_sd, replace_prefix, filter_keys=True)
                 clip_text_config = CLIPTextConfig.from_pretrained(clip_config_path)
                 self.model.conditioner.embedders[0].tokenizer = CLIPTokenizer.from_pretrained(tokenizer_path)
@@ -221,7 +232,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
 
                 replace_prefix2 = {}
                 replace_prefix2["conditioner.embedders.1.model."] = ""
-                clip_g_sd = comfy.utils.state_dict_prefix_replace(clip_g_sd, replace_prefix2, filter_keys=True)             
+                clip_g_sd = comfy.utils.state_dict_prefix_replace(clip_g_sd, replace_prefix2, filter_keys=True)
                 clip_g = build_text_model_from_openai_state_dict(clip_g_sd, device, cast_dtype=dtype)
                 self.model.conditioner.embedders[1].model = clip_g
                 self.model.conditioner.embedders[1].model.to(dtype)
@@ -229,11 +240,11 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
                 pbar.update(1)
             except:
                 raise Exception("Failed to load second clip model from SDXL checkpoint")
-            
+
             try:
                 print(f'Attempting to load SUPIR model: [{SUPIR_MODEL_PATH}]')
                 supir_state_dict = load_state_dict(SUPIR_MODEL_PATH)
-                if "Q" not in supir_model or not is_accelerate_available: #I don't know why this doesn't work with the Q model. 
+                if "Q" not in supir_model or not is_accelerate_available: #I don't know why this doesn't work with the Q model.
                     for key in supir_state_dict:
                         set_module_tensor_to_device(self.model, key, device=device, dtype=dtype, value=supir_state_dict[key])
                 else:

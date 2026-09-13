@@ -1,41 +1,50 @@
 ---
 tags:
-- RandomGeneration
-- Randomization
+  - RandomGeneration
+  - Randomization
 ---
 
 # Random
+
 ## Documentation
+
 - Class name: `DF_Random`
 - Category: `Derfuu_Nodes/Functions`
 - Output node: `False`
 
 The `DF_Random` node generates a random floating-point number within a specified range. It utilizes a seed for reproducible randomness, allowing for consistent results across multiple executions.
+
 ## Input types
+
 ### Required
+
 - **`Value_A`**
-    - Specifies the lower bound of the random number range. It influences the minimum value that the random number generator can produce.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the lower bound of the random number range. It influences the minimum value that the random number generator can produce.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`Value_B`**
-    - Defines the upper bound of the random number range. It sets the maximum value that the random number generator can output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the upper bound of the random number range. It sets the maximum value that the random number generator can output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`seed`**
-    - A seed value for the random number generator to ensure reproducibility of results. It determines the sequence of numbers generated, allowing for consistent randomness across runs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for the random number generator to ensure reproducibility of results. It determines the sequence of numbers generated, allowing for consistent randomness across runs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The output is a random floating-point number within the specified range, determined by the input bounds and seed.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The output is a random floating-point number within the specified range, determined by the input bounds and seed.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class RandomValue:
     def __init__(self):

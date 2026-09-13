@@ -1,51 +1,62 @@
 ---
 tags:
-- DepthMap
-- DepthMapEstimation
-- Image
+  - DepthMap
+  - DepthMapEstimation
+  - Image
 ---
 
 # Metric3D Depth Map
+
 ## Documentation
+
 - Class name: `Metric3D-DepthMapPreprocessor`
 - Category: `ControlNet Preprocessors/Normal and Depth Estimators`
 - Output node: `False`
 
 This node preprocesses images for depth map estimation using a 3D metric model. It leverages a configurable backbone architecture and camera intrinsic parameters to enhance the depth estimation process, aiming to provide a detailed depth map for each input image.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for depth map estimation. The quality and characteristics of the image can significantly impact the accuracy and detail of the resulting depth map, making it a crucial factor in the node's execution.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for depth map estimation. The quality and characteristics of the image can significantly impact the accuracy and detail of the resulting depth map, making it a crucial factor in the node's execution.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`backbone`**
-    - Specifies the backbone model architecture used for depth estimation. The choice of backbone can significantly influence the accuracy and performance of the depth map generation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the backbone model architecture used for depth estimation. The choice of backbone can significantly influence the accuracy and performance of the depth map generation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`fx`**
-    - Represents the focal length of the camera along the x-axis. It is a critical parameter for accurately mapping 2D images to 3D space, affecting the scale and perspective of the depth map.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Represents the focal length of the camera along the x-axis. It is a critical parameter for accurately mapping 2D images to 3D space, affecting the scale and perspective of the depth map.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`fy`**
-    - Represents the focal length of the camera along the y-axis, essential for correct depth perception and 3D reconstruction from 2D images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Represents the focal length of the camera along the y-axis, essential for correct depth perception and 3D reconstruction from 2D images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resolution`**
-    - The desired resolution for the output depth map, affecting the level of detail and size of the output image. Higher resolutions can provide more detailed depth maps but may require more computational resources.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The desired resolution for the output depth map, affecting the level of detail and size of the output image. Higher resolutions can provide more detailed depth maps but may require more computational resources.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a depth map image, providing a pixel-wise depth estimation for the input image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a depth map image, providing a pixel-wise depth estimation for the input image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Metric3D_Depth_Map_Preprocessor:
     @classmethod

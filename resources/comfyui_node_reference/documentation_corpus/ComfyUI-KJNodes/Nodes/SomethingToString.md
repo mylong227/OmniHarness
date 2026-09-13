@@ -1,46 +1,57 @@
 ---
 tags:
-- String
-- Text
+  - String
+  - Text
 ---
 
 # Something To String
+
 ## Documentation
+
 - Class name: `SomethingToString`
 - Category: `KJNodes/text`
 - Output node: `False`
 
 This node is designed to convert various data types into a string format, optionally allowing for the addition of a prefix or suffix to the resulting string. It abstracts the complexity of data type conversion and string manipulation, providing a straightforward way to generate string representations of diverse inputs.
+
 ## Input types
+
 ### Required
+
 - **`input`**
-    - The primary data that will be converted to a string. This input can be of any type, and its conversion is central to the node's functionality.
-    - Comfy dtype: `*`
-    - Python dtype: `Union[int, float, bool, list, None]`
+  - The primary data that will be converted to a string. This input can be of any type, and its conversion is central to the node's functionality.
+  - Comfy dtype: `*`
+  - Python dtype: `Union[int, float, bool, list, None]`
+
 ### Optional
+
 - **`prefix`**
-    - An optional string to prepend to the converted input, allowing for customization of the resulting string's format.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional string to prepend to the converted input, allowing for customization of the resulting string's format.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`suffix`**
-    - An optional string to append to the converted input, enhancing the flexibility in formatting the resulting string.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional string to append to the converted input, enhancing the flexibility in formatting the resulting string.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The output is the string representation of the input, potentially modified by the specified prefix and/or suffix.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output is the string representation of the input, potentially modified by the specified prefix and/or suffix.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SomethingToString:
     @classmethod
-    
+
     def INPUT_TYPES(s):
      return {
         "required": {

@@ -1,44 +1,53 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # Image Concatenate Multi
+
 ## Documentation
+
 - Class name: `ImageConcatMulti`
 - Category: `KJNodes/image`
 - Output node: `False`
 
 The ImageConcatMulti node is designed to concatenate multiple images into a single image. It allows for the dynamic specification of the number of input images, the direction of concatenation, and whether to match the sizes of the images being concatenated. This functionality is useful for creating composite images or arranging multiple images in a specific layout.
+
 ## Input types
+
 ### Required
+
 - **`inputcount`**
-    - Specifies the number of images to concatenate. This allows for dynamic adjustment of the node's inputs based on user requirements.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of images to concatenate. This allows for dynamic adjustment of the node's inputs based on user requirements.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`image_i`**
-    - Represents any of the images to be concatenated, allowing for a flexible number of image inputs beyond the first two specified. This accommodates the dynamic input count specified by the user.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Represents any of the images to be concatenated, allowing for a flexible number of image inputs beyond the first two specified. This accommodates the dynamic input count specified by the user.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`direction`**
-    - Determines the direction in which the images will be concatenated (right, down, left, up). This affects the final layout of the concatenated image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the direction in which the images will be concatenated (right, down, left, up). This affects the final layout of the concatenated image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`match_image_size`**
-    - Indicates whether the sizes of the images should be matched before concatenation. This ensures uniformity in the dimensions of the resulting image.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether the sizes of the images should be matched before concatenation. This ensures uniformity in the dimensions of the resulting image.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image after concatenation of the input images. This composite image reflects the specified direction and size matching settings.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image after concatenation of the input images. This composite image reflects the specified direction and size matching settings.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageConcatMulti:
     @classmethod
@@ -66,8 +75,8 @@ class ImageConcatMulti:
     FUNCTION = "combine"
     CATEGORY = "KJNodes/image"
     DESCRIPTION = """
-Creates an image from multiple images.  
-You can set how many inputs the node has,  
+Creates an image from multiple images.
+You can set how many inputs the node has,
 with the **inputcount** and clicking update.
 """
 

@@ -1,115 +1,126 @@
 ---
 tags:
-- AnimationScheduling
-- PromptScheduling
-- Scheduling
+  - AnimationScheduling
+  - PromptScheduling
+  - Scheduling
 ---
 
 # Prompt Schedule SDXL 📅🅕🅝
+
 ## Documentation
+
 - Class name: `PromptScheduleEncodeSDXL`
 - Category: `FizzNodes 📅🅕🅝/ScheduleNodes`
 - Output node: `False`
 
 This node is designed to schedule and encode prompts specifically for the SDXL model, handling the process of tokenization, applying weighted combinations of prompts, and returning the conditioned output for either the current, next, or an averaged state. It focuses on enhancing the flexibility and precision of prompt conditioning in generative models.
+
 ## Input types
+
 ### Required
+
 - **`width`**
-    - Specifies the width of the image for which the prompt is being scheduled, affecting the spatial dimensions of the generated output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the image for which the prompt is being scheduled, affecting the spatial dimensions of the generated output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Specifies the height of the image for which the prompt is being scheduled, affecting the spatial dimensions of the generated output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the height of the image for which the prompt is being scheduled, affecting the spatial dimensions of the generated output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`crop_w`**
-    - Defines the width of the crop area, which is used to refine the focus of the generated output within the specified width.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the width of the crop area, which is used to refine the focus of the generated output within the specified width.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`crop_h`**
-    - Defines the height of the crop area, which is used to refine the focus of the generated output within the specified height.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the height of the crop area, which is used to refine the focus of the generated output within the specified height.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`target_width`**
-    - The target width after processing, which may involve resizing or cropping to fit specific output requirements.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target width after processing, which may involve resizing or cropping to fit specific output requirements.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`target_height`**
-    - The target height after processing, which may involve resizing or cropping to fit specific output requirements.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target height after processing, which may involve resizing or cropping to fit specific output requirements.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`text_g`**
-    - Represents the global textual content to be scheduled and encoded, serving as a foundational element for generating prompts within the SDXL model.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the global textual content to be scheduled and encoded, serving as a foundational element for generating prompts within the SDXL model.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`clip`**
-    - Specifies the clip model to be used in conjunction with the prompt for generating or refining outputs, integrating visual context or constraints into the prompt scheduling process.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `str`
+  - Specifies the clip model to be used in conjunction with the prompt for generating or refining outputs, integrating visual context or constraints into the prompt scheduling process.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `str`
 - **`text_l`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`max_frames`**
-    - The maximum number of frames to be considered for scheduling, defining the temporal boundary of the animation or video output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum number of frames to be considered for scheduling, defining the temporal boundary of the animation or video output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`current_frame`**
-    - The current frame number in the sequence, used to determine the specific state of prompt conditioning at any given time.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The current frame number in the sequence, used to determine the specific state of prompt conditioning at any given time.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`print_output`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
+
 ### Optional
+
 - **`pre_text_G`**
-    - Pre-text for global prompts, used to prepend additional context or instructions to the global text, enhancing the specificity of the generated output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Pre-text for global prompts, used to prepend additional context or instructions to the global text, enhancing the specificity of the generated output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`app_text_G`**
-    - Append text for global prompts, used to add concluding remarks or instructions to the global text, further refining the output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Append text for global prompts, used to add concluding remarks or instructions to the global text, further refining the output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`pre_text_L`**
-    - Pre-text for local prompts, similar to global pre-text but applied to local or specific areas of interest within the generated output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Pre-text for local prompts, similar to global pre-text but applied to local or specific areas of interest within the generated output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`app_text_L`**
-    - Append text for local prompts, similar to global append text but focused on enhancing local or specific areas within the output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Append text for local prompts, similar to global append text but focused on enhancing local or specific areas within the output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`pw_a`**
-    - Weight parameter A, part of a set of parameters used to adjust the influence of different prompts or aspects of the prompt on the final output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter A, part of a set of parameters used to adjust the influence of different prompts or aspects of the prompt on the final output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_b`**
-    - Weight parameter B, works in conjunction with other weight parameters to fine-tune the balance between various elements of the prompt.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter B, works in conjunction with other weight parameters to fine-tune the balance between various elements of the prompt.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_c`**
-    - Weight parameter C, another factor in the complex equation of prompt weighting, contributing to the nuanced control over the generated output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter C, another factor in the complex equation of prompt weighting, contributing to the nuanced control over the generated output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_d`**
-    - Weight parameter D, completes the set of weight parameters, ensuring a comprehensive approach to prompt conditioning.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter D, completes the set of weight parameters, ensuring a comprehensive approach to prompt conditioning.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`POS`**
-    - Comfy dtype: `CONDITIONING`
-    - The enhanced positive prompt, conditioned and ready for use in generating desired outputs with the SDXL model.
-    - Python dtype: `str`
+  - Comfy dtype: `CONDITIONING`
+  - The enhanced positive prompt, conditioned and ready for use in generating desired outputs with the SDXL model.
+  - Python dtype: `str`
 - **`NEG`**
-    - Comfy dtype: `CONDITIONING`
-    - The adjusted negative prompt, conditioned to minimize its influence on the generated outputs.
-    - Python dtype: `str`
+  - Comfy dtype: `CONDITIONING`
+  - The adjusted negative prompt, conditioned to minimize its influence on the generated outputs.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PromptScheduleEncodeSDXL:
     @classmethod

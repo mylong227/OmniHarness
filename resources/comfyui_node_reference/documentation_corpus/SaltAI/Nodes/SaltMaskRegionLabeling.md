@@ -1,39 +1,50 @@
 ---
 tags:
-- Mask
-- MaskEnhancement
-- MaskRegion
+  - Mask
+  - MaskEnhancement
+  - MaskRegion
 ---
 
 # Label Mask Regions (RGB)
+
 ## Documentation
+
 - Class name: `SaltMaskRegionLabeling`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node is designed to label distinct regions within a mask, converting them into visually distinct areas based on connectivity, and outputting these labeled regions as a tensor. It utilizes thresholding and connected component analysis to segment and label different regions, enhancing the interpretability of mask regions by assigning unique colors to each.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks to be labeled, where each mask is processed to identify and label connected regions based on the specified threshold(s).
-    - Comfy dtype: `MASK`
-    - Python dtype: `List[torch.Tensor]`
+  - The input masks to be labeled, where each mask is processed to identify and label connected regions based on the specified threshold(s).
+  - Comfy dtype: `MASK`
+  - Python dtype: `List[torch.Tensor]`
+
 ### Optional
+
 - **`threshold`**
-    - A list of threshold values to apply binary thresholding on the masks, which is crucial for separating the regions to be labeled. If a single value is provided, it is applied to all masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - A list of threshold values to apply binary thresholding on the masks, which is crucial for separating the regions to be labeled. If a single value is provided, it is applied to all masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - The output tensor containing the labeled regions, where each region is assigned a unique color to distinguish it from others. This correction addresses the feedback by correctly identifying the output as a tensor of labeled images, not just 'regions_tensor'.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output tensor containing the labeled regions, where each region is assigned a unique color to distinguish it from others. This correction addresses the feedback by correctly identifying the output as a tensor of labeled images, not just 'regions_tensor'.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskRegionLabeling:
     @classmethod

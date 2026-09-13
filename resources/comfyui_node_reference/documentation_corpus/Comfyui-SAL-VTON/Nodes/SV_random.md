@@ -1,37 +1,46 @@
 ---
 tags:
-- Image
-- Multimedia
+  - Image
+  - Multimedia
 ---
 
 # Random Image From Directory
+
 ## Documentation
+
 - Class name: `SV_random`
 - Category: `Clothing - SAL-VTON`
 - Output node: `False`
 
 The RandomImageFromDir node is designed to select a random image from a specified directory. This functionality is particularly useful for applications requiring variability and unpredictability in the selection of images, such as in data augmentation processes or when simulating diverse scenarios within a given context.
+
 ## Input types
+
 ### Required
+
 - **`folder_path`**
-    - Specifies the path to the directory from which a random image will be selected. This parameter is crucial for determining the pool of available images for random selection.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the path to the directory from which a random image will be selected. This parameter is crucial for determining the pool of available images for random selection.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Returns a randomly selected image from the specified directory. This output is essential for introducing variability and randomness in the selection of images for further processing or display.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - Returns a randomly selected image from the specified directory. This output is essential for introducing variability and randomness in the selection of images for further processing or display.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - Provides a mask associated with the randomly selected image, if applicable, to facilitate further image processing tasks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Provides a mask associated with the randomly selected image, if applicable, to facilitate further image processing tasks.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class RandomImageFromDir:
     def __init__(self):

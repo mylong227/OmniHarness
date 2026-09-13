@@ -1,48 +1,57 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # AWS Bedrock Claude API
+
 ## Documentation
+
 - Class name: `AV_AwsBedrockClaudeApi`
 - Category: `ArtVenture/LLM`
 - Output node: `False`
 
 This node is designed to facilitate the integration with AWS Bedrock Claude API, providing a streamlined way to access Claude's language model capabilities through AWS. It abstracts the complexity of authentication and API communication, enabling users to easily leverage Claude's AI for various applications.
+
 ## Input types
+
 ### Required
+
 - **`aws_access_key_id`**
-    - The AWS access key ID for authentication with AWS services. It's crucial for establishing a secure connection to AWS.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The AWS access key ID for authentication with AWS services. It's crucial for establishing a secure connection to AWS.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`aws_secret_access_key`**
-    - The AWS secret access key for authentication. Together with the access key ID, it forms the credentials needed for accessing AWS resources securely.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The AWS secret access key for authentication. Together with the access key ID, it forms the credentials needed for accessing AWS resources securely.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`aws_session_token`**
-    - An optional session token for temporary credentials that grant access to AWS services. It's used in conjunction with temporary access keys.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional session token for temporary credentials that grant access to AWS services. It's used in conjunction with temporary access keys.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`region`**
-    - The AWS region where the Bedrock Claude API is hosted. It determines the geographical location of the API endpoint being accessed.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The AWS region where the Bedrock Claude API is hosted. It determines the geographical location of the API endpoint being accessed.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`version`**
-    - Specifies the version of the Bedrock Claude API to be used. It ensures that the API's features and capabilities are compatible with the user's requirements.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the version of the Bedrock Claude API to be used. It ensures that the API's features and capabilities are compatible with the user's requirements.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`llm_api`**
-    - Comfy dtype: `LLM_API`
-    - The initialized Claude API object, ready for making requests to the Claude language model.
-    - Python dtype: `ClaudeApi`
+  - Comfy dtype: `LLM_API`
+  - The initialized Claude API object, ready for making requests to the Claude language model.
+  - Python dtype: `ClaudeApi`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AwsBedrockClaudeApiNode:
     @classmethod

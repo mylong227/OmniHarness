@@ -1,62 +1,71 @@
 ---
 tags:
-- DepthMap
-- Image
-- Inpaint
+  - DepthMap
+  - Image
+  - Inpaint
 ---
 
 # Prepare Image & Mask for Inpaint
+
 ## Documentation
+
 - Class name: `PrepareImageAndMaskForInpaint`
 - Category: `Art Venture/Inpainting`
 - Output node: `False`
 
 This node prepares an image and its corresponding mask for the inpainting process by applying various preprocessing steps such as resizing, blurring, and adjusting the mask to ensure it is properly aligned and formatted for inpainting algorithms.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image tensor that needs inpainting, which is a crucial component for the inpainting process as it provides the visual context.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image tensor that needs inpainting, which is a crucial component for the inpainting process as it provides the visual context.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - The mask tensor indicating areas to inpaint, essential for identifying the regions within the image that require restoration or modification.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask tensor indicating areas to inpaint, essential for identifying the regions within the image that require restoration or modification.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`mask_blur`**
-    - An integer specifying the amount of blur to apply to the mask, which helps in smoothing the edges of the mask for a more natural inpainting result.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An integer specifying the amount of blur to apply to the mask, which helps in smoothing the edges of the mask for a more natural inpainting result.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inpaint_masked`**
-    - A boolean indicating whether to inpaint the masked areas, guiding the inpainting process on which regions to focus.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean indicating whether to inpaint the masked areas, guiding the inpainting process on which regions to focus.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`mask_padding`**
-    - An integer defining the padding around the mask, which is used to adjust the focus area of the inpainting process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An integer defining the padding around the mask, which is used to adjust the focus area of the inpainting process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`inpaint_image`**
-    - Comfy dtype: `IMAGE`
-    - The inpainted image after applying the inpainting algorithm, showcasing the restored or modified regions.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The inpainted image after applying the inpainting algorithm, showcasing the restored or modified regions.
+  - Python dtype: `torch.Tensor`
 - **`inpaint_mask`**
-    - Comfy dtype: `MASK`
-    - The processed mask after applying the specified preprocessing steps, ready for use in the inpainting process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The processed mask after applying the specified preprocessing steps, ready for use in the inpainting process.
+  - Python dtype: `torch.Tensor`
 - **`overlay_image`**
-    - Comfy dtype: `IMAGE`
-    - An image that combines the original and inpainted images, providing a visual comparison between them.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - An image that combines the original and inpainted images, providing a visual comparison between them.
+  - Python dtype: `torch.Tensor`
 - **`crop_region`**
-    - Comfy dtype: `CROP_REGION`
-    - The region of the image that was selected for inpainting, indicating the focus area of the process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `CROP_REGION`
+  - The region of the image that was selected for inpainting, indicating the focus area of the process.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PrepareImageAndMaskForInpaint:
     @classmethod

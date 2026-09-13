@@ -1,48 +1,57 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # Create Gradient Mask
+
 ## Documentation
+
 - Class name: `CreateGradientMask`
 - Category: `KJNodes/masking/generate`
 - Output node: `False`
 
 This node is designed to generate a series of gradient masks based on specified dimensions and frame count. It allows for the creation of dynamic, time-offset gradients that can be inverted, offering flexibility in mask generation for various visual effects.
+
 ## Input types
+
 ### Required
+
 - **`invert`**
-    - Determines whether the generated gradient mask should be inverted. Inverting the mask swaps the gradient direction, enabling more creative control over the visual output.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether the generated gradient mask should be inverted. Inverting the mask swaps the gradient direction, enabling more creative control over the visual output.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`frames`**
-    - Specifies the number of frames (or images) to generate, each with a slightly offset gradient to create a dynamic, time-evolving effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of frames (or images) to generate, each with a slightly offset gradient to create a dynamic, time-evolving effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`width`**
-    - Sets the width of the gradient mask, defining the horizontal dimension of the generated images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the width of the gradient mask, defining the horizontal dimension of the generated images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Sets the height of the gradient mask, defining the vertical dimension of the generated images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the height of the gradient mask, defining the vertical dimension of the generated images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - Outputs a tensor representing the generated gradient mask(s), which can be used directly in image processing or visual effects pipelines.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Outputs a tensor representing the generated gradient mask(s), which can be used directly in image processing or visual effects pipelines.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CreateGradientMask:
-    
+
     RETURN_TYPES = ("MASK",)
     FUNCTION = "createmask"
     CATEGORY = "KJNodes/masking/generate"
@@ -56,7 +65,7 @@ class CreateGradientMask:
                  "width": ("INT", {"default": 256,"min": 16, "max": 4096, "step": 1}),
                  "height": ("INT", {"default": 256,"min": 16, "max": 4096, "step": 1}),
         },
-    } 
+    }
     def createmask(self, frames, width, height, invert):
         # Define the number of images in the batch
         batch_size = frames

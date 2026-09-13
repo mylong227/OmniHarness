@@ -1,40 +1,49 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # Conditioning Multi Combine
+
 ## Documentation
+
 - Class name: `ConditioningMultiCombine`
 - Category: `KJNodes/masking/conditioning`
 - Output node: `False`
 
 This node is designed to aggregate multiple conditioning inputs into a single, unified conditioning output. It leverages the capabilities of other conditioning nodes to sequentially combine conditioning data, facilitating complex conditioning scenarios in a streamlined manner.
+
 ## Input types
+
 ### Required
+
 - **`inputcount`**
-    - Specifies the number of conditioning inputs to be combined. It determines the execution flow by dictating how many conditioning inputs will be processed and merged.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of conditioning inputs to be combined. It determines the execution flow by dictating how many conditioning inputs will be processed and merged.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`conditioning_i`**
-    - Represents a series of conditioning inputs to be combined, starting from 'conditioning_1' to 'conditioning_{inputcount}'. Each serves as an incremental addition to the combined conditioning output, facilitating a sequential combination process.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `list of CONDITIONING`
+  - Represents a series of conditioning inputs to be combined, starting from 'conditioning_1' to 'conditioning_{inputcount}'. Each serves as an incremental addition to the combined conditioning output, facilitating a sequential combination process.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `list of CONDITIONING`
+
 ## Output types
+
 - **`combined`**
-    - Comfy dtype: `CONDITIONING`
-    - The result of combining the specified conditioning inputs into a single conditioning output.
-    - Python dtype: `CONDITIONING`
+  - Comfy dtype: `CONDITIONING`
+  - The result of combining the specified conditioning inputs into a single conditioning output.
+  - Python dtype: `CONDITIONING`
 - **`inputcount`**
-    - Comfy dtype: `INT`
-    - Returns the number of conditioning inputs that were combined.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - Returns the number of conditioning inputs that were combined.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ConditioningMultiCombine:
     @classmethod

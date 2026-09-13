@@ -1,34 +1,43 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Prune Outputs 🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_PruneOutputs`
 - Category: `Video Helper Suite 🎥🅥🅗🅢`
 - Output node: `True`
 
 The `VHS_PruneOutputs` node is designed to selectively delete files based on specified criteria, aiming to streamline the output directory by removing intermediate or unnecessary files. This functionality is crucial for managing disk space and organizing project outputs more efficiently.
+
 ## Input types
+
 ### Required
+
 - **`filenames`**
-    - Specifies the filenames to consider for pruning. The selection criteria applied to these filenames determine which files are deleted, impacting the node's execution and the cleanup of the output directory.
-    - Comfy dtype: `VHS_FILENAMES`
-    - Python dtype: `Tuple[str, ...]`
+  - Specifies the filenames to consider for pruning. The selection criteria applied to these filenames determine which files are deleted, impacting the node's execution and the cleanup of the output directory.
+  - Comfy dtype: `VHS_FILENAMES`
+  - Python dtype: `Tuple[str, ...]`
 - **`options`**
-    - Defines the criteria for pruning files, such as deleting only intermediate files, both intermediate and utility files, or all specified files. This option directly influences which files are pruned, tailoring the cleanup process to the user's needs.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Defines the criteria for pruning files, such as deleting only intermediate files, both intermediate and utility files, or all specified files. This option directly influences which files are pruned, tailoring the cleanup process to the user's needs.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PruneOutputs:
     @classmethod

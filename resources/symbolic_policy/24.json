@@ -31,14 +31,8 @@
   },
   "6": {
     "inputs": {
-      "width": [
-        "36",
-        0
-      ],
-      "height": [
-        "36",
-        1
-      ],
+      "width": ["36", 0],
+      "height": ["36", 1],
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -54,22 +48,10 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1,
-      "model": [
-        "32",
-        0
-      ],
-      "positive": [
-        "21",
-        0
-      ],
-      "negative": [
-        "24",
-        0
-      ],
-      "latent_image": [
-        "6",
-        0
-      ]
+      "model": ["32", 0],
+      "positive": ["21", 0],
+      "negative": ["24", 0],
+      "latent_image": ["6", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -78,14 +60,8 @@
   },
   "8": {
     "inputs": {
-      "samples": [
-        "7",
-        0
-      ],
-      "vae": [
-        "1",
-        0
-      ]
+      "samples": ["7", 0],
+      "vae": ["1", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -95,10 +71,7 @@
   "21": {
     "inputs": {
       "reference_latents_method": "index_timestep_zero",
-      "conditioning": [
-        "34",
-        0
-      ]
+      "conditioning": ["34", 0]
     },
     "class_type": "FluxKontextMultiReferenceLatentMethod",
     "_meta": {
@@ -108,10 +81,7 @@
   "24": {
     "inputs": {
       "reference_latents_method": "index_timestep_zero",
-      "conditioning": [
-        "35",
-        0
-      ]
+      "conditioning": ["35", 0]
     },
     "class_type": "FluxKontextMultiReferenceLatentMethod",
     "_meta": {
@@ -129,10 +99,7 @@
   },
   "28": {
     "inputs": {
-      "image": [
-        "25",
-        0
-      ]
+      "image": ["25", 0]
     },
     "class_type": "FluxKontextImageScale",
     "_meta": {
@@ -143,10 +110,7 @@
     "inputs": {
       "lora_name": "krea2_style_reference.safetensors",
       "strength_model": 1,
-      "model": [
-        "33",
-        0
-      ]
+      "model": ["33", 0]
     },
     "class_type": "LoraLoaderModelOnly",
     "_meta": {
@@ -156,10 +120,7 @@
   "33": {
     "inputs": {
       "kv_cache": false,
-      "model": [
-        "2",
-        0
-      ]
+      "model": ["2", 0]
     },
     "class_type": "Krea2OstrisEditModelPatch",
     "_meta": {
@@ -169,18 +130,9 @@
   "34": {
     "inputs": {
       "prompt": "",
-      "clip": [
-        "3",
-        0
-      ],
-      "vae": [
-        "1",
-        0
-      ],
-      "image1": [
-        "28",
-        0
-      ]
+      "clip": ["3", 0],
+      "vae": ["1", 0],
+      "image1": ["28", 0]
     },
     "class_type": "TextEncodeKrea2OstrisEdit",
     "_meta": {
@@ -190,18 +142,9 @@
   "35": {
     "inputs": {
       "prompt": "",
-      "clip": [
-        "3",
-        0
-      ],
-      "vae": [
-        "1",
-        0
-      ],
-      "image1": [
-        "28",
-        0
-      ]
+      "clip": ["3", 0],
+      "vae": ["1", 0],
+      "image1": ["28", 0]
     },
     "class_type": "TextEncodeKrea2OstrisEdit",
     "_meta": {
@@ -210,10 +153,7 @@
   },
   "36": {
     "inputs": {
-      "image": [
-        "28",
-        0
-      ]
+      "image": ["28", 0]
     },
     "class_type": "GetImageSize",
     "_meta": {
@@ -253,10 +193,7 @@
   "41": {
     "inputs": {
       "text": "",
-      "clip": [
-        "39",
-        0
-      ]
+      "clip": ["39", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -265,10 +202,7 @@
   },
   "42": {
     "inputs": {
-      "conditioning": [
-        "41",
-        0
-      ]
+      "conditioning": ["41", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -277,14 +211,8 @@
   },
   "43": {
     "inputs": {
-      "conditioning": [
-        "41",
-        0
-      ],
-      "latent": [
-        "44",
-        0
-      ]
+      "conditioning": ["41", 0],
+      "latent": ["44", 0]
     },
     "class_type": "ReferenceLatent",
     "_meta": {
@@ -293,14 +221,8 @@
   },
   "44": {
     "inputs": {
-      "pixels": [
-        "45",
-        0
-      ],
-      "vae": [
-        "40",
-        0
-      ]
+      "pixels": ["45", 0],
+      "vae": ["40", 0]
     },
     "class_type": "VAEEncode",
     "_meta": {
@@ -312,10 +234,7 @@
       "upscale_method": "nearest-exact",
       "megapixels": 1,
       "resolution_steps": 1,
-      "image": [
-        "8",
-        0
-      ]
+      "image": ["8", 0]
     },
     "class_type": "ImageScaleToTotalPixels",
     "_meta": {
@@ -343,18 +262,9 @@
   "48": {
     "inputs": {
       "cfg": 1,
-      "model": [
-        "38",
-        0
-      ],
-      "positive": [
-        "43",
-        0
-      ],
-      "negative": [
-        "51",
-        0
-      ]
+      "model": ["38", 0],
+      "positive": ["43", 0],
+      "negative": ["51", 0]
     },
     "class_type": "CFGGuider",
     "_meta": {
@@ -364,14 +274,8 @@
   "49": {
     "inputs": {
       "steps": 4,
-      "width": [
-        "50",
-        0
-      ],
-      "height": [
-        "50",
-        1
-      ]
+      "width": ["50", 0],
+      "height": ["50", 1]
     },
     "class_type": "Flux2Scheduler",
     "_meta": {
@@ -380,10 +284,7 @@
   },
   "50": {
     "inputs": {
-      "image": [
-        "45",
-        0
-      ]
+      "image": ["45", 0]
     },
     "class_type": "GetImageSize",
     "_meta": {
@@ -392,14 +293,8 @@
   },
   "51": {
     "inputs": {
-      "conditioning": [
-        "42",
-        0
-      ],
-      "latent": [
-        "44",
-        0
-      ]
+      "conditioning": ["42", 0],
+      "latent": ["44", 0]
     },
     "class_type": "ReferenceLatent",
     "_meta": {
@@ -408,14 +303,8 @@
   },
   "52": {
     "inputs": {
-      "width": [
-        "50",
-        0
-      ],
-      "height": [
-        "50",
-        1
-      ],
+      "width": ["50", 0],
+      "height": ["50", 1],
       "batch_size": 1
     },
     "class_type": "EmptyFlux2LatentImage",
@@ -425,26 +314,11 @@
   },
   "53": {
     "inputs": {
-      "noise": [
-        "47",
-        0
-      ],
-      "guider": [
-        "48",
-        0
-      ],
-      "sampler": [
-        "46",
-        0
-      ],
-      "sigmas": [
-        "49",
-        0
-      ],
-      "latent_image": [
-        "52",
-        0
-      ]
+      "noise": ["47", 0],
+      "guider": ["48", 0],
+      "sampler": ["46", 0],
+      "sigmas": ["49", 0],
+      "latent_image": ["52", 0]
     },
     "class_type": "SamplerCustomAdvanced",
     "_meta": {
@@ -453,14 +327,8 @@
   },
   "54": {
     "inputs": {
-      "samples": [
-        "53",
-        0
-      ],
-      "vae": [
-        "40",
-        0
-      ]
+      "samples": ["53", 0],
+      "vae": ["40", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -470,10 +338,7 @@
   "57": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "54",
-        0
-      ]
+      "images": ["54", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

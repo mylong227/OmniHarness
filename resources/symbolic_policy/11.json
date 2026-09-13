@@ -16,22 +16,10 @@
       "sampler_name": "euler_ancestral",
       "scheduler": "beta",
       "denoise": 1,
-      "model": [
-        "1",
-        0
-      ],
-      "positive": [
-        "3",
-        0
-      ],
-      "negative": [
-        "4",
-        0
-      ],
-      "latent_image": [
-        "9",
-        0
-      ]
+      "model": ["1", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["9", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -41,18 +29,9 @@
   "3": {
     "inputs": {
       "prompt": "",
-      "clip": [
-        "1",
-        1
-      ],
-      "vae": [
-        "1",
-        2
-      ],
-      "image2": [
-        "8",
-        0
-      ]
+      "clip": ["1", 1],
+      "vae": ["1", 2],
+      "image2": ["8", 0]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
@@ -62,14 +41,8 @@
   "4": {
     "inputs": {
       "prompt": "",
-      "clip": [
-        "1",
-        1
-      ],
-      "vae": [
-        "1",
-        2
-      ]
+      "clip": ["1", 1],
+      "vae": ["1", 2]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
@@ -78,14 +51,8 @@
   },
   "5": {
     "inputs": {
-      "samples": [
-        "2",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
+      "samples": ["2", 0],
+      "vae": ["1", 2]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -103,14 +70,8 @@
   },
   "9": {
     "inputs": {
-      "width": [
-        "11",
-        0
-      ],
-      "height": [
-        "11",
-        1
-      ],
+      "width": ["11", 0],
+      "height": ["11", 1],
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -120,10 +81,7 @@
   },
   "10": {
     "inputs": {
-      "image": [
-        "8",
-        0
-      ]
+      "image": ["8", 0]
     },
     "class_type": "FluxKontextImageScale",
     "_meta": {
@@ -132,10 +90,7 @@
   },
   "11": {
     "inputs": {
-      "image": [
-        "10",
-        0
-      ]
+      "image": ["10", 0]
     },
     "class_type": "GetImageSize",
     "_meta": {
@@ -145,10 +100,7 @@
   "14": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "5",
-        0
-      ]
+      "images": ["5", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

@@ -1,40 +1,48 @@
 ---
 tags:
-- Image
-- ImageBlend
-- ImageComposite
+  - Image
+  - ImageBlend
+  - ImageComposite
 ---
 
 # Color Blend
+
 ## Documentation
+
 - Class name: `ColorBlend`
 - Category: `stability/image/postprocessing`
 - Output node: `False`
 
 The ColorBlend node is designed to blend two images, specifically a black and white layer with a color layer, to produce a single image that combines the luminosity of the black and white layer with the color information of the color layer. This blending process is achieved through a sophisticated manipulation of color spaces and image processing techniques.
+
 ## Input types
+
 ### Required
+
 - **`bw_layer`**
-    - The black and white layer image to be blended. It serves as the base for the luminosity channel in the blending process, influencing the final image's light and dark areas.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The black and white layer image to be blended. It serves as the base for the luminosity channel in the blending process, influencing the final image's light and dark areas.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`color_layer`**
-    - The color layer image to be blended. This layer provides the color information for the blending process, affecting the final image's coloration and vibrancy.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The color layer image to be blended. This layer provides the color information for the blending process, affecting the final image's coloration and vibrancy.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The result of blending the black and white layer with the color layer, producing an image that combines the luminosity of the former with the color information of the latter.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The result of blending the black and white layer with the color layer, producing an image that combines the luminosity of the former with the color information of the latter.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-
-
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
 
 ## Source code
+
 ```python
 class ColorBlend:
     def __init__(self):

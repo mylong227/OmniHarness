@@ -1,36 +1,45 @@
 ---
 tags:
-- MotionData
+  - MotionData
 ---
 
 # MotionDiff Loader
+
 ## Documentation
+
 - Class name: `MotionDiffLoader`
 - Category: `MotionDiff`
 - Output node: `False`
 
 The MotionDiffLoader node is designed to load and initialize the Motion Diffusion Model (MDM) and its associated CLIP wrapper based on a specified model dataset. This node plays a crucial role in preparing the motion generation models for subsequent processing or inference tasks, ensuring they are correctly configured with the necessary dataset information.
+
 ## Input types
+
 ### Required
+
 - **`model_dataset`**
-    - Specifies the dataset model to be loaded. This selection determines the configuration of the Motion Diffusion Model and its CLIP wrapper, impacting the behavior and performance of motion generation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the dataset model to be loaded. This selection determines the configuration of the Motion Diffusion Model and its CLIP wrapper, impacting the behavior and performance of motion generation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`md_model`**
-    - Comfy dtype: `MD_MODEL`
-    - Returns a wrapped instance of the Motion Diffusion Model, ready for motion generation tasks.
-    - Python dtype: `MotionDiffModelWrapper`
+  - Comfy dtype: `MD_MODEL`
+  - Returns a wrapped instance of the Motion Diffusion Model, ready for motion generation tasks.
+  - Python dtype: `MotionDiffModelWrapper`
 - **`md_clip`**
-    - Comfy dtype: `MD_CLIP`
-    - Returns a CLIP wrapper configured for the loaded Motion Diffusion Model, facilitating text-conditioned motion generation.
-    - Python dtype: `MotionDiffCLIPWrapper`
+  - Comfy dtype: `MD_CLIP`
+  - Returns a CLIP wrapper configured for the loaded Motion Diffusion Model, facilitating text-conditioned motion generation.
+  - Python dtype: `MotionDiffCLIPWrapper`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MotionDiffLoader:
     @classmethod
@@ -40,7 +49,7 @@ class MotionDiffLoader:
         return {
             "required": {
                 "model_dataset": (
-                    list(model_dataset_dict.keys()), 
+                    list(model_dataset_dict.keys()),
                     { "default": "-human_ml3d" }
                 )
             },

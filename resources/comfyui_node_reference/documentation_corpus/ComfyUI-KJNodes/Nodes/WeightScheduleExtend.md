@@ -1,37 +1,46 @@
 ---
 tags:
-- DataTypeConversion
-- NumericConversion
+  - DataTypeConversion
+  - NumericConversion
 ---
 
 # Weight Schedule Extend
+
 ## Documentation
+
 - Class name: `WeightScheduleExtend`
 - Category: `KJNodes/weights`
 - Output node: `False`
 
 The WeightScheduleExtend node is designed to extend and convert weight schedules or value lists, supporting various output types for flexible integration into different model architectures. It allows for the manipulation of input values to match specific requirements, facilitating the customization of model behavior over time.
+
 ## Input types
+
 ### Required
+
 - **`input_values_i`**
-    - Represents the first set of input values for the operation, playing a crucial role in the extension or conversion process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Represents the first set of input values for the operation, playing a crucial role in the extension or conversion process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`output_type`**
-    - Specifies the desired output type of the operation, influencing the format of the extended or converted values.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the desired output type of the operation, influencing the format of the extended or converted values.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The output of the operation, which can be a single float value or a collection of float values, depending on the specified output type.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The output of the operation, which can be a single float value or a collection of float values, depending on the specified output type.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class WeightScheduleExtend:
 
@@ -42,7 +51,7 @@ class WeightScheduleExtend:
                 "input_values_1": ("FLOAT", {"default": 0.0, "forceInput": True}),
                 "input_values_2": ("FLOAT", {"default": 0.0, "forceInput": True}),
                 "output_type": (
-                [   
+                [
                     'match_input',
                     'list',
                     'pandas series',
@@ -52,13 +61,13 @@ class WeightScheduleExtend:
                 "default": 'match_input'
                     }),
              },
-             
+
         }
     RETURN_TYPES = ("FLOAT",)
     FUNCTION = "execute"
     CATEGORY = "KJNodes/weights"
     DESCRIPTION = """
-Extends, and converts if needed, different value lists/series  
+Extends, and converts if needed, different value lists/series
 """
 
     def detect_input_type(self, input_values):
@@ -89,9 +98,9 @@ Extends, and converts if needed, different value lists/series
             print("Input types match, no conversion needed")
             # If the types match, no conversion is needed
             float_values_2 = input_values_2
-     
+
         float_values = input_values_1 + float_values_2
- 
+
         if output_type == 'list':
             return float_values,
         elif output_type == 'pandas series':

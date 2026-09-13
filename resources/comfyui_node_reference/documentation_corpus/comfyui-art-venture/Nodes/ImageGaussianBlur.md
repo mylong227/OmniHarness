@@ -1,37 +1,46 @@
 ---
 tags:
-- Blur
-- VisualEffects
+  - Blur
+  - VisualEffects
 ---
 
 # Image Gaussian Blur
+
 ## Documentation
+
 - Class name: `ImageGaussianBlur`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The `ImageGaussianBlur` node applies a Gaussian blur filter to a collection of images, effectively smoothing them by a specified radius. This operation is commonly used in image processing to reduce noise and detail, or to create a visual effect.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The collection of images to be blurred. This input is crucial for defining the set of images that will undergo the Gaussian blur transformation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The collection of images to be blurred. This input is crucial for defining the set of images that will undergo the Gaussian blur transformation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`radius`**
-    - Specifies the radius of the Gaussian blur. A larger radius results in a more pronounced blurring effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the radius of the Gaussian blur. A larger radius results in a more pronounced blurring effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The blurred images, returned as a single tensor by concatenating the individually blurred images along the batch dimension.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The blurred images, returned as a single tensor by concatenating the individually blurred images along the batch dimension.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilImageGaussianBlur:
     @classmethod

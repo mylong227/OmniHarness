@@ -1,35 +1,44 @@
 ---
 tags:
-- DataTypeAgnostic
-- Debugging
+  - DataTypeAgnostic
+  - Debugging
 ---
 
 # SaltDisplayAny
+
 ## Documentation
+
 - Class name: `SaltDisplayAny`
 - Category: `SALT/Utility`
 - Output node: `True`
 
 The SaltDisplayAny node is designed to universally display any type of input data, converting it into a human-readable format or indicating if the data type cannot be displayed. It supports a wide range of data types, including basic types like strings and numbers, complex data structures like dictionaries and lists, and even PyTorch tensors, making it a versatile utility for debugging and data visualization.
+
 ## Input types
+
 ### Required
+
 - **`input_value`**
-    - Represents the data to be displayed. It can be of any type, making this node highly versatile in handling various kinds of input for visualization or debugging purposes.
-    - Comfy dtype: `*`
-    - Python dtype: `AnyType`
+  - Represents the data to be displayed. It can be of any type, making this node highly versatile in handling various kinds of input for visualization or debugging purposes.
+  - Comfy dtype: `*`
+  - Python dtype: `AnyType`
+
 ## Output types
+
 - **`output`**
-    - Comfy dtype: `*`
-    - The output is a human-readable representation of the input data or a message indicating that the data type cannot be displayed.
-    - Python dtype: `str`
+  - Comfy dtype: `*`
+  - The output is a human-readable representation of the input data or a message indicating that the data type cannot be displayed.
+  - Python dtype: `str`
 - **`ui`**
-    - A UI component that displays the text representation of the input data, facilitating easy visualization in a user interface.
+  - A UI component that displays the text representation of the input data, facilitating easy visualization in a user interface.
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltDisplayAny:
     @classmethod

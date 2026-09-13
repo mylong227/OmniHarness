@@ -1,57 +1,68 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # 🔧 Image Seam Carving
+
 ## Documentation
+
 - Class name: `ImageSeamCarving+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 This node specializes in dynamically resizing images while preserving the content's essential features, utilizing the seam carving technique. It intelligently removes or adds pixels in paths (seams) of least importance, allowing for aspect ratio changes, content amplification, or object removal without noticeable distortion.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed. It is the primary subject for seam carving, where the algorithm will apply modifications based on the specified parameters.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed. It is the primary subject for seam carving, where the algorithm will apply modifications based on the specified parameters.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`width`**
-    - The target width for the output image. This parameter dictates the new width the input image should be resized to, either by removing or adding seams.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target width for the output image. This parameter dictates the new width the input image should be resized to, either by removing or adding seams.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - The target height for the output image. Similar to width, it determines the new height by adjusting the number of seams.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target height for the output image. Similar to width, it determines the new height by adjusting the number of seams.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`energy`**
-    - Defines the energy calculation mode to identify seams. Higher energy values indicate areas of higher importance, guiding the seam carving process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the energy calculation mode to identify seams. Higher energy values indicate areas of higher importance, guiding the seam carving process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`order`**
-    - Specifies the order of seam removal or addition, which can be either width-first or height-first, influencing the direction of the carving process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the order of seam removal or addition, which can be either width-first or height-first, influencing the direction of the carving process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`keep_mask`**
-    - An optional mask to protect certain areas from being altered. Regions covered by the keep mask are treated as high importance, preserving them during seam carving.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask to protect certain areas from being altered. Regions covered by the keep mask are treated as high importance, preserving them during seam carving.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`drop_mask`**
-    - An optional mask to designate areas for removal. The drop mask marks regions as less important, making them prime candidates for seam elimination.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask to designate areas for removal. The drop mask marks regions as less important, making them prime candidates for seam elimination.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after seam carving. It reflects the specified dimensions and modifications while aiming to preserve the visual content's integrity.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after seam carving. It reflects the specified dimensions and modifications while aiming to preserve the visual content's integrity.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageSeamCarving:
     @classmethod

@@ -1,80 +1,89 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # Face Segmentation
+
 ## Documentation
+
 - Class name: `FaceSegmentation`
 - Category: `FaceAnalysis`
 - Output node: `False`
 
 The FaceSegmentation node is designed to process images by segmenting faces based on provided parameters. It utilizes advanced image processing techniques to refine the segmentation mask through expansion, tapering, and blurring, ultimately extracting and modifying the face segment within the image for further analysis or visualization.
+
 ## Input types
+
 ### Required
+
 - **`analysis_models`**
-    - A collection of models used for analyzing the image, crucial for determining the initial segmentation mask before refinement.
-    - Comfy dtype: `ANALYSIS_MODELS`
-    - Python dtype: `object`
+  - A collection of models used for analyzing the image, crucial for determining the initial segmentation mask before refinement.
+  - Comfy dtype: `ANALYSIS_MODELS`
+  - Python dtype: `object`
 - **`image`**
-    - The input image to be processed, serving as the basis for face segmentation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed, serving as the basis for face segmentation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`area`**
-    - Specifies the area of interest within the image for segmentation, guiding the initial mask creation. This parameter allows selection from predefined areas such as the face, eyes, or mouth, influencing the focus of the segmentation process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Specifies the area of interest within the image for segmentation, guiding the initial mask creation. This parameter allows selection from predefined areas such as the face, eyes, or mouth, influencing the focus of the segmentation process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`grow`**
-    - Determines how much to expand the segmentation mask, allowing for more inclusive face coverage.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines how much to expand the segmentation mask, allowing for more inclusive face coverage.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`grow_tapered`**
-    - Indicates whether the mask expansion should taper off, providing a more natural transition at the edges.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether the mask expansion should taper off, providing a more natural transition at the edges.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`blur`**
-    - The intensity of blur applied to the segmentation mask, enhancing the mask's smoothness and blending.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The intensity of blur applied to the segmentation mask, enhancing the mask's smoothness and blending.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The refined segmentation mask after processing.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The refined segmentation mask after processing.
+  - Python dtype: `torch.Tensor`
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The original image modified by the segmentation mask, highlighting the segmented area.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The original image modified by the segmentation mask, highlighting the segmented area.
+  - Python dtype: `torch.Tensor`
 - **`seg_mask`**
-    - Comfy dtype: `MASK`
-    - A mask representing the precise segment of the face extracted from the image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - A mask representing the precise segment of the face extracted from the image.
+  - Python dtype: `torch.Tensor`
 - **`seg_image`**
-    - Comfy dtype: `IMAGE`
-    - The extracted segment of the face from the original image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The extracted segment of the face from the original image.
+  - Python dtype: `torch.Tensor`
 - **`x`**
-    - Comfy dtype: `INT`
-    - The minimum x-coordinate of the face segment within the image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The minimum x-coordinate of the face segment within the image.
+  - Python dtype: `int`
 - **`y`**
-    - Comfy dtype: `INT`
-    - The minimum y-coordinate of the face segment within the image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The minimum y-coordinate of the face segment within the image.
+  - Python dtype: `int`
 - **`width`**
-    - Comfy dtype: `INT`
-    - The width of the face segment extracted from the image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The width of the face segment extracted from the image.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The height of the face segment extracted from the image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The height of the face segment extracted from the image.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class faceSegmentation:
     @classmethod
@@ -136,7 +145,7 @@ class faceSegmentation:
             if smooth % 2 == 0:
                 smooth+= 1
             mask = T.functional.gaussian_blur(mask.bool().unsqueeze(1), smooth).squeeze(1).float()
-        
+
         if grow != 0:
             mask = expand_mask(mask, grow, grow_tapered)
 

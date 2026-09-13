@@ -31,14 +31,8 @@
   },
   "6": {
     "inputs": {
-      "width": [
-        "36",
-        0
-      ],
-      "height": [
-        "36",
-        1
-      ],
+      "width": ["36", 0],
+      "height": ["36", 1],
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -54,22 +48,10 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1,
-      "model": [
-        "32",
-        0
-      ],
-      "positive": [
-        "21",
-        0
-      ],
-      "negative": [
-        "24",
-        0
-      ],
-      "latent_image": [
-        "6",
-        0
-      ]
+      "model": ["32", 0],
+      "positive": ["21", 0],
+      "negative": ["24", 0],
+      "latent_image": ["6", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -78,14 +60,8 @@
   },
   "8": {
     "inputs": {
-      "samples": [
-        "7",
-        0
-      ],
-      "vae": [
-        "1",
-        0
-      ]
+      "samples": ["7", 0],
+      "vae": ["1", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -95,10 +71,7 @@
   "21": {
     "inputs": {
       "reference_latents_method": "index_timestep_zero",
-      "conditioning": [
-        "34",
-        0
-      ]
+      "conditioning": ["34", 0]
     },
     "class_type": "FluxKontextMultiReferenceLatentMethod",
     "_meta": {
@@ -108,10 +81,7 @@
   "24": {
     "inputs": {
       "reference_latents_method": "index_timestep_zero",
-      "conditioning": [
-        "35",
-        0
-      ]
+      "conditioning": ["35", 0]
     },
     "class_type": "FluxKontextMultiReferenceLatentMethod",
     "_meta": {
@@ -129,10 +99,7 @@
   },
   "28": {
     "inputs": {
-      "image": [
-        "25",
-        0
-      ]
+      "image": ["25", 0]
     },
     "class_type": "FluxKontextImageScale",
     "_meta": {
@@ -143,10 +110,7 @@
     "inputs": {
       "lora_name": "krea2_style_reference.safetensors",
       "strength_model": 1,
-      "model": [
-        "33",
-        0
-      ]
+      "model": ["33", 0]
     },
     "class_type": "LoraLoaderModelOnly",
     "_meta": {
@@ -156,10 +120,7 @@
   "33": {
     "inputs": {
       "kv_cache": false,
-      "model": [
-        "2",
-        0
-      ]
+      "model": ["2", 0]
     },
     "class_type": "Krea2OstrisEditModelPatch",
     "_meta": {
@@ -169,18 +130,9 @@
   "34": {
     "inputs": {
       "prompt": "",
-      "clip": [
-        "3",
-        0
-      ],
-      "vae": [
-        "1",
-        0
-      ],
-      "image1": [
-        "28",
-        0
-      ]
+      "clip": ["3", 0],
+      "vae": ["1", 0],
+      "image1": ["28", 0]
     },
     "class_type": "TextEncodeKrea2OstrisEdit",
     "_meta": {
@@ -190,18 +142,9 @@
   "35": {
     "inputs": {
       "prompt": "",
-      "clip": [
-        "3",
-        0
-      ],
-      "vae": [
-        "1",
-        0
-      ],
-      "image1": [
-        "28",
-        0
-      ]
+      "clip": ["3", 0],
+      "vae": ["1", 0],
+      "image1": ["28", 0]
     },
     "class_type": "TextEncodeKrea2OstrisEdit",
     "_meta": {
@@ -210,10 +153,7 @@
   },
   "36": {
     "inputs": {
-      "image": [
-        "28",
-        0
-      ]
+      "image": ["28", 0]
     },
     "class_type": "GetImageSize",
     "_meta": {
@@ -223,10 +163,7 @@
   "37": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "8",
-        0
-      ]
+      "images": ["8", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

@@ -1,33 +1,42 @@
 ---
 tags:
-- ImageSize
-- ImageTransformation
+  - ImageSize
+  - ImageTransformation
 ---
 
 # FL Image Size
+
 ## Documentation
+
 - Class name: `FL_ImageDimensionDisplay`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 This node is designed to calculate and display the dimensions of an image, supporting both individual images and batches of images in various formats. It abstracts the complexity of handling different image representations, providing a straightforward way to obtain image dimensions.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image input is crucial for determining the dimensions of the provided image. It supports both tensor and PIL image formats, adapting its processing based on the input type to accurately return the image dimensions.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Union[torch.Tensor, Image.Image]`
+  - The image input is crucial for determining the dimensions of the provided image. It supports both tensor and PIL image formats, adapting its processing based on the input type to accurately return the image dimensions.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Union[torch.Tensor, Image.Image]`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - Outputs the dimensions of the provided image as a string, formatted to include both width and height.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - Outputs the dimensions of the provided image as a string, formatted to include both width and height.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_ImageDimensionDisplay:
     @classmethod

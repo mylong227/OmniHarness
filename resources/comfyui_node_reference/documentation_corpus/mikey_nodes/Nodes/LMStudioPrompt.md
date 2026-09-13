@@ -1,58 +1,66 @@
 ---
 tags:
-- Prompt
+  - Prompt
 ---
 
 # LM Studio Prompt (Mikey)
+
 ## Documentation
+
 - Class name: `LMStudioPrompt`
 - Category: `Mikey/AI`
 - Output node: `True`
 
 LMStudioPrompt is designed to interface with the LM Studio API, offering a streamlined way to generate prompts by leveraging the capabilities of this specific API. It mirrors the functionality of a similar node but specifically utilizes LM Studio's services for prompt generation, emphasizing its integration with LM Studio's unique features and API structure.
+
 ## Input types
+
 ### Required
+
 - **`input_prompt`**
-    - The 'input_prompt' parameter represents the initial prompt or question provided by the user, serving as the basis for generating contextually relevant responses through the LM Studio API.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'input_prompt' parameter represents the initial prompt or question provided by the user, serving as the basis for generating contextually relevant responses through the LM Studio API.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`mode`**
-    - The 'mode' parameter determines the operational mode of the LM Studio API, potentially affecting the style or approach of the generated responses.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The 'mode' parameter determines the operational mode of the LM Studio API, potentially affecting the style or approach of the generated responses.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`custom_history`**
-    - The 'custom_history' parameter allows for the inclusion of a custom interaction history, enhancing the context for the generated response by the LM Studio API.
-    - Comfy dtype: `STRING`
-    - Python dtype: `List[Dict[str, str]]`
+  - The 'custom_history' parameter allows for the inclusion of a custom interaction history, enhancing the context for the generated response by the LM Studio API.
+  - Comfy dtype: `STRING`
+  - Python dtype: `List[Dict[str, str]]`
 - **`server_address`**
-    - The 'server_address' parameter specifies the network address of the LM Studio server, required for API communication.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'server_address' parameter specifies the network address of the LM Studio server, required for API communication.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`server_port`**
-    - The 'server_port' parameter indicates the network port of the LM Studio server, essential for establishing a connection.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'server_port' parameter indicates the network port of the LM Studio server, essential for establishing a connection.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`seed`**
-    - The 'seed' parameter is used to initialize the random number generator within the LM Studio API, ensuring reproducibility of the generated responses.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'seed' parameter is used to initialize the random number generator within the LM Studio API, ensuring reproducibility of the generated responses.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`text`**
-    - Comfy dtype: `STRING`
-    - The output 'text' contains the generated prompt from the LM Studio API, encapsulating the result of the prompt generation process.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output 'text' contains the generated prompt from the LM Studio API, encapsulating the result of the prompt generation process.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [TextConcat](../../mikey_nodes/Nodes/TextConcat.md)
-    - [LMStudioPrompt](../../mikey_nodes/Nodes/LMStudioPrompt.md)
-    - ShowText|pysssss
-    - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
-    - [Display Any (rgthree)](../../rgthree-comfy/Nodes/Display Any (rgthree).md)
-
-
+  - [TextConcat](../../mikey_nodes/Nodes/TextConcat.md)
+  - [LMStudioPrompt](../../mikey_nodes/Nodes/LMStudioPrompt.md)
+  - ShowText|pysssss
+  - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
+  - [Display Any (rgthree)](../../rgthree-comfy/Nodes/Display Any (rgthree).md)
 
 ## Source code
+
 ```python
 class LMStudioPrompt:
     @classmethod

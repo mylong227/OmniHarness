@@ -1,44 +1,53 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # AWS Bedrock Mistral API
+
 ## Documentation
+
 - Class name: `AV_AwsBedrockMistralApi`
 - Category: `ArtVenture/LLM`
 - Output node: `False`
 
 This node is designed to facilitate the creation of an API connection to AWS Bedrock Mistral, leveraging AWS credentials to authenticate and configure the API for use in language model applications.
+
 ## Input types
+
 ### Required
+
 - **`aws_access_key_id`**
-    - The AWS access key ID is essential for authenticating the user's AWS account, enabling secure access to AWS services.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The AWS access key ID is essential for authenticating the user's AWS account, enabling secure access to AWS services.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`aws_secret_access_key`**
-    - The AWS secret access key works alongside the access key ID to authenticate and secure the user's AWS account access.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The AWS secret access key works alongside the access key ID to authenticate and secure the user's AWS account access.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`aws_session_token`**
-    - The AWS session token provides temporary access credentials for using AWS services, enhancing security for short-term access.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The AWS session token provides temporary access credentials for using AWS services, enhancing security for short-term access.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`region`**
-    - Specifies the AWS region for the API connection, determining the geographical location of the resources accessed.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the AWS region for the API connection, determining the geographical location of the resources accessed.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`llm_api`**
-    - Comfy dtype: `LLM_API`
-    - Represents the configured API connection to AWS Bedrock Mistral, ready for use in language model applications.
-    - Python dtype: `str`
+  - Comfy dtype: `LLM_API`
+  - Represents the configured API connection to AWS Bedrock Mistral, ready for use in language model applications.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AwsBedrockMistralApiNode:
     @classmethod

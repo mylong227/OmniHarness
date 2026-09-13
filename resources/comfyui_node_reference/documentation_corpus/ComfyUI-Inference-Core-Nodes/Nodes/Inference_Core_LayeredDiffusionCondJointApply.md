@@ -1,49 +1,60 @@
 ---
 tags:
-- LayeredDiffusion
+  - LayeredDiffusion
 ---
 
 # [Inference.Core] Layer Diffuse Cond Joint Apply
+
 ## Documentation
+
 - Class name: `Inference_Core_LayeredDiffusionCondJointApply`
 - Category: `layer_diffuse`
 - Output node: `False`
 
 This node specializes in applying conditional and joint layered diffusion processes to generate or manipulate images based on a set of conditions and joint configurations. It integrates multiple diffusion models to achieve complex image synthesis or transformation tasks, leveraging conditional inputs and joint model dynamics.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model patcher used to apply layered diffusion techniques, essential for integrating with the diffusion process.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `ModelPatcher`
+  - The model patcher used to apply layered diffusion techniques, essential for integrating with the diffusion process.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `ModelPatcher`
 - **`image`**
-    - The target image for the diffusion process, serving as a basis for transformations or synthesis.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The target image for the diffusion process, serving as a basis for transformations or synthesis.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`config`**
-    - A configuration string that determines the specific layered diffusion model and settings to use.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - A configuration string that determines the specific layered diffusion model and settings to use.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`cond`**
-    - Optional conditional inputs for the diffusion process, allowing for targeted image manipulation or generation.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Optional[List[List[torch.Tensor]]]`
+  - Optional conditional inputs for the diffusion process, allowing for targeted image manipulation or generation.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Optional[List[List[torch.Tensor]]]`
 - **`blended_cond`**
-    - Optional blended conditional inputs, enabling more complex image synthesis by combining conditions.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Optional[List[List[torch.Tensor]]]`
+  - Optional blended conditional inputs, enabling more complex image synthesis by combining conditions.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Optional[List[List[torch.Tensor]]]`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - Outputs the model after applying the layered diffusion process, equipped with modifications for image synthesis or transformation.
-    - Python dtype: `ModelPatcher`
+  - Comfy dtype: `MODEL`
+  - Outputs the model after applying the layered diffusion process, equipped with modifications for image synthesis or transformation.
+  - Python dtype: `ModelPatcher`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LayeredDiffusionCondJoint:
     """Generate fg/bg + blended given fg/bg.

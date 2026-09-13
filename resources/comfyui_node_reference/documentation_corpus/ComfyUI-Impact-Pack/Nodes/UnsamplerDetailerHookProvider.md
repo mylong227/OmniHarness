@@ -1,73 +1,82 @@
 ---
 tags:
-- ImageEnhancement
-- Scheduling
+  - ImageEnhancement
+  - Scheduling
 ---
 
 # UnsamplerDetailerHookProvider
+
 ## Documentation
+
 - Class name: `UnsamplerDetailerHookProvider`
 - Category: `ImpactPack/Detailer`
 - Output node: `False`
 
 The UnsamplerDetailerHookProvider node is designed to provide hooks that modify the sampling process in image generation tasks. It focuses on adjusting the unsampling behavior, which is a critical step in refining the details and quality of generated images.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model used in the unsampling process, serving as the foundation for generating images.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Specifies the model used in the unsampling process, serving as the foundation for generating images.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`steps`**
-    - Determines the number of steps in the unsampling process, affecting the level of detail and refinement in the generated images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of steps in the unsampling process, affecting the level of detail and refinement in the generated images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`start_end_at_step`**
-    - Defines the starting point for the end step in the unsampling process, influencing the progression of image refinement.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the starting point for the end step in the unsampling process, influencing the progression of image refinement.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`end_end_at_step`**
-    - Specifies the ending point for the end step in the unsampling process, further refining the progression of image detail enhancement.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the ending point for the end step in the unsampling process, further refining the progression of image detail enhancement.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Sets the configuration for the unsampling process, impacting the overall quality and characteristics of the generated images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the configuration for the unsampling process, impacting the overall quality and characteristics of the generated images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sampler_name`**
-    - Indicates the sampler used in the unsampling process, affecting the method of image generation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates the sampler used in the unsampling process, affecting the method of image generation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - Determines the scheduling strategy for the unsampling process, influencing the timing and sequence of image refinement steps.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the scheduling strategy for the unsampling process, influencing the timing and sequence of image refinement steps.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`normalize`**
-    - Specifies whether to normalize the output of the unsampling process, affecting the consistency and quality of the generated images.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - Specifies whether to normalize the output of the unsampling process, affecting the consistency and quality of the generated images.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`positive`**
-    - Defines positive conditioning factors for the unsampling process, guiding the generation towards desired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Defines positive conditioning factors for the unsampling process, guiding the generation towards desired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`negative`**
-    - Sets negative conditioning factors for the unsampling process, steering the generation away from undesired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Sets negative conditioning factors for the unsampling process, steering the generation away from undesired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`schedule_for_cycle`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`detailer_hook`**
-    - Comfy dtype: `DETAILER_HOOK`
-    - Produces a detailer hook configured according to the specified unsampling parameters, ready to be integrated into the image generation pipeline.
-    - Python dtype: `DetailerHook`
+  - Comfy dtype: `DETAILER_HOOK`
+  - Produces a detailer hook configured according to the specified unsampling parameters, ready to be integrated into the image generation pipeline.
+  - Python dtype: `DetailerHook`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UnsamplerDetailerHookProvider:
     schedules = ["skip_start", "from_start"]

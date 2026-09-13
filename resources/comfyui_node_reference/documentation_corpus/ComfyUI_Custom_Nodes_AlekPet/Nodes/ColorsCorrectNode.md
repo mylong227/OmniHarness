@@ -1,61 +1,72 @@
 ---
 tags:
-- Color
+  - Color
 ---
 
 # Colors Correct Node
+
 ## Documentation
+
 - Class name: `ColorsCorrectNode`
 - Category: `AlekPet Nodes/extras`
 - Output node: `False`
 
 The ColorsCorrectNode is designed for image color correction, allowing adjustments to brightness, contrast, saturation, gamma, and hue. It supports optional color tinting using a specified hex color value, providing a comprehensive suite of image enhancement tools.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be corrected. It serves as the base for all subsequent color and enhancement operations.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be corrected. It serves as the base for all subsequent color and enhancement operations.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`brightness`**
-    - Adjusts the brightness of the image. A higher value increases brightness.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the brightness of the image. A higher value increases brightness.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`contrast`**
-    - Adjusts the contrast of the image. A higher value increases contrast.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the contrast of the image. A higher value increases contrast.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`saturation`**
-    - Adjusts the saturation of the image, enhancing or muting the colors.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the saturation of the image, enhancing or muting the colors.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`gamma`**
-    - Adjusts the gamma of the image, affecting the luminance of mid-tones.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the gamma of the image, affecting the luminance of mid-tones.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`hue_degrees`**
-    - Adjusts the hue of the image in degrees. This shifts all colors in the image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the hue of the image in degrees. This shifts all colors in the image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`use_color`**
-    - A boolean flag that determines whether to apply a color tint to the image based on the specified hex color.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that determines whether to apply a color tint to the image based on the specified hex color.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`hex_color`**
-    - The hex color code used for tinting the image if use_color is True. It allows for custom color adjustments.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The hex color code used for tinting the image if use_color is True. It allows for custom color adjustments.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The corrected image after applying the specified adjustments.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The corrected image after applying the specified adjustments.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ColorsCorrectNode:
 

@@ -1,45 +1,56 @@
 ---
 tags:
-- PromptComposer
+  - PromptComposer
 ---
 
 # Prompt Composer Multiple Text
+
 ## Documentation
+
 - Class name: `promptComposerTextMultiple`
 - Category: `AI WizArt/Prompt Composer Tools`
 - Output node: `False`
 
 The `promptComposerTextMultiple` node is designed to compose a text prompt by combining multiple text inputs, each with an associated weight. This node allows for the dynamic creation of prompts by adjusting the significance of each text input through weights, enabling a flexible and weighted composition of text elements for various applications.
+
 ## Input types
+
 ### Required
+
 - **`text_i`**
-    - A text input to be included in the prompt composition. The index 'i' can range from 1 to 10, allowing for up to ten different text inputs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A text input to be included in the prompt composition. The index 'i' can range from 1 to 10, allowing for up to ten different text inputs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`weight_i`**
-    - The weight associated with the corresponding text input, determining its significance in the composed prompt. The index 'i' matches that of 'text_i', allowing for individual weighting of up to ten text inputs.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The weight associated with the corresponding text input, determining its significance in the composed prompt. The index 'i' matches that of 'text_i', allowing for individual weighting of up to ten text inputs.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`active`**
-    - A boolean input that activates or deactivates the composition of the prompt. When false, the node may ignore the text inputs and weights, resulting in an empty or default prompt.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean input that activates or deactivates the composition of the prompt. When false, the node may ignore the text inputs and weights, resulting in an empty or default prompt.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`text_in_opt`**
-    - An optional initial text input that can be included in the prompt composition.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional initial text input that can be included in the prompt composition.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`text_out`**
-    - Comfy dtype: `STRING`
-    - The composed text prompt, resulting from the combination and weighting of the provided text inputs.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The composed text prompt, resulting from the combination and weighting of the provided text inputs.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class promptComposerTextMultiple:
     def __init__(self):

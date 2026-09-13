@@ -1,48 +1,58 @@
 ---
 tags:
-- Mask
+  - Mask
 ---
 
 # Painter Node
+
 ## Documentation
+
 - Class name: `PainterNode`
 - Category: `AlekPet Nodes/image`
 - Output node: `False`
 
 The PainterNode is designed to facilitate image processing and manipulation within a custom node environment. It enables the dynamic updating of images based on user input, supports asynchronous communication with a server for image updates, and manages node-specific settings for personalized image processing workflows.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The primary image input for processing. It serves as the base for any transformations or updates applied by the node.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `torch.Tensor`
+  - The primary image input for processing. It serves as the base for any transformations or updates applied by the node.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`images`**
-    - An optional list of images to be processed or updated. These images can be used for batch processing or as additional inputs for the node's operations.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - An optional list of images to be processed or updated. These images can be used for batch processing or as additional inputs for the node's operations.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`update_node`**
-    - A flag indicating whether the node should update its internal state based on the provided images. This affects how images are processed and integrated into the node's workflow.
-    - Comfy dtype: `COMBO[BOOLEAN]`
-    - Python dtype: `bool`
+  - A flag indicating whether the node should update its internal state based on the provided images. This affects how images are processed and integrated into the node's workflow.
+  - Comfy dtype: `COMBO[BOOLEAN]`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image after applying the node's operations, ready for further use or display.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image after applying the node's operations, ready for further use or display.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - An optional mask generated during the image processing, which can be used for further image manipulation or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - An optional mask generated during the image processing, which can be used for further image manipulation or analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [Image Batch](../../was-node-suite-comfyui/Nodes/Image Batch.md)
-    - [ImageScale](../../Comfy/Nodes/ImageScale.md)
-
-
+  - [Image Batch](../../was-node-suite-comfyui/Nodes/Image Batch.md)
+  - [ImageScale](../../Comfy/Nodes/ImageScale.md)
 
 ## Source code
+
 ```python
 class PainterNode(object):
 

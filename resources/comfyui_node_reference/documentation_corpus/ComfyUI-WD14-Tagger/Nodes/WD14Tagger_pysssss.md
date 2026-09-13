@@ -1,60 +1,68 @@
 ---
 tags:
-- Loader
+  - Loader
 ---
 
 # WD14 Tagger 🐍
+
 ## Documentation
+
 - Class name: `WD14Tagger_pysssss`
 - Category: `image`
 - Output node: `True`
 
 The WD14Tagger node is designed to analyze images and generate tags based on their content, utilizing a model trained for this purpose. It supports customization of the tagging process through various parameters, allowing for tailored outputs that can include or exclude specific tags, adjust sensitivity thresholds, and format the output according to user preferences.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image to be analyzed and tagged. This is the primary input for the tagging process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `PIL.Image.Image`
+  - The image to be analyzed and tagged. This is the primary input for the tagging process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `PIL.Image.Image`
 - **`model`**
-    - Specifies the model to use for tagging. The node supports using different models, allowing for flexibility in the tagging process based on available models.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the model to use for tagging. The node supports using different models, allowing for flexibility in the tagging process based on available models.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`threshold`**
-    - Sets the minimum confidence level for general tags to be included in the output. Helps filter out less relevant tags.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the minimum confidence level for general tags to be included in the output. Helps filter out less relevant tags.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`character_threshold`**
-    - Sets the minimum confidence level for character-specific tags to be included in the output. This allows for more precise control over which character tags are considered relevant.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the minimum confidence level for character-specific tags to be included in the output. This allows for more precise control over which character tags are considered relevant.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`replace_underscore`**
-    - Determines whether underscores in tags should be replaced with spaces, affecting the readability of the output tags.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether underscores in tags should be replaced with spaces, affecting the readability of the output tags.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`trailing_comma`**
-    - Controls whether a trailing comma is added to the tags in the output, influencing the formatting of the generated tag string.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether a trailing comma is added to the tags in the output, influencing the formatting of the generated tag string.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`exclude_tags`**
-    - Allows specifying tags to be excluded from the output, enabling users to filter out unwanted or irrelevant tags.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Allows specifying tags to be excluded from the output, enabling users to filter out unwanted or irrelevant tags.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The output type 'string' represents the formatted string of generated tags for the image, which was not explicitly listed but is implied by the node's functionality.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output type 'string' represents the formatted string of generated tags for the image, which was not explicitly listed but is implied by the node's functionality.
+  - Python dtype: `str`
 - **`ui`**
-    - Provides a user interface component displaying the generated tags for the image.
+  - Provides a user interface component displaying the generated tags for the image.
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
-
-
+  - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
 
 ## Source code
+
 ```python
 class WD14Tagger:
     @classmethod

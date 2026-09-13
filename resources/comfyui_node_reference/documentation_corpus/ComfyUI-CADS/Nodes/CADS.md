@@ -1,71 +1,81 @@
 ---
 tags:
-- Animation
+  - Animation
 ---
 
 # CADS
+
 ## Documentation
+
 - Class name: `CADS`
 - Category: `utils`
 - Output node: `False`
 
 The CADS node is designed to apply conditional adaptive diffusion steps to a given model, enhancing its ability to generate or modify content based on specified conditions. It dynamically adjusts the diffusion process based on the progression of steps and conditions, aiming to improve the quality and relevance of the generated outputs.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the CADS adjustments will be applied. It serves as the base for the adaptive diffusion process, determining the initial state and capabilities of the generation or modification task.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to which the CADS adjustments will be applied. It serves as the base for the adaptive diffusion process, determining the initial state and capabilities of the generation or modification task.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`noise_scale`**
-    - Defines the scale of noise to be added during the diffusion process. This parameter influences the degree of randomness and variation introduced at each step, affecting the diversity and novelty of the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the scale of noise to be added during the diffusion process. This parameter influences the degree of randomness and variation introduced at each step, affecting the diversity and novelty of the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`t1`**
-    - The lower threshold for the adaptive scaling factor, marking the beginning of the transition phase in the diffusion process. It helps in controlling the blend between original content and generated noise.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The lower threshold for the adaptive scaling factor, marking the beginning of the transition phase in the diffusion process. It helps in controlling the blend between original content and generated noise.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`t2`**
-    - The upper threshold for the adaptive scaling factor, indicating the end of the transition phase in the diffusion process. This parameter is crucial for fine-tuning the balance between preserving original details and introducing new elements.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The upper threshold for the adaptive scaling factor, indicating the end of the transition phase in the diffusion process. This parameter is crucial for fine-tuning the balance between preserving original details and introducing new elements.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`rescale`**
-    - Optional parameter that allows for the rescaling of the output after noise addition, aiming to maintain the overall distribution of the generated content. It can help in preserving the quality and consistency of the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Optional parameter that allows for the rescaling of the output after noise addition, aiming to maintain the overall distribution of the generated content. It can help in preserving the quality and consistency of the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`start_step`**
-    - Optional parameter that specifies the starting step of the adaptive diffusion process. It can be used to resume or customize the progression of the diffusion, tailoring it to specific needs or preferences.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Optional parameter that specifies the starting step of the adaptive diffusion process. It can be used to resume or customize the progression of the diffusion, tailoring it to specific needs or preferences.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`total_steps`**
-    - Optional parameter that defines the total number of steps in the diffusion process. It sets the boundary for the adaptation and progression, influencing the depth and thoroughness of the content generation or modification.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Optional parameter that defines the total number of steps in the diffusion process. It sets the boundary for the adaptation and progression, influencing the depth and thoroughness of the content generation or modification.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`apply_to`**
-    - Optional parameter that determines the specific part of the model to which the CADS adjustments are applied, such as conditioning or unconditioned components. It allows for targeted modifications, enhancing the relevance and effectiveness of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Optional parameter that determines the specific part of the model to which the CADS adjustments are applied, such as conditioning or unconditioned components. It allows for targeted modifications, enhancing the relevance and effectiveness of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`key`**
-    - Optional parameter that specifies the key for selecting the target component within the model for noise addition. It enables precise control over the diffusion process, focusing on specific areas or features.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Optional parameter that specifies the key for selecting the target component within the model for noise addition. It enables precise control over the diffusion process, focusing on specific areas or features.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`noise_type`**
-    - Optional parameter that defines the type of noise to be added during the diffusion process. It offers the ability to customize the nature of the introduced randomness, affecting the texture and characteristics of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Optional parameter that defines the type of noise to be added during the diffusion process. It offers the ability to customize the nature of the introduced randomness, affecting the texture and characteristics of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The modified model after applying the CADS adjustments. It represents the enhanced version of the original model, equipped with adaptive diffusion capabilities for improved content generation or modification.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The modified model after applying the CADS adjustments. It represents the enhanced version of the original model, equipped with adaptive diffusion capabilities for improved content generation or modification.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [SelfAttentionGuidance](../../Comfy/Nodes/SelfAttentionGuidance.md)
-
-
+  - [SelfAttentionGuidance](../../Comfy/Nodes/SelfAttentionGuidance.md)
 
 ## Source code
+
 ```python
 class CADS:
     current_step = 0

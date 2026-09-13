@@ -1,59 +1,68 @@
 # Instance Diffusion Tracking Prompt
+
 ## Documentation
+
 - Class name: `InstanceDiffusionTrackingPrompt`
 - Category: `instance/conditioning`
 - Output node: `False`
 
 The InstanceDiffusionTrackingPrompt node is designed to integrate text-based prompts with instance tracking information, facilitating the generation of conditioned inputs for instance diffusion models. It extracts and encodes prompts related to specific instances or classes, combines these with spatial tracking data, and prepares them for further processing by instance diffusion mechanisms.
+
 ## Input types
+
 ### Required
+
 - **`positive`**
-    - The 'positive' parameter represents the initial conditioning data for positive instances, serving as a foundation for applying text-based conditions.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `dict`
+  - The 'positive' parameter represents the initial conditioning data for positive instances, serving as a foundation for applying text-based conditions.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `dict`
 - **`negative`**
-    - Similar to 'positive', the 'negative' parameter holds the initial conditioning data for negative instances, which will be augmented with text-based conditions.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `dict`
+  - Similar to 'positive', the 'negative' parameter holds the initial conditioning data for negative instances, which will be augmented with text-based conditions.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `dict`
 - **`clip`**
-    - The 'clip' parameter is a model used for encoding text prompts into embeddings, playing a crucial role in interpreting the textual information.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `object`
+  - The 'clip' parameter is a model used for encoding text prompts into embeddings, playing a crucial role in interpreting the textual information.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `object`
 - **`tracking`**
-    - This parameter contains spatial tracking information for instances, crucial for aligning text prompts with their corresponding spatial locations.
-    - Comfy dtype: `TRACKING`
-    - Python dtype: `dict`
+  - This parameter contains spatial tracking information for instances, crucial for aligning text prompts with their corresponding spatial locations.
+  - Comfy dtype: `TRACKING`
+  - Python dtype: `dict`
 - **`positionnet`**
-    - PositionNet is a model that, combined with fusers, is used to refine the spatial information of instances for better conditioning.
-    - Comfy dtype: `POSITIONNET`
-    - Python dtype: `object`
+  - PositionNet is a model that, combined with fusers, is used to refine the spatial information of instances for better conditioning.
+  - Comfy dtype: `POSITIONNET`
+  - Python dtype: `object`
 - **`fusers`**
-    - Fusers are mechanisms that integrate multiple sources of information, such as embeddings and spatial data, to enhance the conditioning process.
-    - Comfy dtype: `FUSERS`
-    - Python dtype: `object`
+  - Fusers are mechanisms that integrate multiple sources of information, such as embeddings and spatial data, to enhance the conditioning process.
+  - Comfy dtype: `FUSERS`
+  - Python dtype: `object`
 - **`positive_text`**
-    - A multiline string containing text prompts related to positive instances, which will be processed and encoded.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A multiline string containing text prompts related to positive instances, which will be processed and encoded.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`negative_text`**
-    - A multiline string containing text prompts for negative instances, to be processed and encoded similarly to positive_text.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A multiline string containing text prompts for negative instances, to be processed and encoded similarly to positive_text.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`positive`**
-    - Comfy dtype: `CONDITIONING`
-    - The output is conditioned data for positive instances, now enriched with text-based prompts and spatial tracking information, ready for further processing in instance diffusion models.
-    - Python dtype: `list`
+  - Comfy dtype: `CONDITIONING`
+  - The output is conditioned data for positive instances, now enriched with text-based prompts and spatial tracking information, ready for further processing in instance diffusion models.
+  - Python dtype: `list`
 - **`negative`**
-    - Comfy dtype: `CONDITIONING`
-    - Similarly, this output is conditioned data for negative instances, enriched with text-based prompts and spatial tracking information.
-    - Python dtype: `list`
+  - Comfy dtype: `CONDITIONING`
+  - Similarly, this output is conditioned data for negative instances, enriched with text-based prompts and spatial tracking information.
+  - Python dtype: `list`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class InstanceDiffusionTrackingPromptNode:
     @classmethod

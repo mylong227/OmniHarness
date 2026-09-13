@@ -1,38 +1,49 @@
 ---
 tags:
-- Segmentation
-- SemanticSegmentationPreprocessing
+  - Segmentation
+  - SemanticSegmentationPreprocessing
 ---
 
 # [Inference.Core] OneFormer COCO Segmentor
+
 ## Documentation
+
 - Class name: `Inference_Core_OneFormer-COCO-SemSegPreprocessor`
 - Category: `ControlNet Preprocessors/Semantic Segmentation`
 - Output node: `False`
 
 This node is designed for semantic segmentation tasks using the OneFormer model specifically trained on the COCO dataset. It preprocesses images to facilitate semantic segmentation, leveraging a pretrained OneFormer model to analyze and segment the input image into different semantic categories.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be semantically segmented. This image is processed by the OneFormer model to identify and categorize different semantic elements within the image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be semantically segmented. This image is processed by the OneFormer model to identify and categorize different semantic elements within the image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`resolution`**
-    - The resolution parameter specifies the desired output resolution of the segmented image. It affects the granularity and quality of the semantic segmentation performed by the OneFormer model.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution parameter specifies the desired output resolution of the segmented image. It affects the granularity and quality of the semantic segmentation performed by the OneFormer model.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a semantically segmented image, where each pixel is classified into one of the semantic categories defined by the COCO dataset.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a semantically segmented image, where each pixel is classified into one of the semantic categories defined by the COCO dataset.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class OneFormer_COCO_SemSegPreprocessor:
     @classmethod

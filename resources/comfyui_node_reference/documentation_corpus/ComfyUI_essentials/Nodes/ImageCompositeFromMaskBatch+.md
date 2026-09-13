@@ -1,42 +1,51 @@
 ---
 tags:
-- Image
-- ImageBlend
-- ImageComposite
+  - Image
+  - ImageBlend
+  - ImageComposite
 ---
 
 # 🔧 Image Composite From Mask Batch
+
 ## Documentation
+
 - Class name: `ImageCompositeFromMaskBatch+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 This node is designed for image manipulation tasks, specifically for creating composite images from two source images based on a mask. It blends parts of the 'image_from' and 'image_to' images according to the mask, allowing for sophisticated image editing and composition techniques.
+
 ## Input types
+
 ### Required
+
 - **`image_from`**
-    - The source image from which pixels are taken when the mask is not applied. It plays a crucial role in determining the final composite image's appearance.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The source image from which pixels are taken when the mask is not applied. It plays a crucial role in determining the final composite image's appearance.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`image_to`**
-    - The target image to which pixels are added based on the mask. It significantly influences the outcome of the composite image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The target image to which pixels are added based on the mask. It significantly influences the outcome of the composite image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - A binary or grayscale mask that determines how pixels from 'image_from' and 'image_to' are blended together. The mask's values dictate the blending process, affecting the composite image's visual result.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - A binary or grayscale mask that determines how pixels from 'image_from' and 'image_to' are blended together. The mask's values dictate the blending process, affecting the composite image's visual result.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting composite image, created by blending 'image_from' and 'image_to' according to the mask. It showcases the combined visual elements of both source images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting composite image, created by blending 'image_from' and 'image_to' according to the mask. It showcases the combined visual elements of both source images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageCompositeFromMaskBatch:
     @classmethod

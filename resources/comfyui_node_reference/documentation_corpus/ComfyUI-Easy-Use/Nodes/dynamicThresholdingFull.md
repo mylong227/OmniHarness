@@ -1,80 +1,88 @@
 ---
 tags:
-- Image
-- ImageThresholding
+  - Image
+  - ImageThresholding
 ---
 
 # DynamicThresholdingFull
+
 ## Documentation
+
 - Class name: `dynamicThresholdingFull`
 - Category: `EasyUse/PreSampling`
 - Output node: `False`
 
 The `dynamicThresholdingFull` node dynamically adjusts thresholding parameters for image processing tasks, leveraging inputs such as model, mimic scale, and threshold percentile. It employs dynamic thresholding to adaptively modify processing behavior, optimizing the balance between detail preservation and noise reduction.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model for dynamic thresholding, serving as the core component for threshold adjustments.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - Specifies the model for dynamic thresholding, serving as the core component for threshold adjustments.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`mimic_scale`**
-    - Determines the scale at which the model mimics aspects of the input, influencing thresholding behavior.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the scale at which the model mimics aspects of the input, influencing thresholding behavior.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`threshold_percentile`**
-    - Sets the percentile for threshold calculation, affecting the aggressiveness of thresholding.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the percentile for threshold calculation, affecting the aggressiveness of thresholding.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`mimic_mode`**
-    - Defines the mode of mimicry, guiding how the mimic scale is applied.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `DynThresh.Modes`
+  - Defines the mode of mimicry, guiding how the mimic scale is applied.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `DynThresh.Modes`
 - **`mimic_scale_min`**
-    - Establishes the minimum scale for mimicry, ensuring a baseline level of detail preservation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Establishes the minimum scale for mimicry, ensuring a baseline level of detail preservation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`cfg_mode`**
-    - Specifies the configuration mode, altering thresholding behavior based on the model's configuration.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `DynThresh.Modes`
+  - Specifies the configuration mode, altering thresholding behavior based on the model's configuration.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `DynThresh.Modes`
 - **`cfg_scale_min`**
-    - Indicates the minimum scale for configuration, impacting the fineness of thresholding adjustments.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Indicates the minimum scale for configuration, impacting the fineness of thresholding adjustments.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sched_val`**
-    - A value to schedule or adjust the thresholding dynamically over time or iterations.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A value to schedule or adjust the thresholding dynamically over time or iterations.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`separate_feature_channels`**
-    - Determines whether feature channels should be processed separately or together, affecting the thresholding process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - Determines whether feature channels should be processed separately or together, affecting the thresholding process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`scaling_startpoint`**
-    - Defines the starting point for scaling in the dynamic thresholding process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `DynThresh.Startpoints`
+  - Defines the starting point for scaling in the dynamic thresholding process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `DynThresh.Startpoints`
 - **`variability_measure`**
-    - Specifies the measure of variability to consider in the dynamic thresholding process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `DynThresh.Variabilities`
+  - Specifies the measure of variability to consider in the dynamic thresholding process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `DynThresh.Variabilities`
 - **`interpolate_phi`**
-    - A factor for interpolating the thresholding function, influencing the smoothness of the transition between thresholds.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A factor for interpolating the thresholding function, influencing the smoothness of the transition between thresholds.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - Produces a modified model with dynamically adjusted thresholding parameters, optimized for image processing.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - Produces a modified model with dynamically adjusted thresholding parameters, optimized for image processing.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - Reroute
-    - [Lora Loader Stack (rgthree)](../../rgthree-comfy/Nodes/Lora Loader Stack (rgthree).md)
-
-
+  - Reroute
+  - [Lora Loader Stack (rgthree)](../../rgthree-comfy/Nodes/Lora Loader Stack (rgthree).md)
 
 ## Source code
+
 ```python
 class dynamicThresholdingFull:
     @classmethod

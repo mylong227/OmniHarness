@@ -1,41 +1,50 @@
 ---
 tags:
-- BackgroundRemoval
-- Image
+  - BackgroundRemoval
+  - Image
 ---
 
 # 🔧 Image Remove Background
+
 ## Documentation
+
 - Class name: `ImageRemoveBackground+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 This node is designed for removing the background from images using the rembg library. It processes each image in the input, applies the background removal algorithm, and returns the foreground image along with a mask indicating the areas of the image that were kept.
+
 ## Input types
+
 ### Required
+
 - **`rembg_session`**
-    - The session object for the rembg library, used to manage settings and configurations for the background removal process.
-    - Comfy dtype: `REMBG_SESSION`
-    - Python dtype: `rembg.Session`
+  - The session object for the rembg library, used to manage settings and configurations for the background removal process.
+  - Comfy dtype: `REMBG_SESSION`
+  - Python dtype: `rembg.Session`
 - **`image`**
-    - The input image or images to have their background removed. The node supports batch processing of multiple images.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image or images to have their background removed. The node supports batch processing of multiple images.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The foreground of the input image(s) after background removal, with the background areas made transparent or removed.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The foreground of the input image(s) after background removal, with the background areas made transparent or removed.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - A binary mask indicating the areas of the image that were kept during the background removal process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - A binary mask indicating the areas of the image that were kept during the background removal process.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageRemoveBackground:
     @classmethod

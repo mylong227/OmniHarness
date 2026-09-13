@@ -1,44 +1,53 @@
 ---
 tags:
-- Latent
+  - Latent
 ---
 
 # Latent Scale by ratio
+
 ## Documentation
+
 - Class name: `DF_Latent_Scale_by_ratio`
 - Category: `Derfuu_Nodes/Modded nodes/Latent`
 - Output node: `False`
 
 This node is designed to scale latent representations of images by a specified ratio, adjusting their dimensions while maintaining the integrity of the latent space. It supports various scaling and cropping methods to fine-tune the output.
+
 ## Input types
+
 ### Required
+
 - **`latent`**
-    - The latent representation of an image to be scaled. It is crucial for determining the base dimensions that will be modified according to the scaling ratio.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, Any]`
+  - The latent representation of an image to be scaled. It is crucial for determining the base dimensions that will be modified according to the scaling ratio.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, Any]`
 - **`modifier`**
-    - A scaling factor that determines how much the latent dimensions should be increased or decreased.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scaling factor that determines how much the latent dimensions should be increased or decreased.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`scale_method`**
-    - Specifies the method used for scaling the latent image, such as nearest-exact, bilinear, etc., affecting the quality and characteristics of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the method used for scaling the latent image, such as nearest-exact, bilinear, etc., affecting the quality and characteristics of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`crop`**
-    - Defines the cropping method to be applied after scaling, allowing for adjustments in the latent's aspect ratio or size.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the cropping method to be applied after scaling, allowing for adjustments in the latent's aspect ratio or size.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The scaled latent representation, adjusted according to the specified modifier, scale method, and cropping preference.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `LATENT`
+  - The scaled latent representation, adjusted according to the specified modifier, scale method, and cropping preference.
+  - Python dtype: `Dict[str, Any]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LatentScale_Ratio:
     scale_methods = scale_methods

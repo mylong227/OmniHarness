@@ -1,72 +1,81 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # Latent Tile Sampler (Mikey)
+
 ## Documentation
+
 - Class name: `MikeyLatentTileSampler`
 - Category: `Mikey/Sampling`
 - Output node: `False`
 
 This node specializes in resampling a latent space that exceeds the specified tile size, effectively managing larger-than-tile latent spaces by breaking them down into manageable pieces for processing. It focuses on optimizing the handling and manipulation of large latent representations for tasks such as image generation or modification, ensuring efficient and targeted resampling within a tiled framework.
+
 ## Input types
+
 ### Required
+
 - **`base_model`**
-    - Specifies the base model used for generating or refining the latent samples, serving as a critical component in the resampling process.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Specifies the base model used for generating or refining the latent samples, serving as a critical component in the resampling process.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`samples`**
-    - The input latent samples to be resampled, serving as the basis for the tiling and resampling operation.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `dict`
+  - The input latent samples to be resampled, serving as the basis for the tiling and resampling operation.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `dict`
 - **`positive`**
-    - The positive conditioning to guide the resampling towards desired attributes or features within the latent space.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - The positive conditioning to guide the resampling towards desired attributes or features within the latent space.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`negative`**
-    - The negative conditioning to steer the resampling away from certain attributes or features within the latent space.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - The negative conditioning to steer the resampling away from certain attributes or features within the latent space.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`seed`**
-    - Defines the seed for noise generation and sampling, ensuring reproducibility and consistency in the resampling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the seed for noise generation and sampling, ensuring reproducibility and consistency in the resampling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`denoise`**
-    - Configures the denoising factor, which can alter the characteristics of the generated or modified latent space during resampling.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Configures the denoising factor, which can alter the characteristics of the generated or modified latent space during resampling.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`steps`**
-    - Determines the number of steps to be used in the sampling process, impacting the depth of exploration in the latent space.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of steps to be used in the sampling process, impacting the depth of exploration in the latent space.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Configures the conditioning factor, which can alter the characteristics of the generated or modified latent space during resampling.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Configures the conditioning factor, which can alter the characteristics of the generated or modified latent space during resampling.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sampler_name`**
-    - Specifies the sampling method used for resampling, impacting the approach to navigating the latent space.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the sampling method used for resampling, impacting the approach to navigating the latent space.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - Determines the scheduler used in conjunction with the sampler, affecting the sampling dynamics.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the scheduler used in conjunction with the sampler, affecting the sampling dynamics.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`tile_size`**
-    - Sets the size of the tiles into which the latent space is divided, directly influencing the granularity of the resampling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the size of the tiles into which the latent space is divided, directly influencing the granularity of the resampling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`samples`**
-    - Comfy dtype: `LATENT`
-    - The resampled latent space, now segmented and processed into tiles according to the specified parameters.
-    - Python dtype: `dict`
+  - Comfy dtype: `LATENT`
+  - The resampled latent space, now segmented and processed into tiles according to the specified parameters.
+  - Python dtype: `dict`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MikeyLatentTileSampler:
     # receives a latent that is larger than the tile size and resamples it

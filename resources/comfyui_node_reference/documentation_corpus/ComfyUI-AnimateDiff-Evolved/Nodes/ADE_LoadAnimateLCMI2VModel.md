@@ -1,42 +1,53 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Load AnimateLCM-I2V Model 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_LoadAnimateLCMI2VModel`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②/AnimateLCM-I2V`
 - Output node: `False`
 
 The ADE_LoadAnimateLCMI2VModel node is designed to load and prepare AnimateLCM-I2V motion models for animation processes. It ensures that the selected motion model is compatible with the AnimateLCM-I2V format and has an image encoder, facilitating the integration of motion models into the animation workflow.
+
 ## Input types
+
 ### Required
+
 - **`model_name`**
-    - Specifies the name of the motion model to be loaded, ensuring that the model is available and compatible with the AnimateLCM-I2V format.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the motion model to be loaded, ensuring that the model is available and compatible with the AnimateLCM-I2V format.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`ad_settings`**
-    - Optional settings for the Animate Diff process that can be applied to the motion model, allowing for customization of the animation.
-    - Comfy dtype: `AD_SETTINGS`
-    - Python dtype: `AnimateDiffSettings or None`
+  - Optional settings for the Animate Diff process that can be applied to the motion model, allowing for customization of the animation.
+  - Comfy dtype: `AD_SETTINGS`
+  - Python dtype: `AnimateDiffSettings or None`
+
 ## Output types
+
 - **`MOTION_MODEL`**
-    - Comfy dtype: `MOTION_MODEL_ADE`
-    - The loaded motion model, ready for use in animation processes.
-    - Python dtype: `MotionModelPatcher`
+  - Comfy dtype: `MOTION_MODEL_ADE`
+  - The loaded motion model, ready for use in animation processes.
+  - Python dtype: `MotionModelPatcher`
 - **`encoder_only`**
-    - Comfy dtype: `MOTION_MODEL_ADE`
-    - A version of the motion model that only includes the encoder, useful for specific animation tasks.
-    - Python dtype: `MotionModelPatcher`
+  - Comfy dtype: `MOTION_MODEL_ADE`
+  - A version of the motion model that only includes the encoder, useful for specific animation tasks.
+  - Python dtype: `MotionModelPatcher`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadAnimateLCMI2VModelNode:
     @classmethod
@@ -49,7 +60,7 @@ class LoadAnimateLCMI2VModelNode:
                 "ad_settings": ("AD_SETTINGS",),
             }
         }
-    
+
     RETURN_TYPES = ("MOTION_MODEL_ADE", "MOTION_MODEL_ADE")
     RETURN_NAMES = ("MOTION_MODEL", "encoder_only")
     CATEGORY = "Animate Diff 🎭🅐🅓/② Gen2 nodes ②/AnimateLCM-I2V"

@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **GPL-3.0-only**
+
 ```
 GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -678,10 +680,13 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 # Other detected licenses
+
 File name: `repositories/ultimate_sd_upscale/LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007

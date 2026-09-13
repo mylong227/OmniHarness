@@ -1,43 +1,54 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
+  - DepthMap
+  - Image
+  - ImagePreprocessing
 ---
 
 # [Inference.Core] AIO Aux Preprocessor
+
 ## Documentation
+
 - Class name: `Inference_Core_AIO_Preprocessor`
 - Category: `ControlNet Preprocessors`
 - Output node: `False`
 
 The Inference_Core_AIO_Preprocessor node is designed to streamline the preprocessing phase for a variety of input data types, specifically targeting the enhancement and preparation of data for subsequent processing or analysis within an AI-driven pipeline. It integrates auxiliary preprocessing functionalities and excludes certain preprocessing operations not suitable for image-to-image mapping, ensuring a versatile and optimized preprocessing workflow.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The 'image' parameter is the primary input for the node, representing the visual data that will undergo preprocessing. This input is essential for tailoring the preprocessing steps to the specific characteristics and requirements of the image, ensuring optimal preparation for further processing.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The 'image' parameter is the primary input for the node, representing the visual data that will undergo preprocessing. This input is essential for tailoring the preprocessing steps to the specific characteristics and requirements of the image, ensuring optimal preparation for further processing.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`preprocessor`**
-    - The 'preprocessor' parameter specifies the particular preprocessing technique to be applied to the input image. This selection allows for a customizable preprocessing workflow, adapting to various needs and enhancing the effectiveness of the data preparation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The 'preprocessor' parameter specifies the particular preprocessing technique to be applied to the input image. This selection allows for a customizable preprocessing workflow, adapting to various needs and enhancing the effectiveness of the data preparation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`resolution`**
-    - The 'resolution' parameter defines the desired resolution for the output image after preprocessing. Adjusting this parameter allows for control over the output quality and size, catering to the specific requirements of subsequent processing stages.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'resolution' parameter defines the desired resolution for the output image after preprocessing. Adjusting this parameter allows for control over the output quality and size, catering to the specific requirements of subsequent processing stages.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The 'image' output represents the preprocessed image, now optimized and ready for further analysis or processing. This output is crucial for ensuring that the visual data is in the correct format and state for efficient and effective subsequent processing.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The 'image' output represents the preprocessed image, now optimized and ready for further analysis or processing. This output is crucial for ensuring that the visual data is in the correct format and state for efficient and effective subsequent processing.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AIO_Preprocessor:
     @classmethod
@@ -46,7 +57,7 @@ class AIO_Preprocessor:
         auxs.insert(0, "none")
         for name in AIO_NOT_SUPPORTED:
             if name in auxs: auxs.remove(name)
-        
+
         return create_node_input_types(
             preprocessor=(auxs, {"default": "none"})
         )

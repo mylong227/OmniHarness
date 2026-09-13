@@ -1,43 +1,52 @@
 # HEX to HUE Node
+
 ## Documentation
+
 - Class name: `HexToHueNode`
 - Category: `AlekPet Nodes/extras`
 - Output node: `False`
 
 The HexToHueNode is designed to convert hexadecimal color values to their corresponding hue values, providing both the hue in degrees and normalized hue as outputs. It serves as a utility for color manipulation, enabling the transformation of color specifications from a web-friendly format to a format that can be used for more detailed color analysis and adjustments.
+
 ## Input types
+
 ### Required
+
 - **`color_hex`**
-    - The hexadecimal representation of a color, which the node converts into hue values. This input is essential for determining the specific color's hue characteristics.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The hexadecimal representation of a color, which the node converts into hue values. This input is essential for determining the specific color's hue characteristics.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string_hex`**
-    - Comfy dtype: `STRING`
-    - The original hexadecimal color value inputted to the node.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The original hexadecimal color value inputted to the node.
+  - Python dtype: `str`
 - **`float_hue_degrees`**
-    - Comfy dtype: `FLOAT`
-    - The hue of the color in degrees, providing a measure of the color's position on the color wheel.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The hue of the color in degrees, providing a measure of the color's position on the color wheel.
+  - Python dtype: `float`
 - **`float_hue_norm`**
-    - Comfy dtype: `FLOAT`
-    - The normalized hue value, scaled between -0.5 and 0.5, offering a standardized measure of hue.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The normalized hue value, scaled between -0.5 and 0.5, offering a standardized measure of hue.
+  - Python dtype: `float`
 - **`string_hue_degrees`**
-    - Comfy dtype: `STRING`
-    - The hue value in degrees, represented as a string.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The hue value in degrees, represented as a string.
+  - Python dtype: `str`
 - **`string_hue_norm`**
-    - Comfy dtype: `STRING`
-    - The normalized hue value, represented as a string, for ease of use in contexts where a string format is preferred.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The normalized hue value, represented as a string, for ease of use in contexts where a string format is preferred.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class HexToHueNode:
 

@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **Apache-2.0**
+
 ```
 Apache License
                            Version 2.0, January 2004
@@ -205,10 +207,13 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 # Other detected licenses
+
 File name: `pyproject.toml`
 
 **Apache-2.0**
+
 ```
 license = "Apache-2.0"
 ```

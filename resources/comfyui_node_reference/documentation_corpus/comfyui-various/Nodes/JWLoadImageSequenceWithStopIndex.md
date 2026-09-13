@@ -1,49 +1,58 @@
 ---
 tags:
-- Image
-- ImageSequence
+  - Image
+  - ImageSequence
 ---
 
 # Batch Load Image Sequence With Stop Index
+
 ## Documentation
+
 - Class name: `JWLoadImageSequenceWithStopIndex`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node is designed to batch load a sequence of images based on a specified start and stop index, with options to include or exclude the stop index and to ignore missing images. It facilitates the dynamic loading of image sequences from a filesystem, allowing for flexible data handling in image processing workflows.
+
 ## Input types
+
 ### Required
+
 - **`path_pattern`**
-    - Specifies the pattern or path for locating the images to be loaded, using placeholders for indices.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the pattern or path for locating the images to be loaded, using placeholders for indices.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`start_index`**
-    - Defines the starting index for the sequence of images to be loaded.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the starting index for the sequence of images to be loaded.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`stop_index`**
-    - Sets the ending index for the image sequence loading, determining the range of images to include.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the ending index for the image sequence loading, determining the range of images to include.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inclusive`**
-    - Determines whether the stop index is included in the loading sequence, allowing for inclusive or exclusive range selection.
-    - Comfy dtype: `['false', 'true']`
-    - Python dtype: `str`
+  - Determines whether the stop index is included in the loading sequence, allowing for inclusive or exclusive range selection.
+  - Comfy dtype: `['false', 'true']`
+  - Python dtype: `str`
 - **`ignore_missing_images`**
-    - Controls whether to ignore missing images within the specified range, enabling robust handling of incomplete sequences.
-    - Comfy dtype: `['false', 'true']`
-    - Python dtype: `str`
+  - Controls whether to ignore missing images within the specified range, enabling robust handling of incomplete sequences.
+  - Comfy dtype: `['false', 'true']`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Returns the loaded sequence of images as a tensor, ready for further processing or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - Returns the loaded sequence of images as a tensor, ready for further processing or analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWLoadImageSequence", "Batch Load Image Sequence")
 class _:

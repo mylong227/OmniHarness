@@ -1,44 +1,53 @@
 ---
 tags:
-- Text
+  - Text
 ---
 
 # File Name Prefix (Mikey)
+
 ## Documentation
+
 - Class name: `FileNamePrefix`
 - Category: `Mikey/Meta`
 - Output node: `False`
 
 This node is designed to generate a prefix for filenames based on various conditions such as the current date, a custom directory, and custom text. It allows for dynamic filename customization by incorporating date formatting and custom text replacement, ensuring filenames are structured and organized according to user-defined parameters.
+
 ## Input types
+
 ### Required
+
 - **`date`**
-    - Indicates whether the current date should be included in the filename prefix. When set to 'true', the date is formatted and appended to the prefix, contributing to a time-stamped file organization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates whether the current date should be included in the filename prefix. When set to 'true', the date is formatted and appended to the prefix, contributing to a time-stamped file organization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`date_directory`**
-    - Determines if the current date should be used to create a directory structure within the filename prefix. If 'true', a date-based directory is prepended to the prefix, aiding in chronological sorting of files.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines if the current date should be used to create a directory structure within the filename prefix. If 'true', a date-based directory is prepended to the prefix, aiding in chronological sorting of files.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`custom_directory`**
-    - Specifies a custom directory path to be included in the filename prefix. This path is dynamically generated based on additional information provided, allowing for customized file organization within specific directories.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies a custom directory path to be included in the filename prefix. This path is dynamically generated based on additional information provided, allowing for customized file organization within specific directories.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`custom_text`**
-    - Custom text to be appended to the filename prefix. This text can be dynamically generated and is sanitized to remove invalid filename characters, enabling personalized file naming.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Custom text to be appended to the filename prefix. This text can be dynamically generated and is sanitized to remove invalid filename characters, enabling personalized file naming.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`filename_prefix`**
-    - Comfy dtype: `STRING`
-    - The generated filename prefix, constructed based on the input parameters and conditions. It is sanitized and structured to ensure valid and organized filenames.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The generated filename prefix, constructed based on the input parameters and conditions. It is sanitized and structured to ensure valid and organized filenames.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FileNamePrefix:
     @classmethod

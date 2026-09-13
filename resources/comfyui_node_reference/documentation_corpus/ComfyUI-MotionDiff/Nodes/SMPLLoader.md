@@ -1,36 +1,45 @@
 ---
 tags:
-- SMPLModel
+  - SMPLModel
 ---
 
 # SMPL Loader
+
 ## Documentation
+
 - Class name: `SMPLLoader`
 - Category: `MotionDiff/smpl`
 - Output node: `False`
 
 The SMPLLoader node is designed to load and process SMPL model data from specified files, facilitating the integration of SMPL models into motion analysis and synthesis workflows.
+
 ## Input types
+
 ### Required
+
 - **`smpl`**
-    - Specifies the file name of the SMPL model to be loaded. This file contains essential data for motion synthesis, including pose parameters.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the file name of the SMPL model to be loaded. This file contains essential data for motion synthesis, including pose parameters.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`smpl_model`**
-    - Determines the specific SMPL model to be used, affecting the interpretation of the loaded SMPL data.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the specific SMPL model to be used, affecting the interpretation of the loaded SMPL data.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`smpl`**
-    - Comfy dtype: `SMPL`
-    - Outputs a tuple containing the path to the SMPL model, pose parameters (thetas), and metadata, ready for further processing or visualization.
-    - Python dtype: `Tuple[str, torch.Tensor, Dict]`
+  - Comfy dtype: `SMPL`
+  - Outputs a tuple containing the path to the SMPL model, pose parameters (thetas), and metadata, ready for further processing or visualization.
+  - Python dtype: `Tuple[str, torch.Tensor, Dict]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SMPLLoader:
     @classmethod
@@ -46,7 +55,7 @@ class SMPLLoader:
                 "smpl_model": (list(smpl_model_dicts.keys()), {"default": "SMPL_NEUTRAL.pkl"})
             }
         }
-    
+
     RETURN_TYPES = ("SMPL", )
     FUNCTION = "load_smpl"
     CATEGORY = "MotionDiff/smpl"

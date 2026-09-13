@@ -37,22 +37,10 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1,
-      "model": [
-        "110",
-        0
-      ],
-      "positive": [
-        "108",
-        0
-      ],
-      "negative": [
-        "128",
-        0
-      ],
-      "latent_image": [
-        "107",
-        0
-      ]
+      "model": ["110", 0],
+      "positive": ["108", 0],
+      "negative": ["128", 0],
+      "latent_image": ["107", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -73,10 +61,7 @@
   "108": {
     "inputs": {
       "text": "",
-      "clip": [
-        "104",
-        0
-      ]
+      "clip": ["104", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -85,14 +70,8 @@
   },
   "109": {
     "inputs": {
-      "samples": [
-        "106",
-        0
-      ],
-      "vae": [
-        "103",
-        0
-      ]
+      "samples": ["106", 0],
+      "vae": ["103", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -102,10 +81,7 @@
   "110": {
     "inputs": {
       "shift": 3,
-      "model": [
-        "114",
-        0
-      ]
+      "model": ["114", 0]
     },
     "class_type": "ModelSamplingAuraFlow",
     "_meta": {
@@ -116,10 +92,7 @@
     "inputs": {
       "lora_name": "Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors",
       "strength_model": 1,
-      "model": [
-        "105",
-        0
-      ]
+      "model": ["105", 0]
     },
     "class_type": "LoraLoaderModelOnly",
     "_meta": {
@@ -128,10 +101,7 @@
   },
   "128": {
     "inputs": {
-      "conditioning": [
-        "108",
-        0
-      ]
+      "conditioning": ["108", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -141,10 +111,7 @@
   "129": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "109",
-        0
-      ]
+      "images": ["109", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

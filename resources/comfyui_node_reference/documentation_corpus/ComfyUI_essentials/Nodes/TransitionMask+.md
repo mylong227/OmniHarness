@@ -1,57 +1,66 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # 🔧 Transition Mask
+
 ## Documentation
+
 - Class name: `TransitionMask+`
 - Category: `essentials/mask`
 - Output node: `False`
 
 The TransitionMask+ node specializes in generating dynamic transition effects within masks, offering a range of transition styles and timing functions to create complex visual transitions between frames or states. This node simplifies the creation of animated or static transition effects, making it easier for users to apply sophisticated mask transitions in their projects.
+
 ## Input types
+
 ### Required
+
 - **`width`**
-    - Defines the width of the mask to be generated, setting the horizontal dimension of the transition effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the width of the mask to be generated, setting the horizontal dimension of the transition effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Sets the height of the mask, determining the vertical dimension of the transition effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the height of the mask, determining the vertical dimension of the transition effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`frames`**
-    - Specifies the total number of frames in the transition animation, controlling the length of the transition effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the total number of frames in the transition animation, controlling the length of the transition effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`start_frame`**
-    - Indicates the starting frame number for the transition effect, allowing for control over the animation's beginning.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Indicates the starting frame number for the transition effect, allowing for control over the animation's beginning.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`end_frame`**
-    - Determines the ending frame number for the transition, enabling customization of the animation's duration.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the ending frame number for the transition, enabling customization of the animation's duration.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`transition_type`**
-    - Selects the type of transition effect to be applied, such as slides, bars, boxes, or fades, offering a variety of visual styles.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Selects the type of transition effect to be applied, such as slides, bars, boxes, or fades, offering a variety of visual styles.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`timing_function`**
-    - Chooses the timing function for the transition effect, such as linear or ease-in-out, affecting the pacing of the transition.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Chooses the timing function for the transition effect, such as linear or ease-in-out, affecting the pacing of the transition.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - Produces a mask that represents the transition effect, which can be used to apply or visualize the transition within an image or a series of images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Produces a mask that represents the transition effect, which can be used to apply or visualize the transition within an image or a series of images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TransitionMask:
     @classmethod

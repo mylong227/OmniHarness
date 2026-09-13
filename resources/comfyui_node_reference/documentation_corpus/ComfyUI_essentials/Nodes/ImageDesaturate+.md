@@ -1,42 +1,51 @@
 ---
 tags:
-- ImageEnhancement
-- ImageTransformation
-- VisualEffects
+  - ImageEnhancement
+  - ImageTransformation
+  - VisualEffects
 ---
 
 # 🔧 Image Desaturate
+
 ## Documentation
+
 - Class name: `ImageDesaturate+`
 - Category: `essentials/image processing`
 - Output node: `False`
 
 The ImageDesaturate node is designed for adjusting the saturation level of an image, allowing for partial to full desaturation based on a specified method and factor. It supports different methods of calculating grayscale values, enabling nuanced control over the desaturation process.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be desaturated. It serves as the primary data for the desaturation process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be desaturated. It serves as the primary data for the desaturation process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`factor`**
-    - A value between 0 and 1 that determines the intensity of the desaturation effect. A factor of 1 results in full desaturation, while 0 leaves the image unchanged.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A value between 0 and 1 that determines the intensity of the desaturation effect. A factor of 1 results in full desaturation, while 0 leaves the image unchanged.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`method`**
-    - The method used to calculate the grayscale values during desaturation. Options include luminance (Rec.709), luminance (Rec.601), average, and lightness, each affecting the output image's appearance differently.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The method used to calculate the grayscale values during desaturation. Options include luminance (Rec.709), luminance (Rec.601), average, and lightness, each affecting the output image's appearance differently.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The desaturated image, with its saturation level adjusted according to the specified factor and method.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The desaturated image, with its saturation level adjusted according to the specified factor and method.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageDesaturate:
     @classmethod

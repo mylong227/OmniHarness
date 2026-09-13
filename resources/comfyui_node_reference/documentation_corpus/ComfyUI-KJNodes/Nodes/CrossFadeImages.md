@@ -1,56 +1,65 @@
 ---
 tags:
-- AnimationScheduling
-- VisualEffects
+  - AnimationScheduling
+  - VisualEffects
 ---
 
 # Cross Fade Images
+
 ## Documentation
+
 - Class name: `CrossFadeImages`
 - Category: `KJNodes/image`
 - Output node: `False`
 
 The CrossFadeImages node is designed to blend two sequences of images together over a specified number of frames, using a variety of easing functions to control the transition dynamics. This node allows for the creation of smooth transitions between images, making it ideal for generating animations or video effects where a gradual change from one image set to another is desired.
+
 ## Input types
+
 ### Required
+
 - **`images_i`**
-    - unknown
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `unknown`
 - **`interpolation`**
-    - Specifies the easing function to be used for the transition, allowing for various types of dynamic effects such as linear, ease-in, ease-out, and more complex functions like bounce or elastic.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the easing function to be used for the transition, allowing for various types of dynamic effects such as linear, ease-in, ease-out, and more complex functions like bounce or elastic.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`transition_start_index`**
-    - The index in the image sequences where the transition begins, allowing for precise control over the timing of the crossfade effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The index in the image sequences where the transition begins, allowing for precise control over the timing of the crossfade effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`transitioning_frames`**
-    - The number of frames over which the transition occurs, defining the length of the crossfade effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of frames over which the transition occurs, defining the length of the crossfade effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`start_level`**
-    - The initial alpha value for blending the images at the start of the transition, providing control over the beginning transparency level.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The initial alpha value for blending the images at the start of the transition, providing control over the beginning transparency level.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_level`**
-    - The final alpha value for blending the images at the end of the transition, allowing for adjustment of the ending transparency level.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The final alpha value for blending the images at the end of the transition, allowing for adjustment of the ending transparency level.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting sequence of images after applying the crossfade transition, combining elements of both input sequences into a single smooth animation.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting sequence of images after applying the crossfade transition, combining elements of both input sequences into a single smooth animation.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CrossFadeImages:
-    
+
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "crossfadeimages"
     CATEGORY = "KJNodes/image"
@@ -67,8 +76,8 @@ class CrossFadeImages:
                  "start_level": ("FLOAT", {"default": 0.0,"min": 0.0, "max": 1.0, "step": 0.01}),
                  "end_level": ("FLOAT", {"default": 1.0,"min": 0.0, "max": 1.0, "step": 0.01}),
         },
-    } 
-    
+    }
+
     def crossfadeimages(self, images_1, images_2, transition_start_index, transitioning_frames, interpolation, start_level, end_level):
 
         def crossfade(images_1, images_2, alpha):
@@ -115,7 +124,7 @@ class CrossFadeImages:
 
             crossfade_image = crossfade(image1, image2, alpha)
             crossfade_images.append(crossfade_image)
-            
+
         # Convert crossfade_images to tensor
         crossfade_images = torch.stack(crossfade_images, dim=0)
         # Get the last frame result of the interpolation

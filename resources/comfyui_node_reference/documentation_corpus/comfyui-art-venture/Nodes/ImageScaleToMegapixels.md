@@ -1,43 +1,54 @@
 ---
 tags:
-- ImageScaling
-- ImageUpscaling
-- Upscale
+  - ImageScaling
+  - ImageUpscaling
+  - Upscale
 ---
 
 # Scale To Megapixels
+
 ## Documentation
+
 - Class name: `ImageScaleToMegapixels`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The node is designed to adjust the size of an image to meet a specified total number of megapixels, either by upscaling or downscaling. It incorporates various upscaling methods to achieve the desired image quality and size, ensuring the final image adheres to the specified megapixel count while maintaining aspect ratio.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The input images to be resized. This parameter is crucial as it serves as the base for the scaling operation, determining the starting point for any upscaling or downscaling to achieve the target megapixel size.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input images to be resized. This parameter is crucial as it serves as the base for the scaling operation, determining the starting point for any upscaling or downscaling to achieve the target megapixel size.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`megapixels`**
-    - Defines the target size of the image in megapixels, guiding the scaling process to either increase or decrease the image's dimensions to meet this specification.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the target size of the image in megapixels, guiding the scaling process to either increase or decrease the image's dimensions to meet this specification.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`upscale_model_opt`**
-    - Optionally specifies the upscale model to be used for upscaling the image, allowing for advanced customization of the image quality and appearance post-scaling. This parameter influences the visual outcome of the resized image, especially when upscale is required beyond a certain threshold.
-    - Comfy dtype: `UPSCALE_MODEL`
-    - Python dtype: `str`
+  - Optionally specifies the upscale model to be used for upscaling the image, allowing for advanced customization of the image quality and appearance post-scaling. This parameter influences the visual outcome of the resized image, especially when upscale is required beyond a certain threshold.
+  - Comfy dtype: `UPSCALE_MODEL`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resized image, adjusted to meet the specified megapixel count. This output is the direct result of the scaling operation, reflecting the changes in size and potentially quality based on the chosen upscaling method.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resized image, adjusted to meet the specified megapixel count. This output is the direct result of the scaling operation, reflecting the changes in size and potentially quality based on the chosen upscaling method.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilImageScaleToTotalPixels(UtilImageScaleDownBy, ImageUpscaleWithModel):
     @classmethod

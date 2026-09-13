@@ -1,50 +1,61 @@
 ---
 tags:
-- Animation
-- PoseEstimation
+  - Animation
+  - PoseEstimation
 ---
 
 # [Inference.Core] AnimalPose Estimator (AP10K)
+
 ## Documentation
+
 - Class name: `Inference_Core_AnimalPosePreprocessor`
 - Category: `ControlNet Preprocessors/Faces and Poses Estimators`
 - Output node: `False`
 
 This node is designed to preprocess images for animal pose estimation, utilizing different model formats (TorchScript, ONNX) to detect and analyze animal poses within images. It supports dynamic selection of detection classes and handles both detection and pose estimation processes, adapting to the model's input requirements and optimizing for performance.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The original image to be processed for animal pose estimation. It serves as the primary input for model inference, crucial for both detection and pose estimation phases.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The original image to be processed for animal pose estimation. It serves as the primary input for model inference, crucial for both detection and pose estimation phases.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`bbox_detector`**
-    - The detection model used to identify animal bounding boxes in the image. This model can be either a TorchScript or ONNX model, depending on the implementation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `Union[torch.jit.ScriptModule, onnx.ModelProto]`
+  - The detection model used to identify animal bounding boxes in the image. This model can be either a TorchScript or ONNX model, depending on the implementation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `Union[torch.jit.ScriptModule, onnx.ModelProto]`
 - **`pose_estimator`**
-    - The pose estimation model used to analyze the detected animal poses within the bounding boxes. This model also varies in format, supporting both TorchScript and ONNX.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `Union[torch.jit.ScriptModule, onnx.ModelProto]`
+  - The pose estimation model used to analyze the detected animal poses within the bounding boxes. This model also varies in format, supporting both TorchScript and ONNX.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `Union[torch.jit.ScriptModule, onnx.ModelProto]`
 - **`resolution`**
-    - The resolution to which the input image is resized before processing. This affects the detection and pose estimation accuracy and performance.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input image is resized before processing. This affects the detection and pose estimation accuracy and performance.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The image annotated with detected animal poses, highlighting the key points and poses of animals detected within the original image.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The image annotated with detected animal poses, highlighting the key points and poses of animals detected within the original image.
+  - Python dtype: `numpy.ndarray`
 - **`pose_keypoint`**
-    - Comfy dtype: `POSE_KEYPOINT`
-    - A structured representation of detected animal poses, including keypoints and their scores, formatted for further processing or visualization.
-    - Python dtype: `List[Dict[str, Any]]`
+  - Comfy dtype: `POSE_KEYPOINT`
+  - A structured representation of detected animal poses, including keypoints and their scores, formatted for further processing or visualization.
+  - Python dtype: `List[Dict[str, Any]]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AnimalPose_Preprocessor:
     @classmethod

@@ -1,46 +1,57 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # View Options◆Standard Uniform 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_StandardUniformViewOptions`
 - Category: `Animate Diff 🎭🅐🅓/context opts/view opts`
 - Output node: `False`
 
 This node is designed to create and configure view options for generating animations with uniform distribution. It allows for the customization of view length, stride, and overlap, along with the method of fusing context, to tailor the animation generation process.
+
 ## Input types
+
 ### Required
+
 - **`view_length`**
-    - Specifies the length of the view, affecting the granularity and extent of the animation frames generated.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the length of the view, affecting the granularity and extent of the animation frames generated.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`view_stride`**
-    - Determines the stride between views, influencing the smoothness and speed of the animation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the stride between views, influencing the smoothness and speed of the animation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`view_overlap`**
-    - Sets the overlap between views, which can help in creating smoother transitions between animation frames.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the overlap between views, which can help in creating smoother transitions between animation frames.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`fuse_method`**
-    - Defines the method used to fuse multiple contexts together, impacting the continuity and coherence of the animation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the method used to fuse multiple contexts together, impacting the continuity and coherence of the animation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`view_opts`**
-    - Comfy dtype: `VIEW_OPTS`
-    - Produces the configured view options, ready to be utilized in the animation generation process.
-    - Python dtype: `ContextOptions`
+  - Comfy dtype: `VIEW_OPTS`
+  - Produces the configured view options, ready to be utilized in the animation generation process.
+  - Python dtype: `ContextOptions`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class StandardUniformViewOptionsNode:
     @classmethod
@@ -55,7 +66,7 @@ class StandardUniformViewOptionsNode:
                 "fuse_method": (ContextFuseMethod.LIST,),
             }
         }
-    
+
     RETURN_TYPES = ("VIEW_OPTS",)
     CATEGORY = "Animate Diff 🎭🅐🅓/context opts/view opts"
     FUNCTION = "create_options"

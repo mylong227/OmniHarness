@@ -1,56 +1,65 @@
 ---
 tags:
-- LayeredDiffusion
+  - LayeredDiffusion
 ---
 
 # [Inference.Core] Layer Diffuse Cond Apply
+
 ## Documentation
+
 - Class name: `Inference_Core_LayeredDiffusionCondApply`
 - Category: `layer_diffuse`
 - Output node: `False`
 
 This node specializes in applying conditional layered diffusion processes to input data, leveraging specific configurations and weights to modulate the diffusion effect. It integrates conditional inputs to guide the diffusion process, enhancing the generation or transformation of data with nuanced control.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the layered diffusion process will be applied, serving as the foundation for the diffusion modifications.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `ModelPatcher`
+  - The model to which the layered diffusion process will be applied, serving as the foundation for the diffusion modifications.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `ModelPatcher`
 - **`cond`**
-    - The conditional inputs for the foreground, guiding the diffusion process to achieve specific visual effects or characteristics.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Optional[List[List[torch.TensorType]]]`
+  - The conditional inputs for the foreground, guiding the diffusion process to achieve specific visual effects or characteristics.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Optional[List[List[torch.TensorType]]]`
 - **`uncond`**
-    - The unconditional inputs for the background, providing a baseline for the diffusion process and influencing the overall output.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Optional[List[List[torch.TensorType]]]`
+  - The unconditional inputs for the background, providing a baseline for the diffusion process and influencing the overall output.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Optional[List[List[torch.TensorType]]]`
 - **`latent`**
-    - Latent representations used in the diffusion process, contributing to the generation or transformation of the output.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - Latent representations used in the diffusion process, contributing to the generation or transformation of the output.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`config`**
-    - Configuration string specifying the diffusion model and settings, crucial for determining the behavior of the diffusion process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Configuration string specifying the diffusion model and settings, crucial for determining the behavior of the diffusion process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`weight`**
-    - A weight factor that influences the strength and characteristics of the diffusion effect applied to the model.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight factor that influences the strength and characteristics of the diffusion effect applied to the model.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - Outputs a modified model that has undergone the conditional layered diffusion process, reflecting the applied conditions and adjustments.
-    - Python dtype: `ModelPatcher`
+  - Comfy dtype: `MODEL`
+  - Outputs a modified model that has undergone the conditional layered diffusion process, reflecting the applied conditions and adjustments.
+  - Python dtype: `ModelPatcher`
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - The conditioning information used during the diffusion process, indicating how the conditional inputs have influenced the output.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `CONDITIONING`
+  - The conditioning information used during the diffusion process, indicating how the conditional inputs have influenced the output.
+  - Python dtype: `Dict[str, Any]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LayeredDiffusionCond:
     """Generate foreground + background given background / foreground.

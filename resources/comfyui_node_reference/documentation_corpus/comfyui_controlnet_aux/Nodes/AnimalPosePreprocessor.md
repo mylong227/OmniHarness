@@ -1,52 +1,63 @@
 ---
 tags:
-- Animation
-- PoseEstimation
+  - Animation
+  - PoseEstimation
 ---
 
 # AnimalPose Estimator (AP10K)
+
 ## Documentation
+
 - Class name: `AnimalPosePreprocessor`
 - Category: `ControlNet Preprocessors/Faces and Poses Estimators`
 - Output node: `False`
 
 The AnimalPosePreprocessor node is designed for detecting and analyzing animal poses within images. It utilizes advanced pose estimation techniques to identify and process animal figures, aiming to provide detailed pose information that can be used for further analysis or processing.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for animal pose detection. This is the primary input for the pose estimation process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The input image to be processed for animal pose detection. This is the primary input for the pose estimation process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`bbox_detector`**
-    - Specifies the bounding box detector model used to identify the regions of interest within the image where animals are present. This step is crucial for narrowing down the areas for pose estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the bounding box detector model used to identify the regions of interest within the image where animals are present. This step is crucial for narrowing down the areas for pose estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`pose_estimator`**
-    - Defines the pose estimation model to be used for analyzing the detected animal figures within the image. This parameter determines the accuracy and effectiveness of the pose detection.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the pose estimation model to be used for analyzing the detected animal figures within the image. This parameter determines the accuracy and effectiveness of the pose detection.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`resolution`**
-    - Sets the resolution for the pose detection process. Higher resolutions can lead to more detailed pose estimations but may require more computational resources.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the resolution for the pose detection process. Higher resolutions can lead to more detailed pose estimations but may require more computational resources.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Returns the processed image with detected animal poses highlighted, facilitating visual inspection and analysis of the pose estimation results.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - Returns the processed image with detected animal poses highlighted, facilitating visual inspection and analysis of the pose estimation results.
+  - Python dtype: `numpy.ndarray`
 - **`pose_keypoint`**
-    - Comfy dtype: `POSE_KEYPOINT`
-    - Outputs the key points of detected animal poses, providing detailed information about the pose structure for further analysis or processing.
-    - Python dtype: `Dict`
+  - Comfy dtype: `POSE_KEYPOINT`
+  - Outputs the key points of detected animal poses, providing detailed information about the pose structure for further analysis or processing.
+  - Python dtype: `Dict`
 - **`ui`**
-    - Provides a user interface component that displays the JSON representation of the detected animal poses, offering an accessible way to visualize and understand the pose data.
+  - Provides a user interface component that displays the JSON representation of the detected animal poses, offering an accessible way to visualize and understand the pose data.
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AnimalPose_Preprocessor:
     @classmethod

@@ -1,44 +1,53 @@
 ---
 tags:
-- ModelMerge
+  - ModelMerge
 ---
 
 # Checkpoint Merge
+
 ## Documentation
+
 - Class name: `AV_CheckpointMerge`
 - Category: `Art Venture/Model Merging`
 - Output node: `False`
 
 The AV_CheckpointMerge node is designed for merging model checkpoints within the Art Venture framework. It abstracts the complexities of combining different model states into a unified checkpoint, facilitating the integration or experimentation with various model configurations in a streamlined manner.
+
 ## Input types
+
 ### Required
+
 - **`model1`**
-    - The first model to be merged, contributing to the creation of a new, unified model checkpoint.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The first model to be merged, contributing to the creation of a new, unified model checkpoint.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`model2`**
-    - The second model to be merged, which combines with the first model to form a new, unified model checkpoint.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The second model to be merged, which combines with the first model to form a new, unified model checkpoint.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`model1_weight`**
-    - A weight factor for the first model, influencing the degree to which it impacts the merged model checkpoint.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight factor for the first model, influencing the degree to which it impacts the merged model checkpoint.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`model2_weight`**
-    - A weight factor for the second model, influencing the degree to which it impacts the merged model checkpoint.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight factor for the second model, influencing the degree to which it impacts the merged model checkpoint.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The resulting merged model checkpoint, incorporating elements from both input models.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The resulting merged model checkpoint, incorporating elements from both input models.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AVCheckpointMerge:
     @classmethod

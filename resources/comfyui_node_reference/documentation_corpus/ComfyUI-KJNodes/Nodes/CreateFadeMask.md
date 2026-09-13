@@ -1,68 +1,77 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # Create Fade Mask
+
 ## Documentation
+
 - Class name: `CreateFadeMask`
 - Category: `KJNodes/deprecated`
 - Output node: `False`
 
 This node is designed to generate fade masks for images, allowing for the creation of transitions between different visual states. It provides the functionality to customize the fade effect through various parameters, enabling precise control over the appearance of the fade.
+
 ## Input types
+
 ### Required
+
 - **`invert`**
-    - A boolean flag that, when set, inverts the fade effect, creating a reverse transition.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that, when set, inverts the fade effect, creating a reverse transition.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`frames`**
-    - Specifies the number of frames to generate for the fade mask, affecting the length of the transition.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of frames to generate for the fade mask, affecting the length of the transition.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`width`**
-    - Determines the width of the fade mask, impacting the horizontal dimension of the generated images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the width of the fade mask, impacting the horizontal dimension of the generated images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Sets the height of the fade mask, influencing the vertical dimension of the generated images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the height of the fade mask, influencing the vertical dimension of the generated images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`interpolation`**
-    - Defines the method of interpolation used for the fade effect, allowing for smooth transitions.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the method of interpolation used for the fade effect, allowing for smooth transitions.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`start_level`**
-    - The initial opacity level of the fade, setting the starting point of the transition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The initial opacity level of the fade, setting the starting point of the transition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`midpoint_level`**
-    - The opacity level at the midpoint of the transition, allowing for control over the fade's progression.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The opacity level at the midpoint of the transition, allowing for control over the fade's progression.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_level`**
-    - The final opacity level of the fade, determining the end point of the transition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The final opacity level of the fade, determining the end point of the transition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`midpoint_frame`**
-    - Specifies the frame at which the midpoint opacity level is reached, controlling the timing of the transition.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the frame at which the midpoint opacity level is reached, controlling the timing of the transition.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The generated fade mask, which can be used to create transitions between different visual states in images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The generated fade mask, which can be used to create transitions between different visual states in images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CreateFadeMask:
-    
+
     RETURN_TYPES = ("MASK",)
     FUNCTION = "createfademask"
     CATEGORY = "KJNodes/deprecated"
@@ -81,8 +90,8 @@ class CreateFadeMask:
                  "end_level": ("FLOAT", {"default": 0.0,"min": 0.0, "max": 1.0, "step": 0.01}),
                  "midpoint_frame": ("INT", {"default": 0,"min": 0, "max": 4096, "step": 1}),
         },
-    } 
-    
+    }
+
     def createfademask(self, frames, width, height, invert, interpolation, start_level, midpoint_level, end_level, midpoint_frame):
         def ease_in(t):
             return t * t

@@ -1,53 +1,62 @@
 ---
 tags:
-- Image
-- ImageThresholding
+  - Image
+  - ImageThresholding
 ---
 
 # FindThreshold
+
 ## Documentation
+
 - Class name: `FindThreshold`
 - Category: `Bmad/CV/Thresholding`
 - Output node: `False`
 
 The FindThreshold node is designed to dynamically determine an optimal threshold value for image processing tasks. It systematically searches through a specified range of threshold values, applying each to the source image and evaluating the result based on a user-defined condition. This approach allows for adaptive thresholding, enabling the selection of a threshold that best meets the criteria for a given image or set of images.
+
 ## Input types
+
 ### Required
+
 - **`src`**
-    - The source image on which thresholding operations are to be performed. It serves as the primary input for the threshold search process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The source image on which thresholding operations are to be performed. It serves as the primary input for the threshold search process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`start_at`**
-    - Specifies the starting point of the threshold value range to be considered in the search process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the starting point of the threshold value range to be considered in the search process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`end_at`**
-    - Defines the end point of the threshold value range for the search, allowing the node to limit its evaluation to a specific range.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the end point of the threshold value range for the search, allowing the node to limit its evaluation to a specific range.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`thresh_type`**
-    - Determines the type of thresholding to be applied during the search process, influencing how the threshold values are evaluated against the source image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the type of thresholding to be applied during the search process, influencing how the threshold values are evaluated against the source image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`downscale_factor`**
-    - A factor by which the source image is downscaled before thresholding, optimizing the search process by reducing computational load.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A factor by which the source image is downscaled before thresholding, optimizing the search process by reducing computational load.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`condition`**
-    - A user-defined condition (expressed as a string of Python code) that evaluates the effectiveness of each threshold value applied, guiding the selection of the optimal threshold.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A user-defined condition (expressed as a string of Python code) that evaluates the effectiveness of each threshold value applied, guiding the selection of the optimal threshold.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after applying the optimal threshold found through the search process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after applying the optimal threshold found through the search process.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FindThreshold:
     """

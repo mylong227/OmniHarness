@@ -1,46 +1,55 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
+  - DepthMap
+  - Image
+  - ImagePreprocessing
 ---
 
 # [Inference.Core] Enchance And Resize Hint Images
+
 ## Documentation
+
 - Class name: `Inference_Core_HintImageEnchance`
 - Category: `ControlNet Preprocessors`
 - Output node: `False`
 
 The `Inference_Core_HintImageEnchance` node is designed to preprocess hint images for image generation tasks, enhancing and resizing them according to specified dimensions and modes. It supports operations such as resizing to fit within given dimensions, outer and inner fitting, and applying enhancements like binary thresholding, edge detection, and inpainting based on the image's alpha channel.
+
 ## Input types
+
 ### Required
+
 - **`hint_image`**
-    - The hint image to be processed, which can be enhanced and resized for better suitability in image generation tasks.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The hint image to be processed, which can be enhanced and resized for better suitability in image generation tasks.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`image_gen_width`**
-    - The target width for the generated image, guiding the resizing process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target width for the generated image, guiding the resizing process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`image_gen_height`**
-    - The target height for the generated image, guiding the resizing process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target height for the generated image, guiding the resizing process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resize_mode`**
-    - The mode of resizing to be applied, determining how the hint image is adjusted to fit the target dimensions.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `ResizeMode`
+  - The mode of resizing to be applied, determining how the hint image is adjusted to fit the target dimensions.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `ResizeMode`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed hint images, enhanced and resized according to the specified parameters, ready for use in image generation.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed hint images, enhanced and resized according to the specified parameters, ready for use in image generation.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class HintImageEnchance:
     @classmethod
@@ -54,7 +63,7 @@ class HintImageEnchance:
                 "resize_mode": (RESIZE_MODES, {"default": ResizeMode.RESIZE.value})
             }
         }
-    
+
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "execute"
 
@@ -70,16 +79,16 @@ class HintImageEnchance:
                 np_hint_image = self.execute_outer_fit(np_hint_image, image_gen_width, image_gen_height)
             else:
                 np_hint_image = self.execute_inner_fit(np_hint_image, image_gen_width, image_gen_height)
-            
+
             outs.append(torch.from_numpy(np_hint_image.astype(np.float32) / 255.0))
-        
+
         return (torch.stack(outs, dim=0),)
-    
+
     def execute_resize(self, detected_map, w, h):
         detected_map = self.high_quality_resize(detected_map, (w, h))
         detected_map = safe_numpy(detected_map)
         return detected_map
-    
+
     def execute_outer_fit(self, detected_map, w, h):
         old_h, old_w, _ = detected_map.shape
         old_w = float(old_w)
@@ -88,7 +97,7 @@ class HintImageEnchance:
         k1 = float(w) / old_w
         safeint = lambda x: int(np.round(x))
         k = min(k0, k1)
-        
+
         borders = np.concatenate([detected_map[0, :, :], detected_map[-1, :, :], detected_map[:, 0, :], detected_map[:, -1, :]], axis=0)
         high_quality_border_color = np.median(borders, axis=0).astype(detected_map.dtype)
         if len(high_quality_border_color) == 4:
@@ -103,7 +112,7 @@ class HintImageEnchance:
         detected_map = high_quality_background
         detected_map = safe_numpy(detected_map)
         return detected_map
-    
+
     def execute_inner_fit(self, detected_map, w, h):
         old_h, old_w, _ = detected_map.shape
         old_w = float(old_w)

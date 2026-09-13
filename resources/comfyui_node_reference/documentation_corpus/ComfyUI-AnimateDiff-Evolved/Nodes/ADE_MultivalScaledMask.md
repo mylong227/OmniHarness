@@ -1,46 +1,57 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Multival Scaled Mask 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_MultivalScaledMask`
 - Category: `Animate Diff 🎭🅐🅓/multival`
 - Output node: `False`
 
 The ADE_MultivalScaledMask node is designed to dynamically adjust and scale the values of a mask based on specified minimum and maximum float values. It supports both absolute and relative scaling modes, allowing for flexible manipulation of mask values to fit various animation or image processing needs.
+
 ## Input types
+
 ### Required
+
 - **`min_float_val`**
-    - Specifies the minimum value (or a list of minimum values) to which the mask's values will be scaled. This parameter sets the lower bound of the scaling operation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `Union[float, List[float]]`
+  - Specifies the minimum value (or a list of minimum values) to which the mask's values will be scaled. This parameter sets the lower bound of the scaling operation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `Union[float, List[float]]`
 - **`max_float_val`**
-    - Defines the maximum value (or a list of maximum values) to which the mask's values will be scaled. It sets the upper bound for the scaling, ensuring the mask's values are adjusted within a specific range.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `Union[float, List[float]]`
+  - Defines the maximum value (or a list of maximum values) to which the mask's values will be scaled. It sets the upper bound for the scaling, ensuring the mask's values are adjusted within a specific range.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `Union[float, List[float]]`
 - **`mask`**
-    - The mask input represents the initial mask to be scaled. It is crucial for determining the base structure and values that will be adjusted according to the scaling parameters.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask input represents the initial mask to be scaled. It is crucial for determining the base structure and values that will be adjusted according to the scaling parameters.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`scaling`**
-    - Determines the type of scaling to be applied: absolute or relative. This choice affects how the mask values are adjusted, either by directly setting new minimum and maximum values or by normalizing them within a range.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `ScaleType`
+  - Determines the type of scaling to be applied: absolute or relative. This choice affects how the mask values are adjusted, either by directly setting new minimum and maximum values or by normalizing them within a range.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `ScaleType`
+
 ## Output types
+
 - **`multival`**
-    - Comfy dtype: `MULTIVAL`
-    - The output is a dynamically adjusted version of the input mask, with its values scaled according to the specified minimum and maximum float values and the chosen scaling mode.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MULTIVAL`
+  - The output is a dynamically adjusted version of the input mask, with its values scaled according to the specified minimum and maximum float values and the chosen scaling mode.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MultivalScaledMaskNode:
     @classmethod

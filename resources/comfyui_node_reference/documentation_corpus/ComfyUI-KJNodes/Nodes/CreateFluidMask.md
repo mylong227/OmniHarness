@@ -1,72 +1,81 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # Create Fluid Mask
+
 ## Documentation
+
 - Class name: `CreateFluidMask`
 - Category: `KJNodes/masking/generate`
 - Output node: `False`
 
 The CreateFluidMask node is designed for generating dynamic fluid-based masks for images. It utilizes fluid dynamics to create visually complex and evolving masks that can be applied to frames, offering a unique way to enhance visual content with fluid effects.
+
 ## Input types
+
 ### Required
+
 - **`invert`**
-    - A boolean flag that, when set to True, inverts the colors of the generated fluid mask, offering an alternative visual style.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that, when set to True, inverts the colors of the generated fluid mask, offering an alternative visual style.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`frames`**
-    - Specifies the number of frames for which the fluid mask will be generated, affecting the duration and evolution of the fluid effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of frames for which the fluid mask will be generated, affecting the duration and evolution of the fluid effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`width`**
-    - Determines the width of the generated fluid mask, directly impacting the resolution and aspect ratio of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the width of the generated fluid mask, directly impacting the resolution and aspect ratio of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Sets the height of the generated fluid mask, influencing the resolution and aspect ratio of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the height of the generated fluid mask, influencing the resolution and aspect ratio of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inflow_count`**
-    - Controls the number of inflow points within the fluid simulation, affecting the complexity and dynamics of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Controls the number of inflow points within the fluid simulation, affecting the complexity and dynamics of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inflow_velocity`**
-    - Determines the velocity of the inflow within the fluid simulation, influencing the speed and movement of the fluid effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the velocity of the inflow within the fluid simulation, influencing the speed and movement of the fluid effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inflow_radius`**
-    - Specifies the radius of the inflow points in the fluid simulation, impacting the size and spread of the fluid effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the radius of the inflow points in the fluid simulation, impacting the size and spread of the fluid effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inflow_padding`**
-    - Sets the padding around the inflow points, ensuring there's a buffer zone within the simulation area.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the padding around the inflow points, ensuring there's a buffer zone within the simulation area.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inflow_duration`**
-    - Defines the duration for which the inflow is active within the simulation, affecting the initial phase of the fluid effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the duration for which the inflow is active within the simulation, affecting the initial phase of the fluid effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The generated fluid mask applied to images, showcasing the dynamic fluid effects over the specified frames.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The generated fluid mask applied to images, showcasing the dynamic fluid effects over the specified frames.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - A binary mask representing the areas affected by the fluid simulation, useful for further image processing or masking operations.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - A binary mask representing the areas affected by the fluid simulation, useful for further image processing or masking operations.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CreateFluidMask:
-    
+
     RETURN_TYPES = ("IMAGE", "MASK")
     FUNCTION = "createfluidmask"
     CATEGORY = "KJNodes/masking/generate"
@@ -85,7 +94,7 @@ class CreateFluidMask:
                  "inflow_padding": ("INT", {"default": 50,"min": 0, "max": 255, "step": 1}),
                  "inflow_duration": ("INT", {"default": 60,"min": 0, "max": 255, "step": 1}),
         },
-    } 
+    }
     #using code from https://github.com/GregTJ/stable-fluids
     def createfluidmask(self, frames, width, height, invert, inflow_count, inflow_velocity, inflow_radius, inflow_padding, inflow_duration):
         from ..utility.fluid import Fluid
@@ -122,7 +131,7 @@ class CreateFluidMask:
             inflow_velocity[:, mask] += n[:, None] * INFLOW_VELOCITY
             inflow_dye[mask] = 1
 
-        
+
         for f in range(DURATION):
             print(f'Computing frame {f + 1} of {DURATION}.')
             if f <= INFLOW_DURATION:
@@ -130,7 +139,7 @@ class CreateFluidMask:
                 fluid.dye += inflow_dye
 
             curl = fluid.step()[1]
-            # Using the error function to make the contrast a bit higher. 
+            # Using the error function to make the contrast a bit higher.
             # Any other sigmoid function e.g. smoothstep would work.
             curl = (erf(curl * 2) + 1) / 4
 
@@ -138,10 +147,10 @@ class CreateFluidMask:
             color = (np.clip(color, 0, 1) * 255).astype('uint8')
             image = np.array(color).astype(np.float32) / 255.0
             image = torch.from_numpy(image)[None,]
-            mask = image[:, :, :, 0] 
+            mask = image[:, :, :, 0]
             masks.append(mask)
             out.append(image)
-        
+
         if invert:
             return (1.0 - torch.cat(out, dim=0),1.0 - torch.cat(masks, dim=0),)
         return (torch.cat(out, dim=0),torch.cat(masks, dim=0),)

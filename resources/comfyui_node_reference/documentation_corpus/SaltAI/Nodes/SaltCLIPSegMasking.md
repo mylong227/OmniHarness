@@ -1,50 +1,61 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # Batch Image CLIPSeg Masking
+
 ## Documentation
+
 - Class name: `SaltCLIPSegMasking`
 - Category: `SALT/Masking`
 - Output node: `False`
 
 This node is designed for batch processing of images to generate segmentation masks based on textual descriptions using the CLIPSeg model. It leverages a combination of image and text inputs to produce detailed segmentation masks that align with the given text descriptions, facilitating advanced image manipulation and analysis tasks.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A batch of images to be processed for segmentation. These images are transformed and resized to match the master image size for consistent mask generation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - A batch of images to be processed for segmentation. These images are transformed and resized to match the master image size for consistent mask generation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`text`**
-    - An optional textual description that guides the segmentation process, allowing for targeted mask generation based on textual cues.
-    - Comfy dtype: `STRING`
-    - Python dtype: `Optional[str]`
+  - An optional textual description that guides the segmentation process, allowing for targeted mask generation based on textual cues.
+  - Comfy dtype: `STRING`
+  - Python dtype: `Optional[str]`
+
 ### Optional
+
 - **`clipseg_model`**
-    - An optional pre-loaded CLIPSeg model and processor to be used for segmentation. If not provided, the node will load a default model.
-    - Comfy dtype: `CLIPSEG_MODEL`
-    - Python dtype: `Optional[Tuple[CLIPSegProcessor, CLIPSegForImageSegmentation]]`
+  - An optional pre-loaded CLIPSeg model and processor to be used for segmentation. If not provided, the node will load a default model.
+  - Comfy dtype: `CLIPSEG_MODEL`
+  - Python dtype: `Optional[Tuple[CLIPSegProcessor, CLIPSegForImageSegmentation]]`
+
 ## Output types
+
 - **`masks`**
-    - Comfy dtype: `MASK`
-    - Segmentation masks corresponding to the input images, adjusted to the master image size.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Segmentation masks corresponding to the input images, adjusted to the master image size.
+  - Python dtype: `torch.Tensor`
 - **`mask_images`**
-    - Comfy dtype: `IMAGE`
-    - RGB representations of the segmentation masks for visualization purposes.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - RGB representations of the segmentation masks for visualization purposes.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltCLIPSegMasking:
     def __init__(self):
         pass
-        
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -69,7 +80,7 @@ class SaltCLIPSegMasking:
         masks = []
         image_masks = []
         master_size = None
-        
+
         for image in images:
 
             image = tensor2pil(image)
@@ -100,7 +111,7 @@ class SaltCLIPSegMasking:
 
         masks = torch.cat(masks, dim=0)
         image_masks = torch.cat(image_masks, dim=0)
-                
+
         return (masks, image_masks)
 
 ```

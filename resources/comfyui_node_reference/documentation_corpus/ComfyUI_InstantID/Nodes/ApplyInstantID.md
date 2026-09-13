@@ -1,85 +1,96 @@
 ---
 tags:
-- IdentityImage
+  - IdentityImage
 ---
 
 # Apply InstantID
+
 ## Documentation
+
 - Class name: `ApplyInstantID`
 - Category: `InstantID`
 - Output node: `False`
 
 The ApplyInstantID node is designed to integrate InstantID technology into images, leveraging facial analysis and control networks to enhance or modify the image based on specified conditions. It utilizes a combination of model inputs and image processing techniques to apply identity-preserving transformations, ensuring the output aligns with user-defined positive and negative conditioning.
+
 ## Input types
+
 ### Required
+
 - **`instantid`**
-    - Represents the InstantID model configuration and weights, crucial for the identity transformation process.
-    - Comfy dtype: `INSTANTID`
-    - Python dtype: `dict`
+  - Represents the InstantID model configuration and weights, crucial for the identity transformation process.
+  - Comfy dtype: `INSTANTID`
+  - Python dtype: `dict`
 - **`insightface`**
-    - Facial analysis model used to extract facial features from the image, essential for guiding the InstantID transformation.
-    - Comfy dtype: `FACEANALYSIS`
-    - Python dtype: `dict`
+  - Facial analysis model used to extract facial features from the image, essential for guiding the InstantID transformation.
+  - Comfy dtype: `FACEANALYSIS`
+  - Python dtype: `dict`
 - **`control_net`**
-    - Control network model that influences the strength and direction of the applied transformations.
-    - Comfy dtype: `CONTROL_NET`
-    - Python dtype: `dict`
+  - Control network model that influences the strength and direction of the applied transformations.
+  - Comfy dtype: `CONTROL_NET`
+  - Python dtype: `dict`
 - **`image`**
-    - The input image to be processed and transformed by the InstantID technology.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed and transformed by the InstantID technology.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`model`**
-    - The underlying model used for generating the transformations.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `dict`
+  - The underlying model used for generating the transformations.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `dict`
 - **`positive`**
-    - Positive conditioning phrases that guide the transformation towards desired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `list of tuples`
+  - Positive conditioning phrases that guide the transformation towards desired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `list of tuples`
 - **`negative`**
-    - Negative conditioning phrases that guide the transformation away from undesired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `list of tuples`
+  - Negative conditioning phrases that guide the transformation away from undesired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `list of tuples`
 - **`weight`**
-    - Overall weight of the transformation, affecting the intensity of the applied changes.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Overall weight of the transformation, affecting the intensity of the applied changes.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`start_at`**
-    - Defines the starting point of the transformation process, allowing for gradual application.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the starting point of the transformation process, allowing for gradual application.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_at`**
-    - Defines the ending point of the transformation process, ensuring the transformation is applied within a specific range.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the ending point of the transformation process, ensuring the transformation is applied within a specific range.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`image_kps`**
-    - Optional keypoints image for more precise facial feature alignment.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Optional keypoints image for more precise facial feature alignment.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Optional mask to limit the transformation to specific areas of the image.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - Optional mask to limit the transformation to specific areas of the image.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`MODEL`**
-    - Comfy dtype: `MODEL`
-    - The modified model after applying the InstantID transformations.
-    - Python dtype: `dict`
+  - Comfy dtype: `MODEL`
+  - The modified model after applying the InstantID transformations.
+  - Python dtype: `dict`
 - **`positive`**
-    - Comfy dtype: `CONDITIONING`
-    - Updated positive conditioning reflecting the applied transformations.
-    - Python dtype: `list of tuples`
+  - Comfy dtype: `CONDITIONING`
+  - Updated positive conditioning reflecting the applied transformations.
+  - Python dtype: `list of tuples`
 - **`negative`**
-    - Comfy dtype: `CONDITIONING`
-    - Updated negative conditioning reflecting the applied transformations.
-    - Python dtype: `list of tuples`
+  - Comfy dtype: `CONDITIONING`
+  - Updated negative conditioning reflecting the applied transformations.
+  - Python dtype: `list of tuples`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ApplyInstantID:
     @classmethod

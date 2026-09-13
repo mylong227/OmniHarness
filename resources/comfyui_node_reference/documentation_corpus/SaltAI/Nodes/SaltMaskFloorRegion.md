@@ -1,33 +1,42 @@
 ---
 tags:
-- Mask
-- MaskRegion
+  - Mask
+  - MaskRegion
 ---
 
 # Floor Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskFloorRegion`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 The SaltMaskFloorRegion node is designed to identify and isolate floor regions within given masks. It processes each mask to extract the floor area, converting it into a tensor that represents the floor region.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks for which floor regions need to be identified. These masks are processed to extract floor areas, significantly impacting the node's output.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks for which floor regions need to be identified. These masks are processed to extract floor areas, significantly impacting the node's output.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output tensor representing the isolated floor regions within the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output tensor representing the isolated floor regions within the input masks.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskFloorRegion:
     @classmethod

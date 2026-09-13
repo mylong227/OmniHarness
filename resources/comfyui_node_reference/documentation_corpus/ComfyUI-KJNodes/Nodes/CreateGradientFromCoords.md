@@ -1,56 +1,65 @@
 # Create Gradient From Coords
+
 ## Documentation
+
 - Class name: `CreateGradientFromCoords`
 - Category: `KJNodes/image`
 - Output node: `False`
 
 This node is designed to generate a gradient image based on specified start and end coordinates, colors, and a multiplier. It creates a visual transition between two colors across the image canvas, allowing for the creation of dynamic and customizable gradient backgrounds or elements.
+
 ## Input types
+
 ### Required
+
 - **`coordinates`**
-    - A string representing the start and end coordinates for the gradient. These coordinates dictate the direction and span of the gradient across the image.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string representing the start and end coordinates for the gradient. These coordinates dictate the direction and span of the gradient across the image.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`frame_width`**
-    - The width of the output image in pixels. It defines the horizontal dimension of the gradient image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The width of the output image in pixels. It defines the horizontal dimension of the gradient image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`frame_height`**
-    - The height of the output image in pixels. It defines the vertical dimension of the gradient image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The height of the output image in pixels. It defines the vertical dimension of the gradient image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`start_color`**
-    - The color at the start of the gradient, specified as a string. This color marks the beginning of the gradient effect.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The color at the start of the gradient, specified as a string. This color marks the beginning of the gradient effect.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`end_color`**
-    - The color at the end of the gradient, specified as a string. This color marks the completion of the gradient effect.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The color at the end of the gradient, specified as a string. This color marks the completion of the gradient effect.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`multiplier`**
-    - A float that adjusts the intensity of the gradient effect, allowing for finer control over the gradient's appearance.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A float that adjusts the intensity of the gradient effect, allowing for finer control over the gradient's appearance.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The generated gradient image, returned as a tensor. This image visually represents the gradient created from the specified coordinates and colors.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The generated gradient image, returned as a tensor. This image visually represents the gradient created from the specified coordinates and colors.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CreateGradientFromCoords:
-    
+
     RETURN_TYPES = ("IMAGE", )
     RETURN_NAMES = ("image", )
     FUNCTION = "generate"
     CATEGORY = "KJNodes/image"
     DESCRIPTION = """
-Creates a gradient image from coordinates.    
+Creates a gradient image from coordinates.
 """
 
     @classmethod
@@ -64,8 +73,8 @@ Creates a gradient image from coordinates.
                 "end_color": ("STRING", {"default": 'black'}),
                 "multiplier": ("FLOAT", {"default": 1.0, "min": 0.01, "max": 100.0, "step": 0.01}),
         },
-    } 
-    
+    }
+
     def generate(self, coordinates, frame_width, frame_height, start_color, end_color, multiplier):
         # Parse the coordinates
         coordinates = json.loads(coordinates.replace("'", '"'))
@@ -94,7 +103,7 @@ Creates a gradient image from coordinates.
                 projection = max(min(projection, gradient_length), 0)  # Clamp the projection value
 
                 # Calculate the blend factor for the current pixel
-                blend = projection * multiplier / gradient_length 
+                blend = projection * multiplier / gradient_length
 
                 # Determine the color of the current pixel
                 color = (

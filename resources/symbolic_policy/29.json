@@ -19,26 +19,11 @@
   },
   "152": {
     "inputs": {
-      "noise": [
-        "154",
-        0
-      ],
-      "guider": [
-        "158",
-        0
-      ],
-      "sampler": [
-        "151",
-        0
-      ],
-      "sigmas": [
-        "159",
-        0
-      ],
-      "latent_image": [
-        "157",
-        0
-      ]
+      "noise": ["154", 0],
+      "guider": ["158", 0],
+      "sampler": ["151", 0],
+      "sigmas": ["159", 0],
+      "latent_image": ["157", 0]
     },
     "class_type": "SamplerCustomAdvanced",
     "_meta": {
@@ -47,14 +32,8 @@
   },
   "153": {
     "inputs": {
-      "samples": [
-        "152",
-        0
-      ],
-      "vae": [
-        "163",
-        0
-      ]
+      "samples": ["152", 0],
+      "vae": ["163", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -93,14 +72,8 @@
   },
   "157": {
     "inputs": {
-      "width": [
-        "160",
-        0
-      ],
-      "height": [
-        "160",
-        1
-      ],
+      "width": ["160", 0],
+      "height": ["160", 1],
       "batch_size": 1
     },
     "class_type": "EmptyFlux2LatentImage",
@@ -111,18 +84,9 @@
   "158": {
     "inputs": {
       "cfg": 1,
-      "model": [
-        "155",
-        0
-      ],
-      "positive": [
-        "164",
-        0
-      ],
-      "negative": [
-        "161",
-        0
-      ]
+      "model": ["155", 0],
+      "positive": ["164", 0],
+      "negative": ["161", 0]
     },
     "class_type": "CFGGuider",
     "_meta": {
@@ -132,14 +96,8 @@
   "159": {
     "inputs": {
       "steps": 4,
-      "width": [
-        "160",
-        0
-      ],
-      "height": [
-        "160",
-        1
-      ]
+      "width": ["160", 0],
+      "height": ["160", 1]
     },
     "class_type": "Flux2Scheduler",
     "_meta": {
@@ -148,10 +106,7 @@
   },
   "160": {
     "inputs": {
-      "image": [
-        "162",
-        0
-      ]
+      "image": ["162", 0]
     },
     "class_type": "GetImageSize",
     "_meta": {
@@ -160,14 +115,8 @@
   },
   "161": {
     "inputs": {
-      "conditioning": [
-        "166",
-        0
-      ],
-      "latent": [
-        "167",
-        0
-      ]
+      "conditioning": ["166", 0],
+      "latent": ["167", 0]
     },
     "class_type": "ReferenceLatent",
     "_meta": {
@@ -179,10 +128,7 @@
       "upscale_method": "nearest-exact",
       "megapixels": 1,
       "resolution_steps": 1,
-      "image": [
-        "76",
-        0
-      ]
+      "image": ["76", 0]
     },
     "class_type": "ImageScaleToTotalPixels",
     "_meta": {
@@ -200,14 +146,8 @@
   },
   "164": {
     "inputs": {
-      "conditioning": [
-        "165",
-        0
-      ],
-      "latent": [
-        "167",
-        0
-      ]
+      "conditioning": ["165", 0],
+      "latent": ["167", 0]
     },
     "class_type": "ReferenceLatent",
     "_meta": {
@@ -217,10 +157,7 @@
   "165": {
     "inputs": {
       "text": "",
-      "clip": [
-        "156",
-        0
-      ]
+      "clip": ["156", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -229,10 +166,7 @@
   },
   "166": {
     "inputs": {
-      "conditioning": [
-        "165",
-        0
-      ]
+      "conditioning": ["165", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -241,14 +175,8 @@
   },
   "167": {
     "inputs": {
-      "pixels": [
-        "162",
-        0
-      ],
-      "vae": [
-        "163",
-        0
-      ]
+      "pixels": ["162", 0],
+      "vae": ["163", 0]
     },
     "class_type": "VAEEncode",
     "_meta": {
@@ -279,10 +207,7 @@
   "172": {
     "inputs": {
       "text": "",
-      "clip": [
-        "171",
-        0
-      ]
+      "clip": ["171", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -310,18 +235,9 @@
   "175": {
     "inputs": {
       "cfg": 1,
-      "model": [
-        "170",
-        0
-      ],
-      "positive": [
-        "184",
-        0
-      ],
-      "negative": [
-        "186",
-        0
-      ]
+      "model": ["170", 0],
+      "positive": ["184", 0],
+      "negative": ["186", 0]
     },
     "class_type": "CFGGuider",
     "_meta": {
@@ -331,14 +247,8 @@
   "176": {
     "inputs": {
       "steps": 4,
-      "width": [
-        "181",
-        0
-      ],
-      "height": [
-        "181",
-        1
-      ]
+      "width": ["181", 0],
+      "height": ["181", 1]
     },
     "class_type": "Flux2Scheduler",
     "_meta": {
@@ -356,10 +266,7 @@
   },
   "178": {
     "inputs": {
-      "conditioning": [
-        "172",
-        0
-      ]
+      "conditioning": ["172", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -368,26 +275,11 @@
   },
   "179": {
     "inputs": {
-      "noise": [
-        "174",
-        0
-      ],
-      "guider": [
-        "175",
-        0
-      ],
-      "sampler": [
-        "173",
-        0
-      ],
-      "sigmas": [
-        "176",
-        0
-      ],
-      "latent_image": [
-        "180",
-        0
-      ]
+      "noise": ["174", 0],
+      "guider": ["175", 0],
+      "sampler": ["173", 0],
+      "sigmas": ["176", 0],
+      "latent_image": ["180", 0]
     },
     "class_type": "SamplerCustomAdvanced",
     "_meta": {
@@ -396,14 +288,8 @@
   },
   "180": {
     "inputs": {
-      "width": [
-        "181",
-        0
-      ],
-      "height": [
-        "181",
-        1
-      ],
+      "width": ["181", 0],
+      "height": ["181", 1],
       "batch_size": 1
     },
     "class_type": "EmptyFlux2LatentImage",
@@ -413,10 +299,7 @@
   },
   "181": {
     "inputs": {
-      "image": [
-        "182",
-        0
-      ]
+      "image": ["182", 0]
     },
     "class_type": "GetImageSize",
     "_meta": {
@@ -428,10 +311,7 @@
       "upscale_method": "nearest-exact",
       "megapixels": 1,
       "resolution_steps": 1,
-      "image": [
-        "153",
-        0
-      ]
+      "image": ["153", 0]
     },
     "class_type": "ImageScaleToTotalPixels",
     "_meta": {
@@ -440,14 +320,8 @@
   },
   "183": {
     "inputs": {
-      "samples": [
-        "179",
-        0
-      ],
-      "vae": [
-        "177",
-        0
-      ]
+      "samples": ["179", 0],
+      "vae": ["177", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -456,14 +330,8 @@
   },
   "184": {
     "inputs": {
-      "conditioning": [
-        "172",
-        0
-      ],
-      "latent": [
-        "185",
-        0
-      ]
+      "conditioning": ["172", 0],
+      "latent": ["185", 0]
     },
     "class_type": "ReferenceLatent",
     "_meta": {
@@ -472,14 +340,8 @@
   },
   "185": {
     "inputs": {
-      "pixels": [
-        "182",
-        0
-      ],
-      "vae": [
-        "177",
-        0
-      ]
+      "pixels": ["182", 0],
+      "vae": ["177", 0]
     },
     "class_type": "VAEEncode",
     "_meta": {
@@ -488,14 +350,8 @@
   },
   "186": {
     "inputs": {
-      "conditioning": [
-        "178",
-        0
-      ],
-      "latent": [
-        "185",
-        0
-      ]
+      "conditioning": ["178", 0],
+      "latent": ["185", 0]
     },
     "class_type": "ReferenceLatent",
     "_meta": {
@@ -505,10 +361,7 @@
   "188": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "183",
-        0
-      ]
+      "images": ["183", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

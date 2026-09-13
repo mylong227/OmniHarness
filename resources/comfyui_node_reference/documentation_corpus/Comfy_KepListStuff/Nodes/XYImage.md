@@ -1,74 +1,85 @@
 ---
 tags:
-- DataVisualization
-- XYPlotData
+  - DataVisualization
+  - XYPlotData
 ---
 
 # XYImage
+
 ## Documentation
+
 - Class name: `XYImage`
 - Category: `List Stuff`
 - Output node: `True`
 
 The XYImage node is designed for the complex task of generating and manipulating images based on specified parameters, including splitting, flipping, and stacking images in batches. It supports the addition of labels on different axes and the ability to handle images in a multi-dimensional (z-axis enabled) context, making it versatile for various image processing and visualization needs.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A list of images to be processed. This parameter is crucial as it serves as the primary data that the node will manipulate through splitting, flipping, and stacking operations.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - A list of images to be processed. This parameter is crucial as it serves as the primary data that the node will manipulate through splitting, flipping, and stacking operations.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`splits`**
-    - Defines how the images should be split. This parameter directly influences the structure and layout of the output image, affecting its segmentation and organization.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - Defines how the images should be split. This parameter directly influences the structure and layout of the output image, affecting its segmentation and organization.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
 - **`flip_axis`**
-    - Specifies the axes along which the images should be flipped. This parameter allows for the adjustment of image orientation, enhancing the flexibility in image presentation and analysis.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the axes along which the images should be flipped. This parameter allows for the adjustment of image orientation, enhancing the flexibility in image presentation and analysis.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`batch_stack_mode`**
-    - Determines how images are stacked together in batches. This parameter is essential for defining the overall structure and layout of the combined image output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Determines how images are stacked together in batches. This parameter is essential for defining the overall structure and layout of the combined image output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`z_enabled`**
-    - Indicates whether the z-axis is enabled for image processing. This parameter enables multi-dimensional image handling, allowing for more complex image manipulations and visualizations.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Indicates whether the z-axis is enabled for image processing. This parameter enables multi-dimensional image handling, allowing for more complex image manipulations and visualizations.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
+
 ### Optional
+
 - **`x_main_label`**
-    - The main label for the x-axis. This optional parameter allows for the addition of descriptive labels to the x-axis, enhancing the interpretability of the image.
-    - Comfy dtype: `STRING`
-    - Python dtype: `Optional[List[str]]`
+  - The main label for the x-axis. This optional parameter allows for the addition of descriptive labels to the x-axis, enhancing the interpretability of the image.
+  - Comfy dtype: `STRING`
+  - Python dtype: `Optional[List[str]]`
 - **`y_main_label`**
-    - The main label for the y-axis. Similar to the x_main_label, this enhances the image's interpretability by adding descriptive labels to the y-axis.
-    - Comfy dtype: `STRING`
-    - Python dtype: `Optional[List[str]]`
+  - The main label for the y-axis. Similar to the x_main_label, this enhances the image's interpretability by adding descriptive labels to the y-axis.
+  - Comfy dtype: `STRING`
+  - Python dtype: `Optional[List[str]]`
 - **`z_main_label`**
-    - The main label for the z-axis, used when z_enabled is True. This enhances the multi-dimensional image's interpretability by adding descriptive labels to the z-axis.
-    - Comfy dtype: `STRING`
-    - Python dtype: `Optional[List[str]]`
+  - The main label for the z-axis, used when z_enabled is True. This enhances the multi-dimensional image's interpretability by adding descriptive labels to the z-axis.
+  - Comfy dtype: `STRING`
+  - Python dtype: `Optional[List[str]]`
 - **`x_labels`**
-    - Labels for each segment along the x-axis. This parameter adds detailed descriptions to segments of the image, aiding in its analysis and understanding.
-    - Comfy dtype: `*`
-    - Python dtype: `Optional[List[str]]`
+  - Labels for each segment along the x-axis. This parameter adds detailed descriptions to segments of the image, aiding in its analysis and understanding.
+  - Comfy dtype: `*`
+  - Python dtype: `Optional[List[str]]`
 - **`y_labels`**
-    - Labels for each segment along the y-axis, providing detailed descriptions for segments of the image similar to x_labels.
-    - Comfy dtype: `*`
-    - Python dtype: `Optional[List[str]]`
+  - Labels for each segment along the y-axis, providing detailed descriptions for segments of the image similar to x_labels.
+  - Comfy dtype: `*`
+  - Python dtype: `Optional[List[str]]`
 - **`z_labels`**
-    - Labels for each segment along the z-axis, used when z_enabled is True. This adds detailed descriptions to segments of the multi-dimensional image.
-    - Comfy dtype: `*`
-    - Python dtype: `Optional[List[str]]`
+  - Labels for each segment along the z-axis, used when z_enabled is True. This adds detailed descriptions to segments of the multi-dimensional image.
+  - Comfy dtype: `*`
+  - Python dtype: `Optional[List[str]]`
+
 ## Output types
+
 - **`Image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image after applying operations such as splitting, flipping, and stacking. This output is significant as it represents the culmination of the node's image manipulation capabilities, ready for further use or analysis.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The processed image after applying operations such as splitting, flipping, and stacking. This output is significant as it represents the culmination of the node's image manipulation capabilities, ready for further use or analysis.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class XYImage:
     def __init__(self) -> None:

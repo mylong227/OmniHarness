@@ -1,46 +1,57 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Custom CFG Keyframe 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_CustomCFGKeyframe`
 - Category: `Animate Diff 🎭🅐🅓/sample settings`
 - Output node: `False`
 
 The ADE_CustomCFGKeyframe node is designed for creating and managing custom configuration keyframes within the Animate Diff framework. It allows for the specification of various animation parameters at different points in the animation timeline, enabling precise control over the animation's behavior and appearance.
+
 ## Input types
+
 ### Required
+
 - **`cfg_multival`**
-    - Defines the configuration value(s) for the keyframe, which can influence various aspects of the animation process. It's crucial for tailoring the animation's characteristics at specific timeline segments.
-    - Comfy dtype: `MULTIVAL`
-    - Python dtype: `Union[float, torch.Tensor]`
+  - Defines the configuration value(s) for the keyframe, which can influence various aspects of the animation process. It's crucial for tailoring the animation's characteristics at specific timeline segments.
+  - Comfy dtype: `MULTIVAL`
+  - Python dtype: `Union[float, torch.Tensor]`
 - **`start_percent`**
-    - Specifies the starting point of the keyframe within the animation timeline as a percentage, allowing for precise timing control.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the starting point of the keyframe within the animation timeline as a percentage, allowing for precise timing control.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`guarantee_steps`**
-    - Determines the minimum number of steps for which the keyframe's configuration will be applied, ensuring a certain duration of effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the minimum number of steps for which the keyframe's configuration will be applied, ensuring a certain duration of effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`prev_custom_cfg`**
-    - Allows for the chaining of custom configuration keyframes by specifying a previous custom configuration group, enabling complex animation sequences.
-    - Comfy dtype: `CUSTOM_CFG`
-    - Python dtype: `CustomCFGKeyframeGroup or None`
+  - Allows for the chaining of custom configuration keyframes by specifying a previous custom configuration group, enabling complex animation sequences.
+  - Comfy dtype: `CUSTOM_CFG`
+  - Python dtype: `CustomCFGKeyframeGroup or None`
+
 ## Output types
+
 - **`custom_cfg`**
-    - Comfy dtype: `CUSTOM_CFG`
-    - Outputs a custom configuration object that encapsulates the defined keyframe, ready for integration into the animation pipeline.
-    - Python dtype: `CustomCFGKeyframeGroup`
+  - Comfy dtype: `CUSTOM_CFG`
+  - Outputs a custom configuration object that encapsulates the defined keyframe, ready for integration into the animation pipeline.
+  - Python dtype: `CustomCFGKeyframeGroup`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CustomCFGKeyframeNode:
     @classmethod

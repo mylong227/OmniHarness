@@ -1,37 +1,46 @@
 ---
 tags:
-- Color
-- ImageEnhancement
+  - Color
+  - ImageEnhancement
 ---
 
 # Cinematic Look (Mikey)
+
 ## Documentation
+
 - Class name: `CinematicLook`
 - Category: `Mikey/Image`
 - Output node: `False`
 
 The CinematicLook node is designed to transform images by applying a cinematic look, combining techniques from ImageOverlay and HALDClut. It enhances visuals to evoke a film-like aesthetic, incorporating various styles such as modern, retro, and black and white, among others.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image parameter represents the visual content to be transformed. It serves as the base for applying the cinematic look, determining the final aesthetic outcome.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image parameter represents the visual content to be transformed. It serves as the base for applying the cinematic look, determining the final aesthetic outcome.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`look`**
-    - The look parameter specifies the desired cinematic style to be applied to the image, such as 'modern', 'retro', or 'black and white'. It influences the visual characteristics and mood of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The look parameter specifies the desired cinematic style to be applied to the image, such as 'modern', 'retro', or 'black and white'. It influences the visual characteristics and mood of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`result_img`**
-    - Comfy dtype: `IMAGE`
-    - The output is a transformed image with the applied cinematic look, reflecting the specified style and enhancing the visual appeal.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a transformed image with the applied cinematic look, reflecting the specified style and enhancing the visual appeal.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CinematicLook:
     # combine function from ImageOverlay and HALDClut to create a cinematic look

@@ -1,23 +1,31 @@
 # Other detected licenses
+
 File name: `modules/interrogate/models/blip.py`
 
 **BSD-3-Clause**
+
 ```
  * SPDX-License-Identifier: BSD-3-Clause
 ```
+
 ```
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 ```
+
 File name: `modules/sdxl_prompt_styler/LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

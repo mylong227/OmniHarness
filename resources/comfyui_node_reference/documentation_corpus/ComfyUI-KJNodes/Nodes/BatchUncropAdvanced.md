@@ -1,71 +1,82 @@
 ---
 tags:
-- Crop
-- Image
-- ImageTransformation
+  - Crop
+  - Image
+  - ImageTransformation
 ---
 
 # Batch Uncrop Advanced
+
 ## Documentation
+
 - Class name: `BatchUncropAdvanced`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 The `BatchUncropAdvanced` node is designed for the advanced uncropping of images in a batch processing context. It integrates functionalities such as handling multiple images, applying border blending, rescaling crops, and utilizing combined or square masks to refine the uncropping process. This node aims to restore the original dimensions of cropped images while maintaining high fidelity to the original content, especially in scenarios where precise alignment and blending are crucial.
+
 ## Input types
+
 ### Required
+
 - **`original_images`**
-    - Specifies the original images before cropping. This input is crucial for the uncrop operation as it provides the reference for restoring the images to their original state.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - Specifies the original images before cropping. This input is crucial for the uncrop operation as it provides the reference for restoring the images to their original state.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`cropped_images`**
-    - Contains the images that have been cropped. These images are used alongside the original images to perform the uncropping process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - Contains the images that have been cropped. These images are used alongside the original images to perform the uncropping process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`cropped_masks`**
-    - Represents the masks of the cropped areas. These masks are essential for identifying the regions within the original images that need to be restored or blended during the uncropping.
-    - Comfy dtype: `MASK`
-    - Python dtype: `List[torch.Tensor]`
+  - Represents the masks of the cropped areas. These masks are essential for identifying the regions within the original images that need to be restored or blended during the uncropping.
+  - Comfy dtype: `MASK`
+  - Python dtype: `List[torch.Tensor]`
 - **`combined_crop_mask`**
-    - A single mask that combines all cropped areas. This mask is used to efficiently handle multiple cropped regions in a batch processing scenario.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - A single mask that combines all cropped areas. This mask is used to efficiently handle multiple cropped regions in a batch processing scenario.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`bboxes`**
-    - The bounding boxes that define the cropped areas within the original images. These are used to accurately place the cropped images back into their original context.
-    - Comfy dtype: `BBOX`
-    - Python dtype: `List[Tuple[int, int, int, int]]`
+  - The bounding boxes that define the cropped areas within the original images. These are used to accurately place the cropped images back into their original context.
+  - Comfy dtype: `BBOX`
+  - Python dtype: `List[Tuple[int, int, int, int]]`
 - **`border_blending`**
-    - Controls the blending of the borders during the uncropping process to ensure a seamless transition between the cropped and original image areas.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the blending of the borders during the uncropping process to ensure a seamless transition between the cropped and original image areas.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`crop_rescale`**
-    - Determines whether the cropped images should be rescaled to their original size during the uncropping process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines whether the cropped images should be rescaled to their original size during the uncropping process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`use_combined_mask`**
-    - Indicates whether the combined crop mask should be used for the uncropping process, allowing for more complex uncropping scenarios.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether the combined crop mask should be used for the uncropping process, allowing for more complex uncropping scenarios.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`use_square_mask`**
-    - Specifies whether a square mask should be used for uncropping, which can be beneficial in certain contexts for maintaining uniformity.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Specifies whether a square mask should be used for uncropping, which can be beneficial in certain contexts for maintaining uniformity.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`combined_bounding_box`**
-    - An optional parameter that defines a single bounding box encompassing all cropped areas, used for more advanced uncropping scenarios.
-    - Comfy dtype: `BBOX`
-    - Python dtype: `Optional[Tuple[int, int, int, int]]`
+  - An optional parameter that defines a single bounding box encompassing all cropped areas, used for more advanced uncropping scenarios.
+  - Comfy dtype: `BBOX`
+  - Python dtype: `Optional[Tuple[int, int, int, int]]`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output images after the uncropping process, showcasing the result of the operation with restored or blended areas.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The output images after the uncropping process, showcasing the result of the operation with restored or blended areas.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchUncropAdvanced:
 
@@ -74,7 +85,7 @@ class BatchUncropAdvanced:
         return {
             "required": {
                 "original_images": ("IMAGE",),
-                "cropped_images": ("IMAGE",), 
+                "cropped_images": ("IMAGE",),
                 "cropped_masks": ("MASK",),
                 "combined_crop_mask": ("MASK",),
                 "bboxes": ("BBOX",),
@@ -84,7 +95,7 @@ class BatchUncropAdvanced:
                 "use_square_mask": ("BOOLEAN", {"default": True}),
             },
             "optional": {
-                "combined_bounding_box": ("BBOX", {"default": None}),  
+                "combined_bounding_box": ("BBOX", {"default": None}),
             },
         }
 
@@ -94,7 +105,7 @@ class BatchUncropAdvanced:
 
 
     def uncrop(self, original_images, cropped_images, cropped_masks, combined_crop_mask, bboxes, border_blending, crop_rescale, use_combined_mask, use_square_mask, combined_bounding_box = None):
-        
+
         def inset_border(image, border_width=20, border_color=(0)):
             width, height = image.size
             bordered_image = Image.new(image.mode, (width, height), border_color)
@@ -121,7 +132,7 @@ class BatchUncropAdvanced:
             img = input_images[i]
             crop = crop_imgs[i]
             bbox = bboxes[i]
-            
+
             if use_combined_mask:
                 bb_x, bb_y, bb_width, bb_height = combined_bounding_box[0]
                 paste_region = bbox_to_region((bb_x, bb_y, bb_width, bb_height), img.size)
@@ -130,7 +141,7 @@ class BatchUncropAdvanced:
                 bb_x, bb_y, bb_width, bb_height = bbox
                 paste_region = bbox_to_region((bb_x, bb_y, bb_width, bb_height), img.size)
                 mask = cropped_masks[i]
-            
+
             # scale paste_region
             scale_x = scale_y = crop_rescale
             paste_region = (round(paste_region[0]*scale_x), round(paste_region[1]*scale_y), round(paste_region[2]*scale_x), round(paste_region[3]*scale_y))
@@ -162,9 +173,9 @@ class BatchUncropAdvanced:
             mask = mask.filter(ImageFilter.BoxBlur(radius=blend_ratio / 4))
             mask = mask.filter(ImageFilter.GaussianBlur(radius=blend_ratio / 4))
 
-            blend.paste(crop_img, paste_region) 
+            blend.paste(crop_img, paste_region)
             blend.putalpha(mask)
-            
+
             img = Image.alpha_composite(img.convert("RGBA"), blend)
             out_images.append(img.convert("RGB"))
 

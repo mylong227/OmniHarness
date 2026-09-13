@@ -1,34 +1,43 @@
 ---
 tags:
-- GridLayout
-- Image
-- Tiled
+  - GridLayout
+  - Image
+  - Tiled
 ---
 
 # FlatLatentsIntoSingleGrid
+
 ## Documentation
+
 - Class name: `FlatLatentsIntoSingleGrid`
 - Category: `Bmad/latent`
 - Output node: `False`
 
 The FlatLatentsIntoSingleGrid node is designed to transform a batch of latent representations into a single, larger grid layout. This process involves rearranging individual latent samples into a grid pattern, effectively creating a single, unified latent representation that encapsulates the entire batch. This node is particularly useful in scenarios where spatial arrangement of latent samples is necessary for further processing or visualization.
+
 ## Input types
+
 ### Required
+
 - **`latents`**
-    - The 'latents' parameter represents the batch of latent representations to be transformed. It is crucial for the node's operation as it provides the raw material that will be rearranged into the grid layout. The transformation process relies on the structure and content of these latents to generate the unified grid.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The 'latents' parameter represents the batch of latent representations to be transformed. It is crucial for the node's operation as it provides the raw material that will be rearranged into the grid layout. The transformation process relies on the structure and content of these latents to generate the unified grid.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The output is a single, unified latent representation in the form of a grid. This grid is composed of the input latent samples rearranged according to the specified grid dimensions, serving as a consolidated version of the input batch for further use.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - The output is a single, unified latent representation in the form of a grid. This grid is composed of the input latent samples rearranged according to the specified grid dimensions, serving as a consolidated version of the input batch for further use.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FlatLatentsIntoSingleGrid:
     @classmethod

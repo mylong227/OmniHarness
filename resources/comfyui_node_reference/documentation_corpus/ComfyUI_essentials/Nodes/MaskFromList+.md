@@ -1,46 +1,57 @@
 ---
 tags:
-- Mask
-- MaskList
+  - Mask
+  - MaskList
 ---
 
 # 🔧 Mask From List
+
 ## Documentation
+
 - Class name: `MaskFromList+`
 - Category: `essentials/mask`
 - Output node: `False`
 
 The MaskFromList+ node generates a mask based on a list of values, allowing for the creation of custom masks with specified dimensions and values. It supports both numerical and string inputs for mask values, providing flexibility in defining the mask's content.
+
 ## Input types
+
 ### Required
+
 - **`width`**
-    - Specifies the width of the generated mask. It determines the horizontal dimension of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the generated mask. It determines the horizontal dimension of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Specifies the height of the generated mask. It determines the vertical dimension of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the height of the generated mask. It determines the vertical dimension of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`values`**
-    - A list of numerical values (integers or floats) or a single numerical value used to populate the mask. This input allows for the customization of the mask's intensity or transparency.
-    - Comfy dtype: `INT,FLOAT`
-    - Python dtype: `List[Union[int, float]] | Union[int, float]`
+  - A list of numerical values (integers or floats) or a single numerical value used to populate the mask. This input allows for the customization of the mask's intensity or transparency.
+  - Comfy dtype: `INT,FLOAT`
+  - Python dtype: `List[Union[int, float]] | Union[int, float]`
 - **`str_values`**
-    - A string representation of numerical values, separated by commas, used to populate the mask. This provides an alternative method for defining the mask's content.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string representation of numerical values, separated by commas, used to populate the mask. This provides an alternative method for defining the mask's content.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The output is a mask created from the provided list of values, with the specified dimensions and value intensities.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output is a mask created from the provided list of values, with the specified dimensions and value intensities.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskFromList:
     @classmethod
@@ -74,10 +85,10 @@ class MaskFromList:
 
         if out == []:
             raise ValueError("No values provided")
-        
+
         out = torch.tensor(out).float().clamp(0.0, 1.0)
         out = out.view(-1, 1, 1).expand(-1, height, width)
-        
+
         values = None
         str_values = ""
 

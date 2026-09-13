@@ -1,51 +1,60 @@
 # Face Warp
+
 ## Documentation
+
 - Class name: `FaceWarp`
 - Category: `FaceAnalysis`
 - Output node: `False`
 
 The FaceWarp node is designed to perform facial warping between two images by utilizing facial landmarks to align features from a source image to a target image. This process involves calculating a transformation matrix based on the landmarks, applying the transformation to warp the source image and its mask to match the target image's geometry, and blending the images for a seamless transition.
+
 ## Input types
+
 ### Required
+
 - **`analysis_models`**
-    - A collection of models used for analyzing facial features, including landmark detection and other preprocessing tasks. It plays a crucial role in determining the transformation matrix for warping.
-    - Comfy dtype: `ANALYSIS_MODELS`
-    - Python dtype: `dict`
+  - A collection of models used for analyzing facial features, including landmark detection and other preprocessing tasks. It plays a crucial role in determining the transformation matrix for warping.
+  - Comfy dtype: `ANALYSIS_MODELS`
+  - Python dtype: `dict`
 - **`image_from`**
-    - The source image from which facial features will be warped.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The source image from which facial features will be warped.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`image_to`**
-    - The target image to which the source image's facial features will be aligned.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The target image to which the source image's facial features will be aligned.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`keypoints`**
-    - Specifies the set of facial landmarks to be used for the warping process, influencing the precision and areas of alignment.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Specifies the set of facial landmarks to be used for the warping process, influencing the precision and areas of alignment.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`grow`**
-    - A parameter that controls the expansion of the mask around the detected facial landmarks, affecting the area of the image to be warped.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A parameter that controls the expansion of the mask around the detected facial landmarks, affecting the area of the image to be warped.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`blur`**
-    - Determines the level of blurring applied to the edges of the warped image and mask, enhancing the blending effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the level of blurring applied to the edges of the warped image and mask, enhancing the blending effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image after applying the warping and blending processes, where the source image's features have been aligned to the target image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image after applying the warping and blending processes, where the source image's features have been aligned to the target image.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The mask generated during the warping process, indicating the areas of the source image that have been transformed and blended into the target image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The mask generated during the warping process, indicating the areas of the source image that have been transformed and blended into the target image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FaceWarp:
     @classmethod
@@ -87,7 +96,7 @@ class FaceWarp:
         # get the transformation matrix
         from_points = np.array(shape_from, dtype=np.float64)
         to_points = np.array(shape_to, dtype=np.float64)
-        
+
         matrix = cv2.estimateAffine2D(from_points, to_points)[0]
         output = cv2.warpAffine(image_from, matrix, (image_to.shape[1], image_to.shape[0]), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
 
@@ -101,7 +110,7 @@ class FaceWarp:
 
         output = image_to_tensor(output).unsqueeze(0)
         image_to = image_to_tensor(image_to).unsqueeze(0)
-        
+
         if grow != 0:
             output_mask = expand_mask(output_mask.squeeze(-1), grow, True).unsqueeze(-1)
 

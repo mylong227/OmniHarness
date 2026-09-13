@@ -1,64 +1,73 @@
 ---
 tags:
-- Text
+  - Text
 ---
 
 # Text Combinations 3 (Mikey)
+
 ## Documentation
+
 - Class name: `TextCombinations3`
 - Category: `Mikey/Text`
 - Output node: `False`
 
 This node is designed to generate a variety of text combinations based on predefined text inputs and operations. It allows for the dynamic creation of text outputs by applying specified operations to the input texts, potentially incorporating randomness through a seed value.
+
 ## Input types
+
 ### Required
+
 - **`text1`**
-    - The first text input for combination. It serves as a foundational element for generating text outputs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The first text input for combination. It serves as a foundational element for generating text outputs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text2`**
-    - The second text input for combination. It complements text1 in generating diverse text outputs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The second text input for combination. It complements text1 in generating diverse text outputs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text3`**
-    - The third text input for combination. It adds an additional layer of complexity and variation to the text outputs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The third text input for combination. It adds an additional layer of complexity and variation to the text outputs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`operation`**
-    - Specifies the operation to be applied to the input texts, determining how they are combined into the final output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the operation to be applied to the input texts, determining how they are combined into the final output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`delimiter`**
-    - The delimiter used to separate text components in the final output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The delimiter used to separate text components in the final output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`use_seed`**
-    - Determines whether a seed value is used to introduce randomness into the operation selection process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - Determines whether a seed value is used to introduce randomness into the operation selection process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`seed`**
-    - The seed value used for randomizing the operation selection, if enabled.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The seed value used for randomizing the operation selection, if enabled.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`output1`**
-    - Comfy dtype: `STRING`
-    - The first generated text output based on the specified operation and inputs.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The first generated text output based on the specified operation and inputs.
+  - Python dtype: `str`
 - **`output2`**
-    - Comfy dtype: `STRING`
-    - The second generated text output, providing an additional variant based on the operation and inputs.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The second generated text output, providing an additional variant based on the operation and inputs.
+  - Python dtype: `str`
 - **`output3`**
-    - Comfy dtype: `STRING`
-    - The third generated text output, further expanding the range of possible combinations.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The third generated text output, further expanding the range of possible combinations.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TextCombinations3:
     texts = ['text1', 'text2', 'text3', 'text1 + text2', 'text1 + text3', 'text2 + text3', 'text1 + text2 + text3']

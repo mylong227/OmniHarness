@@ -1,55 +1,64 @@
 ---
 tags:
-- ImageResize
-- ImageScaling
-- ImageSize
-- ImageTransformation
+  - ImageResize
+  - ImageScaling
+  - ImageSize
+  - ImageTransformation
 ---
 
 # Constrain Image for Video 🐍
+
 ## Documentation
+
 - Class name: `ConstrainImageforVideo_pysssss`
 - Category: `image`
 - Output node: `False`
 
 This node is designed to adjust the dimensions of an image to fit within specified maximum and minimum sizes, ensuring the aspect ratio is maintained. It offers the option to crop the image if necessary to meet the size constraints.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The images to be processed. They are adjusted to fit within the specified size constraints while maintaining their aspect ratio.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The images to be processed. They are adjusted to fit within the specified size constraints while maintaining their aspect ratio.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`max_width`**
-    - The maximum width allowed for the images. Images wider than this will be resized to this width.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum width allowed for the images. Images wider than this will be resized to this width.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`max_height`**
-    - The maximum height allowed for the images. Images taller than this will be resized to this height.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum height allowed for the images. Images taller than this will be resized to this height.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`min_width`**
-    - The minimum width allowed for the images. Images narrower than this will be resized to this width.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The minimum width allowed for the images. Images narrower than this will be resized to this width.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`min_height`**
-    - The minimum height allowed for the images. Images shorter than this will be resized to this height.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The minimum height allowed for the images. Images shorter than this will be resized to this height.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`crop_if_required`**
-    - Determines whether images should be cropped to meet the size constraints if resizing alone is insufficient.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - Determines whether images should be cropped to meet the size constraints if resizing alone is insufficient.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The processed images, resized and optionally cropped to fit within the specified size constraints.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The processed images, resized and optionally cropped to fit within the specified size constraints.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ConstrainImageforVideo:
     """
@@ -109,7 +118,7 @@ class ConstrainImageforVideo:
             resized_image = torch.from_numpy(resized_image)[None,]
             results.append(resized_image)
             all_images = torch.cat(results, dim=0)
-                
+
         return (all_images, all_images.size(0),)
 
 ```

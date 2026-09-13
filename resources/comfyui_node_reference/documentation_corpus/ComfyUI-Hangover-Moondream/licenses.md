@@ -1,7 +1,9 @@
 # Other detected licenses
+
 File name: `LICENSE.md`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -205,12 +207,15 @@ File name: `LICENSE.md`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 File name: `README.md`
 
 **Apache-2.0**
+
 ```
 Apache 2.0](
 ```
+
 ```
 https://choosealicense.com/licenses/apache-2.0/).
 ```

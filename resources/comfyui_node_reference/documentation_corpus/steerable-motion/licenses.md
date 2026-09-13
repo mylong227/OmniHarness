@@ -1,34 +1,47 @@
 # Main License
+
 File name: `LICENSE.txt`
 
 **LicenseRef-scancode-free-unknown**
+
 ```
 open source license
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
 Commercial Use
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 distributed under
 ```
+
 ```
 Subject to the terms and conditions
 ```
+
 **LicenseRef-scancode-warranty-disclaimer**
+
 ```
 Warranty
 
 THE PROGRAM IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF
 ```
+
 # Other detected licenses
+
 File name: `imports/ComfyUI_Frame_Interpolation/LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -48,9 +61,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 File name: `imports/ComfyUI_IPAdapter_plus/LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007

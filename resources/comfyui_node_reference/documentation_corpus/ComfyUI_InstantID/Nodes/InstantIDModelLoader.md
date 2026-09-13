@@ -1,32 +1,41 @@
 ---
 tags:
-- IdentityImage
+  - IdentityImage
 ---
 
 # Load InstantID Model
+
 ## Documentation
+
 - Class name: `InstantIDModelLoader`
 - Category: `InstantID`
 - Output node: `False`
 
 The InstantIDModelLoader node is designed to load and initialize the InstantID model from a specified file path. It prepares the model for further processing or analysis by loading its checkpoint and configuring it based on the file type, ensuring compatibility and readiness for InstantID operations.
+
 ## Input types
+
 ### Required
+
 - **`instantid_file`**
-    - Specifies the file path to the InstantID model to be loaded. This parameter is crucial for locating and loading the model's checkpoint for initialization and further use.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the file path to the InstantID model to be loaded. This parameter is crucial for locating and loading the model's checkpoint for initialization and further use.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`instantid`**
-    - Comfy dtype: `INSTANTID`
-    - Returns the loaded and initialized InstantID model, ready for further processing or analysis within the InstantID framework.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `INSTANTID`
+  - Returns the loaded and initialized InstantID model, ready for further processing or analysis within the InstantID framework.
+  - Python dtype: `Dict[str, Any]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class InstantIDModelLoader:
     @classmethod

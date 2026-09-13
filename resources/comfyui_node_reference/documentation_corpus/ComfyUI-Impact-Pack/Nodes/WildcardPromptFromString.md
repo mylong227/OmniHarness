@@ -1,51 +1,60 @@
 # Wildcard Prompt from String
+
 ## Documentation
+
 - Class name: `WildcardPromptFromString`
 - Category: `ImpactPack/Util`
 - Output node: `False`
 
 This node is designed to generate and process text prompts with wildcards, enabling dynamic content creation by replacing specified wildcard patterns with appropriate values. It facilitates the customization and variation of text inputs for further processing or output generation, emphasizing flexibility and adaptability in text manipulation.
+
 ## Input types
+
 ### Required
+
 - **`string`**
-    - The primary text input that may contain wildcards or placeholders for dynamic content generation.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text input that may contain wildcards or placeholders for dynamic content generation.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`delimiter`**
-    - Specifies the delimiter used to identify or separate wildcards within the text, enabling precise pattern recognition and processing.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the delimiter used to identify or separate wildcards within the text, enabling precise pattern recognition and processing.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`prefix_all`**
-    - A prefix applied to all wildcards before processing, aiding in their identification and manipulation within the text.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix applied to all wildcards before processing, aiding in their identification and manipulation within the text.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`postfix_all`**
-    - A postfix applied to all wildcards after processing, ensuring that replaced content is correctly formatted or distinguished.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A postfix applied to all wildcards after processing, ensuring that replaced content is correctly formatted or distinguished.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`restrict_to_tags`**
-    - Limits wildcard processing to only those tags specified, allowing for targeted content generation and customization.
-    - Comfy dtype: `STRING`
-    - Python dtype: `list`
+  - Limits wildcard processing to only those tags specified, allowing for targeted content generation and customization.
+  - Comfy dtype: `STRING`
+  - Python dtype: `list`
 - **`exclude_tags`**
-    - Excludes specific tags from wildcard processing, providing control over which content remains static.
-    - Comfy dtype: `STRING`
-    - Python dtype: `list`
+  - Excludes specific tags from wildcard processing, providing control over which content remains static.
+  - Comfy dtype: `STRING`
+  - Python dtype: `list`
+
 ## Output types
+
 - **`wildcard`**
-    - Comfy dtype: `STRING`
-    - The processed text with wildcards replaced by their corresponding values, ready for use in various applications.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The processed text with wildcards replaced by their corresponding values, ready for use in various applications.
+  - Python dtype: `str`
 - **`segs_labels`**
-    - Comfy dtype: `STRING`
-    - Labels or segments generated during the wildcard processing, offering insights into the structure and content of the processed text.
-    - Python dtype: `list`
+  - Comfy dtype: `STRING`
+  - Labels or segments generated during the wildcard processing, offering insights into the structure and content of the processed text.
+  - Python dtype: `list`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class WildcardPromptFromString:
     @classmethod

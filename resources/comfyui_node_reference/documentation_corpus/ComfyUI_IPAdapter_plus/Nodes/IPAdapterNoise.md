@@ -1,46 +1,57 @@
 ---
 tags:
-- ImageNoise
-- Noise
+  - ImageNoise
+  - Noise
 ---
 
 # IPAdapter Noise
+
 ## Documentation
+
 - Class name: `IPAdapterNoise`
 - Category: `ipadapter/utils`
 - Output node: `False`
 
 The IPAdapterNoise node specializes in adding noise to images, offering customizable noise types, strengths, and blur levels. It can optionally work with existing images to enhance or modify their appearance with noise, providing a versatile tool for image processing tasks that require noise injection for effects or testing purposes.
+
 ## Input types
+
 ### Required
+
 - **`type`**
-    - Specifies the type of noise to be added to the image, affecting the visual characteristics of the noise applied.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the type of noise to be added to the image, affecting the visual characteristics of the noise applied.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`strength`**
-    - Determines the intensity of the noise added to the image, allowing for control over how pronounced the noise effect will be.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the intensity of the noise added to the image, allowing for control over how pronounced the noise effect will be.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`blur`**
-    - Applies a Gaussian blur to the noise, with the ability to adjust the level of blur for a smoother or more subtle noise effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Applies a Gaussian blur to the noise, with the ability to adjust the level of blur for a smoother or more subtle noise effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`image_optional`**
-    - An optional parameter that allows for the addition of noise to an existing image, enhancing or altering its appearance with noise.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Optional[torch.Tensor]`
+  - An optional parameter that allows for the addition of noise to an existing image, enhancing or altering its appearance with noise.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Optional[torch.Tensor]`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a modified image tensor with applied noise, potentially blurred, reflecting the specified noise characteristics.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a modified image tensor with applied noise, potentially blurred, reflecting the specified noise characteristics.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterNoise:
     @classmethod

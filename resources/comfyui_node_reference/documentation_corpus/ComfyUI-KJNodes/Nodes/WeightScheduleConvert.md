@@ -1,74 +1,85 @@
 ---
 tags:
-- DataTypeConversion
-- NumericConversion
+  - DataTypeConversion
+  - NumericConversion
 ---
 
 # Weight Schedule Convert
+
 ## Documentation
+
 - Class name: `WeightScheduleConvert`
 - Category: `KJNodes/weights`
 - Output node: `False`
 
 The WeightScheduleConvert node is designed for the conversion of value lists or series into different types, accommodating various data formats for further processing. It enables the transformation of input data to a specified output type, including options like matching the input format, converting to lists, pandas series, or tensors. This functionality is crucial for ensuring data compatibility and optimizing performance across different stages of a computational workflow.
+
 ## Input types
+
 ### Required
+
 - **`input_values`**
-    - Specifies the initial set of values to be converted. Its format and type are crucial for determining the appropriate conversion process and the resulting output type.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the initial set of values to be converted. Its format and type are crucial for determining the appropriate conversion process and the resulting output type.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`output_type`**
-    - Determines the desired format of the output, allowing for conversion to formats such as 'match_input', 'list', 'pandas series', or 'tensor'. This choice affects how the input values are transformed and represented in the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the desired format of the output, allowing for conversion to formats such as 'match_input', 'list', 'pandas series', or 'tensor'. This choice affects how the input values are transformed and represented in the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`invert`**
-    - A boolean flag that, when set, may alter the conversion process by inverting certain aspects of the input data, depending on the specific implementation.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that, when set, may alter the conversion process by inverting certain aspects of the input data, depending on the specific implementation.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`repeat`**
-    - An integer specifying how many times the input values should be repeated in the output. This parameter can be used to expand the size of the output dataset.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An integer specifying how many times the input values should be repeated in the output. This parameter can be used to expand the size of the output dataset.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`remap_to_frames`**
-    - An optional integer parameter that specifies if and how the input values should be remapped to a specific number of frames, affecting the temporal dimension of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An optional integer parameter that specifies if and how the input values should be remapped to a specific number of frames, affecting the temporal dimension of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`interpolation_curve`**
-    - An optional floating-point parameter that defines the curve used for interpolating between input values, influencing the smoothness and dynamics of the conversion process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - An optional floating-point parameter that defines the curve used for interpolating between input values, influencing the smoothness and dynamics of the conversion process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`remap_values`**
-    - A boolean flag indicating whether the input values should be remapped according to specified minimum and maximum values, enabling normalization or other forms of value adjustment.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the input values should be remapped according to specified minimum and maximum values, enabling normalization or other forms of value adjustment.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`remap_min`**
-    - An optional floating-point parameter specifying the minimum value to which input values can be remapped, used in conjunction with 'remap_max' to define the range of the remapping process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - An optional floating-point parameter specifying the minimum value to which input values can be remapped, used in conjunction with 'remap_max' to define the range of the remapping process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`remap_max`**
-    - An optional floating-point parameter specifying the maximum value to which input values can be remapped, used in conjunction with 'remap_min' to define the range of the remapping process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - An optional floating-point parameter specifying the maximum value to which input values can be remapped, used in conjunction with 'remap_min' to define the range of the remapping process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The output can include floating-point numbers, representing transformed or converted values based on the specified output type.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The output can include floating-point numbers, representing transformed or converted values based on the specified output type.
+  - Python dtype: `float`
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The output may contain strings, particularly when the output type is set to formats like 'list' or 'pandas series' that involve textual representation.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output may contain strings, particularly when the output type is set to formats like 'list' or 'pandas series' that involve textual representation.
+  - Python dtype: `str`
 - **`int`**
-    - Comfy dtype: `INT`
-    - The output can include integers, which may result from certain types of conversions or processing applied to the input values.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The output can include integers, which may result from certain types of conversions or processing applied to the input values.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class WeightScheduleConvert:
 
@@ -78,7 +89,7 @@ class WeightScheduleConvert:
             "required": {
                 "input_values": ("FLOAT", {"default": 0.0, "forceInput": True}),
                 "output_type": (
-                [   
+                [
                     'match_input',
                     'list',
                     'pandas series',
@@ -97,13 +108,13 @@ class WeightScheduleConvert:
                 "remap_min": ("FLOAT", {"default": 0.0, "min": -100000, "max": 100000.0, "step": 0.01}),
                 "remap_max": ("FLOAT", {"default": 1.0, "min": -100000, "max": 100000.0, "step": 0.01}),
              },
-             
+
         }
     RETURN_TYPES = ("FLOAT", "STRING", "INT",)
     FUNCTION = "execute"
     CATEGORY = "KJNodes/weights"
     DESCRIPTION = """
-Converts different value lists/series to another type.  
+Converts different value lists/series to another type.
 """
 
     def detect_input_type(self, input_values):
@@ -152,7 +163,7 @@ Converts different value lists/series to another type.
                 normalized_values = [(value - min_val) / (max_val - min_val) for value in float_values]
                 # Interpolate the normalized values to the new frame count
                 float_values = np.interp(np.linspace(0, 1, remap_to_frames), np.linspace(0, 1, len(normalized_values)), normalized_values).tolist()
-       
+
             float_values = float_values * repeat
             if remap_values:
                 float_values = self.remap_values(float_values, remap_min, remap_max)
@@ -164,24 +175,24 @@ Converts different value lists/series to another type.
         elif output_type == 'tensor':
             if input_type == 'pandas series':
                 out = torch.tensor(float_values.values, dtype=torch.float32),
-            else:   
+            else:
                 out = torch.tensor(float_values, dtype=torch.float32),
         elif output_type == 'match_input':
             out = float_values,
         return (out, [str(value) for value in float_values], [int(value) for value in float_values])
-    
+
     def remap_values(self, values, target_min, target_max):
         # Determine the current range
         current_min = min(values)
         current_max = max(values)
         current_range = current_max - current_min
-        
+
         # Determine the target range
         target_range = target_max - target_min
-        
+
         # Perform the linear interpolation for each value
         remapped_values = [(value - current_min) / current_range * target_range + target_min for value in values]
-        
+
         return remapped_values
 
 ```

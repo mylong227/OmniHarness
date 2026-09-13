@@ -1,48 +1,59 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
-- LineExtraction
+  - DepthMap
+  - Image
+  - ImagePreprocessing
+  - LineExtraction
 ---
 
 # Diffusion Edge (batch size ↑ => speed ↑, VRAM ↑)
+
 ## Documentation
+
 - Class name: `DiffusionEdge_Preprocessor`
 - Category: `ControlNet Preprocessors/Line Extractors`
 - Output node: `False`
 
 The DiffusionEdge_Preprocessor node is designed for preprocessing images to extract edge maps using a diffusion-based edge detection model. It supports environment-specific model loading and adjustable patch processing for optimized performance.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for edge detection.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `PIL.Image`
+  - The input image to be processed for edge detection.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `PIL.Image`
+
 ### Optional
+
 - **`environment`**
-    - Specifies the environment context ('indoor', 'urban', 'natural') for the edge detection model, influencing the model's behavior and output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the environment context ('indoor', 'urban', 'natural') for the edge detection model, influencing the model's behavior and output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`patch_batch_size`**
-    - Determines the batch size for processing image patches, affecting the speed and VRAM usage of the edge detection operation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the batch size for processing image patches, affecting the speed and VRAM usage of the edge detection operation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resolution`**
-    - The resolution to which the input image is resized before edge detection, affecting the detail level of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input image is resized before edge detection, affecting the detail level of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image representing the detected edges within the input image, suitable for further processing or visualization.
-    - Python dtype: `PIL.Image`
+  - Comfy dtype: `IMAGE`
+  - The output is an image representing the detected edges within the input image, suitable for further processing or visualization.
+  - Python dtype: `PIL.Image`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DiffusionEdge_Preprocessor:
     @classmethod

@@ -1,53 +1,64 @@
 ---
 tags:
-- DataTypeConversion
-- Math
-- MathematicalExpressions
+  - DataTypeConversion
+  - Math
+  - MathematicalExpressions
 ---
 
 # Math Expression 🐍
+
 ## Documentation
+
 - Class name: `MathExpression_pysssss`
 - Category: `utils`
 - Output node: `True`
 
 The MathExpression node evaluates mathematical expressions dynamically, supporting basic arithmetic, comparisons, and logical operations. It can handle variables and function calls within the expression, offering a flexible way to compute results based on input parameters.
+
 ## Input types
+
 ### Required
+
 - **`expression`**
-    - The mathematical expression to be evaluated. Supports arithmetic, comparisons, logical operations, and function calls, with the ability to include variables 'a', 'b', and 'c'.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The mathematical expression to be evaluated. Supports arithmetic, comparisons, logical operations, and function calls, with the ability to include variables 'a', 'b', and 'c'.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`a`**
-    - An optional variable that can be used within the expression. Supports integers and floats.
-    - Comfy dtype: `INT,FLOAT,IMAGE,LATENT`
-    - Python dtype: `Union[int, float]`
+  - An optional variable that can be used within the expression. Supports integers and floats.
+  - Comfy dtype: `INT,FLOAT,IMAGE,LATENT`
+  - Python dtype: `Union[int, float]`
 - **`b`**
-    - An optional variable that can be used within the expression. Supports integers and floats.
-    - Comfy dtype: `INT,FLOAT,IMAGE,LATENT`
-    - Python dtype: `Union[int, float]`
+  - An optional variable that can be used within the expression. Supports integers and floats.
+  - Comfy dtype: `INT,FLOAT,IMAGE,LATENT`
+  - Python dtype: `Union[int, float]`
 - **`c`**
-    - An optional variable that can be used within the expression. Supports integers and floats.
-    - Comfy dtype: `INT,FLOAT,IMAGE,LATENT`
-    - Python dtype: `Union[int, float]`
+  - An optional variable that can be used within the expression. Supports integers and floats.
+  - Comfy dtype: `INT,FLOAT,IMAGE,LATENT`
+  - Python dtype: `Union[int, float]`
+
 ## Output types
+
 - **`int`**
-    - Comfy dtype: `INT`
-    - The integer part of the evaluated result, representing the outcome of the mathematical expression as an integer.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The integer part of the evaluated result, representing the outcome of the mathematical expression as an integer.
+  - Python dtype: `int`
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The floating-point part of the evaluated result, representing the outcome of the mathematical expression as a float.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The floating-point part of the evaluated result, representing the outcome of the mathematical expression as a float.
+  - Python dtype: `float`
 - **`ui`**
-    - A user interface element that displays the evaluated result of the mathematical expression.
+  - A user interface element that displays the evaluated result of the mathematical expression.
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MathExpression:
 

@@ -1,57 +1,66 @@
 ---
 tags:
-- Prompt
-- Text
+  - Prompt
+  - Text
 ---
 
 # Wildcard And Lora Syntax Processor (Mikey)
+
 ## Documentation
+
 - Class name: `WildcardAndLoraSyntaxProcessor`
 - Category: `Mikey/Lora`
 - Output node: `False`
 
 The WildcardAndLoraSyntaxProcessor node is designed to process text inputs by identifying and handling both wildcard and Lora syntax patterns. This dual functionality allows for the dynamic modification of text based on predefined patterns and the integration of Lora model adjustments directly within text inputs, facilitating a more flexible and powerful text manipulation and model interaction capability.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The 'model' parameter represents the model that may be adjusted based on Lora syntax within the input text, allowing for dynamic model manipulation.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `object`
+  - The 'model' parameter represents the model that may be adjusted based on Lora syntax within the input text, allowing for dynamic model manipulation.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `object`
 - **`clip`**
-    - The 'clip' parameter represents the clip model that may be adjusted alongside the main model in response to Lora syntax within the input text, facilitating coordinated model adjustments.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `object`
+  - The 'clip' parameter represents the clip model that may be adjusted alongside the main model in response to Lora syntax within the input text, facilitating coordinated model adjustments.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `object`
 - **`text`**
-    - The 'text' parameter is the primary input text that the node processes. It is crucial for the operation as it contains the wildcard and Lora syntax patterns that need to be identified and handled. The processing of this text enables the dynamic modification and model interaction based on the specified patterns.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'text' parameter is the primary input text that the node processes. It is crucial for the operation as it contains the wildcard and Lora syntax patterns that need to be identified and handled. The processing of this text enables the dynamic modification and model interaction based on the specified patterns.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`seed`**
-    - The 'seed' parameter is used to introduce a deterministic element in the processing of wildcard patterns, ensuring reproducibility of results across different runs with the same input.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'seed' parameter is used to introduce a deterministic element in the processing of wildcard patterns, ensuring reproducibility of results across different runs with the same input.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The 'model' output is the potentially modified model after processing Lora syntax adjustments specified in the input text.
-    - Python dtype: `object`
+  - Comfy dtype: `MODEL`
+  - The 'model' output is the potentially modified model after processing Lora syntax adjustments specified in the input text.
+  - Python dtype: `object`
 - **`clip`**
-    - Comfy dtype: `CLIP`
-    - The 'clip' output is the potentially modified clip model after processing Lora syntax adjustments specified in the input text.
-    - Python dtype: `object`
+  - Comfy dtype: `CLIP`
+  - The 'clip' output is the potentially modified clip model after processing Lora syntax adjustments specified in the input text.
+  - Python dtype: `object`
 - **`text`**
-    - Comfy dtype: `STRING`
-    - The output 'text' is the modified version of the input text after the wildcard and Lora syntax patterns have been processed. This includes the application of dynamic modifications and model adjustments specified within the input text.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output 'text' is the modified version of the input text after the wildcard and Lora syntax patterns have been processed. This includes the application of dynamic modifications and model adjustments specified within the input text.
+  - Python dtype: `str`
 - **`unprocessed_text`**
-    - Comfy dtype: `STRING`
-    - The 'unprocessed_text' output provides the original input text before any processing of wildcard or Lora syntax patterns, preserving the initial state for reference or further use.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The 'unprocessed_text' output provides the original input text before any processing of wildcard or Lora syntax patterns, preserving the initial state for reference or further use.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class WildcardAndLoraSyntaxProcessor:
     def __init__(self):

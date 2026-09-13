@@ -1,38 +1,47 @@
 ---
 tags:
-- ImageEnhancement
-- ImageTransformation
-- VisualEffects
+  - ImageEnhancement
+  - ImageTransformation
+  - VisualEffects
 ---
 
 # Image Contrast
+
 ## Documentation
+
 - Class name: `JWImageContrast`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node adjusts the contrast of an image based on a specified factor, enhancing or reducing the difference between the light and dark areas of the image.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to adjust the contrast for. The adjustment is made by altering the intensity of the pixels.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to adjust the contrast for. The adjustment is made by altering the intensity of the pixels.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`factor`**
-    - A multiplier for adjusting the contrast. A factor greater than 1 increases contrast, while a factor less than 1 decreases it.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier for adjusting the contrast. A factor greater than 1 increases contrast, while a factor less than 1 decreases it.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image with adjusted contrast.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image with adjusted contrast.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWImageMix", "Image Mix")
 class _:

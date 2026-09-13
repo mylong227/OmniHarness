@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -205,25 +207,33 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 # Other detected licenses
+
 File name: `Inconsolata.otf`
 
 **OFL-1.1**
+
 ```
 Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.
 ```
+
 ```
 Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.
 ```
+
 ```
 Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.
 ```
+
 ```
 Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.
 ```
+
 ```
 CNameMe.1NameMe.2NameMe.3NameMe.4NameMe.5NameMe.6NameMe.7NameMe.8NameMe.9NameMe.10NameMe.11NameMe.12NameMe.13NameMe.14NameMe.15NameMe.16NameMe.17NameMe.18NameMe.19NameMe.20NameMe.21NameMe.22NameMe.23NameMe.24NameMe.25NameMe.26NameMe.27NameMe.28NameMe.29NameMe.30NameMe.31NameMe.127NameMe.128NameMe.129NameMe.130NameMe.131NameMe.132NameMe.133NameMe.134NameMe.135NameMe.136NameMe.137NameMe.138NameMe.139NameMe.140NameMe.141NameMe.142NameMe.143NameMe.144NameMe.145NameMe.146NameMe.147NameMe.148NameMe.149NameMe.150NameMe.151NameMe.152NameMe.153NameMe.154NameMe.155NameMe.156NameMe.157NameMe.158NameMe.159nonbreakingspaceeurosofthyphenuni00B2uni00B3microuni00B9uni02CBuni02C9circumflex.capcaron.capgrave.capacute.capomacronAogonekLcaronSacuteScedillaTcaronZacuteZdotaccentRacuteAbreveLacuteCacuteCcaronEogonekEcaronDcaronDcroatNacuteNcaronOhungarumlautRcaronUringUhungarumlautTcedillaaogonekabreveccarondcaroneogoneklcaronlacutenacutencaronohungarumlautrcaronsacutecacutescedillatcedillauringuhungarumlautzdotecaronNameMe.329kgreenlandicdotlessjenguparrowdownarrowvisiblespacer.serifgbrevehungarumlaut.capuni2074EngdcroatGbreveIdotaccentracutetcaronzacutezero.noslash001.010Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.InconsolataInconsolata
 ```
+
 ```
 CNameMe.1NameMe.2NameMe.3NameMe.4NameMe.5NameMe.6NameMe.7NameMe.8NameMe.9NameMe.10NameMe.11NameMe.12NameMe.13NameMe.14NameMe.15NameMe.16NameMe.17NameMe.18NameMe.19NameMe.20NameMe.21NameMe.22NameMe.23NameMe.24NameMe.25NameMe.26NameMe.27NameMe.28NameMe.29NameMe.30NameMe.31NameMe.127NameMe.128NameMe.129NameMe.130NameMe.131NameMe.132NameMe.133NameMe.134NameMe.135NameMe.136NameMe.137NameMe.138NameMe.139NameMe.140NameMe.141NameMe.142NameMe.143NameMe.144NameMe.145NameMe.146NameMe.147NameMe.148NameMe.149NameMe.150NameMe.151NameMe.152NameMe.153NameMe.154NameMe.155NameMe.156NameMe.157NameMe.158NameMe.159nonbreakingspaceeurosofthyphenuni00B2uni00B3microuni00B9uni02CBuni02C9circumflex.capcaron.capgrave.capacute.capomacronAogonekLcaronSacuteScedillaTcaronZacuteZdotaccentRacuteAbreveLacuteCacuteCcaronEogonekEcaronDcaronDcroatNacuteNcaronOhungarumlautRcaronUringUhungarumlautTcedillaaogonekabreveccarondcaroneogoneklcaronlacutenacutencaronohungarumlautrcaronsacutecacutescedillatcedillauringuhungarumlautzdotecaronNameMe.329kgreenlandicdotlessjenguparrowdownarrowvisiblespacer.serifgbrevehungarumlaut.capuni2074EngdcroatGbreveIdotaccentracutetcaronzacutezero.noslash001.010Created by Raph Levien using his own tools and FontForge. Copyright 2006 Raph Levien. Released under the SIL Open Font License, http://scripts.sil.org/OFL.InconsolataInconsolata
 ```

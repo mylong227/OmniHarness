@@ -1,70 +1,81 @@
 ---
 tags:
-- Mask
-- MaskMorphology
+  - Mask
+  - MaskMorphology
 ---
 
 # Grow Mask With Blur
+
 ## Documentation
+
 - Class name: `GrowMaskWithBlur`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 The GrowMaskWithBlur node is designed to manipulate masks by expanding or contracting them, optionally applying a blur effect, and performing various other transformations such as flipping, filling holes, and interpolating between frames. It provides a comprehensive set of operations for dynamic mask manipulation in image processing tasks, making it versatile for applications requiring precise control over mask geometry and appearance.
+
 ## Input types
+
 ### Required
+
 - **`mask`**
-    - The input mask or batch of masks to be processed. It serves as the primary data upon which all transformations are applied, determining the base geometry for expansion, contraction, and other modifications.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input mask or batch of masks to be processed. It serves as the primary data upon which all transformations are applied, determining the base geometry for expansion, contraction, and other modifications.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`expand`**
-    - Specifies the amount by which the mask should be expanded or contracted. Positive values cause expansion, while negative values result in contraction, affecting the overall size and shape of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the amount by which the mask should be expanded or contracted. Positive values cause expansion, while negative values result in contraction, affecting the overall size and shape of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`incremental_expandrate`**
-    - The rate at which the expand parameter is adjusted incrementally per frame, allowing for dynamic changes in mask size over a sequence of frames.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The rate at which the expand parameter is adjusted incrementally per frame, allowing for dynamic changes in mask size over a sequence of frames.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`tapered_corners`**
-    - A boolean flag that indicates whether to use tapered corners during mask manipulation, which can affect the smoothness and contour of the expanded or contracted mask.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that indicates whether to use tapered corners during mask manipulation, which can affect the smoothness and contour of the expanded or contracted mask.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`flip_input`**
-    - A boolean flag that determines whether the input mask should be flipped (inverted) before any other processing is done. This inversion can be useful for certain types of mask transformations.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that determines whether the input mask should be flipped (inverted) before any other processing is done. This inversion can be useful for certain types of mask transformations.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`blur_radius`**
-    - The radius of the Gaussian blur to be applied to the mask. A value greater than 0 activates the blur effect, softening the edges and overall appearance of the mask.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The radius of the Gaussian blur to be applied to the mask. A value greater than 0 activates the blur effect, softening the edges and overall appearance of the mask.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`lerp_alpha`**
-    - The alpha value for linear interpolation between frames, enabling smooth transitions and blending of mask states across a sequence.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The alpha value for linear interpolation between frames, enabling smooth transitions and blending of mask states across a sequence.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`decay_factor`**
-    - A factor that controls the decay of mask values over time, contributing to the fading or persistence of mask features in animated sequences.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A factor that controls the decay of mask values over time, contributing to the fading or persistence of mask features in animated sequences.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`fill_holes`**
-    - A boolean flag that, when enabled, causes holes within the mask to be filled. This operation can enhance mask solidity but may be computationally intensive.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that, when enabled, causes holes within the mask to be filled. This operation can enhance mask solidity but may be computationally intensive.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The modified mask after applying expansion, contraction, blur, and other transformations, ready for further processing or visualization.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The modified mask after applying expansion, contraction, blur, and other transformations, ready for further processing or visualization.
+  - Python dtype: `torch.Tensor`
 - **`mask_inverted`**
-    - Comfy dtype: `MASK`
-    - An inverted version of the modified mask, providing an alternative representation that can be useful in certain processing contexts.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - An inverted version of the modified mask, providing an alternative representation that can be useful in certain processing contexts.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class GrowMaskWithBlur:
     @classmethod
@@ -105,7 +116,7 @@ class GrowMaskWithBlur:
 - lerp_alpha: alpha value for interpolation between frames
 - decay_factor: decay value for interpolation between frames
 - fill_holes: fill holes in the mask (slow)"""
-    
+
     def expand_mask(self, mask, expand, tapered_corners, flip_input, blur_radius, incremental_expandrate, lerp_alpha, decay_factor, fill_holes=False):
         alpha = lerp_alpha
         decay = decay_factor

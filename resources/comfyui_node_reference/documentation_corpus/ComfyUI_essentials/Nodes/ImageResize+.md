@@ -1,71 +1,79 @@
 ---
 tags:
-- ImageResize
-- ImageScaling
-- ImageSize
-- ImageTransformation
+  - ImageResize
+  - ImageScaling
+  - ImageSize
+  - ImageTransformation
 ---
 
 # 🔧 Image Resize
+
 ## Documentation
+
 - Class name: `ImageResize+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 This node is designed for resizing images to a specified width and height, offering a straightforward way to adjust image dimensions for various applications. It abstracts the complexities of image processing, providing an easy-to-use interface for resizing operations.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be resized. This parameter is crucial as it determines the source image that will undergo the resizing process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be resized. This parameter is crucial as it determines the source image that will undergo the resizing process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`width`**
-    - Specifies the desired width of the resized image. This parameter directly influences the output image's dimensions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the desired width of the resized image. This parameter directly influences the output image's dimensions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Specifies the desired height of the resized image. This parameter directly influences the output image's dimensions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the desired height of the resized image. This parameter directly influences the output image's dimensions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`interpolation`**
-    - Defines the method used for interpolating pixels in the resizing process, affecting the quality and appearance of the resized image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the method used for interpolating pixels in the resizing process, affecting the quality and appearance of the resized image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`method`**
-    - Determines how the image is resized, influencing whether and how the aspect ratio is preserved or altered.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines how the image is resized, influencing whether and how the aspect ratio is preserved or altered.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`condition`**
-    - Specifies under what conditions the resizing should occur, allowing for conditional resizing based on the original and target dimensions.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies under what conditions the resizing should occur, allowing for conditional resizing based on the original and target dimensions.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`multiple_of`**
-    - Ensures the dimensions of the resized image are multiples of this value, useful for certain processing or model input requirements.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Ensures the dimensions of the resized image are multiples of this value, useful for certain processing or model input requirements.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The resized image. This output reflects the changes in dimensions specified by the width and height parameters.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resized image. This output reflects the changes in dimensions specified by the width and height parameters.
+  - Python dtype: `torch.Tensor`
 - **`width`**
-    - Comfy dtype: `INT`
-    - The actual width of the resized image, which may differ from the requested width due to constraints like maintaining aspect ratio or alignment to a multiple.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The actual width of the resized image, which may differ from the requested width due to constraints like maintaining aspect ratio or alignment to a multiple.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The actual height of the resized image, which may differ from the requested height due to constraints like maintaining aspect ratio or alignment to a multiple.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The actual height of the resized image, which may differ from the requested height due to constraints like maintaining aspect ratio or alignment to a multiple.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - SetNode
-    - [SVD_img2vid_Conditioning](../../Comfy/Nodes/SVD_img2vid_Conditioning.md)
-    - [PrepImageForClipVision](../../ComfyUI_IPAdapter_plus/Nodes/PrepImageForClipVision.md)
-
-
+  - SetNode
+  - [SVD_img2vid_Conditioning](../../Comfy/Nodes/SVD_img2vid_Conditioning.md)
+  - [PrepImageForClipVision](../../ComfyUI_IPAdapter_plus/Nodes/PrepImageForClipVision.md)
 
 ## Source code
+
 ```python
 class ImageResize:
     @classmethod
@@ -178,7 +186,7 @@ class ImageResize:
             x2 = width - ((width % multiple_of) - x)
             y2 = height - ((height % multiple_of) - y)
             outputs = outputs[:, y:y2, x:x2, :]
-        
+
         outputs = torch.clamp(outputs, 0, 1)
 
         return(outputs, outputs.shape[2], outputs.shape[1],)

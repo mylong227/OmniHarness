@@ -1,93 +1,104 @@
 ---
 tags:
-- Animation
+  - Animation
 ---
 
 # LivePortraitProcess
+
 ## Documentation
+
 - Class name: `LivePortraitProcess`
 - Category: `LivePortrait`
 - Output node: `False`
 
 The LivePortraitProcess node is designed to transform static portrait images into animated versions by applying a series of image processing and deep learning techniques. It leverages facial landmarks, cropping, resizing, and feature extraction to prepare the source image. Subsequently, it utilizes keypoints information, rotation matrices, and 3D features to animate the portrait based on driving images, adjusting for eye and lip movements, and optionally stitching the results for a seamless animation.
+
 ## Input types
+
 ### Required
+
 - **`pipeline`**
-    - The processing pipeline that encapsulates the entire animation process, including cropping, feature extraction, and animation synthesis.
-    - Comfy dtype: `LIVEPORTRAITPIPE`
-    - Python dtype: `LivePortraitPipeline`
+  - The processing pipeline that encapsulates the entire animation process, including cropping, feature extraction, and animation synthesis.
+  - Comfy dtype: `LIVEPORTRAITPIPE`
+  - Python dtype: `LivePortraitPipeline`
 - **`source_image`**
-    - The source image to be animated. It serves as the base for the animation process, where facial features are detected and used to guide the transformation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The source image to be animated. It serves as the base for the animation process, where facial features are detected and used to guide the transformation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`driving_images`**
-    - A sequence of images that dictate the animation's movements. These images provide the dynamic expressions and orientations to be transferred to the source portrait.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[numpy.ndarray]`
+  - A sequence of images that dictate the animation's movements. These images provide the dynamic expressions and orientations to be transferred to the source portrait.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[numpy.ndarray]`
 - **`dsize`**
-    - The desired size for the output images, affecting how the source and driving images are cropped and resized.
-    - Comfy dtype: `INT`
-    - Python dtype: `Tuple[int, int]`
+  - The desired size for the output images, affecting how the source and driving images are cropped and resized.
+  - Comfy dtype: `INT`
+  - Python dtype: `Tuple[int, int]`
 - **`scale`**
-    - A scaling factor applied during the cropping process to adjust the emphasis on the central features of the portrait.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scaling factor applied during the cropping process to adjust the emphasis on the central features of the portrait.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`vx_ratio`**
-    - The horizontal ratio used to fine-tune the cropping area, focusing on the central facial features.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The horizontal ratio used to fine-tune the cropping area, focusing on the central facial features.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`vy_ratio`**
-    - The vertical ratio used to fine-tune the cropping area, focusing on the central facial features.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The vertical ratio used to fine-tune the cropping area, focusing on the central facial features.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`lip_zero`**
-    - A flag indicating whether to neutralize lip movements in the animation, keeping the lips static.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether to neutralize lip movements in the animation, keeping the lips static.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`eye_retargeting`**
-    - A flag to enable or disable eye movement retargeting in the animation, allowing for dynamic eye expressions.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag to enable or disable eye movement retargeting in the animation, allowing for dynamic eye expressions.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`eyes_retargeting_multiplier`**
-    - A multiplier applied to the eye movement retargeting, allowing for exaggerated or subdued eye animations.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier applied to the eye movement retargeting, allowing for exaggerated or subdued eye animations.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`lip_retargeting`**
-    - A flag to enable or disable lip movement retargeting in the animation, allowing for dynamic lip expressions.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag to enable or disable lip movement retargeting in the animation, allowing for dynamic lip expressions.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`lip_retargeting_multiplier`**
-    - A multiplier applied to the lip movement retargeting, allowing for exaggerated or subdued lip animations.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier applied to the lip movement retargeting, allowing for exaggerated or subdued lip animations.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`stitching`**
-    - A flag indicating whether to apply stitching to the animated frames, ensuring seamless transitions between expressions.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether to apply stitching to the animated frames, ensuring seamless transitions between expressions.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`relative`**
-    - A flag that determines whether the animation should be based on relative movements from the driving images or absolute positions.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag that determines whether the animation should be based on relative movements from the driving images or absolute positions.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`onnx_device`**
-    - Specifies the computation device (e.g., CUDA for GPU) for running the ONNX models involved in the animation process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the computation device (e.g., CUDA for GPU) for running the ONNX models involved in the animation process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`cropped_images`**
-    - Comfy dtype: `IMAGE`
-    - A list of cropped and processed images ready for animation, representing intermediate steps in the animation pipeline.
-    - Python dtype: `List[numpy.ndarray]`
+  - Comfy dtype: `IMAGE`
+  - A list of cropped and processed images ready for animation, representing intermediate steps in the animation pipeline.
+  - Python dtype: `List[numpy.ndarray]`
 - **`full_images`**
-    - Comfy dtype: `IMAGE`
-    - The final list of animated portraits, fully processed and ready for display or further use.
-    - Python dtype: `List[numpy.ndarray]`
+  - Comfy dtype: `IMAGE`
+  - The final list of animated portraits, fully processed and ready for display or further use.
+  - Python dtype: `List[numpy.ndarray]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LivePortraitProcess:
     @classmethod
@@ -113,7 +124,7 @@ class LivePortraitProcess:
                "onnx_device": (
                     [
                         'CPU',
-                        'CUDA',                        
+                        'CUDA',
                     ], {
                         "default": 'CPU'
                     }),
@@ -127,7 +138,7 @@ class LivePortraitProcess:
     FUNCTION = "process"
     CATEGORY = "LivePortrait"
 
-    def process(self, source_image, driving_images, dsize, scale, vx_ratio, vy_ratio, pipeline, 
+    def process(self, source_image, driving_images, dsize, scale, vx_ratio, vy_ratio, pipeline,
                 lip_zero, eye_retargeting, lip_retargeting, stitching, relative, eyes_retargeting_multiplier, lip_retargeting_multiplier, onnx_device='CUDA'):
         source_image_np = (source_image * 255).byte().numpy()
         driving_images_np = (driving_images * 255).byte().numpy()
@@ -138,7 +149,7 @@ class LivePortraitProcess:
             vx_ratio = vx_ratio,
             vy_ratio = vy_ratio,
             )
-        
+
         cropper = Cropper(crop_cfg=crop_cfg, provider=onnx_device)
         pipeline.cropper = cropper
         pipeline.live_portrait_wrapper.cfg.flag_eye_retargeting = eye_retargeting
@@ -148,7 +159,7 @@ class LivePortraitProcess:
         pipeline.live_portrait_wrapper.cfg.flag_stitching = stitching
         pipeline.live_portrait_wrapper.cfg.flag_relative = relative
         pipeline.live_portrait_wrapper.cfg.flag_lip_zero = lip_zero
-      
+
         cropped_out_list = []
         full_out_list = []
         for img in source_image_np:

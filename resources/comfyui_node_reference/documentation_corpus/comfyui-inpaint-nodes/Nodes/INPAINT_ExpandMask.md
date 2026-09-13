@@ -1,35 +1,44 @@
 # Expand Mask
+
 ## Documentation
+
 - Class name: `INPAINT_ExpandMask`
 - Category: `inpaint`
 - Output node: `False`
 
 The ExpandMask node is designed for modifying the input mask by expanding its boundaries and applying a blur effect, making it suitable for inpainting tasks where adjusting the mask size and softness can help in achieving better results.
+
 ## Input types
+
 ### Required
+
 - **`mask`**
-    - The 'mask' parameter represents the input mask to be expanded and blurred. It is crucial for defining the area to be inpainted.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Tensor`
+  - The 'mask' parameter represents the input mask to be expanded and blurred. It is crucial for defining the area to be inpainted.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Tensor`
 - **`grow`**
-    - The 'grow' parameter specifies the amount by which the mask's boundaries should be expanded. It plays a key role in determining the new size of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'grow' parameter specifies the amount by which the mask's boundaries should be expanded. It plays a key role in determining the new size of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`blur`**
-    - The 'blur' parameter controls the intensity of the blur effect applied to the expanded mask, affecting the softness of its edges.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'blur' parameter controls the intensity of the blur effect applied to the expanded mask, affecting the softness of its edges.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The output is a modified mask with expanded boundaries and applied blur, ready for inpainting tasks.
-    - Python dtype: `Tensor`
+  - Comfy dtype: `MASK`
+  - The output is a modified mask with expanded boundaries and applied blur, ready for inpainting tasks.
+  - Python dtype: `Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ExpandMask:
     @classmethod

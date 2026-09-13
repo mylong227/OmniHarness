@@ -1,37 +1,46 @@
 ---
 tags:
-- Mask
-- MaskBatch
+  - Mask
+  - MaskBatch
 ---
 
 # Mask Batch Multi
+
 ## Documentation
+
 - Class name: `MaskBatchMulti`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 The `MaskBatchMulti` node is designed to create a batch of images by combining multiple masks. It allows for dynamic input count adjustment, enabling the combination of a variable number of masks into a single batch. This functionality is particularly useful in scenarios where the aggregation of mask data is required for further image processing or analysis.
+
 ## Input types
+
 ### Required
+
 - **`inputcount`**
-    - Specifies the number of input masks to be combined into a single batch. This parameter allows for dynamic adjustment of the node's input capacity, facilitating the aggregation of varying numbers of masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of input masks to be combined into a single batch. This parameter allows for dynamic adjustment of the node's input capacity, facilitating the aggregation of varying numbers of masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`mask_i`**
-    - Represents a mask to be included in the batch, where 'i' can range from 1 to the number specified by 'inputcount'. Each mask contributes to the aggregated batch, enabling complex mask combinations for advanced image processing tasks.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - Represents a mask to be included in the batch, where 'i' can range from 1 to the number specified by 'inputcount'. Each mask contributes to the aggregated batch, enabling complex mask combinations for advanced image processing tasks.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`masks`**
-    - Comfy dtype: `MASK`
-    - The combined batch of masks resulting from the aggregation of the input masks. This output is useful for downstream image processing tasks that require batched mask data.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The combined batch of masks resulting from the aggregation of the input masks. This output is useful for downstream image processing tasks that require batched mask data.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskBatchMulti:
     @classmethod
@@ -49,8 +58,8 @@ class MaskBatchMulti:
     FUNCTION = "combine"
     CATEGORY = "KJNodes/masking"
     DESCRIPTION = """
-Creates an image batch from multiple masks.  
-You can set how many inputs the node has,  
+Creates an image batch from multiple masks.
+You can set how many inputs the node has,
 with the **inputcount** and clicking update.
 """
 

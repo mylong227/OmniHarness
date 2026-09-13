@@ -1,68 +1,79 @@
 ---
 tags:
-- Audio
-- SaltNodes
+  - Audio
+  - SaltNodes
 ---
 
 # Salt Workflow Input
+
 ## Documentation
+
 - Class name: `SaltInput`
 - Category: `SALT/IO`
 - Output node: `True`
 
 The SaltInput node is designed to facilitate the creation and management of inputs for workflows within the Salt AI platform. It allows for the specification of various input types, including strings, numbers, booleans, and files, and supports additional features such as image and mask inputs, setting allowed values, and specifying whether user overrides are required. This node plays a crucial role in customizing and controlling the flow of data into Salt AI workflows, ensuring that inputs are correctly defined and processed according to the workflow's requirements.
+
 ## Input types
+
 ### Required
+
 - **`input_name`**
-    - Specifies the name of the input. This name is used to identify the input within the workflow, making it easier to reference and manage.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the name of the input. This name is used to identify the input within the workflow, making it easier to reference and manage.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`input_desc`**
-    - Provides a description for the input. This description helps to clarify the purpose and expected content of the input, aiding in the workflow's documentation and usability.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Provides a description for the input. This description helps to clarify the purpose and expected content of the input, aiding in the workflow's documentation and usability.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`input_type`**
-    - Defines the type of the input. This can range from basic types like strings and numbers to more complex types like images and files, allowing for versatile input handling in the workflow.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Defines the type of the input. This can range from basic types like strings and numbers to more complex types like images and files, allowing for versatile input handling in the workflow.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`input_value`**
-    - The actual value for the input. Depending on the input type, this could be text, a numerical value, an image path, etc., serving as the primary data that the workflow will process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The actual value for the input. Depending on the input type, this could be text, a numerical value, an image path, etc., serving as the primary data that the workflow will process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`input_image`**
-    - An optional image input. When provided, this allows the workflow to directly process an image, adding a visual data processing capability.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Image`
+  - An optional image input. When provided, this allows the workflow to directly process an image, adding a visual data processing capability.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Image`
 - **`input_mask`**
-    - An optional mask input. This is used in conjunction with image inputs to apply specific processing or transformations based on the mask.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Mask`
+  - An optional mask input. This is used in conjunction with image inputs to apply specific processing or transformations based on the mask.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Mask`
 - **`input_allowed_values`**
-    - Specifies allowed values for the input. This is useful for inputs that should only accept a predefined set of values, ensuring data validity.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies allowed values for the input. This is useful for inputs that should only accept a predefined set of values, ensuring data validity.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`user_override_required`**
-    - Indicates whether a user override is required for the input. This can be used to enforce user interaction for certain inputs, ensuring that specific conditions are met before proceeding.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether a user override is required for the input. This can be used to enforce user interaction for certain inputs, ensuring that specific conditions are met before proceeding.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`relative_path`**
-    - Determines whether the input value should be treated as a relative path. This is relevant for file inputs, affecting how the file path is interpreted and handled within the workflow.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether the input value should be treated as a relative path. This is relevant for file inputs, affecting how the file path is interpreted and handled within the workflow.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`value`**
-    - Comfy dtype: `*`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `*`
+  - unknown
+  - Python dtype: `unknown`
 - **`ui`**
-    - Returns a UI dictionary containing metadata and results related to the input processing. This includes information such as the input's unique ID, any relevant asset IDs, and the processed input data, facilitating integration with the Salt AI platform's UI components.
+  - Returns a UI dictionary containing metadata and results related to the input processing. This includes information such as the input's unique ID, any relevant asset IDs, and the processed input data, facilitating integration with the Salt AI platform's UI components.
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltInput:
     @classmethod
@@ -147,7 +158,7 @@ class SaltInput:
 
                     # Log value to console
                     log_values(unique_id, input_name, input_type, src_file)
-                    
+
                     return {"ui": ui, "result": (src_file,)}
                 else:
                     errmsg = "Invalid node configuration! Do you mean to use `IMAGE`, `MASK`, or `FILE` input_types?"

@@ -1,42 +1,51 @@
 ---
 tags:
-- DataConversion
-- DataTypeConversion
-- NumericConversion
+  - DataConversion
+  - DataTypeConversion
+  - NumericConversion
 ---
 
 # String to Number
+
 ## Documentation
+
 - Class name: `StringToNumber`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The `StringToNumber` node converts a string representation of a number into its numerical form, offering options for rounding the result to the nearest integer, flooring it, or ceiling it. This functionality is essential for scenarios where numerical values are received as text and precise mathematical operations or comparisons are required.
+
 ## Input types
+
 ### Required
+
 - **`string`**
-    - The `string` parameter takes a string input that represents a number, which is then converted into a numerical form. This conversion is crucial for further numerical operations or analyses.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The `string` parameter takes a string input that represents a number, which is then converted into a numerical form. This conversion is crucial for further numerical operations or analyses.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`rounding`**
-    - The `rounding` parameter specifies the method of rounding (nearest, floor, or ceil) to be applied to the converted number, affecting the final numerical output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The `rounding` parameter specifies the method of rounding (nearest, floor, or ceil) to be applied to the converted number, affecting the final numerical output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`int`**
-    - Comfy dtype: `INT`
-    - The integer part of the converted number, after applying the specified rounding method.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The integer part of the converted number, after applying the specified rounding method.
+  - Python dtype: `int`
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The floating-point representation of the converted number, providing a precise numerical value.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The floating-point representation of the converted number, providing a precise numerical value.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilStringToNumber:
     @classmethod

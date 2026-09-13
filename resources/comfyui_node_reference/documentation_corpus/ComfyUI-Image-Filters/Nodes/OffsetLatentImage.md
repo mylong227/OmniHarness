@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- ImageTransformation
+  - Image
+  - ImageTransformation
 ---
 
 # Offset Latent Image
+
 ## Documentation
+
 - Class name: `OffsetLatentImage`
 - Category: `latent`
 - Output node: `False`
 
 The OffsetLatentImage node is designed to manipulate the latent space representation of images by applying specified offsets to each channel. This operation allows for the adjustment and fine-tuning of the generated image's characteristics at a low level, offering a means to explore variations in the image generation process.
+
 ## Input types
+
 ### Required
+
 - **`width`**
-    - Specifies the width of the latent image to be generated. This parameter directly influences the dimensions of the output latent representation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the latent image to be generated. This parameter directly influences the dimensions of the output latent representation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Determines the height of the latent image. Similar to width, it affects the size of the latent output, enabling control over the generated image's aspect ratio.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the height of the latent image. Similar to width, it affects the size of the latent output, enabling control over the generated image's aspect ratio.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`batch_size`**
-    - Controls the number of latent images to be generated in a single batch, facilitating batch processing for efficiency.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Controls the number of latent images to be generated in a single batch, facilitating batch processing for efficiency.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`offset_i`**
-    - Applies a specific offset to the ith channel of the latent representation, altering its characteristics. The index i ranges from 0 to 3, allowing for detailed customization of each channel in the latent space.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Applies a specific offset to the ith channel of the latent representation, altering its characteristics. The index i ranges from 0 to 3, allowing for detailed customization of each channel in the latent space.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - Returns the modified latent representation of images with applied offsets, ready for further processing or image generation.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - Returns the modified latent representation of images with applied offsets, ready for further processing or image generation.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class OffsetLatentImage:
     def __init__(self):

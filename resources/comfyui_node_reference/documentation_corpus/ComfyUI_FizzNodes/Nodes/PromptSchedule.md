@@ -1,79 +1,90 @@
 ---
 tags:
-- AnimationScheduling
-- PromptScheduling
-- Scheduling
+  - AnimationScheduling
+  - PromptScheduling
+  - Scheduling
 ---
 
 # Prompt Schedule 📅🅕🅝
+
 ## Documentation
+
 - Class name: `PromptSchedule`
 - Category: `FizzNodes 📅🅕🅝/ScheduleNodes`
 - Output node: `False`
 
 The PromptSchedule node sequences user-formatted prompts, evaluates expressions within these prompts, and applies a scheduling mechanism to generate a batch of conditionings. This process involves sequencing the current and next prompts along with their conditioning strengths, ultimately producing a tailored output that incorporates the scheduled prompt adjustments.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - Represents the user's formatted prompt, serving as the primary input for generating conditionings. It is crucial for defining the content and structure of the desired output.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the user's formatted prompt, serving as the primary input for generating conditionings. It is crucial for defining the content and structure of the desired output.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`clip`**
-    - A model or mechanism used for conditioning, influencing the generation process based on the input prompts.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `torch.Tensor`
+  - A model or mechanism used for conditioning, influencing the generation process based on the input prompts.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `torch.Tensor`
 - **`max_frames`**
-    - Specifies the maximum number of frames to be considered for the scheduling process, affecting the temporal scope of the generated outputs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the maximum number of frames to be considered for the scheduling process, affecting the temporal scope of the generated outputs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`current_frame`**
-    - Indicates the current frame in the sequence, used to determine the specific point of evaluation within the scheduling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Indicates the current frame in the sequence, used to determine the specific point of evaluation within the scheduling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`print_output`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
+
 ### Optional
+
 - **`pre_text`**
-    - Optional pre-text added before the main prompt text, used to prepend additional context or instructions.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Optional pre-text added before the main prompt text, used to prepend additional context or instructions.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`app_text`**
-    - Optional appended text added after the main prompt text, used to append additional context or instructions.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Optional appended text added after the main prompt text, used to append additional context or instructions.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`pw_a`**
-    - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_b`**
-    - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_c`**
-    - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_d`**
-    - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight parameter influencing the scheduling process, part of a set of parameters (pw_a, pw_b, pw_c, pw_d) for fine-tuning the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`POS`**
-    - Comfy dtype: `CONDITIONING`
-    - The positive conditioning output, reflecting the applied prompt schedule and targeted adjustments.
-    - Python dtype: `object`
+  - Comfy dtype: `CONDITIONING`
+  - The positive conditioning output, reflecting the applied prompt schedule and targeted adjustments.
+  - Python dtype: `object`
 - **`NEG`**
-    - Comfy dtype: `CONDITIONING`
-    - The negative conditioning output, reflecting the applied prompt schedule and targeted counteractions.
-    - Python dtype: `object`
+  - Comfy dtype: `CONDITIONING`
+  - The negative conditioning output, reflecting the applied prompt schedule and targeted counteractions.
+  - Python dtype: `object`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PromptSchedule:
     @classmethod

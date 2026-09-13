@@ -1,37 +1,46 @@
 ---
 tags:
-- Latent
-- Normalization
+  - Latent
+  - Normalization
 ---
 
 # LoadResAdapterNormalization
+
 ## Documentation
+
 - Class name: `LoadResAdapterNormalization`
 - Category: `KJNodes/experimental`
 - Output node: `False`
 
 This node is designed to enhance the adaptability and performance of a given model by loading and applying normalization weights from a ResAdapter. It aims to improve model accuracy and efficiency by integrating external normalization parameters, thereby optimizing the model's response to various inputs.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the ResAdapter normalization weights will be applied. It is crucial for enhancing the model's adaptability and performance by integrating external normalization parameters.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to which the ResAdapter normalization weights will be applied. It is crucial for enhancing the model's adaptability and performance by integrating external normalization parameters.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`resadapter_path`**
-    - The file path to the ResAdapter normalization weights. This path is used to locate and load the normalization parameters that are essential for optimizing the model's performance.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The file path to the ResAdapter normalization weights. This path is used to locate and load the normalization parameters that are essential for optimizing the model's performance.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - A clone of the original model with the ResAdapter normalization weights applied. This enhanced model is expected to exhibit improved accuracy and efficiency.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - A clone of the original model with the ResAdapter normalization weights applied. This enhanced model is expected to exhibit improved accuracy and efficiency.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadResAdapterNormalization:
     @classmethod
@@ -40,7 +49,7 @@ class LoadResAdapterNormalization:
             "required": {
                 "model": ("MODEL",),
                 "resadapter_path": (folder_paths.get_filename_list("checkpoints"), )
-            } 
+            }
         }
 
     RETURN_TYPES = ("MODEL",)

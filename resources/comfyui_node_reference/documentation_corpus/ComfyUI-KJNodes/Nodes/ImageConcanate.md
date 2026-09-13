@@ -1,44 +1,53 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # Image Concatenate
+
 ## Documentation
+
 - Class name: `ImageConcanate`
 - Category: `KJNodes/image`
 - Output node: `False`
 
 The ImageConcatenate node is designed for combining two images into a single image along a specified direction. It supports matching the sizes of the input images and adjusting them to have the same batch size if necessary, allowing for flexible image concatenation operations.
+
 ## Input types
+
 ### Required
+
 - **`image1`**
-    - The first image tensor to be concatenated. It plays a crucial role in determining the final image's layout and size, especially when matching image sizes or batch sizes.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The first image tensor to be concatenated. It plays a crucial role in determining the final image's layout and size, especially when matching image sizes or batch sizes.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`image2`**
-    - The second image tensor to be concatenated with the first one. Its size and batch size can be adjusted to match the first image, ensuring seamless concatenation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The second image tensor to be concatenated with the first one. Its size and batch size can be adjusted to match the first image, ensuring seamless concatenation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`direction`**
-    - Specifies the direction ('right', 'left', 'up', 'down') in which the second image should be concatenated to the first one, influencing the final image's orientation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the direction ('right', 'left', 'up', 'down') in which the second image should be concatenated to the first one, influencing the final image's orientation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`match_image_size`**
-    - A boolean flag indicating whether the sizes of the two images should be matched before concatenation, affecting the resizing operation if true.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the sizes of the two images should be matched before concatenation, affecting the resizing operation if true.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting tensor after concatenating the two input images along the specified direction.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting tensor after concatenating the two input images along the specified direction.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageConcanate:
     @classmethod
@@ -75,7 +84,7 @@ Concatenates the image2 to image1 in the specified direction.
             max_batch_size = max(batch_size1, batch_size2)
             repeats1 = max_batch_size // batch_size1
             repeats2 = max_batch_size // batch_size2
-            
+
             # Repeat the images to match the largest batch size
             image1 = image1.repeat(repeats1, 1, 1, 1)
             image2 = image2.repeat(repeats2, 1, 1, 1)

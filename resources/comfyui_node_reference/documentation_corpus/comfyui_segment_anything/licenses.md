@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -205,6 +207,7 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -408,6 +411,7 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -611,6 +615,7 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -814,6 +819,7 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -1017,6 +1023,7 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -1220,46 +1227,61 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 # Other detected licenses
+
 File name: `local_groundingdino/models/GroundingDINO/__init__.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 File name: `local_groundingdino/models/GroundingDINO/transformer.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 File name: `local_groundingdino/models/GroundingDINO/transformer_vanilla.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 ```
 # Copyright (c) Aishwarya Kamath & Nicolas Carion. Licensed under the Apache License 2.0. All Rights Reserved
 ```
+
 File name: `local_groundingdino/models/__init__.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 File name: `sam_hq/automatic.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.

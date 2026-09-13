@@ -1,42 +1,53 @@
 ---
 tags:
-- Mask
-- MaskRegion
+  - Mask
+  - MaskRegion
 ---
 
 # Skeletonize Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskSkeletonization`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 The SaltMaskSkeletonization node is designed to transform input mask images into their skeletonized versions, effectively reducing the masks to their simplest form while preserving their overall geometry. This process is useful for applications requiring a minimal representation of shapes within the masks.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks to be skeletonized, where each mask represents a distinct region to be processed into its skeletal form.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks to be skeletonized, where each mask represents a distinct region to be processed into its skeletal form.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`iterations`**
-    - Specifies the number of times the erosion operation is applied to each mask, influencing the thinness of the resulting skeleton.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - Specifies the number of times the erosion operation is applied to each mask, influencing the thinness of the resulting skeleton.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
 - **`strength`**
-    - Determines the intensity of the skeletonization process, affecting the final skeletal structure's prominence.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - Determines the intensity of the skeletonization process, affecting the final skeletal structure's prominence.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output tensor containing the skeletonized versions of the input masks, with each skeleton representing the minimal structure of the original mask.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output tensor containing the skeletonized versions of the input masks, with each skeleton representing the minimal structure of the original mask.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskSkeletonization:
     @classmethod

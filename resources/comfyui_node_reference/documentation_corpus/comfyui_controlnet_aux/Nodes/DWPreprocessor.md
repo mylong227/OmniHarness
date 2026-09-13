@@ -1,69 +1,79 @@
 ---
 tags:
-- Animation
-- PoseEstimation
+  - Animation
+  - PoseEstimation
 ---
 
 # DWPose Estimator
+
 ## Documentation
+
 - Class name: `DWPreprocessor`
 - Category: `ControlNet Preprocessors/Faces and Poses Estimators`
 - Output node: `False`
 
 The DWPreprocessor node is designed for preprocessing input data specifically for the DWPose estimation tasks. It transforms input data into a format suitable for pose estimation, enhancing the performance of pose estimation models by optimizing the input data's structure and format.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for pose estimation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `np.ndarray`
+  - The input image to be processed for pose estimation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `np.ndarray`
+
 ### Optional
+
 - **`detect_hand`**
-    - Enables or disables hand detection in the pose estimation process, affecting the comprehensiveness of the pose analysis.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Enables or disables hand detection in the pose estimation process, affecting the comprehensiveness of the pose analysis.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`detect_body`**
-    - Enables or disables body detection, determining whether body keypoints are included in the pose estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Enables or disables body detection, determining whether body keypoints are included in the pose estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`detect_face`**
-    - Controls the inclusion of face detection in the pose estimation, influencing the detail level of facial keypoints.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Controls the inclusion of face detection in the pose estimation, influencing the detail level of facial keypoints.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`resolution`**
-    - The resolution to which the input image is resized, affecting the detail level of the pose estimation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input image is resized, affecting the detail level of the pose estimation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`bbox_detector`**
-    - Specifies the bounding box detector model to use, impacting the initial detection phase of pose estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the bounding box detector model to use, impacting the initial detection phase of pose estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`pose_estimator`**
-    - Determines the pose estimation model, directly affecting the accuracy and performance of pose keypoint detection.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the pose estimation model, directly affecting the accuracy and performance of pose keypoint detection.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image after pose estimation, ready for further analysis or visualization.
-    - Python dtype: `np.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The processed image after pose estimation, ready for further analysis or visualization.
+  - Python dtype: `np.ndarray`
 - **`pose_keypoint`**
-    - Comfy dtype: `POSE_KEYPOINT`
-    - The detected pose keypoints, providing detailed positional information for body parts.
-    - Python dtype: `List[np.ndarray]`
+  - Comfy dtype: `POSE_KEYPOINT`
+  - The detected pose keypoints, providing detailed positional information for body parts.
+  - Python dtype: `List[np.ndarray]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [ControlNetApplyAdvanced](../../Comfy/Nodes/ControlNetApplyAdvanced.md)
-    - [ACN_AdvancedControlNetApply](../../ComfyUI-Advanced-ControlNet/Nodes/ACN_AdvancedControlNetApply.md)
-    - [ControlNetApply](../../Comfy/Nodes/ControlNetApply.md)
-    - [PreviewBridge](../../ComfyUI-Impact-Pack/Nodes/PreviewBridge.md)
-    - [CR Multi-ControlNet Stack](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Multi-ControlNet Stack.md)
-
-
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [ControlNetApplyAdvanced](../../Comfy/Nodes/ControlNetApplyAdvanced.md)
+  - [ACN_AdvancedControlNetApply](../../ComfyUI-Advanced-ControlNet/Nodes/ACN_AdvancedControlNetApply.md)
+  - [ControlNetApply](../../Comfy/Nodes/ControlNetApply.md)
+  - [PreviewBridge](../../ComfyUI-Impact-Pack/Nodes/PreviewBridge.md)
+  - [CR Multi-ControlNet Stack](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Multi-ControlNet Stack.md)
 
 ## Source code
+
 ```python
 class DWPose_Preprocessor:
     @classmethod

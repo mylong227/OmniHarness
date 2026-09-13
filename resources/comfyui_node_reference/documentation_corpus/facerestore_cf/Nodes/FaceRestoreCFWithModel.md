@@ -1,51 +1,59 @@
 ---
 tags:
-- Face
-- FaceRestoration
+  - Face
+  - FaceRestoration
 ---
 
 # FaceRestoreCFWithModel
+
 ## Documentation
+
 - Class name: `FaceRestoreCFWithModel`
 - Category: `facerestore_cf`
 - Output node: `False`
 
 This node is designed to restore faces in images using a face restoration model. It leverages advanced deep learning techniques to enhance the quality of faces in images, addressing issues such as blurriness, noise, and artifacts. The node operates by detecting faces, processing each face individually with the restoration model, and then integrating the enhanced faces back into the original image.
+
 ## Input types
+
 ### Required
+
 - **`facerestore_model`**
-    - The face restoration model used for enhancing the quality of faces in images. It plays a crucial role in the node's ability to improve image clarity and detail.
-    - Comfy dtype: `FACERESTORE_MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The face restoration model used for enhancing the quality of faces in images. It plays a crucial role in the node's ability to improve image clarity and detail.
+  - Comfy dtype: `FACERESTORE_MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`image`**
-    - The input image containing faces to be restored. This image is processed to detect and enhance faces individually.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image containing faces to be restored. This image is processed to detect and enhance faces individually.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`facedetection`**
-    - The face detection model used to identify faces within the input image. It ensures that each face is accurately detected before restoration.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The face detection model used to identify faces within the input image. It ensures that each face is accurately detected before restoration.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`codeformer_fidelity`**
-    - A parameter controlling the fidelity of the restoration process. It adjusts the balance between enhancing details and preserving the original appearance.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter controlling the fidelity of the restoration process. It adjusts the balance between enhancing details and preserving the original appearance.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image with faces restored. It showcases the enhanced clarity and detail of faces after processing.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The output image with faces restored. It showcases the enhanced clarity and detail of faces after processing.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [SaveImage](../../Comfy/Nodes/SaveImage.md)
-    - [CR Apply Multi Upscale](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Apply Multi Upscale.md)
-    - [Anything Everywhere](../../cg-use-everywhere/Nodes/Anything Everywhere.md)
-    - [ImageUpscaleWithModel](../../Comfy/Nodes/ImageUpscaleWithModel.md)
-
-
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [SaveImage](../../Comfy/Nodes/SaveImage.md)
+  - [CR Apply Multi Upscale](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Apply Multi Upscale.md)
+  - [Anything Everywhere](../../cg-use-everywhere/Nodes/Anything Everywhere.md)
+  - [ImageUpscaleWithModel](../../Comfy/Nodes/ImageUpscaleWithModel.md)
 
 ## Source code
+
 ```python
 class FaceRestoreCFWithModel:
     @classmethod

@@ -1,47 +1,56 @@
 # QR Code Generator
+
 ## Documentation
+
 - Class name: `QRCodeGenerator`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The QRCodeGenerator node is designed to generate QR codes based on specified text inputs, offering customization options such as size, version, error correction level, box size, and border size. It encapsulates the process of QR code creation, making it accessible for various applications that require embedding information within a QR code format.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The 'text' parameter is the input string to be encoded into the QR code. It is crucial as it determines the content that the QR code will represent.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'text' parameter is the input string to be encoded into the QR code. It is crucial as it determines the content that the QR code will represent.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`size`**
-    - Specifies the final size of the generated QR code image in pixels. It affects the visibility and scannability of the QR code.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the final size of the generated QR code image in pixels. It affects the visibility and scannability of the QR code.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`qr_version`**
-    - Determines the version of the QR code, which indirectly controls the size and the amount of data that can be encoded.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the version of the QR code, which indirectly controls the size and the amount of data that can be encoded.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`error_correction`**
-    - Sets the error correction level of the QR code, affecting its resilience to damage and the amount of data that can be restored.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Sets the error correction level of the QR code, affecting its resilience to damage and the amount of data that can be restored.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`box_size`**
-    - Defines the size of each box (or pixel) in the QR code, influencing the overall size of the QR code.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the size of each box (or pixel) in the QR code, influencing the overall size of the QR code.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`border`**
-    - Specifies the width of the border around the QR code. A larger border can improve scannability but increases the overall size of the QR code.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the border around the QR code. A larger border can improve scannability but increases the overall size of the QR code.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image of the generated QR code, ready for use in various applications.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is an image of the generated QR code, ready for use in various applications.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtillQRCodeGenerator:
     @classmethod

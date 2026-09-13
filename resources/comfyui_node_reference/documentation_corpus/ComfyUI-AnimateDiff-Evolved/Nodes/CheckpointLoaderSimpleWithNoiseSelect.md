@@ -1,66 +1,76 @@
 ---
 tags:
-- Checkpoint
-- CheckpointLoader
-- Loader
-- ModelIO
-- ModelLoader
+  - Checkpoint
+  - CheckpointLoader
+  - Loader
+  - ModelIO
+  - ModelLoader
 ---
 
 # Load Checkpoint w/ Noise Select 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `CheckpointLoaderSimpleWithNoiseSelect`
 - Category: `Animate Diff 🎭🅐🅓/extras`
 - Output node: `False`
 
 This node specializes in loading model checkpoints with an emphasis on noise selection, allowing for more nuanced control over the initialization and behavior of models in generative tasks. It extends the functionality of standard checkpoint loading by incorporating beta schedule adjustments and optional scaling factors for noise, catering to advanced customization needs.
+
 ## Input types
+
 ### Required
+
 - **`ckpt_name`**
-    - Specifies the name of the checkpoint to be loaded. This parameter is crucial for identifying the specific model checkpoint file from a predefined list of available checkpoints.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the checkpoint to be loaded. This parameter is crucial for identifying the specific model checkpoint file from a predefined list of available checkpoints.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`beta_schedule`**
-    - Determines the beta schedule to be applied to the model. This parameter allows for the adjustment of the model's sampling behavior, enhancing flexibility in model performance.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the beta schedule to be applied to the model. This parameter allows for the adjustment of the model's sampling behavior, enhancing flexibility in model performance.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`use_custom_scale_factor`**
-    - A boolean flag indicating whether to apply a custom scale factor to the noise. When set to true, it enables fine-tuning of the noise's impact on the model's output.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to apply a custom scale factor to the noise. When set to true, it enables fine-tuning of the noise's impact on the model's output.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`scale_factor`**
-    - Defines the magnitude of the noise scale factor, provided 'use_custom_scale_factor' is true. This allows for precise control over the noise level applied to the model.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the magnitude of the noise scale factor, provided 'use_custom_scale_factor' is true. This allows for precise control over the noise level applied to the model.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The loaded model, configured according to the specified beta schedule and noise scaling options.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The loaded model, configured according to the specified beta schedule and noise scaling options.
+  - Python dtype: `torch.nn.Module`
 - **`clip`**
-    - Comfy dtype: `CLIP`
-    - The CLIP model associated with the loaded checkpoint, if applicable.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `CLIP`
+  - The CLIP model associated with the loaded checkpoint, if applicable.
+  - Python dtype: `torch.nn.Module`
 - **`vae`**
-    - Comfy dtype: `VAE`
-    - The VAE model associated with the loaded checkpoint, if applicable.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `VAE`
+  - The VAE model associated with the loaded checkpoint, if applicable.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [LoraLoader](../../Comfy/Nodes/LoraLoader.md)
-    - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
-    - [ADE_AnimateDiffLoaderWithContext](../../ComfyUI-AnimateDiff-Evolved/Nodes/ADE_AnimateDiffLoaderWithContext.md)
-    - [BatchPromptSchedule](../../ComfyUI_FizzNodes/Nodes/BatchPromptSchedule.md)
-    - [CLIPSetLastLayer](../../Comfy/Nodes/CLIPSetLastLayer.md)
-    - [Lora Loader Stack (rgthree)](../../rgthree-comfy/Nodes/Lora Loader Stack (rgthree).md)
-    - IPAdapterApply
-    - [ToBasicPipe](../../ComfyUI-Impact-Pack/Nodes/ToBasicPipe.md)
-
-
+  - [LoraLoader](../../Comfy/Nodes/LoraLoader.md)
+  - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
+  - [ADE_AnimateDiffLoaderWithContext](../../ComfyUI-AnimateDiff-Evolved/Nodes/ADE_AnimateDiffLoaderWithContext.md)
+  - [BatchPromptSchedule](../../ComfyUI_FizzNodes/Nodes/BatchPromptSchedule.md)
+  - [CLIPSetLastLayer](../../Comfy/Nodes/CLIPSetLastLayer.md)
+  - [Lora Loader Stack (rgthree)](../../rgthree-comfy/Nodes/Lora Loader Stack (rgthree).md)
+  - IPAdapterApply
+  - [ToBasicPipe](../../ComfyUI-Impact-Pack/Nodes/ToBasicPipe.md)
 
 ## Source code
+
 ```python
 class CheckpointLoaderSimpleWithNoiseSelect:
     @classmethod

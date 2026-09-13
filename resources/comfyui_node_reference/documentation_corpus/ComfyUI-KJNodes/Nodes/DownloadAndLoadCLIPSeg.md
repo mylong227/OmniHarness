@@ -1,38 +1,47 @@
 # (Down)load CLIPSeg
+
 ## Documentation
+
 - Class name: `DownloadAndLoadCLIPSeg`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 This node is designed to download and load a specific CLIPSeg model using the huggingface_hub library, making it available for image segmentation tasks within the ComfyUI framework. It abstracts the complexities of downloading, caching, and initializing the model, providing a streamlined way to integrate advanced segmentation capabilities into ComfyUI applications.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model to be downloaded and loaded for image segmentation. It supports specific CLIPSeg models available on huggingface_hub, with a default option provided for convenience.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the model to be downloaded and loaded for image segmentation. It supports specific CLIPSeg models available on huggingface_hub, with a default option provided for convenience.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`clipseg_model`**
-    - Comfy dtype: `CLIPSEGMODEL`
-    - Returns a dictionary containing the loaded CLIPSeg model and its processor, ready for performing image segmentation tasks.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `CLIPSEGMODEL`
+  - Returns a dictionary containing the loaded CLIPSeg model and its processor, ready for performing image segmentation tasks.
+  - Python dtype: `Dict[str, Any]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DownloadAndLoadCLIPSeg:
 
     def __init__(self):
         pass
-    
+
     @classmethod
     def INPUT_TYPES(s):
-       
+
         return {"required":
-                    {     
+                    {
                     "model": (
                     [   'Kijai/clipseg-rd64-refined-fp16',
                         'CIDAS/clipseg-rd64-refined',
@@ -48,7 +57,7 @@ class DownloadAndLoadCLIPSeg:
     RETURN_NAMES = ("clipseg_model",)
     FUNCTION = "segment_image"
     DESCRIPTION = """
-Downloads and loads CLIPSeg model with huggingface_hub,  
+Downloads and loads CLIPSeg model with huggingface_hub,
 to ComfyUI/models/clip_seg
 """
 

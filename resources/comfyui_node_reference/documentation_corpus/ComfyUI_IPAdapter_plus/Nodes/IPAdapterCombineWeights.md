@@ -1,37 +1,46 @@
 ---
 tags:
-- ControlNet
-- Weight
+  - ControlNet
+  - Weight
 ---
 
 # IPAdapter Combine Weights
+
 ## Documentation
+
 - Class name: `IPAdapterCombineWeights`
 - Category: `ipadapter/utils`
 - Output node: `False`
 
 The IPAdapterCombineWeights node is designed to aggregate and combine weight values from two different sources, providing a unified set of weights and their count. This functionality is essential for operations that require the blending or merging of weight parameters from distinct inputs, facilitating more nuanced control over weight-based computations or adjustments.
+
 ## Input types
+
 ### Required
+
 - **`weights_i`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`weights`**
-    - Comfy dtype: `FLOAT`
-    - The combined list of weights resulting from merging weights_1 and weights_2, reflecting the aggregate influence of both inputs.
-    - Python dtype: `List[float]`
+  - Comfy dtype: `FLOAT`
+  - The combined list of weights resulting from merging weights_1 and weights_2, reflecting the aggregate influence of both inputs.
+  - Python dtype: `List[float]`
 - **`count`**
-    - Comfy dtype: `INT`
-    - The total number of weights in the combined list, providing a quantitative measure of the outcome of the combination process.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The total number of weights in the combined list, providing a quantitative measure of the outcome of the combination process.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterCombineWeights:
     @classmethod

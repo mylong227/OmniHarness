@@ -1,36 +1,45 @@
 ---
 tags:
-- Text
+  - Text
 ---
 
 # Load Text 🐍
+
 ## Documentation
+
 - Class name: `LoadText_pysssss`
 - Category: `utils`
 - Output node: `False`
 
 The LoadText node is designed for loading text content from a specified file within a given directory. It facilitates the retrieval of text data, enabling further processing or display within a workflow.
+
 ## Input types
+
 ### Required
+
 - **`root_dir`**
-    - Specifies the directory from which the file will be loaded. It is crucial for locating the file and ensuring the correct path is used for file access.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the directory from which the file will be loaded. It is crucial for locating the file and ensuring the correct path is used for file access.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`file`**
-    - The specific file to be loaded. This parameter is essential for identifying which text file's contents are to be retrieved and loaded.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The specific file to be loaded. This parameter is essential for identifying which text file's contents are to be retrieved and loaded.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - Returns the content of the specified text file as a string.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - Returns the content of the specified text file as a string.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadText(TextFileNode):
     @classmethod

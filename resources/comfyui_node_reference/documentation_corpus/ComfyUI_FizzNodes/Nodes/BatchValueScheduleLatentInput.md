@@ -1,49 +1,58 @@
 ---
 tags:
-- AnimationScheduling
-- Scheduling
+  - AnimationScheduling
+  - Scheduling
 ---
 
 # Batch Value Schedule (Latent Input) 📅🅕🅝
+
 ## Documentation
+
 - Class name: `BatchValueScheduleLatentInput`
 - Category: `FizzNodes 📅🅕🅝/BatchScheduleNodes`
 - Output node: `False`
 
 The BatchValueScheduleLatentInput node is designed to process latent inputs in the context of batch scheduling. It focuses on handling and transforming latent data according to a value schedule, enabling dynamic adjustments and manipulations of latent vectors based on specified scheduling parameters.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The 'text' parameter is a string that specifies the key frames and their corresponding values for the value schedule. It plays a crucial role in determining how the latent inputs are transformed over time.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'text' parameter is a string that specifies the key frames and their corresponding values for the value schedule. It plays a crucial role in determining how the latent inputs are transformed over time.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`num_latents`**
-    - The 'num_latents' parameter represents the latent inputs to be processed. It is essential for defining the latent vectors that will be adjusted according to the value schedule.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The 'num_latents' parameter represents the latent inputs to be processed. It is essential for defining the latent vectors that will be adjusted according to the value schedule.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
 - **`print_output`**
-    - The 'print_output' parameter controls whether the scheduling results are printed. It allows for optional debugging or visualization of the value schedule's effect on the latent inputs.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - The 'print_output' parameter controls whether the scheduling results are printed. It allows for optional debugging or visualization of the value schedule's effect on the latent inputs.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - This output represents the scheduled values as a floating-point number, reflecting the dynamic adjustments made to the latent inputs.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `FLOAT`
+  - This output represents the scheduled values as a floating-point number, reflecting the dynamic adjustments made to the latent inputs.
+  - Python dtype: `torch.Tensor`
 - **`int`**
-    - Comfy dtype: `INT`
-    - This output provides the integer representation of the scheduled values, offering an alternative numerical perspective on the adjustments.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `INT`
+  - This output provides the integer representation of the scheduled values, offering an alternative numerical perspective on the adjustments.
+  - Python dtype: `List[int]`
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - This output includes the transformed latent inputs, showcasing the result of the scheduling process on the latent vectors.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - This output includes the transformed latent inputs, showcasing the result of the scheduling process on the latent vectors.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchValueScheduleLatentInput:
     @classmethod

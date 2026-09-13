@@ -1,37 +1,48 @@
 ---
 tags:
-- SAM
+  - SAM
 ---
 
 # [Inference.Core] SAM Segmentor
+
 ## Documentation
+
 - Class name: `Inference_Core_SAMPreprocessor`
 - Category: `ControlNet Preprocessors/others`
 - Output node: `False`
 
 The SAM Preprocessor node is designed for segmenting images using the SAM (Segment Anything Model) architecture. It leverages a pretrained SAM model to process images, adjusting their resolution as needed, and returns the segmented output.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be segmented. This is the primary data the SAM Preprocessor operates on, determining the areas of interest within the image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be segmented. This is the primary data the SAM Preprocessor operates on, determining the areas of interest within the image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`resolution`**
-    - Specifies the resolution to which the input image should be scaled before segmentation. This affects the granularity and quality of the segmentation output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the resolution to which the input image should be scaled before segmentation. This affects the granularity and quality of the segmentation output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The segmented version of the input image, highlighting different regions as determined by the SAM model.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The segmented version of the input image, highlighting different regions as determined by the SAM model.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SAM_Preprocessor:
     @classmethod

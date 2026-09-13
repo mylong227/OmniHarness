@@ -1,68 +1,79 @@
 # A Person Face Landmark Mask Generator
+
 ## Documentation
+
 - Class name: `APersonFaceLandmarkMaskGenerator`
 - Category: `A Person Mask Generator - David Bielejeski`
 - Output node: `False`
 
 The APersonFaceLandmarkMaskGenerator node is designed to generate facial landmark masks for images. It utilizes the MediaPipe Face Mesh solution to detect facial landmarks and then creates masks for specific facial features such as the face oval, lips, eyes, and eyebrows. This node is capable of processing multiple faces within an image, allowing for the generation of masks for each detected face.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The input images for which facial landmark masks are to be generated. This parameter is essential for the detection and mask generation process, as the images undergo preprocessing and are fed into the MediaPipe Face Mesh model for landmark detection.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input images for which facial landmark masks are to be generated. This parameter is essential for the detection and mask generation process, as the images undergo preprocessing and are fed into the MediaPipe Face Mesh model for landmark detection.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`face`**
-    - A boolean flag indicating whether to generate a mask for the face oval. This option allows for selective mask generation based on the user's requirements.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the face oval. This option allows for selective mask generation based on the user's requirements.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`left_eyebrow`**
-    - A boolean flag indicating whether to generate a mask for the left eyebrow. This option contributes to the comprehensive facial feature masking by including the left eyebrow.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the left eyebrow. This option contributes to the comprehensive facial feature masking by including the left eyebrow.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`right_eyebrow`**
-    - A boolean flag indicating whether to generate a mask for the right eyebrow. Including this option ensures the right eyebrow is also considered in the mask generation process.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the right eyebrow. Including this option ensures the right eyebrow is also considered in the mask generation process.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`left_eye`**
-    - A boolean flag indicating whether to generate a mask for the left eye. This enhances the mask generation by including detailed masks for the left eye.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the left eye. This enhances the mask generation by including detailed masks for the left eye.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`right_eye`**
-    - A boolean flag indicating whether to generate a mask for the right eye. This option adds to the facial feature coverage by generating masks for the right eye.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the right eye. This option adds to the facial feature coverage by generating masks for the right eye.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`left_pupil`**
-    - A boolean flag indicating whether to generate a mask for the left pupil. Activating this option allows for the inclusion of the left pupil in the facial feature masks.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the left pupil. Activating this option allows for the inclusion of the left pupil in the facial feature masks.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`right_pupil`**
-    - A boolean flag indicating whether to generate a mask for the right pupil. This ensures the right pupil is also covered in the generated facial feature masks.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the right pupil. This ensures the right pupil is also covered in the generated facial feature masks.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`lips`**
-    - A boolean flag indicating whether to generate a mask for the lips. Enabling this option results in the creation of detailed masks for the lips, enhancing the overall mask generation.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to generate a mask for the lips. Enabling this option results in the creation of detailed masks for the lips, enhancing the overall mask generation.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`number_of_faces`**
-    - Specifies the maximum number of faces to detect in the input images. This parameter influences the scope of face detection, thereby affecting the number and detail of the generated masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the maximum number of faces to detect in the input images. This parameter influences the scope of face detection, thereby affecting the number and detail of the generated masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`confidence`**
-    - The minimum confidence threshold for detecting faces. A higher value means that only faces with a higher likelihood of being correctly identified will be processed, impacting the accuracy and completeness of the generated masks.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The minimum confidence threshold for detecting faces. A higher value means that only faces with a higher likelihood of being correctly identified will be processed, impacting the accuracy and completeness of the generated masks.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`masks`**
-    - Comfy dtype: `MASK`
-    - The output is a tensor containing the generated masks for the specified facial features. Each mask corresponds to a different facial feature or face detected in the input images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output is a tensor containing the generated masks for the specified facial features. Each mask corresponds to a different facial feature or face detected in the input images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class APersonFaceLandmarkMaskGenerator:
     # https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/python/solutions/face_mesh_connections.py

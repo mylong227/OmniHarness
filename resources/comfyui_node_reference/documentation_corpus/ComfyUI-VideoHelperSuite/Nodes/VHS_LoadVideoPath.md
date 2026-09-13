@@ -1,86 +1,97 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Load Video (Path) 🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_LoadVideoPath`
 - Category: `Video Helper Suite 🎥🅥🅗🅢`
 - Output node: `False`
 
 This node is designed to load video files from a specified path, applying various preprocessing steps such as resizing, frame rate adjustment, and optional VAE encoding. It facilitates the extraction and manipulation of video data for further processing or analysis within the Video Helper Suite.
+
 ## Input types
+
 ### Required
+
 - **`video`**
-    - The path to the video file to be loaded. It is crucial for locating and accessing the video data for processing.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The path to the video file to be loaded. It is crucial for locating and accessing the video data for processing.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`force_rate`**
-    - Specifies the target frame rate to which the video should be adjusted. This parameter is essential for standardizing the frame rate across different videos.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the target frame rate to which the video should be adjusted. This parameter is essential for standardizing the frame rate across different videos.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`force_size`**
-    - Defines the target resolution for the video. This parameter is key in resizing the video to a specific dimension.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list of str`
+  - Defines the target resolution for the video. This parameter is key in resizing the video to a specific dimension.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list of str`
 - **`custom_width`**
-    - The custom width to which the video should be resized. This allows for precise control over the video's width dimension.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The custom width to which the video should be resized. This allows for precise control over the video's width dimension.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`custom_height`**
-    - The custom height to which the video should be resized. This allows for precise control over the video's height dimension.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The custom height to which the video should be resized. This allows for precise control over the video's height dimension.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`frame_load_cap`**
-    - Limits the number of frames to be loaded from the video. This parameter helps in managing memory usage by restricting the frame count.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Limits the number of frames to be loaded from the video. This parameter helps in managing memory usage by restricting the frame count.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`skip_first_frames`**
-    - The number of initial frames to skip. This is useful for bypassing unneeded content at the beginning of the video.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of initial frames to skip. This is useful for bypassing unneeded content at the beginning of the video.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`select_every_nth`**
-    - Determines the interval at which frames are selected. By choosing every nth frame, it reduces the total number of frames processed and can help in focusing on specific segments of the video.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the interval at which frames are selected. By choosing every nth frame, it reduces the total number of frames processed and can help in focusing on specific segments of the video.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`meta_batch`**
-    - unknown
-    - Comfy dtype: `VHS_BatchManager`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `VHS_BatchManager`
+  - Python dtype: `unknown`
 - **`vae`**
-    - unknown
-    - Comfy dtype: `VAE`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `VAE`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The processed frames of the video, potentially resized and adjusted according to the specified frame rate and dimensions.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The processed frames of the video, potentially resized and adjusted according to the specified frame rate and dimensions.
+  - Python dtype: `List[torch.Tensor]`
 - **`frame_count`**
-    - Comfy dtype: `INT`
-    - The total number of frames loaded and processed from the video.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The total number of frames loaded and processed from the video.
+  - Python dtype: `int`
 - **`audio`**
-    - Comfy dtype: `VHS_AUDIO`
-    - The extracted audio track from the video, adjusted according to the specified frame selection parameters.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `VHS_AUDIO`
+  - The extracted audio track from the video, adjusted according to the specified frame selection parameters.
+  - Python dtype: `torch.Tensor`
 - **`video_info`**
-    - Comfy dtype: `VHS_VIDEOINFO`
-    - Metadata about the video, including both source and loaded properties such as frame rate, duration, and dimensions.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `VHS_VIDEOINFO`
+  - Metadata about the video, including both source and loaded properties such as frame rate, duration, and dimensions.
+  - Python dtype: `Dict[str, Any]`
 - **`LATENT`**
-    - Comfy dtype: `LATENT`
-    - The optional VAE-encoded representation of the video frames, if a VAE model is applied.
-    - Python dtype: `Optional[Dict[str, List[torch.Tensor]]]`
+  - Comfy dtype: `LATENT`
+  - The optional VAE-encoded representation of the video frames, if a VAE model is applied.
+  - Python dtype: `Optional[Dict[str, List[torch.Tensor]]]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadVideoPath:
     @classmethod

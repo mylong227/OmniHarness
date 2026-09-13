@@ -1,34 +1,43 @@
 ---
 tags:
-- Animation
-- PoseEstimation
+  - Animation
+  - PoseEstimation
 ---
 
 # [Inference.Core] Save Pose Keypoints
+
 ## Documentation
+
 - Class name: `Inference_Core_SavePoseKpsAsJsonFile`
 - Category: `ControlNet Preprocessors/Pose Keypoint Postprocess`
 - Output node: `True`
 
 This node is designed to save pose keypoints data as a JSON file, incorporating a filename prefix customization feature. It facilitates the storage of pose keypoints information, enabling further analysis or visualization of pose data.
+
 ## Input types
+
 ### Required
+
 - **`pose_kps`**
-    - The pose keypoints to be saved. This data is crucial for capturing the spatial positions of various body parts in an image.
-    - Comfy dtype: `POSE_KEYPOINT`
-    - Python dtype: `List[Dict[str, Any]]`
+  - The pose keypoints to be saved. This data is crucial for capturing the spatial positions of various body parts in an image.
+  - Comfy dtype: `POSE_KEYPOINT`
+  - Python dtype: `List[Dict[str, Any]]`
 - **`filename_prefix`**
-    - An optional prefix for the filename, allowing for easier identification and organization of saved files.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional prefix for the filename, allowing for easier identification and organization of saved files.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SavePoseKpsAsJsonFile:
     @classmethod

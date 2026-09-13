@@ -1,59 +1,68 @@
 # Modelscope t2v
+
 ## Documentation
+
 - Class name: `Modelscopet2v`
 - Category: `cspnodes/modelscope`
 - Output node: `False`
 
 The Modelscopet2v node is designed for transforming text inputs into visual outputs, leveraging advanced models to interpret and visualize textual descriptions in a visual format. This node encapsulates the process of text-to-visual conversion, enabling the creation of images or visual representations based on textual input.
+
 ## Input types
+
 ### Required
+
 - **`prompt`**
-    - The 'prompt' parameter specifies the textual input that describes the desired visual output. It plays a key role in guiding the model towards generating images that align with the given description, directly influencing the thematic and stylistic aspects of the generated visual content.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'prompt' parameter specifies the textual input that describes the desired visual output. It plays a key role in guiding the model towards generating images that align with the given description, directly influencing the thematic and stylistic aspects of the generated visual content.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`negative_prompt`**
-    - The 'negative_prompt' parameter provides textual input that describes undesired aspects of the visual output. It helps in refining the generated images by steering the model away from unwanted characteristics, thus fine-tuning the final visual representation.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'negative_prompt' parameter provides textual input that describes undesired aspects of the visual output. It helps in refining the generated images by steering the model away from unwanted characteristics, thus fine-tuning the final visual representation.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`model_path`**
-    - Specifies the path to the model used for generating visual content. This parameter allows for the selection of different models, potentially offering various styles or capabilities.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the path to the model used for generating visual content. This parameter allows for the selection of different models, potentially offering various styles or capabilities.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`num_inference_steps`**
-    - Determines the number of steps the model will take during the inference process. A higher number of steps can lead to more detailed and coherent visual outputs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of steps the model will take during the inference process. A higher number of steps can lead to more detailed and coherent visual outputs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`guidance_scale`**
-    - Controls the degree to which the model adheres to the prompt. A higher guidance scale can result in images that more closely match the provided description.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the degree to which the model adheres to the prompt. A higher guidance scale can result in images that more closely match the provided description.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`seed`**
-    - Sets the random seed for generating visual content, ensuring reproducibility of results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the random seed for generating visual content, ensuring reproducibility of results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`width`**
-    - Specifies the width of the generated visual content in pixels.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the generated visual content in pixels.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Specifies the height of the generated visual content in pixels.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the height of the generated visual content in pixels.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`num_frames`**
-    - Determines the number of frames to be generated for video content, defining the length of the output video.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of frames to be generated for video content, defining the length of the output video.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - This output represents the generated visual content based on the textual descriptions provided as input. It encapsulates the text-to-visual conversion logic, producing images or video frames.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - This output represents the generated visual content based on the textual descriptions provided as input. It encapsulates the text-to-visual conversion logic, producing images or video frames.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Modelscopet2v:
     @classmethod
@@ -88,7 +97,7 @@ class Modelscopet2v:
 
         # Added generator to the pipe call
         video_frames = pipe(prompt, num_inference_steps=num_inference_steps, height=height, width=width, num_frames=num_frames, guidance_scale=guidance_scale, negative_prompt=negative_prompt, generator=generator).frames
-        
+
         # Ensure video_frames is a PyTorch tensor
         if not isinstance(video_frames, torch.Tensor):
             video_frames = torch.tensor(video_frames, dtype=torch.float32)

@@ -1,37 +1,46 @@
 ---
 tags:
-- Mask
-- MaskRegion
+  - Mask
+  - MaskRegion
 ---
 
 # Gaussian Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskGaussianRegion`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 Applies a Gaussian filter to specified regions within masks, allowing for the softening of edges and blending of regions for a smoother appearance. This node is particularly useful for image processing tasks where the focus is on enhancing or modifying the visual characteristics of masked areas.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The masks to which the Gaussian filter will be applied. These masks define the regions that will be processed to achieve a smoother appearance.
-    - Comfy dtype: `MASK`
-    - Python dtype: `List[torch.Tensor]`
+  - The masks to which the Gaussian filter will be applied. These masks define the regions that will be processed to achieve a smoother appearance.
+  - Comfy dtype: `MASK`
+  - Python dtype: `List[torch.Tensor]`
 - **`radius`**
-    - Specifies the radius of the Gaussian filter. A larger radius results in a more pronounced smoothing effect, allowing for greater control over the degree of blending and softening of the masked regions.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the radius of the Gaussian filter. A larger radius results in a more pronounced smoothing effect, allowing for greater control over the degree of blending and softening of the masked regions.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The modified masks after the application of the Gaussian filter, showcasing smoother and more blended regions.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `MASK`
+  - The modified masks after the application of the Gaussian filter, showcasing smoother and more blended regions.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskGaussianRegion:
     @classmethod

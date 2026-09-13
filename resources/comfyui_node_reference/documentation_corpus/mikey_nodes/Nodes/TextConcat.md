@@ -1,56 +1,66 @@
 ---
 tags:
-- Concatenate
-- Text
+  - Concatenate
+  - Text
 ---
 
 # Text Concat (Mikey)
+
 ## Documentation
+
 - Class name: `TextConcat`
 - Category: `Mikey/Text`
 - Output node: `False`
 
 The TextConcat node is designed to merge multiple text inputs into a single string, offering the flexibility to specify a delimiter for the concatenation. This functionality is particularly useful for combining pieces of text in a customizable manner.
+
 ## Input types
+
 ### Required
+
 - **`delimiter`**
-    - Specifies the character or string used to separate the concatenated texts. Its presence allows for customizable spacing or formatting between the merged text inputs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the character or string used to separate the concatenated texts. Its presence allows for customizable spacing or formatting between the merged text inputs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`text1`**
-    - Represents the first optional text input to be concatenated. If provided, it contributes to the final merged string.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the first optional text input to be concatenated. If provided, it contributes to the final merged string.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text2`**
-    - Represents the second optional text input to be concatenated. If provided, it contributes to the final merged string.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the second optional text input to be concatenated. If provided, it contributes to the final merged string.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text3`**
-    - Represents the third optional text input to be concatenated. If provided, it contributes to the final merged string.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the third optional text input to be concatenated. If provided, it contributes to the final merged string.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text4`**
-    - Represents the fourth optional text input to be concatenated. If provided, it contributes to the final merged string.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the fourth optional text input to be concatenated. If provided, it contributes to the final merged string.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text5`**
-    - Represents the fifth optional text input to be concatenated. If provided, it contributes to the final merged string.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the fifth optional text input to be concatenated. If provided, it contributes to the final merged string.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The output is a single string that results from the concatenation of the provided text inputs, separated by the specified delimiter.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output is a single string that results from the concatenation of the provided text inputs, separated by the specified delimiter.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [Prompt With Style V3](../../mikey_nodes/Nodes/Prompt With Style V3.md)
-
-
+  - [Prompt With Style V3](../../mikey_nodes/Nodes/Prompt With Style V3.md)
 
 ## Source code
+
 ```python
 class TextConcat:
     # takes 5 text inputs and concatenates them into a single string
