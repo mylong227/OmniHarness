@@ -158,9 +158,14 @@ export class ChangesTab extends AppComponent<Record<string, never>, ChangesTabSt
     void this.runOp('sf:' + path, () => this.api.stageFile(path), '已 stage：' + path, path);
   }
 
-  private revertFile(path: string): void {
-    if (!window.confirm(`丢弃 ${path} 的全部未提交改动？此操作不可恢复。`)) return;
-    void this.runOp('rf:' + path, () => this.api.revertFile(path), '已还原：' + path, path);
+  private async revertFile(path: string): Promise<void> {
+    const ok = await this.dialog.confirm(`丢弃 ${path} 的全部未提交改动？此操作不可恢复。`, {
+      title: '丢弃改动',
+      confirmLabel: '丢弃',
+      danger: true,
+    });
+    if (!ok) return;
+    await this.runOp('rf:' + path, () => this.api.revertFile(path), '已还原：' + path, path);
   }
 
   private stageHunk(path: string, hunk: string, isNew: boolean, idx: number): void {
@@ -172,9 +177,14 @@ export class ChangesTab extends AppComponent<Record<string, never>, ChangesTabSt
     );
   }
 
-  private revertHunk(path: string, hunk: string, idx: number): void {
-    if (!window.confirm('丢弃该改动块？工作区对应行将被还原。')) return;
-    void this.runOp('rh:' + path + ':' + idx, () => this.api.revertHunk(path, hunk), '已还原该块', path);
+  private async revertHunk(path: string, hunk: string, idx: number): Promise<void> {
+    const ok = await this.dialog.confirm('丢弃该改动块？工作区对应行将被还原。', {
+      title: '丢弃改动块',
+      confirmLabel: '丢弃',
+      danger: true,
+    });
+    if (!ok) return;
+    await this.runOp('rh:' + path + ':' + idx, () => this.api.revertHunk(path, hunk), '已还原该块', path);
   }
 
   private async saveDraft(): Promise<void> {
@@ -317,7 +327,7 @@ export class ChangesTab extends AppComponent<Record<string, never>, ChangesTabSt
                   className="hunk-btn danger"
                   disabled={busyAct !== null}
                   title="丢弃该改动块（git apply -R，不可恢复）"
-                  onClick={() => this.revertHunk(f.path, DiffHunkSplitter.text(h), idx)}
+                  onClick={() => void this.revertHunk(f.path, DiffHunkSplitter.text(h), idx)}
                 >
                   ↩ 丢弃
                 </button>
@@ -351,7 +361,7 @@ export class ChangesTab extends AppComponent<Record<string, never>, ChangesTabSt
           className="hunk-btn danger"
           disabled={busyAct !== null}
           title="丢弃整个文件的工作区改动（不可恢复）"
-          onClick={() => this.revertFile(f.path)}
+          onClick={() => void this.revertFile(f.path)}
         >
           ↩ 丢弃文件
         </button>

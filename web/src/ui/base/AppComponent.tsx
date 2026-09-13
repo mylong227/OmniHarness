@@ -11,6 +11,7 @@ import { AppContext } from '../context.js';
 import type { AppContextValue } from '../context.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 import type { ToastKind } from '../../core/ToastService.js';
+import type { DialogService } from '../../core/DialogService.js';
 
 /** 无 props 组件的默认 props 类型：显式空对象，避免 any。 */
 export type EmptyProps = Record<string, never>;
@@ -44,6 +45,11 @@ export abstract class AppComponent<
   /** 弹出提示（成功/错误等）。 */
   protected toast(message: string, kind?: ToastKind): void {
     this.app.toast(message, kind);
+  }
+
+  /** 应用内对话框服务（await 到用户真实选择后才继续）。 */
+  protected get dialog(): DialogService {
+    return this.app.dialog;
   }
 
   /** 请求刷新模型目录（由 App 注入，可能未注入）。 */

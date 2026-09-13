@@ -9,6 +9,8 @@ import { ApiClient } from '../../core/ApiClient.js';
 import { EventStream } from '../../core/EventStream.js';
 import { ToastService } from '../../core/ToastService.js';
 import type { ToastKind } from '../../core/ToastService.js';
+import { DialogService } from '../../core/DialogService.js';
+import type { DialogState } from '../../core/DialogService.js';
 import type { AppContextValue } from '../context.js';
 import type {
   ApprovalRequest,
@@ -54,6 +56,12 @@ export interface AppState {
   activeTool: string | null;
   toastState: ToastState;
   paletteOpen: boolean;
+  /** 应用内对话框状态（替代 window.confirm / window.prompt）。 */
+  dialog: DialogState;
+  /** 本回合已累积的流式正文（`thread.text_delta` 增量拼接）。 */
+  streamText: string;
+  /** 已被 assistant 事件收口的流式文本（用于避免最终卡片重复播渐进揭示动画）。 */
+  finalizedStreamText: string;
   leftWidth: number;
   rightWidth: number;
 }
@@ -71,6 +79,8 @@ export interface AppServices {
   api: ApiClient;
   stream: EventStream;
   toastSvc: ToastService;
+  /** 应用内对话框服务（confirm / prompt）。 */
+  dialogSvc: DialogService;
   reducers: AppReducers;
   /** 统一 toast 出口（AppController.showToast 的引用，供子控制器调用）。 */
   toast: (message: string, kind?: ToastKind) => void;
@@ -119,6 +129,7 @@ export class AppController {
       api: new ApiClient(),
       stream: new EventStream(),
       toastSvc: new ToastService(),
+      dialogSvc: new DialogService(),
       reducers: new AppReducers(),
       toast: (message: string, kind?: ToastKind) => this.showToast(message, kind),
     };
@@ -142,9 +153,10 @@ export class AppController {
     this.showToast = this.showToast.bind(this);
   }
 
-  /** 挂载：绑定 toast 服务、拉取目录/配置、初始化主题、连接 SSE、刷新会话。 @returns 无 */
+  /** 挂载：绑定 toast / 对话框服务、拉取目录/配置、初始化主题、连接 SSE、刷新会话。 @returns 无 */
   public mount(): void {
     this.services.toastSvc.bind((message: string, kind?: ToastKind) => this.showToast(message, kind));
+    this.services.dialogSvc.bind((state: DialogState) => this.host.patch({ dialog: state }));
     this.refreshModelCatalog();
     this.initTheme();
     this.services.api
@@ -191,6 +203,9 @@ export class AppController {
           break;
         case 'thread.tool_input':
           this.children.sessions.updateToolInput(params);
+          break;
+        case 'thread.text_delta':
+          this.children.sessions.appendTextDelta(params);
           break;
         case 'graph.progress':
           this.children.graph.applyGraphProgress(params as unknown as GraphProgress);
@@ -384,11 +399,12 @@ export class AppController {
     );
   }
 
-  /** 构造注入 AppContext.Provider 的上下文值（api / toast / refreshModelCatalog）。 @returns 上下文值 */
+  /** 构造注入 AppContext.Provider 的上下文值（api / toast / dialog / refreshModelCatalog）。 @returns 上下文值 */
   public getContextValue(): AppContextValue {
     return {
       api: this.services.api,
       toast: (message: string, kind?: ToastKind) => this.showToast(message, kind),
+      dialog: this.services.dialogSvc,
       refreshModelCatalog: () => this.refreshModelCatalog(),
     };
   }

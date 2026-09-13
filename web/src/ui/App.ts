@@ -16,6 +16,7 @@ import { NavRail } from './components/NavRail.js';
 import { ApprovalModal } from './components/ApprovalModal.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { Toast } from './components/Toast.js';
+import { DialogHost } from './components/DialogHost.js';
 import { Resizer } from './components/Resizer.js';
 
 import { ToolsTab } from './components/tabs/ToolsTab.js';
@@ -69,6 +70,9 @@ export class App extends ReactComponent<Record<string, never>, AppState> impleme
       activeTool: null,
       toastState: { message: '', kind: 'info', visible: false },
       paletteOpen: false,
+      dialog: { request: null },
+      streamText: '',
+      finalizedStreamText: '',
       leftWidth: 248,
       rightWidth: 360,
     };
@@ -187,6 +191,8 @@ export class App extends ReactComponent<Record<string, never>, AppState> impleme
           events: s.events,
           toolResults: s.toolResults,
           liveInputs: s.liveInputs,
+          streamText: s.streamText,
+          finalizedStreamText: s.finalizedStreamText,
           onEventClick: ctrl.sessions.showDetail,
           onOpenFile: ctrl.sessions.openFile,
           onSend: ctrl.composer.send,
@@ -234,6 +240,7 @@ export class App extends ReactComponent<Record<string, never>, AppState> impleme
         onClose: ctrl.closePalette,
       }),
       React.createElement(Toast, { toast: s.toastState }),
+      React.createElement(DialogHost, { dialog: s.dialog }),
     );
   }
 }

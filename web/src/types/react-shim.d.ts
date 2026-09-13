@@ -98,6 +98,11 @@ interface HtmlAttributes {
   'aria-haspopup'?: string;
   'aria-hidden'?: string | boolean;
   'aria-live'?: string;
+  'aria-atomic'?: string | boolean;
+  'aria-relevant'?: string;
+  'aria-current'?: string | boolean;
+  'aria-labelledby'?: string;
+  'aria-describedby'?: string;
   // 事件
   onClick?: (e: MouseEvent) => void;
   onMouseDown?: (e: MouseEvent) => void;

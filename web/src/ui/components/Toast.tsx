@@ -14,6 +14,11 @@ export class Toast extends AppComponent<ToastProps> {
   override render(): ReactElement {
     const { toast } = this.props;
     const cls = 'toast' + (toast.visible ? ' show' : '') + ' ' + toast.kind;
-    return <div className={cls}>{toast.message}</div>;
+    // role=status + aria-live=polite：提示是「异步告知」，不应打断辅助技术的当前朗读。
+    return (
+      <div className={cls} role="status" aria-live="polite" aria-atomic="true">
+        {toast.message}
+      </div>
+    );
   }
 }

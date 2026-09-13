@@ -41,11 +41,13 @@ export class WorkIndicator extends AppComponent<WorkIndicatorProps, WorkIndicato
     const { activeTool } = this.props;
     const { elapsed } = this.state;
     const action = activeTool != null ? '正在调用 ' + activeTool : '思考中';
+    // role=status：忙碌态是异步状态变化，让辅助技术播报「在干什么」；
+    // 每秒跳动的计时数字对朗读无信息量，故 aria-hidden 掉，避免每秒打断一次。
     return (
-      <div className="work-indicator">
-        <span className="wi-dot"></span>
+      <div className="work-indicator" role="status" aria-live="polite">
+        <span className="wi-dot" aria-hidden="true"></span>
         <span className="wi-text">{action}</span>
-        <span className="wi-time">{elapsed >= 1 ? elapsed + 's' : '刚刚'}</span>
+        <span className="wi-time" aria-hidden="true">{elapsed >= 1 ? elapsed + 's' : '刚刚'}</span>
       </div>
     );
   }

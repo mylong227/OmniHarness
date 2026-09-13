@@ -23,6 +23,7 @@ export class SessionController {
     this.host = host;
     this.services = services;
     this.handleEvent = this.handleEvent.bind(this);
+    this.appendTextDelta = this.appendTextDelta.bind(this);
     this.updateToolInput = this.updateToolInput.bind(this);
     this.refreshSessions = this.refreshSessions.bind(this);
     this.loadThread = this.loadThread.bind(this);
@@ -51,13 +52,24 @@ export class SessionController {
     if (ev.type === 'assistant' || ev.type === 'reasoning') {
       this.host.patch({ activeTool: null });
     }
-    this.host.patch((s) => ({ events: this.services.reducers.appendEvent(s.events, ev) }));
+    this.host.patch((s) => this.services.reducers.ingestEvent(s, ev));
     if (ev.type === 'tool_result') {
       const callId = p.callId as string;
       if (callId) {
         this.host.patch((s) => ({ toolResults: this.services.reducers.mergeToolResult(s.toolResults, callId, p) }));
       }
     }
+  }
+
+  /**
+   * 累积一条模型正文增量（`thread.text_delta` 通知），驱动流式助手卡片逐字渲染。
+   * @param params 增量载荷（含 text 增量片段）
+   * @returns 无
+   */
+  public appendTextDelta(params: Record<string, unknown>): void {
+    const text = typeof params.text === 'string' ? params.text : '';
+    if (text === '') return;
+    this.host.patch((s) => ({ streamText: this.services.reducers.appendTextDelta(s.streamText, text) }));
   }
 
   /**
@@ -103,6 +115,8 @@ export class SessionController {
         events: r.items || [],
         toolResults: {},
         liveInputs: [],
+        streamText: '',
+        finalizedStreamText: '',
         busy: false,
         activeTool: null,
       });
@@ -120,6 +134,8 @@ export class SessionController {
       events: [],
       toolResults: {},
       liveInputs: [],
+      streamText: '',
+      finalizedStreamText: '',
       busy: false,
       activeTool: null,
     });

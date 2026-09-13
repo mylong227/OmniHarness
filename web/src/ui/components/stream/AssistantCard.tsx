@@ -15,6 +15,11 @@ export interface AssistantCardProps {
   ev: ThreadEvent;
   busy?: boolean;
   onOpenFile?: (p: string) => void;
+  /**
+   * 是否允许渐进揭示动画（缺省允许）。
+   * 传 false 用于「这段正文刚刚已经逐字流过来了」——此时再揭一遍会从 40% 处往回跳，是可见的倒退。
+   */
+  animate?: boolean;
   /** 定时器注入点（单测可替换；组件内默认用全局 setTimeout）。 */
   schedule?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
 }
@@ -56,7 +61,9 @@ export class AssistantCard extends AppComponent<AssistantCardProps, AssistantCar
   override componentDidUpdate(prevProps: AssistantCardProps): void {
     const text = this.fullText();
     const prevText = (prevProps.ev.payload?.content as string) || '';
-    if (text !== prevText || prevProps.busy !== this.props.busy) this.startReveal();
+    if (text !== prevText || prevProps.busy !== this.props.busy || prevProps.animate !== this.props.animate) {
+      this.startReveal();
+    }
   }
 
   override componentWillUnmount(): void {
@@ -68,7 +75,7 @@ export class AssistantCard extends AppComponent<AssistantCardProps, AssistantCar
   }
 
   private startReveal(): void {
-    this.revealer.start(this.fullText(), this.props.busy === true);
+    this.revealer.start(this.fullText(), this.props.animate !== false && this.props.busy === true);
   }
 
   /** 点击正文中的文件链接：拦截跳转，改在右侧面板打开。 */

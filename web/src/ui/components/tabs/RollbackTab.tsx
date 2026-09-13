@@ -83,7 +83,12 @@ export class RollbackTab extends AppComponent<RollbackTabProps, RollbackTabState
     const msg = target
       ? `确认回滚到检查点「${target}」？对话与文件将还原到该点。`
       : '确认回滚到最近的检查点？';
-    if (!window.confirm(msg)) return;
+    const ok = await this.dialog.confirm(msg, {
+      title: '回滚检查点',
+      confirmLabel: '回滚',
+      danger: true,
+    });
+    if (!ok) return;
     this.setState({ busy: true });
     try {
       const r = await this.api.rollbackCheckpoint(sessionId, target);
