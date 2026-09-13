@@ -25,10 +25,17 @@ export type { AppServerOptions } from './appServerState.js';
  * 每个 RPC 调用零额外构造开销。
  */
 export class AppServer extends AppServerSurfaceHandlers {
+  /** git 差异审查服务：hunk/file 级 stage/revert（changes.* RPC 的后端）。 */
   private readonly diffReview: DiffReview;
+  /** 差异行级评论存储：评论的增删查持久化。 */
   private readonly diffComments: DiffCommentStore;
+  /** 会话检查点服务：检查点创建、列表与回滚。 */
   private readonly checkpoints: SessionCheckpoints;
 
+  /**
+   * 装配各领域服务并注册全部 RPC 处理器与传输层监听。
+   * @param options app-server 选项（transport、config、workspaceRoot、audit 等）
+   */
   public constructor(options: AppServerOptions) {
     super(options);
     // 工作区根以 getter 注入：支持运行时 workspace.switch 后服务仍取到最新根。
@@ -48,7 +55,10 @@ export class AppServer extends AppServerSurfaceHandlers {
     void this.warmActiveProvider();
   }
 
-  /** 暖当前 active 厂商的 /v1/models 缓存。失败静默（probeCache 不被覆盖，UI 用兜底清单）。 */
+  /**
+   * 暖当前 active 厂商的 /v1/models 缓存。失败静默（probeCache 不被覆盖，UI 用兜底清单）。
+   * @returns 探测完成后 resolve，无载荷（结果写入 modelCatalog 的 probeCache）
+   */
   private async warmActiveProvider(): Promise<void> {
     try {
       // 只探测当前 active 厂商（按 baseUrl 严格匹配 → 否则按 modelAdapter 匹配第一个有 key 的预设），
@@ -300,14 +310,22 @@ export class AppServer extends AppServerSurfaceHandlers {
     });
   }
 
-  /** 创建线程。 */
+  /**
+   * 创建线程（threads.create）：以 prompt 启动一次全新 agent 任务并登记线程映射。
+   * @param params `{ prompt }` — 首条用户消息，缺省为空串
+   * @returns 线程结果（sessionId、本次回合事件等，见 threadResult）
+   */
   protected async createThread(params: Record<string, unknown>): Promise<unknown> {
     const result = await this.runtime.agent().runTask(String(params['prompt'] ?? ''));
     this.threads.set(result.sessionId, result.sessionId);
     return this.threadResult(result);
   }
 
-  /** 续跑线程。 */
+  /**
+   * 续跑线程（threads.continue）：在既有 threadId 上追加一条用户消息并继续对话。
+   * @param params `{ threadId, prompt }` — 目标线程与追加消息
+   * @returns 线程结果（sessionId 与本次回合事件）
+   */
   protected async continueThread(params: Record<string, unknown>): Promise<unknown> {
     const result = await this.runtime
       .agent()
@@ -316,7 +334,11 @@ export class AppServer extends AppServerSurfaceHandlers {
     return this.threadResult(result);
   }
 
-  /** 分叉线程。 */
+  /**
+   * 分叉线程（threads.fork）：复制既有 threadId 的历史后以 prompt 开启新分支。
+   * @param params `{ threadId, prompt }` — 被分叉线程与新分支首条消息
+   * @returns 线程结果（新分支 sessionId 与事件）
+   */
   protected async forkThread(params: Record<string, unknown>): Promise<unknown> {
     const result = await this.runtime
       .agent()
@@ -325,14 +347,23 @@ export class AppServer extends AppServerSurfaceHandlers {
     return this.threadResult(result);
   }
 
-  /** 获取线程事件。 */
+  /**
+   * 获取线程事件（threads.get）：重放指定线程的全部历史事件。
+   * @param params `{ threadId }` — 目标线程
+   * @returns `{ threadId, items }` — 线程标识与事件数组
+   */
   protected async getThread(params: Record<string, unknown>): Promise<unknown> {
     const threadId = String(params['threadId'] ?? '');
     const items = await this.runtime.agent().replay(threadId);
     return { threadId, items };
   }
 
-  /** 运行回合（线程已存在则续跑）。images 可选，随首条用户消息送入模型（#B1）。 */
+  /**
+   * 运行回合（turns.run）：线程已存在则续跑，否则等价创建新线程。
+   * images 可选，随首条用户消息送入模型（#B1）。
+   * @param params `{ threadId, prompt, images?, files? }` — 目标线程、消息文本与可选附件
+   * @returns 线程结果（sessionId、事件与用量）
+   */
   protected async runTurn(params: Record<string, unknown>): Promise<unknown> {
     const threadId = String(params['threadId'] ?? '');
     const prompt = String(params['prompt'] ?? '');
@@ -355,7 +386,11 @@ export class AppServer extends AppServerSurfaceHandlers {
     }
   }
 
-  /** 响应审批上行（委托事件桥）。 */
+  /**
+   * 响应审批上行（approval.respond）：委托事件桥把决定送达等待中的审批方。
+   * @param params `{ requestId, decision }` — 审批请求标识与批准/拒绝决定
+   * @returns 事件桥处理结果（是否成功送达）
+   */
   protected async respondApproval(params: Record<string, unknown>): Promise<unknown> {
     return this.events.respondApproval(params);
   }
@@ -389,6 +424,8 @@ export class AppServer extends AppServerSurfaceHandlers {
   /**
    * 异步运行图（DAG 编排）：立即返回 runId，节点状态经 graph.progress 通知实时推送，
    * 结束经 graph.done 通知。运行态存于 graphRuns 供 graph.status 查询。
+   * @param params `{ id?, def? }` — 已存图 id 或内联图定义（含 name 与 steps），二者必居其一
+   * @returns `{ runId, nodeCount }` — 本次运行标识与节点总数
    */
   protected runGraph(params: Record<string, unknown>): { runId: string; nodeCount: number } {
     const store = this.runtime.graphStore();
