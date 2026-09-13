@@ -1,23 +1,11 @@
 // 组件挂载契约测试（P5.5）：零依赖 DOM 桩——不加载真实 React/ReactDOM，
-// 用「预置 window 桩 + 真实 htm 解析」驱动 class 组件的 render()，对元素树做断言。
+// 用「预置 window 桩 + createElement 收集」驱动 class 组件的 render()，对元素树做断言。
 // 覆盖面：组件可实例化、render 产出合法 vnode 树、关键 UI 契约（文案/回调接线）不变。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-
-/** 真实 htm（web/vendor UMD）：以「文本 + 模拟 module 出口」加载，规避 .js 被 node 当 ESM 的问题。 */
-const htmSrc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../vendor/htm.umd.js'), 'utf8');
-const htmModule = { exports: {} };
-new Function('module', 'exports', 'globalThis', htmSrc)(htmModule, htmModule.exports, globalThis);
-const realHtm = htmModule.exports;
 
 /** createElement 桩：产出纯数据 vnode {type, props, children}，不触 DOM。 */
 class FakeComponent {
@@ -55,7 +43,6 @@ const fakeReactDOM = { createRoot: () => ({ render: () => {} }) };
 globalThis.window = {
   React: fakeReact,
   ReactDOM: fakeReactDOM,
-  htm: realHtm,
   addEventListener: () => {},
   removeEventListener: () => {},
   clearTimeout: () => {},

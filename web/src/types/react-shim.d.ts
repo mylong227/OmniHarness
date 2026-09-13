@@ -71,13 +71,8 @@ interface ReactDOMApi {
   createRoot(container: Element): { render(node: ReactNode): void };
 }
 
-type HtmFn = ((strings: TemplateStringsArray, ...values: unknown[]) => ReactElement) & {
-  bind(factory: unknown): HtmFn;
-};
-
 declare const React: ReactApi;
 declare const ReactDOM: ReactDOMApi;
-declare const htm: HtmFn;
 
 // ---- JSX 类型（tsx 编译为 React.createElement 后仍需元素属性检查）----
 //

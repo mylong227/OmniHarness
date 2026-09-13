@@ -9,7 +9,7 @@
   <title>OmniHarness 工作台</title>
   <!--
     React 工作台宿主页。架构：原生 ES Module，零打包器、零网络依赖。
-      - web/vendor/  React / ReactDOM / htm（UMD，本地内置，离线可用）
+      - web/vendor/  React / ReactDOM（UMD，本地内置，离线可用；htm 已不再使用）
       - web/dist/    web/src/*.ts 经 tsc 编译产出的原生 ESM（`npm run web:build`）
       - web/styles/  从原内联 <style> 抽离的样式表
     协议不变：POST /rpc（JSON-RPC 2.0）+ GET /events（SSE 推送）。
@@ -36,7 +36,6 @@
   <div id="root"></div>
   <script src="./vendor/react.production.min.js"></script>
   <script src="./vendor/react-dom.production.min.js"></script>
-  <script src="./vendor/htm.umd.js"></script>
   <!-- 动态加载并带时间戳，避免浏览器缓存旧构建导致新功能不生效。 -->
   <script type="module">
     import(`./dist/main.js?v=${Date.now()}`);
