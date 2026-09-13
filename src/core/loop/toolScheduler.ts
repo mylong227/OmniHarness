@@ -34,7 +34,7 @@ export interface ToolSchedulerOptions {
   readonly parallelCapable?: (toolName: string) => boolean;
 }
 
-/** 保守内置判定：名字含写类动词/写类工具名单则必须串行。 */
+/** 保守内置判定：名字含写类动词/写类工具名单则必须串行（调度器缺省 parallelCapable）。 */
 const SERIAL_PATTERNS = [
   'write',
   'apply',
@@ -56,19 +56,22 @@ const SERIAL_PATTERNS = [
   'workflow',
 ];
 
+/** 内置并行安全判定：工具名不含任何写类模式词即视为可并行。 */
 function defaultParallelCapable(toolName: string): boolean {
   const lower = toolName.toLowerCase();
   return !SERIAL_PATTERNS.some((p) => lower.includes(p));
 }
 
-/** failed ToolResult 兜底（工具执行抛异常时不连累同批其他调用）。 */
+/** 构造 failed ToolResult（工具执行抛异常时兜底，不连累同批其他调用）。 */
 function failedResult(call: ToolCall, err: unknown): ToolResult {
   const message = err instanceof Error ? err.message : String(err);
   return { callId: call.id, ok: false, error: message };
 }
 
 export class ToolScheduler {
+  /** 并行批最大并发（下限 1，默认 8）。 */
   private readonly maxParallel: number;
+  /** 工具并行安全判定（缺省用 SERIAL_PATTERNS 保守内置策略）。 */
   private readonly parallelCapable: (toolName: string) => boolean;
 
   public constructor(options: ToolSchedulerOptions = {}) {
@@ -79,8 +82,14 @@ export class ToolScheduler {
   /**
    * 调度执行一批工具调用：连续并行安全调用并行化（有界池），写类形成屏障串行。
    * 返回结果与输入同序（model-order），上层按序记录即可。
+   * @param calls 模型本步发出的全部工具调用。
+   * @param execute 单调用执行器（StepRunner.runToolCall 抽象）。
+   * @returns 与输入同序的调度结果数组（失败已转为 failed ToolResult）。
    */
-  public async run(calls: readonly ToolCall[], execute: ToolExecutor): Promise<readonly ScheduledResult[]> {
+  public async run(
+    calls: readonly ToolCall[],
+    execute: ToolExecutor,
+  ): Promise<readonly ScheduledResult[]> {
     const results = new Array<ScheduledResult | undefined>(calls.length);
     let i = 0;
     while (i < calls.length) {
@@ -98,10 +107,20 @@ export class ToolScheduler {
         i += 1;
       }
     }
-    return results.map((r, idx) => r ?? { call: calls[idx]!, result: failedResult(calls[idx]!, new Error('调度遗漏')) });
+    return results.map(
+      (r, idx) =>
+        r ?? { call: calls[idx]!, result: failedResult(calls[idx]!, new Error('调度遗漏')) },
+    );
   }
 
-  /** 有界并发执行 [from, to) 区间的并行安全调用；Promise.allSettled 保序收齐。 */
+  /**
+   * 有界并发执行 [from, to) 区间的并行安全调用；Promise.allSettled 保序收齐。
+   * @param calls 全部工具调用（本批取 [from, to) 区间）。
+   * @param from 批起始下标（含）。
+   * @param to 批结束下标（不含）。
+   * @param execute 单调用执行器。
+   * @param results 结果写回数组（按下标就地填充，保证 model-order）。
+   */
   private async runParallelBatch(
     calls: readonly ToolCall[],
     from: number,
@@ -126,6 +145,7 @@ export class ToolScheduler {
   }
 }
 
+/** 安全执行单个工具调用：异常被捕获并转为 failed ToolResult（有界池工作协程专用）。 */
 async function safeExecute(call: ToolCall, execute: ToolExecutor): Promise<ToolResult> {
   try {
     return await execute(call);

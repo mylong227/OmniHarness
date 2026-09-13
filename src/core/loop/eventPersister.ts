@@ -26,17 +26,25 @@ export interface EventPersisterOptions {
 }
 
 export class EventPersister {
+  /** write-behind 延迟（ms）；0 = 禁用定时器，仅显式 flush 落盘。 */
   private readonly delayMs: number;
+  /** 已排队的落盘定时器句柄（一个窗口内至多一个，幂等）。 */
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** flush 串行化标志：防止并发 flush 旧快照覆盖新快照。 */
   private flushing = false;
+  /** 终止标志：dispose 后不再接受 schedule/flush。 */
   private disposed = false;
+  /** 上次成功落盘的事件数（增量语义：事件数未变则跳过写入）。 */
   private lastSavedCount = 0;
 
   public constructor(
+    /** 存储端口：快照经其 save(sessionId, events) 全量落盘。 */
     private readonly storage: StoragePort,
+    /** 目标会话 ID：落盘写入的 key。 */
     private readonly sessionId: string,
     /** 事件提供者：落盘时刻读取当前事件快照（避免 persister 持有 recorder 引用）。 */
     private readonly getEvents: () => readonly SessionEvent[],
+    /** 可选配置：批量延迟等。 */
     options: EventPersisterOptions = {},
   ) {
     this.delayMs = options.batchDelayMs ?? 200;

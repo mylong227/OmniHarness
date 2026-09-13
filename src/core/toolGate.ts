@@ -38,9 +38,13 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
  */
 export class ToolGate {
   public constructor(
+    /** 审批端口：策略层裁决（auto/rules/plan 白名单），deny 不升级直接拒绝。 */
     private readonly approvals: ApprovalPort,
+    /** 基础沙箱端口：OS 层能力裁决（文件读/写/命令）。 */
     private readonly sandbox: SandboxPort,
+    /** 计划端口（可选）：plan mode 读取计划状态做写类拦截。 */
     private readonly plan?: PlanPort,
+    /** 是否处于计划模式：开启时写类工具在计划获批前一律拦截。 */
     private readonly planMode = false,
     /** 升级审批端口（#G3/G4）：仅沙箱拒绝时咨询；审批策略拒绝不升级，避免绕过既定策略。 */
     private readonly escalation?: EscalationPort,
@@ -52,7 +56,12 @@ export class ToolGate {
     private readonly supervisor?: SupervisorPort,
   ) {}
 
-  /** 门禁检查：通过返回 undefined，否则返回带具体原因的拒绝结果（可观测性 #OBS-1：plan/审批/沙箱各自的真实拒绝原因透传，便于 UI/日志归因）。 */
+  /**
+   * 门禁检查：通过返回 undefined，否则返回带具体原因的拒绝结果（可观测性 #OBS-1：plan/审批/沙箱各自的真实拒绝原因透传，便于 UI/日志归因）。
+   * @param call 待裁决的工具调用（名称 + 入参）。
+   * @param sessionId 发起调用的会话 ID（审批/升级审批需要）。
+   * @returns 拒绝时为带原因的失败 ToolResult；放行时为 undefined。
+   */
   public async gate(call: ToolCall, sessionId: string): Promise<ToolResult | undefined> {
     // 监督内核：确定性否决，优先级高于审批/沙箱/计划门禁（ML 层置于确定性否决之下）。
     if (this.supervisor !== undefined) {
@@ -68,7 +77,12 @@ export class ToolGate {
     return undefined;
   }
 
-  /** 取具体拒绝原因；未拒绝返回 undefined。区分 plan / 审批 / 沙箱三类，便于 UI 归因（G3 可观测性）。 */
+  /**
+   * 取具体拒绝原因；未拒绝返回 undefined。区分 plan / 审批 / 沙箱三类，便于 UI 归因（G3 可观测性）。
+   * @param call 待裁决的工具调用。
+   * @param sessionId 发起调用的会话 ID。
+   * @returns 拒绝原因文本（含门禁类别）；三道门禁全部放行时为 undefined。
+   */
   private async denialReason(call: ToolCall, sessionId: string): Promise<string | undefined> {
     // 计划门禁（最先判：未批准前禁止任何写类工具，哪怕审批/沙箱放行）。
     if (this.planMode && this.plan !== undefined && MUTATING_TOOLS.has(call.name)) {
@@ -103,7 +117,13 @@ export class ToolGate {
     return `sandbox 拒绝（${call.name}：${tgt}）${cat}${decision.reason ?? '未提供原因'}`;
   }
 
-  /** 沙箱拒绝后的升级尝试：escalate 且提权沙箱放行则返回 true（放行），否则保持拒绝。 */
+  /**
+   * 沙箱拒绝后的升级尝试：escalate 且提权沙箱放行则返回 true（放行），否则保持拒绝。
+   * @param call 被基础沙箱拒绝的工具调用。
+   * @param sessionId 发起调用的会话 ID。
+   * @param decision 基础沙箱的拒绝决定（原因透传给升级审批）。
+   * @returns 升级获批且提权沙箱放行时为 true；否则 false（维持拒绝）。
+   */
   private async tryEscalate(
     call: ToolCall,
     sessionId: string,
@@ -126,7 +146,11 @@ export class ToolGate {
     return elevated.allowed;
   }
 
-  /** 按工具类型映射沙箱动作（命令/读/写）。 */
+  /**
+   * 按工具类型映射沙箱动作（命令/读/写）。
+   * @param call 工具调用（按名称归类到 file_read/file_write/command）。
+   * @returns 对应的沙箱检查动作（含动作目标）。
+   */
   private sandboxActionOf(call: ToolCall): SandboxAction {
     if (call.name === 'read_file') {
       return { kind: 'file_read', target: this.targetOf(call) };
@@ -137,7 +161,11 @@ export class ToolGate {
     return { kind: 'command', target: this.targetOf(call) };
   }
 
-  /** 提取动作目标（用于审批/沙箱展示）。 */
+  /**
+   * 提取动作目标（用于审批/沙箱展示）。
+   * @param call 工具调用。
+   * @returns command/path 参数值；均缺失时退化为工具名。
+   */
   private targetOf(call: ToolCall): string {
     return String(call.arguments['command'] ?? call.arguments['path'] ?? call.name);
   }

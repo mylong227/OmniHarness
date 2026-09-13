@@ -22,6 +22,7 @@ import type { StepRunnerDeps } from './stepTypes.js';
  * 全部外部读取失败一律 fail-closed（跳过该片段），绝不因上下文增强而阻断主流程。
  */
 export class StepContextBuilder {
+  /** 消息投影器：把事件日志按角色投影为模型消息列表（注入额外 system 片段）。 */
   private readonly assembler: ContextAssembler;
   /**
    * 压缩状态游标（V2）：内存持有跨步复用，写回事件日志供崩溃恢复。
@@ -39,7 +40,10 @@ export class StepContextBuilder {
     this.assembler = new ContextAssembler(deps.fragments);
   }
 
-  /** 组装模型消息（按需压缩，注入常驻指令与 repo-map）。 */
+  /**
+   * 组装模型消息（按需压缩，注入常驻指令与 repo-map）。
+   * @returns 投影 + 压缩后发给模型的消息列表（跨步复用压缩游标）。
+   */
   public async buildMessages(): Promise<readonly ModelMessage[]> {
     const events = this.deps.recorder.allEvents();
     const extraSystemFragments: string[] = [];
