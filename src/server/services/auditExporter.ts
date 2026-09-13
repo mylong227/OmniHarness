@@ -7,17 +7,17 @@ import type { AuditChainReport, AuditEvent } from './auditSink.js';
  */
 export interface AuditQuery {
   /** 时间下界（含），ISO 字符串；按字典序比较（ISO 时间可字典序排序）。 */
-  readonly since?: string;
+  readonly since?: string | undefined;
   /** 时间上界（含），ISO 字符串。 */
-  readonly until?: string;
+  readonly until?: string | undefined;
   /** 事件类型精确匹配。 */
-  readonly type?: string;
+  readonly type?: string | undefined;
   /** 会话 ID 精确匹配。 */
-  readonly session?: string;
+  readonly session?: string | undefined;
   /** 操作者精确匹配。 */
-  readonly actor?: string;
+  readonly actor?: string | undefined;
   /** 最多返回条数（截尾取最近 N 条）。 */
-  readonly limit?: number;
+  readonly limit?: number | undefined;
 }
 
 /**

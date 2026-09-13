@@ -56,9 +56,9 @@ export class SupervisorKernel implements SupervisorPort {
   /** 危险工具名集合：safe/locked 模式下被 intercept 直接否决。 */
   private readonly hazardous: ReadonlySet<string>;
   /** 可选审计 sink：每次模式转移把前后模式与健康向量写入审计哈希链。 */
-  private readonly audit?: AuditSinkLike;
+  private readonly audit?: AuditSinkLike | undefined;
   /** 会话标识：写入审计记录，便于跨事件关联到同一会话。 */
-  private readonly sessionId?: string;
+  private readonly sessionId?: string | undefined;
 
   /** 每工具滑动窗口统计（成败窗口、连续失败计数、最近错误）。 */
   private readonly stats = new Map<string, ToolStat>();

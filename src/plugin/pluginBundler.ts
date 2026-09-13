@@ -63,9 +63,9 @@ export interface PackBundleOptions {
   readonly registry: PluginRegistry;
   readonly pluginsDir: string;
   /** HMAC 签名密钥文件路径（提供则对清单签名；缺省不签名）。 */
-  readonly keyFile?: string;
+  readonly keyFile?: string | undefined;
   /** 输出目录（缺省 <workspaceDir>/.omniharness/bundles）。 */
-  readonly outDir?: string;
+  readonly outDir?: string | undefined;
 }
 
 /**
@@ -85,7 +85,7 @@ export interface UnpackBundleOptions {
   readonly zipPath: string;
   readonly pluginsDir: string;
   readonly workspaceDir: string;
-  readonly keyFile?: string;
+  readonly keyFile?: string | undefined;
 }
 
 /**

@@ -21,7 +21,7 @@ export interface Candidate {
   /** 来源标识（如 'twist:a+b' / 'incumbent'）。 */
   readonly source: string;
   /** 任意诊断元信息（如涌现强度、转角）。 */
-  readonly meta?: Readonly<Record<string, unknown>>;
+  readonly meta?: Readonly<Record<string, unknown>> | undefined;
 }
 
 /** 晋升/隔离裁决（fail-closed 可读）。 */
@@ -70,11 +70,11 @@ export interface EvolutionControllerOptions {
    * 晋升回调：候选被门禁晋升后触发（如把技能注册进 SkillRegistry）。
    * 零依赖、由调用方注入，避免控制器反向依赖具体注册表。
    */
-  readonly onPromote?: (candidate: Candidate) => void;
+  readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   /** 任务完成后自动跑一轮进化（默认 false，确保零破坏旁路）。 */
-  readonly autoRun?: boolean;
+  readonly autoRun?: boolean | undefined;
   /** 可选审计 sink：每次裁决入哈希链。 */
-  readonly audit?: AuditSinkLike;
+  readonly audit?: AuditSinkLike | undefined;
   /**
    * (U4 升格) RLVR 阶段：每个过门禁的候选再跑一轮 sample-filter-replay，仅「绿」样本才晋升。
    * 缺省 undefined → 退化为原「门禁→晋升」单次闭环，零破坏。需由调用方注入 `RlvrLoop` 实例。

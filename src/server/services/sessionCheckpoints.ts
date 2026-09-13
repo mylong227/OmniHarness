@@ -7,7 +7,7 @@ export interface SessionCheckpointsOptions {
   /** 会话存储端口（检查点索引落在此，复用会话同一份存储）。 */
   readonly storage: StoragePort;
   /** 工作区根（检查点文件快照还原用；缺省回退进程当前目录）。 */
-  readonly workspaceRoot?: string;
+  readonly workspaceRoot?: string | undefined;
 }
 
 /**

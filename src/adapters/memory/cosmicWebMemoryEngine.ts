@@ -21,13 +21,13 @@ interface WebNode {
 /** 宇宙网记忆引擎选项（全有保守默认；fail-closed 边界夹紧）。 */
 export interface CosmicWebOptions {
   /** 黏附半径（共振度阈值）：新事实与节点共振≥此值则不可逆黏附去重。默认 0.75。 */
-  readonly adhesionThreshold?: number;
+  readonly adhesionThreshold?: number | undefined;
   /** Bekenstein 容量界：节点数硬上限，超限触发 RG 坍缩。默认 64。 */
-  readonly bekensteinCap?: number;
+  readonly bekensteinCap?: number | undefined;
   /** 纤维边阈值：节点间共振≥此值记为一条纤维。默认 0.4。 */
-  readonly edgeThreshold?: number;
+  readonly edgeThreshold?: number | undefined;
   /** 本征谱分箱（须与共振引擎一致）。默认 257。 */
-  readonly bins?: number;
+  readonly bins?: number | undefined;
 }
 
 function avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {

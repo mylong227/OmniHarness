@@ -28,11 +28,11 @@ export interface CRISPRSkillEditorOptions {
   /** 编辑面（通常是受种的 SkillRegistry）。 */
   readonly skillPort: SkillPort;
   /** 可选审计链：编辑/回滚事件入链（与免疫监控同机制）。 */
-  readonly audit?: AuditSinkLike;
+  readonly audit?: AuditSinkLike | undefined;
   /** 语义寻址共振阈值（默认 0.5）。 */
-  readonly addressThreshold?: number;
+  readonly addressThreshold?: number | undefined;
   /** 能力场维度（默认 257，须与燧-3 一致）。 */
-  readonly bins?: number;
+  readonly bins?: number | undefined;
 }
 
 /** 把改写后的 instructions 派生出描述，保持契约一致（不硬塞原文，避免描述失配）。 */
@@ -60,7 +60,7 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
   /** 编辑面：技能的查询/替换都经此端口（通常是受种的 SkillRegistry）。 */
   private readonly port: SkillPort;
   /** 可选审计链：编辑应用/回滚事件入链，便于事后追溯。 */
-  private readonly audit?: AuditSinkLike;
+  private readonly audit?: AuditSinkLike | undefined;
   /** 语义寻址共振阈值：共振度低于此值不命中（默认 0.5）。 */
   private readonly addressThreshold: number;
   /** 能力场维度（本征谱分箱数，须与燧-3 一致）。 */

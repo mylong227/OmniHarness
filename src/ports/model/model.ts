@@ -28,28 +28,28 @@ export interface ModelMessage {
   readonly role: 'system' | 'user' | 'assistant' | 'tool';
   readonly content: string;
   /** 随消息附带的图像（可选，向后兼容：缺省退化为纯文本，#B1）。 */
-  readonly images?: readonly ImageContent[];
+  readonly images?: readonly ImageContent[] | undefined;
   /**
    * 随消息附带的文件附件（可选，#B5）：图片/视频/任意文件。
    * 图片类文件与 images 一并理解；其余以文本说明注入模型上下文。
    */
-  readonly files?: readonly FileAttachment[];
+  readonly files?: readonly FileAttachment[] | undefined;
   /**
    * 助手回合携带的工具调用（OpenAI 多轮工具格式）。
    * 存在时本消息在 wire 层序列化为 assistant.tool_calls；同一回合可同时含 content。
    */
-  readonly toolCalls?: readonly ModelToolCallRef[];
+  readonly toolCalls?: readonly ModelToolCallRef[] | undefined;
   /**
    * 工具结果消息关联的工具调用 id（OpenAI 多轮工具格式：role:'tool' 必须带 tool_call_id，
    * 且须与前置 assistant 消息的某条 tool_calls.id 对应）。
    */
-  readonly toolCallId?: string;
+  readonly toolCallId?: string | undefined;
   /**
    * 助手回合的思考文本（DeepSeek 思考模式等多步推理模型的 reasoning_content）。
    * DeepSeek v4 思考模式硬性要求把上一轮 assistant 的 reasoning_content 原样回传，
    * 缺失即 HTTP 400（"The `reasoning_content` in the thinking mode must be passed back"）。
    */
-  readonly reasoningContent?: string;
+  readonly reasoningContent?: string | undefined;
 }
 
 /** 工具说明（供模型 schema）。 */
@@ -64,12 +64,12 @@ export interface ModelRequest {
   readonly messages: readonly ModelMessage[];
   readonly tools: readonly ModelToolSpec[];
   /** 推理强度（可选，#B6）：透传为 OpenAI reasoning_effort 等，未设则后端按模型默认。 */
-  readonly reasoningEffort?: string;
+  readonly reasoningEffort?: string | undefined;
   /**
    * 取消信号（V2，可选）：透传给底层 fetch 实现协作式取消。
    * 未提供时适配器行为不变（向后兼容）；提供时取消即中断在飞 HTTP 请求。
    */
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
 }
 
 /** 模型返回的工具调用引用。 */
@@ -81,11 +81,11 @@ export interface ModelToolCallRef {
 
 /** 模型输出：推理 / 文本 / 工具调用。 */
 export interface ModelOutput {
-  readonly reasoning?: string;
-  readonly text?: string;
-  readonly toolCalls?: readonly ModelToolCallRef[];
+  readonly reasoning?: string | undefined;
+  readonly text?: string | undefined;
+  readonly toolCalls?: readonly ModelToolCallRef[] | undefined;
   /** 本次调用的 token 用量（成本计量 / 硬预算熔断依据，#S29）。未上报时为 undefined。 */
-  readonly usage?: ModelUsage;
+  readonly usage?: ModelUsage | undefined;
 }
 
 /** 模型用量统计（token 级，#S29）。 */
@@ -101,7 +101,7 @@ export interface ModelUsage {
    * 端点未回传时为 undefined——**绝不臆造**：缺值只能表示「未知」，不能记作 0 命中，
    * 否则会把「无数据」误算成「缓存全未命中」，拉低统计出的平均命中率。
    */
-  readonly cachedPromptTokens?: number;
+  readonly cachedPromptTokens?: number | undefined;
 }
 
 /**
@@ -132,9 +132,9 @@ export interface ModelContextSnapshot {
 /** 流式工具输入增量（#B3）：模型边生成工具参数边推送，用于渐进渲染工具调用参数。 */
 export interface ToolInputDelta {
   /** 工具调用 id（Anthropic 在 block start 给出，OpenAI 在首个 tool_calls delta 给出）。 */
-  readonly id?: string;
+  readonly id?: string | undefined;
   /** 工具名。 */
-  readonly name?: string;
+  readonly name?: string | undefined;
   /** 已累积的参数片段（JSON 片段，可能不完整，由消费方自行拼接/解析）。 */
   readonly partialJson: string;
 }

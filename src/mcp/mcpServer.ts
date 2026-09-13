@@ -42,13 +42,13 @@ export interface McpServerOptions {
   readonly transport: Transport;
   readonly tools: ToolPort;
   readonly context: ToolContext;
-  readonly serverInfo?: McpServerInfo;
+  readonly serverInfo?: McpServerInfo | undefined;
   /** 可选门禁：注入后外部 MCP 调用同样过审批 + 沙箱。 */
-  readonly gate?: ToolGate;
+  readonly gate?: ToolGate | undefined;
   /** 可选资源后端：注入后服务端应答 resources/*。 */
-  readonly resources?: ResourcePort;
+  readonly resources?: ResourcePort | undefined;
   /** 可选提示模板后端：注入后服务端应答 prompts/*。 */
-  readonly prompts?: PromptPort;
+  readonly prompts?: PromptPort | undefined;
 }
 
 /**
@@ -175,7 +175,9 @@ export class McpServer {
   }
 
   /** 门禁裁决（未注入门禁直接放行）。 */
-  private async gateOf(call: ToolCall): Promise<{ output?: string; error?: string } | undefined> {
+  private async gateOf(
+    call: ToolCall,
+  ): Promise<{ output?: string | undefined; error?: string | undefined } | undefined> {
     const gate = this.options.gate;
     if (gate === undefined) {
       return undefined;

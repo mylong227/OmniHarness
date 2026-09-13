@@ -28,7 +28,7 @@ export interface HealthEntry {
   /** 滑动窗口内成功次数。 */
   readonly successes: number;
   /** 最近一次错误（若有）。 */
-  readonly lastError?: string;
+  readonly lastError?: string | undefined;
 }
 
 /** 健康快照：当前模式 + 全部工具健康向量。 */

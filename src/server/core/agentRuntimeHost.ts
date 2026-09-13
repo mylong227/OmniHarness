@@ -45,11 +45,11 @@ export class AgentRuntimeHost {
   /** 宿主依赖（配置 / 事件 / 审批工厂与工作区根，全部为实时取值器）。 */
   private readonly deps: AgentRuntimeDeps;
   /** Agent 缓存（invalidateAgent 失效）。 */
-  private agentCache?: Agent;
+  private agentCache?: Agent | undefined;
   /** 图存储缓存（按工作区根懒建，invalidateGraph 失效）。 */
-  private storeCache?: GraphStore;
+  private storeCache?: GraphStore | undefined;
   /** 子智能体端口集缓存（图运行复用）。 */
-  private portsCache?: SubagentPorts;
+  private portsCache?: SubagentPorts | undefined;
 
   /**
    * @param deps 配置来源、事件/审批工厂与工作区根

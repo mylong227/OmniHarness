@@ -56,7 +56,7 @@ export class CliCompareCmds extends CliDataCmds {
     args: readonly string[],
     suffix: string,
     prompt: string,
-  ): Promise<{ modelName: string; durationMs: number; finalText?: string }> {
+  ): Promise<{ modelName: string; durationMs: number; finalText?: string | undefined }> {
     const config = await this.buildCompareConfig(args, suffix);
     const agent = new Agent(createRuntime(config));
     const startedAt = Date.now();

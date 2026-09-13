@@ -83,8 +83,8 @@ export class RunWorkflowTool {
     readonly steps: readonly {
       readonly id: string;
       readonly ok: boolean;
-      readonly output?: string;
-      readonly error?: string;
+      readonly output?: string | undefined;
+      readonly error?: string | undefined;
     }[];
   }): string {
     const head = result.ok ? '工作流全部完成' : '工作流存在失败步骤';

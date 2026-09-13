@@ -17,7 +17,7 @@ interface ModelStat {
 /** 会话列表条目。 */
 interface SessionInfo {
   readonly sessionId: string;
-  readonly workspace?: string;
+  readonly workspace?: string | undefined;
   readonly label: string;
   readonly turns: number;
   readonly updatedAt: string;
@@ -33,7 +33,7 @@ export interface SessionArchiveDeps {
   /** 配置文件里的 storageDir 覆盖（usage 的 fallback 用）。 */
   readonly configuredStorageDir: () => string | undefined;
   /** 进程内指标（磁盘无历史时回退）。 */
-  readonly metrics?: Metrics;
+  readonly metrics?: Metrics | undefined;
 }
 
 /**

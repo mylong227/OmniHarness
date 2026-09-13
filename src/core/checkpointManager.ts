@@ -44,11 +44,11 @@ function checkpointKey(sessionId: string, label: string): string {
  */
 export class CheckpointManager implements CheckpointManagerPort {
   /** 工作区快照端口（可选）：具备时检查点附带文件级快照，支持代码回滚。 */
-  private readonly snapshotter?: WorkspaceSnapshotPort;
+  private readonly snapshotter?: WorkspaceSnapshotPort | undefined;
   /** 工作区根：文件快照的捕获与还原范围。 */
-  private readonly workspaceRoot?: string;
+  private readonly workspaceRoot?: string | undefined;
   /** 文件快照落盘目录：缺省为 `<workspaceRoot>/.omni-checkpoints`。 */
-  private readonly stateDir?: string;
+  private readonly stateDir?: string | undefined;
 
   public constructor(
     /** 存储端口：检查点事件与索引都以合成 key 借其 events 通道落盘。 */

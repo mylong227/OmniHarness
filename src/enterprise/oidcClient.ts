@@ -27,11 +27,11 @@ export interface OidcProviderConfig {
   /** 在 IdP 注册的应用 client_id。 */
   readonly clientId: string;
   /**  confidential client 的 client_secret（public client 可省略）。 */
-  readonly clientSecret?: string;
+  readonly clientSecret?: string | undefined;
   /** 回调地址（需与 IdP 注册一致）。 */
-  readonly redirectUri?: string;
+  readonly redirectUri?: string | undefined;
   /** 申请的 scope，默认 `openid profile email`。 */
-  readonly scope?: string;
+  readonly scope?: string | undefined;
 }
 
 /**
@@ -42,8 +42,8 @@ export interface OidcDiscovery {
   readonly issuer: string;
   readonly authorization_endpoint: string;
   readonly token_endpoint: string;
-  readonly jwks_uri?: string;
-  readonly userinfo_endpoint?: string;
+  readonly jwks_uri?: string | undefined;
+  readonly userinfo_endpoint?: string | undefined;
 }
 
 /**
@@ -62,11 +62,11 @@ export interface PkcePair {
  */
 export interface TokenSet {
   readonly access_token: string;
-  readonly id_token?: string;
+  readonly id_token?: string | undefined;
   readonly token_type: string;
-  readonly expires_in?: number;
-  readonly refresh_token?: string;
-  readonly scope?: string;
+  readonly expires_in?: number | undefined;
+  readonly refresh_token?: string | undefined;
+  readonly scope?: string | undefined;
 }
 
 /**
@@ -100,9 +100,9 @@ export interface JwtParts {
 export interface AuthState {
   readonly issuer: string;
   readonly clientId: string;
-  readonly clientSecret?: string;
-  readonly redirectUri?: string;
-  readonly scope?: string;
+  readonly clientSecret?: string | undefined;
+  readonly redirectUri?: string | undefined;
+  readonly scope?: string | undefined;
   readonly state: string;
   readonly codeVerifier: string;
   readonly createdAt: string;
@@ -231,7 +231,7 @@ export class OidcClient {
     params: {
       readonly code: string;
       readonly codeVerifier?: string;
-      readonly redirectUri?: string;
+      readonly redirectUri?: string | undefined;
       readonly fetchImpl?: typeof fetch;
     },
   ): Promise<TokenSet> {
@@ -419,7 +419,7 @@ export function exchangeCode(
   params: {
     readonly code: string;
     readonly codeVerifier?: string;
-    readonly redirectUri?: string;
+    readonly redirectUri?: string | undefined;
     readonly fetchImpl?: typeof fetch;
   },
 ): Promise<TokenSet> {

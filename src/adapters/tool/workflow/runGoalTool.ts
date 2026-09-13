@@ -86,7 +86,7 @@ export class RunGoalTool {
     readonly achieved: boolean;
     readonly iterations: number;
     readonly sessionId: string;
-    readonly finalText?: string;
+    readonly finalText?: string | undefined;
   }): string {
     const verdict = result.achieved ? '已达成' : '未达成';
     const head = `[目标循环 ${result.sessionId}] ${verdict}｜${result.iterations} 轮`;

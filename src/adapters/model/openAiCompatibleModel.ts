@@ -460,7 +460,9 @@ export class OpenAiCompatibleModel implements ModelPort {
 interface StreamState {
   chunks: string[];
   reasoningChunks: string[];
-  toolBlocks: ({ id?: string; name?: string; partial: string } | undefined)[];
+  toolBlocks: (
+    { id?: string | undefined; name?: string | undefined; partial: string } | undefined
+  )[];
   usage: ModelUsage | undefined;
 }
 

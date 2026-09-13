@@ -13,7 +13,7 @@ export interface RouterEntry {
   /** 该 entry 的模型标识（记账与日志按键）。 */
   readonly model: string;
   /** 每 1k token 的输入/输出单价（USD）；缺省时 least-cost 策略无法对该模型计价。 */
-  readonly pricing?: { readonly inputPer1k: number; readonly outputPer1k: number };
+  readonly pricing?: { readonly inputPer1k: number; readonly outputPer1k: number } | undefined;
 }
 
 /** 路由策略。 */
@@ -26,7 +26,7 @@ export interface ModelRouterOptions {
   /** 路由策略：最低成本 / 轮询 / 按任务关键词 / 健康度降级。 */
   readonly strategy: RouterStrategy;
   /** by-task 策略下，仅在该 role 的消息中匹配关键词（缺省匹配全部消息）。 */
-  readonly taskField?: string;
+  readonly taskField?: string | undefined;
 }
 
 /** 「写/实现」类任务关键词（不区分大小写）。 */

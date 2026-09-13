@@ -53,9 +53,9 @@ export interface GraphNodeUpdate {
  */
 export interface WorkflowRunnerOptions {
   /** 同层最大并发步数。 */
-  readonly maxConcurrency?: number;
+  readonly maxConcurrency?: number | undefined;
   /** 节点状态变更回调（可选，供实时进度推送）。 */
-  readonly onNodeUpdate?: (update: GraphNodeUpdate) => void;
+  readonly onNodeUpdate?: ((update: GraphNodeUpdate) => void) | undefined;
 }
 
 /**

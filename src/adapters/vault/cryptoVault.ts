@@ -21,7 +21,7 @@ export class CryptoVault implements VaultPort {
   /** 底层键值存储端口：密文实际落盘位置。 */
   private readonly kv: KvPort;
   /** 密钥文件路径（主密钥来源优先级 2/3）；未配置则无文件回退。 */
-  private readonly keyFile?: string;
+  private readonly keyFile?: string | undefined;
   /** 主密钥来源优先级 1 的环境变量名。 */
   private readonly envVar: string;
   /** 已解析的 32 字节主密钥缓存（懒加载，避免重复读环境变量/文件）。 */
@@ -35,7 +35,7 @@ export class CryptoVault implements VaultPort {
     /** 主密钥来源优先级 1（默认 `OMNIHARNESS_VAULT_KEY`）。 */
     envVar?: string;
     /** 主密钥来源优先级 2/3 的密钥文件（省略则无文件回退）。 */
-    keyFile?: string;
+    keyFile?: string | undefined;
   }) {
     this.kv = options.kv;
     this.envVar = options.envVar ?? 'OMNIHARNESS_VAULT_KEY';

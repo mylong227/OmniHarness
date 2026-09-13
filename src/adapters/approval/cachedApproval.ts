@@ -8,15 +8,15 @@ import { canonicalizeCommand, canonicalKeyOf } from '../../util/commandCanonical
 /** 审批缓存选项。 */
 export interface CachedApprovalOptions {
   /** 参与缓存键的工作目录（环境变化即失效）。 */
-  readonly cwd?: string;
+  readonly cwd?: string | undefined;
   /** 策略指纹（审批/沙箱后端名拼接）：策略切换即失效，避免沿用旧裁决。 */
-  readonly policyFingerprint?: string;
+  readonly policyFingerprint?: string | undefined;
   /** 缓存上限，超出淘汰最久未用条目。 */
-  readonly maxEntries?: number;
+  readonly maxEntries?: number | undefined;
   /** 是否缓存 deny（默认缓存；关掉则每次重新问，更安全但更烦人）。 */
-  readonly cacheDeny?: boolean;
+  readonly cacheDeny?: boolean | undefined;
   /** 需要做命令规范化再入键的工具名（默认 shell）。 */
-  readonly commandTools?: readonly string[];
+  readonly commandTools?: readonly string[] | undefined;
 }
 
 /** 默认缓存上限。 */

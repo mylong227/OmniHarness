@@ -16,7 +16,7 @@ import type {
 
 export interface ConfinementOptions {
   /** 群阶（默认 3，对应 SU(3) 三色）。 */
-  readonly groupOrder?: number;
+  readonly groupOrder?: number | undefined;
 }
 
 /** 禁闭色荷引擎：实现 {@link ConfinementPort}，以张量收缩判单态、结构性拒绝裸能力暴露。 */

@@ -30,90 +30,94 @@ export interface SparkCycleReport {
   /** 是否真跑了（无活跃燧能力时为 false）。 */
   readonly ran: boolean;
   /** 燧-3 调谐结果（启用时）。 */
-  readonly resonance?: { readonly facts: number; readonly clusters: number };
+  readonly resonance?: { readonly facts: number; readonly clusters: number } | undefined;
   /** 燧-4 冲刷结果（启用时）。 */
-  readonly vortex?: { readonly activeRings: number };
+  readonly vortex?: { readonly activeRings: number } | undefined;
   /** (D) 热方程记忆退火结果（启用时）。 */
-  readonly anneal?: AnnealStepReport;
+  readonly anneal?: AnnealStepReport | undefined;
   /** (E) 宇宙网记忆 RG 坍缩结果（启用时）。 */
-  readonly web?: WebConsolidationReport;
+  readonly web?: WebConsolidationReport | undefined;
   /** (E) QEC 记忆全量校验+纠正结果（启用时）。 */
-  readonly qec?: QECReport;
+  readonly qec?: QECReport | undefined;
   /** (E) 免疫监控自检结果（启用时）。 */
-  readonly immune?: ImmuneSelfReport;
+  readonly immune?: ImmuneSelfReport | undefined;
   /** (P2) 信念支柱更新结果（启用时）：自然梯度 / 粒子滤波两类可审计 KL 分解。 */
-  readonly belief?: {
-    readonly naturalGradient?: BeliefUpdateReport;
-    readonly particleFilter?: BeliefUpdateReport;
-  };
+  readonly belief?:
+    | {
+        readonly naturalGradient?: BeliefUpdateReport | undefined;
+        readonly particleFilter?: BeliefUpdateReport | undefined;
+      }
+    | undefined;
   /** (P2, I-P2-4) CRISPR 精确编辑批量结果（启用时，队列非空才有产出）。 */
-  readonly crispr?: readonly CrisprEditReport[];
+  readonly crispr?: readonly CrisprEditReport[] | undefined;
   /** (P2, I-P2-5) 相变固化结果（启用时）：经验密度越阈组合冻结为原生能力。 */
-  readonly crystallizer?: CrystallizationReport;
+  readonly crystallizer?: CrystallizationReport | undefined;
   /** (P3, I-P3-1) 刻蚀记忆结果（启用时）：已刻蚀 trace 数 + 可选低阻导通路径。 */
-  readonly etching?: { readonly traces: number; readonly conducted?: readonly string[] };
+  readonly etching?:
+    { readonly traces: number; readonly conducted?: readonly string[] | undefined } | undefined;
   /** (P3, I-P3-2) 元素组合基元结果（启用时）：周期表规模 + 可选组合探针产物。 */
-  readonly elementComposer?: { readonly elements: number; readonly compound?: string | null };
+  readonly elementComposer?:
+    { readonly elements: number; readonly compound?: string | null } | undefined;
   /** (P3, I-P3-3) 对称破缺快照（启用时）：序参量 ρ + 对称态 + 是否相变。 */
-  readonly symmetry?: SymmetryBreakReport;
+  readonly symmetry?: SymmetryBreakReport | undefined;
   /** (P3, I-P3-4) 禁闭色荷裁决（启用时）：暴露探针裁决。 */
-  readonly confinement?: ConfinementVerdict;
+  readonly confinement?: ConfinementVerdict | undefined;
 }
 
 /** 燧内核控制器选项。 */
 export interface SparkControllerOptions {
   /** 已封包进 createRuntime 的燧-3 共振寻址引擎（resonance/memoryWeb 或 U1 统一基板传入；端口接口以兼容 ResonantFieldEngine 单一状态源）。 */
-  readonly resonance?: ResonantMemoryPort;
+  readonly resonance?: ResonantMemoryPort | undefined;
   /** 已封包进 createRuntime 的燧-4 涡环包外溢适配器（vortexRing.enabled 时传入）。 */
-  readonly vortex?: VortexRingSpillAdapter;
+  readonly vortex?: VortexRingSpillAdapter | undefined;
   /** (D) 热方程记忆退火器（memoryAnnealing.enabled 时传入）。 */
-  readonly annealer?: MemoryAnnealer;
+  readonly annealer?: MemoryAnnealer | undefined;
   /** (E) 宇宙网记忆引擎（memoryWeb.enabled 或 U1 统一基板传入；端口接口以兼容 ResonantFieldEngine 单一状态源）。 */
-  readonly web?: CosmicWebPort;
+  readonly web?: CosmicWebPort | undefined;
   /** (E) QEC 记忆编码器（qec.enabled 时传入）。 */
-  readonly qec?: QECEncoder;
+  readonly qec?: QECEncoder | undefined;
   /** (E) 免疫异常监控器（immuneMonitoring.enabled 时传入）。 */
-  readonly immune?: ImmuneMonitorPort;
+  readonly immune?: ImmuneMonitorPort | undefined;
   /** (E) 免疫采样器：每轮自检时观测的"自体"行为向量（如记忆健康度）。 */
-  readonly immuneSample?: () => readonly number[];
+  readonly immuneSample?: (() => readonly number[]) | undefined;
   /** (P2, I-P2-2) 自然梯度信念引擎（belief 启用时传入）。 */
-  readonly naturalGradient?: NaturalGradientBelief;
+  readonly naturalGradient?: NaturalGradientBelief | undefined;
   /** (P2, I-P2-3) 粒子滤波信念引擎（belief 启用时传入）。 */
-  readonly particleFilter?: ParticleFilterBelief;
+  readonly particleFilter?: ParticleFilterBelief | undefined;
   /** (P2) 信念采样器：每轮经 `correct` 观测的"自体"行为向量（维度须与引擎一致）。 */
-  readonly beliefObservation?: () => readonly number[];
+  readonly beliefObservation?: (() => readonly number[]) | undefined;
   /** (P2, I-P2-4) CRISPR 精确技能编辑器（skillEditing.enabled 时传入）。 */
-  readonly crispr?: CRISPRSkillEditor;
+  readonly crispr?: CRISPRSkillEditor | undefined;
   /** (P2, I-P2-5) 相变固化器（capabilityCrystallization.enabled 时传入）。 */
-  readonly crystallizer?: CapabilityCrystallizer;
+  readonly crystallizer?: CapabilityCrystallizer | undefined;
   /** (P3, I-P3-1) 刻蚀记忆引擎（insightEtching.enabled 时传入）。 */
-  readonly etching?: InsightEtchingEngine;
+  readonly etching?: InsightEtchingEngine | undefined;
   /** (P3, I-P3-1) 刻蚀导通探针：返回供 conduct 的 query 串（可选）。 */
-  readonly etchProbe?: () => string;
+  readonly etchProbe?: (() => string) | undefined;
   /** (P3, I-P3-2) 元素组合基元引擎（elementComposer.enabled 时传入）。 */
-  readonly elementComposer?: ElementComposer;
+  readonly elementComposer?: ElementComposer | undefined;
   /** (P3, I-P3-2) 组合探针：返回待组合的元素符号序列（可选）。 */
-  readonly composeProbe?: () => readonly string[];
+  readonly composeProbe?: (() => readonly string[]) | undefined;
   /** (P3, I-P3-3) 对称破缺引擎（symmetryBreaking.enabled 时传入）。 */
-  readonly symmetry?: SymmetryBreakingEngine;
+  readonly symmetry?: SymmetryBreakingEngine | undefined;
   /** (P3, I-P3-3) 对称观测探针：返回使用样本（可选）。 */
-  readonly symmetryProbe?: () => readonly { capability: string; weight: number }[];
+  readonly symmetryProbe?: (() => readonly { capability: string; weight: number }[]) | undefined;
   /** (P3, I-P3-4) 禁闭色荷引擎（confinement.enabled 时传入）。 */
-  readonly confinement?: ConfinementEngine;
+  readonly confinement?: ConfinementEngine | undefined;
   /** (P3, I-P3-4) 暴露探针：返回待裁决的能力色荷（可选）。 */
-  readonly confinementProbe?: () => CapabilityCharge;
+  readonly confinementProbe?: (() => CapabilityCharge) | undefined;
   /** (P4, I-P4-3) 长期运行遥测端口：每轮 cycle 落盘一条 production 观测（可选，缺省不采集）。 */
-  readonly telemetry?: RuntimeTelemetryPort;
+  readonly telemetry?: RuntimeTelemetryPort | undefined;
   /** 任务完成后自动跑一轮各燧能力（默认 false，零破坏旁路）。 */
-  readonly autoRun?: boolean;
+  readonly autoRun?: boolean | undefined;
   /**
    * 启用 Genesis 自适应编排（默认 false，零回归旁路）。
    * 启用后 `cycle()` 委托 `GenesisSparkBridge`：发射顺序由 `planHarnessRegime(regime)`
    * 按工况纯函数决定，且每笔成本进入守恒账本。桥异常时回落既有 legacy 路径（fail-closed）。
    */
-  readonly enableGenesis?: boolean;
+  readonly enableGenesis?: boolean | undefined;
   /** Genesis 控制器所需的工况信号（熵/模态数/成本压力/成功率）。缺省为低熵基线。 */
-  readonly genesisSignals?: RegimeSignals;
+  readonly genesisSignals?: RegimeSignals | undefined;
 }
 
 /**
@@ -134,7 +138,7 @@ export class SparkController {
   private readonly engines: SparkEngineSet;
   private readonly telemetry: SparkCycleTelemetry;
   /** Genesis 自适应编排桥（enableGenesis 时构造；缺省 undefined ⇒ 走 legacy 路径）。 */
-  private readonly bridge?: GenesisSparkBridge;
+  private readonly bridge?: GenesisSparkBridge | undefined;
   /** Genesis 控制器工况信号（缺省为低熵基线）。 */
   private readonly genesisSignals: RegimeSignals;
 

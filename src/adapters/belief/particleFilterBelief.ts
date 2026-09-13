@@ -12,19 +12,19 @@ import { klDiagonal, reparamInvariant } from '../../util/beliefMath.js';
 /** 粒子滤波信念选项（fail-closed 边界夹紧）。 */
 export interface ParticleFilterOptions {
   /** 状态维度（默认 3）。 */
-  readonly dim?: number;
+  readonly dim?: number | undefined;
   /** 粒子数（默认 200）。 */
-  readonly particles?: number;
+  readonly particles?: number | undefined;
   /** 初始均值（默认 0）。 */
-  readonly initialMean?: number;
+  readonly initialMean?: number | undefined;
   /** 初始方差（默认 1，须 > 0）。 */
-  readonly initialVariance?: number;
+  readonly initialVariance?: number | undefined;
   /** 重采样阈值：有效样本数 ESS 低于 particles·resampleRatio 时重采样（默认 0.5）。 */
-  readonly resampleRatio?: number;
+  readonly resampleRatio?: number | undefined;
   /** 自然步进抖动幅度（默认 0.05）。 */
-  readonly jitter?: number;
+  readonly jitter?: number | undefined;
   /** 随机种子（默认 0x9e3779b9，保证测试可复现）。 */
-  readonly seed?: number;
+  readonly seed?: number | undefined;
 }
 
 /** 确定性 PRNG（mulberry32），避免测试依赖全局 Math.random。

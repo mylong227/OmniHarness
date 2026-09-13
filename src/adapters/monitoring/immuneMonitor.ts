@@ -12,13 +12,13 @@ import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
 /** 免疫监控选项（fail-closed 边界夹紧）。 */
 export interface ImmuneMonitorOptions {
   /** 异常判定阈值（z 分数）；超过即偏离自体。默认 3。 */
-  readonly threshold?: number;
+  readonly threshold?: number | undefined;
   /** 记忆细胞加速步长：同一签名每出现一次，阈值下调该比例（上限 0.5）。默认 0.1。 */
-  readonly accelStep?: number;
+  readonly accelStep?: number | undefined;
   /** 审计 sink（可选）：异常经此入链告警（fail-closed：仅告警不改写）。 */
-  readonly audit?: AuditSinkLike;
+  readonly audit?: AuditSinkLike | undefined;
   /** 会话标识（写入审计 detail）。 */
-  readonly sessionId?: string;
+  readonly sessionId?: string | undefined;
 }
 
 const MIN_TRAIN = 4;
@@ -41,9 +41,9 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
   /** 记忆细胞加速步长（夹紧到 [0, 0.5]）：同签名每现一次阈值下调的比例。 */
   private readonly accelStep: number;
   /** 审计 sink（可选）：告警经此入链，仅记录不改写。 */
-  private readonly audit?: AuditSinkLike;
+  private readonly audit?: AuditSinkLike | undefined;
   /** 会话标识，随告警写入审计 detail。 */
-  private readonly sessionId?: string;
+  private readonly sessionId?: string | undefined;
 
   /** 已训练样本数（自体规模；达到 MIN_TRAIN 前不判定异常）。 */
   private n = 0;

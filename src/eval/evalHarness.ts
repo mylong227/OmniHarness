@@ -132,9 +132,9 @@ export interface EvalTaskResult {
   readonly toolCalls: readonly string[];
   readonly durationMs: number;
   readonly reasons: readonly string[];
-  readonly finalText?: string;
+  readonly finalText?: string | undefined;
   /** 模型用量（live 跑分时有值；ScriptedModel 无用量则为 undefined）。 */
-  readonly usage?: TaskUsage;
+  readonly usage?: TaskUsage | undefined;
 }
 
 /**

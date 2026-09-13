@@ -8,11 +8,11 @@ import { OmniError, ErrorCode } from '../omniError.js';
  */
 export class ModelCallError extends OmniError {
   /** HTTP 状态码（网络层错误为 undefined）。 */
-  public readonly status?: number;
+  public readonly status?: number | undefined;
   /** 是否可重试（429/408/5xx 通常可重试，4xx 客户端错误通常不可）。 */
   public readonly retryable: boolean;
   /** 服务端建议的等待毫秒数（Retry-After 头解析结果）。 */
-  public readonly retryAfterMs?: number;
+  public readonly retryAfterMs?: number | undefined;
 
   /**
    * @param message 错误信息（透传给 `OmniError`）。
@@ -20,7 +20,11 @@ export class ModelCallError extends OmniError {
    */
   public constructor(
     message: string,
-    opts: { readonly status?: number; readonly retryable: boolean; readonly retryAfterMs?: number },
+    opts: {
+      readonly status?: number;
+      readonly retryable: boolean;
+      readonly retryAfterMs?: number | undefined;
+    },
   ) {
     super(ErrorCode.MODEL_CALL_ERROR, message);
     this.status = opts.status;

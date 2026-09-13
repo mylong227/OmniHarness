@@ -10,7 +10,7 @@ export interface ServerConfigStoreDeps {
   /** 启动时传入的可读配置摘要（字符串标识）。 */
   readonly displayConfig: Record<string, string>;
   /** 持久化目标路径（undefined 时按工作区推断并创建项目 omniharness.json）。 */
-  readonly configPath?: string;
+  readonly configPath?: string | undefined;
   /** 启动标志 --auto-approve。 */
   readonly autoApprove: boolean;
   /** 启用厂商时的实测回调（写探测缓存）；探测失败不阻断启用。 */

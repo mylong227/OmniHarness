@@ -79,7 +79,7 @@ export interface SweTaskResult {
   /** agent 实际步数（control 模式为 0）。 */
   readonly steps: number;
   /** 未通过原因（passed 时缺省）。 */
-  readonly reason?: string;
+  readonly reason?: string | undefined;
 }
 
 /**

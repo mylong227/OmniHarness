@@ -39,12 +39,12 @@ export interface LspServerConfig {
   /** 启动命令（须在 PATH 或给绝对路径，如 `typescript-language-server`）。 */
   readonly serverCommand: string;
   /** 启动参数（如 `['--stdio']`）。 */
-  readonly serverArgs?: readonly string[];
+  readonly serverArgs?: readonly string[] | undefined;
   /**
    * 工程根 URI（file://...）。不传时由运行时用 workspaceRoot 推导。
    * 多数语言服务器以 rootUri 决定项目范围与索引根。
    */
-  readonly rootUri?: string;
+  readonly rootUri?: string | undefined;
 }
 
 /**

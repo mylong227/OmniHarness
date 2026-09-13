@@ -31,7 +31,7 @@ export interface PluginProfile {
 export interface PluginProfileSummary {
   readonly id: string;
   readonly name: string;
-  readonly description?: string;
+  readonly description?: string | undefined;
   readonly pluginCount: number;
 }
 
