@@ -30,10 +30,16 @@ jobs:
       # 以物理/生物/化学命名的引擎必须声明 L0–L3 等级，声称 L2/L3 须给出真实测试证据。
       # 防止「命名好听」被当作「有机制」——无测试的 L3 声明即阻断。
       - run: npm run audit:maturity
-      # P0.4 架构门禁（docs/REFACTOR_BOARD §P0.4）：core↔adapters 冻结白名单（17 条存量，新增即红）、
-      # ports 纯度、目录平铺告警。当前存量已白名单故门禁放行；任何白名单外的新增依赖方向违规即判红，
-      # 防止架构回归。后续 P1/P3 清偿后从白名单移除条目，直至升为全阻断。
-      - run: npm run arch:gate
+      # P0.3 规范度量审计（报告级起步，REFACTOR_BOARD §P0.3）：audit:standard 出规范总表
+      # （var/any、JSDoc、上帝类、文件名=类名…），audit:metrics 出 P0.2 四类细粒度度量
+      # （@param/@returns/字段注释覆盖、core→adapters、模块级 new 清单）。两脚本当前均 exit 0，
+      # 数字进 CI 日志可见趋势；阻断由 pre-commit 的 --delta 增量门禁承担。
+      - run: npm run audit:standard
+      - run: npm run audit:metrics
+      # P0.4 + P1.4 架构门禁（REFACTOR_BOARD §P0.4/§P1.4）：core↔adapters 双向依赖、ports 纯度。
+      # P1 清偿后白名单已清空（实测 0/0），--strict 升为全阻断：任何依赖方向违规（含存量）即判红，
+      # 目录平铺告警保持非阻断（待 P3 清偿）。防止架构回归。
+      - run: npm run arch:gate -- --strict
 
   web:
     name: Web UI 构建 + 单测
