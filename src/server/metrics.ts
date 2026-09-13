@@ -31,12 +31,18 @@ export interface TurnStats {
 
 /** 指标：事件计数 + 会话数 + 性能/成本可观测（零依赖）。 */
 export class Metrics {
+  /** 事件类型 -> 累计次数。 */
   private readonly eventsByType = new Map<string, number>();
+  /** 见过的会话 id 集合（size 即会话数）。 */
   private readonly sessions = new Set<string>();
 
+  /** 回合计数。 */
   private turnCount = 0;
+  /** 回合耗时总和（毫秒）。 */
   private turnSumMs = 0;
+  /** 回合耗时最小值（毫秒；无样本时为 Infinity，快照时归 0）。 */
   private turnMinMs = Infinity;
+  /** 回合耗时最大值（毫秒；无样本时为 -Infinity，快照时归 0）。 */
   private turnMaxMs = -Infinity;
 
   /** 工具名 -> 调用次数 + 累计耗时（毫秒）。 */
@@ -49,7 +55,11 @@ export class Metrics {
   /** 模型 -> 成本（USD）。 */
   private readonly cost = new Map<string, { input: number; output: number; currency: string }>();
 
-  /** 记录事件；model 事件顺带累计 token 用量与调用次数（按模型分组）。 */
+  /**
+   * 记录事件；model 事件顺带累计 token 用量与调用次数（按模型分组）。
+   * @param event 会话事件（type + sessionId + payload）。
+   * @returns 无返回值。
+   */
   public recordEvent(event: SessionEvent): void {
     this.eventsByType.set(event.type, (this.eventsByType.get(event.type) ?? 0) + 1);
     this.sessions.add(event.sessionId);
@@ -70,7 +80,11 @@ export class Metrics {
     }
   }
 
-  /** 记录回合耗时（毫秒）。 */
+  /**
+   * 记录回合耗时（毫秒）。
+   * @param latencyMs 本回合耗时（非有限值忽略）。
+   * @returns 无返回值。
+   */
   public recordTurn(latencyMs: number): void {
     if (!Number.isFinite(latencyMs)) return;
     this.turnCount += 1;
@@ -79,14 +93,25 @@ export class Metrics {
     if (latencyMs > this.turnMaxMs) this.turnMaxMs = latencyMs;
   }
 
-  /** 记录工具调用。 */
+  /**
+   * 记录工具调用。
+   * @param tool 工具名。
+   * @param durationMs 本次调用耗时（非有限值忽略）。
+   * @returns 无返回值。
+   */
   public recordToolCall(tool: string, durationMs: number): void {
     if (!Number.isFinite(durationMs)) return;
     const prev = this.toolCalls.get(tool) ?? { calls: 0, durationMs: 0 };
     this.toolCalls.set(tool, { calls: prev.calls + 1, durationMs: prev.durationMs + durationMs });
   }
 
-  /** 记录 token 用量（按模型；total 恒为 prompt+completion，与 recordModelCall 搭配不双计）。 */
+  /**
+   * 记录 token 用量（按模型；total 恒为 prompt+completion，与 recordModelCall 搭配不双计）。
+   * @param model 模型名。
+   * @param prompt 提示 token 数。
+   * @param completion 补全 token 数。
+   * @returns 无返回值。
+   */
   public recordTokens(model: string, prompt: number, completion: number): void {
     if (!Number.isFinite(prompt) || !Number.isFinite(completion)) return;
     const prev = this.tokens.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
@@ -98,13 +123,23 @@ export class Metrics {
     });
   }
 
-  /** 记录一次模型调用（按模型累计调用次数）。 */
+  /**
+   * 记录一次模型调用（按模型累计调用次数）。
+   * @param model 模型名。
+   * @returns 无返回值。
+   */
   public recordModelCall(model: string): void {
     const prev = this.tokens.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
     this.tokens.set(model, { ...prev, calls: prev.calls + 1 });
   }
 
-  /** 记录成本（按模型，货币记为 USD）。 */
+  /**
+   * 记录成本（按模型，货币记为 USD）。
+   * @param model 模型名。
+   * @param inputCost 输入成本（非有限值忽略）。
+   * @param outputCost 输出成本（非有限值忽略）。
+   * @returns 无返回值。
+   */
   public recordCost(model: string, inputCost: number, outputCost: number): void {
     if (!Number.isFinite(inputCost) || !Number.isFinite(outputCost)) return;
     const prev = this.cost.get(model) ?? { input: 0, output: 0, currency: 'USD' };
@@ -115,7 +150,10 @@ export class Metrics {
     });
   }
 
-  /** 快照（向后兼容，含新增字段）。 */
+  /**
+   * 快照（向后兼容，含新增字段）。
+   * @returns 指标快照（事件计数、会话数、回合耗时、工具/token/成本分组）。
+   */
   public snapshot(): MetricsSnapshot {
     const turns: TurnStats = {
       count: this.turnCount,
@@ -133,7 +171,10 @@ export class Metrics {
     };
   }
 
-  /** 渲染为 Prometheus 文本格式。 */
+  /**
+   * 渲染为 Prometheus 文本格式。
+   * @returns `# HELP` / `# TYPE` + 样本行序列（按名称排序，末尾带换行）。
+   */
   public toPrometheus(): string {
     const lines: string[] = [];
     const push = (name: string, help: string, type: string, value: string, labels?: string) => {

@@ -127,6 +127,7 @@ export class HttpServer {
   /**
    * 指标端点。
    * @param response 响应对象（Prometheus 文本格式写出）
+   * @returns 无返回值。
    */
   private serveMetrics(response: ServerResponse): void {
     const body = this.options.metrics?.toPrometheus() ?? '';
@@ -143,6 +144,7 @@ export class HttpServer {
    *   否则「没配 metrics」会被误判成「服务不可用」。
    * @param response 响应对象（JSON 状态体 + 200/503 状态码）
    * @param mode `'live'` 存活探针（恒 200）| `'ready'` 就绪探针（核心组件齐备才 200）
+   * @returns 无返回值。
    */
   private serveHealth(response: ServerResponse, mode: 'live' | 'ready'): void {
     const core = {
@@ -167,6 +169,7 @@ export class HttpServer {
   /**
    * SSE 长连接。
    * @param response 响应对象（切换为 event-stream 后交给 bridge 注册广播）
+   * @returns 无返回值。
    */
   private openSse(response: ServerResponse): void {
     response.writeHead(200, {

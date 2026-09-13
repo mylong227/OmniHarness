@@ -48,9 +48,16 @@ function toNativeToolName(name: string): string {
  * 原生后端：Rust 内核 in-process 执行工具。
  */
 export class NativeBackend implements NativeToolRunner {
+  /**
+   * 私有构造：统一经 {@link tryCreate} 装配。
+   * @param kernel 已就绪的内核客户端（参数属性，实例字段 `kernel`）
+   */
   private constructor(private readonly kernel: NativeKernel) {}
 
-  /** 尝试创建：内核不可用（.node 未构建/加载失败）或 ping 失败则返 undefined（静默回退 JS）。 */
+  /**
+   * 尝试创建：内核不可用（.node 未构建/加载失败）或 ping 失败则返 undefined（静默回退 JS）。
+   * @returns 就绪的 NativeBackend；内核不可用时 undefined。
+   */
   public static tryCreate(): NativeBackend | undefined {
     const kernel = new NativeKernel();
     if (!kernel.available()) {
@@ -66,7 +73,10 @@ export class NativeBackend implements NativeToolRunner {
 
   /** 经 Rust 内核走 审批→沙箱→执行 全链。
    * - 业务拒绝（rejected）：返回 ok:false + 拒绝原因，不抛错（合法结果）。
-   * - 内核内部失败（ok:false 且未 rejected）：抛错，交由调用方回退 JS 路径。 */
+   * - 内核内部失败（ok:false 且未 rejected）：抛错，交由调用方回退 JS 路径。
+   * @param call 工具调用（名称经别名桥翻译，参数与调用 id 原样透传）。
+   * @returns 工具结果（callId + ok + output/error）。
+   */
   public runTool(call: ToolCall): ToolResult {
     // 命名桥：把 JS 标准工具名翻译成内核方言（#72）。内核找不到该名会判未知工具 → 业务拒绝。
     const nativeName = toNativeToolName(call.name);
@@ -82,17 +92,29 @@ export class NativeBackend implements NativeToolRunner {
     };
   }
 
-  /** 经 Rust 内核批量估算消息 token 数（单次 FFI 往返）。 */
+  /**
+   * 经 Rust 内核批量估算消息 token 数（单次 FFI 往返）。
+   * @param messages 消息数组（仅需 content 字段）。
+   * @returns 估算的 token 总数。
+   */
   public estimateTokens(messages: readonly { content: string }[]): number {
     return this.kernel.estimateTokens(messages);
   }
 
-  /** 经 Rust 内核渲染上下文并估算 token 数（单次 FFI 往返，算子下沉 #C4）。 */
+  /**
+   * 经 Rust 内核渲染上下文并估算 token 数（单次 FFI 往返，算子下沉 #C4）。
+   * @returns `{ tokens, context }` — 估算 token 数与渲染后的上下文文本。
+   */
   public contextRender(): { tokens: number; context: string } {
     return this.kernel.contextRender();
   }
 
-  /** 经 Rust 内核对一次工具调用做审批裁决（不改状态，算子下沉 #C4）。 */
+  /**
+   * 经 Rust 内核对一次工具调用做审批裁决（不改状态，算子下沉 #C4）。
+   * @param name 工具名。
+   * @param args 工具参数。
+   * @returns 裁决结果（decision: 'allow' | 'deny' | 'ask'）。
+   */
   public approvalCheck(name: string, args: Record<string, unknown>): NativeDecision {
     return this.kernel.approvalCheck(name, args);
   }

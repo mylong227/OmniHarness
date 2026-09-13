@@ -80,7 +80,9 @@ export interface ContextUsageDeps {
  * 纯读：不写事件、不改工作区、任何异常都降级为 `empty` 报告（面板宁可空白，不可抛错打断会话）。
  */
 export class ContextUsageService {
+  /** 六类上下文明细分解器（实测与估算共用）。 */
   private readonly breakdown = new ContextBreakdownEstimator();
+  /** 模型上下文窗口表（按模型名查窗口 token 数）。 */
   private readonly windows = new ContextWindowCatalog();
 
   /**
@@ -118,7 +120,11 @@ export class ContextUsageService {
     return this.reportOf(threadId, breakdown, 'estimated', cache);
   }
 
-  /** 取最近一条携带上下文快照的 model 事件（倒序扫描，首命中即返回）。 */
+  /**
+   * 取最近一条携带上下文快照的 model 事件（倒序扫描，首命中即返回）。
+   * @param events 会话事件序列。
+   * @returns 最近的有效上下文快照；无则 undefined。
+   */
   private latestSnapshot(events: readonly SessionEvent[]): ModelContextSnapshot | undefined {
     for (let i = events.length - 1; i >= 0; i -= 1) {
       const event = events[i];
@@ -130,7 +136,11 @@ export class ContextUsageService {
     return undefined;
   }
 
-  /** 结构校验：只接受六个分类键齐全、数值非负的快照，脏数据一律当不存在。 */
+  /**
+   * 结构校验：只接受六个分类键齐全、数值非负的快照，脏数据一律当不存在。
+   * @param raw 待校验的未知值。
+   * @returns 结构合法返回 true（类型收窄为 ModelContextSnapshot）。
+   */
   private isSnapshot(raw: unknown): raw is ModelContextSnapshot {
     if (raw === null || typeof raw !== 'object') return false;
     const value = raw as Record<string, unknown>;
@@ -145,7 +155,12 @@ export class ContextUsageService {
     return typeof (tokens as Record<string, unknown>)['messages'] === 'number';
   }
 
-  /** 估算路径：按当前基础片段重投影事件日志，再与当前可见工具一起分解。 */
+  /**
+   * 估算路径：按当前基础片段重投影事件日志，再与当前可见工具一起分解。
+   * @param events 会话事件序列。
+   * @param windowTokens 当前模型窗口 token 数。
+   * @returns 估算出的上下文分解。
+   */
   private estimate(events: readonly SessionEvent[], windowTokens: number): ContextBreakdown {
     const fragments = this.deps.baseFragments();
     const messages = new ContextAssembler(fragments).build(events);
@@ -157,7 +172,10 @@ export class ContextUsageService {
     });
   }
 
-  /** 取工具清单：任何异常都退化为空表（容量面板不该因工具注册表抖动而整体失败）。 */
+  /**
+   * 取工具清单：任何异常都退化为空表（容量面板不该因工具注册表抖动而整体失败）。
+   * @returns 当前可见工具定义；异常时为空数组。
+   */
   private safeTools(): readonly ToolDefinition[] {
     try {
       return this.deps.tools();
@@ -166,7 +184,11 @@ export class ContextUsageService {
     }
   }
 
-  /** 汇总当前会话的提示缓存命中率（只统计上报了缓存字段的调用）。 */
+  /**
+   * 汇总当前会话的提示缓存命中率（只统计上报了缓存字段的调用）。
+   * @param events 会话事件序列。
+   * @returns 缓存命中统计（无上报调用时 calls=0 且 hitRate 缺省）。
+   */
   private cacheStat(events: readonly SessionEvent[]): ContextCacheStat {
     let promptTokens = 0;
     let cachedPromptTokens = 0;
@@ -190,7 +212,14 @@ export class ContextUsageService {
     };
   }
 
-  /** 组装报告。 */
+  /**
+   * 组装报告。
+   * @param threadId 会话 id。
+   * @param breakdown 上下文分解结果。
+   * @param source 数据来源标注（measured / estimated / empty）。
+   * @param cache 提示缓存命中统计。
+   * @returns 完整容量报告（附生成时间戳）。
+   */
   private reportOf(
     threadId: string,
     breakdown: ContextBreakdown,
@@ -211,7 +240,13 @@ export class ContextUsageService {
     };
   }
 
-  /** 空报告（全零行，保证 UI 渲染路径一致）。 */
+  /**
+   * 空报告（全零行，保证 UI 渲染路径一致）。
+   * @param threadId 会话 id（可为空串）。
+   * @param windowTokens 当前模型窗口 token 数。
+   * @param cache 已算出的缓存统计（缺省用全零）。
+   * @returns source='empty' 的容量报告。
+   */
   private emptyReport(
     threadId: string,
     windowTokens: number,

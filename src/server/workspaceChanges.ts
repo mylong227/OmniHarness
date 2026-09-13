@@ -29,8 +29,11 @@ export interface WorkspaceChangesDeps {
  * 三段实现（`list` / `gitChanges` / `sessionChanges`）在本类内闭环，不触达 Agent 状态。
  */
 export class WorkspaceChanges {
+  /** 当前生效工作区根（git 命令的 cwd）。 */
   private readonly workspaceRoot: () => string;
+  /** 已知线程 id 集合（非 git 回退时遍历）。 */
   private readonly threadIds: () => Iterable<string>;
+  /** 回放某线程的全部事件（非 git 回退时读 turn_diff）。 */
   private readonly replay: (threadId: string) => Promise<readonly SessionEvent[]>;
 
   /**
@@ -55,13 +58,23 @@ export class WorkspaceChanges {
     return this.sessionChanges(ws, fileParam);
   }
 
-  /** git 仓库变更：返回 null 表示不是 git 仓库（或 git 不可用）。 */
+  /**
+   * git 仓库变更：返回 null 表示不是 git 仓库（或 git 不可用）。
+   * @param ws 工作区根目录。
+   * @param fileParam 单文件路径（传入时返回该文件 patch）。
+   * @returns git 来源的变更清单 / 单文件 patch；非 git 工作区返回 null。
+   */
   private gitChanges(ws: string, fileParam: string | undefined): unknown | null {
     if (!isGitWorkTree(ws)) return null;
     return fileParam !== undefined ? this.gitFilePatch(ws, fileParam) : this.gitFileList(ws);
   }
 
-  /** 单文件 patch：已跟踪用 `git diff HEAD`；未跟踪（??）直接读文件构造全 + patch。 */
+  /**
+   * 单文件 patch：已跟踪用 `git diff HEAD`；未跟踪（??）直接读文件构造全 + patch。
+   * @param ws 工作区根目录。
+   * @param fileParam 目标文件相对路径。
+   * @returns `{ source:'git', patch }` — patch 文本（空串表示无差异）。
+   */
   private gitFilePatch(ws: string, fileParam: string): unknown {
     const status = spawnSync('git', ['status', '--porcelain', '--', fileParam], {
       cwd: ws,
@@ -84,10 +97,17 @@ export class WorkspaceChanges {
     return { source: 'git', patch: diff.status === 0 ? diff.stdout : '' };
   }
 
-  /** 整仓变更清单：branch + per 文件增删行数。 */
+  /**
+   * 整仓变更清单：branch + per 文件增删行数。
+   * @param ws 工作区根目录。
+   * @returns `{ source:'git', branch, files }` — 分支名与变更文件数组。
+   */
   private gitFileList(ws: string): unknown {
     const branch = gitLine(ws, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    const status = spawnSync('git', ['status', '--porcelain', '-uall'], { cwd: ws, encoding: 'utf8' });
+    const status = spawnSync('git', ['status', '--porcelain', '-uall'], {
+      cwd: ws,
+      encoding: 'utf8',
+    });
     if (status.status !== 0) return { source: 'git', branch, files: [] };
     const numstat = spawnSync('git', ['diff', '--numstat', 'HEAD'], { cwd: ws, encoding: 'utf8' });
     const stats = parseNumstat(numstat.stdout ?? '');
@@ -101,6 +121,9 @@ export class WorkspaceChanges {
   /**
    * 非 git 工作区回退：聚合已知线程 turn_diff 事件，按 unified diff 的 `diff --git`
    * 分段解析出 per 文件增删行数；`fileParam` 传入时返回该文件的原始 patch 拼接。
+   * @param ws 工作区根目录（当前未参与计算，保留参数以稳定签名）。
+   * @param fileParam 单文件路径（可选）。
+   * @returns session 来源的变更清单或单文件 patch。
    */
   private async sessionChanges(ws: string, fileParam: string | undefined): Promise<unknown> {
     void ws;
@@ -135,7 +158,10 @@ export class WorkspaceChanges {
 
 /** 工作区是否为 git 工作树。 */
 function isGitWorkTree(ws: string): boolean {
-  const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: ws, encoding: 'utf8' });
+  const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
+    cwd: ws,
+    encoding: 'utf8',
+  });
   return inside.status === 0 && inside.stdout.trim() === 'true';
 }
 
