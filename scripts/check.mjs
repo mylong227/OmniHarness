@@ -210,6 +210,7 @@ function checkDependencySize() {
       optionalDepReport.push(`node_modules/${name}: install 体积 ${kb} KB（可选·按需安装）`);
       continue;
     }
+    const maxKb = entry?.maxInstallKb ?? defaultBudgets.maxInstallKb;
     if (kb > maxKb) {
       add('依赖体积预算', `node_modules/${name}`, `install 体积 ${kb} KB > 预算 ${maxKb} KB`);
     }

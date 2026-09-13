@@ -117,7 +117,10 @@
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.69.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.6.4"
+  },
   "optionalDependencies": {
     "@huggingface/transformers": "^4.2.0"
   }
