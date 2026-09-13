@@ -10,8 +10,8 @@ import assert from 'node:assert/strict';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { GenesisSparkBridge } from '../../src/genesis/genesisSparkBridge.js';
 import { Ledger } from '../../src/genesis/ledger.js';
-import type { MemoryAnnealer } from '../../src/ports/memoryAnnealing.js';
-import type { AnnealStepReport } from '../../src/ports/memoryAnnealing.js';
+import type { MemoryAnnealer } from '../../src/ports/memory/memoryAnnealing.js';
+import type { AnnealStepReport } from '../../src/ports/memory/memoryAnnealing.js';
 import type { RegimeSignals } from '../../src/genesis/operators.js';
 
 const fakeAnneal = (): AnnealStepReport => ({

@@ -1,10 +1,10 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EventPort } from '../ports/eventPort.js';
-import type { ToolPort } from '../ports/tool.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { ToolPort } from '../ports/tool/tool.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { OmniHarnessRuntime } from '../core/runtime.js';
-import type { StoragePort } from '../ports/storage.js';
+import type { StoragePort } from '../ports/memory/storage.js';
 import { Container } from '../core/container.js';
 import { ServiceKeys } from '../core/runtime.js';
 import { ToolGate } from '../core/toolGate.js';

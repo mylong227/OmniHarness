@@ -10,7 +10,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { CosmicWebMemoryEngine } from '../../src/adapters/memory/cosmicWebMemoryEngine.js';
 import { QECEncoder } from '../../src/adapters/memory/qecEncoder.js';

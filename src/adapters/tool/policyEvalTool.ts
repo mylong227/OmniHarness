@@ -4,8 +4,8 @@
  * 用于把沙箱命令审批、工具调用审批等决策「策略化、可审计、可解释」，而非硬编码。
  * 零依赖：仅依赖注入的 `PolicyPort`（默认 `SafePolicyEvaluator`）。
  */
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { PolicyEffect, PolicyPort, PolicyRule } from '../../ports/policy.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { PolicyEffect, PolicyPort, PolicyRule } from '../../ports/runtime/policy.js';
 import { SafePolicyEvaluator } from '../../adapters/policy/safePolicyEvaluator.js';
 
 /**

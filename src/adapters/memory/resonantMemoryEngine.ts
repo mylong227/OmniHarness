@@ -2,8 +2,8 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../ports/longTermMemory.js';
-import type { ResonantHit, ResonantMemoryPort } from '../../ports/resonantMemory.js';
+} from '../../ports/memory/longTermMemory.js';
+import type { ResonantHit, ResonantMemoryPort } from '../../ports/memory/resonantMemory.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
 import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 

@@ -11,7 +11,7 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../ports/longTermMemory.js';
+} from '../../ports/memory/longTermMemory.js';
 import { Bm25Index, tokenize } from '../../search/bm25Index.js';
 import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 import type { TextCodec } from './aesGcmTextCodec.js';

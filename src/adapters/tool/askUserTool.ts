@@ -1,7 +1,7 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { EventPort } from '../../ports/eventPort.js';
-import type { EventFactoryPort } from '../../ports/eventFactory.js';
-import type { AskOption, AskQuestion, UserResponder } from '../../ports/userResponder.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { EventPort } from '../../ports/runtime/eventPort.js';
+import type { EventFactoryPort } from '../../ports/runtime/eventFactory.js';
+import type { AskOption, AskQuestion, UserResponder } from '../../ports/runtime/userResponder.js';
 
 /**
  * @beta

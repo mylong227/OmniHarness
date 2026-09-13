@@ -10,7 +10,7 @@
  *  - 存 Promise 以便并发请求复用同一次构建；构建失败缓存 null，下次重新尝试（仍 fail-closed）。
  */
 
-import type { EmbeddingPort } from '../ports/embedding.js';
+import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { IndexedCorpus } from './contextEngine.js';
 import { SemanticIndex, type RecallItem } from './semanticIndex.js';
 import type { RecallKnobs } from './recallKnobs.js';

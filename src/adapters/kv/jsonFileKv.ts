@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { KvPort } from '../../ports/kv.js';
+import type { KvPort } from '../../ports/memory/kv.js';
 
 /**
  * JSON 文件 KV 适配器：单个 JSON 对象持久化到磁盘（零依赖，符合军规）。

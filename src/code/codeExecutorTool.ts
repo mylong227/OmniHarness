@@ -1,4 +1,10 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolPort, ToolResult } from '../ports/tool.js';
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolPort,
+  ToolResult,
+} from '../ports/tool/tool.js';
 import type { ToolGate } from '../core/toolGate.js';
 import { CodeInterpreter } from './codeInterpreter.js';
 

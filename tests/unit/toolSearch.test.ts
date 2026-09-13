@@ -13,8 +13,18 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../src/ports/tool.js';
-import type { ModelOutput, ModelPort, ModelRequest, ModelToolSpec } from '../../src/ports/model.js';
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+} from '../../src/ports/tool/tool.js';
+import type {
+  ModelOutput,
+  ModelPort,
+  ModelRequest,
+  ModelToolSpec,
+} from '../../src/ports/model/model.js';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 const call = (name: string, args: Record<string, unknown>): ToolCall => ({

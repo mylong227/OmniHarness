@@ -154,7 +154,7 @@ export interface ModelPort {
 }
 
 /** 模型调用错误（结构化，便于重试决策；#M6）。实现已迁至 `errors/modelCallError.ts`。 */
-export { ModelCallError } from '../errors/modelCallError.js';
+export { ModelCallError } from '../../errors/modelCallError.js';
 
 /** 路由定价：某模型每百万 token 的输入 / 输出单价（USD，#S29）。 */
 export interface RoutePrice {
@@ -163,4 +163,4 @@ export interface RoutePrice {
 }
 
 /** 成本预算耗尽错误（#S29）。实现已迁至 `errors/budgetExceededError.ts`。 */
-export { BudgetExceededError } from '../errors/budgetExceededError.js';
+export { BudgetExceededError } from '../../errors/budgetExceededError.js';

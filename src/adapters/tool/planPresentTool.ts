@@ -1,8 +1,8 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { PlanPort } from '../../ports/plan.js';
-import type { EventPort } from '../../ports/eventPort.js';
-import type { UserResponder } from '../../ports/userResponder.js';
-import type { EventFactoryPort } from '../../ports/eventFactory.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { PlanPort } from '../../ports/runtime/plan.js';
+import type { EventPort } from '../../ports/runtime/eventPort.js';
+import type { UserResponder } from '../../ports/runtime/userResponder.js';
+import type { EventFactoryPort } from '../../ports/runtime/eventFactory.js';
 
 /**
  * @beta

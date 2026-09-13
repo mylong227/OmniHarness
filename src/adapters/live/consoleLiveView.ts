@@ -1,6 +1,6 @@
 import type { Writable } from 'node:stream';
-import type { ToolInputDelta } from '../../ports/model.js';
-import type { ToolInputSink } from '../../ports/toolInputSink.js';
+import type { ToolInputDelta } from '../../ports/model/model.js';
+import type { ToolInputSink } from '../../ports/tool/toolInputSink.js';
 import { clearLine, renderToolInputProgress } from '../../tui/tuiRenderer.js';
 
 /**

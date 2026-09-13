@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Candidate } from '../../src/ports/evolution.js';
+import type { Candidate } from '../../src/ports/runtime/evolution.js';
 import type { Skill } from '../../src/skill/skill.js';
 import {
   verifiableRewardFromCommand,

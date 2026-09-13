@@ -1,4 +1,9 @@
-import type { ModelOutput, ModelPort, ModelRequest, StreamCallbacks } from '../../ports/model.js';
+import type {
+  ModelOutput,
+  ModelPort,
+  ModelRequest,
+  StreamCallbacks,
+} from '../../ports/model/model.js';
 import type { CostBudget } from './costBudget.js';
 
 /**

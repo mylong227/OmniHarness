@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { SessionEvent } from '../../src/ports/event.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
 import { CodexHooksMapper } from '../../src/hooksCompat/codexHooksMapper.js';
 import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooksMapper.js';
 import { HooksCompatAdapter } from '../../src/hooksCompat/hooksCompatAdapter.js';

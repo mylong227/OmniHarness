@@ -1,7 +1,7 @@
-import type { ToolContext, ToolCall, ToolResult } from '../ports/tool.js';
+import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
 import { ToolScheduler } from './loop/toolScheduler.js';
-import { isLikelySandboxDenied } from '../ports/sandboxDenial.js';
+import { isLikelySandboxDenied } from '../ports/runtime/sandboxDenial.js';
 import { guardToolResult } from '../security/promptInjectionGuard.js';
 import { log } from '../util/logger.js';
 import type { StepRunnerDeps } from './stepTypes.js';

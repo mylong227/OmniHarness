@@ -1,7 +1,7 @@
 import type { Container } from '../core/container.js';
 import type { Plugin, PluginApplyContext } from './plugin.js';
 import type { PermissionGate } from './permissionGate.js';
-import type { ToolPort } from '../ports/tool.js';
+import type { ToolPort } from '../ports/tool/tool.js';
 
 /**
  * @beta

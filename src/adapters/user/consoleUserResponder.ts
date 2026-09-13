@@ -1,5 +1,5 @@
 import * as readline from 'node:readline';
-import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/userResponder.js';
+import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/runtime/userResponder.js';
 
 /**
  * 交互式控制台回答器：通过 stdin/stdout 向真人提问（对标 dsh 的 UI 提问桥）。

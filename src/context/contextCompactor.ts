@@ -1,4 +1,4 @@
-import type { ModelMessage, ModelPort } from '../ports/model.js';
+import type { ModelMessage, ModelPort } from '../ports/model/model.js';
 import { TokenEstimator } from './tokenEstimator.js';
 import { log } from '../util/logger.js';
 import { sanitizeToolRounds } from '../util/toolRoundSanitizer.js';

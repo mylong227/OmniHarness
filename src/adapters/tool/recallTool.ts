@@ -1,5 +1,5 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { LongTermMemoryPort } from '../../ports/longTermMemory.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.js';
 
 /** 默认召回条数。 */
 const DEFAULT_RECALL_LIMIT = 5;

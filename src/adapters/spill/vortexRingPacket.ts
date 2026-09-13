@@ -3,8 +3,8 @@
  * @maturityEvidence tests/unit/vortexRing.test.ts
  */
 import { createHash } from 'node:crypto';
-import type { SpillHandle, SpillPort } from '../../ports/spill.js';
-import type { VortexRing, VortexRingPort } from '../../ports/vortexRing.js';
+import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
+import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.js';
 import { fnv1a } from '../../util/eigenSpectrum.js';
 
 /** 内容校验和（SHA256 前 16 位）。 */

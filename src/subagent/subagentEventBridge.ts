@@ -1,5 +1,5 @@
-import type { SessionEvent } from '../ports/event.js';
-import type { EventPort } from '../ports/eventPort.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
 
 /**
  * @beta

@@ -1,4 +1,4 @@
-import type { PlanDraft, PlanPort, PlanState } from '../../ports/plan.js';
+import type { PlanDraft, PlanPort, PlanState } from '../../ports/runtime/plan.js';
 
 /** 内存计划端口：会话级计划态，生命周期 drafting→presented→approved/rejected。 */
 export class MemoryPlan implements PlanPort {

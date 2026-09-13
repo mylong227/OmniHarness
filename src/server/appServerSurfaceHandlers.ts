@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../ports/tool.js';
+import type { ToolDefinition } from '../ports/tool/tool.js';
 import { AppServerHandlers } from './appServerHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
 import { ApprovalTierCatalog } from './approvalTierCatalog.js';

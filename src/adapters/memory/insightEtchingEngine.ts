@@ -13,7 +13,7 @@ import type {
   EtchNode,
   EtchConduction,
   EtchBranch,
-} from '../../ports/insightEtching.js';
+} from '../../ports/memory/insightEtching.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
 
 export interface InsightEtchingOptions {

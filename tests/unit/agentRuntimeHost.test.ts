@@ -5,7 +5,7 @@ import { ServerNoopSupervisor } from '../../src/server/serverNoopSupervisor.js';
 import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/server/appServerState.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { ResolvedConfig } from '../../src/config/configFactory.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';

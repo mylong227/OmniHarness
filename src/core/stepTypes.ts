@@ -1,9 +1,9 @@
-import type { ApprovalPort } from '../ports/approval.js';
-import type { SandboxPort } from '../ports/sandbox.js';
-import type { ToolPort } from '../ports/tool.js';
-import type { ModelPort } from '../ports/model.js';
-import type { EscalationPort } from '../ports/escalation.js';
-import type { EmbeddingPort } from '../ports/embedding.js';
+import type { ApprovalPort } from '../ports/runtime/approval.js';
+import type { SandboxPort } from '../ports/runtime/sandbox.js';
+import type { ToolPort } from '../ports/tool/tool.js';
+import type { ModelPort } from '../ports/model/model.js';
+import type { EscalationPort } from '../ports/runtime/escalation.js';
+import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
@@ -12,8 +12,8 @@ import type { ToolHookRunner } from './toolHookRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
 import type { ToolDiscovery } from '../search/toolDiscovery.js';
-import type { ToolInputSink } from '../ports/toolInputSink.js';
-import type { SupervisorPort } from '../ports/supervisor.js';
+import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
+import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 
 /**
  * 单步运行依赖（全部来自端口）。

@@ -7,7 +7,7 @@
  * fail-closed：护栏一旦启用，扫描器自身抛错时**保守拦截**（不把原始结果放行进上下文）。
  */
 
-import type { ToolResult } from '../ports/tool.js';
+import type { ToolResult } from '../ports/tool/tool.js';
 
 export interface InjectionHit {
   /** 命中规则的正则源（用于可观测 / 审计）。 */

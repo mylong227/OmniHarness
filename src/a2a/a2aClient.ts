@@ -9,7 +9,7 @@
  */
 import type { RpcMessage } from '../server/jsonRpc.js';
 import { jsonRpc } from '../server/jsonRpc.js';
-import type { AgentIdentityPort } from '../ports/agentIdentity.js';
+import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import type {
   A2aCapability,
   A2aCapabilityDeclaration,

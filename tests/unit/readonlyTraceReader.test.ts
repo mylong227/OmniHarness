@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ReadonlyTraceReader } from '../../src/adapters/telemetry/readonlyTraceReader.js';
-import type { SessionEvent } from '../../src/ports/event.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 function event(type: string, payload: unknown, at: string): SessionEvent {
   return {

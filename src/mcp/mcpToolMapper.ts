@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '../ports/tool.js';
+import type { ToolDefinition } from '../ports/tool/tool.js';
 import type { McpInputSchema, McpToolDescriptor } from './mcpProtocol.js';
 
 /**

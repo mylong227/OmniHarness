@@ -1,9 +1,9 @@
-import type { ResonantMemoryPort } from '../ports/resonantMemory.js';
+import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
 import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
-import type { MemoryAnnealer } from '../ports/memoryAnnealing.js';
-import type { CosmicWebPort } from '../ports/cosmicWeb.js';
+import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
+import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
 import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { ImmuneMonitorPort } from '../ports/immune.js';
+import type { ImmuneMonitorPort } from '../ports/intelligence/immune.js';
 import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
 import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
@@ -12,7 +12,7 @@ import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngi
 import type { ElementComposer } from '../adapters/skill/elementComposer.js';
 import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
 import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { CapabilityCharge } from '../ports/confinement.js';
+import type { CapabilityCharge } from '../ports/runtime/confinement.js';
 import type { SparkEngines } from '../genesis/operators.js';
 import type { SparkControllerOptions } from './sparkController.js';
 

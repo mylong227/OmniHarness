@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemoryEngine.js';
 import {
   eigenSpectrum,

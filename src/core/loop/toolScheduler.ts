@@ -13,7 +13,7 @@
  *    （与 StepRunner 既有行为对齐）。
  */
 
-import type { ToolCall, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolResult } from '../../ports/tool/tool.js';
 
 /** 工具调用执行器（StepRunner.runToolCall 的抽象，保持签名稳定）。 */
 export type ToolExecutor = (call: ToolCall) => Promise<ToolResult>;

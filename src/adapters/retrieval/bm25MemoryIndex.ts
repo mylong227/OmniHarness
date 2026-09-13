@@ -1,4 +1,8 @@
-import type { RetrievalDoc, RetrievalHit, RetrievalPort } from '../../ports/retrieval.js';
+import type {
+  RetrievalDoc,
+  RetrievalHit,
+  RetrievalPort,
+} from '../../ports/intelligence/retrieval.js';
 import { Bm25Index, tokenize } from '../../search/bm25Index.js';
 
 /**

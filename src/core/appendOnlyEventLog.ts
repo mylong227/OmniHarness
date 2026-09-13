@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/event.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
 import { eventFactory } from './eventFactory.js';
 
 /** 追加型事件日志：只能追加，不可修改（模型所见即所记）。 */

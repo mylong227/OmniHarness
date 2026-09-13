@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.js';
-import type { SessionEvent } from '../../src/ports/event.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 构造事件。 */
 function events(count: number): SessionEvent[] {

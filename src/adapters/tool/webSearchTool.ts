@@ -1,4 +1,4 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 
 /** 网络搜索工具选项（注入真实搜索实现，保持零依赖）。 */
 export interface WebSearchToolOptions {

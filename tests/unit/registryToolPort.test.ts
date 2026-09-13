@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import type { ToolCall, ToolDefinition, ToolResult } from '../../src/ports/tool.js';
+import type { ToolCall, ToolDefinition, ToolResult } from '../../src/ports/tool/tool.js';
 
 /** 构造简单测试工具。 */
 function echoTool(): { registry: RegistryToolPort; definition: ToolDefinition } {

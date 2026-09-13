@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ResponsesModel } from '../../src/adapters/model/responsesModel.js';
-import type { ModelRequest } from '../../src/ports/model.js';
+import type { ModelRequest } from '../../src/ports/model/model.js';
 
 /** 把文本包装为流。 */
 function streamOf(text: string): ReadableStream<Uint8Array> {

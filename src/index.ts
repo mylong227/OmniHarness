@@ -169,7 +169,7 @@ export type {
   HealthSnapshot,
   HealthEntry,
   AuditSinkLike,
-} from './ports/supervisor.js';
+} from './ports/runtime/supervisor.js';
 
 // @public 燧-3 共振寻址 / 燧-4 涡环包（发明层 S+ 原语）
 export { ResonantMemoryEngine } from './adapters/memory/resonantMemoryEngine.js';
@@ -182,17 +182,21 @@ export type { SparkCycleReport, SparkControllerOptions } from './spark/sparkCont
 // @public (D) 热方程记忆重加权 / 退火调度（知识基础算子）
 export { HeatEquationAnnealer } from './adapters/memory/heatEquationAnnealer.js';
 export type { HeatAnnealerOptions } from './adapters/memory/heatEquationAnnealer.js';
-export type { MemoryAnnealer, AnnealStepReport } from './ports/memoryAnnealing.js';
+export type { MemoryAnnealer, AnnealStepReport } from './ports/memory/memoryAnnealing.js';
 // @public (E) 宇宙网记忆 / QEC 记忆 / 免疫异常监控（发明层 S+ 原语，I-P1-2/3/5）
 export { CosmicWebMemoryEngine } from './adapters/memory/cosmicWebMemoryEngine.js';
 export type { CosmicWebOptions } from './adapters/memory/cosmicWebMemoryEngine.js';
-export type { CosmicWebPort, WebConsolidationReport } from './ports/cosmicWeb.js';
+export type { CosmicWebPort, WebConsolidationReport } from './ports/memory/cosmicWeb.js';
 export { QECEncoder } from './adapters/memory/qecEncoder.js';
 export type { QECOptions } from './adapters/memory/qecEncoder.js';
-export type { QECEncoderPort, QECStatus, QECReport } from './ports/qec.js';
+export type { QECEncoderPort, QECStatus, QECReport } from './ports/intelligence/qec.js';
 export { ImmuneMonitor } from './adapters/monitoring/immuneMonitor.js';
 export type { ImmuneMonitorOptions } from './adapters/monitoring/immuneMonitor.js';
-export type { ImmuneMonitorPort, AnomalyAlert, ImmuneSelfReport } from './ports/immune.js';
+export type {
+  ImmuneMonitorPort,
+  AnomalyAlert,
+  ImmuneSelfReport,
+} from './ports/intelligence/immune.js';
 // @public (P2) 信念·组合·拓扑 — 自然梯度信念 / 粒子滤波信念（I-P2-2/3，信息几何）
 export { NaturalGradientBelief } from './adapters/belief/naturalGradientBelief.js';
 export type { NaturalGradientOptions } from './adapters/belief/naturalGradientBelief.js';
@@ -203,7 +207,7 @@ export type {
   BeliefSnapshot,
   BeliefUpdateReport,
   BeliefKlComponent,
-} from './ports/metacognition.js';
+} from './ports/intelligence/metacognition.js';
 export {
   eigenSpectrum,
   spectrumFromValues,
@@ -214,14 +218,18 @@ export {
 // @public (P2) 组合·拓扑 — CRISPR 精确技能编辑（I-P2-4）+ 相变固化（I-P2-5）
 export { CRISPRSkillEditor } from './adapters/skill/crisprSkillEditor.js';
 export type { CRISPRSkillEditorOptions } from './adapters/skill/crisprSkillEditor.js';
-export type { CRISPRSkillEditorPort, CrisprEditSpec, CrisprEditReport } from './ports/skillEdit.js';
+export type {
+  CRISPRSkillEditorPort,
+  CrisprEditSpec,
+  CrisprEditReport,
+} from './ports/runtime/skillEdit.js';
 export { CapabilityCrystallizer } from './adapters/skill/capabilityCrystallizer.js';
 export type { CapabilityCrystallizerOptions } from './adapters/skill/capabilityCrystallizer.js';
 export type {
   CapabilityCrystallizerPort,
   CrystallizationReport,
   FrozenCapability,
-} from './ports/capability.js';
+} from './ports/intelligence/capability.js';
 
 // @public (P3) 高原创试点 — 刻蚀记忆 / 元素组合基元 / 对称破缺 / 禁闭色荷（I-P3-1~4）
 export { InsightEtchingEngine } from './adapters/memory/insightEtchingEngine.js';
@@ -233,13 +241,13 @@ export type {
   EtchNode,
   EtchConduction,
   EtchBranch,
-} from './ports/insightEtching.js';
+} from './ports/memory/insightEtching.js';
 export { ElementComposer } from './adapters/skill/elementComposer.js';
 export type {
   ElementComposerPort,
   ElementDef,
   CompoundCapability,
-} from './ports/elementComposer.js';
+} from './ports/intelligence/elementComposer.js';
 export { SymmetryBreakingEngine } from './adapters/monitoring/symmetryBreakingEngine.js';
 export type { SymmetryBreakingOptions } from './adapters/monitoring/symmetryBreakingEngine.js';
 export type {
@@ -247,7 +255,7 @@ export type {
   SymmetryBreakReport,
   SymmetryState,
   UsageSample,
-} from './ports/symmetryBreaking.js';
+} from './ports/intelligence/symmetryBreaking.js';
 export { ConfinementEngine } from './adapters/monitoring/confinementEngine.js';
 export type { ConfinementOptions } from './adapters/monitoring/confinementEngine.js';
 export type {
@@ -256,7 +264,7 @@ export type {
   BoundCapability,
   ConfinementVerdict,
   Charge,
-} from './ports/confinement.js';
+} from './ports/runtime/confinement.js';
 
 // @public 进化闭环（P1：发现 → 评估 → 晋升，fail-closed）
 export { FailClosedEvolutionGate } from './evolution/failClosedEvolutionGate.js';
@@ -292,7 +300,7 @@ export type {
   DiscoveryEngine,
   EvolutionController,
   EvolutionControllerOptions,
-} from './ports/evolution.js';
+} from './ports/runtime/evolution.js';
 export { CodeInterpreter } from './code/codeInterpreter.js';
 export type { CodeInterpreterDeps, CodeRunResult } from './code/codeInterpreter.js';
 export { CodeExecutorTool } from './code/codeExecutorTool.js';
@@ -405,7 +413,7 @@ export type {
   TelemetryChainReport,
   TelemetryKind,
   TelemetryProvenance,
-} from './ports/runtimeTelemetry.js';
+} from './ports/runtime/runtimeTelemetry.js';
 
 // @public 太初数学内核（Genesis Core）：可推演代数态射 + 多模态 + 自适应
 // 统一内核——把能耗/成本建模为交换幺半群、算子的指称语义、记账不变量账本、

@@ -1,4 +1,4 @@
-import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/userResponder.js';
+import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/runtime/userResponder.js';
 
 /**
  * 无人值守/非交互式默认回答器（fail-soft）。

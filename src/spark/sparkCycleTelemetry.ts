@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { RuntimeTelemetryPort } from '../ports/runtimeTelemetry.js';
+import type { RuntimeTelemetryPort } from '../ports/runtime/runtimeTelemetry.js';
 import type { SparkCycleReport } from './sparkController.js';
 
 /**

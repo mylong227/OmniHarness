@@ -1,4 +1,4 @@
-import type { RoutePrice } from '../../ports/model.js';
+import type { RoutePrice } from '../../ports/model/model.js';
 
 /**
  * @beta

@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ContextCompactor } from '../../src/context/contextCompactor.js';
-import type { ModelMessage, ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
+import type {
+  ModelMessage,
+  ModelOutput,
+  ModelPort,
+  ModelRequest,
+} from '../../src/ports/model/model.js';
 
 /** 构造固定输出的假模型。 */
 function fakeModel(behavior: () => ModelOutput): ModelPort {

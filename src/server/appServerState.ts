@@ -1,4 +1,4 @@
-import type { ApprovalPort } from '../ports/approval.js';
+import type { ApprovalPort } from '../ports/runtime/approval.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { SkillRegistry } from '../skill/skillRegistry.js';
 import type { PluginRegistry } from '../plugin/pluginRegistry.js';

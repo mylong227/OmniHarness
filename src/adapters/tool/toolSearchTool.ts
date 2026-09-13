@@ -1,4 +1,4 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import { ToolIndex } from '../../search/toolIndex.js';
 import { ToolDiscovery } from '../../search/toolDiscovery.js';
 

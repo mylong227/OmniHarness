@@ -2,8 +2,12 @@
  * @maturity L0 — 框架在；未与 prompt injection 对抗集（AgentDojo/InjecAgent）接通
  * @maturityEvidence tests/unit/immuneMonitor.test.ts
  */
-import type { ImmuneMonitorPort, AnomalyAlert, ImmuneSelfReport } from '../../ports/immune.js';
-import type { AuditSinkLike } from '../../ports/supervisor.js';
+import type {
+  ImmuneMonitorPort,
+  AnomalyAlert,
+  ImmuneSelfReport,
+} from '../../ports/intelligence/immune.js';
+import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
 
 /** 免疫监控选项（fail-closed 边界夹紧）。 */
 export interface ImmuneMonitorOptions {

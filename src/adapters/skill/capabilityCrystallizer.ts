@@ -18,13 +18,13 @@
  * @maturityEvidence tests/unit/capabilityCrystallizer.test.ts
  */
 import type { Skill } from '../../skill/skill.js';
-import type { SkillPort, MoireOptions } from '../../ports/skill.js';
+import type { SkillPort, MoireOptions } from '../../ports/runtime/skill.js';
 import { composeByTwist as moireCompose } from '../../skill/moireComposer.js';
 import type {
   CapabilityCrystallizerPort,
   CrystallizationReport,
   FrozenCapability,
-} from '../../ports/capability.js';
+} from '../../ports/intelligence/capability.js';
 
 /** 相变固化器选项。 */
 export interface CapabilityCrystallizerOptions {

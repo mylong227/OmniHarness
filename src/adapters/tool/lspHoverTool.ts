@@ -1,5 +1,5 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { LspPort } from '../../ports/lsp.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { LspPort } from '../../ports/tool/lsp.js';
 import { LSP_HOVER_TOOL_NAME } from '../../lsp/lspToolNames.js';
 import { parseTarget } from './lspToolsShared.js';
 

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 
 /** 写文件工具：仅限工作区内，覆盖前自动备份 .bak（可审计）。 */

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OmniError, ErrorCode } from '../../src/omniError.js';
 import { ConfigError } from '../../src/config/configError.js';
-import { ModelCallError } from '../../src/ports/model.js';
+import { ModelCallError } from '../../src/ports/model/model.js';
 import { EgressBlockedError } from '../../src/adapters/sandbox/networkEgressGuard.js';
 
 test('OmniError：携带稳定错误码', () => {

@@ -5,9 +5,9 @@ import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolution
 import { RlvrLoop, InMemoryReplayBuffer } from '../../src/evolution/rlvrLoop.js';
 import type { CodeCandidate } from '../../src/evolution/rlvrLoop.js';
 import { createRlvrEvolutionController } from '../../src/evolution/rlvrController.js';
-import type { Candidate } from '../../src/ports/evolution.js';
+import type { Candidate } from '../../src/ports/runtime/evolution.js';
 import type { Skill } from '../../src/skill/skill.js';
-import type { ModelPort } from '../../src/ports/model.js';
+import type { ModelPort } from '../../src/ports/model/model.js';
 
 const skill: Skill = { name: 's', description: 'd', instructions: 'do it' };
 const candidate: Candidate = { skill, source: 'twist:a+b' };

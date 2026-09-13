@@ -12,7 +12,7 @@ import type {
   BoundCapability,
   ConfinementVerdict,
   Charge,
-} from '../../ports/confinement.js';
+} from '../../ports/runtime/confinement.js';
 
 export interface ConfinementOptions {
   /** 群阶（默认 3，对应 SU(3) 三色）。 */

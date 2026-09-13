@@ -18,7 +18,7 @@ import type {
   EvolutionControllerOptions,
   EvolutionGate,
   PromotionVerdict,
-} from '../ports/evolution.js';
+} from '../ports/runtime/evolution.js';
 import type { RlvrLoop } from './rlvrLoop.js';
 
 /** RLVR 阶段配置（U4 升格）：每个过门禁的候选再跑一轮 sample-filter-replay。 */

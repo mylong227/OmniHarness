@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, delimiter } from 'node:path';
 import { NativeBackend } from '../../src/native/nativeBackend.js';
-import type { ToolCall } from '../../src/ports/tool.js';
+import type { ToolCall } from '../../src/ports/tool/tool.js';
 
 // #72：native shell.run 经 OS 沙箱包装为 `omni-cli sandbox run`，需 omni-cli 在 PATH。
 // 模块加载时注入 cargo target bin，模拟真实 --native 部署环境；缺失则跳过 shell 测试。

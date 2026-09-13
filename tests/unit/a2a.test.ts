@@ -4,7 +4,10 @@ import type { RpcMessage } from '../../src/server/jsonRpc.js';
 import type { A2aTransport } from '../../src/a2a/a2aProtocol.js';
 import { A2aClient } from '../../src/a2a/a2aClient.js';
 import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.js';
-import type { AgentIdentityPort, AgentIdentityClaims } from '../../src/ports/agentIdentity.js';
+import type {
+  AgentIdentityPort,
+  AgentIdentityClaims,
+} from '../../src/ports/runtime/agentIdentity.js';
 import type { DelegateRequest, DelegateResult } from '../../src/a2a/a2aProtocol.js';
 
 /** 双端内存传输（服务端与客户端互联）。 */

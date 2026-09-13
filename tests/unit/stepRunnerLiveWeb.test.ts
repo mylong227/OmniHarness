@@ -11,11 +11,11 @@ import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.js';
 import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.js';
-import type { ModelPort, ModelOutput } from '../../src/ports/model.js';
-import type { ToolCall } from '../../src/ports/tool.js';
-import type { ToolPort } from '../../src/ports/tool.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
-import type { SandboxPort } from '../../src/ports/sandbox.js';
+import type { ModelPort, ModelOutput } from '../../src/ports/model/model.js';
+import type { ToolCall } from '../../src/ports/tool/tool.js';
+import type { ToolPort } from '../../src/ports/tool/tool.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
 
 const echoTool: ToolCall = { id: 'c1', name: 'shell.run', arguments: { command: 'echo hi' } };
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };

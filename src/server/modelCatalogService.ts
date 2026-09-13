@@ -1,5 +1,5 @@
 import type { FileConfig } from '../config/configFile.js';
-import type { ModelPort } from '../ports/model.js';
+import type { ModelPort } from '../ports/model/model.js';
 import { PROVIDER_PRESETS, type ProviderPreset } from './providerPresets.js';
 import { probeProvider, buildModelForProvider } from './providerProbe.js';
 

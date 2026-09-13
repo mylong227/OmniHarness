@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ContextAssembler } from '../../src/context/contextAssembler.js';
-import type { SessionEvent } from '../../src/ports/event.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 构造事件。 */
 function event(type: SessionEvent['type'], payload: unknown, id = 'e'): SessionEvent {

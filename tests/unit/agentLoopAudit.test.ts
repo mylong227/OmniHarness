@@ -26,11 +26,11 @@ import { TurnRunner } from '../../src/core/turnRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
-import type { SandboxPort } from '../../src/ports/sandbox.js';
-import type { ToolCall, ToolPort } from '../../src/ports/tool.js';
-import type { StoragePort } from '../../src/ports/storage.js';
+import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
+import type { ToolCall, ToolPort } from '../../src/ports/tool/tool.js';
+import type { StoragePort } from '../../src/ports/memory/storage.js';
 
 // 关掉 repo-map 注入：本文件只审计主循环控制流，不希望索引整个仓库（慢且与断言无关）。
 // node:test 每个测试文件独立进程，此处设置不会污染其它套件。

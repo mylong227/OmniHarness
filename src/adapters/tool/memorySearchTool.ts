@@ -1,5 +1,5 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { RetrievalPort } from '../../ports/retrieval.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { RetrievalPort } from '../../ports/intelligence/retrieval.js';
 
 /** memory_search 默认返回片段数上限。 */
 const DEFAULT_LIMIT = 5;

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { SpillHandle, SpillPort } from '../../ports/spill.js';
+import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
 import { id } from '../../util/id.js';
 
 /** 合法外溢 ID（防目录穿越：id 会被拼进文件路径）。 */

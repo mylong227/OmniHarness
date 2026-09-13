@@ -1,5 +1,5 @@
-import type { ToolResult } from '../ports/tool.js';
-import type { ToolHookContext, ToolHooks } from '../ports/toolHook.js';
+import type { ToolResult } from '../ports/tool/tool.js';
+import type { ToolHookContext, ToolHooks } from '../ports/tool/toolHook.js';
 
 /** 工具钩子运行器：pre 依序、post 逆序（策略插件可拦截/改写/记录，权限即插件）。 */
 export class ToolHookRunner {

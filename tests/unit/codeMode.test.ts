@@ -7,7 +7,7 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool.js';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.js';
 import { tempWorkspace } from '../helpers/tempWorkspace.js';
 
 /** 测试上下文。 */

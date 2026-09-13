@@ -1,8 +1,8 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { KvPort } from '../../ports/kv.js';
-import type { VaultPort } from '../../ports/vault.js';
+import type { KvPort } from '../../ports/memory/kv.js';
+import type { VaultPort } from '../../ports/memory/vault.js';
 
 /** 单条密文载荷结构（base64，冒号分隔）：iv : ciphertext : authTag。 */
 type CipherPayload = { iv: string; cipher: string; tag: string };

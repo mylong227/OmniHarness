@@ -16,8 +16,8 @@
  *  - dispose() 停止定时器（回合结束时调用，防止定时器泄漏）。
  */
 
-import type { SessionEvent } from '../../ports/event.js';
-import type { StoragePort } from '../../ports/storage.js';
+import type { SessionEvent } from '../../ports/runtime/event.js';
+import type { StoragePort } from '../../ports/memory/storage.js';
 import { log } from '../../util/logger.js';
 
 export interface EventPersisterOptions {

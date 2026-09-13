@@ -3,8 +3,8 @@ import type { Transport } from './lineTransport.js';
 import type { Metrics } from './metrics.js';
 import type { AuditSink } from './auditSink.js';
 import { id } from '../util/id.js';
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../ports/approval.js';
-import type { EventPort } from '../ports/eventPort.js';
+import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../ports/runtime/approval.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
 
 /** 事件/审批桥依赖。 */
 export interface ServerEventBridgeDeps {

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import type { ToolHookContext, ToolHooks } from '../../src/ports/toolHook.js';
-import type { ToolResult } from '../../src/ports/tool.js';
+import type { ToolHookContext, ToolHooks } from '../../src/ports/tool/toolHook.js';
+import type { ToolResult } from '../../src/ports/tool/tool.js';
 
 /** 上下文。 */
 const context: ToolHookContext = { sessionId: 's1', toolName: 'shell', target: 'ls' };

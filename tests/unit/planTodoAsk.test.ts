@@ -11,8 +11,8 @@ import { ToolGate } from '../../src/core/toolGate.js';
 import { eventFactory } from '../../src/core/eventFactory.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool.js';
-import type { AskAnswer } from '../../src/ports/userResponder.js';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
+import type { AskAnswer } from '../../src/ports/runtime/userResponder.js';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 const call = (name: string, args: Record<string, unknown>): ToolCall => ({

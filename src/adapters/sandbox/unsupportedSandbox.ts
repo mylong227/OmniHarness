@@ -1,4 +1,4 @@
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sandbox.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
 
 /**
  * 不支持的 OS 级沙箱后端占位（G4）：本平台无对应内核 API 时注册，

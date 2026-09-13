@@ -14,7 +14,7 @@ import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { ToolGate } from '../../src/core/toolGate.js';
 import type { ResourcePort, PromptPort } from '../../src/mcp/mcpServer.js';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool.js';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.js';
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements Transport {

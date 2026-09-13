@@ -1,11 +1,11 @@
-import type { SessionEvent } from '../ports/event.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
 import type {
   ImageContent,
   FileAttachment,
   ModelContextSnapshot,
   ModelUsage,
-} from '../ports/model.js';
-import type { EventFactoryPort } from '../ports/eventFactory.js';
+} from '../ports/model/model.js';
+import type { EventFactoryPort } from '../ports/runtime/eventFactory.js';
 import { id } from '../util/id.js';
 
 /**

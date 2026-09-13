@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 
 /** 内置读文件工具：仅允许读取工作区内文件。 */

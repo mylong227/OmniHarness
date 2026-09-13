@@ -3,7 +3,7 @@
  * 供 `naturalGradient.ts` 与 `particleFilter.ts` 复用，避免公式在两处发散。
  */
 
-import type { BeliefKlComponent } from '../ports/metacognition.js';
+import type { BeliefKlComponent } from '../ports/intelligence/metacognition.js';
 
 export interface KlDecomposition {
   readonly total: number;

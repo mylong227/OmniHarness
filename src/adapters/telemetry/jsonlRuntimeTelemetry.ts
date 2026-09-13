@@ -6,7 +6,7 @@ import type {
   RuntimeTelemetryInput,
   RuntimeTelemetryPort,
   TelemetryChainReport,
-} from '../../ports/runtimeTelemetry.js';
+} from '../../ports/runtime/runtimeTelemetry.js';
 
 /** 创世前驱哈希：首条记录的 prev，使首条也纳入链校验。 */
 const GENESIS = '0'.repeat(64);

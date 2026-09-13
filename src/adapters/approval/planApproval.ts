@@ -1,4 +1,8 @@
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../ports/approval.js';
+import type {
+  ApprovalDecision,
+  ApprovalPort,
+  ApprovalRequest,
+} from '../../ports/runtime/approval.js';
 
 /**
  * 规划模式（plan）审批适配器。

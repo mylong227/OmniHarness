@@ -4,7 +4,7 @@ import {
   Ed25519AgentIdentity,
   generateAgentKeyMaterial,
 } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import type { AgentIdentityPort } from '../../src/ports/agentIdentity.js';
+import type { AgentIdentityPort } from '../../src/ports/runtime/agentIdentity.js';
 
 function make(port?: AgentIdentityPort): AgentIdentityPort {
   return port ?? new Ed25519AgentIdentity({ agentRuntimeId: 'test-runtime' });

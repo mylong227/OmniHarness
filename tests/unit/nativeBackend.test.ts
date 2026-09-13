@@ -10,12 +10,12 @@ import assert from 'node:assert/strict';
 import { StepRunner } from '../../src/core/stepRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import type { SessionEvent } from '../../src/ports/event.js';
-import type { EventPort } from '../../src/ports/eventPort.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
-import type { ModelPort } from '../../src/ports/model.js';
-import type { SandboxPort } from '../../src/ports/sandbox.js';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import type { EventPort } from '../../src/ports/runtime/eventPort.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
+import type { ModelPort } from '../../src/ports/model/model.js';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
 import { NativeBackend } from '../../src/native/nativeBackend.js';
 import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
 

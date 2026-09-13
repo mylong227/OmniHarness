@@ -1,5 +1,5 @@
-import type { ModelUsage, RoutePrice } from '../../ports/model.js';
-import { BudgetExceededError } from '../../ports/model.js';
+import type { ModelUsage, RoutePrice } from '../../ports/model/model.js';
+import { BudgetExceededError } from '../../ports/model/model.js';
 import { DEFAULT_FALLBACK_PRICE } from './routePricing.js';
 
 /**

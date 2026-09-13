@@ -10,7 +10,7 @@ import type {
   PolicyFacts,
   PolicyPort,
   PolicyRule,
-} from '../../ports/policy.js';
+} from '../../ports/runtime/policy.js';
 
 // ---------- 词法 ----------
 

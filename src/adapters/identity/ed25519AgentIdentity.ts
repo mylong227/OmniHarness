@@ -17,7 +17,7 @@ import type {
   AgentIdentityClaims,
   AgentIdentityConfig,
   AgentIdentityPort,
-} from '../../ports/agentIdentity.js';
+} from '../../ports/runtime/agentIdentity.js';
 
 /** 密钥派生上下文（参考 Rust `AGENT_IDENTITY_KEY_DERIVATION_CONTEXT`）。 */
 const KEY_DERIVATION_CONTEXT = 'omniharness-agent-identity-ed25519-v1';

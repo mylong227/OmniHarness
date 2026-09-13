@@ -11,7 +11,7 @@ import { SpillReadTool } from '../../src/adapters/tool/spillReadTool.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
-import type { ToolResult } from '../../src/ports/tool.js';
+import type { ToolResult } from '../../src/ports/tool/tool.js';
 
 /** 构造成功的大输出工具结果。 */
 function bigResult(output: string, callId = 'c1'): ToolResult {

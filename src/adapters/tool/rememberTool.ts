@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { LongTermMemoryPort } from '../../ports/longTermMemory.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.js';
 
 /**
  * 长期记忆写入工具（#S28）：模型显式沉淀一条跨会话持久的 durable fact

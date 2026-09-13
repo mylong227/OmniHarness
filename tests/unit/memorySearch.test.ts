@@ -9,9 +9,13 @@ import { ConfigFactory } from '../../src/config/configFactory.js';
 import { createRuntime } from '../../src/core/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { Agent } from '../../src/core/agent.js';
-import type { RetrievalDoc, RetrievalHit, RetrievalPort } from '../../src/ports/retrieval.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool.js';
+import type {
+  RetrievalDoc,
+  RetrievalHit,
+  RetrievalPort,
+} from '../../src/ports/intelligence/retrieval.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 

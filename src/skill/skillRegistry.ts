@@ -1,4 +1,4 @@
-import type { SkillPort, MoireOptions } from '../ports/skill.js';
+import type { SkillPort, MoireOptions } from '../ports/runtime/skill.js';
 import type { MoireMeta } from './skill.js';
 import type { Skill } from './skill.js';
 import { composeByTwist as moireCompose } from './moireComposer.js';

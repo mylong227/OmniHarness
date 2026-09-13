@@ -19,8 +19,8 @@ import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
-import type { ModelPort } from '../ports/model.js';
-import type { SupervisorPort, SafeMode, HealthSnapshot } from '../ports/supervisor.js';
+import type { ModelPort } from '../ports/model/model.js';
+import type { SupervisorPort, SafeMode, HealthSnapshot } from '../ports/runtime/supervisor.js';
 import { ScriptedModel, type ScriptStep } from './scriptedModel.js';
 
 export type { ScriptStep } from './scriptedModel.js';

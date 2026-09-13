@@ -5,8 +5,8 @@ import {
   isRetryable,
   DEFAULT_RETRY_POLICY,
 } from '../../src/adapters/model/retryingModel.js';
-import { ModelCallError } from '../../src/ports/model.js';
-import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model.js';
+import { ModelCallError } from '../../src/ports/model/model.js';
+import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model/model.js';
 
 /** 可计数、可控抛错的假模型。 */
 class FlakyModel implements ModelPort {

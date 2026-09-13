@@ -14,14 +14,14 @@
  * @maturityEvidence tests/unit/crispr.test.ts
  */
 import type { Skill } from '../../skill/skill.js';
-import type { SkillPort } from '../../ports/skill.js';
+import type { SkillPort } from '../../ports/runtime/skill.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
-import type { AuditSinkLike } from '../../ports/supervisor.js';
+import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
 import type {
   CRISPRSkillEditorPort,
   CrisprEditReport,
   CrisprEditSpec,
-} from '../../ports/skillEdit.js';
+} from '../../ports/runtime/skillEdit.js';
 
 /** CRISPRSkillEditor 选项。 */
 export interface CRISPRSkillEditorOptions {

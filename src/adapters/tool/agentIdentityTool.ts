@@ -4,8 +4,8 @@
  * 用途：工具结果、事件快照等关键产物可附 Ed25519 签名，下游凭公钥验证「确由本 runtime 出具」。
  * 零依赖：仅依赖注入的 `AgentIdentityPort`。
  */
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { AgentIdentityPort } from '../../ports/agentIdentity.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { AgentIdentityPort } from '../../ports/runtime/agentIdentity.js';
 
 /**
  * @beta

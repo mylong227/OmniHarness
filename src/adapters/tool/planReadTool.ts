@@ -1,5 +1,5 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { PlanPort } from '../../ports/plan.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { PlanPort } from '../../ports/runtime/plan.js';
 
 /**
  * @beta

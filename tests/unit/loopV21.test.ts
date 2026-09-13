@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { TurnRunner } from '../../src/core/turnRunner.js';
 import type { StepOutcome } from '../../src/core/stepRunner.js';
-import type { ModelUsage } from '../../src/ports/model.js';
-import { BudgetExceededError } from '../../src/ports/model.js';
+import type { ModelUsage } from '../../src/ports/model/model.js';
+import { BudgetExceededError } from '../../src/ports/model/model.js';
 import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.js';
-import type { ToolInputDelta } from '../../src/ports/model.js';
+import type { ToolInputDelta } from '../../src/ports/model/model.js';
 
 /** 假记录器：仅实现 TurnRunner 用到的面。 */
 function fakeRecorder() {
@@ -27,9 +27,12 @@ function fakeRecorder() {
 }
 
 /** 假步进器：脚本化每步 outcome + usage。 */
-function fakeStepRunner(script: Array<{ outcome: StepOutcome; usage?: ModelUsage }>, opts?: {
-  throwOnStep?: () => unknown;
-}) {
+function fakeStepRunner(
+  script: Array<{ outcome: StepOutcome; usage?: ModelUsage }>,
+  opts?: {
+    throwOnStep?: () => unknown;
+  },
+) {
   let step = -1;
   return {
     run: async (): Promise<StepOutcome> => {
@@ -83,7 +86,17 @@ test('TurnRunner token 预算：累计 usage 超限即停止步进并记录系�
 test('TurnRunner token 预算：budget=0 关闭，不设闸', async () => {
   const recorder = fakeRecorder();
   const step = fakeStepRunner([{ outcome: 'tool', usage: usage(999_999) }]);
-  const runner = new TurnRunner(step as never, recorder as never, 3, undefined, undefined, undefined, undefined, undefined, 0);
+  const runner = new TurnRunner(
+    step as never,
+    recorder as never,
+    3,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+  );
   const outcome = await runner.run({} as never);
   assert.strictEqual(outcome.steps, 3);
 });
@@ -94,7 +107,17 @@ test('TurnRunner 预算熔断：BudgetExceededError 不炸回合，finalize 交�
     throwOnStep: () =>
       new BudgetExceededError('预算耗尽', { limitUsd: 1, spentUsd: 1.01, model: 'm' }),
   });
-  const runner = new TurnRunner(step as never, recorder as never, 8, undefined, undefined, undefined, undefined, undefined, 0);
+  const runner = new TurnRunner(
+    step as never,
+    recorder as never,
+    8,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+  );
   const outcome = await runner.run({} as never);
   assert.strictEqual(outcome.steps, 0);
   assert.strictEqual(outcome.finalText, '【兜底总结】已停止步进。');
@@ -104,7 +127,17 @@ test('TurnRunner 预算熔断：BudgetExceededError 不炸回合，finalize 交�
 test('TurnRunner：非预算错误照常上抛（不吞）', async () => {
   const recorder = fakeRecorder();
   const step = fakeStepRunner([], { throwOnStep: () => new Error('boom') });
-  const runner = new TurnRunner(step as never, recorder as never, 4, undefined, undefined, undefined, undefined, undefined, 0);
+  const runner = new TurnRunner(
+    step as never,
+    recorder as never,
+    4,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+  );
   await assert.rejects(runner.run({} as never), /boom/);
 });
 
@@ -122,7 +155,11 @@ test('ConsoleLiveView：注入文本通道才流式，未注入静默', () => {
 
 test('CompositeLiveView：onTextDelta 只转发给声明了能力的子 sink', () => {
   const got: string[] = [];
-  const capable = { name: 'capable', onToolInput: () => {}, onTextDelta: (t: string) => got.push(t) };
+  const capable = {
+    name: 'capable',
+    onToolInput: () => {},
+    onTextDelta: (t: string) => got.push(t),
+  };
   const legacy = { name: 'legacy', onToolInput: () => {} };
   const composite = new CompositeLiveView([capable as never, legacy as never]);
   composite.onTextDelta('x');

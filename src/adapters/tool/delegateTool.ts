@@ -1,4 +1,4 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import type { WorkerOrchestrator } from '../../worker/workerOrchestrator.js';
 
 /**

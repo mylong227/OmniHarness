@@ -15,15 +15,15 @@
  * @maturity L1 — RLVR 闭环在；Echo Trap 防护未证
  * @maturityEvidence tests/unit/evolutionRlvr.test.ts
  */
-import type { Candidate } from '../ports/evolution.js';
-import type { ModelPort } from '../ports/model.js';
+import type { Candidate } from '../ports/runtime/evolution.js';
+import type { ModelPort } from '../ports/model/model.js';
 import type { Skill, MoireOptions } from '../skill/skill.js';
 import type { Benchmark } from './failClosedEvolutionGate.js';
 import { moireEnergy } from './benchmark.js';
 import { FailClosedEvolutionGate } from './failClosedEvolutionGate.js';
 import { TwistDiscoveryEngine } from './twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from './evolutionControllerImpl.js';
-import type { EvolutionController } from '../ports/evolution.js';
+import type { EvolutionController } from '../ports/runtime/evolution.js';
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
 import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
 import { verifiableRewardForCode } from './verifiableReward.js';

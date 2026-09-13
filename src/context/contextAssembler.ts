@@ -1,10 +1,10 @@
-import type { SessionEvent } from '../ports/event.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
 import type {
   ImageContent,
   FileAttachment,
   ModelMessage,
   ModelToolCallRef,
-} from '../ports/model.js';
+} from '../ports/model/model.js';
 
 /** 上下文组装器：固定碎片（world_state）+ 事件日志投影 → 模型消息（model-visible means logged）。 */
 export class ContextAssembler {

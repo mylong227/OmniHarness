@@ -1,4 +1,8 @@
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../ports/approval.js';
+import type {
+  ApprovalDecision,
+  ApprovalPort,
+  ApprovalRequest,
+} from '../../ports/runtime/approval.js';
 import { canonicalizeCommand, canonicalKeyOf } from '../../util/commandCanonicalizer.js';
 
 /** 审批缓存选项。 */

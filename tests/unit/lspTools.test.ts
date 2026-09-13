@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import type { LspLocation, LspPort } from '../../src/ports/lsp.js';
+import type { LspLocation, LspPort } from '../../src/ports/tool/lsp.js';
 import {
   LspFindReferencesTool,
   LspGoToDefinitionTool,

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import type { VaultPort } from '../../src/ports/vault.js';
+import type { VaultPort } from '../../src/ports/memory/vault.js';
 import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.js';
 import { MemoryKv } from '../../src/adapters/kv/memoryKv.js';
 import { CryptoVault } from '../../src/adapters/vault/cryptoVault.js';

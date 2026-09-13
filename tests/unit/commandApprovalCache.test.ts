@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../src/ports/approval.js';
+import type {
+  ApprovalDecision,
+  ApprovalPort,
+  ApprovalRequest,
+} from '../../src/ports/runtime/approval.js';
 import {
   canonicalizeCommand,
   canonicalKeyOf,

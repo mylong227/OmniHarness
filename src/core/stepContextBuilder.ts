@@ -1,6 +1,6 @@
-import type { SessionEvent } from '../ports/event.js';
-import type { ModelMessage } from '../ports/model.js';
-import type { ToolDefinition } from '../ports/tool.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
+import type { ModelMessage } from '../ports/model/model.js';
+import type { ToolDefinition } from '../ports/tool/tool.js';
 import { ContextAssembler } from '../context/contextAssembler.js';
 import { loadProjectInstructionsCached } from '../context/projectInstructions.js';
 import {

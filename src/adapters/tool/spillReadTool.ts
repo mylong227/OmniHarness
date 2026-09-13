@@ -1,5 +1,5 @@
-import type { SpillPort } from '../../ports/spill.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { SpillPort } from '../../ports/memory/spill.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 
 /**
  * @beta

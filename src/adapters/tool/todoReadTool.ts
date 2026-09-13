@@ -1,5 +1,5 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { TodoPort } from '../../ports/todo.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { TodoPort } from '../../ports/runtime/todo.js';
 
 /**
  * @beta

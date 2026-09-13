@@ -1,4 +1,4 @@
-import type { ToolInputDelta } from './model.js';
+import type { ToolInputDelta } from '../model/model.js';
 
 /**
  * 工具输入实时观察端口（#B3 呈现层）。

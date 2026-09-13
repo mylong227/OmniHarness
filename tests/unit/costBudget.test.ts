@@ -6,7 +6,7 @@ import {
   DEFAULT_ROUTE_PRICING,
   DEFAULT_FALLBACK_PRICE,
 } from '../../src/adapters/model/routePricing.js';
-import { BudgetExceededError } from '../../src/ports/model.js';
+import { BudgetExceededError } from '../../src/ports/model/model.js';
 
 test('priceFor: 精确 / 最长前缀 / 兜底', () => {
   const pricing = mergeRoutePricing();
