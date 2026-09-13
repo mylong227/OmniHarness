@@ -61,6 +61,11 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
 
   private _temperature: number;
   private _steps = 0;
+  /**
+   * 解离集合（T3.2 三态循环）：触底事实的 id。解离后脱离耦合图（不收发扩散），
+   * 只随外部 `update` 提升 importance 而复活（重新进入充能态）。
+   */
+  private readonly dissociated = new Set<string>();
 
   public constructor(memory: LongTermMemoryPort, opts: HeatAnnealerOptions = {}) {
     this.memory = memory;
@@ -83,8 +88,16 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
   }
 
   /**
-   * 执行一步退火：扩散（热方程）+ 衰减遗忘，并推进冷却调度。
-   * @returns 本步报告（步号、当前温度、参与事实数、总漂移量）
+   * 执行一步退火：三态生命周期循环（T3.2，对齐耗散自组装）+ 扩散 + 衰减 + 冷却。
+   *
+   * 三态语义（每步对每条事实判定，计数进报告）：
+   * - **充能 charged**：重要性上升（簇内共识增强）；或上步已解离但本步发现被外部
+   *   `update` 提升到地板之上 → 自动复活并回到耦合图（充能态）。
+   * - **衰减 decayed**：重要性下降但未触底（自然遗忘进行中，仍留在耦合图）。
+   * - **解离 dissociated**：本次触底（退至地板）→ 进入解离集合，此后不再收发扩散，
+   *   图规模随解离收缩（耗散自组装的「废料回收」腿），杜绝死事实污染共识。
+   *
+   * @returns 本步报告（步号、温度、参与数、总漂移、三态计数）
    */
   public anneal(): AnnealStepReport {
     this._steps += 1;
@@ -93,14 +106,22 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     let facts = this.memory.all();
     if (facts.length === 0) {
       this.cool();
-      return { step, temperature: this._temperature, facts: 0, drift: 0 };
+      return {
+        step,
+        temperature: this._temperature,
+        facts: 0,
+        drift: 0,
+        charged: 0,
+        decayed: 0,
+        dissociated: 0,
+      };
     }
 
     // 封顶：超量则只退火当前最重要的一批（fail-closed 边界，防 O(n²) 爆炸）。
     if (facts.length > this.maxFacts) {
       facts = facts
         .slice()
-        .sort((a, b) => b.importance - a.importance)
+        .sort((a, b) => b.importance - a.importance || (a.id < b.id ? -1 : 1))
         .slice(0, this.maxFacts);
     }
 
@@ -109,14 +130,27 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     // 预计算每条事实的本征谱（复用燧-3 频率域工具），避免每对重复派生。
     const specs: Spectrum[] = facts.map((f) => eigenSpectrum(f.text, this.bins));
 
+    // 复活腿：上步解离、但被外部更新充能到地板之上的事实 → 回到耦合图（计充能）。
+    let charged = 0;
+    for (const f of facts) {
+      if (this.dissociated.has(f.id) && f.importance > FLOOR) {
+        this.dissociated.delete(f.id);
+        charged += 1;
+      }
+    }
+
+    // 参与扩散的活性子集：非解离事实才收发热量（解离事实只剩外部充能一条复活路）。
+    const activeIdx: number[] = [];
+    for (let i = 0; i < n; i++) if (!this.dissociated.has(facts[i]!.id)) activeIdx.push(i);
+
     const T = this._temperature;
     const next = new Array<number>(n);
 
-    for (let i = 0; i < n; i++) {
+    for (const i of activeIdx) {
       const si = specs[i]!;
       const ii = imp[i]!;
       let coupled = 0;
-      for (let j = 0; j < n; j++) {
+      for (const j of activeIdx) {
         if (j === i) continue;
         const w = resonance(si, specs[j]!);
         if (w > this.resonanceThreshold) {
@@ -129,15 +163,34 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     }
 
     let drift = 0;
-    for (let i = 0; i < n; i++) {
+    let decayed = 0;
+    let dissociatedNow = 0;
+    for (const i of activeIdx) {
       const before = imp[i]!;
       const after = next[i]!;
       drift += Math.abs(after - before);
+      if (after > before) {
+        charged += 1;
+      } else if (after <= FLOOR) {
+        // 触底 → 解离（脱离耦合图；外部 update 提升即复活）。
+        this.dissociated.add(facts[i]!.id);
+        dissociatedNow += 1;
+      } else {
+        decayed += 1;
+      }
       this.memory.update(facts[i]!.id, { importance: after });
     }
 
     this.cool();
-    return { step, temperature: this._temperature, facts: n, drift };
+    return {
+      step,
+      temperature: this._temperature,
+      facts: n,
+      drift,
+      charged,
+      decayed,
+      dissociated: dissociatedNow,
+    };
   }
 
   /** 温度调度：T ← T0 · exp(−steps/τ)（几何冷却，单调下降、渐近趋 0）。 */
