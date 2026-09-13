@@ -104,12 +104,18 @@ export class SessionModeStore {
     return EMPTY_SESSION_MODES;
   }
 
-  /** 设置文件绝对路径。 */
+  /**
+   * 设置文件绝对路径。
+   * @returns `<workspaceRoot>/.omniharness/session-modes.json`
+   */
   public filePath(): string {
     return join(this.workspaceRoot(), MODE_DIR, MODE_FILE);
   }
 
-  /** 读全量映射；文件缺失/损坏返回空对象。 */
+  /**
+   * 读全量映射；文件缺失/损坏返回空对象。
+   * @returns 会话 id → 模式对象的映射（形状非法或解析失败时为空对象，视为无模式）
+   */
   private readAll(): Record<string, unknown> {
     const file = this.filePath();
     if (!existsSync(file)) return {};
@@ -122,7 +128,12 @@ export class SessionModeStore {
     }
   }
 
-  /** 原子写全量映射（目录不存在则创建）。 */
+  /**
+   * 原子写全量映射（目录不存在则创建）。
+   * @param all 全量映射（含全部会话条目）
+   * @returns 无返回值。
+   * @throws 写盘失败时原样上抛（用户明确点了开关，结果必须可见）
+   */
   private writeAll(all: Record<string, unknown>): void {
     const file = this.filePath();
     mkdirSync(dirname(file), { recursive: true });

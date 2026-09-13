@@ -9,28 +9,46 @@ import type { HealthSnapshot, SafeMode, SupervisorPort } from '../ports/supervis
  * 策略面。eval 端的 NoopSupervisor 在 `src/eval/evalHarness.ts`，不复用避免拉耦。
  */
 export class ServerNoopSupervisor implements SupervisorPort {
-  /** 无操作：no-op 内核不采集任何健康条目。 */
+  /**
+   * 无操作：no-op 内核不采集任何健康条目。
+   * @returns 无返回值。
+   */
   public report(): void {}
 
-  /** 恒定 nominal 模式。 */
+  /**
+   * 恒定 nominal 模式。
+   * @returns 恒为 `nominal`（no-op 内核永不进入降级/恢复模式）
+   */
   public mode(): SafeMode {
     return 'nominal';
   }
 
-  /** 空健康快照。 */
+  /**
+   * 空健康快照。
+   * @returns mode 为 nominal、entries 为空的快照（时间戳取当前系统时间）
+   */
   public snapshot(): HealthSnapshot {
     return { mode: 'nominal', entries: [], generatedAt: new Date().toISOString() };
   }
 
-  /** 不拦截任何工具（返回 undefined = 放行）。 */
+  /**
+   * 不拦截任何工具（返回 undefined = 放行）。
+   * @returns 恒为 undefined，即对所有工具调用放行
+   */
   public intercept(): string | undefined {
     return undefined;
   }
 
-  /** 无模式迁移事件。 */
+  /**
+   * 无模式迁移事件。
+   * @returns 无返回值。
+   */
   public onTransition(): void {}
 
-  /** 无恢复流程，恒 nominal。 */
+  /**
+   * 无恢复流程，恒 nominal。
+   * @returns 恒为 `nominal`（无可恢复状态，恢复尝试即维持原模式）
+   */
   public attemptRecovery(): SafeMode {
     return 'nominal';
   }

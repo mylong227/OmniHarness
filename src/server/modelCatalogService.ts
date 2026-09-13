@@ -28,7 +28,9 @@ export interface ModelCatalogDeps {
  * probeCache 由本类独占持有；外部（配置启用厂商时）经 `cacheProbe` 写入，保证单一写入路径。
  */
 export class ModelCatalogService {
+  /** 生效的文件级配置读取器（providerKeys / modelAdapter / baseUrl / apiKey 的来源）。 */
   private readonly fileConfig: () => FileConfig;
+  /** UI 覆盖的 modelAdapter 读取器（优先于配置文件；未覆盖时为 undefined）。 */
   private readonly adapterOverride: () => string | undefined;
   /**
    * 探测结果缓存：厂商 id → 实测连通状态与真实模型清单。
@@ -134,6 +136,7 @@ export class ModelCatalogService {
    * 探测单一厂商并把结果写入 probeCache（「启用此厂商」时调用；探测失败不抛错）。
    * @param preset 目标厂商预设
    * @param key 该厂商 API Key（免 Key 厂商可为 undefined）
+   * @returns 无返回值。
    */
   public async cacheProbe(preset: ProviderPreset, key: string | undefined): Promise<void> {
     // 启用即实测：探测真实 /models 清单进缓存，Composer 下拉立即显示真实可用模型。
@@ -142,8 +145,16 @@ export class ModelCatalogService {
     this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
   }
 
-  /** 当前厂商：baseUrl 精确匹配优先，否则 modelAdapter 匹配的第一个预设。 */
-  private activePreset(baseUrl: string | undefined, adapter: string | undefined): ProviderPreset | undefined {
+  /**
+   * 当前厂商：baseUrl 精确匹配优先，否则 modelAdapter 匹配的第一个预设。
+   * @param baseUrl 当前配置的 baseUrl（与预设精确比对）
+   * @param adapter 当前生效适配器名（UI 覆盖优先，回退配置文件）
+   * @returns 匹配到的厂商预设；两者都无匹配时为 undefined
+   */
+  private activePreset(
+    baseUrl: string | undefined,
+    adapter: string | undefined,
+  ): ProviderPreset | undefined {
     const byUrl = PROVIDER_PRESETS.find((p) => baseUrl !== undefined && baseUrl === p.baseUrl);
     if (byUrl !== undefined) return byUrl;
     return PROVIDER_PRESETS.filter((p) => p.adapter === adapter)[0];

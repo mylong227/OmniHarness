@@ -27,6 +27,7 @@ export const QUOTA_DEFAULT_ID = 'free';
 
 /** 档位表。 */
 export class QuotaPlans {
+  /** 档位表数据（顺序即 UI 展示顺序，首元素为缺省档 free）。 */
   private readonly plans: readonly QuotaPlan[] = [
     { id: 'free', label: '免费', multiplier: 1, upgraded: false, fallback: true },
     { id: 'plus', label: '升级', multiplier: 1.5, upgraded: true, fallback: false },
@@ -43,7 +44,10 @@ export class QuotaPlans {
     return found ?? this.plans.find((plan) => plan.fallback)!;
   }
 
-  /** 全部档位（UI 下拉用，顺序即展示顺序）。 */
+  /**
+   * 全部档位（UI 下拉用，顺序即展示顺序）。
+   * @returns 全部档位（free / plus / pro）
+   */
   public all(): readonly QuotaPlan[] {
     return this.plans;
   }

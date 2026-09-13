@@ -33,6 +33,7 @@ export interface ApprovalTier {
 
 /** 审批档位目录。 */
 export class ApprovalTierCatalog {
+  /** 档位目录数据（顺序即 UI 展示顺序：安全档在前，`auto` 置于末位前置警示位）。 */
   private readonly tiers: readonly ApprovalTier[] = [
     {
       value: 'rules',

@@ -86,7 +86,12 @@ export class WorkspaceSearchService {
     };
   }
 
-  /** 搜文件：BFS 遍历工作区，命中相对路径包含查询词的文件。 */
+  /**
+   * 搜文件：BFS 遍历工作区，命中相对路径包含查询词的文件。
+   * @param needle 已小写化的查询词
+   * @param limit 返回命中上限
+   * @returns 命中排序后的文件条目（基名命中优先、路径短优先，最多 limit 条）
+   */
   private searchFiles(needle: string, limit: number): SearchHit[] {
     const root = this.deps.workspaceRoot();
     const hits: SearchHit[] = [];
@@ -133,7 +138,12 @@ export class WorkspaceSearchService {
     return hits.sort((a, b) => this.rank(a, b, needle)).slice(0, limit);
   }
 
-  /** 搜聊天：在会话标签里做包含匹配。 */
+  /**
+   * 搜聊天：在会话标签里做包含匹配。
+   * @param needle 已小写化的查询词
+   * @param limit 返回命中上限
+   * @returns 标签命中（大小写不敏感）的会话条目，取清单前 limit 条
+   */
   private searchChats(needle: string, limit: number): SearchHit[] {
     let sessions: ReturnType<WorkspaceSearchDeps['chats']>;
     try {
@@ -156,6 +166,10 @@ export class WorkspaceSearchService {
    * 命中排序：基名命中优先于路径命中，其次路径短的优先。
    * 前者贴合「我要找的就是这个文件」，后者让「根目录附近的入口文件」浮到上面，
    * 避免 `docs/legacy/2019/...` 这类长路径把真正的入口压下去。
+   * @param a 参与比较的左侧命中
+   * @param b 参与比较的右侧命中
+   * @param needle 已小写化的查询词（用于判断基名是否命中）
+   * @returns 负数表示 a 排前，正数表示 b 排前，0 表示并列（按路径长度定序）
    */
   private rank(a: SearchHit, b: SearchHit, needle: string): number {
     const aName = a.label.toLowerCase().includes(needle) ? 0 : 1;

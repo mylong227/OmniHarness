@@ -24,7 +24,9 @@ export interface ServerEventBridgeDeps {
  * 按 requestId 兑现；两者同处本类，避免 resolver 表散落在 server 各处。
  */
 export class ServerEventBridge {
+  /** 桥依赖（传输 / 指标 / 审计，指标与审计可缺省）。 */
   private readonly deps: ServerEventBridgeDeps;
+  /** 待响应审批挂起表：requestId → 兑现 resolver（respondApproval 兑现后移除）。 */
   private readonly pending = new Map<string, (decision: ApprovalDecision) => void>();
 
   /**
@@ -34,7 +36,10 @@ export class ServerEventBridge {
     this.deps = deps;
   }
 
-  /** 事件端口：实时推送 thread.event 通知（并记录指标与审计）。 */
+  /**
+   * 事件端口：实时推送 thread.event 通知（并记录指标与审计）。
+   * @returns 以 server 为名的 EventPort 适配器；emit 即向客户端下发 JSON-RPC 通知
+   */
   public eventPort(): EventPort {
     return {
       name: 'server',
@@ -48,7 +53,10 @@ export class ServerEventBridge {
     };
   }
 
-  /** 审批端口：上行至客户端。 */
+  /**
+   * 审批端口：上行至客户端。
+   * @returns 以 server 为名的 ApprovalPort 适配器；decide 即发起审批上行并等待决策
+   */
   public approvalPort(): ApprovalPort {
     return {
       name: 'server',
@@ -56,7 +64,11 @@ export class ServerEventBridge {
     };
   }
 
-  /** 审批上行：发请求通知并等待响应。 */
+  /**
+   * 审批上行：发请求通知并等待响应。
+   * @param request 审批请求（工具名与目标，随 `approval.request` 通知下发）
+   * @returns 客户端决策（allow/deny）；决策由 `approval.respond` 按 requestId 兑现挂起 resolver
+   */
   public async requestApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
     return new Promise((resolve) => {
       const requestId = id('apr');

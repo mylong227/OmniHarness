@@ -86,12 +86,18 @@ export class QuotaStore {
     return next;
   }
 
-  /** 设置文件的绝对路径（工作区根 × `.omniharness/quota.json`）。 */
+  /**
+   * 设置文件的绝对路径（工作区根 × `.omniharness/quota.json`）。
+   * @returns quota.json 的绝对路径
+   */
   public filePath(): string {
     return join(this.workspaceRoot(), QUOTA_DIR, QUOTA_FILE);
   }
 
-  /** 读原始 JSON 对象；文件缺失 / 解析失败 / 非对象一律返回空对象。 */
+  /**
+   * 读原始 JSON 对象；文件缺失 / 解析失败 / 非对象一律返回空对象。
+   * @returns 原始键值映射（字段级校验与缺省兜底在 {@link QuotaStore.read} 完成）
+   */
   private readRaw(): Record<string, unknown> {
     const file = this.filePath();
     if (!existsSync(file)) return {};

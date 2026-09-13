@@ -1,5 +1,9 @@
 import { loadInstalledPlugins } from '../plugin/pluginLoader.js';
-import { PluginProfileStore, applyProfile, type PluginProfile } from '../plugin/pluginProfileStore.js';
+import {
+  PluginProfileStore,
+  applyProfile,
+  type PluginProfile,
+} from '../plugin/pluginProfileStore.js';
 import { packBundle, unpackBundle } from '../plugin/pluginBundler.js';
 import { jsonRpc } from './jsonRpc.js';
 import { AppServerBase } from './appServerBase.js';
@@ -9,7 +13,10 @@ import { AppServerBase } from './appServerBase.js';
  * 继承自 AppServerBase，方法体逐字节等价于原 appServer.ts。
  */
 export class AppServerHandlers extends AppServerBase {
-  /** 插件集 Profile RPC（G-E 5.1，对标 dsh 命名插件组合）：增删查 + 应用 + 当前激活集。 */
+  /**
+   * 插件集 Profile RPC（G-E 5.1，对标 dsh 命名插件组合）：增删查 + 应用 + 当前激活集。
+   * @returns 无返回值。
+   */
   protected registerProfileHandlers(): void {
     const workspaceRoot = () => this.displayConfig['workspace'] ?? process.cwd();
     const storeOf = () => new PluginProfileStore(workspaceRoot());
@@ -82,7 +89,10 @@ export class AppServerHandlers extends AppServerBase {
     });
   }
 
-  /** Bundle 发布单元 RPC（G-E 5.2/5.3，对标 dsh 可 patch 插件叠层 + 发布单元）。 */
+  /**
+   * Bundle 发布单元 RPC（G-E 5.2/5.3，对标 dsh 可 patch 插件叠层 + 发布单元）。
+   * @returns 无返回值。
+   */
   protected registerBundleHandlers(): void {
     const workspaceRoot = () => this.displayConfig['workspace'] ?? process.cwd();
     const storeOf = () => new PluginProfileStore(workspaceRoot());
@@ -142,7 +152,10 @@ export class AppServerHandlers extends AppServerBase {
     });
   }
 
-  /** 插件市场 RPC：registry 未注入则不暴露（保持可选依赖）。 */
+  /**
+   * 插件市场 RPC：registry 未注入则不暴露（保持可选依赖）。
+   * @returns 无返回值。
+   */
   protected registerPluginHandlers(): void {
     const registry = this.options.registry;
     if (registry === undefined) {
