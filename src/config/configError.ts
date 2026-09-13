@@ -45,10 +45,17 @@ const STRING_FIELDS: ReadonlySet<string> = new Set([
 ]);
 
 /** 允许的数字字段。 */
-const NUMBER_FIELDS: ReadonlySet<string> = new Set(['maxSteps']);
+const NUMBER_FIELDS: ReadonlySet<string> = new Set([
+  'maxSteps',
+  'modelCircuitBreakerThreshold',
+  'modelCircuitBreakerOpenMs',
+]);
 
 /** 允许的布尔字段。 */
-const BOOLEAN_FIELDS: ReadonlySet<string> = new Set(['longTermMemoryEncryption']);
+const BOOLEAN_FIELDS: ReadonlySet<string> = new Set([
+  'longTermMemoryEncryption',
+  'modelCircuitBreaker',
+]);
 
 /** 已知标准 key 全集（未知 key 一律报错）。 */
 const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
@@ -81,6 +88,12 @@ const KEY_ALIASES: Readonly<Record<string, string>> = {
   'elevated-sandbox': 'elevatedSandbox',
   max_steps: 'maxSteps',
   'max-steps': 'maxSteps',
+  model_circuit_breaker: 'modelCircuitBreaker',
+  'model-circuit-breaker': 'modelCircuitBreaker',
+  model_circuit_breaker_threshold: 'modelCircuitBreakerThreshold',
+  'model-circuit-breaker-threshold': 'modelCircuitBreakerThreshold',
+  model_circuit_breaker_open_ms: 'modelCircuitBreakerOpenMs',
+  'model-circuit-breaker-open-ms': 'modelCircuitBreakerOpenMs',
 };
 
 /** 环境变量前缀与映射（OMNIHARNESS_MODEL → model）。 */

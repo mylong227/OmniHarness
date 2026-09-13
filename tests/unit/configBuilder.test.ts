@@ -26,6 +26,9 @@ import { CachedApproval } from '../../src/adapters/approval/cachedApproval.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { RetryingModel } from '../../src/adapters/model/retryingModel.js';
 import { BudgetedModel } from '../../src/adapters/model/budgetedModel.js';
+import { CircuitBreakingModel } from '../../src/adapters/model/circuitBreakingModel.js';
+import { CircuitOpenError } from '../../src/errors/circuitOpenError.js';
+import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.js';
 import { ModelRouter } from '../../src/adapters/model/modelRouter.js';
 import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
 import { CostBudget } from '../../src/adapters/model/costBudget.js';
@@ -243,4 +246,65 @@ test('门面函数与 ConfigBuilder 方法同源（委托默认实例）', () =>
     assert.strictEqual(buildIdentity(partial), undefined);
     assert.ok(buildApprovals(partial, new PassthroughSandbox()) instanceof AutoApproval);
   });
+});
+
+test('buildModel：modelCircuitBreaker 包在最外层防抖层之外（重试内层）', () => {
+  withWorkspace((root) => {
+    const builder = new ConfigBuilder();
+    // 仅熔断：结果即 CircuitBreakingModel。
+    const cbOnly = builder.buildModel(base(root, { modelCircuitBreaker: true }), undefined);
+    assert.ok(cbOnly instanceof CircuitBreakingModel);
+    // 熔断 + 重试：熔断应在重试外层 → 最外层是 CircuitBreakingModel 而非 RetryingModel。
+    const both = builder.buildModel(
+      base(root, { modelCircuitBreaker: true, modelRetry: true }),
+      undefined,
+    );
+    assert.ok(both instanceof CircuitBreakingModel, '熔断必须包在重试外层');
+    // 再加预算：预算仍是最外层（预算硬门禁优先于一切）。
+    const all = builder.buildModel(
+      base(root, { modelCircuitBreaker: true, modelRetry: true }),
+      new CostBudget(5, new Map()),
+    );
+    assert.ok(all instanceof BudgetedModel, '预算层应始终在最外层');
+  });
+});
+
+test('buildModel：熔断配置缺省时不包装（零行为变更）', () => {
+  withWorkspace((root) => {
+    const partial = base(root);
+    const out = new ConfigBuilder().buildModel(partial, undefined);
+    assert.strictEqual(out, partial.model, '未开启熔断应原样返回同一实例');
+  });
+});
+
+test('buildModel：装配后的熔断真实生效——连续失败达阈值即开路且不再触达内层', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'cfg-builder-cb-'));
+  try {
+    let calls = 0;
+    const failing: ModelPort = {
+      name: 'failing',
+      async generate(_req: ModelRequest): Promise<ModelOutput> {
+        calls += 1;
+        throw new Error('downstream down');
+      },
+    };
+    const model = new ConfigBuilder().buildModel(
+      base(root, {
+        model: failing,
+        modelCircuitBreaker: true,
+        modelCircuitBreakerThreshold: 2,
+      }),
+      undefined,
+    );
+    await assert.rejects(() => model.generate({ messages: [], tools: [] }), /downstream down/);
+    await assert.rejects(() => model.generate({ messages: [], tools: [] }), /downstream down/);
+    assert.strictEqual(calls, 2);
+    await assert.rejects(
+      () => model.generate({ messages: [], tools: [] }),
+      (err: unknown) => err instanceof CircuitOpenError,
+    );
+    assert.strictEqual(calls, 2, '开路后不得再触达内层模型');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

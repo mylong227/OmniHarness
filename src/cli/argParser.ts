@@ -115,6 +115,26 @@ export interface CliArgs {
   modelRouterFile?: string;
   /** 模型重试开关（V2.1，--no-model-retry 关闭；默认开）：429/408/5xx/网络抖动指数退避重试。 */
   modelRetry?: boolean;
+  /** 模型熔断开关（F3，`--no-model-circuit-breaker` 关闭；默认开）：连续失败达阈值即开路，冷却期快速失败。 */
+  modelCircuitBreaker?: boolean;
+  /** 熔断开路阈值（连续失败次数，默认 5）。 */
+  modelCircuitBreakerThreshold?: number;
+  /** 熔断开路冷却毫秒（默认 30000）。 */
+  modelCircuitBreakerOpenMs?: number;
+  /**
+   * F3 凭据水合开关（`--vault-hydrate`；**默认关**）：装配期把加密保险库中的凭据
+   * 水合进进程环境，使按 `process.env.X` 读凭据的下游（模型适配器 / 路由）零改动获得回退源。
+   * 缺省关 = 零行为变更。
+   */
+  vaultHydrate?: boolean;
+  /** F3 水合的凭据名（`--vault-hydrate-names a,b`）；省略时用内置默认名列表。 */
+  vaultHydrateNames?: readonly string[];
+  /** F3 保险库主密钥文件（`--vault-key-file`；主密钥优先取环境变量 `OMNIHARNESS_VAULT_KEY`）。 */
+  vaultKeyFile?: string;
+  /** F3 密文 KV 后端（`--kv-adapter`，默认 json-file，与 `vault` 子命令同一默认）。 */
+  kvAdapter?: 'memory' | 'json-file' | 'sqlite';
+  /** F3 密文 KV 落盘路径（`--kv-file`）。 */
+  kvFile?: string;
   /** 文本流式输出（V2.1，--stream-text）：模型正文 token 级流式打到 stdout，末尾不再重复打印 finalText。 */
   streamText?: boolean;
   /** 回合 token 预算（V2.1，--turn-token-budget N）：累计 usage 超限停止步进，交由总结收尾。 */
@@ -315,6 +335,15 @@ export class ArgParser {
     if (file.escalation !== undefined) {
       result.escalation = file.escalation;
     }
+    if (file.modelCircuitBreaker !== undefined) {
+      result.modelCircuitBreaker = file.modelCircuitBreaker;
+    }
+    if (file.modelCircuitBreakerThreshold !== undefined) {
+      result.modelCircuitBreakerThreshold = file.modelCircuitBreakerThreshold;
+    }
+    if (file.modelCircuitBreakerOpenMs !== undefined) {
+      result.modelCircuitBreakerOpenMs = file.modelCircuitBreakerOpenMs;
+    }
     if (file.elevatedSandbox !== undefined) {
       result.elevatedSandbox = file.elevatedSandbox;
     }
@@ -360,6 +389,7 @@ export class ArgParser {
         '  --base-url URL  --api-key KEY      OpenAI 兼容端点',
         '  --storage-adapter memory|jsonl    存储端口（默认 jsonl，落盘 ~/.omniharness/sessions）',
         '  --storage-dir DIR                 jsonl 存储目录',
+        '  --vault-hydrate [--vault-hydrate-names N1,N2] [--vault-key-file PATH] [--kv-adapter memory|json-file|sqlite] [--kv-file PATH]   装配期把加密保险库中的凭据水合进进程环境（默认关；仅填充未设置的环境变量，显式配置优先）',
         '  --approval auto|deny|rules|guardian|plan|ask   审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）',
         '  --approval-ask allow|deny         rules 模式 ask 时裁决（默认 allow）',
         '  --sandbox passthrough|policy|restricted|landlock|seatbelt|bwrap   沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed）',
