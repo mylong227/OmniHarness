@@ -1,8 +1,8 @@
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { configFile, type FileConfig } from '../config/configFile.js';
-import { mergeConfigs } from '../config/configError.js';
-import { PERSISTABLE_KEYS } from './appServerState.js';
+import { configFile, type FileConfig } from '../../config/configFile.js';
+import { mergeConfigs } from '../../config/configError.js';
+import { PERSISTABLE_KEYS } from '../core/appServerState.js';
 import { providerPresetOf, maskKey, type ProviderPreset } from './providerPresets.js';
 
 /** 配置存储依赖。 */

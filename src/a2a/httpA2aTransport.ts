@@ -9,8 +9,8 @@
  * 零依赖（仅 node:http / node:fetch）。鉴权由 A2aServer + AgentIdentityPort 负责。
  */
 import http from 'node:http';
-import type { RpcMessage } from '../server/jsonRpc.js';
-import { jsonRpc } from '../server/jsonRpc.js';
+import type { RpcMessage } from '../server/core/jsonRpc.js';
+import { jsonRpc } from '../server/core/jsonRpc.js';
 import type { A2aTransport } from './a2aProtocol.js';
 import { inspectUrl, assertNotSsrf, defaultSsrfOptions } from '../security/ssrfGuard.js';
 import type { SsrfOptions } from '../security/ssrfGuard.js';

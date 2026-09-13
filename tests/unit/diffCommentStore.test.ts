@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DiffCommentStore } from '../../src/server/diffCommentStore.js';
-import { RepoPathGuard } from '../../src/server/repoPathGuard.js';
+import { DiffCommentStore } from '../../src/server/services/diffCommentStore.js';
+import { RepoPathGuard } from '../../src/server/services/repoPathGuard.js';
 
 function withStore<T>(fn: (ws: string, store: DiffCommentStore) => T): T {
   const ws = mkdtempSync(join(tmpdir(), 'diff-comments-'));
@@ -28,7 +28,10 @@ test('DiffCommentStore：add 落盘到 .omni/diff-comments.json 并可 list 回�
     assert.strictEqual(added.comment.line, 3);
     assert.strictEqual(added.comment.text, '这里要改', 'text 应被 trim');
 
-    assert.ok(existsSync(join(ws, '.omni', 'diff-comments.json')), '应创建 .omni/diff-comments.json');
+    assert.ok(
+      existsSync(join(ws, '.omni', 'diff-comments.json')),
+      '应创建 .omni/diff-comments.json',
+    );
     const listed = store.list() as { comments: { id: string }[] };
     assert.strictEqual(listed.comments.length, 1);
     assert.strictEqual(listed.comments[0]?.id, added.comment.id);
@@ -44,15 +47,9 @@ test('DiffCommentStore：add 默认 side=new，且拒绝非法入参', () => {
 
     assert.throws(() => store.add({ path: 'a.ts', line: 0, text: '   ' }), /需要非空 path 与 text/);
     assert.throws(() => store.add({ path: 'a.ts', line: 0 }), /需要非空 path 与 text/);
-    assert.throws(
-      () => store.add({ path: 'a.ts', line: 1.5, text: 'x' }),
-      /需要非负整数 line/,
-    );
+    assert.throws(() => store.add({ path: 'a.ts', line: 1.5, text: 'x' }), /需要非负整数 line/);
     assert.throws(() => store.add({ path: 'a.ts', line: -1, text: 'x' }), /需要非负整数 line/);
-    assert.throws(
-      () => store.add({ path: '../evil.ts', line: 0, text: 'x' }),
-      /路径越出仓库范围/,
-    );
+    assert.throws(() => store.add({ path: '../evil.ts', line: 0, text: 'x' }), /路径越出仓库范围/);
   });
 });
 

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AppServer } from '../../src/server/appServer.js';
-import { type RpcMessage } from '../../src/server/jsonRpc.js';
-import type { Transport } from '../../src/server/lineTransport.js';
+import { AppServer } from '../../src/server/core/appServer.js';
+import { type RpcMessage } from '../../src/server/core/jsonRpc.js';
+import type { Transport } from '../../src/server/transport/lineTransport.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';

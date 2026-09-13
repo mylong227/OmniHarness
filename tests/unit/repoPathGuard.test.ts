@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoPathGuard } from '../../src/server/repoPathGuard.js';
+import { RepoPathGuard } from '../../src/server/services/repoPathGuard.js';
 
 function withWorkspace<T>(fn: (ws: string, guard: RepoPathGuard) => T): T {
   const ws = mkdtempSync(join(tmpdir(), 'repo-guard-'));
@@ -19,11 +19,7 @@ test('RepoPathGuard.resolve：放行仓库内相对路径并规范化 . 前缀',
     // 返回值沿用 path.relative 的原生分隔符（Windows 为 \\），与重构前行为逐字一致。
     assert.strictEqual(guard.resolve('src/a.ts'), join('src', 'a.ts'));
     assert.strictEqual(guard.resolve('a/b/c.ts'), join('a', 'b', 'c.ts'));
-    assert.strictEqual(
-      guard.resolve('./src/a.ts'),
-      join('src', 'a.ts'),
-      './ 前缀应被规范化掉',
-    );
+    assert.strictEqual(guard.resolve('./src/a.ts'), join('src', 'a.ts'), './ 前缀应被规范化掉');
   });
 });
 
@@ -59,7 +55,8 @@ test('RepoPathGuard.resolve：工作区根以 getter 求值（切换后立即生
       guard.resolve('x.ts'),
       'x.ts',
       '切换工作区后同一相对路径仍合法（守卫每次重新求值根）',
-    );  } finally {
+    );
+  } finally {
     rmSync(first, { recursive: true, force: true });
     rmSync(second, { recursive: true, force: true });
   }

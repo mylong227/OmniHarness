@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { safeReadFile } from '../../src/server/safeFs.js';
+import { safeReadFile } from '../../src/server/services/safeFs.js';
 
 const WS = await mkdtemp(join(tmpdir(), 'omni-safefs-'));
 

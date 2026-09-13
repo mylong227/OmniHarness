@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditSink } from '../../src/server/auditSink.js';
+import { AuditSink } from '../../src/server/services/auditSink.js';
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'audit-'));

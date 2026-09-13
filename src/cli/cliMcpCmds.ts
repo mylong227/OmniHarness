@@ -6,7 +6,7 @@
  */
 
 import { createInterface } from 'node:readline';
-import { LineTransport } from '../server/lineTransport.js';
+import { LineTransport } from '../server/transport/lineTransport.js';
 import { McpServer } from '../mcp/mcpServer.js';
 import { mcpConnector } from '../mcp/mcpConnector.js';
 import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';

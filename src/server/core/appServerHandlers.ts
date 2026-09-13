@@ -1,10 +1,10 @@
-import { loadInstalledPlugins } from '../plugin/pluginLoader.js';
+import { loadInstalledPlugins } from '../../plugin/pluginLoader.js';
 import {
   PluginProfileStore,
   applyProfile,
   type PluginProfile,
-} from '../plugin/pluginProfileStore.js';
-import { packBundle, unpackBundle } from '../plugin/pluginBundler.js';
+} from '../../plugin/pluginProfileStore.js';
+import { packBundle, unpackBundle } from '../../plugin/pluginBundler.js';
 import { jsonRpc } from './jsonRpc.js';
 import { AppServerBase } from './appServerBase.js';
 

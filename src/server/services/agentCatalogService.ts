@@ -1,6 +1,6 @@
-import type { GraphSummary } from '../autonomy/graphStore.js';
-import type { PluginManifest } from '../plugin/manifest.js';
-import { BUILTIN_AGENT_PERSONAS } from '../subagent/agentPersonas.js';
+import type { GraphSummary } from '../../autonomy/graphStore.js';
+import type { PluginManifest } from '../../plugin/manifest.js';
+import { BUILTIN_AGENT_PERSONAS } from '../../subagent/agentPersonas.js';
 
 /** 智能体目录条目的来源类型。 */
 export type AgentKind = 'builtin' | 'graph' | 'plugin';

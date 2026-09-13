@@ -2,21 +2,21 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../ports/memory/longTermMemory.js';
-import { WorkflowRunner } from '../autonomy/workflowRunner.js';
-import type { WorkflowDef } from '../autonomy/workflowTypes.js';
+} from '../../ports/memory/longTermMemory.js';
+import { WorkflowRunner } from '../../autonomy/workflowRunner.js';
+import type { WorkflowDef } from '../../autonomy/workflowTypes.js';
 import { jsonRpc } from './jsonRpc.js';
-import type { ImageContent, FileAttachment } from '../ports/model/model.js';
-import { id } from '../util/id.js';
-import { queryAudit, type AuditQuery } from './auditExporter.js';
-import type { AuditEvent } from './auditSink.js';
+import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
+import { id } from '../../util/id.js';
+import { queryAudit, type AuditQuery } from '../services/auditExporter.js';
+import type { AuditEvent } from '../services/auditSink.js';
 import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
-import { PROVIDER_PRESETS } from './providerPresets.js';
-import { RepoPathGuard } from './repoPathGuard.js';
-import { DiffReview } from './diffReview.js';
-import { DiffCommentStore } from './diffCommentStore.js';
-import { SessionCheckpoints } from './sessionCheckpoints.js';
+import { PROVIDER_PRESETS } from '../services/providerPresets.js';
+import { RepoPathGuard } from '../services/repoPathGuard.js';
+import { DiffReview } from '../services/diffReview.js';
+import { DiffCommentStore } from '../services/diffCommentStore.js';
+import { SessionCheckpoints } from '../services/sessionCheckpoints.js';
 
 export type { AppServerOptions } from './appServerState.js';
 

@@ -7,7 +7,7 @@
  *
  * 零依赖（仅复用 server/jsonRpc 消息类型）。
  */
-import type { RpcMessage } from '../server/jsonRpc.js';
+import type { RpcMessage } from '../server/core/jsonRpc.js';
 
 /** 传输层抽象（A2A 自包含，不耦合 server 实现）。 */
 export interface A2aTransport {

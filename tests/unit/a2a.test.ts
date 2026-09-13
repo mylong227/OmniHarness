@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/jsonRpc.js';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
 import type { A2aTransport } from '../../src/a2a/a2aProtocol.js';
 import { A2aClient } from '../../src/a2a/a2aClient.js';
 import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.js';

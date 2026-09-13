@@ -3,12 +3,12 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
-import type { AppServer } from './appServer.js';
-import { type RpcRequest } from './jsonRpc.js';
+import type { AppServer } from '../core/appServer.js';
+import { type RpcRequest } from '../core/jsonRpc.js';
 import { WsServer } from './wsConnection.js';
-import type { Metrics } from './metrics.js';
-import { log, nextTraceId } from '../util/logger.js';
-import { safeReadFile } from './safeFs.js';
+import type { Metrics } from '../services/metrics.js';
+import { log, nextTraceId } from '../../util/logger.js';
+import { safeReadFile } from '../services/safeFs.js';
 
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
 

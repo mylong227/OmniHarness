@@ -7,8 +7,8 @@
  *
  * 零依赖（仅 server/jsonRpc + a2aProtocol）。
  */
-import type { RpcMessage } from '../server/jsonRpc.js';
-import { jsonRpc } from '../server/jsonRpc.js';
+import type { RpcMessage } from '../server/core/jsonRpc.js';
+import { jsonRpc } from '../server/core/jsonRpc.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import type {
   A2aCapability,

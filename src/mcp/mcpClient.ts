@@ -1,5 +1,5 @@
-import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/jsonRpc.js';
-import type { Transport } from '../server/lineTransport.js';
+import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.js';
+import type { Transport } from '../server/transport/lineTransport.js';
 import {
   McpProtocol,
   type McpCallToolResult,

@@ -16,6 +16,7 @@ export interface WorkspaceTreeDeps {
  * 安全逻辑；跨工作区的绝对路径对话框见 `FsExplorer`。
  */
 export class WorkspaceTree {
+  /** 当前工作区根（getter 注入，支持运行时切换项目）。 */
   private readonly workspaceRoot: () => string;
 
   /**

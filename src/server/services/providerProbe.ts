@@ -3,14 +3,14 @@
  * probe：拿配置好的 Key 真实请求厂商 /models 端点（不可用时回退 1-token chat 探测），
  * 返回实测连通状态与真实模型清单——「有 Key 支持接多少显示多少」的数据来源。
  */
-import type { ModelPort } from '../ports/model/model.js';
-import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
-import { AnthropicModel } from '../adapters/model/anthropicModel.js';
-import { ResponsesModel } from '../adapters/model/responsesModel.js';
-import { ConfigError } from '../config/configError.js';
+import type { ModelPort } from '../../ports/model/model.js';
+import { OpenAiCompatibleModel } from '../../adapters/model/openAiCompatibleModel.js';
+import { AnthropicModel } from '../../adapters/model/anthropicModel.js';
+import { ResponsesModel } from '../../adapters/model/responsesModel.js';
+import { ConfigError } from '../../config/configError.js';
 import type { ProviderPreset } from './providerPresets.js';
-import { assertNotSsrf, defaultSsrfOptions } from '../security/ssrfGuard.js';
-import { withRetry } from '../util/retry.js';
+import { assertNotSsrf, defaultSsrfOptions } from '../../security/ssrfGuard.js';
+import { withRetry } from '../../util/retry.js';
 
 /** 单个厂商的探测结果（凭据绝不回传，仅打码状态）。 */
 export interface ProviderProbeResult {

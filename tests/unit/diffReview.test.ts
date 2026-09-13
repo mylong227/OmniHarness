@@ -4,8 +4,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DiffReview } from '../../src/server/diffReview.js';
-import { RepoPathGuard } from '../../src/server/repoPathGuard.js';
+import { DiffReview } from '../../src/server/services/diffReview.js';
+import { RepoPathGuard } from '../../src/server/services/repoPathGuard.js';
 
 const gitAvailable = spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
 const skip = gitAvailable ? false : 'git 不可用，跳过 git 集成用例';
@@ -62,10 +62,7 @@ test('DiffReview：stageFile 就地 stage 未跟踪新文件', { skip }, () => {
 test('DiffReview：revertFile 拒绝丢弃未跟踪文件（防误删）', { skip }, () => {
   withRepo(true, (ws, review) => {
     writeFileSync(join(ws, 'loose.txt'), 'hi', 'utf8');
-    assert.throws(
-      () => review.revertFile({ path: 'loose.txt' }),
-      /未跟踪文件不做服务端丢弃/,
-    );
+    assert.throws(() => review.revertFile({ path: 'loose.txt' }), /未跟踪文件不做服务端丢弃/);
   });
 });
 

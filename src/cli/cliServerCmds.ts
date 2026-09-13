@@ -13,10 +13,10 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { LineTransport } from '../server/lineTransport.js';
-import { HttpServer, HttpBridgeTransport } from '../server/httpServer.js';
-import { Metrics } from '../server/metrics.js';
-import { AppServer } from '../server/appServer.js';
+import { LineTransport } from '../server/transport/lineTransport.js';
+import { HttpServer, HttpBridgeTransport } from '../server/transport/httpServer.js';
+import { Metrics } from '../server/services/metrics.js';
+import { AppServer } from '../server/core/appServer.js';
 import { runDoctor as runDoctorReport, printDoctor } from './doctorRunner.js';
 import {
   fetchDiscovery,

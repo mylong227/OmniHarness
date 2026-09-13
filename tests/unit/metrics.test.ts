@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Metrics } from '../../src/server/metrics.js';
+import { Metrics } from '../../src/server/services/metrics.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 构造事件。 */
