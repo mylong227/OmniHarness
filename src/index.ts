@@ -213,7 +213,7 @@ export {
   spectrumFromValues,
   resonance,
   type Spectrum,
-} from './util/eigenSpectrum.js';
+} from './util/eigenspectrum.js';
 
 // @public (P2) 组合·拓扑 — CRISPR 精确技能编辑（I-P2-4）+ 相变固化（I-P2-5）
 export { CRISPRSkillEditor } from './adapters/skill/crisprSkillEditor.js';

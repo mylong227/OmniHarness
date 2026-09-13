@@ -11,7 +11,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Bm25Index, tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import { extractSymbols, outlineText, type SymbolNode } from './repoMap.js';
-import { eigenSpectrum, resonance, RESONANCE_BINS, type Spectrum } from '../util/eigenSpectrum.js';
+import { eigenSpectrum, resonance, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { buildCodeGraph, propagate, type CodeGraph } from './codeGraph.js';
 import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
 

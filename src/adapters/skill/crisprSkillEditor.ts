@@ -15,7 +15,7 @@
  */
 import type { Skill } from '../../skill/skill.js';
 import type { SkillPort } from '../../ports/runtime/skill.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
+import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
 import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
 import type {
   CRISPRSkillEditorPort,

@@ -8,7 +8,7 @@ import {
   resonance,
   tokenizeChunks,
   type Spectrum,
-} from '../../src/util/eigenSpectrum.js';
+} from '../../src/util/eigenspectrum.js';
 
 const BINS = 257;
 

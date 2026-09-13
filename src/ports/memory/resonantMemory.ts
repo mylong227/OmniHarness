@@ -1,5 +1,5 @@
 import type { MemoryFact } from './longTermMemory.js';
-import type { Spectrum } from '../../util/eigenSpectrum.js';
+import type { Spectrum } from '../../util/eigenspectrum.js';
 
 /** 单条共振命中：事实 + 共振度。 */
 export interface ResonantHit {
