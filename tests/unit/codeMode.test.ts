@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CodeInterpreter } from '../../src/code/codeInterpreter.js';
-import { CodeExecutorTool } from '../../src/code/codeExecutorTool.js';
+import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.js';
+import { CodeExecutorTool } from '../../src/adapters/tool/code/codeExecutorTool.js';
 import { ToolGate } from '../../src/core/toolGate.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';

@@ -1,4 +1,4 @@
-import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
+import type { ToolCall, ToolResult } from '../../../ports/tool/tool.js';
 
 /**
  * @beta
@@ -59,7 +59,11 @@ export class CodeInterpreter {
     }
   }
 
-  /** 提取错误消息。 */
+  /**
+   * 把运行期错误转为单行可读摘要。
+   * @param error 捕获到的错误
+   * @returns 单行错误摘要
+   */
   private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

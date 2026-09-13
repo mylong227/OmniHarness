@@ -4,8 +4,7 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../ports/tool/tool.js';
-import type { ToolGate } from '../core/toolGate.js';
+} from '../../../ports/tool/tool.js';
 import { CodeInterpreter } from './codeInterpreter.js';
 
 /**
@@ -13,7 +12,9 @@ import { CodeInterpreter } from './codeInterpreter.js';
  * 代码执行器选项：门禁 + 工具端口（程序内调用同样过门禁）。
  */
 export interface CodeExecutorOptions {
-  readonly gate: ToolGate;
+  /** 门禁窄接口（结构化）：仅依赖单次裁决能力，不直依 core 具体类（P3.2 分层）。 */
+  readonly gate: { gate(call: ToolCall, sessionId: string): Promise<ToolResult | undefined> };
+  /** 工具端口：程序内 call("tool", args) 的执行后端。 */
   readonly tools: ToolPort;
 }
 
@@ -36,6 +37,7 @@ export class CodeExecutorTool {
     },
   };
 
+  /** 程序解释器（执行 code 工具提交的程序体）。 */
   private readonly interpreter = new CodeInterpreter();
 
   public constructor(private readonly options: CodeExecutorOptions) {}

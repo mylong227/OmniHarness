@@ -5,7 +5,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import type { LspPort } from '../../../ports/tool/lsp.js';
-import { LSP_FIND_REFERENCES_TOOL_NAME } from '../../../lsp/lspToolNames.js';
+import { LSP_FIND_REFERENCES_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
 import { renderLocation, parseTarget } from './lspToolsShared.js';
 
 /**
