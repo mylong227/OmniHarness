@@ -204,3 +204,67 @@ test('⑥ 主循环接线：仅开 memoryAnnealing 即构造 spark+annealer，cy
     assert.ok(drift > 0, '主循环退火应实际重加权长期记忆重要性');
   });
 });
+
+// ---- T3.2 三态生命周期循环（充能/衰减/解离，对齐耗散自组装）的可证伪验收 ----
+
+test('⑦ 三态可测：同一步内充能/衰减/解离计数齐备且语义正确', () => {
+  const mem = new MemLongTermMemory();
+  // 簇 A（共振，重要性不均 → 高者衰减、低者充能）。
+  mem.remember(fact(TOPIC_A, 5));
+  mem.remember(fact(TOPIC_A, 2.5));
+  // 孤立地板事实（无共振邻居、已触底 → 首步即解离）。
+  mem.remember(fact('孤岛 唯一 零共振 甲', 1));
+
+  const annealer = new HeatEquationAnnealer(mem, { coupling: 0.2, decay: 0.02 });
+  const r1 = annealer.anneal();
+  assert.strictEqual(r1.dissociated, 1, '首步应把地板孤立事实计为解离');
+  assert.ok(r1.charged >= 1, '簇内低重要性事实应被充能');
+  assert.ok(r1.decayed >= 1, '簇内高重要性事实应衰减');
+  assert.strictEqual(
+    r1.charged + r1.decayed + r1.dissociated,
+    r1.facts,
+    '三态计数应完备覆盖本步参与事实',
+  );
+});
+
+test('⑧ 解离与复活：触底事实冻结出图，外部充能可复活', () => {
+  const mem = new MemLongTermMemory();
+  const iso = fact('孤岛 唯一 零共振 乙', 1);
+  mem.remember(iso);
+  const annealer = new HeatEquationAnnealer(mem, { decay: 0.2 });
+
+  const r1 = annealer.anneal();
+  assert.ok(r1.dissociated >= 1, '触底孤立事实应解离');
+
+  // 解离后：不再收发扩散，重要性恒为地板（冻结），多步不漂移。
+  const frozen = mem.all()[0]!.importance;
+  annealer.anneal();
+  annealer.anneal();
+  assert.strictEqual(mem.all()[0]!.importance, frozen, '解离事实应冻结（不参与扩散/衰减）');
+
+  // 外部充能（如用户显式 pin / 工具写入提权）→ 下一步自动复活并计充能。
+  mem.update(iso.id, { importance: 4 });
+  const r = annealer.anneal();
+  assert.ok(r.charged >= 1, '外部提权的事实应在下一步复活并计充能');
+  assert.ok(mem.all()[0]!.importance !== frozen, '复活后应重新参与重加权');
+});
+
+test('⑨ 可复现：同构记忆 × 同参数 → 每步报告完全一致（同输入恒同输出）', () => {
+  const run = () => {
+    const mem = new MemLongTermMemory();
+    mem.remember(fact(TOPIC_A, 5));
+    mem.remember(fact(TOPIC_A, 3));
+    mem.remember(fact(TOPIC_B, 1));
+    mem.remember(fact('孤岛 唯一 零共振 丙', 1));
+    const annealer = new HeatEquationAnnealer(mem, { coupling: 0.2, decay: 0.05 });
+    const reports = [];
+    for (let s = 0; s < 4; s++) {
+      const r = annealer.anneal();
+      reports.push([r.step, r.temperature, r.facts, r.drift, r.charged, r.decayed, r.dissociated]);
+    }
+    return reports;
+  };
+  const a = run();
+  const b = run();
+  assert.deepStrictEqual(a, b, '同构输入两次运行必须逐步报告完全一致（无隐藏随机源）');
+});
