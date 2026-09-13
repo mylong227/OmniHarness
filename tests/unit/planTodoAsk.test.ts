@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { TodoWriteTool, TodoReadTool } from '../../src/adapters/tool/todoTool.js';
-import { AskUserTool } from '../../src/adapters/tool/askUserTool.js';
-import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../../src/adapters/tool/planTool.js';
+import { TodoWriteTool, TodoReadTool } from '../../src/adapters/tool/plan/todoTool.js';
+import { AskUserTool } from '../../src/adapters/tool/plan/askUserTool.js';
+import {
+  PlanWriteTool,
+  PlanPresentTool,
+  PlanReadTool,
+} from '../../src/adapters/tool/plan/planTool.js';
 import { MemoryTodo } from '../../src/adapters/todo/memoryTodo.js';
 import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.js';
 import { MemoryUserResponder } from '../../src/adapters/user/memoryUserResponder.js';

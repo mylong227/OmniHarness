@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BudgetStatusTool } from '../../src/adapters/tool/budgetStatusTool.js';
+import { BudgetStatusTool } from '../../src/adapters/tool/meta/budgetStatusTool.js';
 import { CostBudget } from '../../src/adapters/model/costBudget.js';
 import { mergeRoutePricing } from '../../src/adapters/model/routePricing.js';
 

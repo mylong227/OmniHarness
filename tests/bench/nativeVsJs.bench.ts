@@ -22,10 +22,10 @@ import { fileURLToPath } from 'node:url';
 
 import { NativeBackend } from '../../src/native/nativeBackend.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { ReadFileTool } from '../../src/adapters/tool/readFileTool.js';
-import { WriteFileTool } from '../../src/adapters/tool/writeFileTool.js';
-import { ListDirTool } from '../../src/adapters/tool/listDirTool.js';
-import { ShellTool } from '../../src/adapters/tool/shellTool.js';
+import { ReadFileTool } from '../../src/adapters/tool/fs/readFileTool.js';
+import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.js';
+import { ListDirTool } from '../../src/adapters/tool/fs/listDirTool.js';
+import { ShellTool } from '../../src/adapters/tool/shell/shellTool.js';
 import { ToolGate } from '../../src/core/toolGate.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

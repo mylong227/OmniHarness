@@ -12,7 +12,7 @@ import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js'
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import { RunGoalTool } from '../../src/adapters/tool/runGoalTool.js';
+import { RunGoalTool } from '../../src/adapters/tool/workflow/runGoalTool.js';
 import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.js';
 import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
 import type {

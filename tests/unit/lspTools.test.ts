@@ -6,7 +6,7 @@ import {
   LspGoToDefinitionTool,
   LspHoverTool,
   LspStatusTool,
-} from '../../src/adapters/tool/lspTools.js';
+} from '../../src/adapters/tool/lsp/lspTools.js';
 
 const SAMPLE: LspLocation = {
   uri: '/proj/src/x.ts',

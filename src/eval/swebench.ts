@@ -35,7 +35,7 @@ import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
-import { PatchApplier } from '../adapters/tool/patchApplier.js';
+import { PatchApplier } from '../adapters/tool/fs/patchApplier.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { ScriptStep } from './scriptedModel.js';
 
