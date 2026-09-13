@@ -34,21 +34,6 @@ export interface DiversityVerdict<T> {
 }
 
 /**
- * 技能规范指纹：规范化 instructions（压缩空白、小写）+ 排序后的标签集。
- * 指纹相同 ⇒ 内容近重复（Echo），与名称无关（改名不算新意）。
- * @param skill 技能
- * @returns 规范指纹串
- */
-export function skillFingerprint(skill: Skill): string {
-  const body = skill.instructions.replace(/\s+/g, ' ').trim().toLowerCase();
-  const tags = (skill.tags ?? [])
-    .map((t) => t.toLowerCase())
-    .sort()
-    .join(',');
-  return `${body}#${tags}`;
-}
-
-/**
  * 多样性守卫：对候选种群做 Echo 副本配额准入。
  */
 export class DiversityGuard {
@@ -66,6 +51,21 @@ export class DiversityGuard {
   }
 
   /**
+   * 技能规范指纹：规范化 instructions（压缩空白、小写）+ 排序后的标签集。
+   * 指纹相同 ⇒ 内容近重复（Echo），与名称无关（改名不算新意）。
+   * @param skill 技能
+   * @returns 规范指纹串
+   */
+  public fingerprint(skill: Skill): string {
+    const body = skill.instructions.replace(/\s+/g, ' ').trim().toLowerCase();
+    const tags = (skill.tags ?? [])
+      .map((t) => t.toLowerCase())
+      .sort()
+      .join(',');
+    return `${body}#${tags}`;
+  }
+
+  /**
    * 准入判定：按输入顺序扫描，同指纹副本数超过配额即拒。
    * @param candidates 候选种群（期望已按适应度降序——保首份即保最优）
    * @returns 准入/拒绝明细 + 去重率与塌缩告警
@@ -75,7 +75,7 @@ export class DiversityGuard {
     const admitted: Skill[] = [];
     const rejected: Skill[] = [];
     for (const c of candidates) {
-      const fp = skillFingerprint(c);
+      const fp = this.fingerprint(c);
       const seen = counts.get(fp) ?? 0;
       if (seen < this.maxDuplicates) {
         admitted.push(c);

@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DiversityGuard, skillFingerprint } from '../../src/evolution/diversityGuard.js';
+import { DiversityGuard } from '../../src/evolution/diversityGuard.js';
 import type { Skill } from '../../src/skill/skill.js';
 
 function skill(name: string, instructions: string, tags?: readonly string[]): Skill {
@@ -36,11 +36,12 @@ test('① 改名不算新意：同指纹超配额拒收（保首份即保最优�
 });
 
 test('①b 指纹规范空白与大小写；标签集参与指纹且与顺序无关', () => {
+  const g = new DiversityGuard();
   const a = skill('a', 'Run  tests   first.', ['x', 'y']);
   const b = skill('b', 'run tests first.', ['y', 'x']);
-  assert.strictEqual(skillFingerprint(a), skillFingerprint(b));
+  assert.strictEqual(g.fingerprint(a), g.fingerprint(b));
   const c = skill('c', 'run tests first.', ['y', 'x', 'z']);
-  assert.notStrictEqual(skillFingerprint(a), skillFingerprint(c), '标签集不同 → 指纹不同');
+  assert.notStrictEqual(g.fingerprint(a), g.fingerprint(c), '标签集不同 → 指纹不同');
 });
 
 test('② 同 corpus 连续 6 轮：适应度单调改善且多样性不塌缩', () => {

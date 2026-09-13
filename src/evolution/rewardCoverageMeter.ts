@@ -7,7 +7,7 @@
  *
  * 产出：
  * - 覆盖率 = 真实可验证判定的样本占比（verify 过 0/1 也算覆盖，0 不是原罪，没验过才是）；
- * - `honestNote`：覆盖率不足时给出**诚实降级表述**（禁止把稀疏信号说成有效 RLVR 信号）。
+ * - 报告附**诚实降级表述**（禁止把稀疏信号说成有效 RLVR 信号）。
  *
  * @maturity L1 — 覆盖率计量是真实统计（非启发），判定阈值是约定而非定理
  * @maturityEvidence tests/unit/rewardCoverageMeter.test.ts
@@ -23,76 +23,28 @@ export interface RewardVerdict {
   readonly reason: string;
 }
 
-/** 带判据明细的奖励函数：调用方拿 verdict 决定计不计入覆盖。 */
-export type InstrumentedReward = (candidate: unknown) => Promise<RewardVerdict>;
-
-/** 覆盖率报告。 */
-export interface RewardCoverageReport {
-  /** 样本总数。 */
-  readonly samples: number;
-  /** 真实可验证判定数（含 verified-pass 与 verified-fail）。 */
-  readonly verified: number;
-  /** 不可验证数（记 0 但并未真实验证）。 */
-  readonly unverifiable: number;
-  /** 势函数覆盖率 = verified / samples（0..1）。 */
-  readonly coverage: number;
-  /** 诚实表述：覆盖率不足时的降级措辞（达标时为达标表述）。 */
-  readonly honestNote: string;
-}
-
 /** 覆盖率达标线（约定值）：低于此线必须使用降级表述。 */
 export const COVERAGE_THRESHOLD = 0.6;
 
 /**
- * 把「命令退出码」奖励改造成**带判据明细**的版本（不改变原奖励语义）：
- * - 命令缺失 → { reward: 0, verifiable: false, reason: 'unverifiable:no-command' }；
- * - spawn 抛错/超时崩溃 → { reward: 0, verifiable: false, reason: 'unverifiable:spawn-error' }；
- * - 命令真实跑完 → { reward: 0|1, verifiable: true, reason: 'verified-pass' | 'verified-fail' }。
- *
- * @param commandFor 从候选抽取待验证命令
- * @param cwdFor 从候选抽取工作目录
- * @param spawn 同名注入点（默认 node:child_process.spawnSync；测试注入桩以保证确定性）
- */
-export function instrumentCommandReward(
-  commandFor: (candidate: unknown) => string | undefined,
-  cwdFor?: (candidate: unknown) => string | undefined,
-  spawn: (cmd: string, cwd: string | undefined) => { status: number | null } = () => ({
-    status: -1,
-  }),
-): InstrumentedReward {
-  return async (candidate) => {
-    const cmd = commandFor(candidate);
-    if (cmd === undefined)
-      return { reward: 0, verifiable: false, reason: 'unverifiable:no-command' };
-    try {
-      const r = spawn(cmd, cwdFor?.(candidate));
-      const status = r.status ?? -1;
-      return status === 0
-        ? { reward: 1, verifiable: true, reason: 'verified-pass' }
-        : { reward: 0, verifiable: true, reason: 'verified-fail' };
-    } catch (err) {
-      return { reward: 0, verifiable: false, reason: `unverifiable:spawn-error:${String(err)}` };
-    }
-  };
-}
-
-/**
- * 覆盖率计量器：包一层 InstrumentedReward，逐样本记账，随时出体检报告。
+ * 覆盖率计量器：包装带明细的奖励探针，逐样本记账，随时出体检报告。
  */
 export class RewardCoverageMeter {
   /** 已记录的样本判定明细（体检数据源）。 */
   private readonly outcomes: RewardVerdict[] = [];
 
   /**
-   * 包装带明细的奖励为普通 VerifiableReward（记录明细，只透出数值；fail-closed 同原口径）。
-   * @param instrumented 带判据明细的奖励
+   * 包装探针为普通数值奖励（记录明细，只透出数值；fail-closed 同原口径）。
+   * @param probe 带判据明细的命令探针（或任何 InstrumentedReward 形状的对象）
    * @returns 与既有 VerifiableReward 兼容的数值奖励
    */
-  public wrap(instrumented: InstrumentedReward): (candidate: unknown) => Promise<number> {
+  public wrap(probe: {
+    verify(candidate: unknown): Promise<RewardVerdict>;
+  }): (candidate: unknown) => Promise<number> {
     return async (candidate) => {
       let verdict: RewardVerdict;
       try {
-        verdict = await instrumented(candidate);
+        verdict = await probe.verify(candidate);
       } catch (err) {
         verdict = { reward: 0, verifiable: false, reason: `unverifiable:throw:${String(err)}` };
       }
@@ -103,20 +55,11 @@ export class RewardCoverageMeter {
 
   /**
    * 出覆盖率体检报告。
-   * @returns 覆盖率 + 诚实表述（未达标即降级措辞）
+   * @returns 覆盖率报告值对象（含诚实表述 getter）
    */
   public report(): RewardCoverageReport {
-    const samples = this.outcomes.length;
     const verified = this.outcomes.filter((o) => o.verifiable).length;
-    const unverifiable = samples - verified;
-    const coverage = samples === 0 ? 0 : verified / samples;
-    return {
-      samples,
-      verified,
-      unverifiable,
-      coverage,
-      honestNote: honestNote(coverage),
-    };
+    return new RewardCoverageReport(this.outcomes.length, verified);
   }
 
   /**
@@ -129,13 +72,88 @@ export class RewardCoverageMeter {
 }
 
 /**
- * 诚实表述：覆盖率是否达标、不足时如何降级措辞（D7 纪律：不为达标而改口径）。
- * @param coverage 覆盖率（0..1）
- * @returns 人类可读的诚实结论
+ * 命令探针：把「命令退出码」奖励改造成**带判据明细**的版本（不改变原奖励语义）。
+ * - 命令缺失 → { reward: 0, verifiable: false, reason: 'unverifiable:no-command' }；
+ * - spawn 抛错/超时崩溃 → { reward: 0, verifiable: false, reason: 'unverifiable:spawn-error' }；
+ * - 命令真实跑完 → { reward: 0|1, verifiable: true, reason: 'verified-pass' | 'verified-fail' }。
  */
-export function honestNote(coverage: number): string {
-  if (coverage >= COVERAGE_THRESHOLD) {
-    return `势函数覆盖率 ${(coverage * 100).toFixed(1)}%（≥${COVERAGE_THRESHOLD * 100}%），RLVR 信号密度可用。`;
+export class CommandRewardProbe {
+  /** 候选 → 待验证命令抽取器。 */
+  private readonly commandFor: (candidate: unknown) => string | undefined;
+  /** 候选 → 工作目录抽取器（可选）。 */
+  private readonly cwdFor: ((candidate: unknown) => string | undefined) | undefined;
+  /** 命令执行注入点（返回退出码；测试注入桩保证确定性）。 */
+  private readonly spawn: (cmd: string, cwd: string | undefined) => { status: number | null };
+
+  /**
+   * @param commandFor 从候选抽取待验证命令
+   * @param cwdFor 从候选抽取工作目录（可选）
+   * @param spawn 执行注入点（默认 sync 退出码 -1；测试注入桩保证确定性）
+   */
+  public constructor(
+    commandFor: (candidate: unknown) => string | undefined,
+    cwdFor?: (candidate: unknown) => string | undefined,
+    spawn: (cmd: string, cwd: string | undefined) => { status: number | null } = () => ({
+      status: -1,
+    }),
+  ) {
+    this.commandFor = commandFor;
+    this.cwdFor = cwdFor;
+    this.spawn = spawn;
   }
-  return `势函数覆盖率仅 ${(coverage * 100).toFixed(1)}%（<${COVERAGE_THRESHOLD * 100}%）：信号稀疏，不得声称有效 RLVR 训练信号，进化按 fail-closed 保守处理。`;
+
+  /**
+   * 验证单个候选并给出判据明细。
+   * @param candidate 候选（透传给 commandFor/cwdFor）
+   * @returns 判据明细（reward + verifiable + reason）
+   */
+  public async verify(candidate: unknown): Promise<RewardVerdict> {
+    const cmd = this.commandFor(candidate);
+    if (cmd === undefined)
+      return { reward: 0, verifiable: false, reason: 'unverifiable:no-command' };
+    try {
+      const r = this.spawn(cmd, this.cwdFor?.(candidate));
+      const status = r.status ?? -1;
+      return status === 0
+        ? { reward: 1, verifiable: true, reason: 'verified-pass' }
+        : { reward: 0, verifiable: true, reason: 'verified-fail' };
+    } catch (err) {
+      return { reward: 0, verifiable: false, reason: `unverifiable:spawn-error:${String(err)}` };
+    }
+  }
+}
+
+/**
+ * 覆盖率报告值对象：字段 + 诚实表述（D9：报告为 class，honestNote 是派生 getter）。
+ */
+export class RewardCoverageReport {
+  /** 样本总数。 */
+  public readonly samples: number;
+  /** 真实可验证判定数（含 verified-pass 与 verified-fail）。 */
+  public readonly verified: number;
+  /** 不可验证数（记 0 但并未真实验证）。 */
+  public readonly unverifiable: number;
+  /** 势函数覆盖率 = verified / samples（0..1）。 */
+  public readonly coverage: number;
+
+  /**
+   * @param samples 样本总数
+   * @param verified 可验证判定数
+   */
+  public constructor(samples: number, verified: number) {
+    this.samples = samples;
+    this.verified = verified;
+    this.unverifiable = samples - verified;
+    this.coverage = samples === 0 ? 0 : verified / samples;
+  }
+
+  /** 诚实表述 getter：覆盖率不足时给降级措辞（D7 纪律：不为达标而改口径）。 */
+  public get honestNote(): string {
+    const pct = (this.coverage * 100).toFixed(1);
+    const line = (COVERAGE_THRESHOLD * 100).toFixed(0);
+    if (this.coverage >= COVERAGE_THRESHOLD) {
+      return `势函数覆盖率 ${pct}%（≥${line}%），RLVR 信号密度可用。`;
+    }
+    return `势函数覆盖率仅 ${pct}%（<${line}%）：信号稀疏，不得声称有效 RLVR 训练信号，进化按 fail-closed 保守处理。`;
+  }
 }

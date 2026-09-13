@@ -10,22 +10,6 @@
 import type { SessionEvent } from '../../ports/event.js';
 import type { TraceEntry, TraceIntrospectionPort } from '../../ports/traceIntrospection.js';
 
-/** 单行摘要的 payload 投影规则：截断长文本，突出可读字段。 */
-function summarize(event: SessionEvent): string {
-  const p = event.payload;
-  if (p === null || p === undefined) return event.type;
-  if (typeof p === 'string') return `${event.type}: ${p.slice(0, 120)}`;
-  if (typeof p === 'object') {
-    const obj = p as Record<string, unknown>;
-    const tool = typeof obj['tool'] === 'string' ? String(obj['tool']) : undefined;
-    const toolCall = typeof obj['callId'] === 'string' ? String(obj['callId']) : undefined;
-    const error = typeof obj['error'] === 'string' ? String(obj['error']) : undefined;
-    const parts = [event.type, tool, toolCall, error].filter((x) => x !== undefined);
-    return parts.join(' · ').slice(0, 160);
-  }
-  return event.type;
-}
-
 /**
  * 只读 trace 读取器：TraceIntrospectionPort 的事件流实现。
  */
@@ -91,10 +75,33 @@ export class ReadonlyTraceReader implements TraceIntrospectionPort {
           seq: i,
           at: e.timestamp,
           kind: e.type,
-          summary: summarize(e),
+          summary: this.summarize(e),
         }),
       );
     }
     return Object.freeze(out);
+  } /**
+   * 单行摘要投影：截断长文本，突出可读字段（tool / callId / error）。
+   * @param event 源事件
+   * @returns 单行人类可读摘要
+   */
+  /**
+   * 单行摘要投影：截断长文本，突出可读字段（tool / callId / error）。
+   * @param event 源事件
+   * @returns 单行人类可读摘要
+   */
+  private summarize(event: SessionEvent): string {
+    const p = event.payload;
+    if (p === null || p === undefined) return event.type;
+    if (typeof p === 'string') return `${event.type}: ${p.slice(0, 120)}`;
+    if (typeof p === 'object') {
+      const obj = p as Record<string, unknown>;
+      const tool = typeof obj['tool'] === 'string' ? String(obj['tool']) : undefined;
+      const toolCall = typeof obj['callId'] === 'string' ? String(obj['callId']) : undefined;
+      const error = typeof obj['error'] === 'string' ? String(obj['error']) : undefined;
+      const parts = [event.type, tool, toolCall, error].filter((x) => x !== undefined);
+      return parts.join(' · ').slice(0, 160);
+    }
+    return event.type;
   }
 }
