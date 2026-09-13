@@ -10,9 +10,7 @@ import type { Metrics } from './metrics.js';
 import { log, nextTraceId } from '../util/logger.js';
 import { safeReadFile } from './safeFs.js';
 
-
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
-
 
 /** HTTP 服务选项。 */
 export interface HttpServerOptions {
@@ -42,18 +40,27 @@ export interface HealthStatus {
 
 /** HTTP + SSE + WebSocket 服务：静态页 + JSON-RPC + 事件推送（零依赖）。 */
 export class HttpServer {
+  /** node:http 原生服务器实例（承载静态页 / RPC / SSE / WS 升级）。 */
   private readonly server: Server;
   /** WS 服务端：close 时须先强制断开 upgrade 连接，否则 server.close 永不回调。 */
   private readonly ws: WsServer;
   /** 启动时刻（用于 uptime，构造即计时）。 */
   private readonly startedAt = Date.now();
 
+  /**
+   * 创建 HTTP 服务：装配请求路由与 WS 升级处理。
+   * @param options 服务选项（app、bridge、webDir、metrics、workspaceRoot），同时作为参数属性持有为实例字段
+   */
   public constructor(private readonly options: HttpServerOptions) {
     this.server = createServer((request, response) => void this.route(request, response));
     this.ws = new WsServer(this.server, (connection) => this.options.bridge.registerWs(connection));
   }
 
-  /** 启动并返回端口。 */
+  /**
+   * 启动并返回端口。
+   * @param port 期望监听的端口（0 表示由操作系统分配）
+   * @returns 实际生效的监听端口（port 为 0 时是系统分配值）
+   */
   public start(port: number): Promise<number> {
     return new Promise((resolve) => {
       this.server.listen(port, () => {
@@ -69,6 +76,7 @@ export class HttpServer {
    * 顺序有讲究：先断 WS——upgrade 后的 socket 已脱离 HTTP 连接管辖，
    * `closeAllConnections` 覆盖不到，漏掉会让 `server.close()` 永不回调（服务关不掉）；
    * 再断普通 HTTP 连接，最后关监听。
+   * @returns 监听关闭后 resolve，无载荷
    */
   public close(): Promise<void> {
     return new Promise((resolve) => {
@@ -78,7 +86,11 @@ export class HttpServer {
     });
   }
 
-  /** 路由。每条请求建独立 traceId，全程日志自动携带，便于跨调用串联。 */
+  /** 路由。每条请求建独立 traceId，全程日志自动携带，便于跨调用串联。
+   * @param request 原始 HTTP 请求（方法 + URL 决定分支）
+   * @param response 响应对象（各分支直接写头写体后 end）
+   * @returns 本请求处理完毕（含异步 RPC / 文件读取）后 resolve，无载荷
+   */
   private async route(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = request.url ?? '/';
     const traceId = nextTraceId(
@@ -112,7 +124,10 @@ export class HttpServer {
     });
   }
 
-  /** 指标端点。 */
+  /**
+   * 指标端点。
+   * @param response 响应对象（Prometheus 文本格式写出）
+   */
   private serveMetrics(response: ServerResponse): void {
     const body = this.options.metrics?.toPrometheus() ?? '';
     response.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4' });
@@ -126,6 +141,8 @@ export class HttpServer {
    * - 就绪：核心组件（`app`/`bridge`）齐备才 200，否则 **503**（容器编排据此摘流量）。
    *   `webDir`/`metrics` 是可选能力，只报诊断信息，不参与就绪判定——
    *   否则「没配 metrics」会被误判成「服务不可用」。
+   * @param response 响应对象（JSON 状态体 + 200/503 状态码）
+   * @param mode `'live'` 存活探针（恒 200）| `'ready'` 就绪探针（核心组件齐备才 200）
    */
   private serveHealth(response: ServerResponse, mode: 'live' | 'ready'): void {
     const core = {
@@ -147,7 +164,10 @@ export class HttpServer {
     response.end(JSON.stringify(body));
   }
 
-  /** SSE 长连接。 */
+  /**
+   * SSE 长连接。
+   * @param response 响应对象（切换为 event-stream 后交给 bridge 注册广播）
+   */
   private openSse(response: ServerResponse): void {
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -158,7 +178,12 @@ export class HttpServer {
     this.options.bridge.registerSse(response);
   }
 
-  /** JSON-RPC 处理。 */
+  /**
+   * JSON-RPC 处理。
+   * @param request POST /rpc 请求（读取完整请求体）
+   * @param response 响应对象（JSON 序列化的 RPC 结果）
+   * @returns 响应写出完成后 resolve，无载荷
+   */
   private async handleRpc(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const body = await this.readBody(request);
     const authHeader =
@@ -170,7 +195,12 @@ export class HttpServer {
     response.end(JSON.stringify(result));
   }
 
-  /** 静态文件（防目录穿越）。 */
+  /**
+   * 静态文件（防目录穿越）。
+   * @param url 请求 URL（映射到 webDir 下相对路径，`/` 回退 index.html）
+   * @param response 响应对象（命中 200 返回文件内容，越界 403，缺失 404）
+   * @returns 响应写出完成后 resolve，无载荷
+   */
   private async serveStatic(url: string, response: ServerResponse): Promise<void> {
     // 去掉 query string，让 `?v=时间戳` 这类缓存破坏参数不影响文件查找。
     const cleanUrl = url.split('?')[0] ?? url;
@@ -197,6 +227,9 @@ export class HttpServer {
   /**
    * 工作区文件下载（#OBS-11）：GET /files?path=<rel>，路径越界/缺失统一 403/404。
    * 复用 safeReadFile（与 RPC fs.read 同一套安全逻辑），force-download 用 Content-Disposition。
+   * @param url 请求 URL（query 中的 path 为工作区相对路径）
+   * @param response 响应对象（以附件形式返回文件内容）
+   * @returns 响应写出完成后 resolve，无载荷
    */
   private async serveWorkspaceFile(url: string, response: ServerResponse): Promise<void> {
     const ws = this.options.workspaceRoot?.();
@@ -225,9 +258,8 @@ export class HttpServer {
     const r = safeReadFile(ws, decoded);
     if (!r.ok) {
       // 越界/缺失：403/404 区分；其他错误统一 500。
-      const status = r.error === '路径越界工作区' ? 403
-        : r.error.startsWith('读取失败') ? 404
-        : 500;
+      const status =
+        r.error === '路径越界工作区' ? 403 : r.error.startsWith('读取失败') ? 404 : 500;
       response.writeHead(status).end(r.error);
       return;
     }
@@ -243,7 +275,11 @@ export class HttpServer {
     response.end(r.buffer);
   }
 
-  /** 读取请求体。 */
+  /**
+   * 读取请求体。
+   * @param request 请求流（收集 data 分块直到 end）
+   * @returns 完整请求体的 UTF-8 字符串
+   */
   private readBody(request: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
@@ -253,7 +289,11 @@ export class HttpServer {
     });
   }
 
-  /** 内容类型。 */
+  /**
+   * 内容类型。
+   * @param file 文件路径（按扩展名判定）
+   * @returns 对应 MIME 类型；未识别扩展名回退 application/octet-stream
+   */
   private contentType(file: string): string {
     switch (extname(file)) {
       case '.html':
