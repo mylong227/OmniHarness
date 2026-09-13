@@ -2,11 +2,11 @@
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
-  "updatedAt": "2026-09-12",
+  "updatedAt": "2026-09-14",
   "notes": [
-    "必要即可依赖：凡能实质提升项目能力、且经准入评审的优质依赖，即为本项目资产。",
-    "但必须分层隔离：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
-    "当前 dependencies 为 0 —— 既有零依赖实现（BM25 / RFC6455 / Ed25519 / N-API FFI / LCS diff）全部保留，不因政策放宽而废弃。"
+    "必要即可依赖 → 择优依赖优先（D10，2026-09-14 用户拍板）：同等能力下优先选择成熟依赖而非自研；自研仅在依赖不可得/引入伤害架构/性能不达标时保留。",
+    "分层隔离不变：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
+    "既有零依赖实现（BM25 / RFC6455 / Ed25519 / N-API FFI / LCS diff / 手写 MCP 2025-06-18）全部保留为资产与回退路径，不因政策升级而废弃。"
   ],
   "allowedLicenses": [
     "MIT",
@@ -34,10 +34,7 @@
     "maxInstallKb": 2048,
     "maxTransitiveDeps": 20
   },
-  "forbiddenLayers": [
-    "src/ports",
-    "src/core"
-  ],
+  "forbiddenLayers": ["src/ports", "src/core"],
   "allowlist": {
     "@huggingface/transformers": {
       "reason": "引入本地 ONNX 嵌入模型运行时不自研不可行：自研等价物需训练/维护一个 embedding 模型与 ONNX runtime，边际成本不可接受；本依赖带来质变能力（稠密向量语义召回），补 U3 实验遗留的 BM25 词法盲区（policy vs execPolicy 语义鸿沟）。",
@@ -51,6 +48,28 @@
       "budgetOverrideReason": "安装体积远超默认 2MB（含 onnxruntime-web/node、sharp、tokenizers 等传递依赖）；但体积预算为报告级，且铁律 §1.1 允许『自研边际成本显著高于引入、能带来质变能力』时引入。运行时仅模型权重（数据资产，非代码依赖）落本地，不影响冷启动分发体积。 2026-09-12 追加：实测 install 体积约 2.2GB 已超出任何合理预算，但它属于可选增强（见 optional / optionalReason），不再以预算口径阻断。",
       "optional": true,
       "optionalReason": "2026-09-12 重分类为 optionalDependencies：该包仅在开语义召回时经 adapters/embedding 的动态 import() 按需加载，默认安装（npm i --omit=optional）体积为 0；因此不占用默认安装体积预算，门禁仅报告其实际占用。"
+    },
+    "@modelcontextprotocol/sdk": {
+      "reason": "A1 协议兼容性差距闭合：手写 MCP 实现停留在 2025-06-18 握手式协议，自研追平官方 SDK 的协议协商（2025-11-25 最新 + 五版本向后兼容）、Streamable HTTP 传输、OAuth 2.1 资源服务器语义、Tasks 长任务的边际成本不可接受（D10 择优依赖：官方实现即生态标准）。",
+      "capability": "经官方 SDK 把 harness 的 ToolPort 工具集暴露为标准 MCP 服务器（registerTool/工具往返/多版本协商），并与官方 Client 双端互通实测；后续 Streamable HTTP/OAuth 部署形态直接复用 SDK 能力。",
+      "license": "MIT",
+      "approvedAt": "2026-09-14",
+      "layer": "src/adapters/mcp",
+      "exitPlan": "既有手写 src/mcp/*（2025-06-18）完整保留为回退路径；若 SDK 停更，可回退手写实现或换社区分支，仅需调整 src/adapters/mcp/mcpSdkServer.ts 一个文件。",
+      "maxInstallKb": 16000,
+      "maxTransitiveDeps": 60,
+      "budgetOverrideReason": "SDK+zod 实测约 15MB（含类型与多传输实现），超出默认 2MB 预算；但换来的是与主流 MCP 客户端生态的完整互通能力（A1 差距闭合），收益远超体积代价。依赖树收敛（直接+传递计 3 项），远低于默认 20 上限。"
+    },
+    "zod": {
+      "reason": "官方 MCP SDK 的必需传递依赖（schema 校验层），同时被 src/adapters/mcp 适配器直接使用（JSON Schema 形状 → Zod RawShape 转换），随 SDK 一并准入。",
+      "capability": "运行时 schema 校验与类型推导，为 MCP 工具参数提供端到端校验。",
+      "license": "MIT",
+      "approvedAt": "2026-09-14",
+      "layer": "src/adapters/mcp",
+      "exitPlan": "随 SDK 退出而退出；适配器可直接消费 JSON Schema。",
+      "maxInstallKb": 8000,
+      "maxTransitiveDeps": 0,
+      "budgetOverrideReason": "实测 7.6MB（zod v4 含多格式支持）；与 SDK 打包为同一准入决策，同进同退。"
     }
   },
   "entryTemplate": {
