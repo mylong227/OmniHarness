@@ -44,9 +44,13 @@ export interface SessionArchiveDeps {
  * 供 UI 按项目收纳。
  */
 export class SessionArchive {
+  /** 当前生效工作区根（fallback 存储目录的相对基准）。 */
   private readonly workspaceRoot: () => string;
+  /** StoragePort 存档位置（实时求值，切换工作区后跟随）。 */
   private readonly storageLocation: () => string | undefined;
+  /** 配置文件里的 storageDir 覆盖（usage 的 fallback 用）。 */
   private readonly configuredStorageDir: () => string | undefined;
+  /** 进程内指标（磁盘无历史时回退）。 */
   private readonly metrics: Metrics | undefined;
 
   /**
@@ -163,7 +167,13 @@ export class SessionArchive {
     return { byModel: out, total };
   }
 
-  /** 扫描单个存档中属于该自然日的 model 事件，累加 token 到 byModel。 */
+  /**
+   * 扫描单个存档中属于该自然日的 model 事件，累加 token 到 byModel。
+   * @param file 存档文件路径。
+   * @param day 目标本地自然日。
+   * @param byModel 模型 → token 累计表（原地累加）。
+   * @returns 无返回值（文件不可读静默跳过）。
+   */
   private scanDayFile(file: string, day: LocalDay, byModel: Map<string, number>): void {
     let lines: string[] = [];
     try {
@@ -185,7 +195,10 @@ export class SessionArchive {
     }
   }
 
-  /** usage 的扫描目录：StoragePort.location 优先，否则按工作区 + storageDir 推断。 */
+  /**
+   * usage 的扫描目录：StoragePort.location 优先，否则按工作区 + storageDir 推断。
+   * @returns 存档目录路径。
+   */
   private usageDir(): string {
     return (
       this.storageLocation() ??
@@ -193,7 +206,12 @@ export class SessionArchive {
     );
   }
 
-  /** 扫描单个存档的 model 事件，累加进 byModel，返回本文件 calls/total。 */
+  /**
+   * 扫描单个存档的 model 事件，累加进 byModel，返回本文件 calls/total。
+   * @param file 存档文件路径。
+   * @param byModel 模型统计表（原地累加）。
+   * @returns 本文件的调用次数与 token 总量（不可读时全零）。
+   */
   private scanUsageFile(
     file: string,
     byModel: Map<string, ModelStat>,
@@ -222,7 +240,11 @@ export class SessionArchive {
     return { calls, total };
   }
 
-  /** 解析单个存档的 session_meta/user 事件；文件不可读返回 undefined。 */
+  /**
+   * 解析单个存档的 session_meta/user 事件；文件不可读返回 undefined。
+   * @param file 存档文件路径。
+   * @returns 工作区标记、标签（首条用户消息前 80 字）、回合数与最后更新时间；不可读时 undefined。
+   */
   private scanSessionFile(file: string): Omit<SessionInfo, 'sessionId' | 'mtimeMs'> | undefined {
     let lines: string[] = [];
     try {

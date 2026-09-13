@@ -45,20 +45,34 @@ function toSet(t: SupervisorOptions['hazardousTools']): ReadonlySet<string> {
 
 /** 生产级监督内核（FDIR 状态机，详见文件头），实现 {@link SupervisorPort}：滑动窗口健康统计 + 分级降级 + 逐级恢复。 */
 export class SupervisorKernel implements SupervisorPort {
+  /** 滑动窗口长度：每工具仅保留最近 N 次成败样本（默认 32）。 */
   private readonly windowSize: number;
+  /** 降级阈值：任一工具失败率达到该比例即推进到 degraded（默认 0.25）。 */
   private readonly degradeThreshold: number;
+  /** 安全阈值：失败率达到该比例推进到 safe；恢复时全部工具未越此线才允许回升（默认 0.5）。 */
   private readonly safeThreshold: number;
+  /** 连续失败锁定线：任一工具连续失败达该次数直接 locked（默认 5）。 */
   private readonly lockAfter: number;
+  /** 危险工具名集合：safe/locked 模式下被 intercept 直接否决。 */
   private readonly hazardous: ReadonlySet<string>;
+  /** 可选审计 sink：每次模式转移把前后模式与健康向量写入审计哈希链。 */
   private readonly audit?: AuditSinkLike;
+  /** 会话标识：写入审计记录，便于跨事件关联到同一会话。 */
   private readonly sessionId?: string;
 
+  /** 每工具滑动窗口统计（成败窗口、连续失败计数、最近错误）。 */
   private readonly stats = new Map<string, ToolStat>();
+  /** 当前监督模式（fail-closed：评估只单向收紧，回升必须走显式 attemptRecovery）。 */
   private currentMode: SafeMode = 'nominal';
+  /** 模式转移订阅者：降级或恢复的每次转移都回调 (from, to, snapshot)。 */
   private readonly listeners: Array<
     (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void
   > = [];
 
+  /**
+   * 装配监督内核；全部阈值可选，缺省即窗口 32 / 降级 0.25 / safe 0.5 / 连续失败 5 次锁定。
+   * @param options 监督选项（窗口、阈值、危险工具清单、审计 sink 与会话标识）
+   */
   public constructor(options: SupervisorOptions = {}) {
     this.windowSize = Math.max(1, options.windowSize ?? DEFAULT_WINDOW);
     this.degradeThreshold = options.degradeThreshold ?? DEFAULT_DEGRADE;
@@ -75,6 +89,7 @@ export class SupervisorKernel implements SupervisorPort {
    * @param tool 工具名。
    * @param outcome 本次执行结果：'success' 或 'failure'。
    * @param error 失败时的错误描述（记入健康快照的 lastError）。
+   * @returns 无返回值（重算若触发模式转移会在内部广播）。
    */
   public report(tool: string, outcome: 'success' | 'failure', error?: string): void {
     const stat = this.stats.get(tool) ?? { window: [], consecutiveFailures: 0 };
@@ -95,12 +110,18 @@ export class SupervisorKernel implements SupervisorPort {
     this.evaluate();
   }
 
-  /** 当前监督模式（nominal → degraded → safe → locked 依次更严）。 */
+  /**
+   * 当前监督模式（nominal → degraded → safe → locked 依次更严）。
+   * @returns 当前监督模式。
+   */
   public mode(): SafeMode {
     return this.currentMode;
   }
 
-  /** 生成健康快照：按各工具滑动窗口算健康分与成败计数，附当前模式与 ISO 时间戳。 */
+  /**
+   * 生成健康快照：按各工具滑动窗口算健康分与成败计数，附当前模式与 ISO 时间戳。
+   * @returns 健康快照（当前模式 + 各工具健康条目 + ISO 生成时间）。
+   */
   public snapshot(): HealthSnapshot {
     const entries: HealthEntry[] = [];
     for (const [tool, stat] of this.stats) {
@@ -145,6 +166,7 @@ export class SupervisorKernel implements SupervisorPort {
    * 订阅模式变更：每次转移（降级或恢复）触发一次回调，附前后模式与切换后的健康快照。
    *
    * @param cb 转移回调 (from, to, snapshot)。
+   * @returns 无返回值。
    */
   public onTransition(cb: (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void): void {
     this.listeners.push(cb);
@@ -181,11 +203,22 @@ export class SupervisorKernel implements SupervisorPort {
 
   // --- 内部 ---
 
+  /**
+   * 取指定工具的统计条目；尚无记录时返回空白条目（空窗口、零连续失败），不写入 map。
+   * @param tool 工具名。
+   * @returns 该工具的滑动窗口统计（可能为临时空白条目）。
+   */
   private statOf(tool: string): ToolStat {
     return this.stats.get(tool) ?? { window: [], consecutiveFailures: 0 };
   }
 
-  /** 依据最新统计重算模式（FDIR 分级降级，fail-closed 单向收紧）。 */
+  /**
+   * 依据最新统计重算模式（FDIR 分级降级，fail-closed 单向收紧）：任一工具连续失败达
+   * lockAfter 直升 locked；失败率越 safeThreshold 或危险工具出现失败推到 safe；失败率越
+   * degradeThreshold 推到 degraded；多工具并存时取最严。只收紧不放松，回升必须走
+   * attemptRecovery 逐级进行。
+   * @returns 无返回值（模式变化经 transition 生效并广播）。
+   */
   private evaluate(): void {
     let next: SafeMode = 'nominal';
     for (const [tool, stat] of this.stats) {
@@ -213,11 +246,22 @@ export class SupervisorKernel implements SupervisorPort {
     }
   }
 
-  /** 取两者中更严的模式。 */
+  /**
+   * 取两者中更严的模式。
+   * @param a 候选模式一。
+   * @param b 候选模式二。
+   * @returns MODE_ORDER 中更靠后（更严格）的模式。
+   */
   private raise(a: SafeMode, b: SafeMode): SafeMode {
     return MODE_ORDER.indexOf(a) >= MODE_ORDER.indexOf(b) ? a : b;
   }
 
+  /**
+   * 执行模式转移：更新当前模式、打 warn 日志、（有 sink 时）把前后模式与健康向量写入
+   * 审计哈希链，并逐个通知订阅者。
+   * @param to 目标模式（与当前相同则直接返回，不产生事件）。
+   * @returns 无返回值。
+   */
   private transition(to: SafeMode): void {
     const from = this.currentMode;
     if (from === to) return;

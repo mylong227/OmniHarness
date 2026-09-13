@@ -24,16 +24,25 @@ export interface DaemonStatus {
  * @beta
  */
 export class DaemonController {
+  /** PID 文件路径（缺省 ~/.omniharness/daemon.pid，可覆盖）。 */
   private readonly pidFile: string;
+  /** serve 入口脚本路径（后台进程以它重新拉起）。 */
   private readonly entry: string;
 
+  /**
+   * 创建控制器。
+   * @param opts 可选项（pidFile 与入口路径，缺省按用户主目录与当前模块推导）
+   */
   public constructor(opts?: { pidFile?: string; entry?: string }) {
     const home = homedir();
     this.pidFile = opts?.pidFile ?? resolve(home, '.omniharness', 'daemon.pid');
     this.entry = opts?.entry ?? fileURLToPath(import.meta.url);
   }
 
-  /** 当前状态：PID 文件存在且进程存活才视为 running。 */
+  /**
+   * 当前状态：PID 文件存在且进程存活才视为 running。
+   * @returns `{ running, pid? }` — 存活时带 PID。
+   */
   public status(): DaemonStatus {
     if (!existsSync(this.pidFile)) {
       return { running: false };
@@ -47,7 +56,11 @@ export class DaemonController {
     return { running: alive, pid: alive ? pid : undefined };
   }
 
-  /** 进程存活探测（signal 0 只检测存在性，不真正发信号）。 */
+  /**
+   * 进程存活探测（signal 0 只检测存在性，不真正发信号）。
+   * @param pid 待探测的进程 id。
+   * @returns 进程存在返回 true。
+   */
   private isAlive(pid: number): boolean {
     try {
       process.kill(pid, 0);
@@ -57,7 +70,12 @@ export class DaemonController {
     }
   }
 
-  /** 启动常驻 serve（detached 后台）。已在运行则返回现有 PID。 */
+  /**
+   * 启动常驻 serve（detached 后台）。已在运行则返回现有 PID。
+   * @param serveArgs 透传给 serve 的附加参数。
+   * @param port 监听端口（缺省 8787）。
+   * @returns 后台进程 PID（同时写入 PID 文件）。
+   */
   public start(serveArgs: readonly string[], port = 8787): number {
     const st = this.status();
     if (st.running && st.pid !== undefined) {
@@ -78,7 +96,10 @@ export class DaemonController {
     return pid;
   }
 
-  /** 停止常驻 serve。无 PID 文件时静默返回 false。 */
+  /**
+   * 停止常驻 serve。无 PID 文件时静默返回 false。
+   * @returns 是否真的停止了一个运行中的进程（SIGTERM 后清理 PID 文件）。
+   */
   public stop(): boolean {
     const st = this.status();
     if (!st.running || st.pid === undefined) {

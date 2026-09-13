@@ -5,7 +5,11 @@ import { PluginManager } from '../plugin/pluginManager.js';
 import { loadInstalledPlugins } from '../plugin/pluginLoader.js';
 import { PermissionGate } from '../plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../plugin/permission.js';
-import { applyProfile, type PluginProfile, type ApplyProfileResult } from '../plugin/pluginProfileStore.js';
+import {
+  applyProfile,
+  type PluginProfile,
+  type ApplyProfileResult,
+} from '../plugin/pluginProfileStore.js';
 import type { PluginRegistry } from '../plugin/pluginRegistry.js';
 import { jsonRpc } from './jsonRpc.js';
 import type { Transport } from './lineTransport.js';
@@ -31,7 +35,9 @@ export interface PluginHostDeps {
  * 加载/应用的失败一律降级为 `plugin.loadError` / `profile.error` 通知，不抛出中断启动。
  */
 export class PluginHost {
+  /** 宿主依赖（插件目录、配置来源、传输、注册表与错误口径）。 */
   private readonly deps: PluginHostDeps;
+  /** 插件容器管理器（ensure 后就绪；未启用目录时保持 undefined）。 */
   private pluginManager?: PluginManager;
   /** 插件加载是否已尝试（幂等保护，避免重复初始化）。 */
   private ready = false;
@@ -53,13 +59,17 @@ export class PluginHost {
     return this.deps.pluginsDir;
   }
 
-  /** 启动阶段加载已安装插件（闭环 G-B：市场安装 → 运行时可用）。 */
+  /**
+   * 启动阶段加载已安装插件（闭环 G-B：市场安装 → 运行时可用）。
+   * @returns 加载完成后 resolve，无载荷（失败降级为 plugin.loadError 通知）。
+   */
   public async load(): Promise<void> {
     await this.ensure();
   }
 
   /**
    * 初始化插件容器并加载已安装插件（幂等）。
+   * @returns 就绪后 resolve，无载荷。
    */
   public async ensure(): Promise<void> {
     if (this.ready) {
@@ -116,7 +126,11 @@ export class PluginHost {
     });
   }
 
-  /** 发送 plugin.loadError 通知（name 缺省时不带该字段）。 */
+  /**
+   * 发送 plugin.loadError 通知（name 缺省时不带该字段）。
+   * @param payload `{ name?, error }` — 出错插件名与错误描述。
+   * @returns 无返回值。
+   */
   private notifyLoadError(payload: { name?: string; error: string }): void {
     const body: Record<string, string> = { error: payload.error };
     if (payload.name !== undefined) {
@@ -125,7 +139,12 @@ export class PluginHost {
     this.deps.transport.send(jsonRpc.notify('plugin.loadError', body));
   }
 
-  /** 发送 profile.event 通知。 */
+  /**
+   * 发送 profile.event 通知。
+   * @param type 事件类型（install / load / unload）。
+   * @param name 插件名。
+   * @returns 无返回值。
+   */
   private notifyProfile(type: 'install' | 'load' | 'unload', name: string): void {
     this.deps.transport.send(jsonRpc.notify('profile.event', { type, name }));
   }

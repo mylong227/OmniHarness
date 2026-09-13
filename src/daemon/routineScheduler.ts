@@ -77,6 +77,9 @@ function expandField(field: string, min: number, max: number): Set<number> {
 /**
  * @beta
  * 判定 cron 表达式是否命中给定时间（同分钟只算一次）。
+ * @param expr 5 段标准 cron 表达式（分 时 日 月 周）。
+ * @param date 待判定的本地时间。
+ * @returns 命中返回 true（表达式非法返回 false）。
  */
 export function matchesCron(expr: string, date: Date): boolean {
   const fields = expr.trim().split(/\s+/);
@@ -101,19 +104,31 @@ export function matchesCron(expr: string, date: Date): boolean {
  * 定时任务调度器（含持久化）。
  */
 export class RoutineScheduler {
+  /** 持久化文件路径（routines.json）。 */
   private readonly storePath: string;
 
+  /**
+   * 创建调度器。
+   * @param storePath 存储文件路径（缺省 ~/.omniharness/routines.json）
+   */
   public constructor(storePath: string = defaultStorePath()) {
     this.storePath = storePath;
   }
 
-  /** 列出全部任务。 */
+  /**
+   * 列出全部任务。
+   * @returns 全部任务数组（含 lastRun）。
+   */
   public list(): Routine[] {
     const store = this.load();
     return [...store.routines];
   }
 
-  /** 新增/覆盖任务（按 name 幂等）。 */
+  /**
+   * 新增/覆盖任务（按 name 幂等）。
+   * @param routine 待写入的任务定义。
+   * @returns 无返回值（覆盖时保留原 lastRun）。
+   */
   public add(routine: Routine): void {
     const store = this.load();
     const idx = store.routines.findIndex((r) => r.name === routine.name);
@@ -126,7 +141,11 @@ export class RoutineScheduler {
     this.save(store);
   }
 
-  /** 删除任务；不存在返回 false。 */
+  /**
+   * 删除任务；不存在返回 false。
+   * @param name 任务名。
+   * @returns 是否真的删除了任务。
+   */
   public remove(name: string): boolean {
     const store = this.load();
     const before = store.routines.length;
@@ -136,7 +155,12 @@ export class RoutineScheduler {
     return true;
   }
 
-  /** 标记任务已执行（更新 lastRun）。 */
+  /**
+   * 标记任务已执行（更新 lastRun）。
+   * @param name 任务名（不存在则忽略）。
+   * @param at 执行时间戳（毫秒）。
+   * @returns 无返回值。
+   */
   public markRun(name: string, at: number): void {
     const store = this.load();
     const exists = store.routines.some((r) => r.name === name);
@@ -145,7 +169,11 @@ export class RoutineScheduler {
     this.save(store);
   }
 
-  /** 返回截至 now 应执行的任务（interval 到期 / cron 命中且距上次≥1 分钟）。 */
+  /**
+   * 返回截至 now 应执行的任务（interval 到期 / cron 命中且距上次≥1 分钟）。
+   * @param now 判定基准时间戳（毫秒，缺省当前时间）。
+   * @returns 本次应执行的任务数组（按存储顺序）。
+   */
   public runDue(now: number = Date.now()): Routine[] {
     const store = this.load();
     const due: Routine[] = [];
@@ -157,7 +185,12 @@ export class RoutineScheduler {
     return due;
   }
 
-  /** 单任务判定。 */
+  /**
+   * 单任务判定。
+   * @param routine 待判定任务。
+   * @param now 判定基准时间戳（毫秒）。
+   * @returns 到期返回 true（同分钟内不重复触发）。
+   */
   private isDue(routine: Routine, now: number): boolean {
     if (routine.lastRun !== undefined && now - routine.lastRun < 60_000) {
       return false; // 同分钟内不重复触发。
@@ -170,6 +203,10 @@ export class RoutineScheduler {
     return matchesCron(routine.schedule.expr, new Date(now));
   }
 
+  /**
+   * 从磁盘读任务存储；文件缺失或损坏一律返回空表（不抛错）。
+   * @returns `{ routines }` 存储结构。
+   */
   private load(): { routines: Routine[] } {
     if (!existsSync(this.storePath)) {
       return { routines: [] };
@@ -182,6 +219,11 @@ export class RoutineScheduler {
     }
   }
 
+  /**
+   * 任务存储落盘（自动建目录，JSON 缩进 2）。
+   * @param store 待写入的存储结构。
+   * @returns 无返回值。
+   */
   private save(store: { routines: Routine[] }): void {
     mkdirSync(dirname(this.storePath), { recursive: true });
     writeFileSync(this.storePath, JSON.stringify(store, null, 2), 'utf8');

@@ -28,11 +28,13 @@ export interface ServerConfigStoreDeps {
  * 保持「配置」与「模型」两个域的边界。
  */
 export class ServerConfigStore {
+  /** 存储依赖（摘要 / 初始路径 / autoApprove / 探测与变更回调）。 */
   private readonly deps: ServerConfigStoreDeps;
   /** UI 经 config.update 写入的字段覆盖（落盘 + 实时合并进 fileConfig）。 */
   private overrides: Partial<FileConfig> = {};
   /** 持久化目标路径（首次 persist 后固化）。 */
   private path: string | undefined;
+  /** autoApprove 开关运行态（update 可切换）。 */
   private auto: boolean;
 
   /**
@@ -49,12 +51,18 @@ export class ServerConfigStore {
     return this.auto;
   }
 
-  /** UI 覆盖的 modelAdapter（无覆盖时 undefined）。 */
+  /**
+   * UI 覆盖的 modelAdapter（无覆盖时 undefined）。
+   * @returns 覆盖的适配器名；无覆盖返回 undefined。
+   */
   public adapterOverride(): string | undefined {
     return this.overrides.modelAdapter;
   }
 
-  /** UI 覆盖的审批档位（无覆盖时 undefined）。 */
+  /**
+   * UI 覆盖的审批档位（无覆盖时 undefined）。
+   * @returns 覆盖的审批档位名；无覆盖返回 undefined。
+   */
   public approvalOverride(): string | undefined {
     return this.overrides.approval;
   }
@@ -85,12 +93,18 @@ export class ServerConfigStore {
     return merged;
   }
 
-  /** 生效的文件级配置：已落盘文件 + UI 覆盖（探测/摘要共用，避免两处取值漂移）。 */
+  /**
+   * 生效的文件级配置：已落盘文件 + UI 覆盖（探测/摘要共用，避免两处取值漂移）。
+   * @returns 合并后的文件级配置。
+   */
   public fileConfig(): FileConfig {
     return mergeConfigs(configFile.load(this.configFilePath()), this.overrides);
   }
 
-  /** 当前生效工作区根目录（UI 覆盖优先，回退启动参数 → cwd）。 */
+  /**
+   * 当前生效工作区根目录（UI 覆盖优先，回退启动参数 → cwd）。
+   * @returns 工作区根目录路径。
+   */
   public workspace(): string {
     return this.overrides.workspace ?? this.deps.displayConfig['workspace'] ?? process.cwd();
   }
@@ -174,7 +188,10 @@ export class ServerConfigStore {
    * @param previous 切换前的工作区根
    * @returns 最新工作区列表
    */
-  public commitWorkspaceSwitch(root: string, previous: string): { current: string; workspaces: string[] } {
+  public commitWorkspaceSwitch(
+    root: string,
+    previous: string,
+  ): { current: string; workspaces: string[] } {
     const saved = this.fileConfig().workspaces ?? [];
     this.overrides = {
       ...this.overrides,
@@ -185,7 +202,10 @@ export class ServerConfigStore {
     return this.workspaces();
   }
 
-  /** 把覆盖配置合并进项目配置文件并写盘（目录不存在自动创建）。 */
+  /**
+   * 把覆盖配置合并进项目配置文件并写盘（目录不存在自动创建）。
+   * @returns 无返回值。
+   */
   public persist(): void {
     const path = this.configFilePath();
     const existing = configFile.load(path);
@@ -193,16 +213,26 @@ export class ServerConfigStore {
     this.path = path;
   }
 
-  /** 持久化目标路径：显式 configPath 优先，否则按 displayConfig.workspace 推断。 */
+  /**
+   * 持久化目标路径：显式 configPath 优先，否则按 displayConfig.workspace 推断。
+   * @returns 配置文件绝对路径。
+   */
   private configFilePath(): string {
     return (
-      this.path ??
-      join(this.deps.displayConfig['workspace'] ?? process.cwd(), configFile.FILE_NAME)
+      this.path ?? join(this.deps.displayConfig['workspace'] ?? process.cwd(), configFile.FILE_NAME)
     );
   }
 
-  /** 合并 setProviderKey 动作进 patch（单厂商 Key 原子合并/清除）。 */
-  private applyProviderKeyPatch(params: Record<string, unknown>, patch: Record<string, unknown>): void {
+  /**
+   * 合并 setProviderKey 动作进 patch（单厂商 Key 原子合并/清除）。
+   * @param params RPC 原始参数（读取 setProviderKey）。
+   * @param patch 待应用的覆盖补丁（原地写入 providerKeys）。
+   * @returns 无返回值（非法厂商 / 参数时静默跳过）。
+   */
+  private applyProviderKeyPatch(
+    params: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): void {
     const setKey = params['setProviderKey'];
     if (setKey === undefined || typeof setKey !== 'object' || setKey === null) return;
     const vendor = (setKey as Record<string, unknown>)['vendor'];
@@ -217,8 +247,16 @@ export class ServerConfigStore {
     patch.providerKeys = merged;
   }
 
-  /** 处理「一键启用厂商」：写适配器/端点/模型/Key，并触发一次实测缓存。 */
-  private async applyEnableProvider(params: Record<string, unknown>, patch: Record<string, unknown>): Promise<void> {
+  /**
+   * 处理「一键启用厂商」：写适配器/端点/模型/Key，并触发一次实测缓存。
+   * @param params RPC 原始参数（读取 enableProvider 与可选 model）。
+   * @param patch 待应用的覆盖补丁（原地写入厂商相关字段）。
+   * @returns 处理完成后 resolve，无载荷（未知厂商静默跳过，缺 Key 抛错）。
+   */
+  private async applyEnableProvider(
+    params: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): Promise<void> {
     const enable = params['enableProvider'];
     if (typeof enable !== 'string') return;
     const preset = providerPresetOf(enable);

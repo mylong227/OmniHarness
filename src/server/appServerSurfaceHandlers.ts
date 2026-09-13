@@ -70,7 +70,10 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     });
   }
 
-  /** 注册上下文容量 / 配额 / 模式 / 检索 / 档位表 / 智能体目录 RPC。 */
+  /**
+   * 注册上下文容量 / 配额 / 模式 / 检索 / 档位表 / 智能体目录 RPC。
+   * @returns 无返回值。
+   */
   protected registerSurfaceHandlers(): void {
     this.handlers.set('context.usage', async (params) =>
       this.contextUsage.usage(this.stringParam(params, 'threadId')),
@@ -117,32 +120,49 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     }));
   }
 
-  /** 取字符串参数（非字符串或空即空串，交由调用方决定是否报错）。 */
+  /**
+   * 取字符串参数（非字符串或空即空串，交由调用方决定是否报错）。
+   * @param params RPC 参数对象。
+   * @param key 参数键名。
+   * @returns 字符串值；缺省 / 类型不符时为空串。
+   */
   private stringParam(params: Record<string, unknown>, key: string): string {
     const value = params[key];
     return typeof value === 'string' ? value : '';
   }
 
-  /** 本轮可能进入模型视野的工具（直载优先，未实现 listDirect 时退回全量）。 */
+  /**
+   * 本轮可能进入模型视野的工具（直载优先，未实现 listDirect 时退回全量）。
+   * @returns 工具定义数组。
+   */
   private visibleTools(): readonly ToolDefinition[] {
     const tools = this.options.config.tools;
     return tools.listDirect?.() ?? tools.list();
   }
 
-  /** env `OMNI_CONTEXT_WINDOW` 覆盖值（非法/未设返回 undefined）。 */
+  /**
+   * env `OMNI_CONTEXT_WINDOW` 覆盖值（非法/未设返回 undefined）。
+   * @returns 覆盖的窗口 token 数；未设或非法时 undefined。
+   */
   private envWindow(): number | undefined {
     const raw = Number(process.env.OMNI_CONTEXT_WINDOW);
     return Number.isFinite(raw) && raw > 0 ? raw : undefined;
   }
 
-  /** 当前 active 厂商的可用模型清单（catalog 为 unknown，此处窄化后取 models）。 */
+  /**
+   * 当前 active 厂商的可用模型清单（catalog 为 unknown，此处窄化后取 models）。
+   * @returns 模型名字符串数组（结构不符时为空数组）。
+   */
   private activeModels(): readonly string[] {
     const catalog = this.modelCatalog.catalog() as { active?: { models?: unknown } } | undefined;
     const models = catalog?.active?.models;
     return Array.isArray(models) ? models.filter((m): m is string => typeof m === 'string') : [];
   }
 
-  /** 已安装插件清单（注册表未注入时为空；读取失败同样为空，不让智能体列表整体报错）。 */
+  /**
+   * 已安装插件清单（注册表未注入时为空；读取失败同样为空，不让智能体列表整体报错）。
+   * @returns 插件摘要数组（name / version / 可选 description）。
+   */
   private async installedPlugins(): Promise<
     readonly { name: string; version: string; description?: string }[]
   > {
@@ -156,7 +176,10 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     }
   }
 
-  /** 会话清单（`search.all` 的聊天来源；读取失败返回空表）。 */
+  /**
+   * 会话清单（`search.all` 的聊天来源；读取失败返回空表）。
+   * @returns 会话摘要数组（sessionId / label / 可选 workspace / updatedAt）。
+   */
   private sessionList(): readonly {
     sessionId: string;
     label: string;

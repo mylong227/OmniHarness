@@ -4,7 +4,9 @@ import type { IncomingMessage, Server } from 'node:http';
 
 /** WebSocket 连接：RFC6455 帧编解码（文本帧，零依赖）。 */
 export class WsConnection {
+  /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
   private buffer = Buffer.alloc(0);
+  /** 连接是否已关闭（关闭后 send 直接丢弃）。 */
   private closed = false;
   /** 消息回调（由外部接管）。 */
   public onMessage: (text: string) => void = () => undefined;
@@ -12,6 +14,7 @@ export class WsConnection {
   public onClose: () => void = () => undefined;
 
   public constructor(
+    /** 升级后的 TCP socket（参数属性，实例字段 `socket`）。 */
     private readonly socket: Duplex,
     /** 握手时携带的 Authorization 头（供服务端鉴权门禁消费，D2）。 */
     public readonly authorization?: string,
@@ -20,7 +23,11 @@ export class WsConnection {
     socket.on('close', () => this.close());
   }
 
-  /** 发送文本帧。 */
+  /**
+   * 发送文本帧。
+   * @param text 待发送的 UTF-8 文本。
+   * @returns 无返回值（连接已关闭时直接丢弃）。
+   */
   public send(text: string): void {
     if (this.closed) {
       return;
@@ -28,7 +35,10 @@ export class WsConnection {
     this.socket.write(this.buildFrame(Buffer.from(text, 'utf8')));
   }
 
-  /** 关闭连接。 */
+  /**
+   * 关闭连接。
+   * @returns 无返回值（幂等：已关闭直接返回）。
+   */
   public close(): void {
     if (this.closed) {
       return;
@@ -42,7 +52,11 @@ export class WsConnection {
     }
   }
 
-  /** 累积分片解析帧。 */
+  /**
+   * 累积分片解析帧。
+   * @param chunk 新到的字节分片（追加进缓冲后循环取帧）。
+   * @returns 无返回值（关闭帧触发 close，文本帧触发 onMessage）。
+   */
   private consume(chunk: Buffer): void {
     this.buffer = Buffer.concat([this.buffer, chunk]);
     while (true) {
@@ -60,7 +74,10 @@ export class WsConnection {
     }
   }
 
-  /** 尝试取一帧（数据不足返回 undefined）。 */
+  /**
+   * 尝试取一帧（数据不足返回 undefined）。
+   * @returns opcode 与载荷；缓冲不足一个完整帧时 undefined。
+   */
   private takeFrame(): { opcode: number; payload: Buffer } | undefined {
     const buffer = this.buffer;
     if (buffer.length < 2) {
@@ -100,7 +117,12 @@ export class WsConnection {
     return { opcode, payload };
   }
 
-  /** 解客户端掩码。 */
+  /**
+   * 解客户端掩码。
+   * @param raw 掩码后的载荷。
+   * @param mask 4 字节掩码键。
+   * @returns 异或解掩码后的原始载荷。
+   */
   private unmask(raw: Buffer, mask: Buffer): Buffer {
     const out = Buffer.alloc(raw.length);
     for (let index = 0; index < raw.length; index += 1) {
@@ -109,7 +131,11 @@ export class WsConnection {
     return out;
   }
 
-  /** 构造服务端文本帧（无掩码）。 */
+  /**
+   * 构造服务端文本帧（无掩码）。
+   * @param payload 待发送载荷（按长度选 7/16/64 位帧头）。
+   * @returns 完整帧字节（0x81 文本帧头 + 载荷）。
+   */
   private buildFrame(payload: Buffer): Buffer {
     let header: Buffer;
     if (payload.length < 126) {
@@ -137,12 +163,16 @@ export class WsServer {
 
   public constructor(
     httpServer: Server,
+    /** 新连接回调（连接建立即通知外部接管消息处理）。 */
     private readonly onConnection: (connection: WsConnection) => void,
   ) {
     httpServer.on('upgrade', (request, socket) => this.upgrade(request, socket));
   }
 
-  /** 强制断开全部已建立的 WebSocket 连接（服务关闭时调用，幂等）。 */
+  /**
+   * 强制断开全部已建立的 WebSocket 连接（服务关闭时调用，幂等）。
+   * @returns 无返回值。
+   */
   public closeAll(): void {
     for (const socket of this.sockets) {
       try {
@@ -154,7 +184,12 @@ export class WsServer {
     this.sockets.clear();
   }
 
-  /** 握手（RFC6455）。 */
+  /**
+   * 握手（RFC6455）。
+   * @param request 升级请求（校验 URL 与 Sec-WebSocket-Key）。
+   * @param socket 待升级的 socket（校验失败直接销毁）。
+   * @returns 无返回值（成功后构造 WsConnection 交外部接管）。
+   */
   private upgrade(request: IncomingMessage, socket: Duplex): void {
     const key = request.headers['sec-websocket-key'];
     if (request.url !== '/ws' || typeof key !== 'string') {

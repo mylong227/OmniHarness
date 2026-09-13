@@ -37,6 +37,9 @@ export class AuditExporter {
    * @beta
    * 按查询条件过滤审计事件。
    * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
+   * @param events 全量审计事件。
+   * @param query 过滤条件（全字段可选）。
+   * @returns 过滤后的事件数组（limit 取最近 N 条）。
    */
   public queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
     let out = events.filter((e) => {
@@ -56,6 +59,9 @@ export class AuditExporter {
   /**
    * @beta
    * 把审计事件格式化为指定格式的文本。
+   * @param events 待格式化的事件。
+   * @param format 输出格式（json / csv / table）。
+   * @returns 格式化文本（table 为 TSV，末尾带换行）。
    */
   public formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
     if (format === 'json') {
@@ -64,7 +70,9 @@ export class AuditExporter {
     if (format === 'csv') {
       const header = 'ts,type,sessionId,actor';
       const rows = events.map((e) =>
-        [e.ts ?? '', e.type, e.sessionId ?? '', e.actor ?? ''].map((cell) => this.csvCell(cell)).join(','),
+        [e.ts ?? '', e.type, e.sessionId ?? '', e.actor ?? '']
+          .map((cell) => this.csvCell(cell))
+          .join(','),
       );
       return [header, ...rows].join('\n') + '\n';
     }
@@ -76,7 +84,11 @@ export class AuditExporter {
     return lines.join('\n') + '\n';
   }
 
-  /** CSV 单元格转义（RFC 4180 最简实现：含特殊字符用双引号包裹并转义内部引号）。 */
+  /**
+   * CSV 单元格转义（RFC 4180 最简实现：含特殊字符用双引号包裹并转义内部引号）。
+   * @param value 原始单元格文本。
+   * @returns 转义后的 CSV 单元格。
+   */
   private csvCell(value: string): string {
     return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
   }
@@ -84,8 +96,16 @@ export class AuditExporter {
   /**
    * @beta
    * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
+   * @param events 全量审计事件。
+   * @param query 过滤条件。
+   * @param format 输出格式。
+   * @returns 过滤并格式化后的文本。
    */
-  public exportAudit(events: readonly AuditEvent[], query: AuditQuery, format: AuditFormat): string {
+  public exportAudit(
+    events: readonly AuditEvent[],
+    query: AuditQuery,
+    format: AuditFormat,
+  ): string {
     return this.formatAudit(this.queryAudit(events, query), format);
   }
 
@@ -93,6 +113,11 @@ export class AuditExporter {
    * @beta
    * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
    * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
+   * @param events 全量审计事件。
+   * @param query 过滤条件（写入报告供复现）。
+   * @param meta 报告元数据（组织 / 生成方 / 备注，缺省为空）。
+   * @param chain 可选的哈希链校验结果（由调用方传入 AuditSink.verify() 的返回值）。
+   * @returns 合规报告（含摘要、按类型计数、时间范围与完整性哈希）。
    */
   public buildComplianceReport(
     events: readonly AuditEvent[],
@@ -112,7 +137,10 @@ export class AuditExporter {
       .sort();
     const firstEvent = times.length > 0 ? times[0]! : null;
     const lastEvent = times.length > 0 ? times[times.length - 1]! : null;
-    const integrityHash = crypto.createHash('sha256').update(JSON.stringify(filtered)).digest('hex');
+    const integrityHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(filtered))
+      .digest('hex');
     return {
       schema: 'omniharness.audit.compliance/v1',
       generatedAt: new Date().toISOString(),
@@ -134,6 +162,8 @@ export class AuditExporter {
   /**
    * @beta
    * 合规报告序列化为 JSON 文本。
+   * @param report 合规报告。
+   * @returns 缩进 2 的 JSON 文本。
    */
   public formatCompliance(report: ComplianceReport): string {
     return JSON.stringify(report, null, 2);
@@ -147,6 +177,9 @@ const auditExporter = new AuditExporter();
  * @beta
  * 按查询条件过滤审计事件。
  * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
+ * @param events 全量审计事件。
+ * @param query 过滤条件（全字段可选）。
+ * @returns 过滤后的事件数组（limit 取最近 N 条）。
  */
 export function queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
   return auditExporter.queryAudit(events, query);
@@ -155,6 +188,9 @@ export function queryAudit(events: readonly AuditEvent[], query: AuditQuery): Au
 /**
  * @beta
  * 把审计事件格式化为指定格式的文本。
+ * @param events 待格式化的事件。
+ * @param format 输出格式（json / csv / table）。
+ * @returns 格式化文本（末尾带换行）。
  */
 export function formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
   return auditExporter.formatAudit(events, format);
@@ -163,6 +199,10 @@ export function formatAudit(events: readonly AuditEvent[], format: AuditFormat):
 /**
  * @beta
  * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
+ * @param events 全量审计事件。
+ * @param query 过滤条件。
+ * @param format 输出格式。
+ * @returns 过滤并格式化后的文本。
  */
 export function exportAudit(
   events: readonly AuditEvent[],
@@ -176,6 +216,11 @@ export function exportAudit(
  * @beta
  * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
  * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
+ * @param events 全量审计事件。
+ * @param query 过滤条件（写入报告供复现）。
+ * @param meta 报告元数据（缺省为空）。
+ * @param chain 可选的哈希链校验结果（由调用方传入）。
+ * @returns 合规报告（含摘要与完整性哈希）。
  */
 export function buildComplianceReport(
   events: readonly AuditEvent[],
@@ -189,6 +234,8 @@ export function buildComplianceReport(
 /**
  * @beta
  * 合规报告序列化为 JSON 文本。
+ * @param report 合规报告。
+ * @returns 缩进 2 的 JSON 文本。
  */
 export function formatCompliance(report: ComplianceReport): string {
   return auditExporter.formatCompliance(report);

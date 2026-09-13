@@ -84,7 +84,10 @@ export class AppServer extends AppServerSurfaceHandlers {
     }
   }
 
-  /** 注册方法处理。 */
+  /**
+   * 注册方法处理。
+   * @returns 无返回值。
+   */
   protected registerHandlers(): void {
     this.handlers.set('threads.create', (params) => this.createThread(params));
     this.handlers.set('threads.continue', (params) => this.continueThread(params));
@@ -136,7 +139,10 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.registerSurfaceHandlers();
   }
 
-  /** 多 Agent 编排 RPC（G-C，对标 codex agent-graph-store）：图增删查 + 运行 + 实时状态。 */
+  /**
+   * 多 Agent 编排 RPC（G-C，对标 codex agent-graph-store）：图增删查 + 运行 + 实时状态。
+   * @returns 无返回值。
+   */
   protected registerGraphHandlers(): void {
     this.handlers.set('graph.list', async () => this.runtime.graphStore().list());
     this.handlers.set('graph.get', async (params) => {
@@ -191,14 +197,20 @@ export class AppServer extends AppServerSurfaceHandlers {
     });
   }
 
-  /** 会话检查点 / 回滚 RPC（对标 Codex「回滚到检查点」）：列表 / 创建 / 回滚（对话 + 代码）。 */
+  /**
+   * 会话检查点 / 回滚 RPC（对标 Codex「回滚到检查点」）：列表 / 创建 / 回滚（对话 + 代码）。
+   * @returns 无返回值。
+   */
   private registerCheckpointHandlers(): void {
     this.handlers.set('checkpoint.list', (params) => this.checkpoints.list(params));
     this.handlers.set('checkpoint.create', (params) => this.checkpoints.create(params));
     this.handlers.set('checkpoint.rollback', (params) => this.checkpoints.rollback(params));
   }
 
-  /** 内联 diff 审查 RPC（对标 Codex Review）：hunk/file 级 stage/revert + 行级评论。 */
+  /**
+   * 内联 diff 审查 RPC（对标 Codex Review）：hunk/file 级 stage/revert + 行级评论。
+   * @returns 无返回值。
+   */
   private registerReviewHandlers(): void {
     this.handlers.set('changes.stageFile', (params) =>
       Promise.resolve(this.diffReview.stageFile(params)),
@@ -221,7 +233,10 @@ export class AppServer extends AppServerSurfaceHandlers {
     );
   }
 
-  /** 长期记忆管理 RPC（#G-D / 4.3，对标 codex dedicated memories）：列表/查看/增/改/删/检索 + 变更实时通知。 */
+  /**
+   * 长期记忆管理 RPC（#G-D / 4.3，对标 codex dedicated memories）：列表/查看/增/改/删/检索 + 变更实时通知。
+   * @returns 无返回值。
+   */
   protected registerMemoryHandlers(): void {
     const store = (): LongTermMemoryPort => this.options.config.longTermMemory;
     this.handlers.set('memory.list', async () => {

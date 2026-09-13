@@ -42,9 +42,13 @@ export interface AgentRuntimeDeps {
  * 因此可独立单测。`bypassSupervisorKernel` 是服务端唯一放宽点，语义详见其注释。
  */
 export class AgentRuntimeHost {
+  /** 宿主依赖（配置 / 事件 / 审批工厂与工作区根，全部为实时取值器）。 */
   private readonly deps: AgentRuntimeDeps;
+  /** Agent 缓存（invalidateAgent 失效）。 */
   private agentCache?: Agent;
+  /** 图存储缓存（按工作区根懒建，invalidateGraph 失效）。 */
   private storeCache?: GraphStore;
+  /** 子智能体端口集缓存（图运行复用）。 */
   private portsCache?: SubagentPorts;
 
   /**
@@ -111,7 +115,10 @@ export class AgentRuntimeHost {
     return approvals;
   }
 
-  /** 构建 Agent（覆盖事件端口；审批按需上行；UI 覆盖的模型配置实时生效）。 */
+  /**
+   * 构建 Agent（覆盖事件端口；审批按需上行；UI 覆盖的模型配置实时生效）。
+   * @returns 缓存的 Agent 实例（首次调用时按当前配置装配）。
+   */
   public agent(): Agent {
     if (this.agentCache === undefined) {
       const config = this.deps.baseConfig();
@@ -131,12 +138,18 @@ export class AgentRuntimeHost {
     return this.agentCache;
   }
 
-  /** 失效 Agent 缓存（配置变更 / 切换工作区后下回合重建）。 */
+  /**
+   * 失效 Agent 缓存（配置变更 / 切换工作区后下回合重建）。
+   * @returns 无返回值。
+   */
   public invalidateAgent(): void {
     this.agentCache = undefined;
   }
 
-  /** 懒初始化图存储（工作区 .omniharness/graphs）。 */
+  /**
+   * 懒初始化图存储（工作区 .omniharness/graphs）。
+   * @returns 当前工作区的 GraphStore 实例（缓存复用）。
+   */
   public graphStore(): GraphStore {
     if (this.storeCache === undefined) {
       this.storeCache = new GraphStore(this.deps.workspaceRoot());
@@ -144,7 +157,10 @@ export class AgentRuntimeHost {
     return this.storeCache;
   }
 
-  /** 懒初始化子智能体端口集（供图运行复用同一运行时能力）。 */
+  /**
+   * 懒初始化子智能体端口集（供图运行复用同一运行时能力）。
+   * @returns 端口集（图运行审批固定 AUTO_ALLOW，见实现内注释）。
+   */
   public graphPorts(): SubagentPorts {
     if (this.portsCache === undefined) {
       const config = this.deps.baseConfig();
@@ -164,7 +180,10 @@ export class AgentRuntimeHost {
     return this.portsCache;
   }
 
-  /** 失效图存储与端口缓存（切换工作区后按新根重建）。 */
+  /**
+   * 失效图存储与端口缓存（切换工作区后按新根重建）。
+   * @returns 无返回值。
+   */
   public invalidateGraph(): void {
     this.storeCache = undefined;
     this.portsCache = undefined;

@@ -29,6 +29,7 @@ import { AgentRuntimeHost } from './agentRuntimeHost.js';
  * `AppServerBase → AppServerHandlers → AppServer` 保持原样，导出名与路径不变。
  */
 export class AppServerBase {
+  /** 服务端选项（配置、传输、技能、指标、审计、插件目录等；switchWorkspace 会原地替换其中 config）。 */
   protected options: AppServerOptions;
   /** 线程 id 自映射（存在性判定用）。 */
   protected readonly threads = new Map<string, string>();
@@ -133,17 +134,28 @@ export class AppServerBase {
     return this.plugins.dir;
   }
 
-  /** 启动阶段加载已安装插件（闭环 G-B：市场安装 → 运行时可用）。 */
+  /**
+   * 启动阶段加载已安装插件（闭环 G-B：市场安装 → 运行时可用）。
+   * @returns 加载完成后 resolve，无载荷。
+   */
   public async loadPlugins(): Promise<void> {
     await this.plugins.load();
   }
 
-  /** 应用插件集 Profile（CLI --plugin-profile / 编程入口复用）。 */
+  /**
+   * 应用插件集 Profile（CLI --plugin-profile / 编程入口复用）。
+   * @param profile 插件集档案（启用的插件与来源配置）。
+   * @returns 应用结果（成功 / 失败明细）。
+   */
   public async applyPluginProfile(profile: PluginProfile): Promise<ApplyProfileResult> {
     return this.plugins.applyProfile(profile);
   }
 
-  /** 处理入站消息。 */
+  /**
+   * 处理入站消息。
+   * @param message 入站 RPC 消息（非请求或未知方法按协议回错误响应）。
+   * @returns 处理完成（响应已写回传输层）后 resolve，无载荷。
+   */
   protected async handle(message: RpcMessage): Promise<void> {
     if (!jsonRpc.isRequest(message)) {
       return;
@@ -163,12 +175,20 @@ export class AppServerBase {
     }
   }
 
-  /** 提取错误消息。 */
+  /**
+   * 提取错误消息。
+   * @param error 任意抛出值。
+   * @returns Error 取 message，其余值 String() 化。
+   */
   protected messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
-  /** 更新服务端配置（委托配置存储；保留为方法以稳定对外契约）。 */
+  /**
+   * 更新服务端配置（委托配置存储；保留为方法以稳定对外契约）。
+   * @param params `config.update` 的参数（待更新的配置键值）。
+   * @returns 配置存储的更新结果。
+   */
   protected async updateConfig(params: Record<string, unknown>): Promise<unknown> {
     return this.configStore.update(params);
   }
@@ -176,12 +196,17 @@ export class AppServerBase {
   /**
    * 当前生效的工作区根（#OBS-11）：HTTP /files 路由与 RPC fs.read 共用。
    * public：HTTP 路由需要直接读取以注入到 HttpServerOptions.workspaceRoot。
+   * @returns 当前工作区根目录路径。
    */
   public effectiveWorkspace(): string {
     return this.configStore.workspace();
   }
 
-  /** 是否放宽 SupervisorKernel（委托运行时宿主；保留为方法以稳定对外契约）。 */
+  /**
+   * 是否放宽 SupervisorKernel（委托运行时宿主；保留为方法以稳定对外契约）。
+   * @param config 解析后的配置（含放宽开关）。
+   * @returns 放宽时返回替代监督实现；不放宽返回 undefined。
+   */
   protected bypassSupervisorKernel(config: ResolvedConfig): SupervisorPort | undefined {
     return this.runtime.bypassSupervisorKernel(config);
   }
@@ -220,7 +245,11 @@ export class AppServerBase {
     return { ok: true, workspace: root, workspaces: workspaces.workspaces };
   }
 
-  /** 线程结果。 */
+  /**
+   * 线程结果。
+   * @param result agent 运行结果（sessionId、finalText、steps）。
+   * @returns 对外线程结果形（threadId / finalText / steps）。
+   */
   protected threadResult(result: {
     sessionId: string;
     finalText?: string;
