@@ -12,6 +12,7 @@ import {
   EVENT_PORTS,
   SPILL_ADAPTERS,
   OUTPUT_FORMATS,
+  KV_ADAPTERS,
 } from './cliEnums.js';
 
 /** 消费值的长选项集合（用于位置参数识别：其紧跟的值不视为 prompt）。 */
@@ -55,6 +56,10 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--model-router',
   '--model-router-file',
   '--turn-token-budget',
+  '--vault-hydrate-names',
+  '--vault-key-file',
+  '--kv-adapter',
+  '--kv-file',
   '--oidc-issuer',
   '--oidc-client-id',
   '--oidc-jwks-uri',
@@ -292,9 +297,53 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.modelRetry = false;
     return 0;
   },
+  // F3 模型熔断：与重试同口径默认开，--no- 显式关闭（下游持续不可用时短路，冷却后自动半开）。
+  '--no-model-circuit-breaker': (a) => {
+    a.modelCircuitBreaker = false;
+    return 0;
+  },
+  '--model-circuit-breaker-threshold': (a, argv, i) => {
+    a.modelCircuitBreakerThreshold = Number.parseInt(
+      valueOf(argv, i, '--model-circuit-breaker-threshold'),
+      10,
+    );
+    return 1;
+  },
+  '--model-circuit-breaker-open-ms': (a, argv, i) => {
+    a.modelCircuitBreakerOpenMs = Number.parseInt(
+      valueOf(argv, i, '--model-circuit-breaker-open-ms'),
+      10,
+    );
+    return 1;
+  },
   '--stream-text': (a) => {
     a.streamText = true;
     return 0;
+  },
+  // F3 凭据水合：默认关。开启后装配期把加密保险库凭据水合进进程环境（仅填充未设置项），
+  // 让模型适配器/路由无需改动即获得「env 优先、保险库回退」的第二凭据源。
+  '--vault-hydrate': (a) => {
+    a.vaultHydrate = true;
+    return 0;
+  },
+  '--vault-hydrate-names': (a, argv, i) => {
+    a.vaultHydrateNames = valueOf(argv, i, '--vault-hydrate-names')
+      .split(',')
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+    return 1;
+  },
+  '--vault-key-file': (a, argv, i) => {
+    a.vaultKeyFile = valueOf(argv, i, '--vault-key-file');
+    return 1;
+  },
+  '--kv-adapter': (a, argv, i) => {
+    a.kvAdapter = enumOf(argv, i, '--kv-adapter', KV_ADAPTERS);
+    return 1;
+  },
+  '--kv-file': (a, argv, i) => {
+    a.kvFile = valueOf(argv, i, '--kv-file');
+    return 1;
   },
   '--turn-token-budget': (a, argv, i) => {
     a.turnTokenBudget = Number.parseInt(valueOf(argv, i, '--turn-token-budget'), 10);

@@ -126,6 +126,12 @@ export interface OmniHarnessConfig {
   readonly modelRetryMaxAttempts?: number;
   /** 模型重试基础退避毫秒（#M6，默认 500）。 */
   readonly modelRetryBaseDelayMs?: number;
+  /** 模型调用熔断开关（F3，默认开）：下游连续失败达阈值即开路，冷却期快速失败、冷却后半开探测。 */
+  readonly modelCircuitBreaker?: boolean;
+  /** 熔断开路阈值（连续失败次数，默认 5）。 */
+  readonly modelCircuitBreakerThreshold?: number;
+  /** 熔断开路冷却毫秒（默认 30000）。 */
+  readonly modelCircuitBreakerOpenMs?: number;
   /** Agent 密码学身份配置（#S33，可选）：声明 Ed25519 私钥（PKCS#8 der base64）与 runtime id；不配则每次运行生成临时身份、且不注册 `agent_identity` 工具。零依赖（仅 Node 内置 node:crypto）。 */
   readonly agentIdentity?: AgentIdentityConfig;
   /** 回合级变更追踪（#M5，默认开）：写类工具前后取样，回合结束广播 unified diff 事件。 */

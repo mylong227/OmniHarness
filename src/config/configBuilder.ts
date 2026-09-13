@@ -3,6 +3,8 @@ import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort } from '../ports/model/model.js';
 import { RetryingModel, DEFAULT_RETRY_POLICY } from '../adapters/model/retryingModel.js';
 import { BudgetedModel } from '../adapters/model/budgetedModel.js';
+import { CircuitBreakingModel } from '../adapters/model/circuitBreakingModel.js';
+import { CircuitBreaker } from '../util/circuitBreaker.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
 import { MockModel } from '../adapters/model/mockModel.js';
 import {
@@ -76,10 +78,12 @@ export class ConfigBuilder {
   }
 
   /**
-   * 装配模型端口（#M6 + #S29）：
-   * - 开启 `modelRetry` 则包 `RetryingModel` 退避重试；
-   * - 配置了 `costBudgetUsd` 正数则再包 `BudgetedModel`（外层，先判预算再重试，确保不重复记账、熔断优先于重试）。
-   * 二者皆可选，对上层透明（名称/接口不变）。
+   * 装配模型端口（#M6 + #S29 + F3）：
+   * - 开启 `modelRetry` 则包 `RetryingModel` 退避重试（最内层，吸收单次调用的瞬时抖动）；
+   * - 开启 `modelCircuitBreaker` 则在重试**外层**包 `CircuitBreakingModel`（一次逻辑调用 = 一次熔断计数）；
+   * - 配置了 `costBudgetUsd` 正数则再包 `BudgetedModel`（最外层，先判预算再重试/熔断，确保不重复记账、
+   *   预算硬门禁优先于一切）。
+   * 三者皆可选，对上层透明（名称/接口不变）。最终顺序：`Budgeted(Circuit(Retrying(inner)))`。
    */
   public buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
     let inner: ModelPort;
@@ -95,6 +99,15 @@ export class ConfigBuilder {
         maxDelayMs: DEFAULT_RETRY_POLICY.maxDelayMs,
         jitter: DEFAULT_RETRY_POLICY.jitter,
       });
+    }
+    if (partial.modelCircuitBreaker === true) {
+      inner = new CircuitBreakingModel(
+        inner,
+        new CircuitBreaker('model', {
+          failureThreshold: partial.modelCircuitBreakerThreshold,
+          openMs: partial.modelCircuitBreakerOpenMs,
+        }),
+      );
     }
     if (budget !== undefined && budget.limitUsd > 0) {
       inner = new BudgetedModel(inner, budget);

@@ -29,15 +29,25 @@ export class KvStoreFactory {
    */
   public async create(args: readonly string[]): Promise<KvHandle> {
     const reader = new CliArgReader(args);
-    const adapter = reader.value('--kv-adapter') ?? 'json-file';
+    return this.createFor(reader.value('--kv-adapter'), reader.value('--kv-file'));
+  }
+
+  /**
+   * 按已解析的「后端名 + 落盘路径」构造 KV 端口（单一实现来源）。
+   *
+   * `create()` 与装配期凭据水合（F3）都经此方法，避免默认文件名在两处各写一遍而漂移。
+   * @param adapter 后端名（memory | json-file | sqlite）；省略或未识别时按 json-file。
+   * @param file 落盘路径；省略时用该后端的内置默认文件名（memory 忽略此参数）。
+   * @returns KV 端口句柄（调用方负责 close）。
+   */
+  public async createFor(adapter: string | undefined, file: string | undefined): Promise<KvHandle> {
     if (adapter === 'memory') {
       return new MemoryKv();
     }
     if (adapter === 'sqlite') {
-      const dbFile = reader.value('--kv-file') ?? DEFAULT_SQLITE_FILE;
       const { SqliteKv } = await import('../adapters/kv/sqliteKv.js');
-      return new SqliteKv(dbFile);
+      return new SqliteKv(file ?? DEFAULT_SQLITE_FILE);
     }
-    return new JsonFileKv(reader.value('--kv-file') ?? DEFAULT_JSON_FILE);
+    return new JsonFileKv(file ?? DEFAULT_JSON_FILE);
   }
 }

@@ -56,3 +56,9 @@ export const OUTPUT_FORMATS = [
   'text',
   'json',
 ] as const satisfies readonly CliArgs['outputFormat'][];
+/** 保险库密文的底层 KV 后端（与 `vault` 子命令的 `--kv-adapter` 同一组取值）。 */
+export const KV_ADAPTERS = [
+  'memory',
+  'json-file',
+  'sqlite',
+] as const satisfies readonly NonNullable<CliArgs['kvAdapter']>[];

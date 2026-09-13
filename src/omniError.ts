@@ -16,6 +16,8 @@ export const ErrorCode = {
   MODEL_CALL_ERROR: 'MODEL_CALL_ERROR',
   /** 成本硬预算耗尽熔断。 */
   BUDGET_EXCEEDED: 'BUDGET_EXCEEDED',
+  /** 下游连续失败达阈值后熔断开路（故障熔断，冷却期内快速失败）。 */
+  CIRCUIT_OPEN: 'CIRCUIT_OPEN',
   /** 插件权限未在白名单内被拒。 */
   PERMISSION_DENIED: 'PERMISSION_DENIED',
   /** 工作流 DAG 存在环。 */

@@ -79,6 +79,15 @@ export interface FileConfig {
    */
   readonly extends?: string;
   readonly escalation?: 'deny' | 'ask' | 'auto';
+  /**
+   * 模型调用熔断（F3）：下游连续失败达阈值即开路，冷却期内快速失败、冷却后半开探测。
+   * 缺省开启（与 `modelRetry` 默认开同口径）；`--no-model-circuit-breaker` 可关闭。
+   */
+  readonly modelCircuitBreaker?: boolean;
+  /** 熔断开路阈值（连续失败次数，默认 5）。 */
+  readonly modelCircuitBreakerThreshold?: number;
+  /** 熔断开路冷却毫秒（默认 30000）。 */
+  readonly modelCircuitBreakerOpenMs?: number;
   /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
   readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
   readonly workspace?: string;
