@@ -1,70 +1,80 @@
 ---
 tags:
-- DepthMap
-- DepthMapEstimation
-- Image
+  - DepthMap
+  - DepthMapEstimation
+  - Image
 ---
 
 # MeshGraphormer Hand Refiner
+
 ## Documentation
+
 - Class name: `MeshGraphormer-DepthMapPreprocessor`
 - Category: `ControlNet Preprocessors/Normal and Depth Estimators`
 - Output node: `False`
 
 This node is designed to preprocess images for depth map generation, specifically tailored for hand gestures. It utilizes a MeshGraphormer model to refine depth maps and masks of hands within images, enhancing the accuracy of depth perception for each detected hand region.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for hand gesture depth map generation. It serves as the primary data for detecting hand landmarks and generating corresponding depth maps and masks.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The input image to be processed for hand gesture depth map generation. It serves as the primary data for detecting hand landmarks and generating corresponding depth maps and masks.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`mask_bbox_padding`**
-    - Specifies the padding around the bounding box of detected hands, affecting the area considered for depth map generation. It helps in adjusting the focus area around the hands.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the padding around the bounding box of detected hands, affecting the area considered for depth map generation. It helps in adjusting the focus area around the hands.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resolution`**
-    - The resolution to which the input images are resized before processing. This parameter directly impacts the model's performance and the quality of the output depth maps.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input images are resized before processing. This parameter directly impacts the model's performance and the quality of the output depth maps.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`mask_type`**
-    - Determines the type of mask to be generated, such as based on depth values or tight bounding boxes, influencing how hand regions are isolated from the background.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the type of mask to be generated, such as based on depth values or tight bounding boxes, influencing how hand regions are isolated from the background.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`mask_expand`**
-    - Defines the expansion or contraction of the mask boundaries, allowing for finer control over the size of the hand region to be processed.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the expansion or contraction of the mask boundaries, allowing for finer control over the size of the hand region to be processed.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`rand_seed`**
-    - A seed value for random number generation, ensuring reproducibility of the depth maps and masks across multiple runs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for random number generation, ensuring reproducibility of the depth maps and masks across multiple runs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`detect_thr`**
-    - The detection threshold for the MeshGraphormer model, determining the sensitivity of hand detection within the images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The detection threshold for the MeshGraphormer model, determining the sensitivity of hand detection within the images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`presence_thr`**
-    - The presence threshold for the MeshGraphormer model, affecting the likelihood of a hand's presence being recognized in the processed area.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The presence threshold for the MeshGraphormer model, affecting the likelihood of a hand's presence being recognized in the processed area.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The refined depth maps for each hand region detected in the input images. These maps provide detailed depth information, crucial for subsequent processing steps.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The refined depth maps for each hand region detected in the input images. These maps provide detailed depth information, crucial for subsequent processing steps.
+  - Python dtype: `torch.Tensor`
 - **`INPAINTING_MASK`**
-    - Comfy dtype: `MASK`
-    - Binary masks corresponding to the hand regions within the input images. These masks are essential for isolating hand gestures from the background.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Binary masks corresponding to the hand regions within the input images. These masks are essential for isolating hand gestures from the background.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [ControlNetApplyAdvanced](../../Comfy/Nodes/ControlNetApplyAdvanced.md)
-
-
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [ControlNetApplyAdvanced](../../Comfy/Nodes/ControlNetApplyAdvanced.md)
 
 ## Source code
+
 ```python
 class Mesh_Graphormer_Depth_Map_Preprocessor:
     @classmethod
@@ -92,7 +102,7 @@ class Mesh_Graphormer_Depth_Map_Preprocessor:
         from controlnet_aux.mesh_graphormer import MeshGraphormerDetector
         model = kwargs["model"] if "model" in kwargs \
             else MeshGraphormerDetector.from_pretrained(detect_thr=detect_thr, presence_thr=presence_thr).to(model_management.get_torch_device())
-        
+
         depth_map_list = []
         mask_list = []
         for single_image in image:
@@ -106,7 +116,7 @@ class Mesh_Graphormer_Depth_Map_Preprocessor:
             elif mask_type == "tight_bboxes":
                 mask = np.zeros_like(mask)
                 hand_bboxes = info["abs_boxes"]
-                for hand_bbox in hand_bboxes: 
+                for hand_bbox in hand_bboxes:
                     x_min, x_max, y_min, y_max = hand_bbox
                     mask[y_min:y_max+1, x_min:x_max+1, :] = 255 #HWC
 

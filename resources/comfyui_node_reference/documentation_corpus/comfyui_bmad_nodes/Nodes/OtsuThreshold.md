@@ -1,49 +1,58 @@
 ---
 tags:
-- Image
-- ImageThresholding
+  - Image
+  - ImageThresholding
 ---
 
 # OtsuThreshold
+
 ## Documentation
+
 - Class name: `OtsuThreshold`
 - Category: `Bmad/CV/Thresholding`
 - Output node: `False`
 
 The OtsuThreshold node applies Otsu's thresholding method to an image to separate the foreground from the background. It optionally preprocesses the image with Gaussian blur to reduce noise and improve the thresholding result.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be thresholded. Otsu's method is applied to this image to determine the optimal threshold value for separating foreground and background.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be thresholded. Otsu's method is applied to this image to determine the optimal threshold value for separating foreground and background.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`threshold_type`**
-    - Specifies the type of thresholding to apply in conjunction with Otsu's method, allowing for customization of the thresholding process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `Enum`
+  - Specifies the type of thresholding to apply in conjunction with Otsu's method, allowing for customization of the thresholding process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `Enum`
 - **`gaussian_blur_x`**
-    - The kernel width for the Gaussian blur applied to the image before thresholding. A larger value reduces noise but can blur edges.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The kernel width for the Gaussian blur applied to the image before thresholding. A larger value reduces noise but can blur edges.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`gaussian_blur_y`**
-    - The kernel height for the Gaussian blur applied to the image before thresholding. Works in conjunction with gaussian_blur_x to define the blur extent.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The kernel height for the Gaussian blur applied to the image before thresholding. Works in conjunction with gaussian_blur_x to define the blur extent.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`gaussian_border_type`**
-    - Defines the border type used in the Gaussian blur process, affecting how image edges are handled during blurring.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `Enum`
+  - Defines the border type used in the Gaussian blur process, affecting how image edges are handled during blurring.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `Enum`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after applying Otsu's thresholding. The image is segmented into foreground and background, with noise reduced if Gaussian blur was applied.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after applying Otsu's thresholding. The image is segmented into foreground and background, with noise reduced if Gaussian blur was applied.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class OtsuThreshold:
 

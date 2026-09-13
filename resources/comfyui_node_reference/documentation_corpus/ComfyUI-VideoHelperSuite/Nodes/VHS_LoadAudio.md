@@ -1,38 +1,49 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Load Audio (Path)🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_LoadAudio`
 - Category: `Video Helper Suite 🎥🅥🅗🅢`
 - Output node: `False`
 
 The VHS_LoadAudio node is designed for loading audio files within the Video Helper Suite, allowing users to input audio files from specified paths and optionally seek to a certain point within the audio file. This functionality is crucial for tasks that involve audio processing or synchronization with video content, providing a foundational tool for audio manipulation in multimedia projects.
+
 ## Input types
+
 ### Required
+
 - **`audio_file`**
-    - Specifies the path to the audio file to be loaded. The node supports a variety of audio formats, including wav, mp3, ogg, m4a, and flac, making it versatile for different audio processing needs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the path to the audio file to be loaded. The node supports a variety of audio formats, including wav, mp3, ogg, m4a, and flac, making it versatile for different audio processing needs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`seek_seconds`**
-    - Defines the number of seconds to seek into the audio file before starting to load, allowing for precise control over the portion of the audio that is processed. This is useful for skipping unwanted content at the beginning of an audio file or for focusing on a specific segment.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the number of seconds to seek into the audio file before starting to load, allowing for precise control over the portion of the audio that is processed. This is useful for skipping unwanted content at the beginning of an audio file or for focusing on a specific segment.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`audio`**
-    - Comfy dtype: `VHS_AUDIO`
-    - Returns a handle to the loaded audio, enabling further processing or analysis. This output is essential for integrating audio content into multimedia applications or workflows.
-    - Python dtype: `function`
+  - Comfy dtype: `VHS_AUDIO`
+  - Returns a handle to the loaded audio, enabling further processing or analysis. This output is essential for integrating audio content into multimedia applications or workflows.
+  - Python dtype: `function`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadAudio:
     @classmethod

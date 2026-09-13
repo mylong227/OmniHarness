@@ -1,57 +1,65 @@
 ---
 tags:
-- CLIP
-- Loader
-- ModelIO
+  - CLIP
+  - Loader
+  - ModelIO
 ---
 
 # Prep Image For ClipVision
+
 ## Documentation
+
 - Class name: `PrepImageForClipVision`
 - Category: `ipadapter/utils`
 - Output node: `False`
 
 The node PrepImageForClipVision is designed to prepare images for processing by CLIP vision models, adapting them to the specific input requirements of these models for enhanced image understanding and analysis.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The initial image to be processed, serving as the raw input for feature extraction and encoding.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The initial image to be processed, serving as the raw input for feature extraction and encoding.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`interpolation`**
-    - The method used for resizing the image, affecting the quality and the way pixels are interpolated.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The method used for resizing the image, affecting the quality and the way pixels are interpolated.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`crop_position`**
-    - Specifies the position from which the image is cropped, influencing the focus area of the processed image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the position from which the image is cropped, influencing the focus area of the processed image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`sharpening`**
-    - Determines the level of sharpness applied to the image, enhancing edge definition and detail visibility.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the level of sharpness applied to the image, enhancing edge definition and detail visibility.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image, optimized for compatibility with CLIP vision models, ready for further analysis or encoding.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image, optimized for compatibility with CLIP vision models, ready for further analysis or encoding.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - IDGenerationNode
-    - IPAdapterApply
-    - [AIO_Preprocessor](../../comfyui_controlnet_aux/Nodes/AIO_Preprocessor.md)
-    - [ImageBatch](../../Comfy/Nodes/ImageBatch.md)
-    - [CLIPVisionEncode](../../Comfy/Nodes/CLIPVisionEncode.md)
-    - PrepImageForInsightFace
-    - SetNode
-    - IPAdapterApplyFaceID
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [IPAdapterEncoder](../../ComfyUI_IPAdapter_plus/Nodes/IPAdapterEncoder.md)
-
-
+  - IDGenerationNode
+  - IPAdapterApply
+  - [AIO_Preprocessor](../../comfyui_controlnet_aux/Nodes/AIO_Preprocessor.md)
+  - [ImageBatch](../../Comfy/Nodes/ImageBatch.md)
+  - [CLIPVisionEncode](../../Comfy/Nodes/CLIPVisionEncode.md)
+  - PrepImageForInsightFace
+  - SetNode
+  - IPAdapterApplyFaceID
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [IPAdapterEncoder](../../ComfyUI_IPAdapter_plus/Nodes/IPAdapterEncoder.md)
 
 ## Source code
+
 ```python
 class PrepImageForClipVision:
     @classmethod

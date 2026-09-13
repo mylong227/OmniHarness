@@ -1,54 +1,63 @@
 ---
 tags:
-- ImageScaling
-- ImageUpscaling
-- Upscale
+  - ImageScaling
+  - ImageUpscaling
+  - Upscale
 ---
 
 # LDSR Upscale (all-in-one)
+
 ## Documentation
+
 - Class name: `LDSRUpscaler`
 - Category: `Flowty LDSR`
 - Output node: `False`
 
 The LDSRUpscaler node is designed to upscale images using the LDSR model, providing a high-level interface for enhancing image resolution through deep learning techniques. It abstracts the complexities of the underlying LDSR model operations, offering a simplified method for users to improve image quality with options for pre and post downscaling and different downsample methods.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the LDSR model to be used for upscaling. This model determines the upscaling technique and quality.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the LDSR model to be used for upscaling. This model determines the upscaling technique and quality.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`images`**
-    - The images to be upscaled. This input allows for batch processing of multiple images, enhancing their resolution.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The images to be upscaled. This input allows for batch processing of multiple images, enhancing their resolution.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`steps`**
-    - Defines the number of steps for the upscaling process, affecting the quality and computation time of the upscaling.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the number of steps for the upscaling process, affecting the quality and computation time of the upscaling.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`pre_downscale`**
-    - Optional pre-processing step to downscale images before upscaling, which can affect the final image quality and processing time.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Optional pre-processing step to downscale images before upscaling, which can affect the final image quality and processing time.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`post_downscale`**
-    - Optional post-processing step to adjust the size of the upscaled images, allowing for customization of the output resolution.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Optional post-processing step to adjust the size of the upscaled images, allowing for customization of the output resolution.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`downsample_method`**
-    - The method used for downsampling during the pre and post downscale steps, influencing the quality of the downscaled images.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The method used for downsampling during the pre and post downscale steps, influencing the quality of the downscaled images.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - The upscaled images, enhanced in resolution through the LDSR upscaling process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The upscaled images, enhanced in resolution through the LDSR upscaling process.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LDSRUpscaler:
     @classmethod

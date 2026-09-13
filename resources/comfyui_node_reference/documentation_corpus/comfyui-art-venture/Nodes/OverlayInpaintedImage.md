@@ -1,41 +1,50 @@
 ---
 tags:
-- Image
-- ImageComposite
+  - Image
+  - ImageComposite
 ---
 
 # Overlay Inpainted Image
+
 ## Documentation
+
 - Class name: `OverlayInpaintedImage`
 - Category: `Art Venture/Inpainting`
 - Output node: `False`
 
 This node is designed to overlay an inpainted image onto another image, potentially within a specified crop region. It ensures that the overlay operation respects the dimensions and batch sizes of the input images, blending them seamlessly to produce a composite output.
+
 ## Input types
+
 ### Required
+
 - **`inpainted`**
-    - The inpainted image tensor to be overlaid onto the base image. It plays a crucial role in the overlay process by providing the content that fills in the missing or altered parts of the original image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The inpainted image tensor to be overlaid onto the base image. It plays a crucial role in the overlay process by providing the content that fills in the missing or altered parts of the original image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`overlay_image`**
-    - The base image tensor onto which the inpainted image will be overlaid. This image serves as the backdrop for the inpainted content, integrating both to create a cohesive visual output.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The base image tensor onto which the inpainted image will be overlaid. This image serves as the backdrop for the inpainted content, integrating both to create a cohesive visual output.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`crop_region`**
-    - A tensor specifying the region within the base image where the inpainted image should be overlaid. This allows for precise control over the placement and integration of the inpainted content within the larger image context.
-    - Comfy dtype: `CROP_REGION`
-    - Python dtype: `torch.Tensor`
+  - A tensor specifying the region within the base image where the inpainted image should be overlaid. This allows for precise control over the placement and integration of the inpainted content within the larger image context.
+  - Comfy dtype: `CROP_REGION`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image tensor after overlaying the inpainted image onto the base image, within the specified crop region if applicable. This image combines the visual elements of both inputs in a unified manner.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image tensor after overlaying the inpainted image onto the base image, within the specified crop region if applicable. This image combines the visual elements of both inputs in a unified manner.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class OverlayInpaintedImage:
     @classmethod

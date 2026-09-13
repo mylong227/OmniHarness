@@ -1,55 +1,65 @@
 ---
 tags:
-- IPAdapter
+  - IPAdapter
 ---
 
 # IPAdapter Encoder
+
 ## Documentation
+
 - Class name: `IPAdapterEncoder`
 - Category: `ipadapter/embeds`
 - Output node: `False`
 
 The IPAdapterEncoder node is designed to encode images with specific adaptations, leveraging additional parameters such as weight and mask to fine-tune the encoding process. It aims to enhance image processing tasks by integrating clip vision capabilities and custom adaptations.
+
 ## Input types
+
 ### Required
+
 - **`ipadapter`**
-    - Represents the IPAdapter instance to be used for encoding, determining the specific adaptation techniques applied to the image.
-    - Comfy dtype: `IPADAPTER`
-    - Python dtype: `CustomIPAdapterType`
+  - Represents the IPAdapter instance to be used for encoding, determining the specific adaptation techniques applied to the image.
+  - Comfy dtype: `IPADAPTER`
+  - Python dtype: `CustomIPAdapterType`
 - **`image`**
-    - The image to be encoded, serving as the primary input for the adaptation process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `ImageType`
+  - The image to be encoded, serving as the primary input for the adaptation process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `ImageType`
 - **`weight`**
-    - A weight factor that influences the encoding process, allowing for fine-tuning of the adaptation effects on the image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight factor that influences the encoding process, allowing for fine-tuning of the adaptation effects on the image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`mask`**
-    - An optional mask that can be applied to the image, enabling selective encoding of certain image regions.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Optional[ImageType]`
+  - An optional mask that can be applied to the image, enabling selective encoding of certain image regions.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Optional[ImageType]`
 - **`clip_vision`**
-    - An optional parameter to incorporate clip vision features into the encoding, enhancing the adaptation with vision-based insights.
-    - Comfy dtype: `CLIP_VISION`
-    - Python dtype: `Optional[ClipVisionType]`
+  - An optional parameter to incorporate clip vision features into the encoding, enhancing the adaptation with vision-based insights.
+  - Comfy dtype: `CLIP_VISION`
+  - Python dtype: `Optional[ClipVisionType]`
+
 ## Output types
+
 - **`pos_embed`**
-    - Comfy dtype: `EMBEDS`
-    - The positive embedding result of the encoding process.
-    - Python dtype: `EmbeddingType`
+  - Comfy dtype: `EMBEDS`
+  - The positive embedding result of the encoding process.
+  - Python dtype: `EmbeddingType`
 - **`neg_embed`**
-    - Comfy dtype: `EMBEDS`
-    - The negative embedding result of the encoding process.
-    - Python dtype: `EmbeddingType`
+  - Comfy dtype: `EMBEDS`
+  - The negative embedding result of the encoding process.
+  - Python dtype: `EmbeddingType`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - IPAdapterApplyEncoded
-
-
+  - IPAdapterApplyEncoded
 
 ## Source code
+
 ```python
 class IPAdapterEncoder:
     @classmethod

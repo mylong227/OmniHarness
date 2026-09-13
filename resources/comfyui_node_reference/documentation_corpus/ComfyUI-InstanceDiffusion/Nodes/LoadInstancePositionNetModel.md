@@ -1,44 +1,53 @@
 ---
 tags:
-- Face
+  - Face
 ---
 
 # Load Instance PositionNet Model
+
 ## Documentation
+
 - Class name: `LoadInstancePositionNetModel`
 - Category: `instance/loaders`
 - Output node: `False`
 
 This node is designed to load the PositionNet model, a component of the instance diffusion framework, by reading a specified model file and applying necessary configurations. It facilitates the initialization of PositionNet with predefined parameters and the option to include segmentation information, thereby preparing the model for subsequent instance-based processing tasks.
+
 ## Input types
+
 ### Required
+
 - **`model_filename`**
-    - Specifies the filename of the PositionNet model to be loaded. This parameter is crucial for identifying and retrieving the correct model file from a predefined directory.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the filename of the PositionNet model to be loaded. This parameter is crucial for identifying and retrieving the correct model file from a predefined directory.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`use_segs`**
-    - Determines whether segmentation information should be utilized in the PositionNet model configuration. This boolean flag allows for flexible adaptation of the model based on the presence of segmentation data.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether segmentation information should be utilized in the PositionNet model configuration. This boolean flag allows for flexible adaptation of the model based on the presence of segmentation data.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`positionnet`**
-    - Comfy dtype: `POSITIONNET`
-    - The loaded PositionNet model, ready for use in instance-based processing tasks. This output encapsulates the model initialized with the specified configurations.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `POSITIONNET`
+  - The loaded PositionNet model, ready for use in instance-based processing tasks. This output encapsulates the model initialized with the specified configurations.
+  - Python dtype: `torch.nn.Module`
 - **`fusers`**
-    - Comfy dtype: `FUSERS`
-    - The loaded fusers model, which is part of the instance diffusion framework, ready for integration with other components.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `FUSERS`
+  - The loaded fusers model, which is part of the instance diffusion framework, ready for integration with other components.
+  - Python dtype: `torch.nn.Module`
 - **`scaleu`**
-    - Comfy dtype: `SCALEU`
-    - The loaded ScaleU model, another component of the instance diffusion framework, prepared for use in scaling and processing instances.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `SCALEU`
+  - The loaded ScaleU model, another component of the instance diffusion framework, prepared for use in scaling and processing instances.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadInstancePositionNetNode:
     @classmethod

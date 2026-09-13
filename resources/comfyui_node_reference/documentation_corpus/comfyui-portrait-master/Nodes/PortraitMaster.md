@@ -1,349 +1,359 @@
 ---
 tags:
-- Prompt
+  - Prompt
 ---
 
 # Portrait Master v.2.9
+
 ## Documentation
+
 - Class name: `PortraitMaster`
 - Category: `AI WizArt`
 - Output node: `False`
 
 The PortraitMaster node is designed to dynamically generate detailed and customizable prompts for portrait creation, utilizing a wide range of parameters to fine-tune both the desired and undesired aspects of the final portrait. It allows for the manipulation of facial features, hair styles, expressions, and photorealism settings to craft comprehensive positive and negative prompts that guide the AI in generating more precise and realistic portraits.
+
 ## Input types
+
 ### Required
+
 - **`shot`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`shot_weight`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`gender`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`androgynous`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`age`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`nationality_i`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`nationality_mix`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`body_type`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`body_type_weight`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`model_pose`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`clothes`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`eyes_color`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`eyes_shape`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`lips_color`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`lips_shape`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`facial_expression`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`facial_expression_weight`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`face_shape`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`face_shape_weight`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`facial_asymmetry`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`hair_style`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`hair_color`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`hair_length`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`disheveled`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`makeup`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`beard`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`natural_skin`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`bare_face`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`washed_face`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`dried_face`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`skin_details`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`skin_pores`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`dimples`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`wrinkles`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`freckles`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`moles`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`skin_imperfections`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`skin_acne`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`tanned_skin`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`eyes_details`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`iris_details`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`circular_iris`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`circular_pupil`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`light_type`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`light_direction`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`light_weight`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`photorealism_improvement`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`prompt_start`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`prompt_additional`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`prompt_end`**
-    - Specifies the final part of the prompt, allowing for additional customization and refinement of the generated portrait's description.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the final part of the prompt, allowing for additional customization and refinement of the generated portrait's description.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`negative_prompt`**
-    - Defines attributes or elements to be excluded from the portrait, refining the output by eliminating specific undesired characteristics.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Defines attributes or elements to be excluded from the portrait, refining the output by eliminating specific undesired characteristics.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`style_i`**
-    - unknown
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `unknown`
 - **`style_i_weight`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`random_shot`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_gender`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_age`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_androgynous`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_nationality`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_body_type`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_model_pose`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_clothes`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_eyes_color`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_eyes_shape`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_lips_color`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_lips_shape`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_facial_expression`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_face_shape`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_hairstyle`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_hair_color`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_hair_length`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_disheveled`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_makeup`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_freckles`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_moles`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_skin_imperfections`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_beard`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`random_style_i`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
+
 ### Optional
+
 - **`seed`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`positive`**
-    - Comfy dtype: `STRING`
-    - The generated positive prompt, detailing desired characteristics and enhancements for the portrait.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The generated positive prompt, detailing desired characteristics and enhancements for the portrait.
+  - Python dtype: `str`
 - **`negative`**
-    - Comfy dtype: `STRING`
-    - The generated negative prompt, specifying undesired characteristics and elements to be excluded from the portrait.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The generated negative prompt, specifying undesired characteristics and elements to be excluded from the portrait.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - ShowText|pysssss
-    - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
-    - [Text Concatenate](../../was-node-suite-comfyui/Nodes/Text Concatenate.md)
-
-
+  - ShowText|pysssss
+  - [CLIPTextEncode](../../Comfy/Nodes/CLIPTextEncode.md)
+  - [Text Concatenate](../../was-node-suite-comfyui/Nodes/Text Concatenate.md)
 
 ## Source code
+
 ```python
 class PortraitMaster:
 

@@ -1,57 +1,68 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # Set Props and Combine Cond 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_ConditioningSetMaskAndCombine`
 - Category: `Animate Diff 🎭🅐🅓/conditioning/single cond ops`
 - Output node: `False`
 
 This node specializes in the advanced manipulation of conditioning data for generative models, specifically focusing on the application of masks, the combination of multiple conditioning inputs, and the adjustment of their influence through strength parameters. It enables the dynamic alteration and enhancement of conditioning inputs to tailor the generative process more precisely to desired outcomes.
+
 ## Input types
+
 ### Required
+
 - **`cond`**
-    - The original conditioning data to be modified or enhanced.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Tensor`
+  - The original conditioning data to be modified or enhanced.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Tensor`
 - **`cond_ADD`**
-    - Additional conditioning data to be combined with the original conditioning, allowing for the introduction of new elements or modifications.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Tensor`
+  - Additional conditioning data to be combined with the original conditioning, allowing for the introduction of new elements or modifications.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Tensor`
 - **`strength`**
-    - A scalar value that determines the intensity of the applied modifications or enhancements on the conditioning data.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scalar value that determines the intensity of the applied modifications or enhancements on the conditioning data.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`set_cond_area`**
-    - Specifies the area within the conditioning data that the modifications, such as masking or strength adjustments, should be applied to.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the area within the conditioning data that the modifications, such as masking or strength adjustments, should be applied to.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`opt_mask`**
-    - An optional mask that can be applied to the conditioning data to selectively modify or enhance specific regions.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Tensor`
+  - An optional mask that can be applied to the conditioning data to selectively modify or enhance specific regions.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Tensor`
 - **`opt_lora_hook`**
-    - An optional hook for applying LoRA adjustments to the conditioning data, enabling more fine-grained control over the modifications.
-    - Comfy dtype: `LORA_HOOK`
-    - Python dtype: `LoraHookGroup`
+  - An optional hook for applying LoRA adjustments to the conditioning data, enabling more fine-grained control over the modifications.
+  - Comfy dtype: `LORA_HOOK`
+  - Python dtype: `LoraHookGroup`
 - **`opt_timesteps`**
-    - Optional timesteps conditioning that allows for temporal adjustments to the conditioning data, useful in sequential generative processes.
-    - Comfy dtype: `TIMESTEPS_COND`
-    - Python dtype: `TimestepsCond`
+  - Optional timesteps conditioning that allows for temporal adjustments to the conditioning data, useful in sequential generative processes.
+  - Comfy dtype: `TIMESTEPS_COND`
+  - Python dtype: `TimestepsCond`
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - The resulting conditioning data after applying the specified modifications, combinations, and enhancements.
-    - Python dtype: `Tensor`
+  - Comfy dtype: `CONDITIONING`
+  - The resulting conditioning data after applying the specified modifications, combinations, and enhancements.
+  - Python dtype: `Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ConditioningSetMaskAndCombineHooked:
     @classmethod
@@ -69,7 +80,7 @@ class ConditioningSetMaskAndCombineHooked:
                 "opt_timesteps": ("TIMESTEPS_COND",)
             }
         }
-    
+
     RETURN_TYPES = ("CONDITIONING",)
     CATEGORY = "Animate Diff 🎭🅐🅓/conditioning/single cond ops"
     FUNCTION = "append_and_combine"

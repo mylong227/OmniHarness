@@ -1,32 +1,41 @@
 ---
 tags:
-- Time
+  - Time
 ---
 
 # Datetime String
+
 ## Documentation
+
 - Class name: `JWDatetimeString`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node generates a string representation of the current datetime, formatted according to a specified pattern. It abstracts the complexity of datetime formatting, providing a simple interface for obtaining formatted datetime strings.
+
 ## Input types
+
 ### Required
+
 - **`format`**
-    - Specifies the format in which the current datetime should be returned. This allows for customization of the output string according to the needs of the application.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the format in which the current datetime should be returned. This allows for customization of the output string according to the needs of the application.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The output is a string that represents the current datetime, formatted according to the specified pattern.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output is a string that represents the current datetime, formatted according to the specified pattern.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWDatetimeString", "Datetime String")
 class _:

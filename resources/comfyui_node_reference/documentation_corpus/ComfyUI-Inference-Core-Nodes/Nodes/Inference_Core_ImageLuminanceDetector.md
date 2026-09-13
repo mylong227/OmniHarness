@@ -1,44 +1,55 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImageEnhancement
-- ImagePreprocessing
+  - DepthMap
+  - Image
+  - ImageEnhancement
+  - ImagePreprocessing
 ---
 
 # [Inference.Core] Image Luminance
+
 ## Documentation
+
 - Class name: `Inference_Core_ImageLuminanceDetector`
 - Category: `ControlNet Preprocessors/Recolor`
 - Output node: `False`
 
 This node is designed to adjust the luminance of an image based on ControlNet preprocessing techniques. It utilizes gamma correction to modify the image's luminance, aiming to enhance image quality or adjust it for further processing steps.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for luminance adjustment.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The input image to be processed for luminance adjustment.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`gamma_correction`**
-    - Specifies the gamma correction factor to adjust the image's luminance. A higher value brightens the image, while a lower value darkens it, affecting the overall image processing outcome.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the gamma correction factor to adjust the image's luminance. A higher value brightens the image, while a lower value darkens it, affecting the overall image processing outcome.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`resolution`**
-    - Specifies the resolution for the output image, affecting the level of detail and size of the processed image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the resolution for the output image, affecting the level of detail and size of the processed image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image with adjusted luminance, processed through gamma correction to either increase or decrease its brightness.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The output is an image with adjusted luminance, processed through gamma correction to either increase or decrease its brightness.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageLuminanceDetector:
     @classmethod

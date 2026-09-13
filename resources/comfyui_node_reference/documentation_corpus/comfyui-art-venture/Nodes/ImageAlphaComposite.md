@@ -1,33 +1,42 @@
 ---
 tags:
-- AlphaChannel
-- Image
+  - AlphaChannel
+  - Image
 ---
 
 # Image Alpha Composite
+
 ## Documentation
+
 - Class name: `ImageAlphaComposite`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The ImageAlphaComposite node is designed for blending two images together based on their alpha values to create a single composited image. This process involves combining the visual elements of both input images into one, taking into account transparency and layering effects.
+
 ## Input types
+
 ### Required
+
 - **`image_i`**
-    - The second image to be composited. It acts as the other base layer in the alpha compositing process, layered together with the first image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The second image to be composited. It acts as the other base layer in the alpha compositing process, layered together with the first image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image after alpha compositing, blending the input images based on their alpha values.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image after alpha compositing, blending the input images based on their alpha values.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilImageAlphaComposite:
     @classmethod

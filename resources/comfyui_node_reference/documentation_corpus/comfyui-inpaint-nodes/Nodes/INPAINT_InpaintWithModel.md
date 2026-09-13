@@ -1,51 +1,62 @@
 ---
 tags:
-- DepthMap
-- Image
-- Inpaint
+  - DepthMap
+  - Image
+  - Inpaint
 ---
 
 # Inpaint (using Model)
+
 ## Documentation
+
 - Class name: `INPAINT_InpaintWithModel`
 - Category: `inpaint`
 - Output node: `False`
 
 This node is designed to perform inpainting on images using a specified inpainting model. It takes an image and a mask as inputs, along with the inpainting model, and applies the model to the specified areas of the image to fill in or correct missing or undesired parts. The node supports optional upscaling of the inpainted image for enhanced detail and resolution.
+
 ## Input types
+
 ### Required
+
 - **`inpaint_model`**
-    - The inpainting model to be used for the inpainting process. This model dictates the inpainting technique and its underlying architecture, affecting the quality and style of the inpainting results.
-    - Comfy dtype: `INPAINT_MODEL`
-    - Python dtype: `mat.MAT | Any`
+  - The inpainting model to be used for the inpainting process. This model dictates the inpainting technique and its underlying architecture, affecting the quality and style of the inpainting results.
+  - Comfy dtype: `INPAINT_MODEL`
+  - Python dtype: `mat.MAT | Any`
 - **`image`**
-    - The image to be inpainted, provided as a tensor. This is the target image where the inpainting will be applied.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image to be inpainted, provided as a tensor. This is the target image where the inpainting will be applied.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - A tensor representing the mask that indicates the areas of the image to be inpainted. The mask guides the inpainting process by specifying which parts of the image need correction or filling.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - A tensor representing the mask that indicates the areas of the image to be inpainted. The mask guides the inpainting process by specifying which parts of the image need correction or filling.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`seed`**
-    - An integer seed for random number generation, ensuring reproducibility of the inpainting results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An integer seed for random number generation, ensuring reproducibility of the inpainting results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`optional_upscale_model`**
-    - An optional model for upscaling the inpainted image. This allows for enhancing the resolution and detail of the inpainted areas, improving the overall quality of the output.
-    - Comfy dtype: `UPSCALE_MODEL`
-    - Python dtype: `Any`
+  - An optional model for upscaling the inpainted image. This allows for enhancing the resolution and detail of the inpainted areas, improving the overall quality of the output.
+  - Comfy dtype: `UPSCALE_MODEL`
+  - Python dtype: `Any`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The inpainted image, returned as a tensor. This output represents the final result of the inpainting process, with the specified areas corrected or filled in.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The inpainted image, returned as a tensor. This output represents the final result of the inpainting process, with the specified areas corrected or filled in.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class InpaintWithModel:
     @classmethod

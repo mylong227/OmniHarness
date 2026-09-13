@@ -1,48 +1,57 @@
 ---
 tags:
-- Text
+  - Text
 ---
 
 # Text 2 Inputs Or 3rd Option Instead (Mikey)
+
 ## Documentation
+
 - Class name: `Text2InputOr3rdOption`
 - Category: `Mikey/Text`
 - Output node: `False`
 
 This node processes three input texts and, based on a condition, outputs either two of the original texts or duplicates one across both outputs. It allows for dynamic text manipulation and conditional output generation.
+
 ## Input types
+
 ### Required
+
 - **`text_a`**
-    - The first text input to be potentially modified and outputted. It serves as one of the primary inputs for conditional processing.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The first text input to be potentially modified and outputted. It serves as one of the primary inputs for conditional processing.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text_b`**
-    - The second text input that may be modified and outputted, acting as another primary input for the node's conditional logic.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The second text input that may be modified and outputted, acting as another primary input for the node's conditional logic.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`text_c`**
-    - The third text input, which can replace the other two inputs based on the condition specified by 'use_text_c_for_both'.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The third text input, which can replace the other two inputs based on the condition specified by 'use_text_c_for_both'.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`use_text_c_for_both`**
-    - A boolean flag determining whether 'text_c' should be used as the output for both 'text_a' and 'text_b', enabling conditional output behavior.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - A boolean flag determining whether 'text_c' should be used as the output for both 'text_a' and 'text_b', enabling conditional output behavior.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`text_a`**
-    - Comfy dtype: `STRING`
-    - The modified version of 'text_a', or 'text_c' if the condition is met.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The modified version of 'text_a', or 'text_c' if the condition is met.
+  - Python dtype: `str`
 - **`text_b`**
-    - Comfy dtype: `STRING`
-    - The modified version of 'text_b', or 'text_c' if the condition is met.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The modified version of 'text_b', or 'text_c' if the condition is met.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Text2InputOr3rdOption:
     @classmethod

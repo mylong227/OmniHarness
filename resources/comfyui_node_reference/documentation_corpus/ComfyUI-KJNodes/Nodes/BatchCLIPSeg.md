@@ -1,86 +1,97 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # Batch CLIPSeg
+
 ## Documentation
+
 - Class name: `BatchCLIPSeg`
 - Category: `KJNodes/masking`
 - Output node: `False`
 
 This node is designed for batch processing of images using the CLIPSeg model for image segmentation. It leverages the CLIPSegForImageSegmentation and CLIPSegProcessor from the transformers library to perform semantic segmentation on a collection of images, adapting the model and processor to the specific hardware configuration (CPU or GPU) and data type for efficient execution.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The input images to be processed for segmentation. This parameter is crucial for the node's operation as it directly affects the segmentation results.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input images to be processed for segmentation. This parameter is crucial for the node's operation as it directly affects the segmentation results.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`text`**
-    - The text prompt used to guide the segmentation process, influencing the areas of the image that will be segmented.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The text prompt used to guide the segmentation process, influencing the areas of the image that will be segmented.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`threshold`**
-    - A threshold value for determining the segmentation cut-off, affecting the sensitivity of the segmentation process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A threshold value for determining the segmentation cut-off, affecting the sensitivity of the segmentation process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`binary_mask`**
-    - A boolean flag indicating whether the output mask should be binary, affecting the format of the segmentation result.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the output mask should be binary, affecting the format of the segmentation result.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`combine_mask`**
-    - A boolean flag indicating whether to combine the output masks for batch processing, affecting the structure of the output.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to combine the output masks for batch processing, affecting the structure of the output.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`use_cuda`**
-    - A flag indicating whether to use CUDA for processing. This affects the execution speed and efficiency, especially for large batches of images.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether to use CUDA for processing. This affects the execution speed and efficiency, especially for large batches of images.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`blur_sigma`**
-    - The sigma value for Gaussian blur to apply to the output mask, affecting the smoothness of the mask edges.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The sigma value for Gaussian blur to apply to the output mask, affecting the smoothness of the mask edges.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`opt_model`**
-    - An optional pre-loaded model and processor to use for segmentation, allowing for flexibility in model choice and potential reuse of resources.
-    - Comfy dtype: `CLIPSEGMODEL`
-    - Python dtype: `dict`
+  - An optional pre-loaded model and processor to use for segmentation, allowing for flexibility in model choice and potential reuse of resources.
+  - Comfy dtype: `CLIPSEGMODEL`
+  - Python dtype: `dict`
 - **`prev_mask`**
-    - An optional previous mask to be combined with the current segmentation, allowing for iterative segmentation refinement.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional previous mask to be combined with the current segmentation, allowing for iterative segmentation refinement.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`image_bg_level`**
-    - The background level for the image, affecting the contrast and visibility of the segmentation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The background level for the image, affecting the contrast and visibility of the segmentation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`invert`**
-    - A boolean flag indicating whether to invert the output mask, affecting the segmentation's focus area.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to invert the output mask, affecting the segmentation's focus area.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`Mask`**
-    - Comfy dtype: `MASK`
-    - The output mask generated from the segmentation process, providing a binary or probabilistic map of the segmented areas.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output mask generated from the segmentation process, providing a binary or probabilistic map of the segmented areas.
+  - Python dtype: `torch.Tensor`
 - **`Image`**
-    - Comfy dtype: `IMAGE`
-    - The original image overlaid with the segmentation mask, visually representing the segmentation results.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The original image overlaid with the segmentation mask, visually representing the segmentation results.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchCLIPSeg:
 
     def __init__(self):
         pass
-    
+
     @classmethod
     def INPUT_TYPES(s):
-       
+
         return {"required":
                     {
                         "images": ("IMAGE",),
@@ -138,7 +149,7 @@ Segments an image or batch of images using CLIPSeg.
 
         B, H, W, C = images.shape
         images = images.to(device)
-        
+
         autocast_condition = (dtype != torch.float32) and not model_management.is_device_mps(device)
         with torch.autocast(model_management.get_autocast_device(device), dtype=dtype) if autocast_condition else nullcontext():
 
@@ -160,11 +171,11 @@ Segments an image or batch of images using CLIPSeg.
         mask_tensor = mask_tensor.squeeze(1)
 
         self.model.to(offload_device)
-        
+
         if binary_mask:
             mask_tensor = (mask_tensor > 0).float()
         if blur_sigma > 0:
-            kernel_size = int(6 * int(blur_sigma) + 1) 
+            kernel_size = int(6 * int(blur_sigma) + 1)
             blur = transforms.GaussianBlur(kernel_size=(kernel_size, kernel_size), sigma=(blur_sigma, blur_sigma))
             mask_tensor = blur(mask_tensor)
 
@@ -188,7 +199,7 @@ Segments an image or batch of images using CLIPSeg.
         image_tensor = torch.clamp(image_tensor, min=0.0, max=1.0).cpu().float()
 
         mask_tensor = mask_tensor.cpu().float()
-    
-        return mask_tensor, image_tensor, 
+
+        return mask_tensor, image_tensor,
 
 ```

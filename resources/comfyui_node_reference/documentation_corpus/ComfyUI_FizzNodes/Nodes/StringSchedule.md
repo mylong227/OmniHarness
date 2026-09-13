@@ -1,74 +1,85 @@
 ---
 tags:
-- AnimationScheduling
-- Scheduling
+  - AnimationScheduling
+  - Scheduling
 ---
 
 # String Schedule 📅🅕🅝
+
 ## Documentation
+
 - Class name: `StringSchedule`
 - Category: `FizzNodes 📅🅕🅝/ScheduleNodes`
 - Output node: `False`
 
 This node is designed for scheduling and animating text and other elements within a given frame range. It supports dynamic text updates, conditional formatting based on frame-specific parameters, and the integration of various inputs to create complex animation sequences. The node facilitates the creation of animated visual content by interpolating between values or states across frames, enabling the development of engaging and dynamic presentations.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The primary text input for animation, serving as the base content or narrative to be animated or modified across frames.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text input for animation, serving as the base content or narrative to be animated or modified across frames.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`max_frames`**
-    - Specifies the maximum number of frames for the animation, defining the length of the animation sequence.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the maximum number of frames for the animation, defining the length of the animation sequence.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`current_frame`**
-    - Indicates the current frame number within the animation sequence, used to determine the specific modifications or animations to apply.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Indicates the current frame number within the animation sequence, used to determine the specific modifications or animations to apply.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`print_output`**
-    - A boolean flag to enable or disable printing of the animation output for debugging or preview purposes.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag to enable or disable printing of the animation output for debugging or preview purposes.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`pre_text`**
-    - Optional text input that precedes the main text, used for adding introductory or contextual content to the animation.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Optional text input that precedes the main text, used for adding introductory or contextual content to the animation.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`app_text`**
-    - Optional text input that appends to the main text, used for adding concluding or additional content to the animation.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Optional text input that appends to the main text, used for adding concluding or additional content to the animation.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`pw_a`**
-    - A parameter weight used for adjusting or influencing the animation or text modification process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter weight used for adjusting or influencing the animation or text modification process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_b`**
-    - A parameter weight used for adjusting or influencing the animation or text modification process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter weight used for adjusting or influencing the animation or text modification process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_c`**
-    - A parameter weight used for adjusting or influencing the animation or text modification process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter weight used for adjusting or influencing the animation or text modification process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_d`**
-    - A parameter weight used for adjusting or influencing the animation or text modification process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter weight used for adjusting or influencing the animation or text modification process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`POS`**
-    - Comfy dtype: `STRING`
-    - Outputs the positive conditioning or formatted text for the current frame, reflecting dynamic changes or emphasis.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - Outputs the positive conditioning or formatted text for the current frame, reflecting dynamic changes or emphasis.
+  - Python dtype: `str`
 - **`NEG`**
-    - Comfy dtype: `STRING`
-    - Outputs the negative conditioning or formatted text for the current frame, providing contrast or alternative emphasis.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - Outputs the negative conditioning or formatted text for the current frame, providing contrast or alternative emphasis.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class StringSchedule:
     @classmethod

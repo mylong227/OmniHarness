@@ -1,46 +1,57 @@
 ---
 tags:
-- AnimationScheduling
-- VisualEffects
+  - AnimationScheduling
+  - VisualEffects
 ---
 
 # FL Ripple
+
 ## Documentation
+
 - Class name: `FL_Ripple`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_Ripple node applies a ripple effect to a collection of images, transforming each image by simulating a ripple pattern. This effect is achieved through mathematical manipulation of the image pixels, based on specified parameters such as amplitude, frequency, and phase, to create visually dynamic results.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A collection of images to which the ripple effect will be applied. This parameter is essential for determining the input images that will undergo the transformation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - A collection of images to which the ripple effect will be applied. This parameter is essential for determining the input images that will undergo the transformation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
+
 ### Optional
+
 - **`amplitude`**
-    - Defines the height of the ripple waves. A higher amplitude results in more pronounced ripples.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the height of the ripple waves. A higher amplitude results in more pronounced ripples.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`frequency`**
-    - Determines the number of ripples in the image. Higher frequencies result in more ripples within a given space.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the number of ripples in the image. Higher frequencies result in more ripples within a given space.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`phase`**
-    - Adjusts the starting point of the ripple effect, allowing for phase shifts in the wave pattern.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the starting point of the ripple effect, allowing for phase shifts in the wave pattern.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image with the ripple effect applied, represented as a tensor.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is an image with the ripple effect applied, represented as a tensor.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_Ripple:
     @classmethod

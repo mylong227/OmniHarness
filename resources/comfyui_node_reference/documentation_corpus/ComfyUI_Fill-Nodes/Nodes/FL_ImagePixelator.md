@@ -1,41 +1,50 @@
 ---
 tags:
-- ImageTransformation
-- VisualEffects
+  - ImageTransformation
+  - VisualEffects
 ---
 
 # FL Image Pixelator
+
 ## Documentation
+
 - Class name: `FL_ImagePixelator`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_ImagePixelator node applies pixelation effects to images, supporting both individual images and batches. It can process images represented as tensors or PIL images, applying a scale factor to pixelate the image and a kernel size for additional processing, enhancing the pixelation effect.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image to be pixelated. This can be a single image or a batch of images, in either torch.Tensor or PIL.Image format. It's the primary input for pixelation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Union[torch.Tensor, PIL.Image.Image]`
+  - The image to be pixelated. This can be a single image or a batch of images, in either torch.Tensor or PIL.Image format. It's the primary input for pixelation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Union[torch.Tensor, PIL.Image.Image]`
 - **`scale_factor`**
-    - Determines the intensity of the pixelation effect by scaling the image's resolution down before scaling it back up.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the intensity of the pixelation effect by scaling the image's resolution down before scaling it back up.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`kernel_size`**
-    - Specifies the size of the kernel used in the additional processing step after pixelation, affecting the final appearance of the pixelated image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the size of the kernel used in the additional processing step after pixelation, affecting the final appearance of the pixelated image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The pixelated image, processed according to the specified scale factor and kernel size. It can be a single image or a batch of images, in the same format as the input.
-    - Python dtype: `Union[torch.Tensor, PIL.Image.Image]`
+  - Comfy dtype: `IMAGE`
+  - The pixelated image, processed according to the specified scale factor and kernel size. It can be a single image or a batch of images, in the same format as the input.
+  - Python dtype: `Union[torch.Tensor, PIL.Image.Image]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_ImagePixelator:
     @classmethod

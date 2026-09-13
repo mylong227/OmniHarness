@@ -1,36 +1,45 @@
 ---
 tags:
-- ImageEnhancement
+  - ImageEnhancement
 ---
 
 # Inference_Core_ModelSamplerTonemapNoiseTest
+
 ## Documentation
+
 - Class name: `Inference_Core_ModelSamplerTonemapNoiseTest`
 - Category: `custom_node_experiments`
 - Output node: `False`
 
 This node applies a tonemapping technique to modify the noise prediction vector magnitude in a model's sampler, aiming to enhance image generation quality by adjusting the contrast and brightness based on the Reinhard tonemapping algorithm. It allows for dynamic adjustment of the effect through a multiplier, facilitating experimentation with different levels of tonemapping intensity.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the tonemapping technique will be applied. This is crucial for modifying the model's internal sampler configuration to achieve the desired image generation enhancements.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to which the tonemapping technique will be applied. This is crucial for modifying the model's internal sampler configuration to achieve the desired image generation enhancements.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`multiplier`**
-    - A scalar value used to adjust the intensity of the tonemapping effect applied to the noise prediction vector magnitude, allowing for fine-tuning of the image's contrast and brightness.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scalar value used to adjust the intensity of the tonemapping effect applied to the noise prediction vector magnitude, allowing for fine-tuning of the image's contrast and brightness.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The modified model with an updated sampler configuration that incorporates the tonemapping technique, aimed at improving image generation quality.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The modified model with an updated sampler configuration that incorporates the tonemapping technique, aimed at improving image generation quality.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ModelSamplerTonemapNoiseTest:
     @classmethod
@@ -44,7 +53,7 @@ class ModelSamplerTonemapNoiseTest:
     CATEGORY = "custom_node_experiments"
 
     def patch(self, model, multiplier):
-        
+
         def sampler_tonemap_reinhard(args):
             cond = args["cond"]
             uncond = args["uncond"]

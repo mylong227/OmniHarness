@@ -1,38 +1,49 @@
 ---
 tags:
-- AnimationScheduling
+  - AnimationScheduling
 ---
 
 # Preview Animation
+
 ## Documentation
+
 - Class name: `PreviewAnimation`
 - Category: `KJNodes/image`
 - Output node: `True`
 
 The PreviewAnimation node is designed to generate a preview animation from a sequence of images, optionally applying masks to each frame. It allows for the customization of the animation's frames per second (fps), enabling the creation of smooth transitions and dynamic visualizations tailored to specific requirements.
+
 ## Input types
+
 ### Required
+
 - **`fps`**
-    - Specifies the frames per second for the animation, controlling the speed at which the images are displayed.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `int`
+  - Specifies the frames per second for the animation, controlling the speed at which the images are displayed.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`images`**
-    - A list of images to be included in the animation. Each image in the sequence contributes to the overall animation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[Image]`
+  - A list of images to be included in the animation. Each image in the sequence contributes to the overall animation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[Image]`
 - **`masks`**
-    - Optional masks to apply to each image in the sequence, allowing for selective visibility or effects on the animation frames.
-    - Comfy dtype: `MASK`
-    - Python dtype: `List[Image]`
+  - Optional masks to apply to each image in the sequence, allowing for selective visibility or effects on the animation frames.
+  - Comfy dtype: `MASK`
+  - Python dtype: `List[Image]`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PreviewAnimation:
     def __init__(self):
@@ -72,7 +83,7 @@ class PreviewAnimation:
                 img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
                 pil_images.append(img)
             for mask in masks:
-                if pil_images: 
+                if pil_images:
                     mask_np = mask.cpu().numpy()
                     mask_np = np.clip(mask_np * 255, 0, 255).astype(np.uint8)  # Convert to values between 0 and 255
                     mask_img = Image.fromarray(mask_np, mode='L')

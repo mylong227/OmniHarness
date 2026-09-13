@@ -1,33 +1,42 @@
 ---
 tags:
-- SMPLModel
+  - SMPLModel
 ---
 
 # Save SMPL
+
 ## Documentation
+
 - Class name: `SaveSMPL`
 - Category: `MotionDiff/smpl`
 - Output node: `True`
 
 The SaveSMPL node is designed for saving SMPL model data, including thetas and metadata, to a specified output directory. It supports appending a custom prefix to the filename and saving the data in a structured format for further use or analysis.
+
 ## Input types
+
 ### Required
+
 - **`smpl`**
-    - The SMPL model data to be saved, including thetas and metadata, which are crucial for reconstructing the 3D model.
-    - Comfy dtype: `SMPL`
-    - Python dtype: `Tuple[torch.Tensor, torch.Tensor, Dict]`
+  - The SMPL model data to be saved, including thetas and metadata, which are crucial for reconstructing the 3D model.
+  - Comfy dtype: `SMPL`
+  - Python dtype: `Tuple[torch.Tensor, torch.Tensor, Dict]`
 - **`filename_prefix`**
-    - A prefix for the filename to help organize and identify the saved SMPL model data files easily.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix for the filename to help organize and identify the saved SMPL model data files easily.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaveSMPL:
     def __init__(self):

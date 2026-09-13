@@ -1,37 +1,46 @@
 ---
 tags:
-- BackgroundRemoval
-- Image
+  - BackgroundRemoval
+  - Image
 ---
 
 # 🔧 RemBG Session
+
 ## Documentation
+
 - Class name: `RemBGSession+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 The RemBGSession node is designed for background removal from images, utilizing various models to cater to different purposes such as general image segmentation, human segmentation, and cloth parsing. It supports execution on multiple hardware providers, allowing for flexible deployment.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model to be used for background removal, offering a range of options for different segmentation tasks.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the model to be used for background removal, offering a range of options for different segmentation tasks.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`providers`**
-    - Determines the hardware provider for executing the model, supporting a variety of platforms including CPU, CUDA, and more.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the hardware provider for executing the model, supporting a variety of platforms including CPU, CUDA, and more.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`rembg_session`**
-    - Comfy dtype: `REMBG_SESSION`
-    - Produces a session configured for background removal, ready to process images according to the specified model and provider.
-    - Python dtype: `rembg.Session`
+  - Comfy dtype: `REMBG_SESSION`
+  - Produces a session configured for background removal, ready to process images according to the specified model and provider.
+  - Python dtype: `rembg.Session`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class RemBGSession:
     @classmethod

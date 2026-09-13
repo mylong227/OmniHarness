@@ -1,74 +1,85 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Video Combine 🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_VideoCombine`
 - Category: `Video Helper Suite 🎥🅥🅗🅢`
 - Output node: `True`
 
 The VHS_VideoCombine node is designed for creating animated videos or GIFs by combining multiple images or latent representations. It supports various customization options such as frame rate adjustment, looping, format selection, and the inclusion of audio. This node is part of the Video Helper Suite, aimed at facilitating video processing and generation tasks.
+
 ## Input types
+
 ### Required
+
 - **`frame_rate`**
-    - Specifies the frame rate for the video or GIF, affecting how smoothly the animation plays.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the frame rate for the video or GIF, affecting how smoothly the animation plays.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`loop_count`**
-    - Determines how many times the animation will loop, with support for infinite looping.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines how many times the animation will loop, with support for infinite looping.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`filename_prefix`**
-    - The prefix for the output file name, allowing for easy identification of generated files.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The prefix for the output file name, allowing for easy identification of generated files.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`format`**
-    - The output format of the generated video or GIF, such as 'mp4' or 'gif'. Includes additional formats supported by ffmpeg.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - The output format of the generated video or GIF, such as 'mp4' or 'gif'. Includes additional formats supported by ffmpeg.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`pingpong`**
-    - When enabled, the animation will play forwards and then backwards, creating a seamless looping effect.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - When enabled, the animation will play forwards and then backwards, creating a seamless looping effect.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`save_output`**
-    - Controls whether the generated video or GIF is saved to disk.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether the generated video or GIF is saved to disk.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`images`**
-    - An optional list of images to be combined into a video or GIF. If not provided, latents may be used instead.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor] or None`
+  - An optional list of images to be combined into a video or GIF. If not provided, latents may be used instead.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor] or None`
 - **`audio`**
-    - An optional audio file to be included in the video, enhancing the multimedia experience.
-    - Comfy dtype: `VHS_AUDIO`
-    - Python dtype: `torch.Tensor or None`
+  - An optional audio file to be included in the video, enhancing the multimedia experience.
+  - Comfy dtype: `VHS_AUDIO`
+  - Python dtype: `torch.Tensor or None`
 - **`meta_batch`**
-    - Metadata associated with the batch of images or latents being processed, useful for batch operations.
-    - Comfy dtype: `VHS_BatchManager`
-    - Python dtype: `Dict[str, Any] or None`
+  - Metadata associated with the batch of images or latents being processed, useful for batch operations.
+  - Comfy dtype: `VHS_BatchManager`
+  - Python dtype: `Dict[str, Any] or None`
 - **`vae`**
-    - The VAE model used for decoding latent representations into images, necessary when latents are provided.
-    - Comfy dtype: `VAE`
-    - Python dtype: `torch.nn.Module or None`
+  - The VAE model used for decoding latent representations into images, necessary when latents are provided.
+  - Comfy dtype: `VAE`
+  - Python dtype: `torch.nn.Module or None`
 - **`latents`**
-    - An optional list of latent representations to be converted into images for the video or GIF. Requires a VAE model to decode.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `List[torch.Tensor] or None`
+  - An optional list of latent representations to be converted into images for the video or GIF. Requires a VAE model to decode.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `List[torch.Tensor] or None`
+
 ## Output types
+
 - **`Filenames`**
-    - Comfy dtype: `VHS_FILENAMES`
-    - The filenames of the generated videos or GIFs, indicating where the output files have been saved.
-    - Python dtype: `List[str]`
+  - Comfy dtype: `VHS_FILENAMES`
+  - The filenames of the generated videos or GIFs, indicating where the output files have been saved.
+  - Python dtype: `List[str]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class VideoCombine:
     @classmethod

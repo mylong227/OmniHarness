@@ -1,42 +1,53 @@
 ---
 tags:
-- Mask
-- MaskRegion
+  - Mask
+  - MaskRegion
 ---
 
 # Add Noise to Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskNoiseAddition`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 The SaltMaskNoiseAddition node is designed to introduce noise into mask regions, simulating variations and imperfections that might occur in real-world scenarios. It allows for the customization of the noise characteristics through parameters such as mean and standard deviation, enabling a wide range of noise effects.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The 'masks' input is a collection of mask regions to which noise will be added. This parameter is essential for defining the areas where the noise effect will be applied, impacting the node's execution and the visual outcome of the noise addition.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The 'masks' input is a collection of mask regions to which noise will be added. This parameter is essential for defining the areas where the noise effect will be applied, impacting the node's execution and the visual outcome of the noise addition.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`mean`**
-    - The 'mean' parameter specifies the average value of the noise distribution. Adjusting this value allows for controlling the overall brightness or darkness of the added noise, influencing the visual appearance of the masks.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The 'mean' parameter specifies the average value of the noise distribution. Adjusting this value allows for controlling the overall brightness or darkness of the added noise, influencing the visual appearance of the masks.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`stddev`**
-    - The 'stddev' parameter determines the standard deviation of the noise distribution. This affects the variability and intensity of the noise added to the masks, enabling fine-tuning of the noise effect to achieve desired outcomes.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The 'stddev' parameter determines the standard deviation of the noise distribution. This affects the variability and intensity of the noise added to the masks, enabling fine-tuning of the noise effect to achieve desired outcomes.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output 'MASKS' consists of the original mask regions with added noise, reflecting the specified mean and standard deviation parameters. This modified set of masks can be used for further processing or visualization.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output 'MASKS' consists of the original mask regions with added noise, reflecting the specified mean and standard deviation parameters. This modified set of masks can be used for further processing or visualization.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskNoiseAddition:
     @classmethod

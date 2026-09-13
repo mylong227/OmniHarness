@@ -1,44 +1,53 @@
 ---
 tags:
-- VAE
+  - VAE
 ---
 
 # SUPIR Decode
+
 ## Documentation
+
 - Class name: `SUPIR_decode`
 - Category: `SUPIR`
 - Output node: `False`
 
 The SUPIR_decode node is designed for decoding latent representations into images using a specific VAE model within the SUPIR framework. It focuses on reconstructing images from their encoded state, potentially after modifications or processing in the latent space, thereby enabling the generation of images or the restoration of details from compressed or abstract representations.
+
 ## Input types
+
 ### Required
+
 - **`SUPIR_VAE`**
-    - The VAE model used for decoding. It is crucial for the decoding process as it defines the architecture and parameters that will be used to reconstruct the image from its latent representation.
-    - Comfy dtype: `SUPIRVAE`
-    - Python dtype: `torch.nn.Module`
+  - The VAE model used for decoding. It is crucial for the decoding process as it defines the architecture and parameters that will be used to reconstruct the image from its latent representation.
+  - Comfy dtype: `SUPIRVAE`
+  - Python dtype: `torch.nn.Module`
 - **`latents`**
-    - The latent representation of an image that is to be decoded. This input is essential for the reconstruction process, as it contains the compressed information that will be expanded back into an image.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - The latent representation of an image that is to be decoded. This input is essential for the reconstruction process, as it contains the compressed information that will be expanded back into an image.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`use_tiled_vae`**
-    - A flag indicating whether to use a tiled approach for the VAE decoding. This affects the decoding process by potentially improving the handling of large images or enhancing performance on certain hardware configurations.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether to use a tiled approach for the VAE decoding. This affects the decoding process by potentially improving the handling of large images or enhancing performance on certain hardware configurations.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`decoder_tile_size`**
-    - Specifies the size of the tiles when using a tiled VAE decoding approach. This parameter is critical for determining the resolution and detail in the reconstructed image, affecting the overall quality and efficiency of the decoding process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the size of the tiles when using a tiled VAE decoding approach. This parameter is critical for determining the resolution and detail in the reconstructed image, affecting the overall quality and efficiency of the decoding process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The image resulting from the decoding process. It represents the final output where the latent representation has been transformed back into visual form, showcasing the reconstructed or generated image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The image resulting from the decoding process. It represents the final output where the latent representation has been transformed back into visual form, showcasing the reconstructed or generated image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SUPIR_decode:
     @classmethod
@@ -60,11 +69,11 @@ class SUPIR_decode:
         device = mm.get_torch_device()
         mm.unload_all_models()
         samples = latents["samples"]
-        
+
         B, H, W, C = samples.shape
-                
+
         pbar = comfy.utils.ProgressBar(B)
-       
+
         if mm.should_use_bf16():
             print("Decoder using bf16")
             dtype = torch.bfloat16
@@ -72,7 +81,7 @@ class SUPIR_decode:
             print("Decoder using fp32")
             dtype = torch.float32
         print("SUPIR decoder using", dtype)
-           
+
         SUPIR_VAE.to(dtype).to(device)
         samples = samples.to(device)
 
@@ -108,7 +117,7 @@ class SUPIR_decode:
 
         decoded_out = torch.clip(decoded_out, 0, 1)
         decoded_out = decoded_out.cpu().to(torch.float32).permute(0, 2, 3, 1)
-        
+
 
         return (decoded_out,)
 

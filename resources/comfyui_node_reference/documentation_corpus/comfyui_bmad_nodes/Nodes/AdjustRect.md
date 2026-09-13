@@ -1,65 +1,74 @@
 ---
 tags:
-- Contour
-- Image
+  - Contour
+  - Image
 ---
 
 # AdjustRect
+
 ## Documentation
+
 - Class name: `AdjustRect`
 - Category: `Bmad`
 - Output node: `False`
 
 The AdjustRect node is designed to modify the dimensions of a rectangle based on specified parameters, ensuring the new rectangle adheres to certain constraints like center alignment and size adjustments. It abstracts the complexity of geometric transformations, offering a straightforward way to recalibrate rectangle dimensions for various applications.
+
 ## Input types
+
 ### Required
+
 - **`a`**
-    - Represents one of the coordinates (x or y) of the rectangle, contributing to defining its initial position.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Represents one of the coordinates (x or y) of the rectangle, contributing to defining its initial position.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`b`**
-    - Represents another coordinate (x or y) of the rectangle, working alongside 'a' to specify the rectangle's starting dimensions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Represents another coordinate (x or y) of the rectangle, working alongside 'a' to specify the rectangle's starting dimensions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`c`**
-    - Defines one of the dimensions (width or height) of the rectangle, influencing its size before adjustment.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines one of the dimensions (width or height) of the rectangle, influencing its size before adjustment.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`d`**
-    - Defines another dimension (width or height) of the rectangle, used in conjunction with 'c' to determine the initial size.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines another dimension (width or height) of the rectangle, used in conjunction with 'c' to determine the initial size.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`xm`**
-    - Specifies the factor by which the rectangle's width is adjusted, ensuring the new width is a multiple of this value.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the factor by which the rectangle's width is adjusted, ensuring the new width is a multiple of this value.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`ym`**
-    - Specifies the factor by which the rectangle's height is adjusted, ensuring the new height is a multiple of this value.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the factor by which the rectangle's height is adjusted, ensuring the new height is a multiple of this value.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`round_mode`**
-    - Determines the rounding method used when adjusting the rectangle's dimensions, affecting the precision of the adjustment.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the rounding method used when adjusting the rectangle's dimensions, affecting the precision of the adjustment.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`input_format`**
-    - Indicates the format of the input rectangle coordinates, dictating how they should be interpreted and transformed.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates the format of the input rectangle coordinates, dictating how they should be interpreted and transformed.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`output_format`**
-    - Specifies the format for the output rectangle coordinates, determining how the adjusted dimensions are represented.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the format for the output rectangle coordinates, determining how the adjusted dimensions are represented.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`int`**
-    - Comfy dtype: `INT`
-    - Each element of the output tuple represents a coordinate or dimension of the adjusted rectangle, reflecting the modifications applied to the original dimensions. The output is a tuple of integers, each specifying a part of the rectangle's adjusted geometry.
-    - Python dtype: `Tuple[int, int, int, int]`
+  - Comfy dtype: `INT`
+  - Each element of the output tuple represents a coordinate or dimension of the adjusted rectangle, reflecting the modifications applied to the original dimensions. The output is a tuple of integers, each specifying a part of the rectangle's adjusted geometry.
+  - Python dtype: `Tuple[int, int, int, int]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AdjustRect:
     round_mode_map = {

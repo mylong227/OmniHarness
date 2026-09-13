@@ -1,46 +1,55 @@
 ---
 tags:
-- CLIP
-- CLIPConditioning
-- Conditioning
+  - CLIP
+  - CLIPConditioning
+  - Conditioning
 ---
 
 # CLIPEncodeMultipleAdvanced
+
 ## Documentation
+
 - Class name: `CLIPEncodeMultipleAdvanced`
 - Category: `Bmad/conditioning`
 - Output node: `False`
 
 This node is designed for advanced text encoding using the CLIP model, capable of processing multiple inputs simultaneously. It extends the functionality of a standard CLIP text encoding by allowing for a customizable number of inputs, each potentially undergoing a unique encoding process based on token normalization and weight interpretation. The node is optimized for scenarios requiring batch processing of text inputs for conditioning generation models, making it a versatile tool in the generation of conditioned outputs.
+
 ## Input types
+
 ### Required
+
 - **`clip`**
-    - The CLIP model used for encoding the text inputs. It plays a crucial role in determining the quality and relevance of the encoded vectors.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `torch.nn.Module`
+  - The CLIP model used for encoding the text inputs. It plays a crucial role in determining the quality and relevance of the encoded vectors.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `torch.nn.Module`
 - **`token_normalization`**
-    - A flag indicating whether or not to normalize the tokens during the encoding process. This affects the consistency and comparability of the encoded vectors.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - A flag indicating whether or not to normalize the tokens during the encoding process. This affects the consistency and comparability of the encoded vectors.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`weight_interpretation`**
-    - A parameter that influences how the weights are interpreted during the encoding process, affecting the emphasis on different aspects of the input text.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - A parameter that influences how the weights are interpreted during the encoding process, affecting the emphasis on different aspects of the input text.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`inputs_len`**
-    - Specifies the number of text inputs to be encoded. This allows for dynamic adjustment of batch sizes for encoding, accommodating a variable number of inputs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of text inputs to be encoded. This allows for dynamic adjustment of batch sizes for encoding, accommodating a variable number of inputs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - A list of conditioning vectors generated from the input texts, tailored for use in generation models requiring conditioned inputs.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `CONDITIONING`
+  - A list of conditioning vectors generated from the input texts, tailored for use in generation models requiring conditioned inputs.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CLIPEncodeMultipleAdvanced(AdvancedCLIPTextEncode):
     @classmethod

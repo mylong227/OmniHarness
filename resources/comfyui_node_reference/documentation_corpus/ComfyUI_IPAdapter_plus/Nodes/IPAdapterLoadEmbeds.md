@@ -1,32 +1,41 @@
 ---
 tags:
-- IPAdapter
+  - IPAdapter
 ---
 
 # IPAdapter Load Embeds
+
 ## Documentation
+
 - Class name: `IPAdapterLoadEmbeds`
 - Category: `ipadapter/embeds`
 - Output node: `False`
 
 The IPAdapterLoadEmbeds node is designed for loading pre-saved embedding vectors from files with a specific extension, facilitating the reuse of embeddings in image processing applications.
+
 ## Input types
+
 ### Required
+
 - **`embeds`**
-    - Specifies the file names from which to load the embeddings, enabling the selection of specific pre-saved embeddings for use in the node's operation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the file names from which to load the embeddings, enabling the selection of specific pre-saved embeddings for use in the node's operation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
+
 ## Output types
+
 - **`embeds`**
-    - Comfy dtype: `EMBEDS`
-    - Returns the loaded embedding vectors, making them available for further processing or application within the image generation pipeline.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `EMBEDS`
+  - Returns the loaded embedding vectors, making them available for further processing or application within the image generation pipeline.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterLoadEmbeds:
     @classmethod

@@ -1,53 +1,63 @@
 ---
 tags:
-- Image
-- ImageComposite
+  - Image
+  - ImageComposite
 ---
 
 # SEGSPaste
+
 ## Documentation
+
 - Class name: `SEGSPaste`
 - Category: `ImpactPack/Detailer`
 - Output node: `False`
 
 This node specializes in blending and manipulating image segments, leveraging latent space representations to achieve seamless integration of visual elements. It focuses on the precise control over the placement and blending of image segments within a given scene, enhancing the overall composition through advanced conditioning techniques.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - A string path or identifier for an image that is to be blended or manipulated within the scene. It serves as a secondary input for visual reference or direct integration.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `str`
+  - A string path or identifier for an image that is to be blended or manipulated within the scene. It serves as a secondary input for visual reference or direct integration.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `str`
 - **`segs`**
-    - Represents the segments to be manipulated or blended, providing the primary elements for visual composition within the node.
-    - Comfy dtype: `SEGS`
-    - Python dtype: `torch.Tensor`
+  - Represents the segments to be manipulated or blended, providing the primary elements for visual composition within the node.
+  - Comfy dtype: `SEGS`
+  - Python dtype: `torch.Tensor`
 - **`feather`**
-    - Defines the feathering amount for the edges of the segments, allowing for smoother integration into the target scene.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the feathering amount for the edges of the segments, allowing for smoother integration into the target scene.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`alpha`**
-    - Specifies the opacity level of the segments, enabling fine-tuned control over their visibility and blending with the background.
-    - Comfy dtype: `INT`
-    - Python dtype: `float`
+  - Specifies the opacity level of the segments, enabling fine-tuned control over their visibility and blending with the background.
+  - Comfy dtype: `INT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`ref_image_opt`**
-    - Optional. A reference image that can be used for additional context or alignment purposes during the manipulation process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Optional[str]`
+  - Optional. A reference image that can be used for additional context or alignment purposes during the manipulation process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Optional[str]`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Outputs the modified image after the blending and manipulation processes, incorporating the segments seamlessly into the scene.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - Outputs the modified image after the blending and manipulation processes, incorporating the segments seamlessly into the scene.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [VHS_VideoCombine](../../ComfyUI-VideoHelperSuite/Nodes/VHS_VideoCombine.md)
-    - [ImageUpscaleWithModel](../../Comfy/Nodes/ImageUpscaleWithModel.md)
-
-
+  - [VHS_VideoCombine](../../ComfyUI-VideoHelperSuite/Nodes/VHS_VideoCombine.md)
+  - [ImageUpscaleWithModel](../../Comfy/Nodes/ImageUpscaleWithModel.md)
 
 ## Source code
+
 ```python
 class SEGSPaste:
     @classmethod

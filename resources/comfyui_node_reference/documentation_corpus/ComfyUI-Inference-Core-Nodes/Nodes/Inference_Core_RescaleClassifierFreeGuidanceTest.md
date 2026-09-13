@@ -1,37 +1,46 @@
 ---
 tags:
-- ModelGuidance
-- ModelPatch
+  - ModelGuidance
+  - ModelPatch
 ---
 
 # Inference_Core_RescaleClassifierFreeGuidanceTest
+
 ## Documentation
+
 - Class name: `Inference_Core_RescaleClassifierFreeGuidanceTest`
 - Category: `custom_node_experiments`
 - Output node: `False`
 
 This node applies a custom patch to a given model, enhancing its inference capabilities by rescaling the classifier-free guidance process. It adjusts the balance between conditioned and unconditioned generation through a specified multiplier, aiming to improve the model's output quality.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to be patched, which will have its classifier-free guidance process rescaled for improved inference performance.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to be patched, which will have its classifier-free guidance process rescaled for improved inference performance.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`multiplier`**
-    - A scalar value that adjusts the balance between conditioned and unconditioned generation, influencing the final output quality of the model.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scalar value that adjusts the balance between conditioned and unconditioned generation, influencing the final output quality of the model.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The patched model with an adjusted classifier-free guidance process for enhanced inference performance.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The patched model with an adjusted classifier-free guidance process for enhanced inference performance.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class RescaleClassifierFreeGuidance:
     @classmethod
@@ -45,7 +54,7 @@ class RescaleClassifierFreeGuidance:
     CATEGORY = "custom_node_experiments"
 
     def patch(self, model, multiplier):
-        
+
         def rescale_cfg(args):
             cond = args["cond"]
             uncond = args["uncond"]

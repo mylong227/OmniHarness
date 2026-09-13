@@ -1,32 +1,41 @@
 ---
 tags:
-- Mask
+  - Mask
 ---
 
 # Fill Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskFillRegion`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node is designed to fill regions within masks, transforming the input masks by identifying and filling specified regions to produce modified masks.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks to be processed for region filling. This parameter is crucial for determining the areas within each mask that will undergo the filling operation.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks to be processed for region filling. This parameter is crucial for determining the areas within each mask that will undergo the filling operation.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output consists of masks with specified regions filled, resulting from the processing of the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output consists of masks with specified regions filled, resulting from the processing of the input masks.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskFillRegion:
     @classmethod

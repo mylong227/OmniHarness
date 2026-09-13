@@ -1,86 +1,97 @@
 ---
 tags:
-- Image
-- TextOnImage
+  - Image
+  - TextOnImage
 ---
 
 # 🔧 Draw Text
+
 ## Documentation
+
 - Class name: `DrawText+`
 - Category: `essentials/text`
 - Output node: `False`
 
 The DrawText+ node is designed to render text onto images with customizable options such as font, size, color, and alignment. It supports adding shadows to text, adjusting text position with offsets, and can work with existing images or create new ones based on text dimensions.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The text to be rendered. It can span multiple lines and affects the overall size and layout of the resulting image.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The text to be rendered. It can span multiple lines and affects the overall size and layout of the resulting image.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`font`**
-    - Specifies the font type used for rendering the text. The choice of font impacts the text's appearance and style.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the font type used for rendering the text. The choice of font impacts the text's appearance and style.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`size`**
-    - Determines the font size for the text, directly influencing its visibility and fit within the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the font size for the text, directly influencing its visibility and fit within the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`color`**
-    - The color of the text, defined in a format that specifies its appearance on the image.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The color of the text, defined in a format that specifies its appearance on the image.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`background_color`**
-    - The background color of the image, which can be transparent or any solid color, setting the scene for the text.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The background color of the image, which can be transparent or any solid color, setting the scene for the text.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`shadow_distance`**
-    - The distance of the shadow from the text, enabling a depth effect. A value of 0 means no shadow.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The distance of the shadow from the text, enabling a depth effect. A value of 0 means no shadow.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`shadow_blur`**
-    - The blur radius for the text shadow, contributing to the softness and spread of the shadow effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The blur radius for the text shadow, contributing to the softness and spread of the shadow effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`shadow_color`**
-    - Color of the shadow, enhancing the text's readability or aesthetic appeal against the background.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Color of the shadow, enhancing the text's readability or aesthetic appeal against the background.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`horizontal_align`**
-    - Alignment of the text horizontally within the image, affecting its placement relative to the image's width.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Alignment of the text horizontally within the image, affecting its placement relative to the image's width.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`vertical_align`**
-    - Vertical alignment of the text within the image, impacting its position relative to the image's height.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Vertical alignment of the text within the image, impacting its position relative to the image's height.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`offset_x`**
-    - Horizontal offset for the text position, allowing fine-tuning of its exact location on the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Horizontal offset for the text position, allowing fine-tuning of its exact location on the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`offset_y`**
-    - Vertical offset for the text position, enabling precise adjustment of its placement.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Vertical offset for the text position, enabling precise adjustment of its placement.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`img_composite`**
-    - An optional existing image to render the text onto. If not provided, a new image is created based on text dimensions.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `PIL.Image.Image`
+  - An optional existing image to render the text onto. If not provided, a new image is created based on text dimensions.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `PIL.Image.Image`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The final image with the rendered text and applied customizations, including background and shadow effects if specified.
-    - Python dtype: `PIL.Image.Image`
+  - Comfy dtype: `IMAGE`
+  - The final image with the rendered text and applied customizations, including background and shadow effects if specified.
+  - Python dtype: `PIL.Image.Image`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - A mask representing the alpha channel of the final image, useful for further image processing or compositing.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - A mask representing the alpha channel of the final image, useful for further image processing or compositing.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DrawText:
     @classmethod
@@ -146,7 +157,7 @@ class DrawText:
                 x = (width - line_width) / 2
             elif horizontal_align == "right":
                 x = width - line_width
-            
+
             if vertical_align == "top":
                 y = 0
             elif vertical_align == "center":
@@ -174,7 +185,7 @@ class DrawText:
 
         if img_composite is not None:
             image = Image.alpha_composite(img_composite, image)
-        
+
         image = T.ToTensor()(image).unsqueeze(0).permute([0,2,3,1])
 
         return (image[:, :, :, :3], mask,)

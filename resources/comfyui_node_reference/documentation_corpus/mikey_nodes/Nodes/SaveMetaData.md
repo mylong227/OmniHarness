@@ -1,42 +1,51 @@
 ---
 tags:
-- Image
-- Metadata
+  - Image
+  - Metadata
 ---
 
 # SaveMetaData (Mikey)
+
 ## Documentation
+
 - Class name: `SaveMetaData`
 - Category: `Mikey/Meta`
 - Output node: `True`
 
 The SaveMetaData node is designed to save metadata information to a text file. It processes image metadata and additional information, such as prompts and extra PNG info, to generate a comprehensive metadata file that encapsulates various details about the image and its associated data.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image whose metadata is to be saved. This parameter is crucial as it determines the context and content of the metadata to be saved.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image whose metadata is to be saved. This parameter is crucial as it determines the context and content of the metadata to be saved.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`filename_prefix`**
-    - A prefix for the filename under which the metadata will be saved. This allows for customizable naming conventions for the metadata files.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix for the filename under which the metadata will be saved. This allows for customizable naming conventions for the metadata files.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`timestamp_prefix`**
-    - A boolean flag indicating whether to prepend a timestamp to the filename, aiding in organizing and sorting the metadata files.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to prepend a timestamp to the filename, aiding in organizing and sorting the metadata files.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`counter`**
-    - A boolean flag that determines whether a counter should be appended to the filename, useful for versioning or tracking multiple metadata files for the same image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - A boolean flag that determines whether a counter should be appended to the filename, useful for versioning or tracking multiple metadata files for the same image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaveMetaData:
     @classmethod

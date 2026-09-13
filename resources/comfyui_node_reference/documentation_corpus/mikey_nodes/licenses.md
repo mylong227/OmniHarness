@@ -1,10 +1,13 @@
 # Main License
+
 File name: `LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +27,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -46,21 +51,27 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 # Other detected licenses
+
 File name: `README.md`
 
 **Apache-2.0**
+
 ```
 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ```
+
 File name: `haar_cascade_models/animeface.xml`
 
 **MIT**
+
 ```
 The MIT License (MIT)
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -80,9 +91,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
+
 File name: `pyproject.toml`
 
 **MIT**
+
 ```
 license = "MIT License"
 ```

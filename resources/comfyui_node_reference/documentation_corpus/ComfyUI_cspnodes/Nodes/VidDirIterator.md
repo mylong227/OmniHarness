@@ -1,37 +1,46 @@
 ---
 tags:
-- Image
-- Multimedia
+  - Image
+  - Multimedia
 ---
 
 # Vid Dir Iterator
+
 ## Documentation
+
 - Class name: `VidDirIterator`
 - Category: `cspnodes`
 - Output node: `False`
 
 The VidDirIterator node is designed to navigate through directories containing video files, allowing for the retrieval of video file paths based on their index. This functionality facilitates the organization and selection of video content within a specified directory, streamlining the process of accessing and utilizing video files in various applications.
+
 ## Input types
+
 ### Required
+
 - **`directory_path`**
-    - Specifies the path to the directory containing video files. This path is crucial for the node to locate and list the video files for further operations.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the path to the directory containing video files. This path is crucial for the node to locate and list the video files for further operations.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`video_index`**
-    - Determines the index of the video file to retrieve from the sorted list of video files in the directory. This index is used to select a specific video file, enabling targeted access to video content.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the index of the video file to retrieve from the sorted list of video files in the directory. This index is used to select a specific video file, enabling targeted access to video content.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`string`**
-    - Comfy dtype: `STRING`
-    - Returns the path to the video file at the specified index within the directory. This output facilitates direct access to the selected video file for further processing or playback.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - Returns the path to the video file at the specified index within the directory. This output facilitates direct access to the selected video file for further processing or playback.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class VidDirIterator:
     @classmethod

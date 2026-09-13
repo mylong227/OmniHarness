@@ -1,51 +1,62 @@
 ---
 tags:
-- Image
-- ImageBlend
-- ImageComposite
+  - Image
+  - ImageBlend
+  - ImageComposite
 ---
 
 # Composite Images
+
 ## Documentation
+
 - Class name: `SaltImageBlendingModes`
 - Category: `SALT/Image/Composite`
 - Output node: `False`
 
 This node is designed for blending two sets of images together using a variety of blending modes. It allows for the adjustment of blend percentages and the application of masks to control the blending process, offering a flexible approach to creating composite images.
+
 ## Input types
+
 ### Required
+
 - **`images_a`**
-    - The first set of images to be blended. These serve as the base layer in the blending process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The first set of images to be blended. These serve as the base layer in the blending process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`images_b`**
-    - The second set of images to be blended with the first set. These images act as the overlay layer.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The second set of images to be blended with the first set. These images act as the overlay layer.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mode`**
-    - Specifies the blending mode to be used. Each mode applies a different algorithm for combining the images, affecting the visual outcome of the blend.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the blending mode to be used. Each mode applies a different algorithm for combining the images, affecting the visual outcome of the blend.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`blend_percentage`**
-    - Determines the intensity of the blend between the two image sets. A higher percentage results in a stronger presence of the overlay images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the intensity of the blend between the two image sets. A higher percentage results in a stronger presence of the overlay images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`masks`**
-    - Optional masks that can be applied to the images to control where the blending occurs. Useful for creating more precise or complex composite images.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Optional[torch.Tensor]`
+  - Optional masks that can be applied to the images to control where the blending occurs. Useful for creating more precise or complex composite images.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Optional[torch.Tensor]`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - The resulting set of blended images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting set of blended images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltImageBlendingModes:
     def __init__(self):
@@ -91,7 +102,7 @@ class SaltImageBlendingModes:
 
         if not isinstance(blend_percentage, list):
             blend_percentage = [blend_percentage]
-        
+
         if isinstance(masks, torch.Tensor):
             masks = masks2pils(masks)
 

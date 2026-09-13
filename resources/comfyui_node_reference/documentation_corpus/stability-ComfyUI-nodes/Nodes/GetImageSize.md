@@ -1,40 +1,48 @@
 ---
 tags:
-- ImageSize
-- ImageTransformation
+  - ImageSize
+  - ImageTransformation
 ---
 
 # GetImageSize
+
 ## Documentation
+
 - Class name: `GetImageSize`
 - Category: `stability/image`
 - Output node: `False`
 
 This node is designed to determine the dimensions of an image, specifically its width and height, by analyzing the image's shape.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image whose size is to be determined. This input is crucial for calculating the image's dimensions.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image whose size is to be determined. This input is crucial for calculating the image's dimensions.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`width`**
-    - Comfy dtype: `INT`
-    - The width of the input image, derived from its shape.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The width of the input image, derived from its shape.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The height of the input image, derived from its shape.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The height of the input image, derived from its shape.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [EmptyLatentImage](../../Comfy/Nodes/EmptyLatentImage.md)
-    - Reroute
-
-
+  - [EmptyLatentImage](../../Comfy/Nodes/EmptyLatentImage.md)
+  - Reroute
 
 ## Source code
+
 ```python
 class GetImageSize:
     @classmethod

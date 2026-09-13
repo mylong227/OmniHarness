@@ -1,48 +1,57 @@
 ---
 tags:
-- SigmaScheduling
+  - SigmaScheduling
 ---
 
 # Sigma Schedule Interpolated Mean 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_SigmaScheduleWeightedAverageInterp`
 - Category: `Animate Diff 🎭🅐🅓/sample settings/sigma schedule`
 - Output node: `False`
 
 This node is designed to create a new sigma schedule by interpolating between two given sigma schedules based on a specified weight range and interpolation method. It effectively blends the characteristics of both input schedules into a single, new schedule, allowing for dynamic adjustments in the diffusion process.
+
 ## Input types
+
 ### Required
+
 - **`schedule_A`**
-    - The first sigma schedule to be interpolated.
-    - Comfy dtype: `SIGMA_SCHEDULE`
-    - Python dtype: `SigmaSchedule`
+  - The first sigma schedule to be interpolated.
+  - Comfy dtype: `SIGMA_SCHEDULE`
+  - Python dtype: `SigmaSchedule`
 - **`schedule_B`**
-    - The second sigma schedule to be interpolated.
-    - Comfy dtype: `SIGMA_SCHEDULE`
-    - Python dtype: `SigmaSchedule`
+  - The second sigma schedule to be interpolated.
+  - Comfy dtype: `SIGMA_SCHEDULE`
+  - Python dtype: `SigmaSchedule`
 - **`weight_A_Start`**
-    - The starting weight for the first sigma schedule in the interpolation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The starting weight for the first sigma schedule in the interpolation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`weight_A_End`**
-    - The ending weight for the first sigma schedule in the interpolation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The ending weight for the first sigma schedule in the interpolation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`interpolation`**
-    - The method of interpolation to be used for blending the sigma schedules.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `InterpolationMethod`
+  - The method of interpolation to be used for blending the sigma schedules.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `InterpolationMethod`
+
 ## Output types
+
 - **`sigma_schedule`**
-    - Comfy dtype: `SIGMA_SCHEDULE`
-    - The resulting sigma schedule after interpolation.
-    - Python dtype: `SigmaSchedule`
+  - Comfy dtype: `SIGMA_SCHEDULE`
+  - The resulting sigma schedule after interpolation.
+  - Python dtype: `SigmaSchedule`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class InterpolatedWeightedAverageSigmaScheduleNode:
     @classmethod
@@ -56,7 +65,7 @@ class InterpolatedWeightedAverageSigmaScheduleNode:
                 "interpolation": (InterpolationMethod._LIST,),
             }
         }
-    
+
     RETURN_TYPES = ("SIGMA_SCHEDULE",)
     CATEGORY = "Animate Diff 🎭🅐🅓/sample settings/sigma schedule"
     FUNCTION = "get_sigma_schedule"

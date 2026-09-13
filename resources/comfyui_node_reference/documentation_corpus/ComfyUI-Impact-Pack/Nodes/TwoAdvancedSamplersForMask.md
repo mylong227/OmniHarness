@@ -1,60 +1,69 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # TwoAdvancedSamplersForMask
+
 ## Documentation
+
 - Class name: `TwoAdvancedSamplersForMask`
 - Category: `ImpactPack/Sampler`
 - Output node: `False`
 
 This node provides advanced sampling functionalities for image manipulation, specifically designed to work with masks. It enables the application of different sampling strategies to distinct regions of an image, as defined by a mask, allowing for precise control over the sampling process in areas of interest.
+
 ## Input types
+
 ### Required
+
 - **`seed`**
-    - The seed for random number generation, ensuring reproducibility of the sampling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The seed for random number generation, ensuring reproducibility of the sampling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`steps`**
-    - The total number of steps to perform in the advanced sampling process, affecting the granularity of the operation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The total number of steps to perform in the advanced sampling process, affecting the granularity of the operation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`denoise`**
-    - A factor that influences the denoising process during sampling, impacting the clarity and quality of the sampled image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A factor that influences the denoising process during sampling, impacting the clarity and quality of the sampled image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`samples`**
-    - The initial latent images to be processed, serving as the starting point for the sampling operation.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - The initial latent images to be processed, serving as the starting point for the sampling operation.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`base_sampler`**
-    - The sampler to apply to the region outside the mask, dictating the sampling behavior in non-masked areas.
-    - Comfy dtype: `KSAMPLER_ADVANCED`
-    - Python dtype: `object`
+  - The sampler to apply to the region outside the mask, dictating the sampling behavior in non-masked areas.
+  - Comfy dtype: `KSAMPLER_ADVANCED`
+  - Python dtype: `object`
 - **`mask_sampler`**
-    - The sampler to apply to the masked region, enabling specialized sampling within the mask boundaries.
-    - Comfy dtype: `KSAMPLER_ADVANCED`
-    - Python dtype: `object`
+  - The sampler to apply to the masked region, enabling specialized sampling within the mask boundaries.
+  - Comfy dtype: `KSAMPLER_ADVANCED`
+  - Python dtype: `object`
 - **`mask`**
-    - The mask defining areas of interest for different sampling strategies, guiding the application of the base and mask samplers.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask defining areas of interest for different sampling strategies, guiding the application of the base and mask samplers.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`overlap_factor`**
-    - A parameter controlling the extent of mask overlap, affecting the transition between sampled regions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A parameter controlling the extent of mask overlap, affecting the transition between sampled regions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The modified latent image after applying advanced sampling techniques, reflecting changes in both masked and non-masked regions.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `LATENT`
+  - The modified latent image after applying advanced sampling techniques, reflecting changes in both masked and non-masked regions.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TwoAdvancedSamplersForMask:
     @classmethod

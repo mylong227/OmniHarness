@@ -1,57 +1,68 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # A Person Mask Generator
+
 ## Documentation
+
 - Class name: `APersonMaskGenerator`
 - Category: `A Person Mask Generator - David Bielejeski`
 - Output node: `False`
 
 This node is designed to generate masks for persons in images, leveraging advanced segmentation techniques to isolate specific parts of a person, such as hair, body, face, and clothes. It utilizes image segmentation models to create detailed masks that can be used for various applications like image editing or augmentation.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The input images for which the masks need to be generated. They are essential for the segmentation process, as the quality and characteristics of the images directly influence the accuracy and detail of the generated masks.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The input images for which the masks need to be generated. They are essential for the segmentation process, as the quality and characteristics of the images directly influence the accuracy and detail of the generated masks.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`face_mask`**
-    - Indicates whether a mask for the face should be generated, allowing for targeted segmentation of the face area.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether a mask for the face should be generated, allowing for targeted segmentation of the face area.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`background_mask`**
-    - Indicates whether a mask for the background should be generated, enabling isolation or removal of the background from the image.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether a mask for the background should be generated, enabling isolation or removal of the background from the image.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`hair_mask`**
-    - Specifies whether a mask for the hair should be generated, facilitating targeted editing or enhancement of the hair in the image.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Specifies whether a mask for the hair should be generated, facilitating targeted editing or enhancement of the hair in the image.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`body_mask`**
-    - Determines whether a mask for the body should be generated, allowing for precise segmentation of the body area for various editing purposes.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether a mask for the body should be generated, allowing for precise segmentation of the body area for various editing purposes.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`clothes_mask`**
-    - Indicates whether a mask for the clothes should be generated, enabling detailed editing or alteration of clothing in the image.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether a mask for the clothes should be generated, enabling detailed editing or alteration of clothing in the image.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`confidence`**
-    - The confidence threshold for mask generation, affecting the precision and accuracy of the segmentation process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The confidence threshold for mask generation, affecting the precision and accuracy of the segmentation process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`masks`**
-    - Comfy dtype: `MASK`
-    - The generated masks highlighting the specified parts of the person. These masks can be used for various purposes, including image editing and augmentation.
-    - Python dtype: `PIL.Image`
+  - Comfy dtype: `MASK`
+  - The generated masks highlighting the specified parts of the person. These masks can be used for various purposes, including image editing and augmentation.
+  - Python dtype: `PIL.Image`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class APersonMaskGenerator:
 

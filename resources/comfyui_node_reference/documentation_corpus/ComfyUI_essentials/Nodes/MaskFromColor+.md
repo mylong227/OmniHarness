@@ -1,49 +1,58 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # 🔧 Mask From Color
+
 ## Documentation
+
 - Class name: `MaskFromColor+`
 - Category: `essentials/mask`
 - Output node: `False`
 
 This node generates a mask from an image based on specified color values and a threshold. It allows for the selective isolation of parts of an image that match the given color within a certain tolerance, enabling targeted image manipulation or analysis.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image from which the mask will be generated. It serves as the basis for identifying areas that match the specified color criteria.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image from which the mask will be generated. It serves as the basis for identifying areas that match the specified color criteria.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`red`**
-    - The red component of the target color. It defines the red value that the node will use to generate the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The red component of the target color. It defines the red value that the node will use to generate the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`green`**
-    - The green component of the target color. It defines the green value that the node will use to generate the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The green component of the target color. It defines the green value that the node will use to generate the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`blue`**
-    - The blue component of the target color. It defines the blue value that the node will use to generate the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The blue component of the target color. It defines the blue value that the node will use to generate the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`threshold`**
-    - The tolerance for color matching. It specifies how closely the colors in the image must match the target color to be included in the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The tolerance for color matching. It specifies how closely the colors in the image must match the target color to be included in the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The output mask indicating areas of the image that match the specified color within the given threshold.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output mask indicating areas of the image that match the specified color within the given threshold.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskFromColor:
     @classmethod

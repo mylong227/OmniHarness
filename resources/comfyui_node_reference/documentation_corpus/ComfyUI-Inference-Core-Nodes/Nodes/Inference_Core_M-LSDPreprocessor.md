@@ -1,48 +1,59 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
-- LineExtraction
+  - DepthMap
+  - Image
+  - ImagePreprocessing
+  - LineExtraction
 ---
 
 # [Inference.Core] M-LSD Lines
+
 ## Documentation
+
 - Class name: `Inference_Core_M-LSDPreprocessor`
 - Category: `ControlNet Preprocessors/Line Extractors`
 - Output node: `False`
 
 The M-LSD Preprocessor node is designed for extracting line segments from images using the M-LSD (Multi-Level Line Segment Detector) model. It processes images to detect and delineate line structures, facilitating tasks that require understanding of geometric shapes and structures within the visual data.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for line segment detection. It serves as the primary data on which the M-LSD model operates.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The input image to be processed for line segment detection. It serves as the primary data on which the M-LSD model operates.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`score_threshold`**
-    - Defines the confidence threshold for line segment detection. Lines with scores below this threshold are discarded, influencing the sensitivity of the detection process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the confidence threshold for line segment detection. Lines with scores below this threshold are discarded, influencing the sensitivity of the detection process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`dist_threshold`**
-    - Sets the distance threshold for separating line segments. This parameter helps in distinguishing between closely spaced lines, affecting the granularity of the detected lines.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the distance threshold for separating line segments. This parameter helps in distinguishing between closely spaced lines, affecting the granularity of the detected lines.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`resolution`**
-    - Specifies the resolution at which the image is processed. This affects the scale of detection and can influence the detection of line segments.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the resolution at which the image is processed. This affects the scale of detection and can influence the detection of line segments.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image annotated with detected line segments, visually representing the geometric structures identified by the M-LSD model.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The output is an image annotated with detected line segments, visually representing the geometric structures identified by the M-LSD model.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MLSD_Preprocessor:
     @classmethod

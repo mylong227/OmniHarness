@@ -1,50 +1,61 @@
 ---
 tags:
-- ImageTransformation
-- VisualEffects
+  - ImageTransformation
+  - VisualEffects
 ---
 
 # FL PixelSort
+
 ## Documentation
+
 - Class name: `FL_PixelSort`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_PixelSort node applies a pixel sorting effect to images based on their hue values, allowing for artistic manipulation of image textures. It supports customization through parameters such as direction, threshold, smoothing, and rotation to achieve various visual effects.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A collection of images to be processed. The images are sorted based on their hue values, allowing for creative retexturing and manipulation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - A collection of images to be processed. The images are sorted based on their hue values, allowing for creative retexturing and manipulation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
+
 ### Optional
+
 - **`direction`**
-    - Specifies the direction of the pixel sorting process, either 'Horizontal' or 'Vertical'. This affects the orientation of the sorting effect on the images.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the direction of the pixel sorting process, either 'Horizontal' or 'Vertical'. This affects the orientation of the sorting effect on the images.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`threshold`**
-    - A value that determines the sensitivity of hue changes required to trigger sorting. A lower threshold results in more aggressive sorting based on smaller hue differences.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A value that determines the sensitivity of hue changes required to trigger sorting. A lower threshold results in more aggressive sorting based on smaller hue differences.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`smoothing`**
-    - Controls the smoothness of the transitions between sorted and unsorted regions, with higher values resulting in smoother transitions.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the smoothness of the transitions between sorted and unsorted regions, with higher values resulting in smoother transitions.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`rotation`**
-    - Applies a rotation to the image before sorting, with possible values indicating the number of 90-degree rotations.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Applies a rotation to the image before sorting, with possible values indicating the number of 90-degree rotations.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed images with the pixel sorting effect applied, based on the specified parameters.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed images with the pixel sorting effect applied, based on the specified parameters.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_PixelSort:
     @classmethod

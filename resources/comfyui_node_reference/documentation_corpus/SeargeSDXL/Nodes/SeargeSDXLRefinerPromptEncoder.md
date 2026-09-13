@@ -1,55 +1,64 @@
 # SDXL Refiner Prompt Encoder (Searge)
+
 ## Documentation
+
 - Class name: `SeargeSDXLRefinerPromptEncoder`
 - Category: `Searge/_deprecated_/ClipEncoding`
 - Output node: `False`
 
 This node specializes in refining the encoding of prompts for the SDXL model by applying specific aesthetic and dimensional adjustments to both positive and negative prompts. It leverages a refiner encoder to enhance the quality and relevance of the prompts based on given aesthetic scores and dimensions, aiming to optimize the generation process.
+
 ## Input types
+
 ### Required
+
 - **`refiner_clip`**
-    - The CLIP model used for refining the encoding of prompts, central to adjusting the prompt's quality and relevance.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `object`
+  - The CLIP model used for refining the encoding of prompts, central to adjusting the prompt's quality and relevance.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `object`
 - **`pos_r`**
-    - Positive text prompt for refinement, influencing the encoding process with a focus on enhancing positive aspects.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Positive text prompt for refinement, influencing the encoding process with a focus on enhancing positive aspects.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`neg_r`**
-    - Negative text prompt for refinement, influencing the encoding process with a focus on enhancing negative aspects.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Negative text prompt for refinement, influencing the encoding process with a focus on enhancing negative aspects.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`pos_ascore`**
-    - The aesthetic score assigned to the positive prompt, influencing its refinement.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The aesthetic score assigned to the positive prompt, influencing its refinement.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`neg_ascore`**
-    - The aesthetic score assigned to the negative prompt, influencing its refinement.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The aesthetic score assigned to the negative prompt, influencing its refinement.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`refiner_width`**
-    - The width dimension for the refined encoding, used to adjust the spatial characteristics of the prompt.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The width dimension for the refined encoding, used to adjust the spatial characteristics of the prompt.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`refiner_height`**
-    - The height dimension for the refined encoding, used to adjust the spatial characteristics of the prompt.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The height dimension for the refined encoding, used to adjust the spatial characteristics of the prompt.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`refiner_positive`**
-    - Comfy dtype: `CONDITIONING`
-    - The refined encoding of the positive prompt, enhanced for better quality and relevance.
-    - Python dtype: `tuple`
+  - Comfy dtype: `CONDITIONING`
+  - The refined encoding of the positive prompt, enhanced for better quality and relevance.
+  - Python dtype: `tuple`
 - **`refiner_negative`**
-    - Comfy dtype: `CONDITIONING`
-    - The refined encoding of the negative prompt, enhanced for better quality and relevance.
-    - Python dtype: `tuple`
+  - Comfy dtype: `CONDITIONING`
+  - The refined encoding of the negative prompt, enhanced for better quality and relevance.
+  - Python dtype: `tuple`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SeargeSDXLRefinerPromptEncoder:
     @classmethod

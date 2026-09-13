@@ -1,41 +1,52 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # Lora List Stacker
+
 ## Documentation
+
 - Class name: `AV_LoraListStacker`
 - Category: `Art Venture/Loaders`
 - Output node: `False`
 
 The AV_LoraListStacker node is designed to manage and stack configurations for Lora models, facilitating the dynamic integration and application of multiple Lora models into a processing pipeline. It abstracts the complexity of handling Lora model parameters and ensures that the models are applied in a sequence that respects the intended layering and strength adjustments.
+
 ## Input types
+
 ### Required
+
 - **`data`**
-    - The 'data' input contains the list of Lora models and their configurations in JSON format, dictating how each Lora model should be applied to the base model.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'data' input contains the list of Lora models and their configurations in JSON format, dictating how each Lora model should be applied to the base model.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`base_url`**
-    - The 'base_url' optional input provides a default URL prefix for fetching Lora models not locally available, facilitating remote model retrieval.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'base_url' optional input provides a default URL prefix for fetching Lora models not locally available, facilitating remote model retrieval.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`lora_stack`**
-    - The 'lora_stack' input allows for the inclusion of an existing stack of Lora models to be further processed or integrated with new Lora configurations.
-    - Comfy dtype: `LORA_STACK`
-    - Python dtype: `list`
+  - The 'lora_stack' input allows for the inclusion of an existing stack of Lora models to be further processed or integrated with new Lora configurations.
+  - Comfy dtype: `LORA_STACK`
+  - Python dtype: `list`
+
 ## Output types
+
 - **`lora_stack`**
-    - Comfy dtype: `LORA_STACK`
-    - Returns the updated stack of Lora models after integrating the specified Lora model adjustments.
-    - Python dtype: `list`
+  - Comfy dtype: `LORA_STACK`
+  - Returns the updated stack of Lora models after integrating the specified Lora model adjustments.
+  - Python dtype: `list`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AVLoraListStacker:
     @classmethod

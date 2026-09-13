@@ -1,44 +1,53 @@
 ---
 tags:
-- MotionData
+  - MotionData
 ---
 
 # MotionGPT Text2Motion
+
 ## Documentation
+
 - Class name: `mgpt_t2m`
 - Category: `MotionDiff/mGPT`
 - Output node: `False`
 
 The node transforms textual descriptions into motion data sequences using a MotionGPT model, enabling the generation of motion sequences based on natural language inputs.
+
 ## Input types
+
 ### Required
+
 - **`mgpt_model`**
-    - The MotionGPT model used for generating motion sequences from text. It's crucial for interpreting the textual input and producing corresponding motion data.
-    - Comfy dtype: `MGPTMODEL`
-    - Python dtype: `torch.nn.Module`
+  - The MotionGPT model used for generating motion sequences from text. It's crucial for interpreting the textual input and producing corresponding motion data.
+  - Comfy dtype: `MGPTMODEL`
+  - Python dtype: `torch.nn.Module`
 - **`motion_length`**
-    - Specifies the desired length of the generated motion sequence. It influences the granularity and extent of the motion details.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the desired length of the generated motion sequence. It influences the granularity and extent of the motion details.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`seed`**
-    - A seed for random number generation, ensuring reproducibility of the motion sequences generated from the same inputs.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed for random number generation, ensuring reproducibility of the motion sequences generated from the same inputs.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`text`**
-    - The textual description that guides the generation of the motion sequence, serving as the creative input for the motion synthesis.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The textual description that guides the generation of the motion sequence, serving as the creative input for the motion synthesis.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`motion_data`**
-    - Comfy dtype: `MOTION_DATA`
-    - The generated motion data sequence, represented as joint positions over time, derived from the textual description.
-    - Python dtype: `Dict[str, np.ndarray]`
+  - Comfy dtype: `MOTION_DATA`
+  - The generated motion data sequence, represented as joint positions over time, derived from the textual description.
+  - Python dtype: `Dict[str, np.ndarray]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class mgpt_t2m:
     @classmethod

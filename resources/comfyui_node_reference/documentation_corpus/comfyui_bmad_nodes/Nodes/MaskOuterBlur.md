@@ -1,45 +1,54 @@
 ---
 tags:
-- Blur
-- VisualEffects
+  - Blur
+  - VisualEffects
 ---
 
 # MaskOuterBlur
+
 ## Documentation
+
 - Class name: `MaskOuterBlur`
 - Category: `Bmad/CV/Misc`
 - Output node: `False`
 
 The MaskOuterBlur node is designed to selectively apply a blur effect to the outer regions of an image, utilizing a mask to distinguish between areas to be blurred and those to remain sharp. This technique is aimed at enhancing focus on specific parts of an image or creating a depth-of-field effect, making it particularly useful for image editing and post-processing applications.
+
 ## Input types
+
 ### Required
+
 - **`src`**
-    - The source image to which the blur effect will be applied. It serves as the primary input for determining the areas to be blurred based on the mask.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The source image to which the blur effect will be applied. It serves as the primary input for determining the areas to be blurred based on the mask.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`mask`**
-    - The mask used to differentiate between the areas of the image to be blurred and those to remain sharp. It plays a crucial role in guiding the selective blurring process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The mask used to differentiate between the areas of the image to be blurred and those to remain sharp. It plays a crucial role in guiding the selective blurring process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`kernel_size`**
-    - Specifies the size of the blur kernel. A larger kernel size results in a more pronounced blur effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the size of the blur kernel. A larger kernel size results in a more pronounced blur effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`paste_src`**
-    - A boolean flag indicating whether the original source image should be pasted over the blurred areas, preserving detail in the non-blurred regions.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the original source image should be pasted over the blurred areas, preserving detail in the non-blurred regions.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after applying the selective blur effect, showcasing the enhanced focus or depth-of-field effect.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The output image after applying the selective blur effect, showcasing the enhanced focus or depth-of-field effect.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskOuterBlur:  # great, another "funny" name; what would you call this?
     @classmethod

@@ -1,65 +1,76 @@
 ---
 tags:
-- Animation
-- CameraControl
+  - Animation
+  - CameraControl
 ---
 
 # Camera Pose Visualizer
+
 ## Documentation
+
 - Class name: `CameraPoseVisualizer`
 - Category: `KJNodes/misc`
 - Output node: `False`
 
 The CameraPoseVisualizer node is designed to visualize camera poses in a 3D plot, either from a provided text file containing camera intrinsics and coordinates or directly from camera control poses. It supports customization of the visualization through parameters such as scale, base value adjustments, and the option to use exact focal lengths. This visualization aids in understanding and analyzing the spatial orientation and field of view of cameras in a given scene.
+
 ## Input types
+
 ### Required
+
 - **`pose_file_path`**
-    - Specifies the path to a text file containing camera poses or can be left empty to use camera control poses directly. It is essential for determining the source of camera poses to visualize.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the path to a text file containing camera poses or can be left empty to use camera control poses directly. It is essential for determining the source of camera poses to visualize.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`base_xval`**
-    - A base value for x-axis adjustments in the visualization, allowing for fine-tuning of the camera's position.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A base value for x-axis adjustments in the visualization, allowing for fine-tuning of the camera's position.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`zval`**
-    - A base value for z-axis adjustments, influencing the depth positioning in the visualization.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A base value for z-axis adjustments, influencing the depth positioning in the visualization.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`scale`**
-    - Scales the entire visualization, affecting the size and spacing of visualized camera poses.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Scales the entire visualization, affecting the size and spacing of visualized camera poses.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`use_exact_fx`**
-    - Determines whether to use exact focal lengths from the camera poses or a default value, impacting the accuracy of the visualization.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether to use exact focal lengths from the camera poses or a default value, impacting the accuracy of the visualization.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`relative_c2w`**
-    - Controls whether camera-to-world transformations are considered relative, affecting the positioning and orientation of cameras.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether camera-to-world transformations are considered relative, affecting the positioning and orientation of cameras.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`use_viewer`**
-    - Enables or disables the use of an interactive viewer for the visualization, enhancing user interaction.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables or disables the use of an interactive viewer for the visualization, enhancing user interaction.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`cameractrl_poses`**
-    - Directly provides camera control poses for visualization, offering an alternative to loading poses from a file.
-    - Comfy dtype: `CAMERACTRL_POSES`
-    - Python dtype: `list`
+  - Directly provides camera control poses for visualization, offering an alternative to loading poses from a file.
+  - Comfy dtype: `CAMERACTRL_POSES`
+  - Python dtype: `list`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - Generates a 3D plot image visualizing the camera poses, providing a visual representation of camera orientations and positions.
-    - Python dtype: `matplotlib.figure.Figure`
+  - Comfy dtype: `IMAGE`
+  - Generates a 3D plot image visualizing the camera poses, providing a visual representation of camera orientations and positions.
+  - Python dtype: `matplotlib.figure.Figure`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CameraPoseVisualizer:
-                
+
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
@@ -75,15 +86,15 @@ class CameraPoseVisualizer:
                 "cameractrl_poses": ("CAMERACTRL_POSES", {"default": None}),
             }
             }
-    
+
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "plot"
     CATEGORY = "KJNodes/misc"
     DESCRIPTION = """
-Visualizes the camera poses, from Animatediff-Evolved CameraCtrl Pose  
-or a .txt file with RealEstate camera intrinsics and coordinates, in a 3D plot. 
+Visualizes the camera poses, from Animatediff-Evolved CameraCtrl Pose
+or a .txt file with RealEstate camera intrinsics and coordinates, in a 3D plot.
 """
-        
+
     def plot(self, pose_file_path, scale, base_xval, zval, use_exact_fx, relative_c2w, use_viewer, cameractrl_poses=None):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
@@ -153,7 +164,7 @@ or a .txt file with RealEstate camera intrinsics and coordinates, in a 3D plot.
         # Assuming you want to set the ticks at every 10th frame
         ticks = np.arange(0, total_frames, 10)
         colorbar.ax.yaxis.set_ticks(ticks)
-        
+
         plt.title('')
         plt.draw()
         buf = io.BytesIO()

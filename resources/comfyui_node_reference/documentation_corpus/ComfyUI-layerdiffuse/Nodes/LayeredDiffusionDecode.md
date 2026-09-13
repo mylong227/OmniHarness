@@ -1,49 +1,58 @@
 ---
 tags:
-- LayeredDiffusion
-- LayeredDiffusionDecode
+  - LayeredDiffusion
+  - LayeredDiffusionDecode
 ---
 
 # Layer Diffuse Decode
+
 ## Documentation
+
 - Class name: `LayeredDiffusionDecode`
 - Category: `layer_diffuse`
 - Output node: `False`
 
 This node is designed to decode images through a layered diffusion process, leveraging advanced techniques to enhance image quality and detail. It focuses on reconstructing or generating images by applying a series of diffusion steps, aimed at improving visual fidelity and achieving high-resolution outputs.
+
 ## Input types
+
 ### Required
+
 - **`samples`**
-    - Represents the input samples to be decoded, playing a crucial role in determining the characteristics and quality of the decoded images.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict`
+  - Represents the input samples to be decoded, playing a crucial role in determining the characteristics and quality of the decoded images.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict`
 - **`images`**
-    - A tensor of images to be processed, serving as the base for the diffusion decoding process. This parameter is essential for defining the initial state of the images before applying the diffusion steps.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - A tensor of images to be processed, serving as the base for the diffusion decoding process. This parameter is essential for defining the initial state of the images before applying the diffusion steps.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`sd_version`**
-    - Indicates the version of the diffusion model to be used, impacting the decoding process's effectiveness and the final image quality.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates the version of the diffusion model to be used, impacting the decoding process's effectiveness and the final image quality.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`sub_batch_size`**
-    - Determines the size of sub-batches for processing, optimizing the decoding operation's efficiency and resource utilization.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the size of sub-batches for processing, optimizing the decoding operation's efficiency and resource utilization.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The decoded image output, showcasing the result of the layered diffusion decoding process.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The decoded image output, showcasing the result of the layered diffusion decoding process.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The alpha mask output, representing the transparency layer decoded alongside the image, enhancing the image's composition and detail.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The alpha mask output, representing the transparency layer decoded alongside the image, enhancing the image's composition and detail.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LayeredDiffusionDecode:
     """

@@ -1,10 +1,13 @@
 # Main License
+
 File name: `LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,16 +27,21 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 # Other detected licenses
+
 File name: `carve.py`
 
 **MIT**
+
 ```
 # MIT licensed code from https://github.com/li-plus/seam-carving/
 ```
+
 File name: `image.py`
 
 **MIT**
+
 ```
 # From https://github.com/yoonsikp/pycubelut/blob/master/pycubelut.py (MIT license)
 ```

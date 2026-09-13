@@ -1,44 +1,55 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImageEnhancement
-- ImagePreprocessing
+  - DepthMap
+  - Image
+  - ImageEnhancement
+  - ImagePreprocessing
 ---
 
 # [Inference.Core] Image Intensity
+
 ## Documentation
+
 - Class name: `Inference_Core_ImageIntensityDetector`
 - Category: `ControlNet Preprocessors/Recolor`
 - Output node: `False`
 
 The ImageIntensityDetector node is designed for preprocessing images by adjusting their intensity levels. It utilizes gamma correction to modify the intensity, aiming to enhance image quality or achieve specific visual effects.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed. It is the primary subject for intensity adjustment through gamma correction.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The input image to be processed. It is the primary subject for intensity adjustment through gamma correction.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
+
 ### Optional
+
 - **`gamma_correction`**
-    - Specifies the gamma correction factor to adjust the intensity levels of the image. It plays a crucial role in the preprocessing step by influencing the brightness and contrast of the output image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the gamma correction factor to adjust the intensity levels of the image. It plays a crucial role in the preprocessing step by influencing the brightness and contrast of the output image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`resolution`**
-    - Defines the resolution for the output image. This parameter determines the dimensions to which the image will be adjusted during processing.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the resolution for the output image. This parameter determines the dimensions to which the image will be adjusted during processing.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image that has undergone intensity adjustment based on the specified gamma correction. This processed image is suitable for further analysis or visualization.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The output is an image that has undergone intensity adjustment based on the specified gamma correction. This processed image is suitable for further analysis or visualization.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageIntensityDetector:
     @classmethod

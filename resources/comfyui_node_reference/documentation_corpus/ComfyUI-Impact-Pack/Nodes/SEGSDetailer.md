@@ -1,119 +1,130 @@
 ---
 tags:
-- DetailEnhancement
-- Image
-- Pipeline
+  - DetailEnhancement
+  - Image
+  - Pipeline
 ---
 
 # SEGSDetailer
+
 ## Documentation
+
 - Class name: `SEGSDetailer`
 - Category: `ImpactPack/Detailer`
 - Output node: `False`
 
 The SEGSDetailer node is designed to enhance and refine segmentation details within images, focusing on improving the quality and precision of segmentation results. It employs advanced processing techniques to adjust and optimize segmentation data, ensuring higher fidelity and utility for subsequent analysis or applications.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be detailed or refined. It serves as the foundation for the segmentation detailing process, directly influencing the enhancements applied to the segmentation results.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be detailed or refined. It serves as the foundation for the segmentation detailing process, directly influencing the enhancements applied to the segmentation results.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`segs`**
-    - The segmentation data to be enhanced or refined. This input is crucial for the node's operation as it represents the target of the detailing process, affecting the quality and precision of the output.
-    - Comfy dtype: `SEGS`
-    - Python dtype: `List[SEG]`
+  - The segmentation data to be enhanced or refined. This input is crucial for the node's operation as it represents the target of the detailing process, affecting the quality and precision of the output.
+  - Comfy dtype: `SEGS`
+  - Python dtype: `List[SEG]`
 - **`guide_size`**
-    - Specifies the target size for guiding the detailing process. It plays a significant role in determining the scale and detail level of the output segmentation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `int`
+  - Specifies the target size for guiding the detailing process. It plays a significant role in determining the scale and detail level of the output segmentation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `int`
 - **`guide_size_for`**
-    - Determines the context or specific elements within the image for which the guide size is applicable, influencing the focus and precision of the detailing process.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `str`
+  - Determines the context or specific elements within the image for which the guide size is applicable, influencing the focus and precision of the detailing process.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `str`
 - **`max_size`**
-    - Defines the maximum size limit for the detailing process. It ensures that the output segmentation does not exceed this size, affecting the balance between detail and computational efficiency.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `int`
+  - Defines the maximum size limit for the detailing process. It ensures that the output segmentation does not exceed this size, affecting the balance between detail and computational efficiency.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `int`
 - **`seed`**
-    - A seed value for random number generation, ensuring reproducibility of the detailing process. It influences the variability and consistency of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for random number generation, ensuring reproducibility of the detailing process. It influences the variability and consistency of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`steps`**
-    - The number of steps to execute in the detailing process, affecting the depth of refinement and the quality of the output segmentation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of steps to execute in the detailing process, affecting the depth of refinement and the quality of the output segmentation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Configuration settings for the detailing process, guiding the algorithm's behavior and affecting the outcome's quality.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `str`
+  - Configuration settings for the detailing process, guiding the algorithm's behavior and affecting the outcome's quality.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `str`
 - **`sampler_name`**
-    - Specifies the sampling method to be used in the detailing process, influencing the texture and quality of the detailed segments.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the sampling method to be used in the detailing process, influencing the texture and quality of the detailed segments.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - The scheduler algorithm used to manage the detailing process, affecting the efficiency and outcome of the segmentation refinement.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The scheduler algorithm used to manage the detailing process, affecting the efficiency and outcome of the segmentation refinement.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`denoise`**
-    - Indicates whether denoising techniques are applied during the detailing process, improving the clarity and quality of the output segmentation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `bool`
+  - Indicates whether denoising techniques are applied during the detailing process, improving the clarity and quality of the output segmentation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `bool`
 - **`noise_mask`**
-    - A mask applied to specify areas for noise reduction, focusing the denoising effect and enhancing the detailing precision.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `torch.Tensor`
+  - A mask applied to specify areas for noise reduction, focusing the denoising effect and enhancing the detailing precision.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `torch.Tensor`
 - **`force_inpaint`**
-    - Forces the use of inpainting in areas lacking detail, improving the completeness and quality of the segmentation.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Forces the use of inpainting in areas lacking detail, improving the completeness and quality of the segmentation.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`basic_pipe`**
-    - The basic processing pipeline configurations used for the detailing process, setting the foundation for the enhancement techniques applied.
-    - Comfy dtype: `BASIC_PIPE`
-    - Python dtype: `str`
+  - The basic processing pipeline configurations used for the detailing process, setting the foundation for the enhancement techniques applied.
+  - Comfy dtype: `BASIC_PIPE`
+  - Python dtype: `str`
 - **`refiner_ratio`**
-    - The ratio of refinement applied to the segmentation, adjusting the intensity of detailing and affecting the final output's precision.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The ratio of refinement applied to the segmentation, adjusting the intensity of detailing and affecting the final output's precision.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`batch_size`**
-    - The size of the batch processed in a single detailing operation, affecting the throughput and efficiency of the node.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The size of the batch processed in a single detailing operation, affecting the throughput and efficiency of the node.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cycle`**
-    - The number of cycles the detailing process is repeated, influencing the depth of refinement and the quality of the output segmentation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of cycles the detailing process is repeated, influencing the depth of refinement and the quality of the output segmentation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`refiner_basic_pipe_opt`**
-    - Optional configurations for the refinement pipeline, allowing for customization of the detailing process to achieve specific outcomes.
-    - Comfy dtype: `BASIC_PIPE`
-    - Python dtype: `str`
+  - Optional configurations for the refinement pipeline, allowing for customization of the detailing process to achieve specific outcomes.
+  - Comfy dtype: `BASIC_PIPE`
+  - Python dtype: `str`
 - **`inpaint_model`**
-    - Indicates whether an inpainting model is used during the detailing process, enabling the filling of missing or incomplete segments for a more complete output.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether an inpainting model is used during the detailing process, enabling the filling of missing or incomplete segments for a more complete output.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`noise_mask_feather`**
-    - The feathering applied to the noise mask, smoothing the transition between treated and untreated areas, and enhancing the visual quality of the detailed segmentation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The feathering applied to the noise mask, smoothing the transition between treated and untreated areas, and enhancing the visual quality of the detailed segmentation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`scheduler_func_opt`**
-    - Optional configurations for the scheduler function, allowing for further customization of the detailing process to optimize performance and results.
-    - Comfy dtype: `SCHEDULER_FUNC`
-    - Python dtype: `str`
+  - Optional configurations for the scheduler function, allowing for further customization of the detailing process to optimize performance and results.
+  - Comfy dtype: `SCHEDULER_FUNC`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`segs`**
-    - Comfy dtype: `SEGS`
-    - Outputs the enhanced or refined segmentation data, reflecting the improvements made by the node.
-    - Python dtype: `List[SEG]`
+  - Comfy dtype: `SEGS`
+  - Outputs the enhanced or refined segmentation data, reflecting the improvements made by the node.
+  - Python dtype: `List[SEG]`
 - **`cnet_images`**
-    - Comfy dtype: `IMAGE`
-    - Provides a list of images processed through the control net, useful for visualizing the effects of the detailing process on the segmentation.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - Provides a list of images processed through the control net, useful for visualizing the effects of the detailing process on the segmentation.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SEGSDetailer:
     @classmethod

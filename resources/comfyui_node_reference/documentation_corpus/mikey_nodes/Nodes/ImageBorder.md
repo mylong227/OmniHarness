@@ -1,40 +1,49 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # Image Border (Mikey)
+
 ## Documentation
+
 - Class name: `ImageBorder`
 - Category: `Mikey/Image`
 - Output node: `False`
 
 The ImageBorder node is designed to add a decorative or functional border around an image. It supports various border styles, including checkerboard patterns, blurred edges, and solid colors, allowing for a wide range of visual effects to enhance the image's appearance.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to which the border will be applied. This parameter is crucial as it defines the base image that will be modified by adding a border.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to which the border will be applied. This parameter is crucial as it defines the base image that will be modified by adding a border.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`border_width`**
-    - Specifies the width of the border to be added around the image. This parameter directly influences the thickness of the border, affecting the overall visual impact of the border on the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the border to be added around the image. This parameter directly influences the thickness of the border, affecting the overall visual impact of the border on the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`border_color`**
-    - Determines the color or style of the border. It can be a solid color, a checkerboard pattern, or a blurred effect, offering flexibility in the border's appearance.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Determines the color or style of the border. It can be a solid color, a checkerboard pattern, or a blurred effect, offering flexibility in the border's appearance.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image with the applied border. This image includes the original content with the added border, enhancing its visual appeal.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image with the applied border. This image includes the original content with the added border, enhancing its visual appeal.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageBorder:
     @classmethod

@@ -1,46 +1,55 @@
 ---
 tags:
-- Batch
-- Image
-- ImageBatch
+  - Batch
+  - Image
+  - ImageBatch
 ---
 
 # Extract Image Sequence From Batch
+
 ## Documentation
+
 - Class name: `JWImageSequenceExtractFromBatch`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node is designed to extract a sequence of images from a batch based on specified start and stop indices, optionally including the stop index in the extraction. It enables selective retrieval of image sequences from larger collections, facilitating operations on specific subsets of image data.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The batch of images from which a sequence is to be extracted. This parameter is crucial for defining the source of the images to be processed.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The batch of images from which a sequence is to be extracted. This parameter is crucial for defining the source of the images to be processed.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`i_start`**
-    - The start index for the sequence extraction, determining the first image in the sequence to be included.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The start index for the sequence extraction, determining the first image in the sequence to be included.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`i_stop`**
-    - The stop index for the sequence extraction, determining the last image in the sequence to potentially be included.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The stop index for the sequence extraction, determining the last image in the sequence to potentially be included.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`inclusive`**
-    - A flag indicating whether the stop index should be included in the extraction, allowing for flexible endpoint inclusion.
-    - Comfy dtype: `['false', 'true']`
-    - Python dtype: `str`
+  - A flag indicating whether the stop index should be included in the extraction, allowing for flexible endpoint inclusion.
+  - Comfy dtype: `['false', 'true']`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The extracted sequence of images as a tensor, representing a subset of the original batch based on the specified indices.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The extracted sequence of images as a tensor, representing a subset of the original batch based on the specified indices.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWLoadImageSequence", "Batch Load Image Sequence")
 class _:

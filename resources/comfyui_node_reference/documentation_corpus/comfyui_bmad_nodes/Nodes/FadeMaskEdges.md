@@ -1,52 +1,61 @@
 ---
 tags:
-- Mask
+  - Mask
 ---
 
 # FadeMaskEdges
+
 ## Documentation
+
 - Class name: `FadeMaskEdges`
 - Category: `Bmad/CV/Misc`
 - Output node: `False`
 
 This node is designed for refining the edges of masks in images, specifically targeting the enhancement of edge blending and smooth transitions. It focuses on premultiplying and alpha blending the edges of a subject to prevent the intrusion of outer pixels, which is particularly useful for stylized subjects or images requiring precise edge manipulation.
+
 ## Input types
+
 ### Required
+
 - **`binary_image`**
-    - Represents the mask image to be processed, where the edge modifications will be applied.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Represents the mask image to be processed, where the edge modifications will be applied.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`edge_size`**
-    - Defines the size of the edge to be faded, impacting the extent of the edge modification.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the size of the edge to be faded, impacting the extent of the edge modification.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`edge_tightness`**
-    - Controls the rate at which the edge fades to black, affecting the sharpness of the edge transition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the rate at which the edge fades to black, affecting the sharpness of the edge transition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`edge_exponent`**
-    - Determines the nature of the fade, potentially softening small lines for a smoother transition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the nature of the fade, potentially softening small lines for a smoother transition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`smoothing_diameter`**
-    - Specifies the diameter for optional smoothing applied after edge processing, to further refine the edge appearance.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the diameter for optional smoothing applied after edge processing, to further refine the edge appearance.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`paste_original_blacks`**
-    - A boolean flag indicating whether to paste original black values back into the image, preserving dark regions.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to paste original black values back into the image, preserving dark regions.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image with enhanced and smoothly blended edges.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image with enhanced and smoothly blended edges.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FadeMaskEdges:
     """

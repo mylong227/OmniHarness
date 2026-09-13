@@ -1,43 +1,52 @@
 # Argos Translate CLIP Text Encode Node
+
 ## Documentation
+
 - Class name: `ArgosTranslateCLIPTextEncodeNode`
 - Category: `AlekPet Nodes/conditioning`
 - Output node: `False`
 
 This node is designed for translating text from one language to another and encoding the translated text using the CLIP model for further processing or conditioning in AI models. It supports a variety of languages and leverages the CLIP model to provide a rich, contextual representation of the translated text.
+
 ## Input types
+
 ### Required
+
 - **`from_translate`**
-    - Specifies the source language from which the text will be translated. It determines the starting point of the translation process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Specifies the source language from which the text will be translated. It determines the starting point of the translation process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`to_translate`**
-    - Defines the target language to which the text will be translated. It affects the final output of the translation process by setting the desired language.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Defines the target language to which the text will be translated. It affects the final output of the translation process by setting the desired language.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
 - **`text`**
-    - The text to be translated. This input is crucial as it provides the content that will undergo translation and subsequent encoding.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The text to be translated. This input is crucial as it provides the content that will undergo translation and subsequent encoding.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`clip`**
-    - A CLIP model instance used for encoding the translated text. It plays a key role in generating contextual embeddings for the text.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `CLIP`
+  - A CLIP model instance used for encoding the translated text. It plays a key role in generating contextual embeddings for the text.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `CLIP`
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - Provides the conditioning information derived from the CLIP model's encoding of the translated text.
-    - Python dtype: `List[List[torch.Tensor, Dict[str, torch.Tensor]]]`
+  - Comfy dtype: `CONDITIONING`
+  - Provides the conditioning information derived from the CLIP model's encoding of the translated text.
+  - Python dtype: `List[List[torch.Tensor, Dict[str, torch.Tensor]]]`
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The translated text, serving as a direct output of the translation process.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The translated text, serving as a direct output of the translation process.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ArgosTranslateCLIPTextEncodeNode:
     @classmethod

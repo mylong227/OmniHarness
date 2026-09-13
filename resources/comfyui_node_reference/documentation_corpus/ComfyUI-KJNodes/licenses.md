@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -678,17 +680,23 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 # Other detected licenses
+
 File name: `fonts/FreeMono.ttf`
 
 **GPL-1.0-or-later**
+
 ```
 http://www.gnu.org/copyleft/gpl.html
 ```
+
 ```
 http://www.gnu.org/copyleft/gpl.html
 ```
+
 **GPL-3.0-or-later WITH Font-exception-2.0**
+
 ```
 https://savannah.gnu.org/projects/freefont/
 https://savannah.gnu.org/projects/freefont/
@@ -697,37 +705,48 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 As a special exception, if you create a document which uses this font, and embed this font or unaltered portions of this font into the document, this font does not by itself cause the resulting document to be covered by the GNU General Public License. This exception does not however invalidate any other reasons why the document might be covered by the GNU General Public License. If you modify this font, you may extend this exception to your version of the font, but you are not obligated to do so. If you do not wish to do so, delete this exception statement from your version.
 ```
+
 ```
 This computer font is part of GNU FreeFont.  It is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 As a special exception, if you create a document which uses this font, and embed this font or unaltered portions of this font into the document, this font does not by itself cause the resulting document to be covered by the GNU General Public License. This exception does not however invalidate any other reasons why the document might be covered by the GNU General Public License. If you modify this font, you may extend this exception to your version of the font, but you are not obligated to do so. If you do not wish to do so, delete this exception statement from your version.
 ```
+
 File name: `fonts/FreeMonoBoldOblique.otf`
 
 **GPL-1.0-or-later**
+
 ```
 L}gpl
 ```
+
 File name: `kjweb_async/marked.min.js`
 
 **MIT**
+
 ```
 MIT Licensed)
 ```
+
 File name: `kjweb_async/purify.min.js`
 
 **Apache-2.0**
+
 ```
 under the Apache license 2.0
 ```
+
 **MPL-2.0**
+
 ```
 Mozilla Public License 2.0 |
 ```
+
 File name: `pyproject.toml`
 
 **GPL-3.0-only**
+
 ```
 license = "GPL-3.0"
 ```

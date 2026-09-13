@@ -1,38 +1,47 @@
 ---
 tags:
-- CLIP
-- CLIPConditioning
-- Conditioning
+  - CLIP
+  - CLIPConditioning
+  - Conditioning
 ---
 
 # CLIPEncodeMultiple
+
 ## Documentation
+
 - Class name: `CLIPEncodeMultiple`
 - Category: `Bmad/conditioning`
 - Output node: `False`
 
 The CLIPEncodeMultiple node is designed to encode multiple text inputs into a conditioning format using a CLIP model. It iterates over a specified number of inputs, encoding each one separately and aggregating the results into a list of conditionings. This node is useful for scenarios where multiple textual descriptions need to be encoded in parallel and then utilized for further processing or generation tasks.
+
 ## Input types
+
 ### Required
+
 - **`clip`**
-    - The CLIP model used for encoding the text inputs. It is crucial for the text encoding process, affecting the quality and relevance of the generated conditionings.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `torch.nn.Module`
+  - The CLIP model used for encoding the text inputs. It is crucial for the text encoding process, affecting the quality and relevance of the generated conditionings.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `torch.nn.Module`
 - **`inputs_len`**
-    - Specifies the number of text inputs to encode. It determines the iteration count for the encoding process, directly influencing the output list's length.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of text inputs to encode. It determines the iteration count for the encoding process, directly influencing the output list's length.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - A list of encoded text inputs, each transformed into a conditioning format suitable for further processing or generation tasks.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `CONDITIONING`
+  - A list of encoded text inputs, each transformed into a conditioning format suitable for further processing or generation tasks.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CLIPEncodeMultiple(nodes.CLIPTextEncode):
     @classmethod

@@ -1,52 +1,61 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # MorphologicOperation
+
 ## Documentation
+
 - Class name: `MorphologicOperation`
 - Category: `Bmad/CV/Morphology`
 - Output node: `False`
 
 This node provides a comprehensive suite of morphological operations for image processing, including erode, dilate, open, close, gradient, top hat, and bottom hat transformations. It allows for the manipulation of the structure of images using different kernel shapes and sizes, enabling a wide range of effects from refining image features to extracting structural elements.
+
 ## Input types
+
 ### Required
+
 - **`src`**
-    - The source image to be processed. It serves as the primary input for applying morphological operations.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The source image to be processed. It serves as the primary input for applying morphological operations.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`operation`**
-    - Specifies the morphological operation to be applied to the source image. This determines the type of structural manipulation performed.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the morphological operation to be applied to the source image. This determines the type of structural manipulation performed.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`kernel_type`**
-    - Defines the shape of the kernel used in the morphological operation, influencing the effect on the image's structure.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the shape of the kernel used in the morphological operation, influencing the effect on the image's structure.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`kernel_size_x`**
-    - The horizontal size of the kernel. It affects the area of the image influenced by the operation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The horizontal size of the kernel. It affects the area of the image influenced by the operation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`kernel_size_y`**
-    - The vertical size of the kernel. It affects the area of the image influenced by the operation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The vertical size of the kernel. It affects the area of the image influenced by the operation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`iterations`**
-    - The number of times the morphological operation is applied. Increasing this value intensifies the effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of times the morphological operation is applied. Increasing this value intensifies the effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The result of applying the specified morphological operation to the source image, potentially altering its structure.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The result of applying the specified morphological operation to the source image, potentially altering its structure.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MorphologicOperation:
     # I did not want to make this node, but alas, I found no suit w/ the top/black hat operation

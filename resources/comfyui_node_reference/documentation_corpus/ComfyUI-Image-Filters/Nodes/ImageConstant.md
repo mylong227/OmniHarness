@@ -1,53 +1,62 @@
 ---
 tags:
-- Image
-- ImageGeneration
+  - Image
+  - ImageGeneration
 ---
 
 # Image Constant Color (RGB)
+
 ## Documentation
+
 - Class name: `ImageConstant`
 - Category: `image/filters`
 - Output node: `False`
 
 The ImageConstant node is designed to generate images of a constant color. It allows for the specification of the color in RGB format, along with the image dimensions and batch size, enabling the creation of multiple images with the same color specifications in a single operation.
+
 ## Input types
+
 ### Required
+
 - **`width`**
-    - Specifies the width of the generated images. It influences the horizontal dimension of the output images.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the generated images. It influences the horizontal dimension of the output images.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Determines the height of the generated images, affecting their vertical dimension.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the height of the generated images, affecting their vertical dimension.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`batch_size`**
-    - Indicates the number of images to generate in one batch, allowing for multiple images to be created at once.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Indicates the number of images to generate in one batch, allowing for multiple images to be created at once.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`red`**
-    - Sets the red component of the constant color for the generated images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the red component of the constant color for the generated images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`green`**
-    - Defines the green component of the constant color for the generated images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the green component of the constant color for the generated images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`blue`**
-    - Specifies the blue component of the constant color for the generated images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the blue component of the constant color for the generated images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image or a batch of images with the specified constant color in RGB format.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is an image or a batch of images with the specified constant color in RGB format.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageConstant:
     def __init__(self, device="cpu"):

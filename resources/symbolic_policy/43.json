@@ -21,10 +21,7 @@
   },
   "64": {
     "inputs": {
-      "conditioning": [
-        "67",
-        0
-      ]
+      "conditioning": ["67", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -33,14 +30,8 @@
   },
   "65": {
     "inputs": {
-      "samples": [
-        "70",
-        0
-      ],
-      "vae": [
-        "63",
-        0
-      ]
+      "samples": ["70", 0],
+      "vae": ["63", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -60,10 +51,7 @@
   "67": {
     "inputs": {
       "text": "",
-      "clip": [
-        "62",
-        0
-      ]
+      "clip": ["62", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -84,10 +72,7 @@
   "69": {
     "inputs": {
       "shift": 3,
-      "model": [
-        "66",
-        0
-      ]
+      "model": ["66", 0]
     },
     "class_type": "ModelSamplingAuraFlow",
     "_meta": {
@@ -102,22 +87,10 @@
       "sampler_name": "res_multistep",
       "scheduler": "simple",
       "denoise": 1,
-      "model": [
-        "69",
-        0
-      ],
-      "positive": [
-        "67",
-        0
-      ],
-      "negative": [
-        "64",
-        0
-      ],
-      "latent_image": [
-        "68",
-        0
-      ]
+      "model": ["69", 0],
+      "positive": ["67", 0],
+      "negative": ["64", 0],
+      "latent_image": ["68", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -146,30 +119,12 @@
       "force_uniform_tiles": true,
       "tiled_decode": false,
       "batch_size": 1,
-      "image": [
-        "65",
-        0
-      ],
-      "model": [
-        "69",
-        0
-      ],
-      "positive": [
-        "67",
-        0
-      ],
-      "negative": [
-        "73",
-        0
-      ],
-      "vae": [
-        "63",
-        0
-      ],
-      "upscale_model": [
-        "74",
-        0
-      ]
+      "image": ["65", 0],
+      "model": ["69", 0],
+      "positive": ["67", 0],
+      "negative": ["73", 0],
+      "vae": ["63", 0],
+      "upscale_model": ["74", 0]
     },
     "class_type": "UltimateSDUpscale",
     "_meta": {
@@ -178,10 +133,7 @@
   },
   "73": {
     "inputs": {
-      "conditioning": [
-        "67",
-        0
-      ]
+      "conditioning": ["67", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -200,10 +152,7 @@
   "77": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "71",
-        0
-      ]
+      "images": ["71", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

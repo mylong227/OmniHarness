@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -205,10 +207,13 @@ File name: `LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 # Other detected licenses
+
 File name: `__init__.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

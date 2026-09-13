@@ -1,46 +1,57 @@
 # AppendInstanceDiffusionTracking
+
 ## Documentation
+
 - Class name: `AppendInstanceDiffusionTracking`
 - Category: `KJNodes/InstanceDiffusion`
 - Output node: `False`
 
 The AppendInstanceDiffusionTracking node is designed for integrating and enhancing tracking data within the InstanceDiffusion framework. It merges tracking information from two sources, ensuring that class data is combined without duplication, and concatenates prompts for enriched context. This node facilitates the creation of comprehensive tracking datasets for InstanceDiffusion applications, streamlining the process of data preparation for instance-based diffusion tasks.
+
 ## Input types
+
 ### Required
+
 - **`tracking_i`**
-    - unknown
-    - Comfy dtype: `TRACKING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `TRACKING`
+  - Python dtype: `unknown`
+
 ### Optional
+
 - **`prompt_i`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`tracking`**
-    - Comfy dtype: `TRACKING`
-    - The merged tracking data, combining class information and IDs from both input sources without duplication.
-    - Python dtype: `dict`
+  - Comfy dtype: `TRACKING`
+  - The merged tracking data, combining class information and IDs from both input sources without duplication.
+  - Python dtype: `dict`
 - **`prompt`**
-    - Comfy dtype: `STRING`
-    - A concatenated string of the two input prompts, providing a unified context for the diffusion task.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - A concatenated string of the two input prompts, providing a unified context for the diffusion task.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AppendInstanceDiffusionTracking:
-    
+
     RETURN_TYPES = ("TRACKING", "STRING",)
     RETURN_NAMES = ("tracking", "prompt",)
     FUNCTION = "append"
     CATEGORY = "KJNodes/InstanceDiffusion"
     DESCRIPTION = """
-Appends tracking data to be used with InstanceDiffusion:  
-https://github.com/logtd/ComfyUI-InstanceDiffusion  
+Appends tracking data to be used with InstanceDiffusion:
+https://github.com/logtd/ComfyUI-InstanceDiffusion
 
 """
 
@@ -55,7 +66,7 @@ https://github.com/logtd/ComfyUI-InstanceDiffusion
             "prompt_1": ("STRING", {"default": "", "forceInput": True}),
             "prompt_2": ("STRING", {"default": "", "forceInput": True}),
         }
-    } 
+    }
 
     def append(self, tracking_1, tracking_2, prompt_1="", prompt_2=""):
         tracking_copy = tracking_1.copy()

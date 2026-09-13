@@ -1,48 +1,57 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # 🔧 Mask From Segmentation
+
 ## Documentation
+
 - Class name: `MaskFromSegmentation+`
 - Category: `essentials/mask`
 - Output node: `False`
 
 This node is designed to generate masks from image segmentation, effectively converting segmented areas into distinct mask layers. It allows for advanced image editing and manipulation by isolating specific segments of an image for targeted operations.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be segmented into masks. It serves as the basis for generating distinct mask layers for each segmented area.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be segmented into masks. It serves as the basis for generating distinct mask layers for each segmented area.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`segments`**
-    - The number of segments to divide the image into. This parameter controls the granularity of the segmentation, with higher values resulting in more detailed masks.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of segments to divide the image into. This parameter controls the granularity of the segmentation, with higher values resulting in more detailed masks.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`remove_isolated_pixels`**
-    - A threshold for removing isolated pixels within a mask to clean up noise and improve mask quality.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A threshold for removing isolated pixels within a mask to clean up noise and improve mask quality.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`remove_small_masks`**
-    - A threshold for removing small masks deemed to be noise, ensuring only significant segments are retained.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A threshold for removing small masks deemed to be noise, ensuring only significant segments are retained.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`fill_holes`**
-    - A boolean flag indicating whether to fill holes within the generated masks, enhancing their completeness and usability.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to fill holes within the generated masks, enhancing their completeness and usability.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The output consists of a stack of masks corresponding to the segmented areas of the input image, ready for further processing or application.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output consists of a stack of masks corresponding to the segmented areas of the input image, ready for further processing or application.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskFromSegmentation:
     @classmethod

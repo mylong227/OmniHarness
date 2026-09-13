@@ -1,107 +1,116 @@
 # SDXL Prompt Encoder (Searge)
+
 ## Documentation
+
 - Class name: `SeargeSDXLPromptEncoder`
 - Category: `Searge/_deprecated_/ClipEncoding`
 - Output node: `False`
 
 The SeargeSDXLPromptEncoder node is designed to encode prompts for the SDXL model, facilitating the generation of text prompts that are optimized for image synthesis tasks. It supports the encoding of both base and refined prompts, enabling users to fine-tune the prompt details for more precise image generation outcomes.
+
 ## Input types
+
 ### Required
+
 - **`base_clip`**
-    - unknown
-    - Comfy dtype: `CLIP`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `CLIP`
+  - Python dtype: `unknown`
 - **`refiner_clip`**
-    - unknown
-    - Comfy dtype: `CLIP`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `CLIP`
+  - Python dtype: `unknown`
 - **`pos_g`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`pos_l`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`pos_r`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`neg_g`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`neg_l`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`neg_r`**
-    - unknown
-    - Comfy dtype: `STRING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `STRING`
+  - Python dtype: `unknown`
 - **`base_width`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`base_height`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`crop_w`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`crop_h`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`target_width`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`target_height`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`pos_ascore`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`neg_ascore`**
-    - unknown
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `unknown`
 - **`refiner_width`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
 - **`refiner_height`**
-    - unknown
-    - Comfy dtype: `INT`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `INT`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`base_positive`**
-    - Comfy dtype: `CONDITIONING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `CONDITIONING`
+  - unknown
+  - Python dtype: `unknown`
 - **`base_negative`**
-    - Comfy dtype: `CONDITIONING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `CONDITIONING`
+  - unknown
+  - Python dtype: `unknown`
 - **`refiner_positive`**
-    - Comfy dtype: `CONDITIONING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `CONDITIONING`
+  - unknown
+  - Python dtype: `unknown`
 - **`refiner_negative`**
-    - Comfy dtype: `CONDITIONING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `CONDITIONING`
+  - unknown
+  - Python dtype: `unknown`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SeargeSDXLPromptEncoder:
     @classmethod

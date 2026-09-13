@@ -1,49 +1,60 @@
 ---
 tags:
-- ConditionalSelection
+  - ConditionalSelection
 ---
 
 # Switch (SEGS/legacy)
+
 ## Documentation
+
 - Class name: `SEGSSwitch`
 - Category: `ImpactPack/Util`
 - Output node: `False`
 
 The SEGSSwitch node dynamically selects between multiple segmentation (SEGS) inputs based on a specified index. It facilitates conditional processing paths within a pipeline, allowing for the flexible use of different segmentation data.
+
 ## Input types
+
 ### Required
+
 - **`select`**
-    - Specifies the index of the segmentation input to select. This index determines which segmentation data is used for processing, enabling dynamic choice based on conditions or preferences.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the index of the segmentation input to select. This index determines which segmentation data is used for processing, enabling dynamic choice based on conditions or preferences.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`sel_mode`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
+
 ### Optional
+
 - **`input1`**
-    - unknown
-    - Comfy dtype: `*`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `*`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`selected_value`**
-    - Comfy dtype: `*`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `*`
+  - unknown
+  - Python dtype: `unknown`
 - **`selected_label`**
-    - Comfy dtype: `STRING`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `STRING`
+  - unknown
+  - Python dtype: `unknown`
 - **`selected_index`**
-    - Comfy dtype: `INT`
-    - unknown
-    - Python dtype: `unknown`
+  - Comfy dtype: `INT`
+  - unknown
+  - Python dtype: `unknown`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class GeneralSwitch:
     @classmethod

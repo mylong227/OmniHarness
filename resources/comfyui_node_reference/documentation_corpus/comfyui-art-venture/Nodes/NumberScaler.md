@@ -1,43 +1,52 @@
 # Number Scaler
+
 ## Documentation
+
 - Class name: `NumberScaler`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The NumberScaler node is designed to scale a numerical value within a specified range to a new range, effectively normalizing or denormalizing the value based on the provided minimum and maximum boundaries.
+
 ## Input types
+
 ### Required
+
 - **`min`**
-    - Specifies the minimum value of the original range. It sets the lower boundary for scaling the input value.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the minimum value of the original range. It sets the lower boundary for scaling the input value.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`max`**
-    - Defines the maximum value of the original range. It sets the upper boundary for scaling the input value.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the maximum value of the original range. It sets the upper boundary for scaling the input value.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`scale_to_min`**
-    - Determines the minimum value of the target scaling range. It influences the lower limit of the output scaled value.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the minimum value of the target scaling range. It influences the lower limit of the output scaled value.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`scale_to_max`**
-    - Sets the maximum value of the target scaling range. It influences the upper limit of the output scaled value.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the maximum value of the target scaling range. It influences the upper limit of the output scaled value.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`value`**
-    - The numerical value to be scaled from its original range to the target range.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The numerical value to be scaled from its original range to the target range.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The scaled numerical value, adjusted to fit within the new specified range.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The scaled numerical value, adjusted to fit within the new specified range.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilNumberScaler:
     @classmethod

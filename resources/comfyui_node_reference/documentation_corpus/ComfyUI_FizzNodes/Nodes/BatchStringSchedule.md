@@ -1,70 +1,81 @@
 ---
 tags:
-- AnimationScheduling
-- Scheduling
+  - AnimationScheduling
+  - Scheduling
 ---
 
 # Batch String Schedule 📅🅕🅝
+
 ## Documentation
+
 - Class name: `BatchStringSchedule`
 - Category: `FizzNodes 📅🅕🅝/BatchScheduleNodes`
 - Output node: `False`
 
 The `BatchStringSchedule` node processes animation prompts by splitting them into positive and negative prompts, interpolating these prompts over a series of frames, and returning them as a batch of strings. This node is designed to handle the temporal dynamics of animation prompts, facilitating the generation of text sequences that vary over time.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The text input represents the base animation prompt that will be split into positive and negative prompts, serving as the foundation for the temporal interpolation process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The text input represents the base animation prompt that will be split into positive and negative prompts, serving as the foundation for the temporal interpolation process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`max_frames`**
-    - Specifies the maximum number of frames for which the prompts will be interpolated, defining the temporal extent of the animation sequence.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the maximum number of frames for which the prompts will be interpolated, defining the temporal extent of the animation sequence.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`print_output`**
-    - A flag indicating whether the output should be printed, affecting the node's output behavior.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether the output should be printed, affecting the node's output behavior.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`pre_text`**
-    - Text to be prepended to each animation prompt, modifying the initial content of the prompts before they are split and interpolated.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Text to be prepended to each animation prompt, modifying the initial content of the prompts before they are split and interpolated.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`app_text`**
-    - Text to be appended to each animation prompt, modifying the final content of the prompts before they are split and interpolated.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Text to be appended to each animation prompt, modifying the final content of the prompts before they are split and interpolated.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`pw_a`**
-    - Weight parameter A for interpolation, influencing how the positive and negative prompts are blended over time.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter A for interpolation, influencing how the positive and negative prompts are blended over time.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_b`**
-    - Weight parameter B for interpolation, further influencing the blending of prompts over the animation sequence.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter B for interpolation, further influencing the blending of prompts over the animation sequence.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_c`**
-    - Weight parameter C for interpolation, adjusting the influence of certain aspects of the prompt interpolation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter C for interpolation, adjusting the influence of certain aspects of the prompt interpolation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`pw_d`**
-    - Weight parameter D for interpolation, adjusting the influence of certain aspects of the prompt interpolation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Weight parameter D for interpolation, adjusting the influence of certain aspects of the prompt interpolation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`POS`**
-    - Comfy dtype: `STRING`
-    - The interpolated positive prompt for the current frame, as part of the batch of strings.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The interpolated positive prompt for the current frame, as part of the batch of strings.
+  - Python dtype: `str`
 - **`NEG`**
-    - Comfy dtype: `STRING`
-    - The interpolated negative prompt for the current frame, as part of the batch of strings.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The interpolated negative prompt for the current frame, as part of the batch of strings.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class BatchStringSchedule:
     @classmethod

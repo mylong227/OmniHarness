@@ -1,50 +1,59 @@
 ---
 tags:
-- Mask
-- MaskEnhancement
-- MaskRegion
+  - Mask
+  - MaskEnhancement
+  - MaskRegion
 ---
 
 # Edge Detect Mask Regions
+
 ## Documentation
+
 - Class name: `SaltMaskEdgeDetection`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node applies edge detection algorithms to mask regions, enhancing the edges within the masks using methods like Canny or Sobel. It's designed to highlight the contours and boundaries of objects within the mask regions, making them more distinct for further processing or analysis.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks on which edge detection will be performed. These masks are processed to highlight their edges, significantly impacting the node's output by delineating object boundaries more clearly.
-    - Comfy dtype: `MASK`
-    - Python dtype: `List[torch.Tensor]`
+  - The input masks on which edge detection will be performed. These masks are processed to highlight their edges, significantly impacting the node's output by delineating object boundaries more clearly.
+  - Comfy dtype: `MASK`
+  - Python dtype: `List[torch.Tensor]`
 - **`method`**
-    - Specifies the edge detection method to use ('canny' or 'sobel'). The choice of method affects the edge enhancement technique applied to the masks, influencing the clarity and style of the resulting edges.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the edge detection method to use ('canny' or 'sobel'). The choice of method affects the edge enhancement technique applied to the masks, influencing the clarity and style of the resulting edges.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`low_threshold`**
-    - The lower bound for the edge detection algorithm's thresholding. It helps in filtering out noise and less prominent edges, focusing on more significant boundaries.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - The lower bound for the edge detection algorithm's thresholding. It helps in filtering out noise and less prominent edges, focusing on more significant boundaries.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
 - **`high_threshold`**
-    - The upper bound for the edge detection algorithm's thresholding. It defines the intensity above which edges are considered significant, ensuring that only the most prominent edges are enhanced.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - The upper bound for the edge detection algorithm's thresholding. It defines the intensity above which edges are considered significant, ensuring that only the most prominent edges are enhanced.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
 - **`sobel_ksize`**
-    - The kernel size for the Sobel operator, applicable only when the Sobel method is used. It affects the smoothness and precision of the edge detection.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - The kernel size for the Sobel operator, applicable only when the Sobel method is used. It affects the smoothness and precision of the edge detection.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output tensor containing the enhanced edges of the input masks. This tensor represents the detected edges, making the boundaries within the masks more pronounced and ready for further analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output tensor containing the enhanced edges of the input masks. This tensor represents the detected edges, making the boundaries within the masks more pronounced and ready for further analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskEdgeDetection:
     @classmethod
@@ -82,8 +91,8 @@ class SaltMaskEdgeDetection:
 
             if method == 'canny':
                 edges = cv2.Canny(
-                    image_array, 
-                    low_threshold[i if i < len(low_threshold) else -1], 
+                    image_array,
+                    low_threshold[i if i < len(low_threshold) else -1],
                     high_threshold[i if i < len(high_threshold) else -1]
                 )
             elif method == 'sobel':
@@ -93,7 +102,7 @@ class SaltMaskEdgeDetection:
                 edges = np.uint8(255 * edges / np.max(edges))
             else:
                 raise ValueError(f"Invalid edge detection mode '{method}', please use sobel, or canny.")
-            
+
             edge_pil = Image.fromarray(edges)
 
             region_tensor = pil2mask(edge_pil)

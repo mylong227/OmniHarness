@@ -1,72 +1,80 @@
 ---
 tags:
-- Crop
-- Image
-- ImageTransformation
+  - Crop
+  - Image
+  - ImageTransformation
 ---
 
 # 🔧 Image Crop
+
 ## Documentation
+
 - Class name: `ImageCrop+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 The ImageCrop+ node is designed for cropping images to a specified width and height starting from a given x and y coordinate. It allows for precise control over the portion of the image to be extracted, making it a fundamental tool for image manipulation and preprocessing tasks.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be cropped. This parameter is crucial as it defines the source image from which a specific region will be extracted.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be cropped. This parameter is crucial as it defines the source image from which a specific region will be extracted.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`width`**
-    - Specifies the width of the cropped image. It determines how wide the resulting image will be after cropping.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the width of the cropped image. It determines how wide the resulting image will be after cropping.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`height`**
-    - Specifies the height of the cropped image. It determines the vertical size of the resulting image after cropping.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the height of the cropped image. It determines the vertical size of the resulting image after cropping.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`position`**
-    - Defines the starting position for the crop operation, offering predefined options for alignment.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the starting position for the crop operation, offering predefined options for alignment.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`x_offset`**
-    - The horizontal offset from the specified position for additional control over the cropping area.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The horizontal offset from the specified position for additional control over the cropping area.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`y_offset`**
-    - The vertical offset from the specified position for additional control over the cropping area.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The vertical offset from the specified position for additional control over the cropping area.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The cropped portion of the input image. This output is the direct result of the cropping operation, representing the specified region of the original image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The cropped portion of the input image. This output is the direct result of the cropping operation, representing the specified region of the original image.
+  - Python dtype: `torch.Tensor`
 - **`x`**
-    - Comfy dtype: `INT`
-    - The x-coordinate of the top-left corner of the cropped image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The x-coordinate of the top-left corner of the cropped image.
+  - Python dtype: `int`
 - **`y`**
-    - Comfy dtype: `INT`
-    - The y-coordinate of the top-left corner of the cropped image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The y-coordinate of the top-left corner of the cropped image.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [ImageSharpen](../../Comfy/Nodes/ImageSharpen.md)
-    - SetNode
-    - IPAdapterApply
-    - Reroute
-    - [DWPreprocessor](../../comfyui_controlnet_aux/Nodes/DWPreprocessor.md)
-    - [LineArtPreprocessor](../../comfyui_controlnet_aux/Nodes/LineArtPreprocessor.md)
-    - [MiDaS-DepthMapPreprocessor](../../comfyui_controlnet_aux/Nodes/MiDaS-DepthMapPreprocessor.md)
-    - IPAdapterApplyFaceID
-
-
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [ImageSharpen](../../Comfy/Nodes/ImageSharpen.md)
+  - SetNode
+  - IPAdapterApply
+  - Reroute
+  - [DWPreprocessor](../../comfyui_controlnet_aux/Nodes/DWPreprocessor.md)
+  - [LineArtPreprocessor](../../comfyui_controlnet_aux/Nodes/LineArtPreprocessor.md)
+  - [MiDaS-DepthMapPreprocessor](../../comfyui_controlnet_aux/Nodes/MiDaS-DepthMapPreprocessor.md)
+  - IPAdapterApplyFaceID
 
 ## Source code
+
 ```python
 class ImageCrop:
     @classmethod

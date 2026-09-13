@@ -1,14 +1,18 @@
 # comfyui_controlnet_aux
+
 comfyui_controlnet_aux is a collection of plug-and-play node sets designed for the ComfyUI interface, aimed at generating ControlNet hint images to enhance image processing tasks. It includes a variety of preprocessors for line extraction, depth and normal estimation, face and pose estimation, semantic segmentation, and more, facilitating the creation of detailed and accurate hint images for improved image synthesis. The project also supports integration with the 🤗 Hub, allowing users to access and utilize a wide range of preprocessor nodes directly within the ComfyUI environment.
 
 ## Tags
+
 Animation * ControlNet * DepthMap * DepthMapEstimation * Image * ImageEnhancement * ImageFilter * ImagePreprocessing * ImageResolution * ImageTransformation * Inpaint * LineExtraction * MediaPipeFaceMesh * NormalMap * OpticalFlow * PoseEstimation * SAM * Segmentation * SemanticSegmentationPreprocessing * Tiled
 
 ## Repo info
+
 - Repo url: `https://github.com/Fannovel16/comfyui_controlnet_aux`
 - Commit hash: `3c1d9de28afd59392c07f8419c14998df2b9204a`
 
 ## Licenses
+
 - **Apache-2.0**: `LICENSE.txt`
 - LicenseRef-scancode-generic-cla, LicenseRef-scancode-unknown-license-reference, MIT: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/CONTRIBUTING.md`
 - CC-BY-NC-4.0: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/LICENSE`

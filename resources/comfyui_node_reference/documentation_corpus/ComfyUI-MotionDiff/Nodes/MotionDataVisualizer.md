@@ -1,58 +1,69 @@
 ---
 tags:
-- Animation
-- CameraControl
+  - Animation
+  - CameraControl
 ---
 
 # Motion Data Visualizer
+
 ## Documentation
+
 - Class name: `MotionDataVisualizer`
 - Category: `MotionDiff`
 - Output node: `False`
 
 The MotionDataVisualizer node is designed to transform motion data into a visual representation, allowing for the visualization of motion through various parameters such as distance, elevation, and rotation. It supports different visualization styles and outputs the visualized motion as a sequence of tensor frames.
+
 ## Input types
+
 ### Required
+
 - **`motion_data`**
-    - The motion data to be visualized, which can include joints information or require conversion from motion format to joints. This input is crucial as it directly influences the visual output by determining the motion's structure and dynamics to be visualized.
-    - Comfy dtype: `MOTION_DATA`
-    - Python dtype: `Dict[str, Any]`
+  - The motion data to be visualized, which can include joints information or require conversion from motion format to joints. This input is crucial as it directly influences the visual output by determining the motion's structure and dynamics to be visualized.
+  - Comfy dtype: `MOTION_DATA`
+  - Python dtype: `Dict[str, Any]`
 - **`visualization`**
-    - Specifies the style of visualization to be applied to the motion data, affecting the visual appearance and interpretability of the output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the style of visualization to be applied to the motion data, affecting the visual appearance and interpretability of the output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`distance`**
-    - The distance parameter controls the camera distance from the motion in the visualization, impacting the scale and perspective of the visualized motion.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The distance parameter controls the camera distance from the motion in the visualization, impacting the scale and perspective of the visualized motion.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`elevation`**
-    - The elevation parameter adjusts the camera elevation angle for the visualization, influencing the vertical angle and overall view of the motion.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The elevation parameter adjusts the camera elevation angle for the visualization, influencing the vertical angle and overall view of the motion.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`rotation`**
-    - The rotation parameter sets the camera rotation angle around the motion in the visualization, affecting the orientation and angle of the visualized motion.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The rotation parameter sets the camera rotation angle around the motion in the visualization, affecting the orientation and angle of the visualized motion.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`poselinewidth`**
-    - Defines the line width for the pose representation in the visualization, impacting the clarity and visual prominence of the motion's pose.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the line width for the pose representation in the visualization, impacting the clarity and visual prominence of the motion's pose.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`opt_title`**
-    - An optional title for the visualization, which can enhance the context or provide additional information for the visualized motion.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional title for the visualization, which can enhance the context or provide additional information for the visualized motion.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The visualized motion output as an image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The visualized motion output as an image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MotionDataVisualizer:
     @classmethod

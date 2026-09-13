@@ -1,90 +1,101 @@
 ---
 tags:
-- SMPL
-- SMPLModel
+  - SMPL
+  - SMPLModel
 ---
 
 # Render Mutiple SMPL Mesh
+
 ## Documentation
+
 - Class name: `RenderMultipleSubjectsSMPLMesh`
 - Category: `MotionDiff/smpl`
 - Output node: `False`
 
 This node is designed to render multiple SMPL mesh subjects within a given scene. It leverages 3D mesh rendering techniques to visualize the motion and form of multiple subjects simultaneously, providing a comprehensive view of their spatial interactions and dynamics.
+
 ## Input types
+
 ### Required
+
 - **`smpl_multi_subjects`**
-    - This input is essential for rendering as it contains the SMPL models of multiple subjects, including their mesh data and possibly motion information. This dataset enables the node to accurately visualize each subject in the scene.
-    - Comfy dtype: `SMPL_MULTIPLE_SUBJECTS`
-    - Python dtype: `List[Dict[str, Union[np.ndarray, List[np.ndarray]]]]`
+  - This input is essential for rendering as it contains the SMPL models of multiple subjects, including their mesh data and possibly motion information. This dataset enables the node to accurately visualize each subject in the scene.
+  - Comfy dtype: `SMPL_MULTIPLE_SUBJECTS`
+  - Python dtype: `List[Dict[str, Union[np.ndarray, List[np.ndarray]]]]`
 - **`draw_platform`**
-    - Specifies whether to draw a platform for the subjects to stand on, enhancing the visualization's realism.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Specifies whether to draw a platform for the subjects to stand on, enhancing the visualization's realism.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`depth_only`**
-    - Determines whether to render only the depth map of the scene, which can be useful for certain types of visual analysis.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether to render only the depth map of the scene, which can be useful for certain types of visual analysis.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`fx_offset`**
-    - Horizontal offset for the camera's focal point, allowing for adjustments in the rendered scene's perspective.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Horizontal offset for the camera's focal point, allowing for adjustments in the rendered scene's perspective.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`fy_offset`**
-    - Vertical offset for the camera's focal point, enabling fine-tuning of the scene's visual perspective.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Vertical offset for the camera's focal point, enabling fine-tuning of the scene's visual perspective.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`move_x`**
-    - Moves the camera along the x-axis, offering control over the scene's composition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Moves the camera along the x-axis, offering control over the scene's composition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`move_y`**
-    - Moves the camera along the y-axis, allowing for adjustments in the scene's framing.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Moves the camera along the y-axis, allowing for adjustments in the scene's framing.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`move_z`**
-    - Moves the camera along the z-axis, providing the ability to alter the scene's depth.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Moves the camera along the z-axis, providing the ability to alter the scene's depth.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`rotate_x`**
-    - Rotates the camera around the x-axis, enabling changes in the scene's vertical orientation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Rotates the camera around the x-axis, enabling changes in the scene's vertical orientation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`rotate_y`**
-    - Rotates the camera around the y-axis, allowing for alterations in the scene's horizontal orientation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Rotates the camera around the y-axis, allowing for alterations in the scene's horizontal orientation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`rotate_z`**
-    - Rotates the camera around the z-axis, offering the possibility to adjust the scene's rotational perspective.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Rotates the camera around the z-axis, offering the possibility to adjust the scene's rotational perspective.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`background_hex_color`**
-    - Sets the background color of the scene using a hexadecimal color code, enhancing the visual appeal.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Sets the background color of the scene using a hexadecimal color code, enhancing the visual appeal.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`normals`**
-    - Determines whether to render the normals of the mesh, which can provide additional detail for visual analysis.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether to render the normals of the mesh, which can provide additional detail for visual analysis.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`remove_background`**
-    - Specifies whether to remove the background from the rendered scene, focusing the visualization solely on the subjects.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Specifies whether to remove the background from the rendered scene, focusing the visualization solely on the subjects.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The output is a visual representation of multiple SMPL models, rendered as meshes within a scene. It provides a detailed view of the subjects' forms and motions.
-    - Python dtype: `np.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The output is a visual representation of multiple SMPL models, rendered as meshes within a scene. It provides a detailed view of the subjects' forms and motions.
+  - Python dtype: `np.ndarray`
 - **`DEPTH_MAP`**
-    - Comfy dtype: `IMAGE`
-    - The depth map of the rendered scene, offering insights into the spatial relationships and distances between subjects.
-    - Python dtype: `np.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The depth map of the rendered scene, offering insights into the spatial relationships and distances between subjects.
+  - Python dtype: `np.ndarray`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class RenderMultipleSubjectsSMPLMesh:
     @classmethod
@@ -125,8 +136,8 @@ class RenderMultipleSubjectsSMPLMesh:
         bg_color = ImageColor.getcolor(background_hex_color, "RGB")
         color_frames = torch.from_numpy(color_frames[..., :3].astype(np.float32) / 255.)
         white_mask = [
-            (color_frames[..., 0] == 1.) & 
-            (color_frames[..., 1] == 1.) & 
+            (color_frames[..., 0] == 1.) &
+            (color_frames[..., 1] == 1.) &
             (color_frames[..., 2] == 1.)
         ]
         if remove_background:

@@ -1,76 +1,85 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # 🔧 KSampler Variations with Noise Injection
+
 ## Documentation
+
 - Class name: `KSamplerVariationsWithNoise+`
 - Category: `essentials/sampling`
 - Output node: `False`
 
 This node introduces a two-stage sampling process with noise injection to generate variations of an input latent image. Initially, it applies a composition sampler to the input, optionally adding or fully denoising the result based on the variation strength. Subsequently, it employs a variation sampler that further processes the output of the first stage, adjusting the configuration based on the variation strength and cfg scale, to produce diverse and nuanced variations of the original image.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model parameter specifies the generative model used for sampling, playing a crucial role in determining the characteristics and quality of the generated variations.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model parameter specifies the generative model used for sampling, playing a crucial role in determining the characteristics and quality of the generated variations.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`latent_image`**
-    - The latent_image parameter represents the input latent representation of an image, serving as the starting point for the sampling process to generate variations.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The latent_image parameter represents the input latent representation of an image, serving as the starting point for the sampling process to generate variations.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
 - **`main_seed`**
-    - The main_seed parameter is used to initialize the random noise generation for the base noise, influencing the stochastic aspects of the sampling process.
-    - Comfy dtype: `INT:seed`
-    - Python dtype: `int`
+  - The main_seed parameter is used to initialize the random noise generation for the base noise, influencing the stochastic aspects of the sampling process.
+  - Comfy dtype: `INT:seed`
+  - Python dtype: `int`
 - **`steps`**
-    - The steps parameter defines the number of sampling steps to be performed, affecting the detail and quality of the generated image variations.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The steps parameter defines the number of sampling steps to be performed, affecting the detail and quality of the generated image variations.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - The cfg parameter adjusts the conditioning factor, influencing the generation process by modulating the influence of the conditioning on the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The cfg parameter adjusts the conditioning factor, influencing the generation process by modulating the influence of the conditioning on the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sampler_name`**
-    - The sampler_name parameter specifies the sampling strategy used in the first stage of the process, determining the approach for generating the initial variation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The sampler_name parameter specifies the sampling strategy used in the first stage of the process, determining the approach for generating the initial variation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - The scheduler parameter determines the scheduling strategy for the sampling process, affecting the progression of noise reduction and detail refinement.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The scheduler parameter determines the scheduling strategy for the sampling process, affecting the progression of noise reduction and detail refinement.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`positive`**
-    - The positive parameter provides positive textual guidance for the sampling process, steering the generation towards desired attributes or themes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - The positive parameter provides positive textual guidance for the sampling process, steering the generation towards desired attributes or themes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`negative`**
-    - The negative parameter provides negative textual guidance, instructing the model to avoid certain attributes or themes in the generated variations.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - The negative parameter provides negative textual guidance, instructing the model to avoid certain attributes or themes in the generated variations.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`variation_strength`**
-    - The variation_strength parameter controls the degree of variation introduced between the two stages, affecting the diversity of the generated images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The variation_strength parameter controls the degree of variation introduced between the two stages, affecting the diversity of the generated images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`variation_seed`**
-    - The variation_seed parameter is used to seed the variation process in the second stage, ensuring reproducibility and control over the variation generation.
-    - Comfy dtype: `INT:seed`
-    - Python dtype: `int`
+  - The variation_seed parameter is used to seed the variation process in the second stage, ensuring reproducibility and control over the variation generation.
+  - Comfy dtype: `INT:seed`
+  - Python dtype: `int`
 - **`denoise`**
-    - The denoise parameter determines the level of denoising applied during the sampling process, affecting the clarity and detail of the generated image variations.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The denoise parameter determines the level of denoising applied during the sampling process, affecting the clarity and detail of the generated image variations.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The output latent represents the final varied latent representation of the image after the two-stage sampling process with noise injection.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - The output latent represents the final varied latent representation of the image after the two-stage sampling process with noise injection.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class KSamplerVariationsWithNoise:
     @classmethod

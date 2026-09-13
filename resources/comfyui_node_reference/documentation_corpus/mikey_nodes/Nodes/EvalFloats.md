@@ -1,41 +1,50 @@
 ---
 tags:
-- DataTypeConversion
-- Math
+  - DataTypeConversion
+  - Math
 ---
 
 # Eval Floats (Mikey)
+
 ## Documentation
+
 - Class name: `EvalFloats`
 - Category: `Mikey/Math`
 - Output node: `False`
 
 EvalFloats is designed to dynamically evaluate mathematical expressions provided by the user. It takes two float inputs and a formula as a string, processes the formula by substituting the inputs, and returns the result in multiple formats.
+
 ## Input types
+
 ### Required
+
 - **`a`**
-    - Represents the first float input for the mathematical formula. Its value is crucial as it directly influences the outcome of the evaluated expression.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Represents the first float input for the mathematical formula. Its value is crucial as it directly influences the outcome of the evaluated expression.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`b`**
-    - Serves as the second float input for the mathematical formula. Similar to 'a', its value significantly affects the result of the expression.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Serves as the second float input for the mathematical formula. Similar to 'a', its value significantly affects the result of the expression.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`formula`**
-    - A string input representing the mathematical formula to be evaluated. This formula should include placeholders for 'a' and 'b' which are replaced by their respective input values during processing.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string input representing the mathematical formula to be evaluated. This formula should include placeholders for 'a' and 'b' which are replaced by their respective input values during processing.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`result_float`**
-    - Comfy dtype: `FLOAT`
-    - The floating-point result of the evaluated mathematical formula.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The floating-point result of the evaluated mathematical formula.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class EvalFloats:
     # takes two float inputs and a text widget the user can type a formula for values a and b to calculate

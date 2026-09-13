@@ -1,66 +1,75 @@
 ---
 tags:
-- BoundingBox
-- Image
-- ImageTransformation
+  - BoundingBox
+  - Image
+  - ImageTransformation
 ---
 
 # Face Bounding Box
+
 ## Documentation
+
 - Class name: `FaceBoundingBox`
 - Category: `FaceAnalysis`
 - Output node: `False`
 
 The FaceBoundingBox node is designed to detect and extract bounding boxes around faces in images. It utilizes analysis models to identify the location and dimensions of faces, applying optional padding and selecting specific faces based on an index. This functionality is crucial for tasks that require precise face detection and cropping, such as facial recognition or analysis applications.
+
 ## Input types
+
 ### Required
+
 - **`analysis_models`**
-    - Specifies the models used for face detection and analysis. It's crucial for determining the accuracy and efficiency of face detection within images.
-    - Comfy dtype: `ANALYSIS_MODELS`
-    - Python dtype: `object`
+  - Specifies the models used for face detection and analysis. It's crucial for determining the accuracy and efficiency of face detection within images.
+  - Comfy dtype: `ANALYSIS_MODELS`
+  - Python dtype: `object`
 - **`image`**
-    - The input image or images in which faces need to be detected. It serves as the primary data for face detection.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - The input image or images in which faces need to be detected. It serves as the primary data for face detection.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
 - **`padding`**
-    - An optional parameter that adds a fixed padding to the detected face bounding boxes, allowing for more context around the faces.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An optional parameter that adds a fixed padding to the detected face bounding boxes, allowing for more context around the faces.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`padding_percent`**
-    - Similar to padding, but adds a percentage-based padding around the detected face bounding boxes, offering flexible context inclusion.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Similar to padding, but adds a percentage-based padding around the detected face bounding boxes, offering flexible context inclusion.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`index`**
-    - Specifies the index of the face to focus on when multiple faces are detected. A negative index indicates no specific focus, utilizing all detected faces.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the index of the face to focus on when multiple faces are detected. A negative index indicates no specific focus, utilizing all detected faces.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The cropped images of detected faces, potentially adjusted by padding and index selection.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The cropped images of detected faces, potentially adjusted by padding and index selection.
+  - Python dtype: `List[torch.Tensor]`
 - **`x`**
-    - Comfy dtype: `INT`
-    - The x-coordinate of the top-left corner of each face bounding box.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `INT`
+  - The x-coordinate of the top-left corner of each face bounding box.
+  - Python dtype: `List[int]`
 - **`y`**
-    - Comfy dtype: `INT`
-    - The y-coordinate of the top-left corner of each face bounding box.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `INT`
+  - The y-coordinate of the top-left corner of each face bounding box.
+  - Python dtype: `List[int]`
 - **`width`**
-    - Comfy dtype: `INT`
-    - The width of each face bounding box.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `INT`
+  - The width of each face bounding box.
+  - Python dtype: `List[int]`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The height of each face bounding box.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `INT`
+  - The height of each face bounding box.
+  - Python dtype: `List[int]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FaceBoundingBox:
     @classmethod
@@ -118,7 +127,7 @@ class FaceBoundingBox:
 
             #out_img = [comfy.utils.common_upscale(img.unsqueeze(0).movedim(-1,1), w, h, "bilinear", "center").movedim(1,-1).squeeze(0) for img in out_img]
             #out_img = torch.stack(out_img)
-        
+
         return (out_img, out_x, out_y, out_w, out_h,)
 
 ```

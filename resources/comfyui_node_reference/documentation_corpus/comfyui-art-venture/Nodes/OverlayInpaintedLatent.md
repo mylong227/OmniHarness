@@ -1,41 +1,50 @@
 ---
 tags:
-- Image
-- ImageComposite
+  - Image
+  - ImageComposite
 ---
 
 # Overlay Inpainted Latent
+
 ## Documentation
+
 - Class name: `OverlayInpaintedLatent`
 - Category: `Art Venture/Inpainting`
 - Output node: `False`
 
 The OverlayInpaintedLatent node is designed to blend original and inpainted latent representations based on a given mask, producing a seamless overlay where the inpainted content is integrated with the original content. This process is crucial for applications in art and image editing, where maintaining the integrity of the original image while incorporating new elements is essential.
+
 ## Input types
+
 ### Required
+
 - **`original`**
-    - The 'original' input represents the original latent representation before any inpainting has been applied. It serves as the base for the overlay process, ensuring that the inpainted content is integrated in a way that respects the original image's structure and content.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The 'original' input represents the original latent representation before any inpainting has been applied. It serves as the base for the overlay process, ensuring that the inpainted content is integrated in a way that respects the original image's structure and content.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
 - **`inpainted`**
-    - The 'inpainted' input contains the latent representation of the inpainted areas. It is crucial for the overlay process, as it provides the new content that will be blended with the original latent representation based on the mask.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The 'inpainted' input contains the latent representation of the inpainted areas. It is crucial for the overlay process, as it provides the new content that will be blended with the original latent representation based on the mask.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
 - **`mask`**
-    - The 'mask' input specifies the areas of the original latent representation that should be replaced or blended with the inpainted content. It plays a key role in determining how the original and inpainted representations are combined during the overlay process.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The 'mask' input specifies the areas of the original latent representation that should be replaced or blended with the inpainted content. It plays a key role in determining how the original and inpainted representations are combined during the overlay process.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The output is a latent representation that combines the original and inpainted content based on the provided mask, resulting in a seamless integration of both elements.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - The output is a latent representation that combines the original and inpainted content based on the provided mask, resulting in a seamless integration of both elements.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class OverlayInpaintedLatent:
     @classmethod

@@ -1,41 +1,50 @@
 ---
 tags:
-- Color
-- ColorMatch
+  - Color
+  - ColorMatch
 ---
 
 # Color Transfer
+
 ## Documentation
+
 - Class name: `SAIColorTransfer`
 - Category: `SALT/Image/Process`
 - Output node: `False`
 
 The SAIColorTransfer node is designed for applying color transfer techniques between images. It enables the modification of the color scheme of target images to match the color characteristics of source images, supporting various modes of color transfer.
+
 ## Input types
+
 ### Required
+
 - **`target_images`**
-    - Target images are the images whose color schemes are to be modified. They serve as the canvas for the color transfer process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Target images are the images whose color schemes are to be modified. They serve as the canvas for the color transfer process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`source_images`**
-    - Source images provide the color scheme to be transferred to the target images. They act as the reference for the desired color characteristics.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Source images provide the color scheme to be transferred to the target images. They act as the reference for the desired color characteristics.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mode`**
-    - Specifies the color transfer mode to be used, such as 'pdf_regrain', 'mean_transfer', or 'lab_transfer', each offering a different approach to color adaptation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the color transfer mode to be used, such as 'pdf_regrain', 'mean_transfer', or 'lab_transfer', each offering a different approach to color adaptation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - The modified images with the color scheme of the source images applied to the target images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The modified images with the color scheme of the source images applied to the target images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SAIColorTransfer:
     def __init__(self):
@@ -50,7 +59,7 @@ class SAIColorTransfer:
                 "mode": (["pdf_regrain", "mean_transfer", "lab_transfer"],)
             }
         }
-    
+
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("images",)
 

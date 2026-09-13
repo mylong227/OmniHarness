@@ -6,15 +6,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of an adult baker dusting a wooden counter with flour in a small bakery.",
-    "semantic_tags": [
-      "adult",
-      "baker",
-      "flour",
-      "bakery"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["adult", "baker", "flour", "bakery"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -35,15 +28,8 @@
     "height": 1537,
     "format": "png",
     "caption": "A synthetic image of an adult with curly hair reading an open book beside a window.",
-    "semantic_tags": [
-      "adult",
-      "reader",
-      "book",
-      "window"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["adult", "reader", "book", "window"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -64,15 +50,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of rows of lavender plants stretching toward a small farm shed.",
-    "semantic_tags": [
-      "lavender",
-      "farm",
-      "shed",
-      "flowers"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["lavender", "farm", "shed", "flowers"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -92,15 +71,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of an adult violinist holding a violin and bow in a modest practice room.",
-    "semantic_tags": [
-      "adult",
-      "violinist",
-      "violin",
-      "room"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["adult", "violinist", "violin", "room"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -121,15 +93,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a pair of worn hiking boots on a stone doorstep.",
-    "semantic_tags": [
-      "boots",
-      "footwear",
-      "stone",
-      "doorstep"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["boots", "footwear", "stone", "doorstep"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -150,15 +115,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of an adult skater standing beside a skateboard in an open urban plaza.",
-    "semantic_tags": [
-      "adult",
-      "skater",
-      "skateboard",
-      "plaza"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["adult", "skater", "skateboard", "plaza"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -179,15 +137,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a small bookshop interior with wooden shelves and a reading chair.",
-    "semantic_tags": [
-      "bookshop",
-      "interior",
-      "shelves",
-      "chair"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["bookshop", "interior", "shelves", "chair"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -207,15 +158,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a blue bicycle leaning against a railing beside a canal.",
-    "semantic_tags": [
-      "bicycle",
-      "blue",
-      "railing",
-      "canal"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["bicycle", "blue", "railing", "canal"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -235,15 +179,8 @@
     "height": 1024,
     "format": "png",
     "caption": "A synthetic image of a small brick railway station with a covered empty platform.",
-    "semantic_tags": [
-      "station",
-      "architecture",
-      "brick",
-      "platform"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["station", "architecture", "brick", "platform"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -263,15 +200,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a butterfly resting on a large green leaf with dew drops.",
-    "semantic_tags": [
-      "butterfly",
-      "insect",
-      "leaf",
-      "dew"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["butterfly", "insect", "leaf", "dew"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -291,15 +221,8 @@
     "height": 1122,
     "format": "png",
     "caption": "A synthetic image of a stylized clay figure of an astronaut standing in a tiny succulent garden.",
-    "semantic_tags": [
-      "astronaut",
-      "clay",
-      "succulents",
-      "stylized"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["astronaut", "clay", "succulents", "stylized"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -319,15 +242,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of an adult hiker with a backpack pausing on a forest trail.",
-    "semantic_tags": [
-      "adult",
-      "hiker",
-      "backpack",
-      "forest"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["adult", "hiker", "backpack", "forest"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -348,15 +264,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a white lighthouse on a rocky coast overlooking the sea.",
-    "semantic_tags": [
-      "lighthouse",
-      "coast",
-      "rocks",
-      "sea"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["lighthouse", "coast", "rocks", "sea"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -376,15 +285,8 @@
     "height": 1024,
     "format": "png",
     "caption": "A synthetic image of a tiled courtyard with a central fountain and potted citrus trees.",
-    "semantic_tags": [
-      "courtyard",
-      "fountain",
-      "tiles",
-      "citrus"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["courtyard", "fountain", "tiles", "citrus"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -404,15 +306,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of a yellow tram traveling along a tree-lined avenue.",
-    "semantic_tags": [
-      "tram",
-      "yellow",
-      "avenue",
-      "trees"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["tram", "yellow", "avenue", "trees"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -432,15 +327,8 @@
     "height": 1535,
     "format": "png",
     "caption": "A synthetic image of sweeping sand dunes with wind-sculpted ridges and sparse desert shrubs.",
-    "semantic_tags": [
-      "desert",
-      "dunes",
-      "sand",
-      "shrubs"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["desert", "dunes", "sand", "shrubs"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -460,15 +348,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of a red fox standing in a meadow of small wildflowers.",
-    "semantic_tags": [
-      "fox",
-      "animal",
-      "meadow",
-      "wildflowers"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["fox", "animal", "meadow", "wildflowers"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -489,15 +370,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a clear glass vase holding branches of white blossoms on a side table.",
-    "semantic_tags": [
-      "vase",
-      "glass",
-      "blossoms",
-      "table"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["vase", "glass", "blossoms", "table"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -517,15 +391,8 @@
     "height": 1024,
     "format": "png",
     "caption": "A synthetic image of an adult gardener holding a watering can inside a greenhouse.",
-    "semantic_tags": [
-      "adult",
-      "gardener",
-      "watering_can",
-      "greenhouse"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["adult", "gardener", "watering_can", "greenhouse"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -546,15 +413,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of mangrove trees with exposed roots in a shallow turquoise lagoon.",
-    "semantic_tags": [
-      "mangrove",
-      "trees",
-      "roots",
-      "lagoon"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["mangrove", "trees", "roots", "lagoon"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -574,15 +434,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a vintage film camera with a leather strap on a wooden desk.",
-    "semantic_tags": [
-      "camera",
-      "vintage",
-      "leather",
-      "desk"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["camera", "vintage", "leather", "desk"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -603,15 +456,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of a storybook cottage built beneath a giant mushroom in a woodland clearing.",
-    "semantic_tags": [
-      "cottage",
-      "mushroom",
-      "woodland",
-      "illustration"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["cottage", "mushroom", "woodland", "illustration"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -631,15 +477,8 @@
     "height": 1122,
     "format": "png",
     "caption": "A synthetic image of a whimsical floating island with a little library and trailing plants.",
-    "semantic_tags": [
-      "floating_island",
-      "library",
-      "plants",
-      "illustration"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["floating_island", "library", "plants", "illustration"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -659,15 +498,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of an otter resting on a wet stone at the edge of a river.",
-    "semantic_tags": [
-      "otter",
-      "animal",
-      "river",
-      "stone"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["otter", "animal", "river", "stone"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -688,15 +520,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of a turtle on a fallen log above a pond covered with lily pads.",
-    "semantic_tags": [
-      "turtle",
-      "animal",
-      "pond",
-      "lily_pads"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["turtle", "animal", "pond", "lily_pads"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -717,15 +542,8 @@
     "height": 1254,
     "format": "png",
     "caption": "A synthetic image of green terraced fields stepping down a hillside with a narrow footpath.",
-    "semantic_tags": [
-      "terraces",
-      "fields",
-      "hillside",
-      "path"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["terraces", "fields", "hillside", "path"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -745,15 +563,8 @@
     "height": 1535,
     "format": "png",
     "caption": "A synthetic image of a waterfall spilling over dark rocks into a forest pool.",
-    "semantic_tags": [
-      "waterfall",
-      "rocks",
-      "forest",
-      "pool"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["waterfall", "rocks", "forest", "pool"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -773,15 +584,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of a mint-green scooter parked in a cobbled courtyard.",
-    "semantic_tags": [
-      "scooter",
-      "green",
-      "courtyard",
-      "cobblestone"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["scooter", "green", "courtyard", "cobblestone"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -801,15 +605,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of an artist studio with an easel and paint jars near tall industrial windows.",
-    "semantic_tags": [
-      "studio",
-      "interior",
-      "easel",
-      "paint"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["studio", "interior", "easel", "paint"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -829,15 +626,8 @@
     "height": 1537,
     "format": "png",
     "caption": "A synthetic image of a deer standing between tall trunks in a quiet forest.",
-    "semantic_tags": [
-      "deer",
-      "animal",
-      "forest",
-      "trees"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["deer", "animal", "forest", "trees"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -858,15 +648,8 @@
     "height": 1024,
     "format": "png",
     "caption": "A synthetic image of a miniature terrarium with moss and stones inside a glass jar.",
-    "semantic_tags": [
-      "terrarium",
-      "moss",
-      "stones",
-      "glass"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["terrarium", "moss", "stones", "glass"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -886,15 +669,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of a two-color linocut illustration of a fish among flowing aquatic plants.",
-    "semantic_tags": [
-      "fish",
-      "linocut",
-      "plants",
-      "illustration"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["fish", "linocut", "plants", "illustration"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",
@@ -914,15 +690,8 @@
     "height": 1536,
     "format": "png",
     "caption": "A synthetic image of a mechanical sewing machine with fabric and thread spools on a workbench.",
-    "semantic_tags": [
-      "sewing_machine",
-      "fabric",
-      "thread",
-      "workbench"
-    ],
-    "quality_flags": [
-      "ai_generated"
-    ],
+    "semantic_tags": ["sewing_machine", "fabric", "thread", "workbench"],
+    "quality_flags": ["ai_generated"],
     "applicable_capabilities": [
       "Localized Image Editing",
       "Style Transfer & Repainting",

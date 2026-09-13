@@ -1,40 +1,49 @@
 ---
 tags:
-- ImageEnhancement
+  - ImageEnhancement
 ---
 
 # Inference_Core_TonemapNoiseWithRescaleCFG
+
 ## Documentation
+
 - Class name: `Inference_Core_TonemapNoiseWithRescaleCFG`
 - Category: `custom_node_experiments`
 - Output node: `False`
 
 This node applies a tonemapping and noise rescaling configuration to a given model, enhancing its ability to handle conditional and unconditional inputs by adjusting their scale and contrast. It utilizes a combination of tonemapping techniques and rescaling factors to modify the model's sampling behavior, aiming to improve the quality and consistency of generated outputs.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the tonemapping and noise rescaling configuration will be applied. This configuration adjusts the model's handling of inputs to enhance output quality.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to which the tonemapping and noise rescaling configuration will be applied. This configuration adjusts the model's handling of inputs to enhance output quality.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`tonemap_multiplier`**
-    - A multiplier that adjusts the intensity of the tonemapping effect, influencing the contrast and brightness of the noise in the model's output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier that adjusts the intensity of the tonemapping effect, influencing the contrast and brightness of the noise in the model's output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`rescale_multiplier`**
-    - A multiplier that adjusts the scale of the conditional generation, affecting the balance between the original and modified noise predictions in the final output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier that adjusts the scale of the conditional generation, affecting the balance between the original and modified noise predictions in the final output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The modified model with an updated sampling behavior, incorporating the specified tonemapping and noise rescaling configurations.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The modified model with an updated sampling behavior, incorporating the specified tonemapping and noise rescaling configurations.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TonemapNoiseWithRescaleCFG:
     @classmethod

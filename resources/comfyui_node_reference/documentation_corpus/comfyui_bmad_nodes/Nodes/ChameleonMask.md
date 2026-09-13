@@ -1,74 +1,85 @@
 ---
 tags:
-- Mask
-- MaskGeneration
+  - Mask
+  - MaskGeneration
 ---
 
 # ChameleonMask
+
 ## Documentation
+
 - Class name: `ChameleonMask`
 - Category: `Bmad/CV/C.Photography`
 - Output node: `False`
 
 The ChameleonMask node is designed to adaptively blend or modify images or masks based on certain criteria or conditions. It aims to provide a flexible approach to image manipulation, allowing for dynamic adjustments that cater to the specific needs of the input data.
+
 ## Input types
+
 ### Required
+
 - **`dst`**
-    - Specifies the destination image over which the source image or mask will be applied, serving as the backdrop for the operation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Specifies the destination image over which the source image or mask will be applied, serving as the backdrop for the operation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`src`**
-    - Defines the source image or mask to be blended or modified onto the destination image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Defines the source image or mask to be blended or modified onto the destination image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`thresh_blur`**
-    - Sets the threshold for blurring, affecting the smoothness of the mask edges.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the threshold for blurring, affecting the smoothness of the mask edges.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`close_dist`**
-    - Determines the distance for the closing operation, impacting the closure of small holes in the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the distance for the closing operation, impacting the closure of small holes in the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`open_dist`**
-    - Specifies the distance for the opening operation, influencing the removal of small objects from the foreground of the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the distance for the opening operation, influencing the removal of small objects from the foreground of the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`size_dist`**
-    - Controls the size distribution for filtering, affecting the scale of features retained in the mask.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Controls the size distribution for filtering, affecting the scale of features retained in the mask.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`mask_blur`**
-    - Defines the blur level for the mask, impacting the overall softness and blending of edges.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the blur level for the mask, impacting the overall softness and blending of edges.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`contrast_adjust`**
-    - Adjusts the contrast of the image, enhancing or reducing the visual differences between elements.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the contrast of the image, enhancing or reducing the visual differences between elements.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`mode`**
-    - Selects the operational mode, determining the specific blending or modification technique used.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Selects the operational mode, determining the specific blending or modification technique used.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`output_format`**
-    - Chooses the output format of the image, affecting the visual style and compatibility.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Chooses the output format of the image, affecting the visual style and compatibility.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`optional_roi_mask`**
-    - An optional mask defining regions of interest, focusing the operation on specific areas of the image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - An optional mask defining regions of interest, focusing the operation on specific areas of the image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image after adaptive blending or modification, showcasing the applied effects.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image after adaptive blending or modification, showcasing the applied effects.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ChameleonMask:  # wtf would I name this node as?
     mode_func_map = {

@@ -1,43 +1,51 @@
 ---
 tags:
-- Blur
-- VisualEffects
+  - Blur
+  - VisualEffects
 ---
 
 # Blur
+
 ## Documentation
+
 - Class name: `Blur`
 - Category: `Masquerade Nodes`
 - Output node: `False`
 
 The Blur node applies a Gaussian blur to an image, allowing for the adjustment of the blur's intensity and spread through parameters. This process can soften the image or reduce noise and detail, making it useful for post-processing effects or preparing images for further processing steps.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be blurred. This is the primary data upon which the blur effect is applied, affecting the visual clarity and detail of the image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be blurred. This is the primary data upon which the blur effect is applied, affecting the visual clarity and detail of the image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`radius`**
-    - Determines the radius of the blur effect. A larger radius results in a more pronounced blur, affecting the overall softness of the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the radius of the blur effect. A larger radius results in a more pronounced blur, affecting the overall softness of the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`sigma_factor`**
-    - Controls the spread of the blur effect. A higher sigma value increases the spread of the blur, contributing to the intensity and softness of the effect.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the spread of the blur effect. A higher sigma value increases the spread of the blur, contributing to the intensity and softness of the effect.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The blurred image, which has undergone a Gaussian blur transformation to reduce detail and soften the image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The blurred image, which has undergone a Gaussian blur transformation to reduce detail and soften the image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [Mix Images By Mask](../../masquerade-nodes-comfyui/Nodes/Mix Images By Mask.md)
-
-
+  - [Mix Images By Mask](../../masquerade-nodes-comfyui/Nodes/Mix Images By Mask.md)
 
 ## Source code
+
 ```python
 class BlurNode:
     def __init__(self):

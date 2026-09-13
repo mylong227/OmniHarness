@@ -1,86 +1,97 @@
 ---
 tags:
-- ControlNet
-- Weight
+  - ControlNet
+  - Weight
 ---
 
 # IPAdapter Weights
+
 ## Documentation
+
 - Class name: `IPAdapterWeights`
 - Category: `ipadapter/weights`
 - Output node: `False`
 
 The IPAdapterWeights node is designed to manage and manipulate weights within the IPAdapter framework, focusing on the application of weight strategies for image processing. It enables the customization of weight distribution across frames, supports various timing methods, and facilitates the integration of images with weight-based adjustments.
+
 ## Input types
+
 ### Required
+
 - **`weights`**
-    - A string of comma or newline-separated weight values to be converted into a list of floats. It forms the basis for weight distribution and manipulation.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string of comma or newline-separated weight values to be converted into a list of floats. It forms the basis for weight distribution and manipulation.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`timing`**
-    - Specifies the timing strategy for applying weights across frames, influencing the animation or transition effect.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the timing strategy for applying weights across frames, influencing the animation or transition effect.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`frames`**
-    - The total number of frames to which the weights will be applied, defining the scope of the animation or transition.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The total number of frames to which the weights will be applied, defining the scope of the animation or transition.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`start_frame`**
-    - The starting frame number from which weight application begins, allowing for precise control over the animation's commencement.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The starting frame number from which weight application begins, allowing for precise control over the animation's commencement.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`end_frame`**
-    - The ending frame number at which weight application concludes, marking the animation's termination point.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The ending frame number at which weight application concludes, marking the animation's termination point.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`add_starting_frames`**
-    - The number of additional frames to be added at the beginning of the animation, extending its start.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of additional frames to be added at the beginning of the animation, extending its start.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`add_ending_frames`**
-    - The number of additional frames to be added at the end of the animation, extending its duration.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of additional frames to be added at the end of the animation, extending its duration.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`method`**
-    - The method used for applying weights across frames, affecting the pattern and distribution of weight adjustments.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The method used for applying weights across frames, affecting the pattern and distribution of weight adjustments.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`image`**
-    - An optional image input that, if provided, can be used in conjunction with weights for enhanced image processing effects.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `str`
+  - An optional image input that, if provided, can be used in conjunction with weights for enhanced image processing effects.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`weights`**
-    - Comfy dtype: `FLOAT`
-    - The processed list of weight values after applying the specified strategy and adjustments.
-    - Python dtype: `List[float]`
+  - Comfy dtype: `FLOAT`
+  - The processed list of weight values after applying the specified strategy and adjustments.
+  - Python dtype: `List[float]`
 - **`weights_invert`**
-    - Comfy dtype: `FLOAT`
-    - The inverted list of weight values, providing an alternative distribution for certain processing effects.
-    - Python dtype: `List[float]`
+  - Comfy dtype: `FLOAT`
+  - The inverted list of weight values, providing an alternative distribution for certain processing effects.
+  - Python dtype: `List[float]`
 - **`total_frames`**
-    - Comfy dtype: `INT`
-    - The total number of frames resulting from the applied weight strategy, including any added starting or ending frames.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The total number of frames resulting from the applied weight strategy, including any added starting or ending frames.
+  - Python dtype: `int`
 - **`image_1`**
-    - Comfy dtype: `IMAGE`
-    - The first image output, modified according to the weight strategy and method applied.
-    - Python dtype: `str`
+  - Comfy dtype: `IMAGE`
+  - The first image output, modified according to the weight strategy and method applied.
+  - Python dtype: `str`
 - **`image_2`**
-    - Comfy dtype: `IMAGE`
-    - The second image output, modified in relation to the first image and the applied weight strategy.
-    - Python dtype: `str`
+  - Comfy dtype: `IMAGE`
+  - The second image output, modified in relation to the first image and the applied weight strategy.
+  - Python dtype: `str`
 - **`weights_strategy`**
-    - Comfy dtype: `WEIGHTS_STRATEGY`
-    - The weight strategy applied, encapsulating all weight-related parameters and their effects on the output.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `WEIGHTS_STRATEGY`
+  - The weight strategy applied, encapsulating all weight-related parameters and their effects on the output.
+  - Python dtype: `Dict[str, Any]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterWeights:
     @classmethod

@@ -1,50 +1,59 @@
 ---
 tags:
-- Crop
-- Image
-- ImageTransformation
+  - Crop
+  - Image
+  - ImageTransformation
 ---
 
 # Mosaic Expand Image (Mikey)
+
 ## Documentation
+
 - Class name: `MosaicExpandImage`
 - Category: `Mikey/Image`
 - Output node: `False`
 
 The MosaicExpandImage node is designed to expand an image by adding mosaic borders around it. These borders are created by cropping sections from the original image, generating a mosaic from these sections, and then pasting these mosaics around the original image to achieve the desired expanded size.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The original image to be expanded. It serves as the central piece around which the mosaic borders are created and added.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `PIL.Image`
+  - The original image to be expanded. It serves as the central piece around which the mosaic borders are created and added.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `PIL.Image`
 - **`left`**
-    - The number of mosaic strips to add to the left side of the image, determining the width of the left expansion.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of mosaic strips to add to the left side of the image, determining the width of the left expansion.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`top`**
-    - The number of mosaic strips to add to the top of the image, determining the height of the top expansion.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of mosaic strips to add to the top of the image, determining the height of the top expansion.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`right`**
-    - The number of mosaic strips to add to the right side of the image, determining the width of the right expansion.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of mosaic strips to add to the right side of the image, determining the width of the right expansion.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`bottom`**
-    - The number of mosaic strips to add to the bottom of the image, determining the height of the bottom expansion.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of mosaic strips to add to the bottom of the image, determining the height of the bottom expansion.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`result_img`**
-    - Comfy dtype: `IMAGE`
-    - The expanded image with mosaic borders added around the original image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The expanded image with mosaic borders added around the original image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MosaicExpandImage:
     @classmethod

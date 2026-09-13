@@ -1,10 +1,13 @@
 # Main License
+
 File name: `__init__.py`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,36 +27,49 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 # Other detected licenses
+
 File name: `ATTRIBUTION`
 
 **Apache-2.0**
+
 ```
   (released under Apache 2.0 license)
 ```
+
 ```
   (released under Apache 2.0 license)
 ```
+
 File name: `modules/controlnet/ATTRIBUTION`
 
 **Apache-2.0**
+
 ```
   (released under Apache 2.0 license)
 ```
+
 ```
   (released under Apache 2.0 license)
 ```
+
 **BSD-3-Clause**
+
 ```
   (released under BSD 3-clause license)
 ```
+
 **MIT**
+
 ```
   (released under MIT license)
 ```
+
 File name: `modules/controlnet/LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -257,9 +273,11 @@ File name: `modules/controlnet/LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 File name: `modules/controlnet/hed/__init__.py`
 
 **Apache-2.0**
+
 ```
 # This is an improved version and model of HED edge detection with Apache License, Version 2.0.
 ```

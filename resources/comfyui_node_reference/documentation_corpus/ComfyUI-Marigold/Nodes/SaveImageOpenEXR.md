@@ -1,37 +1,46 @@
 ---
 tags:
-- Image
-- ImageSave
+  - Image
+  - ImageSave
 ---
 
 # SaveImageOpenEXR
+
 ## Documentation
+
 - Class name: `SaveImageOpenEXR`
 - Category: `Marigold`
 - Output node: `True`
 
 This node specializes in saving images in the OpenEXR format, catering to the need for high dynamic range (HDR) imaging. It ensures that images are saved with enhanced luminance levels, accommodating a broader spectrum of light and color details. The node is designed to adapt to the system's available resources, ensuring that images are preserved in the desired format with high fidelity.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The images to be saved, expected to be in a NumPy array format. This input is crucial as it directly represents the data that will be processed and saved in the EXR format.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The images to be saved, expected to be in a NumPy array format. This input is crucial as it directly represents the data that will be processed and saved in the EXR format.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`filename_prefix`**
-    - A prefix for the filename under which the image will be saved. This allows for customizable naming of output files, facilitating better organization and retrieval of saved images.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix for the filename under which the image will be saved. This allows for customizable naming of output files, facilitating better organization and retrieval of saved images.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`file_url`**
-    - Comfy dtype: `STRING`
-    - The URL or path to the saved EXR file. This output provides a direct link to the saved image, enabling easy access and integration into further processing or storage solutions.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The URL or path to the saved EXR file. This output provides a direct link to the saved image, enabling easy access and integration into further processing or storage solutions.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaveImageOpenEXR:
     def __init__(self):
@@ -50,19 +59,19 @@ class SaveImageOpenEXR:
                 self.cv2 = cv2
             except ImportError:
                 raise ImportError("No OpenEXR or OpenCV module found, can't save EXR")
-        
+
         self.output_dir = folder_paths.get_output_directory()
         self.type = "output"
         self.prefix_append = ""
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {  
+        return {"required": {
             "images": ("IMAGE", ),
             "filename_prefix": ("STRING", {"default": "ComfyUI_EXR"})
             },
-            
+
             }
-    
+
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES =("file_url",)
     FUNCTION = "saveexr"
@@ -87,7 +96,7 @@ class SaveImageOpenEXR:
                     if file_counter > max_counter:
                         max_counter = file_counter
             return max_counter
-        
+
         for image in images:
             # Ensure the tensor is on the CPU and convert it to a numpy array
             image_np = image.cpu().numpy()
@@ -116,7 +125,7 @@ class SaveImageOpenEXR:
                 exr_file = self.OpenEXR.OutputFile(os.path.join(full_output_folder, file), header)
                 exr_file.writePixels({'R': R, 'G': G, 'B': B})
                 exr_file.close()
-            else:            
+            else:
                 counter = file_counter() + 1
                 file = f"{filename}_{counter:05}.exr"
                 exr_file = os.path.join(full_output_folder, file)

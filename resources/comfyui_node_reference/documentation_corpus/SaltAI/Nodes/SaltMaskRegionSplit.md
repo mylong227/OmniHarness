@@ -1,52 +1,61 @@
 ---
 tags:
-- Mask
+  - Mask
 ---
 
 # Split Regions
+
 ## Documentation
+
 - Class name: `SaltMaskRegionSplit`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 The SaltMaskRegionSplit node is designed to isolate and split different regions within a given set of masks, effectively segmenting them into distinct areas based on connectivity.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks to be segmented into distinct regions. This parameter is crucial for determining the segmentation outcome, as it directly influences the isolation of different areas within the masks.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks to be segmented into distinct regions. This parameter is crucial for determining the segmentation outcome, as it directly influences the isolation of different areas within the masks.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`region1`**
-    - Comfy dtype: `MASK`
-    - Represents the first isolated region from the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Represents the first isolated region from the input masks.
+  - Python dtype: `torch.Tensor`
 - **`region2`**
-    - Comfy dtype: `MASK`
-    - Represents the second isolated region from the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Represents the second isolated region from the input masks.
+  - Python dtype: `torch.Tensor`
 - **`region3`**
-    - Comfy dtype: `MASK`
-    - Represents the third isolated region from the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Represents the third isolated region from the input masks.
+  - Python dtype: `torch.Tensor`
 - **`region4`**
-    - Comfy dtype: `MASK`
-    - Represents the fourth isolated region from the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Represents the fourth isolated region from the input masks.
+  - Python dtype: `torch.Tensor`
 - **`region5`**
-    - Comfy dtype: `MASK`
-    - Represents the fifth isolated region from the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Represents the fifth isolated region from the input masks.
+  - Python dtype: `torch.Tensor`
 - **`region6`**
-    - Comfy dtype: `MASK`
-    - Represents the sixth isolated region from the input masks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - Represents the sixth isolated region from the input masks.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskRegionSplit:
     @classmethod

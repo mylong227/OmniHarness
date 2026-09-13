@@ -1,44 +1,53 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # TwoSamplersForMask
+
 ## Documentation
+
 - Class name: `TwoSamplersForMask`
 - Category: `ImpactPack/Sampler`
 - Output node: `False`
 
 This node is designed to apply different sampling strategies to distinct regions of a latent image, based on a specified mask. It enables the selective enhancement or alteration of image areas by utilizing separate samplers for the masked and unmasked regions, thereby facilitating targeted image manipulation within a unified framework.
+
 ## Input types
+
 ### Required
+
 - **`latent_image`**
-    - Represents the input latent image to be processed. It serves as the canvas on which different sampling strategies are applied based on the mask.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict`
+  - Represents the input latent image to be processed. It serves as the canvas on which different sampling strategies are applied based on the mask.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict`
 - **`base_sampler`**
-    - Specifies the sampler to be applied to the region outside the mask, influencing the overall appearance of the unmasked areas.
-    - Comfy dtype: `KSAMPLER`
-    - Python dtype: `torch.nn.Module`
+  - Specifies the sampler to be applied to the region outside the mask, influencing the overall appearance of the unmasked areas.
+  - Comfy dtype: `KSAMPLER`
+  - Python dtype: `torch.nn.Module`
 - **`mask_sampler`**
-    - Determines the sampler to be applied to the masked region, allowing for targeted manipulation or enhancement of specific areas.
-    - Comfy dtype: `KSAMPLER`
-    - Python dtype: `torch.nn.Module`
+  - Determines the sampler to be applied to the masked region, allowing for targeted manipulation or enhancement of specific areas.
+  - Comfy dtype: `KSAMPLER`
+  - Python dtype: `torch.nn.Module`
 - **`mask`**
-    - Defines the region to be selectively sampled or altered, guiding the application of the mask_sampler.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - Defines the region to be selectively sampled or altered, guiding the application of the mask_sampler.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The resulting latent image after applying the specified sampling strategies to the masked and unmasked regions.
-    - Python dtype: `Dict`
+  - Comfy dtype: `LATENT`
+  - The resulting latent image after applying the specified sampling strategies to the masked and unmasked regions.
+  - Python dtype: `Dict`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TwoSamplersForMask:
     @classmethod

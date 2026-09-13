@@ -1,64 +1,72 @@
 ---
 tags:
-- Color
+  - Color
 ---
 
 # Color Correct
+
 ## Documentation
+
 - Class name: `ColorCorrect`
 - Category: `Art Venture/Post Processing`
 - Output node: `False`
 
 The ColorCorrect node is designed to adjust and enhance the color properties of an image, including temperature, hue, brightness, contrast, saturation, and gamma. It utilizes advanced image processing techniques to fine-tune these attributes, improving the overall visual quality of the image.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image tensor to be color corrected. It serves as the base for applying various color adjustments.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image tensor to be color corrected. It serves as the base for applying various color adjustments.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`temperature`**
-    - Adjusts the color temperature of the image, making it warmer or cooler.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the color temperature of the image, making it warmer or cooler.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`hue`**
-    - Modifies the hue of the image, shifting the colors along the color spectrum.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Modifies the hue of the image, shifting the colors along the color spectrum.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`brightness`**
-    - Controls the brightness level of the image, making it lighter or darker.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the brightness level of the image, making it lighter or darker.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`contrast`**
-    - Alters the contrast of the image, enhancing the difference between light and dark areas.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Alters the contrast of the image, enhancing the difference between light and dark areas.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`saturation`**
-    - Adjusts the saturation level, affecting the intensity of the colors in the image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the saturation level, affecting the intensity of the colors in the image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`gamma`**
-    - Applies gamma correction to the image, adjusting the luminance or brightness.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Applies gamma correction to the image, adjusting the luminance or brightness.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The color-corrected image tensor, reflecting the applied adjustments.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The color-corrected image tensor, reflecting the applied adjustments.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - YDetailer
-    - [Image Levels Adjustment](../../was-node-suite-comfyui/Nodes/Image Levels Adjustment.md)
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [CR Image Output](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Image Output.md)
-    - [ImageUpscaleWithModel](../../Comfy/Nodes/ImageUpscaleWithModel.md)
-    - [SaveImage](../../Comfy/Nodes/SaveImage.md)
-    - [ColorCorrect](../../comfyui-art-venture/Nodes/ColorCorrect.md)
-
-
+  - YDetailer
+  - [Image Levels Adjustment](../../was-node-suite-comfyui/Nodes/Image Levels Adjustment.md)
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [CR Image Output](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Image Output.md)
+  - [ImageUpscaleWithModel](../../Comfy/Nodes/ImageUpscaleWithModel.md)
+  - [SaveImage](../../Comfy/Nodes/SaveImage.md)
+  - [ColorCorrect](../../comfyui-art-venture/Nodes/ColorCorrect.md)
 
 ## Source code
+
 ```python
 class ColorCorrect:
     @classmethod

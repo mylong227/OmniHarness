@@ -1,56 +1,65 @@
 ---
 tags:
-- ImageTransformation
+  - ImageTransformation
 ---
 
 # RemapWarpPolar
+
 ## Documentation
+
 - Class name: `RemapWarpPolar`
 - Category: `Bmad/CV/Transform`
 - Output node: `False`
 
 The RemapWarpPolar node is designed to transform images by applying a warp polar transformation. This process involves converting images from a rectangular to a polar coordinate system, optionally applying logarithmic scaling, and performing inverse transformations. It supports adjustments to the transformation center, radius, and cropping of the result, making it versatile for various image processing tasks.
+
 ## Input types
+
 ### Required
+
 - **`max_radius`**
-    - Specifies the maximum radius for the warp polar transformation, affecting the extent of the transformation applied to the image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `int`
+  - Specifies the maximum radius for the warp polar transformation, affecting the extent of the transformation applied to the image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `int`
 - **`radius_adjust`**
-    - Adjusts the effective radius of the transformation, allowing for fine-tuning of the warp effect.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the effective radius of the transformation, allowing for fine-tuning of the warp effect.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`center_x_adjust`**
-    - Adjusts the x-coordinate of the transformation center, enabling horizontal shifting of the warp effect's focal point.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the x-coordinate of the transformation center, enabling horizontal shifting of the warp effect's focal point.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`center_y_adjust`**
-    - Adjusts the y-coordinate of the transformation center, enabling vertical shifting of the warp effect's focal point.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the y-coordinate of the transformation center, enabling vertical shifting of the warp effect's focal point.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`log`**
-    - Determines whether logarithmic scaling is applied, changing the nature of the warp from linear to logarithmic.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether logarithmic scaling is applied, changing the nature of the warp from linear to logarithmic.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`inverse`**
-    - Controls whether the inverse warp polar transformation is applied, allowing for the reversal of the warp effect.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether the inverse warp polar transformation is applied, allowing for the reversal of the warp effect.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`crop`**
-    - Enables cropping of the transformed image to remove areas outside the specified radius, focusing on the central area.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables cropping of the transformed image to remove areas outside the specified radius, focusing on the central area.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`remap`**
-    - Comfy dtype: `REMAP`
-    - The result of the warp polar transformation, including any adjustments and cropping applied to the original image.
-    - Python dtype: `tuple`
+  - Comfy dtype: `REMAP`
+  - The result of the warp polar transformation, including any adjustments and cropping applied to the original image.
+  - Python dtype: `tuple`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class RemapWarpPolar(RemapBase):
     MAX_RADIUS = {

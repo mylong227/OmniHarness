@@ -1,73 +1,82 @@
 ---
 tags:
-- Prompt
-- PromptStyling
+  - Prompt
+  - PromptStyling
 ---
 
 # SD3 Text Conditioning With Options. One Prompt (Mikey)
+
 ## Documentation
+
 - Class name: `SD3TextConditioningWithOptionsOnePrompt`
 - Category: `Mikey/SD3/Conditioning`
 - Output node: `False`
 
 The SD3TextConditioningWithOptionsOnePrompt node is designed to enhance text prompts for image generation by applying style-based modifications and conditioning. It leverages specific styles to modify positive and negative prompts, integrates seed-based variations for style selection, and utilizes advanced text encoding techniques to refine the conditioning process for improved image generation outcomes.
+
 ## Input types
+
 ### Required
+
 - **`positive_prompt`**
-    - Represents the base positive prompt that will be modified according to the selected style and further processed to enhance its effectiveness in guiding the image generation process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Represents the base positive prompt that will be modified according to the selected style and further processed to enhance its effectiveness in guiding the image generation process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`negative_prompt`**
-    - Serves as the base negative prompt that undergoes style-based modifications and processing to refine its role in the image generation process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Serves as the base negative prompt that undergoes style-based modifications and processing to refine its role in the image generation process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`clip`**
-    - Specifies the CLIP model to be used for encoding the prompts, playing a crucial role in the conditioning process.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `torch.nn.Module`
+  - Specifies the CLIP model to be used for encoding the prompts, playing a crucial role in the conditioning process.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `torch.nn.Module`
 - **`option_positive_clip_l`**
-    - Option to apply specific CLIP model settings for the positive prompt's local features.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `dict`
+  - Option to apply specific CLIP model settings for the positive prompt's local features.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `dict`
 - **`option_positive_clip_g`**
-    - Option to apply specific CLIP model settings for the positive prompt's global features.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `dict`
+  - Option to apply specific CLIP model settings for the positive prompt's global features.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `dict`
 - **`option_positive_t5xxl`**
-    - Option to apply specific T5-XXL model settings for the positive prompt.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `dict`
+  - Option to apply specific T5-XXL model settings for the positive prompt.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `dict`
 - **`option_negative_clip_l`**
-    - Option to apply specific CLIP model settings for the negative prompt's local features.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `dict`
+  - Option to apply specific CLIP model settings for the negative prompt's local features.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `dict`
 - **`option_negative_clip_g`**
-    - Option to apply specific CLIP model settings for the negative prompt's global features.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `dict`
+  - Option to apply specific CLIP model settings for the negative prompt's global features.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `dict`
 - **`option_negative_t5xxl`**
-    - Option to apply specific T5-XXL model settings for the negative prompt.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `dict`
+  - Option to apply specific T5-XXL model settings for the negative prompt.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `dict`
 - **`padding_character`**
-    - Defines the character used for padding in the text encoding process, affecting the alignment and spacing within the encoded prompts.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Defines the character used for padding in the text encoding process, affecting the alignment and spacing within the encoded prompts.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`positive_conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - The modified positive prompt, enhanced with style-based modifications and advanced encoding techniques for improved image generation.
-    - Python dtype: `str`
+  - Comfy dtype: `CONDITIONING`
+  - The modified positive prompt, enhanced with style-based modifications and advanced encoding techniques for improved image generation.
+  - Python dtype: `str`
 - **`negative_conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - The enhanced negative prompt, similarly modified with style-based adjustments and encoding to refine the image generation process.
-    - Python dtype: `str`
+  - Comfy dtype: `CONDITIONING`
+  - The enhanced negative prompt, similarly modified with style-based adjustments and encoding to refine the image generation process.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SD3TextConditioningWithOptionsOnePrompt:
     @classmethod

@@ -1,42 +1,51 @@
 ---
 tags:
-- AspectRatio
-- ImageSize
-- ImageTransformation
+  - AspectRatio
+  - ImageSize
+  - ImageTransformation
 ---
 
 # SDXL Aspect Ratio
+
 ## Documentation
+
 - Class name: `SDXLAspectRatioSelector`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The SDXLAspectRatioSelector node is designed to select and adjust the aspect ratio for images, ensuring they fit specific dimensions while maintaining the original proportions. It provides a mechanism to scale images to a wide range of predefined aspect ratios, making it suitable for various display or processing requirements.
+
 ## Input types
+
 ### Required
+
 - **`aspect_ratio`**
-    - Specifies the desired aspect ratio for the image, chosen from a predefined list of ratios. This selection determines the dimensions to which the image will be scaled, affecting its final appearance.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the desired aspect ratio for the image, chosen from a predefined list of ratios. This selection determines the dimensions to which the image will be scaled, affecting its final appearance.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`ratio`**
-    - Comfy dtype: `STRING`
-    - The selected aspect ratio as a string, indicating the proportion between width and height of the image.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The selected aspect ratio as a string, indicating the proportion between width and height of the image.
+  - Python dtype: `str`
 - **`width`**
-    - Comfy dtype: `INT`
-    - The calculated width of the image after scaling to the selected aspect ratio.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The calculated width of the image after scaling to the selected aspect ratio.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The calculated height of the image after scaling to the selected aspect ratio.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The calculated height of the image after scaling to the selected aspect ratio.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilSDXLAspectRatioSelector:
     @classmethod

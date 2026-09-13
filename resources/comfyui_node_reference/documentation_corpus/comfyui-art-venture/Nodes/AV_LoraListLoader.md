@@ -1,49 +1,60 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # Lora List Loader
+
 ## Documentation
+
 - Class name: `AV_LoraListLoader`
 - Category: `Art Venture/Loaders`
 - Output node: `False`
 
 The AVLoraListLoader node is designed for loading and stacking lists of LoRA models based on provided data and configurations. It facilitates the dynamic enhancement of models and clips by applying multiple LoRA adjustments in sequence, allowing for complex model behavior modifications through LoRA parameters.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The 'model' parameter represents the initial model to which LoRA adjustments will be applied. It is crucial for defining the starting point of the LoRA stacking process.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - The 'model' parameter represents the initial model to which LoRA adjustments will be applied. It is crucial for defining the starting point of the LoRA stacking process.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`clip`**
-    - The 'clip' parameter signifies the initial clip model that will be modified alongside the main model through the LoRA adjustments. It plays a key role in the stacking process by being subject to modifications.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `str`
+  - The 'clip' parameter signifies the initial clip model that will be modified alongside the main model through the LoRA adjustments. It plays a key role in the stacking process by being subject to modifications.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `str`
 - **`data`**
-    - The 'data' parameter contains the list of LoRA models to be loaded and applied, in JSON format. It is essential for specifying which LoRA models and their corresponding strengths will influence the model and clip.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'data' parameter contains the list of LoRA models to be loaded and applied, in JSON format. It is essential for specifying which LoRA models and their corresponding strengths will influence the model and clip.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`base_url`**
-    - The 'base_url' parameter provides the base URL for fetching LoRA models not found locally. It aids in dynamically loading LoRA models from external sources.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'base_url' parameter provides the base URL for fetching LoRA models not found locally. It aids in dynamically loading LoRA models from external sources.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - Returns the modified model after applying the specified LoRA adjustments.
-    - Python dtype: `str`
+  - Comfy dtype: `MODEL`
+  - Returns the modified model after applying the specified LoRA adjustments.
+  - Python dtype: `str`
 - **`clip`**
-    - Comfy dtype: `CLIP`
-    - Returns the modified clip model after the LoRA adjustments have been applied.
-    - Python dtype: `str`
+  - Comfy dtype: `CLIP`
+  - Returns the modified clip model after the LoRA adjustments have been applied.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AVLoraListLoader(AVLoraListStacker):
     @classmethod

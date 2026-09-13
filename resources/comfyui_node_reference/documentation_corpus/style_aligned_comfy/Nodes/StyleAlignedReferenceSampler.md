@@ -1,84 +1,93 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # StyleAligned Reference Sampler
+
 ## Documentation
+
 - Class name: `StyleAlignedReferenceSampler`
 - Category: `style_aligned`
 - Output node: `False`
 
 The StyleAlignedReferenceSampler node is designed to sample reference styles in a manner that aligns with specific style guidelines or constraints. It focuses on generating style references that adhere to predefined stylistic parameters, ensuring consistency and coherence in the style of the generated content.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model to be used for sampling, ensuring that the generated styles align with the desired aesthetic or thematic guidelines.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `ModelPatcher`
+  - Specifies the model to be used for sampling, ensuring that the generated styles align with the desired aesthetic or thematic guidelines.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `ModelPatcher`
 - **`share_norm`**
-    - Determines how normalization layers are shared across the model, influencing the consistency of style application.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `SHARE_NORM_OPTIONS`
+  - Determines how normalization layers are shared across the model, influencing the consistency of style application.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `SHARE_NORM_OPTIONS`
 - **`share_attn`**
-    - Controls how attention layers are shared, affecting the focus and coherence of the generated styles.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `SHARE_ATTN_OPTIONS`
+  - Controls how attention layers are shared, affecting the focus and coherence of the generated styles.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `SHARE_ATTN_OPTIONS`
 - **`scale`**
-    - Adjusts the scale of the applied style, allowing for finer control over the intensity of style effects.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the scale of the applied style, allowing for finer control over the intensity of style effects.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`batch_size`**
-    - Specifies the number of samples to be processed in parallel, affecting the efficiency of the sampling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of samples to be processed in parallel, affecting the efficiency of the sampling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`noise_seed`**
-    - Determines the seed for noise generation, allowing for reproducibility and consistency in the style sampling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the seed for noise generation, allowing for reproducibility and consistency in the style sampling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Controls the conditioning factor, adjusting the influence of the conditioning on the style sampling.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the conditioning factor, adjusting the influence of the conditioning on the style sampling.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`positive`**
-    - Defines positive conditioning to guide the style sampling towards desired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Conditioning`
+  - Defines positive conditioning to guide the style sampling towards desired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Conditioning`
 - **`negative`**
-    - Specifies negative conditioning to avoid certain attributes in the style sampling.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Conditioning`
+  - Specifies negative conditioning to avoid certain attributes in the style sampling.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Conditioning`
 - **`ref_positive`**
-    - Provides additional positive conditioning specifically for reference style generation, enhancing the alignment with desired attributes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `Conditioning`
+  - Provides additional positive conditioning specifically for reference style generation, enhancing the alignment with desired attributes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `Conditioning`
 - **`sampler`**
-    - Selects the sampling strategy to be used, affecting the diversity and quality of the generated styles.
-    - Comfy dtype: `SAMPLER`
-    - Python dtype: `Sampler`
+  - Selects the sampling strategy to be used, affecting the diversity and quality of the generated styles.
+  - Comfy dtype: `SAMPLER`
+  - Python dtype: `Sampler`
 - **`sigmas`**
-    - Sets the noise levels for the sampling process, influencing the exploration of the style space.
-    - Comfy dtype: `SIGMAS`
-    - Python dtype: `Sigmas`
+  - Sets the noise levels for the sampling process, influencing the exploration of the style space.
+  - Comfy dtype: `SIGMAS`
+  - Python dtype: `Sigmas`
 - **`ref_latents`**
-    - Inputs pre-existing latents to be used as a reference in the style sampling process, enabling more precise style alignment.
-    - Comfy dtype: `STEP_LATENTS`
-    - Python dtype: `Latent`
+  - Inputs pre-existing latents to be used as a reference in the style sampling process, enabling more precise style alignment.
+  - Comfy dtype: `STEP_LATENTS`
+  - Python dtype: `Latent`
+
 ## Output types
+
 - **`output`**
-    - Comfy dtype: `LATENT`
-    - Outputs the sampled latents according to the specified style guidelines.
-    - Python dtype: `Latent`
+  - Comfy dtype: `LATENT`
+  - Outputs the sampled latents according to the specified style guidelines.
+  - Python dtype: `Latent`
 - **`denoised_output`**
-    - Comfy dtype: `LATENT`
-    - Provides a denoised version of the sampled latents, potentially enhancing the clarity and quality of the generated styles.
-    - Python dtype: `Latent`
+  - Comfy dtype: `LATENT`
+  - Provides a denoised version of the sampled latents, potentially enhancing the clarity and quality of the generated styles.
+  - Python dtype: `Latent`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class StyleAlignedReferenceSampler:
     @classmethod
@@ -168,27 +177,27 @@ class StyleAlignedReferenceSampler:
         # Patch cross attn
         m.set_model_attn1_patch(SharedAttentionProcessor(args, scale))
 
-        # Add reference conditioning to batch 
+        # Add reference conditioning to batch
         batched_condition = []
         for i,condition in enumerate(positive):
             additional = condition[1].copy()
             batch_with_reference = torch.cat([ref_positive[i][0], condition[0].repeat([batch_size] + [1] * len(condition[0].shape[1:]))], dim=0)
             if 'pooled_output' in additional and 'pooled_output' in ref_positive[i][1]:
                 # combine pooled output
-                pooled_output = torch.cat([ref_positive[i][1]['pooled_output'], additional['pooled_output'].repeat([batch_size] 
+                pooled_output = torch.cat([ref_positive[i][1]['pooled_output'], additional['pooled_output'].repeat([batch_size]
                     + [1] * len(additional['pooled_output'].shape[1:]))], dim=0)
                 additional['pooled_output'] = pooled_output
             if 'control' in additional:
                 if 'control' in ref_positive[i][1]:
                     # combine control conditioning
-                    control_hint = torch.cat([ref_positive[i][1]['control'].cond_hint_original, additional['control'].cond_hint_original.repeat([batch_size] 
+                    control_hint = torch.cat([ref_positive[i][1]['control'].cond_hint_original, additional['control'].cond_hint_original.repeat([batch_size]
                         + [1] * len(additional['control'].cond_hint_original.shape[1:]))], dim=0)
                     cloned_controlnet = additional['control'].copy()
                     cloned_controlnet.set_cond_hint(control_hint, strength=additional['control'].strength, timestep_percent_range=additional['control'].timestep_percent_range)
                     additional['control'] = cloned_controlnet
                 else:
                     # add zeros for first in batch
-                    control_hint = torch.cat([torch.zeros_like(additional['control'].cond_hint_original), additional['control'].cond_hint_original.repeat([batch_size] 
+                    control_hint = torch.cat([torch.zeros_like(additional['control'].cond_hint_original), additional['control'].cond_hint_original.repeat([batch_size]
                         + [1] * len(additional['control'].cond_hint_original.shape[1:]))], dim=0)
                     cloned_controlnet = additional['control'].copy()
                     cloned_controlnet.set_cond_hint(control_hint, strength=additional['control'].strength, timestep_percent_range=additional['control'].timestep_percent_range)

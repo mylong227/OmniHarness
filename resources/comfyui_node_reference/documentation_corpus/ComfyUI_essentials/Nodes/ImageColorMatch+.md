@@ -1,49 +1,58 @@
 ---
 tags:
-- Color
-- ColorMatch
+  - Color
+  - ColorMatch
 ---
 
 # 🔧 Image Color Match
+
 ## Documentation
+
 - Class name: `ImageColorMatch+`
 - Category: `essentials/image processing`
 - Output node: `False`
 
 This node is designed to adjust the colors of an image to match those of a reference image, utilizing color space conversions and histogram matching techniques to achieve a visually harmonious result. It leverages advanced image processing algorithms to ensure that the output image closely mirrors the color distribution and tone of the target, making it ideal for applications requiring color consistency across different images.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be color-matched. This image will undergo color space conversion and histogram matching to align its color profile with that of the reference image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be color-matched. This image will undergo color space conversion and histogram matching to align its color profile with that of the reference image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`reference`**
-    - The reference image whose color profile is to be matched. This image serves as the target for the color matching process, guiding the adjustments made to the input image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The reference image whose color profile is to be matched. This image serves as the target for the color matching process, guiding the adjustments made to the input image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`color_space`**
-    - The color space to be used for the color matching process. This determines how the colors are interpreted and adjusted during the matching operation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The color space to be used for the color matching process. This determines how the colors are interpreted and adjusted during the matching operation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`factor`**
-    - A factor that blends the matched image with the original input image to control the intensity of the color matching.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A factor that blends the matched image with the original input image to control the intensity of the color matching.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`device`**
-    - Specifies the device (CPU, GPU, or auto) on which the color matching operation is performed.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the device (CPU, GPU, or auto) on which the color matching operation is performed.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after color matching. This image has been adjusted to closely match the color profile of the reference image, ensuring color consistency.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after color matching. This image has been adjusted to closely match the color profile of the reference image, ensuring color consistency.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageColorMatch:
     @classmethod

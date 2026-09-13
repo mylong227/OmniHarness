@@ -1,32 +1,41 @@
 ---
 tags:
-- OpticalFlow
+  - OpticalFlow
 ---
 
 # RAFT Flow to Image
+
 ## Documentation
+
 - Class name: `RAFTFlowToImage`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 The RAFTFlowToImage node is designed to convert optical flow data into images. This process involves transforming the flow data, which represents motion between two frames, into a visual format that can be easily interpreted or further processed.
+
 ## Input types
+
 ### Required
+
 - **`raft_flow`**
-    - The 'raft_flow' input is a tensor representing the optical flow data. This data is crucial for generating the corresponding image representation of the motion captured between two frames.
-    - Comfy dtype: `RAFT_FLOW`
-    - Python dtype: `torch.Tensor`
+  - The 'raft_flow' input is a tensor representing the optical flow data. This data is crucial for generating the corresponding image representation of the motion captured between two frames.
+  - Comfy dtype: `RAFT_FLOW`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image representation of the optical flow data. This image visualizes the motion between two frames in a format that can be easily interpreted or further processed.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is an image representation of the optical flow data. This image visualizes the motion between two frames in a format that can be easily interpreted or further processed.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("RAFTEstimate", "RAFT Estimate")
 class _:

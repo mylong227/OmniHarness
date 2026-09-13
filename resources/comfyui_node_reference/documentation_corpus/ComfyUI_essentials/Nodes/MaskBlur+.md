@@ -1,46 +1,54 @@
 ---
 tags:
-- Blur
-- MaskBlur
-- VisualEffects
+  - Blur
+  - MaskBlur
+  - VisualEffects
 ---
 
 # 🔧 Mask Blur
+
 ## Documentation
+
 - Class name: `MaskBlur+`
 - Category: `essentials/mask`
 - Output node: `False`
 
 The `MaskBlur+` node applies a Gaussian blur to a given mask, optionally adjusting the intensity of the blur and accommodating different computational devices. It's designed to smooth out the edges or details of a mask, which can be useful in various image processing tasks where softer transitions or less pronounced features are desired.
+
 ## Input types
+
 ### Required
+
 - **`mask`**
-    - The mask to be blurred. This is the primary input on which the Gaussian blur operation is performed.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask to be blurred. This is the primary input on which the Gaussian blur operation is performed.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`amount`**
-    - Specifies the intensity of the blur. A higher value results in a more pronounced blurring effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the intensity of the blur. A higher value results in a more pronounced blurring effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`device`**
-    - Determines the computational device ('auto', 'cpu', or 'gpu') on which the blurring operation is executed, allowing for flexibility in resource utilization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the computational device ('auto', 'cpu', or 'gpu') on which the blurring operation is executed, allowing for flexibility in resource utilization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The blurred version of the input mask, with potentially softened features or transitions.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The blurred version of the input mask, with potentially softened features or transitions.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - IPAdapterApply
-    - [MaskToImage](../../Comfy/Nodes/MaskToImage.md)
-    - [Masks Subtract](../../was-node-suite-comfyui/Nodes/Masks Subtract.md)
-
-
+  - IPAdapterApply
+  - [MaskToImage](../../Comfy/Nodes/MaskToImage.md)
+  - [Masks Subtract](../../was-node-suite-comfyui/Nodes/Masks Subtract.md)
 
 ## Source code
+
 ```python
 class MaskBlur:
     @classmethod

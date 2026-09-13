@@ -1,49 +1,58 @@
 ---
 tags:
-- LayeredDiffusion
-- LayeredDiffusionDecode
+  - LayeredDiffusion
+  - LayeredDiffusionDecode
 ---
 
 # [Inference.Core] Layer Diffuse Decode
+
 ## Documentation
+
 - Class name: `Inference_Core_LayeredDiffusionDecode`
 - Category: `layer_diffuse`
 - Output node: `False`
 
 This node specializes in decoding layered diffusion processes, enabling the transformation of sampled data into images through a series of diffusion steps. It leverages advanced techniques to efficiently handle and decode multiple layers of diffusion, optimizing the generation of high-quality images.
+
 ## Input types
+
 ### Required
+
 - **`samples`**
-    - The sampled data to be decoded into images, representing the initial input for the diffusion process.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict`
+  - The sampled data to be decoded into images, representing the initial input for the diffusion process.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict`
 - **`images`**
-    - A tensor of images to be processed through the diffusion steps, serving as the basis for the decoding operation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - A tensor of images to be processed through the diffusion steps, serving as the basis for the decoding operation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`sd_version`**
-    - Specifies the version of the diffusion model to be used, affecting the decoding behavior and output quality.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the version of the diffusion model to be used, affecting the decoding behavior and output quality.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`sub_batch_size`**
-    - The size of sub-batches for processing, optimizing computational efficiency and resource usage.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The size of sub-batches for processing, optimizing computational efficiency and resource usage.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The images generated from the decoded diffusion process, representing the primary output.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The images generated from the decoded diffusion process, representing the primary output.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The alpha mask associated with the decoded images, providing transparency information.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The alpha mask associated with the decoded images, providing transparency information.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LayeredDiffusionDecode:
     """

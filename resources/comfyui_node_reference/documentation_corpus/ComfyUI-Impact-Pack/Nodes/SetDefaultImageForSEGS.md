@@ -1,41 +1,50 @@
 ---
 tags:
-- ImpactPack
-- Segmentation
+  - ImpactPack
+  - Segmentation
 ---
 
 # Set Default Image for SEGS
+
 ## Documentation
+
 - Class name: `SetDefaultImageForSEGS`
 - Category: `ImpactPack/Util`
 - Output node: `False`
 
 This node is designed to set a default image for SEGS (segmentation structures) in scenarios where the original image might be missing or not applicable. It ensures that each segment within the SEGS structure has a consistent and predefined visual representation, facilitating further processing or visualization steps without dependency on the original image data.
+
 ## Input types
+
 ### Required
+
 - **`segs`**
-    - The 'segs' input represents the segmentation structures for which a default image is to be set. This input is crucial for identifying the segments that require a default image assignment.
-    - Comfy dtype: `SEGS`
-    - Python dtype: `List[SEG]`
+  - The 'segs' input represents the segmentation structures for which a default image is to be set. This input is crucial for identifying the segments that require a default image assignment.
+  - Comfy dtype: `SEGS`
+  - Python dtype: `List[SEG]`
 - **`image`**
-    - The 'image' input specifies the default image to be applied across all segments within the SEGS structure. It plays a key role in ensuring visual consistency across segments.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Image`
+  - The 'image' input specifies the default image to be applied across all segments within the SEGS structure. It plays a key role in ensuring visual consistency across segments.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Image`
 - **`override`**
-    - The 'override' input indicates whether the default image should replace existing images within the SEGS structure, allowing for flexible control over image assignment.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - The 'override' input indicates whether the default image should replace existing images within the SEGS structure, allowing for flexible control over image assignment.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`segs`**
-    - Comfy dtype: `SEGS`
-    - The output 'segs' consists of the updated segmentation structures with the default image applied, ready for further processing or visualization.
-    - Python dtype: `List[SEG]`
+  - Comfy dtype: `SEGS`
+  - The output 'segs' consists of the updated segmentation structures with the default image applied, ready for further processing or visualization.
+  - Python dtype: `List[SEG]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DefaultImageForSEGS:
     @classmethod

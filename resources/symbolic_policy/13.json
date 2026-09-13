@@ -2,10 +2,7 @@
   "2": {
     "inputs": {
       "text": "",
-      "clip": [
-        "5",
-        0
-      ]
+      "clip": ["5", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -61,22 +58,10 @@
       "sampler_name": "lcm",
       "scheduler": "sgm_uniform",
       "denoise": 1,
-      "model": [
-        "4",
-        0
-      ],
-      "positive": [
-        "2",
-        0
-      ],
-      "negative": [
-        "9",
-        0
-      ],
-      "latent_image": [
-        "3",
-        0
-      ]
+      "model": ["4", 0],
+      "positive": ["2", 0],
+      "negative": ["9", 0],
+      "latent_image": ["3", 0]
     },
     "class_type": "KSampler",
     "_meta": {
@@ -85,14 +70,8 @@
   },
   "8": {
     "inputs": {
-      "samples": [
-        "7",
-        0
-      ],
-      "vae": [
-        "6",
-        0
-      ]
+      "samples": ["7", 0],
+      "vae": ["6", 0]
     },
     "class_type": "VAEDecode",
     "_meta": {
@@ -101,10 +80,7 @@
   },
   "9": {
     "inputs": {
-      "conditioning": [
-        "2",
-        0
-      ]
+      "conditioning": ["2", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -114,10 +90,7 @@
   "10": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "8",
-        0
-      ]
+      "images": ["8", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

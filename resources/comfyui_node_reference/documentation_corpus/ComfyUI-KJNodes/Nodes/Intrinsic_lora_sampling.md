@@ -1,80 +1,91 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # Intrinsic Lora Sampling
+
 ## Documentation
+
 - Class name: `Intrinsic_lora_sampling`
 - Category: `KJNodes`
 - Output node: `False`
 
 This node enables the application of intrinsic LoRAs (Low-Rank Adaptations) to models for specific tasks such as depth map generation, surface normal estimation, albedo, and shading. It leverages LoRAs to modify the behavior of pre-trained models without extensive retraining, focusing on enhancing or altering the model's output based on the task at hand.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to which the intrinsic LoRA will be applied. It serves as the base for modifications and enhancements specific to the desired task.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model to which the intrinsic LoRA will be applied. It serves as the base for modifications and enhancements specific to the desired task.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`lora_name`**
-    - The name of the LoRA to be applied, selected from a predefined list of available intrinsic LoRAs.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The name of the LoRA to be applied, selected from a predefined list of available intrinsic LoRAs.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`task`**
-    - Specifies the task for which the model's output is being adapted, such as depth map generation or surface normal estimation. The default task is depth map generation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the task for which the model's output is being adapted, such as depth map generation or surface normal estimation. The default task is depth map generation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`text`**
-    - A text prompt that guides the model's adaptation process for the specified task, enhancing the relevance of the output to the input text.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A text prompt that guides the model's adaptation process for the specified task, enhancing the relevance of the output to the input text.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`clip`**
-    - A CLIP model used for encoding the text prompt into a format that guides the adaptation process.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `torch.nn.Module`
+  - A CLIP model used for encoding the text prompt into a format that guides the adaptation process.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `torch.nn.Module`
 - **`vae`**
-    - A VAE (Variational Autoencoder) model used for encoding or decoding the samples during the adaptation process.
-    - Comfy dtype: `VAE`
-    - Python dtype: `torch.nn.Module`
+  - A VAE (Variational Autoencoder) model used for encoding or decoding the samples during the adaptation process.
+  - Comfy dtype: `VAE`
+  - Python dtype: `torch.nn.Module`
 - **`per_batch`**
-    - The number of samples processed per batch, affecting the efficiency and speed of the adaptation process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of samples processed per batch, affecting the efficiency and speed of the adaptation process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`image`**
-    - An optional input image that can be used as a basis for the adaptation process, providing a visual context.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - An optional input image that can be used as a basis for the adaptation process, providing a visual context.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`optional_latent`**
-    - An optional latent representation that can be used instead of generating one from an input image, offering a shortcut in the adaptation process.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - An optional latent representation that can be used instead of generating one from an input image, offering a shortcut in the adaptation process.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image after applying the intrinsic LoRA, adapted for the specified task.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image after applying the intrinsic LoRA, adapted for the specified task.
+  - Python dtype: `torch.Tensor`
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The latent representation of the output image, providing a deeper insight into the model's adaptation process.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - The latent representation of the output image, providing a deeper insight into the model's adaptation process.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Intrinsic_lora_sampling:
     def __init__(self):
         self.loaded_lora = None
-        
+
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "model": ("MODEL",),
                 "lora_name": (folder_paths.get_filename_list("intrinsic_loras"), ),
                 "task": (
-                [   
+                [
                     'depth map',
                     'surface normals',
                     'albedo',
@@ -98,9 +109,9 @@ class Intrinsic_lora_sampling:
     FUNCTION = "onestepsample"
     CATEGORY = "KJNodes"
     DESCRIPTION = """
-Sampler to use the intrinsic loras:  
-https://github.com/duxiaodan/intrinsic-lora  
-These LoRAs are tiny and thus included  
+Sampler to use the intrinsic loras:
+https://github.com/duxiaodan/intrinsic-lora
+These LoRAs are tiny and thus included
 with this node pack.
 """
 
@@ -121,7 +132,7 @@ with this node pack.
         negative = positive #negative shouldn't do anything in this scenario
 
         pbar.update(1)
-     
+
         #custom model sampling to pass latent through as it is
         class X0_PassThrough(comfy.model_sampling.EPS):
             def calculate_denoised(self, sigma, model_output, model_input):
@@ -137,7 +148,7 @@ with this node pack.
 
         #load lora
         model_clone = model.clone()
-        lora_path = folder_paths.get_full_path("intrinsic_loras", lora_name)        
+        lora_path = folder_paths.get_full_path("intrinsic_loras", lora_name)
         lora = load_torch_file(lora_path, safe_load=True)
         self.loaded_lora = (lora_path, lora)
 
@@ -167,7 +178,7 @@ with this node pack.
             image_out = 1.0 - image_out
         else:
             image_out = image_out.clamp(-1.,1.)
-            
+
         return (image_out, samples,)
 
 ```

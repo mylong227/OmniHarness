@@ -1,38 +1,46 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # ImageSelector
+
 ## Documentation
+
 - Class name: `ImageSelector`
 - Category: `image`
 - Output node: `False`
 
 The ImageSelector node is designed to filter and select specific images from a given set based on user-defined indexes. It supports selecting individual images or ranges of images, facilitating customized image processing and manipulation.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The 'images' parameter represents the set of images from which selections are made. It is crucial for determining the subset of images to be processed or analyzed.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The 'images' parameter represents the set of images from which selections are made. It is crucial for determining the subset of images to be processed or analyzed.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`selected_indexes`**
-    - The 'selected_indexes' parameter specifies the indexes of images to be selected, supporting individual indexes and ranges for flexible image selection. This parameter is case-sensitive.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The 'selected_indexes' parameter specifies the indexes of images to be selected, supporting individual indexes and ranges for flexible image selection. This parameter is case-sensitive.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a filtered set of images, selected according to the specified indexes.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a filtered set of images, selected according to the specified indexes.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - Reroute
-
-
+  - Reroute
 
 ## Source code
+
 ```python
 class ImageSelector:
     """
@@ -46,7 +54,7 @@ class ImageSelector:
     def INPUT_TYPES(s):
         """
         Input: list of index of selected image, seperated by comma (",")
-        support colon (":") sperated range (left included, right excluded) 
+        support colon (":") sperated range (left included, right excluded)
         Indexes start with 1 for simplicity
         """
         return {

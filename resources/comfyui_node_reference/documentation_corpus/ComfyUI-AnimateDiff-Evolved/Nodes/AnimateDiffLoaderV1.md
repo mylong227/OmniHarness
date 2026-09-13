@@ -1,59 +1,70 @@
 ---
 tags:
-- AnimateDiff
-- AnimateDiffContext
-- Animation
+  - AnimateDiff
+  - AnimateDiffContext
+  - Animation
 ---
 
 # 🚫AnimateDiff Loader [DEPRECATED] 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `AnimateDiffLoaderV1`
 - Category: ``
 - Output node: `False`
 
 This node is responsible for loading the AnimateDiff model version 1, facilitating the initialization and setup of the model for animation and image manipulation tasks. It is marked as deprecated, indicating that newer versions or methods are recommended for use. The node is deprecated, suggesting a transition to more current methodologies or versions for optimal performance.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model to be loaded for animation and image manipulation tasks, central to the node's operation.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Specifies the model to be loaded for animation and image manipulation tasks, central to the node's operation.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`latents`**
-    - Defines the latent space parameters for the model, crucial for initializing the model's state.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - Defines the latent space parameters for the model, crucial for initializing the model's state.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`model_name`**
-    - Determines the specific AnimateDiff model version 1 to be loaded, affecting the animation and image manipulation capabilities.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the specific AnimateDiff model version 1 to be loaded, affecting the animation and image manipulation capabilities.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`unlimited_area_hack`**
-    - A boolean flag to enable or disable the unlimited area hack, altering the model's behavior in processing images.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag to enable or disable the unlimited area hack, altering the model's behavior in processing images.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`beta_schedule`**
-    - Specifies the beta schedule for the model, impacting the model's training or inference behavior.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Specifies the beta schedule for the model, impacting the model's training or inference behavior.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
+
 ### Optional
+
 - **`deprecation_warning`**
-    - Provides a deprecation warning, indicating that this node is outdated and newer versions are recommended.
-    - Comfy dtype: `ADEWARN`
-    - Python dtype: `dict`
+  - Provides a deprecation warning, indicating that this node is outdated and newer versions are recommended.
+  - Comfy dtype: `ADEWARN`
+  - Python dtype: `dict`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The loaded AnimateDiff model, ready for animation and image manipulation tasks.
-    - Python dtype: `str`
+  - Comfy dtype: `MODEL`
+  - The loaded AnimateDiff model, ready for animation and image manipulation tasks.
+  - Python dtype: `str`
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The initialized latent space parameters of the loaded model, essential for the model's operation.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `LATENT`
+  - The initialized latent space parameters of the loaded model, essential for the model's operation.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AnimateDiffLoader_Deprecated:
     @classmethod

@@ -1,53 +1,64 @@
 ---
 tags:
-- Segmentation
+  - Segmentation
 ---
 
 # ISNet Segment
+
 ## Documentation
+
 - Class name: `ISNetSegment`
 - Category: `Art Venture/Segmentation`
 - Output node: `False`
 
 ISNetSegment is designed for image segmentation using the ISNet model, providing functionality to process images through the model to generate segmented images and their corresponding masks. It supports conditional execution based on the model's availability and the option to specify device mode for computation.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - The input images to be segmented. This is the primary data upon which segmentation is performed, determining the visual content to be analyzed and processed.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input images to be segmented. This is the primary data upon which segmentation is performed, determining the visual content to be analyzed and processed.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`threshold`**
-    - A threshold value for segmentation, influencing the sensitivity of the segmentation process. It determines the cut-off point for what is considered part of the segment versus the background.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A threshold value for segmentation, influencing the sensitivity of the segmentation process. It determines the cut-off point for what is considered part of the segment versus the background.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`device_mode`**
-    - Specifies the computational device preference ('AUTO', 'Prefer GPU', 'CPU') for running the segmentation, affecting performance and resource utilization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the computational device preference ('AUTO', 'Prefer GPU', 'CPU') for running the segmentation, affecting performance and resource utilization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`enabled`**
-    - A boolean flag to enable or disable the segmentation process, allowing for conditional execution based on external criteria.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag to enable or disable the segmentation process, allowing for conditional execution based on external criteria.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`isnet_model`**
-    - An optional ISNet model instance to be used for segmentation. If not provided, the system will attempt to load a default model.
-    - Comfy dtype: `ISNET_MODEL`
-    - Python dtype: `ISNetBase`
+  - An optional ISNet model instance to be used for segmentation. If not provided, the system will attempt to load a default model.
+  - Comfy dtype: `ISNET_MODEL`
+  - Python dtype: `ISNetBase`
+
 ## Output types
+
 - **`segmented`**
-    - Comfy dtype: `IMAGE`
-    - The segmented images resulting from the application of the ISNet model on the input images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The segmented images resulting from the application of the ISNet model on the input images.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The masks corresponding to the segmented images, indicating the segmented areas.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The masks corresponding to the segmented images, indicating the segmented areas.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ISNetSegment:
     @classmethod

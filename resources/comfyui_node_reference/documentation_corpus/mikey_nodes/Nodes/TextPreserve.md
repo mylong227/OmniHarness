@@ -1,36 +1,45 @@
 ---
 tags:
-- Text
+  - Text
 ---
 
 # Text Preserve (Mikey)
+
 ## Documentation
+
 - Class name: `TextPreserve`
 - Category: `Mikey/Text`
 - Output node: `True`
 
 The TextPreserve node is designed to manipulate and transform text inputs based on specific patterns and random choices, while preserving the original text for further use. It incorporates functionalities such as search and replace, wildcard text selection, and updating workflow states with modified text values.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The original text input that will be preserved and potentially modified through various text manipulation processes.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The original text input that will be preserved and potentially modified through various text manipulation processes.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`result_text`**
-    - A modified version of the original text after applying search and replace operations and wildcard selections.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A modified version of the original text after applying search and replace operations and wildcard selections.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`text`**
-    - Comfy dtype: `STRING`
-    - The final text output after all manipulations, including search and replace operations and wildcard text selections, have been applied.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The final text output after all manipulations, including search and replace operations and wildcard text selections, have been applied.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class TextPreserve:
     @classmethod

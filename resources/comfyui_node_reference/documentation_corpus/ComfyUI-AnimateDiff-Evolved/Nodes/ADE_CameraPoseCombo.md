@@ -1,66 +1,77 @@
 ---
 tags:
-- Animation
-- CameraControl
+  - Animation
+  - CameraControl
 ---
 
 # Create CameraCtrl Poses (Combo) 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_CameraPoseCombo`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②/CameraCtrl/poses`
 - Output node: `False`
 
 The ADE_CameraPoseCombo node is designed to create complex camera control poses by combining multiple motion types and their respective strengths. It allows for the customization of camera movements in animation sequences, enabling the generation of dynamic and nuanced camera behaviors.
+
 ## Input types
+
 ### Required
+
 - **`motion_type1`**
-    - Specifies the first type of camera motion to be included in the combination. Each motion type contributes to the overall camera movement pattern.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the first type of camera motion to be included in the combination. Each motion type contributes to the overall camera movement pattern.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`motion_type2`**
-    - Specifies the second type of camera motion to be included in the combination, adding to the complexity of the camera movement.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the second type of camera motion to be included in the combination, adding to the complexity of the camera movement.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`motion_type3`**
-    - Specifies the third type of camera motion, further enriching the camera movement pattern.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the third type of camera motion, further enriching the camera movement pattern.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`motion_type4`**
-    - Specifies the fourth type of camera motion, contributing to the diversity of the camera movement.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the fourth type of camera motion, contributing to the diversity of the camera movement.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`motion_type5`**
-    - Specifies the fifth type of camera motion, adding another layer to the camera movement complexity.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the fifth type of camera motion, adding another layer to the camera movement complexity.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`motion_type6`**
-    - Specifies the sixth type of camera motion, completing the set of movements for a comprehensive camera control.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the sixth type of camera motion, completing the set of movements for a comprehensive camera control.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`speed`**
-    - Controls the speed of the camera movement, affecting how quickly or slowly the camera transitions between poses.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the speed of the camera movement, affecting how quickly or slowly the camera transitions between poses.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`frame_length`**
-    - Determines the number of frames over which the camera movement occurs, defining the duration of the animation.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of frames over which the camera movement occurs, defining the duration of the animation.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`prev_poses`**
-    - Optional. Previous camera poses that can be combined with the new motion for seamless transitions in animations. This input is crucial for creating fluid and continuous camera movements, especially in scenarios where maintaining a narrative or visual continuity is essential.
-    - Comfy dtype: `CAMERACTRL_POSES`
-    - Python dtype: `list[list[float]]`
+  - Optional. Previous camera poses that can be combined with the new motion for seamless transitions in animations. This input is crucial for creating fluid and continuous camera movements, especially in scenarios where maintaining a narrative or visual continuity is essential.
+  - Comfy dtype: `CAMERACTRL_POSES`
+  - Python dtype: `list[list[float]]`
+
 ## Output types
+
 - **`cameractrl_poses`**
-    - Comfy dtype: `CAMERACTRL_POSES`
-    - The resulting camera control poses after combining the specified motions and strengths, ready for use in animations.
-    - Python dtype: `list[list[float]]`
+  - Comfy dtype: `CAMERACTRL_POSES`
+  - The resulting camera control poses after combining the specified motions and strengths, ready for use in animations.
+  - Python dtype: `list[list[float]]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CameraCtrlPoseCombo:
     @classmethod

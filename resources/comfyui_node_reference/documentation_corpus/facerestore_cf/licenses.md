@@ -1,7 +1,9 @@
 # Other detected licenses
+
 File name: `basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
 
 **BSD-2-Clause**
+
 ```
  * LICENSE
  *
@@ -25,7 +27,9 @@ File name: `basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 **LicenseRef-scancode-generic-cla**
+
 ```
  * Caffe uses a shared copyright model: each contributor holds copyright over
  * their contributions to Caffe. The project versioning records all such
@@ -34,6 +38,7 @@ File name: `basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
  * their copyright solely in the commit message of the change when it is
  * committed.
 ```
+
 ```
  * CONTRIBUTION AGREEMENT
  *
@@ -41,16 +46,21 @@ File name: `basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
  * or otherwise, the contributor releases their content to the
  * license and copyright terms herein.
 ```
+
 **MIT**
+
 ```
  * Licensed under The MIT License [see LICENSE for details]
 ```
+
 File name: `basicsr/setup.py`
 
 **Apache-2.0**
+
 ```
         license='Apache License 2.0',
 ```
+
 ```
             'License :: OSI Approved :: Apache Software License',
 ```

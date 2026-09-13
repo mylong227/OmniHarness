@@ -1,47 +1,56 @@
 # ImageTransformByNormalizedAmplitude
+
 ## Documentation
+
 - Class name: `ImageTransformByNormalizedAmplitude`
 - Category: `KJNodes/audio`
 - Output node: `False`
 
 This node applies a transformation to images based on normalized amplitude values, adjusting aspects such as zoom scale dynamically. It's designed to modify images in a batch by scaling their size according to audio-driven amplitude data, enabling creative visual-audio synchronization.
+
 ## Input types
+
 ### Required
+
 - **`normalized_amp`**
-    - An array of normalized amplitude values, each corresponding to an image in the batch, used to determine the scale of transformation.
-    - Comfy dtype: `NORMALIZED_AMPLITUDE`
-    - Python dtype: `numpy.ndarray`
+  - An array of normalized amplitude values, each corresponding to an image in the batch, used to determine the scale of transformation.
+  - Comfy dtype: `NORMALIZED_AMPLITUDE`
+  - Python dtype: `numpy.ndarray`
 - **`zoom_scale`**
-    - A scaling factor that determines how much the image is zoomed based on the amplitude value.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scaling factor that determines how much the image is zoomed based on the amplitude value.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`x_offset`**
-    - The horizontal offset applied to the image after scaling, allowing for positional adjustments.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The horizontal offset applied to the image after scaling, allowing for positional adjustments.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`y_offset`**
-    - The vertical offset applied to the image after scaling, allowing for positional adjustments.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The vertical offset applied to the image after scaling, allowing for positional adjustments.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cumulative`**
-    - A boolean indicating whether the zoom effect should accumulate over the images in the batch.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean indicating whether the zoom effect should accumulate over the images in the batch.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`image`**
-    - The batch of images to be transformed, where each image's transformation is influenced by its corresponding amplitude value.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The batch of images to be transformed, where each image's transformation is influenced by its corresponding amplitude value.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The transformed images, each adjusted according to its corresponding normalized amplitude value, zoom scale, and positional offsets.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `IMAGE`
+  - The transformed images, each adjusted according to its corresponding normalized amplitude value, zoom scale, and positional offsets.
+  - Python dtype: `List[torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageTransformByNormalizedAmplitude:
     @classmethod
@@ -59,8 +68,8 @@ class ImageTransformByNormalizedAmplitude:
     FUNCTION = "amptransform"
     CATEGORY = "KJNodes/audio"
     DESCRIPTION = """
-Works as a bridge to the AudioScheduler -nodes:  
-https://github.com/a1lazydog/ComfyUI-AudioScheduler  
+Works as a bridge to the AudioScheduler -nodes:
+https://github.com/a1lazydog/ComfyUI-AudioScheduler
 Transforms image based on the normalized amplitude.
 """
 
@@ -83,31 +92,31 @@ Transforms image based on the normalized amplitude.
 
             # Convert the image tensor from BxHxWxC to CxHxW format expected by torchvision
             img = img.permute(2, 0, 1)
-            
+
             # Convert PyTorch tensor to PIL Image for processing
             pil_img = TF.to_pil_image(img)
-            
+
             # Calculate the crop size based on the amplitude
             width, height = pil_img.size
             crop_size = int(min(width, height) * (1 - amp * zoom_scale))
             crop_size = max(crop_size, 1)
-            
+
             # Calculate the crop box coordinates (centered crop)
             left = (width - crop_size) // 2
             top = (height - crop_size) // 2
             right = (width + crop_size) // 2
             bottom = (height + crop_size) // 2
-            
+
             # Crop and resize back to original size
             cropped_img = TF.crop(pil_img, top, left, crop_size, crop_size)
             resized_img = TF.resize(cropped_img, (height, width))
-            
+
             # Convert back to tensor in CxHxW format
             tensor_img = TF.to_tensor(resized_img)
-            
+
             # Convert the tensor back to BxHxWxC format
             tensor_img = tensor_img.permute(1, 2, 0)
-            
+
             # Offset the image based on the amplitude
             offset_amp = amp * 10  # Calculate the offset magnitude based on the amplitude
             shift_x = min(x_offset * offset_amp, img.shape[1] - 1)  # Calculate the shift in x direction
@@ -121,10 +130,10 @@ Transforms image based on the normalized amplitude.
 
             # Add to the list
             transformed_images.append(tensor_img)
-        
+
         # Stack all transformed images into a batch
         transformed_batch = torch.stack(transformed_images)
-        
+
         return (transformed_batch,)
 
 ```

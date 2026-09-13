@@ -1,40 +1,49 @@
 ---
 tags:
-- Comparison
+  - Comparison
 ---
 
 # 🔧 Image Enhance Difference
+
 ## Documentation
+
 - Class name: `ImageEnhanceDifference+`
 - Category: `essentials/image analysis`
 - Output node: `False`
 
 This node is designed to enhance and highlight the differences between two images by applying a power transformation. It is useful for visualizing changes or discrepancies between two images in a more pronounced manner.
+
 ## Input types
+
 ### Required
+
 - **`image1`**
-    - The first image to compare. It serves as the baseline for the comparison.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The first image to compare. It serves as the baseline for the comparison.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`image2`**
-    - The second image to compare against the first. This image is adjusted to match the dimensions of the first image if necessary.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The second image to compare against the first. This image is adjusted to match the dimensions of the first image if necessary.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`exponent`**
-    - A factor that controls the intensity of the enhancement. Higher values increase the contrast of the differences.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A factor that controls the intensity of the enhancement. Higher values increase the contrast of the differences.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The enhanced difference image, highlighting discrepancies between the input images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The enhanced difference image, highlighting discrepancies between the input images.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageEnhanceDifference:
     @classmethod

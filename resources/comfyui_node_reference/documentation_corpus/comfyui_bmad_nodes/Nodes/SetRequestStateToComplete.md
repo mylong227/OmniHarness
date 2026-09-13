@@ -1,24 +1,33 @@
 # SetRequestStateToComplete
+
 ## Documentation
+
 - Class name: `SetRequestStateToComplete`
 - Category: `Bmad/api`
 - Output node: `True`
 
 This node is designed to mark the state of a request as 'complete' within the request metadata file, effectively signaling the successful completion of a task or set of tasks.
+
 ## Input types
+
 ### Required
+
 - **`resource_i`**
-    - unknown
-    - Comfy dtype: `TASK_DONE`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `TASK_DONE`
+  - Python dtype: `unknown`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SetRequestStateToComplete:
     """

@@ -1,69 +1,80 @@
 ---
 tags:
-- Style
+  - Style
 ---
 
 # AV Style Apply
+
 ## Documentation
+
 - Class name: `AV_StyleApply`
 - Category: `Art Venture/Style`
 - Output node: `False`
 
 The AV_StyleApply node is designed to apply specific styles to given data, utilizing a model and a preset. It can optionally use a mask to refine the style application process and includes a toggle to enable or disable the styling function. This node is integral for customizing and enhancing visual content through the application of artistic or thematic styles.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model parameter specifies the style model to be used for applying styles to the input data. It plays a crucial role in determining the final appearance of the styled content.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - The model parameter specifies the style model to be used for applying styles to the input data. It plays a crucial role in determining the final appearance of the styled content.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`preset`**
-    - The preset parameter defines the specific style to be applied. It acts as a key to select among various predefined styles within the model, influencing the styling outcome.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The preset parameter defines the specific style to be applied. It acts as a key to select among various predefined styles within the model, influencing the styling outcome.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`data`**
-    - The data parameter represents the input content to which the style will be applied. This could be an image or any form of visual data that is compatible with the model.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The data parameter represents the input content to which the style will be applied. This could be an image or any form of visual data that is compatible with the model.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`weight`**
-    - The weight parameter adjusts the intensity of the style applied to the input data, allowing for finer control over the styling effect.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The weight parameter adjusts the intensity of the style applied to the input data, allowing for finer control over the styling effect.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`weight_type`**
-    - The weight_type parameter specifies the method of weighting the style application, affecting how the style intensity is calculated and applied.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The weight_type parameter specifies the method of weighting the style application, affecting how the style intensity is calculated and applied.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`start_at`**
-    - The start_at parameter determines the starting point of style application in a sequence, enabling temporal control over the styling process in video or animated content.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The start_at parameter determines the starting point of style application in a sequence, enabling temporal control over the styling process in video or animated content.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_at`**
-    - The end_at parameter sets the endpoint for style application in a sequence, allowing for precise control over the duration and timing of styling effects.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The end_at parameter sets the endpoint for style application in a sequence, allowing for precise control over the duration and timing of styling effects.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`mask`**
-    - The mask parameter allows for selective application of the style to specific areas of the input data, enhancing the precision of the styling process.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Optional[torch.Tensor]`
+  - The mask parameter allows for selective application of the style to specific areas of the input data, enhancing the precision of the styling process.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Optional[torch.Tensor]`
 - **`enabled`**
-    - The enabled parameter toggles the style application process on or off, providing control over whether the styling should be applied.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - The enabled parameter toggles the style application process on or off, providing control over whether the styling should be applied.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The model output represents the styled model after the application of the specified style and adjustments.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The model output represents the styled model after the application of the specified style and adjustments.
+  - Python dtype: `torch.nn.Module`
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The image output is the visual representation of the input data after the style has been applied, reflecting the chosen presets and adjustments.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The image output is the visual representation of the input data after the style has been applied, reflecting the chosen presets and adjustments.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
     class AV_StyleApply:
         @classmethod

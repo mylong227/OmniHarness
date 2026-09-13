@@ -1,38 +1,49 @@
 ---
 tags:
-- Mask
-- MaskRegion
+  - Mask
+  - MaskRegion
 ---
 
 # Clip Harden Region
+
 ## Documentation
+
 - Class name: `SaltMaskClipHardeningFilter`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node applies a clip hardening filter to mask regions, enhancing their edges and details through a sharpening process. It allows for adjustable strength to control the intensity of the effect.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The masks to be processed, enhancing their clarity and definition.
-    - Comfy dtype: `MASK`
-    - Python dtype: `List[torch.Tensor]`
+  - The masks to be processed, enhancing their clarity and definition.
+  - Comfy dtype: `MASK`
+  - Python dtype: `List[torch.Tensor]`
+
 ### Optional
+
 - **`strength`**
-    - Controls the intensity of the sharpening effect applied to the masks. A higher value results in a more pronounced effect.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the intensity of the sharpening effect applied to the masks. A higher value results in a more pronounced effect.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The processed masks with enhanced edges and details after applying the clip hardening filter.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The processed masks with enhanced edges and details after applying the clip hardening filter.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskClipHardeningFilter:
     @classmethod

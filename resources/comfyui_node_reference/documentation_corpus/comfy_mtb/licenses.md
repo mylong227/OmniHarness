@@ -1,10 +1,13 @@
 # Main License
+
 File name: `LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,28 +27,37 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 # Other detected licenses
+
 File name: `README.md`
 
 **GPL-3.0-only**
+
 ```
 licensed under [GPLv3](
 ```
+
 File name: `extern/GFPGAN/LICENSE`
 
 **Apache-2.0**
+
 ```
 released under the Apache 2.0 license.
 ```
+
 ```
 Apache 2.0
 ```
+
 ```
 is licensed under the Apache License Version 2.0
 ```
+
 ```
 Terms of the Apache License Version 2.0:
 ```
+
 ```
 Apache License
 
@@ -104,26 +116,35 @@ You may add Your own copyright statement to Your modifications and may provide a
 
 END OF TERMS AND CONDITIONS
 ```
+
 ```
 licensed under the Apache 2.0 license
 ```
+
 ```
 Apache-2.0
 ```
+
 **BSD-2-Clause**
+
 ```
 License: BSD-2-Clause
 ```
+
 **BSD-3-Clause**
+
 ```
 License: BSD-3-Clause
 ```
+
 ```
 BSD 3-Clause License
 ```
+
 ```
 Terms of the BSD 3-Clause License:
 ```
+
 ```
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
@@ -136,45 +157,61 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 ```
 Open Source Software licensed under the BSD 3-Clause License
 ```
+
 ```
 License: BSD-3-Clause
 ```
+
 ```
 Open Source Software licensed under the BSD 3-Clause license:
 ```
+
 **CC-BY-NC-SA-4.0**
+
 ```
 Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 Other  dependencies and licenses:
 ```
+
 ```
 doc/sphinxext/LICENSE.txt
 ```
+
 ```
 Subject to the terms and conditions
 ```
+
 ```
 Limitation of Liability.
 ```
+
 **LicenseRef-scancode-warranty-disclaimer**
+
 ```
 WARRANTIES OR CONDITIONS OF ANY
 KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WARRANTIES OR CONDITIONS OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
 ```
+
 **MIT**
+
 ```
 MIT licence
 ```
+
 ```
 the MIT License:
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -182,12 +219,15 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
 ```
 Open Source Software licensed under the MIT license
 ```
+
 ```
 Open Source Software licensed under the MIT license:
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -206,9 +246,11 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -228,24 +270,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 ```
 MIT License (MIT)
 ```
+
 **MPL-2.0**
+
 ```
 MPLv2.0
 ```
+
 ```
 This Source Code Form is subject to the terms of the
 Mozilla Public License, v. 2.0.
 If a copy of the MPL was not distributed with this file,
 You can obtain one at https://mozilla.org/MPL/2.0/.
 ```
+
 **PSF-2.0**
+
 ```
 PSF-2.0
 ```
+
 **cve-tou**
+
 ```
 copyright license to reproduce,
     prepare derivative works of, publicly display, publicly perform,
@@ -257,32 +307,42 @@ copyright license to reproduce,
     3.1 Redistribution. You may reproduce or distribute the Work only
     if (a) you do so under this License, (
 ```
+
 File name: `extern/GFPGAN/README.md`
 
 **Apache-2.0**
+
 ```
 under Apache License Version 2.0.
 ```
+
 ```
 LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](
 ```
+
 **Python-2.0**
+
 ```
 LICENSE)
 [![python
 ```
+
 File name: `extern/GFPGAN/setup.py`
 
 **Apache-2.0**
+
 ```
         license='Apache License Version 2.0',
 ```
+
 ```
             'License :: OSI Approved :: Apache Software License',
 ```
+
 File name: `extern/frame_interpolation/CONTRIBUTING.md`
 
 **LicenseRef-scancode-generic-cla**
+
 ```
 ## Contributor License Agreement
 
@@ -297,9 +357,11 @@ You generally only need to submit a CLA once, so if you've already submitted one
 (even if it was for a different project), you probably don't need to do it
 again.
 ```
+
 File name: `extern/frame_interpolation/LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -503,9 +565,11 @@ File name: `extern/frame_interpolation/LICENSE`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 File name: `extern/frame_interpolation/datasets/create_middlebury_tfrecord.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -519,28 +583,37 @@ File name: `extern/frame_interpolation/datasets/create_middlebury_tfrecord.py`
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ```
+
 File name: `pyproject.toml`
 
 **MIT**
+
 ```
 license = "MIT"
 ```
+
 ```
   "License :: OSI Approved :: MIT License",
 ```
+
 File name: `web/extern/dom-purify.js`
 
 **Apache-2.0**
+
 ```
 under the Apache license 2.0
 ```
+
 **MPL-2.0**
+
 ```
 Mozilla Public License 2.0 |
 ```
+
 File name: `web_async/ace/theme-dracula.js`
 
 **MIT**
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \u201cSoftware\u201d), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:  *  * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.  *  * THE SOFTWARE IS PROVIDED \u201cAS IS\u201d, WITHOUT WARRANTY OF ANY KIND,
  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */  .

@@ -1,57 +1,66 @@
 ---
 tags:
-- ImageTransformation
-- VisualEffects
+  - ImageTransformation
+  - VisualEffects
 ---
 
 # 🔧 Pixelize
+
 ## Documentation
+
 - Class name: `PixelOEPixelize+`
 - Category: `essentials/image processing`
 - Output node: `False`
 
 The PixelOEPixelize node focuses on transforming images by applying a pixelization effect. It abstracts the complexity of manipulating pixel data to achieve a stylized reduction in image resolution, often used for aesthetic purposes or to anonymize sensitive information in images.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be pixelized. This image undergoes a transformation where its resolution is reduced in a stylized manner, effectively 'pixelizing' the image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be pixelized. This image undergoes a transformation where its resolution is reduced in a stylized manner, effectively 'pixelizing' the image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`downscale_mode`**
-    - Specifies the method used for downscaling the image as part of the pixelization process. Different modes can affect the visual outcome of the pixelization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the method used for downscaling the image as part of the pixelization process. Different modes can affect the visual outcome of the pixelization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`target_size`**
-    - Defines the target size for the pixelization process, determining the final dimensions of the pixelized image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the target size for the pixelization process, determining the final dimensions of the pixelized image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`patch_size`**
-    - The size of each 'pixel' in the pixelized image, affecting the granularity of the pixelization effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The size of each 'pixel' in the pixelized image, affecting the granularity of the pixelization effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`thickness`**
-    - Controls the thickness of the grid lines in the pixelized image, adding to the stylized effect.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Controls the thickness of the grid lines in the pixelized image, adding to the stylized effect.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`color_matching`**
-    - Determines how colors are matched during the pixelization process, influencing the color accuracy of the pixelized image.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines how colors are matched during the pixelization process, influencing the color accuracy of the pixelized image.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`upscale`**
-    - A flag indicating whether the pixelized image should be upscaled back to its original resolution, affecting the final appearance.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether the pixelized image should be upscaled back to its original resolution, affecting the final appearance.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image after applying the pixelization effect, which may be upscaled to match the original image's resolution.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image after applying the pixelization effect, which may be upscaled to match the original image's resolution.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PixelOEPixelize:
     @classmethod

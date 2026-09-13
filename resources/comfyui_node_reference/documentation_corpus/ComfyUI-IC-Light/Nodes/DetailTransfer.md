@@ -1,53 +1,64 @@
 ---
 tags:
-- VisualEffects
+  - VisualEffects
 ---
 
 # Detail Transfer
+
 ## Documentation
+
 - Class name: `DetailTransfer`
 - Category: `IC-Light`
 - Output node: `False`
 
 The DetailTransfer node is designed to enhance the visual quality of images by transferring intricate details from one image to another. It focuses on improving the texture and depth of the target image, ensuring that the final output retains a high level of detail and realism.
+
 ## Input types
+
 ### Required
+
 - **`target`**
-    - The target image that will receive the detail enhancements, serving as the primary canvas for the detail transfer.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The target image that will receive the detail enhancements, serving as the primary canvas for the detail transfer.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`source`**
-    - The source image from which details are extracted to be transferred to the target image, playing a key role in defining the transferred textures and details.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The source image from which details are extracted to be transferred to the target image, playing a key role in defining the transferred textures and details.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mode`**
-    - Specifies the blending mode used to combine the source and target images, influencing the final appearance of the detail transfer.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the blending mode used to combine the source and target images, influencing the final appearance of the detail transfer.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`blur_sigma`**
-    - Determines the amount of blur applied to the detail transfer, affecting the smoothness and subtlety of the detail integration.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the amount of blur applied to the detail transfer, affecting the smoothness and subtlety of the detail integration.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`blend_factor`**
-    - Controls the intensity of the detail transfer, allowing for fine-tuning of how prominently the transferred details appear on the target image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the intensity of the detail transfer, allowing for fine-tuning of how prominently the transferred details appear on the target image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`mask`**
-    - An optional mask that can specify areas of the target image to be affected or excluded from the detail transfer, offering additional control over the outcome.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask that can specify areas of the target image to be affected or excluded from the detail transfer, offering additional control over the outcome.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The enhanced image with transferred details, showcasing improved texture and depth for a more realistic and detailed appearance.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The enhanced image with transferred details, showcasing improved texture and depth for a more realistic and detailed appearance.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DetailTransfer:
     @classmethod
@@ -68,8 +79,8 @@ class DetailTransfer:
                     "difference",
                     "exclusion",
                     "divide",
-                    
-                    ], 
+
+                    ],
                     {"default": "add"}
                     ),
                 "blur_sigma": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 100.0, "step": 0.01}),
@@ -90,7 +101,7 @@ class DetailTransfer:
             mask = mask.unsqueeze(1)  # Add a channel dimension
             target_channels = target_tensor.shape[1]
             mask = mask.expand(-1, target_channels, -1, -1)  # Expand the channel dimension to match the target tensor's channels
-    
+
         return mask
 
 
@@ -112,7 +123,7 @@ class DetailTransfer:
 
         blurred_target = gaussian_blur(target_tensor)
         blurred_source = gaussian_blur(source_tensor)
-        
+
         if mode == "add":
             tensor_out = (source_tensor - blurred_source) + blurred_target
         elif mode == "multiply":
@@ -137,7 +148,7 @@ class DetailTransfer:
             tensor_out = (source_tensor / blurred_source) * blurred_target
         else:
             tensor_out = source_tensor
-        
+
         tensor_out = torch.lerp(target_tensor, tensor_out, blend_factor)
         if mask is not None:
             # Call the function and pass in mask and target_tensor

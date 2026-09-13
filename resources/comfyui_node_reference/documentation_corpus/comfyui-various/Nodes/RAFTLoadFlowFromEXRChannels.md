@@ -1,48 +1,57 @@
 ---
 tags:
-- OpticalFlow
+  - OpticalFlow
 ---
 
 # RAFT Load Flow from EXR Channels
+
 ## Documentation
+
 - Class name: `RAFTLoadFlowFromEXRChannels`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node is designed for loading motion flows from EXR image files, specifically tailored for use with Blender's vector pass in the Cycles renderer. It extracts motion vectors by reading specified channels from an EXR file, allowing for the manipulation and use of these vectors in downstream processing or visualization tasks.
+
 ## Input types
+
 ### Required
+
 - **`path`**
-    - Specifies the file path to the EXR image from which motion flows are to be loaded. This path is crucial as it directs the node to the source image for processing.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the file path to the EXR image from which motion flows are to be loaded. This path is crucial as it directs the node to the source image for processing.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`x_channel`**
-    - Determines the EXR image channel (R, G, B, A) to be used for the x-component of the motion flow. The choice of channel affects how motion is interpreted along the x-axis.
-    - Comfy dtype: `['R', 'G', 'B', 'A']`
-    - Python dtype: `str`
+  - Determines the EXR image channel (R, G, B, A) to be used for the x-component of the motion flow. The choice of channel affects how motion is interpreted along the x-axis.
+  - Comfy dtype: `['R', 'G', 'B', 'A']`
+  - Python dtype: `str`
 - **`y_channel`**
-    - Determines the EXR image channel (R, G, B, A) to be used for the y-component of the motion flow. The choice of channel affects how motion is interpreted along the y-axis.
-    - Comfy dtype: `['R', 'G', 'B', 'A']`
-    - Python dtype: `str`
+  - Determines the EXR image channel (R, G, B, A) to be used for the y-component of the motion flow. The choice of channel affects how motion is interpreted along the y-axis.
+  - Comfy dtype: `['R', 'G', 'B', 'A']`
+  - Python dtype: `str`
 - **`invert_x`**
-    - A boolean flag indicating whether to invert the motion flow along the x-axis. This can be used to adjust the direction of motion if necessary.
-    - Comfy dtype: `['false', 'true']`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to invert the motion flow along the x-axis. This can be used to adjust the direction of motion if necessary.
+  - Comfy dtype: `['false', 'true']`
+  - Python dtype: `bool`
 - **`invert_y`**
-    - A boolean flag indicating whether to invert the motion flow along the y-axis. This can be used to adjust the direction of motion if necessary.
-    - Comfy dtype: `['false', 'true']`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether to invert the motion flow along the y-axis. This can be used to adjust the direction of motion if necessary.
+  - Comfy dtype: `['false', 'true']`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`raft_flow`**
-    - Comfy dtype: `RAFT_FLOW`
-    - The output is a tensor representing the motion flow extracted from the specified EXR channels. This flow can be used for further motion analysis or visualization.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `RAFT_FLOW`
+  - The output is a tensor representing the motion flow extracted from the specified EXR channels. This flow can be used for further motion analysis or visualization.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("RAFTEstimate", "RAFT Estimate")
 class _:

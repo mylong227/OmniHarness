@@ -1,48 +1,57 @@
 ---
 tags:
-- VAE
+  - VAE
 ---
 
 # SUPIR Encode
+
 ## Documentation
+
 - Class name: `SUPIR_encode`
 - Category: `SUPIR`
 - Output node: `False`
 
 The SUPIR_encode node is designed for encoding images into a latent space representation using a specified VAE model. It supports both standard and tiled encoding methods, allowing for flexible adaptation to different image sizes and computational constraints.
+
 ## Input types
+
 ### Required
+
 - **`SUPIR_VAE`**
-    - The VAE model used for encoding the image. This model dictates the encoding process and the structure of the generated latent space.
-    - Comfy dtype: `SUPIRVAE`
-    - Python dtype: `torch.nn.Module`
+  - The VAE model used for encoding the image. This model dictates the encoding process and the structure of the generated latent space.
+  - Comfy dtype: `SUPIRVAE`
+  - Python dtype: `torch.nn.Module`
 - **`image`**
-    - The image to be encoded. This input is the primary data that the node processes to produce a latent representation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image to be encoded. This input is the primary data that the node processes to produce a latent representation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`use_tiled_vae`**
-    - A flag indicating whether to use a tiled approach for VAE encoding, which can be beneficial for processing large images or for reducing memory usage.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A flag indicating whether to use a tiled approach for VAE encoding, which can be beneficial for processing large images or for reducing memory usage.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`encoder_tile_size`**
-    - The size of the tiles used in the tiled VAE encoding process. This parameter is relevant only if 'use_tiled_vae' is True.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The size of the tiles used in the tiled VAE encoding process. This parameter is relevant only if 'use_tiled_vae' is True.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`encoder_dtype`**
-    - Specifies the data type for the encoder's output, allowing for control over the precision and size of the generated latent representation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the data type for the encoder's output, allowing for control over the precision and size of the generated latent representation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The latent space representation of the encoded image. This output is crucial for further processing or generation tasks within the VAE framework.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `LATENT`
+  - The latent space representation of the encoded image. This output is crucial for further processing or generation tasks within the VAE framework.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SUPIR_encode:
     @classmethod
@@ -97,8 +106,8 @@ class SUPIR_encode:
             H = H - (H % downscale_ratio)
         if orig_H % downscale_ratio != 0 or orig_W % downscale_ratio != 0:
             image = F.interpolate(image, size=(H, W), mode="bicubic")
-        resized_image = image.to(device)        
-        
+        resized_image = image.to(device)
+
         if use_tiled_vae:
             from .SUPIR.utils.tilevae import VAEHook
             # Store the `original_forward` only if it hasn't been stored already
@@ -111,7 +120,7 @@ class SUPIR_encode:
             # Only assign `original_forward` back if it exists
             if hasattr(SUPIR_VAE.encoder, 'original_forward'):
                 SUPIR_VAE.encoder.forward = SUPIR_VAE.encoder.original_forward
-        
+
         pbar = comfy.utils.ProgressBar(B)
         out = []
         for img in resized_image:

@@ -1,38 +1,47 @@
 ---
 tags:
-- ImageEnhancement
-- ImageTransformation
-- VisualEffects
+  - ImageEnhancement
+  - ImageTransformation
+  - VisualEffects
 ---
 
 # Image Saturation
+
 ## Documentation
+
 - Class name: `JWImageSaturation`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node adjusts the saturation level of an input image based on a specified factor, enhancing or reducing the intensity of the image's colors.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to adjust the saturation for. The adjustment is made by altering the intensity of the image's colors.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to adjust the saturation for. The adjustment is made by altering the intensity of the image's colors.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`factor`**
-    - A multiplier for adjusting the saturation level. A factor greater than 1 increases saturation, making colors more intense, while a factor less than 1 decreases it, making the colors less intense.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A multiplier for adjusting the saturation level. A factor greater than 1 increases saturation, making colors more intense, while a factor less than 1 decreases it, making the colors less intense.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output image with adjusted saturation levels.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output image with adjusted saturation levels.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWImageMix", "Image Mix")
 class _:

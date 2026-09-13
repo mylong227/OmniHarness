@@ -1,24 +1,33 @@
 # CreateRequestMetadata
+
 ## Documentation
+
 - Class name: `CreateRequestMetadata`
 - Category: `Bmad/api`
 - Output node: `True`
 
 The CreateRequestMetadata node is designed for managing metadata related to request processing within a system. It facilitates the creation, update, and retrieval of request metadata, including the addition of resources to a request's metadata file. This node plays a crucial role in tracking the state and outputs of requests, ensuring that each request's information is accurately recorded and maintained throughout its lifecycle.
+
 ## Input types
+
 ### Required
+
 - **`request_id`**
-    - The unique identifier for a request. It is crucial for distinguishing between different requests and for tracking the specific metadata associated with each request.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The unique identifier for a request. It is crucial for distinguishing between different requests and for tracking the specific metadata associated with each request.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CreateRequestMetadata:
     """

@@ -1,53 +1,62 @@
 ---
 tags:
-- Multimedia
-- VideoHelperSuite
+  - Multimedia
+  - VideoHelperSuite
 ---
 
 # Merge Image Batches 🎥🅥🅗🅢
+
 ## Documentation
+
 - Class name: `VHS_MergeImages`
 - Category: `Video Helper Suite 🎥🅥🅗🅢/image`
 - Output node: `False`
 
 The VHS_MergeImages node is designed for combining two sets of images into a single set, allowing for flexible manipulation of image batches within the Video Helper Suite. It supports various strategies for merging, including matching dimensions by selecting the larger or smaller set, or explicitly choosing one set's dimensions to match. Additionally, it offers scaling and cropping options to ensure the merged images meet specific requirements.
+
 ## Input types
+
 ### Required
+
 - **`images_A`**
-    - The first set of images to be merged. This set can either serve as the template for merging or be adjusted to match the dimensions of the second set, depending on the chosen merge strategy.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Tensor`
+  - The first set of images to be merged. This set can either serve as the template for merging or be adjusted to match the dimensions of the second set, depending on the chosen merge strategy.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Tensor`
 - **`images_B`**
-    - The second set of images to be merged with the first. Depending on the merge strategy, these images may be scaled or cropped to match the dimensions of the first set.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Tensor`
+  - The second set of images to be merged with the first. Depending on the merge strategy, these images may be scaled or cropped to match the dimensions of the first set.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Tensor`
 - **`merge_strategy`**
-    - Determines how the dimensions of the two image sets are matched during the merge process. Options include matching to the first set, the second set, the smaller or larger dimensions among them.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines how the dimensions of the two image sets are matched during the merge process. Options include matching to the first set, the second set, the smaller or larger dimensions among them.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scale_method`**
-    - Specifies the scaling algorithm to be used when adjusting the dimensions of one image set to match the other. Options include nearest-exact, bilinear, area, bicubic, and bislerp.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the scaling algorithm to be used when adjusting the dimensions of one image set to match the other. Options include nearest-exact, bilinear, area, bicubic, and bislerp.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`crop`**
-    - Defines the cropping method to be applied if necessary during the scaling process. Options are 'disabled' for no cropping or 'center' for center-based cropping.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the cropping method to be applied if necessary during the scaling process. Options are 'disabled' for no cropping or 'center' for center-based cropping.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The resulting set of merged images.
-    - Python dtype: `Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting set of merged images.
+  - Python dtype: `Tensor`
 - **`count`**
-    - Comfy dtype: `INT`
-    - The total number of images in the merged set.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The total number of images in the merged set.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MergeImages:
     @classmethod
@@ -61,7 +70,7 @@ class MergeImages:
                 "crop": (CropMethods.list_all,),
             }
         }
-    
+
     CATEGORY = "Video Helper Suite 🎥🅥🅗🅢/image"
 
     RETURN_TYPES = ("IMAGE", "INT",)

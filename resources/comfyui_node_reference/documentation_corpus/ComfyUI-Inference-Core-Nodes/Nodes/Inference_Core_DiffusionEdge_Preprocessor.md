@@ -1,48 +1,59 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
-- LineExtraction
+  - DepthMap
+  - Image
+  - ImagePreprocessing
+  - LineExtraction
 ---
 
 # [Inference.Core] Diffusion Edge (batch size ↑ => speed ↑, VRAM ↑)
+
 ## Documentation
+
 - Class name: `Inference_Core_DiffusionEdge_Preprocessor`
 - Category: `ControlNet Preprocessors/Line Extractors`
 - Output node: `False`
 
 This node is designed to preprocess images for further processing by applying a diffusion edge detection algorithm. It enhances the edges in images based on the specified environment and patch batch size, making it suitable for tasks that require detailed edge information, such as line extraction in control networks.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed by the diffusion edge detection algorithm.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed by the diffusion edge detection algorithm.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`environment`**
-    - Specifies the environment setting for the edge detection model, affecting the model's behavior and the resulting edge enhancements.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the environment setting for the edge detection model, affecting the model's behavior and the resulting edge enhancements.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`patch_batch_size`**
-    - Determines the number of image patches processed simultaneously, influencing the execution speed and memory usage.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of image patches processed simultaneously, influencing the execution speed and memory usage.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`resolution`**
-    - The resolution to which the input image is resized before processing, affecting the detail level of the detected edges.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the input image is resized before processing, affecting the detail level of the detected edges.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image with enhanced edges, ready for further processing or visualization.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image with enhanced edges, ready for further processing or visualization.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DiffusionEdge_Preprocessor:
     @classmethod

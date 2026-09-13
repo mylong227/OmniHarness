@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- ImageTransformation
+  - Image
+  - ImageTransformation
 ---
 
 # 🔧 Image Random Transform
+
 ## Documentation
+
 - Class name: `ImageRandomTransform+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 This node applies a series of random transformations to an image, including perspective distortion, rotation, color jitter (brightness, contrast, saturation, hue), horizontal flipping, and random cropping. These transformations introduce variability and can be used to augment images for training or to generate diverse variations of a given image.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be transformed. It serves as the base for applying the random transformations, affecting the visual appearance and geometry of the output image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be transformed. It serves as the base for applying the random transformations, affecting the visual appearance and geometry of the output image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`seed`**
-    - A seed value for the random number generator to ensure reproducibility of the transformations applied to the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for the random number generator to ensure reproducibility of the transformations applied to the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`repeat`**
-    - Specifies how many times the input image should be repeated before applying the transformations, effectively controlling the number of transformed images generated.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies how many times the input image should be repeated before applying the transformations, effectively controlling the number of transformed images generated.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`variation`**
-    - A scalar that modulates the intensity of the transformations applied, influencing the degree of variation in the output images.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A scalar that modulates the intensity of the transformations applied, influencing the degree of variation in the output images.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The transformed images, each having undergone a unique set of random transformations based on the specified parameters.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The transformed images, each having undergone a unique set of random transformations based on the specified parameters.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageRandomTransform:
     @classmethod

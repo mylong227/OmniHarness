@@ -1,140 +1,151 @@
 ---
 tags:
-- Prompt
+  - Prompt
 ---
 
 # IF Chat Prompt👨‍💻
+
 ## Documentation
+
 - Class name: `IF_ChatPrompt`
 - Category: `ImpactFrames💥🎞️`
 - Output node: `True`
 
 The IF_ChatPrompt node is designed to facilitate interactive chat experiences by generating responses based on user inputs and a variety of parameters. It supports customization of the chat experience through different engines, models, and prompts, and includes features for managing conversation history and context.
+
 ## Input types
+
 ### Required
+
 - **`prompt`**
-    - The initial prompt or question to start the conversation. It sets the context for the chatbot's response.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The initial prompt or question to start the conversation. It sets the context for the chatbot's response.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`base_ip`**
-    - The IP address of the server where the chat engine is hosted. It's crucial for establishing a connection to the engine.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The IP address of the server where the chat engine is hosted. It's crucial for establishing a connection to the engine.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`port`**
-    - The port number on the server to connect to the chat engine. It specifies the exact entry point for communication.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The port number on the server to connect to the chat engine. It specifies the exact entry point for communication.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`engine`**
-    - Specifies the chat engine to use for generating responses. It allows for selection among various pre-defined engines, enabling flexibility in response generation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Specifies the chat engine to use for generating responses. It allows for selection among various pre-defined engines, enabling flexibility in response generation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`selected_model`**
-    - The specific model selected for generating responses. This parameter allows for further customization of the chat experience.
-    - Comfy dtype: `[]`
-    - Python dtype: `tuple`
+  - The specific model selected for generating responses. This parameter allows for further customization of the chat experience.
+  - Comfy dtype: `[]`
+  - Python dtype: `tuple`
 - **`assistant`**
-    - Defines the assistant's persona or role in the conversation, allowing for tailored responses based on the selected assistant.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Defines the assistant's persona or role in the conversation, allowing for tailored responses based on the selected assistant.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
+
 ### Optional
+
 - **`context`**
-    - The current context or state of the conversation. It's essential for generating coherent and contextually relevant responses.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The current context or state of the conversation. It's essential for generating coherent and contextually relevant responses.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`images`**
-    - An image to be included in the chat context, allowing for responses that can incorporate visual elements.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Image`
+  - An image to be included in the chat context, allowing for responses that can incorporate visual elements.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Image`
 - **`max_tokens`**
-    - The maximum number of tokens to generate for the response. It controls the length of the chatbot's replies.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum number of tokens to generate for the response. It controls the length of the chatbot's replies.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`temperature`**
-    - Controls the randomness of the response generation, affecting the creativity and variability of the replies.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the randomness of the response generation, affecting the creativity and variability of the replies.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`top_k`**
-    - Limits the number of highest probability vocabulary tokens considered for each step, influencing the response's diversity.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Limits the number of highest probability vocabulary tokens considered for each step, influencing the response's diversity.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`top_p`**
-    - Nucleus sampling parameter that controls the cumulative probability cutoff, shaping the response's unpredictability.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Nucleus sampling parameter that controls the cumulative probability cutoff, shaping the response's unpredictability.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`repeat_penalty`**
-    - Adjusts the likelihood of repeating the same line, aiming to reduce redundancy in responses.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the likelihood of repeating the same line, aiming to reduce redundancy in responses.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`stop`**
-    - A set of tokens that signal the end of a response, helping to delineate the chatbot's replies.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A set of tokens that signal the end of a response, helping to delineate the chatbot's replies.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`seed`**
-    - A seed for the random number generator, ensuring reproducibility of responses under the same conditions.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed for the random number generator, ensuring reproducibility of responses under the same conditions.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`random`**
-    - Toggles between using a fixed seed or temperature for randomness, affecting the consistency of responses.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Toggles between using a fixed seed or temperature for randomness, affecting the consistency of responses.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`embellish_prompt`**
-    - A prompt modifier that adds embellishment to the initial prompt, enhancing the creativity of the response.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - A prompt modifier that adds embellishment to the initial prompt, enhancing the creativity of the response.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`style_prompt`**
-    - A prompt modifier that applies a specific style to the response, allowing for stylistic customization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - A prompt modifier that applies a specific style to the response, allowing for stylistic customization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`neg_prompt`**
-    - A prompt modifier that specifies content to avoid in the response, helping to tailor the chatbot's output.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - A prompt modifier that specifies content to avoid in the response, helping to tailor the chatbot's output.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`clear_history`**
-    - Controls whether to clear the chat history, affecting the continuity of the conversation.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether to clear the chat history, affecting the continuity of the conversation.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`history_steps`**
-    - Specifies the number of recent messages to retain in the chat history, influencing the context available for generating responses.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of recent messages to retain in the chat history, influencing the context available for generating responses.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`keep_alive`**
-    - Determines whether to keep the model loaded between requests, impacting response time and resource usage.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether to keep the model loaded between requests, impacting response time and resource usage.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`text_cleanup`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
 - **`mode`**
-    - unknown
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `unknown`
+
 ## Output types
+
 - **`Question`**
-    - Comfy dtype: `STRING`
-    - The original question or prompt provided to the chatbot.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The original question or prompt provided to the chatbot.
+  - Python dtype: `str`
 - **`Response`**
-    - Comfy dtype: `STRING`
-    - The generated response from the chatbot based on the input prompt and parameters.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The generated response from the chatbot based on the input prompt and parameters.
+  - Python dtype: `str`
 - **`Negative`**
-    - Comfy dtype: `STRING`
-    - A generated response that specifically avoids the content outlined in the neg_prompt parameter.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - A generated response that specifically avoids the content outlined in the neg_prompt parameter.
+  - Python dtype: `str`
 - **`Context`**
-    - Comfy dtype: `STRING`
-    - The updated context of the conversation after the response, including any modifications made during processing.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The updated context of the conversation after the response, including any modifications made during processing.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IFChatPrompt:
-    
+
     RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING",)
     RETURN_NAMES = ("Question", "Response", "Negative", "Context",)
     FUNCTION = "describe_picture"
@@ -150,7 +161,7 @@ class IFChatPrompt:
                 "base_ip": ("STRING", {"default": node.base_ip}),
                 "port": ("STRING", {"default": node.port}),
                 "engine": (["ollama", "kobold", "lms", "textgen", "groq", "openai", "anthropic"], {"default": node.engine}),
-                #"selected_model": (node.get_models("node.engine", node.base_ip, node.port), {}), 
+                #"selected_model": (node.get_models("node.engine", node.base_ip, node.port), {}),
                 "selected_model": ((), {}),
                 "assistant": ([name for name in node.assistants.keys()], {"default": node.assistant}),
             },
@@ -205,12 +216,12 @@ class IFChatPrompt:
                 node.load_model_textgen(selected_model, base_ip, port)
             return True"""
         return False
-    
-    
+
+
     def __init__(self):
-        self.base_ip = "localhost" 
-        self.port = "11434"     
-        self.engine = "ollama" 
+        self.base_ip = "localhost"
+        self.port = "11434"
+        self.engine = "ollama"
         self.selected_model = ""
         self.context = None
         self.assistant = "Cortana"
@@ -235,18 +246,18 @@ class IFChatPrompt:
         with open(file_path, 'r') as f:
             presets = json.load(f)
         return presets
-   
+
     def get_api_key(self, api_key_name, engine):
-        if engine not in ["ollama", "kobold", "lms", "textgen"]:  
+        if engine not in ["ollama", "kobold", "lms", "textgen"]:
             api_key = os.getenv(api_key_name)
             if api_key:
                 return api_key
         else:
             print(f'you are using ollama as the engine, no api key is required')
-    
+
     """def load_model_textgen(self, selected_model, base_ip, port):
         headers = {"Content-Type": "application/json"}
-        api_url = f'http://{base_ip}:{port}/v1/internal/model/load'   
+        api_url = f'http://{base_ip}:{port}/v1/internal/model/load'
         data = {
             "model_name": selected_model,
             "args": {"load_in_4bit": True }
@@ -257,11 +268,11 @@ class IFChatPrompt:
             print(f"Model {selected_model} loaded successfully.")
         except Exception as e:
             print(f"Failed to load model {selected_model}: {e}")"""
-    
+
     def get_models(self, engine, base_ip, port):
-        if engine == "groq":   
+        if engine == "groq":
             return ["gemma-7b-it", "llama2-70b-4096", "llama3-70b-8192", "llama3-8b-8192","mixtral-8x7b-32768"]
-        
+
         elif engine == "ollama":
             api_url = f'http://{base_ip}:{port}/api/tags'
             try:
@@ -326,7 +337,7 @@ class IFChatPrompt:
         else:
             print(f"Unsupported engine - {engine}")
             return []
-    
+
     def prepare_messages(self, prompt, assistant, images=None):
         assistant_content = self.assistants.get(assistant, "")
         image_message = textwrap.dedent("""
@@ -335,11 +346,11 @@ class IFChatPrompt:
             """)
         if images is not None:
             system_message = f"{assistant_content}\n{image_message}"
-            
+
         else:
             system_message = f"{assistant_content}"
-   
-        
+
+
         user_message = prompt if prompt.strip() != "" else "Please provide a general description of the images."
 
         messages = []
@@ -353,10 +364,10 @@ class IFChatPrompt:
         return user_message, system_message, messages
 
 
-    def describe_picture(self, prompt, engine, selected_model, base_ip, port, assistant, neg_prompt, embellish_prompt, style_prompt, 
-                         temperature=0.7, max_tokens=2048, seed=0, random=False, history_steps=10, keep_alive=False, top_k=40, top_p=0.2, 
+    def describe_picture(self, prompt, engine, selected_model, base_ip, port, assistant, neg_prompt, embellish_prompt, style_prompt,
+                         temperature=0.7, max_tokens=2048, seed=0, random=False, history_steps=10, keep_alive=False, top_k=40, top_p=0.2,
                          repeat_penalty=1.1, stop="", context=None, images=None, mode=True, clear_history=True, text_cleanup=True):
-        
+
         embellish_content = self.embellish_prompts.get(embellish_prompt, "")
         style_content = self.style_prompts.get(style_prompt, "")
         neg_content = self.neg_prompts.get(neg_prompt, "")
@@ -366,17 +377,17 @@ class IFChatPrompt:
             img_np = 255.0 * images[0].cpu().numpy()
             # Clip the values to the valid range [0, 255]
             img = Image.fromarray(np.clip(img_np, 0, 255).astype(np.uint8))
-            
+
             # Resize the image if it's too large
             max_size = (1024, 1024)  # Adjust the maximum size as needed
             img.thumbnail(max_size)
-            
+
             # Create a BytesIO object to store the image data
             buffered = io.BytesIO()
-            
+
             # Save the resized image as PNG
             img.save(buffered, format="PNG")
-            
+
             base64_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
         else:
             base64_image = None
@@ -396,38 +407,38 @@ class IFChatPrompt:
 
         if engine == "ollama":
             if stop == "":
-                stop = None 
+                stop = None
             else:
                 stop = ["\n", f"{stop}"]
         elif engine == "lms":
             if stop == "":
-                stop = None 
+                stop = None
             else:
                 stop = ["\n", f"{stop}"]
         elif engine == "kobold":
             if stop == "":
-                stop = None 
+                stop = None
             else:
                 stop = ["\n\n\n\n\n", f"{stop}"]
         else:
             stop = None
         try:
-            generated_text, context = self.send_request(engine, base_ip, port, base64_image, selected_model, system_message, user_message, messages, seed, 
-                                                        temperature, max_tokens, random, top_k, top_p, repeat_penalty, stop, keep_alive, context)           
-            
+            generated_text, context = self.send_request(engine, base_ip, port, base64_image, selected_model, system_message, user_message, messages, seed,
+                                                        temperature, max_tokens, random, top_k, top_p, repeat_penalty, stop, keep_alive, context)
+
             if text_cleanup:
                 generated_text = process_text(generated_text)
             else:
-                generated_text = generated_text      
+                generated_text = generated_text
 
             description = f"{generated_text}".strip()
-            if not clear_history:   
+            if not clear_history:
                 context = context
                 self.chat_history.append({"role": "user", "content": user_message})
                 self.chat_history.append({"role": "assistant", "content": description})
             else:
                 context = None
-                self.chat_history = []        
+                self.chat_history = []
             """print("Conversation History:")
             for message in self.chat_history:
                 role = message["role"]
@@ -440,11 +451,11 @@ class IFChatPrompt:
                 return prompt, combined_prompt, neg_content, context
         except Exception as e:
             print(f"Exception occurred: {e}")
-            return "Exception occurred while processing images.", ""      
+            return "Exception occurred while processing images.", ""
 
-    def send_request(self, engine, base_ip, port, base64_image, selected_model, system_message, user_message, messages, seed, 
+    def send_request(self, engine, base_ip, port, base64_image, selected_model, system_message, user_message, messages, seed,
                      temperature, max_tokens, random, top_k, top_p, repeat_penalty, stop, keep_alive, context=None):
-    
+
         api_functions = {
             "groq": send_groq_request,
             "anthropic": send_anthropic_request,
@@ -460,10 +471,10 @@ class IFChatPrompt:
 
         api_function = api_functions[engine]
 
-        
+
         if engine == "ollama":
-            response, context = api_function(f"http://{base_ip}:{port}/api/generate", base64_image, 
-                                    selected_model, system_message, user_message, messages, seed, 
+            response, context = api_function(f"http://{base_ip}:{port}/api/generate", base64_image,
+                                    selected_model, system_message, user_message, messages, seed,
                                     temperature, max_tokens, random, top_k, top_p, repeat_penalty, stop, keep_alive, context)
         elif engine == "kobold":
             response = api_function(f"http://{base_ip}:{port}/v1/chat/completions", base64_image, selected_model, system_message,
@@ -479,12 +490,12 @@ class IFChatPrompt:
             context = None
         elif engine == "openai":
             api_key = self.get_api_key(f"{engine.upper()}_API_KEY", engine)
-            response = api_function(base64_image, selected_model, system_message, user_message, messages, api_key, 
+            response = api_function(base64_image, selected_model, system_message, user_message, messages, api_key,
                                     seed, temperature, max_tokens, top_p, repeat_penalty)
             context = None
         else:
             api_key = self.get_api_key(f"{engine.upper()}_API_KEY", engine)
-            response = api_function(selected_model, system_message, user_message, messages, api_key, temperature, 
+            response = api_function(selected_model, system_message, user_message, messages, api_key, temperature,
                                     max_tokens, base64_image)
             context = None
 

@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- ImageSequence
+  - Image
+  - ImageSequence
 ---
 
 # Batch Load Image Sequence
+
 ## Documentation
+
 - Class name: `JWLoadImageSequence`
 - Category: `jamesWalker55`
 - Output node: `False`
 
 This node is designed for batch loading of image sequences with a specified stop index, enabling the efficient handling and processing of multiple images at once by allowing users to define a specific range within the sequence.
+
 ## Input types
+
 ### Required
+
 - **`path_pattern`**
-    - Specifies the pattern or path used to locate and load the images in the sequence, playing a crucial role in identifying the files to be processed.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the pattern or path used to locate and load the images in the sequence, playing a crucial role in identifying the files to be processed.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`start_index`**
-    - Defines the starting index for loading the image sequence, determining the initial image to be included in the processing.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the starting index for loading the image sequence, determining the initial image to be included in the processing.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`frame_count`**
-    - Indicates the number of frames to be loaded from the starting index, controlling the length of the image sequence to be processed.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Indicates the number of frames to be loaded from the starting index, controlling the length of the image sequence to be processed.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`ignore_missing_images`**
-    - Determines whether to ignore missing images within the specified range, allowing for flexible handling of incomplete sequences.
-    - Comfy dtype: `['false', 'true']`
-    - Python dtype: `bool`
+  - Determines whether to ignore missing images within the specified range, allowing for flexible handling of incomplete sequences.
+  - Comfy dtype: `['false', 'true']`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a batch of images loaded based on the specified criteria, ready for further processing or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a batch of images loaded based on the specified criteria, ready for further processing or analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 @register_node("JWLoadImageSequence", "Batch Load Image Sequence")
 class _:

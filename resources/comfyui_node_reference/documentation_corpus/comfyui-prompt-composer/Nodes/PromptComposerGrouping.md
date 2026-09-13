@@ -1,40 +1,49 @@
 ---
 tags:
-- PromptComposer
+  - PromptComposer
 ---
 
 # Prompt Composer Grouping
+
 ## Documentation
+
 - Class name: `PromptComposerGrouping`
 - Category: `AI WizArt/Prompt Composer Tools`
 - Output node: `False`
 
 The PromptComposerGrouping node is designed to modify and enhance input text based on specified weights and activity status, primarily focusing on grouping elements within prompts for AI-based applications.
+
 ## Input types
+
 ### Required
+
 - **`text_in`**
-    - The primary text input that serves as the base for grouping modifications.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text input that serves as the base for grouping modifications.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`weight`**
-    - A numerical value that influences the degree of modification applied to the input text, with higher values indicating greater emphasis.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A numerical value that influences the degree of modification applied to the input text, with higher values indicating greater emphasis.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`active`**
-    - A boolean flag that determines whether the grouping modifications should be applied to the input text.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that determines whether the grouping modifications should be applied to the input text.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`text_out`**
-    - Comfy dtype: `STRING`
-    - The modified text output after applying grouping logic, based on the input parameters.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The modified text output after applying grouping logic, based on the input parameters.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PromptComposerGrouping:
     def __init__(self):

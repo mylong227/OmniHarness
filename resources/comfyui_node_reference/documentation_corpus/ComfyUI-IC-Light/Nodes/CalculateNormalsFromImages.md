@@ -1,49 +1,60 @@
 ---
 tags:
-- VisualEffects
+  - VisualEffects
 ---
 
 # Calculate Normals From Images
+
 ## Documentation
+
 - Class name: `CalculateNormalsFromImages`
 - Category: `IC-Light`
 - Output node: `False`
 
 The CalculateNormalsFromImages node is designed to compute normal maps from a set of images representing different directional exposures. It processes batches of images to generate corresponding normal maps and optionally applies masks to refine the output, facilitating advanced image processing tasks such as lighting simulation or 3D reconstruction.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A batch of images, expected to be in sets of four representing left, right, bottom, and top directional exposures. These images are used to calculate the normal maps.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - A batch of images, expected to be in sets of four representing left, right, bottom, and top directional exposures. These images are used to calculate the normal maps.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`sigma`**
-    - A float value used to adjust the sharpness of the generated normal map. Higher values result in sharper details.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A float value used to adjust the sharpness of the generated normal map. Higher values result in sharper details.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`center_input_range`**
-    - A boolean flag indicating whether the input images should be normalized to a 0.5 center point before processing.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the input images should be normalized to a 0.5 center point before processing.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`mask`**
-    - An optional mask to apply to the images, used to isolate or highlight specific areas for normal map calculation.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask to apply to the images, used to isolate or highlight specific areas for normal map calculation.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`normal`**
-    - Comfy dtype: `IMAGE`
-    - The generated normal map, representing the surface normals derived from the input images.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The generated normal map, representing the surface normals derived from the input images.
+  - Python dtype: `torch.Tensor`
 - **`divided`**
-    - Comfy dtype: `IMAGE`
-    - An intermediate representation of the processed images, used internally for normalization and calculation.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - An intermediate representation of the processed images, used internally for normalization and calculation.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class CalculateNormalsFromImages:
     @classmethod
@@ -58,21 +69,21 @@ class CalculateNormalsFromImages:
                 "mask": ("MASK",),
             }
         }
-    
+
     RETURN_TYPES = ("IMAGE", "IMAGE",)
     RETURN_NAMES = ("normal", "divided",)
     FUNCTION = "execute"
     CATEGORY = "IC-Light"
     DESCRIPTION = """
-Calculates normal map from different directional exposures.  
-Takes in 4 images as a batch:  
-left, right, bottom, top  
+Calculates normal map from different directional exposures.
+Takes in 4 images as a batch:
+left, right, bottom, top
 
 """
 
     def execute(self, images, sigma, center_input_range, mask=None):
         B, H, W, C = images.shape
-        repetitions = B // 4        
+        repetitions = B // 4
 
         if center_input_range:
             images = images * 0.5 + 0.5
@@ -81,9 +92,9 @@ left, right, bottom, top
                 mask = mask.unsqueeze(0)
                 mask = F.interpolate(mask, size=(images.shape[1], images.shape[2]), mode="bilinear")
                 mask = mask.squeeze(0)
-        
 
-        
+
+
         normal_list = []
         divided_list = []
         iteration_counter = 0
@@ -92,14 +103,14 @@ left, right, bottom, top
             index = torch.arange(iteration_counter, B, repetitions)
             rearranged_images = images[index]
             images_np = rearranged_images.numpy().astype(np.float32)
-            
+
             left = images_np[0]
             right = images_np[1]
             bottom = images_np[2]
             top = images_np[3]
 
             ambient = (left + right + bottom + top) / 4.0
-        
+
             def safe_divide(a, b):
                 e = 1e-5
                 return ((a + e) / (b + e)) - 1.0
@@ -122,14 +133,14 @@ left, right, bottom, top
             if mask is not None:
                 matting = mask[iteration_counter].unsqueeze(0).numpy().astype(np.float32)
                 matting = matting[..., np.newaxis]
-                normal = normal * matting + np.stack([z, z, 1 - z], axis=2) 
+                normal = normal * matting + np.stack([z, z, 1 - z], axis=2)
                 normal = torch.from_numpy(normal)
                 #normal = normal.unsqueeze(0)
             else:
                 normal = normal + np.stack([z, z, 1 - z], axis=2)
                 normal = torch.from_numpy(normal).unsqueeze(0)
 
-            iteration_counter += 1 
+            iteration_counter += 1
             normal = (normal - normal.min()) / ((normal.max() - normal.min()))
             normal_list.append(normal)
             divided = np.stack([left, right, bottom, top])
@@ -140,7 +151,7 @@ left, right, bottom, top
 
         normal_out = torch.cat(normal_list, dim=0)
         divided_out = torch.cat(divided_list, dim=0)
-   
+
         return (normal_out, divided_out, )
 
 ```

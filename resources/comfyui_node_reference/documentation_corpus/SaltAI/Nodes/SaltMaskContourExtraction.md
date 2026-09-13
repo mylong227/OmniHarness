@@ -1,39 +1,50 @@
 ---
 tags:
-- Mask
-- MaskEnhancement
-- MaskRegion
+  - Mask
+  - MaskEnhancement
+  - MaskRegion
 ---
 
 # Countour Mask Regions Extraction
+
 ## Documentation
+
 - Class name: `SaltMaskContourExtraction`
 - Category: `SALT/Masking/Filter`
 - Output node: `False`
 
 This node is designed for extracting contours from mask regions using multiple threshold values. It applies a series of thresholds to identify and draw contours around regions of interest within the masks, effectively highlighting their boundaries.
+
 ## Input types
+
 ### Required
+
 - **`masks`**
-    - The input masks for which contours are to be extracted. These masks serve as the primary data on which the contour extraction process is applied.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The input masks for which contours are to be extracted. These masks serve as the primary data on which the contour extraction process is applied.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`thresholds`**
-    - A list of threshold values used to identify contours within the masks. Each threshold value defines a specific level of intensity for which contours are detected and drawn, allowing for a multi-faceted analysis of the mask regions.
-    - Comfy dtype: `INT`
-    - Python dtype: `List[int]`
+  - A list of threshold values used to identify contours within the masks. Each threshold value defines a specific level of intensity for which contours are detected and drawn, allowing for a multi-faceted analysis of the mask regions.
+  - Comfy dtype: `INT`
+  - Python dtype: `List[int]`
+
 ## Output types
+
 - **`MASKS`**
-    - Comfy dtype: `MASK`
-    - The output consists of tensors representing the extracted contours from the input masks. These tensors highlight the boundaries of regions within the masks, based on the specified threshold values.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The output consists of tensors representing the extracted contours from the input masks. These tensors highlight the boundaries of regions within the masks, based on the specified threshold values.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltMaskContourExtraction:
     @classmethod

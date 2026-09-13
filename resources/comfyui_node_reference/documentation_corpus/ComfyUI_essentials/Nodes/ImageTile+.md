@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- Tiled
+  - Image
+  - Tiled
 ---
 
 # 🔧 Image Tile
+
 ## Documentation
+
 - Class name: `ImageTile+`
 - Category: `essentials/image manipulation`
 - Output node: `False`
 
 The ImageTile node is designed for slicing an image into smaller, overlapping or non-overlapping tiles based on specified rows and columns. This functionality is essential for processing large images in manageable segments or for extracting specific regions of interest with controlled overlap for detailed analysis or further manipulation.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be tiled. This parameter is crucial as it defines the source image from which tiles will be generated.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be tiled. This parameter is crucial as it defines the source image from which tiles will be generated.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`rows`**
-    - Specifies the number of rows to divide the image into. This affects the vertical segmentation of the image, influencing the height of each tile.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of rows to divide the image into. This affects the vertical segmentation of the image, influencing the height of each tile.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cols`**
-    - Determines the number of columns to divide the image into. This parameter influences the horizontal segmentation, affecting the width of each tile.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of columns to divide the image into. This parameter influences the horizontal segmentation, affecting the width of each tile.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`overlap`**
-    - Defines the percentage of overlap between adjacent tiles. This parameter allows for a seamless transition between tiles, especially useful in certain analysis or reconstruction tasks.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the percentage of overlap between adjacent tiles. This parameter allows for a seamless transition between tiles, especially useful in certain analysis or reconstruction tasks.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output consists of a tensor containing the generated image tiles, ready for further processing or analysis.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output consists of a tensor containing the generated image tiles, ready for further processing or analysis.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageTile:
     @classmethod

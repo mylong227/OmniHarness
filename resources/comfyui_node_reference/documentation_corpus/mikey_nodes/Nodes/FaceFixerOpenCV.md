@@ -1,95 +1,103 @@
 ---
 tags:
-- Face
-- FaceRestoration
+  - Face
+  - FaceRestoration
 ---
 
 # Face Fixer OpenCV (Mikey)
+
 ## Documentation
+
 - Class name: `FaceFixerOpenCV`
 - Category: `Mikey/Utils`
 - Output node: `False`
 
 FaceFixerOpenCV is designed to enhance and modify facial features within images using OpenCV. It employs face detection algorithms to identify faces in images and applies various transformations to improve or alter the appearance of these faces, such as resizing, denoising, and blending with other facial features.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image tensor where faces need to be detected and fixed. It serves as the primary input for face detection and subsequent modifications.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image tensor where faces need to be detected and fixed. It serves as the primary input for face detection and subsequent modifications.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`base_model`**
-    - The base model used for generating new facial features or enhancing existing ones.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The base model used for generating new facial features or enhancing existing ones.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`vae`**
-    - The variational autoencoder used for encoding and decoding facial features.
-    - Comfy dtype: `VAE`
-    - Python dtype: `torch.nn.Module`
+  - The variational autoencoder used for encoding and decoding facial features.
+  - Comfy dtype: `VAE`
+  - Python dtype: `torch.nn.Module`
 - **`positive_cond_base`**
-    - Base conditioning for positive attributes to enhance or generate in the face.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `torch.Tensor`
+  - Base conditioning for positive attributes to enhance or generate in the face.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `torch.Tensor`
 - **`negative_cond_base`**
-    - Base conditioning for negative attributes to reduce or eliminate in the face.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `torch.Tensor`
+  - Base conditioning for negative attributes to reduce or eliminate in the face.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `torch.Tensor`
 - **`seed`**
-    - A seed value for random number generation, ensuring reproducibility of results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for random number generation, ensuring reproducibility of results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`face_img_resolution`**
-    - The resolution to which the face images are scaled before processing.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution to which the face images are scaled before processing.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`padding`**
-    - Padding added to the detected face region before processing to include a broader context.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Padding added to the detected face region before processing to include a broader context.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`scale_factor`**
-    - A parameter that influences the detection process by specifying how much the image size is reduced at each image scale.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter that influences the detection process by specifying how much the image size is reduced at each image scale.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`min_neighbors`**
-    - A threshold for determining which detected faces are retained. It represents the minimum number of neighbors each candidate rectangle should have to qualify as a face.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A threshold for determining which detected faces are retained. It represents the minimum number of neighbors each candidate rectangle should have to qualify as a face.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`denoise`**
-    - The degree of denoising applied to the face images during processing.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The degree of denoising applied to the face images during processing.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`classifier`**
-    - Specifies the classifier model to be used for face detection. It determines the type of faces (e.g., anime, frontal, profile) the node is looking for within the image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the classifier model to be used for face detection. It determines the type of faces (e.g., anime, frontal, profile) the node is looking for within the image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`sampler_name`**
-    - Specifies the sampling method used for generating or enhancing facial features.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the sampling method used for generating or enhancing facial features.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`scheduler`**
-    - The scheduler used for controlling the sampling process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The scheduler used for controlling the sampling process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`cfg`**
-    - Configuration settings for the face fixing process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `dict`
+  - Configuration settings for the face fixing process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `dict`
 - **`steps`**
-    - The number of steps in the face fixing process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The number of steps in the face fixing process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The modified image tensor with enhanced or altered facial features.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The modified image tensor with enhanced or altered facial features.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [Save Image With Prompt Data](../../mikey_nodes/Nodes/Save Image With Prompt Data.md)
-
-
+  - [Save Image With Prompt Data](../../mikey_nodes/Nodes/Save Image With Prompt Data.md)
 
 ## Source code
+
 ```python
 class FaceFixerOpenCV:
     @classmethod

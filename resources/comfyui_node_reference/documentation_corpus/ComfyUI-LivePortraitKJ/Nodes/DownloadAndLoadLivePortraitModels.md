@@ -1,33 +1,43 @@
 ---
 tags:
-- Face
+  - Face
 ---
 
 # (Down)Load LivePortraitModels
+
 ## Documentation
+
 - Class name: `DownloadAndLoadLivePortraitModels`
 - Category: `LivePortrait`
 - Output node: `False`
 
 This node is responsible for downloading and loading the necessary models for the LivePortrait feature. It ensures that all components required for generating live portraits, such as appearance feature extractors, motion extractors, warping modules, and retargeting networks, are properly initialized and ready for use. The node dynamically adjusts model precision based on the execution environment and manages model dependencies to facilitate seamless live portrait generation.
+
 ## Input types
+
 ### Required
+
 ### Optional
+
 - **`precision`**
-    - Specifies the desired precision for model computations, which can be set manually or determined automatically based on the device's capabilities. This affects the overall performance and accuracy of the live portrait generation process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the desired precision for model computations, which can be set manually or determined automatically based on the device's capabilities. This affects the overall performance and accuracy of the live portrait generation process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`live_portrait_pipe`**
-    - Comfy dtype: `LIVEPORTRAITPIPE`
-    - Returns a fully initialized pipeline configured for live portrait generation, including all necessary models and settings tailored to the specified precision. The specific type returned is a custom class instance that encapsulates the live portrait pipeline.
-    - Python dtype: `LivePortraitPipeline`
+  - Comfy dtype: `LIVEPORTRAITPIPE`
+  - Returns a fully initialized pipeline configured for live portrait generation, including all necessary models and settings tailored to the specified precision. The specific type returned is a custom class instance that encapsulates the live portrait pipeline.
+  - Python dtype: `LivePortraitPipeline`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DownloadAndLoadLivePortraitModels:
     @classmethod
@@ -87,7 +97,7 @@ class DownloadAndLoadLivePortraitModels:
         model_config_path = os.path.join(script_directory, 'liveportrait', 'config', 'models.yaml')
         with open(model_config_path, 'r') as file:
             model_config = yaml.safe_load(file)
-        
+
         feature_extractor_path = os.path.join(model_path, 'appearance_feature_extractor.safetensors')
         motion_extractor_path = os.path.join(model_path, 'motion_extractor.safetensors')
         warping_module_path = os.path.join(model_path, 'warping_module.safetensors')
@@ -167,7 +177,7 @@ class DownloadAndLoadLivePortraitModels:
             self.spade_generator,
             self.stich_retargeting_module,
             InferenceConfig(
-                device_id=device, 
+                device_id=device,
                 flag_use_half_precision = True if dtype == 'fp16' else False
                 )
         )

@@ -1,58 +1,69 @@
 ---
 tags:
-- Latent
-- LatentPreview
+  - Latent
+  - LatentPreview
 ---
 
 # 🔧 Image Preview From Latent
+
 ## Documentation
+
 - Class name: `ImagePreviewFromLatent+`
 - Category: `essentials/image utils`
 - Output node: `True`
 
 This node is designed to generate a preview image from a given latent representation. It leverages specific decoding techniques to transform latent vectors into visual previews, facilitating a visual understanding of the latent space.
+
 ## Input types
+
 ### Required
+
 - **`latent`**
-    - The latent representation to be transformed into a preview image. This input is crucial for visualizing the encoded information in a human-interpretable format.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `torch.Tensor`
+  - The latent representation to be transformed into a preview image. This input is crucial for visualizing the encoded information in a human-interpretable format.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `torch.Tensor`
 - **`vae`**
-    - The variational autoencoder model used for decoding the latent representation into an image.
-    - Comfy dtype: `VAE`
-    - Python dtype: `torch.nn.Module`
+  - The variational autoencoder model used for decoding the latent representation into an image.
+  - Comfy dtype: `VAE`
+  - Python dtype: `torch.nn.Module`
 - **`tile_size`**
-    - Specifies the size of the tiles used in the decoding process, affecting the resolution of the output image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the size of the tiles used in the decoding process, affecting the resolution of the output image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`image`**
-    - An optional input image that can be used in conjunction with the latent representation for generating the preview.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `PIL.Image.Image`
+  - An optional input image that can be used in conjunction with the latent representation for generating the preview.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `PIL.Image.Image`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The generated preview image, offering a visual interpretation of the latent representation.
-    - Python dtype: `PIL.Image.Image`
+  - Comfy dtype: `IMAGE`
+  - The generated preview image, offering a visual interpretation of the latent representation.
+  - Python dtype: `PIL.Image.Image`
 - **`MASK`**
-    - Comfy dtype: `MASK`
-    - An optional mask that may be generated alongside the preview image, depending on the node's implementation.
-    - Python dtype: `PIL.Image.Image`
+  - Comfy dtype: `MASK`
+  - An optional mask that may be generated alongside the preview image, depending on the node's implementation.
+  - Python dtype: `PIL.Image.Image`
 - **`width`**
-    - Comfy dtype: `INT`
-    - The width of the generated preview image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The width of the generated preview image.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The height of the generated preview image.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The height of the generated preview image.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImagePreviewFromLatent(SaveImage):
     def __init__(self):

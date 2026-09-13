@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # Eagle Image Node for PNGInfo
+
 ## Documentation
+
 - Class name: `EagleImageNode`
 - Category: `copilot`
 - Output node: `False`
 
 The EagleImageNode is designed for processing and handling image sequences, particularly focusing on adjusting images to a uniform size, converting them to a consistent format, and preparing them for further processing or analysis. It emphasizes the manipulation of image data, including resizing, format conversion, and mask generation, to facilitate downstream tasks such as image composition or analysis.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - Specifies the image to be processed, essential for performing operations such as resizing, format conversion, and mask generation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Specifies the image to be processed, essential for performing operations such as resizing, format conversion, and mask generation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`int_field`**
-    - An integer parameter that influences the node's processing logic, such as defining the dimensions for resizing or the number of iterations for certain operations, directly impacting the output's characteristics.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - An integer parameter that influences the node's processing logic, such as defining the dimensions for resizing or the number of iterations for certain operations, directly impacting the output's characteristics.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`float_field`**
-    - A floating-point parameter that may adjust the intensity or threshold levels of certain image processing functions, affecting the visual outcome of the processed image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A floating-point parameter that may adjust the intensity or threshold levels of certain image processing functions, affecting the visual outcome of the processed image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`print_to_screen`**
-    - A boolean parameter that controls the verbosity of the node's operation, determining whether intermediate or final processing results are displayed to the user.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - A boolean parameter that controls the verbosity of the node's operation, determining whether intermediate or final processing results are displayed to the user.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`string_field`**
-    - A string parameter that could specify file paths, format types, or other textual configurations relevant to the node's processing tasks.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string parameter that could specify file paths, format types, or other textual configurations relevant to the node's processing tasks.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class EagleImageNode(BaseNode):
     """

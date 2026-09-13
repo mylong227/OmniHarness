@@ -1,91 +1,101 @@
 ---
 tags:
-- Sampling
+  - Sampling
 ---
 
 # SDXL Sampler v3 (Searge)
+
 ## Documentation
+
 - Class name: `SeargeSDXLSamplerV3`
 - Category: `Searge/_deprecated_/Sampling`
 - Output node: `False`
 
 The SeargeSDXLSamplerV3 node is designed for advanced sampling in generative models, offering enhanced capabilities for generating high-quality digital content. It incorporates sophisticated algorithms to refine and optimize the output, making it suitable for applications requiring precision and detail in the generated samples.
+
 ## Input types
+
 ### Required
+
 - **`base_model`**
-    - Specifies the base model used for initial sampling, setting the foundation for the generation process.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Specifies the base model used for initial sampling, setting the foundation for the generation process.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`base_positive`**
-    - Defines the positive conditioning to guide the base model towards desirable outcomes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Defines the positive conditioning to guide the base model towards desirable outcomes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`base_negative`**
-    - Specifies the negative conditioning to steer the base model away from undesirable outcomes.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Specifies the negative conditioning to steer the base model away from undesirable outcomes.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`refiner_model`**
-    - Indicates the refiner model used to enhance and refine the initial samples for improved quality.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Indicates the refiner model used to enhance and refine the initial samples for improved quality.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`refiner_positive`**
-    - Defines the positive conditioning for the refiner model, further guiding the enhancement process.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Defines the positive conditioning for the refiner model, further guiding the enhancement process.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`refiner_negative`**
-    - Specifies the negative conditioning for the refiner model, ensuring the refinement avoids undesirable aspects.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Specifies the negative conditioning for the refiner model, ensuring the refinement avoids undesirable aspects.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`latent_image`**
-    - Represents the latent image or state used as a starting point for the sampling process.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `str`
+  - Represents the latent image or state used as a starting point for the sampling process.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `str`
 - **`noise_seed`**
-    - Provides a seed value for noise generation, ensuring reproducibility in the sampling process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Provides a seed value for noise generation, ensuring reproducibility in the sampling process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`steps`**
-    - Determines the number of steps in the sampling process, affecting the detail and quality of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of steps in the sampling process, affecting the detail and quality of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`cfg`**
-    - Configures the sampling strength or control factor, influencing the variance and fidelity of the generated content.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Configures the sampling strength or control factor, influencing the variance and fidelity of the generated content.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sampler_name`**
-    - Specifies the name of the sampler algorithm used, affecting the sampling strategy and outcome.
-    - Comfy dtype: `SAMPLER_NAME`
-    - Python dtype: `str`
+  - Specifies the name of the sampler algorithm used, affecting the sampling strategy and outcome.
+  - Comfy dtype: `SAMPLER_NAME`
+  - Python dtype: `str`
 - **`scheduler`**
-    - Indicates the scheduler used to manage the sampling steps, impacting the progression and refinement of the generation.
-    - Comfy dtype: `SCHEDULER_NAME`
-    - Python dtype: `str`
+  - Indicates the scheduler used to manage the sampling steps, impacting the progression and refinement of the generation.
+  - Comfy dtype: `SCHEDULER_NAME`
+  - Python dtype: `str`
 - **`base_ratio`**
-    - Sets the ratio of base to refiner model usage, balancing initial generation with refinement.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the ratio of base to refiner model usage, balancing initial generation with refinement.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`denoise`**
-    - Controls the denoising factor in the sampling process, affecting the clarity and smoothness of the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the denoising factor in the sampling process, affecting the clarity and smoothness of the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`refiner_prep_steps`**
-    - Specifies the number of preparation steps for the refiner model, adjusting the initial conditions for refinement.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of preparation steps for the refiner model, adjusting the initial conditions for refinement.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - Produces the final latent image or state after the sampling and refinement process, ready for further use or conversion to digital content.
-    - Python dtype: `str`
+  - Comfy dtype: `LATENT`
+  - Produces the final latent image or state after the sampling and refinement process, ready for further use or conversion to digital content.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [VAEDecode](../../Comfy/Nodes/VAEDecode.md)
-
-
+  - [VAEDecode](../../Comfy/Nodes/VAEDecode.md)
 
 ## Source code
+
 ```python
 class SeargeSDXLSamplerV3:
     @classmethod

@@ -1,69 +1,80 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # Set Props and Combine Conds 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_PairedConditioningSetMaskAndCombine`
 - Category: `Animate Diff 🎭🅐🅓/conditioning`
 - Output node: `False`
 
 This node specializes in the advanced manipulation of paired conditioning data for generative models, focusing on the application and combination of masks and additional conditioning layers. It enables the enhancement or modification of existing conditioning through the application of masks, strength adjustments, and the integration of new conditioning elements, thereby facilitating more precise control over the generative process.
+
 ## Input types
+
 ### Required
+
 - **`positive`**
-    - The original positive conditioning data to be enhanced or modified.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `torch.Tensor`
+  - The original positive conditioning data to be enhanced or modified.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `torch.Tensor`
 - **`negative`**
-    - The original negative conditioning data to be enhanced or modified.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `torch.Tensor`
+  - The original negative conditioning data to be enhanced or modified.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `torch.Tensor`
 - **`positive_ADD`**
-    - The additional positive conditioning data to be combined with the original.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `torch.Tensor`
+  - The additional positive conditioning data to be combined with the original.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `torch.Tensor`
 - **`negative_ADD`**
-    - The additional negative conditioning data to be combined with the original.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `torch.Tensor`
+  - The additional negative conditioning data to be combined with the original.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `torch.Tensor`
 - **`strength`**
-    - A parameter defining the intensity of the mask or conditioning modification.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A parameter defining the intensity of the mask or conditioning modification.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`set_cond_area`**
-    - Specifies the area of conditioning to which the mask or modifications are applied.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the area of conditioning to which the mask or modifications are applied.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`opt_mask`**
-    - An optional mask to apply to the conditioning data for selective modification.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask to apply to the conditioning data for selective modification.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`opt_lora_hook`**
-    - An optional parameter allowing the application of Lora hooks to the conditioning data, providing an additional layer of transformation or control.
-    - Comfy dtype: `LORA_HOOK`
-    - Python dtype: `LoraHookGroup`
+  - An optional parameter allowing the application of Lora hooks to the conditioning data, providing an additional layer of transformation or control.
+  - Comfy dtype: `LORA_HOOK`
+  - Python dtype: `LoraHookGroup`
 - **`opt_timesteps`**
-    - Optional timesteps for conditioning, allowing for temporal adjustments.
-    - Comfy dtype: `TIMESTEPS_COND`
-    - Python dtype: `TimestepsCond`
+  - Optional timesteps for conditioning, allowing for temporal adjustments.
+  - Comfy dtype: `TIMESTEPS_COND`
+  - Python dtype: `TimestepsCond`
+
 ## Output types
+
 - **`positive`**
-    - Comfy dtype: `CONDITIONING`
-    - The enhanced or modified positive conditioning data after applying masks, strength adjustments, and combining with additional conditioning.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `CONDITIONING`
+  - The enhanced or modified positive conditioning data after applying masks, strength adjustments, and combining with additional conditioning.
+  - Python dtype: `torch.Tensor`
 - **`negative`**
-    - Comfy dtype: `CONDITIONING`
-    - The enhanced or modified negative conditioning data after applying masks, strength adjustments, and combining with additional conditioning.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `CONDITIONING`
+  - The enhanced or modified negative conditioning data after applying masks, strength adjustments, and combining with additional conditioning.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PairedConditioningSetMaskAndCombineHooked:
     @classmethod
@@ -83,7 +94,7 @@ class PairedConditioningSetMaskAndCombineHooked:
                 "opt_timesteps": ("TIMESTEPS_COND",)
             }
         }
-    
+
     RETURN_TYPES = ("CONDITIONING", "CONDITIONING")
     RETURN_NAMES = ("positive", "negative")
     CATEGORY = "Animate Diff 🎭🅐🅓/conditioning"

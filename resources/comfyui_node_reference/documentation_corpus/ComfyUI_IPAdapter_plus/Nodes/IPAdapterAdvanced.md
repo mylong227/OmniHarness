@@ -1,77 +1,88 @@
 ---
 tags:
-- IPAdapter
+  - IPAdapter
 ---
 
 # IPAdapter Advanced
+
 ## Documentation
+
 - Class name: `IPAdapterAdvanced`
 - Category: `ipadapter`
 - Output node: `False`
 
 The IPAdapterAdvanced node is designed to enhance image processing capabilities by applying advanced image processing techniques. It extends the functionality of simpler IP adapters, offering more sophisticated options for image manipulation and enhancement.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model parameter specifies the neural network model to be used for image processing. It plays a crucial role in determining the quality and type of image enhancements applied.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model parameter specifies the neural network model to be used for image processing. It plays a crucial role in determining the quality and type of image enhancements applied.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`ipadapter`**
-    - This parameter represents the specific IP adapter to be applied, dictating the nature of the image processing technique used.
-    - Comfy dtype: `IPADAPTER`
-    - Python dtype: `IPAdapter`
+  - This parameter represents the specific IP adapter to be applied, dictating the nature of the image processing technique used.
+  - Comfy dtype: `IPADAPTER`
+  - Python dtype: `IPAdapter`
 - **`image`**
-    - The input image to be processed, serving as the base for all applied enhancements.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed, serving as the base for all applied enhancements.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`weight`**
-    - Controls the intensity of the applied image processing effect, offering flexibility in the final image output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the intensity of the applied image processing effect, offering flexibility in the final image output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`weight_type`**
-    - Specifies the method used to calculate the weight of the image processing effect, affecting how the effect is applied over time.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the method used to calculate the weight of the image processing effect, affecting how the effect is applied over time.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`combine_embeds`**
-    - Determines how multiple embeddings are combined during the image processing, impacting the final image's characteristics.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines how multiple embeddings are combined during the image processing, impacting the final image's characteristics.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`start_at`**
-    - Defines the starting point of the effect applied by the IP adapter, allowing for fine-tuned control over the image processing.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the starting point of the effect applied by the IP adapter, allowing for fine-tuned control over the image processing.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_at`**
-    - Specifies the endpoint of the effect applied, enabling precise manipulation of the image enhancement process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the endpoint of the effect applied, enabling precise manipulation of the image enhancement process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`embeds_scaling`**
-    - Specifies the scaling method for embeddings, affecting the influence of different components in the image processing.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the scaling method for embeddings, affecting the influence of different components in the image processing.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`image_negative`**
-    - An optional image used to specify negative effects, enabling the exclusion of certain aspects from the final output.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - An optional image used to specify negative effects, enabling the exclusion of certain aspects from the final output.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`attn_mask`**
-    - An optional attention mask for more precise control over the areas affected by the image processing.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional attention mask for more precise control over the areas affected by the image processing.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
 - **`clip_vision`**
-    - Optional parameter for integrating CLIP vision models, enhancing the semantic understanding of the image.
-    - Comfy dtype: `CLIP_VISION`
-    - Python dtype: `torch.Tensor`
+  - Optional parameter for integrating CLIP vision models, enhancing the semantic understanding of the image.
+  - Comfy dtype: `CLIP_VISION`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - Returns the modified model after applying the IP adapter, reflecting the enhancements made to the image processing capabilities.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - Returns the modified model after applying the IP adapter, reflecting the enhancements made to the image processing capabilities.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterAdvanced:
     def __init__(self):

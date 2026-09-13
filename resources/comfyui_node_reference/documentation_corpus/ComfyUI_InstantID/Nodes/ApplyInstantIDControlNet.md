@@ -1,69 +1,80 @@
 ---
 tags:
-- IdentityImage
+  - IdentityImage
 ---
 
 # InstantID Apply ControlNet
+
 ## Documentation
+
 - Class name: `ApplyInstantIDControlNet`
 - Category: `InstantID`
 - Output node: `False`
 
 This node is designed to apply a control network to modify facial embeddings based on specified conditions, leveraging insights from facial analysis and control network parameters to achieve targeted modifications in facial representations.
+
 ## Input types
+
 ### Required
+
 - **`face_embeds`**
-    - Facial embeddings that represent the key features of a face, serving as the input for targeted modifications.
-    - Comfy dtype: `FACE_EMBEDS`
-    - Python dtype: `torch.Tensor`
+  - Facial embeddings that represent the key features of a face, serving as the input for targeted modifications.
+  - Comfy dtype: `FACE_EMBEDS`
+  - Python dtype: `torch.Tensor`
 - **`control_net`**
-    - The control network model used to apply modifications to the facial embeddings.
-    - Comfy dtype: `CONTROL_NET`
-    - Python dtype: `torch.nn.Module`
+  - The control network model used to apply modifications to the facial embeddings.
+  - Comfy dtype: `CONTROL_NET`
+  - Python dtype: `torch.nn.Module`
 - **`image_kps`**
-    - Key points from the image that are used to guide the modifications applied by the control network.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - Key points from the image that are used to guide the modifications applied by the control network.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`positive`**
-    - Positive conditioning phrases or keywords that guide the direction of the modifications.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Positive conditioning phrases or keywords that guide the direction of the modifications.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`negative`**
-    - Negative conditioning phrases or keywords that specify undesired attributes to be avoided in the modifications.
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `str`
+  - Negative conditioning phrases or keywords that specify undesired attributes to be avoided in the modifications.
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `str`
 - **`strength`**
-    - The intensity of the modifications applied by the control network.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The intensity of the modifications applied by the control network.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`start_at`**
-    - The starting point in the process where modifications begin to be applied.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The starting point in the process where modifications begin to be applied.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_at`**
-    - The ending point in the process where modifications cease to be applied.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The ending point in the process where modifications cease to be applied.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`mask`**
-    - An optional mask that can be used to localize the modifications applied by the control network.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask that can be used to localize the modifications applied by the control network.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`positive`**
-    - Comfy dtype: `CONDITIONING`
-    - The modified positive conditioning after applying the control network, reflecting the targeted modifications.
-    - Python dtype: `List[Tuple[str, Dict]]`
+  - Comfy dtype: `CONDITIONING`
+  - The modified positive conditioning after applying the control network, reflecting the targeted modifications.
+  - Python dtype: `List[Tuple[str, Dict]]`
 - **`negative`**
-    - Comfy dtype: `CONDITIONING`
-    - The modified negative conditioning after applying the control network, reflecting the avoidance of specified undesired attributes.
-    - Python dtype: `List[Tuple[str, Dict]]`
+  - Comfy dtype: `CONDITIONING`
+  - The modified negative conditioning after applying the control network, reflecting the avoidance of specified undesired attributes.
+  - Python dtype: `List[Tuple[str, Dict]]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ApplyInstantIDControlNet:
     @classmethod

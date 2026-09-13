@@ -1,44 +1,53 @@
 ---
 tags:
-- LoRA
+  - LoRA
 ---
 
 # Register LoRA Hook (Model Only) 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_RegisterLoraHookModelOnly`
 - Category: `Animate Diff 🎭🅐🅓/conditioning/register lora hooks`
 - Output node: `False`
 
 This node is designed to register a model as a LoRA (Low-Rank Adaptation) hook, focusing exclusively on the model without involving any CLIP models. It enables the modification and enhancement of a model's behavior through LoRA techniques, providing a streamlined approach for integrating LoRA hooks into models for advanced customization and performance tuning.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model to be registered with the LoRA hook. It is the primary target for the LoRA adaptation, determining the scope and impact of the applied modifications.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `Union[ModelPatcher, ModelPatcherAndInjector]`
+  - The model to be registered with the LoRA hook. It is the primary target for the LoRA adaptation, determining the scope and impact of the applied modifications.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `Union[ModelPatcher, ModelPatcherAndInjector]`
 - **`lora_name`**
-    - The name of the LoRA configuration to apply. This specifies the particular LoRA adaptation settings and parameters to be used, guiding the customization process.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The name of the LoRA configuration to apply. This specifies the particular LoRA adaptation settings and parameters to be used, guiding the customization process.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`strength_model`**
-    - A floating-point value indicating the strength of the LoRA adaptation on the model. This parameter controls the intensity of the applied LoRA modifications, allowing for fine-tuned adjustments to the model's behavior.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A floating-point value indicating the strength of the LoRA adaptation on the model. This parameter controls the intensity of the applied LoRA modifications, allowing for fine-tuned adjustments to the model's behavior.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The model after being registered with the LoRA hook. This output reflects the modified state of the model, showcasing the effects of the LoRA adaptation.
-    - Python dtype: `ModelPatcher`
+  - Comfy dtype: `MODEL`
+  - The model after being registered with the LoRA hook. This output reflects the modified state of the model, showcasing the effects of the LoRA adaptation.
+  - Python dtype: `ModelPatcher`
 - **`lora_hook`**
-    - Comfy dtype: `LORA_HOOK`
-    - The LoRA hook that has been registered with the model. This output represents the LoRA adaptation mechanism applied, facilitating further customization and performance tuning.
-    - Python dtype: `LoraHook`
+  - Comfy dtype: `LORA_HOOK`
+  - The LoRA hook that has been registered with the model. This output represents the LoRA adaptation mechanism applied, facilitating further customization and performance tuning.
+  - Python dtype: `LoraHook`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MaskableLoraLoaderModelOnly(MaskableLoraLoader):
     @classmethod

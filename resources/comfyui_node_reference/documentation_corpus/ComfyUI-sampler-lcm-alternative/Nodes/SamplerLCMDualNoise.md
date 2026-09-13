@@ -1,39 +1,48 @@
 # SamplerLCMDualNoise
+
 ## Documentation
+
 - Class name: `SamplerLCMDualNoise`
 - Category: `sampling/custom_sampling/samplers`
 - Output node: `False`
 
 The SamplerLCMDualNoise node provides a mechanism for generating samples using a dual noise approach within a custom sampling framework. It leverages a combination of weights, normalization steps, and the option to reuse or parallelize noise generation to enhance the sampling process.
+
 ## Input types
+
 ### Required
+
 - **`weight`**
-    - Specifies the blending weight between two noise-induced samples, influencing the balance and variation in the sampling output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the blending weight between two noise-induced samples, influencing the balance and variation in the sampling output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`normalize_steps`**
-    - Determines the number of normalization steps to apply, affecting the smoothness and quality of the generated samples.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the number of normalization steps to apply, affecting the smoothness and quality of the generated samples.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`reuse_lcm_noise`**
-    - Controls whether the same noise is reused across sampling steps, impacting the diversity and consistency of samples.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether the same noise is reused across sampling steps, impacting the diversity and consistency of samples.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`parallel`**
-    - Enables parallel processing of noise generation, potentially speeding up the sampling process.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables parallel processing of noise generation, potentially speeding up the sampling process.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`sampler`**
-    - Comfy dtype: `SAMPLER`
-    - Produces a sampler configured with dual noise characteristics for generating samples.
-    - Python dtype: `comfy.samplers.KSAMPLER`
+  - Comfy dtype: `SAMPLER`
+  - Produces a sampler configured with dual noise characteristics for generating samples.
+  - Python dtype: `comfy.samplers.KSAMPLER`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SamplerLCMDualNoise:
     @classmethod

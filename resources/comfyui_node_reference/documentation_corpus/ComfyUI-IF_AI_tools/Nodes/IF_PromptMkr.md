@@ -1,95 +1,106 @@
 ---
 tags:
-- Prompt
+  - Prompt
 ---
 
 # IF Prompt to Prompt💬
+
 ## Documentation
+
 - Class name: `IF_PromptMkr`
 - Category: `ImpactFrames💥🎞️`
 - Output node: `False`
 
 The IF_PromptMkr node is designed to transform an initial text prompt into a more detailed or stylistically altered prompt, leveraging various AI models and customizations. It enriches the input prompt with embellishments, styles, or negations based on user-selected options, aiming to generate more impactful or contextually appropriate prompts for further processing or creative generation.
+
 ## Input types
+
 ### Required
+
 - **`input_prompt`**
-    - The primary text prompt to be transformed. It serves as the base content for generating enriched or stylistically altered prompts.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text prompt to be transformed. It serves as the base content for generating enriched or stylistically altered prompts.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`base_ip`**
-    - The IP address of the server where the AI model is hosted, used for sending requests to generate the enriched prompt.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The IP address of the server where the AI model is hosted, used for sending requests to generate the enriched prompt.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`port`**
-    - The port number on the server for accessing the AI model, used in conjunction with the base IP address.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The port number on the server for accessing the AI model, used in conjunction with the base IP address.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`engine`**
-    - Specifies the AI model engine to use for prompt generation, allowing selection from options like 'ollama', 'openai', or 'anthropic'.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - Specifies the AI model engine to use for prompt generation, allowing selection from options like 'ollama', 'openai', or 'anthropic'.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`selected_model`**
-    - The specific AI model selected for generating the prompt, determined dynamically based on the engine, base IP, and port.
-    - Comfy dtype: `[]`
-    - Python dtype: `tuple()`
+  - The specific AI model selected for generating the prompt, determined dynamically based on the engine, base IP, and port.
+  - Comfy dtype: `[]`
+  - Python dtype: `tuple()`
 - **`profile`**
-    - The profile setting that influences the generation style or approach, selected from a predefined list of profiles.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - The profile setting that influences the generation style or approach, selected from a predefined list of profiles.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`embellish_prompt`**
-    - A selection of embellishments to apply to the input prompt, enhancing its detail or thematic elements.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - A selection of embellishments to apply to the input prompt, enhancing its detail or thematic elements.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`style_prompt`**
-    - A selection of styles to apply to the input prompt, altering its presentation or tone.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - A selection of styles to apply to the input prompt, altering its presentation or tone.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`neg_prompt`**
-    - A selection of negations to apply to the input prompt, introducing contrast or oppositional elements.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `list[str]`
+  - A selection of negations to apply to the input prompt, introducing contrast or oppositional elements.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `list[str]`
 - **`temperature`**
-    - Controls the creativity or randomness of the generated prompt, with a range from 0.0 (less random) to 1.0 (more random).
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the creativity or randomness of the generated prompt, with a range from 0.0 (less random) to 1.0 (more random).
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`max_tokens`**
-    - The maximum number of tokens to generate for the enriched prompt, setting an upper limit on its length.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum number of tokens to generate for the enriched prompt, setting an upper limit on its length.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`seed`**
-    - A seed value for the random number generator, ensuring reproducibility of the generated prompt when set.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A seed value for the random number generator, ensuring reproducibility of the generated prompt when set.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`random`**
-    - A boolean flag that, when true, uses the seed value for generating the prompt, otherwise uses the temperature setting.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that, when true, uses the seed value for generating the prompt, otherwise uses the temperature setting.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`keep_alive`**
-    - A boolean flag that, when true, keeps the AI model loaded between requests, potentially improving performance.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag that, when true, keeps the AI model loaded between requests, potentially improving performance.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`Question`**
-    - Comfy dtype: `STRING`
-    - The original input prompt, returned unchanged.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The original input prompt, returned unchanged.
+  - Python dtype: `str`
 - **`Response`**
-    - Comfy dtype: `STRING`
-    - The enriched or stylistically altered prompt generated based on the input and selected options.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The enriched or stylistically altered prompt generated based on the input and selected options.
+  - Python dtype: `str`
 - **`Negative`**
-    - Comfy dtype: `STRING`
-    - The negated version of the input prompt, incorporating contrast or oppositional elements.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The negated version of the input prompt, incorporating contrast or oppositional elements.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
-class IFPrompt2Prompt: 
+class IFPrompt2Prompt:
     RETURN_TYPES = ("STRING", "STRING", "STRING",)
     RETURN_NAMES = ("Question", "Response", "Negative",)
     FUNCTION = "sample"
@@ -105,7 +116,7 @@ class IFPrompt2Prompt:
                 "base_ip": ("STRING", {"default": node.base_ip}),
                 "port": ("STRING", {"default": node.port}),
                 "engine": (["ollama", "openai", "anthropic"], {"default": node.engine}),
-                #"selected_model": (node.get_models("node.engine", node.base_ip, node.port), {}), 
+                #"selected_model": (node.get_models("node.engine", node.base_ip, node.port), {}),
                 "selected_model": ((), {}),
                 "profile": ([name for name in node.profiles.keys()], {"default": node.profile}),
                 "embellish_prompt": ([name for name in node.embellish_prompts.keys()], {}),
@@ -137,9 +148,9 @@ class IFPrompt2Prompt:
         return False
 
     def __init__(self):
-        self.base_ip = "localhost" 
-        self.port = "11434"     
-        self.engine = "ollama" 
+        self.base_ip = "localhost"
+        self.port = "11434"
+        self.engine = "ollama"
         self.selected_model = ""
         self.profile = "IF_PromptMKR"
         self.comfy_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -152,14 +163,14 @@ class IFPrompt2Prompt:
         self.neg_prompts = self.load_presets(self.neg_prompts_file)
         self.embellish_prompts = self.load_presets(self.embellish_prompts_file)
         self.style_prompts = self.load_presets(self.style_prompts_file)
-        
+
     def load_presets(self, file_path):
         with open(file_path, 'r') as f:
             presets = json.load(f)
         return presets
-   
+
     def get_api_key(self, api_key_name, engine):
-        if engine != "ollama":  
+        if engine != "ollama":
             api_key = os.getenv(api_key_name)
             if api_key:
                 return api_key
@@ -184,7 +195,7 @@ class IFPrompt2Prompt:
         else:
             print(f"Unsupported engine - {engine}")
             return []
-              
+
     def sample(self, input_prompt, engine, base_ip, port, selected_model, embellish_prompt, style_prompt, neg_prompt, temperature, max_tokens, seed, random, keep_alive, profile):
         embellish_content = self.embellish_prompts.get(embellish_prompt, "")
         style_content = self.style_prompts.get(style_prompt, "")
@@ -204,24 +215,24 @@ class IFPrompt2Prompt:
         elif engine == "openai":
             if random == True:
                 data = {
-                    'model': selected_model, 
+                    'model': selected_model,
                     'messages': [
                         {"role": "system", "content": profile_selected },
                         {"role": "user", "content": input_prompt}
                     ],
                     'temperature': temperature,
                     'seed': seed,
-                    'max_tokens': max_tokens  
+                    'max_tokens': max_tokens
                 }
             else:
                 data = {
-                    'model': selected_model, 
+                    'model': selected_model,
                     'messages': [
                         {"role": "system", "content": profile_selected },
                         {"role": "user", "content": input_prompt}
                     ],
                     'temperature': temperature,
-                    'max_tokens': max_tokens  
+                    'max_tokens': max_tokens
                 }
         else:
             if random == True:
@@ -236,7 +247,7 @@ class IFPrompt2Prompt:
                         "num_ctx": max_tokens,
                     },
                     "keep_alive": -1 if keep_alive else 0,
-                }      
+                }
             else:
                 data = {
                     "model": selected_model,
@@ -258,7 +269,7 @@ class IFPrompt2Prompt:
             return input_prompt, combined_prompt, neg_content
         else:
             return None, None, None
-              
+
     def send_request(self, engine, base_ip, port, data, headers):
         if engine == "ollama":
             api_url = f'http://{base_ip}:{port}/api/generate'
@@ -266,7 +277,7 @@ class IFPrompt2Prompt:
             if response.status_code == 200:
                 response_data = response.json()
                 prompt_response = response_data.get('response', 'No response text found')
-                
+
                 # Ensure there is a response to construct the full description
                 if prompt_response != 'No response text found':
                     return prompt_response
@@ -281,7 +292,7 @@ class IFPrompt2Prompt:
                 base_url = 'https://api.anthropic.com/v1/messages'
                 anthropic_headers = {
                     "x-api-key": anthropic_api_key,
-                    "anthropic-version": "2023-06-01",  
+                    "anthropic-version": "2023-06-01",
                     "Content-Type": "application/json"
                 }
                 response = requests.post(base_url, headers=anthropic_headers, json=data)
@@ -306,12 +317,12 @@ class IFPrompt2Prompt:
                 response = requests.post(base_url, headers=openai_headers, json=data)
                 if response.status_code == 200:
                     response_data = response.json()
-                    print("Debug Response:", response_data)  
+                    print("Debug Response:", response_data)
                     choices = response_data.get('choices', [])
                     if choices:
                         choice = choices[0]
-                        messages = choice.get('message', {'content': ''})  
-                        generated_text = messages.get('content', '') 
+                        messages = choice.get('message', {'content': ''})
+                        generated_text = messages.get('content', '')
                         return generated_text
                     else:
                         print("No choices found in response")

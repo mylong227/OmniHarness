@@ -1,42 +1,53 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Load AnimateDiff+CameraCtrl Model 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_LoadAnimateDiffModelWithCameraCtrl`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②/CameraCtrl`
 - Output node: `False`
 
 This node is designed to load an AnimateDiff model with integrated camera control capabilities, enabling the application of camera movements and adjustments directly within the AnimateDiff framework. It facilitates the incorporation of dynamic camera control parameters into the AnimateDiff model, enhancing the animation process with more sophisticated visual effects.
+
 ## Input types
+
 ### Required
+
 - **`model_name`**
-    - Specifies the name of the motion model to be loaded. It is crucial for identifying the specific AnimateDiff model to which camera control features will be added.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the motion model to be loaded. It is crucial for identifying the specific AnimateDiff model to which camera control features will be added.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`camera_ctrl`**
-    - Defines the camera control parameters to be injected into the AnimateDiff model. This input is essential for customizing the camera movements and effects within the animation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Defines the camera control parameters to be injected into the AnimateDiff model. This input is essential for customizing the camera movements and effects within the animation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`ad_settings`**
-    - Optional settings for the AnimateDiff model that allow for further customization of the animation process.
-    - Comfy dtype: `AD_SETTINGS`
-    - Python dtype: `dict`
+  - Optional settings for the AnimateDiff model that allow for further customization of the animation process.
+  - Comfy dtype: `AD_SETTINGS`
+  - Python dtype: `dict`
+
 ## Output types
+
 - **`MOTION_MODEL`**
-    - Comfy dtype: `MOTION_MODEL_ADE`
-    - The modified AnimateDiff model with integrated camera control capabilities, ready for animation tasks.
-    - Python dtype: `MotionModel`
+  - Comfy dtype: `MOTION_MODEL_ADE`
+  - The modified AnimateDiff model with integrated camera control capabilities, ready for animation tasks.
+  - Python dtype: `MotionModel`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadAnimateDiffModelWithCameraCtrl:
     @classmethod

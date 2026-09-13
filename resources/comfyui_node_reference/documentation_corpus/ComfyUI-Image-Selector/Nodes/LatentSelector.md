@@ -1,36 +1,45 @@
 ---
 tags:
-- ConditionalSelection
+  - ConditionalSelection
 ---
 
 # LatentSelector
+
 ## Documentation
+
 - Class name: `LatentSelector`
 - Category: `latent`
 - Output node: `False`
 
 The LatentSelector node is designed to filter and select specific latent images from a given set based on user-defined indexes. It allows for the customization of the latent image dataset by enabling the selection of particular images, facilitating targeted manipulation or analysis of these images.
+
 ## Input types
+
 ### Required
+
 - **`latent_image`**
-    - The latent images to be filtered, provided as a mapping from string identifiers to tensors. This input is crucial for determining which images are available for selection and manipulation.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Mapping[str, torch.Tensor]`
+  - The latent images to be filtered, provided as a mapping from string identifiers to tensors. This input is crucial for determining which images are available for selection and manipulation.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Mapping[str, torch.Tensor]`
 - **`selected_indexes`**
-    - A string specifying the indexes of the latent images to be selected. Supports individual indexes and ranges, allowing for flexible selection within the dataset.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string specifying the indexes of the latent images to be selected. Supports individual indexes and ranges, allowing for flexible selection within the dataset.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The filtered set of latent images, returned as a subset of the input images based on the specified indexes.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - The filtered set of latent images, returned as a subset of the input images based on the specified indexes.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LatentSelector:
     """
@@ -44,7 +53,7 @@ class LatentSelector:
     def INPUT_TYPES(s):
         """
         Input: list of index of selected image, seperated by comma (",")
-        support colon (":") sperated range (left included, right excluded) 
+        support colon (":") sperated range (left included, right excluded)
         Indexes start with 1 for simplicity
         """
         return {

@@ -1,74 +1,85 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Apply AnimateLCM-I2V Model 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_ApplyAnimateLCMI2VModel`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②/AnimateLCM-I2V`
 - Output node: `False`
 
 This node is designed to apply the AnimateLCM-I2V model to animate images using latent code motion inference with I2V (Image-to-Video) capabilities. It integrates motion models and keyframe groups to generate dynamic, animated visuals from static images, enhancing them with motion and effects based on specified parameters.
+
 ## Input types
+
 ### Required
+
 - **`motion_model`**
-    - The motion model parameter is crucial for defining the motion characteristics and dynamics that will be applied to the static image. It affects the node's execution by determining the type of animation and movement effects that will be introduced.
-    - Comfy dtype: `MOTION_MODEL_ADE`
-    - Python dtype: `MotionModelPatcher`
+  - The motion model parameter is crucial for defining the motion characteristics and dynamics that will be applied to the static image. It affects the node's execution by determining the type of animation and movement effects that will be introduced.
+  - Comfy dtype: `MOTION_MODEL_ADE`
+  - Python dtype: `MotionModelPatcher`
 - **`ref_latent`**
-    - This parameter holds the reference latent representation of the image to be animated. It is essential for maintaining the image's original characteristics while applying motion effects.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `dict`
+  - This parameter holds the reference latent representation of the image to be animated. It is essential for maintaining the image's original characteristics while applying motion effects.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `dict`
 - **`ref_drift`**
-    - Specifies the degree of drift or deviation from the original image's characteristics when applying motion, allowing for subtle or significant changes in the animated output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the degree of drift or deviation from the original image's characteristics when applying motion, allowing for subtle or significant changes in the animated output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`apply_ref_when_disabled`**
-    - Determines whether the reference characteristics (e.g., drift) should be applied even when the motion model is disabled, ensuring continuity in the animation process.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether the reference characteristics (e.g., drift) should be applied even when the motion model is disabled, ensuring continuity in the animation process.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`start_percent`**
-    - Defines the starting point of the animation within the motion model's timeline, allowing for precise control over when the animation effects begin.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the starting point of the animation within the motion model's timeline, allowing for precise control over when the animation effects begin.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`end_percent`**
-    - Sets the endpoint of the animation within the motion model's timeline, enabling customization of the animation's duration and conclusion.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the endpoint of the animation within the motion model's timeline, enabling customization of the animation's duration and conclusion.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`motion_lora`**
-    - A list of motion-specific LoRA settings that can be applied to further customize the animation effects and dynamics.
-    - Comfy dtype: `MOTION_LORA`
-    - Python dtype: `MotionLoraList`
+  - A list of motion-specific LoRA settings that can be applied to further customize the animation effects and dynamics.
+  - Comfy dtype: `MOTION_LORA`
+  - Python dtype: `MotionLoraList`
 - **`scale_multival`**
-    - Multipliers for scaling effects, providing additional control over the size and proportion of animated elements.
-    - Comfy dtype: `MULTIVAL`
-    - Python dtype: `Optional[List[float]]`
+  - Multipliers for scaling effects, providing additional control over the size and proportion of animated elements.
+  - Comfy dtype: `MULTIVAL`
+  - Python dtype: `Optional[List[float]]`
 - **`effect_multival`**
-    - Multipliers for various effects, offering further customization of the visual appearance and dynamics of the animation.
-    - Comfy dtype: `MULTIVAL`
-    - Python dtype: `Optional[List[float]]`
+  - Multipliers for various effects, offering further customization of the visual appearance and dynamics of the animation.
+  - Comfy dtype: `MULTIVAL`
+  - Python dtype: `Optional[List[float]]`
 - **`ad_keyframes`**
-    - Specifies a group of keyframes for advanced animation control, allowing for detailed customization of motion and effects over time.
-    - Comfy dtype: `AD_KEYFRAMES`
-    - Python dtype: `ADKeyframeGroup`
+  - Specifies a group of keyframes for advanced animation control, allowing for detailed customization of motion and effects over time.
+  - Comfy dtype: `AD_KEYFRAMES`
+  - Python dtype: `ADKeyframeGroup`
 - **`prev_m_models`**
-    - A group of previously applied motion models, enabling the node to build upon or modify existing animations for enhanced or varied effects.
-    - Comfy dtype: `M_MODELS`
-    - Python dtype: `MotionModelGroup`
+  - A group of previously applied motion models, enabling the node to build upon or modify existing animations for enhanced or varied effects.
+  - Comfy dtype: `M_MODELS`
+  - Python dtype: `MotionModelGroup`
+
 ## Output types
+
 - **`m_models`**
-    - Comfy dtype: `M_MODELS`
-    - The updated list of motion models, including the most recently applied model with its configured animation and effects.
-    - Python dtype: `MotionModelGroup`
+  - Comfy dtype: `M_MODELS`
+  - The updated list of motion models, including the most recently applied model with its configured animation and effects.
+  - Python dtype: `MotionModelGroup`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ApplyAnimateLCMI2VModel:
     @classmethod
@@ -90,7 +101,7 @@ class ApplyAnimateLCMI2VModel:
                 "prev_m_models": ("M_MODELS",),
             }
         }
-    
+
     RETURN_TYPES = ("M_MODELS",)
     CATEGORY = "Animate Diff 🎭🅐🅓/② Gen2 nodes ②/AnimateLCM-I2V"
     FUNCTION = "apply_motion_model"

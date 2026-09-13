@@ -1,40 +1,49 @@
 # Interpolate Coords
+
 ## Documentation
+
 - Class name: `InterpolateCoords`
 - Category: `KJNodes/experimental`
 - Output node: `False`
 
 The InterpolateCoords node is designed for interpolating a set of coordinates based on a specified curve. It processes input coordinates and an interpolation curve to generate a new set of coordinates that follow the given curve, effectively transforming the spatial layout of the original points.
+
 ## Input types
+
 ### Required
+
 - **`coordinates`**
-    - A string representing the original coordinates to be interpolated. This parameter is crucial for defining the starting point of the interpolation process.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A string representing the original coordinates to be interpolated. This parameter is crucial for defining the starting point of the interpolation process.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`interpolation_curve`**
-    - A list of floating-point numbers representing the curve along which the coordinates will be interpolated. This parameter determines the shape and trajectory of the interpolation.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `List[float]`
+  - A list of floating-point numbers representing the curve along which the coordinates will be interpolated. This parameter determines the shape and trajectory of the interpolation.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `List[float]`
+
 ## Output types
+
 - **`coordinates`**
-    - Comfy dtype: `STRING`
-    - A string representation of the interpolated coordinates, formatted as a list of dictionaries with 'x' and 'y' keys.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - A string representation of the interpolated coordinates, formatted as a list of dictionaries with 'x' and 'y' keys.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class InterpolateCoords:
-    
+
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("coordinates",)
     FUNCTION = "interpolate"
     CATEGORY = "KJNodes/experimental"
     DESCRIPTION = """
-Interpolates coordinates based on a curve.   
+Interpolates coordinates based on a curve.
 """
 
     @classmethod
@@ -43,9 +52,9 @@ Interpolates coordinates based on a curve.
             "required": {
                 "coordinates": ("STRING", {"forceInput": True}),
                 "interpolation_curve": ("FLOAT", {"forceInput": True}),
-                
+
         },
-    } 
+    }
 
     def interpolate(self, coordinates, interpolation_curve):
         # Parse the JSON string to get the list of coordinates
@@ -55,7 +64,7 @@ Interpolates coordinates based on a curve.
         coordinates = [(coord['x'], coord['y']) for coord in coordinates]
 
         # Calculate the total length of the original path
-        path_length = sum(np.linalg.norm(np.array(coordinates[i]) - np.array(coordinates[i-1])) 
+        path_length = sum(np.linalg.norm(np.array(coordinates[i]) - np.array(coordinates[i-1]))
                         for i in range(1, len(coordinates)))
 
         # Initialize variables for interpolation

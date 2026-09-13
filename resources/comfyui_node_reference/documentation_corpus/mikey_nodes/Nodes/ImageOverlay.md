@@ -1,41 +1,50 @@
 ---
 tags:
-- Image
-- ImageComposite
+  - Image
+  - ImageComposite
 ---
 
 # Image Overlay (Mikey)
+
 ## Documentation
+
 - Class name: `ImageOverlay`
 - Category: `Mikey/Image`
 - Output node: `False`
 
 The ImageOverlay node is designed to seamlessly overlay a foreground image onto a background image. It automatically adjusts the foreground image by filling, cropping, or resizing it to match the dimensions of the background image, ensuring a harmonious blend between the two.
+
 ## Input types
+
 ### Required
+
 - **`background_image`**
-    - The background image onto which the foreground image will be overlaid. It serves as the base layer in the overlay process.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The background image onto which the foreground image will be overlaid. It serves as the base layer in the overlay process.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`foreground_image`**
-    - The foreground image to be overlaid onto the background image. This image is adjusted to match the size of the background image for a seamless overlay.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The foreground image to be overlaid onto the background image. This image is adjusted to match the size of the background image for a seamless overlay.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`opacity`**
-    - Determines the transparency level of the foreground image when overlaid onto the background image. A higher value results in a less transparent foreground, making it more prominent in the final image.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Determines the transparency level of the foreground image when overlaid onto the background image. A higher value results in a less transparent foreground, making it more prominent in the final image.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`result_img`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image after overlaying the foreground image onto the background image, with adjustments made for size and transparency.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image after overlaying the foreground image onto the background image, with adjustments made for size and transparency.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImageOverlay:
     # overlay foreground image on top of background image

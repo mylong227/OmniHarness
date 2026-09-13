@@ -1,29 +1,38 @@
 ---
 tags:
-- AnimationScheduling
+  - AnimationScheduling
 ---
 
 # FL Audio Preview
+
 ## Documentation
+
 - Class name: `FL_AudioPreview`
 - Category: `🏵️Fill Nodes`
 - Output node: `True`
 
 The FL_AudioPreview node is designed to play audio segments, allowing users to preview audio data within their workflow. It supports both mono and stereo audio formats and can handle audio data provided as either PyTorch tensors or numpy arrays.
+
 ## Input types
+
 ### Required
+
 - **`audio_segment`**
-    - A tuple containing the audio data and its sample rate. This input is crucial for determining the audio content to be played and its playback speed.
-    - Comfy dtype: `AUDIO`
-    - Python dtype: `Tuple[Union[torch.Tensor, np.ndarray], int]`
+  - A tuple containing the audio data and its sample rate. This input is crucial for determining the audio content to be played and its playback speed.
+  - Comfy dtype: `AUDIO`
+  - Python dtype: `Tuple[Union[torch.Tensor, np.ndarray], int]`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_AudioPreview:
     @classmethod

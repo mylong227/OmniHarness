@@ -1,62 +1,73 @@
 ---
 tags:
-- Animation
-- PoseEstimation
+  - Animation
+  - PoseEstimation
 ---
 
 # [Inference.Core] DWPose Estimator
+
 ## Documentation
+
 - Class name: `Inference_Core_DWPreprocessor`
 - Category: `ControlNet Preprocessors/Faces and Poses Estimators`
 - Output node: `False`
 
 The Inference_Core_DWPreprocessor node is designed for preprocessing input data specifically for the DWPose estimation model. It adapts input data to the required format and optimizes it for efficient pose estimation, ensuring compatibility and maximizing the performance of the DWPose model.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The 'image' parameter is the primary input for the pose estimation process, serving as the visual data that the model will analyze to estimate poses.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `np.ndarray`
+  - The 'image' parameter is the primary input for the pose estimation process, serving as the visual data that the model will analyze to estimate poses.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `np.ndarray`
+
 ### Optional
+
 - **`detect_hand`**
-    - The 'detect_hand' parameter controls whether hand detection is enabled or disabled, influencing the comprehensiveness of the pose estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - The 'detect_hand' parameter controls whether hand detection is enabled or disabled, influencing the comprehensiveness of the pose estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`detect_body`**
-    - The 'detect_body' parameter toggles the inclusion of body pose estimation, affecting the scope of the pose analysis performed by the model.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - The 'detect_body' parameter toggles the inclusion of body pose estimation, affecting the scope of the pose analysis performed by the model.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`detect_face`**
-    - The 'detect_face' parameter determines whether face detection is included in the pose estimation, impacting the detail level of the pose analysis.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `bool`
+  - The 'detect_face' parameter determines whether face detection is included in the pose estimation, impacting the detail level of the pose analysis.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `bool`
 - **`resolution`**
-    - The 'resolution' parameter specifies the resolution of the output image, affecting the clarity and detail of the pose estimation results.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'resolution' parameter specifies the resolution of the output image, affecting the clarity and detail of the pose estimation results.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`bbox_detector`**
-    - The 'bbox_detector' parameter specifies the model or method used for bounding box detection, crucial for identifying regions of interest within the image for pose estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The 'bbox_detector' parameter specifies the model or method used for bounding box detection, crucial for identifying regions of interest within the image for pose estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`pose_estimator`**
-    - The 'pose_estimator' parameter defines the specific pose estimation model or technique to be applied, directly influencing the accuracy and performance of the pose estimation.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The 'pose_estimator' parameter defines the specific pose estimation model or technique to be applied, directly influencing the accuracy and performance of the pose estimation.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The 'image' output provides the visual representation of the pose estimation, including annotated poses on the input image.
-    - Python dtype: `np.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The 'image' output provides the visual representation of the pose estimation, including annotated poses on the input image.
+  - Python dtype: `np.ndarray`
 - **`pose_keypoint`**
-    - Comfy dtype: `POSE_KEYPOINT`
-    - The 'pose_keypoint' output delivers the estimated poses as a set of keypoints, offering detailed information about the detected poses.
-    - Python dtype: `List[np.ndarray]`
+  - Comfy dtype: `POSE_KEYPOINT`
+  - The 'pose_keypoint' output delivers the estimated poses as a set of keypoints, offering detailed information about the detected poses.
+  - Python dtype: `List[np.ndarray]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DWPose_Preprocessor:
     @classmethod

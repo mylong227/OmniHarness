@@ -1,49 +1,60 @@
 ---
 tags:
-- Color
+  - Color
 ---
 
 # FindComplementaryColor
+
 ## Documentation
+
 - Class name: `FindComplementaryColor`
 - Category: `Bmad/CV/Color A.`
 - Output node: `False`
 
 This node is designed to find a complementary color within an image based on a given color dictionary and a specified power level. It can optionally use a mask to limit the search area within the image. The node aims to enhance or modify images by identifying and utilizing complementary colors, thereby supporting tasks related to color theory and image editing.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image on which the complementary color search is performed. It serves as the primary data for analysis.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image on which the complementary color search is performed. It serves as the primary data for analysis.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`color_dict`**
-    - A dictionary mapping specific colors to their identifiers, used to determine the complementary color within the image.
-    - Comfy dtype: `COLOR_DICT`
-    - Python dtype: `Dict[str, Tuple[int, int, int]]`
+  - A dictionary mapping specific colors to their identifiers, used to determine the complementary color within the image.
+  - Comfy dtype: `COLOR_DICT`
+  - Python dtype: `Dict[str, Tuple[int, int, int]]`
 - **`power`**
-    - Affects the intensity of the search for a complementary color, influencing how the complementary color is determined.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Affects the intensity of the search for a complementary color, influencing how the complementary color is determined.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`mask`**
-    - An optional mask that can be applied to the image to restrict the search area for the complementary color.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - An optional mask that can be applied to the image to restrict the search area for the complementary color.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`color`**
-    - Comfy dtype: `COLOR`
-    - The RGB values of the identified complementary color.
-    - Python dtype: `List[int]`
+  - Comfy dtype: `COLOR`
+  - The RGB values of the identified complementary color.
+  - Python dtype: `List[int]`
 - **`string`**
-    - Comfy dtype: `STRING`
-    - The identifier of the found complementary color from the provided color dictionary.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The identifier of the found complementary color from the provided color dictionary.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FindComplementaryColor:
     @classmethod

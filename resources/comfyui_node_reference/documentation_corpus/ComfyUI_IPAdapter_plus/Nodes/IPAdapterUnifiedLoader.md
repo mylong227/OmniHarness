@@ -1,46 +1,57 @@
 ---
 tags:
-- IPAdapter
-- IPAdapterLoader
+  - IPAdapter
+  - IPAdapterLoader
 ---
 
 # IPAdapter Unified Loader
+
 ## Documentation
+
 - Class name: `IPAdapterUnifiedLoader`
 - Category: `ipadapter`
 - Output node: `False`
 
 The IPAdapterUnifiedLoader node serves as a foundational component for loading various IPAdapter configurations, facilitating the dynamic integration of different model presets and computational backends. It abstracts the complexity of handling diverse input parameters, offering a streamlined approach to adapt image processing algorithms to specific needs.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - Specifies the model to be used, serving as a key parameter in determining the processing capabilities and the output quality of the node.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `str`
+  - Specifies the model to be used, serving as a key parameter in determining the processing capabilities and the output quality of the node.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `str`
 - **`preset`**
-    - Defines the preset configuration to apply, allowing for customization of the processing based on predefined settings.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `List[str]`
+  - Defines the preset configuration to apply, allowing for customization of the processing based on predefined settings.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `List[str]`
+
 ### Optional
+
 - **`ipadapter`**
-    - Optional parameter for specifying an IPAdapter instance, enabling further customization and flexibility in processing.
-    - Comfy dtype: `IPADAPTER`
-    - Python dtype: `str`
+  - Optional parameter for specifying an IPAdapter instance, enabling further customization and flexibility in processing.
+  - Comfy dtype: `IPADAPTER`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The configured model ready for use, encapsulating the selected presets and adjustments.
-    - Python dtype: `str`
+  - Comfy dtype: `MODEL`
+  - The configured model ready for use, encapsulating the selected presets and adjustments.
+  - Python dtype: `str`
 - **`ipadapter`**
-    - Comfy dtype: `IPADAPTER`
-    - An optional IPAdapter instance that can be used for additional processing or customization.
-    - Python dtype: `str`
+  - Comfy dtype: `IPADAPTER`
+  - An optional IPAdapter instance that can be used for additional processing or customization.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IPAdapterUnifiedLoader:
     def __init__(self):

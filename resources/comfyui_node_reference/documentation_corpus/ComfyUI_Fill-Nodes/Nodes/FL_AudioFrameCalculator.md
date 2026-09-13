@@ -1,56 +1,65 @@
 ---
 tags:
-- AnimationScheduling
+  - AnimationScheduling
 ---
 
 # FL Audio Scanner
+
 ## Documentation
+
 - Class name: `FL_AudioFrameCalculator`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_AudioFrameCalculator node is designed to process audio files by calculating the number of frames within specified bars of the audio, based on the beats per minute (BPM), frame rate, and other parameters. It utilizes audio processing libraries to extract and manipulate audio data, providing insights into the audio's structure and timing for further processing or analysis.
+
 ## Input types
+
 ### Required
+
 - **`audio_file_path`**
-    - Specifies the absolute path to the audio file to be processed. It is crucial for locating and loading the audio data for analysis.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the absolute path to the audio file to be processed. It is crucial for locating and loading the audio data for analysis.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`start_bar`**
-    - Determines the starting bar from which the audio analysis begins, allowing for targeted processing within the audio file.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the starting bar from which the audio analysis begins, allowing for targeted processing within the audio file.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`bar_count`**
-    - Defines the number of bars to analyze, enabling the calculation of frames over a specific section of the audio.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the number of bars to analyze, enabling the calculation of frames over a specific section of the audio.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`fps`**
-    - Frames per second setting, which influences the calculation of the total number of frames within the specified audio segment.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Frames per second setting, which influences the calculation of the total number of frames within the specified audio segment.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`AUDIO`**
-    - Comfy dtype: `AUDIO`
-    - The processed audio segment, suitable for further audio manipulation or analysis.
-    - Python dtype: `tuple`
+  - Comfy dtype: `AUDIO`
+  - The processed audio segment, suitable for further audio manipulation or analysis.
+  - Python dtype: `tuple`
 - **`Frame Count`**
-    - Comfy dtype: `INT`
-    - The total number of frames calculated within the specified audio segment.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The total number of frames calculated within the specified audio segment.
+  - Python dtype: `int`
 - **`BPM`**
-    - Comfy dtype: `INT`
-    - The beats per minute of the audio, determined during processing.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The beats per minute of the audio, determined during processing.
+  - Python dtype: `int`
 - **`FPS`**
-    - Comfy dtype: `INT`
-    - The frames per second parameter, as specified in the input, returned for reference.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The frames per second parameter, as specified in the input, returned for reference.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_AudioFrameCalculator:
     @classmethod

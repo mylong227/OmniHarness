@@ -1,49 +1,58 @@
 ---
 tags:
-- Contour
-- Image
+  - Contour
+  - Image
 ---
 
 # Contours
+
 ## Documentation
+
 - Class name: `Contours`
 - Category: `Bmad/CV/Contour`
 - Output node: `False`
 
 The Contours node is designed to identify and extract contours from an image based on specified retrieval and approximation modes. It converts the input image to grayscale, applies thresholding if necessary, and utilizes OpenCV's findContours method to detect contours, providing a foundational step for further image analysis or manipulation.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image tensor that contours will be extracted from. It's crucial as the source for contour detection.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image tensor that contours will be extracted from. It's crucial as the source for contour detection.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`retrieval_mode`**
-    - Specifies the contour retrieval mode, affecting how contours are organized and retrieved. It plays a key role in defining the hierarchy of the contours.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the contour retrieval mode, affecting how contours are organized and retrieved. It plays a key role in defining the hierarchy of the contours.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`approximation_mode`**
-    - Determines the method used to approximate the contours. This affects the level of detail of the extracted contours.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the method used to approximate the contours. This affects the level of detail of the extracted contours.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`cv_contours`**
-    - Comfy dtype: `CV_CONTOURS`
-    - The detected contours as a list of points.
-    - Python dtype: `List[List[torch.Tensor]]`
+  - Comfy dtype: `CV_CONTOURS`
+  - The detected contours as a list of points.
+  - Python dtype: `List[List[torch.Tensor]]`
 - **`cv_contour`**
-    - Comfy dtype: `CV_CONTOUR`
-    - A single contour selected from the detected contours, if applicable.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `CV_CONTOUR`
+  - A single contour selected from the detected contours, if applicable.
+  - Python dtype: `List[torch.Tensor]`
 - **`cv_contours_hierarchy`**
-    - Comfy dtype: `CV_CONTOURS_HIERARCHY`
-    - The hierarchical information of the contours, providing details on the contour structure and relationships.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `CV_CONTOURS_HIERARCHY`
+  - The hierarchical information of the contours, providing details on the contour structure and relationships.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Contours:
     """

@@ -1,53 +1,63 @@
 ---
 tags:
-- Image
+  - Image
 ---
 
 # Load Image From URL
+
 ## Documentation
+
 - Class name: `LoadImageFromUrl`
 - Category: `Art Venture/Image`
 - Output node: `False`
 
 This node is designed to load images from URLs, supporting a variety of formats including direct links, file paths, and data URIs. It abstracts the complexities of fetching and decoding images from different sources, making it easier to integrate external images into workflows or applications.
+
 ## Input types
+
 ### Required
+
 ### Optional
+
 - **`image`**
-    - The image data directly provided for processing, allowing for flexibility in sourcing images beyond URLs.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The image data directly provided for processing, allowing for flexibility in sourcing images beyond URLs.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`keep_alpha_channel`**
-    - Determines whether the alpha channel of the image should be preserved during processing, affecting the output image format.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether the alpha channel of the image should be preserved during processing, affecting the output image format.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`output_mode`**
-    - Specifies the desired format of the output image, influencing how the image is processed and returned.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `str`
+  - Specifies the desired format of the output image, influencing how the image is processed and returned.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `str`
 - **`url`**
-    - The URL or path of the image to be loaded. It supports direct links, file paths, and data URIs, enabling the node to fetch and decode images from various sources.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The URL or path of the image to be loaded. It supports direct links, file paths, and data URIs, enabling the node to fetch and decode images from various sources.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`images`**
-    - Comfy dtype: `IMAGE`
-    - The loaded images, processed according to the specified parameters such as alpha channel preservation and output mode.
-    - Python dtype: `List[PIL.Image.Image]`
+  - Comfy dtype: `IMAGE`
+  - The loaded images, processed according to the specified parameters such as alpha channel preservation and output mode.
+  - Python dtype: `List[PIL.Image.Image]`
 - **`masks`**
-    - Comfy dtype: `MASK`
-    - The masks generated for the images, if any, based on the processing options selected.
-    - Python dtype: `List[torch.Tensor]`
+  - Comfy dtype: `MASK`
+  - The masks generated for the images, if any, based on the processing options selected.
+  - Python dtype: `List[torch.Tensor]`
 - **`has_image`**
-    - Comfy dtype: `BOOLEAN`
-    - A flag indicating whether an image was successfully loaded and processed.
-    - Python dtype: `bool`
+  - Comfy dtype: `BOOLEAN`
+  - A flag indicating whether an image was successfully loaded and processed.
+  - Python dtype: `bool`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilLoadImageFromUrl:
     def __init__(self) -> None:

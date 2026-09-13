@@ -1,42 +1,53 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Default Iteration Options 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_IterationOptsDefault`
 - Category: `Animate Diff 🎭🅐🅓/iteration opts`
 - Output node: `False`
 
 This node provides the default iteration options for the AnimateDiff process, allowing users to configure the iteration parameters for their animation generation tasks.
+
 ## Input types
+
 ### Required
+
 - **`iterations`**
-    - Specifies the number of iterations to perform, affecting the depth of the animation generation process.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of iterations to perform, affecting the depth of the animation generation process.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`iter_batch_offset`**
-    - Determines the starting offset for batch processing within the iterations, enabling fine-tuned control over the animation generation sequence.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the starting offset for batch processing within the iterations, enabling fine-tuned control over the animation generation sequence.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`iter_seed_offset`**
-    - Sets the seed offset for iterations, offering a way to influence the randomness and variation in the generated animations.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Sets the seed offset for iterations, offering a way to influence the randomness and variation in the generated animations.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`iteration_opts`**
-    - Comfy dtype: `ITERATION_OPTS`
-    - Outputs the configured iteration options, encapsulating the settings for the animation generation process.
-    - Python dtype: `IterationOptions`
+  - Comfy dtype: `ITERATION_OPTS`
+  - Outputs the configured iteration options, encapsulating the settings for the animation generation process.
+  - Python dtype: `IterationOptions`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class IterationOptionsNode:
     @classmethod

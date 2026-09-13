@@ -1,62 +1,71 @@
 ---
 tags:
-- Crop
-- Image
-- ImageTransformation
+  - Crop
+  - Image
+  - ImageTransformation
 ---
 
 # Extract Crop Data from Batch
+
 ## Documentation
+
 - Class name: `SaltBatchCropDataExtractor`
 - Category: `SALT/Masking/Process`
 - Output node: `False`
 
 The SaltBatchCropDataExtractor node is designed for extracting specific crop data from a batch based on an index. It processes a collection of crop data, identifying and extracting detailed information about a particular crop region, including its dimensions and position within the original image.
+
 ## Input types
+
 ### Required
+
 - **`crop_data_batch`**
-    - A batch of crop data from which specific crop information is to be extracted. It plays a crucial role in determining the output by specifying which crop region's details are to be retrieved.
-    - Comfy dtype: `CROP_DATA_BATCH`
-    - Python dtype: `List[Tuple[Tuple[int, int], Tuple[int, int, int, int]]]`
+  - A batch of crop data from which specific crop information is to be extracted. It plays a crucial role in determining the output by specifying which crop region's details are to be retrieved.
+  - Comfy dtype: `CROP_DATA_BATCH`
+  - Python dtype: `List[Tuple[Tuple[int, int], Tuple[int, int, int, int]]]`
 - **`index`**
-    - The index within the crop data batch that specifies the particular crop region to extract information from. It is essential for pinpointing the exact crop data to be processed.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The index within the crop data batch that specifies the particular crop region to extract information from. It is essential for pinpointing the exact crop data to be processed.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`crop_data_batch`**
-    - Comfy dtype: `CROP_DATA_BATCH`
-    - The extracted crop data for the specified index, including the crop's size and coordinates.
-    - Python dtype: `List[Tuple[Tuple[int, int], Tuple[int, int, int, int]]]`
+  - Comfy dtype: `CROP_DATA_BATCH`
+  - The extracted crop data for the specified index, including the crop's size and coordinates.
+  - Python dtype: `List[Tuple[Tuple[int, int], Tuple[int, int, int, int]]]`
 - **`width`**
-    - Comfy dtype: `INT`
-    - The width of the extracted crop region.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The width of the extracted crop region.
+  - Python dtype: `int`
 - **`height`**
-    - Comfy dtype: `INT`
-    - The height of the extracted crop region.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The height of the extracted crop region.
+  - Python dtype: `int`
 - **`top`**
-    - Comfy dtype: `INT`
-    - The top coordinate of the extracted crop region.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The top coordinate of the extracted crop region.
+  - Python dtype: `int`
 - **`left`**
-    - Comfy dtype: `INT`
-    - The left coordinate of the extracted crop region.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The left coordinate of the extracted crop region.
+  - Python dtype: `int`
 - **`right`**
-    - Comfy dtype: `INT`
-    - The right coordinate of the extracted crop region.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The right coordinate of the extracted crop region.
+  - Python dtype: `int`
 - **`bottom`**
-    - Comfy dtype: `INT`
-    - The bottom coordinate of the extracted crop region.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The bottom coordinate of the extracted crop region.
+  - Python dtype: `int`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SaltBatchCropDataExtractor:
     @classmethod

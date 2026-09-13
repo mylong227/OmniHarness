@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE.txt`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -205,6 +207,7 @@ File name: `LICENSE.txt`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -408,29 +411,39 @@ File name: `LICENSE.txt`
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 # Other detected licenses
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/CONTRIBUTING.md`
 
 **LicenseRef-scancode-generic-cla**
+
 ```
 6. If you haven't already, complete the Contributor License Agreement ("CLA").
 ```
+
 ```
 ## Contributor License Agreement ("CLA")
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 By contributing to DINOv2, you agree that your contributions will be licensed
 under the LICENSE file in the root directory of this source tree.
 ```
+
 **MIT**
+
 ```
 By contributing to DINOv2, you agree that your contributions will be licensed
 under the LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/LICENSE`
 
 **CC-BY-NC-4.0**
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -483,7 +496,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -832,6 +845,7 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -884,7 +898,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -1233,6 +1247,7 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -1285,7 +1300,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -1634,6 +1649,7 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -1686,7 +1702,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -2035,6 +2051,7 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -2087,7 +2104,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -2436,6 +2453,7 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -2488,7 +2506,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -2837,6 +2855,7 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 ```
 Attribution-NonCommercial 4.0 International
 
@@ -2889,7 +2908,7 @@ exhaustive, and do not form part of our licenses.
      such as asking that all changes be marked or described.
      Although not required by our licenses, you are encouraged to
      respect those requests where reasonable. More_considerations
-     for the public: 
+     for the public:
 	wiki.creativecommons.org/Considerations_for_licensees
 
 =======================================================================
@@ -3238,87 +3257,117 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/MODEL_CARD.md`
 
 **CC-BY-NC-4.0**
+
 ```
 CC-BY-NC
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/README.md`
 
 **CC-BY-NC-4.0**
+
 ```
 CC-BY-NC 4.0
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 license. See [LICENSE](LICENSE)
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/dinov2/__init__.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/hubconf.py`
 
 **Apache-2.0**
+
 ```
 # This source code is licensed under the Apache License, Version 2.0
 # found in the LICENSE file in the root directory of this source tree.
 ```
+
 **MIT**
+
 ```
 # This source code is licensed under the Apache License, Version 2.0
 # found in the LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/setup.py`
 
 **CC-BY-NC-4.0**
+
 ```
     license="CC-BY-NC",
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
         "License :: Other/Proprietary License",
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
     license_files=("LICENSE",),
 ```
+
 **MIT**
+
 ```
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/controlnet_aux/depth_anything/torchhub/facebookresearch_dinov2_main/vision_transformer.py`
 
 **Apache-2.0**
+
 ```
 # This source code is licensed under the Apache License, Version 2.0
 # found in the LICENSE file in the root directory of this source tree.
 ```
+
 **MIT**
+
 ```
 # This source code is licensed under the Apache License, Version 2.0
 # found in the LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/controlnet_aux/depth_anything_v2/dinov2.py`
 
 **Apache-2.0**
+
 ```
 # This source code is licensed under the Apache License, Version 2.0
 # found in the LICENSE file in the root directory of this source tree.
 ```
+
 **MIT**
+
 ```
 # This source code is licensed under the Apache License, Version 2.0
 # found in the LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/controlnet_aux/dsine/LICENSE`
 
 **BSD-3-Clause**
+
 ```
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -3345,24 +3394,32 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
 (b) You may use the Software solely for non-commercial, internal  or academic
 ```
+
 ```
 exclude all liability whether in contract, tort, negligence or otherwise, in
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 5. Limitation of Liability
 ```
+
 ```
 licence agreement free of charge and on condition that the limitation of
 liability set out below shall apply. Accordingly, subject to Clause 5(b), we
 ```
+
 File name: `src/controlnet_aux/dsine/models/submodules/efficientnet_repo/LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004
@@ -3552,6 +3609,7 @@ File name: `src/controlnet_aux/dsine/models/submodules/efficientnet_repo/LICENSE
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 ```
+
 ```
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -3565,26 +3623,30 @@ File name: `src/controlnet_aux/dsine/models/submodules/efficientnet_repo/LICENSE
    See the License for the specific language governing permissions and
    limitations under the License.
 ```
+
 File name: `src/controlnet_aux/dsine/models/submodules/efficientnet_repo/setup.py`
 
 **Apache-2.0**
+
 ```
         'License :: OSI Approved :: Apache Software License',
 ```
+
 File name: `src/controlnet_aux/dwpose/LICENSE`
 
 **BSD-2-Clause**
+
 ```
 LICENSE
 
 Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met: 
+modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer. 
+   list of conditions and the following disclaimer.
 2. Redistributions in binary form must reproduce the above copyright notice,
    this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution. 
+   and/or other materials provided with the distribution.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -3597,7 +3659,9 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 **LicenseRef-scancode-generic-cla**
+
 ```
 uses a shared copyright model: each contributor holds copyright over
 their contributions to Caffe. The project versioning records all such
@@ -3606,6 +3670,7 @@ their specific copyright on a particular contribution, they should indicate
 their copyright solely in the commit message of the change when it is
 committed.
 ```
+
 ```
 CONTRIBUTION AGREEMENT
 
@@ -3613,54 +3678,73 @@ By contributing to the BVLC/caffe repository through pull-request, comment,
 or otherwise, the contributor releases their content to the
 license and copyright terms herein.
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
 NONCOMMERCIAL
 ```
+
 ```
 noncommercial
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 SOFTWARE LICENSE AGREEMENT
 ```
+
 ```
 LICENSE AGREEMENT.
 ```
+
 ```
 license agreement ("
 ```
+
 ```
 licensed under
 ```
+
 ```
 WARRANTY OF ANY KIND INCLUDING ANY WARRANTIES OF PERFORMANCE OR MERCHANTABILITY OR FITNESS FOR A PARTICULAR
 ```
+
 ```
 LIMITATION OF LIABILITY:
 ```
+
 **PostgreSQL**
+
 ```
 be liable for direct, indirect, special, incidental, or consequential damages or lost profits related to Licensee's use of and/or inability to use the Software, even if Licensor is advised of the possibility of such damage.
 ```
+
 File name: `src/controlnet_aux/dwpose/__init__.py`
 
 **LicenseRef-scancode-proprietary-license**
+
 ```
 # This preprocessor is licensed by CMU for non-commercial use only.
 ```
+
 File name: `src/controlnet_aux/hed/__init__.py`
 
 **Apache-2.0**
+
 ```
 # This is an improved version and model of HED edge detection with Apache License, Version 2.0.
 ```
+
 File name: `src/controlnet_aux/leres/leres/LICENSE`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3680,14 +3764,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 File name: `src/controlnet_aux/leres/pix2pix/LICENSE`
 
 **BSD-1-Clause**
+
 ```
-This software is for academic use only. A redistribution of this 
-software, with or  without modifications, has to be for academic 
-use only, while giving the appropriate credit to the original 
-authors of the software. The methods implemented as a part of 
+This software is for academic use only. A redistribution of this
+software, with or  without modifications, has to be for academic
+use only, while giving the appropriate credit to the original
+authors of the software. The methods implemented as a part of
 this software may be covered under patents or patent applications.
 
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR ''AS IS'' AND ANY EXPRESS OR IMPLIED
@@ -3700,19 +3786,25 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDI
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 File name: `src/controlnet_aux/mlsd/utils.py`
 
 **Apache-2.0**
+
 ```
 Apache License v2.0
 ```
+
 File name: `src/controlnet_aux/pidi/LICENSE`
 
 **LicenseRef-scancode-proprietary-license**
+
 ```
 It is just for research purpose, and commercial use should be contacted with authors first.
 ```
+
 **MIT**
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3732,15 +3824,19 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 File name: `src/controlnet_aux/uniformer/uniformer.py`
 
 **MIT**
+
 ```
 # Licensed under The MIT License [see LICENSE for details]
 ```
+
 File name: `src/controlnet_aux/unimatch/utils/flow_viz.py`
 
 **ICU**
+
 ```
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -3749,16 +3845,21 @@ File name: `src/controlnet_aux/unimatch/utils/flow_viz.py`
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to conditions.
 ```
+
 **MIT**
+
 ```
 # MIT License
 ```
+
 File name: `src/controlnet_aux/zoe/zoedepth/models/base_models/midas.py`
 
 **MIT**
+
 ```
 # MIT License
 ```
+
 ```
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -3778,37 +3879,48 @@ File name: `src/controlnet_aux/zoe/zoedepth/models/base_models/midas.py`
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 ```
+
 File name: `src/custom_detectron2/layers/csrc/deformable/deform_conv_cuda.cu`
 
 **Apache-2.0**
+
 ```
 // Original license: Apache 2.0
 ```
+
 ```
 // Original license: Apache 2.0
 ```
+
 File name: `src/custom_detectron2/layers/csrc/deformable/deform_conv_cuda_kernel.cu`
 
 **Apache-2.0**
+
 ```
 // Original license: Apache 2.0
 ```
+
 File name: `src/custom_detectron2/modeling/backbone/swin.py`
 
 **Apache-2.0**
+
 ```
 Licensed under The MIT License [see LICENSE for details]
 Written by Ze Liu, Yutong Lin, Yixuan Wei
 --------------------------------------------------------
 LICENSE: https://github.com/SwinTransformer/Swin-Transformer-Object-Detection/blob/461e003166a8083d0b620beacd4662a2df306bd6/LICENSE
 ```
+
 **MIT**
+
 ```
 Licensed under The MIT License [see LICENSE for details]
 ```
+
 File name: `src/custom_manopth/LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -4485,53 +4597,69 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 File name: `src/custom_mesh_graphormer/datasets/build.py`
 
 **MIT**
+
 ```
 Licensed under the MIT license.
 ```
+
 File name: `src/custom_midas_repo/README.md`
 
 **MIT**
+
 ```
-License 
+License
 
 MIT License
 ```
+
 File name: `src/custom_mmpkg/custom_mmseg/models/losses/dice_loss.py`
 
 **Apache-2.0**
+
 ```
 segmentron/solver/loss.py (Apache-2.0 License)"""
 ```
+
 File name: `src/custom_oneformer/modeling/pixel_decoder/ops/make.sh`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 ```
+
 File name: `src/custom_pycocotools/coco.py`
 
 **BSD-2-Clause**
+
 ```
 # Licensed under the Simplified BSD License [see bsd.txt]
 ```
+
 File name: `src/custom_pycocotools/cocoeval.py`
 
 **BSD-2-Clause**
+
 ```
     # Licensed under the Simplified BSD License [see coco/license.txt]
 ```
+
 File name: `src/custom_timm/data/random_erasing.py`
 
 **Apache-2.0**
+
 ```
 Originally inspired by impl at https://github.com/zhunzhong07/Random-Erasing, Apache 2.0
 ```
+
 File name: `src/custom_timm/data/tf_preprocessing.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -4545,83 +4673,112 @@ File name: `src/custom_timm/data/tf_preprocessing.py`
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ```
+
 File name: `src/custom_timm/models/byobnet.py`
 
 **Apache-2.0**
+
 ```
 Code and weights: https://github.com/idstcv/GPU-Efficient-Networks, licensed Apache 2.0
 ```
+
 **MIT**
+
 ```
 Code and weights: https://github.com/DingXiaoH/RepVGG, licensed MIT
 ```
+
 File name: `src/custom_timm/models/convit.py`
 
 **CC-BY-NC-4.0**
+
 ```
 # This source code is licensed under the CC-by-NC license found in the
 ```
+
 **MIT**
+
 ```
 # This source code is licensed under the CC-by-NC license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/custom_timm/models/convnext.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the MIT license
 ```
+
 File name: `src/custom_timm/models/crossvit.py`
 
 **Apache-2.0**
+
 ```
 # SPDX-License-Identifier: Apache-2.0
 ```
+
 File name: `src/custom_timm/models/densenet.py`
 
 **BSD-3-Clause**
+
 ```
 This file is a copy of https://github.com/pytorch/vision 'densenet.py' (BSD-3-Clause) with
 ```
+
 File name: `src/custom_timm/models/efficientformer.py`
 
 **Apache-2.0**
+
 ```
 Based on Apache 2.0 licensed code at https://github.com/snap-research/EfficientFormer, Copyright (c) 2022 Snap Inc.
 ```
+
 File name: `src/custom_timm/models/gcvit.py`
 
 **Apache-2.0**
+
 ```
 The license for this code release is Apache 2.0 with no commercial restrictions.
 ```
+
 **CC-BY-NC-SA-4.0**
+
 ```
 (https://creativecommons.org/licenses/by-nc-sa/4.0/) until I have a chance to train new ones...
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
 However, weight files adapted from NVIDIA GCVit impl ARE under a non-commercial share-alike license
 ```
+
 File name: `src/custom_timm/models/inception_resnet_v2.py`
 
 **Apache-2.0**
+
 ```
 based upon Google's Tensorflow implementation and pretrained weights (Apache 2.0 License)
 ```
+
 **MIT**
+
 ```
 Sourced from https://github.com/Cadene/tensorflow-model-zoo.torch (MIT License) which is
 ```
+
 File name: `src/custom_timm/models/layers/eca.py`
 
 **MIT**
+
 ```
 Original License:
 
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4641,31 +4798,41 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 File name: `src/custom_timm/models/mvitv2.py`
 
 **Apache-2.0**
+
 ```
 Code adapted from original Apache 2.0 licensed impl at https://github.com/facebookresearch/mvit
 ```
+
 File name: `src/custom_timm/models/resnet.py`
 
 **CC-BY-NC-4.0**
+
 ```
     #  Please note the CC-BY-NC 4.0 license on theses weights, non-commercial use only.
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
     #  Please note the CC-BY-NC 4.0 license on theses weights, non-commercial use only.
 ```
+
 File name: `src/custom_timm/models/sequencer.py`
 
 **Apache-2.0**
+
 ```
 #  Licensed under the Apache License, Version 2.0 (the "License");
 ```
+
 File name: `src/custom_timm/models/twins.py`
 
 **Apache-2.0**
+
 ```
 Code/weights from https://github.com/Meituan-AutoML/Twins, original copyright/license info below
 
@@ -4675,26 +4842,34 @@ Code/weights from https://github.com/Meituan-AutoML/Twins, original copyright/li
 # Copyright (c) 2021 Meituan
 # Licensed under The Apache 2.0 License [see LICENSE for details]
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 # Licensed under The Apache 2.0 License [see LICENSE for details]
 ```
+
 File name: `src/custom_timm/optim/adafactor.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `src/custom_timm/optim/adahessian.py`
 
 **MIT**
+
 ```
 Originally licensed MIT, Copyright 2020, David Samuel
 ```
+
 File name: `src/custom_timm/optim/lamb.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -4708,12 +4883,15 @@ File name: `src/custom_timm/optim/lamb.py`
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ```
+
 **MIT**
+
 ```
 # limitations under the License.
 
 # MIT License
 ```
+
 ```
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -4733,9 +4911,11 @@ File name: `src/custom_timm/optim/lamb.py`
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 ```
+
 File name: `src/custom_timm/optim/rmsprop_tf.py`
 
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 Licensed under BSD-Clause 3 (ish), https://github.com/pytorch/pytorch/blob/master/LICENSE
 ```

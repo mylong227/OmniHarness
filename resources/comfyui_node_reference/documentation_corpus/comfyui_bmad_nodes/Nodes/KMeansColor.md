@@ -1,44 +1,53 @@
 ---
 tags:
-- Color
+  - Color
 ---
 
 # KMeansColor
+
 ## Documentation
+
 - Class name: `KMeansColor`
 - Category: `Bmad/CV/Color A.`
 - Output node: `False`
 
 This node applies the K-means clustering algorithm to an image to identify and extract a specified number of dominant colors. It leverages OpenCV's implementation of K-means for efficient color quantization, allowing for the simplification of the image's color palette.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for color quantization. It serves as the basis for identifying dominant colors through clustering.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for color quantization. It serves as the basis for identifying dominant colors through clustering.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`number_of_colors`**
-    - Specifies the number of dominant colors to identify in the image. It determines the granularity of the color quantization.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the number of dominant colors to identify in the image. It determines the granularity of the color quantization.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`max_iterations`**
-    - The maximum number of iterations for the K-means algorithm to run, ensuring the process terminates.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The maximum number of iterations for the K-means algorithm to run, ensuring the process terminates.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`eps`**
-    - The epsilon value for convergence criteria in K-means, dictating the algorithm's precision and stopping condition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The epsilon value for convergence criteria in K-means, dictating the algorithm's precision and stopping condition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image with its colors quantized to the specified dominant colors.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image with its colors quantized to the specified dominant colors.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class KMeansColor:
     @classmethod

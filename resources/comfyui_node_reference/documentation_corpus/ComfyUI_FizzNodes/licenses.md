@@ -1,10 +1,13 @@
 # Other detected licenses
+
 File name: `LICENCE.txt`
 
 **MIT**
+
 ```
 MIT License
 ```
+
 ```
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,13 +27,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
 File name: `ScheduledNodes.py`
 
 **Apache-2.0**
+
 ```
 # licensed under Apache-2.0
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 # licensed under Apache-2.0
 ```

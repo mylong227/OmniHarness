@@ -1,43 +1,54 @@
 ---
 tags:
-- DepthMap
-- Image
-- Inpaint
+  - DepthMap
+  - Image
+  - Inpaint
 ---
 
 # LaMa Remove Object
+
 ## Documentation
+
 - Class name: `LaMaInpaint`
 - Category: `Art Venture/Inpainting`
 - Output node: `False`
 
 The LaMaInpaint node is designed for object removal and image inpainting tasks, leveraging deep learning models to fill in missing or unwanted areas of an image with plausible textures and details. It processes images and corresponding masks to generate inpainted images, seamlessly blending the inpainted regions with the original image content.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image tensor that needs inpainting. It represents the visual data where certain regions are marked for removal or restoration.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image tensor that needs inpainting. It represents the visual data where certain regions are marked for removal or restoration.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - The mask tensor indicating the areas to be inpainted. Pixels with non-zero values in the mask are treated as regions needing inpainting.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - The mask tensor indicating the areas to be inpainted. Pixels with non-zero values in the mask are treated as regions needing inpainting.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`device_mode`**
-    - Specifies the device (CPU or GPU) on which the inpainting operation is performed, allowing for flexibility in resource utilization.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the device (CPU or GPU) on which the inpainting operation is performed, allowing for flexibility in resource utilization.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output tensor containing the inpainted image, where the specified regions have been filled in with generated content matching the surrounding areas.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output tensor containing the inpainted image, where the specified regions have been filled in with generated content matching the surrounding areas.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LaMaInpaint:
     @classmethod

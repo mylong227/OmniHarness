@@ -23,10 +23,7 @@
   "180": {
     "inputs": {
       "text": "High-definition enlargement, high quality",
-      "clip": [
-        "179",
-        0
-      ]
+      "clip": ["179", 0]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
@@ -53,10 +50,7 @@
   },
   "183": {
     "inputs": {
-      "upscale_by": [
-        "192",
-        0
-      ],
+      "upscale_by": ["192", 0],
       "seed": 824330361063918,
       "steps": 8,
       "cfg": 1,
@@ -76,30 +70,12 @@
       "force_uniform_tiles": true,
       "tiled_decode": false,
       "batch_size": 1,
-      "image": [
-        "190",
-        0
-      ],
-      "model": [
-        "185",
-        0
-      ],
-      "positive": [
-        "180",
-        0
-      ],
-      "negative": [
-        "188",
-        0
-      ],
-      "vae": [
-        "181",
-        0
-      ],
-      "upscale_model": [
-        "182",
-        0
-      ]
+      "image": ["190", 0],
+      "model": ["185", 0],
+      "positive": ["180", 0],
+      "negative": ["188", 0],
+      "vae": ["181", 0],
+      "upscale_model": ["182", 0]
     },
     "class_type": "UltimateSDUpscale",
     "_meta": {
@@ -109,10 +85,7 @@
   "185": {
     "inputs": {
       "shift": 3,
-      "model": [
-        "178",
-        0
-      ]
+      "model": ["178", 0]
     },
     "class_type": "ModelSamplingAuraFlow",
     "_meta": {
@@ -121,10 +94,7 @@
   },
   "188": {
     "inputs": {
-      "conditioning": [
-        "180",
-        0
-      ]
+      "conditioning": ["180", 0]
     },
     "class_type": "ConditioningZeroOut",
     "_meta": {
@@ -152,10 +122,7 @@
   "193": {
     "inputs": {
       "filename_prefix": "ComfyUI",
-      "images": [
-        "183",
-        0
-      ]
+      "images": ["183", 0]
     },
     "class_type": "SaveImage",
     "_meta": {

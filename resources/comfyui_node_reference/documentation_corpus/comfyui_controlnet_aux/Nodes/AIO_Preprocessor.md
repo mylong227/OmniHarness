@@ -1,48 +1,58 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
+  - DepthMap
+  - Image
+  - ImagePreprocessing
 ---
 
 # AIO Aux Preprocessor
+
 ## Documentation
+
 - Class name: `AIO_Preprocessor`
 - Category: `ControlNet Preprocessors`
 - Output node: `False`
 
 The AIO_Preprocessor node is designed to dynamically select and apply a specified auxiliary preprocessing operation on an image, based on the preprocessor type chosen. It supports a variety of preprocessing options, automatically configuring and executing the appropriate auxiliary preprocessor to modify the image according to the selected preprocessor's requirements.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be preprocessed. This image is directly passed to the selected auxiliary preprocessor for modification.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `Image`
+  - The input image to be preprocessed. This image is directly passed to the selected auxiliary preprocessor for modification.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `Image`
+
 ### Optional
+
 - **`preprocessor`**
-    - Specifies the type of preprocessing to apply to the image. This selection determines which auxiliary preprocessor's logic will be executed, impacting the final preprocessing outcome on the image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the type of preprocessing to apply to the image. This selection determines which auxiliary preprocessor's logic will be executed, impacting the final preprocessing outcome on the image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`resolution`**
-    - The resolution for the preprocessing operation, which may be used by certain preprocessors to adjust the processing detail level or output resolution.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The resolution for the preprocessing operation, which may be used by certain preprocessors to adjust the processing detail level or output resolution.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The preprocessed image, as modified by the selected auxiliary preprocessor.
-    - Python dtype: `Image`
+  - Comfy dtype: `IMAGE`
+  - The preprocessed image, as modified by the selected auxiliary preprocessor.
+  - Python dtype: `Image`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [ControlNetApplyAdvanced](../../Comfy/Nodes/ControlNetApplyAdvanced.md)
-    - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
-    - [ControlNetApply](../../Comfy/Nodes/ControlNetApply.md)
-    - [VHS_VideoCombine](../../ComfyUI-VideoHelperSuite/Nodes/VHS_VideoCombine.md)
-
-
+  - [ControlNetApplyAdvanced](../../Comfy/Nodes/ControlNetApplyAdvanced.md)
+  - [PreviewImage](../../Comfy/Nodes/PreviewImage.md)
+  - [ControlNetApply](../../Comfy/Nodes/ControlNetApply.md)
+  - [VHS_VideoCombine](../../ComfyUI-VideoHelperSuite/Nodes/VHS_VideoCombine.md)
 
 ## Source code
+
 ```python
 class AIO_Preprocessor:
     @classmethod

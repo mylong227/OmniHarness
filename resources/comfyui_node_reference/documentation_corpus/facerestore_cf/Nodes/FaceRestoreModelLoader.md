@@ -1,36 +1,44 @@
 ---
 tags:
-- Face
-- FaceRestoration
+  - Face
+  - FaceRestoration
 ---
 
 # FaceRestoreModelLoader
+
 ## Documentation
+
 - Class name: `FaceRestoreModelLoader`
 - Category: `facerestore_cf`
 - Output node: `False`
 
 The FaceRestoreModelLoader node is designed to load and manage face restoration models, facilitating the initialization and configuration of models required for face restoration tasks. It acts as a central hub for accessing different face restoration and detection models, streamlining the process of model selection and loading for subsequent face restoration operations.
+
 ## Input types
+
 ### Required
+
 - **`model_name`**
-    - Specifies the name of the face restoration model to be loaded. This parameter is crucial for identifying and retrieving the correct model from a predefined list of available models.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the face restoration model to be loaded. This parameter is crucial for identifying and retrieving the correct model from a predefined list of available models.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`facerestore_model`**
-    - Comfy dtype: `FACERESTORE_MODEL`
-    - Returns the loaded face restoration model, ready for use in face restoration tasks.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `FACERESTORE_MODEL`
+  - Returns the loaded face restoration model, ready for use in face restoration tasks.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [FaceRestoreCFWithModel](../../facerestore_cf/Nodes/FaceRestoreCFWithModel.md)
-    - FaceRestoreWithModel
-
-
+  - [FaceRestoreCFWithModel](../../facerestore_cf/Nodes/FaceRestoreCFWithModel.md)
+  - FaceRestoreWithModel
 
 ## Source code
+
 ```python
 class FaceRestoreModelLoader:
     @classmethod
@@ -62,7 +70,7 @@ class FaceRestoreModelLoader:
             ).to(device)
             checkpoint = torch.load(model_path)["params_ema"]
             codeformer_net.load_state_dict(checkpoint)
-            out = codeformer_net.eval()  
+            out = codeformer_net.eval()
             return (out, )
         else:
             model_path = folder_paths.get_full_path("facerestore_models", model_name)

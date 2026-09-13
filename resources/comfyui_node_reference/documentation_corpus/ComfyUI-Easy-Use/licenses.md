@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -678,6 +680,7 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -1354,10 +1357,13 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 # Other detected licenses
+
 File name: `py/brushnet/unet_2d_blocks.py`
 
 **Apache-2.0**
+
 ```
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1371,35 +1377,47 @@ File name: `py/brushnet/unet_2d_blocks.py`
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ```
+
 File name: `py/dit/hunyuanDiT/LICENSE-HYDIT`
 
 **FSFULLRWD**
+
 ```
 EXTENT PERMITTED BY APPLICABLE LAW,
 ```
+
 **LicenseRef-scancode-unknown-license-reference**
+
 ```
 LICENSE AGREEMENT
 ```
+
 ```
 licensed under the
 ```
+
 ```
 License Agreement,
 ```
+
 ```
 license agreement,
 ```
+
 ```
 governed by the laws of
 ```
+
 **LicenseRef-scancode-warranty-disclaimer**
+
 ```
 LIABLE UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, TORT, NEGLIGENCE, PRODUCTS LIABILITY, OR OTHERWISE, FOR ANY DAMAGES, INCLUDING ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL, EXEMPLARY, CONSEQUENTIAL OR PUNITIVE DAMAGES, OR LOST PROFITS
 ```
+
 File name: `py/dit/pixArt/LICENSE-Pixart`
 
 **AGPL-3.0-only**
+
 ```
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
@@ -2063,29 +2081,37 @@ if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
 ```
+
 File name: `py/dit/pixArt/models/PixArt.py`
 
 **MIT**
+
 ```
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 ```
+
 File name: `py/human_parsing/simple_extractor_dataset.py`
 
 **Apache-2.0**
+
 ```
 @License :   This source code is licensed under the license found in the
              LICENSE file in the root directory of this source tree.
 ```
+
 File name: `py/human_parsing/transforms.py`
 
 **MIT**
+
 ```
 # Licensed under the MIT License.
 ```
+
 File name: `resources/OpenSans-Medium.ttf`
 
 **OFL-1.1**
+
 ```
 Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)Open Sans MediumRegular3.000;GOOG;OpenSans-MediumVersion 3.000OpenSans-MediumOpen Sans is a trademark of Google and may be registered in certain jurisdictions.Monotype Imaging Inc.Monotype Design TeamDesigned by Monotype design team.http://www.google.com/get/noto/http://www.monotype.com/studioThis Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFLhttp://scripts.sil.org/OFLOpen SansMediumOpenSansRomanWeightWidthNormalItalicRoman
 ```

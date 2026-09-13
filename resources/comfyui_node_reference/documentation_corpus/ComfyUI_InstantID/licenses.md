@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **Apache-2.0**
+
 ```
                                  Apache License
                            Version 2.0, January 2004

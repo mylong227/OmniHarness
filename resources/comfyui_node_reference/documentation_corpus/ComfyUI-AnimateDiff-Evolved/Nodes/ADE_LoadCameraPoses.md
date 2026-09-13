@@ -1,33 +1,42 @@
 ---
 tags:
-- Animation
-- CameraControl
+  - Animation
+  - CameraControl
 ---
 
 # Load CameraCtrl Poses (File) 🎭🅐🅓②
+
 ## Documentation
+
 - Class name: `ADE_LoadCameraPoses`
 - Category: `Animate Diff 🎭🅐🅓/② Gen2 nodes ②/CameraCtrl/poses`
 - Output node: `False`
 
 The `ADE_LoadCameraPoses` node is designed to load camera control poses from a specified file, facilitating the manipulation and animation of camera positions within the Animate Diff framework. It serves as a foundational element in creating dynamic and complex camera movements for animation sequences.
+
 ## Input types
+
 ### Required
+
 - **`pose_filename`**
-    - Specifies the filename from which camera control poses are to be loaded. This filename should correspond to a file containing the desired camera poses, enabling the node to retrieve and utilize these poses for animation purposes.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the filename from which camera control poses are to be loaded. This filename should correspond to a file containing the desired camera poses, enabling the node to retrieve and utilize these poses for animation purposes.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`cameractrl_poses`**
-    - Comfy dtype: `CAMERACTRL_POSES`
-    - Outputs a list of camera control poses, which are structured as lists of floats representing the camera's position, orientation, and other relevant parameters in the animation context.
-    - Python dtype: `list[list[float]]`
+  - Comfy dtype: `CAMERACTRL_POSES`
+  - Outputs a list of camera control poses, which are structured as lists of floats representing the camera's position, orientation, and other relevant parameters in the animation context.
+  - Python dtype: `list[list[float]]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoadCameraPoses:
     @classmethod

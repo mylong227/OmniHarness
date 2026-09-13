@@ -1,57 +1,67 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
+  - DepthMap
+  - Image
+  - ImagePreprocessing
 ---
 
 # ControlNet Preprocessor
+
 ## Documentation
+
 - Class name: `AV_ControlNetPreprocessor`
 - Category: `Art Venture/Loaders`
 - Output node: `False`
 
 The AV_ControlNetPreprocessor node is designed for preparing images for further processing or analysis within the Art Venture framework, specifically by applying various preprocessing techniques to enhance or modify the images based on the selected preprocessor and resolution settings. It supports a range of preprocessing options, including segmentation, edge detection, and artistic style adjustments, tailored to the requirements of subsequent control net detection and application.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be preprocessed. This is the primary data upon which preprocessing operations are performed, setting the stage for enhanced image analysis or manipulation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `IMAGE`
+  - The input image to be preprocessed. This is the primary data upon which preprocessing operations are performed, setting the stage for enhanced image analysis or manipulation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `IMAGE`
 - **`preprocessor`**
-    - Specifies the preprocessing technique to be applied to the input image. This selection determines how the image will be modified or enhanced, impacting the effectiveness of subsequent control net detection.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the preprocessing technique to be applied to the input image. This selection determines how the image will be modified or enhanced, impacting the effectiveness of subsequent control net detection.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`sd_version`**
-    - Indicates the version of the Stable Diffusion model to be used, affecting the compatibility and performance of the preprocessing and control net detection processes.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Indicates the version of the Stable Diffusion model to be used, affecting the compatibility and performance of the preprocessing and control net detection processes.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`resolution`**
-    - The target resolution for the preprocessed image. Adjusting this parameter can influence the detail level and quality of the preprocessing output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The target resolution for the preprocessed image. Adjusting this parameter can influence the detail level and quality of the preprocessing output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`preprocessor_override`**
-    - Allows for overriding the default preprocessor choice, providing flexibility in experimenting with different preprocessing techniques.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Allows for overriding the default preprocessor choice, providing flexibility in experimenting with different preprocessing techniques.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`IMAGE`**
-    - Comfy dtype: `IMAGE`
-    - The preprocessed image, ready for further analysis or processing within the Art Venture framework.
-    - Python dtype: `IMAGE`
+  - Comfy dtype: `IMAGE`
+  - The preprocessed image, ready for further analysis or processing within the Art Venture framework.
+  - Python dtype: `IMAGE`
 - **`CNET_NAME`**
-    - Comfy dtype: `STRING`
-    - The name of the detected control net, indicating the specific preprocessing technique applied to the input image.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The name of the detected control net, indicating the specific preprocessing technique applied to the input image.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [CR Multi-ControlNet Stack](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Multi-ControlNet Stack.md)
-
-
+  - [CR Multi-ControlNet Stack](../../ComfyUI_Comfyroll_CustomNodes/Nodes/CR Multi-ControlNet Stack.md)
 
 ## Source code
+
 ```python
 class AV_ControlNetPreprocessor:
     preprocessors = list(control_net_preprocessors.keys())

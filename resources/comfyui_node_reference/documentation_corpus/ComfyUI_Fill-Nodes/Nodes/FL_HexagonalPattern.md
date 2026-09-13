@@ -1,58 +1,69 @@
 ---
 tags:
-- AnimationScheduling
-- VisualEffects
+  - AnimationScheduling
+  - VisualEffects
 ---
 
 # FL Hexagonal Pattern
+
 ## Documentation
+
 - Class name: `FL_HexagonalPattern`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_HexagonalPattern node is designed to transform a collection of images into a hexagonal pattern, adjusting the size of hexagons based on the image dimensions and applying optional shadow effects for enhanced visual depth. It allows for customization of the hexagonal pattern through parameters such as hexagon size, shadow properties, and background color, enabling a versatile approach to image styling.
+
 ## Input types
+
 ### Required
+
 - **`images`**
-    - A collection of images to be transformed into a hexagonal pattern. This parameter is essential for the node's operation, serving as the primary input around which the hexagonal pattern is generated.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `List[torch.Tensor]`
+  - A collection of images to be transformed into a hexagonal pattern. This parameter is essential for the node's operation, serving as the primary input around which the hexagonal pattern is generated.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `List[torch.Tensor]`
+
 ### Optional
+
 - **`hexagon_size`**
-    - Specifies the desired size of the hexagons in the pattern, affecting the overall appearance and granularity of the hexagonal tiling.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the desired size of the hexagons in the pattern, affecting the overall appearance and granularity of the hexagonal tiling.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`shadow_offset`**
-    - Determines the offset distance for the shadow effect applied to each hexagon, enhancing the pattern's visual depth.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the offset distance for the shadow effect applied to each hexagon, enhancing the pattern's visual depth.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`shadow_color`**
-    - Defines the color of the shadow effect, allowing for customization of the shadow's appearance.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Defines the color of the shadow effect, allowing for customization of the shadow's appearance.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`background_color`**
-    - Sets the background color of the output image, providing a base for the hexagonal pattern.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Sets the background color of the output image, providing a base for the hexagonal pattern.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`rotation`**
-    - Controls the rotation angle of each hexagon in the pattern, offering an additional dimension of stylistic customization.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Controls the rotation angle of each hexagon in the pattern, offering an additional dimension of stylistic customization.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`spacing`**
-    - Adjusts the spacing between individual hexagons in the pattern, influencing the pattern's density and overall aesthetic.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Adjusts the spacing between individual hexagons in the pattern, influencing the pattern's density and overall aesthetic.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The transformed image with the applied hexagonal pattern, incorporating any specified shadow effects and background color.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The transformed image with the applied hexagonal pattern, incorporating any specified shadow effects and background color.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_HexagonalPattern:
     @classmethod

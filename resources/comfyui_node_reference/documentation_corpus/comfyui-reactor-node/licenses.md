@@ -1,7 +1,9 @@
 # Main License
+
 File name: `LICENSE`
 
 **GPL-3.0-only**
+
 ```
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
@@ -678,35 +680,47 @@ the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
 ```
+
 # Other detected licenses
+
 File name: `README.md`
 
 **Apache-2.0**
+
 ```
 license-Apache_2.0-
 ```
+
 ```
 license-Apache_2.0-
 ```
+
 **LicenseRef-scancode-proprietary-license**
+
 ```
 available for non-commercial research purposes only.
 ```
+
 ```
 non_commercial-
 ```
+
 ```
 non_commercial-
 ```
+
 ```
 non_commercial-
 ```
+
 ```
 non_commercial-
 ```
+
 File name: `r_basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
 
 **BSD-2-Clause**
+
 ```
  * LICENSE
  *
@@ -730,7 +744,9 @@ File name: `r_basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
 **LicenseRef-scancode-generic-cla**
+
 ```
  * Caffe uses a shared copyright model: each contributor holds copyright over
  * their contributions to Caffe. The project versioning records all such
@@ -739,6 +755,7 @@ File name: `r_basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
  * their copyright solely in the commit message of the change when it is
  * committed.
 ```
+
 ```
  * CONTRIBUTION AGREEMENT
  *
@@ -746,7 +763,9 @@ File name: `r_basicsr/ops/dcn/src/deform_conv_cuda_kernel.cu`
  * or otherwise, the contributor releases their content to the
  * license and copyright terms herein.
 ```
+
 **MIT**
+
 ```
  * Licensed under The MIT License [see LICENSE for details]
 ```

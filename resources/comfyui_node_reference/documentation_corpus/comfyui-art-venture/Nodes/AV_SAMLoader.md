@@ -1,32 +1,41 @@
 ---
 tags:
-- SAM
+  - SAM
 ---
 
 # SAM Loader
+
 ## Documentation
+
 - Class name: `AV_SAMLoader`
 - Category: `Art Venture/Segmentation`
 - Output node: `False`
 
 The AV_SAMLoader node is designed for loading SAM models specific to the Art Venture project. It facilitates the retrieval and initialization of SAM models from a predefined directory, ensuring that the models are ready for use in segmentation tasks.
+
 ## Input types
+
 ### Required
+
 - **`model_name`**
-    - Specifies the name of the SAM model to load. This parameter is crucial for identifying and retrieving the correct model file from the available SAM models directory.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the name of the SAM model to load. This parameter is crucial for identifying and retrieving the correct model file from the available SAM models directory.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`sam_model`**
-    - Comfy dtype: `AV_SAM_MODEL`
-    - Returns the loaded SAM model, ready for use in segmentation tasks.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `AV_SAM_MODEL`
+  - Returns the loaded SAM model, ready for use in segmentation tasks.
+  - Python dtype: `torch.nn.Module`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SAMLoader:
     @classmethod

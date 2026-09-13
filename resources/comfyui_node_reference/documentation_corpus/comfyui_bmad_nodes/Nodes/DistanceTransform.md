@@ -1,41 +1,50 @@
 ---
 tags:
-- Image
-- ImageThresholding
+  - Image
+  - ImageThresholding
 ---
 
 # DistanceTransform
+
 ## Documentation
+
 - Class name: `DistanceTransform`
 - Category: `Bmad/CV/Thresholding`
 - Output node: `False`
 
 The DistanceTransform node applies a distance transform to a binary image, converting it into a grayscale image where each pixel's intensity represents its distance to the nearest background pixel. It supports various distance types and mask sizes, allowing for customization of the distance calculation.
+
 ## Input types
+
 ### Required
+
 - **`binary_image`**
-    - The binary image to which the distance transform will be applied. It is crucial for identifying foreground and background pixels for distance calculations.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The binary image to which the distance transform will be applied. It is crucial for identifying foreground and background pixels for distance calculations.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`distance_type`**
-    - Specifies the type of distance calculation to use, such as Euclidean (L2), Manhattan (L1), or Chebyshev (C). It affects the way distances are computed in the image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the type of distance calculation to use, such as Euclidean (L2), Manhattan (L1), or Chebyshev (C). It affects the way distances are computed in the image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`mask_size`**
-    - Determines the size of the mask used in the distance calculation, affecting the precision and computational cost of the transform.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Determines the size of the mask used in the distance calculation, affecting the precision and computational cost of the transform.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output grayscale image where pixel intensities represent distances to the nearest background pixel.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output grayscale image where pixel intensities represent distances to the nearest background pixel.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DistanceTransform:
     distance_types_map = {

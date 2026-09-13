@@ -1,36 +1,45 @@
 ---
 tags:
-- Json
+  - Json
 ---
 
 # Get Object From JSON
+
 ## Documentation
+
 - Class name: `GetObjectFromJson`
 - Category: `Art Venture/Utils`
 - Output node: `True`
 
 The `GetObjectFromJson` node is designed to extract a specific object from a JSON structure based on a given key. It simplifies the process of navigating complex JSON data by allowing users to directly access elements of interest.
+
 ## Input types
+
 ### Required
+
 - **`json`**
-    - The JSON input from which an object is to be retrieved. This parameter is crucial for specifying the source JSON structure.
-    - Comfy dtype: `JSON`
-    - Python dtype: `Dict[str, Any]`
+  - The JSON input from which an object is to be retrieved. This parameter is crucial for specifying the source JSON structure.
+  - Comfy dtype: `JSON`
+  - Python dtype: `Dict[str, Any]`
 - **`key`**
-    - The key corresponding to the value or object to be extracted from the JSON input. This parameter determines which part of the JSON structure is accessed.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The key corresponding to the value or object to be extracted from the JSON input. This parameter determines which part of the JSON structure is accessed.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`json`**
-    - Comfy dtype: `JSON`
-    - The extracted object from the JSON input, corresponding to the specified key. This output facilitates direct access to specific elements within a JSON structure.
-    - Python dtype: `Dict[str, Any]`
+  - Comfy dtype: `JSON`
+  - The extracted object from the JSON input, corresponding to the specified key. This output facilitates direct access to specific elements within a JSON structure.
+  - Python dtype: `Dict[str, Any]`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class UtilGetObjectFromJson:
     @classmethod

@@ -1,47 +1,58 @@
 ---
 tags:
-- DepthMap
-- DepthMapEstimation
-- Image
+  - DepthMap
+  - DepthMapEstimation
+  - Image
 ---
 
 # [Inference.Core] MiDaS Depth Map
+
 ## Documentation
+
 - Class name: `Inference_Core_MiDaS-DepthMapPreprocessor`
 - Category: `ControlNet Preprocessors/Normal and Depth Estimators`
 - Output node: `False`
 
 The MiDaS Depth Map Preprocessor node is designed to transform input images into depth maps using the MiDaS model. This process enhances the perception of depth in images, facilitating various applications in 3D modeling, augmented reality, and beyond by providing a detailed depth estimation.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The 'image' parameter is the input image for depth map generation, serving as the primary data for depth estimation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The 'image' parameter is the input image for depth map generation, serving as the primary data for depth estimation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`a`**
-    - The 'a' parameter influences the calculation of normals in the depth map, affecting the perception of depth and texture in the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The 'a' parameter influences the calculation of normals in the depth map, affecting the perception of depth and texture in the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`bg_threshold`**
-    - The 'bg_threshold' parameter sets the threshold for background separation in the depth map, enhancing the focus on foreground elements by filtering out background noise.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The 'bg_threshold' parameter sets the threshold for background separation in the depth map, enhancing the focus on foreground elements by filtering out background noise.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`resolution`**
-    - The 'resolution' parameter specifies the resolution for the output depth map, affecting the level of detail and size of the generated depth map.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The 'resolution' parameter specifies the resolution for the output depth map, affecting the level of detail and size of the generated depth map.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is a depth map image, providing a pixel-wise depth estimation of the input image.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is a depth map image, providing a pixel-wise depth estimation of the input image.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class MIDAS_Depth_Map_Preprocessor:
     @classmethod

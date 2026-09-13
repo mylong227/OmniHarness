@@ -1,44 +1,53 @@
 ---
 tags:
-- SMPLModel
+  - SMPLModel
 ---
 
-# Export Multiple SMPL Subjects toto 3DCGI Software 
+# Export Multiple SMPL Subjects toto 3DCGI Software
+
 ## Documentation
+
 - Class name: `Export_SMPLMultipleSubjects_To_3DSoftware`
 - Category: `MotionDiff/smpl`
 - Output node: `True`
 
 This node is designed to facilitate the export of 3D models of multiple subjects in the SMPL format to various 3D software environments. It aims to streamline the process of integrating complex, multi-subject 3D models into professional 3D CGI applications, enhancing the workflow for 3D animators and visual effects artists.
+
 ## Input types
+
 ### Required
+
 - **`smpl_multi_subjects`**
-    - The dataset containing 3D models of multiple subjects in SMPL format, essential for exporting to 3D software. It plays a critical role in the node's operation by providing the necessary data for processing and conversion.
-    - Comfy dtype: `SMPL_MULTIPLE_SUBJECTS`
-    - Python dtype: `List[Dict[str, Any]]`
+  - The dataset containing 3D models of multiple subjects in SMPL format, essential for exporting to 3D software. It plays a critical role in the node's operation by providing the necessary data for processing and conversion.
+  - Comfy dtype: `SMPL_MULTIPLE_SUBJECTS`
+  - Python dtype: `List[Dict[str, Any]]`
 - **`foldername_prefix`**
-    - A prefix for the folder name where the exported files will be saved, allowing for organized storage and easy retrieval.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix for the folder name where the exported files will be saved, allowing for organized storage and easy retrieval.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`format`**
-    - The format in which the 3D models will be exported, such as 'obj', 'fbx', or 'glb', determining the compatibility with various 3D software.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - The format in which the 3D models will be exported, such as 'obj', 'fbx', or 'glb', determining the compatibility with various 3D software.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 The node doesn't have output types
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Export_SMPLMultipleSubjects_To_3DSoftware:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
         self.type = "output"
         self.prefix_append = "_smpl"
-    
+
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -55,7 +64,7 @@ class Export_SMPLMultipleSubjects_To_3DSoftware:
     OUTPUT_NODE = True
 
     CATEGORY = "MotionDiff/smpl"
-    
+
     def save_smpl(self, smpl_multi_subjects, foldername_prefix, format):
         import json, trimesh
         foldername_prefix += self.prefix_append
@@ -65,7 +74,7 @@ class Export_SMPLMultipleSubjects_To_3DSoftware:
 
         verts_frames, meta = smpl_multi_subjects
         focal_length, frame_width, frame_height = meta["focal_length"], meta["frame_width"], meta["frame_height"]
-        
+
         pbar = comfy.utils.ProgressBar(len(verts_frames))
         for i in tqdm(range(len(verts_frames))):
             frame_dir = os.path.join(folder, f'frame_{i:05}')

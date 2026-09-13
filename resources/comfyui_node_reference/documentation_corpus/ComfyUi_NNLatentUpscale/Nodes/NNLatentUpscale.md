@@ -1,44 +1,52 @@
 ---
 tags:
-- Latent
+  - Latent
 ---
 
 # NNLatentUpscale
+
 ## Documentation
+
 - Class name: `NNLatentUpscale`
 - Category: `latent`
 - Output node: `False`
 
 The NNLatentUpscale node specializes in enhancing the resolution of SDXL latent representations using a neural network approach. It dynamically adjusts its internal model based on the specified version and upscale factor, ensuring optimized upscaling of latent samples to achieve higher fidelity outputs.
+
 ## Input types
+
 ### Required
+
 - **`latent`**
-    - The latent representation to be upscaled. It is crucial for defining the starting point of the upscaling process.
-    - Comfy dtype: `LATENT`
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - The latent representation to be upscaled. It is crucial for defining the starting point of the upscaling process.
+  - Comfy dtype: `LATENT`
+  - Python dtype: `Dict[str, torch.Tensor]`
 - **`version`**
-    - Specifies the version of the model to use for upscaling, allowing for flexibility and optimization based on the latent's characteristics.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the version of the model to use for upscaling, allowing for flexibility and optimization based on the latent's characteristics.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`upscale`**
-    - The factor by which to upscale the latent representation, directly influencing the output's resolution and detail.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The factor by which to upscale the latent representation, directly influencing the output's resolution and detail.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ## Output types
+
 - **`latent`**
-    - Comfy dtype: `LATENT`
-    - The upscaled latent representation, enhanced in resolution and detail.
-    - Python dtype: `Dict[str, torch.Tensor]`
+  - Comfy dtype: `LATENT`
+  - The upscaled latent representation, enhanced in resolution and detail.
+  - Python dtype: `Dict[str, torch.Tensor]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes:
-    - [KSampler](../../Comfy/Nodes/KSampler.md)
-    - [SamplerCustom](../../Comfy/Nodes/SamplerCustom.md)
-    - [LatentInterpolate](../../Comfy/Nodes/LatentInterpolate.md)
-
-
+  - [KSampler](../../Comfy/Nodes/KSampler.md)
+  - [SamplerCustom](../../Comfy/Nodes/SamplerCustom.md)
+  - [LatentInterpolate](../../Comfy/Nodes/LatentInterpolate.md)
 
 ## Source code
+
 ```python
 class NNLatentUpscale:
     """

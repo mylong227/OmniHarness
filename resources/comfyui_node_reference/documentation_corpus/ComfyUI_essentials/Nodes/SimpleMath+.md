@@ -1,47 +1,58 @@
 ---
 tags:
-- DataTypeConversion
-- Math
-- MathematicalExpressions
+  - DataTypeConversion
+  - Math
+  - MathematicalExpressions
 ---
 
 # 🔧 Simple Math
+
 ## Documentation
+
 - Class name: `SimpleMath+`
 - Category: `essentials/utilities`
 - Output node: `False`
 
 SimpleMath is a node designed to evaluate mathematical expressions dynamically. It interprets and computes expressions from abstract syntax trees (AST), supporting basic arithmetic operations, variable resolution, custom function calls, and array indexing.
+
 ## Input types
+
 ### Required
+
 - **`value`**
-    - The mathematical expression to be evaluated, represented as a string. It is parsed into an abstract syntax tree (AST) for evaluation, supporting operations like addition, subtraction, multiplication, division, and more complex expressions involving variables and functions.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The mathematical expression to be evaluated, represented as a string. It is parsed into an abstract syntax tree (AST) for evaluation, supporting operations like addition, subtraction, multiplication, division, and more complex expressions involving variables and functions.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ### Optional
+
 - **`a`**
-    - An optional variable 'a' that can be used within the mathematical expression. Its value affects the computation if 'a' is referenced in the expression.
-    - Comfy dtype: `INT,FLOAT`
-    - Python dtype: `Union[int, float]`
+  - An optional variable 'a' that can be used within the mathematical expression. Its value affects the computation if 'a' is referenced in the expression.
+  - Comfy dtype: `INT,FLOAT`
+  - Python dtype: `Union[int, float]`
 - **`b`**
-    - An optional variable 'b' that can be used within the mathematical expression. Its value affects the computation if 'b' is referenced in the expression.
-    - Comfy dtype: `INT,FLOAT`
-    - Python dtype: `Union[int, float]`
+  - An optional variable 'b' that can be used within the mathematical expression. Its value affects the computation if 'b' is referenced in the expression.
+  - Comfy dtype: `INT,FLOAT`
+  - Python dtype: `Union[int, float]`
+
 ## Output types
+
 - **`int`**
-    - Comfy dtype: `INT`
-    - The rounded integer result of the evaluated mathematical expression.
-    - Python dtype: `int`
+  - Comfy dtype: `INT`
+  - The rounded integer result of the evaluated mathematical expression.
+  - Python dtype: `int`
 - **`float`**
-    - Comfy dtype: `FLOAT`
-    - The exact floating-point result of the evaluated mathematical expression.
-    - Python dtype: `float`
+  - Comfy dtype: `FLOAT`
+  - The exact floating-point result of the evaluated mathematical expression.
+  - Python dtype: `float`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class SimpleMath:
     @classmethod
@@ -113,7 +124,7 @@ class SimpleMath:
 
         if math.isnan(result):
             result = 0.0
-        
+
         return (round(result), result, )
 
 ```

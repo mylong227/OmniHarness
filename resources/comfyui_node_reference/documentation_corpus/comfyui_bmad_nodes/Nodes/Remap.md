@@ -1,53 +1,64 @@
 ---
 tags:
-- ImageTransformation
+  - ImageTransformation
 ---
 
 # Remap
+
 ## Documentation
+
 - Class name: `Remap`
 - Category: `Bmad/CV/Transform`
 - Output node: `False`
 
 The `Remap` node serves as a foundational class for various image remapping operations, providing a base structure and common functionalities for specialized remapping transformations. It abstracts the core mechanisms needed to perform complex image geometry alterations, enabling derived classes to implement specific remapping effects such as distortion correction, perspective adjustments, and custom image warping techniques.
+
 ## Input types
+
 ### Required
+
 - **`remap`**
-    - Specifies the remapping function to be applied, which is a core component of the remapping process, determining how pixels from the source image are mapped to the destination image.
-    - Comfy dtype: `REMAP`
-    - Python dtype: `function`
+  - Specifies the remapping function to be applied, which is a core component of the remapping process, determining how pixels from the source image are mapped to the destination image.
+  - Comfy dtype: `REMAP`
+  - Python dtype: `function`
 - **`src`**
-    - The source image to be remapped, serving as the input for the remapping operation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `numpy.ndarray`
+  - The source image to be remapped, serving as the input for the remapping operation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `numpy.ndarray`
 - **`interpolation`**
-    - Defines the interpolation method used in the remapping process, affecting the quality and appearance of the output image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `int`
+  - Defines the interpolation method used in the remapping process, affecting the quality and appearance of the output image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`src_mask`**
-    - An optional mask that specifies which parts of the source image should be considered for remapping.
-    - Comfy dtype: `MASK`
-    - Python dtype: `numpy.ndarray`
+  - An optional mask that specifies which parts of the source image should be considered for remapping.
+  - Comfy dtype: `MASK`
+  - Python dtype: `numpy.ndarray`
 - **`output_with_alpha`**
-    - A boolean flag indicating whether the output image should include an alpha channel, allowing for transparency effects.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the output image should include an alpha channel, allowing for transparency effects.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The result of the remapping operation, which is a transformed version of the input image according to the specified remapping parameters.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `IMAGE`
+  - The result of the remapping operation, which is a transformed version of the input image according to the specified remapping parameters.
+  - Python dtype: `numpy.ndarray`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - An optional output mask that corresponds to the remapped image, indicating areas of interest or exclusion.
-    - Python dtype: `numpy.ndarray`
+  - Comfy dtype: `MASK`
+  - An optional output mask that corresponds to the remapped image, indicating areas of interest or exclusion.
+  - Python dtype: `numpy.ndarray`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class Remap:
     @classmethod

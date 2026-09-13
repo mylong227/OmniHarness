@@ -1,33 +1,43 @@
 ---
 tags:
-- Conditioning
+  - Conditioning
 ---
 
 # 🔧 Cond Combine Multiple
+
 ## Documentation
+
 - Class name: `ConditioningCombineMultiple+`
 - Category: `essentials/conditioning`
 - Output node: `False`
 
 This node is designed to combine multiple conditioning inputs into a single conditioning output. It allows for the flexible integration of up to five separate conditioning inputs, making it ideal for scenarios where multiple conditioning factors need to be merged to guide the generation process effectively.
+
 ## Input types
+
 ### Required
+
 - **`conditioning_i`**
-    - unknown
-    - Comfy dtype: `CONDITIONING`
-    - Python dtype: `unknown`
+  - unknown
+  - Comfy dtype: `CONDITIONING`
+  - Python dtype: `unknown`
+
 ### Optional
+
 ## Output types
+
 - **`conditioning`**
-    - Comfy dtype: `CONDITIONING`
-    - The resulting combined conditioning output, integrating up to five separate conditioning inputs into a single, cohesive conditioning factor.
-    - Python dtype: `tuple`
+  - Comfy dtype: `CONDITIONING`
+  - The resulting combined conditioning output, integrating up to five separate conditioning inputs into a single, cohesive conditioning factor.
+  - Python dtype: `tuple`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ConditioningCombineMultiple:
     @classmethod

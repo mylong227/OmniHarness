@@ -1,42 +1,53 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # 🚫[DEPR] Motion Model Settings 🎭🅐🅓①
+
 ## Documentation
+
 - Class name: `ADE_AnimateDiffModelSettings_Release`
 - Category: ``
 - Output node: `False`
 
 This node is designed to configure motion model settings for the AnimateDiff process, allowing users to adjust motion scale parameters to fine-tune the animation effects.
+
 ## Input types
+
 ### Required
+
 - **`min_motion_scale`**
-    - Specifies the minimum scale for motion in the animation, serving as a baseline for how subtle or pronounced the motion effects should be.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Specifies the minimum scale for motion in the animation, serving as a baseline for how subtle or pronounced the motion effects should be.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`max_motion_scale`**
-    - Defines the maximum scale for motion, setting an upper limit on the intensity of the animation effects.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Defines the maximum scale for motion, setting an upper limit on the intensity of the animation effects.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
+
 ### Optional
+
 - **`mask_motion_scale`**
-    - An optional mask tensor to apply scale adjustments selectively across different parts of the image, enhancing the control over motion effects.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - An optional mask tensor to apply scale adjustments selectively across different parts of the image, enhancing the control over motion effects.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`ad_settings`**
-    - Comfy dtype: `AD_SETTINGS`
-    - Returns the configured motion model settings, encapsulating the adjustments made to motion scales.
-    - Python dtype: `AnimateDiffSettings`
+  - Comfy dtype: `AD_SETTINGS`
+  - Returns the configured motion model settings, encapsulating the adjustments made to motion scales.
+  - Python dtype: `AnimateDiffSettings`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AnimateDiffModelSettings:
     @classmethod
@@ -51,7 +62,7 @@ class AnimateDiffModelSettings:
                 "optional": {"deprecation_warning": ("ADEWARN", {"text": "Deprecated"})},
             }
         }
-    
+
     RETURN_TYPES = ("AD_SETTINGS",)
     CATEGORY = ""  #"Animate Diff 🎭🅐🅓/① Gen1 nodes ①/motion settings"
     FUNCTION = "get_motion_model_settings"

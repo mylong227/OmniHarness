@@ -1,40 +1,50 @@
 ---
 tags:
-- AnimateDiff
-- Animation
+  - AnimateDiff
+  - Animation
 ---
 
 # Multival Dynamic 🎭🅐🅓
+
 ## Documentation
+
 - Class name: `ADE_MultivalDynamic`
 - Category: `Animate Diff 🎭🅐🅓/multival`
 - Output node: `False`
 
 The ADE_MultivalDynamic node is designed to dynamically handle multiple values within the AnimateDiff framework, enabling the flexible manipulation and application of various parameters across different aspects of the animation and diffusion process.
+
 ## Input types
+
 ### Required
+
 - **`float_val`**
-    - This parameter accepts a single float or a list of floats, representing the dynamic values to be manipulated within the AnimateDiff framework. It is crucial for defining the intensity or magnitude of effects applied in the animation process.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `Union[float, list[float]]`
+  - This parameter accepts a single float or a list of floats, representing the dynamic values to be manipulated within the AnimateDiff framework. It is crucial for defining the intensity or magnitude of effects applied in the animation process.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `Union[float, list[float]]`
+
 ### Optional
+
 - **`mask_optional`**
-    - An optional mask input that allows for targeted application of effects, enabling precise control over which areas of the animation are affected by the specified dynamic values.
-    - Comfy dtype: `MASK`
-    - Python dtype: `Tensor`
+  - An optional mask input that allows for targeted application of effects, enabling precise control over which areas of the animation are affected by the specified dynamic values.
+  - Comfy dtype: `MASK`
+  - Python dtype: `Tensor`
+
 ## Output types
+
 - **`multival`**
-    - Comfy dtype: `MULTIVAL`
-    - This output is a dynamic representation of multiple values, tailored to influence various aspects of the animation and diffusion process within the AnimateDiff framework.
-    - Python dtype: `Multival`
+  - Comfy dtype: `MULTIVAL`
+  - This output is a dynamic representation of multiple values, tailored to influence various aspects of the animation and diffusion process within the AnimateDiff framework.
+  - Python dtype: `Multival`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes:
-    - [ADE_ApplyAnimateDiffModel](../../ComfyUI-AnimateDiff-Evolved/Nodes/ADE_ApplyAnimateDiffModel.md)
-
-
+  - [ADE_ApplyAnimateDiffModel](../../ComfyUI-AnimateDiff-Evolved/Nodes/ADE_ApplyAnimateDiffModel.md)
 
 ## Source code
+
 ```python
 class MultivalDynamicNode:
     @classmethod
@@ -47,7 +57,7 @@ class MultivalDynamicNode:
                 "mask_optional": ("MASK",)
             }
         }
-    
+
     RETURN_TYPES = ("MULTIVAL",)
     CATEGORY = "Animate Diff 🎭🅐🅓/multival"
     FUNCTION = "create_multival"

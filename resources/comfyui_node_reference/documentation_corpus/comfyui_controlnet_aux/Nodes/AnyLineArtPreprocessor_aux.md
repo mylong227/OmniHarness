@@ -1,60 +1,71 @@
 ---
 tags:
-- DepthMap
-- Image
-- ImagePreprocessing
-- LineExtraction
+  - DepthMap
+  - Image
+  - ImagePreprocessing
+  - LineExtraction
 ---
 
 # AnyLine Lineart
+
 ## Documentation
+
 - Class name: `AnyLineArtPreprocessor_aux`
 - Category: `ControlNet Preprocessors/Line Extractors`
 - Output node: `False`
 
 This node is designed to preprocess images by applying a line art extraction process, which can be customized to merge with different line art styles such as standard, realistic, anime, or manga. It enhances images for further processing or visualization by extracting prominent lines and adjusting them according to the selected line art style, making it versatile for various artistic and design applications.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The input image to be processed for line art extraction. It serves as the primary data on which the line art preprocessing is performed, determining the visual output of the node.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The input image to be processed for line art extraction. It serves as the primary data on which the line art preprocessing is performed, determining the visual output of the node.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`merge_with_lineart`**
-    - Specifies the line art style to merge with during the preprocessing, such as 'lineart_standard', 'lineart_realistic', 'lineart_anime', or 'manga_line'. This choice influences the aesthetic and stylistic outcome of the processed image.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the line art style to merge with during the preprocessing, such as 'lineart_standard', 'lineart_realistic', 'lineart_anime', or 'manga_line'. This choice influences the aesthetic and stylistic outcome of the processed image.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`resolution`**
-    - Defines the resolution for the output image, affecting the detail and quality of the extracted line art.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Defines the resolution for the output image, affecting the detail and quality of the extracted line art.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ### Optional
+
 - **`lineart_lower_bound`**
-    - Sets the lower bound for line art extraction, influencing the minimum intensity of lines to be included in the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the lower bound for line art extraction, influencing the minimum intensity of lines to be included in the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`lineart_upper_bound`**
-    - Sets the upper bound for line art extraction, influencing the maximum intensity of lines to be included in the output.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - Sets the upper bound for line art extraction, influencing the maximum intensity of lines to be included in the output.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`object_min_size`**
-    - Determines the minimum size of objects to be considered in the line art extraction, affecting the granularity of the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Determines the minimum size of objects to be considered in the line art extraction, affecting the granularity of the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`object_connectivity`**
-    - Specifies the connectivity criteria for objects in the line art extraction, impacting how individual lines and shapes are interpreted and connected in the output.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - Specifies the connectivity criteria for objects in the line art extraction, impacting how individual lines and shapes are interpreted and connected in the output.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image with extracted line art, presented in a format suitable for visualization or further artistic processing.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image with extracted line art, presented in a format suitable for visualization or further artistic processing.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AnyLinePreprocessor:
     @classmethod
@@ -109,7 +120,7 @@ class AnyLinePreprocessor:
             lineart_result = common_annotator_call(lineart_detector, image, resolution=resolution, show_pbar=False).numpy()
             del lineart_detector
         pbar.update(1)
-        
+
         final_result = []
         for i in range(len(image)):
             _lineart_result  = get_intensity_mask(lineart_result[i], lower_bound=lineart_lower_bound, upper_bound=lineart_upper_bound)

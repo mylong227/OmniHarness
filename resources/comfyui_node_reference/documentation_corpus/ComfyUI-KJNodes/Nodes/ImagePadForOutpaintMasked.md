@@ -1,63 +1,74 @@
 ---
 tags:
-- Image
-- ImagePadding
-- ImageTransformation
+  - Image
+  - ImagePadding
+  - ImageTransformation
 ---
 
 # Image Pad For Outpaint Masked
+
 ## Documentation
+
 - Class name: `ImagePadForOutpaintMasked`
 - Category: `image`
 - Output node: `False`
 
 This node is designed to adjust the dimensions of an image for outpainting tasks by applying padding to the specified sides of the image. It extends the functionality of outpainting by allowing for masked areas, enabling selective padding and processing based on the mask provided. This is particularly useful in scenarios where the image composition needs to be carefully controlled or when integrating new elements into existing images without affecting certain regions.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image to be processed and padded. It is the primary input on which the node operates, determining the base for padding adjustments.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image to be processed and padded. It is the primary input on which the node operates, determining the base for padding adjustments.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`left`**
-    - The amount of padding to apply to the left side of the image. This parameter directly influences the horizontal expansion of the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The amount of padding to apply to the left side of the image. This parameter directly influences the horizontal expansion of the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`top`**
-    - The amount of padding to apply to the top side of the image. It affects the vertical expansion of the image, particularly on the top edge.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The amount of padding to apply to the top side of the image. It affects the vertical expansion of the image, particularly on the top edge.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`right`**
-    - The calculated amount of padding to apply to the right side of the image, based on the target width, current width, and left padding. It adjusts the horizontal dimensions of the image.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The calculated amount of padding to apply to the right side of the image, based on the target width, current width, and left padding. It adjusts the horizontal dimensions of the image.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`bottom`**
-    - The amount of padding to apply to the bottom side of the image. This parameter influences the vertical expansion of the image on the bottom edge.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The amount of padding to apply to the bottom side of the image. This parameter influences the vertical expansion of the image on the bottom edge.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
 - **`feathering`**
-    - The degree of feathering to apply along the edges of the padding. This parameter controls the smoothness of the transition between the original image and the padded areas.
-    - Comfy dtype: `INT`
-    - Python dtype: `bool`
+  - The degree of feathering to apply along the edges of the padding. This parameter controls the smoothness of the transition between the original image and the padded areas.
+  - Comfy dtype: `INT`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`mask`**
-    - A scaled version of the mask that defines areas to be excluded or differently processed during the padding operation. It allows for selective padding adjustments.
-    - Comfy dtype: `MASK`
-    - Python dtype: `torch.Tensor`
+  - A scaled version of the mask that defines areas to be excluded or differently processed during the padding operation. It allows for selective padding adjustments.
+  - Comfy dtype: `MASK`
+  - Python dtype: `torch.Tensor`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The output is an image with applied padding according to the specified parameters and mask, ready for further processing or outpainting tasks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The output is an image with applied padding according to the specified parameters and mask, ready for further processing or outpainting tasks.
+  - Python dtype: `torch.Tensor`
 - **`mask`**
-    - Comfy dtype: `MASK`
-    - The mask output reflects the areas that were selectively processed or excluded during the padding operation, maintaining the integrity of the original masked regions.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `MASK`
+  - The mask output reflects the areas that were selectively processed or excluded during the padding operation, maintaining the integrity of the original masked regions.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class ImagePadForOutpaintMasked:
 
@@ -111,7 +122,7 @@ class ImagePadForOutpaintMasked:
             mask = F.pad(mask, (left, right, top, bottom), mode='constant', value=0)
             mask = 1 - mask
             t = torch.zeros_like(mask)
-        
+
         if feathering > 0 and feathering * 2 < H and feathering * 2 < W:
 
             for i in range(H):
@@ -133,7 +144,7 @@ class ImagePadForOutpaintMasked:
                         t[:, i, j] = v * v
                     else:
                         t[:, top + i, left + j] = v * v
-        
+
         if mask is None:
             new_mask[:, top:top + H, left:left + W] = t
             return (new_image, new_mask,)

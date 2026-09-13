@@ -1,45 +1,56 @@
 ---
 tags:
-- PromptComposer
+  - PromptComposer
 ---
 
 # Prompt Composer Single Text
+
 ## Documentation
+
 - Class name: `PromptComposerTextSingle`
 - Category: `AI WizArt/Prompt Composer Tools`
 - Output node: `False`
 
 The PromptComposerTextSingle node is designed for composing single text prompts with optional additional text and weight adjustments. It allows for the dynamic creation of prompts based on input text, optional text, and their respective weights, facilitating customized prompt generation for various applications.
+
 ## Input types
+
 ### Required
+
 - **`text`**
-    - The primary text input for the prompt. This text is the main focus of the prompt composition.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The primary text input for the prompt. This text is the main focus of the prompt composition.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`weight`**
-    - A weight applied to the primary text to adjust its influence or importance in the final prompt composition.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - A weight applied to the primary text to adjust its influence or importance in the final prompt composition.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`active`**
-    - A boolean flag indicating whether the prompt composition should be active. If false, the composition may be bypassed or altered.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean flag indicating whether the prompt composition should be active. If false, the composition may be bypassed or altered.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ### Optional
+
 - **`text_in_opt`**
-    - An optional text input that, if provided, is prepended to the main text to form the prompt. It allows for the inclusion of additional context or information.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - An optional text input that, if provided, is prepended to the main text to form the prompt. It allows for the inclusion of additional context or information.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`text_out`**
-    - Comfy dtype: `STRING`
-    - The output text resulting from the composition of the input texts and their weights, formatted as a single string.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The output text resulting from the composition of the input texts and their weights, formatted as a single string.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class PromptComposerTextSingle:
     def __init__(self):

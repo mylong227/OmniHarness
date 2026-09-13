@@ -1,57 +1,66 @@
 ---
 tags:
-- Prompt
-- Text
+  - Prompt
+  - Text
 ---
 
 # Lora Syntax Processor (Mikey)
+
 ## Documentation
+
 - Class name: `LoraSyntaxProcessor`
 - Category: `Mikey/Lora`
 - Output node: `False`
 
 The LoraSyntaxProcessor node is designed to interpret and process specific syntax within text inputs related to LoRA (Low-Rank Adaptation) configurations. It dynamically modifies model and clip parameters based on the LoRA specifications found within the text, enabling customized model behavior and output generation.
+
 ## Input types
+
 ### Required
+
 - **`model`**
-    - The model parameter represents the deep learning model to which LoRA configurations will be applied. It plays a crucial role in the node's operation by being dynamically modified based on the LoRA specifications extracted from the input text.
-    - Comfy dtype: `MODEL`
-    - Python dtype: `torch.nn.Module`
+  - The model parameter represents the deep learning model to which LoRA configurations will be applied. It plays a crucial role in the node's operation by being dynamically modified based on the LoRA specifications extracted from the input text.
+  - Comfy dtype: `MODEL`
+  - Python dtype: `torch.nn.Module`
 - **`clip`**
-    - The clip parameter refers to a specific component or aspect of the model that is targeted for modification through LoRA configurations. It is essential for applying the LoRA adjustments to the correct part of the model.
-    - Comfy dtype: `CLIP`
-    - Python dtype: `torch.nn.Module`
+  - The clip parameter refers to a specific component or aspect of the model that is targeted for modification through LoRA configurations. It is essential for applying the LoRA adjustments to the correct part of the model.
+  - Comfy dtype: `CLIP`
+  - Python dtype: `torch.nn.Module`
 - **`text`**
-    - The text input contains the specific LoRA syntax that will be parsed and processed to extract LoRA configurations. This syntax directs how the model and clip parameters are to be modified.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - The text input contains the specific LoRA syntax that will be parsed and processed to extract LoRA configurations. This syntax directs how the model and clip parameters are to be modified.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`seed`**
-    - The seed parameter is used for initializing random number generators, ensuring that any randomness in the LoRA processing is reproducible.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - The seed parameter is used for initializing random number generators, ensuring that any randomness in the LoRA processing is reproducible.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`model`**
-    - Comfy dtype: `MODEL`
-    - The modified deep learning model after applying the LoRA configurations extracted from the input text.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `MODEL`
+  - The modified deep learning model after applying the LoRA configurations extracted from the input text.
+  - Python dtype: `torch.nn.Module`
 - **`clip`**
-    - Comfy dtype: `CLIP`
-    - The modified clip component of the model after LoRA adjustments have been applied.
-    - Python dtype: `torch.nn.Module`
+  - Comfy dtype: `CLIP`
+  - The modified clip component of the model after LoRA adjustments have been applied.
+  - Python dtype: `torch.nn.Module`
 - **`text`**
-    - Comfy dtype: `STRING`
-    - The input text with all LoRA syntax removed, leaving only the original content for further processing or use.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The input text with all LoRA syntax removed, leaving only the original content for further processing or use.
+  - Python dtype: `str`
 - **`unprocessed_text`**
-    - Comfy dtype: `STRING`
-    - The original text input before any LoRA syntax processing, providing a reference to the initial state of the text.
-    - Python dtype: `str`
+  - Comfy dtype: `STRING`
+  - The original text input before any LoRA syntax processing, providing a reference to the initial state of the text.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class LoraSyntaxProcessor:
     def __init__(self):

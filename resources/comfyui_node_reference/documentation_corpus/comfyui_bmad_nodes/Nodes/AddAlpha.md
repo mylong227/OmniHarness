@@ -1,42 +1,53 @@
 ---
 tags:
-- AlphaChannel
-- Image
+  - AlphaChannel
+  - Image
 ---
 
 # AddAlpha
+
 ## Documentation
+
 - Class name: `AddAlpha`
 - Category: `Bmad/image`
 - Output node: `False`
 
 The `AddAlpha` node is designed to add an alpha channel to RGB images, allowing for the manipulation of image transparency. It supports optional inversion of the alpha channel, providing flexibility in handling transparency effects.
+
 ## Input types
+
 ### Required
+
 - **`rgb_image`**
-    - The RGB image to which an alpha channel will be added. This is the primary image input for transparency manipulation.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The RGB image to which an alpha channel will be added. This is the primary image input for transparency manipulation.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
+
 ### Optional
+
 - **`alpha`**
-    - An optional alpha channel to be added to the RGB image. If provided, it specifies the transparency levels for the image.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - An optional alpha channel to be added to the RGB image. If provided, it specifies the transparency levels for the image.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`method`**
-    - An optional method specifying how the alpha channel should be applied. It can either add the alpha channel directly or invert it, affecting the transparency effect.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - An optional method specifying how the alpha channel should be applied. It can either add the alpha channel directly or invert it, affecting the transparency effect.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The resulting image with an alpha channel added, enabling transparency manipulation.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The resulting image with an alpha channel added, enabling transparency manipulation.
+  - Python dtype: `torch.Tensor`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class AddAlpha:
     method = ["default", "invert"]

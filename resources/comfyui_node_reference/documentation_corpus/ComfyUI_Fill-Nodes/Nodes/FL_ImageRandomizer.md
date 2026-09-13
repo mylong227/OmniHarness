@@ -1,45 +1,54 @@
 ---
 tags:
-- Image
-- Multimedia
+  - Image
+  - Multimedia
 ---
 
 # FL Image Randomizer
+
 ## Documentation
+
 - Class name: `FL_ImageRandomizer`
 - Category: `🏵️Fill Nodes`
 - Output node: `False`
 
 The FL_ImageRandomizer node is designed to select and process images from a specified directory, offering options for random selection or sequential access. It enhances image handling in workflows by providing a flexible way to work with image datasets, including randomization features for varied outputs.
+
 ## Input types
+
 ### Required
+
 - **`directory_path`**
-    - Specifies the filesystem path to the directory containing images. It is essential for locating and loading the images to be processed.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - Specifies the filesystem path to the directory containing images. It is essential for locating and loading the images to be processed.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`randomize`**
-    - A boolean toggle that determines whether images are selected randomly or sequentially. This affects the diversity and unpredictability of the output.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - A boolean toggle that determines whether images are selected randomly or sequentially. This affects the diversity and unpredictability of the output.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`run_trigger`**
-    - A dummy input used to trigger the node's execution, helping to circumvent caching issues.
-    - Comfy dtype: `INT`
-    - Python dtype: `int`
+  - A dummy input used to trigger the node's execution, helping to circumvent caching issues.
+  - Comfy dtype: `INT`
+  - Python dtype: `int`
+
 ## Output types
+
 - **`image`**
-    - Comfy dtype: `IMAGE`
-    - The processed image, returned as a tensor, suitable for further image processing or visualization tasks.
-    - Python dtype: `torch.Tensor`
+  - Comfy dtype: `IMAGE`
+  - The processed image, returned as a tensor, suitable for further image processing or visualization tasks.
+  - Python dtype: `torch.Tensor`
 - **`path`**
-    - Comfy dtype: `PATH`
-    - The filesystem path of the selected image, providing context or for use in subsequent operations.
-    - Python dtype: `str`
+  - Comfy dtype: `PATH`
+  - The filesystem path of the selected image, providing context or for use in subsequent operations.
+  - Python dtype: `str`
+
 ## Usage tips
+
 - Infra type: `CPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class FL_ImageRandomizer:
     @classmethod

@@ -1,64 +1,75 @@
 # Deep Danbooru Caption
+
 ## Documentation
+
 - Class name: `DeepDanbooruCaption`
 - Category: `Art Venture/Utils`
 - Output node: `False`
 
 The DeepDanbooruCaption node is designed to generate captions for images using the DeepDanbooru model. It processes images to identify and describe their content with tags, optionally applying a prefix and suffix to each caption, and can be configured to filter tags, adjust thresholds, and sort tags alphabetically.
+
 ## Input types
+
 ### Required
+
 - **`image`**
-    - The image to be captioned. It is the primary input for generating captions.
-    - Comfy dtype: `IMAGE`
-    - Python dtype: `torch.Tensor`
+  - The image to be captioned. It is the primary input for generating captions.
+  - Comfy dtype: `IMAGE`
+  - Python dtype: `torch.Tensor`
 - **`threshold`**
-    - The confidence threshold for including tags in the caption. Tags with confidence below this threshold are excluded.
-    - Comfy dtype: `FLOAT`
-    - Python dtype: `float`
+  - The confidence threshold for including tags in the caption. Tags with confidence below this threshold are excluded.
+  - Comfy dtype: `FLOAT`
+  - Python dtype: `float`
 - **`sort_alpha`**
-    - Determines whether the tags should be sorted alphabetically in the caption.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Determines whether the tags should be sorted alphabetically in the caption.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`use_spaces`**
-    - Controls whether spaces should be used between tags in the caption.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Controls whether spaces should be used between tags in the caption.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`escape`**
-    - Indicates whether special characters in tags should be escaped.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Indicates whether special characters in tags should be escaped.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
 - **`filter_tags`**
-    - A list of tags to be excluded from the captions.
-    - Comfy dtype: `STRING`
-    - Python dtype: `List[str]`
+  - A list of tags to be excluded from the captions.
+  - Comfy dtype: `STRING`
+  - Python dtype: `List[str]`
+
 ### Optional
+
 - **`device_mode`**
-    - Specifies the device mode (e.g., CPU, GPU, AUTO) for running the DeepDanbooru model.
-    - Comfy dtype: `COMBO[STRING]`
-    - Python dtype: `str`
+  - Specifies the device mode (e.g., CPU, GPU, AUTO) for running the DeepDanbooru model.
+  - Comfy dtype: `COMBO[STRING]`
+  - Python dtype: `str`
 - **`prefix`**
-    - A prefix to be added before each caption.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A prefix to be added before each caption.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`suffix`**
-    - A suffix to be added after each caption.
-    - Comfy dtype: `STRING`
-    - Python dtype: `str`
+  - A suffix to be added after each caption.
+  - Comfy dtype: `STRING`
+  - Python dtype: `str`
 - **`enabled`**
-    - Enables or disables the captioning functionality.
-    - Comfy dtype: `BOOLEAN`
-    - Python dtype: `bool`
+  - Enables or disables the captioning functionality.
+  - Comfy dtype: `BOOLEAN`
+  - Python dtype: `bool`
+
 ## Output types
+
 - **`caption`**
-    - Comfy dtype: `STRING`
-    - The generated captions for the input image, potentially modified by prefix and suffix.
-    - Python dtype: `List[str]`
+  - Comfy dtype: `STRING`
+  - The generated captions for the input image, potentially modified by prefix and suffix.
+  - Python dtype: `List[str]`
+
 ## Usage tips
+
 - Infra type: `GPU`
 - Common nodes: unknown
 
-
 ## Source code
+
 ```python
 class DeepDanbooruCaption:
     def __init__(self):
