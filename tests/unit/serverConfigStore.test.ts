@@ -104,3 +104,18 @@ test('ServerConfigStore：未提供 configPath 时按工作区推断落盘路径
     assert.ok(existsSync(join(ws, configFile.FILE_NAME)));
   });
 });
+
+test('ServerConfigStore.update：permission 规则可持久化，非法规则 fail-closed', async () => {
+  await withStore(async (ws, store) => {
+    await store.update({
+      permission: { rules: [{ toolName: 'shell', commandGlob: '*curl *', decision: 'deny' }] },
+    });
+    const persisted = configFile.load(join(ws, configFile.FILE_NAME));
+    assert.strictEqual(persisted.permission?.rules?.[0]?.commandGlob, '*curl *');
+    // 非法裁决经 normalizeConfig 拒绝（fail-closed），不得静默落盘
+    await assert.rejects(
+      store.update({ permission: { rules: [{ decision: 'maybe' }] } }),
+      /permission/,
+    );
+  });
+});

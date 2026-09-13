@@ -9,6 +9,7 @@ import type { FileConfig } from './configFile.js';
 import { OmniError, ErrorCode } from '../omniError.js';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { permissionConfigValidator } from './permissionConfigValidator.js';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -40,6 +41,7 @@ const STRING_FIELDS: ReadonlySet<string> = new Set([
   'storageDir',
   'workspace',
   'pluginProfile',
+  'extends',
 ]);
 
 /** 允许的数字字段。 */
@@ -60,6 +62,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'modelRouter',
   'providerKeys',
   'workspaces',
+  'permission',
 ]);
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
@@ -290,6 +293,14 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   validateWorkspaces,
   validateModelRouter,
   validateProviderKeys,
+  // permission 段（A2）：校验逻辑在独立类内（避免本文件越「一文件一类」红线），
+  // 此处以箭头注册项接入——抛出统一以 ConfigError 表达，保证 fail-closed 语义一致。
+  (cfg: FileConfig): void => {
+    const message = permissionConfigValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
 ];
 
 /**

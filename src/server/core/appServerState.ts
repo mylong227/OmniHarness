@@ -68,6 +68,10 @@ export const PERSISTABLE_KEYS: readonly string[] = [
   'escalation',
   'elevatedSandbox',
   'maxSteps',
+  // A2：参数级权限规则（permission.rules / defaultDecision）。与手改 omniharness.json 等价，
+  // 经 configFile.save → normalizeConfig 严格校验落盘；规则只能收紧（deny）或改默认裁决，
+  // 不放宽 sandbox / approval 轴，故纳管风险与既有的 approval/sandbox 同量级。
+  'permission',
 ];
 
 /** 图运行中单节点状态。 */

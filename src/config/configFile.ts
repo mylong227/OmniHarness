@@ -17,6 +17,39 @@ export interface FileMcpServer {
   readonly args?: readonly string[];
 }
 
+/** 权限规则裁决（配置文件形态）。 */
+export type PermissionRuleDecision = 'allow' | 'deny' | 'ask';
+
+/**
+ * 单条权限规则（配置文件形态）：工具级 + 命令级（前缀或 glob）约束。
+ *
+ * 与适配层的 `ApprovalRule` 结构等价但**分层独立**——配置层不依赖适配层（六边形依赖方向）。
+ * 装配时由 CLI 构建层映射为 `ApprovalRule`。
+ */
+export interface PermissionRuleConfig {
+  /** 限定工具名（未声明则不限制工具）。 */
+  readonly toolName?: string;
+  /** 命令前缀约束（`startsWith` 匹配）。 */
+  readonly commandPrefix?: string;
+  /** 命令 glob 约束（`*` 任意串 / `?` 单字符，整串匹配）。 */
+  readonly commandGlob?: string;
+  /** 命中后的裁决。 */
+  readonly decision: PermissionRuleDecision;
+}
+
+/**
+ * 权限配置段（omniharness.json 的 `permission` 字段）。
+ *
+ * 用于把「多档权限」的参数级规则外置为可配置项：`rules` 与内置规则合并后交规则审批，
+ * 使「拒绝任何含 `curl | sh` 的命令」这类策略无需改代码即可生效。
+ */
+export interface PermissionConfig {
+  /** 用户自定义规则（与内置规则合并，聚合语义 deny 优先）。 */
+  readonly rules?: readonly PermissionRuleConfig[];
+  /** 规则未命中时的默认裁决（缺省 allow，保持既有零行为变更）。 */
+  readonly defaultDecision?: PermissionRuleDecision;
+}
+
 /** 配置文件内容（omniharness.json，端口选择）。 */
 export interface FileConfig {
   readonly mcpServers?: readonly FileMcpServer[];
@@ -35,6 +68,16 @@ export interface FileConfig {
   /** 推理强度（#B6，可选）：minimal / low / medium / high / xhigh，透传为模型 reasoning_effort。 */
   readonly reasoning?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   readonly sandbox?: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
+  /**
+   * 权限参数级规则（A2）：与内置规则合并后交规则审批（`approval: 'rules'` 生效）。
+   * 支持 `commandGlob`（`*`/`?` 通配），使「拒绝含某子串的命令」无需改代码即可配置。
+   */
+  readonly permission?: PermissionConfig;
+  /**
+   * profile 继承（A2）：本 profile 以另一 profile 为父，未声明字段继承父 profile 的值。
+   * 仅在 `--profile` 加载的 profile 文件内有效；父 profile 相对本文件所在目录解析。
+   */
+  readonly extends?: string;
   readonly escalation?: 'deny' | 'ask' | 'auto';
   /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
   readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
