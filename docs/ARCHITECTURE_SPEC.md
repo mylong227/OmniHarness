@@ -45,7 +45,7 @@ src/
 | `ports/`         | 端口层   | 全部端口接口与纯类型契约；**零实现、零第三方、零 class 行为**                           | 无（仅 ports 互引类型）               |
 | `core/`          | 核心层   | 业务编排：agent 主循环、step 执行、审批/沙箱门禁、检查点                                | 仅 `ports/**`、`util/**`、`errors/**` |
 | `adapters/`      | 适配器层 | 端口实现：model/memory/tool/sandbox/kv/vault/lsp/git/diff/live/embedding/approval/skill | `ports/**`、第三方 IO（唯一允许层）   |
-| `context/`       | 核心域   | 上下文引擎：repo-map、检索、压缩、装配（零第三方）                                      | `ports/**`、`util/**`                 |
+| `context/`       | 核心域   | 上下文引擎：repo-map、检索、压缩、装配、spill 策略（零第三方）                          | `ports/**`、`util/**`                 |
 | `server/`        | 接入层   | AppServer/RPC 承载、HTTP/WS 传输、工作台服务                                            | `ports/**`、`core/**` 装配产物        |
 | `cli/`           | 接入层   | 命令行入口、参数解析、子命令                                                            | `ports/**`、装配函数                  |
 | `sdk/`           | 接入层   | 嵌入方 SDK（WebSocket 流式客户端）                                                      | `ports/**`                            |
@@ -67,7 +67,7 @@ src/
 | `plugin/`        | 扩展域   | 插件宿主、打包、注册源                                                                  | `ports/**`                            |
 | `subagent/`      | 编排域   | 子代理编排器、运行时工厂、worktree                                                      | `ports/**`、`worker/**`               |
 | `worker/`        | 执行域   | DSH 子进程 worker                                                                       | 无第三方                              |
-| `lsp/`           | 协议域   | LSP 进程适配层（顶层，另见 `adapters/lsp`；P3.2 待收敛）                                | `util/**`                             |
+| ~~`lsp/`~~       | 已收敛   | 原 LSP 顶层目录已并入 `adapters/lsp/`（P3.2，2026-09-13）                               | —                                     |
 | `native/`        | 原生桥   | Rust 内核加载器（`.node`）                                                              | 无                                    |
 | `observability/` | 观测域   | 指标/追踪导出                                                                           | `util/**`                             |
 | `autonomy/`      | 编排域   | 工作流循环错误与自治循环                                                                | `ports/**`                            |
@@ -75,7 +75,7 @@ src/
 | `tui/`           | 呈现域   | 终端渲染                                                                                | 无第三方                              |
 | `daemon/`        | 执行域   | 常驻进程例行任务                                                                        | `ports/**`                            |
 | `hooksCompat/`   | 兼容层   | 旧钩子兼容垫片                                                                          | `util/**`                             |
-| `code/`          | 兼容层   | 代码域工具（归属待 P3.2 复核收敛）                                                      | `util/**`                             |
+| ~~`code/`~~      | 已收敛   | 原代码执行工具已并入 `adapters/tool/code/`（P3.2，2026-09-13）                          | —                                     |
 
 ---
 
