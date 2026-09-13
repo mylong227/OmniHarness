@@ -1,11 +1,6 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import type {
-  ToolCall,
-  ToolContext,
-  ToolDefinition,
-  ToolResult,
-} from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
 import { OutputDecoder } from '../../util/outputDecoder.js';
 import { log } from '../../util/logger.js';
 
@@ -29,12 +24,20 @@ export interface ShellToolOptions {
 
 /** 内置 shell 工具：在工作区内执行命令。 */
 export class ShellTool {
+  /** 子进程输出解码器（处理 GBK/UTF-8 等编码容错）。 */
   private readonly decoder = new OutputDecoder();
+  /** 单条命令超时（毫秒）。 */
   private readonly timeoutMs: number;
+  /** stdout/stderr 缓冲上限（字节），超出即报错。 */
   private readonly maxBufferBytes: number;
+  /** 命令文本长度上限（字符）。 */
   private readonly maxCommandLength: number;
+  /** 可选命令裁决器：返回错误说明即拒绝执行（未配置则不额外裁决）。 */
   private readonly guard: ShellToolOptions['guard'];
 
+  /**
+   * @param options shell 工具选项（超时/缓冲/长度上限与可选裁决器，全有默认）。
+   */
   public constructor(options: ShellToolOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxBufferBytes = options.maxBufferBytes ?? 1024 * 1024;
@@ -64,6 +67,10 @@ export class ShellTool {
    * - 本工具只负责资源护栏：空命令拒绝、超长命令拒绝、超时、输出上限；
    * - 若 `workspaceRoot` 为空（调用方未注入），退回进程 cwd 并告警——这是已知的宽松路径，
    *   收紧它属于行为变更，需调用方显式确认后再开启。
+   *
+   * @param call 工具调用（实参须含 command 字符串）。
+   * @param context 工具上下文（workspaceRoot、sessionId 等）。
+   * @returns 执行结果：成功附 stdout/stderr 组合输出；校验失败、超时或命令非零/异常时失败。
    */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const command = String(call.arguments['command'] ?? '').trim();
@@ -71,10 +78,7 @@ export class ShellTool {
       return this.failure(call.id, '命令为空');
     }
     if (command.length > this.maxCommandLength) {
-      return this.failure(
-        call.id,
-        `命令过长（${command.length} > ${this.maxCommandLength} 字符）`,
-      );
+      return this.failure(call.id, `命令过长（${command.length} > ${this.maxCommandLength} 字符）`);
     }
 
     const denial = this.guard?.(command, context);
@@ -96,7 +100,10 @@ export class ShellTool {
       const rawNodeOptions = process.env.NODE_OPTIONS ?? '';
       const cleanedNodeOptions = rawNodeOptions
         .split(/\s+/)
-        .filter((opt) => opt !== '' && !/node-language-shim\.cjs|node-safe-delete|node-brokered-fs/i.test(opt))
+        .filter(
+          (opt) =>
+            opt !== '' && !/node-language-shim\.cjs|node-safe-delete|node-brokered-fs/i.test(opt),
+        )
         .join(' ');
       const env: NodeJS.ProcessEnv = {
         ...process.env,
@@ -117,7 +124,11 @@ export class ShellTool {
     }
   }
 
-  /** 组装 stdout/stderr 输出。 */
+  /** 组装 stdout/stderr 输出。
+   * @param stdout 解码后的标准输出。
+   * @param stderr 解码后的标准错误。
+   * @returns 组合文本：stdout 在前，stderr 以 `[stderr]` 前缀追加。
+   */
   private composeOutput(stdout: string, stderr: string): string {
     const parts: string[] = [];
     if (stdout !== '') {
@@ -129,7 +140,11 @@ export class ShellTool {
     return parts.join('\n');
   }
 
-  /** 构造失败结果。 */
+  /** 构造失败结果。
+   * @param callId 工具调用 ID。
+   * @param error 抛出的错误（Error 或任意值）。
+   * @returns ok=false 的工具结果（错误消息已提取）。
+   */
   private failure(callId: string, error: unknown): ToolResult {
     const detail = error instanceof Error ? error.message : String(error);
     return { callId, ok: false, error: detail };

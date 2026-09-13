@@ -15,7 +15,10 @@ export class UnsupportedSandbox implements SandboxPort {
     this.name = profileName;
   }
 
-  /** 一律拒绝，附平台不支持原因。 */
+  /** 一律拒绝，附平台不支持原因。
+   * @param _action 沙箱动作（占位后端不做裁决区分，忽略）。
+   * @returns 恒为 `{ allowed: false }`（fail-closed，类别 'os'）。
+   */
   public async check(_action: SandboxAction): Promise<SandboxDecision> {
     return { allowed: false, reason: `平台不支持的沙箱后端: ${this.reason}`, category: 'os' };
   }

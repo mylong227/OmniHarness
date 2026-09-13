@@ -34,9 +34,16 @@ export class RememberTool {
     },
   };
 
+  /**
+   * @param memory 长期记忆端口（事实落盘与计数均经它）。
+   */
   public constructor(private readonly memory: LongTermMemoryPort) {}
 
-  /** 写入一条长期记忆事实。 */
+  /** 写入一条长期记忆事实。
+   * @param call 工具调用（实参含 fact，可选 topic/importance）。
+   * @param context 工具上下文（取 sessionId 记录事实来源会话）。
+   * @returns 执行结果：JSON 文本含存储标志、事实 id 与当前总数；fact 为空返回失败。
+   */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const factText = String(call.arguments['fact'] ?? '').trim();
     if (factText === '') {

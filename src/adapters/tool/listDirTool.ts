@@ -17,9 +17,16 @@ export class ListDirTool {
     },
   };
 
+  /**
+   * @param workspaceRoot 工作区根目录（目录目标必须落在其内，越界即拒绝）。
+   */
   public constructor(private readonly workspaceRoot: string) {}
 
-  /** 列出目录。 */
+  /** 列出目录。
+   * @param call 工具调用（实参可选 path，默认根目录）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：成功附条目列表（`[d]`/`[f]` 前缀）；越界或读取失败返回失败。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '.');
     const guard = new WorkspaceGuard(this.workspaceRoot);
@@ -35,7 +42,10 @@ export class ListDirTool {
     }
   }
 
-  /** 提取错误消息。 */
+  /** 提取错误消息。
+   * @param error 抛出的任意值。
+   * @returns Error 取 message，其余转字符串。
+   */
   private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

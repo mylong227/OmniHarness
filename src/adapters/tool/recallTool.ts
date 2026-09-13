@@ -31,9 +31,16 @@ export class RecallTool {
     },
   };
 
+  /**
+   * @param memory 长期记忆端口（召回与打分/衰减由它负责）。
+   */
   public constructor(private readonly memory: LongTermMemoryPort) {}
 
-  /** 召回相关长期记忆事实。 */
+  /** 召回相关长期记忆事实。
+   * @param call 工具调用（实参含 query，可选 limit）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：JSON 文本含命中数与各事实（主题/文本/重要度）；query 为空返回失败。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '').trim();
     if (query === '') {

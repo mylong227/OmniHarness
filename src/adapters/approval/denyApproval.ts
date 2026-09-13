@@ -7,7 +7,10 @@ export class DenyApproval implements ApprovalPort {
    */
   public readonly name = 'deny';
 
-  /** 全部拒绝。 */
+  /** 全部拒绝。
+   * @param _request 审批请求（本实现不做任何检查，忽略）。
+   * @returns 恒为 'deny'（fail-closed）。
+   */
   public async decide(_request: ApprovalRequest): Promise<ApprovalDecision> {
     return 'deny';
   }

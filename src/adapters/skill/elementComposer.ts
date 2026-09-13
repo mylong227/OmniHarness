@@ -29,13 +29,19 @@ const DEFAULT_TABLE: readonly ElementDef[] = [
 export class ElementComposer implements ElementComposerPort {
   /** 端口名：元素组合基元标识，与 ElementComposerPort 契约的命名空间一致。 */
   public readonly name = 'element-composer';
+  /** 元素周期表：元素符号 → 元素定义（价与能力标签）。 */
   private readonly table: Map<string, ElementDef>;
 
+  /**
+   * @param table 元素定义表（默认内置有限基元集）。
+   */
   public constructor(table: readonly ElementDef[] = DEFAULT_TABLE) {
     this.table = new Map(table.map((e) => [e.symbol, e]));
   }
 
-  /** 元素周期表（构造时注册的有限基元集）。 */
+  /** 元素周期表（构造时注册的有限基元集）。
+   * @returns 全部元素定义数组。
+   */
   public elements(): readonly ElementDef[] {
     return [...this.table.values()];
   }

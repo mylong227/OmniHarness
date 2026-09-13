@@ -31,10 +31,19 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   /** 适配器标识：用于端口注册与诊断日志归组（固定值 'file-longterm'）。 */
   public readonly name = 'file-longterm';
 
+  /** 事实数组（插入序；数组下标即 BM25 文档 id）。 */
   private facts: MemoryFact[] = [];
+  /** BM25 倒排索引（懒构建；脏时在下次召回前重建）。 */
   private bm25: Bm25Index | undefined;
+  /** 脏标记：事实集变化（load/update/delete）后置真，触发索引重建。 */
   private dirty = false;
 
+  /**
+   * @param path JSONL 存储文件路径。
+   * @param codec 每行文本编解码器（默认恒等；可注入 AES-GCM 加密编解码）。
+   * @param halfLifeDays 时间衰减半衰期（天），召回重排用，默认 90。
+   * @param clock 时钟函数（毫秒时间戳），测试可注入固定时钟，默认 Date.now。
+   */
   public constructor(
     private readonly path: string,
     private readonly codec: TextCodec = { encode: (t) => t, decode: (t) => t },
@@ -44,7 +53,9 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     this.load();
   }
 
-  /** 从 JSONL 重载既有事实（进程重启后跨会话记忆恢复）。 */
+  /** 从 JSONL 重载既有事实（进程重启后跨会话记忆恢复）。
+   * @returns 无返回值。
+   */
   private load(): void {
     if (!existsSync(this.path)) {
       return;
@@ -65,7 +76,10 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     this.dirty = true;
   }
 
-  /** 写入一条持久事实（内存追加 + 落盘）。 */
+  /** 写入一条持久事实（内存追加 + 落盘）。
+   * @param fact 待写入的持久事实。
+   * @returns 无返回值。
+   */
   public remember(fact: MemoryFact): void {
     this.facts.push(fact);
     this.dirty = true;
@@ -105,7 +119,9 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
 
-  /** 全部事实。 */
+  /** 全部事实。
+   * @returns 全部事实列表（插入序）。
+   */
   public all(): readonly MemoryFact[] {
     return this.facts;
   }
@@ -115,12 +131,19 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     return this.facts.length;
   }
 
-  /** 按 ID 取单条事实。 */
+  /** 按 ID 取单条事实。
+   * @param id 事实 id。
+   * @returns 对应事实；不存在时为 undefined。
+   */
   public get(id: string): MemoryFact | undefined {
     return this.facts.find((fact) => fact.id === id);
   }
 
-  /** 编辑一条事实（内存 + 整文件原子重写）。 */
+  /** 编辑一条事实（内存 + 整文件原子重写）。
+   * @param id 要编辑的事实 id。
+   * @param patch 增量补丁（文本/主题/重要性可选；重要性夹紧到 1-5）。
+   * @returns 是否编辑成功（id 不存在为 false）。
+   */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const idx = this.facts.findIndex((fact) => fact.id === id);
     if (idx === -1) {
@@ -139,7 +162,10 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     return true;
   }
 
-  /** 删除一条事实（内存 + 整文件原子重写）。 */
+  /** 删除一条事实（内存 + 整文件原子重写）。
+   * @param id 要删除的事实 id。
+   * @returns 是否删除成功（id 不存在为 false）。
+   */
   public delete(id: string): boolean {
     const idx = this.facts.findIndex((fact) => fact.id === id);
     if (idx === -1) {
@@ -150,7 +176,9 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     return true;
   }
 
-  /** 用全量事实原子重写文件（temp + rename，避免半写损坏）。 */
+  /** 用全量事实原子重写文件（temp + rename，避免半写损坏）。
+   * @returns 无返回值。
+   */
   private persistAll(): void {
     this.dirty = true;
     try {
@@ -165,7 +193,9 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     }
   }
 
-  /** 用全量事实重建 BM25 索引。 */
+  /** 用全量事实重建 BM25 索引。
+   * @returns 无返回值。
+   */
   private rebuild(): void {
     const next = new Bm25Index();
     next.addDocuments(this.facts.map((fact) => tokenize(fact.text)));

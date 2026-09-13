@@ -28,16 +28,24 @@ export class AesGcmTextCodec implements TextCodec {
   /** 编解码器名称（标识此 AES-256-GCM 实现）。 */
   public readonly name = 'aes-256-gcm';
 
+  /** 主密钥来源优先级 1 的环境变量名。 */
   private readonly envVar: string;
+  /** 主密钥来源优先级 2 的密钥文件路径（首次使用自动生成并 0600 落盘）。 */
   private readonly keyFile?: string;
+  /** 已解析的 32 字节主密钥缓存（懒加载，避免重复读环境变量/文件）。 */
   private key: Buffer | undefined;
 
+  /**
+   * @param options 编解码器选项（环境变量名与密钥文件路径，均有默认）。
+   */
   public constructor(options?: { envVar?: string; keyFile?: string }) {
     this.envVar = options?.envVar ?? 'OMNIHARNESS_MEMORY_KEY';
     this.keyFile = options?.keyFile;
   }
 
-  /** 解析 32 字节 AES-256 主密钥（带缓存）。 */
+  /** 解析 32 字节 AES-256 主密钥（带缓存）。
+   * @returns 主密钥（环境变量 → 密钥文件 → 兜底随机的级联结果）。
+   */
   private resolveKey(): Buffer {
     if (this.key !== undefined) {
       return this.key;
@@ -68,7 +76,10 @@ export class AesGcmTextCodec implements TextCodec {
     return this.key;
   }
 
-  /** 从可读口令派生定长密钥（SHA-256）。 */
+  /** 从可读口令派生定长密钥（SHA-256）。
+   * @param secret 可读口令（环境变量内容或密钥文件内容）。
+   * @returns 32 字节派生密钥。
+   */
   private derive(secret: string): Buffer {
     return createHash('sha256').update(secret, 'utf8').digest();
   }

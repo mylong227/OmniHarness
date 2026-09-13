@@ -7,7 +7,10 @@ export class AutoApproval implements ApprovalPort {
    */
   public readonly name = 'auto';
 
-  /** 全部放行。 */
+  /** 全部放行。
+   * @param _request 审批请求（本实现不做任何检查，忽略）。
+   * @returns 恒为 'allow'。
+   */
   public async decide(_request: ApprovalRequest): Promise<ApprovalDecision> {
     return 'allow';
   }

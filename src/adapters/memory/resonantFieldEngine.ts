@@ -65,16 +65,28 @@ export class ResonantFieldEngine
   private readonly spectra = new Map<string, Spectrum>();
   /** 共振簇（拓扑，进程内）。 */
   private readonly clusters = new Map<string, Cluster>();
+  /** 已登记的事实 id 全集（含仅入谱未落盘的黏附成员），用于去重与坍缩清理。 */
   private readonly knownIds = new Set<string>();
+  /** 簇 id 自增序列号（保证簇 id 唯一且重启后继续递增）。 */
   private clusterSeq = 0;
 
+  /** 黏附半径（共振度阈值）：新事实与簇共振≥此值则并入该簇而不落盘。 */
   private readonly adhesionThreshold: number;
+  /** Bekenstein 容量界：簇数硬上限，超过即触发 RG 粗粒化坍缩。 */
   private readonly bekensteinCap: number;
+  /** 纤维边阈值：两簇质心共振≥此值时计为一条纤维边。 */
   private readonly edgeThreshold: number;
+  /** 本征谱分箱数：文本 → 频率谱的维度。 */
   private readonly bins: number;
+  /** 时间衰减半衰期（天）：召回重排用的衰减参数。 */
   private readonly halfLifeDays: number;
+  /** 时钟函数（毫秒时间戳），测试可注入固定时钟。 */
   private readonly clock: () => number;
 
+  /**
+   * @param base 被包装的底层长期记忆端口（标准读写与落盘全部委托给它）。
+   * @param opts 引擎选项（阈值/容量界/分箱/半衰期/时钟，全有保守默认）。
+   */
   public constructor(
     private readonly base: LongTermMemoryPort,
     opts: ResonantFieldOptions = {},
@@ -88,7 +100,9 @@ export class ResonantFieldEngine
     this.seed();
   }
 
-  /** 从 base 重新播种谱与簇（重启恢复；abstract 事实恢复为簇质心）。 */
+  /** 从 base 重新播种谱与簇（重启恢复；abstract 事实恢复为簇质心）。
+   * @returns 无返回值。
+   */
   private seed(): void {
     this.spectra.clear();
     this.clusters.clear();
@@ -114,6 +128,7 @@ export class ResonantFieldEngine
    * 写入一条事实：已知 id 仅刷新频谱索引；新事实与既有簇共振度 ≥ 黏附阈值时并入该簇
    * （Burgers 黏附去重，不重复写 base），否则写入 base 并登记为新簇质心。
    * @param fact 待写入的持久事实。
+   * @returns 无返回值。
    */
   public remember(fact: MemoryFact): void {
     if (this.knownIds.has(fact.id)) {
@@ -272,6 +287,9 @@ export class ResonantFieldEngine
     return { nodes: this.clusters.size, collapsed, fibers: this.computeFibers() };
   }
 
+  /** 统计当前纤维边数：两两簇质心共振≥边阈值即计一条。
+   * @returns 满足阈值的簇对（纤维边）总数。
+   */
   private computeFibers(): number {
     const ids = [...this.clusters.keys()];
     let fibers = 0;
@@ -311,18 +329,28 @@ export class ResonantFieldEngine
     const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
     return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
-  /** 全部事实（委托 base，供导出/调试）。 */
+  /** 全部事实（委托 base，供导出/调试）。
+   * @returns base 中的全部事实列表。
+   */
   public all(): readonly MemoryFact[] {
     return this.base.all();
   }
+  /** 当前事实总数（委托 base）。 */
   public get count(): number {
     return this.base.count;
   }
-  /** 按 id 取出事实（委托 base）；缺失返回 undefined。 */
+  /** 按 id 取出事实（委托 base）；缺失返回 undefined。
+   * @param id 事实 id。
+   * @returns 对应事实；不存在时为 undefined。
+   */
   public get(id: string): MemoryFact | undefined {
     return this.base.get(id);
   }
-  /** 更新事实（委托 base），成功后同步刷新其频谱索引；返回是否更新成功。 */
+  /** 更新事实（委托 base），成功后同步刷新其频谱索引；返回是否更新成功。
+   * @param id 要更新的事实 id。
+   * @param patch 增量补丁（文本/重要性/主题等字段可选）。
+   * @returns 是否更新成功（id 不存在为 false）。
+   */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.base.update(id, patch);
     if (ok) {

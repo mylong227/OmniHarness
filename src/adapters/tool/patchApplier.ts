@@ -1,21 +1,32 @@
 /** Unified diff 应用结果。 */
 export interface PatchApplierResult {
+  /** 应用是否成功。 */
   readonly ok: boolean;
+  /** 补丁目标文件（解析成功时提供）。 */
   readonly targetFile?: string;
+  /** 应用后的新文件内容（成功时提供）。 */
   readonly newContent?: string;
+  /** 失败原因（失败时提供）。 */
   readonly error?: string;
 }
 
 /** 补丁 hunk。 */
 interface Hunk {
+  /** 旧文件起始行号（1 起）。 */
   readonly oldStart: number;
+  /** 旧文件中被替换的行数。 */
   readonly oldCount: number;
+  /** hunk 体行（前缀 ' '/'-'/'+'/'\'）。 */
   lines: string[];
 }
 
 /** Unified diff 应用器：解析并应用到文件内容（纯逻辑，失败不改动原内容）。 */
 export class PatchApplier {
-  /** 应用补丁。 */
+  /** 应用补丁。
+   * @param original 原文件内容。
+   * @param patch unified diff 补丁文本。
+   * @returns 应用结果：成功附目标文件与新内容；任一 hunk 失败即整体失败且不改动原内容。
+   */
   public apply(original: string, patch: string): PatchApplierResult {
     const parsed = this.parse(patch);
     if (!parsed.ok) {
@@ -33,7 +44,10 @@ export class PatchApplier {
     return { ok: true, targetFile: parsed.targetFile, newContent: lines.join('\n') };
   }
 
-  /** 解析补丁（仅取目标文件与 hunk，供调用方先校验）。 */
+  /** 解析补丁（仅取目标文件与 hunk，供调用方先校验）。
+   * @param patch unified diff 补丁文本。
+   * @returns 解析成功附目标文件与 hunk 列表；缺少文件头或有效 hunk 时附错误。
+   */
   public parse(
     patch: string,
   ): { ok: true; targetFile: string; hunks: readonly Hunk[] } | { ok: false; error: string } {
@@ -48,7 +62,10 @@ export class PatchApplier {
     return { ok: true, targetFile, hunks };
   }
 
-  /** 提取目标文件。 */
+  /** 提取目标文件。
+   * @param patch 补丁文本。
+   * @returns `+++` 头中的目标文件路径（剥 a/ b/ 前缀）；缺失返回空串。
+   */
   private targetFileOf(patch: string): string {
     for (const line of patch.split('\n')) {
       if (line.startsWith('+++ ')) {
@@ -61,7 +78,10 @@ export class PatchApplier {
     return '';
   }
 
-  /** 解析全部 hunk。 */
+  /** 解析全部 hunk。
+   * @param patch 补丁文本。
+   * @returns hunk 数组（按出现顺序）；无有效 hunk 或头部非法时为 undefined。
+   */
   private parseHunks(patch: string): readonly Hunk[] | undefined {
     const hunks: Hunk[] = [];
     let current: Hunk | undefined;
@@ -80,7 +100,10 @@ export class PatchApplier {
     return hunks.length > 0 ? hunks : undefined;
   }
 
-  /** 解析 hunk 头。 */
+  /** 解析 hunk 头。
+   * @param line `@@ -oldStart[,oldCount] ...` 格式的头行。
+   * @returns 旧文件起始行与行数；格式非法为 undefined。
+   */
   private parseHeader(line: string): { oldStart: number; oldCount: number } | undefined {
     const match = line.match(/^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@/);
     if (match === null) {
@@ -89,7 +112,12 @@ export class PatchApplier {
     return { oldStart: Number(match[1]), oldCount: Number(match[2] ?? 1) };
   }
 
-  /** 应用单个 hunk，成功返回新偏移。 */
+  /** 应用单个 hunk，成功返回新偏移。
+   * @param lines 当前文件行数组（原地修改）。
+   * @param hunk 待应用的 hunk。
+   * @param offset 前序 hunk 累计的行数偏移。
+   * @returns 应用结果：成功附累计偏移；上下文不匹配时失败并附错误。
+   */
   private applyHunk(
     lines: string[],
     hunk: Hunk,

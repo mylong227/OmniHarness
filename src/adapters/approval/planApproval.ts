@@ -46,8 +46,12 @@ export class PlanApproval implements ApprovalPort {
    */
   public readonly name = 'plan';
 
+  /** 只读工具白名单（内置 + 用户扩展），命中才放行。 */
   private readonly allowed: Set<string>;
 
+  /**
+   * @param options 规划模式审批选项（额外放行的只读工具名）。
+   */
   public constructor(options: PlanApprovalOptions = {}) {
     this.allowed = new Set(PLAN_ALLOWED_TOOLS);
     for (const tool of options.extraAllowedTools ?? []) {
@@ -55,7 +59,10 @@ export class PlanApproval implements ApprovalPort {
     }
   }
 
-  /** 仅在工具命中只读白名单时放行。 */
+  /** 仅在工具命中只读白名单时放行。
+   * @param request 审批请求（取工具名匹配白名单）。
+   * @returns 白名单内 'allow'，其余一律 'deny'（fail-closed）。
+   */
   public async decide(request: ApprovalRequest): Promise<ApprovalDecision> {
     return this.allowed.has(request.toolName) ? 'allow' : 'deny';
   }

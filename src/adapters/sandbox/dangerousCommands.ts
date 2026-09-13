@@ -1,6 +1,8 @@
 /** 默认危险命令规则集合（Windows 与 Unix 常见破坏性命令）。 */
 export class DangerousCommands {
-  /** 默认危险模式列表。 */
+  /** 默认危险模式列表。
+   * @returns 覆盖 Windows/Unix 常见破坏性命令的正则数组。
+   */
   public defaults(): readonly RegExp[] {
     return [
       /\brm\b[^\n]*-rf\b/i,

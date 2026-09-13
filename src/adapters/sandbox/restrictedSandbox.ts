@@ -29,9 +29,14 @@ export class RestrictedSandbox implements SandboxPort {
   /** 适配器名，与端口契约一致：固定为 'restricted'。 */
   public readonly name = 'restricted';
 
+  /** 工作区路径守卫（白名单判定委托给它）。 */
   private readonly guard: WorkspaceGuard;
+  /** 危险命令正则集（默认黑名单 + 受限强化规则 + 用户扩展）。 */
   private readonly patterns: readonly RegExp[];
 
+  /**
+   * @param options 受限沙箱选项（工作区根目录与额外危险模式）。
+   */
   public constructor(private readonly options: RestrictedSandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
     this.patterns = [
@@ -41,7 +46,10 @@ export class RestrictedSandbox implements SandboxPort {
     ];
   }
 
-  /** 裁决动作。 */
+  /** 裁决动作。
+   * @param action 待裁决的沙箱动作（命令或路径）。
+   * @returns 决策结果：命令走强化黑名单、路径走白名单，命中即 fail-closed 拒绝。
+   */
   public async check(action: SandboxAction): Promise<SandboxDecision> {
     if (action.kind === 'command') {
       return this.checkCommand(action.target);
@@ -49,7 +57,10 @@ export class RestrictedSandbox implements SandboxPort {
     return this.checkPath(action.target);
   }
 
-  /** 命令门禁：命中危险/网络模式即拒绝并归类。 */
+  /** 命令门禁：命中危险/网络模式即拒绝并归类。
+   * @param command 待检查的命令串。
+   * @returns 决策结果（网络工具命中归 'network'，其余归 'command'）。
+   */
   private checkCommand(command: string): SandboxDecision {
     for (const pattern of this.patterns) {
       if (pattern.test(command)) {
@@ -60,7 +71,10 @@ export class RestrictedSandbox implements SandboxPort {
     return { allowed: true };
   }
 
-  /** 路径门禁：工作区外即拒绝。 */
+  /** 路径门禁：工作区外即拒绝。
+   * @param target 待检查的路径。
+   * @returns 决策结果（越界时附 'path' 类别）。
+   */
   private checkPath(target: string): SandboxDecision {
     if (this.guard.isInside(target)) {
       return { allowed: true };

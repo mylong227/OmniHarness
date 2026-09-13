@@ -18,13 +18,19 @@ export class CryptoVault implements VaultPort {
   /** 端口名：加密凭据后端标识，与 VaultPort 契约的适配器命名空间一致。 */
   public readonly name = 'crypto';
 
+  /** 底层键值存储端口：密文实际落盘位置。 */
   private readonly kv: KvPort;
+  /** 密钥文件路径（主密钥来源优先级 2/3）；未配置则无文件回退。 */
   private readonly keyFile?: string;
+  /** 主密钥来源优先级 1 的环境变量名。 */
   private readonly envVar: string;
+  /** 已解析的 32 字节主密钥缓存（懒加载，避免重复读环境变量/文件）。 */
   private key: Buffer | undefined;
+  /** 密文载荷缓存：凭据名 → iv/cipher/tag，避免重复读 KV。 */
   private readonly cache = new Map<string, CipherPayload>();
 
   public constructor(options: {
+    /** 底层键值存储端口：密文实际落盘位置。 */
     kv: KvPort;
     /** 主密钥来源优先级 1（默认 `OMNIHARNESS_VAULT_KEY`）。 */
     envVar?: string;
@@ -36,7 +42,9 @@ export class CryptoVault implements VaultPort {
     this.keyFile = options.keyFile;
   }
 
-  /** 解析 32 字节 AES-256 主密钥。 */
+  /** 解析 32 字节 AES-256 主密钥。
+   * @returns 主密钥（优先环境变量，其次密钥文件，均无则自动生成并持久化到密钥文件）。
+   */
   private async getKey(): Promise<Buffer> {
     if (this.key !== undefined) {
       return this.key;
@@ -69,11 +77,19 @@ export class CryptoVault implements VaultPort {
     return this.key;
   }
 
-  /** 从可读口令派生定长密钥（SHA-256）。 */
+  /** 从可读口令派生定长密钥（SHA-256）。
+   * @param secret 可读口令（环境变量内容、密钥文件内容或随机生成串）。
+   * @returns 32 字节派生密钥。
+   */
   private deriveKey(secret: string): Buffer {
     return createHash('sha256').update(secret, 'utf8').digest();
   }
 
+  /** 解析 `iv:cipher:tag` 三段式密文载荷。
+   * @param raw 从 KV 读出的 base64 密文串。
+   * @returns 拆分后的载荷对象。
+   * @throws 段数不足（格式损坏）时抛错，绝不带错误数据继续。
+   */
   private parsePayload(raw: string): CipherPayload {
     const [iv, cipher, tag] = raw.split(':');
     if (iv === undefined || cipher === undefined || tag === undefined) {
@@ -82,7 +98,10 @@ export class CryptoVault implements VaultPort {
     return { iv, cipher, tag };
   }
 
-  /** 读单条密文（带缓存）。 */
+  /** 读单条密文（带缓存）。
+   * @param name 凭据名（KV 键）。
+   * @returns 缓存或 KV 中的密文载荷；KV 无此条目返回 undefined。
+   */
   private async readPayload(name: string): Promise<CipherPayload | undefined> {
     const hit = this.cache.get(name);
     if (hit !== undefined) {
@@ -97,6 +116,11 @@ export class CryptoVault implements VaultPort {
     return payload;
   }
 
+  /** 将密文载荷以 `iv:cipher:tag` 串写入 KV 并刷新本地缓存。
+   * @param name 凭据名（KV 键）。
+   * @param payload 待写入的 iv/cipher/tag 载荷。
+   * @returns 无返回值。
+   */
   private async writePayload(name: string, payload: CipherPayload): Promise<void> {
     await this.kv.set(name, `${payload.iv}:${payload.cipher}:${payload.tag}`);
     this.cache.set(name, payload);
@@ -128,6 +152,7 @@ export class CryptoVault implements VaultPort {
    * `iv:cipher:tag` 密文落入底层 KV，并刷新本地明文密文缓存。
    * @param name 凭据名。
    * @param value 明文值。
+   * @returns 无返回值。
    */
   public async setSecret(name: string, value: string): Promise<void> {
     const key = await this.getKey();
@@ -152,17 +177,24 @@ export class CryptoVault implements VaultPort {
     return existed;
   }
 
-  /** 凭据是否存在（仅查底层 KV 是否有该键，不解密）。 */
+  /** 凭据是否存在（仅查底层 KV 是否有该键，不解密）。
+   * @param name 凭据名（KV 键）。
+   * @returns 底层 KV 存在该键时为 true。
+   */
   public async hasSecret(name: string): Promise<boolean> {
     return this.kv.has(name);
   }
 
-  /** 列出全部凭据名（即底层 KV 全部键，不泄露值）。 */
+  /** 列出全部凭据名（即底层 KV 全部键，不泄露值）。
+   * @returns 全部凭据名列表。
+   */
   public async listSecrets(): Promise<readonly string[]> {
     return this.kv.keys();
   }
 
-  /** 清空明文缓存与主密钥引用并关闭底层 KV（不删除密钥文件）。 */
+  /** 清空明文缓存与主密钥引用并关闭底层 KV（不删除密钥文件）。
+   * @returns 无返回值。
+   */
   public async close(): Promise<void> {
     this.cache.clear();
     this.key = undefined;

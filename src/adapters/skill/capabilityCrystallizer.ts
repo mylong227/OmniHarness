@@ -53,13 +53,21 @@ function shortHash(s: string): string {
 
 /** 相变固化器。 */
 export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
+  /** 技能端口：解析组合成员并注册冻结能力。 */
   private readonly port: SkillPort;
+  /** 临界密度阈值：经验密度越过即触发冻结。 */
   private readonly threshold: number;
+  /** 观测 EMA 衰减因子（1=简单累计；<1 时近期使用权重更高）。 */
   private readonly decay: number;
+  /** 莫尔组合选项（场边长/涌现下限）；未配置任一则为 undefined（用默认）。 */
   private readonly moireOpts: MoireOptions | undefined;
+  /** 越阈冻结后是否把该组合密度归零（序参量回落）。 */
   private readonly resetOnCrystallize: boolean;
+  /** 组合键 → 经验密度（序参量表，观测累加、冻结后归零）。 */
   private readonly densities = new Map<string, number>();
+  /** 已冻结组合键集合：防止重复注册（后续只计 alreadyFrozen）。 */
   private readonly frozenKeys = new Set<string>();
+  /** 已冻结能力清单（冻结名 + 来源成员 + 冻结时密度）。 */
   private readonly frozenList: FrozenCapability[] = [];
 
   public constructor(opts: CapabilityCrystallizerOptions) {
@@ -76,12 +84,18 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
     this.resetOnCrystallize = opts.resetOnCrystallize ?? true;
   }
 
-  /** 组合键：去重 + 排序（序参量对成员顺序无关）。 */
+  /** 组合键：去重 + 排序（序参量对成员顺序无关）。
+   * @param combo 组合成员技能名列表。
+   * @returns 规范化（去重、排序、'|' 连接）后的组合键。
+   */
   private comboKey(combo: readonly string[]): string {
     return [...new Set(combo)].sort().join('|');
   }
 
-  /** 观测一次组合使用：经验密度累加（ETA 衰减）。单技能不构成组合，忽略。 */
+  /** 观测一次组合使用：经验密度累加（ETA 衰减）。单技能不构成组合，忽略。
+   * @param combination 本次使用的技能名组合。
+   * @returns 无返回值。
+   */
   public observe(combination: readonly string[]): void {
     if (combination.length < 2) return;
     const key = this.comboKey(combination);
@@ -89,17 +103,24 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
     this.densities.set(key, prev * this.decay + 1);
   }
 
-  /** 当前经验密度（序参量取值）。 */
+  /** 当前经验密度（序参量取值）。
+   * @param combination 技能名组合。
+   * @returns 该组合的当前经验密度（未观测过为 0）。
+   */
   public density(combination: readonly string[]): number {
     return this.densities.get(this.comboKey(combination)) ?? 0;
   }
 
-  /** 已冻结能力清单。 */
+  /** 已冻结能力清单。
+   * @returns 冻结名、来源成员与冻结时密度的列表（快照副本）。
+   */
   public frozen(): readonly FrozenCapability[] {
     return [...this.frozenList];
   }
 
-  /** 越阈冻结：遍历密度越界的组合，冻结为原生能力；返回本轮报告（fail-closed / 加法式）。 */
+  /** 越阈冻结：遍历密度越界的组合，冻结为原生能力；返回本轮报告（fail-closed / 加法式）。
+   * @returns 本轮报告：阈值、新冻结名、已冻结数、跳过组合、涌现值与拒收数。
+   */
   public crystallize(): CrystallizationReport {
     const frozen: string[] = [];
     let alreadyFrozen = 0;

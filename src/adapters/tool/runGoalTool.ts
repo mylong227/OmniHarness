@@ -36,13 +36,22 @@ export class RunGoalTool {
     },
   };
 
+  /**
+   * @param ports 子智能体端口束（工具端口、模型、事件、步数上限等）。
+   * @param options 目标循环选项（最大迭代等，可被调用参数覆盖）。
+   * @param agentFactory 智能体工厂（由目标循环运行时创建 Agent）。
+   */
   public constructor(
     private readonly ports: SubagentPorts,
     private readonly options: GoalRunnerOptions = {},
     private readonly agentFactory: AgentFactoryPort,
   ) {}
 
-  /** 派生并运行自主目标循环。 */
+  /** 派生并运行自主目标循环。
+   * @param call 工具调用（实参含 goal，可选 tools/maxIterations）。
+   * @param _context 工具上下文（目标循环使用独立会话，忽略主上下文）。
+   * @returns 执行结果：成功附达成状态与最终文本；缺 goal 实参返回失败。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const goal = String(call.arguments['goal'] ?? '').trim();
     if (goal === '') {
@@ -64,7 +73,10 @@ export class RunGoalTool {
     return { callId: call.id, ok: true, output: this.render(result) };
   }
 
-  /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。 */
+  /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。
+   * @param result 目标循环运行结果。
+   * @returns 首行元信息（会话 ID/达成与否/轮数）+ 最终文本。
+   */
   private render(result: {
     readonly achieved: boolean;
     readonly iterations: number;
@@ -76,7 +88,10 @@ export class RunGoalTool {
     return `${head}\n${result.finalText ?? ''}`;
   }
 
-  /** 提取可选的工具白名单。 */
+  /** 提取可选的工具白名单（未提供则继承全部工具），并强制剔除 run_goal/subagent 防递归派生。
+   * @param call 工具调用（实参可能含 tools 数组）。
+   * @returns 基于注册表过滤后的受限工具视图。
+   */
   private toolViewOf(call: ToolCall) {
     const raw = call.arguments['tools'];
     const names = Array.isArray(raw)
@@ -90,7 +105,10 @@ export class RunGoalTool {
     return new ToolSubset(this.ports.tools, allowed);
   }
 
-  /** 提取可选的最大迭代次数（工具参数优先于构造期默认值）。 */
+  /** 提取可选的最大迭代次数（工具参数优先于构造期默认值）。
+   * @param call 工具调用（实参可能含 maxIterations）。
+   * @returns 有效的最大迭代次数；参数非法且未配置默认时为 undefined。
+   */
   private maxIterationsOf(call: ToolCall): number | undefined {
     const raw = call.arguments['maxIterations'];
     if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {

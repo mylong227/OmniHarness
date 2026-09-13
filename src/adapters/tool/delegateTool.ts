@@ -20,9 +20,16 @@ export class DelegateTool {
     },
   };
 
+  /**
+   * @param orchestrator 外部 worker 编排器（委派、审批与事件流复用主会话链路）。
+   */
   public constructor(private readonly orchestrator: WorkerOrchestrator) {}
 
-  /** 委派任务。 */
+  /** 委派任务。
+   * @param call 工具调用（实参含 worker 与 task）。
+   * @param context 工具上下文（workspaceRoot 传给 worker 作执行目录）。
+   * @returns 执行结果：worker 输出加名称前缀；委派异常返回失败。
+   */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const worker = String(call.arguments['worker'] ?? '');
     const task = String(call.arguments['task'] ?? '');
@@ -34,7 +41,10 @@ export class DelegateTool {
     }
   }
 
-  /** 提取错误消息。 */
+  /** 提取错误消息。
+   * @param error 抛出的任意值。
+   * @returns Error 取 message，其余转字符串。
+   */
   private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

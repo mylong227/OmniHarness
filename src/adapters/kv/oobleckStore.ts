@@ -35,9 +35,15 @@ export class OobleckStore implements OobleckPort {
   /** 端口名：非牛顿固化存储标识，与 OobleckPort 契约的适配器命名空间一致。 */
   public readonly name = 'oobleck';
 
+  /** 被包装的底层 KV 端口：记录以 `oobleck:` 前缀键落盘。 */
   private readonly kv: KvPort;
+  /** 屈服应力阈值 τ：写入冲击 ≥ 此值即提交并永久冻结。 */
   private readonly yieldStress: number;
 
+  /**
+   * @param kv 底层键值存储端口（内存 / JSON 文件 / SQLite 均可）。
+   * @param options 存储选项（屈服应力阈值，默认 0.6）。
+   */
   public constructor(kv: KvPort, options: OobleckStoreOptions = {}) {
     this.kv = kv;
     this.yieldStress = options.yieldStress ?? 0.6;
@@ -74,7 +80,10 @@ export class OobleckStore implements OobleckPort {
     return { accepted: true, frozen: false, reason: 'liquid' };
   }
 
-  /** 读取记录（含值、冻结态与本实例的屈服应力阈值）；不存在返回 undefined。 */
+  /** 读取记录（含值、冻结态与本实例的屈服应力阈值）；不存在返回 undefined。
+   * @param key 逻辑键（自动加 `oobleck:` 前缀查底层）。
+   * @returns 记录内容（值 + 是否冻结 + 屈服应力阈值）；不存在时为 undefined。
+   */
   public async get(key: string): Promise<OobleckRecord | undefined> {
     const stored = await this.readStored(key);
     if (stored === undefined) {
@@ -83,13 +92,19 @@ export class OobleckStore implements OobleckPort {
     return { value: stored.value, frozen: stored.rig >= 1, yieldStress: this.yieldStress };
   }
 
-  /** 是否已冻结（rig≥1）；键不存在亦为 false。 */
+  /** 是否已冻结（rig≥1）；键不存在亦为 false。
+   * @param key 逻辑键。
+   * @returns 记录存在且已冻结为 true。
+   */
   public async isFrozen(key: string): Promise<boolean> {
     const stored = await this.readStored(key);
     return stored !== undefined && stored.rig >= 1;
   }
 
-  /** 删除：液态下允许并返回底层删除结果；冻结后不可变，fail-closed 拒绝返回 false。 */
+  /** 删除：液态下允许并返回底层删除结果；冻结后不可变，fail-closed 拒绝返回 false。
+   * @param key 逻辑键。
+   * @returns 是否删除成功（冻结记录恒为 false）。
+   */
   public async delete(key: string): Promise<boolean> {
     const stored = await this.readStored(key);
     if (stored !== undefined && stored.rig >= 1) {
@@ -99,12 +114,17 @@ export class OobleckStore implements OobleckPort {
     return this.kv.delete(KEY_PREFIX + key);
   }
 
-  /** 关闭底层 KvPort，释放其后端资源。 */
+  /** 关闭底层 KvPort，释放其后端资源。
+   * @returns 无返回值。
+   */
   public async close(): Promise<void> {
     await this.kv.close();
   }
 
-  /** 读取并解析底层记录；解析失败或缺失返回 undefined。 */
+  /** 读取并解析底层记录；解析失败或缺失返回 undefined。
+   * @param key 逻辑键（自动加前缀）。
+   * @returns 解析并校验通过的结构化记录；缺失、损坏或字段非法时为 undefined。
+   */
   private async readStored(key: string): Promise<StoredRecord | undefined> {
     const raw = await this.kv.get(KEY_PREFIX + key);
     if (raw === undefined) {

@@ -33,12 +33,20 @@ export class ToolSearchTool {
     },
   };
 
+  /**
+   * @param index 工具语义索引（BM25 打分检索工具 schema）。
+   * @param discovery 发现登记表：命中工具（含 deferred）登记后对后续回合可见。
+   */
   public constructor(
     private readonly index: ToolIndex,
     private readonly discovery: ToolDiscovery,
   ) {}
 
-  /** 执行检索并登记命中 schema 供后续回合装载。 */
+  /** 执行检索并登记命中 schema 供后续回合装载。
+   * @param call 工具调用（实参含 query，可选 limit）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：JSON 文本含命中数与各工具（名称/描述/schema/是否 deferred）；query 为空返回失败。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '').trim();
     if (query === '') {

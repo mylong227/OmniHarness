@@ -33,9 +33,16 @@ export class MemorySearchTool {
     },
   };
 
+  /**
+   * @param retrieval 会话历史检索端口（BM25 打分与命中片段均由它提供）。
+   */
   public constructor(private readonly retrieval: RetrievalPort) {}
 
-  /** 执行检索并返回命中片段。 */
+  /** 执行检索并返回命中片段。
+   * @param call 工具调用（实参含 query，可选 limit/session）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：JSON 文本含命中数与各片段（会话/角色/文本/得分）；query 为空返回失败。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '').trim();
     if (query === '') {
