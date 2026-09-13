@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { LspLocation, LspPort, LspServerConfig } from '../../ports/tool/lsp.js';
-import { fileToUri, uriToFile } from '../../lsp/lspUri.js';
+import { fileToUri, uriToFile } from '../../adapters/lsp/lspUri.js';
 import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
 
 /**

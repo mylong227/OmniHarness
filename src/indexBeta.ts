@@ -85,7 +85,7 @@ export type {
   LspServerConfig,
 } from './ports/tool/lsp.js';
 export { LspProcessAdapter } from './adapters/lsp/lspProcessAdapter.js';
-export { fileToUri, uriToFile } from './lsp/lspUri.js';
+export { fileToUri, uriToFile } from './adapters/lsp/lspUri.js';
 export {
   LspGoToDefinitionTool,
   LspFindReferencesTool,
@@ -97,7 +97,7 @@ export {
   LSP_FIND_REFERENCES_TOOL_NAME,
   LSP_HOVER_TOOL_NAME,
   LSP_STATUS_TOOL_NAME,
-} from './lsp/lspToolNames.js';
+} from './adapters/lsp/lspToolNames.js';
 
 // @beta Agent 密码学身份（#S33：对标 codex-rs/agent-identity 可移植核心，Ed25519 零依赖）
 export type {

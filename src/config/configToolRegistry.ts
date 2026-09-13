@@ -23,7 +23,7 @@ import { WriteFileTool } from '../adapters/tool/fs/writeFileTool.js';
 import { ListDirTool } from '../adapters/tool/fs/listDirTool.js';
 import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
 // web_search 仅当通过 extraTools 注入 search 实现时才注册，默认不暴露未配置的搜索工具，避免模型反复调用导致批量失败。
-import { CodeExecutorTool } from '../code/codeExecutorTool.js';
+import { CodeExecutorTool } from '../adapters/tool/code/codeExecutorTool.js';
 import { ToolGate } from '../core/toolGate.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';

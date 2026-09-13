@@ -301,10 +301,10 @@ export type {
   EvolutionController,
   EvolutionControllerOptions,
 } from './ports/runtime/evolution.js';
-export { CodeInterpreter } from './code/codeInterpreter.js';
-export type { CodeInterpreterDeps, CodeRunResult } from './code/codeInterpreter.js';
-export { CodeExecutorTool } from './code/codeExecutorTool.js';
-export type { CodeExecutorOptions } from './code/codeExecutorTool.js';
+export { CodeInterpreter } from './adapters/tool/code/codeInterpreter.js';
+export type { CodeInterpreterDeps, CodeRunResult } from './adapters/tool/code/codeInterpreter.js';
+export { CodeExecutorTool } from './adapters/tool/code/codeExecutorTool.js';
+export type { CodeExecutorOptions } from './adapters/tool/code/codeExecutorTool.js';
 
 // @public Skills 系统
 export type { Skill } from './skill/skill.js';

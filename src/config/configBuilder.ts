@@ -33,7 +33,7 @@ import type { LspPort } from '../ports/tool/lsp.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
 import { LspProcessAdapter } from '../adapters/lsp/lspProcessAdapter.js';
-import { fileToUri } from '../lsp/lspUri.js';
+import { fileToUri } from '../adapters/lsp/lspUri.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
