@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // StepRunner × 流式路径 × Web 推送 集成测试（#B3 web 端到端）：
 // StepRunner 走 stream → live(CompositeLiveView 内含 WebLiveView) → 经 bridge.notify 推送 thread.tool_input。
 // 证明「核心循环 stream 增量 → 广播给 Web UI」链路真实闭环，而非仅单元正确。
@@ -47,6 +48,7 @@ test('StepRunner stream 路径经 composite→WebLiveView→bridge 推送 thread
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's-web',
     live,

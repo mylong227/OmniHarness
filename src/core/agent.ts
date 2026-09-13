@@ -13,7 +13,7 @@ import type { TurnOutcome } from './turnRunner.js';
 import type { AgentPort, AgentResult } from '../ports/agent.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
 import { ContextWindowCatalog } from '../context/contextWindowCatalog.js';
-import { SkillRegistry, skillRegistry } from '../skill/skillRegistry.js';
+import { SkillRegistry } from '../skill/skillRegistry.js';
 import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
 import { CancellationToken } from './loop/cancellationToken.js';
@@ -192,7 +192,7 @@ export class Agent implements AgentPort {
       return;
     }
     for (const skill of this.skills.match(prompt)) {
-      recorder.system(skillRegistry.render(skill));
+      recorder.system(this.skills.render(skill));
     }
   }
 
@@ -255,6 +255,8 @@ export class Agent implements AgentPort {
       // U2：repo-map 上下文注入。默认开；env OMNI_REPO_MAP=0 关闭（不增 config schema，避免破 fail-closed 校验）。
       workspaceRoot: this.runtime.config.workspaceRoot,
       repoMapEnabled: process.env.OMNI_REPO_MAP !== '0',
+      // P2.2 单例收敛：引擎实例由组合根（memoryStackAssembler）构造，经 ResolvedConfig 注入。
+      repoMapContext: this.runtime.config.repoMapContext,
       // U3 混合检索：仅当运行时注入了 embedding（env OMNI_SEMANTIC_RECALL=1 构造适配器）才走混合路径。
       embedding: this.runtime.embedding,
       // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。

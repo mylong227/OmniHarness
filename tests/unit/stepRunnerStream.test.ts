@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // StepRunner × 流式路径集成测试（#B3 接线）：验证「live 端口 + model.stream」正确转发
 // 工具参数增量，并在不传 live 或模型不支持 stream 时 fail-closed 退回 generate 路径。
 import { test } from 'node:test';
@@ -49,6 +50,7 @@ test('live 存在且模型支持 stream：走 stream 并转发工具参数增量
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's1',
     live,
@@ -83,6 +85,7 @@ test('live 存在但模型无 stream：fail-closed 回退 generate', async () =>
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's2',
     live,
@@ -109,6 +112,7 @@ test('无 live：即便模型支持 stream 也走 generate', async () => {
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's3',
   });

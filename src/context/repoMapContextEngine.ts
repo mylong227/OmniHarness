@@ -74,7 +74,11 @@ export class RepoMapContextEngine {
    * @param opts 选项（enabled=false 直接跳过）。
    * @returns 上下文文本，或 null（禁用 / 空查询 / 索引失败）。
    */
-  public getRepoMapContext(root: string, q: string, opts: RepoMapContextOptions = {}): string | null {
+  public getRepoMapContext(
+    root: string,
+    q: string,
+    opts: RepoMapContextOptions = {},
+  ): string | null {
     if (opts.enabled === false) {
       return null;
     }
@@ -128,7 +132,14 @@ export class RepoMapContextEngine {
       const idx = await this.semanticCache.get(root, corpus, embedding, knobs);
       const { bm25SymIds, bm25FileIds } = this.retrieveLexical(corpus, q);
       const semanticHits = await idx.search(q, SEMANTIC_CANDIDATES);
-      const ranked = this.ranker.rank({ root, corpus, knobs, bm25SymIds, bm25FileIds, semanticHits });
+      const ranked = this.ranker.rank({
+        root,
+        corpus,
+        knobs,
+        bm25SymIds,
+        bm25FileIds,
+        semanticHits,
+      });
       return this.formatContext(ranked, corpus);
     } catch {
       // fail-closed：语义层失败 → 回落纯 BM25 上下文。
@@ -169,7 +180,9 @@ export class RepoMapContextEngine {
     q: string,
   ): { bm25SymIds: string[]; bm25FileIds: string[] } {
     const tk = corpus.morph ? tokenizeExpanded(q) : tokenize(q);
-    const bm25SymIds = [...corpus.symbolIndex.search(tk, BM25_SYM_CANDIDATES)].map((h) => `sym:${h.id}`);
+    const bm25SymIds = [...corpus.symbolIndex.search(tk, BM25_SYM_CANDIDATES)].map(
+      (h) => `sym:${h.id}`,
+    );
     const bm25FileIds = [...corpus.fileIndex.search(tk, BM25_FILE_CANDIDATES)]
       .map((h) => corpus.files[h.id]?.rel)
       .filter((rel): rel is string => rel !== undefined)
@@ -189,55 +202,4 @@ export class RepoMapContextEngine {
     const sigLines = ranked.symbols.map((s) => `L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
     return ['# Repo Map (relevant files)', outline, '# Relevant Symbols', ...sigLines].join('\n');
   }
-}
-
-/** 进程级共享单例（模块级仅此一引用，状态已收进 `RepoMapContextEngine` 实例）。 */
-export const repoMapContextEngine = new RepoMapContextEngine();
-
-// ---- 门面兼容包装：保持既有调用点（含热区 `src/core/stepRunner.ts`）不变 ----
-// 新调用方应直接用 `repoMapContextEngine` 实例方法。
-
-/**
- * @deprecated 使用 `repoMapContextEngine.getRepoMapContext`。
- * @param root workspace 根路径。
- * @param q 查询文本。
- * @param opts 选项。
- * @returns 上下文文本或 null。
- */
-export function getRepoMapContext(root: string, q: string, opts: RepoMapContextOptions = {}): string | null {
-  return repoMapContextEngine.getRepoMapContext(root, q, opts);
-}
-
-/**
- * @deprecated 使用 `repoMapContextEngine.getHybridRepoMapContext`。
- * @param root workspace 根路径。
- * @param q 查询文本。
- * @param embedding 嵌入端口。
- * @param opts 选项。
- * @returns 上下文文本或 null。
- */
-export async function getHybridRepoMapContext(
-  root: string,
-  q: string,
-  embedding: EmbeddingPort,
-  opts: RepoMapContextOptions = {},
-): Promise<string | null> {
-  return repoMapContextEngine.getHybridRepoMapContext(root, q, embedding, opts);
-}
-
-/**
- * @deprecated 使用 `repoMapContextEngine.clear`。
- * @param root 指定则只失效该工作区；缺省清空全部。
- */
-export function clearRepoMapCache(root?: string): void {
-  repoMapContextEngine.clear(root);
-}
-
-/**
- * @deprecated 使用 `repoMapContextEngine.buildChunkItems`。
- * @param corpus 已索引语料。
- * @returns 分块召回项。
- */
-export function buildChunkItems(corpus: IndexedCorpus): RecallItem[] {
-  return repoMapContextEngine.buildChunkItems(corpus);
 }

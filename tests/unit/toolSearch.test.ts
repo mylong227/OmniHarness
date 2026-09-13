@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Bm25Index, tokenize } from '../../src/search/bm25Index.js';
@@ -222,6 +223,7 @@ describe('StepRunner 延迟加载闭环（#M1 端到端）', () => {
       tools: registry,
       approvals: new AutoApproval(),
       sandbox: new PassthroughSandbox(),
+      repoMapContext: new RepoMapContextEngine(),
       recorder,
       sessionId: 's1',
       gate: new ToolGate(new AutoApproval(), new PassthroughSandbox()),

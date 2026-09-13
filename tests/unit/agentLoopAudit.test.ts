@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // Agent loop 审计回归测试（2026-09-08）。
 //
 // 背景：连续多轮「模型 400 / 无结果 / 疑似死循环」的表象修复后，对主循环做一次
@@ -101,6 +102,7 @@ test('B. 模型持续空输出时，应重试/兜底而非一步即终止', asyn
     tools: toolsStub,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's-audit-b',
   });
@@ -143,6 +145,7 @@ test('C. native（FFI）路径：pre 钩子必须先于工具执行', async () =
     tools: toolsStub,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's-audit-c',
     hooks,

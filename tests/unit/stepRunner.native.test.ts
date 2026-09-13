@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // stepRunner × native 后端集成测试（#67）：验证 --approval/--sandbox 门禁在 native 与 JS 路径下行为一致。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -48,6 +49,7 @@ test('native 路径下 --approval deny 仍拦截，不进内核', async () => {
     tools: jsTools,
     approvals,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's1',
     native,
@@ -73,6 +75,7 @@ test('native 路径下 --approval allow 走内核执行', async () => {
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's2',
     native,
@@ -112,6 +115,7 @@ test('native 抛错时回退 JS 路径（门禁已通过，不重复）', async 
     tools,
     approvals: allowApproval,
     sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's3',
     native,
@@ -144,6 +148,7 @@ test('沙箱拒绝经 native 路径也生效（不进内核）', async () => {
     tools: jsTools,
     approvals: allowApproval,
     sandbox: sandboxDeny,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's4',
     native,

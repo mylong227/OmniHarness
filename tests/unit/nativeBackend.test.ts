@@ -1,3 +1,4 @@
+import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // FFI 接入真实 agent 循环（#66）：StepRunner 原生路由 + JS 自动回退。
 //
 // 用 stub NativeToolRunner 解耦 .node 产物，不依赖 native:build。覆盖三态：
@@ -57,6 +58,7 @@ function makeStep(
     tools,
     approvals,
     sandbox,
+    repoMapContext: new RepoMapContextEngine(),
     recorder,
     sessionId: 's1',
     native,

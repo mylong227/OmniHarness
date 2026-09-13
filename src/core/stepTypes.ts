@@ -4,6 +4,7 @@ import type { ToolPort } from '../ports/tool.js';
 import type { ModelPort } from '../ports/model.js';
 import type { EscalationPort } from '../ports/escalation.js';
 import type { EmbeddingPort } from '../ports/embedding.js';
+import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
 import type { ToolGate } from './toolGate.js';
@@ -74,6 +75,11 @@ export interface StepRunnerDeps {
   readonly workspaceRoot?: string;
   /** repo-map 上下文注入开关（U2，默认开；传 false 即关）。 */
   readonly repoMapEnabled?: boolean;
+  /**
+   * repo-map 上下文引擎（P2.2 单例收敛）：组合根（memoryStackAssembler）构造、
+   * 经 `ResolvedConfig` 注入；TTL 缓存状态随实例生命周期，不再有模块级单例。
+   */
+  readonly repoMapContext: RepoMapContextEngine;
   /**
    * 语义嵌入端口（U3 混合检索）：非空时 repo-map 走「BM25 ∪ 语义向量 RRF」混合路径，
    * 补词法盲区。默认不传 → 纯 BM25（零开销、不加载 80MB 模型）。

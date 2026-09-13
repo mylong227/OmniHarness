@@ -1,7 +1,6 @@
 import type { ToolContext, ToolCall, ToolResult } from '../ports/tool.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
 import { ToolScheduler } from './loop/toolScheduler.js';
-import { clearRepoMapCache } from '../context/repoMapContextEngine.js';
 import { isLikelySandboxDenied } from '../ports/sandboxDenial.js';
 import { guardToolResult } from '../security/promptInjectionGuard.js';
 import { log } from '../util/logger.js';
@@ -137,7 +136,7 @@ export class StepToolExecutor {
       return;
     }
     try {
-      clearRepoMapCache(this.deps.workspaceRoot);
+      this.deps.repoMapContext.clear(this.deps.workspaceRoot);
     } catch {
       // 缓存失效失败不影响主流程
     }
