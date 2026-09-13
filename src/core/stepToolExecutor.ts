@@ -19,6 +19,7 @@ import type { StepRunnerDeps } from './stepTypes.js';
  *     JS 先 post 后记录），且写类工具成功后都要失效 repo-map 缓存。
  */
 export class StepToolExecutor {
+  /** 工具门禁（审批 + 沙箱 + 计划态 + 监督否决）：native 与 JS 路径共用。 */
   private readonly gate: ToolGate;
   /** 工具并行调度器（V2）：读类并行、写类屏障、model-order 提交。 */
   private readonly scheduler: ToolScheduler;

@@ -32,6 +32,8 @@ export class MultimodalBridge {
    * 把一条模型消息映射为统一 Modality（原生多模态表示）。
    * 含图像时：每图 encodeImage 后两两 fuse，再与文本 fuse 为 tensor。
    * 视觉字节缺失宽高时以确定性占位（length, 1），真实编码器可替换本路径。
+   * @param msg 模型消息（文本 + 可选图像数组）。
+   * @returns 该消息的统一 Modality 表示（纯文本为 text，含图融合后为 tensor）。
    */
   public modelMessageToModality(msg: ModelMessage): Modality<unknown> {
     const text = encodeText(msg.content ?? '');
@@ -48,7 +50,11 @@ export class MultimodalBridge {
     return text as Modality<unknown>;
   }
 
-  /** 由 ImageContent 派生确定性字节（base64 优先，否则 url 哈希），再编码为图像 Modality。 */
+  /**
+   * 由 ImageContent 派生确定性字节（base64 优先，否则 url 哈希），再编码为图像 Modality。
+   * @param img 图像内容（data base64 / url / 媒体类型）。
+   * @returns kind='image' 的模态容器（宽高用确定性占位）。
+   */
   private imageModality(img: {
     url?: string;
     data?: string;
@@ -66,7 +72,12 @@ export class MultimodalBridge {
     return encodeImage(bytes, Math.max(1, bytes.length), 1);
   }
 
-  /** 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。 */
+  /**
+   * 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。
+   * @param a 第一条模型消息。
+   * @param b 第二条模型消息。
+   * @returns 两消息统一 Modality 特征的余弦相似度 ∈ [-1, 1]。
+   */
   public crossModalAlign(a: ModelMessage, b: ModelMessage): number {
     return alignModality(this.modelMessageToModality(a), this.modelMessageToModality(b));
   }
@@ -75,6 +86,8 @@ export class MultimodalBridge {
    * 跨模态检索增强：把每个文档的模态特征签名追加进可检索文本，
    * 使 BM25 索引具备"语义特征"维度（同义/同构文本更易聚类召回）。
    * 零依赖、复用 #M2 内核，不改变 RetrievalPort 契约。
+   * @param index 目标检索端口（文档将被带特征签名地重新索引）。
+   * @param docs 待增强索引的检索文档集合。
    */
   public registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
     for (const d of docs) {
@@ -83,13 +96,22 @@ export class MultimodalBridge {
     }
   }
 
-  /** 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。 */
+  /**
+   * 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。
+   * @param text 源文本。
+   * @returns 千分位取整特征值以下划线连接的签名字符串。
+   */
   public modalitySignature(text: string): string {
     return textFeatures(text)
       .map((v) => Math.round(v * 1000))
       .join('_');
   }
 
+  /**
+   * base64 字符串解码为字节（去掉 data URI 前缀，atob / Buffer 双路径）。
+   * @param b64 base64（或 data URI）编码的图像字节。
+   * @returns 解码后的原始字节数组。
+   */
   private base64ToBytes(b64: string): Uint8Array {
     // 浏览器/Node 均有的 atob；去掉 data URI 前缀。
     const clean = b64.replace(/^data:.*;base64,/, '');
@@ -100,6 +122,11 @@ export class MultimodalBridge {
     return out;
   }
 
+  /**
+   * ASCII 字符串逐字符转为字节（url 回退路径的确定性字节来源）。
+   * @param s ASCII 字符串（通常是图像 url）。
+   * @returns 逐字符截断到 8 位的字节数组。
+   */
   private asciiToBytes(s: string): Uint8Array {
     const out = new Uint8Array(s.length);
     for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i) & 0xff;
@@ -114,12 +141,18 @@ const multimodalBridge = new MultimodalBridge();
  * 把一条模型消息映射为统一 Modality（原生多模态表示）。
  * 含图像时：每图 encodeImage 后两两 fuse，再与文本 fuse 为 tensor。
  * 视觉字节缺失宽高时以确定性占位（length, 1），真实编码器可替换本路径。
+ * @param msg 模型消息（文本 + 可选图像数组）。
+ * @returns 该消息的统一 Modality 表示（纯文本为 text，含图融合后为 tensor）。
  */
 export function modelMessageToModality(msg: ModelMessage): Modality<unknown> {
   return multimodalBridge.modelMessageToModality(msg);
 }
 
-/** 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。 */
+/** 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。
+ * @param a 第一条模型消息。
+ * @param b 第二条模型消息。
+ * @returns 两消息统一 Modality 特征的余弦相似度 ∈ [-1, 1]。
+ */
 export function crossModalAlign(a: ModelMessage, b: ModelMessage): number {
   return multimodalBridge.crossModalAlign(a, b);
 }
@@ -128,12 +161,17 @@ export function crossModalAlign(a: ModelMessage, b: ModelMessage): number {
  * 跨模态检索增强：把每个文档的模态特征签名追加进可检索文本，
  * 使 BM25 索引具备"语义特征"维度（同义/同构文本更易聚类召回）。
  * 零依赖、复用 #M2 内核，不改变 RetrievalPort 契约。
+ * @param index 目标检索端口（文档将被带特征签名地重新索引）。
+ * @param docs 待增强索引的检索文档集合。
  */
 export function registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
   multimodalBridge.registerCrossModal(index, docs);
 }
 
-/** 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。 */
+/** 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。
+ * @param text 源文本。
+ * @returns 千分位取整特征值以下划线连接的签名字符串。
+ */
 export function modalitySignature(text: string): string {
   return multimodalBridge.modalitySignature(text);
 }

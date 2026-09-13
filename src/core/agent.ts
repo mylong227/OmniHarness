@@ -35,13 +35,16 @@ export class Agent implements AgentPort {
   private currentPersister: EventPersister | undefined;
 
   public constructor(
+    /** 运行时组合根：提供模型、工具、审批、沙箱、存储、事件总线等全部依赖。 */
     private readonly runtime: OmniHarnessRuntime,
+    /** 可选技能注册表：会话启动时按 prompt 匹配命中技能，渲染为 system 事件注入。 */
     private readonly skills?: SkillRegistry,
   ) {}
 
   /**
    * 取消当前在跑的任务（V2）：模型在飞请求被中断（CancelledError 上抛），
    * 已产生事件仍经 finally 落盘。无在跑任务时为 no-op。
+   * @param reason 取消原因，透传给取消令牌并随事件落盘（默认 'user'）。
    */
   public cancelCurrentRun(
     reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user',
@@ -49,7 +52,13 @@ export class Agent implements AgentPort {
     this.currentCancel?.cancel(reason);
   }
 
-  /** 执行一次任务（新会话）。images/files 可选，随首条用户消息送入模型（#B1/#B5）。 */
+  /**
+   * 执行一次任务（新会话）。images/files 可选，随首条用户消息送入模型（#B1/#B5）。
+   * @param prompt 用户任务文本，作为首条 user 事件进入事件流。
+   * @param images 可选图片内容数组，随首条用户消息一并送入模型。
+   * @param files 可选文件附件数组，随首条用户消息一并送入模型。
+   * @returns 会话执行结果：sessionId、最终文本、步数与全部事件。
+   */
   public async runTask(
     prompt: string,
     images?: readonly ImageContent[],
@@ -58,7 +67,14 @@ export class Agent implements AgentPort {
     return this.continueSession(undefined, prompt, id('sess'), images, files);
   }
 
-  /** 续跑历史会话：加载原会话历史事件后继续（同一 sessionId）。 */
+  /**
+   * 续跑历史会话：加载原会话历史事件后继续（同一 sessionId）。
+   * @param sessionId 要续跑的既有会话 ID，历史事件由此加载。
+   * @param prompt 本轮新增的用户指令；空串触发崩溃恢复语义（注入续跑引导）。
+   * @param images 可选图片内容数组，随本轮用户消息送入模型。
+   * @param files 可选文件附件数组，随本轮用户消息送入模型。
+   * @returns 续跑后的会话结果：sessionId、最终文本、步数与含历史的全部事件。
+   */
   public async resume(
     sessionId: string,
     prompt: string,
@@ -68,7 +84,14 @@ export class Agent implements AgentPort {
     return this.continueSession(sessionId, prompt, sessionId, images, files);
   }
 
-  /** 分叉会话：复制历史事件到新 sessionId，独立演进不影响原会话。 */
+  /**
+   * 分叉会话：复制历史事件到新 sessionId，独立演进不影响原会话。
+   * @param sourceSessionId 被分叉的源会话 ID，其历史事件被 hydrate 进新会话。
+   * @param prompt 分叉后本轮的用户指令。
+   * @param images 可选图片内容数组，随本轮用户消息送入模型。
+   * @param files 可选文件附件数组，随本轮用户消息送入模型。
+   * @returns 新会话的执行结果：新 sessionId、最终文本、步数与全部事件。
+   */
   public async fork(
     sourceSessionId: string,
     prompt: string,
@@ -78,7 +101,11 @@ export class Agent implements AgentPort {
     return this.continueSession(sourceSessionId, prompt, id('sess'), images, files);
   }
 
-  /** 回放会话：加载并广播全部历史事件。 */
+  /**
+   * 回放会话：加载并广播全部历史事件。
+   * @param sessionId 要回放的会话 ID。
+   * @returns 按原始顺序排列的全部历史事件（同时已逐条经事件总线广播）。
+   */
   public async replay(sessionId: string): Promise<readonly SessionEvent[]> {
     const events = await this.runtime.storage.load(sessionId);
     for (const event of events) {
@@ -87,7 +114,20 @@ export class Agent implements AgentPort {
     return events;
   }
 
-  /** 会话续跑通用流程：注入历史 → 记录输入 → 跑回合 → 持久化。 */
+  /**
+   * 会话续跑通用流程：注入历史 → 记录输入 → 跑回合 → 持久化。
+   *
+   * run/resume/fork 三种模式的汇聚点：run 建全新事件流；resume/fork 先 hydrate
+   * 源会话历史，再绑定取消令牌与 write-behind 持久化器跑 TurnRunner，finally
+   * 兜底落盘，最后按需跑进化闭环与燧内核收尾。
+   *
+   * @param sourceId 历史来源会话 ID；undefined 表示全新会话（run 模式）。
+   * @param prompt 本轮用户指令；resume 模式下空串触发崩溃恢复引导。
+   * @param sessionId 本会话的事件流 ID（resume 与 sourceId 相同，fork 为新 ID）。
+   * @param images 可选图片内容数组，随首条用户消息送入模型。
+   * @param files 可选文件附件数组，随首条用户消息送入模型。
+   * @returns 会话执行结果：sessionId、最终文本、步数与全部事件。
+   */
   private async continueSession(
     sourceId: string | undefined,
     prompt: string,
@@ -177,6 +217,8 @@ export class Agent implements AgentPort {
   /**
    * 落盘（fail-soft）：持久化失败只告警，不向上抛。
    * 用于 finally 等场景——绝不能用存储错误掩盖模型/工具的原始异常。
+   * @param sessionId 事件落盘的目标会话 ID。
+   * @param events 要写入存储的完整事件序列（append-only 全量快照）。
    */
   private async persist(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     try {
@@ -186,7 +228,11 @@ export class Agent implements AgentPort {
     }
   }
 
-  /** 按需注入命中技能（作为 system 事件进日志 → 投影进模型上下文）。 */
+  /**
+   * 按需注入命中技能（作为 system 事件进日志 → 投影进模型上下文）。
+   * @param recorder 会话记录器，命中的技能文本经其写为 system 事件。
+   * @param prompt 用户 prompt，作为技能匹配（keywords/触发规则）的输入。
+   */
   private injectSkills(recorder: SessionRecorder, prompt: string): void {
     if (this.skills === undefined) {
       return;
@@ -201,6 +247,9 @@ export class Agent implements AgentPort {
    * 以 system 事件注入开场上下文，使模型开工前先对齐既有偏好/约定/决策/坑。
    * 用开场 prompt 做相关性召回；无命中时退化为按重要度取 top-N，确保始终有基线对齐。
    * 零侵入核心循环：仅为 recorder 追加一条 system 事件，不改变既有执行流。
+   * @param recorder 会话记录器，primer 文本经其写为 system 事件。
+   * @param prompt 开场用户 prompt，作为相关性召回的查询文本。
+   * @param sessionId 当前会话 ID，用于过滤本会话刚沉淀的事实（避免自指回灌）。
    */
   private injectMemoryPrimer(recorder: SessionRecorder, prompt: string, sessionId: string): void {
     const memory = this.runtime.longTermMemory;
@@ -230,7 +279,12 @@ export class Agent implements AgentPort {
     );
   }
 
-  /** 构建回合执行器（V2：注入取消信号 + 失控检测 + 增量持久化）。 */
+  /**
+   * 构建回合执行器（V2：注入取消信号 + 失控检测 + 增量持久化）。
+   * @param recorder 会话记录器，回合内全部事件经其写入事件流并广播。
+   * @param cancel 会话级取消令牌，其 AbortSignal 贯穿模型请求 fetch。
+   * @returns 装配好的 TurnRunner，负责驱动 step 循环直到任务完成或熔断。
+   */
   private buildTurnRunner(recorder: SessionRecorder, cancel: CancellationToken): TurnRunner {
     const step = new StepRunner({
       model: this.runtime.model,
@@ -284,6 +338,7 @@ export class Agent implements AgentPort {
   /**
    * 回合 token 预算解析（V2.1 / B4）：config.turnTokenBudget 优先，
    * env OMNI_TURN_TOKEN_BUDGET 兜底；均未设置或非法时返回 0（关闭，不设预算闸）。
+   * @returns 每回合 token 预算上限（正整数）；0 表示未启用预算闸。
    */
   private resolveTokenBudget(): number {
     const fromConfig = this.runtime.config.turnTokenBudget;
@@ -300,6 +355,7 @@ export class Agent implements AgentPort {
    * env `OMNI_CONTEXT_WINDOW` 优先（运维可显式纠正厂商表），否则按模型名查
    * {@link ContextWindowCatalog}。与压缩阈值口径**有意分离**：压缩何时触发是行为契约
    * （改动会影响既有会话的折叠时机与测试基线），而窗口大小只是展示口径，两者不互相绑定。
+   * @returns 上下文窗口 token 数（env 覆盖值或按模型名查表的容量）。
    */
   private resolveContextWindow(): number {
     const fromEnv = Number(process.env.OMNI_CONTEXT_WINDOW);
@@ -308,7 +364,10 @@ export class Agent implements AgentPort {
     );
   }
 
-  /** 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。 */
+  /**
+   * 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。
+   * @returns 配置好压缩阈值与（可选）原生 token 估算器的 ContextCompactor。
+   */
   private buildCompactor(): ContextCompactor {
     const envWindow = Number(process.env.OMNI_CONTEXT_WINDOW);
     const compactor = new ContextCompactor(this.runtime.model, {
@@ -325,12 +384,19 @@ export class Agent implements AgentPort {
     return compactor;
   }
 
-  /** 构造工具上下文。 */
+  /**
+   * 构造工具上下文。
+   * @param sessionId 当前会话 ID，随工具调用透传（供工具区分会话/落审计）。
+   * @returns 含会话 ID 与工作区根目录的 ToolContext。
+   */
   private contextOf(sessionId: string): ToolContext {
     return { sessionId, workspaceRoot: this.runtime.config.workspaceRoot };
   }
 
-  /** 任务完成后可选跑一轮进化闭环（autoRun 开启时）。异常被吞，绝不连累主任务。 */
+  /**
+   * 任务完成后可选跑一轮进化闭环（autoRun 开启时）。异常被吞，绝不连累主任务。
+   * @param sessionId 触发本轮进化的会话 ID，仅用于结构化日志关联。
+   */
   private async runEvolutionIfEnabled(sessionId: string): Promise<void> {
     const evo: EvolutionController | undefined = this.runtime.evolution;
     if (evo === undefined || !evo.autoRun) {
@@ -350,7 +416,10 @@ export class Agent implements AgentPort {
     }
   }
 
-  /** 任务完成后可选跑一轮燧内核调谐/冲刷（autoRun 开启时）。异常被吞，绝不连累主任务。 */
+  /**
+   * 任务完成后可选跑一轮燧内核调谐/冲刷（autoRun 开启时）。异常被吞，绝不连累主任务。
+   * @param sessionId 触发本轮燧周期的会话 ID，仅用于结构化日志关联。
+   */
   private async runSparkIfEnabled(sessionId: string): Promise<void> {
     const spark: SparkController | undefined = this.runtime.spark;
     if (spark === undefined || !spark.autoRun) {
@@ -387,6 +456,7 @@ export class Agent implements AgentPort {
  *  - `OMNI_LOOP_MAX_MS=<毫秒>` 设置会话 wall-clock 上限（超时熔断，默认不设）。
  * 检测策略：同调用重复 ≥3 次 / 循环窗口 8 内周期 ≤4 的 A→B→A→B 模式。
  * 首次触发注入纠偏 user 消息，同一违规连续 2 次才熔断（不误杀长任务）。
+ * @returns 按环境变量装配好的 LoopGuard（关闭时为零阈值实例，等效禁用检测）。
  */
 function buildLoopGuard(): LoopGuard {
   if (process.env.OMNI_LOOPGUARD === '0') {
