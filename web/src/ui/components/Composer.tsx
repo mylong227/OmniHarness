@@ -9,6 +9,7 @@
 // - 组件自身只保留交互状态（附件 / 选择器 / 补全 / 录音）与 DOM 引用。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { Dropdown } from './Dropdown.js';
 import { FilePicker } from './FilePicker.js';
 import { WorkIndicator } from './WorkIndicator.js';
@@ -90,7 +91,7 @@ interface ComposerState {
 }
 
 /** 底部输入区组件。 */
-export class Composer extends React.Component<ComposerProps, ComposerState> {
+export class Composer extends AppComponent<ComposerProps, ComposerState> {
   private taRef: HTMLTextAreaElement | null = null;
   private recog: SpeechRecognitionLike | null = null;
 

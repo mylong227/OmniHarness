@@ -5,6 +5,7 @@
 // 面向对象：结构由 AddMenuModel 拼装（纯数据，可单测）；组件只负责渲染、拉数据、按 id 分派动作。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { AddMenuModel } from '../models/AddMenuModel.js';
 import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
@@ -41,7 +42,7 @@ interface AddMenuState {
 }
 
 /** 「+」添加菜单组件。 */
-export class AddMenu extends React.Component<AddMenuProps, AddMenuState> {
+export class AddMenu extends AppComponent<AddMenuProps, AddMenuState> {
   private searchTimer = 0;
 
   constructor(props: AddMenuProps) {

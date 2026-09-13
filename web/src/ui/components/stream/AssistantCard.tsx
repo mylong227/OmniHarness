@@ -2,6 +2,7 @@
 // 附附件 chip、外部链接卡片与一键复制。点击正文里的文件路径链接在右侧面板打开。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { badge, timeOf, esc, renderMarkdown } from '../../format.js';
 import { extractUrls } from '../../textUtils.js';
 import { TextRevealer } from '../../models/TextRevealer.js';
@@ -35,7 +36,7 @@ const COPY_BTN: Record<string, string> = {
 };
 
 /** 助手消息卡组件。 */
-export class AssistantCard extends React.Component<AssistantCardProps, AssistantCardState> {
+export class AssistantCard extends AppComponent<AssistantCardProps, AssistantCardState> {
   /** 渐进揭示器（生命周期内复用，卸载时停止）。 */
   private readonly revealer: TextRevealer;
 

@@ -2,6 +2,7 @@
 // 失败时把 error 摘要直接显示在行尾（不折叠）——沙箱拒绝 / 路径越界等根因不该被藏起来。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { jsonView, timeOf, esc } from '../../format.js';
 import { truncate, describeToolCall } from '../../textUtils.js';
 import { ArtifactResolver } from '../../models/ArtifactResolver.js';
@@ -21,7 +22,7 @@ interface ToolCallCardState {
 }
 
 /** 工具调用卡片组件。 */
-export class ToolCallCard extends React.Component<ToolCallCardProps, ToolCallCardState> {
+export class ToolCallCard extends AppComponent<ToolCallCardProps, ToolCallCardState> {
   constructor(props: ToolCallCardProps) {
     super(props);
     this.state = { open: false };

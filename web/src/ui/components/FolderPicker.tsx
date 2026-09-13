@@ -6,6 +6,7 @@
 // （监听只挂一次，handler 读 this.state/this.props，无闭包过期问题）。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { PathJoiner } from '../models/PathJoiner.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
@@ -38,7 +39,7 @@ interface FolderPickerState {
 const DEFAULT_NEW_NAME = '新项目';
 
 /** 目录选择器。 */
-export class FolderPicker extends React.Component<FolderPickerProps, FolderPickerState> {
+export class FolderPicker extends AppComponent<FolderPickerProps, FolderPickerState> {
   constructor(props: FolderPickerProps) {
     super(props);
     this.state = {

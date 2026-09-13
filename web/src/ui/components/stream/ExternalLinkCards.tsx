@@ -3,6 +3,7 @@
 // 不做 OG 抓取（需后端代理 + 缓存 + 隐私边界），纯卡片样式已足以让链接不被忽略。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { esc } from '../../format.js';
 import { hostOf } from '../../textUtils.js';
 
@@ -11,7 +12,7 @@ export interface ExternalLinkCardsProps {
 }
 
 /** 外部链接卡片组件（无链接时渲染为 null）。 */
-export class ExternalLinkCards extends React.Component<ExternalLinkCardsProps> {
+export class ExternalLinkCards extends AppComponent<ExternalLinkCardsProps> {
   override render(): ReactElement | null {
     const { urls } = this.props;
     if (urls.length === 0) return null;

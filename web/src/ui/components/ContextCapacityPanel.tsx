@@ -5,6 +5,7 @@
 // 组件只负责拉数、渲染与配额档位切换。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { ContextUsageView } from '../models/ContextUsageView.js';
 import { QuotaView } from '../models/QuotaView.js';
 import type { ContextUsageReport, QuotaStatus } from '../../types/models.js';
@@ -26,7 +27,7 @@ interface ContextCapacityPanelState {
 }
 
 /** 上下文容量面板组件。 */
-export class ContextCapacityPanel extends React.Component<ContextCapacityPanelProps, ContextCapacityPanelState> {
+export class ContextCapacityPanel extends AppComponent<ContextCapacityPanelProps, ContextCapacityPanelState> {
   constructor(props: ContextCapacityPanelProps) {
     super(props);
     this.state = { open: false, loading: false };

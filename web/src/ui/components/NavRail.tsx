@@ -3,6 +3,7 @@
 // 导航项数据为模块级常量（不可变），组件只负责渲染与回调。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 
 export interface NavRailProps {
   activePane: string;
@@ -28,7 +29,7 @@ const ITEMS: readonly NavItem[] = [
 ];
 
 /** 左侧图标导航组件。 */
-export class NavRail extends React.Component<NavRailProps> {
+export class NavRail extends AppComponent<NavRailProps> {
   /** 渲染单个导航按钮：选中态由 activePane 决定。 */
   private renderItem(it: NavItem): ReactElement {
     const { activePane, onSelect } = this.props;

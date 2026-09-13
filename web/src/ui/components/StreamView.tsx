@@ -9,6 +9,7 @@
 // 本组件只负责「事件 → 可视块」的分派与滚动锚定。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import {
   badge,
   jsonView,
@@ -74,7 +75,7 @@ export interface StreamViewProps {
 }
 
 /** 事件流组件。 */
-export class StreamView extends React.Component<StreamViewProps> {
+export class StreamView extends AppComponent<StreamViewProps> {
   private streamRef: HTMLDivElement | null = null;
 
   override componentDidMount(): void {

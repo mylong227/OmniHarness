@@ -2,6 +2,7 @@
 // 本组件只负责标签切换与移动端抽屉态，不做业务逻辑。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 
 export interface RightPanelProps {
   activePane: string;
@@ -30,7 +31,7 @@ const TABS: readonly TabItem[] = [
 ];
 
 /** 右栏容器组件。 */
-export class RightPanel extends React.Component<RightPanelProps> {
+export class RightPanel extends AppComponent<RightPanelProps> {
   private renderTab(t: TabItem): ReactElement {
     const { activePane, onSelect } = this.props;
     return (

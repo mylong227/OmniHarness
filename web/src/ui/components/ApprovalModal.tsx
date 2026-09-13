@@ -2,6 +2,7 @@
 // 纯展示组件：决策通过回调上抛，无内部状态。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { jsonView } from '../format.js';
 import type { ApprovalRequest } from '../../types/models.js';
 
@@ -16,7 +17,7 @@ export interface ApprovalModalProps {
 const HIDDEN: Record<string, string> = { display: 'none' };
 
 /** 工具审批弹窗组件。 */
-export class ApprovalModal extends React.Component<ApprovalModalProps> {
+export class ApprovalModal extends AppComponent<ApprovalModalProps> {
   private onAllowAlways(): void {
     this.props.onRespond('allow', true);
   }

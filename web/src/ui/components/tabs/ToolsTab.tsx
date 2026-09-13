@@ -2,6 +2,7 @@
 // 纯展示组件：列表数据由 props 注入，无内部状态。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { emptyState } from '../../format.js';
 import type { ToolItem } from '../../shared.js';
 
@@ -11,7 +12,7 @@ export interface ToolsTabProps {
 }
 
 /** 工具面板组件。 */
-export class ToolsTab extends React.Component<ToolsTabProps> {
+export class ToolsTab extends AppComponent<ToolsTabProps> {
   /** 工具状态中文映射：未知状态显示省略号（fail-closed 到中性展示）。 */
   private statusText(status: string): string {
     if (status === 'ok') return '完成';

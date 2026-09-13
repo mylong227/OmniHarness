@@ -2,6 +2,7 @@
 // 面向对象改造：展开态从 useState 改为 this.state，递归渲染保持不变。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import type { FsNode } from '../../types/models.js';
 
 export interface TreeNodeProps {
@@ -14,7 +15,7 @@ interface TreeNodeState {
 }
 
 /** 文件树节点组件。 */
-export class TreeNode extends React.Component<TreeNodeProps, TreeNodeState> {
+export class TreeNode extends AppComponent<TreeNodeProps, TreeNodeState> {
   constructor(props: TreeNodeProps) {
     super(props);
     this.state = { open: false };

@@ -2,6 +2,7 @@
 // 纯展示组件：关闭通过回调上抛。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import type { FileView } from '../shared.js';
 
 export interface FileModalProps {
@@ -26,7 +27,7 @@ const CODE_BOX: Record<string, string> = {
 };
 
 /** 文件预览弹窗组件。 */
-export class FileModal extends React.Component<FileModalProps> {
+export class FileModal extends AppComponent<FileModalProps> {
   private readonly handleClose = (): void => {
     this.props.onClose();
   };

@@ -2,6 +2,7 @@
 // 纯展示 + 回调，无内部状态。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 
 export interface TopBarProps {
   connected: boolean;
@@ -13,7 +14,7 @@ export interface TopBarProps {
 }
 
 /** 顶栏组件。 */
-export class TopBar extends React.Component<TopBarProps> {
+export class TopBar extends AppComponent<TopBarProps> {
   override render(): ReactElement {
     const { connected, adapter, onToggleTheme, onToggleLeft, onToggleRight, onCommandPalette } =
       this.props;

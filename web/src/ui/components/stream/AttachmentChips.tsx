@@ -1,6 +1,7 @@
 // 附件 chip：用户/助手消息携带的文件以内联 chip 展示。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { esc } from '../../format.js';
 import { FileIconResolver } from '../../models/FileIconResolver.js';
 import type { FileAttachment } from '../../../types/models.js';
@@ -10,7 +11,7 @@ export interface AttachmentChipsProps {
 }
 
 /** 附件 chip 组件（无附件时渲染为 null）。 */
-export class AttachmentChips extends React.Component<AttachmentChipsProps> {
+export class AttachmentChips extends AppComponent<AttachmentChipsProps> {
   override render(): ReactElement | null {
     const { files } = this.props;
     if (!files || files.length === 0) return null;

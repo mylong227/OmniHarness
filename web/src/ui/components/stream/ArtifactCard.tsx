@@ -2,6 +2,7 @@
 // 点击文件名或「打开」在右侧代码面板预览（语法高亮），下载直跳 /files。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { esc } from '../../format.js';
 import type { ArtifactInfo } from '../../models/ArtifactResolver.js';
 
@@ -11,7 +12,7 @@ export interface ArtifactCardProps {
 }
 
 /** 产物卡片组件。 */
-export class ArtifactCard extends React.Component<ArtifactCardProps> {
+export class ArtifactCard extends AppComponent<ArtifactCardProps> {
   /** 打开：阻止默认跳转与冒泡（外层卡片点击会触发钻取），改走右侧面板预览。 */
   private readonly handleOpen = (e: MouseEvent): void => {
     e.preventDefault();

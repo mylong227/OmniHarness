@@ -6,6 +6,7 @@
 // 触发按钮 onClick 里 e.stopPropagation() 会同样阻断原生冒泡，故不会「刚开就被外部点击关掉」。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 
 export interface DropdownOption {
   value: string;
@@ -25,7 +26,7 @@ interface DropdownState {
 }
 
 /** 自绘下拉组件。 */
-export class Dropdown extends React.Component<DropdownProps, DropdownState> {
+export class Dropdown extends AppComponent<DropdownProps, DropdownState> {
   constructor(props: DropdownProps) {
     super(props);
     this.state = { open: false };
