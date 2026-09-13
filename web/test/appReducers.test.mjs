@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AppReducers } from '../dist/ui/controllers/AppReducers.js';
+import { KeyboardShortcuts } from '../dist/ui/models/KeyboardShortcuts.js';
 
 const r = new AppReducers();
 

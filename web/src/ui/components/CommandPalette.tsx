@@ -118,10 +118,11 @@ export class CommandPalette extends AppComponent<CommandPaletteProps, CommandPal
   }
 
   override render(): ReactElement | null {
-    const { open, onClose } = this.props;
+    const { open } = this.props;
     if (!open) return null;
     const { query, active } = this.state;
-    const filtered = this.filtered;
+    // 按 group 分组渲染；`index` 仍是扁平下标，键盘上下键与执行语义不变。
+    const groups = this.model.grouped(query);
 
     return (
       <div className="cmdk-backdrop" onMouseDown={this.onBackdropMouseDown}>
@@ -143,20 +144,27 @@ export class CommandPalette extends AppComponent<CommandPaletteProps, CommandPal
             onInput={this.onQueryInput}
           />
           <div className="cmdk-list" role="listbox" aria-label="命令列表">
-            {filtered.length === 0 ? (
+            {groups.reduce((n, g) => n + g.items.length, 0) === 0 ? (
               <div className="cmdk-empty">无匹配命令</div>
             ) : (
-              filtered.map((c, i) => (
-                <div
-                  key={c.id}
-                  role="option"
-                  aria-selected={i === active ? 'true' : 'false'}
-                  className={'cmdk-item' + (i === active ? ' active' : '')}
-                  onMouseEnter={() => this.setState({ active: i })}
-                  onClick={() => this.runAt(i)}
-                >
-                  <span className="cmdk-label">{c.label}</span>
-                  {c.hint ? <span className="cmdk-hint">{c.hint}</span> : null}
+              groups.map((g) => (
+                <div key={g.group} className="cmdk-group" role="group" aria-label={g.group}>
+                  <div className="cmdk-group-title" aria-hidden="true">
+                    {g.group}
+                  </div>
+                  {g.items.map(({ item, index }) => (
+                    <div
+                      key={item.id}
+                      role="option"
+                      aria-selected={index === active ? 'true' : 'false'}
+                      className={'cmdk-item' + (index === active ? ' active' : '')}
+                      onMouseEnter={() => this.setState({ active: index })}
+                      onClick={() => this.runAt(index)}
+                    >
+                      <span className="cmdk-label">{item.label}</span>
+                      {item.hint ? <span className="cmdk-hint">{item.hint}</span> : null}
+                    </div>
+                  ))}
                 </div>
               ))
             )}

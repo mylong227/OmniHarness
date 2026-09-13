@@ -1,0 +1,38 @@
+# OmniHarness
+
+> 融合 Codex / DeepSeek Harness 能力的全能 Agent Harness：TypeScript ESM + Node 22，六边形端口-适配器分层，审批→沙箱→执行→记录构成 fail-closed 统一门禁链，运行时零第三方依赖。
+
+本文件按 [llmstxt.org](https://llmstxt.org/) 规范撰写，是 `docs/` 站点面向 LLM 与自动化工具的**机器可读索引**：只列权威入口与一句话职责，不复制正文。所有链接为相对 `docs/` 的路径；进度与状态数字一律以任务看板为准。
+
+## 核心文档
+
+- [文档索引](README.md): `docs/` 唯一入口，含「按角色选路径」导航与归档登记
+- [任务看板](TASK_BOARD_2026-09-13.md): 唯一前进看板（A 兼容性 / B 可信度 / C 工程收口 / D UI / E 能力 / F 测试运维六线）
+- [架构与差距全景](ARCHITECTURE_AND_GAP_2026-09-13.md): 整体架构 + 与成熟同类的核心/边缘差距 + 待办 ROI 排序
+- [工程架构说明书](ARCHITECTURE_SPEC.md): 六边形分层、目录归属表（与 arch gate 同口径）、核心数据流、沙箱矩阵
+- [快速开始](QUICKSTART.md): 5 分钟跑通
+- [技术方向](TECH_DIRECTION_SYNTHESIS_2026-09-12.md): UCE 四公理（归一/守恒/演变/度量）+ T0–T6 七条主线
+
+## 契约与指南
+
+- [端口契约](PORTS_CONTRACT.md): 第三方实现 OmniHarness 端口的口径
+- [接入指南](integration.md): 实现端口接口 → 注入配置 → 完成
+- [协议文档](protocol.md): 单源 schema 自动生成（stdio / HTTP+SSE / WebSocket），勿手改
+- [API 稳定性](API_STABILITY.md): `@public` / `@beta` / `@deprecated` 分级契约
+- [插件开发指南](PLUGIN_GUIDE.md): 插件包结构与装载流程
+- [编码标准](CODE_STANDARD.md): 一功能一类、显式可见性、严格 TS、隐喻引擎成熟度 L0–L3
+- [依赖政策](DEPENDENCY_POLICY.md): 零运行时依赖边界与例外流程
+- [贡献铁律](contributing.md): 提交与评审要求
+- [垂直切片模板](DOMAIN_SLICE_TEMPLATE.md): 新增业务域的 7 步模板
+
+## 架构决策记录（ADR）
+
+- [ADR 索引](adr/README.md): 六边形架构 / 依赖白名单 / 统一门禁 fail-closed / 审计哈希链 / 事件流单源 / 沙箱诚实降级 / API 稳定标注
+
+## Optional
+
+- [成熟度审计](maturity-audit-2026-09-09.md): 六维成熟度矩阵 + UI 专项对标 + 零测试模块清单
+- [上下文召回实验](U3_CONTEXT_RECALL_EXPERIMENT.md): 负结果全留档（LSA 有害 / PageRank 零增益 / 频域共振无效）
+- [单例登记册](SINGLETON_REGISTRY.md): 真状态判定与组合根归属
+- [理论库](library/README.md): 九卷理论来源（harness 工程 / agent 学习 / 2026 栈 / 学科五卷）
+- [历史存档](archive/): 被取代的审计与计划，只读参考

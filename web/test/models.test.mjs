@@ -52,6 +52,35 @@ test('CommandPaletteModel move 上下移动且不越界', () => {
   assert.equal(m.move(0, 3, -1), 0, '已在顶部则保持');
 });
 
+test('CommandPaletteModel grouped 按 group 分组且 index 与扁平下标一致', () => {
+  const m = new CommandPaletteModel(CMDS);
+  const groups = m.grouped('');
+  assert.equal(groups.length, 2, '面板 ×2 + 会话 ×1');
+  assert.equal(groups[0].group, '面板');
+  assert.equal(groups[0].items.length, 2);
+  assert.equal(groups[1].group, '会话');
+  assert.deepEqual(
+    groups[0].items.map((e) => e.index),
+    [0, 1],
+    '组内 index 必须是扁平过滤结果的下标',
+  );
+  assert.equal(groups[1].items[0].index, 2);
+});
+
+test('CommandPaletteModel grouped 过滤后分组收敛且 index 重算', () => {
+  const m = new CommandPaletteModel(CMDS);
+  const groups = m.grouped('指标');
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].group, '面板');
+  assert.equal(groups[0].items[0].index, 0, '过滤后下标归零，与键盘高亮一致');
+});
+
+test('CommandPaletteModel grouped 无 group 项归入默认分组，无匹配返回空数组', () => {
+  const m = new CommandPaletteModel([{ id: 'x', label: '孤立命令', run: () => {} }]);
+  assert.equal(m.grouped('')[0].group, '其他');
+  assert.deepEqual(m.grouped('不存在'), []);
+});
+
 test('CheckpointNamer 留空生成时间戳名，有输入用输入', () => {
   const fixed = new Date('2026-09-10T08:30:45.000Z');
   assert.equal(CheckpointNamer.resolve('   ', fixed), CheckpointNamer.auto(fixed));
