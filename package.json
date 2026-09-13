@@ -1,7 +1,7 @@
 {
   "name": "omniharness",
   "version": "0.1.0",
-  "description": "OmniHarness —— 融合 Codex Harness 与 DeepSeek Harness 优点的全能 Agent Harness（TypeScript 实现）",
+  "description": "OmniHarness —— 通用 Agent Harness：TypeScript（CLI / Web 前端 / 编排）+ Rust（原生内核）",
   "type": "module",
   "license": "Apache-2.0",
   "engines": {
