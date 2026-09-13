@@ -26,6 +26,7 @@ import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
 import { ProcessCluster } from './stream/ProcessCluster.js';
 import { AssistantCard } from './stream/AssistantCard.js';
+import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
 import type { ThreadEvent, FileAttachment } from '../../types/models.js';
 import type { LiveInput } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
@@ -38,6 +39,10 @@ export interface StreamViewProps {
   events: ThreadEvent[];
   toolResults: Record<string, ToolResultView>;
   liveInputs: LiveInput[];
+  /** 本回合已累积的流式正文（`thread.text_delta` 增量拼接）。非空即在末尾渲染生成中的助手卡片。 */
+  streamText?: string;
+  /** 已被 assistant 事件收口的流式文本（用于免掉最终卡片的重复揭示动画）。 */
+  finalizedStreamText?: string;
   onEventClick: (ev: ThreadEvent) => void;
   /** 点击助手回复中的文件路径链接时，在右侧文件面板打开（而不是跳外链）。 */
   onOpenFile?: (path: string) => void;
@@ -136,7 +141,7 @@ export class StreamView extends AppComponent<StreamViewProps> {
           </>,
         );
       case 'assistant':
-        return node(<AssistantCard ev={ev} busy={busy} onOpenFile={onOpenFile} />);
+        return node(<AssistantCard ev={ev} busy={busy} onOpenFile={onOpenFile} animate={!this.wasStreamed(p)} />);
       case 'reasoning':
         return <ReasoningBlock key={ev.id} ev={ev} />;
       case 'tool_call':
@@ -240,6 +245,19 @@ export class StreamView extends AppComponent<StreamViewProps> {
     );
   }
 
+  /**
+   * 判断一条 assistant 事件的内容是否正是本轮已被流式渲染过的文本。
+   *
+   * 命中时跳过最终卡片的渐进揭示动画，避免「逐字已显示完 → 归入正式卡片时又从零重播」的视觉回跳。
+   * @param p 事件载荷（含 content）
+   * @returns 已流过则 true
+   */
+  private wasStreamed(p: Record<string, unknown>): boolean {
+    const finalized = this.props.finalizedStreamText ?? '';
+    if (finalized === '') return false;
+    return ((p.content as string) || '') === finalized;
+  }
+
   private renderBlock(
     b: ReturnType<typeof buildDisplayBlocks>[number],
     toolCallIds: Set<string>,
@@ -285,20 +303,26 @@ export class StreamView extends AppComponent<StreamViewProps> {
     } = this.props;
     const blocks = buildDisplayBlocks(events, busy);
     const ids = this.toolCallIds();
+    const streamText = this.props.streamText ?? '';
     return (
       <div className="col center">
         <div
           className="stream"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="对话事件流"
           ref={(el: HTMLDivElement | null) => {
             this.streamRef = el;
           }}
         >
-          {events.length === 0 && liveInputs.length === 0 ? (
+          {events.length === 0 && liveInputs.length === 0 && streamText === '' ? (
             emptyState('💬', '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
           ) : (
             <div className="stream-inner">
               {blocks.map((b) => this.renderBlock(b, ids))}
               {liveInputs.map((li) => this.renderLiveInput(li))}
+              {streamText !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streamText} /> : null}
             </div>
           )}
         </div>

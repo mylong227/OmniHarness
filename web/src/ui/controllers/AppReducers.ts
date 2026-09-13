@@ -38,6 +38,44 @@ export class AppReducers {
   }
 
   /**
+   * 追加一段模型正文增量（流式渲染用）。
+   *
+   * 后端 `onText` 回传的是**增量片段**（非累积全文，见各 model adapter 的 handleStreamEvent），
+   * 故此处必须拼接；若哪天上游改成累积语义，这里会立刻表现为文本重复，是显式的失败而非静默错。
+   *
+   * @param prev 已累积的流式文本
+   * @param text 增量片段
+   * @returns 拼接后的文本
+   */
+  public appendTextDelta(prev: string, text: string): string {
+    return prev + text;
+  }
+
+  /**
+   * 把一条事件并入状态，并处理「流式文本收口」。
+   *
+   * assistant 事件意味着本轮这段正文已落成**事实事件**：此后到达的增量属于下一段生成，
+   * 必须从空缓冲重新累积（否则一个回合内的多段正文会串成一条，前端显示与实际不符）。
+   * 收口时把刚流过的文本记入 finalizedStreamText，供视图判断这条 assistant 卡片还要不要做
+   * 渐进揭示——已经逐字看过的内容再播一遍动画会从 40% 处「跳回去」，是可见的倒退。
+   * 该标记在同回合内保持（下一个 assistant 事件覆盖它），回合开始时由 send/loadThread 清零。
+   *
+   * @param prev 既有事件流 / 流式文本 / 已收口文本
+   * @param ev 待并入的事件
+   * @returns 状态补丁（events / streamText / finalizedStreamText）
+   */
+  public ingestEvent(
+    prev: { events: ThreadEvent[]; streamText: string; finalizedStreamText: string },
+    ev: ThreadEvent,
+  ): { events: ThreadEvent[]; streamText: string; finalizedStreamText: string } {
+    const events = [...prev.events, ev];
+    if (ev.type === 'assistant' && prev.streamText !== '') {
+      return { events, streamText: '', finalizedStreamText: prev.streamText };
+    }
+    return { events, streamText: prev.streamText, finalizedStreamText: prev.finalizedStreamText };
+  }
+
+  /**
    * 合并一条工具结果到结果映射。
    * @param prev 既有结果映射
    * @param callId 工具调用 id

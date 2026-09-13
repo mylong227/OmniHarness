@@ -88,7 +88,12 @@ export class ProfilesTab extends AppComponent<ProfilesTabProps, ProfilesTabState
   }
 
   private async delProfile(id: string): Promise<void> {
-    if (!window.confirm('确认删除该配置集？')) return;
+    const ok = await this.dialog.confirm('确认删除该配置集？', {
+      title: '删除配置集',
+      confirmLabel: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await this.api.deleteProfile(id);
       this.toast('已删除', 'ok');

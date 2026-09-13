@@ -29,3 +29,22 @@ test('id/name 缺失时以 null 上报（前端仍可按 null 降级忽略占位
   view.onToolInput({ partialJson: '{"x":1}' });
   assert.deepStrictEqual(calls[0]!.params, { id: null, name: null, partialJson: '{"x":1}' });
 });
+
+test('onTextDelta → notify(thread.text_delta)，增量片段原样透传', () => {
+  const { bc, calls } = mockBroadcaster();
+  const view = new WebLiveView(bc);
+  view.onTextDelta('你好');
+  view.onTextDelta('，世界');
+  assert.strictEqual(calls.length, 2, '每一段增量各广播一次');
+  assert.strictEqual(calls[0]!.method, 'thread.text_delta');
+  assert.deepStrictEqual(calls[0]!.params, { text: '你好' });
+  // 关键：回传的是增量片段而非累积全文——前端据此 append 拼接，语义不能含糊。
+  assert.deepStrictEqual(calls[1]!.params, { text: '，世界' });
+});
+
+test('onTextDelta 空串也如实广播（是否丢弃由消费方决定，适配器不替它猜）', () => {
+  const { bc, calls } = mockBroadcaster();
+  const view = new WebLiveView(bc);
+  view.onTextDelta('');
+  assert.deepStrictEqual(calls[0]!.params, { text: '' });
+});

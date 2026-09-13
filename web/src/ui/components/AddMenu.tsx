@@ -121,9 +121,13 @@ export class AddMenu extends AppComponent<AddMenuProps, AddMenuState> {
     }
   }
 
-  private readonly onGoal = (): void => {
+  private readonly onGoal = async (): Promise<void> => {
     const current = this.state.goal;
-    const input = window.prompt('设置要持续追求的目标（留空清除）：', current);
+    const input = await this.dialog.prompt('设置要持续追求的目标（留空清除）：', current, {
+      title: '持续目标',
+      confirmLabel: '保存',
+      placeholder: '例如：把召回率提到 60%',
+    });
     if (input === null) return;
     void this.toggleMode({ goal: input.trim() });
   };
@@ -153,7 +157,7 @@ export class AddMenu extends AppComponent<AddMenuProps, AddMenuState> {
       return;
     }
     if (id === 'goal') {
-      this.onGoal();
+      void this.onGoal();
       return;
     }
     if (id === 'plan') {

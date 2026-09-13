@@ -102,7 +102,12 @@ export class MemoryTab extends AppComponent<MemoryTabProps, MemoryTabState> {
   }
 
   private async del(id: string): Promise<void> {
-    if (!window.confirm('确认删除这条记忆？')) return;
+    const ok = await this.dialog.confirm('确认删除这条记忆？', {
+      title: '删除记忆',
+      confirmLabel: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await this.api.deleteMemory(id);
       this.toast('已删除', 'ok');

@@ -126,6 +126,38 @@ test('appendFinalText：去重 + 空/空白跳过（send 兜底分支）', () =>
   assert.strictEqual(r.appendFinalText(prev, '   '), prev);
 });
 
+test('appendTextDelta：增量拼接，不覆盖既有内容', () => {
+  assert.strictEqual(r.appendTextDelta('', '你'), '你');
+  assert.strictEqual(r.appendTextDelta('你', '好'), '你好');
+  assert.strictEqual(r.appendTextDelta('你好', ''), '你好', '空增量不得改变现状');
+});
+
+test('ingestEvent：assistant 事件收口流式文本，其余事件不动流式态', () => {
+  const base = { events: [], streamText: '你好，世界', finalizedStreamText: '' };
+  // 非 assistant：流式文本原样保留，事件追加
+  const afterTool = r.ingestEvent(base, { id: 't1', type: 'tool_call', timestamp: 1, payload: {} });
+  assert.strictEqual(afterTool.streamText, '你好，世界');
+  assert.strictEqual(afterTool.finalizedStreamText, '');
+  assert.strictEqual(afterTool.events.length, 1);
+  // assistant：流式文本清空并转存到 finalized（供 StreamView 抑制重复揭示动画）
+  const afterAssistant = r.ingestEvent(base, {
+    id: 'a1',
+    type: 'assistant',
+    timestamp: 2,
+    payload: { content: '你好，世界' },
+  });
+  assert.strictEqual(afterAssistant.streamText, '', 'assistant 落账后必须清空流式缓冲');
+  assert.strictEqual(afterAssistant.finalizedStreamText, '你好，世界');
+  assert.strictEqual(afterAssistant.events.length, 1);
+});
+
+test('ingestEvent：无流式缓冲时 assistant 不收口（避免污染 finalized）', () => {
+  const base = { events: [], streamText: '', finalizedStreamText: 'old' };
+  const next = r.ingestEvent(base, { id: 'a2', type: 'assistant', timestamp: 3, payload: { content: 'x' } });
+  assert.strictEqual(next.streamText, '');
+  assert.strictEqual(next.finalizedStreamText, 'old', '空缓冲时不得把 finalized 清成空串');
+});
+
 test('buildCommands：16 条命令，run 闭包正确驱动依赖', () => {
   const calls = { pane: null, right: false, newSession: 0, reload: 0, theme: 0, left: 0, right: 0 };
   const cmds = r.buildCommands({

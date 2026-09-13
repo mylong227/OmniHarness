@@ -138,7 +138,7 @@
 .modal pre { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:9px 11px; font-size:12px; max-height:160px; overflow:auto; margin-bottom:14px; white-space:pre-wrap; word-break:break-word; }
 .modal .actions { display:flex; gap:8px; justify-content:flex-end; }
 .modal button { border:none; border-radius:9px; padding:8px 15px; cursor:pointer; font-size:13px; }
-.modal .allow { background:var(--ok); color:#fff; } .modal .deny { background:var(--err); color:#fff; }
+.modal .allow { background:var(--ok); color:var(--on-ok); } .modal .deny { background:var(--err); color:var(--on-err); }
 .modal .always { background:var(--panel-2); color:var(--text); border:1px solid var(--border); }
 
 /* ---------- 移动端抽屉 ---------- */
@@ -182,6 +182,8 @@
 .src-badge.unloaded { color:#ffb86b; border-color:#5e4a2b; }
 .perm { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:6px; background:var(--bg-elev); border:1px solid var(--border); color:var(--dim); margin:3px 4px 0 0; }
 .perm.danger { color:#ff9a9a; border-color:#5e2b2b; background:rgba(255,120,120,.08); }
+/* 浅色主题必须换深色前景：原先直接沿用深色 literal，白底上 #ff9a9a 对比度仅 2.03:1（不可读）。 */
+[data-theme="light"] .perm.danger { color:var(--toast-err); border-color:var(--toast-err-border); }
 
 /* ---------- 编排视图 ---------- */
 .row { display:flex; gap:8px; margin:8px 0; }
@@ -215,8 +217,21 @@
 .mem-actions .ghost { padding:3px 11px; font-size:11.5px; }
 .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px); z-index:60; padding:9px 16px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; border:1px solid var(--border); background:var(--bg-elev); color:var(--text); box-shadow:var(--shadow); }
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-.toast.ok { border-color:#2b5e3a; color:#9affb0; }
-.toast.err { border-color:#5e2b2b; color:#ff9a9a; }
+.toast.ok { border-color:var(--toast-ok-border); color:var(--toast-ok); }
+.toast.err { border-color:var(--toast-err-border); color:var(--toast-err); }
+/* A11y-ignore: 装饰性进度条/圆点，无文本内容，不参与对比度门禁（见 web/test/a11yContrast.test.mjs 范围说明）。 */
+
+/* =========================================================================
+   应用内对话框（DialogHost）：替代 window.confirm / window.prompt。
+   复用 .overlay / .modal 版式，仅补层级（须盖过 toast 的 z-index:60）与按钮配色。
+   ========================================================================= */
+.dlg-overlay { z-index:70; }
+.dlg { width:400px; }
+.dlg .dlg-msg { font-size:13px; color:var(--text); line-height:1.6; margin-bottom:14px; word-break:break-word; }
+.dlg .dlg-input { width:100%; margin-bottom:14px; }
+.dlg .dlg-confirm { background:var(--accent); color:var(--accent-fg); }
+.dlg .dlg-confirm.danger { background:var(--danger); color:var(--on-danger); }
+.dlg .dlg-cancel { background:var(--panel-2); color:var(--text); border:1px solid var(--border); }
 .btn-install, .btn-remove { font-size:12px; padding:4px 14px; border-radius:8px; cursor:pointer; border:1px solid var(--border); background:var(--bg-elev); color:var(--text); }
 .btn-install:hover { border-color:#7fd1ff; color:#7fd1ff; }
 .btn-remove:hover { border-color:#ff9a9a; color:#ff9a9a; }
@@ -254,7 +269,7 @@
   display: flex; align-items: center; gap: 8px;
   padding: 5px 12px; margin: 6px 10px 0;
   border: 1px solid var(--border); border-radius: 8px;
-  background: var(--panel); font-size: 12px; color: var(--text-dim, #9aa4b2);
+  background: var(--panel); font-size: 12px; color: var(--dim);
 }
 .wi-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -272,13 +287,15 @@
 .col-head { display: flex; align-items: center; justify-content: space-between; }
 .ws-add {
   font-size: 11px; padding: 2px 8px; border-radius: 6px; cursor: pointer;
-  border: 1px solid var(--border); background: transparent; color: var(--text-dim, #9aa4b2);
+  border: 1px solid var(--border); background: transparent; color: var(--dim);
 }
 .ws-add:hover { border-color: #7fd1ff; color: #7fd1ff; }
+/* 浅色主题下 #7fd1ff 落在白底上仅约 1.6:1，悬停文本不可读 → 换用主题强调色。 */
+[data-theme="light"] .ws-add:hover { border-color: var(--accent); color: var(--accent); }
 .ws-projects { display: flex; flex-direction: column; gap: 2px; padding: 4px 8px; }
 .ws-project {
   display: flex; align-items: center; gap: 7px; padding: 4px 8px;
-  border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-dim, #9aa4b2);
+  border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--dim);
 }
 .ws-project:hover { background: var(--panel-2); color: var(--text); }
 .ws-project.active { color: var(--text); background: var(--panel-2); }

@@ -52,7 +52,7 @@ export class ComposerController {
     } = currentThreadId ? { threadId: currentThreadId, prompt } : { prompt };
     if (images.length > 0) params.images = images;
     if (files.length > 0) params.files = files;
-    this.host.patch({ busy: true, activeTool: null });
+    this.host.patch({ busy: true, activeTool: null, streamText: '', finalizedStreamText: '' });
     try {
       const res = await this.services.api.runTurn(params);
       if (res.threadId) {
@@ -67,6 +67,11 @@ export class ComposerController {
       // 兜底：若后端最后一步未产出 assistant 事件，把 finalText 补成一条 assistant 事件；
       // 流中已存在同内容则跳过避免重复。
       this.host.patch((s) => ({ events: this.services.reducers.appendFinalText(s.events, res.finalText) }));
+      // 回合正常结束：流式缓冲已由 assistant 事件（或上面的兜底事件）落成事实事件，
+      // 此处把残留缓冲收口，避免它与最终卡片同屏重复。
+      this.host.patch((s) =>
+        s.streamText === '' ? {} : { streamText: '', finalizedStreamText: s.streamText },
+      );
     } catch (e) {
       const msg = (e as Error).message || '未知错误';
       // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。

@@ -14,6 +14,10 @@
   --accent:#e8e8e8; --accent-2:#b9b9b9; --accent-fg:#0a0a0a;
   --hover:rgba(255,255,255,.08);
   --ok:#4ec97a; --err:#f0616d; --warn:#e0b341; --user:#d6d6d6; --danger:#f0616d;
+  /* 语义色之上的前景色（对比度门禁：见 web/test/a11yContrast.test.mjs，均 ≥4.5:1）。 */
+  --on-ok:#062b14; --on-err:#2b0509; --on-danger:#2b0509;
+  --toast-ok:#9affb0; --toast-err:#ff9a9a;
+  --toast-ok-border:#2b5e3a; --toast-err-border:#5e2b2b;
   --radius:8px; --space:12px; --shadow:0 12px 40px rgba(0,0,0,.6);
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
@@ -23,6 +27,10 @@
   --accent:#1c1c1c; --accent-2:#3a3a3a; --accent-fg:#ffffff;
   --hover:rgba(0,0,0,.06);
   --ok:#1a7f37; --err:#cf222e; --warn:#9a6700; --user:#2a2a2a; --danger:#cf222e;
+  /* 浅色主题下 OK/ERR 实心按钮与 toast 文案须换成深色前景，否则白底浅绿/浅红几乎不可读。 */
+  --on-ok:#ffffff; --on-err:#ffffff; --on-danger:#ffffff;
+  --toast-ok:#1a7f37; --toast-err:#b42318;
+  --toast-ok-border:#a7d5b5; --toast-err-border:#f0b3b3;
   --radius:8px; --space:12px; --shadow:0 12px 40px rgba(0,0,0,.12);
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }

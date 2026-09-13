@@ -30,18 +30,20 @@ const ITEMS: readonly NavItem[] = [
 
 /** 左侧图标导航组件。 */
 export class NavRail extends AppComponent<NavRailProps> {
-  /** 渲染单个导航按钮：选中态由 activePane 决定。 */
+  /** 渲染单个导航按钮：选中态由 activePane 决定，并以 aria-current 暴露给辅助技术。 */
   private renderItem(it: NavItem): ReactElement {
     const { activePane, onSelect } = this.props;
+    const active = it.key === activePane;
     return (
       <button
         key={it.key}
-        className={'rail-btn' + (it.key === activePane ? ' active' : '')}
+        className={'rail-btn' + (active ? ' active' : '')}
         title={it.label}
         aria-label={it.label}
+        aria-current={active ? 'page' : undefined}
         onClick={() => onSelect(it.key)}
       >
-        <span className="rail-icon">{it.icon}</span>
+        <span className="rail-icon" aria-hidden="true">{it.icon}</span>
         <span className="rail-tip">{it.label}</span>
       </button>
     );

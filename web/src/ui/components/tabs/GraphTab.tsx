@@ -143,7 +143,12 @@ export class GraphTab extends AppComponent<GraphTabProps, GraphTabState> {
   }
 
   private async delGraph(id: string): Promise<void> {
-    if (!window.confirm('删除图 ' + id + '？')) return;
+    const ok = await this.dialog.confirm('删除图 ' + id + '？', {
+      title: '删除编排图',
+      confirmLabel: '删除',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await this.api.deleteGraph(id);
       await this.load();

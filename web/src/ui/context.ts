@@ -4,10 +4,13 @@
 import { React } from './deps.js';
 import type { ApiClient } from '../core/ApiClient.js';
 import type { ToastKind } from '../core/ToastService.js';
+import type { DialogService } from '../core/DialogService.js';
 
 export interface AppContextValue {
   api: ApiClient;
   toast: (message: string, kind?: ToastKind) => void;
+  /** 应用内对话框服务（确认 / 输入），替代 window.confirm / window.prompt。 */
+  dialog: DialogService;
   /** 重新拉取厂商目录（model.catalog）：检测/启用厂商后调用，Composer 模型下拉即时反映真实可用清单。 */
   refreshModelCatalog?: () => void;
 }
