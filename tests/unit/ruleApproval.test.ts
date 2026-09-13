@@ -82,3 +82,40 @@ test('规则审批：空规则集走默认 deny（fail-closed）', async () => {
   const approval = new RuleApproval({ rules: [] });
   assert.strictEqual(await approval.decide(request('shell', 'anything')), 'deny');
 });
+
+test('规则审批：commandGlob 命中即拒（参数级约束）', async () => {
+  const approval = new RuleApproval({
+    rules: [
+      { toolName: 'shell', commandGlob: '*| sh', decision: 'deny' },
+      { toolName: 'shell', commandGlob: '*curl *', decision: 'deny' },
+    ],
+    defaultDecision: 'allow',
+  });
+  // 管道注入到 shell：命令中段命中 glob（前缀匹配无法覆盖这种位置）
+  assert.strictEqual(await approval.decide(request('shell', 'echo ok | sh')), 'deny');
+  assert.strictEqual(await approval.decide(request('shell', 'curl http://x')), 'deny');
+  assert.strictEqual(await approval.decide(request('shell', 'echo hello')), 'allow');
+});
+
+test('规则审批：commandPrefix 与 commandGlob 合取（须同时满足）', async () => {
+  const approval = new RuleApproval({
+    rules: [
+      { toolName: 'shell', commandPrefix: 'git ', commandGlob: '*--force*', decision: 'deny' },
+    ],
+    defaultDecision: 'allow',
+  });
+  assert.strictEqual(await approval.decide(request('shell', 'git push --force origin')), 'deny');
+  // 前缀不满足（非 git 命令，即便含 --force）
+  assert.strictEqual(await approval.decide(request('shell', 'npm push --force')), 'allow');
+  // glob 不满足（git 但非 force）
+  assert.strictEqual(await approval.decide(request('shell', 'git status')), 'allow');
+});
+
+test('规则审批：commandGlob 的元字符不被当正则（字面量语义）', async () => {
+  const approval = new RuleApproval({
+    rules: [{ toolName: 'shell', commandGlob: 'rm *.txt', decision: 'deny' }],
+    defaultDecision: 'allow',
+  });
+  assert.strictEqual(await approval.decide(request('shell', 'rm a.txt')), 'deny');
+  assert.strictEqual(await approval.decide(request('shell', 'rm a.txtx')), 'allow');
+});

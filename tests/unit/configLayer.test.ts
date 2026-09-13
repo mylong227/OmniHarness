@@ -183,3 +183,90 @@ describe('configFile.loadLayered: 分层合并 + 严格校验', () => {
     assert.throws(() => configFile.loadLayered({ workspace: dir, profile: 'ghost' }), ConfigError);
   });
 });
+
+describe('profile: extends 继承（A2）', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'oh-profile-ext-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('子 profile 覆盖父、未声明字段继承父值', () => {
+    const profiles = join(dir, 'profiles');
+    mkdirSync(profiles, { recursive: true });
+    writeFileSync(
+      join(profiles, 'base.json'),
+      JSON.stringify({ approval: 'deny', sandbox: 'policy', model: 'base-model' }),
+    );
+    writeFileSync(
+      join(profiles, 'dev.json'),
+      JSON.stringify({ extends: 'base', approval: 'auto' }),
+    );
+    const loaded = profileLoader.load(join(profiles, 'dev.json'));
+    assert.strictEqual(loaded.approval, 'auto'); // 子覆盖父
+    assert.strictEqual(loaded.sandbox, 'policy'); // 继承父
+    assert.strictEqual(loaded.model, 'base-model');
+  });
+
+  it('多级继承（top → mid → base），逐级覆盖与继承', () => {
+    const profiles = join(dir, 'profiles');
+    mkdirSync(profiles, { recursive: true });
+    writeFileSync(join(profiles, 'base.json'), JSON.stringify({ sandbox: 'policy', model: 'm' }));
+    writeFileSync(
+      join(profiles, 'mid.json'),
+      JSON.stringify({ extends: 'base', approval: 'auto' }),
+    );
+    writeFileSync(join(profiles, 'top.json'), JSON.stringify({ extends: 'mid', max_steps: 9 }));
+    const loaded = profileLoader.load(join(profiles, 'top.json'));
+    assert.strictEqual(loaded.sandbox, 'policy');
+    assert.strictEqual(loaded.approval, 'auto');
+    assert.strictEqual(loaded.maxSteps, 9);
+  });
+
+  it('父 profile 不存在时 fail-closed 抛错', () => {
+    const profiles = join(dir, 'profiles');
+    mkdirSync(profiles, { recursive: true });
+    writeFileSync(join(profiles, 'orphan.json'), JSON.stringify({ extends: 'ghost' }));
+    assert.throws(() => profileLoader.load(join(profiles, 'orphan.json')), ConfigError);
+  });
+
+  it('继承存在环时 fail-closed 抛错', () => {
+    const profiles = join(dir, 'profiles');
+    mkdirSync(profiles, { recursive: true });
+    writeFileSync(join(profiles, 'a.json'), JSON.stringify({ extends: 'b' }));
+    writeFileSync(join(profiles, 'b.json'), JSON.stringify({ extends: 'a' }));
+    assert.throws(() => profileLoader.load(join(profiles, 'a.json')), ConfigError);
+  });
+});
+
+describe('configFile.loadLayered: permission 段透传（A2）', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'oh-perm-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('项目文件的 permission.rules 保留在合并结果中', () => {
+    writeFileSync(
+      join(dir, 'omniharness.json'),
+      JSON.stringify({
+        permission: { rules: [{ toolName: 'shell', commandGlob: '*rm -rf*', decision: 'deny' }] },
+      }),
+    );
+    const merged = configFile.loadLayered({ workspace: dir });
+    assert.strictEqual(merged.permission?.rules?.length, 1);
+    assert.strictEqual(merged.permission?.rules?.[0]?.commandGlob, '*rm -rf*');
+  });
+
+  it('permission 含非法规则时 loadLayered 抛 ConfigError', () => {
+    writeFileSync(
+      join(dir, 'omniharness.json'),
+      JSON.stringify({ permission: { rules: [{ decision: 'maybe' }] } }),
+    );
+    assert.throws(() => configFile.loadLayered({ workspace: dir }), ConfigError);
+  });
+});

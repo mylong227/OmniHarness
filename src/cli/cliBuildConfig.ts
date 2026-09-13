@@ -419,18 +419,27 @@ export class CliBuildConfig {
 
   /**
    * 构建规则审批（默认档：未命中显式拒绝规则时放行，只拦 rm/del 等危险前缀）。
-   * @param args 解析后的 CLI 参数（approvalAsk 决定未命中规则时的询问回应）。
-   * @returns 内置读取放行 / rm、del 拒绝规则的规则审批端口。
+   * @param args 解析后的 CLI 参数（approvalAsk 决定未命中规则时的询问回应；permissionRules /
+   *   permissionDefault 为 A2 配置注入的参数级规则与默认裁决）。
+   * @returns 内置基线规则 + 配置自定义规则（经 commandGlob 支持参数级约束）的规则审批端口。
    */
   protected buildRuleApproval(args: CliArgs): RuleApproval {
-    const rules: ApprovalRule[] = [
+    const builtin: ApprovalRule[] = [
       { toolName: 'read_file', decision: 'allow' },
       { toolName: 'shell', commandPrefix: 'rm ', decision: 'deny' },
       { toolName: 'shell', commandPrefix: 'del ', decision: 'deny' },
     ];
+    // 自定义规则（A2，来自配置 permission.rules）：与内置合并。聚合语义为 deny 优先，
+    // 故顺序不影响裁决；用户可借 commandGlob 表达参数级约束（如拒绝任何含 `curl | sh` 的命令）。
+    const custom: ApprovalRule[] = (args.permissionRules ?? []).map((rule) => ({
+      toolName: rule.toolName,
+      commandPrefix: rule.commandPrefix,
+      commandGlob: rule.commandGlob,
+      decision: rule.decision,
+    }));
     return new RuleApproval({
-      rules,
-      defaultDecision: 'allow',
+      rules: [...custom, ...builtin],
+      defaultDecision: args.permissionDefault ?? 'allow',
       askHandler: async () => args.approvalAsk,
     });
   }

@@ -1,7 +1,12 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { McpServerConfig } from '../mcp/mcpGateway.js';
-import type { FileConfig, ModelRouterConfig } from '../config/configFile.js';
+import type {
+  FileConfig,
+  ModelRouterConfig,
+  PermissionRuleConfig,
+  PermissionRuleDecision,
+} from '../config/configFile.js';
 import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
 
 export * from './cliEnums.js';
@@ -27,6 +32,10 @@ export interface CliArgs {
   approval: 'auto' | 'deny' | 'rules' | 'guardian' | 'plan' | 'ask';
   /** rules 模式未命中规则时的裁决（allow/deny）。 */
   approvalAsk: 'allow' | 'deny';
+  /** 权限参数级规则（A2，来自配置 permission.rules）：与内置规则合并，命中即按其 decision 裁决。 */
+  permissionRules?: readonly PermissionRuleConfig[];
+  /** 权限规则未命中时的默认裁决（A2，来自配置 permission.defaultDecision；缺省 allow，保持既有零行为变更）。 */
+  permissionDefault?: PermissionRuleDecision;
   /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
   sandbox: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
@@ -292,6 +301,13 @@ export class ArgParser {
     }
     if (file.approval !== undefined) {
       result.approval = file.approval;
+    }
+    // 权限参数级规则（A2）：配置 permission 段透传给装配层，与内置规则合并。
+    if (file.permission?.rules !== undefined) {
+      result.permissionRules = file.permission.rules;
+    }
+    if (file.permission?.defaultDecision !== undefined) {
+      result.permissionDefault = file.permission.defaultDecision;
     }
     if (file.sandbox !== undefined) {
       result.sandbox = file.sandbox;
