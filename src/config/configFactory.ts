@@ -217,8 +217,10 @@ export interface OmniHarnessConfig {
     readonly enabled?: boolean;
     /** 服务端监听端口（默认 8790，避开 appServer 8787）。 */
     readonly port?: number;
-    /** 本端 client 默认对端端点（委托目标，默认 http://localhost:8790/a2a）。 */
+    /** 本端 client 默认对端端点（委托目标，缺省按 transport 派生：http://…/a2a 或 ws://…/a2a-ws）。 */
     readonly peerEndpoint?: string;
+    /** 传输形态（默认 http）：http = POST /a2a，ws = RFC6455 长连接 /a2a-ws。 */
+    readonly transport?: 'http' | 'ws';
   };
   /** (E, I-P1-3) QEC 记忆编码器：启用后对长期记忆跑二维奇偶症状编码 + 全量校验，单点 corrupt 自动定位纠正（fail-closed 不静默接受多点损坏）。缺省关，零破坏。 */
   readonly qec?: {
@@ -462,6 +464,10 @@ export class ConfigFactory {
       lsp,
       identity,
       spark,
+      // (U6) A2A 互操作：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
+      // 导致 `runtime` 的 `if (config.a2a?.enabled === true)` 恒不可达 —— A2A 生产路径整体不可用
+      // （U6 回环实测脚本直接 import a2a 模块、绕过了装配层，故长期未暴露）。此处显式透传。
+      a2a: partial.a2a,
       tools:
         partial.tools ??
         defaultTools(

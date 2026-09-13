@@ -1,11 +1,19 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { Duplex } from 'node:stream';
 import type { IncomingMessage, Server } from 'node:http';
+
+/** RFC6455 握手 accept 值：base64(sha1(key + 固定 GUID))。
+ * @param key 客户端 `Sec-WebSocket-Key`。
+ * @returns 应回填进 `Sec-WebSocket-Accept` 的 base64 串。
+ */
+export function webSocketAcceptKey(key: string): string {
+  return createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
+}
 
 /** WebSocket 连接：RFC6455 帧编解码（文本帧，零依赖）。 */
 export class WsConnection {
   /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
-  private buffer = Buffer.alloc(0);
+  private buffer: Buffer = Buffer.alloc(0);
   /** 连接是否已关闭（关闭后 send 直接丢弃）。 */
   private closed = false;
   /** 消息回调（由外部接管）。 */
@@ -18,9 +26,30 @@ export class WsConnection {
     private readonly socket: Duplex,
     /** 握手时携带的 Authorization 头（供服务端鉴权门禁消费，D2）。 */
     public readonly authorization?: string,
+    /** 端点角色：服务端发裸帧；客户端发帧须按 RFC6455 掩码（默认 server = 原行为，零变更）。 */
+    private readonly role: 'server' | 'client' = 'server',
+    /** 握手后随 upgrade 事件一并到达的首批字节（可能含整帧/半帧，客户端侧才可能非空）。 */
+    initial?: Buffer,
   ) {
+    if (initial !== undefined && initial.length > 0) {
+      this.buffer = initial;
+    }
     socket.on('data', (chunk: Buffer) => this.consume(chunk));
     socket.on('close', () => this.close());
+    // socket 错误（对端重置 / 网络中断 / 握手后被杀）不得以**未捕获异常**炸掉宿主进程：
+    // 收敛为一次正常关闭（close 幂等）。缺此监听时，一次 ECONNRESET 就会让整个进程崩溃。
+    socket.on('error', () => this.close());
+  }
+
+  /**
+   * 处理构造期挂起的首批字节（`initial`）。
+   * 必须在 `onMessage` 注册之后调用：构造期直接投递会落进默认空回调而被丢弃。
+   * @returns 无返回值。
+   */
+  public flush(): void {
+    if (this.buffer.length > 0) {
+      this.consume(Buffer.alloc(0));
+    }
   }
 
   /**
@@ -132,11 +161,14 @@ export class WsConnection {
   }
 
   /**
-   * 构造服务端文本帧（无掩码）。
+   * 构造文本帧：服务端发裸帧；客户端按 RFC6455 加 4 字节随机掩码。
    * @param payload 待发送载荷（按长度选 7/16/64 位帧头）。
-   * @returns 完整帧字节（0x81 文本帧头 + 载荷）。
+   * @returns 完整帧字节（0x81 文本帧头 [+ 掩码键] + 载荷）。
    */
   private buildFrame(payload: Buffer): Buffer {
+    if (this.role === 'client') {
+      return this.buildClientFrame(payload);
+    }
     let header: Buffer;
     if (payload.length < 126) {
       header = Buffer.from([0x81, payload.length]);
@@ -152,6 +184,33 @@ export class WsConnection {
       header.writeBigUInt64BE(BigInt(payload.length), 2);
     }
     return Buffer.concat([header, payload]);
+  }
+
+  /**
+   * 构造客户端文本帧（RFC6455 要求客户端发出的每一帧都掩码）。
+   * @param payload 待发送载荷。
+   * @returns 完整帧字节（带掩码位的帧头 + 4 字节掩码键 + 掩码后载荷）。
+   */
+  private buildClientFrame(payload: Buffer): Buffer {
+    const mask = randomBytes(4);
+    const masked = Buffer.alloc(payload.length);
+    for (let index = 0; index < payload.length; index += 1) {
+      masked[index] = (payload[index] ?? 0) ^ (mask[index % 4] ?? 0);
+    }
+    const short = payload.length < 126;
+    const mid = !short && payload.length < 65536;
+    const header = Buffer.alloc(short ? 2 : mid ? 4 : 10);
+    header[0] = 0x81;
+    if (short) {
+      header[1] = 0x80 | payload.length;
+    } else if (mid) {
+      header[1] = 0x80 | 126;
+      header.writeUInt16BE(payload.length, 2);
+    } else {
+      header[1] = 0x80 | 127;
+      header.writeBigUInt64BE(BigInt(payload.length), 2);
+    }
+    return Buffer.concat([header, mask, masked]);
   }
 }
 
@@ -196,9 +255,7 @@ export class WsServer {
       socket.destroy();
       return;
     }
-    const accept = createHash('sha1')
-      .update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
-      .digest('base64');
+    const accept = webSocketAcceptKey(key);
     socket.write(
       `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
     );

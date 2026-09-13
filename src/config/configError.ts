@@ -71,6 +71,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'workspaces',
   'permission',
   'evolutionRlvr',
+  'a2a',
 ]);
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
