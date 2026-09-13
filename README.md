@@ -2,8 +2,8 @@
 
 融合 OpenAI Codex Harness 与 DeepSeek Harness 优点的全能 Agent Harness：**TypeScript 端口-适配器插件层 + Rust 硬内核**。
 
-> 设计蓝图见 `D:\deepseek\全能AI战士-Harness融合蓝图.md`。全项目任务清单见 `roadmap.md`，合规审计见 `docs/compliance.md`。
-> 文档：`docs/architecture.md`（架构）· `docs/integration.md`（接入指南）· `docs/contributing.md`（贡献指南）。
+> 全项目任务清单见 `docs/REFACTOR_BOARD_2026-09-12.md`（唯一执行口径），合规审计见 `docs/compliance.md`。
+> 文档：`docs/README.md`（文档索引，唯一入口）· `docs/ARCHITECTURE_AND_GAP_2026-09-13.md`（架构与同类差距全景）· `docs/ARCHITECTURE_SPEC.md`（工程架构说明书）· `docs/integration.md`（接入指南）· `docs/contributing.md`（贡献指南）。
 
 ## 编码标准（铁律）
 
