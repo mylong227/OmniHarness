@@ -93,8 +93,12 @@ function collectCommentMetrics(text, fileName) {
   let methodsWithRetReturns = 0;
   let propsTotal = 0;
   let propsWithJsdoc = 0;
+  let classesTotal = 0;
+  let classesWithJsdoc = 0;
   const visit = (node) => {
     if (ts.isClassDeclaration(node)) {
+      classesTotal++;
+      if (getJsDocComment(node, sf)) classesWithJsdoc++;
       for (const mem of node.members) {
         if (ts.isPropertyDeclaration(mem)) {
           propsTotal++;
@@ -126,6 +130,8 @@ function collectCommentMetrics(text, fileName) {
     methodsWithRetReturns,
     propsTotal,
     propsWithJsdoc,
+    classesTotal,
+    classesNoJsdoc: classesTotal - classesWithJsdoc,
   };
 }
 
@@ -138,6 +144,8 @@ function collectCommentMetrics(text, fileName) {
  */
 function metricsForSource(text, fileName) {
   const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+  // P4.4：细粒度注释覆盖（类 JSDoc / @param / @returns / 字段注释）并入单文件度量。
+  const comment = collectCommentMetrics(text, fileName);
   const base = path.basename(fileName).replace(/\.ts$/, '');
   const lines = text.split('\n').length;
   let varCount = 0,
@@ -243,6 +251,12 @@ function metricsForSource(text, fileName) {
     missingJsdoc,
     godClass,
     exportedCount: exportedClasses.length,
+    // P4.4（注释门禁化）：并入 P0.2 细粒度注释覆盖，供 --delta 增量比对「新增缺注释」。
+    // 差值口径：缺口 = 应有数 − 已覆盖数（方法级/字段级，非参数级）。
+    classesNoJsdoc: comment.classesNoJsdoc,
+    paramGap: comment.methodsWithParams - comment.methodsWithParamsParam,
+    returnsGap: comment.methodsWithRet - comment.methodsWithRetReturns,
+    fieldGap: comment.propsTotal - comment.propsWithJsdoc,
   };
 }
 
@@ -315,6 +329,11 @@ if (process.argv.includes('--delta')) {
     cmp('公开成员缺JSDoc', s.publicNoJsdoc, h?.publicNoJsdoc ?? 0, '缺 /** */');
     cmp('导出函数缺JSDoc', s.expFnsNoJsdoc, h?.expFnsNoJsdoc ?? 0, '缺 /** */');
     cmp('导出函数缺返回类型', s.expFnsNoRet, h?.expFnsNoRet ?? 0, '缺 : Type');
+    // P4.4（注释门禁化）：细粒度注释缺口只增即红——存量债务不拦，新增一律阻断。
+    cmp('类缺JSDoc', s.classesNoJsdoc, h?.classesNoJsdoc ?? 0, '类声明缺 /** 作用 */');
+    cmp('方法缺@param', s.paramGap, h?.paramGap ?? 0, '有参方法的 JSDoc 缺 @param');
+    cmp('方法缺@returns', s.returnsGap, h?.returnsGap ?? 0, '有返回类型的方法缺 @returns');
+    cmp('类字段缺注释', s.fieldGap, h?.fieldGap ?? 0, '属性声明缺注释');
     if (!s.nameMatches && (isNew || h?.nameMatches)) {
       failures.push({ f, item: '文件名≠类名', detail: `主类 ${s.mainClass}` });
     }
