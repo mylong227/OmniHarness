@@ -12,7 +12,11 @@ import {
   type CompressOptions,
 } from '../../src/context/deterministicCompressor.js';
 
-function seg(kind: ContextSegment['kind'], text: string, key = `k-${Math.random()}`): ContextSegment {
+function seg(
+  kind: ContextSegment['kind'],
+  text: string,
+  key = `k-${Math.random()}`,
+): ContextSegment {
   return { key, kind, text };
 }
 

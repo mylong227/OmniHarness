@@ -1,9 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  CancellationToken,
-  CancelledError,
-} from '../../src/core/loop/cancellationToken.js';
+import { CancellationToken, CancelledError } from '../../src/core/loop/cancellationToken.js';
 
 test('取消令牌：cancel 幂等，首次 reason 生效', () => {
   const token = new CancellationToken();

@@ -1,9 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  LoopGuard,
-  canonicalArgs,
-} from '../../src/core/loop/loopGuard.js';
+import { LoopGuard, canonicalArgs } from '../../src/core/loop/loopGuard.js';
 
 function call(name: string, args: Record<string, unknown> = {}) {
   return { name, arguments: args };
@@ -35,7 +32,9 @@ test('LoopGuard：参数易变字段（timestamp/uuid）规范化后算重复', 
     ],
   });
   const decision = guard.observe({
-    toolCalls: [call('api', { url: '/x', timestamp: '2027-06-06T00:00:00Z', request_id: 'ccc-ddd' })],
+    toolCalls: [
+      call('api', { url: '/x', timestamp: '2027-06-06T00:00:00Z', request_id: 'ccc-ddd' }),
+    ],
   });
   assert.strictEqual(decision.kind, 'nudge');
 });
@@ -46,10 +45,7 @@ test('LoopGuard：长随机串参数掩码归一（opaque token）', () => {
     canonicalArgs({ key: 'ffffffffffffffffffffffffffffffff' }),
   );
   // 短普通字符串不掩码
-  assert.notStrictEqual(
-    canonicalArgs({ key: 'hello' }),
-    canonicalArgs({ key: 'world' }),
-  );
+  assert.notStrictEqual(canonicalArgs({ key: 'hello' }), canonicalArgs({ key: 'world' }));
 });
 
 test('LoopGuard：A→B→A→B 循环模式被识别（周期 2）', () => {

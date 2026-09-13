@@ -105,7 +105,11 @@ describe('SSRF 双向单测（合法不收紧 / 非法必拒）', () => {
   it('方向一：合法目标必须放行——不被过度收紧（默认策略放行私有网段）', () => {
     const def = defaultSsrfOptions();
     // 完整 URL 用 inspectUrl；裸主机/域名用 inspectHost。
-    assert.strictEqual(inspectUrl('https://api.example.com/v1', def).blocked, false, '公网 https 应放行');
+    assert.strictEqual(
+      inspectUrl('https://api.example.com/v1', def).blocked,
+      false,
+      '公网 https 应放行',
+    );
     assert.strictEqual(
       inspectUrl('http://127.0.0.1:8790/a2a', def).blocked,
       false,

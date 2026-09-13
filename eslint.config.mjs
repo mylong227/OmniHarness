@@ -48,10 +48,7 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       // 严格明确访问权限：类成员必须显式 public/private/protected（禁止隐式 public）。
       // 可自动修复，是规范 #1 的机械护栏。
-      '@typescript-eslint/explicit-member-accessibility': [
-        'error',
-        { accessibility: 'explicit' },
-      ],
+      '@typescript-eslint/explicit-member-accessibility': ['error', { accessibility: 'explicit' }],
       // 以下为 TS 常见写法，非 bug，关掉以免误伤
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',

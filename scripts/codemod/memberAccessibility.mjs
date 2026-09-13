@@ -59,7 +59,11 @@ function collectFiles() {
 function hasAccessibility(member) {
   const mods = member.modifiers || [];
   return mods.some((m) =>
-    [ts.SyntaxKind.PublicKeyword, ts.SyntaxKind.PrivateKeyword, ts.SyntaxKind.ProtectedKeyword].includes(m.kind),
+    [
+      ts.SyntaxKind.PublicKeyword,
+      ts.SyntaxKind.PrivateKeyword,
+      ts.SyntaxKind.ProtectedKeyword,
+    ].includes(m.kind),
   );
 }
 
@@ -112,7 +116,11 @@ for (const f of files) {
             const mods = p.modifiers || [];
             if (mods.length === 0) continue; // plain parameter, not a property
             const hasAccess = mods.some((x) =>
-              [ts.SyntaxKind.PublicKeyword, ts.SyntaxKind.PrivateKeyword, ts.SyntaxKind.ProtectedKeyword].includes(x.kind),
+              [
+                ts.SyntaxKind.PublicKeyword,
+                ts.SyntaxKind.PrivateKeyword,
+                ts.SyntaxKind.ProtectedKeyword,
+              ].includes(x.kind),
             );
             if (!hasAccess) positions.push(p.getStart());
           }
@@ -133,5 +141,8 @@ for (const f of files) {
   fs.writeFileSync(f, out);
 }
 
-console.log((dry ? '[DRY] ' : '') + 'files touched: ' + touched.length + '   members fixed: ' + totalMembers);
-for (const [f, c] of touched.sort((a, b) => b[1] - a[1]).slice(0, 40)) console.log(c + '  ' + f.replace('src/', ''));
+console.log(
+  (dry ? '[DRY] ' : '') + 'files touched: ' + touched.length + '   members fixed: ' + totalMembers,
+);
+for (const [f, c] of touched.sort((a, b) => b[1] - a[1]).slice(0, 40))
+  console.log(c + '  ' + f.replace('src/', ''));

@@ -204,7 +204,9 @@ async function main() {
     writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
     console.log('[a2a-loopback] ===== U6 A2A 回环实测结果 =====');
-    console.log(`任务数: ${n}（并发 ${concurrency}）  完成: ${completed}  完成率: ${(completionRate * 100).toFixed(1)}%`);
+    console.log(
+      `任务数: ${n}（并发 ${concurrency}）  完成: ${completed}  完成率: ${(completionRate * 100).toFixed(1)}%`,
+    );
     console.log(`完整性校验: ${integrityOkCount}/${n}（回显 = 确定性 500500）`);
     if (latency !== null) {
       console.log(
@@ -213,7 +215,9 @@ async function main() {
     }
     console.log(`报告: ${outPath}`);
     if (!pass) {
-      console.error(`[a2a-loopback] FAIL：完成率 ${(completionRate * 100).toFixed(1)}% < 门禁 ${minCompletion} 或完整性不足`);
+      console.error(
+        `[a2a-loopback] FAIL：完成率 ${(completionRate * 100).toFixed(1)}% < 门禁 ${minCompletion} 或完整性不足`,
+      );
       process.exitCode = 1;
     } else {
       console.log('[a2a-loopback] PASS');

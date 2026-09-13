@@ -7,6 +7,11 @@ web/
 *.min.js
 *.map
 
+# 上游 vendored 语料（第三方文档/数据，非本项目源码）
+# 不应被本仓 Prettier 改写：实测会重排 1292 个上游文档（~82k 行）的列表缩进与空行，
+# 既污染 diff、又破坏与上游的对齐比对能力，对项目零价值（2026-09-14，C6 实测）。
+resources/
+
 # 依赖与锁文件
 node_modules/
 package-lock.json

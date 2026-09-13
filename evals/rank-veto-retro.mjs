@@ -136,7 +136,9 @@ function layeredTopFiles(corpus, graph, q, k) {
 
 const t0 = Date.now();
 const corpus = indexCorpus(SRC);
-console.log(`语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`);
+console.log(
+  `语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`,
+);
 
 const queries = loadQueries();
 console.log(`查询：${queries.length} 条（自 evals/recall-codebase-real.mjs 抽取）\n`);
@@ -172,7 +174,10 @@ const sparseLists = queries.map((q) => graphTopFiles(corpus, sparseSig, q, FILE_
  * @returns 报告
  */
 function evaluateRoute(label, graph, candidateLists, knownDeltaPp) {
-  const overlapSum = candidateLists.reduce((s, list, i) => s + jaccardOverlap(baselineLists[i], list), 0);
+  const overlapSum = candidateLists.reduce(
+    (s, list, i) => s + jaccardOverlap(baselineLists[i], list),
+    0,
+  );
   const report = evaluator.evaluate({
     graph,
     candidateProbeLists: candidateLists,
@@ -189,7 +194,9 @@ function evaluateRoute(label, graph, candidateLists, knownDeltaPp) {
       4,
     )}   比值 ${m.insensitivityRatio.toFixed(1)}×`,
   );
-  console.log(`   与 BM25 Top-${FILE_K} 平均重合度 ${(overlapSum / candidateLists.length).toFixed(4)}`);
+  console.log(
+    `   与 BM25 Top-${FILE_K} 平均重合度 ${(overlapSum / candidateLists.length).toFixed(4)}`,
+  );
   console.log(
     `   [诊断] 谱隙 ${m.spectralGap.toFixed(4)}  稳态KL ${m.uniformKl.toFixed(4)}  有效支撑率 ${m.effectiveSupportRatio.toFixed(
       4,
@@ -265,8 +272,20 @@ writeFileSync(
       queryCount: queries.length,
       fileK: FILE_K,
       baseline: { route: BASELINE_ROUTE, ...selfCheck.metrics, verdict: selfCheck.verdict },
-      dense: { ...dense.report.metrics, avgOverlapWithBm25: dense.avgOverlap, verdict: dense.report.verdict, reasons: dense.report.reasons, notes: dense.report.notes },
-      sparse: { ...sparse.report.metrics, avgOverlapWithBm25: sparse.avgOverlap, verdict: sparse.report.verdict, reasons: sparse.report.reasons, notes: sparse.report.notes },
+      dense: {
+        ...dense.report.metrics,
+        avgOverlapWithBm25: dense.avgOverlap,
+        verdict: dense.report.verdict,
+        reasons: dense.report.reasons,
+        notes: dense.report.notes,
+      },
+      sparse: {
+        ...sparse.report.metrics,
+        avgOverlapWithBm25: sparse.avgOverlap,
+        verdict: sparse.report.verdict,
+        reasons: sparse.report.reasons,
+        notes: sparse.report.notes,
+      },
       layered: {
         ...layered.report.metrics,
         avgOverlapWithBm25: layered.avgOverlap,
