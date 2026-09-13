@@ -1,8 +1,8 @@
 import type { ToolCall, ToolContext, ToolPort } from '../ports/tool/tool.js';
 import type { ToolGate } from '../core/toolGate.js';
 import { id } from '../util/id.js';
-import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';
-import type { Transport } from '../server/lineTransport.js';
+import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/core/jsonRpc.js';
+import type { Transport } from '../server/transport/lineTransport.js';
 import {
   McpProtocol,
   mcpProtocol,

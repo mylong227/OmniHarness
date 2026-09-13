@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SessionCheckpoints } from '../../src/server/sessionCheckpoints.js';
+import { SessionCheckpoints } from '../../src/server/services/sessionCheckpoints.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 
 function make(): SessionCheckpoints {
@@ -14,10 +14,7 @@ test('SessionCheckpoints：list 缺 sessionId 时抛错', async () => {
 
 test('SessionCheckpoints：create 校验 sessionId 与 label', async () => {
   await assert.rejects(() => make().create({}), /checkpoint.create 需要 sessionId/);
-  await assert.rejects(
-    () => make().create({ sessionId: 's1' }),
-    /checkpoint.create 需要 label/,
-  );
+  await assert.rejects(() => make().create({ sessionId: 's1' }), /checkpoint.create 需要 label/);
   await assert.rejects(
     () => make().create({ sessionId: 's1', label: '' }),
     /checkpoint.create 需要 label/,

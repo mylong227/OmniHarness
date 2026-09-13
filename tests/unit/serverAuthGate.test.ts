@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import type { Duplex } from 'node:stream';
-import { HttpBridgeTransport } from '../../src/server/httpServer.js';
-import { WsConnection } from '../../src/server/wsConnection.js';
-import { jsonRpc, type RpcResponse } from '../../src/server/jsonRpc.js';
+import { HttpBridgeTransport } from '../../src/server/transport/httpServer.js';
+import { WsConnection } from '../../src/server/transport/wsConnection.js';
+import { jsonRpc, type RpcResponse } from '../../src/server/core/jsonRpc.js';
 import { EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.js';
 
 function b64url(buf: Buffer | string): string {

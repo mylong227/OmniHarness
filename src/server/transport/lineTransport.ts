@@ -1,4 +1,4 @@
-import type { RpcMessage } from './jsonRpc.js';
+import type { RpcMessage } from '../core/jsonRpc.js';
 
 /** 传输层抽象：收发 JSON-RPC 消息。 */
 export interface Transport {

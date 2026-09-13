@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AgentRuntimeHost } from '../../src/server/agentRuntimeHost.js';
-import { ServerNoopSupervisor } from '../../src/server/serverNoopSupervisor.js';
-import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/server/appServerState.js';
+import { AgentRuntimeHost } from '../../src/server/core/agentRuntimeHost.js';
+import { ServerNoopSupervisor } from '../../src/server/core/serverNoopSupervisor.js';
+import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/server/core/appServerState.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { ResolvedConfig } from '../../src/config/configFactory.js';
 import type { ApprovalPort } from '../../src/ports/runtime/approval.js';

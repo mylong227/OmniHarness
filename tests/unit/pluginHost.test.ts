@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PluginHost } from '../../src/server/pluginHost.js';
-import type { Transport } from '../../src/server/lineTransport.js';
-import type { RpcMessage } from '../../src/server/jsonRpc.js';
+import { PluginHost } from '../../src/server/services/pluginHost.js';
+import type { Transport } from '../../src/server/transport/lineTransport.js';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -50,10 +50,7 @@ test('PluginHost：load 等价于 ensure，重复调用幂等', async () => {
 
 test('PluginHost.applyProfile：插件系统未初始化时 fail-closed 抛错', async () => {
   const host = build(undefined);
-  await assert.rejects(
-    () => host.applyProfile({ name: 'demo', plugins: [] }),
-    /插件系统未初始化/,
-  );
+  await assert.rejects(() => host.applyProfile({ name: 'demo', plugins: [] }), /插件系统未初始化/);
 });
 
 test('PluginHost：有插件目录时装配出管理器并对外暴露目录', async () => {
@@ -79,7 +76,10 @@ test('PluginHost：有插件目录时装配出管理器并对外暴露目录', a
     assert.ok(host.manager !== undefined, '有插件目录时应装配出管理器');
     assert.strictEqual(host.dir, dir);
     // 未注入 registry：市场能力不可用，applyProfile 必须 fail-closed。
-    await assert.rejects(() => host.applyProfile({ name: 'demo', plugins: [] }), /插件系统未初始化/);
+    await assert.rejects(
+      () => host.applyProfile({ name: 'demo', plugins: [] }),
+      /插件系统未初始化/,
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

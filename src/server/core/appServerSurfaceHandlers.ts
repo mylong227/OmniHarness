@@ -1,15 +1,15 @@
-import type { ToolDefinition } from '../ports/tool/tool.js';
+import type { ToolDefinition } from '../../ports/tool/tool.js';
 import { AppServerHandlers } from './appServerHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
-import { ApprovalTierCatalog } from './approvalTierCatalog.js';
-import { AgentCatalogService } from './agentCatalogService.js';
-import { ContextUsageService } from './contextUsageService.js';
-import { ContextWindowCatalog } from '../context/contextWindowCatalog.js';
-import { QuotaService } from './quotaService.js';
-import { QuotaStore } from './quotaStore.js';
-import { SessionModeStore } from './sessionModeStore.js';
-import { TurnDirectiveComposer } from './turnDirectiveComposer.js';
-import { WorkspaceSearchService } from './workspaceSearchService.js';
+import { ApprovalTierCatalog } from '../services/approvalTierCatalog.js';
+import { AgentCatalogService } from '../services/agentCatalogService.js';
+import { ContextUsageService } from '../services/contextUsageService.js';
+import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
+import { QuotaService } from '../services/quotaService.js';
+import { QuotaStore } from '../services/quotaStore.js';
+import { SessionModeStore } from '../services/sessionModeStore.js';
+import { TurnDirectiveComposer } from '../services/turnDirectiveComposer.js';
+import { WorkspaceSearchService } from '../services/workspaceSearchService.js';
 
 /**
  * AppServer 的「工作台界面能力」处理器：为 UI 的上下文容量面板、添加菜单与权限面板提供 RPC。

@@ -3,8 +3,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { maskKey, providerPresetOf } from '../../src/server/providerPresets.js';
-import { probeProvider } from '../../src/server/providerProbe.js';
+import { maskKey, providerPresetOf } from '../../src/server/services/providerPresets.js';
+import { probeProvider } from '../../src/server/services/providerProbe.js';
 import { normalizeConfig, ConfigError } from '../../src/config/configError.js';
 
 test('maskKey：保留前 3 后 4，短 Key 全打码', () => {

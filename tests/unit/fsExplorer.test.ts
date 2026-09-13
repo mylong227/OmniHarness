@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { FsExplorer } from '../../src/server/fsExplorer.js';
+import { FsExplorer } from '../../src/server/services/fsExplorer.js';
 
 /** 在临时目录内执行并在结束后清理。 */
 function withTemp<T>(fn: (dir: string) => T): T {

@@ -6,7 +6,7 @@
  */
 
 import { writeFileSync } from 'node:fs';
-import { AuditSink, type AuditEvent } from '../server/auditSink.js';
+import { AuditSink, type AuditEvent } from '../server/services/auditSink.js';
 import {
   formatAudit,
   queryAudit,
@@ -14,7 +14,7 @@ import {
   formatCompliance,
   type AuditFormat,
   type AuditQuery,
-} from '../server/auditExporter.js';
+} from '../server/services/auditExporter.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** 用法提示。 */

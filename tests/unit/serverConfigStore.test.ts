@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ServerConfigStore } from '../../src/server/serverConfigStore.js';
+import { ServerConfigStore } from '../../src/server/services/serverConfigStore.js';
 import { configFile } from '../../src/config/configFile.js';
-import { maskKey } from '../../src/server/providerPresets.js';
+import { maskKey } from '../../src/server/services/providerPresets.js';
 
 /** 在临时工作区内构造配置存储并执行。 */
 function withStore<T>(fn: (ws: string, store: ServerConfigStore) => T | Promise<T>): Promise<T> {
@@ -29,7 +29,10 @@ test('ServerConfigStore.get：合并展示字段与 autoApprove', async () => {
 
 test('ServerConfigStore.update：autoApprove 生效并随摘要回传', async () => {
   await withStore(async (_ws, store) => {
-    const res = (await store.update({ autoApprove: true })) as { autoApprove: boolean; ok: boolean };
+    const res = (await store.update({ autoApprove: true })) as {
+      autoApprove: boolean;
+      ok: boolean;
+    };
     assert.strictEqual(res.ok, true);
     assert.strictEqual(res.autoApprove, true);
     assert.strictEqual(store.autoApprove, true);

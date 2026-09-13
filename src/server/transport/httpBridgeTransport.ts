@@ -1,8 +1,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { jsonRpc, type RpcMessage, type RpcRequest } from './jsonRpc.js';
+import { jsonRpc, type RpcMessage, type RpcRequest } from '../core/jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 import { WsServer, type WsConnection } from './wsConnection.js';
-import { EnterpriseAuth } from '../enterprise/index.js';
+import { EnterpriseAuth } from '../../enterprise/index.js';
 
 /** HTTP/WS/SSE 桥接传输：POST /rpc 与 WS 请求-响应共用 pending 表，通知广播给全部 SSE/WS 客户端（实现 {@link Transport}）。 */
 export class HttpBridgeTransport implements Transport {

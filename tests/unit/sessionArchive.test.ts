@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionArchive } from '../../src/server/sessionArchive.js';
+import { SessionArchive } from '../../src/server/services/sessionArchive.js';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {
@@ -95,7 +95,9 @@ test('SessionArchive.list：提取工作区标记与首条用户消息，按 mti
     const newFile = join(dir, 'new.jsonl');
     writeFileSync(
       oldFile,
-      [line('session_meta', { workspace: 'D:\\proj-a' }), line('user', { content: '旧会话' })].join('\n'),
+      [line('session_meta', { workspace: 'D:\\proj-a' }), line('user', { content: '旧会话' })].join(
+        '\n',
+      ),
     );
     writeFileSync(
       newFile,
@@ -143,7 +145,11 @@ test('SessionArchive：坏行/空行被静默跳过，不影响其余统计', ()
   withTemp((dir) => {
     writeFileSync(
       join(dir, 's.jsonl'),
-      ['not-json', '', line('model', { model: 'm', usage: { promptTokens: 4, completionTokens: 0 } })].join('\n'),
+      [
+        'not-json',
+        '',
+        line('model', { model: 'm', usage: { promptTokens: 4, completionTokens: 0 } }),
+      ].join('\n'),
     );
     const load = new SessionArchive({
       workspaceRoot: () => dir,

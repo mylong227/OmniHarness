@@ -1,4 +1,4 @@
-import { LocalDay } from '../util/localDay.js';
+import { LocalDay } from '../../util/localDay.js';
 import { QuotaPlans, type QuotaPlan } from './quotaPlans.js';
 import type { QuotaStore } from './quotaStore.js';
 import type { SessionArchive } from './sessionArchive.js';

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModelCatalogService } from '../../src/server/modelCatalogService.js';
-import { PROVIDER_PRESETS } from '../../src/server/providerPresets.js';
+import { ModelCatalogService } from '../../src/server/services/modelCatalogService.js';
+import { PROVIDER_PRESETS } from '../../src/server/services/providerPresets.js';
 import type { FileConfig } from '../../src/config/configFile.js';
 
 /** 取一个需要 Key 的远程预设（用其 baseUrl 精确匹配 active 判定）。 */
@@ -12,7 +12,9 @@ test('ModelCatalogService.catalog：无实测缓存时只回当前模型（不�
     fileConfig: () => ({ modelAdapter: 'openai', model: 'gpt-4o' }),
     adapterOverride: () => undefined,
   });
-  const out = svc.catalog() as { active: { models: string[]; model: string; defaultModel: string } };
+  const out = svc.catalog() as {
+    active: { models: string[]; model: string; defaultModel: string };
+  };
   assert.deepEqual(out.active.models, ['gpt-4o']);
   assert.strictEqual(out.active.model, 'gpt-4o');
   assert.ok(out.active.defaultModel.length > 0);
@@ -84,7 +86,12 @@ test('ModelCatalogService.resolveOverride：显式凭据时构造出真实模型
   const preset = PROVIDER_PRESETS.find((p) => p.adapter === 'openai');
   assert.ok(preset !== undefined);
   const svc = new ModelCatalogService({
-    fileConfig: () => ({ modelAdapter: 'openai', baseUrl: preset.baseUrl, apiKey: 'sk-test', model: 'm1' }),
+    fileConfig: () => ({
+      modelAdapter: 'openai',
+      baseUrl: preset.baseUrl,
+      apiKey: 'sk-test',
+      model: 'm1',
+    }),
     adapterOverride: () => undefined,
   });
   assert.ok(svc.resolveOverride() !== undefined, '有凭据的远程厂商应可构造模型端口');

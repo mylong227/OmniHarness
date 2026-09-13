@@ -22,7 +22,7 @@ import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { PluginRegistry } from '../plugin/pluginRegistry.js';
-import { AuditSink } from '../server/auditSink.js';
+import { AuditSink } from '../server/services/auditSink.js';
 import { NetworkEgressGuard, parseAllowList } from '../adapters/sandbox/networkEgressGuard.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { dshWorker } from '../worker/dshWorker.js';

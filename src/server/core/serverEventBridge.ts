@@ -1,10 +1,14 @@
 import { jsonRpc } from './jsonRpc.js';
-import type { Transport } from './lineTransport.js';
-import type { Metrics } from './metrics.js';
-import type { AuditSink } from './auditSink.js';
-import { id } from '../util/id.js';
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../ports/runtime/approval.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { Transport } from '../transport/lineTransport.js';
+import type { Metrics } from '../services/metrics.js';
+import type { AuditSink } from '../services/auditSink.js';
+import { id } from '../../util/id.js';
+import type {
+  ApprovalDecision,
+  ApprovalPort,
+  ApprovalRequest,
+} from '../../ports/runtime/approval.js';
+import type { EventPort } from '../../ports/runtime/eventPort.js';
 
 /** 事件/审批桥依赖。 */
 export interface ServerEventBridgeDeps {

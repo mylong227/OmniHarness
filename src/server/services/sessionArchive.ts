@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Metrics } from './metrics.js';
-import type { LocalDay } from '../util/localDay.js';
+import type { LocalDay } from '../../util/localDay.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';

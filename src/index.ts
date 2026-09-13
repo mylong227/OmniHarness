@@ -311,18 +311,18 @@ export type { Skill } from './skill/skill.js';
 export { SkillRegistry } from './skill/skillRegistry.js';
 
 // @public app-server / 协议
-export { JsonRpc } from './server/jsonRpc.js';
+export { JsonRpc } from './server/core/jsonRpc.js';
 export type {
   RpcError,
   RpcMessage,
   RpcNotification,
   RpcRequest,
   RpcResponse,
-} from './server/jsonRpc.js';
-export { LineTransport } from './server/lineTransport.js';
-export type { Transport } from './server/lineTransport.js';
-export { AppServer } from './server/appServer.js';
-export type { AppServerOptions } from './server/appServer.js';
+} from './server/core/jsonRpc.js';
+export { LineTransport } from './server/transport/lineTransport.js';
+export type { Transport } from './server/transport/lineTransport.js';
+export { AppServer } from './server/core/appServer.js';
+export type { AppServerOptions } from './server/core/appServer.js';
 
 // @public 单源 schema / SDK 生成
 export { protocolSchema } from './schema/protocolSchema.js';
@@ -397,8 +397,8 @@ export type {
   JwtParts,
   AuthState,
 } from './enterprise/index.js';
-export { buildComplianceReport, formatCompliance } from './server/auditExporter.js';
-export type { ComplianceReport, ComplianceReportMeta } from './server/auditExporter.js';
+export { buildComplianceReport, formatCompliance } from './server/services/auditExporter.js';
+export type { ComplianceReport, ComplianceReportMeta } from './server/services/auditExporter.js';
 
 // @public 版本契约（API 版本锚点，见 docs/API_STABILITY.md）
 export { API_VERSION } from './version.js';

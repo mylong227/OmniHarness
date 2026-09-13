@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import type { RpcMessage } from '../../src/server/jsonRpc.js';
-import type { Transport } from '../../src/server/lineTransport.js';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
+import type { Transport } from '../../src/server/transport/lineTransport.js';
 import { McpServer } from '../../src/mcp/mcpServer.js';
 import { McpClient } from '../../src/mcp/mcpClient.js';
 import { McpGateway } from '../../src/mcp/mcpGateway.js';

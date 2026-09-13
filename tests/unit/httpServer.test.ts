@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HttpServer, HttpBridgeTransport } from '../../src/server/httpServer.js';
-import { Metrics } from '../../src/server/metrics.js';
-import { AuditSink } from '../../src/server/auditSink.js';
-import { AppServer } from '../../src/server/appServer.js';
+import { HttpServer, HttpBridgeTransport } from '../../src/server/transport/httpServer.js';
+import { Metrics } from '../../src/server/services/metrics.js';
+import { AuditSink } from '../../src/server/services/auditSink.js';
+import { AppServer } from '../../src/server/core/appServer.js';
 import { sseParser } from '../../src/adapters/model/sseParser.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';

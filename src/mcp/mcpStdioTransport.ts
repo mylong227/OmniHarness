@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { LineTransport, type Transport } from '../server/lineTransport.js';
+import { LineTransport, type Transport } from '../server/transport/lineTransport.js';
 
 /**
  * @beta

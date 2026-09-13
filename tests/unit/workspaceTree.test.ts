@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkspaceTree } from '../../src/server/workspaceTree.js';
+import { WorkspaceTree } from '../../src/server/services/workspaceTree.js';
 
 /** 在临时工作区内构造 WorkspaceTree 并执行。 */
 function withWs<T>(fn: (ws: string, tree: WorkspaceTree) => T): T {
@@ -21,7 +21,10 @@ test('WorkspaceTree.list：递归列举目录并跳过隐藏项与 node_modules'
     mkdirSync(join(ws, 'node_modules'));
     mkdirSync(join(ws, '.git'));
     writeFileSync(join(ws, 'src', 'a.ts'), 'export const a = 1;');
-    const out = tree.list({}) as { root: string; tree: { name: string; type: string; children?: unknown[] }[] };
+    const out = tree.list({}) as {
+      root: string;
+      tree: { name: string; type: string; children?: unknown[] }[];
+    };
     assert.strictEqual(out.root, ws);
     assert.deepEqual(
       out.tree.map((n) => n.name),

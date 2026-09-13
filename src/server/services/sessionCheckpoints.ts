@@ -1,6 +1,6 @@
-import type { StoragePort } from '../ports/memory/storage.js';
-import { CheckpointManager } from '../core/checkpointManager.js';
-import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
+import type { StoragePort } from '../../ports/memory/storage.js';
+import { CheckpointManager } from '../../core/checkpointManager.js';
+import { GitWorkspaceSnapshot } from '../../adapters/workspace/gitWorkspaceSnapshot.js';
 
 /** SessionCheckpoints 构造选项。 */
 export interface SessionCheckpointsOptions {

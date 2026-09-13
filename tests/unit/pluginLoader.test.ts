@@ -10,9 +10,9 @@ import { PluginManager } from '../../src/plugin/pluginManager.js';
 import { PermissionGate } from '../../src/plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../../src/plugin/permission.js';
 import { loadInstalledPlugins } from '../../src/plugin/pluginLoader.js';
-import { AppServer } from '../../src/server/appServer.js';
+import { AppServer } from '../../src/server/core/appServer.js';
 import { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
-import type { Transport } from '../../src/server/lineTransport.js';
+import type { Transport } from '../../src/server/transport/lineTransport.js';
 import { tempWorkspace } from '../helpers/tempWorkspace.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
@@ -20,7 +20,7 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { type RpcMessage } from '../../src/server/jsonRpc.js';
+import { type RpcMessage } from '../../src/server/core/jsonRpc.js';
 
 /** 在临时目录写一个可加载的工具插件（ESM，注册 ping 工具）。 */
 function writeToolPlugin(dir: string, name: string): void {

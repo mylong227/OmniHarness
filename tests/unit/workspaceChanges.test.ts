@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkspaceChanges } from '../../src/server/workspaceChanges.js';
+import { WorkspaceChanges } from '../../src/server/services/workspaceChanges.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 const gitAvailable = spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
