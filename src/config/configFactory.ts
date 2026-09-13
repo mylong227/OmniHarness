@@ -57,6 +57,7 @@ import { defaultTools } from './configToolRegistry.js';
 import { assembleCorePorts } from './corePortsAssembler.js';
 import { assembleMemoryStack } from './memoryStackAssembler.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
+import type { ScratchpadPort } from '../ports/scratchpad.js';
 import { assembleSkillStack } from './skillStackAssembler.js';
 import { assembleSpark } from './sparkAssembler.js';
 
@@ -329,6 +330,8 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly longTermMemory: LongTermMemoryPort;
   /** repo-map 上下文引擎（P2.2 单例收敛）：组合根唯一构造点，注入 StepRunnerDeps。 */
   readonly repoMapContext: RepoMapContextEngine;
+  /** 跨重置便签（T3.4）：重置后读回交接物恢复任务。 */
+  readonly scratchpad: ScratchpadPort;
   /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关 memoryConsolidate 时构造，回合末自动沉淀；否则 undefined（仅支持显式 remember）。 */
   readonly memoryExtractor?: MemoryExtractorPort;
   /** 成本预算计量（#S29，可选）：配置 costBudgetUsd 正数时构造，BudgetedModel 与 budget_status 工具共享同一实例（含子代）。 */
