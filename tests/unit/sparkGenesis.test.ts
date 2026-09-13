@@ -14,7 +14,15 @@ import type { MemoryAnnealer } from '../../src/ports/memoryAnnealing.js';
 import type { AnnealStepReport } from '../../src/ports/memoryAnnealing.js';
 import type { RegimeSignals } from '../../src/genesis/operators.js';
 
-const fakeAnneal = (): AnnealStepReport => ({ step: 1, temperature: 0.3, facts: 2, drift: 0.05 });
+const fakeAnneal = (): AnnealStepReport => ({
+  step: 1,
+  temperature: 0.3,
+  facts: 2,
+  drift: 0.05,
+  charged: 1,
+  decayed: 1,
+  dissociated: 0,
+});
 const fakeAnnealer = { anneal: fakeAnneal } as unknown as MemoryAnnealer;
 
 const SIGNALS: RegimeSignals = { entropy: 0.2, modalityCount: 1, costPressure: 0, successRate: 1 };
