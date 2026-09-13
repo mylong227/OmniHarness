@@ -2,7 +2,7 @@
 
 > 零运行时依赖的 TypeScript 端口-适配器 Agent Harness + Rust 硬内核。
 > 本指南让你 5 分钟内跑通 mock、接上真实模型、打开 Web 工作台。
-> 完整架构见 `docs/architecture.md`，插件开发见 `docs/PLUGIN_GUIDE.md`。
+> 完整架构见 `docs/ARCHITECTURE_SPEC.md`，插件开发见 `docs/PLUGIN_GUIDE.md`。
 
 ## 1. 安装与构建
 
@@ -111,4 +111,4 @@ node dist/src/cli/exec.js serve --memory-encrypt --memory-key-file .omniharness/
 - **插件不生效**：市场安装后点「重新加载」或重启 serve；`plugins.list` 看 `loaded` 标记。
 - **原生后端不可用**：`native info` 显示 `available:false` → 先 `npm run native:build`。
 
-进一步阅读：`docs/architecture.md` · `docs/integration.md` · `docs/PLUGIN_GUIDE.md` · `docs/contributing.md`。
+进一步阅读：`docs/README.md`（文档索引）· `docs/ARCHITECTURE_SPEC.md` · `docs/integration.md` · `docs/PLUGIN_GUIDE.md` · `docs/contributing.md`。

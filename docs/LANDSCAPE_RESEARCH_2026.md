@@ -310,7 +310,7 @@ OmniHarness 已经不是"裸壳"——原生沙箱矩阵、审计哈希链、双
 
 ### 附录：调研产出文件
 
-- 竞品全景：`d:/deepseek/agentic-dev-landscape-2026.md`（18 项目 + 能力矩阵 + 中文总结）
+- 竞品全景：`docs/archive/agentic-dev-landscape-2026-09-13.md`（18 项目 + 能力矩阵 + 中文总结）
 - 工程技术：`d:/deepseek/omniharness/docs/`（本文 §4 综合）
 - 学术目录：本文 §5（论文/基准/课程/实验室全分类）
-- 仓库现状交叉核验：`docs/GAP_ANALYSIS_AND_PLAN.md`、`roadmap.md`、`docs/UPSTREAM_GAP_SOURCE_AUDIT.md`
+- 仓库现状交叉核验：`docs/archive/GAP_ANALYSIS_AND_PLAN.md`、`docs/archive/ROADMAP.md`、`docs/archive/UPSTREAM_GAP_SOURCE_AUDIT.md`（均已归档）

@@ -32,7 +32,7 @@ npm run stress     # 压测（内存泄漏检查）
 
 - 新能力用**可选方法**（如 `stream?`）避免破坏既有实现
 - 若必须加必需方法，同步更新全部内置适配器
-- 更新架构文档 `docs/architecture.md`
+- 更新架构文档 `docs/ARCHITECTURE_SPEC.md`
 
 ## 提交规范
 
