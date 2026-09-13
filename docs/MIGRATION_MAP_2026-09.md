@@ -3,7 +3,7 @@
 > 任务来源：`docs/REFACTOR_BOARD_2026-09-12.md` §T1.3。
 > 口径：**每次重构产出「旧 → 新」映射；无法用映射解释的差异一律登记为残差；残差 = 0 才算无缝迁移。**
 > 本表覆盖 2026-09-12 至 2026-09-13 的 P1 解耦系列、P6.3 上帝类拆分、T2.5 新技术合规收口。
-> 更早的 Phase 3/4/5/6 批次映射见 `docs/CODE_STANDARD_REFACTOR_PLAN.md`（历史账）。
+> 更早的 Phase 3/4/5/6 批次映射见 `docs/archive/CODE_STANDARD_REFACTOR_PLAN.md`（历史账）。
 
 ## 一、迁移映射表（旧 → 新）
 
@@ -43,6 +43,18 @@
 | `layeredCodeGraph.ts` 112 行主函数                       | `indexByName` / `indexByFile` / `documentFrequency` / `layerWeight` / `pushEdge` / `collectEdges` / `toAdjacency` 7 个助手       | 单文件内拆分，无路径变化                                                                          |
 | `configError.validateConfig`（88 行）                    | 8 个字段族校验器 + `FIELD_VALIDATORS` 注册表                                                                                     | 同文件内拆分                                                                                      |
 | `projectInstructions.loadProjectInstructions`（90 行）   | 三级候选收集 + `mergeCandidates` / `appendLlmsTxt`                                                                               | 同文件内拆分                                                                                      |
+
+### 1.5 P3.2 域收敛（2026-09-13，批次十三）
+
+| 旧                                                   | 新                                                                                                      | 说明                                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/lsp/lspUri.ts`、`src/lsp/lspToolNames.ts`       | `src/adapters/lsp/`                                                                                     | LSP 工具域收敛：顶层目录撤销，全部引用重写                                                     |
+| `src/code/codeExecutorTool.ts`、`codeInterpreter.ts` | `src/adapters/tool/code/`                                                                               | 代码执行工具归入工具域；顺带消除 `codeExecutorTool → core/toolGate` 越层（门禁改结构化窄接口） |
+| ports 平铺 49 文件                                   | `ports/{memory,runtime,tool,intelligence,model}/` 五域                                                  | P3.1，全库 import 重写                                                                         |
+| adapters/tool 平铺 39 文件                           | `tool/{fs,shell,memory,plan,lsp,git,web,workflow,meta}/` 九域 + `registryToolPort`/`toolHandler` 根驻留 | P3.1                                                                                           |
+| server 平铺 39 文件                                  | `server/{core,transport,services}/` 三域                                                                | P3.1                                                                                           |
+
+**评估结论（诚实记录）**：spill 策略（`spillPolicy.ts`/`toolResultSpiller.ts`）曾短暂迁入 `adapters/spill/`，arch:gate 立即暴露 `core → adapters/spill` 两条真实越层——判定为 **core 层逻辑**并回迁 `src/context/`（未提交过错误状态）。spark/memory/sandbox 三域评估为已收敛（组合根装配与工具族约定不构成散落）。
 
 ## 二、残差清单
 
