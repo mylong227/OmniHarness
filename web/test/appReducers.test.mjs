@@ -1,6 +1,6 @@
-// 应用控制器纯归约函数测试（D6 护栏 + C3 拆分安全网）。
-// 零 DOM 依赖：直接对拍 ./appReducers.js 的各个纯函数输出，锁死「状态变换」语义，
-// 保证把 App.ts 的 69 个 hook 抽到 useAppController 后行为不变。
+// 应用控制器纯归约器测试（D6 护栏 + C3 拆分安全网）。
+// 零 DOM 依赖：直接对拍 ./controllers/AppReducers.js 的各个纯方法输出，锁死「状态变换」语义，
+// 保证把 App 的 69 个 hook 抽到 AppController + 子控制器后行为不变。
 // 覆盖：事件累加、工具结果/增量合并、graph 进度/完成/轮询、会话合并、
 // 工具项聚合、finalText 兜底去重、命令面板构造。
 //
@@ -8,24 +8,14 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  appendEvent,
-  applyGraphDone,
-  applyGraphProgress,
-  applyGraphStatus,
-  appendFinalText,
-  buildCommands,
-  buildGraphRunInitial,
-  buildToolItems,
-  mergeSessions,
-  mergeToolInput,
-  mergeToolResult,
-} from '../dist/ui/appReducers.js';
+import { AppReducers } from '../dist/ui/controllers/AppReducers.js';
+
+const r = new AppReducers();
 
 test('appendEvent：向事件流追加一条', () => {
   const prev = [{ id: '1', type: 'assistant', timestamp: 0, payload: {} }];
   const ev = { id: '2', type: 'tool_call', timestamp: 1, payload: {} };
-  const next = appendEvent(prev, ev);
+  const next = r.appendEvent(prev, ev);
   assert.strictEqual(next.length, 2);
   assert.strictEqual(next[1], ev);
   assert.notStrictEqual(next, prev, '必须返回新数组（不可变）');
@@ -33,53 +23,53 @@ test('appendEvent：向事件流追加一条', () => {
 
 test('mergeToolResult：ok/error/output/空 四种文本映射', () => {
   const base = {};
-  assert.deepStrictEqual(mergeToolResult(base, 'c1', { ok: true }), { c1: { text: '✓ 成功', ok: true } });
-  assert.deepStrictEqual(mergeToolResult(base, 'c1', { error: 'boom' }), { c1: { text: '✗ boom', ok: false } });
-  assert.deepStrictEqual(mergeToolResult(base, 'c1', { output: 'hi' }), { c1: { text: 'hi', ok: false } });
-  assert.deepStrictEqual(mergeToolResult(base, 'c1', {}), { c1: { text: '✗ 失败', ok: false } });
+  assert.deepStrictEqual(r.mergeToolResult(base, 'c1', { ok: true }), { c1: { text: '✓ 成功', ok: true } });
+  assert.deepStrictEqual(r.mergeToolResult(base, 'c1', { error: 'boom' }), { c1: { text: '✗ boom', ok: false } });
+  assert.deepStrictEqual(r.mergeToolResult(base, 'c1', { output: 'hi' }), { c1: { text: 'hi', ok: false } });
+  assert.deepStrictEqual(r.mergeToolResult(base, 'c1', {}), { c1: { text: '✗ 失败', ok: false } });
 });
 
 test('mergeToolInput：新建 → 同 id 增量覆盖 → 缺 id 原样返回', () => {
-  const a = mergeToolInput([], { id: 'x', name: 'ls', partialJson: 'abc' });
+  const a = r.mergeToolInput([], { id: 'x', name: 'ls', partialJson: 'abc' });
   assert.deepStrictEqual(a, [{ id: 'x', name: 'ls', partial: 'abc' }]);
-  const b = mergeToolInput(a, { id: 'x', partialJson: 'def' });
+  const b = r.mergeToolInput(a, { id: 'x', partialJson: 'def' });
   assert.deepStrictEqual(b, [{ id: 'x', name: 'ls', partial: 'def' }], '同 id 应只更新 partial');
-  const c = mergeToolInput(a, { partialJson: 'z' });
+  const c = r.mergeToolInput(a, { partialJson: 'z' });
   assert.strictEqual(c, a, '缺 id 必须原样返回（引用相等）');
 });
 
 test('applyGraphProgress：首条建 run，节点按 id 合并覆盖', () => {
   const p1 = { runId: 'r1', id: 'n1', status: 'running' };
-  const s1 = applyGraphProgress({}, p1);
+  const s1 = r.applyGraphProgress({}, p1);
   assert.strictEqual(s1.r1.nodes.length, 1);
   assert.strictEqual(s1.r1.nodes[0].status, 'running');
   const p2 = { runId: 'r1', id: 'n1', status: 'done', durationMs: 12 };
-  const s2 = applyGraphProgress(s1, p2);
+  const s2 = r.applyGraphProgress(s1, p2);
   assert.strictEqual(s2.r1.nodes.length, 1, '同节点 id 不应新增');
   assert.strictEqual(s2.r1.nodes[0].status, 'done');
   assert.strictEqual(s2.r1.nodes[0].durationMs, 12);
   const p3 = { runId: 'r1', id: 'n2', status: 'running' };
-  const s3 = applyGraphProgress(s2, p3);
+  const s3 = r.applyGraphProgress(s2, p3);
   assert.strictEqual(s3.r1.nodes.length, 2);
 });
 
 test('applyGraphProgress：缺 runId 原样返回', () => {
   const prev = { r1: { runId: 'r1', defName: '', done: false, ok: undefined, nodes: [], blackboard: undefined, error: undefined } };
-  assert.strictEqual(applyGraphProgress(prev, { runId: undefined }), prev);
+  assert.strictEqual(r.applyGraphProgress(prev, { runId: undefined }), prev);
 });
 
 test('applyGraphDone：标记完成并写入 ok/blackboard', () => {
   const prev = { r1: { runId: 'r1', defName: 'g', done: false, ok: undefined, nodes: [], blackboard: undefined, error: undefined } };
-  const next = applyGraphDone(prev, { runId: 'r1', ok: true, blackboard: { x: 1 } });
+  const next = r.applyGraphDone(prev, { runId: 'r1', ok: true, blackboard: { x: 1 } });
   assert.strictEqual(next.r1.done, true);
   assert.strictEqual(next.r1.ok, true);
   assert.deepStrictEqual(next.r1.blackboard, { x: 1 });
   // 不存在的 runId 不写入
-  assert.strictEqual(applyGraphDone(prev, { runId: 'nope', ok: false }), prev);
+  assert.strictEqual(r.applyGraphDone(prev, { runId: 'nope', ok: false }), prev);
 });
 
 test('buildGraphRunInitial：初始态形状正确', () => {
-  assert.deepStrictEqual(buildGraphRunInitial('r1', 'name'), {
+  assert.deepStrictEqual(r.buildGraphRunInitial('r1', 'name'), {
     runId: 'r1',
     defName: 'name',
     done: false,
@@ -92,7 +82,7 @@ test('buildGraphRunInitial：初始态形状正确', () => {
 
 test('applyGraphStatus：轮询快照合并进 run（含节点合并）', () => {
   const st = { runId: 'r1', defName: 'g', done: true, ok: true, nodes: [{ id: 'n1', status: 'done' }], blackboard: { k: 2 }, error: undefined };
-  const next = applyGraphStatus({}, 'r1', st);
+  const next = r.applyGraphStatus({}, 'r1', st);
   assert.strictEqual(next.r1.done, true);
   assert.strictEqual(next.r1.defName, 'g');
   assert.strictEqual(next.r1.nodes.length, 1);
@@ -101,7 +91,7 @@ test('applyGraphStatus：轮询快照合并进 run（含节点合并）', () => 
 test('mergeSessions：磁盘列表覆盖同 id，保留在册未落盘的会话', () => {
   const prev = [{ id: 'mem-only', label: '内存会话' }, { id: 'a', label: '旧a' }];
   const disk = [{ id: 'a', label: '新a' }, { id: 'b', label: 'b' }];
-  const next = mergeSessions(prev, disk);
+  const next = r.mergeSessions(prev, disk);
   assert.deepStrictEqual(
     next.map((s) => s.id),
     ['mem-only', 'a', 'b'],
@@ -116,7 +106,7 @@ test('buildToolItems：tool_call 聚合状态，非 tool_call 跳过', () => {
     { id: '3', type: 'tool_call', timestamp: 0, payload: { callId: 'c2', name: 'grep' } },
   ];
   const results = { c1: { text: '', ok: true } };
-  const items = buildToolItems(events, results);
+  const items = r.buildToolItems(events, results);
   assert.strictEqual(items.length, 2);
   assert.strictEqual(items[0].status, 'ok', '有结果 → ok');
   assert.strictEqual(items[1].status, 'pending', '无结果 → pending');
@@ -125,20 +115,20 @@ test('buildToolItems：tool_call 聚合状态，非 tool_call 跳过', () => {
 
 test('appendFinalText：去重 + 空/空白跳过（send 兜底分支）', () => {
   const prev = [{ id: 'a', type: 'assistant', timestamp: 0, payload: { content: '已有总结' } }];
-  const added = appendFinalText(prev, '新的总结');
+  const added = r.appendFinalText(prev, '新的总结');
   assert.strictEqual(added.length, 2);
   assert.strictEqual(added[1].type, 'assistant');
   assert.strictEqual(added[1].payload.content, '新的总结');
   // 与已有 assistant 内容重复 → 不追加
-  assert.strictEqual(appendFinalText(prev, '已有总结'), prev);
+  assert.strictEqual(r.appendFinalText(prev, '已有总结'), prev);
   // 空 / 纯空白 → 原样返回（引用相等）
-  assert.strictEqual(appendFinalText(prev, undefined), prev);
-  assert.strictEqual(appendFinalText(prev, '   '), prev);
+  assert.strictEqual(r.appendFinalText(prev, undefined), prev);
+  assert.strictEqual(r.appendFinalText(prev, '   '), prev);
 });
 
 test('buildCommands：16 条命令，run 闭包正确驱动依赖', () => {
   const calls = { pane: null, right: false, newSession: 0, reload: 0, theme: 0, left: 0, right: 0 };
-  const cmds = buildCommands({
+  const cmds = r.buildCommands({
     setActivePane: (k) => (calls.pane = k),
     setRightOpen: () => (calls.right = true),
     newSession: () => (calls.newSession += 1),
