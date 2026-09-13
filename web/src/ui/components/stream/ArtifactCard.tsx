@@ -4,12 +4,19 @@
 import { React } from '../../deps.js';
 import { AppComponent } from '../../base/AppComponent.js';
 import { esc } from '../../format.js';
-import type { ArtifactInfo } from '../../models/ArtifactResolver.js';
+import type { ArtifactInfo, ArtifactKind } from '../../models/ArtifactResolver.js';
 
 export interface ArtifactCardProps {
   info: ArtifactInfo;
   onOpen?: (path: string) => void;
 }
+
+/** 产物类型 → 图标（未知类型回落普通文件图标）。 */
+const KIND_ICONS: Readonly<Record<ArtifactKind, string>> = {
+  file: '📄',
+  patch: '🩹',
+  sketch: '✏️',
+};
 
 /** 产物卡片组件。 */
 export class ArtifactCard extends AppComponent<ArtifactCardProps> {
@@ -26,7 +33,7 @@ export class ArtifactCard extends AppComponent<ArtifactCardProps> {
     const href = `/files?path=${encodeURIComponent(info.relPath)}`;
     return (
       <div className="artifact-card">
-        <span className="artifact-icon">{info.kind === 'patch' ? '🩹' : '📄'}</span>
+        <span className="artifact-icon">{KIND_ICONS[info.kind] || KIND_ICONS.file}</span>
         <div className="artifact-meta">
           <a
             className="artifact-name"
