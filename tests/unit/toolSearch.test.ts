@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { Bm25Index, tokenize } from '../../src/search/bm25Index.js';
 import { ToolIndex } from '../../src/search/toolIndex.js';
 import { ToolDiscovery } from '../../src/search/toolDiscovery.js';
-import { ToolSearchTool } from '../../src/adapters/tool/toolSearchTool.js';
+import { ToolSearchTool } from '../../src/adapters/tool/meta/toolSearchTool.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { StepRunner } from '../../src/core/stepRunner.js';
 import { ToolGate } from '../../src/core/toolGate.js';

@@ -147,7 +147,7 @@ export { ToolResultSpiller } from './context/toolResultSpiller.js';
 export type { SpillerOptions } from './context/toolResultSpiller.js';
 export { FileSpill } from './adapters/spill/fileSpill.js';
 export { MemorySpill } from './adapters/spill/memorySpill.js';
-export { SpillReadTool } from './adapters/tool/spillReadTool.js';
+export { SpillReadTool } from './adapters/tool/meta/spillReadTool.js';
 export { WorkspaceGuard, PathTraversalError } from './util/workspaceGuard.js';
 export { OutputDecoder } from './util/outputDecoder.js';
 
@@ -343,7 +343,7 @@ export { DshWorker } from './worker/dshWorker.js';
 export { WorkerRegistry } from './worker/workerRegistry.js';
 export { WorkerOrchestrator } from './worker/workerOrchestrator.js';
 export type { DelegateTask } from './worker/workerOrchestrator.js';
-export { DelegateTool } from './adapters/tool/delegateTool.js';
+export { DelegateTool } from './adapters/tool/workflow/delegateTool.js';
 
 // @public MCP 网关（对外暴露工具 / 桥接外部 MCP 服务器）
 export { McpProtocol } from './mcp/mcpProtocol.js';

@@ -14,7 +14,7 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { SubagentTool } from '../../src/adapters/tool/subagentTool.js';
+import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';

@@ -1,48 +1,48 @@
 import type { RetrievalPort } from '../ports/intelligence/retrieval.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
-import { SpillReadTool } from '../adapters/tool/spillReadTool.js';
-import { SketchWriteTool } from '../adapters/tool/sketchWriteTool.js';
-import { ToolSearchTool } from '../adapters/tool/toolSearchTool.js';
-import { MemorySearchTool } from '../adapters/tool/memorySearchTool.js';
+import { SpillReadTool } from '../adapters/tool/meta/spillReadTool.js';
+import { SketchWriteTool } from '../adapters/tool/meta/sketchWriteTool.js';
+import { ToolSearchTool } from '../adapters/tool/meta/toolSearchTool.js';
+import { MemorySearchTool } from '../adapters/tool/memory/memorySearchTool.js';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import { RememberTool, RecallTool } from '../adapters/tool/longTermMemoryTools.js';
+import { RememberTool, RecallTool } from '../adapters/tool/memory/longTermMemoryTools.js';
 import { CheckpointManager } from '../core/checkpointManager.js';
 import { eventFactory } from '../core/eventFactory.js';
 import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
-import { registerCheckpointTools } from '../adapters/tool/checkpointTool.js';
-import { BudgetStatusTool } from '../adapters/tool/budgetStatusTool.js';
+import { registerCheckpointTools } from '../adapters/tool/git/checkpointTool.js';
+import { BudgetStatusTool } from '../adapters/tool/meta/budgetStatusTool.js';
 import { ToolIndex } from '../search/toolIndex.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';
-import { TodoWriteTool, TodoReadTool } from '../adapters/tool/todoTool.js';
-import { AskUserTool } from '../adapters/tool/askUserTool.js';
-import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/planTool.js';
-import { ReadFileTool } from '../adapters/tool/readFileTool.js';
+import { TodoWriteTool, TodoReadTool } from '../adapters/tool/plan/todoTool.js';
+import { AskUserTool } from '../adapters/tool/plan/askUserTool.js';
+import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/plan/planTool.js';
+import { ReadFileTool } from '../adapters/tool/fs/readFileTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
-import { ShellTool } from '../adapters/tool/shellTool.js';
-import { WriteFileTool } from '../adapters/tool/writeFileTool.js';
-import { ListDirTool } from '../adapters/tool/listDirTool.js';
-import { ApplyPatchTool } from '../adapters/tool/applyPatchTool.js';
+import { ShellTool } from '../adapters/tool/shell/shellTool.js';
+import { WriteFileTool } from '../adapters/tool/fs/writeFileTool.js';
+import { ListDirTool } from '../adapters/tool/fs/listDirTool.js';
+import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
 // web_search 仅当通过 extraTools 注入 search 实现时才注册，默认不暴露未配置的搜索工具，避免模型反复调用导致批量失败。
 import { CodeExecutorTool } from '../code/codeExecutorTool.js';
 import { ToolGate } from '../core/toolGate.js';
-import { DelegateTool } from '../adapters/tool/delegateTool.js';
+import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { WorkerOrchestrator } from '../worker/workerOrchestrator.js';
 import { SimpleWorker } from '../worker/simpleWorker.js';
 import { SubagentOrchestrator } from '../subagent/subagentOrchestrator.js';
-import { SubagentTool } from '../adapters/tool/subagentTool.js';
-import { RunGoalTool } from '../adapters/tool/runGoalTool.js';
-import { RunWorkflowTool } from '../adapters/tool/runWorkflowTool.js';
+import { SubagentTool } from '../adapters/tool/workflow/subagentTool.js';
+import { RunGoalTool } from '../adapters/tool/workflow/runGoalTool.js';
+import { RunWorkflowTool } from '../adapters/tool/workflow/runWorkflowTool.js';
 import { AgentFactory } from './agentFactory.js';
 import {
   LspGoToDefinitionTool,
   LspFindReferencesTool,
   LspHoverTool,
   LspStatusTool,
-} from '../adapters/tool/lspTools.js';
+} from '../adapters/tool/lsp/lspTools.js';
 import type { LspPort } from '../ports/tool/lsp.js';
-import { AgentIdentityTool } from '../adapters/tool/agentIdentityTool.js';
-import { PolicyEvalTool } from '../adapters/tool/policyEvalTool.js';
+import { AgentIdentityTool } from '../adapters/tool/meta/agentIdentityTool.js';
+import { PolicyEvalTool } from '../adapters/tool/meta/policyEvalTool.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 import type { TodoPort } from '../ports/runtime/todo.js';

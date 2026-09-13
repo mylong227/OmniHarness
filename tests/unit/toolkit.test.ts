@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WriteFileTool } from '../../src/adapters/tool/writeFileTool.js';
-import { ListDirTool } from '../../src/adapters/tool/listDirTool.js';
-import { ApplyPatchTool } from '../../src/adapters/tool/applyPatchTool.js';
-import { WebSearchTool } from '../../src/adapters/tool/webSearchTool.js';
-import { PatchApplier } from '../../src/adapters/tool/patchApplier.js';
+import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.js';
+import { ListDirTool } from '../../src/adapters/tool/fs/listDirTool.js';
+import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.js';
+import { WebSearchTool } from '../../src/adapters/tool/web/webSearchTool.js';
+import { PatchApplier } from '../../src/adapters/tool/fs/patchApplier.js';
 
 /** 测试上下文。 */
 const context = { sessionId: 's1', workspaceRoot: process.cwd() };

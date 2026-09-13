@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.js';
-import { MemorySearchTool } from '../../src/adapters/tool/memorySearchTool.js';
+import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
