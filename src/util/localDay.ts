@@ -1,3 +1,6 @@
+/** 本地自然日结束边界（23:59:59.999）：模块级常量，避免类级 static（Phase 5 纪律）。 */
+const DAY_END = Object.freeze({ hour: 23, minute: 59, second: 59, millis: 999 });
+
 /**
  * 本地自然日值对象。
  *
@@ -7,12 +10,6 @@
  * 表现为「余额早上凭空多出一截」。故统一收成一个值对象，谁要用谁持有它。
  */
 export class LocalDay {
-  /** 当日 23:59:59.999（本地）的自然日边界。 */
-  private static readonly END_HOUR = 23;
-  private static readonly END_MINUTE = 59;
-  private static readonly END_SECOND = 59;
-  private static readonly END_MILLIS = 999;
-
   private readonly date: Date;
 
   /**
@@ -38,7 +35,7 @@ export class LocalDay {
    */
   public get endsAt(): string {
     const end = new Date(this.date.getTime());
-    end.setHours(LocalDay.END_HOUR, LocalDay.END_MINUTE, LocalDay.END_SECOND, LocalDay.END_MILLIS);
+    end.setHours(DAY_END.hour, DAY_END.minute, DAY_END.second, DAY_END.millis);
     return end.toISOString();
   }
 

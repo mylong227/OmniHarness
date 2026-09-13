@@ -18,10 +18,16 @@ export interface LiveBroadcaster {
  * 让用户在模型「思考出参数」的过程中即看到 JSON 逐字符增长（而非等工具执行完才一次性出现）。
  */
 export class WebLiveView implements ToolInputSink {
+  /** Web 视图在 live 通道内的标识名。 */
   public readonly name = 'web-live-view';
 
   public constructor(private readonly broadcaster: LiveBroadcaster) {}
 
+  /**
+   * 工具参数增量经广播通道推给 Web UI（`thread.tool_input` 通知）。
+   *
+   * @param delta 工具输入增量事件
+   */
   public onToolInput(delta: ToolInputDelta): void {
     this.broadcaster.notify('thread.tool_input', {
       id: delta.id ?? null,

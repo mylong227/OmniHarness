@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { QuotaPlans } from './quotaPlans.js';
+import { QUOTA_DEFAULT_ID, QuotaPlans } from './quotaPlans.js';
 
 /**
  * 配额设置（落盘字段，全部可选——缺失即用缺省值）。
@@ -47,7 +47,7 @@ export class QuotaStore {
     const plan =
       typeof raw['plan'] === 'string' && new QuotaPlans().isValid(raw['plan'])
         ? raw['plan']
-        : QuotaPlans.DEFAULT_ID;
+        : QUOTA_DEFAULT_ID;
     const daily = raw['dailyTokens'];
     const dailyTokens =
       typeof daily === 'number' && Number.isFinite(daily) && daily > 0

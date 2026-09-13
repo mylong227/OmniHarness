@@ -13,6 +13,7 @@ import { clearLine, renderToolInputProgress } from '../../tui/tuiRenderer.js';
  * 不写 stdout，以免破坏 stdout 可能的机器消费（如 JSON 输出 / 管道）。
  */
 export class ConsoleLiveView implements ToolInputSink {
+  /** 控制台视图在 live 通道内的标识名。 */
   public readonly name = 'console-live-view';
   private readonly states = new Map<string, { name: string; acc: string }>();
 
@@ -22,6 +23,11 @@ export class ConsoleLiveView implements ToolInputSink {
     private readonly textOut?: Writable,
   ) {}
 
+  /**
+   * 工具参数增量实时刷到 stderr（仅 TTY；非 TTY 静默）。
+   *
+   * @param delta 工具输入增量事件
+   */
   public onToolInput(delta: ToolInputDelta): void {
     // 仅 TTY 实时刷新；非 TTY（管道／重定向／CI）静默，避免把控制码刷进 stdout 或日志。
     const tty = (this.out as unknown as { isTTY?: boolean }).isTTY;

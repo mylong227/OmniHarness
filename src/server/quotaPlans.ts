@@ -22,11 +22,11 @@ export interface QuotaPlan {
   readonly fallback: boolean;
 }
 
+/** 未配置 / 配置非法时使用的档位 id（模块级常量，避免类级 static）。 */
+export const QUOTA_DEFAULT_ID = 'free';
+
 /** 档位表。 */
 export class QuotaPlans {
-  /** 未配置 / 配置非法时使用的档位 id。 */
-  public static readonly DEFAULT_ID = 'free';
-
   private readonly plans: readonly QuotaPlan[] = [
     { id: 'free', label: '免费', multiplier: 1, upgraded: false, fallback: true },
     { id: 'plus', label: '升级', multiplier: 1.5, upgraded: true, fallback: false },

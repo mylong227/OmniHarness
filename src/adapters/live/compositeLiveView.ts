@@ -9,6 +9,7 @@ import type { ToolInputSink } from '../../ports/toolInputSink.js';
  * serve 模式下再由 CLI 注入 WebLiveView（广播给 Web UI），实现「同一份增量、多端呈现」。
  */
 export class CompositeLiveView implements ToolInputSink {
+  /** 组合视图在 live 通道内的标识名。 */
   public readonly name = 'composite-live-view';
   private readonly sinks: ToolInputSink[] = [];
 
@@ -27,6 +28,11 @@ export class CompositeLiveView implements ToolInputSink {
     if (idx >= 0) this.sinks.splice(idx, 1);
   }
 
+  /**
+   * 工具输入增量广播：把同一份 delta 依序转发给全部子 sink。
+   *
+   * @param delta 工具输入增量事件
+   */
   public onToolInput(delta: ToolInputDelta): void {
     for (const sink of this.sinks) sink.onToolInput(delta);
   }

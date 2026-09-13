@@ -8,7 +8,7 @@
  * 解析优先级（高 → 低）：
  *  1. 显式传入的覆盖值（服务端读 env `OMNI_CONTEXT_WINDOW`）；
  *  2. 模型名子串表（按序匹配，先精确后模糊）；
- *  3. 缺省值（{@link ContextWindowCatalog.DEFAULT_WINDOW}）。
+ *  3. 缺省值（{@link DEFAULT_CONTEXT_WINDOW}）。
  *
  * 表里都是**公开规格的近似值**：同一模型名在不同厂商/不同版本上窗口可能不同，
  * 故此处只做量级判断（32k / 128k / 200k / 1M），不做精确承诺。
@@ -47,11 +47,11 @@ const WINDOW_TABLE: readonly { readonly match: readonly string[]; readonly token
   { match: ['llama', 'local', 'mock'], tokens: 32_768 },
 ];
 
+/** 无匹配时的缺省窗口（128k，主流兼容端点的常见下限；模块级常量，避免类级 static）。 */
+export const DEFAULT_CONTEXT_WINDOW = 128_000;
+
 /** 上下文窗口目录。 */
 export class ContextWindowCatalog {
-  /** 无匹配时的缺省窗口（128k，主流兼容端点的常见下限）。 */
-  public static readonly DEFAULT_WINDOW = 128_000;
-
   private readonly explicit: number | undefined;
 
   /**
@@ -74,7 +74,7 @@ export class ContextWindowCatalog {
         if (name.includes(needle)) return entry.tokens;
       }
     }
-    return ContextWindowCatalog.DEFAULT_WINDOW;
+    return DEFAULT_CONTEXT_WINDOW;
   }
 
   /** 校验显式覆盖值：仅接受正的有限数，其余视为未提供（fail-soft，不抛错阻断启动）。 */
