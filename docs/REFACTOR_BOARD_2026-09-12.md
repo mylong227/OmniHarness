@@ -1,5 +1,6 @@
 # OmniHarness 全面升级总看板（2026-09-12 · v2 整合版）
 
+> **⚠️ 2026-09-13 起：剩余任务已并入 `docs/TASK_BOARD_2026-09-13.md`（唯一前进看板）。** 本板保留为批次执行记录与决策日志（D1–D9 沿用有效），不再新增任务卡。
 > **本看板是唯一执行口径**：工程债（P0–P8）与技术升级（T0–T6）**共用同一套标准**——
 > 同一张任务卡格式（现状证据 / 动作 / 可证伪验收 / 状态）、同一套门禁、同一条提交纪律。
 > 目标：把「零依赖 + 六边形 + 强类型」的架构承诺，从**文档与宣称**落到**可机械校验的门禁与实测数字**上；
@@ -620,3 +621,10 @@
 4. **P6.2 封装收紧**（Phase 7）与 **P8.2 公共 API 面收敛**（index.ts 479 行）；
 5. **P7/T6 栈升级**：tsconfig 加严、verbatimModuleSyntax、ES2025 target（全局性，宜独立批次）；
 6. 挂起项：T4.4（须 AgentDojo/InjecAgent 数据集，D4 禁入主门禁）、U5 官方 SWE-bench（须 API key）、U6 跨机、U4 autoRun 实跑、OS 沙箱真机验证。
+
+### 13.6 P3.1 执行中断记录（2026-09-13）
+
+- ports 域拆分迁移已设计并执行到半途（5 域分组：memory 13 / runtime 20 / tool 5 / intelligence 9 / model 2；git mv 完成、全库 import 重写脚本已迭代至 806→271→34 错）。
+- **中断原因：本机 Node.js 于会话期间被卸载**（`D:\Program Files\nodejs` 整目录消失，全盘无 node.exe），tsc/门禁/测试全部不可用。
+- 处置：按「可回滚」纪律，迁移改动**已整体回滚**至全绿基线（src 0 改动，`8139e64`），未留半成品。
+- **就绪待执行**：幂等迁移脚本 `_tmp_dir_split.mjs` + 分组表 `_tmp_ports_map.json` 保留在仓库根（未跟踪）；恢复 Node ≥22 后按 `node _tmp_dir_split.mjs _tmp_ports_map.json` → `tsc` → 门禁 → 提交流程重跑即可；adapters/tool 与 server 的拆分可复用同脚本（换 map）。
