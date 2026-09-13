@@ -16,7 +16,7 @@
  * （Xenova 镜像无 ONNX 权重，404），见底部说明。
  */
 
-import type { Embedding, EmbeddingPort, EmbedOptions } from '../../ports/embedding.js';
+import type { Embedding, EmbeddingPort, EmbedOptions } from '../../ports/model/embedding.js';
 import type { FeatureExtractionPipeline } from '@huggingface/transformers';
 
 /** 模型前缀模式：决定 embed 时是否、如何注入查询/文档不对称前缀。 */

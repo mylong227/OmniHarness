@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../src/ports/sandbox.js';
-import type { ToolCall } from '../../src/ports/tool.js';
+import type {
+  SandboxAction,
+  SandboxDecision,
+  SandboxPort,
+} from '../../src/ports/runtime/sandbox.js';
+import type { ToolCall } from '../../src/ports/tool/tool.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
 import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.js';
 import { UnsupportedSandbox } from '../../src/adapters/sandbox/unsupportedSandbox.js';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
-import { isLikelySandboxDenied, classifyDenial } from '../../src/ports/sandboxDenial.js';
+import { isLikelySandboxDenied, classifyDenial } from '../../src/ports/runtime/sandboxDenial.js';
 import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
 import { AskEscalation } from '../../src/adapters/escalation/askEscalation.js';
 import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.js';

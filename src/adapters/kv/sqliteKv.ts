@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import type { KvPort } from '../../ports/kv.js';
+import type { KvPort } from '../../ports/memory/kv.js';
 
 /** SQLite KV 适配器（node:sqlite）：kv 表持久化，可替换 JSON 文件。 */
 export class SqliteKv implements KvPort {

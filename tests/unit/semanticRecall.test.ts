@@ -7,7 +7,7 @@ import {
   defaultEmbedBatchSize,
   resolveEmbedBatchSize,
 } from '../../src/context/semanticIndex.js';
-import type { Embedding, EmbeddingPort } from '../../src/ports/embedding.js';
+import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.js';
 
 /**
  * 确定性伪嵌入：把一组同义词映射到共享维度，使余弦相似度能表达「语义同义但字面不同」。

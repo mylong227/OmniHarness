@@ -24,9 +24,9 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { NativeBackend } from '../../src/native/nativeBackend.js';
-import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model.js';
+import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model/model.js';
 import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
-import type { ToolCall, ToolResult } from '../../src/ports/tool.js';
+import type { ToolCall, ToolResult } from '../../src/ports/tool/tool.js';
 
 // ---- 配置 ----
 const ITER = 30; // 每模式任务轮数

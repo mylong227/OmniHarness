@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import type { SessionEvent } from '../ports/event.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
 
 /** 单文件变更统计。 */
 interface ChangeStat {

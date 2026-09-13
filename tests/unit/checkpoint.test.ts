@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CheckpointManager } from '../../src/core/checkpointManager.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import type { SessionEvent } from '../../src/ports/event.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 构造若干事件，便于断言回滚后事件被精确恢复。 */
 function events(n: number, sessionId: string): SessionEvent[] {

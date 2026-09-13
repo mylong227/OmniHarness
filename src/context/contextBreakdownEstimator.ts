@@ -1,12 +1,16 @@
-import type { ContextCategoryKey, ModelContextSnapshot, ModelMessage } from '../ports/model.js';
-import type { ToolDefinition } from '../ports/tool.js';
+import type {
+  ContextCategoryKey,
+  ModelContextSnapshot,
+  ModelMessage,
+} from '../ports/model/model.js';
+import type { ToolDefinition } from '../ports/tool/tool.js';
 import { TokenEstimator } from './tokenEstimator.js';
 
 /**
  * 分类键与快照类型定义在 `ports/model.ts`（模型域词汇，事件快照与 UI 协议共用），
  * 此处再导出，使上下文域的调用点只需 import 本模块。
  */
-export type { ContextCategoryKey, ModelContextSnapshot } from '../ports/model.js';
+export type { ContextCategoryKey, ModelContextSnapshot } from '../ports/model/model.js';
 
 /** 分类元数据（键 → 展示名）。 */
 export interface ContextCategoryMeta {

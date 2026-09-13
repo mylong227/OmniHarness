@@ -12,7 +12,7 @@ import { AutoApproval } from '../src/adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../src/adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../src/adapters/sandbox/passthroughSandbox.js';
 import { RegistryToolPort } from '../src/adapters/tool/registryToolPort.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../src/ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../src/ports/tool/tool.js';
 import { works } from './assert.js';
 
 /** 冒烟测试：端口-适配器架构下多种组合必须全部走通。 */

@@ -3,7 +3,7 @@ import { ConfigFactory } from '../config/configFactory.js';
 import { SandboxManager, type SandboxProfile } from '../adapters/sandbox/sandboxManager.js';
 import type { PluginManager } from '../plugin/pluginManager.js';
 import type { PluginProfile, ApplyProfileResult } from '../plugin/pluginProfileStore.js';
-import type { SupervisorPort } from '../ports/supervisor.js';
+import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 import { jsonRpc, type RpcMessage } from './jsonRpc.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
 import { ServerConfigStore } from './serverConfigStore.js';

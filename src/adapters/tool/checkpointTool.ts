@@ -1,6 +1,6 @@
-import type { CheckpointManagerPort } from '../../ports/checkpointManager.js';
+import type { CheckpointManagerPort } from '../../ports/runtime/checkpointManager.js';
 import type { RegistryToolPort } from './registryToolPort.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import type { ToolHandler } from './toolHandler.js';
 import { rollbackDefinition, makeRollbackHandler } from './rollbackTool.js';
 

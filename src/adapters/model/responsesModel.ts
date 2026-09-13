@@ -6,7 +6,7 @@ import type {
   ModelToolSpec,
   ModelUsage,
   StreamCallbacks,
-} from '../../ports/model.js';
+} from '../../ports/model/model.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser, type SseEvent } from './sseParser.js';
 

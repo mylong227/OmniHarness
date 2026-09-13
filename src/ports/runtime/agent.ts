@@ -1,6 +1,6 @@
 import type { SessionEvent } from './event.js';
-import type { FileAttachment, ImageContent } from './model.js';
-import type { OmniHarnessRuntime } from '../core/runtime.js';
+import type { FileAttachment, ImageContent } from '../model/model.js';
+import type { OmniHarnessRuntime } from '../../core/runtime.js';
 
 // 透出运行时类型，供组合根/测试从统一入口取得（避免各自 import core/runtime）。
 export type { OmniHarnessRuntime };

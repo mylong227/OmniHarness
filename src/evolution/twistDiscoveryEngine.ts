@@ -12,7 +12,7 @@
  * @maturityEvidence tests/unit/discoveryEngine.test.ts
  */
 import type { Skill, MoireOptions } from '../skill/skill.js';
-import type { Candidate, DiscoveryEngine } from '../ports/evolution.js';
+import type { Candidate, DiscoveryEngine } from '../ports/runtime/evolution.js';
 
 /** TwistDiscoveryEngine 选项。 */
 export interface TwistDiscoveryOptions {

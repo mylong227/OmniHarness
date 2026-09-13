@@ -1,5 +1,5 @@
 import { Agent } from '../core/agent.js';
-import type { AgentFactoryPort, AgentPort } from '../ports/agent.js';
+import type { AgentFactoryPort, AgentPort } from '../ports/runtime/agent.js';
 import type { OmniHarnessRuntime } from '../core/runtime.js';
 
 /**

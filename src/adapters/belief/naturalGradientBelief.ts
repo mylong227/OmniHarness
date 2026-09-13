@@ -6,7 +6,7 @@ import type {
   MetacognitionPort,
   BeliefSnapshot,
   BeliefUpdateReport,
-} from '../../ports/metacognition.js';
+} from '../../ports/intelligence/metacognition.js';
 import { klDiagonal, reparamInvariant } from '../../util/beliefMath.js';
 
 /** 自然梯度信念选项（fail-closed 边界夹紧）。 */

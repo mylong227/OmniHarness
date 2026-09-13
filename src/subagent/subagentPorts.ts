@@ -1,14 +1,14 @@
-import type { ApprovalPort } from '../ports/approval.js';
-import type { EventPort } from '../ports/eventPort.js';
-import type { ModelPort } from '../ports/model.js';
-import type { SandboxPort } from '../ports/sandbox.js';
-import type { StoragePort } from '../ports/storage.js';
-import type { SpillPort } from '../ports/spill.js';
-import type { ToolPort } from '../ports/tool.js';
-import type { EscalationPort } from '../ports/escalation.js';
+import type { ApprovalPort } from '../ports/runtime/approval.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { ModelPort } from '../ports/model/model.js';
+import type { SandboxPort } from '../ports/runtime/sandbox.js';
+import type { StoragePort } from '../ports/memory/storage.js';
+import type { SpillPort } from '../ports/memory/spill.js';
+import type { ToolPort } from '../ports/tool/tool.js';
+import type { EscalationPort } from '../ports/runtime/escalation.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
-import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
 import type { OmniHarnessRuntime } from '../core/runtime.js';
 
 /**

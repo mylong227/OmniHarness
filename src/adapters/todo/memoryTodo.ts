@@ -1,4 +1,4 @@
-import type { TodoItem, TodoPort } from '../../ports/todo.js';
+import type { TodoItem, TodoPort } from '../../ports/runtime/todo.js';
 
 /** 内存待办端口：会话级整表快照，last-write-wins。 */
 export class MemoryTodo implements TodoPort {

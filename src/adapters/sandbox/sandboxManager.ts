@@ -1,10 +1,10 @@
-import type { SandboxPort } from '../../ports/sandbox.js';
+import type { SandboxPort } from '../../ports/runtime/sandbox.js';
 import { PassthroughSandbox } from './passthroughSandbox.js';
 import { PolicySandbox } from './policySandbox.js';
 import { RestrictedSandbox } from './restrictedSandbox.js';
 import { UnsupportedSandbox } from './unsupportedSandbox.js';
 import { LinuxBwrapSandbox } from './linuxBwrapSandbox.js';
-import { MacOsSeatbeltSandbox } from './macOsSeatbeltSandbox.js';
+import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.js';
 
 /** 沙箱后端 profile 名（G4 多后端切换）。 */
 export type SandboxProfile =

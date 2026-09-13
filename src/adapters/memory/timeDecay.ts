@@ -1,4 +1,4 @@
-import type { MemoryFact } from '../../ports/longTermMemory.js';
+import type { MemoryFact } from '../../ports/memory/longTermMemory.js';
 
 /** 带原始相关性分值的记忆事实（时间衰减前）。 */
 export interface ScoredFact {

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 
 /** 草图目录（相对工作区，与 `.omniharness/sessions` 同约定）。 */

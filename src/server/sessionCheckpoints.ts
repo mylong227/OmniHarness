@@ -1,4 +1,4 @@
-import type { StoragePort } from '../ports/storage.js';
+import type { StoragePort } from '../ports/memory/storage.js';
 import { CheckpointManager } from '../core/checkpointManager.js';
 import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
 

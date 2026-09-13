@@ -6,7 +6,12 @@ import {
   decodeCompactionState,
   headFingerprint,
 } from '../../src/context/contextCompactor.js';
-import type { ModelMessage, ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
+import type {
+  ModelMessage,
+  ModelOutput,
+  ModelPort,
+  ModelRequest,
+} from '../../src/ports/model/model.js';
 
 /** 计数假模型：统计 generate 调用次数（验证游标复用零 LLM 调用）。 */
 function countingModel(text: string) {

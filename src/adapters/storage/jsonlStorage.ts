@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { SessionEvent } from '../../ports/event.js';
-import type { StoragePort } from '../../ports/storage.js';
+import type { SessionEvent } from '../../ports/runtime/event.js';
+import type { StoragePort } from '../../ports/memory/storage.js';
 
 /** JSONL 文件存储适配器：每个会话一个 .jsonl 文件（可观测、可回放）。 */
 export class JsonlStorage implements StoragePort {

@@ -1,4 +1,4 @@
-import type { SpillHandle, SpillPort } from '../../ports/spill.js';
+import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
 import { id } from '../../util/id.js';
 
 /**

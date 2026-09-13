@@ -1,6 +1,6 @@
 import { ContextCompactor } from '../../src/context/contextCompactor.js';
 import { TokenEstimator } from '../../src/context/tokenEstimator.js';
-import type { ModelMessage } from '../../src/ports/model.js';
+import type { ModelMessage } from '../../src/ports/model/model.js';
 
 /** 压缩降幅基准：验证 M1 验收（长上下文 token 降 50%+）。 */
 async function runBench(): Promise<void> {

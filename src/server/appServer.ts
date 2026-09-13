@@ -1,8 +1,12 @@
-import type { LongTermMemoryPort, MemoryFact, MemoryFactPatch } from '../ports/longTermMemory.js';
+import type {
+  LongTermMemoryPort,
+  MemoryFact,
+  MemoryFactPatch,
+} from '../ports/memory/longTermMemory.js';
 import { WorkflowRunner } from '../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../autonomy/workflowTypes.js';
 import { jsonRpc } from './jsonRpc.js';
-import type { ImageContent, FileAttachment } from '../ports/model.js';
+import type { ImageContent, FileAttachment } from '../ports/model/model.js';
 import { id } from '../util/id.js';
 import { queryAudit, type AuditQuery } from './auditExporter.js';
 import type { AuditEvent } from './auditSink.js';

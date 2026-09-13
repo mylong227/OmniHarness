@@ -1,4 +1,4 @@
-import type { ToolCall, ToolResult } from '../ports/tool.js';
+import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
 
 /**
  * @beta

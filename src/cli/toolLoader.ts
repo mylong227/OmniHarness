@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import type { ToolDefinition, ToolPort } from '../ports/tool.js';
+import type { ToolDefinition, ToolPort } from '../ports/tool/tool.js';
 import type { ExtraTool } from '../config/configFactory.js';
 
 /**

@@ -1,4 +1,4 @@
-import type { ToolPort } from '../ports/tool.js';
+import type { ToolPort } from '../ports/tool/tool.js';
 import type { AgentResult } from '../core/agent.js';
 import { Agent } from '../core/agent.js';
 import { SubagentEventBridge } from './subagentEventBridge.js';

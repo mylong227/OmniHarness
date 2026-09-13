@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
-import type { Embedding, EmbeddingPort } from '../../src/ports/embedding.js';
+import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.js';
 
 /** 确定性伪嵌入：向量 = 各字符落桶计数。无需真实模型，足以驱动混合检索机制且不崩。 */
 class FakeEmbedding implements EmbeddingPort {

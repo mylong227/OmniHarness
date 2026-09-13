@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { EventPort } from '../../src/ports/eventPort.js';
-import type { SessionEvent } from '../../src/ports/event.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
-import type { ToolPort } from '../../src/ports/tool.js';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
+import type { EventPort } from '../../src/ports/runtime/eventPort.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
+import type { ToolPort } from '../../src/ports/tool/tool.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
@@ -15,7 +15,11 @@ import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { RunGoalTool } from '../../src/adapters/tool/runGoalTool.js';
 import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.js';
 import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
-import type { AgentFactoryPort, AgentPort, OmniHarnessRuntime } from '../../src/ports/agent.js';
+import type {
+  AgentFactoryPort,
+  AgentPort,
+  OmniHarnessRuntime,
+} from '../../src/ports/runtime/agent.js';
 import { Agent } from '../../src/core/agent.js';
 
 /**

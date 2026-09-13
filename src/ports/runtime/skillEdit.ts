@@ -7,7 +7,7 @@
  * 语义寻址复用燧-3 频率域共振代数（eigenSpectrum/resonance）——把目标描述与每个技能
  * instructions 的本征谱比对，取共振最强者（精确名优先于语义匹配）。
  */
-import type { Skill } from '../skill/skill.js';
+import type { Skill } from '../../skill/skill.js';
 
 /** CRISPR 编辑规格。 */
 export interface CrisprEditSpec {

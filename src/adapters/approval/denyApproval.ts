@@ -1,4 +1,8 @@
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../ports/approval.js';
+import type {
+  ApprovalDecision,
+  ApprovalPort,
+  ApprovalRequest,
+} from '../../ports/runtime/approval.js';
 
 /** 拒绝型审批适配器：拒绝一切工具调用（演示 fail-closed 策略）。 */
 export class DenyApproval implements ApprovalPort {

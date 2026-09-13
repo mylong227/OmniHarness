@@ -6,8 +6,8 @@ import type {
   ModelToolSpec,
   ModelUsage,
   StreamCallbacks,
-} from '../../ports/model.js';
-import { ModelCallError } from '../../ports/model.js';
+} from '../../ports/model/model.js';
+import { ModelCallError } from '../../ports/model/model.js';
 
 /**
  * @beta

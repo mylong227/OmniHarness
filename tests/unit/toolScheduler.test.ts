@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolScheduler } from '../../src/core/loop/toolScheduler.js';
-import type { ToolCall, ToolResult } from '../../src/ports/tool.js';
+import type { ToolCall, ToolResult } from '../../src/ports/tool/tool.js';
 
 function makeCall(id: string, name: string): ToolCall {
   return { id, name, arguments: {} };
@@ -38,7 +38,11 @@ test('ToolScheduler：连续只读调用并行执行（并发度 > 1）', async 
 
 test('ToolScheduler：写类调用形成屏障（与读类不并行）', async () => {
   const scheduler = new ToolScheduler({ maxParallel: 8 });
-  const calls = [makeCall('r1', 'read_file'), makeCall('w1', 'write_file'), makeCall('r2', 'read_file')];
+  const calls = [
+    makeCall('r1', 'read_file'),
+    makeCall('w1', 'write_file'),
+    makeCall('r2', 'read_file'),
+  ];
   const events: string[] = [];
   const results = await scheduler.run(calls, async (call) => {
     events.push(`start:${call.id}`);

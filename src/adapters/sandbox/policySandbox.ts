@@ -1,4 +1,4 @@
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sandbox.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
 import { dangerousCommands } from './dangerousCommands.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 

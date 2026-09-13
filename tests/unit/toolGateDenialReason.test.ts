@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { PlanPort, PlanState } from '../../src/ports/plan.js';
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../src/ports/sandbox.js';
-import type { ToolCall } from '../../src/ports/tool.js';
+import type { PlanPort, PlanState } from '../../src/ports/runtime/plan.js';
+import type {
+  SandboxAction,
+  SandboxDecision,
+  SandboxPort,
+} from '../../src/ports/runtime/sandbox.js';
+import type { ToolCall } from '../../src/ports/tool/tool.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PlanApproval } from '../../src/adapters/approval/planApproval.js';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';

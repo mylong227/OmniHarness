@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/event.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
 
 /**
  * @beta

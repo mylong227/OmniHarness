@@ -5,8 +5,8 @@
 // 主循环据此结束。这样一条 eval 任务就是一段「模型脚本 + 期望断言」，无需真实 LLM 即可
 // 回归验证工具链路、审批/沙箱门禁、事件记录等真实运行时行为。
 
-import type { ModelOutput, ModelPort, ModelRequest } from '../ports/model.js';
-import type { ToolCall } from '../ports/tool.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../ports/model/model.js';
+import type { ToolCall } from '../ports/tool/tool.js';
 
 /**
  * @beta

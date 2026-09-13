@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
-import type { AgentResult } from '../../src/ports/agent.js';
-import type { AgentPort } from '../../src/ports/agent.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
+import type { AgentResult } from '../../src/ports/runtime/agent.js';
+import type { AgentPort } from '../../src/ports/runtime/agent.js';
 import { GoalRunner } from '../../src/autonomy/goalRunner.js';
 import { GoalChecker } from '../../src/autonomy/goalChecker.js';
 

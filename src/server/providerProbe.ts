@@ -3,7 +3,7 @@
  * probe：拿配置好的 Key 真实请求厂商 /models 端点（不可用时回退 1-token chat 探测），
  * 返回实测连通状态与真实模型清单——「有 Key 支持接多少显示多少」的数据来源。
  */
-import type { ModelPort } from '../ports/model.js';
+import type { ModelPort } from '../ports/model/model.js';
 import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
 import { AnthropicModel } from '../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../adapters/model/responsesModel.js';

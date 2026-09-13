@@ -1,4 +1,4 @@
-import type { ModelOutput } from '../../src/ports/model.js';
+import type { ModelOutput } from '../../src/ports/model/model.js';
 
 /** 单次 run_code 程序：程序内循环调用 shell 3 次并汇总输出。 */
 function codeOf(round: number): string {

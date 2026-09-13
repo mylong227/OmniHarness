@@ -1,6 +1,6 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import type { SubagentPorts } from '../../subagent/subagentPorts.js';
-import type { AgentFactoryPort } from '../../ports/agent.js';
+import type { AgentFactoryPort } from '../../ports/runtime/agent.js';
 import { subagentRuntimeFactory } from '../../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../../subagent/subagentEventBridge.js';
 import { ToolSubset } from '../../subagent/toolSubset.js';

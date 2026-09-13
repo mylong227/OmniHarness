@@ -1,10 +1,10 @@
-import type { ToolContext } from '../ports/tool.js';
-import { BudgetExceededError } from '../ports/model.js';
+import type { ToolContext } from '../ports/tool/tool.js';
+import { BudgetExceededError } from '../ports/model/model.js';
 import type { StepRunner, StepOutcome } from './stepRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { TurnDiffTracker } from './turnDiffTracker.js';
-import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
-import type { MemoryExtractorPort } from '../ports/memoryExtractor.js';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
+import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.js';
 import { LoopGuard, type LoopDecision } from './loop/loopGuard.js';
 import type { EventPersister } from './loop/eventPersister.js';
 import { log } from '../util/logger.js';

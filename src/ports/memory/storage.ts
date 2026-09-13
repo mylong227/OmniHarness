@@ -1,4 +1,4 @@
-import type { SessionEvent } from './event.js';
+import type { SessionEvent } from '../runtime/event.js';
 
 /** 存储端口：会话事件持久化的统一插口（可换后端：内存/文件/SQLite/云）。 */
 export interface StoragePort {

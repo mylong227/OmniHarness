@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { createRequire } from 'node:module';
-import type { SessionEvent } from '../../ports/event.js';
-import type { StoragePort } from '../../ports/storage.js';
+import type { SessionEvent } from '../../ports/runtime/event.js';
+import type { StoragePort } from '../../ports/memory/storage.js';
 
 /** 惰性加载 node:sqlite（Node 20 兼容铁律）：顶层静态 import 会在 Node 20 上
  * 直接炸掉整个模块加载链（ERR_UNKNOWN_BUILTIN_MODULE），连「根本不用 sqlite」

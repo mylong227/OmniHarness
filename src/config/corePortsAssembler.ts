@@ -1,12 +1,12 @@
-import type { ApprovalPort } from '../ports/approval.js';
-import type { EventPort } from '../ports/eventPort.js';
-import type { SandboxPort } from '../ports/sandbox.js';
-import type { SpillPort } from '../ports/spill.js';
-import type { RetrievalPort } from '../ports/retrieval.js';
-import type { EscalationPort } from '../ports/escalation.js';
-import type { TodoPort } from '../ports/todo.js';
-import type { PlanPort } from '../ports/plan.js';
-import type { UserResponder } from '../ports/userResponder.js';
+import type { ApprovalPort } from '../ports/runtime/approval.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { SandboxPort } from '../ports/runtime/sandbox.js';
+import type { SpillPort } from '../ports/memory/spill.js';
+import type { RetrievalPort } from '../ports/intelligence/retrieval.js';
+import type { EscalationPort } from '../ports/runtime/escalation.js';
+import type { TodoPort } from '../ports/runtime/todo.js';
+import type { PlanPort } from '../ports/runtime/plan.js';
+import type { UserResponder } from '../ports/runtime/userResponder.js';
 
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';

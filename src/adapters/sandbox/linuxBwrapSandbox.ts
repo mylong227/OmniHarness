@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/sandbox.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
 
 /**
  * Linux bubblewrap (bwrap) OS 级沙箱后端（A1）。

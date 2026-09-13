@@ -21,10 +21,10 @@ import type {
   ModelOutput,
   ModelRequest,
   ModelToolCallRef,
-} from '../../src/ports/model.js';
-import type { ToolPort } from '../../src/ports/tool.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
-import type { SandboxPort } from '../../src/ports/sandbox.js';
+} from '../../src/ports/model/model.js';
+import type { ToolPort } from '../../src/ports/tool/tool.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
 
 function recorderFor(sessionId: string): SessionRecorder {
   return new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);

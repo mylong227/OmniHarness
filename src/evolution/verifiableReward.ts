@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Candidate } from '../ports/evolution.js';
+import type { Candidate } from '../ports/runtime/evolution.js';
 import type { Benchmark } from './failClosedEvolutionGate.js';
 import type { CodeCandidate } from './rlvrLoop.js';
 import {

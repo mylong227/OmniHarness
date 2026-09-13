@@ -14,7 +14,7 @@ export type {
   RetrievalHit,
   RetrievalPort,
   RetrievalRole,
-} from './ports/retrieval.js';
+} from './ports/intelligence/retrieval.js';
 export { Bm25MemoryIndex } from './adapters/retrieval/bm25MemoryIndex.js';
 export { MemorySearchTool } from './adapters/tool/memorySearchTool.js';
 export { FileLongTermMemory } from './adapters/memory/fileLongTermMemory.js';
@@ -77,7 +77,13 @@ export { RunWorkflowTool } from './adapters/tool/runWorkflowTool.js';
 export { RUN_WORKFLOW_TOOL_NAME } from './autonomy/workflowToolNames.js';
 
 // @beta LSP 代码导航（#S32：外启语言服务器进程走 stdio JSON-RPC，零依赖铁律下唯一合规接入方式）
-export type { LspPort, LspLocation, LspPosition, LspRange, LspServerConfig } from './ports/lsp.js';
+export type {
+  LspPort,
+  LspLocation,
+  LspPosition,
+  LspRange,
+  LspServerConfig,
+} from './ports/tool/lsp.js';
 export { LspProcessAdapter } from './adapters/lsp/lspProcessAdapter.js';
 export { fileToUri, uriToFile } from './lsp/lspUri.js';
 export {
@@ -98,7 +104,7 @@ export type {
   AgentIdentityPort,
   AgentIdentityConfig,
   AgentIdentityClaims,
-} from './ports/agentIdentity.js';
+} from './ports/runtime/agentIdentity.js';
 export {
   Ed25519AgentIdentity,
   generateAgentKeyMaterial,
@@ -112,7 +118,7 @@ export type {
   PolicyFacts,
   PolicyEffect,
   PolicyDecision,
-} from './ports/policy.js';
+} from './ports/runtime/policy.js';
 export { SafePolicyEvaluator, compileExpression } from './adapters/policy/safePolicyEvaluator.js';
 export { PolicyEvalTool, POLICY_EVAL_TOOL_NAME } from './adapters/tool/policyEvalTool.js';
 
@@ -142,9 +148,14 @@ export { ConsoleUserResponder } from './adapters/user/consoleUserResponder.js';
 export { DefaultUserResponder } from './adapters/user/defaultUserResponder.js';
 export { MemoryUserResponder } from './adapters/user/memoryUserResponder.js';
 export { MUTATING_TOOLS } from './core/toolGate.js';
-export type { UserResponder, AskQuestion, AskAnswer, AskOption } from './ports/userResponder.js';
-export type { TodoPort, TodoItem, TodoStatus } from './ports/todo.js';
-export type { PlanPort, PlanDraft, PlanState, PlanStep, PlanStatus } from './ports/plan.js';
+export type {
+  UserResponder,
+  AskQuestion,
+  AskAnswer,
+  AskOption,
+} from './ports/runtime/userResponder.js';
+export type { TodoPort, TodoItem, TodoStatus } from './ports/runtime/todo.js';
+export type { PlanPort, PlanDraft, PlanState, PlanStep, PlanStatus } from './ports/runtime/plan.js';
 
 // @beta Bundle 发布单元（#G-E 5.2/5.3：自包含 .ohb + 补丁层 + 可选 HMAC 签名）
 export { packBundle, unpackBundle } from './plugin/pluginBundler.js';

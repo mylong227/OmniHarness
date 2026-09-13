@@ -4,7 +4,7 @@ import { Container } from '../../src/core/container.js';
 import { PluginManager } from '../../src/plugin/pluginManager.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import type { Plugin, PluginApplyContext } from '../../src/plugin/plugin.js';
-import type { ToolDefinition } from '../../src/ports/tool.js';
+import type { ToolDefinition } from '../../src/ports/tool/tool.js';
 import type { ToolHandler } from '../../src/adapters/tool/toolHandler.js';
 
 /** 记录调用序列。 */

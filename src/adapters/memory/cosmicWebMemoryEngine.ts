@@ -6,8 +6,8 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../ports/longTermMemory.js';
-import type { CosmicWebPort, WebConsolidationReport } from '../../ports/cosmicWeb.js';
+} from '../../ports/memory/longTermMemory.js';
+import type { CosmicWebPort, WebConsolidationReport } from '../../ports/memory/cosmicWeb.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
 
 /** 宇宙网节点：代表一条核心知识/技能，持共振质心与成员事实 id。 */

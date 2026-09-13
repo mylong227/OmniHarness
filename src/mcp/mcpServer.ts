@@ -1,4 +1,4 @@
-import type { ToolCall, ToolContext, ToolPort } from '../ports/tool.js';
+import type { ToolCall, ToolContext, ToolPort } from '../ports/tool/tool.js';
 import type { ToolGate } from '../core/toolGate.js';
 import { id } from '../util/id.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';

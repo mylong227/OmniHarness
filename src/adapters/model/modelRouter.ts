@@ -4,7 +4,7 @@ import type {
   ModelPort,
   ModelRequest,
   StreamCallbacks,
-} from '../../ports/model.js';
+} from '../../ports/model/model.js';
 
 /** 路由条目：一个底层模型适配器 + 其标识与定价。 */
 export interface RouterEntry {

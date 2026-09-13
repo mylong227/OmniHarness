@@ -8,11 +8,11 @@ import { StepRunner } from '../../src/core/stepRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort, ModelOutput, ToolInputDelta } from '../../src/ports/model.js';
-import type { ToolPort, ToolCall } from '../../src/ports/tool.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
-import type { SandboxPort } from '../../src/ports/sandbox.js';
-import type { ToolInputSink } from '../../src/ports/toolInputSink.js';
+import type { ModelPort, ModelOutput, ToolInputDelta } from '../../src/ports/model/model.js';
+import type { ToolPort, ToolCall } from '../../src/ports/tool/tool.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
+import type { ToolInputSink } from '../../src/ports/tool/toolInputSink.js';
 
 function recorderFor(sessionId: string): SessionRecorder {
   return new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);

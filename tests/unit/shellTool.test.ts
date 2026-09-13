@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ShellTool } from '../../src/adapters/tool/shellTool.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool.js';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
 
 function call(command: string): ToolCall {
   return { id: 'c1', name: 'shell', arguments: { command } };

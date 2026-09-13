@@ -1,8 +1,11 @@
 import { join } from 'node:path';
-import type { SessionEvent } from '../ports/event.js';
-import type { StoragePort } from '../ports/storage.js';
-import type { WorkspaceSnapshotPort } from '../ports/workspaceSnapshot.js';
-import { type CheckpointMeta, type CheckpointManagerPort } from '../ports/checkpointManager.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
+import type { StoragePort } from '../ports/memory/storage.js';
+import type { WorkspaceSnapshotPort } from '../ports/tool/workspaceSnapshot.js';
+import {
+  type CheckpointMeta,
+  type CheckpointManagerPort,
+} from '../ports/runtime/checkpointManager.js';
 import { readSnapshotFile, writeSnapshotFile } from './snapshotFileIo.js';
 
 /** 检查点管理器选项。 */

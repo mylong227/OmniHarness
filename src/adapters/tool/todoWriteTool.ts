@@ -1,7 +1,7 @@
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
-import type { EventPort } from '../../ports/eventPort.js';
-import type { TodoItem, TodoPort, TodoStatus } from '../../ports/todo.js';
-import type { EventFactoryPort } from '../../ports/eventFactory.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
+import type { EventPort } from '../../ports/runtime/eventPort.js';
+import type { TodoItem, TodoPort, TodoStatus } from '../../ports/runtime/todo.js';
+import type { EventFactoryPort } from '../../ports/runtime/eventFactory.js';
 
 const STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed'];
 

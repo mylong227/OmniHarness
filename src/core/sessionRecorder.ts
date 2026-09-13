@@ -1,12 +1,16 @@
-import type { SessionEvent } from '../ports/event.js';
-import type { EventPort } from '../ports/eventPort.js';
-import type { RetrievalDoc, RetrievalPort, RetrievalRole } from '../ports/retrieval.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
+import type {
+  RetrievalDoc,
+  RetrievalPort,
+  RetrievalRole,
+} from '../ports/intelligence/retrieval.js';
 import type {
   ImageContent,
   FileAttachment,
   ModelContextSnapshot,
   ModelUsage,
-} from '../ports/model.js';
+} from '../ports/model/model.js';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { eventFactory } from './eventFactory.js';
 

@@ -1,4 +1,4 @@
-import type { AgentPort, AgentResult } from '../ports/agent.js';
+import type { AgentPort, AgentResult } from '../ports/runtime/agent.js';
 import { GoalChecker } from './goalChecker.js';
 
 /**

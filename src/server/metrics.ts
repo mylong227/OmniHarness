@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/event.js';
+import type { SessionEvent } from '../ports/runtime/event.js';
 
 /** 单指标对象（Prometheus 文本用）。 */
 export interface MetricLine {

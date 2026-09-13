@@ -9,8 +9,8 @@
  * 这正是 11_总纲 要求的"保形 fail-closed"：分布的有限样本拒绝率由调用方基准保证，
  * 门禁提供不可绕过的默认拒绝语义。
  */
-import type { AuditSinkLike } from '../ports/supervisor.js';
-import type { Candidate, EvolutionGate, PromotionVerdict } from '../ports/evolution.js';
+import type { AuditSinkLike } from '../ports/runtime/supervisor.js';
+import type { Candidate, EvolutionGate, PromotionVerdict } from '../ports/runtime/evolution.js';
 
 /** 基准函数：候选 → 0..1 得分。 */
 export type Benchmark = (candidate: Candidate) => number | Promise<number>;

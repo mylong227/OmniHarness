@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { EventPort } from '../../src/ports/eventPort.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
-import type { ToolPort } from '../../src/ports/tool.js';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
+import type { EventPort } from '../../src/ports/runtime/eventPort.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
+import type { ToolPort } from '../../src/ports/tool/tool.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

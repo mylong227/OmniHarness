@@ -1,4 +1,4 @@
-import type { ModelMessage } from '../ports/model.js';
+import type { ModelMessage } from '../ports/model/model.js';
 
 /**
  * 规整消息序列中的工具调用/响应配对，确保 OpenAI/DeepSeek 兼容 API 不再因

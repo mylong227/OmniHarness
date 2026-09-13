@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { FileSnapshot } from '../ports/workspaceSnapshot.js';
+import type { FileSnapshot } from '../ports/tool/workspaceSnapshot.js';
 
 /**
  * 快照文件 IO（core 自有，零适配器依赖）。

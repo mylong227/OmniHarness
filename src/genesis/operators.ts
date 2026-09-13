@@ -14,28 +14,28 @@ import { type Cost, emptyCost, cost } from './algebra.js';
 import { type Regime } from './regime.js';
 import { type ModalityKind } from './modalityPort.js';
 
-import type { ResonantMemoryPort } from '../ports/resonantMemory.js';
+import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
 import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
-import type { MemoryAnnealer, AnnealStepReport } from '../ports/memoryAnnealing.js';
-import type { CosmicWebPort } from '../ports/cosmicWeb.js';
-import type { WebConsolidationReport } from '../ports/cosmicWeb.js';
+import type { MemoryAnnealer, AnnealStepReport } from '../ports/memory/memoryAnnealing.js';
+import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
+import type { WebConsolidationReport } from '../ports/memory/cosmicWeb.js';
 import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { QECReport } from '../ports/qec.js';
-import type { ImmuneMonitorPort, ImmuneSelfReport } from '../ports/immune.js';
+import type { QECReport } from '../ports/intelligence/qec.js';
+import type { ImmuneMonitorPort, ImmuneSelfReport } from '../ports/intelligence/immune.js';
 import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import type { BeliefUpdateReport } from '../ports/metacognition.js';
+import type { BeliefUpdateReport } from '../ports/intelligence/metacognition.js';
 import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
-import type { CrisprEditReport } from '../ports/skillEdit.js';
+import type { CrisprEditReport } from '../ports/runtime/skillEdit.js';
 import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import type { CrystallizationReport } from '../ports/capability.js';
+import type { CrystallizationReport } from '../ports/intelligence/capability.js';
 import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
-import type { EtchConduction } from '../ports/insightEtching.js';
+import type { EtchConduction } from '../ports/memory/insightEtching.js';
 import type { ElementComposer } from '../adapters/skill/elementComposer.js';
 import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
-import type { SymmetryBreakReport } from '../ports/symmetryBreaking.js';
+import type { SymmetryBreakReport } from '../ports/intelligence/symmetryBreaking.js';
 import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { ConfinementVerdict, CapabilityCharge } from '../ports/confinement.js';
+import type { ConfinementVerdict, CapabilityCharge } from '../ports/runtime/confinement.js';
 
 /** 统一 Harness 状态（算子在其上做纯变换；成本另由 Ledger 计量）。 */
 export interface HarnessState {

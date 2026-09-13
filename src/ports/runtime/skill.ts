@@ -3,9 +3,9 @@
  * 技能端口：六边形端口体系中技能的来源与组合面。
  * 实现可注册/匹配技能，并提供燧-1 莫尔转角组合算子（composeByTwist）。
  */
-import type { MoireOptions, MoireMeta, Skill } from '../skill/skill.js';
+import type { MoireOptions, MoireMeta, Skill } from '../../skill/skill.js';
 
-export type { MoireOptions, MoireMeta } from '../skill/skill.js';
+export type { MoireOptions, MoireMeta } from '../../skill/skill.js';
 
 export interface SkillPort {
   /** 注册技能；重名即抛错。 */

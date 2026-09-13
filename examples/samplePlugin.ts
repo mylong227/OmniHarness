@@ -1,6 +1,6 @@
 import type { Plugin } from '../src/plugin/plugin.js';
 import { RegistryToolPort } from '../src/adapters/tool/registryToolPort.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../src/ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../src/ports/tool/tool.js';
 
 /** 示例插件：依赖 port.tools 服务，就绪后注册一个 ping 工具；卸载时清理。 */
 const plugin: Plugin = {

@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool.js';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
 
 /** 列目录工具：仅限工作区内，列出条目（名称 + 类型）。 */

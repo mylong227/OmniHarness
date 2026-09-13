@@ -1,10 +1,10 @@
-import type { RetrievalPort } from '../ports/retrieval.js';
+import type { RetrievalPort } from '../ports/intelligence/retrieval.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
 import { SpillReadTool } from '../adapters/tool/spillReadTool.js';
 import { SketchWriteTool } from '../adapters/tool/sketchWriteTool.js';
 import { ToolSearchTool } from '../adapters/tool/toolSearchTool.js';
 import { MemorySearchTool } from '../adapters/tool/memorySearchTool.js';
-import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
 import { RememberTool, RecallTool } from '../adapters/tool/longTermMemoryTools.js';
 import { CheckpointManager } from '../core/checkpointManager.js';
 import { eventFactory } from '../core/eventFactory.js';
@@ -40,14 +40,14 @@ import {
   LspHoverTool,
   LspStatusTool,
 } from '../adapters/tool/lspTools.js';
-import type { LspPort } from '../ports/lsp.js';
+import type { LspPort } from '../ports/tool/lsp.js';
 import { AgentIdentityTool } from '../adapters/tool/agentIdentityTool.js';
 import { PolicyEvalTool } from '../adapters/tool/policyEvalTool.js';
-import type { AgentIdentityPort } from '../ports/agentIdentity.js';
-import type { UserResponder } from '../ports/userResponder.js';
-import type { TodoPort } from '../ports/todo.js';
-import type { PlanPort } from '../ports/plan.js';
-import type { ToolPort } from '../ports/tool.js';
+import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
+import type { UserResponder } from '../ports/runtime/userResponder.js';
+import type { TodoPort } from '../ports/runtime/todo.js';
+import type { PlanPort } from '../ports/runtime/plan.js';
+import type { ToolPort } from '../ports/tool/tool.js';
 import type { ExtraTool, SubagentPortSeed } from './configFactory.js';
 
 /** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */

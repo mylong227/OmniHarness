@@ -37,7 +37,10 @@ export class CliAgentCmds extends CliNativeCmds {
   protected async execute(
     agent: Agent,
     args: CliArgs,
-  ): Promise<{ events: readonly import('../ports/event.js').SessionEvent[]; summary: unknown }> {
+  ): Promise<{
+    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    summary: unknown;
+  }> {
     if (args.replayId !== undefined) {
       const events = await agent.replay(args.replayId);
       return { events, summary: { sessionId: args.replayId, replayed: events.length } };
@@ -60,7 +63,10 @@ export class CliAgentCmds extends CliNativeCmds {
   protected async runNew(
     agent: Agent,
     args: CliArgs,
-  ): Promise<{ events: readonly import('../ports/event.js').SessionEvent[]; summary: unknown }> {
+  ): Promise<{
+    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    summary: unknown;
+  }> {
     const result = await agent.runTask(args.prompt);
     return { events: result.events, summary: this.summaryOf(result) };
   }
@@ -74,7 +80,10 @@ export class CliAgentCmds extends CliNativeCmds {
   protected async runResume(
     agent: Agent,
     args: CliArgs,
-  ): Promise<{ events: readonly import('../ports/event.js').SessionEvent[]; summary: unknown }> {
+  ): Promise<{
+    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    summary: unknown;
+  }> {
     const result = await agent.resume(args.resumeId!, args.prompt);
     return { events: result.events, summary: this.summaryOf(result) };
   }
@@ -88,7 +97,10 @@ export class CliAgentCmds extends CliNativeCmds {
   protected async runFork(
     agent: Agent,
     args: CliArgs,
-  ): Promise<{ events: readonly import('../ports/event.js').SessionEvent[]; summary: unknown }> {
+  ): Promise<{
+    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    summary: unknown;
+  }> {
     const result = await agent.fork(args.forkId!, args.prompt);
     return { events: result.events, summary: this.summaryOf(result) };
   }

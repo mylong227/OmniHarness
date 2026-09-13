@@ -1,5 +1,5 @@
-import type { SpillHandle, SpillPort } from '../../ports/spill.js';
-import type { VortexRing, VortexRingPort } from '../../ports/vortexRing.js';
+import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
+import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.js';
 
 /**
  * 燧-4 涡环包外溢适配器：把 `VortexRingPacket` 适配成标准 `SpillPort`，

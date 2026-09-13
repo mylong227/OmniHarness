@@ -7,10 +7,10 @@ import { StepRunner } from '../../src/core/stepRunner.js';
 import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort, ModelOutput } from '../../src/ports/model.js';
-import type { ToolPort, ToolCall } from '../../src/ports/tool.js';
-import type { ApprovalPort } from '../../src/ports/approval.js';
-import type { SandboxPort } from '../../src/ports/sandbox.js';
+import type { ModelPort, ModelOutput } from '../../src/ports/model/model.js';
+import type { ToolPort, ToolCall } from '../../src/ports/tool/tool.js';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
 import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
 
 function recorderFor(sessionId: string): SessionRecorder {

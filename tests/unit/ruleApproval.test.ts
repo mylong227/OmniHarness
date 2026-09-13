@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RuleApproval } from '../../src/adapters/approval/ruleApproval.js';
-import type { ApprovalRequest } from '../../src/ports/approval.js';
+import type { ApprovalRequest } from '../../src/ports/runtime/approval.js';
 
 /** 构造审批请求。 */
 function request(toolName: string, target: string): ApprovalRequest {

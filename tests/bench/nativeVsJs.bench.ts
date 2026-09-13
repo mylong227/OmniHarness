@@ -29,7 +29,7 @@ import { ShellTool } from '../../src/adapters/tool/shellTool.js';
 import { ToolGate } from '../../src/core/toolGate.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool.js';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.js';
 
 // ---- 配置 ----
 const ITER_FAST = 2000; // 纯逻辑（FFI 地板）

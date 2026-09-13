@@ -11,7 +11,7 @@
  *
  * @beta 属 P1 内核升级子系统，接口仍可能微调。
  */
-import type { Skill } from '../skill/skill.js';
+import type { Skill } from '../../skill/skill.js';
 import type { AuditSinkLike } from './supervisor.js';
 
 /** 候选能力（待评估晋升者）：一个组合/发现的技能 + 其来源与诊断元信息。 */
@@ -81,7 +81,7 @@ export interface EvolutionControllerOptions {
    */
   readonly rlvr?: {
     /** RLVR 主循环（采样→可验证奖励打分→绿样本进回放缓冲）。 */
-    readonly loop: import('../evolution/rlvrLoop.js').RlvrLoop;
+    readonly loop: import('../../evolution/rlvrLoop.js').RlvrLoop;
     /** 从进化候选抽取 RLVR prompt；返回 undefined = 跳过该候选的 RLVR 阶段。 */
     readonly promptFor: (candidate: Candidate) => string | undefined;
   };

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GuardianApproval } from '../../src/adapters/approval/guardianApproval.js';
-import type { ApprovalRequest } from '../../src/ports/approval.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
+import type { ApprovalRequest } from '../../src/ports/runtime/approval.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 import { dangerousCommands } from '../../src/adapters/sandbox/dangerousCommands.js';
 
 /** 构造固定输出的假模型。 */

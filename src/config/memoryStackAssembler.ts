@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 
-import type { ModelPort } from '../ports/model.js';
-import type { LongTermMemoryPort } from '../ports/longTermMemory.js';
-import type { CosmicWebPort } from '../ports/cosmicWeb.js';
-import type { ResonantMemoryPort } from '../ports/resonantMemory.js';
-import type { MemoryAnnealer } from '../ports/memoryAnnealing.js';
+import type { ModelPort } from '../ports/model/model.js';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
+import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
+import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
+import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
 
 import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.js';
 import { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
@@ -19,7 +19,7 @@ import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.
 import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
-import type { ScratchpadPort } from '../ports/scratchpad.js';
+import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
 
 import type { OmniHarnessConfig } from './configFactory.js';
 

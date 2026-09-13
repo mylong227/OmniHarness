@@ -15,7 +15,7 @@ import type { Benchmark } from '../../src/evolution/failClosedEvolutionGate.js';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
 import { AuditSink } from '../../src/server/auditSink.js';
-import type { Candidate } from '../../src/ports/evolution.js';
+import type { Candidate } from '../../src/ports/runtime/evolution.js';
 
 const N = 64;
 

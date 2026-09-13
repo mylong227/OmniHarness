@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ModelRouter } from '../../src/adapters/model/modelRouter.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 
 /** 始终成功的模型，记录调用次数与 name。 */
 class OkModel implements ModelPort {

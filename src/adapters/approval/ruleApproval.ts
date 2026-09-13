@@ -1,4 +1,8 @@
-import type { ApprovalDecision, ApprovalPort, ApprovalRequest } from '../../ports/approval.js';
+import type {
+  ApprovalDecision,
+  ApprovalPort,
+  ApprovalRequest,
+} from '../../ports/runtime/approval.js';
 import type { ApprovalRule, ApprovalRuleDecision } from './approvalRule.js';
 
 /** 规则审批选项。 */

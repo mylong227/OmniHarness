@@ -5,7 +5,7 @@
 // 零新增运行时依赖：底层 NativeKernel 经 Node 内置 require() 加载手写 N-API 插件
 // （native/omni_napi.node，GNU 工具链编译，无需 MSVC），不引入任何第三方 FFI 库。
 
-import type { ToolCall, ToolResult } from '../ports/tool.js';
+import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
 import type { NativeDecision } from './nativeKernel.js';
 import { NativeKernel } from './nativeKernel.js';
 

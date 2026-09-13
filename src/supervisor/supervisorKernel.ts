@@ -18,7 +18,7 @@ import type {
   SafeMode,
   SupervisorOptions,
   SupervisorPort,
-} from '../ports/supervisor.js';
+} from '../ports/runtime/supervisor.js';
 
 const DEFAULT_WINDOW = 32;
 const DEFAULT_DEGRADE = 0.25;

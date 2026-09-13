@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, appendFileSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.js';
-import type { RuntimeObservation } from '../../src/ports/runtimeTelemetry.js';
+import type { RuntimeObservation } from '../../src/ports/runtime/runtimeTelemetry.js';
 
 function tmpFile(name: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'telemetry-'));

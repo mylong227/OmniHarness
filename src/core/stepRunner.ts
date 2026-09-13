@@ -1,5 +1,10 @@
-import type { ToolContext, ToolCall, ToolDefinition } from '../ports/tool.js';
-import type { ModelContextSnapshot, ModelMessage, ModelPort, ModelUsage } from '../ports/model.js';
+import type { ToolContext, ToolCall, ToolDefinition } from '../ports/tool/tool.js';
+import type {
+  ModelContextSnapshot,
+  ModelMessage,
+  ModelPort,
+  ModelUsage,
+} from '../ports/model/model.js';
 import { ContextBreakdownEstimator } from '../context/contextBreakdownEstimator.js';
 import { StepContextBuilder } from './stepContextBuilder.js';
 import { StepToolExecutor } from './stepToolExecutor.js';

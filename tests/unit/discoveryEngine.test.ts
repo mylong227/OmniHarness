@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import type { Skill } from '../../src/skill/skill.js';
 import { composeByTwist } from '../../src/skill/moireComposer.js';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
-import type { Candidate } from '../../src/ports/evolution.js';
+import type { Candidate } from '../../src/ports/runtime/evolution.js';
 
 function baseSkill(name: string, topic: string): Skill {
   return {

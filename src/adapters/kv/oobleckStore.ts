@@ -10,8 +10,8 @@
  * - 越过阈值：`propose` 的 `impact >= yieldStress` 时剪切增稠，提交并永久冻结（rig=1）——**冻结是冲击涌现的，非显式调用**。
  * - 冻结后：任何 `propose` / `delete` 均被拒绝（fail-closed，不可变）。
  */
-import type { KvPort } from '../../ports/kv.js';
-import type { OobleckPort, OobleckRecord, OobleckWriteResult } from '../../ports/oobleck.js';
+import type { KvPort } from '../../ports/memory/kv.js';
+import type { OobleckPort, OobleckRecord, OobleckWriteResult } from '../../ports/memory/oobleck.js';
 
 const KEY_PREFIX = 'oobleck:';
 

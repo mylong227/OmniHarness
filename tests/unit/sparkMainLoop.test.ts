@@ -11,7 +11,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/longTermMemory.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemoryEngine.js';
 import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 import { SparkController } from '../../src/spark/sparkController.js';

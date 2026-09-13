@@ -1,4 +1,4 @@
-import type { AuditSinkLike } from './supervisor.js';
+import type { AuditSinkLike } from '../runtime/supervisor.js';
 
 /** 异常告警。 */
 export interface AnomalyAlert {

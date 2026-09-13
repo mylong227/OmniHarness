@@ -1,5 +1,10 @@
 import type { SessionEvent } from './event.js';
-import type { ImageContent, FileAttachment, ModelContextSnapshot, ModelUsage } from './model.js';
+import type {
+  ImageContent,
+  FileAttachment,
+  ModelContextSnapshot,
+  ModelUsage,
+} from '../model/model.js';
 
 /**
  * 事件工厂端口（P1 解耦）。

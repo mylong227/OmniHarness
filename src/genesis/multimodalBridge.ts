@@ -10,8 +10,8 @@
  * 但 `Modality` 代数（fuse/align）不变（见 modality.ts）。
  */
 
-import type { ModelMessage } from '../ports/model.js';
-import type { RetrievalPort, RetrievalDoc } from '../ports/retrieval.js';
+import type { ModelMessage } from '../ports/model/model.js';
+import type { RetrievalPort, RetrievalDoc } from '../ports/intelligence/retrieval.js';
 import {
   type Modality,
   encodeText,

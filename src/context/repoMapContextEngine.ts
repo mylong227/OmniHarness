@@ -28,7 +28,7 @@ import { outlineText } from './repoMap.js';
 import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import type { RecallItem } from './semanticIndex.js';
 import { clearGraphSignal } from './codeReferenceGraph.js';
-import type { EmbeddingPort } from '../ports/embedding.js';
+import type { EmbeddingPort } from '../ports/model/embedding.js';
 import { RecallKnobs, type RepoMapContextOptions } from './recallKnobs.js';
 import { CorpusIndexCache } from './corpusIndexCache.js';
 import { SemanticIndexCache } from './semanticIndexCache.js';

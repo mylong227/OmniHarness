@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import type { ModelMessage } from '../../src/ports/model.js';
+import type { ModelMessage } from '../../src/ports/model/model.js';
 
 /** 捕获下一次 fetch 的请求体，并返回最小可用响应。 */
 function captureFetch(body: unknown): { captured: { url: string; init?: RequestInit } } {

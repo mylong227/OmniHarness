@@ -1,4 +1,4 @@
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 
 /**
  * 压测用脚本化模型：按序输出预设结果（驱动 PTC 与长会话）。

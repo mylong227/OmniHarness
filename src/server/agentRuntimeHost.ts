@@ -1,9 +1,9 @@
-import type { ApprovalPort } from '../ports/approval.js';
-import type { EventPort } from '../ports/eventPort.js';
-import type { ModelPort } from '../ports/model.js';
+import type { ApprovalPort } from '../ports/runtime/approval.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { ModelPort } from '../ports/model/model.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { SkillRegistry } from '../skill/skillRegistry.js';
-import type { SupervisorPort } from '../ports/supervisor.js';
+import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 import { createRuntime } from '../core/runtime.js';
 import { Agent } from '../core/agent.js';
 import { GraphStore } from '../autonomy/graphStore.js';

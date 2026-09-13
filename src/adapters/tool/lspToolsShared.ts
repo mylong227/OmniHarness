@@ -1,5 +1,5 @@
-import type { ToolCall } from '../../ports/tool.js';
-import type { LspLocation } from '../../ports/lsp.js';
+import type { ToolCall } from '../../ports/tool/tool.js';
+import type { LspLocation } from '../../ports/tool/lsp.js';
 
 /** 把文件+1-based 区间渲染成编辑器友好的一行定位（file:line:col）。 */
 export function renderLocation(loc: LspLocation): string {
