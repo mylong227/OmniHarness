@@ -50,9 +50,9 @@ export interface RlvrLoopOptions {
   /** 回放缓冲。 */
   readonly buffer: ReplayBuffer;
   /** 每 prompt 采样数（默认 8）。 */
-  readonly samplesPerPrompt?: number;
+  readonly samplesPerPrompt?: number | undefined;
   /** 最低保留阈值（默认 0：仅保留 reward>0 的绿样本；>0 时取 r≥阈值）。 */
-  readonly minReward?: number;
+  readonly minReward?: number | undefined;
 }
 
 /** 单轮 RLVR 结果。 */

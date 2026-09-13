@@ -26,7 +26,7 @@ export interface SymmetryBreakReport {
   /** 当前对称态。 */
   readonly state: SymmetryState;
   /** 破缺后占优的能力标识（对称态为 undefined）。 */
-  readonly brokenState?: string;
+  readonly brokenState?: string | undefined;
   /** 被破缺的对称群标签。 */
   readonly symmetryGroup: string;
   /** 本次 observe 是否跨越阈值（发生相变）。 */

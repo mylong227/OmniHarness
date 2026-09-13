@@ -168,9 +168,9 @@ export interface ModelRouterConfig {
 export interface LayeredOptions {
   readonly workspace: string;
   /** 显式配置文件路径（--config），优先于向上查找。 */
-  readonly configPath?: string;
+  readonly configPath?: string | undefined;
   /** 选中的 profile 名（--profile），PATH 在 profiles/ 下查找。 */
-  readonly profile?: string;
+  readonly profile?: string | undefined;
 }
 
 /** 配置文件加载器：omniharness.json，向上逐级查找（无隐式状态，默认实例见文件末尾）。 */

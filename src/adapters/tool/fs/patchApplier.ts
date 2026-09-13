@@ -3,11 +3,11 @@ export interface PatchApplierResult {
   /** 应用是否成功。 */
   readonly ok: boolean;
   /** 补丁目标文件（解析成功时提供）。 */
-  readonly targetFile?: string;
+  readonly targetFile?: string | undefined;
   /** 应用后的新文件内容（成功时提供）。 */
-  readonly newContent?: string;
+  readonly newContent?: string | undefined;
   /** 失败原因（失败时提供）。 */
-  readonly error?: string;
+  readonly error?: string | undefined;
 }
 
 /** 补丁 hunk。 */

@@ -10,7 +10,7 @@ const SYNDROME_TOPIC = '__qec_syndrome__';
 /** QEC 编码器选项（fail-closed 边界夹紧）。 */
 export interface QECOptions {
   /** 网格列数（每行字符数，决定 2D 奇偶症状维度）。默认 8。 */
-  readonly cols?: number;
+  readonly cols?: number | undefined;
 }
 
 interface Parities {

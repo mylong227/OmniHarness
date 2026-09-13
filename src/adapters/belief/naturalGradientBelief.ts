@@ -12,13 +12,13 @@ import { klDiagonal, reparamInvariant } from '../../util/beliefMath.js';
 /** 自然梯度信念选项（fail-closed 边界夹紧）。 */
 export interface NaturalGradientOptions {
   /** 信念维度（默认 3）。 */
-  readonly dim?: number;
+  readonly dim?: number | undefined;
   /** 初始均值（默认 0）。 */
-  readonly initialMean?: number;
+  readonly initialMean?: number | undefined;
   /** 初始方差（默认 1，须 > 0）。 */
-  readonly initialVariance?: number;
+  readonly initialVariance?: number | undefined;
   /** 方差地板（防退化，默认 1e-3）。 */
-  readonly varianceFloor?: number;
+  readonly varianceFloor?: number | undefined;
 }
 
 /**

@@ -24,22 +24,22 @@ export interface FailClosedEvolutionGateOptions {
    * 真实基准：候选 → 0..1 得分。缺省返回 0 → 候选永远不过评估（fail-closed 兜底，
    * 迫使调用方必须提供真实基准才可能产生晋升）。
    */
-  readonly benchmark?: Benchmark;
+  readonly benchmark?: Benchmark | undefined;
   /**
    * 对照基线：
    * - 数字：固定阈值（如 0）；
    * - Candidate：取其基准得分作为基线（典型为当前最优单技能 incumbent）。
    * 默认 0。
    */
-  readonly baseline?: number | Candidate;
+  readonly baseline?: number | Candidate | undefined;
   /** 须超过基线的最小增益（默认 0.05）。 */
-  readonly minGain?: number;
+  readonly minGain?: number | undefined;
   /** 安全检查（fail-closed）：返回 false 即拒（默认 pass）。 */
-  readonly safety?: SafetyCheck;
+  readonly safety?: SafetyCheck | undefined;
   /** 可选审计 sink：每次裁决入哈希链。 */
-  readonly audit?: AuditSinkLike;
+  readonly audit?: AuditSinkLike | undefined;
   /** 会话标识（写入审计 detail）。 */
-  readonly sessionId?: string;
+  readonly sessionId?: string | undefined;
 }
 
 /** 默认基准：未配置时返回 0，使任何候选都过不了评估（fail-closed 兜底）。 */
@@ -52,9 +52,9 @@ export class FailClosedEvolutionGate implements EvolutionGate {
   private readonly benchmarkImpl: Benchmark;
   private readonly baseline: number | Candidate;
   private readonly minGain: number;
-  private readonly safetyImpl?: SafetyCheck;
-  private readonly audit?: AuditSinkLike;
-  private readonly sessionId?: string;
+  private readonly safetyImpl?: SafetyCheck | undefined;
+  private readonly audit?: AuditSinkLike | undefined;
+  private readonly sessionId?: string | undefined;
 
   public constructor(opts: FailClosedEvolutionGateOptions = {}) {
     this.benchmarkImpl = opts.benchmark ?? NO_BENCHMARK;

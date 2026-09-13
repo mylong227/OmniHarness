@@ -252,7 +252,7 @@ export class AppServerBase {
    */
   protected threadResult(result: {
     sessionId: string;
-    finalText?: string;
+    finalText?: string | undefined;
     steps: number;
   }): unknown {
     return { threadId: result.sessionId, finalText: result.finalText, steps: result.steps };

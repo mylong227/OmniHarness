@@ -66,26 +66,26 @@ export interface RegimeSignals {
 
 /** 算子所需的真实引擎集合（镜像 SparkControllerOptions 的引擎字段）。 */
 export interface SparkEngines {
-  readonly resonance?: ResonantMemoryPort;
-  readonly vortex?: VortexRingSpillAdapter;
-  readonly annealer?: MemoryAnnealer;
-  readonly web?: CosmicWebPort;
-  readonly qec?: QECEncoder;
-  readonly immune?: ImmuneMonitorPort;
-  readonly immuneSample?: () => readonly number[];
-  readonly naturalGradient?: NaturalGradientBelief;
-  readonly particleFilter?: ParticleFilterBelief;
-  readonly beliefObservation?: () => readonly number[];
-  readonly crispr?: CRISPRSkillEditor;
-  readonly crystallizer?: CapabilityCrystallizer;
-  readonly etching?: InsightEtchingEngine;
-  readonly etchProbe?: () => string;
-  readonly elementComposer?: ElementComposer;
-  readonly composeProbe?: () => readonly string[];
-  readonly symmetry?: SymmetryBreakingEngine;
-  readonly symmetryProbe?: () => readonly { capability: string; weight: number }[];
-  readonly confinement?: ConfinementEngine;
-  readonly confinementProbe?: () => CapabilityCharge;
+  readonly resonance?: ResonantMemoryPort | undefined;
+  readonly vortex?: VortexRingSpillAdapter | undefined;
+  readonly annealer?: MemoryAnnealer | undefined;
+  readonly web?: CosmicWebPort | undefined;
+  readonly qec?: QECEncoder | undefined;
+  readonly immune?: ImmuneMonitorPort | undefined;
+  readonly immuneSample?: (() => readonly number[]) | undefined;
+  readonly naturalGradient?: NaturalGradientBelief | undefined;
+  readonly particleFilter?: ParticleFilterBelief | undefined;
+  readonly beliefObservation?: (() => readonly number[]) | undefined;
+  readonly crispr?: CRISPRSkillEditor | undefined;
+  readonly crystallizer?: CapabilityCrystallizer | undefined;
+  readonly etching?: InsightEtchingEngine | undefined;
+  readonly etchProbe?: (() => string) | undefined;
+  readonly elementComposer?: ElementComposer | undefined;
+  readonly composeProbe?: (() => readonly string[]) | undefined;
+  readonly symmetry?: SymmetryBreakingEngine | undefined;
+  readonly symmetryProbe?: (() => readonly { capability: string; weight: number }[]) | undefined;
+  readonly confinement?: ConfinementEngine | undefined;
+  readonly confinementProbe?: (() => CapabilityCharge) | undefined;
 }
 
 /** 算子执行结果（统一代数形态）。 */

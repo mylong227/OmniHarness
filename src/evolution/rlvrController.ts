@@ -37,26 +37,26 @@ export interface RlvrEvolutionOptions {
   /** 代码采样模型（生成 RLVR 候选代码变体）。 */
   readonly model: ModelPort;
   /** 发现预算上限（默认 12）。 */
-  readonly maxCandidates?: number;
+  readonly maxCandidates?: number | undefined;
   /** 每 prompt 采样数（默认 8）。 */
-  readonly samplesPerPrompt?: number;
+  readonly samplesPerPrompt?: number | undefined;
   /** RLVR 最低保留阈值（默认 0：仅保留 reward>0 的绿样本）。 */
-  readonly minReward?: number;
+  readonly minReward?: number | undefined;
   /**
    * 候选代码验证命令（含 `%CODE_FILE%` 占位符，运行时会替换为临时文件路径）。
    * 如 `npx tsc --noEmit %CODE_FILE%`。缺省则 RLVR 奖励恒 0（无样本进回放，fail-closed 安全）。
    */
-  readonly verifyCommand?: string;
+  readonly verifyCommand?: string | undefined;
   /** 能力场边长（透传燧-1）。 */
-  readonly fieldSize?: number;
+  readonly fieldSize?: number | undefined;
   /** 门禁基准（skill 级 0..1；缺省 fail-closed 0 → 无候选晋升，安全旁路）。 */
-  readonly gateBenchmark?: Benchmark;
+  readonly gateBenchmark?: Benchmark | undefined;
   /** 门禁须超过基线的最小增益（默认 0.05，透传 `FailClosedEvolutionGate`）。 */
-  readonly minGain?: number;
+  readonly minGain?: number | undefined;
   /** 晋升回调。 */
-  readonly onPromote?: (candidate: Candidate) => void;
+  readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   /** 任务末自动进化（默认 false）。 */
-  readonly autoRun?: boolean;
+  readonly autoRun?: boolean | undefined;
 }
 
 /** 返回包：控制器 + 回放缓冲（供后续策略更新/观测绿样本）。 */

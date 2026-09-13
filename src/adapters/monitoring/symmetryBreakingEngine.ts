@@ -19,9 +19,9 @@ import type {
 
 export interface SymmetryBreakingOptions {
   /** 破缺阈值（ρ 越此值即破缺，默认 0.6）。 */
-  readonly threshold?: number;
+  readonly threshold?: number | undefined;
   /** 被破缺的对称群标签（默认 'capability-symmetry'）。 */
-  readonly symmetryGroup?: string;
+  readonly symmetryGroup?: string | undefined;
 }
 
 /** 对称破缺算子引擎：实现 {@link SymmetryBreakingPort}，检测并报告能力相变，不自行固化技能。 */

@@ -34,9 +34,9 @@ export interface WorkflowStepResult {
   /** 是否成功（失败或依赖失败均为 false）。 */
   readonly ok: boolean;
   /** 成功时的产出文本。 */
-  readonly output?: string;
+  readonly output?: string | undefined;
   /** 失败 / 跳过原因。 */
-  readonly error?: string;
+  readonly error?: string | undefined;
   /** 子智能体步数。 */
   readonly steps: number;
   /** 耗时（毫秒）。 */

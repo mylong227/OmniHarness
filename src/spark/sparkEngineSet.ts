@@ -25,45 +25,46 @@ import type { SparkControllerOptions } from './sparkController.js';
  */
 export class SparkEngineSet {
   /** 燧-3 共振寻址引擎。 */
-  public readonly resonance?: ResonantMemoryPort;
+  public readonly resonance?: ResonantMemoryPort | undefined;
   /** 燧-4 涡环包外溢适配器。 */
-  public readonly vortex?: VortexRingSpillAdapter;
+  public readonly vortex?: VortexRingSpillAdapter | undefined;
   /** (D) 热方程记忆退火器。 */
-  public readonly annealer?: MemoryAnnealer;
+  public readonly annealer?: MemoryAnnealer | undefined;
   /** (E) 宇宙网记忆引擎。 */
-  public readonly web?: CosmicWebPort;
+  public readonly web?: CosmicWebPort | undefined;
   /** (E) QEC 记忆编码器。 */
-  public readonly qec?: QECEncoder;
+  public readonly qec?: QECEncoder | undefined;
   /** (E) 免疫异常监控器。 */
-  public readonly immune?: ImmuneMonitorPort;
+  public readonly immune?: ImmuneMonitorPort | undefined;
   /** 免疫采样器：每轮自检观测的自体行为向量。 */
-  public readonly immuneSample?: () => readonly number[];
+  public readonly immuneSample?: (() => readonly number[]) | undefined;
   /** (P2) 自然梯度信念引擎。 */
-  public readonly naturalGradient?: NaturalGradientBelief;
+  public readonly naturalGradient?: NaturalGradientBelief | undefined;
   /** (P2) 粒子滤波信念引擎。 */
-  public readonly particleFilter?: ParticleFilterBelief;
+  public readonly particleFilter?: ParticleFilterBelief | undefined;
   /** (P2) 信念采样器。 */
-  public readonly beliefObservation?: () => readonly number[];
+  public readonly beliefObservation?: (() => readonly number[]) | undefined;
   /** (P2) CRISPR 精确技能编辑器。 */
-  public readonly crispr?: CRISPRSkillEditor;
+  public readonly crispr?: CRISPRSkillEditor | undefined;
   /** (P2) 相变固化器。 */
-  public readonly crystallizer?: CapabilityCrystallizer;
+  public readonly crystallizer?: CapabilityCrystallizer | undefined;
   /** (P3) 刻蚀记忆引擎。 */
-  public readonly etching?: InsightEtchingEngine;
+  public readonly etching?: InsightEtchingEngine | undefined;
   /** (P3) 刻蚀导通探针。 */
-  public readonly etchProbe?: () => string;
+  public readonly etchProbe?: (() => string) | undefined;
   /** (P3) 元素组合基元引擎。 */
-  public readonly elementComposer?: ElementComposer;
+  public readonly elementComposer?: ElementComposer | undefined;
   /** (P3) 组合探针。 */
-  public readonly composeProbe?: () => readonly string[];
+  public readonly composeProbe?: (() => readonly string[]) | undefined;
   /** (P3) 对称破缺引擎。 */
-  public readonly symmetry?: SymmetryBreakingEngine;
+  public readonly symmetry?: SymmetryBreakingEngine | undefined;
   /** (P3) 对称观测探针。 */
-  public readonly symmetryProbe?: () => readonly { capability: string; weight: number }[];
+  public readonly symmetryProbe?:
+    (() => readonly { capability: string; weight: number }[]) | undefined;
   /** (P3) 禁闭色荷引擎。 */
-  public readonly confinement?: ConfinementEngine;
+  public readonly confinement?: ConfinementEngine | undefined;
   /** (P3) 暴露探针。 */
-  public readonly confinementProbe?: () => CapabilityCharge;
+  public readonly confinementProbe?: (() => CapabilityCharge) | undefined;
 
   /**
    * @param opts 燧控制器选项（仅读取其引擎字段）

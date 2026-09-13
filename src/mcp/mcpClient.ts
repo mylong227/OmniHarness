@@ -23,7 +23,7 @@ interface PendingRequest {
 export interface McpClientOptions {
   readonly transport: Transport;
   /** 请求超时（毫秒，默认 10000）。 */
-  readonly timeoutMs?: number;
+  readonly timeoutMs?: number | undefined;
 }
 
 /**

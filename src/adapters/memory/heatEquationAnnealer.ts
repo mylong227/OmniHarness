@@ -9,19 +9,19 @@ import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectru
 /** 退火器选项（全部有保守默认；fail-closed 边界均夹紧）。 */
 export interface HeatAnnealerOptions {
   /** 扩散系数 k（每步边耦合强度）。默认 0.15。 */
-  readonly coupling?: number;
+  readonly coupling?: number | undefined;
   /** 初始温度 T0（高温激进重排）。默认 1.0。 */
-  readonly initialTemperature?: number;
+  readonly initialTemperature?: number | undefined;
   /** 冷却时间常数 τ：T(t) = T0 · exp(−t/τ)。默认 8。 */
-  readonly coolingRate?: number;
+  readonly coolingRate?: number | undefined;
   /** 衰减率（遗忘：孤立/未强化事实向地板 1 缓慢消退）。默认 0.02。 */
-  readonly decay?: number;
+  readonly decay?: number | undefined;
   /** 共振耦合阈值：仅共振度 > 此值才连边（剪枝 O(n²) 长尾）。默认 0.35。 */
-  readonly resonanceThreshold?: number;
+  readonly resonanceThreshold?: number | undefined;
   /** 封顶事实数（防 O(n²) 爆炸）：超出则只退火当前最重要的一批。默认 1500。 */
-  readonly maxFacts?: number;
+  readonly maxFacts?: number | undefined;
   /** 本征谱分箱（须与共振引擎一致，默认 257 质数防谐波别名）。 */
-  readonly bins?: number;
+  readonly bins?: number | undefined;
 }
 
 const FLOOR = 1;

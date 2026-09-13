@@ -25,7 +25,7 @@ export interface LlamaCppConfig {
   /** 模型名，如 llama3 / qwen2.5。 */
   readonly model: string;
   /** 可选鉴权（vLLM 等需 Bearer）。Ollama 通常留空。 */
-  readonly apiKey?: string;
+  readonly apiKey?: string | undefined;
 }
 
 /**

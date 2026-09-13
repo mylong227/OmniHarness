@@ -7,9 +7,9 @@ import type { PluginPermission } from './permission.js';
  */
 export interface PluginMeta {
   readonly name: string;
-  readonly inject?: readonly string[];
+  readonly inject?: readonly string[] | undefined;
   /** 插件声明的权限（需在白名单内才允许注册启动，缺省=无能力声明）。 */
-  readonly permissions?: readonly PluginPermission[];
+  readonly permissions?: readonly PluginPermission[] | undefined;
 }
 
 /**
@@ -29,5 +29,5 @@ export interface PluginApplyContext {
 export interface Plugin {
   readonly meta: PluginMeta;
   apply(context: PluginApplyContext): void | Promise<void>;
-  effect?(): void | Promise<void>;
+  effect?: (() => void | Promise<void>) | undefined;
 }

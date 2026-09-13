@@ -31,7 +31,7 @@ export class AesGcmTextCodec implements TextCodec {
   /** 主密钥来源优先级 1 的环境变量名。 */
   private readonly envVar: string;
   /** 主密钥来源优先级 2 的密钥文件路径（首次使用自动生成并 0600 落盘）。 */
-  private readonly keyFile?: string;
+  private readonly keyFile?: string | undefined;
   /** 已解析的 32 字节主密钥缓存（懒加载，避免重复读环境变量/文件）。 */
   private key: Buffer | undefined;
 

@@ -12,7 +12,7 @@ import { log } from '../util/logger.js';
 /** 回合运行结果。 */
 export interface TurnOutcome {
   readonly steps: number;
-  readonly finalText?: string;
+  readonly finalText?: string | undefined;
   /** 本回合累计模型 token 用量（V2.1；模型未上报 usage 时为 0）。 */
   readonly usageTokens: number;
 }

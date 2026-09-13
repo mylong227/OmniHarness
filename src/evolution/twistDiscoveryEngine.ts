@@ -23,7 +23,7 @@ export interface TwistDiscoveryOptions {
   /** 硬预算：最多生成多少候选（防无限探索 / 防算力逃逸）。 */
   readonly maxCandidates: number;
   /** 组合算子用能力场边长（默认 64，须与基准一致）。 */
-  readonly fieldSize?: number;
+  readonly fieldSize?: number | undefined;
 }
 
 /** 基于燧-1 莫尔组合的发现引擎。 */
@@ -31,7 +31,7 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
   private readonly skills: readonly Skill[];
   private readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
   private readonly maxCandidates: number;
-  private readonly fieldSize?: number;
+  private readonly fieldSize?: number | undefined;
   private readonly pairs: ReadonlyArray<readonly [number, number]>;
   private cursor = 0;
   private generated = 0;

@@ -38,8 +38,8 @@ export class EvolutionControllerImpl implements EvolutionController {
   public readonly autoRun: boolean;
   private readonly discovery: DiscoveryEngine;
   private readonly gate: EvolutionGate;
-  private readonly onPromote?: (candidate: Candidate) => void;
-  private readonly rlvr?: RlvrStage;
+  private readonly onPromote?: ((candidate: Candidate) => void) | undefined;
+  private readonly rlvr?: RlvrStage | undefined;
 
   public constructor(opts: EvolutionControllerOptions) {
     this.discovery = opts.discovery;

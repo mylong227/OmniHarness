@@ -28,8 +28,8 @@ export interface ToolCall {
 export interface ToolResult {
   readonly callId: string;
   readonly ok: boolean;
-  readonly output?: string;
-  readonly error?: string;
+  readonly output?: string | undefined;
+  readonly error?: string | undefined;
 }
 
 /** 工具执行上下文。 */

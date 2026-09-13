@@ -75,15 +75,15 @@ const DEFAULT_CREDENTIAL_NAMES: readonly string[] = ['OPENAI_API_KEY', 'ANTHROPI
  */
 export interface CredentialHydrationArgs {
   /** 是否开启水合（**缺省关** = 零行为变更）。 */
-  readonly vaultHydrate?: boolean;
+  readonly vaultHydrate?: boolean | undefined;
   /** 要水合的凭据名；省略时用内置默认名列表。 */
-  readonly vaultHydrateNames?: readonly string[];
+  readonly vaultHydrateNames?: readonly string[] | undefined;
   /** 保险库主密钥文件（主密钥优先取环境变量 `OMNIHARNESS_VAULT_KEY`）。 */
-  readonly vaultKeyFile?: string;
+  readonly vaultKeyFile?: string | undefined;
   /** 密文 KV 后端（默认 json-file，与 `vault` 子命令同一默认）。 */
-  readonly kvAdapter?: 'memory' | 'json-file' | 'sqlite';
+  readonly kvAdapter?: 'memory' | 'json-file' | 'sqlite' | undefined;
   /** 密文 KV 落盘路径。 */
-  readonly kvFile?: string;
+  readonly kvFile?: string | undefined;
 }
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */

@@ -10,15 +10,15 @@ export type CircuitState = 'closed' | 'open' | 'half-open';
  */
 export interface CircuitBreakerOptions {
   /** 连续失败达此数即开路，默认 5（保守：正常抖动不会触发）。 */
-  readonly failureThreshold?: number;
+  readonly failureThreshold?: number | undefined;
   /** 开路冷却毫秒：期间一律快速失败，到期自动转半开，默认 30000。 */
-  readonly openMs?: number;
+  readonly openMs?: number | undefined;
   /** 半开状态放行的并发探测数，默认 1（探测全成功才复位）。 */
-  readonly halfOpenMaxProbes?: number;
+  readonly halfOpenMaxProbes?: number | undefined;
   /** 时钟注入（默认 `Date.now`）；测试必须注入假时钟，禁止真实睡眠。 */
-  readonly now?: () => number;
+  readonly now?: (() => number) | undefined;
   /** 状态变更回调（可选）：供上层上报/日志/UI 展示熔断跳变。 */
-  readonly onStateChange?: (from: CircuitState, to: CircuitState) => void;
+  readonly onStateChange?: ((from: CircuitState, to: CircuitState) => void) | undefined;
 }
 
 /**

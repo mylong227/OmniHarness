@@ -122,7 +122,7 @@ export class FsExplorer {
     const result: {
       level: 'dir';
       path: string;
-      parent?: string;
+      parent?: string | undefined;
       dirs: string[];
       files?: { name: string; size: number; mediaType: string }[];
     } = {

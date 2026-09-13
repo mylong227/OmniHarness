@@ -15,7 +15,7 @@ export class HttpBridgeTransport implements Transport {
   /** WebSocket 客户端集合（连接关闭自动移除）。 */
   private readonly wsClients = new Set<WsConnection>();
   /** 企业鉴权门禁（D2，opt-in）：设置后所有入站 RPC 调用需有效 Bearer 令牌，fail-closed。 */
-  private readonly auth?: EnterpriseAuth;
+  private readonly auth?: EnterpriseAuth | undefined;
 
   /**
    * 创建桥接传输（可选注入企业鉴权）。

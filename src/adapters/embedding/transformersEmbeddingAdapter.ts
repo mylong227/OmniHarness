@@ -91,22 +91,22 @@ export interface TransformersEmbeddingOptions {
    * 预设名（minilm / e5-*-v2）。与 `model` 二选一；都给时 `model` 优先（自定义 HF id）。
    * 默认 'minilm'。
    */
-  readonly preset?: EmbeddingModelPreset;
+  readonly preset?: EmbeddingModelPreset | undefined;
   /**
    * 直接指定 HF 模型 id（覆盖 preset）。用于不在预设里的模型。
    * 注意：自定义 id 无法预知前缀模式，默认按 'none' 处理（不会注入 e5 前缀）。
    */
-  readonly model?: string;
+  readonly model?: string | undefined;
   /** 自定义模型维度（仅当用 `model` 覆盖且非 e5 预设时需要，e5 预设自带头维）。 */
-  readonly dim?: number;
+  readonly dim?: number | undefined;
   /** 运行设备：cpu（Node 原生 onnxruntime，默认），webgpu 更快需支持。 */
-  readonly device?: 'wasm' | 'webgpu' | 'cpu' | 'auto';
+  readonly device?: 'wasm' | 'webgpu' | 'cpu' | 'auto' | undefined;
   /** 量化：q8 默认（快、省内存）。 */
-  readonly dtype?: DType;
+  readonly dtype?: DType | undefined;
   /** 模型缓存目录（离线场景预置权重于此）。 */
-  readonly cacheDir?: string;
+  readonly cacheDir?: string | undefined;
   /** 仅用本地缓存、禁止联网下载（离线环境置 true）。 */
-  readonly localFilesOnly?: boolean;
+  readonly localFilesOnly?: boolean | undefined;
 }
 
 /** transformers.js 的 Tensor 最小形状（feature-extraction 输出）。 */
@@ -160,7 +160,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   /** 量化数据类型（默认 q8，快且省内存）。 */
   private readonly dtype: DType;
   /** 模型缓存目录（离线场景预置权重于此）。 */
-  private readonly cacheDir?: string;
+  private readonly cacheDir?: string | undefined;
   /** 是否仅用本地缓存、禁止联网下载（离线环境为 true）。 */
   private readonly localFilesOnly: boolean;
   /** 懒加载的 pipeline Promise（null 表示尚未加载；复用同一实例避免重复加载模型）。 */

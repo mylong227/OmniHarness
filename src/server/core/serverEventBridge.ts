@@ -15,9 +15,9 @@ export interface ServerEventBridgeDeps {
   /** JSON-RPC 传输（通知下行 / 审批上行）。 */
   readonly transport: Transport;
   /** 指标（thread.event 计数）。 */
-  readonly metrics?: Metrics;
+  readonly metrics?: Metrics | undefined;
   /** 审计 sink（事件落盘）。 */
-  readonly audit?: AuditSink;
+  readonly audit?: AuditSink | undefined;
 }
 
 /**

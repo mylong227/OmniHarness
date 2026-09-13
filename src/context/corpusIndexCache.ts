@@ -39,7 +39,7 @@ export class CorpusIndexCache {
   /** 缓存条目上限。 */
   private readonly maxEntries: number;
   /** 驱逐回调（可缺省）。 */
-  private readonly onEvict?: (root: string) => void;
+  private readonly onEvict?: ((root: string) => void) | undefined;
 
   /**
    * @param options 上限与驱逐回调（均可缺省）。

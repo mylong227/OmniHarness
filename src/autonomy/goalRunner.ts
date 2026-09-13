@@ -13,7 +13,7 @@ export const DEFAULT_GOAL_MAX_ITERATIONS = 10;
  */
 export interface GoalRunnerOptions {
   /** 最大迭代次数（默认 10）；每轮 = 一次回合推进 + 一次达成度判定。 */
-  readonly maxIterations?: number;
+  readonly maxIterations?: number | undefined;
 }
 
 /**
@@ -30,7 +30,7 @@ export interface GoalResult {
   /** 主会话 ID（跨迭代复用同一会话，模型拥有完整上下文）。 */
   readonly sessionId: string;
   /** 末轮模型产出文本。 */
-  readonly finalText?: string;
+  readonly finalText?: string | undefined;
   /** 终止原因（达成 / 达迭代上限 / 异常）。 */
   readonly reason: string;
 }

@@ -15,7 +15,7 @@ export interface PlanStep {
   /** 这一步要做什么。 */
   readonly description: string;
   /** 完成情况（可选，呈现后回填）。 */
-  readonly status?: 'pending' | 'done';
+  readonly status?: 'pending' | 'done' | undefined;
 }
 
 /**
@@ -24,7 +24,7 @@ export interface PlanStep {
  */
 export interface PlanDraft {
   /** 计划标题（可选）。 */
-  readonly title?: string;
+  readonly title?: string | undefined;
   /** 有序步骤。 */
   readonly steps: readonly PlanStep[];
 }
@@ -36,7 +36,7 @@ export interface PlanDraft {
 export interface PlanState extends PlanDraft {
   readonly status: PlanStatus;
   /** 呈现时刻（present 后写入）。 */
-  readonly presentedAt?: string;
+  readonly presentedAt?: string | undefined;
 }
 
 /**

@@ -36,7 +36,7 @@ export interface SubagentPorts {
   readonly longTermMemory: LongTermMemoryPort;
   /** 自主目标循环默认最大迭代次数（#S30，供 run_goal 工具读取）。 */
   readonly goalMaxIterations: number;
-  readonly native?: NativeToolRunner;
+  readonly native?: NativeToolRunner | undefined;
 }
 
 /**

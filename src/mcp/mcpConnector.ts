@@ -17,7 +17,7 @@ export interface McpConnection {
  * 连接器选项。
  */
 export interface McpConnectorOptions extends McpStdioServerOptions {
-  readonly timeoutMs?: number;
+  readonly timeoutMs?: number | undefined;
 }
 
 /**

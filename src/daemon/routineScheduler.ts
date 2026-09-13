@@ -33,7 +33,7 @@ export interface Routine {
   readonly modelAdapter: RoutineModelAdapter;
   readonly schedule: RoutineSchedule;
   /** 上次执行时间戳（ms）；未执行过为 undefined。 */
-  readonly lastRun?: number;
+  readonly lastRun?: number | undefined;
 }
 
 function defaultStorePath(): string {

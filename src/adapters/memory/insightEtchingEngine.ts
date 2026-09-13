@@ -18,9 +18,9 @@ import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectru
 
 export interface InsightEtchingOptions {
   /** 共振阈值（conduct 命中下限，默认 0.4）。 */
-  readonly resonanceThreshold?: number;
+  readonly resonanceThreshold?: number | undefined;
   /** 频谱 bin 数（默认 257，质数防谐波别名）。 */
-  readonly bins?: number;
+  readonly bins?: number | undefined;
 }
 
 interface StoredTrace {

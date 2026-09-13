@@ -28,7 +28,8 @@ export class RuleApproval implements ApprovalPort {
   /** 规则未覆盖时的默认决策（构造时解析，缺省 deny）。 */
   private readonly defaultDecision: ApprovalRuleDecision;
   /** 'ask' 命中时的交互回调；未提供则 ask 一律拒绝。 */
-  private readonly askHandler?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
+  private readonly askHandler?:
+    ((request: ApprovalRequest) => Promise<ApprovalDecision>) | undefined;
   /** 命令 glob 匹配器（用于 `commandGlob` 规则约束）。 */
   private readonly glob: CommandGlob;
 

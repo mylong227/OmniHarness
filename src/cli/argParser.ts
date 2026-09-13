@@ -17,25 +17,25 @@ export interface CliArgs {
   /** 模型适配器（mock/openai/anthropic/responses/llamacpp）。 */
   modelAdapter: 'mock' | 'openai' | 'anthropic' | 'responses' | 'llamacpp';
   /** OpenAI 兼容端点地址。 */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** 模型 API 密钥（缺省回退对应厂商环境变量）。 */
-  apiKey?: string;
+  apiKey?: string | undefined;
   /** 网络外联白名单（逗号分隔主机后缀）；一旦设置即 fail-closed 收紧（A5）。 */
-  networkAllow?: string;
+  networkAllow?: string | undefined;
   /** 模型名（CLI/配置文件显式值优先，适配器内有厂商级兜底）。 */
   model: string;
   /** 会话存储后端（memory/jsonl/sqlite）。 */
   storageAdapter: 'memory' | 'jsonl' | 'sqlite';
   /** 存储目录（jsonl 会话落盘位置或 sqlite 数据库路径）。 */
-  storageDir?: string;
+  storageDir?: string | undefined;
   /** 审批策略（auto/deny/rules/guardian/plan/ask）。 */
   approval: 'auto' | 'deny' | 'rules' | 'guardian' | 'plan' | 'ask';
   /** rules 模式未命中规则时的裁决（allow/deny）。 */
   approvalAsk: 'allow' | 'deny';
   /** 权限参数级规则（A2，来自配置 permission.rules）：与内置规则合并，命中即按其 decision 裁决。 */
-  permissionRules?: readonly PermissionRuleConfig[];
+  permissionRules?: readonly PermissionRuleConfig[] | undefined;
   /** 权限规则未命中时的默认裁决（A2，来自配置 permission.defaultDecision；缺省 allow，保持既有零行为变更）。 */
-  permissionDefault?: PermissionRuleDecision;
+  permissionDefault?: PermissionRuleDecision | undefined;
   /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
   sandbox: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
@@ -45,19 +45,19 @@ export interface CliArgs {
   /** 事件端口（console 进度走 stderr / silent 静默）。 */
   events: 'console' | 'silent';
   /** 上下文压缩 token 预算（缺省 8000，或按 contextWindow 的 75% 推导）。 */
-  compactionMax?: number;
+  compactionMax?: number | undefined;
   /** 外溢后端（#74）：file 落盘可跨重启读回，memory 仅进程内。 */
   spillAdapter: 'memory' | 'file';
   /** 输出超过此字节数触发外溢（留空用内置默认 16384）。 */
-  spillMax?: number;
+  spillMax?: number | undefined;
   /** 外溢后保留的预览字节数（留空用内置默认 2048）。 */
-  spillPreview?: number;
+  spillPreview?: number | undefined;
   /** 子智能体最大派生深度（#76，留空用内置默认 2）。 */
-  subagentMaxDepth?: number;
+  subagentMaxDepth?: number | undefined;
   /** 子智能体并发上限（#76，留空用内置默认 4）。 */
-  subagentConcurrency?: number;
+  subagentConcurrency?: number | undefined;
   /** 单个子智能体的步数上限（留空用内置默认 12）。 */
-  subagentMaxSteps?: number;
+  subagentMaxSteps?: number | undefined;
   /** 自定义工具模块路径列表（--tool，可重复）。 */
   toolFiles: string[];
   /** 任务提示词（位置参数或 --prompt；resume/fork 必填）。 */
@@ -65,111 +65,111 @@ export interface CliArgs {
   /** 工作区根目录（工具读写路径边界）。 */
   workspace: string;
   /** 事件 JSONL 输出文件路径（--output）。 */
-  output?: string;
+  output?: string | undefined;
   /** 待续跑的历史会话 id（--resume）。 */
-  resumeId?: string;
+  resumeId?: string | undefined;
   /** 待分叉的历史会话 id（--fork）。 */
-  forkId?: string;
+  forkId?: string | undefined;
   /** 待回放的历史会话 id（--replay，无需 prompt）。 */
-  replayId?: string;
+  replayId?: string | undefined;
   /** 单次任务最大步数（LoopGuard 兜底）。 */
   maxSteps: number;
   /** 待桥接的外部 MCP 服务器清单（--mcp-server，可重复）。 */
   mcpServers: McpServerConfig[];
   /** 真实 dsh worker 的 profile（注册后替代演示 worker）。 */
-  workerDsh?: string;
+  workerDsh?: string | undefined;
   /** 启用 FFI 原生后端（#66）：工具执行路由到 Rust 内核 in-process。 */
   native: boolean;
   /** 计划模式（#77）：开启后未批准计划前拦截写类工具。 */
-  planMode?: boolean;
+  planMode?: boolean | undefined;
   /** 提示注入护栏（opt-in）：开启后工具结果进上下文前扫描指令注入并隔离命中项（默认关）。 */
-  promptInjectionGuard?: boolean;
+  promptInjectionGuard?: boolean | undefined;
   /** 延迟加载工具名清单（#M1，逗号分隔）：这些工具默认不进模型上下文，需经 tool_search 发现。 */
-  deferTools?: string;
+  deferTools?: string | undefined;
   /** 选中的配置 profile 名（#G6，--profile）：在 profiles/ 下查找并覆盖项目默认。 */
-  profile?: string;
+  profile?: string | undefined;
   /** LSP 服务器启动命令（#S32，--lsp "cmd args"）：仅 `lsp` 子命令与配置了 LSP 的代码导航需要；不传则 LSP 不可用。 */
-  lsp?: string;
+  lsp?: string | undefined;
   /** dump-config：仅打印生效配置（含默认值与配置文件合并结果）并退出，不执行。 */
-  dumpConfig?: boolean;
+  dumpConfig?: boolean | undefined;
   /** auto-commit：执行后用 git 自动提交变更（对标 Aider 的 git 安全网，opt-in）。 */
-  autoCommit?: boolean;
+  autoCommit?: boolean | undefined;
   /** 上下文窗口 token 数（--context-window N）：据此在 75% 处自动触发压缩，长会话防上下文溢出。 */
-  contextWindow?: number;
+  contextWindow?: number | undefined;
   /**
    * headless / CI 模式（--print / -p，对标 `claude -p`、`codex exec`）。
    * 显式声明非交互执行：强制静默过程事件，只把最终结果写到 stdout。
    */
-  print?: boolean;
+  print?: boolean | undefined;
   /** headless 输出格式（--output-format text|json）：json 供 CI 解析，默认 text。 */
-  outputFormat?: 'text' | 'json';
+  outputFormat?: 'text' | 'json' | undefined;
   /** 长期记忆落盘加密（#4.4 Vault 集成，--memory-encrypt）：AES-256-GCM 逐行加密 memory.jsonl。 */
-  memoryEncrypt?: boolean;
+  memoryEncrypt?: boolean | undefined;
   /** 加密密钥文件路径（--memory-key-file）：缺省为工作区 .omniharness/longterm/memory.key。 */
-  memoryKeyFile?: string;
+  memoryKeyFile?: string | undefined;
   /** 插件集 Profile 名（--plugin-profile，G-E 5.1）：serve/run 启动后把运行时插件集收敛为该命名组合。 */
-  pluginProfile?: string;
+  pluginProfile?: string | undefined;
   /** 智能模型路由配置（#B4，--model-router '<json>'）：透传进 config.modelRouter。 */
-  modelRouter?: ModelRouterConfig;
+  modelRouter?: ModelRouterConfig | undefined;
   /** 模型路由配置文件路径（#B4，--model-router-file <path>）：读取并 merge 进 config.modelRouter。 */
-  modelRouterFile?: string;
+  modelRouterFile?: string | undefined;
   /** 模型重试开关（V2.1，--no-model-retry 关闭；默认开）：429/408/5xx/网络抖动指数退避重试。 */
-  modelRetry?: boolean;
+  modelRetry?: boolean | undefined;
   /** 模型熔断开关（F3，`--no-model-circuit-breaker` 关闭；默认开）：连续失败达阈值即开路，冷却期快速失败。 */
-  modelCircuitBreaker?: boolean;
+  modelCircuitBreaker?: boolean | undefined;
   /** 熔断开路阈值（连续失败次数，默认 5）。 */
-  modelCircuitBreakerThreshold?: number;
+  modelCircuitBreakerThreshold?: number | undefined;
   /** 熔断开路冷却毫秒（默认 30000）。 */
-  modelCircuitBreakerOpenMs?: number;
+  modelCircuitBreakerOpenMs?: number | undefined;
   /**
    * F3 凭据水合开关（`--vault-hydrate`；**默认关**）：装配期把加密保险库中的凭据
    * 水合进进程环境，使按 `process.env.X` 读凭据的下游（模型适配器 / 路由）零改动获得回退源。
    * 缺省关 = 零行为变更。
    */
-  vaultHydrate?: boolean;
+  vaultHydrate?: boolean | undefined;
   /** F3 水合的凭据名（`--vault-hydrate-names a,b`）；省略时用内置默认名列表。 */
-  vaultHydrateNames?: readonly string[];
+  vaultHydrateNames?: readonly string[] | undefined;
   /** F3 保险库主密钥文件（`--vault-key-file`；主密钥优先取环境变量 `OMNIHARNESS_VAULT_KEY`）。 */
-  vaultKeyFile?: string;
+  vaultKeyFile?: string | undefined;
   /** F3 密文 KV 后端（`--kv-adapter`，默认 json-file，与 `vault` 子命令同一默认）。 */
-  kvAdapter?: 'memory' | 'json-file' | 'sqlite';
+  kvAdapter?: 'memory' | 'json-file' | 'sqlite' | undefined;
   /** F3 密文 KV 落盘路径（`--kv-file`）。 */
-  kvFile?: string;
+  kvFile?: string | undefined;
   /**
    * (U4) RLVR 进化闭环开关（`--evolution-rlvr`；**默认关**）：装配期构造「可验证门禁 +
    * RLVR sample-filter-replay」控制器，任务末按 `--rlvr-auto-run` 跑一轮进化。缺省关 = 零行为变更。
    */
-  evolutionRlvr?: boolean;
+  evolutionRlvr?: boolean | undefined;
   /**
    * RLVR 候选代码验证命令（`--rlvr-verify`；含 `%CODE_FILE%` 占位符，运行时替换为临时文件路径）。
    * 例：`node --check %CODE_FILE%`。**缺省则 RLVR 奖励恒 0** → 无绿样本进回放（fail-closed 安全旁路）。
    */
-  rlvrVerify?: string;
+  rlvrVerify?: string | undefined;
   /** RLVR 每 prompt 采样数（`--rlvr-samples`，默认 8）。 */
-  rlvrSamples?: number;
+  rlvrSamples?: number | undefined;
   /** RLVR 最低保留阈值（`--rlvr-min-reward`，默认 0：仅保留 reward>0 的绿样本；>0 时取 r≥阈值）。 */
-  rlvrMinReward?: number;
+  rlvrMinReward?: number | undefined;
   /** RLVR 任务末自动跑一轮进化（`--rlvr-auto-run`；默认关）。 */
-  rlvrAutoRun?: boolean;
+  rlvrAutoRun?: boolean | undefined;
   /** RLVR 发现预算上限（`--rlvr-candidates`，默认 12）。 */
-  rlvrCandidates?: number;
+  rlvrCandidates?: number | undefined;
   /** RLVR 门禁最小增益（`--rlvr-min-gain`，默认 0.05）：候选得分须 ≥ 基线 + 该增益才晋升。 */
-  rlvrMinGain?: number;
+  rlvrMinGain?: number | undefined;
   /**
    * (U6) A2A 互操作开关（`--a2a`；**默认关**）：运行时起 A2aServer 监听并对接 A2aClient，
    * 本端既可被对等委托、也可委托对端（server 侧跑真实子 agent）。缺省关 = 零行为变更。
    */
-  a2a?: boolean;
+  a2a?: boolean | undefined;
   /** A2A 服务端监听端口（`--a2a-port`，默认 8790）。 */
-  a2aPort?: number;
+  a2aPort?: number | undefined;
   /** A2A 对端端点（`--a2a-peer`；缺省按 transport 派生本地端点）。 */
-  a2aPeer?: string;
+  a2aPeer?: string | undefined;
   /** A2A 传输形态（`--a2a-transport http|ws`，默认 http）。 */
-  a2aTransport?: 'http' | 'ws';
+  a2aTransport?: 'http' | 'ws' | undefined;
   /** 文本流式输出（V2.1，--stream-text）：模型正文 token 级流式打到 stdout，末尾不再重复打印 finalText。 */
-  streamText?: boolean;
+  streamText?: boolean | undefined;
   /** 回合 token 预算（V2.1，--turn-token-budget N）：累计 usage 超限停止步进，交由总结收尾。 */
-  turnTokenBudget?: number;
+  turnTokenBudget?: number | undefined;
 }
 
 /** CLI 默认值。 */

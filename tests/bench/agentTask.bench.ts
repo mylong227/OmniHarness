@@ -147,7 +147,7 @@ interface ModeResult {
   totalSamplesUs: number[];
   modelUs: number;
   modelCalls: number;
-  instrumented?: InstrumentedNativeBackend;
+  instrumented?: InstrumentedNativeBackend | undefined;
   finalText: string;
   outputContent: string;
 }

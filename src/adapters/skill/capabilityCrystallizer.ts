@@ -31,15 +31,15 @@ export interface CapabilityCrystallizerOptions {
   /** 技能端口（通常是受种的 SkillRegistry），供解析组合成员与注册冻结能力。 */
   readonly skillPort: SkillPort;
   /** 临界阈值：经验密度越过即冻结（默认 3）。 */
-  readonly densityThreshold?: number;
+  readonly densityThreshold?: number | undefined;
   /** 观测指数衰减（EMA 因子，默认 1 = 简单累计计数；<1 表示近期使用权重更高）。 */
-  readonly decay?: number;
+  readonly decay?: number | undefined;
   /** 莫尔组合能力场边长（默认 32，须与燧-1 基准一致）。 */
-  readonly fieldSize?: number;
+  readonly fieldSize?: number | undefined;
   /** 越阈冻结后把该组合密度归零（序参量回落，默认 true）。 */
-  readonly resetOnCrystallize?: boolean;
+  readonly resetOnCrystallize?: boolean | undefined;
   /** 莫尔涌现接纳下限（默认 0 = 全接纳）：组合峰值涌现低于此值视为不具生产力、拒收不冻结。 */
-  readonly emergenceFloor?: number;
+  readonly emergenceFloor?: number | undefined;
 }
 
 /** 确定性短哈希（djb2 → base36），用于派生稳定冻结名，无需加密库。 */

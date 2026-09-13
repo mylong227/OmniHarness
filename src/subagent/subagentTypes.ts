@@ -33,7 +33,7 @@ export interface SubagentRequest {
   readonly parentSessionId: string;
   readonly depth: number;
   /** 授权给子智能体的工具名；不传则继承父工具集（自动剔除 subagent）。 */
-  readonly tools?: readonly string[];
+  readonly tools?: readonly string[] | undefined;
 }
 
 /**
@@ -58,8 +58,8 @@ export interface SubagentResult {
  * 子智能体编排参数。
  */
 export interface SubagentOptions {
-  readonly maxDepth?: number;
-  readonly maxConcurrency?: number;
+  readonly maxDepth?: number | undefined;
+  readonly maxConcurrency?: number | undefined;
   /** 单个子智能体的步数上限。 */
-  readonly maxSteps?: number;
+  readonly maxSteps?: number | undefined;
 }

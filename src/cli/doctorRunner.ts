@@ -9,9 +9,9 @@ const PERMISSIONS_MANIFEST_NAME = 'omniharness.permissions.json';
 /** doctor 选项：工作区根与显式配置文件路径。 */
 export interface DoctorOptions {
   /** 工作区根（缺省=process.cwd()）。 */
-  readonly workspaceRoot?: string;
+  readonly workspaceRoot?: string | undefined;
   /** 显式配置文件路径（优先于向上查找 omniharness.json）。 */
-  readonly configPath?: string;
+  readonly configPath?: string | undefined;
 }
 
 /** 配置检查状态。 */

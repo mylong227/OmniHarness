@@ -10,7 +10,7 @@ export interface AgentResult {
   /** 会话 ID（跨迭代/续跑复用同一会话）。 */
   readonly sessionId: string;
   /** 末轮模型产出文本。 */
-  readonly finalText?: string;
+  readonly finalText?: string | undefined;
   /** 执行的步数。 */
   readonly steps: number;
   /** 本次会话产生的全部事件（含工具调用、模型消息等）。 */

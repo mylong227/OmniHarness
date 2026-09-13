@@ -68,7 +68,12 @@ export class AnthropicModel implements ModelPort {
       return this.generate(request);
     }
     const chunks: string[] = [];
-    const toolBlocks: { index: number; id?: string; name?: string; partial: string }[] = [];
+    const toolBlocks: {
+      index: number;
+      id?: string | undefined;
+      name?: string | undefined;
+      partial: string;
+    }[] = [];
     // 流式用量累积：message_start 给 input/cache 三段，message_delta 给 output，
     // 与 generate 路径同口径合成 ModelUsage（此前流式路径完全丢弃用量，成本护栏看不到 Anthropic 消耗）。
     const usageState: AnthropicUsageState = {};
@@ -133,7 +138,10 @@ export class AnthropicModel implements ModelPort {
    * @returns system 文本（无 system 消息时为 undefined）与剥离 system 后的 wire 消息数组
    *          （tool 角色消息映射为 user 以兼容 Anthropic 协议）。
    */
-  private splitSystem(messages: readonly ModelMessage[]): { system?: string; messages: unknown[] } {
+  private splitSystem(messages: readonly ModelMessage[]): {
+    system?: string | undefined;
+    messages: unknown[];
+  } {
     const system = messages
       .filter((message) => message.role === 'system')
       .map((message) => message.content)
@@ -280,7 +288,12 @@ export class AnthropicModel implements ModelPort {
     data: string,
     callbacks: StreamCallbacks,
     chunks: string[],
-    toolBlocks: { index: number; id?: string; name?: string; partial: string }[],
+    toolBlocks: {
+      index: number;
+      id?: string | undefined;
+      name?: string | undefined;
+      partial: string;
+    }[],
     usageState: AnthropicUsageState,
   ): void {
     if (data === '[DONE]') {
@@ -348,18 +361,18 @@ export class AnthropicModel implements ModelPort {
 
 /** 流式用量累积状态（字段与 wire 同形，便于直接复用 usageOf 的窄化逻辑）。 */
 interface AnthropicUsageState {
-  input_tokens?: number;
-  output_tokens?: number;
-  cache_creation_input_tokens?: number;
-  cache_read_input_tokens?: number;
+  input_tokens?: number | undefined;
+  output_tokens?: number | undefined;
+  cache_creation_input_tokens?: number | undefined;
+  cache_read_input_tokens?: number | undefined;
 }
 
 /** wire 层 usage（非流式响应体与流式 message_start 同形）。 */
 interface AnthropicUsageWire {
-  readonly input_tokens?: number;
-  readonly output_tokens?: number;
-  readonly cache_creation_input_tokens?: number;
-  readonly cache_read_input_tokens?: number;
+  readonly input_tokens?: number | undefined;
+  readonly output_tokens?: number | undefined;
+  readonly cache_creation_input_tokens?: number | undefined;
+  readonly cache_read_input_tokens?: number | undefined;
 }
 
 /** Anthropic 响应类型。 */

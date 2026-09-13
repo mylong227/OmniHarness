@@ -10,9 +10,9 @@ import type { MemoryExtractorPort } from '../../ports/memory/memoryExtractor.js'
  */
 export interface MemoryExtractorOptions {
   /** 每回合最多沉淀事实数（默认 8）。 */
-  readonly maxFactsPerTurn?: number;
+  readonly maxFactsPerTurn?: number | undefined;
   /** 单回合文本上限（字符，默认 6000），超出截断避免喂爆上下文。 */
-  readonly maxTranscriptChars?: number;
+  readonly maxTranscriptChars?: number | undefined;
 }
 
 /**

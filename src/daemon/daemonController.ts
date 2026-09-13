@@ -17,7 +17,7 @@ import { homedir } from 'node:os';
  */
 export interface DaemonStatus {
   readonly running: boolean;
-  readonly pid?: number;
+  readonly pid?: number | undefined;
 }
 
 /**
