@@ -14,6 +14,7 @@ import type { AgentPort, AgentResult } from '../ports/agent.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
 import { ContextWindowCatalog } from '../context/contextWindowCatalog.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
+import { sparsifySkills } from '../skill/skillSparsifier.js';
 import { LoopGuard } from './loop/loopGuard.js';
 import { EventPersister } from './loop/eventPersister.js';
 import { CancellationToken } from './loop/cancellationToken.js';
@@ -26,6 +27,10 @@ const DEFAULT_KEEP_RECENT = 6;
 
 // AgentResult 契约已上移至 ports/agent.ts（端口契约），此处 re-export 以保公开 API 稳定。
 export type { AgentResult };
+
+// T5.4 技能稀疏化默认参数：预算 5 条，名字命中级（score ≥ 3）豁免预算。
+const SKILL_SPARSE_MAX = 5;
+const SKILL_SPARSE_MIN_KEEP = 3;
 
 /** Agent 总编排：建会话 → 记录输入 → 跑回合 → 持久化。 */
 export class Agent implements AgentPort {
@@ -237,7 +242,14 @@ export class Agent implements AgentPort {
     if (this.skills === undefined) {
       return;
     }
-    for (const skill of this.skills.match(prompt)) {
+    // T5.4 技能稀疏化：按命中强度保留 top-k（名字命中级强命中豁免），剪标签级弱命中长尾，
+    // 降低上下文噪声；预算与豁免判据见 skillSparsifier（确定性，无随机源）。
+    const matched = this.skills.match(prompt);
+    const sparse = sparsifySkills(matched, prompt.toLowerCase(), {
+      maxSkills: SKILL_SPARSE_MAX,
+      minKeepScore: SKILL_SPARSE_MIN_KEEP,
+    });
+    for (const skill of sparse.kept) {
       recorder.system(this.skills.render(skill));
     }
   }
