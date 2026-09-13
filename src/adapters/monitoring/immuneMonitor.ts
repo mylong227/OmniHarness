@@ -119,7 +119,7 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
       type: 'immune',
       sessionId: this.sessionId,
       detail: { score, signature: sig, severity },
-    } as unknown as Parameters<AuditSinkLike['record']>[0]);
+    });
     return alert;
   }
 

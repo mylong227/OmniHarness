@@ -197,9 +197,7 @@ export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpu
   const codeGraph = light ? EMPTY_GRAPH : buildCodeGraph({ symbols: allSymbols, fileText });
   // 潜语义模型：在符号级 TF-IDF 上做截断 SVD（零依赖随机 SVD + Jacobi），训练一次随语料复用。
   // light 模式跳过：LSA 在 morph 之上实测符号精确率腰斩，净负面。
-  const lsaModel = light
-    ? EMPTY_LSA
-    : trainLsa({ symbols: allSymbols, fileText } as unknown as IndexedCorpus);
+  const lsaModel = light ? EMPTY_LSA : trainLsa({ symbols: allSymbols, fileText });
 
   return {
     root,

@@ -242,7 +242,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     const out = (await pipe(inputs, {
       pooling: 'mean',
       normalize,
-    })) as unknown as HFTensor;
+    })) as HFTensor;
     const matrix = out.tolist();
     return matrix.map((v) => v as Embedding);
   }

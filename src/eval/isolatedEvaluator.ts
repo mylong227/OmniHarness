@@ -36,16 +36,42 @@ export interface IsolatedVerdict<S> {
 /**
  * 隔离评估器：生成 → 结构化克隆 → 深冻结 → 评估（D9：class 形态，禁顶层函数）。
  * 评估器拿到的快照与生成方的活对象**零共享**；生成方此后对产物的任何修改不影响本次 verdict。
+ *
+ * 构造走双工厂（direct / projected）：恒等投影由工厂显式给出，类型层面无任何断言（D9/P4.6）。
  */
 export class IsolatedEvaluator<G, S = G> {
-  /** 评估配置（生成器/投影/评估器，构造期注入）。 */
-  private readonly options: IsolatedEvaluatorOptions<G, S>;
+  private constructor(
+    /** 生成器：产出原始产物 G。 */
+    private readonly generate: () => G,
+    /** 投影：G → 快照形状 S（direct 工厂给恒等投影）。 */
+    private readonly project: (a: G) => S,
+    /** 评估器：只接收冻结快照。 */
+    private readonly evaluate: (snapshot: Readonly<S>) => number | Promise<number>,
+  ) {}
 
   /**
-   * @param options 生成器 / 可选投影 / 评估器
+   * 无投影工厂：产物即快照形状（S = 产物类型）。
+   * @param opts 生成器与评估器
+   * @returns 隔离评估器实例（S = 产物类型）
    */
-  public constructor(options: IsolatedEvaluatorOptions<G, S>) {
-    this.options = options;
+  public static direct<S>(opts: {
+    generate: () => S;
+    evaluate: (snapshot: Readonly<S>) => number | Promise<number>;
+  }): IsolatedEvaluator<S, S> {
+    return new IsolatedEvaluator<S, S>(opts.generate, (a) => a, opts.evaluate);
+  }
+
+  /**
+   * 有投影工厂：产物先经 project 映射为快照形状（同时天然剥离敏感字段）。
+   * @param opts 生成器、投影与评估器
+   * @returns 隔离评估器实例（快照类型 = 投影返回类型）
+   */
+  public static projected<G, S>(opts: {
+    generate: () => G;
+    project: (artifact: G) => S;
+    evaluate: (snapshot: Readonly<S>) => number | Promise<number>;
+  }): IsolatedEvaluator<G, S> {
+    return new IsolatedEvaluator<G, S>(opts.generate, opts.project, opts.evaluate);
   }
 
   /**
@@ -54,17 +80,15 @@ export class IsolatedEvaluator<G, S = G> {
    * @throws 产物不可结构化克隆时抛错（fail-closed：拒绝退回活引用评估）
    */
   public async run(): Promise<IsolatedVerdict<S>> {
-    const artifact = this.options.generate();
+    const artifact = this.generate();
     let snapshotValue: S;
     try {
-      snapshotValue = structuredClone<S>(
-        this.options.project ? this.options.project(artifact) : (artifact as unknown as S),
-      );
+      snapshotValue = structuredClone<S>(this.project(artifact));
     } catch (err) {
       throw new Error(`隔离评估失败：产物不可结构化克隆（拒绝活引用评估）: ${String(err)}`);
     }
     const frozen = this.deepFreeze(snapshotValue);
-    const verdict = await this.options.evaluate(frozen);
+    const verdict = await this.evaluate(frozen);
     return { verdict, snapshot: frozen };
   }
 

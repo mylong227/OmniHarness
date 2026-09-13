@@ -145,10 +145,13 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     const passed = safeTest(spec.differentialTest, target, patched);
     if (!passed) {
       this.audit?.record({
-        action: 'crispr.edit.rolledback',
-        target: target.name,
-        detail: 'differential-test-failed',
-      } as unknown as Parameters<AuditSinkLike['record']>[0]);
+        type: 'crispr',
+        detail: {
+          action: 'crispr.edit.rolledback',
+          target: target.name,
+          reason: 'differential-test-failed',
+        },
+      });
       return {
         applied: false,
         skillName: target.name,
@@ -161,10 +164,13 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     this.port.replace(patched);
     this.applied++;
     this.audit?.record({
-      action: 'crispr.edit.applied',
-      target: target.name,
-      detail: semantic ? 'semantic-address' : 'exact-name',
-    } as unknown as Parameters<AuditSinkLike['record']>[0]);
+      type: 'crispr',
+      detail: {
+        action: 'crispr.edit.applied',
+        target: target.name,
+        mode: semantic ? 'semantic-address' : 'exact-name',
+      },
+    });
     return {
       applied: true,
       skillName: target.name,

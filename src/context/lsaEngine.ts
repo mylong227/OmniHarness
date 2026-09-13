@@ -22,7 +22,7 @@
  */
 
 import { tokenize } from '../search/bm25Index.js';
-import type { IndexedCorpus } from './contextEngine.js';
+import type { SymbolNode } from './repoMap.js';
 
 export interface LsaModel {
   readonly k: number;
@@ -41,6 +41,17 @@ export interface LsaModel {
  * 把原 `trainLsa`/`lsaQuery` 及其私有数学辅助函数归拢为类方法；
  * 无模块级可变状态——RNG 种子、词表等全部随 `train` 调用在方法栈内流转。
  */
+/** LSA 训练所需的最小语料形状（IndexedCorpus 的结构子集，解耦索引器）。 */
+export interface LsaCorpusInput {
+  /** 全量符号节点（文件相对路径 → 符号）。 */
+  readonly symbols: readonly SymbolNode[];
+  /** 相对路径 → 文件全文。 */
+  readonly fileText: ReadonlyMap<string, string>;
+}
+
+/**
+ * LSA 引擎：符号×词项 TF-IDF 矩阵上的截断 SVD 潜语义检索（零依赖、确定性）。
+ */
 export class LsaEngine {
   /** 可种子化 RNG（mulberry32），保证 SVD 随机基可复现。 */
   private rng(seed: number): () => number {
@@ -55,7 +66,7 @@ export class LsaEngine {
   }
 
   /** 构建 TF-IDF 词项×符号矩阵（稀疏 CSR 风格），并返回词表与文档频率。 */
-  private buildTfIdf(corpus: IndexedCorpus): {
+  private buildTfIdf(corpus: LsaCorpusInput): {
     vocab: string[];
     termIndex: Map<string, number>;
     cols: number[][];
@@ -205,7 +216,7 @@ export class LsaEngine {
   }
 
   /** 在已索引语料上训练 LSA 模型（截断秩 k）。 */
-  public train(corpus: IndexedCorpus, k = 64, seed = 1234567): LsaModel {
+  public train(corpus: LsaCorpusInput, k = 64, seed = 1234567): LsaModel {
     const { vocab, termIndex, cols, vals, n } = this.buildTfIdf(corpus);
     const m = vocab.length;
     const r = k;
@@ -296,7 +307,7 @@ export class LsaEngine {
 const lsaEngine = new LsaEngine();
 
 /** 在已索引语料上训练 LSA 模型（截断秩 k）。 */
-export function trainLsa(corpus: IndexedCorpus, k = 64, seed = 1234567): LsaModel {
+export function trainLsa(corpus: LsaCorpusInput, k = 64, seed = 1234567): LsaModel {
   return lsaEngine.train(corpus, k, seed);
 }
 

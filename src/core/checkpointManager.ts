@@ -192,7 +192,13 @@ export class CheckpointManager implements CheckpointManagerPort {
     if (raw.length === 0) {
       return [];
     }
-    return raw as unknown as CheckpointMeta[];
+    // StoragePort 以 SessionEvent 通道承载：读出后按 payload 结构校验还原（fail-closed 丢弃异形项）。
+    return raw
+      .map((e) => e.payload)
+      .filter(
+        (p): p is CheckpointMeta =>
+          typeof p === 'object' && p !== null && 'label' in p && 'ts' in p,
+      );
   }
 
   /**
@@ -203,6 +209,14 @@ export class CheckpointManager implements CheckpointManagerPort {
  * @returns 无返回值。
 */
   private async saveIndex(sessionId: string, meta: readonly CheckpointMeta[]): Promise<void> {
-    await this.storage.save(indexKey(sessionId), meta as unknown as readonly SessionEvent[]);
+    // 写入真实 SessionEvent 包装（payload 携带 meta），读取端按 payload 结构校验还原。
+    const events: readonly SessionEvent[] = meta.map((m, i) => ({
+      id: `ckpt-index-${i}`,
+      type: 'system',
+      sessionId,
+      timestamp: m.ts,
+      payload: m,
+    }));
+    await this.storage.save(indexKey(sessionId), events);
   }
 }
