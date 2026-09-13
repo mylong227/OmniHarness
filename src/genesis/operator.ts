@@ -13,7 +13,8 @@
  * 同一代数，无需重写——这是"整体全新且能力强大"而非"堆砌"的关键：
  * 新内核提供统一语义，既有能力作为 lawful morphism 接入。
  *
- * @maturity L3 — composeOperator 组合律与 identityOperator 有单测
+ * @maturity L3 — composeOperator 组合律/单位元 + lift 同态律（lift(g∘f) ≡ lift(f)∘lift(g)、
+ *                lift(id) ≡ identityOperator）均有单测（T1.1）
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 

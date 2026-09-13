@@ -126,6 +126,37 @@ test('Operator 组合：左/右单位元', () => {
   assert.strictEqual(composeOperator(op, id)(5).next, op(5).next);
 });
 
+// T1.1（REFACTOR_BOARD）：lift 必须是「函数组合幺半群 → 算子幺半群」的同态——
+// lift(g∘f) ≡ lift(f) ∘ lift(g)（保组合）且 lift(id) ≡ identityOperator（保单位元）。
+// 两者成立 ⇒ liftOperator 的 L3 声明有证据；任一失败 ⇒ 降级 L1。
+test('Operator 提升保组合律：lift(g∘f) ≡ lift(f) ∘ lift(g)', () => {
+  const f = (n: number) => n + 1;
+  const g = (n: number) => n * 2;
+  const direct = liftOperator((n: number) => g(f(n)));
+  const viaCompose = composeOperator(liftOperator(f), liftOperator(g));
+  for (const s of [0, 7, -3, 100]) {
+    const a = direct(s);
+    const b = viaCompose(s);
+    assert.strictEqual(b.next, a.next);
+    assert.strictEqual(b.cost.tokens, a.cost.tokens);
+    assert.strictEqual(b.cost.joules, a.cost.joules);
+    assert.deepStrictEqual([...b.events], [...a.events]);
+  }
+});
+
+test('Operator 提升保单位元：lift(id) ≡ identityOperator', () => {
+  const liftedId = liftOperator((n: number) => n);
+  const identity = identityOperator<number>();
+  for (const s of [0, 42]) {
+    const a = liftedId(s);
+    const b = identity(s);
+    assert.strictEqual(a.next, b.next);
+    assert.strictEqual(a.cost.tokens, b.cost.tokens);
+    assert.strictEqual(a.cost.joules, b.cost.joules);
+    assert.deepStrictEqual([...a.events], [...b.events]);
+  }
+});
+
 // ---- 5. Ledger 守恒律 ----
 
 test('Ledger：record+commit 后守恒', () => {
