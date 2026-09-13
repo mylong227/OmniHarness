@@ -56,7 +56,9 @@ export class A2aClient {
    * 向对端声明本端能力（可选签名）。
    * @param agentId 本端 agent 标识。
    * @param capabilities 本端可被委托的能力清单。
-   */
+   
+ * @returns 无返回值。
+*/
   public async declareCapabilities(
     agentId: string,
     capabilities: readonly A2aCapability[],
@@ -85,7 +87,9 @@ export class A2aClient {
     return result as DelegateResult;
   }
 
-  /** 关闭底层传输。 */
+  /** 关闭底层传输。
+   * @returns 无返回值。
+   */
   public close(): void {
     this.transport.close?.();
     for (const p of this.pending.values()) {
@@ -98,7 +102,9 @@ export class A2aClient {
   /**
    * 处理传输层入站消息：按 id 匹配挂起请求并兑现/拒绝其 Promise（通知与未知 id 忽略）。
    * @param message 入站 JSON-RPC 消息。
-   */
+   
+ * @returns 无返回值。
+*/
   private onMessage(message: RpcMessage): void {
     if (!('id' in message)) return; // 通知，忽略
     const id = message.id;

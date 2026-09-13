@@ -23,7 +23,12 @@ export interface CodeRunResult {
  * 代码解释器：执行程序，注入 call/log（PTC/Code mode 核心，零依赖）。
  */
 export class CodeInterpreter {
-  /** 运行程序（程序内可用 await call("tool", args) 与 log(...)）。 */
+  /**
+   * 运行程序（程序内可用 await call("tool", args) 与 log(...)）。
+   * @param code 待执行的 JS 程序体
+   * @param deps 工具执行依赖（execute 回调 + 可选超时）
+   * @returns 运行结果（输出 / 日志 / 调用计数）
+   */
   public async run(code: string, deps: CodeInterpreterDeps): Promise<CodeRunResult> {
     const logs: string[] = [];
     let calls = 0;

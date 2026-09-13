@@ -221,7 +221,9 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return s > 0 ? 1 / s : 0;
   }
 
-  /** 系统重采样：按累积权值确定性抽取，重置权值为均匀（防权值退化）。复制时加微小抖动（roughening），避免粒子逐位相同导致样本贫困。 */
+  /** 系统重采样：按累积权值确定性抽取，重置权值为均匀（防权值退化）。复制时加微小抖动（roughening），避免粒子逐位相同导致样本贫困。
+   * @returns 无返回值。
+   */
   private resample(): void {
     const cum: number[] = [];
     let acc = 0;

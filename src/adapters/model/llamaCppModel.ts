@@ -225,7 +225,9 @@ export class LlamaCppModel implements ModelPort {
   /** 流式工具调用增量合入（按函数名去重，后到覆盖参数）。
    * @param target 跨片段累积的工具调用列表（就地修改）。
    * @param calls 当前片段携带的工具调用集合；同名调用覆盖参数，新名追加条目。
-   */
+   
+ * @returns 无返回值。
+*/
   private mergeToolCalls(
     target: { id: string; name: string; arguments: Record<string, unknown> }[],
     calls: readonly OllamaToolCall[],

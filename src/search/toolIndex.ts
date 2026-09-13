@@ -15,7 +15,9 @@ export class ToolIndex {
     this.index = this.build(this.tools);
   }
 
-  /** 重建索引（工具集变化后调用，如热加载新工具）。 */
+  /** 重建索引（工具集变化后调用，如热加载新工具）。
+   * @returns 无返回值。
+   */
   public reindex(tools: readonly ToolDefinition[]): void {
     this.tools = [...tools];
     this.index = this.build(this.tools);

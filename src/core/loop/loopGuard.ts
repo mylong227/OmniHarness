@@ -204,7 +204,9 @@ export class LoopGuard {
     return false;
   }
 
-  /** 序列窗口裁剪：只保留最近 cycleWindow 个签名（内存有界）。 */
+  /** 序列窗口裁剪：只保留最近 cycleWindow 个签名（内存有界）。
+   * @returns 无返回值。
+   */
   private trimSeq(): void {
     const cap = Math.max(this.cycleWindow * 2, this.maxCyclePeriod * 4, 16);
     if (this.callSeq.length > cap) {

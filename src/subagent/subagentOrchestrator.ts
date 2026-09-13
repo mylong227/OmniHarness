@@ -79,7 +79,9 @@ export class SubagentOrchestrator {
     return this.options.maxSteps ?? DEFAULT_SUBAGENT_MAX_STEPS;
   }
 
-  /** 记录父子关系。 */
+  /** 记录父子关系。
+   * @returns 无返回值。
+   */
   private link(parentSessionId: string, childSessionId: string): void {
     const existing = this.tree.get(parentSessionId) ?? [];
     this.tree.set(parentSessionId, [...existing, childSessionId]);

@@ -161,7 +161,9 @@ export class LspJsonRpcConnection {
   /** 写一帧 Content-Length 分帧的 JSON-RPC 消息。
    * @param msg 待发送的完整消息（请求、响应或通知）。
    *            stdin 不可用时同步抛错；写入本身为异步排队，不等待对端确认。
-   */
+   
+ * @returns 无返回值。
+*/
   private send(msg: JsonRpcMessage): void {
     const stdin = this.proc?.stdin;
     if (stdin === null || stdin === undefined) {
@@ -175,7 +177,9 @@ export class LspJsonRpcConnection {
   /** 从 stdout 分帧并派发消息；非法头丢弃一字节避免死循环。
    * @param chunk stdout 新到的字节块（先并入缓冲再循环取帧：
    *              头不完整等待后续数据，头非法丢 1 字节，体不完整继续缓冲，JSON 非法整帧丢弃）。
-   */
+   
+ * @returns 无返回值。
+*/
   private onData(chunk: Buffer): void {
     this.buf = Buffer.concat([this.buf, chunk]);
     for (;;) {
@@ -209,7 +213,9 @@ export class LspJsonRpcConnection {
 
   /** 派发入站消息：响应 → 唤醒挂起请求；服务器请求 → 交由应答器处理；通知 → 忽略。
    * @param msg 已解析的入站 JSON-RPC 消息（按 id/result/error/method 组合判定类别）。
-   */
+   
+ * @returns 无返回值。
+*/
   private dispatch(msg: JsonRpcMessage): void {
     if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined)) {
       const entry = this.pending.get(msg.id);
@@ -238,7 +244,9 @@ export class LspJsonRpcConnection {
 
   /** 进程死亡时拒绝所有挂起请求并清空登记。
    * @param error 拒绝所有挂起请求所用的错误（退出或 spawn 失败原因）。
-   */
+   
+ * @returns 无返回值。
+*/
   private failAll(error: Error): void {
     for (const entry of this.pending.values()) {
       clearTimeout(entry.timer);
@@ -247,7 +255,9 @@ export class LspJsonRpcConnection {
     this.pending.clear();
   }
 
-  /** 复位连接状态，使同一实例可重新启动。 */
+  /** 复位连接状态，使同一实例可重新启动。
+   * @returns 无返回值。
+   */
   private reset(): void {
     this.proc = undefined;
     this.started = false;

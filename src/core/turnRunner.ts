@@ -179,7 +179,9 @@ export class TurnRunner {
     return true;
   }
 
-  /** 回合收尾：有差异则广播 turn_diff 事件，随后重置追踪器（每回合独立计数）。 */
+  /** 回合收尾：有差异则广播 turn_diff 事件，随后重置追踪器（每回合独立计数）。
+   * @returns 无返回值。
+   */
   private emitTurnDiff(): void {
     if (this.turnDiff === undefined) {
       return;
@@ -191,7 +193,9 @@ export class TurnRunner {
     this.turnDiff.reset();
   }
 
-  /** 回合末自动沉淀（#S28）：把自上次蒸馏以来的事件蒸馏为跨会话持久事实。 */
+  /** 回合末自动沉淀（#S28）：把自上次蒸馏以来的事件蒸馏为跨会话持久事实。
+   * @returns 无返回值。
+   */
   private async consolidateMemory(): Promise<void> {
     if (this.extractor === undefined || this.longTerm === undefined) {
       return;

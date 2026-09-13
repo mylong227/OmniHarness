@@ -31,7 +31,9 @@ export type { ScriptStep } from './scriptedModel.js';
  * 使「写文件」类任务无法完成、指标失真）。report/intercept 均放行，模式恒为 nominal。
  */
 class NoopSupervisor implements SupervisorPort {
-  /** no-op：eval 不追踪工具健康，上报即忽略。 */
+  /** no-op：eval 不追踪工具健康，上报即忽略。
+   * @returns 无返回值。
+   */
   public report(): void {}
   /** 恒返回 nominal：eval 剥离生产级安全降级，模式不变。 */
   public mode(): SafeMode {
@@ -45,7 +47,9 @@ class NoopSupervisor implements SupervisorPort {
   public intercept(): string | undefined {
     return undefined;
   }
-  /** no-op：eval 无模式转移，订阅回调被直接丢弃。 */
+  /** no-op：eval 无模式转移，订阅回调被直接丢弃。
+   * @returns 无返回值。
+   */
   public onTransition(): void {}
   /** 恒返回 nominal：无降级发生，无需恢复。 */
   public attemptRecovery(): SafeMode {

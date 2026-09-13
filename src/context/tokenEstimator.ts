@@ -3,7 +3,9 @@ export class TokenEstimator {
   /** 原生（Rust 内核）估算器：注入后 estimateMessages 走原生路径（单次 FFI 往返）。 */
   private nativeEstimator?: (messages: readonly { content: string }[]) => number;
 
-  /** 注入原生（Rust 内核）批量估算器；传入则 estimateMessages 优先走原生。 */
+  /** 注入原生（Rust 内核）批量估算器；传入则 estimateMessages 优先走原生。
+   * @returns 无返回值。
+   */
   public setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
     this.nativeEstimator = fn;
   }

@@ -207,7 +207,9 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
     return { ok: true, count: events.length };
   }
 
-  /** 从文件末尾恢复链状态，跨进程重启续链。 */
+  /** 从文件末尾恢复链状态，跨进程重启续链。
+   * @returns 无返回值。
+   */
   private resumeChain(): void {
     const events = this.read();
     const last = events[events.length - 1];

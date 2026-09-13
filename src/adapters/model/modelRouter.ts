@@ -133,7 +133,9 @@ export class ModelRouter implements ModelPort {
    * @param model 模型标识（需与某 entry 的 model 一致才找得到定价，否则记 0）。
    * @param promptTokens 本次调用的输入 token 数。
    * @param completionTokens 本次调用的输出 token 数。
-   */
+   
+ * @returns 无返回值。
+*/
   public recordUsage(model: string, promptTokens: number, completionTokens: number): void {
     const entry = this.options.entries.find((entry) => entry.model === model);
     const pricing = entry?.pricing;

@@ -59,7 +59,13 @@ export class GraphStore {
     return out;
   }
 
-  /** 按 id 取完整定义；不存在返回 undefined。 */
+  /**
+   * 按 id 取完整定义；不存在返回 undefined。
+   * @param id 工作流 id
+   * @returns 定义；不存在为 undefined
+   * @param id 工作流 id
+   * @returns 定义；不存在为 undefined
+   */
   public get(id: string): WorkflowDef | undefined {
     const path = join(this.dir(), `${id}.json`);
     if (!existsSync(path)) {
@@ -69,8 +75,9 @@ export class GraphStore {
   }
 
   /**
-   * 保存图定义，返回其 id（= name 归一化）。
-   * 缺 name 或 name 为空视为非法（fail-closed 抛错），不写盘。
+   * 保存图定义，返回其 id（= name 归一化）。缺 name 或 name 为空视为非法（fail-closed 抛错），不写盘。
+   * @param def 待保存定义（name 必填、steps 至少一步）
+   * @returns 落盘后的 id（name 归一化）
    */
   public save(def: WorkflowDef): string {
     if (typeof def.name !== 'string' || def.name.trim().length === 0) {
@@ -87,7 +94,13 @@ export class GraphStore {
     return id;
   }
 
-  /** 删除图；不存在返回 false。 */
+  /**
+   * 删除图；不存在返回 false。
+   * @param id 工作流 id
+   * @returns 是否确实存在并已删除
+   * @param id 工作流 id
+   * @returns 是否确实存在并已删除
+   */
   public delete(id: string): boolean {
     const path = join(this.dir(), `${id}.json`);
     if (!existsSync(path)) {

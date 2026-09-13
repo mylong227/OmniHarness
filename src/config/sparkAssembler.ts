@@ -79,7 +79,8 @@ export function assembleSpark(
 function hasActiveEngine(partial: OmniHarnessConfig, input: SparkAssemblyInput): boolean {
   const { annealer, qecEncoder, immune, naturalGradient, particleFilter, web } = input.memory.stack;
   const { resonance } = input.memory.sparkInput;
-  const { crispr, crystallizer, etching, elementComposerEngine, symmetry, confinementEngine } = input.skills;
+  const { crispr, crystallizer, etching, elementComposerEngine, symmetry, confinementEngine } =
+    input.skills;
   return (
     resonance !== undefined ||
     input.vortex !== undefined ||

@@ -78,7 +78,9 @@ export class CostBudget {
   /** 记录一次模型调用的用量并累计成本；越过硬预算则置位熔断并回调。
    * @param model 模型标识（用于查定价）。
    * @param usage 本次调用用量（输入/输出 token 数）。
-   */
+   
+ * @returns 无返回值。
+*/
   public record(model: string, usage: ModelUsage): void {
     this.promptTokens += usage.promptTokens;
     this.completionTokens += usage.completionTokens;
@@ -95,7 +97,9 @@ export class CostBudget {
 
   /** 预算内断言（fail-closed）：已熔断且为阻断模式时抛错，阻断下一次模型调用；软预算（blocking=false）则为空操作。
    * @param model 即将调用的模型标识（写入错误消息便于定位）。
-   */
+   
+ * @returns 无返回值。
+*/
   public ensureWithin(model: string): void {
     if (!this.blocking || !this.exceededFlag) {
       return;

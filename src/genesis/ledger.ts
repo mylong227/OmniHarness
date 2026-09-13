@@ -34,7 +34,9 @@ export class Ledger {
   /**
    * 记录一笔待结算成本（进入 pending 与 recorded 双列）。
    * @param delta 本笔成本增量（tokens 与 joules 代理值）。
-   */
+   
+ * @returns 无返回值。
+*/
   public record(delta: Cost): void {
     this.pendingTokens += delta.tokens;
     this.pendingJoules += delta.joules;
@@ -42,7 +44,9 @@ export class Ledger {
     this.recordedJoules += delta.joules;
   }
 
-  /** 结算当前所有 pending（pending 清零，转入 committed）。 */
+  /** 结算当前所有 pending（pending 清零，转入 committed）。
+   * @returns 无返回值。
+   */
   public commit(): void {
     this.committedTokens += this.pendingTokens;
     this.committedJoules += this.pendingJoules;

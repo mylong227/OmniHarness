@@ -3,7 +3,14 @@ import type { ToolGate } from '../core/toolGate.js';
 import { id } from '../util/id.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/jsonRpc.js';
 import type { Transport } from '../server/lineTransport.js';
-import { McpProtocol, mcpProtocol, type McpServerInfo, type McpResourceDescriptor, type McpResourceContent, type McpPromptDescriptor } from './mcpProtocol.js';
+import {
+  McpProtocol,
+  mcpProtocol,
+  type McpServerInfo,
+  type McpResourceDescriptor,
+  type McpResourceContent,
+  type McpPromptDescriptor,
+} from './mcpProtocol.js';
 import { mcpToolMapper } from './mcpToolMapper.js';
 
 /**
@@ -59,7 +66,9 @@ export class McpServer {
     options.transport.onMessage((message) => void this.handle(message));
   }
 
-  /** 处理入站消息（无 id 的通知忽略）。 */
+  /** 处理入站消息（无 id 的通知忽略）。
+   * @returns 无返回值。
+   */
   public async handle(message: RpcMessage): Promise<void> {
     if (!jsonRpc.isRequest(message)) {
       return;
@@ -77,7 +86,9 @@ export class McpServer {
     }
   }
 
-  /** 注册 MCP 方法。 */
+  /** 注册 MCP 方法。
+   * @returns 无返回值。
+   */
   private registerHandlers(): void {
     this.handlers.set(McpProtocol.METHOD_INITIALIZE, () => this.initialize());
     this.handlers.set(McpProtocol.METHOD_PING, async () => ({}));
@@ -172,7 +183,9 @@ export class McpServer {
     return gate.gate(call, this.options.context.sessionId);
   }
 
-  /** 回复错误响应。 */
+  /** 回复错误响应。
+   * @returns 无返回值。
+   */
   private replyError(request: RpcRequest, code: number, message: string): void {
     this.options.transport.send(jsonRpc.errorResponse(request.id, code, message));
   }

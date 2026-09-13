@@ -120,11 +120,7 @@ export class UnifiedDiff {
   }
 
   /** 沿 LCS 表回溯出操作序列。 */
-  private opsFromTable(
-    a: readonly string[],
-    b: readonly string[],
-    table: Uint32Array,
-  ): DiffOp[] {
+  private opsFromTable(a: readonly string[], b: readonly string[], table: Uint32Array): DiffOp[] {
     const ops: DiffOp[] = [];
     const width = b.length + 1;
     let i = 0;
@@ -195,7 +191,10 @@ export function diffLines(before: readonly string[], after: readonly string[]): 
 }
 
 /** 把操作序列切分为带上下文的 hunk。 */
-export function hunksOf(ops: readonly DiffOp[], context = DEFAULT_CONTEXT_LINES): readonly DiffHunk[] {
+export function hunksOf(
+  ops: readonly DiffOp[],
+  context = DEFAULT_CONTEXT_LINES,
+): readonly DiffHunk[] {
   return unifiedDiff.hunksOf(ops, context);
 }
 

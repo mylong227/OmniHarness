@@ -120,7 +120,9 @@ export class ToolScheduler {
    * @param to 批结束下标（不含）。
    * @param execute 单调用执行器。
    * @param results 结果写回数组（按下标就地填充，保证 model-order）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async runParallelBatch(
     calls: readonly ToolCall[],
     from: number,

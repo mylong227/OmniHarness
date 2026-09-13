@@ -144,7 +144,10 @@ export interface RankVetoInput {
 const INSENSITIVITY_FLOOR = 0.02;
 
 /** 无图时的空诊断（除节点/边/度外全为 `null`，避免调用方区分「未提供」与「实测 0」）。 */
-const EMPTY_METRICS_BASE: Omit<VetoMetrics, 'queryInsensitivity' | 'baselineQueryInsensitivity' | 'insensitivityRatio' | 'overlapJaccard'> = {
+const EMPTY_METRICS_BASE: Omit<
+  VetoMetrics,
+  'queryInsensitivity' | 'baselineQueryInsensitivity' | 'insensitivityRatio' | 'overlapJaccard'
+> = {
   nodeCount: null,
   edgeCount: null,
   avgDegree: null,
@@ -160,7 +163,9 @@ const EMPTY_METRICS_BASE: Omit<VetoMetrics, 'queryInsensitivity' | 'baselineQuer
  * @param d 诊断快照；`null` 表示调用方未提供图
  * @returns 摊平后的度量片段
  */
-function flattenDiagnostics(d: StructuralDiagnostics | null): Omit<
+function flattenDiagnostics(
+  d: StructuralDiagnostics | null,
+): Omit<
   VetoMetrics,
   'queryInsensitivity' | 'baselineQueryInsensitivity' | 'insensitivityRatio' | 'overlapJaccard'
 > {
@@ -212,9 +217,14 @@ export class RankVetoEvaluator {
    * @returns 度量快照
    */
   private measure(input: RankVetoInput): VetoMetrics {
-    const cand = input.candidateProbeLists === undefined ? null : meanPairwiseJaccard(input.candidateProbeLists);
-    const base = input.baselineProbeLists === undefined ? null : meanPairwiseJaccard(input.baselineProbeLists);
-    const ratio = cand !== null && base !== null ? cand / Math.max(base, INSENSITIVITY_FLOOR) : null;
+    const cand =
+      input.candidateProbeLists === undefined
+        ? null
+        : meanPairwiseJaccard(input.candidateProbeLists);
+    const base =
+      input.baselineProbeLists === undefined ? null : meanPairwiseJaccard(input.baselineProbeLists);
+    const ratio =
+      cand !== null && base !== null ? cand / Math.max(base, INSENSITIVITY_FLOOR) : null;
     const overlap =
       input.baselineFiles !== undefined && input.candidateFiles !== undefined
         ? jaccardOverlap(input.baselineFiles, input.candidateFiles)
@@ -241,7 +251,9 @@ export class RankVetoEvaluator {
     const reasons: string[] = [];
     if (m.queryInsensitivity !== null && m.queryInsensitivity >= t.maxQueryInsensitivity) {
       const ref =
-        m.baselineQueryInsensitivity === null ? '（未提供基线对照）' : `（基线 ${m.baselineQueryInsensitivity.toFixed(3)}）`;
+        m.baselineQueryInsensitivity === null
+          ? '（未提供基线对照）'
+          : `（基线 ${m.baselineQueryInsensitivity.toFixed(3)}）`;
       reasons.push(
         `查询不敏感度 ${m.queryInsensitivity.toFixed(3)} ≥ ${t.maxQueryInsensitivity}${ref}：该路由对不同查询返回近乎同一批结果，是一记常量偏置，只会挤占 Top-K 预算`,
       );
@@ -274,7 +286,9 @@ export class RankVetoEvaluator {
       );
     }
     if (m.degreeGini !== null && m.degreeGini <= 0.1) {
-      notes.push(`[诊断·未通过回溯验证] 度分布 Gini ${m.degreeGini.toFixed(3)} 过低（近规则图），已知负样本实测 0.482`);
+      notes.push(
+        `[诊断·未通过回溯验证] 度分布 Gini ${m.degreeGini.toFixed(3)} 过低（近规则图），已知负样本实测 0.482`,
+      );
     }
     if (m.queryInsensitivity === null && m.overlapJaccard === null) {
       notes.push('[诊断] 未提供探针列表与基线，两项否决判据均跳过；结论仅含结构性诊断，不构成建议');

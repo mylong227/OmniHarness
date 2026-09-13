@@ -173,7 +173,10 @@ export type {
 
 // @public 燧-3 共振寻址 / 燧-4 涡环包（发明层 S+ 原语）
 export { ResonantMemoryEngine } from './adapters/memory/resonantMemoryEngine.js';
-export { VortexRingPacket, VortexRingSpillAdapter } from './adapters/spill/vortexRingSpillAdapter.js';
+export {
+  VortexRingPacket,
+  VortexRingSpillAdapter,
+} from './adapters/spill/vortexRingSpillAdapter.js';
 export { SparkController } from './spark/sparkController.js';
 export type { SparkCycleReport, SparkControllerOptions } from './spark/sparkController.js';
 // @public (D) 热方程记忆重加权 / 退火调度（知识基础算子）
@@ -264,7 +267,10 @@ export type {
 } from './evolution/failClosedEvolutionGate.js';
 export { TwistDiscoveryEngine } from './evolution/twistDiscoveryEngine.js';
 export type { TwistDiscoveryOptions } from './evolution/twistDiscoveryEngine.js';
-export { EvolutionControllerImpl, createEvolutionController } from './evolution/evolutionControllerImpl.js';
+export {
+  EvolutionControllerImpl,
+  createEvolutionController,
+} from './evolution/evolutionControllerImpl.js';
 export { createRlvrEvolutionController } from './evolution/rlvrController.js';
 export type { RlvrEvolutionOptions, RlvrEvolutionBundle } from './evolution/rlvrController.js';
 export {

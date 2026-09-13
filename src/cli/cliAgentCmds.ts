@@ -247,7 +247,9 @@ export class CliAgentCmds extends CliNativeCmds {
   /**
    * 真正执行单个定时任务（复用运行时装配跑一次 Agent）。
    * @param routine 待执行的定时任务（modelAdapter 决定模型装配，prompt 作为任务输入）。
-   */
+   
+ * @returns 无返回值。
+*/
   protected async runRoutineOnce(routine: Routine): Promise<void> {
     const args: CliArgs = {
       ...CliDefaults,

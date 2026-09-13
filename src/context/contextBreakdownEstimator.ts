@@ -221,7 +221,9 @@ export class ContextBreakdownEstimator {
     );
   }
 
-  /** 累加某分类的 token 数（分类键必已初始化）。 */
+  /** 累加某分类的 token 数（分类键必已初始化）。
+   * @returns 无返回值。
+   */
   private add(
     totals: Map<ContextCategoryKey, number>,
     key: ContextCategoryKey,

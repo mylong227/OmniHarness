@@ -50,14 +50,18 @@ export function assembleSkillStack(partial: OmniHarnessConfig): SkillStack {
     crispr: buildCrispr(partial, skillRegistry),
     crystallizer: buildCrystallizer(partial, skillRegistry),
     etching: buildEtching(partial),
-    elementComposerEngine: partial.elementComposer?.enabled === true ? new ElementComposer() : undefined,
+    elementComposerEngine:
+      partial.elementComposer?.enabled === true ? new ElementComposer() : undefined,
     symmetry: buildSymmetry(partial),
     confinementEngine: buildConfinement(partial),
   };
 }
 
 /** (P2, I-P2-4) CRISPR 精确技能编辑：启用时构造编辑器（接受种技能端口）。 */
-function buildCrispr(partial: OmniHarnessConfig, skillPort: SkillRegistry): CRISPRSkillEditor | undefined {
+function buildCrispr(
+  partial: OmniHarnessConfig,
+  skillPort: SkillRegistry,
+): CRISPRSkillEditor | undefined {
   if (partial.skillEditing?.enabled !== true) {
     return undefined;
   }

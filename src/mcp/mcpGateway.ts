@@ -144,7 +144,9 @@ export class McpGateway {
     return `${serverName}__${toolName}`;
   }
 
-  /** 关闭全部子进程连接。 */
+  /** 关闭全部子进程连接。
+   * @returns 无返回值。
+   */
   public close(): void {
     for (const handle of this.handles) {
       handle.close();

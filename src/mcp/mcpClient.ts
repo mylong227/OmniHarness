@@ -84,7 +84,10 @@ export class McpClient {
 
   /** 获取远端提示模板。 */
   public async getPrompt(name: string, args: Record<string, unknown> = {}): Promise<string> {
-    const result = (await this.request(McpProtocol.METHOD_PROMPTS_GET, { name, arguments: args })) as {
+    const result = (await this.request(McpProtocol.METHOD_PROMPTS_GET, {
+      name,
+      arguments: args,
+    })) as {
       messages?: readonly { content?: { text?: string } }[];
     };
     return result.messages?.[0]?.content?.text ?? '';
@@ -131,7 +134,9 @@ export class McpClient {
     return response.result;
   }
 
-  /** 处理入站消息（响应按 id 关联，通知忽略）。 */
+  /** 处理入站消息（响应按 id 关联，通知忽略）。
+   * @returns 无返回值。
+   */
   private handle(message: RpcMessage): void {
     if (jsonRpc.isRequest(message)) {
       return;

@@ -104,7 +104,9 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
   /** 将快照写回工作树。
    * @param root 工作树根目录。
    * @param snapshot 先前 {@link capture} 产出的快照（仅手术式覆盖/删除其中列出的文件）。
-   */
+   
+ * @returns 无返回值。
+*/
   public async restore(root: string, snapshot: FileSnapshot): Promise<void> {
     for (const entry of snapshot.entries) {
       const full = resolve(root, entry.relPath);

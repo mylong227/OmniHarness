@@ -8,7 +8,9 @@ export class InMemoryReplayBuffer implements ReplayBuffer {
    * 追加一条绿样本；超出容量（默认 256）时按 FIFO 丢弃最旧条目。
    * @param candidate 通过可验证奖励筛选的代码候选
    * @param reward 该候选的奖励得分（供后续策略更新/回放消费）
-   */
+   
+ * @returns 无返回值。
+*/
   public push(candidate: CodeCandidate, reward: number): void {
     this.items.push({ candidate, reward });
     while (this.items.length > this.capacity) this.items.shift();

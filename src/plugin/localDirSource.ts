@@ -11,6 +11,9 @@ export class LocalDirSource implements RegistrySource {
   /** 源类型：本地已安装目录（local），扫描 pluginsDir 实时得出。 */
   public readonly kind = 'local' as const;
 
+  /**
+   * @param dir 本地插件目录（扫描其下的插件清单）
+   */
   public constructor(private readonly dir: string) {}
 
   /**
@@ -39,7 +42,11 @@ export class LocalDirSource implements RegistrySource {
     return out;
   }
 
-  /** 按唯一名取已安装插件（内部先全量扫描再按名匹配，不存在返回 undefined）。 */
+  /**
+   * 按唯一名取已安装插件（内部先全量扫描再按名匹配，不存在返回 undefined）。
+   * @param name 插件唯一名
+   * @returns 插件描述；不存在为 undefined
+   */
   public async get(name: string): Promise<PluginDescriptor | undefined> {
     return (await this.search()).find((d) => d.manifest.name === name);
   }

@@ -14,7 +14,9 @@ export class SubagentEventBridge implements EventPort {
 
   private readonly collected: SessionEvent[] = [];
 
-  /** 收集事件（不转发）。 */
+  /** 收集事件（不转发）。
+   * @returns 无返回值。
+   */
   public emit(event: SessionEvent): void {
     this.collected.push(event);
   }

@@ -90,8 +90,7 @@ export async function loadProjectInstructionsCached(
 }
 
 /** 默认读取器：失败抛错，由调用方 fail-closed 跳过。 */
-const defaultReader: InstructionReader = async (path: string) =>
-  await readFile(path, 'utf8');
+const defaultReader: InstructionReader = async (path: string) => await readFile(path, 'utf8');
 
 /** 路径是否位于 `root` 之内（防 `@import` 穿越出工作区）。 */
 function isInside(root: string, target: string): boolean {
@@ -142,9 +141,7 @@ async function expandImports(
     }
     try {
       const imported = await read(target);
-      out.push(
-        await expandImports(imported, target, workspaceRoot, read, depth + 1),
-      );
+      out.push(await expandImports(imported, target, workspaceRoot, read, depth + 1));
     } catch {
       out.push(`<!-- 已忽略不可读引用: ${raw} -->`);
     }
@@ -153,10 +150,7 @@ async function expandImports(
 }
 
 /** 读取单个候选文件；不存在或不可读返回 null（fail-closed）。 */
-async function tryRead(
-  path: string,
-  read: InstructionReader,
-): Promise<string | null> {
+async function tryRead(path: string, read: InstructionReader): Promise<string | null> {
   try {
     return await read(path);
   } catch {
@@ -221,10 +215,7 @@ function userLevelCandidates(home: string | undefined): string[] {
  * @param read          文件读取器
  * @returns 存在且可读则为 true
  */
-async function hasAgentsOverride(
-  workspaceRoot: string,
-  read: InstructionReader,
-): Promise<boolean> {
+async function hasAgentsOverride(workspaceRoot: string, read: InstructionReader): Promise<boolean> {
   return (await tryRead(join(workspaceRoot, AGENTS_OVERRIDE_NAME), read)) !== null;
 }
 

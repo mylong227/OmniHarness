@@ -11,7 +11,9 @@ import { composeByTwist as moireCompose } from './moireComposer.js';
 export class SkillRegistry implements SkillPort {
   private readonly skills = new Map<string, Skill>();
 
-  /** 注册技能；重名即抛错。 */
+  /** 注册技能；重名即抛错。
+   * @returns 无返回值。
+   */
   public register(skill: Skill): void {
     if (this.skills.has(skill.name)) {
       throw new Error(`技能重复注册: ${skill.name}`);
@@ -19,7 +21,9 @@ export class SkillRegistry implements SkillPort {
     this.skills.set(skill.name, skill);
   }
 
-  /** 原地替换既有技能（CRISPR 定点编辑用）：存在则覆盖，不存在则注册。 */
+  /** 原地替换既有技能（CRISPR 定点编辑用）：存在则覆盖，不存在则注册。
+   * @returns 无返回值。
+   */
   public replace(skill: Skill): void {
     this.skills.set(skill.name, skill);
   }

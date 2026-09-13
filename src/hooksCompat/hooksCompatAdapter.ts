@@ -23,7 +23,9 @@ export class HooksCompatAdapter implements EventPort {
    */
   public constructor(private readonly consumer: HookConsumer) {}
 
-  /** 接收内部事件并映射为两种外部格式后推送。 */
+  /** 接收内部事件并映射为两种外部格式后推送。
+   * @returns 无返回值。
+   */
   public emit(event: SessionEvent): void {
     this.sequence += 1;
     this.consumer(this.codex.map(event, this.sequence));

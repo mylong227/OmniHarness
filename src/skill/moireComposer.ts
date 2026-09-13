@@ -50,7 +50,9 @@ export class MoireComposer {
       for (let y = 0; y < n; y++) f.push(explicit.slice(y * n, (y + 1) * n));
       return f;
     }
-    const seed = this.hashText(`${skill.name}\u0000${skill.description}\u0000${skill.instructions}`);
+    const seed = this.hashText(
+      `${skill.name}\u0000${skill.description}\u0000${skill.instructions}`,
+    );
     const freq = 8; // 固定基础周期：两技能同频、仅朝向下组合，莫尔来自相对扭转（忠实原型验证）
     const ang = (((seed >>> 4) % 180) * Math.PI) / 180; // 光栅朝向（技能身份）
     const c = Math.cos(ang),

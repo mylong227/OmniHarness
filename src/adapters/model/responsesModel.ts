@@ -57,7 +57,9 @@ export class ResponsesModel implements ModelPort {
     return this.lastResponseId;
   }
 
-  /** 重置续接锚点（开新会话；服务端上下文不复用）。 */
+  /** 重置续接锚点（开新会话；服务端上下文不复用）。
+   * @returns 无返回值。
+   */
   public reset(): void {
     this.lastResponseId = configPrevious(this.config);
   }
@@ -268,7 +270,9 @@ export class ResponsesModel implements ModelPort {
    * @param state 跨事件共享的累积状态：text 收集增量，completed 暂存终态响应。
    *              [DONE] 标记与无法解析的 JSON 直接忽略；仅响应
    *              response.output_text.delta 与 response.completed 两类事件。
-   */
+   
+ * @returns 无返回值。
+*/
   private handleStreamEvent(event: SseEvent, callbacks: StreamCallbacks, state: StreamState): void {
     if (event.data === '[DONE]') {
       return;

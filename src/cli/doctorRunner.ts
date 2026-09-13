@@ -200,7 +200,9 @@ export class DoctorRunner {
     }
   }
 
-  /** 默认提权探测：非管理员 Windows 上 `net session` 以 Access Denied 非零码退出 → 抛错。 */
+  /** 默认提权探测：非管理员 Windows 上 `net session` 以 Access Denied 非零码退出 → 抛错。
+   * @returns 无返回值。
+   */
   private defaultElevationProbe(): void {
     execFileSync('net', ['session'], { stdio: 'ignore', timeout: 5000 });
   }
@@ -231,7 +233,9 @@ export class DoctorRunner {
   /**
    * 把报告以人类可读摘要打到 stdout。
    * @param report 待输出的诊断报告。
-   */
+   
+ * @returns 无返回值。
+*/
   public printDoctor(report: DoctorReport): void {
     const lines: string[] = [];
     lines.push('OmniHarness 诊断报告');

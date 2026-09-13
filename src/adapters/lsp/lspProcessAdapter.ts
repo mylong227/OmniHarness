@@ -143,7 +143,9 @@ export class LspProcessAdapter implements LspPort {
 
   // ---- 内部：进程生命周期 ----
 
-  /** 确保会话已就绪：已就绪直接返回；已死亡抛错；否则懒启动并握手。 */
+  /** 确保会话已就绪：已就绪直接返回；已死亡抛错；否则懒启动并握手。
+   * @returns 无返回值。
+   */
   private async ensureStarted(): Promise<void> {
     if (this.starting !== undefined) {
       await this.starting;
@@ -166,7 +168,9 @@ export class LspProcessAdapter implements LspPort {
     }
   }
 
-  /** spawn 子进程并完成 initialize/initialized 握手；失败则回收并允许下次重试。 */
+  /** spawn 子进程并完成 initialize/initialized 握手；失败则回收并允许下次重试。
+   * @returns 无返回值。
+   */
   private async startConnection(): Promise<void> {
     this.opened.clear();
     const conn = new LspJsonRpcConnection({
@@ -194,7 +198,9 @@ export class LspProcessAdapter implements LspPort {
 
   /** 首次见到某文件时发 didOpen（读盘失败则发空文本，让服务器自行解析）。
    * @param file 要打开的文件绝对路径（转 URI 后随 languageId/version/text 一起下发）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async didOpen(file: string): Promise<void> {
     if (this.opened.has(file)) {
       return;

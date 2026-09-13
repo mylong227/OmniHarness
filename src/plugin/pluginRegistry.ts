@@ -151,7 +151,9 @@ export class PluginRegistry {
    * 安装目录通常没有 package.json，Node 会按 CommonJS 解析 .js，
    * 导致 `export default` 语法报错；补一个 {"type":"module"} 标记即可。
    * 源目录若自带 package.json 则原样保留，不覆盖其配置。
-   */
+   
+ * @returns 无返回值。
+*/
   private ensureEsmMarker(dir: string): void {
     const markerPath = join(dir, 'package.json');
     if (existsSync(markerPath)) {
@@ -160,7 +162,9 @@ export class PluginRegistry {
     writeFileSync(markerPath, `${JSON.stringify({ type: 'module' }, null, 2)}\n`, 'utf8');
   }
 
-  /** 移除已安装插件。isLoaded 返回 true 时拒绝移除，避免破坏运行中的实例。 */
+  /** 移除已安装插件。isLoaded 返回 true 时拒绝移除，避免破坏运行中的实例。
+   * @returns 无返回值。
+   */
   public async remove(name: string, isLoaded?: (name: string) => boolean): Promise<void> {
     if (isLoaded?.(name) === true) {
       throw new Error(`插件 "${name}" 当前已加载，请先卸载再移除`);

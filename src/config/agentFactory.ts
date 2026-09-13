@@ -8,7 +8,11 @@ import type { OmniHarnessRuntime } from '../core/runtime.js';
  * 避免 adapters 直接依赖 core（P1 分层解耦）。
  */
 export class AgentFactory implements AgentFactoryPort {
-  /** 构造一个 Agent 实例。 */
+  /**
+   * 构造一个 Agent 实例。
+   * @param runtime 运行时组合根
+   * @returns Agent 端口实例
+   */
   public create(runtime: OmniHarnessRuntime): AgentPort {
     return new Agent(runtime);
   }

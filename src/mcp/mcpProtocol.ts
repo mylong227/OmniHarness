@@ -73,7 +73,11 @@ export interface McpResourceContent {
 export interface McpPromptDescriptor {
   readonly name: string;
   readonly description?: string;
-  readonly arguments?: readonly { readonly name: string; readonly description?: string; readonly required?: boolean }[];
+  readonly arguments?: readonly {
+    readonly name: string;
+    readonly description?: string;
+    readonly required?: boolean;
+  }[];
 }
 
 /**

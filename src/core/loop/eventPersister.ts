@@ -50,7 +50,9 @@ export class EventPersister {
     this.delayMs = options.batchDelayMs ?? 200;
   }
 
-  /** 事件追加后调用：安排一次延迟落盘（幂等，一个窗口内只排一个定时器）。 */
+  /** 事件追加后调用：安排一次延迟落盘（幂等，一个窗口内只排一个定时器）。
+   * @returns 无返回值。
+   */
   public schedule(): void {
     if (this.disposed || this.delayMs <= 0 || this.timer !== undefined) {
       return;
@@ -61,7 +63,9 @@ export class EventPersister {
     }, this.delayMs);
   }
 
-  /** 显式落盘当前快照。并发 flush 串行化，避免旧快照覆盖新快照。 */
+  /** 显式落盘当前快照。并发 flush 串行化，避免旧快照覆盖新快照。
+   * @returns 无返回值。
+   */
   public async flush(): Promise<void> {
     if (this.disposed || this.flushing) {
       return;
@@ -81,7 +85,9 @@ export class EventPersister {
     }
   }
 
-  /** 停止定时器并标记终止（回合结束时调用；已排队的 flush 自然完成）。 */
+  /** 停止定时器并标记终止（回合结束时调用；已排队的 flush 自然完成）。
+   * @returns 无返回值。
+   */
   public dispose(): void {
     this.disposed = true;
     if (this.timer !== undefined) {

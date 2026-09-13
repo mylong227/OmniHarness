@@ -62,10 +62,16 @@ export class HybridRanker {
 
     const toHits = (ids: readonly string[]): { id: string }[] => ids.map((id) => ({ id }));
     // 符号融合：BM25 符号路 ∪ 语义符号路，等权/semWeight 加权。
-    const mergedSym = rrfMerge([toHits(bm25SymIds), toHits(symSemIds)], knobs.rrfK, [1, knobs.semWeight]);
+    const mergedSym = rrfMerge([toHits(bm25SymIds), toHits(symSemIds)], knobs.rrfK, [
+      1,
+      knobs.semWeight,
+    ]);
 
     // 文件融合：BM25 文件路恒为第一路（权重 1），其余路按开关与权重追加。
-    const fileLists: Array<readonly { readonly id: string }[]> = [toHits(bm25FileIds), toHits(fileSemIds)];
+    const fileLists: Array<readonly { readonly id: string }[]> = [
+      toHits(bm25FileIds),
+      toHits(fileSemIds),
+    ];
     const fileWeights: number[] = [1, knobs.semWeight];
     if (knobs.mergeSymbols) {
       fileLists.push(toHits(symSemFileIds));

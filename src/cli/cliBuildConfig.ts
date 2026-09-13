@@ -290,7 +290,9 @@ export class CliBuildConfig {
    * 桥接外部 MCP 服务器的工具到本地工具注册表。
    * @param args 解析后的 CLI 参数（读取 mcpServers 服务器清单）。
    * @param config 已装配的运行时配置（取其中的工具端口挂载桥接工具）。
-   */
+   
+ * @returns 无返回值。
+*/
   protected async bridgeMcpServers(args: CliArgs, config: ResolvedConfig): Promise<void> {
     if (args.mcpServers.length === 0) {
       return;

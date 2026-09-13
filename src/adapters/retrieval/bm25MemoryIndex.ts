@@ -23,7 +23,9 @@ export class Bm25MemoryIndex implements RetrievalPort {
 
   /** 索引一条会话文档。
    * @param doc 会话文档（含 sessionId 与正文 text）；只入数组不立即建索引。
-   */
+   
+ * @returns 无返回值。
+*/
   public index(doc: RetrievalDoc): void {
     this.docs.push(doc);
     this.dirty = true;
@@ -65,7 +67,9 @@ export class Bm25MemoryIndex implements RetrievalPort {
     return this.docs.length;
   }
 
-  /** 用全量文档重建 BM25 索引（插入顺序即文档下标，与命中 id 对齐）。 */
+  /** 用全量文档重建 BM25 索引（插入顺序即文档下标，与命中 id 对齐）。
+   * @returns 无返回值。
+   */
   private rebuild(): void {
     const next = new Bm25Index();
     next.addDocuments(this.docs.map((doc) => tokenize(doc.text)));

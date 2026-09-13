@@ -131,7 +131,9 @@ export class PluginBundler {
     return key;
   }
 
-  /** 递归收集目录内所有文件为 zip 条目（name 相对 base）。 */
+  /** 递归收集目录内所有文件为 zip 条目（name 相对 base）。
+   * @returns 无返回值。
+   */
   private collectEntries(dir: string, base: string, out: ZipEntry[]): void {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
@@ -144,7 +146,9 @@ export class PluginBundler {
     }
   }
 
-  /** 递归复制目录（同 registry.copyDirRecursive 思路，避开 Windows \\?\ 坑）。 */
+  /** 递归复制目录（同 registry.copyDirRecursive 思路，避开 Windows \\?\ 坑）。
+   * @returns 无返回值。
+   */
   private copyDir(source: string, target: string): void {
     mkdirSync(target, { recursive: true });
     for (const entry of readdirSync(source, { withFileTypes: true })) {
@@ -206,11 +210,7 @@ export class PluginBundler {
         (manifest as { signature?: string }).signature = this.signManifest(manifest, key);
       }
 
-      writeFileSync(
-        join(staging, 'bundle.json'),
-        `${JSON.stringify(manifest, null, 2)}\n`,
-        'utf8',
-      );
+      writeFileSync(join(staging, 'bundle.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
       const entries: ZipEntry[] = [];
       this.collectEntries(staging, '', entries);

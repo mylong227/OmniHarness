@@ -266,9 +266,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   '--output-format': (a, argv, i) => {
     const raw = valueOf(argv, i, '--output-format');
     if (!OUTPUT_FORMATS.includes(raw as (typeof OUTPUT_FORMATS)[number])) {
-      throw new Error(
-        `--output-format 非法值: ${raw}（可选: ${OUTPUT_FORMATS.join(' | ')}）`,
-      );
+      throw new Error(`--output-format 非法值: ${raw}（可选: ${OUTPUT_FORMATS.join(' | ')}）`);
     }
     a.outputFormat = raw as (typeof OUTPUT_FORMATS)[number];
     return 1;

@@ -161,7 +161,9 @@ export class CheckpointManager implements CheckpointManagerPort {
    * 还原文件快照（失败抛错，不掩盖代码回滚失败）。
    * @param sessionId 检查点所属会话 ID（定位快照文件）。
    * @param label 检查点标签（定位快照文件）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async restoreFiles(sessionId: string, label: string): Promise<void> {
     const path = this.fileSnapshotPath(sessionId, label);
     const snapshot = await readSnapshotFile(path);
@@ -194,7 +196,9 @@ export class CheckpointManager implements CheckpointManagerPort {
    * 写入索引（meta 数组借 StoragePort 的 events 通道落盘）。
    * @param sessionId 目标会话 ID。
    * @param meta 要写入的全部检查点 meta（全量覆盖）。
-   */
+   
+ * @returns 无返回值。
+*/
   private async saveIndex(sessionId: string, meta: readonly CheckpointMeta[]): Promise<void> {
     await this.storage.save(indexKey(sessionId), meta as unknown as readonly SessionEvent[]);
   }

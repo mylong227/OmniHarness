@@ -55,7 +55,11 @@ export class GoalRunner {
     this.maxIterations = options.maxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS;
   }
 
-  /** 运行自主目标循环直到达成或达上限。 */
+  /**
+   * 运行自主目标循环直到达成或达上限。
+   * @param goal 目标描述
+   * @returns 最终轮结果（达成与否、轮次、会话 id、结论）
+   */
   public async run(goal: string): Promise<GoalResult> {
     const first = await this.agent.runTask(this.promptFor(goal, 1));
     const achievedFirst = await this.check(first, goal, 1);
@@ -80,7 +84,13 @@ export class GoalRunner {
     };
   }
 
-  /** 对一轮结果做达成判定并封装为 GoalResult。 */
+  /**
+   * 对一轮结果做达成判定并封装为 GoalResult。
+   * @param outcome 本轮 agent 产出
+   * @param goal 目标描述
+   * @param iteration 当前轮次（从 1 起）
+   * @returns 封装后的轮次结果
+   */
   private async check(outcome: AgentResult, goal: string, iteration: number): Promise<GoalResult> {
     const check = await this.checker.check(goal, outcome.finalText ?? '');
     return {
@@ -93,7 +103,12 @@ export class GoalRunner {
     };
   }
 
-  /** 构造第 n 次迭代的提示词（首轮下达目标，后续轮基于已有进展续推）。 */
+  /**
+   * 构造第 n 次迭代的提示词（首轮下达目标，后续轮基于已有进展续推）。
+   * @param goal 目标描述
+   * @param n 迭代轮次（从 1 起）
+   * @returns 本轮提示词
+   */
   private promptFor(goal: string, n: number): string {
     if (n === 1) {
       return `目标：${goal}\n\n请开始推进该目标。完成可验证的部分后停下来，汇报本轮进展与结论。`;

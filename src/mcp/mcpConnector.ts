@@ -27,7 +27,11 @@ export interface McpConnectorOptions extends McpStdioServerOptions {
  * 无状态连接逻辑以实例方法暴露，由组合根单例 `mcpConnector` 统一装配。
  */
 export class McpConnector {
-  /** 建立连接（握手成功返回，失败关闭子进程并抛出）。 */
+  /**
+   * 建立连接（握手成功返回，失败关闭子进程并抛出）。
+   * @param options 连接选项（命令、参数、超时）
+   * @returns 连接句柄（client + init 信息 + close）
+   */
   public async connect(options: McpConnectorOptions): Promise<McpConnection> {
     const handle = mcpStdioTransport.launch(options);
     try {
