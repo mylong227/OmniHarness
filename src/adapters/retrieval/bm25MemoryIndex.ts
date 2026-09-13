@@ -14,17 +14,27 @@ export class Bm25MemoryIndex implements RetrievalPort {
   /** 适配器名，与端口契约一致：固定为 'bm25-memory'。 */
   public readonly name = 'bm25-memory';
 
+  /** 已索引文档数组（插入顺序即文档 id）。 */
   private docs: RetrievalDoc[] = [];
+  /** 惰性重建的 BM25 内核（首次检索或标记脏后重建）。 */
   private bm25: Bm25Index | undefined;
+  /** 索引脏标记：docs 有新增而 bm25 尚未重建时为 true。 */
   private dirty = false;
 
-  /** 索引一条会话文档。 */
+  /** 索引一条会话文档。
+   * @param doc 会话文档（含 sessionId 与正文 text）；只入数组不立即建索引。
+   */
   public index(doc: RetrievalDoc): void {
     this.docs.push(doc);
     this.dirty = true;
   }
 
-  /** 检索：自然语言查询 → 降序得分片段，可限定 sessionId。 */
+  /** 检索：自然语言查询 → 降序得分片段，可限定 sessionId。
+   * @param query 自然语言查询（空白查询直接返回空）。
+   * @param limit 返回条数上限（<=0 返回空）。
+   * @param sessionId 可选会话过滤：仅返回该会话的文档。
+   * @returns 按得分降序的命中列表（文档 + BM25 得分）；必要时先全量重建索引。
+   */
   public search(query: string, limit: number, sessionId?: string): readonly RetrievalHit[] {
     const trimmed = query.trim();
     if (trimmed === '' || limit <= 0) {
@@ -48,7 +58,9 @@ export class Bm25MemoryIndex implements RetrievalPort {
     return result;
   }
 
-  /** 当前索引文档数。 */
+  /** 当前索引文档数。
+   * @returns 已索引（含未重建）的文档总数。
+   */
   public get size(): number {
     return this.docs.length;
   }

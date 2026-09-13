@@ -53,13 +53,19 @@ export class PromptCacheUsageReader {
     return this.nonNegativeInt(usage['cache_read_input_tokens']);
   }
 
-  /** 把未知值窄化为普通对象；非对象（含 null / 数组）返回 undefined。 */
+  /** 把未知值窄化为普通对象；非对象（含 null / 数组）返回 undefined。
+   * @param raw 待窄化的任意值。
+   * @returns 普通对象形态；不满足时为 undefined。
+   */
   private record(raw: unknown): Record<string, unknown> | undefined {
     if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
     return raw as Record<string, unknown>;
   }
 
-  /** 把未知值窄化为非负整数；非有限数 / 负数 / 缺失一律返回 undefined（区分「未知」与 0）。 */
+  /** 把未知值窄化为非负整数；非有限数 / 负数 / 缺失一律返回 undefined（区分「未知」与 0）。
+   * @param raw 待窄化的任意值。
+   * @returns 四舍五入后的非负整数；无法判定时为 undefined（= 未知，语义上不同于 0）。
+   */
   private nonNegativeInt(raw: unknown): number | undefined {
     if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return undefined;
     return Math.round(raw);

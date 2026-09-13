@@ -15,9 +15,13 @@ import { sseParser } from './sseParser.js';
 
 /** Anthropic 模型配置。 */
 export interface AnthropicModelConfig {
+  /** API 基址（适配器在其后追加 /v1/messages）。 */
   readonly baseUrl: string;
+  /** x-api-key 鉴权头使用的密钥。 */
   readonly apiKey: string;
+  /** 模型标识（同时作为端口契约的适配器名）。 */
   readonly model: string;
+  /** 单次响应的最大输出 token 数（缺省 4096）。 */
   readonly maxTokens?: number;
 }
 
@@ -28,11 +32,17 @@ export class AnthropicModel implements ModelPort {
   /** 提示缓存读取器：Anthropic 用 `cache_read_input_tokens` 表达命中。 */
   private readonly promptCache = new PromptCacheUsageReader();
 
-  public constructor(private readonly config: AnthropicModelConfig) {
+  public constructor(
+    /** 适配器配置：端点、密钥、模型标识与输出上限。 */
+    private readonly config: AnthropicModelConfig,
+  ) {
     this.name = config.model;
   }
 
-  /** 生成响应。 */
+  /** 生成响应。
+   * @param request 模型请求（消息、工具规格与可选取消信号）。
+   * @returns 解析后的统一输出（文本、工具调用与口径合成后的用量）；非 2xx 时抛出错误。
+   */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request));
     if (!response.ok) {
@@ -42,7 +52,12 @@ export class AnthropicModel implements ModelPort {
     return this.parseOutput(body);
   }
 
-  /** 流式生成（SSE）。 */
+  /** 流式生成（SSE）。
+   * @param request 模型请求（消息、工具规格与可选取消信号）。
+   * @param callbacks 流式回调集合：文本增量与工具参数增量实时推送。
+   * @returns 流结束后的完整输出：文本按增量顺序拼接；用量由 message_start/message_delta
+   *          两类事件离线累积后合成。响应体缺失时降级为非流式 generate；非 2xx 时抛出错误。
+   */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request));
     if (!response.ok) {
@@ -67,12 +82,17 @@ export class AnthropicModel implements ModelPort {
     return { text: chunks.join(''), usage };
   }
 
-  /** 构造端点。 */
+  /** 构造端点。
+   * @returns Messages API 完整 URL（baseUrl 追加 /v1/messages）。
+   */
   private endpoint(): string {
     return `${this.config.baseUrl}/v1/messages`;
   }
 
-  /** 构造请求。 */
+  /** 构造请求。
+   * @param request 模型请求（system 被剥离为独立字段并打 ephemeral 缓存断点）。
+   * @returns 可直接交给 fetch 的 RequestInit（POST、协议头、JSON 请求体与可选取消信号）。
+   */
   private buildRequest(request: ModelRequest): RequestInit {
     const { system, messages } = this.splitSystem(request.messages);
     return {
@@ -97,7 +117,9 @@ export class AnthropicModel implements ModelPort {
     };
   }
 
-  /** 请求头。 */
+  /** 请求头。
+   * @returns 含 content-type、x-api-key 鉴权与 anthropic-version 协议版本的头集合。
+   */
   private headers(): Record<string, string> {
     return {
       'content-type': 'application/json',
@@ -106,7 +128,11 @@ export class AnthropicModel implements ModelPort {
     };
   }
 
-  /** 拆分 system 消息（Anthropic 用独立字段）。 */
+  /** 拆分 system 消息（Anthropic 用独立字段）。
+   * @param messages 统一消息列表。
+   * @returns system 文本（无 system 消息时为 undefined）与剥离 system 后的 wire 消息数组
+   *          （tool 角色消息映射为 user 以兼容 Anthropic 协议）。
+   */
   private splitSystem(messages: readonly ModelMessage[]): { system?: string; messages: unknown[] } {
     const system = messages
       .filter((message) => message.role === 'system')
@@ -124,6 +150,9 @@ export class AnthropicModel implements ModelPort {
   /**
    * 构造单条消息的 content：无图像时保持原字符串（向后兼容）；
    * 含图像时构造为 [text, ...image] 数组（#B1）。
+   * @param message 统一消息（可能携带图像与文件附件）。
+   * @returns 纯文本时返回字符串；含视觉输入时返回 [text, ...image, ...附件说明] 分段数组，
+   *          图像以 url 或 base64 source 表达，非图片文件降级为文本说明。
    */
   private toWireContent(message: ModelMessage): unknown {
     const images = message.images;
@@ -159,7 +188,10 @@ export class AnthropicModel implements ModelPort {
     ];
   }
 
-  /** 工具转 Anthropic 格式。 */
+  /** 工具转 Anthropic 格式。
+   * @param tools 统一工具规格列表。
+   * @returns Anthropic tools 数组（name/description/input_schema 平铺结构）。
+   */
   private toTools(tools: readonly ModelToolSpec[]): unknown[] {
     return tools.map((tool) => ({
       name: tool.name,
@@ -168,7 +200,11 @@ export class AnthropicModel implements ModelPort {
     }));
   }
 
-  /** 解析响应。 */
+  /** 解析响应。
+   * @param body wire 层 JSON 响应。
+   * @returns 统一模型输出：text 块拼接、tool_use 块转工具调用引用、usage 按缓存口径合成；
+   *          各段为空/缺失时对应字段不出现在输出中。
+   */
   private parseOutput(body: AnthropicResponse): ModelOutput {
     const text = body.content
       .filter((block) => block.type === 'text')
@@ -231,7 +267,13 @@ export class AnthropicModel implements ModelPort {
         };
   }
 
-  /** 处理流式事件。 */
+  /** 处理流式事件。
+   * @param data SSE 已分帧的事件 data 负载（JSON 文本；[DONE] 直接忽略）。
+   * @param callbacks 流式回调集合：text_delta 经 onText、工具块开始/参数增量经 onToolInput 推出。
+   * @param chunks 跨事件累积的文本增量（就地追加）。
+   * @param toolBlocks 跨事件累积的工具调用块（按流中顺序入栈，就地更新 partial）。
+   * @param usageState 跨事件累积的用量状态（经 observeUsage 原地覆盖写）。
+   */
   private handleEvent(
     data: string,
     callbacks: StreamCallbacks,

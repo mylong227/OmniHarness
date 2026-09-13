@@ -42,16 +42,27 @@ export interface LspJsonRpcConnectionOptions {
  * - **fail-closed**：进程异常退出或请求超时一律 reject，绝不静默吞掉。
  */
 export class LspJsonRpcConnection {
+  /** 已 spawn 的子进程（未启动或已复位时为 undefined）。 */
   private proc: ChildProcess | undefined;
+  /** stdout 分帧缓冲区：暂存尚未凑齐完整 Content-Length 帧的字节。 */
   private buf = Buffer.alloc(0);
+  /** 客户端 → 服务器请求的自增 id（从 1 开始）。 */
   private nextId = 1;
+  /** 是否已调用过 start()（防止重复 spawn）。 */
   private started = false;
+  /** 进程是否已异常退出（死亡后所有新请求立即 reject）。 */
   private dead = false;
+  /** 挂起请求登记表：id → resolve/reject 回调与超时定时器。 */
   private readonly pending = new Map<number, Pending>();
 
-  public constructor(private readonly options: LspJsonRpcConnectionOptions) {}
+  public constructor(
+    /** 连接配置：外部命令与参数、服务器请求应答器、请求超时。 */
+    private readonly options: LspJsonRpcConnectionOptions,
+  ) {}
 
-  /** 子进程是否已异常退出（死亡后所有请求立即 reject）。 */
+  /** 子进程是否已异常退出（死亡后所有请求立即 reject）。
+   * @returns true 表示进程已退出或 spawn 失败；复位后回到 false。
+   */
   public get isDead(): boolean {
     return this.dead;
   }
@@ -147,7 +158,10 @@ export class LspJsonRpcConnection {
     this.reset();
   }
 
-  /** 写一帧 Content-Length 分帧的 JSON-RPC 消息。 */
+  /** 写一帧 Content-Length 分帧的 JSON-RPC 消息。
+   * @param msg 待发送的完整消息（请求、响应或通知）。
+   *            stdin 不可用时同步抛错；写入本身为异步排队，不等待对端确认。
+   */
   private send(msg: JsonRpcMessage): void {
     const stdin = this.proc?.stdin;
     if (stdin === null || stdin === undefined) {
@@ -158,7 +172,10 @@ export class LspJsonRpcConnection {
     stdin.write(payload);
   }
 
-  /** 从 stdout 分帧并派发消息；非法头丢弃一字节避免死循环。 */
+  /** 从 stdout 分帧并派发消息；非法头丢弃一字节避免死循环。
+   * @param chunk stdout 新到的字节块（先并入缓冲再循环取帧：
+   *              头不完整等待后续数据，头非法丢 1 字节，体不完整继续缓冲，JSON 非法整帧丢弃）。
+   */
   private onData(chunk: Buffer): void {
     this.buf = Buffer.concat([this.buf, chunk]);
     for (;;) {
@@ -190,7 +207,9 @@ export class LspJsonRpcConnection {
     }
   }
 
-  /** 派发入站消息：响应 → 唤醒挂起请求；服务器请求 → 交由应答器处理；通知 → 忽略。 */
+  /** 派发入站消息：响应 → 唤醒挂起请求；服务器请求 → 交由应答器处理；通知 → 忽略。
+   * @param msg 已解析的入站 JSON-RPC 消息（按 id/result/error/method 组合判定类别）。
+   */
   private dispatch(msg: JsonRpcMessage): void {
     if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined)) {
       const entry = this.pending.get(msg.id);
@@ -208,12 +227,18 @@ export class LspJsonRpcConnection {
     if (msg.method !== undefined && msg.id !== undefined) {
       // 服务器 → 客户端请求（client/registerCapability / workspace/configuration）：尽量应答，避免握手卡死。
       const answer = this.options.answerServerRequest;
-      this.send({ jsonrpc: '2.0', id: msg.id, result: answer !== undefined ? answer(msg.method) : {} });
+      this.send({
+        jsonrpc: '2.0',
+        id: msg.id,
+        result: answer !== undefined ? answer(msg.method) : {},
+      });
     }
     // 通知（publishDiagnostics / logMessage / $/progress 等）：忽略。
   }
 
-  /** 进程死亡时拒绝所有挂起请求并清空登记。 */
+  /** 进程死亡时拒绝所有挂起请求并清空登记。
+   * @param error 拒绝所有挂起请求所用的错误（退出或 spawn 失败原因）。
+   */
   private failAll(error: Error): void {
     for (const entry of this.pending.values()) {
       clearTimeout(entry.timer);

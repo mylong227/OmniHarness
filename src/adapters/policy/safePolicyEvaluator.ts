@@ -26,6 +26,10 @@ type Tok =
   | { k: 'bool'; v: boolean }
   | { k: 'ident'; v: string };
 
+/** 词法分析：把策略表达式源码切分为 token 序列。
+ * @param src 表达式源码（支持括号、==/!=/~/in、and/or/not、单双引号字符串、数字与标识符）。
+ * @returns token 序列；遇到未闭合字符串、非法数字或无法识别的字符时抛错。
+ */
 function tokenize(src: string): Tok[] {
   const toks: Tok[] = [];
   let i = 0;
@@ -114,17 +118,29 @@ type Ast =
 
 /** 递归下降解析器：把策略表达式 token 序列解析为 AST（纯语法层，不涉及事实求值）。 */
 class Parser {
+  /** 当前解析游标位置（已消费的 token 数）。 */
   private pos = 0;
-  public constructor(private readonly toks: Tok[]) {}
+  public constructor(
+    /** 待解析的 token 序列（由 tokenize 产出）。 */
+    private readonly toks: Tok[],
+  ) {}
 
+  /** 预览当前 token（不消费）。
+   * @returns 游标处 token；已到末尾时为 undefined。
+   */
   private peek(): Tok | undefined {
     return this.toks[this.pos];
   }
+  /** 消费并返回当前 token。
+   * @returns 游标处 token（游标前移一位）；已到末尾时为 undefined。
+   */
   private next(): Tok | undefined {
     return this.toks[this.pos++];
   }
 
-  /** 解析入口：token 序列 → 表达式 AST；空表达式解析为恒真字面量，存在多余 token 时抛错。 */
+  /** 解析入口：token 序列 → 表达式 AST；空表达式解析为恒真字面量，存在多余 token 时抛错。
+   * @returns 表达式 AST（or → and → not → 比较的优先级结构）。
+   */
   public parse(): Ast {
     if (this.toks.length === 0) return { t: 'val', v: true }; // 空表达式 = 恒真
     const e = this.parseOr();
@@ -132,6 +148,9 @@ class Parser {
     return e;
   }
 
+  /** 解析 or 层（最低优先级，左结合）。
+   * @returns or 表达式 AST；无 or 时为下层 and 结果。
+   */
   private parseOr(): Ast {
     let left = this.parseAnd();
     while (this.peek()?.k === 'or') {
@@ -141,6 +160,9 @@ class Parser {
     return left;
   }
 
+  /** 解析 and 层（左结合）。
+   * @returns and 表达式 AST；无 and 时为下层 not 结果。
+   */
   private parseAnd(): Ast {
     let left = this.parseNot();
     while (this.peek()?.k === 'and') {
@@ -150,6 +172,9 @@ class Parser {
     return left;
   }
 
+  /** 解析 not 层（前缀一元，可叠套）。
+   * @returns not 表达式 AST；无 not 时为下层比较结果。
+   */
   private parseNot(): Ast {
     if (this.peek()?.k === 'not') {
       this.next();
@@ -158,6 +183,9 @@ class Parser {
     return this.parseComparison();
   }
 
+  /** 解析比较层（== / != / ~ / in，双侧操作数）。
+   * @returns 比较表达式 AST；当前 token 不是比较运算符时为单个操作数节点。
+   */
   private parseComparison(): Ast {
     const left = this.parseOperand();
     const tok = this.peek();
@@ -169,6 +197,9 @@ class Parser {
     return left;
   }
 
+  /** 解析原子操作数：括号子表达式、字面量或标识符。
+   * @returns 操作数 AST 节点；表达式意外结束或 token 非法时抛错。
+   */
   private parseOperand(): Ast {
     const tok = this.peek();
     if (tok === undefined) throw new Error('表达式意外结束');
@@ -202,6 +233,11 @@ class Parser {
 
 // ---------- 求值 ----------
 
+/** 递归求值 AST 为布尔结果（fail-closed：未知标识符按 false，非法正则/类型不匹配按 false）。
+ * @param node 待求值的 AST 节点。
+ * @param facts 事实表（标识符取值来源）。
+ * @returns 表达式真值；比较结果按宽松相等语义判定。
+ */
 function evalAst(node: Ast, facts: PolicyFacts): boolean {
   switch (node.t) {
     case 'val':
@@ -243,6 +279,12 @@ function evalAst(node: Ast, facts: PolicyFacts): boolean {
   }
 }
 
+/** 解析操作数节点为比较用值：字面量原样、标识符查事实表（缺失按空串）、
+ * 子表达式保守求值为布尔（不支持嵌套集合语义）。
+ * @param node 操作数 AST 节点。
+ * @param facts 事实表。
+ * @returns 参与比较的标量值或字符串数组。
+ */
 function resolve(node: Ast, facts: PolicyFacts): string | number | boolean | readonly string[] {
   if (node.t === 'val') return node.v;
   if (node.t === 'ident') {
@@ -252,6 +294,11 @@ function resolve(node: Ast, facts: PolicyFacts): string | number | boolean | rea
   return evalAst(node, facts); // 子表达式（如 `in (a or b)` 不被支持，这里保守返回布尔）
 }
 
+/** 宽松相等：数字/布尔按严格相等，其余一律转字符串比较（跨类型比较不抛错）。
+ * @param a 左操作数。
+ * @param b 右操作数。
+ * @returns 语义相等时为 true。
+ */
 function looseEq(a: unknown, b: unknown): boolean {
   if (typeof a === 'number' && typeof b === 'number') return a === b;
   if (typeof a === 'boolean' && typeof b === 'boolean') return a === b;
@@ -261,6 +308,8 @@ function looseEq(a: unknown, b: unknown): boolean {
 /**
  * @beta
  * 编译一条表达式字符串为 AST（缓存由调用方决定；单次求值直接调 `test`）。
+ * @param src 表达式源码。
+ * @returns 解析出的 AST；语法错误时抛出（fail-closed 由调用方决定跳过策略）。
  */
 export function compileExpression(src: string): Ast {
   return new Parser(tokenize(src)).parse();
@@ -301,7 +350,11 @@ export class SafePolicyEvaluator implements PolicyPort {
     return { effect: defaultEffect, matchedRule: null, warnings };
   }
 
-  /** 单独求值一条表达式（供工具/调试）：解析或求值失败一律返回 false（fail-closed，绝不意外放行）。 */
+  /** 单独求值一条表达式（供工具/调试）：解析或求值失败一律返回 false（fail-closed，绝不意外放行）。
+   * @param expression 策略表达式源码。
+   * @param facts 事实表。
+   * @returns 表达式真值；任何解析/求值异常都归一为 false。
+   */
   public test(expression: string, facts: PolicyFacts): boolean {
     try {
       return evalAst(compileExpression(expression), facts);

@@ -18,7 +18,11 @@ import type {
  * 还原策略：仅对快照内文件手术式操作（覆盖/删除），不重置整棵树，不执行 `git checkout -- .`。
  */
 
-/** 运行 git 子命令，返回 stdout（失败抛错）。 */
+/** 运行 git 子命令，返回 stdout（失败抛错）。
+ * @param args git 参数列表（不含可执行名）。
+ * @param cwd 工作树目录（git 执行上下文）。
+ * @returns git 标准输出文本；命令失败（含非仓库）时 reject（fail-closed）。
+ */
 function git(args: readonly string[], cwd: string): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     execFile('git', [...args], { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
@@ -36,7 +40,10 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
   /** 适配器名，与端口契约一致：固定为 'git'。 */
   public readonly name = 'git';
 
-  /** 捕获会话触碰文件相对 HEAD 的差异。 */
+  /** 捕获会话触碰文件相对 HEAD 的差异。
+   * @param root 工作树根目录（须为 git 仓库，否则抛错）。
+   * @returns 含根绝对路径与逐文件条目的快照（content 为回滚目标内容，null 表示回滚时删除）。
+   */
   public async capture(root: string): Promise<FileSnapshot> {
     // 校验为 git 仓库（非仓库则下面的命令会抛错，fail-closed）。
     await git(['rev-parse', '--is-inside-work-tree'], root);
@@ -45,7 +52,11 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
     return { root: resolve(root), entries };
   }
 
-  /** 解析 `git status --porcelain -z` 输出为文件快照条目。 */
+  /** 解析 `git status --porcelain -z` 输出为文件快照条目。
+   * @param porcelain git status 的 NUL 分隔输出（含删除/修改/新增/重命名各状态行）。
+   * @param root 工作树根目录（读取磁盘现内容用）。
+   * @returns 快照条目列表：删除项取 HEAD 内容，其余取快照时刻磁盘内容（读不到回退 HEAD）。
+   */
   private async parsePorcelain(porcelain: string, root: string): Promise<FileSnapshotEntry[]> {
     if (porcelain.length === 0) {
       return [];
@@ -77,7 +88,11 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
     return entries;
   }
 
-  /** 读取文件在 HEAD 的内容；取不到返回 null（视为回滚时删除）。 */
+  /** 读取文件在 HEAD 的内容；取不到返回 null（视为回滚时删除）。
+   * @param root 工作树根目录。
+   * @param relPath 相对工作树根的文件路径。
+   * @returns HEAD 版本内容；文件未被跟踪或 git show 失败时为 null。
+   */
   private async headContent(root: string, relPath: string): Promise<string | null> {
     try {
       return await git(['show', `HEAD:${relPath}`], root);
@@ -86,7 +101,10 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
     }
   }
 
-  /** 将快照写回工作树。 */
+  /** 将快照写回工作树。
+   * @param root 工作树根目录。
+   * @param snapshot 先前 {@link capture} 产出的快照（仅手术式覆盖/删除其中列出的文件）。
+   */
   public async restore(root: string, snapshot: FileSnapshot): Promise<void> {
     for (const entry of snapshot.entries) {
       const full = resolve(root, entry.relPath);

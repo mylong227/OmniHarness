@@ -27,7 +27,10 @@ export interface ParticleFilterOptions {
   readonly seed?: number;
 }
 
-/** 确定性 PRNG（mulberry32），避免测试依赖全局 Math.random。 */
+/** 确定性 PRNG（mulberry32），避免测试依赖全局 Math.random。
+ * @param seed 随机种子（同一种子产出同一序列，保证可复现）。
+ * @returns 每次调用返回 [0,1) 均匀分布随机数的抽样函数。
+ */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -39,7 +42,10 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** 标准正态抽样（Box–Muller）。 */
+/** 标准正态抽样（Box–Muller）。
+ * @param rng 均匀分布随机源（[0,1)；0 值会被循环重抽以避免对数发散）。
+ * @returns 一个标准正态分布 N(0,1) 抽样值。
+ */
 function randn(rng: () => number): number {
   let u = 0;
   let v = 0;
@@ -62,14 +68,26 @@ function randn(rng: () => number): number {
 export class ParticleFilterBelief implements MetacognitionPort {
   /** 端口名：粒子滤波信念标识，与 MetacognitionPort 契约的命名空间一致。 */
   public readonly name = 'particle-filter-belief';
+  /** 状态维度（下限 1）。 */
   private readonly dim: number;
+  /** 粒子数（下限 2）。 */
   private readonly n: number;
+  /** 重采样触发阈值：ESS 低于该值即系统重采样（resampleRatio × n，下限 0.01n）。 */
   private readonly resampleFloor: number;
+  /** 每步抖动幅度（下限 0），用于维持粒子多样性。 */
   private readonly jitter: number;
+  /** 种子化 PRNG 抽样函数（mulberry32）。 */
   private readonly rng: () => number;
+  /** 粒子集：n × dim 的状态样本矩阵。 */
   private particles: number[][];
+  /** 各粒子权值（恒归一化；均匀分布初始化）。 */
   private weights: number[];
 
+  /**
+   * 构造信念引擎：按选项夹紧参数并以初始高斯 N(initialMean, initialVariance) 抽取初始粒子。
+   * @param opts 选项（全部缺省：dim=3、particles=200、均值 0、方差 1、resampleRatio=0.5、
+   *             jitter=0.05、种子 0x9e3779b9）。
+   */
   public constructor(opts: ParticleFilterOptions = {}) {
     this.dim = Math.max(1, Math.floor(opts.dim ?? 3));
     this.n = Math.max(2, Math.floor(opts.particles ?? 200));
@@ -88,6 +106,9 @@ export class ParticleFilterBelief implements MetacognitionPort {
     }
   }
 
+  /** 加权高斯拟合：由当前粒子集与权值计算加权均值、加权方差与有效样本数。
+   * @returns mean 为加权均值向量，variance 为加权方差向量，ess 为有效样本数 1/Σw²（退化度量）。
+   */
   private fit(): { mean: number[]; variance: number[]; ess: number } {
     const mean = new Array<number>(this.dim).fill(0);
     let wsum = 0;
@@ -188,6 +209,9 @@ export class ParticleFilterBelief implements MetacognitionPort {
     return this.report(before);
   }
 
+  /** 计算有效样本数 ESS = 1/Σw²（权值越均衡越大，单粒子主导时趋 1）。
+   * @returns 当前权值分布的有效样本数；权值全 0 时为 0。
+   */
   private effectiveSampleSize(): number {
     let s = 0;
     for (let i = 0; i < this.n; i++) {
@@ -220,6 +244,10 @@ export class ParticleFilterBelief implements MetacognitionPort {
     for (let i = 0; i < this.n; i++) this.weights[i] = 1 / this.n;
   }
 
+  /** 生成更新前后的可审计报告（快照对 + 对角 KL + 重参数化不变量）。
+   * @param before 更新前的信念快照。
+   * @returns 含 before/after 快照、KL 散度与重参数化不变量的更新报告。
+   */
   private report(before: BeliefSnapshot): BeliefUpdateReport {
     const after = this.snapshot();
     const kl = klDiagonal(

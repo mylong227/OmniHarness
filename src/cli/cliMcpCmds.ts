@@ -16,7 +16,11 @@ import { CliServerCmds } from './cliServerCmds.js';
 
 /** MCP 网关子命令。 */
 export class CliMcpCmds extends CliServerCmds {
-  /** MCP 网关子命令：serve（对外暴露）/ list（列远端工具）/ call（调远端工具）。 */
+  /**
+   * MCP 网关子命令：serve（对外暴露）/ list（列远端工具）/ call（调远端工具）。
+   * @param args 子命令参数（首 token 为子动作，其余透传给对应实现）。
+   * @returns 进程退出码：操作失败为 1，用法错误为 2，成功由子动作决定。
+   */
   protected async runMcp(args: readonly string[]): Promise<number> {
     const sub = args[0];
     try {
@@ -39,7 +43,11 @@ export class CliMcpCmds extends CliServerCmds {
     return 2;
   }
 
-  /** mcp serve：以 stdio 把本地工具集暴露为 MCP 服务器（走审批 + 沙箱门禁）。 */
+  /**
+   * mcp serve：以 stdio 把本地工具集暴露为 MCP 服务器（走审批 + 沙箱门禁）。
+   * @param args 子命令参数（经 parseArgs 全量解析为运行时配置）。
+   * @returns 永不 resolve 的 Promise（常驻 stdio 服务，直至流关闭或外部终止）。
+   */
   protected async runMcpServe(args: readonly string[]): Promise<number> {
     const cliArgs = parseArgs(['--prompt', 'mcp-serve', ...args]);
     if (cliArgs === undefined) {
@@ -70,7 +78,11 @@ export class CliMcpCmds extends CliServerCmds {
     return new Promise(() => undefined);
   }
 
-  /** mcp list：连接外部 MCP 服务器并列出其工具。 */
+  /**
+   * mcp list：连接外部 MCP 服务器并列出其工具。
+   * @param args 子命令参数（--server NAME=COMMAND 指定目标服务器）。
+   * @returns 进程退出码：缺 --server 为 2，成功为 0（列毕即关闭连接）。
+   */
   protected async runMcpList(args: readonly string[]): Promise<number> {
     const spec = this.flagValue(args, '--server');
     if (spec === undefined) {
@@ -93,7 +105,11 @@ export class CliMcpCmds extends CliServerCmds {
     }
   }
 
-  /** mcp call：调用外部 MCP 服务器的指定工具。 */
+  /**
+   * mcp call：调用外部 MCP 服务器的指定工具。
+   * @param args 子命令参数（--server / --tool 必填，--args JSON 可选）。
+   * @returns 进程退出码：缺必填项为 2，工具报错（isError）为 1，成功为 0。
+   */
   protected async runMcpCall(args: readonly string[]): Promise<number> {
     const spec = this.flagValue(args, '--server');
     const tool = this.flagValue(args, '--tool');

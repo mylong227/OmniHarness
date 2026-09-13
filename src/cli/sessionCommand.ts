@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { CliArgReader } from './cliArgReader.js';
 
+/** session 子命令：列出工作区会话日志文件（session list），输出 id / 事件数 / 修改时间摘要。 */
 export class SessionCommand {
   /**
    * 执行 session 子命令。

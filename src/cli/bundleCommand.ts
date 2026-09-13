@@ -22,6 +22,7 @@ const USAGE =
   '用法: omniharness bundle pack <profileName> [--key-file K] [--out-dir D] [--dir P] | bundle unpack <path.ohb> [--key-file K] [--dir P]\n';
 
 export class BundleCommand {
+  /** 注入的注册表工厂（打包时用于解析插件源）。 */
   private readonly createRegistry: PluginRegistryFactory;
 
   /**
@@ -107,11 +108,7 @@ export class BundleCommand {
    * @param pluginsDir 插件安装目录。
    * @returns 退出码（0 成功 / 1 失败 / 2 用法错误）。
    */
-  private async unpack(
-    reader: CliArgReader,
-    wsRoot: string,
-    pluginsDir: string,
-  ): Promise<number> {
+  private async unpack(reader: CliArgReader, wsRoot: string, pluginsDir: string): Promise<number> {
     const path = reader.at(1);
     if (path === undefined) {
       process.stdout.write('用法: omniharness bundle unpack <path.ohb> [--key-file K] [--dir P]\n');

@@ -45,7 +45,11 @@ import { CliBuildConfig } from './cliBuildConfig.js';
 
 /** 服务端 / 身份 / 后台类子命令。 */
 export class CliServerCmds extends CliBuildConfig {
-  /** 启动 stdio app-server（常驻，复用全部端口参数）。 */
+  /**
+   * 启动 stdio app-server（常驻，复用全部端口参数）。
+   * @param serverArgs 子命令参数（经 parseArgs 全量解析为运行时配置）。
+   * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
+   */
   protected async runServer(serverArgs: readonly string[]): Promise<number> {
     const args = parseArgs(['--prompt', 'server', ...serverArgs]);
     if (args === undefined) {
@@ -74,7 +78,11 @@ export class CliServerCmds extends CliBuildConfig {
     return new Promise(() => undefined);
   }
 
-  /** 生成 TS/Python SDK（由单源 schema）。 */
+  /**
+   * 生成 TS/Python SDK（由单源 schema）。
+   * @param args 子命令参数（--out-ts / --out-py / --out-md 指定落盘路径，缺省打印到 stdout）。
+   * @returns 进程退出码（当前恒为 0）。
+   */
   protected async runSchema(args: readonly string[]): Promise<number> {
     const generator = new CodeGenerator();
     const tsPath = this.flagValue(args, '--out-ts');
@@ -105,13 +113,21 @@ export class CliServerCmds extends CliBuildConfig {
     return 0;
   }
 
-  /** 写 SDK 文件（自动建目录）。 */
+  /**
+   * 写 SDK 文件（自动建目录）。
+   * @param filePath 目标文件路径（父目录不存在时递归创建）。
+   * @param content 待写入的 UTF-8 文本。
+   */
   protected async writeSdk(filePath: string, content: string): Promise<void> {
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, content, 'utf8');
   }
 
-  /** 环境诊断：doctor。 */
+  /**
+   * 环境诊断：doctor。
+   * @param args 子命令参数（--config 指定待检查的配置文件路径）。
+   * @returns 进程退出码：无问题为 0，存在 issue 为 1。
+   */
   protected async runDoctor(args: readonly string[]): Promise<number> {
     const configPath = this.flagValue(args, '--config');
     const report = runDoctorReport({ configPath });
@@ -119,7 +135,11 @@ export class CliServerCmds extends CliBuildConfig {
     return report.issues.length === 0 ? 0 : 1;
   }
 
-  /** 企业 SSO：auth login（拉 discovery + 生成授权 URL + 持久化 state）/ auth callback（授权码换 token）。 */
+  /**
+   * 企业 SSO：auth login（拉 discovery + 生成授权 URL + 持久化 state）/ auth callback（授权码换 token）。
+   * @param args 子命令参数（首 token 为子动作 login / callback）。
+   * @returns 进程退出码：子动作未知为 2，其余由子动作决定。
+   */
   protected async runAuth(args: readonly string[]): Promise<number> {
     const sub = args[0];
     if (sub === 'login') return this.runAuthLogin(args.slice(1));
@@ -131,6 +151,12 @@ export class CliServerCmds extends CliBuildConfig {
     return 2;
   }
 
+  /**
+   * auth login 子动作：拉取 IdP discovery、生成 PKCE 与 state、构造授权 URL，
+   * 并把中间态写入 ~/.omni-auth-state.json 供 callback 续跑。
+   * @param rest login 之后的参数（--issuer / --client-id 必填，--client-secret / --redirect-uri / --scope 可选）。
+   * @returns 进程退出码：参数缺失为 2，discovery 拉取失败抛错，成功为 0。
+   */
   protected async runAuthLogin(rest: readonly string[]): Promise<number> {
     const issuer = this.flagValue(rest, '--issuer');
     const clientId = this.flagValue(rest, '--client-id');
@@ -173,6 +199,11 @@ export class CliServerCmds extends CliBuildConfig {
     return 0;
   }
 
+  /**
+   * auth callback 子动作：校验 state（防 CSRF）后用授权码 + PKCE verifier 换取令牌集。
+   * @param rest callback 之后的参数（--code 必填，--state 提供时必须与 login 持久化值一致）。
+   * @returns 进程退出码：缺 --code 为 2，中间态缺失或 state 不匹配为 1，成功为 0。
+   */
   protected async runAuthCallback(rest: readonly string[]): Promise<number> {
     const code = this.flagValue(rest, '--code');
     if (code === undefined) {
@@ -212,7 +243,11 @@ export class CliServerCmds extends CliBuildConfig {
     return 0;
   }
 
-  /** Agent 密码学身份（#S33）：generate/show/sign/verify，本地 Ed25519，零外部依赖。 */
+  /**
+   * Agent 密码学身份（#S33）：generate/show/sign/verify，本地 Ed25519，零外部依赖。
+   * @param args 子命令参数（首 token 为子动作，--private-key / --payload / --signature 按动作取用）。
+   * @returns 进程退出码：子动作未知或身份未配置为 2/1，验签失败为 1，成功为 0。
+   */
   protected async runIdentity(args: readonly string[]): Promise<number> {
     const sub = args[0];
     if (sub !== 'generate' && sub !== 'show' && sub !== 'sign' && sub !== 'verify') {
@@ -258,7 +293,11 @@ export class CliServerCmds extends CliBuildConfig {
     return valid ? 0 : 1;
   }
 
-  /** daemon start|stop|status：常驻后台 serve（PID 文件管理，多会话由 serve 承接）。 */
+  /**
+   * daemon start|stop|status：常驻后台 serve（PID 文件管理，多会话由 serve 承接）。
+   * @param daemonArgs 子命令参数（首 token 为子动作 stop / status，缺省视为 start；start 支持 --port 与透传 serve 的参数）。
+   * @returns 进程退出码（各分支恒为 0）。
+   */
   protected async runDaemon(daemonArgs: readonly string[]): Promise<number> {
     const controller = new DaemonController();
     const sub = daemonArgs[0];
@@ -290,7 +329,11 @@ export class CliServerCmds extends CliBuildConfig {
     return 0;
   }
 
-  /** 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。 */
+  /**
+   * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
+   * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
+   * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
+   */
   protected async runServe(serveArgs: readonly string[]): Promise<number> {
     // 先预解析一次以定位工作区与配置文件（--workspace/--config 影响查找路径）。
     const preArgs = parseArgs(['--prompt', 'serve', ...serveArgs]);
@@ -399,7 +442,13 @@ export class CliServerCmds extends CliBuildConfig {
       }
     }
     const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
-    const server = new HttpServer({ app, bridge, webDir, metrics, workspaceRoot: () => app.effectiveWorkspace() });
+    const server = new HttpServer({
+      app,
+      bridge,
+      webDir,
+      metrics,
+      workspaceRoot: () => app.effectiveWorkspace(),
+    });
     const port = this.flagNumber(serveArgs, '--port') ?? 8787;
     const actual = await server.start(port);
     process.stdout.write(`OmniHarness UI: http://localhost:${actual}\n`);

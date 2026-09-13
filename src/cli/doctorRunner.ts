@@ -16,8 +16,11 @@ export interface DoctorOptions {
 
 /** 配置检查状态。 */
 export interface ConfigStatus {
+  /** 配置文件是否存在（含向上查找）。 */
   readonly exists: boolean;
+  /** 存在时 JSON 是否合法。 */
   readonly valid: boolean;
+  /** JSON 非法时的错误消息。 */
   readonly error?: string;
 }
 
@@ -53,12 +56,19 @@ export interface DoctorReport {
  * 对外门面函数（`runDoctor` / `isElevated` / `printDoctor`）签名保持不变，调用点零改动。
  */
 export class DoctorRunner {
-  /** 默认插件目录（与 CLI 一致：~/.omniharness/plugins）。 */
+  /**
+   * 默认插件目录（与 CLI 一致：~/.omniharness/plugins）。
+   * @returns 插件目录绝对路径。
+   */
   private defaultPluginsDir(): string {
     return join(homedir(), '.omniharness', 'plugins');
   }
 
-  /** 从目录向上查找 omniharness.json。 */
+  /**
+   * 从目录向上查找 omniharness.json。
+   * @param startDir 查找起点目录。
+   * @returns 找到的配置文件路径；到文件系统根仍未找到时返回 undefined。
+   */
   private findConfig(startDir: string): string | undefined {
     let current = startDir;
     while (true) {
@@ -74,7 +84,11 @@ export class DoctorRunner {
     }
   }
 
-  /** 运行环境诊断（全 node: 内置，零依赖）。 */
+  /**
+   * 运行环境诊断（全 node: 内置，零依赖）。
+   * @param opts 诊断选项（工作区根与显式配置路径，缺省取 process.cwd()）。
+   * @returns 汇总 Node 版本、配置、沙箱、插件目录、权限清单的诊断报告。
+   */
   public runDoctor(opts: DoctorOptions = {}): DoctorReport {
     const issues: string[] = [];
     const workspaceRoot = opts.workspaceRoot ?? process.cwd();
@@ -120,7 +134,13 @@ export class DoctorRunner {
     };
   }
 
-  /** 检查配置文件存在性与 JSON 合法性。 */
+  /**
+   * 检查配置文件存在性与 JSON 合法性。
+   * @param configPath 显式配置路径（优先）；undefined 时向上查找。
+   * @param workspaceRoot 向上查找的起点工作区根。
+   * @param issues 累积问题的清单（本方法向其追加发现的问题）。
+   * @returns 配置检查状态（exists / valid / error）。
+   */
   private checkConfig(
     configPath: string | undefined,
     workspaceRoot: string,
@@ -143,7 +163,11 @@ export class DoctorRunner {
     }
   }
 
-  /** 探测沙箱后端：bwrap / sandbox-exec / Windows RestrictedToken。 */
+  /**
+   * 探测沙箱后端：bwrap / sandbox-exec / Windows RestrictedToken。
+   * @param issues 累积问题的清单（三者均不可用时追加一条）。
+   * @returns 各沙箱后端的可用性状态。
+   */
   private checkSandbox(issues: string[]): SandboxStatus {
     const bwrap = this.detectCommand('bwrap');
     const sandboxExec = this.detectCommand('sandbox-exec');
@@ -151,7 +175,9 @@ export class DoctorRunner {
     // （非管理员 Windows 上 Rust 侧 available() 实测为 false）。此处以提权探测为代理，与运行时一致。
     const restrictedToken = this.isElevated();
     if (!bwrap && !sandboxExec && !restrictedToken) {
-      issues.push('未检测到可用沙箱后端（bwrap / sandbox-exec / Windows RestrictedToken 均不可用）');
+      issues.push(
+        '未检测到可用沙箱后端（bwrap / sandbox-exec / Windows RestrictedToken 均不可用）',
+      );
     }
     return { bwrap, sandboxExec, restrictedToken };
   }
@@ -162,6 +188,7 @@ export class DoctorRunner {
    * 这是 Rust 侧 `RestrictedTokenSandbox::available()` 运行时真实探测的轻量 TS 代理，
    * 用于让 doctor 诚实报告 OS 级沙箱后端是否真的可用，而非仅凭平台瞎报。
    * @param runProbe 可注入的探测函数（默认执行 `net session`），便于单测。
+   * @returns 非 Windows 恒为 false；Windows 上探测成功（已提权）为 true。
    */
   public isElevated(runProbe: () => void = () => this.defaultElevationProbe()): boolean {
     if (process.platform !== 'win32') return false;
@@ -178,7 +205,11 @@ export class DoctorRunner {
     execFileSync('net', ['session'], { stdio: 'ignore', timeout: 5000 });
   }
 
-  /** 用 which 探测命令是否存在（catch 视为不可用，零依赖）。 */
+  /**
+   * 用 which 探测命令是否存在（catch 视为不可用，零依赖）。
+   * @param command 待探测的命令名。
+   * @returns 命令在 PATH 中可找到为 true，否则 false。
+   */
   private detectCommand(command: string): boolean {
     try {
       execFileSync('which', [command], { stdio: 'ignore' });
@@ -188,12 +219,19 @@ export class DoctorRunner {
     }
   }
 
-  /** 提取错误消息文本。 */
+  /**
+   * 提取错误消息文本。
+   * @param error 任意抛出值。
+   * @returns Error 实例取 message，其余取 String(error)。
+   */
   private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
 
-  /** 把报告以人类可读摘要打到 stdout。 */
+  /**
+   * 把报告以人类可读摘要打到 stdout。
+   * @param report 待输出的诊断报告。
+   */
   public printDoctor(report: DoctorReport): void {
     const lines: string[] = [];
     lines.push('OmniHarness 诊断报告');
@@ -226,17 +264,28 @@ export class DoctorRunner {
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const doctorRunner = new DoctorRunner();
 
-/** 运行环境诊断（门面：委托默认诊断器实例）。 */
+/**
+ * 运行环境诊断（门面：委托默认诊断器实例）。
+ * @param opts 诊断选项（缺省取 process.cwd()）。
+ * @returns 汇总诊断报告。
+ */
 export function runDoctor(opts: DoctorOptions = {}): DoctorReport {
   return doctorRunner.runDoctor(opts);
 }
 
-/** 进程是否已提权（仅 Windows 有意义；门面：委托默认诊断器实例）。 */
+/**
+ * 进程是否已提权（仅 Windows 有意义；门面：委托默认诊断器实例）。
+ * @param runProbe 可注入的探测函数（缺省执行 `net session`）。
+ * @returns 非 Windows 恒为 false；Windows 已提权为 true。
+ */
 export function isElevated(runProbe?: () => void): boolean {
   return doctorRunner.isElevated(runProbe);
 }
 
-/** 把报告以人类可读摘要打到 stdout（门面：委托默认诊断器实例）。 */
+/**
+ * 把报告以人类可读摘要打到 stdout（门面：委托默认诊断器实例）。
+ * @param report 待输出的诊断报告。
+ */
 export function printDoctor(report: DoctorReport): void {
   doctorRunner.printDoctor(report);
 }

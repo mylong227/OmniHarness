@@ -17,13 +17,20 @@ export class AskEscalation implements EscalationPort {
    */
   public readonly name = 'ask';
 
+  /** 交互裁决器（构造时从 options 固定，运行期不可替换）。 */
   private readonly askHandler: (request: EscalationRequest) => Promise<EscalationDecision>;
 
-  public constructor(private readonly options: AskEscalationOptions) {
+  public constructor(
+    /** 升级选项：唯一必填项为 askHandler 交互裁决器。 */
+    private readonly options: AskEscalationOptions,
+  ) {
     this.askHandler = options.askHandler;
   }
 
-  /** 委派给 askHandler 裁决。 */
+  /** 委派给 askHandler 裁决。
+   * @param request 升级请求（含目标动作与上下文）。
+   * @returns 交互裁决器的结论（escalate 或 abort）。
+   */
   public async decide(request: EscalationRequest): Promise<EscalationDecision> {
     return this.askHandler(request);
   }

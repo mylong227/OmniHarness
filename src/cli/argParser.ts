@@ -9,22 +9,33 @@ export { checkEnum } from './cliFlagTable.js';
 
 /** CLI 参数（DTO：先组装后消费）。 */
 export interface CliArgs {
+  /** 模型适配器（mock/openai/anthropic/responses/llamacpp）。 */
   modelAdapter: 'mock' | 'openai' | 'anthropic' | 'responses' | 'llamacpp';
+  /** OpenAI 兼容端点地址。 */
   baseUrl?: string;
+  /** 模型 API 密钥（缺省回退对应厂商环境变量）。 */
   apiKey?: string;
   /** 网络外联白名单（逗号分隔主机后缀）；一旦设置即 fail-closed 收紧（A5）。 */
   networkAllow?: string;
+  /** 模型名（CLI/配置文件显式值优先，适配器内有厂商级兜底）。 */
   model: string;
+  /** 会话存储后端（memory/jsonl/sqlite）。 */
   storageAdapter: 'memory' | 'jsonl' | 'sqlite';
+  /** 存储目录（jsonl 会话落盘位置或 sqlite 数据库路径）。 */
   storageDir?: string;
+  /** 审批策略（auto/deny/rules/guardian/plan/ask）。 */
   approval: 'auto' | 'deny' | 'rules' | 'guardian' | 'plan' | 'ask';
+  /** rules 模式未命中规则时的裁决（allow/deny）。 */
   approvalAsk: 'allow' | 'deny';
+  /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
   sandbox: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
   escalation: 'deny' | 'ask' | 'auto';
   /** 提权后的复核沙箱（#G3/G4，默认 policy=fail-closed 收紧）：escalate 裁决后以此复核放行，危险命令/工作区外路径仍拦截。 */
   elevatedSandbox: 'passthrough' | 'policy' | 'restricted';
+  /** 事件端口（console 进度走 stderr / silent 静默）。 */
   events: 'console' | 'silent';
+  /** 上下文压缩 token 预算（缺省 8000，或按 contextWindow 的 75% 推导）。 */
   compactionMax?: number;
   /** 外溢后端（#74）：file 落盘可跨重启读回，memory 仅进程内。 */
   spillAdapter: 'memory' | 'file';
@@ -38,14 +49,23 @@ export interface CliArgs {
   subagentConcurrency?: number;
   /** 单个子智能体的步数上限（留空用内置默认 12）。 */
   subagentMaxSteps?: number;
+  /** 自定义工具模块路径列表（--tool，可重复）。 */
   toolFiles: string[];
+  /** 任务提示词（位置参数或 --prompt；resume/fork 必填）。 */
   prompt: string;
+  /** 工作区根目录（工具读写路径边界）。 */
   workspace: string;
+  /** 事件 JSONL 输出文件路径（--output）。 */
   output?: string;
+  /** 待续跑的历史会话 id（--resume）。 */
   resumeId?: string;
+  /** 待分叉的历史会话 id（--fork）。 */
   forkId?: string;
+  /** 待回放的历史会话 id（--replay，无需 prompt）。 */
   replayId?: string;
+  /** 单次任务最大步数（LoopGuard 兜底）。 */
   maxSteps: number;
+  /** 待桥接的外部 MCP 服务器清单（--mcp-server，可重复）。 */
   mcpServers: McpServerConfig[];
   /** 真实 dsh worker 的 profile（注册后替代演示 worker）。 */
   workerDsh?: string;
@@ -116,7 +136,9 @@ export const CliDefaults: CliArgs = {
 
 /** 适配器厂商预设（id + baseUrl）。 */
 interface AdapterPreset {
+  /** 厂商标识（与 providerKeys 的键对应）。 */
   readonly id: string;
+  /** 厂商 OpenAI 兼容端点。 */
   readonly baseUrl: string;
 }
 
@@ -139,7 +161,11 @@ const ADAPTER_PRESETS: Readonly<Record<string, readonly AdapterPreset[]>> = {
  * 调用点通过同名门面函数零改动继续引用；`CliDefaults` / `CliArgs` / re-export 保持不变。
  */
 export class ArgParser {
-  /** 收集非旗标的位置参数（回退为 prompt，如 `omniharness "fix bug"`）。 */
+  /**
+   * 收集非旗标的位置参数（回退为 prompt，如 `omniharness "fix bug"`）。
+   * @param argv 原始命令行参数。
+   * @returns 位置参数列表（按出现顺序；旗标本身及其取值不计入）。
+   */
   private collectPositional(argv: readonly string[]): string[] {
     const out: string[] = [];
     for (let k = 0; k < argv.length; k += 1) {
@@ -161,6 +187,8 @@ export class ArgParser {
    * Windows 上 node 的 path.join 不会解析 `/d/...`，会把它当成「当前盘符根下的 \d\...」，
    * 导致配置文件/工作区落到错位目录（如 D:\d\deepseek\...）。serve 在 GitBash 下接收的参数
    * 多为该风格，统一在此转换，避免 fs.list / config.update 落盘路径错乱。
+   * @param p 任意风格路径。
+   * @returns 本机 Windows 风格路径（非 MSYS 风格输入原样返回，仅统一分隔符）。
    */
   public toWindowsPath(p: string): string {
     let s = p.trim();
@@ -212,7 +240,11 @@ export class ArgParser {
     return args;
   }
 
-  /** 配置文件 → CLI 默认参数（仅合并已定义字段）。 */
+  /**
+   * 配置文件 → CLI 默认参数（仅合并已定义字段）。
+   * @param file 已加载的项目配置文件对象。
+   * @returns 可覆盖在 CliDefaults 之上的默认值子集（providerKeys 会按适配器补全 apiKey/baseUrl）。
+   */
   public configDefaults(file: FileConfig): Partial<CliArgs> {
     const result: Partial<CliArgs> = {};
     if (file.mcpServers !== undefined) {
@@ -353,7 +385,11 @@ export class ArgParser {
     );
   }
 
-  /** 提取错误消息。 */
+  /**
+   * 提取错误消息。
+   * @param error 任意抛出值。
+   * @returns Error 实例取 message，其余取 String(error)。
+   */
   public messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }
@@ -362,13 +398,19 @@ export class ArgParser {
    * 按 CLI --model-adapter 反查厂商预设（id + baseUrl）。
    * CLI 层独立维护一份小表（与 src/server/providerPresets.ts 同源同步）：
    * openai 适配器对应多家 OpenAI 兼容厂商，按预设默认 baseUrl 命中第一个匹配 providerKey 的。
+   * @param adapter CLI --model-adapter 取值。
+   * @returns 首个厂商预设；适配器无预设时返回 undefined。
    */
   public adapterToPreset(adapter: string): AdapterPreset | undefined {
     const list = ADAPTER_PRESETS[adapter];
     return list === undefined || list.length === 0 ? undefined : list[0];
   }
 
-  /** 取适配器下所有可能厂商预设（按 baseUrl 一一对应）。 */
+  /**
+   * 取适配器下所有可能厂商预设（按 baseUrl 一一对应）。
+   * @param adapter CLI --model-adapter 取值。
+   * @returns 预设列表（未知适配器返回空数组）。
+   */
   public adapterPresets(adapter: string): readonly AdapterPreset[] {
     return ADAPTER_PRESETS[adapter] ?? [];
   }

@@ -27,7 +27,11 @@ import { CliAgentCmds } from './cliAgentCmds.js';
 
 /** OmniHarness CLI 命令入口：omniharness exec / server … */
 export class ExecCli extends CliAgentCmds {
-  /** 执行并返回进程退出码。 */
+  /**
+   * 执行并返回进程退出码。
+   * @param argv 原始命令行参数（不含 node 与脚本入口）。
+   * @returns 进程退出码：子命令各自决定；exec 主路径成功 0、用法错误 2、执行异常 1。
+   */
   public async run(argv: readonly string[]): Promise<number> {
     if (argv.includes('--version') || argv.includes('-V')) {
       process.stdout.write(`omniharness ${(await import('../version.js')).API_VERSION}\n`);
@@ -170,6 +174,7 @@ export class ExecCli extends CliAgentCmds {
    * CI 环境的真实陷阱不是输出格式，而是**交互审批会永久挂起**——
    * `approval=ask` / `escalation=ask` 在没有 stdin 的流水线里会一直等待人输入，
    * 表现为「任务卡住」而非报错，极难排查。此处 fail-closed 显式失败并给出可自愈的提示。
+   * @param args 解析后的 CLI 参数（检查 approval / escalation 是否为 ask）。
    */
   private assertHeadlessSafe(args: CliArgs): void {
     const interactive: string[] = [];
@@ -189,6 +194,7 @@ export class ExecCli extends CliAgentCmds {
 
   /**
    * Aider 式安全网：执行后若处于 git 仓库则自动提交变更（opt-in；失败静默，不破坏主流程退出码）。
+   * @param finalText 本次执行的最终答复文本（截断 72 字符作为提交信息）。
    */
   private async maybeAutoCommit(finalText: string): Promise<void> {
     try {
@@ -209,6 +215,8 @@ export class ExecCli extends CliAgentCmds {
   /**
    * 加载分层配置为默认参数（#G6：用户级 → 项目级 → profile → 环境变量，严格校验）。
    * 配置存在但非法时 loadLayered 抛 ConfigError，由 run() 的 catch 统一以非零码退出（fail-closed）。
+   * @param argv 原始命令行参数（读取 --config / --profile 显式覆盖）。
+   * @returns 配置文件字段映射出的 CLI 默认值子集；找不到配置文件时使用内置默认（mock 模型）。
    */
   private loadDefaults(argv: readonly string[]): Partial<CliArgs> | undefined {
     const explicitConfig = this.flagValue(argv, '--config');

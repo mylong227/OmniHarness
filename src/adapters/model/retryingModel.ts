@@ -60,8 +60,11 @@ export class RetryingModel implements ModelPort {
   ) => Promise<ModelOutput>;
 
   public constructor(
+    /** 被装饰的底层模型端口（generate/stream 都经它执行）。 */
     private readonly inner: ModelPort,
+    /** 重试策略（尝试次数、退避与抖动参数）。 */
     private readonly policy: RetryPolicy = DEFAULT_RETRY_POLICY,
+    /** 等待函数（生产为真实 setTimeout，测试可注入 no-op）。 */
     private readonly delay: DelayFn = realDelay,
   ) {
     this.name = inner.name;
@@ -71,12 +74,18 @@ export class RetryingModel implements ModelPort {
     }
   }
 
-  /** 生成响应（带重试）。 */
+  /** 生成响应（带重试）。
+   * @param request 模型请求（原样透传给内部模型）。
+   * @returns 首次成功的输出；不可重试错误或达到最大尝试次数后上抛最后一个错误。
+   */
   public generate(request: ModelRequest): Promise<ModelOutput> {
     return this.run(() => this.inner.generate(request));
   }
 
-  /** 执行 + 重试主循环。 */
+  /** 执行 + 重试主循环。
+   * @param fn 单次尝试的异步操作（generate 或 stream 的包装）。
+   * @returns 首次成功的结果；不可重试或次数耗尽时抛出最后捕获的错误。
+   */
   private async run(fn: () => Promise<ModelOutput>): Promise<ModelOutput> {
     let attempt = 0;
     let lastError: unknown = new Error('unreachable');
@@ -95,7 +104,11 @@ export class RetryingModel implements ModelPort {
     throw lastError;
   }
 
-  /** 计算本次等待毫秒：优先采用 Retry-After，否则指数退避 × 抖动，封顶 maxDelayMs。 */
+  /** 计算本次等待毫秒：优先采用 Retry-After，否则指数退避 × 抖动，封顶 maxDelayMs。
+   * @param err 刚捕获的错误（可能是 ModelCallError，带服务端 Retry-After）。
+   * @param attempt 即将进行的尝试序号（从 1 起，决定指数底数）。
+   * @returns 本次重试前应等待的毫秒数。
+   */
   private delayFor(err: unknown, attempt: number): number {
     if (err instanceof ModelCallError && err.retryAfterMs !== undefined) {
       return Math.min(this.policy.maxDelayMs, err.retryAfterMs);
@@ -111,6 +124,8 @@ export class RetryingModel implements ModelPort {
  * 错误可重试性判定（#M6）。
  * 优先级：`ModelCallError.retryable` > 显式 `retryable` 标记 > HTTP 状态码 > 网络码/消息。
  * 兼容不抛 `ModelCallError` 的模型端口（duck-typing 兜底）。
+ * @param err 待判定的错误（任意抛出值）。
+ * @returns 是否值得重试（429/408/409/5xx、显式 retryable 标记或网络类错误码/消息）。
  */
 export function isRetryable(err: unknown): boolean {
   if (err instanceof ModelCallError) {

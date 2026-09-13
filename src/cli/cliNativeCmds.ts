@@ -21,6 +21,8 @@ export class CliNativeCmds extends CliCompareCmds {
   /**
    * native：FFI 下沉（#65）——Node 进程内直调 Rust 内核（N-API / .node）。
    * 用法: omniharness native info|ping|tools|approval|session-submit|context|tool-call|bench
+   * @param args 子命令参数（首 token 为子动作，其余按动作解析 --name/--args 等）。
+   * @returns 进程退出码：操作失败为 1，用法错误为 2，成功为 0。
    */
   protected async runNative(args: readonly string[]): Promise<number> {
     const sub = args[0];
@@ -100,7 +102,11 @@ export class CliNativeCmds extends CliCompareCmds {
     return 2;
   }
 
-  /** native info：插件加载状态（可用性 + 路径）。 */
+  /**
+   * native info：插件加载状态（可用性 + 路径）。
+   * @param kernel 已构造的原生内核实例。
+   * @returns 进程退出码：内核可用为 0，不可用为 1。
+   */
   protected runNativeInfo(kernel: NativeKernel): number {
     process.stdout.write(
       `${JSON.stringify({ available: kernel.available(), modulePath: kernel.modulePath() })}\n`,
@@ -108,7 +114,12 @@ export class CliNativeCmds extends CliCompareCmds {
     return kernel.available() ? 0 : 1;
   }
 
-  /** native bench：approval.check 热路径 native vs JS 对比（FFI 下沉收益度量）。 */
+  /**
+   * native bench：approval.check 热路径 native vs JS 对比（FFI 下沉收益度量）。
+   * @param kernel 已构造的原生内核实例（不可用时抛错）。
+   * @param iterations 基准循环次数。
+   * @returns 进程退出码（恒为 0）；结果 JSON 打到 stdout（含每操作纳秒与 speedup）。
+   */
   protected runNativeBench(kernel: NativeKernel, iterations: number): number {
     if (!kernel.available()) {
       throw new Error('原生内核不可用，无法基准（请先 npm run native:build）');
@@ -148,7 +159,12 @@ export class CliNativeCmds extends CliCompareCmds {
     return 0;
   }
 
-  /** native bench --kind shell：OS 沙箱命令执行 native in-process vs TS 子进程（旧方式）。 */
+  /**
+   * native bench --kind shell：OS 沙箱命令执行 native in-process vs TS 子进程（旧方式）。
+   * @param kernel 已构造的原生内核实例（不可用时抛错）。
+   * @param iterations 基准循环次数。
+   * @returns 进程退出码（恒为 0）；结果 JSON 打到 stdout；找不到 omni-cli 二进制时抛错。
+   */
   protected runNativeBenchShell(kernel: NativeKernel, iterations: number): number {
     if (!kernel.available()) {
       throw new Error('原生内核不可用，无法基准（请先 npm run native:build）');
@@ -193,6 +209,8 @@ export class CliNativeCmds extends CliCompareCmds {
    * lsp：代码导航（#S32，对标 codex LSP stdio 桥接）。
    * 用法: omniharness lsp <definition|references|hover|status> --file PATH --line N --col N [--lsp "server cmd"]
    * 语言服务器由用户自备（零依赖铁律下不内嵌），用 --lsp "cmd args" 指定（如 --lsp "typescript-language-server --stdio"）。
+   * @param args 子命令参数（首 token 为子动作，--file/--line/--col 定位，--lsp 指定服务器启动命令）。
+   * @returns 进程退出码：用法错误为 2，LSP 未配置或调用失败为 1，成功为 0。
    */
   protected async runLsp(args: readonly string[]): Promise<number> {
     const sub = args[0];
@@ -244,7 +262,10 @@ export class CliNativeCmds extends CliCompareCmds {
     }
   }
 
-  /** 定位 omni-cli 可执行文件（release 优先，其次 debug；兼容 src 与 dist 两种深度）。 */
+  /**
+   * 定位 omni-cli 可执行文件（release 优先，其次 debug；兼容 src 与 dist 两种深度）。
+   * @returns omni-cli.exe 的绝对路径；两种构建均不存在时抛错。
+   */
   protected findOmniCli(): string {
     const here = dirname(fileURLToPath(import.meta.url));
     const roots = [join(here, '..', '..'), join(here, '..', '..', '..')];

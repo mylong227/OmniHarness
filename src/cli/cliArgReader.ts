@@ -10,6 +10,7 @@
 
 /** 只读参数读取器（构造时绑定参数数组，不持有可变状态）。 */
 export class CliArgReader {
+  /** 构造时绑定的命令行参数数组（只读，之后不再变更）。 */
   private readonly args: readonly string[];
 
   /**

@@ -34,11 +34,19 @@ export interface NaturalGradientOptions {
 export class NaturalGradientBelief implements MetacognitionPort {
   /** 端口名：自然梯度信念标识，与 MetacognitionPort 契约的命名空间一致。 */
   public readonly name = 'natural-gradient-belief';
+  /** 信念维度（下限 1）。 */
   private readonly dim: number;
+  /** 方差地板（防高斯退化为点质量）。 */
   private readonly floor: number;
+  /** 对角高斯均值向量 μ。 */
   private mean: number[];
+  /** 对角高斯方差向量 σ²（更新后夹紧不低于 floor）。 */
   private variance: number[];
 
+  /**
+   * 构造信念引擎：按选项夹紧参数并以 N(initialMean, initialVariance) 初始化各维。
+   * @param opts 选项（全部缺省：dim=3、均值 0、方差 1、方差地板 1e-3）。
+   */
   public constructor(opts: NaturalGradientOptions = {}) {
     this.dim = Math.max(1, Math.floor(opts.dim ?? 3));
     this.floor = Math.max(1e-6, opts.varianceFloor ?? 1e-3);
@@ -102,6 +110,10 @@ export class NaturalGradientBelief implements MetacognitionPort {
     return this.report(before);
   }
 
+  /** 生成更新前后的可审计报告（快照对 + 对角 KL + 重参数化不变量）。
+   * @param before 更新前的信念快照。
+   * @returns 含 before/after 快照、KL 分解与重参数化不变性审计的更新报告。
+   */
   private report(before: BeliefSnapshot): BeliefUpdateReport {
     const after = this.snapshot();
     const kl = klDiagonal(

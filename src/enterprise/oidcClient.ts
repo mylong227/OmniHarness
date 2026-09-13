@@ -118,6 +118,11 @@ export interface AuthState {
  * 无隐式状态，同一实例可并发复用（默认实例见文件末尾组合根门面）。
  */
 export class OidcClient {
+  /**
+   * 将字节编码为 base64url（替换 +/ 并去掉填充，JWT 标准字母表）。
+   * @param input 待编码的 Buffer 或 UTF-8 字符串。
+   * @returns 无填充的 base64url 字符串。
+   */
   private b64url(input: Buffer | string): string {
     return Buffer.from(input)
       .toString('base64')
@@ -126,15 +131,30 @@ export class OidcClient {
       .replace(/=+$/, '');
   }
 
+  /**
+   * 将 base64url 字符串还原为字节缓冲（把 -_ 映回 +/ 后按 base64 解码）。
+   * @param s base64url 编码字符串。
+   * @returns 解码后的 Buffer。
+   */
   private b64urlToBuf(s: string): Buffer {
     return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
   }
 
+  /**
+   * 将 base64url 字符串解码为 UTF-8 文本。
+   * @param s base64url 编码字符串。
+   * @returns 解码后的 UTF-8 字符串。
+   */
   private b64urlDecode(s: string): string {
     return this.b64urlToBuf(s).toString('utf8');
   }
 
-  /** 拉取并校验 OIDC discovery 文档。 */
+  /**
+   * 拉取并校验 OIDC discovery 文档。
+   * @param issuer IdP 的 Issuer 标识（如 https://accounts.example.com），尾部斜杠会被归一化。
+   * @param fetchImpl 注入的 fetch 实现（默认 globalThis.fetch，测试可替换）。
+   * @returns 已校验的 discovery 子集；HTTP 非成功或缺少必需端点时抛错。
+   */
   public async fetchDiscovery(
     issuer: string,
     fetchImpl: typeof fetch = globalThis.fetch,
@@ -165,6 +185,7 @@ export class OidcClient {
   /**
    * @beta
    * 生成 PKCE(S256) 密钥对：verifier 为 32 字节随机 base64url，challenge = SHA256(verifier) base64url。
+   * @returns PKCE 密钥对（verifier / challenge / method=S256）。
    */
   public generatePkcePair(): PkcePair {
     const verifier = this.b64url(crypto.randomBytes(32));
@@ -175,6 +196,10 @@ export class OidcClient {
   /**
    * @beta
    * 构造授权码流授权 URL（含 PKCE + state + nonce）。
+   * @param discovery 已拉取的 discovery 文档（取 authorization_endpoint）。
+   * @param config OIDC 提供方配置（取 clientId / redirectUri / scope 兜底）。
+   * @param params 请求参数：state 防 CSRF、codeChallenge 为 PKCE 挑战、scope 可覆盖配置。
+   * @returns 完整的授权端点 URL。
    */
   public buildAuthorizationUrl(
     discovery: OidcDiscovery,
@@ -193,7 +218,13 @@ export class OidcClient {
     return u.toString();
   }
 
-  /** 用授权码换取令牌集（支持 public/confidential client，PKCE 校验）。 */
+  /**
+   * 用授权码换取令牌集（支持 public/confidential client，PKCE 校验）。
+   * @param discovery 已拉取的 discovery 文档（取 token_endpoint）。
+   * @param config OIDC 提供方配置（取 clientId / clientSecret / redirectUri 兜底）。
+   * @param params 请求参数：code 为授权码、codeVerifier 用于 PKCE、redirectUri / fetchImpl 可覆盖。
+   * @returns 令牌集；HTTP 非成功或响应缺 access_token 时抛错。
+   */
   public async exchangeCode(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
@@ -238,6 +269,8 @@ export class OidcClient {
   /**
    * @beta
    * 解码 JWT（不校验签名），返回 header/payload/signature/signingInput。
+   * @param token 形如 header.payload.signature 的 JWT 字符串。
+   * @returns 解码后的三部件；段数不为 3 或 JSON 非法时抛错。
    */
   public decodeJwt(token: string): JwtParts {
     const parts = token.split('.');
@@ -255,13 +288,16 @@ export class OidcClient {
   /**
    * @beta
    * 校验 id_token 的 iss/aud/exp/nonce 声明（不含签名）。
+   * @param payload 已解码的 JWT payload 声明集。
+   * @param opts 校验基准：issuer / clientId 必须匹配，nonce 提供时必须一致；exp 过期即拒绝。
    */
   public verifyIdTokenClaims(
     payload: Record<string, unknown>,
     opts: { readonly issuer: string; readonly clientId: string; readonly nonce?: string },
   ): void {
     const iss = payload['iss'];
-    if (iss !== opts.issuer) throw new Error(`id_token iss 不匹配: ${String(iss)} != ${opts.issuer}`);
+    if (iss !== opts.issuer)
+      throw new Error(`id_token iss 不匹配: ${String(iss)} != ${opts.issuer}`);
     const aud = payload['aud'];
     const okAud =
       typeof aud === 'string'
@@ -279,6 +315,8 @@ export class OidcClient {
   /**
    * @beta
    * 用 RS256 JWKS 校验 JWT 签名。
+   * @param token 待校验的 JWT 字符串。
+   * @param jwks IdP 的 JWKS 密钥集（按 kid 匹配 RSA 公钥）。
    */
   public verifyJwtSignature(token: string, jwks: { readonly keys: readonly Jwk[] }): void {
     const { header, signature, signingInput } = this.decodeJwt(token);
@@ -305,6 +343,8 @@ export class OidcClient {
   /**
    * @beta
    * 写入 `auth login` 中间态到文件（state + verifier + 配置）。
+   * @param path 中间态 JSON 文件的写入路径。
+   * @param state 待持久化的认证中间态。
    */
   public writeAuthState(path: string, state: AuthState): void {
     writeFileSync(path, JSON.stringify(state, null, 2), 'utf8');
@@ -313,6 +353,8 @@ export class OidcClient {
   /**
    * @beta
    * 读取 `auth login` 中间态。
+   * @param path 中间态 JSON 文件的读取路径。
+   * @returns 反序列化出的认证中间态；文件不存在或 JSON 非法时抛错。
    */
   public readAuthState(path: string): AuthState {
     return JSON.parse(readFileSync(path, 'utf8')) as AuthState;
@@ -322,7 +364,12 @@ export class OidcClient {
 // ---- 门面兼容：保留原模块级导出名与签名，委托默认实例，调用点零改动 ----
 const oidcClient = new OidcClient();
 
-/** 拉取并校验 OIDC discovery 文档。 */
+/**
+ * 拉取并校验 OIDC discovery 文档。
+ * @param issuer IdP 的 Issuer 标识。
+ * @param fetchImpl 注入的 fetch 实现（默认 globalThis.fetch）。
+ * @returns 已校验的 discovery 子集；失败时抛错。
+ */
 export function fetchDiscovery(
   issuer: string,
   fetchImpl: typeof fetch = globalThis.fetch,
@@ -330,12 +377,21 @@ export function fetchDiscovery(
   return oidcClient.fetchDiscovery(issuer, fetchImpl);
 }
 
-/** 生成 PKCE(S256) 密钥对。 */
+/**
+ * 生成 PKCE(S256) 密钥对。
+ * @returns PKCE 密钥对（verifier / challenge / method=S256）。
+ */
 export function generatePkcePair(): PkcePair {
   return oidcClient.generatePkcePair();
 }
 
-/** 构造授权码流授权 URL（含 PKCE + state + nonce）。 */
+/**
+ * 构造授权码流授权 URL（含 PKCE + state + nonce）。
+ * @param discovery 已拉取的 discovery 文档。
+ * @param config OIDC 提供方配置。
+ * @param params state / codeChallenge / scope 请求参数。
+ * @returns 完整的授权端点 URL。
+ */
 export function buildAuthorizationUrl(
   discovery: OidcDiscovery,
   config: OidcProviderConfig,
@@ -344,7 +400,13 @@ export function buildAuthorizationUrl(
   return oidcClient.buildAuthorizationUrl(discovery, config, params);
 }
 
-/** 用授权码换取令牌集。 */
+/**
+ * 用授权码换取令牌集。
+ * @param discovery 已拉取的 discovery 文档。
+ * @param config OIDC 提供方配置。
+ * @param params code / codeVerifier / redirectUri / fetchImpl 请求参数。
+ * @returns 令牌集；失败时抛错。
+ */
 export function exchangeCode(
   discovery: OidcDiscovery,
   config: OidcProviderConfig,
@@ -358,12 +420,20 @@ export function exchangeCode(
   return oidcClient.exchangeCode(discovery, config, params);
 }
 
-/** 解码 JWT（不校验签名）。 */
+/**
+ * 解码 JWT（不校验签名）。
+ * @param token JWT 字符串。
+ * @returns 解码后的三部件；非法 JWT 时抛错。
+ */
 export function decodeJwt(token: string): JwtParts {
   return oidcClient.decodeJwt(token);
 }
 
-/** 校验 id_token 的 iss/aud/exp/nonce 声明（不含签名）。 */
+/**
+ * 校验 id_token 的 iss/aud/exp/nonce 声明（不含签名）。
+ * @param payload 已解码的 JWT payload。
+ * @param opts 校验基准（issuer / clientId / nonce）。
+ */
 export function verifyIdTokenClaims(
   payload: Record<string, unknown>,
   opts: { readonly issuer: string; readonly clientId: string; readonly nonce?: string },
@@ -371,17 +441,29 @@ export function verifyIdTokenClaims(
   oidcClient.verifyIdTokenClaims(payload, opts);
 }
 
-/** 用 RS256 JWKS 校验 JWT 签名。 */
+/**
+ * 用 RS256 JWKS 校验 JWT 签名。
+ * @param token 待校验的 JWT 字符串。
+ * @param jwks IdP 的 JWKS 密钥集。
+ */
 export function verifyJwtSignature(token: string, jwks: { readonly keys: readonly Jwk[] }): void {
   oidcClient.verifyJwtSignature(token, jwks);
 }
 
-/** 写入 `auth login` 中间态到文件。 */
+/**
+ * 写入 `auth login` 中间态到文件。
+ * @param path 中间态 JSON 文件的写入路径。
+ * @param state 待持久化的认证中间态。
+ */
 export function writeAuthState(path: string, state: AuthState): void {
   oidcClient.writeAuthState(path, state);
 }
 
-/** 读取 `auth login` 中间态。 */
+/**
+ * 读取 `auth login` 中间态。
+ * @param path 中间态 JSON 文件的读取路径。
+ * @returns 反序列化出的认证中间态；文件不存在或非法时抛错。
+ */
 export function readAuthState(path: string): AuthState {
   return oidcClient.readAuthState(path);
 }
@@ -395,15 +477,25 @@ export function readAuthState(path: string): AuthState {
  * 企业认证门禁：持有 discovery + 可重载 JWKS，校验 Bearer 令牌并返回主体。fail-closed。
  */
 export class EnterpriseAuth {
+  /** JWKS 缓存（含取回时间戳）；1 小时内复用，过期后重新拉取。 */
   private jwksCache: { readonly keys: readonly Jwk[]; readonly fetchedAt: number } | undefined;
 
+  /**
+   * @param config OIDC 提供方配置（校验 aud 用 clientId）。
+   * @param discovery 已拉取的 discovery 文档（校验 iss / 定位 jwks_uri）。
+   * @param fetchImpl 注入的 fetch 实现（默认 globalThis.fetch，测试可替换）。
+   */
   public constructor(
     private readonly config: OidcProviderConfig,
     private readonly discovery: OidcDiscovery,
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
   ) {}
 
-  /** 校验 Authorization 头中的 Bearer 令牌；任何失败返回 null（未认证）。 */
+  /**
+   * 校验 Authorization 头中的 Bearer 令牌；任何失败返回 null（未认证）。
+   * @param header 原始 Authorization 头取值（可能缺失或非 Bearer）。
+   * @returns 认证成功时返回主体 sub 与完整声明集；任何一步失败（含签名/声明校验）一律 null。
+   */
   public async authenticate(
     header: string | undefined,
   ): Promise<{ readonly sub: string; readonly claims: Record<string, unknown> } | null> {
@@ -429,6 +521,10 @@ export class EnterpriseAuth {
     }
   }
 
+  /**
+   * 取 JWKS（带 1 小时缓存）；缓存过期或缺失时经 fetchImpl 重新拉取。
+   * @returns JWKS 密钥集；discovery 未提供 jwks_uri 或拉取失败时抛错。
+   */
   private async getJwks(): Promise<{ readonly keys: readonly Jwk[] }> {
     if (this.jwksCache !== undefined && Date.now() - this.jwksCache.fetchedAt < 3_600_000)
       return this.jwksCache;
@@ -447,6 +543,9 @@ export class EnterpriseAuth {
 /**
  * @beta
  * 从 issuer 拉 discovery 构造认证门禁（工厂函数，替代原 `EnterpriseAuth.fromIssuer` 静态方法）。
+ * @param config OIDC 提供方配置（issuer 用于拉 discovery）。
+ * @param fetchImpl 注入的 fetch 实现（默认 globalThis.fetch）。
+ * @returns 就绪的认证门禁；discovery 拉取失败时抛错。
  */
 export async function enterpriseAuthFromIssuer(
   config: OidcProviderConfig,

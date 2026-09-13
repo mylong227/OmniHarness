@@ -16,12 +16,18 @@ import { sanitizeToolRounds } from '../../util/toolRoundSanitizer.js';
 
 /** OpenAI 兼容模型适配器配置。 */
 export interface OpenAiCompatibleConfig {
+  /** 兼容端点根地址（适配器在其后追加 /chat/completions）。 */
   readonly baseUrl: string;
+  /** Bearer 鉴权用的 API 密钥。 */
   readonly apiKey: string;
+  /** 模型标识（同时作为端口契约的适配器名）。 */
   readonly model: string;
 }
 
-/** 解析 Retry-After（秒数或 HTTP-date），越界或非法返回 undefined（#M6）。 */
+/** 解析 Retry-After（秒数或 HTTP-date），越界或非法返回 undefined（#M6）。
+ * @param value Retry-After 响应头原文（纯秒数或 HTTP 日期两种格式）。
+ * @returns 折算后的等待毫秒数（上限 60 秒）；格式非法或日期已过期时为 undefined。
+ */
 function parseRetryAfter(value: string): number | undefined {
   const trimmed = value.trim();
   if (/^\d+$/.test(trimmed)) {
@@ -47,11 +53,17 @@ export class OpenAiCompatibleModel implements ModelPort {
   /** 提示缓存命中量读取器（三家字段名不同，读取逻辑集中在 reader，本类只调用）。 */
   private readonly promptCache = new PromptCacheUsageReader();
 
-  public constructor(private readonly config: OpenAiCompatibleConfig) {
+  public constructor(
+    /** 适配器配置：兼容端点地址、API 密钥与模型标识。 */
+    private readonly config: OpenAiCompatibleConfig,
+  ) {
     this.name = config.model;
   }
 
-  /** 生成响应。 */
+  /** 生成响应。
+   * @param request 模型请求（消息、工具规格、推理强度与可选取消信号）。
+   * @returns 解析后的统一输出（文本、推理、工具调用与用量）；非 2xx 时抛出结构化 ModelCallError。
+   */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
     const response = await fetch(this.endpoint(), this.buildRequest(request));
     if (!response.ok) {
@@ -61,7 +73,13 @@ export class OpenAiCompatibleModel implements ModelPort {
     return this.parseOutput(body);
   }
 
-  /** 流式生成（SSE）。 */
+  /** 流式生成（SSE）。
+   * @param request 模型请求（消息、工具规格、推理强度与可选取消信号）。
+   * @param callbacks 流式回调集合：文本增量、工具调用参数增量实时推送。
+   * @returns 流结束后的完整输出：文本/推理按增量顺序拼接，工具调用参数按 index 分桶
+   *          渐进累积后一次性解析；末块 usage 回填供成本护栏。响应体缺失时降级为非流式 generate；
+   *          非 2xx 时抛出结构化 ModelCallError。
+   */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
     const init = this.buildRequest(request);
     const body = this.bodyOf(request);
@@ -105,7 +123,9 @@ export class OpenAiCompatibleModel implements ModelPort {
     return { text, reasoning, toolCalls, usage: state.usage };
   }
 
-  /** 构造请求端点。 */
+  /** 构造请求端点。
+   * @returns chat/completions 完整 URL（baseUrl 追加标准路径）。
+   */
   private endpoint(): string {
     return `${this.config.baseUrl}/chat/completions`;
   }
@@ -114,6 +134,10 @@ export class OpenAiCompatibleModel implements ModelPort {
    * 把非 2xx 响应转结构化错误（#M6）：429/408/409/5xx 标为可重试，其余 4xx 不可重试；
    * 若响应带 Retry-After 头则解析为毫秒数随错返回，供重试装饰器直接采用。
    * 非 2xx 时把响应 body 也记录到 error 日志，方便定位 400 真实原因。
+   * @param response fetch 返回的非 2xx 响应。
+   * @param label 错误消息前缀（区分普通生成与流式生成两条路径）。
+   * @param request 原始请求；400 时用于 dump messages 关键字段辅助定位。
+   * @returns 携带 status / retryable / retryAfterMs 的结构化模型调用错误（不抛出，由调用方决定）。
    */
   private async httpError(
     response: Response,
@@ -151,7 +175,10 @@ export class OpenAiCompatibleModel implements ModelPort {
     return new ModelCallError(`${label}: HTTP ${status}`, { status, retryable, retryAfterMs });
   }
 
-  /** 构造请求体。 */
+  /** 构造请求体。
+   * @param request 模型请求，决定 body 内容与是否透传取消信号。
+   * @returns 可直接交给 fetch 的 RequestInit（POST、鉴权头与 JSON 序列化后的请求体）。
+   */
   private buildRequest(request: ModelRequest): RequestInit {
     return {
       method: 'POST',
@@ -162,7 +189,9 @@ export class OpenAiCompatibleModel implements ModelPort {
     };
   }
 
-  /** 请求头。 */
+  /** 请求头。
+   * @returns 含 JSON Content-Type 与 Bearer 鉴权的请求头集合。
+   */
   private headers(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
@@ -170,7 +199,11 @@ export class OpenAiCompatibleModel implements ModelPort {
     };
   }
 
-  /** 请求体。 */
+  /** 请求体。
+   * @param request 模型请求（消息先经工具轮次规整，再转 wire 格式）。
+   * @returns chat/completions 请求体：model/messages，工具非空时附 tools，
+   *          reasoningEffort 非空串时透传 reasoning_effort（空串不发，避免部分端点 400）。
+   */
   private bodyOf(request: ModelRequest): Record<string, unknown> {
     // thinking 模式判定：与下文 reasoning_effort 透传同源——非空字符串即视为已开启。
     // 该标记会传给 toWireMessages，用于在历史 assistant 消息 reasoningContent 缺失但带
@@ -195,7 +228,12 @@ export class OpenAiCompatibleModel implements ModelPort {
     return body;
   }
 
-  /** 消息转 wire 格式。 */
+  /** 消息转 wire 格式。
+   * @param messages 已规整的消息列表（orphan tool 与残缺 assistant 回合已被丢弃）。
+   * @param thinking 思考模式标记（reasoningEffort 非空即视为开启）；为 true 时对带工具调用的
+   *                 assistant 消息兜底注入 reasoning_content 空串占位，避免推理模型下轮 400。
+   * @returns OpenAI wire 消息数组（tool_calls 序列化、tool_call_id 回填、reasoning_content 一致性维护）。
+   */
   private toWireMessages(
     messages: readonly ModelRequest['messages'][number][],
     thinking: boolean,
@@ -245,6 +283,8 @@ export class OpenAiCompatibleModel implements ModelPort {
   /**
    * 消息 content 转换：含图像时构造为 `[text, ...image_url]` 数组（#B1），
    * 文件附件按类型追加为图像或文本说明（#B5）；纯文本退化为字符串（向后兼容）。
+   * @param message 统一消息（可能携带图像、文件附件）。
+   * @returns 纯文本时返回字符串；含视觉输入时返回 `[text, ...image_url, ...附件说明]` 分段数组。
    */
   private contentOf(message: ModelMessage): unknown {
     const images = message.images;
@@ -277,7 +317,10 @@ export class OpenAiCompatibleModel implements ModelPort {
     return parts;
   }
 
-  /** 工具转 wire 格式。 */
+  /** 工具转 wire 格式。
+   * @param tools 统一工具规格列表。
+   * @returns OpenAI tools 数组，每项为 type=function 且参数嵌套在 function 字段内的声明。
+   */
   private toWireTools(tools: readonly ModelToolSpec[]): unknown[] {
     return tools.map((tool) => ({
       type: 'function',
@@ -285,7 +328,10 @@ export class OpenAiCompatibleModel implements ModelPort {
     }));
   }
 
-  /** 解析响应为统一输出。 */
+  /** 解析响应为统一输出。
+   * @param body wire 层 JSON 响应。
+   * @returns 统一模型输出（取首个 choice 的消息内容；含提示缓存命中量）；无 choice 时返回空对象。
+   */
   private parseOutput(body: ChatCompletionResponse): ModelOutput {
     const choice = body.choices[0];
     if (choice === undefined) {
@@ -321,7 +367,10 @@ export class OpenAiCompatibleModel implements ModelPort {
     return output;
   }
 
-  /** 解析单个工具调用。 */
+  /** 解析单个工具调用。
+   * @param call wire 层工具调用（参数为 JSON 字符串）。
+   * @returns 统一工具调用引用（id/name/已解析参数对象）。
+   */
   private parseToolCall(call: WireToolCall): ModelToolCallRef {
     return {
       id: call.id,
@@ -330,7 +379,10 @@ export class OpenAiCompatibleModel implements ModelPort {
     };
   }
 
-  /** 解析工具参数 JSON。 */
+  /** 解析工具参数 JSON。
+   * @param raw wire 层返回的参数 JSON 字符串。
+   * @returns 解析出的参数对象；JSON 非法或不是对象时返回空对象（不抛错，保证流不中断）。
+   */
   private parseArguments(raw: string): Record<string, unknown> {
     try {
       const parsed: unknown = JSON.parse(raw);
@@ -342,7 +394,11 @@ export class OpenAiCompatibleModel implements ModelPort {
     }
   }
 
-  /** 处理流式事件。 */
+  /** 处理流式事件。
+   * @param data SSE 已分帧的事件 data 负载（JSON 文本；[DONE] 终止标记直接忽略）。
+   * @param callbacks 流式回调集合：文本增量经 onText、工具参数增量经 onToolInput 推出。
+   * @param state 跨事件共享的累积状态：文本块、推理块、按 index 分桶的工具调用块与末块 usage。
+   */
   private handleStreamEvent(data: string, callbacks: StreamCallbacks, state: StreamState): void {
     if (data === '[DONE]') {
       return;
