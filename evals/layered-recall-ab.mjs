@@ -43,11 +43,10 @@ const { getRepoMapContext } = await importDist('context', 'repoMapContext.js');
 const { indexCorpus } = await importDist('context', 'contextEngine.js');
 const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
 const { buildCodeGraph, propagate } = await importDist('context', 'codeGraph.js');
-const {
-  buildLayeredCodeGraph,
-  edgeCountOf,
-  layeredFileRoute,
-} = await importDist('context', 'layeredCodeGraph.js');
+const { buildLayeredCodeGraph, edgeCountOf, layeredFileRoute } = await importDist(
+  'context',
+  'layeredCodeGraph.js',
+);
 const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto.js');
 
 /** 语料根（与生产一致）。 */
@@ -148,7 +147,9 @@ function routeFromGraph(graph, seed, k) {
 let queries = loadQueries();
 if (queries.length === 0) throw new Error('未能从 recall-codebase-real.mjs 抽取到查询');
 
-console.log(`语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`);
+console.log(
+  `语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`,
+);
 console.log(`查询：${queries.length} 条（q + 独立锚点，自 recall-codebase-real.mjs 抽取）`);
 
 // 锚点失效（GT=0）处理：本脚本记 0 分会拉低均值、原脚本会兜底成 100%，
@@ -175,11 +176,9 @@ const tBuild = Date.now();
 const denseGraph = buildCodeGraph(corpus);
 const layeredGraph = buildLayeredCodeGraph(corpus);
 console.log(
-  `[图] 稠密 ${edgeCountOf(denseGraph)} 边 / 层化 ${edgeCountOf(
-    layeredGraph,
-  )} 边（稀疏 ${(edgeCountOf(denseGraph) / Math.max(edgeCountOf(layeredGraph), 1)).toFixed(
-    1,
-  )}×，构建 ${Date.now() - tBuild}ms）\n`,
+  `[图] 稠密 ${edgeCountOf(denseGraph)} 边 / 层化 ${edgeCountOf(layeredGraph)} 边（稀疏 ${(
+    edgeCountOf(denseGraph) / Math.max(edgeCountOf(layeredGraph), 1)
+  ).toFixed(1)}×，构建 ${Date.now() - tBuild}ms）\n`,
 );
 
 /** 每查询的评估结果。 */
@@ -229,8 +228,12 @@ const denseAvg = avg('dense');
 
 console.log('══════ 单路由召回（fileK=' + FILE_K + '，' + rows.length + ' 查询） ══════');
 console.log(`   BM25 基线（生产路径）      ${bm25Avg.toFixed(1)}%`);
-console.log(`   层化图路由（本轮候选）     ${layeredAvg.toFixed(1)}%   Δ ${(layeredAvg - bm25Avg >= 0 ? '+' : '') + (layeredAvg - bm25Avg).toFixed(1)}pp`);
-console.log(`   稠密图路由（负对照）       ${denseAvg.toFixed(1)}%   Δ ${(denseAvg - bm25Avg >= 0 ? '+' : '') + (denseAvg - bm25Avg).toFixed(1)}pp`);
+console.log(
+  `   层化图路由（本轮候选）     ${layeredAvg.toFixed(1)}%   Δ ${(layeredAvg - bm25Avg >= 0 ? '+' : '') + (layeredAvg - bm25Avg).toFixed(1)}pp`,
+);
+console.log(
+  `   稠密图路由（负对照）       ${denseAvg.toFixed(1)}%   Δ ${(denseAvg - bm25Avg >= 0 ? '+' : '') + (denseAvg - bm25Avg).toFixed(1)}pp`,
+);
 
 // ── 融合扫描：BM25 保护位 N + 层化探索位 M，N + M = FILE_K ──────────────────
 console.log('\n══════ 融合扫描（BM25 保护 N 位 + 层化探索 M 位，N+M=' + FILE_K + '） ══════');
@@ -335,7 +338,9 @@ console.log(
 );
 console.log(
   `   ② 查询不敏感度 ${vetoReport.metrics.queryInsensitivity.toFixed(4)} ${
-    vetoReport.metrics.queryInsensitivity >= 0.5 ? '≥ 0.5 ⇒ ❌ 判定常量偏置，放弃' : '< 0.5 ⇒ ✅ 通过'
+    vetoReport.metrics.queryInsensitivity >= 0.5
+      ? '≥ 0.5 ⇒ ❌ 判定常量偏置，放弃'
+      : '< 0.5 ⇒ ✅ 通过'
   }`,
 );
 console.log(

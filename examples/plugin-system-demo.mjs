@@ -43,7 +43,7 @@ class ServiceContainer {
  * ============================================================ */
 class ToolRegistry {
   constructor() {
-    this.defs = new Map();   // name -> definition
+    this.defs = new Map(); // name -> definition
     this.handlers = new Map(); // name -> handler(args)
   }
 
@@ -63,12 +63,15 @@ class ToolRegistry {
   }
 
   list() {
-    return [...this.defs.values()].map((d) => `${d.name}${d.description ? ` (${d.description})` : ''}`);
+    return [...this.defs.values()].map(
+      (d) => `${d.name}${d.description ? ` (${d.description})` : ''}`,
+    );
   }
 
   async call(name, args = {}) {
     const handler = this.handlers.get(name);
-    if (!handler) throw new Error(`unknown tool "${name}" (registered: ${this.list().join(', ') || 'none'})`);
+    if (!handler)
+      throw new Error(`unknown tool "${name}" (registered: ${this.list().join(', ') || 'none'})`);
     return handler(args);
   }
 }
@@ -145,7 +148,11 @@ const helloPlugin = {
   async apply(ctx) {
     const tools = ctx.services.get('port.tools');
     tools.register(
-      { name: 'hello', description: 'say hello', parameters: { type: 'object', properties: { who: { type: 'string' } } } },
+      {
+        name: 'hello',
+        description: 'say hello',
+        parameters: { type: 'object', properties: { who: { type: 'string' } } },
+      },
       async (args) => `hello, ${args?.who ?? 'world'}!`,
     );
     ctx.log('tool "hello" registered');
@@ -165,7 +172,11 @@ const notesPlugin = {
       {
         name: 'notes_echo',
         description: 'echo & reverse text',
-        parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+        parameters: {
+          type: 'object',
+          properties: { text: { type: 'string' } },
+          required: ['text'],
+        },
       },
       async (args) => {
         const text = String(args?.text ?? '');
@@ -226,6 +237,8 @@ try {
 console.log('\n-- shutdown: unload remaining plugins --');
 names = await pm.unload('demo-notes');
 console.log(`  removed tools: ${names.join(', ')}`);
-console.log(`  final registry: ${pm.tools.list().join(' | ') || '(empty)'}   loaded: ${pm.summary()}`);
+console.log(
+  `  final registry: ${pm.tools.list().join(' | ') || '(empty)'}   loaded: ${pm.summary()}`,
+);
 
 console.log('\nDone.');

@@ -25,7 +25,9 @@ export default {
     function toNumbers(raw, what) {
       if (!Array.isArray(raw)) {
         throw new Error(
-          what + `: 参数 numbers 必须是数组，收到 ` + (Array.isArray(raw) ? '非数组值' : typeof raw),
+          what +
+            `: 参数 numbers 必须是数组，收到 ` +
+            (Array.isArray(raw) ? '非数组值' : typeof raw),
         );
       }
       const nums = raw.map(Number);

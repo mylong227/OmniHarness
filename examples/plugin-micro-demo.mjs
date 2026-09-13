@@ -20,7 +20,10 @@ const tools = {
   async invoke(name, args) {
     const t = this.registry.get(name);
     if (!t) throw new Error(`unknown tool: ${name}`);
-    const r = await t.handler({ id: `call_${Math.random().toString(36).slice(2, 8)}`, arguments: args });
+    const r = await t.handler({
+      id: `call_${Math.random().toString(36).slice(2, 8)}`,
+      arguments: args,
+    });
     return r;
   },
 };
@@ -32,7 +35,11 @@ const helloPlugin = {
     const tools = ctx.services.get('port.tools');
     tools.register(
       { name: 'hello', description: '回问候语', parameters: { type: 'object' } },
-      async (call) => ({ callId: call.id, ok: true, output: `hello, ${call.arguments.name ?? 'world'}!` }),
+      async (call) => ({
+        callId: call.id,
+        ok: true,
+        output: `hello, ${call.arguments.name ?? 'world'}!`,
+      }),
     );
   },
   async effect() {}, // 无外部资源，占位

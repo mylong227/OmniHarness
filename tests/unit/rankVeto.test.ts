@@ -7,7 +7,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RankVetoEvaluator, jaccardOverlap, meanPairwiseJaccard } from '../../src/context/rankVeto.js';
+import {
+  RankVetoEvaluator,
+  jaccardOverlap,
+  meanPairwiseJaccard,
+} from '../../src/context/rankVeto.js';
 
 /** 构造无向完全图 K_n。 */
 function completeGraph(n: number): { n: number; adj: Array<Array<[number, number]>> } {
@@ -51,7 +55,10 @@ test('常量路由被否决：查询不敏感度达上限', () => {
   assert.strictEqual(report.verdict, 'veto');
   assert.strictEqual(report.metrics.queryInsensitivity, 1);
   assert.strictEqual(report.metrics.baselineQueryInsensitivity, 0);
-  assert.ok(report.reasons.some((r) => r.includes('查询不敏感度')), '应命中查询敏感度判据');
+  assert.ok(
+    report.reasons.some((r) => r.includes('查询不敏感度')),
+    '应命中查询敏感度判据',
+  );
 });
 
 test('查询专属路由放行（对照：BM25 形态）', () => {
@@ -76,7 +83,9 @@ test('结构性指标单独不得触发否决——回溯验证已证伪其判�
     '诊断提示须显式标注验证状态',
   );
   // 度量仍然照算，便于存档与复核。
-  assert.ok(report.metrics.effectiveSupportRatio !== null && report.metrics.effectiveSupportRatio > 0.99);
+  assert.ok(
+    report.metrics.effectiveSupportRatio !== null && report.metrics.effectiveSupportRatio > 0.99,
+  );
   assert.ok(report.metrics.degreeGini !== null && report.metrics.degreeGini < 0.01);
   assert.ok(report.metrics.spectralGap !== null && report.metrics.spectralGap > 0.5);
 });
@@ -100,7 +109,11 @@ test('jaccardOverlap 精确：全等=1、互斥=0、半重叠=1/3', () => {
 });
 
 test('确定性：同输入两次评估完全一致（无随机数依赖）', () => {
-  const input = { graph: completeGraph(7), candidateProbeLists: constantProbe(), baselineProbeLists: distinctProbe() };
+  const input = {
+    graph: completeGraph(7),
+    candidateProbeLists: constantProbe(),
+    baselineProbeLists: distinctProbe(),
+  };
   const a = new RankVetoEvaluator().evaluate(input);
   const b = new RankVetoEvaluator().evaluate(input);
   assert.deepEqual(a, b);
@@ -116,5 +129,9 @@ test('退化输入不崩：空图返回 proceed + 诊断，而非抛错', () => 
 test('阈值可注入：放宽后常量路由可放行', () => {
   const input = { candidateProbeLists: constantProbe() };
   assert.strictEqual(new RankVetoEvaluator().evaluate(input).verdict, 'veto');
-  assert.strictEqual(new RankVetoEvaluator({ maxQueryInsensitivity: 2, maxOverlapJaccard: 2 }).evaluate(input).verdict, 'proceed');
+  assert.strictEqual(
+    new RankVetoEvaluator({ maxQueryInsensitivity: 2, maxOverlapJaccard: 2 }).evaluate(input)
+      .verdict,
+    'proceed',
+  );
 });

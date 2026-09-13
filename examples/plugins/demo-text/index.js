@@ -118,7 +118,9 @@ export default {
         let convert;
         if (mode === 'upper') convert = (w) => w.toUpperCase();
         else if (mode === 'lower') convert = (w) => w.toLowerCase();
-        else convert = (w) => w.replace(/(^|[\s\-_/])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
+        else
+          convert = (w) =>
+            w.replace(/(^|[\s\-_/])(\p{L})/gu, (m, sep, ch) => sep + ch.toUpperCase());
 
         return {
           callId: call.id,

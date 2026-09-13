@@ -45,7 +45,8 @@ class MiniSupervisor {
   /** 模式门禁（对应 intercept）：locked 拒危险工具；safe 拒危险工具；其余放行。 */
   intercept(tool) {
     if (!this.hazardous.has(tool)) return undefined;
-    if (this.mode === 'locked') return `[DENY] locked: hazardous tool "${tool}" rejected (zero-escalation)`;
+    if (this.mode === 'locked')
+      return `[DENY] locked: hazardous tool "${tool}" rejected (zero-escalation)`;
     if (this.mode === 'safe') return `[DENY] safe: hazardous tool "${tool}" rejected`;
     return undefined;
   }
@@ -78,8 +79,12 @@ class MiniSupervisor {
       if (!st.window.length) continue;
       const fails = st.window.filter((x) => !x).length;
       const rate = fails / st.window.length;
-      if (st.consecutive >= this.lockAfter) { next = 'locked'; break; }         // 连续失败 -> 锁定
-      if (rate >= this.th.safe || (this.hazardous.has(tool) && fails > 0)) {   // 危险工具一票否决
+      if (st.consecutive >= this.lockAfter) {
+        next = 'locked';
+        break;
+      } // 连续失败 -> 锁定
+      if (rate >= this.th.safe || (this.hazardous.has(tool) && fails > 0)) {
+        // 危险工具一票否决
         next = this.#raise(next, 'safe');
       } else if (rate >= this.th.degrade) {
         next = this.#raise(next, 'degraded');
@@ -107,9 +112,9 @@ class MiniSupervisor {
  * Part 2  迷你 Agent：工具集 + 任务队列
  * ============================================================ */
 const TOOLS = {
-  read:  { hazardous: false, desc: 'read files' },
-  edit:  { hazardous: false, desc: 'patch source' },
-  shell: { hazardous: true,  desc: 'run external cmd' },
+  read: { hazardous: false, desc: 'read files' },
+  edit: { hazardous: false, desc: 'patch source' },
+  shell: { hazardous: true, desc: 'run external cmd' },
 };
 
 class MiniAgent {
@@ -137,18 +142,29 @@ class MiniAgent {
  *       → 锁定下转安全活 → 健康恢复逐级回升
  * ============================================================ */
 console.log('=== OmniHarness mini system demo ===');
-console.log('tools: read/ edit(common), shell(hazardous)  window=8  degrade=0.25  safe=0.5  lockAfter=3\n');
+console.log(
+  'tools: read/ edit(common), shell(hazardous)  window=8  degrade=0.25  safe=0.5  lockAfter=3\n',
+);
 
 const sup = new MiniSupervisor({
-  windowSize: 8, degrade: 0.25, safe: 0.5, lockAfter: 3, hazardous: ['shell'],
+  windowSize: 8,
+  degrade: 0.25,
+  safe: 0.5,
+  lockAfter: 3,
+  hazardous: ['shell'],
 });
 const agent = new MiniAgent(sup);
 const line = (t) => console.log(`\n-- ${t} --`);
 
 line('phase 1: steady development, all green');
-agent.step('read'); agent.step('edit'); agent.step('read');
-agent.step('shell'); agent.step('read'); agent.step('edit');
-agent.step('read'); agent.step('shell');
+agent.step('read');
+agent.step('edit');
+agent.step('read');
+agent.step('shell');
+agent.step('read');
+agent.step('edit');
+agent.step('read');
+agent.step('shell');
 
 line('phase 2: read tool jitters -> failure rate 2/8 >= 0.25 -> degraded');
 agent.step('read', { willFail: true });
@@ -166,8 +182,10 @@ agent.step('edit', { willFail: true });
 
 line('phase 5: locked -- shell still zero-escalation denied; agent does safe work to heal');
 agent.step('shell');
-agent.step('edit'); agent.step('edit');   // clear edit consecutive failures
-agent.step('read'); agent.step('read');   // push read failure rate down
+agent.step('edit');
+agent.step('edit'); // clear edit consecutive failures
+agent.step('read');
+agent.step('read'); // push read failure rate down
 
 line('phase 6: recovery -- attemptRecovery() climbs back one level per call');
 sup.attemptRecovery(); // locked -> safe
@@ -195,21 +213,39 @@ const compose = (a, b) => (s) => {
 };
 const identity = (s) => ({ next: s, cost: emptyCost, events: [] });
 
-const readCfg = (s) => ({ next: { ...s, cfg: 'from=dev' }, cost: { tokens: 10, ms: 2 }, events: ['read cfg'] });
-const tweak = (s) => ({ next: { ...s, cfg: s.cfg + ',to=prod' }, cost: { tokens: 4, ms: 1 }, events: ['tweak cfg'] });
-const build = (s) => ({ next: { ...s, built: true }, cost: { tokens: 60, ms: 30 }, events: ['build ok'] });
+const readCfg = (s) => ({
+  next: { ...s, cfg: 'from=dev' },
+  cost: { tokens: 10, ms: 2 },
+  events: ['read cfg'],
+});
+const tweak = (s) => ({
+  next: { ...s, cfg: s.cfg + ',to=prod' },
+  cost: { tokens: 4, ms: 1 },
+  events: ['tweak cfg'],
+});
+const build = (s) => ({
+  next: { ...s, built: true },
+  cost: { tokens: 60, ms: 30 },
+  events: ['build ok'],
+});
 
-const p1 = compose(compose(readCfg, tweak), build);        // (a.b).c
-const p2 = compose(readCfg, compose(tweak, build));        // a.(b.c)
+const p1 = compose(compose(readCfg, tweak), build); // (a.b).c
+const p2 = compose(readCfg, compose(tweak, build)); // a.(b.c)
 const out1 = p1({});
 const out2 = p2({});
-const leftUnit = compose(identity, readCfg)({});           // id.a
-const rightUnit = compose(readCfg, identity)({});          // a.id
+const leftUnit = compose(identity, readCfg)({}); // id.a
+const rightUnit = compose(readCfg, identity)({}); // a.id
 
 console.log(`  final state = ${JSON.stringify(out1.next)}`);
 console.log(`  events      = ${out1.events.join(' -> ')}`);
-console.log(`  total cost  = ${JSON.stringify(out1.cost)}  (tokens/ms accumulated via Cost monoid)`);
-console.log(`  associativity check  (a.b).c == a.(b.c)  : ${JSON.stringify(out1) === JSON.stringify(out2) ? 'PASS' : 'FAIL'}`);
-console.log(`  identity check       id.a == a.id        : ${JSON.stringify(leftUnit) === JSON.stringify(rightUnit) ? 'PASS' : 'FAIL'}`);
+console.log(
+  `  total cost  = ${JSON.stringify(out1.cost)}  (tokens/ms accumulated via Cost monoid)`,
+);
+console.log(
+  `  associativity check  (a.b).c == a.(b.c)  : ${JSON.stringify(out1) === JSON.stringify(out2) ? 'PASS' : 'FAIL'}`,
+);
+console.log(
+  `  identity check       id.a == a.id        : ${JSON.stringify(leftUnit) === JSON.stringify(rightUnit) ? 'PASS' : 'FAIL'}`,
+);
 
 console.log('\nDone.');

@@ -10,7 +10,10 @@ import { assembleSkillStack } from '../../src/config/skillStackAssembler.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.js';
-import { VortexRingPacket, VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
+import {
+  VortexRingPacket,
+  VortexRingSpillAdapter,
+} from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
 
@@ -60,12 +63,19 @@ test('SparkAssembler：统一基板默认开启即视为活跃燧能力', () => 
 
 test('SparkAssembler：分别启用共振 / 刻蚀 / 遥测即活跃', () => {
   withWorkspace((root) => {
-    assert.ok(assemble(root, { resonantField: { enabled: false }, resonance: { enabled: true } }) !== undefined);
     assert.ok(
-      assemble(root, { resonantField: { enabled: false }, insightEtching: { enabled: true } }) !== undefined,
+      assemble(root, { resonantField: { enabled: false }, resonance: { enabled: true } }) !==
+        undefined,
+    );
+    assert.ok(
+      assemble(root, { resonantField: { enabled: false }, insightEtching: { enabled: true } }) !==
+        undefined,
     );
     const telemetry = new JsonlRuntimeTelemetry({ path: join(root, 'runtime-telemetry.log') });
-    assert.ok(assemble(root, { resonantField: { enabled: false }, runtimeTelemetry: telemetry }) !== undefined);
+    assert.ok(
+      assemble(root, { resonantField: { enabled: false }, runtimeTelemetry: telemetry }) !==
+        undefined,
+    );
   });
 });
 

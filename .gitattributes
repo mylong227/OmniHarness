@@ -1,0 +1,13 @@
+# 统一换行策略：仓库内一律以 LF 存储、以 LF 检出。
+#
+# 动机（2026-09-14，C6「prettier 尾账」实测）：
+#  1. 本仓此前**没有** .gitattributes，而 Windows 上 `core.autocrlf=true` 会把工作区文件
+#     检出为 CRLF；`.prettierrc.json` 又明确要求 `endOfLine: "lf"` → `npm run format:check`
+#     在**任何 Windows 检出**上都会对全部 CRLF 文件误报。实测 2822 个告警中 **2776 个（98.4%）
+#     属此类 EOL 伪报**（含 `resources/` 下 2752 个上游 vendored 文档），真实内容欠账仅 46 处。
+#  2. 更关键：**不显式声明 EOL 策略的话，`prettier --write` 只是暂时消音**——git 下次检出
+#     又会把文件写成 CRLF，欠账必然复发。声明后检出恒为 LF，与 Prettier 口径一致，跨平台稳定。
+#
+# 规则：GitHub 官方推荐写法。`text=auto` 让 Git 自动判定文本/二进制；`eol=lf` 强制文本文件
+# 检出为 LF（二进制文件不受影响，Git 自动识别）。
+* text=auto eol=lf
