@@ -18,3 +18,4 @@ export {
 export { A2aClient } from './a2aClient.js';
 export { A2aServer, type TaskHandler } from './a2aServer.js';
 export { HttpA2aTransport, HttpA2aServerTransport } from './httpA2aTransport.js';
+export { WsA2aTransport, WsA2aServerTransport, A2A_WS_PATH } from './wsA2aTransport.js';

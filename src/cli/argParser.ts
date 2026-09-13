@@ -155,6 +155,17 @@ export interface CliArgs {
   rlvrCandidates?: number;
   /** RLVR 门禁最小增益（`--rlvr-min-gain`，默认 0.05）：候选得分须 ≥ 基线 + 该增益才晋升。 */
   rlvrMinGain?: number;
+  /**
+   * (U6) A2A 互操作开关（`--a2a`；**默认关**）：运行时起 A2aServer 监听并对接 A2aClient，
+   * 本端既可被对等委托、也可委托对端（server 侧跑真实子 agent）。缺省关 = 零行为变更。
+   */
+  a2a?: boolean;
+  /** A2A 服务端监听端口（`--a2a-port`，默认 8790）。 */
+  a2aPort?: number;
+  /** A2A 对端端点（`--a2a-peer`；缺省按 transport 派生本地端点）。 */
+  a2aPeer?: string;
+  /** A2A 传输形态（`--a2a-transport http|ws`，默认 http）。 */
+  a2aTransport?: 'http' | 'ws';
   /** 文本流式输出（V2.1，--stream-text）：模型正文 token 级流式打到 stdout，末尾不再重复打印 finalText。 */
   streamText?: boolean;
   /** 回合 token 预算（V2.1，--turn-token-budget N）：累计 usage 超限停止步进，交由总结收尾。 */
@@ -400,6 +411,21 @@ export class ArgParser {
         result.rlvrAutoRun = file.evolutionRlvr.autoRun;
       }
     }
+    // (U6) A2A 互操作：文件对象形态 → 扁平 CliArgs 字段（CLI 旗标在更上层继续覆盖）。
+    if (file.a2a !== undefined) {
+      if (file.a2a.enabled !== undefined) {
+        result.a2a = file.a2a.enabled;
+      }
+      if (file.a2a.port !== undefined) {
+        result.a2aPort = file.a2a.port;
+      }
+      if (file.a2a.peerEndpoint !== undefined) {
+        result.a2aPeer = file.a2a.peerEndpoint;
+      }
+      if (file.a2a.transport !== undefined) {
+        result.a2aTransport = file.a2a.transport;
+      }
+    }
     return result;
   }
 
@@ -435,6 +461,7 @@ export class ArgParser {
         '  --storage-dir DIR                 jsonl 存储目录',
         '  --vault-hydrate [--vault-hydrate-names N1,N2] [--vault-key-file PATH] [--kv-adapter memory|json-file|sqlite] [--kv-file PATH]   装配期把加密保险库中的凭据水合进进程环境（默认关；仅填充未设置的环境变量，显式配置优先）',
         '  --evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run]   (U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升',
+        '  --a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http|ws]   (U6) A2A 互操作（默认关）：起对等 agent 服务端监听并对接委托客户端，本端可被对等委托、也可委托对端',
         '  --approval auto|deny|rules|guardian|plan|ask   审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）',
         '  --approval-ask allow|deny         rules 模式 ask 时裁决（默认 allow）',
         '  --sandbox passthrough|policy|restricted|landlock|seatbelt|bwrap   沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed）',

@@ -25,6 +25,9 @@ import {
   A2A_TASK_DELEGATE,
 } from './a2aProtocol.js';
 
+/** 断言头的 `AgentAssertion ` 前缀（`AgentIdentityPort.authorizationHeader()` 的直接产物形态）。 */
+const ASSERTION_PREFIX = 'AgentAssertion ';
+
 /** 任务委托处理器（由调用方注入：通常起一个本地子 agent 跑任务）。 */
 export interface TaskHandler {
   /**
@@ -105,6 +108,28 @@ export class A2aServer {
   }
 
   /**
+   * fail-closed 验签：未配置身份即放行（零破坏）；配置了身份则必须验过。
+   * 接受两种原文形态——裸签名信封，或 HTTP `Authorization` 头形态
+   * （`AgentAssertion <envelope>`，即 `AgentIdentityPort.authorizationHeader()` 的直接产物）。
+   * 此前只按裸信封解码，导致**真实 Ed25519 身份下客户端发出的断言恒解析失败**
+   * （仅自造桩身份因自带去前缀逻辑而侥幸通过）——E2 跨进程实测才暴露。
+   * @param assertion 断言原文（可带 `AgentAssertion ` 前缀）；undefined 视为缺失。
+   * @returns 验签通过为 true；缺失 / 格式非法 / 验签失败一律 false（绝不抛错谎称通过）。
+   */
+  private verifyAssertion(assertion: string | undefined): boolean {
+    if (this.identity === undefined) {
+      return true;
+    }
+    if (assertion === undefined) {
+      return false;
+    }
+    const payload = assertion.startsWith(ASSERTION_PREFIX)
+      ? assertion.slice(ASSERTION_PREFIX.length)
+      : assertion;
+    return this.identity.verifyAssertion(payload) !== null;
+  }
+
+  /**
    * 按 A2A 方法名分发：capabilities.declare 登记（可选验签）、task.delegate 转交 handler。
    * @param method JSON-RPC 方法名。
    * @param params 方法参数（声明或委托请求）。
@@ -113,23 +138,21 @@ export class A2aServer {
   private async dispatch(method: string, params: unknown): Promise<unknown> {
     if (method === A2A_CAPABILITIES_DECLARE) {
       const decl = params as A2aCapabilityDeclaration;
-      if (this.identity !== undefined) {
-        // fail-closed：配置了身份就必须验签，缺失或验不过即拒。
-        if (decl.assertion === undefined) throw new Error('UNAUTHORIZED: 缺失能力声明签名');
-        const claims = this.identity.verifyAssertion(decl.assertion);
-        if (claims === null) throw new Error('UNAUTHORIZED: 能力声明验签失败');
+      // fail-closed：配置了身份就必须验签，缺失或验不过即拒。
+      if (this.identity !== undefined && decl.assertion === undefined) {
+        throw new Error('UNAUTHORIZED: 缺失能力声明签名');
       }
+      if (!this.verifyAssertion(decl.assertion)) throw new Error('UNAUTHORIZED: 能力声明验签失败');
       this.declarations.set(decl.agentId, decl);
       return { accepted: true };
     }
     if (method === A2A_TASK_DELEGATE) {
       if (this.handler === undefined) throw new Error('未配置任务处理器');
       const req = params as DelegateRequest;
-      if (this.identity !== undefined) {
-        if (req.assertion === undefined) throw new Error('UNAUTHORIZED: 缺失委托请求签名');
-        const claims = this.identity.verifyAssertion(req.assertion);
-        if (claims === null) throw new Error('UNAUTHORIZED: 委托请求验签失败');
+      if (this.identity !== undefined && req.assertion === undefined) {
+        throw new Error('UNAUTHORIZED: 缺失委托请求签名');
       }
+      if (!this.verifyAssertion(req.assertion)) throw new Error('UNAUTHORIZED: 委托请求验签失败');
       return await this.handler.handle(req);
     }
     throw new Error(`未知方法: ${method}`);

@@ -131,8 +131,9 @@ export class HttpA2aServerTransport implements A2aTransport {
 
   /**
    * 在给定端口监听（返回实际端口）。
-   * @param port 期望监听的端口。
-   * @returns 实际监听的端口（当前实现与入参一致）；仅接受 POST /a2a，其余返回 405/400/500。
+   * @param port 期望监听的端口（可传 0 取系统分配的临时端口）。
+   * @returns **实际**监听的端口（由 `server.address()` 读取，port=0 时即临时端口）；
+   *          仅接受 POST /a2a，其余返回 405/400/500。
    */
   public async listen(port: number): Promise<number> {
     this.server = http.createServer((req, res) => {
@@ -173,8 +174,12 @@ export class HttpA2aServerTransport implements A2aTransport {
           });
       });
     });
-    return new Promise((resolve) => {
-      this.server!.listen(port, () => resolve(port));
+    const server = this.server;
+    return new Promise<number>((resolve) => {
+      server.listen(port, () => {
+        const address = server.address();
+        resolve(typeof address === 'object' && address !== null ? address.port : port);
+      });
     });
   }
 

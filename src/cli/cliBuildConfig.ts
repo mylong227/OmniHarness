@@ -294,6 +294,17 @@ export class CliBuildConfig {
             },
           }
         : {}),
+      // (U6) A2A 互操作：仅显式 `--a2a` 时写入 partial；缺省不写 = 零行为变更。
+      ...(args.a2a === true
+        ? {
+            a2a: {
+              enabled: true,
+              ...(args.a2aPort !== undefined ? { port: args.a2aPort } : {}),
+              ...(args.a2aPeer !== undefined ? { peerEndpoint: args.a2aPeer } : {}),
+              ...(args.a2aTransport !== undefined ? { transport: args.a2aTransport } : {}),
+            },
+          }
+        : {}),
       // V2.1（B4）：回合 token 预算（未设不进 config，维持缺省关闭语义）。
       ...(args.turnTokenBudget !== undefined && args.turnTokenBudget > 0
         ? { turnTokenBudget: args.turnTokenBudget }

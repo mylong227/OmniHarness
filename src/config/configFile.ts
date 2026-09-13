@@ -113,6 +113,21 @@ export interface FileConfig {
   };
   /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
   readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
+  /**
+   * (U6) A2A 互操作：启用后运行时起 A2aServer（监听端口）并构造 A2aClient；本端既可被对等
+   * 委托、也可委托对端（server 侧任务处理器经子代理运行时跑真实子 agent 完成）。缺省关，零破坏。
+   * CLI 侧对应 `--a2a` / `--a2a-port` / `--a2a-peer` / `--a2a-transport`。
+   */
+  readonly a2a?: {
+    /** 是否启用（默认 false）。 */
+    readonly enabled?: boolean;
+    /** 服务端监听端口（默认 8790，避开 appServer 8787）。 */
+    readonly port?: number;
+    /** 本端 client 默认对端端点（缺省按 transport 派生：http://…/a2a 或 ws://…/a2a-ws）。 */
+    readonly peerEndpoint?: string;
+    /** 传输形态（默认 http）。 */
+    readonly transport?: 'http' | 'ws';
+  };
   readonly workspace?: string;
   /** 项目工作区列表（UI「添加项目」维护）：绝对路径数组，供工作区面板分组展示与快速切换。 */
   readonly workspaces?: string[];

@@ -13,6 +13,7 @@ import {
   SPILL_ADAPTERS,
   OUTPUT_FORMATS,
   KV_ADAPTERS,
+  A2A_TRANSPORTS,
 } from './cliEnums.js';
 
 /** 消费值的长选项集合（用于位置参数识别：其紧跟的值不视为 prompt）。 */
@@ -63,6 +64,21 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--oidc-issuer',
   '--oidc-client-id',
   '--oidc-jwks-uri',
+  // (E2 顺带修) E3 新增的 RLVR 取值旗标此前漏登记 → `collectPositional` 会把它们的取值
+  // 误判为位置参数（prompt），此处补齐；并由 `cliFlagValueRegistry.test.ts` 机器兜底。
+  '--rlvr-verify',
+  '--rlvr-samples',
+  '--rlvr-min-reward',
+  '--rlvr-candidates',
+  '--rlvr-min-gain',
+  '--a2a-port',
+  '--a2a-peer',
+  '--a2a-transport',
+  // 以下 4 项由 `cliFlagValueRegistry.test.ts` 护栏抓出（同为历史漏登记，取值会被并入 prompt）。
+  '--network-allow',
+  '--events',
+  '--model-circuit-breaker-threshold',
+  '--model-circuit-breaker-open-ms',
 ]);
 
 /** 取下一个参数值。 */
@@ -347,6 +363,22 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   },
   // (U4) RLVR 进化闭环：默认关。开启后装配期构造「可验证门禁 + RLVR sample-filter-replay」控制器；
   // 验证命令含 %CODE_FILE% 时先把候选代码写入临时文件再跑（真实编译/测试绿度即奖励信号）。
+  '--a2a': (a) => {
+    a.a2a = true;
+    return 0;
+  },
+  '--a2a-port': (a, argv, i) => {
+    a.a2aPort = Number.parseInt(valueOf(argv, i, '--a2a-port'), 10);
+    return 1;
+  },
+  '--a2a-peer': (a, argv, i) => {
+    a.a2aPeer = valueOf(argv, i, '--a2a-peer');
+    return 1;
+  },
+  '--a2a-transport': (a, argv, i) => {
+    a.a2aTransport = enumOf(argv, i, '--a2a-transport', A2A_TRANSPORTS);
+    return 1;
+  },
   '--evolution-rlvr': (a) => {
     a.evolutionRlvr = true;
     return 0;

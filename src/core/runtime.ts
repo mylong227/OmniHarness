@@ -28,7 +28,14 @@ import type { SparkController } from '../spark/sparkController.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { portsOf } from '../subagent/subagentPorts.js';
 import { Agent } from './agent.js';
-import { A2aServer, A2aClient, HttpA2aTransport, HttpA2aServerTransport } from '../a2a/index.js';
+import {
+  A2aServer,
+  A2aClient,
+  HttpA2aTransport,
+  HttpA2aServerTransport,
+  WsA2aTransport,
+  WsA2aServerTransport,
+} from '../a2a/index.js';
 import type { A2aTransport } from '../a2a/a2aProtocol.js';
 
 /** 端口服务键（容器内标准键名）。 */
@@ -180,10 +187,18 @@ export function createRuntime(
   // 能力胶囊 = Ed25519 签名即身份（fail-closed 验签），复用 config.identity + 子 agent 隔离运行时。
   if (config.a2a?.enabled === true) {
     const a2aPort = config.a2a.port ?? 8790;
-    const serverTransport = new HttpA2aServerTransport();
+    // 传输形态：http（默认，POST /a2a）或 ws（RFC6455，/a2a-ws）。二者实现同一 A2aTransport 端口，
+    // 协议与门禁完全共用；缺省 http 保持原行为（零破坏）。
+    const wsMode = config.a2a.transport === 'ws';
+    const serverTransport = wsMode ? new WsA2aServerTransport() : new HttpA2aServerTransport();
     const server = new A2aServer(serverTransport, config.identity);
-    const peer = config.a2a.peerEndpoint ?? `http://localhost:${a2aPort}/a2a`;
-    const client = new A2aClient(new HttpA2aTransport(peer), config.identity);
+    const peer =
+      config.a2a.peerEndpoint ??
+      (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
+    const client = new A2aClient(
+      wsMode ? new WsA2aTransport(peer) : new HttpA2aTransport(peer),
+      config.identity,
+    );
     server.setTaskHandler({
       async handle(req) {
         const start = Date.now();
