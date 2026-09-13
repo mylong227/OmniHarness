@@ -2,6 +2,7 @@
 // 纯展示组件：选中事件由 props 注入。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { badge, jsonView, detailSummary, timeOf, esc, emptyState } from '../../format.js';
 import type { ThreadEvent } from '../../../types/models.js';
 
@@ -10,7 +11,7 @@ export interface DetailTabProps {
 }
 
 /** 钻取面板组件。 */
-export class DetailTab extends React.Component<DetailTabProps> {
+export class DetailTab extends AppComponent<DetailTabProps> {
   override render(): ReactElement {
     const { detailEvent } = this.props;
     if (!detailEvent) {

@@ -5,6 +5,7 @@
 // - `CommandPalette`：class 组件，只负责状态、生命周期（聚焦/卸载清理）与渲染。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CommandPaletteModel } from '../models/CommandPaletteModel.js';
 import type { CommandItem } from '../models/CommandPaletteModel.js';
@@ -23,7 +24,7 @@ interface CommandPaletteState {
 }
 
 /** 命令面板组件（class 组件）：键盘导航 + 搜索执行。 */
-export class CommandPalette extends React.Component<CommandPaletteProps, CommandPaletteState> {
+export class CommandPalette extends AppComponent<CommandPaletteProps, CommandPaletteState> {
   private readonly inputRef = React.createRef<HTMLInputElement>();
   private model: CommandPaletteModel;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;

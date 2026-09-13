@@ -1,4 +1,4 @@
-// 领域模型：对齐 web/index-classic.html（vanilla 版）中所有 JSON-RPC 方法的入参与返回形状。
+// 领域模型：对齐 web/archive/index-classic.html（vanilla 版）中所有 JSON-RPC 方法的入参与返回形状。
 // 组件层与服务层共享这些类型，确保重构后的 UI 与后端协议逐字段一致。
 
 export type EventType =

@@ -1,6 +1,7 @@
 // 思考过程行：默认折叠为一行「💭 思考过程」，点开看全文——thinking 有提示但不刷屏。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { esc } from '../../format.js';
 import type { ThreadEvent } from '../../../types/models.js';
 
@@ -13,7 +14,7 @@ interface ReasoningBlockState {
 }
 
 /** 思考过程组件。 */
-export class ReasoningBlock extends React.Component<ReasoningBlockProps, ReasoningBlockState> {
+export class ReasoningBlock extends AppComponent<ReasoningBlockProps, ReasoningBlockState> {
   constructor(props: ReasoningBlockProps) {
     super(props);
     this.state = { open: false };

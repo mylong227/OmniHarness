@@ -8,6 +8,7 @@
 // 「语言分类」判据抽为 FileKindClassifier（零 React，可单测）。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { highlightCode, langOf } from '../../highlight.js';
 import { renderMarkdown } from '../../format.js';
 import type { FileView } from '../../shared.js';
@@ -26,7 +27,7 @@ interface FileTabState {
 const MAX_PREVIEW = 40000;
 
 /** 文件面板组件：可折叠的文件内容预览。 */
-export class FileTab extends React.Component<FileTabProps, FileTabState> {
+export class FileTab extends AppComponent<FileTabProps, FileTabState> {
   constructor(props: FileTabProps) {
     super(props);
     this.state = { open: true };

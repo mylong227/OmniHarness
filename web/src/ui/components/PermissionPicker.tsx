@@ -5,6 +5,7 @@
 // 组件自身只负责渲染与分派 onPick。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { PermissionTierModel } from '../models/PermissionTierModel.js';
 import type { ApprovalTier } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
@@ -27,7 +28,7 @@ interface PermissionPickerState {
 }
 
 /** 权限档位选择器组件。 */
-export class PermissionPicker extends React.Component<PermissionPickerProps, PermissionPickerState> {
+export class PermissionPicker extends AppComponent<PermissionPickerProps, PermissionPickerState> {
   constructor(props: PermissionPickerProps) {
     super(props);
     this.state = { open: false, tiers: undefined };

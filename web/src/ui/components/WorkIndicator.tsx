@@ -1,6 +1,7 @@
 // 工作状态条：回合进行中显示动画 + 当前动作 + 已耗时，让「看不见的等待」变成「看得见的干活」。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 
 export interface WorkIndicatorProps {
   activeTool: string | null;
@@ -15,7 +16,7 @@ interface WorkIndicatorState {
 const TICK_MS = 1000;
 
 /** 工作状态条组件。 */
-export class WorkIndicator extends React.Component<WorkIndicatorProps, WorkIndicatorState> {
+export class WorkIndicator extends AppComponent<WorkIndicatorProps, WorkIndicatorState> {
   private timer: ReturnType<typeof setInterval> | null = null;
   private startedAt = 0;
 

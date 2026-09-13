@@ -4,6 +4,7 @@
 // componentWillUnmount 摘掉（handler 内部读 this.props，故 props 变化无需重挂监听）。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 
 export interface ResizerProps {
   /** 该 resizer 控制的是哪一侧：left=左侧面板，right=右侧面板。 */
@@ -19,7 +20,7 @@ export interface ResizerProps {
 }
 
 /** 可拖拽分隔条组件。 */
-export class Resizer extends React.Component<ResizerProps> {
+export class Resizer extends AppComponent<ResizerProps> {
   /** 是否处于拖拽中（原 useRef(false)）。 */
   private dragging = false;
   /** 拖拽起始鼠标 X（原 useRef(0)）。 */

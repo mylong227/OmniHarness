@@ -7,6 +7,7 @@
 // 图标 / 体积 / 路径拼接下沉到 models/ 下的三个零 React 类，本文件只做渲染与交互。
 
 import { React } from '../deps.js';
+import { AppComponent } from '../base/AppComponent.js';
 import { PathJoiner } from '../models/PathJoiner.js';
 import { FileIconResolver } from '../models/FileIconResolver.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
@@ -42,7 +43,7 @@ interface FilePickerState {
 }
 
 /** 文件选择器（多选）。 */
-export class FilePicker extends React.Component<FilePickerProps, FilePickerState> {
+export class FilePicker extends AppComponent<FilePickerProps, FilePickerState> {
   constructor(props: FilePickerProps) {
     super(props);
     this.state = {

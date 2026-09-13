@@ -5,6 +5,7 @@
 // （用实例字段记录，避免 effect 依赖引发的死循环）。
 
 import { React } from '../../deps.js';
+import { AppComponent } from '../../base/AppComponent.js';
 import { esc } from '../../format.js';
 import { processSummary, type ProcessBlock } from '../../textUtils.js';
 import type { ThreadEvent } from '../../../types/models.js';
@@ -22,7 +23,7 @@ interface ProcessClusterState {
 }
 
 /** 过程折叠块组件。 */
-export class ProcessCluster extends React.Component<ProcessClusterProps, ProcessClusterState> {
+export class ProcessCluster extends AppComponent<ProcessClusterProps, ProcessClusterState> {
   private detailsRef: HTMLDetailsElement | null = null;
 
   constructor(props: ProcessClusterProps) {
