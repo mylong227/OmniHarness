@@ -155,7 +155,7 @@ export class OpenAiCompatibleModel implements ModelPort {
     const dump: Record<string, unknown> = { status, label, body: bodyText.slice(0, 2000) };
     if (request !== undefined && status === 400) {
       const summary = request.messages.map((m, i) => {
-        const wire = m as unknown as Record<string, unknown>;
+        const wire = Object.fromEntries(Object.entries(m));
         return {
           i,
           role: wire['role'],

@@ -67,10 +67,10 @@ export interface ApplyProfileOptions {
  * 用于 CLI `--profile` / serve 启动时把 profile 的配置意图落到运行时。
  */
 export function mergeProfileConfig(base: FileConfig, profile: PluginProfile): FileConfig {
-  const overlay = profile.config ?? {};
-  const merged = { ...base, ...overlay } as Record<string, unknown>;
+  const overlay = (profile.config ?? {}) as Partial<FileConfig>;
+  const merged = { ...base, ...overlay };
   // 校验交给调用方 normalizeConfig；此处仅做浅合并，保留类型给 ConfigFactory。
-  return merged as unknown as FileConfig;
+  return merged;
 }
 
 /**

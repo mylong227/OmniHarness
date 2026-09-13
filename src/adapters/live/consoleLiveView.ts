@@ -32,7 +32,7 @@ export class ConsoleLiveView implements ToolInputSink {
 */
   public onToolInput(delta: ToolInputDelta): void {
     // 仅 TTY 实时刷新；非 TTY（管道／重定向／CI）静默，避免把控制码刷进 stdout 或日志。
-    const tty = (this.out as unknown as { isTTY?: boolean }).isTTY;
+    const tty = (this.out as { isTTY?: unknown }).isTTY === true;
     if (!tty) return;
     const key = delta.id ?? delta.name ?? 'default';
     const prev = this.states.get(key) ?? { name: delta.name ?? 'tool', acc: '' };

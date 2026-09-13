@@ -89,13 +89,14 @@ export class GenesisSparkBridge {
       }
     }
     this.lastLedger = ledger;
-    const report = { ran } as unknown as SparkCycleReport;
+    const fields: Partial<Record<Exclude<keyof SparkCycleReport, 'ran'>, unknown>> = {};
     for (const [name, frag] of Object.entries(frags)) {
       const field = REPORT_FIELD[name];
-      if (field !== undefined) {
-        (report as unknown as Record<string, unknown>)[field as string] = frag;
+      if (field !== undefined && field !== 'ran') {
+        fields[field] = frag;
       }
     }
-    return report;
+    // fields 恰好覆盖全部报告键 → 结构重叠成立，单一 as 收口（无 unknown 双跳）。
+    return { ran, ...fields } as SparkCycleReport;
   }
 }

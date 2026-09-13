@@ -114,7 +114,7 @@ export class NativeKernel {
    * @returns `{ ok, pong, native }` — 插件加载、JSON-RPC 往返与 native 标志三重验证。
    */
   public ping(): { ok: boolean; pong: boolean; native: boolean } {
-    return this.call('ping') as unknown as { ok: boolean; pong: boolean; native: boolean };
+    return this.call('ping') as { ok: boolean; pong: boolean; native: boolean };
   }
 
   /**
