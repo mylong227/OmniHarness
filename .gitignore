@@ -1,41 +1,44 @@
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
 dist/
-*.log
-.DS_Store
+.wheelhouse*/
+.venv/
+venv/
+
+# Credentials and machine-local Codex configuration
 .env
 .env.*
-/target/
-Cargo.lock
-# omni-sdk-gen 生成产物（勿提交，随时可由 schema 再生成）
-crates/omni-sdk-gen/fixtures/generated.rs
-# N-API 插件构建产物（可由 cargo --profile ffi 复现，勿提交）
-native/*.node
-native/*.dll
-native/*.so
-# 已安装插件目录（用户数据，可由 plugin install 重建；仓库内示范插件在 examples/plugins/）
-# 必须锚定根目录：否则 `plugins/` 会连带忽略 examples/plugins（示范插件需入库）
-/plugins/
-# CLI 默认 KV 落盘文件（用户数据，勿入库）
-.omniharness-kv.json
-# sqlite 存储默认库文件（用户数据，勿入库）
-omniharness.db
-# 外溢内容落盘目录（#75，用户数据，勿入库）
-.omniharness/
-# web 渲染自测/截图用临时页（headless 冒烟工具，可随时重造，勿入库勿发包）
-web/_selftest.html
-web/_shot.html
-.omni-tmp/
-# 本地 embedding 权重缓存（e5/minilm 等 ONNX，可达数百 MB；可由 HF_ENDPOINT 重建，勿入库）
-.omni-embed-cache/
-# git worktree 元数据（临时协作分支，勿入库）
-.omni-worktrees/
-# 检查点快照（用户数据，checkpoint.create 可重建；勿入库）
-.omni-checkpoints/
-# diff 行内评论（用户数据，ChangesTab 写入；勿入库）
-.omni/
-# git-safe 安全重建脚本产生的 .git 备份目录（含整份 objects/refs/hooks，勿入库，否则会把 .git 嵌进 .git）
-.git.bak.*/
-# 测试/运行时散落在仓库根的产物（fileLongTermMemory 等历史泄漏；密钥/密文/遥测样例，勿入库）
-/*.jsonl
-/*.key
-/*.enc
+config.yaml
+config.local.yaml
+*.pem
+*.key
+auth.json
+.codex/
+
+# Runtime outputs and mutable memory
+runs/
+outputs/
+results/
+task_contract.json
+proposal_audit.jsonl
+resources/symbolic_policy/.omniharness_state.json
+resources/symbolic_policy/.omniharness.lock
+*.tmp
+
+# Local third-party benchmark material
+# These files remain available to local experiments but are intentionally kept
+# out of Git until their individual redistribution terms are satisfied.
+bench data/
+resources/source_image_pool_comfybench/images/
+resources/source_image_pool_gpt/images/
+*.baiduyun.uploading.cfg
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
