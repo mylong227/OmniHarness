@@ -279,6 +279,21 @@ export class CliBuildConfig {
       ...(args.modelCircuitBreakerOpenMs !== undefined
         ? { modelCircuitBreakerOpenMs: args.modelCircuitBreakerOpenMs }
         : {}),
+      // (U4) RLVR 进化闭环：仅显式 `--evolution-rlvr` 时写入 partial；缺省不写 = 零行为变更。
+      // 未给 `--rlvr-verify` 时 verifyCommand 缺省 → RLVR 奖励恒 0（无绿样本进回放，fail-closed 安全旁路）。
+      ...(args.evolutionRlvr === true
+        ? {
+            evolutionRlvr: {
+              enabled: true,
+              ...(args.rlvrVerify !== undefined ? { verifyCommand: args.rlvrVerify } : {}),
+              ...(args.rlvrSamples !== undefined ? { samplesPerPrompt: args.rlvrSamples } : {}),
+              ...(args.rlvrMinReward !== undefined ? { minReward: args.rlvrMinReward } : {}),
+              ...(args.rlvrCandidates !== undefined ? { maxCandidates: args.rlvrCandidates } : {}),
+              ...(args.rlvrMinGain !== undefined ? { minGain: args.rlvrMinGain } : {}),
+              autoRun: args.rlvrAutoRun === true,
+            },
+          }
+        : {}),
       // V2.1（B4）：回合 token 预算（未设不进 config，维持缺省关闭语义）。
       ...(args.turnTokenBudget !== undefined && args.turnTokenBudget > 0
         ? { turnTokenBudget: args.turnTokenBudget }

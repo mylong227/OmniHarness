@@ -140,6 +140,7 @@ export function createRuntime(
           samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,
           minReward: config.evolutionRlvr.minReward,
           verifyCommand: config.evolutionRlvr.verifyCommand,
+          minGain: config.evolutionRlvr.minGain,
           autoRun: config.evolutionRlvr.autoRun === true,
         }).controller
       : config.evolution;

@@ -345,6 +345,36 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.kvFile = valueOf(argv, i, '--kv-file');
     return 1;
   },
+  // (U4) RLVR 进化闭环：默认关。开启后装配期构造「可验证门禁 + RLVR sample-filter-replay」控制器；
+  // 验证命令含 %CODE_FILE% 时先把候选代码写入临时文件再跑（真实编译/测试绿度即奖励信号）。
+  '--evolution-rlvr': (a) => {
+    a.evolutionRlvr = true;
+    return 0;
+  },
+  '--rlvr-verify': (a, argv, i) => {
+    a.rlvrVerify = valueOf(argv, i, '--rlvr-verify');
+    return 1;
+  },
+  '--rlvr-samples': (a, argv, i) => {
+    a.rlvrSamples = Number.parseInt(valueOf(argv, i, '--rlvr-samples'), 10);
+    return 1;
+  },
+  '--rlvr-min-reward': (a, argv, i) => {
+    a.rlvrMinReward = Number.parseFloat(valueOf(argv, i, '--rlvr-min-reward'));
+    return 1;
+  },
+  '--rlvr-candidates': (a, argv, i) => {
+    a.rlvrCandidates = Number.parseInt(valueOf(argv, i, '--rlvr-candidates'), 10);
+    return 1;
+  },
+  '--rlvr-min-gain': (a, argv, i) => {
+    a.rlvrMinGain = Number.parseFloat(valueOf(argv, i, '--rlvr-min-gain'));
+    return 1;
+  },
+  '--rlvr-auto-run': (a) => {
+    a.rlvrAutoRun = true;
+    return 0;
+  },
   '--turn-token-budget': (a, argv, i) => {
     a.turnTokenBudget = Number.parseInt(valueOf(argv, i, '--turn-token-budget'), 10);
     return 1;

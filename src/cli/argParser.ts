@@ -135,6 +135,26 @@ export interface CliArgs {
   kvAdapter?: 'memory' | 'json-file' | 'sqlite';
   /** F3 密文 KV 落盘路径（`--kv-file`）。 */
   kvFile?: string;
+  /**
+   * (U4) RLVR 进化闭环开关（`--evolution-rlvr`；**默认关**）：装配期构造「可验证门禁 +
+   * RLVR sample-filter-replay」控制器，任务末按 `--rlvr-auto-run` 跑一轮进化。缺省关 = 零行为变更。
+   */
+  evolutionRlvr?: boolean;
+  /**
+   * RLVR 候选代码验证命令（`--rlvr-verify`；含 `%CODE_FILE%` 占位符，运行时替换为临时文件路径）。
+   * 例：`node --check %CODE_FILE%`。**缺省则 RLVR 奖励恒 0** → 无绿样本进回放（fail-closed 安全旁路）。
+   */
+  rlvrVerify?: string;
+  /** RLVR 每 prompt 采样数（`--rlvr-samples`，默认 8）。 */
+  rlvrSamples?: number;
+  /** RLVR 最低保留阈值（`--rlvr-min-reward`，默认 0：仅保留 reward>0 的绿样本；>0 时取 r≥阈值）。 */
+  rlvrMinReward?: number;
+  /** RLVR 任务末自动跑一轮进化（`--rlvr-auto-run`；默认关）。 */
+  rlvrAutoRun?: boolean;
+  /** RLVR 发现预算上限（`--rlvr-candidates`，默认 12）。 */
+  rlvrCandidates?: number;
+  /** RLVR 门禁最小增益（`--rlvr-min-gain`，默认 0.05）：候选得分须 ≥ 基线 + 该增益才晋升。 */
+  rlvrMinGain?: number;
   /** 文本流式输出（V2.1，--stream-text）：模型正文 token 级流式打到 stdout，末尾不再重复打印 finalText。 */
   streamText?: boolean;
   /** 回合 token 预算（V2.1，--turn-token-budget N）：累计 usage 超限停止步进，交由总结收尾。 */
@@ -356,6 +376,30 @@ export class ArgParser {
     if (file.modelRouter !== undefined) {
       result.modelRouter = file.modelRouter;
     }
+    // (U4) RLVR 进化闭环：文件对象形态 → 扁平 CliArgs 字段（CLI 旗标在更上层继续覆盖）。
+    if (file.evolutionRlvr !== undefined) {
+      if (file.evolutionRlvr.enabled !== undefined) {
+        result.evolutionRlvr = file.evolutionRlvr.enabled;
+      }
+      if (file.evolutionRlvr.verifyCommand !== undefined) {
+        result.rlvrVerify = file.evolutionRlvr.verifyCommand;
+      }
+      if (file.evolutionRlvr.samplesPerPrompt !== undefined) {
+        result.rlvrSamples = file.evolutionRlvr.samplesPerPrompt;
+      }
+      if (file.evolutionRlvr.minReward !== undefined) {
+        result.rlvrMinReward = file.evolutionRlvr.minReward;
+      }
+      if (file.evolutionRlvr.maxCandidates !== undefined) {
+        result.rlvrCandidates = file.evolutionRlvr.maxCandidates;
+      }
+      if (file.evolutionRlvr.minGain !== undefined) {
+        result.rlvrMinGain = file.evolutionRlvr.minGain;
+      }
+      if (file.evolutionRlvr.autoRun !== undefined) {
+        result.rlvrAutoRun = file.evolutionRlvr.autoRun;
+      }
+    }
     return result;
   }
 
@@ -390,6 +434,7 @@ export class ArgParser {
         '  --storage-adapter memory|jsonl    存储端口（默认 jsonl，落盘 ~/.omniharness/sessions）',
         '  --storage-dir DIR                 jsonl 存储目录',
         '  --vault-hydrate [--vault-hydrate-names N1,N2] [--vault-key-file PATH] [--kv-adapter memory|json-file|sqlite] [--kv-file PATH]   装配期把加密保险库中的凭据水合进进程环境（默认关；仅填充未设置的环境变量，显式配置优先）',
+        '  --evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run]   (U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升',
         '  --approval auto|deny|rules|guardian|plan|ask   审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）',
         '  --approval-ask allow|deny         rules 模式 ask 时裁决（默认 allow）',
         '  --sandbox passthrough|policy|restricted|landlock|seatbelt|bwrap   沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed）',

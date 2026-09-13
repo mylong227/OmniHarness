@@ -451,6 +451,11 @@ export class ConfigFactory {
             })
           : undefined,
       evolution: partial.evolution,
+      // (U4) RLVR 进化闭环：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
+      // 导致调用方即便设置 `evolutionRlvr` 也会在此处被静默丢弃，`createRuntime` 恒读不到
+      // → 「默认关、端到端未开」的机械根因。此处显式透传；`createRuntime` 在 `enabled===true`
+      // 时构造「可验证门禁 + RLVR sample-filter-replay」控制器。
+      evolutionRlvr: partial.evolutionRlvr,
       runtimeTelemetry: partial.runtimeTelemetry,
       costBudget,
       goalMaxIterations,

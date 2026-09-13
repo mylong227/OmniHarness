@@ -51,6 +51,8 @@ export interface RlvrEvolutionOptions {
   readonly fieldSize?: number;
   /** 门禁基准（skill 级 0..1；缺省 fail-closed 0 → 无候选晋升，安全旁路）。 */
   readonly gateBenchmark?: Benchmark;
+  /** 门禁须超过基线的最小增益（默认 0.05，透传 `FailClosedEvolutionGate`）。 */
+  readonly minGain?: number;
   /** 晋升回调。 */
   readonly onPromote?: (candidate: Candidate) => void;
   /** 任务末自动进化（默认 false）。 */
@@ -111,6 +113,17 @@ function promptForCandidate(c: Candidate): string {
 }
 
 /**
+ * 默认门禁基准确的能力场边长。
+ *
+ * **为什么是 64（原为写死的 32，已知缺陷）**：`moireEnergy` 的判据「单技能 ≈0.28 / 组合 ≈0.45+」
+ * 只在 **n=64** 成立——这正是 `moireComposer` 自身的默认场边长（`fieldSize ?? 64`）、两个既有门禁
+ * 测试（`evolutionGate` / `evolutionIntegration`）所用的 N，也是 `benchmark.ts` 文档所载的实测量级。
+ * 写死 32 时组合技能仅 ≈0.041、增益 ≈0.033（< 默认 minGain 0.05）→ **默认门禁恒不通过、RLVR 阶段
+ * 永远到不了**（「端到端未开」的第二块拼图）。此处改为与全局规范尺度一致，而非调整度量本身或阈值。
+ */
+const DEFAULT_MOIRE_FIELD_SIZE = 64;
+
+/**
  * 构造带「可验证门禁 + RLVR sample-filter-replay」的进化控制器（U4 真接进进化闭环）。
  */
 export function createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrEvolutionBundle {
@@ -135,7 +148,9 @@ export function createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrE
   });
   const gate = new FailClosedEvolutionGate({
     // 默认门禁基准：候选技能是否携带复合（莫尔）结构（moireEnergy）；缺省安全旁路由调用方注入更针对性基准。
-    benchmark: opts.gateBenchmark ?? ((c: Candidate) => moireEnergy(c.skill, 32)),
+    benchmark:
+      opts.gateBenchmark ?? ((c: Candidate) => moireEnergy(c.skill, DEFAULT_MOIRE_FIELD_SIZE)),
+    minGain: opts.minGain,
   });
   const controller = new EvolutionControllerImpl({
     discovery,
