@@ -78,7 +78,9 @@ export const DEFAULT_EMBEDDING_MODEL = MODEL_PRESETS['e5-large-v2'].id;
 /** 默认维度（e5-large-v2 = 1024）。换默认模型需同步调整本常量与上方 id。 */
 export const DEFAULT_EMBEDDING_DIM = MODEL_PRESETS['e5-large-v2'].dim;
 
-/** 列出预设名（供 CLI / 单测 / 诊断输出）。 */
+/** 列出预设名（供 CLI / 单测 / 诊断输出）。
+ * @returns 全部可用预设名数组。
+ */
 export function listModelPresets(): readonly EmbeddingModelPreset[] {
   return Object.keys(MODEL_PRESETS) as EmbeddingModelPreset[];
 }
@@ -123,6 +125,11 @@ const E5_PASSAGE_PREFIX = 'passage: ';
 /**
  * 纯函数：按前缀模式 + 角色给文本加前缀（零依赖、可单测）。
  * 仅 'e5' 模式注入；'none' 原样返回。供 embed 调用，也便于单测验证前缀注入正确。
+ *
+ * @param texts 待处理文本列表。
+ * @param mode 前缀模式（仅 'e5' 注入）。
+ * @param role 文本角色（决定注入 query 还是 passage 前缀）。
+ * @returns 加前缀后的文本数组（与输入等长、顺序一致）。
  */
 export function withPrefix(
   texts: readonly string[],
@@ -144,14 +151,24 @@ export function withPrefix(
 export class TransformersEmbeddingAdapter implements EmbeddingPort {
   /** 输出向量维度（由模型规格决定，如实上报供诊断）。 */
   public readonly dim: number;
+  /** 解析出的 HF 模型 id（诊断与 pipeline 加载用）。 */
   private readonly model: string;
+  /** 前缀模式：e5 家族注入 query/passage 前缀，其余不注入。 */
   private readonly prefixMode: PrefixMode;
+  /** 运行设备（cpu 默认；webgpu 需环境支持）。 */
   private readonly device: 'wasm' | 'webgpu' | 'cpu' | 'auto';
+  /** 量化数据类型（默认 q8，快且省内存）。 */
   private readonly dtype: DType;
+  /** 模型缓存目录（离线场景预置权重于此）。 */
   private readonly cacheDir?: string;
+  /** 是否仅用本地缓存、禁止联网下载（离线环境为 true）。 */
   private readonly localFilesOnly: boolean;
+  /** 懒加载的 pipeline Promise（null 表示尚未加载；复用同一实例避免重复加载模型）。 */
   private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
 
+  /**
+   * @param opts 适配器选项（preset/model 二选一及设备/量化/缓存等，全有默认）。
+   */
   public constructor(opts: TransformersEmbeddingOptions = {}) {
     // 解析模型规格：显式 model 优先（自定义 id，无前缀知识）；
     // 否则查预设表（带前缀模式）；都缺省 → minilm。
@@ -180,6 +197,9 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     return this.model;
   }
 
+  /** 懒加载并复用 feature-extraction pipeline（首次调用才动态 import 模型包）。
+   * @returns 已就绪的特征抽取管线。
+   */
   private async getPipeline(): Promise<FeatureExtractionPipeline> {
     if (this.pipelinePromise === null) {
       this.pipelinePromise = (async () => {
@@ -197,7 +217,11 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     return this.pipelinePromise;
   }
 
-  /** 按前缀模式 + 角色给文本加前缀（仅 e5 需要；非 e5 原样返回）。 */
+  /** 按前缀模式 + 角色给文本加前缀（仅 e5 需要；非 e5 原样返回）。
+   * @param texts 待嵌入文本列表。
+   * @param role 文本角色（query 注入 "query: "，document 注入 "passage: "）。
+   * @returns 加前缀后的文本列表。
+   */
   private applyPrefix(texts: readonly string[], role: 'query' | 'document'): string[] {
     return withPrefix(texts, this.prefixMode, role);
   }

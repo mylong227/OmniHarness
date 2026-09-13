@@ -98,7 +98,9 @@ export class SketchWriteTool {
     }
   }
 
-  /** 时间戳前缀（本地时间，形如 20260913-1030），保证同一名称多次绘制不互相覆盖。 */
+  /** 时间戳前缀（本地时间，形如 20260913-1030），保证同一名称多次绘制不互相覆盖。
+   * @returns 秒级本地时间戳字符串。
+   */
   private stamp(): string {
     const now = new Date();
     const pad = (value: number): string => String(value).padStart(2, '0');
@@ -108,7 +110,10 @@ export class SketchWriteTool {
     );
   }
 
-  /** 把草稿名转成安全文件名：保留中英文数字与 `-` `_`，其余替换为 `-`，并截断到上限。 */
+  /** 把草稿名转成安全文件名：保留中英文数字与 `-` `_`，其余替换为 `-`，并截断到上限。
+   * @param name 模型给出的草图名。
+   * @returns 清洗截断后的安全 slug（全非法字符时回落 'sketch'）。
+   */
   private slug(name: string): string {
     const cleaned = name
       .replace(/[^\u4e00-\u9fff\w-]+/g, '-')
@@ -118,7 +123,10 @@ export class SketchWriteTool {
     return safe.length > MAX_SLUG_LENGTH ? safe.slice(0, MAX_SLUG_LENGTH) : safe;
   }
 
-  /** 提取错误消息。 */
+  /** 提取错误消息。
+   * @param error 抛出的任意值。
+   * @returns Error 取 message，其余转字符串。
+   */
   private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

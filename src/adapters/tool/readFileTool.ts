@@ -18,7 +18,11 @@ export class ReadFileTool {
     },
   };
 
-  /** 读取文件。 */
+  /** 读取文件。
+   * @param call 工具调用（实参含 path）。
+   * @param context 工具上下文（workspaceRoot 为路径白名单基准）。
+   * @returns 执行结果：成功附文件内容；越界或读取失败返回失败。
+   */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
     const guard = new WorkspaceGuard(context.workspaceRoot);
@@ -34,7 +38,11 @@ export class ReadFileTool {
     }
   }
 
-  /** 构造失败结果。 */
+  /** 构造失败结果。
+   * @param callId 工具调用 ID。
+   * @param error 抛出的错误（Error 或任意值）。
+   * @returns ok=false 的工具结果（错误消息已提取）。
+   */
   private failure(callId: string, error: unknown): ToolResult {
     const detail = error instanceof Error ? error.message : String(error);
     return { callId, ok: false, error: detail };

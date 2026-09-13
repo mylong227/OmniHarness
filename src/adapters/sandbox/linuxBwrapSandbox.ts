@@ -11,9 +11,14 @@ export class LinuxBwrapSandbox implements SandboxPort {
   /** 沙箱后端名称（标识此 bwrap 实现）。 */
   public readonly name = 'linux-bwrap';
 
+  /**
+   * @param workspace 受限写入的 workspace 根目录（bwrap 可写 bind 的子路径）。
+   */
   public constructor(private readonly workspace: string) {}
 
-  /** 探测 bwrap 是否可用（catch 全部异常，缺二进制即视为不可用）。 */
+  /** 探测 bwrap 是否可用（catch 全部异常，缺二进制即视为不可用）。
+   * @returns `which bwrap` 成功时为 true。
+   */
   private hasBwrap(): boolean {
     try {
       execFileSync('which', ['bwrap'], { stdio: 'ignore' });
@@ -23,7 +28,10 @@ export class LinuxBwrapSandbox implements SandboxPort {
     }
   }
 
-  /** 受限策略：默认拒绝网络；写仅限 workspace；命令执行走 bwrap 隔离。 */
+  /** 受限策略：默认拒绝网络；写仅限 workspace；命令执行走 bwrap 隔离。
+   * @param action 待裁决的沙箱动作。
+   * @returns 决策结果（写越界/未知动作 fail-closed 拒绝并附原因）。
+   */
   private restrictedDecision(action: SandboxAction): SandboxDecision {
     switch (action.kind) {
       case 'file_write':
@@ -46,7 +54,10 @@ export class LinuxBwrapSandbox implements SandboxPort {
     }
   }
 
-  /** 同步审批端口：返回受限决策（与 check 同策略，但非 Promise）。 */
+  /** 同步审批端口：返回受限决策（与 check 同策略，但非 Promise）。
+   * @param action 待审批的沙箱动作。
+   * @returns 沙箱决策（bwrap 不可用时 fail-closed 拒绝）。
+   */
   public decide(action: SandboxAction): SandboxDecision {
     if (!this.hasBwrap()) {
       return {
@@ -77,6 +88,11 @@ export class LinuxBwrapSandbox implements SandboxPort {
   /**
    * 返回将要执行的完整 bwrap 命令行（供测试断言隔离意图）。
    * 策略：根只读 bind，workspace 可写，禁网络，随父进程退出。
+   *
+   * @param command 将要在沙箱内执行的命令。
+   * @param args 命令参数。
+   * @param workspace 工作区根目录（可写 bind 目标）。
+   * @returns bwrap 完整命令行参数数组。
    */
   public dryRun(command: string, args: readonly string[], workspace: string): string[] {
     return [

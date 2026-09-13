@@ -60,11 +60,17 @@ function avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {
 export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort {
   /** 适配器标识：用于端口注册与诊断日志归组（固定值 'cosmic-web-memory'）。 */
   public readonly name = 'cosmic-web-memory';
+  /** 被包装的底层长期记忆端口：标准读写全部委托给它。 */
   private readonly memory: LongTermMemoryPort;
+  /** 黏附半径（共振度阈值）：≥此值的新事实并入既有节点而不新建条目。 */
   private readonly adhesionThreshold: number;
+  /** Bekenstein 容量界：节点数硬上限，超过即触发 RG 粗粒化坍缩。 */
   private readonly bekensteinCap: number;
+  /** 纤维边阈值：两节点质心共振≥此值时计为一条纤维边。 */
   private readonly edgeThreshold: number;
+  /** 本征谱分箱数：文本 → 频率谱的维度，须与共振引擎一致。 */
   private readonly bins: number;
+  /** 节点表：节点 id → 网络节点（代表事实、质心谱与成员事实 id 列表）。 */
   private readonly nodes = new Map<string, WebNode>();
 
   public constructor(memory: LongTermMemoryPort, opts: CosmicWebOptions = {}) {
@@ -85,7 +91,10 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     }
   }
 
-  /** 写入事实：Burgers 黏附巩固——与某节点共振≥黏附阈值则不可逆并入该节点（去重、不写新条目），否则建新节点落盘。 */
+  /** 写入事实：Burgers 黏附巩固——与某节点共振≥黏附阈值则不可逆并入该节点（去重、不写新条目），否则建新节点落盘。
+   * @param fact 待写入的记忆事实。
+   * @returns 无返回值。
+   */
   public remember(fact: MemoryFact): void {
     const s = eigenSpectrum(fact.text, this.bins);
     let bestId: string | undefined;
@@ -109,7 +118,9 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     this.nodes.set(fact.id, { repId: fact.id, centroid: s, members: [fact.id], text: fact.text });
   }
 
-  /** RG 粗粒化坍缩：节点数超 Bekenstein 容量界时反复合并最小簇与最近大簇（删二写一），返回坍缩报告。 */
+  /** RG 粗粒化坍缩：节点数超 Bekenstein 容量界时反复合并最小簇与最近大簇（删二写一），返回坍缩报告。
+   * @returns 坍缩报告：剩余节点数、本次坍缩次数与纤维边数。
+   */
   public consolidate(): WebConsolidationReport {
     let collapsed = 0;
     while (this.nodes.size > this.bekensteinCap) {
@@ -161,7 +172,11 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     return { nodes: this.nodes.size, collapsed, fibers: this.computeFibers() };
   }
 
-  /** 纤维召回：发射频谱探针，返回共振最强节点中最多 k 条成员事实（k≤0 返回空）。 */
+  /** 纤维召回：发射频谱探针，返回共振最强节点中最多 k 条成员事实（k≤0 返回空）。
+   * @param probe 频谱探针（与节点质心同维度的 Spectrum）。
+   * @param k 最多返回的成员事实条数。
+   * @returns 共振最强节点的成员事实（按成员顺序，最多 k 条，已删除者跳过）。
+   */
   public fiber(probe: Spectrum, k: number): readonly MemoryFact[] {
     if (k <= 0) return [];
     let bestId: string | undefined;
@@ -184,6 +199,9 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     return out;
   }
 
+  /** 统计当前纤维边数：两两节点质心共振≥边阈值即计一条。
+   * @returns 满足阈值的节点对（纤维边）总数。
+   */
   private computeFibers(): number {
     const ids = [...this.nodes.keys()];
     let fibers = 0;
@@ -198,22 +216,36 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
   }
 
   // ── LongTermMemoryPort 委托（drop-in 替换） ──
-  /** 召回：委托底层记忆的标准 recall（共振重排由 base 负责）。 */
+  /** 召回：委托底层记忆的标准 recall（共振重排由 base 负责）。
+   * @param query 自然语言查询文本。
+   * @param k 最多返回的事实条数。
+   * @returns 与查询相关的记忆事实列表（排序与打分由 base 决定）。
+   */
   public recall(query: string, k: number): readonly MemoryFact[] {
     return this.memory.recall(query, k);
   }
-  /** 返回全部事实（委托 base 标准读）。 */
+  /** 返回全部事实（委托 base 标准读）。
+   * @returns 底层记忆中的全部事实列表。
+   */
   public all(): readonly MemoryFact[] {
     return this.memory.all();
   }
+  /** 当前事实总数（委托 base）。 */
   public get count(): number {
     return this.memory.count;
   }
-  /** 按 id 取出事实（委托 base）；缺失返回 undefined。 */
+  /** 按 id 取出事实（委托 base）；缺失返回 undefined。
+   * @param id 事实 id。
+   * @returns 对应事实；不存在时为 undefined。
+   */
   public get(id: string): MemoryFact | undefined {
     return this.memory.get(id);
   }
-  /** 更新事实（委托 base）；若 patch 提供新文本则同步刷新该节点质心（目录谱）。 */
+  /** 更新事实（委托 base）；若 patch 提供新文本则同步刷新该节点质心（目录谱）。
+   * @param id 要更新的事实 id。
+   * @param patch 增量补丁（文本/重要性/主题等字段可选）。
+   * @returns 是否更新成功（id 不存在为 false）。
+   */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.memory.update(id, patch);
     if (ok) {
@@ -228,7 +260,10 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     }
     return ok;
   }
-  /** 删除事实（委托 base），成功后清理对应节点；返回是否删除成功。 */
+  /** 删除事实（委托 base），成功后清理对应节点；返回是否删除成功。
+   * @param id 要删除的事实 id。
+   * @returns 是否删除成功（id 不存在为 false）。
+   */
   public delete(id: string): boolean {
     const ok = this.memory.delete(id);
     if (ok) this.nodes.delete(id);

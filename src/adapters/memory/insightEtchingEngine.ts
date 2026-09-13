@@ -37,10 +37,16 @@ function buildNode(prefix: string, idx: number, branch: EtchBranch): EtchNode {
 export class InsightEtchingEngine implements InsightEtchingPort {
   /** 引擎标识名（记忆检索引擎注册键，用于诊断与装配区分）。 */
   public readonly name = 'insight-etching';
+  /** 共振导通命中下限（低于此刻痕不导通）。 */
   private readonly threshold: number;
+  /** 频谱 bin 数（本征谱维度）。 */
   private readonly bins: number;
+  /** 刻痕存储：trace id → 轨迹与其寻址频谱（进程内存态）。 */
   private readonly store = new Map<string, StoredTrace>();
 
+  /**
+   * @param opts 引擎选项（共振阈值与频谱 bin 数，全有默认）。
+   */
   public constructor(opts: InsightEtchingOptions = {}) {
     this.threshold = opts.resonanceThreshold ?? 0.4;
     this.bins = opts.bins ?? 257;
@@ -98,6 +104,7 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     return scored.slice(0, Math.max(1, k));
   }
 
+  /** 已刻蚀的刻痕轨迹数。 */
   public get traces(): number {
     return this.store.size;
   }

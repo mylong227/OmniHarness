@@ -21,9 +21,16 @@ export class BudgetStatusTool {
     },
   };
 
+  /**
+   * @param budget 成本预算端口（快照只读，不产生调用花费）。
+   */
   public constructor(private readonly budget: CostBudget) {}
 
-  /** 返回当前预算快照。 */
+  /** 返回当前预算快照。
+   * @param call 工具调用（本工具无参数）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：JSON 文本含上限/已花费/剩余/token 累计/是否熔断。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const snap = this.budget.snapshot();
     return {

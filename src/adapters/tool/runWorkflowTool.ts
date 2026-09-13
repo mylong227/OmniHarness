@@ -28,9 +28,16 @@ export class RunWorkflowTool {
     },
   };
 
+  /**
+   * @param ports 子智能体端口束（工作流各步骤以受限会话运行所需依赖）。
+   */
   public constructor(private readonly ports: SubagentPorts) {}
 
-  /** 校验并运行工作流。 */
+  /** 校验并运行工作流。
+   * @param call 工具调用（实参含 spec 工作流定义）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：spec 非法/含环/步骤失败返回失败；成功附各步骤结果渲染文本。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const spec = call.arguments['spec'];
     if (
@@ -62,7 +69,10 @@ export class RunWorkflowTool {
     }
   }
 
-  /** 渲染工作流结果为带元信息的文本。 */
+  /** 渲染工作流结果为带元信息的文本。
+   * @param result 工作流运行结果（整体成败 + 各步骤明细）。
+   * @returns 首行总体状态 + 每步骤一行（成功带输出、失败带原因）。
+   */
   private render(result: {
     readonly ok: boolean;
     readonly steps: readonly {

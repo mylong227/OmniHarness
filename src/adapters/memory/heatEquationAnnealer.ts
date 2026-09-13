@@ -50,16 +50,26 @@ function clamp(v: number, lo: number, hi: number): number {
 export class HeatEquationAnnealer implements MemoryAnnealer {
   /** 退火器名称（标识此离散热方程实现）。 */
   public readonly name = 'heat-equation-annealer';
+  /** 被写入重要性的底层长期记忆端口（退火结果直接回写）。 */
   private readonly memory: LongTermMemoryPort;
+  /** 扩散系数 k：每步边耦合强度（高温下按 k·T 缩放）。 */
   private readonly coupling: number;
+  /** 初始温度 T0：高温激进重排的起点。 */
   private readonly initialTemperature: number;
+  /** 冷却时间常数 τ：T(t) = T0·exp(−t/τ) 的调度参数。 */
   private readonly coolingRate: number;
+  /** 衰减率（遗忘）：孤立/未强化事实向地板 1 消退的速度。 */
   private readonly decay: number;
+  /** 共振耦合阈值：仅共振度高于此值的节点对才连边（剪枝弱耦合长尾）。 */
   private readonly resonanceThreshold: number;
+  /** 单步退火的事实数上限：超出只退火最重要的一批（防 O(n²) 爆炸）。 */
   private readonly maxFacts: number;
+  /** 本征谱分箱数（须与共振引擎一致）。 */
   private readonly bins: number;
 
+  /** 当前退火温度（每步按几何冷却下降）。 */
   private _temperature: number;
+  /** 已执行的退火步数（单调递增）。 */
   private _steps = 0;
   /**
    * 解离集合（T3.2 三态循环）：触底事实的 id。解离后脱离耦合图（不收发扩散），
@@ -67,6 +77,10 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
    */
   private readonly dissociated = new Set<string>();
 
+  /**
+   * @param memory 被退火的长期记忆端口（重要性读写均经它）。
+   * @param opts 退火器选项（耦合/温度/冷却/衰减/阈值等，全有保守默认）。
+   */
   public constructor(memory: LongTermMemoryPort, opts: HeatAnnealerOptions = {}) {
     this.memory = memory;
     this.coupling = clamp(opts.coupling ?? 0.15, 0.001, 1);
@@ -79,10 +93,12 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     this._temperature = this.initialTemperature;
   }
 
+  /** 当前退火温度（0-1 区间的调度值，可观测/测试用）。 */
   public get temperature(): number {
     return this._temperature;
   }
 
+  /** 已执行的退火步数。 */
   public get steps(): number {
     return this._steps;
   }
@@ -193,7 +209,9 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     };
   }
 
-  /** 温度调度：T ← T0 · exp(−steps/τ)（几何冷却，单调下降、渐近趋 0）。 */
+  /** 温度调度：T ← T0 · exp(−steps/τ)（几何冷却，单调下降、渐近趋 0）。
+   * @returns 无返回值。
+   */
   private cool(): void {
     this._temperature = this.initialTemperature * Math.exp(-this._steps / this.coolingRate);
   }

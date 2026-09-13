@@ -24,9 +24,17 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
   /** 适配器标识：用于端口注册与诊断日志归组（固定值 'resonant-memory'）。 */
   public readonly name = 'resonant-memory';
 
+  /** 事实 id → 预计算本征频谱的缓存（检索打分的频率域索引）。 */
   private readonly spectra = new Map<string, Spectrum>();
+  /** 脏标记：base 事实发生写入/更新/删除后置真，下次检索前惰性重建全部本征谱。 */
   private dirty = true;
 
+  /**
+   * @param base 被包装的底层长期记忆端口（标准读写与其计数均委托给它）。
+   * @param bins 本征谱分箱数（频谱维度），默认 257。
+   * @param halfLifeDays 时间衰减半衰期（天），用于召回重排，默认 90。
+   * @param clock 时钟函数（毫秒时间戳），测试可注入固定时钟，默认 Date.now。
+   */
   public constructor(
     private readonly base: LongTermMemoryPort,
     private readonly bins = 257,
@@ -34,6 +42,9 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     private readonly clock: () => number = Date.now,
   ) {}
 
+  /** 重建本征谱缓存：清空后为 base 全部事实重算频谱并清除脏标记。
+   * @returns 无返回值。
+   */
   private rebuild(): void {
     this.spectra.clear();
     for (const f of this.base.all()) {
@@ -42,7 +53,11 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     this.dirty = false;
   }
 
-  /** 以频谱探针做共振寻址，返回按共振度降序的 top-k 命中（脏时惰性重建本征谱；k≤0 返回空）。 */
+  /** 以频谱探针做共振寻址，返回按共振度降序的 top-k 命中（脏时惰性重建本征谱；k≤0 返回空）。
+   * @param probe 频谱探针（可为纯频率签名，不必是自然语言）。
+   * @param k 最多返回的命中条数。
+   * @returns 按「事实与探针的共振度」降序的命中列表（共振度为 0-1 余弦相似度）。
+   */
   public resonate(probe: Spectrum, k: number): readonly ResonantHit[] {
     if (k <= 0) return [];
     if (this.dirty) this.rebuild();
@@ -56,14 +71,21 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     return hits.slice(0, k);
   }
 
-  /** 将查询文本映射为频谱探针后调用共振寻址，返回 top-k 命中。 */
+  /** 将查询文本映射为频谱探针后调用共振寻址，返回 top-k 命中。
+   * @param query 自然语言查询文本（先经本征谱映射）。
+   * @param k 最多返回的命中条数。
+   * @returns 按共振度降序的命中列表。
+   */
   public resonateByText(query: string, k: number): readonly ResonantHit[] {
     return this.resonate(eigenSpectrum(query, this.bins), k);
   }
 
   // ── LongTermMemoryPort 委托 + 共振召回（drop-in 替换） ──
 
-  /** 写入并标记脏：下次共振前重建本征谱。 */
+  /** 写入并标记脏：下次共振前重建本征谱。
+   * @param fact 待写入的记忆事实。
+   * @returns 无返回值。
+   */
   public remember(fact: MemoryFact): void {
     this.base.remember(fact);
     this.dirty = true;
@@ -82,28 +104,41 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
     return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
 
-  /** 返回全部事实（委托 base 标准读）。 */
+  /** 返回全部事实（委托 base 标准读）。
+   * @returns base 中的全部事实列表。
+   */
   public all(): readonly MemoryFact[] {
     return this.base.all();
   }
 
+  /** 当前事实总数（委托 base）。 */
   public get count(): number {
     return this.base.count;
   }
 
-  /** 按 id 取出事实（委托 base）；缺失返回 undefined。 */
+  /** 按 id 取出事实（委托 base）；缺失返回 undefined。
+   * @param id 事实 id。
+   * @returns 对应事实；不存在时为 undefined。
+   */
   public get(id: string): MemoryFact | undefined {
     return this.base.get(id);
   }
 
-  /** 更新事实（委托 base），成功后标记脏以待下次重建本征谱；返回是否成功。 */
+  /** 更新事实（委托 base），成功后标记脏以待下次重建本征谱；返回是否成功。
+   * @param id 要更新的事实 id。
+   * @param patch 增量补丁（文本/重要性/主题等字段可选）。
+   * @returns 是否更新成功（id 不存在为 false）。
+   */
   public update(id: string, patch: MemoryFactPatch): boolean {
     const ok = this.base.update(id, patch);
     if (ok) this.dirty = true;
     return ok;
   }
 
-  /** 删除事实（委托 base），成功后标记脏；返回是否删除成功。 */
+  /** 删除事实（委托 base），成功后标记脏；返回是否删除成功。
+   * @param id 要删除的事实 id。
+   * @returns 是否删除成功（id 不存在为 false）。
+   */
   public delete(id: string): boolean {
     const ok = this.base.delete(id);
     if (ok) this.dirty = true;
@@ -113,6 +148,7 @@ export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryP
   /**
    * 燧-3 调谐（autoRun 用）：强制重算全部本征谱，返回事实数与簇数（守恒自检：
    * 二者应相等，否则说明重建与 base 状态不一致）。供 SparkController 任务末统一调谐。
+   * @returns 事实数与簇数的守恒自检报告。
    */
   public tune(): { readonly facts: number; readonly clusters: number } {
     this.rebuild();

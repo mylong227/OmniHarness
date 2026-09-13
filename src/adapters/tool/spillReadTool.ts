@@ -19,9 +19,16 @@ export class SpillReadTool {
     },
   };
 
+  /**
+   * @param port 外溢端口（按 id 读回被移出上下文的完整输出）。
+   */
   public constructor(private readonly port: SpillPort) {}
 
-  /** 读回外溢内容。 */
+  /** 读回外溢内容。
+   * @param call 工具调用（实参含外溢 id）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：成功附完整外溢文本；id 不存在返回失败。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const spillId = String(call.arguments['id'] ?? '');
     const content = await this.port.read(spillId);

@@ -57,11 +57,17 @@ function safeTest(
 
 /** CRISPR 精确技能编辑器。 */
 export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
+  /** 编辑面：技能的查询/替换都经此端口（通常是受种的 SkillRegistry）。 */
   private readonly port: SkillPort;
+  /** 可选审计链：编辑应用/回滚事件入链，便于事后追溯。 */
   private readonly audit?: AuditSinkLike;
+  /** 语义寻址共振阈值：共振度低于此值不命中（默认 0.5）。 */
   private readonly addressThreshold: number;
+  /** 能力场维度（本征谱分箱数，须与燧-3 一致）。 */
   private readonly bins: number;
+  /** 待批量执行的编辑队列（queue 入队、flush 消费）。 */
   private readonly queueBuf: CrisprEditSpec[] = [];
+  /** 已成功应用（提交）的编辑计数。 */
   private applied = 0;
 
   public constructor(opts: CRISPRSkillEditorOptions) {
@@ -71,12 +77,17 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     this.bins = opts.bins ?? 257;
   }
 
-  /** 排入编辑队列（供主循环任务末批量 flush）。 */
+  /** 排入编辑队列（供主循环任务末批量 flush）。
+   * @param spec 编辑规格（目标技能 + patch 函数 + 可选差异测试）。
+   * @returns 无返回值。
+   */
   public queue(spec: CrisprEditSpec): void {
     this.queueBuf.push(spec);
   }
 
-  /** 批量执行队列；空队列返回空数组（主循环据此判断本阶段是否产出）。 */
+  /** 批量执行队列；空队列返回空数组（主循环据此判断本阶段是否产出）。
+   * @returns 逐条编辑产生的报告数组（按入队顺序）。
+   */
   public flush(): readonly CrisprEditReport[] {
     const out: CrisprEditReport[] = [];
     while (this.queueBuf.length > 0) {
@@ -86,12 +97,17 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     return out;
   }
 
-  /** 已成功应用（提交）的编辑数。 */
+  /** 已成功应用（提交）的编辑数。
+   * @returns 累计成功提交的编辑次数。
+   */
   public appliedCount(): number {
     return this.applied;
   }
 
-  /** 精确编辑一次：语义寻址 → 定点 patch → 差异测试（fail-closed 回滚）。 */
+  /** 精确编辑一次：语义寻址 → 定点 patch → 差异测试（fail-closed 回滚）。
+   * @param spec 编辑规格：目标（精确名或语义描述）、patch 函数与可选差异测试。
+   * @returns 编辑报告：是否应用、命中技能名、是否语义寻址、是否回滚及原因。
+   */
   public edit(spec: CrisprEditSpec): CrisprEditReport {
     // 1) 定位：精确名优先；否则语义寻址（skill-RNA 共振匹配）。
     const exact = this.port.get(spec.target);
@@ -157,7 +173,10 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     };
   }
 
-  /** 语义寻址：在技能池里取与目标描述共振最强者（严格高于阈值才命中）。 */
+  /** 语义寻址：在技能池里取与目标描述共振最强者（严格高于阈值才命中）。
+   * @param desc 目标技能的语义描述文本。
+   * @returns 共振最强的技能；无技能超过阈值时为 undefined。
+   */
   private semanticLocate(desc: string): Skill | undefined {
     const probe: Spectrum = eigenSpectrum(desc, this.bins);
     let best: Skill | undefined;

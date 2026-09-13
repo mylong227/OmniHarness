@@ -11,9 +11,14 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
   /** 沙箱后端标识名（SandboxPort 注册键，用于诊断）。 */
   public readonly name = 'macos-seatbelt';
 
+  /**
+   * @param workspace 受限写入的 workspace 根目录（profile 中唯一可写子路径）。
+   */
   public constructor(private readonly workspace: string) {}
 
-  /** 仅 macOS 平台且 sandbox-exec 可用才算可用。 */
+  /** 仅 macOS 平台且 sandbox-exec 可用才算可用。
+   * @returns 平台为 darwin 且 `which sandbox-exec` 成功时为 true。
+   */
   private hasSandboxExec(): boolean {
     if (process.platform !== 'darwin') return false;
     try {
@@ -24,7 +29,10 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     }
   }
 
-  /** 生成 seatbelt profile 文本：禁网络出站，读写限 workspace。 */
+  /** 生成 seatbelt profile 文本：禁网络出站，读写限 workspace。
+   * @param workspace profile 中唯一可写的子路径。
+   * @returns .sb profile 文本（deny default 基线 + 最小放行）。
+   */
   private buildProfile(workspace: string): string {
     return [
       '(version 1)',
@@ -37,7 +45,10 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     ].join('\n');
   }
 
-  /** 受限策略：写仅限 workspace；禁网络出站；命令执行走 sandbox-exec。 */
+  /** 受限策略：写仅限 workspace；禁网络出站；命令执行走 sandbox-exec。
+   * @param action 待裁决的沙箱动作。
+   * @returns 决策结果（写越界/未知动作 fail-closed 拒绝并附原因）。
+   */
   private restrictedDecision(action: SandboxAction): SandboxDecision {
     switch (action.kind) {
       case 'file_write':
@@ -96,6 +107,12 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
   /**
    * 返回将要执行的 sandbox-exec 命令行（含 .sb profile 路径，供测试断言）。
    * profilePath 为将要写入的 .sb 路径（dryRun 不实际写文件/执行）。
+   *
+   * @param command 将要在沙箱内执行的命令。
+   * @param args 命令参数。
+   * @param workspace 工作区根目录（决定默认 profile 路径）。
+   * @param profilePath .sb profile 写入路径（默认 `<workspace>/.seatbelt.sb`）。
+   * @returns sandbox-exec 完整命令行参数数组。
    */
   public dryRun(
     command: string,
@@ -106,7 +123,10 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     return ['sandbox-exec', '-f', profilePath, command, ...args];
   }
 
-  /** 暴露生成的 .sb profile 文本，便于测试断言隔离意图。 */
+  /** 暴露生成的 .sb profile 文本，便于测试断言隔离意图。
+   * @param workspace profile 中唯一可写的子路径。
+   * @returns seatbelt profile 文本。
+   */
   public profileText(workspace: string): string {
     return this.buildProfile(workspace);
   }

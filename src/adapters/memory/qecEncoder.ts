@@ -37,9 +37,15 @@ interface Parities {
 export class QECEncoder implements QECEncoderPort {
   /** 编码器标识名（QECEncoderPort 注册键，用于诊断）。 */
   public readonly name = 'qec-encoder';
+  /** 被写入 syndrome 的底层长期记忆端口（症状事实与数据事实同库）。 */
   private readonly memory: LongTermMemoryPort;
+  /** 网格列数（每行字符数，决定二维奇偶症状维度）。 */
   private readonly cols: number;
 
+  /**
+   * @param memory 底层长期记忆端口（读写事实与 syndrome 均经它）。
+   * @param opts 编码器选项（网格列数，默认 8）。
+   */
   public constructor(memory: LongTermMemoryPort, opts: QECOptions = {}) {
     this.memory = memory;
     this.cols = Math.max(2, Math.floor(opts.cols ?? 8));
@@ -50,6 +56,7 @@ export class QECEncoder implements QECEncoderPort {
    * 事实不存在则静默跳过。
    *
    * @param id 目标记忆事实的 id
+   * @returns 无返回值。
    */
   public encode(id: string): void {
     const fact = this.memory.get(id);
@@ -159,6 +166,11 @@ export class QECEncoder implements QECEncoderPort {
     return { checked, corrected, uncorrectable };
   }
 
+  /** 计算文本的二维奇偶症状（按 cols 列折行，行/列分别 XOR 字符码）。
+   * @param text 待编码文本。
+   * @param cols 每行字符数（网格列数）。
+   * @returns 行奇偶数组、列奇偶数组与行数。
+   */
   private gridParities(text: string, cols: number): Parities {
     const codes = [...text].map((ch) => ch.charCodeAt(0));
     const nRows = Math.max(1, Math.ceil(codes.length / cols));
@@ -173,6 +185,10 @@ export class QECEncoder implements QECEncoderPort {
     return { rows, colsArr, nRows };
   }
 
+  /** 解析 syndrome 文本（格式 `QEC|<cols>|<rowParities>|<colParities>`）。
+   * @param text syndrome 事实文本。
+   * @returns 解析出的列数与行/列奇偶数组；格式非法时为 null。
+   */
   private parseSyndrome(text: string): { rows: number[]; colsArr: number[]; cols: number } | null {
     // 格式：QEC|<cols>|<rowParities>|<colParities>
     const parts = text.split('|');

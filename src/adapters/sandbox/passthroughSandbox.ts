@@ -5,7 +5,10 @@ export class PassthroughSandbox implements SandboxPort {
   /** 适配器名，与端口契约一致：固定为 'passthrough'。 */
   public readonly name = 'passthrough';
 
-  /** 全部放行。 */
+  /** 全部放行。
+   * @param _action 沙箱动作（本实现不做任何检查，忽略）。
+   * @returns 恒为 `{ allowed: true }`。
+   */
   public async check(_action: SandboxAction): Promise<SandboxDecision> {
     return { allowed: true };
   }

@@ -19,9 +19,16 @@ export class WriteFileTool {
     },
   };
 
+  /**
+   * @param workspaceRoot 工作区根目录（写入目标必须落在其内，越界即拒绝）。
+   */
   public constructor(private readonly workspaceRoot: string) {}
 
-  /** 写入文件。 */
+  /** 写入文件。
+   * @param call 工具调用（实参含 path 与 content）。
+   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @returns 执行结果：路径越界或写入失败返回失败；成功覆盖前生成 .bak 备份。
+   */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
     const content = String(call.arguments['content'] ?? '');
@@ -31,7 +38,8 @@ export class WriteFileTool {
         callId: call.id,
         ok: false,
         // 报错做人话：给出当前可写根目录，模型据此改写为相对路径，避免反复试错触发 supervisor 降级。
-        error: `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，` +
+        error:
+          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，` +
           `请改用相对此根目录的路径（例如 examples/plugins/demo-string/index.js）`,
       };
     }
@@ -46,7 +54,10 @@ export class WriteFileTool {
     }
   }
 
-  /** 覆盖前备份原文件。 */
+  /** 覆盖前备份原文件。
+   * @param file 目标文件绝对路径（备份写为 `<file>.bak`）。
+   * @returns 无返回值（文件不存在时静默跳过备份）。
+   */
   private async backupIfExists(file: string): Promise<void> {
     try {
       const original = await readFile(file, 'utf8');
@@ -56,7 +67,10 @@ export class WriteFileTool {
     }
   }
 
-  /** 提取错误消息。 */
+  /** 提取错误消息。
+   * @param error 抛出的任意值。
+   * @returns Error 取 message，其余转字符串。
+   */
   private messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
   }

@@ -33,6 +33,11 @@ export class MemoryExtractor implements MemoryExtractorPort {
   /** 已蒸馏事件数（游标），避免跨回合重复。 */
   private cursor = 0;
 
+  /**
+   * @param model 用于阶段一抽取的模型端口。
+   * @param store 沉淀目标：长期记忆端口（去重与写入均经它）。
+   * @param opts 蒸馏选项（每回合上限与文本截断，全有默认）。
+   */
   public constructor(
     private readonly model: ModelPort,
     private readonly store: LongTermMemoryPort,
@@ -42,6 +47,8 @@ export class MemoryExtractor implements MemoryExtractorPort {
   /**
    * 回合末调用：把自上次蒸馏以来的新事件蒸馏为持久事实并沉淀。
    * 通过内部游标 `cursor` 仅处理增量事件，避免每回合重复蒸馏整段历史。
+   * @param events 会话事件全量序列（内部按游标取增量）。
+   * @param sessionId 沉淀事实归属的会话 id。
    * @returns 本次新增事实数。
    */
   public async consolidate(events: readonly SessionEvent[], sessionId: string): Promise<number> {
@@ -81,7 +88,10 @@ export class MemoryExtractor implements MemoryExtractorPort {
     return added;
   }
 
-  /** 阶段一：LLM 从回合文本抽取可跨会话复用的持久事实。 */
+  /** 阶段一：LLM 从回合文本抽取可跨会话复用的持久事实。
+   * @param transcript 已截断的回合对话片段。
+   * @returns 抽取出的简短事实字符串数组（解析失败为空数组）。
+   */
   private async extract(transcript: string): Promise<string[]> {
     const prompt =
       '你是从对话中抽取"长期记忆"的抽取器。下面是某个回合的对话片段（用户/助手/工具输出）。' +

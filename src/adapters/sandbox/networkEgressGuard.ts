@@ -16,9 +16,6 @@
  */
 import { EgressBlockedError } from './egressBlockedError.js';
 
-
-
-
 /** 网络外联守卫配置。 */
 export interface NetworkEgressOptions {
   /** 允许的主机后缀列表。 */
@@ -75,15 +72,24 @@ function toHost(raw: string): string {
 
 /** 网络外联策略门。 */
 export class NetworkEgressGuard {
+  /** 白名单主机集（已规整为小写主机，按后缀匹配）。 */
   private readonly allowed: ReadonlySet<string>;
+  /** 是否拦截私有/链路本地地址（SSRF 防护，默认 true，白名单无法覆盖）。 */
   private readonly blockPrivate: boolean;
 
+  /**
+   * @param options 网络外联守卫配置（白名单与 SSRF 拦截开关）。
+   */
   public constructor(options: NetworkEgressOptions) {
     this.allowed = new Set(options.allowedHosts.map(toHost));
     this.blockPrivate = options.blockPrivateRanges ?? true;
   }
 
-  /** 断言 URL 可外联；命中私有网段或不在白名单则抛 EgressBlockedError（fail-closed）。 */
+  /** 断言 URL 可外联；命中私有网段或不在白名单则抛 EgressBlockedError（fail-closed）。
+   * @param url 待校验的外联地址（字符串或 URL 对象）。
+   * @returns 无返回值（校验通过静默返回）。
+   * @throws 私有网段或白名单未命中时抛 {@link EgressBlockedError}。
+   */
   public assertAllowed(url: string | URL): void {
     const text = this.stringify(url);
     const host = this.hostOf(url);
@@ -102,7 +108,10 @@ export class NetworkEgressGuard {
     throw new EgressBlockedError(`网络外联被策略拒绝（不在白名单）: ${text}`, text);
   }
 
-  /** 包一层 fetch：先校验外联地址，再放行原始 fetch。 */
+  /** 包一层 fetch：先校验外联地址，再放行原始 fetch。
+   * @param original 原始 fetch 实现（通常为 globalThis.fetch）。
+   * @returns 带外联校验的 fetch 包装（拒绝时抛 EgressBlockedError，不发起请求）。
+   */
   public wrapFetch(original: typeof fetch): typeof fetch {
     const guard = this;
     return (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
@@ -118,7 +127,10 @@ export class NetworkEgressGuard {
     }) as typeof fetch;
   }
 
-  /** 主机是否命中白名单（后缀匹配）。 */
+  /** 主机是否命中白名单（后缀匹配）。
+   * @param host 已规整的主机名。
+   * @returns 主机等于或以 `.allowed` 后缀命中白名单时为 true。
+   */
   private isAllowed(host: string): boolean {
     const h = host.toLowerCase();
     for (const allowed of this.allowed) {
@@ -129,7 +141,10 @@ export class NetworkEgressGuard {
     return false;
   }
 
-  /** 从输入取主机名（非法 URL 视为未命中）。 */
+  /** 从输入取主机名（非法 URL 视为未命中）。
+   * @param url 待解析的地址。
+   * @returns 主机名（IPv6 已剥方括号）；解析失败为 undefined。
+   */
   private hostOf(url: string | URL): string | undefined {
     try {
       const u = typeof url === 'string' ? new URL(url) : url;
@@ -144,6 +159,10 @@ export class NetworkEgressGuard {
     }
   }
 
+  /** 把地址统一为字符串（错误信息用）。
+   * @param url 字符串或 URL 对象。
+   * @returns 地址的字符串形式。
+   */
   private stringify(url: string | URL): string {
     return typeof url === 'string' ? url : url.href;
   }

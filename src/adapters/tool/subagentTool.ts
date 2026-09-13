@@ -31,9 +31,16 @@ export class SubagentTool {
     },
   };
 
+  /**
+   * @param orchestrator 子智能体编排器（独立会话创建与受限工具注入均经它）。
+   */
   public constructor(private readonly orchestrator: SubagentOrchestrator) {}
 
-  /** 派生并执行子任务。 */
+  /** 派生并执行子任务。
+   * @param call 工具调用（实参含 task，可选 tools）。
+   * @param context 工具上下文（取 sessionId 作为父会话）。
+   * @returns 执行结果：成功附子智能体输出与元信息；缺 task 或子执行失败返回失败。
+   */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const task = String(call.arguments['task'] ?? '').trim();
     if (task === '') {
@@ -51,13 +58,19 @@ export class SubagentTool {
     return { callId: call.id, ok: true, output: this.render(result) };
   }
 
-  /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。 */
+  /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。
+   * @param result 子智能体运行结果。
+   * @returns 首行元信息（会话 ID/步数/耗时）+ 输出文本。
+   */
   private render(result: SubagentResult): string {
     const head = `[子智能体 ${result.sessionId}] ${result.steps} 步 / ${result.durationMs}ms`;
     return `${head}\n${result.output}`;
   }
 
-  /** 提取可选的工具白名单。 */
+  /** 提取可选的工具白名单。
+   * @param call 工具调用（实参可能含 tools 数组）。
+   * @returns 合法工具名数组；未提供或全非法时为 undefined（继承默认集）。
+   */
   private toolsOf(call: ToolCall): readonly string[] | undefined {
     const raw = call.arguments['tools'];
     if (!Array.isArray(raw)) {
