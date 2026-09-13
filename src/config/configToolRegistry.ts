@@ -19,6 +19,7 @@ import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/p
 import { ReadFileTool } from '../adapters/tool/fs/readFileTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { ShellTool } from '../adapters/tool/shell/shellTool.js';
+import { ShellCommandPolicy } from '../adapters/tool/shell/shellCommandPolicy.js';
 import { WriteFileTool } from '../adapters/tool/fs/writeFileTool.js';
 import { ListDirTool } from '../adapters/tool/fs/listDirTool.js';
 import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
@@ -70,7 +71,9 @@ function registerCoreTools(
     readonly planMode: boolean;
   },
 ): void {
-  const shell = new ShellTool();
+  // A3：shell 命令策略在**组合根**显式装配（不在工具内部自建），模式默认 audit
+  // （解析 + 记录，零行为变更），`OMNI_SHELL_POLICY=enforce` 或后续 A2 权限档驱动为强制拒绝。
+  const shell = new ShellTool({ policy: new ShellCommandPolicy() });
   const reader = new ReadFileTool();
   const writer = new WriteFileTool(seed.workspaceRoot);
   const lister = new ListDirTool(seed.workspaceRoot);
