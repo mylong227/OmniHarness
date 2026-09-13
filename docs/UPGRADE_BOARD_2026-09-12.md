@@ -71,7 +71,7 @@
 
 ## 六、旧版看板
 
-`docs/UPGRADE_BOARD_2026-09-05.md` 保留作历史存档，其中 U1/U4/U6「⚪ 待启动」的判断已被本版推翻。
+`docs/archive/UPGRADE_BOARD_2026-09-05.md` 保留作历史存档，其中 U1/U4/U6「⚪ 待启动」的判断已被本版推翻。
 
 ## 七、配套看板
 
@@ -101,7 +101,7 @@
 
 **测试**：`tests/helpers/tempWorkspace.ts` 隔离工作区，修复 `process.cwd()` 真实仓库根扫描撞破 15s 轮询死线的大面积假失败。
 
-- ⚠️ **已知单元债务（9 项，非本轮引入）**：`appServer`/`httpServer`/`sdkStream`/`wsTransport` 工作区测试改动后，app-server（threads.create 返回结构、turns.run assistant 事件、approvalUplink 未接 AppServer 构造）、HTTP 审批 SSE、SDK WebSocket 端到端、shellTool（workspaceRoot/管道语义）共 9 项失败；`src/server` 实现未在工作区改动（已随 `cd84553`），属历史未验证测试，建议单列技术债 sprint 收口。
+- ✅ **单元债务（9 项）已收口（2026-09-13）**：密闭化修复（modelOverrideEnabled + pluginLoader + 测试工作区隔离）后单文件复核全绿（appServer 8/8、httpServer 10/10、shellTool 7/7）；本机 Node 20.1 因缺 node:sqlite 尚有 20 项环境性失败（CI Node 22 全绿）。另补组件挂载契约测试（P5.5，零依赖 DOM 桩）。原登记：`appServer`/`httpServer`/`sdkStream`/`wsTransport` 工作区测试改动后，app-server（threads.create 返回结构、turns.run assistant 事件、approvalUplink 未接 AppServer 构造）、HTTP 审批 SSE、SDK WebSocket 端到端、shellTool（workspaceRoot/管道语义）共 9 项失败；`src/server` 实现未在工作区改动（已随 `cd84553`），属历史未验证测试，建议单列技术债 sprint 收口。
 
 **pre-commit 适配**：hook 由 `npm run` 改 `node` 直调脚本（`npm` 在本环境 shell PATH 缺失，仅 `node` 可用；判定逻辑不变，更鲁棒）。
 
