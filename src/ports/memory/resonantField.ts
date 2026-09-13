@@ -11,7 +11,7 @@
 import type { LongTermMemoryPort, MemoryFact } from './longTermMemory.js';
 import type { ResonantHit } from './resonantMemory.js';
 import type { WebConsolidationReport } from './cosmicWeb.js';
-import type { Spectrum } from '../../util/eigenSpectrum.js';
+import type { Spectrum } from '../../util/eigenspectrum.js';
 
 /**
  * 共振场端口：场查询 + 坍缩 + 调谐 的统一接口。

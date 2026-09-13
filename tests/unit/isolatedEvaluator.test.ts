@@ -17,7 +17,7 @@ interface Artifact {
 
 test('① 隔离生效：生成后篡改活产物，verdict 不变', async () => {
   const live: Artifact = { files: ['a.ts'], passed: true };
-  const first = await new IsolatedEvaluator<Artifact>({
+  const first = await IsolatedEvaluator.direct<Artifact>({
     generate: () => live,
     evaluate: (s) => (s.passed && s.files.length === 1 ? 1 : 0),
   }).run();
@@ -26,7 +26,7 @@ test('① 隔离生效：生成后篡改活产物，verdict 不变', async () =>
   // 生成路径此后修改活产物（真实场景：agent 评估期间继续改文件清单）。
   live.files.push('b.ts');
   live.passed = false;
-  const second = await new IsolatedEvaluator<Artifact>({
+  const second = await IsolatedEvaluator.direct<Artifact>({
     generate: () => live,
     evaluate: (s) => (s.passed && s.files.length === 1 ? 1 : 0),
   }).run();
@@ -35,7 +35,7 @@ test('① 隔离生效：生成后篡改活产物，verdict 不变', async () =>
 
   // 关键断言：单次评估内，评估进行中篡改活对象不影响已产出的快照 verdict。
   const live2: Artifact = { files: ['a.ts'], passed: true };
-  const v = await new IsolatedEvaluator<Artifact>({
+  const v = await IsolatedEvaluator.direct<Artifact>({
     generate: () => live2,
     evaluate: (s) => {
       live2.files.push('injected.ts'); // 评估执行中污染活对象
@@ -50,7 +50,7 @@ test('① 隔离生效：生成后篡改活产物，verdict 不变', async () =>
 test('② 冻结：评估器内篡改快照即抛（无法借评估口改产物）', async () => {
   await assert.rejects(
     () =>
-      new IsolatedEvaluator<Artifact>({
+      IsolatedEvaluator.direct<Artifact>({
         generate: () => ({ files: ['a.ts'], passed: true }),
         evaluate: (s) => {
           (s as { passed: boolean }).passed = false;
@@ -63,7 +63,7 @@ test('② 冻结：评估器内篡改快照即抛（无法借评估口改产物�
 
 test('③ project 投影：评估只见投影形状', async () => {
   const full = { files: ['a.ts'], passed: true, secretToken: 'sk-xxx' };
-  const r = await new IsolatedEvaluator<typeof full, { passed: boolean }>({
+  const r = await IsolatedEvaluator.projected<typeof full, { passed: boolean }>({
     generate: () => full,
     project: (a) => ({ passed: a.passed }),
     evaluate: (s) => {
@@ -78,7 +78,7 @@ test('③ project 投影：评估只见投影形状', async () => {
 test('④ fail-closed：不可克隆产物（含函数）显式抛错', async () => {
   await assert.rejects(
     () =>
-      new IsolatedEvaluator<{ run: () => number }>({
+      IsolatedEvaluator.direct<{ run: () => number }>({
         generate: () => ({ run: () => 1 }),
         evaluate: () => 1,
       }).run(),
@@ -88,7 +88,7 @@ test('④ fail-closed：不可克隆产物（含函数）显式抛错', async ()
 
 test('⑤ 确定性：同产物重复评估 20 次 verdict 恒同', async () => {
   const run = () =>
-    new IsolatedEvaluator<Artifact>({
+    IsolatedEvaluator.direct<Artifact>({
       generate: () => ({ files: ['x.ts', 'y.ts'], passed: true }),
       evaluate: (s) => s.files.length * (s.passed ? 0.5 : 0),
     }).run();

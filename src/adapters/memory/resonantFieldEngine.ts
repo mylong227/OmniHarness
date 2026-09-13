@@ -25,7 +25,7 @@ import type {
 import type { ResonantHit, ResonantMemoryPort } from '../../ports/memory/resonantMemory.js';
 import type { CosmicWebPort, WebConsolidationReport } from '../../ports/memory/cosmicWeb.js';
 import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/memory/resonantField.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenSpectrum.js';
+import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
 import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
