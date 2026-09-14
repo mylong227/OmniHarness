@@ -20,36 +20,45 @@ import { fileURLToPath } from 'node:url';
 import { API_VERSION } from '../version.js';
 import { printUsage } from './argParser.js';
 
+/**
+ * Exec 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class Exec {
+  /**
+   * 进程入口。
+  
+   * @returns Promise<void>
+   */
+  public static async main(): Promise<void> {
+    const argv = process.argv.slice(2);
+
+    // 快速路径 ①：版本查询 —— 零重模块加载
+    if (argv.includes('--version') || argv.includes('-V')) {
+      process.stdout.write(`omniharness ${API_VERSION}\n`);
+      process.exitCode = 0;
+      return;
+    }
+
+    // 快速路径 ②：显式求助 —— 零重模块加载（退出码与原先 parseArgs 失败路径一致，为 2）
+    if (argv.some((flag) => HELP_FLAGS.has(flag))) {
+      printUsage();
+      process.exitCode = 2;
+      return;
+    }
+
+    // 慢路径：真正要执行命令，才加载整条继承链
+    const { ExecCli } = await import('./execCli.js');
+    const exitCode = await new ExecCli().run(argv);
+    process.exitCode = exitCode;
+  }
+}
+
 /** 求助标志集合。 */
 const HELP_FLAGS: ReadonlySet<string> = new Set(['--help', '-h']);
-
-/** 进程入口。 */
-async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
-
-  // 快速路径 ①：版本查询 —— 零重模块加载
-  if (argv.includes('--version') || argv.includes('-V')) {
-    process.stdout.write(`omniharness ${API_VERSION}\n`);
-    process.exitCode = 0;
-    return;
-  }
-
-  // 快速路径 ②：显式求助 —— 零重模块加载（退出码与原先 parseArgs 失败路径一致，为 2）
-  if (argv.some((flag) => HELP_FLAGS.has(flag))) {
-    printUsage();
-    process.exitCode = 2;
-    return;
-  }
-
-  // 慢路径：真正要执行命令，才加载整条继承链
-  const { ExecCli } = await import('./execCli.js');
-  const exitCode = await new ExecCli().run(argv);
-  process.exitCode = exitCode;
-}
 
 // 仅作为入口直接执行时启动（避免 import 时副作用）。
 const isEntry =
   process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isEntry) {
-  void main();
+  void Exec.main();
 }

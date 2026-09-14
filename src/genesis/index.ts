@@ -15,7 +15,7 @@ export * from './mathutil.js';
 export * from './modalityPort.js';
 export * from './operator.js';
 export * from './ledger.js';
-export * from './regime.js';
+export * from './regimeCost.js';
 export * from './operators.js';
 export * from './genesisSparkBridge.js';
 export * from './multimodalBridge.js';

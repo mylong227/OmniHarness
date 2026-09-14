@@ -5,6 +5,42 @@ import type { MemoryStackAssembly } from './memoryStackAssembler.js';
 import type { SkillStack } from './skillStackAssembler.js';
 import type { OmniHarnessConfig } from './configFactory.js';
 
+/**
+ * SparkAssembler 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class SparkAssembler {
+  /**
+   * 任一燧能力（引擎、外溢封包或遥测）存在即为活跃。
+   * @param partial OmniHarnessConfig
+   * @param input SparkAssemblyInput
+   * @returns boolean
+   */
+  public static hasActiveEngine(partial: OmniHarnessConfig, input: SparkAssemblyInput): boolean {
+    const { annealer, qecEncoder, immune, naturalGradient, particleFilter, web } =
+      input.memory.stack;
+    const { resonance } = input.memory.sparkInput;
+    const { crispr, crystallizer, etching, elementComposerEngine, symmetry, confinementEngine } =
+      input.skills;
+    return (
+      resonance !== undefined ||
+      input.vortex !== undefined ||
+      annealer !== undefined ||
+      web !== undefined ||
+      qecEncoder !== undefined ||
+      immune !== undefined ||
+      naturalGradient !== undefined ||
+      particleFilter !== undefined ||
+      crispr !== undefined ||
+      crystallizer !== undefined ||
+      etching !== undefined ||
+      elementComposerEngine !== undefined ||
+      symmetry !== undefined ||
+      confinementEngine !== undefined ||
+      partial.runtimeTelemetry !== undefined
+    );
+  }
+}
+
 /** 燧内核装配输入：已封包的外溢/记忆/技能三栈。 */
 export interface SparkAssemblyInput {
   /** 燧-4 涡环包外溢适配器（`vortexRing.enabled` 时非空）。 */
@@ -34,7 +70,7 @@ export function assembleSpark(
   partial: OmniHarnessConfig,
   input: SparkAssemblyInput,
 ): SparkController | undefined {
-  if (!hasActiveEngine(partial, input)) {
+  if (!SparkAssembler.hasActiveEngine(partial, input)) {
     return undefined;
   }
   const { vortex, memory, skills } = input;
@@ -73,29 +109,4 @@ export function assembleSpark(
     enableGenesis: partial.genesis?.enabled === true,
     genesisSignals: partial.genesis?.signals,
   });
-}
-
-/** 任一燧能力（引擎、外溢封包或遥测）存在即为活跃。 */
-function hasActiveEngine(partial: OmniHarnessConfig, input: SparkAssemblyInput): boolean {
-  const { annealer, qecEncoder, immune, naturalGradient, particleFilter, web } = input.memory.stack;
-  const { resonance } = input.memory.sparkInput;
-  const { crispr, crystallizer, etching, elementComposerEngine, symmetry, confinementEngine } =
-    input.skills;
-  return (
-    resonance !== undefined ||
-    input.vortex !== undefined ||
-    annealer !== undefined ||
-    web !== undefined ||
-    qecEncoder !== undefined ||
-    immune !== undefined ||
-    naturalGradient !== undefined ||
-    particleFilter !== undefined ||
-    crispr !== undefined ||
-    crystallizer !== undefined ||
-    etching !== undefined ||
-    elementComposerEngine !== undefined ||
-    symmetry !== undefined ||
-    confinementEngine !== undefined ||
-    partial.runtimeTelemetry !== undefined
-  );
 }

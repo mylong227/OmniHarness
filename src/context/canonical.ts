@@ -1,22 +1,19 @@
 /**
- * 确定性规范化基元（零依赖）。
- *
- * 动机（来自竞品调研的诚实缺口）：
- * 上游 KV / prompt 缓存**只复用字节级公共前缀**——对象 key 顺序、时间戳、UUID、
- * 临时路径等无语义抖动会让同一逻辑状态序列化成不同字节串，把缓存命中率打成 0。
- * Anthropic 官方数据：100k token 缓存提示 TTFT −79%、成本 −90%（见 docs 20 引用）。
- * 但命中率**完全由 Harness 侧能否产出稳定前缀决定**，上游只提供能力不保证结果。
- *
- * 本模块提供把「逻辑状态 → 字节稳定表示」的规范映射，使前缀复用率可机械证明。
+ * Canonical 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
  */
-
-/** 判断是否为纯对象（排除数组 / null / 非 Object 原型的类实例）。 */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false;
+export class Canonical {
+  /**
+   * 确定性规范化基元（零依赖）。 动机（来自竞品调研的诚实缺口）： 上游 KV / prompt 缓存**只复用字节级公共前缀**——对象 key 顺序、时间戳、UUID、 临时路径等无语义抖动会让同一逻辑状态序列化成不同字节串，把缓存命中率打成 0。 Anthropic 官方数据：100k token 缓存提示 TTFT −79%、成本 −90%（见 docs 20 引用）。 但命中率**完全由 Harness 侧能否产出稳定前缀决定**，上游只提供能力不保证结果。 本模块提供把「逻辑状态 → 字节稳定表示」的规范映射，使前缀复用率可机械证明。
+   * @param value unknown
+   * @returns value is Record<string, unknown>
+   */
+  public static isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false;
+    }
+    const proto: unknown = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
   }
-  const proto: unknown = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
 }
 
 /**
@@ -27,7 +24,7 @@ export function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => canonicalize(item));
   }
-  if (isPlainObject(value)) {
+  if (Canonical.isPlainObject(value)) {
     const source = value as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(source).sort()) {

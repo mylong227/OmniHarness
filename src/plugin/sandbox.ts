@@ -2,16 +2,25 @@ import { runInNewContext } from 'node:vm';
 import type { Plugin, PluginApplyContext } from './plugin.js';
 
 /**
+ * Sandbox 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class Sandbox {
+  /**
+   * 仅暴露空操作的控制台，避免插件刷屏或借 console 逃逸。
+  
+   * @returns Record<string, unknown>
+   */
+  public static limitedConsole(): Record<string, unknown> {
+    const noop = (): void => undefined;
+    return { log: noop, info: noop, warn: noop, error: noop, debug: noop, trace: noop };
+  }
+}
+
+/**
  * @beta
  * 沙箱 apply 超时（毫秒）；超过即熔断，避免恶意/失控插件挂死服务器。
  */
 export const DEFAULT_APPLY_TIMEOUT_MS = 10_000;
-
-/** 仅暴露空操作的控制台，避免插件刷屏或借 console 逃逸。 */
-function limitedConsole(): Record<string, unknown> {
-  const noop = (): void => undefined;
-  return { log: noop, info: noop, warn: noop, error: noop, debug: noop, trace: noop };
-}
 
 /**
  * @beta
@@ -44,7 +53,7 @@ export function loadPluginCodeInSandbox(
     throw new Error('沙箱插件须用 `export default` 导出插件对象');
   }
 
-  const sandbox = { console: limitedConsole() };
+  const sandbox = { console: Sandbox.limitedConsole() };
   let factory: () => unknown;
   try {
     factory = runInNewContext(`(function(){ ${transformed} })`, sandbox, {

@@ -19,6 +19,87 @@ import { tokenize } from '../search/bm25Index.js';
 import type { SymbolNode } from './repoMap.js';
 import { at } from '../util/arrayAt.js';
 
+/**
+ * CodeGraphIndex 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class CodeGraphIndex {
+  /**
+   * 符号名 → 符号 id 列表（用于引用扫描）。
+   * @param syms readonly SymbolNode[]
+   * @returns Map<string, number[]>
+   */
+  public static buildNameIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
+    const m = new Map<string, number[]>();
+    for (let i = 0; i < syms.length; i++) {
+      const nm = at(syms, i).name;
+      let arr = m.get(nm);
+      if (arr === undefined) {
+        arr = [];
+        m.set(nm, arr);
+      }
+      arr.push(i);
+    }
+    return m;
+  }
+  /**
+   * 文件 → 该文件包含的符号 id 列表。
+   * @param syms readonly SymbolNode[]
+   * @returns Map<string, number[]>
+   */
+  public static buildFileIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
+    const m = new Map<string, number[]>();
+    for (let i = 0; i < syms.length; i++) {
+      const f = at(syms, i).file;
+      let arr = m.get(f);
+      if (arr === undefined) {
+        arr = [];
+        m.set(f, arr);
+      }
+      arr.push(i);
+    }
+    return m;
+  }
+  /**
+   * 文档频率 df[name] = 包含该符号名的文件数（用于逆文档频率加权）。
+   * @param syms readonly SymbolNode[]
+   * @param byFile ReadonlyMap<string, readonly number[]>
+   * @returns Map<string, number>
+   */
+  public static buildDocFreq(
+    syms: readonly SymbolNode[],
+    byFile: ReadonlyMap<string, readonly number[]>,
+  ): Map<string, number> {
+    const df = new Map<string, number>();
+    for (const ids of byFile.values()) {
+      const localNames = new Set<string>();
+      for (const id of ids) localNames.add(at(syms, id).name);
+      for (const nm of localNames) df.set(nm, (df.get(nm) ?? 0) + 1);
+    }
+    return df;
+  }
+  /**
+   * 扫描单个文件文本，收集它真正引用到的其他符号 id（噪声名与超长文件受限）。
+   * @param text string
+   * @param nameToIds ReadonlyMap<string, readonly number[]>
+   * @param limit number
+   * @returns number[]
+   */
+  public static collectReferencedSymbols(
+    text: string,
+    nameToIds: ReadonlyMap<string, readonly number[]>,
+    limit = 48,
+  ): number[] {
+    const refIds = new Set<number>();
+    for (const t of new Set(tokenize(text))) {
+      if (t.length < 3 || NOISE_NAMES.has(t)) continue;
+      const ids = nameToIds.get(t);
+      if (ids === undefined) continue;
+      for (const id of ids) refIds.add(id);
+    }
+    return [...refIds].slice(0, limit); // 超大文件限流，避免拉爆图
+  }
+}
+
 /** 构建图所需的最小语料视图（避免与 IndexedCorpus 形成循环类型依赖）。 */
 export interface GraphSource {
   readonly symbols: readonly SymbolNode[];
@@ -76,66 +157,6 @@ export const NOISE_NAMES = new Set([
   'setConfig',
 ]);
 
-/** 符号名 → 符号 id 列表（用于引用扫描）。 */
-function buildNameIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
-  const m = new Map<string, number[]>();
-  for (let i = 0; i < syms.length; i++) {
-    const nm = at(syms, i).name;
-    let arr = m.get(nm);
-    if (arr === undefined) {
-      arr = [];
-      m.set(nm, arr);
-    }
-    arr.push(i);
-  }
-  return m;
-}
-
-/** 文件 → 该文件包含的符号 id 列表。 */
-function buildFileIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
-  const m = new Map<string, number[]>();
-  for (let i = 0; i < syms.length; i++) {
-    const f = at(syms, i).file;
-    let arr = m.get(f);
-    if (arr === undefined) {
-      arr = [];
-      m.set(f, arr);
-    }
-    arr.push(i);
-  }
-  return m;
-}
-
-/** 文档频率 df[name] = 包含该符号名的文件数（用于逆文档频率加权）。 */
-function buildDocFreq(
-  syms: readonly SymbolNode[],
-  byFile: ReadonlyMap<string, readonly number[]>,
-): Map<string, number> {
-  const df = new Map<string, number>();
-  for (const ids of byFile.values()) {
-    const localNames = new Set<string>();
-    for (const id of ids) localNames.add(at(syms, id).name);
-    for (const nm of localNames) df.set(nm, (df.get(nm) ?? 0) + 1);
-  }
-  return df;
-}
-
-/** 扫描单个文件文本，收集它真正引用到的其他符号 id（噪声名与超长文件受限）。 */
-function collectReferencedSymbols(
-  text: string,
-  nameToIds: ReadonlyMap<string, readonly number[]>,
-  limit = 48,
-): number[] {
-  const refIds = new Set<number>();
-  for (const t of new Set(tokenize(text))) {
-    if (t.length < 3 || NOISE_NAMES.has(t)) continue;
-    const ids = nameToIds.get(t);
-    if (ids === undefined) continue;
-    for (const id of ids) refIds.add(id);
-  }
-  return [...refIds].slice(0, limit); // 超大文件限流，避免拉爆图
-}
-
 /**
  * 从已索引语料构建代码拓扑图。
  * 复杂度：O(符号数 + 文件数 × 文件 token 数)，对中等仓库（数千符号）是毫秒级。
@@ -144,9 +165,9 @@ export function buildCodeGraph(corpus: GraphSource): CodeGraph {
   const syms = corpus.symbols;
   const n = syms.length;
 
-  const nameToIds = buildNameIndex(syms);
-  const byFile = buildFileIndex(syms);
-  const df = buildDocFreq(syms, byFile);
+  const nameToIds = CodeGraphIndex.buildNameIndex(syms);
+  const byFile = CodeGraphIndex.buildFileIndex(syms);
+  const df = CodeGraphIndex.buildDocFreq(syms, byFile);
 
   // 边集合：source -> (target -> 最大权重)，去重且只保留最强边。
   const edges = new Map<number, Map<number, number>>();
@@ -165,7 +186,7 @@ export function buildCodeGraph(corpus: GraphSource): CodeGraph {
   for (const [rel, text] of corpus.fileText) {
     const localIds = byFile.get(rel);
     if (localIds === undefined || localIds.length === 0) continue;
-    const refArr = collectReferencedSymbols(text, nameToIds);
+    const refArr = CodeGraphIndex.collectReferencedSymbols(text, nameToIds);
     for (const li of localIds) {
       for (const rid of refArr) {
         if (rid === li) continue;

@@ -27,6 +27,7 @@ import type { CosmicWebPort, WebConsolidationReport } from '../../ports/memory/c
 import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/memory/resonantField.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
 import { rankWithDecay, type ScoredFact } from './timeDecay.js';
+import { ResonantFieldMath } from './resonantFieldMath.js';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
 interface Cluster {
@@ -34,22 +35,6 @@ interface Cluster {
   centroid: Spectrum;
   members: string[];
   abstract: boolean;
-}
-
-function avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {
-  const n = Math.max(a.values.length, b.values.length);
-  const out = new Array<number>(n).fill(0);
-  for (let i = 0; i < n; i++) {
-    const va = a.values[i] ?? 0;
-    const vb = b.values[i] ?? 0;
-    out[i] = (va + vb) / 2;
-  }
-  const norm = Math.sqrt(out.reduce((s, v) => s + v * v, 0)) || 1;
-  return { bins: n, values: out.map((v) => v / norm) };
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
 }
 
 /**
@@ -91,9 +76,9 @@ export class ResonantFieldEngine
     private readonly base: LongTermMemoryPort,
     opts: ResonantFieldOptions = {},
   ) {
-    this.adhesionThreshold = clamp(opts.adhesionThreshold ?? 0.75, 0, 1);
+    this.adhesionThreshold = ResonantFieldMath.clamp(opts.adhesionThreshold ?? 0.75, 0, 1);
     this.bekensteinCap = Math.max(1, Math.floor(opts.bekensteinCap ?? 64));
-    this.edgeThreshold = clamp(opts.edgeThreshold ?? 0.4, 0, 1);
+    this.edgeThreshold = ResonantFieldMath.clamp(opts.edgeThreshold ?? 0.4, 0, 1);
     this.bins = opts.bins ?? 257;
     this.halfLifeDays = opts.halfLifeDays ?? 90;
     this.clock = opts.clock ?? Date.now;
@@ -153,7 +138,7 @@ export class ResonantFieldEngine
       // Burgers 黏附：不写 base（去重），仅并入簇。
       const cl = this.clusters.get(bestId)!;
       cl.members.push(fact.id);
-      cl.centroid = avgSpectrum(cl.centroid, s);
+      cl.centroid = ResonantFieldMath.avgSpectrum(cl.centroid, s);
       return;
     }
     // 新簇：写入 base 并登记质心。
@@ -278,7 +263,7 @@ export class ResonantFieldEngine
         source: 'consolidated',
       });
       large.repId = repId;
-      large.centroid = avgSpectrum(small.centroid, large.centroid);
+      large.centroid = ResonantFieldMath.avgSpectrum(small.centroid, large.centroid);
       large.abstract = true;
       large.members.push(...small.members);
       this.clusters.delete(smallId);

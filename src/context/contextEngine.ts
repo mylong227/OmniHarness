@@ -12,9 +12,39 @@ import { join, relative, sep } from 'node:path';
 import { Bm25Index, tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import { extractSymbols, outlineText, type SymbolNode } from './repoMap.js';
 import { eigenSpectrum, resonance, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
-import { buildCodeGraph, propagate, type CodeGraph } from './codeGraph.js';
+import { buildCodeGraph, propagate, type CodeGraph } from './codeGraphIndex.js';
 import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
 import { at } from '../util/arrayAt.js';
+
+/**
+ * ContextEngine 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class ContextEngine {
+  /**
+   * C7 收口：原顶层内部函数迁入宿主类。
+   * @param root string
+   * @param absRoot string
+   * @param out string[]
+   * @returns void
+   */
+  public static walk(root: string, absRoot: string, out: string[]): void {
+    for (const entry of readdirSync(root)) {
+      const abs = join(root, entry);
+      const st = statSync(abs);
+      if (st.isDirectory()) {
+        if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) {
+          continue;
+        }
+        ContextEngine.walk(abs, absRoot, out);
+      } else if (
+        st.isFile() &&
+        (entry.endsWith('.ts') || entry.endsWith('.js') || entry.endsWith('.py'))
+      ) {
+        out.push(relative(absRoot, abs).split(sep).join('/'));
+      }
+    }
+  }
+}
 
 /**
  * 空 LSA 模型（light 模式占位）：k=n=0、所有数组空。
@@ -117,24 +147,6 @@ interface FileRecord {
   readonly tokens: number;
 }
 
-function walk(root: string, absRoot: string, out: string[]): void {
-  for (const entry of readdirSync(root)) {
-    const abs = join(root, entry);
-    const st = statSync(abs);
-    if (st.isDirectory()) {
-      if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) {
-        continue;
-      }
-      walk(abs, absRoot, out);
-    } else if (
-      st.isFile() &&
-      (entry.endsWith('.ts') || entry.endsWith('.js') || entry.endsWith('.py'))
-    ) {
-      out.push(relative(absRoot, abs).split(sep).join('/'));
-    }
-  }
-}
-
 /** 索引选项：morph 开启 camelCase 拆分 + 词形变体归并（默认开，关闭即退化回 Baseline）。 */
 export interface IndexOptions {
   readonly morph?: boolean;
@@ -154,7 +166,7 @@ export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpu
   // light 模式：跳过三项重型索引（仅在全量基准里 light:false 才开启）。
   const light = opts.light === true;
   const files: string[] = [];
-  walk(root, root, files);
+  ContextEngine.walk(root, root, files);
   const fileText = new Map<string, string>();
   const allSymbols: SymbolNode[] = [];
   const fileRecords: FileRecord[] = [];

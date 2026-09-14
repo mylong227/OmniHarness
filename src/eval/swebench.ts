@@ -40,6 +40,25 @@ import type { ModelPort } from '../ports/model/model.js';
 import type { ScriptStep } from './scriptedModel.js';
 
 /**
+ * Swebench 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class Swebench {
+  /**
+   * C7 收口：原顶层内部函数迁入宿主类。
+   * @param task SweTask
+   * @param workspaceRoot string
+   * @returns void
+   */
+  public static seedWorkspace(task: SweTask, workspaceRoot: string): void {
+    for (const [rel, content] of Object.entries(task.seedFiles)) {
+      const fp = join(workspaceRoot, rel);
+      mkdirSync(dirname(fp), { recursive: true });
+      writeFileSync(fp, content, 'utf8');
+    }
+  }
+}
+
+/**
  * @beta
  * 单条 SWE 风格 bug 修复任务（声明式、自包含）。
  */
@@ -127,16 +146,6 @@ export function scoreSweResult(exitCode: number): boolean {
   return exitCode === 0;
 }
 
-// ---------- 工作区预置（各模式共用）----------
-
-function seedWorkspace(task: SweTask, workspaceRoot: string): void {
-  for (const [rel, content] of Object.entries(task.seedFiles)) {
-    const fp = join(workspaceRoot, rel);
-    mkdirSync(dirname(fp), { recursive: true });
-    writeFileSync(fp, content, 'utf8');
-  }
-}
-
 // ---------- 模式一：确定性基建（ScriptedModel replay）----------
 
 /**
@@ -150,7 +159,7 @@ export async function runSweTask(
   model: ModelPort,
   mode: 'scripted' | 'live',
 ): Promise<SweTaskResult> {
-  seedWorkspace(task, workspaceRoot);
+  Swebench.seedWorkspace(task, workspaceRoot);
 
   const config = ConfigFactory.build({
     workspaceRoot,
@@ -212,7 +221,7 @@ export async function runSweTask(
  * 阳性对照：直接套用 goldPatch（绕过 agent），评分器必须判过。证明评分器不假阴。
  */
 export async function runGoldControl(task: SweTask, workspaceRoot: string): Promise<SweTaskResult> {
-  seedWorkspace(task, workspaceRoot);
+  Swebench.seedWorkspace(task, workspaceRoot);
   if (task.goldPatch !== undefined) {
     const applier = new PatchApplier();
     const parsed = applier.parse(task.goldPatch);
@@ -272,7 +281,7 @@ export async function runNegativeControl(
   task: SweTask,
   workspaceRoot: string,
 ): Promise<SweTaskResult> {
-  seedWorkspace(task, workspaceRoot);
+  Swebench.seedWorkspace(task, workspaceRoot);
   const exit = runEval(task.evalCmd, workspaceRoot);
   const passed = scoreSweResult(exit);
   return {

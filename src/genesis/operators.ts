@@ -11,7 +11,7 @@
  */
 
 import { type Cost, emptyCost, cost } from './algebra.js';
-import { type Regime } from './regime.js';
+import { type Regime } from './regimeCost.js';
 import { type ModalityKind } from './modalityPort.js';
 
 import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
@@ -36,6 +36,20 @@ import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBrea
 import type { SymmetryBreakReport } from '../ports/intelligence/symmetryBreaking.js';
 import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
 import type { ConfinementVerdict, CapabilityCharge } from '../ports/runtime/confinement.js';
+
+/**
+ * Operators 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class Operators {
+  /**
+   * 引擎缺失时的单位元结果（不耗资源、无报告）。
+   * @param state HarnessState
+   * @returns HarnessOperatorResult
+   */
+  public static noop(state: HarnessState): HarnessOperatorResult {
+    return { next: state, cost: emptyCost, report: undefined, events: [] };
+  }
+}
 
 /** 统一 Harness 状态（算子在其上做纯变换；成本另由 Ledger 计量）。 */
 export interface HarnessState {
@@ -116,28 +130,23 @@ export function deriveRegime(s: RegimeSignals): Regime {
   };
 }
 
-/** 引擎缺失时的单位元结果（不耗资源、无报告）。 */
-function noop(state: HarnessState): HarnessOperatorResult {
-  return { next: state, cost: emptyCost, report: undefined, events: [] };
-}
-
 // ---- 九个仿生算子：真实调用既有引擎（镜像 SparkController.cycle） ----
 
 export const opResonance: HarnessOperator = (state, e) => {
   const r = e.resonance?.tune();
-  if (r === undefined) return noop(state);
+  if (r === undefined) return Operators.noop(state);
   return { next: state, cost: cost(5), report: r, events: ['resonance'] };
 };
 
 export const opVortex: HarnessOperator = (state, e) => {
   const r = e.vortex?.flush();
-  if (r === undefined) return noop(state);
+  if (r === undefined) return Operators.noop(state);
   return { next: state, cost: cost(5), report: r, events: ['vortex'] };
 };
 
 export const opHeatAnnealer: HarnessOperator = (state, e) => {
   const r = e.annealer?.anneal();
-  if (r === undefined) return noop(state);
+  if (r === undefined) return Operators.noop(state);
   return {
     next: { ...state, temperature: (r as AnnealStepReport).temperature },
     cost: cost(20),
@@ -148,18 +157,18 @@ export const opHeatAnnealer: HarnessOperator = (state, e) => {
 
 export const opWeb: HarnessOperator = (state, e) => {
   const r = e.web?.consolidate();
-  if (r === undefined) return noop(state);
+  if (r === undefined) return Operators.noop(state);
   return { next: state, cost: cost(8), report: r, events: ['web'] };
 };
 
 export const opQec: HarnessOperator = (state, e) => {
   const r = e.qec?.repairAll();
-  if (r === undefined) return noop(state);
+  if (r === undefined) return Operators.noop(state);
   return { next: state, cost: cost(8), report: r, events: ['qec'] };
 };
 
 export const opImmuneMonitoring: HarnessOperator = (state, e) => {
-  if (e.immune === undefined) return noop(state);
+  if (e.immune === undefined) return Operators.noop(state);
   const sample = e.immuneSample?.();
   if (sample !== undefined) e.immune.observe(sample);
   const r = e.immune.selfCheck();
@@ -168,7 +177,7 @@ export const opImmuneMonitoring: HarnessOperator = (state, e) => {
 
 export const opBelief: HarnessOperator = (state, e) => {
   const obs = e.beliefObservation?.();
-  if (obs === undefined) return noop(state);
+  if (obs === undefined) return Operators.noop(state);
   const ng = e.naturalGradient?.correct(obs);
   const pf = e.particleFilter?.correct(obs);
   const report =
@@ -178,24 +187,24 @@ export const opBelief: HarnessOperator = (state, e) => {
           particleFilter: pf as BeliefUpdateReport | undefined,
         }
       : undefined;
-  if (report === undefined) return noop(state);
+  if (report === undefined) return Operators.noop(state);
   return { next: state, cost: cost(15), report, events: ['belief'] };
 };
 
 export const opCrispr: HarnessOperator = (state, e) => {
   const r = e.crispr?.flush();
-  if (r === undefined || r.length === 0) return noop(state);
+  if (r === undefined || r.length === 0) return Operators.noop(state);
   return { next: state, cost: cost(6), report: r, events: ['crispr'] };
 };
 
 export const opCapabilityCrystallizer: HarnessOperator = (state, e) => {
   const r = e.crystallizer?.crystallize();
-  if (r === undefined) return noop(state);
+  if (r === undefined) return Operators.noop(state);
   return { next: state, cost: cost(15), report: r, events: ['capabilityCrystallizer'] };
 };
 
 export const opEtching: HarnessOperator = (state, e) => {
-  if (e.etching === undefined) return noop(state);
+  if (e.etching === undefined) return Operators.noop(state);
   const traces = e.etching.traces;
   const conducted =
     e.etchProbe !== undefined
@@ -205,7 +214,7 @@ export const opEtching: HarnessOperator = (state, e) => {
 };
 
 export const opElementComposer: HarnessOperator = (state, e) => {
-  if (e.elementComposer === undefined) return noop(state);
+  if (e.elementComposer === undefined) return Operators.noop(state);
   const elements = e.elementComposer.elements().length;
   const compound = e.composeProbe
     ? (e.elementComposer.compose(e.composeProbe())?.symbol ?? null)
@@ -219,7 +228,7 @@ export const opElementComposer: HarnessOperator = (state, e) => {
 };
 
 export const opSymmetryBreaking: HarnessOperator = (state, e) => {
-  if (e.symmetry === undefined) return noop(state);
+  if (e.symmetry === undefined) return Operators.noop(state);
   const s = e.symmetryProbe?.();
   if (s !== undefined) e.symmetry.observe(s);
   const r = e.symmetry.snapshot();
@@ -232,7 +241,7 @@ export const opSymmetryBreaking: HarnessOperator = (state, e) => {
 };
 
 export const opConfinement: HarnessOperator = (state, e) => {
-  if (e.confinement === undefined || e.confinementProbe === undefined) return noop(state);
+  if (e.confinement === undefined || e.confinementProbe === undefined) return Operators.noop(state);
   const r = e.confinement.expose(e.confinementProbe());
   return {
     next: { ...state, exposed: (r as ConfinementVerdict).exposed },

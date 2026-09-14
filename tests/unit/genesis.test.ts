@@ -32,7 +32,7 @@ import {
   pruneOperator,
   plan,
   adaptOnce,
-} from '../../src/genesis/regime.js';
+} from '../../src/genesis/regimeCost.js';
 
 // ---- 1. Cost 交换幺半群：结合律 / 单位元 ----
 
