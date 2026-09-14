@@ -163,23 +163,6 @@ const EMPTY_METRICS_BASE: Omit<
  * @param d 诊断快照；`null` 表示调用方未提供图
  * @returns 摊平后的度量片段
  */
-function flattenDiagnostics(
-  d: StructuralDiagnostics | null,
-): Omit<
-  VetoMetrics,
-  'queryInsensitivity' | 'baselineQueryInsensitivity' | 'insensitivityRatio' | 'overlapJaccard'
-> {
-  if (d === null) return EMPTY_METRICS_BASE;
-  return {
-    nodeCount: d.nodeCount,
-    edgeCount: d.edgeCount,
-    avgDegree: d.avgDegree,
-    degreeGini: d.degreeGini,
-    spectralGap: d.spectralGap,
-    uniformKl: d.uniformKl,
-    effectiveSupportRatio: d.effectiveSupportRatio,
-  };
-}
 
 /**
  * 排序前置否决器：在跑排序实验之前，先判定这条排序路是否可能携带信息。
@@ -236,7 +219,7 @@ export class RankVetoEvaluator {
       baselineQueryInsensitivity: base,
       insensitivityRatio: ratio,
       overlapJaccard: overlap,
-      ...flattenDiagnostics(structural),
+      ...RankVetoEvaluator.flattenDiagnostics(structural),
     };
   }
 
@@ -294,5 +277,30 @@ export class RankVetoEvaluator {
       notes.push('[诊断] 未提供探针列表与基线，两项否决判据均跳过；结论仅含结构性诊断，不构成建议');
     }
     return notes;
+  }
+  /**
+   * flattenDiagnostics — module-level helper moved into RankVetoEvaluator.
+   * @param {StructuralDiagnostics | null} d - d
+   * @returns {Omit<
+  VetoMetrics,
+  'queryInsensitivity' | 'baselineQueryInsensitivity' | 'insensitivityRatio' | 'overlapJaccard'
+>} - result
+   */
+  private static flattenDiagnostics(
+    d: StructuralDiagnostics | null,
+  ): Omit<
+    VetoMetrics,
+    'queryInsensitivity' | 'baselineQueryInsensitivity' | 'insensitivityRatio' | 'overlapJaccard'
+  > {
+    if (d === null) return EMPTY_METRICS_BASE;
+    return {
+      nodeCount: d.nodeCount,
+      edgeCount: d.edgeCount,
+      avgDegree: d.avgDegree,
+      degreeGini: d.degreeGini,
+      spectralGap: d.spectralGap,
+      uniformKl: d.uniformKl,
+      effectiveSupportRatio: d.effectiveSupportRatio,
+    };
   }
 }

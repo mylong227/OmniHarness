@@ -36,43 +36,7 @@ export interface Routine {
   readonly lastRun?: number | undefined;
 }
 
-function defaultStorePath(): string {
-  return resolve(homedir(), '.omniharness', 'routines.json');
-}
-
 /** 把单段 cron 字段（如「每5分」「1-3,9」「任意」）展开为命中的数值集合。 */
-function expandField(field: string, min: number, max: number): Set<number> {
-  const out = new Set<number>();
-  for (const part of field.split(',')) {
-    if (part === '*') {
-      for (let v = min; v <= max; v += 1) out.add(v);
-      continue;
-    }
-    let step = 1;
-    let range = part;
-    const slash = part.indexOf('/');
-    if (slash >= 0) {
-      step = Number.parseInt(part.slice(slash + 1), 10);
-      if (Number.isNaN(step) || step < 1) step = 1;
-      range = part.slice(0, slash);
-    }
-    let lo = min;
-    let hi = max;
-    const dash = range.indexOf('-');
-    if (dash >= 0) {
-      lo = Number.parseInt(range.slice(0, dash), 10);
-      hi = Number.parseInt(range.slice(dash + 1), 10);
-    } else if (range !== '*') {
-      lo = Number.parseInt(range, 10);
-      hi = lo;
-    }
-    if (Number.isNaN(lo) || Number.isNaN(hi)) continue;
-    lo = Math.max(min, lo);
-    hi = Math.min(max, hi);
-    for (let v = lo; v <= hi; v += step) out.add(v);
-  }
-  return out;
-}
 
 /**
  * @beta
@@ -84,11 +48,11 @@ function expandField(field: string, min: number, max: number): Set<number> {
 export function matchesCron(expr: string, date: Date): boolean {
   const fields = expr.trim().split(/\s+/);
   if (fields.length !== 5) return false;
-  const minute = expandField(fields[0] ?? '*', 0, 59);
-  const hour = expandField(fields[1] ?? '*', 0, 23);
-  const dom = expandField(fields[2] ?? '*', 1, 31);
-  const month = expandField(fields[3] ?? '*', 1, 12);
-  const dow = expandField(fields[4] ?? '*', 0, 6);
+  const minute = RoutineScheduler.expandField(fields[0] ?? '*', 0, 59);
+  const hour = RoutineScheduler.expandField(fields[1] ?? '*', 0, 23);
+  const dom = RoutineScheduler.expandField(fields[2] ?? '*', 1, 31);
+  const month = RoutineScheduler.expandField(fields[3] ?? '*', 1, 12);
+  const dow = RoutineScheduler.expandField(fields[4] ?? '*', 0, 6);
   if (!minute.has(date.getMinutes())) return false;
   if (!hour.has(date.getHours())) return false;
   if (!month.has(date.getMonth() + 1)) return false;
@@ -111,7 +75,7 @@ export class RoutineScheduler {
    * 创建调度器。
    * @param storePath 存储文件路径（缺省 ~/.omniharness/routines.json）
    */
-  public constructor(storePath: string = defaultStorePath()) {
+  public constructor(storePath: string = RoutineScheduler.defaultStorePath()) {
     this.storePath = storePath;
   }
 
@@ -227,5 +191,51 @@ export class RoutineScheduler {
   private save(store: { routines: Routine[] }): void {
     mkdirSync(dirname(this.storePath), { recursive: true });
     writeFileSync(this.storePath, JSON.stringify(store, null, 2), 'utf8');
+  }
+  /**
+   * expandField — module-level helper moved into RoutineScheduler.
+   * @param {string} field - field
+   * @param {number} min - min
+   * @param {number} max - max
+   * @returns {Set<number>} - result
+   */
+  public static expandField(field: string, min: number, max: number): Set<number> {
+    const out = new Set<number>();
+    for (const part of field.split(',')) {
+      if (part === '*') {
+        for (let v = min; v <= max; v += 1) out.add(v);
+        continue;
+      }
+      let step = 1;
+      let range = part;
+      const slash = part.indexOf('/');
+      if (slash >= 0) {
+        step = Number.parseInt(part.slice(slash + 1), 10);
+        if (Number.isNaN(step) || step < 1) step = 1;
+        range = part.slice(0, slash);
+      }
+      let lo = min;
+      let hi = max;
+      const dash = range.indexOf('-');
+      if (dash >= 0) {
+        lo = Number.parseInt(range.slice(0, dash), 10);
+        hi = Number.parseInt(range.slice(dash + 1), 10);
+      } else if (range !== '*') {
+        lo = Number.parseInt(range, 10);
+        hi = lo;
+      }
+      if (Number.isNaN(lo) || Number.isNaN(hi)) continue;
+      lo = Math.max(min, lo);
+      hi = Math.min(max, hi);
+      for (let v = lo; v <= hi; v += step) out.add(v);
+    }
+    return out;
+  }
+  /**
+   * defaultStorePath — module-level helper moved into RoutineScheduler.
+   * @returns {string} - result
+   */
+  private static defaultStorePath(): string {
+    return resolve(homedir(), '.omniharness', 'routines.json');
   }
 }

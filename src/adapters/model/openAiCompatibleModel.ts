@@ -28,23 +28,6 @@ export interface OpenAiCompatibleConfig {
  * @param value Retry-After 响应头原文（纯秒数或 HTTP 日期两种格式）。
  * @returns 折算后的等待毫秒数（上限 60 秒）；格式非法或日期已过期时为 undefined。
  */
-function parseRetryAfter(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (/^\d+$/.test(trimmed)) {
-    const secs = Number(trimmed);
-    if (Number.isFinite(secs)) {
-      return Math.min(60_000, secs * 1000);
-    }
-  }
-  const date = Date.parse(trimmed);
-  if (!Number.isNaN(date)) {
-    const delta = date - Date.now();
-    if (delta > 0) {
-      return Math.min(60_000, delta);
-    }
-  }
-  return undefined;
-}
 
 /** OpenAI 兼容 chat/completions 客户端（DeepSeek/OpenAI/任意兼容端点）。 */
 export class OpenAiCompatibleModel implements ModelPort {
@@ -148,7 +131,8 @@ export class OpenAiCompatibleModel implements ModelPort {
     const retryable =
       status === 429 || status === 408 || status === 409 || (status >= 500 && status <= 599);
     const retryAfter = response.headers.get('retry-after');
-    const retryAfterMs = retryAfter === null ? undefined : parseRetryAfter(retryAfter);
+    const retryAfterMs =
+      retryAfter === null ? undefined : OpenAiCompatibleModel.parseRetryAfter(retryAfter);
     const bodyText = await response.text().catch(() => '<unreadable>');
     // #OBS-6：400 时把请求 messages 的 assistant 段落关键字段一并 dump（含 reasoning_content 是否缺失），
     // 方便定位「deepseek 思考模式 must be passed back」类问题的实际断点。
@@ -453,6 +437,28 @@ export class OpenAiCompatibleModel implements ModelPort {
     ) {
       state.reasoningChunks.push(delta.reasoning_content);
     }
+  }
+  /**
+   * parseRetryAfter — module-level helper moved into OpenAiCompatibleModel.
+   * @param {string} value - value
+   * @returns {number | undefined} - result
+   */
+  private static parseRetryAfter(value: string): number | undefined {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const secs = Number(trimmed);
+      if (Number.isFinite(secs)) {
+        return Math.min(60000, secs * 1000);
+      }
+    }
+    const date = Date.parse(trimmed);
+    if (!Number.isNaN(date)) {
+      const delta = date - Date.now();
+      if (delta > 0) {
+        return Math.min(60000, delta);
+      }
+    }
+    return undefined;
   }
 }
 

@@ -44,13 +44,6 @@ export interface CapabilityCrystallizerOptions {
 }
 
 /** 确定性短哈希（djb2 → base36），用于派生稳定冻结名，无需加密库。 */
-function shortHash(s: string): string {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  }
-  return (h >>> 0).toString(36);
-}
 
 /** 相变固化器。 */
 export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
@@ -166,7 +159,7 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
         rejectedByFloor++;
         continue;
       }
-      const frozenName = `crystal:${shortHash(key)}`;
+      const frozenName = `crystal:${CapabilityCrystallizer.shortHash(key)}`;
       const frozenSkill: Skill = {
         ...composed,
         name: frozenName,
@@ -197,5 +190,17 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
       emergences,
       rejectedByFloor,
     };
+  }
+  /**
+   * shortHash — module-level helper moved into CapabilityCrystallizer.
+   * @param {string} s - s
+   * @returns {string} - result
+   */
+  private static shortHash(s: string): string {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    }
+    return (h >>> 0).toString(36);
   }
 }

@@ -23,17 +23,6 @@ import type {
  * @param cwd 工作树目录（git 执行上下文）。
  * @returns git 标准输出文本；命令失败（含非仓库）时 reject（fail-closed）。
  */
-function git(args: readonly string[], cwd: string): Promise<string> {
-  return new Promise((resolvePromise, reject) => {
-    execFile('git', [...args], { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
-      if (err !== null) {
-        reject(err);
-        return;
-      }
-      resolvePromise(stdout);
-    });
-  });
-}
 
 /** Git 工作区快照适配器：实现 WorkspaceSnapshotPort，适合 git 仓库内的工作树（按 HEAD 差异捕获/还原）。 */
 export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
@@ -46,8 +35,8 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
    */
   public async capture(root: string): Promise<FileSnapshot> {
     // 校验为 git 仓库（非仓库则下面的命令会抛错，fail-closed）。
-    await git(['rev-parse', '--is-inside-work-tree'], root);
-    const porcelain = await git(['status', '--porcelain', '-z'], root);
+    await GitWorkspaceSnapshot.git(['rev-parse', '--is-inside-work-tree'], root);
+    const porcelain = await GitWorkspaceSnapshot.git(['status', '--porcelain', '-z'], root);
     const entries = await this.parsePorcelain(porcelain, root);
     return { root: resolve(root), entries };
   }
@@ -95,7 +84,7 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
    */
   private async headContent(root: string, relPath: string): Promise<string | null> {
     try {
-      return await git(['show', `HEAD:${relPath}`], root);
+      return await GitWorkspaceSnapshot.git(['show', `HEAD:${relPath}`], root);
     } catch {
       return null;
     }
@@ -117,5 +106,22 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
       await mkdir(dirname(full), { recursive: true });
       await writeFile(full, entry.content, 'utf8');
     }
+  }
+  /**
+   * git — module-level helper moved into GitWorkspaceSnapshot.
+   * @param {readonly string[]} args - args
+   * @param {string} cwd - cwd
+   * @returns {Promise<string>} - result
+   */
+  private static git(args: readonly string[], cwd: string): Promise<string> {
+    return new Promise((resolvePromise, reject) => {
+      execFile('git', [...args], { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
+        if (err !== null) {
+          reject(err);
+          return;
+        }
+        resolvePromise(stdout);
+      });
+    });
   }
 }

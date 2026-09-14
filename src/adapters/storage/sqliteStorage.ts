@@ -9,24 +9,6 @@ import type { StoragePort } from '../../ports/memory/storage.js';
  * Node 20 仅在真正选择 sqlite 存储时才得到清晰错误（fail-closed 可诊断）。
  * @returns node:sqlite 的 DatabaseSync 类；模块不可用时抛出带修复建议的错误。
  */
-function loadDatabaseSync(): typeof DatabaseSync {
-  try {
-    // CJS require 返回模块命名空间对象（{ DatabaseSync }），不是类本身——
-    // 直接 new 模块对象会炸「not a constructor」（2026-09-09 实测修复）。
-    const mod = createRequire(import.meta.url)('node:sqlite') as {
-      DatabaseSync: typeof DatabaseSync;
-    };
-    if (typeof mod?.DatabaseSync !== 'function') {
-      throw new Error('node:sqlite 未导出 DatabaseSync');
-    }
-    return mod.DatabaseSync;
-  } catch {
-    throw new Error(
-      'SqliteStorage 需要 node:sqlite 内置模块（Node 22+）。' +
-        '当前 Node 版本不可用；请改用 --storage jsonl 或升级 Node。',
-    );
-  }
-}
 
 /** SQLite 存储适配器（node:sqlite）：events 表按会话分桶，可替换 JSONL。 */
 export class SqliteStorage implements StoragePort {
@@ -43,7 +25,7 @@ export class SqliteStorage implements StoragePort {
    * @param filePath SQLite 数据库文件路径。
    */
   public constructor(filePath: string) {
-    const DatabaseSyncImpl = loadDatabaseSync();
+    const DatabaseSyncImpl = SqliteStorage.loadDatabaseSync();
     this.location = filePath;
     this.db = new DatabaseSyncImpl(filePath);
     this.db.exec(
@@ -82,5 +64,27 @@ export class SqliteStorage implements StoragePort {
    */
   public close(): void {
     this.db.close();
+  }
+  /**
+   * loadDatabaseSync — module-level helper moved into SqliteStorage.
+   * @returns {typeof DatabaseSync} - result
+   */
+  private static loadDatabaseSync(): typeof DatabaseSync {
+    try {
+      // CJS require 返回模块命名空间对象（{ DatabaseSync }），不是类本身——
+      // 直接 new 模块对象会炸「not a constructor」（2026-09-09 实测修复）。
+      const mod = createRequire(import.meta.url)('node:sqlite') as {
+        DatabaseSync: typeof DatabaseSync;
+      };
+      if (typeof mod?.DatabaseSync !== 'function') {
+        throw new Error('node:sqlite 未导出 DatabaseSync');
+      }
+      return mod.DatabaseSync;
+    } catch {
+      throw new Error(
+        'SqliteStorage 需要 node:sqlite 内置模块（Node 22+）。' +
+          '当前 Node 版本不可用；请改用 --storage jsonl 或升级 Node。',
+      );
+    }
   }
 }

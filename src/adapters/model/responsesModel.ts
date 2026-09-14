@@ -61,7 +61,7 @@ export class ResponsesModel implements ModelPort {
    * @returns 无返回值。
    */
   public reset(): void {
-    this.lastResponseId = configPrevious(this.config);
+    this.lastResponseId = ResponsesModel.configPrevious(this.config);
   }
 
   /** 生成响应。
@@ -338,15 +338,20 @@ export class ResponsesModel implements ModelPort {
       return {};
     }
   }
+  /**
+   * configPrevious — module-level helper moved into ResponsesModel.
+   * @param {ResponsesConfig} config - config
+   * @returns {string | undefined} - result
+   */
+  private static configPrevious(config: ResponsesConfig): string | undefined {
+    return config.previousResponseId;
+  }
 }
 
 /** 取配置里的起始续接 ID。
  * @param config 适配器配置。
  * @returns 配置指定的 previousResponseId；未配置时为 undefined（开新会话）。
  */
-function configPrevious(config: ResponsesConfig): string | undefined {
-  return config.previousResponseId;
-}
 
 /** wire 层响应。 */
 interface ResponsesResponse {
