@@ -70,6 +70,211 @@ import type { CodeGraph, GraphSource } from './codeGraph.js';
 import type { SymbolNode } from './repoMap.js';
 
 /**
+ * LayeredCodeGraph — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class LayeredCodeGraph {
+  /**
+   * 解析层化选项，填充默认值。
+   * @param {LayeredGraphOptions | undefined} options - options
+   * @returns {ResolvedOptions} - result
+   */
+  public static resolveOptions(options: LayeredGraphOptions | undefined): ResolvedOptions {
+    return {
+      maxRefsPerFile: options?.maxRefsPerFile ?? 64,
+      crossModuleBoost: options?.crossModuleBoost ?? true,
+      exportBoost: options?.exportBoost ?? true,
+      maxScopeSpan: options?.maxScopeSpan ?? 120,
+    };
+  }
+
+  /**
+   * 建立「符号名 → 符号 id 列表」索引，供引用名解析使用。
+   * @param {readonly SymbolNode[]} symbols - symbols
+   * @returns {Map<string, number[]>} - result
+   */
+  public static indexByName(symbols: readonly SymbolNode[]): Map<string, number[]> {
+    const byName = new Map<string, number[]>();
+    for (let i = 0; i < symbols.length; i += 1) {
+      const nm = symbols[i]?.name;
+      if (nm === undefined) continue;
+      const arr = byName.get(nm);
+      if (arr === undefined) byName.set(nm, [i]);
+      else arr.push(i);
+    }
+    return byName;
+  }
+
+  /**
+   * 建立「文件 → 该文件内符号 id」索引，组内按行号升序。
+   * @param {readonly SymbolNode[]} symbols - symbols
+   * @returns {Map<string, number[]>} - result
+   */
+  public static indexByFile(symbols: readonly SymbolNode[]): Map<string, number[]> {
+    const byFile = new Map<string, number[]>();
+    for (let i = 0; i < symbols.length; i += 1) {
+      const f = symbols[i]?.file;
+      if (f === undefined) continue;
+      const arr = byFile.get(f);
+      if (arr === undefined) byFile.set(f, [i]);
+      else arr.push(i);
+    }
+    for (const arr of byFile.values()) {
+      arr.sort((a, b) => (symbols[a]?.line ?? 0) - (symbols[b]?.line ?? 0));
+    }
+    return byFile;
+  }
+
+  /**
+   * 统计符号名的文档频率 `df[name]` = 含该名的**文件数**（逆文档频率调制的分母）。 以文件而非符号为计数单位：重名符号在同一文件内只计一次，避免高频工具名被内部重载放大。
+   * @param {readonly SymbolNode[]} symbols - symbols
+   * @param {ReadonlyMap<string, readonly number[]>} byFile - byFile
+   * @returns {Map<string, number>} - result
+   */
+  public static documentFrequency(
+    symbols: readonly SymbolNode[],
+    byFile: ReadonlyMap<string, readonly number[]>,
+  ): Map<string, number> {
+    const df = new Map<string, number>();
+    for (const ids of byFile.values()) {
+      const local = new Set<string>();
+      for (const id of ids) {
+        const nm = symbols[id]?.name;
+        if (nm !== undefined) local.add(nm);
+      }
+      for (const nm of local) df.set(nm, (df.get(nm) ?? 0) + 1);
+    }
+    return df;
+  }
+
+  /**
+   * 计算一次引用的**层坐标一致性权重**。 组成（与模块头部的层坐标定义一一对应）： - 逆文档频率基线 `0.9 / (1 + log2(df + 1))`：罕见名权重高； - 被调方导出 ×1.25：更可能是有意依赖； - 跨模块引用 ×1.15：信息量高于同模块内的常规引用； - 调用形参 > 3 ×0.9：抑制大函数枢纽化。
+   * @param {NodeLayer} target - target
+   * @param {NodeLayer} host - host
+   * @param {number} df - df
+   * @param {ResolvedOptions} opt - opt
+   * @returns {number} - result
+   */
+  public static layerWeight(
+    target: NodeLayer,
+    host: NodeLayer,
+    df: number,
+    opt: ResolvedOptions,
+  ): number {
+    let w = 0.9 / (1 + Math.log2(df + 1));
+    if (opt.exportBoost && target.exported) w *= 1.25;
+    if (opt.crossModuleBoost && target.module !== host.module) w *= 1.15;
+    if (host.arity > 3) w *= 0.9;
+    return w;
+  }
+
+  /**
+   * 写入一条无向边（取重边最大值），自环与非正权重直接丢弃。
+   * @param {Map<number, Map<number, number>>} edges - edges
+   * @param {number} a - a
+   * @param {number} b - b
+   * @param {number} w - w
+   * @returns {void} - result
+   */
+  public static pushEdge(
+    edges: Map<number, Map<number, number>>,
+    a: number,
+    b: number,
+    w: number,
+  ): void {
+    if (a === b || !(w > 0)) return;
+    let m = edges.get(a);
+    if (m === undefined) {
+      m = new Map();
+      edges.set(a, m);
+    }
+    const cur = m.get(b) ?? 0;
+    if (w > cur) m.set(b, w);
+  }
+
+  /**
+   * 逐文件扫描引用行：按作用域归属确定宿主，再按层坐标加权写入跨文件边。 同文件内的引用**不建边**（已由 file-union 覆盖），图只负责跨文件关联。
+   * @param {GraphSource} corpus - corpus
+   * @param {EdgeBuildContext} ctx - ctx
+   * @returns {Map<number, Map<number, number>>} - result
+   */
+  public static collectEdges(
+    corpus: GraphSource,
+    ctx: EdgeBuildContext,
+  ): Map<number, Map<number, number>> {
+    const { syms, layers, nameToIds, byFile, df, opt } = ctx;
+    const edges = new Map<number, Map<number, number>>();
+
+    for (const [rel, text] of corpus.fileText) {
+      const localIdx = byFile.get(rel);
+      if (localIdx === undefined || localIdx.length === 0) continue;
+      const localSyms = localIdx
+        .map((i) => syms[i])
+        .filter((s): s is SymbolNode => s !== undefined);
+      const lines = text.split('\n');
+      const owners = scopeOwners(lines, localSyms, opt.maxScopeSpan);
+
+      let collected = 0;
+      for (let li = 0; li < lines.length && collected < opt.maxRefsPerFile; li += 1) {
+        const hostPos = owners[li];
+        if (hostPos === undefined || hostPos < 0) continue;
+        const hostId = localIdx[hostPos];
+        if (hostId === undefined) continue;
+        const hostLayer = layers[hostId];
+        if (hostLayer === undefined) continue;
+
+        for (const tok of new Set(tokenize(lines[li] ?? ''))) {
+          if (tok.length < 3 || NOISE_NAMES.has(tok)) continue;
+          const ids = nameToIds.get(tok);
+          if (ids === undefined) continue;
+          for (const tid of ids) {
+            if (tid === hostId) continue;
+            const tl = layers[tid];
+            const ts = syms[tid];
+            if (tl === undefined || ts === undefined) continue;
+            if (ts.file === rel) continue;
+
+            LayeredCodeGraph.pushEdge(
+              edges,
+              hostId,
+              tid,
+              LayeredCodeGraph.layerWeight(tl, hostLayer, df.get(ts.name) ?? 1, opt),
+            );
+            LayeredCodeGraph.pushEdge(
+              edges,
+              tid,
+              hostId,
+              LayeredCodeGraph.layerWeight(tl, hostLayer, df.get(ts.name) ?? 1, opt),
+            );
+            collected += 1;
+            if (collected >= opt.maxRefsPerFile) break;
+          }
+          if (collected >= opt.maxRefsPerFile) break;
+        }
+      }
+    }
+    return edges;
+  }
+
+  /**
+   * 把稀疏边集展开为 {@link CodeGraph} 的邻接表形式。
+   * @param {ReadonlyMap<number, ReadonlyMap<number, number>>} edges - edges
+   * @param {number} n - n
+   * @returns {CodeGraph} - result
+   */
+  public static toAdjacency(
+    edges: ReadonlyMap<number, ReadonlyMap<number, number>>,
+    n: number,
+  ): CodeGraph {
+    const adj: Array<Array<readonly [number, number]>> = new Array(n);
+    for (let i = 0; i < n; i += 1) {
+      const m = edges.get(i);
+      adj[i] = m === undefined ? [] : [...m].map(([j, w]) => [j, w] as const);
+    }
+    return { n, adj };
+  }
+}
+
+/**
  * 符号在边上的**层坐标**（调用方与被调方共用同一组坐标维度）。
  */
 export interface NodeLayer {
@@ -103,21 +308,6 @@ interface ResolvedOptions {
   readonly crossModuleBoost: boolean;
   readonly exportBoost: boolean;
   readonly maxScopeSpan: number;
-}
-
-/**
- * 解析层化选项，填充默认值。
- *
- * @param options 调用方传入的部分选项；`undefined` 表示全取默认
- * @returns 所有字段均已确定的选项对象
- */
-function resolveOptions(options: LayeredGraphOptions | undefined): ResolvedOptions {
-  return {
-    maxRefsPerFile: options?.maxRefsPerFile ?? 64,
-    crossModuleBoost: options?.crossModuleBoost ?? true,
-    exportBoost: options?.exportBoost ?? true,
-    maxScopeSpan: options?.maxScopeSpan ?? 120,
-  };
 }
 
 /**
@@ -258,186 +448,6 @@ interface EdgeBuildContext {
 }
 
 /**
- * 建立「符号名 → 符号 id 列表」索引，供引用名解析使用。
- *
- * @param symbols 符号节点序列（下标即符号 id）
- * @returns 名字到 id 列表的映射；重名符号共享同一个键
- */
-function indexByName(symbols: readonly SymbolNode[]): Map<string, number[]> {
-  const byName = new Map<string, number[]>();
-  for (let i = 0; i < symbols.length; i += 1) {
-    const nm = symbols[i]?.name;
-    if (nm === undefined) continue;
-    const arr = byName.get(nm);
-    if (arr === undefined) byName.set(nm, [i]);
-    else arr.push(i);
-  }
-  return byName;
-}
-
-/**
- * 建立「文件 → 该文件内符号 id」索引，组内按行号升序。
- *
- * @param symbols 符号节点序列（下标即符号 id）
- * @returns 文件相对路径到 id 列表的映射
- */
-function indexByFile(symbols: readonly SymbolNode[]): Map<string, number[]> {
-  const byFile = new Map<string, number[]>();
-  for (let i = 0; i < symbols.length; i += 1) {
-    const f = symbols[i]?.file;
-    if (f === undefined) continue;
-    const arr = byFile.get(f);
-    if (arr === undefined) byFile.set(f, [i]);
-    else arr.push(i);
-  }
-  for (const arr of byFile.values()) {
-    arr.sort((a, b) => (symbols[a]?.line ?? 0) - (symbols[b]?.line ?? 0));
-  }
-  return byFile;
-}
-
-/**
- * 统计符号名的文档频率 `df[name]` = 含该名的**文件数**（逆文档频率调制的分母）。
- *
- * 以文件而非符号为计数单位：重名符号在同一文件内只计一次，避免高频工具名被内部重载放大。
- *
- * @param symbols 符号节点序列
- * @param byFile  {@link indexByFile} 产出的文件索引
- * @returns 名字到文档频率的映射
- */
-function documentFrequency(
-  symbols: readonly SymbolNode[],
-  byFile: ReadonlyMap<string, readonly number[]>,
-): Map<string, number> {
-  const df = new Map<string, number>();
-  for (const ids of byFile.values()) {
-    const local = new Set<string>();
-    for (const id of ids) {
-      const nm = symbols[id]?.name;
-      if (nm !== undefined) local.add(nm);
-    }
-    for (const nm of local) df.set(nm, (df.get(nm) ?? 0) + 1);
-  }
-  return df;
-}
-
-/**
- * 计算一次引用的**层坐标一致性权重**。
- *
- * 组成（与模块头部的层坐标定义一一对应）：
- * - 逆文档频率基线 `0.9 / (1 + log2(df + 1))`：罕见名权重高；
- * - 被调方导出 ×1.25：更可能是有意依赖；
- * - 跨模块引用 ×1.15：信息量高于同模块内的常规引用；
- * - 调用形参 > 3 ×0.9：抑制大函数枢纽化。
- *
- * @param target 被调方层坐标
- * @param host   调用方层坐标
- * @param df     被调方名字的文档频率
- * @param opt    已解析的选项（决定是否启用两项加成）
- * @returns 边权（>0）
- */
-function layerWeight(target: NodeLayer, host: NodeLayer, df: number, opt: ResolvedOptions): number {
-  let w = 0.9 / (1 + Math.log2(df + 1));
-  if (opt.exportBoost && target.exported) w *= 1.25;
-  if (opt.crossModuleBoost && target.module !== host.module) w *= 1.15;
-  if (host.arity > 3) w *= 0.9;
-  return w;
-}
-
-/**
- * 写入一条无向边（取重边最大值），自环与非正权重直接丢弃。
- *
- * @param edges 边集（宿主 id → 邻居 id → 权重）
- * @param a     端点 A 的符号 id
- * @param b     端点 B 的符号 id
- * @param w     权重
- */
-function pushEdge(edges: Map<number, Map<number, number>>, a: number, b: number, w: number): void {
-  if (a === b || !(w > 0)) return;
-  let m = edges.get(a);
-  if (m === undefined) {
-    m = new Map();
-    edges.set(a, m);
-  }
-  const cur = m.get(b) ?? 0;
-  if (w > cur) m.set(b, w);
-}
-
-/**
- * 逐文件扫描引用行：按作用域归属确定宿主，再按层坐标加权写入跨文件边。
- *
- * 同文件内的引用**不建边**（已由 file-union 覆盖），图只负责跨文件关联。
- *
- * @param corpus 最小语料视图（符号 + 文件文本）
- * @param ctx    预计算索引与选项
- * @returns 稀疏边集（宿主 id → 邻居 id → 权重）
- */
-function collectEdges(
-  corpus: GraphSource,
-  ctx: EdgeBuildContext,
-): Map<number, Map<number, number>> {
-  const { syms, layers, nameToIds, byFile, df, opt } = ctx;
-  const edges = new Map<number, Map<number, number>>();
-
-  for (const [rel, text] of corpus.fileText) {
-    const localIdx = byFile.get(rel);
-    if (localIdx === undefined || localIdx.length === 0) continue;
-    const localSyms = localIdx.map((i) => syms[i]).filter((s): s is SymbolNode => s !== undefined);
-    const lines = text.split('\n');
-    const owners = scopeOwners(lines, localSyms, opt.maxScopeSpan);
-
-    let collected = 0;
-    for (let li = 0; li < lines.length && collected < opt.maxRefsPerFile; li += 1) {
-      const hostPos = owners[li];
-      if (hostPos === undefined || hostPos < 0) continue;
-      const hostId = localIdx[hostPos];
-      if (hostId === undefined) continue;
-      const hostLayer = layers[hostId];
-      if (hostLayer === undefined) continue;
-
-      for (const tok of new Set(tokenize(lines[li] ?? ''))) {
-        if (tok.length < 3 || NOISE_NAMES.has(tok)) continue;
-        const ids = nameToIds.get(tok);
-        if (ids === undefined) continue;
-        for (const tid of ids) {
-          if (tid === hostId) continue;
-          const tl = layers[tid];
-          const ts = syms[tid];
-          if (tl === undefined || ts === undefined) continue;
-          if (ts.file === rel) continue;
-
-          pushEdge(edges, hostId, tid, layerWeight(tl, hostLayer, df.get(ts.name) ?? 1, opt));
-          pushEdge(edges, tid, hostId, layerWeight(tl, hostLayer, df.get(ts.name) ?? 1, opt));
-          collected += 1;
-          if (collected >= opt.maxRefsPerFile) break;
-        }
-        if (collected >= opt.maxRefsPerFile) break;
-      }
-    }
-  }
-  return edges;
-}
-
-/**
- * 把稀疏边集展开为 {@link CodeGraph} 的邻接表形式。
- *
- * @param edges 边集（宿主 id → 邻居 id → 权重）
- * @param n     节点总数
- * @returns 有向带权邻接表（每个方向各一条边）
- */
-function toAdjacency(
-  edges: ReadonlyMap<number, ReadonlyMap<number, number>>,
-  n: number,
-): CodeGraph {
-  const adj: Array<Array<readonly [number, number]>> = new Array(n);
-  for (let i = 0; i < n; i += 1) {
-    const m = edges.get(i);
-    adj[i] = m === undefined ? [] : [...m].map(([j, w]) => [j, w] as const);
-  }
-  return { n, adj };
-}
-
-/**
  * 构建**层化**代码图。
  *
  * 与 {@link buildCodeGraph} 的差别：
@@ -452,19 +462,19 @@ export function buildLayeredCodeGraph(
   corpus: GraphSource,
   options?: LayeredGraphOptions,
 ): CodeGraph {
-  const opt = resolveOptions(options);
+  const opt = LayeredCodeGraph.resolveOptions(options);
   const syms = corpus.symbols;
   const n = syms.length;
-  const byFile = indexByFile(syms);
+  const byFile = LayeredCodeGraph.indexByFile(syms);
   const ctx: EdgeBuildContext = {
     syms,
     layers: nodeLayers(syms),
-    nameToIds: indexByName(syms),
+    nameToIds: LayeredCodeGraph.indexByName(syms),
     byFile,
-    df: documentFrequency(syms, byFile),
+    df: LayeredCodeGraph.documentFrequency(syms, byFile),
     opt,
   };
-  return toAdjacency(collectEdges(corpus, ctx), n);
+  return LayeredCodeGraph.toAdjacency(LayeredCodeGraph.collectEdges(corpus, ctx), n);
 }
 
 /**

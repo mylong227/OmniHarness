@@ -9,6 +9,91 @@ import { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
 import type { OmniHarnessConfig } from './configFactory.js';
 
 /**
+ * SkillStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class SkillStackAssembler {
+  /**
+   * (P2, I-P2-4) CRISPR 精确技能编辑：启用时构造编辑器（接受种技能端口）。
+   * @param {OmniHarnessConfig} partial - partial
+   * @param {SkillRegistry} skillPort - skillPort
+   * @returns {CRISPRSkillEditor | undefined} - result
+   */
+  public static buildCrispr(
+    partial: OmniHarnessConfig,
+    skillPort: SkillRegistry,
+  ): CRISPRSkillEditor | undefined {
+    if (partial.skillEditing?.enabled !== true) {
+      return undefined;
+    }
+    return new CRISPRSkillEditor({
+      skillPort,
+      addressThreshold: partial.skillEditing.addressThreshold,
+      bins: partial.skillEditing.bins,
+    });
+  }
+
+  /**
+   * (P2, I-P2-5) 相变固化：启用时构造固化器（接受种技能端口）。
+   * @param {OmniHarnessConfig} partial - partial
+   * @param {SkillRegistry} skillPort - skillPort
+   * @returns {CapabilityCrystallizer | undefined} - result
+   */
+  public static buildCrystallizer(
+    partial: OmniHarnessConfig,
+    skillPort: SkillRegistry,
+  ): CapabilityCrystallizer | undefined {
+    if (partial.capabilityCrystallization?.enabled !== true) {
+      return undefined;
+    }
+    return new CapabilityCrystallizer({
+      skillPort,
+      densityThreshold: partial.capabilityCrystallization.densityThreshold,
+      decay: partial.capabilityCrystallization.decay,
+      fieldSize: partial.capabilityCrystallization.fieldSize,
+      resetOnCrystallize: partial.capabilityCrystallization.resetOnCrystallize,
+    });
+  }
+
+  /**
+   * (P3, I-P3-1) 刻蚀记忆：启用时构造引擎（分形分支树刻蚀 + 低阻导通）。
+   * @param {OmniHarnessConfig} partial - partial
+   * @returns {InsightEtchingEngine | undefined} - result
+   */
+  public static buildEtching(partial: OmniHarnessConfig): InsightEtchingEngine | undefined {
+    if (partial.insightEtching?.enabled !== true) {
+      return undefined;
+    }
+    return new InsightEtchingEngine({
+      resonanceThreshold: partial.insightEtching.resonanceThreshold,
+    });
+  }
+
+  /**
+   * (P3, I-P3-3) 对称破缺算子：启用时构造有序参量 ρ 的相变可观测引擎。
+   * @param {OmniHarnessConfig} partial - partial
+   * @returns {SymmetryBreakingEngine | undefined} - result
+   */
+  public static buildSymmetry(partial: OmniHarnessConfig): SymmetryBreakingEngine | undefined {
+    if (partial.symmetryBreaking?.enabled !== true) {
+      return undefined;
+    }
+    return new SymmetryBreakingEngine({ threshold: partial.symmetryBreaking.threshold });
+  }
+
+  /**
+   * (P3, I-P3-4) 禁闭色荷端口：启用时构造多维色荷张量收缩引擎。
+   * @param {OmniHarnessConfig} partial - partial
+   * @returns {ConfinementEngine | undefined} - result
+   */
+  public static buildConfinement(partial: OmniHarnessConfig): ConfinementEngine | undefined {
+    if (partial.confinement?.enabled !== true) {
+      return undefined;
+    }
+    return new ConfinementEngine({ groupOrder: partial.confinement.groupOrder });
+  }
+}
+
+/**
  * 技能 / 能力算子栈切片：直接并入 `ResolvedConfig` 的字段子集。
  * 全部围绕「受种技能池」这一单一状态源展开——编辑器、固化器与各型能力算子共用同一注册表。
  */
@@ -47,70 +132,12 @@ export function assembleSkillStack(partial: OmniHarnessConfig): SkillStack {
   }
   return {
     skillRegistry,
-    crispr: buildCrispr(partial, skillRegistry),
-    crystallizer: buildCrystallizer(partial, skillRegistry),
-    etching: buildEtching(partial),
+    crispr: SkillStackAssembler.buildCrispr(partial, skillRegistry),
+    crystallizer: SkillStackAssembler.buildCrystallizer(partial, skillRegistry),
+    etching: SkillStackAssembler.buildEtching(partial),
     elementComposerEngine:
       partial.elementComposer?.enabled === true ? new ElementComposer() : undefined,
-    symmetry: buildSymmetry(partial),
-    confinementEngine: buildConfinement(partial),
+    symmetry: SkillStackAssembler.buildSymmetry(partial),
+    confinementEngine: SkillStackAssembler.buildConfinement(partial),
   };
-}
-
-/** (P2, I-P2-4) CRISPR 精确技能编辑：启用时构造编辑器（接受种技能端口）。 */
-function buildCrispr(
-  partial: OmniHarnessConfig,
-  skillPort: SkillRegistry,
-): CRISPRSkillEditor | undefined {
-  if (partial.skillEditing?.enabled !== true) {
-    return undefined;
-  }
-  return new CRISPRSkillEditor({
-    skillPort,
-    addressThreshold: partial.skillEditing.addressThreshold,
-    bins: partial.skillEditing.bins,
-  });
-}
-
-/** (P2, I-P2-5) 相变固化：启用时构造固化器（接受种技能端口）。 */
-function buildCrystallizer(
-  partial: OmniHarnessConfig,
-  skillPort: SkillRegistry,
-): CapabilityCrystallizer | undefined {
-  if (partial.capabilityCrystallization?.enabled !== true) {
-    return undefined;
-  }
-  return new CapabilityCrystallizer({
-    skillPort,
-    densityThreshold: partial.capabilityCrystallization.densityThreshold,
-    decay: partial.capabilityCrystallization.decay,
-    fieldSize: partial.capabilityCrystallization.fieldSize,
-    resetOnCrystallize: partial.capabilityCrystallization.resetOnCrystallize,
-  });
-}
-
-/** (P3, I-P3-1) 刻蚀记忆：启用时构造引擎（分形分支树刻蚀 + 低阻导通）。 */
-function buildEtching(partial: OmniHarnessConfig): InsightEtchingEngine | undefined {
-  if (partial.insightEtching?.enabled !== true) {
-    return undefined;
-  }
-  return new InsightEtchingEngine({
-    resonanceThreshold: partial.insightEtching.resonanceThreshold,
-  });
-}
-
-/** (P3, I-P3-3) 对称破缺算子：启用时构造有序参量 ρ 的相变可观测引擎。 */
-function buildSymmetry(partial: OmniHarnessConfig): SymmetryBreakingEngine | undefined {
-  if (partial.symmetryBreaking?.enabled !== true) {
-    return undefined;
-  }
-  return new SymmetryBreakingEngine({ threshold: partial.symmetryBreaking.threshold });
-}
-
-/** (P3, I-P3-4) 禁闭色荷端口：启用时构造多维色荷张量收缩引擎。 */
-function buildConfinement(partial: OmniHarnessConfig): ConfinementEngine | undefined {
-  if (partial.confinement?.enabled !== true) {
-    return undefined;
-  }
-  return new ConfinementEngine({ groupOrder: partial.confinement.groupOrder });
 }
