@@ -38,11 +38,6 @@ interface ToolStat {
 /** 模式严格度排序：nominal 最松，locked 最严。 */
 const MODE_ORDER: readonly SafeMode[] = ['nominal', 'degraded', 'safe', 'locked'];
 
-function toSet(t: SupervisorOptions['hazardousTools']): ReadonlySet<string> {
-  if (t === undefined) return new Set();
-  return t instanceof Set ? t : new Set(t);
-}
-
 /** 生产级监督内核（FDIR 状态机，详见文件头），实现 {@link SupervisorPort}：滑动窗口健康统计 + 分级降级 + 逐级恢复。 */
 export class SupervisorKernel implements SupervisorPort {
   /** 滑动窗口长度：每工具仅保留最近 N 次成败样本（默认 32）。 */
@@ -78,7 +73,7 @@ export class SupervisorKernel implements SupervisorPort {
     this.degradeThreshold = options.degradeThreshold ?? DEFAULT_DEGRADE;
     this.safeThreshold = options.safeThreshold ?? DEFAULT_SAFE;
     this.lockAfter = Math.max(1, options.lockAfterConsecutiveFailures ?? DEFAULT_LOCK);
-    this.hazardous = toSet(options.hazardousTools);
+    this.hazardous = SupervisorKernel.toSet(options.hazardousTools);
     this.audit = options.audit;
     this.sessionId = options.sessionId;
   }
@@ -279,5 +274,15 @@ export class SupervisorKernel implements SupervisorPort {
     for (const cb of this.listeners) {
       cb(from, to, snap);
     }
+  }
+
+  /**
+   * toSet — module-level helper moved into SupervisorKernel.
+   * @param {SupervisorOptions['hazardousTools']} t - t
+   * @returns {ReadonlySet<string>} - result
+   */
+  private static toSet(t: SupervisorOptions['hazardousTools']): ReadonlySet<string> {
+    if (t === undefined) return new Set();
+    return t instanceof Set ? t : new Set(t);
   }
 }

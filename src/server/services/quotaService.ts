@@ -88,7 +88,7 @@ export class QuotaService {
         name,
         used: modelUsed,
         limit: effectiveTokens,
-        remainingPercent: remaining(effectiveTokens - modelUsed, effectiveTokens),
+        remainingPercent: QuotaService.remaining(effectiveTokens - modelUsed, effectiveTokens),
       };
     });
     // 合计口径：每个模型各有一份额度，故总额度 = 单份额度 × 模型数（无模型时至少算一份，
@@ -99,7 +99,7 @@ export class QuotaService {
       dailyTokens: settings.dailyTokens,
       effectiveTokens,
       usedTokens: used.total,
-      remainingPercent: remaining(totalLimit - used.total, totalLimit),
+      remainingPercent: QuotaService.remaining(totalLimit - used.total, totalLimit),
       models: rows,
       dayKey: day.key,
       resetAt: day.endsAt,
@@ -160,11 +160,18 @@ export class QuotaService {
     }
     return [...names];
   }
+
+  /**
+   * remaining — module-level helper moved into QuotaService.
+   * @param {number} available - available
+   * @param {number} limit - limit
+   * @returns {number} - result
+   */
+  private static remaining(available: number, limit: number): number {
+    if (!Number.isFinite(limit) || limit <= 0) return 0;
+    if (available <= 0) return 0;
+    return Math.min(100, Math.round((available / limit) * 100));
+  }
 }
 
 /** 剩余百分比（0–100 取整；额度非正时返回 0）。 */
-function remaining(available: number, limit: number): number {
-  if (!Number.isFinite(limit) || limit <= 0) return 0;
-  if (available <= 0) return 0;
-  return Math.min(100, Math.round((available / limit) * 100));
-}

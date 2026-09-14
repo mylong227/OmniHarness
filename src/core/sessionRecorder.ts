@@ -204,12 +204,48 @@ export class SessionRecorder {
     if (this.retrieval === undefined) {
       return;
     }
-    const doc = docOf(event, this.seq);
+    const doc = SessionRecorder.docOf(event, this.seq);
     if (doc === undefined) {
       return;
     }
     this.seq += 1;
     this.retrieval.index(doc);
+  }
+
+  /**
+   * docOf — module-level helper moved into SessionRecorder.
+   * @param {SessionEvent} event - event
+   * @param {number} seq - seq
+   * @returns {RetrievalDoc | undefined} - result
+   */
+  private static docOf(event: SessionEvent, seq: number): RetrievalDoc | undefined {
+    const payload = event.payload as Record<string, unknown>;
+    let role: RetrievalRole | undefined;
+    let text: string | undefined;
+    switch (event.type) {
+      case 'user':
+      case 'assistant':
+      case 'system':
+        role = event.type;
+        text = typeof payload['content'] === 'string' ? (payload['content'] as string) : undefined;
+        break;
+      case 'tool_result':
+        role = 'tool';
+        text =
+          typeof payload['output'] === 'string'
+            ? (payload['output'] as string)
+            : typeof payload['error'] === 'string'
+              ? (payload['error'] as string)
+              : undefined;
+        break;
+      default:
+        // reasoning / tool_call / todo / plan / question / turn_diff 不进入检索索引。
+        return undefined;
+    }
+    if (role === undefined || text === undefined || text.trim() === '') {
+      return undefined;
+    }
+    return { id: event.id, sessionId: event.sessionId, seq, role, text, ts: event.timestamp };
   }
 }
 
@@ -219,32 +255,3 @@ export class SessionRecorder {
  * @param seq 检索文档序号（仅内容事件递增，保证召回顺序稳定）。
  * @returns 构造好的可检索文档；非内容事件或文本为空时返回 undefined。
  */
-function docOf(event: SessionEvent, seq: number): RetrievalDoc | undefined {
-  const payload = event.payload as Record<string, unknown>;
-  let role: RetrievalRole | undefined;
-  let text: string | undefined;
-  switch (event.type) {
-    case 'user':
-    case 'assistant':
-    case 'system':
-      role = event.type;
-      text = typeof payload['content'] === 'string' ? (payload['content'] as string) : undefined;
-      break;
-    case 'tool_result':
-      role = 'tool';
-      text =
-        typeof payload['output'] === 'string'
-          ? (payload['output'] as string)
-          : typeof payload['error'] === 'string'
-            ? (payload['error'] as string)
-            : undefined;
-      break;
-    default:
-      // reasoning / tool_call / todo / plan / question / turn_diff 不进入检索索引。
-      return undefined;
-  }
-  if (role === undefined || text === undefined || text.trim() === '') {
-    return undefined;
-  }
-  return { id: event.id, sessionId: event.sessionId, seq, role, text, ts: event.timestamp };
-}

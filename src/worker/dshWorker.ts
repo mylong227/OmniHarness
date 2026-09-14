@@ -20,7 +20,7 @@ export class DshWorker {
       name: `dsh:${profile}`,
       command: 'dsh',
       args: (task) => ['--profile', profile, task],
-      shell: needsShell(),
+      shell: DshWorker.needsShell(),
     });
   }
 
@@ -34,8 +34,16 @@ export class DshWorker {
       name: `dsh-inspect:${profile}`,
       command: 'dsh',
       args: () => ['--profile', profile, '--dump-default-config'],
-      shell: needsShell(),
+      shell: DshWorker.needsShell(),
     });
+  }
+
+  /**
+   * needsShell — module-level helper moved into DshWorker.
+   * @returns {boolean} - result
+   */
+  private static needsShell(): boolean {
+    return process.platform === 'win32';
   }
 }
 
@@ -43,6 +51,3 @@ export class DshWorker {
 export const dshWorker = new DshWorker();
 
 /** Windows 上 npm 安装的 dsh 是无扩展名 shell 脚本，不经 shell 会 ENOENT。 */
-function needsShell(): boolean {
-  return process.platform === 'win32';
-}

@@ -130,7 +130,7 @@ export class PluginRegistry {
       if (!existsSync(source)) {
         throw new Error(`插件源目录不存在: ${source}`);
       }
-      copyDirRecursive(source, target);
+      PluginRegistry.copyDirRecursive(source, target);
     } else {
       const buffer = await (this.options.downloader ?? httpsBuffer)(descriptor.installFrom.url);
       mkdirSync(target, { recursive: true });
@@ -175,6 +175,25 @@ export class PluginRegistry {
     }
     rmSync(target, { recursive: true, force: true });
   }
+
+  /**
+   * copyDirRecursive — module-level helper moved into PluginRegistry.
+   * @param {string} source - source
+   * @param {string} target - target
+   * @returns {void} - result
+   */
+  public static copyDirRecursive(source: string, target: string): void {
+    mkdirSync(target, { recursive: true });
+    for (const entry of readdirSync(source, { withFileTypes: true })) {
+      const sourcePath = join(source, entry.name);
+      const targetPath = join(target, entry.name);
+      if (entry.isDirectory()) {
+        PluginRegistry.copyDirRecursive(sourcePath, targetPath);
+      } else {
+        copyFileSync(sourcePath, targetPath);
+      }
+    }
+  }
 }
 
 /**
@@ -185,15 +204,3 @@ export class PluginRegistry {
  * 且与是否预建目标目录无关。此处以 readdir + copyFileSync 自行递归。
  * copyFileSync 对符号链接取内容复制，插件分发场景等价于普通文件。
  */
-function copyDirRecursive(source: string, target: string): void {
-  mkdirSync(target, { recursive: true });
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    const sourcePath = join(source, entry.name);
-    const targetPath = join(target, entry.name);
-    if (entry.isDirectory()) {
-      copyDirRecursive(sourcePath, targetPath);
-    } else {
-      copyFileSync(sourcePath, targetPath);
-    }
-  }
-}
