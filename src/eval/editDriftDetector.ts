@@ -1,3 +1,4 @@
+import { at } from '../util/arrayAt.js';
 /**
  * 反漂移检测（T4.2 · H2 · Harness Engineering）。
  *
@@ -85,7 +86,7 @@ export class EditDriftDetector {
 
     // ① 振荡：指纹在 ≥ oscillationGap 个中间态后重现（A→B→A）。
     if (history.length >= this.oscillationGap + 2) {
-      const cur = history[history.length - 1]!;
+      const cur = at(history, history.length - 1);
       const prevIdx = history.slice(0, -1).lastIndexOf(cur);
       if (prevIdx >= 0 && history.length - 1 - prevIdx - 1 >= this.oscillationGap) {
         return {

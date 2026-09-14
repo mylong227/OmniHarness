@@ -13,6 +13,7 @@ import type {
 } from '../ports/model/model.js';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { eventFactory } from './eventFactory.js';
+import { at } from '../util/arrayAt.js';
 
 /** 会话记录器：统一"写入日志 + 广播事件"，保证可观测性不遗漏。 */
 export class SessionRecorder {
@@ -157,7 +158,7 @@ export class SessionRecorder {
   public lastAssistantText(): string | undefined {
     const all = this.log.all();
     for (let i = all.length - 1; i >= this.turnStartIndex; i--) {
-      const event = all[i]!;
+      const event = at(all, i);
       if (event.type === 'assistant') {
         return (event.payload as { content?: string }).content;
       }

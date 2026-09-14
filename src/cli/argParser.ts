@@ -8,6 +8,7 @@ import type {
   PermissionRuleDecision,
 } from '../config/configFile.js';
 import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
+import { at } from '../util/arrayAt.js';
 
 export * from './cliEnums.js';
 export { checkEnum } from './cliFlagTable.js';
@@ -254,7 +255,7 @@ export class ArgParser {
     let s = p.trim();
     const drive = s.match(/^\/([a-zA-Z])\/(.*)$/);
     if (drive !== null) {
-      s = `${drive[1]!.toUpperCase()}:/${drive[2]!}`;
+      s = `${at(drive, 1).toUpperCase()}:/${at(drive, 2)}`;
     }
     return s.replace(/\//g, '\\');
   }

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { at } from '../util/arrayAt.js';
 
 /**
  * 企业级 SSO（OIDC）零依赖实现（D2）。
@@ -275,12 +276,12 @@ export class OidcClient {
   public decodeJwt(token: string): JwtParts {
     const parts = token.split('.');
     if (parts.length !== 3) throw new Error('非法 JWT：段数不为 3');
-    const header = JSON.parse(this.b64urlDecode(parts[0]!)) as Record<string, unknown>;
-    const payload = JSON.parse(this.b64urlDecode(parts[1]!)) as Record<string, unknown>;
+    const header = JSON.parse(this.b64urlDecode(at(parts, 0))) as Record<string, unknown>;
+    const payload = JSON.parse(this.b64urlDecode(at(parts, 1))) as Record<string, unknown>;
     return {
       header,
       payload,
-      signature: parts[2]!,
+      signature: at(parts, 2),
       signingInput: `${parts[0]}.${parts[1]}`,
     };
   }
@@ -508,7 +509,7 @@ export class EnterpriseAuth {
     if (header === undefined) return null;
     const m = /^Bearer\s+(.+)$/i.exec(header.trim());
     if (m === null) return null;
-    const token = m[1]!;
+    const token = at(m, 1);
     try {
       const decoded = decodeJwt(token);
       if (decoded.header['alg'] !== 'RS256') return null;

@@ -1,3 +1,4 @@
+import { at } from './arrayAt.js';
 /**
  * 频率域本征谱工具（燧-3 共振寻址底座）。零依赖。
  *
@@ -43,7 +44,7 @@ export class EigenSpectrum {
       let s = 0;
       for (let j = 0; j < n; j++) {
         const d = i - j;
-        s += values[j]! * Math.exp(-(d * d) * inv);
+        s += at(values, j) * Math.exp(-(d * d) * inv);
       }
       out[i] = s;
     }
@@ -85,7 +86,7 @@ export class EigenSpectrum {
   public resonance(a: Spectrum, b: Spectrum): number {
     const n = Math.min(a.values.length, b.values.length);
     let dot = 0;
-    for (let i = 0; i < n; i++) dot += a.values[i]! * b.values[i]!;
+    for (let i = 0; i < n; i++) dot += at(a.values, i) * at(b.values, i);
     return dot;
   }
 }

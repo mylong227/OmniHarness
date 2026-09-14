@@ -141,7 +141,7 @@ export function createRuntime(
     config.evolutionRlvr?.enabled === true && config.skillRegistry !== undefined
       ? createRlvrEvolutionController({
           skills: config.skillRegistry.list(),
-          compose: (a, b, o) => config.skillRegistry!.composeByTwist(a, b, o),
+          compose: (a, b, o) => config.skillRegistry.composeByTwist(a, b, o),
           model: config.model,
           maxCandidates: config.evolutionRlvr.maxCandidates,
           samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,

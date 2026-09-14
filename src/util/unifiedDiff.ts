@@ -1,3 +1,4 @@
+import { at } from './arrayAt.js';
 /**
  * 行级 unified diff（零依赖，对标 codex diff 渲染）。
  *
@@ -127,23 +128,23 @@ export class UnifiedDiff {
     let j = 0;
     while (i < a.length && j < b.length) {
       if (a[i] === b[j]) {
-        ops.push({ kind: 'equal', text: a[i]! });
+        ops.push({ kind: 'equal', text: at(a, i) });
         i += 1;
         j += 1;
       } else if ((table[(i + 1) * width + j] ?? 0) >= (table[i * width + (j + 1)] ?? 0)) {
-        ops.push({ kind: 'delete', text: a[i]! });
+        ops.push({ kind: 'delete', text: at(a, i) });
         i += 1;
       } else {
-        ops.push({ kind: 'insert', text: b[j]! });
+        ops.push({ kind: 'insert', text: at(b, j) });
         j += 1;
       }
     }
     while (i < a.length) {
-      ops.push({ kind: 'delete', text: a[i]! });
+      ops.push({ kind: 'delete', text: at(a, i) });
       i += 1;
     }
     while (j < b.length) {
-      ops.push({ kind: 'insert', text: b[j]! });
+      ops.push({ kind: 'insert', text: at(b, j) });
       j += 1;
     }
     return ops;
@@ -155,10 +156,10 @@ export class UnifiedDiff {
     let beforeStart = 0;
     let afterStart = 0;
     for (let k = 0; k < start; k += 1) {
-      if (ops[k]!.kind !== 'insert') {
+      if (at(ops, k).kind !== 'insert') {
         beforeStart += 1;
       }
-      if (ops[k]!.kind !== 'delete') {
+      if (at(ops, k).kind !== 'delete') {
         afterStart += 1;
       }
     }

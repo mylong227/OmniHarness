@@ -11,6 +11,7 @@
  */
 import type { Skill } from '../skill/skill.js';
 import { capabilityFieldOf } from '../skill/moireComposer.js';
+import { at } from '../util/arrayAt.js';
 
 /** 扁平化二维场。 */
 function flatten(field: readonly (readonly number[])[]): number[] {
@@ -39,8 +40,8 @@ export function fieldMatch(a: readonly number[], b: readonly number[]): number {
   let ma = 0;
   let mb = 0;
   for (let i = 0; i < n; i++) {
-    ma += a[i]!;
-    mb += b[i]!;
+    ma += at(a, i);
+    mb += at(b, i);
   }
   ma /= n;
   mb /= n;
@@ -48,8 +49,8 @@ export function fieldMatch(a: readonly number[], b: readonly number[]): number {
   let da = 0;
   let db = 0;
   for (let i = 0; i < n; i++) {
-    const x = a[i]! - ma;
-    const y = b[i]! - mb;
+    const x = at(a, i) - ma;
+    const y = at(b, i) - mb;
     num += x * y;
     da += x * x;
     db += y * y;
@@ -65,7 +66,7 @@ export function fieldMatch(a: readonly number[], b: readonly number[]): number {
 export function jointProfile(a: Skill, b: Skill, n: number): number[] {
   const fa = flatten(capabilityFieldOf(a, n));
   const fb = flatten(capabilityFieldOf(b, n));
-  const prod = fa.map((v, i) => v * fb[i]!);
+  const prod = fa.map((v, i) => v * at(fb, i));
   return center(prod);
 }
 
@@ -111,7 +112,7 @@ export function moireEnergy(skill: Skill, n: number, blurR = 2): number {
           const xx = x + kx;
           const yy = y + ky;
           if (xx >= 0 && xx < n && yy >= 0 && yy < n) {
-            s += raw[yy * n + xx]!;
+            s += at(raw, yy * n + xx);
             c++;
           }
         }
@@ -122,9 +123,9 @@ export function moireEnergy(skill: Skill, n: number, blurR = 2): number {
   let tot = 0;
   let low = 0;
   for (let i = 0; i < len; i++) {
-    const d = raw[i]! - mean;
+    const d = at(raw, i) - mean;
     tot += d * d;
-    const b = blur[i]! - mean;
+    const b = at(blur, i) - mean;
     low += b * b;
   }
   return tot > 0 ? low / tot : 0;

@@ -1,3 +1,4 @@
+import { at } from '../../util/arrayAt.js';
 /**
  * LoopGuard（Agent Loop V2 失控检测，对标 OpenHands StuckDetector + agent-loop-guard
  * 品类思想，零依赖）。
@@ -160,7 +161,7 @@ export class LoopGuard {
     if (this.callSeq.length === 0) {
       return false;
     }
-    const last = this.callSeq[this.callSeq.length - 1]!;
+    const last = at(this.callSeq, this.callSeq.length - 1);
     return this.countTrailingRepeats(last) >= this.maxExactRepeats;
   }
 

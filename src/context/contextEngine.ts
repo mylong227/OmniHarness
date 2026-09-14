@@ -14,6 +14,7 @@ import { extractSymbols, outlineText, type SymbolNode } from './repoMap.js';
 import { eigenSpectrum, resonance, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { buildCodeGraph, propagate, type CodeGraph } from './codeGraph.js';
 import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
+import { at } from '../util/arrayAt.js';
 
 /**
  * 空 LSA 模型（light 模式占位）：k=n=0、所有数组空。
@@ -334,7 +335,7 @@ export function query(
   if (useGraph) {
     finalScores = propagate(corpus.codeGraph, seed, 4, 0.85);
     let fmax = 0;
-    for (let i = 0; i < finalScores.length; i++) fmax = Math.max(fmax, finalScores[i]!);
+    for (let i = 0; i < finalScores.length; i++) fmax = Math.max(fmax, at(finalScores, i));
     const THRESH = 0.12 * (fmax || 1);
     for (let i = 0; i < finalScores.length; i++) {
       if ((finalScores[i] ?? 0) >= THRESH) symIdSet.add(i);

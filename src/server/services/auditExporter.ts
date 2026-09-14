@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { AuditChainReport, AuditEvent } from './auditSink.js';
+import { at } from '../../util/arrayAt.js';
 
 /**
  * @beta
@@ -135,8 +136,8 @@ export class AuditExporter {
       .map((e) => e.ts ?? '')
       .filter((t) => t.length > 0)
       .sort();
-    const firstEvent = times.length > 0 ? times[0]! : null;
-    const lastEvent = times.length > 0 ? times[times.length - 1]! : null;
+    const firstEvent = times.length > 0 ? at(times, 0) : null;
+    const lastEvent = times.length > 0 ? at(times, times.length - 1) : null;
     const integrityHash = crypto
       .createHash('sha256')
       .update(JSON.stringify(filtered))

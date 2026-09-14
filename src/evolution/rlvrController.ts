@@ -27,6 +27,7 @@ import type { EvolutionController } from '../ports/runtime/evolution.js';
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
 import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
 import { verifiableRewardForCode } from './verifiableReward.js';
+import { at } from '../util/arrayAt.js';
 
 /** 构造选项。 */
 export interface RlvrEvolutionOptions {
@@ -68,7 +69,7 @@ export interface RlvrEvolutionBundle {
 /** 从代码块/文本抽取首个 ```lang ... ``` 代码，否则返回原文。 */
 export function extractCodeFence(text: string): string {
   const m = text.match(/```[^\n]*\n([\s\S]*?)```/);
-  if (m !== null) return m[1]!.trim();
+  if (m !== null) return at(m, 1).trim();
   return text.trim();
 }
 

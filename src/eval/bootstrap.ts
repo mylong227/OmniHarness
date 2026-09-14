@@ -1,3 +1,4 @@
+import { at } from '../util/arrayAt.js';
 /**
  * 确定性 bootstrap 重采样助手（Pass@k 置信区间，T4.7）。
  *
@@ -92,7 +93,7 @@ export function bootstrapInterval<T>(
     const resample = new Array<T>(n);
     for (let i = 0; i < n; i++) {
       const k = Math.floor(rand() * n);
-      resample[i] = items[k]!;
+      resample[i] = at(items, k);
     }
     dist[b] = statistic(resample);
   }
