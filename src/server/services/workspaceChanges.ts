@@ -65,7 +65,7 @@ export class WorkspaceChanges {
    * @returns git 来源的变更清单 / 单文件 patch；非 git 工作区返回 null。
    */
   private gitChanges(ws: string, fileParam: string | undefined): unknown | null {
-    if (!isGitWorkTree(ws)) return null;
+    if (!WorkspaceChanges.isGitWorkTree(ws)) return null;
     return fileParam !== undefined ? this.gitFilePatch(ws, fileParam) : this.gitFileList(ws);
   }
 
@@ -103,18 +103,18 @@ export class WorkspaceChanges {
    * @returns `{ source:'git', branch, files }` — 分支名与变更文件数组。
    */
   private gitFileList(ws: string): unknown {
-    const branch = gitLine(ws, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const branch = WorkspaceChanges.gitLine(ws, ['rev-parse', '--abbrev-ref', 'HEAD']);
     const status = spawnSync('git', ['status', '--porcelain', '-uall'], {
       cwd: ws,
       encoding: 'utf8',
     });
     if (status.status !== 0) return { source: 'git', branch, files: [] };
     const numstat = spawnSync('git', ['diff', '--numstat', 'HEAD'], { cwd: ws, encoding: 'utf8' });
-    const stats = parseNumstat(numstat.stdout ?? '');
+    const stats = WorkspaceChanges.parseNumstat(numstat.stdout ?? '');
     const files: ChangeStat[] = status.stdout
       .split('\n')
       .filter((l) => l.trim() !== '')
-      .map((line) => toChangeStat(line, stats, ws));
+      .map((line) => WorkspaceChanges.toChangeStat(line, stats, ws));
     return { source: 'git', branch, files };
   }
 
@@ -138,7 +138,11 @@ export class WorkspaceChanges {
       }
       for (const ev of events) {
         if (ev.type !== 'turn_diff') continue;
-        collectTurnDiff((ev.payload as { diff?: string } | undefined)?.diff ?? '', sections, stats);
+        WorkspaceChanges.collectTurnDiff(
+          (ev.payload as { diff?: string } | undefined)?.diff ?? '',
+          sections,
+          stats,
+        );
       }
     }
     if (fileParam !== undefined) {
@@ -154,102 +158,132 @@ export class WorkspaceChanges {
       })),
     };
   }
-}
 
-/** 工作区是否为 git 工作树。 */
-function isGitWorkTree(ws: string): boolean {
-  const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-    cwd: ws,
-    encoding: 'utf8',
-  });
-  return inside.status === 0 && inside.stdout.trim() === 'true';
-}
-
-/** 运行 git 子命令并返回去除首尾空白的 stdout。 */
-function gitLine(cwd: string, args: readonly string[]): string {
-  return spawnSync('git', [...args], { cwd, encoding: 'utf8' }).stdout.trim();
-}
-
-/** 解析 `git diff --numstat` 输出为 path → 增删行数。 */
-function parseNumstat(out: string): Map<string, { additions: number; deletions: number }> {
-  const stats = new Map<string, { additions: number; deletions: number }>();
-  for (const line of out.split('\n')) {
-    if (line.trim() === '') continue;
-    const [add, del, ...rest] = line.split('\t');
-    const path = rest.join('\t');
-    if (path === '') continue;
-    stats.set(path, {
-      additions: add === '-' ? 0 : Number(add),
-      deletions: del === '-' ? 0 : Number(del),
+  /**
+   * 工作区是否为 git 工作树。
+   * @param ws 工作区根目录
+   * @returns 是否为 git 工作树
+   */
+  private static isGitWorkTree(ws: string): boolean {
+    const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
+      cwd: ws,
+      encoding: 'utf8',
     });
+    return inside.status === 0 && inside.stdout.trim() === 'true';
   }
-  return stats;
-}
 
-/** 把一行 porcelain 输出转为 ChangeStat（补齐 numstat 缺失的增删行数）。 */
-function toChangeStat(
-  line: string,
-  stats: Map<string, { additions: number; deletions: number }>,
-  ws: string,
-): ChangeStat {
-  const status = line.slice(0, 2).trim() || 'M';
-  let path = line.slice(3).trim();
-  // 重命名格式 "old -> new"：以新路径为准。
-  if (path.includes(' -> ')) path = path.split(' -> ').pop() ?? path;
-  if (path.startsWith('"') && path.endsWith('"')) path = path.slice(1, -1);
-  const known = stats.get(path);
-  if (known !== undefined) {
-    return { path, status, additions: known.additions, deletions: known.deletions };
+  /**
+   * 运行 git 子命令并返回去除首尾空白的 stdout。
+   * @param cwd 命令工作目录
+   * @param args git 参数
+   * @returns 去除首尾空白的 stdout
+   */
+  private static gitLine(cwd: string, args: readonly string[]): string {
+    return spawnSync('git', [...args], { cwd, encoding: 'utf8' }).stdout.trim();
   }
-  if (status === 'A' || status === '??') {
-    // 新增文件：numstat 不含未跟踪，按行数记 +
-    return { path, status, additions: countLines(ws, path), deletions: 0 };
-  }
-  return { path, status, additions: 0, deletions: 0 };
-}
 
-/** 读取文件行数（读不到回退 0）。 */
-function countLines(ws: string, path: string): number {
-  try {
-    return readFileSync(resolve(ws, path), 'utf8').split('\n').length;
-  } catch {
-    return 0;
+  /**
+   * 解析 `git diff --numstat` 输出为 path → 增删行数。
+   * @param out numstat 原始输出
+   * @returns path → 增删行数 映射
+   */
+  private static parseNumstat(out: string): Map<string, { additions: number; deletions: number }> {
+    const stats = new Map<string, { additions: number; deletions: number }>();
+    for (const line of out.split('\n')) {
+      if (line.trim() === '') continue;
+      const [add, del, ...rest] = line.split('\t');
+      const path = rest.join('\t');
+      if (path === '') continue;
+      stats.set(path, {
+        additions: add === '-' ? 0 : Number(add),
+        deletions: del === '-' ? 0 : Number(del),
+      });
+    }
+    return stats;
   }
-}
 
-/** 把单段 unified diff 按文件切分累加进 sections / stats。 */
-function collectTurnDiff(
-  diff: string,
-  sections: Map<string, string[]>,
-  stats: Map<string, { additions: number; deletions: number }>,
-): void {
-  let path = '';
-  let body: string[] = [];
-  let add = 0;
-  let del = 0;
-  const flush = (): void => {
-    if (path === '') return;
-    const prev = stats.get(path) ?? { additions: 0, deletions: 0 };
-    stats.set(path, { additions: prev.additions + add, deletions: prev.deletions + del });
-    const list = sections.get(path) ?? [];
-    list.push(body.join('\n'));
-    sections.set(path, list);
-    path = '';
-    body = [];
-    add = 0;
-    del = 0;
-  };
-  for (const line of diff.split('\n')) {
-    if (line.startsWith('diff --git')) {
-      flush();
-    } else if (line.startsWith('+++ ')) {
-      path = line.slice(4).replace(/^b\//, '').trim();
-      body.push(line);
-    } else if (path !== '') {
-      body.push(line);
-      if (line.startsWith('+')) add += 1;
-      else if (line.startsWith('-')) del += 1;
+  /**
+   * 把一行 porcelain 输出转为 ChangeStat（补齐 numstat 缺失的增删行数）。
+   * @param line 单行 porcelain 输出
+   * @param stats path → 增删行数 映射
+   * @param ws 工作区根（读未跟踪文件行数用）
+   * @returns 单文件变更统计
+   */
+  private static toChangeStat(
+    line: string,
+    stats: Map<string, { additions: number; deletions: number }>,
+    ws: string,
+  ): ChangeStat {
+    const status = line.slice(0, 2).trim() || 'M';
+    let path = line.slice(3).trim();
+    // 重命名格式 "old -> new"：以新路径为准。
+    if (path.includes(' -> ')) path = path.split(' -> ').pop() ?? path;
+    if (path.startsWith('"') && path.endsWith('"')) path = path.slice(1, -1);
+    const known = stats.get(path);
+    if (known !== undefined) {
+      return { path, status, additions: known.additions, deletions: known.deletions };
+    }
+    if (status === 'A' || status === '??') {
+      // 新增文件：numstat 不含未跟踪，按行数记 +
+      return { path, status, additions: WorkspaceChanges.countLines(ws, path), deletions: 0 };
+    }
+    return { path, status, additions: 0, deletions: 0 };
+  }
+
+  /**
+   * 读取文件行数（读不到回退 0）。
+   * @param ws 工作区根
+   * @param path 相对路径
+   * @returns 文件行数；读不到回退 0
+   */
+  private static countLines(ws: string, path: string): number {
+    try {
+      return readFileSync(resolve(ws, path), 'utf8').split('\n').length;
+    } catch {
+      return 0;
     }
   }
-  flush();
+
+  /**
+   * 把单段 unified diff 按文件切分累加进 sections / stats。
+   * @param diff 单段 unified diff 文本
+   * @param sections path → 分段文本列表（原地累加）
+   * @param stats path → 增删行数（原地累加）
+   * @returns 无返回值（sections / stats 原地累加）
+   */
+  private static collectTurnDiff(
+    diff: string,
+    sections: Map<string, string[]>,
+    stats: Map<string, { additions: number; deletions: number }>,
+  ): void {
+    let path = '';
+    let body: string[] = [];
+    let add = 0;
+    let del = 0;
+    const flush = (): void => {
+      if (path === '') return;
+      const prev = stats.get(path) ?? { additions: 0, deletions: 0 };
+      stats.set(path, { additions: prev.additions + add, deletions: prev.deletions + del });
+      const list = sections.get(path) ?? [];
+      list.push(body.join('\n'));
+      sections.set(path, list);
+      path = '';
+      body = [];
+      add = 0;
+      del = 0;
+    };
+    for (const line of diff.split('\n')) {
+      if (line.startsWith('diff --git')) {
+        flush();
+      } else if (line.startsWith('+++ ')) {
+        path = line.slice(4).replace(/^b\//, '').trim();
+        body.push(line);
+      } else if (path !== '') {
+        body.push(line);
+        if (line.startsWith('+')) add += 1;
+        else if (line.startsWith('-')) del += 1;
+      }
+    }
+    flush();
+  }
 }

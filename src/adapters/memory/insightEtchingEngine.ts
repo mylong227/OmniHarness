@@ -28,12 +28,6 @@ interface StoredTrace {
   readonly spectrum: Spectrum;
 }
 
-function buildNode(prefix: string, idx: number, branch: EtchBranch): EtchNode {
-  const id = `${prefix}:${idx}`;
-  const children = (branch.subBranches ?? []).map((s, i) => buildNode(id, i, s));
-  return { id, label: branch.label, children };
-}
-
 export class InsightEtchingEngine implements InsightEtchingPort {
   /** 引擎标识名（记忆检索引擎注册键，用于诊断与装配区分）。 */
   public readonly name = 'insight-etching';
@@ -69,7 +63,9 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     const root: EtchNode = {
       id: event.id,
       label: event.label,
-      children: (event.branches ?? []).map((b, i) => buildNode(event.id, i, b)),
+      children: (event.branches ?? []).map((b, i) =>
+        InsightEtchingEngine.buildNode(event.id, i, b),
+      ),
     };
     const trace: EtchTrace = {
       id: event.id,
@@ -77,7 +73,10 @@ export class InsightEtchingEngine implements InsightEtchingPort {
       createdAt: new Date().toISOString(),
     };
     // 频谱以主标签 + 所有分支标签联合编码，使导通匹配覆盖整棵刻痕语义。
-    const corpus = [event.label, ...flattenLabelsFromBranches(event.branches ?? [])].join(' ');
+    const corpus = [
+      event.label,
+      ...InsightEtchingEngine.flattenLabelsFromBranches(event.branches ?? []),
+    ].join(' ');
     this.store.set(event.id, { trace, spectrum: eigenSpectrum(corpus, this.bins) });
     return trace;
   }
@@ -97,7 +96,11 @@ export class InsightEtchingEngine implements InsightEtchingPort {
     for (const { trace, spectrum } of this.store.values()) {
       const r = resonance(q, spectrum);
       if (r >= this.threshold) {
-        scored.push({ traceId: trace.id, resonance: r, path: flattenLabels(trace.root.children) });
+        scored.push({
+          traceId: trace.id,
+          resonance: r,
+          path: InsightEtchingEngine.flattenLabels(trace.root.children),
+        });
       }
     }
     scored.sort((a, b) => b.resonance - a.resonance);
@@ -108,22 +111,47 @@ export class InsightEtchingEngine implements InsightEtchingPort {
   public get traces(): number {
     return this.store.size;
   }
-}
 
-function flattenLabels(nodes: readonly EtchNode[]): string[] {
-  const out: string[] = [];
-  for (const n of nodes) {
-    out.push(n.label);
-    out.push(...flattenLabels(n.children));
+  /**
+   * 构造分形分支节点（递归）。
+   * @param prefix 父节点 id 前缀
+   * @param idx 当前分支下标
+   * @param branch 分支定义
+   * @returns 构造出的分形节点
+   */
+  private static buildNode(prefix: string, idx: number, branch: EtchBranch): EtchNode {
+    const id = `${prefix}:${idx}`;
+    const children = (branch.subBranches ?? []).map((s, i) =>
+      InsightEtchingEngine.buildNode(id, i, s),
+    );
+    return { id, label: branch.label, children };
   }
-  return out;
-}
 
-function flattenLabelsFromBranches(branches: readonly EtchBranch[]): string[] {
-  const out: string[] = [];
-  for (const b of branches) {
-    out.push(b.label);
-    if (b.subBranches) out.push(...flattenLabelsFromBranches(b.subBranches));
+  /**
+   * 节点树展平为标签序列（递归）。
+   * @param nodes 待展平的节点树
+   * @returns 标签序列（深度优先）
+   */
+  private static flattenLabels(nodes: readonly EtchNode[]): string[] {
+    const out: string[] = [];
+    for (const n of nodes) {
+      out.push(n.label);
+      out.push(...InsightEtchingEngine.flattenLabels(n.children));
+    }
+    return out;
   }
-  return out;
+
+  /**
+   * 分支树展平为标签序列（递归）。
+   * @param branches 待展平的分支树
+   * @returns 标签序列（深度优先）
+   */
+  private static flattenLabelsFromBranches(branches: readonly EtchBranch[]): string[] {
+    const out: string[] = [];
+    for (const b of branches) {
+      out.push(b.label);
+      if (b.subBranches) out.push(...InsightEtchingEngine.flattenLabelsFromBranches(b.subBranches));
+    }
+    return out;
+  }
 }

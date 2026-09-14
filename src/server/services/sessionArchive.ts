@@ -94,7 +94,7 @@ export class SessionArchive {
         source: 'disk',
         dir,
         byModel: Object.fromEntries(byModel),
-        total: sumStats(byModel.values()),
+        total: SessionArchive.sumStats(byModel.values()),
         sessions,
       };
     }
@@ -105,7 +105,7 @@ export class SessionArchive {
       source: 'live',
       dir,
       byModel: live,
-      total: sumStats(Object.values(live)),
+      total: SessionArchive.sumStats(Object.values(live)),
       sessions: [],
     };
   }
@@ -129,7 +129,7 @@ export class SessionArchive {
       sessions.push({
         sessionId: name.replace(/\.jsonl$/, ''),
         ...parsed,
-        mtimeMs: mtimeOf(join(dir, name)),
+        mtimeMs: SessionArchive.mtimeOf(join(dir, name)),
       });
     }
     sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
@@ -182,7 +182,7 @@ export class SessionArchive {
       return;
     }
     for (const line of lines) {
-      const ev = parseLine(line);
+      const ev = SessionArchive.parseLine(line);
       if (ev?.type !== 'model') continue;
       if (!day.contains(ev.timestamp)) continue;
       const usage = ev.payload?.['usage'] as Record<string, unknown> | undefined;
@@ -225,7 +225,7 @@ export class SessionArchive {
     let calls = 0;
     let total = 0;
     for (const line of lines) {
-      const ev = parseLine(line);
+      const ev = SessionArchive.parseLine(line);
       if (ev?.type !== 'model') continue;
       const usage = ev.payload?.['usage'];
       if (usage === undefined) continue;
@@ -233,7 +233,7 @@ export class SessionArchive {
       const p = Number(rec['promptTokens'] ?? 0);
       const c = Number(rec['completionTokens'] ?? 0);
       const model = ev.payload?.['model'];
-      bump(byModel, typeof model === 'string' ? model : 'unknown', p, c);
+      SessionArchive.bump(byModel, typeof model === 'string' ? model : 'unknown', p, c);
       calls += 1;
       total += p + c;
     }
@@ -257,7 +257,7 @@ export class SessionArchive {
     let turns = 0;
     let updatedAt = '';
     for (const line of lines) {
-      const ev = parseLine(line);
+      const ev = SessionArchive.parseLine(line);
       if (ev === undefined) continue;
       if (ev.type === 'session_meta' && typeof ev.payload?.['workspace'] === 'string') {
         workspace = ev.payload['workspace'] as string;
@@ -272,56 +272,75 @@ export class SessionArchive {
     }
     return { workspace, label, turns, updatedAt };
   }
-}
 
-/** 解析一行 JSONL；空行/坏行/非对象返回 undefined。 */
-function parseLine(
-  line: string,
-): { type?: string; timestamp?: string; payload?: Record<string, unknown> } | undefined {
-  if (line.trim() === '') return undefined;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(line) as unknown;
-  } catch {
-    return undefined;
+  /**
+   * 解析一行 JSONL；空行/坏行/非对象返回 undefined。
+   * @param line 单行文本
+   * @returns 解析出的事件对象；空行/坏行/非对象返回 undefined
+   */
+  private static parseLine(
+    line: string,
+  ): { type?: string; timestamp?: string; payload?: Record<string, unknown> } | undefined {
+    if (line.trim() === '') return undefined;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line) as unknown;
+    } catch {
+      return undefined;
+    }
+    if (parsed === null || typeof parsed !== 'object') return undefined;
+    return parsed as { type?: string; timestamp?: string; payload?: Record<string, unknown> };
   }
-  if (parsed === null || typeof parsed !== 'object') return undefined;
-  return parsed as { type?: string; timestamp?: string; payload?: Record<string, unknown> };
-}
 
-/** 累加某模型的 token 统计（不可变更新）。 */
-function bump(map: Map<string, ModelStat>, model: string, p: number, c: number): void {
-  const prev = map.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
-  map.set(model, {
-    calls: prev.calls + 1,
-    prompt: prev.prompt + p,
-    completion: prev.completion + c,
-    total: prev.total + p + c,
-  });
-}
-
-/** 汇总一组模型统计。 */
-function sumStats(values: Iterable<ModelStat>): ModelStat {
-  const total: { calls: number; prompt: number; completion: number; total: number } = {
-    calls: 0,
-    prompt: 0,
-    completion: 0,
-    total: 0,
-  };
-  for (const m of values) {
-    total.calls += m.calls;
-    total.prompt += m.prompt;
-    total.completion += m.completion;
-    total.total += m.total;
+  /**
+   * 累加某模型的 token 统计（不可变更新）。
+   * @param map 模型统计表（原地累加）
+   * @param model 模型名
+   * @param p prompt token 数
+   * @param c completion token 数
+   * @returns 无返回值（map 原地累加）
+   */
+  private static bump(map: Map<string, ModelStat>, model: string, p: number, c: number): void {
+    const prev = map.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
+    map.set(model, {
+      calls: prev.calls + 1,
+      prompt: prev.prompt + p,
+      completion: prev.completion + c,
+      total: prev.total + p + c,
+    });
   }
-  return total;
-}
 
-/** 文件 mtime（毫秒）；消失竞态回退 0。 */
-function mtimeOf(file: string): number {
-  try {
-    return statSync(file).mtimeMs;
-  } catch {
-    return 0;
+  /**
+   * 汇总一组模型统计。
+   * @param values 模型统计迭代
+   * @returns 汇总后的总统计（calls/prompt/completion/total）
+   */
+  private static sumStats(values: Iterable<ModelStat>): ModelStat {
+    const total: { calls: number; prompt: number; completion: number; total: number } = {
+      calls: 0,
+      prompt: 0,
+      completion: 0,
+      total: 0,
+    };
+    for (const m of values) {
+      total.calls += m.calls;
+      total.prompt += m.prompt;
+      total.completion += m.completion;
+      total.total += m.total;
+    }
+    return total;
+  }
+
+  /**
+   * 文件 mtime（毫秒）；消失竞态回退 0。
+   * @param file 文件路径
+   * @returns 修改时间毫秒；消失竞态回退 0
+   */
+  private static mtimeOf(file: string): number {
+    try {
+      return statSync(file).mtimeMs;
+    } catch {
+      return 0;
+    }
   }
 }
