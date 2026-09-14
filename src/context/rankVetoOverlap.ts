@@ -1,3 +1,4 @@
+import { at } from '../util/arrayAt.js';
 /**
  * 排序否决器的**重合度度量**：Top-K 列表之间的集合相似度。
  *
@@ -53,7 +54,7 @@ export function meanPairwiseJaccard(lists: readonly (readonly string[])[]): numb
   let n = 0;
   for (let i = 0; i < lists.length; i++) {
     for (let j = i + 1; j < lists.length; j++) {
-      sum += jaccardOverlap(lists[i]!, lists[j]!);
+      sum += jaccardOverlap(at(lists, i), at(lists, j));
       n++;
     }
   }

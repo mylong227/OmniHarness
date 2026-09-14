@@ -4,6 +4,7 @@
  * @beta
  */
 import type { MoireMeta, MoireOptions, Skill } from './skill.js';
+import { at } from '../util/arrayAt.js';
 
 interface Resolved {
   n: number;
@@ -83,7 +84,7 @@ export class MoireComposer {
         const sx = Math.round(dx * c - dy * s + cx);
         const sy = Math.round(dx * s + dy * c + cx);
         if (sx < 0 || sy < 0 || sx >= n || sy >= n) row.push(0);
-        else row.push(B[sy]![sx]!);
+        else row.push(at(B[sy]!, sx));
       }
       out.push(row);
     }
@@ -101,7 +102,7 @@ export class MoireComposer {
         for (let k = -r; k <= r; k++) {
           const xx = x + k;
           if (xx >= 0 && xx < n) {
-            sum += P[y]![xx]!;
+            sum += at(P[y]!, xx);
             cnt++;
           }
         }
@@ -118,7 +119,7 @@ export class MoireComposer {
         for (let k = -r; k <= r; k++) {
           const yy = y + k;
           if (yy >= 0 && yy < n) {
-            sum += tmp[yy]![x]!;
+            sum += at(tmp[yy]!, x);
             cnt++;
           }
         }
@@ -146,7 +147,7 @@ export class MoireComposer {
     for (let y = 0; y < n; y++) {
       const row: number[] = [];
       for (let x = 0; x < n; x++) {
-        const v = A[y]![x]! * R[y]![x]!;
+        const v = at(A[y]!, x) * at(R[y]!, x);
         row.push(v);
         mean += v;
       }
@@ -155,11 +156,11 @@ export class MoireComposer {
     mean /= n * n;
     let totC = 0;
     for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) totC += (P[y]![x]! - mean) * (P[y]![x]! - mean);
+      for (let x = 0; x < n; x++) totC += (at(P[y]!, x) - mean) * (at(P[y]!, x) - mean);
     const blur = this.boxBlur(P, n, blurR);
     let low = 0;
     for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) low += (blur[y]![x]! - mean) * (blur[y]![x]! - mean);
+      for (let x = 0; x < n; x++) low += (at(blur[y]!, x) - mean) * (at(blur[y]!, x) - mean);
     return totC > 0 ? low / totC : 0;
   }
 
@@ -192,7 +193,8 @@ export class MoireComposer {
     // 取 θ* 处的乘积场作为复合能力场
     const R = this.rotateSample(fb, n, (best.theta * Math.PI) / 180);
     const field: number[] = [];
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) field.push(fa[y]![x]! * R[y]![x]!);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) field.push(at(fa[y]!, x) * at(R[y]!, x));
     const meta: MoireMeta = {
       composedFrom: [a.name, b.name],
       twistDeg: best.theta,

@@ -15,6 +15,7 @@ import type {
 import { Bm25Index, tokenize } from '../../search/bm25Index.js';
 import { rankWithDecay, type ScoredFact } from './timeDecay.js';
 import type { TextCodec } from './aesGcmTextCodec.js';
+import { at } from '../../util/arrayAt.js';
 
 /**
  * @beta
@@ -149,7 +150,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     if (idx === -1) {
       return false;
     }
-    const current = this.facts[idx]!;
+    const current = at(this.facts, idx);
     this.facts[idx] = {
       ...current,
       ...(patch.text !== undefined ? { text: patch.text } : {}),

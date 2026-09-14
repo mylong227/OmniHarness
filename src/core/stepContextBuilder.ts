@@ -9,6 +9,7 @@ import {
   decodeCompactionState,
 } from '../context/contextCompactor.js';
 import type { StepRunnerDeps } from './stepTypes.js';
+import { at } from '../util/arrayAt.js';
 
 /**
  * 单步「上下文组装」协作者（从 `StepRunner` 按职责缝抽出，P6.3 上帝类收口）。
@@ -127,7 +128,7 @@ export class StepContextBuilder {
   private deriveQueryText(events: readonly SessionEvent[]): string {
     const texts: string[] = [];
     for (let i = events.length - 1; i >= 0 && texts.length < 3; i--) {
-      const e = events[i]!;
+      const e = at(events, i);
       if (e.type === 'user') {
         const content = (e.payload as { content?: string }).content;
         if (content !== undefined && content.trim() !== '') {
@@ -147,7 +148,7 @@ export class StepContextBuilder {
    */
   private restoreCompactionState(events: readonly SessionEvent[]): CompactionState | undefined {
     for (let i = events.length - 1; i >= 0; i--) {
-      const e = events[i]!;
+      const e = at(events, i);
       if (e.type !== 'system') {
         continue;
       }

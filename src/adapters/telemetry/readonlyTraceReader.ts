@@ -12,6 +12,7 @@ import type {
   TraceEntry,
   TraceIntrospectionPort,
 } from '../../ports/intelligence/traceIntrospection.js';
+import { at } from '../../util/arrayAt.js';
 
 /**
  * 只读 trace 读取器：TraceIntrospectionPort 的事件流实现。
@@ -72,7 +73,7 @@ export class ReadonlyTraceReader implements TraceIntrospectionPort {
   private take(events: readonly SessionEvent[], k: number): readonly TraceEntry[] {
     const out: TraceEntry[] = [];
     for (let i = events.length - 1; i >= 0 && out.length < k; i--) {
-      const e = events[i]!;
+      const e = at(events, i);
       out.push(
         Object.freeze({
           seq: i,

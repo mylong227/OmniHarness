@@ -2,6 +2,7 @@ import type { ModelMessage, ModelPort } from '../ports/model/model.js';
 import { TokenEstimator } from './tokenEstimator.js';
 import { log } from '../util/logger.js';
 import { sanitizeToolRounds } from '../util/toolRoundSanitizer.js';
+import { at } from '../util/arrayAt.js';
 
 /** 上下文压缩选项。 */
 export interface CompactionOptions {
@@ -44,7 +45,7 @@ function isToolOrphan(messages: readonly ModelMessage[], idx: number): boolean {
   const id = m.toolCallId;
   if (id === undefined) return true; // 无 toolCallId 的 tool 消息无法被前置调用认领
   for (let j = idx - 1; j >= 0; j--) {
-    const prev = messages[j]!;
+    const prev = at(messages, j);
     if (prev.role === 'assistant' && prev.toolCalls?.some((c) => c.id === id)) {
       return false; // 找到匹配的 assistant.tool_calls.id
     }

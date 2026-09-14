@@ -1,3 +1,4 @@
+import { at } from '../util/arrayAt.js';
 /**
  * 排序否决器的**结构性诊断**（图侧度量）。
  *
@@ -71,7 +72,7 @@ const SPECTRAL_ITERS = 30;
 function symmetricDegree(g: VetoGraph): Float64Array {
   const d = new Float64Array(g.n);
   for (let i = 0; i < g.n; i++) {
-    const es = g.adj[i]!;
+    const es = at(g.adj, i);
     let out = 0;
     for (const [, w] of es) out += w;
     d[i] = (d[i] ?? 0) + out / 2;
@@ -91,15 +92,15 @@ function symmetricDegree(g: VetoGraph): Float64Array {
 function applyNormalizedAdjacency(g: VetoGraph, d: Float64Array, v: Float64Array): Float64Array {
   const out = new Float64Array(g.n);
   for (let i = 0; i < g.n; i++) {
-    const di = d[i]!;
+    const di = at(d, i);
     if (di <= 0) continue;
     const scale = 1 / Math.sqrt(di);
-    for (const [j, w] of g.adj[i]!) {
-      const dj = d[j]!;
+    for (const [j, w] of at(g.adj, i)) {
+      const dj = at(d, j);
       if (dj <= 0) continue;
       const coef = ((w / 2) * scale) / Math.sqrt(dj);
-      out[i] = (out[i] ?? 0) + coef * v[j]!;
-      out[j] = (out[j] ?? 0) + coef * v[i]!;
+      out[i] = (out[i] ?? 0) + coef * at(v, j);
+      out[j] = (out[j] ?? 0) + coef * at(v, i);
     }
   }
   return out;
@@ -117,36 +118,36 @@ function estimateSpectralGap(g: VetoGraph, d: Float64Array): number {
   const phi = new Float64Array(g.n);
   let phiNorm = 0;
   for (let i = 0; i < g.n; i++) {
-    const v = Math.sqrt(Math.max(0, d[i]!));
+    const v = Math.sqrt(Math.max(0, at(d, i)));
     phi[i] = v;
     phiNorm += v * v;
   }
   if (phiNorm <= 0) return 1;
   phiNorm = Math.sqrt(phiNorm);
-  for (let i = 0; i < g.n; i++) phi[i] = phi[i]! / phiNorm;
+  for (let i = 0; i < g.n; i++) phi[i] = at(phi, i) / phiNorm;
 
   // 确定性伪随机初值（避免测试因 Math.random 而不稳定）。
   let v: Float64Array = new Float64Array(g.n);
   for (let i = 0; i < g.n; i++) v[i] = Math.sin(i * 12.9898) * 0.5 + Math.cos(i * 78.233) * 0.5;
   let dot = 0;
-  for (let i = 0; i < g.n; i++) dot += v[i]! * phi[i]!;
-  for (let i = 0; i < g.n; i++) v[i] = v[i]! - dot * phi[i]!;
+  for (let i = 0; i < g.n; i++) dot += at(v, i) * at(phi, i);
+  for (let i = 0; i < g.n; i++) v[i] = at(v, i) - dot * at(phi, i);
 
   let lambda2 = 0;
   for (let it = 0; it < SPECTRAL_ITERS; it++) {
     let norm = 0;
-    for (let i = 0; i < g.n; i++) norm += v[i]! * v[i]!;
+    for (let i = 0; i < g.n; i++) norm += at(v, i) * at(v, i);
     norm = Math.sqrt(norm);
     if (norm <= 1e-12) return 0;
-    for (let i = 0; i < g.n; i++) v[i] = v[i]! / norm;
+    for (let i = 0; i < g.n; i++) v[i] = at(v, i) / norm;
 
     const next = applyNormalizedAdjacency(g, d, v);
     dot = 0;
-    for (let i = 0; i < g.n; i++) dot += next[i]! * phi[i]!;
-    for (let i = 0; i < g.n; i++) next[i] = next[i]! - dot * phi[i]!;
+    for (let i = 0; i < g.n; i++) dot += at(next, i) * at(phi, i);
+    for (let i = 0; i < g.n; i++) next[i] = at(next, i) - dot * at(phi, i);
 
     let nextNorm = 0;
-    for (let i = 0; i < g.n; i++) nextNorm += next[i]! * next[i]!;
+    for (let i = 0; i < g.n; i++) nextNorm += at(next, i) * at(next, i);
     lambda2 = Math.sqrt(nextNorm);
     v = next;
   }
@@ -164,7 +165,7 @@ function stationaryRank(g: VetoGraph): Float64Array {
   const outWeight = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     let s = 0;
-    for (const [, w] of g.adj[i]!) s += w;
+    for (const [, w] of at(g.adj, i)) s += w;
     outWeight[i] = s;
   }
   let pi: Float64Array = new Float64Array(n).fill(1 / n);
@@ -173,21 +174,21 @@ function stationaryRank(g: VetoGraph): Float64Array {
     next.fill(0);
     let danglingMass = 0;
     for (let i = 0; i < n; i++) {
-      const ow = outWeight[i]!;
-      const mass = pi[i]!;
+      const ow = at(outWeight, i);
+      const mass = at(pi, i);
       if (ow <= 0) {
         danglingMass += mass;
         continue;
       }
-      for (const [j, w] of g.adj[i]!) next[j] = (next[j] ?? 0) + (mass * w) / ow;
+      for (const [j, w] of at(g.adj, i)) next[j] = (next[j] ?? 0) + (mass * w) / ow;
     }
     const teleport = (1 - DAMPING) / n;
     for (let i = 0; i < n; i++) {
-      next[i] = DAMPING * next[i]! + teleport + (DAMPING * danglingMass) / n;
+      next[i] = DAMPING * at(next, i) + teleport + (DAMPING * danglingMass) / n;
     }
     let sum = 0;
-    for (let i = 0; i < n; i++) sum += next[i]!;
-    if (sum > 0) for (let i = 0; i < n; i++) next[i] = next[i]! / sum;
+    for (let i = 0; i < n; i++) sum += at(next, i);
+    if (sum > 0) for (let i = 0; i < n; i++) next[i] = at(next, i) / sum;
     pi = next.slice();
   }
   return pi;
@@ -206,8 +207,8 @@ function gini(xs: readonly number[]): number {
   let sum = 0;
   let weighted = 0;
   for (let i = 0; i < n; i++) {
-    sum += sorted[i]!;
-    weighted += sorted[i]! * (i + 1);
+    sum += at(sorted, i);
+    weighted += at(sorted, i) * (i + 1);
   }
   if (sum <= 0) return 0;
   return (2 * weighted) / (n * sum) - (n + 1) / n;
@@ -225,7 +226,7 @@ function uniformityOf(pi: Float64Array): { readonly kl: number; readonly support
   let entropy = 0;
   let kl = 0;
   for (let i = 0; i < n; i++) {
-    const p = pi[i]!;
+    const p = at(pi, i);
     if (p > 0) {
       entropy -= p * Math.log(p);
       kl += p * Math.log(p * n);
@@ -247,9 +248,9 @@ export function structuralDiagnostics(g: VetoGraph): StructuralDiagnostics {
   const pi = stationaryRank(g);
   const { kl, supportRatio } = uniformityOf(pi);
   let edgeCount = 0;
-  for (let i = 0; i < g.n; i++) edgeCount += g.adj[i]!.length;
+  for (let i = 0; i < g.n; i++) edgeCount += at(g.adj, i).length;
   const degs: number[] = [];
-  for (let i = 0; i < g.n; i++) degs.push(d[i]!);
+  for (let i = 0; i < g.n; i++) degs.push(at(d, i));
   return {
     nodeCount: g.n,
     edgeCount,

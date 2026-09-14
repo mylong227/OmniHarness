@@ -17,6 +17,7 @@
 
 import { tokenize } from '../search/bm25Index.js';
 import type { SymbolNode } from './repoMap.js';
+import { at } from '../util/arrayAt.js';
 
 /** 构建图所需的最小语料视图（避免与 IndexedCorpus 形成循环类型依赖）。 */
 export interface GraphSource {
@@ -79,7 +80,7 @@ export const NOISE_NAMES = new Set([
 function buildNameIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
   const m = new Map<string, number[]>();
   for (let i = 0; i < syms.length; i++) {
-    const nm = syms[i]!.name;
+    const nm = at(syms, i).name;
     let arr = m.get(nm);
     if (arr === undefined) {
       arr = [];
@@ -94,7 +95,7 @@ function buildNameIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
 function buildFileIndex(syms: readonly SymbolNode[]): Map<string, number[]> {
   const m = new Map<string, number[]>();
   for (let i = 0; i < syms.length; i++) {
-    const f = syms[i]!.file;
+    const f = at(syms, i).file;
     let arr = m.get(f);
     if (arr === undefined) {
       arr = [];
@@ -113,7 +114,7 @@ function buildDocFreq(
   const df = new Map<string, number>();
   for (const ids of byFile.values()) {
     const localNames = new Set<string>();
-    for (const id of ids) localNames.add(syms[id]!.name);
+    for (const id of ids) localNames.add(at(syms, id).name);
     for (const nm of localNames) df.set(nm, (df.get(nm) ?? 0) + 1);
   }
   return df;
@@ -169,8 +170,8 @@ export function buildCodeGraph(corpus: GraphSource): CodeGraph {
       for (const rid of refArr) {
         if (rid === li) continue;
         // 同文件已由 file-union 覆盖，图只负责跨文件关联
-        if (syms[li]!.file === syms[rid]!.file) continue;
-        const d = df.get(syms[rid]!.name) ?? 1;
+        if (at(syms, li).file === at(syms, rid).file) continue;
+        const d = df.get(at(syms, rid).name) ?? 1;
         // 逆文档频率调制：罕见名权重高，常见名权重低。
         const w = 0.9 / (1 + Math.log2(d + 1));
         addEdge(li, rid, w);
@@ -216,17 +217,17 @@ export function propagate(
     }
   }
   if (maxSeed > 0) {
-    for (let i = 0; i < n; i++) s[i] = s[i]! / maxSeed; // 归一化，避免数值漂移
+    for (let i = 0; i < n; i++) s[i] = at(s, i) / maxSeed; // 归一化，避免数值漂移
   }
 
   for (let it = 0; it < iters; it++) {
     const nx = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      const es = g.adj[i]!;
+      const es = at(g.adj, i);
       if (es.length === 0) continue;
       let wsum = 0;
       for (const [, w] of es) wsum += w;
-      const contrib = (s[i]! * damping) / wsum;
+      const contrib = (at(s, i) * damping) / wsum;
       for (const [j, w] of es) nx[j] = (nx[j] ?? 0) + contrib * w;
     }
     // 带重启：未沿边扩散的部分回流到种子（保持原始查询信号不丢失）。

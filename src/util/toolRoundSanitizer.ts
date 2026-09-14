@@ -1,4 +1,5 @@
 import type { ModelMessage } from '../ports/model/model.js';
+import { at } from './arrayAt.js';
 
 /**
  * 规整消息序列中的工具调用/响应配对，确保 OpenAI/DeepSeek 兼容 API 不再因
@@ -26,11 +27,11 @@ export function sanitizeToolRounds(messages: readonly ModelMessage[]): ModelMess
   // 1) 收集"合法 toolCallId"：必须紧邻某 assistant.tool_calls 出现
   const validIds = new Set<string>();
   for (let i = 0; i < messages.length; i++) {
-    const m = messages[i]!;
+    const m = at(messages, i);
     if (m.role !== 'assistant' || m.toolCalls === undefined || m.toolCalls.length === 0) continue;
     const expected = new Set(m.toolCalls.map((tc) => tc.id));
     for (let j = i + 1; j < messages.length; j++) {
-      const t = messages[j]!;
+      const t = at(messages, j);
       if (t.role !== 'tool' || t.toolCallId === undefined) break;
       if (!expected.has(t.toolCallId)) break;
       if (validIds.has(t.toolCallId)) break; // id 在协议上必须唯一，重复即终止本轮

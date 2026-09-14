@@ -32,6 +32,7 @@ import { propagate } from './codeGraph.js';
 import type { CodeGraph } from './codeGraph.js';
 import { tokenize } from '../search/bm25Index.js';
 import type { IndexedCorpus } from './contextEngine.js';
+import { at } from '../util/arrayAt.js';
 
 /**
  * 仅保留「稀有共享标识符」边：df ≤ 该值的符号名才参与连边。
@@ -66,7 +67,7 @@ const cache = new Map<string, GraphSignal>();
 function buildLowerNameIndex(symbols: IndexedCorpus['symbols']): Map<string, number[]> {
   const m = new Map<string, number[]>();
   for (let i = 0; i < symbols.length; i++) {
-    const nm = symbols[i]!.name.toLowerCase();
+    const nm = at(symbols, i).name.toLowerCase();
     let arr = m.get(nm);
     if (arr === undefined) {
       arr = [];
@@ -81,7 +82,7 @@ function buildLowerNameIndex(symbols: IndexedCorpus['symbols']): Map<string, num
 function buildFileIndex(symbols: IndexedCorpus['symbols']): Map<string, number[]> {
   const m = new Map<string, number[]>();
   for (let i = 0; i < symbols.length; i++) {
-    const f = symbols[i]!.file;
+    const f = at(symbols, i).file;
     let arr = m.get(f);
     if (arr === undefined) {
       arr = [];
@@ -100,7 +101,7 @@ function buildDocFreq(
   const df = new Map<string, number>();
   for (const ids of byFile.values()) {
     const localNames = new Set<string>();
-    for (const id of ids) localNames.add(symbols[id]!.name.toLowerCase());
+    for (const id of ids) localNames.add(at(symbols, id).name.toLowerCase());
     for (const nm of localNames) df.set(nm, (df.get(nm) ?? 0) + 1);
   }
   return df;
@@ -147,8 +148,8 @@ export function getGraphSignal(root: string, corpus: IndexedCorpus): GraphSignal
       for (const rid of refIds) {
         if (rid === li) continue;
         // 同文件已由 file-union 覆盖，图只负责跨文件关联。
-        if (symbols[li]!.file === symbols[rid]!.file) continue;
-        const d = df.get(symbols[rid]!.name.toLowerCase()) ?? 1;
+        if (at(symbols, li).file === at(symbols, rid).file) continue;
+        const d = df.get(at(symbols, rid).name.toLowerCase()) ?? 1;
         if (d > MAX_DF_FOR_EDGE) continue; // 稀疏化：常见名不建边。
         // 逆文档频率调制：罕见名权重高，常见名权重低。
         const w = 0.9 / (1 + Math.log2(d + 1));

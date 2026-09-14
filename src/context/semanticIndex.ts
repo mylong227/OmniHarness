@@ -11,6 +11,7 @@
  */
 
 import type { Embedding, EmbeddingPort } from '../ports/model/embedding.js';
+import { at } from '../util/arrayAt.js';
 
 /** 可嵌入的文档单元（符号或文件）。 */
 export interface RecallItem {
@@ -32,7 +33,7 @@ export function cosine(a: Embedding, b: Embedding): number {
   const n = Math.min(a.length, b.length);
   let dot = 0;
   for (let i = 0; i < n; i++) {
-    dot += a[i]! * b[i]!;
+    dot += at(a, i) * at(b, i);
   }
   return dot;
 }
@@ -100,7 +101,7 @@ export class SemanticIndex {
         if (v === undefined) {
           continue;
         }
-        this.ids.push(slice[j]!.id);
+        this.ids.push(at(slice, j).id);
         this.vectors.push(v);
       }
     }
@@ -117,7 +118,7 @@ export class SemanticIndex {
     }
     const scored: RecallHit[] = [];
     for (let i = 0; i < this.ids.length; i++) {
-      scored.push({ id: this.ids[i]!, score: cosine(qv, this.vectors[i]!) });
+      scored.push({ id: at(this.ids, i), score: cosine(qv, at(this.vectors, i)) });
     }
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, k);
@@ -139,7 +140,7 @@ export function rrfMerge(
   const score = new Map<string, number>();
   for (let li = 0; li < lists.length; li++) {
     const w = weights?.[li] ?? 1;
-    const list = lists[li]!;
+    const list = at(lists, li);
     list.forEach((hit, rank) => {
       const id = hit.id;
       score.set(id, (score.get(id) ?? 0) + w / (k + rank + 1));

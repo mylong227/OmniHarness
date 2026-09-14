@@ -5,6 +5,7 @@
 import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.js';
 import type { MemoryAnnealer, AnnealStepReport } from '../../ports/memory/memoryAnnealing.js';
 import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
+import { at } from '../../util/arrayAt.js';
 
 /** 退火器选项（全部有保守默认；fail-closed 边界均夹紧）。 */
 export interface HeatAnnealerOptions {
@@ -157,20 +158,20 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
 
     // 参与扩散的活性子集：非解离事实才收发热量（解离事实只剩外部充能一条复活路）。
     const activeIdx: number[] = [];
-    for (let i = 0; i < n; i++) if (!this.dissociated.has(facts[i]!.id)) activeIdx.push(i);
+    for (let i = 0; i < n; i++) if (!this.dissociated.has(at(facts, i).id)) activeIdx.push(i);
 
     const T = this._temperature;
     const next = new Array<number>(n);
 
     for (const i of activeIdx) {
-      const si = specs[i]!;
-      const ii = imp[i]!;
+      const si = at(specs, i);
+      const ii = at(imp, i);
       let coupled = 0;
       for (const j of activeIdx) {
         if (j === i) continue;
-        const w = resonance(si, specs[j]!);
+        const w = resonance(si, at(specs, j));
         if (w > this.resonanceThreshold) {
-          coupled += w * (imp[j]! - ii);
+          coupled += w * (at(imp, j) - ii);
         }
       }
       // 扩散（热方程）+ 衰减遗忘（向地板 1 缓慢消退）。
@@ -182,19 +183,19 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     let decayed = 0;
     let dissociatedNow = 0;
     for (const i of activeIdx) {
-      const before = imp[i]!;
-      const after = next[i]!;
+      const before = at(imp, i);
+      const after = at(next, i);
       drift += Math.abs(after - before);
       if (after > before) {
         charged += 1;
       } else if (after <= FLOOR) {
         // 触底 → 解离（脱离耦合图；外部 update 提升即复活）。
-        this.dissociated.add(facts[i]!.id);
+        this.dissociated.add(at(facts, i).id);
         dissociatedNow += 1;
       } else {
         decayed += 1;
       }
-      this.memory.update(facts[i]!.id, { importance: after });
+      this.memory.update(at(facts, i).id, { importance: after });
     }
 
     this.cool();

@@ -8,6 +8,7 @@ import type {
   ImmuneSelfReport,
 } from '../../ports/intelligence/immune.js';
 import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
+import { at } from '../../util/arrayAt.js';
 
 /** 免疫监控选项（fail-closed 边界夹紧）。 */
 export interface ImmuneMonitorOptions {
@@ -80,10 +81,10 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
         this.mean.push(0);
         this.M2.push(0);
       }
-      const x = sample[i]!;
-      const delta = x - this.mean[i]!;
-      this.mean[i] = this.mean[i]! + delta / this.n;
-      this.M2[i] = this.M2[i]! + delta * (x - this.mean[i]!);
+      const x = at(sample, i);
+      const delta = x - at(this.mean, i);
+      this.mean[i] = at(this.mean, i) + delta / this.n;
+      this.M2[i] = at(this.M2, i) + delta * (x - at(this.mean, i));
     }
   }
 
@@ -101,7 +102,7 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
     for (let i = 0; i < this.dim; i++) {
       const meanI = this.mean[i] ?? 0;
       const x = sample[i] ?? meanI;
-      const std = Math.sqrt(this.M2[i]! / Math.max(this.n - 1, 1));
+      const std = Math.sqrt(at(this.M2, i) / Math.max(this.n - 1, 1));
       const z = Math.abs(x - meanI) / Math.max(std, 1e-9);
       if (z > score) score = z;
       if (z >= this.threshold) exceeded.push(i);
