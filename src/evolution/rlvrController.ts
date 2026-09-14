@@ -29,6 +29,21 @@ import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
 import { verifiableRewardForCode } from './verifiableReward.js';
 import { at } from '../util/arrayAt.js';
 
+/**
+ * RlvrController 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class RlvrController {
+  /**
+   * 从进化候选抽取 RLVR prompt（描述该技能应实现什么）。
+   * @param c Candidate
+   * @returns string
+   */
+  public static promptForCandidate(c: Candidate): string {
+    const intent = (c.skill.instructions ?? '').slice(0, 240);
+    return `Implement a reusable capability named "${c.skill.name}". Intent: ${intent}`;
+  }
+}
+
 /** 构造选项。 */
 export interface RlvrEvolutionOptions {
   /** 候选技能池（供燧-1 组合发现）。 */
@@ -107,12 +122,6 @@ export function modelRlvrSampler(model: ModelPort, samplesPerPrompt: number): Rl
   };
 }
 
-/** 从进化候选抽取 RLVR prompt（描述该技能应实现什么）。 */
-function promptForCandidate(c: Candidate): string {
-  const intent = (c.skill.instructions ?? '').slice(0, 240);
-  return `Implement a reusable capability named "${c.skill.name}". Intent: ${intent}`;
-}
-
 /**
  * 默认门禁基准确的能力场边长。
  *
@@ -158,7 +167,7 @@ export function createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrE
     gate,
     onPromote: opts.onPromote,
     autoRun: opts.autoRun ?? false,
-    rlvr: { loop, promptFor: promptForCandidate },
+    rlvr: { loop, promptFor: RlvrController.promptForCandidate },
   });
   return { controller, buffer };
 }

@@ -1,7 +1,7 @@
 import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
 import { id } from '../util/id.js';
 import { SubagentRunner } from './subagentRunner.js';
-import { createWorktree } from './worktree.js';
+import { createWorktree } from './worktreeOps.js';
 import type { SubagentPorts } from './subagentPorts.js';
 import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
 import { DEFAULT_MAX_DEPTH, DEFAULT_SUBAGENT_MAX_STEPS } from './subagentTypes.js';

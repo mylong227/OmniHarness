@@ -11,7 +11,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildCodeGraph } from '../../src/context/codeGraph.js';
+import { buildCodeGraph } from '../../src/context/codeGraphIndex.js';
 import {
   arityOf,
   buildLayeredCodeGraph,

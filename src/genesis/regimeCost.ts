@@ -27,6 +27,20 @@ import {
 } from './operator.js';
 import { shannon } from './mathutil.js';
 
+/**
+ * RegimeCost 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class RegimeCost {
+  /**
+   * C7 收口：原顶层内部函数迁入宿主类。
+   * @param s GenesisState
+   * @returns number
+   */
+  public static costRatio(s: GenesisState): number {
+    return s.budget.tokens > 0 ? s.spent.tokens / s.budget.tokens : 1;
+  }
+}
+
 /** Genesis 内部控制状态（自包含，不耦合完整 harness）。 */
 export interface GenesisState {
   /** 当前激活的模态集合。 */
@@ -64,10 +78,6 @@ export function characteristicRegime(s: GenesisState): Regime {
   return { entropy: deriveEntropy(s.modalities), modalities: s.modalities, costPressure: pressure };
 }
 
-function costRatio(s: GenesisState): number {
-  return s.budget.tokens > 0 ? s.spent.tokens / s.budget.tokens : 1;
-}
-
 // ---- 两个基本收缩算子（纯函数，指称语义） ----
 
 /**
@@ -89,7 +99,7 @@ export const fuseOperator: Operator<GenesisState> = (
 export const pruneOperator: Operator<GenesisState> = (
   s: GenesisState,
 ): OperatorResult<GenesisState> => {
-  const pressure = costRatio(s);
+  const pressure = RegimeCost.costRatio(s);
   if (pressure <= 0.7 || s.modalities.length <= 1) {
     return { next: s, cost: emptyCost, events: [] };
   }

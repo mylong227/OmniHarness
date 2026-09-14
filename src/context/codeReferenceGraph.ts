@@ -28,8 +28,8 @@
  *   方向写反且已被实测证伪（谱隙 0.31、稳态远非均匀）；真机理是查询不敏感型常量偏置
  * @maturityEvidence tests/unit/codeReferenceGraph.test.ts
  */
-import { propagate } from './codeGraph.js';
-import type { CodeGraph } from './codeGraph.js';
+import { propagate } from './codeGraphIndex.js';
+import type { CodeGraph } from './codeGraphIndex.js';
 import { tokenize } from '../search/bm25Index.js';
 import type { IndexedCorpus } from './contextEngine.js';
 import { at } from '../util/arrayAt.js';

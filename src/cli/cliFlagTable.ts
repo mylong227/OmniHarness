@@ -16,6 +16,42 @@ import {
   A2A_TRANSPORTS,
 } from './cliEnums.js';
 
+/**
+ * CliFlagTable 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class CliFlagTable {
+  /**
+   * 取下一个参数值。
+   * @param argv readonly string[]
+   * @param index number
+   * @param flag string
+   * @returns string
+   */
+  public static valueOf(argv: readonly string[], index: number, flag: string): string {
+    const value = argv[index + 1];
+    if (value === undefined) {
+      throw new Error(`缺少参数值: ${flag}`);
+    }
+    return value;
+  }
+  /**
+   * 取下一个参数值并校验枚举白名单。
+   * @param argv readonly string[]
+   * @param index number
+   * @param flag string
+   * @param allowed readonly T[]
+   * @returns T
+   */
+  public static enumOf<T extends string>(
+    argv: readonly string[],
+    index: number,
+    flag: string,
+    allowed: readonly T[],
+  ): T {
+    return checkEnum(CliFlagTable.valueOf(argv, index, flag), flag, allowed);
+  }
+}
+
 /** 消费值的长选项集合（用于位置参数识别：其紧跟的值不视为 prompt）。 */
 const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--config',
@@ -81,15 +117,6 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--model-circuit-breaker-open-ms',
 ]);
 
-/** 取下一个参数值。 */
-function valueOf(argv: readonly string[], index: number, flag: string): string {
-  const value = argv[index + 1];
-  if (value === undefined) {
-    throw new Error(`缺少参数值: ${flag}`);
-  }
-  return value;
-}
-
 /**
  * 校验枚举值属于白名单，非法即抛错（fail-closed）。
  *
@@ -103,16 +130,6 @@ export function checkEnum<T extends string>(value: string, flag: string, allowed
   return value as T;
 }
 
-/** 取下一个参数值并校验枚举白名单。 */
-function enumOf<T extends string>(
-  argv: readonly string[],
-  index: number,
-  flag: string,
-  allowed: readonly T[],
-): T {
-  return checkEnum(valueOf(argv, index, flag), flag, allowed);
-}
-
 /**
  * 手写参数解析（零依赖；defaults 来自配置文件，CLI 参数优先）。
  * 各 flag 的处理收归到 FLAG_TABLE，使本函数保持短小（禁大函数铁律）；
@@ -122,55 +139,55 @@ type FlagApply = (args: CliArgs, argv: readonly string[], i: number) => number;
 
 const FLAG_TABLE: Record<string, FlagApply> = {
   '--model-adapter': (a, argv, i) => {
-    a.modelAdapter = enumOf(argv, i, '--model-adapter', MODEL_ADAPTERS);
+    a.modelAdapter = CliFlagTable.enumOf(argv, i, '--model-adapter', MODEL_ADAPTERS);
     return 1;
   },
   '--base-url': (a, argv, i) => {
-    a.baseUrl = valueOf(argv, i, '--base-url');
+    a.baseUrl = CliFlagTable.valueOf(argv, i, '--base-url');
     return 1;
   },
   '--api-key': (a, argv, i) => {
-    a.apiKey = valueOf(argv, i, '--api-key');
+    a.apiKey = CliFlagTable.valueOf(argv, i, '--api-key');
     return 1;
   },
   '--network-allow': (a, argv, i) => {
-    a.networkAllow = valueOf(argv, i, '--network-allow');
+    a.networkAllow = CliFlagTable.valueOf(argv, i, '--network-allow');
     return 1;
   },
   '--model': (a, argv, i) => {
-    a.model = valueOf(argv, i, '--model');
+    a.model = CliFlagTable.valueOf(argv, i, '--model');
     return 1;
   },
   '--storage-adapter': (a, argv, i) => {
-    a.storageAdapter = enumOf(argv, i, '--storage-adapter', STORAGE_ADAPTERS);
+    a.storageAdapter = CliFlagTable.enumOf(argv, i, '--storage-adapter', STORAGE_ADAPTERS);
     return 1;
   },
   '--storage-dir': (a, argv, i) => {
-    a.storageDir = valueOf(argv, i, '--storage-dir');
+    a.storageDir = CliFlagTable.valueOf(argv, i, '--storage-dir');
     return 1;
   },
   '--approval': (a, argv, i) => {
-    a.approval = enumOf(argv, i, '--approval', APPROVALS);
+    a.approval = CliFlagTable.enumOf(argv, i, '--approval', APPROVALS);
     return 1;
   },
   '--approval-ask': (a, argv, i) => {
-    a.approvalAsk = enumOf(argv, i, '--approval-ask', APPROVAL_ASKS);
+    a.approvalAsk = CliFlagTable.enumOf(argv, i, '--approval-ask', APPROVAL_ASKS);
     return 1;
   },
   '--sandbox': (a, argv, i) => {
-    a.sandbox = enumOf(argv, i, '--sandbox', SANDBOX_PROFILES);
+    a.sandbox = CliFlagTable.enumOf(argv, i, '--sandbox', SANDBOX_PROFILES);
     return 1;
   },
   '--escalation': (a, argv, i) => {
-    a.escalation = enumOf(argv, i, '--escalation', ESCALATIONS);
+    a.escalation = CliFlagTable.enumOf(argv, i, '--escalation', ESCALATIONS);
     return 1;
   },
   '--elevated-sandbox': (a, argv, i) => {
-    a.elevatedSandbox = enumOf(argv, i, '--elevated-sandbox', ELEVATED_SANDBOXES);
+    a.elevatedSandbox = CliFlagTable.enumOf(argv, i, '--elevated-sandbox', ELEVATED_SANDBOXES);
     return 1;
   },
   '--compaction-max': (a, argv, i) => {
-    a.compactionMax = Number.parseInt(valueOf(argv, i, '--compaction-max'), 10);
+    a.compactionMax = Number.parseInt(CliFlagTable.valueOf(argv, i, '--compaction-max'), 10);
     return 1;
   },
   '--memory-encrypt': (a) => {
@@ -182,19 +199,19 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--memory-key-file': (a, argv, i) => {
-    a.memoryKeyFile = valueOf(argv, i, '--memory-key-file');
+    a.memoryKeyFile = CliFlagTable.valueOf(argv, i, '--memory-key-file');
     return 1;
   },
   '--spill-adapter': (a, argv, i) => {
-    a.spillAdapter = enumOf(argv, i, '--spill-adapter', SPILL_ADAPTERS);
+    a.spillAdapter = CliFlagTable.enumOf(argv, i, '--spill-adapter', SPILL_ADAPTERS);
     return 1;
   },
   '--spill-bytes': (a, argv, i) => {
-    a.spillMax = Number.parseInt(valueOf(argv, i, '--spill-bytes'), 10);
+    a.spillMax = Number.parseInt(CliFlagTable.valueOf(argv, i, '--spill-bytes'), 10);
     return 1;
   },
   '--spill-preview': (a, argv, i) => {
-    a.spillPreview = Number.parseInt(valueOf(argv, i, '--spill-preview'), 10);
+    a.spillPreview = Number.parseInt(CliFlagTable.valueOf(argv, i, '--spill-preview'), 10);
     return 1;
   },
   '--plan': (a) => {
@@ -202,63 +219,69 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--defer-tools': (a, argv, i) => {
-    a.deferTools = valueOf(argv, i, '--defer-tools');
+    a.deferTools = CliFlagTable.valueOf(argv, i, '--defer-tools');
     return 1;
   },
   '--lsp': (a, argv, i) => {
-    a.lsp = valueOf(argv, i, '--lsp');
+    a.lsp = CliFlagTable.valueOf(argv, i, '--lsp');
     return 1;
   },
   '--subagent-max-depth': (a, argv, i) => {
-    a.subagentMaxDepth = Number.parseInt(valueOf(argv, i, '--subagent-max-depth'), 10);
+    a.subagentMaxDepth = Number.parseInt(CliFlagTable.valueOf(argv, i, '--subagent-max-depth'), 10);
     return 1;
   },
   '--subagent-concurrency': (a, argv, i) => {
-    a.subagentConcurrency = Number.parseInt(valueOf(argv, i, '--subagent-concurrency'), 10);
+    a.subagentConcurrency = Number.parseInt(
+      CliFlagTable.valueOf(argv, i, '--subagent-concurrency'),
+      10,
+    );
     return 1;
   },
   '--subagent-max-steps': (a, argv, i) => {
-    a.subagentMaxSteps = Number.parseInt(valueOf(argv, i, '--subagent-max-steps'), 10);
+    a.subagentMaxSteps = Number.parseInt(CliFlagTable.valueOf(argv, i, '--subagent-max-steps'), 10);
     return 1;
   },
   '--events': (a, argv, i) => {
-    a.events = enumOf(argv, i, '--events', EVENT_PORTS);
+    a.events = CliFlagTable.enumOf(argv, i, '--events', EVENT_PORTS);
     return 1;
   },
   '--tool': (a, argv, i) => {
-    a.toolFiles = [...a.toolFiles, valueOf(argv, i, '--tool')];
+    a.toolFiles = [...a.toolFiles, CliFlagTable.valueOf(argv, i, '--tool')];
     return 1;
   },
   '--workspace': (a, argv, i) => {
-    a.workspace = valueOf(argv, i, '--workspace');
+    a.workspace = CliFlagTable.valueOf(argv, i, '--workspace');
     return 1;
   },
   '--output': (a, argv, i) => {
-    a.output = valueOf(argv, i, '--output');
+    a.output = CliFlagTable.valueOf(argv, i, '--output');
     return 1;
   },
   '--resume': (a, argv, i) => {
-    a.resumeId = valueOf(argv, i, '--resume');
+    a.resumeId = CliFlagTable.valueOf(argv, i, '--resume');
     return 1;
   },
   '--fork': (a, argv, i) => {
-    a.forkId = valueOf(argv, i, '--fork');
+    a.forkId = CliFlagTable.valueOf(argv, i, '--fork');
     return 1;
   },
   '--replay': (a, argv, i) => {
-    a.replayId = valueOf(argv, i, '--replay');
+    a.replayId = CliFlagTable.valueOf(argv, i, '--replay');
     return 1;
   },
   '--prompt': (a, argv, i) => {
-    a.prompt = valueOf(argv, i, '--prompt');
+    a.prompt = CliFlagTable.valueOf(argv, i, '--prompt');
     return 1;
   },
   '--mcp-server': (a, argv, i) => {
-    a.mcpServers = [...a.mcpServers, parseMcpServerSpec(valueOf(argv, i, '--mcp-server'))];
+    a.mcpServers = [
+      ...a.mcpServers,
+      parseMcpServerSpec(CliFlagTable.valueOf(argv, i, '--mcp-server')),
+    ];
     return 1;
   },
   '--worker-dsh': (a, argv, i) => {
-    a.workerDsh = valueOf(argv, i, '--worker-dsh');
+    a.workerDsh = CliFlagTable.valueOf(argv, i, '--worker-dsh');
     return 1;
   },
   '--native': (a) => {
@@ -285,7 +308,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--output-format': (a, argv, i) => {
-    const raw = valueOf(argv, i, '--output-format');
+    const raw = CliFlagTable.valueOf(argv, i, '--output-format');
     if (!OUTPUT_FORMATS.includes(raw as (typeof OUTPUT_FORMATS)[number])) {
       throw new Error(`--output-format 非法值: ${raw}（可选: ${OUTPUT_FORMATS.join(' | ')}）`);
     }
@@ -293,19 +316,21 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--context-window': (a, argv, i) => {
-    a.contextWindow = Number.parseInt(valueOf(argv, i, '--context-window'), 10);
+    a.contextWindow = Number.parseInt(CliFlagTable.valueOf(argv, i, '--context-window'), 10);
     return 1;
   },
   '--plugin-profile': (a, argv, i) => {
-    a.pluginProfile = valueOf(argv, i, '--plugin-profile');
+    a.pluginProfile = CliFlagTable.valueOf(argv, i, '--plugin-profile');
     return 1;
   },
   '--model-router': (a, argv, i) => {
-    a.modelRouter = JSON.parse(valueOf(argv, i, '--model-router')) as ModelRouterConfig;
+    a.modelRouter = JSON.parse(
+      CliFlagTable.valueOf(argv, i, '--model-router'),
+    ) as ModelRouterConfig;
     return 1;
   },
   '--model-router-file': (a, argv, i) => {
-    a.modelRouterFile = valueOf(argv, i, '--model-router-file');
+    a.modelRouterFile = CliFlagTable.valueOf(argv, i, '--model-router-file');
     return 1;
   },
   // V2.1 循环质量三旗标：重试默认开（--no-model-retry 显式关）、文本流式、回合 token 预算。
@@ -320,14 +345,14 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   },
   '--model-circuit-breaker-threshold': (a, argv, i) => {
     a.modelCircuitBreakerThreshold = Number.parseInt(
-      valueOf(argv, i, '--model-circuit-breaker-threshold'),
+      CliFlagTable.valueOf(argv, i, '--model-circuit-breaker-threshold'),
       10,
     );
     return 1;
   },
   '--model-circuit-breaker-open-ms': (a, argv, i) => {
     a.modelCircuitBreakerOpenMs = Number.parseInt(
-      valueOf(argv, i, '--model-circuit-breaker-open-ms'),
+      CliFlagTable.valueOf(argv, i, '--model-circuit-breaker-open-ms'),
       10,
     );
     return 1;
@@ -343,22 +368,22 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--vault-hydrate-names': (a, argv, i) => {
-    a.vaultHydrateNames = valueOf(argv, i, '--vault-hydrate-names')
+    a.vaultHydrateNames = CliFlagTable.valueOf(argv, i, '--vault-hydrate-names')
       .split(',')
       .map((name) => name.trim())
       .filter((name) => name.length > 0);
     return 1;
   },
   '--vault-key-file': (a, argv, i) => {
-    a.vaultKeyFile = valueOf(argv, i, '--vault-key-file');
+    a.vaultKeyFile = CliFlagTable.valueOf(argv, i, '--vault-key-file');
     return 1;
   },
   '--kv-adapter': (a, argv, i) => {
-    a.kvAdapter = enumOf(argv, i, '--kv-adapter', KV_ADAPTERS);
+    a.kvAdapter = CliFlagTable.enumOf(argv, i, '--kv-adapter', KV_ADAPTERS);
     return 1;
   },
   '--kv-file': (a, argv, i) => {
-    a.kvFile = valueOf(argv, i, '--kv-file');
+    a.kvFile = CliFlagTable.valueOf(argv, i, '--kv-file');
     return 1;
   },
   // (U4) RLVR 进化闭环：默认关。开启后装配期构造「可验证门禁 + RLVR sample-filter-replay」控制器；
@@ -368,15 +393,15 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--a2a-port': (a, argv, i) => {
-    a.a2aPort = Number.parseInt(valueOf(argv, i, '--a2a-port'), 10);
+    a.a2aPort = Number.parseInt(CliFlagTable.valueOf(argv, i, '--a2a-port'), 10);
     return 1;
   },
   '--a2a-peer': (a, argv, i) => {
-    a.a2aPeer = valueOf(argv, i, '--a2a-peer');
+    a.a2aPeer = CliFlagTable.valueOf(argv, i, '--a2a-peer');
     return 1;
   },
   '--a2a-transport': (a, argv, i) => {
-    a.a2aTransport = enumOf(argv, i, '--a2a-transport', A2A_TRANSPORTS);
+    a.a2aTransport = CliFlagTable.enumOf(argv, i, '--a2a-transport', A2A_TRANSPORTS);
     return 1;
   },
   '--evolution-rlvr': (a) => {
@@ -384,23 +409,23 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--rlvr-verify': (a, argv, i) => {
-    a.rlvrVerify = valueOf(argv, i, '--rlvr-verify');
+    a.rlvrVerify = CliFlagTable.valueOf(argv, i, '--rlvr-verify');
     return 1;
   },
   '--rlvr-samples': (a, argv, i) => {
-    a.rlvrSamples = Number.parseInt(valueOf(argv, i, '--rlvr-samples'), 10);
+    a.rlvrSamples = Number.parseInt(CliFlagTable.valueOf(argv, i, '--rlvr-samples'), 10);
     return 1;
   },
   '--rlvr-min-reward': (a, argv, i) => {
-    a.rlvrMinReward = Number.parseFloat(valueOf(argv, i, '--rlvr-min-reward'));
+    a.rlvrMinReward = Number.parseFloat(CliFlagTable.valueOf(argv, i, '--rlvr-min-reward'));
     return 1;
   },
   '--rlvr-candidates': (a, argv, i) => {
-    a.rlvrCandidates = Number.parseInt(valueOf(argv, i, '--rlvr-candidates'), 10);
+    a.rlvrCandidates = Number.parseInt(CliFlagTable.valueOf(argv, i, '--rlvr-candidates'), 10);
     return 1;
   },
   '--rlvr-min-gain': (a, argv, i) => {
-    a.rlvrMinGain = Number.parseFloat(valueOf(argv, i, '--rlvr-min-gain'));
+    a.rlvrMinGain = Number.parseFloat(CliFlagTable.valueOf(argv, i, '--rlvr-min-gain'));
     return 1;
   },
   '--rlvr-auto-run': (a) => {
@@ -408,7 +433,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--turn-token-budget': (a, argv, i) => {
-    a.turnTokenBudget = Number.parseInt(valueOf(argv, i, '--turn-token-budget'), 10);
+    a.turnTokenBudget = Number.parseInt(CliFlagTable.valueOf(argv, i, '--turn-token-budget'), 10);
     return 1;
   },
   // D2 服务端鉴权门禁的 OIDC 配置（仅 serve 消费，不进入 CliArgs 通用字段）。

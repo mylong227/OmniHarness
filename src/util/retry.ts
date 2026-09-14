@@ -1,4 +1,17 @@
 /**
+ * Retry 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class Retry {
+  /**
+   * C7 收口：原顶层内部函数迁入宿主类。
+   * @param ms number
+   * @returns Promise<void>
+   */
+  public static defaultSleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+/**
  * 通用重试原语（零依赖）。
  *
  * 提供指数退避 + 全抖动 + 可重试判定的 `withRetry`，供所有出网/易失败操作复用
@@ -36,9 +49,6 @@ export function backoffMs(attempt: number, opts: BackoffParams): number {
   return Math.random() * capped;
 }
 
-const defaultSleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
  * 对 `fn` 施加重试。所有尝试失败则抛出最后一次错误。
  * fail-closed：非可重试错误立即抛出，不浪费重试预算。
@@ -51,7 +61,7 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
     factor: options.factor ?? 2,
   };
   const isRetryable = options.isRetryable ?? (() => true);
-  const sleep = options.sleep ?? defaultSleep;
+  const sleep = options.sleep ?? Retry.defaultSleep;
 
   let lastError: unknown;
   for (let attempt = 1; attempt <= opts.maxAttempts; attempt += 1) {

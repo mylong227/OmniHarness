@@ -13,21 +13,33 @@ import type { Skill } from '../skill/skill.js';
 import { capabilityFieldOf } from '../skill/moireComposer.js';
 import { at } from '../util/arrayAt.js';
 
-/** 扁平化二维场。 */
-function flatten(field: readonly (readonly number[])[]): number[] {
-  const out: number[] = [];
-  for (const row of field) {
-    for (const v of row) out.push(v);
+/**
+ * Benchmark 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class Benchmark {
+  /**
+   * 扁平化二维场。
+   * @param field readonly (readonly number[])[]
+   * @returns number[]
+   */
+  public static flatten(field: readonly (readonly number[])[]): number[] {
+    const out: number[] = [];
+    for (const row of field) {
+      for (const v of row) out.push(v);
+    }
+    return out;
   }
-  return out;
-}
-
-/** 去均值（中心化）。 */
-function center(flat: readonly number[]): number[] {
-  let m = 0;
-  for (const v of flat) m += v;
-  m /= flat.length;
-  return flat.map((v) => v - m);
+  /**
+   * 去均值（中心化）。
+   * @param flat readonly number[]
+   * @returns number[]
+   */
+  public static center(flat: readonly number[]): number[] {
+    let m = 0;
+    for (const v of flat) m += v;
+    m /= flat.length;
+    return flat.map((v) => v - m);
+  }
 }
 
 /**
@@ -64,10 +76,10 @@ export function fieldMatch(a: readonly number[], b: readonly number[]): number {
  * 中心化后返回扁平数组。
  */
 export function jointProfile(a: Skill, b: Skill, n: number): number[] {
-  const fa = flatten(capabilityFieldOf(a, n));
-  const fb = flatten(capabilityFieldOf(b, n));
+  const fa = Benchmark.flatten(capabilityFieldOf(a, n));
+  const fb = Benchmark.flatten(capabilityFieldOf(b, n));
   const prod = fa.map((v, i) => v * at(fb, i));
-  return center(prod);
+  return Benchmark.center(prod);
 }
 
 /**
@@ -79,8 +91,8 @@ export function capabilityCoverage(skill: Skill, profile: readonly number[], n: 
   const raw =
     skill.capabilityField !== undefined && skill.capabilityField.length === n * n
       ? [...skill.capabilityField]
-      : flatten(capabilityFieldOf(skill, n));
-  return fieldMatch(center(raw), profile as number[]);
+      : Benchmark.flatten(capabilityFieldOf(skill, n));
+  return fieldMatch(Benchmark.center(raw), profile as number[]);
 }
 
 /**
@@ -96,7 +108,7 @@ export function moireEnergy(skill: Skill, n: number, blurR = 2): number {
   const raw =
     skill.capabilityField !== undefined && skill.capabilityField.length === n * n
       ? [...skill.capabilityField]
-      : flatten(capabilityFieldOf(skill, n));
+      : Benchmark.flatten(capabilityFieldOf(skill, n));
   const len = raw.length;
   if (len === 0) return 0;
   let mean = 0;

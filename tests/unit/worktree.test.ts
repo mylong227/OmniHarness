@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, existsSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createWorktree, withWorktree } from '../../src/subagent/worktree.js';
+import { createWorktree, withWorktree } from '../../src/subagent/worktreeOps.js';
 
 /** 探测 git 是否可用。 */
 function gitAvailable(): boolean {

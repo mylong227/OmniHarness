@@ -65,8 +65,8 @@
  */
 
 import { tokenize } from '../search/bm25Index.js';
-import { NOISE_NAMES, propagate } from './codeGraph.js';
-import type { CodeGraph, GraphSource } from './codeGraph.js';
+import { NOISE_NAMES, propagate } from './codeGraphIndex.js';
+import type { CodeGraph, GraphSource } from './codeGraphIndex.js';
 import type { SymbolNode } from './repoMap.js';
 
 /**
