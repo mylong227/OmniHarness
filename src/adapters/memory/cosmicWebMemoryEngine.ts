@@ -30,19 +30,6 @@ export interface CosmicWebOptions {
   readonly bins?: number | undefined;
 }
 
-function avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {
-  const n = Math.max(a.values.length, b.values.length);
-  const out = new Array<number>(n).fill(0);
-  for (let i = 0; i < n; i++) {
-    const va = a.values[i] ?? 0;
-    const vb = b.values[i] ?? 0;
-    out[i] = (va + vb) / 2;
-  }
-  // 重新归一化。
-  const norm = Math.sqrt(out.reduce((s, v) => s + v * v, 0)) || 1;
-  return { bins: n, values: out.map((v) => v / norm) };
-}
-
 /**
  * 宇宙网记忆引擎（Cosmic-Web Memory Engine，I-P1-2）。
  *
@@ -75,9 +62,9 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
 
   public constructor(memory: LongTermMemoryPort, opts: CosmicWebOptions = {}) {
     this.memory = memory;
-    this.adhesionThreshold = clamp(opts.adhesionThreshold ?? 0.75, 0, 1);
+    this.adhesionThreshold = CosmicWebMemoryEngine.clamp(opts.adhesionThreshold ?? 0.75, 0, 1);
     this.bekensteinCap = Math.max(1, Math.floor(opts.bekensteinCap ?? 64));
-    this.edgeThreshold = clamp(opts.edgeThreshold ?? 0.4, 0, 1);
+    this.edgeThreshold = CosmicWebMemoryEngine.clamp(opts.edgeThreshold ?? 0.4, 0, 1);
     this.bins = opts.bins ?? 257;
     // 从既有记忆播种节点（每个既有事实一个初始节点）。
     for (const f of memory.all()) {
@@ -109,7 +96,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     if (bestId !== undefined) {
       // Burgers 黏附：不可逆写入只在收敛点发生 → 去重强化，不新建条目。
       const node = this.nodes.get(bestId)!;
-      node.centroid = avgSpectrum(node.centroid, s);
+      node.centroid = CosmicWebMemoryEngine.avgSpectrum(node.centroid, s);
       node.members.push(fact.id);
       return;
     }
@@ -163,7 +150,7 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
         source: 'consolidated',
       });
       large.repId = repId;
-      large.centroid = avgSpectrum(small.centroid, large.centroid);
+      large.centroid = CosmicWebMemoryEngine.avgSpectrum(small.centroid, large.centroid);
       large.text = abstractText;
       large.members.push(...small.members);
       this.nodes.delete(smallId);
@@ -269,8 +256,32 @@ export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort 
     if (ok) this.nodes.delete(id);
     return ok;
   }
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
+  /**
+   * avgSpectrum (internal helper hoisted into CosmicWebMemoryEngine).
+   * @param {Spectrum} a
+   * @param {Spectrum} b
+   * @returns {Spectrum}
+   */
+  private static avgSpectrum(a: Spectrum, b: Spectrum): Spectrum {
+    const n = Math.max(a.values.length, b.values.length);
+    const out = new Array<number>(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      const va = a.values[i] ?? 0;
+      const vb = b.values[i] ?? 0;
+      out[i] = (va + vb) / 2;
+    }
+    // 重新归一化。
+    const norm = Math.sqrt(out.reduce((s, v) => s + v * v, 0)) || 1;
+    return { bins: n, values: out.map((v) => v / norm) };
+  }
+  /**
+   * clamp (internal helper hoisted into CosmicWebMemoryEngine).
+   * @param {number} v
+   * @param {number} lo
+   * @param {number} hi
+   * @returns {number}
+   */
+  private static clamp(v: number, lo: number, hi: number): number {
+    return v < lo ? lo : v > hi ? hi : v;
+  }
 }

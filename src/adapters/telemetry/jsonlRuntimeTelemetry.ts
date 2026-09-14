@@ -21,32 +21,12 @@ const SEP = ' ';
  * @param seq 链序号。
  * @returns 可参与哈希的规范化 JSON 字符串。
  */
-function canonicalOf(
-  ts: string,
-  entry: RuntimeTelemetryInput & { id: string },
-  seq: number,
-): string {
-  return JSON.stringify({
-    id: entry.id,
-    ts,
-    kind: entry.kind,
-    operator: entry.operator,
-    configSnapshot: entry.configSnapshot,
-    metrics: entry.metrics,
-    verdict: entry.verdict,
-    provenance: entry.provenance,
-    seq,
-  });
-}
 
 /** 计算链哈希。
  * @param prev 前一条记录哈希（首条为 GENESIS 全零）。
  * @param canonical 规范化正文（{@link canonicalOf} 的输出）。
  * @returns SHA256(prev ‖ ' ' ‖ canonical) 的 hex 摘要。
  */
-function hashOf(prev: string, canonical: string): string {
-  return createHash('sha256').update(prev).update(SEP).update(canonical).digest('hex');
-}
 
 /** JSONL 长期运行遥测存储选项。 */
 export interface JsonlRuntimeTelemetryOptions {
@@ -106,7 +86,10 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
     const ts = obs.ts || new Date().toISOString();
     const seq = this.seq + 1;
     const prev = this.prev;
-    const hash = hashOf(prev, canonicalOf(ts, { ...obs, id }, seq));
+    const hash = JsonlRuntimeTelemetry.hashOf(
+      prev,
+      JsonlRuntimeTelemetry.canonicalOf(ts, { ...obs, id }, seq),
+    );
     const line = JSON.stringify({
       id,
       ts,
@@ -193,7 +176,10 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
           reason: `第 ${e.seq} 条 prev 与前一条 hash 不匹配`,
         };
       }
-      const expected = hashOf(prev, canonicalOf(e.ts ?? '', e, e.seq));
+      const expected = JsonlRuntimeTelemetry.hashOf(
+        prev,
+        JsonlRuntimeTelemetry.canonicalOf(e.ts ?? '', e, e.seq),
+      );
       if (e.hash !== expected) {
         return {
           ok: false,
@@ -217,5 +203,38 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
       this.seq = last.seq;
       this.prev = last.hash;
     }
+  }
+  /**
+   * canonicalOf (internal helper hoisted into JsonlRuntimeTelemetry).
+   * @param {string} ts
+   * @param {RuntimeTelemetryInput & { id: string }} entry
+   * @param {number} seq
+   * @returns {string}
+   */
+  private static canonicalOf(
+    ts: string,
+    entry: RuntimeTelemetryInput & { id: string },
+    seq: number,
+  ): string {
+    return JSON.stringify({
+      id: entry.id,
+      ts,
+      kind: entry.kind,
+      operator: entry.operator,
+      configSnapshot: entry.configSnapshot,
+      metrics: entry.metrics,
+      verdict: entry.verdict,
+      provenance: entry.provenance,
+      seq,
+    });
+  }
+  /**
+   * hashOf (internal helper hoisted into JsonlRuntimeTelemetry).
+   * @param {string} prev
+   * @param {string} canonical
+   * @returns {string}
+   */
+  private static hashOf(prev: string, canonical: string): string {
+    return createHash('sha256').update(prev).update(SEP).update(canonical).digest('hex');
   }
 }

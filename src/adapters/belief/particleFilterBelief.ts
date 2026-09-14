@@ -32,28 +32,11 @@ export interface ParticleFilterOptions {
  * @param seed 随机种子（同一种子产出同一序列，保证可复现）。
  * @returns 每次调用返回 [0,1) 均匀分布随机数的抽样函数。
  */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /** 标准正态抽样（Box–Muller）。
  * @param rng 均匀分布随机源（[0,1)；0 值会被循环重抽以避免对数发散）。
  * @returns 一个标准正态分布 N(0,1) 抽样值。
  */
-function randn(rng: () => number): number {
-  let u = 0;
-  let v = 0;
-  while (u === 0) u = rng();
-  while (v === 0) v = rng();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
 
 /**
  * 粒子滤波信念引擎（Particle-Filter Belief，I-P2-3）。
@@ -94,7 +77,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     this.n = Math.max(2, Math.floor(opts.particles ?? 200));
     this.resampleFloor = Math.max(0.01, opts.resampleRatio ?? 0.5) * this.n;
     this.jitter = Math.max(0, opts.jitter ?? 0.05);
-    this.rng = mulberry32(opts.seed ?? 0x9e3779b9);
+    this.rng = ParticleFilterBelief.mulberry32(opts.seed ?? 0x9e3779b9);
     const m0 = opts.initialMean ?? 0;
     const v0 = Math.max(1e-3, opts.initialVariance ?? 1);
     const sd = Math.sqrt(v0);
@@ -102,7 +85,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     this.weights = new Array<number>(this.n).fill(1 / this.n);
     for (let i = 0; i < this.n; i++) {
       const p: number[] = [];
-      for (let d = 0; d < this.dim; d++) p.push(m0 + sd * randn(this.rng));
+      for (let d = 0; d < this.dim; d++) p.push(m0 + sd * ParticleFilterBelief.randn(this.rng));
       this.particles.push(p);
     }
   }
@@ -204,7 +187,10 @@ export class ParticleFilterBelief implements MetacognitionPort {
     for (let i = 0; i < this.n; i++) {
       const p = at(this.particles, i);
       for (let d = 0; d < this.dim; d++) {
-        p[d] = at(p, d) + lr * (gradient[d] ?? 0) + this.jitter * at(sd, d) * randn(this.rng);
+        p[d] =
+          at(p, d) +
+          lr * (gradient[d] ?? 0) +
+          this.jitter * at(sd, d) * ParticleFilterBelief.randn(this.rng);
       }
     }
     return this.report(before);
@@ -240,7 +226,8 @@ export class ParticleFilterBelief implements MetacognitionPort {
       while (j < this.n - 1 && target > at(cum, j)) j++;
       const src = at(this.particles, j);
       const p: number[] = new Array<number>(this.dim);
-      for (let d = 0; d < this.dim; d++) p[d] = at(src, d) + this.jitter * randn(this.rng);
+      for (let d = 0; d < this.dim; d++)
+        p[d] = at(src, d) + this.jitter * ParticleFilterBelief.randn(this.rng);
       next.push(p);
     }
     this.particles = next;
@@ -270,5 +257,32 @@ export class ParticleFilterBelief implements MetacognitionPort {
         before.variance as number[],
       ),
     };
+  }
+  /**
+   * mulberry32 (internal helper hoisted into ParticleFilterBelief).
+   * @param {number} seed
+   * @returns {() => number}
+   */
+  private static mulberry32(seed: number): () => number {
+    let a = seed >>> 0;
+    return () => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  /**
+   * randn (internal helper hoisted into ParticleFilterBelief).
+   * @param {() => number} rng
+   * @returns {number}
+   */
+  private static randn(rng: () => number): number {
+    let u = 0;
+    let v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   }
 }

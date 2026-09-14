@@ -51,24 +51,8 @@ const PRIVATE_HOST_PATTERNS: readonly RegExp[] = [
 ];
 
 /** 主机是否命中私有/链路本地网段（SSRF 高危）。 */
-function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase();
-  return PRIVATE_HOST_PATTERNS.some((re) => re.test(h));
-}
 
 /** 把任意主机串规整为小写「主机」：去协议、去路径、去端口。 */
-function toHost(raw: string): string {
-  let host = raw.toLowerCase().replace(/^https?:\/\//, '');
-  const slash = host.indexOf('/');
-  if (slash >= 0) {
-    host = host.slice(0, slash);
-  }
-  const colon = host.indexOf(':');
-  if (colon >= 0) {
-    host = host.slice(0, colon);
-  }
-  return host;
-}
 
 /** 网络外联策略门。 */
 export class NetworkEgressGuard {
@@ -81,7 +65,7 @@ export class NetworkEgressGuard {
    * @param options 网络外联守卫配置（白名单与 SSRF 拦截开关）。
    */
   public constructor(options: NetworkEgressOptions) {
-    this.allowed = new Set(options.allowedHosts.map(toHost));
+    this.allowed = new Set(options.allowedHosts.map(NetworkEgressGuard.toHost));
     this.blockPrivate = options.blockPrivateRanges ?? true;
   }
 
@@ -95,7 +79,7 @@ export class NetworkEgressGuard {
     const host = this.hostOf(url);
     if (host !== undefined) {
       // SSRF 优先：私有/链路本地地址（云元数据 169.254.169.254 等）无论白名单一律拒绝。
-      if (this.blockPrivate && isPrivateHost(host)) {
+      if (this.blockPrivate && NetworkEgressGuard.isPrivateHost(host)) {
         throw new EgressBlockedError(
           `网络外联被 SSRF 策略拒绝（私有/链路本地地址）: ${text}`,
           text,
@@ -165,6 +149,32 @@ export class NetworkEgressGuard {
    */
   private stringify(url: string | URL): string {
     return typeof url === 'string' ? url : url.href;
+  }
+  /**
+   * isPrivateHost (internal helper hoisted into NetworkEgressGuard).
+   * @param {string} host
+   * @returns {boolean}
+   */
+  private static isPrivateHost(host: string): boolean {
+    const h = host.toLowerCase();
+    return PRIVATE_HOST_PATTERNS.some((re) => re.test(h));
+  }
+  /**
+   * toHost (internal helper hoisted into NetworkEgressGuard).
+   * @param {string} raw
+   * @returns {string}
+   */
+  private static toHost(raw: string): string {
+    let host = raw.toLowerCase().replace(/^https?:\/\//, '');
+    const slash = host.indexOf('/');
+    if (slash >= 0) {
+      host = host.slice(0, slash);
+    }
+    const colon = host.indexOf(':');
+    if (colon >= 0) {
+      host = host.slice(0, colon);
+    }
+    return host;
   }
 }
 

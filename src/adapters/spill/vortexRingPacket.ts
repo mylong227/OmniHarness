@@ -8,28 +8,12 @@ import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortex
 import { fnv1a } from '../../util/eigenspectrum.js';
 
 /** 内容校验和（SHA256 前 16 位）。 */
-function checksum(content: string): string {
-  return createHash('sha256').update(content, 'utf8').digest('hex').slice(0, 16);
-}
 
 /**
  * 拓扑荷（环绕数）：内容字符序列相邻哈希差分的符号累计。封环时固化，
  * 解环时重算比对——任何单字符篡改都会改变差分序列，从而破坏守恒量。
  * 这是"拓扑孤子守恒"的轻量可计算代理（零依赖、确定性）。
  */
-function windingNumber(content: string): number {
-  if (content.length === 0) return 0;
-  let w = 0;
-  let prev = fnv1a(content.charAt(0));
-  for (let i = 1; i < content.length; i++) {
-    const cur = fnv1a(content.charAt(i));
-    const d = cur - prev;
-    if (d > 0) w += 1;
-    else if (d < 0) w -= 1;
-    prev = cur;
-  }
-  return w;
-}
 
 /**
  * 燧-4 涡环包：包装任意 `SpillPort`。封环把内容落 Spill（完整保留），
@@ -48,8 +32,8 @@ export class VortexRingPacket implements VortexRingPort {
    */
   public async seal(content: string): Promise<VortexRing> {
     const handle = await this.spill.spill(content, 'vortex');
-    const winding = windingNumber(content);
-    const cs = checksum(content);
+    const winding = VortexRingPacket.windingNumber(content);
+    const cs = VortexRingPacket.checksum(content);
     const ringId = `vr_${handle.id}`;
     const token = `${ringId}|${winding}|${cs}`;
     return { ringId, winding, checksum: cs, spill: handle, token };
@@ -63,8 +47,34 @@ export class VortexRingPacket implements VortexRingPort {
   public async unseal(ring: VortexRing): Promise<string | undefined> {
     const content = await this.spill.read(ring.spill.id);
     if (content === undefined) return undefined;
-    if (windingNumber(content) !== ring.winding) return undefined; // 拓扑荷破坏 → 拒绝
-    if (checksum(content) !== ring.checksum) return undefined; // 内容被污染 → 拒绝
+    if (VortexRingPacket.windingNumber(content) !== ring.winding) return undefined; // 拓扑荷破坏 → 拒绝
+    if (VortexRingPacket.checksum(content) !== ring.checksum) return undefined; // 内容被污染 → 拒绝
     return content;
+  }
+  /**
+   * checksum (internal helper hoisted into VortexRingPacket).
+   * @param {string} content
+   * @returns {string}
+   */
+  private static checksum(content: string): string {
+    return createHash('sha256').update(content, 'utf8').digest('hex').slice(0, 16);
+  }
+  /**
+   * windingNumber (internal helper hoisted into VortexRingPacket).
+   * @param {string} content
+   * @returns {number}
+   */
+  private static windingNumber(content: string): number {
+    if (content.length === 0) return 0;
+    let w = 0;
+    let prev = fnv1a(content.charAt(0));
+    for (let i = 1; i < content.length; i++) {
+      const cur = fnv1a(content.charAt(i));
+      const d = cur - prev;
+      if (d > 0) w += 1;
+      else if (d < 0) w -= 1;
+      prev = cur;
+    }
+    return w;
   }
 }

@@ -24,14 +24,8 @@ const INDEX_PREFIX = 'checkpoint_index:';
 const CK_PREFIX = 'checkpoint:';
 
 /** 索引 key：检查点 meta 以合成"会话"形式借 StoragePort 存取。 */
-function indexKey(sessionId: string): string {
-  return `${INDEX_PREFIX}${sessionId}`;
-}
 
 /** 检查点事件 key：每个检查点的事件快照存为独立合成"会话"，不污染主日志。 */
-function checkpointKey(sessionId: string, label: string): string {
-  return `${CK_PREFIX}${sessionId}:${label}`;
-}
 
 /**
  * 会话检查点管理器：把当前事件日志快照，之后可回滚（Escape 式安全网）。
@@ -88,7 +82,7 @@ export class CheckpointManager implements CheckpointManagerPort {
       eventCount: events.length,
       hasFileSnapshot,
     };
-    await this.storage.save(checkpointKey(sessionId, label), events);
+    await this.storage.save(CheckpointManager.checkpointKey(sessionId, label), events);
     const index = await this.loadIndex(sessionId);
     const next = index.filter((m) => m.label !== label).concat(meta);
     await this.saveIndex(sessionId, next);
@@ -152,7 +146,9 @@ export class CheckpointManager implements CheckpointManagerPort {
       }
       target = found;
     }
-    const events = await this.storage.load(checkpointKey(sessionId, target.label));
+    const events = await this.storage.load(
+      CheckpointManager.checkpointKey(sessionId, target.label),
+    );
     await this.storage.save(sessionId, events);
     if (target.hasFileSnapshot && this.snapshotter !== undefined) {
       await this.restoreFiles(sessionId, target.label);
@@ -188,7 +184,7 @@ export class CheckpointManager implements CheckpointManagerPort {
    * @returns 该会话全部检查点 meta（StoragePort 无 list，故以索引数组自管）。
    */
   private async loadIndex(sessionId: string): Promise<CheckpointMeta[]> {
-    const raw = await this.storage.load(indexKey(sessionId));
+    const raw = await this.storage.load(CheckpointManager.indexKey(sessionId));
     if (raw.length === 0) {
       return [];
     }
@@ -217,6 +213,23 @@ export class CheckpointManager implements CheckpointManagerPort {
       timestamp: m.ts,
       payload: m,
     }));
-    await this.storage.save(indexKey(sessionId), events);
+    await this.storage.save(CheckpointManager.indexKey(sessionId), events);
+  }
+  /**
+   * indexKey (internal helper hoisted into CheckpointManager).
+   * @param {string} sessionId
+   * @returns {string}
+   */
+  private static indexKey(sessionId: string): string {
+    return `${INDEX_PREFIX}${sessionId}`;
+  }
+  /**
+   * checkpointKey (internal helper hoisted into CheckpointManager).
+   * @param {string} sessionId
+   * @param {string} label
+   * @returns {string}
+   */
+  private static checkpointKey(sessionId: string, label: string): string {
+    return `${CK_PREFIX}${sessionId}:${label}`;
   }
 }
