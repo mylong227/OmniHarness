@@ -35,6 +35,68 @@ import type { IndexedCorpus } from './contextEngine.js';
 import { at } from '../util/arrayAt.js';
 
 /**
+ * CodeReferenceGraph — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class CodeReferenceGraph {
+  /**
+   * 符号名（小写归一）→ 符号 id 列表。
+   * @param {IndexedCorpus['symbols']} symbols - symbols
+   * @returns {Map<string, number[]>} - result
+   */
+  public static buildLowerNameIndex(symbols: IndexedCorpus['symbols']): Map<string, number[]> {
+    const m = new Map<string, number[]>();
+    for (let i = 0; i < symbols.length; i++) {
+      const nm = at(symbols, i).name.toLowerCase();
+      let arr = m.get(nm);
+      if (arr === undefined) {
+        arr = [];
+        m.set(nm, arr);
+      }
+      arr.push(i);
+    }
+    return m;
+  }
+
+  /**
+   * 文件 → 该文件包含的符号 id 列表。
+   * @param {IndexedCorpus['symbols']} symbols - symbols
+   * @returns {Map<string, number[]>} - result
+   */
+  public static buildFileIndex(symbols: IndexedCorpus['symbols']): Map<string, number[]> {
+    const m = new Map<string, number[]>();
+    for (let i = 0; i < symbols.length; i++) {
+      const f = at(symbols, i).file;
+      let arr = m.get(f);
+      if (arr === undefined) {
+        arr = [];
+        m.set(f, arr);
+      }
+      arr.push(i);
+    }
+    return m;
+  }
+
+  /**
+   * 文档频率 df[name] = 定义该符号名的文件数（用于稀有性过滤与逆文档频率加权）。
+   * @param {IndexedCorpus['symbols']} symbols - symbols
+   * @param {ReadonlyMap<string, readonly number[]>} byFile - byFile
+   * @returns {Map<string, number>} - result
+   */
+  public static buildDocFreq(
+    symbols: IndexedCorpus['symbols'],
+    byFile: ReadonlyMap<string, readonly number[]>,
+  ): Map<string, number> {
+    const df = new Map<string, number>();
+    for (const ids of byFile.values()) {
+      const localNames = new Set<string>();
+      for (const id of ids) localNames.add(at(symbols, id).name.toLowerCase());
+      for (const nm of localNames) df.set(nm, (df.get(nm) ?? 0) + 1);
+    }
+    return df;
+  }
+}
+
+/**
  * 仅保留「稀有共享标识符」边：df ≤ 该值的符号名才参与连边。
  * df 越大说明该名字越常见（如 config/get），连出来的边越像噪声。
  * 取 4 → 只有出现在 ≤4 个文件里的符号名才建边，图足够稀疏且高信号。
@@ -63,50 +125,6 @@ export interface GraphSignal {
 /** 按 root 缓存图信号（进程级，文件结构剧变时 clearGraphSignal 失效）。 */
 const cache = new Map<string, GraphSignal>();
 
-/** 符号名（小写归一）→ 符号 id 列表。 */
-function buildLowerNameIndex(symbols: IndexedCorpus['symbols']): Map<string, number[]> {
-  const m = new Map<string, number[]>();
-  for (let i = 0; i < symbols.length; i++) {
-    const nm = at(symbols, i).name.toLowerCase();
-    let arr = m.get(nm);
-    if (arr === undefined) {
-      arr = [];
-      m.set(nm, arr);
-    }
-    arr.push(i);
-  }
-  return m;
-}
-
-/** 文件 → 该文件包含的符号 id 列表。 */
-function buildFileIndex(symbols: IndexedCorpus['symbols']): Map<string, number[]> {
-  const m = new Map<string, number[]>();
-  for (let i = 0; i < symbols.length; i++) {
-    const f = at(symbols, i).file;
-    let arr = m.get(f);
-    if (arr === undefined) {
-      arr = [];
-      m.set(f, arr);
-    }
-    arr.push(i);
-  }
-  return m;
-}
-
-/** 文档频率 df[name] = 定义该符号名的文件数（用于稀有性过滤与逆文档频率加权）。 */
-function buildDocFreq(
-  symbols: IndexedCorpus['symbols'],
-  byFile: ReadonlyMap<string, readonly number[]>,
-): Map<string, number> {
-  const df = new Map<string, number>();
-  for (const ids of byFile.values()) {
-    const localNames = new Set<string>();
-    for (const id of ids) localNames.add(at(symbols, id).name.toLowerCase());
-    for (const nm of localNames) df.set(nm, (df.get(nm) ?? 0) + 1);
-  }
-  return df;
-}
-
 /**
  * 构建（或复用按 root 缓存的）稀疏引用图 + 文件中心性。
  * 任意失败向上抛，由调用方 fail-closed 跳过第四路（不污染主检索）。
@@ -117,9 +135,9 @@ export function getGraphSignal(root: string, corpus: IndexedCorpus): GraphSignal
     return existing;
   }
   const symbols = corpus.symbols;
-  const nameToIds = buildLowerNameIndex(symbols);
-  const byFile = buildFileIndex(symbols);
-  const df = buildDocFreq(symbols, byFile);
+  const nameToIds = CodeReferenceGraph.buildLowerNameIndex(symbols);
+  const byFile = CodeReferenceGraph.buildFileIndex(symbols);
+  const df = CodeReferenceGraph.buildDocFreq(symbols, byFile);
 
   // 稀疏引用边：source -> (target -> 权重)，只保留 df ≤ MAX_DF_FOR_EDGE 的罕见共享名。
   const edges = new Map<number, Map<number, number>>();

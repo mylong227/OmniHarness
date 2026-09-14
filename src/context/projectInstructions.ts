@@ -2,6 +2,238 @@ import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /**
+ * ProjectInstructions — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class ProjectInstructions {
+  /**
+   * 默认读取器：失败抛错，由调用方 fail-closed 跳过。
+   * @param {string} path - path
+   * @returns {unknown} - result
+   */
+  public static defaultReader: InstructionReader = async (path: string) =>
+    await readFile(path, 'utf8');
+
+  /**
+   * 路径是否位于 `root` 之内（防 `@import` 穿越出工作区）。
+   * @param {string} root - root
+   * @param {string} target - target
+   * @returns {boolean} - result
+   */
+  public static isInside(root: string, target: string): boolean {
+    const rel = relative(resolve(root), resolve(target));
+    return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  }
+
+  /**
+   * 取 `home` 目录：优先显式参数，其次环境变量，最后 os.homedir()。
+   * @param {string | undefined} explicit - explicit
+   * @returns {string | undefined} - result
+   */
+  public static homeOf(explicit: string | undefined): string | undefined {
+    if (explicit !== undefined && explicit !== '') {
+      return explicit;
+    }
+    const fromEnv = process.env['HOME'] ?? process.env['USERPROFILE'];
+    return fromEnv !== undefined && fromEnv !== '' ? fromEnv : undefined;
+  }
+
+  /**
+   * 展开正文里的 `@import` / `@path` 引用（Claude Code 约定）。 相对路径按被引用文件所在目录解析；越界、超深、读取失败一律跳过（fail-closed）。
+   * @param {string} body - body
+   * @param {string} sourcePath - sourcePath
+   * @param {string} workspaceRoot - workspaceRoot
+   * @param {InstructionReader} read - read
+   * @param {number} depth - depth
+   * @returns {Promise<string>} - result
+   */
+  public static async expandImports(
+    body: string,
+    sourcePath: string,
+    workspaceRoot: string,
+    read: InstructionReader,
+    depth: number,
+  ): Promise<string> {
+    if (depth >= MAX_IMPORT_DEPTH) {
+      return body;
+    }
+    const lines = body.split('\n');
+    const out: string[] = [];
+    for (const line of lines) {
+      const match = /^\s*@(?:import\s+)?(.+?)\s*$/.exec(line);
+      if (match === null) {
+        out.push(line);
+        continue;
+      }
+      const raw = match[1] ?? '';
+      if (raw === '' || raw.startsWith('@')) {
+        out.push(line);
+        continue;
+      }
+      const target = resolve(dirname(sourcePath), raw);
+      if (!ProjectInstructions.isInside(workspaceRoot, target)) {
+        out.push(`<!-- 已忽略越界引用: ${raw} -->`);
+        continue;
+      }
+      try {
+        const imported = await read(target);
+        out.push(
+          await ProjectInstructions.expandImports(imported, target, workspaceRoot, read, depth + 1),
+        );
+      } catch {
+        out.push(`<!-- 已忽略不可读引用: ${raw} -->`);
+      }
+    }
+    return out.join('\n');
+  }
+
+  /**
+   * 读取单个候选文件；不存在或不可读返回 null（fail-closed）。
+   * @param {string} path - path
+   * @param {InstructionReader} read - read
+   * @returns {Promise<string | null>} - result
+   */
+  public static async tryRead(path: string, read: InstructionReader): Promise<string | null> {
+    try {
+      return await read(path);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 收集**用户级**候选路径：home 下每个兼容目录 × 每个指令文件名。
+   * @param {string | undefined} home - home
+   * @returns {string[]} - result
+   */
+  public static userLevelCandidates(home: string | undefined): string[] {
+    if (home === undefined) return [];
+    const out: string[] = [];
+    for (const dir of USER_LEVEL_DIRS) {
+      for (const name of INSTRUCTION_FILE_NAMES) out.push(join(home, dir, name));
+    }
+    return out;
+  }
+
+  /**
+   * 判断项目级是否存在 `AGENTS.override.md`（存在则根 `AGENTS.md` 被整体取代）。
+   * @param {string} workspaceRoot - workspaceRoot
+   * @param {InstructionReader} read - read
+   * @returns {Promise<boolean>} - result
+   */
+  public static async hasAgentsOverride(
+    workspaceRoot: string,
+    read: InstructionReader,
+  ): Promise<boolean> {
+    return (
+      (await ProjectInstructions.tryRead(join(workspaceRoot, AGENTS_OVERRIDE_NAME), read)) !== null
+    );
+  }
+
+  /**
+   * 收集**项目级**候选路径。
+   * @param {string} workspaceRoot - workspaceRoot
+   * @param {boolean} overrideExists - overrideExists
+   * @returns {string[]} - result
+   */
+  public static projectLevelCandidates(workspaceRoot: string, overrideExists: boolean): string[] {
+    const out: string[] = [];
+    if (overrideExists) out.push(join(workspaceRoot, AGENTS_OVERRIDE_NAME));
+    for (const name of INSTRUCTION_FILE_NAMES) {
+      if (overrideExists && name === 'AGENTS.md') continue;
+      out.push(join(workspaceRoot, name));
+    }
+    return out;
+  }
+
+  /**
+   * 收集**子目录级**候选路径：`workspaceRoot → cwd` 的每一层（越靠近 cwd 越优先）。
+   * @param {string} workspaceRoot - workspaceRoot
+   * @param {string} cwd - cwd
+   * @returns {string[]} - result
+   */
+  public static subdirLevelCandidates(workspaceRoot: string, cwd: string): string[] {
+    if (!ProjectInstructions.isInside(workspaceRoot, cwd)) return [];
+    const rel = relative(workspaceRoot, cwd);
+    const parts = rel === '' ? [] : rel.split(sep);
+    const out: string[] = [];
+    let current = workspaceRoot;
+    for (const part of parts) {
+      current = join(current, part);
+      for (const name of INSTRUCTION_FILE_NAMES) out.push(join(current, name));
+    }
+    return out;
+  }
+
+  /**
+   * 按序读取候选文件，展开 `@import` 并套用总字节上限（超限即停并标记截断）。
+   * @param {readonly string[]} candidates - candidates
+   * @param {MergeContext} ctx - ctx
+   * @returns {Promise<MergeOutcome>} - result
+   */
+  public static async mergeCandidates(
+    candidates: readonly string[],
+    ctx: MergeContext,
+  ): Promise<MergeOutcome> {
+    const sections: string[] = [];
+    const sources: string[] = [];
+    let used = 0;
+    let truncated = false;
+
+    for (const path of candidates) {
+      const body = await ProjectInstructions.tryRead(path, ctx.read);
+      if (body === null || body.trim() === '') {
+        continue;
+      }
+      const expanded = await ProjectInstructions.expandImports(
+        body,
+        path,
+        ctx.workspaceRoot,
+        ctx.read,
+        0,
+      );
+      const chunk = `<!-- 常驻指令: ${path} -->\n${expanded.trim()}`;
+      const bytes = Buffer.byteLength(chunk, 'utf8');
+      if (used + bytes > ctx.maxBytes) {
+        truncated = true;
+        break;
+      }
+      sections.push(chunk);
+      sources.push(path);
+      used += bytes;
+    }
+    return { sections, sources, usedBytes: used, truncated };
+  }
+
+  /**
+   * 追加 `llms.txt` 独立段落（文档可发现性约定，**不参与层级覆盖**）。 容量不足时不写入，仅标记截断——保证指令正文优先于文档索引。
+   * @param {MergeOutcome} outcome - outcome
+   * @param {MergeContext} ctx - ctx
+   * @returns {Promise<MergeOutcome>} - result
+   */
+  public static async appendLlmsTxt(
+    outcome: MergeOutcome,
+    ctx: MergeContext,
+  ): Promise<MergeOutcome> {
+    const path = join(ctx.workspaceRoot, 'llms.txt');
+    const body = await ProjectInstructions.tryRead(path, ctx.read);
+    if (body === null || body.trim() === '') {
+      return outcome;
+    }
+    const chunk = `<!-- 文档索引: ${path} -->\n${body.trim()}`;
+    const bytes = Buffer.byteLength(chunk, 'utf8');
+    if (outcome.usedBytes + bytes > ctx.maxBytes) {
+      return { ...outcome, truncated: true };
+    }
+    return {
+      sections: [...outcome.sections, chunk],
+      sources: [...outcome.sources, path],
+      usedBytes: outcome.usedBytes + bytes,
+      truncated: outcome.truncated,
+    };
+  }
+}
+
+/**
  * 仓库常驻指令文件的默认总字节上限（32 KiB）。
  * 对齐 Codex CLI 对 AGENTS.md 的容量约定：超出即截断，避免单个巨型指令文件挤爆上下文。
  */
@@ -76,7 +308,7 @@ export async function loadProjectInstructionsCached(
 ): Promise<ProjectInstructionsResult | null> {
   const workspaceRoot = resolve(options.workspaceRoot);
   const cwd = resolve(options.cwd ?? process.cwd());
-  const home = homeOf(options.home) ?? '';
+  const home = ProjectInstructions.homeOf(options.home) ?? '';
   const includeLlmsTxt = options.includeLlmsTxt !== false;
   const key = `${workspaceRoot}|${cwd}|${home}|${includeLlmsTxt}`;
   const now = Date.now();
@@ -87,75 +319,6 @@ export async function loadProjectInstructionsCached(
   const result = await loadProjectInstructions(options);
   cache.set(key, { result, expiresAt: now + ttlMs });
   return result;
-}
-
-/** 默认读取器：失败抛错，由调用方 fail-closed 跳过。 */
-const defaultReader: InstructionReader = async (path: string) => await readFile(path, 'utf8');
-
-/** 路径是否位于 `root` 之内（防 `@import` 穿越出工作区）。 */
-function isInside(root: string, target: string): boolean {
-  const rel = relative(resolve(root), resolve(target));
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
-}
-
-/** 取 `home` 目录：优先显式参数，其次环境变量，最后 os.homedir()。 */
-function homeOf(explicit: string | undefined): string | undefined {
-  if (explicit !== undefined && explicit !== '') {
-    return explicit;
-  }
-  const fromEnv = process.env['HOME'] ?? process.env['USERPROFILE'];
-  return fromEnv !== undefined && fromEnv !== '' ? fromEnv : undefined;
-}
-
-/**
- * 展开正文里的 `@import` / `@path` 引用（Claude Code 约定）。
- * 相对路径按被引用文件所在目录解析；越界、超深、读取失败一律跳过（fail-closed）。
- */
-async function expandImports(
-  body: string,
-  sourcePath: string,
-  workspaceRoot: string,
-  read: InstructionReader,
-  depth: number,
-): Promise<string> {
-  if (depth >= MAX_IMPORT_DEPTH) {
-    return body;
-  }
-  const lines = body.split('\n');
-  const out: string[] = [];
-  for (const line of lines) {
-    const match = /^\s*@(?:import\s+)?(.+?)\s*$/.exec(line);
-    if (match === null) {
-      out.push(line);
-      continue;
-    }
-    const raw = match[1] ?? '';
-    if (raw === '' || raw.startsWith('@')) {
-      out.push(line);
-      continue;
-    }
-    const target = resolve(dirname(sourcePath), raw);
-    if (!isInside(workspaceRoot, target)) {
-      out.push(`<!-- 已忽略越界引用: ${raw} -->`);
-      continue;
-    }
-    try {
-      const imported = await read(target);
-      out.push(await expandImports(imported, target, workspaceRoot, read, depth + 1));
-    } catch {
-      out.push(`<!-- 已忽略不可读引用: ${raw} -->`);
-    }
-  }
-  return out.join('\n');
-}
-
-/** 读取单个候选文件；不存在或不可读返回 null（fail-closed）。 */
-async function tryRead(path: string, read: InstructionReader): Promise<string | null> {
-  try {
-    return await read(path);
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -194,132 +357,6 @@ interface MergeOutcome {
 }
 
 /**
- * 收集**用户级**候选路径：home 下每个兼容目录 × 每个指令文件名。
- *
- * @param home 用户主目录；`undefined` 表示无可用 home（返回空）
- * @returns 候选路径数组（优先级从低到高）
- */
-function userLevelCandidates(home: string | undefined): string[] {
-  if (home === undefined) return [];
-  const out: string[] = [];
-  for (const dir of USER_LEVEL_DIRS) {
-    for (const name of INSTRUCTION_FILE_NAMES) out.push(join(home, dir, name));
-  }
-  return out;
-}
-
-/**
- * 判断项目级是否存在 `AGENTS.override.md`（存在则根 `AGENTS.md` 被整体取代）。
- *
- * @param workspaceRoot 工作区根目录
- * @param read          文件读取器
- * @returns 存在且可读则为 true
- */
-async function hasAgentsOverride(workspaceRoot: string, read: InstructionReader): Promise<boolean> {
-  return (await tryRead(join(workspaceRoot, AGENTS_OVERRIDE_NAME), read)) !== null;
-}
-
-/**
- * 收集**项目级**候选路径。
- *
- * @param workspaceRoot  工作区根目录
- * @param overrideExists 是否已被 `AGENTS.override.md` 取代（取代后跳过根 `AGENTS.md`）
- * @returns 候选路径数组（优先级从低到高）
- */
-function projectLevelCandidates(workspaceRoot: string, overrideExists: boolean): string[] {
-  const out: string[] = [];
-  if (overrideExists) out.push(join(workspaceRoot, AGENTS_OVERRIDE_NAME));
-  for (const name of INSTRUCTION_FILE_NAMES) {
-    if (overrideExists && name === 'AGENTS.md') continue;
-    out.push(join(workspaceRoot, name));
-  }
-  return out;
-}
-
-/**
- * 收集**子目录级**候选路径：`workspaceRoot → cwd` 的每一层（越靠近 cwd 越优先）。
- *
- * @param workspaceRoot 工作区根目录
- * @param cwd           当前工作目录；不在工作区内时返回空
- * @returns 候选路径数组（优先级从低到高）
- */
-function subdirLevelCandidates(workspaceRoot: string, cwd: string): string[] {
-  if (!isInside(workspaceRoot, cwd)) return [];
-  const rel = relative(workspaceRoot, cwd);
-  const parts = rel === '' ? [] : rel.split(sep);
-  const out: string[] = [];
-  let current = workspaceRoot;
-  for (const part of parts) {
-    current = join(current, part);
-    for (const name of INSTRUCTION_FILE_NAMES) out.push(join(current, name));
-  }
-  return out;
-}
-
-/**
- * 按序读取候选文件，展开 `@import` 并套用总字节上限（超限即停并标记截断）。
- *
- * @param candidates 候选路径（优先级从低到高）
- * @param ctx        合并上下文
- * @returns 合并中间结果
- */
-async function mergeCandidates(
-  candidates: readonly string[],
-  ctx: MergeContext,
-): Promise<MergeOutcome> {
-  const sections: string[] = [];
-  const sources: string[] = [];
-  let used = 0;
-  let truncated = false;
-
-  for (const path of candidates) {
-    const body = await tryRead(path, ctx.read);
-    if (body === null || body.trim() === '') {
-      continue;
-    }
-    const expanded = await expandImports(body, path, ctx.workspaceRoot, ctx.read, 0);
-    const chunk = `<!-- 常驻指令: ${path} -->\n${expanded.trim()}`;
-    const bytes = Buffer.byteLength(chunk, 'utf8');
-    if (used + bytes > ctx.maxBytes) {
-      truncated = true;
-      break;
-    }
-    sections.push(chunk);
-    sources.push(path);
-    used += bytes;
-  }
-  return { sections, sources, usedBytes: used, truncated };
-}
-
-/**
- * 追加 `llms.txt` 独立段落（文档可发现性约定，**不参与层级覆盖**）。
- *
- * 容量不足时不写入，仅标记截断——保证指令正文优先于文档索引。
- *
- * @param outcome 已有的合并结果
- * @param ctx     合并上下文
- * @returns 追加后的合并结果
- */
-async function appendLlmsTxt(outcome: MergeOutcome, ctx: MergeContext): Promise<MergeOutcome> {
-  const path = join(ctx.workspaceRoot, 'llms.txt');
-  const body = await tryRead(path, ctx.read);
-  if (body === null || body.trim() === '') {
-    return outcome;
-  }
-  const chunk = `<!-- 文档索引: ${path} -->\n${body.trim()}`;
-  const bytes = Buffer.byteLength(chunk, 'utf8');
-  if (outcome.usedBytes + bytes > ctx.maxBytes) {
-    return { ...outcome, truncated: true };
-  }
-  return {
-    sections: [...outcome.sections, chunk],
-    sources: [...outcome.sources, path],
-    usedBytes: outcome.usedBytes + bytes,
-    truncated: outcome.truncated,
-  };
-}
-
-/**
  * 加载仓库常驻指令（AGENTS.md / CLAUDE.md / llms.txt），按业界约定分层合并。
  *
  * 层级（优先级从低到高）：
@@ -338,23 +375,23 @@ export async function loadProjectInstructions(
 ): Promise<ProjectInstructionsResult | null> {
   const workspaceRoot = resolve(options.workspaceRoot);
   const cwd = resolve(options.cwd ?? process.cwd());
-  const home = homeOf(options.home);
+  const home = ProjectInstructions.homeOf(options.home);
   const ctx: MergeContext = {
     workspaceRoot,
-    read: options.read ?? defaultReader,
+    read: options.read ?? ProjectInstructions.defaultReader,
     maxBytes: options.maxBytes ?? DEFAULT_INSTRUCTIONS_MAX_BYTES,
   };
 
-  const overrideExists = await hasAgentsOverride(workspaceRoot, ctx.read);
+  const overrideExists = await ProjectInstructions.hasAgentsOverride(workspaceRoot, ctx.read);
   const candidates = [
-    ...userLevelCandidates(home),
-    ...projectLevelCandidates(workspaceRoot, overrideExists),
-    ...subdirLevelCandidates(workspaceRoot, cwd),
+    ...ProjectInstructions.userLevelCandidates(home),
+    ...ProjectInstructions.projectLevelCandidates(workspaceRoot, overrideExists),
+    ...ProjectInstructions.subdirLevelCandidates(workspaceRoot, cwd),
   ];
 
-  let outcome = await mergeCandidates(candidates, ctx);
+  let outcome = await ProjectInstructions.mergeCandidates(candidates, ctx);
   if (options.includeLlmsTxt !== false) {
-    outcome = await appendLlmsTxt(outcome, ctx);
+    outcome = await ProjectInstructions.appendLlmsTxt(outcome, ctx);
   }
   if (outcome.sections.length === 0) {
     return null;

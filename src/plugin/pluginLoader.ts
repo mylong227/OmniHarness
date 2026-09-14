@@ -7,6 +7,52 @@ import type { PluginManager } from './pluginManager.js';
 import { loadPluginCodeInSandbox } from './sandbox.js';
 
 /**
+ * PluginLoader — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class PluginLoader {
+  /**
+   * 动态导入本地/内置可信插件。
+   * @param {string} entryPath - entryPath
+   * @returns {Promise<Plugin>} - result
+   */
+  public static async importPlugin(entryPath: string): Promise<Plugin> {
+    const module = await import(pathToFileURL(entryPath).href);
+    const plugin = module.default as Plugin | undefined;
+    if (
+      plugin === undefined ||
+      plugin === null ||
+      typeof plugin.apply !== 'function' ||
+      typeof plugin.meta?.name !== 'string'
+    ) {
+      throw new Error('默认导出无效（需为 { meta, apply }）');
+    }
+    return plugin;
+  }
+
+  /**
+   * 从清单读取元数据（entry / source）。
+   * @param {string} manifestPath - manifestPath
+   * @returns {Partial<PluginManifest>} - result
+   */
+  public static readManifest(manifestPath: string): Partial<PluginManifest> {
+    try {
+      return JSON.parse(readFileSync(manifestPath, 'utf8')) as Partial<PluginManifest>;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * 安全列目录（不存在返回空）。
+   * @param {string} dir - dir
+   * @returns {string[]} - result
+   */
+  public static safeReaddir(dir: string): string[] {
+    return existsSync(dir) ? readdirSync(dir) : [];
+  }
+}
+
+/**
  * 扫 pluginsDir，逐个加载 entry 并 register 进 PluginManager。
  *
  * 设计要点（闭环 G-B 运行时加载）：
@@ -32,7 +78,7 @@ export async function loadInstalledPlugins(
   const allow = only === undefined ? undefined : new Set(only);
   const loaded: string[] = [];
   const existing = new Set(manager.names());
-  for (const entry of safeReaddir(pluginsDir)) {
+  for (const entry of PluginLoader.safeReaddir(pluginsDir)) {
     if (existing.has(entry)) {
       continue;
     }
@@ -44,7 +90,7 @@ export async function loadInstalledPlugins(
     if (!existsSync(manifestPath)) {
       continue;
     }
-    const manifest = readManifest(manifestPath);
+    const manifest = PluginLoader.readManifest(manifestPath);
     const entryFile = manifest.entry ?? 'index.js';
     try {
       // 远程源（来自 catalog/远程 registry 的不可信插件）→ 受限 VM 沙箱隔离加载。
@@ -54,7 +100,7 @@ export async function loadInstalledPlugins(
               readFileSync(join(dir, entryFile), 'utf8'),
               join(dir, entryFile),
             )
-          : await importPlugin(join(dir, entryFile));
+          : await PluginLoader.importPlugin(join(dir, entryFile));
       await manager.register(plugin);
       loaded.push(entry);
     } catch (error) {
@@ -66,33 +112,4 @@ export async function loadInstalledPlugins(
     }
   }
   return loaded;
-}
-
-/** 动态导入本地/内置可信插件。 */
-async function importPlugin(entryPath: string): Promise<Plugin> {
-  const module = await import(pathToFileURL(entryPath).href);
-  const plugin = module.default as Plugin | undefined;
-  if (
-    plugin === undefined ||
-    plugin === null ||
-    typeof plugin.apply !== 'function' ||
-    typeof plugin.meta?.name !== 'string'
-  ) {
-    throw new Error('默认导出无效（需为 { meta, apply }）');
-  }
-  return plugin;
-}
-
-/** 从清单读取元数据（entry / source）。 */
-function readManifest(manifestPath: string): Partial<PluginManifest> {
-  try {
-    return JSON.parse(readFileSync(manifestPath, 'utf8')) as Partial<PluginManifest>;
-  } catch {
-    return {};
-  }
-}
-
-/** 安全列目录（不存在返回空）。 */
-function safeReaddir(dir: string): string[] {
-  return existsSync(dir) ? readdirSync(dir) : [];
 }

@@ -1,5 +1,183 @@
 import { at } from '../util/arrayAt.js';
 /**
+ * RankVetoSpectrum — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class RankVetoSpectrum {
+  /**
+   * 计算对称归一化邻接 `S = D^{-1/2} · (A + A^T)/2 · D^{-1/2}` 的对称度向量。
+   * @param {VetoGraph} g - g
+   * @returns {Float64Array} - result
+   */
+  public static symmetricDegree(g: VetoGraph): Float64Array {
+    const d = new Float64Array(g.n);
+    for (let i = 0; i < g.n; i++) {
+      const es = at(g.adj, i);
+      let out = 0;
+      for (const [, w] of es) out += w;
+      d[i] = (d[i] ?? 0) + out / 2;
+      for (const [j, w] of es) d[j] = (d[j] ?? 0) + w / 2;
+    }
+    return d;
+  }
+
+  /**
+   * 对对称归一化邻接做一次稀疏矩阵-向量乘。
+   * @param {VetoGraph} g - g
+   * @param {Float64Array} d - d
+   * @param {Float64Array} v - v
+   * @returns {Float64Array} - result
+   */
+  public static applyNormalizedAdjacency(
+    g: VetoGraph,
+    d: Float64Array,
+    v: Float64Array,
+  ): Float64Array {
+    const out = new Float64Array(g.n);
+    for (let i = 0; i < g.n; i++) {
+      const di = at(d, i);
+      if (di <= 0) continue;
+      const scale = 1 / Math.sqrt(di);
+      for (const [j, w] of at(g.adj, i)) {
+        const dj = at(d, j);
+        if (dj <= 0) continue;
+        const coef = ((w / 2) * scale) / Math.sqrt(dj);
+        out[i] = (out[i] ?? 0) + coef * at(v, j);
+        out[j] = (out[j] ?? 0) + coef * at(v, i);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 用带消去的幂迭代估计第二大特征值 λ2，返回谱隙 `1 − λ2`。
+   * @param {VetoGraph} g - g
+   * @param {Float64Array} d - d
+   * @returns {number} - result
+   */
+  public static estimateSpectralGap(g: VetoGraph, d: Float64Array): number {
+    if (g.n < 3) return 1;
+    const phi = new Float64Array(g.n);
+    let phiNorm = 0;
+    for (let i = 0; i < g.n; i++) {
+      const v = Math.sqrt(Math.max(0, at(d, i)));
+      phi[i] = v;
+      phiNorm += v * v;
+    }
+    if (phiNorm <= 0) return 1;
+    phiNorm = Math.sqrt(phiNorm);
+    for (let i = 0; i < g.n; i++) phi[i] = at(phi, i) / phiNorm;
+
+    // 确定性伪随机初值（避免测试因 Math.random 而不稳定）。
+    let v: Float64Array = new Float64Array(g.n);
+    for (let i = 0; i < g.n; i++) v[i] = Math.sin(i * 12.9898) * 0.5 + Math.cos(i * 78.233) * 0.5;
+    let dot = 0;
+    for (let i = 0; i < g.n; i++) dot += at(v, i) * at(phi, i);
+    for (let i = 0; i < g.n; i++) v[i] = at(v, i) - dot * at(phi, i);
+
+    let lambda2 = 0;
+    for (let it = 0; it < SPECTRAL_ITERS; it++) {
+      let norm = 0;
+      for (let i = 0; i < g.n; i++) norm += at(v, i) * at(v, i);
+      norm = Math.sqrt(norm);
+      if (norm <= 1e-12) return 0;
+      for (let i = 0; i < g.n; i++) v[i] = at(v, i) / norm;
+
+      const next = RankVetoSpectrum.applyNormalizedAdjacency(g, d, v);
+      dot = 0;
+      for (let i = 0; i < g.n; i++) dot += at(next, i) * at(phi, i);
+      for (let i = 0; i < g.n; i++) next[i] = at(next, i) - dot * at(phi, i);
+
+      let nextNorm = 0;
+      for (let i = 0; i < g.n; i++) nextNorm += at(next, i) * at(next, i);
+      lambda2 = Math.sqrt(nextNorm);
+      v = next;
+    }
+    return Math.min(1, Math.max(0, 1 - lambda2));
+  }
+
+  /**
+   * 计算均匀传送 PageRank 的稳态分布（与 `getGraphSignal` 的文件中心性同口径）。
+   * @param {VetoGraph} g - g
+   * @returns {Float64Array} - result
+   */
+  public static stationaryRank(g: VetoGraph): Float64Array {
+    const n = g.n;
+    const outWeight = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (const [, w] of at(g.adj, i)) s += w;
+      outWeight[i] = s;
+    }
+    let pi: Float64Array = new Float64Array(n).fill(1 / n);
+    const next = new Float64Array(n);
+    for (let it = 0; it < RANK_ITERS; it++) {
+      next.fill(0);
+      let danglingMass = 0;
+      for (let i = 0; i < n; i++) {
+        const ow = at(outWeight, i);
+        const mass = at(pi, i);
+        if (ow <= 0) {
+          danglingMass += mass;
+          continue;
+        }
+        for (const [j, w] of at(g.adj, i)) next[j] = (next[j] ?? 0) + (mass * w) / ow;
+      }
+      const teleport = (1 - DAMPING) / n;
+      for (let i = 0; i < n; i++) {
+        next[i] = DAMPING * at(next, i) + teleport + (DAMPING * danglingMass) / n;
+      }
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += at(next, i);
+      if (sum > 0) for (let i = 0; i < n; i++) next[i] = at(next, i) / sum;
+      pi = next.slice();
+    }
+    return pi;
+  }
+
+  /**
+   * 计算分布的 Gini 系数。
+   * @param {readonly number[]} xs - xs
+   * @returns {number} - result
+   */
+  public static gini(xs: readonly number[]): number {
+    const n = xs.length;
+    if (n === 0) return 0;
+    const sorted = [...xs].sort((a, b) => a - b);
+    let sum = 0;
+    let weighted = 0;
+    for (let i = 0; i < n; i++) {
+      sum += at(sorted, i);
+      weighted += at(sorted, i) * (i + 1);
+    }
+    if (sum <= 0) return 0;
+    return (2 * weighted) / (n * sum) - (n + 1) / n;
+  }
+
+  /**
+   * 计算分布相对均匀分布的信息量指标。
+   * @param {Float64Array} pi - pi
+   * @returns {{ readonly kl: number; readonly supportRatio: number }} - result
+   */
+  public static uniformityOf(pi: Float64Array): {
+    readonly kl: number;
+    readonly supportRatio: number;
+  } {
+    const n = pi.length;
+    if (n === 0) return { kl: 0, supportRatio: 1 };
+    let entropy = 0;
+    let kl = 0;
+    for (let i = 0; i < n; i++) {
+      const p = at(pi, i);
+      if (p > 0) {
+        entropy -= p * Math.log(p);
+        kl += p * Math.log(p * n);
+      }
+    }
+    return { kl: Math.max(0, kl), supportRatio: Math.exp(entropy) / n };
+  }
+}
+
+/**
  * 排序否决器的**结构性诊断**（图侧度量）。
  *
  * ## 为什么这些度量**不再参与否决**
@@ -64,178 +242,6 @@ const RANK_ITERS = 24;
 const SPECTRAL_ITERS = 30;
 
 /**
- * 计算对称归一化邻接 `S = D^{-1/2} · (A + A^T)/2 · D^{-1/2}` 的对称度向量。
- *
- * @param g 有向带权图
- * @returns 长度 N 的对称度数组，d[i] = (出权和 + 入权和) / 2
- */
-function symmetricDegree(g: VetoGraph): Float64Array {
-  const d = new Float64Array(g.n);
-  for (let i = 0; i < g.n; i++) {
-    const es = at(g.adj, i);
-    let out = 0;
-    for (const [, w] of es) out += w;
-    d[i] = (d[i] ?? 0) + out / 2;
-    for (const [j, w] of es) d[j] = (d[j] ?? 0) + w / 2;
-  }
-  return d;
-}
-
-/**
- * 对对称归一化邻接做一次稀疏矩阵-向量乘。
- *
- * @param g 有向带权图
- * @param d 对称度向量
- * @param v 输入向量
- * @returns 乘积向量（新数组，不修改入参）
- */
-function applyNormalizedAdjacency(g: VetoGraph, d: Float64Array, v: Float64Array): Float64Array {
-  const out = new Float64Array(g.n);
-  for (let i = 0; i < g.n; i++) {
-    const di = at(d, i);
-    if (di <= 0) continue;
-    const scale = 1 / Math.sqrt(di);
-    for (const [j, w] of at(g.adj, i)) {
-      const dj = at(d, j);
-      if (dj <= 0) continue;
-      const coef = ((w / 2) * scale) / Math.sqrt(dj);
-      out[i] = (out[i] ?? 0) + coef * at(v, j);
-      out[j] = (out[j] ?? 0) + coef * at(v, i);
-    }
-  }
-  return out;
-}
-
-/**
- * 用带消去的幂迭代估计第二大特征值 λ2，返回谱隙 `1 − λ2`。
- *
- * @param g 有向带权图
- * @param d 对称度向量
- * @returns 谱隙 ∈ [0,1]；**越大表示混合越快**
- */
-function estimateSpectralGap(g: VetoGraph, d: Float64Array): number {
-  if (g.n < 3) return 1;
-  const phi = new Float64Array(g.n);
-  let phiNorm = 0;
-  for (let i = 0; i < g.n; i++) {
-    const v = Math.sqrt(Math.max(0, at(d, i)));
-    phi[i] = v;
-    phiNorm += v * v;
-  }
-  if (phiNorm <= 0) return 1;
-  phiNorm = Math.sqrt(phiNorm);
-  for (let i = 0; i < g.n; i++) phi[i] = at(phi, i) / phiNorm;
-
-  // 确定性伪随机初值（避免测试因 Math.random 而不稳定）。
-  let v: Float64Array = new Float64Array(g.n);
-  for (let i = 0; i < g.n; i++) v[i] = Math.sin(i * 12.9898) * 0.5 + Math.cos(i * 78.233) * 0.5;
-  let dot = 0;
-  for (let i = 0; i < g.n; i++) dot += at(v, i) * at(phi, i);
-  for (let i = 0; i < g.n; i++) v[i] = at(v, i) - dot * at(phi, i);
-
-  let lambda2 = 0;
-  for (let it = 0; it < SPECTRAL_ITERS; it++) {
-    let norm = 0;
-    for (let i = 0; i < g.n; i++) norm += at(v, i) * at(v, i);
-    norm = Math.sqrt(norm);
-    if (norm <= 1e-12) return 0;
-    for (let i = 0; i < g.n; i++) v[i] = at(v, i) / norm;
-
-    const next = applyNormalizedAdjacency(g, d, v);
-    dot = 0;
-    for (let i = 0; i < g.n; i++) dot += at(next, i) * at(phi, i);
-    for (let i = 0; i < g.n; i++) next[i] = at(next, i) - dot * at(phi, i);
-
-    let nextNorm = 0;
-    for (let i = 0; i < g.n; i++) nextNorm += at(next, i) * at(next, i);
-    lambda2 = Math.sqrt(nextNorm);
-    v = next;
-  }
-  return Math.min(1, Math.max(0, 1 - lambda2));
-}
-
-/**
- * 计算均匀传送 PageRank 的稳态分布（与 `getGraphSignal` 的文件中心性同口径）。
- *
- * @param g 有向带权图
- * @returns 归一化稳态分布（和为 1）
- */
-function stationaryRank(g: VetoGraph): Float64Array {
-  const n = g.n;
-  const outWeight = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    let s = 0;
-    for (const [, w] of at(g.adj, i)) s += w;
-    outWeight[i] = s;
-  }
-  let pi: Float64Array = new Float64Array(n).fill(1 / n);
-  const next = new Float64Array(n);
-  for (let it = 0; it < RANK_ITERS; it++) {
-    next.fill(0);
-    let danglingMass = 0;
-    for (let i = 0; i < n; i++) {
-      const ow = at(outWeight, i);
-      const mass = at(pi, i);
-      if (ow <= 0) {
-        danglingMass += mass;
-        continue;
-      }
-      for (const [j, w] of at(g.adj, i)) next[j] = (next[j] ?? 0) + (mass * w) / ow;
-    }
-    const teleport = (1 - DAMPING) / n;
-    for (let i = 0; i < n; i++) {
-      next[i] = DAMPING * at(next, i) + teleport + (DAMPING * danglingMass) / n;
-    }
-    let sum = 0;
-    for (let i = 0; i < n; i++) sum += at(next, i);
-    if (sum > 0) for (let i = 0; i < n; i++) next[i] = at(next, i) / sum;
-    pi = next.slice();
-  }
-  return pi;
-}
-
-/**
- * 计算分布的 Gini 系数。
- *
- * @param xs 非负样本
- * @returns Gini ∈ [0,1]；0 = 完全均等，1 = 完全集中
- */
-function gini(xs: readonly number[]): number {
-  const n = xs.length;
-  if (n === 0) return 0;
-  const sorted = [...xs].sort((a, b) => a - b);
-  let sum = 0;
-  let weighted = 0;
-  for (let i = 0; i < n; i++) {
-    sum += at(sorted, i);
-    weighted += at(sorted, i) * (i + 1);
-  }
-  if (sum <= 0) return 0;
-  return (2 * weighted) / (n * sum) - (n + 1) / n;
-}
-
-/**
- * 计算分布相对均匀分布的信息量指标。
- *
- * @param pi 归一化分布
- * @returns `{ kl, supportRatio }`：KL(π‖U)（nats）与 `exp(H(π))/N`
- */
-function uniformityOf(pi: Float64Array): { readonly kl: number; readonly supportRatio: number } {
-  const n = pi.length;
-  if (n === 0) return { kl: 0, supportRatio: 1 };
-  let entropy = 0;
-  let kl = 0;
-  for (let i = 0; i < n; i++) {
-    const p = at(pi, i);
-    if (p > 0) {
-      entropy -= p * Math.log(p);
-      kl += p * Math.log(p * n);
-    }
-  }
-  return { kl: Math.max(0, kl), supportRatio: Math.exp(entropy) / n };
-}
-
-/**
  * 一次性采集图的全部结构性诊断项。
  *
  * **这些项不参与否决**（见模块头部：已被回溯验证证伪），仅供复核与报告。
@@ -244,9 +250,9 @@ function uniformityOf(pi: Float64Array): { readonly kl: number; readonly support
  * @returns 结构性诊断快照
  */
 export function structuralDiagnostics(g: VetoGraph): StructuralDiagnostics {
-  const d = symmetricDegree(g);
-  const pi = stationaryRank(g);
-  const { kl, supportRatio } = uniformityOf(pi);
+  const d = RankVetoSpectrum.symmetricDegree(g);
+  const pi = RankVetoSpectrum.stationaryRank(g);
+  const { kl, supportRatio } = RankVetoSpectrum.uniformityOf(pi);
   let edgeCount = 0;
   for (let i = 0; i < g.n; i++) edgeCount += at(g.adj, i).length;
   const degs: number[] = [];
@@ -255,8 +261,8 @@ export function structuralDiagnostics(g: VetoGraph): StructuralDiagnostics {
     nodeCount: g.n,
     edgeCount,
     avgDegree: g.n > 0 ? edgeCount / g.n : 0,
-    degreeGini: gini(degs),
-    spectralGap: estimateSpectralGap(g, d),
+    degreeGini: RankVetoSpectrum.gini(degs),
+    spectralGap: RankVetoSpectrum.estimateSpectralGap(g, d),
     uniformKl: kl,
     effectiveSupportRatio: supportRatio,
   };

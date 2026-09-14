@@ -24,6 +24,143 @@ import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
 import type { OmniHarnessConfig } from './configFactory.js';
 
 /**
+ * MemoryStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
+ */
+class MemoryStackAssembler {
+  /**
+   * 构造长期记忆端口并逐层封包。 #S28 默认文件落盘；#4.4 开启加密则用 AES-256-GCM 逐行加密（密钥文件缺省自动生成）。 U1 统一基板（默认开）→ 否则分别按 `memoryWeb` / `resonance` 封包。
+   * @param {OmniHarnessConfig} partial - partial
+   * @returns {MemoryPortStack} - result
+   */
+  public static buildMemoryPort(partial: OmniHarnessConfig): MemoryPortStack {
+    const memoryPath =
+      partial.longTermMemoryPath ??
+      join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.jsonl');
+    let port: LongTermMemoryPort =
+      partial.longTermMemory ??
+      new FileLongTermMemory(
+        memoryPath,
+        partial.longTermMemoryEncryption === true
+          ? new AesGcmTextCodec({
+              keyFile:
+                partial.longTermMemoryKeyFile ??
+                join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.key'),
+            })
+          : undefined,
+      );
+    // 统一基板（U1，默认开启）：把长期记忆封包成单一 ResonantField 引擎，合并 燧-3 共振寻址
+    // 与宇宙网（Burgers 黏附去重 + RG 坍缩 + 纤维召回），消除双重频谱索引；同一实例同时喂给
+    // SparkController 的 resonance 与 web，保证 RG 坍缩与调谐在任务末真实运行。显式 enabled:false 才关。
+    if (partial.resonantField?.enabled !== false) {
+      const field = new ResonantFieldEngine(port, {
+        adhesionThreshold: partial.resonantField?.adhesionThreshold,
+        bekensteinCap: partial.resonantField?.bekensteinCap,
+      });
+      return { port: field, web: field, resonance: field };
+    }
+    // 宇宙网记忆（E, I-P1-2）：写入走 Burgers 黏附去重、consolidate 走 RG 粗粒化坍缩
+    // （节点数受 Bekenstein 容量界约束、存储不膨胀）。
+    let web: (CosmicWebPort & LongTermMemoryPort) | undefined;
+    if (partial.memoryWeb?.enabled === true) {
+      web = new CosmicWebMemoryEngine(port, {
+        adhesionThreshold: partial.memoryWeb.adhesionThreshold,
+        bekensteinCap: partial.memoryWeb.bekensteinCap,
+      });
+      port = web;
+    }
+    // 燧-3 共振寻址（S+）：把（可能已被宇宙网封包的）长期记忆再封为共振引擎，
+    // 使开场 primer 召回、recall 工具、回合末蒸馏全部自动走频率域共振代数（取代 BM25 几何召回）。
+    let resonance: (ResonantMemoryPort & LongTermMemoryPort) | undefined;
+    if (partial.resonance?.enabled === true) {
+      resonance = new ResonantMemoryEngine(port, 257);
+      port = resonance;
+    }
+    return { port, web, resonance };
+  }
+
+  /**
+   * (D) 热方程记忆退火器：`memoryAnnealing.enabled` 时对（最终封包的）长期记忆构造退火器， 任务末经 SparkController 跑频率域共振耦合的热方程扩散 + 温度退火。零侵入主循环。
+   * @param {OmniHarnessConfig} partial - partial
+   * @param {LongTermMemoryPort} port - port
+   * @returns {HeatEquationAnnealer | undefined} - result
+   */
+  public static buildAnnealer(
+    partial: OmniHarnessConfig,
+    port: LongTermMemoryPort,
+  ): HeatEquationAnnealer | undefined {
+    if (partial.memoryAnnealing?.enabled !== true) {
+      return undefined;
+    }
+    return new HeatEquationAnnealer(port, {
+      coupling: partial.memoryAnnealing.coupling,
+      initialTemperature: partial.memoryAnnealing.initialTemperature,
+      coolingRate: partial.memoryAnnealing.coolingRate,
+      decay: partial.memoryAnnealing.decay,
+      resonanceThreshold: partial.memoryAnnealing.resonanceThreshold,
+      maxFacts: partial.memoryAnnealing.maxFacts,
+    });
+  }
+
+  /**
+   * (P2, I-P2-2/3) 信念支柱：按 `belief.algorithm` 构造自然梯度 / 粒子滤波信念引擎， 对「自体」行为向量周期做可审计 KL 分解更新（信息几何）。缺省不构造，零破坏。
+   * @param {OmniHarnessConfig} partial - partial
+   * @returns {BeliefEngines} - result
+   */
+  public static buildBelief(partial: OmniHarnessConfig): BeliefEngines {
+    if (partial.belief?.enabled !== true) {
+      return { naturalGradient: undefined, particleFilter: undefined };
+    }
+    const algorithm = partial.belief.algorithm ?? 'both';
+    const dim = partial.belief.dim ?? 3;
+    return {
+      naturalGradient:
+        algorithm === 'natural-gradient' || algorithm === 'both'
+          ? new NaturalGradientBelief({ dim, initialVariance: partial.belief.initialVariance })
+          : undefined,
+      particleFilter:
+        algorithm === 'particle-filter' || algorithm === 'both'
+          ? new ParticleFilterBelief({
+              dim,
+              particles: partial.belief.particles,
+              initialVariance: partial.belief.initialVariance,
+            })
+          : undefined,
+    };
+  }
+
+  /**
+   * 免疫「自体」采样器：记忆健康度 3 维向量（重要性均值/标准差/条数）；空记忆时全零。
+   * @param {LongTermMemoryPort} port - port
+   * @returns {() => readonly number[]} - result
+   */
+  public static immuneSampleOf(port: LongTermMemoryPort): () => readonly number[] {
+    return () => {
+      const facts = port.all();
+      if (facts.length === 0) return [0, 0, 0];
+      const imp = facts.map((f) => f.importance);
+      const mean = imp.reduce((a, b) => a + b, 0) / imp.length;
+      const variance = imp.reduce((a, b) => a + (b - mean) ** 2, 0) / imp.length;
+      return [mean, Math.sqrt(variance), facts.length];
+    };
+  }
+
+  /**
+   * 信念「自体」采样器：3 维向量（重要性均值/离散度/记忆负载），维度须与信念引擎一致（默认 3）。
+   * @param {LongTermMemoryPort} port - port
+   * @returns {() => readonly number[]} - result
+   */
+  public static beliefObservationOf(port: LongTermMemoryPort): () => readonly number[] {
+    return () => {
+      const facts = port.all();
+      const imp = facts.map((f) => f.importance);
+      const mean = imp.length ? imp.reduce((a, b) => a + b, 0) / imp.length : 0;
+      const variance = imp.length ? imp.reduce((a, b) => a + (b - mean) ** 2, 0) / imp.length : 0;
+      return [mean, Math.sqrt(variance), Math.min(1, facts.length / 64)];
+    };
+  }
+}
+
+/**
  * 长期记忆栈切片：直接并入 `ResolvedConfig` 的字段子集。
  * `longTermMemory` 已是「最终封包」端口（可能被共振场 / 宇宙网 / 共振引擎包裹），
  * 下游（工具、蒸馏器、燧内核）共用同一实例，保证单一状态源。
@@ -104,8 +241,8 @@ export function assembleMemoryStack(
   partial: OmniHarnessConfig,
   model: ModelPort | undefined,
 ): MemoryStackAssembly {
-  const memory = buildMemoryPort(partial);
-  const annealer = buildAnnealer(partial, memory.port);
+  const memory = MemoryStackAssembler.buildMemoryPort(partial);
+  const annealer = MemoryStackAssembler.buildAnnealer(partial, memory.port);
   const qecEncoder =
     partial.qec?.enabled === true
       ? new QECEncoder(memory.port, { cols: partial.qec.cols })
@@ -114,7 +251,7 @@ export function assembleMemoryStack(
     partial.immuneMonitoring?.enabled === true
       ? new ImmuneMonitor({ threshold: partial.immuneMonitoring.threshold })
       : undefined;
-  const belief = buildBelief(partial);
+  const belief = MemoryStackAssembler.buildBelief(partial);
   const memoryExtractor =
     partial.memoryConsolidate !== false && model !== undefined
       ? new MemoryExtractor(model, memory.port, {
@@ -137,129 +274,11 @@ export function assembleMemoryStack(
     },
     sparkInput: {
       resonance: memory.resonance,
-      immuneSample: immune === undefined ? undefined : immuneSampleOf(memory.port),
-      beliefObservation: beliefEnabled ? beliefObservationOf(memory.port) : undefined,
+      immuneSample:
+        immune === undefined ? undefined : MemoryStackAssembler.immuneSampleOf(memory.port),
+      beliefObservation: beliefEnabled
+        ? MemoryStackAssembler.beliefObservationOf(memory.port)
+        : undefined,
     },
-  };
-}
-
-/**
- * 构造长期记忆端口并逐层封包。
- * #S28 默认文件落盘；#4.4 开启加密则用 AES-256-GCM 逐行加密（密钥文件缺省自动生成）。
- * U1 统一基板（默认开）→ 否则分别按 `memoryWeb` / `resonance` 封包。
- */
-function buildMemoryPort(partial: OmniHarnessConfig): MemoryPortStack {
-  const memoryPath =
-    partial.longTermMemoryPath ??
-    join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.jsonl');
-  let port: LongTermMemoryPort =
-    partial.longTermMemory ??
-    new FileLongTermMemory(
-      memoryPath,
-      partial.longTermMemoryEncryption === true
-        ? new AesGcmTextCodec({
-            keyFile:
-              partial.longTermMemoryKeyFile ??
-              join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.key'),
-          })
-        : undefined,
-    );
-  // 统一基板（U1，默认开启）：把长期记忆封包成单一 ResonantField 引擎，合并 燧-3 共振寻址
-  // 与宇宙网（Burgers 黏附去重 + RG 坍缩 + 纤维召回），消除双重频谱索引；同一实例同时喂给
-  // SparkController 的 resonance 与 web，保证 RG 坍缩与调谐在任务末真实运行。显式 enabled:false 才关。
-  if (partial.resonantField?.enabled !== false) {
-    const field = new ResonantFieldEngine(port, {
-      adhesionThreshold: partial.resonantField?.adhesionThreshold,
-      bekensteinCap: partial.resonantField?.bekensteinCap,
-    });
-    return { port: field, web: field, resonance: field };
-  }
-  // 宇宙网记忆（E, I-P1-2）：写入走 Burgers 黏附去重、consolidate 走 RG 粗粒化坍缩
-  // （节点数受 Bekenstein 容量界约束、存储不膨胀）。
-  let web: (CosmicWebPort & LongTermMemoryPort) | undefined;
-  if (partial.memoryWeb?.enabled === true) {
-    web = new CosmicWebMemoryEngine(port, {
-      adhesionThreshold: partial.memoryWeb.adhesionThreshold,
-      bekensteinCap: partial.memoryWeb.bekensteinCap,
-    });
-    port = web;
-  }
-  // 燧-3 共振寻址（S+）：把（可能已被宇宙网封包的）长期记忆再封为共振引擎，
-  // 使开场 primer 召回、recall 工具、回合末蒸馏全部自动走频率域共振代数（取代 BM25 几何召回）。
-  let resonance: (ResonantMemoryPort & LongTermMemoryPort) | undefined;
-  if (partial.resonance?.enabled === true) {
-    resonance = new ResonantMemoryEngine(port, 257);
-    port = resonance;
-  }
-  return { port, web, resonance };
-}
-
-/**
- * (D) 热方程记忆退火器：`memoryAnnealing.enabled` 时对（最终封包的）长期记忆构造退火器，
- * 任务末经 SparkController 跑频率域共振耦合的热方程扩散 + 温度退火。零侵入主循环。
- */
-function buildAnnealer(
-  partial: OmniHarnessConfig,
-  port: LongTermMemoryPort,
-): HeatEquationAnnealer | undefined {
-  if (partial.memoryAnnealing?.enabled !== true) {
-    return undefined;
-  }
-  return new HeatEquationAnnealer(port, {
-    coupling: partial.memoryAnnealing.coupling,
-    initialTemperature: partial.memoryAnnealing.initialTemperature,
-    coolingRate: partial.memoryAnnealing.coolingRate,
-    decay: partial.memoryAnnealing.decay,
-    resonanceThreshold: partial.memoryAnnealing.resonanceThreshold,
-    maxFacts: partial.memoryAnnealing.maxFacts,
-  });
-}
-
-/**
- * (P2, I-P2-2/3) 信念支柱：按 `belief.algorithm` 构造自然梯度 / 粒子滤波信念引擎，
- * 对「自体」行为向量周期做可审计 KL 分解更新（信息几何）。缺省不构造，零破坏。
- */
-function buildBelief(partial: OmniHarnessConfig): BeliefEngines {
-  if (partial.belief?.enabled !== true) {
-    return { naturalGradient: undefined, particleFilter: undefined };
-  }
-  const algorithm = partial.belief.algorithm ?? 'both';
-  const dim = partial.belief.dim ?? 3;
-  return {
-    naturalGradient:
-      algorithm === 'natural-gradient' || algorithm === 'both'
-        ? new NaturalGradientBelief({ dim, initialVariance: partial.belief.initialVariance })
-        : undefined,
-    particleFilter:
-      algorithm === 'particle-filter' || algorithm === 'both'
-        ? new ParticleFilterBelief({
-            dim,
-            particles: partial.belief.particles,
-            initialVariance: partial.belief.initialVariance,
-          })
-        : undefined,
-  };
-}
-
-/** 免疫「自体」采样器：记忆健康度 3 维向量（重要性均值/标准差/条数）；空记忆时全零。 */
-function immuneSampleOf(port: LongTermMemoryPort): () => readonly number[] {
-  return () => {
-    const facts = port.all();
-    if (facts.length === 0) return [0, 0, 0];
-    const imp = facts.map((f) => f.importance);
-    const mean = imp.reduce((a, b) => a + b, 0) / imp.length;
-    const variance = imp.reduce((a, b) => a + (b - mean) ** 2, 0) / imp.length;
-    return [mean, Math.sqrt(variance), facts.length];
-  };
-}
-
-/** 信念「自体」采样器：3 维向量（重要性均值/离散度/记忆负载），维度须与信念引擎一致（默认 3）。 */
-function beliefObservationOf(port: LongTermMemoryPort): () => readonly number[] {
-  return () => {
-    const facts = port.all();
-    const imp = facts.map((f) => f.importance);
-    const mean = imp.length ? imp.reduce((a, b) => a + b, 0) / imp.length : 0;
-    const variance = imp.length ? imp.reduce((a, b) => a + (b - mean) ** 2, 0) / imp.length : 0;
-    return [mean, Math.sqrt(variance), Math.min(1, facts.length / 64)];
   };
 }
