@@ -36,7 +36,7 @@ export class WebSocketSdkSocket implements SdkSocket {
     url: string,
     factory?: (url: string) => MinimalWebSocket,
   ): WebSocketSdkSocket {
-    const creator = factory ?? globalWebSocketFactory();
+    const creator = factory ?? WebSocketSdkSocket.globalWebSocketFactory();
     return new WebSocketSdkSocket(creator(url));
   }
 
@@ -93,13 +93,18 @@ export class WebSocketSdkSocket implements SdkSocket {
     this.socket.onerror = (event) =>
       handler(event instanceof Error ? event : new Error('WebSocket 错误'));
   }
+
+  /**
+   * globalWebSocketFactory — module-level helper moved into WebSocketSdkSocket.
+   * @returns {(url: string) => MinimalWebSocket} - result
+   */
+  private static globalWebSocketFactory(): (url: string) => MinimalWebSocket {
+    const creator = (globalThis as { WebSocket?: new (url: string) => MinimalWebSocket }).WebSocket;
+    if (creator === undefined) {
+      throw new Error('当前环境无全局 WebSocket，请注入 socket 工厂');
+    }
+    return (url) => new creator(url);
+  }
 }
 
 /** 取全局 WebSocket 工厂（缺失即抛错，避免隐式依赖）。 */
-function globalWebSocketFactory(): (url: string) => MinimalWebSocket {
-  const creator = (globalThis as { WebSocket?: new (url: string) => MinimalWebSocket }).WebSocket;
-  if (creator === undefined) {
-    throw new Error('当前环境无全局 WebSocket，请注入 socket 工厂');
-  }
-  return (url) => new creator(url);
-}

@@ -16,16 +16,11 @@ const ORDER: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 }
 
 const traceStorage = new AsyncLocalStorage<string | undefined>();
 
-function envLevel(): LogLevel {
-  const v = (process.env['OMNI_LOG_LEVEL'] ?? 'info').toLowerCase();
-  return v in ORDER ? (v as LogLevel) : 'info';
-}
-
 export type LogSink = (line: string) => void;
 
 export class Logger {
   public constructor(
-    private readonly minLevel: LogLevel = envLevel(),
+    private readonly minLevel: LogLevel = Logger.envLevel(),
     private readonly sink: LogSink = (line) => {
       process.stderr.write(line + '\n');
     },
@@ -72,6 +67,15 @@ export class Logger {
    */
   public error(msg: string, fields?: Record<string, unknown>): void {
     this.emit('error', msg, fields);
+  }
+
+  /**
+   * envLevel — module-level helper moved into Logger.
+   * @returns {LogLevel} - result
+   */
+  private static envLevel(): LogLevel {
+    const v = (process.env['OMNI_LOG_LEVEL'] ?? 'info').toLowerCase();
+    return v in ORDER ? (v as LogLevel) : 'info';
   }
 }
 

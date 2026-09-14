@@ -39,9 +39,6 @@ const TOOL_NAME_ALIASES: Readonly<Record<string, string>> = {
 };
 
 /** 把 JS 工具名翻译成内核方言；无别名则原样返回。 */
-function toNativeToolName(name: string): string {
-  return TOOL_NAME_ALIASES[name] ?? name;
-}
 
 /**
  * @beta
@@ -79,7 +76,7 @@ export class NativeBackend implements NativeToolRunner {
    */
   public runTool(call: ToolCall): ToolResult {
     // 命名桥：把 JS 标准工具名翻译成内核方言（#72）。内核找不到该名会判未知工具 → 业务拒绝。
-    const nativeName = toNativeToolName(call.name);
+    const nativeName = NativeBackend.toNativeToolName(call.name);
     const r = this.kernel.toolCall(nativeName, call.arguments, call.id);
     if (!r.ok && !r.rejected) {
       throw new Error(`原生内核执行失败: ${r.output}`);
@@ -117,5 +114,14 @@ export class NativeBackend implements NativeToolRunner {
    */
   public approvalCheck(name: string, args: Record<string, unknown>): NativeDecision {
     return this.kernel.approvalCheck(name, args);
+  }
+
+  /**
+   * toNativeToolName — module-level helper moved into NativeBackend.
+   * @param {string} name - name
+   * @returns {string} - result
+   */
+  private static toNativeToolName(name: string): string {
+    return TOOL_NAME_ALIASES[name] ?? name;
   }
 }

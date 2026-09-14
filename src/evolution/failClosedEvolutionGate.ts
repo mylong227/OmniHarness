@@ -43,7 +43,6 @@ export interface FailClosedEvolutionGateOptions {
 }
 
 /** 默认基准：未配置时返回 0，使任何候选都过不了评估（fail-closed 兜底）。 */
-const NO_BENCHMARK: Benchmark = () => 0;
 
 /**
  * 进化门禁（fail-closed）。
@@ -57,7 +56,7 @@ export class FailClosedEvolutionGate implements EvolutionGate {
   private readonly sessionId?: string | undefined;
 
   public constructor(opts: FailClosedEvolutionGateOptions = {}) {
-    this.benchmarkImpl = opts.benchmark ?? NO_BENCHMARK;
+    this.benchmarkImpl = opts.benchmark ?? FailClosedEvolutionGate.NO_BENCHMARK;
     this.baseline = opts.baseline ?? 0;
     this.minGain = opts.minGain ?? 0.05;
     this.safetyImpl = opts.safety;
@@ -126,4 +125,10 @@ export class FailClosedEvolutionGate implements EvolutionGate {
       },
     });
   }
+
+  /**
+   * NO_BENCHMARK — module-level helper moved into FailClosedEvolutionGate.
+   * @returns {number} - result
+   */
+  private static NO_BENCHMARK: Benchmark = () => 0;
 }
