@@ -128,20 +128,20 @@ export class ContextBreakdownEstimator {
       else systemToolCount += 1;
       this.add(totals, isMcp ? 'mcpTools' : 'systemTools', this.toolTokens(tool));
     }
-    const used = sum(totals.values());
+    const used = ContextBreakdownEstimator.sum(totals.values());
     const rows: ContextBreakdownRow[] = CONTEXT_CATEGORIES.map((meta) => {
       const tokens = totals.get(meta.key) ?? 0;
       return {
         key: meta.key,
         label: meta.label,
         tokens,
-        percent: ratio(tokens, used),
+        percent: ContextBreakdownEstimator.ratio(tokens, used),
       };
     });
     return {
       windowTokens: input.windowTokens,
       usedTokens: used,
-      percent: ratio(used, input.windowTokens),
+      percent: ContextBreakdownEstimator.ratio(used, input.windowTokens),
       rows,
       mcpToolCount,
       systemToolCount,
@@ -179,13 +179,13 @@ export class ContextBreakdownEstimator {
         key: meta.key,
         label: meta.label,
         tokens,
-        percent: ratio(tokens, snapshot.usedTokens),
+        percent: ContextBreakdownEstimator.ratio(tokens, snapshot.usedTokens),
       };
     });
     return {
       windowTokens: snapshot.windowTokens,
       usedTokens: snapshot.usedTokens,
-      percent: ratio(snapshot.usedTokens, snapshot.windowTokens),
+      percent: ContextBreakdownEstimator.ratio(snapshot.usedTokens, snapshot.windowTokens),
       rows,
       mcpToolCount: snapshot.mcpToolCount,
       systemToolCount: snapshot.systemToolCount,
@@ -235,17 +235,28 @@ export class ContextBreakdownEstimator {
   ): void {
     totals.set(key, (totals.get(key) ?? 0) + tokens);
   }
+  /**
+   * sum (internal helper hoisted into ContextBreakdownEstimator).
+   * @param {Iterable<number>} values
+   * @returns {number}
+   */
+  private static sum(values: Iterable<number>): number {
+    let total = 0;
+    for (const value of values) total += value;
+    return total;
+  }
+  /**
+   * ratio (internal helper hoisted into ContextBreakdownEstimator).
+   * @param {number} part
+   * @param {number} whole
+   * @returns {number}
+   */
+  private static ratio(part: number, whole: number): number {
+    if (!Number.isFinite(whole) || whole <= 0) return 0;
+    return Math.round((part / whole) * 1000) / 10;
+  }
 }
 
 /** 求和（空集合为 0）。 */
-function sum(values: Iterable<number>): number {
-  let total = 0;
-  for (const value of values) total += value;
-  return total;
-}
 
 /** 百分比（一位小数）；分母为 0 时返回 0，避免 NaN 渗进 UI。 */
-function ratio(part: number, whole: number): number {
-  if (!Number.isFinite(whole) || whole <= 0) return 0;
-  return Math.round((part / whole) * 1000) / 10;
-}

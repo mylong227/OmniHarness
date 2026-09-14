@@ -28,13 +28,6 @@ const ED25519_PUBLIC_BYTES = 32;
 /** 生成一段短随机 hex（用于缺省 runtime id）。
  * @returns 取自新生成 Ed25519 私钥 der 前 8 字节的 16 字符 hex 串。
  */
-function randomSuffix(): string {
-  const buf = generateKeyPairSync('ed25519').privateKey.export({
-    type: 'pkcs8',
-    format: 'der',
-  }) as Buffer;
-  return buf.subarray(0, 8).toString('hex');
-}
 
 /** 把一段字节按 SSH 字符串格式（4 字节大端长度 + 内容）写入 blob。
  * @param blob 目标缓冲区（须预留 4 + value.length 字节空间）。
@@ -42,25 +35,11 @@ function randomSuffix(): string {
  * @param value 待写入的字节段。
  * @returns 写入后的新偏移（指向下一个可写位置）。
  */
-function appendSshString(blob: Buffer, offset: number, value: Buffer): number {
-  blob.writeUInt32BE(value.length, offset);
-  value.copy(blob, offset + 4);
-  return offset + 4 + value.length;
-}
 
 /** 编码 ssh-ed25519 公钥（参考 Rust `encode_ssh_ed25519_public_key`）。
  * @param rawSpkiDer SPKI der 编码的公钥（末 32 字节为原始公钥）。
  * @returns `ssh-ed25519 <base64 blob>` 格式的公钥字符串。
  */
-function encodeSshEd25519(rawSpkiDer: Buffer): string {
-  // SPKI der 末尾 32 字节即原始公钥。
-  const keyBytes = rawSpkiDer.subarray(rawSpkiDer.length - ED25519_PUBLIC_BYTES);
-  const name = Buffer.from('ssh-ed25519');
-  const blob = Buffer.alloc(4 + name.length + 4 + keyBytes.length);
-  const o = appendSshString(blob, 0, name);
-  appendSshString(blob, o, keyBytes);
-  return `ssh-ed25519 ${blob.toString('base64')}`;
-}
 
 /** 断言信封结构（base64url 序列化）。 */
 interface AgentAssertionEnvelope {
@@ -86,7 +65,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
    * @param config 可选配置（agentRuntimeId 与 privateKeyPkcs8Base64）。
    */
   public constructor(config?: AgentIdentityConfig) {
-    this.runtime = config?.agentRuntimeId ?? `omni-${randomSuffix()}`;
+    this.runtime = config?.agentRuntimeId ?? `omni-${Ed25519AgentIdentity.randomSuffix()}`;
     if (config?.privateKeyPkcs8Base64 !== undefined && config.privateKeyPkcs8Base64.length > 0) {
       this.privateKey = createPrivateKey({
         key: Buffer.from(config.privateKeyPkcs8Base64, 'base64'),
@@ -111,7 +90,7 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
    */
   public publicKeySsh(): string {
     const der = this.publicKey.export({ type: 'spki', format: 'der' }) as Buffer;
-    return encodeSshEd25519(der);
+    return Ed25519AgentIdentity.encodeSshEd25519(der);
   }
 
   /** PKCS#8 der 的 base64 私钥（持久化用，可回传给构造配置在下次运行复用同一身份）。
@@ -208,6 +187,43 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
    */
   public authorizationHeader(taskId: string): string {
     return `AgentAssertion ${this.signAssertion(taskId)}`;
+  }
+  /**
+   * randomSuffix (internal helper hoisted into Ed25519AgentIdentity).
+   * @returns {string}
+   */
+  private static randomSuffix(): string {
+    const buf = generateKeyPairSync('ed25519').privateKey.export({
+      type: 'pkcs8',
+      format: 'der',
+    }) as Buffer;
+    return buf.subarray(0, 8).toString('hex');
+  }
+  /**
+   * appendSshString (internal helper hoisted into Ed25519AgentIdentity).
+   * @param {Buffer} blob
+   * @param {number} offset
+   * @param {Buffer} value
+   * @returns {number}
+   */
+  private static appendSshString(blob: Buffer, offset: number, value: Buffer): number {
+    blob.writeUInt32BE(value.length, offset);
+    value.copy(blob, offset + 4);
+    return offset + 4 + value.length;
+  }
+  /**
+   * encodeSshEd25519 (internal helper hoisted into Ed25519AgentIdentity).
+   * @param {Buffer} rawSpkiDer
+   * @returns {string}
+   */
+  private static encodeSshEd25519(rawSpkiDer: Buffer): string {
+    // SPKI der 末尾 32 字节即原始公钥。
+    const keyBytes = rawSpkiDer.subarray(rawSpkiDer.length - ED25519_PUBLIC_BYTES);
+    const name = Buffer.from('ssh-ed25519');
+    const blob = Buffer.alloc(4 + name.length + 4 + keyBytes.length);
+    const o = Ed25519AgentIdentity.appendSshString(blob, 0, name);
+    Ed25519AgentIdentity.appendSshString(blob, o, keyBytes);
+    return `ssh-ed25519 ${blob.toString('base64')}`;
   }
 }
 

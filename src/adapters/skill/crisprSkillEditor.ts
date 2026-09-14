@@ -36,24 +36,8 @@ export interface CRISPRSkillEditorOptions {
 }
 
 /** 把改写后的 instructions 派生出描述，保持契约一致（不硬塞原文，避免描述失配）。 */
-function deriveDescription(original: string, patched: string): string {
-  if (original === patched) return original;
-  return `${original}（已 CRISPR 定点修订）`;
-}
 
 /** 安全执行差异测试：测试函数抛错一律视为不通过（fail-closed），绝不提交。 */
-function safeTest(
-  test: ((original: Skill, patched: Skill) => boolean) | undefined,
-  original: Skill,
-  patched: Skill,
-): boolean {
-  if (test === undefined) return true;
-  try {
-    return test(original, patched) === true;
-  } catch {
-    return false;
-  }
-}
 
 /** CRISPR 精确技能编辑器。 */
 export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
@@ -139,10 +123,10 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     const patched: Skill = {
       ...target,
       instructions: patchedInstructions,
-      description: deriveDescription(target.description, patchedInstructions),
+      description: CRISPRSkillEditor.deriveDescription(target.description, patchedInstructions),
     };
     // 3) 差异测试（脱靶配）：fail-closed —— 不通过即回滚，绝不提交破损编辑。
-    const passed = safeTest(spec.differentialTest, target, patched);
+    const passed = CRISPRSkillEditor.safeTest(spec.differentialTest, target, patched);
     if (!passed) {
       this.audit?.record({
         type: 'crispr',
@@ -195,5 +179,34 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
       }
     }
     return bestR >= this.addressThreshold ? best : undefined;
+  }
+  /**
+   * deriveDescription (internal helper hoisted into CRISPRSkillEditor).
+   * @param {string} original
+   * @param {string} patched
+   * @returns {string}
+   */
+  private static deriveDescription(original: string, patched: string): string {
+    if (original === patched) return original;
+    return `${original}（已 CRISPR 定点修订）`;
+  }
+  /**
+   * safeTest (internal helper hoisted into CRISPRSkillEditor).
+   * @param {((original: Skill, patched: Skill) => boolean) | undefined} test
+   * @param {Skill} original
+   * @param {Skill} patched
+   * @returns {boolean}
+   */
+  private static safeTest(
+    test: ((original: Skill, patched: Skill) => boolean) | undefined,
+    original: Skill,
+    patched: Skill,
+  ): boolean {
+    if (test === undefined) return true;
+    try {
+      return test(original, patched) === true;
+    } catch {
+      return false;
+    }
   }
 }

@@ -214,6 +214,56 @@ export class LoopGuard {
       this.callSeq.splice(0, this.callSeq.length - cap);
     }
   }
+  /**
+   * maskValue (internal helper hoisted into LoopGuard).
+   * @param {unknown} value
+   * @returns {unknown}
+   */
+  public static maskValue(value: unknown): unknown {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return value.map(LoopGuard.maskValue);
+    }
+    if (typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+        if (VOLATILE_KEYS.has(key.toLowerCase())) {
+          out[key] = '<volatile>';
+          continue;
+        }
+        out[key] = LoopGuard.maskValue((value as Record<string, unknown>)[key]);
+      }
+      return out;
+    }
+    if (typeof value === 'string') {
+      // 长随机串掩码（uuid / hex hash / base64-ish）：结构同、内容不同的字符串归一。
+      if (LoopGuard.isHighEntropyToken(value)) {
+        return '<opaque>';
+      }
+      return value;
+    }
+    return value;
+  }
+  /**
+   * isHighEntropyToken (internal helper hoisted into LoopGuard).
+   * @param {string} s
+   * @returns {boolean}
+   */
+  private static isHighEntropyToken(s: string): boolean {
+    if (s.length < 16) {
+      return false;
+    }
+    if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)) {
+      return true;
+    }
+    if (/^[0-9a-fA-F]{32,}$/.test(s)) {
+      return true;
+    }
+    // 40+ 字符、无空格、字母数字混合且熵高的 token（粗判：含数字且无空白的连续串）。
+    return /^[A-Za-z0-9_\-+/=]{40,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s);
+  }
 }
 
 /**
@@ -227,7 +277,7 @@ export class LoopGuard {
  * @returns 规范化后的 JSON 字符串签名（同意图调用恒相同）。
  */
 export function canonicalArgs(args: Record<string, unknown>): string {
-  return JSON.stringify(maskValue(args));
+  return JSON.stringify(LoopGuard.maskValue(args));
 }
 
 /**
@@ -235,48 +285,8 @@ export function canonicalArgs(args: Record<string, unknown>): string {
  * @param value 任意嵌套的参数值。
  * @returns 掩码后的规范化值（易变字段与长随机串被替换为占位符）。
  */
-function maskValue(value: unknown): unknown {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (Array.isArray(value)) {
-    return value.map(maskValue);
-  }
-  if (typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      if (VOLATILE_KEYS.has(key.toLowerCase())) {
-        out[key] = '<volatile>';
-        continue;
-      }
-      out[key] = maskValue((value as Record<string, unknown>)[key]);
-    }
-    return out;
-  }
-  if (typeof value === 'string') {
-    // 长随机串掩码（uuid / hex hash / base64-ish）：结构同、内容不同的字符串归一。
-    if (isHighEntropyToken(value)) {
-      return '<opaque>';
-    }
-    return value;
-  }
-  return value;
-}
 
 /** uuid v1-v5 / 32+ 位 hex / 40+ 位混合随机串 视为不透明 token。
  * @param s 待判定的字符串值。
  * @returns 判定为高熵不透明 token 时为 true（规范化时将被掩码）。
  */
-function isHighEntropyToken(s: string): boolean {
-  if (s.length < 16) {
-    return false;
-  }
-  if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)) {
-    return true;
-  }
-  if (/^[0-9a-fA-F]{32,}$/.test(s)) {
-    return true;
-  }
-  // 40+ 字符、无空格、字母数字混合且熵高的 token（粗判：含数字且无空白的连续串）。
-  return /^[A-Za-z0-9_\-+/=]{40,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s);
-}
