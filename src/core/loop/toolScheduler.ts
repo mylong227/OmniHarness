@@ -57,18 +57,6 @@ const SERIAL_PATTERNS = [
   'workflow',
 ];
 
-/** 内置并行安全判定：工具名不含任何写类模式词即视为可并行。 */
-function defaultParallelCapable(toolName: string): boolean {
-  const lower = toolName.toLowerCase();
-  return !SERIAL_PATTERNS.some((p) => lower.includes(p));
-}
-
-/** 构造 failed ToolResult（工具执行抛异常时兜底，不连累同批其他调用）。 */
-function failedResult(call: ToolCall, err: unknown): ToolResult {
-  const message = err instanceof Error ? err.message : String(err);
-  return { callId: call.id, ok: false, error: message };
-}
-
 export class ToolScheduler {
   /** 并行批最大并发（下限 1，默认 8）。 */
   private readonly maxParallel: number;
@@ -77,7 +65,7 @@ export class ToolScheduler {
 
   public constructor(options: ToolSchedulerOptions = {}) {
     this.maxParallel = Math.max(1, options.maxParallel ?? 8);
-    this.parallelCapable = options.parallelCapable ?? defaultParallelCapable;
+    this.parallelCapable = options.parallelCapable ?? ToolScheduler.defaultParallelCapable;
   }
 
   /**
@@ -104,13 +92,19 @@ export class ToolScheduler {
         i = j;
       } else {
         // 屏障：此刻必然没有在飞任务（并行批已在上方 await 排空），直接串行执行。
-        results[i] = { call: at(calls, i), result: await safeExecute(at(calls, i), execute) };
+        results[i] = {
+          call: at(calls, i),
+          result: await ToolScheduler.safeExecute(at(calls, i), execute),
+        };
         i += 1;
       }
     }
     return results.map(
       (r, idx) =>
-        r ?? { call: at(calls, idx), result: failedResult(at(calls, idx), new Error('调度遗漏')) },
+        r ?? {
+          call: at(calls, idx),
+          result: ToolScheduler.failedResult(at(calls, idx), new Error('调度遗漏')),
+        },
     );
   }
 
@@ -121,9 +115,8 @@ export class ToolScheduler {
    * @param to 批结束下标（不含）。
    * @param execute 单调用执行器。
    * @param results 结果写回数组（按下标就地填充，保证 model-order）。
-   
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async runParallelBatch(
     calls: readonly ToolCall[],
     from: number,
@@ -141,7 +134,7 @@ export class ToolScheduler {
             cursor += 1;
             results[idx] = {
               call: at(calls, idx),
-              result: await safeExecute(at(calls, idx), execute),
+              result: await ToolScheduler.safeExecute(at(calls, idx), execute),
             };
           }
         })(),
@@ -149,13 +142,39 @@ export class ToolScheduler {
     }
     await Promise.all(workers);
   }
-}
 
-/** 安全执行单个工具调用：异常被捕获并转为 failed ToolResult（有界池工作协程专用）。 */
-async function safeExecute(call: ToolCall, execute: ToolExecutor): Promise<ToolResult> {
-  try {
-    return await execute(call);
-  } catch (err) {
-    return failedResult(call, err);
+  /**
+   * 保守内置判定：工具名不含任何写类模式词即视为可并行。
+   * @param toolName 工具名称
+   * @returns 是否可并行（只读/无共享可变状态）
+   */
+  private static defaultParallelCapable(toolName: string): boolean {
+    const lower = toolName.toLowerCase();
+    return !SERIAL_PATTERNS.some((p) => lower.includes(p));
+  }
+
+  /**
+   * 构造 failed ToolResult（工具执行抛异常时兜底，不连累同批其他调用）。
+   * @param call 原工具调用（用于回填 callId）
+   * @param err 捕获到的异常
+   * @returns 转为失败的 ToolResult
+   */
+  private static failedResult(call: ToolCall, err: unknown): ToolResult {
+    const message = err instanceof Error ? err.message : String(err);
+    return { callId: call.id, ok: false, error: message };
+  }
+
+  /**
+   * 安全执行单个工具调用：异常被捕获并转为 failed ToolResult（有界池工作协程专用）。
+   * @param call 待执行的工具调用
+   * @param execute 单调用执行器
+   * @returns 执行结果或失败兜底结果
+   */
+  private static async safeExecute(call: ToolCall, execute: ToolExecutor): Promise<ToolResult> {
+    try {
+      return await execute(call);
+    } catch (err) {
+      return ToolScheduler.failedResult(call, err);
+    }
   }
 }

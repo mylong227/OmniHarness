@@ -57,17 +57,19 @@ export class MemoryExtractor implements MemoryExtractorPort {
       this.cursor = events.length;
       return 0;
     }
-    const transcript = transcriptOf(fresh, this.opts.maxTranscriptChars ?? 6000);
+    const transcript = MemoryExtractor.transcriptOf(fresh, this.opts.maxTranscriptChars ?? 6000);
     let added = 0;
     if (transcript.length > 0) {
       const extracted = await this.extract(transcript);
       const max = this.opts.maxFactsPerTurn ?? 8;
-      const existing = new Set(this.store.all().map((fact) => normalize(fact.text)));
+      const existing = new Set(
+        this.store.all().map((fact) => MemoryExtractor.normalize(fact.text)),
+      );
       for (const text of extracted) {
         if (added >= max) {
           break;
         }
-        const norm = normalize(text);
+        const norm = MemoryExtractor.normalize(text);
         if (norm === '' || existing.has(norm)) {
           continue;
         }
@@ -103,68 +105,82 @@ export class MemoryExtractor implements MemoryExtractorPort {
       tools: [],
     };
     const output = await this.model.generate(request);
-    return parseFacts(output.text ?? '');
+    return MemoryExtractor.parseFacts(output.text ?? '');
   }
-}
 
-/** 从事件抽取可蒸馏文本（user/assistant/tool_result），拼接为回合片段。 */
-function transcriptOf(events: readonly SessionEvent[], limit: number): string {
-  const lines: string[] = [];
-  for (const event of events) {
-    const payload = event.payload as Record<string, unknown> | undefined;
-    if (payload === undefined) {
-      continue;
+  /**
+   * 从事件抽取可蒸馏文本（user/assistant/tool_result），拼接为回合片段。
+   * @param events 会话事件序列
+   * @param limit 文本字符上限（超出截断）
+   * @returns 拼接后的回合文本（已截断）
+   */
+  private static transcriptOf(events: readonly SessionEvent[], limit: number): string {
+    const lines: string[] = [];
+    for (const event of events) {
+      const payload = event.payload as Record<string, unknown> | undefined;
+      if (payload === undefined) {
+        continue;
+      }
+      let text: string | undefined;
+      switch (event.type) {
+        case 'user':
+        case 'assistant':
+        case 'system':
+          text =
+            typeof payload['content'] === 'string' ? (payload['content'] as string) : undefined;
+          break;
+        case 'tool_result':
+          text = typeof payload['output'] === 'string' ? (payload['output'] as string) : undefined;
+          break;
+        default:
+          break;
+      }
+      if (text !== undefined && text.trim() !== '') {
+        lines.push(text);
+      }
     }
-    let text: string | undefined;
-    switch (event.type) {
-      case 'user':
-      case 'assistant':
-      case 'system':
-        text = typeof payload['content'] === 'string' ? (payload['content'] as string) : undefined;
-        break;
-      case 'tool_result':
-        text = typeof payload['output'] === 'string' ? (payload['output'] as string) : undefined;
-        break;
-      default:
-        break;
-    }
-    if (text !== undefined && text.trim() !== '') {
-      lines.push(text);
-    }
+    const joined = lines.join('\n');
+    return joined.length <= limit ? joined : joined.slice(0, limit);
   }
-  const joined = lines.join('\n');
-  return joined.length <= limit ? joined : joined.slice(0, limit);
-}
 
-/** 解析模型返回的 JSON 事实数组，鲁棒处理前缀/后缀废话。 */
-function parseFacts(text: string): string[] {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return [];
-  }
-  const start = trimmed.indexOf('[');
-  const end = trimmed.lastIndexOf(']');
-  if (start === -1 || end === -1 || end <= start) {
-    return [];
-  }
-  try {
-    const arr = JSON.parse(trimmed.slice(start, end + 1));
-    if (!Array.isArray(arr)) {
+  /**
+   * 解析模型返回的 JSON 事实数组，鲁棒处理前缀/后缀废话。
+   * @param text 模型原始输出
+   * @returns 抽取出的事实字符串数组（解析失败为空数组）
+   */
+  private static parseFacts(text: string): string[] {
+    const trimmed = text.trim();
+    if (trimmed === '') {
       return [];
     }
-    return arr
-      .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
-      .map((item) => item.trim());
-  } catch {
-    return [];
+    const start = trimmed.indexOf('[');
+    const end = trimmed.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) {
+      return [];
+    }
+    try {
+      const arr = JSON.parse(trimmed.slice(start, end + 1));
+      if (!Array.isArray(arr)) {
+        return [];
+      }
+      return arr
+        .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+        .map((item) => item.trim());
+    } catch {
+      return [];
+    }
   }
-}
 
-/** 归一化事实文本用于去重（小写、去标点、折叠空白）。 */
-function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[\p{P}\p{S}]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  /**
+   * 归一化事实文本用于去重（小写、去标点、折叠空白）。
+   * @param text 原始事实文本
+   * @returns 归一化后的文本（用于去重比较）
+   */
+  private static normalize(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[\p{P}\p{S}]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 }

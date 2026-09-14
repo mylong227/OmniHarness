@@ -18,65 +18,6 @@ const ALLOWED_MEDIA_PREFIXES: readonly string[] = [
   'application/zip',
 ];
 
-/**
- * 由文件扩展名推断 mediaType（无 mime-types 依赖；零依赖铁律）。
- * 覆盖 attach.read 与 browseFs(includeFiles) 的输出。
- * @param name 文件名（含扩展名）
- * @returns 推断出的 MIME 类型；未知扩展名回退 `application/octet-stream`
- */
-function inferMediaType(name: string): string {
-  const dot = name.lastIndexOf('.');
-  if (dot < 0) return 'application/octet-stream';
-  const ext = name.slice(dot + 1).toLowerCase();
-  const map: Record<string, string> = {
-    // 图片
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    bmp: 'image/bmp',
-    ico: 'image/x-icon',
-    // 视频
-    mp4: 'video/mp4',
-    mov: 'video/quicktime',
-    webm: 'video/webm',
-    mkv: 'video/x-matroska',
-    avi: 'video/x-msvideo',
-    // 音频
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    ogg: 'audio/ogg',
-    m4a: 'audio/mp4',
-    flac: 'audio/flac',
-    // 文本
-    txt: 'text/plain',
-    md: 'text/markdown',
-    json: 'application/json',
-    csv: 'text/csv',
-    xml: 'application/xml',
-    html: 'text/html',
-    htm: 'text/html',
-    // 文档
-    pdf: 'application/pdf',
-    // 压缩
-    zip: 'application/zip',
-    tar: 'application/x-tar',
-    gz: 'application/gzip',
-    // 代码（粗略，浏览器可能不识别但能下载/查看）
-    ts: 'text/typescript',
-    tsx: 'text/tsx',
-    js: 'text/javascript',
-    jsx: 'text/jsx',
-    py: 'text/x-python',
-    rs: 'text/x-rust',
-    go: 'text/x-go',
-    java: 'text/x-java',
-  };
-  return map[ext] ?? 'application/octet-stream';
-}
-
 /** 附加文件读取结果条目。 */
 interface AttachedFile {
   readonly name: string;
@@ -153,7 +94,7 @@ export class FsExplorer {
     if (typeof nameRaw !== 'string' || nameRaw.trim() === '') {
       throw new Error('文件夹名称不能为空');
     }
-    const name = sanitizeFolderName(nameRaw);
+    const name = FsExplorer.sanitizeFolderName(nameRaw);
     if (name === '') {
       throw new Error('非法的文件夹名称：' + nameRaw);
     }
@@ -231,7 +172,7 @@ export class FsExplorer {
       } catch {
         continue;
       }
-      files.push({ name: e.name, size: st.size, mediaType: inferMediaType(e.name) });
+      files.push({ name: e.name, size: st.size, mediaType: FsExplorer.inferMediaType(e.name) });
     }
     files.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }));
     return files;
@@ -260,7 +201,7 @@ export class FsExplorer {
       return { path: target, error: `文件超过 ${MAX_ATTACH_BYTES / 1024 / 1024}MB 限制` };
     }
     const name = basename(target);
-    const mediaType = inferMediaType(name);
+    const mediaType = FsExplorer.inferMediaType(name);
     if (!ALLOWED_MEDIA_PREFIXES.some((p) => mediaType.startsWith(p))) {
       return { path: target, error: '不支持的文件类型：' + mediaType };
     }
@@ -276,32 +217,95 @@ export class FsExplorer {
         mediaType,
         data: buf.toString('base64'),
         size: st.size,
-        kind: mediaKind(mediaType),
+        kind: FsExplorer.mediaKind(mediaType),
       },
     };
   }
-}
 
-/**
- * 裁剪用户输入的文件夹名：剔除路径分隔符与前导点/非法字符。
- * @param raw 原始名称
- * @returns 安全名称；`''` / `'.'` / `'..'` 视为非法返回空串
- */
-function sanitizeFolderName(raw: string): string {
-  const name = raw
-    .trim()
-    .replace(/[\\/]+/g, '')
-    .replace(/^[\.]+|[\0<>:"|?*]/g, '');
-  if (name === '' || name === '.' || name === '..') {
-    return '';
+  /**
+   * 由文件扩展名推断 mediaType（无 mime-types 依赖；零依赖铁律）。
+   * 覆盖 attach.read 与 browseFs(includeFiles) 的输出。
+   * @param name 文件名（含扩展名）
+   * @returns 推断出的 MIME 类型；未知扩展名回退 `application/octet-stream`
+   */
+  private static inferMediaType(name: string): string {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) return 'application/octet-stream';
+    const ext = name.slice(dot + 1).toLowerCase();
+    const map: Record<string, string> = {
+      // 图片
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      svg: 'image/svg+xml',
+      bmp: 'image/bmp',
+      ico: 'image/x-icon',
+      // 视频
+      mp4: 'video/mp4',
+      mov: 'video/quicktime',
+      webm: 'video/webm',
+      mkv: 'video/x-matroska',
+      avi: 'video/x-msvideo',
+      // 音频
+      mp3: 'audio/mpeg',
+      wav: 'audio/wav',
+      ogg: 'audio/ogg',
+      m4a: 'audio/mp4',
+      flac: 'audio/flac',
+      // 文本
+      txt: 'text/plain',
+      md: 'text/markdown',
+      json: 'application/json',
+      csv: 'text/csv',
+      xml: 'application/xml',
+      html: 'text/html',
+      htm: 'text/html',
+      // 文档
+      pdf: 'application/pdf',
+      // 压缩
+      zip: 'application/zip',
+      tar: 'application/x-tar',
+      gz: 'application/gzip',
+      // 代码（粗略，浏览器可能不识别但能下载/查看）
+      ts: 'text/typescript',
+      tsx: 'text/tsx',
+      js: 'text/javascript',
+      jsx: 'text/jsx',
+      py: 'text/x-python',
+      rs: 'text/x-rust',
+      go: 'text/x-go',
+      java: 'text/x-java',
+    };
+    return map[ext] ?? 'application/octet-stream';
   }
-  return name;
-}
 
-/** 按 mediaType 归类附件种类。 */
-function mediaKind(mediaType: string): AttachedFile['kind'] {
-  if (mediaType.startsWith('image/')) return 'image';
-  if (mediaType.startsWith('video/')) return 'video';
-  if (mediaType.startsWith('audio/')) return 'audio';
-  return 'file';
+  /**
+   * 裁剪用户输入的文件夹名：剔除路径分隔符与前导点/非法字符。
+   * @param raw 原始名称
+   * @returns 安全名称；`''` / `'.'` / `'..'` 视为非法返回空串
+   */
+  private static sanitizeFolderName(raw: string): string {
+    const name = raw
+      .trim()
+      .replace(/[\\/]+/g, '')
+      .replace(/^[\.]+|[\0<>:"|?*]/g, '');
+    if (name === '' || name === '.' || name === '..') {
+      return '';
+    }
+    return name;
+  }
+
+  /**
+   * 按 mediaType 归类附件种类。
+   * @param mediaType 推断出的 MIME 类型
+   * @returns 附件种类（image/video/audio/file）
+   */
+  private static mediaKind(mediaType: string): AttachedFile['kind'] {
+    if (mediaType.startsWith('image/')) return 'image';
+    if (mediaType.startsWith('video/')) return 'video';
+    if (mediaType.startsWith('audio/')) return 'audio';
+    return 'file';
+  }
 }
