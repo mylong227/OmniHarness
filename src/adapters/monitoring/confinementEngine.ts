@@ -38,10 +38,10 @@ export class ConfinementEngine implements ConfinementPort {
   public isSinglet(c: CapabilityCharge): boolean {
     const g = this.groupOrder;
     return (
-      mod(c.charge.color, g) === 0 &&
-      mod(c.charge.flavor, g) === 0 &&
-      mod(c.charge.permission, g) === 0 &&
-      mod(c.charge.expiry, g) === 0
+      ConfinementEngine.mod(c.charge.color, g) === 0 &&
+      ConfinementEngine.mod(c.charge.flavor, g) === 0 &&
+      ConfinementEngine.mod(c.charge.permission, g) === 0 &&
+      ConfinementEngine.mod(c.charge.expiry, g) === 0
     );
   }
 
@@ -55,10 +55,10 @@ export class ConfinementEngine implements ConfinementPort {
   public bind(a: CapabilityCharge, b: CapabilityCharge): BoundCapability | undefined {
     const g = this.groupOrder;
     const combined: Charge = {
-      color: mod(a.charge.color + b.charge.color, g),
-      flavor: mod(a.charge.flavor + b.charge.flavor, g),
-      permission: mod(a.charge.permission + b.charge.permission, g),
-      expiry: mod(a.charge.expiry + b.charge.expiry, g),
+      color: ConfinementEngine.mod(a.charge.color + b.charge.color, g),
+      flavor: ConfinementEngine.mod(a.charge.flavor + b.charge.flavor, g),
+      permission: ConfinementEngine.mod(a.charge.permission + b.charge.permission, g),
+      expiry: ConfinementEngine.mod(a.charge.expiry + b.charge.expiry, g),
     };
     // 仅当张量收缩得单态(全 0)才允许暴露；否则 fail-closed 拒绝组合。
     const isSinglet =
@@ -81,8 +81,13 @@ export class ConfinementEngine implements ConfinementPort {
     }
     return { id: c.id, exposed: false, reason: 'confined：裸能力(非单态)结构性拒配，不暴露' };
   }
-}
-
-function mod(n: number, g: number): number {
-  return ((n % g) + g) % g;
+  /**
+   * mod — module-level helper moved into ConfinementEngine.
+   * @param {number} n - n
+   * @param {number} g - g
+   * @returns {number} - result
+   */
+  private static mod(n: number, g: number): number {
+    return ((n % g) + g) % g;
+  }
 }

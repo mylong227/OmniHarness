@@ -55,6 +55,59 @@ class NoopSupervisor implements SupervisorPort {
   public attemptRecovery(): SafeMode {
     return 'nominal';
   }
+  /**
+   * extractUsage — module-level helper moved into NoopSupervisor.
+   * @param {readonly { type: string; payload: unknown }[]} events - events
+   * @returns {TaskUsage | undefined} - result
+   */
+  public static extractUsage(
+    events: readonly { type: string; payload: unknown }[],
+  ): TaskUsage | undefined {
+    let promptTokens = 0;
+    let completionTokens = 0;
+    let totalTokens = 0;
+    let found = false;
+    for (const ev of events) {
+      const u = (
+        ev.payload as
+          | {
+              usage?: Partial<TaskUsage>;
+            }
+          | undefined
+      )?.usage;
+      if (u !== undefined && typeof u === 'object') {
+        if (typeof u.promptTokens === 'number') {
+          promptTokens += u.promptTokens;
+          found = true;
+        }
+        if (typeof u.completionTokens === 'number') completionTokens += u.completionTokens;
+        if (typeof u.totalTokens === 'number') totalTokens += u.totalTokens;
+      }
+    }
+    return found
+      ? {
+          promptTokens,
+          completionTokens,
+          totalTokens: totalTokens || promptTokens + completionTokens,
+        }
+      : undefined;
+  }
+  /**
+   * extractToolCalls — module-level helper moved into NoopSupervisor.
+   * @param {readonly { type: string; payload: unknown }[]} events - events
+   * @returns {string[]} - result
+   */
+  public static extractToolCalls(events: readonly { type: string; payload: unknown }[]): string[] {
+    const names: string[] = [];
+    for (const ev of events) {
+      if (ev.type !== 'tool_call') continue;
+      const p = ev.payload as {
+        name?: unknown;
+      };
+      if (typeof p.name === 'string' && p.name.length > 0) names.push(p.name);
+    }
+    return names;
+  }
 }
 
 /**
@@ -151,47 +204,12 @@ export interface EvalReport {
 }
 
 /** 从事件流提取被实际执行的工具名（tool_call 事件 payload.name）。 */
-function extractToolCalls(events: readonly { type: string; payload: unknown }[]): string[] {
-  const names: string[] = [];
-  for (const ev of events) {
-    if (ev.type !== 'tool_call') continue;
-    const p = ev.payload as { name?: unknown };
-    if (typeof p.name === 'string' && p.name.length > 0) names.push(p.name);
-  }
-  return names;
-}
 
 /**
  * 从事件流聚合模型用量（防御式扫描 payload 中的 usage 字段）。
  * 任意事件携带 { usage: { promptTokens, completionTokens, totalTokens } } 即累加，
  * 找不到则保持 undefined（如 ScriptedModel 确定性回归）。
  */
-function extractUsage(
-  events: readonly { type: string; payload: unknown }[],
-): TaskUsage | undefined {
-  let promptTokens = 0;
-  let completionTokens = 0;
-  let totalTokens = 0;
-  let found = false;
-  for (const ev of events) {
-    const u = (ev.payload as { usage?: Partial<TaskUsage> } | undefined)?.usage;
-    if (u !== undefined && typeof u === 'object') {
-      if (typeof u.promptTokens === 'number') {
-        promptTokens += u.promptTokens;
-        found = true;
-      }
-      if (typeof u.completionTokens === 'number') completionTokens += u.completionTokens;
-      if (typeof u.totalTokens === 'number') totalTokens += u.totalTokens;
-    }
-  }
-  return found
-    ? {
-        promptTokens,
-        completionTokens,
-        totalTokens: totalTokens || promptTokens + completionTokens,
-      }
-    : undefined;
-}
 
 /**
  * @beta
@@ -296,8 +314,8 @@ export async function runTask(
   const result = await agent.runTask(task.prompt);
   const durationMs = Date.now() - t0;
 
-  const toolCalls = extractToolCalls(result.events);
-  const usage = extractUsage(result.events);
+  const toolCalls = NoopSupervisor.extractToolCalls(result.events);
+  const usage = NoopSupervisor.extractUsage(result.events);
   const expectation = task.expect ?? {};
   const { passed, reasons } = scoreTask({
     toolCalls,

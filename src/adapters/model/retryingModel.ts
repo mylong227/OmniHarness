@@ -38,8 +38,6 @@ export const DEFAULT_RETRY_POLICY: RetryPolicy = {
  */
 export type DelayFn = (ms: number) => Promise<void>;
 
-const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
  * @beta
  * 模型调用重试装饰器（#M6，对标 codex `retry.rs` / `responses_retry.rs`）。
@@ -70,7 +68,7 @@ export class RetryingModel implements ModelPort {
     /** 重试策略（尝试次数、退避与抖动参数）。 */
     private readonly policy: RetryPolicy = DEFAULT_RETRY_POLICY,
     /** 等待函数（生产为真实 setTimeout，测试可注入 no-op）。 */
-    private readonly delay: DelayFn = realDelay,
+    private readonly delay: DelayFn = RetryingModel.realDelay,
   ) {
     this.name = inner.name;
     if (inner.stream !== undefined) {
@@ -122,6 +120,10 @@ export class RetryingModel implements ModelPort {
     const jitter = 1 + (Math.random() * 2 - 1) * this.policy.jitter;
     return Math.min(this.policy.maxDelayMs, Math.round(exp * jitter));
   }
+  /**
+   * realDelay — module-level helper moved into RetryingModel.
+   */
+  private static realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

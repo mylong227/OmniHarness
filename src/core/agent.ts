@@ -347,7 +347,7 @@ export class Agent implements AgentPort {
       this.runtime.turnDiff,
       this.runtime.longTermMemory,
       this.runtime.memoryExtractor,
-      buildLoopGuard(),
+      Agent.buildLoopGuard(),
       // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
       // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
       // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
@@ -474,6 +474,19 @@ export class Agent implements AgentPort {
       log.warn('spark.cycle.failed', { sessionId, error: String(err) });
     }
   }
+  /**
+   * buildLoopGuard — module-level helper moved into Agent.
+   * @returns {LoopGuard} - result
+   */
+  private static buildLoopGuard(): LoopGuard {
+    if (process.env.OMNI_LOOPGUARD === '0') {
+      return new LoopGuard({ maxExactRepeats: 0, cycleWindow: 0 });
+    }
+    const maxMs = Number(process.env.OMNI_LOOP_MAX_MS);
+    return new LoopGuard({
+      maxDurationMs: Number.isFinite(maxMs) && maxMs > 0 ? maxMs : 0,
+    });
+  }
 }
 
 /**
@@ -484,12 +497,3 @@ export class Agent implements AgentPort {
  * 首次触发注入纠偏 user 消息，同一违规连续 2 次才熔断（不误杀长任务）。
  * @returns 按环境变量装配好的 LoopGuard（关闭时为零阈值实例，等效禁用检测）。
  */
-function buildLoopGuard(): LoopGuard {
-  if (process.env.OMNI_LOOPGUARD === '0') {
-    return new LoopGuard({ maxExactRepeats: 0, cycleWindow: 0 });
-  }
-  const maxMs = Number(process.env.OMNI_LOOP_MAX_MS);
-  return new LoopGuard({
-    maxDurationMs: Number.isFinite(maxMs) && maxMs > 0 ? maxMs : 0,
-  });
-}

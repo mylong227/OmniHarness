@@ -61,7 +61,7 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
 
   public constructor(opts: ImmuneMonitorOptions = {}) {
     this.threshold = Math.max(0.5, opts.threshold ?? 3);
-    this.accelStep = clamp(opts.accelStep ?? 0.1, 0, 0.5);
+    this.accelStep = ImmuneMonitor.clamp(opts.accelStep ?? 0.1, 0, 0.5);
     this.audit = opts.audit;
     this.sessionId = opts.sessionId;
   }
@@ -130,6 +130,16 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
   public selfCheck(): ImmuneSelfReport {
     return { selfSize: this.n, lastAnomaly: this.lastAnomaly };
   }
+  /**
+   * clamp — module-level helper moved into ImmuneMonitor.
+   * @param {number} v - v
+   * @param {number} lo - lo
+   * @param {number} hi - hi
+   * @returns {number} - result
+   */
+  private static clamp(v: number, lo: number, hi: number): number {
+    return v < lo ? lo : v > hi ? hi : v;
+  }
 }
 
 /** 数值夹紧到闭区间 [lo, hi]。
@@ -138,6 +148,3 @@ export class ImmuneMonitor implements ImmuneMonitorPort {
  * @param hi 上界。
  * @returns v 落在区间内时原值，否则就近边界值。
  */
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}

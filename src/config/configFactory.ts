@@ -441,7 +441,7 @@ export class ConfigFactory {
    */
   public static build(partial: OmniHarnessConfig): ResolvedConfig {
     const core = assembleCorePorts(partial);
-    const costBudget = buildCostBudget(partial);
+    const costBudget = ConfigFactory.buildCostBudget(partial);
     const model = buildModel(partial, costBudget);
     const memory = assembleMemoryStack(partial, model);
     const skills = assembleSkillStack(partial);
@@ -523,6 +523,23 @@ export class ConfigFactory {
       ...skills,
     };
   }
+  /**
+   * buildCostBudget — module-level helper moved into ConfigFactory.
+   * @param {OmniHarnessConfig} partial - partial
+   * @returns {CostBudget | undefined} - result
+   */
+  private static buildCostBudget(partial: OmniHarnessConfig): CostBudget | undefined {
+    if (partial.costBudgetUsd === undefined || partial.costBudgetUsd <= 0) {
+      return undefined;
+    }
+    return new CostBudget(
+      partial.costBudgetUsd,
+      mergeRoutePricing(partial.routePricing),
+      DEFAULT_FALLBACK_PRICE,
+      undefined,
+      partial.costBudgetOnExceed !== 'warn',
+    );
+  }
 }
 
 /**
@@ -532,15 +549,3 @@ export class ConfigFactory {
  * @param partial 未解析的运行配置。
  * @returns 硬预算计量器，未启用时为 undefined。
  */
-function buildCostBudget(partial: OmniHarnessConfig): CostBudget | undefined {
-  if (partial.costBudgetUsd === undefined || partial.costBudgetUsd <= 0) {
-    return undefined;
-  }
-  return new CostBudget(
-    partial.costBudgetUsd,
-    mergeRoutePricing(partial.routePricing),
-    DEFAULT_FALLBACK_PRICE,
-    undefined,
-    partial.costBudgetOnExceed !== 'warn',
-  );
-}

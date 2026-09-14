@@ -28,10 +28,6 @@ export interface HeatAnnealerOptions {
 const FLOOR = 1;
 const CEIL = 5;
 
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}
-
 /**
  * 离散热方程记忆退火器（Heat-Equation Memory Annealer）。
  *
@@ -84,11 +80,11 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
    */
   public constructor(memory: LongTermMemoryPort, opts: HeatAnnealerOptions = {}) {
     this.memory = memory;
-    this.coupling = clamp(opts.coupling ?? 0.15, 0.001, 1);
-    this.initialTemperature = clamp(opts.initialTemperature ?? 1.0, 1e-4, 100);
+    this.coupling = HeatEquationAnnealer.clamp(opts.coupling ?? 0.15, 0.001, 1);
+    this.initialTemperature = HeatEquationAnnealer.clamp(opts.initialTemperature ?? 1.0, 1e-4, 100);
     this.coolingRate = Math.max(1e-3, opts.coolingRate ?? 8);
-    this.decay = clamp(opts.decay ?? 0.02, 0, 0.9);
-    this.resonanceThreshold = clamp(opts.resonanceThreshold ?? 0.6, 0, 1);
+    this.decay = HeatEquationAnnealer.clamp(opts.decay ?? 0.02, 0, 0.9);
+    this.resonanceThreshold = HeatEquationAnnealer.clamp(opts.resonanceThreshold ?? 0.6, 0, 1);
     this.maxFacts = Math.max(1, Math.floor(opts.maxFacts ?? 1500));
     this.bins = opts.bins ?? 257;
     this._temperature = this.initialTemperature;
@@ -176,7 +172,7 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
       }
       // 扩散（热方程）+ 衰减遗忘（向地板 1 缓慢消退）。
       let v = ii + this.coupling * T * coupled - this.decay * T * Math.max(0, ii - FLOOR);
-      next[i] = clamp(v, FLOOR, CEIL);
+      next[i] = HeatEquationAnnealer.clamp(v, FLOOR, CEIL);
     }
 
     let drift = 0;
@@ -215,5 +211,15 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
    */
   private cool(): void {
     this._temperature = this.initialTemperature * Math.exp(-this._steps / this.coolingRate);
+  }
+  /**
+   * clamp — module-level helper moved into HeatEquationAnnealer.
+   * @param {number} v - v
+   * @param {number} lo - lo
+   * @param {number} hi - hi
+   * @returns {number} - result
+   */
+  private static clamp(v: number, lo: number, hi: number): number {
+    return v < lo ? lo : v > hi ? hi : v;
   }
 }

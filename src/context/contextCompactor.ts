@@ -39,19 +39,6 @@ export interface CompactionResult {
  * 判断位置 `idx` 处的 tool 消息有没有前序 assistant.tool_calls 与之匹配。
  * 用于把 compaction 后会被 DeepSeek/OpenAI HTTP 400 拒收的"orphan tool 块"挪进 head。
  */
-function isToolOrphan(messages: readonly ModelMessage[], idx: number): boolean {
-  const m = messages[idx];
-  if (m === undefined || m.role !== 'tool') return false;
-  const id = m.toolCallId;
-  if (id === undefined) return true; // 无 toolCallId 的 tool 消息无法被前置调用认领
-  for (let j = idx - 1; j >= 0; j--) {
-    const prev = at(messages, j);
-    if (prev.role === 'assistant' && prev.toolCalls?.some((c) => c.id === id)) {
-      return false; // 找到匹配的 assistant.tool_calls.id
-    }
-  }
-  return true; // 到头都没找到匹配的前置 assistant → 孤儿
-}
 
 /** djb2 前缀指纹（零依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */
 export function headFingerprint(messages: readonly ModelMessage[]): string {
@@ -151,7 +138,7 @@ export class ContextCompactor {
     // 算法：从 messages.length - keepCount 向左挪，直到 tail 起点不是 orphan tool。
     const keepCount = Math.min(this.options.keepRecent, messages.length);
     let headEnd = messages.length - keepCount;
-    while (headEnd > 0 && isToolOrphan(messages, headEnd)) headEnd--;
+    while (headEnd > 0 && ContextCompactor.isToolOrphan(messages, headEnd)) headEnd--;
     const tail = sanitizeToolRounds(messages.slice(headEnd));
     const head = messages.slice(0, headEnd);
     if (head.length === 0) {
@@ -218,6 +205,25 @@ export class ContextCompactor {
   /** 历史文本（服务端压缩回调入参）。 */
   private historyText(head: readonly ModelMessage[]): string {
     return head.map((message) => `${message.role}: ${message.content}`).join('\n');
+  }
+  /**
+   * isToolOrphan — module-level helper moved into ContextCompactor.
+   * @param {readonly ModelMessage[]} messages - messages
+   * @param {number} idx - idx
+   * @returns {boolean} - result
+   */
+  private static isToolOrphan(messages: readonly ModelMessage[], idx: number): boolean {
+    const m = messages[idx];
+    if (m === undefined || m.role !== 'tool') return false;
+    const id = m.toolCallId;
+    if (id === undefined) return true; // 无 toolCallId 的 tool 消息无法被前置调用认领
+    for (let j = idx - 1; j >= 0; j--) {
+      const prev = at(messages, j);
+      if (prev.role === 'assistant' && prev.toolCalls?.some((c) => c.id === id)) {
+        return false; // 找到匹配的 assistant.tool_calls.id
+      }
+    }
+    return true; // 到头都没找到匹配的前置 assistant → 孤儿
   }
 }
 
