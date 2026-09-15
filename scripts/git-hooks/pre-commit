@@ -35,6 +35,12 @@ if ! npm run --silent arch:gate; then
   exit 1
 fi
 
+echo "[pre-commit] 接线完整性门禁（声明→装配→运行时→消费，断链即红）..."
+if ! node scripts/auditConfigWiring.mjs; then
+  echo "[pre-commit] ✗ 检测到未接线字段（本仓最高频缺陷形态「声明未接线」），提交中止。" >&2
+  exit 1
+fi
+
 echo "[pre-commit] ESLint（error 阻断，warn 放行）..."
 if ! npm run --silent lint; then
   echo "[pre-commit] ✗ ESLint 存在 error，提交中止。" >&2
