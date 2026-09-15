@@ -85,6 +85,11 @@ export interface CliArgs {
   planMode?: boolean | undefined;
   /** 提示注入护栏（opt-in）：开启后工具结果进上下文前扫描指令注入并隔离命中项（默认关）。 */
   promptInjectionGuard?: boolean | undefined;
+  /**
+   * 推理强度（#B6，来自配置文件 `reasoning` 或环境变量 `OMNIHARNESS_REASONING`；无 CLI 旗标）。
+   * 7 档与 `ENUM_VALUES.reasoning` 一致；此前该字段在 CLI 侧**完全缺失** ⇒ 文件/env 写入被静默丢弃。
+   */
+  reasoning?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined;
   /** （P3）自验证回环（opt-in）：开启后写类工具改写源码时自动跑受限测试并回灌失败摘要（默认关；还须仓库含 npm test 脚本）。 */
   selfVerify?: boolean | undefined;
   /** 延迟加载工具名清单（#M1，逗号分隔）：这些工具默认不进模型上下文，需经 tool_search 发现。 */
@@ -316,6 +321,9 @@ export class ArgParser {
    */
   public configDefaults(file: FileConfig): Partial<CliArgs> {
     const result: Partial<CliArgs> = {};
+    if (file.reasoning !== undefined) {
+      result.reasoning = file.reasoning;
+    }
     if (file.mcpServers !== undefined) {
       result.mcpServers = file.mcpServers.map((server) => ({
         name: server.name,
