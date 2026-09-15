@@ -54,6 +54,7 @@ import type { RegimeSignals } from '../genesis/operators.js';
 
 import { buildIdentity, buildLsp, buildModel, seedOf } from './configBuilder.js';
 import { defaultTools } from './configToolRegistry.js';
+import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { assembleCorePorts } from './corePortsAssembler.js';
 import { assembleMemoryStack } from './memoryStackAssembler.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
@@ -62,6 +63,29 @@ import { assembleSkillStack } from './skillStackAssembler.js';
 import { assembleSpark } from './sparkAssembler.js';
 
 /** OmniHarness运行时配置：端口注入即插即用，核心零依赖具体实现。 */
+/**
+ * （P3）自验证回环配置：写源码后自动跑受限测试并回灌失败摘要。
+ *
+ * 默认全部保守：超时 120s、输出上限 256 KiB、冷却 60s、每会话最多 3 次、摘要 15 行。
+ * 仅当 `enabled === true` **且**仓库 `package.json` 含 `scripts.test` 时才生效。
+ */
+export interface SelfVerifyConfig {
+  /** 是否启用（默认 false）。 */
+  readonly enabled: boolean;
+  /** 测试命令（缺省 `npm test`）。 */
+  readonly command?: string | undefined;
+  /** 同一会话两次自验证的最小间隔（毫秒，默认 60000）。 */
+  readonly cooldownMs?: number | undefined;
+  /** 同一会话最多触发次数（默认 3）。 */
+  readonly maxRunsPerSession?: number | undefined;
+  /** 单次测试命令超时（毫秒，默认 120000）。 */
+  readonly timeoutMs?: number | undefined;
+  /** 单路输出缓冲上限（字节，默认 262144）。 */
+  readonly maxOutputBytes?: number | undefined;
+  /** 回灌摘要行数上限（默认 15）。 */
+  readonly maxDigestLines?: number | undefined;
+}
+
 export interface OmniHarnessConfig {
   readonly workspaceRoot: string;
   readonly maxSteps: number;
@@ -191,6 +215,14 @@ export interface OmniHarnessConfig {
     | undefined;
   /** 提示注入护栏（opt-in，默认关）：开启后工具结果进模型上下文前做确定性指令注入扫描，命中即隔离（不喂给模型）。零依赖、纯规则启发式、失败开放（扫描器异常时放行原始结果）。 */
   readonly promptInjectionGuard?: boolean | undefined;
+  /**
+   * （P3）自验证回环（opt-in，默认关）：开启后**写类工具改写源码**时自动跑受限测试命令，
+   * 把失败摘要回灌到该次工具结果（模型同一步即知「改坏了」），并复用 `SelfChecklist` 做假完成探测。
+   *
+   * 生效还须**仓库有测试症状**（`package.json` 含 `scripts.test`），否则静默不启用。
+   * 纪律：不进主门禁、可关、有超时与预算上限（见各字段默认值）。
+   */
+  readonly selfVerify?: SelfVerifyConfig | undefined;
   /** 燧-3 共振寻址（S+ 发明层）：启用后长期记忆召回改用频率域共振代数（非 BM25 几何距离），使"市面唯一"寻址维度真进主循环。缺省关，零破坏。 */
   readonly resonance?: { enabled: boolean } | undefined;
   /** 燧-4 涡环包（S+ 发明层）：启用后工具大输出外溢封成拓扑环包（fail-closed 抗污染、不随内容膨胀）。缺省关，零破坏。 */
@@ -523,11 +555,36 @@ export class ConfigFactory {
           costBudget,
           lsp,
           identity,
+          ConfigFactory.resolveSelfVerify(partial),
         ),
       ...core.ports,
       ...memory.stack,
       ...skills,
     };
+  }
+
+  /**
+   * 解析自验证回环策略（P3）。
+   *
+   * 仅当 `config.selfVerify.enabled === true` **且**仓库有测试症状
+   * （`package.json` 含 `scripts.test`）时返回策略；否则 `undefined`（不包装装饰器，零行为变更）。
+   *
+   * @param partial 未解析的运行配置。
+   * @returns 自验证策略；未启用或仓库无测试脚本时为 `undefined`。
+   */
+  private static resolveSelfVerify(partial: OmniHarnessConfig): SelfVerifyPolicy | undefined {
+    const cfg = partial.selfVerify;
+    if (cfg === undefined || cfg.enabled !== true || typeof partial.workspaceRoot !== 'string') {
+      return undefined;
+    }
+    return SelfVerifyPolicy.forWorkspace(partial.workspaceRoot, {
+      ...(cfg.command !== undefined ? { command: cfg.command } : {}),
+      ...(cfg.cooldownMs !== undefined ? { cooldownMs: cfg.cooldownMs } : {}),
+      ...(cfg.maxRunsPerSession !== undefined ? { maxRunsPerSession: cfg.maxRunsPerSession } : {}),
+      ...(cfg.timeoutMs !== undefined ? { timeoutMs: cfg.timeoutMs } : {}),
+      ...(cfg.maxOutputBytes !== undefined ? { maxOutputBytes: cfg.maxOutputBytes } : {}),
+      ...(cfg.maxDigestLines !== undefined ? { maxDigestLines: cfg.maxDigestLines } : {}),
+    });
   }
   /**
    * buildCostBudget — module-level helper moved into ConfigFactory.

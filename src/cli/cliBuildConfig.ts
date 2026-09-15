@@ -334,6 +334,8 @@ export class CliBuildConfig {
       native: args.native,
       planMode: args.planMode,
       promptInjectionGuard: args.promptInjectionGuard === true,
+      // （P3）自验证回环：CLI 只开关；预算取 SelfVerifyPolicy 默认（保守）。
+      selfVerify: args.selfVerify === true ? { enabled: true } : undefined,
       deferredTools: args.deferTools
         ?.split(',')
         .map((entry) => entry.trim())

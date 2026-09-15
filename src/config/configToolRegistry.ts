@@ -25,7 +25,11 @@ import { ListDirTool } from '../adapters/tool/fs/listDirTool.js';
 import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
 // web_search 仅当通过 extraTools 注入 search 实现时才注册，默认不暴露未配置的搜索工具，避免模型反复调用导致批量失败。
 import { CodeExecutorTool } from '../adapters/tool/code/codeExecutorTool.js';
-import { ToolGate } from '../core/toolGate.js';
+import { ToolGate, MUTATING_TOOLS } from '../core/toolGate.js';
+import { SelfChecklist } from '../eval/selfChecklist.js';
+import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
+import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.js';
+import { ShellTestCommandRunner } from '../adapters/tool/verify/shellTestCommandRunner.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { WorkerOrchestrator } from '../worker/workerOrchestrator.js';
@@ -54,7 +58,7 @@ import type { ExtraTool, SubagentPortSeed } from './configFactory.js';
 /**
  * ConfigToolRegistry — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */
-class ConfigToolRegistry {
+export class ConfigToolRegistry {
   /**
    * 注册内置 FS / 执行 / 代理工具（shell / read / write / list / patch / web / code / delegate / spill_read）。
    * @param {RegistryToolPort} registry - registry
@@ -231,6 +235,46 @@ class ConfigToolRegistry {
       registerCheckpointTools(registry, checkpointManager);
     }
   }
+
+  /**
+   * 装配自验证回环装饰器（P3）：把工具端口包一层，在**写类工具改了源码**后自动跑受限测试，
+   * 把失败摘要回灌到该次工具结果（详见 `SelfVerifyingToolPort`）。
+   *
+   * 为什么在组合根定义触发条件：`MUTATING_TOOLS` 属 `core/`，而 `adapters/` **不得 import core**
+   * （`arch:gate` 硬规则）。故「什么算改了源码」在此判定后以谓词注入装饰器，装饰器本身零 core 依赖。
+   *
+   * 假完成探测复用 `SelfChecklist`（同一份占位符口径，不另写一份规则）。
+   *
+   * @param registry 已注册全部工具的内层端口。
+   * @param policy 受控预算（命令 / 超时 / 冷却 / 每会话次数 / 摘要行数）。
+   * @param workspaceRoot 工作区根（测试命令 cwd）。
+   * @returns 装饰后的工具端口（对外行为除「写源码后追加回灌」外完全不变）。
+   */
+  public static withSelfVerify(
+    registry: RegistryToolPort,
+    policy: SelfVerifyPolicy,
+    workspaceRoot: string,
+  ): ToolPort {
+    return new SelfVerifyingToolPort(registry, {
+      policy,
+      workspaceRoot,
+      runner: new ShellTestCommandRunner(),
+      shouldVerify: (toolName, args) =>
+        MUTATING_TOOLS.has(toolName) &&
+        SelfVerifyPolicy.isVerifiableTarget(String(args['path'] ?? '')),
+      probeFakeCompletion: async (_toolName, args) => {
+        const path = String(args['path'] ?? '');
+        const content = args['content'];
+        if (path === '' || typeof content !== 'string') {
+          return undefined;
+        }
+        const verdict = await new SelfChecklist().noPlaceholders(content).evaluate();
+        return verdict.passed
+          ? undefined
+          : `产物 ${path} 含未完成标记（${verdict.failures.join(', ')}）`;
+      },
+    });
+  }
 }
 
 /** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */
@@ -242,7 +286,8 @@ export function demoWorkers(): WorkerRegistry {
 }
 
 /** 默认工具端口：内置 17 工具（含 run_code/delegate/spill_read/subagent + #77 的 todo/ask_user/plan 三组 + #M1 的 tool_search + #M2 的 memory_search）+ 自定义工具。
- * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。 */
+ * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。
+ * `selfVerify` 非空时（P3，opt-in）额外包装自验证回环装饰器：写源码后可自动跑受限测试并回灌失败摘要。 */
 export function defaultTools(
   seed: SubagentPortSeed,
   extraTools: readonly ExtraTool[] | undefined,
@@ -260,6 +305,7 @@ export function defaultTools(
   costBudget: CostBudget | undefined,
   lsp: LspPort | undefined,
   identity: AgentIdentityPort | undefined,
+  selfVerify?: SelfVerifyPolicy | undefined,
 ): ToolPort {
   const registry = new RegistryToolPort();
   ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
@@ -271,5 +317,10 @@ export function defaultTools(
   if (deferredTools !== undefined && deferredTools.length > 0) {
     registry.markDeferred(deferredTools);
   }
-  return registry;
+  // P3 自验证回环（opt-in）：仅在策略存在（= 仓库有测试脚本且配置开启）时包装；
+  // 缺省不包装 ⇒ 与 P3 之前逐字等价（零行为变更）。
+  if (selfVerify === undefined) {
+    return registry;
+  }
+  return ConfigToolRegistry.withSelfVerify(registry, selfVerify, seed.workspaceRoot);
 }

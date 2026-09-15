@@ -198,6 +198,10 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.promptInjectionGuard = true;
     return 0;
   },
+  '--self-verify': (a) => {
+    a.selfVerify = true;
+    return 0;
+  },
   '--memory-key-file': (a, argv, i) => {
     a.memoryKeyFile = CliFlagTable.valueOf(argv, i, '--memory-key-file');
     return 1;
