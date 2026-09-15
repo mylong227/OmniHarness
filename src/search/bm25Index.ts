@@ -62,6 +62,45 @@ export class Bm25Index {
   }
 
   /**
+   * 已加入的文档总数（IDF 的分母口径）。
+   * @returns 文档数
+   */
+  public get documentCount(): number {
+    return this.documents.length;
+  }
+
+  /**
+   * 词项的文档频率（出现在多少个已加入文档中）。
+   * 供外部消费方按其自身口径复用同一统计（如重排器的 IDF 加权），避免各自重复遍历。
+   * @param term 词项
+   * @returns 文档频率；未收录返回 0
+   */
+  public documentFrequencyOf(term: string): number {
+    return this.documentFrequency.get(term) ?? 0;
+  }
+
+  /**
+   * 词项的逆文档频率（`search` 打分使用的同一公式）。
+   *
+   * 公式：`ln(1 + (N − df + 0.5) / (df + 0.5))`。
+   * 之所以公开：重排 / 评估等消费方需要与第一段**同源**的词权重，
+   * 若各自按「自己的公式」计算会出现两套口径（历史坑：两侧 IDF 口径漂移导致加权不可比）。
+   * @param term 词项
+   * @returns IDF；词项未收录或索引为空时返回 0
+   */
+  public idf(term: string): number {
+    const count = this.documents.length;
+    if (count === 0) {
+      return 0;
+    }
+    const df = this.documentFrequency.get(term);
+    if (df === undefined) {
+      return 0;
+    }
+    return Math.log(1 + (count - df + 0.5) / (df + 0.5));
+  }
+
+  /**
    * 检索：查询词（已分词）→ 降序得分，截断 limit。
    *
    * 索引（df / 文档长度）与 `k1`/`b` **无关**，故允许在 `search` 期覆盖打分参数，
@@ -84,11 +123,12 @@ export class Bm25Index {
     }
     const scores = new Array<number>(count).fill(0);
     for (const term of queryTokens) {
-      const df = this.documentFrequency.get(term);
-      if (df === undefined) {
+      // IDF 统一走 `idf()`（与外部消费方同一公式，杜绝两套口径）。
+      // 未收录词返回 0 ⇒ 与原先 `df === undefined → continue` 逐字等价。
+      const idf = this.idf(term);
+      if (idf <= 0) {
         continue;
       }
-      const idf = Math.log(1 + (count - df + 0.5) / (df + 0.5));
       for (let docId = 0; docId < count; docId += 1) {
         const doc = this.documents[docId];
         if (doc === undefined) {

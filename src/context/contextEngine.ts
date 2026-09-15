@@ -16,6 +16,8 @@ import { buildCodeGraph, propagate, type CodeGraph } from './codeGraphIndex.js';
 import { buildLayeredCodeGraph } from './layeredCodeGraph.js';
 import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
 import { at } from '../util/arrayAt.js';
+import { ContentStopWords } from './contentStopWords.js';
+import { FileReranker } from './fileReranker.js';
 
 /**
  * ContextEngine 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -82,66 +84,13 @@ const EMPTY_LSA: LsaModel = {
 /** 空代码拓扑图（light 模式占位）：零节点零边。 */
 const EMPTY_GRAPH: CodeGraph = { n: 0, adj: [] };
 
-/** 代码停用词（PRF 扩展时剔除，避免高频噪声 token 污染查询）。 */
-const CODE_STOP = new Set([
-  'the',
-  'and',
-  'for',
-  'this',
-  'that',
-  'with',
-  'from',
-  'import',
-  'export',
-  'const',
-  'let',
-  'var',
-  'function',
-  'return',
-  'type',
-  'interface',
-  'class',
-  'public',
-  'private',
-  'static',
-  'async',
-  'await',
-  'if',
-  'else',
-  'new',
-  'void',
-  'string',
-  'number',
-  'boolean',
-  'true',
-  'false',
-  'null',
-  'undefined',
-  'get',
-  'set',
-  'self',
-  'in',
-  'of',
-  'to',
-  'a',
-  'an',
-  'is',
-  'are',
-  'be',
-  'as',
-  'do',
-  'it',
-  'not',
-  'use',
-  'can',
-  'will',
-  'has',
-  'have',
-  'was',
-  'were',
-  'are',
-  't',
-]);
+/** 代码停用词（PRF 扩展与重排的内容词筛选共用；表本身见 `ContentStopWords`）。 */
+
+/**
+ * 第二段重排器（打磨第二批 P1）。模块内单例：其内部只持「按语料 WeakMap 缓存」的词法视图，
+ * **不导出**，故不构成跨模块可变的全局状态；同一进程内多语料互不干扰。
+ */
+const fileReranker = new FileReranker();
 
 /** 已索引语料。 */
 export interface IndexedCorpus {
@@ -267,7 +216,7 @@ export interface QueryResult {
   readonly tokens: number;
   /** 命中的符号。 */
   readonly symbols: readonly SymbolNode[];
-  /** 命中的文件（按文件 BM25 排序）。 */
+  /** 命中的文件（第一段按文件 BM25 排序；开启 `rerank` 时为其上的第二段重排结果）。 */
   readonly files: readonly string[];
 }
 
@@ -276,6 +225,10 @@ export interface QueryResult {
  * 每个文件的得分 = max(文件BM25分, 0.7 × 该文件内最强符号BM25分)。
  * 这样既保留文件级语义，又能把「文件级弱命中但含强相关符号」的文件（如 registerTool）
  * 捞回 Top-K，并在固定文件数上限内给出紧凑上下文——召回与压缩兼得。
+ *
+ * `opts.rerank: true` 时在上述第一段之后追加**第二段零依赖词法精排**
+ * （见 {@link FileReranker}）：按「符号名 IDF 加权覆盖率」重排候选池，取 Top-K。
+ * 该阶段只重排已入池文件，不新增候选，故不引入常量偏置。
  */
 export function query(
   corpus: IndexedCorpus,
@@ -292,6 +245,17 @@ export function query(
     bm25K1?: number;
     /** BM25 `b` 的打分期覆盖（调参扫描用）；缺省用索引构造期取值。 */
     bm25B?: number;
+    /**
+     * 第二段重排（零依赖词法精排，见 `FileReranker`）。默认 **false**：
+     * `query()` 的既有调用方（基准脚本 / 单测，冻结过报告口径）零行为变更；
+     * 生产入口 `RepoMapContextEngine.getRepoMapContext` 显式传 true。
+     */
+    rerank?: boolean;
+    /**
+     * 重排的头部地板个数（把第一段前 N 个候选钉在原位）。缺省交由 `FileReranker`
+     * 按 `round(fileK / 3)` 决定（实测两档 fileK 下的最优点）。仅在 `rerank: true` 时生效。
+     */
+    rerankFloor?: number;
   } = {},
 ): QueryResult {
   // 图检索默认关闭：实测在本语料上净负面。
@@ -306,6 +270,10 @@ export function query(
   // 但符号精确率从 25.5% 腰斩至 10.5%（潜语义扩展引入噪声，挤掉真相关符号）。
   // 模块保留（lsa:true 可开启），供后续改用更高秩/稀疏化后重新评估。
   const useLsa = opts.lsa === true;
+  // 第二段重排（打磨第二批 P1）：默认 **false** —— 直接调用 `query()` 的调用方（基准 / 单测）
+  // 行为逐字不变；生产入口 `RepoMapContextEngine.getRepoMapContext` 会显式传 true。
+  // 这样既让生产拿到收益，又不会悄悄改写任何已冻结的评测报告口径。
+  const useRerank = opts.rerank === true;
   const qk = corpus.morph ? tokenizeExpanded(q) : tokenize(q);
   const FILE_K = opts.fileK ?? 14;
   const SYM_K = opts.symK ?? 30;
@@ -329,7 +297,7 @@ export function query(
       const text = corpus.fileText.get(rel);
       if (text === undefined) continue;
       for (const t of tokenize(text)) {
-        if (t.length < 3 || CODE_STOP.has(t)) continue;
+        if (!ContentStopWords.isContent(t)) continue;
         fb.set(t, (fb.get(t) ?? 0) + 1);
       }
     }
@@ -458,10 +426,22 @@ export function query(
   for (const [file, lay] of layeredFileScore) {
     if (!fileScore.has(file)) fileScore.set(file, 0.5 * lay);
   }
-  const rankedFiles = [...fileScore.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, FILE_K)
-    .map(([rel]) => rel);
+  // 第一段候选（**完整** fileScore，不按 FILE_K 截断）：候选池已由「BM25 文件路 ∪ 符号路映射回的文件」
+  // 构成——实测该池在真实语料上已饱和（继续放大池子上界，召回 0 增益），故**不另起候选源**
+  // （新候选源若与查询不敏感即构成常量偏置，见 `rankVetoEvaluator`）。
+  const candidateFiles = [...fileScore.entries()].sort((a, b) => b[1] - a[1]).map(([rel]) => rel);
+  // 第二段：重排（默认关；见上方 useRerank）。重排只重排入池文件，不新增/删除候选。
+  const rankedFiles = useRerank
+    ? [
+        ...fileReranker.rerank({
+          corpus,
+          query: q,
+          candidates: candidateFiles,
+          fileK: FILE_K,
+          ...(opts.rerankFloor !== undefined ? { floor: opts.rerankFloor } : {}),
+        }).files,
+      ]
+    : candidateFiles.slice(0, FILE_K);
 
   const symbols = [...symIdSet]
     .map((id) => ({ s: corpus.symbols[id], v: finalScores[id] ?? 0 }))
