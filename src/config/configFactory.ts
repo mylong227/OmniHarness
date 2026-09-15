@@ -95,8 +95,12 @@ export interface OmniHarnessConfig {
   readonly model: ModelPort;
   readonly storage: StoragePort;
   readonly approvals?: ApprovalPort | undefined;
-  /** 推理强度（#B6，可选）：minimal / low / medium / high / xhigh，透传为模型 reasoning_effort。 */
-  readonly reasoning?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | undefined;
+  /**
+   * 推理强度（#B6，可选）：none / minimal / low / medium / high / xhigh / max，透传为模型 reasoning_effort。
+   *
+   * 7 档与配置文件校验器 `ENUM_VALUES.reasoning`、厂商预设清单一致（原 5 档类型与之不符，见 `configFile.ts` 同名字段）。
+   */
+  readonly reasoning?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined;
   readonly sandbox?: SandboxPort | undefined;
   readonly events?: EventPort | undefined;
   readonly tools?: ToolPort | undefined;
@@ -529,6 +533,12 @@ export class ConfigFactory {
       // → 「默认关、端到端未开」的机械根因。此处显式透传；`createRuntime` 在 `enabled===true`
       // 时构造「可验证门禁 + RLVR sample-filter-replay」控制器。
       evolutionRlvr: partial.evolutionRlvr,
+      // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**（第 220 行）却**未被本
+      // 装配字面量透传**；而 `ResolvedConfig extends OmniHarnessConfig` 且该字段可选 ⇒ TS 不报错、
+      // 值被静默丢弃，`agent` 读到的 `config.promptInjectionGuard` 恒为 `undefined`
+      // ⇒ `--guard-prompt-injection` 形同虚设、护栏在生产路径上**永不可达**（第九处「声明未接线」，
+      // 与 E2 的 a2a / E3 的 evolutionRlvr 同一形态）。此处显式透传；缺省 `undefined` = 默认关（零行为变更）。
+      promptInjectionGuard: partial.promptInjectionGuard,
       runtimeTelemetry: partial.runtimeTelemetry,
       costBudget,
       goalMaxIterations,

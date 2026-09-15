@@ -65,8 +65,14 @@ export interface FileConfig {
    * （argParser 从文件读 approval 时类型上根本容不下 'plan'）。
    */
   readonly approval?: 'auto' | 'deny' | 'rules' | 'guardian' | 'ask' | 'plan';
-  /** 推理强度（#B6，可选）：minimal / low / medium / high / xhigh，透传为模型 reasoning_effort。 */
-  readonly reasoning?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  /**
+   * 推理强度（#B6，可选）：none / minimal / low / medium / high / xhigh / max，透传为模型 reasoning_effort。
+   *
+   * 口径更正：TS 类型原只列 5 档，而校验器 `ENUM_VALUES.reasoning` 与厂商预设清单
+   * （`providerPresets.reasoningEffort`）早已接受 7 档——两侧不一致会把合法取值卡在类型边界外，
+   * 使「文件配置 → CLI」的映射无法类型安全地透传。此处统一为 7 档（**放宽类型，不改校验白名单**）。
+   */
+  readonly reasoning?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   readonly sandbox?: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
   /**
    * 权限参数级规则（A2）：与内置规则合并后交规则审批（`approval: 'rules'` 生效）。
