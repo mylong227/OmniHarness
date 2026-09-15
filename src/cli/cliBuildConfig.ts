@@ -309,6 +309,20 @@ export class CliBuildConfig {
       ...(args.turnTokenBudget !== undefined && args.turnTokenBudget > 0
         ? { turnTokenBudget: args.turnTokenBudget }
         : {}),
+      // (P5) 成本预算：此前 `costBudgetUsd` 仅能编程注入（配置文件与 CLI 均无入口）⇒ 默认部署
+      // 下成本预算恒为关闭、`budget_status` 工具永不注册。此处补齐生产入口；
+      // 未设正数则不写 config = 缺省关闭（零行为变更）。
+      ...(args.costBudgetUsd !== undefined && args.costBudgetUsd > 0
+        ? {
+            costBudgetUsd: args.costBudgetUsd,
+            ...(args.costBudgetOnExceed !== undefined
+              ? { costBudgetOnExceed: args.costBudgetOnExceed }
+              : {}),
+            ...(args.costBudgetSoftRatio !== undefined
+              ? { costBudgetSoftRatio: args.costBudgetSoftRatio }
+              : {}),
+          }
+        : {}),
       // V2.1（A1）：--stream-text 时注入带文本通道的 live 视图（正文 token 级打到 stdout）。
       ...(args.streamText === true
         ? { live: new ConsoleLiveView(process.stderr, process.stdout) }

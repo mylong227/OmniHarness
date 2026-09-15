@@ -89,6 +89,7 @@
     "bench:compete": "node benchmark/compete_benchmark.mjs",
     "bench:terminalbench": "npm run build && node dist/src/benchmark/terminalbench/terminalBenchCli.js",
     "metrics:injection": "npm run build && node evals/injection-metric.mjs",
+    "metrics:attribution": "npm run build && node evals/token-attribution.mjs",
     "selfcheck": "npm run build && node benchmark/selfcheck.mjs",
     "eval:capability": "npm run build && node benchmark/capability_swebench.mjs",
     "eval:passk": "node --test dist/tests/unit/passK.test.js dist/tests/unit/passKCI.test.js",

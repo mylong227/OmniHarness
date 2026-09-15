@@ -173,6 +173,12 @@ export interface CliArgs {
   streamText?: boolean | undefined;
   /** 回合 token 预算（V2.1，--turn-token-budget N）：累计 usage 超限停止步进，交由总结收尾。 */
   turnTokenBudget?: number | undefined;
+  /** (P5) 成本硬预算（--cost-budget-usd N，USD）：设正数后按路由定价累计花费，越限熔断。 */
+  costBudgetUsd?: number | undefined;
+  /** (P5) 预算耗尽行为（--cost-budget-on-exceed fail|warn，默认 fail）：'warn' 为软预算仅观测。 */
+  costBudgetOnExceed?: 'fail' | 'warn' | undefined;
+  /** (P5) 软阈值比例（--cost-budget-soft-ratio r，0<r≤1，默认 0.8）：达该比例即建议降级。 */
+  costBudgetSoftRatio?: number | undefined;
 }
 
 /** CLI 默认值。 */
@@ -377,6 +383,16 @@ export class ArgParser {
     }
     if (file.modelCircuitBreakerOpenMs !== undefined) {
       result.modelCircuitBreakerOpenMs = file.modelCircuitBreakerOpenMs;
+    }
+    // (P5) 成本预算：文件对象形态 → 扁平 CliArgs 字段（CLI 旗标在更上层继续覆盖）。
+    if (file.costBudgetUsd !== undefined) {
+      result.costBudgetUsd = file.costBudgetUsd;
+    }
+    if (file.costBudgetOnExceed !== undefined) {
+      result.costBudgetOnExceed = file.costBudgetOnExceed;
+    }
+    if (file.costBudgetSoftRatio !== undefined) {
+      result.costBudgetSoftRatio = file.costBudgetSoftRatio;
     }
     if (file.elevatedSandbox !== undefined) {
       result.elevatedSandbox = file.elevatedSandbox;

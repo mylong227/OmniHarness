@@ -181,3 +181,13 @@ export type {
 } from './plugin/pluginBundler.js';
 // @beta 运行时消费 bundle 补丁层（注入 config 四层合并，叠在 profile 之上、低于 env）
 export { loadBundlePatchLayer } from './config/configError.js';
+
+// @beta 成本预算与 token 归因（P5：缓存折抵 + per-tool 归因 + 软阈值信号）
+export { TokenAttribution, INITIAL_BUCKET } from './observability/tokenAttribution.js';
+export type {
+  TokenAttributionBucket,
+  TokenAttributionReport,
+  TokenAttributionTally,
+} from './observability/tokenAttribution.js';
+export { DEFAULT_SOFT_RATIO } from './adapters/model/costBudget.js';
+export type { BudgetSnapshot } from './adapters/model/costBudget.js';

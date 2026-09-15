@@ -2,8 +2,9 @@ import type { ApprovalPort } from '../ports/runtime/approval.js';
 import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort, RoutePrice } from '../ports/model/model.js';
-import { CostBudget } from '../adapters/model/costBudget.js';
+import { CostBudget, DEFAULT_SOFT_RATIO } from '../adapters/model/costBudget.js';
 import { mergeRoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
+import { log } from '../util/logger.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
 import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
@@ -183,6 +184,8 @@ export interface OmniHarnessConfig {
   readonly routePricing?: Record<string, RoutePrice> | undefined;
   /** 预算耗尽行为（#S29，默认 'fail'）：'fail' 抛错阻断；'warn' 仅回调不阻断（软预算，仅观测）。 */
   readonly costBudgetOnExceed?: 'fail' | 'warn' | undefined;
+  /** 软阈值比例（P5，相对硬预算，默认 {@link DEFAULT_SOFT_RATIO}）：达该比例即置位「建议降级」信号。 */
+  readonly costBudgetSoftRatio?: number | undefined;
   /** 自主目标循环最大迭代次数（#S30，默认 10）：run_goal 工具与 CLI goal 子命令的默认上限。 */
   readonly goalMaxIterations?: number | undefined;
   /** LSP 代码导航服务器配置（#S32，可选）：声明如何启动外部语言服务器；不配则 LSP 工具不注册。零依赖——服务器由用户自备（如 typescript-language-server）。运行时端口见 `ResolvedConfig.lsp`。 */
@@ -595,12 +598,28 @@ export class ConfigFactory {
     if (partial.costBudgetUsd === undefined || partial.costBudgetUsd <= 0) {
       return undefined;
     }
+    // P5：此前第 4 参（onExceed）恒传 `undefined` ⇒ 越硬预算时只置标记、**无任何上报**，
+    // 是个「接线预留但从未接通」的死旋钮。此处接通：硬熔断记 error、软阈值记 warn，
+    // 均可被日志管道 / 事件桥观测；降级决策另经 `BudgetSnapshot.degradeSuggested` 暴露。
     return new CostBudget(
       partial.costBudgetUsd,
       mergeRoutePricing(partial.routePricing),
       DEFAULT_FALLBACK_PRICE,
-      undefined,
+      (snapshot) => {
+        log.error('budget.exceeded', {
+          limitUsd: snapshot.limitUsd,
+          spentUsd: Number(snapshot.spentUsd.toFixed(6)),
+        });
+      },
       partial.costBudgetOnExceed !== 'warn',
+      partial.costBudgetSoftRatio ?? DEFAULT_SOFT_RATIO,
+      (snapshot) => {
+        log.warn('budget.softExceeded', {
+          limitUsd: snapshot.limitUsd,
+          softLimitUsd: Number(snapshot.softLimitUsd.toFixed(6)),
+          spentUsd: Number(snapshot.spentUsd.toFixed(6)),
+        });
+      },
     );
   }
 }
