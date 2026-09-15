@@ -106,6 +106,23 @@ export class DeterministicCompressor {
   }
 
   /**
+   * **无损子集**收缩：只裁「确定冗余」——行尾空白、3+ 连续空行、整段 JSON 的缩进，
+   * **不删任何字符级事实**（不截断、不省略、不摘要）。因此可安全作用于**发往模型的每一条消息**，
+   * 且天然满足三大定律（幂等 / 单调 / 保序）。
+   *
+   * 与 `compress` 的分工：`compress` 面向**分片列表**（含截断与历史折叠，有信息损失）；
+   * `shrinkLossless` 面向**单条消息文本**，是可无条件施加的前置归一化。
+   * @param text 待收缩的单条文本。
+   * @returns 收缩后的文本（无可裁冗余时逐字节原样返回）。
+   */
+  public shrinkLossless(text: string): string {
+    if (text === '') {
+      return text;
+    }
+    return this.minifyJsonBlock(this.collapseBlankLines(text));
+  }
+
+  /**
    * 超长输出截断：保留头部与尾部，**中段替换为带原始行数的省略标记**。
    * 省略标记保留可追溯信息（共几行、省略几行），不制造幻觉。
    * 幂等：行数 ≤ maxLines 时原样返回。
@@ -258,6 +275,16 @@ export function collapseBlankLines(text: string): string {
 /** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
 export function minifyJsonBlock(text: string): string {
   return compressor.minifyJsonBlock(text);
+}
+
+/**
+ * **无损子集**收缩：只裁「确定冗余」（行尾空白 / 3+ 连续空行 / 整段 JSON 缩进），
+ * 不删任何字符级事实；幂等、单调、保序。
+ * @param text 待收缩的单条文本。
+ * @returns 收缩后的文本。
+ */
+export function shrinkLossless(text: string): string {
+  return compressor.shrinkLossless(text);
 }
 
 /**

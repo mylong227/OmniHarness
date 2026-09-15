@@ -97,6 +97,7 @@
     "eval:live": "node evals/live/bench.mjs",
     "eval:ci": "npm run build && node --test dist/tests/unit/passK.test.js dist/tests/unit/passKCI.test.js && node benchmark/capability_swebench.mjs && node evals/live/bench.mjs --swebench --repeat 5 --min-pass-k 3,0.9 --min-pass-k-ci 3,0.9",
     "eval:veto": "npm run build && node evals/rank-veto-retro.mjs --gate",
+    "eval:compaction": "npm run build && node evals/compaction-wiring.mjs",
     "longrun:backfill": "npm run build && node benchmark/longrun_backfill.mjs",
     "longrun:run": "npm run build && node benchmark/longrun_run.mjs",
     "longrun:tighten": "npm run build && node benchmark/tighten.mjs",

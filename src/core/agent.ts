@@ -395,6 +395,8 @@ export class Agent implements AgentPort {
     const compactor = new ContextCompactor(this.runtime.model, {
       maxTokens: this.runtime.config.compactionMaxTokens ?? DEFAULT_MAX_TOKENS,
       keepRecent: this.runtime.config.compactionKeepRecent ?? DEFAULT_KEEP_RECENT,
+      // P2（打磨）：确定性无损收缩显式透传（配置缺省即 true），杜绝「声明未接线」死旋钮。
+      deterministicShrink: this.runtime.config.compactionDeterministicShrink ?? true,
       // V2：真实窗口 token 数（env OMNI_CONTEXT_WINDOW）提供时，阈值 = floor(0.8×window)，
       // 对齐 codex/dsh 的「按窗口百分比触发压缩」策略；未提供时维持固定阈值行为。
       ...(Number.isFinite(envWindow) && envWindow > 0 ? { contextWindowTokens: envWindow } : {}),
