@@ -32,7 +32,9 @@
 **P1 零依赖词法 reranker**（`FileRerankIndex` + `FileReranker` + `ContentStopWords`；判定档 fileK=14 召回 31.4%→41.0% /
 CI[1.80,18.60]pp 两关全过，但生产默认 fileK=10 档 CI 跨 0 ⇒ **默认 opt-in 关**，见 §4-P1）；
 **P4 工具输出来源信任级**（`ToolOutputTrust` 分级敏感 + 强/弱/启发式三层规则；tool-output 召回 0/6 → **6/8=75%**、
-FP 16.7% → **8.3%**，见 §4-P4）。
+FP 16.7% → **8.3%**，见 §4-P4）；
+**P3 主循环自验证回环**（`SelfVerifyingToolPort` 装饰器：写源码后按确定性触发器自动跑受限测试 + 假完成探测，
+失败摘要回灌；真实 e2e 验收，见 §4-P3）。
 
 ---
 
@@ -89,7 +91,7 @@ FP 16.7% → **8.3%**，见 §4-P4）。
 > **批次划分（2026-09-16 定稿，逐批交付、每批独立验收）**：
 > **第一批 · token 效率** = **P2 确定性无损收缩接线（第一批已落地）** + P5（软预算 + per-tool 归因）；
 > **第二批 · 检索命中** = **P1 零依赖词法 reranker（第二批已落地，默认 opt-in 关）**；
-> **第三批 · 准确率** = P3 主循环自验证回环 + **P4 护栏工具输出来源信任级（第三批已落地）**；
+> **第三批 · 准确率** = **P3 主循环自验证回环（第三批已落地）** + **P4 护栏工具输出来源信任级（第三批已落地）**；
 > **第四批 · 外部解锁** = P6 官方 SWE-bench Verified / Terminal-Bench 出数（待凭证）。
 > P7（并发）已于上一批单独交付。
 
@@ -152,7 +154,7 @@ FP 16.7% → **8.3%**，见 §4-P4）。
     **不是普适压缩率**——报告 `evals/compaction-wiring.report.json`。
 - **风险**：低（无损 + 幂等 + 可关；默认开故生产行为变更，已用全量单测 1419 例验证无回归）。
 
-### P3 主循环自验证回环 — 准确率↑（最高杠杆）
+### P3 主循环自验证回环 — 准确率↑（最高杠杆）【第三批已落地】
 
 - **缺口**：主循环**不自跑测试 / 不自查**，无 FAIL_TO_PASS 回环；`SelfChecklist`/`goalChecker` 有件未装。
 - **方案**：回合收尾时以**确定性触发器**（改了源码 + 仓库有 `npm test` 症状）自动跑**受限测试命令**，
@@ -160,6 +162,22 @@ FP 16.7% → **8.3%**，见 §4-P4）。
   纪律：**不进主门禁**、可关、有超时与预算上限。
 - **验收**：`tests/integration` 端到端（改坏代码 → 回环捕获 → 修好 → 通过）；对 SWE-bench 自研 10 题 live 分数做前后对照。
 - **风险**：中高（碰主循环 → 用**装饰器/钩子**，不塞进 `StepRunner` 内部 new）。**工作量**：1–2d。
+- **【第三批已落地（2026-09-16，`322c75d`）】**
+  - **落地形态 = `ToolPort` 装饰器**（`src/adapters/tool/verify/selfVerifyingToolPort.ts`），全程适配器层，
+    `stepRunner`/`turnRunner`/热区**零改动**；`execute` 透明转发，写类工具成功**且**「命确定性触发器」后追加
+    「假完成探测 → 跑受限测试 → 失败/超时回灌摘要」；**fail-open**（命令抛错只附提示、绝不改变内层 `ok`）。
+  - **五件套职责缝**：`testCommandRunner`（端口）/ `shellTestCommandRunner`（复用既有 `ShellProcessRunner`，
+    零进程管理重复）/ `testFailureDigest`（`node --test`/`jest`/`pytest`/`cargo` 四类失败行抽取，剥 ANSI、限行、限 300 字符）/
+    `selfVerifyPolicy`（值对象：**仓库确有 `scripts.test` 才返回策略**，无测试脚本不包装；限定源码扩展名）/ `selfVerifyingToolPort`。
+  - **确定性触发器**：`MUTATING_TOOLS ∩ isVerifiableTarget(path)` 双命中；谓词由 **config 层注入**
+    （`configToolRegistry.withSelfVerify`）以规避 `core↔adapters` 双向禁线；假完成探测复用 `SelfChecklist.noPlaceholders`。
+  - **预算**：超时 120s / 冷却 60s / 每会话 3 次 / 摘要 15 行；配置链 `config.selfVerify`（`ConfigFactory.resolveSelfVerify`）
+    - CLI `--self-verify`（已登记）。
+  - **验收（e2e）**：`tests/integration/selfVerifyLoop.test.ts`（真写盘 + 真 `npm test`）——①改坏源码 → 捕获并回灌失败摘要；
+    ②修好 → 静默；③仓库无 `scripts.test` → 不包装。单测 23 例（策略 8 / 摘要 7 / 装饰器 10）全绿。
+  - **诚实边界（SWE-bench live 前后对照不适用）**：自研 10 题夹具为 `bug.js`+`test.js`、**无 `package.json`**，
+    确定性触发器**结构上不会命中**；env 亦缺 `DEEPSEEK_API_KEY` ⇒ 不以伪造数字充数，仅以上述 e2e 作验收（详见看板 §5）。
+  - **风险**：低（装饰器 + 可关 + fail-open + 默认不启用）。**交付**：`322c75d`。
 
 ### P4 工具输出来源信任级（护栏关键面）— 准确率·安全↑【第三批已落地】
 
