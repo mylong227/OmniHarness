@@ -37,7 +37,12 @@ describe('shellProcessRunner spawn 执行语义', () => {
   });
 
   it('超时被显式标记（timedOut）并终止进程', async () => {
-    const command = process.platform === 'win32' ? 'timeout /t 5' : 'sleep 5';
+    // 慢命令须与 stdin 无关：本 runner 固定 `stdio: ['ignore', ...]`（stdin → NUL），
+    // 而 Windows 自带 `timeout.exe` 一旦检测到 stdin 非控制台即报
+    // 「不支持输入重定向」并**立即退出**（实测 exit 1 / ~60ms），
+    // 会让本用例假红（timedOut 恒 false）。改用 `ping -n 6 127.0.0.1`
+    // （不读 stdin、约 5s，且 System32 恒在 PATH）。
+    const command = process.platform === 'win32' ? 'ping -n 6 127.0.0.1' : 'sleep 5';
     const outcome = await runner.run(command, options({ timeoutMs: 120 }));
     assert.strictEqual(outcome.timedOut, true);
   });
