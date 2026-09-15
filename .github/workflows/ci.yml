@@ -22,7 +22,9 @@ jobs:
       - run: npm run check
       - run: npm run typecheck
       - run: npm run build
-      # 工程化门禁：ESLint 仅 error 阻断（未用变量为 warn），CI 不红。
+      # 工程化门禁：ESLint 零告警（--max-warnings=0）。
+      # 2026-09-16 收紧：静态告警曾编码两处真实断链（附件漏传、query 死参数），
+      # 故告警预算归零——任何新增 warn 一律阻断，防止告警池再次沦为噪声。
       - run: npm run lint
       # 公开 API 稳定性契约：每项 export 必须落在带 @public/@beta/@deprecated 标注的分区内。
       - run: npm run api:check

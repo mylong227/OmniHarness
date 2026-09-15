@@ -67,7 +67,7 @@
     "audit:metrics": "node scripts/auditStandards.mjs --p02",
     "audit:config-wiring": "node scripts/auditConfigWiring.mjs",
     "arch:gate": "node scripts/architectureGate.mjs",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
