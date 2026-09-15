@@ -163,6 +163,11 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     ② 本批实质增量：**新增 `.gitattributes`（`* text=auto eol=lf`）**——检出恒为 LF、跨平台稳定，**根因消除**（实测 `git restore` 后文件即为 LF，此前为 CRLF）；**`.prettierignore` 增列 `resources/`**——那是**上游 vendored 的 ComfyUI 文档语料**（3461 个已跟踪文件，非本项目源码），实测格式化会重排 1292 个上游文档 ~82k 行、**破坏与上游的对齐比对能力且对项目零价值**，与既有 `dist/`、`node_modules/`、`native/**` 属同类（`.prettierignore` 开篇即写「不应被 Prettier 改写，否则污染 diff 且无意义」）；46 处真实欠账 `prettier --write` 修净。
     **口径说明（D7）**：排除 `resources/` **不是**放松项目格式标准——看板自身证据（「余 66 处在 tests/docs」）本就只统计**项目自有文件**、从未把 vendored 语料计入（否则数字应是 2822 而非 66）；此改动是把**机器检查对齐到看板既有意图**。项目自有文件（含 46 处欠账）**全部** `prettier --check` 通过，验收仍为「全库 `--check` 0」。
     ③ 提交口径：`.gitattributes` / `.prettierignore` / 46 处格式修复同属一条链路（先定 EOL 与范围，再修内容），机械切分会使中间态再次全量误报 → 合成**一笔代码**（`456db8a`，49 文件 +2043/−1016）＋一笔看板（本节）。
+13. **打磨批次·检索第一杠杆受控排除（2026-09-15，本轮）**：
+    ① 用户要求「打磨项目：提高准确率 / 降低 token / 提高命中准率 / 提高项目质量 / 齐平并超越」。先做 2026 行业调研 + 本仓库四维只读机械盘点，产出 `docs/POLISH_PLAN.md`（P1 reranker / P2 确定性压缩接线 / P3 主循环自验证回环 / P4 护栏来源信任级 / P5 软预算 + per-tool token 归因 / P6 官方基准出数），每条含缺口证据、行业参照、验收口径与风险。
+    ② 本轮落地并**受控排除**研究公认的「检索第一杠杆」——BM25 `k1`/`b` 调参：`Bm25Index.search` 增**打分期覆盖**（索引 df/文档长度与 k1/b 无关 ⇒ 同一语料可零成本重打分）；`contextEngine` 的 `IndexOptions`/`query` 增 `bm25K1`/`bm25B`（缺省仍 1.5/0.75，**生产行为不变**）；新增 `evals/bm25-tune.mjs`（6×5 网格 + bootstrap 95% CI + repeated 2-fold 留出折；锚点失效（`OpenAiModelConfig` GT=0）按纪律**跳过并记账**，不崩溃不静默吞）。
+    ③ **实测结论（诚实负结果）**：有效 32 查询，生产默认 32.8% → 网格最优 `k1=3,b=0.25` 36.1%（+3.3pp），但 **bootstrap 95% CI [−0.24, 8.20]pp 跨 0**、**留出折（repeated 2-fold×20）均值仅 +0.39pp**、分布 **↑3/↓1/=28** ⇒ **默认 1.5/0.75 已近最优，调参无稳健增益，不翻默认**。此为「检索第一杠杆」的受控排除，检索侧下一步应转向 **P1 reranker**（报告 `evals/bm25-tune.report.json`）。
+    ④ 提交口径：能力（BM25 旋钮 + 调参脚本 + 报告）与计划文档同属一条链路 → 一笔代码（`src/search`、`src/context/contextEngine.ts`、`evals/bm25-tune.mjs`、报告）＋一笔看板（本节）。
 
 ---
 
