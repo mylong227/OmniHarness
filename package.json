@@ -93,6 +93,7 @@
     "eval:capability": "npm run build && node benchmark/capability_swebench.mjs",
     "eval:passk": "node --test dist/tests/unit/passK.test.js dist/tests/unit/passKCI.test.js",
     "eval:swebench": "node benchmark/capability_swebench.mjs",
+    "eval:swebench:verified": "node benchmark/capability_swebench.mjs --verified",
     "eval:live": "node evals/live/bench.mjs",
     "eval:ci": "npm run build && node --test dist/tests/unit/passK.test.js dist/tests/unit/passKCI.test.js && node benchmark/capability_swebench.mjs && node evals/live/bench.mjs --swebench --repeat 5 --min-pass-k 3,0.9 --min-pass-k-ci 3,0.9",
     "eval:veto": "npm run build && node evals/rank-veto-retro.mjs --gate",

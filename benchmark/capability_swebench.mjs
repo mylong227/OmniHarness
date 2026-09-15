@@ -20,7 +20,7 @@
 //
 // 输出：benchmark/capability-swebench.json（基建 + 对照 + 可选 live）+ 控制台报告。
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -36,6 +36,75 @@ const OUT = join(__dirname, 'capability-swebench.json');
 const ENHANCED_TASKS = buildEnhancedTasks(SWEBENCH_LITE_TASKS);
 
 const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务完成（swebench）');
+
+// ---------- 官方 SWE-bench Verified 子集（B1 官方跑分真实接线）----------
+// 用法（执行须在你侧具备 docker/Modal + 官方数据集的环境）：
+//   node benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> \
+//     --tasks-json <swe_bench_tasks.json> [--predictions <preds.jsonl>] [--backend modal|docker]
+// 模型补丁（predictions）由我们的 live agent 在具备 repo 缓存的环境生成；本命令负责"打分"一环。
+const verifiedIdx = process.argv.indexOf('--verified');
+if (verifiedIdx !== -1) {
+  const verifiedPath = process.argv[verifiedIdx + 1];
+  const backend = process.argv.includes('--backend')
+    ? process.argv[process.argv.indexOf('--backend') + 1]
+    : 'modal';
+  const tasksJsonIdx = process.argv.indexOf('--tasks-json');
+  const tasksJsonPath = tasksJsonIdx !== -1 ? process.argv[tasksJsonIdx + 1] : undefined;
+  const predsIdx = process.argv.indexOf('--predictions');
+  const predsPath = predsIdx !== -1 ? process.argv[predsIdx + 1] : undefined;
+
+  const { SwebenchVerified, LocalDockerExecutor, ModalExecutor } =
+    await import('../dist/src/eval/swebenchVerified.js');
+  const modelName = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  const modelApiBase = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+  const modelApiKey = process.env.DEEPSEEK_API_KEY || '';
+  const executor =
+    backend === 'docker'
+      ? new LocalDockerExecutor({
+          modelName,
+          modelApiBase,
+          modelApiKey,
+          tasksJsonPath: tasksJsonPath ?? '',
+        })
+      : new ModalExecutor({
+          modelName,
+          modelApiBase,
+          modelApiKey,
+          tasksJsonPath: tasksJsonPath ?? '',
+        });
+
+  console.log(
+    `[capability:swebench:verified] backend=${backend} dataset=${verifiedPath} executor=${executor.describe()}`,
+  );
+  const tasks = SwebenchVerified.loadVerified(verifiedPath);
+  console.log(`[capability:swebench:verified] 加载 ${tasks.length} 个官方 Verified 实例`);
+
+  if (predsPath === undefined) {
+    console.error(
+      '[capability:swebench:verified] ❌ 缺 --predictions：官方 Verified 需先由我们的 live agent 在具备 repo 缓存的环境生成模型补丁（predictions.jsonl）。' +
+        ' 详见 docs/SUSPENDED_BETTER_PATHS.md 的 turnkey 命令；本命令只负责"打分"一环（fail-closed）。',
+    );
+    process.exit(1);
+  }
+  const predictions = new Map();
+  for (const line of readFileSync(predsPath, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (t.length === 0) continue;
+    const obj = JSON.parse(t);
+    if (typeof obj.instance_id === 'string' && typeof obj.model_patch === 'string') {
+      predictions.set(obj.instance_id, obj.model_patch);
+    }
+  }
+  console.log(`[capability:swebench:verified] 载入 ${predictions.size} 条预测`);
+
+  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, executor);
+  const outPath = join(__dirname, 'capability-swebench-verified.json');
+  writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
+  console.log(SwebenchVerified.formatVerifiedReport(report));
+  console.log(`[capability:swebench:verified] 报告已写入: ${outPath}`);
+  // 真实结果：即便有未通过也是有效分数（非 fail-closed），以 0 退出；仅当后端设施缺失导致全 fail 时由 executor 原因体现。
+  process.exit(0);
+}
 
 const scripted = await runSweSuite('capability-scripted', ENHANCED_TASKS, null, 'scripted', {
   modelFor: scriptedModelFor,
