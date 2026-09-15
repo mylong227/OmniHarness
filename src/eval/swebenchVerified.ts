@@ -17,6 +17,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { ParallelMap } from '../util/parallelMap.js';
 
 /** 官方 Verified 原始实例（仅取我们消费的字段）。 */
 export interface VerifiedInstance {
@@ -219,31 +220,41 @@ export class SwebenchVerified {
 
   /**
    * 跑整套官方 Verified：逐实例取预测补丁 → 执行器判定 → 聚合。
+   *
+   * 并发：默认 `concurrency = 1`（严格串行，与旧行为一致）；N>1 时走 {@link ParallelMap}
+   * 有界均衡并行——官方 500 题逐个 docker/Modal 实例**相互独立**，串行是主要墙钟瓶颈，
+   * 并发后墙钟趋近 `总工作量 / N`。结果**严格同序**（与 tasks 下标一一对应）。
+   * 注：并发度须与后端承载能力匹配（本地 docker 受内存/端口限制；Modal 云执行可更大）。
+   *
    * @param tasks 归一化任务列表。
    * @param predictions 实例 id → 模型补丁 映射（由调用方注入，如我们的 live agent 产出）。
    * @param executor 执行器（docker / modal）。
+   * @param concurrency 并发上限（默认 1=串行）。
    * @returns 汇总报告。
    */
   public static async runVerifiedSuite(
     tasks: readonly VerifiedTask[],
     predictions: ReadonlyMap<string, string>,
     executor: ExecutorPort,
+    concurrency = 1,
   ): Promise<VerifiedReport> {
-    const results: VerifiedResult[] = [];
     const t0 = Date.now();
-    for (const task of tasks) {
-      const patch = predictions.get(task.id);
-      if (patch === undefined) {
-        results.push({
-          id: task.id,
-          resolved: false,
-          backend: executor.kind,
-          reason: '未提供模型预测（predictions 缺该 instance_id）',
-        });
-        continue;
-      }
-      results.push(await executor.run(task.id, patch));
-    }
+    const runner = new ParallelMap(concurrency);
+    const results: readonly VerifiedResult[] = await runner.map(
+      tasks,
+      async (task): Promise<VerifiedResult> => {
+        const patch = predictions.get(task.id);
+        if (patch === undefined) {
+          return {
+            id: task.id,
+            resolved: false,
+            backend: executor.kind,
+            reason: '未提供模型预测（predictions 缺该 instance_id）',
+          };
+        }
+        return executor.run(task.id, patch);
+      },
+    );
     const resolved = results.filter((r) => r.resolved).length;
     return {
       source: 'official-swebench-verified',

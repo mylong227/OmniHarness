@@ -48,6 +48,7 @@ export { SubagentEventBridge } from './subagent/subagentEventBridge.js';
 export { ToolSubset } from './subagent/toolSubset.js';
 export { SubagentTool } from './adapters/tool/workflow/subagentTool.js';
 export { ConcurrencyLimiter } from './util/concurrencyLimiter.js';
+export { ParallelMap } from './util/parallelMap.js';
 export type { SubagentPorts } from './subagent/subagentPorts.js';
 export { portsOf } from './subagent/subagentPorts.js';
 export type { SubagentOptions, SubagentRequest, SubagentResult } from './subagent/subagentTypes.js';

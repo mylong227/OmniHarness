@@ -1,3 +1,4 @@
+import { ParallelMap } from '../util/parallelMap.js';
 import type { WorkerRegistry } from './workerRegistry.js';
 import type { WorkerResult } from './worker.js';
 
@@ -32,18 +33,21 @@ export class WorkerOrchestrator {
 
   /**
    * 批量分发（一次任务内调度多个 worker）。
-   * @param tasks 委派任务清单（按清单顺序逐个执行，不并行）
+   *
+   * 并发：默认 `concurrency = 1`（严格串行，保持原「逐个执行」语义）；N>1 时走
+   * {@link ParallelMap} 有界均衡并行——各 worker 是**独立子进程**，彼此无共享可变状态，
+   * 故并行安全；结果仍与 `tasks` **严格同序**。
+   *
+   * @param tasks 委派任务清单
    * @param workspaceRoot 子进程工作目录（全部任务共用）
+   * @param concurrency 并发上限（默认 1=串行）
    * @returns 与任务清单顺序一一对应的结果数组
    */
   public async delegateAll(
     tasks: readonly DelegateTask[],
     workspaceRoot: string,
+    concurrency = 1,
   ): Promise<readonly WorkerResult[]> {
-    const results: WorkerResult[] = [];
-    for (const task of tasks) {
-      results.push(await this.delegate(task, workspaceRoot));
-    }
-    return results;
+    return new ParallelMap(concurrency).map(tasks, (task) => this.delegate(task, workspaceRoot));
   }
 }

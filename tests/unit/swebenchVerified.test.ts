@@ -9,6 +9,9 @@ import {
   LocalDockerExecutor,
   ModalExecutor,
   type ExecutorOptions,
+  type ExecutorPort,
+  type VerifiedResult,
+  type VerifiedTask,
 } from '../../src/eval/swebenchVerified.js';
 import { at } from '../../src/util/arrayAt.js';
 
@@ -118,4 +121,68 @@ test('ModalExecutor：沙箱无 modal CLI → fail-closed 返回未通过并写�
   const r = await exec.run('django__django-1', '--- a\n+++ b\n');
   assert.equal(r.resolved, false);
   assert.match(r.reason ?? '', /modal/);
+});
+
+test('runVerifiedSuite：默认串行（并发 1）峰值在飞 == 1', async () => {
+  const tasks: VerifiedTask[] = [1, 2, 3].map((n) => ({
+    id: `t-${n}`,
+    repo: 'r/r',
+    baseCommit: 'c',
+    problemStatement: 'p',
+    goldPatch: '',
+    testPatch: '',
+    failToPass: [],
+    passToPass: [],
+  }));
+  let inFlight = 0;
+  let peak = 0;
+  const exec: ExecutorPort = {
+    kind: 'modal',
+    async run(id: string): Promise<VerifiedResult> {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      inFlight -= 1;
+      return { id, resolved: true, backend: 'modal' };
+    },
+  };
+  const predictions = new Map<string, string>([1, 2, 3].map((n) => [`t-${n}`, `patch-${n}`]));
+  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, exec);
+  assert.equal(report.total, 3);
+  assert.equal(report.resolved, 3);
+  assert.equal(peak, 1); // 串行：任意时刻至多 1 个在飞
+});
+
+test('runVerifiedSuite：并发 3 时保序且有界（突破 500 题串行瓶颈）', async () => {
+  const tasks: VerifiedTask[] = [1, 2, 3, 4, 5].map((n) => ({
+    id: `t-${n}`,
+    repo: 'r/r',
+    baseCommit: 'c',
+    problemStatement: 'p',
+    goldPatch: '',
+    testPatch: '',
+    failToPass: [],
+    passToPass: [],
+  }));
+  const predictions = new Map<string, string>([1, 2, 3, 4, 5].map((n) => [`t-${n}`, `patch-${n}`]));
+  let inFlight = 0;
+  let peak = 0;
+  const exec: ExecutorPort = {
+    kind: 'modal',
+    async run(id: string): Promise<VerifiedResult> {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      inFlight -= 1;
+      return { id, resolved: true, backend: 'modal' };
+    },
+  };
+  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, exec, 3);
+  assert.equal(report.resolved, 5);
+  assert.equal(report.total, 5);
+  assert.equal(peak, 3); // 有界：不超过并发上限
+  assert.deepEqual(
+    report.results.map((r) => r.id),
+    ['t-1', 't-2', 't-3', 't-4', 't-5'], // 严格同序
+  );
 });

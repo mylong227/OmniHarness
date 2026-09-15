@@ -6,6 +6,7 @@
  */
 import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { ParallelMap } from '../../util/parallelMap.js';
 import type {
   BenchmarkBudget,
   ContainerBackend,
@@ -28,6 +29,11 @@ export interface SuiteConfig {
   readonly budget: BenchmarkBudget;
   /** 报告写出路径。 */
   readonly reportPath: string;
+  /**
+   * 并发上限（默认 1=严格串行）。任务目录相互独立，N>1 时走有界均衡并行以突破串行墙钟；
+   * 结果**严格同序**（与任务目录顺序一致）。须与后端承载匹配（本地容器内存/端口）。
+   */
+  readonly concurrency?: number;
 }
 
 /** Terminal-Bench 套件运行器（纯静态编排）。 */
@@ -42,13 +48,11 @@ export class TerminalBenchRunner {
    */
   public static async run(config: SuiteConfig): Promise<SuiteReport> {
     const taskDirs = TerminalBenchRunner.listTasks(config.tasksRoot);
-    const results: TaskResult[] = [];
-    for (const dir of taskDirs) {
+    const runner = new ParallelMap(config.concurrency ?? 1);
+    const results: readonly TaskResult[] = await runner.map(taskDirs, (dir) => {
       const task = TaskParser.parse(dir);
-      results.push(
-        await TerminalBenchRunner.runOne(task, config.backend, config.solver, config.budget),
-      );
-    }
+      return TerminalBenchRunner.runOne(task, config.backend, config.solver, config.budget);
+    });
     const passed = results.filter((r) => r.passed).length;
     const report: SuiteReport = {
       solver: config.solver.name,
