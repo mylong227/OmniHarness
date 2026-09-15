@@ -177,6 +177,14 @@ export interface IndexOptions {
    * 基准脚本仍可用 light:false 跑全量对照（含 graph/LSA/频谱）。
    */
   readonly light?: boolean;
+  /**
+   * BM25 打分参数 `k1`（词频饱和）覆盖；缺省用 `Bm25Index` 默认 1.5。
+   * 索引（df / 文档长度）与 k1/b 无关，故此值仅决定两索引的构造期默认；
+   * 逐次调参扫描可直接用 `query` 的 search 期覆盖，无需重建语料。
+   */
+  readonly bm25K1?: number;
+  /** BM25 打分参数 `b`（长度归一化）覆盖；缺省用 `Bm25Index` 默认 0.75。 */
+  readonly bm25B?: number;
 }
 
 /** 索引某个目录下的源码，构建符号级与文件级双 BM25 索引。 */
@@ -212,9 +220,14 @@ export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpu
     }
   }
 
-  const symbolIndex = new Bm25Index();
+  // exactOptionalPropertyTypes：仅装配显式提供的参数，缺省交由 Bm25Index 自身默认（1.5 / 0.75）。
+  const bm25Init = {
+    ...(opts.bm25K1 !== undefined ? { k1: opts.bm25K1 } : {}),
+    ...(opts.bm25B !== undefined ? { b: opts.bm25B } : {}),
+  };
+  const symbolIndex = new Bm25Index(bm25Init);
   symbolIndex.addDocuments(symbolDocs);
-  const fileIndex = new Bm25Index();
+  const fileIndex = new Bm25Index(bm25Init);
   fileIndex.addDocuments(fileDocs);
 
   // 燧-3 频域索引：每个符号的名/类/签名映射到本征频谱，用于共振召回（与 BM25 时域/词袋互补）。
@@ -275,6 +288,10 @@ export function query(
     layered?: boolean;
     fileK?: number;
     symK?: number;
+    /** BM25 `k1` 的打分期覆盖（调参扫描用）；缺省用索引构造期取值。 */
+    bm25K1?: number;
+    /** BM25 `b` 的打分期覆盖（调参扫描用）；缺省用索引构造期取值。 */
+    bm25B?: number;
   } = {},
 ): QueryResult {
   // 图检索默认关闭：实测在本语料上净负面。
@@ -292,8 +309,13 @@ export function query(
   const qk = corpus.morph ? tokenizeExpanded(q) : tokenize(q);
   const FILE_K = opts.fileK ?? 14;
   const SYM_K = opts.symK ?? 30;
-  let bm25SymHits = [...corpus.symbolIndex.search(qk, 60)];
-  let fileHits = [...corpus.fileIndex.search(qk, 20)];
+  // 打分期 BM25 参数覆盖（调参扫描）：索引与 k1/b 无关，故同一语料可零成本重打分。
+  const bm25Args = {
+    ...(opts.bm25K1 !== undefined ? { k1: opts.bm25K1 } : {}),
+    ...(opts.bm25B !== undefined ? { b: opts.bm25B } : {}),
+  };
+  let bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
+  let fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
 
   // 伪相关反馈（PRF）：用第一轮 Top-3 文件的代码 token 高频词扩展查询，
   // 再搜一次并与原结果并集。这是经典 IR 技术，零依赖、可测，用于突破纯词法召回天花板。
@@ -317,8 +339,8 @@ export function query(
       .map((e) => e[0]);
     if (extra.length > 0) {
       const eqk = tokenize(`${q} ${extra.join(' ')}`);
-      const s2 = corpus.symbolIndex.search(eqk, 60);
-      const f2 = corpus.fileIndex.search(eqk, 20);
+      const s2 = corpus.symbolIndex.search(eqk, 60, bm25Args);
+      const f2 = corpus.fileIndex.search(eqk, 20, bm25Args);
       for (const h of s2) if (!bm25SymHits.some((x) => x.id === h.id)) bm25SymHits.push(h);
       for (const h of f2) if (!fileHits.some((x) => x.id === h.id)) fileHits.push(h);
     }
