@@ -36,6 +36,12 @@ for (const [cat, s] of Object.entries(report.byCategory)) {
     `  ${cat}: total=${s.total} detected=${s.detected} fp=${s.fp} recall=${pct(s.recall)} fpRate=${pct(s.fpRate)}`,
   );
 }
+lines.push('--- 按来源（P4） ---');
+for (const [src, s] of Object.entries(report.bySource)) {
+  lines.push(
+    `  ${src}（${s.label}）: total=${s.total} mal=${s.malicious} detected=${s.detected} fp=${s.fp} recall=${pct(s.recall)} fpRate=${pct(s.fpRate)}`,
+  );
+}
 lines.push(`报告已写出: ${reportPath}`);
 process.stdout.write(lines.join('\n') + '\n');
 

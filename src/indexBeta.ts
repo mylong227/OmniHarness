@@ -128,7 +128,14 @@ export { PolicyEvalTool, POLICY_EVAL_TOOL_NAME } from './adapters/tool/meta/poli
 
 // @beta 安全护栏：提示注入拦截（opt-in，默认关；确定性正则扫描工具结果，命中即隔离）
 export { scanForInjection, guardToolResult } from './security/promptInjectionGuard.js';
-export type { InjectionHit, InjectionScan } from './security/promptInjectionGuard.js';
+export type {
+  InjectionHit,
+  InjectionScan,
+  InjectionSeverity,
+} from './security/promptInjectionGuard.js';
+// @beta 工具输出来源信任级（P4：按内容来源分级敏感——外部抓取严、本机命令宽，降误报）
+export { ToolOutputTrust } from './security/toolOutputTrust.js';
+export type { TrustTier } from './security/toolOutputTrust.js';
 
 // @beta 零依赖 TUI 终端 UI（#S35：对标 codex-rs/tui 的「会话事件流渲染 + 交互」概念）
 export {
