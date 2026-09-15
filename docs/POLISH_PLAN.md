@@ -21,6 +21,7 @@
 | **P4** | 护栏**工具输出来源信任级**                        | 准确率·安全↑   | 中高 | 实测 `tool-output` 召回 **0/6**、`natural-language` 0/4（主威胁面无召回）            |
 | **P5** | 软预算 + **per-tool token 归因**                  | token↓(可观测) | 中   | 审计：成本仅**硬熔断**，cache 命中不折抵，无归因                                     |
 | **P6** | 官方 **SWE-bench Verified / Terminal-Bench** 出数 | 齐平·超越      | 高   | B1 接线 code-ready，待 docker/Modal 凭证                                             |
+| **P7** | **有界均衡并行调度**（突破串行瓶颈）              | 吞吐·墙钟↓     | 中高 | 三处串行：官方 500 题逐个实例 / 整套 TaskBench / worker 批量委派（本轮已接线）       |
 
 **已完成的受控实验（本轮）**：`evals/bm25-tune.mjs`——把研究公认的「检索第一杠杆」（BM25 `k1`/`b` 调参）
 在本语料上跑**全网格 + bootstrap CI + repeated 2-fold 留出折**。结论：**无稳健增益，默认 1.5/0.75 已近最优，不翻默认**
@@ -127,6 +128,22 @@
 - **方案**：B1 接线已 code-ready（`src/eval/swebenchVerified.ts`，`--backend modal|docker`，fail-closed）；
   待你侧 **cloud 凭证** 或本机 docker → 一键出官方分。
 - **工作量**：外部条件解锁后 ~0.5d。
+
+### P7 有界均衡并行调度（突破串行瓶颈）— 吞吐·墙钟↓【本轮已落地】
+
+- **缺口（证据）**：三处**串行**编排——
+  ① `SwebenchVerified.runVerifiedSuite` 逐个 `await executor.run()`（官方 500 题串行 = 主要墙钟瓶颈）；
+  ② `TerminalBenchRunner.run` 逐个 `await runOne()`（整套串行）；
+  ③ `WorkerOrchestrator.delegateAll` 明确注释「按清单顺序逐个执行，**不并行**」。
+  既有并发原语只覆盖子代理（`SubagentOrchestrator`）与 Agent 工具（`ToolScheduler`，热区），**评测/编排层无并发**。
+- **方案**：新增 `src/util/parallelMap.ts`（`ParallelMap`）——**复用 `ConcurrencyLimiter`**（信号量），
+  提供有界并发 + **均衡调度**（槽位完成即移交等待者，先到先服务、无队头阻塞）+ **同序**结果；
+  `concurrency=1` **退化为严格串行**（与旧 for-await 逐字节等价，零行为变更）。
+  接线三处为**可选并发参数**（默认 1=串行，显式 N 才开启）；CLI `--concurrency N`。
+- **语义保证（配机械测试）**：同序、在飞峰值 ≤ 上界、并发墙钟显著低于串行、`1` 与朴素 for-await 等价。
+- **不做 CPU 并行**：Node 单线程，本类面向 **I/O 密集**独立任务（实例/子进程/网络）；
+  CPU 密集须 `worker_threads`（另议，不在本轮）。
+- **风险**：低（新增可选参数，默认不变）。**工作量**：0.5d。
 
 ---
 
