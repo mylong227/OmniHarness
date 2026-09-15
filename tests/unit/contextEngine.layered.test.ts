@@ -1,7 +1,7 @@
 /**
  * 层化图软融合组件级单测（E4 深化，D6 第 1 关不变量）。
  *
- * 验证 `query(corpus, q, k, { layered: true })` 三件事：
+ * 验证 `query(corpus, q, { layered: true })` 三件事：
  * 1. **保留文件 BM25 地板**：层化图作为「增强路」并入 fileScore 的 max，绝不静默丢弃
  *    整文件词法命中文件（这正是 layered-recall-ab.mjs 里 −9.1pp 的根因——此前是「替换」）。
  * 2. **确定性**：同输入两次结果完全一致（图缓存 + 无随机性）。
@@ -61,8 +61,8 @@ test('query 层化软融合：保留文件 BM25 地板（修复 −9.1pp 丢信�
   const { dir, corpus } = buildMiniCorpus();
   try {
     const q = 'fibonacci sequence';
-    const base = query(corpus, q, 14, { layered: false });
-    const fused = query(corpus, q, 14, { layered: true });
+    const base = query(corpus, q, { layered: false });
+    const fused = query(corpus, q, { layered: true });
     assert.ok(base.files.includes('fib.ts'), 'BM25 基线应命中 fib.ts');
     // 关键不变量：软融合绝不能把文件 BM25 命中的 fib.ts 静默丢掉。
     assert.ok(fused.files.includes('fib.ts'), '软融合必须保留文件 BM25 命中的 fib.ts');
@@ -75,8 +75,8 @@ test('query 层化软融合：确定性（同输入两次结果一致）', () =>
   const { dir, corpus } = buildMiniCorpus();
   try {
     const q = 'memoize cache';
-    const a = query(corpus, q, 14, { layered: true });
-    const b = query(corpus, q, 14, { layered: true });
+    const a = query(corpus, q, { layered: true });
+    const b = query(corpus, q, { layered: true });
     assert.deepStrictEqual(a.files, b.files, '两次调用结果应完全一致');
     assert.ok(a.files.includes('cache.ts'), '缓存相关查询应命中 cache.ts');
   } finally {
@@ -87,7 +87,7 @@ test('query 层化软融合：确定性（同输入两次结果一致）', () =>
 test('query 层化软融合：结构合法（文件数 ≤ 预算，符号为数组，token 为正）', () => {
   const { dir, corpus } = buildMiniCorpus();
   try {
-    const fused = query(corpus, 'fibonacci', 14, { layered: true });
+    const fused = query(corpus, 'fibonacci', { layered: true });
     assert.ok(Array.isArray(fused.files));
     assert.ok(fused.files.length <= 14, '文件数不超过预算');
     assert.ok(Array.isArray(fused.symbols));
@@ -101,7 +101,7 @@ test('query 层化软融合：开启不影响纯 BM25 文件集之外的基本�
   const { dir, corpus } = buildMiniCorpus();
   try {
     // 用「memoize fibonacci」这种跨文件查询，验证图能把 cache.ts↔fib.ts 关联带出。
-    const fused = query(corpus, 'memoize fibonacci', 14, { layered: true });
+    const fused = query(corpus, 'memoize fibonacci', { layered: true });
     assert.ok(fused.files.length > 0, '应至少呈现一个文件');
   } finally {
     rmSync(dir, { recursive: true, force: true });

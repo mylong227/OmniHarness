@@ -112,7 +112,7 @@ console.log(`[queries] 有效 ${N} / 共 ${QUERIES.length}`);
 
 /** 单条查询在给定 BM25 参数下的文件召回 ∈ [0,1]。 */
 function recallOne(i, k1, b) {
-  const res = query(corpus, Q[i], 20, { fileK: FILE_K, symK: SYM_K, bm25K1: k1, bm25B: b });
+  const res = query(corpus, Q[i], { fileK: FILE_K, symK: SYM_K, bm25K1: k1, bm25B: b });
   const surfaced = new Set(res.files);
   const gt = GT[i];
   if (gt.size === 0) return 0;

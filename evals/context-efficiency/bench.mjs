@@ -87,7 +87,7 @@ for (const { q, anchor } of QUERIES) {
   sumGrepTok14 += row.grep14;
 
   for (const cfg of CONFIGS) {
-    const res = query(cfg.corpus, q, 20, cfg.opts);
+    const res = query(cfg.corpus, q, cfg.opts);
     const files = new Set(res.files);
     const hit = [...gt].filter((f) => files.has(f)).length;
     const recall = gt.size > 0 ? hit / gt.size : 1;

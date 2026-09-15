@@ -69,7 +69,7 @@ function recallWith(spectraOn) {
       zeroGt++;
       continue;
     }
-    const res = query(c, q, 20, { graph: false, lsa: false, fileK: 14, symK: 24 });
+    const res = query(c, q, { graph: false, lsa: false, fileK: 14, symK: 24 });
     const surf = new Set(res.files);
     s += [...gt].filter((f) => surf.has(f)).length / gt.size;
   }

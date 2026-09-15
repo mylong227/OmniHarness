@@ -445,7 +445,7 @@ if (process.argv.includes('--heavy')) {
     let hit = 0;
     const rows = [];
     for (const p of pre) {
-      const res = query(full, p.q, 20, { ...v.opts, fileK: FILE_K, symK: 24 });
+      const res = query(full, p.q, { ...v.opts, fileK: FILE_K, symK: 24 });
       const surf = new Set(res.files);
       const rec = p.gt.size ? [...p.gt].filter((f) => surf.has(f)).length / p.gt.size : 0;
       hit += rec;

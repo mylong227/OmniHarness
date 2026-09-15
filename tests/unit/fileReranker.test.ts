@@ -68,8 +68,8 @@ test('提升：声明符号名覆盖查询词的文件被抬到最前（第一�
       fileK: 3,
       floor: 0,
     });
-    assert.equal(result.files[0], 'w.ts', '符号名覆盖者应排第一');
-    assert.equal(result.pinned, 0);
+    assert.strictEqual(result.files[0], 'w.ts', '符号名覆盖者应排第一');
+    assert.strictEqual(result.pinned, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -97,7 +97,7 @@ test('IDF 加权：覆盖稀有词者优先于覆盖常见词者', () => {
       fileK: 2,
       floor: 0,
     });
-    assert.equal(result.files[0], 'rare.ts', '覆盖稀有词者应胜出');
+    assert.strictEqual(result.files[0], 'rare.ts', '覆盖稀有词者应胜出');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -117,7 +117,7 @@ test('头部地板：显式 floor 把第一段前 N 个钉在原位', () => {
       fileK: 3,
       floor: 2,
     });
-    assert.equal(result.pinned, 2);
+    assert.strictEqual(result.pinned, 2);
     assert.deepEqual(
       [...result.files],
       ['big.ts', 'noise.ts', 'w.ts'],
@@ -138,20 +138,20 @@ test('缺省地板 = 0（不设地板），显式值夹取到 [0, fileK]', () =>
     const reranker = new FileReranker();
     const candidates = ['big.ts', 'noise.ts', 'w.ts'];
     // 缺省 0：实测本语料上地板近乎无操作，故不引入需额外解释的常量（见模块头「头部地板」节）。
-    assert.equal(
+    assert.strictEqual(
       reranker.rerank({ corpus, query: 'alpha widget', candidates, fileK: 14 }).pinned,
       0,
     );
-    assert.equal(
+    assert.strictEqual(
       reranker.rerank({ corpus, query: 'alpha widget', candidates, fileK: 3 }).pinned,
       0,
     );
     // 显式值夹取：负数 → 0，超过候选数 → 候选数。
-    assert.equal(
+    assert.strictEqual(
       reranker.rerank({ corpus, query: 'alpha widget', candidates, fileK: 3, floor: -2 }).pinned,
       0,
     );
-    assert.equal(
+    assert.strictEqual(
       reranker.rerank({ corpus, query: 'alpha widget', candidates, fileK: 3, floor: 9 }).pinned,
       3,
     );
@@ -215,16 +215,14 @@ test('集成：query 的 rerank 只重排不增删，且 rerankFloor 端到端�
   files['alpha.ts'] = 'export function alphaHelper(): void {\n  return;\n}';
   const { dir, corpus } = Fixture.build(files);
   try {
-    const pool = [...query(corpus, 'alpha widget', 20, { fileK: 999, rerank: false }).files];
+    const pool = [...query(corpus, 'alpha widget', { fileK: 999, rerank: false }).files];
     assert.ok(pool.length >= 2, `前置条件：池内应有多个候选，实际 ${pool.length}`);
-    const reranked = [
-      ...query(corpus, 'alpha widget', 20, { fileK: pool.length, rerank: true }).files,
-    ];
-    assert.equal(reranked.length, pool.length, '重排不得丢弃候选');
+    const reranked = [...query(corpus, 'alpha widget', { fileK: pool.length, rerank: true }).files];
+    assert.strictEqual(reranked.length, pool.length, '重排不得丢弃候选');
     assert.deepEqual([...reranked].sort(), [...pool].sort(), '重排不得新增候选');
     // 地板 = 池大小 ⇒ 全部钉住 ⇒ 与第一段次序逐字相同（证明 rerankFloor 真的传到了重排器）。
     const allPinned = [
-      ...query(corpus, 'alpha widget', 20, {
+      ...query(corpus, 'alpha widget', {
         fileK: pool.length,
         rerank: true,
         rerankFloor: pool.length,
@@ -233,8 +231,7 @@ test('集成：query 的 rerank 只重排不增删，且 rerankFloor 端到端�
     assert.deepEqual(allPinned, pool, 'rerankFloor=池大小 应逐字复现第一段次序');
     // 地板 = 0 ⇒ 重排自由发挥，但仍只是同一集合的置换。
     const free = [
-      ...query(corpus, 'alpha widget', 20, { fileK: pool.length, rerank: true, rerankFloor: 0 })
-        .files,
+      ...query(corpus, 'alpha widget', { fileK: pool.length, rerank: true, rerankFloor: 0 }).files,
     ];
     assert.deepEqual([...free].sort(), [...pool].sort());
   } finally {

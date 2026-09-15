@@ -132,7 +132,7 @@ const ceiling = { byK: {}, bestRankHistogram: {}, unreachable: [] };
 const poolSizes = [];
 const bestRanks = [];
 for (const it of items) {
-  const res = query(corpus, it.q, 20, { fileK: 400, symK: 24 });
+  const res = query(corpus, it.q, { fileK: 400, symK: 24 });
   poolSizes.push(res.files.length);
   const rankOf = new Map(res.files.map((f, i) => [f, i + 1]));
   let best = Number.POSITIVE_INFINITY;

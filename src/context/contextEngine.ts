@@ -229,11 +229,16 @@ export interface QueryResult {
  * `opts.rerank: true` 时在上述第一段之后追加**第二段零依赖词法精排**
  * （见 {@link FileReranker}）：按「符号名 IDF 加权覆盖率」重排候选池，取 Top-K。
  * 该阶段只重排已入池文件，不新增候选，故不引入常量偏置。
+ *
+ * **历史死参数已移除（2026-09-16）**：签名原为 `query(corpus, q, k = 20, opts)`，
+ * 但函数体**从不读取 `k`**——第一段候选数由下方固定候选上限（符号 60 / 文件 20）承担，
+ * 文件预算由 `opts.fileK` 决定。调用方（生产 `RepoMapContextEngine` 传
+ * `BM25_ONLY_CANDIDATES`=20、单测传 14/20）的取值一直被静默丢弃。因该参数无任何
+ * 实际效果，直接移除**不改变行为**；把「候选数」重新做成可配置旋钮需单独评测，不在此处顺手改。
  */
 export function query(
   corpus: IndexedCorpus,
   q: string,
-  k = 20,
   opts: {
     prf?: boolean;
     graph?: boolean;
@@ -282,8 +287,8 @@ export function query(
     ...(opts.bm25K1 !== undefined ? { k1: opts.bm25K1 } : {}),
     ...(opts.bm25B !== undefined ? { b: opts.bm25B } : {}),
   };
-  let bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
-  let fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
+  const bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
+  const fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
 
   // 伪相关反馈（PRF）：用第一轮 Top-3 文件的代码 token 高频词扩展查询，
   // 再搜一次并与原结果并集。这是经典 IR 技术，零依赖、可测，用于突破纯词法召回天花板。
