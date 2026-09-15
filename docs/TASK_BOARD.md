@@ -208,6 +208,18 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     - **诚实边界**：快照为手写 curated 代理，非 AgentDojo/InjecAgent 真基准（D4 禁联网入主门禁）；新用例针对 II 典型措辞设计 ⇒ 本度量为**上界近似**，非独立泛化证据。
       ⑥ 验收：新增单测 **15 例**（`toolOutputTrust` 8：映射 / 阈值 / 标签 / 未登记回落 / 大小写归一；`promptInjectionGuard` 7：强规则不受降敏、弱证据按来源阈值、默认等价旧行为、本机日志不误报、`severity` 与 `tier`、`guardToolResult` 透传）；六门禁全绿（`check --strict` 469 文件零违规）+ `api:check`；**全量单测 1434 / 1427 通过 / 0 失败 / 7 跳过**（无回归）。
       ⑦ 提交口径：能力一笔（`8b5ea35`，11 文件 +832/−193：2 新源 + 4 源改 + 2 单测 + 快照/脚本/报告）＋一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P4）。
+19. **打磨批次·第三批（准确率）·P3 主循环自验证回环（2026-09-16，本轮）**：
+    ① 批次划分见 `docs/POLISH_PLAN.md` §4；本轮交付**第三批的 P3**（同批 P4 见上条 `8b5ea35`）。
+    ② **缺口（四维盘点实证）**：主循环改完源码后「自认完成」即收尾——模型不跑测试、不读回失败，缺陷被推到人工复验才发现，是「准确率」维度最大结构性缺口；`SelfChecklist` 已能探「假完成」（占位符/TODO），但只在收尾自检时被调用、且**不跑任何真实证据（测试）**，属纯静态启发式。
+    ③ **实现（零新增运行时依赖，不碰主循环热区）**：以 **`ToolPort` 装饰器**落地（`src/adapters/tool/verify/selfVerifyingToolPort.ts`），全程适配器层，`stepRunner`/`turnRunner`/热区**零改动**；`execute` 透明转发，写类工具成功**且命确定性触发器**后追加「假完成探测 → 跑受限测试 → 失败/超时回灌摘要」；**fail-open**（命令不可执行/抛错只附提示、绝不改变内层 `ok`）。**五件套按职责缝拆**：`testCommandRunner`（端口：`TestRunOutcome`+`TestCommandRunner`）/ `shellTestCommandRunner`（复用既有 `ShellProcessRunner`，合并 stdout+stderr，**零进程管理重复实现**）/ `testFailureDigest`（`from(raw,maxLines)` 抽失败行，覆盖 `node --test`/`jest`/`pytest`/`cargo` 四类正则，剥 ANSI、限行、限 300 字符）/ `selfVerifyPolicy`（值对象：**仓库确有 `scripts.test` 才返回策略**，无测试脚本 = 不包装、不制造空转噪声；限定源码扩展名集合；预算常量集中于此）/ `selfVerifyingToolPort`。
+    ④ **确定性触发器 + 分层约束**：仅 `MUTATING_TOOLS ∩ isVerifiableTarget(path)` 双命中（纯读工具、评测/文档路径不触发）；触发器谓词由 **config 层注入**（`configToolRegistry.withSelfVerify` 传入 `shouldVerify`），装饰器本身**零 core 依赖**，规避 `core→adapters` 与 `adapters→core` 双向禁线；假完成探测复用 `SelfChecklist.noPlaceholders`（`config→eval` 允许）。
+    ⑤ **预算（防抖 + 防雪崩）**：超时 120s / 冷却 60s / 每会话 3 次 / 摘要 15 行。**配置链**：`config.selfVerify`（`SelfVerifyConfig` + `ConfigFactory.resolveSelfVerify`，由 `enabled` ∧ `workspaceRoot` 存在 ∧ `forWorkspace` 有策略三者共同决定）→ `defaultTools` 末尾按需包一层；CLI `--self-verify`（`argParser`/`cliFlagTable`/`cliBuildConfig` 三处接线）。
+    ⑥ **实测 / 验收**：
+    - **集成 e2e（`tests/integration/selfVerifyLoop.test.ts`，真写盘 + 真 `npm test`）**：①把被测源码改坏 → 装饰器**捕获失败并回灌摘要**；②修好 → **静默**；③仓库无 `scripts.test` → **不包装**。
+    - 单测 **23 例**（`selfVerifyPolicy` 8 / `testFailureDigest` 7 / `selfVerifyingToolPort` 10）全绿。
+    - **诚实边界（SWE-bench live 前后对照「结构不适用」）**：自研 10 题夹具为 `bug.js`+`test.js`、**无 `package.json`**、无 `scripts.test` ⇒ 确定性触发器**结构上不会命中**；env 亦缺 `DEEPSEEK_API_KEY` ⇒ **不以伪造数字充数**，仅以上述 e2e 作验收。官方 500 Verified 子集出数属 P6，待 docker/Modal 凭证。
+      ⑦ 验收门禁：六门禁全绿（`check --strict` 474 文件零违规 / `audit:standard:delta` **DELTA=0**）+ `api:check`；**全量单测 1452 / 0 失败 / 7 跳过**、集成测试 **9/9**（无回归）。
+      ⑧ 提交口径：能力一笔（`322c75d`，14 文件 +1130/−4：5 新源 `verify/` + 2 源改（config）+ 3 源改（cli）+ 4 单测 + 1 集成）＋一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P3）。
 
 ---
 
