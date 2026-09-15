@@ -73,6 +73,12 @@ export interface RepoMapContextOptions {
   readonly graphSignal?: boolean;
   /** P5 第四路在 RRF 中的权重（BM25 路恒为 1，语义路 semWeight）。默认 **1.0**；env OMNI_GRAPH_WEIGHT 覆盖。 */
   readonly graphWeight?: number;
+  /**
+   * E4 深化：层化图软融合（第三路，非替换 BM25）。把层化图扩散分并入 fileScore 的 max，
+   * 保留文件 BM25 地板。默认 **false（关）**；仅供评测开启，不作默认、不破生产口径
+   * （D6 第二关未达标前不翻默认）。经 `getRepoMapContext(root, q, { layered: true })` 传递。
+   */
+  readonly layered?: boolean;
 }
 
 /** 混合检索的只读旋钮集合（构造即快照，见类注释）。 */

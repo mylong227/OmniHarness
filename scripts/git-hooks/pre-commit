@@ -5,6 +5,12 @@
 # 这是「编码标准任何时候都生效」的机器兜底：任何提交只要新增标准违规即被中止。
 cd "$(git rev-parse --show-toplevel)"
 
+echo "[pre-commit] Node 引擎门禁（engines.node 下限，fail-closed）..."
+if ! node scripts/checkNodeEngine.mjs; then
+  echo "[pre-commit] ✗ Node 版本不满足 engines.node，提交中止。请切换/安装符合要求的 Node（见 .nvmrc）。" >&2
+  exit 1
+fi
+
 echo "[pre-commit] OmniHarness 门禁：铁律自检（--strict）..."
 if ! node scripts/check.mjs --strict; then
   echo "[pre-commit] ✗ check.mjs 铁律校验未通过，提交中止。" >&2
