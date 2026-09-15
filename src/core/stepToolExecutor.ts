@@ -3,6 +3,7 @@ import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
 import { ToolScheduler } from './loop/toolScheduler.js';
 import { isLikelySandboxDenied } from '../ports/runtime/sandboxDenial.js';
 import { guardToolResult } from '../security/promptInjectionGuard.js';
+import { ToolOutputTrust } from '../security/toolOutputTrust.js';
 import { log } from '../util/logger.js';
 import type { StepRunnerDeps } from './stepTypes.js';
 
@@ -180,15 +181,22 @@ export class StepToolExecutor {
    * （替换为隔离标记，保留「已被拦截」信号，不把疑似注入喂给模型）。失败开放：guardToolResult
    * 异常时回落原始结果，不阻断主流程。
    *
-   * @param toolName 工具名（命中告警用）。
+   * P4：按工具名推断**来源信任级**并以之判定——外部抓取（web_search）弱证据即拦，
+   * 本机命令输出（shell）需更强证据，以降低日志类误报。未登记工具回落 `unknown`（保守）。
+   *
+   * @param toolName 工具名（来源推断 + 命中告警用）。
    * @param result 原始（已可选外溢过的）工具结果。
    * @returns 隔离后的结果；护栏异常时回落原结果。
    */
   private guardInjection(toolName: string, result: ToolResult): ToolResult {
     try {
-      const guarded = guardToolResult(result);
+      const guarded = guardToolResult(result, ToolOutputTrust.fromToolName(toolName));
       if (guarded.blocked) {
-        log.warn('tool.injection', { tool: toolName, hits: guarded.hits.length });
+        log.warn('tool.injection', {
+          tool: toolName,
+          tier: guarded.tier,
+          hits: guarded.hits.length,
+        });
       }
       return guarded;
     } catch {
