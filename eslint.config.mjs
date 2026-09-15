@@ -63,8 +63,9 @@ export default tseslint.config(
       'no-control-regex': 'off',
       'no-useless-escape': 'off',
       'no-prototype-builtins': 'off',
-      // 回归护栏：新测试禁止松等比较 assert.equal（与 strictEqual 在 null/undefined/数值字符串
-      // 强制转换处行为不同）。存量 1533 处为 warn 不阻断；新增须用 assert.strictEqual。
+      // 回归护栏：禁止松等比较 assert.equal（与 strictEqual 在 null/undefined/数值字符串
+      // 强制转换处行为不同）。存量已在 2026-09-16 清零（原 104 处，含 7 个测试文件），
+      // 且 `npm run lint` 已收紧为 `--max-warnings=0`，故此处规则一触发即阻断提交。
       'no-restricted-syntax': [
         'warn',
         {

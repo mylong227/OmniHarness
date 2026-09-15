@@ -84,14 +84,14 @@ test('① 模型一直调工具：跑满 maxSteps 后兜底产出总结（不再
   const tr = new TurnRunner(sr, recorder, 3);
   const outcome = await tr.run({ sessionId: 's-obs9-1', workspaceRoot: '/tmp' });
 
-  assert.equal(outcome.steps, 3, '应跑满 3 步');
+  assert.strictEqual(outcome.steps, 3, '应跑满 3 步');
   assert.ok(
     outcome.finalText !== undefined && outcome.finalText.includes('兜底总结'),
     `兜底总结应产出文本，实际=${String(outcome.finalText)}`,
   );
   // 前 3 次带工具，第 4 次（兜底）必须无工具
-  assert.equal(toolCounts.length, 4, '应为 3 步 + 1 次兜底调用');
-  assert.equal(toolCounts[3], 0, '兜底调用必须传空工具集（否则模型会继续调工具）');
+  assert.strictEqual(toolCounts.length, 4, '应为 3 步 + 1 次兜底调用');
+  assert.strictEqual(toolCounts[3], 0, '兜底调用必须传空工具集（否则模型会继续调工具）');
   assert.ok(
     recorder.allEvents().some((e) => e.type === 'assistant'),
     '兜底文本应写入事件流，UI 才能显示',
@@ -113,9 +113,9 @@ test('② 模型正常收敛：不触发兜底，不额外多调一次模型', a
   const tr = new TurnRunner(sr, recorder, 8);
   const outcome = await tr.run({ sessionId: 's-obs9-2', workspaceRoot: '/tmp' });
 
-  assert.equal(outcome.steps, 2, '第 2 步产出文本即结束');
-  assert.equal(outcome.finalText, '正常完成。');
-  assert.equal(generateCalls(), 2, '正常收敛时不应多调一次模型');
+  assert.strictEqual(outcome.steps, 2, '第 2 步产出文本即结束');
+  assert.strictEqual(outcome.finalText, '正常完成。');
+  assert.strictEqual(generateCalls(), 2, '正常收敛时不应多调一次模型');
   assert.ok(
     toolCounts.every((c) => c > 0),
     '正常路径每次都应带工具集',
@@ -145,6 +145,10 @@ test('③ 兜底调用失败时 fail-closed：不抛错、不阻断主流程', a
   const tr = new TurnRunner(sr, recorder, 2);
   const outcome = await tr.run({ sessionId: 's-obs9-3', workspaceRoot: '/tmp' });
 
-  assert.equal(outcome.steps, 2, '步数照常统计');
-  assert.equal(outcome.finalText, undefined, '兜底失败时 finalText 保持 undefined，不臆造内容');
+  assert.strictEqual(outcome.steps, 2, '步数照常统计');
+  assert.strictEqual(
+    outcome.finalText,
+    undefined,
+    '兜底失败时 finalText 保持 undefined，不臆造内容',
+  );
 });

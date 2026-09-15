@@ -1,5 +1,3 @@
-import type { AuditSinkLike } from '../runtime/supervisor.js';
-
 /** 异常告警。 */
 export interface AnomalyAlert {
   /** 异常度（与自体分布的距离，越大越异常）。 */

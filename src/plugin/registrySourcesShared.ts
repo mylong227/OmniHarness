@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
-import { manifestMatches, type PluginDescriptor, type PluginManifest } from './manifest.js';
+import { type PluginDescriptor, type PluginManifest } from './manifest.js';
 
 /**
  * @beta

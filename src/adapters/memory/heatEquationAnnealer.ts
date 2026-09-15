@@ -171,7 +171,7 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
         }
       }
       // 扩散（热方程）+ 衰减遗忘（向地板 1 缓慢消退）。
-      let v = ii + this.coupling * T * coupled - this.decay * T * Math.max(0, ii - FLOOR);
+      const v = ii + this.coupling * T * coupled - this.decay * T * Math.max(0, ii - FLOOR);
       next[i] = HeatEquationAnnealer.clamp(v, FLOOR, CEIL);
     }
 

@@ -2,7 +2,7 @@
  * @maturity L0 — 用冗余/校验思想；非量子，宜称「轨迹级校验关系 + 显式冗余」
  * @maturityEvidence tests/unit/qec.test.ts
  */
-import type { LongTermMemoryPort, MemoryFact } from '../../ports/memory/longTermMemory.js';
+import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.js';
 import type { QECEncoderPort, QECStatus, QECReport } from '../../ports/intelligence/qec.js';
 import { at } from '../../util/arrayAt.js';
 

@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { manifestMatches, type PluginDescriptor, type PluginManifest } from './manifest.js';
+import { manifestMatches, type PluginDescriptor } from './manifest.js';
 import { type BundledPlugin } from './bundledRegistry.js';
 import type { RegistrySource } from './registrySourcesShared.js';
 

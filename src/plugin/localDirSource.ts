@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { manifestMatches, type PluginDescriptor, type PluginManifest } from './manifest.js';
+import { manifestMatches, type PluginDescriptor } from './manifest.js';
 import { readManifest, safeReaddir, type RegistrySource } from './registrySourcesShared.js';
 
 /**

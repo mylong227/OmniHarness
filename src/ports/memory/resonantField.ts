@@ -8,7 +8,7 @@
  *
  * @beta 属 S+ 发明层统一基板，接口仍可能微调。
  */
-import type { LongTermMemoryPort, MemoryFact } from './longTermMemory.js';
+import type { MemoryFact } from './longTermMemory.js';
 import type { ResonantHit } from './resonantMemory.js';
 import type { WebConsolidationReport } from './cosmicWeb.js';
 import type { Spectrum } from '../../util/eigenspectrum.js';

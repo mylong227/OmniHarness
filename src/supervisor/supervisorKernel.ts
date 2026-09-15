@@ -178,7 +178,7 @@ export class SupervisorKernel implements SupervisorPort {
       return this.currentMode;
     }
     // 仅当全部工具失败率未越 safe 线、且无连续失败堆积时才允许回升一级（fail-closed 偏严）。
-    for (const [tool, stat] of this.stats) {
+    for (const stat of this.stats.values()) {
       const total = stat.window.length;
       if (total === 0) continue;
       let successes = 0;
