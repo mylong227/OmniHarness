@@ -220,6 +220,21 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     - **诚实边界（SWE-bench live 前后对照「结构不适用」）**：自研 10 题夹具为 `bug.js`+`test.js`、**无 `package.json`**、无 `scripts.test` ⇒ 确定性触发器**结构上不会命中**；env 亦缺 `DEEPSEEK_API_KEY` ⇒ **不以伪造数字充数**，仅以上述 e2e 作验收。官方 500 Verified 子集出数属 P6，待 docker/Modal 凭证。
       ⑦ 验收门禁：六门禁全绿（`check --strict` 474 文件零违规 / `audit:standard:delta` **DELTA=0**）+ `api:check`；**全量单测 1452 / 0 失败 / 7 跳过**、集成测试 **9/9**（无回归）。
       ⑧ 提交口径：能力一笔（`322c75d`，14 文件 +1130/−4：5 新源 `verify/` + 2 源改（config）+ 3 源改（cli）+ 4 单测 + 1 集成）＋一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P3）。
+20. **打磨批次·第一批（token 效率）·P5 成本预算可观测性（2026-09-16，本轮）**：
+    ① 批次划分见 `docs/POLISH_PLAN.md` §4；P5 与 P2 同属**第一批（token 效率）**，P2 已于前批落地，**本批 P5 收口 ⇒ 第一批完结**（第三批 P3+P4 亦已完结；余第四批 P6 待外部凭证）。
+    ② **缺口（只读盘点实证，四子项，其一是本仓第五处「声明未接线」）**：**①「声明未接线」**——`costBudgetUsd` / `routePricing` / `costBudgetOnExceed` 在 `OmniHarnessConfig` 声明、`ConfigFactory.build` 亦透传，但 **CLI 与配置文件均无入口** ⇒ 默认部署下 `costBudget` 恒 `undefined`、`BudgetedModel` 与 `budget_status` 工具**永不构造**，整套成本熔断「已实现、未接线」；**②缓存命中不折抵**——`CostBudget.record` 只读 `promptTokens`/`completionTokens`，端点已回传、`PromptCacheUsageReader` 已在读的 `cachedPromptTokens` **完全不参与计价** ⇒ 长会话（前缀稳定、命中率高）系统性高估花费；**③per-tool 归因零实现**——现有归因只有「按模型」维度（`metrics.ts` 按 `payload.model` 归组）；**④软预算只有「不阻断」半条**——装配处第 4 参 `onExceed` 恒传 `undefined` ⇒ 越硬预算只置标记、**无任何上报**（死旋钮），亦无软阈值概念。
+    ③ **实现（零新增运行时依赖，不碰核心循环）**：
+    - **A. 缓存折抵（口径修正）**：`RoutePrice` 增可选 `cachedInputPer1M`（`ports` 保持第三方-free）；`CostBudget.record` 把 prompt 拆成 cached / uncached **分档计价**并按「无缓存等价成本 − 实付」累计 `savedUsd`。**保守取向（三条守恒律）**：命中量缺值 ⇒ **不打折**（缺值只能是「未知」，不得当 0 命中）；未配缓存价 ⇒ 命中仍按输入价（**宁多记早熔断，不凭猜给折扣**）；脏值按 `promptTokens` 截断防御。`DEFAULT_ROUTE_PRICING` 补各家 cache-read 档（标注为计量参考，非计费凭据）。
+    - **B. per-tool 归因**：新增 `src/observability/tokenAttribution.ts`（`TokenAttribution`）——**纯函数式投影**：把每次模型调用的 usage 归给「**自上一条 `model` 事件以来出现的 `tool_call` 工具名集合**」（即该调用**摄取了哪些工具的结果**），无前驱工具则归 `<initial>`；同批多工具**按桶均分**（各桶之和 == 总量、无重复计数）。**零热区改动可行之因**：模型用量与工具调用**都已落同一条 append-only 事件流**，归因即对**生产事实源**的投影。`evals/token-attribution.mjs`（`npm run metrics:attribution -- <session.jsonl>`）打印占比报告。
+    - **C. 软阈值信号**：`CostBudget` 增 `softRatio`（默认 `DEFAULT_SOFT_RATIO=0.8`，非法值回落）+ `softExceeded` / `degradeSuggested` / `softLimitUsd`；越软阈值回调 `onSoftExceed`、越硬预算回调 `onExceed`——**两者在装配处首次真正接通**（硬记 error、软记 warn，可被日志管道/事件桥观测）。
+    - **D. 生产入口**：CLI `--cost-budget-usd` / `--cost-budget-on-exceed` / `--cost-budget-soft-ratio`（**已登记 `VALUE_FLAGS`**；on-exceed 走**枚举白名单 fail-closed**）+ 配置文件同名字段（`FileConfig` + `configError` 的枚举/数字字段/别名三处）+ `argParser` 文件→args 映射 + `cliBuildConfig` args→partial 透传（**非正数不写 = 缺省关闭，零行为变更**）。
+    - **E. 真实消费点**：`budget_status` 输出补 `cachedPromptTokens` / `savedUsd` / `softLimitUsd` / `softExceeded` / `degradeSuggested`——模型据此主动收敛，**软阈值信号不再是「只算不报」**。
+      ④ **实测（真实运行时 + 真实事件流，非自造事件）**：
+    - **集成（`tests/integration/tokenAttributionLoop.test.ts`）**：走 `ConfigFactory.build` + `createRuntime` **真跑 Agent 循环**，捕获运行时**真发出**的事件做归因——`<initial>` = 首步 120、`shell` = 次步 340、总量守恒 460，与模型上报 usage **逐项一致**。
+    - **端到端演示（真会话 JSONL → `npm run metrics:attribution`，3 次调用 / 2+1 工具）**：`read_file` **8,200（56.9%）** / `list_dir` 2,560 / `shell` 2,560 / `<initial>` 1,080，token 合计 **14,400 = 各桶之和**（守恒 ✅）；缓存命中 7,600 随桶分摊。
+      ⑤ 验收：新增单测 **25 例**（`costBudget` 9：缓存折抵 / 部分命中 / 缺值不打折 / 无缓存价不打折 / 越界截断 / 软阈值只触发一次 / 熔断后 `degradeSuggested` 归假 / 非法 `softRatio` 回落 / snapshot 字段；`tokenAttribution` 10：单·多工具批次 / `<initial>` / 多轮分段 / 无 usage 如实计数且**不串批** / 重复名去重 / 异常 payload 忽略 / 占比与降序 / 缓存分摊 / 尾部孤儿调用；`costBudgetWiring` 6：缺省零变更 / 装配真构造并透传 / 非正数视为关闭 / `budget_status` 注册 / 三旗标取值不污染 prompt / 非法枚举 fail-closed）。六门禁全绿（`check --strict` **475 文件零违规** / `audit:standard:delta` **DELTA=0**）+ `api:check`；**全量单测 1484 / 1477 通过 / 0 失败 / 7 跳过**、集成测试 **10/10**（无回归）。
+      ⑥ **诚实边界**：软阈值**只交付信号 + 回调 + 真实消费点**；**「自动降档」（缩检索 fileK / 关语义路）= 本批不做、不声称已自动降级**——它需要**跨端口可变旋钮**，属后续独立议题。归因是「结果摄取成本」的**近似**（prompt 累积，真实因果分解不可能），**无 usage 的调用如实计数、不补零**。
+      ⑦ 提交口径：能力一笔（`d358b36`，19 文件 +1115/−41：3 新源/脚本 + 11 源改 + 3 单测 + 1 集成 + `package.json`）＋一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P5）。
 
 ---
 
