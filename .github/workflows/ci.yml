@@ -36,6 +36,11 @@ jobs:
       # 数字进 CI 日志可见趋势；阻断由 pre-commit 的 --delta 增量门禁承担。
       - run: npm run audit:standard
       - run: npm run audit:metrics
+      # 接线完整性门禁：把本仓最高频缺陷形态「声明未接线」机器化——`OmniHarnessConfig` 的每个
+      # 字段必须真的沿「声明 → 装配 → 运行时 → 消费」四段走通；配置键不得为幽灵键；CLI 旗标
+      # 不得只解析不使用。八批同型（D2/D3/D4/F3/F5/E3/E2/P5）曾反复以「可选字段被对象字面量
+      # 静默丢弃、TS 不报错」的形式逃过全部类型检查，故单列一关。
+      - run: npm run audit:config-wiring
       # P0.4 + P1.4 架构门禁（REFACTOR_BOARD §P0.4/§P1.4）：core↔adapters 双向依赖、ports 纯度。
       # P1 清偿后白名单已清空（实测 0/0），--strict 升为全阻断：任何依赖方向违规（含存量）即判红，
       # 目录平铺告警保持非阻断（待 P3 清偿）。防止架构回归。
