@@ -61,8 +61,23 @@ export class Bm25Index {
     this.averageLength = this.documents.length === 0 ? 0 : total / this.documents.length;
   }
 
-  /** 检索：查询词（已分词）→ 降序得分，截断 limit。 */
-  public search(queryTokens: readonly string[], limit: number): readonly Bm25Hit[] {
+  /**
+   * 检索：查询词（已分词）→ 降序得分，截断 limit。
+   *
+   * 索引（df / 文档长度）与 `k1`/`b` **无关**，故允许在 `search` 期覆盖打分参数，
+   * 使同一份已建索引可零成本重打分（调参扫描 / 换场景复用），无需重建语料。
+   * @param queryTokens 已分词查询词。
+   * @param limit 返回条数上限（≤0 返回空）。
+   * @param options 可选的 `k1` / `b` 覆盖；缺省用构造期取值。
+   * @returns 按得分降序、截断至 limit 的命中列表（仅 score>0 者）。
+   */
+  public search(
+    queryTokens: readonly string[],
+    limit: number,
+    options: Bm25Options = {},
+  ): readonly Bm25Hit[] {
+    const k1 = options.k1 ?? this.k1;
+    const b = options.b ?? this.b;
     const count = this.documents.length;
     if (count === 0 || limit <= 0) {
       return [];
@@ -91,9 +106,8 @@ export class Bm25Index {
         const docLength = doc.length;
         const denominator =
           frequency +
-          this.k1 *
-            (1 - this.b + this.b * (this.averageLength === 0 ? 0 : docLength / this.averageLength));
-        scores[docId] = (scores[docId] ?? 0) + (idf * (frequency * (this.k1 + 1))) / denominator;
+          k1 * (1 - b + b * (this.averageLength === 0 ? 0 : docLength / this.averageLength));
+        scores[docId] = (scores[docId] ?? 0) + (idf * (frequency * (k1 + 1))) / denominator;
       }
     }
     const hits: Bm25Hit[] = [];
