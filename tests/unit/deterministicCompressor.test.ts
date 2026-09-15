@@ -7,6 +7,7 @@ import {
   minifyJsonBlock,
   deduplicateSegments,
   foldHistorySegments,
+  shrinkLossless,
   byteLength,
   type ContextSegment,
   type CompressOptions,
@@ -105,5 +106,36 @@ describe('确定性上下文压缩', () => {
     // 关闭 dedupe → 重复 assistant 文本保留
     assert.strictEqual(segments.filter((s) => s.text === 'The meaning of life is 42.').length, 2);
     assert.ok(report.ratio > 0 && report.ratio <= 1);
+  });
+
+  it('shrinkLossless：只裁确定冗余（行尾空白 / 3+ 空行 / 整段 JSON 缩进）', () => {
+    assert.strictEqual(shrinkLossless('a  \nb\t\n\n\n\nc'), 'a\nb\n\nc');
+    assert.strictEqual(shrinkLossless('{\n  "a": 1,\n  "b": [1, 2]\n}'), '{"a":1,"b":[1,2]}');
+    // 非 JSON 段落不得被 JSON 化（不猜语义）
+    assert.strictEqual(shrinkLossless('不是 JSON {a: 1'), '不是 JSON {a: 1');
+    // 单行非 JSON 原样（无冗余可裁）
+    assert.strictEqual(shrinkLossless('plain text'), 'plain text');
+    // 空串短路
+    assert.strictEqual(shrinkLossless(''), '');
+  });
+
+  it('shrinkLossless：幂等 + 单调（无损子集的可无条件施加性）', () => {
+    const samples = [
+      'x  \n\n\n\n y',
+      '{\n  "k": "v"\n}',
+      'log line\n\n\n\n\nlog line 2   ',
+      'plain',
+    ];
+    for (const sample of samples) {
+      const once = shrinkLossless(sample);
+      assert.strictEqual(shrinkLossless(once), once, `幂等失败: ${JSON.stringify(sample)}`);
+      assert.ok(byteLength(once) <= byteLength(sample), `单调失败: ${JSON.stringify(sample)}`);
+    }
+  });
+
+  it('shrinkLossless：不删任何字符级事实（非空白字符集合不变）', () => {
+    const sample = 'fn main() {  \n\n\n\n  println!("hi");   \n}';
+    const kept = (s: string): string => s.replace(/\s+/gu, '');
+    assert.strictEqual(kept(shrinkLossless(sample)), kept(sample));
   });
 });

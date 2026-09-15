@@ -78,6 +78,11 @@ export interface OmniHarnessConfig {
   readonly extraTools?: readonly ExtraTool[] | undefined;
   readonly compactionMaxTokens?: number | undefined;
   readonly compactionKeepRecent?: number | undefined;
+  /**
+   * 发往模型前的**确定性无损收缩**（P2 打磨，默认 true）。
+   * 只裁行尾空白 / 3+ 连续空行 / 整段 JSON 缩进，不删字符级事实；关闭后逐字节回到旧行为。
+   */
+  readonly compactionDeterministicShrink?: boolean | undefined;
   /** 自定义外溢端口（不传用内置实现）。 */
   readonly spill?: SpillPort | undefined;
   /** 内置外溢后端：file（落盘，跨重启可恢复，默认）| memory（进程内）。 */
@@ -472,6 +477,7 @@ export class ConfigFactory {
       storage: partial.storage,
       compactionMaxTokens: partial.compactionMaxTokens,
       compactionKeepRecent: partial.compactionKeepRecent,
+      compactionDeterministicShrink: partial.compactionDeterministicShrink,
       fragments: partial.fragments,
       native: partial.native,
       live: partial.live ?? new CompositeLiveView([new ConsoleLiveView()]),

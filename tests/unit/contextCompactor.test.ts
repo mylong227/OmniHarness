@@ -80,6 +80,80 @@ test('压缩器：keepRecent 不超过消息总数', async () => {
   assert.strictEqual(result.messages.length, 3);
 });
 
+/* ---------------- P2（打磨）：确定性无损收缩接线 ---------------- */
+
+test('P2：默认开启无损收缩——system 原样，user/assistant/tool 收缩且结构字段保留', async () => {
+  const compactor = new ContextCompactor(undefined, { maxTokens: 100000, keepRecent: 2 });
+  const messages: ModelMessage[] = [
+    { role: 'system', content: 'SYS   \n\n\n\nkeep' },
+    { role: 'assistant', content: '{\n  "a": 1\n}' },
+    { role: 'tool', content: 'line   \n\n\n\nline2', toolCallId: 'c1' },
+  ];
+  const result = await compactor.compact(messages);
+  assert.strictEqual(result.compacted, false);
+  // system 由 harness 编排，不得改动
+  assert.strictEqual(result.messages[0]?.content, 'SYS   \n\n\n\nkeep');
+  assert.strictEqual(result.messages[1]?.content, '{"a":1}');
+  assert.strictEqual(result.messages[2]?.content, 'line\n\nline2');
+  // wire 层结构字段不得被破坏
+  assert.strictEqual(result.messages[2]?.toolCallId, 'c1');
+  assert.ok(result.shrink !== undefined);
+  assert.ok(result.shrink.savedBytes > 0);
+  assert.ok(result.shrink.ratio < 1);
+});
+
+test('P2：deterministicShrink=false 逐字节回到旧行为（无 shrink 度量）', async () => {
+  const compactor = new ContextCompactor(undefined, {
+    maxTokens: 100000,
+    keepRecent: 2,
+    deterministicShrink: false,
+  });
+  const messages: ModelMessage[] = [{ role: 'tool', content: '{\n  "a": 1\n}', toolCallId: 'c1' }];
+  const result = await compactor.compact(messages);
+  assert.strictEqual(result.messages[0]?.content, '{\n  "a": 1\n}');
+  assert.strictEqual(result.shrink, undefined);
+});
+
+test('P2：压缩触发时保留的 tail 仍被收缩，reasoningContent 原样回传（思考模式硬要求）', async () => {
+  const compactor = new ContextCompactor(undefined, { maxTokens: 50, keepRecent: 2 });
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'old-1 '.repeat(80) },
+    { role: 'user', content: 'old-2 '.repeat(80) },
+    { role: 'assistant', content: '{"head": 1}' },
+    { role: 'user', content: '{\n  "keep": 1\n}' },
+    { role: 'assistant', content: 'end   \n\n\n\nx', reasoningContent: 'thinking...' },
+  ];
+  const result = await compactor.compact(messages);
+  assert.strictEqual(result.compacted, true);
+  assert.strictEqual(result.messages[0]?.role, 'system');
+  assert.strictEqual(result.messages[1]?.content, '{"keep":1}');
+  assert.strictEqual(result.messages[2]?.content, 'end\n\nx');
+  assert.strictEqual(result.messages[2]?.reasoningContent, 'thinking...');
+  assert.ok((result.shrink?.savedBytes ?? 0) > 0);
+});
+
+test('P2：游标复用路径（不调 LLM）同样施加收缩', async () => {
+  const compactor = new ContextCompactor(
+    fakeModel(() => ({ text: '摘要内容' })),
+    { maxTokens: 50, keepRecent: 2 },
+  );
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'old '.repeat(80) },
+    { role: 'user', content: 'old '.repeat(80) },
+    { role: 'assistant', content: 'head-done' },
+    { role: 'user', content: '{\n  "tail": true\n}' },
+    { role: 'assistant', content: 'tail-two   \n\n\n\nz' },
+  ];
+  const first = await compactor.compact(messages);
+  assert.strictEqual(first.compacted, true);
+  const second = await compactor.compact(messages, first.state);
+  assert.strictEqual(second.summary, first.summary);
+  // 游标路径：摘要复用（零 LLM），且保留 tail 仍被无损收缩
+  assert.strictEqual(second.messages[1]?.content, '{"tail":true}');
+  assert.strictEqual(second.messages[2]?.content, 'tail-two\n\nz');
+  assert.ok((second.shrink?.savedBytes ?? 0) > 0);
+});
+
 /* ----------------------- #OBS-8：orphan-tool 边界保护 ----------------------- */
 /** 构造"assistant(tool_calls) → tool(result) → tool(result)" 序列用于 orphan-tool 复现。 */
 function toolConversation(): ModelMessage[] {

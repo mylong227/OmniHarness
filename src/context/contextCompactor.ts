@@ -1,5 +1,6 @@
 import type { ModelMessage, ModelPort } from '../ports/model/model.js';
 import { TokenEstimator } from './tokenEstimator.js';
+import { DeterministicCompressor } from './deterministicCompressor.js';
 import { log } from '../util/logger.js';
 import { sanitizeToolRounds } from '../util/toolRoundSanitizer.js';
 import { at } from '../util/arrayAt.js';
@@ -14,6 +15,24 @@ export interface CompactionOptions {
    * 优先于 maxTokens（对标 codex context_window 百分比 / dsh thresholdRatio 思想）。
    */
   readonly contextWindowTokens?: number;
+  /**
+   * 发往模型前施加**确定性无损收缩**（默认 true）。
+   * 只裁「确定冗余」（行尾空白 / 3+ 连续空行 / 整段 JSON 缩进），不删字符级事实，
+   * 幂等且单调 ⇒ 逐轮输出稳定（不破坏 prompt 前缀缓存）。关闭时逐字节回到旧行为。
+   */
+  readonly deterministicShrink?: boolean;
+}
+
+/** 确定性无损收缩度量（仅统计可收缩角色：user / assistant / tool）。 */
+export interface ShrinkReport {
+  /** 收缩前字节数（UTF-8）。 */
+  readonly beforeBytes: number;
+  /** 收缩后字节数（UTF-8）。 */
+  readonly afterBytes: number;
+  /** 节省字节数（≥ 0）。 */
+  readonly savedBytes: number;
+  /** 收缩后 / 收缩前 ∈ (0,1]，越小越省；无可收缩内容时为 1。 */
+  readonly ratio: number;
 }
 
 /** 压缩状态（V2 游标）：已被摘要覆盖的前缀长度 + 前缀指纹。持久化后可跨步复用摘要。 */
@@ -33,6 +52,8 @@ export interface CompactionResult {
   readonly summary?: string;
   /** V2：本次调用后生效的压缩状态（未压缩为 undefined）。 */
   readonly state?: CompactionState;
+  /** 本次发往模型的消息文本的无损收缩度量（关闭收缩时为 undefined）。 */
+  readonly shrink?: ShrinkReport;
 }
 
 /**
@@ -71,11 +92,62 @@ export const COMPACTION_MARKER = 'OMNI_COMPACTION_V1';
 /** 上下文压缩器：超预算时把较早历史折叠为摘要，保留最近消息（无模型则退化为截断）。 */
 export class ContextCompactor {
   private readonly estimator = new TokenEstimator();
+  /** 确定性无损收缩器（无状态，可安全复用）。 */
+  private readonly shrinker = new DeterministicCompressor();
+  /** 收缩开关：默认开（选项缺省 undefined 视为开）。 */
+  private readonly shrinkEnabled: boolean;
 
   public constructor(
     private readonly model: ModelPort | undefined,
     private readonly options: CompactionOptions,
-  ) {}
+  ) {
+    this.shrinkEnabled = options.deterministicShrink !== false;
+  }
+
+  /**
+   * 可收缩角色判定：会话内容（user / assistant / tool）可收缩；system 由 harness 精心编排，不动。
+   * @param message 待判定消息。
+   * @returns 该消息是否属于可收缩角色。
+   */
+  private static isShrinkable(message: ModelMessage): boolean {
+    return message.role === 'user' || message.role === 'assistant' || message.role === 'tool';
+  }
+
+  /**
+   * 对消息施加**确定性无损收缩**：只改 `content`，不动 toolCalls / reasoningContent /
+   * images / files / toolCallId（这些是 wire 层结构与思考模式回传硬要求）。
+   * @param messages 待收缩的消息列表。
+   * @returns 收缩后的消息与前后字节度量（未开启收缩时原样返回、度量为 undefined）。
+   */
+  private shrink(messages: readonly ModelMessage[]): {
+    readonly messages: readonly ModelMessage[];
+    readonly report: ShrinkReport | undefined;
+  } {
+    if (!this.shrinkEnabled) {
+      return { messages, report: undefined };
+    }
+    let beforeBytes = 0;
+    let afterBytes = 0;
+    const out = messages.map((message) => {
+      if (!ContextCompactor.isShrinkable(message)) {
+        return message;
+      }
+      const before = message.content;
+      const after = this.shrinker.shrinkLossless(before);
+      beforeBytes += this.shrinker.byteLength(before);
+      afterBytes += this.shrinker.byteLength(after);
+      return after === before ? message : { ...message, content: after };
+    });
+    return {
+      messages: out,
+      report: {
+        beforeBytes,
+        afterBytes,
+        savedBytes: Math.max(0, beforeBytes - afterBytes),
+        ratio: beforeBytes === 0 ? 1 : afterBytes / beforeBytes,
+      },
+    };
+  }
 
   /** 注入原生（Rust 内核）token 估算器：传入后内部估算走原生路径。
    * @returns 无返回值。
@@ -107,12 +179,13 @@ export class ContextCompactor {
     if (state !== undefined && state.compactedUpTo > 0 && state.compactedUpTo < messages.length) {
       const head = messages.slice(0, state.compactedUpTo);
       if (headFingerprint(head) === state.headHash) {
-        const tail = sanitizeToolRounds(messages.slice(state.compactedUpTo));
+        const tail = this.shrink(sanitizeToolRounds(messages.slice(state.compactedUpTo)));
         return {
-          messages: [{ role: 'system', content: state.summary }, ...tail],
+          messages: [{ role: 'system', content: state.summary }, ...tail.messages],
           compacted: true,
           summary: state.summary,
           state,
+          ...(tail.report !== undefined ? { shrink: tail.report } : {}),
         };
       }
       log.debug('compaction.state.stale', {
@@ -122,7 +195,13 @@ export class ContextCompactor {
     }
     const estimated = this.estimator.estimateMessages(messages);
     if (estimated <= this.threshold) {
-      return { messages, compacted: false };
+      // 未达压缩阈值：不折叠历史，但仍施加无损收缩（逐轮可复现 ⇒ 不破坏前缀缓存）。
+      const shrunk = this.shrink(messages);
+      return {
+        messages: shrunk.messages,
+        compacted: false,
+        ...(shrunk.report !== undefined ? { shrink: shrunk.report } : {}),
+      };
     }
     log.debug('compaction.triggered', {
       estimated,
@@ -139,15 +218,20 @@ export class ContextCompactor {
     const keepCount = Math.min(this.options.keepRecent, messages.length);
     let headEnd = messages.length - keepCount;
     while (headEnd > 0 && ContextCompactor.isToolOrphan(messages, headEnd)) headEnd--;
-    const tail = sanitizeToolRounds(messages.slice(headEnd));
+    const tail = this.shrink(sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0) {
       log.info('compaction.done', {
-        keepRecent: tail.length,
+        keepRecent: tail.messages.length,
         hadModel: this.model !== undefined,
         summaryLen: 0,
       });
-      return { messages: tail, compacted: true, summary: '[历史已省略]' };
+      return {
+        messages: tail.messages,
+        compacted: true,
+        summary: '[历史已省略]',
+        ...(tail.report !== undefined ? { shrink: tail.report } : {}),
+      };
     }
     const summary = await this.summarize(head);
     const newState: CompactionState = {
@@ -156,15 +240,17 @@ export class ContextCompactor {
       summary,
     };
     log.info('compaction.done', {
-      keepRecent: tail.length,
+      keepRecent: tail.messages.length,
       hadModel: this.model !== undefined,
       summaryLen: summary.length,
+      shrunkBytes: tail.report?.savedBytes ?? 0,
     });
     return {
-      messages: [{ role: 'system', content: summary }, ...tail],
+      messages: [{ role: 'system', content: summary }, ...tail.messages],
       compacted: true,
       summary,
       state: newState,
+      ...(tail.report !== undefined ? { shrink: tail.report } : {}),
     };
   }
 
