@@ -5,7 +5,7 @@
   "type": "module",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.14.0"
   },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -60,6 +60,7 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check.mjs",
+    "check:node": "node scripts/checkNodeEngine.mjs",
     "audit:maturity": "node scripts/auditStandards.mjs --maturity",
     "audit:standard": "node scripts/auditStandards.mjs",
     "audit:standard:delta": "node scripts/auditStandards.mjs --delta",
@@ -86,6 +87,8 @@
     "bench:tokens": "npm run native:build && npm run build && node dist/tests/bench/tokenEstNative.bench.js",
     "bench:agent": "npm run native:build && npm run build && node dist/tests/bench/agentTask.bench.js",
     "bench:compete": "node benchmark/compete_benchmark.mjs",
+    "bench:terminalbench": "npm run build && node dist/src/benchmark/terminalbench/terminalBenchCli.js",
+    "metrics:injection": "npm run build && node evals/injection-metric.mjs",
     "selfcheck": "npm run build && node benchmark/selfcheck.mjs",
     "eval:capability": "npm run build && node benchmark/capability_swebench.mjs",
     "eval:passk": "node --test dist/tests/unit/passK.test.js dist/tests/unit/passKCI.test.js",

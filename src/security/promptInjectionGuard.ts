@@ -28,7 +28,7 @@ export interface InjectionScan {
 /** 高危指令 / 角色伪造规则（零依赖正则；按需增删即可）。 */
 const DIRECTIVES: readonly RegExp[] = [
   /ignore\s+(?:all\s+)?(?:previous|prior|above|earlier|preceding)\s+(?:instructions|prompts?|context)/i,
-  /disregard\s+(?:previous|prior|above|earlier)\s+/i,
+  /disregard\s+(?:(?:all|any|the|this|that|these|those|my|your)\s+){0,3}(?:previous|prior|above|earlier|preceding|everything)\b/i,
   /forget\s+(?:everything|all\s+(?:previous|prior))\s+/i,
   /you\s+are\s+now\s+[a-z][a-z\s]{0,24}/i,
   /(?:^|\n)\s*system\s*:\s*/i,

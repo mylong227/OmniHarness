@@ -1,0 +1,269 @@
+{
+  "generatedAt": "2026-09-14T23:27:02.175Z",
+  "note": "E4 软融合（fusion-not-replace）对照 layered-recall-ab.mjs 的 −9.1pp 负结果留档",
+  "corpus": {
+    "symbols": 7357,
+    "files": 457
+  },
+  "queryCount": 32,
+  "staleQueries": [
+    {
+      "q": "how is the chat completion provider configured",
+      "anchor": "OpenAiModelConfig"
+    }
+  ],
+  "fileK": 14,
+  "iters": 4,
+  "damping": 0.85,
+  "recall": {
+    "bm25": 32.419299450549445,
+    "fusion": 32.419299450549445,
+    "deltaPp": 0
+  },
+  "bootstrap": {
+    "mean": 0,
+    "lo": 0,
+    "hi": 0,
+    "ciCrossesZero": true,
+    "rounds": 2000
+  },
+  "tally": {
+    "up": 0,
+    "down": 0,
+    "flat": 32
+  },
+  "overlapWithBm25": 1,
+  "queryInsensitivity": 0.11416474206967503,
+  "verdict": {
+    "thresholdPp": 5,
+    "ciMustNotCrossZero": true,
+    "pass": false,
+    "note": "未达 +5pp 或不跨 0，保持 opt-in"
+  },
+  "perQuery": [
+    {
+      "q": "where is tool registration handled",
+      "anchor": "registerTool",
+      "gtSize": 5,
+      "bm25": 0.2,
+      "fusion": 0.2
+    },
+    {
+      "q": "how does sandbox denial escalate to approval",
+      "anchor": "EscalationPort",
+      "gtSize": 13,
+      "bm25": 0.5384615384615384,
+      "fusion": 0.5384615384615384
+    },
+    {
+      "q": "what does ContextAssembler project events into",
+      "anchor": "class ContextAssembler",
+      "gtSize": 1,
+      "bm25": 1,
+      "fusion": 1
+    },
+    {
+      "q": "how are images attached to model messages",
+      "anchor": "imagesOf",
+      "gtSize": 1,
+      "bm25": 1,
+      "fusion": 1
+    },
+    {
+      "q": "where is reasoning_effort sent to the openai model",
+      "anchor": "reasoning_effort",
+      "gtSize": 8,
+      "bm25": 0.875,
+      "fusion": 0.875
+    },
+    {
+      "q": "how does BM25 tokenize CJK text",
+      "anchor": "export function tokenize",
+      "gtSize": 3,
+      "bm25": 0.3333333333333333,
+      "fusion": 0.3333333333333333
+    },
+    {
+      "q": "how is the resonant memory probe mapped from text",
+      "anchor": "resonateByText",
+      "gtSize": 4,
+      "bm25": 1,
+      "fusion": 1
+    },
+    {
+      "q": "where is the sandbox policy evaluated",
+      "anchor": "execPolicy",
+      "gtSize": 7,
+      "bm25": 0.2857142857142857,
+      "fusion": 0.2857142857142857
+    },
+    {
+      "q": "how are tool results spilled out of context",
+      "anchor": "spill_read",
+      "gtSize": 4,
+      "bm25": 0.25,
+      "fusion": 0.25
+    },
+    {
+      "q": "which component remembers decisions the operator already blessed",
+      "anchor": "ApprovalStore",
+      "gtSize": 2,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "how is a signed claim from an agent packaged",
+      "anchor": "AgentAssertionEnvelope",
+      "gtSize": 1,
+      "bm25": 1,
+      "fusion": 1
+    },
+    {
+      "q": "which key-value store replicates records across nodes",
+      "anchor": "OobleckStore",
+      "gtSize": 1,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "tuning knobs for the graph that links distant memories",
+      "anchor": "CosmicWebOptions",
+      "gtSize": 2,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "settings for the planner that gradually cools down",
+      "anchor": "HeatAnnealerOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "fusion": 0.5
+    },
+    {
+      "q": "options controlling what gets pulled out of conversations",
+      "anchor": "MemoryExtractorOptions",
+      "gtSize": 1,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "knobs for the parity based error correction layer",
+      "anchor": "QECOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "fusion": 0.5
+    },
+    {
+      "q": "what signals that a parity check has failed",
+      "anchor": "Syndrome",
+      "gtSize": 2,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "where is the remaining spend captured at a point in time",
+      "anchor": "BudgetSnapshot",
+      "gtSize": 2,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "how is a chain of thought persisted to disk",
+      "anchor": "StoredTrace",
+      "gtSize": 1,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "what normalizes text before it is compared",
+      "anchor": "Canonicalizer",
+      "gtSize": 2,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "how long is a prior yes remembered before asking again",
+      "anchor": "CachedApprovalOptions",
+      "gtSize": 1,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "settings for the belief updater that follows curvature",
+      "anchor": "NaturalGradientOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "fusion": 0.5
+    },
+    {
+      "q": "tunables for the sampler tracking many hypotheses at once",
+      "anchor": "ParticleFilterOptions",
+      "gtSize": 2,
+      "bm25": 0.5,
+      "fusion": 0.5
+    },
+    {
+      "q": "how is the local vector model configured",
+      "anchor": "TransformersEmbeddingOptions",
+      "gtSize": 1,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "where are ed25519 signing credentials created",
+      "anchor": "KeyPairSync",
+      "gtSize": 1,
+      "bm25": 1,
+      "fusion": 1
+    },
+    {
+      "q": "how are orphaned tool call identifiers tracked",
+      "anchor": "ToolCallRef",
+      "gtSize": 8,
+      "bm25": 0.125,
+      "fusion": 0.125
+    },
+    {
+      "q": "where do language server error reports come from",
+      "anchor": "Diagnostics",
+      "gtSize": 4,
+      "bm25": 0.25,
+      "fusion": 0.25
+    },
+    {
+      "q": "how many characters of a conversation are retained",
+      "anchor": "TranscriptChars",
+      "gtSize": 1,
+      "bm25": 0,
+      "fusion": 0
+    },
+    {
+      "q": "what does a delegated child task return",
+      "anchor": "SubagentResult",
+      "gtSize": 5,
+      "bm25": 0.2,
+      "fusion": 0.2
+    },
+    {
+      "q": "what represents one entry in a multi stage plan",
+      "anchor": "PlanStep",
+      "gtSize": 4,
+      "bm25": 0.25,
+      "fusion": 0.25
+    },
+    {
+      "q": "where are capabilities discovered and registered",
+      "anchor": "SkillRegistry",
+      "gtSize": 15,
+      "bm25": 0.06666666666666667,
+      "fusion": 0.06666666666666667
+    },
+    {
+      "q": "which component gates dangerous tool calls at runtime",
+      "anchor": "SupervisorKernel",
+      "gtSize": 7,
+      "bm25": 0,
+      "fusion": 0
+    }
+  ]
+}

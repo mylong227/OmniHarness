@@ -13,6 +13,7 @@ import { Bm25Index, tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import { extractSymbols, outlineText, type SymbolNode } from './repoMap.js';
 import { eigenSpectrum, resonance, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { buildCodeGraph, propagate, type CodeGraph } from './codeGraphIndex.js';
+import { buildLayeredCodeGraph } from './layeredCodeGraph.js';
 import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
 import { at } from '../util/arrayAt.js';
 
@@ -43,6 +44,25 @@ export class ContextEngine {
         out.push(relative(absRoot, abs).split(sep).join('/'));
       }
     }
+  }
+
+  /**
+   * 层化图构建缓存：按语料实例 WeakMap 缓存，避免每次查询重扫全仓建边。
+   * E4 深化：层化图作为第三路软融合并入 `query` 的 fileScore（见 `query` 内 useLayered 分支）。
+   */
+  private static readonly layeredGraphCache = new WeakMap<IndexedCorpus, CodeGraph>();
+
+  /**
+   * 取（或构建并缓存）某语料的层化代码图。
+   * @param corpus 已索引语料（含 symbols 与 fileText，满足 GraphSource 视图）
+   * @returns 层化有向带权邻接表
+   */
+  public static getLayeredGraph(corpus: IndexedCorpus): CodeGraph {
+    const cached = ContextEngine.layeredGraphCache.get(corpus);
+    if (cached !== undefined) return cached;
+    const g = buildLayeredCodeGraph({ symbols: corpus.symbols, fileText: corpus.fileText });
+    ContextEngine.layeredGraphCache.set(corpus, g);
+    return g;
   }
 }
 
@@ -248,7 +268,14 @@ export function query(
   corpus: IndexedCorpus,
   q: string,
   k = 20,
-  opts: { prf?: boolean; graph?: boolean; lsa?: boolean; fileK?: number; symK?: number } = {},
+  opts: {
+    prf?: boolean;
+    graph?: boolean;
+    lsa?: boolean;
+    layered?: boolean;
+    fileK?: number;
+    symK?: number;
+  } = {},
 ): QueryResult {
   // 图检索默认关闭：实测在本语料上净负面。
   // 根因（evals/rank-veto-retro.mjs 实测，已更正早期「收敛至近均匀」的错误解释）：
@@ -256,6 +283,8 @@ export function query(
   // 等于给每条查询塞同一批枢纽文件，构成常量偏置，挤掉真正相关的文件。
   // 保留模块与 graph:true 开关供稀疏高质量边/语义权重场景使用。
   const useGraph = opts.graph === true;
+  // E4 深化：层化图软融合（第三路，非替换）。默认关，仅供评测开启；D6 第二关未达标前不破生产口径。
+  const useLayered = opts.layered === true;
   // LSA 默认关闭：实测在「词形归并」之上叠加 LSA，召回无增益（67.0% 持平），
   // 但符号精确率从 25.5% 腰斩至 10.5%（潜语义扩展引入噪声，挤掉真相关符号）。
   // 模块保留（lsa:true 可开启），供后续改用更高秩/稀疏化后重新评估。
@@ -369,16 +398,43 @@ export function query(
     const cur = bestSymbolScore.get(s.file) ?? 0;
     if (sc > cur) bestSymbolScore.set(s.file, sc);
   }
-  // 文件混合分。
+
+  // E4 深化：层化图作为第三路软融合（非替换），保留文件 BM25 地板。
+  // 根因（evals/layered-recall-ab.mjs 实测）：层化图此前作「替换」BM25 用，丢掉整文件
+  // 词法命中信号 → −9.1pp。改为把图扩散分并入 fileScore 的 max，图只负责「捞回靠关联符号
+  // 但无词法命中」的文件，文件 BM25 始终为地板项（绝不被静默丢弃）。
+  const layeredFileScore = new Map<string, number>();
+  if (useLayered) {
+    const lg = ContextEngine.getLayeredGraph(corpus);
+    const lscores = propagate(lg, seed, 4, 0.85);
+    let lmax = 0;
+    for (let i = 0; i < lscores.length; i += 1) lmax = Math.max(lmax, lscores[i] ?? 0);
+    const linv = lmax > 0 ? 1 / lmax : 0;
+    for (let i = 0; i < lscores.length; i += 1) {
+      const v = (lscores[i] ?? 0) * linv;
+      if (v <= 0) continue;
+      const s = corpus.symbols[i];
+      if (s === undefined) continue;
+      symIdSet.add(i);
+      const cur = layeredFileScore.get(s.file) ?? 0;
+      if (v > cur) layeredFileScore.set(s.file, v);
+    }
+  }
+
+  // 文件混合分：max(文件BM25, 0.7×符号BM25分, 0.5×层化图分)。
   const fileScore = new Map<string, number>();
   for (const h of fileHits) {
     const f = corpus.files[h.id];
     if (f === undefined) continue;
     const sym = bestSymbolScore.get(f.rel) ?? 0;
-    fileScore.set(f.rel, Math.max(h.score, 0.7 * sym));
+    const lay = layeredFileScore.get(f.rel) ?? 0;
+    fileScore.set(f.rel, Math.max(h.score, 0.7 * sym, 0.5 * lay));
   }
   for (const [file, sym] of bestSymbolScore) {
     if (!fileScore.has(file)) fileScore.set(file, 0.7 * sym);
+  }
+  for (const [file, lay] of layeredFileScore) {
+    if (!fileScore.has(file)) fileScore.set(file, 0.5 * lay);
   }
   const rankedFiles = [...fileScore.entries()]
     .sort((a, b) => b[1] - a[1])

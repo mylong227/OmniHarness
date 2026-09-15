@@ -94,6 +94,7 @@ export class RepoMapContextEngine {
         prf: false,
         graph: false,
         lsa: false,
+        layered: opts.layered === true,
         fileK: opts.fileK ?? 10,
         symK: opts.symK ?? 24,
       });
