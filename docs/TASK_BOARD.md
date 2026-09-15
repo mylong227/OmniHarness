@@ -174,6 +174,14 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     ③ 语义保证配机械测试：同序（完成顺序打乱仍按输入回填）、在飞峰值 = 上界、并发 4 墙钟 < 串行 1/2、`concurrency=1` 峰值恒 1；`runVerifiedSuite` 并发 3 保序且有界（`parallelMap` 6 例 + `swebenchVerified` 增 2 例全绿）。
     ④ **诚实边界**：不做 CPU 并行（Node 单线程；CPU 密集须 `worker_threads`，另议）；本类只面向 **I/O 密集**独立任务。默认并发 1 故**生产行为零变更**，突破瓶颈须显式 `--concurrency N`（本地 docker 受内存/端口限制，Modal 云执行可更大）。
     ⑤ 提交口径：能力（`src/util/parallelMap.ts` + 三处接线 + CLI + 单测）一笔代码 ＋ 一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P7）。
+15. **打磨批次·第一批（token 效率）·P2 确定性无损收缩接线（2026-09-16，本轮）**：
+    ① 批次划分（`docs/POLISH_PLAN.md` §4）：第一批 token 效率（P2 + P5）／第二批 检索命中（P1 reranker）／第三批 准确率（P3 + P4）／第四批 外部解锁（P6）。本轮交付**第一批的 P2**。
+    ② 缺口（前批审计实证）：`DeterministicCompressor` 全仓消费方只有 `src/index.ts` 导出态、单测与独立基准脚本，**生产链路零调用**——本仓库最高频缺陷形态「声明未接线」。
+    ③ **接线口径的三处修正（均写明理由，非照抄计划原文）**：**(a) 接 `ContextCompactor`（投影层），不接 `stepToolExecutor`（记录层）**——`recordToolResult` 写事件日志、属审计链 fail-closed 段，改其内容等于篡改事实，**明确不做**；**(b) 只用无损子集**（行尾空白 / 3+ 连续空行 / 整段 JSON 缩进），**不启用截断**（截断有信息损失；大输出外溢已由 `toolResultSpiller` 负责），故本层承诺「幂等 + 单调 + 不删任何字符级事实」，配机械测试；**(c) head 不收缩**——摘要请求 `[...head, 指令]` 与主请求共享最长公共前缀以命中 provider implicit prompt cache，压 head 会破前缀，按「缓存折扣 vs 压缩率」算不压更省。
+    ④ **配置链透传**：`compactionDeterministicShrink`（`configFactory` 声明 + 透传）→ `agent.buildCompactor()` **显式传入**（`?? true`）→ `ContextCompactor`（类内默认 true），杜绝「声明字段 runtime 未透传」死旋钮。
+    ⑤ **实测（`evals/compaction-wiring.mjs`，真实仓库 8 文件 / 20 条消息，接线前 vs 接线后）**：口径① 未达阈值（长会话常态，每轮持续收益）162.79 KB → 155.37 KB **−4.56%**；口径② 触达压缩阈值（保留 tail）6.31 KB → 3.67 KB **−41.89%**；口径③ 整段 JSON 型工具输出（5 条）25.4 KB → 17.99 KB **−29.16%**（单条 −12.14%~−42.44%）。**诚实边界**：机制射程集中在 **JSON 型工具输出**，Markdown/源码实测 **0%**（本无冗余可裁），故「每轮 −4.6%」是被大体量 Markdown 稀释的混合口径，**非普适压缩率**（报告 `evals/compaction-wiring.report.json`）。
+    ⑥ 验收：新增单测 7 例（`shrinkLossless` 幂等/单调/不删事实；compactor 默认开、`false` 逐字节回退、system 不动、`toolCallId`/`reasoningContent` 原样、压缩路径与游标路径均收缩）；六门禁全绿；**全量单测 1419 例 / 1412 通过 / 0 失败 / 7 跳过（无回归）**。
+    ⑦ 提交口径：能力（`deterministicCompressor` 无损子集 + `ContextCompactor` 接线 + 配置链 + 单测 + 评测脚本与报告）一笔代码 ＋ 一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P2）。
 
 ---
 
