@@ -23,11 +23,11 @@ function importDist(...segments) {
   return import(pathToFileURL(join(DIST, ...segments)).href);
 }
 
-const { getRepoMapContext, getHybridRepoMapContext } = await importDist(
-  'context',
-  'repoMapContext.js',
-);
-const { tokenize } = await importDist('search', 'bm25.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+const { tokenize } = await importDist('search', 'bm25Index.js');
+
+/** repo-map 生产接入器实例（原模块级包装函数已随重命名移除）。 */
+const repoMap = new RepoMapContextEngine();
 
 /** 合成概念簇嵌入：把 token 映射到簇维度计数向量并 L2 归一化。 */
 const CLUSTERS = [
@@ -124,8 +124,8 @@ let hybridTok = 0;
 
 try {
   for (const { q, gt, note } of QUERIES) {
-    const bm25 = getRepoMapContext(root, q);
-    const hybrid = await getHybridRepoMapContext(root, q, new ClusterEmbedding());
+    const bm25 = repoMap.getRepoMapContext(root, q);
+    const hybrid = await repoMap.getHybridRepoMapContext(root, q, new ClusterEmbedding());
     const b = surfaced(bm25, gt);
     const h = surfaced(hybrid, gt);
     if (b) bm25Hit++;

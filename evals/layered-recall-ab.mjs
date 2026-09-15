@@ -39,10 +39,12 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { getRepoMapContext } = await importDist('context', 'repoMapContext.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+/** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
+const repoMap = new RepoMapContextEngine();
 const { indexCorpus } = await importDist('context', 'contextEngine.js');
 const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { buildCodeGraph, propagate } = await importDist('context', 'codeGraph.js');
+const { buildCodeGraph, propagate } = await importDist('context', 'codeGraphIndex.js');
 const { buildLayeredCodeGraph, edgeCountOf, layeredFileRoute } = await importDist(
   'context',
   'layeredCodeGraph.js',
@@ -188,7 +190,7 @@ for (const { q, anchor } of queries) {
   const gtList = [...gt];
 
   // A) BM25 基线（生产路径，历史 43.3% 口径）
-  const bm25Files = surfacedFiles(getRepoMapContext(SRC, q, { fileK: FILE_K }));
+  const bm25Files = surfacedFiles(repoMap.getRepoMapContext(SRC, q, { fileK: FILE_K }));
 
   // 种子：符号路 BM25 Top-40（三张图共用）
   const hits = corpus.symbolIndex.search(tokenizeExpanded(q), SEED_K);

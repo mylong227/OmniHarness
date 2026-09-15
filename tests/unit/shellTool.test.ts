@@ -80,8 +80,11 @@ describe('shellTool 安全与资源护栏', () => {
     const tool = new ShellTool({ timeoutMs: 120 });
     const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
 
+    // 慢命令须与 stdin 无关（同 shellProcessRunner 用例之因）：Windows 自带
+    // `timeout.exe` 在 stdin 非控制台时立即报错退出 → 会**因非零退出而非超时**使断言通过，
+    // 即「因错误的理由变绿」。改用 `ping -n 6 127.0.0.1` 真正走到超时分支。
     const result = await tool.handle(
-      call(process.platform === 'win32' ? 'timeout /t 5' : 'sleep 5'),
+      call(process.platform === 'win32' ? 'ping -n 6 127.0.0.1' : 'sleep 5'),
       ctx,
     );
 

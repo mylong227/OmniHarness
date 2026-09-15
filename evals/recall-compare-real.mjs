@@ -23,15 +23,15 @@ function importDist(...segments) {
   return import(pathToFileURL(join(DIST, ...segments)).href);
 }
 
-const { getRepoMapContext, getHybridRepoMapContext } = await importDist(
-  'context',
-  'repoMapContext.js',
-);
+const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',
-  'transformersEmbedding.js',
+  'transformersEmbeddingAdapter.js',
 );
+
+/** repo-map 生产接入器实例（原模块级包装函数已随重命名移除）。 */
+const repoMap = new RepoMapContextEngine();
 
 // 概念簇语料（每个簇多个文件；查询使用「零词面重叠」的语义表述，制造词法鸿沟）。
 const CORPUS = {
@@ -140,8 +140,8 @@ async function main() {
   let hybHit = 0;
   for (const { q, target } of QUERIES) {
     const targetFiles = new Set(CORPUS[target].map(([name]) => `${target}/${name}`));
-    const bm25Ctx = getRepoMapContext(root, q) ?? '';
-    const hybCtx = (await getHybridRepoMapContext(root, q, embedding)) ?? '';
+    const bm25Ctx = repoMap.getRepoMapContext(root, q) ?? '';
+    const hybCtx = (await repoMap.getHybridRepoMapContext(root, q, embedding)) ?? '';
     const bm25Surf = surfacedFiles(bm25Ctx);
     const hybSurf = surfacedFiles(hybCtx);
     const bm25Recall = [...targetFiles].filter((f) => bm25Surf.has(f)).length / targetFiles.size;

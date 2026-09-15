@@ -20,17 +20,16 @@ const PLOG = join(ROOT, 'recall-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { getRepoMapContext, getHybridRepoMapContext } = await importDist(
-  'context',
-  'repoMapContext.js',
-);
+const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 const { indexCorpus } = await importDist('context', 'contextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',
-  'transformersEmbedding.js',
+  'transformersEmbeddingAdapter.js',
 );
-const { SemanticIndex, rrfMerge } = await importDist('context', 'semanticRecall.js');
+const { SemanticIndex, rrfMerge } = await importDist('context', 'semanticIndex.js');
+/** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
+const repoMap = new RepoMapContextEngine();
 
 // 支持镜像端点（HF_ENDPOINT）与本地 wasm（HF_WASM_PATH），便于无直连 huggingface 的网络。
 async function applyMirrorEnv() {
@@ -155,7 +154,7 @@ const n = QUERIES.length;
 const pre = [];
 for (const { q, anchor } of QUERIES) {
   const gt = groundTruth(anchor);
-  const bm25Ctx = getRepoMapContext(SRC, q, { fileK: FILE_K }) ?? '';
+  const bm25Ctx = repoMap.getRepoMapContext(SRC, q, { fileK: FILE_K }) ?? '';
   const bm25Surf = surfacedFiles(bm25Ctx);
   const bm25Recall = gt.size ? [...gt].filter((f) => bm25Surf.has(f)).length / gt.size : 0;
   pre.push({ q, anchor, gt, bm25Recall });
@@ -175,7 +174,10 @@ if (process.argv.includes('--diagnose')) {
   const semRows = [];
   for (const p of pre) {
     const semCtx =
-      (await getHybridRepoMapContext(SRC, p.q, embedding, { fileK: FILE_K, semWeight: 1e9 })) ?? '';
+      (await repoMap.getHybridRepoMapContext(SRC, p.q, embedding, {
+        fileK: FILE_K,
+        semWeight: 1e9,
+      })) ?? '';
     const semSurf = surfacedFiles(semCtx);
     const semRecall = p.gt.size ? [...p.gt].filter((f) => semSurf.has(f)).length / p.gt.size : 0;
     semHit += semRecall;
@@ -284,7 +286,8 @@ async function runCombo(combo) {
   let hybHit = 0;
   const rows = [];
   for (const p of pre) {
-    const hybCtx = (await getHybridRepoMapContext(SRC, p.q, embedding, { fileK: FILE_K })) ?? '';
+    const hybCtx =
+      (await repoMap.getHybridRepoMapContext(SRC, p.q, embedding, { fileK: FILE_K })) ?? '';
     const hybSurf = surfacedFiles(hybCtx);
     const hybRecall = p.gt.size ? [...p.gt].filter((f) => hybSurf.has(f)).length / p.gt.size : 0;
     hybHit += hybRecall;

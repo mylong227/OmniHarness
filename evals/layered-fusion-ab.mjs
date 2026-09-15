@@ -36,7 +36,9 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { getRepoMapContext } = await importDist('context', 'repoMapContext.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+/** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
+const repoMap = new RepoMapContextEngine();
 const { indexCorpus } = await importDist('context', 'contextEngine.js');
 const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
 const { buildLayeredCodeGraph, edgeCountOf } = await importDist('context', 'layeredCodeGraph.js');
@@ -139,10 +141,12 @@ for (const { q, anchor } of queries) {
   const gtList = [...gt];
 
   // A) BM25 基线（生产路径，layered 关）。
-  const bm25Files = surfacedFiles(getRepoMapContext(SRC, q, { fileK: FILE_K }));
+  const bm25Files = surfacedFiles(repoMap.getRepoMapContext(SRC, q, { fileK: FILE_K }));
 
   // B') 层化图软融合（E4 修正打法，layered 开）。
-  const fusionFiles = surfacedFiles(getRepoMapContext(SRC, q, { fileK: FILE_K, layered: true }));
+  const fusionFiles = surfacedFiles(
+    repoMap.getRepoMapContext(SRC, q, { fileK: FILE_K, layered: true }),
+  );
 
   const recallOf = (files) => {
     const set = files instanceof Set ? files : new Set(files);
