@@ -57,9 +57,16 @@ jobs:
       - run: npm run web:test
 
   test:
-    name: 单元测试（含覆盖率门禁）
-    runs-on: ubuntu-latest
+    name: 单元测试（含覆盖率门禁 · 跨平台真机）
+    # B3 更优解：用 GitHub 托管 runner 矩阵直接验证 Linux/macOS/Windows 真机，
+    # 替代「自购/自管 Linux·macOS 真机」方案——保真度一致（真实内核）、效率更高
+    # （零硬件筹备）、零外部依赖。fail-fast:false 让三平台各自独立报红。
+    runs-on: ${{ matrix.os }}
     needs: gate
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
