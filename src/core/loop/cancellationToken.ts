@@ -27,8 +27,8 @@ export class CancellationToken {
    */
   public constructor(private readonly parent?: CancellationToken) {
     if (parent !== undefined) {
-      // 父令牌级联：父取消 → 子同步取消（reason 透传，标 parent 已足够精确）。
-      parent.listen((reason) => this.cancel('parent'));
+      // 父令牌级联：父取消 → 子同步取消（本令牌一律标 'parent'：父的原始 reason 对它无意义）。
+      parent.listen(() => this.cancel('parent'));
     }
   }
 

@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  type Cost,
   emptyCost,
   cost,
   concatCost,
@@ -17,18 +16,12 @@ import {
   alignModality,
   type Modality,
 } from '../../src/genesis/modalityPort.js';
-import {
-  type Operator,
-  identityOperator,
-  composeOperator,
-  liftOperator,
-} from '../../src/genesis/operator.js';
+import { identityOperator, composeOperator, liftOperator } from '../../src/genesis/operator.js';
 import { Ledger, sumCosts } from '../../src/genesis/ledger.js';
 import {
   type GenesisState,
   deriveEntropy,
   characteristicRegime,
-  fuseOperator,
   pruneOperator,
   plan,
   adaptOnce,
@@ -209,7 +202,8 @@ test('plan 收敛到不动点（模态数良基递减）', () => {
   const history: string[] = [];
   for (let i = 0; i < 20; i++) {
     const before = s.modalities.join(',');
-    const op = plan(characteristicRegime(s));
+    // 每步显式驱动一次 plan（覆盖判据计算），收敛断言走 adaptOnce。
+    const _op = plan(characteristicRegime(s));
     s = adaptOnce(s, { record: () => {} });
     history.push(before);
     // 一旦连续两步模态构成不变，即到达不动点

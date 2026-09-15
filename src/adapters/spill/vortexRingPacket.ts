@@ -3,7 +3,7 @@
  * @maturityEvidence tests/unit/vortexRing.test.ts
  */
 import { createHash } from 'node:crypto';
-import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
+import type { SpillPort } from '../../ports/memory/spill.js';
 import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.js';
 import { fnv1a } from '../../util/eigenspectrum.js';
 

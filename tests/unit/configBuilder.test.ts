@@ -15,8 +15,6 @@ import {
   buildIdentity,
   buildLsp,
   buildModel,
-  buildRouter,
-  buildRouterAdapter,
   buildSpill,
   seedOf,
 } from '../../src/config/configBuilder.js';

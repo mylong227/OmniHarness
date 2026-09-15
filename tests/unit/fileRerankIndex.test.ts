@@ -65,8 +65,8 @@ test('nameTerms：符号名走 camelCase 拆分 + 词形归并（与检索侧同
     assert.ok(terms.has('regist'), 'register 应归并出 regist');
     // 只提注释的文件的符号名词集不含这些词。
     const docTerms = index.nameTerms(corpus, 'doc.ts');
-    assert.equal(docTerms.has('register'), false);
-    assert.equal(docTerms.has('tool'), false);
+    assert.strictEqual(docTerms.has('register'), false);
+    assert.strictEqual(docTerms.has('tool'), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -77,7 +77,7 @@ test('nameTerms：morph=false 时退化为基础分词（不拆分 camelCase）'
   try {
     const terms = new FileRerankIndex().nameTerms(corpus, 'registry.ts');
     assert.ok(terms.has('registertool'), '基础分词保留整词小写');
-    assert.equal(terms.has('tool'), false, '不拆分则不应出现子词');
+    assert.strictEqual(terms.has('tool'), false, '不拆分则不应出现子词');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -87,7 +87,7 @@ test('nameTerms：文件不存在声明符号时返回空集（不抛错）', ()
   const { dir, corpus } = Fixture.build({ 'registry.ts': REGISTRY_TS });
   try {
     const terms = new FileRerankIndex().nameTerms(corpus, 'no-such-file.ts');
-    assert.equal(terms.size, 0);
+    assert.strictEqual(terms.size, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -99,11 +99,11 @@ test('contentTerms：去停用词、去短词、去重且保序', () => {
     const terms = new FileRerankIndex().contentTerms(corpus, 'where is the tool and the tool');
     assert.ok(terms.includes('tool'));
     for (const stop of ['where', 'is', 'the', 'and']) {
-      assert.equal(terms.includes(stop), false, `${stop} 应为停用词`);
+      assert.strictEqual(terms.includes(stop), false, `${stop} 应为停用词`);
     }
-    assert.equal(terms.filter((t) => t === 'tool').length, 1, '内容词应去重');
+    assert.strictEqual(terms.filter((t) => t === 'tool').length, 1, '内容词应去重');
     // 短词（< 3 字符）不进内容词。
-    assert.equal(terms.includes('a'), false);
+    assert.strictEqual(terms.includes('a'), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -119,11 +119,11 @@ test('idf：与 Bm25Index 同源——稀有词高于常见词、未收录为 0'
     const rare = index.idf(corpus, 'hub');
     const common = index.idf(corpus, 'registry');
     const absent = index.idf(corpus, 'zzz-not-in-corpus');
-    assert.equal(absent, 0);
+    assert.strictEqual(absent, 0);
     assert.ok(rare > 0 && common > 0);
     assert.ok(rare > common, `稀有词 IDF 应更高：hub=${rare} registry=${common}`);
     // 与索引本体完全一致（同源，非第二套公式）。
-    assert.equal(rare, corpus.fileIndex.idf('hub'));
+    assert.strictEqual(rare, corpus.fileIndex.idf('hub'));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -136,7 +136,7 @@ test('weight：未收录词退化为极小正权重（不返回 0）', () => {
     const w = index.weight(corpus, 'zzz-not-in-corpus');
     assert.ok(w > 0, '权重必须严格为正，否则覆盖率分母可能为 0');
     assert.ok(w < 0.5, '退化权重应远小于正常 IDF');
-    assert.equal(index.weight(corpus, 'hub'), corpus.fileIndex.idf('hub'));
+    assert.strictEqual(index.weight(corpus, 'hub'), corpus.fileIndex.idf('hub'));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -146,16 +146,19 @@ test('缓存语义：同语料同文件重复取词集返回同一实例', () =>
   const { dir, corpus } = Fixture.build({ 'registry.ts': REGISTRY_TS });
   try {
     const index = new FileRerankIndex();
-    assert.equal(index.nameTerms(corpus, 'registry.ts'), index.nameTerms(corpus, 'registry.ts'));
+    assert.strictEqual(
+      index.nameTerms(corpus, 'registry.ts'),
+      index.nameTerms(corpus, 'registry.ts'),
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
 test('ContentStopWords：isContent 同时管停用词与短词', () => {
-  assert.equal(ContentStopWords.isContent('tool'), true);
-  assert.equal(ContentStopWords.isContent('the'), false);
-  assert.equal(ContentStopWords.isContent('is'), false);
-  assert.equal(ContentStopWords.isContent('ab'), false, '两字符不算内容词');
-  assert.equal(ContentStopWords.has('where'), true);
+  assert.strictEqual(ContentStopWords.isContent('tool'), true);
+  assert.strictEqual(ContentStopWords.isContent('the'), false);
+  assert.strictEqual(ContentStopWords.isContent('is'), false);
+  assert.strictEqual(ContentStopWords.isContent('ab'), false, '两字符不算内容词');
+  assert.strictEqual(ContentStopWords.has('where'), true);
 });

@@ -6,7 +6,6 @@
  * 不再每次临时重新组合）。冻结是**加法式**——只新增原生能力，绝不删改源组合或既有能力
  * （fail-closed）。
  */
-import type { Skill } from '../../skill/skill.js';
 
 /** 已冻结（相变固化）的原生能力。 */
 export interface FrozenCapability {

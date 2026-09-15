@@ -15,10 +15,10 @@ import { ParallelMap } from '../../src/util/parallelMap.js';
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 test('concurrency 归一化：0/NaN/2.7 分别 → 1/1/2', () => {
-  assert.equal(new ParallelMap(0).concurrency(), 1);
-  assert.equal(new ParallelMap(Number.NaN).concurrency(), 1);
-  assert.equal(new ParallelMap(2.7).concurrency(), 2);
-  assert.equal(new ParallelMap(4).concurrency(), 4);
+  assert.strictEqual(new ParallelMap(0).concurrency(), 1);
+  assert.strictEqual(new ParallelMap(Number.NaN).concurrency(), 1);
+  assert.strictEqual(new ParallelMap(2.7).concurrency(), 2);
+  assert.strictEqual(new ParallelMap(4).concurrency(), 4);
 });
 
 test('空输入返回空数组', async () => {
@@ -50,8 +50,8 @@ test('在飞任务峰值 == 并发上限（有界验证）', async () => {
       return i;
     },
   );
-  assert.equal(peak, limit);
-  assert.equal(out.length, 9);
+  assert.strictEqual(peak, limit);
+  assert.strictEqual(out.length, 9);
 });
 
 test('均衡调度：并发 4 的墙钟显著低于串行（快任务不被慢任务阻塞）', async () => {
@@ -77,5 +77,5 @@ test('concurrency=1 退化为严格串行（不重叠）', async () => {
     await sleep(ms);
     inFlight -= 1;
   });
-  assert.equal(peak, 1);
+  assert.strictEqual(peak, 1);
 });

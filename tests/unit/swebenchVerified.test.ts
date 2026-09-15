@@ -51,10 +51,10 @@ test('loadVerified：合法数据集可被加载（fail-closed 不抛）', () =>
     const p = join(dir, 'ok.json');
     writeValid(p);
     const tasks = SwebenchVerified.loadVerified(p);
-    assert.equal(tasks.length, 1);
+    assert.strictEqual(tasks.length, 1);
     const first = at(tasks, 0);
-    assert.equal(first.id, 'django__django-1');
-    assert.equal(at(first.failToPass, 0), 'x passes');
+    assert.strictEqual(first.id, 'django__django-1');
+    assert.strictEqual(at(first.failToPass, 0), 'x passes');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -91,17 +91,17 @@ test('parseResolved：容忍对象形态与数组形态，缺失返回 null', ()
       JSON.stringify({ 'django__django-1': { resolved: true } }),
       'utf8',
     );
-    assert.equal(SwebenchVerified.parseResolved(dir, 'django__django-1'), true);
-    assert.equal(SwebenchVerified.parseResolved(dir, 'missing'), null);
+    assert.strictEqual(SwebenchVerified.parseResolved(dir, 'django__django-1'), true);
+    assert.strictEqual(SwebenchVerified.parseResolved(dir, 'missing'), null);
     // 数组形态（覆盖同目录 report.json）
     writeFileSync(
       join(dir, 'report.json'),
       JSON.stringify([{ instance_id: 'django__django-1', resolved: false }]),
       'utf8',
     );
-    assert.equal(SwebenchVerified.parseResolved(dir, 'django__django-1'), false);
+    assert.strictEqual(SwebenchVerified.parseResolved(dir, 'django__django-1'), false);
     // 不存在的输出目录
-    assert.equal(SwebenchVerified.parseResolved(join(dir, 'nope'), 'x'), null);
+    assert.strictEqual(SwebenchVerified.parseResolved(join(dir, 'nope'), 'x'), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -109,17 +109,17 @@ test('parseResolved：容忍对象形态与数组形态，缺失返回 null', ()
 
 test('LocalDockerExecutor：沙箱无 docker → fail-closed 返回未通过并写明原因', async () => {
   const exec = new LocalDockerExecutor(EXEC_OPTS);
-  assert.equal(exec.kind, 'docker');
+  assert.strictEqual(exec.kind, 'docker');
   const r = await exec.run('django__django-1', '--- a\n+++ b\n');
-  assert.equal(r.resolved, false);
+  assert.strictEqual(r.resolved, false);
   assert.match(r.reason ?? '', /docker/);
 });
 
 test('ModalExecutor：沙箱无 modal CLI → fail-closed 返回未通过并写明原因', async () => {
   const exec = new ModalExecutor(EXEC_OPTS);
-  assert.equal(exec.kind, 'modal');
+  assert.strictEqual(exec.kind, 'modal');
   const r = await exec.run('django__django-1', '--- a\n+++ b\n');
-  assert.equal(r.resolved, false);
+  assert.strictEqual(r.resolved, false);
   assert.match(r.reason ?? '', /modal/);
 });
 
@@ -148,9 +148,9 @@ test('runVerifiedSuite：默认串行（并发 1）峰值在飞 == 1', async () 
   };
   const predictions = new Map<string, string>([1, 2, 3].map((n) => [`t-${n}`, `patch-${n}`]));
   const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, exec);
-  assert.equal(report.total, 3);
-  assert.equal(report.resolved, 3);
-  assert.equal(peak, 1); // 串行：任意时刻至多 1 个在飞
+  assert.strictEqual(report.total, 3);
+  assert.strictEqual(report.resolved, 3);
+  assert.strictEqual(peak, 1); // 串行：任意时刻至多 1 个在飞
 });
 
 test('runVerifiedSuite：并发 3 时保序且有界（突破 500 题串行瓶颈）', async () => {
@@ -178,9 +178,9 @@ test('runVerifiedSuite：并发 3 时保序且有界（突破 500 题串行瓶�
     },
   };
   const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, exec, 3);
-  assert.equal(report.resolved, 5);
-  assert.equal(report.total, 5);
-  assert.equal(peak, 3); // 有界：不超过并发上限
+  assert.strictEqual(report.resolved, 5);
+  assert.strictEqual(report.total, 5);
+  assert.strictEqual(peak, 3); // 有界：不超过并发上限
   assert.deepEqual(
     report.results.map((r) => r.id),
     ['t-1', 't-2', 't-3', 't-4', 't-5'], // 严格同序

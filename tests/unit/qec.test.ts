@@ -42,7 +42,6 @@ class MemLongTermMemory implements LongTermMemoryPort {
   }
 }
 
-let seq = 0;
 function fact(id: string, text: string): MemoryFact {
   return {
     id,
