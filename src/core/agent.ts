@@ -179,7 +179,7 @@ export class Agent implements AgentPort {
         mode === 'resume' && prompt.trim() === ''
           ? '【续跑】上次任务在此中断。基于上方会话历史与当前工作区状态接着完成剩余工作，不要重复已完成的步骤。'
           : prompt;
-      recorder.user(effectivePrompt, images);
+      recorder.user(effectivePrompt, images, files);
       // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）。
       const cancel = new CancellationToken();
       this.currentCancel = cancel;

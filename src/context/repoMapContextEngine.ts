@@ -50,8 +50,6 @@ const BM25_SYM_CANDIDATES = 60;
 const BM25_FILE_CANDIDATES = 20;
 /** 语义路单次召回的候选数。 */
 const SEMANTIC_CANDIDATES = 40;
-/** 纯 BM25 路径（getRepoMapContext）的候选数。 */
-const BM25_ONLY_CANDIDATES = 20;
 
 /**
  * repo-map 检索引擎——混合检索的编排门面（Facade）。
@@ -96,7 +94,9 @@ export class RepoMapContextEngine {
       return null;
     }
     try {
-      const res = query(corpus, q, BM25_ONLY_CANDIDATES, {
+      // 注：`query()` 的历史第 3 位置参数（候选数）已于 2026-09-16 移除——它从不被读取，
+      // 本处原传的 `BM25_ONLY_CANDIDATES`(=20) 与 `query` 内部固定候选上限（文件 20 / 符号 60）一致，故删除不改变行为。
+      const res = query(corpus, q, {
         prf: false,
         graph: false,
         lsa: false,
