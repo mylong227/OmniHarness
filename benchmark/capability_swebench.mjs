@@ -52,6 +52,8 @@ if (verifiedIdx !== -1) {
   const tasksJsonPath = tasksJsonIdx !== -1 ? process.argv[tasksJsonIdx + 1] : undefined;
   const predsIdx = process.argv.indexOf('--predictions');
   const predsPath = predsIdx !== -1 ? process.argv[predsIdx + 1] : undefined;
+  const concIdx = process.argv.indexOf('--concurrency');
+  const concurrency = concIdx !== -1 ? Number(process.argv[concIdx + 1]) : 1;
 
   const { SwebenchVerified, LocalDockerExecutor, ModalExecutor } =
     await import('../dist/src/eval/swebenchVerified.js');
