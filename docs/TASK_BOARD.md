@@ -168,6 +168,12 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     ② 本轮落地并**受控排除**研究公认的「检索第一杠杆」——BM25 `k1`/`b` 调参：`Bm25Index.search` 增**打分期覆盖**（索引 df/文档长度与 k1/b 无关 ⇒ 同一语料可零成本重打分）；`contextEngine` 的 `IndexOptions`/`query` 增 `bm25K1`/`bm25B`（缺省仍 1.5/0.75，**生产行为不变**）；新增 `evals/bm25-tune.mjs`（6×5 网格 + bootstrap 95% CI + repeated 2-fold 留出折；锚点失效（`OpenAiModelConfig` GT=0）按纪律**跳过并记账**，不崩溃不静默吞）。
     ③ **实测结论（诚实负结果）**：有效 32 查询，生产默认 32.8% → 网格最优 `k1=3,b=0.25` 36.1%（+3.3pp），但 **bootstrap 95% CI [−0.24, 8.20]pp 跨 0**、**留出折（repeated 2-fold×20）均值仅 +0.39pp**、分布 **↑3/↓1/=28** ⇒ **默认 1.5/0.75 已近最优，调参无稳健增益，不翻默认**。此为「检索第一杠杆」的受控排除，检索侧下一步应转向 **P1 reranker**（报告 `evals/bm25-tune.report.json`）。
     ④ 提交口径：能力（BM25 旋钮 + 调参脚本 + 报告）与计划文档同属一条链路 → 一笔代码（`src/search`、`src/context/contextEngine.ts`、`evals/bm25-tune.mjs`、报告）＋一笔看板（本节）。
+14. **打磨批次·有界均衡并行调度（P7，2026-09-15，本轮）**：
+    ① 用户要求「单线程 → 并行多线程均衡调度，突破原本瓶颈」。只读盘点定位三处**串行**编排：`SwebenchVerified.runVerifiedSuite`（官方 500 题逐个 `await executor.run()`，主要墙钟瓶颈）／`TerminalBenchRunner.run`（整套 TaskBench 串行）／`WorkerOrchestrator.delegateAll`（注释明写「不并行」）。既有并发原语只覆盖子代理（`SubagentOrchestrator`）与 Agent 工具（`ToolScheduler`，位于热区），**评测/编排层无并发**。
+    ② 新增 `src/util/parallelMap.ts`（`ParallelMap`）：**复用 `ConcurrencyLimiter`**（不重复造闸门），有界并发 + 均衡调度（槽位完成即移交等待者，先到先服务、无队头阻塞）+ 结果**严格同序**；`concurrency=1` **退化为严格串行**（与旧 for-await 等价，零行为变更）。三处接线均为**可选参数**（默认 1=串行）；CLI `--concurrency N`。
+    ③ 语义保证配机械测试：同序（完成顺序打乱仍按输入回填）、在飞峰值 = 上界、并发 4 墙钟 < 串行 1/2、`concurrency=1` 峰值恒 1；`runVerifiedSuite` 并发 3 保序且有界（`parallelMap` 6 例 + `swebenchVerified` 增 2 例全绿）。
+    ④ **诚实边界**：不做 CPU 并行（Node 单线程；CPU 密集须 `worker_threads`，另议）；本类只面向 **I/O 密集**独立任务。默认并发 1 故**生产行为零变更**，突破瓶颈须显式 `--concurrency N`（本地 docker 受内存/端口限制，Modal 云执行可更大）。
+    ⑤ 提交口径：能力（`src/util/parallelMap.ts` + 三处接线 + CLI + 单测）一笔代码 ＋ 一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P7）。
 
 ---
 
