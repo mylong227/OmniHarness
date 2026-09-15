@@ -89,6 +89,17 @@ export interface FileConfig {
   /** 熔断开路冷却毫秒（默认 30000）。 */
   readonly modelCircuitBreakerOpenMs?: number;
   /**
+   * (P5) 成本硬预算（USD）：设正数后按路由定价累计模型花费，越上限即熔断
+   * （`costBudgetOnExceed='fail'` 时 fail-closed 阻断后续调用）。0 / 不设为关闭。
+   * 此前该字段只能经编程注入（`OmniHarnessConfig.costBudgetUsd`），配置文件与 CLI 均无入口
+   * ⇒ 默认部署下成本预算恒为关闭。本字段补齐生产入口。
+   */
+  readonly costBudgetUsd?: number;
+  /** (P5) 预算耗尽行为（默认 'fail'）：'fail' 抛错阻断；'warn' 仅观测（软预算，不阻断）。 */
+  readonly costBudgetOnExceed?: 'fail' | 'warn';
+  /** (P5) 软阈值比例（相对硬预算，0<r≤1，默认 0.8）：达该比例即置位「建议降级」信号。 */
+  readonly costBudgetSoftRatio?: number;
+  /**
    * (U4) RLVR 进化闭环：启用后运行时构造「可验证门禁 + RLVR sample-filter-replay」控制器——
    * 每个过门禁的候选再跑一轮 StarPO 采样→可验证奖励（候选代码真实编译/测试绿度）打分→
    * 绿样本进回放缓冲，仅「绿」样本才晋升。缺省关，零破坏。

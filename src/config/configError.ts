@@ -184,6 +184,8 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   sandbox: ['passthrough', 'policy', 'restricted', 'landlock', 'seatbelt', 'bwrap'],
   escalation: ['deny', 'ask', 'auto'],
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],
+  // P5：成本预算耗尽行为（'fail' 硬阻断 / 'warn' 软预算仅观测）。
+  costBudgetOnExceed: ['fail', 'warn'],
 };
 
 /** 允许的字符串字段（非枚举、非数字）。 */
@@ -202,6 +204,9 @@ const NUMBER_FIELDS: ReadonlySet<string> = new Set([
   'maxSteps',
   'modelCircuitBreakerThreshold',
   'modelCircuitBreakerOpenMs',
+  // P5：成本预算（USD）与软阈值比例（相对硬预算，0<r≤1）。
+  'costBudgetUsd',
+  'costBudgetSoftRatio',
 ]);
 
 /** 允许的布尔字段。 */
@@ -249,6 +254,15 @@ const KEY_ALIASES: Readonly<Record<string, string>> = {
   'model-circuit-breaker-threshold': 'modelCircuitBreakerThreshold',
   model_circuit_breaker_open_ms: 'modelCircuitBreakerOpenMs',
   'model-circuit-breaker-open-ms': 'modelCircuitBreakerOpenMs',
+  // P5：成本预算（snake / kebab / 缩写别名）。
+  cost_budget_usd: 'costBudgetUsd',
+  'cost-budget-usd': 'costBudgetUsd',
+  cost_budget: 'costBudgetUsd',
+  'cost-budget': 'costBudgetUsd',
+  cost_budget_on_exceed: 'costBudgetOnExceed',
+  'cost-budget-on-exceed': 'costBudgetOnExceed',
+  cost_budget_soft_ratio: 'costBudgetSoftRatio',
+  'cost-budget-soft-ratio': 'costBudgetSoftRatio',
 };
 
 /** 环境变量前缀与映射（OMNIHARNESS_MODEL → model）。 */

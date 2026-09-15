@@ -14,6 +14,7 @@ import {
   OUTPUT_FORMATS,
   KV_ADAPTERS,
   A2A_TRANSPORTS,
+  BUDGET_ON_EXCEED,
 } from './cliEnums.js';
 
 /**
@@ -93,6 +94,10 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--model-router',
   '--model-router-file',
   '--turn-token-budget',
+  // (P5) 成本预算三旗标（取值 → 必须登记，否则取值会被 collectPositional 并入 prompt）。
+  '--cost-budget-usd',
+  '--cost-budget-on-exceed',
+  '--cost-budget-soft-ratio',
   '--vault-hydrate-names',
   '--vault-key-file',
   '--kv-adapter',
@@ -438,6 +443,26 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   },
   '--turn-token-budget': (a, argv, i) => {
     a.turnTokenBudget = Number.parseInt(CliFlagTable.valueOf(argv, i, '--turn-token-budget'), 10);
+    return 1;
+  },
+  // (P5) 成本预算：USD 上限 / 耗尽行为 / 软阈值比例。
+  '--cost-budget-usd': (a, argv, i) => {
+    a.costBudgetUsd = Number.parseFloat(CliFlagTable.valueOf(argv, i, '--cost-budget-usd'));
+    return 1;
+  },
+  '--cost-budget-on-exceed': (a, argv, i) => {
+    a.costBudgetOnExceed = CliFlagTable.enumOf(
+      argv,
+      i,
+      '--cost-budget-on-exceed',
+      BUDGET_ON_EXCEED,
+    );
+    return 1;
+  },
+  '--cost-budget-soft-ratio': (a, argv, i) => {
+    a.costBudgetSoftRatio = Number.parseFloat(
+      CliFlagTable.valueOf(argv, i, '--cost-budget-soft-ratio'),
+    );
     return 1;
   },
   // D2 服务端鉴权门禁的 OIDC 配置（仅 serve 消费，不进入 CliArgs 通用字段）。
