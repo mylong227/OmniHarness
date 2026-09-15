@@ -27,6 +27,9 @@
 在本语料上跑**全网格 + bootstrap CI + repeated 2-fold 留出折**。结论：**无稳健增益，默认 1.5/0.75 已近最优，不翻默认**
 （详见 §3）。这是一次**受控排除**，把「调 BM25 参数」从候选清单划掉，避免后续重复投入。
 
+**已落地（打磨批次）**：**P7 有界均衡并行调度**（`src/util/parallelMap.ts` + 三处串行瓶颈接线，见 §4-P7）；
+**P2 确定性无损收缩接线**（`DeterministicCompressor` 无损子集接进 `ContextCompactor`，实测 JSON 型工具输出 −29%，见 §4-P2）。
+
 ---
 
 ## 1. 行业参照（2026，外源结论逐条标注；厂商自报标「自报」）
@@ -79,6 +82,13 @@
 
 ## 4. 打磨清单（按 ROI，落地时逐条开一笔）
 
+> **批次划分（2026-09-16 定稿，逐批交付、每批独立验收）**：
+> **第一批 · token 效率** = **P2 确定性无损收缩接线（本轮已落地）** + P5（软预算 + per-tool 归因）；
+> **第二批 · 检索命中** = P1 零依赖 reranker；
+> **第三批 · 准确率** = P3 主循环自验证回环 + P4 护栏工具输出来源信任级；
+> **第四批 · 外部解锁** = P6 官方 SWE-bench Verified / Terminal-Bench 出数（待凭证）。
+> P7（并发）已于上一批单独交付。
+
 ### P1 零依赖 reranker（两阶段检索第 2 段）— 命中准率↑
 
 - **缺口**：仅 RRF + 符号融合，**无 rerank 阶段**；fileK=14 时 precision 天然被稀释。
@@ -88,15 +98,34 @@
 - **验收**：召回/精度对照 + bootstrap CI（范式 `evals/layered-recall-ab.mjs`）；CI 下界 >0 且留出折为正才翻默认。
 - **风险**：中（本仓库历史负结果多）。**工作量**：0.5–1d。
 
-### P2 确定性压缩接线（已建未接）— token↓
+### P2 确定性无损收缩接线（本轮已落地）— token↓
 
-- **缺口**：`compressContext`/`foldHistorySegments`/`truncateLongOutput` **仅 `src/index.ts` 导出、生产零调用**
-  （本仓库最高频缺陷形态「声明未接线」）。
-- **方案**：在 `ContextCompactor` 的 **LLM 摘要之前**加一层**确定性前处理**（去空行 → JSON 紧凑 → 重复分片去重 →
-  长输出中段省略 → 远古历史折叠）；并在 `stepToolExecutor.recordToolResult` 的 spiller **之后**对**中等输出**
-  （低于外溢阈值者）施加同款确定性收缩。**零 LLM 成本、幂等可证、单调不增字节**。
-- **验收**：单测（三大定律 + 压缩率）+ `evals/context-efficiency/bench.mjs` 前后 token 对照。
-- **风险**：低–中（不删事实，仅裁确定冗余；注意别改工具输出的可断言语义）。**工作量**：0.5d。
+- **缺口（已证）**：`compressContext`/`foldHistorySegments`/`truncateLongOutput` **仅 `src/index.ts` 导出、
+  生产零调用**（本仓库最高频缺陷形态「声明未接线」）；`deterministicCompressor` 全仓消费方只有测试与
+  独立基准脚本。
+- **落地（与初版方案的三处口径修正，均有理由）**：
+  1. **接在 `ContextCompactor`，不接 `stepToolExecutor`**。`recordToolResult` 属**记录层**（写事件日志 +
+     审计链 fail-closed）；压缩属**投影层**职责（`events → 投影 → 压缩 → 发往模型`）。改记录层内容等于篡改
+     审计事实，故**明确不做**。
+  2. **只用无损子集**（行尾空白 / 3+ 连续空行 / 整段 JSON 缩进）——**不启用截断**。截断有信息损失，
+     而工具输出的**外溢**（preview + 句柄）已由 `toolResultSpiller` 负责，投影层不再二次删事实。
+     故本层承诺可无条件施加：**幂等 + 单调 + 不删任何字符级事实**（配机械测试）。
+  3. **head 不收缩**（只缩保留的 tail / 未触发压缩时的全部消息）。理由：摘要请求 `[...head, 指令]`
+     与主请求共享最长公共前缀 ⇒ 命中 provider implicit prompt cache；若压缩 head，前缀被破坏，
+     按「缓存 90% 折扣 vs 压缩率」算，**不压 head 更省**。
+- **配置链**：`config.compactionDeterministicShrink`（`configFactory`）→ `agent.buildCompactor()` 显式透传
+  → `ContextCompactor`（类内默认 true）。**显式透传**以杜绝「声明字段 runtime 未透传」死旋钮。
+- **验收（已过）**：
+  - 单测：`shrinkLossless` 幂等/单调/不删事实；`ContextCompactor` 默认开、`false` 逐字节回退、
+    system 不动、`toolCallId`/`reasoningContent` 原样（思考模式硬要求）、压缩路径与游标路径均收缩。**7 例全绿**。
+  - 实测 `evals/compaction-wiring.mjs`（真实仓库产物 8 文件 / 20 条消息，接线前 vs 接线后）：
+    - 口径① **未达阈值（长会话常态，每轮持续收益）**：162.79 KB → 155.37 KB，**−4.56%**；
+    - 口径② **触达压缩阈值（保留 tail）**：6.31 KB → 3.67 KB，**−41.89%**；
+    - 口径③ **整段 JSON 型工具输出（5 条）**：25.4 KB → 17.99 KB，**−29.16%**（单条 −12.14% ~ −42.44%）。
+  - **诚实边界**：机制射程集中在 **JSON 型工具输出**（真实工具输出主导形态）；Markdown / 源码类内容
+    实测 **0%**（本就无冗余可裁）。故「每轮 −4.6%」是被大体量 Markdown 稀释后的混合口径，
+    **不是普适压缩率**——报告 `evals/compaction-wiring.report.json`。
+- **风险**：低（无损 + 幂等 + 可关；默认开故生产行为变更，已用全量单测 1419 例验证无回归）。
 
 ### P3 主循环自验证回环 — 准确率↑（最高杠杆）
 
