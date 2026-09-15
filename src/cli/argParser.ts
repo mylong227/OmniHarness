@@ -85,6 +85,8 @@ export interface CliArgs {
   planMode?: boolean | undefined;
   /** 提示注入护栏（opt-in）：开启后工具结果进上下文前扫描指令注入并隔离命中项（默认关）。 */
   promptInjectionGuard?: boolean | undefined;
+  /** （P3）自验证回环（opt-in）：开启后写类工具改写源码时自动跑受限测试并回灌失败摘要（默认关；还须仓库含 npm test 脚本）。 */
+  selfVerify?: boolean | undefined;
   /** 延迟加载工具名清单（#M1，逗号分隔）：这些工具默认不进模型上下文，需经 tool_search 发现。 */
   deferTools?: string | undefined;
   /** 选中的配置 profile 名（#G6，--profile）：在 profiles/ 下查找并覆盖项目默认。 */
