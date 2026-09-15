@@ -79,6 +79,24 @@ export interface RepoMapContextOptions {
    * （D6 第二关未达标前不翻默认）。经 `getRepoMapContext(root, q, { layered: true })` 传递。
    */
   readonly layered?: boolean;
+  /**
+   * 两阶段检索第 2 段：**零依赖词法重排**（见 `FileReranker`）。
+   *
+   * **默认 false（opt-in）**。两关结果（`evals/rerank-ab.mjs`，真实 `src/` 语料 32 条锚点查询）：
+   *  - **fileK=14**（本仓库既有检索评测的范式口径）：召回 31.4% → 41.0%（**+9.6pp**），
+   *    bootstrap 95% CI **[1.80, 18.60]pp 不跨 0**、repeated 2-fold 留出折 **38/40 为正**
+   *    （min −0.78pp）、否决器 `proceed`（跨查询重合度 0.090 vs 基线 0.138，非常量偏置；
+   *    与基线 Top-K 平均重合度 0.538 < 0.70，不是基线复读）⇒ **两关全过**；
+   *  - **fileK=10**（`getRepoMapContext` 当前默认预算）：召回 26.9% → 33.2%（+6.3pp），
+   *    但 CI95 **[−0.45, 14.74]pp 下界跨 0**、留出折 37/40 为正（3 折为负）⇒ **未过**。
+   *
+   * 生产预算档（fileK=10）未过阈值，按本仓库纪律**不翻默认**（不破生产口径）；
+   * 开启方式：`opts.rerank = true` 或 env `OMNI_RERANK=1`。
+   * 逐条代价诚实登记：fileK=14 档 ↑9/↓3、fileK=10 档 ↑3/↓1（回退均只丢 1 个 GT 文件）。
+   * 报告：`evals/rerank-ab.report.json`。**下一杠杆**：若接受把 fileK 由 10 提到 14 的
+   * token 代价，则该档两关全过（第一段自身即 26.9%→31.4%），是比继续调重排器更短的路。
+   */
+  readonly rerank?: boolean;
 }
 
 /** 混合检索的只读旋钮集合（构造即快照，见类注释）。 */

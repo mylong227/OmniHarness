@@ -7,6 +7,12 @@
  *  - 任何异常（坏路径 / 空仓 / 索引失败 / 查询失败 / 禁用）→ 返回 null，绝不抛错崩 agent。
  *  - 索引强制 light 模式：仅 morph + 符号/文件双 BM25，跳过频域共振 / 44 万边代码图 / LSA SVD
  *    （三项在 omniharness 语料实测均零增益）。召回配置即基准里 67.0% 那档。
+ *  - **两阶段检索（打磨第二批 P1）**：纯 BM25 路径在第一段之后可追加**零依赖词法精排**
+ *    （`FileReranker`：符号名 IDF 加权覆盖率 + 第一段倒数秩）。**默认关（opt-in）**：
+ *    fileK=14 档两关全过（召回 31.4%→41.0%，CI95 [1.80, 18.60]pp，留出折 38/40 为正），
+ *    但 fileK=10（本入口默认预算）档 CI 下界 −0.45pp 跨 0 ⇒ 未过阈值，故不翻默认。
+ *    开启：`opts.rerank` / env `OMNI_RERANK=1`。混合（语义）路径未接第二段——语义路需
+ *    嵌入模型，离线无法度量，按「不报未测数字」纪律**留给可测时再定**。
  *
  * 混合检索（语义召回，U3 残留的词法盲区补强）：
  *  - `getRepoMapContext` 保持同步、纯 BM25（零破坏、既有测试不变）。
@@ -97,6 +103,16 @@ export class RepoMapContextEngine {
         layered: opts.layered === true,
         fileK: opts.fileK ?? 10,
         symK: opts.symK ?? 24,
+        // 第二段零依赖词法重排（打磨第二批 P1）：**默认关（opt-in）**。
+        // 两关结果（`evals/rerank-ab.mjs`，真实 src/ 语料 32 条锚点查询）：
+        //   · fileK=14（本仓库既有检索评测的范式口径）：31.4%→41.0% 召回（+9.6pp），
+        //     CI95 [1.80, 18.60]pp **不跨 0**、留出折 38/40 为正、否决器 proceed ⇒ **两关全过**；
+        //   · fileK=10（本生产入口当前的默认预算）：26.9%→33.2%（+6.3pp），
+        //     CI95 [−0.45, 14.74]pp **下界跨 0**、留出折 37/40 为正（3 折为负）⇒ **未过**。
+        // 生产预算档未过阈值，故**不翻默认**（本仓库纪律：两关未达标前不破生产口径）。
+        // 开启：`opts.rerank = true` 或 env `OMNI_RERANK=1`；显式 `false` / `OMNI_RERANK=0` 关闭
+        // （用 ?? 而非 ||：false 是合法显式值）。
+        rerank: opts.rerank ?? process.env.OMNI_RERANK === '1',
       });
       return res.context;
     } catch {
