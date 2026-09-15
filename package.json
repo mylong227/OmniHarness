@@ -101,6 +101,7 @@
     "eval:veto": "npm run build && node evals/rank-veto-retro.mjs --gate",
     "eval:compaction": "npm run build && node evals/compaction-wiring.mjs",
     "eval:rerank": "npm run build && node evals/rerank-ab.mjs --gate",
+    "eval:prefix": "npm run build && node evals/prefix-stability.mjs",
     "longrun:backfill": "npm run build && node benchmark/longrun_backfill.mjs",
     "longrun:run": "npm run build && node benchmark/longrun_run.mjs",
     "longrun:tighten": "npm run build && node benchmark/tighten.mjs",
