@@ -74,7 +74,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
   PTC 压缩测试因 repo-map 移出 compactor 输入而解耦（显式 `OMNI_REPO_MAP=0` + 预算 30 + 断言放宽为 `OMNI_COMPACTION_V1|上下文压缩`），见 `TASK_BOARD.md` §5 第 25 条 ④；**质量侧仍待 P6 外部凭证并测**（但属缓存优化、不触模型语义）。**无滚动 action-outcome 账本**；成本**仅硬熔断**（P5 已补缓存折抵 / per-tool 归因 / 软阈值，见 §4）。
 - **检索侧**：`Bm25Index{k1,b}` 可注入但**生产全不传参**（默认 1.5/0.75）；`tokenizeExpanded`（camel 拆分 + 词形归并）；
   语义/混合 `hybridRanker`+`semanticIndex`（**默认关**，需 `OMNI_SEMANTIC_RECALL=1`）；旋钮 `recallKnobs`（**fileK 默认 20**, symK=24/30, rrfK=60…）；载荷形态 `payloadShape`（**默认 `tiered` 梯度投送**，注入 token 降 69.9%；`degrade` 应急压缩再降至 81.1%；`full` 回退历史口径）；
-  **无 reranker**；层化/图/LSA/频谱**均默认关**（实测负）；评测 `evals/recall-codebase-real.mjs` 等。
+  **精排 `FileReranker` 默认开**（`repoMapContextEngine` 混合路径已接第二段精排；关闭：`OMNI_RERANK=0`。注：原文「无 reranker」已因 `TASK_BOARD.md` §5 第 28 条翻默认为「开」而**失效**，此处更正）；层化/图/LSA/频谱**均默认关**（实测负）；评测 `evals/recall-codebase-real.mjs` 等。
 - **准确率侧**：主循环**不自跑测试**（无 FAIL_TO_PASS 回环）；护栏 `promptInjectionGuard`（16 正则，opt-in）实测
   recall 1.0 / precision 0.857 / FP 0.167，但 **tool-output 0/6、natural-language 0/4、source-code 0/1**；
   重试/熔断齐备；SWE-bench 适配器在（自研 10 题 live 9/10）。
@@ -282,8 +282,16 @@ FP 16.7% → **8.3%**，见 §4-P4）；
 ### P6 官方基准出数 — 齐平·超越
 
 - **缺口**：SWE-bench 仅自研 10 题（live 9/10）；官方 500 Verified 与 Terminal-Bench **无落盘成绩**。
-- **方案**：B1 接线已 code-ready（`src/eval/swebenchVerified.ts`，`--backend modal|docker`，fail-closed）；
-  待你侧 **cloud 凭证** 或本机 docker → 一键出官方分。
+- **方案**：B1 接线已 code-ready（`src/eval/swebenchVerified.ts` + `src/eval/nativeExecutor.ts`，**原生本地执行器**：
+  `git worktree` 检出 base + `uv venv` + 应用补丁 + `pytest` 判定，fail-closed）。
+- **后续更正（2026-09-17）**：原文「`--backend modal|docker`」**已失效**——执行后端已整体替换为免 Docker、免云的 **`NativeExecutor`**。
+  本轮进一步把通道推进到「**gold 可判 resolved**」：① 国内通道 **Gitee 镜像**（11/12 仓库、`base_commit` 22/22 命中）；
+  ② **两关验收**（放行≠有效）暴露并修复**环境保真度缺口**——registry-latest pytest 顶掉仓库 pin（9.x 移除 `monkeypatch.notset`
+  ⇒ 老套件 60/60 ERROR）+ 不设上界的开发期运行时依赖（`Werkzeug>=2.2.2` 拉到 3.x 删除 `__version__`）；
+  修法为新增安装阶梯 `pythonEnvPlan.ts`（**仓库自述已 pinned 依赖 → 该仓库额外约束 → 仅缺失时装 pytest**）+ `envPins`
+  - `benchmark/swebench-env-pins.json`；③ 修复 `FAIL_TO_PASS` 解析 **fail-open 假绿**缺陷（JSON 字符串被类型断言，
+    空清单会使 `[].every()` 恒真）。**真实 500 题出分仍待 predictions（须模型 key）**。
+    详见 `docs/TASK_BOARD.md` §5 第 30 条与 `docs/SUSPENDED_BETTER_PATHS.md` §四·续。
 - **工作量**：外部条件解锁后 ~0.5d。
 
 ### P7 有界均衡并行调度（突破串行瓶颈）— 吞吐·墙钟↓【上一批已落地】

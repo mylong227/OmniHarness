@@ -69,7 +69,7 @@ reranker 在 fileK=10 时只能排 10 个候选、施展不开；预算放大后
 `evals/recall-precision.mjs`：fileK=10 档 +3.0pp（51.5%→54.5%），与 rerank 叠加 +6.1pp。
 **n=33 下 CI 重叠 ⇒ 未达翻默认阈值**，故保持 `OMNI_RM3=1` opt-in、默认关。
 
-### 4.3 语义路（理论最大，当前**环境阻塞**）
+### 4.3 语义路（**阻塞已解除**，2026-09-17 复核翻案）
 
 历史实测（recall@14，同 33 查询）：
 
@@ -79,10 +79,34 @@ reranker 在 fileK=10 时只能排 10 个候选、施展不开；预算放大后
 | e5-base-v2 (768d)         | 57.6%     | +14.3pp          |
 | **e5-large-v2 (1024d)**   | **64.5%** | **+21.2pp**      |
 
-**但当前网络无法落地**：huggingface.co 超时、hf-mirror.com 403、ghproxy 代理 HF 亦 403，
-且代理环境变量已消失（此前为 `127.0.0.1:20816`）。语义路适配器已完整接线
-（`transformersEmbeddingAdapter.ts` + `@huggingface/transformers` 4.2.0 + onnxruntime 1.24.3 已装），
-**只差模型文件**，网络恢复或人工投放模型后即可启用。
+> **⚠️ 2026-09-17 改口径（原文「当前网络无法落地」已失效）**：原文写「hf-mirror.com 403、代理环境
+> 变量消失 ⇒ 模型无法获取」。**复核实测被告知网络格局已变**：`hf-mirror.com` **由 403 变可达（HTTP 206）**、
+> ModelScope/Gitee/GitCode 高吞吐，吞吐 **340–1221 kB/s** ⇒ **模型文件当前可下载**。
+> 旧结论「语义路模型无法获取」**已失效**，此处保留原文以免口径漂移，并显式标注其已被推翻。
+>
+> **但真正的阻塞从来不是网络，是一处生产断链**：`@huggingface/transformers` 4.2.0 把
+> `env.remoteHost` **硬编码为 `https://huggingface.co` 且不读 `HF_ENDPOINT`**；唯一设置该值的是
+> **评测脚本自己**（`recall-codebase-real.mjs` / `recall-compare-real.mjs`）⇒ **基准脚本绕过装配层
+> 给假绿灯**。已修：适配器增 `remoteHost` 旋钮（`OMNI_HF_ENDPOINT` → 回落 `HF_ENDPOINT`），
+> **经 `configFactory` 接线**（生产入口真生效），脚本改走旋钮。
+
+**语义路解锁后的 A/B 实测（e5-small-v2 / 33 条对抗查询 / 走生产入口 `getHybridRepoMapContext`）**：
+
+| 配置                               | 命中率              | token | 说明                    |
+| ---------------------------------- | ------------------- | ----- | ----------------------- |
+| 基线（纯 BM25 + 精排）             | 75.8%               | 1455  | 生产默认档              |
+| 混合路（只加语义候选，**不重排**） | 75.8%（**Δ=0**）    | —     | 候选入池但不换位 ⇒ 无效 |
+| **混合路 + 第二段精排**            | **78.8%（+3.0pp）** | —     | 重排才把语义候选兑现    |
+| **混合路 + 精排（semWeight=1.5）** | **81.8%（+6.1pp）** | 1209  | 且 token 更低           |
+
+**两条新假设的裁定（均负，留档防重复投入）**：
+
+- **语义→词法桥（SLB）证伪**：把语义命中里的标识符/路径回收作二次 BM25 查询 ⇒ **−9.1 ~ +0.0pp**（原始查询被稀释）。
+- **换更大模型更差**：e5-base-v2 **78.8% < e5-small-v2 81.8%**，语义 Top-40 捞回数 **1 < 2**
+  ⇒ 剩余未捞回的**不是模型容量问题，是语义鸿沟本身**（换模型、桥接、扩池三种手段均无效）。
+
+**诚实边界**：基线漏 8 条，语义 Top-40 仅捞回 2 条 ⇒ **+6.1pp 但 CI 跨 0**（n=33），按「两关」纪律
+**不翻默认**（语义路仍为 opt-in，`OMNI_SEMANTIC_RECALL=1`）；剩余 18.1pp 属真语义鸿沟。
 
 ## 5. 建议（按性价比排序）
 
@@ -248,3 +272,64 @@ node evals/military-pareto.mjs        # ④ 命中率 × token Pareto 前沿
 node evals/military-verdict.mjs       # ⑤ 配对 bootstrap 裁定
 node evals/production-defaults-check.mjs  # 生产入口验收（三档等价性 + 不变量）
 ```
+
+---
+
+## 10. E2E 出分通道：hitRate 之外的那一关（2026-09-17 追加）
+
+**动机**：本调研所有结论都是 `hitRate@K`（文件集合口径），**不等于端到端任务成功率**。要回答
+「提命中会不会真的让 agent 解得更对」，必须有一条能真跑的**判分通道**。本轮把它打通到「gold 可判
+resolved」的程度。
+
+### 10.1 国内通道（用户指令「采用国内同等的题解决」）
+
+- **Gitee `mirrors/` 组织**：12 个 SWE-bench 仓库中 **11 个可达**，`base_commit` 抽样 **22/22 命中**
+  （Gitee OpenAPI 校验）；仅 `pylint-dev/pylint` 无镜像。映射见 `benchmark/swebench-gitee-mirrors.json`。
+- `NativeExecutor` 增 `repoMirrors`（上游 slug → 镜像 slug，缓存目录仍按上游命名 ⇒ 换源不失效），
+  CLI 增 `--repo-base` / `--repo-mirrors` / `--env-pins`。
+
+### 10.2 「两关」暴露的环境保真度缺口（本轮最重要的工程发现）
+
+E2E 冒烟必须走**两关**（沿用仓库 D6「放行 ≠ 有效」）：
+
+| 关     | 判据                                         | 意义                                    |
+| ------ | -------------------------------------------- | --------------------------------------- |
+| 第一关 | 空补丁 ⇒ `resolved:false` **且 reason 为空** | 通道通（跑完 clone→venv→pytest 全流程） |
+| 第二关 | **官方 gold patch ⇒ 必须 `resolved:true`**   | **判定器有效**（不是恒假）、环境够保真  |
+
+**只做第一关会得到「通道已通、可以出分」的错误结论**。实跑：第一关 ✅ 通过（24.1s），
+**第二关 ❌ 未通过** ⇒ 逐段打印 pytest 产物定位两个真因：
+
+1. **registry-latest pytest 顶掉仓库 pin**：旧实现无条件 `uv pip install pytest pytest-timeout`
+   ⇒ pytest **9.1.1**，而 pytest 9 移除了 `monkeypatch.notset` ⇒ flask 老套件 **60/60 ERROR**
+   （仓库自述 `requirements/tests.txt` 实为 `pytest==7.2.2`）。
+2. **不设上界的开发期运行时依赖被解析到过新主版本**：flask 2.3.0.dev 声明 `Werkzeug>=2.2.2`（无上界）
+   ⇒ **werkzeug 3.1.8**（删除了 `werkzeug.__version__`）⇒ 套件崩。
+
+**修法**（`src/eval/pythonEnvPlan.ts`，纯规划器、可单测）——安装阶梯：
+①仓库本体 `-e .` → ②可选 extras → ③**仓库自述的已 pinned 测试依赖文件**（7 档候选）→
+④**该仓库额外约束**（`envPins` + `benchmark/swebench-env-pins.json`）→ ⑤**仅在 pytest 缺失时**兜底安装
+（**绝不覆盖仓库 pin**）。本质是**用「仓库自述 + 显式约束」逼近官方 harness 的预建 conda 镜像**。
+**修后第二关通过**（`pallets__flask-5014` gold ⇒ `resolved:true`）。
+
+### 10.3 FAIL_TO_PASS 解析 fail-open 缺陷（安全级）
+
+官方数据集把 `FAIL_TO_PASS`/`PASS_TO_PASS` 存成 **JSON 字符串**，而 `loadVerified` 仅做类型断言
+`as readonly string[]`（运行期不解析）⇒ ① 直接 `failToPass.every` 抛错；② 更危险：**若被上游 catch 成
+`[]`，`[].every()` 恒真 ⇒ 任何补丁都被判 resolved（假绿）**。已修：`parseTestList` 统一收口 +
+**空 `FAIL_TO_PASS` 拒绝加载**（`PASS_TO_PASS` 允许空，官方 **11/500** 合规）+ 执行边界纵深防线。
+
+### 10.4 复现命令
+
+```bash
+npm run build
+# 两关 E2E（需 git + uv + 网络；uv 须显式入 PATH）
+node evals/e2e-native-gitee-smoke.mjs pallets/flask
+# ⇒ 期望：第一关 ✅（空补丁未修复）+ 第二关 ✅（gold 判 resolved）
+```
+
+### 10.5 诚实边界
+
+- 通道价值在于把「能不能出分」从**不可验证**推进到「**gold 已能判 resolved**」；
+  **真实 500 题出分仍待**（须我们的 agent 生成 predictions，需模型 key + 稳定宿主）。
+- 环境保真度为 **best-effort**（无官方预建镜像）；`envPins` 仅收录**已实测**条目，其余仓库须逐个验证。
