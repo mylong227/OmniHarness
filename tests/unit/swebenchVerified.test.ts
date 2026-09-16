@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -101,6 +102,32 @@ test('NativeExecutor：缺 uv/git 设施即 fail-closed 返回未通过并写明
   assert.ok((r.reason ?? '').length > 0, 'fail-closed 必须给出原因');
   if (!SwebenchVerified.commandAvailable('uv')) {
     assert.match(r.reason ?? '', /uv/, '沙箱无 uv 时应指明 uv 缺失');
+  }
+});
+
+test('NativeExecutor：缓存根不存在时自动创建（首次真实跑分不再 spawn git ENOENT）', async () => {
+  // 需 git + uv 才能走到 clone 步；缺一则跳过（executor 自身亦 fail-closed，见上一例）。
+  if (!SwebenchVerified.commandAvailable('git') || !SwebenchVerified.commandAvailable('uv')) return;
+  const tmp = mkdtempSync(join(tmpdir(), 'omni-native-'));
+  try {
+    // 以本地裸仓库作 file:// 远端，隔离网络依赖；只验证「缓存根缺失 ⇒ 自动创建」这一不变量。
+    const originBase = join(tmp, 'origin');
+    const bare = join(originBase, 'local', 'one.git');
+    mkdirSync(bare, { recursive: true });
+    execFileSync('git', ['init', '--bare', bare], { stdio: 'ignore' });
+    const cacheRoot = join(tmp, 'fresh-cache'); // 故意不存在：复现首次运行场景
+    const exec = new NativeExecutor({
+      repoCacheRoot: cacheRoot,
+      repoBaseUrl: `file:///${originBase.replace(/\\/g, '/')}/`,
+    });
+    // 空仓库的 worktree 步会抛错——与本不变量无关，吞掉即可。
+    await exec.run({ ...TASK('local__one-1'), repo: 'local/one' }, '').catch(() => undefined);
+    assert.ok(
+      existsSync(cacheRoot),
+      '缓存根应被自动创建（修复前 clone 以不存在的 cwd 启动 ⇒ spawn git ENOENT）',
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
   }
 });
 
