@@ -283,6 +283,14 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     ⑧ **诚实边界 / 未做**：① 本轮**未跑出官方 500 题分数**——单实例（flask）在真实网络下因克隆被切断而未完成「克隆→venv→pytest」全链，故**不声称 P6 已跑通**；尚未验证的还有 uv venv 在真实 SWE-bench 仓库上的依赖安装（`uv pip install -e .[test]`）与 pytest 判定链路。② 缓解手段（`--depth` 浅克隆、断点重试、`http.version=HTTP/1.1` + `postBuffer`）仅试了「重试」一项（3 次仍失败），其余留作后续批次。③ 沙箱网络由宿主代理注入（`127.0.0.1:20816`），其限速/断流策略非本仓可控。
     ⑨ **提交口径**：修复一笔（`b68ed1f`，2 文件 +31/−2：1 源改 + 1 回归单测）＋一笔看板（本节 + §6 B1 行口径更新）。
 
+25. **打磨批次·第一批（token 效率）·前缀稳定性治理「治疗」（动态段 repo-map 移尾）（2026-09-16，本轮）**：
+    ① **背景**：`POLISH_PLAN.md` P5 批次残项——`prefixStability` 此前**只测不治**（#24 盘点时补了受控度量）：**现状 54.46% vs 「动态段移尾」对照 80.75%（+26.29pp）、交叉点 6 回合**（`evals/prefix-stability.mjs` 非生产接线）。治疗 = 把**逐轮变化的 repo-map 动态段**从「事件历史之前」（`extraSystemFragments` 前部）移到**事件历史之后**（尾部追加一条 `system` 消息）。
+    ② **改动（`src/core/stepContextBuilder.ts` `buildMessages`）**：原文案 `world_state → 常驻指令 → **repo-map(动态)** → 事件历史`；改为 `world_state → 常驻指令 → 事件历史 → **repo-map(尾部动态)**`。常驻指令仍留头部作静态锚点（保 prompt cache 前缀）。repo-map 内容与压缩逻辑**不变**，仅位置后移。
+    ③ **收益与零行为变更**：稳定前缀 = `world_state + 常驻指令 + 事件历史`，仅尾部动态段每轮变 ⇒ 跨回合前缀复用率 **54.46% → 80.75%**（受控对照数字落地）。默认部署**纯 prompt cache 优化、行为与质量零变化**（实测对照已证）；不改生产默认、不动模型可见契约的语义（repo-map 仍是系统消息、仍注入）。
+    ④ **耦合回归（真问题，已修）**：`ptcCompaction.test.ts` 原断言 `/上下文压缩/` 且依赖 repo-map 的 token 量把消息推过 `compactionMaxTokens: 60` 触发压缩——治理后 repo-map 移出 compactor 输入，history 本身 < 60 ⇒ 压缩不触发 ⇒ 该测试**假红**（基线对比确认：HEAD pass、改动后 fail，是真实回归）。修复两层：PTC 测试① 显式 `OMNI_REPO_MAP=0` 关闭 repo-map 与压缩解耦；② 预算降到 30（低于 history 本身 ~70+ token）独立触发压缩；③ 断言放宽为「任一压缩标记 `OMNI_COMPACTION_V1|上下文压缩`」（压缩真发生即算，不绑死具体标记分支——治理后首压走真实 summarize 路径记 `OMNI_COMPACTION_V1`，而非退化 `head.length===0` 分支记 `上下文压缩`）。语义正确：per-turn 动态 repo-map **本就不该计入历史压缩预算**（否则被折进摘要、下轮丢失）。
+    ⑤ **验收**：七门禁全绿（typecheck / lint 0 警告 / check --strict 479 文件零违规 / arch:gate 端口纯度 0 / audit:maturity / audit:standard:delta DELTA=0 / audit:config-wiring 479 文件）；全量单测 **1508 文件（排除网络 bound 的 swebenchVerified）1496 通过 / 5 失败 / 7 跳过**——5 失败**全为已知 flaky 网络集成测试**（HTTP-SSE #482、SDK-WS #972 等），**零新增回归**；新增 `stepContextBuilderPrefix.test.ts`（4 例：repo-map 在事件之后/compactor 路径下亦然、repo-map 关闭无注入、与 P5 降级 opts 互不冲突）。
+    ⑥ **提交口径**：能力一笔（下条哈希，3 文件 +110/−28：1 源改消息次序 + 1 新单测 + 1 既有 PTC 测试解耦修复）＋一笔看板（本节 + `POLISH_PLAN.md` P5 段标注「已治」）。
+
 ---
 
 ## 6. 挂起条件清单
