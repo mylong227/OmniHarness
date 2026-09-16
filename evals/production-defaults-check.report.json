@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-09-16T16:54:23.404Z",
+  "corpus": {
+    "files": 482,
+    "symbols": 7749
+  },
+  "equivalence": {
+    "defaultMatches": 33,
+    "noRerankMatches": 33,
+    "fileK5Matches": 33,
+    "total": 33
+  },
+  "envToggleWorks": 5,
+  "envToggleProbes": 5,
+  "adversarial": {
+    "oldDefault": {
+      "mean": 51.5,
+      "lo": 33.3,
+      "hi": 69.7
+    },
+    "newDefault": {
+      "mean": 69.7,
+      "lo": 54.5,
+      "hi": 84.8
+    }
+  },
+  "natural": {
+    "ci": {
+      "mean": 97,
+      "lo": 90.9,
+      "hi": 100
+    },
+    "failed": ["Diagnostics where do language server error reports come from"]
+  }
+}

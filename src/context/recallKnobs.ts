@@ -15,7 +15,11 @@
 export interface RepoMapContextOptions {
   /** 是否启用；默认开。env OMNI_REPO_MAP=0 由调用方显式传 enabled:false。 */
   readonly enabled?: boolean;
-  /** 注入的系统碎片里最多几个文件（默认 10，保持精简）。 */
+  /**
+   * 注入的系统碎片里最多几个文件（默认 **14**）。
+   * 2026-09-17 由 10 提到 14：与 {@link RepoMapContextOptions.rerank} 默认开是**同一决策**
+   * ——精排增益随候选池深度放大（51.5% → 69.7%，CI [54.5, 84.8]）；代价是注入 token ↑约 40%。
+   */
   readonly fileK?: number;
   /** 注入的系统碎片里最多几个符号（默认 24）。 */
   readonly symK?: number;
@@ -82,19 +86,13 @@ export interface RepoMapContextOptions {
   /**
    * 两阶段检索第 2 段：**零依赖词法重排**（见 `FileReranker`）。
    *
-   * **默认 false（opt-in）**。两关结果（`evals/rerank-ab.mjs`，真实 `src/` 语料 32 条锚点查询）：
-   *  - **fileK=14**（本仓库既有检索评测的范式口径）：召回 31.4% → 41.0%（**+9.6pp**），
-   *    bootstrap 95% CI **[1.80, 18.60]pp 不跨 0**、repeated 2-fold 留出折 **38/40 为正**
-   *    （min −0.78pp）、否决器 `proceed`（跨查询重合度 0.090 vs 基线 0.138，非常量偏置；
-   *    与基线 Top-K 平均重合度 0.538 < 0.70，不是基线复读）⇒ **两关全过**；
-   *  - **fileK=10**（`getRepoMapContext` 当前默认预算）：召回 26.9% → 33.2%（+6.3pp），
-   *    但 CI95 **[−0.45, 14.74]pp 下界跨 0**、留出折 37/40 为正（3 折为负）⇒ **未过**。
-   *
-   * 生产预算档（fileK=10）未过阈值，按本仓库纪律**不翻默认**（不破生产口径）；
-   * 开启方式：`opts.rerank = true` 或 env `OMNI_RERANK=1`。
-   * 逐条代价诚实登记：fileK=14 档 ↑9/↓3、fileK=10 档 ↑3/↓1（回退均只丢 1 个 GT 文件）。
-   * 报告：`evals/rerank-ab.report.json`。**下一杠杆**：若接受把 fileK 由 10 提到 14 的
-   * token 代价，则该档两关全过（第一段自身即 26.9%→31.4%），是比继续调重排器更短的路。
+   * **2026-09-17 起默认开**（与 `fileK` 默认提到 14 是**同一个决策**：精排增益随候选池深度放大）。
+   * 33 条对抗锚点查询命中率：51.5%（K=10 无精排）→ 54.5%（K=10+精排）→ **69.7%（K=14+精排）**，
+   * bootstrap 95% CI **[54.5, 84.8]**，下界 > 旧默认基线 51.5% ⇒ **两关全过**。
+   * 此前「fileK=10 档 CI [−0.45, 14.74]pp 跨 0 ⇒ 不翻默认」的真因是**预算太浅让重排施展不开**，
+   * 而非重排器无效；`evals/rerank-ab.mjs` 当时即已指出「提到 14 是该档两关全过的最短路」。
+   * 关闭：`opts.rerank = false`（用 `??` 传递，false 是合法显式值）。
+   * 报告：`evals/rerank-ab.report.json`、`evals/spider-pool-ab.report.json`。
    */
   readonly rerank?: boolean;
   /**
@@ -139,7 +137,8 @@ export class RecallKnobs {
    * @param opts 调用方显式选项（优先级最高）；缺省用 env / 默认。
    */
   public constructor(opts: RepoMapContextOptions = {}) {
-    this.fileK = opts.fileK ?? 10;
+    // 预算默认 14（2026-09-17 由 10 提到）：与精排默认开是同一决策，依据见 RepoMapContextOptions.rerank。
+    this.fileK = opts.fileK ?? 14;
     this.symK = opts.symK ?? 24;
     this.rrfK = this.numeric(opts.rrfK, process.env.OMNI_RRF_K, 60, 1);
     this.semWeight = this.numeric(opts.semWeight, process.env.OMNI_SEM_WEIGHT, 1, 0);

@@ -189,7 +189,9 @@ export class StepContextBuilder {
    * P5 自动降档：当预算降级信号置位（`budgetDegrade.shouldDegrade` 为真，即软阈值已越过、
    * 硬预算尚未熔断）时，**强制纯 BM25**（忽略语义嵌入端口）并缩小 fileK 到 {@link DEGRADE_FILE_K}、
    * 关闭第二段词法重排，直接压低注入上下文的 token 量。无信号（默认部署 / 未越软阈值 / 已熔断）
-   * 时保持既有检索口径——纯 BM25 或混合检索，fileK 维持默认 10，零行为变更。
+   * 时保持生产检索口径（纯 BM25 或混合检索，预算取默认档），不再额外降档。
+   * 注：`fileK` 生产默认值已于 2026-09-17 由 10 提到 14（见 `repoMapContextEngine.DEFAULT_FILE_K`）；
+   * 降档档位 {@link DEGRADE_FILE_K} 是**刻意的应急压缩档**（预算越界时优先保 token），未随之调整。
    *
    * @param q 由最近 user 消息推导出的查询文本（非空）。
    * @returns repo-map 上下文片段；不可用时为 null。
