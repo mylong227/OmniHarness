@@ -236,6 +236,7 @@ export interface QueryResult {
  * `BM25_ONLY_CANDIDATES`=20、单测传 14/20）的取值一直被静默丢弃。因该参数无任何
  * 实际效果，直接移除**不改变行为**；把「候选数」重新做成可配置旋钮需单独评测，不在此处顺手改。
  */
+
 export function query(
   corpus: IndexedCorpus,
   q: string,
@@ -287,35 +288,53 @@ export function query(
     ...(opts.bm25K1 !== undefined ? { k1: opts.bm25K1 } : {}),
     ...(opts.bm25B !== undefined ? { b: opts.bm25B } : {}),
   };
-  const bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
-  const fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
+  let bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
+  let fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
 
-  // 伪相关反馈（PRF）：用第一轮 Top-3 文件的代码 token 高频词扩展查询，
-  // 再搜一次并与原结果并集。这是经典 IR 技术，零依赖、可测，用于突破纯词法召回天花板。
+  // 伪相关反馈（PRF / RM3 风格查询扩展）：突破纯词法召回天花板。零依赖、可测。
+  // 实现要点（经 evals/recall-precision.mjs 实测校准，复刻该脚本的获胜配方）：
+  //  - 取首轮 Top-R 文件（R=20，与基准脚本一致）作为反馈集；
+  //  - 反馈集内 TF·IDF 加权选 Top-E 扩展词（E=6——太多引入噪声稀释头部）；
+  //  - **重排（替换）而非并集**：扩展查询直接重跑 BM25、取新 Top-K 重排序，
+  //    避免噪声候选挤掉真相关文件（朴素并集会把泛化词命中的文件顶进头部，实测 hitRate 39%→9% 崩塌）。
+  //  IDF 用语料级 docFreq（按 corpus 缓存，避免每次查询重建）。
   if (opts.prf) {
+    const df = docFreqOf(corpus);
+    const N = corpus.files.length;
     const topFiles = fileHits
-      .slice(0, 3)
+      .slice(0, 20)
       .map((h) => corpus.files[h.id]?.rel)
       .filter((r): r is string => r !== undefined);
     const fb = new Map<string, number>();
     for (const rel of topFiles) {
       const text = corpus.fileText.get(rel);
       if (text === undefined) continue;
-      for (const t of tokenize(text)) {
+      const tf = new Map<string, number>();
+      for (const t of tokenizeExpanded(text)) {
         if (!ContentStopWords.isContent(t)) continue;
-        fb.set(t, (fb.get(t) ?? 0) + 1);
+        tf.set(t, (tf.get(t) ?? 0) + 1);
+      }
+      const len = Math.max(
+        1,
+        [...tf.values()].reduce((a, b) => a + b, 0),
+      );
+      for (const [t, c] of tf) {
+        const d = df.get(t) ?? 0;
+        const idf = Math.log((N - d + 0.5) / (d + 0.5) + 1);
+        fb.set(t, (fb.get(t) ?? 0) + (c / len) * idf);
       }
     }
+    const qTok = new Set(tokenizeExpanded(q));
     const extra = [...fb.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 20)
-      .map((e) => e[0]);
+      .slice(0, 6)
+      .map((e) => e[0])
+      .filter((t) => !qTok.has(t));
     if (extra.length > 0) {
-      const eqk = tokenize(`${q} ${extra.join(' ')}`);
-      const s2 = corpus.symbolIndex.search(eqk, 60, bm25Args);
-      const f2 = corpus.fileIndex.search(eqk, 20, bm25Args);
-      for (const h of s2) if (!bm25SymHits.some((x) => x.id === h.id)) bm25SymHits.push(h);
-      for (const h of f2) if (!fileHits.some((x) => x.id === h.id)) fileHits.push(h);
+      const eqk = tokenizeExpanded(`${q} ${extra.join(' ')}`);
+      // 重排：扩展查询重跑 BM25，直接替换候选（重排序由 BM25 分数决定），不并集。
+      bm25SymHits = [...corpus.symbolIndex.search(eqk, 60, bm25Args)];
+      fileHits = [...corpus.fileIndex.search(eqk, 20, bm25Args)];
     }
   }
 
@@ -463,6 +482,26 @@ export function query(
   );
 
   return { context, tokens: tokenize(context).length, symbols, files: rankedFiles };
+}
+
+/**
+ * 语料级文档频率（DF）缓存：PRF 扩展词的 IDF 加权需要语料级 df，按 corpus 缓存避免每次查询重建。
+ * 用 WeakMap 让 corpus 被 GC 时自动释放，不泄漏。
+ *
+ * @param corpus 已索引语料（含 per-file 全文 `fileText`）
+ * @returns 词 → 出现该词的文档数（DF）的映射，按 corpus 单例缓存
+ */
+const DF_CACHE = new WeakMap<IndexedCorpus, Map<string, number>>();
+function docFreqOf(corpus: IndexedCorpus): Map<string, number> {
+  const cached = DF_CACHE.get(corpus);
+  if (cached !== undefined) return cached;
+  const df = new Map<string, number>();
+  for (const text of corpus.fileText.values()) {
+    const seen = new Set(tokenizeExpanded(text));
+    for (const t of seen) df.set(t, (df.get(t) ?? 0) + 1);
+  }
+  DF_CACHE.set(corpus, df);
+  return df;
 }
 
 /** 整语料 token 总量（整文件硬塞 baseline 的上界）。 */

@@ -97,6 +97,16 @@ export interface RepoMapContextOptions {
    * token 代价，则该档两关全过（第一段自身即 26.9%→31.4%），是比继续调重排器更短的路。
    */
   readonly rerank?: boolean;
+  /**
+   * 伪相关反馈（PRF / RM3 风格查询扩展，突破纯词法召回天花板）：用首轮 Top-3 文件的
+   * 高频内容词扩展查询再搜一次并并集。**默认 false（opt-in）**：
+   * 实测（`evals/recall-precision.mjs`，33 条锚点查询，真实 `src/` 语料）在 fileK=5/10
+   * 档提升**准确度(precision)** +0.9~4.3pp、**召回** +2.8~7.9pp，命中率(hitRate)持平；
+   * 仅 fileK=14（非默认判定档）命中率略降（60.6%→54.5%）。因命中率未过两关阈值、且
+   * K=14 略回退，按本仓库纪律**不翻默认**；开启：`opts.prf = true` 或 env `OMNI_RM3=1`。
+   * 与 P5 预算降档（fileK=5）天然互补：降档后 token 更紧，PRF 的精度/召回增益最显著。
+   */
+  readonly prf?: boolean;
 }
 
 /** 混合检索的只读旋钮集合（构造即快照，见类注释）。 */

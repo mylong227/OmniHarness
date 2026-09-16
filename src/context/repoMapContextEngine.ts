@@ -97,7 +97,6 @@ export class RepoMapContextEngine {
       // 注：`query()` 的历史第 3 位置参数（候选数）已于 2026-09-16 移除——它从不被读取，
       // 本处原传的 `BM25_ONLY_CANDIDATES`(=20) 与 `query` 内部固定候选上限（文件 20 / 符号 60）一致，故删除不改变行为。
       const res = query(corpus, q, {
-        prf: false,
         graph: false,
         lsa: false,
         layered: opts.layered === true,
@@ -113,6 +112,12 @@ export class RepoMapContextEngine {
         // 开启：`opts.rerank = true` 或 env `OMNI_RERANK=1`；显式 `false` / `OMNI_RERANK=0` 关闭
         // （用 ?? 而非 ||：false 是合法显式值）。
         rerank: opts.rerank ?? process.env.OMNI_RERANK === '1',
+        // 伪相关反馈（PRF / RM3 风格查询扩展）：**默认关（opt-in）**——突破纯词法召回天花板。
+        // 实测（`evals/recall-precision.mjs`，33 条锚点查询）fileK=5/10 档提升准确度 +0.9~4.3pp、
+        // 召回 +2.8~7.9pp、命中率持平；仅 fileK=14 命中率略降。命中率未过两关阈值、K=14 略回退 ⇒ 不翻默认。
+        // 与 P5 预算降档（fileK=5）天然互补：降档后 token 更紧，PRF 精度/召回增益最显著。
+        // 开启：`opts.prf = true` 或 env `OMNI_RM3=1`；显式 `false` / `OMNI_RM3=0` 关闭（?? 非 ||）。
+        prf: opts.prf ?? process.env.OMNI_RM3 === '1',
       });
       return res.context;
     } catch {
