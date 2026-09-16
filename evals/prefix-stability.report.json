@@ -1,11 +1,11 @@
 {
   "eval": "prefix-stability",
   "batch": "polish-5/token-效率·前缀复用",
-  "generatedAt": "2026-09-15T20:12:12.490Z",
+  "generatedAt": "2026-09-16T15:36:57.832Z",
   "workspace": "repo-root（本仓库真实源码语料）",
-  "sessionId": "sess_mu33yi8c_1",
-  "turns": 10,
-  "mainRequestCount": 20,
+  "sessionId": "sess_mu49kf9u_1",
+  "turns": 4,
+  "mainRequestCount": 8,
   "sideChannelCallCount": 0,
   "segments": [
     {
@@ -15,82 +15,74 @@
       "chars": 582,
       "volatileBytesScrubbed": 0,
       "preview": "你是 OmniHarness 的 AI 助手，运行在用户工作区中。你的首要目标是直接、高效地完成用户任务。⏎核心行为准则"
-    },
-    {
-      "index": 1,
-      "presentInAll": true,
-      "byteIdentical": false,
-      "chars": 7097,
-      "volatileBytesScrubbed": 0,
-      "preview": "# Repo Map (relevant files)⏎📄 src/adapters/diff/turnDiffHoo"
     }
   ],
-  "unstableSegmentIndexes": [1],
+  "unstableSegmentIndexes": [],
   "pairs": [
     {
       "step": 1,
       "kind": "同回合追加",
-      "prevBytes": 7738,
-      "curBytes": 15209,
-      "reuse": 1,
-      "reuseTail": 0.08180408374256914,
-      "commonPrefixChars": 7738,
-      "divergentMessageIndex": 3,
-      "divergentMessageRole": "(新增消息)"
+      "prevBytes": 7823,
+      "curBytes": 15294,
+      "reuse": 0.08091524990412885,
+      "reuseTail": 0.08091524990412885,
+      "commonPrefixChars": 633,
+      "divergentMessageIndex": 2,
+      "divergentMessageRole": "system"
     },
     {
       "step": 2,
-      "kind": "跨回合",
-      "prevBytes": 15209,
-      "curBytes": 16068,
-      "reuse": 0.056282464330330725,
-      "reuseTail": 0.5328423959497666,
-      "commonPrefixChars": 856,
-      "divergentMessageIndex": 1,
+      "kind": "同回合追加",
+      "prevBytes": 15294,
+      "curBytes": 16166,
+      "reuse": 0.5298809990846084,
+      "reuseTail": 0.5298809990846084,
+      "commonPrefixChars": 8104,
+      "divergentMessageIndex": 4,
       "divergentMessageRole": "system"
     },
     {
       "step": 3,
       "kind": "同回合追加",
-      "prevBytes": 16068,
-      "curBytes": 23021,
-      "reuse": 1,
-      "reuseTail": 0.5079661438884739,
-      "commonPrefixChars": 16068,
-      "divergentMessageIndex": 7,
-      "divergentMessageRole": "(新增消息)"
+      "prevBytes": 16166,
+      "curBytes": 23119,
+      "reuse": 0.5048867994556476,
+      "reuseTail": 0.5048867994556476,
+      "commonPrefixChars": 8162,
+      "divergentMessageIndex": 6,
+      "divergentMessageRole": "system"
     },
     {
       "step": 4,
       "kind": "同回合追加",
-      "prevBytes": 23021,
-      "curBytes": 23073,
-      "reuse": 1,
-      "reuseTail": 0.6565744320403111,
-      "commonPrefixChars": 23021,
-      "divergentMessageIndex": 9,
-      "divergentMessageRole": "(新增消息)"
+      "prevBytes": 23119,
+      "curBytes": 23171,
+      "reuse": 0.65379125394697,
+      "reuseTail": 0.65379125394697,
+      "commonPrefixChars": 15115,
+      "divergentMessageIndex": 8,
+      "divergentMessageRole": "system"
     },
     {
       "step": 5,
       "kind": "同回合追加",
-      "prevBytes": 23073,
-      "curBytes": 25456,
-      "reuse": 1,
-      "reuseTail": 0.6573484158973693,
-      "commonPrefixChars": 23073,
-      "divergentMessageIndex": 11,
-      "divergentMessageRole": "(新增消息)"
+      "prevBytes": 23171,
+      "curBytes": 25554,
+      "reuse": 0.6545682102628285,
+      "reuseTail": 0.6545682102628285,
+      "commonPrefixChars": 15167,
+      "divergentMessageIndex": 10,
+      "divergentMessageRole": "system"
     },
     {
       "step": 6,
-      "kind": "跨回合",
-      "prevBytes": 25456,
+      "kind": "同回合追加",
+      "prevBytes": 25554,
       "curBytes": 23980,
-      "reuse": 0.024866436203645505,
-      "reuseTail": 0.6894248900062854,
-      "commonPrefixChars": 633,
-      "divergentMessageIndex": 1,
+      "reuse": 0.6867809344916647,
+      "reuseTail": 0.6867809344916647,
+      "commonPrefixChars": 17550,
+      "divergentMessageIndex": 12,
       "divergentMessageRole": "system"
     },
     {
@@ -98,228 +90,48 @@
       "kind": "同回合追加",
       "prevBytes": 23980,
       "curBytes": 25199,
-      "reuse": 1,
+      "reuse": 0.7342368640533778,
       "reuseTail": 0.7342368640533778,
-      "commonPrefixChars": 23980,
-      "divergentMessageIndex": 15,
-      "divergentMessageRole": "(新增消息)"
-    },
-    {
-      "step": 8,
-      "kind": "跨回合",
-      "prevBytes": 25199,
-      "curBytes": 26665,
-      "reuse": 0.025000992102861226,
-      "reuseTail": 0.7470931386166118,
-      "commonPrefixChars": 630,
-      "divergentMessageIndex": 1,
+      "commonPrefixChars": 17607,
+      "divergentMessageIndex": 14,
       "divergentMessageRole": "system"
-    },
-    {
-      "step": 9,
-      "kind": "同回合追加",
-      "prevBytes": 26665,
-      "curBytes": 39390,
-      "reuse": 1,
-      "reuseTail": 0.7083442715169698,
-      "commonPrefixChars": 26665,
-      "divergentMessageIndex": 19,
-      "divergentMessageRole": "(新增消息)"
-    },
-    {
-      "step": 10,
-      "kind": "跨回合",
-      "prevBytes": 39390,
-      "curBytes": 40127,
-      "reuse": 0.015993907083015995,
-      "reuseTail": 0.8025641025641026,
-      "commonPrefixChars": 630,
-      "divergentMessageIndex": 1,
-      "divergentMessageRole": "system"
-    },
-    {
-      "step": 11,
-      "kind": "同回合追加",
-      "prevBytes": 40127,
-      "curBytes": 49186,
-      "reuse": 1,
-      "reuseTail": 0.7894684377102699,
-      "commonPrefixChars": 40127,
-      "divergentMessageIndex": 23,
-      "divergentMessageRole": "(新增消息)"
-    },
-    {
-      "step": 12,
-      "kind": "跨回合",
-      "prevBytes": 49186,
-      "curBytes": 49844,
-      "reuse": 0.013174480543244013,
-      "reuseTail": 0.828243809214004,
-      "commonPrefixChars": 648,
-      "divergentMessageIndex": 1,
-      "divergentMessageRole": "system"
-    },
-    {
-      "step": 13,
-      "kind": "同回合追加",
-      "prevBytes": 49844,
-      "curBytes": 61159,
-      "reuse": 1,
-      "reuseTail": 0.8184937003450766,
-      "commonPrefixChars": 49844,
-      "divergentMessageIndex": 27,
-      "divergentMessageRole": "(新增消息)"
-    },
-    {
-      "step": 14,
-      "kind": "跨回合",
-      "prevBytes": 61159,
-      "curBytes": 60343,
-      "reuse": 0.010595333475040469,
-      "reuseTail": 0.8520741019310323,
-      "commonPrefixChars": 648,
-      "divergentMessageIndex": 1,
-      "divergentMessageRole": "system"
-    },
-    {
-      "step": 15,
-      "kind": "同回合追加",
-      "prevBytes": 60343,
-      "curBytes": 68294,
-      "reuse": 1,
-      "reuseTail": 0.8647233316209005,
-      "commonPrefixChars": 60343,
-      "divergentMessageIndex": 31,
-      "divergentMessageRole": "(新增消息)"
-    },
-    {
-      "step": 16,
-      "kind": "跨回合",
-      "prevBytes": 68294,
-      "curBytes": 68237,
-      "reuse": 0.036723577473863005,
-      "reuseTail": 0.8804726623129411,
-      "commonPrefixChars": 2508,
-      "divergentMessageIndex": 1,
-      "divergentMessageRole": "system"
-    },
-    {
-      "step": 17,
-      "kind": "同回合追加",
-      "prevBytes": 68237,
-      "curBytes": 75708,
-      "reuse": 1,
-      "reuseTail": 0.8820727757668128,
-      "commonPrefixChars": 68237,
-      "divergentMessageIndex": 35,
-      "divergentMessageRole": "(新增消息)"
-    },
-    {
-      "step": 18,
-      "kind": "跨回合",
-      "prevBytes": 75708,
-      "curBytes": 75147,
-      "reuse": 0.008559201141226819,
-      "reuseTail": 0.8937100438526973,
-      "commonPrefixChars": 648,
-      "divergentMessageIndex": 1,
-      "divergentMessageRole": "system"
-    },
-    {
-      "step": 19,
-      "kind": "同回合追加",
-      "prevBytes": 75147,
-      "curBytes": 82100,
-      "reuse": 1,
-      "reuseTail": 0.9011537386722025,
-      "commonPrefixChars": 75147,
-      "divergentMessageIndex": 39,
-      "divergentMessageRole": "(新增消息)"
     }
   ],
   "curve": [
     {
       "turns": 1,
       "requests": 2,
-      "bytes": 7738,
-      "headWeightedReuse": 1,
-      "tailWeightedReuse": 0.08180408374256914,
+      "bytes": 7823,
+      "headWeightedReuse": 0.08091524990412885,
+      "tailWeightedReuse": 0.08091524990412885,
       "crossTurnCount": 0
     },
     {
       "turns": 2,
       "requests": 4,
-      "bytes": 39015,
-      "headWeightedReuse": 0.6321158528770986,
-      "tailWeightedReuse": 0.43314109957708574,
-      "crossTurnCount": 1
+      "bytes": 39283,
+      "headWeightedReuse": 0.4301860855840949,
+      "tailWeightedReuse": 0.4301860855840949,
+      "crossTurnCount": 0
     },
     {
       "turns": 3,
       "requests": 6,
-      "bytes": 85109,
-      "headWeightedReuse": 0.8313574357588505,
-      "tailWeightedReuse": 0.5543597034391192,
-      "crossTurnCount": 1
+      "bytes": 85573,
+      "headWeightedReuse": 0.5513538148715132,
+      "tailWeightedReuse": 0.5513538148715132,
+      "crossTurnCount": 0
     },
     {
       "turns": 4,
       "requests": 8,
-      "bytes": 134545,
-      "headWeightedReuse": 0.7088260433312275,
-      "tailWeightedReuse": 0.611973689100301,
-      "crossTurnCount": 2
-    },
-    {
-      "turns": 5,
-      "requests": 10,
-      "bytes": 186409,
-      "headWeightedReuse": 0.658036897360106,
-      "tailWeightedReuse": 0.6440246983782972,
-      "crossTurnCount": 3
-    },
-    {
-      "turns": 6,
-      "requests": 12,
-      "bytes": 265926,
-      "headWeightedReuse": 0.6145356226920271,
-      "tailWeightedReuse": 0.6894549611546069,
-      "crossTurnCount": 4
-    },
-    {
-      "turns": 7,
-      "requests": 14,
-      "bytes": 364956,
-      "headWeightedReuse": 0.5861336709082738,
-      "tailWeightedReuse": 0.7257833821063361,
-      "crossTurnCount": 5
-    },
-    {
-      "turns": 8,
-      "requests": 16,
-      "bytes": 486458,
-      "headWeightedReuse": 0.5651135349814372,
-      "tailWeightedReuse": 0.7588959375732335,
-      "crossTurnCount": 6
-    },
-    {
-      "turns": 9,
-      "requests": 18,
-      "bytes": 622989,
-      "headWeightedReuse": 0.5548236004167008,
-      "tailWeightedReuse": 0.7857153176059288,
-      "crossTurnCount": 7
-    },
-    {
-      "turns": 10,
-      "requests": 20,
-      "bytes": 773844,
-      "headWeightedReuse": 0.5446110585596063,
-      "tailWeightedReuse": 0.8074909154816733,
-      "crossTurnCount": 8
+      "bytes": 135107,
+      "headWeightedReuse": 0.6094280829268653,
+      "tailWeightedReuse": 0.6094280829268653,
+      "crossTurnCount": 0
     }
   ],
-  "crossoverTurns": 6,
-  "headWeightedReuseFinal": 0.5446110585596063,
-  "tailWeightedReuseFinal": 0.8074909154816733
+  "crossoverTurns": null,
+  "headWeightedReuseFinal": 0.6094280829268653,
+  "tailWeightedReuseFinal": 0.6094280829268653
 }
