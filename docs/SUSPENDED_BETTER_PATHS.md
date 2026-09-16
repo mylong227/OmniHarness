@@ -106,6 +106,12 @@ enterpriseAuthFromIssuer(config, globalThis.fetch)   // 真实 discovery fetch�
 npm run eval:swebench:verified -- \
   --verified swe_bench_verified.json \
   --predictions preds.jsonl --concurrency 4
+# 受限网络（国内）：改用 Gitee 镜像 + 环境约束
+npm run eval:swebench:verified -- \
+  --verified swe_bench_verified.json --predictions preds.jsonl --concurrency 4 \
+  --repo-base https://gitee.com/ \
+  --repo-mirrors benchmark/swebench-gitee-mirrors.json \
+  --env-pins benchmark/swebench-env-pins.json
 ```
 
 - **保真度边界（诚实声明）**：env 由「仓库自述 + uv 重建」而来，**不等同**官方 Docker 镜像
@@ -115,10 +121,38 @@ npm run eval:swebench:verified -- \
 - **效率**：本地直接跑，零容器启动、零云费用；跨仓库可并发（`--concurrency`），同仓库 worktree 串行保证隔离。
 - **参考开源**：SWE-bench 官方评测口径（FAIL_TO_PASS/PASS_TO_PASS 判定）；`uv` 作本地 Python/venv 管理。
 
-**沙箱硬限制（诚实声明）**：本沙箱实测**无网络**（无法 `git clone` 仓库 / `uv pip install`），
-且 `uv` 未安装——故真实 500 题「执行」在此环境仍**物理上不可完成**。本仓库交付 code-ready + turnkey
-接线（含 9 个单测覆盖 fail-closed / 版本解析 / pytest 结果解析 / 并发保序有界）；真实分数须你侧具备
-**git + uv + 网络**的环境跑出。这与「删 docker、不要云」的诉求一致——执行器已彻底不依赖 Docker 或云。
+### 四·续：实跑落地（2026-09-17）——国内通道 + 两关验收 + 三处真缺陷
+
+**网络已非阻塞（复核实测翻案）**：github.com / gitee.com / pypi / npm 全通；`uv` 已装（0.12.15，
+**须显式入 PATH**）。沙箱出网**已开放**。
+
+**国内通道（用户指令「采用国内同等的题解决」）**：Gitee `mirrors/` 组织覆盖 **12 仓库中的 11 个**、
+`base_commit` 抽样 **22/22 命中**（Gitee OpenAPI 校验）。`NativeExecutor` 增 `repoMirrors`
+（上游 slug → 镜像 slug；缓存目录仍按上游命名 ⇒ 换源不失效），映射见 `benchmark/swebench-gitee-mirrors.json`。
+
+**★两关验收暴露环境保真度缺口（本轮最重要发现）**：E2E 必须走**两关**——
+第一关「空补丁 ⇒ `resolved:false` 且 reason 为空」（= 通道通）**通过**；第二关
+「**官方 gold patch ⇒ 必须 `resolved:true`**」（= 判定器有效）**起初不通过**。
+
+> **只做第一关会得出「通道已通、可以出分」的错误结论。** 逐段打印 pytest 产物定位两个真因：
+> ① 无条件 `uv pip install pytest` 拉到 **pytest 9.1.1**，顶掉仓库 pin（`requirements/tests.txt` = `pytest==7.2.2`），
+> 而 pytest 9 移除 `monkeypatch.notset` ⇒ flask 老套件 **60/60 ERROR**；
+> ② flask 2.3.0.dev 声明 `Werkzeug>=2.2.2`（**无上界**）⇒ 拉到 **werkzeug 3.1.8**（删除 `__version__`）⇒ 套件崩。
+
+**修法**：新增 `src/eval/pythonEnvPlan.ts`（纯规划器，可单测）规定安装阶梯
+①仓库本体 → ②可选 extras → ③**仓库自述的已 pinned 测试依赖文件**（7 档候选）→
+④**该仓库额外约束**（新 `envPins` + `benchmark/swebench-env-pins.json`，已实测 flask `Werkzeug<3`）→
+⑤**仅在 pytest 缺失时**兜底安装（**绝不覆盖仓库 pin**）。这是**无镜像条件下对官方预建 conda 镜像的
+best-effort 逼近**。**修后第二关通过**（`pallets__flask-5014` gold ⇒ `resolved:true`；两关分别 24.1s / 23.4s）。
+
+**顺带修掉的安全级缺陷（fail-open 假绿）**：官方数据集把 `FAIL_TO_PASS`/`PASS_TO_PASS` 存成
+**JSON 字符串**，而 `loadVerified` 仅做类型断言（运行期不解析）⇒ 若被上游 catch 成 `[]`，则
+`[].every()` 恒真 ⇒ **任何补丁都被判 resolved**。已由 `parseTestList` 统一收口 + **空 `FAIL_TO_PASS`
+拒绝加载** + 执行边界纵深防线。真实 500 题数据集现已正确加载（500 题 / 77ms）。
+
+**沙箱限制更新（原「无网络 / uv 未安装」已失效）**：实测沙箱**有网络**、`uv` **已安装**（须入 PATH）。
+故真实 500 题「执行」在本沙箱**技术上可行**；剩余前置仅有 predictions（须模型 key 生成）与
+**逐仓库环境约束的验证**（`envPins` 仅收录已实测条目）。保真度仍为 best-effort，非官方镜像等价。
 
 ## 五、给未来挂起项的取舍清单
 
