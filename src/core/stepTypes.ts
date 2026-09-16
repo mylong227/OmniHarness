@@ -4,6 +4,7 @@ import type { ToolPort } from '../ports/tool/tool.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { EscalationPort } from '../ports/runtime/escalation.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
+import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
@@ -86,6 +87,12 @@ export interface StepRunnerDeps {
    * 仅在 env OMNI_SEMANTIC_RECALL=1 由 createRuntime 构造并注入；任何异常 fail-closed 回退 BM25。
    */
   readonly embedding?: EmbeddingPort | undefined;
+  /**
+   * 预算降级信号端口（P5 自动降档，可选）：非空且 `shouldDegrade` 为真时，本步 repo-map
+   * 强制纯 BM25（忽略 embedding）并缩小 fileK，直接压低 token 消耗。缺省 undefined
+   * ⇒ 恒不降级，保持既有检索口径（零行为变更）。建模为端口是为守住 `core → adapters` 红线。
+   */
+  readonly budgetDegrade?: BudgetDegradeSignal | undefined;
   /**
    * 仓库常驻指令（AGENTS.md / CLAUDE.md / llms.txt）注入开关，默认开；传 false 即关。
    * 依赖 `workspaceRoot`：该值为空时无论开关如何都不注入。

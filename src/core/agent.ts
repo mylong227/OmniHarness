@@ -335,6 +335,8 @@ export class Agent implements AgentPort {
       repoMapContext: this.runtime.config.repoMapContext,
       // U3 混合检索：仅当运行时注入了 embedding（env OMNI_SEMANTIC_RECALL=1 构造适配器）才走混合路径。
       embedding: this.runtime.embedding,
+      // P5 自动降档：预算计量桥成的只读端口；非空且置位时 StepContextBuilder 收敛检索预算。
+      budgetDegrade: this.runtime.budgetDegrade,
       // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。
       signal: cancel.toAbortSignal(),
       // 上下文窗口：容量快照的百分比分母（env OMNI_CONTEXT_WINDOW 优先 → 模型名表 → 缺省）。

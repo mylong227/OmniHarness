@@ -3,7 +3,9 @@ import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort, RoutePrice } from '../ports/model/model.js';
 import { CostBudget, DEFAULT_SOFT_RATIO } from '../adapters/model/costBudget.js';
+import { CostBudgetDegradeAdapter } from '../adapters/model/costBudgetDegradeAdapter.js';
 import { mergeRoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
+import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import { log } from '../util/logger.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
@@ -418,6 +420,12 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly memoryExtractor?: MemoryExtractorPort | undefined;
   /** 成本预算计量（#S29，可选）：配置 costBudgetUsd 正数时构造，BudgetedModel 与 budget_status 工具共享同一实例（含子代）。 */
   readonly costBudget?: CostBudget | undefined;
+  /**
+   * 预算降级信号端口（P5 自动降档，可选）：仅当 `costBudget` 存在时桥接构造，供 `core`
+   * 消费点（`StepContextBuilder`）在软阈值越过后收敛检索预算。缺省（无预算）为 undefined
+   * ⇒ 消费点 `?.shouldDegrade` 恒 false，零行为变更。建模为端口是为守住 `core → adapters` 架构红线。
+   */
+  readonly budgetDegrade?: BudgetDegradeSignal | undefined;
   /** 自主目标循环最大迭代次数（#S30，默认 10，CLI/工具可覆盖）。 */
   readonly goalMaxIterations: number;
   /** LSP 代码导航端口（#S32，可选）：配置了 lsp 服务器时构造 LspProcessAdapter，否则 undefined（LSP 工具不注册）。 */
@@ -486,6 +494,10 @@ export class ConfigFactory {
   public static build(partial: OmniHarnessConfig): ResolvedConfig {
     const core = assembleCorePorts(partial);
     const costBudget = ConfigFactory.buildCostBudget(partial);
+    // P5 自动降档：把预算计量桥成只读端口，注入 core 消费点（守住 `core → adapters` 红线）。
+    // 无预算（costBudgetUsd 未设/非正）时不构造 ⇒ budgetDegrade 恒 undefined，零行为变更。
+    const budgetDegrade: BudgetDegradeSignal | undefined =
+      costBudget !== undefined ? new CostBudgetDegradeAdapter(costBudget) : undefined;
     const model = buildModel(partial, costBudget);
     const memory = assembleMemoryStack(partial, model);
     const skills = assembleSkillStack(partial);
@@ -541,6 +553,7 @@ export class ConfigFactory {
       promptInjectionGuard: partial.promptInjectionGuard,
       runtimeTelemetry: partial.runtimeTelemetry,
       costBudget,
+      budgetDegrade,
       goalMaxIterations,
       lsp,
       identity,
