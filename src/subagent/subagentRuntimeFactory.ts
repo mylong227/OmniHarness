@@ -90,6 +90,9 @@ export class SubagentRuntimeFactory {
       native: ports.native,
       longTermMemory: ports.longTermMemory,
       memoryExtractor: undefined,
+      // P5 自动降档：子代理不继承父运行时降级信号（隔离决策、避免子代误收敛检索预算）；
+      // 恒 undefined ⇒ 子代 repo-map 保持既有口径，零行为变更。（诚实边界：降级仅作用于主循环）
+      budgetDegrade: undefined,
     };
   }
 

@@ -12,6 +12,13 @@ import type { StepRunnerDeps } from './stepTypes.js';
 import { at } from '../util/arrayAt.js';
 
 /**
+ * P5 自动降档时 repo-map 注入的文件预算（fileK）：从默认 10 收缩到 5，
+ * 直接压低注入上下文的 token 量。符号预算（symK=24）保持默认——repo-map 的 token 成本
+ * 主要由文件 outline 主导，缩 fileK 已是主要杠杆；符号签名行体量小，不动它以免过度损害召回信号。
+ */
+const DEGRADE_FILE_K = 5;
+
+/**
  * 单步「上下文组装」协作者（从 `StepRunner` 按职责缝抽出，P6.3 上帝类收口）。
  *
  * 职责单一：把事件日志投影成发给模型的消息列表，并把本轮可见工具集算出来。
@@ -165,12 +172,22 @@ export class StepContextBuilder {
    * 推导并产出 repo-map 上下文（BM25 或混合检索）。
    * 任一路径失败均返回 null（fail-closed），不影响主流程。
    *
+   * P5 自动降档：当预算降级信号置位（`budgetDegrade.shouldDegrade` 为真，即软阈值已越过、
+   * 硬预算尚未熔断）时，**强制纯 BM25**（忽略语义嵌入端口）并缩小 fileK 到 {@link DEGRADE_FILE_K}、
+   * 关闭第二段词法重排，直接压低注入上下文的 token 量。无信号（默认部署 / 未越软阈值 / 已熔断）
+   * 时保持既有检索口径——纯 BM25 或混合检索，fileK 维持默认 10，零行为变更。
+   *
    * @param q 由最近 user 消息推导出的查询文本（非空）。
    * @returns repo-map 上下文片段；不可用时为 null。
    */
   private async buildRepoMapContext(q: string): Promise<string | null> {
     const root = this.deps.workspaceRoot!;
     const engine = this.deps.repoMapContext;
+    const degrade = this.deps.budgetDegrade?.shouldDegrade === true;
+    if (degrade) {
+      // 降级：纯 BM25 + 缩 fileK + 关重排（即便注入过 embedding 也强制落在零开销词法路）。
+      return engine.getRepoMapContext(root, q, { fileK: DEGRADE_FILE_K, rerank: false });
+    }
     if (this.deps.embedding !== undefined) {
       try {
         return await engine.getHybridRepoMapContext(root, q, this.deps.embedding);

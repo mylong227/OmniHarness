@@ -16,6 +16,7 @@ import type { NativeToolRunner } from '../native/nativeBackend.js';
 import { NativeBackend } from '../native/nativeBackend.js';
 import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
+import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import { MUTATING_TOOLS, ToolGate } from './toolGate.js';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.js';
 import type { SupervisorPort } from '../ports/runtime/supervisor.js';
@@ -96,6 +97,11 @@ export interface OmniHarnessRuntime {
   readonly embedding?: EmbeddingPort | undefined;
   /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省 undefined，零破坏。 */
   readonly evolution?: EvolutionController | undefined;
+  /**
+   * 预算降级信号端口（P5 自动降档，可选）：由 ConfigFactory 桥 `costBudget` 注入；非空时
+   * `StepContextBuilder` 在软阈值越过后收敛检索预算（缩 fileK / 关语义路）。缺省 undefined，零破坏。
+   */
+  readonly budgetDegrade?: BudgetDegradeSignal | undefined;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务末跑 燧-3/燧-4 调谐/冲刷；缺省 undefined，零破坏。 */
   readonly spark?: SparkController | undefined;
   /** (U6) A2A 互操作：启用时本端起 A2aServer（监听）并构造 A2aClient，server 任务处理器跑子 agent 完成对等委托。缺省 undefined，零破坏。 */
@@ -182,6 +188,8 @@ export function createRuntime(
     embedding: config.embedding,
     evolution: evolutionController,
     spark: config.spark,
+    // P5 自动降档：预算计量桥成的只读端口，透传给 StepRunnerDeps（core 消费点）。
+    budgetDegrade: config.budgetDegrade,
   } as OmniHarnessRuntime;
   // U6 A2A 互操作：启用时实例化 server（监听）+ client，server 任务处理器跑子 agent 完成对等委托。
   // 能力胶囊 = Ed25519 签名即身份（fail-closed 验签），复用 config.identity + 子 agent 隔离运行时。

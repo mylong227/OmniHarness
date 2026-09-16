@@ -18,6 +18,7 @@ export type {
   RoutePrice,
 } from './model/model.js';
 export { ModelCallError, BudgetExceededError } from './model/model.js';
+export type { BudgetDegradeSignal } from './model/budgetDegrade.js';
 export type { StoragePort } from './memory/storage.js';
 export type { KvPort } from './memory/kv.js';
 export type { VaultPort } from './memory/vault.js';
