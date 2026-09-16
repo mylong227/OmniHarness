@@ -7,10 +7,13 @@
  *  - 任何异常（坏路径 / 空仓 / 索引失败 / 查询失败 / 禁用）→ 返回 null，绝不抛错崩 agent。
  *  - 索引强制 light 模式：仅 morph + 符号/文件双 BM25，跳过频域共振 / 44 万边代码图 / LSA SVD
  *    （三项在 omniharness 语料实测均零增益）。召回配置即基准里 67.0% 那档。
- *  - **两阶段检索（打磨第二批 P1）**：纯 BM25 路径在第一段之后可追加**零依赖词法精排**
+ *  - **两阶段检索（打磨第二批 P1）**：第一段之后追加**零依赖词法精排**
  *    （`FileReranker`：符号名 IDF 加权覆盖率 + 第一段倒数秩）。**2026-09-17 起默认开**——
- *    与检索预算**耦合**，见下节。关闭：`opts.rerank = false`。混合（语义）路径未接第二段——语义路需
- *    嵌入模型，离线无法度量，按「不报未测数字」纪律**留给可测时再定**。
+ *    与检索预算**耦合**，见下节。关闭：`opts.rerank = false`。
+ *    **同日混合（语义）路径也接上了第二段**：旧注释曾写「语义路需嵌入模型，离线无法度量，
+ *    按『不报未测数字』纪律留给可测时再定」。模型通道打通后实测：纯混合 **75.8%** →
+ *    混合+精排 **81.8%**（33 条对抗锚点，2 条捞回 / 0 条丢失），注入 token 反降 16.8%。
+ *    候选池必须用**未截断**的 `ranked.allFiles`——先截到 fileK 会让重排无余地（差 9.1pp）。
  *
  * 检索预算、精排与载荷投送默认档（2026-09-17 两轮决策）：
  *  - **第一轮**：fileK 默认 **10 → 14**、精排默认 **关 → 开** 是**同一个决策**：精排增益随候选池深度
@@ -57,6 +60,7 @@ import { RecallKnobs, type RepoMapContextOptions } from './recallKnobs.js';
 import { CorpusIndexCache } from './corpusIndexCache.js';
 import { SemanticIndexCache } from './semanticIndexCache.js';
 import { HybridRanker, type RankedRepoMap } from './hybridRanker.js';
+import { FileReranker } from './fileReranker.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
 export type { RepoMapContextOptions } from './recallKnobs.js';
@@ -96,6 +100,8 @@ export class RepoMapContextEngine {
   });
   /** 多路召回融合排序器（无状态，可复用）。 */
   private readonly ranker = new HybridRanker();
+  /** 第二段零依赖词法精排（无状态；内部词法视图按语料惰性缓存）。 */
+  private readonly fileReranker = new FileReranker();
 
   /**
    * 解析载荷档位计划（三级：opts > env > 默认 tiered）。
@@ -205,8 +211,25 @@ export class RepoMapContextEngine {
         bm25FileIds,
         semanticHits,
       });
+      // 第二段精排（2026-09-17 接入）：本路径此前**明确未接**第二段，理由写在旧注释里——
+      // 「语义路需嵌入模型，离线无法度量，按『不报未测数字』纪律留给可测时再定」。
+      // 本轮模型通道打通（hf-mirror 可达 + 适配器补 `remoteHost` 旋钮）后已可度量：
+      //   33 条对抗锚点查询 纯混合 **75.8%** → 混合+精排 **81.8%**（2 条捞回、0 条丢失），
+      //   且注入 token 更低（1191 vs 1431，−16.8%）。
+      // 注意候选池必须用 `ranked.allFiles`（**未截断**的完整融合排名），而不是 `ranked.files`：
+      // 重排只能在入池候选里换位，池子先截到 fileK 会让重排无余地（实测该口径差 9.1pp）。
+      // 关闭：`opts.rerank = false` 或 env `OMNI_RERANK=0`（与纯 BM25 路径同一解析口径）。
+      const useRerank = opts.rerank ?? process.env.OMNI_RERANK !== '0';
+      const files = useRerank
+        ? this.fileReranker.rerank({
+            corpus,
+            query: q,
+            candidates: ranked.allFiles,
+            fileK: knobs.fileK,
+          }).files
+        : ranked.files;
       return this.formatContext(
-        ranked,
+        { files, allFiles: ranked.allFiles, symbols: ranked.symbols },
         corpus,
         q,
         RepoMapContextEngine.payloadPlanOf(knobs.payloadShape),

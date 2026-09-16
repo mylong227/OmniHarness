@@ -41,8 +41,15 @@ const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务�
 // 原生本地执行器（git worktree 检出 + uv venv + 应用补丁 + pytest 判定），零 Docker、零云。
 // 用法（执行须在你侧具备 git + uv + 网络 的环境）：
 //   node benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> \
-//     --predictions <preds.jsonl> [--concurrency N]
+//     --predictions <preds.jsonl> [--concurrency N] \
+//     [--repo-base https://gitee.com/] [--repo-mirrors benchmark/swebench-gitee-mirrors.json] \
+//     [--env-pins benchmark/swebench-env-pins.json]
 // 模型补丁（predictions）由我们的 live agent 在具备 git+uv+网络的环境生成；本命令只负责"打分"。
+// 镜像通道：`--repo-base` + `--repo-mirrors` 用于把克隆重定向到国内镜像（上游 slug → 镜像 slug），
+//   实测 Gitee 覆盖 12 个 SWE-bench 仓库中的 11 个、且 base_commit 全部命中（见镜像映射文件注释）。
+//   两参数缺省时零行为变更（直连 https://github.com/，无重定向）。
+// 环境约束：`--env-pins` 按仓库补 pip 约束（如 flask 的 Werkzeug<3），修复「不设上界的开发期运行时
+//   依赖被解析到过新主版本」导致老测试套件崩的保真度缺口。缺省时零行为变更。
 // 保真度边界：env 由 repo 自述 + uv 重建，不等同官方 Docker 镜像；用于本地迭代/小批量自测。
 const verifiedIdx = process.argv.indexOf('--verified');
 if (verifiedIdx !== -1) {
@@ -51,11 +58,38 @@ if (verifiedIdx !== -1) {
   const predsPath = predsIdx !== -1 ? process.argv[predsIdx + 1] : undefined;
   const concIdx = process.argv.indexOf('--concurrency');
   const concurrency = concIdx !== -1 ? Number(process.argv[concIdx + 1]) : 1;
+  const baseIdx = process.argv.indexOf('--repo-base');
+  const repoBaseUrl = baseIdx !== -1 ? process.argv[baseIdx + 1] : undefined;
+  const mirrorIdx = process.argv.indexOf('--repo-mirrors');
+  const mirrorPath = mirrorIdx !== -1 ? process.argv[mirrorIdx + 1] : undefined;
+  const pinsIdx = process.argv.indexOf('--env-pins');
+  const pinsPath = pinsIdx !== -1 ? process.argv[pinsIdx + 1] : undefined;
+  // 镜像映射为可选：未给则在执行器内保持空映射 ⇒ 克隆 URL 与历史完全一致（零行为变更）。
+  let repoMirrors = {};
+  if (mirrorPath !== undefined) {
+    const parsed = JSON.parse(readFileSync(mirrorPath, 'utf8'));
+    repoMirrors = parsed.mirrors ?? {};
+    console.log(
+      `[capability:swebench:verified] 镜像映射 ${Object.keys(repoMirrors).length} 条（${mirrorPath}）`,
+    );
+  }
+  // 环境约束为可选：未给则保持空映射 ⇒ 安装阶梯与历史一致（零行为变更）。
+  let envPins = {};
+  if (pinsPath !== undefined) {
+    const parsed = JSON.parse(readFileSync(pinsPath, 'utf8'));
+    envPins = parsed.pins ?? {};
+    console.log(
+      `[capability:swebench:verified] 环境约束 ${Object.keys(envPins).length} 条（${pinsPath}）`,
+    );
+  }
 
   const { SwebenchVerified } = await import('../dist/src/eval/swebenchVerified.js');
   const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
   const executor = new NativeExecutor({
     repoCacheRoot: join(__dirname, '..', 'eval-data', 'repos'),
+    ...(repoBaseUrl !== undefined ? { repoBaseUrl } : {}),
+    ...(Object.keys(repoMirrors).length > 0 ? { repoMirrors } : {}),
+    ...(Object.keys(envPins).length > 0 ? { envPins } : {}),
   });
 
   console.log(`[capability:swebench:verified] backend=native executor=${executor.describe()}`);

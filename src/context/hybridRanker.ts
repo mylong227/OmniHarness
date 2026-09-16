@@ -25,6 +25,12 @@ import type { RecallKnobs } from './recallKnobs.js';
 export interface RankedRepoMap {
   /** 入选文件 rel 路径（已截断到 fileK）。 */
   readonly files: readonly string[];
+  /**
+   * 融合后的**完整**文件排名（未按 fileK 截断）。
+   * 供第二段精排当候选池：重排只能在**入池候选**里换位，池子截断得越早、重排可动的余地越小
+   * （实测教训：候选池只取 BM25 文件路 top-20 时，重排后命中率 66.7%；放成完整 fileScore 池后 75.8%）。
+   */
+  readonly allFiles: readonly string[];
   /** 入选符号（已截断到 symK）。 */
   readonly symbols: readonly SymbolNode[];
 }
@@ -57,6 +63,12 @@ export class HybridRanker {
 
     // 符号→文件融合：语义命中的符号映射回所属文件，让符号级精度直接抬升文件级召回。
     const symSemFileIds = knobs.mergeSymbols ? this.mapSymbolsToFiles(corpus, symSemIds) : [];
+    // BM25 符号路 → 文件：**纯 BM25 路径本来就有这一路**（`ContextEngine.query` 的 `fileScore`
+    // 取 `max(文件BM25分, 0.7 × 该文件最强符号分)`），而混合路径此前**漏了这一路**——
+    // 它的文件候选池只有「BM25 文件路 top-20 ∪ 语义命中」，于是符号级命中若没被语义路复述，
+    // 其所属文件就进不了池。实测（33 条对抗锚点，生产入口）：补上此路 78.8% → **81.8%**。
+    // 同一开关控制（`mergeSymbols`，默认开）——本就是同一件事「符号命中回抬其文件」。
+    const symBm25FileIds = knobs.mergeSymbols ? this.mapSymbolsToFiles(corpus, bm25SymIds) : [];
     // 分块语义召回：chunk 命中映射回所属文件，作为额外融合路（与符号→文件同机制）。
     const chunkSemFileIds = knobs.chunkRecall ? this.mapSymbolsToFiles(corpus, chunkSemIds) : [];
 
@@ -74,6 +86,9 @@ export class HybridRanker {
     ];
     const fileWeights: number[] = [1, knobs.semWeight];
     if (knobs.mergeSymbols) {
+      // BM25 符号路映射（权重 1，与 BM25 文件路同属词法侧）。
+      fileLists.push(toHits(symBm25FileIds));
+      fileWeights.push(1);
       fileLists.push(toHits(symSemFileIds));
       fileWeights.push(knobs.semWeight);
     }
@@ -91,7 +106,8 @@ export class HybridRanker {
     }
     const mergedFile = rrfMerge(fileLists, knobs.rrfK, fileWeights);
 
-    let rankedFiles = mergedFile.slice(0, knobs.fileK).map((id) => id.slice('file:'.length));
+    const allFiles = mergedFile.map((id) => id.slice('file:'.length));
+    let rankedFiles = allFiles.slice(0, knobs.fileK);
     if (knobs.bm25Floor > 0) {
       rankedFiles = this.applyBm25Floor(rankedFiles, bm25FileIds, knobs.bm25Floor, knobs.fileK);
     }
@@ -100,7 +116,7 @@ export class HybridRanker {
       .map((id) => corpus.symbols[Number(id.slice('sym:'.length))])
       .filter((s): s is SymbolNode => s !== undefined);
 
-    return { files: rankedFiles, symbols: rankedSymbols };
+    return { files: rankedFiles, allFiles, symbols: rankedSymbols };
   }
 
   /**

@@ -1,0 +1,19 @@
+{
+  "_comment": "SWE-bench Verified 上游仓库 → Gitee 官方镜像组织（mirrors/）的 slug 映射。2026-09-17 实测：下列 11 个仓库在 Gitee 可达，且抽样 22 个 base_commit 全部命中（Gitee OpenAPI 校验）。仅 pylint-dev/pylint 无 mirrors/ 镜像，须直连上游或另找镜像。",
+  "_verifiedAt": "2026-09-17",
+  "_verificationMethod": "git ls-remote 探可达 + gitee.com/api/v5/repos/{slug}/commits/{sha} 校验 base_commit 存在",
+  "_repoBaseUrl": "https://gitee.com/",
+  "mirrors": {
+    "astropy/astropy": "mirrors/astropy",
+    "django/django": "mirrors/django",
+    "matplotlib/matplotlib": "mirrors/matplotlib",
+    "mwaskom/seaborn": "mirrors/seaborn",
+    "pallets/flask": "mirrors/Flask",
+    "psf/requests": "mirrors/requests",
+    "pydata/xarray": "mirrors/xarray",
+    "pytest-dev/pytest": "mirrors/pytest",
+    "scikit-learn/scikit-learn": "mirrors/scikit-learn",
+    "sphinx-doc/sphinx": "mirrors/sphinx-doc",
+    "sympy/sympy": "mirrors/sympy"
+  }
+}
