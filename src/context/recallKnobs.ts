@@ -16,11 +16,30 @@ export interface RepoMapContextOptions {
   /** 是否启用；默认开。env OMNI_REPO_MAP=0 由调用方显式传 enabled:false。 */
   readonly enabled?: boolean;
   /**
-   * 注入的系统碎片里最多几个文件（默认 **14**）。
-   * 2026-09-17 由 10 提到 14：与 {@link RepoMapContextOptions.rerank} 默认开是**同一决策**
-   * ——精排增益随候选池深度放大（51.5% → 69.7%，CI [54.5, 84.8]）；代价是注入 token ↑约 40%。
+   * 注入的系统碎片里最多几个文件（默认 **20**）。
+   *
+   * 2026-09-17 二次决策：先由 10 → 14（精排增益随候选池深度放大，命中率 51.5% → 69.7%），再由 14 → 20。
+   * 第二次扩档之所以**近乎免费**，是因为 {@link RepoMapContextOptions.payloadShape} 的梯度投送把注入
+   * token 从 3703 压到 **1496（−59.6%）**——省下的预算足以覆盖更深的文件：命中率再由 69.7% 升到
+   * **75.8%（+6.1pp，CI [60.6, 87.9]）**，而 token 仍**低于**原来的 fileK=14 全大纲口径。
+   * 报告：`evals/military-pareto.report.json`、`evals/military-verdict.report.json`。
    */
   readonly fileK?: number;
+  /**
+   * repo-map 载荷投送形态（「弹药分配」）。
+   *
+   *  - `'tiered'`（**默认**）：梯度投送——前 3 个文件给完整符号大纲，第 4..8 个给「路径 + 命中符号名」，
+   *    其余仅给一行 `📄 路径`。**文件集合逐字不变**（构造性保证，33/33 查询实测），故 `hitRate@K`
+   *    必然不降；实测 token 降 **60.7%（K=14）/ 69.4%（K=20）**。
+   *  - `'degrade'`：应急压缩档——**只保留 Top-1 的完整大纲**，其余全为路径行（P5 软预算降档用）。
+   *    实测再降 34.6%（K=14 时 1446 → 946 token）。降档该缩「大纲档位」而非「文件数」：
+   *    tiered 下 fileK 5→10 的 token 只差 34，而命中率差 18.1pp。
+   *  - `'full'`：历史口径（全量符号大纲），零行为变更回退。
+   *
+   * env `OMNI_PAYLOAD=full` 全局回退。诚实边界：本档降低的是**注入字面信息量**，
+   * 下游任务完成率是否同步不变**待 P6 端到端基准验证**，本仓库不对此作承诺。
+   */
+  readonly payloadShape?: 'full' | 'tiered' | 'degrade';
   /** 注入的系统碎片里最多几个符号（默认 24）。 */
   readonly symK?: number;
   /**
@@ -131,14 +150,16 @@ export class RecallKnobs {
   public readonly graphSignal: boolean;
   /** 第四路 RRF 权重。 */
   public readonly graphWeight: number;
+  /** 载荷投送形态：'tiered'（梯度，默认）| 'degrade'（应急压缩）| 'full'（历史全大纲）。 */
+  public readonly payloadShape: 'full' | 'tiered' | 'degrade';
 
   /**
    * 解析并冻结全部旋钮（三级：opts > env > 默认）。
    * @param opts 调用方显式选项（优先级最高）；缺省用 env / 默认。
    */
   public constructor(opts: RepoMapContextOptions = {}) {
-    // 预算默认 14（2026-09-17 由 10 提到）：与精排默认开是同一决策，依据见 RepoMapContextOptions.rerank。
-    this.fileK = opts.fileK ?? 14;
+    // 预算默认 20（2026-09-17 两轮决策：10→14→20）。第二轮扩档由梯度投送「买单」，见 fileK 的 JSDoc。
+    this.fileK = opts.fileK ?? 20;
     this.symK = opts.symK ?? 24;
     this.rrfK = this.numeric(opts.rrfK, process.env.OMNI_RRF_K, 60, 1);
     this.semWeight = this.numeric(opts.semWeight, process.env.OMNI_SEM_WEIGHT, 1, 0);
@@ -149,6 +170,9 @@ export class RecallKnobs {
     this.docMode = opts.docMode ?? (process.env.OMNI_DOC_MODE === 'id' ? 'id' : 'snip');
     this.graphSignal = opts.graphSignal ?? process.env.OMNI_GRAPH_SIGNAL === '1';
     this.graphWeight = this.numeric(opts.graphWeight, process.env.OMNI_GRAPH_WEIGHT, 1, 0);
+    // 载荷投送默认 tiered（梯度）；env OMNI_PAYLOAD=full 全局回退到历史全大纲口径。
+    this.payloadShape =
+      opts.payloadShape ?? (process.env.OMNI_PAYLOAD === 'full' ? 'full' : 'tiered');
   }
 
   /**

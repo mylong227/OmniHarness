@@ -1,35 +1,46 @@
 {
-  "generatedAt": "2026-09-16T16:54:23.404Z",
+  "generatedAt": "2026-09-16T17:40:57.598Z",
   "corpus": {
-    "files": 482,
-    "symbols": 7749
+    "files": 483,
+    "symbols": 7783
   },
   "equivalence": {
     "defaultMatches": 33,
-    "noRerankMatches": 33,
-    "fileK5Matches": 33,
+    "fullMatches": 33,
+    "degradeMatches": 33,
     "total": 33
   },
-  "envToggleWorks": 5,
-  "envToggleProbes": 5,
+  "envToggle": {
+    "rerankDiffers": 5,
+    "payloadDiffers": 5,
+    "probes": 5
+  },
+  "invariant": {
+    "sameRank": 33,
+    "sameVisible": 31,
+    "tieredMoreVisible": 2,
+    "avgTokensFull": 4829,
+    "avgTokensTiered": 1455,
+    "avgTokensDegrade": 911
+  },
   "adversarial": {
-    "oldDefault": {
-      "mean": 51.5,
-      "lo": 33.3,
-      "hi": 69.7
-    },
-    "newDefault": {
+    "roundOne": {
       "mean": 69.7,
       "lo": 54.5,
       "hi": 84.8
+    },
+    "newDefault": {
+      "mean": 75.8,
+      "lo": 60.6,
+      "hi": 87.9
     }
   },
   "natural": {
     "ci": {
-      "mean": 97,
-      "lo": 90.9,
+      "mean": 100,
+      "lo": 100,
       "hi": 100
     },
-    "failed": ["Diagnostics where do language server error reports come from"]
+    "failed": []
   }
 }

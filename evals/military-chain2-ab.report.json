@@ -1,0 +1,1133 @@
+{
+  "queryCount": 33,
+  "results": [
+    {
+      "name": "C0 生产默认(单字段+重排)",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.5455,
+            "lo": 0.3636,
+            "hi": 0.697
+          },
+          "precision": {
+            "mean": 0.103,
+            "lo": 0.0545,
+            "hi": 0.1606
+          },
+          "recall": {
+            "mean": 0.3274,
+            "lo": 0.1921,
+            "hi": 0.4652
+          },
+          "mrr": {
+            "mean": 0.2453,
+            "lo": 0.1311,
+            "hi": 0.3689
+          },
+          "tokens": 2703,
+          "fails": [
+            "execPolicy",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "QECOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "ParticleFilterOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult",
+            "SupervisorKernel"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.697,
+            "lo": 0.5455,
+            "hi": 0.8485
+          },
+          "precision": {
+            "mean": 0.0931,
+            "lo": 0.0541,
+            "hi": 0.1429
+          },
+          "recall": {
+            "mean": 0.3937,
+            "lo": 0.2645,
+            "hi": 0.5269
+          },
+          "mrr": {
+            "mean": 0.2575,
+            "lo": 0.1427,
+            "hi": 0.3798
+          },
+          "tokens": 3465,
+          "fails": [
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7576,
+            "lo": 0.6061,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0818,
+            "lo": 0.0545,
+            "hi": 0.1152
+          },
+          "recall": {
+            "mean": 0.4719,
+            "lo": 0.342,
+            "hi": 0.6035
+          },
+          "mrr": {
+            "mean": 0.2613,
+            "lo": 0.1496,
+            "hi": 0.3834
+          },
+          "tokens": 4648,
+          "fails": [
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C1 多字段Σ 无重排",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.6061,
+            "lo": 0.4242,
+            "hi": 0.7576
+          },
+          "precision": {
+            "mean": 0.1091,
+            "lo": 0.0667,
+            "hi": 0.1576
+          },
+          "recall": {
+            "mean": 0.3512,
+            "lo": 0.2141,
+            "hi": 0.4873
+          },
+          "mrr": {
+            "mean": 0.285,
+            "lo": 0.1696,
+            "hi": 0.4102
+          },
+          "tokens": 1693,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "ParticleFilterOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.697,
+            "lo": 0.5455,
+            "hi": 0.8485
+          },
+          "precision": {
+            "mean": 0.0866,
+            "lo": 0.0563,
+            "hi": 0.1212
+          },
+          "recall": {
+            "mean": 0.4103,
+            "lo": 0.2759,
+            "hi": 0.543
+          },
+          "mrr": {
+            "mean": 0.2924,
+            "lo": 0.1795,
+            "hi": 0.4132
+          },
+          "tokens": 2385,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7273,
+            "lo": 0.5758,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0652,
+            "lo": 0.0439,
+            "hi": 0.0894
+          },
+          "recall": {
+            "mean": 0.4353,
+            "lo": 0.3039,
+            "hi": 0.5668
+          },
+          "mrr": {
+            "mean": 0.2941,
+            "lo": 0.1822,
+            "hi": 0.4149
+          },
+          "tokens": 3423,
+          "fails": [
+            "registerTool",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C2 多字段Σ + 现有重排",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.6061,
+            "lo": 0.4242,
+            "hi": 0.7576
+          },
+          "precision": {
+            "mean": 0.1152,
+            "lo": 0.0697,
+            "hi": 0.1667
+          },
+          "recall": {
+            "mean": 0.3625,
+            "lo": 0.2243,
+            "hi": 0.5016
+          },
+          "mrr": {
+            "mean": 0.2971,
+            "lo": 0.1737,
+            "hi": 0.425
+          },
+          "tokens": 1970,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "ParticleFilterOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.697,
+            "lo": 0.5455,
+            "hi": 0.8485
+          },
+          "precision": {
+            "mean": 0.0887,
+            "lo": 0.0584,
+            "hi": 0.1234
+          },
+          "recall": {
+            "mean": 0.4141,
+            "lo": 0.2802,
+            "hi": 0.5453
+          },
+          "mrr": {
+            "mean": 0.304,
+            "lo": 0.1828,
+            "hi": 0.4293
+          },
+          "tokens": 2783,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7273,
+            "lo": 0.5758,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0667,
+            "lo": 0.0455,
+            "hi": 0.0909
+          },
+          "recall": {
+            "mean": 0.4396,
+            "lo": 0.3092,
+            "hi": 0.569
+          },
+          "mrr": {
+            "mean": 0.3057,
+            "lo": 0.1844,
+            "hi": 0.4312
+          },
+          "tokens": 3796,
+          "fails": [
+            "registerTool",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C3 RRF 无重排",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.5455,
+            "lo": 0.3939,
+            "hi": 0.7273
+          },
+          "precision": {
+            "mean": 0.0848,
+            "lo": 0.0515,
+            "hi": 0.1212
+          },
+          "recall": {
+            "mean": 0.2992,
+            "lo": 0.1799,
+            "hi": 0.4222
+          },
+          "mrr": {
+            "mean": 0.3468,
+            "lo": 0.2036,
+            "hi": 0.5043
+          },
+          "tokens": 1807,
+          "fails": [
+            "registerTool",
+            "imagesOf",
+            "execPolicy",
+            "ApprovalStore",
+            "HeatAnnealerOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "ToolCallRef",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.697,
+            "lo": 0.5455,
+            "hi": 0.8485
+          },
+          "precision": {
+            "mean": 0.0801,
+            "lo": 0.0541,
+            "hi": 0.1082
+          },
+          "recall": {
+            "mean": 0.4003,
+            "lo": 0.2747,
+            "hi": 0.5342
+          },
+          "mrr": {
+            "mean": 0.3589,
+            "lo": 0.2202,
+            "hi": 0.5138
+          },
+          "tokens": 2441,
+          "fails": [
+            "registerTool",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "ToolCallRef",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7273,
+            "lo": 0.5758,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0591,
+            "lo": 0.0409,
+            "hi": 0.0788
+          },
+          "recall": {
+            "mean": 0.4349,
+            "lo": 0.3126,
+            "hi": 0.5685
+          },
+          "mrr": {
+            "mean": 0.3605,
+            "lo": 0.2215,
+            "hi": 0.5159
+          },
+          "tokens": 3546,
+          "fails": [
+            "registerTool",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "ToolCallRef",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C4 RRF + 现有重排",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.5758,
+            "lo": 0.3939,
+            "hi": 0.7273
+          },
+          "precision": {
+            "mean": 0.1061,
+            "lo": 0.0636,
+            "hi": 0.1515
+          },
+          "recall": {
+            "mean": 0.3284,
+            "lo": 0.2004,
+            "hi": 0.4611
+          },
+          "mrr": {
+            "mean": 0.3246,
+            "lo": 0.1955,
+            "hi": 0.4673
+          },
+          "tokens": 2068,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "AgentAssertionEnvelope",
+            "CosmicWebOptions",
+            "HeatAnnealerOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.6667,
+            "lo": 0.4848,
+            "hi": 0.8182
+          },
+          "precision": {
+            "mean": 0.0887,
+            "lo": 0.0563,
+            "hi": 0.1234
+          },
+          "recall": {
+            "mean": 0.3994,
+            "lo": 0.2701,
+            "hi": 0.533
+          },
+          "mrr": {
+            "mean": 0.3322,
+            "lo": 0.2042,
+            "hi": 0.4727
+          },
+          "tokens": 2761,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7273,
+            "lo": 0.5758,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0667,
+            "lo": 0.0439,
+            "hi": 0.0909
+          },
+          "recall": {
+            "mean": 0.4267,
+            "lo": 0.3021,
+            "hi": 0.5565
+          },
+          "mrr": {
+            "mean": 0.336,
+            "lo": 0.2089,
+            "hi": 0.4753
+          },
+          "tokens": 3855,
+          "fails": [
+            "registerTool",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C5 RRF + 增强(秩+符号名)",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.5758,
+            "lo": 0.3939,
+            "hi": 0.7273
+          },
+          "precision": {
+            "mean": 0.1061,
+            "lo": 0.0636,
+            "hi": 0.1515
+          },
+          "recall": {
+            "mean": 0.3284,
+            "lo": 0.2004,
+            "hi": 0.4611
+          },
+          "mrr": {
+            "mean": 0.3246,
+            "lo": 0.1955,
+            "hi": 0.4673
+          },
+          "tokens": 2068,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "AgentAssertionEnvelope",
+            "CosmicWebOptions",
+            "HeatAnnealerOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.6667,
+            "lo": 0.4848,
+            "hi": 0.8182
+          },
+          "precision": {
+            "mean": 0.0887,
+            "lo": 0.0563,
+            "hi": 0.1234
+          },
+          "recall": {
+            "mean": 0.3994,
+            "lo": 0.2701,
+            "hi": 0.533
+          },
+          "mrr": {
+            "mean": 0.3322,
+            "lo": 0.2042,
+            "hi": 0.4727
+          },
+          "tokens": 2761,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7273,
+            "lo": 0.5758,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0667,
+            "lo": 0.0439,
+            "hi": 0.0909
+          },
+          "recall": {
+            "mean": 0.4267,
+            "lo": 0.3021,
+            "hi": 0.5565
+          },
+          "mrr": {
+            "mean": 0.336,
+            "lo": 0.2089,
+            "hi": 0.4753
+          },
+          "tokens": 3855,
+          "fails": [
+            "registerTool",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C6 RRF + 增强(+内容覆盖)",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.6364,
+            "lo": 0.4545,
+            "hi": 0.7879
+          },
+          "precision": {
+            "mean": 0.1212,
+            "lo": 0.0727,
+            "hi": 0.1758
+          },
+          "recall": {
+            "mean": 0.3794,
+            "lo": 0.2478,
+            "hi": 0.5132
+          },
+          "mrr": {
+            "mean": 0.3377,
+            "lo": 0.2056,
+            "hi": 0.473
+          },
+          "tokens": 2398,
+          "fails": [
+            "execPolicy",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.6667,
+            "lo": 0.5152,
+            "hi": 0.8182
+          },
+          "precision": {
+            "mean": 0.0952,
+            "lo": 0.0584,
+            "hi": 0.1364
+          },
+          "recall": {
+            "mean": 0.4257,
+            "lo": 0.2883,
+            "hi": 0.5622
+          },
+          "mrr": {
+            "mean": 0.3401,
+            "lo": 0.208,
+            "hi": 0.4752
+          },
+          "tokens": 3153,
+          "fails": [
+            "execPolicy",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7879,
+            "lo": 0.6364,
+            "hi": 0.9091
+          },
+          "precision": {
+            "mean": 0.0773,
+            "lo": 0.053,
+            "hi": 0.1061
+          },
+          "recall": {
+            "mean": 0.4788,
+            "lo": 0.3581,
+            "hi": 0.6052
+          },
+          "mrr": {
+            "mean": 0.3475,
+            "lo": 0.2192,
+            "hi": 0.4805
+          },
+          "tokens": 4327,
+          "fails": [
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C7 RRF + 增强(+路径覆盖)",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.5758,
+            "lo": 0.3939,
+            "hi": 0.7576
+          },
+          "precision": {
+            "mean": 0.1091,
+            "lo": 0.0667,
+            "hi": 0.1576
+          },
+          "recall": {
+            "mean": 0.3441,
+            "lo": 0.222,
+            "hi": 0.4822
+          },
+          "mrr": {
+            "mean": 0.3299,
+            "lo": 0.1965,
+            "hi": 0.4733
+          },
+          "tokens": 1971,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "AgentAssertionEnvelope",
+            "HeatAnnealerOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "ToolCallRef",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.6364,
+            "lo": 0.4545,
+            "hi": 0.7879
+          },
+          "precision": {
+            "mean": 0.0823,
+            "lo": 0.0519,
+            "hi": 0.1147
+          },
+          "recall": {
+            "mean": 0.3895,
+            "lo": 0.2595,
+            "hi": 0.5233
+          },
+          "mrr": {
+            "mean": 0.335,
+            "lo": 0.2035,
+            "hi": 0.4759
+          },
+          "tokens": 2652,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "ToolCallRef",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7273,
+            "lo": 0.5758,
+            "hi": 0.8788
+          },
+          "precision": {
+            "mean": 0.0652,
+            "lo": 0.0439,
+            "hi": 0.0879
+          },
+          "recall": {
+            "mean": 0.4244,
+            "lo": 0.3004,
+            "hi": 0.554
+          },
+          "mrr": {
+            "mean": 0.3404,
+            "lo": 0.2105,
+            "hi": 0.4814
+          },
+          "tokens": 3739,
+          "fails": [
+            "registerTool",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C8 Σ+RRF混合 + 现有重排",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.5758,
+            "lo": 0.3939,
+            "hi": 0.7576
+          },
+          "precision": {
+            "mean": 0.1091,
+            "lo": 0.0636,
+            "hi": 0.1606
+          },
+          "recall": {
+            "mean": 0.3436,
+            "lo": 0.2105,
+            "hi": 0.4827
+          },
+          "mrr": {
+            "mean": 0.3143,
+            "lo": 0.1805,
+            "hi": 0.4483
+          },
+          "tokens": 1987,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "HeatAnnealerOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "ParticleFilterOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.6364,
+            "lo": 0.4545,
+            "hi": 0.7879
+          },
+          "precision": {
+            "mean": 0.0823,
+            "lo": 0.0519,
+            "hi": 0.1169
+          },
+          "recall": {
+            "mean": 0.3739,
+            "lo": 0.2406,
+            "hi": 0.5097
+          },
+          "mrr": {
+            "mean": 0.3198,
+            "lo": 0.1909,
+            "hi": 0.4517
+          },
+          "tokens": 2744,
+          "fails": [
+            "registerTool",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7576,
+            "lo": 0.6061,
+            "hi": 0.9091
+          },
+          "precision": {
+            "mean": 0.0682,
+            "lo": 0.047,
+            "hi": 0.0924
+          },
+          "recall": {
+            "mean": 0.457,
+            "lo": 0.3335,
+            "hi": 0.5848
+          },
+          "mrr": {
+            "mean": 0.3272,
+            "lo": 0.2009,
+            "hi": 0.4587
+          },
+          "tokens": 3685,
+          "fails": [
+            "registerTool",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    },
+    {
+      "name": "C9 Σ+RRF混合 + 增强(秩+名+内容)",
+      "perK": {
+        "10": {
+          "hitRate": {
+            "mean": 0.6061,
+            "lo": 0.4545,
+            "hi": 0.7576
+          },
+          "precision": {
+            "mean": 0.1182,
+            "lo": 0.0727,
+            "hi": 0.1697
+          },
+          "recall": {
+            "mean": 0.3772,
+            "lo": 0.2443,
+            "hi": 0.516
+          },
+          "mrr": {
+            "mean": 0.3228,
+            "lo": 0.1915,
+            "hi": 0.4531
+          },
+          "tokens": 2293,
+          "fails": [
+            "registerTool",
+            "execPolicy",
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "TransformersEmbeddingOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "14": {
+          "hitRate": {
+            "mean": 0.697,
+            "lo": 0.5152,
+            "hi": 0.8485
+          },
+          "precision": {
+            "mean": 0.0952,
+            "lo": 0.0606,
+            "hi": 0.1364
+          },
+          "recall": {
+            "mean": 0.424,
+            "lo": 0.2907,
+            "hi": 0.5589
+          },
+          "mrr": {
+            "mean": 0.3302,
+            "lo": 0.1993,
+            "hi": 0.4582
+          },
+          "tokens": 3053,
+          "fails": [
+            "ApprovalStore",
+            "CosmicWebOptions",
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars",
+            "SubagentResult"
+          ]
+        },
+        "20": {
+          "hitRate": {
+            "mean": 0.7879,
+            "lo": 0.6364,
+            "hi": 0.9091
+          },
+          "precision": {
+            "mean": 0.0758,
+            "lo": 0.0515,
+            "hi": 0.103
+          },
+          "recall": {
+            "mean": 0.4727,
+            "lo": 0.3523,
+            "hi": 0.5969
+          },
+          "mrr": {
+            "mean": 0.3355,
+            "lo": 0.207,
+            "hi": 0.4638
+          },
+          "tokens": 4149,
+          "fails": [
+            "MemoryExtractorOptions",
+            "BudgetSnapshot",
+            "StoredTrace",
+            "Canonicalizer",
+            "CachedApprovalOptions",
+            "Diagnostics",
+            "TranscriptChars"
+          ]
+        }
+      }
+    }
+  ]
+}

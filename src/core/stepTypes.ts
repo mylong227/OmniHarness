@@ -89,7 +89,8 @@ export interface StepRunnerDeps {
   readonly embedding?: EmbeddingPort | undefined;
   /**
    * 预算降级信号端口（P5 自动降档，可选）：非空且 `shouldDegrade` 为真时，本步 repo-map
-   * 强制纯 BM25（忽略 embedding）并缩小 fileK，直接压低 token 消耗。缺省 undefined
+   * 强制纯 BM25（忽略 embedding）并**收缩载荷大纲档位**（`payloadShape: 'degrade'`，只留
+   * Top-1 完整大纲、其余降为路径行），直接压低 token 消耗。缺省 undefined
    * ⇒ 恒不降级，保持既有检索口径（零行为变更）。建模为端口是为守住 `core → adapters` 红线。
    */
   readonly budgetDegrade?: BudgetDegradeSignal | undefined;
