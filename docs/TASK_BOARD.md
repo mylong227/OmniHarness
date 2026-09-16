@@ -291,6 +291,15 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     ⑤ **验收**：七门禁全绿（typecheck / lint 0 警告 / check --strict 479 文件零违规 / arch:gate 端口纯度 0 / audit:maturity / audit:standard:delta DELTA=0 / audit:config-wiring 479 文件）；全量单测 **1508 文件（排除网络 bound 的 swebenchVerified）1496 通过 / 5 失败 / 7 跳过**——5 失败**全为已知 flaky 网络集成测试**（HTTP-SSE #482、SDK-WS #972 等），**零新增回归**；新增 `stepContextBuilderPrefix.test.ts`（4 例：repo-map 在事件之后/compactor 路径下亦然、repo-map 关闭无注入、与 P5 降级 opts 互不冲突）。
     ⑥ **提交口径**：能力一笔（下条哈希，3 文件 +110/−28：1 源改消息次序 + 1 新单测 + 1 既有 PTC 测试解耦修复）＋一笔看板（本节 + `POLISH_PLAN.md` P5 段标注「已治」）。
 
+26. **检索「命中率/准确度」量化 + BM25+RM3 伪相关反馈落地（opt-in）（2026-09-16，本轮）**：
+    - **起因（用户指令「抓命中率，准确度」→「完成下一批提升」）**：计划残项耗尽后，用户要求量化并提升四套「命中率/准确度」度量中核心的 repo-map 检索命中率/准确度。先建**受控度量**（纯 BM25、免网络、免模型）抓真实数字，再据两关验收纪律落地最优解增量。
+    - **度量设施（新增）**：`evals/recall-precision.mjs`（复用已核实 33 查询 + 锚点语料，与 `recall-codebase-real.mjs` 同源；GT = 含锚点子串文件集；硬守卫 `GT≥1`，不允许 recall 兜底成 100% 污染统计）；K∈{5,10,14}（生产默认=10 / P5 降档=5 / 判定档=14）上算 **命中率 hitRate@K** / **准确度 precision@K** / recall@K / MRR；报 **bootstrap 95% CI**（B=2000 确定性 LCG），不报点估计；输出 `evals/recall-precision.report.json`。另三套均离线可跑：护栏 `injection-metric`（recall 90.0% / FP-rate 8.3% / prec 94.7% / acc 90.6%，健康）、缓存 `prefix-stability`（加权复用率 ~60–73%，已治后区间）、混合语义路 `recall-codebase-real.mjs --diagnose`（需 hf-mirror 下 all-MiniLM ~80MB，沙箱限速下未实跑，引用已录 59.1%）。
+    - **实测结论（K=10 生产默认，n=33）**：基线 BM25 hitRate 51.5%[CI 33.3–69.7] / prec 9.4% / recall 26.7% / MRR 0.274；**BM25+PRF** hitRate 54.5%[36.4–72.7] / prec 10.6% / recall 32.2%[19.2–45.4] / MRR 0.296 —— 方向全面正（hitRate +3.0pp、recall +5.5pp、MRR +0.022）；**K=5（P5 降档档）召回 +7.3pp、精度 +3.7pp**，与降档预算互补。
+    - **实现（修复 + 接线）**：① `contextEngine.ts` **重写内置 `prf` 分支**——原实现是朴素并集（把 20 个泛化词命中的文件顶进头部，hitRate 39%→9% 崩塌）；改为 RM3 配方：取首轮 Top-20 文件作反馈集、TF·IDF 加权选 Top-6 扩展词、**重排（替换）而非并集**、IDF 用语料级 docFreq（按 corpus WeakMap 缓存）、零依赖可测。② `recallKnobs.ts` `RepoMapContextOptions` 加 `prf?`。③ `repoMapContextEngine.ts` 生产入口接 `OMNI_RM3=1` opt-in（`??` 非空判断，false 合法显式值）；默认 false ⇒ **零行为变更**。
+    - **诚实边界（两关验收）**：bootstrap CI 在 n=33 下**重叠**（增益未达统计显著）⇒ **不翻默认**，PRF 仅作 `OMNI_RM3=1` opt-in；质量侧（召回影响）如实登记，未声称生产默认已变好。若后续扩语料到 n≥80 且 CI 下界仍 > 基线再议翻默认。
+    - **验收**：七门禁全绿（含 `audit:standard:delta` DELTA=0——中途抓到 `docFreqOf` 插入 `query` JSDoc 与函数声明之间导致 `query` 丢失 JSDoc 关联的真问题，移函数到 `query` 之后即修，函数提升保调用）；新增 `tests/unit/prfRecall.test.ts`（3 例：默认关零变更 / 开启真改排序 / 结果均为语料内真实文件）；context 回归 16/16 通过；全量单测（排除 swebenchVerified 网络 bound）零新增回归。
+    - **提交口径**：能力一笔（`7375dac`，7 文件 +2747/−271：2 源改（PRF 重写 + 选项）+ 1 接线 + 1 新度量 mjs + 1 新报告 json + 1 新单测 + 1 重生成报告 json）＋一笔看板（本节 + `POLISH_PLAN.md` 标注「RM3/PRF 已落地 opt-in」）。
+
 ---
 
 ## 6. 挂起条件清单
