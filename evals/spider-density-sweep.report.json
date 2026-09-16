@@ -1,0 +1,757 @@
+{
+  "generatedAt": "2026-09-16T16:44:42.877Z",
+  "corpus": {
+    "files": 482,
+    "symbols": 7748
+  },
+  "oldPoolCoverage": 81.8,
+  "config": {
+    "MAXDFS": [1, 2, 3, 4],
+    "CAPS": [0, 8, 16],
+    "ALPHAS": [0.15, 0.3, 0.5],
+    "DEPTHS": [10, 14, 20, 50, 100],
+    "DEEP": 600
+  },
+  "rows": [
+    {
+      "maxDf": 1,
+      "cap": 0,
+      "alpha": 0.15,
+      "edges": 7330,
+      "avgDeg": 30.4,
+      "isolated": 0,
+      "hop1Avg": 357.1,
+      "hop1Pct": 74.1,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 48.5,
+        "14": 51.5,
+        "20": 63.6,
+        "50": 72.7,
+        "100": 72.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 0,
+      "alpha": 0.3,
+      "edges": 7330,
+      "avgDeg": 30.4,
+      "isolated": 0,
+      "hop1Avg": 357.1,
+      "hop1Pct": 74.1,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 39.4,
+        "14": 48.5,
+        "20": 51.5,
+        "50": 72.7,
+        "100": 72.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 0,
+      "alpha": 0.5,
+      "edges": 7330,
+      "avgDeg": 30.4,
+      "isolated": 0,
+      "hop1Avg": 357.1,
+      "hop1Pct": 74.1,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 39.4,
+        "14": 51.5,
+        "20": 54.5,
+        "50": 72.7,
+        "100": 72.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 8,
+      "alpha": 0.15,
+      "edges": 3496,
+      "avgDeg": 14.5,
+      "isolated": 0,
+      "hop1Avg": 259,
+      "hop1Pct": 53.7,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 33.3,
+        "14": 36.4,
+        "20": 45.5,
+        "50": 57.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 8,
+      "alpha": 0.3,
+      "edges": 3496,
+      "avgDeg": 14.5,
+      "isolated": 0,
+      "hop1Avg": 259,
+      "hop1Pct": 53.7,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 33.3,
+        "14": 42.4,
+        "20": 48.5,
+        "50": 57.6,
+        "100": 69.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 8,
+      "alpha": 0.5,
+      "edges": 3496,
+      "avgDeg": 14.5,
+      "isolated": 0,
+      "hop1Avg": 259,
+      "hop1Pct": 53.7,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 48.5,
+        "50": 60.6,
+        "100": 69.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 16,
+      "alpha": 0.15,
+      "edges": 5590,
+      "avgDeg": 23.2,
+      "isolated": 0,
+      "hop1Avg": 327.5,
+      "hop1Pct": 67.9,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 30.3,
+        "14": 33.3,
+        "20": 48.5,
+        "50": 57.6,
+        "100": 66.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 16,
+      "alpha": 0.3,
+      "edges": 5590,
+      "avgDeg": 23.2,
+      "isolated": 0,
+      "hop1Avg": 327.5,
+      "hop1Pct": 67.9,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 33.3,
+        "14": 48.5,
+        "20": 48.5,
+        "50": 57.6,
+        "100": 69.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 1,
+      "cap": 16,
+      "alpha": 0.5,
+      "edges": 5590,
+      "avgDeg": 23.2,
+      "isolated": 0,
+      "hop1Avg": 327.5,
+      "hop1Pct": 67.9,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 45.5,
+        "14": 48.5,
+        "20": 51.5,
+        "50": 57.6,
+        "100": 75.8
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 0,
+      "alpha": 0.15,
+      "edges": 11900,
+      "avgDeg": 49.4,
+      "isolated": 0,
+      "hop1Avg": 404.7,
+      "hop1Pct": 84,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 33.3,
+        "14": 45.5,
+        "20": 48.5,
+        "50": 72.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 0,
+      "alpha": 0.3,
+      "edges": 11900,
+      "avgDeg": 49.4,
+      "isolated": 0,
+      "hop1Avg": 404.7,
+      "hop1Pct": 84,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 45.5,
+        "14": 51.5,
+        "20": 54.5,
+        "50": 72.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 0,
+      "alpha": 0.5,
+      "edges": 11900,
+      "avgDeg": 49.4,
+      "isolated": 0,
+      "hop1Avg": 404.7,
+      "hop1Pct": 84,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 57.6,
+        "50": 72.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 8,
+      "alpha": 0.15,
+      "edges": 3671,
+      "avgDeg": 15.2,
+      "isolated": 0,
+      "hop1Avg": 272.8,
+      "hop1Pct": 56.6,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 33.3,
+        "14": 36.4,
+        "20": 48.5,
+        "50": 57.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 8,
+      "alpha": 0.3,
+      "edges": 3671,
+      "avgDeg": 15.2,
+      "isolated": 0,
+      "hop1Avg": 272.8,
+      "hop1Pct": 56.6,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 33.3,
+        "14": 42.4,
+        "20": 48.5,
+        "50": 57.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 8,
+      "alpha": 0.5,
+      "edges": 3671,
+      "avgDeg": 15.2,
+      "isolated": 0,
+      "hop1Avg": 272.8,
+      "hop1Pct": 56.6,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 48.5,
+        "50": 60.6,
+        "100": 66.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 16,
+      "alpha": 0.15,
+      "edges": 6861,
+      "avgDeg": 28.5,
+      "isolated": 0,
+      "hop1Avg": 359.6,
+      "hop1Pct": 74.6,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 33.3,
+        "14": 39.4,
+        "20": 51.5,
+        "50": 66.7,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 16,
+      "alpha": 0.3,
+      "edges": 6861,
+      "avgDeg": 28.5,
+      "isolated": 0,
+      "hop1Avg": 359.6,
+      "hop1Pct": 74.6,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 51.5,
+        "50": 60.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 2,
+      "cap": 16,
+      "alpha": 0.5,
+      "edges": 6861,
+      "avgDeg": 28.5,
+      "isolated": 0,
+      "hop1Avg": 359.6,
+      "hop1Pct": 74.6,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 39.4,
+        "14": 48.5,
+        "20": 57.6,
+        "50": 60.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 0,
+      "alpha": 0.15,
+      "edges": 14224,
+      "avgDeg": 59,
+      "isolated": 0,
+      "hop1Avg": 424,
+      "hop1Pct": 88,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 36.4,
+        "14": 45.5,
+        "20": 60.6,
+        "50": 72.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 0,
+      "alpha": 0.3,
+      "edges": 14224,
+      "avgDeg": 59,
+      "isolated": 0,
+      "hop1Avg": 424,
+      "hop1Pct": 88,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 39.4,
+        "14": 54.5,
+        "20": 57.6,
+        "50": 72.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 0,
+      "alpha": 0.5,
+      "edges": 14224,
+      "avgDeg": 59,
+      "isolated": 0,
+      "hop1Avg": 424,
+      "hop1Pct": 88,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 36.4,
+        "14": 51.5,
+        "20": 57.6,
+        "50": 69.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 8,
+      "alpha": 0.15,
+      "edges": 3684,
+      "avgDeg": 15.3,
+      "isolated": 0,
+      "hop1Avg": 274.2,
+      "hop1Pct": 56.9,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 27.3,
+        "14": 36.4,
+        "20": 48.5,
+        "50": 60.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 8,
+      "alpha": 0.3,
+      "edges": 3684,
+      "avgDeg": 15.3,
+      "isolated": 0,
+      "hop1Avg": 274.2,
+      "hop1Pct": 56.9,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 33.3,
+        "14": 42.4,
+        "20": 51.5,
+        "50": 57.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 8,
+      "alpha": 0.5,
+      "edges": 3684,
+      "avgDeg": 15.3,
+      "isolated": 0,
+      "hop1Avg": 274.2,
+      "hop1Pct": 56.9,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 51.5,
+        "50": 60.6,
+        "100": 69.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 16,
+      "alpha": 0.15,
+      "edges": 7033,
+      "avgDeg": 29.2,
+      "isolated": 0,
+      "hop1Avg": 369.4,
+      "hop1Pct": 76.6,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 33.3,
+        "14": 42.4,
+        "20": 48.5,
+        "50": 66.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 16,
+      "alpha": 0.3,
+      "edges": 7033,
+      "avgDeg": 29.2,
+      "isolated": 0,
+      "hop1Avg": 369.4,
+      "hop1Pct": 76.6,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 54.5,
+        "50": 63.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 3,
+      "cap": 16,
+      "alpha": 0.5,
+      "edges": 7033,
+      "avgDeg": 29.2,
+      "isolated": 0,
+      "hop1Avg": 369.4,
+      "hop1Pct": 76.6,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 39.4,
+        "14": 48.5,
+        "20": 57.6,
+        "50": 60.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 0,
+      "alpha": 0.15,
+      "edges": 16034,
+      "avgDeg": 66.5,
+      "isolated": 0,
+      "hop1Avg": 434.8,
+      "hop1Pct": 90.2,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 42.4,
+        "14": 45.5,
+        "20": 60.6,
+        "50": 72.7,
+        "100": 84.8
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 0,
+      "alpha": 0.3,
+      "edges": 16034,
+      "avgDeg": 66.5,
+      "isolated": 0,
+      "hop1Avg": 434.8,
+      "hop1Pct": 90.2,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 36.4,
+        "14": 51.5,
+        "20": 57.6,
+        "50": 72.7,
+        "100": 84.8
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 0,
+      "alpha": 0.5,
+      "edges": 16034,
+      "avgDeg": 66.5,
+      "isolated": 0,
+      "hop1Avg": 434.8,
+      "hop1Pct": 90.2,
+      "hop1Cov": 100,
+      "oracle": {
+        "10": 36.4,
+        "14": 51.5,
+        "20": 57.6,
+        "50": 69.7,
+        "100": 81.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 8,
+      "alpha": 0.15,
+      "edges": 3680,
+      "avgDeg": 15.3,
+      "isolated": 0,
+      "hop1Avg": 276.9,
+      "hop1Pct": 57.4,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 27.3,
+        "14": 36.4,
+        "20": 48.5,
+        "50": 63.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 8,
+      "alpha": 0.3,
+      "edges": 3680,
+      "avgDeg": 15.3,
+      "isolated": 0,
+      "hop1Avg": 276.9,
+      "hop1Pct": 57.4,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 33.3,
+        "14": 42.4,
+        "20": 51.5,
+        "50": 57.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 3,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 8,
+      "alpha": 0.5,
+      "edges": 3680,
+      "avgDeg": 15.3,
+      "isolated": 0,
+      "hop1Avg": 276.9,
+      "hop1Pct": 57.4,
+      "hop1Cov": 90.9,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 51.5,
+        "50": 60.6,
+        "100": 66.7
+      },
+      "lexicalRescued": 1,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 16,
+      "alpha": 0.15,
+      "edges": 7129,
+      "avgDeg": 29.6,
+      "isolated": 0,
+      "hop1Avg": 376.6,
+      "hop1Pct": 78.1,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 33.3,
+        "14": 42.4,
+        "20": 48.5,
+        "50": 66.7,
+        "100": 75.8
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 16,
+      "alpha": 0.3,
+      "edges": 7129,
+      "avgDeg": 29.6,
+      "isolated": 0,
+      "hop1Avg": 376.6,
+      "hop1Pct": 78.1,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 36.4,
+        "14": 48.5,
+        "20": 54.5,
+        "50": 66.7,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    },
+    {
+      "maxDf": 4,
+      "cap": 16,
+      "alpha": 0.5,
+      "edges": 7129,
+      "avgDeg": 29.6,
+      "isolated": 0,
+      "hop1Avg": 376.6,
+      "hop1Pct": 78.1,
+      "hop1Cov": 97,
+      "oracle": {
+        "10": 42.4,
+        "14": 48.5,
+        "20": 57.6,
+        "50": 60.6,
+        "100": 72.7
+      },
+      "lexicalRescued": 2,
+      "lexicalTotal": 6
+    }
+  ],
+  "best": {
+    "maxDf": 1,
+    "cap": 0,
+    "alpha": 0.15,
+    "edges": 7330,
+    "avgDeg": 30.4,
+    "isolated": 0,
+    "hop1Avg": 357.1,
+    "hop1Pct": 74.1,
+    "hop1Cov": 100,
+    "oracle": {
+      "10": 48.5,
+      "14": 51.5,
+      "20": 63.6,
+      "50": 72.7,
+      "100": 72.7
+    },
+    "lexicalRescued": 1,
+    "lexicalTotal": 6
+  }
+}

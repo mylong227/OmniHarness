@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-09-16T16:48:22.435Z",
+  "corpus": {
+    "files": 482,
+    "symbols": 7748
+  },
+  "K": 14,
+  "queryCount": 33,
+  "adversarial": {
+    "hitRate": {
+      "mean": 69.7,
+      "lo": 54.5,
+      "hi": 84.8
+    },
+    "precision": {
+      "mean": 9.3,
+      "lo": 5.4,
+      "hi": 14.3
+    },
+    "recall": {
+      "mean": 39.4,
+      "lo": 26.4,
+      "hi": 52.7
+    },
+    "overlap": 0.152
+  },
+  "prefixBridge": [
+    {
+      "top": 2,
+      "hitRate": {
+        "mean": 63.6,
+        "lo": 45.5,
+        "hi": 78.8
+      },
+      "precision": {
+        "mean": 9.3,
+        "lo": 5.4,
+        "hi": 14.1
+      },
+      "recall": {
+        "mean": 38.3,
+        "lo": 25.2,
+        "hi": 51.6
+      },
+      "overlap": 0.134
+    },
+    {
+      "top": 4,
+      "hitRate": {
+        "mean": 57.6,
+        "lo": 39.4,
+        "hi": 72.7
+      },
+      "precision": {
+        "mean": 9.3,
+        "lo": 5.2,
+        "hi": 14.1
+      },
+      "recall": {
+        "mean": 36.4,
+        "lo": 22.8,
+        "hi": 49.8
+      },
+      "overlap": 0.137
+    },
+    {
+      "top": 8,
+      "hitRate": {
+        "mean": 63.6,
+        "lo": 45.5,
+        "hi": 78.8
+      },
+      "precision": {
+        "mean": 9.3,
+        "lo": 5.6,
+        "hi": 13.6
+      },
+      "recall": {
+        "mean": 39.9,
+        "lo": 26.3,
+        "hi": 53.5
+      },
+      "overlap": 0.12
+    }
+  ],
+  "naturalQuery": {
+    "hitRate": {
+      "mean": 97,
+      "lo": 90.9,
+      "hi": 100
+    },
+    "precision": {
+      "mean": 14.9,
+      "lo": 11,
+      "hi": 19.7
+    },
+    "recall": {
+      "mean": 68.7,
+      "lo": 58.2,
+      "hi": 78.8
+    },
+    "overlap": 0.13
+  },
+  "directName": {
+    "hitRate": {
+      "mean": 97,
+      "lo": 90.9,
+      "hi": 100
+    },
+    "precision": {
+      "mean": 23.8,
+      "lo": 15.8,
+      "hi": 32.6
+    },
+    "recall": {
+      "mean": 73.9,
+      "lo": 64.6,
+      "hi": 82.6
+    },
+    "overlap": 0.043
+  }
+}
