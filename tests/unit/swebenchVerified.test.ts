@@ -6,13 +6,12 @@ import { join } from 'node:path';
 
 import {
   SwebenchVerified,
-  LocalDockerExecutor,
-  ModalExecutor,
-  type ExecutorOptions,
   type ExecutorPort,
   type VerifiedResult,
   type VerifiedTask,
 } from '../../src/eval/swebenchVerified.js';
+import { NativeExecutor } from '../../src/eval/nativeExecutor.js';
+import { PythonVersionResolver } from '../../src/eval/pythonVersionResolver.js';
 import { at } from '../../src/util/arrayAt.js';
 
 /** 写一份最小合法官方 Verified 实例文件，返回路径。 */
@@ -26,7 +25,7 @@ function writeValid(path: string): void {
       test_patch: '--- a/t\n+++ b/t\n@@\n',
       FAIL_TO_PASS: ['x passes'],
       PASS_TO_PASS: ['y passes'],
-      version: '1.0',
+      version: '4.2',
       problem_statement: 'fix it',
     },
   ];
@@ -38,11 +37,17 @@ function writeMalformed(path: string): void {
   writeFileSync(path, JSON.stringify([{ instance_id: 'x' }]), 'utf8');
 }
 
-const EXEC_OPTS: ExecutorOptions = {
-  modelName: 'deepseek-chat',
-  modelApiBase: 'https://api.deepseek.com',
-  modelApiKey: '',
-};
+const TASK = (id: string): VerifiedTask => ({
+  id,
+  repo: 'django/django',
+  baseCommit: 'c',
+  problemStatement: 'p',
+  goldPatch: '',
+  testPatch: '',
+  failToPass: [],
+  passToPass: [],
+  version: '4.2',
+});
 
 test('loadVerified：合法数据集可被加载（fail-closed 不抛）', () => {
   const dir = mkdtempSync(join(tmpdir(), 'omni-sv-'));
@@ -54,6 +59,7 @@ test('loadVerified：合法数据集可被加载（fail-closed 不抛）', () =>
     const first = at(tasks, 0);
     assert.strictEqual(first.id, 'django__django-1');
     assert.strictEqual(at(first.failToPass, 0), 'x passes');
+    assert.strictEqual(first.version, '4.2');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -81,68 +87,66 @@ test('loadVerified：非数组根节点被拒绝', () => {
   }
 });
 
-test('parseResolved：容忍对象形态与数组形态，缺失返回 null', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omni-sv-'));
-  try {
-    // 对象形态
-    writeFileSync(
-      join(dir, 'report.json'),
-      JSON.stringify({ 'django__django-1': { resolved: true } }),
-      'utf8',
-    );
-    assert.strictEqual(SwebenchVerified.parseResolved(dir, 'django__django-1'), true);
-    assert.strictEqual(SwebenchVerified.parseResolved(dir, 'missing'), null);
-    // 数组形态（覆盖同目录 report.json）
-    writeFileSync(
-      join(dir, 'report.json'),
-      JSON.stringify([{ instance_id: 'django__django-1', resolved: false }]),
-      'utf8',
-    );
-    assert.strictEqual(SwebenchVerified.parseResolved(dir, 'django__django-1'), false);
-    // 不存在的输出目录
-    assert.strictEqual(SwebenchVerified.parseResolved(join(dir, 'nope'), 'x'), null);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
+test('NativeExecutor：kind 恒为 native', () => {
+  const exec = new NativeExecutor();
+  assert.strictEqual(exec.kind, 'native');
+  assert.ok(exec.describe().includes('native'));
+});
+
+test('NativeExecutor：缺 uv/git 设施即 fail-closed 返回未通过并写明原因', async () => {
+  const exec = new NativeExecutor();
+  const r = await exec.run(TASK('django__django-1'), '--- a\n+++ b\n');
+  assert.strictEqual(r.resolved, false);
+  assert.strictEqual(r.backend, 'native');
+  assert.ok((r.reason ?? '').length > 0, 'fail-closed 必须给出原因');
+  if (!SwebenchVerified.commandAvailable('uv')) {
+    assert.match(r.reason ?? '', /uv/, '沙箱无 uv 时应指明 uv 缺失');
   }
 });
 
-test('LocalDockerExecutor：缺设施即 fail-closed 返回未通过并写明原因', async () => {
-  const exec = new LocalDockerExecutor(EXEC_OPTS);
-  assert.strictEqual(exec.kind, 'docker');
-  const r = await exec.run('django__django-1', '--- a\n+++ b\n');
-  assert.strictEqual(r.resolved, false);
-  assert.ok((r.reason ?? '').length > 0, 'fail-closed 必须给出原因');
+test('PythonVersionResolver.resolve：精确命中/前缀命中/回落', () => {
+  assert.strictEqual(PythonVersionResolver.resolve('django/django', '4.2'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('astropy/astropy', '4.3'), '3.9');
+  assert.strictEqual(PythonVersionResolver.resolve('astropy/astropy', '4.3.1'), '3.9'); // 前缀
+  assert.strictEqual(PythonVersionResolver.resolve('unknown/repo', '9.9'), '3.11'); // 回落
+  assert.strictEqual(PythonVersionResolver.resolve('django/django', ''), '3.11'); // 空版本回落
 });
 
-test('ModalExecutor：沙箱无 modal CLI → fail-closed 返回未通过并写明原因', async () => {
-  const exec = new ModalExecutor(EXEC_OPTS);
-  assert.strictEqual(exec.kind, 'modal');
-  const r = await exec.run('django__django-1', '--- a\n+++ b\n');
-  assert.strictEqual(r.resolved, false);
-  assert.match(r.reason ?? '', /modal/);
+test('NativeExecutor.parsePytestResults：PASSED→true，FAILED/ERROR/SKIPPED/缺失→false', () => {
+  const output = [
+    'tests/test_x.py::test_a PASSED',
+    'tests/test_x.py::test_b FAILED',
+    'tests/test_x.py::test_c ERROR',
+    'tests/test_x.py::test_d SKIPPED',
+    'some unrelated line',
+  ].join('\n');
+  const ids = [
+    'tests/test_x.py::test_a',
+    'tests/test_x.py::test_b',
+    'tests/test_x.py::test_c',
+    'tests/test_x.py::test_d',
+    'tests/test_x.py::test_e',
+  ];
+  const r = NativeExecutor.parsePytestResults(output, ids);
+  assert.strictEqual(r.get('tests/test_x.py::test_a'), true);
+  assert.strictEqual(r.get('tests/test_x.py::test_b'), false);
+  assert.strictEqual(r.get('tests/test_x.py::test_c'), false);
+  assert.strictEqual(r.get('tests/test_x.py::test_d'), false);
+  assert.strictEqual(r.get('tests/test_x.py::test_e'), false); // 缺失 → false
 });
 
 test('runVerifiedSuite：默认串行（并发 1）峰值在飞 == 1', async () => {
-  const tasks: VerifiedTask[] = [1, 2, 3].map((n) => ({
-    id: `t-${n}`,
-    repo: 'r/r',
-    baseCommit: 'c',
-    problemStatement: 'p',
-    goldPatch: '',
-    testPatch: '',
-    failToPass: [],
-    passToPass: [],
-  }));
+  const tasks: VerifiedTask[] = [1, 2, 3].map((n) => TASK(`t-${n}`));
   let inFlight = 0;
   let peak = 0;
   const exec: ExecutorPort = {
-    kind: 'modal',
-    async run(id: string): Promise<VerifiedResult> {
+    kind: 'native',
+    async run(task): Promise<VerifiedResult> {
       inFlight += 1;
       peak = Math.max(peak, inFlight);
       await new Promise((resolve) => setTimeout(resolve, 10));
       inFlight -= 1;
-      return { id, resolved: true, backend: 'modal' };
+      return { id: task.id, resolved: true, backend: 'native' };
     },
   };
   const predictions = new Map<string, string>([1, 2, 3].map((n) => [`t-${n}`, `patch-${n}`]));
@@ -153,27 +157,18 @@ test('runVerifiedSuite：默认串行（并发 1）峰值在飞 == 1', async () 
 });
 
 test('runVerifiedSuite：并发 3 时保序且有界（突破 500 题串行瓶颈）', async () => {
-  const tasks: VerifiedTask[] = [1, 2, 3, 4, 5].map((n) => ({
-    id: `t-${n}`,
-    repo: 'r/r',
-    baseCommit: 'c',
-    problemStatement: 'p',
-    goldPatch: '',
-    testPatch: '',
-    failToPass: [],
-    passToPass: [],
-  }));
+  const tasks: VerifiedTask[] = [1, 2, 3, 4, 5].map((n) => TASK(`t-${n}`));
   const predictions = new Map<string, string>([1, 2, 3, 4, 5].map((n) => [`t-${n}`, `patch-${n}`]));
   let inFlight = 0;
   let peak = 0;
   const exec: ExecutorPort = {
-    kind: 'modal',
-    async run(id: string): Promise<VerifiedResult> {
+    kind: 'native',
+    async run(task): Promise<VerifiedResult> {
       inFlight += 1;
       peak = Math.max(peak, inFlight);
       await new Promise((resolve) => setTimeout(resolve, 15));
       inFlight -= 1;
-      return { id, resolved: true, backend: 'modal' };
+      return { id: task.id, resolved: true, backend: 'native' };
     },
   };
   const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, exec, 3);

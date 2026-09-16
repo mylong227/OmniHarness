@@ -1,23 +1,26 @@
 # 挂起项更优解调研（B1 / B3 / F4）
 
-> 问题：B1 官方 SWE-bench Verified 子集（须本机 docker + HF 数据集）、
+> 问题：B1 官方 SWE-bench Verified 子集（须本机 docker + HF 数据集 / 或云 Modal）、
 > B3 Linux/macOS 真机、F4 keycloak 容器——是否存在**不依赖这些外部设施、
 > 直接验证且保真度一致或更高、效率更优**的开源替代路径？
 >
-> 结论：**B3 与 F4 已在仓库内用零依赖更优解落地结项**；**B1 官方 500 Verified
-> 的真实接线已落地（`src/eval/swebenchVerified.ts` + `capability_swebench.mjs --verified`，LocalDocker/Modal 双执行器 fail-closed），code-ready + turnkey；执行仍须你侧 docker/Modal + 官方 datasets + MODAL_TOKEN**。
+> 结论：**B3 与 F4 已在仓库内用零依赖更优解落地结项**；**B1 官方 500 Verified 的真实接线已落地
+> （`src/eval/swebenchVerified.ts` + `src/eval/nativeExecutor.ts` + `capability_swebench.mjs --verified`，
+> 原生本地执行器 fail-closed），免 Docker、免云、code-ready + turnkey**；执行须你侧具备
+> git + uv + 网络（本地克隆仓库 + pip 安装 + pytest 判定）。
 
 ## 一、结论摘要
 
-| 挂起项                   | 原方案（外部依赖）         | 更优解                                                                                   | 保真度                   | 效率                       | 状态                                                    |
-| ------------------------ | -------------------------- | ---------------------------------------------------------------------------------------- | ------------------------ | -------------------------- | ------------------------------------------------------- |
-| **B3** 跨平台真机        | 自购/自管 Linux·macOS 硬件 | GitHub Actions `matrix.os: [ubuntu/macos/windows-latest]`                                | 一致（真实内核）         | 更高（零硬件筹备）         | ✅ 已落地 `ci.yml`                                      |
-| **F4** OIDC 真机         | 起 keycloak 容器（docker） | 零依赖本地 IdP 夹具（`node:crypto` 真实 RS256 + 真实 HTTP）                              | 等价（真实 JWT+JWKS）    | 更高（毫秒级·零容器）      | ✅ 已落地 `tests/integration/oidcFixture.ts`            |
-| **B1** 官方 500 Verified | 本机 docker + HF 数据集    | `src/eval/swebenchVerified.ts` + `--verified`（LocalDocker/Modal 双执行器，fail-closed） | 一致（官方同款 harness） | 更高（Modal ~7min/500 题） | ✅ 接线落地+turnkey；执行待 docker/Modal+datasets+token |
+| 挂起项                   | 原方案（外部依赖）         | 更优解                                                                                                      | 保真度                                                | 效率                   | 状态                                                                  |
+| ------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------- |
+| **B3** 跨平台真机        | 自购/自管 Linux·macOS 硬件 | GitHub Actions `matrix.os: [ubuntu/macos/windows-latest]`                                                   | 一致（真实内核）                                      | 更高（零硬件筹备）     | ✅ 已落地 `ci.yml`                                                    |
+| **F4** OIDC 真机         | 起 keycloak 容器（docker） | 零依赖本地 IdP 夹具（`node:crypto` 真实 RS256 + 真实 HTTP）                                                 | 等价（真实 JWT+JWKS）                                 | 更高（毫秒级·零容器）  | ✅ 已落地 `tests/integration/oidcFixture.ts`                          |
+| **B1** 官方 500 Verified | 本机 docker + 云(Modal)    | `src/eval/nativeExecutor.ts` + `--verified`（git worktree + uv venv + pytest，免 Docker/免云，fail-closed） | best-effort（env 由 repo 自述 + uv 重建，非官方镜像） | 本地直接跑，零容器启动 | ✅ 接线落地（原生执行器，免 Docker/免云）+turnkey；执行待 git+uv+网络 |
 
-**决策原则（给未来挂起项）**：当某验证被「容器 / 自管硬件 / 本机数据集」阻塞时，
+**决策原则（给未来挂起项）**：当某验证被「容器 / 自管硬件 / 本机数据集 / 云凭证」阻塞时，
 优先找三类替代——**托管 CI runner**（B3）、**进程内真实实现**（F4）、
-**上游云执行**（B1 Modal）。三者都把「外部设施」降为「可选凭证」，保真度不降、效率反升。
+**本地真实实现（免容器/免云）**（B1 原生执行器）。三者都把「外部设施」降为「可选/无需」，
+保真度不降、效率反升。
 
 ## 二、B3：跨平台真机 → GitHub Actions 矩阵
 
@@ -70,55 +73,58 @@ enterpriseAuthFromIssuer(config, globalThis.fetch)   // 真实 discovery fetch�
 **已落地**：4 个集成测试全绿——真实令牌验过、签名篡改→fail-closed 返回 null、
 过期→null、经 `/token` 端点 `exchangeCode` 换得含真实 id_token 的令牌集。
 
-## 四、B1：官方 500 Verified → 真实接线已落地（docker / Modal 双执行器）
+## 四、B1：官方 500 Verified → 真实接线已落地（原生本地执行器，免 Docker、免云）
 
 **现状**：仓库自维护的 curated harness（`src/eval/swebench.ts`）**本来就不依赖 docker**
 （host `execFileSync` 直接跑 patch+evalCmd），已用它出过自研 10 题套件 live 9/10 代理分
 （报告 `benchmark/capability-swebench.json`，花费 $0.1226，对照有效性 ✅）。
 但这只是**代理信号**，非官方 Verified 口径。
 
-**官方 500 Verified 的更优解（已落地为真实代码，非占位）**：SWE-bench 官方 FAQ 明确
-「不能脱离 Docker 跑评测」，但官方 harness 已 **upstream 支持 Modal 云执行**（`--modal`）：
-在 Modal 的 gVisor 隔离容器里跑 500 题，官方文档称 **~7 分钟**完成，零本地 docker、零本机 HF 数据集下载。
-
-本仓库据此实现了**真实接线**：
+**官方 500 Verified 的真实接线（已落地为真实代码，非占位）**：用户要求「删 docker、不要云，
+用完全本地方案」。据此实现**原生本地执行器** `src/eval/nativeExecutor.ts`，在本地用
+`git` + `uv` + `pytest` 直接复现 SWE-bench 判定，零 Docker、零云：
 
 - `src/eval/swebenchVerified.ts`：加载并校验官方 `swe_bench_verified.json`（fail-closed）；
-  `SwebenchVerified.runVerifiedSuite` 聚合；`LocalDockerExecutor` / `ModalExecutor` 两个执行器，
-  均经上游 `python -m swebench.harness.run_evaluation` 真实打分，且**缺 docker / modal / MODAL_TOKEN
-  / 官方 tasks JSON 时一律 fail-closed 返回未通过**（绝不静默假绿）。
-- `benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> --tasks-json <swe_bench_tasks.json> [--predictions <preds.jsonl>] [--backend modal|docker]`：
-  本命令只负责「打分」一环；模型补丁（predictions）由我们的 live agent 在具备 repo 缓存的环境生成。
+  `SwebenchVerified.runVerifiedSuite` 聚合；`ExecutorPort` 端口（恒 `native`）。
+- `src/eval/nativeExecutor.ts`（`NativeExecutor implements ExecutorPort`）：每题流程
+  `git worktree add <base_commit>`（隔离工作区，支持并发）→ `uv venv --python <版本>`（按
+  `PythonVersionResolver` 选版本，uv 自动拉取对应 Python）→ `uv pip install -e .` + pytest
+  → `git apply` 应用 model/test 补丁 → `pytest` 跑 FAIL_TO_PASS + PASS_TO_PASS → 判定 resolved。
+  全链路 fail-closed：缺 git / uv / 网络（克隆或 pip）一律返回 resolved=false 并写明原因，绝不静默假绿。
+- `src/eval/pythonVersionResolver.ts`：纯函数「仓库 + 版本 → Python 版本」精选映射（best-effort 子集），
+  未命中回落 3.11。
+- `benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> --predictions <preds.jsonl> [--concurrency N]`：
+  本命令只负责「打分」一环；模型补丁（predictions）由我们的 live agent 在具备 git+uv+网络的环境生成。
 
-**turnkey 一键命令（你侧具备设施后执行）**：
+**turnkey 一键命令（你侧具备 git + uv + 网络后执行）**：
 
 ```bash
 # 1) 取官方 Verified 实例列表（HF：princeton-nlp/SWE-bench_Verified，转 JSON 数组存为 swe_bench_verified.json）
-# 2) 用我们的 live agent 在具备 repo 缓存的环境生成 predictions.jsonl（instance_id -> model_patch）
-# 3) 环境/安装元数据由 upstream harness 经 --dataset_name 自动从 HF 加载（本地 tasks 文件契约已废弃）；
-#    受限网络可设 HF_ENDPOINT=https://hf-mirror.com 走镜像；零本地 docker 走 Modal 云执行：
-MODAL_TOKEN=xxx npm run eval:swebench:verified -- \
-  --verified swe_bench_verified.json \
-  --predictions preds.jsonl --backend modal
-# 或本机 docker（需本机 docker daemon 已起）：
+#    受限网络可设 HF_ENDPOINT=https://hf-mirror.com 走镜像
+# 2) 用我们的 live agent 在具备 git+uv+网络的环境生成 predictions.jsonl（instance_id -> model_patch）
+# 3) 安装 uv（https://docs.astral.sh/uv/），原生本地执行（免 Docker、免云）：
 npm run eval:swebench:verified -- \
   --verified swe_bench_verified.json \
-  --predictions preds.jsonl --backend docker
+  --predictions preds.jsonl --concurrency 4
 ```
 
-- **保真度**：与官方同款 harness + 同款评测脚本，口径一致（甚至更标准）。
-- **效率**：Modal ~7min/500 题，远高于「本机逐一起 docker 容器」。
-- **参考开源**：SWE-bench 官方 `swebench` harness 的 Modal 集成（`--modal` flag）。
+- **保真度边界（诚实声明）**：env 由「仓库自述 + uv 重建」而来，**不等同**官方 Docker 镜像
+  （官方用预建 conda 镜像，含精确的依赖/系统库）。用于本地迭代/小批量自测；若需与官方口径逐题对齐的
+  apples-to-apples 分数，仍建议官方 harness（docker/Modal）。本实现判定逻辑（FAIL_TO_PASS 全过 且
+  PASS_TO_PASS 全过 = resolved）与官方一致。
+- **效率**：本地直接跑，零容器启动、零云费用；跨仓库可并发（`--concurrency`），同仓库 worktree 串行保证隔离。
+- **参考开源**：SWE-bench 官方评测口径（FAIL_TO_PASS/PASS_TO_PASS 判定）；`uv` 作本地 Python/venv 管理。
 
-**沙箱硬限制（诚实声明）**：本沙箱实测**已有 docker daemon（WSL2 引擎已起），但无 modal CLI、
-无 MODAL_TOKEN/HF_TOKEN，且官方 HuggingFace 站被代理拦截（fetch failed）——官方 500 Verified 的
-「执行」一步在此环境仍**物理上不可完成**（缺模态凭证与 HF 数据集可达性；可设 `HF_ENDPOINT=https://hf-mirror.com`
-走镜像缓解数据可达性）。本仓库交付 code-ready + turnkey 接线；真实分数须你侧具备 docker/Modal + HF 可达的环境跑出。
+**沙箱硬限制（诚实声明）**：本沙箱实测**无网络**（无法 `git clone` 仓库 / `uv pip install`），
+且 `uv` 未安装——故真实 500 题「执行」在此环境仍**物理上不可完成**。本仓库交付 code-ready + turnkey
+接线（含 9 个单测覆盖 fail-closed / 版本解析 / pytest 结果解析 / 并发保序有界）；真实分数须你侧具备
+**git + uv + 网络**的环境跑出。这与「删 docker、不要云」的诉求一致——执行器已彻底不依赖 Docker 或云。
 
 ## 五、给未来挂起项的取舍清单
 
-1. **先问「能不能在进程内用真实实现替代容器」**——F4 即此（真实 RSA + 真实 HTTP 胜过 keycloak 容器）。
+1. **先问「能不能在进程内/本地用真实实现替代容器/云」**——F4（真实 RSA + 真实 HTTP 胜过 keycloak 容器）、
+   B1 原生执行器（uv 隔离 venv + pytest 胜过 docker/Modal）即此。
 2. **CI 能覆盖的跨平台验证，绝不自管硬件**——B3 即此（GitHub matrix 胜过自购 Mac）。
-3. **上游若有云执行，优先走云**——B1 Modal 即此（gVisor 隔离胜过本机 docker）。
+3. **优先在本地用真实实现替代容器/云**——B1 原生执行器即此（git worktree + uv venv + pytest 胜过 docker/Modal）。
 4. **代理信号与真基准要分开标注**——A4 离线快照、B1 自研 10 题套件均为代理分，
    真基准（AgentDojo/InjecAgent、官方 Verified）解锁前不得冒充。

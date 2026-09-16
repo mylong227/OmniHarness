@@ -37,55 +37,35 @@ const ENHANCED_TASKS = buildEnhancedTasks(SWEBENCH_LITE_TASKS);
 
 const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务完成（swebench）');
 
-// ---------- 官方 SWE-bench Verified 子集（B1 官方跑分真实接线）----------
-// 用法（执行须在你侧具备 docker/Modal + HF 可达的环境）：
+// ---------- 官方 SWE-bench Verified 子集（B1 官方跑分真实接线，免 Docker、免云）----------
+// 原生本地执行器（git worktree 检出 + uv venv + 应用补丁 + pytest 判定），零 Docker、零云。
+// 用法（执行须在你侧具备 git + uv + 网络 的环境）：
 //   node benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> \
-//     [--dataset-name princeton-nlp/SWE-bench_Verified] [--predictions <preds.jsonl>] [--backend modal|docker]
-// 环境/安装元数据由现代 swebench 经 --dataset_name 自动从 HuggingFace 加载（本地 tasks 文件契约已废弃）；
-// 受限网络可设 HF_ENDPOINT=https://hf-mirror.com 走镜像。模型补丁（predictions）由我们的 live agent 生成；本命令只负责"打分"。
+//     --predictions <preds.jsonl> [--concurrency N]
+// 模型补丁（predictions）由我们的 live agent 在具备 git+uv+网络的环境生成；本命令只负责"打分"。
+// 保真度边界：env 由 repo 自述 + uv 重建，不等同官方 Docker 镜像；用于本地迭代/小批量自测。
 const verifiedIdx = process.argv.indexOf('--verified');
 if (verifiedIdx !== -1) {
   const verifiedPath = process.argv[verifiedIdx + 1];
-  const backend = process.argv.includes('--backend')
-    ? process.argv[process.argv.indexOf('--backend') + 1]
-    : 'modal';
-  const tasksJsonIdx = process.argv.indexOf('--tasks-json');
-  const tasksJsonPath = tasksJsonIdx !== -1 ? process.argv[tasksJsonIdx + 1] : undefined;
   const predsIdx = process.argv.indexOf('--predictions');
   const predsPath = predsIdx !== -1 ? process.argv[predsIdx + 1] : undefined;
   const concIdx = process.argv.indexOf('--concurrency');
   const concurrency = concIdx !== -1 ? Number(process.argv[concIdx + 1]) : 1;
 
-  const { SwebenchVerified, LocalDockerExecutor, ModalExecutor } =
-    await import('../dist/src/eval/swebenchVerified.js');
-  const modelName = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
-  const modelApiBase = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
-  const modelApiKey = process.env.DEEPSEEK_API_KEY || '';
-  const executor =
-    backend === 'docker'
-      ? new LocalDockerExecutor({
-          modelName,
-          modelApiBase,
-          modelApiKey,
-          datasetName,
-        })
-      : new ModalExecutor({
-          modelName,
-          modelApiBase,
-          modelApiKey,
-          datasetName,
-        });
+  const { SwebenchVerified } = await import('../dist/src/eval/swebenchVerified.js');
+  const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
+  const executor = new NativeExecutor({
+    repoCacheRoot: join(__dirname, '..', 'eval-data', 'repos'),
+  });
 
-  console.log(
-    `[capability:swebench:verified] backend=${backend} dataset=${verifiedPath} executor=${executor.describe()}`,
-  );
+  console.log(`[capability:swebench:verified] backend=native executor=${executor.describe()}`);
   const tasks = SwebenchVerified.loadVerified(verifiedPath);
   console.log(`[capability:swebench:verified] 加载 ${tasks.length} 个官方 Verified 实例`);
 
   if (predsPath === undefined) {
     console.error(
-      '[capability:swebench:verified] ❌ 缺 --predictions：官方 Verified 需先由我们的 live agent 在具备 repo 缓存的环境生成模型补丁（predictions.jsonl）。' +
-        ' 详见 docs/SUSPENDED_BETTER_PATHS.md 的 turnkey 命令；本命令只负责"打分"一环（fail-closed）。',
+      '[capability:swebench:verified] ❌ 缺 --predictions：官方 Verified 需先由我们的 live agent 在具备 git+uv+网络的环境生成模型补丁（predictions.jsonl）。' +
+        ' 本命令只负责"打分"一环（fail-closed）。',
     );
     process.exit(1);
   }
@@ -100,7 +80,7 @@ if (verifiedIdx !== -1) {
   }
   console.log(`[capability:swebench:verified] 载入 ${predictions.size} 条预测`);
 
-  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, executor);
+  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, executor, concurrency);
   const outPath = join(__dirname, 'capability-swebench-verified.json');
   writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(SwebenchVerified.formatVerifiedReport(report));
