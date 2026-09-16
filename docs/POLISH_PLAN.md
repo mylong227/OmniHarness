@@ -30,7 +30,7 @@
 **已落地（打磨批次）**：**P7 有界均衡并行调度**（`src/util/parallelMap.ts` + 三处串行瓶颈接线，见 §4-P7）；
 **P2 确定性无损收缩接线**（`DeterministicCompressor` 无损子集接进 `ContextCompactor`，实测 JSON 型工具输出 −29%，见 §4-P2）；
 **P1 零依赖词法 reranker**（`FileRerankIndex` + `FileReranker` + `ContentStopWords`；判定档 fileK=14 召回 31.4%→41.0% /
-CI[1.80,18.60]pp 两关全过，但生产默认 fileK=10 档 CI 跨 0 ⇒ **默认 opt-in 关**，见 §4-P1）；
+CI[1.80,18.60]pp 两关全过；**2026-09-17 检索预算 10→14 翻默认后生产档亦两关全过 ⇒ 精排已随预算一并默认开**，见 §4-P1）；
 **P4 工具输出来源信任级**（`ToolOutputTrust` 分级敏感 + 强/弱/启发式三层规则；tool-output 召回 0/6 → **6/8=75%**、
 FP 16.7% → **8.3%**，见 §4-P4）；
 **P3 主循环自验证回环**（`SelfVerifyingToolPort` 装饰器：写源码后按确定性触发器自动跑受限测试 + 假完成探测，
@@ -73,7 +73,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
   常驻指令仍留头部保 prompt cache 锚点；repo-map 内容与压缩逻辑不变、仅位置后移，**默认部署纯 prompt cache 优化、行为与质量零变化**（受控对照数字已证）；
   PTC 压缩测试因 repo-map 移出 compactor 输入而解耦（显式 `OMNI_REPO_MAP=0` + 预算 30 + 断言放宽为 `OMNI_COMPACTION_V1|上下文压缩`），见 `TASK_BOARD.md` §5 第 25 条 ④；**质量侧仍待 P6 外部凭证并测**（但属缓存优化、不触模型语义）。**无滚动 action-outcome 账本**；成本**仅硬熔断**（P5 已补缓存折抵 / per-tool 归因 / 软阈值，见 §4）。
 - **检索侧**：`Bm25Index{k1,b}` 可注入但**生产全不传参**（默认 1.5/0.75）；`tokenizeExpanded`（camel 拆分 + 词形归并）；
-  语义/混合 `hybridRanker`+`semanticIndex`（**默认关**，需 `OMNI_SEMANTIC_RECALL=1`）；旋钮 `recallKnobs`（fileK=10/14, symK=24/30, rrfK=60…）；
+  语义/混合 `hybridRanker`+`semanticIndex`（**默认关**，需 `OMNI_SEMANTIC_RECALL=1`）；旋钮 `recallKnobs`（**fileK 默认 14 / 降档 5**, symK=24/30, rrfK=60…）；
   **无 reranker**；层化/图/LSA/频谱**均默认关**（实测负）；评测 `evals/recall-codebase-real.mjs` 等。
 - **准确率侧**：主循环**不自跑测试**（无 FAIL_TO_PASS 回环）；护栏 `promptInjectionGuard`（16 正则，opt-in）实测
   recall 1.0 / precision 0.857 / FP 0.167，但 **tool-output 0/6、natural-language 0/4、source-code 0/1**；
@@ -127,8 +127,13 @@ FP 16.7% → **8.3%**，见 §4-P4）；
     候选池天花板：avg 37.6 文件；@K 召回 10=26.9 / 14=31.4 / 20=38.1 / 30=48.1 / 50=**54.7（饱和）**；
     GT 最浅命中 ≤14 仅 19/32，**6/32 池内不可达**（语义鸿沟 ⇒ 词法重排结构上够不到，须语义路才可能补）。
 
-  - **默认取值（诚实判负）**：能力在 fileK=14 过阈值，但**生产入口默认预算 fileK=10 的 CI 下界跨 0**，
-    按「两关未达标不破生产口径」⇒ **默认 opt-in 关**（`OMNI_RERANK=1` 或显式 `rerank: true`），生产行为零变更。
+  - **默认取值（先诚实判负 → 2026-09-17 翻档）**：当时能力在 fileK=14 过阈值，但**生产入口默认预算 fileK=10 的 CI 下界跨 0**，
+    按「两关未达标不破生产口径」⇒ 曾默认 opt-in 关（`OMNI_RERANK=1` 或显式 `rerank: true`）。
+    - **【2026-09-17 翻档】**：生产检索预算默认 **10 → 14**（`repoMapContextEngine.DEFAULT_FILE_K`；33 条对抗锚点查询
+      命中率 **51.5% → 69.7%**，CI **[54.5, 84.8]**，下界 > 旧基线 51.5%），**精排随之默认开**——
+      两者是同一决策（精排增益随候选池深度放大）。关闭：`opts.rerank = false` / env `OMNI_RERANK=0`。
+      验收：`evals/production-defaults-check.mjs`（生产入口等价性 **33/33**、旋钮可变性 **5/5**）。
+      代价：注入文件 10→14（token ↑约 40%）。K=20+精排更高（75.8% [60.6–87.9]）但 token 再翻倍，留档备选。
   - **诚实边界**：回退集中在「查询词是通用前缀（`tool`/`sandbox`/`server`）」把同前缀兄弟文件抬起；天花板 54.7%、
     本次取到约 44% 可争取空间。报告 `evals/rerank-ab.report.json`，`npm run eval:rerank`。
 
@@ -259,7 +264,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
     语义路）已收口**——把 `CostBudget.degradeSuggested` 建模为 `ports/` **只读端口**
     `BudgetDegradeSignal`（**避开 `core → adapters` 架构红线**），`CostBudgetDegradeAdapter`
     薄桥接后经 `ResolvedConfig` → `OmniHarnessRuntime` → `StepRunnerDeps.budgetDegrade` 注入
-    `StepContextBuilder`：**信号置位 ⇒ 强制纯 BM25 + fileK 10→5 + rerank:false**；信号关完全保持
+    `StepContextBuilder`：**信号置位 ⇒ 强制纯 BM25 + fileK 14→5（`DEGRADE_FILE_K`，生产默认已于 2026-09-17 提到 14）+ rerank:false**；信号关完全保持
     既有口径。**fail-safe 三态**：无预算 ⇒ false（默认部署零行为变更）／软超未硬熔断 ⇒ true
     （唯一降级窗口）／**已硬熔断 ⇒ false**（`degradeSuggested = softFlag && !exceededFlag`，硬熔断
     由 `BudgetedModel` 直接拒调）。零新增依赖、`arch:gate` ports 纯度 0 违规；新增单测 9 例，
@@ -294,7 +299,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
 ## 5. 不做清单（防过度打磨）
 
 - **不再新增隐喻引擎**（先升格现有 14 个；SkillsBench：AI 自生成技能无正增益）。
-- **不再盲加检索路**（图/LSA/频谱/层化已四次实测负）；**先调 retriever + rerank**。
+- **不再盲加检索路**（图 / LSA / 频谱 / 层化，以及 2026-09-17 的**蜘蛛网五形态**——文件级 PPR、扩张池、配额/能量项、词项共现网、形态丝——**均实测净负**；「扩大可达集」至此已 **4 次独立证伪**，机理见 `docs/RECALL_HEADROOM_SURVEY.md` §8）；**先调 retriever + rerank**。
 - **不引第三方**（reranker / 压缩 / 分块全部自写，保零依赖）。
 - **不碰热区**（`stepRunner`/`turnRunner`/`adapters/live/**`/`toolInputSink`）；新能力走装饰器/钩子，由组合根装配。
 
