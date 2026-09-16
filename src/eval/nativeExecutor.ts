@@ -16,7 +16,7 @@
  * @maturityEvidence tests/unit/swebenchVerified.test.ts
  */
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -181,6 +181,8 @@ export class NativeExecutor implements ExecutorPort {
   private async prepareRepo(repo: string): Promise<string> {
     const safe = repo.replace('/', '__');
     const cacheDir = join(this.repoCacheRoot, safe);
+    // 首次运行时缓存根尚不存在，而下面的 clone 以它为 cwd ⇒ 不先建目录会 spawn ENOENT。
+    if (!existsSync(this.repoCacheRoot)) mkdirSync(this.repoCacheRoot, { recursive: true });
     if (!existsSync(cacheDir)) {
       await this.withRepoLock(repo, async () => {
         if (!existsSync(cacheDir)) {
