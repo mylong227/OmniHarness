@@ -66,10 +66,12 @@ FP 16.7% → **8.3%**，见 §4-P4）；
   历史 `contextCompactor`（**0.8×window 阈值 + LLM 8 段摘要**，`keepRecent=6`）；子代理 `subagentRunner`（全新上下文）；
   计量 `costBudget`/`budgetedModel`/`tokenEstimator`/`contextBreakdownEstimator`；缓存友好 `prefixStability`。
   **缺口**：`deterministicCompressor`（去空行/JSON 紧凑/去重/长输出截断/历史折叠）**生产零调用**（P2 已接线，见 §4）；
-  `prefixStability` **只测不治**——**（2026-09-16 已补受控度量，但仍不治）**：`evals/prefix-stability.mjs`（`npm run eval:prefix`）
+  `prefixStability` **已治（2026-09-16，第 25 条）**：`evals/prefix-stability.mjs`（`npm run eval:prefix`）
   走生产路径多回合真跑 Agent、录制真实 messages，实测**跨回合前缀复用率骤降**（动态段 repo-map 坐头部，一变即废其后全部历史缓存）：
-  10 回合末 **现状 54.46% vs 「动态段移尾」对照 80.75%（+26.29pp）**、**交叉点 6 回合**；**非生产接线**——移尾改变消息次序（模型可见契约）而
-  **质量侧未验证**（P6 待外部凭证），故只登记证据、不动默认（详见 `docs/TASK_BOARD.md` §5 第 22 条 ⑤⑥）；**无滚动 action-outcome 账本**；成本**仅硬熔断**（P5 已补缓存折抵 / per-tool 归因 / 软阈值，见 §4）。
+  10 回合末 **现状 54.46% vs 「动态段移尾」对照 80.75%（+26.29pp）**、**交叉点 6 回合**。治理落地 = `stepContextBuilder.buildMessages` 把逐轮变化的 repo-map
+  动态段从「事件历史之前」移到「事件历史之后」（尾部 system 消息），稳定前缀 = `world_state + 常驻指令 + 事件历史`，**实测复用率 54.46% → 80.75%**落地；
+  常驻指令仍留头部保 prompt cache 锚点；repo-map 内容与压缩逻辑不变、仅位置后移，**默认部署纯 prompt cache 优化、行为与质量零变化**（受控对照数字已证）；
+  PTC 压缩测试因 repo-map 移出 compactor 输入而解耦（显式 `OMNI_REPO_MAP=0` + 预算 30 + 断言放宽为 `OMNI_COMPACTION_V1|上下文压缩`），见 `TASK_BOARD.md` §5 第 25 条 ④；**质量侧仍待 P6 外部凭证并测**（但属缓存优化、不触模型语义）。**无滚动 action-outcome 账本**；成本**仅硬熔断**（P5 已补缓存折抵 / per-tool 归因 / 软阈值，见 §4）。
 - **检索侧**：`Bm25Index{k1,b}` 可注入但**生产全不传参**（默认 1.5/0.75）；`tokenizeExpanded`（camel 拆分 + 词形归并）；
   语义/混合 `hybridRanker`+`semanticIndex`（**默认关**，需 `OMNI_SEMANTIC_RECALL=1`）；旋钮 `recallKnobs`（fileK=10/14, symK=24/30, rrfK=60…）；
   **无 reranker**；层化/图/LSA/频谱**均默认关**（实测负）；评测 `evals/recall-codebase-real.mjs` 等。
