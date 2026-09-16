@@ -262,6 +262,16 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
       ⑦ **验收**：六门禁全绿（`typecheck` / `lint` **0 警告** / `check --strict` 零违规 / `audit:maturity` / `arch:gate` / `audit:standard:delta` **DELTA=0**）+ `api:check` + `audit:config-wiring`；**全量单测 1499 / 1492 通过 / 0 失败 / 7 跳过**（+3 例附件接线，无回归）。**变异验证**：回退第 11 例的 `recorder.user(..., files)` 为漏传 ⇒ 附件接线测试 **2 例立即变红**（另 1 例「缺省不传附件」保持绿，其断言本就是「消息上无 `files` 键」）⇒ **非假绿**，已复原。
       ⑧ **提交口径（四笔，顺序即依赖）**：修复一笔（`b13d310`，11 文件 +171/−35：2 源改 + 5 eval + 2 测试 + 新 `tests/unit/attachmentWiring.test.ts`）→ 清零一笔（`2c47b6c`，26 文件 +124/−133）→ 门禁一笔（`f443ed7`，3 文件 +7/−5）→ 诊断一笔（`c4b4612`，3 文件 +729：`evals/prefix-stability.mjs` + 报告 + `package.json` `eval:prefix`）。`_probe_*` 探针与临时文件已删。
 
+23. **打磨批次·第一批（token 效率）·P5 自动降档（软预算信号真正驱动检索降级）（2026-09-16，本轮）**：
+    ① **起因**：P5 前批（第 20 条 / `d358b36`）只交付软阈值**信号 + 回调 + 消费点**，**「自动降档」（缩检索 fileK / 关语义路）明确留白**——因它需要**跨端口可变旋钮**，属后续独立议题。本轮收口该议题（用户选定方向）：让 `CostBudget.degradeSuggested` 信号**真正驱动** repo-map 检索预算降档。
+    ② **架构约束与解法**：信号源 `CostBudget` 在 `adapters/model`，消费点 `StepContextBuilder` 在 `core/`，而 **`core → adapters` 是架构门禁红线**（`arch:gate` ports 纯度须 0 违规）⇒ 不可直接 import。故把降级信号建模为 **`ports/` 只读端口** `BudgetDegradeSignal`（取值器 `shouldDegrade`），由 `adapters/model/CostBudgetDegradeAdapter` 薄适配器包装 `CostBudget.degradeSuggested` 实现，经 `ResolvedConfig.budgetDegrade` → `OmniHarnessRuntime.budgetDegrade` → `StepRunnerDeps.budgetDegrade` 注入核心。**零新增依赖、端口纯度 0 违规。**
+    ③ **消费点**：`StepContextBuilder.buildRepoMapContext`——信号置位时**强制纯 BM25**（即便注入了 embedding 也忽略语义路）、`fileK: 10 → 5`（`DEGRADE_FILE_K`）、`rerank: false`，直接压低注入上下文 token 量；信号关（默认 / 未越软阈值 / 已硬熔断）**完全保持既有口径**（纯 BM25 或混合检索、fileK 默认 10）。
+    ④ **fail-safe 三态**：`budget` 为 `undefined` ⇒ `shouldDegrade` 恒 `false`（**未配预算的默认部署零行为变更**）；软超但未硬熔断 ⇒ `true`（唯一降级窗口）；**已硬熔断 ⇒ `false`**（`degradeSuggested = softFlag && !exceededFlag`；硬熔断由 `BudgetedModel` 直接拒调，降档已无意义，故回落避免误导）。
+    ⑤ **接线链（同「声明未接线」纪律，逐段 grep 确认信传递）**：端口声明 `ports/model/budgetDegrade.ts` → 装配 `configFactory.build`（无预算则不构造）→ `ResolvedConfig` → `runtime.ts` 透传 → `stepTypes.ts` 契约 → `agent.ts` 注入（子代理 `subagentRuntimeFactory.ts` 显式 `undefined`，**诚实边界：子代理不降档**）→ `stepContextBuilder` 消费。
+    ⑥ **验收**：新增单测 **9 例**（适配器 4：undefined→false / 未越软→false / 软超未硬熔断→true / 已硬熔断→false；消费点 5：信号关×有/无 embedding 保持默认、缺省 undefined 等同信号关、信号开×有/无 embedding 均强制纯 BM25 + fileK=5 + 关 rerank）。**七门禁全绿**（`typecheck` / `lint` **0 警告** / `check --strict` **479 文件零违规** / `arch:gate` **端口纯度 0** / `audit:maturity` / `audit:standard:delta` **DELTA=0** / `audit:config-wiring` **479 文件**）；全量单测 **1513 / 1506 通过 / 0 失败 / 7 跳过**（无回归）。**标准增量门禁首跑即抓出「文件名≠类名」**（`budgetDegradeAdapter.ts` vs `CostBudgetDegradeAdapter`），已就地改名 `costBudgetDegradeAdapter.ts` + 同步 2 处 import。
+    ⑦ **诚实边界**：降档改变 repo-map **检索预算**（fileK 10→5 / 关语义路）属**质量侧未验证**改动——与 P1 reranker / P4 / 前缀稳定性同纪律：**证据留档、不动生产默认**。**触发条件为真**（仅配了 `costBudgetUsd` 且真实花费越软阈值的会话才会降档），**默认部署（无预算）恒不降**；质量侧（召回是否受损）真实评估待 P6 官方基准解锁后并测。
+    ⑧ **提交口径**：能力一笔（`062a486`，11 文件 +302：2 新源（端口 + 适配器）+ 7 源改（1 再导出 + 6 接线）+ 2 新单测）＋一笔看板/计划（本节 + `docs/POLISH_PLAN.md` §4-P5）。
+
 ---
 
 ## 6. 挂起条件清单
