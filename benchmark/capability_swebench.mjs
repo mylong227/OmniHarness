@@ -38,10 +38,11 @@ const ENHANCED_TASKS = buildEnhancedTasks(SWEBENCH_LITE_TASKS);
 const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务完成（swebench）');
 
 // ---------- 官方 SWE-bench Verified 子集（B1 官方跑分真实接线）----------
-// 用法（执行须在你侧具备 docker/Modal + 官方数据集的环境）：
+// 用法（执行须在你侧具备 docker/Modal + HF 可达的环境）：
 //   node benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> \
-//     --tasks-json <swe_bench_tasks.json> [--predictions <preds.jsonl>] [--backend modal|docker]
-// 模型补丁（predictions）由我们的 live agent 在具备 repo 缓存的环境生成；本命令负责"打分"一环。
+//     [--dataset-name princeton-nlp/SWE-bench_Verified] [--predictions <preds.jsonl>] [--backend modal|docker]
+// 环境/安装元数据由现代 swebench 经 --dataset_name 自动从 HuggingFace 加载（本地 tasks 文件契约已废弃）；
+// 受限网络可设 HF_ENDPOINT=https://hf-mirror.com 走镜像。模型补丁（predictions）由我们的 live agent 生成；本命令只负责"打分"。
 const verifiedIdx = process.argv.indexOf('--verified');
 if (verifiedIdx !== -1) {
   const verifiedPath = process.argv[verifiedIdx + 1];
@@ -66,13 +67,13 @@ if (verifiedIdx !== -1) {
           modelName,
           modelApiBase,
           modelApiKey,
-          tasksJsonPath: tasksJsonPath ?? '',
+          datasetName,
         })
       : new ModalExecutor({
           modelName,
           modelApiBase,
           modelApiKey,
-          tasksJsonPath: tasksJsonPath ?? '',
+          datasetName,
         });
 
   console.log(

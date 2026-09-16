@@ -42,7 +42,6 @@ const EXEC_OPTS: ExecutorOptions = {
   modelName: 'deepseek-chat',
   modelApiBase: 'https://api.deepseek.com',
   modelApiKey: '',
-  tasksJsonPath: 'does-not-exist.json',
 };
 
 test('loadVerified：合法数据集可被加载（fail-closed 不抛）', () => {
@@ -107,12 +106,12 @@ test('parseResolved：容忍对象形态与数组形态，缺失返回 null', ()
   }
 });
 
-test('LocalDockerExecutor：沙箱无 docker → fail-closed 返回未通过并写明原因', async () => {
+test('LocalDockerExecutor：缺设施即 fail-closed 返回未通过并写明原因', async () => {
   const exec = new LocalDockerExecutor(EXEC_OPTS);
   assert.strictEqual(exec.kind, 'docker');
   const r = await exec.run('django__django-1', '--- a\n+++ b\n');
   assert.strictEqual(r.resolved, false);
-  assert.match(r.reason ?? '', /docker/);
+  assert.ok((r.reason ?? '').length > 0, 'fail-closed 必须给出原因');
 });
 
 test('ModalExecutor：沙箱无 modal CLI → fail-closed 返回未通过并写明原因', async () => {

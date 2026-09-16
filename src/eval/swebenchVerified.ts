@@ -10,14 +10,22 @@
 // 铁律：
 //   - 零运行时依赖（仅 node: 内置）；fail-closed——resolved 只认官方 harness 判定，绝不臆造通过。
 //   - 缺 docker / modal / cloud token / 官方数据集时**明确报错并返回未通过**，绝不静默假绿。
-//   - 官方 500 题 Verified 执行须隔离环境（docker 或 Modal 云执行 gVisor）；本沙箱无 docker/Modal，
-//     故本模块为 code-ready + turnkey，执行须在你侧具备相应设施的环境运行。
+//   - 官方 500 题 Verified 执行须隔离环境（docker 或 Modal 云执行 gVisor）；本模块为 code-ready +
+//     turnkey，执行须在你侧具备相应设施（docker / Modal / HF 可达）的环境运行。
+//
+// 与现代 swebench（≥5.x）的契约：
+//   - 环境/安装元数据经 `--dataset_name <hf-datasets-id>` 自动从 HuggingFace 加载；
+//     本地 `swe_bench_tasks.json` 文件与 `--swe_bench_tasks`/`--namespace` 旗标**已废弃**，不再使用。
+//   - 若 HF 官方站不可达（如受限网络），运行时设置 `HF_ENDPOINT=https://hf-mirror.com` 走镜像。
 
 import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ParallelMap } from '../util/parallelMap.js';
+
+/** 官方 Verified 数据集默认 HF id（`--dataset_name` 取值）。 */
+export const DEFAULT_VERIFIED_DATASET = 'princeton-nlp/SWE-bench_Verified';
 
 /** 官方 Verified 原始实例（仅取我们消费的字段）。 */
 export interface VerifiedInstance {
@@ -115,8 +123,13 @@ export interface ExecutorOptions {
   readonly modelApiBase: string;
   /** 模型 API key（透传给上游 harness 调我们的 agent）。 */
   readonly modelApiKey: string;
-  /** 官方 swe_bench_tasks.json 路径（含每实例环境/安装信息，harness 必需）。 */
-  readonly tasksJsonPath: string;
+  /**
+   * 官方数据集名（HF hub 上的 `datasets` id）。
+   * 现代 swebench 经 `--dataset_name` 自动从 HuggingFace 加载每实例环境/安装元数据；
+   * 本地 `swe_bench_tasks.json` 契约已废弃，故不再需要本地 tasks 文件。
+   * 缺省 {@link DEFAULT_VERIFIED_DATASET}。
+   */
+  readonly datasetName?: string;
 }
 
 /**
@@ -158,7 +171,7 @@ export class SwebenchVerified {
 
   /**
    * 加载并校验官方 Verified JSON（fail-closed）。
-   * @param jsonPath 官方 swe_bench_verified.json 路径。
+   * @param jsonPath 官方 swe_bench_verified.json 路径（HF 数据集转出的实例数组）。
    * @returns 归一化任务列表。
    */
   public static loadVerified(jsonPath: string): VerifiedTask[] {
@@ -334,7 +347,7 @@ export class SwebenchVerified {
 
 /**
  * 本地 docker 执行器：经上游 `swebench` harness 在本地容器跑单实例（fail-closed）。
- * 需要本机 docker + python + swebench 包 + 官方 tasks JSON；缺设施即返回 resolved=false 并写明原因。
+ * 需要本机 docker + python + swebench 包；缺设施即返回 resolved=false 并写明原因。
  */
 export class LocalDockerExecutor implements ExecutorPort {
   /** 后端种类标识（固定 docker）。 */
@@ -342,17 +355,17 @@ export class LocalDockerExecutor implements ExecutorPort {
 
   /**
    * 构造本地 docker 执行器。
-   * @param opts 执行器配置（模型名/base/key + 官方 tasks JSON 路径）。
+   * @param opts 执行器配置（模型名/base/key + 官方数据集名）。
    */
   public constructor(private readonly opts: Readonly<ExecutorOptions>) {}
 
   /** @returns 无；仅暴露构造配置（便于调试）。 */
   public describe(): string {
-    return `docker(model=${this.opts.modelName}, tasks=${this.opts.tasksJsonPath})`;
+    return `docker(model=${this.opts.modelName}, dataset=${this.opts.datasetName ?? DEFAULT_VERIFIED_DATASET})`;
   }
 
   /**
-   * 运行单实例：检查 docker/python/tasks 设施后调上游 harness 判定 resolved（fail-closed）。
+   * 运行单实例：检查 docker/python 设施后调上游 harness 判定 resolved（fail-closed）。
    * @param instanceId 实例 id。
    * @param modelPatch 模型生成的补丁（unified diff）。
    * @returns 单实例结果（缺设施即 resolved=false 并写明原因）。
@@ -367,9 +380,6 @@ export class LocalDockerExecutor implements ExecutorPort {
     ) {
       return this.fail(instanceId, 'python 不可用（上游 swebench harness 需要 python）');
     }
-    if (!existsSync(this.opts.tasksJsonPath)) {
-      return this.fail(instanceId, `官方 tasks JSON 不存在: ${this.opts.tasksJsonPath}`);
-    }
     return this.invoke(instanceId, modelPatch, false);
   }
 
@@ -377,7 +387,7 @@ export class LocalDockerExecutor implements ExecutorPort {
    * 构造上游 harness 调用并解析 resolved（fail-closed）。
    * @param instanceId 实例 id。
    * @param modelPatch 模型补丁。
-   * @param useModal 是否加 --modal。
+   * @param useModal 是否加 --modal（本地 docker 恒 false）。
    * @returns 单实例结果。
    */
   private async invoke(
@@ -400,20 +410,16 @@ export class LocalDockerExecutor implements ExecutorPort {
         'swebench.harness.run_evaluation',
         '--predictions_path',
         predsPath,
-        '--swe_bench_tasks',
-        this.opts.tasksJsonPath,
         '--dataset_name',
-        'princeton-nlp/SWE-bench_Verified',
+        this.opts.datasetName ?? DEFAULT_VERIFIED_DATASET,
         '--split',
         'test',
-        '--namespace',
-        'omni',
         '--run_id',
         runId,
         '--instance_ids',
         instanceId,
       ];
-      if (useModal) args.push('--modal');
+      if (useModal) args.push('--modal', 'True');
       const python = SwebenchVerified.commandAvailable('python3') ? 'python3' : 'python';
       await SwebenchVerified.execFileAsync(python, args, work);
       const resolved = SwebenchVerified.parseResolved(
@@ -450,7 +456,7 @@ export class LocalDockerExecutor implements ExecutorPort {
 
 /**
  * Modal 云执行器：经上游 `swebench` harness 的 `--modal` 在 Modal 云（gVisor 隔离）跑单实例（fail-closed）。
- * 零本地 docker；需要 `modal` CLI + `MODAL_TOKEN` + python + swebench 包 + 官方 tasks JSON。
+ * 零本地 docker；需要 `modal` CLI + `MODAL_TOKEN`（或 ~/.modal.toml）+ python + swebench 包。
  */
 export class ModalExecutor implements ExecutorPort {
   /** 后端种类标识（固定 modal）。 */
@@ -458,17 +464,17 @@ export class ModalExecutor implements ExecutorPort {
 
   /**
    * 构造 Modal 执行器。
-   * @param opts 执行器配置（模型名/base/key + 官方 tasks JSON 路径）。
+   * @param opts 执行器配置（模型名/base/key + 官方数据集名）。
    */
   public constructor(private readonly opts: Readonly<ExecutorOptions>) {}
 
   /** @returns 无；仅暴露构造配置（便于调试）。 */
   public describe(): string {
-    return `modal(model=${this.opts.modelName}, tasks=${this.opts.tasksJsonPath})`;
+    return `modal(model=${this.opts.modelName}, dataset=${this.opts.datasetName ?? DEFAULT_VERIFIED_DATASET})`;
   }
 
   /**
-   * 运行单实例：检查 modal CLI/MODAL_TOKEN/python/tasks 设施后调上游 harness（--modal）判定 resolved（fail-closed）。
+   * 运行单实例：检查 modal CLI/MODAL_TOKEN/python 设施后调上游 harness（--modal）判定 resolved（fail-closed）。
    * @param instanceId 实例 id。
    * @param modelPatch 模型生成的补丁（unified diff）。
    * @returns 单实例结果（缺设施即 resolved=false 并写明原因）。
@@ -480,17 +486,21 @@ export class ModalExecutor implements ExecutorPort {
         'modal CLI 不可用（ModalExecutor 需要 `pip install modal` 并登录）',
       );
     }
-    if (process.env.MODAL_TOKEN === undefined || process.env.MODAL_TOKEN.length === 0) {
-      return this.fail(instanceId, 'MODAL_TOKEN 未设置（Modal 云执行需要 cloud 凭证）');
+    const modalToml = join(homedir(), '.modal.toml');
+    const modalConfigured =
+      (process.env.MODAL_TOKEN !== undefined && process.env.MODAL_TOKEN.length > 0) ||
+      existsSync(modalToml);
+    if (!modalConfigured) {
+      return this.fail(
+        instanceId,
+        'Modal 凭证未设置（需 MODAL_TOKEN 或 ~/.modal.toml；运行 modal setup）',
+      );
     }
     if (
       !SwebenchVerified.commandAvailable('python3') &&
       !SwebenchVerified.commandAvailable('python')
     ) {
       return this.fail(instanceId, 'python 不可用（上游 swebench harness 需要 python）');
-    }
-    if (!existsSync(this.opts.tasksJsonPath)) {
-      return this.fail(instanceId, `官方 tasks JSON 不存在: ${this.opts.tasksJsonPath}`);
     }
     return this.invoke(instanceId, modelPatch, true);
   }
@@ -522,19 +532,16 @@ export class ModalExecutor implements ExecutorPort {
         'swebench.harness.run_evaluation',
         '--predictions_path',
         predsPath,
-        '--swe_bench_tasks',
-        this.opts.tasksJsonPath,
         '--dataset_name',
-        'princeton-nlp/SWE-bench_Verified',
+        this.opts.datasetName ?? DEFAULT_VERIFIED_DATASET,
         '--split',
         'test',
-        '--namespace',
-        'omni',
         '--run_id',
         runId,
         '--instance_ids',
         instanceId,
         '--modal',
+        'True',
       ];
       void useModal;
       const python = SwebenchVerified.commandAvailable('python3') ? 'python3' : 'python';
