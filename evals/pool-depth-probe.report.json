@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-09-16T16:16:54.352Z",
+  "K": 10,
+  "pools": [20, 40, 80, 150, 482],
+  "results": [
+    {
+      "pool": 20,
+      "rerank": false,
+      "hitRate": 45.5,
+      "precision": 8.8,
+      "avgPool": 37.6
+    },
+    {
+      "pool": 20,
+      "rerank": true,
+      "hitRate": 57.6,
+      "precision": 10.6,
+      "avgPool": 37.6
+    },
+    {
+      "pool": 40,
+      "rerank": false,
+      "hitRate": 45.5,
+      "precision": 8.8,
+      "avgPool": 53.3
+    },
+    {
+      "pool": 40,
+      "rerank": true,
+      "hitRate": 57.6,
+      "precision": 10.3,
+      "avgPool": 53.3
+    },
+    {
+      "pool": 80,
+      "rerank": false,
+      "hitRate": 45.5,
+      "precision": 8.8,
+      "avgPool": 85.4
+    },
+    {
+      "pool": 80,
+      "rerank": true,
+      "hitRate": 57.6,
+      "precision": 10,
+      "avgPool": 85.4
+    },
+    {
+      "pool": 150,
+      "rerank": false,
+      "hitRate": 45.5,
+      "precision": 8.8,
+      "avgPool": 137.1
+    },
+    {
+      "pool": 150,
+      "rerank": true,
+      "hitRate": 57.6,
+      "precision": 10,
+      "avgPool": 137.1
+    },
+    {
+      "pool": 482,
+      "rerank": false,
+      "hitRate": 45.5,
+      "precision": 8.8,
+      "avgPool": 202.7
+    },
+    {
+      "pool": 482,
+      "rerank": true,
+      "hitRate": 57.6,
+      "precision": 10,
+      "avgPool": 202.7
+    }
+  ]
+}
