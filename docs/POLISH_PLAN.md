@@ -73,7 +73,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
   常驻指令仍留头部保 prompt cache 锚点；repo-map 内容与压缩逻辑不变、仅位置后移，**默认部署纯 prompt cache 优化、行为与质量零变化**（受控对照数字已证）；
   PTC 压缩测试因 repo-map 移出 compactor 输入而解耦（显式 `OMNI_REPO_MAP=0` + 预算 30 + 断言放宽为 `OMNI_COMPACTION_V1|上下文压缩`），见 `TASK_BOARD.md` §5 第 25 条 ④；**质量侧仍待 P6 外部凭证并测**（但属缓存优化、不触模型语义）。**无滚动 action-outcome 账本**；成本**仅硬熔断**（P5 已补缓存折抵 / per-tool 归因 / 软阈值，见 §4）。
 - **检索侧**：`Bm25Index{k1,b}` 可注入但**生产全不传参**（默认 1.5/0.75）；`tokenizeExpanded`（camel 拆分 + 词形归并）；
-  语义/混合 `hybridRanker`+`semanticIndex`（**默认关**，需 `OMNI_SEMANTIC_RECALL=1`）；旋钮 `recallKnobs`（**fileK 默认 14 / 降档 5**, symK=24/30, rrfK=60…）；
+  语义/混合 `hybridRanker`+`semanticIndex`（**默认关**，需 `OMNI_SEMANTIC_RECALL=1`）；旋钮 `recallKnobs`（**fileK 默认 20**, symK=24/30, rrfK=60…）；载荷形态 `payloadShape`（**默认 `tiered` 梯度投送**，注入 token 降 69.9%；`degrade` 应急压缩再降至 81.1%；`full` 回退历史口径）；
   **无 reranker**；层化/图/LSA/频谱**均默认关**（实测负）；评测 `evals/recall-codebase-real.mjs` 等。
 - **准确率侧**：主循环**不自跑测试**（无 FAIL_TO_PASS 回环）；护栏 `promptInjectionGuard`（16 正则，opt-in）实测
   recall 1.0 / precision 0.857 / FP 0.167，但 **tool-output 0/6、natural-language 0/4、source-code 0/1**；
@@ -127,13 +127,15 @@ FP 16.7% → **8.3%**，见 §4-P4）；
     候选池天花板：avg 37.6 文件；@K 召回 10=26.9 / 14=31.4 / 20=38.1 / 30=48.1 / 50=**54.7（饱和）**；
     GT 最浅命中 ≤14 仅 19/32，**6/32 池内不可达**（语义鸿沟 ⇒ 词法重排结构上够不到，须语义路才可能补）。
 
-  - **默认取值（先诚实判负 → 2026-09-17 翻档）**：当时能力在 fileK=14 过阈值，但**生产入口默认预算 fileK=10 的 CI 下界跨 0**，
-    按「两关未达标不破生产口径」⇒ 曾默认 opt-in 关（`OMNI_RERANK=1` 或显式 `rerank: true`）。
-    - **【2026-09-17 翻档】**：生产检索预算默认 **10 → 14**（`repoMapContextEngine.DEFAULT_FILE_K`；33 条对抗锚点查询
+  - **默认取值（先诚实判负 → 2026-09-17 两轮翻档）**：曾因「生产入口默认预算 fileK=10 的 CI 下界跨 0」而 opt-in 关
+    （`OMNI_RERANK=1`）。
+    - **【2026-09-17 第一轮】**：生产检索预算默认 **10 → 14**（`repoMapContextEngine.DEFAULT_FILE_K`；33 条对抗锚点查询
       命中率 **51.5% → 69.7%**，CI **[54.5, 84.8]**，下界 > 旧基线 51.5%），**精排随之默认开**——
       两者是同一决策（精排增益随候选池深度放大）。关闭：`opts.rerank = false` / env `OMNI_RERANK=0`。
-      验收：`evals/production-defaults-check.mjs`（生产入口等价性 **33/33**、旋钮可变性 **5/5**）。
-      代价：注入文件 10→14（token ↑约 40%）。K=20+精排更高（75.8% [60.6–87.9]）但 token 再翻倍，留档备选。
+    - **【2026-09-17 第二轮】**：预算 **14 → 20**，由**载荷梯度投送**（`RepoMapPayload`）买单——注入 token
+      由 4829 压到 **1455（−69.9%）**，命中率再升到 **75.8% [60.6, 87.9]（+6.1pp）**，而 token 仍**低于**
+      原 14 档全大纲口径（3703）。即**扩覆盖与降成本同时达成**；排序结果逐字不变（构造性）。
+      验收：`evals/production-defaults-check.mjs`（三档等价性 **33/33**、旋钮可变性 **5/5 × 2**、排序不变量 **33/33**）。
   - **诚实边界**：回退集中在「查询词是通用前缀（`tool`/`sandbox`/`server`）」把同前缀兄弟文件抬起；天花板 54.7%、
     本次取到约 44% 可争取空间。报告 `evals/rerank-ab.report.json`，`npm run eval:rerank`。
 
@@ -264,12 +266,18 @@ FP 16.7% → **8.3%**，见 §4-P4）；
     语义路）已收口**——把 `CostBudget.degradeSuggested` 建模为 `ports/` **只读端口**
     `BudgetDegradeSignal`（**避开 `core → adapters` 架构红线**），`CostBudgetDegradeAdapter`
     薄桥接后经 `ResolvedConfig` → `OmniHarnessRuntime` → `StepRunnerDeps.budgetDegrade` 注入
-    `StepContextBuilder`：**信号置位 ⇒ 强制纯 BM25 + fileK 14→5（`DEGRADE_FILE_K`，生产默认已于 2026-09-17 提到 14）+ rerank:false**；信号关完全保持
+    `StepContextBuilder`：**信号置位 ⇒ 强制纯 BM25 + 收缩载荷大纲档位（`payloadShape:'degrade'`，只留 Top-1
+    完整大纲）+ rerank:false**；信号关完全保持
     既有口径。**fail-safe 三态**：无预算 ⇒ false（默认部署零行为变更）／软超未硬熔断 ⇒ true
     （唯一降级窗口）／**已硬熔断 ⇒ false**（`degradeSuggested = softFlag && !exceededFlag`，硬熔断
     由 `BudgetedModel` 直接拒调）。零新增依赖、`arch:gate` ports 纯度 0 违规；新增单测 9 例，
     七门禁全绿。**诚实边界**：降档改变**检索预算**属**质量侧未验证**改动，**不动生产默认**——
     仅配 `costBudgetUsd` 且真实越软阈值的会话才降档，默认部署恒不降；召回影响待 P6 解锁后并测。
+    - **【2026-09-17 改口径——降档该缩「大纲档位」而非「文件数」，附实测】**：原降档靠 `DEGRADE_FILE_K = 5`（缩 fileK），
+      实测代价 **−12.1pp** 命中率却**几乎不省 token**——梯度投送下 fileK 5→10 的 token 只差 **34**（1030 → 1064），
+      因 token 大头是**前几档的完整符号大纲**，尾部路径行每行仅约 7 token。改为收缩大纲档位后（K=14 档）：
+      **946 token**（比旧降档 1337 还少 **29%**）且命中率 **69.7%**（旧降档 36.4%，**+33.3pp**）——因为**选中文件集合完全不变**。
+      依据：`evals/military-payload-ab.report.json`、`evals/production-defaults-check.report.json`。
 
 ### P6 官方基准出数 — 齐平·超越
 
