@@ -12,16 +12,25 @@
  *    与检索预算**耦合**，见下节。关闭：`opts.rerank = false`。混合（语义）路径未接第二段——语义路需
  *    嵌入模型，离线无法度量，按「不报未测数字」纪律**留给可测时再定**。
  *
- * 检索预算与精排默认档（2026-09-17 决策）：
- *  - fileK 默认 **10 → 14**、精排默认 **关 → 开** 是**同一个决策**：精排增益随候选池深度放大，
- *    此前「不翻默认」的真因不是重排器无用，而是**预算太浅让它施展不开**（`evals/rerank-ab.mjs` 早已指出）。
- *  - 实测（33 条对抗锚点查询，bootstrap 95% CI）：
- *    旧默认（K=10，无精排）**51.5%** → K=10+精排 54.5% [36.4, 69.7] → **K=14+精排 69.7% [54.5, 84.8]**；
- *    K=20+精排 75.8% [60.6, 87.9] 更高，但注入 token 再翻一倍，本次不取（数据留档备选）。
- *  - **口径边界（诚实登记）**：69.7% 是**对抗口径**——那批查询刻意避开锚点字面词。
+ * 检索预算、精排与载荷投送默认档（2026-09-17 两轮决策）：
+ *  - **第一轮**：fileK 默认 **10 → 14**、精排默认 **关 → 开** 是**同一个决策**：精排增益随候选池深度
+ *    放大，此前「不翻默认」的真因不是重排器无用，而是**预算太浅让它施展不开**（`evals/rerank-ab.mjs`
+ *    早已指出）。实测（33 条对抗锚点查询，bootstrap 95% CI）：旧默认（K=10，无精排）**51.5%**
+ *    → K=10+精排 54.5% [36.4, 69.7] → **K=14+精排 69.7% [54.5, 84.8]**。
+ *  - **第二轮**：fileK **14 → 20**，由**载荷梯度投送**（{@link RepoMapPayload}）买单。
+ *    此前不敢扩档的唯一理由是「token 再翻一倍」（K=20 全大纲 4886 token）；梯度投送把同一批
+ *    20 个文件的注入压到 **1496 token（−69.4%）**——**比原来的 K=14 全大纲（3703）还少 59.6%**，
+ *    而命中率由 69.7% 升到 **75.8% [60.6, 87.9]**。即「扩覆盖」与「降成本」同时达成。
+ *  - **构造性保证**：梯度投送**不改变文件集合**（33/33 查询逐字相同），故 `hitRate@K` 必然不降；
+ *    它改变的是注入的**字面信息量**。回退：`opts.payloadShape='full'` 或 env `OMNI_PAYLOAD=full`。
+ *  - **口径边界（诚实登记）**：75.8% 是**对抗口径**——那批查询刻意避开锚点字面词。
  *    同批锚点在**自然口径**（用户直接说出符号名）下命中率 **97% [90.9, 100]**（`evals/spider-final-ab.mjs`），
  *    即生产现实下检索已近饱和；对抗口径的剩余差距主体是**语义鸿沟**，零依赖手段已系统性证伪（见
- *    `docs/RECALL_HEADROOM_SURVEY.md`「蜘蛛网五形态」节）。
+ *    `docs/RECALL_HEADROOM_SURVEY.md`「蜘蛛网五形态」节）。另：梯度投送对**下游任务完成率**的影响
+ *    **未经验证**，须待 P6 端到端基准——本模块不作承诺（见 `RepoMapPayload` 模块头「诚实边界」）。
+ *  - **本轮系统性证伪（勿重复投入）**：多字段 BM25F（雷达四频段）、RRF 多探针融合的**命中率**增益
+ *    在 n=33 下**均不显著**（配对 bootstrap CI 跨 0：+6.06pp [−6.06, 18.18] / +0pp [−12.12, 12.12]），
+ *    故**不落地生产代码**；详见 `evals/military-verdict.report.json`。
  *
  * 混合检索（语义召回，U3 残留的词法盲区补强）：
  *  - `getRepoMapContext` 保持同步、纯 BM25（零破坏、既有测试不变）。
@@ -39,7 +48,7 @@
  */
 
 import { query, type IndexedCorpus } from './contextEngine.js';
-import { outlineText } from './repoMap.js';
+import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.js';
 import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import type { RecallItem } from './semanticIndex.js';
 import { clearGraphSignal } from './codeReferenceGraph.js';
@@ -62,12 +71,12 @@ const SEMANTIC_CANDIDATES = 40;
 /**
  * 生产检索预算（fileK）默认值。
  *
- * **2026-09-17 由 10 提到 14**（决策依据见文件头「检索预算与精排默认档」节）：在 33 条对抗锚点查询上
- * `fileK=14 + 精排` 命中率 **69.7%**（bootstrap 95% CI **[54.5, 84.8]**，下界 > 旧默认 51.5%），
- * 而 `fileK=10 + 精排` 为 54.5%（CI [36.4, 69.7]）。代价是注入文件数 10→14（上下文 token ↑约 40%）。
- * 该档即 `evals/rerank-ab.mjs` 与 `recallKnobs` 文档中早已指明的「下一杠杆」，此前仅因生产预算冻结在 10 而未翻。
+ * **2026-09-17 由 10 → 14 → 20**（两轮决策，依据见文件头「检索预算与刚度投送」节）：
+ *  - 第一轮 10 → 14：`fileK=14 + 精排` 命中率 **69.7%**（CI [54.5, 84.8]），下界 > 旧默认 51.5%；
+ *  - 第二轮 14 → 20：**由载荷梯度投送买单**——注入 token 从 3703 压到 1496（−59.6%），
+ *    省下的预算覆盖更深的文件，命中率 **75.8%**（CI [60.6, 87.9]），而 token 仍低于原 fileK=14 全大纲口径。
  */
-const DEFAULT_FILE_K = 14;
+const DEFAULT_FILE_K = 20;
 
 /**
  * repo-map 检索引擎——混合检索的编排门面（Facade）。
@@ -87,6 +96,19 @@ export class RepoMapContextEngine {
   });
   /** 多路召回融合排序器（无状态，可复用）。 */
   private readonly ranker = new HybridRanker();
+
+  /**
+   * 解析载荷档位计划（三级：opts > env > 默认 tiered）。
+   * @param shape 调用方显式形态；缺省时读 env `OMNI_PAYLOAD`（`full` 才回退）
+   * @returns 档位计划；`null` 表示历史全大纲口径（逐字复现）
+   */
+  private static payloadPlanOf(
+    shape: 'full' | 'tiered' | 'degrade' | undefined,
+  ): RepoMapPayloadPlan | null {
+    const resolved = shape ?? (process.env.OMNI_PAYLOAD === 'full' ? 'full' : 'tiered');
+    if (resolved === 'full') return null;
+    return resolved === 'degrade' ? RepoMapPayload.DEGRADE_PLAN : RepoMapPayload.DEFAULT_PLAN;
+  }
 
   /**
    * 产出可注入 system 消息的 repo-map 上下文文本（纯 BM25，同步、零破坏）。
@@ -134,7 +156,13 @@ export class RepoMapContextEngine {
         // 开启：`opts.prf = true` 或 env `OMNI_RM3=1`；显式 `false` / `OMNI_RM3=0` 关闭（?? 非 ||）。
         prf: opts.prf ?? process.env.OMNI_RM3 === '1',
       });
-      return res.context;
+      // 载荷投送（RepoMapPayload）：命中哪些文件由**排序**决定，注入多少字由**呈现**决定。
+      // 梯度投送把注入 token 压降 60~70% 而**文件集合逐字不变**（构造性，33/33 实测）。
+      // tiered 默认开；'full' 回退历史口径、'degrade' 为软预算应急压缩档。
+      return RepoMapPayload.assemble(
+        { corpus, files: res.files, symbols: res.symbols, query: q },
+        RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
+      );
     } catch {
       return null;
     }
@@ -177,7 +205,12 @@ export class RepoMapContextEngine {
         bm25FileIds,
         semanticHits,
       });
-      return this.formatContext(ranked, corpus);
+      return this.formatContext(
+        ranked,
+        corpus,
+        q,
+        RepoMapContextEngine.payloadPlanOf(knobs.payloadShape),
+      );
     } catch {
       // fail-closed：语义层失败 → 回落纯 BM25 上下文。
       return this.getRepoMapContext(root, q, opts);
@@ -230,15 +263,23 @@ export class RepoMapContextEngine {
   }
 
   /**
-   * 把融合结果格式化为可注入 system 消息的上下文文本。
+   * 把融合结果格式化为可注入 system 消息的上下文文本（委派 `RepoMapPayload` 的载荷策略，
+   * 与纯 BM25 路径同一套呈现口径：档位计划 / 历史全大纲）。
    * @param ranked 融合排序结果（入选文件 + 符号）。
    * @param corpus 已索引语料（用于取入选文件的 outline）。
+   * @param q 查询原文（梯度投送据此挑选中段档要显示的命中符号名）。
+   * @param plan 档位计划；`null` = 历史全大纲口径。
    * @returns 上下文文本。
    */
-  private formatContext(ranked: RankedRepoMap, corpus: IndexedCorpus): string {
-    const fileSet = new Set(ranked.files);
-    const outline = outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
-    const sigLines = ranked.symbols.map((s) => `L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
-    return ['# Repo Map (relevant files)', outline, '# Relevant Symbols', ...sigLines].join('\n');
+  private formatContext(
+    ranked: RankedRepoMap,
+    corpus: IndexedCorpus,
+    q: string,
+    plan: RepoMapPayloadPlan | null,
+  ): string {
+    return RepoMapPayload.assemble(
+      { corpus, files: ranked.files, symbols: ranked.symbols, query: q },
+      plan,
+    );
   }
 }

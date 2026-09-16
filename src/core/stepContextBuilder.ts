@@ -12,11 +12,17 @@ import type { StepRunnerDeps } from './stepTypes.js';
 import { at } from '../util/arrayAt.js';
 
 /**
- * P5 自动降档时 repo-map 注入的文件预算（fileK）：从默认 10 收缩到 5，
- * 直接压低注入上下文的 token 量。符号预算（symK=24）保持默认——repo-map 的 token 成本
- * 主要由文件 outline 主导，缩 fileK 已是主要杠杆；符号签名行体量小，不动它以免过度损害召回信号。
+ * P5 自动降档时的载荷形态（`payloadShape`）——**只保留 Top-1 的完整符号大纲**，其余命中文件
+ * 降为「📄 路径」一行（见 `RepoMapPayload.DEGRADE_PLAN`）。
+ *
+ * 为什么降档改缩「大纲档位」而非「文件数」（2026-09-17 改）：注入 token 的大头是**前几档的
+ * 完整符号大纲**（每文件数百 token），尾部路径行每行仅约 7 token。实测梯度投送下 fileK 5→10
+ * 的 token 只差 34（1030 → 1064），命中率却差 **18.1pp**（36.4% → 54.5%）——即「缩文件数」
+ * 几乎不省 token 却大损召回。改缩大纲档位后（K=14 档）：**946 token**（比旧降档档位 fileK=5 的
+ * 1337 还少 **29%**），而命中率 **69.7%**（旧降档 36.4%，**+33.3pp**）——因为**选中文件集合
+ * 完全不变**（构造性保证），只是呈现变薄。报告：`evals/military-payload-ab.report.json`。
  */
-const DEGRADE_FILE_K = 5;
+const DEGRADE_PAYLOAD_SHAPE = 'degrade' as const;
 
 /**
  * 单步「上下文组装」协作者（从 `StepRunner` 按职责缝抽出，P6.3 上帝类收口）。
@@ -187,11 +193,12 @@ export class StepContextBuilder {
    * 任一路径失败均返回 null（fail-closed），不影响主流程。
    *
    * P5 自动降档：当预算降级信号置位（`budgetDegrade.shouldDegrade` 为真，即软阈值已越过、
-   * 硬预算尚未熔断）时，**强制纯 BM25**（忽略语义嵌入端口）并缩小 fileK 到 {@link DEGRADE_FILE_K}、
-   * 关闭第二段词法重排，直接压低注入上下文的 token 量。无信号（默认部署 / 未越软阈值 / 已熔断）
-   * 时保持生产检索口径（纯 BM25 或混合检索，预算取默认档），不再额外降档。
-   * 注：`fileK` 生产默认值已于 2026-09-17 由 10 提到 14（见 `repoMapContextEngine.DEFAULT_FILE_K`）；
-   * 降档档位 {@link DEGRADE_FILE_K} 是**刻意的应急压缩档**（预算越界时优先保 token），未随之调整。
+   * 硬预算尚未熔断）时，**强制纯 BM25**（忽略语义嵌入端口）、**收缩载荷大纲档位**（
+   * `payloadShape: 'degrade'`，只留 Top-1 完整大纲）并关闭第二段词法重排，直接压低注入上下文的
+   * token 量。无信号（默认部署 / 未越软阈值 / 已熔断）时保持生产检索口径，不再额外降档。
+   * 注：降档改缩「大纲档位」而非「文件数」的依据见 {@link DEGRADE_PAYLOAD_SHAPE}；
+   * 文件预算本身维持生产默认 20（见 `repoMapContextEngine.DEFAULT_FILE_K`）——因为尾部路径行
+   * 几乎不占 token，缩它只损召回不省成本。
    *
    * @param q 由最近 user 消息推导出的查询文本（非空）。
    * @returns repo-map 上下文片段；不可用时为 null。
@@ -201,8 +208,11 @@ export class StepContextBuilder {
     const engine = this.deps.repoMapContext;
     const degrade = this.deps.budgetDegrade?.shouldDegrade === true;
     if (degrade) {
-      // 降级：纯 BM25 + 缩 fileK + 关重排（即便注入过 embedding 也强制落在零开销词法路）。
-      return engine.getRepoMapContext(root, q, { fileK: DEGRADE_FILE_K, rerank: false });
+      // 降级：纯 BM25 + 收缩大纲档位 + 关重排（即便注入过 embedding 也强制落在零开销词法路）。
+      return engine.getRepoMapContext(root, q, {
+        rerank: false,
+        payloadShape: DEGRADE_PAYLOAD_SHAPE,
+      });
     }
     if (this.deps.embedding !== undefined) {
       try {
