@@ -18,6 +18,11 @@ function fieldOf(event: { payload: unknown }, key: string): unknown {
 
 /** 构造组合链路配置（小预算强制触发压缩）。 */
 function buildAgent(): Agent {
+  // 关闭 repo-map 注入：本测试只验证「长会话触发压缩并记录 system 事件」，
+  // 与 repo-map（每轮动态、不参与历史压缩预算）解耦。P_prefix 治理后 repo-map
+  // 移至消息尾部、不再计入 compactor 输入，故此处显式关掉，避免压缩触发依赖于
+  // repo-map 的 token 量（否则会隐式耦合两个正交能力）。
+  process.env.OMNI_REPO_MAP = '0';
   const config = ConfigFactory.build({
     workspaceRoot: process.cwd(),
     maxSteps: 12,
@@ -26,7 +31,9 @@ function buildAgent(): Agent {
     approvals: new AutoApproval(),
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
-    compactionMaxTokens: 60,
+    // 小预算强制触发压缩：P_prefix 治理后 repo-map 移至消息尾部、不再计入 compactor 输入，
+    // 故此处预算须低于「脚本历史本身」的 token 量（~70+），与 repo-map 解耦。30 稳定低于该量。
+    compactionMaxTokens: 30,
   });
   return new Agent(createRuntime(config));
 }
@@ -37,9 +44,12 @@ test('PTC × 压缩：长会话触发压缩并记录 system 事件', async () =>
   assert.ok(system.length >= 1, '超预算应触发压缩');
   // 压缩事件可能排在开场记忆 primer 等其它 system 事件之后，须在所有 system 事件里检索。
   const hasCompactionEvent = system.some((event) =>
-    /上下文压缩/.test(String(fieldOf(event, 'content') ?? '')),
+    /OMNI_COMPACTION_V1|上下文压缩/.test(String(fieldOf(event, 'content') ?? '')),
   );
-  assert.ok(hasCompactionEvent, '应记录上下文压缩点 system 事件');
+  assert.ok(
+    hasCompactionEvent,
+    '应记录压缩点 system 事件（OMNI_COMPACTION_V1 游标或 上下文压缩 标记）',
+  );
 });
 
 test('PTC × 压缩：程序内多次工具调用全部成功', async () => {

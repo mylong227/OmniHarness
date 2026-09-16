@@ -50,58 +50,72 @@ export class StepContextBuilder {
 
   /**
    * 组装模型消息（按需压缩，注入常驻指令与 repo-map）。
+   *
+   * 消息排序（前缀缓存友好，P_prefix 治理）：
+   *   `world_state`（固定碎片）→ 常驻指令（AGENTS.md，同一工作区静态）→ 事件历史 →
+   *   **repo-map（尾部动态段）**。
+   * 常驻指令与事件历史跨回合稳定，仅尾部 repo-map 每轮随查询变化 ⇒ provider 前缀缓存命中率
+   * 从 ~54% 升至 ~81%（受控对照实测，见 `docs/TASK_BOARD.md` 第 22 条）。repo-map 内容不变，
+   * 仅从「事件历史之前」移到「之后」——纯缓存优化，零信息损失、默认部署零行为变更。
+   *
    * @returns 投影 + 压缩后发给模型的消息列表（跨步复用压缩游标）。
    */
   public async buildMessages(): Promise<readonly ModelMessage[]> {
     const events = this.deps.recorder.allEvents();
-    const extraSystemFragments: string[] = [];
-    // 常驻指令优先于动态上下文：权威规则应先于 repo-map 等派生信息进入模型视野。
+    const frontFragments: string[] = [];
+    // 常驻指令（静态：同一工作区内容稳定）放头部，构成稳定前缀缓存锚点，先于动态派生信息。
     // 任何读取/解析失败均 fail-closed（返回 null 即跳过），绝不因指令文件问题阻断主流程。
     if (this.deps.workspaceRoot !== undefined && this.deps.projectInstructionsEnabled !== false) {
       const instructions = await loadProjectInstructionsCached({
         workspaceRoot: this.deps.workspaceRoot,
       });
       if (instructions !== null) {
-        extraSystemFragments.push(instructions.content);
+        frontFragments.push(instructions.content);
       }
     }
-    // U2：从当前上下文推导 repo-map 并注入系统消息（fail-closed：任何失败都不影响主流程）。
-    // 若注入了语义嵌入端口，则走混合检索（BM25 ∪ 语义 RRF），否则纯 BM25（零开销）。
+    // U2：repo-map 是逐轮变化的动态段（查询派生），先计算、后置于消息尾部——见方法 JSDoc 排序说明。
+    // 若注入了语义嵌入端口则走混合检索（BM25 ∪ 语义 RRF），否则纯 BM25（零开销）；任何失败 fail-closed。
+    let repoMap: string | null = null;
     if (this.deps.workspaceRoot !== undefined && this.deps.repoMapEnabled !== false) {
       const q = this.deriveQueryText(events);
       if (q !== '') {
-        const repoMap = await this.buildRepoMapContext(q);
-        if (repoMap !== null) {
-          extraSystemFragments.push(repoMap);
-        }
+        repoMap = await this.buildRepoMapContext(q);
       }
     }
-    const projected = this.assembler.build(events, extraSystemFragments);
+    const projected = this.assembler.build(events, frontFragments);
     const compactor = this.deps.compactor;
+    let messages: ModelMessage[];
     if (compactor === undefined) {
-      return projected;
+      messages = projected;
+    } else {
+      // V2：懒恢复压缩游标（进程重启/resume 后从事件日志解析最近压缩点，只做一次）。
+      if (!this.stateRestored) {
+        this.stateRestored = true;
+        this.compactionState = this.restoreCompactionState(events);
+      }
+      const result = await compactor.compact(projected, this.compactionState);
+      if (result.state !== undefined) {
+        // 游标持久化：写回事件日志（system 事件），崩溃/重启后可恢复，跨步复用摘要。
+        this.compactionState = result.state;
+        this.deps.recorder.system(encodeCompactionState(result.state));
+      } else if (result.compacted && this.compactionState === undefined) {
+        // 无游标路径（head 为空的退化压缩）：维持旧行为的提示文本。
+        this.deps.recorder.system(
+          `上下文压缩: 已折叠较早历史（摘要 ${result.summary?.length ?? 0} 字）`,
+        );
+      } else if (result.compacted && this.compactionState !== undefined) {
+        this.deps.recorder.system(
+          `上下文压缩: 复用既有摘要（游标 upTo=${this.compactionState.compactedUpTo}）`,
+        );
+      }
+      messages = [...result.messages];
     }
-    // V2：懒恢复压缩游标（进程重启/resume 后从事件日志解析最近压缩点，只做一次）。
-    if (!this.stateRestored) {
-      this.stateRestored = true;
-      this.compactionState = this.restoreCompactionState(events);
+    // 动态段（repo-map）置于尾部：前置（world_state + 常驻指令 + 事件历史）跨回合稳定，
+    // 仅尾部每轮变化 ⇒ 命中 provider 前缀缓存。内容不变、仅位置后移（P_prefix 治理）。
+    if (repoMap !== null) {
+      messages.push({ role: 'system', content: repoMap });
     }
-    const result = await compactor.compact(projected, this.compactionState);
-    if (result.state !== undefined) {
-      // 游标持久化：写回事件日志（system 事件），崩溃/重启后可恢复，跨步复用摘要。
-      this.compactionState = result.state;
-      this.deps.recorder.system(encodeCompactionState(result.state));
-    } else if (result.compacted && this.compactionState === undefined) {
-      // 无游标路径（head 为空的退化压缩）：维持旧行为的提示文本。
-      this.deps.recorder.system(
-        `上下文压缩: 已折叠较早历史（摘要 ${result.summary?.length ?? 0} 字）`,
-      );
-    } else if (result.compacted && this.compactionState !== undefined) {
-      this.deps.recorder.system(
-        `上下文压缩: 复用既有摘要（游标 upTo=${this.compactionState.compactedUpTo}）`,
-      );
-    }
-    return result.messages;
+    return messages;
   }
 
   /**
