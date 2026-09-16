@@ -104,25 +104,24 @@ function surfacedFiles(context) {
   return files;
 }
 
-// 支持镜像端点：无直连 huggingface 的网络下，用 HF_ENDPOINT 指向镜像（如 https://hf-mirror.com），
-// 用 HF_WASM_PATH 覆盖 onnxruntime wasm 二进制路径。仅影响本评测脚本的模型拉取，不动生产适配器。
-async function applyMirrorEnv() {
-  const ep = process.env.HF_ENDPOINT;
+// 仅保留「本地 wasm 路径」这一项环境设置；**模型下载源改走适配器旋钮**——
+// 与生产装配路径 `configFactory` 同一入口（env `OMNI_HF_ENDPOINT` / `HF_ENDPOINT`），不再手改库全局状态。
+async function applyWasmEnv() {
   const wasm = process.env.HF_WASM_PATH;
-  if (!ep && !wasm) return;
+  if (!wasm) return;
   const { env } = await import('@huggingface/transformers');
-  if (ep) env.remoteHost = ep.endsWith('/') ? ep : ep + '/';
-  if (wasm) env.backends.onnx.wasm.wasmPaths = wasm;
+  env.backends.onnx.wasm.wasmPaths = wasm;
 }
 
 async function main() {
-  await applyMirrorEnv();
+  await applyWasmEnv();
   const root = buildWorkspace();
   let embedding;
   try {
     embedding = new TransformersEmbeddingAdapter({
       cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
       localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+      remoteHost: process.env.OMNI_HF_ENDPOINT ?? process.env.HF_ENDPOINT,
     });
     // 触发模型加载（首次联网下载）。
     await embedding.embed(['warmup']);

@@ -22,6 +22,18 @@ import { ParallelMap } from '../util/parallelMap.js';
 /** 官方 Verified 数据集默认 HF id（仅文档/对照引用，原生执行不强制拉取）。 */
 export const DEFAULT_VERIFIED_DATASET = 'princeton-nlp/SWE-bench_Verified';
 
+/**
+ * 测试清单字段的**两种**真实形态：
+ * - `string`：官方 HF 数据集（`princeton-nlp/SWE-bench_Verified`）把 `FAIL_TO_PASS`/`PASS_TO_PASS`
+ *   存成 **JSON 字符串**（如 `"[\"tests/test_x.py::test_a\"]"`），需 `JSON.parse` 才是数组；
+ * - `readonly string[]`：内存态/手写夹具里的数组形态。
+ * 二者都必须被接纳——**旧实现只做了 `as readonly string[]` 类型断言**，对字符串形态在运行期是
+ * 断言不出来的（类型谎言），导致 `failToPass.every` 直接抛错；若被上游 catch 成 `[]`，则
+ * `[].every()` 恒真 ⇒ **任何补丁都被判 resolved（fail-open 假绿）**。故此处以联合类型显式表达，
+ * 并由 {@link SwebenchVerified.parseTestList} 统一收口解析 + 校验。
+ */
+export type TestListField = string | readonly string[];
+
 /** 官方 Verified 原始实例（仅取我们消费的字段）。 */
 export interface VerifiedInstance {
   /** 官方实例 id（如 django__django-12345）。 */
@@ -34,10 +46,10 @@ export interface VerifiedInstance {
   readonly patch: string;
   /** 测试补丁（FAIL_TO_PASS / PASS_TO_PASS 测试）。 */
   readonly test_patch: string;
-  /** 须由修复使其通过的测试（字符串列表）。 */
-  readonly FAIL_TO_PASS: readonly string[];
-  /** 须保持通过的回归测试（字符串列表）。 */
-  readonly PASS_TO_PASS: readonly string[];
+  /** 须由修复使其通过的测试（官方为 JSON 字符串，见 {@link TestListField}）。 */
+  readonly FAIL_TO_PASS: TestListField;
+  /** 须保持通过的回归测试（官方为 JSON 字符串，见 {@link TestListField}）。 */
+  readonly PASS_TO_PASS: TestListField;
   /** 版本标签。 */
   readonly version: string;
   /** 问题陈述（喂给 agent 的修复指令）。 */
@@ -180,12 +192,60 @@ export class SwebenchVerified {
         problemStatement: inst.problem_statement as string,
         goldPatch: inst.patch as string,
         testPatch: inst.test_patch as string,
-        failToPass: (inst.FAIL_TO_PASS as readonly string[]) ?? [],
-        passToPass: (inst.PASS_TO_PASS as readonly string[]) ?? [],
+        failToPass: SwebenchVerified.parseTestList(inst.FAIL_TO_PASS, 'FAIL_TO_PASS', index, false),
+        passToPass: SwebenchVerified.parseTestList(inst.PASS_TO_PASS, 'PASS_TO_PASS', index, true),
         version: (inst.version as string | undefined) ?? '',
       });
     });
     return tasks;
+  }
+
+  /**
+   * 解析并校验官方测试清单字段（fail-closed）。
+   *
+   * 官方数据集把 `FAIL_TO_PASS`/`PASS_TO_PASS` 存成 **JSON 字符串**，而内存夹具可能是数组。
+   * 本函数统一两种形态：字符串先 `JSON.parse`，再校验「字符串数组」，最后按 `allowEmpty`
+   * 决定空清单是否合法。
+   *
+   * **fail-open 防线**：`FAIL_TO_PASS` 为空时判定式 `[].every(...)` 恒为 true ⇒ 任何补丁都会被
+   * 误判 resolved。故 `allowEmpty=false` 时**拒绝加载**（而非返回 `[]`），把假绿堵在数据入口。
+   * `PASS_TO_PASS` 官方确有 11/500 为空实例（合规），故 `allowEmpty=true`。
+   * @param value 原始字段值（JSON 字符串或数组）。
+   * @param field 字段名（用于报错定位）。
+   * @param index 实例下标（用于报错定位）。
+   * @param allowEmpty 是否允许空清单（FAIL_TO_PASS 必须为 false）。
+   * @returns 已校验的字符串数组。
+   */
+  private static parseTestList(
+    value: unknown,
+    field: 'FAIL_TO_PASS' | 'PASS_TO_PASS',
+    index: number,
+    allowEmpty: boolean,
+  ): readonly string[] {
+    let parsed: unknown = value;
+    if (typeof value === 'string') {
+      try {
+        parsed = JSON.parse(value) as unknown;
+      } catch (error) {
+        throw new Error(
+          `官方 Verified 实例 #${index} 的 ${field} 为字符串但非合法 JSON: ` +
+            `${String((error as { message?: string })?.message ?? error)}（拒绝静默加载）`,
+        );
+      }
+    }
+    if (!Array.isArray(parsed) || parsed.some((x) => typeof x !== 'string')) {
+      throw new Error(
+        `官方 Verified 实例 #${index} 的 ${field} 须为字符串数组或 JSON 字符串数组（实测类型 ${typeof value}）`,
+      );
+    }
+    const list = parsed as readonly string[];
+    if (!allowEmpty && list.length === 0) {
+      throw new Error(
+        `官方 Verified 实例 #${index} 的 ${field} 为空 —— 拒绝加载：空清单会使「全过=resolved」` +
+          '判定退化为恒真（fail-open 假绿，任何补丁都会被误判 resolved）',
+      );
+    }
+    return list;
   }
 
   /**

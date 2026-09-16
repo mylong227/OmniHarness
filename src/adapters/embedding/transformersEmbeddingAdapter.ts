@@ -107,6 +107,18 @@ export interface TransformersEmbeddingOptions {
   readonly cacheDir?: string | undefined;
   /** 仅用本地缓存、禁止联网下载（离线环境置 true）。 */
   readonly localFilesOnly?: boolean | undefined;
+  /**
+   * 模型下载源（镜像）主机地址，如 `https://hf-mirror.com`。
+   *
+   * **为什么必须有这个旋钮**：`@huggingface/transformers` 的 `env.remoteHost` 默认指向
+   * `https://huggingface.co/`，且该库**不读** `HF_ENDPOINT` 环境变量（那是 Python 侧
+   * `huggingface_hub` 的约定）⇒ 在无法直连 huggingface.co 的网络（如本沙箱、国内生产环境）里，
+   * 该库只会静默超时，**没有任何配置手段能改**。缺此旋钮时语义检索在生产路径上不可达。
+   * 归一化：自动补尾斜杠（拼 URL 用 `remoteHost + remotePathTemplate`）。
+   *
+   * 缺省 `undefined` ⇒ 沿用该库默认（huggingface.co），零行为变更。
+   */
+  readonly remoteHost?: string | undefined;
 }
 
 /** transformers.js 的 Tensor 最小形状（feature-extraction 输出）。 */
@@ -142,6 +154,38 @@ export function withPrefix(
 }
 
 /**
+ * 归一化模型下载源主机地址（纯函数、零依赖、可单测）。
+ *
+ * 必须补尾斜杠：该库拼下载 URL 的方式是 `env.remoteHost + env.remotePathTemplate`，
+ * 而 `remotePathTemplate` 是相对片段（`"{model}/resolve/{revision}/"`）⇒ host 缺尾斜杠会拼出
+ * `https://hf-mirror.comXenova/all-MiniLM-L6-v2/resolve/...` 这类坏 URL（域名与路径粘连）。
+ *
+ * @param host 原始 host（可能含首尾空白、可能缺尾斜杠）。
+ * @returns 补好尾斜杠的 host；未提供或全空白时返回 `undefined`（表示沿用库默认源）。
+ */
+export function normalizeRemoteHost(host: string | undefined): string | undefined {
+  if (host === undefined) return undefined;
+  const trimmed = host.trim();
+  if (trimmed === '') return undefined;
+  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
+}
+
+/**
+ * 从环境变量解析模型下载源（纯函数、可注入 env 以便单测）。
+ *
+ * 约定：`OMNI_HF_ENDPOINT` 优先（本项目命名空间），回落 `HF_ENDPOINT`（业界通行约定，
+ * 便于复用既有的镜像部署脚本）。两者皆空 ⇒ `undefined`（沿用库默认 huggingface.co）。
+ *
+ * @param env 环境变量视图（默认 `process.env`；单测可注入）。
+ * @returns 归一化后的镜像 host，或 `undefined`。
+ */
+export function resolveRemoteHostFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string | undefined {
+  return normalizeRemoteHost(env.OMNI_HF_ENDPOINT ?? env.HF_ENDPOINT);
+}
+
+/**
  * 基于 @huggingface/transformers 的本地嵌入适配器。
  * 懒加载 pipeline（首次 embed 时才下载/加载模型），并复用同一 pipeline 实例。
  *
@@ -163,6 +207,8 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   private readonly cacheDir?: string | undefined;
   /** 是否仅用本地缓存、禁止联网下载（离线环境为 true）。 */
   private readonly localFilesOnly: boolean;
+  /** 模型下载源（镜像）host；`undefined` 表示沿用该库默认（huggingface.co）。 */
+  private readonly remoteHost?: string | undefined;
   /** 懒加载的 pipeline Promise（null 表示尚未加载；复用同一实例避免重复加载模型）。 */
   private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
 
@@ -190,11 +236,17 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     this.dtype = opts.dtype ?? 'q8';
     this.cacheDir = opts.cacheDir;
     this.localFilesOnly = opts.localFilesOnly ?? false;
+    this.remoteHost = normalizeRemoteHost(opts.remoteHost);
   }
 
   /** 解析出的 HF 模型 id（诊断用）。 */
   public get modelId(): string {
     return this.model;
+  }
+
+  /** 生效的模型下载源 host（诊断用）；`undefined` 表示沿用库默认 huggingface.co。 */
+  public get remoteHostUsed(): string | undefined {
+    return this.remoteHost;
   }
 
   /** 懒加载并复用 feature-extraction pipeline（首次调用才动态 import 模型包）。
@@ -205,6 +257,11 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
       this.pipelinePromise = (async () => {
         // 动态导入：编译期不依赖该包，运行时仅在启用语义嵌入时加载。
         const mod = await import('@huggingface/transformers');
+        // 镜像必须在**创建 pipeline 之前**写入：该库在 pipeline 构造期即按 remoteHost 拼 URL 取权重，
+        // 之后再改无效（模型已在下载或已失败）。这与 OpenAI 兼容端点的 baseURL 同理，属启动期配置。
+        if (this.remoteHost !== undefined) {
+          mod.env.remoteHost = this.remoteHost;
+        }
         const pipe = (await mod.pipeline('feature-extraction', this.model, {
           device: this.device,
           dtype: this.dtype,

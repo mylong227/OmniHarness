@@ -1,0 +1,750 @@
+{
+  "generatedAt": "2026-09-16T20:33:18.658Z",
+  "model": {
+    "preset": "e5-small-v2",
+    "id": "Xenova/e5-small-v2",
+    "dim": 384,
+    "remoteHost": "https://hf-mirror.com/"
+  },
+  "vectorCache": {
+    "prefix": "D:\\deepseek\\.omni-vec-cache\\e5-small-v2-20",
+    "hits": 16672,
+    "misses": 8
+  },
+  "cacheDir": "D:/deepseek/.omni-model-cache",
+  "corpus": {
+    "files": 483,
+    "symbols": 7791
+  },
+  "config": {
+    "fileK": 20,
+    "symK": 24,
+    "queryCount": 33
+  },
+  "results": [
+    {
+      "label": "基线（纯 BM25 + 精排 + K=20 + 梯度）",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [0, 0],
+      "significant": false,
+      "changedQueries": 0,
+      "avgTokens": 1455,
+      "buildSeconds": 1.9,
+      "perQuery": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 0
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1
+        }
+      ]
+    },
+    {
+      "label": "混合 + 精排关（旧口径，未接第二段）",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [-12.1, 12.1],
+      "significant": false,
+      "changedQueries": 2,
+      "avgTokens": 1227,
+      "buildSeconds": 8.6,
+      "perQuery": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 0
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 1
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 0
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1
+        }
+      ]
+    },
+    {
+      "label": "混合 + 精排开（★新接线，走生产入口）",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [-6.1, 12.1],
+      "significant": false,
+      "changedQueries": 1.5,
+      "avgTokens": 1209,
+      "buildSeconds": 2.5,
+      "perQuery": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 0
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 1
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1
+        }
+      ]
+    },
+    {
+      "label": "混合 + 精排开 + docMode=id",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [-12.1, 12.1],
+      "significant": false,
+      "changedQueries": 2,
+      "avgTokens": 1203,
+      "buildSeconds": 3.3,
+      "perQuery": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 0
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 0
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 0
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 1
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 1
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1
+        }
+      ]
+    },
+    {
+      "label": "混合 + 精排开 + semWeight=1.5",
+      "hitRate": 81.8,
+      "delta": 6.1,
+      "ci": [-9.1, 21.2],
+      "significant": false,
+      "changedQueries": 3,
+      "avgTokens": 1126,
+      "buildSeconds": 2.2,
+      "perQuery": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 0
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 0
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 1
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 1
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 1
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1
+        }
+      ]
+    }
+  ],
+  "failureMode": {
+    "baselineMissed": 8,
+    "recoveredByHybridDefault": 2
+  }
+}

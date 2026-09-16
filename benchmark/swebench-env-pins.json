@@ -1,0 +1,8 @@
+{
+  "_comment": "SWE-bench 上游仓库 → 额外 pip 约束，用于修复「不设上界的开发期运行时依赖」解析到过新主版本的保真度缺口。在基础安装 + 仓库已 pin 的测试依赖文件之后应用。官方 harness 用预建 conda 镜像规避此问题；本原生执行器无镜像，故以显式约束 best-effort 逼近。仅收录**已实测验证**的条目，勿凭猜测添加。",
+  "_verifiedAt": "2026-09-17",
+  "_verificationMethod": "本地 E2E：应用官方 gold patch + test_patch 后跑 pytest，须 resolved=true。flask 已实测（pytest 7.2.2 + Werkzeug<3 ⇒ FAIL_TO_PASS 全过）。",
+  "pins": {
+    "pallets/flask": ["Werkzeug<3"]
+  }
+}

@@ -31,17 +31,17 @@ const { SemanticIndex, rrfMerge } = await importDist('context', 'semanticIndex.j
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
 const repoMap = new RepoMapContextEngine();
 
-// 支持镜像端点（HF_ENDPOINT）与本地 wasm（HF_WASM_PATH），便于无直连 huggingface 的网络。
-async function applyMirrorEnv() {
-  const ep = process.env.HF_ENDPOINT;
+// 仅保留「本地 wasm 路径」这一项环境设置；**模型下载源不再在此手改库全局状态**——
+// 适配器已提供 `remoteHost` 旋钮（与生产装配路径 `configFactory` 同一入口），经 embedOpts 传入即可。
+// 旧写法直接 `env.remoteHost = ...` 属「基准脚本绕过装配层」：脚本绿了、生产却无对应入口。
+async function applyWasmEnv() {
   const wasm = process.env.HF_WASM_PATH;
-  if (!ep && !wasm) return;
+  if (!wasm) return;
   const { env } = await import('@huggingface/transformers');
-  if (ep) env.remoteHost = ep.endsWith('/') ? ep : ep + '/';
-  if (wasm) env.backends.onnx.wasm.wasmPaths = wasm;
+  env.backends.onnx.wasm.wasmPaths = wasm;
 }
-await applyMirrorEnv();
-log('[1] mirror env applied');
+await applyWasmEnv();
+log('[1] wasm env applied');
 
 const SRC = join(ROOT, 'src');
 const FILE_K = Number(process.env.OMNI_FILE_K ?? 14);
@@ -139,6 +139,8 @@ log('[3] loading embedding model...');
 const embedOpts = {
   cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
   localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+  // 模型下载源走适配器旋钮（与生产 `configFactory` 同一条路径），不再手改库全局状态。
+  remoteHost: process.env.OMNI_HF_ENDPOINT ?? process.env.HF_ENDPOINT,
 };
 if (MODEL_ARG) {
   if (MODEL_ARG.includes('/')) embedOpts.model = MODEL_ARG;

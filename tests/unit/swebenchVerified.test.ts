@@ -15,8 +15,15 @@ import { NativeExecutor } from '../../src/eval/nativeExecutor.js';
 import { PythonVersionResolver } from '../../src/eval/pythonVersionResolver.js';
 import { at } from '../../src/util/arrayAt.js';
 
-/** 写一份最小合法官方 Verified 实例文件，返回路径。 */
-function writeValid(path: string): void {
+/**
+ * 写一份最小合法官方 Verified 实例文件，返回路径。
+ *
+ * 关键：`FAIL_TO_PASS`/`PASS_TO_PASS` 刻意写成**官方 HF 数据集真实的 JSON 字符串形态**
+ * （而非数组）——这是回归本次缺陷的核心夹具：旧夹具用数组，从没走过真实形态，故缺陷潜伏。
+ * @param path 目标文件路径。
+ * @param overrides 覆盖字段（用于构造各类非法/边界实例）。
+ */
+function writeValid(path: string, overrides: Record<string, unknown> = {}): void {
   const inst = [
     {
       instance_id: 'django__django-1',
@@ -24,10 +31,11 @@ function writeValid(path: string): void {
       base_commit: 'abc123',
       patch: '--- a/x\n+++ b/x\n@@\n-x\n+y\n',
       test_patch: '--- a/t\n+++ b/t\n@@\n',
-      FAIL_TO_PASS: ['x passes'],
-      PASS_TO_PASS: ['y passes'],
+      FAIL_TO_PASS: JSON.stringify(['x passes']),
+      PASS_TO_PASS: JSON.stringify(['y passes']),
       version: '4.2',
       problem_statement: 'fix it',
+      ...overrides,
     },
   ];
   writeFileSync(path, JSON.stringify(inst), 'utf8');
@@ -45,7 +53,7 @@ const TASK = (id: string): VerifiedTask => ({
   problemStatement: 'p',
   goldPatch: '',
   testPatch: '',
-  failToPass: [],
+  failToPass: ['t'],
   passToPass: [],
   version: '4.2',
 });
@@ -60,10 +68,74 @@ test('loadVerified：合法数据集可被加载（fail-closed 不抛）', () =>
     const first = at(tasks, 0);
     assert.strictEqual(first.id, 'django__django-1');
     assert.strictEqual(at(first.failToPass, 0), 'x passes');
+    assert.strictEqual(at(first.passToPass, 0), 'y passes');
     assert.strictEqual(first.version, '4.2');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('loadVerified：FAIL_TO_PASS 为官方 JSON 字符串时被正确解析（真实数据集形态）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-sv-'));
+  try {
+    const p = join(dir, 'str.json');
+    writeValid(p, {
+      FAIL_TO_PASS: '["tests/test_x.py::test_a", "tests/test_x.py::test_b"]',
+      PASS_TO_PASS: '["tests/test_x.py::test_c"]',
+    });
+    const tasks = SwebenchVerified.loadVerified(p);
+    const first = at(tasks, 0);
+    assert.deepEqual([...first.failToPass], ['tests/test_x.py::test_a', 'tests/test_x.py::test_b']);
+    assert.deepEqual([...first.passToPass], ['tests/test_x.py::test_c']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadVerified：FAIL_TO_PASS 为空 ⇒ 拒绝加载（fail-open 假绿防线）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-sv-'));
+  try {
+    const p = join(dir, 'empty-f2p.json');
+    // 官方字符串 '[]' 与数组 [] 两种形态都必须被拒（空清单 ⇒ [].every 恒真 ⇒ 任何补丁都 resolved）。
+    writeValid(p, { FAIL_TO_PASS: '[]' });
+    assert.throws(() => SwebenchVerified.loadVerified(p), /FAIL_TO_PASS 为空/);
+    writeValid(p, { FAIL_TO_PASS: [] });
+    assert.throws(() => SwebenchVerified.loadVerified(p), /FAIL_TO_PASS 为空/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadVerified：PASS_TO_PASS 为空 ⇒ 允许（官方确有 11/500 合规空实例）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-sv-'));
+  try {
+    const p = join(dir, 'empty-p2p.json');
+    writeValid(p, { PASS_TO_PASS: '[]' });
+    const tasks = SwebenchVerified.loadVerified(p);
+    assert.strictEqual(at(tasks, 0).passToPass.length, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadVerified：测试清单为非法形态（非 JSON 字符串 / 非字符串数组）⇒ 拒绝', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-sv-'));
+  try {
+    const p = join(dir, 'badlist.json');
+    writeValid(p, { FAIL_TO_PASS: 'not-json' });
+    assert.throws(() => SwebenchVerified.loadVerified(p), /非合法 JSON/);
+    writeValid(p, { FAIL_TO_PASS: '[1, 2]' }); // JSON 合法但不是字符串数组
+    assert.throws(() => SwebenchVerified.loadVerified(p), /须为字符串数组/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('NativeExecutor：failToPass 为空 ⇒ 执行边界拒绝判定（纵深防线，不假绿）', async () => {
+  const exec = new NativeExecutor();
+  const r = await exec.run({ ...TASK('django__django-1'), failToPass: [] }, '--- a\n+++ b\n');
+  assert.strictEqual(r.resolved, false);
+  assert.match(r.reason ?? '', /FAIL_TO_PASS 为空/);
 });
 
 test('loadVerified：缺字段数据集被拒绝（fail-closed 抛错）', () => {

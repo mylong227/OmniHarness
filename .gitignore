@@ -27,11 +27,14 @@ proposal_audit.jsonl
 resources/symbolic_policy/.omniharness_state.json
 resources/symbolic_policy/.omniharness.lock
 *.tmp
+# 原生别名桥单测在 cwd 下写入的探针文件（Windows 上 unlink 可能被内核句柄占用而清理失败）。
+.omni-alias-*
 
 # Local third-party benchmark material
 # These files remain available to local experiments but are intentionally kept
 # out of Git until their individual redistribution terms are satisfied.
 bench data/
+eval-data/
 resources/source_image_pool_comfybench/images/
 resources/source_image_pool_gpt/images/
 *.baiduyun.uploading.cfg

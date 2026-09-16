@@ -9,7 +9,10 @@ import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import { log } from '../util/logger.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
-import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
+import {
+  TransformersEmbeddingAdapter,
+  resolveRemoteHostFromEnv,
+} from '../adapters/embedding/transformersEmbeddingAdapter.js';
 
 import type { ModelRouterConfig } from './configFile.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
@@ -537,6 +540,12 @@ export class ConfigFactory {
           ? new TransformersEmbeddingAdapter({
               cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
               localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+              // 模型下载源：`OMNI_HF_ENDPOINT` 优先、回落 `HF_ENDPOINT`（见 resolveRemoteHostFromEnv）。
+              // 此前**只有评测脚本**（evals/recall-*-real.mjs）自行设 `env.remoteHost`，生产装配路径
+              // 没有任何旋钮 ⇒ 无法直连 huggingface.co 的网络上语义检索**必然不可达**——典型的
+              // 「基准脚本绕过装配层给假绿灯」（缺陷形态④）。此处补齐生产入口，使该能力可真正部署。
+              // 未配置时为 undefined ⇒ 沿用该库默认源，零行为变更。
+              remoteHost: resolveRemoteHostFromEnv(),
             })
           : undefined,
       evolution: partial.evolution,

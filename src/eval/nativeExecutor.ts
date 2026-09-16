@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { SwebenchVerified } from './swebenchVerified.js';
 import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerified.js';
 import { PythonVersionResolver } from './pythonVersionResolver.js';
+import { PythonEnvPlan } from './pythonEnvPlan.js';
 
 /** 原生执行器配置。 */
 export interface NativeExecutorOptions {
@@ -30,6 +31,23 @@ export interface NativeExecutorOptions {
   readonly repoCacheRoot?: string;
   /** git 远端基址（缺省 https://github.com/）。 */
   readonly repoBaseUrl?: string;
+  /**
+   * 上游仓库 slug → 镜像仓库 slug 的映射（缺省空 = 直连上游命名空间）。
+   * 用途：受限网络下改用国内镜像站，而镜像站的命名空间常与上游不同
+   * （Gitee 官方镜像把仓库放在 `mirrors/` 组织下：`django/django` → `mirrors/django`）。
+   * 未命中映射时按原 slug 拼接，行为与不带本选项完全一致（零行为变更）。
+   */
+  readonly repoMirrors?: Readonly<Record<string, string>>;
+  /**
+   * 上游仓库 slug → 额外 pip 约束（逐条形如 `Werkzeug<3`）的映射，在基础安装之后、确保 pytest 之前应用。
+   *
+   * 用途：修复**保真度缺口**——老仓库常把**开发期运行时依赖**声明为不设上界的范围
+   * （如 flask 2.3.0.dev 的 `Werkzeug>=2.2.2`）；今天解析会拉到最新主版本（werkzeug 3.x 删除了
+   * `werkzeug.__version__`），使 2023 年的测试套件在 2026 年直接崩。官方 harness 用**预建 conda
+   * 镜像**规避此问题；本原生执行器无镜像，故以「仓库自述 + 显式约束」best-effort 逼近。
+   * 未命中映射时零行为变更。见 `benchmark/swebench-env-pins.json`。
+   */
+  readonly envPins?: Readonly<Record<string, readonly string[]>>;
   /** 保留 worktree/venv（调试用）；缺省执行后清理。 */
   readonly keepWorktree?: boolean;
 }
@@ -62,6 +80,10 @@ export class NativeExecutor implements ExecutorPort {
   private readonly repoCacheRoot: string;
   /** git 远端基址（缺省 https://github.com/）。 */
   private readonly repoBaseUrl: string;
+  /** 上游 slug → 镜像 slug 映射（见 {@link NativeExecutorOptions.repoMirrors}）。 */
+  private readonly repoMirrors: Readonly<Record<string, string>>;
+  /** 上游 slug → 额外 pip 约束（见 {@link NativeExecutorOptions.envPins}）。 */
+  private readonly envPins: Readonly<Record<string, readonly string[]>>;
   /** 是否保留 worktree/venv（调试用，缺省清理）。 */
   private readonly keepWorktree: boolean;
   /** 每仓库串行锁（git worktree add/remove 不可并发同一仓库）。 */
@@ -69,26 +91,40 @@ export class NativeExecutor implements ExecutorPort {
 
   /**
    * 构造原生执行器。
-   * @param opts 配置（缓存根/远端基址/是否保留 worktree）。
+   * @param opts 配置（缓存根/远端基址/镜像映射/环境约束/是否保留 worktree）。
    */
   public constructor(opts: Readonly<NativeExecutorOptions> = {}) {
     this.repoCacheRoot = opts.repoCacheRoot ?? join(tmpdir(), 'omni-swebench-repos');
     this.repoBaseUrl = opts.repoBaseUrl ?? 'https://github.com/';
+    this.repoMirrors = opts.repoMirrors ?? {};
+    this.envPins = opts.envPins ?? {};
     this.keepWorktree = opts.keepWorktree ?? false;
   }
 
-  /** @returns 配置摘要（调试用）。 */
+  /**
+   * 配置摘要（调试用）。
+   * @returns 形如 `native(cache=..., base=..., mirrors=N, pins=M)` 的一行摘要。
+   */
   public describe(): string {
-    return `native(cache=${this.repoCacheRoot}, base=${this.repoBaseUrl})`;
+    return `native(cache=${this.repoCacheRoot}, base=${this.repoBaseUrl}, mirrors=${Object.keys(this.repoMirrors).length}, pins=${Object.keys(this.envPins).length})`;
   }
 
   /**
    * 运行单实例：git worktree 检出 base → uv venv → 安装 → 应用补丁 → pytest 判定（fail-closed）。
    * @param task 归一化任务（含 repo/base_commit/version/测试清单）。
    * @param modelPatch 模型生成的补丁（unified diff）。
-   * @returns 单实例结果（缺设施/异常即 resolved=false 并写明原因）。
+   * @returns 单实例结果（缺设施/异常/空 FAIL_TO_PASS 即 resolved=false 并写明原因）。
    */
   public async run(task: VerifiedTask, modelPatch: string): Promise<VerifiedResult> {
+    // fail-open 防线（与 SwebenchVerified.parseTestList 的加载期校验互为纵深）：
+    // `failToPass` 为空时 `[].every(...)` 恒真 ⇒ 任何补丁都会被误判 resolved。VerifiedTask 可由
+    // 任意调用方手工构造（不必经 loadVerified），故执行边界再兜一次，宁可拒判也不假绿。
+    if (task.failToPass.length === 0) {
+      return this.fail(
+        task.id,
+        'FAIL_TO_PASS 为空 —— 拒绝判定（空清单会使「全过=resolved」恒真，属 fail-open 假绿）',
+      );
+    }
     if (!SwebenchVerified.commandAvailable('git')) {
       return this.fail(task.id, 'git 不可用（NativeExecutor 需要 git 克隆/检出仓库）');
     }
@@ -104,13 +140,23 @@ export class NativeExecutor implements ExecutorPort {
     } catch (error) {
       return this.fail(task.id, `仓库克隆失败: ${this.msg(error)}`);
     }
-    const worktree = await this.withRepoLock(task.repo, async () => {
-      await this.ensureCommit(cacheDir, task.baseCommit);
-      return this.addWorktree(cacheDir, task.baseCommit);
-    });
+    // 注：`ensureCommit` 刻意吞掉取回失败（见其实现），把判定权交给随后的 `addWorktree`；
+    // 因此这里**必须**兜住 worktree 抛出——残留/半克隆的缓存会把 `git worktree add --detach <base>`
+    // 变成 `fatal: invalid reference`（真实现场：Temp 下遗留的 django__django 半克隆）。
+    // 旧实现未兜：异常直接逃出 `run()`，使「fail-closed」在这一步退化成**抛错**，
+    // 500 题批量跑分时会整批中断而非逐题记「未通过」。此处补齐，与下方 try 块口径一致。
+    let worktree: string;
+    try {
+      worktree = await this.withRepoLock(task.repo, async () => {
+        await this.ensureCommit(cacheDir, task.baseCommit);
+        return this.addWorktree(cacheDir, task.baseCommit);
+      });
+    } catch (error) {
+      return this.fail(task.id, `工作区检出失败: ${this.msg(error)}`);
+    }
     try {
       const pythonVersion = PythonVersionResolver.resolve(task.repo, task.version);
-      await this.setupEnv(worktree, pythonVersion);
+      await this.setupEnv(worktree, pythonVersion, task.repo);
       const applied = this.applyPatches(worktree, modelPatch, task.testPatch);
       if (!applied.ok) {
         return this.fail(task.id, applied.reason ?? '补丁应用失败');
@@ -175,12 +221,18 @@ export class NativeExecutor implements ExecutorPort {
 
   /**
    * 准备仓库缓存克隆（不存在则克隆，已存在则复用）。
-   * @param repo 仓库 slug。
+   *
+   * 镜像重定向：`repo` 是 SWE-bench 的**上游 slug**（如 `django/django`），而镜像站常把仓库
+   * 放在不同命名空间下（Gitee 官方镜像全在 `mirrors/` 组织 ⇒ `mirrors/django`）。故克隆 URL 的
+   * slug 走 `repoMirrors` 映射，而**缓存目录仍按上游 slug 命名**——这样换镜像源不会导致缓存失效，
+   * 实例 id 与缓存路径保持稳定。
+   * @param repo 上游仓库 slug（如 `django/django`）。
    * @returns 缓存克隆目录路径。
    */
   private async prepareRepo(repo: string): Promise<string> {
     const safe = repo.replace('/', '__');
     const cacheDir = join(this.repoCacheRoot, safe);
+    const slug = this.repoMirrors[repo] ?? repo;
     // 首次运行时缓存根尚不存在，而下面的 clone 以它为 cwd ⇒ 不先建目录会 spawn ENOENT。
     if (!existsSync(this.repoCacheRoot)) mkdirSync(this.repoCacheRoot, { recursive: true });
     if (!existsSync(cacheDir)) {
@@ -188,7 +240,7 @@ export class NativeExecutor implements ExecutorPort {
         if (!existsSync(cacheDir)) {
           await SwebenchVerified.execFileAsync(
             'git',
-            ['clone', `${this.repoBaseUrl}${repo}.git`, cacheDir],
+            ['clone', `${this.repoBaseUrl}${slug}.git`, cacheDir],
             this.repoCacheRoot,
           );
         }
@@ -248,31 +300,59 @@ export class NativeExecutor implements ExecutorPort {
   }
 
   /**
-   * 在 worktree 内用 uv 建隔离 venv 并安装仓库 + pytest（best-effort）。
+   * 在 worktree 内用 uv 建隔离 venv，并按 {@link PythonEnvPlan} 规划出的**安装阶梯**逐级安装
+   * （best-effort，后步修正前步的过宽解析，绝不覆盖仓库自述的测试设施版本）。
+   *
+   * 阶梯顺序与不变量见 {@link PythonEnvPlan.steps}；其中最末步「**仅在 pytest 缺失时**安装」是修复
+   * 「registry-latest pytest（9.x）顶掉仓库 pin（7.2.2）⇒ 老套件 conftest 全量 ERROR」的关键。
    * @param worktree worktree 路径。
    * @param pythonVersion 目标 Python 版本。
+   * @param repo 上游仓库 slug（用于取该仓库的额外约束）。
    * @returns 无。
    */
-  private async setupEnv(worktree: string, pythonVersion: string): Promise<void> {
+  private async setupEnv(worktree: string, pythonVersion: string, repo: string): Promise<void> {
     await SwebenchVerified.execFileAsync('uv', ['venv', '--python', pythonVersion], worktree);
-    await this.tryInstall(worktree, '.[test]');
-    await this.tryInstall(worktree, '.');
-    await SwebenchVerified.execFileAsync(
-      'uv',
-      ['pip', 'install', 'pytest', 'pytest-timeout'],
-      worktree,
-    );
+    const steps = PythonEnvPlan.steps({
+      requirementsFile: PythonEnvPlan.findTestRequirements((rel) =>
+        existsSync(join(worktree, rel)),
+      ),
+      pins: this.envPins[repo] ?? [],
+      pytestPresent: this.venvHasModule(worktree, 'pytest'),
+    });
+    for (const step of steps) {
+      await this.tryUvInstall(worktree, step.args);
+    }
   }
 
   /**
-   * best-effort 安装仓库（可编辑），失败不阻断（部分仓库装不全仍可跑部分测试）。
+   * 判断 venv 内是否已可导入某模块（用于「仅在缺失时安装」，避免覆盖仓库 pin）。
    * @param worktree worktree 路径。
-   * @param spec 安装规格（如 "." 或 ".[test]"）。
+   * @param module 模块名（须为合法 Python 标识符，否则直接判否）。
+   * @returns 可导入返回 true。
+   */
+  private venvHasModule(worktree: string, module: string): boolean {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(module)) return false;
+    try {
+      execFileSync(this.venvPythonPath(worktree), ['-c', `import ${module}`], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * best-effort 安装（失败不阻断：部分仓库装不全仍可跑部分测试）。
+   * @param worktree worktree 路径。
+   * @param args `uv pip install` 的参数（如 `['-e', '.']` 或 `['-r', 'requirements/tests.txt']`）。
    * @returns 无。
    */
-  private async tryInstall(worktree: string, spec: string): Promise<void> {
+  private async tryUvInstall(worktree: string, args: readonly string[]): Promise<void> {
     try {
-      await SwebenchVerified.execFileAsync('uv', ['pip', 'install', '-e', spec], worktree);
+      await SwebenchVerified.execFileAsync(
+        'uv',
+        ['pip', 'install', '--python', this.venvPythonPath(worktree), ...args],
+        worktree,
+      );
     } catch {
       // best-effort：忽略安装失败，继续尝试 pytest
     }

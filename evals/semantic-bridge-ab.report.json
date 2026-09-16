@@ -1,0 +1,3461 @@
+{
+  "generatedAt": "2026-09-16T20:30:38.906Z",
+  "hypotheses": ["semantic-to-lexical bridging", "budget-aware union"],
+  "model": {
+    "preset": "e5-base-v2",
+    "id": "Xenova/e5-base-v2",
+    "dim": 768,
+    "remoteHost": "https://hf-mirror.com/"
+  },
+  "corpus": {
+    "files": 483,
+    "symbols": 7788
+  },
+  "config": {
+    "fileK": 20,
+    "symK": 24,
+    "queryCount": 33,
+    "pipeline": "BM25 → FileReranker（与生产同口径）"
+  },
+  "results": [
+    {
+      "label": "基线：BM25 → 精排（= 生产默认档）",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [0, 0],
+      "changed": 0,
+      "avgTokens": 1431,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts",
+            "search/bm25Index.ts",
+            "adapters/tool/git/checkpointTool.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "ports/runtime/escalation.ts",
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "config/sparkAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/omniharness_runtime.py",
+            "adapters/model/anthropicModel.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/tokenEstimator.ts",
+            "context/contextEngine.ts",
+            "util/eigenspectrum.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "eval/pythonVersionResolver.ts",
+            "security/ssrfGuard.ts",
+            "adapters/memory/resonantMemoryEngine.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/sandbox/policySandbox.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "autonomy/workflowRunner.ts",
+            "core/stepToolExecutor.ts",
+            "mcp/mcpGateway.ts",
+            "eval/evalHarness.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "genesis/operator.ts",
+            "adapters/approval/ruleApproval.ts",
+            "config/permissionConfigValidator.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "server/core/appServer.ts",
+            "adapters/kv/jsonFileKv.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/recallKnobs.ts",
+            "context/repoMapContextEngine.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "security/promptInjectionGuard.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/evolution.ts",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "config/configError.ts",
+            "omniharness/self_directed_inquiry.py",
+            "context/contextEngine.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "context/contentStopWords.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "context/contentStopWords.ts",
+            "cli/auditCommand.ts",
+            "plugin/pluginProfileStore.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py",
+            "util/unifiedDiff.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "ports/memory/longTermMemory.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "autonomy/goalChecker.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "security/promptInjectionGuard.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrLoop.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/turnDiffTracker.ts",
+            "core/turnDiffTracker.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "plugin/zip.ts",
+            "plugin/localDirSource.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/memory/timeDecay.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/diff/turnDiffHooks.ts",
+            "context/contentStopWords.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "server/services/providerProbe.ts",
+            "adapters/model/llamaCppModel.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/cliServerCmds.ts",
+            "adapters/kv/sqliteKv.ts",
+            "config/configError.ts",
+            "server/core/serverNoopSupervisor.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/contentStopWords.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "omniharness/symbolic_policy.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/deterministicCompressor.ts",
+            "omniharness/self_directed_inquiry.py",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "plugin/manifest.ts",
+            "plugin/permission.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "RRF(BM25, 语义) → 精排（现混合口径）",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [0, 9.1],
+      "changed": 0.5,
+      "avgTokens": 1240,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/toolHandler.ts",
+            "adapters/tool/git/checkpointTool.ts",
+            "adapters/tool/git/rollbackTool.ts",
+            "server/core/appServerSurfaceHandlers.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "ports/runtime/escalation.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "config/sparkAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/anthropicModel.ts",
+            "ports/model/model.ts",
+            "context/contextAssembler.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "context/contextAssembler.ts",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/tokenEstimator.ts",
+            "context/contextEngine.ts",
+            "util/eigenspectrum.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "ports/memory/resonantMemory.ts",
+            "adapters/memory/resonantFieldEngine.ts",
+            "adapters/memory/resonantMemoryEngine.ts",
+            "eval/pythonVersionResolver.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/policySandbox.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "core/toolGate.ts",
+            "adapters/sandbox/restrictedSandbox.ts"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "context/toolResultSpiller.ts",
+            "adapters/tool/meta/spillReadTool.ts",
+            "core/stepToolExecutor.ts",
+            "autonomy/workflowRunner.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "genesis/operator.ts",
+            "genesis/operators.ts",
+            "adapters/approval/ruleApproval.ts",
+            "config/permissionConfigValidator.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "adapters/identity/ed25519AgentIdentity.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "server/services/serverConfigStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "cli/storeCommand.ts",
+            "adapters/kv/oobleckStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "context/codeReferenceGraph.ts",
+            "omniharness/omniharness_runtime.py",
+            "context/recallKnobs.ts",
+            "context/repoMapContextEngine.ts"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "security/promptInjectionGuard.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/evolution.ts",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "config/configError.ts",
+            "omniharness/self_directed_inquiry.py",
+            "context/contextEngine.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "core/toolGate.ts",
+            "evolution/failClosedEvolutionGate.ts",
+            "adapters/tool/verify/testFailureDigest.ts"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "evolution/inMemoryReplayBuffer.ts",
+            "autonomy/workflowRunner.ts",
+            "omniharness/omniharness_runtime.py",
+            "core/turnRunner.ts"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "core/agent.ts",
+            "cli/auditCommand.ts",
+            "plugin/pluginProfileStore.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "util/unifiedDiff.ts",
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "adapters/belief/naturalGradientBelief.ts",
+            "ports/memory/longTermMemory.ts",
+            "ports/runtime/userResponder.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "adapters/belief/naturalGradientBelief.ts",
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "adapters/belief/particleFilterBelief.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrLoop.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/turnDiffTracker.ts",
+            "core/turnDiffTracker.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/model/routePricing.ts",
+            "adapters/model/retryingModel.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/memory/timeDecay.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "util/toolRoundSanitizer.ts",
+            "adapters/diff/turnDiffHooks.ts",
+            "adapters/tool/meta/toolSearchTool.ts",
+            "adapters/tool/code/codeInterpreter.ts"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "server/services/providerProbe.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/openAiCompatibleModel.ts",
+            "server/services/providerPresets.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/auditCommand.ts",
+            "cli/cliServerCmds.ts",
+            "server/services/auditExporter.ts",
+            "config/configError.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/contentStopWords.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "ports/memory/longTermMemory.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "worker/workerOrchestrator.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/cliWorker.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "config/configToolRegistry.ts",
+            "adapters/tool/plan/planPresentTool.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "adapters/skill/capabilityCrystallizer.ts",
+            "a2a/a2aProtocol.ts",
+            "ports/intelligence/capability.ts",
+            "adapters/tool/registryToolPort.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/dangerousCommands.ts",
+            "plugin/manifest.ts",
+            "plugin/permission.ts",
+            "core/stepToolExecutor.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "SLB top5（收割符号名+路径）",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [-12.1, 12.1],
+      "changed": 2,
+      "avgTokens": 1194,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/git/checkpointTool.ts",
+            "adapters/tool/toolHandler.ts",
+            "config/configToolRegistry.ts",
+            "server/core/appServerSurfaceHandlers.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "ports/runtime/sandboxDenial.ts",
+            "core/toolGate.ts",
+            "ports/runtime/escalation.ts",
+            "config/corePortsAssembler.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "core/eventFactory.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/anthropicModel.ts",
+            "context/contextAssembler.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "adapters/model/responsesModel.ts",
+            "context/contextAssembler.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/contextEngine.ts",
+            "context/tokenEstimator.ts",
+            "context/repoMapContextEngine.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "adapters/memory/resonantFieldEngine.ts",
+            "adapters/memory/resonantMemoryEngine.ts",
+            "ports/memory/resonantMemory.ts",
+            "security/ssrfGuard.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "adapters/sandbox/policySandbox.ts",
+            "server/core/appServerBase.ts",
+            "config/corePortsAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "context/toolResultSpiller.ts",
+            "eval/evalHarness.ts",
+            "core/stepToolExecutor.ts",
+            "mcp/mcpGateway.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "adapters/tool/memory/rememberTool.ts",
+            "adapters/approval/cachedApproval.ts",
+            "config/configToolRegistry.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "adapters/identity/ed25519AgentIdentity.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "cli/storeCommand.ts",
+            "adapters/approval/cachedApproval.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "context/repoMapContextEngine.ts",
+            "omniharness/omniharness_runtime.py",
+            "config/memoryStackAssembler.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "server/services/contextUsageService.ts",
+            "server/core/appServerSurfaceHandlers.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "context/deterministicCompressor.ts",
+            "cli/cliServerCmds.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "context/repoMapContextEngine.ts",
+            "context/hybridRanker.ts",
+            "config/configError.ts",
+            "adapters/memory/qecEncoder.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 0,
+          "head": [
+            "adapters/tool/verify/testFailureDigest.ts",
+            "genesis/operators.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/loop/eventPersister.ts",
+            "core/agent.ts",
+            "index.ts",
+            "ports/runtime/runtimeTelemetry.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "context/contextCompactor.ts",
+            "adapters/embedding/transformersEmbeddingAdapter.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "config/configToolRegistry.ts",
+            "indexBeta.ts",
+            "autonomy/goalChecker.ts",
+            "ports/memory/longTermMemory.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "config/memoryStackAssembler.ts",
+            "server/services/quotaService.ts",
+            "genesis/operators.ts",
+            "spark/sparkController.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrController.ts",
+            "evolution/rlvrLoop.ts",
+            "index.ts",
+            "genesis/operators.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/embedding/transformersEmbeddingAdapter.ts",
+            "server/services/providerProbe.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/memory/timeDecay.ts",
+            "config/credentialResolver.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "index.ts",
+            "adapters/diff/turnDiffHooks.ts",
+            "cli/cliNativeCmds.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/self_directed_inquiry.py",
+            "server/services/providerProbe.ts",
+            "adapters/model/llamaCppModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/cliServerCmds.ts",
+            "server/core/appServerBase.ts",
+            "cli/cliNativeCmds.ts",
+            "config/configError.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "adapters/tool/lsp/lspGoToDefinitionTool.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "adapters/tool/lsp/lspHoverTool.ts",
+            "adapters/tool/lsp/lspFindReferencesTool.ts"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "a2a/a2aServer.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "omniharness/omniharness_runtime.py",
+            "adapters/tool/plan/todoWriteTool.ts",
+            "indexBeta.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "index.ts",
+            "adapters/skill/capabilityCrystallizer.ts",
+            "adapters/tool/registryToolPort.ts",
+            "a2a/a2aProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "adapters/sandbox/dangerousCommands.ts",
+            "adapters/tool/workflow/runGoalTool.ts",
+            "indexBeta.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "SLB top10（收割符号名+路径）",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [-12.1, 12.1],
+      "changed": 2,
+      "avgTokens": 1217,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/git/checkpointTool.ts",
+            "config/configToolRegistry.ts",
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "config/corePortsAssembler.ts",
+            "ports/runtime/escalation.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "core/eventFactory.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/anthropicModel.ts",
+            "context/contextAssembler.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/contextEngine.ts",
+            "context/tokenEstimator.ts",
+            "context/repoMapContextEngine.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "adapters/memory/resonantFieldEngine.ts",
+            "adapters/memory/resonantMemoryEngine.ts",
+            "ports/memory/resonantMemory.ts",
+            "security/ssrfGuard.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "adapters/sandbox/policySandbox.ts",
+            "config/corePortsAssembler.ts",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "eval/evalHarness.ts",
+            "core/stepToolExecutor.ts",
+            "context/toolResultSpiller.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "adapters/approval/ruleApproval.ts",
+            "genesis/operators.ts",
+            "config/configToolRegistry.ts",
+            "adapters/tool/memory/rememberTool.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "adapters/identity/ed25519AgentIdentity.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/approval/cachedApproval.ts",
+            "server/core/appServer.ts",
+            "cli/storeCommand.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "context/repoMapContextEngine.ts",
+            "context/recallKnobs.ts",
+            "omniharness/omniharness_runtime.py",
+            "config/memoryStackAssembler.ts"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "core/turnRunner.ts",
+            "server/services/contextUsageService.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "context/deterministicCompressor.ts",
+            "evolution/evolutionControllerImpl.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "context/hybridRanker.ts",
+            "context/repoMapContextEngine.ts",
+            "config/configError.ts",
+            "config/configFile.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 0,
+          "head": [
+            "adapters/tool/verify/testFailureDigest.ts",
+            "genesis/operators.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "eval/reasoningRouter.ts",
+            "autonomy/workflowRunner.ts",
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "core/loop/eventPersister.ts",
+            "index.ts",
+            "config/memoryStackAssembler.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "context/contextCompactor.ts",
+            "context/deterministicCompressor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "config/configToolRegistry.ts",
+            "indexBeta.ts",
+            "autonomy/goalChecker.ts",
+            "adapters/memory/fileLongTermMemory.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "adapters/belief/naturalGradientBelief.ts",
+            "server/services/quotaService.ts",
+            "adapters/belief/particleFilterBelief.ts",
+            "genesis/operators.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrController.ts",
+            "evolution/rlvrLoop.ts",
+            "index.ts",
+            "genesis/operators.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "server/services/providerProbe.ts",
+            "adapters/embedding/transformersEmbeddingAdapter.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "config/credentialResolver.ts",
+            "adapters/memory/timeDecay.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "index.ts",
+            "adapters/diff/turnDiffHooks.ts",
+            "cli/cliNativeCmds.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "server/services/providerProbe.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/llamaCppModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "a2a/a2aServer.ts",
+            "core/runtime.ts",
+            "a2a/httpA2aTransport.ts",
+            "server/core/appServer.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/semanticIndexCache.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "adapters/tool/lsp/lspHoverTool.ts",
+            "adapters/tool/lsp/lspGoToDefinitionTool.ts"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "a2a/a2aServer.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "config/configToolRegistry.ts",
+            "adapters/tool/plan/todoWriteTool.ts",
+            "context/deterministicCompressor.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "core/runtime.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "SLB top20（收割符号名+路径）",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [-9.1, 15.2],
+      "changed": 2.5,
+      "avgTokens": 1212,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 0,
+          "head": [
+            "adapters/tool/git/checkpointTool.ts",
+            "config/configToolRegistry.ts",
+            "server/core/appServerSurfaceHandlers.ts",
+            "adapters/tool/toolHandler.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "config/corePortsAssembler.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "core/checkpointManager.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/anthropicModel.ts",
+            "context/contextAssembler.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "adapters/model/responsesModel.ts",
+            "context/contextAssembler.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/contextEngine.ts",
+            "context/tokenEstimator.ts",
+            "context/repoMapContextEngine.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "adapters/memory/resonantFieldEngine.ts",
+            "adapters/memory/resonantMemoryEngine.ts",
+            "ports/memory/resonantMemory.ts",
+            "ports/memory/resonantField.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/policySandbox.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "core/toolGate.ts",
+            "adapters/sandbox/restrictedSandbox.ts"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "eval/evalHarness.ts",
+            "core/stepToolExecutor.ts",
+            "context/toolResultSpiller.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "config/configToolRegistry.ts",
+            "genesis/operator.ts",
+            "adapters/approval/ruleApproval.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "adapters/identity/ed25519AgentIdentity.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "server/core/appServer.ts",
+            "adapters/approval/cachedApproval.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "context/repoMapContextEngine.ts",
+            "config/memoryStackAssembler.ts",
+            "context/recallKnobs.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "index.ts",
+            "core/agent.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "context/deterministicCompressor.ts",
+            "context/contextCompactor.ts",
+            "context/prefixStability.ts",
+            "tui/interactive.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "context/hybridRanker.ts",
+            "context/repoMapContextEngine.ts",
+            "config/configError.ts",
+            "config/configFile.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/tool/verify/testFailureDigest.ts",
+            "evolution/failClosedEvolutionGate.ts",
+            "supervisor/supervisorKernel.ts"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "indexBeta.ts",
+            "index.ts"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "core/loop/eventPersister.ts",
+            "index.ts",
+            "config/memoryStackAssembler.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "context/contextCompactor.ts",
+            "context/deterministicCompressor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "indexBeta.ts",
+            "config/configToolRegistry.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "config/memoryStackAssembler.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "spark/sparkController.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrController.ts",
+            "evolution/rlvrLoop.ts",
+            "index.ts",
+            "spark/sparkEngineSet.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "server/services/providerProbe.ts",
+            "adapters/embedding/transformersEmbeddingAdapter.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "ports/runtime/agentIdentity.ts",
+            "config/credentialResolver.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "index.ts",
+            "native/nativeBackend.ts",
+            "cli/cliNativeCmds.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "server/services/providerProbe.ts",
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/llamaCppModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "a2a/a2aServer.ts",
+            "benchmark/terminalbench/terminalBenchCli.ts",
+            "core/runtime.ts",
+            "server/core/appServerBase.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 1,
+          "head": [
+            "context/semanticIndexCache.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "adapters/tool/lsp/lspHoverTool.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "config/configToolRegistry.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "config/configToolRegistry.ts",
+            "plugin/pluginBundler.ts",
+            "config/configBuilder.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "index.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/tool/registryToolPort.ts",
+            "a2a/a2aProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "core/toolGate.ts",
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "SLB top10（只收割符号名）",
+      "hitRate": 75.8,
+      "delta": 0,
+      "ci": [-12.1, 12.1],
+      "changed": 2,
+      "avgTokens": 1217,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/git/checkpointTool.ts",
+            "config/configToolRegistry.ts",
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "config/corePortsAssembler.ts",
+            "ports/runtime/escalation.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "core/eventFactory.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/anthropicModel.ts",
+            "context/contextAssembler.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/contextEngine.ts",
+            "context/tokenEstimator.ts",
+            "context/repoMapContextEngine.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "adapters/memory/resonantFieldEngine.ts",
+            "adapters/memory/resonantMemoryEngine.ts",
+            "ports/memory/resonantMemory.ts",
+            "security/ssrfGuard.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "core/toolGate.ts",
+            "adapters/sandbox/policySandbox.ts",
+            "config/corePortsAssembler.ts",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "eval/evalHarness.ts",
+            "core/stepToolExecutor.ts",
+            "context/toolResultSpiller.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "adapters/approval/ruleApproval.ts",
+            "genesis/operators.ts",
+            "config/configToolRegistry.ts",
+            "adapters/tool/memory/rememberTool.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "adapters/identity/ed25519AgentIdentity.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/approval/cachedApproval.ts",
+            "server/core/appServer.ts",
+            "cli/storeCommand.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "context/repoMapContextEngine.ts",
+            "context/recallKnobs.ts",
+            "omniharness/omniharness_runtime.py",
+            "config/memoryStackAssembler.ts"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "core/turnRunner.ts",
+            "server/services/contextUsageService.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "context/deterministicCompressor.ts",
+            "evolution/evolutionControllerImpl.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "context/hybridRanker.ts",
+            "context/repoMapContextEngine.ts",
+            "config/configError.ts",
+            "config/configFile.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 0,
+          "head": [
+            "adapters/tool/verify/testFailureDigest.ts",
+            "genesis/operators.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "eval/reasoningRouter.ts",
+            "autonomy/workflowRunner.ts",
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "core/loop/eventPersister.ts",
+            "index.ts",
+            "config/memoryStackAssembler.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "context/contextCompactor.ts",
+            "context/deterministicCompressor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "config/configToolRegistry.ts",
+            "indexBeta.ts",
+            "autonomy/goalChecker.ts",
+            "adapters/memory/fileLongTermMemory.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "adapters/belief/naturalGradientBelief.ts",
+            "server/services/quotaService.ts",
+            "adapters/belief/particleFilterBelief.ts",
+            "genesis/operators.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrController.ts",
+            "evolution/rlvrLoop.ts",
+            "index.ts",
+            "genesis/operators.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "server/services/providerProbe.ts",
+            "adapters/embedding/transformersEmbeddingAdapter.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "config/credentialResolver.ts",
+            "adapters/memory/timeDecay.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "index.ts",
+            "adapters/diff/turnDiffHooks.ts",
+            "cli/cliNativeCmds.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "server/services/providerProbe.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/openAiCompatibleModel.ts",
+            "adapters/model/llamaCppModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "a2a/a2aServer.ts",
+            "core/runtime.ts",
+            "a2a/httpA2aTransport.ts",
+            "server/core/appServer.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/semanticIndexCache.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "adapters/tool/lsp/lspHoverTool.ts",
+            "adapters/tool/lsp/lspGoToDefinitionTool.ts"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "a2a/a2aServer.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "config/configToolRegistry.ts",
+            "adapters/tool/plan/todoWriteTool.ts",
+            "context/deterministicCompressor.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "config/configToolRegistry.ts",
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "core/runtime.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "并集 K=30（精排20 ∪ 语义10）",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [0, 9.1],
+      "changed": 0.5,
+      "avgTokens": 1454,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts",
+            "search/bm25Index.ts",
+            "adapters/tool/git/checkpointTool.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "ports/runtime/escalation.ts",
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "config/sparkAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/omniharness_runtime.py",
+            "adapters/model/anthropicModel.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/tokenEstimator.ts",
+            "context/contextEngine.ts",
+            "util/eigenspectrum.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "eval/pythonVersionResolver.ts",
+            "security/ssrfGuard.ts",
+            "adapters/memory/resonantMemoryEngine.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/sandbox/policySandbox.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "autonomy/workflowRunner.ts",
+            "core/stepToolExecutor.ts",
+            "mcp/mcpGateway.ts",
+            "eval/evalHarness.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "genesis/operator.ts",
+            "adapters/approval/ruleApproval.ts",
+            "config/permissionConfigValidator.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "server/core/appServer.ts",
+            "adapters/kv/jsonFileKv.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/recallKnobs.ts",
+            "context/repoMapContextEngine.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "security/promptInjectionGuard.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/evolution.ts",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "config/configError.ts",
+            "omniharness/self_directed_inquiry.py",
+            "context/contextEngine.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "context/contentStopWords.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "context/contentStopWords.ts",
+            "cli/auditCommand.ts",
+            "plugin/pluginProfileStore.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py",
+            "util/unifiedDiff.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "ports/memory/longTermMemory.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "autonomy/goalChecker.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "security/promptInjectionGuard.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrLoop.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/turnDiffTracker.ts",
+            "core/turnDiffTracker.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "plugin/zip.ts",
+            "plugin/localDirSource.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/memory/timeDecay.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/diff/turnDiffHooks.ts",
+            "context/contentStopWords.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "server/services/providerProbe.ts",
+            "adapters/model/llamaCppModel.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/cliServerCmds.ts",
+            "adapters/kv/sqliteKv.ts",
+            "config/configError.ts",
+            "server/core/serverNoopSupervisor.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/contentStopWords.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "omniharness/symbolic_policy.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/deterministicCompressor.ts",
+            "omniharness/self_directed_inquiry.py",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "plugin/manifest.ts",
+            "plugin/permission.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "并集 K=40（精排20 ∪ 语义20）",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [0, 9.1],
+      "changed": 0.5,
+      "avgTokens": 1455,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts",
+            "search/bm25Index.ts",
+            "adapters/tool/git/checkpointTool.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "ports/runtime/escalation.ts",
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "config/sparkAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/omniharness_runtime.py",
+            "adapters/model/anthropicModel.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/tokenEstimator.ts",
+            "context/contextEngine.ts",
+            "util/eigenspectrum.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "eval/pythonVersionResolver.ts",
+            "security/ssrfGuard.ts",
+            "adapters/memory/resonantMemoryEngine.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/sandbox/policySandbox.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "autonomy/workflowRunner.ts",
+            "core/stepToolExecutor.ts",
+            "mcp/mcpGateway.ts",
+            "eval/evalHarness.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "genesis/operator.ts",
+            "adapters/approval/ruleApproval.ts",
+            "config/permissionConfigValidator.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "server/core/appServer.ts",
+            "adapters/kv/jsonFileKv.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/recallKnobs.ts",
+            "context/repoMapContextEngine.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "security/promptInjectionGuard.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/evolution.ts",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "config/configError.ts",
+            "omniharness/self_directed_inquiry.py",
+            "context/contextEngine.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "context/contentStopWords.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "context/contentStopWords.ts",
+            "cli/auditCommand.ts",
+            "plugin/pluginProfileStore.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py",
+            "util/unifiedDiff.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "ports/memory/longTermMemory.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "autonomy/goalChecker.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "security/promptInjectionGuard.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrLoop.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/turnDiffTracker.ts",
+            "core/turnDiffTracker.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "plugin/zip.ts",
+            "plugin/localDirSource.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/memory/timeDecay.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/diff/turnDiffHooks.ts",
+            "context/contentStopWords.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "server/services/providerProbe.ts",
+            "adapters/model/llamaCppModel.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/cliServerCmds.ts",
+            "adapters/kv/sqliteKv.ts",
+            "config/configError.ts",
+            "server/core/serverNoopSupervisor.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/contentStopWords.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "omniharness/symbolic_policy.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/deterministicCompressor.ts",
+            "omniharness/self_directed_inquiry.py",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "plugin/manifest.ts",
+            "plugin/permission.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "并集 K=60（精排20 ∪ 语义40）",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [0, 9.1],
+      "changed": 0.5,
+      "avgTokens": 1455,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts",
+            "search/bm25Index.ts",
+            "adapters/tool/git/checkpointTool.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "ports/runtime/escalation.ts",
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "config/sparkAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/omniharness_runtime.py",
+            "adapters/model/anthropicModel.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/tokenEstimator.ts",
+            "context/contextEngine.ts",
+            "util/eigenspectrum.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "eval/pythonVersionResolver.ts",
+            "security/ssrfGuard.ts",
+            "adapters/memory/resonantMemoryEngine.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/sandbox/policySandbox.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "autonomy/workflowRunner.ts",
+            "core/stepToolExecutor.ts",
+            "mcp/mcpGateway.ts",
+            "eval/evalHarness.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "genesis/operator.ts",
+            "adapters/approval/ruleApproval.ts",
+            "config/permissionConfigValidator.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "server/core/appServer.ts",
+            "adapters/kv/jsonFileKv.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/recallKnobs.ts",
+            "context/repoMapContextEngine.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "security/promptInjectionGuard.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/evolution.ts",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "config/configError.ts",
+            "omniharness/self_directed_inquiry.py",
+            "context/contextEngine.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "context/contentStopWords.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "context/contentStopWords.ts",
+            "cli/auditCommand.ts",
+            "plugin/pluginProfileStore.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py",
+            "util/unifiedDiff.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "ports/memory/longTermMemory.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "autonomy/goalChecker.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "security/promptInjectionGuard.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrLoop.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/turnDiffTracker.ts",
+            "core/turnDiffTracker.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "plugin/zip.ts",
+            "plugin/localDirSource.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/memory/timeDecay.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/diff/turnDiffHooks.ts",
+            "context/contentStopWords.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "server/services/providerProbe.ts",
+            "adapters/model/llamaCppModel.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/cliServerCmds.ts",
+            "adapters/kv/sqliteKv.ts",
+            "config/configError.ts",
+            "server/core/serverNoopSupervisor.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/contentStopWords.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "omniharness/symbolic_policy.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/deterministicCompressor.ts",
+            "omniharness/self_directed_inquiry.py",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "plugin/manifest.ts",
+            "plugin/permission.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "并集 SLB∪：精排(SLB10) ∪ 语义20",
+      "hitRate": 78.8,
+      "delta": 3,
+      "ci": [0, 9.1],
+      "changed": 0.5,
+      "avgTokens": 1455,
+      "detail": [
+        {
+          "q": "where is tool registration handled",
+          "hit": 1,
+          "head": [
+            "adapters/tool/toolHandler.ts",
+            "server/core/appServerSurfaceHandlers.ts",
+            "search/bm25Index.ts",
+            "adapters/tool/git/checkpointTool.ts"
+          ]
+        },
+        {
+          "q": "how does sandbox denial escalate to approval",
+          "hit": 1,
+          "head": [
+            "ports/runtime/escalation.ts",
+            "core/toolGate.ts",
+            "ports/runtime/sandboxDenial.ts",
+            "ports/runtime/sandbox.ts"
+          ]
+        },
+        {
+          "q": "what does ContextAssembler project events into",
+          "hit": 1,
+          "head": [
+            "context/contextAssembler.ts",
+            "core/stepContextBuilder.ts",
+            "server/services/contextUsageService.ts",
+            "config/sparkAssembler.ts"
+          ]
+        },
+        {
+          "q": "how are images attached to model messages",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "omniharness/omniharness_runtime.py",
+            "adapters/model/anthropicModel.ts",
+            "ports/model/model.ts"
+          ]
+        },
+        {
+          "q": "where is reasoning_effort sent to the openai model",
+          "hit": 1,
+          "head": [
+            "adapters/model/openAiCompatibleModel.ts",
+            "eval/reasoningRouter.ts",
+            "omniharness/self_directed_inquiry.py",
+            "adapters/model/responsesModel.ts"
+          ]
+        },
+        {
+          "q": "how does BM25 tokenize CJK text",
+          "hit": 1,
+          "head": [
+            "search/bm25Index.ts",
+            "context/tokenEstimator.ts",
+            "context/contextEngine.ts",
+            "util/eigenspectrum.ts"
+          ]
+        },
+        {
+          "q": "how is the resonant memory probe mapped from text",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "eval/pythonVersionResolver.ts",
+            "security/ssrfGuard.ts",
+            "adapters/memory/resonantMemoryEngine.ts"
+          ]
+        },
+        {
+          "q": "where is the sandbox policy evaluated",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "adapters/sandbox/policySandbox.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how are tool results spilled out of context",
+          "hit": 1,
+          "head": [
+            "autonomy/workflowRunner.ts",
+            "core/stepToolExecutor.ts",
+            "mcp/mcpGateway.ts",
+            "eval/evalHarness.ts"
+          ]
+        },
+        {
+          "q": "which component remembers decisions the operator already blessed",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "genesis/operator.ts",
+            "adapters/approval/ruleApproval.ts",
+            "config/permissionConfigValidator.ts"
+          ]
+        },
+        {
+          "q": "how is a signed claim from an agent packaged",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "ports/runtime/agentIdentity.ts",
+            "enterprise/oidcClient.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "which key-value store replicates records across nodes",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "server/core/appServer.ts",
+            "adapters/kv/jsonFileKv.ts",
+            "server/services/serverConfigStore.ts"
+          ]
+        },
+        {
+          "q": "tuning knobs for the graph that links distant memories",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/recallKnobs.ts",
+            "context/repoMapContextEngine.ts",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "settings for the planner that gradually cools down",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "omniharness/omniharness_runtime.py",
+            "security/promptInjectionGuard.ts"
+          ]
+        },
+        {
+          "q": "options controlling what gets pulled out of conversations",
+          "hit": 0,
+          "head": [
+            "spark/sparkController.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/evolution.ts",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "knobs for the parity based error correction layer",
+          "hit": 1,
+          "head": [
+            "config/configError.ts",
+            "omniharness/self_directed_inquiry.py",
+            "context/contextEngine.ts",
+            "context/recallKnobs.ts"
+          ]
+        },
+        {
+          "q": "what signals that a parity check has failed",
+          "hit": 1,
+          "head": [
+            "genesis/operators.ts",
+            "context/contentStopWords.ts",
+            "supervisor/supervisorKernel.ts",
+            "omniharness/omniharness_runtime.py"
+          ]
+        },
+        {
+          "q": "where is the remaining spend captured at a point in time",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "autonomy/workflowRunner.ts",
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/symbolic_policy.py"
+          ]
+        },
+        {
+          "q": "how is a chain of thought persisted to disk",
+          "hit": 0,
+          "head": [
+            "core/agent.ts",
+            "context/contentStopWords.ts",
+            "cli/auditCommand.ts",
+            "plugin/pluginProfileStore.ts"
+          ]
+        },
+        {
+          "q": "what normalizes text before it is compared",
+          "hit": 0,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "omniharness/self_directed_inquiry.py",
+            "util/unifiedDiff.ts",
+            "context/contextCompactor.ts"
+          ]
+        },
+        {
+          "q": "how long is a prior yes remembered before asking again",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "ports/memory/longTermMemory.ts",
+            "adapters/belief/naturalGradientBelief.ts",
+            "autonomy/goalChecker.ts"
+          ]
+        },
+        {
+          "q": "settings for the belief updater that follows curvature",
+          "hit": 1,
+          "head": [
+            "server/services/quotaService.ts",
+            "server/services/quotaStore.ts",
+            "security/promptInjectionGuard.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "tunables for the sampler tracking many hypotheses at once",
+          "hit": 1,
+          "head": [
+            "evolution/rlvrLoop.ts",
+            "evolution/rlvrController.ts",
+            "ports/runtime/turnDiffTracker.ts",
+            "core/turnDiffTracker.ts"
+          ]
+        },
+        {
+          "q": "how is the local vector model configured",
+          "hit": 0,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "omniharness/omniharness_runtime.py",
+            "plugin/zip.ts",
+            "plugin/localDirSource.ts"
+          ]
+        },
+        {
+          "q": "where are ed25519 signing credentials created",
+          "hit": 1,
+          "head": [
+            "adapters/tool/meta/agentIdentityTool.ts",
+            "adapters/identity/ed25519AgentIdentity.ts",
+            "adapters/memory/timeDecay.ts",
+            "observability/tokenAttribution.ts"
+          ]
+        },
+        {
+          "q": "how are orphaned tool call identifiers tracked",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "adapters/diff/turnDiffHooks.ts",
+            "context/contentStopWords.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "how is the chat completion provider configured",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "server/services/providerProbe.ts",
+            "adapters/model/llamaCppModel.ts",
+            "adapters/model/openAiCompatibleModel.ts"
+          ]
+        },
+        {
+          "q": "where do language server error reports come from",
+          "hit": 0,
+          "head": [
+            "cli/cliServerCmds.ts",
+            "adapters/kv/sqliteKv.ts",
+            "config/configError.ts",
+            "server/core/serverNoopSupervisor.ts"
+          ]
+        },
+        {
+          "q": "how many characters of a conversation are retained",
+          "hit": 0,
+          "head": [
+            "context/contentStopWords.ts",
+            "adapters/tool/lsp/lspToolsShared.ts",
+            "omniharness/symbolic_policy.py",
+            "omniharness/self_directed_inquiry.py"
+          ]
+        },
+        {
+          "q": "what does a delegated child task return",
+          "hit": 1,
+          "head": [
+            "adapters/tool/workflow/delegateTool.ts",
+            "a2a/a2aProtocol.ts",
+            "worker/workerOrchestrator.ts",
+            "context/contentStopWords.ts"
+          ]
+        },
+        {
+          "q": "what represents one entry in a multi stage plan",
+          "hit": 1,
+          "head": [
+            "omniharness/omniharness_runtime.py",
+            "context/deterministicCompressor.ts",
+            "omniharness/self_directed_inquiry.py",
+            "evolution/evolutionControllerImpl.ts"
+          ]
+        },
+        {
+          "q": "where are capabilities discovered and registered",
+          "hit": 1,
+          "head": [
+            "omniharness/self_directed_inquiry.py",
+            "a2a/a2aProtocol.ts",
+            "adapters/tool/registryToolPort.ts",
+            "mcp/mcpProtocol.ts"
+          ]
+        },
+        {
+          "q": "which component gates dangerous tool calls at runtime",
+          "hit": 1,
+          "head": [
+            "adapters/sandbox/dangerousCommands.ts",
+            "core/stepToolExecutor.ts",
+            "plugin/manifest.ts",
+            "plugin/permission.ts"
+          ]
+        }
+      ]
+    }
+  ],
+  "ceiling": {
+    "baselineMissed": 8,
+    "semanticallyReachable": 1,
+    "semRank": [
+      null,
+      4,
+      8,
+      9,
+      8,
+      3,
+      1,
+      null,
+      5,
+      null,
+      25,
+      5,
+      null,
+      null,
+      null,
+      null,
+      null,
+      36,
+      null,
+      null,
+      null,
+      1,
+      null,
+      null,
+      2,
+      null,
+      3,
+      null,
+      null,
+      null,
+      2,
+      30,
+      null
+    ]
+  }
+}
