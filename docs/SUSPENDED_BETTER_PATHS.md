@@ -93,15 +93,16 @@ enterpriseAuthFromIssuer(config, globalThis.fetch)   // 真实 discovery fetch�
 **turnkey 一键命令（你侧具备设施后执行）**：
 
 ```bash
-# 1) 取官方数据集（HF：princeton-nlp/SWE-bench_Verified；swebench 包自带 swe_bench_tasks.json）
+# 1) 取官方 Verified 实例列表（HF：princeton-nlp/SWE-bench_Verified，转 JSON 数组存为 swe_bench_verified.json）
 # 2) 用我们的 live agent 在具备 repo 缓存的环境生成 predictions.jsonl（instance_id -> model_patch）
-# 3) 零本地 docker、走 Modal 云执行：
+# 3) 环境/安装元数据由 upstream harness 经 --dataset_name 自动从 HF 加载（本地 tasks 文件契约已废弃）；
+#    受限网络可设 HF_ENDPOINT=https://hf-mirror.com 走镜像；零本地 docker 走 Modal 云执行：
 MODAL_TOKEN=xxx npm run eval:swebench:verified -- \
-  --verified swe_bench_verified.json --tasks-json swe_bench_tasks.json \
+  --verified swe_bench_verified.json \
   --predictions preds.jsonl --backend modal
-# 或本机 docker：
+# 或本机 docker（需本机 docker daemon 已起）：
 npm run eval:swebench:verified -- \
-  --verified swe_bench_verified.json --tasks-json swe_bench_tasks.json \
+  --verified swe_bench_verified.json \
   --predictions preds.jsonl --backend docker
 ```
 
@@ -109,9 +110,10 @@ npm run eval:swebench:verified -- \
 - **效率**：Modal ~7min/500 题，远高于「本机逐一起 docker 容器」。
 - **参考开源**：SWE-bench 官方 `swebench` harness 的 Modal 集成（`--modal` flag）。
 
-**沙箱硬限制（诚实声明）**：本沙箱实测**无 docker、无 modal CLI、无 MODAL_TOKEN/HF_TOKEN，
-HF 数据集不可达（fetch failed）**——官方 500 Verified 的「执行」一步在此环境**物理上不可完成**，
-故本仓库只交付 code-ready + turnkey 接线；真实分数须你侧具备上述设施的环境跑出（详见 §6 挂起清单）。
+**沙箱硬限制（诚实声明）**：本沙箱实测**已有 docker daemon（WSL2 引擎已起），但无 modal CLI、
+无 MODAL_TOKEN/HF_TOKEN，且官方 HuggingFace 站被代理拦截（fetch failed）——官方 500 Verified 的
+「执行」一步在此环境仍**物理上不可完成**（缺模态凭证与 HF 数据集可达性；可设 `HF_ENDPOINT=https://hf-mirror.com`
+走镜像缓解数据可达性）。本仓库交付 code-ready + turnkey 接线；真实分数须你侧具备 docker/Modal + HF 可达的环境跑出。
 
 ## 五、给未来挂起项的取舍清单
 
