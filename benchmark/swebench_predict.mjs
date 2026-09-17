@@ -23,15 +23,7 @@
 // 依赖：需先 `npm run build`（脚本 import dist）。模型凭据从 `.env` 读取。
 // 零依赖（仅 node: 内置 + 本仓库 dist）。
 
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  existsSync,
-  appendFileSync,
-  rmSync,
-  mkdtempSync,
-} from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, mkdtempSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -72,8 +64,20 @@ const opts = {
   // （只在调用方传 `request.signal` 时才透传），而 `RetryingModel` 只对**抛出的**错误重试——
   // 服务端接受连接后不回包时，`fetch` 永不 settle ⇒ 重试永不触发 ⇒ **整批静默挂死**。
   // 实测：batch_next 第 15 题卡死 32min，日志零输出、工作区零文件写入（pytest 未在跑，纯 API 挂起）。
-  // 这里显式给每次请求一个 `AbortSignal.timeout`，把「永久挂起」降级为「该实例快速失败」。
+  // 2026-09-18 起该预算下沉为**适配器内**每次尝试的空闲超时（OpenAiCompatibleConfig.requestTimeoutMs）：
+  // 之前在调用点传 `AbortSignal.timeout`，信号被同一次 generate 的所有重试共享——首个挂死尝试烧光
+  // 300s 后信号已触发，重试会被立刻 abort ⇒ 重试形同虚设。现在每次尝试（含重试）各自获得全新预算，
+  // 超时被适配器归类为 retryable ModelCallError，交给下方 RetryingModel 退避重试。
   requestTimeoutMs: arg('--timeout-ms') !== undefined ? Number(arg('--timeout-ms')) : 300_000,
+  // 模型调用重试次数（含首次，默认 3）：`fetch failed` 等瞬时网络错误在预测路径上此前**零重试**
+  // （裸 OpenAiCompatibleModel，RetryingModel 从未接线），实测 batch_next 续跑 11 题挂 9 题、
+  // 历史 gen16/batch_next 各挂 1-2 题——每次都是整实例直接判死落空补丁。`--retry 1` 回旧无重试行为。
+  retryAttempts: arg('--retry') !== undefined ? Number(arg('--retry')) : 3,
+  // 重试基础退避毫秒（指数 ×2，封顶 30s，±10% 抖动）。
+  retryBaseMs: arg('--retry-base-ms') !== undefined ? Number(arg('--retry-base-ms')) : 2000,
+  // 断点续跑：不截断 --out，从既有产物播种，**跳过已有非空补丁**的实例、重跑空补丁（失败）项，
+  // 结果按 instance_id 去重后整文件重写（新结果覆盖旧值）。不带 --resume 保持旧截断行为。
+  resume: process.argv.includes('--resume'),
   // best-of-N 验证器选择：对同一实例采样 N 个候选，用「gold FAIL_TO_PASS 通过比例」作可验证奖励选最优。
   // 默认 1 = 单候选（与旧行为一致，零行为变更）。N>1 时自动把采样温度提到 0.8（除非已显式 >0），
   // 否则 temperature=0 会让 N 个候选完全相同、验证失去意义。需本机具备 git+uv+网络。
@@ -129,6 +133,7 @@ const { query } = await import('../dist/src/context/contextEngine.js');
 const { RepoMapPayload } = await import('../dist/src/context/repoMapPayload.js');
 const { OpenAiCompatibleModel } =
   await import('../dist/src/adapters/model/openaiCompatibleModel.js');
+const { RetryingModel } = await import('../dist/src/adapters/model/retryingModel.js');
 const { RlvrLoop, InMemoryReplayBuffer } = await import('../dist/src/evolution/rlvrLoop.js');
 const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
 const { CoverageLocator } = await import('../dist/src/eval/coverageLocator.js');
@@ -712,13 +717,14 @@ async function generateCandidate(messages, wt, model, o, temp, taskId) {
         'utf8',
       );
     }
-    // 每次尝试都新建超时信号：若复用同一个已触发的 signal，后续重试会被立刻 abort。
-    // requestTimeoutMs<=0 时不传 signal＝沿用旧行为（无超时）。
+    // 单次尝试预算已下沉到适配器（config.requestTimeoutMs ⇒ 空闲超时守卫）：这里**不再**传外部
+    // signal——外部信号被同一次 generate 的全部重试共享，首个挂死尝试烧光预算后信号已触发，
+    // RetryingModel 的后续重试会被立刻 abort（等于零重试）。挂死/慢响应由守卫按「每次尝试全新
+    // 空闲预算」兜底，超时归类 retryable 交给重试层。
     const out = await model.generate({
       messages: convo,
       tools: [],
       temperature: temp,
-      ...(o.requestTimeoutMs > 0 ? { signal: AbortSignal.timeout(o.requestTimeoutMs) } : {}),
     });
     raw = out.text ?? '';
     const usage = out.usage;
@@ -926,13 +932,26 @@ if (!opts.dryRun && apiKey === undefined) {
   process.exit(1);
 }
 const modelName = opts.model;
-const model = opts.dryRun
+const openAiModel = opts.dryRun
   ? null
   : new OpenAiCompatibleModel({
       baseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
       apiKey,
       model: modelName,
+      // 每次尝试（含重试）各自的空闲超时预算：`<=0` 时适配器侧完全关闭（回退旧无限挂起）。
+      requestTimeoutMs: opts.requestTimeoutMs,
     });
+// 瞬时网络错误（`fetch failed` 等）重试：把「整实例判死」降级为「退避后重试」。策略与
+// RetryingModel 默认同族（指数退避 + 抖动 + 尊重 Retry-After），仅开放次数/基础退避为旗标。
+const model =
+  openAiModel === null || opts.retryAttempts <= 1
+    ? openAiModel
+    : new RetryingModel(openAiModel, {
+        maxAttempts: opts.retryAttempts,
+        baseDelayMs: opts.retryBaseMs,
+        maxDelayMs: 30_000,
+        jitter: 0.1,
+      });
 
 // ---------- 验证执行器（best-of-N / self-test 用）----------
 // 仅在需要验证时创建：复用同一缓存根 ⇒ 与打分阶段零重复克隆。环境准备（建 venv + 装仓库）在
@@ -959,10 +978,43 @@ let totalPromptTokens = 0;
 let totalCompletionTokens = 0;
 let totalMapChars = 0;
 
-mkdirSync(dirname(opts.out), { recursive: true });
-writeFileSync(opts.out, '', 'utf8');
+// 产物登记表：instance_id → model_patch。--resume 时从既有产物播种（不截断），否则从空开始。
+// 每实例落盘后整文件重写（而非 append）：同 id 新结果覆盖旧值，文件恒与内存态一致，
+// 中途被杀也不丢已完成实例——此前「启动即 writeFileSync 清空」曾把 13 条真实成果置于险境。
+const patchById = new Map();
+if (opts.resume && existsSync(opts.out)) {
+  for (const line of readFileSync(opts.out, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (t.length === 0) continue;
+    try {
+      const obj = JSON.parse(t);
+      if (typeof obj.instance_id === 'string' && typeof obj.model_patch === 'string') {
+        patchById.set(obj.instance_id, obj.model_patch);
+      }
+    } catch {
+      // 半截行（上次被杀时写坏）：忽略，该实例按未完成重跑。
+    }
+  }
+} else if (!opts.resume) {
+  writeFileSync(opts.out, '', 'utf8');
+}
+const doneIds = new Set([...patchById.entries()].filter(([, p]) => p.length > 0).map(([id]) => id));
+if (opts.resume && doneIds.size > 0) {
+  console.log(`[predict] --resume：既有 ${patchById.size} 条，其中非空补丁 ${doneIds.size} 条跳过`);
+}
+const pending = selected.filter((t) => !doneIds.has(t.id));
+const writeOut = () => {
+  writeFileSync(
+    opts.out,
+    [...patchById.entries()]
+      .map(([id, p]) => JSON.stringify({ instance_id: id, model_patch: p }))
+      .join('\n') + '\n',
+    'utf8',
+  );
+};
+writeOut();
 
-for (const task of selected) {
+for (const task of pending) {
   const t0 = Date.now();
   console.log(`\n=== ${task.id} (${task.repo} @ ${task.baseCommit.slice(0, 10)}) ===`);
   try {
@@ -1016,9 +1068,8 @@ for (const task of selected) {
         durationMs: Date.now() - t0,
         dryRun: true,
       });
-      writeFileSync(opts.out, `${JSON.stringify({ instance_id: task.id, model_patch: '' })}\n`, {
-        flag: 'a',
-      });
+      patchById.set(task.id, '');
+      writeOut();
       continue;
     }
 
@@ -1053,11 +1104,8 @@ for (const task of selected) {
     }
     const applied = checkPatch(wt, diff).ok;
 
-    appendFileSync(
-      opts.out,
-      `${JSON.stringify({ instance_id: task.id, model_patch: diff })}\n`,
-      'utf8',
-    );
+    patchById.set(task.id, diff);
+    writeOut();
     records.push({
       id: task.id,
       repo: task.repo,
@@ -1081,11 +1129,8 @@ for (const task of selected) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`  ❌ ${task.id} 失败: ${msg}`);
-    appendFileSync(
-      opts.out,
-      `${JSON.stringify({ instance_id: task.id, model_patch: '' })}\n`,
-      'utf8',
-    );
+    patchById.set(task.id, '');
+    writeOut();
     records.push({ id: task.id, repo: task.repo, payloadShape: opts.payloadShape, error: msg });
   }
 }
@@ -1099,7 +1144,7 @@ const report = {
   contentChars: opts.contentChars,
   temperature: opts.temperature,
   model: modelName,
-  instances: selected.length,
+  instances: pending.length,
   totalPromptTokens,
   totalCompletionTokens,
   avgMapChars: records.length > 0 ? Math.round(totalMapChars / records.length) : 0,
