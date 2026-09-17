@@ -12,6 +12,7 @@ import {
   type VerifiedTask,
 } from '../../src/eval/swebenchVerified.js';
 import { NativeExecutor } from '../../src/eval/nativeExecutor.js';
+import { PytestVerdict } from '../../src/eval/pytestVerdict.js';
 import { PythonVersionResolver } from '../../src/eval/pythonVersionResolver.js';
 import { at } from '../../src/util/arrayAt.js';
 
@@ -211,7 +212,7 @@ test('PythonVersionResolver.resolve：精确命中/前缀命中/回落', () => {
   assert.strictEqual(PythonVersionResolver.resolve('django/django', ''), '3.11'); // 空版本回落
 });
 
-test('NativeExecutor.parsePytestResults：PASSED→true，FAILED/ERROR/SKIPPED/缺失→false', () => {
+test('PytestVerdict.parseResults：PASSED→true，FAILED/ERROR/SKIPPED/缺失→false', () => {
   const output = [
     'tests/test_x.py::test_a PASSED',
     'tests/test_x.py::test_b FAILED',
@@ -226,12 +227,49 @@ test('NativeExecutor.parsePytestResults：PASSED→true，FAILED/ERROR/SKIPPED/�
     'tests/test_x.py::test_d',
     'tests/test_x.py::test_e',
   ];
-  const r = NativeExecutor.parsePytestResults(output, ids);
+  const r = PytestVerdict.parseResults(output, ids);
   assert.strictEqual(r.get('tests/test_x.py::test_a'), true);
   assert.strictEqual(r.get('tests/test_x.py::test_b'), false);
   assert.strictEqual(r.get('tests/test_x.py::test_c'), false);
   assert.strictEqual(r.get('tests/test_x.py::test_d'), false);
   assert.strictEqual(r.get('tests/test_x.py::test_e'), false); // 缺失 → false
+});
+
+test('PytestVerdict.parseResults：裸测试名按叶子名匹配（-rA 摘要形态）', () => {
+  // 官方数据集里 sympy/django 等给**裸测试名**，而 pytest 输出是完整 nodeid ⇒ 必须按叶子名比对。
+  const output = [
+    'PASSED sympy/printing/tests/test_python.py::test_create_expand_pow_optimization',
+    'FAILED sympy/printing/tests/test_python.py::test_PythonCodePrinter',
+    'PASSED sympy/utilities/tests/test_misc.py::test_empty_modules',
+  ].join('\n');
+  const ids = [
+    'test_create_expand_pow_optimization',
+    'test_PythonCodePrinter',
+    'test_empty_modules',
+    'test_absent',
+  ];
+  const r = PytestVerdict.parseResults(output, ids);
+  assert.strictEqual(r.get('test_create_expand_pow_optimization'), true);
+  assert.strictEqual(r.get('test_PythonCodePrinter'), false); // FAILED → false
+  assert.strictEqual(r.get('test_empty_modules'), true);
+  assert.strictEqual(r.get('test_absent'), false); // 缺失 → false
+});
+
+test('PytestVerdict.testFilesOf：抽取 test_patch 的测试文件并过滤非测试文件', () => {
+  const patch = [
+    'diff --git a/sympy/printing/tests/test_python.py b/sympy/printing/tests/test_python.py',
+    '--- a/sympy/printing/tests/test_python.py',
+    '+++ b/sympy/printing/tests/test_python.py',
+    'diff --git a/conftest.py b/conftest.py',
+    '--- a/conftest.py',
+    '+++ b/conftest.py',
+    '+++ /dev/null',
+  ].join('\n');
+  assert.deepStrictEqual(
+    [...PytestVerdict.testFilesOf(patch)],
+    ['sympy/printing/tests/test_python.py'],
+  );
+  assert.deepStrictEqual([...PytestVerdict.testFilesOf('')], []);
 });
 
 test('runVerifiedSuite：默认串行（并发 1）峰值在飞 == 1', async () => {

@@ -42,8 +42,11 @@ const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务�
 // 用法（执行须在你侧具备 git + uv + 网络 的环境）：
 //   node benchmark/capability_swebench.mjs --verified <swe_bench_verified.json> \
 //     --predictions <preds.jsonl> [--concurrency N] \
+//     [--instances id1,id2 | --instance-list <file>] \
 //     [--repo-base https://gitee.com/] [--repo-mirrors benchmark/swebench-gitee-mirrors.json] \
 //     [--env-pins benchmark/swebench-env-pins.json]
+// 子集口径：`--instances` / `--instance-list` 只对指定实例出分（pilot/分批用）。
+//   不给时覆盖全部实例（官方 500 满分口径）。子集分数**不可**当作官方满分口径引用。
 // 模型补丁（predictions）由我们的 live agent 在具备 git+uv+网络的环境生成；本命令只负责"打分"。
 // 镜像通道：`--repo-base` + `--repo-mirrors` 用于把克隆重定向到国内镜像（上游 slug → 镜像 slug），
 //   实测 Gitee 覆盖 12 个 SWE-bench 仓库中的 11 个、且 base_commit 全部命中（见镜像映射文件注释）。
@@ -96,6 +99,30 @@ if (verifiedIdx !== -1) {
   const tasks = SwebenchVerified.loadVerified(verifiedPath);
   console.log(`[capability:swebench:verified] 加载 ${tasks.length} 个官方 Verified 实例`);
 
+  // 子集过滤：pilot/分批跑分时为**只对已生成预测的实例**出分，避免未预测实例被计为失败
+  // 而把分母稀释成 500（那不是「真实分数」，是「没跑完」）。
+  // 注意：官方 apples-to-apples 口径要求覆盖全部 500；子集分数须显式标注为子集口径。
+  const instIdx = process.argv.indexOf('--instances');
+  const listIdx = process.argv.indexOf('--instance-list');
+  let subsetIds;
+  if (instIdx !== -1) {
+    subsetIds = (process.argv[instIdx + 1] ?? '').split(',').filter((s) => s.length > 0);
+  } else if (listIdx !== -1) {
+    subsetIds = readFileSync(process.argv[listIdx + 1], 'utf8')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.startsWith('#'));
+  }
+  let suiteTasks = tasks;
+  if (subsetIds !== undefined) {
+    const want = new Set(subsetIds);
+    suiteTasks = tasks.filter((t) => want.has(t.id));
+    console.log(
+      `[capability:swebench:verified] ⚠️ 子集口径：${suiteTasks.length}/${tasks.length} 实例` +
+        '（非官方 500 满分口径，仅用于分批/pilot；报告中 total 即为子集大小）',
+    );
+  }
+
   if (predsPath === undefined) {
     console.error(
       '[capability:swebench:verified] ❌ 缺 --predictions：官方 Verified 需先由我们的 live agent 在具备 git+uv+网络的环境生成模型补丁（predictions.jsonl）。' +
@@ -114,11 +141,18 @@ if (verifiedIdx !== -1) {
   }
   console.log(`[capability:swebench:verified] 载入 ${predictions.size} 条预测`);
 
-  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, executor, concurrency);
-  const outPath = join(__dirname, 'capability-swebench-verified.json');
-  writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
+  const report = await SwebenchVerified.runVerifiedSuite(
+    suiteTasks,
+    predictions,
+    executor,
+    concurrency,
+  );
+  const outIdx = process.argv.indexOf('--out');
+  const reportPath =
+    outIdx !== -1 ? process.argv[outIdx + 1] : join(__dirname, 'capability-swebench-verified.json');
+  writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(SwebenchVerified.formatVerifiedReport(report));
-  console.log(`[capability:swebench:verified] 报告已写入: ${outPath}`);
+  console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
   // 真实结果：即便有未通过也是有效分数（非 fail-closed），以 0 退出；仅当后端设施缺失导致全 fail 时由 executor 原因体现。
   process.exit(0);
 }
