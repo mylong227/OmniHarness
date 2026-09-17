@@ -2,7 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sseParser } from '../../src/adapters/model/sseParser.js';
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  OpenAiCompatibleModel,
+  REQUEST_TIMEOUT_ENV_KEY,
+} from '../../src/adapters/model/openAiCompatibleModel.js';
+import { ModelCallError } from '../../src/ports/model/model.js';
 import type { ModelRequest } from '../../src/ports/model/model.js';
 
 /** 把文本包装为流。 */
@@ -360,4 +365,215 @@ test('OpenAI 兼容：非空 reasoning_effort 透传', async () => {
   );
   assert.strictEqual(captured?.['reasoning_effort'], 'high');
   assert.strictEqual('tools' in (captured ?? {}), false, '空工具列表不得发 tools 字段');
+});
+
+/** 假 fetch：模拟「服务端接受连接后永不回包」——自身永不 settle，仅在 signal 中止时 reject。 */
+function stalledFetch(_url: string, init: RequestInit): Promise<Response> {
+  return new Promise<Response>((_resolve, reject) => {
+    const signal = init.signal;
+    if (signal === undefined || signal === null) {
+      return; // 完全无信号 ⇒ 与改造前的裸 fetch 行为一致：永久挂起
+    }
+    if (signal.aborted) {
+      reject(new Error('aborted'));
+      return;
+    }
+    signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+  });
+}
+
+test('OpenAI 兼容：空闲超时把「永不回包」收敛为可重试错误（关二·修复）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+    requestTimeoutMs: 150,
+  });
+  const started = Date.now();
+  const err: unknown = await withFetch(stalledFetch, () => model.generate(request)).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  const elapsed = Date.now() - started;
+  assert.ok(err instanceof ModelCallError, `应抛 ModelCallError，实际 ${String(err)}`);
+  assert.strictEqual(err.retryable, true, '必须可重试，否则 RetryingModel 仍兜不住');
+  assert.ok(elapsed < 3000, `须快速有界失败（实测 ${elapsed}ms）；改造前此处会无限期挂死`);
+});
+
+test('OpenAI 兼容：关闭空闲超时后同样的挂起不再中止（关一·对照）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+    requestTimeoutMs: 0,
+  });
+  const outcome = await withFetch(stalledFetch, () =>
+    Promise.race([
+      model.generate(request).then(
+        () => 'resolved',
+        () => 'rejected',
+      ),
+      new Promise<string>((resolve) => setTimeout(() => resolve('still-pending'), 500)),
+    ]),
+  );
+  assert.strictEqual(
+    outcome,
+    'still-pending',
+    '关闭后不得自行中止 —— 该对照证明「开」与「关」行为确实不同（非死旋钮）',
+  );
+});
+
+test('OpenAI 兼容：流式「中途静默」被空闲超时中止（流式关二）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+    requestTimeoutMs: 150,
+  });
+  const encoder = new TextEncoder();
+  const handler = (_url: string, init: RequestInit): Promise<Response> => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"甲"}}]}\n\n'));
+        // 之后彻底静默；中止时把流打错，模拟真实 fetch 对被中止响应体的处理。
+        init.signal?.addEventListener(
+          'abort',
+          () => {
+            try {
+              controller.error(new Error('aborted'));
+            } catch {
+              // 流可能已结束：忽略
+            }
+          },
+          { once: true },
+        );
+      },
+    });
+    return Promise.resolve(new Response(body, { status: 200 }));
+  };
+  const chunks: string[] = [];
+  const err: unknown = await withFetch(handler, () =>
+    model.stream(request, { onText: (text) => chunks.push(text) }),
+  ).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.deepStrictEqual(chunks, ['甲'], '首个事件应已送达（证明静默前确有进展）');
+  assert.ok(err instanceof ModelCallError, `应抛 ModelCallError，实际 ${String(err)}`);
+  assert.strictEqual(err.retryable, true);
+});
+
+test('OpenAI 兼容：流式慢但有进展不被误杀（空闲语义 ≠ 总时限）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+    requestTimeoutMs: 200,
+  });
+  const encoder = new TextEncoder();
+  const handler = (): Promise<Response> => {
+    const frames = ['甲', '乙', '丙', '丁'];
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        for (const frame of frames) {
+          await new Promise((resolve) => setTimeout(resolve, 90));
+          controller.enqueue(
+            encoder.encode(`data: {"choices":[{"delta":{"content":"${frame}"}}]}\n\n`),
+          );
+        }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    return Promise.resolve(new Response(body, { status: 200 }));
+  };
+  const chunks: string[] = [];
+  const output = await withFetch(handler, () =>
+    model.stream(request, { onText: (text) => chunks.push(text) }),
+  );
+  // 总耗时 4×90=360ms > 200ms 阈值，但每次间隔 90ms < 阈值 ⇒ 空闲语义下必须活下来。
+  assert.deepStrictEqual(chunks, ['甲', '乙', '丙', '丁']);
+  assert.strictEqual(output.text, '甲乙丙丁');
+});
+
+test('OpenAI 兼容：空闲超时解析优先级 显式 > env > 库级默认（env 非法不静默变 NaN）', () => {
+  const previous = process.env[REQUEST_TIMEOUT_ENV_KEY];
+  try {
+    delete process.env[REQUEST_TIMEOUT_ENV_KEY];
+    assert.strictEqual(
+      new OpenAiCompatibleModel({ baseUrl: 'u', apiKey: 'k', model: 'm' }).requestTimeoutMs,
+      DEFAULT_REQUEST_TIMEOUT_MS,
+      '未显式、无 env ⇒ 取库级默认（这正是本次补掉的缺口）',
+    );
+    process.env[REQUEST_TIMEOUT_ENV_KEY] = '1234';
+    assert.strictEqual(
+      new OpenAiCompatibleModel({ baseUrl: 'u', apiKey: 'k', model: 'm' }).requestTimeoutMs,
+      1234,
+      'env 可覆盖库级默认（运维不改进代码即可调；0/负数=关闭）',
+    );
+    assert.strictEqual(
+      new OpenAiCompatibleModel({ baseUrl: 'u', apiKey: 'k', model: 'm', requestTimeoutMs: 77 })
+        .requestTimeoutMs,
+      77,
+      '显式配置优先于 env',
+    );
+    process.env[REQUEST_TIMEOUT_ENV_KEY] = 'not-a-number';
+    assert.strictEqual(
+      new OpenAiCompatibleModel({ baseUrl: 'u', apiKey: 'k', model: 'm' }).requestTimeoutMs,
+      DEFAULT_REQUEST_TIMEOUT_MS,
+      'env 非法时回落默认；若静默变 NaN，则 idleMs > 0 判据被击穿、守卫会被悄悄关掉',
+    );
+  } finally {
+    if (previous === undefined) {
+      delete process.env[REQUEST_TIMEOUT_ENV_KEY];
+    } else {
+      process.env[REQUEST_TIMEOUT_ENV_KEY] = previous;
+    }
+  }
+});
+
+test('OpenAI 兼容：关闭空闲超时且无调用方信号时不带 signal（零行为变更）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+    requestTimeoutMs: 0,
+  });
+  let captured: RequestInit | undefined;
+  await withFetch(
+    async (_url, init) => {
+      captured = init;
+      return new Response(
+        JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }),
+        { status: 200 },
+      );
+    },
+    () => model.generate(request),
+  );
+  assert.strictEqual('signal' in (captured ?? {}), false, '关闭后须逐字回到改造前行为');
+});
+
+test('OpenAI 兼容：开启空闲超时时调用方取消仍能穿透守卫到达 fetch', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+    requestTimeoutMs: 5_000,
+  });
+  const controller = new AbortController();
+  let captured: RequestInit | undefined;
+  await withFetch(
+    async (_url, init) => {
+      captured = init;
+      return new Response(
+        JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }),
+        { status: 200 },
+      );
+    },
+    () => model.generate({ ...request, signal: controller.signal }),
+  );
+  assert.strictEqual(captured?.signal instanceof AbortSignal, true, 'signal 仍须传给 fetch');
+  assert.strictEqual(captured?.signal?.aborted, false);
+  controller.abort();
+  assert.strictEqual(captured?.signal?.aborted, true, '调用方取消语义不得被守卫吞掉');
 });

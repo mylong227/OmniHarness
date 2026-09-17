@@ -11,8 +11,15 @@ import type {
 import { ModelCallError } from '../../ports/model/model.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser } from './sseParser.js';
+import { RequestStallGuard } from './requestStallGuard.js';
 import { log } from '../../util/logger.js';
 import { sanitizeToolRounds } from '../../util/toolRoundSanitizer.js';
+
+/** 库级默认的模型请求**空闲**超时（毫秒）：连续 5 分钟无任何数据即中止；`<=0` 表示关闭。 */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;
+
+/** 覆盖库级默认空闲超时的环境变量名（取值须为有限数字；`0` 或负数表示关闭空闲超时）。 */
+export const REQUEST_TIMEOUT_ENV_KEY = 'OMNI_MODEL_REQUEST_TIMEOUT_MS';
 
 /** OpenAI 兼容模型适配器配置。 */
 export interface OpenAiCompatibleConfig {
@@ -22,6 +29,12 @@ export interface OpenAiCompatibleConfig {
   readonly apiKey: string;
   /** 模型标识（同时作为端口契约的适配器名）。 */
   readonly model: string;
+  /**
+   * 单次请求的**空闲**超时（毫秒，可选）：连续静默超过该值即中止并抛可重试错误。
+   * 优先级 本字段 > 环境变量 `OMNI_MODEL_REQUEST_TIMEOUT_MS` > `DEFAULT_REQUEST_TIMEOUT_MS`；
+   * `<=0` 关闭空闲超时（仅保留调用方 `ModelRequest.signal` 的取消能力）。
+   */
+  readonly requestTimeoutMs?: number | undefined;
 }
 
 /** 解析 Retry-After（秒数或 HTTP-date），越界或非法返回 undefined（#M6）。
@@ -33,14 +46,17 @@ export interface OpenAiCompatibleConfig {
 export class OpenAiCompatibleModel implements ModelPort {
   /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
+  /** 生效的请求空闲超时（毫秒，`<=0` 表示关闭）：构造期解析，见 `resolveRequestTimeoutMs`。 */
+  public readonly requestTimeoutMs: number;
   /** 提示缓存命中量读取器（三家字段名不同，读取逻辑集中在 reader，本类只调用）。 */
   private readonly promptCache = new PromptCacheUsageReader();
 
   public constructor(
-    /** 适配器配置：兼容端点地址、API 密钥与模型标识。 */
+    /** 适配器配置：兼容端点地址、API 密钥、模型标识与可选请求空闲超时。 */
     private readonly config: OpenAiCompatibleConfig,
   ) {
     this.name = config.model;
+    this.requestTimeoutMs = OpenAiCompatibleModel.resolveRequestTimeoutMs(config.requestTimeoutMs);
   }
 
   /** 生成响应。
@@ -48,12 +64,21 @@ export class OpenAiCompatibleModel implements ModelPort {
    * @returns 解析后的统一输出（文本、推理、工具调用与用量）；非 2xx 时抛出结构化 ModelCallError。
    */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
-    const response = await fetch(this.endpoint(), this.buildRequest(request));
-    if (!response.ok) {
-      throw await this.httpError(response, '模型请求失败', request);
+    const guard = this.guardOf(request);
+    try {
+      const response = await fetch(this.endpoint(), this.buildRequest(request, guard));
+      // 响应头到达即算「有进展」：为紧随其后的响应体读取续期（非流式响应体通常紧接响应头）。
+      guard?.touch();
+      if (!response.ok) {
+        throw await this.httpError(response, '模型请求失败', request);
+      }
+      const body = (await response.json()) as ChatCompletionResponse;
+      return this.parseOutput(body);
+    } catch (err) {
+      throw this.stallAwareError(err, guard, '模型请求');
+    } finally {
+      guard?.dispose();
     }
-    const body = (await response.json()) as ChatCompletionResponse;
-    return this.parseOutput(body);
   }
 
   /** 流式生成（SSE）。
@@ -64,11 +89,33 @@ export class OpenAiCompatibleModel implements ModelPort {
    *          非 2xx 时抛出结构化 ModelCallError。
    */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
-    const init = this.buildRequest(request);
+    const guard = this.guardOf(request);
+    try {
+      return await this.streamRequest(request, callbacks, guard);
+    } catch (err) {
+      throw this.stallAwareError(err, guard, '模型流式请求');
+    } finally {
+      guard?.dispose();
+    }
+  }
+
+  /** 流式生成主体（守卫生命周期由 `stream` 掌管：武装与转发在构造期，释放与超时归类在收尾）。
+   * @param request 模型请求（消息、工具规格、推理强度与可选取消信号）。
+   * @param callbacks 流式回调集合：文本增量、工具调用参数增量实时推送。
+   * @param guard 本次请求的空闲超时守卫（`undefined` = 既无空闲超时也无调用方信号）。
+   * @returns 流结束后的完整输出（文本/推理/工具调用/用量）；响应体缺失时降级为非流式 generate。
+   */
+  private async streamRequest(
+    request: ModelRequest,
+    callbacks: StreamCallbacks,
+    guard: RequestStallGuard | undefined,
+  ): Promise<ModelOutput> {
+    const init = this.buildRequest(request, guard);
     const body = this.bodyOf(request);
     // stream_options.include_usage 让兼容端点（DeepSeek/OpenAI）在末块回传 usage，供成本护栏记账。
     init.body = JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } });
     const response = await fetch(this.endpoint(), init);
+    guard?.touch();
     if (!response.ok) {
       throw await this.httpError(response, '模型流式请求失败', request);
     }
@@ -86,9 +133,11 @@ export class OpenAiCompatibleModel implements ModelPort {
       toolBlocks: [],
       usage: undefined,
     };
-    await sseParser.read(streamBody, (event) =>
-      this.handleStreamEvent(event.data, callbacks, state),
-    );
+    await sseParser.read(streamBody, (event) => {
+      // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
+      guard?.touch();
+      this.handleStreamEvent(event.data, callbacks, state);
+    });
     const text = state.chunks.length > 0 ? state.chunks.join('') : undefined;
     const reasoning = state.reasoningChunks.length > 0 ? state.reasoningChunks.join('') : undefined;
     const defined = state.toolBlocks.filter(
@@ -160,17 +209,76 @@ export class OpenAiCompatibleModel implements ModelPort {
   }
 
   /** 构造请求体。
-   * @param request 模型请求，决定 body 内容与是否透传取消信号。
+   * @param request 模型请求，决定 body 内容。
+   * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal，
+   *              缺省则不带 signal（与改造前该分支逐字一致）。
    * @returns 可直接交给 fetch 的 RequestInit（POST、鉴权头与 JSON 序列化后的请求体）。
    */
-  private buildRequest(request: ModelRequest): RequestInit {
+  private buildRequest(request: ModelRequest, guard?: RequestStallGuard): RequestInit {
     return {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(this.bodyOf(request)),
-      // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
-      ...(request.signal !== undefined ? { signal: request.signal } : {}),
+      // V2：协作式取消——守卫信号已合并「空闲超时」与调用方 request.signal，取消即中断在飞请求。
+      ...(guard !== undefined ? { signal: guard.signal } : {}),
     };
+  }
+
+  /**
+   * 为单次请求构造空闲超时守卫。既无空闲超时（`requestTimeoutMs <= 0`）又无调用方信号时返回
+   * `undefined` —— 此时完全不传 signal，与改造前逐字一致（零行为变更）。
+   * @param request 模型请求（其 `signal` 被转发进守卫，取消语义与改造前同）。
+   * @returns 该请求专属的守卫；无需守卫时为 `undefined`。
+   */
+  private guardOf(request: ModelRequest): RequestStallGuard | undefined {
+    if (this.requestTimeoutMs <= 0 && request.signal === undefined) {
+      return undefined;
+    }
+    return new RequestStallGuard(this.requestTimeoutMs, request.signal);
+  }
+
+  /**
+   * 把「空闲超时」收敛为**可重试**的结构化错误；其余错误原样返回。
+   * 关键区分：`guard.timedOut` 为假即中止来自**调用方取消**（上层意图），必须原样上抛 ——
+   * 改造前 `AbortError` 亦不可重试（`isRetryable` 不匹配），语义不变。
+   * 已是 `ModelCallError` 的错误（如 HTTP 4xx/5xx）不覆盖：结构化错误信息量更大，不该被超时顶掉。
+   * @param err fetch / 解析阶段抛出的原始错误。
+   * @param guard 本次请求的守卫（可为 `undefined`）。
+   * @param label 错误消息前缀（区分普通生成与流式生成两条路径）。
+   * @returns 可重试的 `ModelCallError`（空闲超时）或原始错误。
+   */
+  private stallAwareError(
+    err: unknown,
+    guard: RequestStallGuard | undefined,
+    label: string,
+  ): unknown {
+    if (guard === undefined || !guard.timedOut || err instanceof ModelCallError) {
+      return err;
+    }
+    return new ModelCallError(`${label}超时：连续 ${this.requestTimeoutMs}ms 无响应`, {
+      retryable: true,
+    });
+  }
+
+  /**
+   * 解析生效的请求空闲超时：显式配置 > 环境变量 > 库级默认。
+   * 环境变量为空串或非有限数字时回落库级默认 —— 不静默变成 `NaN`（否则 `idleMs > 0` 判据会被
+   * NaN 击穿，等于静默关掉整个守卫）。
+   * @param explicit 调用方在 `OpenAiCompatibleConfig.requestTimeoutMs` 显式给出的值（可选）。
+   * @returns 生效的空闲超时毫秒数；`<=0` 语义为关闭空闲超时。
+   */
+  private static resolveRequestTimeoutMs(explicit: number | undefined): number {
+    if (explicit !== undefined) {
+      return explicit;
+    }
+    const raw = process.env[REQUEST_TIMEOUT_ENV_KEY];
+    if (raw !== undefined && raw.trim() !== '') {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return DEFAULT_REQUEST_TIMEOUT_MS;
   }
 
   /** 请求头。
