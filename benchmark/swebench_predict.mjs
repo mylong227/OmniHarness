@@ -68,6 +68,19 @@ const opts = {
   // 默认 0（贪婪解码）：基准要求同输入同输出，否则同一实例多次跑出不同补丁会把 A/B 差异淹没在采样噪声里。
   // 需要观察采样多样性时显式 `--temperature 1`。
   temperature: arg('--temperature') !== undefined ? Number(arg('--temperature')) : 0,
+  // best-of-N 验证器选择：对同一实例采样 N 个候选，用「gold FAIL_TO_PASS 通过比例」作可验证奖励选最优。
+  // 默认 1 = 单候选（与旧行为一致，零行为变更）。N>1 时自动把采样温度提到 0.8（除非已显式 >0），
+  // 否则 temperature=0 会让 N 个候选完全相同、验证失去意义。需本机具备 git+uv+网络。
+  bestOfN: arg('--best-of-n') !== undefined ? Number(arg('--best-of-n')) : 1,
+  // 模型名覆盖（默认读 DEEPSEEK_MODEL 或 deepseek-chat；可显式指定 deepseek-reasoner 走推理模型）。
+  model: arg('--model') ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-chat',
+  // self-test 反馈环：补丁可 apply 后**就地**跑 gold FAIL_TO_PASS，未全绿则把失败测试名回喂修复环，
+  // 形成「测试驱动自纠」紧反馈（对齐 GitHub SOTA 的 agent 内循环）。需 git+uv+网络。
+  selfTest: process.argv.includes('--self-test'),
+  // SBFL 覆盖率定位：prepareRuntime 后跑 gold FAIL_TO_PASS 的语句覆盖谱，用 Ochiai 可疑度把
+  // 被测试真正执行到的源文件**前置**进检索结果，专攻召回缺口（对抗口径剩余 ~24.2pp）。best-effort。
+  sbfl: process.argv.includes('--sbfl'),
+  sbflLimit: arg('--sbfl-limit') !== undefined ? Number(arg('--sbfl-limit')) : 8,
   cacheRoot: arg('--cache-root') ?? join(ROOT, 'eval-data', 'repos'),
   worktreeRoot: arg('--worktree-root') ?? join(ROOT, 'eval-data', 'prepare'),
   repoBaseUrl: arg('--repo-base') ?? 'https://gitee.com/',
@@ -108,6 +121,10 @@ const { query } = await import('../dist/src/context/contextEngine.js');
 const { RepoMapPayload } = await import('../dist/src/context/repoMapPayload.js');
 const { OpenAiCompatibleModel } =
   await import('../dist/src/adapters/model/openaiCompatibleModel.js');
+const { RlvrLoop, InMemoryReplayBuffer } = await import('../dist/src/evolution/rlvrLoop.js');
+const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
+const { CoverageLocator } = await import('../dist/src/eval/coverageLocator.js');
+const { PytestVerdict } = await import('../dist/src/eval/pytestVerdict.js');
 
 /** 生产默认 fileK（与 `repoMapContextEngine.ts` 的 DEFAULT_FILE_K 对齐）。
  * @returns {number} 默认文件预算。 */
@@ -576,6 +593,237 @@ function checkPatch(wt, diff) {
   }
 }
 
+/**
+ * 组装「补丁不可 apply」的修复上下文：报错原文 + 补丁目标文件的**真实正文窗口**（按 hunk 行号精确开窗）。
+ * @param {Array} messages 初始消息（作为修复上下文前缀）。
+ * @param {string} raw 模型上一轮原始回复。
+ * @param {string} diff 上一轮抽出的补丁。
+ * @param {string} reason `git apply` 的报错摘要。
+ * @param {string} wt 工作区根。
+ * @param {object} o 选项（windowRadius/contentChars）。
+ * @returns {Array} 新一轮对话消息。
+ */
+function buildApplyFixConvo(messages, raw, diff, reason, wt, o) {
+  const hunkMap = hunkLinesByFile(diff);
+  const realFiles = [...hunkMap.keys()]
+    .map((rel) => {
+      const body = readWindowBlock(
+        wt,
+        rel,
+        hunkMap.get(rel) ?? [],
+        Math.max(o.windowRadius, 100),
+        o.contentChars,
+      );
+      return body === null
+        ? `### ${rel}\n(该路径在仓库中不存在或不可读 —— 请先确认路径是否正确)`
+        : `### ${rel} (REAL current content)\n\`\`\`python\n${body}\n\`\`\``;
+    })
+    .join('\n\n');
+  return [
+    ...messages,
+    { role: 'assistant', content: raw },
+    {
+      role: 'user',
+      content: [
+        'Your patch does NOT apply cleanly. `git apply` reported:',
+        '```',
+        reason,
+        '```',
+        '',
+        'Below is the REAL current content of the file(s) your patch targets. Align your hunks',
+        '(line numbers AND context lines) exactly with this content, then output a corrected diff.',
+        realFiles,
+        '',
+        'Output ONLY the corrected unified diff.',
+      ].join('\n'),
+    },
+  ];
+}
+
+/**
+ * 组装「self-test 未全绿」的修复上下文：列出未通过的 FAIL_TO_PASS 测试名，要求模型修正补丁使其转绿。
+ * @param {Array} messages 初始消息（作为修复上下文前缀）。
+ * @param {string} raw 模型上一轮原始回复。
+ * @param {string} diff 上一轮补丁。
+ * @param {readonly string[]} failures 未通过的 FAIL_TO_PASS 测试 id（叶子名/完整 nodeid）。
+ * @returns {Array} 新一轮对话消息。
+ */
+function buildSelfTestConvo(messages, raw, diff, failures) {
+  return [
+    ...messages,
+    { role: 'assistant', content: raw },
+    {
+      role: 'user',
+      content: [
+        'Your patch applies, but after running the official FAIL_TO_PASS tests, the following do NOT pass yet:',
+        '```',
+        failures.slice(0, 20).join('\n'),
+        '```',
+        '',
+        'The current model patch is:',
+        '```diff',
+        diff,
+        '```',
+        '',
+        'Fix the patch so these tests pass (keep changes minimal and scoped to the issue). Output ONLY the corrected unified diff.',
+      ].join('\n'),
+    },
+  ];
+}
+
+/**
+ * 求解单实例：按开关选择「单候选修复环」或「best-of-N + 可验证奖励」，可选 self-test 反馈。
+ *
+ * - best-of-N（o.bestOfN>1 且环境就绪）：用 {@link RlvrLoop} 采样 N 个候选，奖励 = 本地跑 gold
+ *   FAIL_TO_PASS 的通过比例（来自 {@link NativeExecutor.scorePatch}），选奖励最高者；全红回落首候选。
+ * - 单候选修复环：生成后若不可 apply 则回喂真实文件窗口；若 `--self-test` 且环境就绪，则就地跑
+ *   FAIL_TO_PASS，未全绿回喂失败项，形成测试驱动自纠。
+ * @param {object} o 选项快照（temperature/repairRounds/bestOfN/selfTest/windowRadius/contentChars/dumpDir）。
+ * @param {object} task 归一化任务。
+ * @param {string} wt 已检出工作区。
+ * @param {object} model 模型（dryRun 时为 null）。
+ * @param {object|null} executor NativeExecutor（验证用；null = 不验证）。
+ * @param {boolean} venvReady 验证环境是否就绪。
+ * @param {Array} messages 已组装的模型消息。
+ * @returns {Promise<{diff:string, rounds:number, promptTokens:number, completionTokens:number, bestOfN:(object|null), lastReason:string}>} 求解结果。
+ */
+async function solveInstance(o, task, wt, model, executor, venvReady, messages) {
+  let promptTokens = 0;
+  let completionTokens = 0;
+
+  // ---- best-of-N + 可验证奖励选择（GitHub SOTA 同款推理时扩展）----
+  if (o.bestOfN > 1 && venvReady && model !== null && executor !== null) {
+    const samplerTemp = o.temperature > 0 ? o.temperature : 0.8;
+    let firstDiff = '';
+    const sampler = async (/* prompt */ _p, i) => {
+      const out = await model.generate({ messages, tools: [], temperature: samplerTemp });
+      const c = extractDiff(out.text ?? '');
+      if (i === 0) firstDiff = c;
+      return { id: `c${i}`, code: c };
+    };
+    const reward = async (cand) => (await executor.scorePatch(task, cand.code, wt)).reward;
+    const rlvr = new RlvrLoop({
+      sampler,
+      reward,
+      buffer: new InMemoryReplayBuffer(),
+      samplesPerPrompt: o.bestOfN,
+    });
+    const res = await rlvr.run(JSON.stringify(messages));
+    const diff = res.best !== undefined ? res.best.candidate.code : firstDiff;
+    console.log(
+      `  [best-of-N] 候选=${o.bestOfN} 绿样本=${res.kept} 最佳奖励=${res.best?.reward ?? 0}`,
+    );
+    return {
+      diff,
+      rounds: o.bestOfN,
+      promptTokens,
+      completionTokens,
+      bestOfN: { candidates: o.bestOfN, kept: res.kept, bestReward: res.best?.reward ?? 0 },
+      lastReason: '',
+    };
+  }
+
+  // ---- 单候选修复环（含 self-test 可选反馈）----
+  let diff = '';
+  let rounds = 0;
+  let convo = messages;
+  let lastReason = '';
+  for (let attempt = 0; attempt <= o.repairRounds; attempt += 1) {
+    if (o.dumpDir !== undefined) {
+      mkdirSync(o.dumpDir, { recursive: true });
+      writeFileSync(
+        join(o.dumpDir, `${task.id}.round${attempt + 1}.txt`),
+        convo
+          .map((m) => `===== ${m.role} (${m.content.length} chars) =====\n${m.content}`)
+          .join('\n\n'),
+        'utf8',
+      );
+    }
+    const out = await model.generate({ messages: convo, tools: [], temperature: o.temperature });
+    const raw = out.text ?? '';
+    const usage = out.usage;
+    if (usage !== undefined) {
+      promptTokens += usage.promptTokens;
+      completionTokens += usage.completionTokens;
+    }
+    const candidate = extractDiff(raw);
+    rounds = attempt + 1;
+    diff = candidate;
+    console.log(
+      `  轮 ${rounds}：回复 ${raw.length} 字符 → diff ${candidate.length} 字符；` +
+        `tokens in/out=${usage?.promptTokens ?? '?'}/${usage?.completionTokens ?? '?'}`,
+    );
+    const check = checkPatch(wt, diff);
+    if (check.ok) {
+      // self-test：补丁可应用 ⇒ 就地跑 gold FAIL_TO_PASS；未全绿则回喂失败项进下一轮。
+      if (o.selfTest && venvReady && executor !== null) {
+        const sc = await executor.scorePatch(task, diff, wt);
+        if (sc.reward >= 1) {
+          console.log('  ✅ self-test：FAIL_TO_PASS 全绿');
+          break;
+        }
+        lastReason = `self-test：${sc.failures.length} 个 FAIL_TO_PASS 未通过`;
+        console.log(`  ⚠️ ${lastReason}：${sc.failures.slice(0, 8).join(', ')}`);
+        if (attempt === o.repairRounds) break;
+        convo = buildSelfTestConvo(messages, raw, diff, sc.failures);
+        continue;
+      }
+      console.log('  ✅ 补丁可应用');
+      break;
+    }
+    lastReason = check.reason ?? '未知原因';
+    console.log(`  ⚠️ 补丁不可应用：${lastReason.split('\n')[0]}`);
+    if (attempt === o.repairRounds) break;
+    convo = buildApplyFixConvo(messages, raw, diff, lastReason, wt, o);
+  }
+  return { diff, rounds, promptTokens, completionTokens, bestOfN: null, lastReason };
+}
+
+/**
+ * 跑 SBFL 覆盖率定位：在已准备环境里对官方 FAIL_TO_PASS 测试执行 `pytest --cov`，解析
+ * `coverage.json` 得「文件 → 覆盖语句数」，返回降序的可疑文件列表（供 `prependBoosted` 前置进检索）。
+ *
+ * best-effort：缺 pytest-cov / 测试无法跑 ⇒ 返回空数组（不阻断主流程，SBFL 仅作为召回兜底）。
+ * @param {string} wt 已 prepareRuntime 的工作区。
+ * @param {string} venvPython venv 的 python 可执行路径。
+ * @param {object} task 归一化任务（取 testPatch 决定跑哪些测试文件）。
+ * @returns {Promise<Array<{file:string, score:number}>>} 降序可疑文件列表。
+ */
+async function runSbfl(wt, venvPython, task) {
+  try {
+    execFileSync(venvPython, ['-m', 'pip', 'install', 'pytest-cov'], {
+      cwd: wt,
+      stdio: 'ignore',
+    });
+  } catch {
+    // best-effort：装不上也继续（后续 pytest --cov 会失败并回退）
+  }
+  const reportPath = join(wt, '.coverage.json');
+  const testFiles = PytestVerdict.testFilesOf(task.testPatch);
+  const args = [
+    '-m',
+    'pytest',
+    ...testFiles,
+    '-rA',
+    '--tb=no',
+    '-p',
+    'no:cacheprovider',
+    '--cov=.',
+    `--cov-report=json:${reportPath}`,
+  ];
+  try {
+    execFileSync(venvPython, args, { cwd: wt, stdio: 'ignore' });
+  } catch {
+    // 测试失败（FAIL_TO_PASS 本就预期失败）也照常产出 coverage.json，故这里仅兜底
+  }
+  try {
+    const json = readFileSync(reportPath, 'utf8');
+    return CoverageLocator.rankFilesFromCoverageJson(json);
+  } catch {
+    return [];
+  }
+}
+
 // ---------- 选实例 ----------
 const tasks = SwebenchVerified.loadVerified(opts.verified);
 /** 显式实例清单（文件形式，便于复现同一批）。
@@ -604,7 +852,8 @@ if (selected.length === 0) {
 
 console.log(
   `[predict] 形态=${opts.payloadShape} fileK=${FILE_K} 内容文件=${opts.contentFiles} ` +
-    `温度=${opts.temperature} 实例=${selected.length} 输出=${opts.out}`,
+    `温度=${opts.temperature} 模型=${modelName} best-of-N=${opts.bestOfN} self-test=${opts.selfTest} ` +
+    `实例=${selected.length} 输出=${opts.out}`,
 );
 
 // ---------- 模型 ----------
@@ -613,7 +862,7 @@ if (!opts.dryRun && apiKey === undefined) {
   console.error('❌ 缺 DEEPSEEK_API_KEY（.env 或环境变量）');
   process.exit(1);
 }
-const modelName = process.env.DEEPSEEK_MODEL ?? 'deepseek-chat';
+const modelName = opts.model;
 const model = opts.dryRun
   ? null
   : new OpenAiCompatibleModel({
@@ -621,6 +870,23 @@ const model = opts.dryRun
       apiKey,
       model: modelName,
     });
+
+// ---------- 验证执行器（best-of-N / self-test 用）----------
+// 仅在需要验证时创建：复用同一缓存根 ⇒ 与打分阶段零重复克隆。环境准备（建 venv + 装仓库）在
+// 每个实例的 solveInstance 内惰性进行，准备失败即降级为「单候选、不验证」，不阻断整批。
+const verificationEnabled = !opts.dryRun && (opts.bestOfN > 1 || opts.selfTest);
+const executor = verificationEnabled
+  ? new NativeExecutor({
+      repoCacheRoot: opts.cacheRoot,
+      repoBaseUrl: opts.repoBaseUrl,
+      ...(Object.keys(mirrors).length > 0 ? { repoMirrors: mirrors } : {}),
+    })
+  : null;
+if (verificationEnabled) {
+  console.log(
+    `[predict] 验证模式：best-of-N=${opts.bestOfN} self-test=${opts.selfTest} executor=${executor.describe()}`,
+  );
+}
 
 // ---------- 主循环 ----------
 const cache = new CorpusIndexCache({ maxEntries: 4 });
@@ -653,7 +919,20 @@ for (const task of selected) {
       process.exit(1);
     }
 
-    const contents = buildContentBlocks(wt, files, symbols, opts);
+    // SBFL 覆盖率定位：把 gold FAIL_TO_PASS 真正执行到的源文件前置进检索结果，攻击召回缺口。
+    // 仅改变 files 顺序（mapText 不变），故上面的零漂移自证依旧成立。
+    let boostedFiles = files;
+    if (opts.sbfl && venvReady) {
+      const ranked = await runSbfl(wt, venvPython, task);
+      if (ranked.length > 0) {
+        boostedFiles = CoverageLocator.prependBoosted(ranked, files, opts.sbflLimit);
+        console.log(
+          `  [sbfl] 前置 ${boostedFiles.length - files.length} 个可疑文件（命中 ${files.length} → ${boostedFiles.length}）`,
+        );
+      }
+    }
+
+    const contents = buildContentBlocks(wt, boostedFiles, symbols, opts);
 
     const messages = buildMessages(task, mapText, contents);
     const promptChars = messages.reduce((n, m) => n + m.content.length, 0);
@@ -680,93 +959,32 @@ for (const task of selected) {
       continue;
     }
 
-    // ---- 生成 + 自修复循环 ----
-    // 单轮生成对「hunk 上下文与真实源码不符」零容忍（首跑实测：模型凭空补了一层
-    // `if name is not None:` 包装，git apply 立即失败）。真实 agent 都会读文件后重试，
-    // 故此处给等量的修复机会：把 git apply 的报错 + **目标文件真实正文**回喂，要求改正。
-    // 修复轮对两档形态**完全等价**，不引入形态间的额外优势。
-    let diff = '';
-    let promptTokens = 0;
-    let completionTokens = 0;
-    let rounds = 0;
-    let convo = messages;
-    let lastReason = '';
-    for (let attempt = 0; attempt <= opts.repairRounds; attempt += 1) {
-      // 审计留痕：把每一轮真实送出的消息落盘（排查「模型为何看不到目标区」时唯一可信证据）。
-      if (opts.dumpDir !== undefined) {
-        mkdirSync(opts.dumpDir, { recursive: true });
-        writeFileSync(
-          join(opts.dumpDir, `${task.id}.round${attempt + 1}.txt`),
-          convo
-            .map((m) => `===== ${m.role} (${m.content.length} chars) =====\n${m.content}`)
-            .join('\n\n'),
-          'utf8',
+    // ---- 求解：单候选修复环 / best-of-N + 验证器 / self-test 反馈 ----
+    // 验证环境（venv）按需准备一次/实例：best-of-N / self-test / SBFL 都复用它跑 gold FAIL_TO_PASS。
+    let venvReady = false;
+    let venvPython = '';
+    if (executor !== null) {
+      try {
+        venvPython = await executor.prepareRuntime(wt, task);
+        venvReady = true;
+        console.log(`  [verify] venv 就绪 (${venvPython})`);
+      } catch (e) {
+        console.warn(
+          `  ⚠️ 验证环境准备失败，跳过 best-of-N/self-test/SBFL：${e instanceof Error ? e.message : String(e)}`,
         );
       }
-      const out = await model.generate({
-        messages: convo,
-        tools: [],
-        temperature: opts.temperature,
-      });
-      const raw = out.text ?? '';
-      const usage = out.usage;
-      if (usage !== undefined) {
-        promptTokens += usage.promptTokens;
-        completionTokens += usage.completionTokens;
-        totalPromptTokens += usage.promptTokens;
-        totalCompletionTokens += usage.completionTokens;
-      }
-      const candidate = extractDiff(raw);
-      rounds = attempt + 1;
-      console.log(
-        `  轮 ${rounds}：回复 ${raw.length} 字符 → diff ${candidate.length} 字符；` +
-          `tokens in/out=${usage?.promptTokens ?? '?'}/${usage?.completionTokens ?? '?'}`,
-      );
-      diff = candidate;
-      const check = checkPatch(wt, diff);
-      if (check.ok) {
-        console.log('  ✅ 补丁可应用');
-        break;
-      }
-      lastReason = check.reason ?? '未知原因';
-      console.log(`  ⚠️ 补丁不可应用：${lastReason.split('\n')[0]}`);
-      if (attempt === opts.repairRounds) break;
-      // 组装修复上下文：报错原文 + 补丁目标文件的**真实正文窗口**（按 hunk 行号精确开窗）。
-      const hunkMap = hunkLinesByFile(diff);
-      const realFiles = [...hunkMap.keys()]
-        .map((rel) => {
-          const body = readWindowBlock(
-            wt,
-            rel,
-            hunkMap.get(rel) ?? [],
-            Math.max(opts.windowRadius, 100),
-            opts.contentChars,
-          );
-          return body === null
-            ? `### ${rel}\n(该路径在仓库中不存在或不可读 —— 请先确认路径是否正确)`
-            : `### ${rel} (REAL current content)\n\`\`\`python\n${body}\n\`\`\``;
-        })
-        .join('\n\n');
-      convo = [
-        ...messages,
-        { role: 'assistant', content: raw },
-        {
-          role: 'user',
-          content: [
-            'Your patch does NOT apply cleanly. `git apply` reported:',
-            '```',
-            lastReason,
-            '```',
-            '',
-            'Below is the REAL current content of the file(s) your patch targets. Align your hunks',
-            '(line numbers AND context lines) exactly with this content, then output a corrected diff.',
-            realFiles,
-            '',
-            'Output ONLY the corrected unified diff.',
-          ].join('\n'),
-        },
-      ];
     }
+
+    const solve = await solveInstance(opts, task, wt, model, executor, venvReady, messages);
+    const diff = solve.diff;
+    const promptTokens = solve.promptTokens;
+    const completionTokens = solve.completionTokens;
+    const rounds = solve.rounds;
+    const lastReason = solve.lastReason;
+    const bestOfN = solve.bestOfN;
+    totalPromptTokens += promptTokens;
+    totalCompletionTokens += completionTokens;
+
     if (diff.length === 0) {
       console.log('  ⚠️ 未抽出 diff（空补丁 ⇒ 该题按未修复计）');
     }
@@ -788,6 +1006,7 @@ for (const task of selected) {
       promptTokens,
       completionTokens,
       rounds,
+      bestOfN: bestOfN ?? undefined,
       applyCheck: applied,
       applyError: applied ? undefined : lastReason.slice(0, 300),
       durationMs: Date.now() - t0,

@@ -7,6 +7,8 @@
  *
  * @maturity L1 — 判据：覆盖 Verified 高频仓库的精选子集；未命中回落安全默认 3.11。
  *   映射非官方全量，可能随仓库演进偏离；扩展只需补 {@link PYTHON_VERSIONS}。
+ *   降级链 {@link DEGRADATION} 处理「官方要求 3.6/3.7 但 `uv` 仅可供给 3.8–3.15（3.6/3.7 不可得）」
+ *   的保真度缺口：拒绝「因版本不可 provision 而整题 infra 失败」，回落到最近可用版本。
  * @maturityEvidence tests/unit/swebenchVerified.test.ts
  */
 export class PythonVersionResolver {
@@ -135,12 +137,36 @@ export class PythonVersionResolver {
   private static readonly FALLBACK = '3.11';
 
   /**
+   * 版本降级链：`uv` 仅可供给 **3.8–3.15** 的 Python（3.6/3.7 在官方分发中已不可得），
+   * 而官方 harness 的 `MAP_REPO_VERSION_TO_SPECS` 把部分老仓库指向 3.6/3.7。若直接把 3.7 交给
+   * `uv python find` / `uv venv --python 3.7`，会落到「版本不存在」⇒ 整题 infra 失败、连补丁都没跑。
+   * 降级到「最近可用且尽量贴近」的版本（3.6/3.7 → 3.8）是严格优于「整题失败」的 best-effort：
+   * 少数代码可能依赖 3.7 专属行为，但「跑在一边偏新的解释器」远好于「完全不跑」。
+   * 键为映射产出的版本、值为回落版本；未列出的版本原样返回。
+   */
+  private static readonly DEGRADATION: Readonly<Record<string, string>> = {
+    '3.6': '3.8',
+    '3.7': '3.8',
+  };
+
+  /**
    * 解析某实例所需 Python 版本。
    * @param repo 仓库 slug（如 django/django）。
    * @param version 实例版本号（如 4.2）；空串按回落处理。
-   * @returns 形如 "3.8" 的 Python 版本字符串。
+   * @returns 形如 "3.8" 的 Python 版本字符串（已应用 {@link DEGRADATION} 降级）。
    */
   public static resolve(repo: string, version: string): string {
+    const mapped = PythonVersionResolver.mapRepoVersion(repo, version);
+    return PythonVersionResolver.degrade(mapped);
+  }
+
+  /**
+   * 把「仓库 + 版本号」映射到官方口径 Python 版本（不含降级链）。
+   * @param repo 仓库 slug。
+   * @param version 实例版本号；空串按回落处理。
+   * @returns 映射版本或 {@link FALLBACK}。
+   */
+  private static mapRepoVersion(repo: string, version: string): string {
     const byRepo = PythonVersionResolver.PYTHON_VERSIONS[repo];
     if (byRepo !== undefined && version.length > 0) {
       const exact = byRepo[version];
@@ -152,6 +178,16 @@ export class PythonVersionResolver {
       }
     }
     return PythonVersionResolver.FALLBACK;
+  }
+
+  /**
+   * 应用 {@link DEGRADATION} 降级链：把 `uv` 不可 provision 的版本（3.6/3.7）回落到最近可用版本。
+   * @param version 映射产出的版本（如 "3.7"）。
+   * @returns 降级后版本（如 "3.8"）；无需降级则原样返回。
+   */
+  public static degrade(version: string): string {
+    const down = PythonVersionResolver.DEGRADATION[version];
+    return down ?? version;
   }
 
   /**

@@ -212,6 +212,22 @@ test('PythonVersionResolver.resolve：精确命中/前缀命中/回落', () => {
   assert.strictEqual(PythonVersionResolver.resolve('django/django', ''), '3.11'); // 空版本回落
 });
 
+test('PythonVersionResolver.degrade：uv 不可 provision 版本回落到最近可用', () => {
+  // 3.6/3.7 在 `uv` 分发中已不可得 ⇒ 降级到最近可用的 3.8，避免整题 infra 失败。
+  assert.strictEqual(PythonVersionResolver.degrade('3.6'), '3.8');
+  assert.strictEqual(PythonVersionResolver.degrade('3.7'), '3.8');
+  // 3.8+ 原样返回（uv 可供给）。
+  assert.strictEqual(PythonVersionResolver.degrade('3.8'), '3.8');
+  assert.strictEqual(PythonVersionResolver.degrade('3.11'), '3.11');
+});
+
+test('PythonVersionResolver.resolve：老仓库 3.6/3.7 经降级链落到 3.8', () => {
+  // requests 2.26/2.27、pytest 4.6/5.4 等官方口径要求 3.7，但 uv 不可得 ⇒ 经降级得到 3.8。
+  assert.strictEqual(PythonVersionResolver.resolve('psf/requests', '2.26'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('pytest-dev/pytest', '5.4'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('django/django', '2.1'), '3.8'); // 2.1→3.7→3.8
+});
+
 test('PytestVerdict.parseResults：PASSED→true，FAILED/ERROR/SKIPPED/缺失→false', () => {
   const output = [
     'tests/test_x.py::test_a PASSED',
