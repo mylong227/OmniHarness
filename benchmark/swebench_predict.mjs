@@ -672,6 +672,61 @@ function buildSelfTestConvo(messages, raw, diff, failures) {
 }
 
 /**
+ * 跑一轮「生成 + 应用修复」循环，返回首个可 apply 的补丁（或其最后尝试）。
+ *
+ * 与单候选路径完全等价：模型产出 diff，若 `git apply` 失败则把报错 + 目标文件真实正文窗口回喂，
+ * 要求对齐（最多 o.repairRounds 次重试）。该循环是 best-of-N 每个候选的「质量基线」——
+ * 否则单发会靠修复环拿到 7/16，而 best-of-N 若只单次生成会因大量不可 apply 补丁奖励全 0，反而更差。
+ * @param {Array} messages 初始模型消息。
+ * @param {string} wt 已检出工作区。
+ * @param {object} model 模型。
+ * @param {object} o 选项（repairRounds/windowRadius/contentChars/dumpDir）。
+ * @param {number} temp 本次采样温度。
+ * @param {string} taskId 实例 id（仅用于 dump 命名）。
+ * @returns {Promise<{diff:string, raw:string, rounds:number, promptTokens:number, completionTokens:number, lastReason:string}>}
+ */
+async function generateCandidate(messages, wt, model, o, temp, taskId) {
+  let diff = '';
+  let raw = '';
+  let rounds = 0;
+  let convo = messages;
+  let lastReason = '';
+  let promptTokens = 0;
+  let completionTokens = 0;
+  for (let attempt = 0; attempt <= o.repairRounds; attempt += 1) {
+    if (o.dumpDir !== undefined) {
+      mkdirSync(o.dumpDir, { recursive: true });
+      writeFileSync(
+        join(o.dumpDir, `${taskId}.round${attempt + 1}.txt`),
+        convo
+          .map((m) => `===== ${m.role} (${m.content.length} chars) =====\n${m.content}`)
+          .join('\n\n'),
+        'utf8',
+      );
+    }
+    const out = await model.generate({ messages: convo, tools: [], temperature: temp });
+    raw = out.text ?? '';
+    const usage = out.usage;
+    if (usage !== undefined) {
+      promptTokens += usage.promptTokens;
+      completionTokens += usage.completionTokens;
+    }
+    const candidate = extractDiff(raw);
+    rounds = attempt + 1;
+    diff = candidate;
+    const check = checkPatch(wt, diff);
+    if (check.ok) {
+      lastReason = '';
+      break;
+    }
+    lastReason = check.reason ?? '未知原因';
+    if (attempt === o.repairRounds) break;
+    convo = buildApplyFixConvo(messages, raw, diff, lastReason, wt, o);
+  }
+  return { diff, raw, rounds, promptTokens, completionTokens, lastReason };
+}
+
+/**
  * 求解单实例：按开关选择「单候选修复环」或「best-of-N + 可验证奖励」，可选 self-test 反馈。
  *
  * - best-of-N（o.bestOfN>1 且环境就绪）：用 {@link RlvrLoop} 采样 N 个候选，奖励 = 本地跑 gold
@@ -695,11 +750,12 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
   if (o.bestOfN > 1 && venvReady && model !== null && executor !== null) {
     const samplerTemp = o.temperature > 0 ? o.temperature : 0.8;
     let firstDiff = '';
-    const sampler = async (/* prompt */ _p, i) => {
-      const out = await model.generate({ messages, tools: [], temperature: samplerTemp });
-      const c = extractDiff(out.text ?? '');
-      if (i === 0) firstDiff = c;
-      return { id: `c${i}`, code: c };
+    const sampler = {
+      async sample(/* prompt */ _p, i) {
+        const cand = await generateCandidate(messages, wt, model, o, samplerTemp, task.id);
+        if (i === 0) firstDiff = cand.diff;
+        return { id: `c${i}`, code: cand.diff };
+      },
     };
     const reward = async (cand) => (await executor.scorePatch(task, cand.code, wt)).reward;
     const rlvr = new RlvrLoop({
@@ -724,57 +780,49 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
   }
 
   // ---- 单候选修复环（含 self-test 可选反馈）----
-  let diff = '';
-  let rounds = 0;
-  let convo = messages;
-  let lastReason = '';
-  for (let attempt = 0; attempt <= o.repairRounds; attempt += 1) {
-    if (o.dumpDir !== undefined) {
-      mkdirSync(o.dumpDir, { recursive: true });
-      writeFileSync(
-        join(o.dumpDir, `${task.id}.round${attempt + 1}.txt`),
-        convo
-          .map((m) => `===== ${m.role} (${m.content.length} chars) =====\n${m.content}`)
-          .join('\n\n'),
-        'utf8',
-      );
-    }
-    const out = await model.generate({ messages: convo, tools: [], temperature: o.temperature });
-    const raw = out.text ?? '';
-    const usage = out.usage;
-    if (usage !== undefined) {
-      promptTokens += usage.promptTokens;
-      completionTokens += usage.completionTokens;
-    }
-    const candidate = extractDiff(raw);
-    rounds = attempt + 1;
-    diff = candidate;
-    console.log(
-      `  轮 ${rounds}：回复 ${raw.length} 字符 → diff ${candidate.length} 字符；` +
-        `tokens in/out=${usage?.promptTokens ?? '?'}/${usage?.completionTokens ?? '?'}`,
-    );
-    const check = checkPatch(wt, diff);
-    if (check.ok) {
-      // self-test：补丁可应用 ⇒ 就地跑 gold FAIL_TO_PASS；未全绿则回喂失败项进下一轮。
-      if (o.selfTest && venvReady && executor !== null) {
-        const sc = await executor.scorePatch(task, diff, wt);
-        if (sc.reward >= 1) {
-          console.log('  ✅ self-test：FAIL_TO_PASS 全绿');
-          break;
-        }
+  const cand = await generateCandidate(messages, wt, model, o, o.temperature, task.id);
+  let diff = cand.diff;
+  let rounds = cand.rounds;
+  let lastReason = cand.lastReason;
+  promptTokens += cand.promptTokens;
+  completionTokens += cand.completionTokens;
+  if (diff.length > 0 && checkPatch(wt, diff).ok) {
+    console.log(`  ✅ 补丁可应用（生成 ${cand.raw.length} 字符 → diff ${diff.length} 字符）`);
+    // self-test：补丁可应用 ⇒ 就地跑 gold FAIL_TO_PASS；未全绿则回喂失败项进下一轮。
+    if (o.selfTest && venvReady && executor !== null) {
+      const sc = await executor.scorePatch(task, diff, wt);
+      if (sc.reward >= 1) {
+        console.log('  ✅ self-test：FAIL_TO_PASS 全绿');
+      } else {
         lastReason = `self-test：${sc.failures.length} 个 FAIL_TO_PASS 未通过`;
         console.log(`  ⚠️ ${lastReason}：${sc.failures.slice(0, 8).join(', ')}`);
-        if (attempt === o.repairRounds) break;
-        convo = buildSelfTestConvo(messages, raw, diff, sc.failures);
-        continue;
+        let convo = buildSelfTestConvo(messages, cand.raw, diff, sc.failures);
+        for (let attempt = 0; attempt < o.repairRounds; attempt += 1) {
+          const fix = await generateCandidate(convo, wt, model, o, o.temperature, task.id);
+          diff = fix.diff;
+          promptTokens += fix.promptTokens;
+          completionTokens += fix.completionTokens;
+          rounds += fix.rounds;
+          if (diff.length === 0 || !checkPatch(wt, diff).ok) {
+            lastReason = fix.lastReason;
+            continue;
+          }
+          const sc2 = await executor.scorePatch(task, diff, wt);
+          if (sc2.reward >= 1) {
+            console.log('  ✅ self-test 修复后 FAIL_TO_PASS 全绿');
+            lastReason = '';
+            break;
+          }
+          lastReason = `self-test：${sc2.failures.length} 个 FAIL_TO_PASS 未通过`;
+          console.log(`  ⚠️ ${lastReason}：${sc2.failures.slice(0, 8).join(', ')}`);
+          convo = buildSelfTestConvo(messages, fix.raw, diff, sc2.failures);
+        }
       }
-      console.log('  ✅ 补丁可应用');
-      break;
     }
-    lastReason = check.reason ?? '未知原因';
+  } else if (diff.length === 0) {
+    console.log('  ⚠️ 未抽出 diff（空补丁 ⇒ 该题按未修复计）');
+  } else {
     console.log(`  ⚠️ 补丁不可应用：${lastReason.split('\n')[0]}`);
-    if (attempt === o.repairRounds) break;
-    convo = buildApplyFixConvo(messages, raw, diff, lastReason, wt, o);
   }
   return { diff, rounds, promptTokens, completionTokens, bestOfN: null, lastReason };
 }
