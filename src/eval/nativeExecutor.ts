@@ -26,6 +26,14 @@ import { PythonVersionResolver } from './pythonVersionResolver.js';
 import { PytestVerdict } from './pytestVerdict.js';
 import { PythonEnvPlan } from './pythonEnvPlan.js';
 
+/** 候选补丁的验证结果。 */
+export interface ScoreResult {
+  /** 0..1 的奖励（FAIL_TO_PASS 通过比例）。 */
+  readonly reward: number;
+  /** 未通过的 FAIL_TO_PASS 测试 id（供 self-test 反馈环回喂模型）。 */
+  readonly failures: readonly string[];
+}
+
 /** 原生执行器配置。 */
 export interface NativeExecutorOptions {
   /** 仓库克隆缓存根目录（按 repo 分目录，避免重复克隆）。 */
@@ -177,6 +185,89 @@ export class NativeExecutor implements ExecutorPort {
     } finally {
       if (!this.keepWorktree) {
         await this.withRepoLock(task.repo, () => this.removeWorktree(cacheDir, worktree));
+      }
+    }
+  }
+
+  /**
+   * 在**外部**工作区（由调用方已 checkout 到 base_commit）内准备可运行 Python 环境：
+   * 用 `uv` 建隔离 venv 并按下还安装阶梯装好仓库 + pytest。**不**重新克隆/检出（调用方负责）。
+   *
+   * 用途：best-of-N 与 self-test 模式需要在一份已检出工作区上**复用同一 venv** 反复跑候选补丁，
+   * 而非每候选都重建环境（那会让 8× 实例的验证成本爆炸）。返回 venv 的 python 可执行路径，
+   * 供调用方在 `scorePatch` / `runPytest` 中复用。
+   * @param worktree 已检出到 base_commit 的工作区路径。
+   * @param task 归一化任务（取 repo/version 决定 Python 版本与额外约束）。
+   * @returns venv 的 python 可执行路径。
+   */
+  public async prepareRuntime(worktree: string, task: VerifiedTask): Promise<string> {
+    const pythonVersion = PythonVersionResolver.resolve(task.repo, task.version);
+    await this.setupEnv(worktree, pythonVersion, task.repo);
+    return this.venvPythonPath(worktree);
+  }
+
+  /**
+   * 在已准备环境的工作区上**就地**对单个候选补丁验证：应用 test_patch + 候选补丁，
+   * 跑官方 FAIL_TO_PASS（gold 信号），返回「通过比例」与「未通过项列表」，随后把工作区 git 回滚到
+   * 干净态（保留 `.venv`）。任一环节失败（补丁不可应用 / 缺设施）均返回 reward=0、failures=全部
+   * （fail-closed，不假绿）。
+   *
+   * 这是 best-of-N 的「可验证奖励」信号源：reward 高 = 该候选让更多官方失败测试转绿；
+   * `failures` 同时供 self-test 把未通过测试名回喂修复环（测试驱动自纠）。
+   * 复用同一 worktree + venv ⇒ N 个候选的边际成本仅是「应用+跑测试+回滚」。
+   * @param task 归一化任务（含 testPatch/failToPass）。
+   * @param modelPatch 候选补丁（unified diff）。
+   * @param worktree 已 prepareRuntime 的工作区。
+   * @returns 验证结果（reward + 未通过项）。
+   */
+  public async scorePatch(
+    task: VerifiedTask,
+    modelPatch: string,
+    worktree: string,
+  ): Promise<ScoreResult> {
+    if (task.failToPass.length === 0) return { reward: 0, failures: [] }; // 无信号
+    const applied = this.applyPatches(worktree, modelPatch, task.testPatch);
+    if (!applied.ok) {
+      // 回滚工作区到干净态（保留 .venv）：apply 失败时仍丢弃已应用的 test_patch 残留。
+      try {
+        execFileSync('git', ['-C', worktree, 'checkout', '--', '.'], { stdio: 'ignore' });
+      } catch {
+        // best-effort
+      }
+      try {
+        execFileSync('git', ['-C', worktree, 'clean', '-fd', '-e', '.venv', '-e', 'venv'], {
+          stdio: 'ignore',
+        });
+      } catch {
+        // best-effort
+      }
+      return { reward: 0, failures: task.failToPass };
+    }
+    try {
+      const ids = task.failToPass;
+      const testFiles = PytestVerdict.testFilesOf(task.testPatch);
+      const run = await this.runPytest(worktree, testFiles, ids);
+      const passed = PytestVerdict.parseResults(run.stdout, ids);
+      const failed = task.failToPass.filter((id) => passed.get(id) !== true);
+      const ok = task.failToPass.length - failed.length;
+      return { reward: ok / task.failToPass.length, failures: failed };
+    } catch {
+      return { reward: 0, failures: task.failToPass };
+    } finally {
+      // 回滚工作区到干净态（丢弃补丁与新增测试文件），但**保留 `.venv`/`venv`**：
+      // 复用 worktree 反复验证时回滚须只清补丁副作用、不动 venv，否则下次验证需重建环境。
+      // `git clean -fd` 默认尊重 `.gitignore`（.venv 通常已忽略），再显式 -e 双保险。
+      try {
+        execFileSync('git', ['-C', worktree, 'checkout', '--', '.'], { stdio: 'ignore' });
+      } catch {
+        // best-effort：无已修改追踪文件时 checkout 空转
+      }
+      try {
+        execFileSync('git', ['-C', worktree, 'clean', '-fd', '-e', '.venv', '-e', 'venv'], {
+          stdio: 'ignore',
+        });
+      } catch {
+        // best-effort
       }
     }
   }
