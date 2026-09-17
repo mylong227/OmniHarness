@@ -16,13 +16,14 @@
  * @maturityEvidence tests/unit/swebenchVerified.test.ts
  */
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { SwebenchVerified } from './swebenchVerified.js';
 import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerified.js';
 import { PythonVersionResolver } from './pythonVersionResolver.js';
+import { PytestVerdict } from './pytestVerdict.js';
 import { PythonEnvPlan } from './pythonEnvPlan.js';
 
 /** 原生执行器配置。 */
@@ -162,8 +163,12 @@ export class NativeExecutor implements ExecutorPort {
         return this.fail(task.id, applied.reason ?? '补丁应用失败');
       }
       const ids = [...task.failToPass, ...task.passToPass];
-      const run = await this.runPytest(worktree, ids);
-      const passed = NativeExecutor.parsePytestResults(run.stdout, ids);
+      // 测试文件取自官方 test_patch 的头（见 testFilesOf）：官方 harness 是「跑 test_patch 改动的
+      // 测试文件 + 按 -rA 比对名字」，而非把 FAIL_TO_PASS 名字直接当 pytest 参数（后者对 sympy 等
+      // 给**裸测试名**的仓库会 0 收集 ⇒ 判定恒假，实测 gold 都判不过）。
+      const testFiles = PytestVerdict.testFilesOf(task.testPatch);
+      const run = await this.runPytest(worktree, testFiles, ids);
+      const passed = PytestVerdict.parseResults(run.stdout, ids);
       const failToPassOk = task.failToPass.every((id) => passed.get(id) === true);
       const passToPassOk = task.passToPass.every((id) => passed.get(id) === true);
       return { id: task.id, resolved: failToPassOk && passToPassOk, backend: this.kind };
@@ -174,29 +179,6 @@ export class NativeExecutor implements ExecutorPort {
         await this.withRepoLock(task.repo, () => this.removeWorktree(cacheDir, worktree));
       }
     }
-  }
-
-  /**
-   * 从 pytest -v 输出解析各测试 id 的通过情况（纯函数，best-effort）。
-   * @param output pytest -v 标准输出。
-   * @param ids 待判定的测试 id 列表（FAIL_TO_PASS ∪ PASS_TO_PASS）。
-   * @returns id → 是否通过（未出现/非 PASSED 一律 false，fail-closed）。
-   */
-  public static parsePytestResults(
-    output: string,
-    ids: readonly string[],
-  ): ReadonlyMap<string, boolean> {
-    const results = new Map<string, boolean>();
-    for (const id of ids) results.set(id, false);
-    for (const line of output.split('\n')) {
-      const m = /^(.*?)\s+(PASSED|FAILED|ERROR|SKIPPED)(?:\s|\[|$)/.exec(line);
-      if (m === null) continue;
-      const id = m[1];
-      if (id !== undefined && results.has(id.trim())) {
-        results.set(id.trim(), m[2] === 'PASSED');
-      }
-    }
-    return results;
   }
 
   /**
@@ -376,25 +358,44 @@ export class NativeExecutor implements ExecutorPort {
   }
 
   /**
-   * 用 git apply 应用单个补丁文件。
+   * 应用单个补丁文件：先 `git apply`，失败则回退 GNU `patch --fuzz=5`（best-effort）。
+   *
+   * 为什么需要回退：`git apply` 要求 hunk 的**行号与上下文逐行精确匹配**，而模型补丁（以及部分官方
+   * 测试补丁）常带轻微偏移——多一个空行、少一行 import、上下文取了相邻函数。此时补丁**语义正确却
+   * 应用失败**，会把「能修的题」错记成「未修复」，系统性低估分数。`.rej` 侧不回退（宁可漏、不可假绿）。
+   * GNU patch 的模糊匹配（`--fuzz=5`）与主流 harness（SWE-agent 等）同口径；应用后仍由 pytest 判定，
+   * 故**不会**造成假绿——补丁若语义错误，测试照样不过。
+   * 补丁经 **stdin** 喂给 `git apply -` / `patch`，不再落临时文件：早期实现每题写一次
+   * `.omni-apply.patch` 再 `rmSync` 删除，批量跑分（数百次删除）会撞上宿主的「批量删除需确认」
+   * 安全栅栏，导致整批在删除处抛错、把能跑的实例误记为失败（2026-09-17 实测 16/16 全败于该栅栏）。
+   * 走 stdin 后**零临时文件、零删除**，栅栏无从触发，且语义等价。
    * @param worktree worktree 路径。
    * @param patch unified diff 文本。
    * @returns 是否应用成功（空补丁视为成功）。
    */
   private gitApply(worktree: string, patch: string): boolean {
     if (patch.trim().length === 0) return true;
-    const patchFile = join(worktree, '.omni-apply.patch');
-    writeFileSync(patchFile, patch, 'utf8');
     try {
-      execFileSync('git', ['apply', '--whitespace=fix', patchFile], {
-        cwd: worktree,
-        stdio: 'ignore',
-      });
-      return true;
+      // 第一段：严格匹配（`-` ⇒ 从 stdin 读补丁）。多数干净补丁在此通过。
+      try {
+        execFileSync('git', ['apply', '--whitespace=fix', '-'], {
+          cwd: worktree,
+          stdio: ['pipe', 'ignore', 'ignore'],
+          input: patch,
+        });
+        return true;
+      } catch {
+        // 第二段：模糊匹配回退（不传 -i ⇒ patch 从 stdin 读；-p1 剥离 a/ b/ 前缀；
+        // --batch 不交互；不遗留 .orig 备份）。
+        execFileSync('patch', ['--batch', '--fuzz=5', '-p1', '--no-backup-if-mismatch'], {
+          cwd: worktree,
+          stdio: ['pipe', 'ignore', 'ignore'],
+          input: patch,
+        });
+        return true;
+      }
     } catch {
       return false;
-    } finally {
-      rmSync(patchFile, { force: true });
     }
   }
 
@@ -410,13 +411,25 @@ export class NativeExecutor implements ExecutorPort {
 
   /**
    * 在 venv 内运行 pytest（无论退出码均返回输出，供解析）。
+   *
+   * 有测试文件（来自 test_patch）⇒ 跑整份文件并 `-rA` 列全量结果，再按**叶子名**比对 —— 对齐官方口径，
+   * 且能覆盖「FAIL_TO_PASS 给裸测试名」的仓库（裸名当参数会被 pytest 当路径 ⇒ 0 收集 ⇒ 恒假）。
+   * 无测试文件 ⇒ 退回按 id 直跑（保持历史行为，兼容完整 nodeid 的仓库）。
    * @param worktree worktree 路径。
-   * @param ids 测试 id 列表。
+   * @param testFiles test_patch 改动的测试文件（可为空）。
+   * @param ids 测试 id 列表（无测试文件时的直跑参数）。
    * @returns pytest 标准输出与退出码。
    */
-  private runPytest(worktree: string, ids: readonly string[]): Promise<PytestRun> {
+  private runPytest(
+    worktree: string,
+    testFiles: readonly string[],
+    ids: readonly string[],
+  ): Promise<PytestRun> {
     const venvPython = this.venvPythonPath(worktree);
-    const args = ['-m', 'pytest', ...ids, '-v', '--tb=short', '-p', 'no:cacheprovider'];
+    const args =
+      testFiles.length > 0
+        ? ['-m', 'pytest', ...testFiles, '-rA', '--tb=no', '-p', 'no:cacheprovider']
+        : ['-m', 'pytest', ...ids, '-v', '--tb=short', '-p', 'no:cacheprovider'];
     return new Promise<PytestRun>((resolve) => {
       execFile(venvPython, args, { cwd: worktree, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
         const code = err !== null && typeof err.code === 'number' ? err.code : 0;

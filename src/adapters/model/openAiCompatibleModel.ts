@@ -186,7 +186,8 @@ export class OpenAiCompatibleModel implements ModelPort {
   /** 请求体。
    * @param request 模型请求（消息先经工具轮次规整，再转 wire 格式）。
    * @returns chat/completions 请求体：model/messages，工具非空时附 tools，
-   *          reasoningEffort 非空串时透传 reasoning_effort（空串不发，避免部分端点 400）。
+   *          reasoningEffort 非空串时透传 reasoning_effort（空串不发，避免部分端点 400），
+   *          temperature 已设时透传（未设则不发，保留端点默认）。
    */
   private bodyOf(request: ModelRequest): Record<string, unknown> {
     // thinking 模式判定：与下文 reasoning_effort 透传同源——非空字符串即视为已开启。
@@ -208,6 +209,11 @@ export class OpenAiCompatibleModel implements ModelPort {
     const effort = request.reasoningEffort;
     if (typeof effort === 'string' && effort !== '') {
       body.reasoning_effort = effort;
+    }
+    // 采样温度透传：仅在显式提供数值时发送（含 0——0 是合法且本次基准最需要的贪婪解码，
+    // 故判据是 `typeof === 'number'` 而非真值判断，否则温度 0 会被静默丢弃）。
+    if (typeof request.temperature === 'number') {
+      body.temperature = request.temperature;
     }
     return body;
   }
