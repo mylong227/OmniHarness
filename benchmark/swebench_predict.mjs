@@ -852,7 +852,7 @@ if (selected.length === 0) {
 
 console.log(
   `[predict] 形态=${opts.payloadShape} fileK=${FILE_K} 内容文件=${opts.contentFiles} ` +
-    `温度=${opts.temperature} 模型=${modelName} best-of-N=${opts.bestOfN} self-test=${opts.selfTest} ` +
+    `温度=${opts.temperature} 模型=${opts.model} best-of-N=${opts.bestOfN} self-test=${opts.selfTest} ` +
     `实例=${selected.length} 输出=${opts.out}`,
 );
 
