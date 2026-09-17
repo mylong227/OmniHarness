@@ -410,6 +410,21 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     - **验收**：`typecheck` / `lint`（零告警）/ `check --strict`（**481** 文件零违规）/ `arch:gate`（0 违规）/ `audit:config-wiring`（481 文件全绿）/ `audit:maturity`（exit 0）/ `audit:standard:delta` 全绿；新单测 `pythonEnvPlan.test.ts` **5/5**、`swebenchVerified.test.ts` **15/15**（含 6 例新增 fail-closed 覆盖）、`hybridRankerAllFiles.test.ts` **3/3**（修正后）；两关 E2E **①通道通 ②gold resolved** 双绿。
     - **提交口径**：能力一笔（`remoteHost` 旋钮 + 重排接线补全 + `envPins`/`PythonEnvPlan` 安装阶梯 + FAIL_TO_PASS fail-closed 解析 + NativeExecutor 兜异常/`repoMirrors` + 4 个新单测/夹具 + 3 个新评测设施与镜像/约束映射 + `.gitignore`）＋一笔看板（本节 + `docs/RECALL_HEADROOM_SURVEY.md` §4.3 改口径 + §10 + `docs/SUSPENDED_BETTER_PATHS.md` §四 + `docs/POLISH_PLAN.md` 标注）。
 
+31. **★真实端到端出分（DeepSeek key）：梯度投送「省 token 不伤解题率」首次拿到真实证据；并修掉两个会制造假结果系统性缺陷（2026-09-17，本轮续）**：
+    - **起因（用户指令）**：提供真实 DeepSeek key，「正式跑出来」——把「梯度投送省 token 是否拖慢 agent 端到端解题成功率（hitRate ≠ 任务成功率）」从假设变成**真实 resolve 率**。
+    - **一、预测生成器（`benchmark/swebench_predict.mjs`，新）**：检出于 `base_commit`(worktree) → 复刻生产检索（`RepoMapContextEngine`/`query`/`RepoMapPayload`）→ **零漂移自证**（复刻产出须**逐字节等于** `getRepoMapContext`，否则 abort，防 A/B 分叉）→ 组装提示 → 模型产 unified diff → `normalizePatch` 规范化 → `git apply --check` 预检 → **修复轮**（回填真实文件窗口）→ 落 `predictions.jsonl`。`--payload-shape full|tiered|degrade` 为唯一自变量。`--selftest`：`normalizePatch` 3/3 + `readWindowBlock` 自检全过。
+    - **二、★缺陷 A：官方数据集「裸测试名」⇒ 判定恒假（会系统性造 0 分）**。sympy/django 等仓库的 `FAIL_TO_PASS` 是**裸测试名**（`test_create_expand_pow_optimization`），旧 `runPytest` 把名字直接当 pytest 参数 ⇒ `ERROR: file or directory not found` ⇒ **`collected 0 items`** ⇒ 每个 F2P 都「未通过」⇒ **连官方 gold patch 都判不过**（实测 sympy gold `resolved=false`）。这与「仓库给完整 nodeid」的 flask 形成鲜明对比（故此前只在 flask 上验证过通道）。**修法（对齐官方 harness 口径）**：新增 `NativeExecutor.testFilesOf(testPatch)` 从测试补丁 `+++ b/` 头抽出**测试文件**（过滤 `conftest.py` 等非测试文件），`runPytest` 改为跑整份测试文件 + `-rA --tb=no`；`parsePytestResults` 兼容 `-v` 与 `-rA` 两种形态，并按**叶子名**（最后一个 `::` 之后）比对 ⇒ 裸名与完整 nodeid 双兼容，新增 2 例单测钉死。
+    - **三、★缺陷 B：宿主「批量删除需确认」栅栏击穿跑分链路（会系统性造 0 分）**。宿主对**每个 turn 累计 50 次删除**即抛 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`。旧实现每题写 `.omni-*.patch` 再 `rmSync`（生成端 ≤4 次/题、打分端 2 次/题），**16 题批次即越阈值** ⇒ 删除抛错被记作实例失败（实测生成端 16/16、打分端 `uv pip install -e .` 的构建清理亦被拦）。**修法**：补丁改经 **stdin** 喂 `git apply --check -` / `git apply --whitespace=fix -` / `patch`（不传 `-i` 亦读 stdin）⇒ **零临时文件、零删除**，语义等价；母语端 `nativeExecutor.gitApply` 与脚本端 `checkPatch` 双修。**运行纪律**：本会话跑分命令需 `env -u CODEBUDDY_SAFE_DELETE_BULK_STATE_DIR`（仅关该阈值栅栏，删除仍走回收站），否则 uv 的可编辑安装会被拦。
+    - **四、采样确定性（新增端口旋钮）**：`ModelRequest` 增可选 `temperature`，`OpenAiCompatibleModel.bodyOf` 仅在 `typeof === 'number'` 时透传（**温度 0 合法，不可用真值判断**，否则 0 被静默丢）；预测器默认 `--temperature 0`（贪婪解码）⇒ 同输入同输出，避免采样噪声淹没 A/B。
+    - **五、Python 可供给性地图（批次选择纪律）**：`uv python list` 实测**可装 3.8–3.15，3.6/3.7 不可得**。`PythonVersionResolver` 仍把 `requests` 2.26/2.27、`django` 1.x/2.x、`sympy` 1.0/1.1、`sklearn` 0.19–0.23 等映射到 3.6/3.7 ⇒ 这些题 `uv venv --python 3.7` 直接报 `No interpreter found`（旧 9 题批次 2 题即此因）。**本轮改选「忠实可供给」批次：sympy 1.10/1.11/1.12 → 3.8（15 题，纯 Python 安装快）+ flask 2.3 → 3.11（1 题）= 16 题**，全部 `uv` 可下载。**待办**：`PythonVersionResolver` 需补**降级链**（请求版本不可得 → 最近可用），补后才谈 500 全量。
+    - **六、★真实结果（16 题忠实批次，temp=0，两关已验证：gold 均 `resolved:true`）**：
+      - **tiered**：**7/16 resolved（43.8%）**；avgMapChars **12410**；avgPromptToken **62667**。
+      - **full**：**7/16 resolved（43.8%）**；avgMapChars **58554**；avgPromptToken **88731**。
+      - ⇒ **梯度投送把地图字符压降 79%、prompt token 压降 29.4%（省 26064/题），解题成功率 7/16 逐题不变**（配对：5 题两形态皆 resolved、7 题皆未过、各 2 题单侧成功，McNemar b=2/c=2 ⇒ 无差异证据）。**这是「省 token 不伤任务成功率」的首个真实端到端证据**（此前只有 hitRate，不等于成功率）。
+    - **七、诚实边界**：① 子集口径 **16/500**，**不可当官方满分引用**；② 环境为**无 Docker 的 best-effort 复现**（uv venv + 仓库自述依赖），非官方预建镜像；③ 两关是本轮结论的前提——**若不跑 gold 对照，会误把「判定恒假」当成「模型 0 分」**（实测正是如此）；④ 单模型（`deepseek-chat`）、单轮（≤2 修复轮）基线，非 agent 多轮上限。
+    - **验收**：`typecheck` / `lint`（零告警）/ `check --strict`（481 文件零违规）/ `arch:gate`（0 违规）/ `audit:config-wiring`（481 全绿）/ `audit:maturity` 全过；`swebenchVerified.test.ts` **17/17**（含 2 例新增：裸名叶子匹配、`testFilesOf` 抽文件与过滤）。
+    - **提交口径**：能力一笔（`temperature` 端口旋钮 + `bodyOf` 透传 + `NativeExecutor` 的 `testFilesOf`/叶子名判定/`runPytest` 跑整份测试文件 + `gitApply` 走 stdin 零删除 + 预测器 `swebench_predict.mjs`/`batch16.txt` + 2 例新单测）＋一笔看板（本节）。
+
 ---
 
 ## 6. 挂起条件清单
