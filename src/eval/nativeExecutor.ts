@@ -384,7 +384,14 @@ export class NativeExecutor implements ExecutorPort {
    * @returns 无。
    */
   private async setupEnv(worktree: string, pythonVersion: string, repo: string): Promise<void> {
-    await SwebenchVerified.execFileAsync('uv', ['venv', '--python', pythonVersion], worktree);
+    // `--clear`：跨运行复用同一工作区时，上一次崩溃可能已留下 `.venv`，`uv venv` 会拒绝覆盖并
+    // 让整个验证环境准备失败、best-of-N/self-test 全被跳过。清掉重建（prepareRuntime 每实例只调一次，
+    // 成本可忽略；且绝不动已安装好的 venv 内容之外的文件）。
+    await SwebenchVerified.execFileAsync(
+      'uv',
+      ['venv', '--clear', '--python', pythonVersion],
+      worktree,
+    );
     const steps = PythonEnvPlan.steps({
       requirementsFile: PythonEnvPlan.findTestRequirements((rel) =>
         existsSync(join(worktree, rel)),
