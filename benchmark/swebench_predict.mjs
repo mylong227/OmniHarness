@@ -68,6 +68,12 @@ const opts = {
   // 默认 0（贪婪解码）：基准要求同输入同输出，否则同一实例多次跑出不同补丁会把 A/B 差异淹没在采样噪声里。
   // 需要观察采样多样性时显式 `--temperature 1`。
   temperature: arg('--temperature') !== undefined ? Number(arg('--temperature')) : 0,
+  // 单次模型请求超时（毫秒，默认 5min）：`openAiCompatibleModel` 用裸 `fetch` 且**默认无超时**
+  // （只在调用方传 `request.signal` 时才透传），而 `RetryingModel` 只对**抛出的**错误重试——
+  // 服务端接受连接后不回包时，`fetch` 永不 settle ⇒ 重试永不触发 ⇒ **整批静默挂死**。
+  // 实测：batch_next 第 15 题卡死 32min，日志零输出、工作区零文件写入（pytest 未在跑，纯 API 挂起）。
+  // 这里显式给每次请求一个 `AbortSignal.timeout`，把「永久挂起」降级为「该实例快速失败」。
+  requestTimeoutMs: arg('--timeout-ms') !== undefined ? Number(arg('--timeout-ms')) : 300_000,
   // best-of-N 验证器选择：对同一实例采样 N 个候选，用「gold FAIL_TO_PASS 通过比例」作可验证奖励选最优。
   // 默认 1 = 单候选（与旧行为一致，零行为变更）。N>1 时自动把采样温度提到 0.8（除非已显式 >0），
   // 否则 temperature=0 会让 N 个候选完全相同、验证失去意义。需本机具备 git+uv+网络。
@@ -682,7 +688,7 @@ function buildSelfTestConvo(messages, raw, diff, failures) {
  * @param {Array} messages 初始模型消息。
  * @param {string} wt 已检出工作区。
  * @param {object} model 模型。
- * @param {object} o 选项（repairRounds/windowRadius/contentChars/dumpDir）。
+ * @param {object} o 选项（repairRounds/windowRadius/contentChars/dumpDir/requestTimeoutMs）。
  * @param {number} temp 本次采样温度。
  * @param {string} taskId 实例 id（仅用于 dump 命名）。
  * @returns {Promise<{diff:string, raw:string, rounds:number, promptTokens:number, completionTokens:number, lastReason:string}>}
@@ -706,7 +712,14 @@ async function generateCandidate(messages, wt, model, o, temp, taskId) {
         'utf8',
       );
     }
-    const out = await model.generate({ messages: convo, tools: [], temperature: temp });
+    // 每次尝试都新建超时信号：若复用同一个已触发的 signal，后续重试会被立刻 abort。
+    // requestTimeoutMs<=0 时不传 signal＝沿用旧行为（无超时）。
+    const out = await model.generate({
+      messages: convo,
+      tools: [],
+      temperature: temp,
+      ...(o.requestTimeoutMs > 0 ? { signal: AbortSignal.timeout(o.requestTimeoutMs) } : {}),
+    });
     raw = out.text ?? '';
     const usage = out.usage;
     if (usage !== undefined) {

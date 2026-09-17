@@ -14,6 +14,13 @@ export default tseslint.config(
       'native/**',
       'scripts/**',
       '.omni-worktrees/**', // harness 运行时 worktree 产物，非本仓库维护源码
+      // eval-data/** 与上面同理，且更必需：它是 .gitignore 掉的基准数据目录（0 个被追踪文件），
+      // 里面是克隆的上游仓库与 prepare/ 下的 worktree 产物。原口径的疏漏在于——只按「本仓库源码」
+      // 的直觉排除了 .omni-worktrees，却漏了同性质的 eval-data，于是 eslint . 会走进
+      // astropy 自带的 vendored 第三方代码（astropy/extern/jquery/data/js/jquery-3.*.js，
+      // 内含 `// eslint-disable` 注释）⇒ 报「Unused eslint-disable directive」把门禁染红。
+      // 那是上游 jQuery，不是本仓库维护的源码，不该由本仓库 lint 负责 ⇒ 显式排除。
+      'eval-data/**',
       '**/*.mjs',
       '**/*.cjs',
     ],
