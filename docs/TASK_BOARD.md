@@ -456,8 +456,12 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
         - 逐题增益：22456/22714/23534/23824/24066/24443/24562 共 **7 题**由「未过→resolved」（均 bestOfN.bestReward=1，验证器选中绿样本）。
         - 唯一回退：**23413**（基线 resolved→本轮 false），但预测端 `error: fetch failed`（API 瞬时故障，非能力回退）；若剔除该噪声，等效 **14/16（87.5%）**。
         - 结论：提分来自**推理时扩展（多候选+验证器选择）**这一工程杠杆，零新模型、零新基础设施——印证 #32 三·关键洞察（T-A 杠杆我们已 90% 具备，只差接线）。
-      - **跨仓库续跑（用户「继续下一批」）**：已生成 `eval-data/batch_next.txt`（25 题：18 sympy+4 requests+3 pytest，排除 batch16；4 仓库缓存就绪）跑 best-of-N=4 跨仓库验证；预测+评分后台执行中（见 `eval-data/run_next.log` / `score_next.json`），待出更大样本后再定 50~60% 区间是否可达。
-      - **提交状态**：P1–P4 代码 `c3409dc`、TDZ `15d051b`、best-of-N 两坑 `7f41129` 已落地本地；**remote main 仍 96958e1（3 commit 待 push）**，看板更新后一并推送。
+      - **跨仓库续跑（用户「继续下一批」）· 第三个阻断性 bug 已定位并修复**：`eval-data/batch_next.txt`（25 题：18 sympy+4 requests+3 pytest，排除 batch16；4 仓库缓存就绪）首跑 best-of-N=4 **25/25 全失败，报「语料索引失败」**。根因不在环境/网络，而是 predict 脚本的**路径解析错位**：
+        1. `--worktree-root eval-data/prepare_next` 是**相对路径**；`ensureCheckout` 以 `git -C <cacheRepo> worktree add <wt>` 建树 ⇒ git 把该相对路径**按缓存仓库**解析，工作树被物化到 `eval-data/repos/sympy__sympy/eval-data/prepare_next/<id>`（**嵌套进缓存仓库内部**）；而 `indexCorpus` 按**进程 CWD** 解析同一路径 ⇒ `ENOENT`。batch16 之所以正常，只因它用的是**默认绝对根** `eval-data/prepare`——即该缺陷只在「显式传相对 `--worktree-root`」时触发。
+        2. 危害不止当次：嵌套工作树在缓存仓库内留下 **18+ 条 git worktree 注册**；`rm -rf` 工作树目录后注册仍在，后续 `worktree add` 一律报 `already exists` ⇒ **一旦踩中，该缓存仓库持续不可用**（须 `worktree prune` 才恢复）。本次即被此二次效应误导，多花数轮排查。
+        3. **修复与其根因（同一处「静默吞错」缺陷）**：① `benchmark/swebench_predict.mjs` 的 `worktreeRoot` 改为 `resolve(ROOT, arg('--worktree-root') ?? join(ROOT,'eval-data','prepare'))`——**相对路径一律锚定为项目绝对路径**，`git` 与 `indexCorpus` 从此看到同一路径；② `src/context/corpusIndexCache.ts` 的 `indexRoot` 由 `catch { return null }` 改为 `log.warn('corpusIndexCache 索引失败…', {root, error, stack})`——**保持 fail-closed 但不再静默**：本次 30+ 分钟排查成本完全源于「异常被吞成 null」，属与「声明未接线」同族的可观测性缺陷。已 `worktree prune` 清掉 18 条嵌套注册。
+        - **验证**：单实例 sympy-13878 用**相对** `--worktree-root` 重跑 ⇒ 工作树正确落在 `eval-data/prepare_next/sympy__sympy-13878`、缓存仓库内**零嵌套泄漏**、检索恢复（map=13896 字符 / prompt=106263）。随后启动 batch_next 全量 25 题 best-of-N=4 预测，产出中（`eval-data/run_next.log` / `preds_next.jsonl`），评分待预测结束串行执行（预测与评分共用工作区，不可并发）。
+      - **提交状态**：P1–P4 代码 `c3409dc`、TDZ `15d051b`、best-of-N 两坑 `7f41129`、看板 `ab22ecb`、路径错位修复 + 索引可观测性（本次）已落地本地；**remote main 仍 96958e1（5 commit 待 push）**——直连 `mine` push 两次未落地（无报错但远端 SHA 不变），下轮改用 ghproxy 凭据法推送并 `ls-remote` 复核。
 
 ---
 
