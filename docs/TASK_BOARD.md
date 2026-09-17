@@ -448,11 +448,16 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
       - **P2 已落地（Python 版本降级链）**：`src/eval/pythonVersionResolver.ts` 加 `DEGRADATION`（3.6/3.7→3.8，因 `uv` 仅可供给 3.8–3.15）+ `degrade()` 纯函数；requests 2.26/2.27、pytest 4.6/5.4、django 2.1 等老版本不再因「版本不可 provision」而整题 infra 失败，解锁 500 全量所必需的更多实例。
       - **P4 已落地（reasoner 路由 + self-test 反馈环）**：`--model` 旗标（默认 deepseek-chat，可 deepseek-reasoner，对接既有 `reasoningRouter`）+ `--self-test`：补丁可 apply 后**就地**跑 gold FAIL_TO_PASS，未全绿把失败测试名回喂修复环（测试驱动自纠，对齐 GitHub SOTA 的紧反馈）。`NativeExecutor` 新增 `prepareRuntime`（建 venv 复用）/ `scorePatch`（就地验证+回滚，保护 `.venv`）/`revert` 三方法，`run()` 完全不变。
       - **P3 已落地（SBFL 覆盖率定位）**：新增 `src/eval/coverageLocator.ts`（纯函数 `ochiai` + `rankFilesFromCoverageJson` + `prependBoosted`，L1 带单测）；predict 加 `--sbfl` / `--sbfl-limit`：prepareRuntime 后跑 gold FAIL_TO_PASS 的 `pytest --cov`，按覆盖语句数把源文件前置进检索结果，专攻对抗口径 ~24.2pp 召回缺口。best-effort，关闭时零行为变更（且只改 `files` 顺序、`mapText` 不变 ⇒ 零漂移自证仍成立）。
-      - **验证**：`npm run build` 通过；六门禁（typecheck/lint/check --strict/arch:gate/audit:maturity/audit:config-wiring）全绿；`coverageLocator.test`(5)+`swebenchVerified.test` 降级(2) 共 +11 例通过。真实出分重跑（best-of-N=4 跑 16/500）待具备 git+uv+网络环境执行，命令见 commit 说明。
-      - **实跑补两坑（用户「下一批继续」）**：best-of-N 路径首次真实出分暴露两个阻断性 bug，已修（待 commit）：
+      - **验证**：`npm run build` 通过；六门禁（typecheck/lint/check --strict/arch:gate/audit:maturity/audit:config-wiring）全绿；`coverageLocator.test`(5)+`swebenchVerified.test` 降级(2) 共 +11 例通过。
+      - **实跑补两坑（用户「下一批继续」，已 commit：15d051b / 7f41129）**：best-of-N 路径首次真实出分暴露两个阻断性 bug，已修并提交：
         1. `RlvrLoop` 调 `this.sampler.sample(prompt,i)`，原传箭头函数(无 `.sample`) ⇒ `this.sampler.sample is not a function` 全实例失败。修复：修复环抽成 `generateCandidate()`，`solveInstance` 内构造 `{ sample: async(_p,i)=>generateCandidate(...) }` 对象；单候选/best-of-N 复用同一质量基线。
         2. 预测器按 `eval-data/prepare/<instanceId>` 持久复用工作区，`ensureCheckout` 在 `headOf()===base` 直接复用旧工作区（含上轮崩溃留的 `.venv`），`uv venv` 拒绝覆盖 ⇒ 验证环境准备失败、best-of-N/self-test 全跳过。修复：`setupEnv` 的 `uv venv` 加 `--clear`。
-        - 已生成 `eval-data/batch_next.txt`（25 题：18 sympy+4 requests+3 pytest，排除 batch16）供跨仓库验证 best-of-N；先 2 实例 best-of-N=2 smoke 验端到端，再放 batch16 best-of-N=4 + next-batch。
+      - **★真实结果（batch16 best-of-N=4，同一 16 实例，两关已验证）**：**13/16 resolved（81.3%）** vs 单候选基线 7/16（43.8%）⇒ **+37.5pp**。预测 `eval-data/preds_bestofn4.jsonl`，评分 `eval-data/score_bestofn4.json`。
+        - 逐题增益：22456/22714/23534/23824/24066/24443/24562 共 **7 题**由「未过→resolved」（均 bestOfN.bestReward=1，验证器选中绿样本）。
+        - 唯一回退：**23413**（基线 resolved→本轮 false），但预测端 `error: fetch failed`（API 瞬时故障，非能力回退）；若剔除该噪声，等效 **14/16（87.5%）**。
+        - 结论：提分来自**推理时扩展（多候选+验证器选择）**这一工程杠杆，零新模型、零新基础设施——印证 #32 三·关键洞察（T-A 杠杆我们已 90% 具备，只差接线）。
+      - **跨仓库续跑（用户「继续下一批」）**：已生成 `eval-data/batch_next.txt`（25 题：18 sympy+4 requests+3 pytest，排除 batch16；4 仓库缓存就绪）跑 best-of-N=4 跨仓库验证；预测+评分后台执行中（见 `eval-data/run_next.log` / `score_next.json`），待出更大样本后再定 50~60% 区间是否可达。
+      - **提交状态**：P1–P4 代码 `c3409dc`、TDZ `15d051b`、best-of-N 两坑 `7f41129` 已落地本地；**remote main 仍 96958e1（3 commit 待 push）**，看板更新后一并推送。
 
 ---
 
