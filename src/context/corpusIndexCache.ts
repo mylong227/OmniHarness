@@ -7,10 +7,12 @@
  *  - TTL（默认 30s，env OMNI_REPO_MAP_TTL_MS 覆盖）：超时后下次查询触发重索引。
  *  - LRU 近似驱逐：条目数超上限时淘汰**最早索引**的一条（零依赖、够用），并通过构造时注入的
  *    onEvict 回调通知外部（如语义索引缓存同步失效该 root 的全部变体），保持两类缓存一致。
- *  - 全程 fail-closed：索引失败返回 null，绝不抛错崩主流程。
+ *  - 全程 fail-closed：索引失败返回 null，绝不抛错崩主流程；但**不静默**——失败会记 warn 日志
+ *    （带 root 与堆栈），否则调用方只看到「语料索引失败」而无法定位真因。
  */
 
 import { indexCorpus, type IndexedCorpus } from './contextEngine.js';
+import { log } from '../util/logger.js';
 
 /** 缓存条目：语料 + 索引时间戳（用于 TTL 失效与 LRU 驱逐）。 */
 interface CacheEntry {
@@ -97,7 +99,16 @@ export class CorpusIndexCache {
   private indexRoot(root: string): IndexedCorpus | null {
     try {
       return indexCorpus(root, { morph: true, light: true });
-    } catch {
+    } catch (error) {
+      // 保持 fail-closed（返回 null 不抛），但必须留下可定位的证据：
+      // 2026-09-17 batch_next 25/25「语料索引失败」曾因这里的静默 catch 而把真因
+      // （worktree 未物化 → ENOENT）吞成 null，排查成本极高。
+      const stack = error instanceof Error ? error.stack : undefined;
+      log.warn('corpusIndexCache 索引失败（fail-closed 返回 null）', {
+        root,
+        error: error instanceof Error ? error.message : String(error),
+        ...(stack !== undefined ? { stack } : {}),
+      });
       return null;
     }
   }

@@ -33,7 +33,7 @@ import {
   mkdtempSync,
 } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
@@ -82,7 +82,9 @@ const opts = {
   sbfl: process.argv.includes('--sbfl'),
   sbflLimit: arg('--sbfl-limit') !== undefined ? Number(arg('--sbfl-limit')) : 8,
   cacheRoot: arg('--cache-root') ?? join(ROOT, 'eval-data', 'repos'),
-  worktreeRoot: arg('--worktree-root') ?? join(ROOT, 'eval-data', 'prepare'),
+  // 解析为绝对路径：相对 --worktree-root 经 `git -C <cacheDir> worktree add` 会被 git 解析到
+  // 缓存仓库内部（嵌套工作树），而 indexCorpus 按 CWD 解析会找不到目录 ⇒ ENOENT ⇒ 全员「语料索引失败」。
+  worktreeRoot: resolve(ROOT, arg('--worktree-root') ?? join(ROOT, 'eval-data', 'prepare')),
   repoBaseUrl: arg('--repo-base') ?? 'https://gitee.com/',
   mirrorPath: arg('--repo-mirrors') ?? join(ROOT, 'benchmark', 'swebench-gitee-mirrors.json'),
   dryRun: process.argv.includes('--dry-run'),
