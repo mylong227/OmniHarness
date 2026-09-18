@@ -535,12 +535,14 @@
 | F4  | 中断/重生成    | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                  | 中止即时停止；重生成复用上下文                        |
 | F5  | 配置 UI 收敛   | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                       | 配置改动即时生效                                      |
 | F6  | diff 闭环      | ChangesTab 的 hunk accept/reject 联动真实写入                                            | accept/reject 触发文件变更                            |
-| F7  | 未消费事件     | profile.error / plugin.loaded 等事件接入 UI 提示                                        | 事件出现即提示                                        |
+| F7  | ✅ 未消费事件   | profile.error / plugin.loaded / plugin.loadError / profile.applied 接入 UI 提示（纯前端消费既有 SSE 流） | 事件出现即 toast 提示（error/success 分色）           |
 | F8  | 路由/深链      | 会话/标签可深链与浏览器后退                                                             | URL 反映当前视图                                      |
 
 **验收汇总（F1）**：web:build 0 错误；web:test 15/15 通过；`@typescript-eslint/no-explicit-any` 全库 0 处（`markdown.ts` 用最小接口替代 `any`）；新增 vendored 依赖 markdown-it / katex / highlight.js + KaTeX 字体（离线内置，无网络依赖）；UMD 全局缺失时回落手写实现，旧契约测试无回归。
 
 **验收汇总（F2）**：在 F1 渲染层上加代码块工具条——`markdown.ts` 新增 `fence` 渲染规则包 `.md-codeblock`（语言标签 + 一键复制，语言名先 escapeHtml 防注入），`format.ts` 的 legacy 回落路径同步包同样容器；共享 `handleCodeblockCopyClick`（事件委托，复用既有 `ClipboardCopier`，fail-closed 静默）；`chat.css` 补 `.md-codeblock*` 暗/亮主题样式。`web:build` 0 错、`eslint` 0 警告、`web:test` 16/16（新增代码块契约测试）；全量 web 单测仅 2 项为 headless-Chrome 环境差异的 e2e，与本改动无关。
+
+**验收汇总（F7）**：后端已在 SSE 流发出 `profile.error`/`plugin.loaded`/`plugin.loadError`/`profile.applied`，但 `AppController.connectStream` 此前只静默 bump reload key，错误与加载事件对用户不可见。新增纯函数 `web/src/ui/notify.ts` 的 `profilePluginToasts(envelope, toast)`，按 method 分派为 error/success toast（字段 `String(...??'')` 归一，永不 undefined）；`AppController` 的 `switch` 把上述四种 method 统一改调 `applyProfilePluginToast(msg)`（保留 profile 类的 reload key bump）。契约测试 `web/test/notify.test.mjs` 覆盖四类事件 + 空字段 + 无法识别 method。`web:build` 0 错、`eslint` 0 警告、全量 web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）；无 `any`，复用既有 `showToast`/`Toast.tsx`，无新状态/组件。
 
 ## 推进规则
 

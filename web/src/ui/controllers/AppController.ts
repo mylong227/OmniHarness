@@ -24,6 +24,7 @@ import type { CommandItem } from '../components/CommandPalette.js';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
 import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.js';
 import { AppReducers } from './AppReducers.js';
+import { formatProfilePluginToast } from '../notify.js';
 import { SessionController } from './SessionController.js';
 import { ComposerController } from './ComposerController.js';
 import { GraphController } from './GraphController.js';
@@ -219,9 +220,17 @@ export class AppController {
         case 'memory.changed':
           this.host.patch((s) => ({ memoryReloadKey: s.memoryReloadKey + 1 }));
           break;
-        case 'profile.applied':
         case 'profile.event':
           this.host.patch((s) => ({ profilesReloadKey: s.profilesReloadKey + 1 }));
+          break;
+        case 'profile.applied':
+          this.host.patch((s) => ({ profilesReloadKey: s.profilesReloadKey + 1 }));
+          this.applyProfilePluginToast('profile.applied', params);
+          break;
+        case 'profile.error':
+        case 'plugin.loaded':
+        case 'plugin.loadError':
+          this.applyProfilePluginToast(msg.method, params);
           break;
         case 'thread.tool_input':
           this.children.sessions.updateToolInput(params);
@@ -419,6 +428,19 @@ export class AppController {
       () => this.host.patch((s) => (s.toastState.message === message ? { ...s, toastState: { ...s.toastState, visible: false } } : {})),
       2200,
     );
+  }
+
+  /**
+   * 把后端推送的「插件集 / 插件加载」类通知落为实时轻提示（toast）。
+   * 这些事件原先在 SSE 流里被静默丢弃（profile.error / plugin.loaded / plugin.loadError）
+   * 或仅触发静默刷新（profile.applied），补齐 UI 对加载成败的可见反馈。
+   * @param method 通知方法名。
+   * @param params 通知参数。
+   * @returns 无
+   */
+  private applyProfilePluginToast(method: string, params: Record<string, unknown>): void {
+    const toast = formatProfilePluginToast(method, params);
+    if (toast !== null) this.showToast(toast.message, toast.kind);
   }
 
   /** 构造注入 AppContext.Provider 的上下文值（api / toast / dialog / refreshModelCatalog）。 @returns 上下文值 */
