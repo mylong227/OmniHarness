@@ -162,6 +162,26 @@ test('renderMarkdown 标题下移两级（h1→h3）且列表/表格结构完整
   assert.deepEqual(walk(table).filter((n) => n.type === 'td').map((n) => allText(n).join('')), ['a', 'b']);
 });
 
+test('renderMarkdown 代码块包 .md-codeblock 且含语言标签与复制按钮', () => {
+  const node = renderMarkdown('```ts\nconst a = 1;\n```');
+  assert.equal(clsOf(node), 'md-content');
+  const blocks = walk(node).filter((n) => clsOf(n) === 'md-codeblock');
+  assert.equal(blocks.length, 1, '应有一个代码块容器');
+  const c = blocks[0];
+  const bars = kids(c).filter((k) => clsOf(k) === 'md-codeblock__bar');
+  assert.equal(bars.length, 1, '应有工具条');
+  const btn = walk(c).find((n) => clsOf(n) === 'md-codeblock__copy');
+  assert.ok(btn, '应有复制按钮');
+  assert.equal(btn.type, 'button');
+  assert.deepEqual(allText(btn), ['复制']);
+  const lang = walk(c).find((n) => clsOf(n) === 'md-codeblock__lang');
+  assert.ok(lang, '应有语言标签');
+  assert.deepEqual(allText(lang), ['ts']);
+  const pre = walk(c).find((n) => n.type === 'pre');
+  assert.ok(pre, '应有 pre');
+  assert.deepEqual(allText(pre).join(''), 'const a = 1;');
+});
+
 test('highlightCode 空源码返回 null', () => {
   assert.equal(highlightCode('', 'ts'), null);
 });

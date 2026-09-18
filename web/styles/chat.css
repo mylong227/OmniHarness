@@ -204,6 +204,37 @@ details.standalone summary::-webkit-details-marker { display:none; }
 .md-content .md-table tr:nth-child(even) td { background:color-mix(in srgb, var(--panel) 60%, transparent); }
 .md-content.md-empty { display:none; }
 
+/* #OBS-F2：代码块工具条（语言标签 + 一键复制），对标 deepseek-harness 回复观感。
+   整块包一层容器，header 行与代码区同框，暗/亮主题都走语义变量。 */
+.md-codeblock {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 8px 0;
+  background: var(--panel);
+  overflow: hidden;
+}
+.md-codeblock__bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 10px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+.md-codeblock__lang {
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  text-transform: lowercase; letter-spacing: .3px;
+}
+.md-codeblock__copy {
+  font-family: inherit; font-size: 11px; line-height: 1.2;
+  padding: 3px 9px; border-radius: 6px;
+  background: transparent; color: var(--dim);
+  border: 1px solid var(--border); cursor: pointer;
+}
+.md-codeblock__copy:hover { color: var(--text); border-color: var(--dim); background: var(--hover); }
+.md-codeblock__copy--done { color: var(--ok); border-color: var(--ok); }
+.md-codeblock pre { margin: 0; border: 0; border-radius: 0; background: transparent; padding: 0; overflow: auto; }
+.md-codeblock pre code { background: transparent; padding: 10px 12px; }
+
 /* #OBS-11：失败原因摘要（工具行折叠时也直接显示，不藏在 details 里） */
 .tc-error { font-size:12px; color:#ff7a7a; background:rgba(255,122,122,0.08); border-left:2px solid #ff7a7a; padding:3px 8px 3px 10px; margin:2px 0 4px 22px; border-radius:0 4px 4px 0; line-height:1.4; word-break:break-word; }
 [data-theme="light"] .tc-error { color:#b03030; background:rgba(176,48,48,0.06); border-left-color:#b03030; }

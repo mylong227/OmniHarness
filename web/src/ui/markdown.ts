@@ -16,11 +16,13 @@
 // 手写实现，保证旧契约测试与无依赖部署继续可用。
 
 import { React } from './deps.js';
+import { ClipboardCopier } from './models/ClipboardCopier.js';
 
 /** markdown-it 单条 token 的最小接口（避免引入 any / 第三方类型）。 */
 interface MdToken {
   content: string;
   markup: string;
+  info: string;
   block?: boolean;
   map?: number[];
   attrGet(name: string): string | null;
@@ -50,6 +52,15 @@ interface MdBlockState {
 interface MdSelf {
   renderToken(tokens: MdToken[], idx: number, options: unknown): string;
 }
+
+/** markdown-it 渲染规则签名（用于回退默认 fence 规则）。 */
+type MdRenderRule = (
+  tokens: MdToken[],
+  idx: number,
+  options: unknown,
+  env: unknown,
+  self: MdSelf,
+) => string;
 
 /** markdown-it 构造器与实例的最小接口（避免引入 any / 第三方类型）。 */
 interface MarkdownItInstance {
@@ -91,6 +102,30 @@ function vendor(): VendorGlobals {
 export function markdownLibsReady(): boolean {
   const v = vendor();
   return Boolean(v.markdownit) && Boolean(v.katex) && Boolean(v.hljs);
+}
+
+/**
+ * 代码块「一键复制」的事件委托处理：挂在 md-content 容器上，点击命中
+ * `.md-codeblock__copy` 按钮时，取出同块 `<pre><code>` 文本经 ClipboardCopier 写入剪贴板，
+ * 并给按钮一个短暂的「已复制」反馈。命中其它元素则静默跳过（与文件链接点击委托互不干扰）。
+ * @param e 冒泡到此容器的点击事件。
+ */
+export function handleCodeblockCopyClick(e: MouseEvent): void {
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  const btn = target.closest('.md-codeblock__copy') as HTMLButtonElement | null;
+  if (!btn) return;
+  const block = btn.closest('.md-codeblock');
+  const codeEl = block ? (block.querySelector('pre code') ?? block.querySelector('pre')) : null;
+  const text = codeEl?.textContent ?? '';
+  void ClipboardCopier.copy(text);
+  const original = btn.textContent ?? '复制';
+  btn.textContent = '已复制';
+  btn.classList.add('md-codeblock__copy--done');
+  setTimeout(() => {
+    btn.textContent = original;
+    btn.classList.remove('md-codeblock__copy--done');
+  }, 1400);
 }
 
 /** 模块级单例缓存：首次用到时才构造（避免单测桩里访问未定义全局）。 */
@@ -238,6 +273,36 @@ function getMd(): MarkdownItInstance {
     return defaultLinkOpen(tokens, idx, opts, env, self);
   };
 
+  // ---- 代码块包工具条：语言标签 + 一键复制（对标 deepseek-harness 回复观感） ----
+  const defaultFence = (md.renderer.rules.fence ??
+    ((tokens: MdToken[], idx: number, opts: unknown, env: unknown, self: MdSelf): string =>
+      self.renderToken(tokens, idx, opts))) as MdRenderRule;
+
+  md.renderer.rules.fence = (
+    tokens: MdToken[],
+    idx: number,
+    opts: unknown,
+    env: unknown,
+    self: MdSelf,
+  ): string => {
+    const token = tokens[idx];
+    if (!token) return '';
+    const info = (token.info ?? '').trim();
+    const langName = info.split(/\s+/u)[0] ?? '';
+    // 语言名来自围栏信息串，属用户输入——防注入先转义；未标注语言统一显示 text。
+    const langLabel = langName ? md.utils.escapeHtml(langName) : 'text';
+    const inner = defaultFence(tokens, idx, opts, env, self);
+    return (
+      '<div class="md-codeblock">' +
+      '<div class="md-codeblock__bar">' +
+      '<span class="md-codeblock__lang">' + langLabel + '</span>' +
+      '<button type="button" class="md-codeblock__copy">复制</button>' +
+      '</div>' +
+      inner +
+      '</div>'
+    );
+  };
+
   mdCache = md;
   return md;
 }
@@ -251,12 +316,17 @@ function getMd(): MarkdownItInstance {
 export function markdownRender(src: string): ReactElement {
   const text = src ?? '';
   if (text.trim() === '') {
-    return React.createElement('div', { className: 'md-content md-empty', spellCheck: 'false' });
+    return React.createElement('div', {
+      className: 'md-content md-empty',
+      spellCheck: 'false',
+      onClick: handleCodeblockCopyClick,
+    });
   }
   const html = getMd().render(text);
   return React.createElement('div', {
     className: 'md-content',
     spellCheck: 'false',
     dangerouslySetInnerHTML: { __html: html },
+    onClick: handleCodeblockCopyClick,
   });
 }

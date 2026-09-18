@@ -36,7 +36,7 @@
 | #   | 能力                                | 价值                                                                     | 当前证据（缺口）                                                                                         | 依赖后端 |
 | --- | ----------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------- |
 | F1  | **回复渲染升级**                    | 数学公式 + 代码语法高亮，直接对齐 deepseek-harness 的「回复模式」观感     | 原 `format.ts` 手写零依赖解析器**缺数学与代码高亮**                                                       | 否（纯前端）✅ **本轮已落地** |
-| F2  | **代码块体验**                      | 复制代码按钮 + 语言标签 + 悬停反馈，对齐主流 Chat UI                     | `markdown.ts` 产出 `<pre class="hljs">` 但 UI 无复制/语言标签                                            | 否       |
+| F2  | **代码块体验**                      | 复制代码按钮 + 语言标签 + 悬停反馈，对齐主流 Chat UI                     | `markdown.ts` 产出 `<pre class="hljs">` 但 UI 无复制/语言标签                                            | 否（纯前端）✅ **本轮已落地** |
 | F3  | **会话操作（重命名/删除/搜索/fork）** | 会话管理是「会话模式」核心                                              | `ApiClient` 仅有 `listSessions`/`searchAll`，缺 `rename/delete/fork` RPC 与 `SessionPanel` 操作入口       | 是（需 RPC） |
 | F4  | **中断 / 重生成 / 编辑重发**        | 长任务可控性，对标 codex 的 stop + regenerate                            | `Composer`/`ComposerController` 未见 abort/regenerate 入口；后端 `turn` 中止需确认                        | 部分     |
 | F5  | **配置 UI 收敛**                    | API key / base-url / profile 在一处可改且即时生效                       | `ModelProviders`/`Settings` 已存在但字段接线完整度待核                                                    | 部分     |
@@ -69,10 +69,24 @@
 
 ---
 
+## 3b. 本轮已闭环：F2 代码块体验
+
+| 项     | 内容                                                                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新增能力 | 每个代码块顶部工具条：**语言标签**（围栏信息串，缺省 `text`）+ **一键复制**按钮（点击复制 `<pre><code>` 文本，按钮短暂变「已复制」反馈）                                                                 |
+| 渲染层（生产路径 `markdown.ts`） | 新增 `fence` 渲染规则：把 markdown-it + highlight.js 产出的 `<pre class="hljs">` 包进 `.md-codeblock`（`.md-codeblock__bar` + `.md-codeblock__lang` + `.md-codeblock__copy`），语言名先 `escapeHtml` 防注入 |
+| 渲染层（回落路径 `format.ts`） | `legacyRenderMarkdown` 的 `code` 块同样包 `.md-codeblock` 容器 + 复制按钮，保证 vendored 依赖缺失时体验一致                                                         |
+| 交互   | 共享 `handleCodeblockCopyClick`（事件委托，挂在 `md-content` 容器）：命中 `.md-codeblock__copy` 才复制，与 `AssistantCard` 的 `data-file-path` 点击委托互不干扰；复用既有 `ClipboardCopier`（失败静默 fail-closed） |
+| 样式   | `web/styles/chat.css` 新增 `.md-codeblock*` 一套（容器/工具条/标签/按钮/成功态），暗/亮主题走语义变量 `--panel/--border/--dim/--ok` 等                                                                 |
+| 覆盖范围 | `AssistantCard` / `StreamingAssistantCard` / `FileTab` 经 `renderMarkdown` 统一入口，全部自动获得复制按钮                                                                 |
+| 验收   | `web:build` 0 错误；`eslint` 0 警告；`web:test` **16/16**（新增「代码块包 `.md-codeblock` 且含语言标签与复制按钮」契约测试覆盖 legacy 路径）；无 `any`；全量 web 单测 112 项中仅 2 项为**浏览器 e2e**（headless Chrome 环境差异，与本改动无关）|
+
+---
+
 ## 4. 建议推进顺序
 
 1. ~~**F1 回复渲染升级** — 与 deepseek-harness 的「回复模式」观感直接对齐，且为零依赖铁律放宽后的低风险首步。~~ ✅ **已完成（阶段 37 / F1）**
-2. **F2 代码块体验** — 纯前端、零后端依赖，紧接 F1 渲染层，见效快。
+2. ~~**F2 代码块体验** — 纯前端、零后端依赖，紧接 F1 渲染层，补齐复制/语言标签。~~ ✅ **已完成（F2）**
 3. **F7 未消费事件接入** — 纯前端消费既有事件流，补齐 UI 完整性。
 4. **F3 会话操作** — 需后端补 `rename/delete/fork` RPC（StoragePort 已有 fork 能力，需暴露到 Web RPC），再在 `SessionPanel` 加操作入口。
 5. **F4 中断/重生成** — 需确认后端 `turn` 中止与 regenerate 能力，再接 UI。
