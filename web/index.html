@@ -20,6 +20,10 @@
   <link rel="stylesheet" href="./styles/components.css?v=5">
   <link rel="stylesheet" href="./styles/chat.css?v=6">
   <link rel="stylesheet" href="./styles/highlight.css?v=4">
+  <!-- 成熟依赖（离线内置，零网络）：KaTeX 数学排版 + highlight.js 代码高亮。
+       与 React 同以 UMD 全局方式注入，由 markdown.ts 在渲染回复时消费。 -->
+  <link rel="stylesheet" href="./vendor/katex.min.css?v=1">
+  <link rel="stylesheet" href="./vendor/highlight-github-dark.min.css?v=1">
   <!-- 主题持久化：必须在 paint 之前同步读取 localStorage 并设到 <html data-theme="...">。
        否则 React mount 完成后才设 data-theme 会闪一下 dark（CSS 默认）→ 再切 light，
        用户会感觉"刷新等于没设置"。这里 raw 内联，零依赖，文件大小 < 0.5KB（2026-09-08）。 -->
@@ -36,6 +40,11 @@
   <div id="root"></div>
   <script src="./vendor/react.production.min.js"></script>
   <script src="./vendor/react-dom.production.min.js"></script>
+  <!-- 成熟依赖（UMD 全局）：markdown-it 解析、KaTeX 数学、highlight.js 代码高亮。
+       须在 main.js 之前加载，markdown.ts 运行时直接消费 window.markdownit / window.katex / window.hljs。 -->
+  <script src="./vendor/markdown-it.min.js?v=1"></script>
+  <script src="./vendor/katex.min.js?v=1"></script>
+  <script src="./vendor/highlight.min.js?v=1"></script>
   <!-- 动态加载并带时间戳，避免浏览器缓存旧构建导致新功能不生效。 -->
   <script type="module">
     import(`./dist/main.js?v=${Date.now()}`);

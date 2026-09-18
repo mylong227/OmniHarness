@@ -523,6 +523,23 @@
 
 **验收汇总（S36）**：`tsc --noEmit` 通过；`node --test dist/tests/unit/cliSystem.test.js` **7/7**（含 `doctor --model-adapter openai` 必须失败）；`npm run smoke` 全过；手动验证位置参数 prompt / stdout·stderr 分流 / dump-config / `OPENAI_*` 回退均符合预期。零依赖铁律保持。
 
+## 阶段 37：前端全功能页面对标（deepseek-harness / codex）
+
+> 用户指令「按照整个前端的功能页面全都进行 codex 或 deepseek-harness 对其……最低不输于他，最好超过他；不要求完全 0 依赖，善用成熟依赖代替从 0 开始」。主参考 `deepseek-harness`（TS Web SPA：Plan/权限/命令面板/@引用/subagent/goal bar/trajectory），`codex` 仅作模式参考。约束放宽：前端允许引入成熟 vendored UMD 依赖（markdown-it / KaTeX / highlight.js 已落地）。详账见 `docs/FRONTEND_GAP_SOURCE_AUDIT.md`。
+
+| #   | 任务           | 内容                                                                                     | 验收                                                  |
+| --- | -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写 | web:build 0 错；web:test 15/15；全库 0 `any`          |
+| F2  | 代码块体验     | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                     | 点击复制 code 文本；语言标签显示                      |
+| F3  | 会话操作       | 重命名/删除/搜索/fork 接入 `sessions.list`/`search.all`，UI 在 SessionPanel 暴露           | 操作可点击并触发对应 RPC                              |
+| F4  | 中断/重生成    | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                  | 中止即时停止；重生成复用上下文                        |
+| F5  | 配置 UI 收敛   | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                       | 配置改动即时生效                                      |
+| F6  | diff 闭环      | ChangesTab 的 hunk accept/reject 联动真实写入                                            | accept/reject 触发文件变更                            |
+| F7  | 未消费事件     | profile.error / plugin.loaded 等事件接入 UI 提示                                        | 事件出现即提示                                        |
+| F8  | 路由/深链      | 会话/标签可深链与浏览器后退                                                             | URL 反映当前视图                                      |
+
+**验收汇总（F1）**：web:build 0 错误；web:test 15/15 通过；`@typescript-eslint/no-explicit-any` 全库 0 处（`markdown.ts` 用最小接口替代 `any`）；新增 vendored 依赖 markdown-it / katex / highlight.js + KaTeX 字体（离线内置，无网络依赖）；UMD 全局缺失时回落手写实现，旧契约测试无回归。
+
 ## 推进规则
 
 1. 严格按编号顺序（1.1 → 1.2 → 2.1 → …），每步过验收再进下一步
