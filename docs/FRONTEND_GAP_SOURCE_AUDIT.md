@@ -37,7 +37,7 @@
 | --- | ----------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------- |
 | F1  | **回复渲染升级**                    | 数学公式 + 代码语法高亮，直接对齐 deepseek-harness 的「回复模式」观感     | 原 `format.ts` 手写零依赖解析器**缺数学与代码高亮**                                                       | 否（纯前端）✅ **本轮已落地** |
 | F2  | **代码块体验**                      | 复制代码按钮 + 语言标签 + 悬停反馈，对齐主流 Chat UI                     | `markdown.ts` 产出 `<pre class="hljs">` 但 UI 无复制/语言标签                                            | 否（纯前端）✅ **本轮已落地** |
-| F3  | **会话操作（重命名/删除/搜索/fork）** | 会话管理是「会话模式」核心                                              | `ApiClient` 仅有 `listSessions`/`searchAll`，缺 `rename/delete/fork` RPC 与 `SessionPanel` 操作入口       | 是（需 RPC） |
+| F3  | **会话操作（重命名/删除/搜索/fork）** | 会话管理是「会话模式」核心                                              | `ApiClient` 仅有 `listSessions`/`searchAll`，缺 `rename/delete/fork` RPC 与 `SessionPanel` 操作入口       | 是（需 RPC） | 否（后端补 RPC + 前端接线）✅ **本轮已落地** |
 | F4  | **中断 / 重生成 / 编辑重发**        | 长任务可控性，对标 codex 的 stop + regenerate                            | `Composer`/`ComposerController` 未见 abort/regenerate 入口；后端 `turn` 中止需确认                        | 部分     |
 | F5  | **配置 UI 收敛**                    | API key / base-url / profile 在一处可改且即时生效                       | `ModelProviders`/`Settings` 已存在但字段接线完整度待核                                                    | 部分     |
 
@@ -97,11 +97,28 @@
 
 ---
 
+## 3d. 本轮已闭环：F3 会话操作（重命名/删除/搜索/fork）
+
+| 项       | 内容                                                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 后端 RPC | `src/server/services/sessionArchive.ts` 新增 `rename` / `delete` / `fork`（会话即 `<sessionId>.jsonl`）；`appServer.ts` 注册 `sessions.rename` / `sessions.delete` / `sessions.fork`；`appServerBase.ts` 注入运行态判定 |
+| 重命名   | 自定义标题写入侧车 `sessions.meta.json`（`sessionId→title`），不改写事件流，避免与运行追加竞态；`list()` 读取时优先于首条用户消息作标签；空标题清除。标题形态 `^[A-Za-z0-9_-]{1,128}$` + 存档存在性双重校验 |
+| 删除     | `rmSync` 移除 `.jsonl` 并清侧车标题；**运行中会话（`activeTurns` 命中）拒绝删除**（RPC 层 + `SessionArchive.delete` 双保险），防截断活动事件流                                       |
+| 分叉     | `copyFileSync` 复制为新 `randomUUID` id，并追加 `session_meta.forkedFrom` 事件；新会话在列表继承原内容（`threads.get`→`replay` 按 id 读存档，可点击打开）                              |
+| 前端 Api | `ApiClient` 新增 `renameSession` / `deleteSession` / `forkSession`（调对应 RPC）                                                                                  |
+| 前端控制 | `SessionController` 新增 `renameSession` / `deleteSession` / `forkSession`：调用后 `refreshSessions` 刷新列表；删除若正打开则清空当前线程；均经 `services.toast` 反馈（fail-closed 静默） |
+| 前端 UI  | `SessionPanel` 新增：①**搜索框**（按标签/id/工作区过滤，list 与 cards 双视图生效）；②每会话行悬停操作（✎重命名 / ⧉复制 / 🗑删除）；③**行内重命名**输入框（Enter 提交 / Esc 取消）；④**删除确认条**（「删除？」确认/取消）；`App.ts` 透传 `onRename/onDelete/onFork` |
+| 样式     | `components.css` 补 `.session-toolbar` / `.session-search` / `.session-label` / `.session-actions`（悬停显隐）/ `.session-act` / `.session-rename*` / `.session-confirm*`，暗亮主题走语义变量；task-card 内标签也带操作 |
+| 验收     | 根 `tsc --noEmit` 0 错；`web:build` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；全量 `web/test/**` **118/120**（仅 2 项 headless-Chrome e2e 环境差异）；`audit:standard:delta`/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；无 `any` |
+
+---
+
 ## 4. 建议推进顺序
 
 1. ~~**F1 回复渲染升级** — 与 deepseek-harness 的「回复模式」观感直接对齐，且为零依赖铁律放宽后的低风险首步。~~ ✅ **已完成（阶段 37 / F1）**
 2. ~~**F2 代码块体验** — 纯前端、零后端依赖，紧接 F1 渲染层，补齐复制/语言标签。~~ ✅ **已完成（F2）**
 3. ~~**F7 未消费事件接入** — 纯前端消费既有事件流，把后端已发但 UI 静默的事件显式提示。~~ ✅ **已完成（F7）**
+4. ~~**F3 会话操作** — 后端补 `rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口，对齐「会话模式」核心。~~ ✅ **已完成（F3）**
 4. **F3 会话操作** — 需后端补 `rename/delete/fork` RPC（StoragePort 已有 fork 能力，需暴露到 Web RPC），再在 `SessionPanel` 加操作入口。
 5. **F4 中断/重生成** — 需确认后端 `turn` 中止与 regenerate 能力，再接 UI。
 6. **F5 配置 UI 收敛** — 核实现有 `ModelProviders`/`Settings` 字段接线完整度，补缺失项。

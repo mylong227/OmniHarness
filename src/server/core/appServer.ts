@@ -127,6 +127,17 @@ export class AppServer extends AppServerSurfaceHandlers {
         sessions: r.sessions.map((s) => ({ ...s, running: this.activeTurns.has(s.sessionId) })),
       };
     });
+    this.handlers.set('sessions.rename', async (params) =>
+      this.sessionArchive.rename(String(params['sessionId'] ?? ''), String(params['title'] ?? '')),
+    );
+    this.handlers.set('sessions.delete', async (params) => {
+      const id = String(params['sessionId'] ?? '');
+      if (this.activeTurns.has(id)) return { ok: false, error: 'session_running' };
+      return this.sessionArchive.delete(id);
+    });
+    this.handlers.set('sessions.fork', async (params) =>
+      this.sessionArchive.fork(String(params['sessionId'] ?? '')),
+    );
     this.handlers.set('changes.list', (params) =>
       Promise.resolve(this.workspaceChanges.list(params)),
     );

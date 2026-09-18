@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type { Metrics } from './metrics.js';
 import type { LocalDay } from '../../util/localDay.js';
 
@@ -122,18 +123,161 @@ export class SessionArchive {
       return { dir, sessions: [] };
     }
     const sessions: SessionInfo[] = [];
+    const titles = this.readTitles();
     for (const name of readdirSync(dir)) {
       if (!name.endsWith('.jsonl')) continue;
       const parsed = this.scanSessionFile(join(dir, name));
       if (parsed === undefined) continue;
+      const id = name.replace(/\.jsonl$/, '');
+      const t = titles[id];
       sessions.push({
-        sessionId: name.replace(/\.jsonl$/, ''),
+        sessionId: id,
         ...parsed,
+        label: t !== undefined && t !== '' ? t : parsed.label,
         mtimeMs: SessionArchive.mtimeOf(join(dir, name)),
       });
     }
     sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
     return { dir, sessions };
+  }
+
+  /**
+   * 会话自定义标题侧车路径（与 .jsonl 同目录）：`sessions.meta.json` 记录 `sessionId → title`。
+   * 用独立文件而非改写事件流，避免与运行中的追加写入竞态；标题缺失时列表回落首条用户消息。
+   * @returns 侧车文件路径；存储位置未知时 undefined。
+   */
+  private titlePath(): string | undefined {
+    const dir = this.storageLocation();
+    if (dir === undefined) return undefined;
+    return join(dir, 'sessions.meta.json');
+  }
+
+  /**
+   * 读取自定义标题表；文件缺失/损坏时回落空表（不抛错）。
+   * @returns `sessionId → title` 映射（可能为空）。
+   */
+  private readTitles(): Record<string, string> {
+    const path = this.titlePath();
+    if (path === undefined || !existsSync(path)) return {};
+    try {
+      const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+      if (parsed === null || typeof parsed !== 'object') return {};
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof v === 'string') out[k] = v;
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * 写入自定义标题表（整体重写，幂等且原子性足够于低频用户操作）。
+   * @param map `sessionId → title` 映射。
+   * @returns 无返回值。
+   */
+  private writeTitles(map: Record<string, string>): void {
+    const path = this.titlePath();
+    if (path === undefined) return;
+    writeFileSync(path, JSON.stringify(map, null, 2) + '\n', 'utf8');
+  }
+
+  /**
+   * 校验会话 id 形态（仅字母数字下划线连字符，防路径穿越），并确保对应存档文件存在。
+   * @param sessionId 待校验的会话 id
+   * @returns 合法且存在时返回存档绝对路径，否则 undefined。
+   */
+  private resolveSessionFile(sessionId: string): string | undefined {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(sessionId)) return undefined;
+    const dir = this.storageLocation();
+    if (dir === undefined) return undefined;
+    const file = join(dir, `${sessionId}.jsonl`);
+    return existsSync(file) && statSync(file).isFile() ? file : undefined;
+  }
+
+  /**
+   * 重命名会话：把自定义标题写入侧车 `sessions.meta.json`（空标题等价清除）。
+   * 不改写事件流，列表读取时优先于首条用户消息作标签。
+   * @param sessionId 会话 id
+   * @param title 新标题（trim 后；空串清除自定义标题）
+   * @returns `{ ok }`；id 非法或存档不存在时 `{ ok:false, error }`
+   */
+  public rename(sessionId: string, title: string): { ok: boolean; error?: string } {
+    if (this.resolveSessionFile(sessionId) === undefined) {
+      return { ok: false, error: 'session_not_found' };
+    }
+    const map = this.readTitles();
+    const t = title.trim();
+    if (t === '') delete map[sessionId];
+    else map[sessionId] = t.slice(0, 200);
+    this.writeTitles(map);
+    return { ok: true };
+  }
+
+  /**
+   * 删除会话：移除存档 .jsonl 与侧车标题条目；运行中的会话拒绝删除（防竞态截断活动流）。
+   * @param sessionId 会话 id
+   * @returns `{ ok }`；id 非法、存档缺失或会话运行中时 `{ ok:false, error }`
+   */
+  public delete(sessionId: string): { ok: boolean; error?: string } {
+    const file = this.resolveSessionFile(sessionId);
+    if (file === undefined) return { ok: false, error: 'session_not_found' };
+    if (this.isRunning(sessionId)) return { ok: false, error: 'session_running' };
+    rmSync(file, { force: true });
+    const map = this.readTitles();
+    if (map[sessionId] !== undefined) {
+      delete map[sessionId];
+      this.writeTitles(map);
+    }
+    return { ok: true };
+  }
+
+  /**
+   * 分叉会话：复制存档 .jsonl 为新 id，并追加 `session_meta.forkedFrom` 事件，
+   * 使新会话在列表中继承原内容（标签仍取首条用户消息）。
+   * @param sessionId 源会话 id
+   * @returns `{ ok, newSessionId }`；失败时 `{ ok:false, error }`
+   */
+  public fork(sessionId: string): { ok: boolean; newSessionId?: string; error?: string } {
+    const file = this.resolveSessionFile(sessionId);
+    if (file === undefined) return { ok: false, error: 'session_not_found' };
+    const newId = randomUUID().replace(/-/g, '');
+    const dest = join(this.storageLocation() as string, `${newId}.jsonl`);
+    copyFileSync(file, dest);
+    const meta = JSON.stringify({
+      type: 'session_meta',
+      timestamp: new Date().toISOString(),
+      payload: { forkedFrom: sessionId },
+    });
+    appendFileSync(dest, '\n' + meta, 'utf8');
+    return { ok: true, newSessionId: newId };
+  }
+
+  /**
+   * 判断某会话是否正在运行（由外部运行态派生；默认 false，子类/宿主可覆盖）。
+   * 基类无运行态感知，由 `AppServer` 通过 {@link setRunningChecker} 注入真实判定。
+   * @param _sessionId 会话 id（基类忽略）
+   * @returns 是否运行中。
+   */
+  private runningChecker: (sessionId: string) => boolean = () => false;
+
+  /**
+   * 注入运行态判定（宿主在构造后调用，避免循环依赖）。
+   * @param checker `(sessionId) => boolean` 真实运行态判定
+   * @returns 无返回值。
+   */
+  public setRunningChecker(checker: (sessionId: string) => boolean): void {
+    this.runningChecker = checker;
+  }
+
+  /**
+   * 委托运行态判定。
+   * @param sessionId 会话 id
+   * @returns 是否运行中。
+   */
+  private isRunning(sessionId: string): boolean {
+    return this.runningChecker(sessionId);
   }
 
   /**

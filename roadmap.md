@@ -531,7 +531,7 @@
 | --- | -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写 | web:build 0 错；web:test 15/15；全库 0 `any`          |
 | F2  | ✅ 代码块体验   | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                     | 点击复制 code 文本；语言标签显示                      |
-| F3  | 会话操作       | 重命名/删除/搜索/fork 接入 `sessions.list`/`search.all`，UI 在 SessionPanel 暴露           | 操作可点击并触发对应 RPC                              |
+| F3  | ✅ 会话操作     | 后端补 `sessions.rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口     | 行内重命名/确认删除/复制/搜索均可用                    |
 | F4  | 中断/重生成    | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                  | 中止即时停止；重生成复用上下文                        |
 | F5  | 配置 UI 收敛   | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                       | 配置改动即时生效                                      |
 | F6  | diff 闭环      | ChangesTab 的 hunk accept/reject 联动真实写入                                            | accept/reject 触发文件变更                            |
@@ -543,6 +543,8 @@
 **验收汇总（F2）**：在 F1 渲染层上加代码块工具条——`markdown.ts` 新增 `fence` 渲染规则包 `.md-codeblock`（语言标签 + 一键复制，语言名先 escapeHtml 防注入），`format.ts` 的 legacy 回落路径同步包同样容器；共享 `handleCodeblockCopyClick`（事件委托，复用既有 `ClipboardCopier`，fail-closed 静默）；`chat.css` 补 `.md-codeblock*` 暗/亮主题样式。`web:build` 0 错、`eslint` 0 警告、`web:test` 16/16（新增代码块契约测试）；全量 web 单测仅 2 项为 headless-Chrome 环境差异的 e2e，与本改动无关。
 
 **验收汇总（F7）**：后端已在 SSE 流发出 `profile.error`/`plugin.loaded`/`plugin.loadError`/`profile.applied`，但 `AppController.connectStream` 此前只静默 bump reload key，错误与加载事件对用户不可见。新增纯函数 `web/src/ui/notify.ts` 的 `profilePluginToasts(envelope, toast)`，按 method 分派为 error/success toast（字段 `String(...??'')` 归一，永不 undefined）；`AppController` 的 `switch` 把上述四种 method 统一改调 `applyProfilePluginToast(msg)`（保留 profile 类的 reload key bump）。契约测试 `web/test/notify.test.mjs` 覆盖四类事件 + 空字段 + 无法识别 method。`web:build` 0 错、`eslint` 0 警告、全量 web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）；无 `any`，复用既有 `showToast`/`Toast.tsx`，无新状态/组件。
+
+**验收汇总（F3）**：后端 `SessionArchive` 补 `rename`/`delete`/`fork`（会话即 `<id>.jsonl`；重命名写侧车 `sessions.meta.json` 不碰事件流、`list` 优先显示；删除拒绝运行中会话双保险；分叉 `copyFileSync` + 追加 `session_meta.forkedFrom`）；`appServer` 注册 `sessions.rename`/`sessions.delete`/`sessions.fork` 三个 RPC，`appServerBase` 注入 `activeTurns` 运行态判定。前端 `ApiClient` 三方法 + `SessionController` 三方法（刷新列表 / 删则清当前线程 / 均 toast 反馈）+ `SessionPanel` 搜索框 + 行内重命名 + 删除确认条 + 每行人内操作（✎/⧉/🗑），`App` 透传回调；`components.css` 补暗亮主题样式。根 `tsc --noEmit` 0 错、`web:build` 0 错、全仓 `eslint . --max-warnings=0` 0 警告、web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）、`audit:standard:delta`（无新增 .ts）/`audit:config-wiring`（484）/`arch:gate`（无新增违例）/`check --strict`/`audit:maturity` 全绿、无 `any`。
 
 ## 推进规则
 

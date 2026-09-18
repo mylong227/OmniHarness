@@ -142,6 +142,64 @@ export class SessionController {
   }
 
   /**
+   * 重命名会话（自定义标题）：写入服务端侧车后刷新列表（列表回落优先显示自定义标题）。
+   * @param id 会话 id
+   * @param title 新标题
+   * @returns 异步完成
+   */
+  public async renameSession(id: string, title: string): Promise<void> {
+    try {
+      const r = await this.services.api.renameSession(id, title);
+      if (!r.ok) {
+        this.services.toast('重命名失败：' + (r.error ?? ''), 'err');
+        return;
+      }
+      await this.refreshSessions();
+    } catch (e) {
+      this.services.toast('重命名失败：' + (e as Error).message, 'err');
+    }
+  }
+
+  /**
+   * 删除会话：成功则从列表移除；若正打开该会话，同时清空当前线程。
+   * @param id 会话 id
+   * @returns 异步完成
+   */
+  public async deleteSession(id: string): Promise<void> {
+    try {
+      const r = await this.services.api.deleteSession(id);
+      if (!r.ok) {
+        this.services.toast('删除失败：' + (r.error === 'session_running' ? '会话正在运行，无法删除' : r.error ?? ''), 'err');
+        return;
+      }
+      if (this.host.getState().currentThreadId === id) this.newSession();
+      await this.refreshSessions();
+      this.services.toast('会话已删除', 'ok');
+    } catch (e) {
+      this.services.toast('删除失败：' + (e as Error).message, 'err');
+    }
+  }
+
+  /**
+   * 分叉会话为带新 id 的副本：写入成功后刷新列表并提示新会话 id。
+   * @param id 源会话 id
+   * @returns 异步完成
+   */
+  public async forkSession(id: string): Promise<void> {
+    try {
+      const r = await this.services.api.forkSession(id);
+      if (!r.ok) {
+        this.services.toast('复制失败：' + (r.error ?? ''), 'err');
+        return;
+      }
+      await this.refreshSessions();
+      this.services.toast(r.newSessionId ? '已复制为 ' + r.newSessionId : '已复制会话', 'ok');
+    } catch (e) {
+      this.services.toast('复制失败：' + (e as Error).message, 'err');
+    }
+  }
+
+  /**
    * 在右侧文件面板打开一个路径（含语法高亮语言推断）。
    * @param path 文件路径
    * @returns 异步完成

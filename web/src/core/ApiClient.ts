@@ -153,6 +153,18 @@ export class ApiClient {
   }> {
     return this.rpc('sessions.list', {});
   }
+  /** 重命名会话（自定义标题，空串清除）；服务端写入侧车，列表回落首条用户消息。 */
+  public renameSession(sessionId: string, title: string): Promise<{ ok: boolean; error?: string }> {
+    return this.rpc('sessions.rename', { sessionId, title });
+  }
+  /** 删除会话存档；运行中的会话被服务端拒绝。 */
+  public deleteSession(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+    return this.rpc('sessions.delete', { sessionId });
+  }
+  /** 分叉会话为带新 id 的副本；返回新会话 id。 */
+  public forkSession(sessionId: string): Promise<{ ok: boolean; newSessionId?: string; error?: string }> {
+    return this.rpc('sessions.fork', { sessionId });
+  }
   /** 工作区变更记录（git 式）；传 path 时返回该文件 patch。 */
   public listChanges(path?: string): Promise<{
     source: string;
