@@ -20,6 +20,8 @@ export interface AssistantCardProps {
    * 传 false 用于「这段正文刚刚已经逐字流过来了」——此时再揭一遍会从 40% 处往回跳，是可见的倒退。
    */
   animate?: boolean;
+  /** 重新生成回调（仅最后一条助手消息挂载；点击「重新生成」用最后一条用户消息重发）。 */
+  onRegenerate?: () => void;
   /** 定时器注入点（单测可替换；组件内默认用全局 setTimeout）。 */
   schedule?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
 }
@@ -106,6 +108,19 @@ export class AssistantCard extends AppComponent<AssistantCardProps, AssistantCar
         <div className="head">
           {badge(ev.type)}
           <span className="time">{timeOf(ev.timestamp)}</span>
+          {this.props.onRegenerate ? (
+            <button
+              className="msg-act"
+              title="重新生成"
+              aria-label="重新生成"
+              onClick={(e: MouseEvent) => {
+                e.stopPropagation();
+                this.props.onRegenerate?.();
+              }}
+            >
+              ↻ 重新生成
+            </button>
+          ) : null}
         </div>
         <div className={'card ' + ev.type}>
           <div className="content" spellCheck="false" onClick={this.onContentClick}>

@@ -3,7 +3,7 @@
 // 经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
 import type { AppHost, AppServices } from './AppController.js';
-import type { FileAttachment } from '../../types/models.js';
+import type { FileAttachment, ThreadEvent } from '../../types/models.js';
 import type { SessionController } from './SessionController.js';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
@@ -14,6 +14,8 @@ export class ComposerController {
   private readonly services: AppServices;
   /** 会话控制器（send 兜底分支需刷新会话列表）。 */
   private readonly sessions: SessionController;
+  /** 用户主动点「停止」后本次 send 的拒绝按中断处理（写系统提示而非错误 toast）。 */
+  private abortRequested = false;
 
   /**
    * 构造并绑定对外回调。
@@ -26,6 +28,9 @@ export class ComposerController {
     this.services = services;
     this.sessions = sessions;
     this.send = this.send.bind(this);
+    this.stop = this.stop.bind(this);
+    this.regenerate = this.regenerate.bind(this);
+    this.resend = this.resend.bind(this);
     this.changeModel = this.changeModel.bind(this);
     this.changeReasoning = this.changeReasoning.bind(this);
     this.changePermission = this.changePermission.bind(this);
@@ -73,23 +78,70 @@ export class ComposerController {
         s.streamText === '' ? {} : { streamText: '', finalizedStreamText: s.streamText },
       );
     } catch (e) {
-      const msg = (e as Error).message || '未知错误';
-      // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。
-      this.services.toast('运行失败：' + msg, 'err');
-      this.host.patch((s) => ({
-        events: [
-          ...s.events,
-          {
-            id: 'err-' + Date.now().toString(36),
-            type: 'system',
-            timestamp: Date.now(),
-            payload: { content: '运行失败：' + msg + '。可尝试切换模型或检查 API Key。' },
-          },
-        ],
-      }));
+      if (this.abortRequested) {
+        // 用户主动中断：写一条系统提示说明已停止，不再弹错误 toast（避免误导为失败）。
+        this.host.patch((s) => ({ events: [...s.events, this.systemNote('已停止（用户中断）。')] }));
+      } else {
+        const msg = (e as Error).message || '未知错误';
+        // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。
+        this.services.toast('运行失败：' + msg, 'err');
+        this.host.patch((s) => ({
+          events: [...s.events, this.systemNote('运行失败：' + msg + '。可尝试切换模型或检查 API Key。')],
+        }));
+      }
     } finally {
+      this.abortRequested = false;
       this.host.patch({ busy: false, activeTool: null });
     }
+  }
+
+  /**
+   * 中断在跑回合：标记本次 send 为用户主动中断，并通知后端取消在飞请求。
+   * 后端取消令牌终止模型请求后，在途的 turns.run 会以拒绝收尾，send() 据此写「已停止」系统提示。
+   * @returns 无返回值。
+   */
+  public stop(): void {
+    this.abortRequested = true;
+    void this.services.api.abortTurn().catch(() => {});
+  }
+
+  /**
+   * 重生成：取当前线程最后一条用户消息文本，作为新一轮重新发送（对标 codex 的 regenerate）。
+   * 无用户消息时仅给轻提示，不发起请求。
+   * @returns 异步完成
+   */
+  public async regenerate(): Promise<void> {
+    const s = this.host.getState();
+    const lastUser = [...s.events].reverse().find((e) => e.type === 'user');
+    const prompt = lastUser ? String((lastUser.payload?.content as string) ?? '') : '';
+    if (prompt.trim() === '') {
+      this.services.toast('没有可重生成的用户消息', 'info');
+      return;
+    }
+    await this.send(prompt, [], []);
+  }
+
+  /**
+   * 编辑重发：把编辑后的用户文本作为一条新回合重新发送（历史消息分支化需后端 threads.rewind，暂未实现）。
+   * @param text 编辑后的用户文本
+   * @returns 异步完成
+   */
+  public async resend(text: string): Promise<void> {
+    await this.send(text, [], []);
+  }
+
+  /**
+   * 构造一条 system 事件（用于中断/失败提示写入对话流）。
+   * @param content 提示文案
+   * @returns 事件对象
+   */
+  private systemNote(content: string): ThreadEvent {
+    return {
+      id: 'sys-' + Date.now().toString(36),
+      type: 'system',
+      timestamp: Date.now(),
+      payload: { content },
+    };
   }
 
   /**

@@ -26,6 +26,7 @@ import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
 import { ProcessCluster } from './stream/ProcessCluster.js';
 import { AssistantCard } from './stream/AssistantCard.js';
+import { UserCard } from './stream/UserCard.js';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
 import type { ThreadEvent, FileAttachment } from '../../types/models.js';
 import type { LiveInput } from '../shared.js';
@@ -51,6 +52,12 @@ export interface StreamViewProps {
     images: { url?: string; data?: string; mediaType?: string }[],
     files: FileAttachment[],
   ) => void;
+  /** 停止在跑回合（busy 时由 Composer 停止按钮触发）。 */
+  onStop?: () => void;
+  /** 重新生成（最后一条助手消息挂载）。 */
+  onRegenerate?: () => void;
+  /** 编辑重发（最后一条用户消息挂载，回传编辑后文本）。 */
+  onEditUser?: (text: string) => void;
   /** 当前模型（驱动 Composer 的切换器）。 */
   model: string;
   /** 当前厂商可用模型清单（缺省时 Composer 用内置兜底）。 */
@@ -82,6 +89,10 @@ export interface StreamViewProps {
 /** 事件流组件。 */
 export class StreamView extends AppComponent<StreamViewProps> {
   private streamRef: HTMLDivElement | null = null;
+  /** 最后一条用户消息 id（仅它可编辑重发）。 */
+  private lastUserId = '';
+  /** 最后一条助手消息 id（仅它可重新生成）。 */
+  private lastAssistantId = '';
 
   override componentDidMount(): void {
     this.scrollToEnd();
@@ -128,20 +139,23 @@ export class StreamView extends AppComponent<StreamViewProps> {
     switch (ev.type) {
       case 'user':
         return node(
-          <>
-            <div className="head">
-              {badge(ev.type)}
-              <span className="time">{timeOf(ev.timestamp)}</span>
-            </div>
-            <div className={'card ' + ev.type}>
-              <div className="content" spellCheck="false">
-                {esc((p.content as string) || '')}
-              </div>
-            </div>
-          </>,
+          <UserCard
+            ev={ev}
+            busy={busy}
+            canEdit={ev.id === this.lastUserId}
+            onEdit={(text: string) => this.props.onEditUser?.(text)}
+          />,
         );
       case 'assistant':
-        return node(<AssistantCard ev={ev} busy={busy} onOpenFile={onOpenFile} animate={!this.wasStreamed(p)} />);
+        return node(
+          <AssistantCard
+            ev={ev}
+            busy={busy}
+            onOpenFile={onOpenFile}
+            animate={!this.wasStreamed(p)}
+            onRegenerate={ev.id === this.lastAssistantId && busy !== true ? this.props.onRegenerate : undefined}
+          />,
+        );
       case 'reasoning':
         return <ReasoningBlock key={ev.id} ev={ev} />;
       case 'tool_call':
@@ -300,7 +314,17 @@ export class StreamView extends AppComponent<StreamViewProps> {
       busy,
       activeTool,
       api,
+      onStop,
     } = this.props;
+    // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口。
+    let lastUserId = '';
+    let lastAssistantId = '';
+    for (const e of events) {
+      if (e.type === 'user') lastUserId = e.id;
+      else if (e.type === 'assistant') lastAssistantId = e.id;
+    }
+    this.lastUserId = lastUserId;
+    this.lastAssistantId = lastAssistantId;
     const blocks = buildDisplayBlocks(events, busy);
     const ids = this.toolCallIds();
     const streamText = this.props.streamText ?? '';
@@ -345,6 +369,7 @@ export class StreamView extends AppComponent<StreamViewProps> {
           busy={busy}
           activeTool={activeTool}
           api={api}
+          onStop={onStop}
         />
       </div>
     );
