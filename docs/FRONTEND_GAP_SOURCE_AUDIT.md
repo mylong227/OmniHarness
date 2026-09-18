@@ -46,7 +46,7 @@
 | #   | 能力                  | 价值                                   | 依赖后端 |
 | --- | --------------------- | -------------------------------------- | -------- |
 | F6  | **diff accept/reject 闭环** | ChangesTab 的 hunk 接受/拒绝联动真实写入 | 是（需写回 RPC） |
-| F7  | **未消费事件接入**    | `profile.error`/`plugin.loaded` 等事件 UI 提示 | 否（事件已在流里，需 UI 消费） |
+| F7  | **未消费事件接入**    | `profile.error`/`plugin.loaded` 等事件 UI 提示 | 否（事件已在流里，需 UI 消费） | 否（纯前端）✅ **本轮已落地** |
 | F8  | **路由 / 深链**       | 会话/标签可深链与浏览器后退            | 否（前端路由层） |
 
 ### 低价值 / 暂缓
@@ -83,11 +83,25 @@
 
 ---
 
+## 3c. 本轮已闭环：F7 未消费事件接入
+
+| 项       | 内容                                                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 背景     | 后端已在 SSE 流里发出 `profile.error` / `plugin.loaded` / `plugin.loadError` / `profile.applied`，但 `AppController.connectStream` 的 `switch` 只路由 `profile.applied`/`profile.event` 且**静默** bump 一个 reload key，错误与加载事件此前对用户完全不可见 |
+| 新增     | `web/src/ui/notify.ts` —— 纯函数 `profilePluginToasts(envelope: SseEnvelope, toast: (m: string, k: ToastKind) => void): void`；按 `envelope.method` 分派：`profile.error`→`error` toast（`配置「{name}」加载失败：{error}`），`plugin.loaded`→`success`（`插件已加载：{names}` 或 `插件已重载：{names}`），`plugin.loadError`→`error`（`插件「{name}」加载失败：{error}`），`profile.applied`→`success`（`配置「{name}」已应用`） |
+| 接线     | `AppController.connectStream` 的 `switch` 把上述四种 method 统一改为调用 `this.applyProfilePluginToast(msg)`；`applyProfilePluginToast` 委托 `profilePluginToasts(msg, (m,k)=>this.showToast(m,k))`，并保留原有的 `profilesReloadKey` bump（profile 类事件仍触发配置刷新） |
+| 安全/健壮性 | 所有字段经 `String(... ?? '')` 归一，**永不为 undefined**；`names` 数组 `join('、')`，空则自然落到 `未命名`；无法识别的 method 保持 `no-op`，不影响其他路由 |
+| 复用     | 直接复用既有 `AppController.showToast`（走 `toastState` + 2.2s 自动隐藏）与 `Toast.tsx`，无新状态/组件 |
+| 测试     | 新增 `web/test/notify.test.mjs`（契约测试：四类事件 → 正确 message + kind；空字段归一；无法识别 method 不抛错）；纯函数可脱离 DOM 直测 |
+| 验收     | `web:build` 0 错误；`eslint` 0 警告；全量 `web/test/**` **118/120**（仅 2 项为 headless-Chrome e2e `E1 CDP`/`UI e2e`，沙箱浏览器环境差异，与本改动无关）；无 `any` |
+
+---
+
 ## 4. 建议推进顺序
 
 1. ~~**F1 回复渲染升级** — 与 deepseek-harness 的「回复模式」观感直接对齐，且为零依赖铁律放宽后的低风险首步。~~ ✅ **已完成（阶段 37 / F1）**
 2. ~~**F2 代码块体验** — 纯前端、零后端依赖，紧接 F1 渲染层，补齐复制/语言标签。~~ ✅ **已完成（F2）**
-3. **F7 未消费事件接入** — 纯前端消费既有事件流，补齐 UI 完整性。
+3. ~~**F7 未消费事件接入** — 纯前端消费既有事件流，把后端已发但 UI 静默的事件显式提示。~~ ✅ **已完成（F7）**
 4. **F3 会话操作** — 需后端补 `rename/delete/fork` RPC（StoragePort 已有 fork 能力，需暴露到 Web RPC），再在 `SessionPanel` 加操作入口。
 5. **F4 中断/重生成** — 需确认后端 `turn` 中止与 regenerate 能力，再接 UI。
 6. **F5 配置 UI 收敛** — 核实现有 `ModelProviders`/`Settings` 字段接线完整度，补缺失项。
