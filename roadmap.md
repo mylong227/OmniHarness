@@ -530,7 +530,7 @@
 | #   | 任务           | 内容                                                                                     | 验收                                                  |
 | --- | -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写 | web:build 0 错；web:test 15/15；全库 0 `any`          |
-| F2  | 代码块体验     | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                     | 点击复制 code 文本；语言标签显示                      |
+| F2  | ✅ 代码块体验   | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                     | 点击复制 code 文本；语言标签显示                      |
 | F3  | 会话操作       | 重命名/删除/搜索/fork 接入 `sessions.list`/`search.all`，UI 在 SessionPanel 暴露           | 操作可点击并触发对应 RPC                              |
 | F4  | 中断/重生成    | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                  | 中止即时停止；重生成复用上下文                        |
 | F5  | 配置 UI 收敛   | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                       | 配置改动即时生效                                      |
@@ -539,6 +539,8 @@
 | F8  | 路由/深链      | 会话/标签可深链与浏览器后退                                                             | URL 反映当前视图                                      |
 
 **验收汇总（F1）**：web:build 0 错误；web:test 15/15 通过；`@typescript-eslint/no-explicit-any` 全库 0 处（`markdown.ts` 用最小接口替代 `any`）；新增 vendored 依赖 markdown-it / katex / highlight.js + KaTeX 字体（离线内置，无网络依赖）；UMD 全局缺失时回落手写实现，旧契约测试无回归。
+
+**验收汇总（F2）**：在 F1 渲染层上加代码块工具条——`markdown.ts` 新增 `fence` 渲染规则包 `.md-codeblock`（语言标签 + 一键复制，语言名先 escapeHtml 防注入），`format.ts` 的 legacy 回落路径同步包同样容器；共享 `handleCodeblockCopyClick`（事件委托，复用既有 `ClipboardCopier`，fail-closed 静默）；`chat.css` 补 `.md-codeblock*` 暗/亮主题样式。`web:build` 0 错、`eslint` 0 警告、`web:test` 16/16（新增代码块契约测试）；全量 web 单测仅 2 项为 headless-Chrome 环境差异的 e2e，与本改动无关。
 
 ## 推进规则
 

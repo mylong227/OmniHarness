@@ -2,7 +2,7 @@
 // 组件层调用这些函数，既保持视觉一致（复用同一套 CSS class），又避免直接操作 DOM。
 
 import { React } from './deps.js';
-import { markdownRender, markdownLibsReady } from './markdown.js';
+import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.js';
 import type { ThreadEvent } from '../types/models.js';
 
 /**
@@ -501,8 +501,19 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
           React.createElement('li', { key: `${key}-li-${li}` }, ...parseInline(item, `${key}-li-${li}`)),
         ),
       );
-    case 'code':
-      return React.createElement(
+    case 'code': {
+      const langLabel = b.lang ? b.lang : 'text';
+      const bar = React.createElement(
+        'div',
+        { key: `${key}-bar`, className: 'md-codeblock__bar' },
+        React.createElement('span', { key: `${key}-lang`, className: 'md-codeblock__lang' }, langLabel),
+        React.createElement(
+          'button',
+          { key: `${key}-copy`, type: 'button', className: 'md-codeblock__copy' },
+          '复制',
+        ),
+      );
+      const pre = React.createElement(
         'pre',
         { key, className: 'md-pre' },
         React.createElement(
@@ -511,6 +522,8 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
           b.text,
         ),
       );
+      return React.createElement('div', { key, className: 'md-codeblock' }, bar, pre);
+    }
     case 'quote':
       return React.createElement('blockquote', { key, className: 'md-quote' }, ...parseInline(b.text, key));
     case 'table':
@@ -561,11 +574,15 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
 export function legacyRenderMarkdown(src: string): ReactElement {
   const blocks = parseBlocks(src || '');
   if (blocks.length === 0) {
-    return React.createElement('div', { className: 'md-content md-empty', spellCheck: 'false' });
+    return React.createElement('div', {
+      className: 'md-content md-empty',
+      spellCheck: 'false',
+      onClick: handleCodeblockCopyClick,
+    });
   }
   return React.createElement(
     'div',
-    { className: 'md-content', key: 'md', spellCheck: 'false' },
+    { className: 'md-content', key: 'md', spellCheck: 'false', onClick: handleCodeblockCopyClick },
     ...blocks.map((b, i) => renderBlock(b, i)),
   );
 }
