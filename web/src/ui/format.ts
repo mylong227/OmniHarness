@@ -2,6 +2,7 @@
 // 组件层调用这些函数，既保持视觉一致（复用同一套 CSS class），又避免直接操作 DOM。
 
 import { React } from './deps.js';
+import { markdownRender, markdownLibsReady } from './markdown.js';
 import type { ThreadEvent } from '../types/models.js';
 
 /**
@@ -551,7 +552,13 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
  * @param src Markdown 源码，空串或空内容时返回 `md-empty` 占位。
  * @returns Markdown 渲染结果元素。
  */
-export function renderMarkdown(src: string): ReactElement {
+/**
+ * 手写零依赖 Markdown 渲染器（回落实现）。
+ * 仅在成熟依赖（markdown-it / KaTeX / highlight.js）未就绪时使用，保证无回归与离线可用。
+ * @param src Markdown 源码。
+ * @returns 渲染结果元素（结构化 React 元素，不使用 innerHTML）。
+ */
+export function legacyRenderMarkdown(src: string): ReactElement {
   const blocks = parseBlocks(src || '');
   if (blocks.length === 0) {
     return React.createElement('div', { className: 'md-content md-empty', spellCheck: 'false' });
@@ -561,4 +568,15 @@ export function renderMarkdown(src: string): ReactElement {
     { className: 'md-content', key: 'md', spellCheck: 'false' },
     ...blocks.map((b, i) => renderBlock(b, i)),
   );
+}
+
+/**
+ * Markdown 渲染统一入口：成熟依赖就绪时走 markdown.ts 的 markdown-it + KaTeX + highlight.js 管线
+ * （数学公式、代码高亮、GFM 表格/任务列表等），否则回落到手写实现。
+ * @param src Markdown 源码。
+ * @returns 渲染结果元素。
+ */
+export function renderMarkdown(src: string): ReactElement {
+  if (markdownLibsReady()) return markdownRender(src);
+  return legacyRenderMarkdown(src);
 }
