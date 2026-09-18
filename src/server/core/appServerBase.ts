@@ -88,6 +88,8 @@ export class AppServerBase {
       configuredStorageDir: () => this.configStore.fileConfig().storageDir,
       metrics: options.metrics,
     });
+    // 注入真实运行态判定：运行中的会话拒绝删除，避免截断活动事件流。
+    this.sessionArchive.setRunningChecker((id) => this.activeTurns.has(id));
     this.workspaceChanges = new WorkspaceChanges({
       workspaceRoot,
       threadIds: () => this.threads.keys(),

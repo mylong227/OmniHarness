@@ -22,6 +22,12 @@ export interface SessionPanelProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onOpenFile: (path: string) => void;
+  /** 重命名会话（自定义标题）。 */
+  onRename: (id: string, title: string) => void | Promise<void>;
+  /** 删除会话。 */
+  onDelete: (id: string) => void | Promise<void>;
+  /** 分叉会话为新副本。 */
+  onFork: (id: string) => void | Promise<void>;
   /** 切换项目成功后回调（App 刷新会话列表等）。 */
   onWorkspaceSwitched?: () => void;
   open: boolean;
@@ -43,6 +49,14 @@ interface SessionPanelState {
   picking: boolean;
   /** 会话视图：list = 分组列表（默认） / cards = 并行任务卡（对标 Codex 并行 thread 监督）。 */
   view: 'list' | 'cards';
+  /** 会话搜索关键字（按标签/id/工作区过滤）。 */
+  query: string;
+  /** 正在行内重命名的会话 id（null 表示无）。 */
+  renamingId: string | null;
+  /** 行内重命名输入框当前值。 */
+  renameValue: string;
+  /** 正在确认删除的会话 id（null 表示无）。 */
+  confirmDeleteId: string | null;
 }
 
 /** 每组默认展示条数。 */
@@ -62,6 +76,10 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
       projects: [],
       picking: false,
       view: 'list',
+      query: '',
+      renamingId: null,
+      renameValue: '',
+      confirmDeleteId: null,
     };
   }
 
@@ -126,6 +144,103 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
     this.setState((prev) => ({ view: prev.view === 'list' ? 'cards' : 'list' }));
   };
 
+  /**
+   * 按搜索关键字过滤会话（标签 / id / 工作区，大小写不敏感）。
+   * @param items 原始会话列表
+   * @param query 搜索关键字（trim 后）
+   * @returns 过滤后的会话列表（空关键字返回原列表）
+   */
+  private filterSessions(items: readonly SessionEntry[], query: string): SessionEntry[] {
+    const q = query.trim().toLowerCase();
+    if (q === '') return items.slice();
+    return items.filter((s) => {
+      const hay = [s.label, s.id, s.workspace].filter((x) => typeof x === 'string').join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  /** 进入行内重命名：预填当前标签，并清掉其他行内态。 */
+  private readonly startRename = (s: SessionEntry): void => {
+    this.setState({ renamingId: s.id, renameValue: s.label || s.id, confirmDeleteId: null });
+  };
+
+  /** 取消行内重命名。 */
+  private readonly cancelRename = (): void => {
+    this.setState({ renamingId: null, renameValue: '' });
+  };
+
+  /** 提交行内重命名（空标题也照常提交，由服务端清除自定义标题）。 */
+  private readonly commitRename = async (id: string): Promise<void> => {
+    const title = this.state.renameValue;
+    this.setState({ renamingId: null, renameValue: '' });
+    await this.props.onRename(id, title);
+  };
+
+  /** 进入删除确认态。 */
+  private readonly askDelete = (id: string): void => {
+    this.setState({ confirmDeleteId: id, renamingId: null });
+  };
+
+  /** 取消删除确认态。 */
+  private readonly cancelDelete = (): void => {
+    this.setState({ confirmDeleteId: null });
+  };
+
+  /** 提交删除。 */
+  private readonly commitDelete = async (id: string): Promise<void> => {
+    this.setState({ confirmDeleteId: null });
+    await this.props.onDelete(id);
+  };
+
+  /**
+   * 渲染单条会话的内部内容：常态显示标签 + 操作按钮（重命名/复制/删除）；
+   * 行内重命名态显示输入框；删除确认态显示「删除？」确认条。
+   * @param s 会话条目
+   * @returns 渲染节点
+   */
+  private renderSessionBody(s: SessionEntry): ReactElement {
+    const renaming = this.state.renamingId === s.id;
+    const confirming = this.state.confirmDeleteId === s.id;
+    if (renaming) {
+      return (
+        <span className="session-rename">
+          <input
+            className="session-rename-input"
+            value={this.state.renameValue}
+            spellCheck={false}
+            onChange={(e) => this.setState({ renameValue: (e.target as HTMLInputElement).value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void this.commitRename(s.id);
+              else if (e.key === 'Escape') this.cancelRename();
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button className="session-rename-ok" title="确认" onClick={(e) => { e.stopPropagation(); void this.commitRename(s.id); }}>✓</button>
+          <button className="session-rename-cancel" title="取消" onClick={(e) => { e.stopPropagation(); this.cancelRename(); }}>✕</button>
+        </span>
+      );
+    }
+    if (confirming) {
+      return (
+        <span className="session-confirm">
+          <span className="session-confirm-text">删除？</span>
+          <button className="session-confirm-ok" title="确认删除" onClick={(e) => { e.stopPropagation(); void this.commitDelete(s.id); }}>删除</button>
+          <button className="session-confirm-cancel" title="取消" onClick={(e) => { e.stopPropagation(); this.cancelDelete(); }}>取消</button>
+        </span>
+      );
+    }
+    return (
+      <>
+        <span className="session-label">{s.label || s.id}</span>
+        <span className="session-actions" onClick={(e) => e.stopPropagation()}>
+          <button className="session-act" title="重命名" onClick={(e) => { e.stopPropagation(); this.startRename(s); }}>✎</button>
+          <button className="session-act" title="复制会话" onClick={(e) => { e.stopPropagation(); void this.props.onFork(s.id); }}>⧉</button>
+          <button className="session-act danger" title="删除" onClick={(e) => { e.stopPropagation(); this.askDelete(s.id); }}>🗑</button>
+        </span>
+      </>
+    );
+  }
+
   private renderTree(): ReactElement {
     const { tree, treeLoaded, treeError } = this.state;
     if (treeError != null) {
@@ -145,12 +260,13 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
   /** 并行任务卡视图：running 徽章来自服务端 activeTurns 真实运行态（非前端猜测）。 */
   private renderCards(): ReactElement {
     const { sessions, currentThreadId, onSelect } = this.props;
-    if (sessions.length === 0) {
+    const all = this.filterSessions(sessions, this.state.query);
+    if (all.length === 0) {
       return emptyState('🗂️', '暂无会话', '新建会话后，任务卡会显示在这里。');
     }
     return (
       <div className="session-cards">
-        {sessions.map((s) => (
+        {all.map((s) => (
           <div
             key={s.id}
             className={
@@ -166,7 +282,7 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
                 className={'tc-dot' + (s.running === true ? ' on' : '')}
                 title={s.running ? '运行中' : '空闲'}
               ></span>
-              <span className="tc-label">{s.label || s.id}</span>
+              <span className="tc-label">{this.renderSessionBody(s)}</span>
             </div>
             <div className="tc-meta">
               <span>{s.turns ?? 0} 回合</span>
@@ -187,13 +303,14 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
   /** 分组列表视图：当前项目组排最前且默认展开，其余折叠；组内分页。 */
   private renderGroups(): ReactElement {
     const { sessions, currentThreadId, onSelect } = this.props;
-    const { collapsed, limits, wsPath } = this.state;
-    if (sessions.length === 0) {
+    const { collapsed, limits, wsPath, query } = this.state;
+    const all = this.filterSessions(sessions, query);
+    if (all.length === 0) {
       return emptyState('🗂️', '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
     }
     return (
       <>
-        {SessionGrouper.group(sessions, wsPath).map((g) => {
+        {SessionGrouper.group(all, wsPath).map((g) => {
           const isCollapsed = collapsed[g.key] ?? (g.key !== PathJoiner.normalize(wsPath) && g.key !== '__early__');
           const limit = limits[g.key] ?? PAGE;
           const shown = isCollapsed ? [] : g.items.slice(0, limit);
@@ -223,7 +340,7 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
                       onClick={() => onSelect(s.id)}
                       title={s.id}
                     >
-                      {s.label || s.id}
+                      {this.renderSessionBody(s)}
                     </div>
                   ))}
                   {rest > 0 ? (
@@ -269,7 +386,7 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
 
   override render(): ReactElement {
     const { onNew, open, style } = this.props;
-    const { view, picking } = this.state;
+    const { view, picking, query } = this.state;
     return (
       <div className={'col left' + (open ? ' open' : '')} style={style}>
         <div className="col-head">
@@ -283,9 +400,18 @@ export class SessionPanel extends AppComponent<SessionPanelProps, SessionPanelSt
           </button>
         </div>
         <div className="section">
-          <button className="btn primary" onClick={onNew}>
-            + 新建会话
-          </button>
+          <div className="session-toolbar">
+            <input
+              className="session-search"
+              placeholder="搜索会话…"
+              value={query}
+              spellCheck={false}
+              onChange={(e) => this.setState({ query: (e.target as HTMLInputElement).value })}
+            />
+            <button className="btn primary" onClick={onNew}>
+              + 新建
+            </button>
+          </div>
           <div id="sessions">{view === 'cards' ? this.renderCards() : this.renderGroups()}</div>
         </div>
         <div className="col-head">
