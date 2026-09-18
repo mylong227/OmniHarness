@@ -38,7 +38,7 @@
 | F1  | **回复渲染升级**                    | 数学公式 + 代码语法高亮，直接对齐 deepseek-harness 的「回复模式」观感     | 原 `format.ts` 手写零依赖解析器**缺数学与代码高亮**                                                       | 否（纯前端）✅ **本轮已落地** |
 | F2  | **代码块体验**                      | 复制代码按钮 + 语言标签 + 悬停反馈，对齐主流 Chat UI                     | `markdown.ts` 产出 `<pre class="hljs">` 但 UI 无复制/语言标签                                            | 否（纯前端）✅ **本轮已落地** |
 | F3  | **会话操作（重命名/删除/搜索/fork）** | 会话管理是「会话模式」核心                                              | `ApiClient` 仅有 `listSessions`/`searchAll`，缺 `rename/delete/fork` RPC 与 `SessionPanel` 操作入口       | 是（需 RPC） | 否（后端补 RPC + 前端接线）✅ **本轮已落地** |
-| F4  | **中断 / 重生成 / 编辑重发**        | 长任务可控性，对标 codex 的 stop + regenerate                            | `Composer`/`ComposerController` 未见 abort/regenerate 入口；后端 `turn` 中止需确认                        | 部分     |
+| F4  | **中断 / 重生成 / 编辑重发**        | 长任务可控性，对标 codex 的 stop + regenerate                            | `Composer`/`ComposerController` 未见 abort/regenerate 入口；后端 `turn` 中止需确认                        | 部分     | 否（后端补 `turns.abort` RPC + 前端停止/重生成/编辑重发）✅ **本轮已落地** |
 | F5  | **配置 UI 收敛**                    | API key / base-url / profile 在一处可改且即时生效                       | `ModelProviders`/`Settings` 已存在但字段接线完整度待核                                                    | 部分     |
 
 ### 中价值
@@ -119,8 +119,23 @@
 2. ~~**F2 代码块体验** — 纯前端、零后端依赖，紧接 F1 渲染层，补齐复制/语言标签。~~ ✅ **已完成（F2）**
 3. ~~**F7 未消费事件接入** — 纯前端消费既有事件流，把后端已发但 UI 静默的事件显式提示。~~ ✅ **已完成（F7）**
 4. ~~**F3 会话操作** — 后端补 `rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口，对齐「会话模式」核心。~~ ✅ **已完成（F3）**
-4. **F3 会话操作** — 需后端补 `rename/delete/fork` RPC（StoragePort 已有 fork 能力，需暴露到 Web RPC），再在 `SessionPanel` 加操作入口。
-5. **F4 中断/重生成** — 需确认后端 `turn` 中止与 regenerate 能力，再接 UI。
+5. ~~**F4 中断/重生成/编辑重发** — 后端 `turns.abort` RPC 触发既有 `agent.cancelCurrentRun`；前端停止按钮 + 重生成 + 编辑重发。~~ ✅ **已完成（F4，本轮）**
 6. **F5 配置 UI 收敛** — 核实现有 `ModelProviders`/`Settings` 字段接线完整度，补缺失项。
 7. **F6 diff accept/reject 闭环** — 需写回 RPC。
 8. **F8 路由/深链** — 前端路由层，独立阶段。
+
+---
+
+## 3e. 本轮已闭环：F4 中断 / 重生成 / 编辑重发
+
+| 项 | 内容 |
+| --- | --- |
+| 背景 | 长任务可控性对标 codex 的 stop + regenerate：此前 `Composer`/`ComposerController` 无 abort/regenerate 入口，后端 `agent.cancelCurrentRun`（CancellationToken 贯穿模型 fetch）已具备却未从 web 暴露。 |
+| 中断（后端） | `src/server/core/appServer.ts` 注册 `turns.abort` RPC → `runtime.agent().cancelCurrentRun('user')`；取消令牌中止在飞模型请求，`turns.run` 自然收尾，SSE 已推送的增量事件不受影响。 |
+| 中断（前端） | `ApiClient.abortTurn()` 调 `turns.abort`；`ComposerController.stop()` 置 `abortRequested` 并触发中断；`send()` 的 catch 区分「用户主动中断」（写 `已停止（用户中断）` 系统提示，不弹错误 toast）与真实错误；`Composer` 在 `busy` 时把发送按钮替换为「■ 停止」按钮。 |
+| 重生成 | `ComposerController.regenerate()` 取当前线程最后一条 `user` 消息文本，作为新一轮 `send` 重发（对标 codex regenerate）；`AssistantCard` 在**最后一条**助手消息上挂「↻ 重新生成」按钮（`StreamView` 计算 `lastAssistantId` 且仅非 busy 时挂载）。 |
+| 编辑重发 | 抽取 `UserCard` 组件承载用户消息展示 + 内联编辑；仅**最后一条**用户消息显示「✎ 编辑」，提交后回调 `ComposerController.resend(text)` 以编辑文本发起新回合。历史消息分支化（截断后重跑）需后端 `threads.rewind` RPC，本轮未实现，已在审计中明确为后续项。 |
+| 接线 | `StreamView` 新增 `onStop`/`onRegenerate`/`onEditUser` 透传给 `Composer` / `AssistantCard` / `UserCard`；`App.tsx` 透传 `ctrl.composer.stop` / `regenerate` / `resend`。 |
+| 样式 | `chat.css` 补 `.stop`（危险色）/`.msg-act`（消息悬浮操作）/`.user-edit*`（内联编辑 textarea + 保存/取消），暗亮主题走语义变量。 |
+| 测试 | 新增 `web/test/turnControl.test.mjs`（5 项契约：abortTurn RPC、stop 触发中断、regenerate 取最后用户消息、regenerate 无消息轻提示、resend 发新回合）。 |
+| 验收 | `web:build` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；根 `tsc --noEmit` 0 错；`audit:standard:delta`/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **123/125**（仅 2 项为 headless-Chrome e2e `E1 CDP`/`UI e2e` 沙箱环境差异，与本改动无关）；无 `any`。 |

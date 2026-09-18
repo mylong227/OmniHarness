@@ -95,6 +95,13 @@ export class ApiClient {
   ): Promise<TurnRunResult> {
     return this.rpc('turns.run', params);
   }
+  /**
+   * 中断在跑回合：后端取消令牌中止在飞模型请求，turns.run 自然收尾。
+   * @returns 中断 RPC 的响应（{ ok: true }）。
+   */
+  public abortTurn(): Promise<unknown> {
+    return this.rpc('turns.abort', {});
+  }
   public getThread(threadId: string): Promise<ThreadGetResult> {
     return this.rpc('threads.get', { threadId });
   }

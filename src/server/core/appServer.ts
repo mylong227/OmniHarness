@@ -98,6 +98,12 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.handlers.set('threads.fork', (params) => this.forkThread(params));
     this.handlers.set('threads.get', (params) => this.getThread(params));
     this.handlers.set('turns.run', (params) => this.runTurn(params));
+    this.handlers.set('turns.abort', async () => {
+      // 中断在跑回合：取消令牌贯穿模型请求 fetch（见 agent.cancelCurrentRun），
+      // 在飞请求被中止后 turns.run 自然收尾，SSE 已推送的增量事件不受影响。
+      this.runtime.agent().cancelCurrentRun('user');
+      return { ok: true };
+    });
     this.handlers.set('approval.respond', (params) => this.respondApproval(params));
     this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
     this.handlers.set('config.update', (params) => Promise.resolve(this.updateConfig(params)));

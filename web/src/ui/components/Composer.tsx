@@ -64,6 +64,8 @@ export interface ComposerProps {
     images: { url?: string; data?: string; mediaType?: string }[],
     files: FileAttachment[],
   ) => void;
+  /** 停止在跑回合（busy 时由停止按钮触发，对标 codex 的 stop）。 */
+  onStop?: () => void;
   /** ApiClient（附件 FilePicker 走 attach.read 读 base64 用）。 */
   api: ApiClient;
   disabled?: boolean;
@@ -361,6 +363,7 @@ export class Composer extends AppComponent<ComposerProps, ComposerState> {
       activeTool,
       api,
       threadId,
+      onStop,
     } = this.props;
     const { filePickerOpen, pickerErr, listening } = this.state;
     const hint = ComposerOptions.permissionHint(permission);
@@ -447,9 +450,22 @@ export class Composer extends AppComponent<ComposerProps, ComposerState> {
             onClick={this.refreshMention}
             onKeyDown={this.onKeyDown}
           ></textarea>
-          <button className="send" disabled={disabled} aria-label="发送任务" onClick={this.handleSend}>
-            发送
-          </button>
+          {busy === true ? (
+            <button
+              className="stop"
+              aria-label="停止生成"
+              title="停止生成"
+              onClick={() => {
+                onStop?.();
+              }}
+            >
+              ■ 停止
+            </button>
+          ) : (
+            <button className="send" disabled={disabled} aria-label="发送任务" onClick={this.handleSend}>
+              发送
+            </button>
+          )}
         </div>
 
         {pickerErr ? (
