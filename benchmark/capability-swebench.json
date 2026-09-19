@@ -1,6 +1,6 @@
 {
   "suite": "capability-swebench",
-  "generatedAt": "2026-09-15T13:52:07.123Z",
+  "generatedAt": "2026-09-19T14:57:15.770Z",
   "scripted": {
     "passed": 10,
     "total": 10,
@@ -76,7 +76,7 @@
         "steps": 3
       }
     ],
-    "totalDurationMs": 1413
+    "totalDurationMs": 1292
   },
   "controls": {
     "valid": true,
@@ -225,9 +225,28 @@
       }
     ]
   },
+  "reasoningRouting": {
+    "perTask": {
+      "off-by-one-sum": "medium",
+      "null-guard-greet": "medium",
+      "wrong-op-avg": "medium",
+      "reversed-sort": "medium",
+      "loop-start-firstN": "medium",
+      "fencepost-slice": "medium",
+      "regex-anchored": "medium",
+      "float-precision": "medium",
+      "type-coercion": "medium",
+      "inverted-condition": "medium"
+    },
+    "budgets": {
+      "routedTotal": 30,
+      "fixedTotal": 80,
+      "delta": -50
+    }
+  },
   "live": {
     "model": "deepseek-chat",
-    "passed": 9,
+    "passed": 10,
     "total": 10,
     "results": [
       {
@@ -235,74 +254,73 @@
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 4
       },
       {
         "id": "null-guard-greet",
-        "passed": false,
-        "evalExitCode": 1,
+        "passed": true,
+        "evalExitCode": 0,
         "mode": "live",
-        "steps": 3,
-        "reason": "evalCmd 退出码 1（修复未达 FAIL_TO_PASS）"
+        "steps": 5
       },
       {
         "id": "wrong-op-avg",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 4
       },
       {
         "id": "reversed-sort",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 5
       },
       {
         "id": "loop-start-firstN",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 4
       },
       {
         "id": "fencepost-slice",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 6
       },
       {
         "id": "regex-anchored",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 4
       },
       {
         "id": "float-precision",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 4
       },
       {
         "id": "type-coercion",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 5
       },
       {
         "id": "inverted-condition",
         "passed": true,
         "evalExitCode": 0,
         "mode": "live",
-        "steps": 3
+        "steps": 4
       }
     ],
-    "totalDurationMs": 28985,
-    "costUsd": 0.1226
+    "totalDurationMs": 45597,
+    "costUsd": 0.168
   }
 }

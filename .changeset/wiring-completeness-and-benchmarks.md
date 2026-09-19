@@ -29,6 +29,7 @@
 
 - `NativeExecutor` 原先只用 PATH 探测 uv，而 uv 官方脚本默认装在 `~/.local/bin`（不在 PATH）⇒ 装了却判不可用、整条判定链路 fail-closed。新增 `UvLocator`（`OMNI_UV` → PATH → 平台已知位置，按目标平台拼路径，找不到列出全部候选），`describe()` 如实暴露 `uv=<路径|缺少>`，`uv venv`/`uv pip install` 改用解析出的绝对路径。
 - 出数（子集口径，非官方满分；产物与命令见 `docs/TASK_BOARD.md` §15.3）：Gitee 两关 ✅✅；SWE-bench Verified 33 子集 1/33、25 子集 0/25（envError 0）；Terminal-Bench 20 题 gold 3/20、grep 基线 0/20（envError 3）⇒ **原生 Terminal-Bench 保真度不足以出官方分**（如实登记）。
+- **live 真模型路径修复 + 首跑出数**：`evals/live/bench.mjs` 的 live 分支此前从未执行过，首跑即暴露两处缺陷——`main()` 里 `const cfg = resolveConfig()` 声明在 `if` 块内而标签行三元读 `cfg.model`（scripted 路径短路掩盖 ⇒ live 必抛 `ReferenceError`）；`fixTask()` 把测试文件**内容**当文件名（`seedFiles: { [testSrc]: testSrc }` ⇒ 10 个任务全 `ENOENT mkdir <测试源码>`）。修后实测：`--repeat 1` **12/12 通过**、885,596 tokens、隔离评测 12/12、exit 0；`--repeat 3 --min-pass-k 3,0.9 --min-pass-k-ci 3,0.9` ⇒ **Pass@1/2/3 = 1.000，CI=[1.000,1.000]**（bootstrap 95%、2000 轮固定种子）、2,505,441 tokens、`✅ 门禁达标`。另更正：`npm run eval:ci` 零 key（`--swebench` 走 ScriptedModel，`总 token: 0`），已实测 exit 0——旧记载说它「含真实模型调用」是错的。
 
 **前端 F4/F5/F6/F8 收口 + `threads.rewind`**
 
