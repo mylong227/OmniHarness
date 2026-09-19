@@ -579,6 +579,16 @@
 
 **国内镜像实测（本轮顺带核实，非猜测）**：`registry.npmmirror.com` HTTP 200 / 350 ms（`npm ping` PONG）、`hf-mirror.com` 200 / 269 ms、`pypi.tuna.tsinghua.edu.cn` 200 / 170 ms、`mirrors.aliyun.com/pypi` 200 / 76 ms；HuggingFace 官方站仍不可达（超时）。仓库既有接线：npm 走 `~/.npmrc` 的 npmmirror；HF 权重走 `OMNI_HF_ENDPOINT` → 回落 `HF_ENDPOINT`（`configFactory` → `TransformersEmbeddingAdapter.remoteHost`，既有单测覆盖）；`uv pip install` 经进程环境透传 `UV_INDEX_URL` / `PIP_INDEX_URL`。
 
+### 39.1 根治性审计（追加，2026-09-19）
+
+**上界实测（不是只断言字段值）**：合成工作区 25,005 文件（22,000 个小 `.ts` + 5 个 4 MiB `.ts` + `eval-data`/`target`/`node_modules` 各 1,000 文件）⇒ 实际纳入 **20,000 文件 / 18.48 MB**、`truncated=true`、`skippedLargeFiles=5`、**峰值 RSS 132 MB**、4.5 秒。即「比闸门大一个数量级」的语料也只吃到百 MB 量级。
+
+**泄漏判定（区分垃圾与泄漏）**：`--expose-gc` 后强制 GC 的**保留量**在三种场景全部平台化——① 重复 `indexCorpus` 5 次：heap 恒定 5 MB / RSS 91 MB；② 生产路径（`OMNI_REPO_MAP_TTL_MS=0` 强制每次重建）5 次：heap 恒定 15 MB / RSS 103 MB；③ **8 个不同工作区**依次索引：heap 15 → 6 MB、RSS 稳定 ~103 MB。⇒ 不带 GC 时看到的单调增长是 V8 **延迟回收的垃圾**，不是泄漏；`corpusCache`（LRU=4）与各级 `WeakMap<IndexedCorpus, …>` 如期收敛。
+
+**同族路径审计**：`GrepTool` 已有 `MAX_FILE_BYTES = 2 MiB` + 结果上限；`WorkspaceFileWalker` 2 万文件 + 忽略清单 + 跳符号链接；Web 搜索 `MAX_VISITED=6000` / 深度 6 / `SKIP_DIRS`（含 `target`）；repo-map 各级缓存均为 `WeakMap<IndexedCorpus, …>`，`CorpusIndexCache` LRU=4。**小残留（登记，未处理）**：`codeReferenceGraph` 的 `Map<root, GraphSignal>` 与 `projectInstructions` 的 TTL Map 是**按 root 键的进程级缓存**，无上限（量级 = 工作区数，均有显式 clear）。
+
+**未根治的一处（如实登记，需口径决策）**：`light: false`（full 模式：频域谱 + 代码图 + LSA）**每字节内存代价比 light 高一个数量级**——实测本仓 `src/`（533 文件 / 4 MB 语料 / 9,080 符号）**峰值 RSS 1,522 MB、耗时 83 秒**。生产路径（`CorpusIndexCache`）恒传 `light: true`，故该档只服务评测脚本；本轮**只让它可见、不改其口径**：新增 `ContextEngine.FULL_MODE_WARN_BYTES = 2 MiB` 阈值 + 超限 `warn` 日志（带语料 MiB 与建议）+ 单测，因为擅自把默认翻成 light 会污染既有 full-vs-light 对照结论。要彻底封死需二选一：**默认翻 light**（评测脚本显式传 `light:false`）或**给 full 档加硬预算**（超限即拒绝索引）。
+
 ## 推进规则
 
 1. 严格按编号顺序（1.1 → 1.2 → 2.1 → …），每步过验收再进下一步

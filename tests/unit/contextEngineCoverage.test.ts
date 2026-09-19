@@ -91,6 +91,36 @@ test('walk：语料总字节预算触顶 → truncated=true（文件数没到也
   rmSync(root, { recursive: true, force: true });
 });
 
+test('full 模式索引大语料必须在日志里看得见（只告警、不改行为）', () => {
+  const root = makeRoot();
+  write(root, 'src/a.ts', `export const a = 1; // ${'x'.repeat(600)}\n`);
+  const captured: string[] = [];
+  const original = process.stderr.write;
+  // 日志默认 sink 写 stderr；临时接管以断言「告警真的发了」。
+  process.stderr.write = ((chunk: string | Uint8Array): boolean => {
+    captured.push(String(chunk));
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    indexCorpus(root, { morph: true, light: false, fullModeWarnBytes: 100 });
+    assert.strictEqual(
+      captured.some((line) => line.includes('full 模式索引较大语料')),
+      true,
+      '超过阈值必须以 warn 级别暴露（否则又会是「静默吃内存」）',
+    );
+    captured.length = 0;
+    indexCorpus(root, { morph: true, light: true, fullModeWarnBytes: 100 });
+    assert.strictEqual(
+      captured.some((line) => line.includes('full 模式索引较大语料')),
+      false,
+      'light 模式不该报此告警',
+    );
+  } finally {
+    process.stderr.write = original;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('真机回归：索引本仓根目录不会再吞下 eval-data/target（堆爆事故同口径）', () => {
   const corpus = indexCorpus(process.cwd(), { morph: true, light: true });
   const rels = [...corpus.fileText.keys()];

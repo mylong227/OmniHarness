@@ -789,3 +789,27 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 ### 13.5 国内镜像实测（本轮顺带核实，非引用旧档）
 
 `registry.npmmirror.com` HTTP 200 / 350 ms（`npm ping` PONG）、`hf-mirror.com` 200 / 269 ms、`pypi.tuna.tsinghua.edu.cn` 200 / 170 ms、`mirrors.aliyun.com/pypi` 200 / 76 ms；huggingface.co 仍超时。既有接线：npm → `~/.npmrc` 的 npmmirror；HF 权重 → `OMNI_HF_ENDPOINT` 回落 `HF_ENDPOINT`（`configFactory` → `TransformersEmbeddingAdapter.remoteHost`，有单测）；`uv pip install` 经进程环境透传 `UV_INDEX_URL` / `PIP_INDEX_URL`。**本轮实跑**：`OMNI_HF_ENDPOINT=https://hf-mirror.com node evals/semantic-smoke.mjs Xenova/e5-small-v2 .omniharness/model-cache` ⇒ pipeline 5.8 秒就绪、3 条文本嵌入 0.1 秒、维度 [3,384]、语义区分度 gap 0.0779「OK 有区分力」——此前档案里「语义路只差模型文件」已不再是阻塞。
+
+### 13.6 根治性审计（追加，2026-09-19）
+
+**一、上界实测（不只断言字段值）**：合成工作区 **25,005 文件**（22,000 个小 `.ts` + 5 个 4 MiB `.ts` + `eval-data`/`target`/`node_modules` 各 1,000 文件）⇒ 实际纳入 **20,000 文件 / 18.48 MB**、`truncated=true`、`skippedLargeFiles=5`、**峰值 RSS 132 MB**、4.5 秒。比闸门大一个数量级的语料也只吃到百 MB 量级。
+
+**二、泄漏判定（区分「垃圾未回收」与「真泄漏」）**：`--expose-gc` 后测**强制 GC 的保留量**，三场景全部平台化——
+① 重复 `indexCorpus` 5 次：heap 恒定 **5 MB** / RSS 91 MB；
+② 生产路径（`OMNI_REPO_MAP_TTL_MS=0` 强制每次重建）5 次：heap 恒定 **15 MB** / RSS 103 MB；
+③ **8 个不同工作区**依次索引：heap 15 → 6 MB、RSS 稳定 ~103 MB。
+⇒ 不带 GC 时观察到的单调增长（132→174→226→279 MB）是 V8 **延迟回收的垃圾**，不是泄漏；`corpusCache`（LRU=4）与各级 `WeakMap<IndexedCorpus, …>` 如期收敛。
+
+**三、同族路径审计（同一缺陷形态：无界遍历 / 无界读盘）**：
+
+| 路径                                   | 结论                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GrepTool`                             | ✅ 已有 `MAX_FILE_BYTES = 2 MiB` + 命中上限（同类护栏早就存在）                          |
+| `WorkspaceFileWalker`                  | ✅ 2 万文件上限 + 忽略清单 + 跳符号链接（本轮让它成为**唯一**忽略策略来源）              |
+| Web `workspaceSearchService`           | ✅ `MAX_VISITED=6000` / 深度 6 / `SKIP_DIRS`（含 `target`）                              |
+| `selfVerifyCommandDetector`            | ✅ 只按已知相对路径非递归列目录                                                          |
+| repo-map 各级缓存                      | ✅ 全为 `WeakMap<IndexedCorpus, …>`；`CorpusIndexCache` LRU=4                            |
+| `codeReferenceGraph` 的 `Map<root, …>` | ⚠️ 小残留：按 root 键的进程级缓存**无上限**（量级=工作区数，有显式 clear）——登记，未处理 |
+| `projectInstructions` 的 TTL Map       | ⚠️ 同上（按 root/cwd/home 键，有 `clearProjectInstructionsCache`）                       |
+
+**四、未根治的一处（如实登记，需口径决策）**：`light: false`（full 模式：频域谱 + 代码图 + LSA）**每字节内存代价比 light 高一个数量级**——实测本仓 `src/`（533 文件 / 4 MB 语料 / 9,080 符号）**峰值 RSS 1,522 MB、耗时 83 秒**（light 同语料毫秒级）。生产路径（`CorpusIndexCache`）恒传 `light: true`，该档只服务评测脚本；本轮**只让它可见、不改其口径**：新增 `ContextEngine.FULL_MODE_WARN_BYTES = 2 MiB` + 超限 `warn` 日志（带语料 MiB 与建议）+ 单测（`contextEngineCoverage` 6/6）。要彻底封死需二选一：**默认翻 light**（评测脚本显式 `light:false`）或**给 full 档加硬预算**（超限即拒绝索引）——两者都会改变既有 full-vs-light 对照口径，故留待决策。
