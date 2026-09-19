@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import {
   SwebenchVerified,
   type ExecutorPort,
+  type VerifiedReport,
   type VerifiedResult,
   type VerifiedTask,
 } from '../../src/eval/swebenchVerified.js';
@@ -332,4 +333,57 @@ test('runVerifiedSuite：并发 3 时保序且有界（突破 500 题串行瓶�
     report.results.map((r) => r.id),
     ['t-1', 't-2', 't-3', 't-4', 't-5'], // 严格同序
   );
+});
+
+test('runVerifiedSuite：envError 实例单独计数、不计入 failed 分母', async () => {
+  const tasks: VerifiedTask[] = [1, 2, 3].map((n) => TASK(`t-${n}`));
+  const predictions = new Map<string, string>([1, 2, 3].map((n) => [`t-${n}`, `patch-${n}`]));
+  const exec: ExecutorPort = {
+    kind: 'native',
+    async run(task): Promise<VerifiedResult> {
+      if (task.id === 't-2') {
+        return {
+          id: task.id,
+          resolved: false,
+          backend: 'native',
+          envError: true,
+          reason: 'ENV_BUILD_FAILED: pytest 未装入 venv',
+        };
+      }
+      return { id: task.id, resolved: task.id === 't-1', backend: 'native' };
+    },
+  };
+  const report = await SwebenchVerified.runVerifiedSuite(tasks, predictions, exec);
+  assert.strictEqual(report.total, 3);
+  assert.strictEqual(report.resolved, 1); // t-1
+  assert.strictEqual(report.envErrors, 1); // t-2 环境失败
+  assert.strictEqual(report.failed, 1); // t-3 才是真模型失败（t-2 不污染分母）
+});
+
+test('formatVerifiedReport：环境失败标 ⚠️ 且有效resolved率排除环境失败', () => {
+  const report: VerifiedReport = {
+    source: 'official-swebench-verified',
+    backend: 'native',
+    total: 3,
+    resolved: 1,
+    failed: 1,
+    envErrors: 1,
+    results: [
+      { id: 't-1', resolved: true, backend: 'native' },
+      {
+        id: 't-2',
+        resolved: false,
+        backend: 'native',
+        envError: true,
+        reason: 'ENV_BUILD_FAILED: pytest 未装入 venv',
+      },
+      { id: 't-3', resolved: false, backend: 'native' },
+    ],
+    totalDurationMs: 0,
+  };
+  const out = SwebenchVerified.formatVerifiedReport(report);
+  assert.match(out, /⚠️ t-2/, '环境失败实例应标 ⚠️');
+  // 有效 resolved 率 = 1/(3-1) = 50.0%（环境失败不计入分母）
+  assert.match(out, /有效resolved率=1\/2=50\.0%/, '有效率应排除环境失败');
+  assert.match(out, /环境失败=1/, '应单独列出环境失败数');
 });

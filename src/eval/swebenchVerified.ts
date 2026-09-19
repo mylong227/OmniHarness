@@ -88,6 +88,12 @@ export interface VerifiedResult {
   readonly backend: 'native';
   /** 未通过原因（resolved 时缺省）。 */
   readonly reason?: string | undefined;
+  /**
+   * 是否因环境构建/设施失败而未能真正评测（区别于模型未解出）。
+   * envError=true 表示 venv/依赖安装等执行设施缺失，该实例未进入 pytest 判定；
+   * 不应计入 resolved 率的分母（分母 = 总 - 环境失败），应单独重试。
+   */
+  readonly envError?: boolean | undefined;
 }
 
 /** 官方 Verified 套件汇总报告。 */
@@ -100,8 +106,10 @@ export interface VerifiedReport {
   readonly total: number;
   /** 已 resolved 数。 */
   readonly resolved: number;
-  /** 失败（含未提供预测/执行异常）数。 */
+  /** 模型未解出（envError=false 的未通过）数。 */
   readonly failed: number;
+  /** 因环境构建/设施失败未能评测的实例数（不计入 resolved 率分母）。 */
+  readonly envErrors: number;
   /** 逐实例结果。 */
   readonly results: readonly VerifiedResult[];
   /** 总耗时（ms）。 */
@@ -308,12 +316,14 @@ export class SwebenchVerified {
       },
     );
     const resolved = results.filter((r) => r.resolved).length;
+    const envErrors = results.filter((r) => r.envError === true).length;
     return {
       source: 'official-swebench-verified',
       backend: executor.kind,
       total: tasks.length,
       resolved,
-      failed: tasks.length - resolved,
+      failed: tasks.length - resolved - envErrors,
+      envErrors,
       results,
       totalDurationMs: Date.now() - t0,
     };
@@ -328,12 +338,21 @@ export class SwebenchVerified {
     const lines: string[] = [];
     lines.push(`=== SWE-bench 官方 Verified (backend=${report.backend}) ===`);
     for (const r of report.results) {
-      const mark = r.resolved ? '✅' : '❌';
-      lines.push(`${mark} ${r.id}${r.resolved ? '' : `  - ${r.reason ?? '未通过'}`}`);
+      const mark = r.resolved ? '✅' : r.envError ? '⚠️' : '❌';
+      const label = r.resolved
+        ? ''
+        : `  - ${r.reason ?? (r.envError ? '环境构建失败（未真正评测）' : '未通过')}`;
+      lines.push(`${mark} ${r.id}${label}`);
     }
-    const rate = report.total === 0 ? 0 : (report.resolved / report.total) * 100;
+    const envErrors = report.envErrors ?? 0;
+    const failed = report.failed;
+    const evaluable = report.total - envErrors;
+    const effectiveRate = evaluable === 0 ? 0 : (report.resolved / evaluable) * 100;
+    const rawRate = report.total === 0 ? 0 : (report.resolved / report.total) * 100;
     lines.push(
-      `--- 汇总: ${report.resolved}/${report.total} resolved (${rate.toFixed(1)}%), 失败 ${report.failed}, 总耗时 ${report.totalDurationMs}ms ---`,
+      `--- 汇总: resolved=${report.resolved}, 模型失败=${failed}, 环境失败=${envErrors}, 总=${report.total} | ` +
+        `有效resolved率=${report.resolved}/${evaluable}=${effectiveRate.toFixed(1)}% ` +
+        `(含环境失败粗率=${rawRate.toFixed(1)}%), 总耗时 ${report.totalDurationMs}ms ---`,
     );
     return lines.join('\n');
   }
