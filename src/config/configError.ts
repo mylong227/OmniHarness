@@ -181,7 +181,7 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   // 具体厂商的合法值由 openaiCompatibleModel.bodyOf 在拼 wire 时再次校验，
   // 不在该厂商列表里的值会被清空（避免端点 400 "unknown variant"）。
   reasoning: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
-  sandbox: ['passthrough', 'policy', 'restricted', 'landlock', 'seatbelt', 'bwrap'],
+  sandbox: ['passthrough', 'policy', 'restricted', 'landlock', 'seatbelt', 'bwrap', 'unshare'],
   escalation: ['deny', 'ask', 'auto'],
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],
   // P5：成本预算耗尽行为（'fail' 硬阻断 / 'warn' 软预算仅观测）。

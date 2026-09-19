@@ -73,7 +73,9 @@ import { assembleSpark } from './sparkAssembler.js';
  * （P3）自验证回环配置：写源码后自动跑受限测试并回灌失败摘要。
  *
  * 默认全部保守：超时 120s、输出上限 256 KiB、冷却 60s、每会话最多 3 次、摘要 15 行。
- * 仅当 `enabled === true` **且**仓库 `package.json` 含 `scripts.test` 时才生效。
+ * `enabled === true` 后取命令的优先级：**显式 `command` 直接生效**（不受「仓库有测试症状」闸门约束）；
+ * 未给 `command` 时由 `SelfVerifyCommandDetector` 从仓库证据推断（npm / pytest / cargo / go /
+ * maven / gradle / rspec / dotnet / make）；两者皆无则不启用（fail-closed）。
  */
 export interface SelfVerifyConfig {
   /** 是否启用（默认 false）。 */
@@ -601,11 +603,14 @@ export class ConfigFactory {
   /**
    * 解析自验证回环策略（P3）。
    *
-   * 仅当 `config.selfVerify.enabled === true` **且**仓库有测试症状
-   * （`package.json` 含 `scripts.test`）时返回策略；否则 `undefined`（不包装装饰器，零行为变更）。
+   * 仅当 `config.selfVerify.enabled === true` 时进一步解析命令：
+   * **显式 `selfVerify.command` 直接生效**（不再被「有测试症状」闸门挡住——原实现把显式命令
+   * 也一并拦下，属声明未接线）；缺省时由 `SelfVerifyCommandDetector` 从仓库证据推断
+   * （npm / pytest / cargo / go / maven / gradle / rspec / dotnet / make）。两者皆无则
+   * 返回 `undefined`（不包装装饰器，零行为变更）。
    *
    * @param partial 未解析的运行配置。
-   * @returns 自验证策略；未启用或仓库无测试脚本时为 `undefined`。
+   * @returns 自验证策略；未启用、或既无显式命令又探测不到测试症状时为 `undefined`。
    */
   private static resolveSelfVerify(partial: OmniHarnessConfig): SelfVerifyPolicy | undefined {
     const cfg = partial.selfVerify;
