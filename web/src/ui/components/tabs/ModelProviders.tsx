@@ -2,11 +2,11 @@
 // 「有 Key 支持接多少显示多少」：未配 Key 的厂商灰显，检测过的厂商展示真实模型下拉。
 // 凭据安全：Key 只在输入框短暂存在，保存后服务端打码，UI 永远拿不到原文。
 //
-// 面向对象改造：六份 state 收敛为单一 state 对象；状态判定下沉到 ProviderStatusResolver
-// （零 React，可单测）；样式常量提到模块级，避免每次 render 重建对象。
+// 函数组件范式：七份 state 各用 useState；状态判定继续复用 ProviderStatusResolver
+// （零 React，可单测）；样式常量与新值对不变，卡片渲染下沉为模块级函数。
 
 import { React } from '../../deps.js';
-import { AppComponent } from '../../base/AppComponent.js';
+import { useApp } from '../../context.js';
 import { ProviderStatusResolver } from '../../models/ProviderStatus.js';
 import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.js';
 
@@ -36,237 +36,271 @@ const INPUT: Record<string, string> = { flex: '1', minWidth: '180px' };
 const HINT: Record<string, string> = { fontSize: '12px', opacity: '0.65' };
 const ACTIVE_TAG: Record<string, string> = { color: '#3fb950', fontSize: '12px' };
 
-interface ModelProvidersState {
-  providers: ProviderPreset[];
+/** 卡片渲染所需的上下文与回调。 */
+interface CardCtx {
+  /** 各厂商已保存（打码）的 Key。 */
   maskedKeys: Record<string, string>;
-  active: { adapter?: string; baseUrl?: string; model?: string };
+  /** 各厂商的检测结果。 */
+  probes: Record<string, ProviderProbeResult>;
   /** 各厂商 Key 输入草稿（未提交，仅存在于内存）。 */
   drafts: Record<string, string>;
-  probes: Record<string, ProviderProbeResult>;
-  modelSel: Record<string, string>;
   /** 形如 `<id>:<动作>` 的忙碌标记；空串表示空闲。 */
   busy: string;
+  /** 该厂商是否为当前生效配置。 */
+  isActive: (p: ProviderPreset) => boolean;
+  /** 卡片内当前选中的模型。 */
+  selectedModelOf: (p: ProviderPreset, models: string[]) => string | undefined;
+  /** 草稿变更。 */
+  onDraft: (id: string, value: string) => void;
+  /** 模型下拉变更。 */
+  onModelPick: (id: string, value: string) => void;
+  /** 保存 Key。 */
+  onSaveKey: (p: ProviderPreset) => void;
+  /** 连通检测。 */
+  onProbe: (p: ProviderPreset) => void;
+  /** 启用该厂商。 */
+  onEnable: (p: ProviderPreset) => void;
 }
 
-/** 模型接入面板。 */
-export class ModelProviders extends AppComponent<Record<string, never>, ModelProvidersState> {
-  constructor(props: Record<string, never>) {
-    super(props);
-    this.state = {
-      providers: [],
-      maskedKeys: {},
-      active: {},
-      drafts: {},
-      probes: {},
-      modelSel: {},
-      busy: '',
-    };
-  }
+/**
+ * 渲染单个厂商卡片：状态点 + Key 输入 + 检测 / 保存 / 启用。
+ * @param p 厂商预设
+ * @param ctx 卡片上下文与回调
+ * @returns 厂商卡片节点
+ */
+function renderCard(p: ProviderPreset, ctx: CardCtx): ReactElement {
+  const st = ProviderStatusResolver.resolve(p, ctx.maskedKeys[p.id], ctx.probes[p.id]);
+  const probeResult = ctx.probes[p.id];
+  const models = probeResult?.models ?? [];
+  const hasKey = ctx.maskedKeys[p.id] !== undefined;
+  const selectedModel = ctx.selectedModelOf(p, models);
+  const active = ctx.isActive(p);
+  return (
+    <div key={p.id} style={active ? CARD_ACTIVE : CARD}>
+      <div style={ROW}>
+        <strong>{p.label}</strong>
+        {active ? <span style={ACTIVE_TAG}>● 当前使用</span> : null}
+        <span style={HINT}>{p.baseUrl}</span>
+      </div>
+      <div style={{ ...ROW, marginTop: '8px' }}>
+        <span style={{ ...DOT, background: st.dot }}></span>
+        <span style={HINT}>{st.text}</span>
+      </div>
+      <div style={{ ...ROW, marginTop: '8px' }}>
+        <input
+          type="password"
+          style={INPUT}
+          placeholder={hasKey ? `已保存 ${ctx.maskedKeys[p.id]}，输入新值覆盖` : '输入 API Key'}
+          value={ctx.drafts[p.id] ?? ''}
+          onInput={(e: Event) => ctx.onDraft(p.id, (e.target as HTMLInputElement).value)}
+        />
+        <button className="ghost" disabled={ctx.busy !== ''} onClick={() => ctx.onSaveKey(p)}>
+          保存 Key
+        </button>
+        <button className="ghost" disabled={ctx.busy !== ''} onClick={() => ctx.onProbe(p)}>
+          检测
+        </button>
+      </div>
+      {probeResult?.ok && models.length > 0 ? (
+        <div style={{ ...ROW, marginTop: '8px' }}>
+          <select
+            style={INPUT}
+            value={selectedModel}
+            onChange={(e: Event) => ctx.onModelPick(p.id, (e.target as HTMLSelectElement).value)}
+          >
+            {models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <button
+            className="ghost"
+            disabled={ctx.busy !== '' || !selectedModel}
+            onClick={() => ctx.onEnable(p)}
+          >
+            启用此厂商
+          </button>
+        </div>
+      ) : (
+        <div style={{ ...HINT, marginTop: '6px' }}>
+          {probeResult && !probeResult.ok
+            ? `检测未通过：${probeResult.error ?? '未知原因'}（保存有效 Key 后重试）`
+            : hasKey
+              ? '已保存 Key，点「检测」拉取真实可用模型清单'
+              : '未配置 Key：保存 Key → 检测 → 启用后才会显示可用模型'}
+        </div>
+      )}
+    </div>
+  );
+}
 
-  override componentDidMount(): void {
-    this.reload();
-  }
+/**
+ * 模型接入面板：厂商目录、Key 管理、连通检测与启用。
+ * @returns 模型接入节点
+ */
+export function ModelProviders(): ReactElement {
+  const { api, toast, refreshModelCatalog } = useApp();
+  const [providers, setProviders] = React.useState<ProviderPreset[]>([]);
+  const [maskedKeys, setMaskedKeys] = React.useState<Record<string, string>>({});
+  const [active, setActive] = React.useState<{ adapter?: string; baseUrl?: string; model?: string }>({});
+  const [drafts, setDrafts] = React.useState<Record<string, string>>({});
+  const [probes, setProbes] = React.useState<Record<string, ProviderProbeResult>>({});
+  const [modelSel, setModelSel] = React.useState<Record<string, string>>({});
+  /** 形如 `<id>:<动作>` 的忙碌标记；空串表示空闲。 */
+  const [busy, setBusy] = React.useState<string>('');
 
-  /** 拉取厂商目录与当前生效配置。 */
-  private reload(): void {
-    this.api
+  /** 拉取厂商目录与当前生效配置（失败静默保留上一帧）。 */
+  const reload = (): void => {
+    api
       .modelCatalog()
-      .then((r) => this.setState({ providers: r.providers }))
+      .then((r) => setProviders(r.providers))
       .catch(() => {
         /* 静默：目录不可用时保留上一帧 */
       });
-    this.api
+    api
       .getConfig()
       .then((c) => {
         const pk = (c as Record<string, unknown>)['providerKeys'];
-        this.setState({
-          maskedKeys:
-            pk !== undefined && typeof pk === 'object' ? (pk as Record<string, string>) : {},
-          active: { adapter: c.modelAdapter, baseUrl: c.baseUrl as string | undefined, model: c.model },
+        setMaskedKeys(
+          pk !== undefined && typeof pk === 'object' ? (pk as Record<string, string>) : {},
+        );
+        setActive({
+          adapter: c.modelAdapter,
+          baseUrl: c.baseUrl as string | undefined,
+          model: c.model,
         });
       })
       .catch(() => {
         /* 静默：配置不可用时保留上一帧 */
       });
-  }
+  };
 
-  /** 保存 Key：空值且此前未保存过 → fail-closed 提示，不发请求。 */
-  private async saveKey(p: ProviderPreset): Promise<void> {
-    const { drafts, maskedKeys } = this.state;
+  // 挂载拉取厂商目录与生效配置（[] 有意：只在进入该页时拉一次）。
+  React.useEffect(() => {
+    reload();
+  }, []);
+
+  /**
+   * 该厂商是否为当前生效配置。
+   * @param p 厂商预设
+   * @returns 是否生效
+   */
+  const isActive = (p: ProviderPreset): boolean =>
+    active.adapter === p.adapter && (active.baseUrl ?? p.baseUrl) === p.baseUrl;
+
+  /**
+   * 卡片内当前选中的模型：优先用户选择，其次沿用当前生效模型，最后取清单首个。
+   * @param p 厂商预设
+   * @param models 可选模型清单
+   * @returns 选中模型名（无可用模型时为 undefined）
+   */
+  const selectedModelOf = (p: ProviderPreset, models: string[]): string | undefined =>
+    modelSel[p.id] ??
+    (isActive(p) && active.model && models.includes(active.model) ? active.model : models[0]);
+
+  /**
+   * 保存 Key：空值且此前未保存过 → fail-closed 提示，不发请求。
+   * @param p 厂商预设
+   */
+  const saveKey = async (p: ProviderPreset): Promise<void> => {
     const key = (drafts[p.id] ?? '').trim();
     if (key === '' && maskedKeys[p.id] === undefined) {
-      this.toast('请输入 API Key', 'err');
+      toast('请输入 API Key', 'err');
       return;
     }
-    this.setState({ busy: p.id + ':key' });
+    setBusy(p.id + ':key');
     try {
-      await this.api.updateConfig({ setProviderKey: { vendor: p.id, key } });
-      this.setState({ drafts: { ...drafts, [p.id]: '' } });
-      this.toast(`${p.label} Key 已保存（服务端打码存储）`, 'ok');
-      this.reload();
-      this.refreshModelCatalog();
+      await api.updateConfig({ setProviderKey: { vendor: p.id, key } });
+      setDrafts((prev) => ({ ...prev, [p.id]: '' }));
+      toast(`${p.label} Key 已保存（服务端打码存储）`, 'ok');
+      reload();
+      refreshModelCatalog?.();
     } catch (e) {
-      this.toast('保存失败：' + (e as Error).message, 'err');
+      toast('保存失败：' + (e as Error).message, 'err');
     } finally {
-      this.setState({ busy: '' });
+      setBusy('');
     }
-  }
+  };
 
-  /** 连通检测：真实请求厂商端点，拿回实测模型清单。 */
-  private async probe(p: ProviderPreset): Promise<void> {
-    this.setState({ busy: p.id + ':probe' });
+  /**
+   * 连通检测：真实请求厂商端点，拿回实测模型清单。
+   * @param p 厂商预设
+   */
+  const probe = async (p: ProviderPreset): Promise<void> => {
+    setBusy(p.id + ':probe');
     try {
-      const r = await this.api.probeModels(p.id);
+      const r = await api.probeModels(p.id);
       const result = r.providers[0];
-      this.setState((prev) => ({ probes: { ...prev.probes, [p.id]: result } }));
+      setProbes((prev) => ({ ...prev, [p.id]: result }));
       if (result.ok) {
-        this.toast(
+        toast(
           `${p.label} 连通 ✅（${result.models.length} 个模型，来源 ${result.source}）`,
           'ok',
         );
-        const { active } = this.state;
         const keep =
-          this.isActive(p) && active.model && result.models.includes(active.model)
+          isActive(p) && active.model && result.models.includes(active.model)
             ? active.model
             : result.models[0];
-        this.setState((prev) => ({
-          modelSel: { ...prev.modelSel, [p.id]: keep ?? p.defaultModel },
-        }));
-        this.refreshModelCatalog();
+        setModelSel((prev) => ({ ...prev, [p.id]: keep ?? p.defaultModel }));
+        refreshModelCatalog?.();
       } else {
-        this.toast(`${p.label} 不可用：${result.error ?? '未知原因'}`, 'err');
+        toast(`${p.label} 不可用：${result.error ?? '未知原因'}`, 'err');
       }
     } catch (e) {
-      this.toast('检测失败：' + (e as Error).message, 'err');
+      toast('检测失败：' + (e as Error).message, 'err');
     } finally {
-      this.setState({ busy: '' });
+      setBusy('');
     }
-  }
+  };
 
-  /** 启用厂商：把模型写进运行时配置，下一条消息即生效。 */
-  private async enable(p: ProviderPreset): Promise<void> {
-    const { probes, modelSel, active } = this.state;
+  /**
+   * 启用厂商：把模型写进运行时配置，下一条消息即生效。
+   * @param p 厂商预设
+   */
+  const enable = async (p: ProviderPreset): Promise<void> => {
     const models = probes[p.id]?.models ?? [];
     const model =
       modelSel[p.id] ??
-      (this.isActive(p) && active.model && models.includes(active.model) ? active.model : models[0]);
+      (isActive(p) && active.model && models.includes(active.model) ? active.model : models[0]);
     if (!model) {
-      this.toast('没有可用模型，请先检测', 'err');
+      toast('没有可用模型，请先检测', 'err');
       return;
     }
-    this.setState({ busy: p.id + ':enable' });
+    setBusy(p.id + ':enable');
     try {
-      await this.api.updateConfig({ enableProvider: p.id, model });
-      this.toast(`${p.label} 已启用（模型 ${model}），下一条消息即生效`, 'ok');
-      this.reload();
-      this.refreshModelCatalog();
+      await api.updateConfig({ enableProvider: p.id, model });
+      toast(`${p.label} 已启用（模型 ${model}），下一条消息即生效`, 'ok');
+      reload();
+      refreshModelCatalog?.();
     } catch (e) {
-      this.toast('启用失败：' + (e as Error).message, 'err');
+      toast('启用失败：' + (e as Error).message, 'err');
     } finally {
-      this.setState({ busy: '' });
+      setBusy('');
     }
-  }
+  };
 
-  /** 该厂商是否为当前生效配置。 */
-  private isActive(p: ProviderPreset): boolean {
-    const { active } = this.state;
-    return active.adapter === p.adapter && (active.baseUrl ?? p.baseUrl) === p.baseUrl;
-  }
+  const ctx: CardCtx = {
+    maskedKeys,
+    probes,
+    drafts,
+    busy,
+    isActive,
+    selectedModelOf,
+    onDraft: (id, value) => setDrafts((prev) => ({ ...prev, [id]: value })),
+    onModelPick: (id, value) => setModelSel((prev) => ({ ...prev, [id]: value })),
+    onSaveKey: (p) => void saveKey(p),
+    onProbe: (p) => void probe(p),
+    onEnable: (p) => void enable(p),
+  };
 
-  /** 卡片内当前选中的模型：优先用户选择，其次沿用当前生效模型，最后取清单首个。 */
-  private selectedModelOf(p: ProviderPreset, models: string[]): string | undefined {
-    const { modelSel, active } = this.state;
-    return (
-      modelSel[p.id] ??
-      (this.isActive(p) && active.model && models.includes(active.model) ? active.model : models[0])
-    );
-  }
-
-  private renderCard(p: ProviderPreset): ReactElement {
-    const { maskedKeys, probes, drafts, busy } = this.state;
-    const st = ProviderStatusResolver.resolve(p, maskedKeys[p.id], probes[p.id]);
-    const probeResult = probes[p.id];
-    const models = probeResult?.models ?? [];
-    const hasKey = maskedKeys[p.id] !== undefined;
-    const selectedModel = this.selectedModelOf(p, models);
-    return (
-      <div key={p.id} style={this.isActive(p) ? CARD_ACTIVE : CARD}>
-        <div style={ROW}>
-          <strong>{p.label}</strong>
-          {this.isActive(p) ? <span style={ACTIVE_TAG}>● 当前使用</span> : null}
-          <span style={HINT}>{p.baseUrl}</span>
-        </div>
-        <div style={{ ...ROW, marginTop: '8px' }}>
-          <span style={{ ...DOT, background: st.dot }}></span>
-          <span style={HINT}>{st.text}</span>
-        </div>
-        <div style={{ ...ROW, marginTop: '8px' }}>
-          <input
-            type="password"
-            style={INPUT}
-            placeholder={hasKey ? `已保存 ${maskedKeys[p.id]}，输入新值覆盖` : '输入 API Key'}
-            value={drafts[p.id] ?? ''}
-            onInput={(e: Event) =>
-              this.setState((prev) => ({
-                drafts: { ...prev.drafts, [p.id]: (e.target as HTMLInputElement).value },
-              }))
-            }
-          />
-          <button className="ghost" disabled={busy !== ''} onClick={() => void this.saveKey(p)}>
-            保存 Key
-          </button>
-          <button className="ghost" disabled={busy !== ''} onClick={() => void this.probe(p)}>
-            检测
-          </button>
-        </div>
-        {probeResult?.ok && models.length > 0 ? (
-          <div style={{ ...ROW, marginTop: '8px' }}>
-            <select
-              style={INPUT}
-              value={selectedModel}
-              onChange={(e: Event) =>
-                this.setState((prev) => ({
-                  modelSel: { ...prev.modelSel, [p.id]: (e.target as HTMLSelectElement).value },
-                }))
-              }
-            >
-              {models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <button
-              className="ghost"
-              disabled={busy !== '' || !selectedModel}
-              onClick={() => void this.enable(p)}
-            >
-              启用此厂商
-            </button>
-          </div>
-        ) : (
-          <div style={{ ...HINT, marginTop: '6px' }}>
-            {probeResult && !probeResult.ok
-              ? `检测未通过：${probeResult.error ?? '未知原因'}（保存有效 Key 后重试）`
-              : hasKey
-                ? '已保存 Key，点「检测」拉取真实可用模型清单'
-                : '未配置 Key：保存 Key → 检测 → 启用后才会显示可用模型'}
-          </div>
-        )}
+  return (
+    <div>
+      <h3 style={{ margin: '4px 0 8px' }}>模型接入</h3>
+      <div style={HINT}>
+        填 Key → 保存 → 检测（真实请求厂商端点）→ 启用。有 Key 支持接多少显示多少；凭据服务端打码存储，UI 不回显原文。
       </div>
-    );
-  }
-
-  override render(): ReactElement {
-    const { providers } = this.state;
-    return (
-      <div>
-        <h3 style={{ margin: '4px 0 8px' }}>模型接入</h3>
-        <div style={HINT}>
-          填 Key → 保存 → 检测（真实请求厂商端点）→ 启用。有 Key 支持接多少显示多少；凭据服务端打码存储，UI 不回显原文。
-        </div>
-        <div style={{ marginTop: '10px' }}>{providers.map((p) => this.renderCard(p))}</div>
-      </div>
-    );
-  }
+      <div style={{ marginTop: '10px' }}>{providers.map((p) => renderCard(p, ctx))}</div>
+    </div>
+  );
 }

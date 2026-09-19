@@ -167,7 +167,7 @@
 | 批1 | 纯展示组件 10 件：`Toast`/`AttachmentChips`/`ExternalLinkCards`/`StreamingAssistantCard`/`DetailTab`/`ToolsTab`/`ArtifactCard`/`TopBar`/`RightPanel`/`FileModal`（零状态零副作用） | ✅ **已完成** |
 | 批2 | `stream/` 消息卡片 5 件：`ReasoningBlock`/`UserCard`/`ToolCallCard`/`ProcessCluster`/`AssistantCard`（展开态 + 渐进揭示定时器） | ✅ **已完成** |
 | 批3 | 交互组件 9 件（`Dropdown`/`Resizer`/`TreeNode`/`WorkIndicator`/`NavRail`/`ApprovalModal`/`PermissionPicker`/`FolderPicker`/`FilePicker`）+ 改写 `mount.test.mjs` 对应断言 | ✅ **已完成** |
-| 批4/5 | `tabs/` 面板 10 件（数据拉取 effect、轮询、受控表单） | 待开始 |
+| 批4/5 | `tabs/` 面板 10 件（`FileTab`/`MetricsTab`/`MemoryTab`/`RollbackTab`/`PluginsTab`/`ProfilesTab`/`SettingsTab`/`ModelProviders`/`GraphTab`/`ChangesTab`） | ✅ **已完成** |
 | 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` | 待开始 |
 | 批7 | `App.ts` 根组件转函数组件（`useReducer` + `useRef` 桥接 `AppHost`）；**删 `AppComponent.tsx`**；`react-shim.d.ts` 移除 `ReactComponent`/`Component`/`createRef`；改 `noNativeDialogs.test.mjs` | 待开始 |
 
@@ -201,4 +201,18 @@
 | 状态分组（防上帝组件） | `FolderPicker` 原 9 份扁平 state → 按语义收成 3 组：`BrowseState`（cur/dirs/parent/roots/home）、`LoadState`（loading/error）、`CreateState`（creating/newName/creatingErr）；`FilePicker` → `BrowseState` + `LoadState` + `selected`（`Set` 用函数式 updater 整体替换） |
 | 纯逻辑下沉（R5） | `FilePicker.sortFiles` 抽出为模块级纯函数（中文拼音、忽略大小写）；`FolderPicker`/`FilePicker` 的盘符层 / 目录层 / 新建区渲染分支抽为**模块级渲染函数**（`renderDrives`/`renderDirs`/`renderCreateBar`/`renderDirBody`），组件主体只保留状态 + 副作用 + 装配 |
 | 测试改写 | `mount.test.mjs` 中 `Toast`/`NavRail`/`TreeNode`/`PermissionPicker`/`ApprovalModal` 由 `new X(props).render()` → `renderOf(X, props)`；`WorkIndicator` 的 `wi.state = { elapsed: 7 }` → `renderOf(WorkIndicator, props, { 0: 7 })`（按 hook 序号预设，第 0 个 hook 即 `useState(elapsed)`）；`TreeNode` 用例顺带清掉非 Props 的 `depth: 0` 冗余入参 |
+| 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） |
+
+### 批4/5 验收（`tabs/` 面板 10 件）
+
+| 项 | 内容 |
+| --- | --- |
+| 轮询与清理 | `MetricsTab`：原 `componentDidMount` + `componentWillUnmount` 的 2 秒轮询 → 空依赖 effect 内建表 + 清理函数 `clearInterval`，并加 `alive` 标志避免卸载后回写（依赖显式列出 `[api]`） |
+| 重载信号 | `MemoryTab` / `ProfilesTab`：原 `componentDidMount` + `componentDidUpdate(prevProps.reloadKey !==)` 双钩子 → **单个** `useEffect(..., [reloadKey])`（挂载跑一次、信号变化再跑一次，语义等价） |
+| 会话切换 | `RollbackTab`：原 `componentDidMount` + `componentDidUpdate(prev.sessionId !==)` → `useEffect(..., [sessionId])`；`refresh(sid)` 显式接收会话 id，不依赖渲染快照 |
+| 非受控表单 | `SettingsTab`（含 select 的 `Map` 引用）/ `MemoryTab` / `ProfilesTab` 的 `this.xxxRef` 实例字段 → `useRef`；`SettingsTab` 的「已保存」消隐定时器改 `useRef` 持有并在 effect 清理函数中 `clearTimeout`（H3 对称） |
+| 防陈旧闭包 | `PluginsTab` 搜索防抖：`load(q)` 显式接收关键词、定时器句柄存 `useRef`，杜绝「200ms 后跑的是旧 query」；`onQueryInput` 同帧重排定时器 |
+| 纯逻辑下沉（R5） | `GraphTab` 的运行卡片 / 已存图卡片、`ModelProviders` 的厂商卡片、`ChangesTab` 的行 / 评论 / 草稿 / patch 视图、`FileTab.renderBody`、`MemoryTab.renderRow`、`ProfilesTab.renderRow` 全部抽为**模块级渲染函数**；`ChangesTab` 用 `ReviewCtx` 收敛十余个入参，避免长参数表 |
+| 状态分组 | `ChangesTab` 10 份 state 保持字段级 `useState`（各自更新频率不同，拆分后语义更清晰）；`ModelProviders` 7 份 state 同理 |
+| 业务零改动 | 所有 RPC 调用、toast 文案、确认弹窗（`dialog.confirm`）与 DOM 结构逐字保留；`ModelProviders` 的凭据只进 `drafts` 内存态不变；`ChangesTab` 的 stage / revert / 评论锚点语义不变 |
 | 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） | |

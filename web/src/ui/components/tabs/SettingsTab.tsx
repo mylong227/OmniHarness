@@ -1,11 +1,12 @@
 // 设置面板：加载运行时配置并提供模型适配器 / 模型 / 审批模式 / 沙箱 / 升级审批 / 自动审批 / 浅色主题的调整。
 // 所有改动经 api.updateConfig 落盘到 omniharness.json。
 //
-// 面向对象改造：三个 useRef 改为实例字段（class 组件无 useRef）；
-// 配置加载在 componentDidMount 完成并回填 DOM 值；「已保存」提示由 state 驱动 + 定时器自动消隐。
+// 函数组件范式：配置 / 提示 / base-url / 配置集清单 / 生效插件各一个 useState；
+// 表单主体为非受控（useRef 保存 DOM 引用，含 select 的 Map 引用），加载后回填 DOM 值；
+// 「已保存」提示由 state 驱动 + useRef 持有的定时器自动消隐（卸载时清理对称）。
 
 import { React } from '../../deps.js';
-import { AppComponent } from '../../base/AppComponent.js';
+import { useApp } from '../../context.js';
 import type { Config, Profile } from '../../../types/models.js';
 import { ModelProviders } from './ModelProviders.js';
 
@@ -15,11 +16,15 @@ const SPACER: Record<string, string> = { height: '10px' };
 /** 「已保存」提示自动消隐时长（ms）。 */
 const HINT_MS = 1500;
 
+/** SettingsTab 组件的入参。 */
 export interface SettingsTabProps {
+  /** 当前主题（浅色开关的受控值）。 */
   theme: 'dark' | 'light';
+  /** 切换主题。 */
   onToggleTheme: () => void;
 }
 
+/** 一个下拉设置项。 */
 interface SettingSelect {
   key: keyof Config;
   label: string;
@@ -43,220 +48,234 @@ interface ProfileOption {
   name: string;
 }
 
-interface SettingsTabState {
-  cfg: Config | null;
-  savedHint: string;
+/**
+ * 运行时设置面板：模型接入 + 运行时配置 + 配置集切换。
+ * @param props 组件入参
+ * @returns 设置面板节点
+ */
+export function SettingsTab(props: SettingsTabProps): ReactElement {
+  const { theme, onToggleTheme } = props;
+  const { api, toast } = useApp();
+  const [cfg, setCfg] = React.useState<Config | null>(null);
+  const [savedHint, setSavedHint] = React.useState<string>('');
   /** 自定义模型 base-url（OpenAI 兼容端点），留空回落厂商默认。 */
-  baseUrl: string;
+  const [baseUrl, setBaseUrl] = React.useState<string>('');
   /** 配置集（profile）清单。 */
-  profiles: ProfileOption[];
+  const [profiles, setProfiles] = React.useState<ProfileOption[]>([]);
   /** 当前生效插件（profile.apply 后回显，便于确认收敛生效）。 */
-  activePlugins: string;
-}
-
-/** 运行时设置面板。 */
-export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState> {
-  private modelRef: HTMLInputElement | null = null;
-  private autoRef: HTMLInputElement | null = null;
-  private baseUrlRef: HTMLInputElement | null = null;
-  private readonly selectRefs = new Map<string, HTMLSelectElement | null>();
-
+  const [activePlugins, setActivePlugins] = React.useState<string>('');
+  const modelRef = React.useRef<HTMLInputElement | null>(null);
+  const autoRef = React.useRef<HTMLInputElement | null>(null);
+  const baseUrlRef = React.useRef<HTMLInputElement | null>(null);
+  const selectRefs = React.useRef<Map<string, HTMLSelectElement | null>>(new Map());
   /** 「已保存」提示的消隐定时器。 */
-  private hintTimer: ReturnType<typeof setTimeout> | null = null;
+  const hintRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  constructor(props: SettingsTabProps) {
-    super(props);
-    this.state = { cfg: null, savedHint: '', baseUrl: '', profiles: [], activePlugins: '' };
-  }
+  /** 拉取配置集清单与当前生效插件（收敛 profile 状态到设置面板）。 */
+  const reloadProfiles = async (): Promise<void> => {
+    try {
+      const list = await api.listProfiles();
+      const active = await api.getActiveProfile();
+      setProfiles(list.map((p: Profile) => ({ id: p.id, name: p.name })));
+      setActivePlugins((active.plugins ?? []).join('、'));
+    } catch {
+      /* 静默：profile 服务不可用时不阻断设置渲染 */
+    }
+  };
 
-  override componentDidMount(): void {
-    this.api
+  // 挂载拉取配置并回填非受控表单；同时拉配置集清单。卸载清理「已保存」定时器。
+  React.useEffect(() => {
+    api
       .getConfig()
       .then((c) => {
-        this.setState({ cfg: c, baseUrl: (c.baseUrl as string) ?? '' });
-        if (this.modelRef) this.modelRef.value = c.model || '';
-        if (this.autoRef) this.autoRef.checked = !!c.autoApprove;
-        if (this.baseUrlRef) this.baseUrlRef.value = (c.baseUrl as string) ?? '';
+        setCfg(c);
+        setBaseUrl((c.baseUrl as string) ?? '');
+        if (modelRef.current) modelRef.current.value = c.model || '';
+        if (autoRef.current) autoRef.current.checked = !!c.autoApprove;
+        if (baseUrlRef.current) baseUrlRef.current.value = (c.baseUrl as string) ?? '';
         for (const s of SELECTS) {
-          const el = this.selectRefs.get(s.key as string);
+          const el = selectRefs.current.get(s.key as string);
           if (el) el.value = (c[s.key] as string) || '';
         }
       })
       .catch(() => {
         /* 静默：首次进入后端未就绪时保持「读取中」 */
       });
-    void this.reloadProfiles();
-  }
+    void reloadProfiles();
+    return () => {
+      if (hintRef.current !== null) clearTimeout(hintRef.current);
+    };
+  }, [api]);
 
-  override componentWillUnmount(): void {
-    if (this.hintTimer !== null) clearTimeout(this.hintTimer);
-  }
-
-  /** 落盘配置并闪现「已保存」；失败上抛 toast，绝不清空用户输入。 */
-  private save(patch: Record<string, unknown>): void {
-    this.api
+  /**
+   * 落盘配置并闪现「已保存」；失败上抛 toast，绝不清空用户输入。
+   * @param patch 配置补丁
+   */
+  const save = (patch: Record<string, unknown>): void => {
+    api
       .updateConfig(patch)
       .then(() => {
-        this.setState({ savedHint: '✓ 已保存' });
-        if (this.hintTimer !== null) clearTimeout(this.hintTimer);
-        this.hintTimer = setTimeout(() => this.setState({ savedHint: '' }), HINT_MS);
+        setSavedHint('✓ 已保存');
+        if (hintRef.current !== null) clearTimeout(hintRef.current);
+        hintRef.current = setTimeout(() => setSavedHint(''), HINT_MS);
       })
-      .catch((e: Error) => this.toast('保存失败：' + e.message, 'err'));
-  }
-
-  private readonly onSelectChange = (key: keyof Config, e: Event): void => {
-    this.save({ [key]: (e.target as HTMLSelectElement).value });
+      .catch((e: Error) => toast('保存失败：' + e.message, 'err'));
   };
 
-  private readonly onModelChange = (e: Event): void => {
+  /**
+   * 下拉设置变更 → 落盘。
+   * @param key 配置键
+   * @param e 变更事件
+   */
+  const onSelectChange = (key: keyof Config, e: Event): void => {
+    save({ [key]: (e.target as HTMLSelectElement).value });
+  };
+
+  /**
+   * 模型名变更 → 落盘（留空回落 undefined）。
+   * @param e 变更事件
+   */
+  const onModelChange = (e: Event): void => {
     const v = (e.target as HTMLInputElement).value.trim();
-    this.save(v ? { model: v } : { model: undefined });
+    save(v ? { model: v } : { model: undefined });
   };
 
-  private readonly onAutoApproveChange = (e: Event): void => {
-    this.save({ autoApprove: (e.target as HTMLInputElement).checked });
+  /**
+   * 自动审批开关 → 落盘。
+   * @param e 变更事件
+   */
+  const onAutoApproveChange = (e: Event): void => {
+    save({ autoApprove: (e.target as HTMLInputElement).checked });
   };
 
-  /** 自定义 base-url 变更：即时写回配置（留空回落厂商默认端点）。 */
-  private readonly onBaseUrlChange = (e: Event): void => {
+  /**
+   * 自定义 base-url 变更：即时写回配置（留空回落厂商默认端点）。
+   * @param e 变更事件
+   */
+  const onBaseUrlChange = (e: Event): void => {
     const v = (e.target as HTMLInputElement).value.trim();
-    this.setState({ baseUrl: v });
-    this.save(v ? { baseUrl: v } : { baseUrl: undefined });
+    setBaseUrl(v);
+    save(v ? { baseUrl: v } : { baseUrl: undefined });
   };
 
-  /** 拉取配置集清单与当前生效插件（收敛 profile 状态到设置面板）。 */
-  private async reloadProfiles(): Promise<void> {
-    try {
-      const list = await this.api.listProfiles();
-      const active = await this.api.getActiveProfile();
-      this.setState({
-        profiles: list.map((p: Profile) => ({ id: p.id, name: p.name })),
-        activePlugins: (active.plugins ?? []).join('、'),
-      });
-    } catch {
-      /* 静默：profile 服务不可用时不阻断设置渲染 */
-    }
-  }
-
-  /** 应用选中的配置集（profile.apply 即时生效，刷新后回显当前插件）。 */
-  private async applyProfile(id: string): Promise<void> {
+  /**
+   * 应用选中的配置集（profile.apply 即时生效，刷新后回显当前插件）。
+   * @param id 配置集 id
+   */
+  const applyProfile = async (id: string): Promise<void> => {
     if (id === '') return;
     try {
-      await this.api.applyProfile(id);
-      this.toast('已应用配置集', 'ok');
-      await this.reloadProfiles();
+      await api.applyProfile(id);
+      toast('已应用配置集', 'ok');
+      await reloadProfiles();
     } catch (e) {
-      this.toast('应用配置集失败：' + (e as Error).message, 'err');
+      toast('应用配置集失败：' + (e as Error).message, 'err');
     }
-  }
+  };
 
-  override render(): ReactElement {
-    const { theme, onToggleTheme } = this.props;
-    const { cfg, savedHint } = this.state;
-    return (
-      <div>
-        <ModelProviders />
-        <hr
-          style={{
-            border: 'none',
-            borderTop: '1px solid var(--border, #30363d)',
-            margin: '14px 0',
-          }}
-        />
-        <h3 style={{ margin: '4px 0 8px' }}>运行时设置</h3>
-        <div id="cfgView">
-          {cfg ? (
-            <div className="kv">
-              <span className="k">工作区</span>
-              <span className="v">{cfg.workspace || '—'}</span>
-            </div>
-          ) : (
-            <div className="empty">读取中…</div>
-          )}
-        </div>
-        <div style={SPACER}></div>
-        <div className="form">
-          {SELECTS.map((s) => (
-            <label key={s.key as string}>
-              {s.label}
-              <select
-                ref={(el: HTMLSelectElement | null) => {
-                  this.selectRefs.set(s.key as string, el);
-                }}
-                onChange={(e) => this.onSelectChange(s.key, e)}
-              >
-                {s.options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-          <label>
-            模型名
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                this.modelRef = el;
-              }}
-              placeholder="如 gpt-4o / deepseek-v4-flash"
-              onChange={this.onModelChange}
-            />
-          </label>
-          <label>
-            自定义 Base URL
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                this.baseUrlRef = el;
-              }}
-              placeholder="OpenAI 兼容端点（留空用厂商默认）"
-              value={this.state.baseUrl}
-              onChange={this.onBaseUrlChange}
-            />
-          </label>
-          <div className="saved" id="savedHint">
-            {savedHint}
+  return (
+    <div>
+      <ModelProviders />
+      <hr
+        style={{
+          border: 'none',
+          borderTop: '1px solid var(--border, #30363d)',
+          margin: '14px 0',
+        }}
+      />
+      <h3 style={{ margin: '4px 0 8px' }}>运行时设置</h3>
+      <div id="cfgView">
+        {cfg ? (
+          <div className="kv">
+            <span className="k">工作区</span>
+            <span className="v">{cfg.workspace || '—'}</span>
           </div>
-          <div className="switch">
-            <span>自动审批（免人工确认）</span>
-            <input
-              type="checkbox"
-              ref={(el: HTMLInputElement | null) => {
-                this.autoRef = el;
-              }}
-              onChange={this.onAutoApproveChange}
-            />
-          </div>
-          <div className="switch">
-            <span>浅色主题</span>
-            <input type="checkbox" checked={theme === 'light'} onChange={onToggleTheme} />
-          </div>
-        </div>
-        <div style={SPACER}></div>
-        <h3 style={{ margin: '4px 0 8px' }}>配置集（Profile）</h3>
-        <div className="form">
-          <label>
-            切换配置集
+        ) : (
+          <div className="empty">读取中…</div>
+        )}
+      </div>
+      <div style={SPACER}></div>
+      <div className="form">
+        {SELECTS.map((s) => (
+          <label key={s.key as string}>
+            {s.label}
             <select
-              value=""
-              onChange={(e: Event) => void this.applyProfile((e.target as HTMLSelectElement).value)}
+              ref={(el: HTMLSelectElement | null) => {
+                selectRefs.current.set(s.key as string, el);
+              }}
+              onChange={(e) => onSelectChange(s.key, e)}
             >
-              <option value="">选择并应用…</option>
-              {this.state.profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {s.options.map((o) => (
+                <option key={o} value={o}>
+                  {o}
                 </option>
               ))}
             </select>
           </label>
-          <div className="kv">
-            <span className="k">当前生效插件</span>
-            <span className="v">{this.state.activePlugins === '' ? '（默认）' : this.state.activePlugins}</span>
-          </div>
+        ))}
+        <label>
+          模型名
+          <input
+            type="text"
+            ref={(el: HTMLInputElement | null) => {
+              modelRef.current = el;
+            }}
+            placeholder="如 gpt-4o / deepseek-v4-flash"
+            onChange={onModelChange}
+          />
+        </label>
+        <label>
+          自定义 Base URL
+          <input
+            type="text"
+            ref={(el: HTMLInputElement | null) => {
+              baseUrlRef.current = el;
+            }}
+            placeholder="OpenAI 兼容端点（留空用厂商默认）"
+            value={baseUrl}
+            onChange={onBaseUrlChange}
+          />
+        </label>
+        <div className="saved" id="savedHint">
+          {savedHint}
+        </div>
+        <div className="switch">
+          <span>自动审批（免人工确认）</span>
+          <input
+            type="checkbox"
+            ref={(el: HTMLInputElement | null) => {
+              autoRef.current = el;
+            }}
+            onChange={onAutoApproveChange}
+          />
+        </div>
+        <div className="switch">
+          <span>浅色主题</span>
+          <input type="checkbox" checked={theme === 'light'} onChange={onToggleTheme} />
         </div>
       </div>
-    );
-  }
+      <div style={SPACER}></div>
+      <h3 style={{ margin: '4px 0 8px' }}>配置集（Profile）</h3>
+      <div className="form">
+        <label>
+          切换配置集
+          <select
+            value=""
+            onChange={(e: Event) => void applyProfile((e.target as HTMLSelectElement).value)}
+          >
+            <option value="">选择并应用…</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="kv">
+          <span className="k">当前生效插件</span>
+          <span className="v">{activePlugins === '' ? '（默认）' : activePlugins}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
