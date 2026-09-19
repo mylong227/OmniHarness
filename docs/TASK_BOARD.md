@@ -652,3 +652,68 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 - 后台作业 `kill` 走 `process.kill(pid, 'SIGTERM')`：**Windows 上只保证终结 shell 本体，孙进程可能存活**（已写进类 JSDoc 与 `shell_job` 描述，不夸大）。
 - 自验证**默认开只改在 CLI 生产入口**，库内 `ConfigFactory` 仍是 opt-in。若把它也默认开，跑本仓自己的单测就会递归触发 `npm test`——这是**刻意**的不一致，不是漏接。
 - 「定向测试」只对 `npm test` / `npm run test` 形态生效；`pytest`、`cargo test` 等**退回全量**（不做猜测性拼接）。
+
+## 11. 剩余缺口登记：对照盘点 §6/S1–S5/§7 的「还差什么」（2026-09-19）
+
+承接 §10。§10 登记的是「修了什么」；本节登记的是**同一份盘点下还剩什么没修**，并把范围从 §6 的 13 条扩到盘点的 S1–S5 与 §7 局限。
+方法与 §9.1 一致：**原样重跑原始探针 + 源码逐段核证**，不引用批次自述。完整报告：`D:/deepseek/REMAINING_GAPS_2026-09-19.html`（不进仓库）。
+
+### 11.1 §6 逐条结论：12 / 13 落地，仅 ⑪ 未完成
+
+①–⑩、⑫、⑬ 全部落地（证据见 §10.1 与本节 11.4 的探针复跑）。**仅 ⑪（官方 SWE-bench Verified ≥30 题 + Terminal-Bench 出数并入库）未完成**：
+子集口径仍为 25/500（`eval-data/clean_rerun.log` 自报「非官方 500 满分口径」），未达 ≥30 题；Terminal-Bench 需 docker，未跑。
+该条由同工作树另一条会话链路负责，其进度**不由本节宣布**。
+
+### 11.2 仍缺 9 项（含盘点 S1–S5 与 §7，不只数 §6）
+
+| #   | 仍缺                                      | 出处       | 现状与为什么算缺                                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 官方可复算分数（≥30 题 + Terminal-Bench） | §6 ⑪ / S5  | 仍 25/500 子集口径；Terminal-Bench 未跑。归并行链路                                                                                                                                                                                                                                                                         |
+| 2   | **改动后的 live 端到端复测**              | §7 局限    | `benchmark/capability-swebench.json` 的 live 成绩是 **2026-09-15**（deepseek-chat，10 题 9/10，29.0s，$0.1226）——**早于 P0/P1 全部改动**；而这批改动换过工具面 ⇒「修好了」目前**只有单测证据、无端到端证据**，回归风险未测量                                                                                                |
+| 3   | **非 npm 仓库的自验证启用条件**           | S2 / S4    | `ConfigFactory.resolveSelfVerify` → `SelfVerifyPolicy.forWorkspace` → `hasTestScript()` **只读 `package.json#scripts.test`** ⇒ Python/Go/Rust 仓库永不启用；**显式传 `selfVerify.command` 也无效**（闸门在最外层）。新探针硬证见 11.4。连带：`SOURCE_EXTENSIONS` 里的 `.py/.rs/.go/.java` 在纯非 npm 仓库中为**不可达判据** |
+| 4   | 定向测试只覆盖 `npm test` 形态            | §6 ⑨ 边界  | `narrowedCommand` 对 pytest/cargo/go test **退回全量**（有意不猜测性拼接）。属有意识降级，补齐须按运行器分别实现                                                                                                                                                                                                            |
+| 5   | LSP 仍缺符号搜索 / code action            | S4         | 端口能力仍只有 definition/references/hover/diagnostics/status；无 `workspace/symbol`、无 `codeAction`                                                                                                                                                                                                                       |
+| 6   | 无 TTY/PTY 交互式执行                     | S4         | `shell` = 单发 spawn（前台，可申请超时）+ 后台作业；源码中 `isTTY` 仅用于 CLI 交互应答器判定，非 pty。**属决策项**：pty 通常需原生模块，须按 `D10 择优依赖` 走 `dependency-allowlist.json`                                                                                                                                  |
+| 7   | 浏览器能力未产品化                        | S4         | 零依赖 CDP 仍只在 `web/test/browserHarness.mjs`、`web/test/e2e-cdp.test.mjs`；`view_image` 只能读本地图，不能抓取/截图                                                                                                                                                                                                      |
+| 8   | OS 级沙箱**零真机证据**                   | S5 第 3 行 | bwrap/seatbelt 适配器已是真实现（探测 `which bwrap`/`sandbox-exec`，缺失 fail-closed），但本机 Windows 恒不可用 ⇒ 无真机验证；`landlock` 无适配器。Windows 侧真生效的是 `restrictedSandbox`                                                                                                                                 |
+| 9   | 两项「做了但没验」                        | §6 ⑬ 边界  | ① `view_image` 未做「真实模型看图后答对」的效果验证；② `web_fetch` 的 HTML→文本是启发式（无 DOM），只保证去脚本/样式、块级换行、实体解码。均已在 §10.6 登记                                                                                                                                                                 |
+
+**有意保留、不算缺口**：`web_search` 默认不注册（代码注释已写明理由：未配置时会让模型反复调用并批量失败，需经 `extraTools` 注入）；
+自验证默认开只改 CLI 生产入口、库侧 `ConfigFactory` 保持 opt-in（否则跑本仓单测会递归触发 `npm test`）。
+
+### 11.3 对盘点原文的三处更正（本轮复核）
+
+1. **§7「现有 10 题套件偏新建实现」不成立**：逐条读 `benchmark/swebenchTasks.mjs`，10 题**全部**带 `seedFiles`（预置 `bug.js`）+ `goldPatch`，
+   题名即 bug 名（off-by-one-sum / null-guard-greet / wrong-op-avg / reversed-sort / loop-start-firstN / fencepost-slice /
+   regex-anchored / float-precision / type-coercion / inverted-condition），scripted 剧本是 `read_file → apply_patch` ⇒ **全是改已有文件**，10/10 通过。
+   ⇒ 建议方向仍对，但理由要换：缺的不是「改码类题目」，而是①**改动之后**的 live 复测；②题目过小过合成（每题 2 个小文件），不代表真实多文件编辑难度。
+2. **§1 称「6 种 diff，4 种失败」与它自己 §2.1 的原始输出不符**：原始输出只有 3 个 `ok=false`（②行号错 / ④尾随空格 / ⑤多文件）。
+   §9.1 已按原始数据修正为 3/6，本轮复核为 **6/6**。口径：**以探针原始输出为准，不以正文概述为准**。
+3. **§3.3 新发现（本轮）**：见上表第 3 项——扩展名清单说「.py/.rs/.go/.java 是可验证目标」，但启用闸门只认 `package.json`，
+   属「声明未接线」的近亲（字段存在、文档说可覆盖、路径上不生效）。
+
+### 11.4 本轮探针复跑与新探针（`_audit_tmp/`，不进仓库）
+
+- `patch_probe.mjs`（未改一行）**6/6 ok**；`selfverify_probe.mjs`（v2，读装配源码判定）**17/17 PASS**。
+- **新增** `selfverify_lang_probe.mjs`：走生产装配 `ConfigFactory.build` 后真实执行一次 `write_file`，读输出里有无自验证回环摘要。
+  三组均显式传 `selfVerify:{enabled:true, command:'node test.js'}`、`cooldownMs:0`，`test.js` 恒 `process.exit(1)`：
+
+  ```
+  package.json=有(scripts.test) target=bug.js  -> 触发=true   已写入… | [自验证回环] 未通过（exit=1）
+  package.json=无              target=bug.py  -> 触发=false  已写入 bug.py          ← 决定性证据
+  package.json=有(scripts.test) target=bug.py  -> 触发=true   已写入… | [自验证回环] 未通过（exit=1）
+  ```
+
+  读法：第 2 行证明「没有 package.json 时给了命令也不启用」；第 3 行证明扩展名判据（`.py`）本身是好的，坏的只是**启用闸门**。
+
+- 默认工具清单实测（未注入 `longTerm/costBudget/lsp/identity`）：**31 个**，含 `edit / grep / glob / web_fetch / view_image / shell_job` 等新工具。
+  **不写死总数进文档**（随注入端口而变，见 §9.1 的教训）。
+
+### 11.5 一处我自己上一轮下错的结论（诚实记录）
+
+上一轮据「进程 env 里没有模型密钥」判定 ⑪ 不可跑。**该判定错误**：仓库根 `.env`（gitignored，2026-09-15 由用户提供）内含
+`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL`。⇒ ⑪ 与上表第 2 项的真正阻塞**不是密钥，是并发纪律**：
+另一条会话正在用同一模型跑 25 题官方批（此刻正在排查干净重跑 18/25 全 false 的异常），再起 live 批会抢同一模型配额并可能污染其诊断，故本轮**只登记缺口、不抢跑**。
+另有一处客观约束：10 题套件输出路径写死 `benchmark/capability-swebench.json`（脚本无 `--out`），复测会覆盖那份 9/10 历史记录，跑前必须备份或改写入新文件。
+
+**本节不改动任何源码**（纯登记），故只有看板一笔。
