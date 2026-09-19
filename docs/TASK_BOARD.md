@@ -947,7 +947,7 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 | `npm run web:build` + web 测试（20 文件）                                                    | ✅ **159 / 159 通过**（`e2e` / `e2e-cdp` 需 spawn 真实 headless 浏览器，非受限环境 1/1、1/1）                           |
 | 全量单测 `npm test`                                                                          | ✅ **1905 项：1901 通过 / 0 失败 / 4 skipped**（skip 全是平台性：macOS seatbelt、内核负路径、真机特权、git 不可用降级） |
 | `npm run coverage:check`                                                                     | ✅ 行覆盖率 **100%**（阈值 80%）exit 0                                                                                  |
-| `npm run test:integration`                                                                   | ✅ 10 / 10                                                                                                              |
+| `npm run test:integration`                                                                   | ✅ **11 / 11**（本轮新增「真 serve + 真 SPA + 真 Chrome」全栈体检，见 §15.7）                                           |
 | `npm run smoke` / `npm run stress`                                                           | ✅ 冒烟全过 / 压测通过（预热后基线 86.4MB → 87.4MB，+1.0MB 无泄漏）                                                     |
 | `npm run eval:veto`                                                                          | ✅ 回溯一致率 3/3 ⇒ exit 0                                                                                              |
 | `node tests/wasmE2e.mjs`                                                                     | ✅ ALL OK（5 项）                                                                                                       |
@@ -992,3 +992,29 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 - 门禁：`check.mjs --strict` 554 文件零违规、`audit:config-wiring` 554 文件全绿（I5a/I5b 通过：文件键→CLI→装配→运行时四段都通）、
   `format:check` 通过、`typecheck`/`build` exit 0；全量单测与覆盖率见 §15.5 同口径复跑。
 - 文档：`omniharness.json.example` 补 `skills` 示例；`docs/integration.md` §6 补「受种技能（skills）」小节（两条通道、合并语义、fail-closed 规则）。
+
+### 15.7 全栈真机体检（真 serve + 真 SPA + 真 Chrome，已固化为集成测试）
+
+用户指令：「保证项目稳定、写代码够强、前端够牛」。前两项靠门禁与真机回路验，前端靠**真浏览器打开真实构建产物**验——
+新增 `tests/integration/liveUiE2e.test.ts`（`npm run test:integration` 第 11 例，需本机浏览器，缺则显式 skip）。
+
+**它断言什么（一条回路，四段都有反向印证）**
+
+1. HTTP 面：`/healthz` 200、`/` 200 且含 `#root` 与 bundle script、`/metrics` 返回 `omni_*` 指标、`POST /rpc config.get` 返回当前模型；
+2. 真 Chrome 打开真 UI：app 挂载、composer/send 存在、`#root` 渲染内容充足、**初始截图非空白**（>1KB）；
+3. 全链路：CDP 真实键入 + 点击发送 → 等「页面文本增长 + 输入框恢复可用」→ **服务端日志确认 `/rpc` 200**
+   （后半句是刻意的反向印证，防「前端自嗨、后端没跑」的假绿）→ 回合后截图非空白；
+4. 隔离：`cwd` 与 `storage-dir` 均为临时目录，跑完即删（零额度、零副作用、不污染会话存档）。
+
+**两个刻意的设计选择（都来自实测踩坑）**
+
+- **cwd 必须是临时工作区**：`serve` 以 cwd 为 workspaceRoot 并向上找 `omniharness.json`。第一版在仓库根起，
+  仓库自己的配置（openai + providerKeys）**覆盖**了 `--model-adapter mock` ⇒ 那次体检实际跑了一个
+  **真实模型回合**：12 步、真写了 `src/hello.ts` 与 `tests/unit/hello.test.ts`（生成质量不错：JSDoc + `@public` 标注、
+  `src/`+`tests/unit/` 分置、含空白名回退等边界用例——已如实删除，未入库）。隔离后 mock 生效，零额度可复现。
+- **截图写临时目录**：不往仓库塞二进制产物；断言只看「非空白 + 尺寸」，人眼复核用一次性脚本另行出图。
+
+**人眼复核证据（本轮）**：真 UI 暗色界面完整可用——顶栏（模型/连接态/主题）、左侧图标栏（工具/指标/设置/插件/编排/记忆/配置集/钻取/回滚）、
+会话列表（含行内 ✎/⧉/🗑）、工作区树、会话流（用户气泡 + 「执行过程」折叠卡 + 助手卡 + 📋 复制 + ↻ 重新生成 + ✎ 编辑重发）、
+右栏工具卡（shell · 完成）、输入区（模型/推理强度/权限档位 + 附件/麦克风 + 发送）。两帧截图（初始 / 回合后）各 ~10 万像素级、
+无空白或错位；空态文案齐全（等待任务 / 暂无工具调用 / 暂无会话 / 空工作区）。

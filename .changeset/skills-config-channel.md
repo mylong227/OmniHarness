@@ -17,4 +17,6 @@
 - **S1 受种技能从不注入**：`Agent` 的技能注册表是可选第 2 参数，而 11 个 `new Agent(runtime)` 生产调用点里**只有 1 个**传了它 ⇒ CLI / 子代理 / 工作流 / eval 全部路径上，受种技能永不进上下文（真机修前：`--skills` 与配置文件两条通道都只有 user 事件、无 `# 技能：…`）。修法：`Agent` 构造函数缺省取运行时组合根那一份（`runtime.config.skillRegistry`），新增调用点不会再漏。
 - **S2 `approval: "plan"` 被校验白名单拒绝**：`ENUM_VALUES.approval` 漏了 `'plan'`，而 CLI 枚举（`cliEnums.APPROVALS`）、`FileConfig.approval` 与运行时（`cliBuildConfig` 的 planMode 分支、`agentRuntimeHost` 的 `'plan'` 覆盖）都支持它 ⇒ 配置文件写 `"approval":"plan"` 直接报非法。已三处对齐并加回归用例。
 
+**同批新增：全栈真机体检（前端）** —— `tests/integration/liveUiE2e.test.ts`：起**真实 `serve`**、用**真 Chrome** 打开**真实构建产物**，跑通 `SPA → /rpc turns.run → Agent → SSE → UI` 并钉住 HTTP 面（`/healthz`、`/`、`/metrics`、`/rpc`）；以服务端日志 `/rpc 200` 作反向印证，防「前端自嗨、后端没跑」的假绿；`cwd` 与 `storage-dir` 均为临时目录（零额度、零副作用），缺浏览器则显式 skip。`npm run test:integration` 由 10/10 变 **11/11**。
+
 **验证**：`tests/unit/configSkillsWiring.test.ts` 11/11（文件校验/映射、旗标解析、合并语义、两种文件形态、7 类非法输入的报错位置、`ConfigFactory.build` → 注册表、真 Agent 命中即注入 / 未命中零注入、`approval:'plan'` 回归）；**真机双通道实测**（`--model-adapter mock` 看事件流）两条通道各自注入 `# 技能：…` system 事件；`check --strict` 554 文件零违规、`audit:config-wiring` 554 文件全绿、`lint` 0 告警、`arch:gate` 0 违规、`format:check` 通过、全量单测 + 覆盖率达标记（覆盖率门禁 exit 0，行覆盖 100%）。文档：`omniharness.json.example` 补 `skills` 示例、`docs/integration.md` §6 补「受种技能」小节。
