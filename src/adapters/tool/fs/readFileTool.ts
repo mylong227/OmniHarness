@@ -7,6 +7,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { FileContentLedger } from './fileContentLedger.js';
 import { FileLineWindow } from './fileLineWindow.js';
 import type { LineWindowResult } from './fileLineWindow.js';
 
@@ -19,6 +20,11 @@ import type { LineWindowResult } from './fileLineWindow.js';
  * 让模型明确知道是否读全，而不是把「读到一半」当成「文件就这些内容」。
  */
 export class ReadFileTool {
+  /**
+   * @param ledger 内容账本（S1，可选）：成功读取即记录指纹，供写类工具做冲突检测。
+   */
+  public constructor(private readonly ledger?: FileContentLedger) {}
+
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
     name: 'read_file',
@@ -63,6 +69,8 @@ export class ReadFileTool {
     const absolute = resolve(context.workspaceRoot, relative);
     try {
       const content = await readFile(absolute, 'utf8');
+      // S1：记录"我们已知的最新内容"，让后续写类工具能发现外部改动（冲突保护）。
+      this.ledger?.remember(absolute, content);
       const window = FileLineWindow.slice(content, {
         ...(typeof call.arguments['offset'] === 'number'
           ? { offset: call.arguments['offset'] }

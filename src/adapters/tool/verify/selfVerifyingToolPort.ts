@@ -8,6 +8,8 @@
  *
  * 回灌纪律：
  *  - **只回灌失败摘要**（`TestFailureDigest` 限行），测试通过则**静默**（不制造无信息噪点）；
+ *  - 摘要后会附**位置候选**（`StackFrameParser` 把堆栈帧解析成 `文件:行`，P1-⑩）；
+ *  - **定向测试**（P1-⑨ 后半）：记住上次失败文件，下次用收窄命令先跑那一批，跑通即回归全量；
  *  - 假完成探测（可选注入，装配处用 `SelfChecklist`）同样只在其**未通过**时追加提示；
  *  - 全部预算（超时 / 输出上限 / 冷却 / 每会话次数）由 `SelfVerifyPolicy` 持有；
  *  - **fail-open**：命令未能执行、探测抛错等一律不改变原工具结果，绝不因自验证本身
@@ -21,6 +23,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import type { TestCommandRunner } from './testCommandRunner.js';
+import { StackFrameParser } from './stackFrameParser.js';
 import { TestFailureDigest } from './testFailureDigest.js';
 import type { SelfVerifyPolicy } from './selfVerifyPolicy.js';
 
@@ -64,6 +67,8 @@ export class SelfVerifyingToolPort implements ToolPort {
   private readonly runs = new Map<string, number>();
   /** 每会话最近一次触发时间（冷却）。 */
   private readonly lastRunAt = new Map<string, number>();
+  /** 每会话上次失败所指向的文件（供下次「定向测试」收窄命令，P1-⑨ 后半）。 */
+  private readonly failingTargets = new Map<string, readonly string[]>();
 
   /**
    * @param inner 被装饰的工具端口（生产为 `RegistryToolPort`）。
@@ -141,7 +146,7 @@ export class SelfVerifyingToolPort implements ToolPort {
     }
     if (this.allowRun(context.sessionId)) {
       this.recordRun(context.sessionId);
-      const testNote = await this.runTests();
+      const testNote = await this.runTests(context.sessionId);
       if (testNote !== undefined) {
         notes.push(testNote);
       }
@@ -152,28 +157,70 @@ export class SelfVerifyingToolPort implements ToolPort {
   /**
    * 在受控预算内跑测试命令，失败/超时时产出回灌文本。
    *
+   * 定向能力（P1-⑨ 后半）：本会话**上次**失败所指向的文件会被记住，本次改用
+   * `policy.narrowedCommand(...)` 收窄命令——先跑失败的那批，而不是每次全量。
+   * 跑通即清空收窄集（下次回到全量），避免「一直只跑子集」造成盲区。
+   *
+   * @param sessionId 会话 id（定向集按会话隔离）。
    * @returns 回灌文本；测试通过时为 `undefined`（静默）。
    */
-  private async runTests(): Promise<string | undefined> {
+  private async runTests(sessionId: string): Promise<string | undefined> {
     const { policy, workspaceRoot, runner } = this.wiring;
+    const command = policy.narrowedCommand(this.failingTargets.get(sessionId) ?? []);
     try {
       const outcome = await runner.run(
-        policy.command,
+        command,
         workspaceRoot,
         policy.timeoutMs,
         policy.maxOutputBytes,
       );
       if (outcome.timedOut) {
-        return `[自验证回环] 测试命令超时（${policy.timeoutMs}ms）：${policy.command}。请先修复或缩小测试范围。`;
+        return `[自验证回环] 测试命令超时（${policy.timeoutMs}ms）：${command}。请先修复或缩小测试范围。`;
       }
       if (outcome.exitCode !== 0) {
-        const digest = TestFailureDigest.from(outcome.output, policy.maxDigestLines);
-        return `[自验证回环] 改动源码后自动跑测试未通过（exit=${String(outcome.exitCode)}）：${policy.command}\n${digest}`;
+        this.rememberFailing(sessionId, outcome.output);
+        const digest = this.digestOf(outcome.output, policy.maxDigestLines);
+        return `[自验证回环] 改动源码后自动跑测试未通过（exit=${String(outcome.exitCode)}）：${command}\n${digest}`;
       }
+      this.failingTargets.delete(sessionId);
       return undefined;
     } catch (error) {
       return `[自验证回环] 测试命令未能执行：${error instanceof Error ? error.message : String(error)}`;
     }
+  }
+
+  /**
+   * 组织失败摘要：失败行 +（有则附）堆栈帧解析出的「位置候选」。
+   *
+   * 位置候选让模型**直接知道该改哪个文件的哪一行**，不必再从失败信息反推源码位置
+   * （P1-⑩ 要补的最后一小段）。
+   *
+   * @param output 测试命令的原始输出。
+   * @param maxDigestLines 摘要行数上限。
+   * @returns 摘要文本（含位置候选段；无候选时不附）。
+   */
+  private digestOf(output: string, maxDigestLines: number): string {
+    const digest = TestFailureDigest.from(output, maxDigestLines);
+    const locations = StackFrameParser.locate(output);
+    return locations.length === 0
+      ? digest
+      : `${digest}\n位置候选（文件:行）：${locations.join('、')}`;
+  }
+
+  /**
+   * 记住本次失败所指向的文件，供下次定向测试收窄。
+   *
+   * @param sessionId 会话 id。
+   * @param output 测试命令的原始输出。
+   * @returns 无返回值（未解析到文件时清空该会话收窄集，退回全量命令）。
+   */
+  private rememberFailing(sessionId: string, output: string): void {
+    const files = StackFrameParser.locate(output).map((frame) => frame.replace(/:\d+$/, ''));
+    if (files.length === 0) {
+      this.failingTargets.delete(sessionId);
+      return;
+    }
+    this.failingTargets.set(sessionId, files);
   }
 
   /**

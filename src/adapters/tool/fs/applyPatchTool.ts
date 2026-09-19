@@ -7,6 +7,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { FileContentLedger } from './fileContentLedger.js';
 import { PatchApplier } from './patchApplier.js';
 import type { FilePatch } from './patchApplier.js';
 
@@ -45,8 +46,12 @@ export class ApplyPatchTool {
 
   /**
    * @param workspaceRoot 工作区根目录（补丁目标必须落在其内，越界即拒绝）。
+   * @param ledger 内容账本（S1，可选）：应用前逐目标比对指纹，发现外部改动即整体拒绝。
    */
-  public constructor(private readonly workspaceRoot: string) {}
+  public constructor(
+    private readonly workspaceRoot: string,
+    private readonly ledger?: FileContentLedger,
+  ) {}
 
   /**
    * 应用补丁。
@@ -75,8 +80,14 @@ export class ApplyPatchTool {
       if (!guard.isInside(target)) {
         return { callId: call.id, ok: false, error: `路径越界: ${target}` };
       }
+      const absolute = resolve(this.workspaceRoot, target);
       try {
-        originals.set(target, await this.readExisting(resolve(this.workspaceRoot, target)));
+        const original = await this.readExisting(absolute);
+        // S1 冲突保护：账本有记录且已背离 ⇒ 拒绝整份补丁（原子语义：一个字节都不写）。
+        if (this.ledger?.changedSince(absolute, original) === true) {
+          return { callId: call.id, ok: false, error: FileContentLedger.conflictMessage(target) };
+        }
+        originals.set(target, original);
       } catch (error) {
         return { callId: call.id, ok: false, error: this.messageOf(error) };
       }
@@ -141,6 +152,7 @@ export class ApplyPatchTool {
         const absolute = resolve(this.workspaceRoot, output.targetFile);
         await mkdir(dirname(absolute), { recursive: true });
         await writeFile(absolute, output.content, 'utf8');
+        this.ledger?.remember(absolute, output.content);
       }
       const names = outputs.map((output) => output.targetFile).join(', ');
       return {

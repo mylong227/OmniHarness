@@ -26,6 +26,8 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
  */
 export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
   'shell',
+  // 后台作业管理（P2-⑫）：能 kill 进程、能启动任意命令 ⇒ 与 shell 同级，plan 模式同样拦截。
+  'shell_job',
   'write_file',
   'edit',
   'apply_patch',
@@ -153,7 +155,14 @@ export class ToolGate {
    * @returns 对应的沙箱检查动作（含动作目标）。
    */
   private sandboxActionOf(call: ToolCall): SandboxAction {
-    if (call.name === 'read_file' || call.name === 'grep' || call.name === 'glob') {
+    if (
+      call.name === 'read_file' ||
+      call.name === 'grep' ||
+      call.name === 'glob' ||
+      // 读图（P2-⑬）与抓网页（P2-⑬）都不写本地文件，按「读」归类。
+      call.name === 'view_image' ||
+      call.name === 'web_fetch'
+    ) {
       return { kind: 'file_read', target: this.targetOf(call) };
     }
     if (call.name === 'write_file' || call.name === 'edit' || call.name === 'apply_patch') {
@@ -170,10 +179,10 @@ export class ToolGate {
    * 这里从补丁头就地取首个目标（纯字符串处理，不引入 adapters 依赖，守住 `core` 零适配器红线）。
    *
    * @param call 工具调用。
-   * @returns command/path 参数值，或补丁头目标；均缺失时退化为工具名。
+   * @returns command / path / url 参数值，或补丁头目标；均缺失时退化为工具名。
    */
   private targetOf(call: ToolCall): string {
-    const direct = call.arguments['command'] ?? call.arguments['path'];
+    const direct = call.arguments['command'] ?? call.arguments['path'] ?? call.arguments['url'];
     if (typeof direct === 'string' && direct !== '') {
       return direct;
     }

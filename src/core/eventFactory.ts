@@ -97,6 +97,7 @@ export class EventFactory implements EventFactoryPort {
    * @param ok 工具是否执行成功。
    * @param output 成功时的输出文本（可选，undefined 不写入 payload）。
    * @param error 失败时的错误文本（可选，undefined 不写入 payload）。
+   * @param files 工具产出的文件附件（可选，非空才写入 payload；见 ToolResult.files）。
    * @returns 结构完整的 tool_result 事件。
    */
   public toolResult(
@@ -105,6 +106,7 @@ export class EventFactory implements EventFactoryPort {
     ok: boolean,
     output?: string,
     error?: string,
+    files?: readonly FileAttachment[],
   ): SessionEvent {
     const payload: Record<string, unknown> = { callId, ok };
     if (output !== undefined) {
@@ -112,6 +114,9 @@ export class EventFactory implements EventFactoryPort {
     }
     if (error !== undefined) {
       payload['error'] = error;
+    }
+    if (files !== undefined && files.length > 0) {
+      payload['files'] = files;
     }
     return this.base(sessionId, 'tool_result', payload);
   }

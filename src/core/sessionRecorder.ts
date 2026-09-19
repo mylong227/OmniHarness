@@ -131,10 +131,17 @@ export class SessionRecorder {
    * @param ok 工具是否执行成功。
    * @param output 成功时的输出文本（可选）。
    * @param error 失败时的错误文本（可选）。
+   * @param files 工具产出的文件附件（可选，P2-⑬：`view_image` 把图片交给模型）。
    * @returns 落盘并广播后的 tool_result 事件。
    */
-  public toolResult(callId: string, ok: boolean, output?: string, error?: string): SessionEvent {
-    return this.record(eventFactory.toolResult(this.sid, callId, ok, output, error));
+  public toolResult(
+    callId: string,
+    ok: boolean,
+    output?: string,
+    error?: string,
+    files?: readonly FileAttachment[],
+  ): SessionEvent {
+    return this.record(eventFactory.toolResult(this.sid, callId, ok, output, error, files));
   }
 
   /**

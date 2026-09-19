@@ -7,6 +7,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { FileContentLedger } from './fileContentLedger.js';
 
 /** 写文件工具：仅限工作区内，覆盖前自动备份 .bak（可审计）。 */
 export class WriteFileTool {
@@ -26,8 +27,12 @@ export class WriteFileTool {
 
   /**
    * @param workspaceRoot 工作区根目录（写入目标必须落在其内，越界即拒绝）。
+   * @param ledger 内容账本（S1，可选）：覆盖前比对指纹，发现外部改动即拒绝写入。
    */
-  public constructor(private readonly workspaceRoot: string) {}
+  public constructor(
+    private readonly workspaceRoot: string,
+    private readonly ledger?: FileContentLedger,
+  ) {}
 
   /** 写入文件。
    * @param call 工具调用（实参含 path 与 content）。
@@ -50,25 +55,34 @@ export class WriteFileTool {
     }
     const absolute = resolve(this.workspaceRoot, relative);
     try {
-      await this.backupIfExists(absolute);
+      const existing = await this.readIfExists(absolute);
+      // S1 冲突保护：账本里有该文件、且磁盘内容已背离 ⇒ 改动来自本工具链之外，拒绝覆盖。
+      if (existing !== undefined && this.ledger?.changedSince(absolute, existing) === true) {
+        return { callId: call.id, ok: false, error: FileContentLedger.conflictMessage(relative) };
+      }
+      if (existing !== undefined) {
+        await writeFile(`${absolute}.bak`, existing, 'utf8');
+      }
       await mkdir(dirname(absolute), { recursive: true });
       await writeFile(absolute, content, 'utf8');
+      this.ledger?.remember(absolute, content);
       return { callId: call.id, ok: true, output: `已写入 ${relative}` };
     } catch (error) {
       return { callId: call.id, ok: false, error: this.messageOf(error) };
     }
   }
 
-  /** 覆盖前备份原文件。
-   * @param file 目标文件绝对路径（备份写为 `<file>.bak`）。
-   * @returns 无返回值（文件不存在时静默跳过备份）。
+  /**
+   * 读取现有内容（用于备份与冲突检测）。
+   *
+   * @param file 目标文件绝对路径。
+   * @returns 文件内容；文件不存在时返回 `undefined`（区别于"存在但为空"）。
    */
-  private async backupIfExists(file: string): Promise<void> {
+  private async readIfExists(file: string): Promise<string | undefined> {
     try {
-      const original = await readFile(file, 'utf8');
-      await writeFile(`${file}.bak`, original, 'utf8');
+      return await readFile(file, 'utf8');
     } catch {
-      // 文件不存在则无需备份
+      return undefined;
     }
   }
 

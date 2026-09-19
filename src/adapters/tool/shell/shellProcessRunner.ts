@@ -13,6 +13,7 @@
 
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
+import { ShellInvocation } from './shellInvocation.js';
 
 /** 单次执行参数。 */
 export interface ShellRunOptions {
@@ -61,10 +62,10 @@ export class ShellProcessRunner {
    */
   public run(command: string, options: ShellRunOptions): Promise<ShellRunOutcome> {
     return new Promise<ShellRunOutcome>((resolve, reject) => {
-      const shell = this.shellPath();
+      const shell = ShellInvocation.path();
       let child: ChildProcess;
       try {
-        child = spawn(shell, this.shellArgs(shell, command), {
+        child = spawn(shell, ShellInvocation.args(shell, command), {
           cwd: options.cwd,
           env: options.env,
           windowsHide: true,
@@ -158,33 +159,5 @@ export class ShellProcessRunner {
       collector.chunks.push(buf);
       collector.bytes += buf.length;
     });
-  }
-
-  /**
-   * 解析 shell 可执行文件位置：Windows 取 `ComSpec`，类 Unix 取 `SHELL`，均有约定兜底。
-   *
-   * @returns shell 可执行文件（可由 PATH 解析）。
-   */
-  private shellPath(): string {
-    if (process.platform === 'win32') {
-      const comspec = process.env['ComSpec'];
-      return comspec !== undefined && comspec !== '' ? comspec : 'cmd.exe';
-    }
-    const shell = process.env['SHELL'];
-    return shell !== undefined && shell !== '' ? shell : '/bin/sh';
-  }
-
-  /**
-   * 构造「以解释器执行一段命令文本」的 argv。
-   *
-   * @param shell shell 可执行文件（仅用于判断是否 Windows 风格）。
-   * @param command 命令文本。
-   * @returns argv 数组（命令文本始终作为**单个**参数传递，不再经历二次拼接）。
-   */
-  private shellArgs(shell: string, command: string): string[] {
-    if (process.platform === 'win32' || /(^|[\\/])cmd(\.exe)?$/i.test(shell)) {
-      return ['/d', '/s', '/c', command];
-    }
-    return ['-c', command];
   }
 }

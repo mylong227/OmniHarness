@@ -52,6 +52,9 @@ export class SelfVerifyPolicy {
   /** 默认摘要行数上限。 */
   public static readonly DEFAULT_MAX_DIGEST_LINES = 15;
 
+  /** 定向测试时最多收窄到的文件数（命令行长度的隐式上界）。 */
+  private static readonly MAX_TARGETS = 8;
+
   /** 可触发自验证的源码扩展名（写入目标须属此集合）。 */
   private static readonly SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
     '.ts',
@@ -143,6 +146,51 @@ export class SelfVerifyPolicy {
   public static isVerifiableTarget(path: string): boolean {
     const ext = extname(path).toLowerCase();
     return ext !== '' && SelfVerifyPolicy.SOURCE_EXTENSIONS.has(ext);
+  }
+
+  /**
+   * 定向测试：把「上次跑挂的文件」收窄进命令，跑失败的那批而不是全量（P1-⑨ 后半）。
+   *
+   * 为什么只对 `npm test` 形态生效：定向能力依赖该仓库的测试运行器支持「收窄到文件」的
+   * 参数约定（npm 的 `--` 透传是事实标准：`npm test -- path/to/x.test.ts`）。
+   * 对**任意自定义命令**做字符串拼接属于猜测，宁可退回全量命令（`this.command`），
+   * 也不生成一条跑不起来的命令——错误的定向比不定向更贵。
+   *
+   * 为什么还要再过一层 {@link isTestPath}：堆栈帧多数指向**被测源码**，
+   * 把 `src/core/foo.ts` 透传给运行器会被判成「没有匹配的测试」而**假失败**；
+   * 假失败比不做定向更贵（模型会去追一个并不存在的回归）。
+   *
+   * @param files 上次失败输出里解析到的文件清单（可为空，可含非测试文件）。
+   * @returns 定向命令；无测试文件、命令形态不支持收窄时返回原 `command`。
+   */
+  public narrowedCommand(files: readonly string[]): string {
+    if (!/^npm (?:run )?test(?:\s|$)/.test(this.command)) {
+      return this.command;
+    }
+    const targets = files
+      .map((file) => file.trim())
+      .filter((file) => file !== '' && SelfVerifyPolicy.isTestPath(file))
+      .slice(0, SelfVerifyPolicy.MAX_TARGETS);
+    return targets.length === 0 ? this.command : `${this.command} -- ${targets.join(' ')}`;
+  }
+
+  /**
+   * 该路径是否像**测试文件**（定向测试只接受测试文件）。
+   *
+   * 覆盖常见命名约定：`x.test.ts` / `x.spec.tsx` / `test_x.py` / `x_test.go` / `FooTest.java`。
+   * 刻意保守——认不出来就不定向（退回全量），不在命名约定上冒险。
+   *
+   * @param file 路径（相对或绝对，可含 `\`）。
+   * @returns 形如测试文件时为 true。
+   */
+  private static isTestPath(file: string): boolean {
+    const base = file.split(/[\\/]/).pop() ?? '';
+    return (
+      /\.(?:test|spec)\.[a-z0-9]+$/i.test(base) ||
+      /^test_.*\.(?:py|rb)$/i.test(base) ||
+      /_test\.(?:go|rb)$/i.test(base) ||
+      /tests?\.java$/i.test(base)
+    );
   }
 
   /**

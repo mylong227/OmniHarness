@@ -18,11 +18,16 @@ import { AskUserTool } from '../adapters/tool/plan/askUserTool.js';
 import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/plan/planTool.js';
 import { ReadFileTool } from '../adapters/tool/fs/readFileTool.js';
 import { EditFileTool } from '../adapters/tool/fs/editFileTool.js';
+import { FileContentLedger } from '../adapters/tool/fs/fileContentLedger.js';
 import { GrepTool } from '../adapters/tool/fs/grepTool.js';
 import { GlobTool } from '../adapters/tool/fs/globTool.js';
+import { WebFetchTool } from '../adapters/tool/web/webFetchTool.js';
+import { ViewImageTool } from '../adapters/tool/media/viewImageTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { ShellTool } from '../adapters/tool/shell/shellTool.js';
 import { ShellCommandPolicy } from '../adapters/tool/shell/shellCommandPolicy.js';
+import { BackgroundJobRegistry } from '../adapters/tool/shell/backgroundJobRegistry.js';
+import { ShellJobTool } from '../adapters/tool/shell/shellJobTool.js';
 import { WriteFileTool } from '../adapters/tool/fs/writeFileTool.js';
 import { ListDirTool } from '../adapters/tool/fs/listDirTool.js';
 import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
@@ -33,6 +38,7 @@ import { SelfChecklist } from '../eval/selfChecklist.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { MutationTargets } from '../adapters/tool/verify/mutationTargets.js';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.js';
+import { PostWriteDiagnosticsPort } from '../adapters/tool/verify/postWriteDiagnosticsPort.js';
 import { ShellTestCommandRunner } from '../adapters/tool/verify/shellTestCommandRunner.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
@@ -65,7 +71,7 @@ import type { ExtraTool, SubagentPortSeed } from './configFactory.js';
  */
 export class ConfigToolRegistry {
   /**
-   * 注册内置 FS / 执行 / 代理工具（shell / read / write / edit / list / patch / grep / glob / web / code / delegate / spill_read）。
+   * 注册内置 FS / 执行 / 代理工具（shell / shell_job / read / write / edit / list / patch / grep / glob / web_fetch / view_image / code / delegate / spill_read）。
    * @param {RegistryToolPort} registry - registry
    * @param {SubagentPortSeed} seed - seed
    * @param {WorkerRegistry | undefined} workers - workers
@@ -85,16 +91,24 @@ export class ConfigToolRegistry {
   ): void {
     // A3：shell 命令策略在**组合根**显式装配（不在工具内部自建），模式默认 audit
     // （解析 + 记录，零行为变更），`OMNI_SHELL_POLICY=enforce` 或后续 A2 权限档驱动为强制拒绝。
-    const shell = new ShellTool({ policy: new ShellCommandPolicy() });
-    const reader = new ReadFileTool();
-    const writer = new WriteFileTool(seed.workspaceRoot);
+    // S1 内容账本：读记指纹、写前比对——读写工具必须共用**同一实例**才有意义（组合根单例）。
+    const ledger = new FileContentLedger();
+    // P2-⑫ 后台作业：shell 与 shell_job 必须共用同一注册表，否则二者看不到彼此的作业。
+    const jobs = new BackgroundJobRegistry(seed.workspaceRoot);
+    const shell = new ShellTool({ policy: new ShellCommandPolicy(), jobs });
+    const reader = new ReadFileTool(ledger);
+    const writer = new WriteFileTool(seed.workspaceRoot, ledger);
     // 内容替换编辑（P0，2026-09-19）：模型不必给行号即可改代码；与 write_file/apply_patch 并列。
-    const editor = new EditFileTool(seed.workspaceRoot);
+    const editor = new EditFileTool(seed.workspaceRoot, ledger);
     const lister = new ListDirTool(seed.workspaceRoot);
-    const patcher = new ApplyPatchTool(seed.workspaceRoot);
+    const patcher = new ApplyPatchTool(seed.workspaceRoot, ledger);
     // 编码检索（P0，2026-09-19）：按内容 grep / 按路径 glob，补齐「查问题」这条腿（原只能靠 shell 手写 grep）。
     const grepper = new GrepTool(seed.workspaceRoot);
     const globber = new GlobTool(seed.workspaceRoot);
+    // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道。
+    const fetcher = new WebFetchTool();
+    const viewer = new ViewImageTool(seed.workspaceRoot);
+    const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
       gate: new ToolGate(
         seed.approvals,
@@ -119,6 +133,9 @@ export class ConfigToolRegistry {
     registry.register(patcher.definition, (call, ctx) => patcher.handle(call, ctx));
     registry.register(grepper.definition, (call, ctx) => grepper.handle(call, ctx));
     registry.register(globber.definition, (call, ctx) => globber.handle(call, ctx));
+    registry.register(fetcher.definition, (call, ctx) => fetcher.handle(call, ctx));
+    registry.register(viewer.definition, (call, ctx) => viewer.handle(call, ctx));
+    registry.register(jobTool.definition, (call, ctx) => jobTool.handle(call, ctx));
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
     registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
     registry.register(spillReader.definition, (call, ctx) => spillReader.handle(call, ctx));
@@ -277,7 +294,7 @@ export class ConfigToolRegistry {
    * @returns 装饰后的工具端口（对外行为除「写源码后追加回灌」外完全不变）。
    */
   public static withSelfVerify(
-    registry: RegistryToolPort,
+    registry: ToolPort,
     policy: SelfVerifyPolicy,
     workspaceRoot: string,
   ): ToolPort {
@@ -302,6 +319,37 @@ export class ConfigToolRegistry {
       },
     });
   }
+
+  /**
+   * 装配「写后自动诊断回灌」装饰器（P1-⑦ 后半）：写源码成功后自动取 LSP 诊断，
+   * 只在确有 **error 级**诊断时把结果追加到该次工具输出（详见 {@link PostWriteDiagnosticsPort}）。
+   *
+   * 为什么只在 `lsp.diagnostics` 存在时装配：未实现诊断的适配器装上也只是空转，
+   * 徒增一层包装（并给每次写调用多一次无意义的 await）；`lsp` 未注入时同理直接返回内层。
+   *
+   * @param inner 内层工具端口（已注册全部工具）。
+   * @param lsp LSP 端口（须实现可选的 `diagnostics`）。
+   * @param workspaceRoot 工作区根（把相对目标解析为绝对路径）。
+   * @returns 装饰后的工具端口；LSP 未实现诊断时原样返回 `inner`。
+   */
+  public static withPostWriteDiagnostics(
+    inner: ToolPort,
+    lsp: LspPort,
+    workspaceRoot: string,
+  ): ToolPort {
+    const diagnose = lsp.diagnostics;
+    if (diagnose === undefined) {
+      return inner;
+    }
+    return new PostWriteDiagnosticsPort(inner, {
+      workspaceRoot,
+      diagnostics: (file) => diagnose.call(lsp, file),
+      shouldCheck: (toolName, args) =>
+        MutationTargets.of(toolName, args).some((path) =>
+          SelfVerifyPolicy.isVerifiableTarget(path),
+        ),
+    });
+  }
 }
 
 /** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */
@@ -317,9 +365,13 @@ export function demoWorkers(): WorkerRegistry {
  * {@link ConfigToolRegistry.registerAgentTools}（子代理/目标/工作流/待办/提问/计划/检索发现）、
  * {@link ConfigToolRegistry.registerAuxiliaryTools}（记忆、预算、LSP、身份、策略，**按注入端口条件注册**）
  * 三处汇总而成，故不写死总数——总数随 `longTerm`/`costBudget`/`lsp`/`identity` 是否为 undefined 而变
- * （实测：未注入这些端口时 28 个，注入 LSP 后 33 个）。另可经 `extraTools` 追加自定义工具。
+ * （实测 `ConfigFactory.build` 默认路径 31 个，注入 LSP 后 36 个）。另可经 `extraTools` 追加自定义工具，
+ * 且**同名时显式注入覆盖内置默认**（先反注册再注册，便于整体替换 `web_fetch` 等内置实现）。
  * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。
- * `selfVerify` 非空时（P3，opt-in）额外包装自验证回环装饰器：写源码后可自动跑受限测试并回灌失败摘要。 */
+ * web_fetch / view_image 默认注册：前者自带实现（零密钥），后者只读本地图片——都不会"未配置即批量失败"。
+ * 两个后置装饰器按条件叠加（都属"写后质量信号"，不装配即零行为）：
+ *  - `lsp.diagnostics` 可用 ⇒ {@link ConfigToolRegistry.withPostWriteDiagnostics}（写后错误级诊断）；
+ *  - `selfVerify` 非空（P3）⇒ {@link ConfigToolRegistry.withSelfVerify}（写源码后跑受限测试并回灌失败摘要）。 */
 export function defaultTools(
   seed: SubagentPortSeed,
   extraTools: readonly ExtraTool[] | undefined,
@@ -344,15 +396,24 @@ export function defaultTools(
   ConfigToolRegistry.registerAgentTools(registry, seed, planning, discovery, retrieval);
   ConfigToolRegistry.registerAuxiliaryTools(registry, seed, longTerm, costBudget, lsp, identity);
   for (const extra of extraTools ?? []) {
+    // 显式注入**优先于内置默认**：`web_fetch` / `view_image` 等内置工具允许被调用方整体替换
+    // （如换成带鉴权的抓取实现）。故先反注册同名内置再注册，避免撞上 `RegistryToolPort` 的重名拦截。
+    // 重名拦截本身不放松——它留在**内置注册**处，专门拦「内置之间互撞」这类真缺陷。
+    registry.unregister(extra.definition.name);
     registry.register(extra.definition, extra.handler);
   }
   if (deferredTools !== undefined && deferredTools.length > 0) {
     registry.markDeferred(deferredTools);
   }
-  // P3 自验证回环（opt-in）：仅在策略存在（= 仓库有测试脚本且配置开启）时包装；
+  // P1-⑦ 写后自动诊断：装配了 LSP 且适配器支持 diagnostics 时包一层（否则原样返回）。
+  const withDiagnostics =
+    lsp === undefined
+      ? registry
+      : ConfigToolRegistry.withPostWriteDiagnostics(registry, lsp, seed.workspaceRoot);
+  // P3 自验证回环：仅在策略存在（= 仓库有测试脚本且配置开启）时包装；
   // 缺省不包装 ⇒ 与 P3 之前逐字等价（零行为变更）。
   if (selfVerify === undefined) {
-    return registry;
+    return withDiagnostics;
   }
-  return ConfigToolRegistry.withSelfVerify(registry, selfVerify, seed.workspaceRoot);
+  return ConfigToolRegistry.withSelfVerify(withDiagnostics, selfVerify, seed.workspaceRoot);
 }

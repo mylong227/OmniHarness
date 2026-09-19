@@ -29,6 +29,9 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   'todo_read',
   'budget_status',
   'web_search',
+  // 读网页与读图（P2-⑬）：只读外部内容/本地图片，不写任何东西，与 read_file 同级放行。
+  'web_fetch',
+  'view_image',
   'registry',
   'tool_search',
   'policy_eval',
