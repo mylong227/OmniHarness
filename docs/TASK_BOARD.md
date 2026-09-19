@@ -521,6 +521,19 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 **用法（长批/易中断评分统一改用）**：node benchmark/capability_swebench.mjs --verified <数据集> --predictions <补丁> --instance-list <子集> --repo-base https://gitee.com/ --repo-mirrors benchmark/swebench-gitee-mirrors.json --jsonl <进度文件> --out <报告>。仓库外临时包装器 _score_incremental.mjs 已废弃，由本改动取代。
 
+### 8.1 评分器环境失败隔离（Layer 2 根因修复，2026-09-19 续）
+
+**根因**：`src/eval/nativeExecutor.ts` 的 uv 依赖安装是 best-effort（`tryUvInstall` 吞掉所有错误），**环境失败（网络/镜像瞬时抖动、pytest 校验未过）与模型失败不可区分** ⇒ 分数不可复现：同一 patch + 同一脚本在 1 分钟内 `sympy-12096` 真/假翻转，整批 0/25→7/25→1/25 漂移。这层问题靠 §8 的断点续跑只解决「丢进度」，不解决「分不可信」。
+
+**修复**（commit 见本板最新代码提交）：
+
+- `tryUvInstall` 加 **3 次重试 + 线性退避（1s / 2s）**，瞬时网络抖动不再直接判失败；
+- `setupEnv` 末尾加 **pytest 校验门**：环境未真正可用则抛 `ENV_BUILD_FAILED`（不再是「装完即算成功」的假绿灯）；
+- `run()` 捕获 `ENV_BUILD_FAILED` 后标 `envError=true`，与模型失败分离；
+- `VerifiedResult.envError?` / `VerifiedReport.envErrors`；`formatVerifiedReport` 对环境失败标 ⚠️ 并**单独打印「有效解题率」（剔除 env 噪声）**，避免把环境抖动算成能力分。
+
+**验证**：`tests/unit/swebenchVerified.test.ts` 环境失败区分用例 21/21 通过；全门禁全绿。**干净重跑（清全部 .venv + 默认并发 1）进行中**，用于坐实「批量 venv 缓存污染导致漂移」假设——若清缓存后分数稳定可复现，则确认根因；否则需再加「测试失败即废 venv 重建」层。
+
 ## 9. 编码 Agent 能力补齐（P0 批次，2026-09-19）
 
 **背景与口径**：2026-09-19 能力盘点（报告在仓库外 `D:\deepseek\CAPABILITY_AUDIT_2026-09-19.html`）把本 harness 的编码能力判为「**写码 ✅／改码 ⚠️ 脆弱／查错 ⚠️ 半具备**」，并用两枚探针（`_audit_tmp/{patch_probe,selfverify_probe}.mjs`）硬证两处缺陷。用户要求「把当前存在的问题全都诚实地全部完成，同时要求超越，不允许交付半成品」，故本批把盘点出的 **8 条缺口一次性落地**，不做部分交付。
@@ -579,3 +592,63 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 2. **原盘点把 `apply_patch {patch:'...', path:''}` 也算作「被绕过」一行，属多算**：该补丁体无 `+++` 头 ⇒ **客观上无可解析目标**，「不触发自验证」是**正确行为**。新版探针把它拆成两条（带 `+++` 头须触发／无目标头不触发）并把后者写成**正确性断言**。
 
 **对账副产物（防止未来再踩）**：验收探针**禁止自带被测逻辑的副本**，否则装配一变探针即失真；本轮探针自身也曾出 3 处 bug（整文件正则误伤注释、未计 `maxRunsPerSession=3` 限流、限流断言写反），均已修正——**探针红了先怀疑探针**，但**不得靠改探针下限换绿灯**（限流那条已改为对**默认策略**断言 `=3`，即把「防刷是产品行为」正面固化）。
+
+## 10. 编码 Agent 能力补齐（P1 剩余 + P2 + S1，2026-09-19）
+
+承接 §9 / §9.1。§9.1 对账时按盘点 §6 记分是「P1 = 1 完成 + 1 半 + 2 未做，P2 = 0/3，S5 零变化」；本批把这批剩下的**全部**落地。
+
+### 10.1 逐条落地（按盘点 §6 原条目）
+
+| #        | 条目（盘点原文）                                                       | 原状                                                                                       | 落地                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 可证伪验收                                                                                                                                                                                      |
+| -------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **⑦ P1** | LSP 加 diagnostics（并做「**写后自动诊断回灌**」）                     | `lsp_diagnostics` 工具已在（§9 第 7 条），但**要模型主动调**；写完代码不会自动拿到编译错误 | `adapters/tool/verify/postWriteDiagnosticsPort.ts`（`ToolPort` 装饰器，零热区改动）+ `adapters/tool/lsp/lspDiagnosticsRenderer.ts`（工具与装饰器**共用同一套渲染**，不写两份）；装配点 `configToolRegistry.withPostWriteDiagnostics`，**仅当 `lsp.diagnostics !== undefined` 才包一层**（否则原样返回内层）；只回灌 **fresh 且含 error 级**的诊断；单次最多查 3 个文件；诊断端抛错**不阻断写**（fail-open）                                                                                                                                                                            | `postWriteDiagnostics.test.ts` 6 例（含「warning 不追加」「stale 不追加」「诊断器抛错仍返回写成功」「非源码目标不触发」）；`lspDiagnosticsTool` 改走同一渲染器后既有 5 例仍绿                   |
+| **⑨ P1** | 自验证默认开（仍以「仓库有测试症状」为前提）+ 定向测试（跑失败的那个） | 只在显式 `--self-verify` 时启用；且只有单一全量 `npm test`，失败后不会收窄                 | 默认开：`cliBuildConfig` 改 `args.selfVerify === false ? {enabled:false} : {enabled:true}`，新增 `--no-self-verify`（`cliFlagTable` + `argParser` 用法文本）；**库侧 `ConfigFactory` 保持 opt-in**（否则跑本仓单测会被递归触发 `npm test`）。定向：`SelfVerifyPolicy.narrowedCommand(files)`（npm `--` 透传，最多 8 个目标）**且只接受测试文件**（`x.test.ts`／`x.spec.tsx`／`test_x.py`／`x_test.go`／`FooTest.java`）                                                                                                                                                                | `selfVerifyTargeted.test.ts` 2 例 + `narrowedCommand` 7 条断言（含「只有源码 ⇒ 退回全量」「源码+测试混合 ⇒ 只取测试」「非 npm test 形态 ⇒ 不猜测性拼接」）                                      |
+| **⑩ P1** | 失败摘要抽堆栈帧 → 文件:行                                             | 失败摘要只有「失败行」，模型仍要自己反推该改哪个文件哪一行                                 | `adapters/tool/verify/stackFrameParser.ts`：覆盖 Node/Jest/Vitest、Python traceback、pytest 单行、Go、Rust `-->`、Java；**剔噪**（`node:internal`／`node_modules`／`<anonymous>`／`internal/`）、去重、限量 8。两处消费：① 自验证摘要（`SelfVerifyingToolPort.digestOf` 追加 `位置候选（文件:行）：…`）；② **shell 工具自身的失败**（`ShellTool.exitFailure`，`MAX_FRAME_HINTS=5`）——「不开自验证也能定位」                                                                                                                                                                            | `stackFrameParser.test.ts` 7 例；`selfVerifyTargeted` 断言摘要含 `src/a.test.ts:12`；`shellTool.test.ts` 新增 2 例（有帧给候选 / 无帧**不造假信号**）                                           |
+| **⑫ P2** | 后台/长时命令                                                          | 只有 30s（后改为可申请到 10min）的**同步等待**；分钟级任务既烧上下文又易被误杀             | `adapters/tool/shell/backgroundJobRegistry.ts`（`detached:true` + `unref()`；stdout/stderr **直接重定向到 `.omniharness/jobs/<id>.log`**，无内存累积；`exit` 记状态；上限 20 作业，满且无已结束作业可回收时**抛错**而非静默丢弃）+ `shellJobTool.ts`（`shell_job`：`list`/`status`/`output`/`kill`，输出默认 32KiB／硬顶 256KiB）+ `shell` 新增 `background=true`；另抽出 `shellInvocation.ts` 让前台与后台**共用**「用哪个解释器、怎么传命令文本」                                                                                                                                    | `backgroundJobRegistry.test.ts` 4 例（真起子进程 + 取输出 + 状态 + kill）；既有 `shellTool`／`shellProcessRunner` 测试全绿（抽类后行为不变）                                                    |
+| **⑬ P2** | `web_fetch` / `view_image` 产品化                                      | 两个工具都不存在，模型读网页只能靠 shell 外挂、看图完全不能                                | `web/webFetchTool.ts`：**零密钥**（Node 全局 `fetch`），仅 `http`/`https`，`max_bytes`（默认 200KB／硬顶 2MB）+ `timeout_ms`（默认 30s／上限 300s），HTML→文本走 `util/htmlToText.ts`（去 `script`/`style`/注释、块级标签→换行、实体解码、空白折叠，**零依赖无 DOM**）；`media/viewImageTool.ts`：读本地图 + `util/imageProbe.ts`（PNG/GIF/JPEG/WebP/BMP 宽高与格式，**只读头部字节**，不依赖图片库）；图片经 `ToolResult.files` → 事件 → `ContextAssembler` 注入。两者均登记 `toolGate.sandboxActionOf`（`file_read`）与 `planApproval` 只读白名单；`toolGate.targetOf` 补 `url` 兜底 | `webFetchTool.test.ts` 5 例／`htmlToText.test.ts` 5 例／`imageProbe.test.ts` 5 例／`viewImageTool.test.ts` 4 例／`contextAttachments.test.ts` 5 例（含角色序 `assistant→tool→user` 的配对断言） |
+| **S1**   | 读到写之间无冲突保护                                                   | 读到的内容在被别人改过之后，写回会**静默覆盖**                                             | `adapters/tool/fs/fileContentLedger.ts`：读时记 sha1 指纹（进程内），写前比对，被外部改过即 fail-closed 报冲突；`read_file`／`write_file`／`edit`／`apply_patch` **共用同一实例**（组合根单例）——不共用等于没装                                                                                                                                                                                                                                                                                                                                                                        | `staleReadGuard.test.ts` 6 例（四工具各自触发 + 未读直接写不误报）                                                                                                                              |
+
+**⑫ 的两条并发纪律**（不写进代码就会变成新的「声明未接线」）：
+
+1. **共用同一注册表**：`shell` 与 `shell_job` 必须是**同一个** `BackgroundJobRegistry` 实例，否则 `shell` 启的作业 `shell_job` 看不见、`kill` 也杀不到。
+2. **后台不另开裁决旁路**：`background=true` 的分流发生在 `policy.decide` + `guard` **之后**（前台拦、后台放的旁路被结构性堵死），且 `shell_job` 进 `MUTATING_TOOLS`、`planApproval` 白名单**不放行**（能 kill 进程 ⇒ 与 `shell` 同级）。
+
+**⑬ 的一处端点兼容约束**（踩过就 HTTP 400）：附件**不能**即刻插成一条 user 消息——OpenAI 兼容端点要求每条 `role:'tool'` 紧跟配对的 `assistant(tool_calls)`，插在中间会让同回合**第二条** tool 消息失配。故 `ContextAssembler` 先累积 `pendingAttachments`，等全部 tool 消息发完后**追加一条** user 消息。
+
+### 10.2 ★ 本轮新增的两条判据（写进后续纪律）
+
+1. **定向测试只接受「像测试文件」的目标**：堆栈帧多数指向**被测源码**，把 `src/core/foo.ts` 直接透传给 `npm test --` 会被运行器判成「没有匹配的测试」而**假失败**。**不做定向 ＞ 假定向。**
+2. **装饰器的装配条件是「端口能力存在」而非「端口存在」**：`withPostWriteDiagnostics` 在 `lsp.diagnostics === undefined` 时**原样返回内层**——否则每次写调用都白付一次注定失败的 `await`，还给模型一个必然报错的假信号。
+
+### 10.3 本轮门禁自查出的自身回归（诚实记录）
+
+把 `web_fetch` 默认注册后，**既有** `tests/unit/promptInjectionWiring.test.ts`（P4 提示注入接线回归）里注入的同名 stub 撞上 `RegistryToolPort` 的重名拦截，**5 例红**（`工具重复注册: web_fetch`）。
+
+修法**不是改那条测试**，而是补上缺掉的语义：`defaultTools` 应用 `extraTools` 时先反注册同名内置 ⇒ **显式注入覆盖内置默认**（`RegistryToolPort` 类契约本就写着「可注册/替换/扩展」；调用方要换成带鉴权的抓取实现属正当需求）。**重名拦截不放松**——它仍留在内置注册处，专门拦「内置之间互撞」这类真缺陷。
+
+结果：既有 P4 测试**逐字未改**、6/6 全绿；另新增 `defaultToolsInventory.test.ts` 2 例，把「三个新工具真在**装配产物**里」与「同名覆盖而非抛错」钉死（断言的是 `ConfigFactory.build(...).tools.list()`，不是工具类自身）。
+
+### 10.4 ⑪ 官方跑分：本批**未做**，且**不由本批宣布**
+
+盘点 §6 的 ⑪（出官方 SWE-bench Verified 子集 ≥30 题与 Terminal-Bench 分数并入库）是 P2 里唯一能把「能力」变成「可被第三方复算的证明」的事。本批**没有完成它**，理由是事实性的、可复核的：
+
+- 该条**由同一工作树上的另一条会话链路在跑**。证据：`eval-data/scores_incremental.jsonl.lock` 心跳文件以约 15s 间隔持续刷新（复核时刻 11:46:22 仍在跳）；`benchmark/capability-swebench-batch-next.json` 在两次 `git status` 之间**被创建又消失**；`src/eval/nativeExecutor.ts`、`src/eval/swebenchVerified.ts`、`benchmark/capability_swebench.mjs`、`tests/unit/swebenchVerified.test.ts` 处于**持续未暂存**状态（修改时间均早于本批开工）。
+- 按并发纪律，本批**不触碰**上述 eval 侧文件与其产物，**也未跑任何 live 跑分**。
+- **故 S5「第三方可复算分数」在本批仍为零变化**；⑪ 的完成与否**只能由那条链路的产物说话，不由本批宣布**。
+
+### 10.5 验收汇总
+
+八道门禁 **全 0**：`typecheck` / `lint` / `check --strict` / `arch:gate` / `audit:maturity` / `audit:standard:delta` / `audit:config-wiring` / `build`。
+
+新增 **11 个源文件** + **11 个测试文件（51 例）**；`shellTool.test.ts` 增 2 例 ⇒ 本批 **+53 例**。
+全量单测 **1670 项：1651 通过 / 5 失败 / 7 取消**——失败与取消**逐条对上 §9 记录的既有 flake 基线**（appServer×3 / HTTP-SSE / SDK-WS，以及 7 个 spawn 类文件级 120s 超时），**无新增失败**。
+（总数由 §9 的 1612 增至 1670：本批 +53，另 +5 来自并行会话的 eval 侧测试，同属共享工作树。）
+
+### 10.6 诚实边界（未做／未证，不粉饰）
+
+- ⑪ 见 §10.4：**未做，不宣布**。
+- `view_image` 的图片注入链路只覆盖到「事件 → 上下文装配」；**未做「真实模型看图后答对」的效果验证**。
+- `web_fetch` 的 HTML→文本是**启发式**（无 DOM、零依赖）：只保证「脚本/样式被去掉、块级换行、实体解码」，**不保证还原富文本语义**；`htmlToText` 对 `</div><div>` 空块会留下**一个空行**（已由单测固定口径，未做美化）。
+- 后台作业 `kill` 走 `process.kill(pid, 'SIGTERM')`：**Windows 上只保证终结 shell 本体，孙进程可能存活**（已写进类 JSDoc 与 `shell_job` 描述，不夸大）。
+- 自验证**默认开只改在 CLI 生产入口**，库内 `ConfigFactory` 仍是 opt-in。若把它也默认开，跑本仓自己的单测就会递归触发 `npm test`——这是**刻意**的不一致，不是漏接。
+- 「定向测试」只对 `npm test` / `npm run test` 形态生效；`pytest`、`cargo test` 等**退回全量**（不做猜测性拼接）。
