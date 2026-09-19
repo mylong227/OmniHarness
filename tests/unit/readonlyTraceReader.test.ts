@@ -58,6 +58,13 @@ test('③ byKind 过滤 + 新在前 + recent(k) 截断', () => {
   const denied = reader.byKind('tool.denied');
   assert.strictEqual(denied.length, 1);
   assert.match(denied[0]!.summary, /policy deny/);
+  // seq 是**源事件流**下标（EVENTS[2]），不是过滤后子流下标——否则「按 seq 回放定位」会指错。
+  assert.strictEqual(denied[0]!.seq, 2, 'byKind 的 seq 须为源流下标');
+  assert.strictEqual(
+    reader.recent()[1]!.seq,
+    denied[0]!.seq,
+    '同一事件在 recent 与 byKind 下 seq 必须一致',
+  );
   const recent2 = reader.recent(2);
   assert.strictEqual(recent2.length, 2);
   assert.strictEqual(recent2[0]!.kind, 'turn.end', '新在前');

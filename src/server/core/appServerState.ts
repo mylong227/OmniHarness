@@ -34,6 +34,13 @@ export interface AppServerOptions {
   readonly modelOverrideEnabled?: boolean | undefined;
   /** 结构化审计日志 sink（注入后所有事件落盘 JSONL；未注入则无审计）。 */
   readonly audit?: AuditSink | undefined;
+  /**
+   * trace 自省的会话存在性判定（可选注入；缺省按存储后端物理形态判定）。
+   *
+   * 需要它的原因：存储端口只有 `load()`，对「不存在的会话」与「零事件会话」一律返回空数组。
+   * 嵌入方（测试 / 自定义存储）可注入精确判定，避免 trace.read 把两者混为一谈。
+   */
+  readonly traceSessionExists?: ((sessionId: string) => Promise<boolean>) | undefined;
 }
 
 /** 始终放行的审批端口（autoApprove / approval=auto 时使用）。 */
