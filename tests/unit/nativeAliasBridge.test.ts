@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { unlinkSync, existsSync } from 'node:fs';
+import { unlinkSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, delimiter } from 'node:path';
@@ -31,11 +31,42 @@ for (const profile of ['release', 'debug']) {
 // 顶层探测一次，供各用例用 test({ skip }) 真跳过（旧写法 `if undefined return` 会虚增通过计数）。
 const native = NativeBackend.tryCreate();
 const nativeUnavailable = native === undefined;
+
+/**
+ * 预编译内核是否**早于 Rust 源码**。
+ *
+ * 为什么要判：`native/omni_napi.node` 是构建产物（`.node` 不入库），若它比 `crates/` 下的
+ * 全部 `.rs` 源文件旧，则本轮对内核的修复（如 2026-09-19 的输出解码：UTF-8 优先 + OEM 回退）
+ * **不在产物里**，跑出来的失败是「产物过期」而非「源码有问题」。此时显式 skip 并打印重建命令，
+ * 既不伪装通过、也不制造假红。
+ */
+const addonStale = ((): string | false => {
+  const addon = join(root, 'native', 'omni_napi.node');
+  if (!existsSync(addon)) {
+    return '预编译内核不存在（请先 npm run native:build）';
+  }
+  const addonTime = statSync(addon).mtimeMs;
+  let newestSource = 0;
+  for (const crate of readdirSync(join(root, 'crates'), { withFileTypes: true })) {
+    if (!crate.isDirectory()) continue;
+    const srcDir = join(root, 'crates', crate.name, 'src');
+    if (!existsSync(srcDir)) continue;
+    for (const file of readdirSync(srcDir, { recursive: true, withFileTypes: true })) {
+      if (!file.isFile() || !file.name.endsWith('.rs')) continue;
+      const mtime = statSync(join(file.parentPath ?? srcDir, file.name)).mtimeMs;
+      if (mtime > newestSource) newestSource = mtime;
+    }
+  }
+  return newestSource > addonTime
+    ? `预编译内核早于 Rust 源码（产物 ${new Date(addonTime).toISOString()} < 源码 ${new Date(newestSource).toISOString()}）：请先 npm run native:build 再跑本文件`
+    : false;
+})();
+
 const shellSkip = nativeUnavailable
   ? '原生内核不可用（请先 npm run native:build）'
   : !omniCliOnPath
     ? 'omni-cli 不在 PATH，无法验证 shell.run OS 沙箱包装（见 #72 备注）'
-    : false;
+    : addonStale;
 
 function call(name: string, args: Record<string, unknown>, id = 'c1'): ToolCall {
   return { id, name, arguments: args } as ToolCall;

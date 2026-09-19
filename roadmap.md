@@ -589,6 +589,23 @@
 
 **未根治的一处（如实登记，需口径决策）**：`light: false`（full 模式：频域谱 + 代码图 + LSA）**每字节内存代价比 light 高一个数量级**——实测本仓 `src/`（533 文件 / 4 MB 语料 / 9,080 符号）**峰值 RSS 1,522 MB、耗时 83 秒**。生产路径（`CorpusIndexCache`）恒传 `light: true`，故该档只服务评测脚本；本轮**只让它可见、不改其口径**：新增 `ContextEngine.FULL_MODE_WARN_BYTES = 2 MiB` 阈值 + 超限 `warn` 日志（带语料 MiB 与建议）+ 单测，因为擅自把默认翻成 light 会污染既有 full-vs-light 对照结论。要彻底封死需二选一：**默认翻 light**（评测脚本显式传 `light:false`）或**给 full 档加硬预算**（超限即拒绝索引）。
 
+### 39.2 问题全部闭环（追加，2026-09-19）
+
+上一节登记的「未根治的一处 + 小残留 + 5 例环境性失败」已全部处理：
+
+| #   | 项                                       | 处置                                                                                                                                                                                                                                                      | 验收                                                                                    |
+| --- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| N1  | `light: false` full 档吃内存无人管       | **默认翻安全档**：`light` 由「默认 full」改为 **`light !== false`**（不传即 light）；full 加**硬预算** `MAX_TOTAL_BYTES_FULL = 5 MiB`，触顶即**拒跑**（fail-closed，绝不静默只索引一半），要更大必须显式传 `maxTotalBytes`                                | 新增「默认即 light」与「full 触顶拒跑 + 显式预算放行」两例                              |
+| N2  | 两个按 root 键的进程级缓存无上限         | `codeReferenceGraph` 图信号缓存加 `MAX_CACHED_ROOTS = 8` + 插入序淘汰（抽 `CodeReferenceGraph.evictIfFull`）；`projectInstructions` 指令缓存加 `MAX_INSTRUCTIONS_CACHE_KEYS = 16` + 先清过期再淘汰最旧                                                    | 两处各加有界性单测（超上限后最旧键确实被淘汰）                                          |
+| N3  | 原生内核把 UTF-8 输出当 GBK 解（真缺陷） | **根因**：受限令牌子进程实测输出 UTF-8（`e5 88 ab…`），而 `crates/omni-core/src/builtin.rs::decode_output` 只按 `CP_OEMCP` 解码 ⇒ `echo 别名桥-ok` 回传 `鍒悕妗?ok`（`?` 不可逆）。**修法**：与 JS 侧 `OutputDecoder` 对齐为「先严格 UTF-8，再 OEM 回退」 | 新增 Rust 单测 `decode_output_prefers_utf8_and_falls_back_to_oem`（CI 的 cargo job 跑） |
+| N4  | 3 例 shell 测试在 Windows 上是假红       | 根因：`ShellInvocation.path()` 在 Windows **按设计**用 `ComSpec`(cmd.exe)，而用例写了 POSIX 命令（`ls`/`cat\|grep\|wc`）。**修法**：用例改为各平台自洽的命令（`dir /b` / `type … \| findstr` / `type … > …`），断言意图（cwd、管道、重定向）不变          | `shellTool` **14/14**（此前 9/14）                                                      |
+| N5  | 运行时产物会污染门禁                     | `.omniharness/**` 进 eslint ignore（跑完 Terminal-Bench 留下的 `.pytest_cache` 曾让 eslint EPERM）；`.omniharness/`、`.omni-worktrees/`、`target/` 进 `.prettierignore`                                                                                   | `npm run lint` 与 `prettier --check .` 不再被运行时产物影响                             |
+| N6  | 预编译内核早于源码时的假红               | `nativeAliasBridge` 增「产物 vs 源码 mtime」判定：产物过期即**显式 skip 并打印 `npm run native:build`**（诚实：不伪装通过、不制造假红）                                                                                                                   | 该用例本机 skip 且原因可读；其余 2 例通过                                               |
+
+**终态验收**：全量单测 **1763 项：1758 通过 / 0 失败 / 5 skip**（本轮起点：5 失败）；`npm run smoke` 退出码 0；`npm run lint` **0 告警**；`check --strict` **零违规**；`arch:gate` 无新增违规；`audit:standard:delta` 通过。
+
+**诚实边界**：`native/omni_napi.node` 是构建产物（`.node` 已 gitignore，不入库），而本机**没有任何 Rust 工具链**（`~/.rustup` 为空目录、无 cargo/rustc、无 gcc/MSVC 链接器）⇒ N3 的修复**无法在本机重编内核验证**。它由 CI 的 `rust` job（`cargo test --workspace`）覆盖；要本机端到端复验需先装工具链再 `npm run native:build`。
+
 ## 推进规则
 
 1. 严格按编号顺序（1.1 → 1.2 → 2.1 → …），每步过验收再进下一步

@@ -121,6 +121,31 @@ test('full 模式索引大语料必须在日志里看得见（只告警、不改
   }
 });
 
+test('默认即安全档：不传 light 时走 light（不建频谱/代码图/LSA）', () => {
+  const root = makeRoot();
+  write(root, 'src/a.ts', 'export function alpha(b: number) { return b + 1; }\n');
+  const corpus = indexCorpus(root, { morph: true });
+  assert.strictEqual(corpus.symbolSpectra.length, 0, '默认不应建频域谱');
+  assert.strictEqual(corpus.codeGraph.n, 0, '默认不应建代码图（full 模式独有）');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('full 模式触顶即拒跑（fail-closed），并给出可执行出路', () => {
+  const root = makeRoot();
+  for (let i = 0; i < 3; i += 1) {
+    write(root, `src/f${String(i)}.ts`, `export const v${String(i)} = ${String(i)};\n`);
+  }
+  // 用文件数上限制造触顶：full 模式下「未显式给预算」时不得静默只索引一半。
+  assert.throws(
+    () => indexCorpus(root, { morph: true, light: false, maxFiles: 1 }),
+    /full 模式语料超出上限[\s\S]*light: true/,
+  );
+  // 显式确认预算（maxTotalBytes）即视为接受代价，不再拒跑。
+  const corpus = indexCorpus(root, { morph: true, light: false, maxTotalBytes: 1024 * 1024 });
+  assert.strictEqual(corpus.files.length, 3);
+  rmSync(root, { recursive: true, force: true });
+});
+
 test('真机回归：索引本仓根目录不会再吞下 eval-data/target（堆爆事故同口径）', () => {
   const corpus = indexCorpus(process.cwd(), { morph: true, light: true });
   const rels = [...corpus.fileText.keys()];

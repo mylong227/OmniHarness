@@ -19,8 +19,9 @@ import {
 const ROOT = process.argv[2] || 'src';
 
 // 三配置 A/B：索引两套语料（词形归并关/开），查询侧自动跟随 corpus.morph 保持一致。
-const corpusBase = indexCorpus(ROOT, { morph: false }); // Baseline：既有实现原样
-const corpusMorph = indexCorpus(ROOT, { morph: true }); // + camelCase 拆分 & 词形变体归并
+// 本基准要打印 corpus.codeGraph 边数（full 模式独有）⇒ 显式声明 light:false（默认已翻为 light）。
+const corpusBase = indexCorpus(ROOT, { morph: false, light: false }); // Baseline：既有实现原样
+const corpusMorph = indexCorpus(ROOT, { morph: true, light: false }); // + camelCase 拆分 & 词形变体归并
 const corpus = corpusMorph; // 对数/语料统计以归并版为准（文件集相同）
 const whole = wholeCorpusTokens(corpus);
 const edgeCount = corpus.codeGraph.adj.reduce((a, e) => a + e.length, 0);

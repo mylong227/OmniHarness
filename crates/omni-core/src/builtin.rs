@@ -354,10 +354,18 @@ impl Tool for ShellRunTool {
     }
 }
 
-/// 把子进程输出字节解码为 UTF-8 字符串。
-/// Windows 下 cmd 以 OEM 代码页（如中文 Windows 的 CP936/GBK）输出，直接按 UTF-8 解析会乱码，
-/// 故用 `MultiByteToWideChar` 按系统 OEM 代码页还原；其余平台假定 UTF-8。
+/// 把子进程输出字节解码为字符串（**与 JS 侧 `OutputDecoder` 同策略**：先严格 UTF-8，再回退 OEM 码页）。
+///
+/// 为什么必须两段：子进程实际用哪个码页取决于它继承的控制台/管道——传统控制台是 OEM 码页
+/// （中文 Windows 为 CP936/GBK），而 `chcp 65001`、Windows Terminal 与**受限令牌子进程**（实测）
+/// 会输出 UTF-8。此前这里**只按 CP_OEMCP 解码**，于是 UTF-8 输出被当 GBK 二次解码：
+/// 2026-09-19 实测 `echo 别名桥-ok` 经 `shell.run` 回传为 `鍒悕妗?ok`（同一命令走 JS 路径正常，
+/// 因为 JS 侧 `OutputDecoder` 是「UTF-8 优先」⇒ 两条路径策略不一致，正是乱码的来源）。
 fn decode_output(bytes: &[u8]) -> String {
+    // 严格 UTF-8 校验：合法即采用（GBK 的字节序列几乎不可能整体构成合法 UTF-8）。
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_string();
+    }
     #[cfg(windows)]
     {
         use windows_sys::Win32::Globalization::MultiByteToWideChar;
@@ -473,6 +481,24 @@ mod tests {
         let t = EchoTool;
         assert_eq!(t.call(serde_json::json!({"text": "hi"})).output, "echo: hi");
         assert!(!t.call(serde_json::json!({})).ok);
+    }
+
+    /// 回归：输出解码必须「先严格 UTF-8、再 OEM 回退」。
+    ///
+    /// 事故口径：受限令牌子进程实测输出 UTF-8（`echo 别名桥-ok` → `e5 88 ab …`），
+    /// 而旧实现只按 CP_OEMCP 解码 ⇒ 中文回传成 `鍒悕妗?ok`（且含不可逆的 `?`）。
+    #[test]
+    fn decode_output_prefers_utf8_and_falls_back_to_oem() {
+        // UTF-8（现代控制台 / chcp 65001 / 受限令牌子进程）
+        assert_eq!(decode_output("别名桥-ok".as_bytes()), "别名桥-ok");
+        // ASCII 两条路径都必须一致
+        assert_eq!(decode_output(b"plain"), "plain");
+        // GBK（传统中文控制台）只在 Windows 上能靠 OEM 码页还原；非 Windows 无 OEM 码页概念
+        #[cfg(windows)]
+        {
+            let gbk: [u8; 9] = [0xb1, 0xf0, 0xc3, 0xfb, 0xc7, 0xc5, 0x2d, 0x6f, 0x6b];
+            assert_eq!(decode_output(&gbk), "别名桥-ok");
+        }
     }
 
     #[test]
