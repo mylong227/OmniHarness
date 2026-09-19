@@ -67,5 +67,9 @@ omniharness.json
 # Local logs and ad-hoc diagnostics
 *.log
 
+# Terminal-Bench 默认报告落点（`--report` 缺省值）；跑一次就在仓库根留一个运行产物。
+# 需要入库的是**筛选过的**证据（见 benchmark/terminalbench-gold-20.json 等，用显式 --report 指定名字）。
+/terminalbench.report.json
+
 # Pre-operation backups of the .git directory
 .git.bak.*
