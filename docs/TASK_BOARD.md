@@ -755,3 +755,37 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 - **边界 ①**：原生执行仍不装系统包、不重放构建期 shell 步骤（只告警）⇒ 依赖 apt 工具链的题在本机恒为环境边界。
 - **边界 ②**：语料抓取器 `TaskFetcher.ALLOWED_EXTENSIONS` 不抓 `.fasta`/`.zip`/`.db`/`.png` ⇒ `dna-assembly`/`count-call-stack`/`db-wal-recovery`/`code-from-image` 的种子文件本地缺失（既有抓取口径，与本次改动无关，已在 `env.json` 里如实声明，运行时会告警「种子源不存在，已跳过」）。
 - **边界 ③**：`.omniharness/tbench-*` 历史遗留目录（重构前跑分产生，内含旧 Dockerfile 副本）已清理；个别 `.pytest_cache` 子目录受沙箱写保护，需放宽权限才可删。
+
+## 13. `npm run smoke` 4 GB 堆爆：根因与修复（2026-09-19）
+
+用户指令：「处理掉堆爆内存的问题」。**先纠正一个可能的误判方向：与网络/镜像无关**——本轮修复不需要任何下载；根因是本机语料被自己的遍历器全量读进内存。
+
+### 13.1 实测根因（分层定位，不猜）
+
+1. 现象：`npm run smoke` 跑 465 秒后 `FATAL ERROR: Ineffective mark-compacts near heap limit`（4 GB 堆）；限堆复现为**确定性线性增长**（512 MB → 18 s、1 GB → 35 s、4 GB → 465 s）。
+2. 定位：分段计时显示 `ConfigFactory.build` / `createRuntime` 各约 10 ms，**增长全部发生在 `runTask` 的 `session.start` 之后**；置 `OMNI_REPO_MAP=0` 则 0.12 秒跑完全程、峰值 15 MB ⇒ 元凶是 **repo-map 语料索引**。
+3. 根因：`ContextEngine.walk` 另起一套遍历，只跳 `node_modules` / `dist` / 点目录，**漏掉 `target` / `build` / `eval-data` / venv / 缓存**（`WorkspaceFileWalker` 早有这份清单）；`indexCorpus` 又把每个文件的全文与分词结果留在内存里。本工作区实测可遍历语料 **152,249 文件 / 4.6 GB**（`eval-data` 2.3 GB、含 10.4 万个随仓克隆的 `.py`；`target` 2.2 GB Rust 产物）。
+
+### 13.2 修法（单一事实来源 + 三道内存闸 + 不静默截断）
+
+- `ContextEngine.walk` 复用 `WorkspaceFileWalker.DEFAULT_IGNORED_DIRS`，并用 `lstatSync` **跳过符号链接**（链接成环同属无界增长）。
+- 三道闸：文件数 `MAX_FILES = 20000`、单文件 `MAX_FILE_BYTES = 512 KiB`（超限不入图但**计数**）、语料总量 `MAX_TOTAL_BYTES = 32 MiB`（实测 `fileText` + BM25 文档内存约为原文 10~20 倍，只限文件数最坏仍可到 10 GB）。
+- `IndexedCorpus` 增 `truncated` / `skippedLargeFiles`；`RepoMapContextEngine` 仅在真的发生截断时于 repo-map 文本尾部追加一行「覆盖度：…」（正常路径逐字不变），守「静默截断会把模型引向错误结论」这条既有纪律。
+- `indexCorpus` 新增 `maxFiles` / `maxFileBytes` / `maxTotalBytes` 三个可覆盖旋钮（评测脚本需要更大语料时可显式放宽）。
+
+### 13.3 顺带修掉被堆爆掩盖的第二个真缺陷
+
+堆爆一消失，`smoke` 立刻换了失败点：`A. 回合步数 >= 2（实际 1）`。根因是 **repo-map 作为尾部 system 消息注入**（为前缀缓存命中刻意置尾），而 `MockModel` 按「最后一条消息必须是 user」判定首回合 ⇒ 首回合直接回最终文本，**工具回路在真实装配下根本走不到**。修法：改判「末条**非 system** 消息是 user」。这不是为了让测试变绿而改断言——工具回路正是 smoke 要验的对象，判据必须反映真实装配。
+
+### 13.4 验收
+
+| 项              | 结果                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run smoke` | **退出码 0，全绿**（修复前：4 GB 堆爆）                                                                                                               |
+| 内存            | 同一条三层链路（A/B/D）：修复前「512 MB 堆 18 秒爆」→ 修复后「6.3 秒跑完、峰值 RSS 327 MB / 堆 246 MB」                                               |
+| 新增单测        | `tests/unit/contextEngineCoverage.test.ts` **5/5**（重目录排除 / 超大文件计数 / 文件数触顶 / 总量触顶 / **真机回归**）                                |
+| 真机回归口径    | 索引本仓根目录：修复前 OOM；修复后 **1.5 秒**完成，纳入 ~4 MB 源码子集（全部 `.ts/.js/.py`，且不含 `eval-data` / `target` / `node_modules` / `dist`） |
+
+### 13.5 国内镜像实测（本轮顺带核实，非引用旧档）
+
+`registry.npmmirror.com` HTTP 200 / 350 ms（`npm ping` PONG）、`hf-mirror.com` 200 / 269 ms、`pypi.tuna.tsinghua.edu.cn` 200 / 170 ms、`mirrors.aliyun.com/pypi` 200 / 76 ms；huggingface.co 仍超时。既有接线：npm → `~/.npmrc` 的 npmmirror；HF 权重 → `OMNI_HF_ENDPOINT` 回落 `HF_ENDPOINT`（`configFactory` → `TransformersEmbeddingAdapter.remoteHost`，有单测）；`uv pip install` 经进程环境透传 `UV_INDEX_URL` / `PIP_INDEX_URL`。**本轮实跑**：`OMNI_HF_ENDPOINT=https://hf-mirror.com node evals/semantic-smoke.mjs Xenova/e5-small-v2 .omniharness/model-cache` ⇒ pipeline 5.8 秒就绪、3 条文本嵌入 0.1 秒、维度 [3,384]、语义区分度 gap 0.0779「OK 有区分力」——此前档案里「语义路只差模型文件」已不再是阻塞。
