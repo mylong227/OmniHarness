@@ -224,6 +224,11 @@ export class WsServer {
     httpServer: Server,
     /** 新连接回调（连接建立即通知外部接管消息处理）。 */
     private readonly onConnection: (connection: WsConnection) => void,
+    /**
+     * 升级前的鉴权裁决（可选）：返回 false 即以 401 拒绝握手。
+     * 与 HTTP 路由共用同一守卫（`ServerAuthGuard.verify`），避免「HTTP 设了鉴权、WS 却裸奔」。
+     */
+    private readonly authorize?: ((request: IncomingMessage) => boolean) | undefined,
   ) {
     httpServer.on('upgrade', (request, socket) => this.upgrade(request, socket));
   }
@@ -252,6 +257,12 @@ export class WsServer {
   private upgrade(request: IncomingMessage, socket: Duplex): void {
     const key = request.headers['sec-websocket-key'];
     if (request.url !== '/ws' || typeof key !== 'string') {
+      socket.destroy();
+      return;
+    }
+    if (this.authorize !== undefined && !this.authorize(request)) {
+      // 鉴权失败：按 HTTP 语义回 401（而非静默 destroy），让客户端能区分「没权限」与「网络断了」。
+      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       socket.destroy();
       return;
     }

@@ -201,6 +201,9 @@ export class Agent implements AgentPort {
         persister.dispose();
         persistedAt = eventLog.size();
         await this.persist(sessionId, eventLog.all());
+        // 观测端口收尾：有缓冲的端口（OTLP span 收集器）在此把最后一批 span 外发；
+        // 无缓冲端口未实现 flush，`?.` 使其零成本跳过。失败不掩盖原始异常（fail-soft）。
+        await this.runtime.events.flush?.();
       }
       // P1 进化闭环（可选、零破坏）：任务完成后若注入了 evolution 且 autoRun 开启，
       // 在 fail-closed 门禁下跑一轮 发现→评估→晋升。异常不影响主任务（fail-closed）。
