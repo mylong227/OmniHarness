@@ -843,3 +843,31 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 **终态（复跑）**：`npm test` **1763 / 1759 通过 / 0 失败 / 4 skip**（4 skip 全为平台性：macOS seatbelt、内核负路径、真机特权、git 不可用降级）；`smoke` / `lint` / `format:check` / `check --strict` / `arch:gate --strict` / `api:check` / `audit:maturity` / `audit:standard` / `audit:metrics` / `audit:config-wiring` 全 exit 0；Rust 侧 `fmt` / `clippy -D warnings` / `test --workspace` 全 exit 0；`npm audit` 0 漏洞。
 
 **本地环境变更留档（便于复现/回退）**：装 `Rustlang.Rustup`（winget）+ `stable-x86_64-pc-windows-gnu` 与 `rustfmt`/`clippy` 组件（rsproxy），并把默认工具链切到 GNU（与仓库 `.cargo/config.toml` 的 `rust-lld` 一致；MSVC 工具链仍在，可 `rustup default stable-x86_64-pc-windows-msvc` 切回）。
+
+### 13.9 再往下挖出的两条真问题（追加，2026-09-19 深夜）
+
+跑 CI 里剩下的门禁时又抓到两条**真问题**（都不是本轮新引入的，是既有假红与断链）：
+
+| #   | 项                                                           | 根因（实测）                                                                                                                                                                                                                                                    | 修法与验收                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | **`npm run stress` 假红**：200 会话 +202.6MB「疑似内存泄漏」 | 用 `--expose-gc` 逐点测**保留量**：首会话一次性 +70MB（repo-map 语料索引），之后 10→200 会话仅 81.4→82.1MB（≈0.5KB/会话）⇒ **没有泄漏**。原测法两处错：① 基线取在**预热前**（把一次性索引算进增长）；② 不强制 GC（V8 延迟回收的垃圾被当泄漏，实测虚增约 130MB） | 修测法：预热一回合后再取基线 + `collect()` 强制 GC；`stress` 脚本改为 `node --expose-gc dist/tests/stress.js`；缺 `--expose-gc` 时**显式打印「不可判定」**而不假装通过。验收：`保留量增长 1.4 MB ⇒ 压测通过：无内存泄漏 ✅` |
+| Q2  | **`npm run eval:veto`（CI 门禁）断链**                       | `evals/rank-veto-retro.mjs` 引用 `dist/src/context/codeGraph.js`，该模块**不存在**（真名 `codeGraphIndex.ts`）⇒ `ERR_MODULE_NOT_FOUND`。属既有「重命名未同步调用方」断链                                                                                        | 改为 `codeGraphIndex.js`；验收：`[gate] 回溯一致率 3/3 ⇒ exit 0`                                                                                                                                                            |
+
+### 13.10 CI 门禁本地复跑矩阵（2026-09-19 深夜，本机实测）
+
+| CI 步骤                                                                       | 本机结果                                                                                                                                     |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check` / `typecheck` / `build` / `lint`                                      | exit 0（lint 0 告警）                                                                                                                        |
+| `api:check`                                                                   | exit 0（index 162 / indexBeta 70 条 export 分区合规）                                                                                        |
+| `audit:maturity` / `audit:standard` / `audit:metrics` / `audit:config-wiring` | 全 exit 0                                                                                                                                    |
+| `arch:gate --strict`                                                          | exit 0（无新增违规）                                                                                                                         |
+| `web:build` + `web:test`                                                      | **137/137 通过**（0 失败 0 skip）                                                                                                            |
+| `coverage:check`                                                              | 行覆盖 **100%**（阈值 80%）✓                                                                                                                 |
+| `test:integration`                                                            | **10/10 通过**                                                                                                                               |
+| `eval:veto`                                                                   | exit 0（3/3）                                                                                                                                |
+| `smoke` / `stress`                                                            | 全通过（stress 保留量 +1.4MB）                                                                                                               |
+| `wasm:test`                                                                   | **ALL OK**（wasm32 目标 + 10 项 e2e）                                                                                                        |
+| Rust job（`fmt` / `clippy` / `test --workspace`）                             | 全 exit 0                                                                                                                                    |
+| `npm audit --audit-level=high`                                                | **0 漏洞**                                                                                                                                   |
+| `format:check`                                                                | exit 0                                                                                                                                       |
+| `npm run eval:ci`                                                             | **未跑（如实声明）**：含 `evals/live/bench.mjs --swebench` 等**真实模型调用**（消耗额度/费用），未获授权不擅自执行；其余 CI 步骤均已本地复跑 |

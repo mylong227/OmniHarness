@@ -81,7 +81,7 @@
     "test": "npm run build && node --test --test-timeout=120000 \"dist/tests/unit/*.test.js\"",
     "test:integration": "npm run build && node --test --test-timeout=180000 \"dist/tests/integration/*.test.js\"",
     "smoke": "npm run build && node dist/tests/smoke.js",
-    "stress": "npm run build && node dist/tests/stress.js",
+    "stress": "npm run build && node --expose-gc dist/tests/stress.js",
     "ptc-stress": "npm run build && node dist/tests/ptcStress.js",
     "bench": "npm run build && node dist/tests/bench/compactionBench.js",
     "bench:native": "npm run native:build && npm run build && node dist/tests/bench/nativeVsJs.bench.js",
