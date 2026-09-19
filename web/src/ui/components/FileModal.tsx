@@ -1,12 +1,14 @@
 // 文件预览弹窗：点击文件树节点时在 App 层置位 fileView，本组件负责展示。
-// 纯展示组件：关闭通过回调上抛。
+// 纯展示组件（函数组件范式）：关闭通过回调上抛，无内部状态、无副作用。
 
 import { React } from '../deps.js';
-import { AppComponent } from '../base/AppComponent.js';
 import type { FileView } from '../shared.js';
 
+/** FileModal 组件的入参。 */
 export interface FileModalProps {
+  /** 待预览的文件内容；为 null 时渲染为隐藏态遮罩。 */
   fileView: FileView | null;
+  /** 关闭弹窗。 */
   onClose: () => void;
 }
 
@@ -26,28 +28,26 @@ const CODE_BOX: Record<string, string> = {
   fontFamily: 'ui-monospace, Menlo, monospace',
 };
 
-/** 文件预览弹窗组件。 */
-export class FileModal extends AppComponent<FileModalProps> {
-  private readonly handleClose = (): void => {
-    this.props.onClose();
-  };
-
-  override render(): ReactElement {
-    const { fileView } = this.props;
-    if (!fileView) return <div className="overlay" style={HIDDEN}></div>;
-    return (
-      <div className="overlay show">
-        <div className="modal" style={MODAL_BOX}>
-          <h3>{fileView.title}</h3>
-          <div className="meta">{fileView.meta}</div>
-          <pre style={CODE_BOX}>{fileView.content}</pre>
-          <div className="actions">
-            <button className="always" onClick={this.handleClose}>
-              关闭
-            </button>
-          </div>
+/**
+ * 文件预览弹窗：渲染文件标题、元信息与内容，并提供关闭入口。
+ * @param props 组件入参
+ * @returns 弹窗节点（无待预览文件时为隐藏遮罩）
+ */
+export function FileModal(props: FileModalProps): ReactElement {
+  const { fileView, onClose } = props;
+  if (!fileView) return <div className="overlay" style={HIDDEN}></div>;
+  return (
+    <div className="overlay show">
+      <div className="modal" style={MODAL_BOX}>
+        <h3>{fileView.title}</h3>
+        <div className="meta">{fileView.meta}</div>
+        <pre style={CODE_BOX}>{fileView.content}</pre>
+        <div className="actions">
+          <button className="always" onClick={onClose}>
+            关闭
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }

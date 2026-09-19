@@ -6,48 +6,31 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-/** createElement 桩：产出纯数据 vnode {type, props, children}，不触 DOM。 */
-class FakeComponent {
-  constructor(props) {
-    this.props = props ?? {};
-  }
-  /** 桩版 setState：对象浅合并（挂载测试只读 state/render，不驱动生命周期）。 */
-  setState(patch) {
-    this.state = { ...this.state, ...(typeof patch === 'function' ? patch(this.state) : patch) };
-  }
-}
-
-const fakeReact = {
-  Component: FakeComponent,
-  createElement(type, props, ...children) {
-    return { type, props: props ?? {}, children };
-  },
-  Fragment: Symbol('Fragment'),
-  createContext() {
-    return { Provider() {}, Consumer() {} };
-  },
-  memo(fn) {
-    return fn;
-  },
-  useCallback: (fn) => fn,
-  useMemo: (fn) => fn(),
-  useRef: (v) => ({ current: v }),
-  useState: (v) => [typeof v === 'function' ? v() : v, () => {}],
-  useEffect: () => {},
-};
-/** ReactDOM 桩：组件单测不真实挂载，仅供模块加载成功。 */
-const fakeReactDOM = { createRoot: () => ({ render: () => {} }) };
+import { createRuntime } from './hooksStub.mjs';
 
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
-globalThis.window = {
-  React: fakeReact,
-  ReactDOM: fakeReactDOM,
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  clearTimeout: () => {},
-  setTimeout: () => 0,
-};
+// 运行时同时支持两种形态：函数组件（直接调用 + hook 槽位）与过渡期的 class 组件（new + render）。
+const runtime = createRuntime();
+runtime.install();
+
+/**
+ * 渲染组件一次（兼容函数组件与 class 组件）。
+ * @param Component 组件函数或 class
+ * @param props 组件属性
+ * @param statePatch class：浅合并进实例 state；函数组件：按 hook 序号预设值
+ * @returns vnode 树
+ */
+function renderOf(Component, props, statePatch) {
+  const isClass = typeof Component === 'function' && Component.prototype && Component.prototype.render;
+  if (isClass) {
+    const inst = new Component(props);
+    if (statePatch && typeof statePatch === 'object' && !Array.isArray(statePatch)) {
+      inst.state = { ...inst.state, ...statePatch };
+    }
+    return inst.render();
+  }
+  return runtime.render(Component, props, statePatch);
+}
 
 const { AddMenu } = await import('../dist/ui/components/AddMenu.js');
 const { ContextCapacityPanel } = await import('../dist/ui/components/ContextCapacityPanel.js');
@@ -214,8 +197,7 @@ test('NavRail：aria-current 唯一落在当前面板，图标装饰对辅助技
 });
 
 test('Toast：role=status + aria-live=polite + aria-atomic（异步提示不打断朗读）', () => {
-  const toast = new Toast({ toast: { message: '已保存', kind: 'ok', visible: true } });
-  const vnode = toast.render();
+  const vnode = renderOf(Toast, { toast: { message: '已保存', kind: 'ok', visible: true } });
   assert.strictEqual(vnode.props.role, 'status');
   assert.strictEqual(vnode.props['aria-live'], 'polite');
   assert.strictEqual(vnode.props['aria-atomic'], 'true');
