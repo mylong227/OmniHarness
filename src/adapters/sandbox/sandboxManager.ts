@@ -4,16 +4,28 @@ import { PolicySandbox } from './policySandbox.js';
 import { RestrictedSandbox } from './restrictedSandbox.js';
 import { UnsupportedSandbox } from './unsupportedSandbox.js';
 import { LinuxBwrapSandbox } from './linuxBwrapSandbox.js';
+import { LinuxUnshareSandbox } from './linuxUnshareSandbox.js';
+import { LinuxLandlockSandbox } from './linuxLandlockSandbox.js';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.js';
 
 /** 沙箱后端 profile 名（G4 多后端切换）。 */
 export type SandboxProfile =
-  'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
+  'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap' | 'unshare';
 
 /**
  * 沙箱多后端注册表（G4）：按 profile 名选后端，新后端即插即用。
- * 本环境（Windows）不支持的 OS 级后端（landlock/seatbelt/bwrap）注册为
- * fail-closed 占位，避免谎称已隔离——与审计「Seatbelt/Landlock/bwrap 本环境不适用」一致。
+ *
+ * 映射纪律（审计整改）：profile 名必须**如实对应能力**，不得把 `landlock` 偷偷换成 `bwrap`——
+ * 前者是内核态路径 ACL、后者是用户态命名空间，二者语义不同，谎称一致会让「以为开了 landlock」
+ * 的使用者实际拿到 bwrap 行为。故：
+ * - `bwrap` → LinuxBwrapSandbox（真实的 bwrap 用户态命名空间后端）；
+ * - `unshare` → LinuxUnshareSandbox（真实的 `unshare -rm` 内核命名空间后端）；
+ * - `landlock` → LinuxLandlockSandbox（**严格探测**内核 Landlock 可见性 + 内核版本 +
+ *   `OMNI_LANDLOCK_HELPER` 指向的 helper；任一不成立即 fail-closed，不冒充其它后端，也不谎称已隔离）；
+ * - `seatbelt` → MacOsSeatbeltSandbox（非 macOS 恒 fail-closed）。
+ *
+ * 「本机到底哪个后端真能跑、依据是什么」由 {@link SandboxCapabilityTable} 统一自述，
+ * 并经 `omniharness doctor` 输出——实现存在但无真机证据这件事从此可见、可复现。
  */
 export class SandboxManager {
   /** 后端注册表：profile 名 → 工厂（延迟实例化）。 */
@@ -26,8 +38,9 @@ export class SandboxManager {
     this.register('passthrough', () => new PassthroughSandbox());
     this.register('policy', () => new PolicySandbox({ workspaceRoot: this.workspaceRoot }));
     this.register('restricted', () => new RestrictedSandbox({ workspaceRoot: this.workspaceRoot }));
-    this.register('landlock', () => new LinuxBwrapSandbox(this.workspaceRoot));
+    this.register('landlock', () => new LinuxLandlockSandbox(this.workspaceRoot));
     this.register('bwrap', () => new LinuxBwrapSandbox(this.workspaceRoot));
+    this.register('unshare', () => new LinuxUnshareSandbox(this.workspaceRoot));
     this.register('seatbelt', () => new MacOsSeatbeltSandbox(this.workspaceRoot));
   }
 

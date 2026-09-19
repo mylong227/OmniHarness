@@ -39,3 +39,20 @@ test('空输入返回空串；非法实体码点不抛错', () => {
   assert.strictEqual(HtmlToText.convert(''), '');
   assert.doesNotThrow(() => HtmlToText.convert('&#99999999;ok'));
 });
+
+test('标题保留层级信号（h1→#，h3→###）', () => {
+  const text = HtmlToText.convert('<h1>首页</h1><p>正文</p><h3>子节</h3>');
+  assert.ok(text.includes('# 首页'), `实际: ${text}`);
+  assert.ok(text.includes('### 子节'), `实际: ${text}`);
+});
+
+test('链接保留可见文本与绝对 href（过滤锚点/伪协议）', () => {
+  const text = HtmlToText.convert(
+    '<p><a href="https://example.com/doc">文档</a> 与 ' +
+      '<a href="#top">回到顶部</a> 与 ' +
+      '<a href="javascript:void(0)">点我</a></p>',
+  );
+  assert.ok(text.includes('文档 (https://example.com/doc)'), `实际: ${text}`);
+  assert.ok(text.includes('回到顶部'), '锚点链接保留文本');
+  assert.strictEqual(text.includes('javascript:'), false, '伪协议链接不得泄露 href');
+});

@@ -101,6 +101,11 @@ describe('SandboxManager 多后端（G4）', () => {
     assert.strictEqual(manager.build('restricted').name, 'restricted');
   });
 
+  it('unshare 映射到真实的 LinuxUnshareSandbox（内核命名空间后端，非占位）', () => {
+    // 名称回显为 'linux-unshare'（区别于 profile 名 'unshare'），表明是真实现而非回落 passthrough。
+    assert.strictEqual(manager.build('unshare').name, 'linux-unshare');
+  });
+
   it('OS 级后端在本环境 fail-closed（拒绝 + category=os）', async () => {
     for (const profile of ['landlock', 'seatbelt', 'bwrap'] as const) {
       const decision = await manager.build(profile).check({ kind: 'command', target: 'ls' });

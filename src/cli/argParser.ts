@@ -38,7 +38,7 @@ export interface CliArgs {
   /** 权限规则未命中时的默认裁决（A2，来自配置 permission.defaultDecision；缺省 allow，保持既有零行为变更）。 */
   permissionDefault?: PermissionRuleDecision | undefined;
   /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
-  sandbox: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
+  sandbox: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap' | 'unshare';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
   escalation: 'deny' | 'ask' | 'auto';
   /** 提权后的复核沙箱（#G3/G4，默认 policy=fail-closed 收紧）：escalate 裁决后以此复核放行，危险命令/工作区外路径仍拦截。 */
@@ -469,6 +469,8 @@ export class ArgParser {
         '      omniharness mcp serve           以 stdio 暴露本地工具集（MCP 服务器，供第三方客户端调用）',
         '      omniharness mcp list --server NAME=CMD   列出外部 MCP 服务器的工具',
         '      omniharness mcp call --server NAME=CMD --tool T [--args JSON]   调用外部 MCP 工具',
+        '      omniharness trace read --session ID [--limit N] [--kind K] [--storage-dir DIR] [--json]   只读自省会话 trace（T4.5：冻结条目，不可借道改历史）',
+        '      omniharness sdk call --url ws://HOST:PORT/ws --method NAME [--params JSON]   用本仓 TypeScript SDK 客户端连 app-server 发一次 JSON-RPC（sdk ping 打 config.get）',
         '      omniharness kv get|set|del|list [--key K] [--value V] [--prefix P] [--kv-file PATH]  通用键值存储',
         '      omniharness vault get|set|del|list [--name N] [--value V] [--vault-backend crypto|env] [--vault-key-file PATH]  凭据保险库（AES-256-GCM）',
         '      omniharness profile list|create <name> [--desc D] [--plugin P ...]|delete <name>|use <name>  插件集 Profile（#G-E/P5.1，命名插件组合，一条命令切换编码/研究模式）',
@@ -491,7 +493,7 @@ export class ArgParser {
         '  --a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http|ws]   (U6) A2A 互操作（默认关）：起对等 agent 服务端监听并对接委托客户端，本端可被对等委托、也可委托对端',
         '  --approval auto|deny|rules|guardian|plan|ask   审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）',
         '  --approval-ask allow|deny         rules 模式 ask 时裁决（默认 allow）',
-        '  --sandbox passthrough|policy|restricted|landlock|seatbelt|bwrap   沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed）',
+        '  --sandbox passthrough|policy|restricted|landlock|seatbelt|bwrap|unshare   沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed；landlock=内核路径 ACL，需 Linux 内核 ≥5.13 且启用 Landlock LSM，并经 OMNI_LANDLOCK_HELPER 指向的 helper 施加规则，缺一即 fail-closed；命名空间隔离请用 unshare，用户态沙箱请用 bwrap；`doctor` 打印各后端本机真机可达性）',
         '  --network-allow host1,host2   网络外联白名单（A5；一旦设置即 fail-closed 仅放行所列主机后缀，如 example.com）',
         '  daemon start|stop|status       常驻后台 serve（PID 文件管理，多会话由 serve 承接，D3）',
         '  routines add|list|remove|run   定时任务（interval/cron 调度，D3）',

@@ -129,6 +129,12 @@ export class ShellTool {
             'true 时立即返回并让命令在后台继续运行（输出写入日志文件），' +
             '之后用 shell_job 查看/终止。适合安装依赖、全量测试等分钟级任务。',
         },
+        tty: {
+          type: 'boolean',
+          description:
+            'true 时分配伪终端（PTY）执行，让 TUI 程序（vim/htop/交互式安装器）拿到真终端而非管道。' +
+            '经 GNU `script` 实现；Windows 原生无 pseudo-terminal，此时会明确失败（不静默退化为管道）。',
+        },
       },
       required: ['command'],
     },
@@ -173,6 +179,7 @@ export class ShellTool {
       return this.startBackground(call.id, command);
     }
 
+    const usePty = call.arguments['tty'] === true;
     try {
       const timeoutMs = this.effectiveTimeout(call.arguments['timeout_ms']);
       const outcome = await this.runner.run(command, {
@@ -180,6 +187,7 @@ export class ShellTool {
         env: this.childEnv(),
         timeoutMs,
         maxBufferBytes: this.maxBufferBytes,
+        pty: usePty,
       });
       return this.toResult(call.id, outcome, timeoutMs);
     } catch (error) {

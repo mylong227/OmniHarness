@@ -23,8 +23,10 @@ import { GrepTool } from '../adapters/tool/fs/grepTool.js';
 import { GlobTool } from '../adapters/tool/fs/globTool.js';
 import { WebFetchTool } from '../adapters/tool/web/webFetchTool.js';
 import { ViewImageTool } from '../adapters/tool/media/viewImageTool.js';
+import { BrowserScreenshotTool } from '../adapters/tool/browser/browserScreenshotTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { ShellTool } from '../adapters/tool/shell/shellTool.js';
+import { ShellInteractiveTool } from '../adapters/tool/shell/shellInteractiveTool.js';
 import { ShellCommandPolicy } from '../adapters/tool/shell/shellCommandPolicy.js';
 import { BackgroundJobRegistry } from '../adapters/tool/shell/backgroundJobRegistry.js';
 import { ShellJobTool } from '../adapters/tool/shell/shellJobTool.js';
@@ -55,6 +57,9 @@ import {
   LspHoverTool,
   LspStatusTool,
   LspDiagnosticsTool,
+  LspDocumentSymbolsTool,
+  LspCodeActionTool,
+  LspWorkspaceSymbolsTool,
 } from '../adapters/tool/lsp/lspTools.js';
 import type { LspPort } from '../ports/tool/lsp.js';
 import { AgentIdentityTool } from '../adapters/tool/meta/agentIdentityTool.js';
@@ -95,7 +100,12 @@ export class ConfigToolRegistry {
     const ledger = new FileContentLedger();
     // P2-⑫ 后台作业：shell 与 shell_job 必须共用同一注册表，否则二者看不到彼此的作业。
     const jobs = new BackgroundJobRegistry(seed.workspaceRoot);
-    const shell = new ShellTool({ policy: new ShellCommandPolicy(), jobs });
+    // 工具族共用同一策略实例：shell / shell_interactive 的裁决口径不漂移。
+    const shellPolicy = new ShellCommandPolicy();
+    const shell = new ShellTool({ policy: shellPolicy, jobs });
+    // 交互式 / 持久 PTY：TTY 环境下把终端交给命令（`stdio: 'inherit'`），非 TTY 一律 fail-closed
+    // 并给出可执行原因——补齐「TUI 类命令拿不到真终端」这条腿（2026-09-19 全量收口）。
+    const interactiveShell = new ShellInteractiveTool({ policy: shellPolicy });
     const reader = new ReadFileTool(ledger);
     const writer = new WriteFileTool(seed.workspaceRoot, ledger);
     // 内容替换编辑（P0，2026-09-19）：模型不必给行号即可改代码；与 write_file/apply_patch 并列。
@@ -105,9 +115,11 @@ export class ConfigToolRegistry {
     // 编码检索（P0，2026-09-19）：按内容 grep / 按路径 glob，补齐「查问题」这条腿（原只能靠 shell 手写 grep）。
     const grepper = new GrepTool(seed.workspaceRoot);
     const globber = new GlobTool(seed.workspaceRoot);
-    // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道。
+    // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道；
+    // browser_screenshot 把「看一眼自己做的页面」补上（零依赖 CDP，headless Chrome/Edge）。
     const fetcher = new WebFetchTool();
     const viewer = new ViewImageTool(seed.workspaceRoot);
+    const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot);
     const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
       gate: new ToolGate(
@@ -126,6 +138,9 @@ export class ConfigToolRegistry {
     // 与 UI 的「+ → 绘图」入口配套——入口负责把模型切到「先画后写」的回合指令，本工具负责产物落地。
     const sketcher = new SketchWriteTool(seed.workspaceRoot);
     registry.register(shell.definition, (call, ctx) => shell.handle(call, ctx));
+    registry.register(interactiveShell.definition, (call, ctx) =>
+      interactiveShell.handle(call, ctx),
+    );
     registry.register(reader.definition, (call, ctx) => reader.handle(call, ctx));
     registry.register(writer.definition, (call, ctx) => writer.handle(call, ctx));
     registry.register(editor.definition, (call, ctx) => editor.handle(call, ctx));
@@ -135,6 +150,7 @@ export class ConfigToolRegistry {
     registry.register(globber.definition, (call, ctx) => globber.handle(call, ctx));
     registry.register(fetcher.definition, (call, ctx) => fetcher.handle(call, ctx));
     registry.register(viewer.definition, (call, ctx) => viewer.handle(call, ctx));
+    registry.register(screenshotTool.definition, (call, ctx) => screenshotTool.handle(call, ctx));
     registry.register(jobTool.definition, (call, ctx) => jobTool.handle(call, ctx));
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
     registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
@@ -252,6 +268,24 @@ export class ConfigToolRegistry {
         const diagnosticsTool = new LspDiagnosticsTool(lsp);
         registry.register(diagnosticsTool.definition, (call, ctx) =>
           diagnosticsTool.handle(call, ctx),
+        );
+      }
+      // 符号目录 / 代码操作：同样按**能力**而非「端口存在」放行（理由同上）。
+      if (lsp.symbols !== undefined) {
+        const symbolsTool = new LspDocumentSymbolsTool(lsp);
+        registry.register(symbolsTool.definition, (call, ctx) => symbolsTool.handle(call, ctx));
+      }
+      if (lsp.codeActions !== undefined) {
+        const codeActionTool = new LspCodeActionTool(lsp);
+        registry.register(codeActionTool.definition, (call, ctx) =>
+          codeActionTool.handle(call, ctx),
+        );
+      }
+      // 全局符号搜索：同样按**能力**而非「端口存在」放行——只实现导航的适配器拿到它只会白跑一次。
+      if (lsp.workspaceSymbols !== undefined) {
+        const workspaceSymbolsTool = new LspWorkspaceSymbolsTool(lsp);
+        registry.register(workspaceSymbolsTool.definition, (call, ctx) =>
+          workspaceSymbolsTool.handle(call, ctx),
         );
       }
     }
