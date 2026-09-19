@@ -35,6 +35,7 @@ export const SANDBOX_PROFILES = [
   'landlock',
   'seatbelt',
   'bwrap',
+  'unshare',
 ] as const satisfies readonly CliArgs['sandbox'][];
 export const ESCALATIONS = [
   'deny',

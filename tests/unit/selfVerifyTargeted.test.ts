@@ -53,7 +53,7 @@ class ScriptedRunner implements TestCommandRunner {
   }
 }
 
-test('narrowedCommand：npm test 收窄到失败测试文件；其它命令/非测试文件不改写', () => {
+test('narrowedCommand：收窄到失败测试文件；其它命令/非测试文件不改写', () => {
   assert.strictEqual(
     SelfVerifyPolicy.from({ command: 'npm test' }).narrowedCommand(['src/a.test.ts']),
     'npm test -- src/a.test.ts',
@@ -80,10 +80,15 @@ test('narrowedCommand：npm test 收窄到失败测试文件；其它命令/非�
     ]),
     'npm test -- tests/unit/foo.test.ts',
   );
-  // 非 npm test 形态 ⇒ 不做猜测性拼接
+  // 非 npm 形态 ⇒ 按该运行器**自己的**文档化约定收窄（pytest 吃位置参数）
   assert.strictEqual(
     SelfVerifyPolicy.from({ command: 'pytest -q' }).narrowedCommand(['tests/test_a.py']),
-    'pytest -q',
+    'pytest -q tests/test_a.py',
+  );
+  // 认不出的命令 ⇒ 不做猜测性拼接，退回全量
+  assert.strictEqual(
+    SelfVerifyPolicy.from({ command: 'make check' }).narrowedCommand(['tests/test_a.py']),
+    'make check',
   );
   // 目标数封顶
   const many = Array.from({ length: 20 }, (_unused, index) => `f${index}.test.ts`);

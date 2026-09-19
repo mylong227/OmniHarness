@@ -1,13 +1,20 @@
 import { readFile } from 'node:fs/promises';
 import type {
+  LspCodeAction,
   LspDiagnosticReport,
   LspLocation,
   LspPort,
+  LspRange,
   LspServerConfig,
+  LspSymbol,
+  LspWorkspaceSymbol,
 } from '../../ports/tool/lsp.js';
-import { fileToUri, uriToFile } from '../../adapters/lsp/lspUri.js';
+import { fileToUri } from '../../adapters/lsp/lspUri.js';
 import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
 import { LspDiagnosticsCollector } from './lspDiagnosticsCollector.js';
+import { LspSymbolNormalizer } from './lspSymbolNormalizer.js';
+import { LspCodeActionNormalizer } from './lspCodeActionNormalizer.js';
+import { LspResultNormalizer } from './lspResultNormalizer.js';
 
 /** 适配器可选项。 */
 export interface LspProcessAdapterOptions {
@@ -116,7 +123,71 @@ export class LspProcessAdapter implements LspPort {
       textDocument: { uri: fileToUri(file) },
       position: { line: line - 1, character: character - 1 },
     });
-    return this.hoverText(result);
+    return LspResultNormalizer.hoverText(result);
+  }
+
+  /**
+   * 列出文档符号（层级式压平为带缩进的清单）。
+   *
+   * 用途与 `definition` 互补：跳转的前提是**已经知道符号在哪一行**；当模型刚接手
+   * 一个陌生文件时，它连行号都没有，只能靠通读整文件。`documentSymbol` 让它先拿到
+   * 目录，再决定读哪一段——这是省上下文最直接的一步。
+   *
+   * @param file 目标文件绝对路径
+   * @returns 符号清单（1-based 坐标、已压平、最多 500 条）；服务器返回空/非法时为空数组
+   */
+  public async symbols(file: string): Promise<readonly LspSymbol[]> {
+    await this.ensureStarted();
+    await this.didOpen(file);
+    const result = await this.requireConn().request('textDocument/documentSymbol', {
+      textDocument: { uri: fileToUri(file) },
+    });
+    return LspSymbolNormalizer.normalize(result, file);
+  }
+
+  /**
+   * 在工作区范围内按名字查符号（`workspace/symbol`）。
+   *
+   * 与 {@link LspProcessAdapter.symbols} 的关键差别：**不需要先知道文件**，因此也不发 didOpen
+   * （全局查询依赖服务器自己的索引，打开某个文件反而缩小了它的视野）。服务器索引未就绪时应答
+   * 可能偏少，这是服务器侧行为，本层如实返回，不猜测、不补全。
+   *
+   * 服务器没给区间的符号（LSP 3.17 允许 `WorkspaceSymbol.location` 只有 `uri`）按文件起点
+   * 呈现——名字与文件是真的，位置只是不精确；连 URI 都没有的条目才跳过。
+   *
+   * @param query 符号名查询串（原样下发；空串是否等价于「全部」由服务器决定）
+   * @returns 工作区符号清单（1-based 坐标、已归一两种上游形状、最多 500 条）；无结果为空数组
+   */
+  public async workspaceSymbols(query: string): Promise<readonly LspWorkspaceSymbol[]> {
+    await this.ensureStarted();
+    const result = await this.requireConn().request('workspace/symbol', { query });
+    return LspSymbolNormalizer.normalizeWorkspace(result, `(工作区查询: ${query})`);
+  }
+
+  /**
+   * 取指定区间的代码操作（快速修复/重构建议）。
+   *
+   * **只呈现，不应用**：返回的是「改哪儿、改成什么」，落盘必须由上层经审批/沙箱决定。
+   * 请求里的 `context.diagnostics` 固定传空数组——本适配器不把诊断作为前置条件
+   * （那会让 `quickfix` 类操作在「尚未跑诊断」时整批消失，而 `refactor` 类根本不需要它）。
+   * 代价是：纯靠诊断触发的服务器可能少给几条建议，属可接受的**宁可少给、不给错**。
+   *
+   * @param file 目标文件绝对路径
+   * @param range 编辑器 1-based 区间（内部转 LSP 0-based）
+   * @returns 归一化后的操作清单（最多 50 条、每条最多 20 处编辑）；无结果为空数组
+   */
+  public async codeActions(file: string, range: LspRange): Promise<readonly LspCodeAction[]> {
+    await this.ensureStarted();
+    await this.didOpen(file);
+    const result = await this.requireConn().request('textDocument/codeAction', {
+      textDocument: { uri: fileToUri(file) },
+      range: {
+        start: { line: range.start.line - 1, character: range.start.character - 1 },
+        end: { line: range.end.line - 1, character: range.end.character - 1 },
+      },
+      context: { diagnostics: [] },
+    });
+    return LspCodeActionNormalizer.normalize(result);
   }
 
   /**
@@ -180,7 +251,7 @@ export class LspProcessAdapter implements LspPort {
       ...(context !== undefined ? { context } : {}),
     };
     const result = await this.requireConn().request(method, params);
-    return this.toLocations(result);
+    return LspResultNormalizer.toLocations(result);
   }
 
   /** 取当前连接；未启动即抛错（调用方须先 ensureStarted）。
@@ -238,7 +309,9 @@ export class LspProcessAdapter implements LspPort {
       await conn.request('initialize', {
         processId: process.pid ?? 0,
         rootUri: this.cfg.rootUri,
-        capabilities: {},
+        // 只声明本适配器**确实会发**的请求能力（workspaceSymbol 于 2026-09-19 补齐），
+        // 不虚报 documentSymbol/codeAction 之外的项，避免服务器按虚假能力改变应答行为。
+        capabilities: { workspace: { symbol: { dynamicRegistration: false } } },
       });
       conn.notify('initialized', {});
     } catch (error) {
@@ -268,7 +341,12 @@ export class LspProcessAdapter implements LspPort {
       // 读不到内容也照常发 didOpen（空文本），让服务器按磁盘文件自行解析。
     }
     this.requireConn().notify('textDocument/didOpen', {
-      textDocument: { uri: fileToUri(file), languageId: this.langOf(file), version: 1, text },
+      textDocument: {
+        uri: fileToUri(file),
+        languageId: LspResultNormalizer.languageId(file),
+        version: 1,
+        text,
+      },
     });
   }
 
@@ -313,37 +391,6 @@ export class LspProcessAdapter implements LspPort {
     this.collector.accept(method, params);
   }
 
-  /** 由扩展名推断 LSP languageId。
-   * @param file 文件路径（取最后一个点后的扩展名，大小写不敏感）。
-   * @returns 查表得到的 languageId；未知扩展名回退 'plaintext'。
-   */
-  private langOf(file: string): string {
-    const dot = file.lastIndexOf('.');
-    const ext = dot >= 0 ? file.slice(dot + 1).toLowerCase() : '';
-    const map: Record<string, string> = {
-      ts: 'typescript',
-      tsx: 'typescriptreact',
-      js: 'javascript',
-      jsx: 'javascriptreact',
-      mjs: 'javascript',
-      cjs: 'javascript',
-      json: 'json',
-      py: 'python',
-      go: 'go',
-      rs: 'rust',
-      java: 'java',
-      c: 'c',
-      h: 'c',
-      cpp: 'cpp',
-      cc: 'cpp',
-      md: 'markdown',
-      sh: 'shellscript',
-      yml: 'yaml',
-      yaml: 'yaml',
-    };
-    return map[ext] ?? 'plaintext';
-  }
-
   // ---- 内部：服务器请求应答 ----
 
   /** 尽量应答服务器 → 客户端请求，避免握手卡死。
@@ -363,68 +410,5 @@ export class LspProcessAdapter implements LspPort {
     return {};
   }
 
-  // ---- 内部：结果归一化 ----
-
-  /** LSP Location（0-based）→ 适配器 LspLocation（1-based）。
-   * @param result 服务器原始返回（单个 Location、Location 数组或 null/undefined）。
-   * @returns 转换后的位置列表（URI 转回文件路径、坐标 +1）；非法条目被逐个剔除。
-   */
-  private toLocations(result: unknown): LspLocation[] {
-    if (result === null || result === undefined) {
-      return [];
-    }
-    const list = Array.isArray(result) ? result : [result];
-    const out: LspLocation[] = [];
-    for (const item of list) {
-      if (item !== null && typeof item === 'object' && 'uri' in item && 'range' in item) {
-        const loc = item as {
-          uri: string;
-          range: {
-            start: { line: number; character: number };
-            end: { line: number; character: number };
-          };
-        };
-        out.push({
-          uri: uriToFile(loc.uri),
-          range: {
-            start: { line: loc.range.start.line + 1, character: loc.range.start.character + 1 },
-            end: { line: loc.range.end.line + 1, character: loc.range.end.character + 1 },
-          },
-        });
-      }
-    }
-    return out;
-  }
-
-  /** 悬停返回值归一化：兼容 string / MarkupContent / MarkedString[] 三种形态。
-   * @param result textDocument/hover 的原始返回。
-   * @returns 拼接后的悬停文本（数组条目以换行相连）；无 contents 或形态不识别时为 undefined。
-   */
-  private hoverText(result: unknown): string | undefined {
-    if (result === null || typeof result !== 'object') {
-      return undefined;
-    }
-    const contents = (result as { contents?: unknown }).contents;
-    if (contents === undefined) {
-      return undefined;
-    }
-    if (typeof contents === 'string') {
-      return contents;
-    }
-    if (Array.isArray(contents)) {
-      return contents
-        .map((entry) =>
-          typeof entry === 'string'
-            ? entry
-            : entry !== null && typeof entry === 'object' && 'value' in entry
-              ? String((entry as { value: unknown }).value)
-              : '',
-        )
-        .join('\n');
-    }
-    if (contents !== null && typeof contents === 'object' && 'value' in contents) {
-      return String((contents as { value: unknown }).value);
-    }
-    return undefined;
-  }
+  // ---- 内部：结果归一化已抽到 LspResultNormalizer（纯值转换，与本类状态无关）----
 }

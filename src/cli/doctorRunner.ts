@@ -2,6 +2,8 @@ import { accessSync, existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.js';
+import type { SandboxCapabilityEntry } from '../adapters/sandbox/sandboxCapabilityTable.js';
 
 /** 权限清单文件名（企业管控用，缺省位于工作区根；可选存在，存在时须合法 JSON）。 */
 const PERMISSIONS_MANIFEST_NAME = 'omniharness.permissions.json';
@@ -42,6 +44,8 @@ export interface DoctorReport {
   readonly config: ConfigStatus;
   /** 沙箱后端可用性。 */
   readonly sandbox: SandboxStatus;
+  /** OS 沙箱能力自述（每个后端能否在本机真跑、依据是什么）。 */
+  readonly sandboxCapabilities: readonly SandboxCapabilityEntry[];
   /** 插件目录是否可读。 */
   readonly pluginsDirReadable: boolean;
   /** 权限清单是否可读（不存在时视为可读，不计入问题）。 */
@@ -102,6 +106,12 @@ export class DoctorRunner {
     // ③ 沙箱后端可用性
     const sandbox = this.checkSandbox(issues);
 
+    // ③b OS 沙箱能力自述表（2026-09-19 全量收口）：把「哪些后端能在本机真跑、依据是什么」
+    // 变成可复现的诊断输出——此前这类信息只散落在文档里，且「实现存在但无真机证据」不可见。
+    const sandboxCapabilities = SandboxCapabilityTable.describe(workspaceRoot, {
+      elevated: sandbox.restrictedToken,
+    });
+
     // ④ 插件目录可读
     const pluginsDir = this.defaultPluginsDir();
     let pluginsDirReadable = false;
@@ -128,6 +138,7 @@ export class DoctorRunner {
       nodeVersion,
       config,
       sandbox,
+      sandboxCapabilities,
       pluginsDirReadable,
       permissionsManifestReadable,
       issues,
@@ -252,6 +263,9 @@ export class DoctorRunner {
     );
     lines.push(`  插件目录可读      : ${report.pluginsDirReadable ? '是' : '否'}`);
     lines.push(`  权限清单可读      : ${report.permissionsManifestReadable ? '是' : '否'}`);
+    lines.push('');
+    // OS 沙箱能力自述表：区分「实现存在」与「本机真能跑」，避免把无证据当可用。
+    lines.push(SandboxCapabilityTable.format(report.sandboxCapabilities));
     lines.push('');
     if (report.issues.length === 0) {
       lines.push('[OK] 未发现健康问题');

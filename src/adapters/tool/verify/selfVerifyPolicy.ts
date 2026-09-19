@@ -2,21 +2,31 @@
  * 自验证回环策略（P3）：受控测试命令的取值与预算（值对象，构造后不可变）。
  *
  * 确定性触发器（缺一不可）：
- *  ① **仓库有测试症状** —— `<workspaceRoot>/package.json` 存在且含 `scripts.test`
- *     （`forWorkspace` 返回 `undefined`，即该仓库不启用）；
+ *  ① **仓库有测试症状** —— 由 {@link SelfVerifyCommandDetector} 从仓库证据推断出测试命令
+ *     （`package.json#scripts.test` / pytest 配置 / `Cargo.toml` / `go.mod` / `pom.xml` /
+ *     gradle / rspec / `*.sln` / `Makefile#test`）；探测不到则不启用，返回 `undefined`。
+ *     **显式传入的 `command` 直接生效，不再受「有没有测试症状」这道闸门约束**——用户给出
+ *     的命令是最强证据，原实现把它挡在闸门之外属「声明未接线」（2026-09-19 修正）。
  *  ② **本回合确实改了源码** —— 由装配处注入的 `shouldVerify` 谓词判定
- *     （写类工具 + 源码扩展名，见 {@link isVerifiableTarget}）。
+ *     （写类工具 + 源码扩展名，见 {@link SelfVerifyPolicy.isVerifiableTarget}）。
  *
  * 纪律（P3 原文要求）：**不进主门禁、可关、有超时与预算上限**——
  * 本策略把「跑命令」的全部预算（超时 / 输出上限 / 冷却 / 每会话次数 / 摘要行数）
  * 显式化为可注入字段，且默认全部保守。
+ *
+ * 职责边界：本类只持**取值与预算**；命令探测交给 `SelfVerifyCommandDetector`，
+ * 定向收窄交给 `TestCommandNarrower`（各自一类、各自可单测）。
  */
-import { readFileSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { extname } from 'node:path';
+import { SelfVerifyCommandDetector } from './selfVerifyCommandDetector.js';
+import { TestCommandNarrower } from './testCommandNarrower.js';
 
 /** 策略的可选覆盖项（缺省取保守默认值）。 */
 export interface SelfVerifyPolicyOptions {
-  /** 测试命令（缺省 `npm test`）。 */
+  /**
+   * 测试命令。**显式给出即视为「用户已确认该命令可跑」**，跳过测试症状探测；
+   * 缺省时由 `SelfVerifyCommandDetector` 从工作区证据推断。
+   */
   readonly command?: string;
   /** 同一会话两次自验证之间的最小间隔（毫秒），防抖。 */
   readonly cooldownMs?: number;
@@ -34,7 +44,7 @@ export interface SelfVerifyPolicyOptions {
  * 自验证策略（值对象）。
  */
 export class SelfVerifyPolicy {
-  /** 默认测试命令。 */
+  /** 默认测试命令（探测不到证据、又未显式给出时的兜底取值）。 */
   public static readonly DEFAULT_COMMAND = 'npm test';
 
   /** 默认冷却时间（毫秒）：60s。 */
@@ -52,9 +62,6 @@ export class SelfVerifyPolicy {
   /** 默认摘要行数上限。 */
   public static readonly DEFAULT_MAX_DIGEST_LINES = 15;
 
-  /** 定向测试时最多收窄到的文件数（命令行长度的隐式上界）。 */
-  private static readonly MAX_TARGETS = 8;
-
   /** 可触发自验证的源码扩展名（写入目标须属此集合）。 */
   private static readonly SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
     '.ts',
@@ -69,6 +76,8 @@ export class SelfVerifyPolicy {
     '.rs',
     '.go',
     '.java',
+    '.kt',
+    '.cs',
     '.rb',
     '.c',
     '.cc',
@@ -105,12 +114,17 @@ export class SelfVerifyPolicy {
   /**
    * 由可选覆盖项构造策略（缺省落保守默认值）。
    *
+   * 注意：本方法**不做**测试症状判定（那是 `forWorkspace` 的职责）——直接调用它
+   * 等于「调用方已确认要跑」，命令缺省时用 {@link SelfVerifyPolicy.DEFAULT_COMMAND}。
+   *
    * @param options 可选覆盖项。
    * @returns 策略值对象。
    */
   public static from(options: SelfVerifyPolicyOptions = {}): SelfVerifyPolicy {
+    const explicit = options.command?.trim();
     return new SelfVerifyPolicy({
-      command: options.command ?? SelfVerifyPolicy.DEFAULT_COMMAND,
+      command:
+        explicit !== undefined && explicit !== '' ? explicit : SelfVerifyPolicy.DEFAULT_COMMAND,
       cooldownMs: options.cooldownMs ?? SelfVerifyPolicy.DEFAULT_COOLDOWN_MS,
       maxRunsPerSession: options.maxRunsPerSession ?? SelfVerifyPolicy.DEFAULT_MAX_RUNS_PER_SESSION,
       timeoutMs: options.timeoutMs ?? SelfVerifyPolicy.DEFAULT_TIMEOUT_MS,
@@ -120,21 +134,30 @@ export class SelfVerifyPolicy {
   }
 
   /**
-   * 针对某个工作区解析策略：**仅当仓库有测试症状**（`package.json` 含 `scripts.test`）
-   * 时返回策略，否则返回 `undefined`（确定性触发器之一）。
+   * 针对某个工作区解析策略。
+   *
+   * 取值优先级（高 → 低）：
+   *  ① `options.command` 显式给出 ⇒ **直接采用**（用户给的命令比任何推断都强）；
+   *  ② 否则 {@link SelfVerifyCommandDetector.detect} 从仓库证据推断；
+   *  ③ 都没有 ⇒ 返回 `undefined`（**不启用**，fail-closed）。
    *
    * @param workspaceRoot 仓库根目录。
    * @param options 可选覆盖项。
-   * @returns 策略；仓库无测试脚本或读取失败时为 `undefined`（fail-closed，不启用）。
+   * @returns 策略；显式命令缺失且仓库无测试症状时为 `undefined`（不启用）。
    */
   public static forWorkspace(
     workspaceRoot: string,
     options: SelfVerifyPolicyOptions = {},
   ): SelfVerifyPolicy | undefined {
-    if (!SelfVerifyPolicy.hasTestScript(workspaceRoot)) {
+    const explicit = options.command?.trim();
+    if (explicit !== undefined && explicit !== '') {
+      return SelfVerifyPolicy.from({ ...options, command: explicit });
+    }
+    const detected = SelfVerifyCommandDetector.detect(workspaceRoot);
+    if (detected === undefined) {
       return undefined;
     }
-    return SelfVerifyPolicy.from(options);
+    return SelfVerifyPolicy.from({ ...options, command: detected });
   }
 
   /**
@@ -149,74 +172,16 @@ export class SelfVerifyPolicy {
   }
 
   /**
-   * 定向测试：把「上次跑挂的文件」收窄进命令，跑失败的那批而不是全量（P1-⑨ 后半）。
+   * 定向测试：把「上次跑挂的文件」收窄进命令，跑失败的那批而不是全量。
    *
-   * 为什么只对 `npm test` 形态生效：定向能力依赖该仓库的测试运行器支持「收窄到文件」的
-   * 参数约定（npm 的 `--` 透传是事实标准：`npm test -- path/to/x.test.ts`）。
-   * 对**任意自定义命令**做字符串拼接属于猜测，宁可退回全量命令（`this.command`），
-   * 也不生成一条跑不起来的命令——错误的定向比不定向更贵。
-   *
-   * 为什么还要再过一层 {@link isTestPath}：堆栈帧多数指向**被测源码**，
-   * 把 `src/core/foo.ts` 透传给运行器会被判成「没有匹配的测试」而**假失败**；
-   * 假失败比不做定向更贵（模型会去追一个并不存在的回归）。
+   * 实现委托给 {@link TestCommandNarrower}——它按运行器（npm / pytest / jest / rspec /
+   * go / cargo / mvn / gradle / dotnet）各用**文档化的收窄参数**，且只接受**测试文件**
+   * 作为目标（堆栈帧多指向被测源码，透传会假失败）。认不出的命令原样返回。
    *
    * @param files 上次失败输出里解析到的文件清单（可为空，可含非测试文件）。
    * @returns 定向命令；无测试文件、命令形态不支持收窄时返回原 `command`。
    */
   public narrowedCommand(files: readonly string[]): string {
-    if (!/^npm (?:run )?test(?:\s|$)/.test(this.command)) {
-      return this.command;
-    }
-    const targets = files
-      .map((file) => file.trim())
-      .filter((file) => file !== '' && SelfVerifyPolicy.isTestPath(file))
-      .slice(0, SelfVerifyPolicy.MAX_TARGETS);
-    return targets.length === 0 ? this.command : `${this.command} -- ${targets.join(' ')}`;
-  }
-
-  /**
-   * 该路径是否像**测试文件**（定向测试只接受测试文件）。
-   *
-   * 覆盖常见命名约定：`x.test.ts` / `x.spec.tsx` / `test_x.py` / `x_test.go` / `FooTest.java`。
-   * 刻意保守——认不出来就不定向（退回全量），不在命名约定上冒险。
-   *
-   * @param file 路径（相对或绝对，可含 `\`）。
-   * @returns 形如测试文件时为 true。
-   */
-  private static isTestPath(file: string): boolean {
-    const base = file.split(/[\\/]/).pop() ?? '';
-    return (
-      /\.(?:test|spec)\.[a-z0-9]+$/i.test(base) ||
-      /^test_.*\.(?:py|rb)$/i.test(base) ||
-      /_test\.(?:go|rb)$/i.test(base) ||
-      /tests?\.java$/i.test(base)
-    );
-  }
-
-  /**
-   * 读取 `<workspaceRoot>/package.json` 并判断是否声明了 `scripts.test`。
-   *
-   * @param workspaceRoot 仓库根目录。
-   * @returns 存在测试脚本时为 true；文件缺失 / 解析失败 / 无脚本时为 false（不抛错）。
-   */
-  private static hasTestScript(workspaceRoot: string): boolean {
-    if (workspaceRoot.trim() === '') {
-      return false;
-    }
-    try {
-      const raw = readFileSync(join(workspaceRoot, 'package.json'), 'utf8');
-      const parsed: unknown = JSON.parse(raw);
-      if (typeof parsed !== 'object' || parsed === null || !('scripts' in parsed)) {
-        return false;
-      }
-      const scripts = (parsed as { scripts?: unknown }).scripts;
-      if (typeof scripts !== 'object' || scripts === null) {
-        return false;
-      }
-      const test = (scripts as Record<string, unknown>)['test'];
-      return typeof test === 'string' && test.trim() !== '';
-    } catch {
-      return false;
-    }
+    return TestCommandNarrower.narrow(this.command, files);
   }
 }

@@ -8,6 +8,13 @@
 // 推送内容由文档文本决定，便于测试双向断言：
 //   - 文本含 `LSP_OK`  ⇒ 推送空数组（无诊断）；
 //   - 否则            ⇒ 推送 1 条 error + 1 条 warning（0-based 行 4 / 1）。
+//
+// 全局符号（2026-09-19）：`workspace/symbol` 的语料放在独立模块 `lspWorkspaceSymbolFixture.mjs`
+// （**可被测试安全 import**——本文件一旦 import 就会起一个 stdio 循环并挂住事件循环，
+// 故语料不能住在这里），用真实临时目录拼 URI，不写死 `file:///repo/...`
+// ——后者在 Windows 上缺盘符、不是合法 file URL。
+
+import { WORKSPACE_SYMBOL_FIXTURE } from './lspWorkspaceSymbolFixture.mjs';
 
 let buffer = Buffer.alloc(0);
 
@@ -97,7 +104,14 @@ function handle(msg) {
         jsonrpc: '2.0',
         id,
         result: {
-          capabilities: { definitionProvider: true, referencesProvider: true, hoverProvider: true },
+          capabilities: {
+            definitionProvider: true,
+            referencesProvider: true,
+            hoverProvider: true,
+            documentSymbolProvider: true,
+            codeActionProvider: true,
+            workspaceSymbolProvider: true,
+          },
         },
       });
       break;
@@ -131,6 +145,149 @@ function handle(msg) {
         result: { contents: { kind: 'plaintext', value: 'mock hover doc for symbol' } },
       });
       break;
+    // 文档符号（2026-09-19 新增）：返回**层级式** DocumentSymbol，用来验证
+    // 「层级压平 + 每层两空格缩进 + 优先 selectionRange + 0-based→1-based」。
+    // uri 含 `junk` ⇒ 返回一堆畸形条目，用来验证「形状不认识就跳过、绝不抛错」。
+    case 'textDocument/documentSymbol': {
+      const uri = msg.params.textDocument.uri;
+      if (uri.includes('junk')) {
+        send({
+          jsonrpc: '2.0',
+          id,
+          result: [
+            null,
+            42,
+            { name: 5 },
+            { name: 'noRange', kind: 13 },
+            { name: 'badRange', kind: 13, range: 'nope' },
+            {
+              name: 'good',
+              kind: 13,
+              selectionRange: { start: { line: 7, character: 3 }, end: { line: 7, character: 7 } },
+            },
+          ],
+        });
+        break;
+      }
+      send({
+        jsonrpc: '2.0',
+        id,
+        result: [
+          {
+            name: 'DemoClass',
+            kind: 5,
+            range: { start: { line: 0, character: 0 }, end: { line: 9, character: 1 } },
+            selectionRange: { start: { line: 0, character: 6 }, end: { line: 0, character: 15 } },
+            children: [
+              {
+                name: 'fieldOne',
+                kind: 8,
+                range: { start: { line: 1, character: 2 }, end: { line: 1, character: 11 } },
+                selectionRange: {
+                  start: { line: 1, character: 2 },
+                  end: { line: 1, character: 10 },
+                },
+              },
+              {
+                name: 'methodOne',
+                kind: 6,
+                range: { start: { line: 2, character: 2 }, end: { line: 4, character: 3 } },
+                selectionRange: {
+                  start: { line: 2, character: 2 },
+                  end: { line: 2, character: 11 },
+                },
+              },
+            ],
+          },
+          {
+            name: 'topLevelFn',
+            kind: 12,
+            range: { start: { line: 11, character: 0 }, end: { line: 13, character: 1 } },
+            selectionRange: { start: { line: 11, character: 9 }, end: { line: 11, character: 19 } },
+          },
+        ],
+      });
+      break;
+    }
+    // 代码操作（2026-09-19 新增）：三种上游形状各一 —— `edit.changes`、
+    // 仅 `command`、`edit.documentChanges`。uri 含 `junk` ⇒ 全是畸形条目。
+    case 'textDocument/codeAction': {
+      const uri = msg.params.textDocument.uri;
+      if (uri.includes('junk')) {
+        send({
+          jsonrpc: '2.0',
+          id,
+          result: [
+            null,
+            'not-an-object',
+            { noTitle: true },
+            { title: 'only-command', command: {} },
+          ],
+        });
+        break;
+      }
+      send({
+        jsonrpc: '2.0',
+        id,
+        result: [
+          {
+            title: 'Fix import',
+            kind: 'quickfix',
+            isPreferred: true,
+            edit: {
+              changes: {
+                [uri]: [
+                  {
+                    range: { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } },
+                    newText: "import x from 'y';",
+                  },
+                ],
+              },
+            },
+          },
+          { title: 'Organize imports', kind: 'source.organizeImports', command: { command: 'x' } },
+          {
+            title: 'Rename symbol',
+            kind: 'refactor',
+            edit: {
+              documentChanges: [
+                {
+                  textDocument: { uri, version: 1 },
+                  edits: [
+                    {
+                      range: { start: { line: 2, character: 0 }, end: { line: 2, character: 3 } },
+                      newText: 'renamed',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      });
+      break;
+    }
+    // 全局符号（2026-09-19 新增）：一次返回**两种上游形状**，用来验证归一化——
+    //   WorkspaceSymbol（location + containerName）、WorkspaceSymbol 缺 location（无位置可报）、
+    //   SymbolInformation（location + containerName）。
+    // query 含 `junk` ⇒ 全是畸形条目（null / 数字 / 无名 / 无位置）。
+    case 'workspace/symbol': {
+      const query = typeof msg.params.query === 'string' ? msg.params.query : '';
+      if (query.includes('junk')) {
+        send({
+          jsonrpc: '2.0',
+          id,
+          result: [null, 7, { name: '' }, { name: 'noLocation', kind: 12 }],
+        });
+        break;
+      }
+      send({
+        jsonrpc: '2.0',
+        id,
+        result: WORKSPACE_SYMBOL_FIXTURE,
+      });
+      break;
+    }
     case 'shutdown':
       send({ jsonrpc: '2.0', id, result: null });
       break;

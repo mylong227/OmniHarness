@@ -11,10 +11,19 @@ export function fileToUri(filePath: string): string {
 /**
  * @beta
  * file:// URI → 文件系统路径；非 file:// 原样返回（便于测试用假 URI）。
+ *
+ * 解析失败也**原样返回**，绝不抛错：URI 由服务器给出，它可能给出平台不兼容的形态
+ * （典型：Windows 上收到缺盘符的 `file:///repo/a.ts`，`fileURLToPath` 会抛
+ * `ERR_INVALID_FILE_URL_PATH`）。归一化层对服务器的畸形输入必须**降级而不是崩**——
+ * 一条坏 URI 不该让整次符号查询（乃至整个会话）失败。
  */
 export function uriToFile(uri: string): string {
-  if (uri.startsWith('file://')) {
-    return fileURLToPath(uri);
+  if (!uri.startsWith('file://')) {
+    return uri;
   }
-  return uri;
+  try {
+    return fileURLToPath(uri);
+  } catch {
+    return uri;
+  }
 }

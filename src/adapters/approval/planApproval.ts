@@ -42,6 +42,8 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   'lsp_hover',
   'lsp_status',
   'lsp_diagnostics',
+  'lsp_document_symbols',
+  'lsp_code_action',
 ]);
 
 /** 规划模式审批选项。 */
