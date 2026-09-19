@@ -169,7 +169,7 @@
 | 批3 | 交互组件 9 件（`Dropdown`/`Resizer`/`TreeNode`/`WorkIndicator`/`NavRail`/`ApprovalModal`/`PermissionPicker`/`FolderPicker`/`FilePicker`）+ 改写 `mount.test.mjs` 对应断言 | ✅ **已完成** |
 | 批4/5 | `tabs/` 面板 10 件（`FileTab`/`MetricsTab`/`MemoryTab`/`RollbackTab`/`PluginsTab`/`ProfilesTab`/`SettingsTab`/`ModelProviders`/`GraphTab`/`ChangesTab`） | ✅ **已完成** |
 | 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` + 改写 `mount.test.mjs` 对应断言 | ✅ **已完成** |
-| 批7 | `App.ts` 根组件转函数组件（`useReducer` + `useRef` 桥接 `AppHost`）；**删 `AppComponent.tsx`**；`react-shim.d.ts` 移除 `ReactComponent`/`Component`/`createRef`；改 `noNativeDialogs.test.mjs` | 待开始 |
+| 批7 | `App.ts` 根组件转函数组件（`useState`(惰性) + `useRef` 桥接 `AppHost`）；**删 `AppComponent.tsx`**；`react-shim.d.ts` 移除 `ReactComponent`/`Component`/`createRef`/`IntrinsicClassAttributes`；`main.ts` 改 `mountApp`；改 `noNativeDialogs.test.mjs` | ✅ **已完成** |
 
 ### 批1 验收（纯展示 10 件）
 
@@ -232,3 +232,23 @@
 | 测试基座修复 | `mount.test.mjs` 的 `renderOf` 增加「跨组件渲染前 `runtime.reset()`」——不同组件 hook 序不同，此前 `hooksStub` 的槽位跨组件串味（被前一组件 seed 的 `slot0` 会被后者当自己的第一个 `useState` 读走），`ContextCapacityPanel` 用例据此从假绿变真绿 |
 | 业务零改动 | 所有 RPC、toast 文案、a11y（`role`/`aria-*`）、DOM 结构与 `key` 逐字保留；`App.ts` 调用点零改动 |
 | 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） | |
+
+### 批7 验收（`App.ts` 根组件 + 基类清理）
+
+| 项 | 内容 |
+| --- | --- |
+| 根状态 | `class App extends React.Component<..., AppState>` → `export function App(): ReactElement`；状态由 `useState<AppState>(initialState)`（惰性初始化）持有 |
+| 口径修正（`useReducer`→`useState`） | 计划原写 `useReducer`，实际改用 `useState` + 纯函数 `mergeAppPatch(prev, action)` **承接同一「浅合并」语义**。原因：本仓 `react-shim.d.ts` 的 `useReducer` 只有 2 参签名，惰性初始化需第 3 参 `init`；为**单个调用点**扩 shim 重载不划算，且 `useState` + 纯 merge 函数等价可测（`mergeAppPatch` 为模块级纯函数）。原意图（状态更新逻辑集中、可单测）未变 |
+| `AppHost` 桥接 | 控制器**只构造一次**（`useRef` 惰性初始化）；`host = { patch: (a) => setState((prev) => mergeAppPatch(prev, a)), getState: () => stateRef.current }`。`patch` 用**函数式 updater** ⇒ 永不读到陈旧快照（H5）；`stateRef` 每渲染同步为最新状态，供 `getState()` 同步读取 |
+| 生命周期 | `componentDidMount` → `controller.mount()`；`componentWillUnmount` → `controller.unmount()`；合并为依赖 `[controller]` 的单个 effect，清理函数调 `unmount` |
+| 视图下沉（R5） | `renderPane` / `renderBody` 由 class 私有方法 → **模块级函数**（显式 `(ctrl, s)` 入参）；`initialState` / `mergeAppPatch` 亦为模块级 |
+| 挂载入口 | `static App.mount(container)` → `export function mountApp(container)`（**非组件**，不违反一文件一组件）；`main.ts` 改 `import { mountApp }` |
+| 基类删除 | `web/src/ui/base/AppComponent.tsx` 删除（目录随之消失）；全仓 `grep` 确认无残留 import |
+| shim 收口 | `react-shim.d.ts` 移除 `declare class ReactComponent`、`SetStateAction`、`ReactApi.Component`、`createRef`、`JSX.IntrinsicClassAttributes`；保留 `createElement` / Hooks / `createContext` / JSX 元素与 `IntrinsicAttributes`。⇒ 根除了「`declare class` 处于值位置 ⇒ 整站白屏」的结构性陷阱（标准 §9） |
+| 测试适配 | `noNativeDialogs.test.mjs` 第二条改为读 `ui/context.ts`，断言 `AppContextValue` 暴露 `dialog` 且导出 `useApp()`（原读 `AppComponent.tsx` 的基类访问器已不存在） |
+| **基线对照（关键）** | 迁移后 UI e2e 仍只失败同一步 `streaming text merged`。为排除「本次迁移引入」，`git checkout 9763db6 -- web/`（F9 **之前**的 class 版根组件）重建后跑同一 e2e：**同样只失败 `streaming text merged`**（`app mounted` 通过、`hasReact:object`、`turns.run`/`approval.respond` 全触达）。⇒ 该步失败为**存量基线**，与 F1–F9 任何一轮无关；属 e2e 桩页 markdown/文本比对问题，非挂载失败 |
+| 验收 | `web:build` 0 错；根 `tsc --noEmit` 0 错；`eslint . --max-warnings=0` 0 警告；`audit:standard:delta` / `audit:config-wiring`(484) / `arch:gate` / `check --strict` / `audit:maturity` 全绿；全量 `web/test/**` **134/136**（同上） |
+
+### F9 总收口
+
+全仓 **41 个 class 组件 + 1 个根组件 + 1 个基类** 已全部迁移/移除：`grep -rn "extends React.Component\|extends AppComponent\|this\.setState\|componentDidMount\|componentDidUpdate\|componentWillUnmount\|createRef" web/src --include=*.ts --include=*.tsx` 仅剩**解释性注释**，无实际代码命中。每批独立提交（批1 `e5b7a9c` / 批2 `dcd381d` / 批3 `da67648` / 批4/5 `5899266` / 批6 `5f40856` / 批7 见本条对应提交）。
