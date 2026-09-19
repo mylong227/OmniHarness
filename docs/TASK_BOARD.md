@@ -505,3 +505,18 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 | `ARCHITECTURE_AND_GAP_2026-09-13.md` | 差距全景（§1 的五条更正待其下次修订同步）                                                          |
 | `docs/README.md`                     | 文档索引；本板登记于"旗帜文档"                                                                     |
 | 治理规则                             | 沿用 `docs/README.md` 五条铁律：状态只认本板；一主题一权威；负结果留档；带日期即快照               |
+
+## 8. 评分运行器韧性修复（2026-09-19）
+
+**根因**：benchmark/capability_swebench.mjs 的 --verified 分支原只调一次 runVerifiedSuite（全部跑完才返回报告），会话一结束即全废；且无任何并发锁，两个进程抢同一 --out / 同一仓库串行锁会死锁或互相覆盖。这是此前 batch_next 评分反复丢进度、卡在 23/25 的根因。
+
+**修复**（commit 见本板最新代码提交）：在 --verified 分支新增 --jsonl 增量模式——
+
+- 逐题 append 进度到 --jsonl（永久落盘），重启自动跳过已完成 id（断点续跑），天然抗会话中断；
+- 文件锁（lockPath = jsonl.lock）互斥并发：抢锁时心跳在 2 分钟内视为存活并拒绝退出，陈旧（会话残留僵尸锁）则清掉重拿；
+- 心跳用时间戳而非 pid（规避 Windows/MSYS pid 跨子系统不可比对导致并发锁失效），15s 一跳；
+- 无 --jsonl 时行为完全不变（一次性模式）。
+
+**验证**：续跑 25/25 既有 jsonl 跳过全部 25 题、0ms 聚合出 7/25 报告；僵尸锁（10min 前心跳）自动清掉重跑；新鲜心跳拒绝退出（EXIT 1）。门禁 typecheck / arch:gate / audit:standard:delta / audit:config-wiring 全绿。
+
+**用法（长批/易中断评分统一改用）**：node benchmark/capability_swebench.mjs --verified <数据集> --predictions <补丁> --instance-list <子集> --repo-base https://gitee.com/ --repo-mirrors benchmark/swebench-gitee-mirrors.json --jsonl <进度文件> --out <报告>。仓库外临时包装器 _score_incremental.mjs 已废弃，由本改动取代。
