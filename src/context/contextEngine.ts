@@ -7,7 +7,7 @@
  * 这是「上下文效率碾压」这一可证伪命题的真实落地模块，不依赖任何外部服务。
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Bm25Index, tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import { extractSymbols, outlineText, type SymbolNode } from './repoMap.js';
@@ -18,34 +18,178 @@ import { trainLsa, lsaQuery, type LsaModel } from './lsaEngine.js';
 import { at } from '../util/arrayAt.js';
 import { ContentStopWords } from './contentStopWords.js';
 import { FileReranker } from './fileReranker.js';
+import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
+
+/** 语料遍历的上限（三个上限共同把索引内存钉死，见 {@link ContextEngine.walk}）。 */
+export interface WalkLimits {
+  /** 最多纳入多少文件（缺省 {@link ContextEngine.MAX_FILES}）。 */
+  readonly maxFiles?: number | undefined;
+  /** 单文件字节上限，超过即**不入符号地图**（缺省 {@link ContextEngine.MAX_FILE_BYTES}）。 */
+  readonly maxFileBytes?: number | undefined;
+  /** 语料总字节预算，超过即截断（缺省 {@link ContextEngine.MAX_TOTAL_BYTES}）。 */
+  readonly maxTotalBytes?: number | undefined;
+}
+
+/** 遍历结果（如实回报「地图少了一块」的两类原因）。 */
+export interface WalkOutcome {
+  /** 是否因文件数 / 总字节上限被截断。 */
+  readonly truncated: boolean;
+  /** 因单文件超过字节上限而未纳入的文件数。 */
+  readonly skippedLargeFiles: number;
+}
+
+/** 遍历期状态（递归用；`out` 为累积结果）。 */
+interface WalkState {
+  /** 结果累积（相对 POSIX 路径）。 */
+  readonly out: string[];
+  /** 还能纳入多少文件。 */
+  remaining: number;
+  /** 还能纳入多少字节。 */
+  bytesLeft: number;
+  /** 单文件字节上限。 */
+  maxFileBytes: number;
+  /** 是否因文件数 / 总字节上限而截断。 */
+  truncated: boolean;
+  /** 因单文件过大而被排除的文件数（如实回报，不静默）。 */
+  skippedLarge: number;
+}
 
 /**
  * ContextEngine 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
  */
 export class ContextEngine {
+  /** 单次索引最多纳入的文件数（与 {@link WorkspaceFileWalker} 同口径，避免两套遍历器各说各话）。 */
+  public static readonly MAX_FILES = WorkspaceFileWalker.DEFAULT_MAX_FILES;
+
   /**
-   * C7 收口：原顶层内部函数迁入宿主类。
-   * @param root string
-   * @param absRoot string
-   * @param out string[]
-   * @returns void
+   * 单文件字节上限（512 KiB）：超过它的源码文件基本是生成物 / 打包产物 / 数据转储，
+   * 对「符号地图」零价值，却会一次性吃掉几十上百 MB 堆——故策略性排除并计数上报。
    */
-  public static walk(root: string, absRoot: string, out: string[]): void {
-    for (const entry of readdirSync(root)) {
-      const abs = join(root, entry);
-      const st = statSync(abs);
+  public static readonly MAX_FILE_BYTES = 512 * 1024;
+
+  /**
+   * 语料总字节预算（32 MiB）。为什么必须有它：`indexCorpus` 会把每个文件的**全文**
+   * 与分词结果留在内存里（`fileText` + BM25 文档），实测内存约为原始文本的 10~20 倍；
+   * 只限文件数（2 万个 × 512 KiB）最坏仍可达 10 GB ⇒ 必须同时有总量闸。
+   */
+  public static readonly MAX_TOTAL_BYTES = 32 * 1024 * 1024;
+
+  /**
+   * 收集参与索引的源码文件（同步；供 `indexCorpus` 使用）。
+   *
+   * ## 为什么重写（2026-09-19，堆爆修复）
+   *
+   * 原实现自带一套「只跳过 node_modules / dist / 点目录」的遍历，**与 `WorkspaceFileWalker`
+   * 的忽略清单不一致**，于是 `eval-data/`（2.3 GB、10.4 万个随仓克隆的 `.py`）与
+   * `target/`（2.2 GB Rust 构建产物）会被当成语料全量读进内存 ⇒ `npm run smoke` 跑 7 分钟后
+   * 4 GB 堆爆（同一工作区实测 15.2 万文件 / 4.6 GB）。现在忽略策略只有**一份**
+   * （{@link WorkspaceFileWalker.DEFAULT_IGNORED_DIRS}），并且文件数 / 单文件 / 总字节三道闸
+   * 一起把内存钉死：任何工作区都只会索引「有界的源码子集」，绝不把整机拖进 swap。
+   *
+   * 另外跳过符号链接（`lstatSync`）：链接成环会让遍历永不终止，这是同一类「无界增长」。
+   *
+   * @param root 遍历起点（绝对路径）。
+   * @param absRoot 计算相对路径的基准（通常等于 root）。
+   * @param out 结果累积数组（就地追加相对 POSIX 路径）。
+   * @param limits 上限覆盖（缺省取本类常量）。
+   * @returns 截断标记与「因过大被排除的文件数」（调用方须如实转达，不得静默丢弃）。
+   */
+  public static walk(
+    root: string,
+    absRoot: string,
+    out: string[],
+    limits: WalkLimits = {},
+  ): WalkOutcome {
+    // 根不可读 / 不是目录 ⇒ **抛错**（而不是回空语料）：调用方（`CorpusIndexCache`）据此
+    // fail-closed 返回 null，`getRepoMapContext` 随之为 null。若在这里吞成「空语料」，
+    // 坏路径会被伪装成「索引成功但没东西」——正是本仓反复治理的「静默失败」形态。
+    let rootStat: ReturnType<typeof statSync>;
+    try {
+      rootStat = statSync(root);
+    } catch (error) {
+      throw new Error(
+        `语料根不可读：${root}（${error instanceof Error ? error.message : String(error)}）`,
+      );
+    }
+    if (!rootStat.isDirectory()) {
+      throw new Error(`语料根不是目录：${root}`);
+    }
+    const state: WalkState = {
+      out,
+      remaining: limits.maxFiles ?? ContextEngine.MAX_FILES,
+      bytesLeft: limits.maxTotalBytes ?? ContextEngine.MAX_TOTAL_BYTES,
+      maxFileBytes: limits.maxFileBytes ?? ContextEngine.MAX_FILE_BYTES,
+      truncated: false,
+      skippedLarge: 0,
+    };
+    ContextEngine.walkInto(state, root, absRoot);
+    return { truncated: state.truncated, skippedLargeFiles: state.skippedLarge };
+  }
+
+  /**
+   * 递归遍历实现（忽略清单 + 三道上限 + 跳过符号链接）。
+   *
+   * @param state 遍历状态（就地更新）。
+   * @param dir 当前目录。
+   * @param absRoot 相对路径基准。
+   * @returns 无返回值。
+   */
+  private static walkInto(state: WalkState, dir: string, absRoot: string): void {
+    if (state.truncated) {
+      return;
+    }
+    let entries: readonly string[];
+    try {
+      entries = readdirSync(dir).sort();
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (state.truncated) {
+        return;
+      }
+      const abs = join(dir, entry);
+      let st: ReturnType<typeof lstatSync>;
+      try {
+        st = lstatSync(abs);
+      } catch {
+        continue;
+      }
+      if (st.isSymbolicLink()) {
+        continue;
+      }
       if (st.isDirectory()) {
-        if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) {
+        if (entry.startsWith('.') || WorkspaceFileWalker.DEFAULT_IGNORED_DIRS.has(entry)) {
           continue;
         }
-        ContextEngine.walk(abs, absRoot, out);
-      } else if (
-        st.isFile() &&
-        (entry.endsWith('.ts') || entry.endsWith('.js') || entry.endsWith('.py'))
-      ) {
-        out.push(relative(absRoot, abs).split(sep).join('/'));
+        ContextEngine.walkInto(state, abs, absRoot);
+        continue;
       }
+      if (!st.isFile() || !ContextEngine.isIndexable(entry)) {
+        continue;
+      }
+      if (st.size > state.maxFileBytes) {
+        state.skippedLarge += 1;
+        continue;
+      }
+      if (state.remaining <= 0 || st.size > state.bytesLeft) {
+        state.truncated = true;
+        return;
+      }
+      state.out.push(relative(absRoot, abs).split(sep).join('/'));
+      state.remaining -= 1;
+      state.bytesLeft -= st.size;
     }
+  }
+
+  /**
+   * 该文件名是否是本引擎索引的源码类型。
+   *
+   * @param name 文件名。
+   * @returns `.ts` / `.js` / `.py` 之一时为 true。
+   */
+  private static isIndexable(name: string): boolean {
+    return name.endsWith('.ts') || name.endsWith('.js') || name.endsWith('.py');
   }
 
   /**
@@ -109,6 +253,13 @@ export interface IndexedCorpus {
   readonly lsaModel: LsaModel;
   /** 原始文件内容（rel → text），供 baseline 计算整文件 token。 */
   readonly fileText: ReadonlyMap<string, string>;
+  /**
+   * 语料遍历是否**因上限被截断**（文件数 / 总字节闸）。调用方须如实转达，
+   * 否则「地图只覆盖了前 N 个文件」会被误当成「这就是全部」。
+   */
+  readonly truncated: boolean;
+  /** 因单文件超过 {@link ContextEngine.MAX_FILE_BYTES} 而未纳入符号地图的文件数（如实回报）。 */
+  readonly skippedLargeFiles: number;
 }
 
 interface FileRecord {
@@ -134,16 +285,35 @@ export interface IndexOptions {
   readonly bm25K1?: number;
   /** BM25 打分参数 `b`（长度归一化）覆盖；缺省用 `Bm25Index` 默认 0.75。 */
   readonly bm25B?: number;
+  /** 语料遍历的文件数上限（缺省 {@link ContextEngine.MAX_FILES}）。 */
+  readonly maxFiles?: number;
+  /** 单文件字节上限（缺省 {@link ContextEngine.MAX_FILE_BYTES}）。 */
+  readonly maxFileBytes?: number;
+  /** 语料总字节预算（缺省 {@link ContextEngine.MAX_TOTAL_BYTES}）。 */
+  readonly maxTotalBytes?: number;
 }
 
-/** 索引某个目录下的源码，构建符号级与文件级双 BM25 索引。 */
+/**
+ * 索引某个目录下的源码，构建符号级与文件级双 BM25 索引。
+ *
+ * **内存有界（2026-09-19 堆爆修复）**：遍历只走 `WorkspaceFileWalker` 的忽略清单
+ * （`.git` / `node_modules` / `dist` / `target` / `eval-data` / venv / 缓存 …），
+ * 且受文件数、单文件字节、语料总字节三道闸约束；被截断或被排除的事实经
+ * {@link IndexedCorpus.truncated} / {@link IndexedCorpus.skippedLargeFiles} 如实回报。
+ */
 export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpus {
   // 索引侧与查询侧必须同用一套分词，否则两侧变体集不相交，归并反而掉召回。
   const tk = opts.morph === false ? tokenize : tokenizeExpanded;
   // light 模式：跳过三项重型索引（仅在全量基准里 light:false 才开启）。
   const light = opts.light === true;
   const files: string[] = [];
-  ContextEngine.walk(root, root, files);
+  const walked = ContextEngine.walk(root, root, files, {
+    ...(opts.maxFiles !== undefined ? { maxFiles: opts.maxFiles } : {}),
+    ...(opts.maxFileBytes !== undefined ? { maxFileBytes: opts.maxFileBytes } : {}),
+    ...(opts.maxTotalBytes !== undefined ? { maxTotalBytes: opts.maxTotalBytes } : {}),
+  });
+  const truncated = walked.truncated;
+  const skippedLargeFiles = walked.skippedLargeFiles;
   const fileText = new Map<string, string>();
   const allSymbols: SymbolNode[] = [];
   const fileRecords: FileRecord[] = [];
@@ -205,6 +375,8 @@ export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpu
     fileText,
     codeGraph,
     lsaModel,
+    truncated,
+    skippedLargeFiles,
   };
 }
 

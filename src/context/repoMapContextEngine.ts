@@ -50,7 +50,7 @@
  * 单例 `repoMapContextEngine` 的薄包装；新调用方应直接用引擎实例。
  */
 
-import { query, type IndexedCorpus } from './contextEngine.js';
+import { ContextEngine, query, type IndexedCorpus } from './contextEngine.js';
 import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.js';
 import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
 import type { RecallItem } from './semanticIndex.js';
@@ -165,13 +165,42 @@ export class RepoMapContextEngine {
       // 载荷投送（RepoMapPayload）：命中哪些文件由**排序**决定，注入多少字由**呈现**决定。
       // 梯度投送把注入 token 压降 60~70% 而**文件集合逐字不变**（构造性，33/33 实测）。
       // tiered 默认开；'full' 回退历史口径、'degrade' 为软预算应急压缩档。
-      return RepoMapPayload.assemble(
-        { corpus, files: res.files, symbols: res.symbols, query: q },
-        RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
+      return RepoMapContextEngine.withCoverageNote(
+        RepoMapPayload.assemble(
+          { corpus, files: res.files, symbols: res.symbols, query: q },
+          RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
+        ),
+        corpus,
       );
     } catch {
       return null;
     }
+  }
+
+  /**
+   * 给 repo-map 文本补一行「覆盖度说明」。
+   *
+   * 为什么要补：语料遍历有硬上限（文件数 / 单文件大小 / 总字节，见 `ContextEngine`）。
+   * 被截断却不说，模型会把「前 N 个文件」当成「整个仓库」——这正是本仓反复登记过的
+   * 「静默截断把模型引向错误结论」。只在真的发生截断 / 排除时才追加，正常路径逐字不变。
+   *
+   * @param text repo-map 文本。
+   * @param corpus 语料（带截断事实）。
+   * @returns 追加说明后的文本；无截断时原样返回。
+   */
+  private static withCoverageNote(text: string, corpus: IndexedCorpus): string {
+    const notes: string[] = [];
+    if (corpus.truncated) {
+      notes.push(
+        `语料遍历达上限（最多 ${String(ContextEngine.MAX_FILES)} 个文件 / ${String(Math.round(ContextEngine.MAX_TOTAL_BYTES / 1048576))} MiB），本图只覆盖遍历到的部分`,
+      );
+    }
+    if (corpus.skippedLargeFiles > 0) {
+      notes.push(
+        `另有 ${String(corpus.skippedLargeFiles)} 个单文件超过 ${String(Math.round(ContextEngine.MAX_FILE_BYTES / 1024))} KiB 的文件未纳入`,
+      );
+    }
+    return notes.length === 0 ? text : `${text}\n（覆盖度：${notes.join('；')}）`;
   }
 
   /**
@@ -300,9 +329,12 @@ export class RepoMapContextEngine {
     q: string,
     plan: RepoMapPayloadPlan | null,
   ): string {
-    return RepoMapPayload.assemble(
-      { corpus, files: ranked.files, symbols: ranked.symbols, query: q },
-      plan,
+    return RepoMapContextEngine.withCoverageNote(
+      RepoMapPayload.assemble(
+        { corpus, files: ranked.files, symbols: ranked.symbols, query: q },
+        plan,
+      ),
+      corpus,
     );
   }
 }

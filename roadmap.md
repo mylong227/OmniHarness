@@ -564,6 +564,21 @@
 
 **已知边界（诚实登记）**：① 原生执行仍不装系统包、不重放构建期 shell 步骤（只告警），故依赖 apt 工具链的题在本机恒为环境边界；② 语料抓取器 `ALLOWED_EXTENSIONS` 不抓 `.fasta` / `.zip` / `.db` / `.png`，导致 4 题的种子文件本地缺失（与本次改动无关，属既有抓取口径）。
 
+## 阶段 39：上下文语料遍历的内存上界（`npm run smoke` 4 GB 堆爆根因修复，2026-09-19）
+
+> 用户指令「处理掉堆爆内存的问题」。**实测根因**（非猜测）：`ContextEngine.walk` 自带一套只跳 `node_modules` / `dist` / 点目录的遍历，与本仓 `WorkspaceFileWalker.DEFAULT_IGNORED_DIRS`（还含 `target` / `build` / `eval-data` / venv / 各类缓存）**不一致**；而 `indexCorpus` 会把每个文件的**全文 + 分词结果**留在内存里。本工作区实测可遍历语料 **152,249 个文件 / 4.6 GB**（`eval-data` 2.3 GB 含 10.4 万个随仓克隆的 `.py`、`target` 2.2 GB Rust 产物），于是 `npm run smoke` 在 `session.start` 之后无界增长：限 512 MB 堆 18 秒爆、1 GB 堆 35 秒爆、默认 4 GB 堆 465 秒爆（同一增长速率 ⇒ 确定性泄漏，不是随机抖动）。
+
+| #   | 任务                        | 内容                                                                                                                                                                                                                                                      | 验收                                                           |
+| --- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| M1  | ✅ 忽略策略收敛为一份       | `ContextEngine.walk` 改为复用 `WorkspaceFileWalker.DEFAULT_IGNORED_DIRS`（单一事实来源），并跳过符号链接（链接成环是同一类无界增长）                                                                                                                      | 依赖/构建产物/基准语料/缓存/点目录一律不入语料                 |
+| M2  | ✅ 三道上限把内存钉死       | 文件数 `MAX_FILES`（2 万，与 walker 同口径）、单文件 `MAX_FILE_BYTES`（512 KiB，超限即不入图并计数）、语料总量 `MAX_TOTAL_BYTES`（32 MiB，`fileText` + BM25 文档实测内存约为原文的 10~20 倍，故只限文件数不够）                                           | 触顶 → `truncated`；超大文件 → `skippedLargeFiles`，均如实回报 |
+| M3  | ✅ 截断不静默               | `IndexedCorpus` 增 `truncated` / `skippedLargeFiles`；repo-map 注入文本在真的发生时追加一行「覆盖度：…」，正常路径逐字不变                                                                                                                                | 单测断言两类回报；纯 BM25 与混合路径同一口径                   |
+| M4  | ✅ 顺带修掉被堆爆掩盖的断链 | 堆爆消失后 `smoke` 立刻暴露第二个真缺陷：repo-map 作为**尾部 system 消息**注入（为前缀缓存命中刻意置尾），而 `MockModel` 按「最后一条必须是 user」判定首回合 ⇒ 工具回路在真实装配下**根本走不到**（实测步数 1 而非 ≥2）。改为按「末条非 system 消息」判定 | `npm run smoke` 全绿（退出码 0）                               |
+
+**验收汇总（阶段 39）**：`npm run smoke` **退出码 0**（修复前：4 GB 堆爆 / 限堆后失败）；新增单测 **5/5**（`tests/unit/contextEngineCoverage.test.ts`：重目录排除、超大文件计数、文件数触顶、总量触顶、**真机回归**——索引本仓根目录 4.6 GB → 1.5 秒且不含 `eval-data`/`target`）；`typecheck` / `build` 0 错。**内存实测**：同样跑完三层（A/B/D）从「512 MB 堆 18 秒爆」变为「512 MB 堆 6.3 秒跑完、峰值 RSS 327 MB」。
+
+**国内镜像实测（本轮顺带核实，非猜测）**：`registry.npmmirror.com` HTTP 200 / 350 ms（`npm ping` PONG）、`hf-mirror.com` 200 / 269 ms、`pypi.tuna.tsinghua.edu.cn` 200 / 170 ms、`mirrors.aliyun.com/pypi` 200 / 76 ms；HuggingFace 官方站仍不可达（超时）。仓库既有接线：npm 走 `~/.npmrc` 的 npmmirror；HF 权重走 `OMNI_HF_ENDPOINT` → 回落 `HF_ENDPOINT`（`configFactory` → `TransformersEmbeddingAdapter.remoteHost`，既有单测覆盖）；`uv pip install` 经进程环境透传 `UV_INDEX_URL` / `PIP_INDEX_URL`。
+
 ## 推进规则
 
 1. 严格按编号顺序（1.1 → 1.2 → 2.1 → …），每步过验收再进下一步
