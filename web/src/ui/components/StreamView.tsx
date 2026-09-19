@@ -4,12 +4,15 @@
 // 回合内「过程类」事件（reasoning/tool_call/tool_result）默认折叠成 <details>，
 // summary 显示步数与工具分布；busy 时展开便于观察，结束后收起聚焦结果。
 //
-// 面向对象改造：子组件各自成类（ToolCallCard / ReasoningBlock / ProcessCluster /
+// 面向对象改造：子组件各自成文件（ToolCallCard / ReasoningBlock / ProcessCluster /
 // AssistantCard / ArtifactCard / AttachmentChips / ExternalLinkCards），
 // 本组件只负责「事件 → 可视块」的分派与滚动锚定。
+//
+// 函数组件范式：无内部 state（lastUserId/lastAssistantId 改渲染期局部量，不再写实例字段）；
+// 滚动锚定由依赖 [events, liveInputs] 的 effect 承接（兼作挂载即滚动）；
+// 事件 / 流式行的渲染分派下沉为模块级纯函数（避免组件体膨胀）。
 
 import { React } from '../deps.js';
-import { AppComponent } from '../base/AppComponent.js';
 import {
   badge,
   jsonView,
@@ -36,6 +39,7 @@ import type { ToolResultView } from '../shared.js';
 /** 兼容旧引用路径：本类型已下沉到 shared，此处保留再导出。 */
 export type { ToolResultView };
 
+/** StreamView 组件的入参。 */
 export interface StreamViewProps {
   events: ThreadEvent[];
   toolResults: Record<string, ToolResultView>;
@@ -86,292 +90,310 @@ export interface StreamViewProps {
   disabled?: boolean;
 }
 
-/** 事件流组件。 */
-export class StreamView extends AppComponent<StreamViewProps> {
-  private streamRef: HTMLDivElement | null = null;
+/** 单事件渲染所需的上下文（从 props 收拢，供模块级分派函数复用）。 */
+interface EventCtx {
+  toolResults: Record<string, ToolResultView>;
+  onEventClick: (ev: ThreadEvent) => void;
+  onOpenFile?: (path: string) => void;
+  busy?: boolean;
   /** 最后一条用户消息 id（仅它可编辑重发）。 */
-  private lastUserId = '';
+  lastUserId: string;
   /** 最后一条助手消息 id（仅它可重新生成）。 */
-  private lastAssistantId = '';
+  lastAssistantId: string;
+  onEditUser?: (text: string) => void;
+  onRegenerate?: () => void;
+  /** 已被 assistant 事件收口的流式文本。 */
+  finalizedStreamText: string;
+  /** 本回合出现过的工具调用 id。 */
+  toolCallIds: Set<string>;
+}
 
-  override componentDidMount(): void {
-    this.scrollToEnd();
-  }
+/**
+ * 判断一条 assistant 事件的内容是否正是本轮已被流式渲染过的文本。
+ *
+ * 命中时跳过最终卡片的渐进揭示动画，避免「逐字已显示完 → 归入正式卡片时又从零重播」的视觉回跳。
+ * @param p 事件载荷（含 content）
+ * @param finalized 已收口的流式文本
+ * @returns 已流过则 true
+ */
+function wasStreamed(p: Record<string, unknown>, finalized: string): boolean {
+  if (finalized === '') return false;
+  return ((p.content as string) || '') === finalized;
+}
 
-  override componentDidUpdate(prevProps: StreamViewProps): void {
-    if (prevProps.events !== this.props.events || prevProps.liveInputs !== this.props.liveInputs) {
-      this.scrollToEnd();
-    }
-  }
+/**
+ * 单事件渲染分派。返回 null 表示该类型不在对话流中展示（如 session_meta / model）。
+ * @param ev 事件
+ * @param ctx 渲染上下文
+ * @returns 事件节点；不展示时为 null
+ */
+function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
+  const p = ev.payload || {};
+  const node = (inner: ReactElement): ReactElement => (
+    <div className={'ev clickable ' + ev.type} key={ev.id} onClick={() => ctx.onEventClick(ev)}>
+      {inner}
+    </div>
+  );
 
-  /** 新事件到达后锚定到底部（长会话里用户不必手动追）。 */
-  private scrollToEnd(): void {
-    const el = this.streamRef;
-    if (el) el.scrollTop = el.scrollHeight;
-  }
-
-  /** 本回合内出现过的工具调用 id：用于判断 tool_result 是否已被调用卡内联。 */
-  private toolCallIds(): Set<string> {
-    const s = new Set<string>();
-    for (const e of this.props.events) {
-      if (e.type === 'tool_call') {
-        const p = e.payload || {};
-        s.add((p.callId as string) || e.id);
-      }
-    }
-    return s;
-  }
-
-  /** 单事件渲染分派。返回 null 表示该类型不在对话流中展示（如 session_meta / model）。 */
-  private renderEvent(ev: ThreadEvent, toolCallIds: Set<string>): ReactElement | null {
-    const { toolResults, onEventClick, onOpenFile, busy } = this.props;
-    const p = ev.payload || {};
-    const node = (inner: ReactElement): ReactElement => (
-      <div
-        className={'ev clickable ' + ev.type}
-        key={ev.id}
-        onClick={() => onEventClick(ev)}
-      >
-        {inner}
-      </div>
-    );
-
-    switch (ev.type) {
-      case 'user':
-        return node(
-          <UserCard
-            ev={ev}
-            busy={busy}
-            canEdit={ev.id === this.lastUserId}
-            onEdit={(text: string) => this.props.onEditUser?.(text)}
-          />,
-        );
-      case 'assistant':
-        return node(
-          <AssistantCard
-            ev={ev}
-            busy={busy}
-            onOpenFile={onOpenFile}
-            animate={!this.wasStreamed(p)}
-            onRegenerate={ev.id === this.lastAssistantId && busy !== true ? this.props.onRegenerate : undefined}
-          />,
-        );
-      case 'reasoning':
-        return <ReasoningBlock key={ev.id} ev={ev} />;
-      case 'tool_call':
-        return (
-          <ToolCallCard
-            key={ev.id}
-            ev={ev}
-            res={toolResults[(p.callId as string) || ev.id]}
-            onEventClick={onEventClick}
-            onOpenFile={onOpenFile}
-          />
-        );
-      case 'tool_result':
-        // 已被调用卡内联的结果不再单独渲染；孤儿结果（调用被历史截断）折叠成一行。
-        if (toolCallIds.has((p.callId as string) || '')) return null;
-        return (
-          <details className="ev tool_result standalone" key={ev.id}>
-            <summary className="tc-line dim">
-              <span className="tc-chevron">▸</span>
-              <span className="tc-icon">↳</span>
-              <span className="tc-summary">工具结果（独立事件）</span>
-            </summary>
-            <div className="tc-detail">
-              <div className="tool-output">{esc(JSON.stringify(p))}</div>
-            </div>
-          </details>
-        );
-      case 'system':
-        return node(
-          <div className="sysnote" spellCheck="false">
-            — {esc((p.content as string) || '')} —
-          </div>,
-        );
-      case 'todo':
-        return node(
-          <>
-            <div className="head">{badge('todo')}</div>
-            {todoView(((p.todos as Parameters<typeof todoView>[0]) || []))}
-          </>,
-        );
-      case 'plan':
-        return node(
-          <>
-            <div className="head">{badge('plan')}</div>
-            <div className="card">{jsonView(p)}</div>
-          </>,
-        );
-      case 'question':
-        return node(
-          <>
-            <div className="head">{badge('question')}</div>
-            <div className="card">{questionView((p.questions as unknown) || p)}</div>
-          </>,
-        );
-      case 'turn_diff':
-        return node(
-          <>
-            <div className="head">{badge('turn_diff')}</div>
-            <div className="diff">{diffView((p.diff as string) || '')}</div>
-          </>,
-        );
-      case 'session_meta':
-        // 会话元数据（工作区标记）：仅供会话收纳，不在对话流里渲染。
-        return null;
-      case 'model':
-        // 模型用量事件：token 统计在「指标」面板看，对话流里渲染只会是一坨 JSON。
-        return null;
-      default:
-        return node(
-          <>
-            <div className="head">{badge(ev.type)}</div>
-            <div className="card">
-              <div className="content" spellCheck="false">
-                {esc(JSON.stringify(p))}
-              </div>
-            </div>
-          </>,
-        );
-    }
-  }
-
-  /** 流式参数占位行：尽力解析 partial JSON 提取人话动作，失败则用缺参兜底描述。 */
-  private renderLiveInput(li: LiveInput): ReactElement {
-    let partialArgs: unknown = {};
-    try {
-      partialArgs = JSON.parse(li.partial);
-    } catch {
-      partialArgs = {};
-    }
-    return (
-      <div className="ev" key={li.id}>
-        <div className="tc-line">
-          <span className="tc-chevron">▸</span>
-          <span className="tc-icon">🔧</span>
-          <span className="tc-summary tc-action">
-            {esc(describeToolCall(li.name, partialArgs))}
-          </span>
-          <span className="tool-status pending">进行中…</span>
-        </div>
-      </div>
-    );
-  }
-
-  /**
-   * 判断一条 assistant 事件的内容是否正是本轮已被流式渲染过的文本。
-   *
-   * 命中时跳过最终卡片的渐进揭示动画，避免「逐字已显示完 → 归入正式卡片时又从零重播」的视觉回跳。
-   * @param p 事件载荷（含 content）
-   * @returns 已流过则 true
-   */
-  private wasStreamed(p: Record<string, unknown>): boolean {
-    const finalized = this.props.finalizedStreamText ?? '';
-    if (finalized === '') return false;
-    return ((p.content as string) || '') === finalized;
-  }
-
-  private renderBlock(
-    b: ReturnType<typeof buildDisplayBlocks>[number],
-    toolCallIds: Set<string>,
-  ): ReactElement | null {
-    const { toolResults, onEventClick, busy } = this.props;
-    if (b.kind === 'process') {
+  switch (ev.type) {
+    case 'user':
+      return node(
+        <UserCard
+          ev={ev}
+          busy={ctx.busy}
+          canEdit={ev.id === ctx.lastUserId}
+          onEdit={(text: string) => ctx.onEditUser?.(text)}
+        />,
+      );
+    case 'assistant':
+      return node(
+        <AssistantCard
+          ev={ev}
+          busy={ctx.busy}
+          onOpenFile={ctx.onOpenFile}
+          animate={!wasStreamed(p, ctx.finalizedStreamText)}
+          onRegenerate={ev.id === ctx.lastAssistantId && ctx.busy !== true ? ctx.onRegenerate : undefined}
+        />,
+      );
+    case 'reasoning':
+      return <ReasoningBlock key={ev.id} ev={ev} />;
+    case 'tool_call':
       return (
-        <ProcessCluster
-          key={b.key}
-          block={b}
-          onEventClick={onEventClick}
-          busy={busy}
-          renderEvent={(ev) => this.renderEvent(ev, toolCallIds)}
+        <ToolCallCard
+          key={ev.id}
+          ev={ev}
+          res={ctx.toolResults[(p.callId as string) || ev.id]}
+          onEventClick={ctx.onEventClick}
+          onOpenFile={ctx.onOpenFile}
         />
       );
-    }
-    return this.renderEvent(b.event, toolCallIds);
-  }
-
-  override render(): ReactElement {
-    const {
-      events,
-      toolResults,
-      liveInputs,
-      onSend,
-      model,
-      modelOptions,
-      providerLabel,
-      reasoning,
-      permission,
-      threadId,
-      onToast,
-      onOpenTab,
-      onOpenFile,
-      onLoadThread,
-      onModelChange,
-      onReasoningChange,
-      onPermissionChange,
-      disabled,
-      busy,
-      activeTool,
-      api,
-      onStop,
-    } = this.props;
-    // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口。
-    let lastUserId = '';
-    let lastAssistantId = '';
-    for (const e of events) {
-      if (e.type === 'user') lastUserId = e.id;
-      else if (e.type === 'assistant') lastAssistantId = e.id;
-    }
-    this.lastUserId = lastUserId;
-    this.lastAssistantId = lastAssistantId;
-    const blocks = buildDisplayBlocks(events, busy);
-    const ids = this.toolCallIds();
-    const streamText = this.props.streamText ?? '';
-    return (
-      <div className="col center">
-        <div
-          className="stream"
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions"
-          aria-label="对话事件流"
-          ref={(el: HTMLDivElement | null) => {
-            this.streamRef = el;
-          }}
-        >
-          {events.length === 0 && liveInputs.length === 0 && streamText === '' ? (
-            emptyState('💬', '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
-          ) : (
-            <div className="stream-inner">
-              {blocks.map((b) => this.renderBlock(b, ids))}
-              {liveInputs.map((li) => this.renderLiveInput(li))}
-              {streamText !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streamText} /> : null}
+    case 'tool_result':
+      // 已被调用卡内联的结果不再单独渲染；孤儿结果（调用被历史截断）折叠成一行。
+      if (ctx.toolCallIds.has((p.callId as string) || '')) return null;
+      return (
+        <details className="ev tool_result standalone" key={ev.id}>
+          <summary className="tc-line dim">
+            <span className="tc-chevron">▸</span>
+            <span className="tc-icon">↳</span>
+            <span className="tc-summary">工具结果（独立事件）</span>
+          </summary>
+          <div className="tc-detail">
+            <div className="tool-output">{esc(JSON.stringify(p))}</div>
+          </div>
+        </details>
+      );
+    case 'system':
+      return node(
+        <div className="sysnote" spellCheck="false">
+          — {esc((p.content as string) || '')} —
+        </div>,
+      );
+    case 'todo':
+      return node(
+        <>
+          <div className="head">{badge('todo')}</div>
+          {todoView((p.todos as Parameters<typeof todoView>[0]) || [])}
+        </>,
+      );
+    case 'plan':
+      return node(
+        <>
+          <div className="head">{badge('plan')}</div>
+          <div className="card">{jsonView(p)}</div>
+        </>,
+      );
+    case 'question':
+      return node(
+        <>
+          <div className="head">{badge('question')}</div>
+          <div className="card">{questionView((p.questions as unknown) || p)}</div>
+        </>,
+      );
+    case 'turn_diff':
+      return node(
+        <>
+          <div className="head">{badge('turn_diff')}</div>
+          <div className="diff">{diffView((p.diff as string) || '')}</div>
+        </>,
+      );
+    case 'session_meta':
+      // 会话元数据（工作区标记）：仅供会话收纳，不在对话流里渲染。
+      return null;
+    case 'model':
+      // 模型用量事件：token 统计在「指标」面板看，对话流里渲染只会是一坨 JSON。
+      return null;
+    default:
+      return node(
+        <>
+          <div className="head">{badge(ev.type)}</div>
+          <div className="card">
+            <div className="content" spellCheck="false">
+              {esc(JSON.stringify(p))}
             </div>
-          )}
-        </div>
-        <Composer
-          model={model}
-          modelOptions={modelOptions}
-          providerLabel={providerLabel}
-          reasoning={reasoning}
-          permission={permission}
-          threadId={threadId}
-          onToast={onToast}
-          onOpenTab={onOpenTab}
-          onOpenFile={onOpenFile}
-          onLoadThread={onLoadThread}
-          onModelChange={onModelChange}
-          onReasoningChange={onReasoningChange}
-          onPermissionChange={onPermissionChange}
-          onSend={onSend}
-          disabled={disabled}
-          busy={busy}
-          activeTool={activeTool}
-          api={api}
-          onStop={onStop}
-        />
+          </div>
+        </>,
+      );
+  }
+}
+
+/**
+ * 流式参数占位行：尽力解析 partial JSON 提取人话动作，失败则用缺参兜底描述。
+ * @param li 流式输入
+ * @returns 占位行节点
+ */
+function renderLiveInputRow(li: LiveInput): ReactElement {
+  let partialArgs: unknown = {};
+  try {
+    partialArgs = JSON.parse(li.partial);
+  } catch {
+    partialArgs = {};
+  }
+  return (
+    <div className="ev" key={li.id}>
+      <div className="tc-line">
+        <span className="tc-chevron">▸</span>
+        <span className="tc-icon">🔧</span>
+        <span className="tc-summary tc-action">{esc(describeToolCall(li.name, partialArgs))}</span>
+        <span className="tool-status pending">进行中…</span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 渲染单个可视块：过程簇或单事件。
+ * @param b 可视块
+ * @param ctx 渲染上下文
+ * @returns 块节点
+ */
+function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: EventCtx): ReactElement | null {
+  if (b.kind === 'process') {
+    return (
+      <ProcessCluster
+        key={b.key}
+        block={b}
+        onEventClick={ctx.onEventClick}
+        busy={ctx.busy}
+        renderEvent={(ev) => renderEventNode(ev, ctx)}
+      />
     );
   }
+  return renderEventNode(b.event, ctx);
+}
+
+/**
+ * 事件流组件：渲染事件块、流式占位与底部输入区，并锚定滚动到底部。
+ * @param props 组件入参
+ * @returns 中栏节点
+ */
+export function StreamView(props: StreamViewProps): ReactElement {
+  const {
+    events,
+    toolResults,
+    liveInputs,
+    streamText,
+    finalizedStreamText,
+    onEventClick,
+    onOpenFile,
+    onSend,
+    onStop,
+    onRegenerate,
+    onEditUser,
+    model,
+    modelOptions,
+    providerLabel,
+    reasoning,
+    permission,
+    threadId,
+    onToast,
+    onOpenTab,
+    onLoadThread,
+    busy,
+    activeTool,
+    api,
+    onModelChange,
+    onReasoningChange,
+    onPermissionChange,
+    disabled,
+  } = props;
+  const streamRef = React.useRef<HTMLDivElement | null>(null);
+
+  // 新事件 / 流式输入到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
+  React.useEffect(() => {
+    const el = streamRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [events, liveInputs]);
+
+  // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口。
+  let lastUserId = '';
+  let lastAssistantId = '';
+  for (const e of events) {
+    if (e.type === 'user') lastUserId = e.id;
+    else if (e.type === 'assistant') lastAssistantId = e.id;
+  }
+  /** 本回合内出现过的工具调用 id：用于判断 tool_result 是否已被调用卡内联。 */
+  const toolCallIds = new Set<string>();
+  for (const e of events) {
+    if (e.type === 'tool_call') {
+      const p = e.payload || {};
+      toolCallIds.add((p.callId as string) || e.id);
+    }
+  }
+  const ctx: EventCtx = {
+    toolResults,
+    onEventClick,
+    onOpenFile,
+    busy,
+    lastUserId,
+    lastAssistantId,
+    onEditUser,
+    onRegenerate,
+    finalizedStreamText: finalizedStreamText ?? '',
+    toolCallIds,
+  };
+  const blocks = buildDisplayBlocks(events, busy);
+  const streaming = streamText ?? '';
+  return (
+    <div className="col center">
+      <div
+        className="stream"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label="对话事件流"
+        ref={streamRef}
+      >
+        {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
+          emptyState('💬', '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
+        ) : (
+          <div className="stream-inner">
+            {blocks.map((b) => renderBlockNode(b, ctx))}
+            {liveInputs.map((li) => renderLiveInputRow(li))}
+            {streaming !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streaming} /> : null}
+          </div>
+        )}
+      </div>
+      <Composer
+        model={model}
+        modelOptions={modelOptions}
+        providerLabel={providerLabel}
+        reasoning={reasoning}
+        permission={permission}
+        threadId={threadId}
+        onToast={onToast}
+        onOpenTab={onOpenTab}
+        onOpenFile={onOpenFile}
+        onLoadThread={onLoadThread}
+        onModelChange={onModelChange}
+        onReasoningChange={onReasoningChange}
+        onPermissionChange={onPermissionChange}
+        onSend={onSend}
+        disabled={disabled}
+        busy={busy}
+        activeTool={activeTool}
+        api={api}
+        onStop={onStop}
+      />
+    </div>
+  );
 }

@@ -3,94 +3,79 @@
 // a11y（D1）：role="dialog" + aria-modal + aria-labelledby/describedby；
 // 打开时把焦点交给最合理的控件（危险操作默认落「取消」），Tab 圈定在框内，Esc 取消。
 // 纯展示 + 键盘壳：决策结果一律经 DialogService 结算，组件自身不保存业务状态。
+//
+// 函数组件范式：输入文本一个 useState；三个控件引用 + seen 请求镜像各一个 useRef；
+// 「请求变化 → 重置输入值并把焦点交给默认控件」原由 componentDidMount/Update 两处调用同一方法，
+// 现由依赖 request 的单个 effect 承接（挂载即有待决请求的情形也一并覆盖）。
 
 import { React } from '../deps.js';
-import { AppComponent } from '../base/AppComponent.js';
+import { useApp } from '../context.js';
 import type { DialogRequest, DialogState } from '../../core/DialogService.js';
 
+/** DialogHost 组件的入参。 */
 export interface DialogHostProps {
   /** 对话框渲染状态（由 App 状态驱动）。 */
   dialog: DialogState;
 }
 
-interface DialogHostState {
-  /** prompt 输入框的当前文本。 */
-  text: string;
-}
-
 /** 隐藏态：React 的 style 必须是对象映射，不能是 CSS 字符串。 */
 const HIDDEN: Record<string, string> = { display: 'none' };
 
-/** 对话框宿主组件。 */
-export class DialogHost extends AppComponent<DialogHostProps, DialogHostState> {
+/**
+ * 对话框宿主：渲染待决的确认 / 输入请求，并把焦点与键盘收束在框内。
+ * @param props 组件入参
+ * @returns 对话框节点（无请求时为隐藏遮罩）
+ */
+export function DialogHost(props: DialogHostProps): ReactElement {
+  const { dialog } = props;
+  const { dialog: dialogSvc } = useApp();
+  const request = dialog.request;
+  /** prompt 输入框的当前文本。 */
+  const [text, setText] = React.useState<string>('');
   /** 确认按钮引用（焦点管理用）。 */
-  private confirmRef: HTMLButtonElement | null = null;
+  const confirmRef = React.useRef<HTMLButtonElement | null>(null);
   /** 取消按钮引用（焦点管理用）。 */
-  private cancelRef: HTMLButtonElement | null = null;
+  const cancelRef = React.useRef<HTMLButtonElement | null>(null);
   /** prompt 输入框引用（焦点管理用）。 */
-  private inputRef: HTMLInputElement | null = null;
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
   /** 上一次处理的请求引用：用于识别「新请求到来」以重置输入与焦点。 */
-  private seen: DialogRequest | null = null;
+  const seen = React.useRef<DialogRequest | null>(null);
 
-  /**
-   * @param props 组件属性
-   */
-  public constructor(props: DialogHostProps) {
-    super(props);
-    this.state = { text: '' };
-  }
+  // 请求变化 → 同步输入初值，随后把焦点交给默认控件（元素尚未挂载时静默跳过）。
+  React.useEffect(() => {
+    if (!request) {
+      seen.current = null;
+      return;
+    }
+    if (request === seen.current) return;
+    seen.current = request;
+    setText(request.initial);
+    if (request.kind === 'prompt') {
+      // prompt 落输入框（全选便于覆盖）。
+      inputRef.current?.focus();
+      inputRef.current?.select();
+      return;
+    }
+    // 危险确认落「取消」（安全默认），其余落「确认」。
+    if (request.danger) cancelRef.current?.focus();
+    else confirmRef.current?.focus();
+  }, [request]);
 
-  /** 首次挂载即有待决请求时同步输入值与焦点。 @returns 无 */
-  public override componentDidMount(): void {
-    this.syncRequest();
-  }
-
-  /** 请求变化时重置输入值并把焦点交给默认控件。 @returns 无 */
-  public override componentDidUpdate(): void {
-    this.syncRequest();
-  }
+  if (!request) return <div className="overlay" style={HIDDEN}></div>;
 
   /** 可聚焦元素（按 DOM 顺序）：prompt 有输入框，confirm 只有两个按钮。 */
-  private focusables(): (HTMLElement | null)[] {
-    const { request } = this.props.dialog;
-    if (!request) return [];
-    return request.kind === 'prompt'
-      ? [this.inputRef, this.cancelRef, this.confirmRef]
-      : [this.cancelRef, this.confirmRef];
-  }
-
-  /** 请求变化 → 同步输入初值；随后把焦点交给默认控件。 @returns 无 */
-  private syncRequest(): void {
-    const { request } = this.props.dialog;
-    if (!request) {
-      this.seen = null;
-      return;
-    }
-    if (request === this.seen) return;
-    this.seen = request;
-    this.setState({ text: request.initial });
-    this.focusDefault(request);
-  }
+  const focusables = (): (HTMLElement | null)[] =>
+    request.kind === 'prompt'
+      ? [inputRef.current, cancelRef.current, confirmRef.current]
+      : [cancelRef.current, confirmRef.current];
 
   /**
-   * 默认焦点：prompt 落输入框（全选便于覆盖）；危险确认落「取消」（安全默认），
-   * 其余落「确认」。元素尚未挂载（零 DOM 测试环境）时静默跳过。
-   * @param request 当前请求
+   * 在框内循环移动焦点（简单 Tab 圈定）。
+   * @param backward 是否反向（Shift+Tab）
    * @returns 无
    */
-  private focusDefault(request: DialogRequest): void {
-    if (request.kind === 'prompt') {
-      this.inputRef?.focus();
-      this.inputRef?.select();
-      return;
-    }
-    if (request.danger) this.cancelRef?.focus();
-    else this.confirmRef?.focus();
-  }
-
-  /** 在框内循环移动焦点（简单 Tab 圈定）。 @returns 无 */
-  private cycleFocus(backward: boolean): void {
-    const list = this.focusables();
+  const cycleFocus = (backward: boolean): void => {
+    const list = focusables();
     const size = list.length;
     if (size === 0) return;
     const active = list.findIndex((el) => el !== null && el === document.activeElement);
@@ -98,93 +83,85 @@ export class DialogHost extends AppComponent<DialogHostProps, DialogHostState> {
     const from = active < 0 ? (backward ? 0 : -1) : active;
     const next = (from + (backward ? -1 : 1) + size) % size;
     list[next]?.focus();
-  }
+  };
 
-  private readonly onKeyDown = (e: KeyboardEvent): void => {
+  /**
+   * 框级键盘：Esc 取消、Tab 圈定焦点。
+   * @param e 键盘事件
+   * @returns 无
+   */
+  const onKeyDown = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      this.dialog.cancel();
+      dialogSvc.cancel();
       return;
     }
     if (e.key === 'Tab') {
       e.preventDefault();
-      this.cycleFocus(e.shiftKey);
+      cycleFocus(e.shiftKey);
     }
   };
 
-  private readonly onInput = (e: Event): void => {
-    this.setState({ text: (e.target as HTMLInputElement | null)?.value ?? '' });
+  /**
+   * 输入框变更 → 同步文本。
+   * @param e 输入事件
+   * @returns 无
+   */
+  const onInput = (e: Event): void => {
+    setText((e.target as HTMLInputElement | null)?.value ?? '');
   };
 
-  private readonly onInputKeyDown = (e: KeyboardEvent): void => {
+  /**
+   * 输入框回车 → 提交当前文本。
+   * @param e 键盘事件
+   * @returns 无
+   */
+  const onInputKeyDown = (e: KeyboardEvent): void => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      this.dialog.submit(this.state.text);
+      dialogSvc.submit(text);
     }
   };
 
-  private readonly onConfirm = (): void => {
-    this.dialog.submit(this.state.text);
-  };
-
-  private readonly onCancel = (): void => {
-    this.dialog.cancel();
-  };
-
-  /** 渲染。 @returns 对话框节点（无请求时为隐藏遮罩） */
-  public override render(): ReactElement {
-    const { request } = this.props.dialog;
-    if (!request) return <div className="overlay" style={HIDDEN}></div>;
-    const titleId = 'dlg-title';
-    const bodyId = 'dlg-body';
-    return (
-      <div className="overlay show dlg-overlay" onKeyDown={this.onKeyDown}>
-        <div
-          className="modal dlg"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          aria-describedby={bodyId}
-        >
-          <h3 id={titleId}>{request.title}</h3>
-          <div className="dlg-msg" id={bodyId}>
-            {request.message}
-          </div>
-          {request.kind === 'prompt' ? (
-            <input
-              className="dlg-input"
-              ref={(el: HTMLInputElement | null) => {
-                this.inputRef = el;
-              }}
-              value={this.state.text}
-              placeholder={request.placeholder}
-              aria-label={request.title}
-              onChange={this.onInput}
-              onKeyDown={this.onInputKeyDown}
-            />
-          ) : null}
-          <div className="actions">
-            <button
-              className="dlg-cancel"
-              ref={(el: HTMLButtonElement | null) => {
-                this.cancelRef = el;
-              }}
-              onClick={this.onCancel}
-            >
-              {request.cancelLabel}
-            </button>
-            <button
-              className={'dlg-confirm' + (request.danger ? ' danger' : '')}
-              ref={(el: HTMLButtonElement | null) => {
-                this.confirmRef = el;
-              }}
-              onClick={this.onConfirm}
-            >
-              {request.confirmLabel}
-            </button>
-          </div>
+  const titleId = 'dlg-title';
+  const bodyId = 'dlg-body';
+  return (
+    <div className="overlay show dlg-overlay" onKeyDown={onKeyDown}>
+      <div
+        className="modal dlg"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
+      >
+        <h3 id={titleId}>{request.title}</h3>
+        <div className="dlg-msg" id={bodyId}>
+          {request.message}
+        </div>
+        {request.kind === 'prompt' ? (
+          <input
+            className="dlg-input"
+            ref={inputRef}
+            value={text}
+            placeholder={request.placeholder}
+            aria-label={request.title}
+            onChange={onInput}
+            onKeyDown={onInputKeyDown}
+          />
+        ) : null}
+        <div className="actions">
+          <button className="dlg-cancel" ref={cancelRef} onClick={() => dialogSvc.cancel()}>
+            {request.cancelLabel}
+          </button>
+          <button
+            className={'dlg-confirm' + (request.danger ? ' danger' : '')}
+            ref={confirmRef}
+            onClick={() => dialogSvc.submit(text)}
+          >
+            {request.confirmLabel}
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }
