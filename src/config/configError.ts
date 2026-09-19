@@ -6,6 +6,7 @@
  */
 
 import type { FileConfig } from './configFile.js';
+import type { SkillEntry } from '../skill/skill.js';
 import { OmniError, ErrorCode } from '../omniError.js';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -169,13 +170,38 @@ export class ConfigError extends OmniError {
       }
     }
   }
+
+  /**
+   * 校验 `skills`（受种技能池）：数组，每项含非空 name/description/instructions，可选 tags。
+   *
+   * 规则与 `--skills <file.json>` 共用 {@link normalizeSkillEntries}——两个入口一份校验，
+   * 避免「文件能写、CLI 报错」这类因入口不同而分叉的判定。
+   *
+   * @param {FileConfig} cfg - cfg
+   * @returns {void} - result
+   */
+  public static validateSkills(cfg: FileConfig): void {
+    const skills = (cfg as Record<string, unknown>).skills;
+    if (skills === undefined) {
+      return;
+    }
+    // 校验与**归一化**一并落地（写回 cfg），而不是只校验不落地：
+    // 配置里写 `name: " a "` 若只校验不裁剪，会通过校验却在 `SkillRegistry.match()` 里永远命中不了
+    // ——技能名对不上文本，症状是「配了但从不生效」，属最难查的静默失效。
+    // 归一化同时丢弃莫尔/固化等运行时字段（见 `SkillEntry`），避免配置伪造涌现/固化来源。
+    (cfg as Record<string, unknown>).skills = normalizeSkillEntries(skills, 'omniharness.json');
+  }
 }
 
 /** 标准配置项及其允许值集合（用于枚举校验与未知 key 拦截）。 */
 const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   modelAdapter: ['mock', 'openai', 'anthropic', 'responses'],
   storageAdapter: ['memory', 'jsonl', 'sqlite'],
-  approval: ['auto', 'deny', 'rules', 'guardian', 'ask'],
+  // 'plan' 是只读规划模式（写类工具一律拒绝）：`--approval plan` 与 `FileConfig.approval` 早已支持，
+  // 且运行时确有处理（cliBuildConfig 的 planMode 分支、agentRuntimeHost 的 'plan' 覆盖），
+  // 但**校验白名单漏了它** ⇒ 配置文件里写 "approval": "plan" 会被判非法（声明支持、校验拒绝）。
+  // 2026-09-19 修正：与 CLI 枚举（cliEnums.APPROVALS）和 FileConfig 类型三处对齐。
+  approval: ['auto', 'deny', 'rules', 'guardian', 'ask', 'plan'],
   // 推理强度档位是厂商相关的（#B6 扩展，2026-09-08）：DeepSeek 7 档 / OpenAI 5 档 / Anthropic 空。
   // 此处列并集作为"全局合法值"，保证用户在不同厂商切换时旧配置不爆 configLayer；
   // 具体厂商的合法值由 openaiCompatibleModel.bodyOf 在拼 wire 时再次校验，
@@ -230,6 +256,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'permission',
   'evolutionRlvr',
   'a2a',
+  'skills',
 ]);
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
@@ -370,6 +397,7 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   ConfigError.validateWorkspaces,
   ConfigError.validateModelRouter,
   ConfigError.validateProviderKeys,
+  ConfigError.validateSkills,
   // permission 段（A2）：校验逻辑在独立类内（避免本文件越「一文件一类」红线），
   // 此处以箭头注册项接入——抛出统一以 ConfigError 表达，保证 fail-closed 语义一致。
   (cfg: FileConfig): void => {
@@ -379,6 +407,97 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
     }
   },
 ];
+
+/**
+ * 校验并归一化「声明式技能子集」（配置文件 `skills` 与 CLI `--skills <file.json>` 共用同一份规则）。
+ *
+ * 为什么必须共用：技能会**注入系统提示**（影响模型行为），所以每条技能都要求
+ * `name` / `description` / `instructions` 三件齐全且非空；只写 name 的「空技能」会静默命中
+ * 却不注入任何内容，属最难查的配置错误。同一来源内重名直接拒绝——`SkillRegistry.register`
+ * 遇重名会抛「技能重复注册」，那是**装配期**的错，报错点离配置文件很远。
+ *
+ * @param raw 原始值（来自 JSON：数组或 `{ skills: [...] }`）。
+ * @param source 诊断用的来源标识（如 `omniharness.json` 或 `--skills <path>`）。
+ * @returns 规范化后的技能子集（`tags` 缺省不写入；未声明的运行时字段一律丢弃）。
+ * @throws ConfigError 结构/字段/重名任一不合法（fail-closed，绝不半途放行）
+ */
+export function normalizeSkillEntries(raw: unknown, source: string): readonly SkillEntry[] {
+  const list =
+    raw !== null && typeof raw === 'object' && !Array.isArray(raw) && 'skills' in raw
+      ? (raw as { skills?: unknown }).skills
+      : raw;
+  if (list === undefined) {
+    return [];
+  }
+  if (!Array.isArray(list)) {
+    throw new ConfigError(
+      `${source}: skills 必须是数组（每项含 name/description/instructions，可选 tags）`,
+    );
+  }
+  const out: SkillEntry[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < list.length; i += 1) {
+    const entry = list[i];
+    const where = `${source}: skills[${i}]`;
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new ConfigError(`${where} 必须是对象（含 name/description/instructions）`);
+    }
+    const obj = entry as Record<string, unknown>;
+    const name = requiredText(obj['name'], `${where}.name`);
+    const description = requiredText(obj['description'], `${where}.description`);
+    const instructions = requiredText(obj['instructions'], `${where}.instructions`);
+    const tags = readTags(obj['tags'], `${where}.tags`);
+    if (seen.has(name)) {
+      throw new ConfigError(`${source}: 技能重名 "${name}"（同一来源内不允许重复定义）`);
+    }
+    seen.add(name);
+    out.push(
+      tags === undefined
+        ? { name, description, instructions }
+        : {
+            name,
+            description,
+            instructions,
+            tags,
+          },
+    );
+  }
+  return out;
+}
+
+/**
+ * 取必填非空字符串字段。
+ *
+ * @param value 原始值。
+ * @param where 诊断位置（如 `skills[0].name`）。
+ * @returns 去空白后的文本。
+ * @throws ConfigError 缺失/非字符串/全空白
+ */
+function requiredText(value: unknown, where: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new ConfigError(`${where} 必须是非空字符串`);
+  }
+  return value.trim();
+}
+
+/**
+ * 读取可选 `tags`（字符串数组，逐项去空白；空串项被丢弃）。
+ *
+ * @param value 原始值（undefined 表示未声明）。
+ * @param where 诊断位置。
+ * @returns 非空标签数组；未声明或全为空串时返回 undefined（不写入该键）。
+ * @throws ConfigError 非数组或含非字符串项
+ */
+function readTags(value: unknown, where: string): readonly string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value) || value.some((tag) => typeof tag !== 'string')) {
+    throw new ConfigError(`${where} 必须是字符串数组`);
+  }
+  const tags = (value as readonly string[]).map((tag) => tag.trim()).filter((tag) => tag !== '');
+  return tags.length > 0 ? tags : undefined;
+}
 
 /**
  * 严格校验已归一化配置的类型与枚举（未知 key 已在 normalize 阶段拦截）。

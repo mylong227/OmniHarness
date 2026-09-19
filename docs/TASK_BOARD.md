@@ -923,14 +923,14 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 ### 15.4 待办与边界（本轮未闭环，如实登记）
 
-| 项                               | 现状                                                                                                                                                                                                                             | 下一步                                                                                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 官方基准满分口径                 | 子集口径（SWE-bench Verified 33/25）与**自研套件 live 出数**均已有（见 15.3）。**更正**：`eval:ci` 本身零 key（scripted）、已实测 exit 0，不需授权；需要额度的是默认任务集/`--suite` 的 live 路径（已授权跑过）与官方 500 题口径 | 官方 500 题需另行确认预算与时长（按本轮实测：12 任务 ≈ 88.6 万 token；500 题量级 ≈ 数亿 token）                                           |
-| OS 沙箱真机证据                  | 实现齐全（landlock/unshare/bwrap/seatbelt + PTY），但本机 Windows 只能真跑 RestrictedToken；其余在 `doctor` 能力表里按实打印为不可达                                                                                             | 由 CI matrix（Linux/macOS）出证据                                                                                                         |
-| Terminal-Bench 环境保真度        | gold 仅 3/20 通过（3 例 envError）⇒ 原生后端（uv 现场重建）与官方预建镜像差距明显                                                                                                                                                | 需按仓库语义补环境契约或接受「只作本地对照、不出官方分」                                                                                  |
-| `skills` 的配置文件/CLI 输入通道 | 库级（`ConfigFactory` 编程入口 + 服务端 `options.skills`）已完整接线；配置文件与 CLI 尚无输入通道                                                                                                                                | 属功能缺口（非断链）；需要时补 FileConfig/KNOWN_KEYS/校验/文档                                                                            |
-| 多供应商原生适配                 | Gemini/Bedrock 无原生适配器（Gemini 可经 OpenAI 兼容端点接入，需文档化）                                                                                                                                                         | 视需求决定是否补适配器                                                                                                                    |
-| 国内镜像不提供 `npm audit` 端点  | `registry.npmmirror.com/-/npm/v1/security/*` 返回 `NOT_IMPLEMENTED` ⇒ 用镜像跑这一步**测不了**（不是「无漏洞」，是「无法判定」）                                                                                                 | CI 的 audit 步须显式指官方源；本机实测 `npm audit --audit-level=high --registry=https://registry.npmjs.org` ⇒ **found 0 vulnerabilities** |
+| 项                                       | 现状                                                                                                                                                                                                                             | 下一步                                                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 官方基准满分口径                         | 子集口径（SWE-bench Verified 33/25）与**自研套件 live 出数**均已有（见 15.3）。**更正**：`eval:ci` 本身零 key（scripted）、已实测 exit 0，不需授权；需要额度的是默认任务集/`--suite` 的 live 路径（已授权跑过）与官方 500 题口径 | 官方 500 题需另行确认预算与时长（按本轮实测：12 任务 ≈ 88.6 万 token；500 题量级 ≈ 数亿 token）                                           |
+| OS 沙箱真机证据                          | 实现齐全（landlock/unshare/bwrap/seatbelt + PTY），但本机 Windows 只能真跑 RestrictedToken；其余在 `doctor` 能力表里按实打印为不可达                                                                                             | 由 CI matrix（Linux/macOS）出证据                                                                                                         |
+| Terminal-Bench 环境保真度                | gold 仅 3/20 通过（3 例 envError）⇒ 原生后端（uv 现场重建）与官方预建镜像差距明显                                                                                                                                                | 需按仓库语义补环境契约或接受「只作本地对照、不出官方分」                                                                                  |
+| `skills` 输入通道（**已闭环，见 15.6**） | 原先只有编程入口；现已补配置文件 `skills` 内联数组 + `--skills <file.json>`（可重复），并修掉更深的「受种技能从不注入」缺陷                                                                                                      | 已完成（2026-09-19）                                                                                                                      |
+| 多供应商原生适配                         | Gemini/Bedrock 无原生适配器（Gemini 可经 OpenAI 兼容端点接入，需文档化）                                                                                                                                                         | 视需求决定是否补适配器                                                                                                                    |
+| 国内镜像不提供 `npm audit` 端点          | `registry.npmmirror.com/-/npm/v1/security/*` 返回 `NOT_IMPLEMENTED` ⇒ 用镜像跑这一步**测不了**（不是「无漏洞」，是「无法判定」）                                                                                                 | CI 的 audit 步须显式指官方源；本机实测 `npm audit --audit-level=high --registry=https://registry.npmjs.org` ⇒ **found 0 vulnerabilities** |
 
 ### 15.5 全量门禁实测（2026-09-19，本机）
 
@@ -957,3 +957,38 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 | 入口可达性（检测器 v4）                                                                      | ✅ src **553 文件 / 不可达 0**（其中只被单测引用 0）                                                                    |
 
 > 说明：未跑的只剩两类，且都源于**授权或平台**而非缺陷：① 官方 500 题满分口径（按本轮实测 12 题 ≈ 88.6 万 token，500 题量级为「数亿 token」，需另定预算与时长）；② OS 沙箱除 Windows RestrictedToken 外的真机证据需 Linux/macOS 的 CI matrix。**更正**：`eval:ci` 是零 key（scripted）门禁、不需要授权，已实测 exit 0；自研套件的 live 真模型出数见 §15.3 末三行。
+
+### 15.6 受种技能通道收口（`skills`：配置文件 + `--skills`）+ 沿线暴露的两处真缺陷
+
+用户指令：「完成 skills」。本笔把「声明式技能包」从**只有编程入口**补成可用能力，并修掉沿线查出的两处缺陷。
+
+**一、输入通道（两条，用同一份校验）**
+
+- 配置文件：`omniharness.json` 的 `skills: [...]`（`FileConfig` + `KNOWN_KEYS` + `FIELD_VALIDATORS` 三处登记）。
+- CLI：`--skills <file.json>`（可重复；文件为数组或 `{"skills": [...]}`），`CliSkillFlags.resolve` 合并两条来源，
+  **同名以旗标为准**（技能注册表对重名直接抛错，故此处显式去重）。
+- 装配：`argParser.configDefaults`（file→CLI）→ `CliBuildConfig`（CLI→partial）→ `ConfigFactory`（`assembleSkillStack` → `SkillRegistry`）。
+- 校验 fail-closed 且**带位置**：非数组 / 单项非对象 / `name|description|instructions` 缺失或全空白 / `tags` 非字符串数组 /
+  同源重名 / 文件读不到 / JSON 非法，一律报错并指出 `omniharness.json: skills[0].xxx` 或 `--skills <path>: ...`。
+- 只收**声明式子集**（`SkillEntry = Pick<Skill,'name'|'description'|'instructions'|'tags'>`）：莫尔组合/相变固化等
+  运行时字段不能由配置注入（否则等于让配置伪造「这技能是涌现/固化来的」，越过准入门禁）。
+- 归一化**落地写回**（不只是校验）：`name: " a "` 会被裁剪——否则校验通过却永远 `match()` 不中，症状是「配了但从不生效」。
+
+**二、沿线查出的两处真缺陷（都在「受种技能」这条链上）**
+
+| #   | 缺陷                                                                                                                                                                                                                                                  | 证据                                                                                                                                                                 | 修法                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| S1  | **受种技能从不注入**：`Agent` 的技能注册表是可选第 2 参数，而 11 个 `new Agent(runtime)` 生产调用点里**只有 1 个**（server 的 `agentRuntimeHost`）传了它 ⇒ CLI / 子代理 / 工作流 / eval 全部路径上，配置文件与 CLI 受种的技能**永不进上下文**         | 修前真机 CLI：`--skills` 与配置文件两条通道都只看到 user 事件，无 `# 技能：…`；修后同一个真机命令输出 `"content":"# 技能：tmp-skill\nTMP-SKILL-INSTRUCTIONS-MARKER"` | `Agent` 构造函数缺省取**运行时组合根那一份**（`runtime.config.skillRegistry`），任何新增调用点都不会再漏 |
+| S2  | `approval: "plan"` 被**校验白名单拒绝**（`ENUM_VALUES.approval` 漏了 `'plan'`），而 CLI 枚举、`FileConfig` 类型与运行时（`cliBuildConfig` 的 planMode 分支、`agentRuntimeHost` 的 `'plan'` 覆盖）都支持它 ⇒ 配置文件写 `"approval":"plan"` 直接报非法 | 三处枚举对齐后 `normalizeConfig({approval:'plan'})` 通过                                                                                                             | 白名单补 `'plan'`（与 `cliEnums.APPROVALS`、`FileConfig.approval` 三处对齐），并加回归用例               |
+
+**三、验证**
+
+- 新增 `tests/unit/configSkillsWiring.test.ts` **11/11**：文件校验与映射、旗标解析（取值不被吞成 prompt）、合并语义（旗标优先）、
+  两种文件形态、7 类非法输入各自的报错位置、端到端（`ConfigFactory.build` → `skillRegistry`；真 Agent 命中即注入 system 事件 / 未命中零注入）、
+  `approval:'plan'` 回归。
+- **真机 CLI 双通道实测**（`--model-adapter mock`，看会话事件流）：
+  `--skills .omniharness/skillcheck/skills.json "请用 tmp-skill 处理一下"` ⇒ 注入 `# 技能：tmp-skill` + 标记文本；
+  `--config .omniharness/skillcheck/omniharness.json "请用 cfg-skill 处理一下"` ⇒ 注入 `# 技能：cfg-skill` + 标记文本。
+- 门禁：`check.mjs --strict` 554 文件零违规、`audit:config-wiring` 554 文件全绿（I5a/I5b 通过：文件键→CLI→装配→运行时四段都通）、
+  `format:check` 通过、`typecheck`/`build` exit 0；全量单测与覆盖率见 §15.5 同口径复跑。
+- 文档：`omniharness.json.example` 补 `skills` 示例；`docs/integration.md` §6 补「受种技能（skills）」小节（两条通道、合并语义、fail-closed 规则）。
