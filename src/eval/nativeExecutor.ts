@@ -8,7 +8,9 @@
  *
  * 保真度边界（诚实声明）：env 由「仓库自述 + uv 重建」而来，**不等同**官方 Docker 镜像（官方用预建
  * conda 镜像）。用于本地迭代/小批量自测；官方 apples-to-apples 分数建议官方 harness。本实现 fail-closed：
- * 任何设施缺失/异常都返回 resolved=false 并写明原因，绝不静默假绿。
+ * 任何设施缺失/异常都返回 resolved=false 并写明原因（环境构建失败额外标 `envError`，与模型未解出区分、
+ * 不计入 resolved 率分母、可单独重试）；绝不静默假绿。依赖安装带有限重试+退避，缓解实时网络抖动导致的
+ * 评测不可复现。
  *
  * @maturity L1 — 判据：best-effort 复现链路（worktree 隔离 + uv venv + 应用补丁 + pytest 判定）已
  *   落地并通过 fail-closed 单测；真实 500 题出分受限于本沙箱无网络（无法克隆/pip），须你侧具备
@@ -25,6 +27,13 @@ import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerif
 import { PythonVersionResolver } from './pythonVersionResolver.js';
 import { PytestVerdict } from './pytestVerdict.js';
 import { PythonEnvPlan } from './pythonEnvPlan.js';
+
+/**
+ * 环境构建失败哨兵前缀：{@link NativeExecutor.setupEnv} 校验到 pytest 未装入 venv 时抛出的错误以本
+ * 前缀开头，{@link NativeExecutor.run} 据此前缀把该实例标记为 `envError`（区别于模型未解出），便于
+ * 单独重试、且不污染 resolved 率。
+ */
+const ENV_BUILD_FAILED = 'ENV_BUILD_FAILED:';
 
 /** 候选补丁的验证结果。 */
 export interface ScoreResult {
@@ -181,7 +190,13 @@ export class NativeExecutor implements ExecutorPort {
       const passToPassOk = task.passToPass.every((id) => passed.get(id) === true);
       return { id: task.id, resolved: failToPassOk && passToPassOk, backend: this.kind };
     } catch (error) {
-      return this.fail(task.id, `原生执行异常: ${this.msg(error)}`);
+      const msg = this.msg(error);
+      // 环境构建失败（pytest 未装入 venv）与「模型未解出/执行异常」严格区分：前者是执行设施缺失，
+      // 该实例未进入 pytest 判定，标 envError 以便单独重试、且不污染 resolved 率分母。
+      if (msg.startsWith(ENV_BUILD_FAILED)) {
+        return { id: task.id, resolved: false, backend: this.kind, envError: true, reason: msg };
+      }
+      return this.fail(task.id, `原生执行异常: ${msg}`);
     } finally {
       if (!this.keepWorktree) {
         await this.withRepoLock(task.repo, () => this.removeWorktree(cacheDir, worktree));
@@ -402,6 +417,14 @@ export class NativeExecutor implements ExecutorPort {
     for (const step of steps) {
       await this.tryUvInstall(worktree, step.args);
     }
+    // 环境构建后校验 pytest 真装入 venv：best-effort 安装在实时网络/pypi 镜像抖动下可能全盘失败，
+    // 若继续跑 pytest 会把「环境故障」误记为「模型未解出」。显式抛出 ENV_BUILD_FAILED 交由 run() 标记为
+    // envError，与模型失败区分、且不计入 resolved 率分母（可单独重试）。重试仍装不上才到此。
+    if (!this.venvHasModule(worktree, 'pytest')) {
+      throw new Error(
+        `${ENV_BUILD_FAILED}pytest 未能装入 venv（依赖安装失败，疑实时网络/pypi 镜像不可达）`,
+      );
+    }
   }
 
   /**
@@ -421,21 +444,33 @@ export class NativeExecutor implements ExecutorPort {
   }
 
   /**
-   * best-effort 安装（失败不阻断：部分仓库装不全仍可跑部分测试）。
+   * best-effort 安装（失败不阻断：部分仓库装不全仍可跑部分测试）。**带有限重试+线性退避**：实时网络/
+   * pypi 镜像偶发抖动时自动自愈，避免把「瞬时装不上」误记为「模型未解出」。
    * @param worktree worktree 路径。
    * @param args `uv pip install` 的参数（如 `['-e', '.']` 或 `['-r', 'requirements/tests.txt']`）。
    * @returns 无。
    */
   private async tryUvInstall(worktree: string, args: readonly string[]): Promise<void> {
-    try {
-      await SwebenchVerified.execFileAsync(
-        'uv',
-        ['pip', 'install', '--python', this.venvPythonPath(worktree), ...args],
-        worktree,
-      );
-    } catch {
-      // best-effort：忽略安装失败，继续尝试 pytest
+    const MAX_ATTEMPTS = 3;
+    let lastErr: unknown = undefined;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        await SwebenchVerified.execFileAsync(
+          'uv',
+          ['pip', 'install', '--python', this.venvPythonPath(worktree), ...args],
+          worktree,
+        );
+        return;
+      } catch (error) {
+        lastErr = error;
+        if (attempt < MAX_ATTEMPTS) {
+          // 退避：第 1 次失败等 1s、第 2 次等 2s 再重试（网络抖动多可自恢复）。
+          await new Promise<void>((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
+    // best-effort：忽略安装失败，交给 setupEnv 末尾的 pytest 校验兜底（区分环境失败与模型失败）。
+    void lastErr;
   }
 
   /**

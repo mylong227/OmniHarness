@@ -192,6 +192,7 @@ function buildVerifiedReport(jsonlPath, backend, subsetSize, subsetIds) {
     }
   }
   const resolved = records.filter((r) => r.resolved === true).length;
+  const envErrors = records.filter((r) => r.envError === true).length;
   return {
     source: 'official-swebench-verified',
     backend,
@@ -199,7 +200,8 @@ function buildVerifiedReport(jsonlPath, backend, subsetSize, subsetIds) {
       subsetIds !== undefined ? `${subsetSize}/500 子集口径（非官方满分口径）` : undefined,
     total: records.length,
     resolved,
-    failed: records.length - resolved,
+    failed: records.length - resolved - envErrors,
+    envErrors,
     results: records,
     totalDurationMs: 0,
     generatedAt: new Date().toISOString(),
