@@ -168,14 +168,25 @@ function resolveConfig() {
   return { apiKey, baseUrl: resolvedBaseUrl, model };
 }
 
-/** 构造一个「测试须变绿」修复任务。 */
+/**
+ * 构造一个「测试须变绿」修复任务。
+ *
+ * 参数次序（与本文件 10 个调用点一致）：`(id, description, srcFile, buggySrc, testSrc, marker)`，
+ * 其中 `testSrc` 是**测试文件的内容**，测试文件名统一取 `test.mjs`（与 `reverse-string` 任务同约定）。
+ *
+ * 为什么要点明这一点：原实现把第 5 个参数**同时**当文件名与文件内容用
+ * （`seedFiles: { [srcFile]: buggySrc, [testSrc]: testSrc }`、`run.cmd = 'node <测试源码>'`）——
+ * 于是生成阶段拿**测试源码当目录名**去 `mkdir`，live 路径必然 `ENOENT`。这个错误长期没暴露，
+ * 因为 CI 里跑的一直是零 key 的 `--swebench` scripted 路径，根本不经过 `fixTask`。
+ */
 function fixTask(id, description, srcFile, buggySrc, testSrc, marker) {
+  const testFile = 'test.mjs';
   return {
     id,
     description,
-    prompt: `工作区的 ${srcFile} 有 bug 或缺失实现，导致其单元测试 ${testSrc} 失败。请阅读并修复 ${srcFile}，使 \`node ${testSrc}\` 以退出码 0 通过。只改 ${srcFile}，不要改测试。`,
-    seedFiles: { [srcFile]: buggySrc, [testSrc]: testSrc },
-    expect: { files: { [srcFile]: marker }, run: { cmd: `node ${testSrc}` } },
+    prompt: `工作区的 ${srcFile} 有 bug 或缺失实现，导致其单元测试 ${testFile} 失败。请阅读并修复 ${srcFile}，使 \`node ${testFile}\` 以退出码 0 通过。只改 ${srcFile}，不要改测试。`,
+    seedFiles: { [srcFile]: buggySrc, [testFile]: testSrc },
+    expect: { files: { [srcFile]: marker }, run: { cmd: `node ${testFile}` } },
   };
 }
 
@@ -367,19 +378,25 @@ async function main() {
   }
 
   // live 模型仅在非 SWE-bench 模式需要（SWE-bench 用 ScriptedModel replay，零 key）。
-  let model;
-  if (!useSwebench && swebenchRemote === undefined) {
-    const cfg = resolveConfig();
-    if (cfg.error) {
-      console.error(cfg.error);
-      process.exit(1);
-    }
-    model = new OpenAiCompatibleModel({
-      baseUrl: cfg.baseUrl,
-      apiKey: cfg.apiKey,
-      model: cfg.model,
-    });
+  //
+  // 注意：`cfg` 必须声明在**外层作用域**。原先它声明在 if 块内，而下面的模型/端点标签行使三元读
+  // `cfg.model` / `cfg.baseUrl`——scripted 路径因三元**短路**永不求值，所以这个 ReferenceError
+  // 只在真正的 live 路径上炸（`node evals/live/bench.mjs` 直接 `ReferenceError: cfg is not defined`），
+  // 长期没暴露：CI 里跑的一直是零 key 的 scripted 子集。
+  const liveMode = !useSwebench && swebenchRemote === undefined;
+  const cfg = liveMode ? resolveConfig() : undefined;
+  if (cfg !== undefined && cfg.error) {
+    console.error(cfg.error);
+    process.exit(1);
   }
+  const model =
+    cfg === undefined
+      ? undefined
+      : new OpenAiCompatibleModel({
+          baseUrl: cfg.baseUrl,
+          apiKey: cfg.apiKey,
+          model: cfg.model,
+        });
 
   const repeat = Math.max(1, Math.floor(numFlag('--repeat', 1)));
   const passKTarget = Math.max(1, Math.floor(numFlag('--pass-k', 1)));
@@ -401,9 +418,8 @@ async function main() {
   // T4.2：反漂移检测器跨任务共享（同一工作区被反复改同一文件才是要抓的信号）。
   const driftDetector = new EditDriftDetector();
 
-  const modelLabel =
-    useSwebench || swebenchRemote !== undefined ? 'scripted(SWE-bench 零 key)' : cfg.model;
-  const endpointLabel = useSwebench || swebenchRemote !== undefined ? 'n/a' : cfg.baseUrl;
+  const modelLabel = liveMode ? cfg.model : 'scripted(SWE-bench 零 key)';
+  const endpointLabel = liveMode ? cfg.baseUrl : 'n/a';
   console.log(`=== OmniHarness Live 跑分 (U5 规模化) ===`);
   console.log(
     `模型: ${modelLabel} 端点: ${endpointLabel} 任务数: ${tasks.length} 每任务采样: ${repeat}\n`,
