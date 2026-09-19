@@ -1,21 +1,23 @@
-# 挂起项更优解调研（B1 / B3 / F4）
+# 挂起项更优解调研（B1 / B2 / B3 / F4）
 
 > 问题：B1 官方 SWE-bench Verified 子集（须本机 docker + HF 数据集 / 或云 Modal）、
+> B2 Terminal-Bench（须 docker 跑任务容器）、
 > B3 Linux/macOS 真机、F4 keycloak 容器——是否存在**不依赖这些外部设施、
 > 直接验证且保真度一致或更高、效率更优**的开源替代路径？
 >
-> 结论：**B3 与 F4 已在仓库内用零依赖更优解落地结项**；**B1 官方 500 Verified 的真实接线已落地
+> 结论：**B2、B3 与 F4 已在仓库内用零依赖更优解落地结项**；**B1 官方 500 Verified 的真实接线已落地
 > （`src/eval/swebenchVerified.ts` + `src/eval/nativeExecutor.ts` + `capability_swebench.mjs --verified`，
 > 原生本地执行器 fail-closed），免 Docker、免云、code-ready + turnkey**；执行须你侧具备
 > git + uv + 网络（本地克隆仓库 + pip 安装 + pytest 判定）。
 
 ## 一、结论摘要
 
-| 挂起项                   | 原方案（外部依赖）         | 更优解                                                                                                      | 保真度                                                | 效率                   | 状态                                                                  |
-| ------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------- | --------------------------------------------------------------------- |
-| **B3** 跨平台真机        | 自购/自管 Linux·macOS 硬件 | GitHub Actions `matrix.os: [ubuntu/macos/windows-latest]`                                                   | 一致（真实内核）                                      | 更高（零硬件筹备）     | ✅ 已落地 `ci.yml`                                                    |
-| **F4** OIDC 真机         | 起 keycloak 容器（docker） | 零依赖本地 IdP 夹具（`node:crypto` 真实 RS256 + 真实 HTTP）                                                 | 等价（真实 JWT+JWKS）                                 | 更高（毫秒级·零容器）  | ✅ 已落地 `tests/integration/oidcFixture.ts`                          |
-| **B1** 官方 500 Verified | 本机 docker + 云(Modal)    | `src/eval/nativeExecutor.ts` + `--verified`（git worktree + uv venv + pytest，免 Docker/免云，fail-closed） | best-effort（env 由 repo 自述 + uv 重建，非官方镜像） | 本地直接跑，零容器启动 | ✅ 接线落地（原生执行器，免 Docker/免云）+turnkey；执行待 git+uv+网络 |
+| 挂起项                   | 原方案（外部依赖）         | 更优解                                                                                                      | 保真度                                                  | 效率                      | 状态                                                                             |
+| ------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| **B3** 跨平台真机        | 自购/自管 Linux·macOS 硬件 | GitHub Actions `matrix.os: [ubuntu/macos/windows-latest]`                                                   | 一致（真实内核）                                        | 更高（零硬件筹备）        | ✅ 已落地 `ci.yml`                                                               |
+| **F4** OIDC 真机         | 起 keycloak 容器（docker） | 零依赖本地 IdP 夹具（`node:crypto` 真实 RS256 + 真实 HTTP）                                                 | 等价（真实 JWT+JWKS）                                   | 更高（毫秒级·零容器）     | ✅ 已落地 `tests/integration/oidcFixture.ts`                                     |
+| **B1** 官方 500 Verified | 本机 docker + 云(Modal)    | `src/eval/nativeExecutor.ts` + `--verified`（git worktree + uv venv + pytest，免 Docker/免云，fail-closed） | best-effort（env 由 repo 自述 + uv 重建，非官方镜像）   | 本地直接跑，零容器启动    | ✅ 接线落地（原生执行器，免 Docker/免云）+turnkey；执行待 git+uv+网络            |
+| **B2** Terminal-Bench    | 本机 docker 跑任务容器     | `env.json`（容器无关环境契约）+ 宿主 `uv venv/pip`（免 Docker，`dockerfileReader.ts` 已删除）               | best-effort（原生不装系统包、不重放构建步骤，逐条告警） | 更高（无镜像拉取/层解压） | ✅ 已落地（2026-09-19，见 `roadmap.md` 阶段 38 / `TASK_BOARD.md` §12）；出数待跑 |
 
 **决策原则（给未来挂起项）**：当某验证被「容器 / 自管硬件 / 本机数据集 / 云凭证」阻塞时，
 优先找三类替代——**托管 CI runner**（B3）、**进程内真实实现**（F4）、
