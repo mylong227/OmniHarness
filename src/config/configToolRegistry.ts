@@ -312,7 +312,12 @@ export function demoWorkers(): WorkerRegistry {
   return registry;
 }
 
-/** 默认工具端口：内置 20 工具（含 run_code/delegate/spill_read/subagent + #77 的 todo/ask_user/plan 三组 + #M1 的 tool_search + #M2 的 memory_search + 2026-09-19 编码闭环三件 edit/grep/glob）+ 自定义工具。
+/**
+ * 默认工具端口：条目由 {@link ConfigToolRegistry.registerCoreTools}（文件读写/检索/执行/委派）、
+ * {@link ConfigToolRegistry.registerAgentTools}（子代理/目标/工作流/待办/提问/计划/检索发现）、
+ * {@link ConfigToolRegistry.registerAuxiliaryTools}（记忆、预算、LSP、身份、策略，**按注入端口条件注册**）
+ * 三处汇总而成，故不写死总数——总数随 `longTerm`/`costBudget`/`lsp`/`identity` 是否为 undefined 而变
+ * （实测：未注入这些端口时 28 个，注入 LSP 后 33 个）。另可经 `extraTools` 追加自定义工具。
  * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。
  * `selfVerify` 非空时（P3，opt-in）额外包装自验证回环装饰器：写源码后可自动跑受限测试并回灌失败摘要。 */
 export function defaultTools(
