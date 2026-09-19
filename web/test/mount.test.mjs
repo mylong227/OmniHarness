@@ -136,19 +136,18 @@ test('ContextCapacityPanel：容量面板 title/aria 契约 + 注入用量不抛
 
 test('PermissionPicker：档位标签映射与 aria 契约（rules→默认）', () => {
   const seen = [];
-  const picker = new PermissionPicker({
+  const vnode = renderOf(PermissionPicker, {
     permission: 'rules',
     onPick: (v) => seen.push(v),
     api: {},
   });
-  const vnode = picker.render();
   assert.strictEqual(vnode.props['aria-label'], 'AI 权限等级');
   assert.match(texts(vnode).join(''), /默认/);
   assert.strictEqual(seen.length, 0, '未交互不触发 onPick');
 });
 
 test('TreeNode：文件树节点渲染名称并保留展开回调（零 DOM 依赖）', () => {
-  const node = new TreeNode({
+  const vnode = renderOf(TreeNode, {
     node: {
       name: 'src',
       path: 'src',
@@ -158,10 +157,8 @@ test('TreeNode：文件树节点渲染名称并保留展开回调（零 DOM 依�
         { name: 'b.ts', path: 'src/b.ts', kind: 'file' },
       ],
     },
-    depth: 0,
     onOpenFile: () => {},
   });
-  const vnode = node.render();
   const t = texts(vnode).join('\n');
   assert.match(t, /src/, '节点必须渲染名称');
 });
@@ -185,8 +182,7 @@ function collect(vnode, pred, out = []) {
 const isTag = (name) => (n) => n.type === name;
 
 test('NavRail：aria-current 唯一落在当前面板，图标装饰对辅助技术隐藏', () => {
-  const rail = new NavRail({ activePane: 'memory', onSelect: () => {} });
-  const vnode = rail.render();
+  const vnode = renderOf(NavRail, { activePane: 'memory', onSelect: () => {} });
   assert.strictEqual(vnode.props['aria-label'], '主导航');
   const btns = collect(vnode, isTag('button'));
   assert.strictEqual(btns.length, 9, '9 个导航项');
@@ -205,9 +201,8 @@ test('Toast：role=status + aria-live=polite + aria-atomic（异步提示不打�
 });
 
 test('WorkIndicator：role=status 播报动作，跳动计时 aria-hidden 防每秒打断', () => {
-  const wi = new WorkIndicator({ activeTool: 'shell' });
-  wi.state = { elapsed: 7 };
-  const vnode = wi.render();
+  // 函数组件：按 hook 序号预设 elapsed = 7（第 0 个 hook 即 useState(elapsed)）。
+  const vnode = renderOf(WorkIndicator, { activeTool: 'shell' }, { 0: 7 });
   assert.strictEqual(vnode.props.role, 'status');
   assert.strictEqual(vnode.props['aria-live'], 'polite');
   const hidden = collect(vnode, (n) => n.props['aria-hidden'] === 'true');
@@ -216,11 +211,10 @@ test('WorkIndicator：role=status 播报动作，跳动计时 aria-hidden 防每
 });
 
 test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚点存在', () => {
-  const modal = new ApprovalModal({
+  const vnode = renderOf(ApprovalModal, {
     approval: { requestId: 'r1', toolName: 'shell', target: 'rm -rf /', args: { cmd: 'rm -rf /' } },
     onRespond: () => {},
   });
-  const vnode = modal.render();
   const dialogs = collect(vnode, (n) => n.props.role === 'dialog');
   assert.strictEqual(dialogs.length, 1, '必须产出唯一 role=dialog 的模态框');
   assert.strictEqual(dialogs[0].props['aria-modal'], 'true');
@@ -229,8 +223,8 @@ test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚�
   assert.strictEqual(collect(vnode, (n) => n.props.id === 'ap-title').length, 1, 'labelledby 必须指向存在的元素');
   assert.strictEqual(collect(vnode, (n) => n.props.id === 'ap-desc').length, 1, 'describedby 必须指向存在的元素');
 
-  const idle = new ApprovalModal({ approval: null, onRespond: () => {} });
-  assert.strictEqual(collect(idle.render(), (n) => n.props.role === 'dialog').length, 0, '无请求时不得留可聚焦的对话框');
+  const idle = renderOf(ApprovalModal, { approval: null, onRespond: () => {} });
+  assert.strictEqual(collect(idle, (n) => n.props.role === 'dialog').length, 0, '无请求时不得留可聚焦的对话框');
 });
 
 test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完整 dialog 语义', () => {
