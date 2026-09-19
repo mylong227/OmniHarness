@@ -322,7 +322,12 @@ export function markdownRender(src: string): ReactElement {
       onClick: handleCodeblockCopyClick,
     });
   }
-  const html = getMd().render(text);
+  // 剥掉 markdown-it 的**块终止符**：其 render() 给每个块（含整篇末尾）都补一个 `\n`。
+  // 末尾那个 `\n` 在 DOM 里是一个真实文本节点，会进容器的 textContent —— 使「渲染出的文本」
+  // 比原文多一个换行（文本选中、复制、无障碍朗读都会带上），与「textContent == 原文」这一契约
+  // 不符（两条独立 e2e：D3 dump-DOM 与 E1 CDP，都是按该契约写的严格断言）。
+  // 只剥**末尾一个字符**，块内换行（如 fenced code 的源码）一概不受影响。
+  const html = getMd().render(text).replace(/\n$/, '');
   return React.createElement('div', {
     className: 'md-content',
     spellCheck: 'false',

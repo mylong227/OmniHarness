@@ -9,9 +9,21 @@
 //      Chrome 必须以**异步 spawn** 启动（同步 spawnSync 会锁死同进程的静态服务 → 双向死锁）。
 //      轮询收敛必须按次数而非墙钟时间（`--virtual-time-budget` 会加速页面内的 Date.now()）。
 //
-// 覆盖关键路径一条：**发任务 → 审批 → 流式 → 产物**。
+// 覆盖关键路径一条：**发任务 → 审批 → 流式 → 产物 → 回合收敛**。
 // 未找到浏览器时**显式 skip**（不伪装成通过）；可用 OMNI_CHROME_PATH 指定可执行文件。
 // 调试开关：OMNI_E2E_VERBOSE=1 打印浏览器 stderr 与诊断；OMNI_E2E_TIMEOUT_MS 覆盖单次浏览器超时。
+//
+// 两处易踩的坑（都曾让本用例长期红着，2026-09-19 定位）：
+//   ① 「流式文本合入」断言的是 `textContent` 严格相等。渲染走 markdown 管线时，markdown-it 的
+//      块级渲染器**恒定在末尾补一个 \n**；该 \n 在 DOM 里是一个真实文本节点，会进 textContent。
+//      这不是「测试期望错」也不是「渲染器错」，而是**产出未归一**——正解是在 markdownRender
+//      处剥掉这个块终止符（同时 .md-content 曾从 .content 继承 `white-space:pre-wrap`，
+//      把块间换行渲染成实打实的空行 ⇒ 一并修掉），**不是**把断言放宽成 trim（那会连同真实
+//      的空白缺陷一起放过）。
+//   ② 收敛判定必须**轮询到稳定态**再取样。`busy` 由 ComposerController 在 turns.run resolve
+//      之后才置回 false，而 assistant 事件是同一轮里更早到达的 ⇒ 「最终卡片出现」≠「回合已收敛」。
+//      早先直接在最后取样，会拿到「还在生成中」的中间态（停止按钮仍在），是**取样过早**而非缺陷。
+//      这里改为 until() 轮询「发送键回来且停止键消失」，把「回合收敛」本身变成一条显式断言。
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -184,11 +196,12 @@ function stubHtml() {
     "      .then(function(mounted){ if (!ok('app mounted', mounted)) throw new Error('app 未挂载'); ta = q('.composer-input textarea'); send = q('button.send'); ta.value = '给我写一个文件'; send.click(); return until(function(){ return RPC_CALLS.some(function(c){ return c.method === 'turns.run'; }); }, 600); })",
     "      .then(function(dispatched){ ok('turn dispatched', dispatched); return until(function(){ return SOURCES.length > 0; }, 400); })",
     "      .then(function(connected){ ok('sse connected', connected); push({ method:'thread.text_delta', params:{ text:'正在' } }); push({ method:'thread.text_delta', params:{ text:'分析…' } }); return until(function(){ return !!q('.streaming-assistant .content'); }, 400); })",
-    "      .then(function(shown){ ok('streaming card visible', shown); var c = q('.streaming-assistant .content'); ok('streaming text merged', c && c.textContent === '正在分析…'); push({ method:'approval.request', params:{ requestId:'r1', toolName:'shell', target:'rm -rf /tmp/x' } }); return until(function(){ return !!q('.overlay.show .modal[role=\"dialog\"]'); }, 400); })",
+    "      .then(function(shown){ ok('streaming card visible', shown); var c = q('.streaming-assistant .content'); DIAG.streamText = c ? c.textContent : null; DIAG.streamHtml = c ? c.innerHTML : null; ok('streaming text merged', c && c.textContent === '正在分析…'); push({ method:'approval.request', params:{ requestId:'r1', toolName:'shell', target:'rm -rf /tmp/x' } }); return until(function(){ return !!q('.overlay.show .modal[role=\"dialog\"]'); }, 400); })",
     "      .then(function(shown){ ok('approval modal visible', shown); var allow = q('.overlay.show .modal .allow'); ok('approval allow button', !!allow); if (allow) allow.click(); return until(function(){ return RPC_CALLS.some(function(c){ return c.method === 'approval.respond'; }); }, 400); })",
     "      .then(function(sent){ ok('approval responded', sent); push({ method:'thread.event', params:{ event:{ id:'e1', type:'tool_call', timestamp:1, payload:{ callId:'c1', name:'write_file', args:{ path:'src/demo.ts', content:'export const x = 1;' } } } } }); push({ method:'thread.event', params:{ event:{ id:'e2', type:'tool_result', timestamp:2, payload:{ callId:'c1', ok:true, text:'已写入 src/demo.ts' } } } }); return until(function(){ return !!q('.artifact-card .artifact-name'); }, 400); })",
     "      .then(function(shown){ ok('artifact card visible', shown); var n = q('.artifact-card .artifact-name'); ok('artifact name', n && n.textContent === 'demo.ts'); var href = q('.artifact-card .artifact-download'); ok('artifact download link', href && href.getAttribute('href') === '/files?path=src%2Fdemo.ts'); if (window.__RESOLVE_TURN__) window.__RESOLVE_TURN__({ threadId:'t-e2e', finalText:'', steps:1 }); push({ method:'thread.event', params:{ event:{ id:'e3', type:'assistant', timestamp:3, payload:{ content:'正在分析…' } } } }); return until(function(){ return !!q('.ev.assistant .card.assistant .content'); }, 400); })",
-    "      .then(function(shown){ ok('final assistant card', shown); });",
+    "      .then(function(shown){ ok('final assistant card', shown); return until(function(){ return !!q('.composer-input button.send') && !q('.composer-input button.stop'); }, 600); })",
+    "      .then(function(idle){ ok('composer idle after turn', idle); });",
     '  };',
     '  var finish = function(){',
     "    var root = document.getElementById('root');",
@@ -201,10 +214,12 @@ function stubHtml() {
     '        rpc: RPC_CALLS.map(function(c){ return c.method; }),',
     '        rootHtmlLen: root ? root.innerHTML.length : -1,',
     '        hasReact: typeof window.React,',
+    '        streamText: DIAG.streamText === undefined ? null : DIAG.streamText,',
+    '        streamHtml: DIAG.streamHtml === undefined ? null : DIAG.streamHtml,',
     '        selectorHits: {',
     "          composerTextarea: document.querySelectorAll('.composer-input textarea').length,",
     "          sendButton: document.querySelectorAll('button.send').length",
-    '        }',
+    '        },',
     '      }',
     '    };',
     "    var r = document.createElement('pre'); r.id = 'e2e-result';",
@@ -324,6 +339,7 @@ test('UI e2e：发任务 → 审批 → 流式 → 产物（headless 浏览器 +
       'approval responded',
       'artifact card visible',
       'final assistant card',
+      'composer idle after turn',
     ]) {
       assert.ok(names.includes(required), `缺少关键步骤：${required}`);
     }

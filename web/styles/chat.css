@@ -207,7 +207,12 @@ details.standalone summary { list-style:none; }
 details.standalone summary::-webkit-details-marker { display:none; }
 
 /* ---- Markdown 内容渲染（助手回复结构化，对标 WorkBuddy 会话风格） ---- */
-.md-content { line-height:1.7; }
+/* white-space 必须显式重置：`white-space` 是继承属性，而 .md-content 的宿主
+   `.content { white-space:pre-wrap }` 是为**旧纯文本渲染器**准备的。markdown 管线的产物是
+   HTML 结构，markdown-it 在块与块之间（以及整篇末尾）本来就会写入换行；若继承 pre-wrap，
+   这些换行会各自生成一个匿名行盒 ⇒ 每个块间隙多出一整行空白（实测单段回复高度 46px＝2 行，
+   正常应为 1 行 ≈23px）。旧渲染器走结构化元素、不含游离换行，故不受影响。 */
+.md-content { line-height:1.7; white-space:normal; }
 .md-content > * + * { margin-top:10px; }
 .md-content h3 { font-size:15px; font-weight:600; margin:16px 0 8px; color:var(--text); }
 .md-content h4 { font-size:14px; font-weight:600; margin:12px 0 6px; color:var(--text); }
