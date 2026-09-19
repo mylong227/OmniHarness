@@ -1,4 +1,5 @@
 import type { SessionEvent } from '../ports/runtime/event.js';
+import type { FileAttachment } from '../ports/model/model.js';
 import { eventFactory } from './eventFactory.js';
 
 /** 追加型事件日志：只能追加，不可修改（模型所见即所记）。 */
@@ -70,6 +71,7 @@ export class AppendOnlyEventLog {
    * @param ok 工具是否执行成功。
    * @param output 成功时的输出文本（可选）。
    * @param error 失败时的错误文本（可选）。
+   * @param files 工具产出的文件附件（可选，P2-⑬）。
    * @returns 构造并追加后的 tool_result 事件。
    */
   public appendToolResult(
@@ -78,8 +80,9 @@ export class AppendOnlyEventLog {
     ok: boolean,
     output?: string,
     error?: string,
+    files?: readonly FileAttachment[],
   ): SessionEvent {
-    return this.append(eventFactory.toolResult(sessionId, callId, ok, output, error));
+    return this.append(eventFactory.toolResult(sessionId, callId, ok, output, error, files));
   }
 
   /**

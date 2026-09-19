@@ -353,8 +353,13 @@ export class CliBuildConfig {
       native: args.native,
       planMode: args.planMode,
       promptInjectionGuard: args.promptInjectionGuard === true,
-      // （P3）自验证回环：CLI 只开关；预算取 SelfVerifyPolicy 默认（保守）。
-      selfVerify: args.selfVerify === true ? { enabled: true } : undefined,
+      // （P3→P1-⑨）自验证回环：**默认开启**（仍以"仓库有 package.json scripts.test"为前提，
+      // 由 SelfVerifyPolicy.forWorkspace 判定；无测试脚本的仓库自动不启用）。
+      // --no-self-verify 可显式关闭（`args.selfVerify === false`）。
+      // 注意：这里只开关；预算取 SelfVerifyPolicy 默认（保守：120s / 冷却 60s / 每会话 3 次）。
+      // 之所以在**生产入口**默认开而不是改 ConfigFactory：库级默认保持"不装配即零行为"，
+      // 单测与嵌入方不受影响（也避免 harness 跑自己的测试时递归触发 npm test）。
+      selfVerify: args.selfVerify === false ? { enabled: false } : { enabled: true },
       deferredTools: args.deferTools
         ?.split(',')
         .map((entry) => entry.trim())

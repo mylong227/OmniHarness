@@ -207,6 +207,12 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.selfVerify = true;
     return 0;
   },
+  // 自验证自 P1-⑨ 起**默认开启**（生产入口），故需要一个显式关闭开关；
+  // 两者都写同一个三态字段（undefined=默认开 / true=开 / false=关）。
+  '--no-self-verify': (a) => {
+    a.selfVerify = false;
+    return 0;
+  },
   '--memory-key-file': (a, argv, i) => {
     a.memoryKeyFile = CliFlagTable.valueOf(argv, i, '--memory-key-file');
     return 1;

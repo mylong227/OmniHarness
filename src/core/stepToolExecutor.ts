@@ -171,6 +171,7 @@ export class StepToolExecutor {
       annotated.ok,
       annotated.output,
       annotated.error,
+      result.files,
     );
     // I-P0-3：工具执行成败上报监督内核（native + JS 全路径共用此处，覆盖完整）。
     this.deps.supervisor?.report(toolName, annotated.ok ? 'success' : 'failure', annotated.error);

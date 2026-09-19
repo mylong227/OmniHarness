@@ -21,6 +21,8 @@ test('plan 模式：只读工具放行（read_file / list_dir / memory_search / 
     'todo_read',
     'budget_status',
     'web_search',
+    'web_fetch',
+    'view_image',
     'lsp_go_to_definition',
     'lsp_find_references',
     'lsp_hover',
@@ -39,7 +41,10 @@ test('plan 模式：可变工具一律拒绝（fail-closed 不漏网）', async 
   const plan = new PlanApproval();
   for (const tool of [
     'shell',
+    // 后台作业管理（P2-⑫）：能 kill 进程/启任意命令，与 shell 同级，plan 模式同样拒绝。
+    'shell_job',
     'write_file',
+    'edit',
     'apply_patch',
     'subagent',
     'rollback',

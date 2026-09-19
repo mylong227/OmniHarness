@@ -115,6 +115,30 @@ describe('shellTool 安全与资源护栏', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  it('失败摘要回灌堆栈帧位置候选（P1-⑩：直接给出文件:行）', async () => {
+    const dir = await makeWorkspace();
+    const tool = new ShellTool();
+    const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
+
+    const result = await tool.handle(call('echo src/foo.ts:42: AssertionError && exit 3'), ctx);
+
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error ?? '', /位置候选（文件:行）：src\/foo\.ts:42/);
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('无堆栈帧时不附位置候选（不制造假信号）', async () => {
+    const dir = await makeWorkspace();
+    const tool = new ShellTool();
+    const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
+
+    const result = await tool.handle(call('exit 3'), ctx);
+
+    assert.strictEqual(result.ok, false);
+    assert.doesNotMatch(result.error ?? '', /位置候选/);
+    await rm(dir, { recursive: true, force: true });
+  });
+
   it('enforce 策略下元字符注入用例被工具层拒绝（且不执行）', async () => {
     const dir = await makeWorkspace();
     const tool = new ShellTool({

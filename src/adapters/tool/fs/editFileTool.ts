@@ -7,6 +7,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { FileContentLedger } from './fileContentLedger.js';
 import { StringReplaceEditor } from './stringReplaceEditor.js';
 import type { StringReplaceOutcome } from './stringReplaceEditor.js';
 
@@ -56,8 +57,12 @@ export class EditFileTool {
 
   /**
    * @param workspaceRoot 工作区根目录（编辑目标必须落在其内，越界即拒绝）。
+   * @param ledger 内容账本（S1，可选）：写入前比对指纹，发现外部改动即拒绝改写。
    */
-  public constructor(private readonly workspaceRoot: string) {}
+  public constructor(
+    private readonly workspaceRoot: string,
+    private readonly ledger?: FileContentLedger,
+  ) {}
 
   /**
    * 执行内容替换。
@@ -83,6 +88,10 @@ export class EditFileTool {
     const absolute = resolve(this.workspaceRoot, relative);
     try {
       const original = await readFile(absolute, 'utf8');
+      // S1 冲突保护：账本有记录且磁盘内容已变 ⇒ 外部改过，先让模型重读再改。
+      if (this.ledger?.changedSince(absolute, original) === true) {
+        return { callId: call.id, ok: false, error: FileContentLedger.conflictMessage(relative) };
+      }
       const outcome = this.editor.replace(original, {
         oldText,
         newText,
@@ -94,6 +103,7 @@ export class EditFileTool {
       }
       await writeFile(`${absolute}.bak`, original, 'utf8');
       await writeFile(absolute, outcome.content ?? '', 'utf8');
+      this.ledger?.remember(absolute, outcome.content ?? '');
       return { callId: call.id, ok: true, output: this.report(relative, outcome, newText) };
     } catch (error) {
       return { callId: call.id, ok: false, error: this.readError(relative, error) };

@@ -33,6 +33,16 @@ export class ContextAssembler {
    */
   private reasoningSeen = false;
 
+  /**
+   * 工具结果里携带的文件附件（P2-⑬，`view_image` 等）。
+   *
+   * 为什么**攒到最后**再发：OpenAI 兼容端点要求每条 `role:'tool'` 消息都必须紧跟在其
+   * 配对的 `assistant(tool_calls)` 之后；若把附件即刻插成一条 user 消息，同一回合的**第二**
+   * 条 tool 消息前面就不再是带 tool_calls 的 assistant ⇒ 直接 HTTP 400。
+   * 因此这里先累积，等全部 tool 消息发完后再作为**一条** user 消息追加。
+   */
+  private pendingAttachments: FileAttachment[] = [];
+
   public constructor(private readonly fragments: readonly string[] = []) {}
 
   /**
@@ -47,6 +57,7 @@ export class ContextAssembler {
     this.pendingToolCalls = [];
     this.pendingReasoning = undefined;
     this.reasoningSeen = false;
+    this.pendingAttachments = [];
     const messages: ModelMessage[] = [];
     for (const fragment of this.fragments) {
       messages.push({ role: 'system', content: fragment });
@@ -63,6 +74,7 @@ export class ContextAssembler {
     // （stepRunner 即便被门禁拒绝也会补录 toolCall+toolResult），故挂起的 tool_call 只会出现在
     // 会话不完整（中途崩溃）的异常日志里，此时丢弃比发出"无配对 tool 消息的 assistant(tool_calls)"
     // 更安全（后者发给模型会触发 HTTP 400）。
+    this.flushPendingAttachments(messages);
     return messages;
   }
 
@@ -126,6 +138,7 @@ export class ContextAssembler {
           content: this.toolContentOf(event),
           toolCallId: this.toolCallIdOf(event),
         });
+        this.collectAttachments(event);
         break;
       default:
         break;
@@ -171,6 +184,42 @@ export class ContextAssembler {
   private filesOf(event: SessionEvent): readonly FileAttachment[] | undefined {
     const payload = event.payload as { files?: readonly FileAttachment[] };
     return payload.files;
+  }
+
+  /**
+   * 累积工具结果携带的文件附件（P2-⑬）。
+   *
+   * @param event tool_result 事件。
+   * @returns 无返回值。
+   */
+  private collectAttachments(event: SessionEvent): void {
+    const files = this.filesOf(event);
+    if (files === undefined || files.length === 0) {
+      return;
+    }
+    this.pendingAttachments.push(...files);
+  }
+
+  /**
+   * 把累积的工具结果附件 flush 成**一条** user 消息（在所有 tool 消息之后）。
+   *
+   * 位置刻意放在末尾而非紧跟各自 tool 消息：见 {@link ContextAssembler.pendingAttachments}
+   * 的说明（插在 tool 消息之间会破坏 `assistant(tool_calls)` ↔ `tool` 的配对，触发 HTTP 400）。
+   *
+   * @param messages 已组装的消息序列（原地追加）。
+   * @returns 无返回值（无附件时不产生任何消息）。
+   */
+  private flushPendingAttachments(messages: ModelMessage[]): void {
+    if (this.pendingAttachments.length === 0) {
+      return;
+    }
+    const names = this.pendingAttachments.map((file) => file.name).join('、');
+    messages.push({
+      role: 'user',
+      content: `[工具读取的文件附件] ${names}`,
+      files: [...this.pendingAttachments],
+    });
+    this.pendingAttachments = [];
   }
 
   /** 组装工具结果内容。 */

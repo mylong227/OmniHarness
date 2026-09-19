@@ -4,11 +4,9 @@ import type {
   ToolDefinition,
   ToolResult,
 } from '../../../ports/tool/tool.js';
-import type { LspDiagnostic, LspDiagnosticReport, LspPort } from '../../../ports/tool/lsp.js';
+import type { LspPort } from '../../../ports/tool/lsp.js';
 import { LSP_DIAGNOSTICS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
-
-/** 单次回传的诊断条数上限（防一个坏文件把上下文刷满）。 */
-const MAX_DIAGNOSTICS = 50;
+import { LspDiagnosticsRenderer } from './lspDiagnosticsRenderer.js';
 
 /**
  * 模型面工具：取文档诊断（编译 / 类型错误）。
@@ -18,7 +16,8 @@ const MAX_DIAGNOSTICS = 50;
  * 还常常跑不完）。本工具把「改完立刻知道错在哪」这条闭环补上。
  *
  * **诚实优先**：语言服务器是异步推送诊断的，窗口内没收到推送 ≠ 没有错误。
- * 因此 `stale` 报告会被渲染成明确的「不确定」提示，绝不让模型把「没等到」读成「编译通过」。
+ * 因此 `stale` 报告会被渲染成明确的「不确定」提示，绝不让模型把「没等到」读成「编译通过」
+ * （渲染口径统一在 {@link LspDiagnosticsRenderer}，与写后自动回灌逐字一致）。
  */
 export class LspDiagnosticsTool {
   /**
@@ -65,7 +64,7 @@ export class LspDiagnosticsTool {
     }
     try {
       const report = await diagnose.call(this.lsp, file);
-      return { callId: call.id, ok: true, output: LspDiagnosticsTool.render(report) };
+      return { callId: call.id, ok: true, output: LspDiagnosticsRenderer.render(report) };
     } catch (error) {
       return {
         callId: call.id,
@@ -73,46 +72,5 @@ export class LspDiagnosticsTool {
         error: `LSP 诊断失败: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
-  }
-
-  /**
-   * 渲染诊断报告（含新鲜度语义）。
-   *
-   * @param report 诊断报告。
-   * @returns 可读文本。
-   */
-  private static render(report: LspDiagnosticReport): string {
-    if (report.status === 'stale') {
-      const cached =
-        report.diagnostics.length === 0
-          ? '缓存也是空的'
-          : `以下是 ${report.diagnostics.length} 条缓存结果`;
-      return (
-        `${report.file}: 未在等待窗口内收到语言服务器的诊断推送（${cached}）。\n` +
-        '**这不代表没有错误**——请勿据此判定「编译通过」。可稍后重试本工具，或用 shell 跑一次类型检查。'
-      );
-    }
-    if (report.diagnostics.length === 0) {
-      return `${report.file}: 无诊断（该文件的语法/类型检查通过）。`;
-    }
-    const shown = report.diagnostics.slice(0, MAX_DIAGNOSTICS);
-    const lines = shown.map((diagnostic) => LspDiagnosticsTool.line(diagnostic));
-    const more =
-      report.diagnostics.length > shown.length
-        ? `\n… 另有 ${report.diagnostics.length - shown.length} 条未显示`
-        : '';
-    return `${report.file}: 共 ${report.diagnostics.length} 条诊断\n${lines.join('\n')}${more}`;
-  }
-
-  /**
-   * 渲染单条诊断。
-   *
-   * @param diagnostic 归一化诊断。
-   * @returns `严重度 行:列 消息 [码]` 形式的单行文本。
-   */
-  private static line(diagnostic: LspDiagnostic): string {
-    const { line, character } = diagnostic.range.start;
-    const code = diagnostic.code === undefined ? '' : ` [${diagnostic.code}]`;
-    return `${diagnostic.severity} ${line}:${character} ${diagnostic.message}${code}`;
   }
 }
