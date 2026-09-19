@@ -5,9 +5,7 @@
  * 继承自 CliServerCmds，可调用全部上游共享接线与配置装配助手。
  */
 
-import { createInterface } from 'node:readline';
-import { LineTransport } from '../server/transport/lineTransport.js';
-import { McpServer } from '../mcp/mcpServer.js';
+import { McpServeRunner } from '../adapters/mcp/mcpServeRunner.js';
 import { mcpConnector } from '../mcp/mcpConnector.js';
 import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';
 import { ToolGate } from '../core/toolGate.js';
@@ -45,6 +43,11 @@ export class CliMcpCmds extends CliServerCmds {
 
   /**
    * mcp serve：以 stdio 把本地工具集暴露为 MCP 服务器（走审批 + 沙箱门禁）。
+   *
+   * A1 接线（2026-09-19 入口可达性审计）：**默认走官方 SDK 适配器**（`SdkMcpServerAdapter` +
+   * StdioServerTransport，协议协商由官方实现托管）；SDK 不可用或起不来时回落既有手写
+   * `McpServer`，回落原因由 {@link McpServeRunner} 如实打到 stderr（绝不静默）。
+   * 门禁语义不因换实现而丢失：SDK 路径的工具端口经 `GatedToolPort` 前置审批 + 沙箱。
    * @param args 子命令参数（经 parseArgs 全量解析为运行时配置）。
    * @returns 永不 resolve 的 Promise（常驻 stdio 服务，直至流关闭或外部终止）。
    */
@@ -54,28 +57,31 @@ export class CliMcpCmds extends CliServerCmds {
       return 2;
     }
     const config = await this.buildConfig(cliArgs);
-    const transport = new LineTransport(
-      (onLine) => {
-        const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
-        readline.on('line', onLine);
-      },
-      (line) => process.stdout.write(`${line}\n`),
+    const sessionId = 'mcp';
+    const context = { sessionId, workspaceRoot: cliArgs.workspace };
+    const gate = new ToolGate(
+      config.approvals,
+      config.sandbox,
+      undefined,
+      false,
+      config.escalation,
+      config.elevatedSandbox,
     );
-    new McpServer({
-      transport,
-      tools: config.tools,
-      context: { sessionId: 'mcp', workspaceRoot: cliArgs.workspace },
-      gate: new ToolGate(
-        config.approvals,
-        config.sandbox,
-        undefined,
-        false,
-        config.escalation,
-        config.elevatedSandbox,
-      ),
-    });
-    process.stderr.write('OmniHarness MCP 服务器已启动（stdio）\n');
-    return new Promise(() => undefined);
+    // 模式选择经 stderr 如实上报（stdout 是 MCP 协议通道，不得混入提示）。
+    return new McpServeRunner().run(
+      {
+        tools: config.tools,
+        fallbackTools: config.tools,
+        context,
+        gate,
+        fallbackGate: gate,
+        serverInfo: { name: 'omniharness', version: '0.1.0' },
+      },
+      (result) => {
+        const suffix = result.mode === 'sdk' ? result.detail : `手写回退：${result.detail}`;
+        process.stderr.write(`OmniHarness MCP 服务器已启动（stdio · ${suffix}）\n`);
+      },
+    );
   }
 
   /**

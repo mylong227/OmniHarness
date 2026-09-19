@@ -507,20 +507,31 @@ if (process.argv.includes('--maturity')) {
     if (!lm) continue;
     const level = lm[1];
     const note = (lm[2] ?? '').trim();
-    const em = text.match(/@maturityEvidence\s+(\S+)/);
-    const evidence = em ? em[1] : null;
+    // 证据可声明多条（英文逗号分隔）——逐条做存在性校验，任一缺失即阻断。
+    const em = text.match(/@maturityEvidence[ \t]+([^\n]*)/);
+    const evidenceList = em
+      ? em[1]
+          .replace(/\*\/\s*$/, '')
+          .split(',')
+          .map((p) => p.trim())
+          .filter((p) => p.length > 0)
+      : [];
+    const evidence = evidenceList[0] ?? null;
     const file = f.split(path.sep).join('/');
-    const rec = { file, level, note, evidence };
+    const rec = { file, level, note, evidence, evidenceList };
     decls.push(rec);
     if (!LEVELS.includes(level)) {
       bad.push({ ...rec, why: `等级 '${level}' 非法（须为 ${LEVELS.join('/')}）` });
-    } else if ((level === 'L2' || level === 'L3') && !evidence) {
+    } else if ((level === 'L2' || level === 'L3') && evidenceList.length === 0) {
       bad.push({
         ...rec,
         why: `${level} 必须提供 @maturityEvidence 指向测试文件（无测试的声明一律降级）`,
       });
-    } else if (evidence && !fs.existsSync(path.resolve(process.cwd(), evidence))) {
-      bad.push({ ...rec, why: `证据文件不存在：${evidence}` });
+    } else {
+      const missing = evidenceList.filter((p) => !fs.existsSync(path.resolve(process.cwd(), p)));
+      if (missing.length > 0) {
+        bad.push({ ...rec, why: `证据文件不存在：${missing.join(', ')}` });
+      }
     }
   }
 
@@ -530,27 +541,34 @@ if (process.argv.includes('--maturity')) {
   for (const lv of LEVELS) {
     const list = byLevel[lv] ?? [];
     console.log(`  ${lv}: ${list.length}`);
-    for (const d of list) console.log(`      ${d.file}${d.evidence ? '   <- ' + d.evidence : ''}`);
+    for (const d of list) {
+      const ev = (d.evidenceList ?? []).join(', ');
+      console.log(`      ${d.file}${ev ? '   <- ' + ev : ''}`);
+    }
   }
   // 报告级：证据是否「名义的」（测试文件未真正 import 该模块，仅提及名字）。
   // 例：`const bm25 = [{id:'b'}]` 这种桩数据也会命中名字，但不构成覆盖。
   const nominal = decls.filter((d) => {
-    if (!d.evidence) return false;
-    const p = path.resolve(process.cwd(), d.evidence);
-    if (!fs.existsSync(p)) return false;
+    const existing = (d.evidenceList ?? (d.evidence ? [d.evidence] : [])).filter((p) =>
+      fs.existsSync(path.resolve(process.cwd(), p)),
+    );
+    if (existing.length === 0) return false;
     const base = path.basename(d.file).replace(/\.ts$/, '');
     const esc = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const text = fs.readFileSync(p, 'utf8');
-    if (new RegExp(`${esc}\\.js`).test(text)) return false; // 直接 import 了本模块
-    // 经 re-export 导入也算覆盖（如测试 import 适配器，适配器再 `export { X } from './x.js'`）。
-    const reExportOf = new RegExp(`export\\s*\\{[^}]*\\}\\s*from\\s*['"][^'"]*${esc}\\.js['"]`);
-    const specRe = /from\s+['"]([^'"]+\.js)['"]/g;
-    let m;
-    while ((m = specRe.exec(text)) !== null) {
-      // 测试按 ESM 规范 import '.js'，磁盘上实际是 '.ts'——解析后须换后缀才能命中。
-      const target = path.resolve(path.dirname(p), m[1]).replace(/\.js$/, '.ts');
-      if (!fs.existsSync(target)) continue;
-      if (reExportOf.test(fs.readFileSync(target, 'utf8'))) return false;
+    for (const rel of existing) {
+      const p = path.resolve(process.cwd(), rel);
+      const text = fs.readFileSync(p, 'utf8');
+      if (new RegExp(`${esc}\\.js`).test(text)) return false; // 直接 import 了本模块
+      // 经 re-export 导入也算覆盖（如测试 import 适配器，适配器再 `export { X } from './x.js'`）。
+      const reExportOf = new RegExp(`export\\s*\\{[^}]*\\}\\s*from\\s*['"][^'"]*${esc}\\.js['"]`);
+      const specRe = /from\s+['"]([^'"]+\.js)['"]/g;
+      let m;
+      while ((m = specRe.exec(text)) !== null) {
+        // 测试按 ESM 规范 import '.js'，磁盘上实际是 '.ts'——解析后须换后缀才能命中。
+        const target = path.resolve(path.dirname(p), m[1]).replace(/\.js$/, '.ts');
+        if (!fs.existsSync(target)) continue;
+        if (reExportOf.test(fs.readFileSync(target, 'utf8'))) return false;
+      }
     }
     return true;
   });

@@ -14,11 +14,12 @@
  * 见 dependency-allowlist.json）；既有手写 `src/mcp/*` 保留为旧版并行兼容路径。
  *
  * @maturity L1 — 协议协商与工具往返由官方 SDK 双端实测；Streamable HTTP 部署形态待跨机验证
- * @maturityEvidence tests/unit/mcpSdkAdapter.test.ts
+ * @maturityEvidence tests/unit/mcpSdkAdapter.test.ts, tests/unit/mcpServeWiring.test.ts
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 import type {
   ToolPort,
@@ -106,6 +107,16 @@ export class SdkMcpServerAdapter {
         await server.close();
       },
     };
+  }
+
+  /**
+   * 连到调用方提供的官方 SDK 传输（生产形态：`mcp serve` 注入 StdioServerTransport）。
+   * 与 {@link connectInMemory} 同源，只是传输由外部选择——避免宿主机为了接传输而重写注册逻辑。
+   * @param transport 官方 SDK 传输（Transport 契约；由调用方构造与持有）
+   * @returns 连接就绪后 resolve（协议协商由官方 SDK 接管），无载荷
+   */
+  public async connectTransport(transport: Transport): Promise<void> {
+    await this.createMcpServer().connect(transport);
   }
 
   /**

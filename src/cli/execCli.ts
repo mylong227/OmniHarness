@@ -103,6 +103,12 @@ export class ExecCli extends CliAgentCmds {
     if (argv[0] === 'audit') {
       return this.runAudit(argv.slice(1));
     }
+    if (argv[0] === 'trace') {
+      return this.runTrace(argv.slice(1));
+    }
+    if (argv[0] === 'sdk') {
+      return this.runSdk(argv.slice(1));
+    }
     if (argv[0] === 'auth') {
       return this.runAuth(argv.slice(1));
     }

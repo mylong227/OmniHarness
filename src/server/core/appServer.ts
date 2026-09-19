@@ -17,6 +17,11 @@ import { RepoPathGuard } from '../services/repoPathGuard.js';
 import { DiffReview } from '../services/diffReview.js';
 import { DiffCommentStore } from '../services/diffCommentStore.js';
 import { SessionCheckpoints } from '../services/sessionCheckpoints.js';
+import { SessionTraceService } from '../services/sessionTraceService.js';
+import type {
+  TraceReadRequest,
+  TraceReadResult,
+} from '../../ports/intelligence/traceIntrospection.js';
 
 export type { AppServerOptions } from './appServerState.js';
 
@@ -35,6 +40,8 @@ export class AppServer extends AppServerSurfaceHandlers {
   private readonly diffComments: DiffCommentStore;
   /** 会话检查点服务：检查点创建、列表与回滚。 */
   private readonly checkpoints: SessionCheckpoints;
+  /** 只读 trace 自省服务：把会话事件流投影为冻结条目（`trace.read` RPC 的后端）。 */
+  private readonly trace: SessionTraceService;
 
   /**
    * 装配各领域服务并注册全部 RPC 处理器与传输层监听。
@@ -50,6 +57,16 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.checkpoints = new SessionCheckpoints({
       storage: options.config.storage,
       workspaceRoot: options.workspaceRoot,
+    });
+    // T4.5 接线：只读 trace 自省的事件源取运行时 agent 的 replay（同一事实源，纯读不写）；
+    // 存在性判定另走事件日志存档（storage.load 对不存在的会话也回空数组，不足以区分「无此会话」）。
+    this.trace = new SessionTraceService({
+      replay: (sessionId) => this.runtime.agent().replay(sessionId),
+      exists: (sessionId) =>
+        options.traceSessionExists === undefined
+          ? this.sessionTraceExists(sessionId)
+          : options.traceSessionExists(sessionId),
+      logError: (message) => process.stderr.write(`[omniharness] ${message}\n`),
     });
     this.registerHandlers();
     options.transport.onMessage((message) => void this.handle(message));
@@ -118,6 +135,8 @@ export class AppServer extends AppServerSurfaceHandlers {
       Promise.resolve(this.switchWorkspace(params['path'])),
     );
     this.handlers.set('audit.query', (params) => Promise.resolve(this.queryAuditRpc(params)));
+    // T4.5：只读 trace 自省 RPC（agent 自查「我刚做了什么」，无写方法，不可借道改历史）。
+    this.handlers.set('trace.read', (params) => this.readTraceRpc(params));
     this.registerCheckpointHandlers();
     this.registerReviewHandlers();
     this.handlers.set('fs.list', (params) => Promise.resolve(this.workspaceTree.list(params)));
@@ -455,6 +474,63 @@ export class AppServer extends AppServerSurfaceHandlers {
       limit: num(params['limit']),
     };
     return queryAudit(sink.read(), query);
+  }
+
+  /**
+   * 只读 trace 自省 RPC（T4.5）：先按会话把事件流加载进只读投影器，再取冻结条目返回。
+   *
+   * 只读保证：返回条目由 `ReadonlyTraceReader` 深拷贝 + `Object.freeze`，调用方拿到的只是快照；
+   * 本 RPC 无任何写方法，agent 无法借道篡改自己的历史。fail-soft：会话不存在或事件源读取失败时
+   * 回 `{ entries: [], count: 0, error }`，不抛 RPC 错误打断消费方。
+   * @param params `{ sessionId, kind?, limit? }` — 目标会话与可选类别/条数过滤
+   * @returns 冻结 trace 条目快照（新在前）+ 计数 + 失败原因
+   */
+  protected async readTraceRpc(params: Record<string, unknown>): Promise<TraceReadResult> {
+    const request = AppServer.traceRequest(params);
+    await this.trace.load(request.session);
+    return this.trace.read(request);
+  }
+
+  /**
+   * 会话事件是否存在于存档（jsonl 目录或 sqlite 库）。
+   *
+   * 为什么不用 `storage.load()` 判定：它对不存在的会话与零事件会话都返回空数组，
+   * 无法区分「没有这个会话」与「这个会话还没有事件」。这里按存储后端的物理形态判定：
+   * 文件后端看 `<location>/<id>.jsonl`，sqlite 看库内该会话行；内存后端无可判定处，
+   * 回落到事件日志已在内存中的会话集合（`threads` 登记过的线程）。
+   * 未知 / 不可判定一律返回 true（宁多报也不误判「会话不存在」）。
+   * @param sessionId 会话 id
+   * @returns 该会话的事件存档是否存在
+   */
+  private async sessionTraceExists(sessionId: string): Promise<boolean> {
+    if (sessionId.length === 0) {
+      return false;
+    }
+    // 存档目录 / sqlite 库能枚举会话：以归档列表为唯一判据（file 后端读 .jsonl，sqlite 读库内行）。
+    if (this.options.config.storage.location !== undefined) {
+      const list = await this.sessionArchive.list();
+      const sessions = (list as { sessions?: readonly { sessionId: string }[] }).sessions ?? [];
+      return sessions.some((entry) => entry.sessionId === sessionId);
+    }
+    // 内存后端无可枚举的物理存档：以已登记的线程 + 已加载的 trace 缓存为准（宁宽不误报）。
+    return this.threads.has(sessionId) || this.trace.has(sessionId);
+  }
+
+  /**
+   * 解析 trace.read 参数（宽松：非法值按缺省处理，会话 id 原样透传以便如实报错）。
+   * @param params RPC 原始参数
+   * @returns 规范化后的 trace 查询（session 必填，limit/kind 可缺省）
+   */
+  private static traceRequest(params: Record<string, unknown>): TraceReadRequest {
+    const rawSession = params['sessionId'];
+    const session = typeof rawSession === 'string' ? rawSession : '';
+    const kind = typeof params['kind'] === 'string' ? params['kind'] : undefined;
+    const limit = typeof params['limit'] === 'number' ? params['limit'] : undefined;
+    return {
+      session,
+      ...(kind !== undefined ? { kind } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    };
   }
 
   /**

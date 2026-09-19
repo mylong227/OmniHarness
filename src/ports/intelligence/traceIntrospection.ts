@@ -19,6 +19,38 @@ export interface TraceEntry {
   readonly summary: string;
 }
 
+/**
+ * trace 读取过滤器（RPC 与 CLI 共用同一形状，保证两条入口语义一致）。
+ */
+export interface TraceFilter {
+  /** 返回条数上限（缺省 20；实现侧钳到 [1, 500]）。 */
+  readonly limit?: number | undefined;
+  /** 事件类别过滤（缺省不过滤，即 recent 语义）。 */
+  readonly kind?: string | undefined;
+}
+
+/**
+ * trace 读取查询（会话 + 过滤条件）。
+ */
+export interface TraceReadRequest extends TraceFilter {
+  /** 目标会话 id（必填；空串表示「当前/最近会话」由实现方决定，缺省实现按未找到处理）。 */
+  readonly session: string;
+}
+
+/**
+ * trace 读取结果：只读条目 + 计数 + 失败原因（fail-soft，不抛错给调用方）。
+ */
+export interface TraceReadResult {
+  /** 目标会话 id（原样回显，便于多会话消费方对齐）。 */
+  readonly session: string;
+  /** 冻结的条目快照（新在前）。 */
+  readonly entries: readonly TraceEntry[];
+  /** 条目数（= entries.length，便于 RPC 消费方免解析）。 */
+  readonly count: number;
+  /** 失败原因（会话不存在 / 存档不可读等）；成功时 undefined。 */
+  readonly error?: string | undefined;
+}
+
 /** 只读自省 trace 端口（无任何写方法）。 */
 export interface TraceIntrospectionPort {
   readonly name: string;

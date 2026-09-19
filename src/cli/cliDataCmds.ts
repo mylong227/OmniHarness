@@ -20,6 +20,8 @@ import { ProfileCommand } from './profileCommand.js';
 import { BundleCommand } from './bundleCommand.js';
 import { AuditCommand } from './auditCommand.js';
 import { StoreCommand } from './storeCommand.js';
+import { TraceCommand } from './traceCommand.js';
+import { SdkCommand } from './sdkCommand.js';
 
 /** 数据 / 存储 / 插件类子命令（薄分发门面）。 */
 export class CliDataCmds extends CliMcpCmds {
@@ -39,6 +41,10 @@ export class CliDataCmds extends CliMcpCmds {
   private readonly auditCommand = new AuditCommand();
   /** kv / vault 子命令（本地键值与凭据）。 */
   private readonly storeCommand = new StoreCommand();
+  /** trace 子命令（只读自省会话事件流）。 */
+  private readonly traceCommand = new TraceCommand();
+  /** sdk 子命令（连 app-server WS 端点发 JSON-RPC）。 */
+  private readonly sdkCommand = new SdkCommand();
 
   /**
    * session 子命令入口。
@@ -101,5 +107,23 @@ export class CliDataCmds extends CliMcpCmds {
    */
   protected async runVault(args: readonly string[]): Promise<number> {
     return this.storeCommand.runVault(args);
+  }
+
+  /**
+   * trace 子命令入口（只读自省：`trace read --session ID`）。
+   * @param args 子命令参数（已去掉 `trace`）。
+   * @returns 进程退出码。
+   */
+  protected async runTrace(args: readonly string[]): Promise<number> {
+    return this.traceCommand.run(args);
+  }
+
+  /**
+   * sdk 子命令入口（`sdk call --url ws://... --method NAME`）。
+   * @param args 子命令参数（已去掉 `sdk`）。
+   * @returns 进程退出码。
+   */
+  protected async runSdk(args: readonly string[]): Promise<number> {
+    return this.sdkCommand.run(args);
   }
 }
