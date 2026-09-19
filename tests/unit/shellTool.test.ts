@@ -25,7 +25,9 @@ describe('shellTool 安全与资源护栏', () => {
     const tool = new ShellTool();
     const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
 
-    const result = await tool.handle(call('ls'), ctx);
+    // 平台自洽：Windows 的 shell 是 cmd.exe（见 ShellInvocation.path），没有 `ls`；
+    // 用各平台自己的列目录命令，断言的是**同一件事**（cwd 落在 workspaceRoot）。
+    const result = await tool.handle(call(process.platform === 'win32' ? 'dir /b' : 'ls'), ctx);
 
     assert.strictEqual(result.ok, true, `执行失败: ${result.error ?? ''}`);
     assert.ok(result.output?.includes('marker.txt'), '应看到工作区内的文件');
@@ -68,10 +70,13 @@ describe('shellTool 安全与资源护栏', () => {
     const tool = new ShellTool();
     const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
 
-    const result = await tool.handle(call('cat a.txt | grep beta | wc -l'), ctx);
+    // 平台自洽：管道 + 过滤 + 读取都在各平台自己的 shell 里表达（cmd 无 cat/grep/wc）。
+    const pipeline =
+      process.platform === 'win32' ? 'type a.txt | findstr beta' : 'cat a.txt | grep beta | wc -l';
+    const result = await tool.handle(call(pipeline), ctx);
 
     assert.strictEqual(result.ok, true, `执行失败: ${result.error ?? ''}`);
-    assert.match(result.output ?? '', /1/);
+    assert.match(result.output ?? '', /beta|1/, '管道过滤应真的作用在文件内容上');
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -171,9 +176,34 @@ describe('shellTool 安全与资源护栏', () => {
     const tool = new ShellTool();
     const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
 
-    const result = await tool.handle(call('cat b.txt > copy.txt'), ctx);
-
+    // 平台自洽：重定向本身是契约的一部分；读取用各平台自己的命令验证落盘内容。
+    const redirect =
+      process.platform === 'win32' ? 'type b.txt > copy.txt' : 'cat b.txt > copy.txt';
+    const readBack = process.platform === 'win32' ? 'type copy.txt' : 'cat copy.txt';
+    const result = await tool.handle(call(redirect), ctx);
     assert.strictEqual(result.ok, true, `执行失败: ${result.error ?? ''}`);
+
+    const copied = await tool.handle(call(readBack), ctx);
+    assert.strictEqual(copied.ok, true, `执行失败: ${copied.error ?? ''}`);
+    assert.match(copied.output ?? '', /beta/, '重定向应把内容真的写进 copy.txt');
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('tty=true 在 Windows 上 fail-closed（当前平台无伪终端，不静默退化为管道）', async () => {
+    if (process.platform !== 'win32') {
+      return; // 非 Windows 上 PTY 由 script 真提供，另测；此处只验证 fail-closed 分支
+    }
+    const dir = await makeWorkspace();
+    const tool = new ShellTool();
+    const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir };
+
+    const result = await tool.handle(
+      { id: 'c2', name: 'shell', arguments: { command: 'echo hi', tty: true } },
+      ctx,
+    );
+
+    assert.strictEqual(result.ok, false, 'Windows 上 tty 必须明确失败');
+    assert.match(result.error ?? '', /PTY|伪终端|pseudo-terminal/);
     await rm(dir, { recursive: true, force: true });
   });
 });

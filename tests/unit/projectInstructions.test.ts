@@ -7,6 +7,7 @@ import {
   loadProjectInstructions,
   loadProjectInstructionsCached,
   clearProjectInstructionsCache,
+  MAX_INSTRUCTIONS_CACHE_KEYS,
 } from '../../src/context/projectInstructions.js';
 
 let root: string;
@@ -217,6 +218,32 @@ describe('仓库常驻指令加载', () => {
       60_000,
     );
     assert.ok(fresh!.content.includes('第二版'), '清缓存后应重读');
+    clearProjectInstructionsCache();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('指令缓存有界：键数超过上限时最旧键被淘汰（进程级 Map 不得无界增长）', async () => {
+    clearProjectInstructionsCache();
+    const dir = await mkdtemp(join(tmpdir(), 'omni-cache-bound-'));
+    await writeFile(join(dir, 'AGENTS.md'), '第一版');
+    const subdirs: string[] = [];
+    // 插入「上限 + 1」个键：第 MAX+1 次写入触发淘汰，最旧键（sub0）应被移除。
+    for (let i = 0; i <= MAX_INSTRUCTIONS_CACHE_KEYS; i += 1) {
+      const sub = join(dir, `sub${String(i)}`);
+      await mkdir(sub, { recursive: true });
+      subdirs.push(sub);
+      await loadProjectInstructionsCached({ workspaceRoot: dir, home, cwd: sub }, 60_000);
+    }
+    // 第一版内容已在 TTL 内被缓存；改盘后，只有「被淘汰」的那个键会重新读盘。
+    await writeFile(join(dir, 'AGENTS.md'), '第二版');
+    const oldestAgain = await loadProjectInstructionsCached(
+      { workspaceRoot: dir, home, cwd: subdirs[0]! },
+      60_000,
+    );
+    assert.ok(
+      oldestAgain!.content.includes('第二版'),
+      `最旧键应已被淘汰并重读（上限 ${String(MAX_INSTRUCTIONS_CACHE_KEYS)}）`,
+    );
     clearProjectInstructionsCache();
     await rm(dir, { recursive: true, force: true });
   });

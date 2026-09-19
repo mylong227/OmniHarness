@@ -135,7 +135,8 @@ function layeredTopFiles(corpus, graph, q, k) {
 }
 
 const t0 = Date.now();
-const corpus = indexCorpus(SRC);
+// 本脚本确实要用 corpus.codeGraph（full 模式独有）⇒ 显式声明 light:false（默认已翻为 light）。
+const corpus = indexCorpus(SRC, { light: false });
 console.log(
   `语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`,
 );

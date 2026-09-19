@@ -94,6 +94,25 @@ class CodeReferenceGraph {
     }
     return df;
   }
+
+  /**
+   * 进程级图信号缓存的**有界写入**：容量已满且是新 root 时，按插入序淘汰最旧一条。
+   *
+   * 为什么必须做（2026-09-19 堆爆审计）：这是按 root 键的进程级 Map，长驻进程（server /
+   * 多工作区）会不断累积「图 + 文件中心性」；无上限即同一类无界增长。
+   *
+   * @param root 即将写入的根路径。
+   * @returns 无返回值。
+   */
+  public static evictIfFull(root: string): void {
+    if (cache.has(root) || cache.size < MAX_CACHED_ROOTS) {
+      return;
+    }
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) {
+      cache.delete(oldest);
+    }
+  }
 }
 
 /**
@@ -122,8 +141,17 @@ export interface GraphSignal {
   readonly fileCentrality: ReadonlyMap<string, number>;
 }
 
-/** 按 root 缓存图信号（进程级，文件结构剧变时 clearGraphSignal 失效）。 */
+/**
+ * 按 root 缓存图信号（进程级，文件结构剧变时 clearGraphSignal 失效）。
+ *
+ * **有界**（2026-09-19 堆爆审计）：进程级 Map 必须有上限——长驻进程（server / 多工作区）里
+ * 每个 root 都会留一份「图 + 文件中心性」，无上限就是同一类无界增长。上限 {@link MAX_CACHED_ROOTS}
+ * 按**插入序**淘汰最旧一条（Map 保序），并用 `clearGraphSignal` 提供显式失效。
+ */
 const cache = new Map<string, GraphSignal>();
+
+/** 进程级图信号缓存的最大 root 数（超出按插入序淘汰最旧）。 */
+export const MAX_CACHED_ROOTS = 8;
 
 /**
  * 构建（或复用按 root 缓存的）稀疏引用图 + 文件中心性。
@@ -204,6 +232,7 @@ export function getGraphSignal(root: string, corpus: IndexedCorpus): GraphSignal
     for (const [k, v] of fileCen) fileCen.set(k, v / max);
   }
   const sig: GraphSignal = { graph: sparse, edgeCount, fileCentrality: fileCen };
+  CodeReferenceGraph.evictIfFull(root);
   cache.set(root, sig);
   return sig;
 }

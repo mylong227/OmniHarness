@@ -8,6 +8,7 @@ import {
   getGraphSignal,
   graphNeighborFileRoute,
   clearGraphSignal,
+  MAX_CACHED_ROOTS,
 } from '../../src/context/codeReferenceGraph.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
 
@@ -84,4 +85,19 @@ test('同 root 图信号按缓存复用，不重复构建', () => {
   const sig1 = getGraphSignal('fake', makeCorpus());
   const sig2 = getGraphSignal('fake', makeCorpus());
   assert.strictEqual(sig1, sig2, '同 root 应返回同一缓存实例');
+});
+
+test('图信号缓存有界：超过 MAX_CACHED_ROOTS 时按插入序淘汰最旧（进程级 Map 不得无界增长）', () => {
+  clearGraphSignal();
+  const first = getGraphSignal('root-0', makeCorpus());
+  for (let i = 1; i <= MAX_CACHED_ROOTS; i += 1) {
+    getGraphSignal(`root-${String(i)}`, makeCorpus());
+  }
+  const rebuilt = getGraphSignal('root-0', makeCorpus());
+  assert.notStrictEqual(
+    rebuilt,
+    first,
+    `超上限后 root-0 应被淘汰并重建（上限 ${String(MAX_CACHED_ROOTS)}）`,
+  );
+  clearGraphSignal();
 });

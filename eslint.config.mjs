@@ -21,6 +21,11 @@ export default tseslint.config(
       // 内含 `// eslint-disable` 注释）⇒ 报「Unused eslint-disable directive」把门禁染红。
       // 那是上游 jQuery，不是本仓库维护的源码，不该由本仓库 lint 负责 ⇒ 显式排除。
       'eval-data/**',
+      // 与 .omni-worktrees 同理：.omniharness/ 是 harness 运行时产物（tbench 临时工作树、
+      // 模型缓存、探针输出等），不是本仓库维护的源码。不排除它还有实害：一次跑完
+      // Terminal-Bench 会在其下留下 .pytest_cache，eslint 走进去即 EPERM 把门禁染红
+      // （2026-09-19 实测），与「上游 jQuery 被当成本仓源码 lint」是同一类误伤。
+      '.omniharness/**',
       '**/*.mjs',
       '**/*.cjs',
     ],

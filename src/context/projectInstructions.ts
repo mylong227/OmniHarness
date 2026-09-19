@@ -25,6 +25,30 @@ class ProjectInstructions {
   }
 
   /**
+   * 常驻指令缓存的写入前收敛：先清过期项，仍超上限则按插入序淘汰最旧一条。
+   *
+   * 为什么必须做（2026-09-19 堆爆审计）：键含 workspaceRoot/cwd/home，长驻进程会持续产生
+   * 新键；只靠 TTL 不会回收「再也不被访问」的旧键 ⇒ Map 无界增长（与其他进程级缓存同类）。
+   *
+   * @param now 当前时间戳（毫秒）。
+   * @returns 无返回值。
+   */
+  public static evictIfNeeded(now: number): void {
+    for (const [k, entry] of instructionsCache) {
+      if (entry.expiresAt <= now) {
+        instructionsCache.delete(k);
+      }
+    }
+    while (instructionsCache.size >= MAX_INSTRUCTIONS_CACHE_KEYS) {
+      const oldest = instructionsCache.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      instructionsCache.delete(oldest);
+    }
+  }
+
+  /**
    * 取 `home` 目录：优先显式参数，其次环境变量，最后 os.homedir()。
    * @param {string | undefined} explicit - explicit
    * @returns {string | undefined} - result
@@ -286,15 +310,26 @@ interface CacheEntry {
   readonly expiresAt: number;
 }
 
-/** 进程级缓存（对齐 repoMapContext 的 TTL 模式，避免每步重复磁盘 IO）。 */
-const cache = new Map<string, CacheEntry>();
+/**
+ * 进程级缓存（对齐 repoMapContext 的 TTL 模式，避免每步重复磁盘 IO）。
+ * **有界**：见 {@link MAX_INSTRUCTIONS_CACHE_KEYS} 与 `ProjectInstructions.evictIfNeeded`。
+ */
+const instructionsCache = new Map<string, CacheEntry>();
 
 /** 缓存默认有效期（毫秒）。 */
 export const DEFAULT_INSTRUCTIONS_TTL_MS = 30_000;
 
+/**
+ * 进程级缓存的最大键数（2026-09-19 堆爆审计：进程级 Map 必须有界）。
+ *
+ * 键 = `workspaceRoot|cwd|home|includeLlmsTxt`，长驻进程（server / 多工作区）会不断产生新键；
+ * 无上限就是同一类无界增长。写入前先清过期项，仍超上限则按插入序淘汰最旧一条。
+ */
+export const MAX_INSTRUCTIONS_CACHE_KEYS = 16;
+
 /** 清空常驻指令缓存（测试或工作区切换时使用）。 */
 export function clearProjectInstructionsCache(): void {
-  cache.clear();
+  instructionsCache.clear();
 }
 
 /**
@@ -312,12 +347,13 @@ export async function loadProjectInstructionsCached(
   const includeLlmsTxt = options.includeLlmsTxt !== false;
   const key = `${workspaceRoot}|${cwd}|${home}|${includeLlmsTxt}`;
   const now = Date.now();
-  const hit = cache.get(key);
+  const hit = instructionsCache.get(key);
   if (hit !== undefined && hit.expiresAt > now) {
     return hit.result;
   }
   const result = await loadProjectInstructions(options);
-  cache.set(key, { result, expiresAt: now + ttlMs });
+  ProjectInstructions.evictIfNeeded(now);
+  instructionsCache.set(key, { result, expiresAt: now + ttlMs });
   return result;
 }
 

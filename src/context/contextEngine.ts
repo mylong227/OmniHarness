@@ -92,6 +92,17 @@ export class ContextEngine {
   public static readonly FULL_MODE_WARN_BYTES = 2 * 1024 * 1024;
 
   /**
+   * full 模式的**硬预算**（5 MiB）：超过即拒绝索引（fail-closed，绝不静默部分索引）。
+   *
+   * 定档依据（2026-09-19 实测，非拍脑袋）：full 模式的峰值内存约为语料的 **0.37 GB/MiB**
+   * （本仓 `src/` 3.01 MiB ⇒ 峰值 RSS 1,522 MB、83 秒），故 5 MiB 把峰值钉在 ~1.9 GB 以内；
+   * 同时留出 66% 余量，让现网评测脚本（`rank-veto-retro.mjs` / `context-efficiency/bench.mjs`
+   * 等确实要用 `corpus.codeGraph` 的脚本，语料即本仓 `src/`）继续可跑。
+   * 需要更大 full 语料者必须**显式**传 `maxTotalBytes`（等于承认那份内存代价）。
+   */
+  public static readonly MAX_TOTAL_BYTES_FULL = 5 * 1024 * 1024;
+
+  /**
    * 收集参与索引的源码文件（同步；供 `indexCorpus` 使用）。
    *
    * ## 为什么重写（2026-09-19，堆爆修复）
@@ -294,10 +305,16 @@ interface FileRecord {
 export interface IndexOptions {
   readonly morph?: boolean;
   /**
-   * light 模式（生产默认开）：跳过频域共振谱、44 万边代码图、LSA SVD 三项重索引。
+   * light 模式（**默认开**）：跳过频域共振谱、代码图、LSA SVD 三项重索引。
+   *
+   * 默认值口径变更（2026-09-19）：此前默认是 **full**（`opts.light === true` 才 light），
+   * 于是「不传 light」的调用方会静默吃到 full 模式一个数量级的内存代价（实测 `src/` 3 MiB
+   * 语料 ⇒ 峰值 RSS 1,522 MB）。现改为 **`light !== false`**——安全档为默认，重量档必须显式关。
+   * 真的需要 `corpus.codeGraph` / 频谱 / LSA 的评测脚本请显式传 `light: false`，并受
+   * {@link ContextEngine.MAX_TOTAL_BYTES_FULL} 硬预算约束。
+   *
    * 2026-09-05 诚实重测：三项在 omniharness 语料上实测均零增益或净负面
-   * （频谱同 corpus 隔离对照纯零效应；graph −3.6pp 确认负；LSA 无增量），故保持禁用。
-   * 基准脚本仍可用 light:false 跑全量对照（含 graph/LSA/频谱）。
+   * （频谱同 corpus 隔离对照纯零效应；graph −3.6pp 确认负；LSA 无增量），故生产保持禁用。
    */
   readonly light?: boolean;
   /**
@@ -329,25 +346,35 @@ export interface IndexOptions {
 export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpus {
   // 索引侧与查询侧必须同用一套分词，否则两侧变体集不相交，归并反而掉召回。
   const tk = opts.morph === false ? tokenize : tokenizeExpanded;
-  // light 模式：跳过三项重型索引（仅在全量基准里 light:false 才开启）。
-  const light = opts.light === true;
+  // light 模式：跳过三项重型索引（**默认开**；要 full 必须显式 `light: false`）。
+  const light = opts.light !== false;
   const files: string[] = [];
+  const budget =
+    opts.maxTotalBytes ??
+    (light ? ContextEngine.MAX_TOTAL_BYTES : ContextEngine.MAX_TOTAL_BYTES_FULL);
   const walked = ContextEngine.walk(root, root, files, {
     ...(opts.maxFiles !== undefined ? { maxFiles: opts.maxFiles } : {}),
     ...(opts.maxFileBytes !== undefined ? { maxFileBytes: opts.maxFileBytes } : {}),
-    ...(opts.maxTotalBytes !== undefined ? { maxTotalBytes: opts.maxTotalBytes } : {}),
+    maxTotalBytes: budget,
   });
   const truncated = walked.truncated;
   const skippedLargeFiles = walked.skippedLargeFiles;
   if (!light) {
     // full 模式的每字节代价比 light 高一个数量级（见 FULL_MODE_WARN_BYTES 的实测），
-    // 大语料在日志里必须看得见。只告警、不改行为：该档口径归评测脚本。
-    const warnBytes = opts.fullModeWarnBytes ?? ContextEngine.FULL_MODE_WARN_BYTES;
-    if (walked.totalBytes > warnBytes) {
+    // 大语料必须**拒跑**而不是「静默只索引一半」——半份语料会给出错误的对照结论。
+    const explicitBudget = opts.maxTotalBytes !== undefined;
+    if (truncated && !explicitBudget) {
+      throw new Error(
+        `full 模式语料超出上限（文件数或总字节）：已纳入 ${String(walked.totalBytes)} 字节 / ${String(files.length)} 文件，上限 ${String(Math.round(budget / 1048576))} MiB（根：${root}）。` +
+          'full 模式峰值内存约为语料的 0.37 GB/MiB（实测），请改用 light: true（生产默认），' +
+          '或显式传 maxTotalBytes 以确认接受该内存代价。',
+      );
+    }
+    if (walked.totalBytes > (opts.fullModeWarnBytes ?? ContextEngine.FULL_MODE_WARN_BYTES)) {
       log.warn('indexCorpus 以 full 模式索引较大语料（频谱 / 代码图 / LSA），峰值内存可达 GB 级', {
         root,
         corpusMiB: Number((walked.totalBytes / 1048576).toFixed(2)),
-        warnThresholdMiB: Number((warnBytes / 1048576).toFixed(2)),
+        budgetMiB: Number((budget / 1048576).toFixed(2)),
         advice: '生产路径请传 light: true（CorpusIndexCache 已如此）；full 仅用于小语料的对照评测',
       });
     }
