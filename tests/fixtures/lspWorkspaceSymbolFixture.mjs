@@ -6,14 +6,21 @@
 //
 // URI 由**真实临时目录**拼出（pathToFileURL）：写死 `file:///repo/...` 在 Windows 上缺盘符、
 // 不是合法 file URL，uriToFile 会抛 ERR_INVALID_FILE_URL_PATH。
-
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/** 假仓库根（真实存在，保证拼出的 file URL 在任意平台都合法）。 */
-export const REPO_ROOT = mkdtempSync(join(tmpdir(), 'omni-lsp-mock-repo-'));
+/**
+ * 假仓库根：**确定性路径**，保证跨进程是同一份事实。
+ *
+ * 为什么不用 `mkdtempSync`：本语料要被**两个进程**读取——测试进程，以及被 spawn 的 mock LSP
+ * 服务器子进程。`mkdtempSync` 每次调用都造一个新目录，两个进程各得一份 ⇒ 「测试侧期望路径」
+ * 与「mock 返回的 URI」必然不同，断言恒假（且报错形态是「文件路径不一致」这种指不到病根的形态）。
+ * 故改为固定目录名 + `mkdirSync(recursive)`：谁先来谁创建，两边算出的路径逐字相同。
+ */
+export const REPO_ROOT = join(tmpdir(), 'omni-lsp-mock-repo');
+mkdirSync(REPO_ROOT, { recursive: true });
 
 /** 文件系统路径 → file:// URI。 */
 const uriOf = (rel) => pathToFileURL(join(REPO_ROOT, rel)).href;
