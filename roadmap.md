@@ -604,7 +604,18 @@
 
 **终态验收**：全量单测 **1763 项：1758 通过 / 0 失败 / 5 skip**（本轮起点：5 失败）；`npm run smoke` 退出码 0；`npm run lint` **0 告警**；`check --strict` **零违规**；`arch:gate` 无新增违规；`audit:standard:delta` 通过。
 
-**诚实边界**：`native/omni_napi.node` 是构建产物（`.node` 已 gitignore，不入库），而本机**没有任何 Rust 工具链**（`~/.rustup` 为空目录、无 cargo/rustc、无 gcc/MSVC 链接器）⇒ N3 的修复**无法在本机重编内核验证**。它由 CI 的 `rust` job（`cargo test --workspace`）覆盖；要本机端到端复验需先装工具链再 `npm run native:build`。
+### 39.3 余下问题收口（追加，2026-09-19 晚）
+
+上一节登记的「本机无工具链 ⇒ 无法端到端验证」以及 CI 上其余门禁的本地红灯，已全部处理完：
+
+| #   | 项                                                     | 处置                                                                                                                                                                                                                                                                                                       | 证据                                                                                                          |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| P1  | 本机无 Rust 工具链 ⇒ 内核修复无法端到端验证            | 经**国内镜像**装工具链：`winget` 装 rustup → `RUSTUP_DIST_SERVER=https://rsproxy.cn` 装 `stable-x86_64-pc-windows-gnu`（rustc 1.98.1）→ 复用**仓库自带的 `.cargo/config.toml`**（rsproxy sparse 源 + `rust-lld` 链接器，我另写的用户级配置因 source 重名已撤除）；`npm run native:build` 重编成功（29.5s） | `cargo fmt --check` ✓ / `clippy --workspace --all-targets -- -D warnings` ✓ / `cargo test --workspace` ✓      |
+| P2  | N3 的内核编码修复此前只靠 CI 覆盖                      | 重编后**本机端到端复验**：内核单测 `decode_output_prefers_utf8_and_falls_back_to_oem ... ok`；真机 `native.runTool('echo 别名桥-ok')` 回传 **`别名桥-ok`**（修复前 `鍒悕妗?ok`）；`nativeAliasBridge` **3/3 通过、0 skip**（N6 的过期守卫自动失效，反证产物已新）                                          | 见左列三条实测                                                                                                |
+| P3  | `npm run format:check`（CI 门禁）红：28 文件未格式化   | 全量 `prettier --write .` ⇒ `All matched files use Prettier code style!`                                                                                                                                                                                                                                   | `format:check` exit 0                                                                                         |
+| P4  | `npm audit --audit-level=high`（CI 门禁）红：4 个 high | 全部来自可选依赖 `@huggingface/transformers` 的传递依赖；用 npm `overrides` 钉到已修版本 `sharp@^0.35.4` + `adm-zip@^0.6.1`                                                                                                                                                                                | `npm audit` **found 0 vulnerabilities**；语义嵌入真机复验（新 sharp）pipeline 0.4s、gap 0.0779「OK 有区分力」 |
+
+**终态（复跑）**：`npm test` **1763 项 / 1759 通过 / 0 失败 / 4 skip**（4 个 skip 全为平台性：macOS seatbelt、内核负路径、真机特权、git 不可用降级）；`smoke` / `lint` / `format:check` / `check --strict` / `arch:gate --strict` / `api:check` / `audit:maturity` / `audit:standard` / `audit:metrics` / `audit:config-wiring` 全 exit 0；Rust 侧 `fmt` / `clippy -D warnings` / `test --workspace` 全 exit 0；`npm audit` 0 漏洞。
 
 ## 推进规则
 
