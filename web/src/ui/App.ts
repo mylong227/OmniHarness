@@ -134,7 +134,7 @@ export class App extends React.Component<Record<string, never>, AppState> implem
       case 'rollback':
         return React.createElement(RollbackTab, { sessionId: s.currentThreadId, onRolledBack: ctrl.sessions.loadThread });
       case 'settings':
-        return React.createElement(SettingsTab, { theme: s.theme, onToggleTheme: ctrl.toggleTheme });
+        return React.createElement(SettingsTab, { theme: s.theme, onToggleTheme: () => ctrl.layout.toggleTheme() });
       case 'plugins':
         return React.createElement(PluginsTab, null);
       case 'graph':
@@ -167,9 +167,9 @@ export class App extends React.Component<Record<string, never>, AppState> implem
       React.createElement(TopBar, {
         connected: s.connected,
         adapter: s.adapter,
-        onToggleTheme: ctrl.toggleTheme,
-        onToggleLeft: ctrl.toggleLeft,
-        onToggleRight: ctrl.toggleRight,
+        onToggleTheme: () => ctrl.layout.toggleTheme(),
+        onToggleLeft: () => ctrl.layout.toggleLeft(),
+        onToggleRight: () => ctrl.layout.toggleRight(),
         onCommandPalette: ctrl.openPalette,
       }),
       React.createElement(
@@ -189,7 +189,7 @@ export class App extends React.Component<Record<string, never>, AppState> implem
           open: s.leftOpen,
           style: { width: s.leftWidth + 'px' },
         }),
-        React.createElement(Resizer, { side: 'left', width: s.leftWidth, onChange: ctrl.onLeftWidthChange }),
+        React.createElement(Resizer, { side: 'left', width: s.leftWidth, onChange: (w: number) => ctrl.layout.onLeftWidthChange(w) }),
         React.createElement(StreamView, {
           events: s.events,
           toolResults: s.toolResults,
@@ -219,7 +219,7 @@ export class App extends React.Component<Record<string, never>, AppState> implem
           onPermissionChange: ctrl.composer.changePermission,
           api: ctrl.api,
         }),
-        React.createElement(Resizer, { side: 'right', width: s.rightWidth, onChange: ctrl.onRightWidthChange }),
+        React.createElement(Resizer, { side: 'right', width: s.rightWidth, onChange: (w: number) => ctrl.layout.onRightWidthChange(w) }),
         React.createElement(
           RightPanel,
           {

@@ -6,7 +6,10 @@
 // 行为与旧版 useAppController 内联实现逐字节等价。
 
 import { ApiClient } from '../../core/ApiClient.js';
+import type { AppRoute } from '../../core/Router.js';
 import { EventStream } from '../../core/EventStream.js';
+import { RouteBinding } from './RouteBinding.js';
+import { LayoutController } from './LayoutController.js';
 import { ToastService } from '../../core/ToastService.js';
 import type { ToastKind } from '../../core/ToastService.js';
 import { DialogService } from '../../core/DialogService.js';
@@ -87,6 +90,13 @@ export interface AppServices {
   reducers: AppReducers;
   /** 统一 toast 出口（AppController.showToast 的引用，供子控制器调用）。 */
   toast: (message: string, kind?: ToastKind) => void;
+  /**
+   * 路由导航：把局部路由补丁（pane / threadId）合并进当前路由并写入 hash，
+   * 由 hashchange 订阅者统一收口状态（深链 / 浏览器前进后退由此驱动）。
+   * @param partial 路由局部补丁；省略的字段沿用当前路由，threadId 传 null 表示清空。
+   * @returns 无
+   */
+  navigate: (partial: Partial<AppRoute>) => void;
 }
 
 /** 应用根状态容器：门面 + 组合根，驱动 App 的渲染所需全部状态与回调。 */
@@ -100,6 +110,8 @@ export class AppController {
     sessions: SessionController;
     composer: ComposerController;
     graph: GraphController;
+    /** 布局 / 主题偏好控制器（主题切换、面板开合、宽度持久化）。 */
+    layout: LayoutController;
     /** 全局快捷键解析器（无状态）。 */
     keyBindings: KeyboardShortcuts;
     /** 快捷键动作执行器（回调由组合根注入）。 */
@@ -109,6 +121,8 @@ export class AppController {
   public commands: CommandItem[];
   /** 全局快捷键监听句柄（卸载时移除）。 */
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  /** 哈希路由绑定（F8：深链 / 浏览器前进后退，逻辑在 RouteBinding 内，避免越过上帝类红线）。 */
+  private readonly routeBinding: RouteBinding;
 
   /** 会话子控制器（只读暴露给视图层）。 */
   public get sessions(): SessionController {
@@ -123,6 +137,11 @@ export class AppController {
   /** graph 运行态子控制器（只读暴露给视图层）。 */
   public get graph(): GraphController {
     return this.children.graph;
+  }
+
+  /** 布局 / 主题偏好控制器（只读暴露给视图层）。 */
+  public get layout(): LayoutController {
+    return this.children.layout;
   }
 
   /** 共享 API 客户端（供 StreamView 等直接调用）。 */
@@ -143,35 +162,35 @@ export class AppController {
       dialogSvc: new DialogService(),
       reducers: new AppReducers(),
       toast: (message: string, kind?: ToastKind) => this.showToast(message, kind),
+      navigate: (partial: Partial<AppRoute>) => this.routeBinding.navigate(partial),
     };
     const sessions = new SessionController(this.host, this.services);
     const graph = new GraphController(this.host, this.services);
     const composer = new ComposerController(this.host, this.services, sessions);
+    const layout = new LayoutController(this.host);
     this.children = {
       sessions,
       composer,
       graph,
+      layout,
       keyBindings: new KeyboardShortcuts(),
       shortcuts: new ShortcutActions({
         togglePalette: () => this.host.patch((s) => ({ paletteOpen: !s.paletteOpen })),
         newSession: () => sessions.newSession(),
-        toggleLeft: () => this.toggleLeft(),
-        toggleRight: () => this.toggleRight(),
-        toggleTheme: () => this.toggleTheme(),
+        toggleLeft: () => this.children.layout.toggleLeft(),
+        toggleRight: () => this.children.layout.toggleRight(),
+        toggleTheme: () => this.children.layout.toggleTheme(),
       }),
     };
     this.commands = this.buildCommands();
+    // F8：路由绑定在组合根装配（需 children.sessions 作为打开会话回调）。
+    this.routeBinding = new RouteBinding(this.host, (id: string) => void this.children.sessions.loadThread(id));
     // 绑定对外回调，保证作为 props 传递给子组件时 this 正确。
     this.setActivePane = this.setActivePane.bind(this);
-    this.toggleTheme = this.toggleTheme.bind(this);
-    this.toggleLeft = this.toggleLeft.bind(this);
-    this.toggleRight = this.toggleRight.bind(this);
     this.openPane = this.openPane.bind(this);
     this.openSettingsPane = this.openSettingsPane.bind(this);
     this.openPalette = this.openPalette.bind(this);
     this.closePalette = this.closePalette.bind(this);
-    this.onLeftWidthChange = this.onLeftWidthChange.bind(this);
-    this.onRightWidthChange = this.onRightWidthChange.bind(this);
     this.respondApproval = this.respondApproval.bind(this);
     this.showToast = this.showToast.bind(this);
   }
@@ -181,7 +200,7 @@ export class AppController {
     this.services.toastSvc.bind((message: string, kind?: ToastKind) => this.showToast(message, kind));
     this.services.dialogSvc.bind((state: DialogState) => this.host.patch({ dialog: state }));
     this.refreshModelCatalog();
-    this.initTheme();
+    this.children.layout.initTheme();
     this.services.api
       .getConfig()
       .then((c) => {
@@ -195,12 +214,15 @@ export class AppController {
       .catch(() => {});
     this.connectStream();
     void this.children.sessions.refreshSessions();
+    // F8：应用初始深链（面板 + 会话）并订阅浏览器前进 / 后退。
+    this.routeBinding.start();
   }
 
-  /** 卸载：关闭 SSE 流并移除全局快捷键监听。 @returns 无 */
+  /** 卸载：关闭 SSE 流、移除全局快捷键与路由订阅。 @returns 无 */
   public unmount(): void {
     this.services.stream.close();
     if (this.keyHandler) window.removeEventListener('keydown', this.keyHandler);
+    this.routeBinding.stop();
   }
 
   /** 连接 SSE 并把各消息方法路由到对应子控制器。 @returns 无 */
@@ -280,67 +302,13 @@ export class AppController {
       .catch(() => {});
   }
 
-  /** 从 localStorage 恢复主题 / 模型清单 / 面板宽度（挂载时调用一次）。 @returns 无 */
-  public initTheme(): void {
-    let theme: 'dark' | 'light' = 'dark';
-    try {
-      theme = (localStorage.getItem('omni-theme') || 'dark') === 'light' ? 'light' : 'dark';
-    } catch {
-      /* 忽略 */
-    }
-    document.documentElement.setAttribute('data-theme', theme);
-    try {
-      localStorage.setItem('omni-theme', theme);
-    } catch {
-      /* 忽略 */
-    }
-    this.host.patch({ theme });
-    try {
-      const cachedOptions = localStorage.getItem('omni-model-options');
-      const cachedLabel = localStorage.getItem('omni-provider-label');
-      if (cachedOptions) {
-        const parsed = JSON.parse(cachedOptions) as string[];
-        if (Array.isArray(parsed) && parsed.length > 0) this.host.patch({ modelOptions: parsed });
-      }
-      if (cachedLabel) this.host.patch({ providerLabel: cachedLabel });
-      const cachedLeft = Number(localStorage.getItem('omni-left-width'));
-      const cachedRight = Number(localStorage.getItem('omni-right-width'));
-      if (cachedLeft >= 180 && cachedLeft <= 600) this.host.patch({ leftWidth: cachedLeft });
-      if (cachedRight >= 180 && cachedRight <= 600) this.host.patch({ rightWidth: cachedRight });
-    } catch {
-      /* 忽略 */
-    }
-  }
-
-  /** 切换浅色 / 深色主题（同步写 document 属性与 localStorage）。 @returns 无 */
-  public toggleTheme(): void {
-    const next: 'dark' | 'light' = this.host.getState().theme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    try {
-      localStorage.setItem('omni-theme', next);
-    } catch {
-      /* 忽略 */
-    }
-    this.host.patch({ theme: next });
-  }
-
-  /** 切换左侧会话面板（互斥关闭右侧）。 @returns 无 */
-  public toggleLeft(): void {
-    this.host.patch((s) => ({ leftOpen: !s.leftOpen, rightOpen: false }));
-  }
-
-  /** 切换右侧工具面板（互斥关闭左侧）。 @returns 无 */
-  public toggleRight(): void {
-    this.host.patch((s) => ({ rightOpen: !s.rightOpen, leftOpen: false }));
-  }
-
   /**
-   * 打开右侧某面板。
+   * 打开右侧某面板（F8：同步写入 hash，支持深链 / 前进后退）。
    * @param key 面板标识
    * @returns 无
    */
   public openPane(key: string): void {
-    this.host.patch({ activePane: key, rightOpen: true });
+    this.routeBinding.navigate({ pane: key });
   }
 
   /** 打开「设置」面板（审批弹窗「修改权限」复用）。 @returns 无 */
@@ -356,34 +324,6 @@ export class AppController {
   /** 关闭命令面板。 @returns 无 */
   public closePalette(): void {
     this.host.patch({ paletteOpen: false });
-  }
-
-  /**
-   * 左/右侧面板拖拽宽度变更（持久化到 localStorage）。
-   * @param w 宽度
-   * @returns 无
-   */
-  public onLeftWidthChange(w: number): void {
-    this.host.patch({ leftWidth: w });
-    try {
-      localStorage.setItem('omni-left-width', String(w));
-    } catch {
-      /* 忽略 */
-    }
-  }
-
-  /**
-   * 右/左侧面板拖拽宽度变更（持久化到 localStorage）。
-   * @param w 宽度
-   * @returns 无
-   */
-  public onRightWidthChange(w: number): void {
-    this.host.patch({ rightWidth: w });
-    try {
-      localStorage.setItem('omni-right-width', String(w));
-    } catch {
-      /* 忽略 */
-    }
   }
 
   /**
@@ -408,12 +348,12 @@ export class AppController {
   }
 
   /**
-   * 设置当前激活面板（NavRail / RightPanel 复用）。
+   * 设置当前激活面板（NavRail / RightPanel 复用；F8：同步写入 hash）。
    * @param key 面板标识
    * @returns 无
    */
   public setActivePane(key: string): void {
-    this.host.patch({ activePane: key });
+    this.routeBinding.navigate({ pane: key });
   }
 
   /**
@@ -460,9 +400,9 @@ export class AppController {
       setRightOpen: (open: boolean) => this.host.patch({ rightOpen: open }),
       newSession: () => this.children.sessions.newSession(),
       refreshSessions: () => void this.children.sessions.refreshSessions(),
-      toggleTheme: () => this.toggleTheme(),
-      toggleLeft: () => this.toggleLeft(),
-      toggleRight: () => this.toggleRight(),
+      toggleTheme: () => this.children.layout.toggleTheme(),
+      toggleLeft: () => this.children.layout.toggleLeft(),
+      toggleRight: () => this.children.layout.toggleRight(),
     });
   }
 }

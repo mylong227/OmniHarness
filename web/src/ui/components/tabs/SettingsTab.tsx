@@ -6,7 +6,7 @@
 
 import { React } from '../../deps.js';
 import { AppComponent } from '../../base/AppComponent.js';
-import type { Config } from '../../../types/models.js';
+import type { Config, Profile } from '../../../types/models.js';
 import { ModelProviders } from './ModelProviders.js';
 
 /** 纵向留白。React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
@@ -37,15 +37,28 @@ const SELECTS: readonly SettingSelect[] = [
   { key: 'escalation', label: '升级审批', options: ['deny', 'ask', 'auto'] },
 ];
 
+/** 配置集下拉项（收敛 profile 切换到设置面板，与 API key / base-url 同处可改）。 */
+interface ProfileOption {
+  id: string;
+  name: string;
+}
+
 interface SettingsTabState {
   cfg: Config | null;
   savedHint: string;
+  /** 自定义模型 base-url（OpenAI 兼容端点），留空回落厂商默认。 */
+  baseUrl: string;
+  /** 配置集（profile）清单。 */
+  profiles: ProfileOption[];
+  /** 当前生效插件（profile.apply 后回显，便于确认收敛生效）。 */
+  activePlugins: string;
 }
 
 /** 运行时设置面板。 */
 export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState> {
   private modelRef: HTMLInputElement | null = null;
   private autoRef: HTMLInputElement | null = null;
+  private baseUrlRef: HTMLInputElement | null = null;
   private readonly selectRefs = new Map<string, HTMLSelectElement | null>();
 
   /** 「已保存」提示的消隐定时器。 */
@@ -53,16 +66,17 @@ export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState
 
   constructor(props: SettingsTabProps) {
     super(props);
-    this.state = { cfg: null, savedHint: '' };
+    this.state = { cfg: null, savedHint: '', baseUrl: '', profiles: [], activePlugins: '' };
   }
 
   override componentDidMount(): void {
     this.api
       .getConfig()
       .then((c) => {
-        this.setState({ cfg: c });
+        this.setState({ cfg: c, baseUrl: (c.baseUrl as string) ?? '' });
         if (this.modelRef) this.modelRef.value = c.model || '';
         if (this.autoRef) this.autoRef.checked = !!c.autoApprove;
+        if (this.baseUrlRef) this.baseUrlRef.value = (c.baseUrl as string) ?? '';
         for (const s of SELECTS) {
           const el = this.selectRefs.get(s.key as string);
           if (el) el.value = (c[s.key] as string) || '';
@@ -71,6 +85,7 @@ export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState
       .catch(() => {
         /* 静默：首次进入后端未就绪时保持「读取中」 */
       });
+    void this.reloadProfiles();
   }
 
   override componentWillUnmount(): void {
@@ -101,6 +116,39 @@ export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState
   private readonly onAutoApproveChange = (e: Event): void => {
     this.save({ autoApprove: (e.target as HTMLInputElement).checked });
   };
+
+  /** 自定义 base-url 变更：即时写回配置（留空回落厂商默认端点）。 */
+  private readonly onBaseUrlChange = (e: Event): void => {
+    const v = (e.target as HTMLInputElement).value.trim();
+    this.setState({ baseUrl: v });
+    this.save(v ? { baseUrl: v } : { baseUrl: undefined });
+  };
+
+  /** 拉取配置集清单与当前生效插件（收敛 profile 状态到设置面板）。 */
+  private async reloadProfiles(): Promise<void> {
+    try {
+      const list = await this.api.listProfiles();
+      const active = await this.api.getActiveProfile();
+      this.setState({
+        profiles: list.map((p: Profile) => ({ id: p.id, name: p.name })),
+        activePlugins: (active.plugins ?? []).join('、'),
+      });
+    } catch {
+      /* 静默：profile 服务不可用时不阻断设置渲染 */
+    }
+  }
+
+  /** 应用选中的配置集（profile.apply 即时生效，刷新后回显当前插件）。 */
+  private async applyProfile(id: string): Promise<void> {
+    if (id === '') return;
+    try {
+      await this.api.applyProfile(id);
+      this.toast('已应用配置集', 'ok');
+      await this.reloadProfiles();
+    } catch (e) {
+      this.toast('应用配置集失败：' + (e as Error).message, 'err');
+    }
+  }
 
   override render(): ReactElement {
     const { theme, onToggleTheme } = this.props;
@@ -156,6 +204,18 @@ export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState
               onChange={this.onModelChange}
             />
           </label>
+          <label>
+            自定义 Base URL
+            <input
+              type="text"
+              ref={(el: HTMLInputElement | null) => {
+                this.baseUrlRef = el;
+              }}
+              placeholder="OpenAI 兼容端点（留空用厂商默认）"
+              value={this.state.baseUrl}
+              onChange={this.onBaseUrlChange}
+            />
+          </label>
           <div className="saved" id="savedHint">
             {savedHint}
           </div>
@@ -172,6 +232,28 @@ export class SettingsTab extends AppComponent<SettingsTabProps, SettingsTabState
           <div className="switch">
             <span>浅色主题</span>
             <input type="checkbox" checked={theme === 'light'} onChange={onToggleTheme} />
+          </div>
+        </div>
+        <div style={SPACER}></div>
+        <h3 style={{ margin: '4px 0 8px' }}>配置集（Profile）</h3>
+        <div className="form">
+          <label>
+            切换配置集
+            <select
+              value=""
+              onChange={(e: Event) => void this.applyProfile((e.target as HTMLSelectElement).value)}
+            >
+              <option value="">选择并应用…</option>
+              {this.state.profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="kv">
+            <span className="k">当前生效插件</span>
+            <span className="v">{this.state.activePlugins === '' ? '（默认）' : this.state.activePlugins}</span>
           </div>
         </div>
       </div>
