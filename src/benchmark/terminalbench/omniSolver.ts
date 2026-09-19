@@ -2,16 +2,9 @@
  * OmniHarness 驱动 Solver（B2）。
  *
  * 把任务交给真实 Agent 流水线求解。真实 Agent 运行时通过 {@link AgentRunner} 注入，
- * 沙箱无 Agent 运行时，默认 fail-closed（提示改用注入了真实 runner 的自定义脚本）。
+ * 默认 fail-closed（提示改用注入了真实 runner 的自定义脚本）。
  */
-import type {
-  AgentRunner,
-  BenchmarkBudget,
-  ContainerBackend,
-  Solver,
-  SolverOutcome,
-  TerminalBenchTask,
-} from './types.js';
+import type { AgentRunner, Solver, SolverInput, SolverOutcome } from './types.js';
 
 /** OmniHarness Agent 驱动 Solver。 */
 export class OmniSolver implements Solver {
@@ -38,17 +31,16 @@ export class OmniSolver implements Solver {
   /**
    * 在预算内求解单任务。
    *
-   * @param task 任务
-   * @param backend 容器后端
-   * @param budget 预算约束
+   * @param input 求解上下文（原样透传给注入的 Agent 运行时，含一次性执行上下文）
    * @returns Agent 产出
    */
-  public async solve(
-    task: TerminalBenchTask,
-    backend: ContainerBackend,
-    budget: BenchmarkBudget,
-  ): Promise<SolverOutcome> {
-    const outcome = await this.runAgent({ task, backend, budget });
+  public async solve(input: SolverInput): Promise<SolverOutcome> {
+    const outcome = await this.runAgent({
+      task: input.task,
+      backend: input.backend,
+      budget: input.budget,
+      prepared: input.prepared,
+    });
     return { answer: outcome.answer, budgetUsed: outcome.budgetUsed };
   }
 }

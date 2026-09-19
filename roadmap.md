@@ -527,16 +527,16 @@
 
 > 用户指令「按照整个前端的功能页面全都进行 codex 或 deepseek-harness 对其……最低不输于他，最好超过他；不要求完全 0 依赖，善用成熟依赖代替从 0 开始」。主参考 `deepseek-harness`（TS Web SPA：Plan/权限/命令面板/@引用/subagent/goal bar/trajectory），`codex` 仅作模式参考。约束放宽：前端允许引入成熟 vendored UMD 依赖（markdown-it / KaTeX / highlight.js 已落地）。详账见 `docs/FRONTEND_GAP_SOURCE_AUDIT.md`。
 
-| #   | 任务           | 内容                                                                                     | 验收                                                  |
-| --- | -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写 | web:build 0 错；web:test 15/15；全库 0 `any`          |
-| F2  | ✅ 代码块体验   | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                     | 点击复制 code 文本；语言标签显示                      |
-| F3  | ✅ 会话操作     | 后端补 `sessions.rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口     | 行内重命名/确认删除/复制/搜索均可用                    |
-| F4  | 中断/重生成    | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                  | 中止即时停止；重生成复用上下文                        |
-| F5  | 配置 UI 收敛   | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                       | 配置改动即时生效                                      |
-| F6  | diff 闭环      | ChangesTab 的 hunk accept/reject 联动真实写入                                            | accept/reject 触发文件变更                            |
-| F7  | ✅ 未消费事件   | profile.error / plugin.loaded / plugin.loadError / profile.applied 接入 UI 提示（纯前端消费既有 SSE 流） | 事件出现即 toast 提示（error/success 分色）           |
-| F8  | 路由/深链      | 会话/标签可深链与浏览器后退                                                             | URL 反映当前视图                                      |
+| #   | 任务            | 内容                                                                                                     | 验收                                         |
+| --- | --------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写       | web:build 0 错；web:test 15/15；全库 0 `any` |
+| F2  | ✅ 代码块体验   | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                                   | 点击复制 code 文本；语言标签显示             |
+| F3  | ✅ 会话操作     | 后端补 `sessions.rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口                  | 行内重命名/确认删除/复制/搜索均可用          |
+| F4  | 中断/重生成     | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                                  | 中止即时停止；重生成复用上下文               |
+| F5  | 配置 UI 收敛    | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                                       | 配置改动即时生效                             |
+| F6  | diff 闭环       | ChangesTab 的 hunk accept/reject 联动真实写入                                                            | accept/reject 触发文件变更                   |
+| F7  | ✅ 未消费事件   | profile.error / plugin.loaded / plugin.loadError / profile.applied 接入 UI 提示（纯前端消费既有 SSE 流） | 事件出现即 toast 提示（error/success 分色）  |
+| F8  | 路由/深链       | 会话/标签可深链与浏览器后退                                                                              | URL 反映当前视图                             |
 
 **验收汇总（F1）**：web:build 0 错误；web:test 15/15 通过；`@typescript-eslint/no-explicit-any` 全库 0 处（`markdown.ts` 用最小接口替代 `any`）；新增 vendored 依赖 markdown-it / katex / highlight.js + KaTeX 字体（离线内置，无网络依赖）；UMD 全局缺失时回落手写实现，旧契约测试无回归。
 
@@ -545,6 +545,24 @@
 **验收汇总（F7）**：后端已在 SSE 流发出 `profile.error`/`plugin.loaded`/`plugin.loadError`/`profile.applied`，但 `AppController.connectStream` 此前只静默 bump reload key，错误与加载事件对用户不可见。新增纯函数 `web/src/ui/notify.ts` 的 `profilePluginToasts(envelope, toast)`，按 method 分派为 error/success toast（字段 `String(...??'')` 归一，永不 undefined）；`AppController` 的 `switch` 把上述四种 method 统一改调 `applyProfilePluginToast(msg)`（保留 profile 类的 reload key bump）。契约测试 `web/test/notify.test.mjs` 覆盖四类事件 + 空字段 + 无法识别 method。`web:build` 0 错、`eslint` 0 警告、全量 web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）；无 `any`，复用既有 `showToast`/`Toast.tsx`，无新状态/组件。
 
 **验收汇总（F3）**：后端 `SessionArchive` 补 `rename`/`delete`/`fork`（会话即 `<id>.jsonl`；重命名写侧车 `sessions.meta.json` 不碰事件流、`list` 优先显示；删除拒绝运行中会话双保险；分叉 `copyFileSync` + 追加 `session_meta.forkedFrom`）；`appServer` 注册 `sessions.rename`/`sessions.delete`/`sessions.fork` 三个 RPC，`appServerBase` 注入 `activeTurns` 运行态判定。前端 `ApiClient` 三方法 + `SessionController` 三方法（刷新列表 / 删则清当前线程 / 均 toast 反馈）+ `SessionPanel` 搜索框 + 行内重命名 + 删除确认条 + 每行人内操作（✎/⧉/🗑），`App` 透传回调；`components.css` 补暗亮主题样式。根 `tsc --noEmit` 0 错、`web:build` 0 错、全仓 `eslint . --max-warnings=0` 0 警告、web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）、`audit:standard:delta`（无新增 .ts）/`audit:config-wiring`（484）/`arch:gate`（无新增违例）/`check --strict`/`audit:maturity` 全绿、无 `any`。
+
+## 阶段 38：去 Docker 化（Terminal-Bench 环境契约改为容器无关，2026-09-19）
+
+> 用户指令「删除全部 docker 相关的代码实现，换用其他不需要这么麻烦的方式做同等替代，本身这个事情不是很核心；找到开源社区能够替代的方式，效率要一致或者更好」。
+> **实测盘点**：全仓已无任何 Docker 运行时调用（SWE-bench 侧 `src/eval/nativeExecutor.ts` 早已是 `git` + `uv` + `pytest`；OIDC 侧早已用零依赖本地 IdP 夹具替代 keycloak 容器），**唯一 Docker 耦合点是 Terminal-Bench 适配器的 `dockerfileReader.ts`**——它解析上游构建配方（`FROM` / `WORKDIR` / `COPY` / `RUN pip|apt`）来重建任务环境。本次把这份环境契约整体改成容器无关。
+
+| #   | 任务                | 内容                                                                                                                                                                                                                                                                               | 验收                                                       |
+| --- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| D1  | ✅ 删除 Docker 语义 | 删 `dockerfileReader.ts`（247 行）与 `SetupCommand` / `CopyDirective` / `imageBase` / `dockerfilePath` / `workingDir` / `copyDirectives` / `setupCommands`；后端种子排除表里的 Dockerfile/docker-compose 一并去掉                                                                  | `git grep -i docker` 只剩「免 Docker」声明与对第三方的对比 |
+| D2  | ✅ 环境契约容器无关 | 新增 `taskEnvironment.ts`：`env.json`（`python` / `pip` / `apt` / `shell` / `seeds`）+ **标准清单回落**（`.python-version` / `requirements.txt` / `pyproject.toml` / `apt.txt`，即 Binder·uv 同款约定）；`pip` 参数原样透传 `uv pip install`（`-e .[dev]` 这类可编辑安装照样表达） | 解析 / 回落 / 坏字段 / 未知键 / `null` 语义 等单测         |
+| D3  | ✅ 执行侧用开源替代 | 执行仍是宿主 `uv`（`uv venv --python` + `uv pip install`）：**无镜像拉取、无层解压**，秒级重建（效率更优）；原生给不出的声明（apt 系统包、构建期 shell 步骤）逐条写进 `warnings`，绝不假装成功                                                                                     | 真机两关（空解法判失败 / gold 判通过）通过                 |
+| D4  | ✅ 现网语料等价迁移 | 20 题为每题生成 `env.json`（由原构建配方**一次性对译**：Python 版本 / pip / apt / shell / 种子落点），并删除语料目录里的 `Dockerfile` 与 `docker-compose.yaml`                                                                                                                     | `--baseline gold` 实测（见下）                             |
+
+**验收汇总（阶段 38）**：`typecheck` 0 错、`build` 0 错、`arch:gate` 与 `audit:standard:delta`（编码标准增量门禁）通过；Terminal-Bench 单测 **26 例全过**（`terminalBench.test.ts` 13 + `terminalBenchEnvironment.test.ts` 8 + `terminalBenchNative.test.ts` 5），其中真机两关真的用 `uv` 建 venv、真跑 `pytest`，并断言种子落点（`task-deps/seed.txt → /app/seed.txt`，且不多套一层目录）。`--baseline gold`（绝对 `--tasks`）5 题实测 **2/5**：`hello-world` ✓、`csv-to-parquet` ✓（种子扁平化 + 判分包 pandas/pyarrow 真装上）；`circuit-fibsqrt`（需 apt `gcc`）、`dna-assembly`（需 apt `emboss`+`primer3`）、`count-dataset-tokens`（参考解运行时自装 `datasets` + 下载 HF 模型）失败——**三例全部是「本机原生给不出的系统/网络依赖」，且都在 `warnings` 里逐条暴露，不是静默记成能力失败**。
+
+**顺带修掉一个真缺陷**：`TaskParser` 未绝对化路径 ⇒ 传相对 `--tasks` 时参考解脚本以 `cwd=应用目录` 执行，`bash` 解析相对路径失败（`exit 127`），于是「环境跑不起来」被记成「模型没做出来」——方向恰好相反。现统一 `resolve()` 并加断言。
+
+**已知边界（诚实登记）**：① 原生执行仍不装系统包、不重放构建期 shell 步骤（只告警），故依赖 apt 工具链的题在本机恒为环境边界；② 语料抓取器 `ALLOWED_EXTENSIONS` 不抓 `.fasta` / `.zip` / `.db` / `.png`，导致 4 题的种子文件本地缺失（与本次改动无关，属既有抓取口径）。
 
 ## 推进规则
 

@@ -25,6 +25,13 @@ export interface ShellRunOptions {
   readonly timeoutMs: number;
   /** 单路（stdout / stderr 各自）缓冲上限（字节），超出即截断并置 `overflowed`。 */
   readonly maxBufferBytes: number;
+  /**
+   * 是否分配伪终端（PTY）执行：经 GNU `script` 包一层，让 TUI 程序拿到真终端。
+   * `true` 时会调用 {@link ShellInvocation.ptyCommand} 得到 `{bin,args}`；
+   * 当前平台不可用时该方法会**同步抛出**，由 {@link run} 的 try/catch 转成 reject（上层 fail-closed）。
+   * 省略时按 `false` 处理（普通管道执行）。
+   */
+  readonly pty?: boolean;
 }
 
 /** 单次执行结果（不抛异常，全部状态显式回传）。 */
@@ -62,10 +69,10 @@ export class ShellProcessRunner {
    */
   public run(command: string, options: ShellRunOptions): Promise<ShellRunOutcome> {
     return new Promise<ShellRunOutcome>((resolve, reject) => {
-      const shell = ShellInvocation.path();
       let child: ChildProcess;
       try {
-        child = spawn(shell, ShellInvocation.args(shell, command), {
+        const invocation = ShellProcessRunner.invocationOf(command, options);
+        child = spawn(invocation.bin, invocation.args, {
           cwd: options.cwd,
           env: options.env,
           windowsHide: true,
@@ -130,6 +137,27 @@ export class ShellProcessRunner {
         finish(code, signal);
       });
     });
+  }
+
+  /**
+   * 构造一次 spawn 调用（PTY 形态经 GNU `script` 包一层）。
+   *
+   * @param command 命令文本。
+   * @param options 执行参数（只用 `pty`）。
+   * @returns 可执行文件与 argv。
+   * @throws 当前平台不可用 PTY 时（由 {@link run} 的 try/catch 转成 reject，上层 fail-closed）。
+   */
+  private static invocationOf(
+    command: string,
+    options: ShellRunOptions,
+  ): { readonly bin: string; readonly args: readonly string[] } {
+    if (options.pty ?? false) {
+      // PTY 形态：用 GNU `script` 包一层（见 ShellInvocation.ptyCommand）。
+      // 该调用在当前平台不可用时**同步抛出**，落到 run 的 catch 转成 reject（上层 fail-closed）。
+      return ShellInvocation.ptyCommand(command);
+    }
+    const shell = ShellInvocation.path();
+    return { bin: shell, args: ShellInvocation.args(shell, command) };
   }
 
   /**
