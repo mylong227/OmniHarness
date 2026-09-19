@@ -83,7 +83,7 @@ describe('LspProcessAdapter（进程级 JSON-RPC 接线）', () => {
 });
 
 describe('LSP 配置接线（buildLsp + defaultTools 注册）', () => {
-  test('配置了 lsp.serverCommand 时注册 7 个 LSP 工具（含 lsp_diagnostics）', () => {
+  test('配置了 lsp.serverCommand 时注册 8 个 LSP 工具（含 lsp_diagnostics 与全局符号）', () => {
     const config = ConfigFactory.build({
       workspaceRoot: process.cwd(),
       maxSteps: 5,
@@ -100,10 +100,12 @@ describe('LSP 配置接线（buildLsp + defaultTools 注册）', () => {
     // P1-⑩ 补全：symbol / codeAction 两工具仅在适配器暴露对应能力时注册
     assert.ok(names.includes('lsp_document_symbols'));
     assert.ok(names.includes('lsp_code_action'));
+    // 2026-09-19：补 workspace/symbol（全局符号搜索，**不需要先知道文件**；同样按能力门控）
+    assert.ok(names.includes('lsp_workspace_symbols'));
     assert.strictEqual(
       names.filter((name) => name.startsWith('lsp_')).length,
-      7,
-      'LSP 工具族应为 7 个（6 个查询 + 1 个诊断）',
+      8,
+      'LSP 工具族应为 8 个（7 个查询 + 1 个诊断）',
     );
     assert.ok(config.lsp !== undefined);
   });

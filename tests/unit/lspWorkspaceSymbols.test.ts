@@ -11,18 +11,50 @@
  * 全测试**不依赖任何真实语言服务器**：mock 只实现 LSP 最小子集 + workspace/symbol。
  */
 import { strict as assert } from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { before, describe, test } from 'node:test';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
 import { fileToUri } from '../../src/adapters/lsp/lspUri.js';
 import { LspSymbolNormalizer } from '../../src/adapters/lsp/lspSymbolNormalizer.js';
 import { LspWorkspaceSymbolsTool } from '../../src/adapters/tool/lsp/lspWorkspaceSymbolsTool.js';
 import type { LspPort, LspWorkspaceSymbol } from '../../src/ports/tool/lsp.js';
 import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
-import { WORKSPACE_SYMBOL_PATHS } from '../fixtures/lspWorkspaceSymbolFixture.mjs';
 
 /** mock 服务器（源码级 .mjs，不被 tsc 编译，故相对项目根定位）。 */
 const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');
+
+/**
+ * 全局符号语料（与 mock 服务器**同一份模块**：期望路径与 mock 返回的 URI 必须同源）。
+ *
+ * 为什么用运行时动态 import 而不是静态 `import … from '../fixtures/x.mjs'`：
+ * `.mjs` 不被 `tsc` 编译，`dist/tests/unit/*.test.js` 里那条静态 import 会解析到
+ * `dist/tests/fixtures/x.mjs`（不存在）⇒ `npm test` 直接 ERR_MODULE_NOT_FOUND。
+ * 这里与 mock 服务器同样按**项目根**定位源码级语料，两个进程读到逐字相同的路径。
+ */
+const fixtureUrl = pathToFileURL(
+  resolve(process.cwd(), 'tests/fixtures/lspWorkspaceSymbolFixture.mjs'),
+).href;
+
+/** 语料里的路径事实（形如 `{ repoRoot, srcDir, demoFile, utilFile }`）。 */
+interface WorkspaceSymbolPaths {
+  /** 假仓库根。 */
+  readonly repoRoot: string;
+  /** 假 src 目录。 */
+  readonly srcDir: string;
+  /** demo.ts 绝对路径。 */
+  readonly demoFile: string;
+  /** util.ts 绝对路径。 */
+  readonly utilFile: string;
+}
+
+/** 断言用的期望路径（`before` 里加载，避免顶层 await 与 CJS 目标之争）。 */
+let PATHS: WorkspaceSymbolPaths;
+
+before(async () => {
+  const fixture = (await import(fixtureUrl)) as { WORKSPACE_SYMBOL_PATHS: WorkspaceSymbolPaths };
+  PATHS = fixture.WORKSPACE_SYMBOL_PATHS;
+});
 
 /**
  * 指向 mock 服务器的适配器。
@@ -67,12 +99,12 @@ describe('LSP workspace/symbol（进程级 JSON-RPC 归一化）', () => {
       assert.deepStrictEqual(
         symbols.map((s) => [s.name, s.kind, s.file, s.range.start.line, s.range.start.character]),
         [
-          ['DemoClass', 'class', WORKSPACE_SYMBOL_PATHS.demoFile, 10, 7],
+          ['DemoClass', 'class', PATHS.demoFile, 10, 7],
           // LSP 3.17 允许 WorkspaceSymbol 只给 uri、不给区间 ⇒ 按文件起点呈现，而不是丢掉这条。
-          ['dirOnly', 'module', WORKSPACE_SYMBOL_PATHS.srcDir, 1, 1],
-          ['topLevelFn', 'function', WORKSPACE_SYMBOL_PATHS.demoFile, 21, 10],
+          ['dirOnly', 'module', PATHS.srcDir, 1, 1],
+          ['topLevelFn', 'function', PATHS.demoFile, 21, 10],
           // 这一条上游是扁平式 SymbolInformation（同一字段名，故走同一条归一化路径）。
-          ['helper', 'function', WORKSPACE_SYMBOL_PATHS.utilFile, 3, 1],
+          ['helper', 'function', PATHS.utilFile, 3, 1],
         ],
       );
       // URI 必须转回普通文件系统路径，而不是 file://
@@ -87,12 +119,13 @@ describe('LSP workspace/symbol（进程级 JSON-RPC 归一化）', () => {
     }
   });
 
-  test('畸形条目被跳过而不是抛错；无匹配时为空数组', async () => {
+  test('畸形条目被跳过而不是抛错（query 含 junk 时 mock 回 null/数字/无名/无位置）', async () => {
     const lsp = adapter();
     try {
-      // query 含 junk ⇒ mock 回 null / 数字 / 无名 / 无位置四类畸形条目
+      // query 含 junk ⇒ mock 回 null / 数字 / 无名 / 无位置四类畸形条目。
+      // 注意：mock **不按 query 过滤**（它只回固定语料），故「无匹配 ⇒ 空数组」由工具层用例覆盖
+      // （stub 端口），不在这里假装。
       assert.deepStrictEqual(await lsp.workspaceSymbols('junk-query'), []);
-      assert.deepStrictEqual(await lsp.workspaceSymbols('no-such-symbol-xyz'), []);
     } finally {
       await lsp.shutdown();
     }
@@ -243,13 +276,14 @@ describe('lsp_workspace_symbols 工具', () => {
       ].join('\n'),
     );
 
-    // 目录写法（相对）也要命中其下的文件——朴素前缀匹配会在这里漏。
+    // 目录写法（相对）命中其下**所有**文件——朴素前缀匹配会在这里漏（`src` 对不上 `/repo/src/a.ts`）。
     const underDir = await tool.handle(call({ query: 'x', file: 'src' }), ctx);
     assert.strictEqual(
       underDir.output,
       [
         'class EarlyClass — /repo/src/a.ts:2:7',
         'method classFn [在 A 中] — /repo/src/a.ts:9:3',
+        'function helper — /repo/src/b.ts:1:1',
       ].join('\n'),
     );
     // 文件过滤串按**整段**比对：`a.ts` 不该命中 `a.tsx` 或 `deep/a.ts`。
