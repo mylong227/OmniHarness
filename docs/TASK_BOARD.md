@@ -520,3 +520,43 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 **验证**：续跑 25/25 既有 jsonl 跳过全部 25 题、0ms 聚合出 7/25 报告；僵尸锁（10min 前心跳）自动清掉重跑；新鲜心跳拒绝退出（EXIT 1）。门禁 typecheck / arch:gate / audit:standard:delta / audit:config-wiring 全绿。
 
 **用法（长批/易中断评分统一改用）**：node benchmark/capability_swebench.mjs --verified <数据集> --predictions <补丁> --instance-list <子集> --repo-base https://gitee.com/ --repo-mirrors benchmark/swebench-gitee-mirrors.json --jsonl <进度文件> --out <报告>。仓库外临时包装器 _score_incremental.mjs 已废弃，由本改动取代。
+
+## 9. 编码 Agent 能力补齐（P0 批次，2026-09-19）
+
+**背景与口径**：2026-09-19 能力盘点（报告在仓库外 `D:\deepseek\CAPABILITY_AUDIT_2026-09-19.html`）把本 harness 的编码能力判为「**写码 ✅／改码 ⚠️ 脆弱／查错 ⚠️ 半具备**」，并用两枚探针（`_audit_tmp/{patch_probe,selfverify_probe}.mjs`）硬证两处缺陷。用户要求「把当前存在的问题全都诚实地全部完成，同时要求超越，不允许交付半成品」，故本批把盘点出的 **8 条缺口一次性落地**，不做部分交付。
+
+**被证伪的根因（一句话）**：工具集只覆盖「整文件读 → 整文件写」，缺**「定点改」**这条主干；而 `read_file` 不给行号、`apply_patch` 却按行号锚定 ⇒ 形成**「读不给行号、改却必须给行号」**的复合故障。探针实测 6 类常见模型 diff 有 **4 类直接失败**（含「上下文全对但行号写偏」）。
+
+**八条缺口与落地**：
+
+| #   | 缺口（原状）                                                                                                                                                                          | 落地                                                                                                                                                                                                           | 可证伪验收                                                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 无 `edit`（内容替换）工具，只能整文件写或用行号打补丁                                                                                                                                 | `adapters/tool/fs/editFileTool.ts` + `stringReplaceEditor.ts`（**三级匹配**：精确 → 折叠空白 → 剥行号前缀）；可选 `replace_all`／`fuzzy`，落盘前留 `.bak`                                                      | `editFileTool.test.ts` 5 例 + `stringReplaceEditor.test.ts` 10 例                                                                   |
+| 2   | `read_file` 无 `offset`/`limit`，且**不给行号**                                                                                                                                       | `fileLineWindow.ts`；`read_file` 默认输出 `行号→内容`，支持 `offset`/`limit`（上限 5000），越界明确报错并附总行数                                                                                              | `fileLineWindow.test.ts` 7 例 + `readFileTool.test.ts` 6 例                                                                         |
+| 3   | `PatchApplier` **只取首个 `+++` 头**、逐字符比较、无偏移搜索                                                                                                                          | 重写为多文件解析（`parseFiles`）+ 原子多文件应用（`applyMany`）+ **±200 行偏移搜索**与三级容错；替换段改用**真实文件行**重建上下文（避免把模糊匹配到的脏副本写回）                                             | `patchApplierFuzzy.test.ts` 9 例；探针 6/6 + 负向对照                                                                               |
+| 4   | **自验证回环静默旁路**：`shouldVerify` 只读 `args.path`，而 `apply_patch` 的 `path` 官方即可省略 ⇒ 不带 path 的补丁**一次都不触发**自验证；假完成探测只认 `content`，对补丁恒静默跳过 | 新增 `verify/mutationTargets.ts`（从补丁头／`new_string` 统一解析「改了哪些文件＋写了什么」），`configToolRegistry.withSelfVerify` 改走它                                                                      | `mutationTargets.test.ts` 6 例；探针：`shouldVerify(apply_patch, 无 path)` 由 **false → true**，端到端 `runnerCalls` 由 **+0 → +1** |
+| 5   | `shell` **30s 硬顶且不可按次覆盖** ⇒ `tsc`／全量测试常被切断                                                                                                                          | `shellTool` 新增 `timeout_ms`（钳制 `[1s, 10min]`，非法/NaN 回落默认），默认仍 30s                                                                                                                             | 既有 `shellTool.test.ts` + 钳制边界单测                                                                                             |
+| 6   | 无 `grep`/`glob`，查代码只能手写 shell（Windows 无 grep、且不受工作区边界约束）                                                                                                       | `grepTool.ts`／`globTool.ts` + 底座 `util/globMatcher.ts`／`util/workspaceFileWalker.ts`（默认忽略 `.git`/`node_modules`/构建产物，跳过二进制与 >2MiB 文件，**截断必显式回报**）                               | `globMatcher.test.ts` 6 例 + `searchTools.test.ts` 8 例                                                                             |
+| 7   | LSP 只到「导航层」，`publishDiagnostics` **被显式忽略** ⇒ 改完代码拿不到编译错误，只能再跑一次构建                                                                                    | `LspPort.diagnostics?()` + `lspProcessAdapter.diagnostics()`（强制 didOpen/didChange 后等推送）+ `lsp_diagnostics` 工具 + `lspDiagnosticsCollector.ts`；**`stale` 明确渲染成「不代表没有错误」**               | `lspDiagnostics.test.ts` 5 例（真实子进程往返 + stale 诚实性 + 能力缺失明确失败）                                                   |
+| 8   | ①系统提示**取向相反**（禁连续探索、禁跑 build）；②Server 切工作区时手工只透传 9 个键 ⇒ `fragments` 等几十个字段被静默丢弃（**切项目后系统提示整段消失**）                             | `config/defaultPromptFragments.ts`（改写为「先看后改／选对工具／改完就验／读错误再修」）+ `config/configRebase.ts`（以旧配置为基线重基，只剔除三个工作区耦合端口）；`appServerBase.switchWorkspace` 改走重基器 | `configRebase.test.ts` 3 例；接线经 `audit:config-wiring` + grep 复核                                                               |
+
+**顺带修掉三处真 bug（由本轮单测逼出，非纸面推演）**：
+
+1. **多文件补丁第一段必然失败**：`splitFilePatches` 只认 `+++ ` 而放过下一段的 `--- ` 旧文件头，该行落进上一段 hunk、又被「`-` 开头」判据当成删除行 ⇒ 旧侧上下文凭空多一行。**三个单测同时红**才暴露；已加「`--- ` 紧跟 `+++ ` 即为段边界」的前瞻判据。
+2. **空文件被误判为「越界」**：`FileLineWindow.slice('')` 走 `offset(1) > totalLines(0)` ⇒ `pastEnd:true` ⇒ `read_file` 读空文件报「已越过文件末尾」。而渲染层**早就写好了空文件分支，却永远走不到**。判据改为 `offset > max(totalLines, 1)`。
+3. **plan 模式只读白名单漏登记新工具**：`planApproval.ts` 的白名单是硬编码集合，新增的 `grep`/`glob`/`lsp_diagnostics` 未登记 ⇒ 在 plan 模式下被 fail-closed **误拒**。已补齐并写进 `planApproval.test.ts`。
+
+**门禁过程中自查出并已修的两处「自己造的违规」**：
+
+- `audit:standard:delta` 拦下 **`lspProcessAdapter.ts` 上帝类（609 行／32 方法）**——补齐诊断能力后越过红线。已按「一文件一类」抽出 `LspDiagnosticsCollector`（订阅→归一化→缓存→唤醒等待者），适配器回落 **430 行**，LSP 相关单测 22/22 复绿。
+- `configToolRegistry` 的「内置 17 工具」注释随工具集变化**同步更正为 20**（文档与实现不一致本身即是缺陷）。
+
+**诚实边界（未做／未证，不粉饰）**：
+
+- 本批**未重跑 SWE-bench 真实出分**（需 API key + 长批），故「解题率是否因此提高」**没有新证据**；本批只证「工具链缺口已补齐且可证伪」。
+- `lsp_diagnostics` 的验收走的是 **mock LSP 子进程**，**真实语言服务器（tsserver 等）未在本机验证**；`stale` 分支**只做了桩测**（无法在 5s 窗口内稳定复现「服务器收了 didChange 却不回推送」）。
+- `edit` 的三级匹配是**启发式**：语义等价的更大改写（如重排语句）仍会失败并明确报错——这是**刻意**的 fail-closed，不做静默近似。
+- 系统提示改写只保证「不再禁止探索／不再禁止跑构建／明确先看后改」，**未做提示词层面的 A/B 效果度量**。
+- 探针脚本位于**仓库外** `D:\deepseek\_audit_tmp\p0_verify_probe.mjs`（沿用既有审计临时目录惯例），故**证据不随仓库版本化**；仓库内的持久证据是上表 67 项单测。
+
+**验收汇总**：八道门禁 **全 0**（typecheck / lint / check --strict / arch:gate / audit:maturity / audit:config-wiring / audit:standard:delta / build）；**10 个新测试文件、67 项用例全绿**；全量单测 **1593/1612**（失败 5 + 取消 7 **与本批无关**，= 既有 flake 基线：appServer×3 / HTTP-SSE / SDK-WS，以及 7 个 spawn 类文件级 120s 超时）；既有 3 处断言随工具集变化**同步更新而非放宽**（`turnDiffTracker` 的 `TRACKED_WRITE_TOOLS` 增 `edit`、`lspProcess` 的 LSP 工具数 4→5、`planApproval` 白名单增 3 项）；探针 **15/15 PASS**（含「上下文真不匹配必须失败」的负向对照，证明容错不是「永远成功」）。
