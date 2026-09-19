@@ -165,7 +165,7 @@
 | 批次 | 范围 | 状态 |
 | --- | --- | --- |
 | 批1 | 纯展示组件 10 件：`Toast`/`AttachmentChips`/`ExternalLinkCards`/`StreamingAssistantCard`/`DetailTab`/`ToolsTab`/`ArtifactCard`/`TopBar`/`RightPanel`/`FileModal`（零状态零副作用） | ✅ **已完成** |
-| 批2 | `stream/` 消息卡片 5 件：`ReasoningBlock`/`UserCard`/`ToolCallCard`/`ProcessCluster`/`AssistantCard`（展开态 + 渐进揭示定时器） | 待开始 |
+| 批2 | `stream/` 消息卡片 5 件：`ReasoningBlock`/`UserCard`/`ToolCallCard`/`ProcessCluster`/`AssistantCard`（展开态 + 渐进揭示定时器） | ✅ **已完成** |
 | 批3 | 交互组件 10 件（含 `TreeNode`/`WorkIndicator`/`PermissionPicker`/`NavRail`/`ApprovalModal`）+ 改写 `mount.test.mjs` 对应断言 | 待开始 |
 | 批4/5 | `tabs/` 面板 10 件（数据拉取 effect、轮询、受控表单） | 待开始 |
 | 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` | 待开始 |
@@ -179,4 +179,14 @@
 | 逻辑下沉 | `ToolsTab.statusText` 抽为模块级纯函数（零 React 依赖、可单测）；原 `private renderItem/renderTab/handleOpen/handleClose` 改为组件内 `const` 闭包（函数组件天然绑定 `this`，取消 `bind`） |
 | 标准对齐 | 每个 `export interface XxxProps` 字段补 `/** */` 注释；每个组件补含 `@param`/`@returns` 的 JSDoc；返回值显式标注；文件名 = 组件名（R2）；无 `any`、无 `var` |
 | 测试 | 新增 `web/test/hooksStub.mjs`；`mount.test.mjs` 顶部改用该运行时（`renderOf()` 兼容两形态），`Toast` 断言由 `new Toast(...).render()` 改为 `renderOf(Toast, {...})` |
-| 验收 | `web:build` 0 错；根 `tsc --noEmit` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；`audit:standard:delta`（无暂存 `.ts`）/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **134/136**（仅 2 项 headless-Chrome e2e 环境差异） | |
+| 验收 | `web:build` 0 错；根 `tsc --noEmit` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；`audit:standard:delta`（无暂存 `.ts`）/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **134/136**（仅 2 项 headless-Chrome e2e 环境差异） |
+
+### 批2 验收（`stream/` 消息卡片 5 件）
+
+| 项 | 内容 |
+| --- | --- |
+| 状态 → Hooks | `ReasoningBlock.open` / `ToolCallCard.open` / `UserCard.{editing,draft}` / `ProcessCluster.userToggled` 全部改 `React.useState`；toggle 一律用函数式 updater（`setOpen((prev) => !prev)`，H5 防陈旧闭包） |
+| 副作用 → effect | `ProcessCluster`：`detailsRef` 改 `useRef`；原 `componentDidMount` + `componentDidUpdate` 的 `syncOpen()` 合为**一个** `React.useEffect(..., [userToggled, isOpen])`（依赖写全、不比对 prev；#OBS-13「用户接管后 busy 不再覆盖」语义不变） |
+| 定时器生命周期 | `AssistantCard`：`TextRevealer` 实例改 `useRef` 惰性初始化（跨渲染复用、构造只发生一次，`schedule` 注入点保留 ⇒ 单测仍可替换定时器）；`componentDidMount/Update` → `useEffect(..., [full, busy, animate])`；`componentWillUnmount` → 空依赖 effect 的清理函数 `revealerRef.current?.stop()`（H3 清理对称） |
+| 契约不变 | 5 个组件 Props 接口逐字保留（含 `schedule` 测试注入点与 `onRegenerate` / `onOpenFile` 回调签名），`StreamView` 调用点零改动 |
+| 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） | |
