@@ -166,7 +166,7 @@
 | --- | --- | --- |
 | 批1 | 纯展示组件 10 件：`Toast`/`AttachmentChips`/`ExternalLinkCards`/`StreamingAssistantCard`/`DetailTab`/`ToolsTab`/`ArtifactCard`/`TopBar`/`RightPanel`/`FileModal`（零状态零副作用） | ✅ **已完成** |
 | 批2 | `stream/` 消息卡片 5 件：`ReasoningBlock`/`UserCard`/`ToolCallCard`/`ProcessCluster`/`AssistantCard`（展开态 + 渐进揭示定时器） | ✅ **已完成** |
-| 批3 | 交互组件 10 件（含 `TreeNode`/`WorkIndicator`/`PermissionPicker`/`NavRail`/`ApprovalModal`）+ 改写 `mount.test.mjs` 对应断言 | 待开始 |
+| 批3 | 交互组件 9 件（`Dropdown`/`Resizer`/`TreeNode`/`WorkIndicator`/`NavRail`/`ApprovalModal`/`PermissionPicker`/`FolderPicker`/`FilePicker`）+ 改写 `mount.test.mjs` 对应断言 | ✅ **已完成** |
 | 批4/5 | `tabs/` 面板 10 件（数据拉取 effect、轮询、受控表单） | 待开始 |
 | 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` | 待开始 |
 | 批7 | `App.ts` 根组件转函数组件（`useReducer` + `useRef` 桥接 `AppHost`）；**删 `AppComponent.tsx`**；`react-shim.d.ts` 移除 `ReactComponent`/`Component`/`createRef`；改 `noNativeDialogs.test.mjs` | 待开始 |
@@ -189,4 +189,16 @@
 | 副作用 → effect | `ProcessCluster`：`detailsRef` 改 `useRef`；原 `componentDidMount` + `componentDidUpdate` 的 `syncOpen()` 合为**一个** `React.useEffect(..., [userToggled, isOpen])`（依赖写全、不比对 prev；#OBS-13「用户接管后 busy 不再覆盖」语义不变） |
 | 定时器生命周期 | `AssistantCard`：`TextRevealer` 实例改 `useRef` 惰性初始化（跨渲染复用、构造只发生一次，`schedule` 注入点保留 ⇒ 单测仍可替换定时器）；`componentDidMount/Update` → `useEffect(..., [full, busy, animate])`；`componentWillUnmount` → 空依赖 effect 的清理函数 `revealerRef.current?.stop()`（H3 清理对称） |
 | 契约不变 | 5 个组件 Props 接口逐字保留（含 `schedule` 测试注入点与 `onRegenerate` / `onOpenFile` 回调签名），`StreamView` 调用点零改动 |
+| 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） |
+
+### 批3 验收（交互组件 9 件）
+
+| 项 | 内容 |
+| --- | --- |
+| 展开态 + 外部点击 | `Dropdown` / `PermissionPicker`：原 `componentDidUpdate` 比对 `prevState.open` 手动挂/摘 `window.click` → 改为**条件 effect**（`if (!open) return undefined;` + deps `[open]`），挂载与清理天然对称 |
+| 拖拽中间态 | `Resizer`：`dragging/startX/startWidth` 实例字段 → `useRef`；window 监听空依赖 effect 只挂一次，handler 经**最新值 ref**（`latestRef.current = {...}`）读 props，同时避免重挂与陈旧闭包（H5） |
+| 键盘监听 | `FolderPicker` / `FilePicker`：Esc 监听改 effect，依赖显式列出 `[create.creating, onCancel]` / `[onCancel]`，handler 恒为最新闭包（不用 ref 镜像也满足 H2） |
+| 状态分组（防上帝组件） | `FolderPicker` 原 9 份扁平 state → 按语义收成 3 组：`BrowseState`（cur/dirs/parent/roots/home）、`LoadState`（loading/error）、`CreateState`（creating/newName/creatingErr）；`FilePicker` → `BrowseState` + `LoadState` + `selected`（`Set` 用函数式 updater 整体替换） |
+| 纯逻辑下沉（R5） | `FilePicker.sortFiles` 抽出为模块级纯函数（中文拼音、忽略大小写）；`FolderPicker`/`FilePicker` 的盘符层 / 目录层 / 新建区渲染分支抽为**模块级渲染函数**（`renderDrives`/`renderDirs`/`renderCreateBar`/`renderDirBody`），组件主体只保留状态 + 副作用 + 装配 |
+| 测试改写 | `mount.test.mjs` 中 `Toast`/`NavRail`/`TreeNode`/`PermissionPicker`/`ApprovalModal` 由 `new X(props).render()` → `renderOf(X, props)`；`WorkIndicator` 的 `wi.state = { elapsed: 7 }` → `renderOf(WorkIndicator, props, { 0: 7 })`（按 hook 序号预设，第 0 个 hook 即 `useState(elapsed)`）；`TreeNode` 用例顺带清掉非 Props 的 `depth: 0` 冗余入参 |
 | 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） | |

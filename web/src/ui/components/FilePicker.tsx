@@ -3,82 +3,179 @@
 // 多选（每行独立勾选）。与 FolderPicker 同源：fs.browse(includeFiles=true) 拉数据，onPick 回调
 // 把选中的绝对路径交回 Composer 走 attach.read 批量读 base64。
 //
-// 面向对象改造：选中集用 Set 存于 state（切换时整体替换，保证 React 能感知变化）；
-// 图标 / 体积 / 路径拼接下沉到 models/ 下的三个零 React 类，本文件只做渲染与交互。
+// 函数组件范式：选中集用 useState<Set>（切换时整体替换，保证 React 能感知变化）；
+// 浏览数据 / 加载态分两组 state；排序与各渲染分支下沉为模块级纯函数。
+// 图标 / 体积 / 路径拼接继续复用 models/ 下的零 React 类。
 
 import { React } from '../deps.js';
-import { AppComponent } from '../base/AppComponent.js';
 import { PathJoiner } from '../models/PathJoiner.js';
 import { FileIconResolver } from '../models/FileIconResolver.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
+/** 目录中的单个文件条目。 */
 interface FsFile {
   name: string;
   size: number;
   mediaType: string;
 }
 
+/** fs.browse(includeFiles=true) 的两级返回形态。 */
 type BrowseResult =
   | { level: 'drives'; roots: string[]; home: string }
   | { level: 'dir'; path: string; parent?: string; dirs: string[]; files?: FsFile[] };
 
+/** FilePicker 组件的入参。 */
 export interface FilePickerProps {
+  /** ApiClient（fs.browse 含文件）。 */
   api: ApiClient;
+  /** 取消选择（关闭弹窗）。 */
   onCancel: () => void;
   /** 确认：传入选中文件的绝对路径列表（Composer 再调 attach.read 读 base64）。 */
   onPick: (paths: string[]) => void;
 }
 
-interface FilePickerState {
+/** 目录浏览数据（一次 load 整体替换）。 */
+interface BrowseState {
   cur: string | null;
   dirs: string[];
   files: FsFile[];
   parent: string | undefined;
   roots: string[];
   home: string;
-  error: string | null;
-  loading: boolean;
-  selected: Set<string>;
 }
 
-/** 文件选择器（多选）。 */
-export class FilePicker extends AppComponent<FilePickerProps, FilePickerState> {
-  constructor(props: FilePickerProps) {
-    super(props);
-    this.state = {
-      cur: null,
-      dirs: [],
-      files: [],
-      parent: undefined,
-      roots: [],
-      home: '',
-      error: null,
-      loading: false,
-      selected: new Set<string>(),
-    };
-  }
+/** 加载与错误态。 */
+interface LoadState {
+  loading: boolean;
+  error: string | null;
+}
 
-  override componentDidMount(): void {
-    void this.load();
-    window.addEventListener('keydown', this.onKeyDown);
-  }
+const INIT_BROWSE: BrowseState = {
+  cur: null,
+  dirs: [],
+  files: [],
+  parent: undefined,
+  roots: [],
+  home: '',
+};
 
-  override componentWillUnmount(): void {
-    window.removeEventListener('keydown', this.onKeyDown);
-  }
+/**
+ * 文件名排序（中文按拼音、忽略大小写）。
+ * @param files 原始文件列表
+ * @returns 排序后的新数组（不改原数组）
+ */
+function sortFiles(files: FsFile[]): FsFile[] {
+  return [...files].sort((a, b) =>
+    a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }),
+  );
+}
 
-  private readonly onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') this.props.onCancel();
-  };
+/**
+ * 渲染盘符层：用户目录置顶 + 各盘符。
+ * @param browse 当前浏览数据
+ * @param onNavigate 进入指定路径
+ * @returns 盘符列表节点
+ */
+function renderDrives(browse: BrowseState, onNavigate: (path: string) => void): ReactElement {
+  const { home, roots } = browse;
+  return (
+    <>
+      <div className="fp-item fp-home" onClick={() => onNavigate(home)}>
+        <span className="fp-icon">🏠</span>
+        <span className="fp-name">{home}（用户目录）</span>
+      </div>
+      {roots.map((r) => (
+        <div key={r} className="fp-item" onClick={() => onNavigate(r)}>
+          <span className="fp-icon">💾</span>
+          <span className="fp-name">{r}</span>
+        </div>
+      ))}
+    </>
+  );
+}
 
-  /** 浏览目录（含文件）：不传 path 时列盘符层。 */
-  private async load(path?: string): Promise<void> {
-    this.setState({ loading: true, error: null });
+/**
+ * 渲染目录层：上级目录 + 子目录 + 文件（含勾选态）。
+ * @param browse 当前浏览数据
+ * @param selected 已选中的绝对路径集
+ * @param onNavigate 进入目录
+ * @param onToggle 勾选 / 取消勾选文件
+ * @returns 列表节点
+ */
+function renderDirBody(
+  browse: BrowseState,
+  selected: ReadonlySet<string>,
+  onNavigate: (path: string) => void,
+  onToggle: (fullPath: string) => void,
+): ReactElement {
+  const { cur, dirs, parent } = browse;
+  if (cur === null) return <></>;
+  const files = sortFiles(browse.files);
+  return (
+    <>
+      {parent !== undefined ? (
+        <div className="fp-item fp-up" onClick={() => onNavigate(parent)}>
+          <span className="fp-icon">↩️</span>
+          <span className="fp-name">..（上级目录）</span>
+        </div>
+      ) : null}
+      {dirs.length === 0 && files.length === 0 && parent !== undefined ? (
+        <div className="fp-empty">（空目录）</div>
+      ) : null}
+      {dirs.map((d) => (
+        <div
+          key={'d:' + d}
+          className="fp-item fp-dir"
+          onClick={() => onNavigate(PathJoiner.join(cur, d))}
+        >
+          <span className="fp-icon">📁</span>
+          <span className="fp-name">{d}</span>
+        </div>
+      ))}
+      {files.map((f) => {
+        const full = PathJoiner.join(cur, f.name);
+        const sel = selected.has(full);
+        return (
+          <div
+            key={'f:' + f.name}
+            className={'fp-item fp-file' + (sel ? ' selected' : '')}
+            title={`${f.name} · ${f.mediaType} · ${FileSizeFormatter.human(f.size)}`}
+            onClick={() => onToggle(full)}
+          >
+            <span className="fp-icon">{FileIconResolver.emoji(f.mediaType)}</span>
+            <span className="fp-name">{f.name}</span>
+            <span className="fp-size">{FileSizeFormatter.human(f.size)}</span>
+            <span className="fp-check">{sel ? '✓' : ''}</span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * 文件选择器：列盘符 / 目录 → 多选文件 → 确认回传绝对路径列表。
+ * @param props 组件入参
+ * @returns 文件选择弹窗节点
+ */
+export function FilePicker(props: FilePickerProps): ReactElement {
+  const { api, onCancel, onPick } = props;
+  const [browse, setBrowse] = React.useState<BrowseState>(INIT_BROWSE);
+  const [load, setLoad] = React.useState<LoadState>({ loading: false, error: null });
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
+  const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
+
+  /**
+   * 浏览目录（含文件）：不传 path 时列盘符层。
+   * @param path 目标目录（缺省列盘符）
+   */
+  const loadDir = async (path?: string): Promise<void> => {
+    setLoad({ loading: true, error: null });
     try {
-      const r: BrowseResult = await this.props.api.browseFs(path, true);
+      const r: BrowseResult = await api.browseFs(path, true);
       if (r.level === 'drives') {
-        this.setState({
+        setBrowse({
           roots: r.roots,
           home: r.home,
           cur: null,
@@ -87,154 +184,106 @@ export class FilePicker extends AppComponent<FilePickerProps, FilePickerState> {
           parent: undefined,
         });
       } else {
-        this.setState({ cur: r.path, dirs: r.dirs, files: r.files ?? [], parent: r.parent });
+        setBrowse((prev) => ({
+          ...prev,
+          cur: r.path,
+          dirs: r.dirs,
+          files: r.files ?? [],
+          parent: r.parent,
+        }));
       }
     } catch (e) {
-      this.setState({ error: (e as Error).message });
+      setLoad((prev) => ({ ...prev, error: (e as Error).message }));
     } finally {
-      this.setState({ loading: false });
+      setLoad((prev) => ({ ...prev, loading: false }));
     }
-  }
+  };
+
+  // 挂载即列盘符层（[] 有意：只在进入选择器时拉一次，api 由 props 注入且会话内稳定）。
+  React.useEffect(() => {
+    void loadDir();
+  }, []);
+
+  // Esc 关闭（依赖写全：onCancel 变化即重挂，handler 恒为最新闭包）。
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
 
   /** 进入目录会清空选中集：跨目录选择语义不清，宁可让用户重新勾。 */
-  private navigate(path: string): void {
-    this.setState({ selected: new Set<string>() });
-    void this.load(path);
-  }
+  const navigate = (path: string): void => {
+    setSelected(new Set<string>());
+    void loadDir(path);
+  };
 
-  /** 勾选 / 取消勾选单个文件。 */
-  private readonly toggleFile = (fullPath: string): void => {
-    this.setState((prev) => {
-      const next = new Set(prev.selected);
+  /**
+   * 勾选 / 取消勾选单个文件（函数式 updater，基于 prev 集合构造新集合）。
+   * @param fullPath 文件绝对路径
+   */
+  const toggleFile = (fullPath: string): void => {
+    setSelected((prev) => {
+      const next = new Set(prev);
       if (next.has(fullPath)) next.delete(fullPath);
       else next.add(fullPath);
-      return { selected: next };
+      return next;
     });
   };
 
-  private readonly confirm = (): void => {
-    const { selected } = this.state;
+  /** 确认：至少选一个文件才回传。 */
+  const confirm = (): void => {
     if (selected.size === 0) return;
-    this.props.onPick(Array.from(selected));
+    onPick(Array.from(selected));
   };
 
-  /** 文件名排序（中文按拼音、忽略大小写）。 */
-  private sortedFiles(): FsFile[] {
-    return [...this.state.files].sort((a, b) =>
-      a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }),
-    );
-  }
-
-  private renderDrives(): ReactElement {
-    const { home, roots } = this.state;
-    return (
-      <>
-        <div className="fp-item fp-home" onClick={() => this.navigate(home)}>
-          <span className="fp-icon">🏠</span>
-          <span className="fp-name">{home}（用户目录）</span>
+  const selectedCount = selected.size;
+  return (
+    <div className="fp-overlay" onClick={onCancel}>
+      <div className="fp-modal" onClick={(e: MouseEvent) => e.stopPropagation()}>
+        <div className="fp-head">
+          <span className="fp-title">选择附件文件</span>
+          <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>
+            ✕
+          </button>
         </div>
-        {roots.map((r) => (
-          <div key={r} className="fp-item" onClick={() => this.navigate(r)}>
-            <span className="fp-icon">💾</span>
-            <span className="fp-name">{r}</span>
-          </div>
-        ))}
-      </>
-    );
-  }
 
-  private renderFile(f: FsFile, cur: string): ReactElement {
-    const full = PathJoiner.join(cur, f.name);
-    const sel = this.state.selected.has(full);
-    return (
-      <div
-        key={'f:' + f.name}
-        className={'fp-item fp-file' + (sel ? ' selected' : '')}
-        title={`${f.name} · ${f.mediaType} · ${FileSizeFormatter.human(f.size)}`}
-        onClick={() => this.toggleFile(full)}
-      >
-        <span className="fp-icon">{FileIconResolver.emoji(f.mediaType)}</span>
-        <span className="fp-name">{f.name}</span>
-        <span className="fp-size">{FileSizeFormatter.human(f.size)}</span>
-        <span className="fp-check">{sel ? '✓' : ''}</span>
-      </div>
-    );
-  }
-
-  private renderDir(): ReactElement {
-    const { cur, dirs, parent } = this.state;
-    if (cur === null) return <></>;
-    const files = this.sortedFiles();
-    return (
-      <>
-        {parent !== undefined ? (
-          <div className="fp-item fp-up" onClick={() => this.navigate(parent as string)}>
-            <span className="fp-icon">↩️</span>
-            <span className="fp-name">..（上级目录）</span>
-          </div>
-        ) : null}
-        {dirs.length === 0 && files.length === 0 && parent !== undefined ? (
-          <div className="fp-empty">（空目录）</div>
-        ) : null}
-        {dirs.map((d) => (
-          <div key={'d:' + d} className="fp-item fp-dir" onClick={() => this.navigate(PathJoiner.join(cur, d))}>
-            <span className="fp-icon">📁</span>
-            <span className="fp-name">{d}</span>
-          </div>
-        ))}
-        {files.map((f) => this.renderFile(f, cur))}
-      </>
-    );
-  }
-
-  override render(): ReactElement {
-    const { onCancel } = this.props;
-    const { cur, loading, error, selected } = this.state;
-    const selectedCount = selected.size;
-    return (
-      <div className="fp-overlay" onClick={onCancel}>
-        <div className="fp-modal" onClick={(e: MouseEvent) => e.stopPropagation()}>
-          <div className="fp-head">
-            <span className="fp-title">选择附件文件</span>
-            <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>
-              ✕
-            </button>
-          </div>
-
-          <div className="fp-pathbar">
-            {cur === null ? (
-              <span className="fp-crumb">此电脑（选择盘符）</span>
-            ) : (
-              <span className="fp-crumb" title={cur}>
-                {cur}
-              </span>
-            )}
-            <span className="fp-selected-count">
-              {selectedCount > 0 ? `已选 ${selectedCount} 个` : ''}
+        <div className="fp-pathbar">
+          {cur === null ? (
+            <span className="fp-crumb">此电脑（选择盘符）</span>
+          ) : (
+            <span className="fp-crumb" title={cur}>
+              {cur}
             </span>
-          </div>
+          )}
+          <span className="fp-selected-count">
+            {selectedCount > 0 ? `已选 ${selectedCount} 个` : ''}
+          </span>
+        </div>
 
-          <div className="fp-list">
-            {loading ? <div className="fp-empty">读取中…</div> : null}
-            {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
-            {!loading && error === null && cur === null ? this.renderDrives() : null}
-            {!loading && error === null && cur !== null ? this.renderDir() : null}
-          </div>
+        <div className="fp-list">
+          {loading ? <div className="fp-empty">读取中…</div> : null}
+          {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
+          {!loading && error === null && cur === null ? renderDrives(browse, navigate) : null}
+          {!loading && error === null && cur !== null
+            ? renderDirBody(browse, selected, navigate, toggleFile)
+            : null}
+        </div>
 
-          <div className="fp-actions">
-            <button className="fp-btn" onClick={onCancel}>
-              取消
-            </button>
-            <button
-              className="fp-btn fp-primary"
-              disabled={selectedCount === 0}
-              onClick={this.confirm}
-            >
-              添加 {selectedCount > 0 ? selectedCount + ' 个文件' : '文件'}
-            </button>
-          </div>
+        <div className="fp-actions">
+          <button className="fp-btn" onClick={onCancel}>
+            取消
+          </button>
+          <button
+            className="fp-btn fp-primary"
+            disabled={selectedCount === 0}
+            onClick={confirm}
+          >
+            添加 {selectedCount > 0 ? selectedCount + ' 个文件' : '文件'}
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }
