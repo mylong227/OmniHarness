@@ -138,4 +138,45 @@
 | 接线 | `StreamView` 新增 `onStop`/`onRegenerate`/`onEditUser` 透传给 `Composer` / `AssistantCard` / `UserCard`；`App.tsx` 透传 `ctrl.composer.stop` / `regenerate` / `resend`。 |
 | 样式 | `chat.css` 补 `.stop`（危险色）/`.msg-act`（消息悬浮操作）/`.user-edit*`（内联编辑 textarea + 保存/取消），暗亮主题走语义变量。 |
 | 测试 | 新增 `web/test/turnControl.test.mjs`（5 项契约：abortTurn RPC、stop 触发中断、regenerate 取最后用户消息、regenerate 无消息轻提示、resend 发新回合）。 |
-| 验收 | `web:build` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；根 `tsc --noEmit` 0 错；`audit:standard:delta`/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **123/125**（仅 2 项为 headless-Chrome e2e `E1 CDP`/`UI e2e` 沙箱环境差异，与本改动无关）；无 `any`。 |
+| 验收 | `web:build` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；根 `tsc --noEmit` 0 错；`audit:standard:delta`/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **123/125**（仅 2 项为 headless-Chrome e2e `E1 CDP`/`UI e2e` 沙箱环境差异，与本改动无关）；无 `any`。
+
+---
+
+## 3f. 本轮进行中：F9 组件范式迁移（class → 函数组件 + Hooks）
+
+> 依据：React 官网 `react.dev/reference/react/Component` —— **「We recommend defining components as functions
+> instead of classes.」** class 组件仍受支持但不建议在新代码使用。本仓 `web/**` 的历史组件全部是
+> `extends AppComponent` 的 class 形态，属「落后范式」，本轮按标准 R1–R6 系统性迁移。
+
+### 盘点（迁移前实测）
+
+| 项 | 结论 |
+| --- | --- |
+| class 组件总量 | **41 个**（`web/src/ui/components/**`）+ 1 个基类 `web/src/ui/base/AppComponent.tsx` |
+| 错误边界豁免 | **0 个** —— 全仓无 `componentDidCatch` / `getDerivedStateFromError`，故**无一个组件需要保留 class** |
+| 服务注入 | 基类 `static contextType = AppContext` + `this.api/toast/dialog` → 迁移后统一走 `useApp()`（`web/src/ui/context.ts`，Provider 缺失 fail-closed 抛错，语义不变） |
+| 根组件 | `web/src/ui/App.ts` 亦为 `class App extends React.Component<P, AppState> implements AppHost`（252 行），单独批次迁移（风险最高：挂载失败即整站白屏） |
+| 配套改造① | `web/test/mount.test.mjs` 直接 `new X(props)` 并注入 `comp.state` —— 函数组件不可 `new`，须改为「直接调用组件函数 + hook 槽位预设」 |
+| 配套改造② | `web/test/noNativeDialogs.test.mjs` 断言 `AppComponent.tsx` 提供 `get dialog()` —— 删基类后须改断言目标 |
+| 新增测试基座 | `web/test/hooksStub.mjs` —— 零依赖最小 Hooks 运行时（按调用序号分配槽位、跨渲染保持、支持预设与 `useApp` 上下文桩），并提供过渡期 `renderOf()` 兼容 class/函数两形态 |
+
+### 分批计划（每批 `web:build` + `web:test` + 全门禁全绿后独立提交）
+
+| 批次 | 范围 | 状态 |
+| --- | --- | --- |
+| 批1 | 纯展示组件 10 件：`Toast`/`AttachmentChips`/`ExternalLinkCards`/`StreamingAssistantCard`/`DetailTab`/`ToolsTab`/`ArtifactCard`/`TopBar`/`RightPanel`/`FileModal`（零状态零副作用） | ✅ **已完成** |
+| 批2 | `stream/` 消息卡片 5 件：`ReasoningBlock`/`UserCard`/`ToolCallCard`/`ProcessCluster`/`AssistantCard`（展开态 + 渐进揭示定时器） | 待开始 |
+| 批3 | 交互组件 10 件（含 `TreeNode`/`WorkIndicator`/`PermissionPicker`/`NavRail`/`ApprovalModal`）+ 改写 `mount.test.mjs` 对应断言 | 待开始 |
+| 批4/5 | `tabs/` 面板 10 件（数据拉取 effect、轮询、受控表单） | 待开始 |
+| 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` | 待开始 |
+| 批7 | `App.ts` 根组件转函数组件（`useReducer` + `useRef` 桥接 `AppHost`）；**删 `AppComponent.tsx`**；`react-shim.d.ts` 移除 `ReactComponent`/`Component`/`createRef`；改 `noNativeDialogs.test.mjs` | 待开始 |
+
+### 批1 验收（纯展示 10 件）
+
+| 项 | 内容 |
+| --- | --- |
+| 改造 | 10 个组件由 `class X extends AppComponent<P>` + `render()` 改为 `export function X(props: XProps): ReactElement`（`ReactElement \| null` 对应原「可能渲染 null」的 3 件）；Props 接口**逐字保留**（对外契约不变，`App.ts` 调用点零改动） |
+| 逻辑下沉 | `ToolsTab.statusText` 抽为模块级纯函数（零 React 依赖、可单测）；原 `private renderItem/renderTab/handleOpen/handleClose` 改为组件内 `const` 闭包（函数组件天然绑定 `this`，取消 `bind`） |
+| 标准对齐 | 每个 `export interface XxxProps` 字段补 `/** */` 注释；每个组件补含 `@param`/`@returns` 的 JSDoc；返回值显式标注；文件名 = 组件名（R2）；无 `any`、无 `var` |
+| 测试 | 新增 `web/test/hooksStub.mjs`；`mount.test.mjs` 顶部改用该运行时（`renderOf()` 兼容两形态），`Toast` 断言由 `new Toast(...).render()` 改为 `renderOf(Toast, {...})` |
+| 验收 | `web:build` 0 错；根 `tsc --noEmit` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；`audit:standard:delta`（无暂存 `.ts`）/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **134/136**（仅 2 项 headless-Chrome e2e 环境差异） | |
