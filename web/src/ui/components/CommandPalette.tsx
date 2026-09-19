@@ -2,175 +2,148 @@
 //
 // 面向对象拆分：
 // - `CommandPaletteModel`：搜索过滤与选中边界的纯逻辑，零 React 依赖（可单测）。
-// - `CommandPalette`：class 组件，只负责状态、生命周期（聚焦/卸载清理）与渲染。
+// - `CommandPalette`：函数组件，只负责状态、副作用（聚焦 / 清理定时器）与渲染。
+//
+// 函数组件范式：查询 / 选中项各一个 useState；模型经 useMemo 随命令集重建；
+// 「打开即重置 + 下一帧聚焦」由依赖 open 的 effect 承接（原实现需 componentDidUpdate
+// 比对 prev.open）；聚焦定时器在清理函数里销毁（H3 对称）。
 
 import { React } from '../deps.js';
-import { AppComponent } from '../base/AppComponent.js';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CommandPaletteModel } from '../models/CommandPaletteModel.js';
 import type { CommandItem } from '../models/CommandPaletteModel.js';
 
 export type { CommandItem };
 
+/** 命令面板组件的入参。 */
 export interface CommandPaletteProps {
+  /** 是否打开（关闭时返回 null，不渲染任何节点）。 */
   open: boolean;
+  /** 可执行的命令清单。 */
   commands: CommandItem[];
+  /** 关闭面板的回调。 */
   onClose: () => void;
 }
 
-interface CommandPaletteState {
-  query: string;
-  active: number;
-}
+/**
+ * 命令面板：键盘可达的命令搜索与执行中心（↑↓ 选择、Enter 执行、Esc 关闭）。
+ * @param props 组件入参
+ * @returns 面板节点；`open` 为 false 时返回 null
+ */
+export function CommandPalette(props: CommandPaletteProps): ReactElement | null {
+  const { open, commands, onClose } = props;
+  const [query, setQuery] = React.useState<string>('');
+  const [active, setActive] = React.useState<number>(0);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const model = React.useMemo<CommandPaletteModel>(() => new CommandPaletteModel(commands), [commands]);
 
-/** 命令面板组件（class 组件）：键盘导航 + 搜索执行。 */
-export class CommandPalette extends AppComponent<CommandPaletteProps, CommandPaletteState> {
-  private readonly inputRef = React.createRef<HTMLInputElement>();
-  private model: CommandPaletteModel;
-  private focusTimer: ReturnType<typeof setTimeout> | null = null;
+  // 打开态（含挂载即打开）重置查询 / 选中项并下一帧聚焦（确保元素已进 DOM）；
+  // 关闭或卸载即清定时器，避免关闭后仍抢焦点。
+  React.useEffect(() => {
+    if (!open) return undefined;
+    setQuery('');
+    setActive(0);
+    const timer = setTimeout(() => inputRef.current?.focus(), 0);
+    return () => clearTimeout(timer);
+  }, [open]);
 
-  constructor(props: CommandPaletteProps) {
-    super(props);
-    this.state = { query: '', active: 0 };
-    this.model = new CommandPaletteModel(props.commands);
-    // 事件处理器绑定 this：class 组件方法默认不绑定（与回调式 props 搭配时的经典坑）。
-    this.onKeyDown = this.onKeyDown.bind(this);
-    this.onBackdropMouseDown = this.onBackdropMouseDown.bind(this);
-    this.onDialogMouseDown = this.onDialogMouseDown.bind(this);
-    this.onQueryInput = this.onQueryInput.bind(this);
-  }
+  if (!open) return null;
 
-  /** 打开时（含首次挂载即为打开态）重置查询并聚焦输入框。 */
-  override componentDidMount(): void {
-    if (this.props.open) this.focusInput();
-  }
+  const filtered = model.filter(query);
 
-  /** 命令集变化时重建模型；打开态切换时重置状态并聚焦。 */
-  override componentDidUpdate(prev: CommandPaletteProps): void {
-    if (prev.commands !== this.props.commands) {
-      this.model = new CommandPaletteModel(this.props.commands);
-    }
-    if (this.props.open && !prev.open) {
-      this.setState({ query: '', active: 0 });
-      this.focusInput();
-    }
-  }
-
-  override componentWillUnmount(): void {
-    this.clearFocusTimer();
-  }
-
-  private clearFocusTimer(): void {
-    if (this.focusTimer !== null) {
-      clearTimeout(this.focusTimer);
-      this.focusTimer = null;
-    }
-  }
-
-  /** 下一帧聚焦：确保元素已渲染进 DOM。 */
-  private focusInput(): void {
-    this.clearFocusTimer();
-    this.focusTimer = setTimeout(() => this.inputRef.current?.focus(), 0);
-  }
-
-  private get filtered(): CommandItem[] {
-    return this.model.filter(this.state.query);
-  }
-
-  /** 执行第 i 项命令：先关闭面板再执行（避免执行后残留弹层）。 */
-  private runAt(index: number): void {
-    const item = this.filtered[index];
+  /**
+   * 执行第 index 项命令：先关闭面板再执行，避免执行后残留弹层。
+   * @param index 扁平下标
+   * @returns 无
+   */
+  const runAt = (index: number): void => {
+    const item = filtered[index];
     if (!item) return;
-    this.props.onClose();
+    onClose();
     item.run();
-  }
+  };
 
-  private onKeyDown(e: KeyboardEvent): void {
-    const count = this.filtered.length;
+  /**
+   * 面板级键盘：Esc 关闭、↑↓ 移动选中、Enter 执行。
+   * @param e 键盘事件
+   * @returns 无
+   */
+  const onKeyDown = (e: KeyboardEvent): void => {
+    const count = filtered.length;
     if (e.key === 'Escape') {
       e.preventDefault();
-      this.props.onClose();
+      onClose();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      this.setState((s) => ({ active: this.model.move(s.active, count, 1) }));
+      setActive((s) => model.move(s, count, 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      this.setState((s) => ({ active: this.model.move(s.active, count, -1) }));
+      setActive((s) => model.move(s, count, -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      this.runAt(this.state.active);
+      runAt(active);
     }
-  }
+  };
 
-  private onQueryInput(e: Event): void {
-    const value = (e.target as HTMLInputElement | null)?.value ?? '';
-    // 查询变化后选中项回到 0，避免停留在已被过滤掉的位置。
-    this.setState({ query: value, active: 0 });
-  }
+  /**
+   * 查询输入：更新关键字并把选中项归零，避免停留在已被过滤掉的位置。
+   * @param e 输入事件
+   * @returns 无
+   */
+  const onQueryInput = (e: Event): void => {
+    setQuery((e.target as HTMLInputElement | null)?.value ?? '');
+    setActive(0);
+  };
 
-  private onBackdropMouseDown(): void {
-    this.props.onClose();
-  }
+  // 按 group 分组渲染；`index` 仍是扁平下标，键盘上下键与执行语义不变。
+  const groups = model.grouped(query);
 
-  private onDialogMouseDown(e: MouseEvent): void {
-    // 阻止冒泡到背景层，否则点击面板内部也会关闭。
-    e.stopPropagation();
-  }
-
-  override render(): ReactElement | null {
-    const { open } = this.props;
-    if (!open) return null;
-    const { query, active } = this.state;
-    // 按 group 分组渲染；`index` 仍是扁平下标，键盘上下键与执行语义不变。
-    const groups = this.model.grouped(query);
-
-    return (
-      <div className="cmdk-backdrop" onMouseDown={this.onBackdropMouseDown}>
-        <div
-          className="cmdk"
-          role="dialog"
-          aria-modal="true"
-          aria-label="命令面板"
-          onMouseDown={this.onDialogMouseDown}
-          onKeyDown={this.onKeyDown}
-        >
-          <input
-            ref={this.inputRef}
-            className="cmdk-input"
-            type="text"
-            placeholder="输入命令或搜索…（↑↓ 选择，Enter 执行，Esc 关闭）"
-            aria-label="命令搜索框"
-            value={query}
-            onInput={this.onQueryInput}
-          />
-          <div className="cmdk-list" role="listbox" aria-label="命令列表">
-            {groups.reduce((n, g) => n + g.items.length, 0) === 0 ? (
-              <div className="cmdk-empty">无匹配命令</div>
-            ) : (
-              groups.map((g) => (
-                <div key={g.group} className="cmdk-group" role="group" aria-label={g.group}>
-                  <div className="cmdk-group-title" aria-hidden="true">
-                    {g.group}
-                  </div>
-                  {g.items.map(({ item, index }) => (
-                    <div
-                      key={item.id}
-                      role="option"
-                      aria-selected={index === active ? 'true' : 'false'}
-                      className={'cmdk-item' + (index === active ? ' active' : '')}
-                      onMouseEnter={() => this.setState({ active: index })}
-                      onClick={() => this.runAt(index)}
-                    >
-                      <span className="cmdk-label">{item.label}</span>
-                      {item.hint ? <span className="cmdk-hint">{item.hint}</span> : null}
-                    </div>
-                  ))}
+  return (
+    <div className="cmdk-backdrop" onMouseDown={onClose}>
+      <div
+        className="cmdk"
+        role="dialog"
+        aria-modal="true"
+        aria-label="命令面板"
+        onMouseDown={(e: MouseEvent) => e.stopPropagation()}
+        onKeyDown={onKeyDown}
+      >
+        <input
+          ref={inputRef}
+          className="cmdk-input"
+          type="text"
+          placeholder="输入命令或搜索…（↑↓ 选择，Enter 执行，Esc 关闭）"
+          aria-label="命令搜索框"
+          value={query}
+          onInput={onQueryInput}
+        />
+        <div className="cmdk-list" role="listbox" aria-label="命令列表">
+          {groups.reduce((n, g) => n + g.items.length, 0) === 0 ? (
+            <div className="cmdk-empty">无匹配命令</div>
+          ) : (
+            groups.map((g) => (
+              <div key={g.group} className="cmdk-group" role="group" aria-label={g.group}>
+                <div className="cmdk-group-title" aria-hidden="true">
+                  {g.group}
                 </div>
-              ))
-            )}
-          </div>
+                {g.items.map(({ item, index }) => (
+                  <div
+                    key={item.id}
+                    role="option"
+                    aria-selected={index === active ? 'true' : 'false'}
+                    className={'cmdk-item' + (index === active ? ' active' : '')}
+                    onMouseEnter={() => setActive(index)}
+                    onClick={() => runAt(index)}
+                  >
+                    <span className="cmdk-label">{item.label}</span>
+                    {item.hint ? <span className="cmdk-hint">{item.hint}</span> : null}
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }

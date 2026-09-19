@@ -20,6 +20,7 @@ runtime.install();
  * @param statePatch class：浅合并进实例 state；函数组件：按 hook 序号预设值
  * @returns vnode 树
  */
+let lastRendered = null;
 function renderOf(Component, props, statePatch) {
   const isClass = typeof Component === 'function' && Component.prototype && Component.prototype.render;
   if (isClass) {
@@ -28,6 +29,13 @@ function renderOf(Component, props, statePatch) {
       inst.state = { ...inst.state, ...statePatch };
     }
     return inst.render();
+  }
+  // 不同组件的 hook 序不同，跨组件渲染必须清空槽位，否则会串味
+  // （前一组件 seed 过的 slot0 会被后一组件当作自己的第一个 useState 读走）。
+  // 同一组件连续渲染则保留槽位，以便「先渲染 → 再 seed → 再渲染」的用例。
+  if (Component !== lastRendered) {
+    runtime.reset();
+    lastRendered = Component;
   }
   return runtime.render(Component, props, statePatch);
 }
@@ -72,65 +80,48 @@ function texts(vnode) {
   return out;
 }
 
-test('AddMenu：构造即闭合态，render 产出根元素且不抛错（免 bootstrap 路径）', () => {
-  const menu = new AddMenu({
-    threadId: 't-1',
-    api: {},
-    onAttach: () => {},
-    onToast: () => {},
-    onOpenTab: () => {},
-    onOpenFile: () => {},
-    onLoadThread: () => {},
-  });
-  assert.strictEqual(menu.state.open, false);
-  const vnode = menu.render();
+const ADD_MENU_PROPS = {
+  threadId: 't-1',
+  api: {},
+  onAttach: () => {},
+  onToast: () => {},
+  onOpenTab: () => {},
+  onOpenFile: () => {},
+  onLoadThread: () => {},
+};
+
+test('AddMenu：初始即闭合态，render 产出根元素且不抛错（免 bootstrap 路径）', () => {
+  const vnode = renderOf(AddMenu, ADD_MENU_PROPS);
   assert.ok(vnode, 'render 必须返回元素树');
+  assert.strictEqual(vnode.props['aria-expanded'], 'false', '初始态必须闭合');
   const types = flatten(vnode);
   assert.ok(types.length > 0, '元素树非空');
 });
 
 test('AddMenu：闭合态渲染触发器（＋）且 aria 契约正确', () => {
-  const menu = new AddMenu({
-    threadId: 't-1',
-    api: {},
-    onAttach: () => {},
-    onToast: () => {},
-    onOpenTab: () => {},
-    onOpenFile: () => {},
-    onLoadThread: () => {},
-  });
-  const vnode = menu.render();
+  const vnode = renderOf(AddMenu, ADD_MENU_PROPS);
   assert.strictEqual(texts(vnode).join(''), '＋');
   assert.strictEqual(vnode.props['aria-haspopup'], 'menu');
   assert.strictEqual(vnode.props['aria-expanded'], 'false');
 });
 
 test('AddMenu：打开态 aria-expanded 翻转（UI 状态契约）', () => {
-  const menu = new AddMenu({
-    threadId: 't-1',
-    api: {},
-    onAttach: () => {},
-    onToast: () => {},
-    onOpenTab: () => {},
-    onOpenFile: () => {},
-    onLoadThread: () => {},
-  });
-  menu.state = { ...menu.state, open: true, pluginsLoading: false, agentsLoading: false };
-  assert.strictEqual(menu.render().props['aria-expanded'], 'true');
+  // 函数组件：按 hook 序号预设 open=true（第 0 个 hook 即 useState(open)）。
+  const vnode = renderOf(AddMenu, ADD_MENU_PROPS, { 0: true });
+  assert.strictEqual(vnode.props['aria-expanded'], 'true');
 });
 
 test('ContextCapacityPanel：容量面板 title/aria 契约 + 注入用量不抛错', () => {
-  const panel = new ContextCapacityPanel({ threadId: 't-1', api: {}, onToast: () => {} });
-  let vnode = panel.render();
+  const props = { threadId: 't-1', api: {}, onToast: () => {} };
+  let vnode = renderOf(ContextCapacityPanel, props);
   assert.strictEqual(vnode.props.title, '上下文容量与今日余额');
   assert.strictEqual(vnode.props['aria-label'], '上下文容量');
-  // 注入真实形状的用量/配额快照后仍可渲染（fail-soft：数据缺失显示占位）
-  panel.state = {
-    ...panel.state,
-    usage: { windowTokens: 128000, usedTokens: 4096, byKind: {} },
-    quota: { plan: 'free', multiplier: 1, dailyTokens: 200000, usedToday: 4096 },
-  };
-  vnode = panel.render();
+  // 注入真实形状的用量/配额快照后仍可渲染（fail-soft：数据缺失显示占位）。
+  // 函数组件：hook 序号 1=usage、2=quota（第 0 个为 useState(open)）。
+  vnode = renderOf(ContextCapacityPanel, props, {
+    1: { windowTokens: 128000, usedTokens: 4096, byKind: {} },
+    2: { plan: 'free', multiplier: 1, dailyTokens: 200000, usedToday: 4096 },
+  });
   assert.ok(vnode, '注入用量后 render 仍须返回元素树');
 });
 
@@ -228,8 +219,8 @@ test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚�
 });
 
 test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完整 dialog 语义', () => {
-  const hidden = new DialogHost({ dialog: { request: null } });
-  assert.strictEqual(collect(hidden.render(), (n) => n.props.role === 'dialog').length, 0);
+  const hidden = renderOf(DialogHost, { dialog: { request: null } });
+  assert.strictEqual(collect(hidden, (n) => n.props.role === 'dialog').length, 0);
 
   const base = {
     kind: 'confirm',
@@ -241,8 +232,7 @@ test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完�
     danger: true,
     initial: '',
   };
-  const host = new DialogHost({ dialog: { request: { ...base } } });
-  const vnode = host.render();
+  const vnode = renderOf(DialogHost, { dialog: { request: { ...base } } });
   const dialogs = collect(vnode, (n) => n.props.role === 'dialog');
   assert.strictEqual(dialogs.length, 1);
   assert.strictEqual(dialogs[0].props['aria-modal'], 'true');
@@ -251,9 +241,13 @@ test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完�
   assert.strictEqual(collect(vnode, isTag('input')).length, 0, 'confirm 不该渲染输入框');
   assert.match(texts(vnode).join('|'), /不可恢复/);
 
-  host.props = { dialog: { request: { ...base, kind: 'prompt', initial: '旧目标', placeholder: '例如' } } };
-  host.state = { text: '旧目标' };
-  const inputs = collect(host.render(), isTag('input'));
+  // prompt：函数组件按 hook 序号预设 text='旧目标'（第 0 个 hook 即 useState(text)）。
+  const promptVnode = renderOf(
+    DialogHost,
+    { dialog: { request: { ...base, kind: 'prompt', initial: '旧目标', placeholder: '例如' } } },
+    { 0: '旧目标' },
+  );
+  const inputs = collect(promptVnode, isTag('input'));
   assert.strictEqual(inputs.length, 1, 'prompt 必须渲染输入框');
   assert.strictEqual(inputs[0].props.value, '旧目标');
   assert.strictEqual(inputs[0].props['aria-label'], '丢弃改动');
@@ -261,7 +255,7 @@ test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完�
 
 test('StreamView 契约：事件流容器是 role=log + aria-live=polite 的播报区', async () => {
   const { StreamView } = await import('../dist/ui/components/StreamView.js');
-  const view = new StreamView({
+  const vnode = renderOf(StreamView, {
     events: [],
     toolResults: {},
     liveInputs: [],
@@ -275,7 +269,7 @@ test('StreamView 契约：事件流容器是 role=log + aria-live=polite 的播�
     onReasoningChange: () => {},
     onPermissionChange: () => {},
   });
-  const logs = collect(view.render(), (n) => n.props.role === 'log');
+  const logs = collect(vnode, (n) => n.props.role === 'log');
   assert.strictEqual(logs.length, 1, '中栏事件流必须是唯一 role=log 播报区');
   assert.strictEqual(logs[0].props['aria-live'], 'polite');
   assert.strictEqual(logs[0].props['aria-label'], '对话事件流');

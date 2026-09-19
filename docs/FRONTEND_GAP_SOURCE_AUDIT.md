@@ -168,7 +168,7 @@
 | 批2 | `stream/` 消息卡片 5 件：`ReasoningBlock`/`UserCard`/`ToolCallCard`/`ProcessCluster`/`AssistantCard`（展开态 + 渐进揭示定时器） | ✅ **已完成** |
 | 批3 | 交互组件 9 件（`Dropdown`/`Resizer`/`TreeNode`/`WorkIndicator`/`NavRail`/`ApprovalModal`/`PermissionPicker`/`FolderPicker`/`FilePicker`）+ 改写 `mount.test.mjs` 对应断言 | ✅ **已完成** |
 | 批4/5 | `tabs/` 面板 10 件（`FileTab`/`MetricsTab`/`MemoryTab`/`RollbackTab`/`PluginsTab`/`ProfilesTab`/`SettingsTab`/`ModelProviders`/`GraphTab`/`ChangesTab`） | ✅ **已完成** |
-| 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` | 待开始 |
+| 批6 | 大组件 7 件：`AddMenu`/`CommandPalette`/`ContextCapacityPanel`/`DialogHost`/`Composer`/`SessionPanel`/`StreamView` + 改写 `mount.test.mjs` 对应断言 | ✅ **已完成** |
 | 批7 | `App.ts` 根组件转函数组件（`useReducer` + `useRef` 桥接 `AppHost`）；**删 `AppComponent.tsx`**；`react-shim.d.ts` 移除 `ReactComponent`/`Component`/`createRef`；改 `noNativeDialogs.test.mjs` | 待开始 |
 
 ### 批1 验收（纯展示 10 件）
@@ -215,4 +215,20 @@
 | 纯逻辑下沉（R5） | `GraphTab` 的运行卡片 / 已存图卡片、`ModelProviders` 的厂商卡片、`ChangesTab` 的行 / 评论 / 草稿 / patch 视图、`FileTab.renderBody`、`MemoryTab.renderRow`、`ProfilesTab.renderRow` 全部抽为**模块级渲染函数**；`ChangesTab` 用 `ReviewCtx` 收敛十余个入参，避免长参数表 |
 | 状态分组 | `ChangesTab` 10 份 state 保持字段级 `useState`（各自更新频率不同，拆分后语义更清晰）；`ModelProviders` 7 份 state 同理 |
 | 业务零改动 | 所有 RPC 调用、toast 文案、确认弹窗（`dialog.confirm`）与 DOM 结构逐字保留；`ModelProviders` 的凭据只进 `drafts` 内存态不变；`ChangesTab` 的 stage / revert / 评论锚点语义不变 |
+| 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） | |
+
+### 批6 验收（大组件 7 件）
+
+| 项 | 内容 |
+| --- | --- |
+| 外部点击监听 | `AddMenu` / `ContextCapacityPanel`：原 `componentDidUpdate` 比对 `prev.open` 手动增删 `window` 监听 → 依赖 `[open]` 的条件 effect（`!open` 早返回 `undefined`），清理函数摘监听（H3 对称） |
+| 打开即拉数 | `AddMenu` 一次 effect 拉 modes/plugins/agents；`ContextCapacityPanel` 独立 effect 拉 usage/quota 并加 `alive` 标志防迟到回写 |
+| 焦点管理 | `DialogHost`：原 `componentDidMount` + `componentDidUpdate` 两处调 `syncRequest()` → 单个依赖 `[request]` 的 effect（挂载即有待决请求亦覆盖）；`seen` 请求镜像改 `useRef`；三控件引用改 `useRef` |
+| 聚焦定时器 | `CommandPalette`：`createRef` + `focusTimer` 实例字段 → `useRef` + 依赖 `[open]` 的 effect（重置 query/active + 下一帧聚焦），清理函数 `clearTimeout`；`model` 由 `useMemo([commands])` 随命令集重建 |
+| 滚动锚定 | `StreamView`：无内部 state；`lastUserId`/`lastAssistantId` 由「渲染期写实例字段」改为**渲染期局部量**；滚动由依赖 `[events, liveInputs]` 的 effect 承接（兼作挂载即滚动） |
+| 语音 / 附件 | `Composer`：文本域 / 识别器引用改 `useRef`；卸载停录音由空依赖 effect 的清理函数承接；`@mention` 补全态与附件草稿改 `useState`（函数式 updater 追加，H5） |
+| 目录 / 列表拉数 | `SessionPanel`：挂载拉工作区（`[api]`）与依赖 `[api, wsPath]` 重刷文件树拆为两个 effect；`useApp()` 承接 `api`/`toast`；13 份 state 保持字段级 `useState` |
+| 纯逻辑下沉（R5） | `AddMenu.renderSection`、`Composer.renderAttachmentsView` / `renderMentionView`、`SessionPanel.filterSessions` / `renderSessionBody` / `renderCardsView` / `renderGroupsView` / `renderProjectsView` / `renderTreeView`、`StreamView.renderEventNode` / `renderLiveInputRow` / `renderBlockNode` / `wasStreamed` 全部抽为**模块级纯函数**；`SessionPanel` 用 `RowCtx` / `ListCtx`、`StreamView` 用 `EventCtx` 收敛入参 |
+| 测试基座修复 | `mount.test.mjs` 的 `renderOf` 增加「跨组件渲染前 `runtime.reset()`」——不同组件 hook 序不同，此前 `hooksStub` 的槽位跨组件串味（被前一组件 seed 的 `slot0` 会被后者当自己的第一个 `useState` 读走），`ContextCapacityPanel` 用例据此从假绿变真绿 |
+| 业务零改动 | 所有 RPC、toast 文案、a11y（`role`/`aria-*`）、DOM 结构与 `key` 逐字保留；`App.ts` 调用点零改动 |
 | 验收 | `web:build` 0 错；全量 `web/test/**` **134/136**（同批1，仅 2 项 e2e 环境差异） | |
