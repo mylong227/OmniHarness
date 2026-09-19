@@ -916,10 +916,37 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 ### 15.4 待办与边界（本轮未闭环，如实登记）
 
-| 项                               | 现状                                                                                                                                 | 下一步                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| 官方基准满分口径 / live 模型调用 | 子集口径已出数（见 15.3）；`eval:ci` 含真实模型调用（消耗额度）**未获授权，未执行**                                                  | 需授权后跑官方 500 题与 live 套件                              |
-| OS 沙箱真机证据                  | 实现齐全（landlock/unshare/bwrap/seatbelt + PTY），但本机 Windows 只能真跑 RestrictedToken；其余在 `doctor` 能力表里按实打印为不可达 | 由 CI matrix（Linux/macOS）出证据                              |
-| Terminal-Bench 环境保真度        | gold 仅 3/20 通过（3 例 envError）⇒ 原生后端（uv 现场重建）与官方预建镜像差距明显                                                    | 需按仓库语义补环境契约或接受「只作本地对照、不出官方分」       |
-| `skills` 的配置文件/CLI 输入通道 | 库级（`ConfigFactory` 编程入口 + 服务端 `options.skills`）已完整接线；配置文件与 CLI 尚无输入通道                                    | 属功能缺口（非断链）；需要时补 FileConfig/KNOWN_KEYS/校验/文档 |
-| 多供应商原生适配                 | Gemini/Bedrock 无原生适配器（Gemini 可经 OpenAI 兼容端点接入，需文档化）                                                             | 视需求决定是否补适配器                                         |
+| 项                               | 现状                                                                                                                                 | 下一步                                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 官方基准满分口径 / live 模型调用 | 子集口径已出数（见 15.3）；`eval:ci` 含真实模型调用（消耗额度）**未获授权，未执行**                                                  | 需授权后跑官方 500 题与 live 套件                                                                                                         |
+| OS 沙箱真机证据                  | 实现齐全（landlock/unshare/bwrap/seatbelt + PTY），但本机 Windows 只能真跑 RestrictedToken；其余在 `doctor` 能力表里按实打印为不可达 | 由 CI matrix（Linux/macOS）出证据                                                                                                         |
+| Terminal-Bench 环境保真度        | gold 仅 3/20 通过（3 例 envError）⇒ 原生后端（uv 现场重建）与官方预建镜像差距明显                                                    | 需按仓库语义补环境契约或接受「只作本地对照、不出官方分」                                                                                  |
+| `skills` 的配置文件/CLI 输入通道 | 库级（`ConfigFactory` 编程入口 + 服务端 `options.skills`）已完整接线；配置文件与 CLI 尚无输入通道                                    | 属功能缺口（非断链）；需要时补 FileConfig/KNOWN_KEYS/校验/文档                                                                            |
+| 多供应商原生适配                 | Gemini/Bedrock 无原生适配器（Gemini 可经 OpenAI 兼容端点接入，需文档化）                                                             | 视需求决定是否补适配器                                                                                                                    |
+| 国内镜像不提供 `npm audit` 端点  | `registry.npmmirror.com/-/npm/v1/security/*` 返回 `NOT_IMPLEMENTED` ⇒ 用镜像跑这一步**测不了**（不是「无漏洞」，是「无法判定」）     | CI 的 audit 步须显式指官方源；本机实测 `npm audit --audit-level=high --registry=https://registry.npmjs.org` ⇒ **found 0 vulnerabilities** |
+
+### 15.5 全量门禁实测（2026-09-19，本机）
+
+| 门禁                                                                                         | 结果                                                                                                                    |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck` / `npm run build`                                                        | exit 0                                                                                                                  |
+| `npm run lint`（`--max-warnings=0`）                                                         | exit 0（0 告警）                                                                                                        |
+| `node scripts/check.mjs --strict`                                                            | ✅ 553 个 TS 文件零违规                                                                                                 |
+| `npm run audit:maturity`                                                                     | ✅ 41 项声明，L2/L3 均有存在性证据                                                                                      |
+| `npm run audit:standard:delta`（pre-commit 钩子内）                                          | ✅ 未新增标准违规                                                                                                       |
+| `npm run arch:gate`                                                                          | ✅ 依赖方向 0 违规 / ports 纯度 0 违规                                                                                  |
+| `npm run audit:config-wiring`                                                                | ✅ 全绿（声明→装配→运行时→消费）                                                                                        |
+| `npm run api:check`                                                                          | ✅ `index.ts` 162 条 / `indexBeta.ts` 70 条 export 均在标注分区                                                         |
+| `npm run web:build` + web 测试（20 文件）                                                    | ✅ **159 / 159 通过**（`e2e` / `e2e-cdp` 需 spawn 真实 headless 浏览器，非受限环境 1/1、1/1）                           |
+| 全量单测 `npm test`                                                                          | ✅ **1905 项：1901 通过 / 0 失败 / 4 skipped**（skip 全是平台性：macOS seatbelt、内核负路径、真机特权、git 不可用降级） |
+| `npm run coverage:check`                                                                     | ✅ 行覆盖率 **100%**（阈值 80%）exit 0                                                                                  |
+| `npm run test:integration`                                                                   | ✅ 10 / 10                                                                                                              |
+| `npm run smoke` / `npm run stress`                                                           | ✅ 冒烟全过 / 压测通过（预热后基线 86.4MB → 87.4MB，+1.0MB 无泄漏）                                                     |
+| `npm run eval:veto`                                                                          | ✅ 回溯一致率 3/3 ⇒ exit 0                                                                                              |
+| `node tests/wasmE2e.mjs`                                                                     | ✅ ALL OK（5 项）                                                                                                       |
+| `cargo fmt --check` / `clippy --workspace --all-targets -- -D warnings` / `test --workspace` | ✅ 三者 exit 0（21 个测试块全 ok）                                                                                      |
+| `npm run format:check`                                                                       | ✅ All matched files use Prettier code style                                                                            |
+| `npm audit --audit-level=high`（显式指官方源）                                               | ✅ found 0 vulnerabilities                                                                                              |
+| 入口可达性（检测器 v4）                                                                      | ✅ src **553 文件 / 不可达 0**（其中只被单测引用 0）                                                                    |
+
+> 说明：`--` 之外未跑的只有两类，且都源于**授权或平台**而非缺陷：① `eval:ci` 含真实模型调用（消耗额度），未获授权；② OS 沙箱除 Windows RestrictedToken 外的真机证据需 Linux/macOS 的 CI matrix。
