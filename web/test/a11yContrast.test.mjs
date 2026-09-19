@@ -17,8 +17,10 @@
 //     否则覆盖规则会被当成独立规则误判（第一版就踩过）。
 //   · 不覆盖：语法高亮 token（highlight.css）、rgba/渐变等半透明背景（无法脱离上下文解析成实色）、
 //     纯装饰元素（无文本）。
-//   · 另有一条独立门禁：所有 `var(--x)` 引用必须指向已定义的 token（见文件末尾），
-//     专防本轮抓到的「变量名拼错 → 静默退化成深色 literal」。
+//   · 另有两条独立门禁：① 所有 `var(--x)` 引用必须指向已定义的 token（防「变量名拼错 → 静默
+//     退化成深色 literal」）；② `.md-content` 必须显式声明 `white-space:normal`（防继承宿主
+//     `.content` 的 `pre-wrap`，把 markdown 块间/末尾换行渲染成实打实的空行——2026-09-19 实测
+//     单段回复容器高度 46px＝2 行，正常应为 1 行 ≈23px）。
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -247,6 +249,27 @@ test('所有 var(--x) 引用都指向已定义的 token（防变量名拼错静�
     }
   }
   assert.deepStrictEqual([...new Set(unknown)], [], '未定义的 CSS 变量引用：\n' + unknown.join('\n'));
+});
+
+test('markdown 容器不得继承宿主容器的 pre-wrap（防块间换行被渲染成空行）', () => {
+  // 背景（2026-09-19）：`white-space` 是**继承**属性。`.content`（助手卡片正文容器）为**旧纯文本
+  // 渲染器**保留了 `white-space:pre-wrap`；而 markdown 管线的产物是 HTML 结构，markdown-it 在块与块
+  // 之间（以及整篇末尾）本来就会写换行。若 `.md-content` 不重置，就继承 pre-wrap，那些换行各自
+  // 生成一个匿名行盒 ⇒ 每个块间隙多出一整行空白（实测单段回复高度 46px＝2 行，正常应为 1 行）。
+  // 本条把「必须显式 normal」与「宿主必须保留 pre-wrap」双向钉住，避免任一侧被顺手改掉。
+  for (const themeName of Object.keys(THEMES)) {
+    const ws = effectiveDecls('.md-content', themeName)['white-space'];
+    assert.strictEqual(
+      ws,
+      'normal',
+      `.md-content 在 ${themeName} 主题下必须显式 white-space:normal（当前：${ws ?? '未声明'}）`,
+    );
+  }
+  assert.strictEqual(
+    effectiveDecls('.content', 'dark')['white-space'],
+    'pre-wrap',
+    '宿主 .content 必须继续为旧纯文本渲染器保留 white-space:pre-wrap',
+  );
 });
 
 test('门禁自身可信度：纯白配纯白的对比度为 1，黑白为 21', () => {
