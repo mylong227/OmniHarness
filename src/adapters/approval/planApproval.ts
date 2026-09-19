@@ -19,6 +19,9 @@ import type {
 const PLAN_ALLOWED_TOOLS = new Set<string>([
   'read_file',
   'list_dir',
+  // 文件检索（只读）：grep/glob 仅在磁盘上匹配，不写任何内容，故与 read_file 同级放行。
+  'grep',
+  'glob',
   'memory_search',
   'plan_read',
   'plan_write',
@@ -35,6 +38,7 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   'lsp_find_references',
   'lsp_hover',
   'lsp_status',
+  'lsp_diagnostics',
 ]);
 
 /** 规划模式审批选项。 */

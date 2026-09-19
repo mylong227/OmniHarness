@@ -12,8 +12,14 @@ import type { ShellRunOutcome } from './shellProcessRunner.js';
 
 /** shell 工具可选项。 */
 export interface ShellToolOptions {
-  /** 单条命令超时（毫秒），默认 30_000。 */
+  /** 单条命令默认超时（毫秒），默认 30_000；调用方可经 `timeout_ms` 按次覆盖。 */
   readonly timeoutMs?: number;
+  /**
+   * 单条命令超时上限（毫秒），默认 600_000（10 分钟）。
+   * 调用方传入的 `timeout_ms` 会被钳制到 `[MIN_TIMEOUT_MS, maxTimeoutMs]`——
+   * 允许模型为 `tsc` / 全量测试这类长命令申请更多预算，同时防止单次调用把回合挂死。
+   */
+  readonly maxTimeoutMs?: number;
   /** stdout/stderr 各路上限（字节），默认 1 MiB，超出即终止并报错（防输出风暴）。 */
   readonly maxBufferBytes?: number;
   /** 命令文本长度上限（字符），默认 8192。 */
@@ -40,18 +46,29 @@ export interface ShellToolOptions {
  * - 命令固定以 `context.workspaceRoot` 为工作目录执行，避免继承进程 cwd 跑到工作区外；
  * - 审批与 OS 沙箱裁决由上层 `ToolGate`（`stepRunner.gate`）统一负责，本工具的裁决**不替代**它；
  * - 执行形态仍是 shell 解释器 + 命令文本（管道/重定向是本工具的对外契约）；
+ * - **超时可按次申请但有上限**：默认 30s，模型可用 `timeout_ms` 为构建/测试类长命令申请更多预算，
+ *   由 `maxTimeoutMs`（默认 10 分钟）封顶——既解掉原「30s 硬顶且不可覆盖」对 `tsc`/全量测试的封杀，
+ *   又保留单次调用的最坏耗时上界；
  * - 若 `workspaceRoot` 为空（调用方未注入），退回进程 cwd 并告警——已知宽松路径，
  *   收紧它属行为变更，需调用方显式确认后再开启。
  */
 export class ShellTool {
+  /** 单次调用允许的最小超时（毫秒）：低于此值等同于立即超时，没有意义。 */
+  public static readonly MIN_TIMEOUT_MS = 1_000;
+
+  /** 单次调用允许的最大超时（毫秒）：默认 10 分钟。 */
+  public static readonly DEFAULT_MAX_TIMEOUT_MS = 600_000;
+
   /** 子进程输出解码器（处理 GBK/UTF-8 等编码容错）。 */
   private readonly decoder = new OutputDecoder();
   /** 子进程执行器（spawn 显式 argv）。 */
   private readonly runner = new ShellProcessRunner();
   /** 工具层命令策略。 */
   private readonly policy: ShellCommandPolicy;
-  /** 单条命令超时（毫秒）。 */
+  /** 单条命令默认超时（毫秒）。 */
   private readonly timeoutMs: number;
+  /** 单条命令超时上限（毫秒），约束调用方按次覆盖值。 */
+  private readonly maxTimeoutMs: number;
   /** stdout/stderr 各路上限（字节）。 */
   private readonly maxBufferBytes: number;
   /** 命令文本长度上限（字符）。 */
@@ -64,6 +81,10 @@ export class ShellTool {
    */
   public constructor(options: ShellToolOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.maxTimeoutMs = Math.max(
+      ShellTool.MIN_TIMEOUT_MS,
+      options.maxTimeoutMs ?? ShellTool.DEFAULT_MAX_TIMEOUT_MS,
+    );
     this.maxBufferBytes = options.maxBufferBytes ?? 1024 * 1024;
     this.maxCommandLength = options.maxCommandLength ?? 8192;
     this.guard = options.guard;
@@ -73,11 +94,19 @@ export class ShellTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
     name: 'shell',
-    description: '在工作区内执行 shell 命令并返回输出（支持管道与重定向）',
+    description:
+      '在工作区内执行 shell 命令并返回输出（支持管道与重定向）。' +
+      '构建、测试等长命令可用 timeout_ms 申请更长预算（默认 30000，上限 600000 毫秒）。',
     parameters: {
       type: 'object',
       properties: {
         command: { type: 'string', description: '要执行的命令' },
+        timeout_ms: {
+          type: 'number',
+          description:
+            '本命令的超时毫秒数（默认 30000，会被钳制到 [1000, 600000]）；' +
+            '跑构建或全量测试时按需调大，避免长命令被误杀。',
+        },
       },
       required: ['command'],
     },
@@ -86,7 +115,7 @@ export class ShellTool {
   /**
    * 执行命令。
    *
-   * @param call 工具调用（实参须含 command 字符串）。
+   * @param call 工具调用（实参须含 command 字符串，可选 timeout_ms）。
    * @param context 工具上下文（workspaceRoot、sessionId 等）。
    * @returns 执行结果：成功附 stdout/stderr 组合输出；校验失败、被裁决、超时、输出超限或
    *   命令非零退出时失败（非零退出与超时会**保留已产生的输出**，便于模型自行纠错）。
@@ -119,16 +148,33 @@ export class ShellTool {
     }
 
     try {
+      const timeoutMs = this.effectiveTimeout(call.arguments['timeout_ms']);
       const outcome = await this.runner.run(command, {
         cwd,
         env: this.childEnv(),
-        timeoutMs: this.timeoutMs,
+        timeoutMs,
         maxBufferBytes: this.maxBufferBytes,
       });
-      return this.toResult(call.id, outcome);
+      return this.toResult(call.id, outcome, timeoutMs);
     } catch (error) {
       return this.failure(call.id, error);
     }
+  }
+
+  /**
+   * 解析本次调用的生效超时：显式 `timeout_ms` 优先，钳制到 `[MIN_TIMEOUT_MS, maxTimeoutMs]`。
+   *
+   * 非法值（非数字 / NaN / Infinity）一律回落默认超时——绝不把 NaN 透给定时器
+   * （`setTimeout(NaN)` 会退化成 1ms，表现为「命令立刻超时」，极难归因）。
+   *
+   * @param requested 调用方请求的毫秒数（未知类型）。
+   * @returns 生效超时毫秒数。
+   */
+  private effectiveTimeout(requested: unknown): number {
+    if (typeof requested !== 'number' || !Number.isFinite(requested)) {
+      return this.timeoutMs;
+    }
+    return Math.min(Math.max(Math.floor(requested), ShellTool.MIN_TIMEOUT_MS), this.maxTimeoutMs);
   }
 
   /**
@@ -136,15 +182,16 @@ export class ShellTool {
    *
    * @param callId 工具调用 ID。
    * @param outcome 子进程执行结果。
+   * @param timeoutMs 本次调用生效的超时（用于超时文案，避免报默认值误导）。
    * @returns 工具结果（非零退出与超时都会保留已产生的输出）。
    */
-  private toResult(callId: string, outcome: ShellRunOutcome): ToolResult {
+  private toResult(callId: string, outcome: ShellRunOutcome, timeoutMs: number): ToolResult {
     const output = this.composeOutput(
       this.decoder.decode(outcome.stdout),
       this.decoder.decode(outcome.stderr),
     );
     if (outcome.timedOut) {
-      return this.exitFailure(callId, `命令超时（${this.timeoutMs}ms）`, output);
+      return this.exitFailure(callId, `命令超时（${timeoutMs}ms）`, output);
     }
     if (outcome.overflowed) {
       return this.exitFailure(

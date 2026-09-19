@@ -17,6 +17,9 @@ import { TodoWriteTool, TodoReadTool } from '../adapters/tool/plan/todoTool.js';
 import { AskUserTool } from '../adapters/tool/plan/askUserTool.js';
 import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/plan/planTool.js';
 import { ReadFileTool } from '../adapters/tool/fs/readFileTool.js';
+import { EditFileTool } from '../adapters/tool/fs/editFileTool.js';
+import { GrepTool } from '../adapters/tool/fs/grepTool.js';
+import { GlobTool } from '../adapters/tool/fs/globTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { ShellTool } from '../adapters/tool/shell/shellTool.js';
 import { ShellCommandPolicy } from '../adapters/tool/shell/shellCommandPolicy.js';
@@ -25,9 +28,10 @@ import { ListDirTool } from '../adapters/tool/fs/listDirTool.js';
 import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
 // web_search 仅当通过 extraTools 注入 search 实现时才注册，默认不暴露未配置的搜索工具，避免模型反复调用导致批量失败。
 import { CodeExecutorTool } from '../adapters/tool/code/codeExecutorTool.js';
-import { ToolGate, MUTATING_TOOLS } from '../core/toolGate.js';
+import { ToolGate } from '../core/toolGate.js';
 import { SelfChecklist } from '../eval/selfChecklist.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
+import { MutationTargets } from '../adapters/tool/verify/mutationTargets.js';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.js';
 import { ShellTestCommandRunner } from '../adapters/tool/verify/shellTestCommandRunner.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
@@ -44,6 +48,7 @@ import {
   LspFindReferencesTool,
   LspHoverTool,
   LspStatusTool,
+  LspDiagnosticsTool,
 } from '../adapters/tool/lsp/lspTools.js';
 import type { LspPort } from '../ports/tool/lsp.js';
 import { AgentIdentityTool } from '../adapters/tool/meta/agentIdentityTool.js';
@@ -60,7 +65,7 @@ import type { ExtraTool, SubagentPortSeed } from './configFactory.js';
  */
 export class ConfigToolRegistry {
   /**
-   * 注册内置 FS / 执行 / 代理工具（shell / read / write / list / patch / web / code / delegate / spill_read）。
+   * 注册内置 FS / 执行 / 代理工具（shell / read / write / edit / list / patch / grep / glob / web / code / delegate / spill_read）。
    * @param {RegistryToolPort} registry - registry
    * @param {SubagentPortSeed} seed - seed
    * @param {WorkerRegistry | undefined} workers - workers
@@ -83,8 +88,13 @@ export class ConfigToolRegistry {
     const shell = new ShellTool({ policy: new ShellCommandPolicy() });
     const reader = new ReadFileTool();
     const writer = new WriteFileTool(seed.workspaceRoot);
+    // 内容替换编辑（P0，2026-09-19）：模型不必给行号即可改代码；与 write_file/apply_patch 并列。
+    const editor = new EditFileTool(seed.workspaceRoot);
     const lister = new ListDirTool(seed.workspaceRoot);
     const patcher = new ApplyPatchTool(seed.workspaceRoot);
+    // 编码检索（P0，2026-09-19）：按内容 grep / 按路径 glob，补齐「查问题」这条腿（原只能靠 shell 手写 grep）。
+    const grepper = new GrepTool(seed.workspaceRoot);
+    const globber = new GlobTool(seed.workspaceRoot);
     const coder = new CodeExecutorTool({
       gate: new ToolGate(
         seed.approvals,
@@ -104,8 +114,11 @@ export class ConfigToolRegistry {
     registry.register(shell.definition, (call, ctx) => shell.handle(call, ctx));
     registry.register(reader.definition, (call, ctx) => reader.handle(call, ctx));
     registry.register(writer.definition, (call, ctx) => writer.handle(call, ctx));
+    registry.register(editor.definition, (call, ctx) => editor.handle(call, ctx));
     registry.register(lister.definition, (call, ctx) => lister.handle(call, ctx));
     registry.register(patcher.definition, (call, ctx) => patcher.handle(call, ctx));
+    registry.register(grepper.definition, (call, ctx) => grepper.handle(call, ctx));
+    registry.register(globber.definition, (call, ctx) => globber.handle(call, ctx));
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
     registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
     registry.register(spillReader.definition, (call, ctx) => spillReader.handle(call, ctx));
@@ -216,6 +229,14 @@ export class ConfigToolRegistry {
       registry.register(refTool.definition, (call, ctx) => refTool.handle(call, ctx));
       registry.register(hoverTool.definition, (call, ctx) => hoverTool.handle(call, ctx));
       registry.register(statusTool.definition, (call, ctx) => statusTool.handle(call, ctx));
+      // 诊断：仅在适配器真的实现了 `diagnostics` 时才注册——避免暴露一个必然失败的死工具
+      // （「声明了但跑不通」比「没有这个工具」更伤模型，它会反复重试）。
+      if (lsp.diagnostics !== undefined) {
+        const diagnosticsTool = new LspDiagnosticsTool(lsp);
+        registry.register(diagnosticsTool.definition, (call, ctx) =>
+          diagnosticsTool.handle(call, ctx),
+        );
+      }
     }
     if (identity !== undefined) {
       const idTool = new AgentIdentityTool(identity);
@@ -245,6 +266,11 @@ export class ConfigToolRegistry {
    *
    * 假完成探测复用 `SelfChecklist`（同一份占位符口径，不另写一份规则）。
    *
+   * **2026-09-19 修复（静默旁路）**：触发条件原为 `String(args['path'])`，而 `apply_patch` 的
+   * `path` 按设计可省略 ⇒ 不带 path 的补丁**一次都不触发自验证**（探针实测 `runnerCalls +0`），
+   * 假完成探测也因只认 `content` 而对补丁恒静默跳过。现统一改走 {@link MutationTargets}
+   * （补丁头、新增行、`new_string` 全覆盖），两条静默旁路一并堵死。
+   *
    * @param registry 已注册全部工具的内层端口。
    * @param policy 受控预算（命令 / 超时 / 冷却 / 每会话次数 / 摘要行数）。
    * @param workspaceRoot 工作区根（测试命令 cwd）。
@@ -260,18 +286,19 @@ export class ConfigToolRegistry {
       workspaceRoot,
       runner: new ShellTestCommandRunner(),
       shouldVerify: (toolName, args) =>
-        MUTATING_TOOLS.has(toolName) &&
-        SelfVerifyPolicy.isVerifiableTarget(String(args['path'] ?? '')),
-      probeFakeCompletion: async (_toolName, args) => {
-        const path = String(args['path'] ?? '');
-        const content = args['content'];
-        if (path === '' || typeof content !== 'string') {
+        MutationTargets.of(toolName, args).some((path) =>
+          SelfVerifyPolicy.isVerifiableTarget(path),
+        ),
+      probeFakeCompletion: async (toolName, args) => {
+        const content = MutationTargets.addedText(toolName, args);
+        if (content === undefined) {
           return undefined;
         }
+        const targets = MutationTargets.of(toolName, args);
         const verdict = await new SelfChecklist().noPlaceholders(content).evaluate();
         return verdict.passed
           ? undefined
-          : `产物 ${path} 含未完成标记（${verdict.failures.join(', ')}）`;
+          : `产物 ${targets.join('、') || toolName} 含未完成标记（${verdict.failures.join(', ')}）`;
       },
     });
   }
@@ -285,7 +312,7 @@ export function demoWorkers(): WorkerRegistry {
   return registry;
 }
 
-/** 默认工具端口：内置 17 工具（含 run_code/delegate/spill_read/subagent + #77 的 todo/ask_user/plan 三组 + #M1 的 tool_search + #M2 的 memory_search）+ 自定义工具。
+/** 默认工具端口：内置 20 工具（含 run_code/delegate/spill_read/subagent + #77 的 todo/ask_user/plan 三组 + #M1 的 tool_search + #M2 的 memory_search + 2026-09-19 编码闭环三件 edit/grep/glob）+ 自定义工具。
  * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。
  * `selfVerify` 非空时（P3，opt-in）额外包装自验证回环装饰器：写源码后可自动跑受限测试并回灌失败摘要。 */
 export function defaultTools(
