@@ -17,6 +17,7 @@
 // 用法：
 //   node benchmark/capability_swebench.mjs                 # 基建套件 + 对照（零 key，约数秒）
 //   DEEPSEEK_API_KEY=sk-xxx node benchmark/capability_swebench.mjs --live   # 真实能力分数
+//   node benchmark/capability_swebench.mjs --drift-selftest --max-drift-alarms 0  # 反漂移门禁自检 + 退出码闸
 //
 // 输出：benchmark/capability-swebench.json（基建 + 对照 + 可选 live）+ 控制台报告。
 
@@ -35,6 +36,8 @@ import { dirname, join } from 'node:path';
 
 import { runSweSuite, runControls, formatSweReport } from '../dist/src/eval/swebench.js';
 import { ScriptedModel } from '../dist/src/eval/scriptedModel.js';
+import { EditDriftDetector } from '../dist/src/eval/editDriftDetector.js';
+import { ReasoningRouter } from '../dist/src/eval/reasoningRouter.js';
 import { SWEBENCH_LITE_TASKS, buildEnhancedTasks } from './swebenchTasks.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +48,84 @@ const OUT = join(__dirname, 'capability-swebench.json');
 const ENHANCED_TASKS = buildEnhancedTasks(SWEBENCH_LITE_TASKS);
 
 const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务完成（swebench）');
+
+// ---------- T4.2 / T5.5 接线（本轮）：反漂移检测 + 推理强度路由 ----------
+// 反漂移检测器：注入 runSweSuite / runControls，由评测器在每个任务的**独立临时工作区**里
+// 于「补丁应用前 / 后」各取一次指纹快照，差异喂给 detector.record()；命中的
+// oscillation / thrash 告警进结果 → 控制台报告 + `--max-drift-alarms N` 退出码闸。
+// 检测器状态由评测器按工作区重置（跨工作区混用指纹历史会把同名文件误判为振荡）。
+// `--drift-selftest` 另跑一条已知 A→B→A 振荡的探针流做门禁自检（检测器失效即 exit 3）。
+const DRIFT_DETECTOR = new EditDriftDetector({ windowSize: 20, maxEditsPerFile: 5 });
+// 推理强度路由：按任务难度分层给档（易 low / 中 medium / 难 high），透传为模型请求 reasoning_effort。
+const ROUTER = new ReasoningRouter();
+const ROUTED_EFFORT = new Map(ENHANCED_TASKS.map((t) => [t.id, ROUTER.route(t.prompt)]));
+const ROUTING_BUDGET = ROUTER.compareBudgets(ENHANCED_TASKS.map((t) => t.prompt));
+
+/** 解析 --max-drift-alarms（缺省 Infinity = 只报告不拦截；给值即成为退出码闸）。 */
+function maxDriftAlarms() {
+  const i = process.argv.indexOf('--max-drift-alarms');
+  if (i === -1) return Number.POSITIVE_INFINITY;
+  const n = Number(process.argv[i + 1]);
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * 反漂移门禁自检（--drift-selftest）：把已知的 A→B→A 振荡与同文件高频重写喂进**同一个**
+ * detector 实例，要求它确实报出 oscillation。自检失败即 exit 3——检测器被改坏时不允许静默放行
+ * （自检命中的告警同样计入 `--max-drift-alarms` 闸，故这条路径本身也验证「告警 → 退出码」接线）。
+ * @returns 自检命中的告警条数
+ */
+function driftSelfTest() {
+  if (!process.argv.includes('--drift-selftest')) return 0;
+  const probe = new EditDriftDetector({ windowSize: 20, maxEditsPerFile: 5 });
+  const oscillation = ['a', 'b', 'a'].map((revision) =>
+    probe.record({ file: 'probe.js', revision }),
+  );
+  const thrash = [];
+  for (let i = 0; i < 8; i++) thrash.push(probe.record({ file: 'grind.js', revision: `r${i}` }));
+  const alarms = [...oscillation, ...thrash].filter((a) => a !== undefined);
+  const hasOscillation = alarms.some((a) => a.kind === 'oscillation');
+  console.log(
+    `[capability:swebench] 反漂移门禁自检：告警 ${alarms.length} 条` +
+      `（oscillation=${hasOscillation ? '已命中' : '未命中'}）`,
+  );
+  if (!hasOscillation) {
+    console.error('[capability:swebench] ❌ 反漂移自检失败：A→B→A 振荡未被告警，检测器已失效。');
+    process.exit(3);
+  }
+  for (const alarm of alarms)
+    console.log(`   ⚠️ [自检·${alarm.kind}] ${alarm.file}: ${alarm.detail}`);
+  return alarms.length;
+}
+
+/** 打印推理强度路由结果（难度分层 → 档位 → 相对预算）。 */
+function printRouting() {
+  const byEffort = { low: 0, medium: 0, high: 0 };
+  for (const effort of ROUTED_EFFORT.values()) byEffort[effort] += 1;
+  console.log(
+    `[capability:swebench] 推理强度路由：low=${byEffort.low} medium=${byEffort.medium} high=${byEffort.high}` +
+      `（一刀切 high 预算 ${ROUTING_BUDGET.fixedTotal} → 路由后 ${ROUTING_BUDGET.routedTotal}，` +
+      `Δ=${ROUTING_BUDGET.delta}）`,
+  );
+}
+
+/** 汇总并（可选）拦截漂移告警；超过 --max-drift-alarms 即非 0 退出。 */
+function driftGate(scripted, controls) {
+  const scriptedAlarms = scripted.results.reduce((n, r) => n + (r.driftAlarms?.length ?? 0), 0);
+  const goldAlarms = controls.gold.reduce((n, r) => n + (r.driftAlarms?.length ?? 0), 0);
+  const total = scriptedAlarms + goldAlarms + driftSelfTest();
+  console.log(
+    `[capability:swebench] 反漂移检测：告警 ${total} 条（套件 ${scriptedAlarms} / gold 对照 ${goldAlarms} / 自检另计）`,
+  );
+  const cap = maxDriftAlarms();
+  if (total > cap) {
+    console.error(
+      `[capability:swebench] ❌ 反漂移告警 ${total} > 上限 ${cap}：同一文件反复改（oscillation/thrash）` +
+        '是失控前兆，按门禁非 0 退出。',
+    );
+    process.exit(1);
+  }
+}
 
 // ---------- 官方 SWE-bench Verified 子集（B1 官方跑分真实接线，免 Docker、免云）----------
 // 原生本地执行器（git worktree 检出 + uv venv + 应用补丁 + pytest 判定），零 Docker、零云。
@@ -387,8 +468,10 @@ if (verifiedIdx !== -1) {
 
 const scripted = await runSweSuite('capability-scripted', ENHANCED_TASKS, null, 'scripted', {
   modelFor: scriptedModelFor,
+  driftDetector: DRIFT_DETECTOR,
+  reasoningFor: (task) => ROUTED_EFFORT.get(task.id),
 });
-const controls = await runControls(ENHANCED_TASKS);
+const controls = await runControls(ENHANCED_TASKS, { driftDetector: DRIFT_DETECTOR });
 
 const report = {
   suite: 'capability-swebench',
@@ -403,6 +486,11 @@ const report = {
     valid: controls.valid,
     gold: controls.gold,
     negative: controls.negative,
+  },
+  /** T5.5：推理强度路由（按任务难度分层给档）+ 相对预算对比（一刀切 high 的对照）。 */
+  reasoningRouting: {
+    perTask: Object.fromEntries(ROUTED_EFFORT),
+    budgets: ROUTING_BUDGET,
   },
   live: null,
 };
@@ -426,7 +514,10 @@ if (live) {
       budget,
     );
     console.log(`[capability:swebench] live 模式：用 ${modelName} @ ${baseUrl}（预算 $0.50 护栏）`);
-    const liveReport = await runSweSuite('capability-live', ENHANCED_TASKS, liveModel, 'live');
+    const liveReport = await runSweSuite('capability-live', ENHANCED_TASKS, liveModel, 'live', {
+      driftDetector: DRIFT_DETECTOR,
+      reasoningFor: (task) => ROUTED_EFFORT.get(task.id),
+    });
     report.live = {
       model: modelName,
       passed: liveReport.passed,
@@ -441,6 +532,8 @@ if (live) {
 writeFileSync(OUT, JSON.stringify(report, null, 2), 'utf8');
 
 // ---------- 控制台 ----------
+printRouting();
+driftGate(scripted, controls);
 console.log(formatSweReport(scripted, controls));
 if (report.live !== null) {
   console.log(

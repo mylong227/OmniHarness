@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import type { Candidate } from '../ports/runtime/evolution.js';
 import type { Benchmark } from './failClosedEvolutionGate.js';
 import type { CodeCandidate } from './rlvrLoop.js';
+import type { RewardVerdict } from './rewardCoverageMeter.js';
 import {
   FailClosedEvolutionGate,
   type FailClosedEvolutionGateOptions,
@@ -113,10 +114,35 @@ export function verifiableRewardForCode(
     readonly codeFileToken?: string;
   } = {},
 ): (candidate: CodeCandidate) => Promise<number> {
+  const verdictFor = verifiableVerdictForCode(commandFor, opts);
+  return async (candidate) => (await verdictFor(candidate)).reward;
+}
+
+/**
+ * (T5.1 桥) 同上，但返回**判据明细**（`reward` + `verifiable` + `reason`）而非裸数值。
+ *
+ * 为什么必须有这一版：`verifiableRewardForCode` 把「真判负」与「没能验证」（命令缺失 /
+ * 临时文件写入失败 / spawn 抛错）都压成同一个 0，调用方无从统计**势函数覆盖率**。
+ * 明细版把两者显式分开，供 `RewardCoverageMeter` 记账（覆盖率体检的数据源）；
+ * `verifiableRewardForCode` 由本函数收口，故「奖励语义」只有一处实现，不会双份漂移。
+ *
+ * @param commandFor 从代码候选抽取待验证命令（可含 `%CODE_FILE%` 占位符）
+ * @param opts 工作目录抽取器与占位符（可选）
+ * @returns 候选 → 判据明细（fail-closed：任何未能验证的情况 verifiable=false）
+ */
+export function verifiableVerdictForCode(
+  commandFor: (candidate: CodeCandidate) => string | undefined,
+  opts: {
+    readonly cwdFor?: (candidate: CodeCandidate) => string | undefined;
+    readonly codeFileToken?: string;
+  } = {},
+): (candidate: CodeCandidate) => Promise<RewardVerdict> {
   const token = opts.codeFileToken ?? '%CODE_FILE%';
   return async (candidate) => {
     const cmd = commandFor(candidate);
-    if (cmd === undefined) return 0;
+    if (cmd === undefined) {
+      return { reward: 0, verifiable: false, reason: 'unverifiable:no-command' };
+    }
     let command = cmd;
     if (command.includes(token)) {
       const tmp = join(
@@ -125,8 +151,12 @@ export function verifiableRewardForCode(
       );
       try {
         writeFileSync(tmp, candidate.code, 'utf8');
-      } catch {
-        return 0;
+      } catch (err) {
+        return {
+          reward: 0,
+          verifiable: false,
+          reason: `unverifiable:write-error:${String(err)}`,
+        };
       }
       command = command.split(token).join(tmp);
     }
@@ -139,9 +169,11 @@ export function verifiableRewardForCode(
         timeout: 120_000,
       });
       status = r.status ?? -1;
-    } catch {
-      status = -1;
+    } catch (err) {
+      return { reward: 0, verifiable: false, reason: `unverifiable:spawn-error:${String(err)}` };
     }
-    return status === 0 ? 1 : 0;
+    return status === 0
+      ? { reward: 1, verifiable: true, reason: 'verified-pass' }
+      : { reward: 0, verifiable: true, reason: 'verified-fail' };
   };
 }

@@ -7,12 +7,21 @@
 //
 // 铁律：零运行时依赖（仅 node: 内置）；fail-closed——断言缺失即视为「未验证」，不假通过。
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { Agent } from '../core/agent.js';
+import type { AgentResult } from '../core/agent.js';
 import { createRuntime } from '../core/runtime.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
@@ -21,7 +30,10 @@ import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { SupervisorPort, SafeMode, HealthSnapshot } from '../ports/runtime/supervisor.js';
+import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
 import { ScriptedModel, type ScriptStep } from './scriptedModel.js';
+import { IsolatedEvaluator } from './isolatedEvaluator.js';
+import type { ReasoningEffort } from './reasoningRouter.js';
 
 export type { ScriptStep } from './scriptedModel.js';
 
@@ -188,6 +200,44 @@ export interface EvalTaskResult {
   readonly finalText?: string | undefined;
   /** 模型用量（live 跑分时有值；ScriptedModel 无用量则为 undefined）。 */
   readonly usage?: TaskUsage | undefined;
+  /** 隔离评测证据（仅 {@link runTaskIsolated} 填充：评测只吃冻结快照）。 */
+  readonly isolation?: IsolationEvidence | undefined;
+}
+
+/**
+ * 生成阶段产物快照（T4.6）：**评测唯一可见的输入**。
+ *
+ * 生成阶段（真实 Agent 跑任务）结束时采集一次，之后深克隆 + 深冻结；评测不再读工作区活引用。
+ */
+export interface TaskArtifact {
+  /** 生成阶段实际调用的工具名（事件流投影）。 */
+  readonly toolCalls: readonly string[];
+  /** 生成阶段步数。 */
+  readonly steps: number;
+  /** 生成阶段终态文本。 */
+  readonly finalText: string | undefined;
+  /** 工作区相对路径 → 内容（采集时的产物，与后续写操作零共享）。 */
+  readonly files: Readonly<Record<string, string>>;
+}
+
+/** 隔离评测证据（写进结果，供脚本/报告断言「评测确实只吃快照」）。 */
+export interface IsolationEvidence {
+  /** 是否为冻结快照评测（走隔离路径恒 true）。 */
+  readonly frozen: boolean;
+  /** 快照内文件数（0 表示产物无文件，例如纯文本任务）。 */
+  readonly snapshotFiles: number;
+  /** 隔离评测器返回的 verdict（0..1；与 passed 同源）。 */
+  readonly verdict: number;
+}
+
+/** 隔离跑分选项（T5.5 推理强度路由的接线口）。 */
+export interface IsolatedRunOptions {
+  /**
+   * 推理强度：由 `ReasoningRouter` 按任务难度路由后注入，经 `ConfigFactory.build` 落到
+   * `ResolvedConfig.reasoning`，再由 StepRunner 透传为模型请求的 `reasoning_effort`。
+   * 缺省 undefined → 不发该字段（按后端默认），零行为变更。
+   */
+  readonly reasoningEffort?: ReasoningEffort | undefined;
 }
 
 /**
@@ -281,59 +331,207 @@ export function scoreTask(params: {
   return { passed: reasons.length === 0, reasons };
 }
 
+/** 快照单文件上限（超过则不入快照：评测产物应是可评审的文本，不是大二进制）。 */
+const MAX_SNAPSHOT_FILE_BYTES = 512 * 1024;
+
+/** 预置任务自带的种子文件到工作区（套件自包含，read_file 等不必依赖外部资源）。 */
+function seedTaskWorkspace(task: EvalTask, workspaceRoot: string): void {
+  for (const [rel, content] of Object.entries(task.seedFiles ?? {})) {
+    const fp = join(workspaceRoot, rel);
+    mkdirSync(dirname(fp), { recursive: true });
+    writeFileSync(fp, content, 'utf8');
+  }
+}
+
+/** 解析本任务的模型端口：注入的真实模型优先，否则确定性 ScriptedModel（CI / 离线回归）。 */
+function resolveTaskModel(task: EvalTask, model: ModelPort | undefined): ModelPort {
+  return model ?? new ScriptedModel(task.script ?? [], task.finalText ?? '任务完成（eval）');
+}
+
+/**
+ * 采集生成阶段产物快照（投影：工作区文本文件 + 事件流统计）。
+ * 采集期读取失败的文件（并发写入等）跳过——快照只记录可稳定读取的产物。
+ * @param result 生成阶段结果（AgentResult）
+ * @param workspaceRoot 工作区根
+ * @returns 产物快照
+ */
+async function collectTaskArtifact(
+  result: AgentResult,
+  workspaceRoot: string,
+): Promise<TaskArtifact> {
+  const walker = new WorkspaceFileWalker(workspaceRoot, { maxFiles: 2000 });
+  const { files: rels } = await walker.list();
+  const files: Record<string, string> = {};
+  for (const rel of rels) {
+    const fp = join(workspaceRoot, ...rel.split('/'));
+    try {
+      if (statSync(fp).size > MAX_SNAPSHOT_FILE_BYTES) continue;
+      files[rel] = readFileSync(fp, 'utf8');
+    } catch {
+      // 采集期文件已消失 → 跳过（不会进入评测快照）
+    }
+  }
+  return {
+    toolCalls: NoopSupervisor.extractToolCalls(result.events),
+    steps: result.steps,
+    finalText: result.finalText,
+    files,
+  };
+}
+
+/**
+ * 生成阶段（T4.6 隔离的一半）：预置文件 → 装配真实 Agent → 执行任务 → 采集产物快照。
+ * 本函数**不做任何评测**：评测由调用方在快照上完成。
+ * @param task 评估任务
+ * @param workspaceRoot 工作区根
+ * @param model 模型端口（缺省 ScriptedModel）
+ * @param reasoningEffort 推理强度（缺省不发该字段）
+ * @returns 生成结果与产物快照
+ */
+async function generateTaskArtifact(
+  task: EvalTask,
+  workspaceRoot: string,
+  model: ModelPort | undefined,
+  reasoningEffort: ReasoningEffort | undefined,
+): Promise<{ readonly result: AgentResult; readonly artifact: TaskArtifact }> {
+  seedTaskWorkspace(task, workspaceRoot);
+  const config = ConfigFactory.build({
+    workspaceRoot,
+    maxSteps: task.maxSteps ?? 16,
+    model: resolveTaskModel(task, model),
+    storage: new MemoryStorage(),
+    approvals: new AutoApproval(),
+    sandbox: new PassthroughSandbox(),
+    events: new SilentEventPort(),
+    ...(reasoningEffort !== undefined ? { reasoning: reasoningEffort } : {}),
+  });
+  const agent = new Agent(createRuntime({ ...config, supervisor: new NoopSupervisor() }));
+  const result = await agent.runTask(task.prompt);
+  return { result, artifact: await collectTaskArtifact(result, workspaceRoot) };
+}
+
+/** 把冻结快照物化到 scratch 目录（评测命令只在该副本上执行，绝不碰生成方工作区）。 */
+function materializeSnapshot(snapshot: Readonly<TaskArtifact>, root: string): number {
+  let written = 0;
+  for (const [rel, content] of Object.entries(snapshot.files)) {
+    const fp = join(root, ...rel.split('/'));
+    mkdirSync(dirname(fp), { recursive: true });
+    writeFileSync(fp, content, 'utf8');
+    written += 1;
+  }
+  return written;
+}
+
+/**
+ * 在冻结快照上评分（T4.6 隔离的另一半）：快照物化到临时 scratch 后跑全部断言，
+ * 故评测结论只依赖快照内容——生成方此后对工作区的任何修改都进不了本次 verdict。
+ * @param task 评估任务
+ * @param snapshot 冻结快照
+ * @returns 通过与否 + 失败原因
+ */
+function scoreFrozenSnapshot(
+  task: EvalTask,
+  snapshot: Readonly<TaskArtifact>,
+): { readonly passed: boolean; readonly reasons: readonly string[] } {
+  const scratch = mkdtempSync(join(tmpdir(), 'omni-eval-snapshot-'));
+  try {
+    materializeSnapshot(snapshot, scratch);
+    return scoreTask({
+      toolCalls: snapshot.toolCalls,
+      finalText: snapshot.finalText,
+      expectation: task.expect ?? {},
+      steps: snapshot.steps,
+      workspaceRoot: scratch,
+    });
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
 /** 跑单条任务：预置文件 → 装配模型（注入真实模型或默认 ScriptedModel）+ 真实 Agent → 执行 → 评分。 */
 export async function runTask(
   task: EvalTask,
   workspaceRoot: string,
   model?: ModelPort,
 ): Promise<EvalTaskResult> {
-  // 预置工作区文件（使套件自包含，read_file 等不必依赖外部资源）。
-  if (task.seedFiles !== undefined) {
-    for (const [rel, content] of Object.entries(task.seedFiles)) {
-      const fp = join(workspaceRoot, rel);
-      mkdirSync(dirname(fp), { recursive: true });
-      writeFileSync(fp, content, 'utf8');
-    }
-  }
-
-  // live 跑分：注入真实 LLM 模型端口；否则用确定性 ScriptedModel（CI / 离线回归）。
-  const resolvedModel =
-    model ?? new ScriptedModel(task.script ?? [], task.finalText ?? '任务完成（eval）');
-  const config = ConfigFactory.build({
-    workspaceRoot,
-    maxSteps: task.maxSteps ?? 16,
-    model: resolvedModel,
-    storage: new MemoryStorage(),
-    approvals: new AutoApproval(),
-    sandbox: new PassthroughSandbox(),
-    events: new SilentEventPort(),
-  });
-  const agent = new Agent(createRuntime({ ...config, supervisor: new NoopSupervisor() }));
-
   const t0 = Date.now();
-  const result = await agent.runTask(task.prompt);
+  const { result, artifact } = await generateTaskArtifact(task, workspaceRoot, model, undefined);
   const durationMs = Date.now() - t0;
-
-  const toolCalls = NoopSupervisor.extractToolCalls(result.events);
-  const usage = NoopSupervisor.extractUsage(result.events);
-  const expectation = task.expect ?? {};
   const { passed, reasons } = scoreTask({
-    toolCalls,
-    finalText: result.finalText,
-    expectation,
-    steps: result.steps,
+    toolCalls: artifact.toolCalls,
+    finalText: artifact.finalText,
+    expectation: task.expect ?? {},
+    steps: artifact.steps,
     workspaceRoot,
   });
 
   return {
     id: task.id,
     passed,
-    steps: result.steps,
-    toolCalls,
+    steps: artifact.steps,
+    toolCalls: artifact.toolCalls,
     durationMs,
     reasons,
-    finalText: result.finalText,
-    usage,
+    finalText: artifact.finalText,
+    usage: NoopSupervisor.extractUsage(result.events),
+  };
+}
+
+/**
+ * 跑单条任务（**隔离评测版**，T4.6 · H6）：生成 → 深克隆冻结快照 → **评测只吃快照**。
+ *
+ * 与 {@link runTask} 的差别只在评测侧：`runTask` 的断言直接读生成方工作区（自评偏差通道），
+ * 本函数把产物采集为快照交给 `IsolatedEvaluator`（结构化克隆 + 逐层冻结），断言与验证命令
+ * 都只在快照副本上执行。生成方后续任何写操作都不可能改变本次 verdict。
+ *
+ * @param task 评估任务
+ * @param workspaceRoot 工作区根（生成阶段用；评测阶段只用其快照副本）
+ * @param model 模型端口（缺省 ScriptedModel）
+ * @param opts 推理强度等（缺省零行为变更）
+ * @returns 任务结果（含 {@link IsolationEvidence}）
+ */
+export async function runTaskIsolated(
+  task: EvalTask,
+  workspaceRoot: string,
+  model?: ModelPort,
+  opts: IsolatedRunOptions = {},
+): Promise<EvalTaskResult> {
+  const t0 = Date.now();
+  const { result, artifact } = await generateTaskArtifact(
+    task,
+    workspaceRoot,
+    model,
+    opts.reasoningEffort,
+  );
+  const durationMs = Date.now() - t0;
+  let passed = false;
+  let reasons: readonly string[] = ['隔离评测未执行（生成阶段未产出可评测快照）'];
+  const evaluator = IsolatedEvaluator.projected<TaskArtifact, TaskArtifact>({
+    generate: () => artifact,
+    project: (a) => a,
+    evaluate: (snapshot) => {
+      const scored = scoreFrozenSnapshot(task, snapshot);
+      passed = scored.passed;
+      reasons = scored.reasons;
+      return scored.passed ? 1 : 0;
+    },
+  });
+  const verdict = await evaluator.run();
+
+  return {
+    id: task.id,
+    passed,
+    steps: artifact.steps,
+    toolCalls: artifact.toolCalls,
+    durationMs,
+    reasons,
+    finalText: artifact.finalText,
+    usage: NoopSupervisor.extractUsage(result.events),
+    isolation: {
+      frozen: Object.isFrozen(verdict.snapshot),
+      snapshotFiles: Object.keys(verdict.snapshot.files).length,
+      verdict: verdict.verdict,
+    },
   };
 }
 
