@@ -68,6 +68,8 @@ export class ComposerController {
           return { sessions: next };
         });
         void this.sessions.refreshSessions();
+        // F8：把新会话写进 hash，刷新 / 分享链接可直接回到该会话。
+        this.services.navigate({ threadId: res.threadId });
       }
       // 兜底：若后端最后一步未产出 assistant 事件，把 finalText 补成一条 assistant 事件；
       // 流中已存在同内容则跳过避免重复。

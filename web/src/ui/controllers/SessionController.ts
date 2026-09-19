@@ -122,6 +122,8 @@ export class SessionController {
       });
       // #OBS-12：加载历史会话必须重置 busy / activeTool，避免上一回合残留撑开过程 cluster。
       this.host.patch((s) => ({ sessions: s.sessions.map((x) => x) }));
+      // F8：把当前会话写进 hash，支持深链 / 浏览器前进后退。
+      this.services.navigate({ threadId: id });
     } catch (e) {
       this.services.toast('加载会话失败：' + (e as Error).message, 'err');
     }
@@ -139,6 +141,8 @@ export class SessionController {
       busy: false,
       activeTool: null,
     });
+    // F8：清空 hash 中的会话，回到无会话视图。
+    this.services.navigate({ threadId: null });
   }
 
   /**
