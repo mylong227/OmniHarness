@@ -1,0 +1,196 @@
+{
+  "solver": "gold-solution",
+  "backend": "native",
+  "judge": "pytest",
+  "platform": "win32/x64",
+  "total": 20,
+  "passed": 3,
+  "passRate": 0.15,
+  "envErrors": 3,
+  "effectivePassRate": 0.17647058823529413,
+  "envErrorReasons": {
+    "准备执行环境失败": 3
+  },
+  "results": [
+    {
+      "task": "analyze-access-logs",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 4199,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_top_urls - AssertionError: There should...\r | FAILED ..\\tests\\test_outputs.py::test_report_format - AssertionError: There s...\r | ============================== 3 failed in 0.31s =============================="
+    },
+    {
+      "task": "bank-trans-filter",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 4425,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_equality - AssertionError: File \\app\\da...\r | ============================== 1 failed in 0.32s =============================="
+    },
+    {
+      "task": "break-filter-js-from-html",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": true,
+      "budgetUsed": 0,
+      "durationMs": 494,
+      "error": "准备执行环境失败: uv pip install 退出码 1：error: No solution found when resolving dependencies\n  cause: Because you require beautifulsoup4==4.13.5 and beautifulsoup4==4.13.4, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "task": "chess-best-move",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 23167,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_move_correct - FileNotFoundError: [Errn...\r | ============================== 1 failed in 0.38s =============================="
+    },
+    {
+      "task": "circuit-fibsqrt",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 3884,
+      "error": "判分退出码 1：PASSED ..\\tests\\test_outputs.py::test_gates_file_size\r | FAILED ..\\tests\\test_outputs.py::test_sqrt_fib - FileNotFoundError: [WinError...\r | ========================= 1 failed, 2 passed in 0.36s ========================="
+    },
+    {
+      "task": "classifier-debug",
+      "solver": "gold-solution",
+      "passed": true,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 3959,
+      "error": null
+    },
+    {
+      "task": "cobol-modernization",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 4362,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_data_files_exist - AssertionError: Data...\r | FAILED ..\\tests\\test_outputs.py::test_program_output - FileNotFoundError: [Er...\r | ============================== 3 failed in 0.37s =============================="
+    },
+    {
+      "task": "code-from-image",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 3975,
+      "error": "判分退出码 1：PASSED ..\\tests\\test_outputs.py::test_output_file_exists\r | FAILED ..\\tests\\test_outputs.py::test_output_is_correct - AssertionError: Out...\r | ========================= 1 failed, 1 passed in 0.32s ========================="
+    },
+    {
+      "task": "constraints-scheduling",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 4150,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_constraints_conflicts_business_hours - ...\r | FAILED ..\\tests\\test_outputs.py::test_earliest_tiebreakers_and_carol_buffer\r | ============================== 3 failed in 0.45s =============================="
+    },
+    {
+      "task": "count-call-stack",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 4026,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_count_output - FileNotFoundError: [Errn...\r | ============================== 1 failed in 0.31s =============================="
+    },
+    {
+      "task": "count-dataset-tokens",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 226605,
+      "error": "判分退出码 3：INTERNALERROR>     class _PdbInteractiveConsole(code.InteractiveConsole):\r | INTERNALERROR>                                  ^^^^^^^^^^^^^^^^^^^^^^^\r | INTERNALERROR> AttributeError: module 'code' has no attribute 'InteractiveConsole' (consider renaming 'D:\\deepseek\\omniharness\\.omniharness\\tbench-work\\count-dataset-tokens-evlgxc\\app\\code.py' since it has the same name as the standard library module named 'code' and prevents importing that standard library module)"
+    },
+    {
+      "task": "cross-entropy-method",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": true,
+      "budgetUsed": 0,
+      "durationMs": 620,
+      "error": "准备执行环境失败: uv pip install 退出码 1：error: D:\\deepseek\\omniharness\\.omniharness\\tbench-work\\cross-entropy-method-WrFFGW\\app does not appear to be a Python project, as neither `pyproject.toml` nor `setup.py` are present in the directory"
+    },
+    {
+      "task": "csv-to-parquet",
+      "solver": "gold-solution",
+      "passed": true,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 252620,
+      "error": null
+    },
+    {
+      "task": "custom-memory-heap-crash",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 6205,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_release_build_runs_without_crash - File...\r | FAILED ..\\tests\\test_outputs.py::test_no_memory_leaks_with_valgrind - FileNot...\r | ============================== 6 failed in 0.86s =============================="
+    },
+    {
+      "task": "db-wal-recovery",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 5888,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_no_duplicate_ids - FileNotFoundError: [...\r | FAILED ..\\tests\\test_outputs.py::test_wal_was_decrypted - FileNotFoundError: ...\r | ============================== 7 failed in 0.43s =============================="
+    },
+    {
+      "task": "debug-long-program",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 140110,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_success_check - requests.exceptions.Con...\r | FAILED ..\\tests\\test_outputs.py::test_correct_num_lines - requests.exceptions...\r | ============================== 2 failed in 6.70s =============================="
+    },
+    {
+      "task": "deterministic-tarball",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 4899,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_edge_cases - subprocess.CalledProcessEr...\r | FAILED ..\\tests\\test_outputs.py::test_build_script_creates_archive - subproce...\r | ======================= 12 failed, 11 warnings in 1.14s ======================="
+    },
+    {
+      "task": "distribution-search",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": true,
+      "budgetUsed": 0,
+      "durationMs": 785,
+      "error": "准备执行环境失败: uv pip install 退出码 1：error: No solution found when resolving dependencies\n  cause: Because you require numpy==2.3.0 and numpy==2.1.2, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "task": "dna-assembly",
+      "solver": "gold-solution",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 5662,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_primers - AssertionError: Primer must h...\r | ============================== 1 failed in 0.35s =============================="
+    },
+    {
+      "task": "hello-world",
+      "solver": "gold-solution",
+      "passed": true,
+      "envError": false,
+      "budgetUsed": 1,
+      "durationMs": 3298,
+      "error": null
+    }
+  ]
+}

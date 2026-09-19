@@ -26,14 +26,9 @@ import { SwebenchVerified } from './swebenchVerified.js';
 import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerified.js';
 import { PythonVersionResolver } from './pythonVersionResolver.js';
 import { PytestVerdict } from './pytestVerdict.js';
-import { PythonEnvPlan } from './pythonEnvPlan.js';
-
-/**
- * 环境构建失败哨兵前缀：{@link NativeExecutor.setupEnv} 校验到 pytest 未装入 venv 时抛出的错误以本
- * 前缀开头，{@link NativeExecutor.run} 据此前缀把该实例标记为 `envError`（区别于模型未解出），便于
- * 单独重试、且不污染 resolved 率。
- */
-const ENV_BUILD_FAILED = 'ENV_BUILD_FAILED:';
+import { NativeEnvBuilder, ENV_BUILD_FAILED } from './nativeEnvBuilder.js';
+import { UvLocator } from './uvLocator.js';
+import type { UvLookup } from './uvLocator.js';
 
 /** 候选补丁的验证结果。 */
 export interface ScoreResult {
@@ -68,6 +63,11 @@ export interface NativeExecutorOptions {
   readonly envPins?: Readonly<Record<string, readonly string[]>>;
   /** 保留 worktree/venv（调试用）；缺省执行后清理。 */
   readonly keepWorktree?: boolean;
+  /**
+   * uv 定位函数（缺省 {@link UvLocator.locate}）。
+   * 注入点用于「uv 缺失时的报错可执行性」单测——不必真的卸载 uv 才能验证 fail-closed 路径。
+   */
+  readonly uvLocator?: (() => UvLookup) | undefined;
 }
 
 /** 补丁应用结果。 */
@@ -104,12 +104,16 @@ export class NativeExecutor implements ExecutorPort {
   private readonly envPins: Readonly<Record<string, readonly string[]>>;
   /** 是否保留 worktree/venv（调试用，缺省清理）。 */
   private readonly keepWorktree: boolean;
+  /** uv 定位函数（见 {@link NativeExecutorOptions.uvLocator}）。 */
+  private readonly uvLocate: () => UvLookup;
+  /** 环境构建器（uv venv + 依赖阶梯 + pytest 存在性校验）。 */
+  private readonly envBuilder: NativeEnvBuilder;
   /** 每仓库串行锁（git worktree add/remove 不可并发同一仓库）。 */
   private readonly repoLocks = new Map<string, Promise<unknown>>();
 
   /**
    * 构造原生执行器。
-   * @param opts 配置（缓存根/远端基址/镜像映射/环境约束/是否保留 worktree）。
+   * @param opts 配置（缓存根/远端基址/镜像映射/环境约束/是否保留 worktree/uv 定位）。
    */
   public constructor(opts: Readonly<NativeExecutorOptions> = {}) {
     this.repoCacheRoot = opts.repoCacheRoot ?? join(tmpdir(), 'omni-swebench-repos');
@@ -117,6 +121,8 @@ export class NativeExecutor implements ExecutorPort {
     this.repoMirrors = opts.repoMirrors ?? {};
     this.envPins = opts.envPins ?? {};
     this.keepWorktree = opts.keepWorktree ?? false;
+    this.uvLocate = opts.uvLocator ?? (() => UvLocator.locate());
+    this.envBuilder = new NativeEnvBuilder(this.envPins);
   }
 
   /**
@@ -124,7 +130,8 @@ export class NativeExecutor implements ExecutorPort {
    * @returns 形如 `native(cache=..., base=..., mirrors=N, pins=M)` 的一行摘要。
    */
   public describe(): string {
-    return `native(cache=${this.repoCacheRoot}, base=${this.repoBaseUrl}, mirrors=${Object.keys(this.repoMirrors).length}, pins=${Object.keys(this.envPins).length})`;
+    const uv = this.uvLocate().executable;
+    return `native(cache=${this.repoCacheRoot}, base=${this.repoBaseUrl}, mirrors=${Object.keys(this.repoMirrors).length}, pins=${Object.keys(this.envPins).length}, uv=${uv ?? '缺少'})`;
   }
 
   /**
@@ -146,11 +153,13 @@ export class NativeExecutor implements ExecutorPort {
     if (!SwebenchVerified.commandAvailable('git')) {
       return this.fail(task.id, 'git 不可用（NativeExecutor 需要 git 克隆/检出仓库）');
     }
-    if (!SwebenchVerified.commandAvailable('uv')) {
-      return this.fail(
-        task.id,
-        'uv 不可用（NativeExecutor 需要 uv 管理 Python 版本与 venv；安装：https://docs.astral.sh/uv/）',
-      );
+    // uv 定位不止看 PATH：官方安装脚本默认落在 ~/.local/bin（本机实测不在 PATH 上），
+    // 只查 PATH 会把「装了但没配 PATH」误报成「没装」，让整条判定链路无声 fail-closed。
+    let uv: string;
+    try {
+      uv = this.requireUv();
+    } catch (error) {
+      return this.fail(task.id, this.msg(error));
     }
     let cacheDir: string;
     try {
@@ -174,7 +183,7 @@ export class NativeExecutor implements ExecutorPort {
     }
     try {
       const pythonVersion = PythonVersionResolver.resolve(task.repo, task.version);
-      await this.setupEnv(worktree, pythonVersion, task.repo);
+      await this.envBuilder.build(worktree, pythonVersion, task.repo, uv);
       const applied = this.applyPatches(worktree, modelPatch, task.testPatch);
       if (!applied.ok) {
         return this.fail(task.id, applied.reason ?? '补丁应用失败');
@@ -217,8 +226,8 @@ export class NativeExecutor implements ExecutorPort {
    */
   public async prepareRuntime(worktree: string, task: VerifiedTask): Promise<string> {
     const pythonVersion = PythonVersionResolver.resolve(task.repo, task.version);
-    await this.setupEnv(worktree, pythonVersion, task.repo);
-    return this.venvPythonPath(worktree);
+    await this.envBuilder.build(worktree, pythonVersion, task.repo, this.requireUv());
+    return NativeEnvBuilder.pythonPath(worktree);
   }
 
   /**
@@ -388,92 +397,6 @@ export class NativeExecutor implements ExecutorPort {
   }
 
   /**
-   * 在 worktree 内用 uv 建隔离 venv，并按 {@link PythonEnvPlan} 规划出的**安装阶梯**逐级安装
-   * （best-effort，后步修正前步的过宽解析，绝不覆盖仓库自述的测试设施版本）。
-   *
-   * 阶梯顺序与不变量见 {@link PythonEnvPlan.steps}；其中最末步「**仅在 pytest 缺失时**安装」是修复
-   * 「registry-latest pytest（9.x）顶掉仓库 pin（7.2.2）⇒ 老套件 conftest 全量 ERROR」的关键。
-   * @param worktree worktree 路径。
-   * @param pythonVersion 目标 Python 版本。
-   * @param repo 上游仓库 slug（用于取该仓库的额外约束）。
-   * @returns 无。
-   */
-  private async setupEnv(worktree: string, pythonVersion: string, repo: string): Promise<void> {
-    // `--clear`：跨运行复用同一工作区时，上一次崩溃可能已留下 `.venv`，`uv venv` 会拒绝覆盖并
-    // 让整个验证环境准备失败、best-of-N/self-test 全被跳过。清掉重建（prepareRuntime 每实例只调一次，
-    // 成本可忽略；且绝不动已安装好的 venv 内容之外的文件）。
-    await SwebenchVerified.execFileAsync(
-      'uv',
-      ['venv', '--clear', '--python', pythonVersion],
-      worktree,
-    );
-    const steps = PythonEnvPlan.steps({
-      requirementsFile: PythonEnvPlan.findTestRequirements((rel) =>
-        existsSync(join(worktree, rel)),
-      ),
-      pins: this.envPins[repo] ?? [],
-      pytestPresent: this.venvHasModule(worktree, 'pytest'),
-    });
-    for (const step of steps) {
-      await this.tryUvInstall(worktree, step.args);
-    }
-    // 环境构建后校验 pytest 真装入 venv：best-effort 安装在实时网络/pypi 镜像抖动下可能全盘失败，
-    // 若继续跑 pytest 会把「环境故障」误记为「模型未解出」。显式抛出 ENV_BUILD_FAILED 交由 run() 标记为
-    // envError，与模型失败区分、且不计入 resolved 率分母（可单独重试）。重试仍装不上才到此。
-    if (!this.venvHasModule(worktree, 'pytest')) {
-      throw new Error(
-        `${ENV_BUILD_FAILED}pytest 未能装入 venv（依赖安装失败，疑实时网络/pypi 镜像不可达）`,
-      );
-    }
-  }
-
-  /**
-   * 判断 venv 内是否已可导入某模块（用于「仅在缺失时安装」，避免覆盖仓库 pin）。
-   * @param worktree worktree 路径。
-   * @param module 模块名（须为合法 Python 标识符，否则直接判否）。
-   * @returns 可导入返回 true。
-   */
-  private venvHasModule(worktree: string, module: string): boolean {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(module)) return false;
-    try {
-      execFileSync(this.venvPythonPath(worktree), ['-c', `import ${module}`], { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * best-effort 安装（失败不阻断：部分仓库装不全仍可跑部分测试）。**带有限重试+线性退避**：实时网络/
-   * pypi 镜像偶发抖动时自动自愈，避免把「瞬时装不上」误记为「模型未解出」。
-   * @param worktree worktree 路径。
-   * @param args `uv pip install` 的参数（如 `['-e', '.']` 或 `['-r', 'requirements/tests.txt']`）。
-   * @returns 无。
-   */
-  private async tryUvInstall(worktree: string, args: readonly string[]): Promise<void> {
-    const MAX_ATTEMPTS = 3;
-    let lastErr: unknown = undefined;
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        await SwebenchVerified.execFileAsync(
-          'uv',
-          ['pip', 'install', '--python', this.venvPythonPath(worktree), ...args],
-          worktree,
-        );
-        return;
-      } catch (error) {
-        lastErr = error;
-        if (attempt < MAX_ATTEMPTS) {
-          // 退避：第 1 次失败等 1s、第 2 次等 2s 再重试（网络抖动多可自恢复）。
-          await new Promise<void>((resolve) => setTimeout(resolve, 1000 * attempt));
-        }
-      }
-    }
-    // best-effort：忽略安装失败，交给 setupEnv 末尾的 pytest 校验兜底（区分环境失败与模型失败）。
-    void lastErr;
-  }
-
-  /**
    * 依次应用 test_patch 与 model_patch（任一失败即判未修复）。
    * @param worktree worktree 路径。
    * @param modelPatch 模型补丁。
@@ -533,16 +456,6 @@ export class NativeExecutor implements ExecutorPort {
   }
 
   /**
-   * 计算 worktree 内 venv 的 python 可执行路径（跨平台）。
-   * @param worktree worktree 路径。
-   * @returns python 可执行文件绝对路径。
-   */
-  private venvPythonPath(worktree: string): string {
-    const isWin = process.platform === 'win32';
-    return join(worktree, '.venv', isWin ? 'Scripts' : 'bin', isWin ? 'python.exe' : 'python');
-  }
-
-  /**
    * 在 venv 内运行 pytest（无论退出码均返回输出，供解析）。
    *
    * 有测试文件（来自 test_patch）⇒ 跑整份文件并 `-rA` 列全量结果，再按**叶子名**比对 —— 对齐官方口径，
@@ -558,7 +471,7 @@ export class NativeExecutor implements ExecutorPort {
     testFiles: readonly string[],
     ids: readonly string[],
   ): Promise<PytestRun> {
-    const venvPython = this.venvPythonPath(worktree);
+    const venvPython = NativeEnvBuilder.pythonPath(worktree);
     const args =
       testFiles.length > 0
         ? ['-m', 'pytest', ...testFiles, '-rA', '--tb=no', '-p', 'no:cacheprovider']
@@ -579,6 +492,27 @@ export class NativeExecutor implements ExecutorPort {
    */
   private fail(instanceId: string, reason: string): VerifiedResult {
     return { id: instanceId, resolved: false, backend: 'native', reason };
+  }
+
+  /**
+   * 解析 uv 可执行文件绝对路径；缺失即抛错。
+   *
+   * 错误文本中必须带「已查找哪些位置」与 `OMNI_UV` 出口：原实现只报一句「uv 不可用」，
+   * 而本机实测的现场恰恰是「uv 装在 ~/.local/bin 但不在 PATH 上」——没有这两个信息，
+   * 使用者只会以为「没装 uv」，实际上重装也解决不了。
+   *
+   * @returns uv 可执行文件绝对路径。
+   */
+  private requireUv(): string {
+    const uv = this.uvLocate();
+    if (uv.executable === null) {
+      throw new Error(
+        'uv 不可用（NativeExecutor 需要 uv 管理 Python 版本与 venv；安装：https://docs.astral.sh/uv/）' +
+          `。已查找：${uv.searched.join(' | ')}` +
+          `；若已安装，用 ${UvLocator.ENV_KEY} 指定其绝对路径，或把它所在目录加入 PATH`,
+      );
+    }
+    return uv.executable;
   }
 
   /**

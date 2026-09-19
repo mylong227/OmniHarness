@@ -1,0 +1,196 @@
+{
+  "solver": "grep-baseline",
+  "backend": "native",
+  "judge": "pytest",
+  "platform": "win32/x64",
+  "total": 20,
+  "passed": 0,
+  "passRate": 0,
+  "envErrors": 3,
+  "effectivePassRate": 0,
+  "envErrorReasons": {
+    "准备执行环境失败": 3
+  },
+  "results": [
+    {
+      "task": "analyze-access-logs",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 5,
+      "durationMs": 4844,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_top_urls - FileNotFoundError: [Errno 2]...\r | FAILED ..\\tests\\test_outputs.py::test_report_format - FileNotFoundError: [Err...\r | ============================== 3 failed in 0.40s =============================="
+    },
+    {
+      "task": "bank-trans-filter",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 4113,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_equality - AssertionError: File \\app\\da...\r | ============================== 1 failed in 0.32s =============================="
+    },
+    {
+      "task": "break-filter-js-from-html",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": true,
+      "budgetUsed": 0,
+      "durationMs": 726,
+      "error": "准备执行环境失败: uv pip install 退出码 1：error: No solution found when resolving dependencies\n  cause: Because you require beautifulsoup4==4.13.5 and beautifulsoup4==4.13.4, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "task": "chess-best-move",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 4214,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_move_correct - FileNotFoundError: [Errn...\r | ============================== 1 failed in 0.37s =============================="
+    },
+    {
+      "task": "circuit-fibsqrt",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 3592,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_gates_file_size - AssertionError: File ...\r | FAILED ..\\tests\\test_outputs.py::test_sqrt_fib - FileNotFoundError: [WinError...\r | ============================== 3 failed in 0.39s =============================="
+    },
+    {
+      "task": "classifier-debug",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 4065,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_solution_file_exists - AssertionError: ...\r | FAILED ..\\tests\\test_outputs.py::test_solution_file_content - FileNotFoundErr...\r | ============================== 2 failed in 0.35s =============================="
+    },
+    {
+      "task": "cobol-modernization",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 3540,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_data_files_exist - AssertionError: Data...\r | FAILED ..\\tests\\test_outputs.py::test_program_output - FileNotFoundError: [Er...\r | ============================== 3 failed in 0.36s =============================="
+    },
+    {
+      "task": "code-from-image",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 3916,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_output_file_exists - AssertionError: Fi...\r | FAILED ..\\tests\\test_outputs.py::test_output_is_correct - FileNotFoundError: ...\r | ============================== 2 failed in 0.33s =============================="
+    },
+    {
+      "task": "constraints-scheduling",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 7,
+      "durationMs": 4227,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_constraints_conflicts_business_hours - ...\r | FAILED ..\\tests\\test_outputs.py::test_earliest_tiebreakers_and_carol_buffer\r | ============================== 3 failed in 0.44s =============================="
+    },
+    {
+      "task": "count-call-stack",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 4028,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_count_output - AssertionError: File \\ap...\r | ============================== 1 failed in 0.47s =============================="
+    },
+    {
+      "task": "count-dataset-tokens",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 7,
+      "durationMs": 3727,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_command_output_content_example - FileNo...\r | ============================== 1 failed in 0.33s =============================="
+    },
+    {
+      "task": "cross-entropy-method",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": true,
+      "budgetUsed": 0,
+      "durationMs": 749,
+      "error": "准备执行环境失败: uv pip install 退出码 1：error: D:\\deepseek\\omniharness\\.omniharness\\tbench-work\\cross-entropy-method-0Q7Ofc\\app does not appear to be a Python project, as neither `pyproject.toml` nor `setup.py` are present in the directory"
+    },
+    {
+      "task": "csv-to-parquet",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 4,
+      "durationMs": 17317,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_parquet_exists - AssertionError: data.p...\r | FAILED ..\\tests\\test_outputs.py::test_data_matches - FileNotFoundError: [Errn...\r | ============================== 2 failed in 9.54s =============================="
+    },
+    {
+      "task": "custom-memory-heap-crash",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 5,
+      "durationMs": 4690,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_release_build_runs_without_crash - File...\r | FAILED ..\\tests\\test_outputs.py::test_no_memory_leaks_with_valgrind - FileNot...\r | ============================== 6 failed in 0.74s =============================="
+    },
+    {
+      "task": "db-wal-recovery",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 5,
+      "durationMs": 4045,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_no_duplicate_ids - FileNotFoundError: [...\r | FAILED ..\\tests\\test_outputs.py::test_wal_was_decrypted - FileNotFoundError: ...\r | ============================== 7 failed in 0.37s =============================="
+    },
+    {
+      "task": "debug-long-program",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 10812,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_success_check - requests.exceptions.Con...\r | FAILED ..\\tests\\test_outputs.py::test_correct_num_lines - requests.exceptions...\r | ============================== 2 failed in 7.33s =============================="
+    },
+    {
+      "task": "deterministic-tarball",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 8,
+      "durationMs": 5063,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_edge_cases - subprocess.CalledProcessEr...\r | FAILED ..\\tests\\test_outputs.py::test_build_script_creates_archive - subproce...\r | ======================= 12 failed, 11 warnings in 1.13s ======================="
+    },
+    {
+      "task": "distribution-search",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": true,
+      "budgetUsed": 0,
+      "durationMs": 735,
+      "error": "准备执行环境失败: uv pip install 退出码 1：error: No solution found when resolving dependencies\n  cause: Because you require numpy==2.3.0 and numpy==2.1.2, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "task": "dna-assembly",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 4,
+      "durationMs": 4111,
+      "error": "判分退出码 1：=========================== short test summary info ===========================\r | FAILED ..\\tests\\test_outputs.py::test_primers - AssertionError: File \\app\\pri...\r | ============================== 1 failed in 0.38s =============================="
+    },
+    {
+      "task": "hello-world",
+      "solver": "grep-baseline",
+      "passed": false,
+      "envError": false,
+      "budgetUsed": 3,
+      "durationMs": 3627,
+      "error": "判分退出码 1：FAILED ..\\tests\\test_outputs.py::test_hello_file_exists - AssertionError: Fil...\r | FAILED ..\\tests\\test_outputs.py::test_hello_file_content - FileNotFoundError:...\r | ============================== 2 failed in 0.33s =============================="
+    }
+  ]
+}

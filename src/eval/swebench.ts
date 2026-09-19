@@ -22,6 +22,7 @@
 // 铁律：零运行时依赖（仅 node: 内置）；fail-closed——评分只认 evalCmd 退出码，绝不臆造通过。
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -36,8 +37,12 @@ import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
 import { PatchApplier } from '../adapters/tool/fs/patchApplier.js';
+import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { ScriptStep } from './scriptedModel.js';
+import { EditDriftDetector } from './editDriftDetector.js';
+import type { DriftAlarm } from './editDriftDetector.js';
+import type { ReasoningEffort } from './reasoningRouter.js';
 
 /**
  * Swebench 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -55,6 +60,75 @@ export class Swebench {
       mkdirSync(dirname(fp), { recursive: true });
       writeFileSync(fp, content, 'utf8');
     }
+  }
+
+  /**
+   * 采集工作区文件指纹快照（反漂移检测的「补丁应用前 / 后」两端）。
+   * @param workspaceRoot 工作区根（绝对路径）
+   * @returns 相对 POSIX 路径 → 内容 sha1 指纹
+   */
+  public static async snapshotFiles(workspaceRoot: string): Promise<Map<string, string>> {
+    const walker = new WorkspaceFileWalker(workspaceRoot, { maxFiles: 5000 });
+    const { files } = await walker.list();
+    const snapshot = new Map<string, string>();
+    for (const rel of files) {
+      try {
+        snapshot.set(rel, Swebench.revision(readFileSync(join(workspaceRoot, rel), 'utf8')));
+      } catch {
+        // 采集期文件消失（并发写）→ 跳过：该文件本端指纹缺失，下端会被记为一次编辑
+      }
+    }
+    return snapshot;
+  }
+
+  /**
+   * 把「前后两次快照的差异」喂给反漂移检测器（内容不变视为未编辑，由检测器兜底）。
+   * @param detector 编辑漂移检测器（缺省 undefined = 不做检测，零行为变更）
+   * @param before 补丁应用前快照
+   * @param after 补丁应用后快照
+   * @returns 命中的漂移告警（无检测器时为空）
+   */
+  public static recordDrift(
+    detector: EditDriftDetector | undefined,
+    before: ReadonlyMap<string, string>,
+    after: ReadonlyMap<string, string>,
+  ): DriftAlarm[] {
+    if (detector === undefined) return [];
+    const alarms: DriftAlarm[] = [];
+    for (const [file, revision] of after) {
+      if (before.get(file) === revision) continue;
+      const alarm = detector.record({ file, revision });
+      if (alarm !== undefined) alarms.push(alarm);
+    }
+    return alarms;
+  }
+
+  /**
+   * 内容指纹（sha1 十六进制；仅作「是否同一版本」判据，非安全用途）。
+   * @param content 文件内容
+   * @returns 40 位十六进制指纹
+   */
+  private static revision(content: string): string {
+    return createHash('sha1').update(content, 'utf8').digest('hex');
+  }
+
+  /**
+   * 异常路径的漂移采集：agent 抛错时仍把「改到一半」的编辑计入反漂移流
+   * （丢预算前兆往往正是「改了一半就崩」，不能因异常而漏掉信号）。
+   * @param workspaceRoot 工作区根
+   * @param detector 检测器（undefined = 不检测）
+   * @param before 动手前快照
+   * @returns 可展开进结果的漂移字段（无告警时为空对象）
+   */
+  public static async driftResult(
+    workspaceRoot: string,
+    detector: EditDriftDetector | undefined,
+    before: ReadonlyMap<string, string>,
+  ): Promise<{ readonly driftAlarms?: readonly DriftAlarm[] | undefined }> {
+    if (detector === undefined) return {};
+    const after = await Swebench.snapshotFiles(workspaceRoot);
+    const driftAlarms = Swebench.recordDrift(detector, before, after);
+    return driftAlarms.length > 0 ? { driftAlarms } : {};
   }
 }
 
@@ -99,6 +173,11 @@ export interface SweTaskResult {
   readonly steps: number;
   /** 未通过原因（passed 时缺省）。 */
   readonly reason?: string | undefined;
+  /**
+   * 本轮「补丁应用前后」的编辑漂移告警（T4.2）：
+   * 注入 `EditDriftDetector` 时才采集；无告警为 undefined（零输出噪声）。
+   */
+  readonly driftAlarms?: readonly DriftAlarm[] | undefined;
 }
 
 /**
@@ -152,14 +231,32 @@ export function scoreSweResult(exitCode: number): boolean {
  * @beta
  * 跑单条任务：预置文件 → 真实 Agent（给定 model）→ 执行 → 跑 evalCmd 评分。
  * model 由调用方构造（scripted 或 live），本函数不耦合具体模型实现。
+ *
+ * `opts.driftDetector` 注入时，在 agent 动手前 / 收工后各取一次工作区指纹快照，把差异喂给
+ * 反漂移检测器（同一文件反复改的 oscillation / thrash 会被记进结果的 `driftAlarms`）。
+ * 检测器状态**按工作区重置**：每个任务跑在独立临时工作区，跨工作区沿用同一份指纹历史会把
+ * 「不同任务恰好同名文件」误判为振荡（实测：gold 对照会刷出成片假告警）。
+ *
+ * @param task 任务定义
+ * @param workspaceRoot 工作区根
+ * @param model 模型端口
+ * @param mode 运行模式（scripted / live）
+ * @param opts 反漂移检测器与推理强度（缺省均不生效，零行为变更）
+ * @returns 单任务结果（含漂移告警）
  */
 export async function runSweTask(
   task: SweTask,
   workspaceRoot: string,
   model: ModelPort,
   mode: 'scripted' | 'live',
+  opts: {
+    readonly driftDetector?: EditDriftDetector | undefined;
+    readonly reasoningEffort?: ReasoningEffort | undefined;
+  } = {},
 ): Promise<SweTaskResult> {
+  opts.driftDetector?.reset();
   Swebench.seedWorkspace(task, workspaceRoot);
+  const before = await Swebench.snapshotFiles(workspaceRoot);
 
   const config = ConfigFactory.build({
     workspaceRoot,
@@ -169,6 +266,7 @@ export async function runSweTask(
     approvals: new AutoApproval(),
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
+    ...(opts.reasoningEffort !== undefined ? { reasoning: opts.reasoningEffort } : {}),
   });
   const runtime = createRuntime(config);
   // 能力评估是受控沙箱测量：解耦生产级安全监督内核（#P3）。
@@ -199,9 +297,12 @@ export async function runSweTask(
       mode,
       steps: 0,
       reason: `agent 运行异常: ${String((err as { message?: string })?.message ?? err)}`,
+      ...(await Swebench.driftResult(workspaceRoot, opts.driftDetector, before)),
     };
   }
 
+  const after = await Swebench.snapshotFiles(workspaceRoot);
+  const driftAlarms = Swebench.recordDrift(opts.driftDetector, before, after);
   const exit = runEval(task.evalCmd, workspaceRoot);
   const passed = scoreSweResult(exit);
   return {
@@ -211,6 +312,7 @@ export async function runSweTask(
     mode,
     steps: result.steps,
     reason: passed ? undefined : `evalCmd 退出码 ${exit}（修复未达 FAIL_TO_PASS）`,
+    ...(driftAlarms.length > 0 ? { driftAlarms } : {}),
   };
 }
 
@@ -219,9 +321,24 @@ export async function runSweTask(
 /**
  * @beta
  * 阳性对照：直接套用 goldPatch（绕过 agent），评分器必须判过。证明评分器不假阴。
+ *
+ * `opts.driftDetector` 注入时，在 **goldPatch 应用前 / 后** 各取一次工作区指纹快照并喂给
+ * 反漂移检测器——这是「补丁应用」这一步最直接的观测点（patch 反复回退/重写即告警）。
+ * 检测器状态按工作区重置（同 {@link runSweTask}：跨工作区混用指纹历史会产生成片假振荡）。
+ *
+ * @param task 任务定义
+ * @param workspaceRoot 工作区根
+ * @param opts 反漂移检测器（缺省不检测，零行为变更）
+ * @returns 对照结果（含漂移告警）
  */
-export async function runGoldControl(task: SweTask, workspaceRoot: string): Promise<SweTaskResult> {
+export async function runGoldControl(
+  task: SweTask,
+  workspaceRoot: string,
+  opts: { readonly driftDetector?: EditDriftDetector | undefined } = {},
+): Promise<SweTaskResult> {
+  opts.driftDetector?.reset();
   Swebench.seedWorkspace(task, workspaceRoot);
+  const before = await Swebench.snapshotFiles(workspaceRoot);
   if (task.goldPatch !== undefined) {
     const applier = new PatchApplier();
     const parsed = applier.parse(task.goldPatch);
@@ -233,6 +350,7 @@ export async function runGoldControl(task: SweTask, workspaceRoot: string): Prom
         mode: 'control',
         steps: 0,
         reason: `goldPatch 解析失败: ${parsed.error}`,
+        ...(await Swebench.driftResult(workspaceRoot, opts.driftDetector, before)),
       };
     }
     const target = parsed.targetFile;
@@ -245,6 +363,7 @@ export async function runGoldControl(task: SweTask, workspaceRoot: string): Prom
         mode: 'control',
         steps: 0,
         reason: `goldPatch 目标文件不存在: ${target}`,
+        ...(await Swebench.driftResult(workspaceRoot, opts.driftDetector, before)),
       };
     }
     const original = readFileSync(fp, 'utf8');
@@ -257,10 +376,13 @@ export async function runGoldControl(task: SweTask, workspaceRoot: string): Prom
         mode: 'control',
         steps: 0,
         reason: `goldPatch 应用失败: ${applied.error}`,
+        ...(await Swebench.driftResult(workspaceRoot, opts.driftDetector, before)),
       };
     }
     writeFileSync(fp, applied.newContent ?? '', 'utf8');
   }
+  const after = await Swebench.snapshotFiles(workspaceRoot);
+  const driftAlarms = Swebench.recordDrift(opts.driftDetector, before, after);
   const exit = runEval(task.evalCmd, workspaceRoot);
   const passed = scoreSweResult(exit);
   return {
@@ -270,6 +392,7 @@ export async function runGoldControl(task: SweTask, workspaceRoot: string): Prom
     mode: 'control',
     steps: 0,
     reason: passed ? undefined : `goldPatch 套用后仍 FAIL_TO_PASS 未过（任务定义或评分器有误）`,
+    ...(driftAlarms.length > 0 ? { driftAlarms } : {}),
   };
 }
 
@@ -297,10 +420,16 @@ export async function runNegativeControl(
 /**
  * @beta
  * 跑全部对照（阳性 + 阴性），返回有效性判定。未提供 workspaceRoot 时自建临时目录并清理。
+ * @param tasks 任务集
+ * @param opts 工作区根与反漂移检测器（缺省自建工作区、不检测）
+ * @returns 对照报告（含有效性判定）
  */
 export async function runControls(
   tasks: readonly SweTask[],
-  opts?: { readonly workspaceRoot?: string },
+  opts?: {
+    readonly workspaceRoot?: string;
+    readonly driftDetector?: EditDriftDetector | undefined;
+  },
 ): Promise<SweControlReport> {
   const own = opts?.workspaceRoot === undefined;
   const root = opts?.workspaceRoot ?? mkdtempSync(join(tmpdir(), 'omni-swe-ctrl-'));
@@ -308,7 +437,9 @@ export async function runControls(
   const negative: SweTaskResult[] = [];
   try {
     for (const task of tasks) {
-      const g = await runGoldControl(task, mkdtempSync(join(root, `g-${task.id}-`)));
+      const g = await runGoldControl(task, mkdtempSync(join(root, `g-${task.id}-`)), {
+        ...(opts?.driftDetector !== undefined ? { driftDetector: opts.driftDetector } : {}),
+      });
       gold.push(g);
       const n = await runNegativeControl(task, mkdtempSync(join(root, `n-${task.id}-`)));
       negative.push(n);
@@ -326,13 +457,27 @@ export async function runControls(
  * @beta
  * 跑整套件（agent 模式）：逐任务在独立临时工作区执行并聚合报告。
  * 未提供 workspaceRoot 时自建临时目录并在末尾清理。
+ *
+ * @param suiteName 套件名（报告标题）
+ * @param tasks 任务集
+ * @param model 模型端口（`opts.modelFor` 存在时可传 null）
+ * @param mode 运行模式（scripted / live）
+ * @param opts 工作区根、按任务取模型、反漂移检测器、按任务路由推理强度
+ * @returns 套件汇总报告
  */
 export async function runSweSuite(
   suiteName: string,
   tasks: readonly SweTask[],
   model: ModelPort | null,
   mode: 'scripted' | 'live',
-  opts?: { readonly workspaceRoot?: string; readonly modelFor?: (task: SweTask) => ModelPort },
+  opts?: {
+    readonly workspaceRoot?: string;
+    readonly modelFor?: (task: SweTask) => ModelPort;
+    /** 反漂移检测器（注入后逐任务记录「补丁应用前后」的编辑流）。 */
+    readonly driftDetector?: EditDriftDetector | undefined;
+    /** 按任务路由推理强度（`ReasoningRouter` 产物；透传为模型请求 reasoning_effort）。 */
+    readonly reasoningFor?: ((task: SweTask) => ReasoningEffort | undefined) | undefined;
+  },
 ): Promise<SweReport> {
   const own = opts?.workspaceRoot === undefined;
   const root = opts?.workspaceRoot ?? mkdtempSync(join(tmpdir(), 'omni-swe-'));
@@ -342,7 +487,13 @@ export async function runSweSuite(
     for (const task of tasks) {
       const ws = mkdtempSync(join(root, `${task.id}-`));
       const m = opts?.modelFor !== undefined ? opts.modelFor(task) : (model as ModelPort);
-      results.push(await runSweTask(task, ws, m, mode));
+      const effort = opts?.reasoningFor?.(task);
+      results.push(
+        await runSweTask(task, ws, m, mode, {
+          ...(opts?.driftDetector !== undefined ? { driftDetector: opts.driftDetector } : {}),
+          ...(effort !== undefined ? { reasoningEffort: effort } : {}),
+        }),
+      );
     }
   } finally {
     if (own) rmSync(root, { recursive: true, force: true });
@@ -362,6 +513,9 @@ export async function runSweSuite(
 /**
  * @beta
  * 人类可读报告（含对照有效性）。
+ * @param report 套件报告
+ * @param controls 对照报告（可选）
+ * @returns 多行报告文本
  */
 export function formatSweReport(report: SweReport, controls?: SweControlReport): string {
   const lines: string[] = [];
@@ -370,14 +524,24 @@ export function formatSweReport(report: SweReport, controls?: SweControlReport):
     const mark = r.passed ? '✅' : '❌';
     lines.push(`${mark} ${r.id}  steps=${r.steps}  evalExit=${r.evalExitCode}`);
     if (!r.passed && r.reason !== undefined) lines.push(`     - ${r.reason}`);
+    for (const alarm of r.driftAlarms ?? []) {
+      lines.push(`     ⚠️ [反漂移·${alarm.kind}] ${alarm.file}: ${alarm.detail}`);
+    }
   }
   lines.push(
     `--- 汇总: ${report.passed}/${report.total} 通过, 失败 ${report.failed}, 总耗时 ${report.totalDurationMs}ms ---`,
   );
+  const alarmTotal = report.results.reduce((n, r) => n + (r.driftAlarms?.length ?? 0), 0);
+  if (alarmTotal > 0) {
+    lines.push(`--- 反漂移告警合计: ${alarmTotal} 条（同文件反复改的 oscillation / thrash）---`);
+  }
   if (controls !== undefined) {
     lines.push(`=== 对照有效性: ${controls.valid ? '✅ 有效' : '❌ 失效'} ===`);
     for (const g of controls.gold) {
       lines.push(`  [阳性] ${g.id}: ${g.passed ? '✅ 过' : `❌ ${g.reason ?? ''}`}`);
+      for (const alarm of g.driftAlarms ?? []) {
+        lines.push(`     ⚠️ [反漂移·${alarm.kind}] ${alarm.file}: ${alarm.detail}`);
+      }
     }
     for (const n of controls.negative) {
       lines.push(`  [阴性] ${n.id}: ${!n.passed ? '✅ 不过(正确)' : `❌ ${n.reason ?? ''}`}`);

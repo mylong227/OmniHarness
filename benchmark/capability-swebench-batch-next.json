@@ -1,0 +1,140 @@
+{
+  "source": "official-swebench-verified",
+  "backend": "native",
+  "subsetNote": "25/500 子集口径（非官方满分口径）",
+  "total": 25,
+  "resolved": 0,
+  "failed": 25,
+  "envErrors": 0,
+  "results": [
+    {
+      "id": "psf__requests-1142",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "psf__requests-1724",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "psf__requests-1766",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "psf__requests-1921",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "pytest-dev__pytest-10051",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "pytest-dev__pytest-10081",
+      "resolved": false,
+      "backend": "native",
+      "reason": "model_patch 应用失败（模型补丁无法应用，视为未修复）"
+    },
+    {
+      "id": "pytest-dev__pytest-10356",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-11618",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-12096",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-12419",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-12481",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-12489",
+      "resolved": false,
+      "backend": "native",
+      "reason": "model_patch 应用失败（模型补丁无法应用，视为未修复）"
+    },
+    {
+      "id": "sympy__sympy-13031",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13091",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13372",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13480",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13551",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13615",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13647",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13757",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13798",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13852",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13877",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13878",
+      "resolved": false,
+      "backend": "native"
+    },
+    {
+      "id": "sympy__sympy-13974",
+      "resolved": false,
+      "backend": "native"
+    }
+  ],
+  "totalDurationMs": 0,
+  "generatedAt": "2026-09-19T04:11:42.957Z"
+}

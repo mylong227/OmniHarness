@@ -13,6 +13,7 @@ import {
   type VerifiedTask,
 } from '../../src/eval/swebenchVerified.js';
 import { NativeExecutor } from '../../src/eval/nativeExecutor.js';
+import { UvLocator } from '../../src/eval/uvLocator.js';
 import { PytestVerdict } from '../../src/eval/pytestVerdict.js';
 import { PythonVersionResolver } from '../../src/eval/pythonVersionResolver.js';
 import { at } from '../../src/util/arrayAt.js';
@@ -168,20 +169,25 @@ test('NativeExecutor：kind 恒为 native', () => {
   assert.ok(exec.describe().includes('native'));
 });
 
-test('NativeExecutor：缺 uv/git 设施即 fail-closed 返回未通过并写明原因', async () => {
-  const exec = new NativeExecutor();
+test('NativeExecutor：缺 uv 设施即 fail-closed 返回未通过，且报错指出找过哪些位置', async () => {
+  // 注入「找不到 uv」的定位结果：本机 uv 可能装在 ~/.local/bin（不在 PATH 上）也被找到，
+  // 依赖真实环境判断会让本用例随机器而变（原先正是如此）。注入后该路径恒被覆盖。
+  const exec = new NativeExecutor({
+    uvLocator: () => ({ executable: null, searched: ['C:\\nowhere\\uv.exe'] }),
+  });
   const r = await exec.run(TASK('django__django-1'), '--- a\n+++ b\n');
   assert.strictEqual(r.resolved, false);
   assert.strictEqual(r.backend, 'native');
-  assert.ok((r.reason ?? '').length > 0, 'fail-closed 必须给出原因');
-  if (!SwebenchVerified.commandAvailable('uv')) {
-    assert.match(r.reason ?? '', /uv/, '沙箱无 uv 时应指明 uv 缺失');
-  }
+  assert.match(r.reason ?? '', /uv 不可用/);
+  assert.match(r.reason ?? '', /已查找/, 'fail-closed 必须给出可执行诊断');
+  assert.match(r.reason ?? '', /C:\\nowhere\\uv\.exe/, '须列出真实找过的位置');
+  assert.match(r.reason ?? '', /OMNI_UV/, '须给出环境变量出口');
 });
 
 test('NativeExecutor：缓存根不存在时自动创建（首次真实跑分不再 spawn git ENOENT）', async () => {
   // 需 git + uv 才能走到 clone 步；缺一则跳过（executor 自身亦 fail-closed，见上一例）。
-  if (!SwebenchVerified.commandAvailable('git') || !SwebenchVerified.commandAvailable('uv')) return;
+  // uv 判据走定位器而非 PATH：官方安装脚本的落点默认不在 PATH 上（本机实测）。
+  if (!SwebenchVerified.commandAvailable('git') || UvLocator.locate().executable === null) return;
   const tmp = mkdtempSync(join(tmpdir(), 'omni-native-'));
   try {
     // 以本地裸仓库作 file:// 远端，隔离网络依赖；只验证「缓存根缺失 ⇒ 自动创建」这一不变量。

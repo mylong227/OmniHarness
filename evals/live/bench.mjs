@@ -11,6 +11,10 @@
 //          新增 --repeat / --pass-k / --min-pass-rate / --min-pass-k 支持 Pass@k 规模化门禁。
 // T4.7 升级：新增 --min-pass-k-ci / --ci / --ci-rounds，用**确定性 bootstrap 95% 区间**判
 //           Pass@k——点阈值在边界会随机红/绿，区间判定三态（达标/显著不达标/样本不足）且可复现。
+// T4.6/T4.2/T5.5 接线（本轮）：每次采样走 `runTaskIsolated`（评测只吃冻结快照，生成方后续写操作
+//           进不了 verdict）；每个任务在「补丁应用前 / 后」各取一次工作区指纹快照喂 `EditDriftDetector`
+//           （oscillation / thrash 告警 → 控制台 + --max-drift-alarms 退出码闸）；按 `ReasoningRouter`
+//           的难度分层给模型请求设 reasoning effort（易 low / 中 medium / 难 high）。
 //
 // 用法：
 //   node evals/live/bench.mjs                       # 默认任务集，每任务 1 次采样
@@ -18,6 +22,7 @@
 //   node evals/live/bench.mjs --pass-k 3           # 打印 Pass@3
 //   node evals/live/bench.mjs --min-pass-rate 0.8  # 通过率<0.8 则 exit 非 0（CI 门禁）
 //   node evals/live/bench.mjs --repeat 5 --min-pass-k-ci 3,0.9  # 区间下界<0.9 则红（T4.7）
+//   node evals/live/bench.mjs --max-drift-alarms 0 # 反漂移告警>0 即 exit 非 0（T4.2）
 //   node evals/live/bench.mjs --suite mySuite.json  # 加载自定义任务集
 //   node evals/live/bench.mjs --model deepseek-chat --base-url https://api.deepseek.com/v1 --api-key $KEY
 //
@@ -26,7 +31,8 @@
 //   DEEPSEEK_API_KEY    / DEEPSEEK_BASE_URL
 //   OPENAI_API_KEY      / OPENAI_BASE_URL
 
-import { rmSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
+import { rmSync, mkdtempSync, existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -45,12 +51,60 @@ function importDist(...segments) {
   return import(pathToFileURL(join(DIST, ...segments)).href);
 }
 
-const { runTask } = await importDist('eval', 'evalHarness.js');
+const { runTaskIsolated } = await importDist('eval', 'evalHarness.js');
 const { OpenAiCompatibleModel } = await importDist('adapters', 'model', 'openaiCompatibleModel.js');
 const { summarizePassK, passKGate, bootstrapPassK, passKGateWithCI } = await importDist(
   'eval',
   'passK.js',
 );
+// T4.7：固定种子由 bootstrap 模块导出——打印它即证明区间门禁跑的就是种子化重采样实现。
+const { DEFAULT_BOOTSTRAP_SEED } = await importDist('eval', 'bootstrap.js');
+// T5.5：难度分层推理强度路由（易 low / 中 medium / 难 high）。
+const { ReasoningRouter } = await importDist('eval', 'reasoningRouter.js');
+// T4.2：反漂移检测（同文件反复改的 oscillation / thrash）。
+const { EditDriftDetector } = await importDist('eval', 'editDriftDetector.js');
+
+/** 快照工作区文件指纹（补丁应用前 / 后两端；跳过依赖与构建目录）。 */
+function snapshotWorkspace(root) {
+  const skip = new Set(['node_modules', '.git', 'dist', 'build', 'target']);
+  const snapshot = new Map();
+  const stack = [''];
+  while (stack.length > 0) {
+    const rel = stack.pop();
+    let entries;
+    try {
+      entries = readdirSync(rel === '' ? root : join(root, rel), { withFileTypes: true });
+    } catch {
+      continue; // 采集期目录消失（并发写）→ 跳过
+    }
+    for (const entry of entries) {
+      const child = rel === '' ? entry.name : `${rel}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (!skip.has(entry.name)) stack.push(child);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      try {
+        const content = readFileSync(join(root, child), 'utf8');
+        snapshot.set(child, createHash('sha1').update(content, 'utf8').digest('hex'));
+      } catch {
+        // 采集期文件消失 → 跳过
+      }
+    }
+  }
+  return snapshot;
+}
+
+/** 比较前后两次指纹快照，把差异喂给反漂移检测器并返回命中的告警。 */
+function recordDrift(detector, before, after) {
+  const alarms = [];
+  for (const [file, revision] of after) {
+    if (before.get(file) === revision) continue;
+    const alarm = detector.record({ file, revision });
+    if (alarm !== undefined) alarms.push(alarm);
+  }
+  return alarms;
+}
 
 /** 解析 --flag 或返回 undefined。 */
 function flag(name) {
@@ -291,7 +345,7 @@ function parseSwebenchLiteJsonl(text) {
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     console.log(
-      '用法: node evals/live/bench.mjs [--swebench] [--swebench-remote <path|url|remote>] [--suite path.json] [--repeat N] [--pass-k K] [--min-pass-rate R] [--min-pass-k K,R] [--min-pass-k-ci K,R] [--ci] [--ci-rounds N] [--model m] [--base-url u] [--api-key k]',
+      '用法: node evals/live/bench.mjs [--swebench] [--swebench-remote <path|url|remote>] [--suite path.json] [--repeat N] [--pass-k K] [--min-pass-rate R] [--min-pass-k K,R] [--min-pass-k-ci K,R] [--ci] [--ci-rounds N] [--max-drift-alarms N] [--model m] [--base-url u] [--api-key k]',
     );
     return;
   }
@@ -334,8 +388,18 @@ async function main() {
   const minPassKReq = parseMinPassK(flag('--min-pass-k'));
   const minPassKCiReq = parseMinPassK(flag('--min-pass-k-ci'));
   const ciRounds = Math.max(1, Math.floor(numFlag('--ci-rounds', 2000)));
+  // T4.2：反漂移闸上限（缺省 Infinity = 只报告不拦截；给值即成为退出码闸）。
+  const maxDriftRaw = numFlag('--max-drift-alarms', Number.POSITIVE_INFINITY);
+  const maxDriftAlarms = Number.isFinite(maxDriftRaw) ? maxDriftRaw : Number.POSITIVE_INFINITY;
 
   const workspaceRoot = mkdtempSync(join(tmpdir(), 'omni-live-'));
+
+  // T5.5：按任务难度分层路由推理强度（确定性规则；同输入恒同档位）。
+  const router = new ReasoningRouter();
+  const routedEffort = new Map(tasks.map((task) => [task.id, router.route(task.prompt)]));
+  const routingBudget = router.compareBudgets(tasks.map((task) => task.prompt));
+  // T4.2：反漂移检测器跨任务共享（同一工作区被反复改同一文件才是要抓的信号）。
+  const driftDetector = new EditDriftDetector();
 
   const modelLabel =
     useSwebench || swebenchRemote !== undefined ? 'scripted(SWE-bench 零 key)' : cfg.model;
@@ -344,26 +408,42 @@ async function main() {
   console.log(
     `模型: ${modelLabel} 端点: ${endpointLabel} 任务数: ${tasks.length} 每任务采样: ${repeat}\n`,
   );
+  const effortCounts = { low: 0, medium: 0, high: 0 };
+  for (const effort of routedEffort.values()) effortCounts[effort] += 1;
+  console.log(
+    `推理强度路由（T5.5）：low=${effortCounts.low} medium=${effortCounts.medium} high=${effortCounts.high}` +
+      `（一刀切 high 预算 ${routingBudget.fixedTotal} → 路由后 ${routingBudget.routedTotal}，Δ=${routingBudget.delta}）`,
+  );
+  console.log('反漂移检测（T4.2）：每个任务在补丁应用前后各取指纹快照，命中即告警\n');
 
   // 每任务多次采样结果（Pass@k 用）。
   const taskSamples = new Map();
   const perTaskSummary = [];
+  const driftAlarms = [];
+  let isolatedSamples = 0;
 
   try {
     for (const task of tasks) {
       const samples = [];
+      const effort = routedEffort.get(task.id);
       let totalPromptTokens = 0;
       let totalCompletionTokens = 0;
       let totalDurationMs = 0;
       let totalSteps = 0;
       for (let r = 0; r < repeat; r++) {
         const t0 = Date.now();
+        const before = snapshotWorkspace(workspaceRoot);
         try {
-          const res = await runTask(task, workspaceRoot, model);
+          const res = await runTaskIsolated(task, workspaceRoot, model, {
+            reasoningEffort: effort,
+          });
+          const alarms = recordDrift(driftDetector, before, snapshotWorkspace(workspaceRoot));
+          driftAlarms.push(...alarms);
           const dt = Date.now() - t0;
           samples.push(res.passed);
           totalDurationMs += dt;
           totalSteps += res.steps;
+          if (res.isolation !== undefined) isolatedSamples += 1;
           if (res.usage) {
             totalPromptTokens += res.usage.promptTokens;
             totalCompletionTokens += res.usage.completionTokens;
@@ -373,10 +453,14 @@ async function main() {
           const usageStr = res.usage
             ? `tokens=${res.usage.totalTokens}(in:${res.usage.promptTokens}/out:${res.usage.completionTokens})`
             : 'tokens=n/a';
+          const isoStr = `effort=${effort ?? 'n/a'} 隔离快照=${res.isolation?.snapshotFiles ?? 0}文件`;
           console.log(
-            `${repTag}${mark} ${res.id}  steps=${res.steps}  tools=[${res.toolCalls.join(', ')}]  ${dt}ms  ${usageStr}`,
+            `${repTag}${mark} ${res.id}  steps=${res.steps}  tools=[${res.toolCalls.join(', ')}]  ${dt}ms  ${usageStr}  ${isoStr}`,
           );
           if (!res.passed) for (const reason of res.reasons) console.log(`     - ${reason}`);
+          for (const alarm of alarms) {
+            console.log(`     ⚠️ [反漂移·${alarm.kind}] ${alarm.file}: ${alarm.detail}`);
+          }
         } catch (err) {
           const dt = Date.now() - t0;
           totalDurationMs += dt;
@@ -423,6 +507,13 @@ async function main() {
     `总 token: ${totalPrompt + totalCompletion} (prompt:${totalPrompt} / completion:${totalCompletion})`,
   );
   console.log(`总采样: ${summary.totalSamples}  总耗时: ${totalDuration}ms`);
+  console.log(
+    `隔离评测（T4.6）：${isolatedSamples}/${summary.totalSamples} 次采样经冻结快照评测（评测不读生成方活引用）`,
+  );
+  console.log(`反漂移（T4.2）：告警 ${driftAlarms.length} 条`);
+  for (const alarm of driftAlarms) {
+    console.log(`   ⚠️ [${alarm.kind}] ${alarm.file}: ${alarm.detail}`);
+  }
 
   // T4.7：区间判定（可选）——点阈值在边界会随机红/绿；区间判定三态且可复现。
   const wantCI = minPassKCiReq.length > 0 || process.argv.includes('--ci');
@@ -430,22 +521,30 @@ async function main() {
   if (wantCI) {
     const maxKForCI = Math.max(passKTarget, ...minPassKCiReq.map((r) => r.k), 1);
     const report = bootstrapPassK(outcomes, maxKForCI, { rounds: ciRounds });
-    console.log('\n--- 置信区间（bootstrap 95%，种子固定 ⇒ 可复现）---');
+    console.log(
+      `\n--- 置信区间（bootstrap 95%，rounds=${ciRounds}，种子固定 seed=0x${DEFAULT_BOOTSTRAP_SEED.toString(16)} ⇒ 可复现）---`,
+    );
     for (let k = 1; k <= maxKForCI; k++) {
       const ci = report.passAtKCI[k - 1];
       const pt = report.summary.passAtK[k - 1];
       if (ci === undefined) continue;
-      console.log(`Pass@${k}: ${pt?.toFixed(3)}  CI=[${ci.lo.toFixed(3)}, ${ci.hi.toFixed(3)}]`);
+      console.log(
+        `Pass@${k}: ${pt?.toFixed(3)}  CI=[${ci.lo.toFixed(3)}, ${ci.hi.toFixed(3)}]  rounds=${ci.rounds}`,
+      );
     }
+    console.log(
+      `通过率: ${report.meanPassRateCI.mean.toFixed(3)}  CI=[${report.meanPassRateCI.lo.toFixed(3)}, ${report.meanPassRateCI.hi.toFixed(3)}]`,
+    );
     ciGate = passKGateWithCI(report, { minPassRate, minPassK: minPassKCiReq });
   }
 
-  // fail-closed 门禁判定（点阈值 + 区间，任一不达标即红）。
+  // fail-closed 门禁判定（点阈值 + 区间 + 反漂移，任一不达标即红）。
   const gate = passKGate(summary, {
     minPassRate: minPassRate ?? (repeat > 1 ? undefined : 1),
     minPassK: minPassKReq,
   });
-  const failed = !gate.passed || (ciGate !== null && !ciGate.passed);
+  const driftFailed = driftAlarms.length > maxDriftAlarms;
+  const failed = !gate.passed || (ciGate !== null && !ciGate.passed) || driftFailed;
   if (failed) {
     console.log('\n❌ 门禁未达标:');
     if (!gate.passed) for (const f of gate.failures) console.log(`   - ${f}`);
@@ -453,9 +552,17 @@ async function main() {
       for (const f of ciGate.failures) console.log(`   - [CI] ${f}`);
       for (const f of ciGate.inconclusive) console.log(`   - [CI·样本不足] ${f}`);
     }
+    if (driftFailed) {
+      console.log(`   - [反漂移] 告警 ${driftAlarms.length} > 上限 ${maxDriftAlarms}`);
+    }
     process.exit(2);
   }
-  if (minPassRate !== undefined || minPassKReq.length > 0 || ciGate !== null) {
+  if (
+    minPassRate !== undefined ||
+    minPassKReq.length > 0 ||
+    ciGate !== null ||
+    Number.isFinite(maxDriftAlarms)
+  ) {
     console.log('\n✅ 门禁达标');
   }
   process.exit(0);
