@@ -20,7 +20,16 @@
 //
 // 输出：benchmark/capability-swebench.json（基建 + 对照 + 可选 live）+ 控制台报告。
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  existsSync,
+  openSync,
+  writeSync,
+  closeSync,
+  unlinkSync,
+} from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -45,6 +54,7 @@ const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务�
 //     [--instances id1,id2 | --instance-list <file>] \
 //     [--repo-base https://gitee.com/] [--repo-mirrors benchmark/swebench-gitee-mirrors.json] \
 //     [--env-pins benchmark/swebench-env-pins.json]
+//     [--jsonl <进度文件>]             # 增量落盘+断点续跑+并发锁（长批/易中断必加；重启自动跳过已完成、防两进程互踩）
 // 子集口径：`--instances` / `--instance-list` 只对指定实例出分（pilot/分批用）。
 //   不给时覆盖全部实例（官方 500 满分口径）。子集分数**不可**当作官方满分口径引用。
 // 模型补丁（predictions）由我们的 live agent 在具备 git+uv+网络的环境生成；本命令只负责"打分"。
@@ -54,6 +64,148 @@ const scriptedModelFor = (task) => new ScriptedModel(task.script ?? [], '任务�
 // 环境约束：`--env-pins` 按仓库补 pip 约束（如 flask 的 Werkzeug<3），修复「不设上界的开发期运行时
 //   依赖被解析到过新主版本」导致老测试套件崩的保真度缺口。缺省时零行为变更。
 // 保真度边界：env 由 repo 自述 + uv 重建，不等同官方 Docker 镜像；用于本地迭代/小批量自测。
+// 抗中断：加 --jsonl 后进度逐题 append 落盘，会话被杀后重跑同命令即从已完成处续跑；同一 --jsonl 由文件锁互斥，杜绝并发踩踏。
+// ---- 增量评分的断点续跑 + 并发锁能力（根因修复：抗会话中断、抗重复并发踩踏）----
+// 在 --verified 调用上加 --jsonl <进度文件>：进度逐题 append 落盘，中途被杀后重跑同命令即从已完成处
+// 续跑；同一 --jsonl 由文件锁互斥，杜绝两个进程抢同一 --out / 同一仓库串行锁而死锁或互相覆盖。
+// （原 runVerifiedSuite 一次性跑完才返回报告，会话一结束即全废，正是此前反复丢进度的根因。）
+
+/** 并发锁心跳阈值：超过该时长无心跳即判定为会话残留僵尸锁，允许清掉重拿（默认 2 分钟）。 */
+const LOCK_STALE_MS = 120 * 1000;
+
+/** 当前持有的心跳定时器（release 时清理）。 */
+let activeLockInterval = null;
+
+/**
+ * 获取评分并发锁：原子创建 <lockPath>（wx），成功则写入心跳并启动 15s 心跳定时器；
+ * 若已存在且心跳新鲜（另一进程仍活着）则直接退出，若心跳陈旧（会话残留僵尸锁）则清掉重拿。
+ * 用「心跳时间戳」而非 pid 判活，规避 Windows/MSYS 下 pid 跨子系统不可比对导致并发锁失效的问题。
+ * @param lockPath 锁文件路径（通常为 <jsonl>.lock）。
+ * @returns 锁文件 fd（须在 finally 中交 releaseScoreLock 释放）。
+ */
+function acquireScoreLock(lockPath) {
+  const writeHb = (fd) => {
+    try {
+      writeSync(fd, JSON.stringify({ hb: Date.now() }));
+    } catch {
+      /* ignore */
+    }
+  };
+  const openNew = () => {
+    const fd = openSync(lockPath, 'wx');
+    writeHb(fd);
+    activeLockInterval = setInterval(() => writeHb(fd), 15000);
+    return fd;
+  };
+  try {
+    return openNew();
+  } catch (err) {
+    if (err !== null && typeof err === 'object' && err.code === 'EEXIST') {
+      try {
+        const raw = readFileSync(lockPath, 'utf8');
+        const hb = Number(JSON.parse(raw).hb) || 0;
+        if (Date.now() - hb < LOCK_STALE_MS) {
+          console.error(
+            `[lock] 另一个评分进程仍在运行（锁 ${lockPath} 心跳 ${Math.round((Date.now() - hb) / 1000)}s 前），` +
+              '拒绝并发；如确认无残留进程，请删除该锁文件后再跑。',
+          );
+          process.exit(1);
+        }
+      } catch {
+        /* 锁文件损坏 ⇒ 视为僵尸锁 */
+      }
+      try {
+        unlinkSync(lockPath);
+      } catch {
+        /* ignore */
+      }
+      try {
+        return openNew();
+      } catch (e2) {
+        throw e2;
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * 释放评分并发锁（无论成败都应在 finally 中调用）：清心跳定时器、关 fd、删锁文件。
+ * @param fd acquireScoreLock 返回的锁 fd。
+ * @param lockPath 锁文件路径。
+ */
+function releaseScoreLock(fd, lockPath) {
+  if (activeLockInterval !== null) {
+    clearInterval(activeLockInterval);
+    activeLockInterval = null;
+  }
+  try {
+    closeSync(fd);
+  } catch {
+    /* ignore */
+  }
+  try {
+    unlinkSync(lockPath);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * 从增量进度文件读取已完成的实例 id 集合（断点续跑依据）。
+ * @param jsonlPath 增量进度文件路径。
+ * @returns 已完成实例 id 集合。
+ */
+function loadDoneIds(jsonlPath) {
+  const ids = new Set();
+  if (!existsSync(jsonlPath)) return ids;
+  for (const line of readFileSync(jsonlPath, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (t.length === 0) continue;
+    try {
+      const obj = JSON.parse(t);
+      if (typeof obj.id === 'string') ids.add(obj.id);
+    } catch {
+      /* 跳过损坏行 */
+    }
+  }
+  return ids;
+}
+
+/**
+ * 从增量进度文件聚合最终汇总报告（与 runVerifiedSuite 返回形态一致，可直接喂 formatVerifiedReport）。
+ * @param jsonlPath 增量进度文件路径。
+ * @param backend 执行后端标识（恒 native）。
+ * @param subsetSize 子集实例数（用于子集口径标注）。
+ * @param subsetIds 子集 id 列表（undefined 表示全覆盖官方口径）。
+ * @returns 汇总报告。
+ */
+function buildVerifiedReport(jsonlPath, backend, subsetSize, subsetIds) {
+  const records = [];
+  for (const line of readFileSync(jsonlPath, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (t.length === 0) continue;
+    try {
+      records.push(JSON.parse(t));
+    } catch {
+      /* 忽略损坏行 */
+    }
+  }
+  const resolved = records.filter((r) => r.resolved === true).length;
+  return {
+    source: 'official-swebench-verified',
+    backend,
+    subsetNote:
+      subsetIds !== undefined ? `${subsetSize}/500 子集口径（非官方满分口径）` : undefined,
+    total: records.length,
+    resolved,
+    failed: records.length - resolved,
+    results: records,
+    totalDurationMs: 0,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 const verifiedIdx = process.argv.indexOf('--verified');
 if (verifiedIdx !== -1) {
   const verifiedPath = process.argv[verifiedIdx + 1];
@@ -85,6 +237,10 @@ if (verifiedIdx !== -1) {
       `[capability:swebench:verified] 环境约束 ${Object.keys(envPins).length} 条（${pinsPath}）`,
     );
   }
+
+  // 增量进度文件（可选）：给 --jsonl 即开启「逐题落盘 + 断点续跑 + 并发锁」，长批/易中断场景必加。
+  const jsonlIdx = process.argv.indexOf('--jsonl');
+  const jsonlPath = jsonlIdx !== -1 ? process.argv[jsonlIdx + 1] : undefined;
 
   const { SwebenchVerified } = await import('../dist/src/eval/swebenchVerified.js');
   const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
@@ -141,19 +297,89 @@ if (verifiedIdx !== -1) {
   }
   console.log(`[capability:swebench:verified] 载入 ${predictions.size} 条预测`);
 
+  const outIdx = process.argv.indexOf('--out');
+  const reportPath =
+    outIdx !== -1 ? process.argv[outIdx + 1] : join(__dirname, 'capability-swebench-verified.json');
+
+  // ---- 增量 + 断点续跑 + 并发锁 模式（长批/易中断场景必走：抗会话被杀、抗重复并发踩踏）----
+  // 根因：原 runVerifiedSuite 一次性跑完才返回报告，会话一结束即全废；且无任何锁，两个进程会抢同一
+  // --out / 同一仓库串行锁，导致死锁或互相覆盖。本分支把进度逐题 append 到 --jsonl（永久落盘），
+  // 重启自动跳过已完成 id，并用文件锁阻止并发跑分互相踩踏（含会话残留僵尸锁检测）。
+  if (jsonlPath !== undefined) {
+    const lockPath = `${jsonlPath}.lock`;
+    const lockFd = acquireScoreLock(lockPath);
+    try {
+      const done = loadDoneIds(jsonlPath);
+      if (done.size > 0) {
+        console.log(
+          `[capability:swebench:verified] 已从 ${jsonlPath} 读入 ${done.size} 个已完成实例，断点续跑`,
+        );
+      }
+      const pending = suiteTasks.filter((t) => !done.has(t.id));
+      console.log(
+        `[capability:swebench:verified] 待跑 ${pending.length}/${suiteTasks.length}` +
+          (pending.length < suiteTasks.length ? '（其余跳过）' : ''),
+      );
+      let doneThisRun = 0;
+      const scoreOne = async (task) => {
+        const patch = predictions.get(task.id);
+        if (patch === undefined) {
+          return {
+            id: task.id,
+            resolved: false,
+            backend: executor.kind,
+            reason: '未提供模型预测（predictions 缺该 instance_id）',
+          };
+        }
+        try {
+          return await executor.run(task, patch);
+        } catch (err) {
+          return {
+            id: task.id,
+            resolved: false,
+            backend: executor.kind,
+            reason: `executor 异常: ${String(err?.message ?? err)}`,
+          };
+        }
+      };
+      const poolSize = Math.max(1, Math.min(concurrency, pending.length || 1));
+      let cursor = 0;
+      const workers = Array.from({ length: poolSize }, async () => {
+        for (;;) {
+          const i = cursor++;
+          if (i >= pending.length) return;
+          const task = pending[i];
+          const t0 = Date.now();
+          const rec = await scoreOne(task);
+          appendFileSync(jsonlPath, JSON.stringify(rec) + '\n', 'utf8');
+          doneThisRun += 1;
+          console.log(
+            `[done] ${task.id} resolved=${rec.resolved} (${((Date.now() - t0) / 1000).toFixed(1)}s)` +
+              ` — 累计 ${done.size + doneThisRun}/${suiteTasks.length}`,
+          );
+        }
+      });
+      await Promise.all(workers);
+      const report = buildVerifiedReport(jsonlPath, executor.kind, suiteTasks.length, subsetIds);
+      writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+      console.log(SwebenchVerified.formatVerifiedReport(report));
+      console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
+    } finally {
+      releaseScoreLock(lockFd, lockPath);
+    }
+    process.exit(0);
+  }
+
+  // ---- 原一次性模式（无 --jsonl：短批/对照，行为不变）----
   const report = await SwebenchVerified.runVerifiedSuite(
     suiteTasks,
     predictions,
     executor,
     concurrency,
   );
-  const outIdx = process.argv.indexOf('--out');
-  const reportPath =
-    outIdx !== -1 ? process.argv[outIdx + 1] : join(__dirname, 'capability-swebench-verified.json');
   writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(SwebenchVerified.formatVerifiedReport(report));
   console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
-  // 真实结果：即便有未通过也是有效分数（非 fail-closed），以 0 退出；仅当后端设施缺失导致全 fail 时由 executor 原因体现。
   process.exit(0);
 }
 
