@@ -32,6 +32,9 @@ export class ServerConfigStore {
   private readonly deps: ServerConfigStoreDeps;
   /** UI 经 config.update 写入的字段覆盖（落盘 + 实时合并进 fileConfig）。 */
   private overrides: Partial<FileConfig> = {};
+
+  /** 本次 `update` 里被显式清除的键（`persist` 落盘时据此删除，用完即清）。 */
+  private clearedKeys: readonly string[] = [];
   /** 持久化目标路径（首次 persist 后固化）。 */
   private path: string | undefined;
   /** autoApprove 开关运行态（update 可切换）。 */
@@ -133,17 +136,30 @@ export class ServerConfigStore {
       this.auto = aa;
     }
     const patch: Record<string, unknown> = {};
+    const cleared: string[] = [];
     for (const key of PERSISTABLE_KEYS) {
       const value = params[key];
+      if (value === null) {
+        // `null` = **显式清除覆盖**（回落厂商默认/文件配置）。
+        // 为什么必须有这条：此前 undefined 是 no-op、空串会被原样写盘并把 `baseUrl` 覆写成 ''
+        // （破坏厂商端点拼装）、null 会被持久化成 null（同样炸）⇒ UI 上「清空」根本做不到。
+        cleared.push(key);
+        continue;
+      }
       if (value !== undefined) {
         patch[key] = value;
       }
     }
     this.applyProviderKeyPatch(params, patch);
     await this.applyEnableProvider(params, patch);
-    if (Object.keys(patch).length > 0) {
+    if (Object.keys(patch).length > 0 || cleared.length > 0) {
       this.overrides = mergeConfigs(this.overrides, patch as Partial<FileConfig>);
+      for (const key of cleared) {
+        delete (this.overrides as Record<string, unknown>)[key];
+      }
+      this.clearedKeys = cleared;
       this.persist();
+      this.clearedKeys = [];
     }
     this.deps.onChanged();
     return { ok: true, saved: this.path, autoApprove: this.auto };
@@ -209,7 +225,13 @@ export class ServerConfigStore {
   public persist(): void {
     const path = this.configFilePath();
     const existing = configFile.load(path);
-    configFile.save(path, mergeConfigs(existing, this.overrides));
+    const merged = mergeConfigs(existing, this.overrides) as Record<string, unknown>;
+    // 被显式清除的键必须从**落盘结果**里删掉：`mergeConfigs` 只做覆盖不做删除，
+    // 否则「清除 base-url」会被旧文件里的值悄悄复活（UI 显示清了、实际没清）。
+    for (const key of this.clearedKeys) {
+      delete merged[key];
+    }
+    configFile.save(path, merged as Partial<FileConfig>);
     this.path = path;
   }
 

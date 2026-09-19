@@ -9,6 +9,7 @@ import type { PlanPort } from '../ports/runtime/plan.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
+import { TraceExporterAssembly } from '../observability/traceExporterAssembly.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
 import { PolicySandbox } from '../adapters/sandbox/policySandbox.js';
 import { DenyEscalation } from '../adapters/escalation/denyEscalation.js';
@@ -98,7 +99,9 @@ export function assembleCorePorts(partial: OmniHarnessConfig): CorePortsAssembly
       approvals,
       spill,
       spiller,
-      events: partial.events ?? new ConsoleEventPort(),
+      // 可观测性接线（OTLP）：设了 OTEL_EXPORTER_OTLP_ENDPOINT 才包一层 span 收集器，
+      // 否则**原样返回**（零行为变更）。CLI / 服务端 / 子代理共用本装配点，故一处接线全覆盖。
+      events: TraceExporterAssembly.wrap(partial.events ?? new ConsoleEventPort()),
       todo: partial.todo ?? new MemoryTodo(),
       plan: partial.plan ?? new MemoryPlan(),
       userResponder: partial.userResponder ?? autoUserResponder(),

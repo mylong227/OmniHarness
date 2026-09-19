@@ -26,6 +26,8 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
  */
 export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
   'shell',
+  // 交互式 PTY 工具：能在真终端里跑任意命令（vim/htop 等）⇒ 与 shell 同级，plan 模式同样拦截。
+  'shell_interactive',
   // 后台作业管理（P2-⑫）：能 kill 进程、能启动任意命令 ⇒ 与 shell 同级，plan 模式同样拦截。
   'shell_job',
   'write_file',
@@ -33,6 +35,8 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
   'apply_patch',
   'delegate',
   'subagent',
+  // P2-⑬：网页截图落盘 PNG，与 write_file 同级（plan 模式须拦截）。
+  'browser_screenshot',
 ]);
 
 /**
@@ -166,6 +170,10 @@ export class ToolGate {
       return { kind: 'file_read', target: this.targetOf(call) };
     }
     if (call.name === 'write_file' || call.name === 'edit' || call.name === 'apply_patch') {
+      return { kind: 'file_write', target: this.targetOf(call) };
+    }
+    if (call.name === 'browser_screenshot') {
+      // 落盘 PNG，与 write_file 同属写类；plan 模式应被拦（不进只读白名单）。
       return { kind: 'file_write', target: this.targetOf(call) };
     }
     return { kind: 'command', target: this.targetOf(call) };

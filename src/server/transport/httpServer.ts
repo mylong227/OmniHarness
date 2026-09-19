@@ -6,6 +6,7 @@ import { extname, join, normalize } from 'node:path';
 import type { AppServer } from '../core/appServer.js';
 import { type RpcRequest } from '../core/jsonRpc.js';
 import { WsServer } from './wsConnection.js';
+import { ServerAuthGuard } from './serverAuthGuard.js';
 import type { Metrics } from '../services/metrics.js';
 import { log, nextTraceId } from '../../util/logger.js';
 import { safeReadFile } from '../services/safeFs.js';
@@ -23,6 +24,15 @@ export interface HttpServerOptions {
    * 注入为方法而非值：AppServer 切换工作区时无需重启 HTTP 服务。
    */
   readonly workspaceRoot?: () => string;
+  /**
+   * 绑定地址（缺省回环 `127.0.0.1`）。
+   *
+   * 为什么显式给默认值：`server.listen(port)` 不传地址时 Node 会绑 `0.0.0.0`——
+   * 这等于把一个能驱动 agent 执行任意工具（含 `--auto-approve`）的 RPC 暴露到局域网。
+   */
+  readonly host?: string | undefined;
+  /** 访问令牌（配了才启用鉴权；非回环绑定必须配，见 `ServerAuthGuard.assertBindSafe`）。 */
+  readonly authToken?: string | undefined;
 }
 
 /** 健康检查结果（供容器编排探针消费）。 */
@@ -44,16 +54,23 @@ export class HttpServer {
   private readonly server: Server;
   /** WS 服务端：close 时须先强制断开 upgrade 连接，否则 server.close 永不回调。 */
   private readonly ws: WsServer;
+  /** 暴露守卫：绑定地址与 Bearer 令牌的唯一裁决点（HTTP 与 WS 共用）。 */
+  private readonly guard: ServerAuthGuard;
   /** 启动时刻（用于 uptime，构造即计时）。 */
   private readonly startedAt = Date.now();
 
   /**
    * 创建 HTTP 服务：装配请求路由与 WS 升级处理。
-   * @param options 服务选项（app、bridge、webDir、metrics、workspaceRoot），同时作为参数属性持有为实例字段
+   * @param options 服务选项（app、bridge、webDir、metrics、workspaceRoot、host、authToken），同时作为参数属性持有为实例字段
    */
   public constructor(private readonly options: HttpServerOptions) {
+    this.guard = new ServerAuthGuard(options.authToken);
     this.server = createServer((request, response) => void this.route(request, response));
-    this.ws = new WsServer(this.server, (connection) => this.options.bridge.registerWs(connection));
+    this.ws = new WsServer(
+      this.server,
+      (connection) => this.options.bridge.registerWs(connection),
+      (request) => this.guard.verify(request),
+    );
   }
 
   /**
@@ -62,8 +79,16 @@ export class HttpServer {
    * @returns 实际生效的监听端口（port 为 0 时是系统分配值）
    */
   public start(port: number): Promise<number> {
-    return new Promise((resolve) => {
-      this.server.listen(port, () => {
+    return new Promise((resolve, reject) => {
+      const host = this.options.host ?? ServerAuthGuard.DEFAULT_HOST;
+      try {
+        // 起服务前先过绑定安全裁决：非回环且无令牌 → 直接拒绝（fail-closed，不起半个服务）。
+        ServerAuthGuard.assertBindSafe(host, this.options.authToken);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
+      this.server.listen(port, host, () => {
         const address = this.server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });
@@ -100,6 +125,15 @@ export class HttpServer {
       const started = Date.now();
       const method = request.method ?? 'GET';
       log.info('http.request.start', { method, url });
+      if (!this.guard.verify(request)) {
+        // 鉴权门禁（配令牌时生效）：401 + WWW-Authenticate，让客户端知道该怎么补头。
+        response.writeHead(401, {
+          'content-type': 'application/json; charset=utf-8',
+          'www-authenticate': 'Bearer',
+        });
+        response.end(JSON.stringify({ error: 'unauthorized' }));
+        return;
+      }
       if (request.method === 'GET' && url === '/events') {
         this.openSse(response);
       } else if (request.method === 'GET' && url === '/metrics') {
