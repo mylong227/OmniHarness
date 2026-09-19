@@ -43,13 +43,23 @@ export class Agent implements AgentPort {
     maxSkills: SKILL_SPARSE_MAX,
     minKeepScore: SKILL_SPARSE_MIN_KEEP,
   });
+  /** 技能注册表（受种技能的匹配与渲染来源；缺省取运行时那一份，见构造函数）。 */
+  private readonly skills: SkillRegistry | undefined;
 
   public constructor(
     /** 运行时组合根：提供模型、工具、审批、沙箱、存储、事件总线等全部依赖。 */
     private readonly runtime: OmniHarnessRuntime,
     /** 可选技能注册表：会话启动时按 prompt 匹配命中技能，渲染为 system 事件注入。 */
-    private readonly skills?: SkillRegistry,
-  ) {}
+    skills?: SkillRegistry,
+  ) {
+    // 缺省取**运行时组合根里那一份**（`ResolvedConfig.skillRegistry`，由 `assembleSkillStack` 装配）。
+    //
+    // 为什么必须在这里兜底，而不是要求每个调用点显式传：实测 11 个 `new Agent(runtime)` 调用点里
+    // **只有 1 个**（server 的 agentRuntimeHost）传了技能注册表 ⇒ 配置文件/CLI 受种的技能在
+    // CLI、子代理、工作流、eval 等全部路径上**从不注入**（声明支持、全链路静默失效）。
+    // 默认取运行时这份之后，任何新增调用点都不会再漏，也不需要各自记住这件事。
+    this.skills = skills ?? runtime.config.skillRegistry;
+  }
 
   /**
    * 取消当前在跑的任务（V2）：模型在飞请求被中断（CancelledError 上抛），

@@ -12,5 +12,13 @@
   "maxSteps": 32,
   "longTermMemoryEncryption": false,
   "longTermMemoryKeyFile": ".omniharness/memory.key",
-  "mcpServers": {}
+  "mcpServers": {},
+  "skills": [
+    {
+      "name": "repo-conventions",
+      "description": "本仓库的编码约定（受种后在相关会话自动注入）",
+      "instructions": "改代码前先读 AGENTS.md；提交信息用「类型(范围): 摘要」；测试与实现同批提交。",
+      "tags": ["约定", "提交"]
+    }
+  ]
 }

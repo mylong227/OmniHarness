@@ -139,8 +139,30 @@ omniharness plugin load --file plugin.js        # 动态加载插件
   "storageDir": "sessions",
   "approval": "guardian",
   "sandbox": "policy",
-  "maxSteps": 32
+  "maxSteps": 32,
+  "skills": [
+    {
+      "name": "repo-conventions",
+      "description": "本仓库编码约定",
+      "instructions": "改代码前先读 AGENTS.md；提交信息用「类型(范围): 摘要」。",
+      "tags": ["约定"]
+    }
+  ]
 }
 ```
 
 配置文件在 cwd 向上逐级查找；CLI 参数优先于配置。
+
+### 6.1 受种技能（skills）
+
+技能是**声明式能力包**：命中技能名或其任一 `tag` 时，`instructions` 会作为 system 事件注入该会话
+（命中即注入，不命中零噪声）。两条输入通道，用同一份校验：
+
+- 配置文件内联：上例的 `skills: [...]`；
+- CLI 旗标：`omniharness --skills path/to/skills.json "..."`（可重复；文件内容为数组，
+  或 `{"skills": [...]}`）。
+
+合并语义：内联在前、旗标在后，**同名以旗标为准**（技能注册表对重名直接抛错，故此处显式去重）。
+每条技能必须给全 `name` / `description` / `instructions`（非空），`tags` 可选；缺失或重名会
+**fail-closed** 报错并指出位置（如 `omniharness.json: skills[0].instructions 必须是非空字符串`）。
+只接受声明式子集——莫尔组合、相变固化等运行时字段不能由配置注入（避免伪造「这技能是涌现/固化来的」）。

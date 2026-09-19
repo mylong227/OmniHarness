@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { NativeKernel } from '../native/nativeKernel.js';
 import { ConfigFactory } from '../config/configFactory.js';
+import { CliSkillFlags } from './cliSkillFlags.js';
 import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { ExtraTool } from '../config/configFactory.js';
@@ -332,6 +333,12 @@ export class CliBuildConfig {
       ...(args.streamText === true
         ? { live: new ConsoleLiveView(process.stderr, process.stdout) }
         : {}),
+      // 受种技能池（声明式能力包）：配置文件 `skills` 内联数组 + `--skills <file.json>`（可重复）
+      // 在此合并（同名以旗标为准），走同一份校验。两者皆空则不写 config = 零行为变更。
+      ...(() => {
+        const skills = CliSkillFlags.resolve(args);
+        return skills.length > 0 ? { skills } : {};
+      })(),
       model,
       storage: await this.buildStorage(args),
       approvals: this.buildApproval(args, model),

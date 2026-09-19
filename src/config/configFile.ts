@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { profileLoader } from './profileLoader.js';
+import type { SkillEntry } from '../skill/skill.js';
 import {
   ConfigError,
   loadBundlePatchLayer,
@@ -131,6 +132,19 @@ export interface FileConfig {
   };
   /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
   readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
+  /**
+   * 受种技能池（声明式能力包，`SKILL.md` 思路）：命中技能名或 tag 时把 `instructions`
+   * 注入系统提示。此前该字段**只有编程入口**（`OmniHarnessConfig.skills`），配置文件与 CLI
+   * 均写不进去 ⇒ CLI 用户无法受种任何技能（属功能缺口，见 TASK_BOARD §15.4）。
+   *
+   * 两个输入通道，同一份校验：
+   * - 本配置文件内联数组（键 `skills`）；
+   * - CLI `--skills <file.json>`（数组，或 `{ "skills": [...] }`），**追加**在内联之后；
+   *   同名以 CLI 为准（否则 `SkillRegistry.register` 的重名保护会直接抛错）。
+   *
+   * 只接受声明式子集（见 `SkillEntry`）：莫尔/固化等运行时字段不允许由配置注入。
+   */
+  readonly skills?: readonly SkillEntry[];
   /**
    * (U6) A2A 互操作：启用后运行时起 A2aServer（监听端口）并构造 A2aClient；本端既可被对等
    * 委托、也可委托对端（server 侧任务处理器经子代理运行时跑真实子 agent 完成）。缺省关，零破坏。

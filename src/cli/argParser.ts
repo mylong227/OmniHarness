@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { McpServerConfig } from '../mcp/mcpGateway.js';
+import type { SkillEntry } from '../skill/skill.js';
 import type {
   FileConfig,
   ModelRouterConfig,
@@ -184,6 +185,13 @@ export interface CliArgs {
   costBudgetOnExceed?: 'fail' | 'warn' | undefined;
   /** (P5) 软阈值比例（--cost-budget-soft-ratio r，0<r≤1，默认 0.8）：达该比例即建议降级。 */
   costBudgetSoftRatio?: number | undefined;
+  /**
+   * 受种技能池（来自配置文件 `skills` 内联数组）：命中技能名或 tag 时把 instructions
+   * 注入系统提示。**声明式子集**——莫尔/固化等运行时字段不由此通道注入（见 `SkillEntry`）。
+   */
+  skills?: readonly SkillEntry[] | undefined;
+  /** `--skills <file.json>`（可重复）：从 JSON 文件追加技能（数组或 `{"skills":[...]}`），同名以旗标为准。 */
+  skillsFile?: readonly string[] | undefined;
 }
 
 /** CLI 默认值。 */
@@ -330,6 +338,10 @@ export class ArgParser {
         command: server.command,
         args: server.args ?? [],
       }));
+    }
+    // 受种技能池：配置文件内联数组直接进 CLI 参数；`--skills <file.json>` 在装配层追加（同名以旗标为准）。
+    if (file.skills !== undefined) {
+      result.skills = file.skills;
     }
     if (file.modelAdapter !== undefined) {
       result.modelAdapter = file.modelAdapter;
@@ -516,6 +528,7 @@ export class ArgParser {
         '  --self-verify / --no-self-verify  写源码后自动跑受限测试并把失败摘要回灌（P3；生产入口默认开，用 --no-self-verify 关闭）',
         '  --defer-tools LIST                延迟加载工具（逗号分隔），默认不进上下文，需经 tool_search 发现（如 web_search,delegate）',
         '  --tool FILE                       加载自定义工具模块（可重复）',
+        '  --skills FILE.json                受种技能包（可重复）：数组或 {"skills":[...]}，每项含 name/description/instructions（可选 tags）；与配置文件的 skills 数组合并，同名以本旗标为准',
         '  --workspace DIR                   工作区',
         '  --output FILE                     事件 JSONL 输出文件',
         '  -p, --print                       headless 非交互执行（对标 claude -p / codex exec）：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）',

@@ -78,6 +78,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--subagent-concurrency',
   '--subagent-max-steps',
   '--tool',
+  '--skills',
   '--workspace',
   '--output',
   '--resume',
@@ -262,6 +263,12 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   },
   '--tool': (a, argv, i) => {
     a.toolFiles = [...a.toolFiles, CliFlagTable.valueOf(argv, i, '--tool')];
+    return 1;
+  },
+  // 受种技能池（声明式能力包）：值为 JSON 文件路径（数组，或 {"skills":[...]}），
+  // 与配置文件里的 `skills` 内联数组合并（同名以本旗标为准）。可重复以叠加多份技能包。
+  '--skills': (a, argv, i) => {
+    a.skillsFile = [...(a.skillsFile ?? []), CliFlagTable.valueOf(argv, i, '--skills')];
     return 1;
   },
   '--workspace': (a, argv, i) => {
