@@ -246,9 +246,51 @@
 | 基类删除 | `web/src/ui/base/AppComponent.tsx` 删除（目录随之消失）；全仓 `grep` 确认无残留 import |
 | shim 收口 | `react-shim.d.ts` 移除 `declare class ReactComponent`、`SetStateAction`、`ReactApi.Component`、`createRef`、`JSX.IntrinsicClassAttributes`；保留 `createElement` / Hooks / `createContext` / JSX 元素与 `IntrinsicAttributes`。⇒ 根除了「`declare class` 处于值位置 ⇒ 整站白屏」的结构性陷阱（标准 §9） |
 | 测试适配 | `noNativeDialogs.test.mjs` 第二条改为读 `ui/context.ts`，断言 `AppContextValue` 暴露 `dialog` 且导出 `useApp()`（原读 `AppComponent.tsx` 的基类访问器已不存在） |
-| **基线对照（关键）** | 迁移后 UI e2e 仍只失败同一步 `streaming text merged`。为排除「本次迁移引入」，`git checkout 9763db6 -- web/`（F9 **之前**的 class 版根组件）重建后跑同一 e2e：**同样只失败 `streaming text merged`**（`app mounted` 通过、`hasReact:object`、`turns.run`/`approval.respond` 全触达）。⇒ 该步失败为**存量基线**，与 F1–F9 任何一轮无关；属 e2e 桩页 markdown/文本比对问题，非挂载失败 |
+| **基线对照（关键）** | 迁移后 UI e2e 仍只失败同一步 `streaming text merged`。为排除「本次迁移引入」，`git checkout 9763db6 -- web/`（F9 **之前**的 class 版根组件）重建后跑同一 e2e：**同样只失败 `streaming text merged`**（`app mounted` 通过、`hasReact:object`、`turns.run`/`approval.respond` 全触达）。⇒ 该步失败为**存量基线**，与 F1–F9 任何一轮无关；当时仅判定「非挂载失败」，**精确定位见下文「F10 打磨批」**（根因是 markdown-it 块终止符 `\n` 未归一 + `.md-content` 继承了宿主 `pre-wrap`） |
 | 验收 | `web:build` 0 错；根 `tsc --noEmit` 0 错；`eslint . --max-warnings=0` 0 警告；`audit:standard:delta` / `audit:config-wiring`(484) / `arch:gate` / `check --strict` / `audit:maturity` 全绿；全量 `web/test/**` **134/136**（同上） |
 
 ### F9 总收口
 
 全仓 **41 个 class 组件 + 1 个根组件 + 1 个基类** 已全部迁移/移除：`grep -rn "extends React.Component\|extends AppComponent\|this\.setState\|componentDidMount\|componentDidUpdate\|componentWillUnmount\|createRef" web/src --include=*.ts --include=*.tsx` 仅剩**解释性注释**，无实际代码命中。每批独立提交（批1 `e5b7a9c` / 批2 `dcd381d` / 批3 `da67648` / 批4/5 `5899266` / 批6 `5f40856` / 批7 见本条对应提交）。
+
+---
+
+## F10 打磨批：两条 e2e 复绿 + markdown 渲染缺陷修复（2026-09-19）
+
+**背景**：F9 收口后，两条 UI e2e（D3 `--dump-dom` 路线 / E1 CDP 路线）**长期红着**（全量 `web/test/**` 停在 134/136）。这意味着前端**实际上没有端到端验证网**——组件单测再绿，也无法证明「整站在浏览器里跑得通」。本轮定位并修复，把这张网补回来。
+
+### 诊断方法（可复用）
+不靠推测，先把「断言失败」变成「拿到实际值」：在 e2e 桩页的 `DIAG` 里加探针字段（`streamText` / `streamHtml` / 按钮 class / `getComputedStyle`），让失败信息直接带上现场；再用**时间序列采样**（50/200/700ms）区分「取样过早」与「真卡住」。两个失败点由此各自定性。
+
+### 发现 1（真实视觉缺陷）：`.md-content` 继承了宿主容器的 `pre-wrap`
+`white-space` 是**继承属性**。`chat.css` 给助手正文容器 `.content` 设了 `white-space:pre-wrap`——那是为**旧纯文本渲染器**准备的；而 markdown 管线的产物是 HTML 结构，markdown-it 在**块与块之间**（以及整篇末尾）本来就会写入换行。`.md-content` 未重置 ⇒ 继承 `pre-wrap` ⇒ 这些换行各自生成一个**匿名行盒**。
+
+**实测判据**：单段回复 `<p>正在分析…</p>\n` 的 `.md-content` 计算高度 **46px**，而 `line-height:1.7 × ≈13.5px ≈ 23px` ⇒ **46 ≈ 2 行**，即每个块间隙多出一整行空白（叠在 `.md-content > * + * { margin-top:10px }` 之上）。多块回复会成倍放大。
+
+**修法**：`web/styles/chat.css` 给 `.md-content` 显式 `white-space:normal`（宿主 `.content` 的 `pre-wrap` 保留不动——旧渲染器走结构化元素、不含游离换行，仍依赖它）。
+
+### 发现 2（产出未归一）：markdown-it 的块终止符进了 `textContent`
+`markdown-it.render()` 恒定给每个块（含整篇末尾）补一个 `\n`。末尾那个 `\n` 在 DOM 里是**真实文本节点**，因此 `textContent` 比原文多一个换行（文本选中、复制、无障碍朗读都会带上）。两条**相互独立**的 e2e（D3 与 E1）其实都按「渲染出的文本 == 原文」写了严格断言 ⇒ 这就是事实上的契约，产出才是偏离方。
+
+**修法**：`web/src/ui/markdown.ts` 的 `markdownRender` 剥掉末尾**一个**字符（`replace(/\n$/,'')`）——只剥末尾，块内换行（如 fenced code 的源码）一概不受影响。
+
+> ★ **口径说明（为什么不是「改测试迎合代码」）**：本次**未放宽任何断言**——`streaming text merged` 与 CDP 的 `after === '正在分析…'` 仍是**严格相等**。修的是**产出归一**，不是把期望调松（放宽成 `.trim()` 会把「发现 1」那类真实空白缺陷一并放过）。两条 e2e 是改动前就已存在的、独立的、严格的观察者。
+
+### 发现 3（测试取样过早，非产品缺陷）
+回合结束后取样，会看到「■ 停止」键仍在、`work-indicator` 尚存 ⇒ 一度疑似「F4 停止键把 `busy` 卡死、用户再也发不出消息」。**时间序列采样证伪**：`btn50`/`btn200`/`btn700` 全为 `send`，即 **50ms 内已恢复**。
+根因：`busy` 由 `ComposerController` 在 `turns.run` **resolve 之后**才置回 `false`，而 assistant 事件是**同一轮里更早**到达的 ⇒「最终卡片出现」≠「回合已收敛」。原用例在最后一步直接取样，拿到的是**中间态**。
+
+**修法**：`web/test/e2e.test.mjs` 把收敛判定改为 `until()` **轮询**（沿用本文件既有的「按次数收敛、不按墙钟」纪律），并把「回合收敛」本身升为一条显式断言 `composer idle after turn`（断言「发送键回来 **且** 停止键消失」），同时列入「关键路径必在」清单——F4 的停止键从此有了回归护栏。
+
+### 修法清单
+| # | 文件 | 改动 |
+| --- | --- | --- |
+| ① | `web/styles/chat.css` | `.md-content` 显式 `white-space:normal` + 成因注释 |
+| ② | `web/src/ui/markdown.ts` | `markdownRender` 剥掉 markdown-it 的末尾块终止符 `\n` |
+| ③ | `web/test/e2e.test.mjs` | 收敛改 `until()` 轮询；新增 `composer idle after turn`（并入必在清单）；保留 `streamText`/`streamHtml` 诊断字段；文件头补两处坑的说明 |
+| ④ | `web/test/a11yContrast.test.mjs` | 新增**双向**护栏：`.md-content` 必须 `white-space:normal` **且** `.content` 必须保持 `pre-wrap` |
+
+### 验收
+- 全量 `web/test/**` **137/137**（此前长期 **134/136**）；两条 e2e **真跑通过**（`skipped 0`，`ok 1`/`ok 2`）⇒ **前端端到端验证网恢复**。
+- `web:build` 0 错；根 `tsc --noEmit` 0 错；`eslint . --max-warnings=0` 0 警告；`audit:standard:delta` / `audit:config-wiring`(484) / `arch:gate`(0 违规) / `check --strict`(0 违规) / `audit:maturity` 全绿。
+- 诊断插桩**已全部清除**（`grep` 复核 `btn*/getComputedStyle/composerButtons/workIndicator` 无命中）。
