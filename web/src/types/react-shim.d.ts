@@ -27,36 +27,14 @@ type Dispatch<A> = (action: A | ((prevState: A) => A)) => void;
 type Reducer<S, A> = (state: S, action: A) => S;
 type EffectCallback = () => void | (() => void);
 
-// ---- class 组件（面向对象范式）：本工程 UI 组件统一继承 React.Component ----
-
-/** setState 的三种入参形态：部分状态 / null / 基于前态与 props 的更新函数。 */
-type SetStateAction<S, P> =
-  | Partial<S>
-  | null
-  | ((prevState: Readonly<S>, props: Readonly<P>) => Partial<S> | null);
-
-declare class ReactComponent<P = Record<string, unknown>, S = Record<string, unknown>> {
-  public constructor(props: P);
-  public readonly props: Readonly<P>;
-  public state: Readonly<S>;
-  public context: unknown;
-  public setState(action: SetStateAction<S, P>, callback?: () => void): void;
-  public forceUpdate(callback?: () => void): void;
-  public render(): ReactNode;
-  // 生命周期（可选实现）
-  public componentDidMount?(): void;
-  public componentDidUpdate?(prevProps: Readonly<P>, prevState: Readonly<S>): void;
-  public componentWillUnmount?(): void;
-  public shouldComponentUpdate?(nextProps: Readonly<P>, nextState: Readonly<S>): boolean;
-  public componentDidCatch?(error: Error, info: { componentStack?: string | null }): void;
-}
+// ---- Hooks / 元素 / 上下文（函数组件范式）----
+// 说明：本工程 UI 已全量迁移为函数组件 + Hooks（R1），故不再声明 class 组件基类
+// （`React.Component` / `createRef` / `SetStateAction`）。若将来必须新增 class
+// 错误边界（componentDidCatch 无 Hook 等价物），需在此重新声明最小 class 形态。
 
 interface ReactApi {
   createElement(type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]): ReactElement;
   Fragment: unknown;
-  /** class 组件基类（面向对象范式）。 */
-  Component: typeof ReactComponent;
-  createRef<T>(): { current: T | null };
   createContext<T>(defaultValue: T): ReactContext<T>;
   useState<S>(initial: S | (() => S)): [S, Dispatch<S>];
   useEffect(effect: EffectCallback, deps?: ReadonlyArray<unknown>): void;
@@ -153,12 +131,6 @@ declare namespace JSX {
    */
   interface IntrinsicAttributes {
     key?: string | number | null;
-  }
-  /** class 组件额外允许 ref（此处仅声明，不做类型收窄）。 */
-  interface IntrinsicClassAttributes<T> {
-    key?: string | number | null;
-    ref?: unknown;
-    __brand?: T;
   }
   interface IntrinsicElements {
     // 具体标签细化（更强的属性检查）

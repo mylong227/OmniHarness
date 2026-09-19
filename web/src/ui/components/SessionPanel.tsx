@@ -1,7 +1,7 @@
 // 左栏：会话列表 + 新建会话 + 工作区文件树。
 //
 // 面向对象改造：
-// - 继承 AppComponent（替代 useApp），八份 state 收敛为单一 state 对象；
+// - 服务经 useApp() 取用（替代旧基类访问器），十三份 state 收敛为字段级 useState；
 // - 会话分组逻辑下沉到 SessionGrouper（零 React，可单测）；
 // - 文件树节点拆为 TreeNode 组件（各自管理展开态）。
 //

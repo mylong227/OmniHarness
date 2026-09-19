@@ -44,6 +44,8 @@ test('DialogService 是唯一对话框出口，并被 AppController 装配', () 
   assert.match(app, /dialogSvc\.bind\(/, 'mount 时必须把 DialogService 绑到 React 状态');
   assert.match(app, /dialog:\s*this\.services\.dialogSvc/, 'context value 必须暴露 dialog');
 
-  const appComponent = readFileSync(join(ROOT, 'ui/base/AppComponent.tsx'), 'utf8');
-  assert.match(appComponent, /get dialog\(\):\s*DialogService/, '组件基类必须提供 dialog 访问器');
+  // 全量迁移为函数组件后，组件经 useApp() 从 AppContext 取用 dialog（原基类访问器已随 AppComponent 删除）。
+  const ctx = readFileSync(join(ROOT, 'ui/context.ts'), 'utf8');
+  assert.match(ctx, /dialog:\s*DialogService/, '应用上下文必须暴露 dialog');
+  assert.match(ctx, /export function useApp\(\)/, '组件必须经 useApp() 取用上下文');
 });
