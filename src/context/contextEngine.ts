@@ -19,6 +19,7 @@ import { at } from '../util/arrayAt.js';
 import { ContentStopWords } from './contentStopWords.js';
 import { FileReranker } from './fileReranker.js';
 import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
+import { log } from '../util/logger.js';
 
 /** 语料遍历的上限（三个上限共同把索引内存钉死，见 {@link ContextEngine.walk}）。 */
 export interface WalkLimits {
@@ -36,6 +37,8 @@ export interface WalkOutcome {
   readonly truncated: boolean;
   /** 因单文件超过字节上限而未纳入的文件数。 */
   readonly skippedLargeFiles: number;
+  /** 纳入文件的字节总数（上限判决与「语料多大」都以此为准）。 */
+  readonly totalBytes: number;
 }
 
 /** 遍历期状态（递归用；`out` 为累积结果）。 */
@@ -52,6 +55,8 @@ interface WalkState {
   truncated: boolean;
   /** 因单文件过大而被排除的文件数（如实回报，不静默）。 */
   skippedLarge: number;
+  /** 已纳入文件的字节总数。 */
+  bytesTaken: number;
 }
 
 /**
@@ -73,6 +78,18 @@ export class ContextEngine {
    * 只限文件数（2 万个 × 512 KiB）最坏仍可达 10 GB ⇒ 必须同时有总量闸。
    */
   public static readonly MAX_TOTAL_BYTES = 32 * 1024 * 1024;
+
+  /**
+   * full 模式（`light !== true`）的**告警**阈值（2 MiB）。
+   *
+   * 为什么单列：full 模式要额外建频域谱、代码图与 LSA，**每字节内存代价比 light 高一个数量级**——
+   * 2026-09-19 实测本仓 `src/`（533 文件 / 4 MB 语料 / 9,080 符号）在 full 模式下
+   * **峰值 RSS 1,522 MB、耗时 83 秒**（light 模式同语料毫秒级、RSS 百 MB 内）。
+   * 生产路径（`CorpusIndexCache`）恒传 `light: true`，故这一档只服务评测脚本；
+   * 一旦有人把大语料喂进 full 模式，必须**立刻在日志里看得见**，而不是等它把机器拖进 swap。
+   * 这里只告警不改变行为——该档的口径由评测脚本决定，擅改会污染既有对照。
+   */
+  public static readonly FULL_MODE_WARN_BYTES = 2 * 1024 * 1024;
 
   /**
    * 收集参与索引的源码文件（同步；供 `indexCorpus` 使用）。
@@ -121,9 +138,14 @@ export class ContextEngine {
       maxFileBytes: limits.maxFileBytes ?? ContextEngine.MAX_FILE_BYTES,
       truncated: false,
       skippedLarge: 0,
+      bytesTaken: 0,
     };
     ContextEngine.walkInto(state, root, absRoot);
-    return { truncated: state.truncated, skippedLargeFiles: state.skippedLarge };
+    return {
+      truncated: state.truncated,
+      skippedLargeFiles: state.skippedLarge,
+      totalBytes: state.bytesTaken,
+    };
   }
 
   /**
@@ -179,6 +201,7 @@ export class ContextEngine {
       state.out.push(relative(absRoot, abs).split(sep).join('/'));
       state.remaining -= 1;
       state.bytesLeft -= st.size;
+      state.bytesTaken += st.size;
     }
   }
 
@@ -291,6 +314,8 @@ export interface IndexOptions {
   readonly maxFileBytes?: number;
   /** 语料总字节预算（缺省 {@link ContextEngine.MAX_TOTAL_BYTES}）。 */
   readonly maxTotalBytes?: number;
+  /** full 模式告警阈值覆盖（缺省 {@link ContextEngine.FULL_MODE_WARN_BYTES}；便于单测）。 */
+  readonly fullModeWarnBytes?: number;
 }
 
 /**
@@ -314,6 +339,19 @@ export function indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpu
   });
   const truncated = walked.truncated;
   const skippedLargeFiles = walked.skippedLargeFiles;
+  if (!light) {
+    // full 模式的每字节代价比 light 高一个数量级（见 FULL_MODE_WARN_BYTES 的实测），
+    // 大语料在日志里必须看得见。只告警、不改行为：该档口径归评测脚本。
+    const warnBytes = opts.fullModeWarnBytes ?? ContextEngine.FULL_MODE_WARN_BYTES;
+    if (walked.totalBytes > warnBytes) {
+      log.warn('indexCorpus 以 full 模式索引较大语料（频谱 / 代码图 / LSA），峰值内存可达 GB 级', {
+        root,
+        corpusMiB: Number((walked.totalBytes / 1048576).toFixed(2)),
+        warnThresholdMiB: Number((warnBytes / 1048576).toFixed(2)),
+        advice: '生产路径请传 light: true（CorpusIndexCache 已如此）；full 仅用于小语料的对照评测',
+      });
+    }
+  }
   const fileText = new Map<string, string>();
   const allSymbols: SymbolNode[] = [];
   const fileRecords: FileRecord[] = [];
