@@ -527,16 +527,16 @@
 
 > 用户指令「按照整个前端的功能页面全都进行 codex 或 deepseek-harness 对其……最低不输于他，最好超过他；不要求完全 0 依赖，善用成熟依赖代替从 0 开始」。主参考 `deepseek-harness`（TS Web SPA：Plan/权限/命令面板/@引用/subagent/goal bar/trajectory），`codex` 仅作模式参考。约束放宽：前端允许引入成熟 vendored UMD 依赖（markdown-it / KaTeX / highlight.js 已落地）。详账见 `docs/FRONTEND_GAP_SOURCE_AUDIT.md`。
 
-| #   | 任务            | 内容                                                                                                     | 验收                                         |
-| --- | --------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写       | web:build 0 错；web:test 15/15；全库 0 `any` |
-| F2  | ✅ 代码块体验   | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                                   | 点击复制 code 文本；语言标签显示             |
-| F3  | ✅ 会话操作     | 后端补 `sessions.rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口                  | 行内重命名/确认删除/复制/搜索均可用          |
-| F4  | 中断/重生成     | Composer 流式中止（abort）+ 末条助手消息重生成/编辑重发                                                  | 中止即时停止；重生成复用上下文               |
-| F5  | 配置 UI 收敛    | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线                                       | 配置改动即时生效                             |
-| F6  | diff 闭环       | ChangesTab 的 hunk accept/reject 联动真实写入                                                            | accept/reject 触发文件变更                   |
-| F7  | ✅ 未消费事件   | profile.error / plugin.loaded / plugin.loadError / profile.applied 接入 UI 提示（纯前端消费既有 SSE 流） | 事件出现即 toast 提示（error/success 分色）  |
-| F8  | 路由/深链       | 会话/标签可深链与浏览器后退                                                                              | URL 反映当前视图                             |
+| #   | 任务            | 内容                                                                                                                            | 验收                                         |
+| --- | --------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| F1  | ✅ 回复渲染升级 | markdown-it + KaTeX + highlight.js 替换手写零依赖解析器；数学公式 + 代码语法高亮；UMD 缺失回落手写                              | web:build 0 错；web:test 15/15；全库 0 `any` |
+| F2  | ✅ 代码块体验   | 渲染产物加「复制代码」按钮 + 语言标签 + 悬停反馈（纯前端，无后端依赖）                                                          | 点击复制 code 文本；语言标签显示             |
+| F3  | ✅ 会话操作     | 后端补 `sessions.rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口                                         | 行内重命名/确认删除/复制/搜索均可用          |
+| F4  | ✅ 中断/重生成  | Composer 流式中止（abort，**立即收口**）+ 末条用户消息重生成（**服务端真回退** `threads.rewind` 后重发）/编辑重发（回填输入框） | 中止即时停止；重生成截断服务端事件流后重发   |
+| F5  | ✅ 配置 UI 收敛 | API key / base-url / profile 在 ModelProviders/Settings 收敛并接线，**保存后重拉配置并刷新厂商目录**                            | 配置改动即时生效                             |
+| F6  | ✅ diff 闭环    | ChangesTab 的 hunk/文件级 accept/reject 联动真实写入（`changes.stageHunk`/`revertHunk`/`stageFile`/`revertFile`）               | accept/reject 触发文件变更                   |
+| F7  | ✅ 未消费事件   | profile.error / plugin.loaded / plugin.loadError / profile.applied 接入 UI 提示（纯前端消费既有 SSE 流）                        | 事件出现即 toast 提示（error/success 分色）  |
+| F8  | ✅ 路由/深链    | 会话/标签可深链与浏览器后退（Router + RouteBinding 单一收口；打开文件亦写 hash）                                                | URL 反映当前视图                             |
 
 **验收汇总（F1）**：web:build 0 错误；web:test 15/15 通过；`@typescript-eslint/no-explicit-any` 全库 0 处（`markdown.ts` 用最小接口替代 `any`）；新增 vendored 依赖 markdown-it / katex / highlight.js + KaTeX 字体（离线内置，无网络依赖）；UMD 全局缺失时回落手写实现，旧契约测试无回归。
 
@@ -545,6 +545,15 @@
 **验收汇总（F7）**：后端已在 SSE 流发出 `profile.error`/`plugin.loaded`/`plugin.loadError`/`profile.applied`，但 `AppController.connectStream` 此前只静默 bump reload key，错误与加载事件对用户不可见。新增纯函数 `web/src/ui/notify.ts` 的 `profilePluginToasts(envelope, toast)`，按 method 分派为 error/success toast（字段 `String(...??'')` 归一，永不 undefined）；`AppController` 的 `switch` 把上述四种 method 统一改调 `applyProfilePluginToast(msg)`（保留 profile 类的 reload key bump）。契约测试 `web/test/notify.test.mjs` 覆盖四类事件 + 空字段 + 无法识别 method。`web:build` 0 错、`eslint` 0 警告、全量 web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）；无 `any`，复用既有 `showToast`/`Toast.tsx`，无新状态/组件。
 
 **验收汇总（F3）**：后端 `SessionArchive` 补 `rename`/`delete`/`fork`（会话即 `<id>.jsonl`；重命名写侧车 `sessions.meta.json` 不碰事件流、`list` 优先显示；删除拒绝运行中会话双保险；分叉 `copyFileSync` + 追加 `session_meta.forkedFrom`）；`appServer` 注册 `sessions.rename`/`sessions.delete`/`sessions.fork` 三个 RPC，`appServerBase` 注入 `activeTurns` 运行态判定。前端 `ApiClient` 三方法 + `SessionController` 三方法（刷新列表 / 删则清当前线程 / 均 toast 反馈）+ `SessionPanel` 搜索框 + 行内重命名 + 删除确认条 + 每行人内操作（✎/⧉/🗑），`App` 透传回调；`components.css` 补暗亮主题样式。根 `tsc --noEmit` 0 错、`web:build` 0 错、全仓 `eslint . --max-warnings=0` 0 警告、web 单测 118/120（仅 2 项 headless-Chrome e2e 环境差异）、`audit:standard:delta`（无新增 .ts）/`audit:config-wiring`（484）/`arch:gate`（无新增违例）/`check --strict`/`audit:maturity` 全绿、无 `any`。
+
+**验收汇总（F4/F5/F6/F8，2026-09-19 晚收口）**：四项此前**已在 `fefadc3` / `33f9f51` / `9763db6` 落地**（本表当时未同步，属文档滞后而非功能缺失）；本轮按验收口径逐项找出**真实缺口**并补齐：
+
+- **F4**：中止此前只置标志再发 RPC，UI 要等在途回合以拒绝收尾才收口（后端正常返回时甚至无视停止、还补一条最终回复），且 `streamText`/`liveInputs`/`activeTool` 无人清理 ⇒ 改为 `stop()` **立即**收口（幂等、只写一条 `已中止（用户中断）。`、迟到 `text_delta` 丢弃）后再发 `turns.abort`；「重生成」补上**回退**（截断到末条用户消息 + 裁剪孤儿工具结果 + 清流式残留，复用既有 `turns.run`，不新造 RPC）；「编辑重发」改为**回填底部输入框**（新增零 DOM 依赖的 `ComposerDraft.fill()`，删掉 80 行卡片内联编辑器）。
+- **F5**：`SettingsTab.save()` 此前保存成功**不重拉配置**（只闪「已保存」）⇒ 抽 `applyConfig()`+`reload()`（挂载首拉与保存后重拉同一路径），命中 `model`/`modelAdapter` 再刷厂商目录；base-url 文案改为与真实行为一致。
+- **F6**：源码**本已闭环**（`33f9f51`），本轮核实 hunk 下标对齐（`parseDiffRows` 与 `parseHunks` 同判据）并锁成组件级测试。
+- **F8**：`RouteBinding.navigate()` 只在 hash 变化时收口 ⇒ 路由未变时也立即 `apply()`；`apply()` 加 `requestedThread` 去重（避免每次深链白打一次 `threads.get`）；`openFile()` 改走路由单一收口（打开文件也写 hash）。
+  证据：`npm run web:build` exit 0；`npx eslint web --max-warnings=0` exit 0；**web 单测 157/157 全过**（`turnControl` 5→10、`diffControl` 4→9、`router` 7→11、新增 `configWiring` 4 例）。
+  **前一轮如实登记的两处边界，已在本轮全部闭环**：① 重生成的「回退」原先只在**前端视图层**（服务端 jsonl 那一轮仍在）⇒ 新增 `threads.rewind` RPC（`SessionRewindService` 截断持久化事件流 + 运行中回合拒绝 + 失败不写盘），前端改为**先等服务端回退成功再重发**，失败即报因不重发（`sessionRewindWiring` 3/3、`turnControl` 12/12）；② `config.update` 支持**清空** base-url（`null` = 显式清除，落盘与展示双双回落；`serverConfigStore` 新增 1 例）。
 
 ## 阶段 38：去 Docker 化（Terminal-Bench 环境契约改为容器无关，2026-09-19）
 
@@ -616,6 +625,32 @@
 | P4  | `npm audit --audit-level=high`（CI 门禁）红：4 个 high | 全部来自可选依赖 `@huggingface/transformers` 的传递依赖；用 npm `overrides` 钉到已修版本 `sharp@^0.35.4` + `adm-zip@^0.6.1`                                                                                                                                                                                | `npm audit` **found 0 vulnerabilities**；语义嵌入真机复验（新 sharp）pipeline 0.4s、gap 0.0779「OK 有区分力」 |
 
 **终态（复跑）**：`npm test` **1763 项 / 1759 通过 / 0 失败 / 4 skip**（4 个 skip 全为平台性：macOS seatbelt、内核负路径、真机特权、git 不可用降级）；`smoke` / `lint` / `format:check` / `check --strict` / `arch:gate --strict` / `api:check` / `audit:maturity` / `audit:standard` / `audit:metrics` / `audit:config-wiring` 全 exit 0；Rust 侧 `fmt` / `clippy -D warnings` / `test --workspace` 全 exit 0；`npm audit` 0 漏洞。
+
+## 阶段 40：全量收口「无缺失、无写了但未接线」+ 可复现基准出数（2026-09-19 深夜）
+
+> 用户指令「按照缺陷一项全部帮我补齐不完整，不能说缺失更不能出现写了但没有接线」。
+
+**判定手段（可复跑）**：入口可达性分析 **v4**（`.omniharness/reachScan.mjs`）——入口只取 `package.json` bin/main、`src/index.ts`/`indexBeta.ts`、`evals|benchmark|scripts` 里的真实引用与动态 import 字面量，沿静态 import/export-from 做传递闭包；**新增「只被单测引用」判据**（单测是证据、不是调用方）。v3 曾把 `src/cli/**` 与 `src/server/**` 整体当入口，导致「丢进这两个目录即自动算接线」的漏报。
+**结果**：src **553 文件、不可达 0**（v4 修正后暴露并修掉了最后一个 `SessionRewindService`）。
+
+| 项                   | 处置                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 证据                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 工具面补齐           | LSP 全局符号/文档符号/代码操作三工具（`workspace/symbol` 不需先知道文件）、浏览器截图产品化（可用性探测 + 三类失败可执行建议 + 复用同一 headless 浏览器 + 附件通道）、`shell_interactive`（PTY，无能力如实报错不静默降级）、`sandboxCapabilityTable`（`doctor` 如实打印各 profile 可达性与依据）、`unshare` profile、非 npm 仓库自验证（pytest/cargo/go/maven/gradle/rspec/dotnet/make 命令探测；显式 `selfVerify.command` 不再被「仓库有测试脚本」闸门否决） | 批次 B 提交；`lspToolWiring` 8/8、`browserSessionFakeCdp`、`ptyCapability` 12 例、`sandboxCapabilityTable` 12 例、`selfVerifyCommandDetector` 等全过 |
+| 可观测薄接线补厚     | 只读 trace 自省（`trace.read` RPC + `omniharness trace read`，冻结快照、无写方法）、TS SDK 客户端（`omniharness sdk call/ping` 打真实 `/ws`）、MCP 官方 SDK 服务端成为 `mcp serve` 默认路径（探测失败回落手写并如实报因，`GatedToolPort` 保住审批+沙箱门禁）；顺带修 `ReadonlyTraceReader.byKind` 的 `seq` 语义错（过滤后子流下标 ⇒ 按 seq 回放定位会指错）                                                                                                   | 批次 E 提交；`traceWiring` 4/4、`traceCliWiring` 5/5、`sdkCliWiring` 4/4、`mcpServeWiring` 6/6                                                       |
+| 评测/进化补厚        | RLVR 晋升准入（多样性闸 → 退火接受 → 覆盖率 fail-closed，回调只由外层持 ⇒ 闸真在路径上）、评测隔离路由（只在快照副本上跑评测）、SWE-bench gold 漂移检测、`SafeRemoveTree` 入库（修 `9dc88d9` 引用未入库文件导致的**干净检出构建失败**）                                                                                                                                                                                                                       | 批次 D 提交；`promotionAdmission`、`evolutionRlvrAdmission` 3/3、`evalIsolationRouting`、`swebenchDrift` 全过                                        |
+| 基准可复现（真缺口） | `NativeExecutor` 只用 `commandAvailable('uv')`（即 PATH 探测）⇒ uv 装在 `%USERPROFILE%\.local\bin`（官方脚本默认落点，**不在 PATH**）时整条判定链路 fail-closed，报错还只有一句「uv 不可用」。新增 `UvLocator`（`OMNI_UV` → PATH → 平台已知位置，按**目标平台**拼路径/分隔符，找不到时列出全部候选），`describe()` 如实打印 `uv=<路径                                                                                                                         | 缺少>`，`uv venv`/`uv pip install` 全改用解析出的绝对路径                                                                                            | **实测**：在 `uv` 不在 PATH 的 shell 里跑 `node evals/e2e-native-gitee-smoke.mjs` → `uv=C:\Users\…\.local\bin\uv.exe`，第一关（空补丁未修复）✅ 26s、第二关（官方 gold 判 resolved）✅ 13.3s；`uvLocator` 8/8（含真机不变量） |
+
+**基准出数（可复现，均为子集口径，非官方满分口径）**：
+
+| 套件                                             | 命令                                                                                                                                                                                                             | 结果                                                                                          | 产物                                             |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Gitee 通道两关 + 判定器双向有效（flask 单例）    | `node evals/e2e-native-gitee-smoke.mjs`                                                                                                                                                                          | 第一关 ✅（空补丁 resolved=false 且 reason 为空）/ 第二关 ✅（gold resolved=true）            | `evals/e2e-native-gitee-smoke.report.json`       |
+| SWE-bench Verified 33/500 子集（native 后端）    | `npm run build && node benchmark/capability_swebench.mjs --verified eval-data/swe_bench_verified.json --predictions <preds.jsonl> --jsonl <progress.jsonl> --out benchmark/capability-swebench-verified-33.json` | resolved **1/33**、envError 0（另 4 例 `model_patch 应用失败`）                               | `benchmark/capability-swebench-verified-33.json` |
+| SWE-bench Verified 25/500 子集（native 后端）    | 同上（换 `--jsonl/--out`）                                                                                                                                                                                       | resolved **0/25**、envError 0                                                                 | `benchmark/capability-swebench-batch-next.json`  |
+| Terminal-Bench 20 题 **gold 解**（量环境保真度） | `npm run build && node dist/src/benchmark/terminalbench/terminalBenchCli.js --tasks <dir> --baseline gold --report benchmark/terminalbench-gold-20.json`                                                         | passed **3/20**、envError 3 ⇒ **原生 Terminal-Bench 后端保真度不足以出官方分**（gold 不该挂） | `benchmark/terminalbench-gold-20.json`           |
+| Terminal-Bench 20 题 grep 基线                   | 同上把 `--baseline grep`                                                                                                                                                                                         | passed **0/20**、envError 3                                                                   | `benchmark/terminalbench-grep-baseline-20.json`  |
+
+**边界（如实登记，不假装完成）**：以上均为 win32/x64 本机 + 原生 uv 环境（非官方预建 conda 镜像）+ 子集口径；官方 500 题满分口径与 `eval:ci` 的 live 模型调用（消耗额度）**未获授权，未执行**。OS 沙箱（landlock/bwrap/seatbelt/unshare）实现齐全但本机 Windows 只能真跑 RestrictedToken，其余**无真机证据**（`doctor` 的能力表按实打印为不可达）。`skills` 在库级（`ConfigFactory` 编程入口）已接线，但**配置文件/CLI 尚无输入通道**——属功能缺口而非断链，已登记待办。
 
 ## 推进规则
 

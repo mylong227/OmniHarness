@@ -40,6 +40,23 @@ test('ServerConfigStore.update：autoApprove 生效并随摘要回传', async ()
   });
 });
 
+test('ServerConfigStore.update：`null` 显式清除覆盖，且不会从旧文件里被复活', async () => {
+  await withStore(async (ws, store) => {
+    await store.update({ baseUrl: 'https://proxy.example/v1' });
+    const savedPath = join(ws, 'omniharness.json');
+    assert.match(configFile.load(savedPath).baseUrl ?? '', /proxy\.example/, '先写入覆盖');
+
+    await store.update({ baseUrl: null });
+    const after = store.get() as { baseUrl?: string };
+    assert.strictEqual(after.baseUrl, undefined, '清除后展示值必须回落（不再是覆盖值）');
+    assert.strictEqual(
+      configFile.load(savedPath).baseUrl,
+      undefined,
+      '落盘结果里也必须消失（mergeConfigs 只覆盖不删除，容易把旧值复活）',
+    );
+  });
+});
+
 test('ServerConfigStore.get：apiKey 与 providerKeys 一律打码，原文不回传', async () => {
   await withStore(async (_ws, store) => {
     const raw = 'sk-abcdefghijklmn';

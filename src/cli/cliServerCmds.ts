@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { LineTransport } from '../server/transport/lineTransport.js';
 import { HttpServer, HttpBridgeTransport } from '../server/transport/httpServer.js';
+import { ServerAuthGuard } from '../server/transport/serverAuthGuard.js';
 import { Metrics } from '../server/services/metrics.js';
 import { AppServer } from '../server/core/appServer.js';
 import { runDoctor as runDoctorReport, printDoctor } from './doctorRunner.js';
@@ -444,16 +445,26 @@ export class CliServerCmds extends CliBuildConfig {
       }
     }
     const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
+    // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
+    // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
+    const serveHost =
+      (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
+    const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
+    ServerAuthGuard.assertBindSafe(serveHost, serveToken);
     const server = new HttpServer({
       app,
       bridge,
       webDir,
       metrics,
       workspaceRoot: () => app.effectiveWorkspace(),
+      host: serveHost,
+      authToken: serveToken,
     });
     const port = this.flagNumber(serveArgs, '--port') ?? 8787;
     const actual = await server.start(port);
-    process.stdout.write(`OmniHarness UI: http://localhost:${actual}\n`);
+    const authNote =
+      serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
+    process.stdout.write(`OmniHarness UI: http://${serveHost}:${actual} ${authNote}\n`);
     return new Promise(() => undefined);
   }
 }

@@ -73,7 +73,8 @@ export interface FileConfig {
    * 使「文件配置 → CLI」的映射无法类型安全地透传。此处统一为 7 档（**放宽类型，不改校验白名单**）。
    */
   readonly reasoning?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-  readonly sandbox?: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap';
+  readonly sandbox?:
+    'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap' | 'unshare';
   /**
    * 权限参数级规则（A2）：与内置规则合并后交规则审批（`approval: 'rules'` 生效）。
    * 支持 `commandGlob`（`*`/`?` 通配），使「拒绝含某子串的命令」无需改代码即可配置。
