@@ -20,6 +20,8 @@ export class RouteBinding {
   private readonly host: AppHost;
   /** 打开会话回调（深链 / 前进后退到达会话时加载）。 */
   private readonly onThread: (id: string) => void;
+  /** 最近一次已请求加载的会话 id：避免同一会话被重复 loadThread（哈希未变时立即收口会二次进入 apply）。 */
+  private requestedThread: string | null = null;
 
   /**
    * 构造并解析初始路由。
@@ -45,8 +47,13 @@ export class RouteBinding {
   public navigate(partial: Partial<AppRoute>): void {
     const pane = partial.pane ?? this.route.pane;
     const threadId = partial.threadId !== undefined ? partial.threadId : this.route.threadId;
-    this.route = { pane, threadId };
+    const next: AppRoute = { pane, threadId };
+    const changed = next.pane !== this.route.pane || next.threadId !== this.route.threadId;
+    this.route = next;
     navigate(this.route);
+    // 目标与当前路由相同时浏览器不派发 hashchange（例如重复点同一个面板、深链回填），
+    // 此时必须直接收口，否则「hash 已更新、视图没跟着变」——状态与路由脱节。
+    if (!changed) this.apply(next);
   }
 
   /** 启动：应用初始深链状态 + 订阅浏览器前进 / 后退。 @returns 无 */
@@ -62,6 +69,7 @@ export class RouteBinding {
 
   /**
    * 把路由落到应用状态：设置激活面板（非 tools 时展开右栏），必要时加载会话。
+   * 同一会话不重复加载（loadThread 自身也会 navigate 回同一条路由，若无此去重会多打一次 threads.get）。
    * @param r 解析后的路由
    * @returns 无
    */
@@ -72,6 +80,13 @@ export class RouteBinding {
     if (r.pane !== 'tools') patch.rightOpen = true;
     this.host.patch(patch);
     const cur = this.host.getState().currentThreadId;
-    if (r.threadId !== null && r.threadId !== cur) this.onThread(r.threadId);
+    if (r.threadId === null) {
+      this.requestedThread = null;
+      return;
+    }
+    if (r.threadId !== cur && r.threadId !== this.requestedThread) {
+      this.requestedThread = r.threadId;
+      this.onThread(r.threadId);
+    }
   }
 }

@@ -106,6 +106,20 @@ export const protocolSchema: ProtocolSchema = {
       },
     },
     {
+      name: 'threads.rewind',
+      description: '回退线程（截断到指定事件，重生成的服务端真回退）',
+      params: {
+        threadId: { type: 'string', required: true, description: '线程 ID' },
+        keepEventId: { type: 'string', required: true, description: '保留到哪条事件（含）' },
+      },
+      result: {
+        ok: { type: 'boolean', description: '是否成功回退' },
+        kept: { type: 'number', description: '保留的事件条数' },
+        dropped: { type: 'number', description: '丢弃的事件条数' },
+        error: { type: 'string', description: '失败原因（ok=false 时）' },
+      },
+    },
+    {
       name: 'turns.run',
       description: '运行回合（线程已存在则续跑）',
       params: {

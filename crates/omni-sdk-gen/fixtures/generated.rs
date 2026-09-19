@@ -1,5 +1,5 @@
 //! 由 OmniHarness 单源 protocol schema 自动生成（勿手改）。
-//! jsonrpc: 2.0，共 6 个方法。
+//! jsonrpc: 2.0，共 7 个方法。
 
 /// 创建线程并执行任务。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -72,6 +72,29 @@ pub struct ThreadsGetResult {
 
 }
 
+/// 回退线程（截断到指定事件，重生成的服务端真回退）。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ThreadsRewindParams {
+    /// 保留到哪条事件（含）。
+    pub keep_event_id: String,
+    /// 线程 ID。
+    pub thread_id: String,
+
+}
+/// 回退线程（截断到指定事件，重生成的服务端真回退） 的响应。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ThreadsRewindResult {
+    /// 丢弃的事件条数。
+    pub dropped: Option<f64>,
+    /// 失败原因（ok=false 时）。
+    pub error: Option<String>,
+    /// 保留的事件条数。
+    pub kept: Option<f64>,
+    /// 是否成功回退。
+    pub ok: Option<bool>,
+
+}
+
 /// 运行回合（线程已存在则续跑）。
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TurnsRunParams {
@@ -114,6 +137,7 @@ pub fn dispatch(method: &str, raw: &str) -> Result<String, String> {
         "threads.continue" => { let params: ThreadsContinueParams = serde_json::from_str(raw).map_err(|e| e.to_string())?; Err(format!("handler for threads.continue not implemented (got params: {:?})", params)) }
         "threads.fork" => { let params: ThreadsForkParams = serde_json::from_str(raw).map_err(|e| e.to_string())?; Err(format!("handler for threads.fork not implemented (got params: {:?})", params)) }
         "threads.get" => { let params: ThreadsGetParams = serde_json::from_str(raw).map_err(|e| e.to_string())?; Err(format!("handler for threads.get not implemented (got params: {:?})", params)) }
+        "threads.rewind" => { let params: ThreadsRewindParams = serde_json::from_str(raw).map_err(|e| e.to_string())?; Err(format!("handler for threads.rewind not implemented (got params: {:?})", params)) }
         "turns.run" => { let params: TurnsRunParams = serde_json::from_str(raw).map_err(|e| e.to_string())?; Err(format!("handler for turns.run not implemented (got params: {:?})", params)) }
         "approval.respond" => { let params: ApprovalRespondParams = serde_json::from_str(raw).map_err(|e| e.to_string())?; Err(format!("handler for approval.respond not implemented (got params: {:?})", params)) }
         _ => Err(format!("unknown method: {method}")),

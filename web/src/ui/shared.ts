@@ -47,4 +47,15 @@ export interface LiveInput {
   partial: string;
 }
 
+/**
+ * 输入框回填指令（F4「编辑重发」）：把末条用户消息填回底部输入框。
+ * nonce 单调递增，保证「文本与上一次相同」时也能触发一次新的回填。
+ */
+export interface ComposerSeed {
+  /** 待回填文本。 */
+  text: string;
+  /** 回填序号：变化即触发一次回填。 */
+  nonce: number;
+}
+
 export type { GraphRunState, ThreadEvent };
