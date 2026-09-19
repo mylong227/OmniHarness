@@ -13,6 +13,8 @@ test('plan 模式：只读工具放行（read_file / list_dir / memory_search / 
   for (const tool of [
     'read_file',
     'list_dir',
+    'grep',
+    'glob',
     'memory_search',
     'plan_read',
     'plan_write',
@@ -23,6 +25,7 @@ test('plan 模式：只读工具放行（read_file / list_dir / memory_search / 
     'lsp_find_references',
     'lsp_hover',
     'lsp_status',
+    'lsp_diagnostics',
     'policy_eval',
     'agent_identity',
     'registry',

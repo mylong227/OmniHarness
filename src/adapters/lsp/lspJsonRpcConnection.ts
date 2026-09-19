@@ -20,7 +20,7 @@ interface Pending {
 /** 默认请求超时（ms）：服务器无响应即 fail-closed 上抛，绝不干等。 */
 const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 
-/** 构造参数：外部命令、启动参数，以及「服务器 → 客户端请求」的应答器。 */
+/** 构造参数：外部命令、启动参数，以及「服务器 → 客户端请求」的应答器与通知订阅。 */
 export interface LspJsonRpcConnectionOptions {
   /** 可执行文件（如 node 或 typescript-language-server）。 */
   readonly command: string;
@@ -28,6 +28,11 @@ export interface LspJsonRpcConnectionOptions {
   readonly args: readonly string[];
   /** 应答服务器发起的请求（如 client/registerCapability）；默认回 `{}`。 */
   readonly answerServerRequest?: (method: string) => unknown;
+  /**
+   * 订阅服务器推送的通知（如 `textDocument/publishDiagnostics`）。
+   * 未配置时通知仍照旧被忽略（零行为变更）。
+   */
+  readonly onNotification?: (method: string, params: unknown) => void;
   /** 请求超时毫秒数；默认 15000。 */
   readonly requestTimeoutMs?: number;
 }
@@ -239,7 +244,11 @@ export class LspJsonRpcConnection {
         result: answer !== undefined ? answer(msg.method) : {},
       });
     }
-    // 通知（publishDiagnostics / logMessage / $/progress 等）：忽略。
+    // 通知（publishDiagnostics / logMessage / $/progress 等）：有订阅者就转交，否则忽略。
+    // 判据用 `id === undefined`：服务器发起的**请求**（有 id）走上面的应答分支，不应被当成通知重复投递。
+    if (msg.method !== undefined && msg.id === undefined) {
+      this.options.onNotification?.(msg.method, msg.params);
+    }
   }
 
   /** 进程死亡时拒绝所有挂起请求并清空登记。

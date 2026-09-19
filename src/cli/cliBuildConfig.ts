@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { NativeKernel } from '../native/nativeKernel.js';
 import { ConfigFactory } from '../config/configFactory.js';
+import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { ExtraTool } from '../config/configFactory.js';
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
@@ -362,22 +363,9 @@ export class CliBuildConfig {
       longTermMemoryEncryption: args.memoryEncrypt === true,
       longTermMemoryKeyFile: args.memoryKeyFile,
       modelRouter: await this.resolveModelRouter(args),
-      fragments: [
-        '你是 OmniHarness 的 AI 助手，运行在用户工作区中。你的首要目标是直接、高效地完成用户任务。\n' +
-          '核心行为准则（必须遵守）：\n' +
-          '1. 优先直接回答或执行。不要为收集信息而反复调用探索工具。\n' +
-          '2. 当用户说"重新试试"、"再试一次"、"再来一次"或类似模糊重试指令时，基于已有上下文和当前工作区状态直接执行最合理的下一步，绝对不要反问用户，也禁止调用 `ask_user` 来澄清"重试哪个"。\n' +
-          '3. `ask_user` 工具只在确实需要用户做选择或提供关键缺失信息时使用；禁止用它澄清模糊指令，尤其禁止在"重新试试"场景使用。\n' +
-          '4. 工具执行失败时，先分析原因再重试，不要无意义循环调用同一工具。\n' +
-          '5. 当指令模糊或缺少上下文时，最多只做一次轻量确认；若仍不确定，直接给出最佳推测回答，或简短说明需要用户补充哪些信息。严禁为"理解用户在指什么"而连续调用 shell/list_dir/read_file/memory_search 等探索工具。\n' +
-          '6. 若用户要求"重新试试"但你找不到明确的前序任务，执行以下固定 SOP（必须严格遵守，不得偏离）：\n' +
-          '   a) 调用 `todo_read` 一次；\n' +
-          '   b) 调用 `read_file` 一次，读取当前工作区的 `package.json`；\n' +
-          '   c) 基于以上信息：\n' +
-          '      - 若 `todo` 非空，按待办最优先项继续执行；\n' +
-          '      - 若 `todo` 为空，调用 `shell` 一次执行轻量状态检查：`git status --short`，读取结果并立即停止工具调用、输出总结。\n' +
-          '   d) 禁止在此 SOP 中调用 `memory_search`（避免被历史测试噪音误导）、`list_dir`、`run_code`、或 `read_file` 读取 tmp/前序线程文件。绝对禁止反问"你想重试哪个"，禁止执行 `npm run build`/`tsc` 等可能触发环境内存限制的重量级命令。',
-      ],
+      // 系统提示：编码 Agent 取向（详见 DefaultPromptFragments 的类注释——原文案禁止连续探索、
+      // 禁止跑 build/tsc，与「改代码」这一主场景直接冲突）。
+      fragments: DefaultPromptFragments.codingAgent(),
     });
     await this.bridgeMcpServers(args, config);
     return config;

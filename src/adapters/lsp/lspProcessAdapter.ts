@@ -1,7 +1,19 @@
 import { readFile } from 'node:fs/promises';
-import type { LspLocation, LspPort, LspServerConfig } from '../../ports/tool/lsp.js';
+import type {
+  LspDiagnosticReport,
+  LspLocation,
+  LspPort,
+  LspServerConfig,
+} from '../../ports/tool/lsp.js';
 import { fileToUri, uriToFile } from '../../adapters/lsp/lspUri.js';
 import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
+import { LspDiagnosticsCollector } from './lspDiagnosticsCollector.js';
+
+/** 适配器可选项。 */
+export interface LspProcessAdapterOptions {
+  /** 等待 `publishDiagnostics` 的毫秒数（默认 {@link LspProcessAdapter.DEFAULT_DIAGNOSTICS_TIMEOUT_MS}）。 */
+  readonly diagnosticsTimeoutMs?: number;
+}
 
 /**
  * @beta
@@ -16,6 +28,11 @@ import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
  * 职责边界：本类只负责 **LSP 协议语义**（initialize/didOpen/结果归一化）；
  * 底层 stdio 传输与分帧交给 `LspJsonRpcConnection`。
  *
+ * 诊断（2026-09-19 新增）：`textDocument/publishDiagnostics` 是**通知**，原实现把它整类忽略
+ * （`lspJsonRpcConnection.ts` 的 dispatch 末句「通知…忽略」）⇒ 模型改完代码拿不到任何编译错误，
+ * 只能靠再跑一遍构建。现订阅该通知并缓存，`diagnostics()` 会**先强制重新分析（didOpen/didChange）
+ * 再等推送**，并如实回报 `fresh` / `stale`——绝不把「没等到推送」说成「没有错误」。
+ *
  * 注意：本适配器**不内置任何语言服务器**——具体服务器（typescript-language-server 等）由用户在配置里提供，
  * 这正是零依赖铁律下接入 LSP 的唯一合规方式。
  */
@@ -23,17 +40,32 @@ export class LspProcessAdapter implements LspPort {
   /** 端口名（便于调试/状态展示）：固定为 'lsp-process'。 */
   public readonly name = 'lsp-process';
 
+  /** 默认等待诊断推送的毫秒数。 */
+  public static readonly DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5000;
+
   /** 当前 JSON-RPC 连接（懒启动后建立；shutdown 或握手失败后回到 undefined）。 */
   private conn: LspJsonRpcConnection | undefined;
   /** 进行中的启动握手 Promise（并发调用共享同一次启动，避免重复 spawn）。 */
   private starting: Promise<void> | undefined;
   /** 已发送过 didOpen 的文件集合（会话生命周期内每文件只 open 一次）。 */
   private readonly opened = new Set<string>();
+  /** 各文件当前文档版本（didChange 需要严格递增，否则服务器会拒收）。 */
+  private readonly versions = new Map<string, number>();
+  /** 诊断收集器（订阅推送 → 归一化 → 缓存 → 唤醒等待者）。
+   * 单独成类是因为本类当时已 609 行 / 32 方法，越过「一文件一类 + 上帝类」红线。 */
+  private readonly collector = new LspDiagnosticsCollector();
+  /** 等待诊断的超时毫秒数。 */
+  private readonly diagnosticsTimeoutMs: number;
 
   public constructor(
     /** 服务器配置：启动命令/参数、工作区根 URI（LSP initialize 的 rootUri）。 */
     private readonly cfg: LspServerConfig & { readonly rootUri: string },
-  ) {}
+    /** 可选项（诊断等待超时）。 */
+    options: LspProcessAdapterOptions = {},
+  ) {
+    this.diagnosticsTimeoutMs =
+      options.diagnosticsTimeoutMs ?? LspProcessAdapter.DEFAULT_DIAGNOSTICS_TIMEOUT_MS;
+  }
 
   /**
    * 跳转到定义。
@@ -88,6 +120,24 @@ export class LspProcessAdapter implements LspPort {
   }
 
   /**
+   * 取文档诊断：先做一次文档同步（首开 didOpen / 之后 didChange）强制服务器重新分析，
+   * 再等待该文件的 `publishDiagnostics`；超时则返回缓存并标记 `stale`。
+   *
+   * @param file 目标文件绝对路径
+   * @returns 诊断报告（含新鲜度：`fresh` = 本次确实收到推送，`stale` = 只拿到缓存）
+   */
+  public async diagnostics(file: string): Promise<LspDiagnosticReport> {
+    await this.ensureStarted();
+    await this.syncDocument(file);
+    const received = await this.collector.awaitPublish(file, this.diagnosticsTimeoutMs);
+    return {
+      file,
+      diagnostics: this.collector.cached(file),
+      status: received ? 'fresh' : 'stale',
+    };
+  }
+
+  /**
    * 关闭会话：shutdown → exit 并终止子进程；幂等（未启动直接返回）。
    *
    * @returns 关闭完成
@@ -97,6 +147,8 @@ export class LspProcessAdapter implements LspPort {
     this.conn = undefined;
     this.starting = undefined;
     this.opened.clear();
+    this.versions.clear();
+    this.collector.clear();
     if (conn === undefined) {
       return;
     }
@@ -177,6 +229,8 @@ export class LspProcessAdapter implements LspPort {
       command: this.cfg.serverCommand,
       args: this.cfg.serverArgs ?? [],
       answerServerRequest: (method) => this.answerServerRequest(method),
+      // 订阅服务器推送：诊断是被「推」过来的，不订阅就永远拿不到（原实现整类忽略）。
+      onNotification: (method, params) => this.onServerNotification(method, params),
     });
     this.conn = conn;
     conn.start();
@@ -206,6 +260,7 @@ export class LspProcessAdapter implements LspPort {
       return;
     }
     this.opened.add(file);
+    this.versions.set(file, 1);
     let text = '';
     try {
       text = await readFile(file, 'utf8');
@@ -215,6 +270,47 @@ export class LspProcessAdapter implements LspPort {
     this.requireConn().notify('textDocument/didOpen', {
       textDocument: { uri: fileToUri(file), languageId: this.langOf(file), version: 1, text },
     });
+  }
+
+  /**
+   * 强制同步文档内容以触发重新分析：首开用 didOpen（版本 1），之后用 didChange（版本严格递增）。
+   *
+   * 为什么必须递增版本：LSP 规定 `didChange` 的 `version` 必须大于上一次，否则服务器可拒收
+   * 或忽略 —— 症状正是「诊断永远停在第一次的结果」，比报错更难查。
+   *
+   * @param file 目标文件绝对路径
+   * @returns 同步完成
+   */
+  private async syncDocument(file: string): Promise<void> {
+    if (!this.opened.has(file)) {
+      await this.didOpen(file);
+      return;
+    }
+    const version = (this.versions.get(file) ?? 1) + 1;
+    this.versions.set(file, version);
+    let text = '';
+    try {
+      text = await readFile(file, 'utf8');
+    } catch {
+      // 读不到内容时发空文本，交由服务器按磁盘状态判定。
+    }
+    this.requireConn().notify('textDocument/didChange', {
+      textDocument: { uri: fileToUri(file), version },
+      contentChanges: [{ text }],
+    });
+  }
+
+  // ---- 内部：诊断订阅 ----
+
+  /**
+   * 处理服务器推送的通知：交给诊断收集器消费（非诊断类通知被其忽略）。
+   *
+   * @param method 通知方法名
+   * @param params 通知参数
+   * @returns 无返回值
+   */
+  private onServerNotification(method: string, params: unknown): void {
+    this.collector.accept(method, params);
   }
 
   /** 由扩展名推断 LSP languageId。

@@ -83,7 +83,7 @@ describe('LspProcessAdapter（进程级 JSON-RPC 接线）', () => {
 });
 
 describe('LSP 配置接线（buildLsp + defaultTools 注册）', () => {
-  test('配置了 lsp.serverCommand 时注册 4 个 LSP 工具', () => {
+  test('配置了 lsp.serverCommand 时注册 5 个 LSP 工具（含 lsp_diagnostics）', () => {
     const config = ConfigFactory.build({
       workspaceRoot: process.cwd(),
       maxSteps: 5,
@@ -96,6 +96,12 @@ describe('LSP 配置接线（buildLsp + defaultTools 注册）', () => {
     assert.ok(names.includes('lsp_find_references'));
     assert.ok(names.includes('lsp_hover'));
     assert.ok(names.includes('lsp_status'));
+    assert.ok(names.includes('lsp_diagnostics'));
+    assert.strictEqual(
+      names.filter((name) => name.startsWith('lsp_')).length,
+      5,
+      'LSP 工具族应为 5 个（4 个查询 + 1 个诊断）',
+    );
     assert.ok(config.lsp !== undefined);
   });
 
@@ -108,6 +114,7 @@ describe('LSP 配置接线（buildLsp + defaultTools 注册）', () => {
     });
     const names = config.tools.list().map((definition) => definition.name);
     assert.ok(!names.includes('lsp_go_to_definition'));
+    assert.ok(!names.includes('lsp_diagnostics'));
     assert.ok(config.lsp === undefined);
   });
 });

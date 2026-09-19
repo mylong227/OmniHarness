@@ -27,6 +27,7 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
 export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
   'shell',
   'write_file',
+  'edit',
   'apply_patch',
   'delegate',
   'subagent',
@@ -152,21 +153,40 @@ export class ToolGate {
    * @returns 对应的沙箱检查动作（含动作目标）。
    */
   private sandboxActionOf(call: ToolCall): SandboxAction {
-    if (call.name === 'read_file') {
+    if (call.name === 'read_file' || call.name === 'grep' || call.name === 'glob') {
       return { kind: 'file_read', target: this.targetOf(call) };
     }
-    if (call.name === 'write_file' || call.name === 'apply_patch') {
+    if (call.name === 'write_file' || call.name === 'edit' || call.name === 'apply_patch') {
       return { kind: 'file_write', target: this.targetOf(call) };
     }
     return { kind: 'command', target: this.targetOf(call) };
   }
 
   /**
-   * 提取动作目标（用于审批/沙箱展示）。
+   * 提取动作目标（用于审批/沙箱展示与路径裁决）。
+   *
+   * `apply_patch` 的 `path` 官方描述即「可省略，缺省取 `+++` 头」；原实现因此在省略 `path` 时
+   * 把工具名当成路径交给审批/沙箱 ⇒ **基于路径的策略拿不到真实目标**（与自验证旁路同源）。
+   * 这里从补丁头就地取首个目标（纯字符串处理，不引入 adapters 依赖，守住 `core` 零适配器红线）。
+   *
    * @param call 工具调用。
-   * @returns command/path 参数值；均缺失时退化为工具名。
+   * @returns command/path 参数值，或补丁头目标；均缺失时退化为工具名。
    */
   private targetOf(call: ToolCall): string {
-    return String(call.arguments['command'] ?? call.arguments['path'] ?? call.name);
+    const direct = call.arguments['command'] ?? call.arguments['path'];
+    if (typeof direct === 'string' && direct !== '') {
+      return direct;
+    }
+    if (call.name === 'apply_patch') {
+      const patch = call.arguments['patch'];
+      if (typeof patch === 'string') {
+        const match = /^\+\+\+ (.+)$/m.exec(patch);
+        const path = match?.[1];
+        if (path !== undefined && path !== '/dev/null') {
+          return path.trim().replace(/^[ab]\//, '');
+        }
+      }
+    }
+    return call.name;
   }
 }

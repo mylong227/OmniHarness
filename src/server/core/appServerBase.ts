@@ -1,5 +1,6 @@
 import type { ResolvedConfig } from '../../config/configFactory.js';
 import { ConfigFactory } from '../../config/configFactory.js';
+import { ConfigRebase } from '../../config/configRebase.js';
 import { SandboxManager, type SandboxProfile } from '../../adapters/sandbox/sandboxManager.js';
 import type { PluginManager } from '../../plugin/pluginManager.js';
 import type { PluginProfile, ApplyProfileResult } from '../../plugin/pluginProfileStore.js';
@@ -217,6 +218,12 @@ export class AppServerBase {
    * 「切换项目」：按新工作区根目录重建运行时组件（sandbox/hooks/memory/spill 等全部
    * 随 ConfigFactory.build 按新 root 重造），清 agent/graph 缓存，下回合即在新工作区执行。
    * 审批/模型覆盖沿用现有解析逻辑，UI 感知零断裂。
+   *
+   * **2026-09-19 修复（声明未接线）**：原实现手工只传 9 个键调 `ConfigFactory.build`，
+   * 其余声明式字段（最要命的是 `fragments` —— 系统提示的唯一注入通道）**被静默丢弃**，
+   * 于是「切换工作区」等于「模型从此失去全部行为准则」。
+   * 现改走 {@link ConfigRebase.forWorkspace}：以旧配置为基线重基，只剔除工作区耦合端口。
+   *
    * @param raw 新工作区根目录（未知类型，经 requireDirectory 校验）
    * @returns `{ ok, workspace, unchanged? }` 或 `{ ok, workspace, workspaces }`
    */
@@ -230,7 +237,7 @@ export class AppServerBase {
     const file = this.configStore.fileConfig();
     const sandbox = new SandboxManager(root).build((file.sandbox ?? 'policy') as SandboxProfile);
     const rebuilt = ConfigFactory.build({
-      workspaceRoot: root,
+      ...ConfigRebase.forWorkspace(cfg, root),
       maxSteps: cfg.maxSteps,
       model: this.modelCatalog.resolveOverride() ?? cfg.model,
       storage: cfg.storage,

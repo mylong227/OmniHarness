@@ -126,5 +126,5 @@ test('钩子：写失败（ok=false）不计入 diff', async () => {
 });
 
 test('TRACKED_WRITE_TOOLS 仅含显式带 path 的写类工具', () => {
-  assert.deepStrictEqual([...TRACKED_WRITE_TOOLS], ['write_file', 'apply_patch']);
+  assert.deepStrictEqual([...TRACKED_WRITE_TOOLS], ['write_file', 'edit', 'apply_patch']);
 });
