@@ -39,15 +39,15 @@
 | F2  | **代码块体验**                      | 复制代码按钮 + 语言标签 + 悬停反馈，对齐主流 Chat UI                     | `markdown.ts` 产出 `<pre class="hljs">` 但 UI 无复制/语言标签                                            | 否（纯前端）✅ **本轮已落地** |
 | F3  | **会话操作（重命名/删除/搜索/fork）** | 会话管理是「会话模式」核心                                              | `ApiClient` 仅有 `listSessions`/`searchAll`，缺 `rename/delete/fork` RPC 与 `SessionPanel` 操作入口       | 是（需 RPC） | 否（后端补 RPC + 前端接线）✅ **本轮已落地** |
 | F4  | **中断 / 重生成 / 编辑重发**        | 长任务可控性，对标 codex 的 stop + regenerate                            | `Composer`/`ComposerController` 未见 abort/regenerate 入口；后端 `turn` 中止需确认                        | 部分     | 否（后端补 `turns.abort` RPC + 前端停止/重生成/编辑重发）✅ **本轮已落地** |
-| F5  | **配置 UI 收敛**                    | API key / base-url / profile 在一处可改且即时生效                       | `ModelProviders`/`Settings` 已存在但字段接线完整度待核                                                    | 部分     |
+| F5  | **配置 UI 收敛**                    | API key / base-url / profile 在一处可改且即时生效                       | `ModelProviders`/`Settings` 已存在但自定义 base-url 不可编辑、profile 未收敛                            | 否（纯前端） | 否（`SettingsTab` 补 base-url 编辑 + profile 下拉切换，即时生效）✅ **本轮已落地** |
 
 ### 中价值
 
 | #   | 能力                  | 价值                                   | 依赖后端 |
 | --- | --------------------- | -------------------------------------- | -------- |
-| F6  | **diff accept/reject 闭环** | ChangesTab 的 hunk 接受/拒绝联动真实写入 | 是（需写回 RPC） |
+| F6  | **diff accept/reject 闭环** | ChangesTab 的 hunk 接受/拒绝联动真实写入 | ApiClient 已有 stageFile/revertFile/stageHunk/revertHunk，ChangesTab 已调用，闭环本已接好 | 否（纯前端） | 否（RPC 闭环 + `diffControl` 回归测试坐实）✅ **本轮已坐实** |
 | F7  | **未消费事件接入**    | `profile.error`/`plugin.loaded` 等事件 UI 提示 | 否（事件已在流里，需 UI 消费） | 否（纯前端）✅ **本轮已落地** |
-| F8  | **路由 / 深链**       | 会话/标签可深链与浏览器后退            | 否（前端路由层） |
+| F8  | **路由 / 深链**       | 会话/标签可深链与浏览器后退            | 无（新增 `Router` + `RouteBinding` 接入 AppController/SessionController/ComposerController） | 否（纯前端） | 否（哈希路由：深链 + 浏览器前进/后退）✅ **本轮已落地** |
 
 ### 低价值 / 暂缓
 
@@ -120,9 +120,9 @@
 3. ~~**F7 未消费事件接入** — 纯前端消费既有事件流，把后端已发但 UI 静默的事件显式提示。~~ ✅ **已完成（F7）**
 4. ~~**F3 会话操作** — 后端补 `rename/delete/fork` RPC + 前端 SessionPanel 重命名/删除/搜索/fork 入口，对齐「会话模式」核心。~~ ✅ **已完成（F3）**
 5. ~~**F4 中断/重生成/编辑重发** — 后端 `turns.abort` RPC 触发既有 `agent.cancelCurrentRun`；前端停止按钮 + 重生成 + 编辑重发。~~ ✅ **已完成（F4，本轮）**
-6. **F5 配置 UI 收敛** — 核实现有 `ModelProviders`/`Settings` 字段接线完整度，补缺失项。
-7. **F6 diff accept/reject 闭环** — 需写回 RPC。
-8. **F8 路由/深链** — 前端路由层，独立阶段。
+6. ~~**F5 配置 UI 收敛** — `SettingsTab` 补自定义 base-url 编辑 + profile 下拉切换，API key / base-url / profile 收敛一处且即时生效。~~ ✅ **已完成（F5，本轮）**
+7. ~~**F6 diff accept/reject 闭环** — 经核实 ApiClient + ChangesTab + 后端 RPC 本已闭环，补 `diffControl` 回归测试坐实。~~ ✅ **已完成（F6，本轮）**
+8. ~~**F8 路由/深链** — 新增 `Router` + `RouteBinding`，`activePane`/`currentThreadId` 编入 hash，支持深链与浏览器前进/后退。~~ ✅ **已完成（F8，本轮）**
 
 ---
 
