@@ -21,6 +21,7 @@ import { PermissionPicker } from './PermissionPicker.js';
 import { ContextCapacityPanel } from './ContextCapacityPanel.js';
 import { MentionResolver } from '../models/MentionResolver.js';
 import { ComposerOptions } from '../models/ComposerOptions.js';
+import { ComposerDraft } from '../models/ComposerDraft.js';
 import { FileTreeFlattener } from '../models/FileTreeFlattener.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
 import {
@@ -35,6 +36,7 @@ import {
   type RemoteFile,
 } from '../models/AttachmentIcon.js';
 import type { FileAttachment } from '../../types/models.js';
+import type { ComposerSeed } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
 const PICKER_ERR_BOX: Record<string, string> = { margin: '6px 14px 0' };
@@ -52,6 +54,11 @@ export interface ComposerProps {
   permission: string;
   /** 当前会话 id（目标 / 计划 / 绘图模式按会话持久化；上下文容量报告维度）。 */
   threadId?: string | null;
+  /**
+   * 输入框回填指令（F4「编辑重发」）：nonce 变化即把 text 写回输入框并聚焦。
+   * 组件保持非受控，回填由 effect 直接写 DOM 值（见 ComposerDraft）。
+   */
+  seed?: ComposerSeed | null;
   /** 轻提示（AddMenu / 容量面板加载失败等）。 */
   onToast?: (msg: string, kind?: 'info' | 'err') => void;
   /** 跳到右侧某面板（AddMenu 点插件时打开「插件」页）。 */
@@ -165,6 +172,7 @@ export function Composer(props: ComposerProps): ReactElement {
     reasoningOptions,
     permission,
     threadId,
+    seed,
     onToast,
     onOpenTab,
     onOpenFile,
@@ -195,6 +203,13 @@ export function Composer(props: ComposerProps): ReactElement {
       recogRef.current?.stop();
     };
   }, []);
+
+  // F4「编辑重发」：外部把末条用户消息填回输入框（seed.nonce 变化即触发一次回填）。
+  React.useEffect(() => {
+    if (seed === undefined || seed === null) return;
+    ComposerDraft.fill(taRef.current, seed.text);
+    setMention(null);
+  }, [seed]);
 
   /**
    * 从光标位置解析 @ 前缀 token，有则拉起 / 更新补全列表。

@@ -11,6 +11,7 @@ import { FileIconResolver } from '../dist/ui/models/FileIconResolver.js';
 import { FileSizeFormatter } from '../dist/ui/models/FileSizeFormatter.js';
 import { ProviderStatusResolver } from '../dist/ui/models/ProviderStatus.js';
 import { GraphDefBuilder } from '../dist/ui/models/GraphDefBuilder.js';
+import { ComposerDraft } from '../dist/ui/models/ComposerDraft.js';
 
 test('FileKindClassifier 分类代码 / markdown / 纯文本', () => {
   assert.equal(FileKindClassifier.classify('ts'), 'code');
@@ -97,4 +98,28 @@ test('GraphDefBuilder 状态类名映射与未知回落', () => {
 test('GraphDefBuilder depText 还原依赖串', () => {
   assert.equal(GraphDefBuilder.depText(['a', 'b']), 'a,b');
   assert.equal(GraphDefBuilder.depText(undefined), '');
+});
+
+test('ComposerDraft.fill 把文本写回输入框并聚焦、光标落到末尾（F4 编辑重发）', () => {
+  const seen = { focused: 0, caret: null };
+  const ta = {
+    value: '旧草稿',
+    focus() {
+      seen.focused += 1;
+    },
+    setSelectionRange(start, end) {
+      seen.caret = [start, end];
+    },
+  };
+  ComposerDraft.fill(ta, '第二条消息');
+  assert.equal(ta.value, '第二条消息', '必须覆盖输入框原值');
+  assert.equal(seen.focused, 1, '必须聚焦，用户可直接续写');
+  assert.deepEqual(seen.caret, [5, 5], '光标必须落到文本末尾');
+});
+
+test('ComposerDraft.fill 对缺失输入框 / 无 setSelectionRange 的桩 fail-safe', () => {
+  assert.doesNotThrow(() => ComposerDraft.fill(null, 'x'), '输入框未挂载时不得抛错');
+  const bare = { value: '', focus() {} };
+  ComposerDraft.fill(bare, 'abc');
+  assert.equal(bare.value, 'abc', '无光标 API 的桩也要完成回填');
 });

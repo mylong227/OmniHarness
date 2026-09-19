@@ -63,10 +63,13 @@ export class SessionController {
 
   /**
    * 累积一条模型正文增量（`thread.text_delta` 通知），驱动流式助手卡片逐字渲染。
+   * 仅在回合进行中（busy）累积：回合已结束 / 已被用户中断后到达的迟到增量一律丢弃，
+   * 否则「停止」之后流式卡片会被迟到 delta 重新点亮（留下 streaming 残留）。
    * @param params 增量载荷（含 text 增量片段）
    * @returns 无
    */
   public appendTextDelta(params: Record<string, unknown>): void {
+    if (!this.host.getState().busy) return;
     const text = typeof params.text === 'string' ? params.text : '';
     if (text === '') return;
     this.host.patch((s) => ({ streamText: this.services.reducers.appendTextDelta(s.streamText, text) }));
@@ -205,6 +208,7 @@ export class SessionController {
 
   /**
    * 在右侧文件面板打开一个路径（含语法高亮语言推断）。
+   * F8：面板经路由写入 hash，刷新 / 前进后退可还原「正在看哪个文件」这一视图。
    * @param path 文件路径
    * @returns 异步完成
    */
@@ -220,9 +224,9 @@ export class SessionController {
           // 依据路径推断语言做语法高亮；二进制不参与。
           lang: r.isBinary ? '' : langOf(r.path),
         },
-        activePane: 'file',
-        rightOpen: true,
       });
+      // 展开右栏与激活面板由路由收口（RouteBinding.apply），避免两处状态各写一遍。
+      this.services.navigate({ pane: 'file' });
     } catch (e) {
       this.services.toast('打开失败：' + (e as Error).message, 'err');
     }

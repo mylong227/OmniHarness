@@ -26,6 +26,7 @@ import type {
 import type { CommandItem } from '../components/CommandPalette.js';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
 import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.js';
+import type { ComposerSeed } from '../shared.js';
 import { AppReducers } from './AppReducers.js';
 import { formatProfilePluginToast } from '../notify.js';
 import { SessionController } from './SessionController.js';
@@ -68,6 +69,8 @@ export interface AppState {
   streamText: string;
   /** 已被 assistant 事件收口的流式文本（用于避免最终卡片重复播渐进揭示动画）。 */
   finalizedStreamText: string;
+  /** 输入框回填指令（F4「编辑重发」：把末条用户消息填回底部输入框；null 表示无待回填内容）。 */
+  composerSeed: ComposerSeed | null;
   leftWidth: number;
   rightWidth: number;
 }

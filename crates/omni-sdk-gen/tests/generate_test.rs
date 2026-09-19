@@ -1,5 +1,5 @@
 //! 集成测试：读真实 schema fixture → 生成 Rust 代码 → 断言关键结构。
-//! 校验生成器对完整 6 方法协议 schema 的产出符合单源 schema 语义。
+//! 校验生成器对完整协议 schema（7 方法，含 threads.rewind）的产出符合单源 schema 语义。
 
 use omni_sdk_gen::{ProtocolSchema, SdkGen};
 
@@ -10,14 +10,15 @@ fn load_schema() -> ProtocolSchema {
 }
 
 #[test]
-fn generates_all_six_methods_as_struct_pairs() {
+fn generates_every_method_as_struct_pairs() {
     let code = SdkGen.generate(&load_schema());
-    // 6 个方法 → 6 对 Params/Result（12 个结构体）
+    // 每个方法一对 Params/Result 结构体（与单源 schema 的方法数一致）
     for name in [
         "ThreadsCreate",
         "ThreadsContinue",
         "ThreadsFork",
         "ThreadsGet",
+        "ThreadsRewind",
         "TurnsRun",
         "ApprovalRespond",
     ] {
@@ -52,6 +53,7 @@ fn dispatch_covers_every_method_and_unknown() {
         "threads.continue",
         "threads.fork",
         "threads.get",
+        "threads.rewind",
         "turns.run",
         "approval.respond",
     ] {

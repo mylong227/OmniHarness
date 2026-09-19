@@ -32,7 +32,7 @@ import { AssistantCard } from './stream/AssistantCard.js';
 import { UserCard } from './stream/UserCard.js';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
 import type { ThreadEvent, FileAttachment } from '../../types/models.js';
-import type { LiveInput } from '../shared.js';
+import type { ComposerSeed, LiveInput } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 import type { ToolResultView } from '../shared.js';
 
@@ -48,6 +48,8 @@ export interface StreamViewProps {
   streamText?: string;
   /** 已被 assistant 事件收口的流式文本（用于免掉最终卡片的重复揭示动画）。 */
   finalizedStreamText?: string;
+  /** 输入框回填指令（F4「编辑重发」）：透传给 Composer，把末条用户消息填回输入框。 */
+  composerSeed?: ComposerSeed | null;
   onEventClick: (ev: ThreadEvent) => void;
   /** 点击助手回复中的文件路径链接时，在右侧文件面板打开（而不是跳外链）。 */
   onOpenFile?: (path: string) => void;
@@ -60,8 +62,8 @@ export interface StreamViewProps {
   onStop?: () => void;
   /** 重新生成（最后一条助手消息挂载）。 */
   onRegenerate?: () => void;
-  /** 编辑重发（最后一条用户消息挂载，回传编辑后文本）。 */
-  onEditUser?: (text: string) => void;
+  /** 编辑重发（最后一条用户消息挂载）：把该消息填回底部输入框。 */
+  onEditUser?: () => void;
   /** 当前模型（驱动 Composer 的切换器）。 */
   model: string;
   /** 当前厂商可用模型清单（缺省时 Composer 用内置兜底）。 */
@@ -100,7 +102,7 @@ interface EventCtx {
   lastUserId: string;
   /** 最后一条助手消息 id（仅它可重新生成）。 */
   lastAssistantId: string;
-  onEditUser?: (text: string) => void;
+  onEditUser?: () => void;
   onRegenerate?: () => void;
   /** 已被 assistant 事件收口的流式文本。 */
   finalizedStreamText: string;
@@ -142,7 +144,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           ev={ev}
           busy={ctx.busy}
           canEdit={ev.id === ctx.lastUserId}
-          onEdit={(text: string) => ctx.onEditUser?.(text)}
+          onEdit={() => ctx.onEditUser?.()}
         />,
       );
     case 'assistant':
@@ -293,6 +295,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     liveInputs,
     streamText,
     finalizedStreamText,
+    composerSeed,
     onEventClick,
     onOpenFile,
     onSend,
@@ -380,6 +383,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
         reasoning={reasoning}
         permission={permission}
         threadId={threadId}
+        seed={composerSeed ?? null}
         onToast={onToast}
         onOpenTab={onOpenTab}
         onOpenFile={onOpenFile}

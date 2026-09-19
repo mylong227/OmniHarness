@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import { CodeGenerator } from '../../src/schema/codeGenerator.js';
 import { protocolSchema } from '../../src/schema/protocolSchema.js';
 
-test('schema：方法集完整（6 个原语）', () => {
-  assert.strictEqual(protocolSchema.methods.length, 6);
+test('schema：方法集完整（7 个原语，含 threads.rewind）', () => {
+  assert.strictEqual(protocolSchema.methods.length, 7);
   const names = protocolSchema.methods.map((method) => method.name);
   assert.ok(names.includes('threads.create'));
+  assert.ok(names.includes('threads.get'));
+  // 重生成依赖的服务端真回退：缺席会让「重生成」退化成「接着旧答案再来一轮」。
+  assert.ok(names.includes('threads.rewind'));
   assert.ok(names.includes('turns.run'));
   assert.ok(names.includes('approval.respond'));
 });

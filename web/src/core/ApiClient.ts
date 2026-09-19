@@ -105,6 +105,20 @@ export class ApiClient {
   public getThread(threadId: string): Promise<ThreadGetResult> {
     return this.rpc('threads.get', { threadId });
   }
+  /**
+   * 服务端回退：把持久化事件流截断到 keepEventId（含）。
+   * 「重生成」必须经此返回**服务端**再重发——只截断视图层的话，服务端 jsonl 里的旧一轮仍在，
+   * 下一回合的模型上下文照旧包含旧回答（刷新页面旧回答还会复现）。
+   * @param threadId 目标线程
+   * @param keepEventId 保留到哪条事件（含）
+   * @returns 保留/丢弃条数；失败时为 `{ ok: false, error }`（不抛错，前端直接把原因展示出来）
+   */
+  public rewindThread(
+    threadId: string,
+    keepEventId: string,
+  ): Promise<{ ok: boolean; kept?: number; dropped?: number; error?: string }> {
+    return this.rpc('threads.rewind', { threadId, keepEventId });
+  }
 
   // ---- 配置 / 审批 ----
   public getConfig(): Promise<Config> {

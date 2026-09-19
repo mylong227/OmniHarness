@@ -18,6 +18,8 @@ import { DiffReview } from '../services/diffReview.js';
 import { DiffCommentStore } from '../services/diffCommentStore.js';
 import { SessionCheckpoints } from '../services/sessionCheckpoints.js';
 import { SessionTraceService } from '../services/sessionTraceService.js';
+import { SessionRewindService } from '../services/sessionRewindService.js';
+import type { SessionRewindOutcome } from '../services/sessionRewindService.js';
 import type {
   TraceReadRequest,
   TraceReadResult,
@@ -42,6 +44,8 @@ export class AppServer extends AppServerSurfaceHandlers {
   private readonly checkpoints: SessionCheckpoints;
   /** 只读 trace 自省服务：把会话事件流投影为冻结条目（`trace.read` RPC 的后端）。 */
   private readonly trace: SessionTraceService;
+  /** 会话回退服务：把持久化事件流截断到指定事件（`threads.rewind` RPC 的后端）。 */
+  private readonly rewinder: SessionRewindService;
 
   /**
    * 装配各领域服务并注册全部 RPC 处理器与传输层监听。
@@ -69,6 +73,13 @@ export class AppServer extends AppServerSurfaceHandlers {
       logError: (message) => process.stderr.write(`[omniharness] ${message}\n`),
     });
     this.registerHandlers();
+    // 会话回退（`threads.rewind`）：读 / 写都指向**唯一事实源**（storage），
+    // 运行态判定复用 runTurn 维护的 activeTurns（运行中拒绝回退，避免两处写盘互相覆盖）。
+    this.rewinder = new SessionRewindService({
+      replay: (sessionId) => this.runtime.agent().replay(sessionId),
+      save: (sessionId, events) => this.options.config.storage.save(sessionId, events),
+      isRunning: (sessionId) => this.activeTurns.has(sessionId),
+    });
     options.transport.onMessage((message) => void this.handle(message));
     // 启动时异步探测一次当前 active 厂商（fire-and-forget，不阻塞 listen）。
     // 解决「页面刷新时模型下拉只有当前选中那一个」#OBS-4：探测拿到真实 /v1/models 后
@@ -114,6 +125,7 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.handlers.set('threads.continue', (params) => this.continueThread(params));
     this.handlers.set('threads.fork', (params) => this.forkThread(params));
     this.handlers.set('threads.get', (params) => this.getThread(params));
+    this.handlers.set('threads.rewind', (params) => this.rewindThread(params));
     this.handlers.set('turns.run', (params) => this.runTurn(params));
     this.handlers.set('turns.abort', async () => {
       // 中断在跑回合：取消令牌贯穿模型请求 fetch（见 agent.cancelCurrentRun），
@@ -411,6 +423,21 @@ export class AppServer extends AppServerSurfaceHandlers {
     const threadId = String(params['threadId'] ?? '');
     const items = await this.runtime.agent().replay(threadId);
     return { threadId, items };
+  }
+
+  /**
+   * 服务端回退线程（threads.rewind）：把持久化事件流截断到指定事件（含），使前端的
+   * 「重生成」是**真回退**而不是「接着旧答案再来一轮」。
+   *
+   * 只做截断，不重跑（重跑仍走 `turns.run`，与既有提交通路一致）；失败一律如实回 `error`
+   * 而不抛错给 RPC 层，便于前端直接把原因显示出来。
+   *
+   * @param params `{ threadId, keepEventId }` — 目标线程与保留到哪条事件（含）
+   * @returns 保留/丢弃条数，或失败原因（见 {@link SessionRewindOutcome}）
+   */
+  protected async rewindThread(params: Record<string, unknown>): Promise<SessionRewindOutcome> {
+    const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+    return this.rewinder.rewind(threadId, String(params['keepEventId'] ?? ''));
   }
 
   /**

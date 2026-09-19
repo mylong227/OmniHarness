@@ -1,5 +1,6 @@
 // 设置面板：加载运行时配置并提供模型适配器 / 模型 / 审批模式 / 沙箱 / 升级审批 / 自动审批 / 浅色主题的调整。
-// 所有改动经 api.updateConfig 落盘到 omniharness.json。
+// 所有改动经 api.updateConfig 落盘到 omniharness.json；保存成功后重新拉取配置刷新表单，
+// 涉及模型 / 适配器的改动额外刷新厂商目录，坐实「改动即时生效，UI 与生效配置不漂移」。
 //
 // 函数组件范式：配置 / 提示 / base-url / 配置集清单 / 生效插件各一个 useState；
 // 表单主体为非受控（useRef 保存 DOM 引用，含 select 的 Map 引用），加载后回填 DOM 值；
@@ -15,6 +16,9 @@ const SPACER: Record<string, string> = { height: '10px' };
 
 /** 「已保存」提示自动消隐时长（ms）。 */
 const HINT_MS = 1500;
+
+/** 改动后需要重拉厂商目录（model.catalog）的配置键：模型下拉与厂商标题随之刷新。 */
+const CATALOG_KEYS: readonly string[] = ['model', 'modelAdapter'];
 
 /** SettingsTab 组件的入参。 */
 export interface SettingsTabProps {
@@ -55,10 +59,10 @@ interface ProfileOption {
  */
 export function SettingsTab(props: SettingsTabProps): ReactElement {
   const { theme, onToggleTheme } = props;
-  const { api, toast } = useApp();
+  const { api, toast, refreshModelCatalog } = useApp();
   const [cfg, setCfg] = React.useState<Config | null>(null);
   const [savedHint, setSavedHint] = React.useState<string>('');
-  /** 自定义模型 base-url（OpenAI 兼容端点），留空回落厂商默认。 */
+  /** 自定义模型 base-url（OpenAI 兼容端点），留空＝清除覆盖、回落厂商默认。 */
   const [baseUrl, setBaseUrl] = React.useState<string>('');
   /** 配置集（profile）清单。 */
   const [profiles, setProfiles] = React.useState<ProfileOption[]>([]);
@@ -83,24 +87,34 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
     }
   };
 
+  /**
+   * 用服务端配置回填表单（挂载首拉与保存后重拉共用，避免两处取值漂移）。
+   * @param c 服务端配置
+   */
+  const applyConfig = (c: Config): void => {
+    setCfg(c);
+    setBaseUrl((c.baseUrl as string) ?? '');
+    if (modelRef.current) modelRef.current.value = c.model || '';
+    if (autoRef.current) autoRef.current.checked = !!c.autoApprove;
+    if (baseUrlRef.current) baseUrlRef.current.value = (c.baseUrl as string) ?? '';
+    for (const s of SELECTS) {
+      const el = selectRefs.current.get(s.key as string);
+      if (el) el.value = (c[s.key] as string) || '';
+    }
+  };
+
+  /** 重新拉取运行时配置并刷新表单；失败静默（保留当前表单值，不打断用户）。 @returns 异步完成 */
+  const reload = async (): Promise<void> => {
+    try {
+      applyConfig(await api.getConfig());
+    } catch {
+      /* 静默：配置不可用时保留当前表单值 */
+    }
+  };
+
   // 挂载拉取配置并回填非受控表单；同时拉配置集清单。卸载清理「已保存」定时器。
   React.useEffect(() => {
-    api
-      .getConfig()
-      .then((c) => {
-        setCfg(c);
-        setBaseUrl((c.baseUrl as string) ?? '');
-        if (modelRef.current) modelRef.current.value = c.model || '';
-        if (autoRef.current) autoRef.current.checked = !!c.autoApprove;
-        if (baseUrlRef.current) baseUrlRef.current.value = (c.baseUrl as string) ?? '';
-        for (const s of SELECTS) {
-          const el = selectRefs.current.get(s.key as string);
-          if (el) el.value = (c[s.key] as string) || '';
-        }
-      })
-      .catch(() => {
-        /* 静默：首次进入后端未就绪时保持「读取中」 */
-      });
+    void reload();
     void reloadProfiles();
     return () => {
       if (hintRef.current !== null) clearTimeout(hintRef.current);
@@ -108,16 +122,20 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
   }, [api]);
 
   /**
-   * 落盘配置并闪现「已保存」；失败上抛 toast，绝不清空用户输入。
+   * 落盘配置并闪现「已保存」；成功后重新拉取配置刷新表单（坐实改动即时生效），
+   * 命中模型 / 适配器时额外刷新厂商目录（Composer 模型下拉与厂商标题同步）。
+   * 失败上抛 toast，绝不清空用户输入。
    * @param patch 配置补丁
    */
   const save = (patch: Record<string, unknown>): void => {
     api
       .updateConfig(patch)
-      .then(() => {
+      .then(async () => {
         setSavedHint('✓ 已保存');
         if (hintRef.current !== null) clearTimeout(hintRef.current);
         hintRef.current = setTimeout(() => setSavedHint(''), HINT_MS);
+        await reload();
+        if (Object.keys(patch).some((k) => CATALOG_KEYS.includes(k))) refreshModelCatalog?.();
       })
       .catch((e: Error) => toast('保存失败：' + e.message, 'err'));
   };
@@ -149,13 +167,15 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
   };
 
   /**
-   * 自定义 base-url 变更：即时写回配置（留空回落厂商默认端点）。
+   * 自定义 base-url 变更：即时写回配置；**留空＝清除覆盖**（回落厂商默认端点）。
+   * 服务端约定：`null` 表示显式清除（`undefined` 是 no-op、空串会被当成真实端点写坏 URL 拼装），
+   * 故这里留空发送 `null`——与 `serverConfigStore.update` 的清除语义成对。
    * @param e 变更事件
    */
   const onBaseUrlChange = (e: Event): void => {
     const v = (e.target as HTMLInputElement).value.trim();
     setBaseUrl(v);
-    save(v ? { baseUrl: v } : { baseUrl: undefined });
+    save(v ? { baseUrl: v } : { baseUrl: null });
   };
 
   /**
@@ -231,7 +251,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
             ref={(el: HTMLInputElement | null) => {
               baseUrlRef.current = el;
             }}
-            placeholder="OpenAI 兼容端点（留空用厂商默认）"
+            placeholder="OpenAI 兼容端点（留空＝清除覆盖，回落厂商默认）"
             value={baseUrl}
             onChange={onBaseUrlChange}
           />

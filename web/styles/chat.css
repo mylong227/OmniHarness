@@ -153,21 +153,6 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 }
 .msg-act:hover { color:var(--text); border-color:var(--dim); background:var(--hover); }
 
-/* 用户消息内联编辑：textarea 复用输入区视觉，保存/取消成行。 */
-.user-edit {
-  width:100%; min-height:64px; resize:vertical; background:var(--bg-elev); color:var(--text);
-  border:1px solid var(--border); border-radius:9px; padding:8px 10px; font:14px/1.5 inherit;
-}
-.user-edit:focus { outline:none; border-color:var(--accent); }
-.user-edit-actions { display:flex; gap:8px; margin-top:8px; }
-.user-edit-save, .user-edit-cancel {
-  border-radius:8px; padding:6px 14px; cursor:pointer; font-size:13px;
-  border:1px solid var(--border); background:var(--panel-2); color:var(--text);
-}
-.user-edit-save { border-color:var(--ok); color:var(--ok); }
-.user-edit-save:hover { background:color-mix(in srgb, var(--ok) 14%, transparent); }
-.user-edit-cancel:hover { border-color:var(--dim); background:var(--hover); }
-
 /* 事件流内嵌附件 chip */
 .ev-attachments { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 .ev-chip {
