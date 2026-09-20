@@ -11,6 +11,11 @@
 // 函数组件范式：无内部 state（lastUserId/lastAssistantId 改渲染期局部量，不再写实例字段）；
 // 滚动锚定由依赖 [events, liveInputs] 的 effect 承接（兼作挂载即滚动）；
 // 事件 / 流式行的渲染分派下沉为模块级纯函数（避免组件体膨胀）。
+//
+// 长会话虚拟化（StreamWindow）：只渲染可视窗口 + 上下 overscan 的块，未渲染区域用占位高度顶上，
+// 于是 DOM 节点数与总条数**不成正比**（数百条会话依旧只挂几十个块节点）。
+// 贴底策略：只在「此前处于底部」时才把新事件拉到屏内；用户上滚后一律保持 scrollTop 不变。
+// 可断言信号：根节点 data-virtual / data-rendered-count / data-total-count / data-event-count。
 
 import { React } from '../deps.js';
 import {
@@ -24,6 +29,7 @@ import {
   questionView,
 } from '../format.js';
 import { buildDisplayBlocks, describeToolCall } from '../textUtils.js';
+import { StreamWindow } from '../models/StreamWindow.js';
 import { Composer } from './Composer.js';
 import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
@@ -283,6 +289,9 @@ function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: 
   return renderEventNode(b.event, ctx);
 }
 
+/** 虚拟窗口计算器：无状态，全组件共用一个实例（避免每次渲染 new）。 */
+const STREAM_WINDOW = new StreamWindow();
+
 /**
  * 事件流组件：渲染事件块、流式占位与底部输入区，并锚定滚动到底部。
  * @param props 组件入参
@@ -320,12 +329,34 @@ export function StreamView(props: StreamViewProps): ReactElement {
     disabled,
   } = props;
   const streamRef = React.useRef<HTMLDivElement | null>(null);
+  /** 上一次滚动 / 提交时的贴底状态：仅在底部才自动贴底，用户上滚后不强制拉回。 */
+  const stickyRef = React.useRef<boolean>(true);
+  /** 当前滚动偏移（驱动虚拟窗口计算）。 */
+  const [scrollTop, setScrollTop] = React.useState<number>(0);
+  /** 可视区高度（真实测量值；未测量到 0 时由 StreamWindow 用兜底高度）。 */
+  const [viewportHeight, setViewportHeight] = React.useState<number>(0);
 
-  // 新事件 / 流式输入到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
+  // 新事件 / 流式输入 / 流式正文到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
+  // 同时同步可视高度：首屏拿到 DOM 真实高度后虚拟窗口才准。
+  // 依赖含 streamText：长回答逐段变高时，处于底部的用户也能被持续贴底（上滚后 stickyRef=false 即不再拉回）。
   React.useEffect(() => {
     const el = streamRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [events, liveInputs]);
+    if (!el) return;
+    if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
+    el.scrollTop = StreamWindow.stickyScrollTop(stickyRef.current, el);
+  }, [events, liveInputs, streamText]);
+
+  /**
+   * 滚动：记录贴底状态并按真实 scrollTop 重算窗口（virtualization 的唯一驱动源）。
+   * @param e 滚动事件（零 DOM 桩下不会被触发）
+   */
+  const onScroll = (e: Event): void => {
+    const el = e.currentTarget as HTMLDivElement | null;
+    if (!el) return;
+    stickyRef.current = StreamWindow.atBottom(el);
+    if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
+    if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
+  };
 
   // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口。
   let lastUserId = '';
@@ -356,6 +387,12 @@ export function StreamView(props: StreamViewProps): ReactElement {
   };
   const blocks = buildDisplayBlocks(events, busy);
   const streaming = streamText ?? '';
+  // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。
+  const tailCount = liveInputs.length + (streaming !== '' ? 1 : 0);
+  const win = STREAM_WINDOW.compute(blocks.length, scrollTop, viewportHeight);
+  const visibleBlocks = blocks.slice(win.start, win.end);
+  const renderedCount = win.rendered + tailCount;
+  const totalCount = blocks.length + tailCount;
   return (
     <div className="col center">
       <div
@@ -364,13 +401,34 @@ export function StreamView(props: StreamViewProps): ReactElement {
         aria-live="polite"
         aria-relevant="additions"
         aria-label="对话事件流"
+        data-virtual="1"
+        data-rendered-count={String(renderedCount)}
+        data-total-count={String(totalCount)}
+        data-event-count={String(events.length)}
         ref={streamRef}
+        onScroll={onScroll}
       >
         {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
           emptyState('💬', '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
         ) : (
           <div className="stream-inner">
-            {blocks.map((b) => renderBlockNode(b, ctx))}
+            {win.padTop > 0 ? (
+              <div
+                key="stream-pad-top"
+                className="stream-pad"
+                style={{ height: win.padTop + 'px' }}
+                aria-hidden="true"
+              />
+            ) : null}
+            {visibleBlocks.map((b) => renderBlockNode(b, ctx))}
+            {win.padBottom > 0 ? (
+              <div
+                key="stream-pad-bottom"
+                className="stream-pad"
+                style={{ height: win.padBottom + 'px' }}
+                aria-hidden="true"
+              />
+            ) : null}
             {liveInputs.map((li) => renderLiveInputRow(li))}
             {streaming !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streaming} /> : null}
           </div>

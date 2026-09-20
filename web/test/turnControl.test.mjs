@@ -68,7 +68,7 @@ function makeController(host, api) {
     dialogSvc: {},
     navigate: () => {},
   };
-  const sessions = { async refreshSessions() {} };
+  const sessions = { async refreshSessions() {}, flushStream() {} };
   return new ComposerController(host, services, sessions);
 }
 
@@ -243,7 +243,7 @@ test('regenerate：服务端回退失败 ⇒ 不重发、不假装成功（toast
     dialogSvc: {},
     navigate: () => {},
   };
-  const ctrl = new ComposerController(host, services, { async refreshSessions() {} });
+  const ctrl = new ComposerController(host, services, { async refreshSessions() {}, flushStream() {} });
   await ctrl.regenerate();
 
   assert.equal(api.runTurnCalls.length, 0, '服务端未回退时绝不重发（否则等于接着旧答案追加一轮）');
@@ -284,7 +284,7 @@ test('regenerate 无用户消息时仅轻提示、不发起请求', async () => 
     dialogSvc: {},
     navigate: () => {},
   };
-  const ctrl = new ComposerController(host, services, { async refreshSessions() {} });
+  const ctrl = new ComposerController(host, services, { async refreshSessions() {}, flushStream() {} });
   await ctrl.regenerate();
   assert.equal(api.runTurnCalls.length, 0);
   assert.equal(toasts[0], '没有可重生成的用户消息');
@@ -334,7 +334,7 @@ test('editLastUser：无用户消息时仅轻提示', () => {
     dialogSvc: {},
     navigate: () => {},
   };
-  const ctrl = new ComposerController(host, services, { async refreshSessions() {} });
+  const ctrl = new ComposerController(host, services, { async refreshSessions() {}, flushStream() {} });
   ctrl.editLastUser();
   assert.equal(state.composerSeed, null, '无用户消息不得写入回填指令');
   assert.equal(toasts[0], '没有可编辑的用户消息');
