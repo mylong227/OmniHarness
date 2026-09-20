@@ -61,7 +61,13 @@ export class RunWorkflowTool {
         maxConcurrency: def.maxConcurrency ?? DEFAULT_WORKFLOW_CONCURRENCY,
       });
       const result = await runner.run(def);
-      return { callId: call.id, ok: true, output: this.render(result) };
+      // `run()` 正常返回 ≠ 全部步骤成功：成败事实是 `result.ok`（含「上游依赖失败被跳过」的传递失败）。
+      // 失败时把同一份渲染文本放进 `error`——`ContextAssembler.toolContentOf` 对 ok=false 只渲染
+      // error，放进 output 模型就看不到失败原因（语义与同族 `subagentTool` 的失败分支对齐）。
+      const rendered = this.render(result);
+      return result.ok
+        ? { callId: call.id, ok: true, output: rendered }
+        : { callId: call.id, ok: false, error: rendered };
     } catch (error) {
       if (error instanceof WorkflowCycleError) {
         return { callId: call.id, ok: false, error: error.message };

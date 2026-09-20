@@ -125,7 +125,13 @@ export class DeterministicCompressor {
   /**
    * 超长输出截断：保留头部与尾部，**中段替换为带原始行数的省略标记**。
    * 省略标记保留可追溯信息（共几行、省略几行），不制造幻觉。
-   * 幂等：行数 ≤ maxLines 时原样返回。
+   * 幂等：行数 ≤ maxLines 时原样返回；截断结果自身行数也**恒 ≤ maxLines**
+   * （省略标记占 1 行的预算已计入），故再压缩一次仍是稳定点。
+   * @param text 待截断的单条文本。
+   * @param maxLines 截断后允许的最大行数（含省略标记行）。
+   * @param headLines 期望保留的头部行数（超过预算时按预算收敛）。
+   * @param tailLines 期望保留的尾部行数（超过预算时按预算收敛）。
+   * @returns 截断后的文本；行数未超限时逐字节原样返回。
    */
   public truncateLongOutput(
     text: string,
@@ -137,8 +143,12 @@ export class DeterministicCompressor {
     if (lines.length <= maxLines) {
       return text;
     }
-    const keep = Math.max(0, Math.min(headLines, lines.length));
-    const tailKeep = Math.max(0, Math.min(tailLines, lines.length - keep));
+    // 预算分配：省略标记恒占 1 行，头部/尾部在该预算内按 headLines/tailLines 收敛。
+    // 原实现只按 lines.length 收敛、与 maxLines 无关，当 headLines+tailLines ≥ maxLines 时
+    // 会「保留全部行 + 追加标记」⇒ 文本逐轮变长、幂等/单调失效、ratio > 1。
+    const budget = Math.max(0, maxLines - 1);
+    const keep = Math.max(0, Math.min(headLines, budget, lines.length));
+    const tailKeep = Math.max(0, Math.min(tailLines, budget - keep, lines.length - keep));
     const head = lines.slice(0, keep);
     const tail = tailKeep > 0 ? lines.slice(lines.length - tailKeep) : [];
     const omitted = lines.length - keep - tailKeep;

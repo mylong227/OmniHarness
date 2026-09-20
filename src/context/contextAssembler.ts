@@ -5,6 +5,7 @@ import type {
   ModelMessage,
   ModelToolCallRef,
 } from '../ports/model/model.js';
+import { COMPACTION_MARKER } from './contextCompactor.js';
 
 /** 上下文组装器：固定碎片（world_state）+ 事件日志投影 → 模型消息（model-visible means logged）。 */
 export class ContextAssembler {
@@ -83,9 +84,17 @@ export class ContextAssembler {
    */
   private append(messages: ModelMessage[], event: SessionEvent): void {
     switch (event.type) {
-      case 'system':
-        messages.push({ role: 'system', content: this.contentOf(event) });
+      case 'system': {
+        const content = this.contentOf(event);
+        // 压缩游标是**内部记账**（供 `StepContextBuilder.restoreCompactionState` 崩溃恢复），
+        // 不是给模型的内容：投影时剔除。不剔除的实害有两层——模型每步多读一份与摘要正文
+        // 重复的副本（游标正文就是全文摘要），并读到 `OMNI_COMPACTION_V1 upTo=… hash=…`
+        // 这类内部标记（纯噪声 + 暴露内部实现）。事件本身仍留在日志里，恢复逻辑不受影响。
+        if (!content.startsWith(COMPACTION_MARKER)) {
+          messages.push({ role: 'system', content });
+        }
         break;
+      }
       case 'user': {
         const images = this.imagesOf(event);
         const files = this.filesOf(event);

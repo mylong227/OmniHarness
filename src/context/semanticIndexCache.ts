@@ -130,8 +130,11 @@ export class SemanticIndexCache {
       return;
     }
     // 缓存键形如 `<chunk|nochunk>|<rep>|<root>`，按 root 失效须清掉该 root 下全部变体。
+    // 注意 root 前有**两个**分隔符（配置位 + 表示位），故必须按**最后一个** `|` 切分：
+    // 原实现用 `indexOf('|')` 只切掉配置位，比较串变成 `snip600|<root>`，与 root 永不相等
+    // ⇒ 整个方法实为空操作（语义索引在语料失效/清空后仍被命中，静默脏读）。
     for (const k of [...this.cache.keys()]) {
-      if (k.slice(k.indexOf('|') + 1) === root) {
+      if (k.slice(k.lastIndexOf('|') + 1) === root) {
         this.cache.delete(k);
       }
     }
