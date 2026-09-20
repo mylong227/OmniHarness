@@ -23,6 +23,10 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   'grep',
   'glob',
   'memory_search',
+  // 跨会话长期记忆检索（只读）：memory_search 的姊妹工具，同样只读不写（remember 才是写类，不放行）。
+  'recall',
+  // 读回被外溢的完整工具输出（只读）：不读回则大输出在 plan 模式下永远取不到全文。
+  'spill_read',
   'plan_read',
   'plan_write',
   'plan_present',
@@ -36,7 +40,9 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   'tool_search',
   'policy_eval',
   'agent_identity',
-  // LSP 查询（只读）
+  // LSP 查询（只读）。全族必须齐：漏登记即被 fail-closed 误拒（`lsp_workspace_symbols`
+  // 由 `ConfigToolRegistry.registerAuxiliaryTools` 在 `lsp.workspaceSymbols` 存在时注册，
+  // 曾漏登记 —— 见 tests/unit/planApprovalReadonlyTools.test.ts）。
   'lsp_go_to_definition',
   'lsp_find_references',
   'lsp_hover',
@@ -44,6 +50,7 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   'lsp_diagnostics',
   'lsp_document_symbols',
   'lsp_code_action',
+  'lsp_workspace_symbols',
 ]);
 
 /** 规划模式审批选项。 */

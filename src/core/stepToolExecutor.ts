@@ -13,11 +13,15 @@ import type { StepRunnerDeps } from './stepTypes.js';
  * 职责单一：把模型本步发出的工具调用，按
  * **门禁 → pre 钩子 → （native FFI | JS）执行 → post 钩子 → 结果记录** 的固定链路落地。
  *
- * 三条不可动的行为约束（抽类时逐字保留，均有实测背景）：
+ * 四条不可动的行为约束（抽类时逐字保留，均有实测背景）：
  *  1. `pre` 钩子必须先于任何执行路径——放到执行之后会退化为事后通知，既拦不住也记不准；
- *  2. `pre` 自身抛错直接向上抛，**绝不回退重跑**，否则写类工具会被执行两次；
+ *  2. 工具链路任何环节抛错都**绝不回退重跑**（原生已执行成功后再回退 JS 会双写），
+ *     且必须**补录失败 tool_result**——见 {@link StepToolExecutor.runToolCall}；
  *  3. native 路径与 JS 路径的「记录 / post 钩子」顺序不同（native 先记录后 post、
- *     JS 先 post 后记录），且写类工具成功后都要失效 repo-map 缓存。
+ *     JS 先 post 后记录），且写类工具成功后都要失效 repo-map 缓存；
+ *  4. 每个 `tool_call` 事件都必须在同一批内落下配对的 `tool_result`——
+ *     缺一条就会投影出「未被 `tool` 消息响应的 `assistant(tool_calls)`」，上游
+ *     OpenAI/DeepSeek 兼容端点直接 HTTP 400（wire 层硬要求）。
  */
 export class StepToolExecutor {
   /** 工具门禁（审批 + 沙箱 + 计划态 + 监督否决）：native 与 JS 路径共用。 */
@@ -55,19 +59,28 @@ export class StepToolExecutor {
    */
   public async run(calls: readonly ToolCall[], context: ToolContext): Promise<void> {
     await this.scheduler.run(calls, async (call) => {
-      await this.runToolCall(call, context);
-      return { callId: call.id, ok: true };
+      const ok = await this.runToolCall(call, context);
+      return { callId: call.id, ok };
     });
   }
 
   /**
    * 执行单个工具调用（审批 → 沙箱 → pre 钩子 → 执行 → post 钩子）。
    *
+   * **配对不变量**：本方法一旦落下 `tool_call` 事件，就保证在同一批内落下配对的
+   * `tool_result`（成功结果、门禁拒绝、或本方法兜底的失败结果三选一）。此前
+   * `pre` 钩子/记录环节抛出的异常会被 {@link ToolScheduler} 的 `safeExecute` 转成
+   * `failed ToolResult`，而调用点**丢弃返回值** ⇒ 事件日志留下孤儿 `tool_call`：
+   * 投影出的 `assistant(tool_calls)` 含未被响应的 `tool_call_id`，上游端点 HTTP 400。
+   *
+   * **绝不回退重跑**：原生后端一旦「执行成功」（`runTool` 正常返回），此后记录/钩子
+   * 再抛错也**不**回退 JS 路径——否则原生 + JS 各跑一次，写类工具双写、shell 双跑。
+   *
    * @param call 单个工具调用。
    * @param context 工具上下文。
-   * @returns 该调用走完整条链路后的 Promise。
+   * @returns 该调用是否成功（门禁拒绝、执行失败、链路异常均为 false）。
    */
-  private async runToolCall(call: ToolCall, context: ToolContext): Promise<void> {
+  private async runToolCall(call: ToolCall, context: ToolContext): Promise<boolean> {
     // 审批 + 沙箱门禁（用户配置策略层）：native 与 JS 路径共用同一道门禁，
     // 保证 --approval / --sandbox 在两种后端下行为一致（修复 #66 旁路缺陷）。
     const denied = await this.gate.gate(call, context.sessionId);
@@ -77,7 +90,7 @@ export class StepToolExecutor {
       // 会产出 tool_call_id 悬空的 tool 消息，发给模型时触发 HTTP 400。补 toolCall 使配对合法。
       this.deps.recorder.toolCall(call.id, call.name, call.arguments);
       this.deps.recorder.toolResult(denied.callId, false, undefined, denied.error);
-      return;
+      return false;
     }
     log.info('tool.call', { tool: call.name, callId: call.id });
     this.deps.recorder.toolCall(call.id, call.name, call.arguments);
@@ -87,36 +100,56 @@ export class StepToolExecutor {
       target: this.targetOf(call),
       args: call.arguments,
     };
-    // pre 钩子必须先于任何执行路径（native FFI / JS）：pre 的语义是「执行前拦截/审计」，
-    // 放到执行之后就退化成事后通知，既拦不住也记不准。
-    // pre 自身抛错直接向上抛——绝不回退重跑，否则写类工具会被执行两次。
-    if (this.deps.hooks !== undefined) {
-      await this.deps.hooks.pre(hookContext);
-    }
-    // FFI 热路径（#66）：pre 之后才真正执行；内部失败回退下方 JS 路径
-    //（门禁已通过、pre 已执行一次，回退时不重复跑 pre）。
-    if (this.deps.native !== undefined) {
-      try {
-        const result = this.deps.native.runTool(call);
-        await this.recordToolResult(call.name, result, context.sessionId);
-        if (this.deps.hooks !== undefined) {
-          await this.deps.hooks.post(hookContext, result);
-        }
-        // U4：原生后端路径同样在写类工具成功执行后失效 repo-map 缓存。
-        this.maybeInvalidateRepoMap(call, result);
-        return;
-      } catch {
-        log.debug('tool.native.fallback', { tool: call.name, callId: call.id });
+    // 结果是否已落事件流：catch 里据此决定「补录失败结果」还是「只是重抛已记录的结果」。
+    let recorded = false;
+    try {
+      // pre 钩子必须先于任何执行路径（native FFI / JS）：pre 的语义是「执行前拦截/审计」，
+      // 放到执行之后就退化成事后通知，既拦不住也记不准。
+      if (this.deps.hooks !== undefined) {
+        await this.deps.hooks.pre(hookContext);
       }
+      // FFI 热路径（#66）：pre 之后才真正执行；**仅「原生执行本身失败」**才回退下方 JS 路径
+      //（门禁已通过、pre 已执行一次，回退时不重复跑 pre）。记录/钩子失败不算原生执行失败。
+      if (this.deps.native !== undefined) {
+        let nativeResult: ToolResult | undefined;
+        try {
+          nativeResult = this.deps.native.runTool(call);
+        } catch {
+          log.debug('tool.native.fallback', { tool: call.name, callId: call.id });
+        }
+        if (nativeResult !== undefined) {
+          await this.recordToolResult(call.name, nativeResult, context.sessionId);
+          recorded = true;
+          if (this.deps.hooks !== undefined) {
+            await this.deps.hooks.post(hookContext, nativeResult);
+          }
+          // U4：原生后端路径同样在写类工具成功执行后失效 repo-map 缓存。
+          this.maybeInvalidateRepoMap(call, nativeResult);
+          return nativeResult.ok;
+        }
+      }
+      const result = await this.deps.tools.execute(call, context);
+      if (this.deps.hooks !== undefined) {
+        await this.deps.hooks.post(hookContext, result);
+      }
+      // 钩子拿到完整结果（持久化/观测无损），入模型上下文前再外溢。
+      await this.recordToolResult(call.name, result, context.sessionId);
+      recorded = true;
+      // U4：写类工具成功执行后主动失效 repo-map 缓存（消除 30s TTL 陈旧窗口）。
+      this.maybeInvalidateRepoMap(call, result);
+      return result.ok;
+    } catch (error) {
+      if (!recorded) {
+        // 兜底配对：链路异常（pre 钩子抛错 / 工具端口抛错 / 外溢落盘失败等）必须让模型
+        // 看到一条失败结果，绝不留孤儿 tool_call（否则下一步请求 HTTP 400）。
+        const message = error instanceof Error ? error.message : String(error);
+        const text = `工具执行异常: ${message}`;
+        log.warn('tool.call.failed', { tool: call.name, callId: call.id, error: message });
+        this.deps.recorder.toolResult(call.id, false, undefined, text);
+        this.deps.supervisor?.report(call.name, 'failure', text);
+      }
+      return false;
     }
-    const result = await this.deps.tools.execute(call, context);
-    if (this.deps.hooks !== undefined) {
-      await this.deps.hooks.post(hookContext, result);
-    }
-    // 钩子拿到完整结果（持久化/观测无损），入模型上下文前再外溢。
-    await this.recordToolResult(call.name, result, context.sessionId);
-    // U4：写类工具成功执行后主动失效 repo-map 缓存（消除 30s TTL 陈旧窗口）。
-    this.maybeInvalidateRepoMap(call, result);
   }
 
   /**

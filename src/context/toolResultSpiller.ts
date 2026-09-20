@@ -41,10 +41,28 @@ export class ToolResultSpiller {
     return this.replace(result, this.render(content, handle.id, handle.bytes));
   }
 
-  /** 用替代文本替换原输出（保持另一字段原样）。 */
+  /** 用替代文本替换原输出（保持另一字段原样）。
+   * @param result 原始工具结果。
+   * @param text 外溢后的「有界预览 + 读回指引」文本。
+   * @returns 替换后的结果（被替换的字段是**模型真正会读到的那个**，另一字段原样保留）。
+   */
   private replace(result: ToolResult, text: string): ToolResult {
     const base = { callId: result.callId, ok: result.ok };
-    return result.output !== undefined ? { ...base, output: text } : { ...base, error: text };
+    // 失败结果必须替换 `error`：`ContextAssembler.toolContentOf` 对 ok=false 只渲染 error，
+    // 原实现无条件替换 output 并把 error 丢掉 ⇒ 模型只看到「工具执行失败: 未知错误」，
+    // 既丢了失败原因，也永远拿不到 spill:// 读回句柄（大输出在失败路径上必被外溢）。
+    if (!result.ok && result.error !== undefined) {
+      return {
+        ...base,
+        error: text,
+        ...(result.output !== undefined ? { output: result.output } : {}),
+      };
+    }
+    return {
+      ...base,
+      output: text,
+      ...(result.error !== undefined ? { error: result.error } : {}),
+    };
   }
 
   /** 渲染给模型的替代文本：有界预览 + 省略量 + 读回指引。 */

@@ -99,21 +99,31 @@ export class StepContextBuilder {
         this.stateRestored = true;
         this.compactionState = this.restoreCompactionState(events);
       }
-      const result = await compactor.compact(projected, this.compactionState);
+      const previous = this.compactionState;
+      const result = await compactor.compact(projected, previous);
       if (result.state !== undefined) {
         // 游标持久化：写回事件日志（system 事件），崩溃/重启后可恢复，跨步复用摘要。
+        //
+        // **只在游标变化时写回**：压缩快路径每步都返回**同一个** state，无条件写回会让同一份
+        // `OMNI_COMPACTION_V1`（正文即全文摘要）在长会话里逐步骤增——实测第 4 步的请求体里
+        // 已含 4 份摘要副本 + 3 行内部游标标记，白烧 prompt token 并稀释注意力。
+        // 恢复只认**最后一条**标记（见 {@link restoreCompactionState}），少写不影响崩溃恢复。
         this.compactionState = result.state;
-        this.deps.recorder.system(encodeCompactionState(result.state));
-      } else if (result.compacted && this.compactionState === undefined) {
-        // 无游标路径（head 为空的退化压缩）：维持旧行为的提示文本。
+        if (
+          previous === undefined ||
+          encodeCompactionState(previous) !== encodeCompactionState(result.state)
+        ) {
+          this.deps.recorder.system(encodeCompactionState(result.state));
+        }
+      } else if (result.compacted && previous === undefined) {
+        // 无游标路径（head 为空的退化压缩）：维持旧行为的提示文本（仅首次，避免每步重复）。
         this.deps.recorder.system(
           `上下文压缩: 已折叠较早历史（摘要 ${result.summary?.length ?? 0} 字）`,
         );
-      } else if (result.compacted && this.compactionState !== undefined) {
-        this.deps.recorder.system(
-          `上下文压缩: 复用既有摘要（游标 upTo=${this.compactionState.compactedUpTo}）`,
-        );
       }
+      // 注：原先还有一支 `compacted && 游标已存在` 的「复用既有摘要」提示——它每步都写一条
+      // 内容相同的 system 事件，是纯粹的逐步骤增噪声（压缩是否发生已由游标事件与 model 快照体现），
+      // 故删除该分支。
       messages = [...result.messages];
     }
     // 动态段（repo-map）置于尾部：前置（world_state + 常驻指令 + 事件历史）跨回合稳定，
