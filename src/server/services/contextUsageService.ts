@@ -1,5 +1,5 @@
 import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { ModelContextSnapshot, ModelUsage } from '../../ports/model/model.js';
+import type { ModelContextSnapshot } from '../../ports/model/model.js';
 import type { ToolDefinition } from '../../ports/tool/tool.js';
 import { ContextAssembler } from '../../context/contextAssembler.js';
 import {
@@ -8,6 +8,7 @@ import {
   type ContextBreakdownRow,
 } from '../../context/contextBreakdownEstimator.js';
 import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
+import { CacheHitRateWatch } from '../../observability/cacheHitRateWatch.js';
 
 /** 提示缓存命中统计（当前会话）。 */
 export interface ContextCacheStat {
@@ -84,6 +85,8 @@ export class ContextUsageService {
   private readonly breakdown = new ContextBreakdownEstimator();
   /** 模型上下文窗口表（按模型名查窗口 token 数）。 */
   private readonly windows = new ContextWindowCatalog();
+  /** 命中率坍塌观测器（阈值取自 `OMNI_CACHE_HIT_WARN`，默认 50%）。 */
+  private readonly cacheWatch = new CacheHitRateWatch();
 
   /**
    * @param deps 回放 / 工具 / 常驻片段 / 当前模型四个取值器
@@ -108,6 +111,8 @@ export class ContextUsageService {
       return this.emptyReport(threadId, windowTokens);
     }
     const cache = this.cacheStat(events);
+    // 命中率坍塌观测（缺口 C）：只发 warn 级结构化日志，**不阻断**任何业务路径。
+    this.cacheWatch.inspect(cache);
     const snapshot = this.latestSnapshot(events);
     if (snapshot !== undefined) {
       const breakdown = this.breakdown.breakdownOf(snapshot);
@@ -186,6 +191,17 @@ export class ContextUsageService {
 
   /**
    * 汇总当前会话的提示缓存命中率（只统计上报了缓存字段的调用）。
+   *
+   * 口径与防御（都有单测）：
+   *  - **按 token 加权**：`Σ cached / Σ prompt`，不是「每次调用命中率的算术平均」——
+   *    后者会被短请求放大（一次 10 token 的 0% 命中能盖掉一次 10 万 token 的 90% 命中）。
+   *  - 缺 `cachedPromptTokens` 的调用**整条排除**（不计入 calls）：`ModelUsage` 里该字段
+   *    缺省即「端点没上报」，与「上报了 0」语义不同，混算会让命中率系统性偏低。
+   *  - 脏 payload（`usage` 非对象、token 非有限数 / 负数）整条忽略：污染一个 NaN 就能让
+   *    整会话命中率变成 NaN，进而把 UI 的 `%` 与下游告警一起毒化。
+   *  - `cachedPromptTokens > promptTokens`（端点脏值）在该条内**钳制到 promptTokens**，
+   *    使命中率天然 ≤100%，无需在除法处再特判。
+   *  - `promptTokens` 合计为 0 时 `hitRate` 记 0（不产生 NaN / Infinity）。
    * @param events 会话事件序列。
    * @returns 缓存命中统计（无上报调用时 calls=0 且 hitRate 缺省）。
    */
@@ -195,10 +211,10 @@ export class ContextUsageService {
     let calls = 0;
     for (const event of events) {
       if (event.type !== 'model') continue;
-      const usage = (event.payload as { usage?: ModelUsage } | undefined)?.usage;
-      if (usage === undefined || usage.cachedPromptTokens === undefined) continue;
-      promptTokens += usage.promptTokens;
-      cachedPromptTokens += usage.cachedPromptTokens;
+      const sample = this.cacheSampleOf(event);
+      if (sample === undefined) continue;
+      promptTokens += sample.promptTokens;
+      cachedPromptTokens += sample.cachedPromptTokens;
       calls += 1;
     }
     if (calls === 0) {
@@ -210,6 +226,37 @@ export class ContextUsageService {
       calls,
       hitRate: promptTokens > 0 ? Math.round((cachedPromptTokens / promptTokens) * 1000) / 10 : 0,
     };
+  }
+
+  /**
+   * 从单条 model 事件里取一份**可用**的缓存样本（脏数据一律返回 undefined）。
+   * @param event 会话事件（调用方已确认 type === 'model'）。
+   * @returns 钳制后的 `{promptTokens, cachedPromptTokens}`；字段缺失 / 非有限数 / 负数时 undefined。
+   */
+  private cacheSampleOf(event: SessionEvent):
+    | {
+        promptTokens: number;
+        cachedPromptTokens: number;
+      }
+    | undefined {
+    const usage = (event.payload as { usage?: unknown } | undefined)?.usage;
+    if (usage === null || typeof usage !== 'object') return undefined;
+    const record = usage as Record<string, unknown>;
+    const prompt = this.finiteNonNegative(record['promptTokens']);
+    const cached = this.finiteNonNegative(record['cachedPromptTokens']);
+    // 无上报（cached === undefined）整条排除；无分母（prompt === undefined）无法加权，同样排除。
+    if (prompt === undefined || cached === undefined) return undefined;
+    return { promptTokens: prompt, cachedPromptTokens: Math.min(cached, prompt) };
+  }
+
+  /**
+   * 窄化为有限非负数（NaN / Infinity / 负数 / 非 number 一律 undefined）。
+   * @param raw 待窄化的任意值。
+   * @returns 有限非负数；不满足时 undefined。
+   */
+  private finiteNonNegative(raw: unknown): number | undefined {
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return undefined;
+    return raw;
   }
 
   /**

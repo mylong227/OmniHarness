@@ -10,6 +10,11 @@ import type {
   ModelUsage,
   StreamCallbacks,
 } from '../../ports/model/model.js';
+import {
+  AnthropicCacheBreakpoints,
+  type AnthropicWireBlock,
+  type AnthropicWireMessage,
+} from './anthropicCacheBreakpoints.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser } from './sseParser.js';
 
@@ -31,6 +36,8 @@ export class AnthropicModel implements ModelPort {
   public readonly name: string;
   /** 提示缓存读取器：Anthropic 用 `cache_read_input_tokens` 表达命中。 */
   private readonly promptCache = new PromptCacheUsageReader();
+  /** 滚动缓存断点规划器：system + 最近若干轮 user 消息共 ≤4 个断点（纯函数）。 */
+  private readonly cacheBreakpoints = new AnthropicCacheBreakpoints();
 
   public constructor(
     /** 适配器配置：端点、密钥、模型标识与输出上限。 */
@@ -94,7 +101,8 @@ export class AnthropicModel implements ModelPort {
     return `${this.config.baseUrl}/v1/messages`;
   }
 
-  /** 构造请求。
+  /**
+   * 构造请求。
    * @param request 模型请求（system 被剥离为独立字段并打 ephemeral 缓存断点）。
    * @returns 可直接交给 fetch 的 RequestInit（POST、协议头、JSON 请求体与可选取消信号）。
    */
@@ -103,22 +111,42 @@ export class AnthropicModel implements ModelPort {
     return {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({
-        model: this.config.model,
-        max_tokens: this.config.maxTokens ?? 4096,
-        // V2.1（C10 prompt caching）：system 作为独立 text block 并打上 ephemeral
-        // 缓存断点——system 前缀跨回合稳定（不变内容 + 追加），命中缓存可省重复
-        // 计费 token。Anthropic 专属字段；system 缺省时保持原行为（不带该字段）。
-        ...(system !== undefined
-          ? {
-              system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-            }
-          : {}),
-        messages,
-        tools: this.toTools(request.tools),
-      }),
+      body: JSON.stringify(this.wireBody(system, messages, request.tools)),
       // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
       ...(request.signal !== undefined ? { signal: request.signal } : {}),
+    };
+  }
+
+  /**
+   * 组装请求体：system 独立成 text block，消息侧按**滚动窗口**打缓存断点。
+   *
+   * 前缀稳定性：断点只**追加/前移**，不重排消息顺序、不插入动态内容，
+   * 因此第 N 轮发出的前缀在第 N+1 轮仍是逐字节前缀（`prefix-stability.mjs` 度量的不变量）。
+   *
+   * @param system 剥离出的 system 文本（undefined 表示无 system 段）。
+   * @param messages 已剥离 system 的 wire 消息（tool 角色已映射为 user）。
+   * @param tools 统一工具规格列表（转 Anthropic tools 结构）。
+   * @returns 可直接 JSON.stringify 的请求体对象。
+   */
+  private wireBody(
+    system: string | undefined,
+    messages: readonly AnthropicWireMessage[],
+    tools: readonly ModelToolSpec[],
+  ): Record<string, unknown> {
+    const plan = this.cacheBreakpoints.plan(messages, system !== undefined);
+    return {
+      model: this.config.model,
+      max_tokens: this.config.maxTokens ?? 4096,
+      // V2.1（C10 prompt caching）：system 作为独立 text block 并打上 ephemeral
+      // 缓存断点——system 前缀跨回合稳定（不变内容 + 追加），命中缓存可省重复
+      // 计费 token。Anthropic 专属字段；system 缺省时保持原行为（不带该字段）。
+      ...(system !== undefined
+        ? {
+            system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+          }
+        : {}),
+      messages: plan.messages,
+      tools: this.toTools(tools),
     };
   }
 
@@ -140,7 +168,7 @@ export class AnthropicModel implements ModelPort {
    */
   private splitSystem(messages: readonly ModelMessage[]): {
     system?: string | undefined;
-    messages: unknown[];
+    messages: AnthropicWireMessage[];
   } {
     const system = messages
       .filter((message) => message.role === 'system')
@@ -162,7 +190,7 @@ export class AnthropicModel implements ModelPort {
    * @returns 纯文本时返回字符串；含视觉输入时返回 [text, ...image, ...附件说明] 分段数组，
    *          图像以 url 或 base64 source 表达，非图片文件降级为文本说明。
    */
-  private toWireContent(message: ModelMessage): unknown {
+  private toWireContent(message: ModelMessage): string | AnthropicWireBlock[] {
     const images = message.images;
     const imageFiles = (message.files ?? []).filter((f) => f.mediaType.startsWith('image/'));
     const textFiles = (message.files ?? []).filter((f) => !f.mediaType.startsWith('image/'));
