@@ -32,6 +32,9 @@ export type { AgentResult };
 const SKILL_SPARSE_MAX = 5;
 const SKILL_SPARSE_MIN_KEEP = 3;
 
+/** 长期记忆 primer 产物的内容特征前缀（与 `injectMemoryPrimer` 拼出的开场文本同源）。 */
+const MEMORY_PRIMER_MARKER = '【长期记忆 · 开工前对齐】';
+
 /** Agent 总编排：建会话 → 记录输入 → 跑回合 → 持久化。 */
 export class Agent implements AgentPort {
   /** 当前在跑会话的取消令牌（V2）：cancel() 可中断模型请求（signal 贯穿 fetch）。 */
@@ -172,13 +175,8 @@ export class Agent implements AgentPort {
         sessionId,
         this.runtime.retrieval,
       );
-      this.injectSkills(recorder, prompt);
-      // 长期记忆 primer（#4.2 读取策略）：默认关闭——会把跨会话 fact 拼成"【长期记忆 · 开工前对齐】..."
-      // 注入开场 system，模型会在首条回复照原文复述，对终端用户造成"被系统重复念"的视觉噪声。
-      // 真需要复用跨会话 fact 时，显式启用：`export OMNI_MEMORY_PRIMER=1` 后再起服务。
-      if (process.env.OMNI_MEMORY_PRIMER === '1') {
-        this.injectMemoryPrimer(recorder, prompt, sessionId);
-      }
+      // 开场注入（技能 + 可选长期记忆 primer）：判重与理由见 injectSessionPreamble。
+      this.injectSessionPreamble(recorder, eventLog, prompt, sessionId);
       // 新会话打工作区标记（session_meta）：供 UI 按项目收纳会话；resume/fork 已随历史带标记。
       if (mode === 'run') {
         recorder.sessionMeta(this.runtime.config.workspaceRoot);
@@ -259,10 +257,11 @@ export class Agent implements AgentPort {
    * 按需注入命中技能（作为 system 事件进日志 → 投影进模型上下文）。
    * @param recorder 会话记录器，命中的技能文本经其写为 system 事件。
    * @param prompt 用户 prompt，作为技能匹配（keywords/触发规则）的输入。
+   * @param log 事件日志（含 hydrate 进来的历史）：用于判断某条技能文本是否已注入过。
    
  * @returns 无返回值。
 */
-  private injectSkills(recorder: SessionRecorder, prompt: string): void {
+  private injectSkills(recorder: SessionRecorder, prompt: string, log: AppendOnlyEventLog): void {
     if (this.skills === undefined) {
       return;
     }
@@ -270,9 +269,81 @@ export class Agent implements AgentPort {
     // 降低上下文噪声；预算与豁免判据见 skillSparsifier（确定性，无随机源）。
     const matched = this.skills.match(prompt);
     const sparse = this.skillSparsifier.sparsify(matched, prompt.toLowerCase());
+    // 逐条判重（判重点是「保留每回合匹配」而非「一会话只算一次」）：同一条技能文本不重复注入，
+    // 但任务转向后新命中的技能仍会注入——任务能力不因判重而丢。
+    const seen = Agent.injectedContents(log);
     for (const skill of sparse.kept) {
-      recorder.system(this.skills.render(skill));
+      const rendered = this.skills.render(skill);
+      if (seen.has(rendered)) continue;
+      recorder.system(rendered);
     }
+  }
+
+  /**
+   * 收集历史里已注入过的 system 文本（判重用的集合）。
+   * @param log 事件日志
+   * @returns 已注入的 system 文本集合（空串不计）
+   */
+  private static injectedContents(log: AppendOnlyEventLog): ReadonlySet<string> {
+    const out = new Set<string>();
+    for (const event of log.byType('system')) {
+      const payload = event.payload as { content?: unknown } | null | undefined;
+      const content = payload === null || payload === undefined ? undefined : payload.content;
+      if (typeof content === 'string' && content !== '') out.add(content);
+    }
+    return out;
+  }
+
+  /**
+   * 会话开场注入：技能（命中才注入）+ 可选长期记忆 primer，**每会话只注入一次**（不是每回合）。
+   *
+   * 缺陷背景（2026-09-19 实测）：`resume`/`fork` 会先 `hydrate` 历史，而注入原先无条件执行
+   * ⇒ 同一段技能指令在长会话里出现 N 次（第 3 轮就有 3 份）。后果两层：① 上下文与 token 白烧
+   * （每轮多一份重复 system）；② 模型反复读到同样的「规则」，反而稀释注意力。
+   *
+   * 判据：技能按**逐条渲染文本**判重（`SkillRegistry.render` 的完整产物，同技能⇒同文本），
+   * 保留每回合重新匹配的能力；primer 按内容特征前缀 {@link MEMORY_PRIMER_MARKER} 判重。
+   * 故改渲染格式必须同步这条前缀常量（有单测钉住注入次数）。
+   *
+   * primer 默认关闭：它会把跨会话 fact 拼成开场 system，模型常在首条回复照原文复述，
+   * 对终端用户造成「被系统重复念」的噪声。需要时用 `OMNI_MEMORY_PRIMER=1` 显式启用。
+   *
+   * @param recorder 会话记录器（注入经其写为 system 事件）
+   * @param log 事件日志（resume/fork 时已 hydrate 历史，用于判重）
+   * @param prompt 本回合用户指令（技能匹配的输入）
+   * @param sessionId 会话 ID（记忆 primer 用它排除本会话刚沉淀的事实）
+   * @returns 无返回值
+   */
+  private injectSessionPreamble(
+    recorder: SessionRecorder,
+    log: AppendOnlyEventLog,
+    prompt: string,
+    sessionId: string,
+  ): void {
+    // 技能：**每回合都按 prompt 重新匹配**，但逐条按渲染文本判重（见 injectSkills），
+    // 故既不会重复堆同一段指令，也不会因「历史里已有技能」而漏掉本回合新命中的技能。
+    this.injectSkills(recorder, prompt, log);
+    if (process.env.OMNI_MEMORY_PRIMER === '1' && !Agent.hasInjection(log, MEMORY_PRIMER_MARKER)) {
+      this.injectMemoryPrimer(recorder, prompt, sessionId);
+    }
+  }
+
+  /**
+   * 历史里是否已存在某类 system 注入（按内容的特征前缀判定）。
+   *
+   * 为什么用「内容前缀」而不是另加事件类型/字段：注入产物是对模型可见的 system 文本，其特征前缀
+   * 就是它与其它 system 事件（如 repo-map 尾注）的区分点；新增事件类型会牵动事件 schema 与所有
+   * 消费方（UI/持久化/审计），而本判定的唯一用途是「别重复注入」。
+   * @param log 事件日志（resume/fork 时已 hydrate 历史）
+   * @param marker 内容特征前缀（见 {@link SKILL_MARKER} / {@link MEMORY_PRIMER_MARKER}）
+   * @returns 已存在同类注入则 true
+   */
+  private static hasInjection(log: AppendOnlyEventLog, marker: string): boolean {
+    return log.byType('system').some((event) => {
+      const payload = event.payload as { content?: unknown } | null | undefined;
+      const content = payload === null || payload === undefined ? undefined : payload.content;
+      return typeof content === 'string' && content.startsWith(marker);
+    });
   }
 
   /**
