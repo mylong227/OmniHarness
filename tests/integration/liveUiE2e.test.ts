@@ -24,10 +24,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { UiBaseline } from './uiBaseline.js';
 
 /** 浏览器测试脚手架（源码级 `.mjs`，不被 tsc 编译，故按项目根定位动态 import）。 */
 const HARNESS_URL = pathToFileURL(resolve(process.cwd(), 'web/test/browserHarness.mjs')).href;
@@ -173,6 +174,24 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
     assert.strictEqual(dom.composer, 1, 'composer 输入框必须存在');
     assert.strictEqual(dom.send, 1, 'send 按钮必须存在');
     assert.ok(dom.rootLen > 500, `#root 渲染内容过少（len=${dom.rootLen}）`);
+
+    // ---- 结构基线（视觉回归的可复现判据；见 uiBaseline.ts 里「为什么不用像素」）----
+    const baselinePath = resolve(process.cwd(), 'tests/integration/uiBaseline.json');
+    const snapshot = await UiBaseline.capture(cdp);
+    if (process.env['OMNI_UI_BASELINE_UPDATE'] === '1') {
+      UiBaseline.save(baselinePath, snapshot);
+      console.log(`[ui-baseline] 已重写基线：${baselinePath}`);
+    } else {
+      assert.ok(
+        existsSync(baselinePath),
+        `结构基线缺失：${baselinePath}；首次生成请跑 OMNI_UI_BASELINE_UPDATE=1 npm run test:integration`,
+      );
+      const verdict = UiBaseline.compare(snapshot, UiBaseline.load(baselinePath));
+      assert.ok(
+        verdict.ok,
+        `UI 结构相对基线有变化（有意改动请用 OMNI_UI_BASELINE_UPDATE=1 重写基线并提交）：\n  - ${verdict.diffs.join('\n  - ')}`,
+      );
+    }
 
     // ---- 全链路：输入 → 发送 → 回合跑完 → UI 更新 ----
     const before = (await cdp.evaluate('document.body.innerText.length')) as number;

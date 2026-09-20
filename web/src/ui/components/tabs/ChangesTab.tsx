@@ -1,45 +1,33 @@
 // 变更面板（git 式）：拉取 changes.list 展示当前工作区文件变更清单（状态 + 增删行数），
 // 点击文件查看 patch。git 仓库用真实 git status/diff；非 git 工作区回退聚合本进程 turn_diff 事件。
 // 内联审查（对标 Codex Review）：hunk 级 stage/revert（真实 git apply 操作）+ 行内评论（锚定行持久化）。
+// 键盘评审（A1）：j/k（或 ↑/↓）在改动块间移动选中、a 接受（stage）、r 拒绝（revert）、c 评论、? 帮助；
+// 焦点在输入框内时一律不响应（判据在 models/ReviewKeyboard，见其文件头注释）。
 //
 // 函数组件范式：十份 state 各用 useState；hunk 切分继续复用 DiffHunkSplitter（零 React，可单测）；
-// 行 / 评论 / 草稿 / patch 视图下沉为模块级渲染函数（经 ReviewCtx 传参，组件主体只留状态与回调）。
+// 行 / 评论 / 草稿 / patch 视图下沉为 ChangesPatchView 的模块级渲染函数（经 ReviewCtx 传参）。
+// 选中序号的**权威副本**在 models/ReviewCursor（state 仅作渲染镜像，理由见该文件）。
 
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
-import { statusBadge, parseDiffRows, timeAgo, type DiffRow } from '../../textUtils.js';
+import { statusBadge } from '../../textUtils.js';
 import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.js';
-
-/** 单文件变更行。 */
-interface ChangeFile {
-  path: string;
-  status: string;
-  additions: number;
-  deletions: number;
-}
+import { ReviewCursor } from '../../models/ReviewCursor.js';
+import { ReviewKeyboard } from '../../models/ReviewKeyboard.js';
+import type { ReviewKeyLike } from '../../models/ReviewKeyboard.js';
+import {
+  renderChangesPatch,
+  firstAnchorOfHunk,
+  type ChangeFile,
+  type CommentAnchor,
+  type DiffComment,
+} from './ChangesPatchView.js';
 
 /** 变更清单响应。 */
 interface ChangesData {
   source: string;
   branch?: string;
   files?: ChangeFile[];
-}
-
-/** 行内评论（changes.comments RPC 返回结构）。 */
-interface DiffComment {
-  id: string;
-  path: string;
-  side: 'old' | 'new';
-  line: number;
-  text: string;
-  ts: string;
-}
-
-/** 评论锚点：文件 + 侧别 + 行号。 */
-interface CommentAnchor {
-  path: string;
-  side: 'old' | 'new';
-  line: number;
 }
 
 const HEAD_ROW: Record<string, string> = {
@@ -51,239 +39,19 @@ const HEAD_ROW: Record<string, string> = {
 const DIM_TEXT: Record<string, string> = { fontSize: '12px', color: 'var(--dim)' };
 const RETRY_BOX: Record<string, string> = { marginTop: '10px' };
 
-/** 行内审查渲染所需的上下文与回调。 */
-interface ReviewCtx {
-  /** 当前文件。 */
-  f: ChangeFile;
-  /** 是否 git 工作区（决定是否显示 stage / 丢弃动作）。 */
-  isGit: boolean;
-  /** 当前 patch 文本。 */
-  patch: string;
-  /** patch 是否正在加载。 */
-  patchLoading: boolean;
-  /** 当前文件的行内评论。 */
-  fileComments: DiffComment[];
-  /** 进行中的审查操作键（防重复点击）。 */
-  busyAct: string | null;
-  /** 评论草稿锚点。 */
-  draft: CommentAnchor | null;
-  /** 评论草稿文本。 */
-  draftText: string;
-  /** stage 整个文件。 */
-  onStageFile: (path: string) => void;
-  /** 丢弃整个文件改动。 */
-  onRevertFile: (path: string) => void;
-  /** stage 单个 hunk。 */
-  onStageHunk: (path: string, hunk: string, isNew: boolean, idx: number) => void;
-  /** 丢弃单个 hunk。 */
-  onRevertHunk: (path: string, hunk: string, idx: number) => void;
-  /** 在某行开启评论草稿。 */
-  onStartDraft: (anchor: CommentAnchor) => void;
-  /** 草稿文本变更。 */
-  onDraftText: (text: string) => void;
-  /** 保存草稿。 */
-  onSaveDraft: () => void;
-  /** 取消草稿。 */
-  onCancelDraft: () => void;
-  /** 删除评论。 */
-  onDeleteComment: (id: string) => void;
-}
+/** 快捷键帮助条目（文案与 ReviewKeyboard 的绑定表同源，改键时一起改）。 */
+const KEY_HELP: readonly { readonly keys: string; readonly desc: string }[] = [
+  { keys: 'j / ↓', desc: '选中下一个改动块' },
+  { keys: 'k / ↑', desc: '选中上一个改动块' },
+  { keys: 'a', desc: '接受（stage）选中块' },
+  { keys: 'r', desc: '拒绝（丢弃）选中块，需确认' },
+  { keys: 'c', desc: '在选中块的首个改动行写评论' },
+  { keys: 'Enter', desc: '未展开时打开选中文件' },
+  { keys: '?', desc: '开合本帮助 · Esc 关闭' },
+];
 
 /**
- * 行的侧别与行号：删除行锚旧文件，其余锚新文件。
- * @param row diff 行
- * @returns 侧别与行号（无行号时为 undefined）
- */
-function anchorOf(row: DiffRow): { side: 'old' | 'new'; line: number | undefined } {
-  const side: 'old' | 'new' = row.kind === 'del' ? 'old' : 'new';
-  return { side, line: side === 'old' ? row.oldNo : row.newNo };
-}
-
-/**
- * 单行渲染：行号 + 符号 + 内容 + 评论入口。
- * @param row diff 行
- * @param i 行下标
- * @param ctx 审查上下文
- * @returns 行节点
- */
-function renderRow(row: DiffRow, i: number, ctx: ReviewCtx): ReactElement {
-  const { side, line } = anchorOf(row);
-  const sign = row.kind === 'add' ? '+' : row.kind === 'del' ? '−' : ' ';
-  return (
-    <div key={'r' + i} className={'diff-row ' + row.kind}>
-      <span className="diff-no">{row.oldNo ?? ''}</span>
-      <span className="diff-no">{row.newNo ?? ''}</span>
-      <span className="diff-sign">{sign}</span>
-      <span className="diff-text">{row.text.slice(1)}</span>
-      {ctx.isGit && line !== undefined ? (
-        <button
-          className="line-cmt"
-          title="添加行内评论"
-          onClick={() => ctx.onStartDraft({ path: ctx.f.path, side, line })}
-        >
-          💬
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * 某行已存的评论气泡。
- * @param c 评论
- * @param ctx 审查上下文
- * @returns 评论节点
- */
-function renderComment(c: DiffComment, ctx: ReviewCtx): ReactElement {
-  return (
-    <div key={'c' + c.id} className="diff-comment">
-      <span className="dc-mark">
-        💬 {c.side === 'new' ? '新' : '旧'} L{c.line}
-      </span>
-      <span className="dc-text">{c.text}</span>
-      <span className="dc-time">{timeAgo(c.ts)}</span>
-      <button className="dc-del" title="删除评论" onClick={() => ctx.onDeleteComment(c.id)}>
-        ×
-      </button>
-    </div>
-  );
-}
-
-/**
- * 评论草稿输入框（仅在当前锚点行下方渲染）。
- * @param i 行下标
- * @param ctx 审查上下文
- * @returns 草稿节点
- */
-function renderDraft(i: number, ctx: ReviewCtx): ReactElement {
-  return (
-    <div key={'d' + i} className="diff-draft">
-      <textarea
-        rows={2}
-        autoFocus
-        placeholder="评论此行（仅自己与团队可见，工作区级持久化）…"
-        value={ctx.draftText}
-        onInput={(e: Event) => ctx.onDraftText((e.target as HTMLTextAreaElement).value)}
-      ></textarea>
-      <div className="dd-actions">
-        <button
-          className="btn primary"
-          disabled={ctx.draftText.trim() === ''}
-          onClick={ctx.onSaveDraft}
-        >
-          保存
-        </button>
-        <button className="btn" onClick={ctx.onCancelDraft}>
-          取消
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * 单文件展开视图：文件级操作 + hunk 分块 + 行号 + 行内评论。
- * @param ctx 审查上下文
- * @returns 变更内容节点
- */
-function renderPatch(ctx: ReviewCtx): ReactElement {
-  if (ctx.patchLoading) return <div className="empty">读取中…</div>;
-  if (ctx.patch === '')
-    return <div className="empty">无 diff 内容（可能是二进制文件或模式变更）</div>;
-
-  const isNewFile = !ctx.patch.includes('@@') || ctx.f.status === '??';
-  const hunks = DiffHunkSplitter.split(ctx.patch);
-  const rows = parseDiffRows(ctx.patch);
-  const out: ReactElement[] = [];
-  let hunkIdx = -1;
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    if (row.kind === 'meta') {
-      out.push(
-        <div key={'m' + i} className="diff-meta">
-          {row.text}
-        </div>,
-      );
-      continue;
-    }
-    if (row.kind === 'hunk') {
-      hunkIdx++;
-      const h = hunks[hunkIdx];
-      const idx = hunkIdx;
-      out.push(
-        <div key={'h' + i} className="hunk-head">
-          <span className="hunk-header">{row.text}</span>
-          {ctx.isGit && h ? (
-            <span className="hunk-actions">
-              <button
-                className="hunk-btn"
-                disabled={ctx.busyAct !== null}
-                title="stage 该改动块（git apply --cached）"
-                onClick={() => ctx.onStageHunk(ctx.f.path, DiffHunkSplitter.text(h), isNewFile, idx)}
-              >
-                ＋ stage
-              </button>
-              <button
-                className="hunk-btn danger"
-                disabled={ctx.busyAct !== null}
-                title="丢弃该改动块（git apply -R，不可恢复）"
-                onClick={() => ctx.onRevertHunk(ctx.f.path, DiffHunkSplitter.text(h), idx)}
-              >
-                ↩ 丢弃
-              </button>
-            </span>
-          ) : null}
-        </div>,
-      );
-      continue;
-    }
-    out.push(renderRow(row, i, ctx));
-    const { side, line } = anchorOf(row);
-    const lineComments =
-      line === undefined ? [] : ctx.fileComments.filter((c) => c.side === side && c.line === line);
-    for (const c of lineComments) out.push(renderComment(c, ctx));
-    if (
-      ctx.draft !== null &&
-      ctx.draft.path === ctx.f.path &&
-      ctx.draft.side === side &&
-      ctx.draft.line === line
-    ) {
-      out.push(renderDraft(i, ctx));
-    }
-  }
-
-  const fileActions = ctx.isGit ? (
-    <div className="file-actions">
-      <button
-        className="hunk-btn"
-        disabled={ctx.busyAct !== null}
-        title="stage 整个文件（git add）"
-        onClick={() => ctx.onStageFile(ctx.f.path)}
-      >
-        ＋ stage 文件
-      </button>
-      <button
-        className="hunk-btn danger"
-        disabled={ctx.busyAct !== null}
-        title="丢弃整个文件的工作区改动（不可恢复）"
-        onClick={() => ctx.onRevertFile(ctx.f.path)}
-      >
-        ↩ 丢弃文件
-      </button>
-    </div>
-  ) : null;
-
-  return (
-    <div className="review">
-      {fileActions}
-      <div className="diff-rows">{out}</div>
-    </div>
-  );
-}
-
-/**
- * 变更审查面板：工作区变更清单 + 块级 stage / 丢弃 + 行内评论。
+ * 变更审查面板：工作区变更清单 + 块级 stage / 丢弃 + 行内评论 + 键盘评审。
  * @returns 变更面板节点
  */
 export function ChangesTab(): ReactElement {
@@ -302,6 +70,16 @@ export function ChangesTab(): ReactElement {
   /** 行内评论草稿锚点。 */
   const [draft, setDraft] = React.useState<CommentAnchor | null>(null);
   const [draftText, setDraftText] = React.useState<string>('');
+  /** 选中块序号的渲染镜像（权威值在 ReviewCursor）。 */
+  const [selected, setSelected] = React.useState<number>(-1);
+  /** 快捷键帮助是否展开（渲染镜像）。 */
+  const [help, setHelp] = React.useState<boolean>(false);
+  /** 键盘评审的根节点：Tab 落点与 keydown 监听都挂在它上面。 */
+  const rootRef = React.useRef<HTMLElement | null>(null);
+  // 游标跨渲染复用（构造只发生一次，等价 App.ts 的 controllerRef 写法）。
+  const cursorRef = React.useRef<ReviewCursor | null>(null);
+  if (cursorRef.current === null) cursorRef.current = new ReviewCursor();
+  const cursor = cursorRef.current;
 
   /** 拉取变更清单。 */
   const refresh = async (): Promise<void> => {
@@ -330,6 +108,11 @@ export function ChangesTab(): ReactElement {
   React.useEffect(() => {
     void refresh();
     void refreshComments();
+  }, []);
+
+  // 进入变更页即把焦点交给评审区：Tab 之后 j/k/a/r 才生效，屏幕阅读器也据此定位。
+  React.useEffect(() => {
+    rootRef.current?.focus();
   }, []);
 
   /**
@@ -476,6 +259,77 @@ export function ChangesTab(): ReactElement {
     }
   };
 
+  const files = data?.files ?? [];
+  const isGit = data?.source === 'git';
+  const openFile = files.find((f) => f.path === expanded) ?? null;
+  // 渲染用的选中序号：夹取到当前清单（展开时＝改动块，收起时＝文件）；
+  // 走 cursor.sync 而不是就地 clamp——否则渲染显示第 1 块、cursor 还停在 -1，第一次按 j 会「原地不动」。
+  const hunkCount = expanded === null ? 0 : DiffHunkSplitter.split(patch).length;
+  const selectedView = cursor.sync(expanded === null ? files.length : hunkCount);
+
+  /**
+   * 键盘评审：把裸键解析成动作，落到「当前条目清单」（收起时＝文件，展开时＝改动块）上。
+   * @param e 键盘事件
+   */
+  const onReviewKey = (e: KeyboardEvent): void => {
+    const action = ReviewKeyboard.resolve(e as unknown as ReviewKeyLike);
+    if (action === 'none') return;
+    if (action === 'help') {
+      setHelp(cursor.toggleHelp());
+      return;
+    }
+    if (action === 'dismiss') {
+      cursor.closeHelp();
+      setHelp(false);
+      return;
+    }
+    const hunks = expanded === null ? [] : DiffHunkSplitter.split(patch);
+    const count = expanded === null ? files.length : hunks.length;
+    if (action === 'next' || action === 'prev' || action === 'first' || action === 'last') {
+      e.preventDefault();
+      setSelected(cursor.move(action, count));
+      return;
+    }
+    if (count === 0) {
+      if (action !== 'open') toast('先在列表里展开一个文件，再对改动块操作', 'err');
+      return;
+    }
+    // 序号一律从 cursor 读权威值：state 是渲染镜像，同一帧内连按 j 时它还没更新。
+    const idx = ReviewKeyboard.clamp(cursor.at(), count);
+    if (action === 'open') {
+      if (expanded === null) {
+        const target = files[idx];
+        if (target) void openPatch(target.path);
+      }
+      return;
+    }
+    if (expanded === null || openFile === null) {
+      toast('先在列表里展开一个文件，再对改动块操作', 'err');
+      return;
+    }
+    if (!isGit) {
+      toast('非 git 工作区不支持 stage / 丢弃 / 行内评论', 'err');
+      return;
+    }
+    const hunk = hunks[idx];
+    if (hunk === undefined) return;
+    if (action === 'comment') {
+      const anchor = firstAnchorOfHunk(patch, idx, openFile.path);
+      if (anchor === null) {
+        toast('该改动块没有可评论的改动行', 'err');
+        return;
+      }
+      setDraft(anchor);
+      setDraftText('');
+      return;
+    }
+    e.preventDefault();
+    const hunkText = DiffHunkSplitter.text(hunk);
+    const isNewFile = !patch.includes('@@') || openFile.status === '??';
+    if (action === 'accept') stageHunk(openFile.path, hunkText, isNewFile, idx);
+    else if (action === 'reject') void revertHunk(openFile.path, hunkText, idx);
+  };
+
   if (!loaded && data === null) return <div className="empty">读取中…</div>;
   if (error !== null) {
     return (
@@ -490,10 +344,16 @@ export function ChangesTab(): ReactElement {
     );
   }
 
-  const files = data?.files ?? [];
-  const isGit = data?.source === 'git';
   return (
-    <div>
+    <div
+      className="review-root"
+      data-review-root="1"
+      tabIndex={0}
+      role="region"
+      aria-label="变更审查（键盘：j/k 选择 · a 接受 · r 拒绝 · c 评论 · ? 帮助）"
+      ref={rootRef}
+      onKeyDown={onReviewKey}
+    >
       <div style={HEAD_ROW}>
         <span style={DIM_TEXT}>
           {isGit
@@ -504,6 +364,44 @@ export function ChangesTab(): ReactElement {
           ↻ 刷新
         </button>
       </div>
+      <div className="review-hint">
+        键盘：j/k 选择 · a 接受 · r 拒绝 · c 评论 ·{' '}
+        <button
+          className="rh-toggle"
+          aria-expanded={help ? 'true' : 'false'}
+          onClick={() => setHelp(cursor.toggleHelp())}
+        >
+          ? 帮助
+        </button>
+      </div>
+      {help ? (
+        <div
+          className="review-help"
+          data-review-help="1"
+          role="dialog"
+          aria-modal="false"
+          aria-label="变更审查快捷键"
+        >
+          <div className="rh-head">键盘评审快捷键（输入框内不生效）</div>
+          <ul className="rh-list">
+            {KEY_HELP.map((k) => (
+              <li key={k.keys}>
+                <kbd>{k.keys}</kbd>
+                <span>{k.desc}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="btn"
+            onClick={() => {
+              cursor.closeHelp();
+              setHelp(false);
+            }}
+          >
+            关闭（Esc）
+          </button>
+        </div>
+      ) : null}
       {files.length === 0 ? (
         <div className="empty">✨ 没有变更——工作区很干净。改点东西再来看。</div>
       ) : (
@@ -511,8 +409,10 @@ export function ChangesTab(): ReactElement {
           {files.map((f) => {
             const badge = statusBadge(f.status);
             const open = expanded === f.path;
+            const fileIdx = files.indexOf(f);
+            const selectedFile = expanded === null && fileIdx === selectedView;
             return (
-              <div key={f.path} className="change-item">
+              <div key={f.path} className={'change-item' + (selectedFile ? ' selected' : '')}>
                 <div
                   className="change-row"
                   onClick={() => void openPatch(f.path)}
@@ -528,7 +428,7 @@ export function ChangesTab(): ReactElement {
                 </div>
                 {open ? (
                   <div className="change-patch">
-                    {renderPatch({
+                    {renderChangesPatch({
                       f,
                       isGit,
                       patch,
@@ -537,6 +437,8 @@ export function ChangesTab(): ReactElement {
                       busyAct,
                       draft,
                       draftText,
+                      selected: selectedView,
+                      onSelectHunk: (idx) => setSelected(idx),
                       onStageFile: stageFile,
                       onRevertFile: (p) => void revertFile(p),
                       onStageHunk: stageHunk,
