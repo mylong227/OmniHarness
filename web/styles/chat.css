@@ -276,3 +276,10 @@ details.standalone summary::-webkit-details-marker { display:none; }
 .link-card:hover { background:var(--panel); }
 .link-card .link-card-host { flex:none; padding:1px 6px; border:1px solid var(--accent); border-radius:4px; color:var(--accent); font-family:var(--mono); font-size:10px; }
 .link-card .link-card-url { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dim); font-family:var(--mono); font-size:11px; }
+
+/* --- 长会话性能（虚拟化占位） --- */
+
+/* 虚拟窗口的上下占位块：撑起未渲染区域的高度，使滚动条比例与滚动位置保持稳定。
+   不参与命中测试（pointer-events:none），辅助技术侧由组件挂 aria-hidden 隐藏。 */
+.stream-pad { flex:none; width:100%; pointer-events:none; }
+

@@ -6,6 +6,7 @@ import type { AppHost, AppServices } from './AppController.js';
 import type { ThreadEvent } from '../../types/models.js';
 import type { SessionEntry, ToolItem } from '../shared.js';
 import { langOf } from '../highlight.js';
+import { StreamThrottle } from '../models/StreamThrottle.js';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
 export class SessionController {
@@ -13,6 +14,13 @@ export class SessionController {
   private readonly host: AppHost;
   /** 共享服务。 */
   private readonly services: AppServices;
+  /**
+   * 本回合的流式增量节流器（无回合进行中时为 null）。
+   *
+   * 一个回合一个实例：回合结束（或用户中断）时 `flush()` 后 `dispose()`，之后迟到的增量一律无效。
+   * 这样既把高频 setState 压到有界频率，又不会让「停止」之后被迟到 delta 重新点亮流式卡片。
+   */
+  private throttle: StreamThrottle | null = null;
 
   /**
    * 构造并绑定对外回调。
@@ -63,16 +71,60 @@ export class SessionController {
 
   /**
    * 累积一条模型正文增量（`thread.text_delta` 通知），驱动流式助手卡片逐字渲染。
+   *
+   * 增量**先过 `StreamThrottle` 再进状态**：长回答的 `text_delta` 可达数千条，逐条 setState 会让
+   * 整棵中栏重渲染 ⇒ 掉帧。节流器把刷新压到 ≤1 次/50ms，累计文本与逐条拼接完全一致（收尾 flush 兜底）。
+   *
    * 仅在回合进行中（busy）累积：回合已结束 / 已被用户中断后到达的迟到增量一律丢弃，
    * 否则「停止」之后流式卡片会被迟到 delta 重新点亮（留下 streaming 残留）。
    * @param params 增量载荷（含 text 增量片段）
    * @returns 无
    */
   public appendTextDelta(params: Record<string, unknown>): void {
-    if (!this.host.getState().busy) return;
+    if (!this.host.getState().busy) {
+      // 非忙碌态：顺手释放节流器，让此后任何迟到增量连缓冲都进不去（与既有 busy 护栏同向叠加）。
+      this.disposeThrottle();
+      return;
+    }
     const text = typeof params.text === 'string' ? params.text : '';
     if (text === '') return;
-    this.host.patch((s) => ({ streamText: this.services.reducers.appendTextDelta(s.streamText, text) }));
+    this.throttleFor().push(text);
+  }
+
+  /**
+   * 收尾本回合的流式增量：把缓冲区里最后一段刷进状态，再释放节流器。
+   *
+   * **必须在写最终 assistant 事件 / 把 `streamText` 收口为 `finalizedStreamText` 之前调用**，
+   * 否则最后一段增量会丢（这正是节流「零丢失」不变量的兜底点）。
+   * @returns 无
+   */
+  public flushStream(): void {
+    this.throttle?.flush();
+    this.disposeThrottle();
+  }
+
+  /**
+   * 取本回合节流器（惰性创建）。
+   * @returns 节流器实例
+   */
+  private throttleFor(): StreamThrottle {
+    if (this.throttle === null) {
+      this.throttle = new StreamThrottle((text) => {
+        this.host.patch((s) => ({
+          streamText: this.services.reducers.appendTextDelta(s.streamText, text),
+        }));
+      });
+    }
+    return this.throttle;
+  }
+
+  /**
+   * 释放节流器（幂等）。
+   * @returns 无
+   */
+  private disposeThrottle(): void {
+    this.throttle?.dispose();
+    this.throttle = null;
   }
 
   /**
