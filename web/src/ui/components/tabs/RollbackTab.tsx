@@ -1,17 +1,22 @@
 // 回滚面板（对标 Codex「回滚到检查点」）：列出当前会话的检查点，支持创建与一键回滚。
 // 回滚同时还原对话事件与工作区文件（后端 CheckpointManager + GitWorkspaceSnapshot）。
 //
+// 时间线（A2）：按天分组 + 相对时间 + 「含文件快照 / 仅对话」徽标 + 最新检查点标记；
+// 条目本身是 <button>，天然可 Tab 聚焦，Enter/Space 触发回滚（回滚前仍走 DialogService 确认）。
+//
 // 函数组件范式：列表 / 加载态 / 错误 / 名称草稿 / 忙态各一个 useState；
 // 原 componentDidMount + componentDidUpdate 的「会话切换即重拉」合为一个依赖 sessionId 的 effect。
-// 命名与时间戳格式化继续复用 models/checkpoint 的零 React 类。
+// 命名与时间戳格式化继续复用 models/checkpoint 的零 React 类；分组/相对时间见 models/CheckpointTimeline。
 
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
-import { CheckpointNamer, TimestampFormatter } from '../../models/checkpoint.js';
+import { CheckpointNamer } from '../../models/checkpoint.js';
+import { CheckpointTimeline } from '../../models/CheckpointTimeline.js';
 import type { CheckpointMeta } from '../../models/checkpoint.js';
+import type { TimelineDay, TimelineEntry } from '../../models/CheckpointTimeline.js';
 
-export type { CheckpointMeta };
+export type { CheckpointMeta, TimelineEntry, TimelineDay };
 
 /** RollbackTab 组件的入参。 */
 export interface RollbackTabProps {
@@ -30,6 +35,69 @@ const INPUT_STYLE: Record<string, string> = {
   background: 'transparent',
   color: 'inherit',
 };
+
+/**
+ * 渲染单个时间线条目（整条即一个按钮：Tab 可达，Enter/Space 触发回滚）。
+ * @param e 时间线条目
+ * @param busy 是否正在执行回滚（禁用全部条目，防重复提交）
+ * @param onRollback 回滚回调（标签）
+ * @returns 条目节点
+ */
+function renderEntry(
+  e: TimelineEntry,
+  busy: boolean,
+  onRollback: (label: string) => void,
+): ReactElement {
+  const snap = e.hasSnapshot ? '含文件快照' : '仅对话';
+  return (
+    <div key={e.meta.label} className={'cp-item' + (e.latest ? ' latest' : '')} role="listitem">
+      <button
+        className="cp-main"
+        disabled={busy}
+        aria-current={e.latest ? 'true' : undefined}
+        title={'回滚到此检查点（需确认）· ' + e.absolute}
+        aria-label={`回滚到检查点 ${e.meta.label}（${e.relative}，${e.eventCount} 个事件，${snap}）`}
+        onClick={() => onRollback(e.meta.label)}
+      >
+        <span className="cp-label">{e.meta.label}</span>
+        <span className="cp-meta">
+          <span className={'cp-badge ' + (e.hasSnapshot ? 'snap' : 'talk')}>{snap}</span>
+          <span className="cp-events">{e.eventCount} 事件</span>
+          <span className="cp-time">{e.relative}</span>
+          {e.latest ? <span className="cp-latest">当前最新</span> : null}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 渲染按天分组的时间线（空数组返回 null，由调用方决定空态文案）。
+ * @param days 分组数据
+ * @param busy 是否正在回滚
+ * @param onRollback 回滚回调
+ * @returns 时间线节点
+ */
+function renderTimeline(
+  days: readonly TimelineDay[],
+  busy: boolean,
+  onRollback: (label: string) => void,
+): ReactElement | null {
+  if (days.length === 0) return null;
+  return (
+    <div className="cp-timeline" role="list" aria-label="检查点时间线">
+      {days.map((d) => (
+        <section className="cp-day" key={d.key}>
+          <div className="cp-day-head">
+            <span className="cp-day-title">{d.title}</span>
+            <span className="cp-day-count">{d.items.length} 个</span>
+          </div>
+          {d.items.map((e) => renderEntry(e, busy, onRollback))}
+        </section>
+      ))}
+    </div>
+  );
+}
 
 /**
  * 回滚面板：检查点列表 + 创建 + 一键回滚。
@@ -150,27 +218,9 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
           ✨ 暂无检查点。点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。
         </div>
       ) : null}
-      {!loading && list.length > 0 ? (
-        <div className="changes-list">
-          {[...list].reverse().map((c) => (
-            <div key={c.label} className="change-item">
-              <div className="change-row" style={{ cursor: 'default' }}>
-                <span className={'change-badge ' + (c.hasFileSnapshot ? 'mod' : 'add')}>
-                  {c.hasFileSnapshot ? '含文件' : '仅对话'}
-                </span>
-                <span className="change-path">{c.label}</span>
-                <span className="change-nums">{c.eventCount} 事件</span>
-                <span className="change-caret">{TimestampFormatter.format(c.ts)}</span>
-              </div>
-              <div className="change-patch" style={{ padding: '8px 10px' }}>
-                <button className="btn" disabled={busy} onClick={() => void rollback(c.label)}>
-                  ↩ 回滚到此点
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {!loading && list.length > 0
+        ? renderTimeline(CheckpointTimeline.build(list, new Date()), busy, (l) => void rollback(l))
+        : null}
     </div>
   );
 }

@@ -3,22 +3,29 @@
 // 面向对象改造：
 // - 服务经 useApp() 取用（替代旧基类访问器），十三份 state 收敛为字段级 useState；
 // - 会话分组逻辑下沉到 SessionGrouper（零 React，可单测）；
-// - 文件树节点拆为 TreeNode 组件（各自管理展开态）。
+// - 文件树节点拆为 TreeNode 组件（各自管理展开态）；
+// - 行/卡/组/项目条/文件树的渲染下沉到 SessionViews（零状态纯渲染）。
 //
-// 函数组件范式：13 个交互字段各一个 useState；挂载拉工作区 / 依赖 wsPath 重刷文件树
-// 各由一个 effect 承接（原实现拆在 componentDidMount + componentDidUpdate）；
-// 渲染分支（会话行 / 任务卡 / 分组列表 / 项目条 / 文件树）下沉为模块级纯函数。
+// 搜索（A3）：本地即时过滤保留（filterSessions，零请求、输入即出结果）＋服务端 `search.all`
+// （会话 + 工作区文件，分组展示、命中高亮/截断）。关键字为空时**不**打远端；防抖与乱序丢弃
+// 由 models/SessionSearch 承担；↑/↓ 选中、Enter 打开走输入框的 combobox 语义。
 
 import { React } from '../deps.js';
 import { useApp } from '../context.js';
-import { TreeNode } from './TreeNode.js';
 import { FolderPicker } from './FolderPicker.js';
-import { SessionGrouper } from '../models/SessionGrouper.js';
-import { PathJoiner } from '../models/PathJoiner.js';
+import { SearchResults, SEARCH_LIST_ID } from './SearchResults.js';
+import { SessionSearch } from '../models/SessionSearch.js';
+import type { SearchGroup } from '../models/SearchHitGrouper.js';
+import {
+  renderCardsView,
+  renderGroupsView,
+  renderProjectsView,
+  renderTreeView,
+} from './SessionViews.js';
+import type { ListCtx, RowCtx } from './SessionViews.js';
 import type { FsNode } from '../../types/models.js';
+import type { SearchHit } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
-import { emptyState } from '../format.js';
-import { timeAgo } from '../textUtils.js';
 
 /** SessionPanel 组件的入参。 */
 export interface SessionPanelProps {
@@ -37,333 +44,29 @@ export interface SessionPanelProps {
   onWorkspaceSwitched?: () => void;
   open: boolean;
   style?: Record<string, string>;
-}
-
-/** 每组默认展示条数。 */
-const PAGE = 10;
-
-/** 会话行内交互所需的状态与回调（供模块级渲染函数复用）。 */
-interface RowCtx {
-  /** 正在行内重命名的会话 id（null 表示无）。 */
-  renamingId: string | null;
-  /** 行内重命名输入框当前值。 */
-  renameValue: string;
-  /** 正在确认删除的会话 id（null 表示无）。 */
-  confirmDeleteId: string | null;
-  onStartRename: (s: SessionEntry) => void;
-  onRenameInput: (v: string) => void;
-  onCommitRename: (id: string) => void;
-  onCancelRename: () => void;
-  onAskDelete: (id: string) => void;
-  onCancelDelete: () => void;
-  onCommitDelete: (id: string) => void;
-  onFork: (id: string) => void;
+  /** 远端搜索防抖调度注入点（单测传「立即执行」以获得确定性，缺省走 setTimeout）。 */
+  scheduleSearch?: (fn: () => void, ms: number) => unknown;
 }
 
 /**
- * 按搜索关键字过滤会话（标签 / id / 工作区，大小写不敏感）。
- * @param items 原始会话列表
- * @param query 搜索关键字（trim 后）
- * @returns 过滤后的会话列表（空关键字返回原列表副本）
- */
-function filterSessions(items: readonly SessionEntry[], query: string): SessionEntry[] {
-  const q = query.trim().toLowerCase();
-  if (q === '') return items.slice();
-  return items.filter((s) => {
-    const hay = [s.label, s.id, s.workspace].filter((x) => typeof x === 'string').join(' ').toLowerCase();
-    return hay.includes(q);
-  });
-}
-
-/**
- * 渲染单条会话的内部内容：常态显示标签 + 操作按钮（重命名/复制/删除）；
- * 行内重命名态显示输入框；删除确认态显示「删除？」确认条。
- * @param s 会话条目
- * @param ctx 行内交互上下文
- * @returns 渲染节点
- */
-function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
-  if (ctx.renamingId === s.id) {
-    return (
-      <span className="session-rename">
-        <input
-          className="session-rename-input"
-          value={ctx.renameValue}
-          spellCheck={false}
-          onChange={(e) => ctx.onRenameInput((e.target as HTMLInputElement).value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') ctx.onCommitRename(s.id);
-            else if (e.key === 'Escape') ctx.onCancelRename();
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <button
-          className="session-rename-ok"
-          title="确认"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCommitRename(s.id);
-          }}
-        >
-          ✓
-        </button>
-        <button
-          className="session-rename-cancel"
-          title="取消"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCancelRename();
-          }}
-        >
-          ✕
-        </button>
-      </span>
-    );
-  }
-  if (ctx.confirmDeleteId === s.id) {
-    return (
-      <span className="session-confirm">
-        <span className="session-confirm-text">删除？</span>
-        <button
-          className="session-confirm-ok"
-          title="确认删除"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCommitDelete(s.id);
-          }}
-        >
-          删除
-        </button>
-        <button
-          className="session-confirm-cancel"
-          title="取消"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCancelDelete();
-          }}
-        >
-          取消
-        </button>
-      </span>
-    );
-  }
-  return (
-    <>
-      <span className="session-label">{s.label || s.id}</span>
-      <span className="session-actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="session-act"
-          title="重命名"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onStartRename(s);
-          }}
-        >
-          ✎
-        </button>
-        <button
-          className="session-act"
-          title="复制会话"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onFork(s.id);
-          }}
-        >
-          ⧉
-        </button>
-        <button
-          className="session-act danger"
-          title="删除"
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onAskDelete(s.id);
-          }}
-        >
-          🗑
-        </button>
-      </span>
-    </>
-  );
-}
-
-/** 列表视图（任务卡 / 分组）渲染所需上下文。 */
-interface ListCtx extends RowCtx {
-  sessions: SessionEntry[];
-  currentThreadId: string | null;
-  query: string;
-  wsPath: string;
-  collapsed: Record<string, boolean>;
-  limits: Record<string, number>;
-  onSelect: (id: string) => void;
-  onToggleGroup: (key: string, isCollapsed: boolean) => void;
-  onShowAll: (key: string, total: number) => void;
-}
-
-/**
- * 并行任务卡视图：running 徽章来自服务端 activeTurns 真实运行态（非前端猜测）。
- * @param ctx 列表上下文
- * @returns 任务卡列表节点
- */
-function renderCardsView(ctx: ListCtx): ReactElement {
-  const all = filterSessions(ctx.sessions, ctx.query);
-  if (all.length === 0) {
-    return emptyState('🗂️', '暂无会话', '新建会话后，任务卡会显示在这里。');
-  }
-  return (
-    <div className="session-cards">
-      {all.map((s) => (
-        <div
-          key={s.id}
-          className={
-            'task-card' + (s.id === ctx.currentThreadId ? ' active' : '') + (s.running ? ' running' : '')
-          }
-          title={s.id}
-          onClick={() => ctx.onSelect(s.id)}
-        >
-          <div className="tc-top">
-            <span
-              className={'tc-dot' + (s.running === true ? ' on' : '')}
-              title={s.running ? '运行中' : '空闲'}
-            ></span>
-            <span className="tc-label">{renderSessionBody(s, ctx)}</span>
-          </div>
-          <div className="tc-meta">
-            <span>{s.turns ?? 0} 回合</span>
-            <span>·</span>
-            <span>{timeAgo(s.updatedAt)}</span>
-            {s.workspace ? (
-              <span className="tc-ws" title={s.workspace}>
-                {PathJoiner.basename(s.workspace)}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * 分组列表视图：当前项目组排最前且默认展开，其余折叠；组内分页。
- * @param ctx 列表上下文
- * @returns 分组列表节点
- */
-function renderGroupsView(ctx: ListCtx): ReactElement {
-  const all = filterSessions(ctx.sessions, ctx.query);
-  if (all.length === 0) {
-    return emptyState('🗂️', '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
-  }
-  return (
-    <>
-      {SessionGrouper.group(all, ctx.wsPath).map((g) => {
-        const isCollapsed = ctx.collapsed[g.key] ?? (g.key !== PathJoiner.normalize(ctx.wsPath) && g.key !== '__early__');
-        const limit = ctx.limits[g.key] ?? PAGE;
-        const shown = isCollapsed ? [] : g.items.slice(0, limit);
-        const rest = g.items.length - shown.length;
-        return (
-          <div className="ws-group" key={g.key}>
-            <div
-              className="ws-head"
-              title={g.key === '__early__' ? '升级前的历史会话未记录所属项目' : g.key}
-              onClick={() => ctx.onToggleGroup(g.key, isCollapsed)}
-            >
-              <span className="ws-caret">{isCollapsed ? '▸' : '▾'}</span>
-              <span>{g.key === PathJoiner.normalize(ctx.wsPath) ? '🟢' : '📁'}</span>
-              <span className="ws-name">{g.name}</span>
-              <span className="ws-count">{g.items.length}</span>
-            </div>
-            {isCollapsed ? null : (
-              <div className="ws-list">
-                {shown.map((s) => (
-                  <div
-                    key={s.id}
-                    className={'session' + (s.id === ctx.currentThreadId ? ' active' : '')}
-                    onClick={() => ctx.onSelect(s.id)}
-                    title={s.id}
-                  >
-                    {renderSessionBody(s, ctx)}
-                  </div>
-                ))}
-                {rest > 0 ? (
-                  <button className="ws-more" onClick={() => ctx.onShowAll(g.key, g.items.length)}>
-                    显示全部 {g.items.length} 条
-                  </button>
-                ) : null}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-/**
- * 项目条：列出已添加的项目文件夹，点击切换。
- * @param projects 项目路径清单
- * @param wsPath 当前工作区路径
- * @param onSwitch 切换回调
- * @returns 项目条节点；无项目时为 null
- */
-function renderProjectsView(
-  projects: string[],
-  wsPath: string,
-  onSwitch: (path: string) => void,
-): ReactElement | null {
-  if (projects.length === 0) return null;
-  return (
-    <div className="ws-projects">
-      {projects.map((p) => (
-        <div
-          key={p}
-          className={'ws-project' + (p === wsPath ? ' active' : '')}
-          title={p === wsPath ? '当前工作区' : '点击直接切换到 ' + p}
-          onClick={() => onSwitch(p)}
-        >
-          <span className="ws-project-dot"></span>
-          <span className="ws-project-name">{PathJoiner.basename(p)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * 文件树区：按加载态渲染不可用 / 读取中 / 空 / 树。
- * @param tree 文件树
- * @param treeLoaded 是否已加载
- * @param treeError 错误信息（非空即不可用）
- * @param onOpenFile 打开文件回调
- * @returns 文件树区节点
- */
-function renderTreeView(
-  tree: FsNode[],
-  treeLoaded: boolean,
-  treeError: string | null,
-  onOpenFile: (path: string) => void,
-): ReactElement {
-  if (treeError != null) {
-    return emptyState('📁', '文件树不可用', '当前工作区无法读取，或 serve 未在工作区内启动。');
-  }
-  if (!treeLoaded) return <div className="empty">读取中…</div>;
-  if (tree.length === 0) return emptyState('📁', '空工作区', '这个目录还没有文件。');
-  return (
-    <div className="tree">
-      {tree.map((n) => (
-        <TreeNode key={n.path} node={n} onOpenFile={onOpenFile} />
-      ))}
-    </div>
-  );
-}
-
-/**
- * 左栏会话与工作区面板：会话列表（列表 / 任务卡视图）、搜索、重命名删除分叉、工作区切换。
+ * 左栏会话与工作区面板：会话列表（列表 / 任务卡视图）、搜索（本地 + 远端）、重命名删除分叉、工作区切换。
  * @param props 组件入参
  * @returns 左栏节点
  */
 export function SessionPanel(props: SessionPanelProps): ReactElement {
-  const { sessions, currentThreadId, onSelect, onNew, onOpenFile, onRename, onDelete, onFork, onWorkspaceSwitched, open, style } =
-    props;
+  const {
+    sessions,
+    currentThreadId,
+    onSelect,
+    onNew,
+    onOpenFile,
+    onRename,
+    onDelete,
+    onFork,
+    onWorkspaceSwitched,
+    open,
+    style,
+  } = props;
   const { api, toast } = useApp();
   const [tree, setTree] = React.useState<FsNode[]>([]);
   const [treeLoaded, setTreeLoaded] = React.useState<boolean>(false);
@@ -378,6 +81,29 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameValue, setRenameValue] = React.useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  /** 远端搜索的分组结果（空数组表示尚无结果）。 */
+  const [groups, setGroups] = React.useState<readonly SearchGroup[]>([]);
+  /** 远端搜索是否在途。 */
+  const [searching, setSearching] = React.useState<boolean>(false);
+  /** 远端结果的选中序号（↑/↓ 与 Enter 共用）。 */
+  const [hitIndex, setHitIndex] = React.useState<number>(-1);
+
+  // 搜索状态机跨渲染复用；onUpdate 把权威快照搬到 state（渲染用镜像，见 SessionSearch 头注释）。
+  const searchRef = React.useRef<SessionSearch | null>(null);
+  if (searchRef.current === null) {
+    searchRef.current = new SessionSearch({
+      search: (q: string) => api.searchAll(q),
+      onUpdate: () => {
+        const s = searchRef.current;
+        if (s === null) return;
+        setGroups(s.groupList());
+        setSearching(s.isLoading());
+        setHitIndex(s.selectedIndex());
+      },
+      ...(props.scheduleSearch !== undefined ? { schedule: props.scheduleSearch } : {}),
+    });
+  }
+  const search = searchRef.current;
 
   // 挂载拉取工作区清单（当前路径 + 已添加项目）。
   React.useEffect(() => {
@@ -414,6 +140,9 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       alive = false;
     };
   }, [api, wsPath]);
+
+  // 卸载即丢弃在途防抖（否则定时器会在组件消失后打一次远端搜索）。
+  React.useEffect(() => () => search.dispose(), [search]);
 
   /** 打开内嵌文件夹选择器。 @returns 无 */
   const addProject = (): void => setPicking(true);
@@ -503,6 +232,54 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     await onDelete(id);
   };
 
+  /**
+   * 打开一条远端命中：会话跳转 / 文件在右侧面板预览，并清空搜索回到上下文。
+   * @param hit 命中条目
+   * @returns 无
+   */
+  const openHit = (hit: SearchHit): void => {
+    if (hit.kind === 'chat') onSelect(hit.id);
+    else onOpenFile(hit.id);
+    setQuery('');
+    search.setQuery('');
+  };
+
+  /**
+   * 搜索框输入：更新本地过滤关键字并把（防抖后的）远端搜索交给状态机。
+   * @param e 输入事件
+   * @returns 无
+   */
+  const onSearchInput = (e: Event): void => {
+    const value = (e.target as HTMLInputElement).value;
+    setQuery(value);
+    search.setQuery(value);
+  };
+
+  /**
+   * 搜索框键盘：↑/↓ 移动选中、Enter 打开、Esc 清空。
+   * @param e 键盘事件
+   * @returns 无
+   */
+  const onSearchKey = (e: KeyboardEvent): void => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      search.move(e.key === 'ArrowDown' ? 1 : -1);
+      return;
+    }
+    if (e.key === 'Escape') {
+      setQuery('');
+      search.setQuery('');
+      return;
+    }
+    if (e.key === 'Enter') {
+      const hit = search.selected();
+      if (hit !== null) {
+        e.preventDefault();
+        openHit(hit);
+      }
+    }
+  };
+
   const rowCtx: RowCtx = {
     renamingId,
     renameValue,
@@ -533,6 +310,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     },
   };
 
+  const listOpen = query.trim() !== '';
   return (
     <div className={'col left' + (open ? ' open' : '')} style={style}>
       <div className="col-head">
@@ -540,6 +318,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         <button
           className="ws-add"
           title={view === 'list' ? '切换到并行任务卡视图' : '切换到列表视图'}
+          aria-label={view === 'list' ? '切换到任务卡视图' : '切换到列表视图'}
           onClick={toggleView}
         >
           {view === 'list' ? '任务卡' : '列表'}
@@ -552,24 +331,49 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             placeholder="搜索会话…"
             value={query}
             spellCheck={false}
-            onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
+            role="combobox"
+            aria-label="搜索会话与文件"
+            aria-autocomplete="list"
+            aria-expanded={listOpen ? 'true' : 'false'}
+            aria-controls={SEARCH_LIST_ID}
+            aria-activedescendant={hitIndex >= 0 ? 'sr-opt-' + String(hitIndex) : undefined}
+            onChange={onSearchInput}
+            onKeyDown={onSearchKey}
           />
           <button className="btn primary" onClick={onNew}>
             + 新建
           </button>
         </div>
-        <div id="sessions">{view === 'cards' ? renderCardsView(listCtx) : renderGroupsView(listCtx)}</div>
+        <SearchResults
+          groups={groups}
+          selectedIndex={hitIndex}
+          query={query}
+          loading={searching}
+          onPick={openHit}
+        />
+        <div id="sessions">
+          {view === 'cards' ? renderCardsView(listCtx) : renderGroupsView(listCtx)}
+        </div>
       </div>
       <div className="col-head">
         <span>工作区</span>
-        <button className="ws-add" title="添加项目文件夹" onClick={addProject}>
+        <button
+          className="ws-add"
+          title="添加项目文件夹"
+          aria-label="添加项目文件夹"
+          onClick={addProject}
+        >
           + 添加项目
         </button>
       </div>
       {renderProjectsView(projects, wsPath, (p) => void switchProject(p))}
       <div className="section tree">{renderTreeView(tree, treeLoaded, treeError, onOpenFile)}</div>
       {picking ? (
-        <FolderPicker api={api} onCancel={() => setPicking(false)} onPick={(path) => void pickProject(path)} />
+        <FolderPicker
+          api={api}
+          onCancel={() => setPicking(false)}
+          onPick={(path) => void pickProject(path)}
+        />
       ) : null}
     </div>
   );

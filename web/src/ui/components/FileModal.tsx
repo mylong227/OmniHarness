@@ -38,12 +38,21 @@ export function FileModal(props: FileModalProps): ReactElement {
   if (!fileView) return <div className="overlay" style={HIDDEN}></div>;
   return (
     <div className="overlay show">
-      <div className="modal" style={MODAL_BOX}>
-        <h3>{fileView.title}</h3>
-        <div className="meta">{fileView.meta}</div>
+      <div
+        className="modal"
+        style={MODAL_BOX}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fm-title"
+        aria-describedby="fm-meta"
+      >
+        <h3 id="fm-title">{fileView.title}</h3>
+        <div className="meta" id="fm-meta">
+          {fileView.meta}
+        </div>
         <pre style={CODE_BOX}>{fileView.content}</pre>
         <div className="actions">
-          <button className="always" onClick={onClose}>
+          <button className="always" aria-label="关闭文件预览" onClick={onClose}>
             关闭
           </button>
         </div>
