@@ -9,6 +9,7 @@ import {
   WorkflowRunner,
   DEFAULT_WORKFLOW_CONCURRENCY,
   WorkflowCycleError,
+  WorkflowSpecError,
 } from '../../../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../../../autonomy/workflowTypes.js';
 import { RUN_WORKFLOW_TOOL_NAME } from '../../../autonomy/workflowToolNames.js';
@@ -40,10 +41,10 @@ export class RunWorkflowTool {
 
   /** 校验并运行工作流。
    * @param call 工具调用（实参含 spec 工作流定义）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
-   * @returns 执行结果：spec 非法/含环/步骤失败返回失败；成功附各步骤结果渲染文本。
+   * @param context 工具上下文（本工具读其 signal：父会话取消信号，用于下传子步）。
+   * @returns 执行结果：spec 非法/含环/步骤失败/父取消返回失败；成功附各步骤结果渲染文本。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const spec = call.arguments['spec'];
     if (
       spec === undefined ||
@@ -58,7 +59,11 @@ export class RunWorkflowTool {
     }
     try {
       const runner = new WorkflowRunner(this.ports, {
+        // 非法 maxConcurrency 由 WorkflowRunner 构造期 fail-closed 拒绝（下方 catch 转为工具错误），
+        // 绝不留给并发闸门永久挂起。
         maxConcurrency: def.maxConcurrency ?? DEFAULT_WORKFLOW_CONCURRENCY,
+        // 取消传播：父会话取消 → 不再启动新步骤，在飞步骤的模型请求一并中止。
+        signal: context.signal,
       });
       const result = await runner.run(def);
       // `run()` 正常返回 ≠ 全部步骤成功：成败事实是 `result.ok`（含「上游依赖失败被跳过」的传递失败）。
@@ -69,7 +74,7 @@ export class RunWorkflowTool {
         ? { callId: call.id, ok: true, output: rendered }
         : { callId: call.id, ok: false, error: rendered };
     } catch (error) {
-      if (error instanceof WorkflowCycleError) {
+      if (error instanceof WorkflowCycleError || error instanceof WorkflowSpecError) {
         return { callId: call.id, ok: false, error: error.message };
       }
       return {

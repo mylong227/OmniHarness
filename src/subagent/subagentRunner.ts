@@ -30,6 +30,8 @@ export class SubagentRunner {
       this.toolViewOf(request),
       bridge,
       this.maxSteps,
+      // 取消传播：父会话取消 → 子代在飞模型请求中止（见 cancellableModel）。
+      request.signal,
     );
     const outcome = await new Agent(runtime).runTask(request.task);
     return this.resultOf(request, outcome, bridge, startedAt);

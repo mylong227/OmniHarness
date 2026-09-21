@@ -58,10 +58,30 @@ export class StepToolExecutor {
    * @returns 全部工具调用执行完毕后的 Promise（单个工具失败不抛出，已记录为失败结果）。
    */
   public async run(calls: readonly ToolCall[], context: ToolContext): Promise<void> {
+    // V2 取消传播：本会话取消令牌的 AbortSignal 必须随工具上下文下传，否则长任务工具
+    // （subagent / run_workflow / run_goal）无从得知父已取消，会继续派生并烧 token。
+    const toolContext = this.withCancelSignal(context);
     await this.scheduler.run(calls, async (call) => {
-      const ok = await this.runToolCall(call, context);
+      const ok = await this.runToolCall(call, toolContext);
       return { callId: call.id, ok };
     });
+  }
+
+  /**
+   * 把本步的取消信号注入工具上下文（V2 取消传播）。
+   *
+   * Agent 构造的工具上下文只带 sessionId/workspaceRoot，而取消信号在 `StepRunnerDeps.signal`
+   * 上——两者在此汇合：工具层因此拿到「本会话取消令牌的 AbortSignal」，可把它下传子代。
+   *
+   * @param context 本步工具上下文
+   * @returns 带取消信号的上下文；未注入信号或调用方已自带信号时原样返回
+   */
+  private withCancelSignal(context: ToolContext): ToolContext {
+    const signal = this.deps.signal;
+    if (signal === undefined || context.signal !== undefined) {
+      return context;
+    }
+    return { ...context, signal };
   }
 
   /**

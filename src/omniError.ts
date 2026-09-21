@@ -22,6 +22,8 @@ export const ErrorCode = {
   PERMISSION_DENIED: 'PERMISSION_DENIED',
   /** 工作流 DAG 存在环。 */
   WORKFLOW_CYCLE: 'WORKFLOW_CYCLE',
+  /** 工作流定义非法（如 maxConcurrency 非 ≥1 的整数）：fail-closed 拒绝，不静默降级。 */
+  WORKFLOW_SPEC: 'WORKFLOW_SPEC',
   /** 原生内核未加载（.node 未构建或加载失败）。 */
   NATIVE_KERNEL_UNAVAILABLE: 'NATIVE_KERNEL_UNAVAILABLE',
   /** 网络外联被 SSRF / 白名单策略拒绝。 */

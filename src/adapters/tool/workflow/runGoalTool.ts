@@ -54,10 +54,10 @@ export class RunGoalTool {
 
   /** 派生并运行自主目标循环。
    * @param call 工具调用（实参含 goal，可选 tools/maxIterations）。
-   * @param _context 工具上下文（目标循环使用独立会话，忽略主上下文）。
+   * @param context 工具上下文（目标循环使用独立会话，但读其 signal：父会话取消信号）。
    * @returns 执行结果：成功附达成状态与最终文本；缺 goal 实参返回失败。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const goal = String(call.arguments['goal'] ?? '').trim();
     if (goal === '') {
       return { callId: call.id, ok: false, error: '缺少子目标描述: goal' };
@@ -68,11 +68,15 @@ export class RunGoalTool {
       this.toolViewOf(call),
       bridge,
       this.ports.maxSteps,
+      // 取消传播：父会话取消 → 目标循环的在飞模型请求中止。
+      context.signal,
     );
     const agent = this.agentFactory.create(runtime);
     const runner = new GoalRunner(agent, new GoalChecker(this.ports.model), {
       ...this.options,
       maxIterations: this.maxIterationsOf(call),
+      // 父取消后不再开启下一轮迭代（每轮都是一次完整回合，不提前收手会继续烧 token）。
+      signal: context.signal,
     });
     const result = await runner.run(goal);
     return { callId: call.id, ok: true, output: this.render(result) };

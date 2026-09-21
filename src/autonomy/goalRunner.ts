@@ -1,5 +1,6 @@
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.js';
 import { GoalChecker } from './goalChecker.js';
+import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
 
 /**
  * @beta
@@ -14,6 +15,11 @@ export const DEFAULT_GOAL_MAX_ITERATIONS = 10;
 export interface GoalRunnerOptions {
   /** 最大迭代次数（默认 10）；每轮 = 一次回合推进 + 一次达成度判定。 */
   readonly maxIterations?: number | undefined;
+  /**
+   * 父会话取消信号（可选）：置位后不再开启下一轮迭代（当前轮的在飞模型请求由
+   * 子代 runtime 的取消感知模型端口中止）。缺省 undefined＝不传播取消。
+   */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /**
@@ -46,6 +52,8 @@ export interface GoalResult {
  */
 export class GoalRunner {
   private readonly maxIterations: number;
+  /** 父会话取消信号（缺省 undefined＝不传播取消）。 */
+  private readonly signal: AbortSignal | undefined;
 
   public constructor(
     private readonly agent: AgentPort,
@@ -53,26 +61,41 @@ export class GoalRunner {
     options: GoalRunnerOptions = {},
   ) {
     this.maxIterations = options.maxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS;
+    this.signal = options.signal;
   }
 
   /**
-   * 运行自主目标循环直到达成或达上限。
+   * 运行自主目标循环直到达成、达上限或父会话取消。
    * @param goal 目标描述
    * @returns 最终轮结果（达成与否、轮次、会话 id、结论）
    */
   public async run(goal: string): Promise<GoalResult> {
     const first = await this.agent.runTask(this.promptFor(goal, 1));
+    // 取消后不再跑达成度判定（判定本身要花一次模型调用，省下它）。
+    if (this.isCancelled()) {
+      return this.cancelled(goal, first);
+    }
     const achievedFirst = await this.check(first, goal, 1);
     if (achievedFirst.achieved) {
       return achievedFirst;
     }
     let last = first;
     for (let i = 2; i <= this.maxIterations; i += 1) {
+      // 父会话已取消：不再开启新迭代（每轮都是一次完整回合，提前收手即省下整轮 token）。
+      if (this.isCancelled()) {
+        return this.cancelled(goal, last);
+      }
       last = await this.agent.resume(last.sessionId, this.promptFor(goal, i));
+      if (this.isCancelled()) {
+        return this.cancelled(goal, last);
+      }
       const checked = await this.check(last, goal, i);
       if (checked.achieved) {
         return checked;
       }
+    }
+    if (this.isCancelled()) {
+      return this.cancelled(goal, last);
     }
     return {
       goal,
@@ -81,6 +104,31 @@ export class GoalRunner {
       sessionId: last.sessionId,
       finalText: last.finalText,
       reason: `已达最大迭代次数 ${this.maxIterations} 仍未判定达成`,
+    };
+  }
+
+  /**
+   * 父会话是否已取消（未注入取消信号时恒为 false）。
+   * @returns 已取消为 true
+   */
+  private isCancelled(): boolean {
+    return this.signal?.aborted === true;
+  }
+
+  /**
+   * 封装「父取消」终止结果（诚实报告：未达成，原因是取消而非未达标）。
+   * @param goal 目标描述
+   * @param last 最后一轮 agent 产出
+   * @returns 终止原因标记为取消的 GoalResult
+   */
+  private cancelled(goal: string, last: AgentResult): GoalResult {
+    return {
+      goal,
+      achieved: false,
+      iterations: 0,
+      sessionId: last.sessionId,
+      finalText: last.finalText,
+      reason: CANCELLED_BY_PARENT_MESSAGE,
     };
   }
 

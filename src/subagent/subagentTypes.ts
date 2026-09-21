@@ -26,6 +26,12 @@ export const DEFAULT_SUBAGENT_MAX_STEPS = 12;
 
 /**
  * @beta
+ * 父会话取消时的统一失败文案（子代理 / 工作流 / 目标循环共用，便于调用侧识别「是取消」）。
+ */
+export const CANCELLED_BY_PARENT_MESSAGE = '已取消：父会话已取消，子代不再继续（未派生子智能体）';
+
+/**
+ * @beta
  * 子智能体任务请求。
  */
 export interface SubagentRequest {
@@ -34,6 +40,11 @@ export interface SubagentRequest {
   readonly depth: number;
   /** 授权给子智能体的工具名；不传则继承父工具集（自动剔除 subagent）。 */
   readonly tools?: readonly string[] | undefined;
+  /**
+   * 父会话取消信号（可选）：已取消则不派生；派生后在飞模型请求随父取消一并中止。
+   * 缺省 undefined＝不传播取消（库调用方自行决定）。
+   */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /**

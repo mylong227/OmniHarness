@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ToolPort } from '../ports/tool/tool.js';
+import type { ModelPort } from '../ports/model/model.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { OmniHarnessRuntime } from '../core/runtime.js';
 import type { StoragePort } from '../ports/memory/storage.js';
@@ -19,6 +20,7 @@ import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
 import { JsonlStorage } from '../adapters/storage/jsonlStorage.js';
 import { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
+import { cancellableModel } from './cancellableModel.js';
 
 /**
  * @beta
@@ -36,14 +38,18 @@ export class SubagentRuntimeFactory {
     tools: ToolPort,
     events: EventPort,
     maxSteps: number,
+    signal?: AbortSignal,
   ): OmniHarnessRuntime {
     // 子代存储重定位到隔离工作树（worktree.path / 拷贝目录）下，杜绝共享冲突。
     const storage = this.rerootStorage(ports.storage, ports.workspaceRoot);
+    // 取消传播：父会话的取消信号并进子代每次模型请求（父取消 → 在飞请求中止、不再烧 token）。
+    // 未注入信号时逐字沿用原模型对象，零行为变更。
+    const model = signal === undefined ? ports.model : cancellableModel(ports.model, signal);
     const config: ResolvedConfig = {
       workspaceRoot: ports.workspaceRoot,
       maxSteps,
       goalMaxIterations: ports.goalMaxIterations,
-      model: ports.model,
+      model,
       storage,
       approvals: ports.approvals,
       sandbox: ports.sandbox,
@@ -67,7 +73,7 @@ export class SubagentRuntimeFactory {
     };
     return {
       config,
-      model: ports.model,
+      model,
       tools,
       storage,
       events,
@@ -86,7 +92,7 @@ export class SubagentRuntimeFactory {
         ports.escalation,
         ports.elevatedSandbox,
       ),
-      container: this.containerOf(ports, tools, events, storage),
+      container: this.containerOf(ports, tools, events, storage, model),
       native: ports.native,
       longTermMemory: ports.longTermMemory,
       memoryExtractor: undefined,
@@ -118,9 +124,10 @@ export class SubagentRuntimeFactory {
     tools: ToolPort,
     events: EventPort,
     storage: StoragePort,
+    model: ModelPort,
   ): Container {
     const container = new Container();
-    container.register(ServiceKeys.model, ports.model);
+    container.register(ServiceKeys.model, model);
     container.register(ServiceKeys.storage, storage);
     container.register(ServiceKeys.sandbox, ports.sandbox);
     container.register(ServiceKeys.approvals, ports.approvals);
