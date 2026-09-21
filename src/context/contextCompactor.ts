@@ -180,8 +180,11 @@ export class ContextCompactor {
       const head = messages.slice(0, state.compactedUpTo);
       if (headFingerprint(head) === state.headHash) {
         const tail = this.shrink(sanitizeToolRounds(messages.slice(state.compactedUpTo)));
+        // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
+        // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
+        const composed = this.composeWithinBudget(state.summary, tail.messages);
         return {
-          messages: [{ role: 'system', content: state.summary }, ...tail.messages],
+          messages: composed.messages,
           compacted: true,
           summary: state.summary,
           state,
@@ -247,16 +250,10 @@ export class ContextCompactor {
       summary,
     };
     // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
-    // 摘要本身可能是长历史的长文，单靠折叠 head 不保证落回预算内。
-    const composed: ModelMessage[] = [{ role: 'system', content: summary }, ...tail.messages];
-    let final: readonly ModelMessage[] = composed;
-    let extraDropped = 0;
-    while (final.length > 2 && this.estimator.estimateMessages(final) > this.threshold) {
-      const before = final.length;
-      const head0 = final[0] as ModelMessage;
-      final = [head0, ...sanitizeToolRounds(final.slice(2))];
-      extraDropped += before - final.length;
-    }
+    // 与游标快路径共用同一方法，保证两条路径结果一致。
+    const composed = this.composeWithinBudget(summary, tail.messages);
+    const final = composed.messages;
+    const extraDropped = composed.dropped;
     log.info('compaction.done', {
       keepRecent: final.length - 1,
       hadModel: this.model !== undefined,
@@ -271,6 +268,31 @@ export class ContextCompactor {
       state: newState,
       ...(tail.report !== undefined ? { shrink: tail.report } : {}),
     };
+  }
+
+  /**
+   * 组装「摘要 + 最近消息」并保证落入预算：超出时丢弃较旧的 tail 消息（保留摘要与最新一条）。
+   *
+   * **主路径与游标快路径共用本方法**——两条路径若各自组装，同一输入会给出不同条数
+   * （实测：首次压缩 2 条、复用游标 3 条），既不自洽也可能超预算。
+   * @param summary 摘要文本（作为首条 system）
+   * @param tail 最近消息（已收缩并消毒）
+   * @returns 预算内的消息数组与**额外丢弃**的条数（0 表示摘要 + 最近消息本就未超预算）
+   */
+  private composeWithinBudget(
+    summary: string,
+    tail: readonly ModelMessage[],
+  ): { readonly messages: readonly ModelMessage[]; readonly dropped: number } {
+    let final: readonly ModelMessage[] = [{ role: 'system', content: summary }, ...tail];
+    let dropped = 0;
+    while (final.length > 2 && this.estimator.estimateMessages(final) > this.threshold) {
+      const before = final.length;
+      const summaryMessage = final[0] as ModelMessage;
+      // 丢弃下标 1..（较旧的 tail），保留摘要与最新一条；丢弃后重新消毒避免 orphan tool。
+      final = [summaryMessage, ...sanitizeToolRounds(final.slice(2))];
+      dropped += before - final.length;
+    }
+    return { messages: final, dropped };
   }
 
   /**
