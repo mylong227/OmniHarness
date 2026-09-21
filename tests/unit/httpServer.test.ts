@@ -110,12 +110,9 @@ test('HTTP：SSE 推送 thread.event 事件', async () => {
   try {
     const sse = await collectSse(base);
     await rpc(base, 'turns.run', { prompt: '流式事件' });
-    await sleep(300);
+    const gotEvent = await waitForSse(sse, 'thread.event');
     sse.abort();
-    assert.ok(
-      sse.events.some((data) => JSON.parse(data).method === 'thread.event'),
-      '应收到 thread.event 通知',
-    );
+    assert.ok(gotEvent, '应收到 thread.event 通知');
   } finally {
     await server.close();
   }
@@ -134,17 +131,38 @@ test('HTTP：/metrics 返回 Prometheus 指标快照', async () => {
   }
 });
 
+/**
+ * 等待 SSE 收集器收到指定方法的事件（有界轮询）。
+ *
+ * 为什么不用「固定 sleep 后断言」：全量并行跑测试时，服务端产事件的耗时会被负载拉长，
+ * 固定等待会让这条门禁**随机变红**（实测：全量跑偶发失败、该文件单跑 10/10 通过）。
+ * 轮询只在事件**始终没来**时才失败——比固定等待更严，也不再受负载影响。
+ * @param sse SSE 收集器（只读事件数组）
+ * @param method 期望的通知方法名
+ * @param timeoutMs 等待上限（毫秒）
+ * @returns 超时前收到为 true
+ */
+async function waitForSse(
+  sse: { readonly events: readonly string[] },
+  method: string,
+  timeoutMs = 3000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (sse.events.some((data) => JSON.parse(data).method === method)) return true;
+    await sleep(50);
+  }
+  return false;
+}
+
 test('HTTP：审批上行经 SSE 发出', async () => {
   const { server, base } = await startTestServer(true);
   try {
     const sse = await collectSse(base);
     rpc(base, 'turns.run', { prompt: '审批' }).catch(() => undefined);
-    await sleep(300);
+    const gotApproval = await waitForSse(sse, 'approval.request');
     sse.abort();
-    assert.ok(
-      sse.events.some((data) => JSON.parse(data).method === 'approval.request'),
-      '应收到审批上行',
-    );
+    assert.ok(gotApproval, '应收到审批上行');
   } finally {
     await server.close();
   }
