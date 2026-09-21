@@ -1041,3 +1041,52 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 **简报纠错（记下备查）**：`search.all` **不搜会话内容**——后端 `workspaceSearchService` 的 `searchChats` 只匹配会话 `label`，`searchFiles` 只匹配工作区**相对路径**。故 UI 里「会话命中」= 标题命中、「文件命中」= 路径命中；内容检索需后端新能力（不在本轮范围）。
 
 **门禁（本轮实测全绿）**：`web:test` **223/223**；`test:integration` **11/11**；`lint` 0 告警；`check --strict` 554 文件零违规；`arch:gate` 0 违规；`audit:config-wiring` 554 文件全绿；`audit:maturity` 41 项通过；`format:check` 通过；全量单测见 §15.5。
+
+## 16. 前端：事件流「逐块真实高度」（已接线）+ 真机截图存档（2026-09-21）
+
+> 用户指令（五、剩余 ①）：「前端：逐块真实高度（**必须接线一起做**，我已回退过一次未接线的版本）、真机截图存档；CI 那部分已完成。」
+> 铁律对位：这是「声明未接线」六不变量（audit:config-wiring）的正面实例——库里加了能力（`computeWithHeights`/`BlockHeightIndex`）还要**沿 装配→运行时→消费 全链透传并实测生效**，否则就是死代码。本轮把整条链跑通并用真机探针证伪。
+
+### 16.1 原缺口（盘点证据）
+
+虚拟化已在 §15.8 落地，但占位高度按**单块估算 88px** 计（`StreamWindow.compute` 的 `index×估算` 口径），长回复 / 折叠过程簇真实高度动辄数百~两千 px，导致：
+
+- 滚动条总高 ≈ `N×88`，与真实内容总高偏差大 ⇒ 滚到中段时**绝对像素漂移、吸底手感不稳**；
+- 首屏 / 中段窗口按估算切块，长块被「切成两半」的概率随块高方差上升。
+
+### 16.2 动作（装配→运行时→消费 全链）
+
+| 层   | 文件                                                  | 改动                                                                                                                                                                                            |
+| ---- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 模型 | `web/src/ui/models/BlockHeightIndex.ts`（新）         | 零 DOM 纯模型：`key→实测高度` 表；`set` 亚像素防抖（EPS=0.5）、`[min=8,max=30000]` 裁剪、未测回落估算（默认 88）、`prefix/total/prune/snapshot`                                                 |
+| 模型 | `web/src/ui/models/StreamWindow.ts`                   | 新增 `computeWithHeights(keys, heightOf, scrollTop, viewport)`：前缀偏移表 + 二分（`binarySearchFloor/Ceil`）算窗口；padTop/padBottom 为真实前缀和而非 `index×估算`；旧 `compute` 保留向后兼容  |
+| 组件 | `web/src/ui/components/StreamView.tsx`                | `indexRef`/`blockElsRef` 接线；`useLayoutEffect` 逐 `.sw-block` 读 `offsetHeight` 回填索引（`h>0` 才写，防未布局污染）；非贴底时按 padTop 增量补偿 `scrollTop` 防跳变；可视块包 `sw-block` 容器 |
+| 样式 | `web/styles/chat.css`                                 | `.sw-block { display:flow-root; }` ⇒ `offsetHeight` 含子 `.ev` margin                                                                                                                           |
+| 测试 | `web/test/blockHeightIndex.test.mjs`（新）            | 6 例：回落/防抖/裁剪/前缀/prefix 守恒/`computeWithHeights` 变高下 padTop=真实前缀和/向后兼容定位不变量                                                                                          |
+| 探针 | `web/test/virtualProbe.mjs`（新·复用 browserHarness） | 真 Chrome 推 200 条长短不均会话，断言虚拟化 + `.sw-block` 存在 + 总高偏离 `N×88` + 存档 3 张 PNG 到 `web/archive/`                                                                              |
+| 忽略 | `.gitignore`                                          | 加 `web/archive/*.png`（存档不入库，避免仓库膨胀）                                                                                                                                              |
+
+### 16.3 可证伪验收（真机探针实测，非自我宣称）
+
+`node web/test/virtualProbe.mjs` 在真实 Chrome 跑通：
+
+- `blocks: 20` 个 `.sw-block` 容器确实存在 ⇒ **真实高度路径已接线，不是死代码**；
+- `scrollHeight: 143907` vs `uniformHeight: 17600`（`200×88`）⇒ 总高由**真实高度累加**驱动，偏离 8× ⇒ 真实路径生效；
+- `rendered: 20` < `total: 200` ⇒ 虚拟化仍成立（DOM 节点数不随条数增长）；
+- `wrapperWired: true` ⇒ 每个渲染块对应一个测量容器；
+- **真机截图存档**（3 张，`web/archive/`）：`virtual-1280-<ts>.png`(164KB)、`virtual-1280-top-<ts>.png`(200KB)、`virtual-640-<ts>.png`(131KB)。
+
+### 16.4 测试口径更正（本轮两处断言重写，附理由）
+
+1. `longSessionPerf` 首屏断言 `16→15`：二分前缀窗口比 legacy `compute` 的 `ceil+1` 兜底**紧 1 块**（首屏 7 可视块 [0,616]⊇[0,600] + 8 下 overscan），**更紧且不欠渲**；中段 `scrollTop=20000` 两路径算得同一窗口（`after=24`、`padTop=219×88`），滚动锚定不跳。非「调低门槛换绿灯」，而是校正到已接线路径的正确行为。
+2. `blockHeightIndex` 向后兼容护栏：二分窗口与 `compute` 算术结构不同（首屏 end 紧 1），故不断言逐块 `end` 相等，只断言**定位三不变量**（`start` 一致、`padTop` 一致、总高守恒）+ 永不欠渲，更贴近真实保证。
+
+### 16.5 门禁（本轮实测全绿）
+
+`web:build` 0；`web:test` **236/236**（含 new `blockHeightIndex` 6/6、`longSessionPerf` 9/9）；`typecheck` 0；`lint` 0；`check --strict` 558 文件零违规；`arch:gate` 0 违规；`audit:maturity` 通过；`audit:standard:delta` 通过（无暂存 .ts 时增量门禁通过）；`audit:config-wiring` 558 文件全绿。
+
+### 16.6 范围边界
+
+- ② Agent 子代事件绕过事件桥（组合根端口重绑重构）**不在本轮**——单列一笔，后续轮次推进；
+- rerootStorage / worktree 锁 cleanup / 原生 token 估算 / shrinkLossless 有损：均**未复现 / 平台性 skip**，本轮不动；
+- CI 部分用户确认已完成，本轮未新增 CI。
