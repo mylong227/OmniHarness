@@ -221,15 +221,22 @@ export class ContextCompactor {
     const tail = this.shrink(sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0) {
+      // 无 head 可折叠（keepRecent ≥ 总条数）⇒ 没有摘要可生成，但**绝不能原样透传**：
+      // 旧实现在这里返回 tail 却报 `compacted: true` + summary '[历史已省略]'，实测「阈值 100、
+      // 输入 4 万字符 → 输出 4 万字符、out===in」，即**假称已压缩、上下文仍超预算**（fail-open：
+      // 下一步直接把超窗请求发给端点）。现按真实预算兜底丢弃最旧消息，并如实报告丢弃条数；
+      // 若本就在预算内则如实回 `compacted: false`（不谎报）。
+      const bounded = this.dropOldestUntilBudget(tail.messages);
       log.info('compaction.done', {
-        keepRecent: tail.messages.length,
+        keepRecent: bounded.messages.length,
         hadModel: this.model !== undefined,
+        droppedMessages: bounded.dropped,
         summaryLen: 0,
       });
       return {
-        messages: tail.messages,
-        compacted: true,
-        summary: '[历史已省略]',
+        messages: bounded.messages,
+        compacted: bounded.dropped > 0,
+        ...(bounded.dropped > 0 ? { summary: `[最早 ${bounded.dropped} 条历史已省略]` } : {}),
         ...(tail.report !== undefined ? { shrink: tail.report } : {}),
       };
     }
@@ -239,19 +246,54 @@ export class ContextCompactor {
       headHash: headFingerprint(head),
       summary,
     };
+    // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
+    // 摘要本身可能是长历史的长文，单靠折叠 head 不保证落回预算内。
+    const composed: ModelMessage[] = [{ role: 'system', content: summary }, ...tail.messages];
+    let final: readonly ModelMessage[] = composed;
+    let extraDropped = 0;
+    while (final.length > 2 && this.estimator.estimateMessages(final) > this.threshold) {
+      const before = final.length;
+      const head0 = final[0] as ModelMessage;
+      final = [head0, ...sanitizeToolRounds(final.slice(2))];
+      extraDropped += before - final.length;
+    }
     log.info('compaction.done', {
-      keepRecent: tail.messages.length,
+      keepRecent: final.length - 1,
       hadModel: this.model !== undefined,
       summaryLen: summary.length,
       shrunkBytes: tail.report?.savedBytes ?? 0,
+      extraDroppedMessages: extraDropped,
     });
     return {
-      messages: [{ role: 'system', content: summary }, ...tail.messages],
+      messages: final,
       compacted: true,
       summary,
       state: newState,
       ...(tail.report !== undefined ? { shrink: tail.report } : {}),
     };
+  }
+
+  /**
+   * 预算兜底：结果仍超阈值时，从**最旧**一端逐条丢弃（每次丢弃后重新消毒工具轮次，
+   * 避免留下无匹配前序的 orphan tool —— 那会被上游 400 拒收），直到落入预算或只剩一条消息。
+   *
+   * 这是「无 head 可摘要」时的最后一道防线：宁可丢最旧历史并**如实报告**，
+   * 也不能假称已压缩而把超窗请求发出去（旧实现即 fail-open）。
+   * @param messages 已折叠/收缩后的候选消息（按时间顺序）
+   * @returns 预算内的消息与**实际丢弃**的条数（0 表示本就未超预算）
+   */
+  private dropOldestUntilBudget(messages: readonly ModelMessage[]): {
+    readonly messages: readonly ModelMessage[];
+    readonly dropped: number;
+  } {
+    let current = sanitizeToolRounds(messages);
+    let dropped = 0;
+    while (current.length > 1 && this.estimator.estimateMessages(current) > this.threshold) {
+      const before = current.length;
+      current = sanitizeToolRounds(current.slice(1));
+      dropped += before - current.length;
+    }
+    return { messages: current, dropped };
   }
 
   /**

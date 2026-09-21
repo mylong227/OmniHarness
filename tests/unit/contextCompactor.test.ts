@@ -45,7 +45,10 @@ test('压缩器：超预算用 LLM 摘要折叠历史', async () => {
   const result = await compactor.compact(longMessages(6));
   assert.strictEqual(result.compacted, true);
   assert.strictEqual(result.summary, '历史摘要内容');
-  assert.strictEqual(result.messages.length, 3);
+  // 2026-09-19 契约变更：**预算现在真的生效**。旧断言写死 3 条（1 摘要 + 2 最近），
+  // 但 50 token 预算下「摘要 + 2 条长消息」本身就超预算 ⇒ 那是在钉「报 compacted 却仍超预算」的
+  // fail-open 行为。现改为折叠后继续丢弃较旧的 tail 消息，直到落入预算（至少保留摘要 + 1 条）。
+  assert.strictEqual(result.messages.length, 2);
   assert.strictEqual(result.messages[0]?.role, 'system');
   assert.strictEqual(result.messages[0]?.content, '历史摘要内容');
 });
@@ -55,8 +58,8 @@ test('压缩器：无模型退化为占位摘要 + 最近消息', async () => {
   const result = await compactor.compact(longMessages(6));
   assert.strictEqual(result.compacted, true);
   assert.strictEqual(result.summary, '[历史已省略]');
-  // 1 条占位 system + keepRecent 条最近消息
-  assert.strictEqual(result.messages.length, 3);
+  // 同上：占位摘要 + 最近消息，仍受预算约束（50 token 下只留摘要 + 1 条）。
+  assert.strictEqual(result.messages.length, 2);
   assert.strictEqual(result.messages[0]?.role, 'system');
   assert.strictEqual(result.messages[0]?.content, '[历史已省略]');
 });
@@ -74,10 +77,25 @@ test('压缩器：模型异常退化为占位摘要 + 最近消息', async () =>
   assert.strictEqual(result.messages.length, 2);
 });
 
-test('压缩器：keepRecent 不超过消息总数', async () => {
-  const compactor = new ContextCompactor(undefined, { maxTokens: 1, keepRecent: 10 });
-  const result = await compactor.compact(longMessages(3));
-  assert.strictEqual(result.messages.length, 3);
+test('压缩器：keepRecent ≥ 消息总数时的两条不变量（预算内不谎报 / 超预算真丢弃）', async () => {
+  // ① 预算内：无 head 可折叠、也不超预算 ⇒ 原样保留且**如实回 compacted:false**（不谎报已压缩）。
+  const roomy = new ContextCompactor(undefined, { maxTokens: 100_000, keepRecent: 10 });
+  const kept = await roomy.compact(longMessages(3));
+  assert.strictEqual(kept.messages.length, 3, '未超预算不得丢弃任何消息');
+  assert.strictEqual(kept.compacted, false, '未发生压缩就必须如实回 false');
+  assert.strictEqual(kept.summary, undefined, '未压缩不得给出「已省略」摘要');
+
+  // ② 超预算：无 head 可摘要时**真丢弃**最旧消息直至预算内，并如实写明丢弃条数。
+  // 旧实现在这里返回全部消息却报 compacted:true + '[历史已省略]'（实测「阈值 100、输入 4 万字符 →
+  // 输出 4 万字符」），即假称已压缩而超窗请求照发 —— 这是 fail-open，现被本用例钉死。
+  const tight = new ContextCompactor(undefined, { maxTokens: 1, keepRecent: 10 });
+  const dropped = await tight.compact(longMessages(3));
+  assert.strictEqual(dropped.compacted, true);
+  assert.ok(
+    dropped.messages.length < 3,
+    `超预算必须真的丢弃（实际仍留 ${dropped.messages.length} 条）`,
+  );
+  assert.match(dropped.summary ?? '', /最早 \d+ 条历史已省略/, '摘要须如实写明丢弃条数');
 });
 
 /* ---------------- P2（打磨）：确定性无损收缩接线 ---------------- */
