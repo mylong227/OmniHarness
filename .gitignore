@@ -7,6 +7,8 @@ dist/
 .wheelhouse*/
 .venv/
 venv/
+# 真机截图存档（virtualProbe 输出，存盘留档但不进仓库）
+web/archive/*.png
 
 # Credentials and machine-local Codex configuration
 .env

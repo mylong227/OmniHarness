@@ -214,13 +214,16 @@ test('虚拟化：滚动到中段后窗口随 scrollTop 平移，总高仍由占
   const second = runtime.render(StreamView, props);
   const root = virtualRoot(second);
   const after = dataNum(root, 'data-rendered-count');
-  // 首屏被列表起点夹住（无上侧 overscan）：8 个可视块 + 8 个下侧 overscan；中段则是 8 + 上下各 8。
-  assert.strictEqual(before, 16, `首屏渲染块数应为 16，实测 ${before}`);
+  // 首屏被列表起点夹住（无上侧 overscan）。computeWithHeights 用二分前缀窗口：首屏可视块数 =
+  // ceil(600/88)=7 块（[0,616] 已覆盖 600 视口）+ 8 个下侧 overscan = 15；比 legacy compute 的
+  // ceil+1 兜底少 1 块（更紧、不欠渲）。中段（scrollTop=20000）两路径算出同一窗口：219 起点 + 8 上下 overscan = 24。
+  assert.strictEqual(before, 15, `首屏渲染块数应为 15（二分窗口比 legacy 紧 1，实测 ${before}`);
   assert.strictEqual(after, 24, `中段渲染块数应为 24，实测 ${after}`);
   assert.ok(after <= RENDER_BOUND, '滚动到任意位置渲染块数都必须有界');
 
   const pads = collect(second, (n) => (n.props ?? {}).className === 'stream-pad');
   const padTop = pads.map((n) => String((n.props ?? {}).style.height))[0];
+  // 中段 scrollTop=20000：起点 = floor(20000/88)-8 = 219，顶部占位 = 219×88，两路径一致（滚动锚定不跳）。
   assert.strictEqual(padTop, 219 * ITEM_HEIGHT + 'px', '顶部占位高度 = 起始块下标 × 估算块高');
   assert.strictEqual(pads.length, 2, '上下各一个占位块');
 });

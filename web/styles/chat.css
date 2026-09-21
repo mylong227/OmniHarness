@@ -4,6 +4,8 @@
 
 /* ---------- 中栏：对话流 ---------- */
 .stream { flex:1; overflow:auto; padding:18px 22px; min-height:0; }
+/* 逐块真实高度测量容器：flow-root 建立 BFC，使子块 margin 不外溢，offsetHeight 即完整竖直占位。 */
+.sw-block { display:flow-root; }
 .ev { margin-bottom:14px; animation:fade .22s ease; }
 @keyframes fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
 .ev .head { display:flex; align-items:center; gap:8px; margin-bottom:5px; }

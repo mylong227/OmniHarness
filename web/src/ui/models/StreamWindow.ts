@@ -51,8 +51,8 @@ export interface ScrollBox {
 /** 贴底判定的像素容差：滚动到「距底不超过该值」即视为在底部（吸底手感）。 */
 const BOTTOM_EPSILON = 4;
 
-/** 默认单块估算高度（px）。 */
-const DEFAULT_ITEM_HEIGHT = 88;
+/** 默认单块估算高度（px）。导出供组合根按同一口径创建 BlockHeightIndex。 */
+export const DEFAULT_ITEM_HEIGHT = 88;
 
 /** 默认上下 overscan 块数。 */
 const DEFAULT_OVERSCAN = 8;
@@ -112,6 +112,93 @@ export class StreamWindow {
       padBottom: (n - end) * this.itemHeight,
       total: n,
     };
+  }
+
+  /**
+   * 按「逐块真实高度」计算虚拟窗口：padTop/padBottom 用前缀偏移累加而非 index×估算，
+   * 于是滚动条总高 ≈ Σ真实高度（长回复 / 折叠簇高度差异大时，比统一估算准得多）。
+   * 首屏未测到的块由 heightOf 回落到估算值，故「未测量」不崩、只略有偏差。
+   * @param keys 当前全部块 key（有序，与 blocks 下标对应）
+   * @param heightOf 取某块真实高度的函数（未测到回落估算）
+   * @param scrollTop 当前滚动偏移（px）
+   * @param viewportHeight 可视区高度（px，<= 0 时用构造时的兜底值）
+   * @returns 窗口指标（start/end/rendered/padTop/padBottom/total）
+   */
+  public computeWithHeights(
+    keys: readonly string[],
+    heightOf: (key: string) => number,
+    scrollTop: number,
+    viewportHeight: number,
+  ): StreamWindowMetrics {
+    const n = Math.max(0, keys.length);
+    if (n === 0) {
+      return { start: 0, end: 0, rendered: 0, padTop: 0, padBottom: 0, total: 0 };
+    }
+    const viewport = viewportHeight > 0 ? viewportHeight : this.fallbackViewport;
+    const top = scrollTop > 0 ? scrollTop : 0;
+    // 前缀偏移表（长度 n+1）：offsets[i] = 前 i 块累计高；offsets[n] = 总高。
+    const offsets = new Array<number>(n + 1);
+    offsets[0] = 0;
+    for (let i = 0; i < n; i++) offsets[i + 1] = offsets[i]! + heightOf(keys[i]!);
+    const totalHeight = offsets[n]!;
+    // 窗口起点：最大 i 使 offsets[i] <= top（即「完全滚过」的块数）。
+    const start = this.binarySearchFloor(offsets, top);
+    // 窗口终点：最小 i 使 offsets[i] >= top + viewport（即首个「在底部之下」的块），再加 overscan。
+    let end = this.binarySearchCeil(offsets, top + viewport) + this.overscan;
+    end = Math.min(n, end);
+    const safeStart = Math.max(0, start - this.overscan);
+    return {
+      start: safeStart,
+      end,
+      rendered: end - safeStart,
+      padTop: offsets[safeStart]!,
+      padBottom: totalHeight - offsets[end]!,
+      total: n,
+    };
+  }
+
+  /**
+   * 在单调不降的前缀偏移表里二分：返回最大下标 i 使 offsets[i] <= target。
+   * @param offsets 前缀偏移表（offsets[0] = 0，单调不降）
+   * @param target 目标偏移（px）
+   * @returns 满足条件的最大下标
+   */
+  private binarySearchFloor(offsets: readonly number[], target: number): number {
+    let lo = 0;
+    let hi = offsets.length - 1;
+    let res = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (offsets[mid]! <= target) {
+        res = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return res;
+  }
+
+  /**
+   * 在单调不降的前缀偏移表里二分：返回最小下标 i 使 offsets[i] >= target。
+   * @param offsets 前缀偏移表（offsets[0] = 0，单调不降）
+   * @param target 目标偏移（px）
+   * @returns 满足条件的最小下标
+   */
+  private binarySearchCeil(offsets: readonly number[], target: number): number {
+    let lo = 0;
+    let hi = offsets.length - 1;
+    let res = offsets.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (offsets[mid]! >= target) {
+        res = mid;
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
+    }
+    return res;
   }
 
   /**
