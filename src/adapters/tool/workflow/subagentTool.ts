@@ -43,8 +43,8 @@ export class SubagentTool {
 
   /** 派生并执行子任务。
    * @param call 工具调用（实参含 task，可选 tools）。
-   * @param context 工具上下文（取 sessionId 作为父会话）。
-   * @returns 执行结果：成功附子智能体输出与元信息；缺 task 或子执行失败返回失败。
+   * @param context 工具上下文（取 sessionId 作为父会话；signal 为父会话取消信号）。
+   * @returns 执行结果：成功附子智能体输出与元信息；缺 task、父已取消或子执行失败返回失败。
    */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const task = String(call.arguments['task'] ?? '').trim();
@@ -56,6 +56,8 @@ export class SubagentTool {
       parentSessionId: context.sessionId,
       depth: ROOT_DEPTH,
       tools: this.toolsOf(call),
+      // 取消传播：父会话取消信号下传（父取消 → 子代模型请求中止、不再派生新子代）。
+      signal: context.signal,
     });
     if (!result.ok) {
       return { callId: call.id, ok: false, error: result.error ?? '子智能体执行失败' };

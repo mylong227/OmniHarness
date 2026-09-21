@@ -1,5 +1,7 @@
 import { WorkflowCycleError } from './workflowCycleError.js';
+import { WorkflowSpecError, requireWorkflowConcurrency } from './workflowSpecError.js';
 import type { SubagentPorts } from '../subagent/subagentPorts.js';
+import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
 import { Agent } from '../core/agent.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../subagent/subagentEventBridge.js';
@@ -52,10 +54,15 @@ export interface GraphNodeUpdate {
  * WorkflowRunner 选项。
  */
 export interface WorkflowRunnerOptions {
-  /** 同层最大并发步数。 */
+  /** 同层最大并发步数（须为 ≥1 的整数；非法即抛 {@link WorkflowSpecError}）。 */
   readonly maxConcurrency?: number | undefined;
   /** 节点状态变更回调（可选，供实时进度推送）。 */
   readonly onNodeUpdate?: ((update: GraphNodeUpdate) => void) | undefined;
+  /**
+   * 父会话取消信号（可选）：置位后不再启动新步骤，并把在飞步骤的模型请求一并中止
+   * （子代 runtime 的模型端口按此信号协作式取消）。缺省 undefined＝不传播取消。
+   */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /**
@@ -74,11 +81,16 @@ export class WorkflowRunner {
     private readonly ports: SubagentPorts,
     private readonly options: WorkflowRunnerOptions = {},
   ) {
-    this.maxConcurrency = options.maxConcurrency ?? DEFAULT_WORKFLOW_CONCURRENCY;
+    // 非法并发上限 fail-closed：非法值会让闸门永不放行（调用方永久挂起），
+    // 故在构造期就拒绝并给出可执行信息，而不是留给 run() 挂死。
+    this.maxConcurrency = requireWorkflowConcurrency(
+      options.maxConcurrency,
+      DEFAULT_WORKFLOW_CONCURRENCY,
+    );
   }
 
   /**
-   * 运行工作流 DAG 直到达成或遇环 / 失败传播。
+   * 运行工作流 DAG 直到达成或遇环 / 失败传播 / 父会话取消。
    * @param def 工作流定义（步骤 DAG + 可选并发上限）
    * @returns 各步骤结果与整体状态
    */
@@ -88,10 +100,15 @@ export class WorkflowRunner {
     const blackboard: Record<string, string> = {};
     const results: WorkflowStepResult[] = [];
     const skipped = new Set<string>();
-    // spec 中的 maxConcurrency 优先于构造期默认值。
-    const maxConcurrency = def.maxConcurrency ?? this.maxConcurrency;
+    // spec 中的 maxConcurrency 优先于构造期默认值（非法值同样 fail-closed 拒绝）。
+    const maxConcurrency = requireWorkflowConcurrency(def.maxConcurrency, this.maxConcurrency);
 
     for (const level of levels) {
+      // 父会话已取消：本层及其后所有步骤不再启动（不继续烧 token / 不留孤儿步骤）。
+      if (this.isCancelled()) {
+        this.cancelRemaining(level, results, skipped);
+        continue;
+      }
       // 依赖已失败/跳过的步骤本层也跳过（失败传播）。
       for (const id of level) {
         const step = byId.get(id)!;
@@ -117,15 +134,54 @@ export class WorkflowRunner {
       );
       for (const out of outs) {
         results.push(out);
-        if (out.ok && out.output !== undefined) {
-          blackboard[out.id] = out.output;
-        } else {
+        // 失败才阻塞下游；**成功但无产出**（finalText 为 undefined）只是「没有内容可注入下游」，
+        // 若把它并入失败集合，下游会被 fail-closed 跳过、整体 ok 变 false——等于把
+        // 「这一步没吐文本」误判成「这一步失败了」，并把假故障一路传染给全部下游。
+        if (!out.ok) {
           skipped.add(out.id);
+        } else if (out.output !== undefined) {
+          blackboard[out.id] = out.output;
         }
       }
     }
 
     return { ok: results.every((entry) => entry.ok), steps: results, blackboard };
+  }
+
+  /**
+   * 父会话是否已取消（未注入取消信号时恒为 false）。
+   * @returns 已取消为 true
+   */
+  private isCancelled(): boolean {
+    return this.options.signal?.aborted === true;
+  }
+
+  /**
+   * 把本层尚未执行的步骤记为「已取消」并阻塞其下游（取消传播，绝不静默续跑）。
+   * @param level 当前拓扑层的步骤 id 列表
+   * @param results 结果收集数组（就地追加取消结果）
+   * @param skipped 失败/跳过集合（就地标记，使下游继续被阻塞）
+   * @returns 无返回值
+   */
+  private cancelRemaining(
+    level: readonly string[],
+    results: WorkflowStepResult[],
+    skipped: Set<string>,
+  ): void {
+    for (const id of level) {
+      if (skipped.has(id)) {
+        continue;
+      }
+      skipped.add(id);
+      this.options.onNodeUpdate?.({ id, status: 'skipped', error: CANCELLED_BY_PARENT_MESSAGE });
+      results.push({
+        id,
+        ok: false,
+        error: CANCELLED_BY_PARENT_MESSAGE,
+        steps: 0,
+        durationMs: 0,
+      });
+    }
   }
 
   /**
@@ -147,6 +203,8 @@ export class WorkflowRunner {
         this.toolViewOf(step),
         bridge,
         this.ports.maxSteps,
+        // 取消传播：父会话取消 → 本步子代的在飞模型请求一并中止。
+        this.options.signal,
       );
       const outcome = await new Agent(runtime).runTask(this.promptFor(step, blackboard));
       const durationMs = Date.now() - startedAt;
@@ -254,3 +312,4 @@ export function computeLevels(steps: readonly WorkflowStep[]): readonly (readonl
   return levels;
 }
 export { WorkflowCycleError };
+export { WorkflowSpecError };

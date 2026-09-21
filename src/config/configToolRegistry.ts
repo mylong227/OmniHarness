@@ -47,6 +47,7 @@ import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { WorkerOrchestrator } from '../worker/workerOrchestrator.js';
 import { SimpleWorker } from '../worker/simpleWorker.js';
 import { SubagentOrchestrator } from '../subagent/subagentOrchestrator.js';
+import { DEFAULT_SUBAGENT_MAX_STEPS } from '../subagent/subagentTypes.js';
 import { SubagentTool } from '../adapters/tool/workflow/subagentTool.js';
 import { RunGoalTool } from '../adapters/tool/workflow/runGoalTool.js';
 import { RunWorkflowTool } from '../adapters/tool/workflow/runWorkflowTool.js';
@@ -180,18 +181,26 @@ export class ConfigToolRegistry {
     retrieval: RetrievalPort,
   ): void {
     const { subagent: subagentOptions, ...ports } = seed;
-    const spawner = new SubagentTool(
-      new SubagentOrchestrator({ ...ports, tools: registry }, subagentOptions),
-    );
+    // 三条子代路径（subagent / run_goal / run_workflow）共用同一份子代步数预算：
+    // 此前 run_goal / run_workflow 直接读 `ports.maxSteps`（主会话步数），`--subagent-max-steps`
+    // 只对 subagent 生效——同一个旋钮三条路两种口径，等于声明支持却半程失效。
+    // 缺省口径与 SubagentOrchestrator 完全一致（DEFAULT_SUBAGENT_MAX_STEPS），避免「不传配置」
+    // 时三条路又各自为政。
+    const childPorts = {
+      ...ports,
+      tools: registry,
+      maxSteps: subagentOptions.maxSteps ?? DEFAULT_SUBAGENT_MAX_STEPS,
+    };
+    const spawner = new SubagentTool(new SubagentOrchestrator(childPorts, subagentOptions));
     // #S30 自主目标循环：run_goal 派生进程内目标循环完成子目标（复用主循环 + 达成度判定）。
     // 经 AgentFactory（组合根注入）取得 Agent，避免 runGoalTool 直接依赖 core。
     const goalRunner = new RunGoalTool(
-      { ...ports, tools: registry },
+      childPorts,
       { maxIterations: seed.goalMaxIterations },
       new AgentFactory(),
     );
     // #S31 工作流 DAG：run_workflow 派生进程内多步依赖编排（拓扑分层 + 并发闸门 + 失败传播）。
-    const workflowRunner = new RunWorkflowTool({ ...ports, tools: registry });
+    const workflowRunner = new RunWorkflowTool(childPorts);
     // #77 计划/待办/提问协作态工具。
     const todoWriter = new TodoWriteTool(planning.todo, seed.events, eventFactory);
     const todoReader = new TodoReadTool(planning.todo);

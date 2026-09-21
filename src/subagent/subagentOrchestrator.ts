@@ -1,10 +1,14 @@
-import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
+import { ConcurrencyLimiter, requireConcurrencyLimit } from '../util/concurrencyLimiter.js';
 import { id } from '../util/id.js';
 import { SubagentRunner } from './subagentRunner.js';
 import { createWorktree } from './worktreeOps.js';
 import type { SubagentPorts } from './subagentPorts.js';
 import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
-import { DEFAULT_MAX_DEPTH, DEFAULT_SUBAGENT_MAX_STEPS } from './subagentTypes.js';
+import {
+  CANCELLED_BY_PARENT_MESSAGE,
+  DEFAULT_MAX_DEPTH,
+  DEFAULT_SUBAGENT_MAX_STEPS,
+} from './subagentTypes.js';
 
 /** 默认并发上限（成熟产品量级，仍可被 config 覆盖）。 */
 const DEFAULT_MAX_CONCURRENCY = 16;
@@ -26,10 +30,16 @@ export class SubagentOrchestrator {
     private readonly ports: SubagentPorts,
     private readonly options: SubagentOptions = {},
   ) {
-    this.limiter = new ConcurrencyLimiter(options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY);
+    // 非法并发上限 fail-closed（`--subagent-concurrency 0` 会让闸门永不放行 ⇒ 每个子代理永久挂起）。
+    this.limiter = new ConcurrencyLimiter(
+      requireConcurrencyLimit(
+        options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY,
+        'subagentConcurrency',
+      ),
+    );
   }
 
-  /** 执行单个子任务（深度超限或执行异常均转为 ok:false 结果，不抛给调用方）。 */
+  /** 执行单个子任务（深度超限 / 父已取消 / 执行异常均转为 ok:false 结果，不抛给调用方）。 */
   public async run(request: SubagentRequest): Promise<SubagentResult> {
     if (request.depth >= this.maxDepth()) {
       return this.failure(
@@ -37,7 +47,15 @@ export class SubagentOrchestrator {
         `子智能体派生深度已达上限 ${this.maxDepth()}（当前 depth=${request.depth}）`,
       );
     }
+    // 父会话已取消：连并发槽位都不必等，直接 fail-closed（不建隔离工作树、不进模型调用）。
+    if (this.cancelled(request)) {
+      return this.failure(request, CANCELLED_BY_PARENT_MESSAGE);
+    }
     return this.limiter.run(async () => {
+      // 排队期间父可能已取消：拿到槽位后再判一次，避免「等到槽位才发现该收工」。
+      if (this.cancelled(request)) {
+        return this.failure(request, CANCELLED_BY_PARENT_MESSAGE);
+      }
       // 每个子智能体独立隔离文件系统（git worktree，失败降级为目录拷贝）。
       const worktree = await createWorktree(this.ports.workspaceRoot, id('wt'));
       try {
@@ -48,10 +66,19 @@ export class SubagentOrchestrator {
       } catch (error) {
         return this.failure(request, this.messageOf(error));
       } finally {
-        // 无论成败都释放隔离资源，避免工作树/目录泄漏。
+        // 无论成败（含父取消导致的失败）都释放隔离资源，避免工作树/目录泄漏。
         await worktree.cleanup();
       }
     });
+  }
+
+  /**
+   * 父会话是否已取消（未注入取消信号时恒为 false）。
+   * @param request 子任务请求（其 signal 来自父会话取消令牌）
+   * @returns 已取消为 true
+   */
+  private cancelled(request: SubagentRequest): boolean {
+    return request.signal?.aborted === true;
   }
 
   /** 批量并发执行（受同一并发闸门约束，先到先服务）。 */
