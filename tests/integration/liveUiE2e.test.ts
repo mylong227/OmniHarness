@@ -86,14 +86,33 @@ async function until<T>(fn: () => T | Promise<T>, timeoutMs: number, label: stri
   throw new Error(`超时等待：${label}（最后结果：${JSON.stringify(last)}）`);
 }
 
+/**
+ * 是否要求本机必须有浏览器（CI 置 `OMNI_REQUIRE_BROWSER=1`）。
+ *
+ * 用途：浏览器类门禁在本地「无浏览器则 skip」是友好的，但在 CI 上跳过会让门禁**假绿**
+ * （结构基线、真机 UI 回路都等于没跑）。故 CI 下把 skip 升级为显式失败。
+ * @returns 要求浏览器则 true
+ */
+function requireBrowser(): boolean {
+  return process.env['OMNI_REQUIRE_BROWSER'] === '1';
+}
+
 test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run 全链路', async (t) => {
   if (typeof globalThis.WebSocket !== 'function') {
+    if (requireBrowser()) assert.fail('CI 要求真机浏览器，但当前 Node 缺全局 WebSocket（需 ≥22）');
     t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
     return;
   }
   const harness = (await import(HARNESS_URL)) as unknown as BrowserHarness;
   const browser = harness.findBrowser();
   if (browser === null) {
+    // 本地开发无浏览器时跳过是友好的；但 CI 上「跳过」等于这条门禁**看着绿、实际没跑**（假绿），
+    // 故 CI 用 OMNI_REQUIRE_BROWSER=1 把跳过升级为失败（见 .github/workflows/ci.yml 的 test 作业）。
+    if (requireBrowser()) {
+      assert.fail(
+        'CI 要求真机浏览器，但 findBrowser() 未找到可执行文件（设 OMNI_CHROME_PATH 或安装 Chrome）',
+      );
+    }
     t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
     return;
   }

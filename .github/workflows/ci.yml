@@ -62,6 +62,15 @@ jobs:
       # 等新功能全靠本地肉眼 review。现把 web 类型检查 + 单测纳入红线，回归即红。
       - run: npm run web:build
       - run: npm run web:test
+      # 浏览器存在性**显式断言**：`web:test` 里的 e2e-cdp 与 test 作业里的「真 serve + 真 SPA + 结构基线」
+      # 都设计成「无浏览器则 skip」（本机开发友好）。但 CI 上不能让它静默跳过——否则这些门禁会**看着绿、
+      # 实际没跑**（假绿）。这一步就是防它降级：runner 无浏览器即红，并打印找过的候选路径。
+      - name: 断言 CI 环境确有浏览器（否则浏览器类门禁会静默 skip）
+        run: |
+          node -e "import('./web/test/browserHarness.mjs').then((m)=>{const b=m.findBrowser();if(!b){console.error('CI 缺浏览器：浏览器类门禁（e2e-cdp / 真机 UI 体检 / 结构基线 / 响应式探针）将静默跳过');process.exit(1);}console.log('browser =',b);})"
+      # 响应式探针（真 Chrome + CDP，量 640/1280 有无横向溢出）此前只在本地手跑 ⇒ 收进 CI。
+      - name: 窄窗/中窗横向溢出探针（真 Chrome）
+        run: node web/test/responsiveProbe.mjs
 
   test:
     name: 单元测试（含覆盖率门禁 · 跨平台真机）
@@ -85,7 +94,11 @@ jobs:
       # coverage:check = 构建 + 全量测试 + Node 内置覆盖率 + 行覆盖率阈值门禁（零依赖）。
       - run: npm run coverage:check
       # 集成/端到端分层：多模块真实 IO 编排（agent→门禁→存储→检查点→权限），独立于单元测试。
+      # `OMNI_REQUIRE_BROWSER=1`：其中「真 serve + 真 SPA + 真 Chrome + 结构基线」一例在无浏览器时
+      # 本会 skip ⇒ 那等于这条门禁看着绿却没跑。三平台 runner 均自带 Chrome，故 CI 下把 skip 升级为失败。
       - run: npm run test:integration
+        env:
+          OMNI_REQUIRE_BROWSER: '1'
 
   eval:
     name: 零key eval 门禁（SWE replay + Pass@k）
