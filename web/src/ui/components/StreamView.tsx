@@ -28,8 +28,9 @@ import {
   esc,
   questionView,
 } from '../format.js';
-import { buildDisplayBlocks, describeToolCall } from '../textUtils.js';
-import { StreamWindow } from '../models/StreamWindow.js';
+import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
+import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
+import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { Composer } from './Composer.js';
 import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
@@ -127,6 +128,16 @@ interface EventCtx {
 function wasStreamed(p: Record<string, unknown>, finalized: string): boolean {
   if (finalized === '') return false;
   return ((p.content as string) || '') === finalized;
+}
+
+/**
+ * 取一个可视块的稳定 key：过程簇用簇 key，单块用事件 id。
+ * 该 key 同时作为「逐块真实高度索引」的维度（见 BlockHeightIndex）。
+ * @param b 可视块
+ * @returns 块 key
+ */
+function blockKeyOf(b: DisplayBlock): string {
+  return b.kind === 'process' ? b.key : b.event.id;
 }
 
 /**
@@ -335,6 +346,15 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const [scrollTop, setScrollTop] = React.useState<number>(0);
   /** 可视区高度（真实测量值；未测量到 0 时由 StreamWindow 用兜底高度）。 */
   const [viewportHeight, setViewportHeight] = React.useState<number>(0);
+  /** 逐块真实高度索引：按块 key 记录浏览器实测高度（懒初始化，本组件实例独享）。 */
+  const indexRef = React.useRef<BlockHeightIndex | null>(null);
+  if (indexRef.current === null) indexRef.current = new BlockHeightIndex({ estimate: DEFAULT_ITEM_HEIGHT });
+  /** 当前已渲染块的 DOM 节点表（key → 元素），供 layout effect 实测高度。 */
+  const blockElsRef = React.useRef<Map<string, HTMLElement>>(new Map());
+  /** 上一帧已提交的 padTop（px），用于测量后的滚动锚定补偿。 */
+  const lastPadTopRef = React.useRef<number>(0);
+  /** 测量回填计数器：索引变化后置位触发一次重渲染，随后实测稳定即停。 */
+  const [measureTick, setMeasureTick] = React.useState<number>(0);
 
   // 新事件 / 流式输入 / 流式正文到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
   // 同时同步可视高度：首屏拿到 DOM 真实高度后虚拟窗口才准。
@@ -386,10 +406,46 @@ export function StreamView(props: StreamViewProps): ReactElement {
     toolCallIds,
   };
   const blocks = buildDisplayBlocks(events, busy);
+  const keys = blocks.map(blockKeyOf);
   const streaming = streamText ?? '';
   // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。
   const tailCount = liveInputs.length + (streaming !== '' ? 1 : 0);
-  const win = STREAM_WINDOW.compute(blocks.length, scrollTop, viewportHeight);
+  // 真实高度路径：用 BlockHeightIndex 回填的逐块高度算窗口（padTop/padBottom 为前缀偏移）。
+  // 未测到的块由索引回落到估算值，故首屏/长会话顶部与「统一估算」行为一致、不崩。
+  const index = indexRef.current!;
+  const win = STREAM_WINDOW.computeWithHeights(keys, (k) => index.get(k), scrollTop, viewportHeight);
+  // 记录本帧已提交的 padTop，供测量后做滚动锚定补偿，避免内容跳动。
+  lastPadTopRef.current = win.padTop;
+
+  // 事件集合变化时裁剪高度索引：丢弃已不存在的块，防长会话无限增长（index 仅存实测值）。
+  React.useEffect(() => {
+    const keep = new Set(keys);
+    indexRef.current!.prune(keep);
+  }, [events, busy]);
+
+  // 逐块真实高度回填 + 滚动锚定：实测已渲染块高度写入索引；若非贴底且窗口上方块高度
+  // 发生了变化，按增量补偿 scrollTop，使视口内容不跳动（避免「测量→重排→跳变」）。
+  // 索引变化才触发一次重渲染，随后实测值稳定、本 effect 直接返回，不会死循环。
+  React.useLayoutEffect(() => {
+    const idx = indexRef.current!;
+    const el = streamRef.current;
+    let changed = false;
+    for (const [k, node] of blockElsRef.current) {
+      const h = node.offsetHeight; // .sw-block 为 flow-root，offsetHeight 已含子块 margin
+      if (h > 0 && idx.set(k, h)) changed = true;
+    }
+    if (!changed) return;
+    if (el && !stickyRef.current) {
+      const newPadTop = idx.prefix(keys, win.start);
+      const delta = newPadTop - win.padTop;
+      if (Math.abs(delta) > 0.5) {
+        el.scrollTop = el.scrollTop + delta;
+        if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
+      }
+    }
+    setMeasureTick((t) => t + 1);
+  }, [win.start, win.end, blocks.length, measureTick]);
+
   const visibleBlocks = blocks.slice(win.start, win.end);
   const renderedCount = win.rendered + tailCount;
   const totalCount = blocks.length + tailCount;
@@ -420,7 +476,22 @@ export function StreamView(props: StreamViewProps): ReactElement {
                 aria-hidden="true"
               />
             ) : null}
-            {visibleBlocks.map((b) => renderBlockNode(b, ctx))}
+            {visibleBlocks.map((b) => {
+              const k = blockKeyOf(b);
+              return (
+                <div
+                  className="sw-block"
+                  data-sw-key={k}
+                  key={'sw-' + k}
+                  ref={(el: HTMLDivElement | null) => {
+                    if (el) blockElsRef.current.set(k, el);
+                    else blockElsRef.current.delete(k);
+                  }}
+                >
+                  {renderBlockNode(b, ctx)}
+                </div>
+              );
+            })}
             {win.padBottom > 0 ? (
               <div
                 key="stream-pad-bottom"
