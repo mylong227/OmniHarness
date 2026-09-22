@@ -137,15 +137,19 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
 
 ## 3. 架构与可维护 / 可扩展
 
-### 3.1【待办·P0】`check --strict` 的「零违规」在**函数体长度**一项上不可信（门禁可信度）
+### 3.1【本轮已修】`check --strict` 的函数体长度门禁看不见类方法（门禁可信度）
 
 - **证据（实读 + 复现）**：`scripts/check.mjs:340-359` 的函数起始正则**看不见带访问修饰符/有返回类型标注的类方法**；
   而 eslint 的 `explicit-member-accessibility: error` + 必写返回类型恰好让所有类方法落入盲区。
-  用 TS AST 实测 `src/` 有 **14 个函数体 >80 行**（最大 `context/contextEngine.ts:503 query` **220 行**），
+  用 TS AST 实测 `src/` 有 **14 个函数体 >80 行**（最大 `context/contextEngine.ts` 的 `query` **220 行**），
   门禁却报「560 文件零违规」。
-- **修法**：`check.mjs` 改走 TS AST（typescript 已是 devDependency），`MAX_FUNC_LINES` 覆盖类方法与箭头函数；
-  先对既有 14 处加白名单 + `--delta` 增量阻断，再分批拆 `query`(220)/`configDefaults`(140)/`run`(135)。
-- **为什么排第一**：它决定「其他所有标准结论是否可信」，且修复本身不碰业务代码。
+- **修法（已落地）**：`check.mjs` 改用 **TypeScript AST**（`ts.createSourceFile` + 节点遍历）计量
+  函数/方法/构造器/取值器/箭头函数体行数，**只报最外层超限节点**（避免嵌套箭头重复计数）；
+  存量 14 处冻结进 `scripts/checkFuncBaseline.json`（**只报不拦**），**新增或体量增长即阻断**；
+  `函数体行数上限` 与 `文件行数上限` 一并升为**恒阻断规则**（此前只在 `--strict` 下阻断，CI 的 `npm run check` 看不见）。
+- **可证伪验证**：① 当前树 `npm run check` 与 `--strict` 均绿，并把 14 处存量白名单逐条列出；
+  ② 临时放入一个 98 行的 `gateProbe` 函数 ⇒ **两种模式都 exit 1** 且报「新增超限函数」；删除后复绿。
+- **遗留**：存量 14 处待分批拆（最大 `query` 220 行）——白名单即后续拆分台账。
 
 ### 3.2【待办·P0】死资产与生成物入库
 

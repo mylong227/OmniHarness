@@ -14,12 +14,14 @@
 //   5) 核心与端口层零第三方：src/ports/**、src/core/** 禁止第三方导入（阻断）。
 //   6) TS 文件名 camelCase：src/**/*.ts 基名须匹配 ^[a-z][a-zA-Z0-9]*$。
 //   7) 文件行数上限：src 单文件不得 > MAX_FILE_LINES。
-//   8) 函数体行数上限：src 函数/方法/箭头体不得 > MAX_FUNC_LINES（启发式大括号匹配）。
+//   8) 函数体行数上限：src 函数/方法/箭头体不得 > MAX_FUNC_LINES（**TypeScript AST 口径**，
+//      2026-09-22 前为启发式大括号匹配；存量超限走 scripts/checkFuncBaseline.json 白名单）。
 //   9) 体积预算 / 传递依赖收敛 / 未使用依赖（报告级，--strict 时升级阻断）。
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, dirname, extname, basename } from 'node:path';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve, dirname, extname, basename, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'src');
@@ -37,6 +39,10 @@ const blockingRules = new Set([
   '第三方导入须准入',
   '核心与端口层零第三方',
   'TS 文件名 camelCase',
+  // 体量红线：2026-09-22 起也恒阻断——**新增**超限即红（存量走 `scripts/checkFuncBaseline.json`
+  // 白名单，只报不拦）。此前这两条只在 `--strict` 下阻断，于是 CI 的 `npm run check` 看不见它们。
+  '函数体行数上限',
+  '文件行数上限',
 ]);
 
 // ---- 依赖准入清单（必要即可依赖；未登记即阻断）----
@@ -336,81 +342,125 @@ function checkFileLength(file, src) {
   }
 }
 
-// 函数起点（开括号在同行的既有情况）。
-function isFuncStart(line) {
+// ---- 函数体行数上限（AST 口径，2026-09-22 由正则启发式改用 TypeScript AST）----
+//
+// 为什么必须换：原启发式的起始判定正则要求「行首无访问修饰符」或「无返回类型时以 `)` 结尾」，
+// 于是 `public async foo(x: T): Promise<U> {` 这类**所有带修饰符/返回类型的类方法全部落入盲区**
+// ——实测 14 个函数体 >80 行（最大 `contextEngine.query` 220 行）而门禁报「零违规」。
+// 而 eslint 的 `explicit-member-accessibility` + 必写返回类型恰好让类方法**全部**是这种形态，
+// 即「最需要约束的实现体量」被系统性豁免。改用 AST 后，函数/方法/箭头/取值器一律计入。
+const FUNC_BASELINE_PATH = join(ROOT, 'scripts', 'checkFuncBaseline.json');
+
+/** 是否是需要计量的函数式节点（含类方法、构造器、访问器、箭头函数）。 */
+function isFunctionLikeNode(node) {
   return (
-    /function\s/.test(line) ||
-    /=>\s*\{/.test(line) ||
-    /^[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{/.test(line) ||
-    /^\s*(?:async\s+)?[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{/.test(line)
+    ts.isFunctionDeclaration(node) ||
+    ts.isMethodDeclaration(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isConstructorDeclaration(node) ||
+    ts.isGetAccessorDeclaration(node) ||
+    ts.isSetAccessorDeclaration(node)
   );
 }
 
-// 仅签名、开括号在下一行（braces-on-next-line 写法）。用于堵盲区：
-//   function foo()\n  {      async method()\n  {      const x = () =>\n  {
-function isFuncSignatureOnly(line) {
-  return (
-    /^\s*(?:export\s+|async\s+)?function\s+[A-Za-z_$]/.test(line) ||
-    /=>\s*$/.test(line) ||
-    /^\s*(?:async\s+)?(?:public\s+|private\s+|protected\s+|static\s+|readonly\s+|get\s+|set\s+)*[A-Za-z_$][\w$]*\s*\([^)]*\)\s*$/.test(
-      line,
-    )
-  );
+/** 节点名（匿名则回落到 `(anonymous)`），用于基线键与报错定位。 */
+function nodeNameOf(node, sf) {
+  const name = node.name;
+  return name === undefined ? '(anonymous)' : name.getText(sf);
 }
 
-// 向下（跳过空行/纯注释）最多 lookahead 行找首个开括号；找不到返回 null。
-function findOpenBrace(lines, fromLine, lookahead) {
-  for (let k = fromLine; k < Math.min(fromLine + lookahead, lines.length); k++) {
-    const t = lines[k].trim();
-    if (t === '' || t.startsWith('//') || t.startsWith('/*')) continue;
-    const idx = lines[k].indexOf('{');
-    if (idx >= 0) return { line: k, col: idx + 1 };
-  }
-  return null;
-}
-
-// 启发式：定位开括号（同行或下一行），匹配到闭合 `}` 测跨度。
-function checkLargeFunctions(file, src) {
-  const lines = src.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const isStart = isFuncStart(line) || isFuncSignatureOnly(line);
-    if (!isStart) continue;
-
-    let braceLine = -1;
-    let col = 0;
-    const sameLineOpen = line.indexOf('{');
-    if (sameLineOpen >= 0) {
-      braceLine = i;
-      col = sameLineOpen + 1;
-    } else {
-      // 开括号在下一行：箭头体收窄到 2 行（避免误挂后续无关块）；其余 3 行。
-      const arrow = /=>\s*$/.test(line);
-      const found = findOpenBrace(lines, i + 1, arrow ? 2 : 3);
-      if (!found) continue; // 无块体（如表达式体箭头），跳过
-      braceLine = found.line;
-      col = found.col;
-    }
-
-    let depth = 1;
-    let j = braceLine;
-    for (; j < lines.length; j++) {
-      const text = j === braceLine ? lines[j].slice(col) : lines[j];
-      for (const ch of text) {
-        if (ch === '{') depth++;
-        else if (ch === '}') depth--;
-        if (depth === 0) break;
+/**
+ * 用 AST 找出体行数 > MAX_FUNC_LINES 的函数（**只报最外层**：命中即不再下钻，
+ * 以免「一个超限方法内部的每个大箭头」都被重复计数）。
+ * @param file 文件绝对路径
+ * @param src 文件文本
+ * @returns 超限条目数组（含脱敏后的行号与体行数）
+ */
+function largeFunctionsOf(file, src) {
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
+  const out = [];
+  const visit = (node) => {
+    if (isFunctionLikeNode(node) && node.body !== undefined) {
+      const startLine = sf.getLineAndCharacterOfPosition(node.body.getStart(sf)).line;
+      const endLine = sf.getLineAndCharacterOfPosition(node.body.getEnd()).line;
+      const span = endLine - startLine + 1;
+      if (span > MAX_FUNC_LINES) {
+        out.push({
+          name: nodeNameOf(node, sf),
+          line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+          span,
+        });
+        return; // 只报最外层
       }
-      if (depth === 0) break;
     }
-    const span = j - i + 1;
-    if (span > MAX_FUNC_LINES) {
-      add('函数体行数上限', `${file}:${i + 1}`, `约 ${span} 行 > 上限 ${MAX_FUNC_LINES}`);
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+/** 载入存量基线（`文件 → 函数名 → 体行数`）；缺失即视为空基线（更严，不是更松）。 */
+function loadFuncBaseline() {
+  try {
+    return JSON.parse(readFileSync(FUNC_BASELINE_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+/** 把绝对路径转成基线键（posix 风格，跨平台稳定）。 */
+function baselineKeyOf(file) {
+  return relative(ROOT, file).split(sep).join('/');
+}
+
+const funcBaseline = loadFuncBaseline();
+// 由 `--dump-func-baseline` 生成；在产线运行中只读。
+const funcBaselineHits = [];
+
+/**
+ * 生成存量基线：把当前所有超限函数（文件 → 函数名 → 体行数）写入 `scripts/checkFuncBaseline.json`。
+ * 只在**引入 AST 口径**或**有意下调白名单**时手工执行一次；产线路径不会写文件。
+ */
+function dumpFuncBaseline() {
+  const files = walk(SRC).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
+  const baseline = {};
+  for (const f of files) {
+    const fns = largeFunctionsOf(f, readFileSync(f, 'utf8'));
+    if (fns.length > 0) {
+      baseline[baselineKeyOf(f)] = Object.fromEntries(fns.map((fn) => [fn.name, fn.span]));
     }
+  }
+  writeFileSync(FUNC_BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
+  const total = Object.values(baseline).reduce((n, m) => n + Object.keys(m).length, 0);
+  console.log(
+    `已写 ${relative(ROOT, FUNC_BASELINE_PATH)}：${Object.keys(baseline).length} 个文件 / ${total} 个超限函数`,
+  );
+}
+
+function checkLargeFunctions(file, src) {
+  const key = baselineKeyOf(file);
+  for (const fn of largeFunctionsOf(file, src)) {
+    const allowed = funcBaseline[key]?.[fn.name];
+    if (typeof allowed === 'number' && fn.span <= allowed) {
+      // 存量债务且未增长：报告级（与文件行数上限同一纪律：先冻结存量，再分批拆）
+      funcBaselineHits.push(`${key}:${fn.line} ${fn.name} 体 ${fn.span} 行（基线 ${allowed}）`);
+      continue;
+    }
+    add(
+      '函数体行数上限',
+      `${key}:${fn.line}`,
+      `${fn.name} 体 ${fn.span} 行 > 上限 ${MAX_FUNC_LINES}` +
+        (typeof allowed === 'number' ? `（且超过基线 ${allowed} 行）` : '（新增超限函数）'),
+    );
   }
 }
 
 function main() {
+  if (process.argv.includes('--dump-func-baseline')) {
+    dumpFuncBaseline();
+    return;
+  }
   checkDependencyAdmission(); // 1) 依赖准入 / 字段完整 / 许可证 / 落点层
   checkDependencySize(); // 2) 体积预算 / 传递收敛（实测级，缺失 node_modules 时自动跳过）
   const files = walk(SRC).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
@@ -426,6 +476,13 @@ function main() {
   if (optionalDepReport.length > 0) {
     console.log(`ℹ️  可选依赖（不计入默认安装体积预算，${optionalDepReport.length} 项）：`);
     for (const line of optionalDepReport) console.log(`  - ${line}`);
+  }
+
+  if (funcBaselineHits.length > 0) {
+    console.log(
+      `ℹ️  函数体超限**存量白名单**（体量未增长，报告级；新增或增长即阻断）：${funcBaselineHits.length} 处`,
+    );
+    for (const line of funcBaselineHits) console.log(`  - ${line}`);
   }
 
   if (violations.length === 0) {
