@@ -75,3 +75,7 @@ omniharness.json
 
 # Pre-operation backups of the .git directory
 .git.bak.*
+
+# 评测生成的报告（机器写出、可随时重跑）：入库只会让工作树随每次评测变脏（2026-09-22）
+# 人工确认的结论请写入 docs/ 或 *.baseline.json，而不是把原始产物当权威。
+evals/**/*.report.json
