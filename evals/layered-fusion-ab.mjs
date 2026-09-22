@@ -42,7 +42,7 @@ const repoMap = new RepoMapContextEngine();
 const { indexCorpus } = await importDist('context', 'contextEngine.js');
 const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
 const { buildLayeredCodeGraph, edgeCountOf } = await importDist('context', 'layeredCodeGraph.js');
-const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto.js');
+const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto', 'index.js');
 
 /** 语料根（与生产一致）。 */
 const SRC = join(ROOT, 'src');

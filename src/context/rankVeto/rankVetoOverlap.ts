@@ -1,4 +1,4 @@
-import { at } from '../util/arrayAt.js';
+import { at } from '../../util/arrayAt.js';
 /**
  * 排序否决器的**重合度度量**：Top-K 列表之间的集合相似度。
  *

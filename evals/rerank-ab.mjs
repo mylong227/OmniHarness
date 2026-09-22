@@ -32,7 +32,8 @@ const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngi
 const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
 const { RankVetoEvaluator, jaccardOverlap, DEFAULT_VETO_THRESHOLDS } = await importDist(
   'context',
-  'rankVeto.js',
+  'rankVeto',
+  'index.js',
 );
 const { bootstrapInterval } = await importDist('eval', 'bootstrap.js');
 
