@@ -5,7 +5,7 @@
 
 - **语言**：TypeScript（ESM + strict，CLI / 前端 / 编排）+ Rust（原生内核 crate）
 - **形态**：六边形（端口-适配器）—— `src/core/` 只依赖 `src/ports/` 接口，实现在 `src/adapters/`
-- **规模**（本机实测 2026-09-14）：`src/` 约 441 个 `.ts/.tsx` / 约 5.5 万行；`web/src/` 约 82 文件 / 约 1.1 万行；`tests/` 约 217 文件；`crates/` 6 个 crate / 约 6 千行 Rust
+- **规模**（本机实测 2026-09-22）：`src/` 560 个 `.ts` / 约 6.6 万行；`web/src/` 104 文件 / 约 1.3 万行；`tests/` 335 文件 / 约 3.8 万行；`crates/` 6 个 crate / 约 4.9 千行 Rust
 - **依赖**：`dependencies` 为 **0**（仅一个可选运行时 `optionalDependencies`：`@huggingface/transformers`）；第三方依赖走**准入登记 + 分层隔离**，`ports/**` 与 `core/**` 恒为第三方-free
 - **许可**：Apache-2.0
 

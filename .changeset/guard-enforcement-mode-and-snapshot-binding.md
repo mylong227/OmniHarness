@@ -6,7 +6,7 @@
 
 **D1 · 三态生效模式（借鉴 dsh-jev 的 `provider` × `mode` 两正交开关）**
 
-- 新增 `src/security/enforcementMode.ts`：`off` 不跑 / `shadow` **跑·记·但不改行为** / `enforce` 跑且生效；兼容历史二值（`true ⇒ enforce`、`false / undefined ⇒ off`，零行为变更）。
+- 新增 `src/security/enforcementModeResolver.ts`：`off` 不跑 / `shadow` **跑·记·但不改行为** / `enforce` 跑且生效；兼容历史二值（`true ⇒ enforce`、`false / undefined ⇒ off`，零行为变更）。（2026-09-22 由 `enforcementMode.ts` 更名——主类名须与文件名一致，该增量门禁对新增文件是阻断项。）
 - 新增 CLI `--guard-prompt-injection-mode off|shadow|enforce`（白名单校验，入 `VALUE_FLAGS`）；`--guard-prompt-injection` 语义不变（等价 `enforce`）。
 - 全链透传：`stepTypes` / `stepToolExecutor` / `configFactory` / `cliEnums` / `cliFlagTable` / `argParser` / `cliBuildConfig`。
 - **动机**：既有安全开关多为二值 opt-in，「默认关」丢覆盖面、「默认开」担误报责任；`shadow` 是出口——**只记不改**，用于在生产流量上攒真实误报/漏报（离线快照仅 32 例）。
