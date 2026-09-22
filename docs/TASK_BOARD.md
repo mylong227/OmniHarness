@@ -1429,3 +1429,39 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 6. **组合根迁出 `core/`** ＋ 架构门禁补「ports 不得 import core/adapters/config」规则（现存在真值环 `core/runtime ↔ subagentRuntimeFactory`）；
 7. repo-map 结果 memo ＋ 上下文记账前缀缓存（每步 10–84 ms 的 O(全文) 重算）；
 8. 精排判别器升级（上限 **+6.0pp**，须先做第 1 项才可判定）。
+
+## 20. 待办执行（按用户 ROI 顺序，2026-09-22 续）
+
+### 20.1 ✅ 已结项：检索评测集扩容 33 → 84（ROI 第 1 项）
+
+- **产物**：`tests/fixtures/recallQueries.ts`（**单一真相来源**：冻结子集 33 + 新增 51）、
+  `evals/recall-query-audit.mjs`（协议门禁：锚点 GT 为空即中止 + 难度画像）、
+  `tests/unit/recallQueries.test.ts`（结构 / 规模 / 对抗性三不变量）；
+  `headroom-analysis` / `recall-precision` / `budget-recall-tradeoff` 改从 fixture 取查询
+  （**此前 15 个脚本各自复制同一份 33 条列表**——§3 所指「复制漂移」的源头）。
+- **协议**：新增条目锚点必存在（机械校验）+ 查询内容词与锚点子词**零交集**（严格对抗性，单测强制）；
+  冻结子集原措辞不动 ⇒ 历史数字仍可比。
+- **功效**：新增子集 OK 21 / RANKING **24** / LEXICAL 6（K=20 命中 41.2%），把「排序可救」样本
+  从 4 条提到 **28 条**；边际 CI 从 core33 的 **27.3–36.4pp** 收窄到 all84 的 **21.4–22.6pp**。
+
+**⚠️ 扩容推翻了一条既有结论（本轮最重要的发现）**：`rerank@K=20` 在 core33 上 **+12.1pp**
+（↑4/↓0，CI [3.0, 24.2] ✅），在新增 51 条上 **−11.7pp**（↑1/↓**7**），全量 **−2.4pp**（CI 跨 0）。
+⇒ **「精排默认开」（2026-09-17 依据 33 条查询翻的默认）在更广查询分布上不成立**；被打成未命中的 7 条
+集中在小型适配器/工具文件（`AuditSink`/`LineTransport`/`ServerAuthGuard`/`ToolOutputTrust`/
+`ApprovalRuleDecision`/`RewardCoverageMeter`/`ParallelMap`），与 `fileReranker.ts` 自述的
+「同前缀兄弟文件被抬起」形态一致。
+**处置**：新增 51 条**未经第二方复核**，故结论标记「待复核」，**未擅自翻默认**；
+复核通过前不得再以「§17 两关全过」认定 `rerank: true` 稳固；`evals/rerank-ab.mjs`（仍用内联 33 条）
+须重跑。详见 `docs/DEFICIENCY_AUDIT_2026-09-22.md` §4.5。
+
+### 20.2 ⬜ 待执行（本板按 ROI 顺序推进）
+
+2. `check.mjs` 函数体门禁改 AST + 既有 14 处白名单 + `--delta` 阻断；
+3. 取消令牌按会话存放（并发 `turns.abort` 正确性）；
+4. 审批上行超时/断连兑现（回合永久挂起）；
+5. 死资产迁出（`resources/comfyui_node_reference`）＋ `*.report.json` 不入库；
+6. 组合根迁出 `core/` ＋ 门禁补 ports→core/adapters 规则；
+7. repo-map 结果 memo ＋ 上下文记账前缀缓存；
+8. 精排判别器升级（**须先做完 20.1 的复核**）；
+9. **SSRF 策略表配置化**（用户指定）：`METADATA_HOSTS` / `INTERNAL_SUFFIXES` / `IPV4_BLOCKS`
+   三张硬编码表移入配置，走「声明→装配→运行时→消费」全链并保留默认档。

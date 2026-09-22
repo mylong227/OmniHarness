@@ -27,3 +27,7 @@ package-lock.json
 .omniharness/
 .omni-worktrees/
 target/
+
+# 评测生成的报告 JSON（机器写出、非人工维护）：格式化它们只会让 `format:check` 随机变红，
+# 且每次跑评测都产生无意义 diff（2026-09-22 扩容评测集时实测 2 份报告即触发红灯）。
+*.report.json
