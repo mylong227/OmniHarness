@@ -5,6 +5,7 @@ import type { ModelPort } from '../ports/model/model.js';
 import type { EscalationPort } from '../ports/runtime/escalation.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
+import type { EnforcementMode } from '../security/enforcementModeResolver.js';
 import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
@@ -65,8 +66,11 @@ export interface StepRunnerDeps {
    * 会实时转发到此端口供 UI 渐进渲染。缺失或模型不支持 stream 时退回 generate 路径，行为不变。
    */
   readonly live?: ToolInputSink | undefined;
-  /** 提示注入护栏（opt-in）：为 true 时工具结果进上下文前做指令注入扫描并隔离命中项。 */
-  readonly promptInjectionGuard?: boolean | undefined;
+  /**
+   * 提示注入护栏：`off` 不跑 / `shadow` 跑但不改行为（只记） / `enforce` 跑且生效。
+   * 兼容历史二值：`true ⇒ enforce`、`false / undefined ⇒ off`。
+   */
+  readonly promptInjectionGuard?: boolean | EnforcementMode | undefined;
   /** 推理强度（#B6，可选）：透传为模型 reasoning_effort；缺省按模型默认。 */
   readonly reasoningEffort?: string | undefined;
   /**

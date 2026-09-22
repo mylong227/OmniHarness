@@ -4,6 +4,10 @@ import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort, RoutePrice } from '../ports/model/model.js';
 import { CostBudget, DEFAULT_SOFT_RATIO } from '../adapters/model/costBudget.js';
 import { CostBudgetDegradeAdapter } from '../adapters/model/costBudgetDegradeAdapter.js';
+import {
+  EnforcementModeResolver,
+  type EnforcementMode,
+} from '../security/enforcementModeResolver.js';
 import { mergeRoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import { log } from '../util/logger.js';
@@ -12,6 +16,7 @@ import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
 import {
   TransformersEmbeddingAdapter,
   resolveRemoteHostFromEnv,
+  shouldPreloadEmbedding,
 } from '../adapters/embedding/transformersEmbeddingAdapter.js';
 
 import type { ModelRouterConfig } from './configFile.js';
@@ -228,7 +233,7 @@ export interface OmniHarnessConfig {
       }
     | undefined;
   /** 提示注入护栏（opt-in，默认关）：开启后工具结果进模型上下文前做确定性指令注入扫描，命中即隔离（不喂给模型）。零依赖、纯规则启发式、失败开放（扫描器异常时放行原始结果）。 */
-  readonly promptInjectionGuard?: boolean | undefined;
+  readonly promptInjectionGuard?: boolean | EnforcementMode | undefined;
   /**
    * （P3）自验证回环（opt-in，默认关）：开启后**写类工具改写源码**时自动跑受限测试命令，
    * 把失败摘要回灌到该次工具结果（模型同一步即知「改坏了」），并复用 `SelfChecklist` 做假完成探测。
@@ -537,19 +542,9 @@ export class ConfigFactory {
       fragments: partial.fragments,
       native: partial.native,
       live: partial.live ?? new CompositeLiveView([new ConsoleLiveView()]),
-      embedding:
-        process.env.OMNI_SEMANTIC_RECALL === '1'
-          ? new TransformersEmbeddingAdapter({
-              cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
-              localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
-              // 模型下载源：`OMNI_HF_ENDPOINT` 优先、回落 `HF_ENDPOINT`（见 resolveRemoteHostFromEnv）。
-              // 此前**只有评测脚本**（evals/recall-*-real.mjs）自行设 `env.remoteHost`，生产装配路径
-              // 没有任何旋钮 ⇒ 无法直连 huggingface.co 的网络上语义检索**必然不可达**——典型的
-              // 「基准脚本绕过装配层给假绿灯」（缺陷形态④）。此处补齐生产入口，使该能力可真正部署。
-              // 未配置时为 undefined ⇒ 沿用该库默认源，零行为变更。
-              remoteHost: resolveRemoteHostFromEnv(),
-            })
-          : undefined,
+      // 语义嵌入端口：`OMNI_SEMANTIC_RECALL=1` 才构造（见 buildEmbeddingPort）；
+      // 内含 L5 预热触发（`OMNI_EMBED_PRELOAD=1`，默认关 ⇒ 零行为变更）。
+      embedding: buildEmbeddingPort(),
       evolution: partial.evolution,
       // (U4) RLVR 进化闭环：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
       // 导致调用方即便设置 `evolutionRlvr` 也会在此处被静默丢弃，`createRuntime` 恒读不到
@@ -561,7 +556,13 @@ export class ConfigFactory {
       // 值被静默丢弃，`agent` 读到的 `config.promptInjectionGuard` 恒为 `undefined`
       // ⇒ `--guard-prompt-injection` 形同虚设、护栏在生产路径上**永不可达**（第九处「声明未接线」，
       // 与 E2 的 a2a / E3 的 evolutionRlvr 同一形态）。此处显式透传；缺省 `undefined` = 默认关（零行为变更）。
-      promptInjectionGuard: partial.promptInjectionGuard,
+      // (D1/D2) 生效模式三态：布尔**原样透传**（`true`=enforce / `false`=off——既有断言与零行为变更均保留）；
+      // **字符串必须过白名单校验**：未知取值在此抛错，而不是静默回落成 off——否则「配置写错」会静默
+      // 退化成「护栏失效」，与 `src/cli/cliEnums.ts`「安全相关枚举必须显式校验」同一纪律。
+      promptInjectionGuard:
+        typeof partial.promptInjectionGuard === 'string'
+          ? EnforcementModeResolver.modeOf(partial.promptInjectionGuard)
+          : partial.promptInjectionGuard,
       runtimeTelemetry: partial.runtimeTelemetry,
       costBudget,
       budgetDegrade,
@@ -661,10 +662,37 @@ export class ConfigFactory {
   }
 }
 
+// 成本预算（#S29）：设正数硬预算时构造单例，`BudgetedModel` 与 `budget_status` 工具共享
+// （含子代同一实例）。非正数 / 未设置即关闭。
+//
+// 注（2026-09-21）：本段原为 JSDoc 却**没有任何声明跟随其后**（悬空注释）。悬空 JSDoc 会被
+// **下一个**声明吸收——文档工具/编辑器会把这段说明挂到别的头上，是实打实的误挂隐患。
+// 故降级为普通注释，内容一字未删。
+
 /**
- * 成本预算（#S29）：设正数硬预算时构造单例，`BudgetedModel` 与 `budget_status` 工具共享
- * （含子代同一实例）。非正数 / 未设置即关闭。
+ * 构造语义嵌入端口（U3 混合检索），并按需触发 L5 预热。
  *
- * @param partial 未解析的运行配置。
- * @returns 硬预算计量器，未启用时为 undefined。
+ * @returns 嵌入端口；`OMNI_SEMANTIC_RECALL !== '1'` 时为 `undefined`（纯 BM25、零开销）。
  */
+function buildEmbeddingPort(): EmbeddingPort | undefined {
+  if (process.env.OMNI_SEMANTIC_RECALL !== '1') {
+    return undefined;
+  }
+  const adapter = new TransformersEmbeddingAdapter({
+    cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
+    localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+    // 模型下载源：`OMNI_HF_ENDPOINT` 优先、回落 `HF_ENDPOINT`（见 resolveRemoteHostFromEnv）。
+    // 此前**只有评测脚本**（evals/recall-*-real.mjs）自行设 `env.remoteHost`，生产装配路径
+    // 没有任何旋钮 ⇒ 无法直连 huggingface.co 的网络上语义检索**必然不可达**——典型的
+    // 「基准脚本绕过装配层给假绿灯」（缺陷形态④）。此处补齐生产入口，使该能力可真正部署。
+    // 未配置时为 undefined ⇒ 沿用该库默认源，零行为变更。
+    remoteHost: resolveRemoteHostFromEnv(),
+  });
+  if (shouldPreloadEmbedding()) {
+    // L5 预热：把冷启动成本从「首个用户查询」提前到「启动后、接流量前」。
+    // **刻意不 await**：装配是同步路径，预热不得阻塞启动；失败由 preload() 自身兜成
+    // `{ok:false}` 并落观测（契约保证不抛错），可用性判断仍由首次真实 embed 的 fail-closed 决定。
+    void adapter.preload();
+  }
+  return adapter;
+}

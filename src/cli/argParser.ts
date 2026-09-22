@@ -87,6 +87,11 @@ export interface CliArgs {
   /** 提示注入护栏（opt-in）：开启后工具结果进上下文前扫描指令注入并隔离命中项（默认关）。 */
   promptInjectionGuard?: boolean | undefined;
   /**
+   * （D1）护栏生效模式：`off` 不跑 / `shadow` 跑但不改行为（只记） / `enforce` 跑且生效。
+   * 与 `promptInjectionGuard` 合并解析（后者等价于 enforce），故两者的归一化在 `cliBuildConfig` 一处完成。
+   */
+  guardPromptInjectionMode?: 'off' | 'shadow' | 'enforce' | undefined;
+  /**
    * 推理强度（#B6，来自配置文件 `reasoning` 或环境变量 `OMNIHARNESS_REASONING`；无 CLI 旗标）。
    * 7 档与 `ENUM_VALUES.reasoning` 一致；此前该字段在 CLI 侧**完全缺失** ⇒ 文件/env 写入被静默丢弃。
    */
@@ -526,6 +531,8 @@ export class ArgParser {
         '  --subagent-max-steps N            单个子智能体步数上限（默认 12）',
         '  --plan                            计划模式：未批准计划前拦截写类工具（shell/shell_job/write_file/edit/apply_patch/delegate/subagent）',
         '  --self-verify / --no-self-verify  写源码后自动跑受限测试并把失败摘要回灌（P3；生产入口默认开，用 --no-self-verify 关闭）',
+        '  --guard-prompt-injection          开启提示注入护栏（工具结果进上下文前扫描并隔离命中项）；等价于 --guard-prompt-injection-mode enforce',
+        '  --guard-prompt-injection-mode off|shadow|enforce   护栏生效模式（默认 off）。shadow=跑但不改行为、只记录「本该拦截」，用于在生产流量上攒真实误报/漏报（D1）',
         '  --defer-tools LIST                延迟加载工具（逗号分隔），默认不进上下文，需经 tool_search 发现（如 web_search,delegate）',
         '  --tool FILE                       加载自定义工具模块（可重复）',
         '  --skills FILE.json                受种技能包（可重复）：数组或 {"skills":[...]}，每项含 name/description/instructions（可选 tags）；与配置文件的 skills 数组合并，同名以本旗标为准',

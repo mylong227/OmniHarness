@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-09-22T11:55:44.812Z",
+  "inventory": {
+    "total": 33,
+    "direct": 33,
+    "allTokens": 6937,
+    "categorized": 30,
+    "uncovered": ["spill_read", "ask_user", "tool_search"],
+    "missingInRegistry": []
+  },
+  "tasks": [
+    {
+      "id": "fix-test",
+      "task": "修复 src/billing.test.ts 里失败的测试并跑一遍测试套件",
+      "matched": ["exec"],
+      "toolsOff": 33,
+      "toolsPlan": 7,
+      "tokensOff": 6937,
+      "tokensPlan": 1757,
+      "tokenDropPct": 74.7,
+      "reason": "命中类别 [exec] ⇒ 保留 7/33 个工具（延迟 26 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "grep-usage",
+      "task": "grep 一下哪里用到了 RepoMapPayload",
+      "matched": ["search"],
+      "toolsOff": 33,
+      "toolsPlan": 5,
+      "tokensOff": 6937,
+      "tokensPlan": 1354,
+      "tokenDropPct": 80.5,
+      "reason": "命中类别 [search] ⇒ 保留 5/33 个工具（延迟 28 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "read-doc",
+      "task": "读取 docs/TASK_BOARD.md 并总结第 16 节",
+      "matched": ["files"],
+      "toolsOff": 33,
+      "toolsPlan": 8,
+      "tokensOff": 6937,
+      "tokensPlan": 1697,
+      "tokenDropPct": 75.5,
+      "reason": "命中类别 [files] ⇒ 保留 8/33 个工具（延迟 25 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "web-fetch",
+      "task": "抓取 https://example.com 的正文",
+      "matched": ["web"],
+      "toolsOff": 33,
+      "toolsPlan": 4,
+      "tokensOff": 6937,
+      "tokensPlan": 920,
+      "tokenDropPct": 86.7,
+      "reason": "命中类别 [web] ⇒ 保留 4/33 个工具（延迟 29 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "screenshot",
+      "task": "把这个页面的截图看一下渲染效果",
+      "matched": ["visual"],
+      "toolsOff": 33,
+      "toolsPlan": 5,
+      "tokensOff": 6937,
+      "tokensPlan": 1260,
+      "tokenDropPct": 81.8,
+      "reason": "命中类别 [visual] ⇒ 保留 5/33 个工具（延迟 28 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "delegate",
+      "task": "派两个子代理并行调研这两个目录",
+      "matched": ["files", "delegate"],
+      "toolsOff": 33,
+      "toolsPlan": 12,
+      "tokensOff": 6937,
+      "tokensPlan": 2432,
+      "tokenDropPct": 64.9,
+      "reason": "命中类别 [files,delegate] ⇒ 保留 12/33 个工具（延迟 21 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "memory",
+      "task": "回忆一下我上次说的偏好",
+      "matched": ["memory"],
+      "toolsOff": 33,
+      "toolsPlan": 6,
+      "tokensOff": 6937,
+      "tokensPlan": 1668,
+      "tokenDropPct": 76,
+      "reason": "命中类别 [memory] ⇒ 保留 6/33 个工具（延迟 27 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "sketch",
+      "task": "把仓库结构画成 mermaid 草图",
+      "matched": ["meta"],
+      "toolsOff": 33,
+      "toolsPlan": 7,
+      "tokensOff": 6937,
+      "tokensPlan": 1410,
+      "tokenDropPct": 79.7,
+      "reason": "命中类别 [meta] ⇒ 保留 7/33 个工具（延迟 26 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "plan-todo",
+      "task": "把计划写成待办清单",
+      "matched": ["files", "planning"],
+      "toolsOff": 33,
+      "toolsPlan": 13,
+      "tokensOff": 6937,
+      "tokensPlan": 2237,
+      "tokenDropPct": 67.8,
+      "reason": "命中类别 [files,planning] ⇒ 保留 13/33 个工具（延迟 20 个，可经 tool_search 找回）"
+    },
+    {
+      "id": "no-signal",
+      "task": "看看这个仓库整体怎么样",
+      "matched": [],
+      "toolsOff": 33,
+      "toolsPlan": 33,
+      "tokensOff": 6937,
+      "tokensPlan": 6937,
+      "tokenDropPct": 0,
+      "reason": "无类别命中 ⇒ 全部 33 个工具可见（fail-safe，不少给）"
+    }
+  ],
+  "summary": {
+    "tasks": 10,
+    "toolsOff": 33,
+    "toolsPlanAvg": 10,
+    "tokensOff": 6937,
+    "tokensPlanAvg": 2167,
+    "tokenDropPctAvg": 68.8
+  },
+  "invariants": {
+    "unionOk": 10,
+    "disjointOk": 10,
+    "channelOk": 10,
+    "total": 10
+  }
+}

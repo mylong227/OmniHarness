@@ -15,6 +15,7 @@ import {
   KV_ADAPTERS,
   A2A_TRANSPORTS,
   BUDGET_ON_EXCEED,
+  ENFORCEMENT_MODES,
 } from './cliEnums.js';
 
 /**
@@ -73,6 +74,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--spill-bytes',
   '--spill-preview',
   '--defer-tools',
+  '--guard-prompt-injection-mode',
   '--lsp',
   '--subagent-max-depth',
   '--subagent-concurrency',
@@ -203,6 +205,17 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   '--guard-prompt-injection': (a) => {
     a.promptInjectionGuard = true;
     return 0;
+  },
+  // (D1) 三态生效模式：`--guard-prompt-injection` 等价于 enforce（历史语义保留），
+  // 本开关供显式选择 `shadow`（跑、记、但不改行为——用于在生产流量上攒真实误报/漏报）。
+  '--guard-prompt-injection-mode': (a, argv, i) => {
+    a.guardPromptInjectionMode = CliFlagTable.enumOf(
+      argv,
+      i,
+      '--guard-prompt-injection-mode',
+      ENFORCEMENT_MODES,
+    );
+    return 1;
   },
   '--self-verify': (a) => {
     a.selfVerify = true;
