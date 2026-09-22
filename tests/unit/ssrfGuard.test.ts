@@ -152,3 +152,41 @@ describe('SSRF 双向单测（合法不收紧 / 非法必拒）', () => {
     );
   });
 });
+
+// ---- 2026-09-22 回归：IPv6 内嵌 IPv4 的写法曾绕过全部判定（实测复现后修复）----
+describe('SSRF 回归：IPv6 内嵌 IPv4 的等价写法不得绕过', () => {
+  it('元数据地址的点分 / 十六进制 / 全零展开写法一律拦截（默认策略下）', () => {
+    const def = defaultSsrfOptions();
+    for (const host of [
+      '[::ffff:169.254.169.254]',
+      '::ffff:169.254.169.254',
+      '::ffff:a9fe:a9fe',
+      '0:0:0:0:0:ffff:a9fe:a9fe',
+    ]) {
+      assert.strictEqual(inspectHost(host, def).blocked, true, `${host} 应被判为云元数据`);
+    }
+    assert.strictEqual(
+      inspectUrl('http://[::ffff:169.254.169.254]/latest/meta-data/', def).blocked,
+      true,
+      'URL 形态同样必须拦住',
+    );
+  });
+
+  it('严格模式：mapped / compatible / NAT64 / 6to4 形式的环回与私有地址一律拦截', () => {
+    const strict = {};
+    for (const host of [
+      '::ffff:7f00:1', // mapped 十六进制 → 127.0.0.1
+      '::ffff:10.0.0.5', // mapped 点分 → 10.0.0.5
+      '::7f00:1', // IPv4-compatible → 127.0.0.1
+      '64:ff9b::7f00:1', // NAT64 → 127.0.0.1
+      '2002:7f00:0001::', // 6to4 → 127.0.0.1
+    ]) {
+      assert.strictEqual(inspectHost(host, strict).blocked, true, `${host} 严格模式应拦截`);
+    }
+  });
+
+  it('公网地址不被过度收紧（mapped 与原生 IPv6 均放行）', () => {
+    assert.strictEqual(inspectHost('::ffff:8.8.8.8', {}).blocked, false);
+    assert.strictEqual(inspectHost('2001:4860:4860::8888', {}).blocked, false);
+  });
+});
