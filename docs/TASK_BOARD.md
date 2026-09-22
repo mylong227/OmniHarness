@@ -1090,3 +1090,290 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 - ② Agent 子代事件绕过事件桥（组合根端口重绑重构）**不在本轮**——单列一笔，后续轮次推进；
 - rerootStorage / worktree 锁 cleanup / 原生 token 估算 / shrinkLossless 有损：均**未复现 / 平台性 skip**，本轮不动；
 - CI 部分用户确认已完成，本轮未新增 CI。
+
+## 17. 借鉴外部 System 1 决策项目：工具按需暴露（已接线）+ 取经清单（2026-09-21）
+
+> 用户指令：「我是让你去学习借鉴别人好项目好的经验好的解决方法，学而时习之，不亦说乎。学习别人好的地方难道不是进步嘛」＋「所有好的调研就是让方向具备价值」。
+> 铁律对位：本轮**不引入任何依赖**（`dependency-allowlist.json` 零改动；`package.json` 仅加一条 eval 脚本），
+> 只借鉴**约定**，并把其中一条**真正接线落地**——走「装配→运行时→消费」全链 + 可证伪数字 + 门禁全绿，
+> 避免 §15 所治的「有实现无接线」。
+
+### 17.1 调研对象与去伪（一手核对，不采信二手转述）
+
+| 项目                                                          | 性质                                                                              | 一手核对结果（2026-09-21 实测/抓取）                                                                                                                                                        |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Jev**（TypeSafe AI）                                        | 闭源托管 System One API（`choice`/`score`/`noul`）                                | 侧证于 Vercel AI Gateway、AIML API 文档；**闭源 + 数据出境**，与本仓 fail-closed/主权口径相悖 ⇒ 不接                                                                                        |
+| **Laya**（`NandhaKishorM/laya`，HF `convaiinnovations/laya`） | 独立 System 1 决策模型，Apache-2.0                                                | GitHub **8351★/702 fork**；HF 权重**只有 `safetensors`（F16、421M）**，**无 ONNX**；决策语义（选项打分头/`head_max_len` 打包）在 **Python `laya` 包**内，**不在权重里**                     |
+| **OpenJev**（`razorback16/openjev`）                          | 与 Jev **同线协议**的开放服务端，跑 DiffusionGemma 26B-A4B                        | 需 **24GB** NVIDIA 或 Mac 16GB 显存 ⇒ 本机（MX250 **2GB**）不可行                                                                                                                           |
+| **dsh-jev**（`buberlo/dsh-jev`）                              | **专为本 harness 写的 Jev 插件**（MIT；npm `@buberlo/dsh-jev@0.1.0`，2026-09-19） | peer 要求 `@deepseek-ai/dsh-* ^0.1.6-alpha.2`，本机实装 **`0.1.5-rc.2`**（全量核对）⇒ **semver 不满足**；且 client 注入列表引用本机**不存在**的 `@deepseek-ai/dsh-client-ui-plugin-manager` |
+
+**Laya 关键数字（引自其 README，含被二手转述抹掉的限定条件）**：`choice/score/noul` 三原语；
+421M ModernBERT-large（512）/ 322M mmBERT（1024）/ typed-decisions 三 checkpoint；T4 上 32.8ms/问、批量 7.2ms/问。
+**但**——typed-decisions 微调后 0.766、其 **base 仅 0.362/0.342（低于多数类基线 0.461）**；
+高基数 Banking77 **0.425（Jev 0.870）**；ECE **0.081 是温度拟合后**（出厂 raw **0.466**，multilingual 未带拟合温度）；
+注入检测 **0.698（held-out，n=116）**；`score` 最弱（SST-5 0.372）；高棉语 **0.000 准确率 @ 95.2% 置信度**。
+⇒ 结论：**不可开箱即用、不可零样本部署、置信度不能当安全网**；本机无 Python/torch、无 ONNX、显存 2GB ⇒ **当前不可落地**。
+
+### 17.2 取经清单（借鉴点 → 本仓库接缝 → 状态）
+
+| #      | 借鉴点                                                                         | 来源                               | 本仓库接缝（file:line）                                                                     | 状态                                                                                               |
+| ------ | ------------------------------------------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **L2** | **高基数 ⇒ 每选项 token 预算即天花板 ⇒ coarse-to-fine**                        | Laya（77 选项 0.425 vs Jev 0.870） | `configToolRegistry.ts:449`（`markDeferred`）+ `stepContextBuilder.ts`（`effectiveTools`）  | ✅ **已落地**（§17.3）                                                                             |
+| L1     | 「置信度救不了你」⇒ 决策须在**前向之前**由廉价信号驱动                         | Laya（高棉语 0.000@95.2%）         | `budgetDegrade.shouldDegrade`（`costBudget.ts`，确定性预算阈值驱动）                        | ✅ **已满足**：本库**无**「模型自报置信度」门控，前向决策全为确定性信号（判定见 §17.7）            |
+| L3     | 校准须按（题型 × 选项数）**分别拟合**；出厂一律过度自信                        | Laya（raw ECE 0.466→0.081）        | `ToolOutputTrust.THRESHOLDS`（`external=1/unknown=1/file=2/local=3`，手设从未标定）         | ✅ **已落地**（§17.7）：`npm run metrics:injection:calibrate`                                      |
+| L5     | 预热纪律：lazy + 单热缓存 = 每次冷建模型                                       | Laya（CPU 中位 7.4s/次语言切换）   | `transformersEmbeddingAdapter` 的 lazy `getPipeline()`（`src/adapters/embedding/`）         | ✅ **已落地**（§17.8.2）：可注入 loader 接缝 + `preload()` + 端口/装配接线；顺带修「失败永久瘫痪」 |
+| L6     | 决策须带**可读 `reason`**                                                      | Laya `router.route(x).reason`      | `stepContextBuilder.buildRepoMapContext` 降档分支                                           | ✅ **已落地**（§17.7）：`context.repomap.degrade` 带 `reason`/`effect`/`queryChars`                |
+| **D1** | `provider`(mock/live) × `mode`(off/**shadow**/enforce) **两正交开关**          | dsh-jev                            | `promptInjectionGuard` 由二值升为三态（`src/security/enforcementMode.ts`）                  | ✅ **已落地**（§17.7）：`EnforcementMode` + `--guard-prompt-injection-mode`                        |
+| D2     | **配置层拒绝配置出 fail-open**（而非运行时记得）                               | dsh-jev                            | 护栏兜底策略 + 配置校验面                                                                   | ✅ **已落地**（§17.7）：非法模式**装配层抛错**；`enforce` 兜底由 fail-open 改 **fail-closed**      |
+| D3     | 单调合成 `deny>hold>ask>allow`，先 `next()` 再合成、后置策略不被跳过           | dsh-jev                            | **已有同构物**：`supervisorKernel.ts:39` `MODE_ORDER`「只收紧不放松」                       | ✅ **已在用**；增量=下沉到每调用模型派生决策（未做）                                               |
+| D4     | 异步结果绑定 turn/catalog **快照**，快照变即丢弃并按失败规则处理               | dsh-jev                            | `effectiveTools()` 合并发现结果处                                                           | ✅ **已落地**（§17.7）：发现结果**绑定当前工具目录**（修掉陈旧 schema 进上下文真缺陷）             |
+| O1     | 归一化熵置信度 `1 − H(p)/ln K`                                                 | OpenJev                            | `rankVetoSpectrum.ts:167-176`、`naturalGradientBelief.ts:67`、`particleFilterBelief.ts:131` | ✅ **已有等价实现**（判定见 §17.7），无需引入                                                      |
+| O2     | 熵触发重采样（entropy>0.1 重读取平均）                                         | OpenJev                            | —（无随机采样器）                                                                           | ⬜ **不适用**：本库无随机采样消费点；硬造就成「有实现无接线」                                      |
+| O3     | **结构性约束输出空间**（只读 label 分布、模型永不写答案槽）⇒ 不可能 off-schema | OpenJev                            | MCP 工具的 Zod / JSON Schema 校验                                                           | ✅ **已部分采纳**（参数层 schema 校验）；「模型永不写答案槽」需非自回归读，**不适用**              |
+
+### 17.3 本轮落地：工具按需暴露（`OMNI_TOOL_EXPOSURE=plan`）
+
+**原缺口（实测基线）**：`ConfigFactory.build` 默认装配 **33 个工具**且**全部直载**（`listDirect().length === 33`，无一个 deferred），即**每一步**都把 33 份完整 JSON schema 送进上下文 —— 实测 **6937 token（`tokenize` 口径）** 的固定开销，与任务无关。
+
+**动作（全链）**：
+
+| 层   | 文件                                                            | 改动                                                                                                                                                                                                          |
+| ---- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 模型 | `src/core/toolExposurePlanner.ts`（新）                         | 纯函数、零依赖、确定性：`plan()` 按任务文本判**类别相关性**（英文按词边界、中文按子串），产出 `visible`/`deferred`/`matchedCategories`/可读 `reason`；`modeFromEnv()` 解析 `OMNI_TOOL_EXPOSURE`（默认 `off`） |
+| 消费 | `src/core/stepContextBuilder.ts`                                | `effectiveTools()` 增 `exposeByRelevance()`：`plan` 模式下按相关性裁剪**直载**集；**经 `tool_search` 发现的工具无条件保留**                                                                                   |
+| 测试 | `tests/unit/toolExposurePlanner.test.ts`（新）                  | 12 例：三护栏 + 中英命中 + 词边界 + 确定性 + 短路                                                                                                                                                             |
+| 度量 | `evals/tool-exposure-ab.mjs`（新）+ npm `metrics:tool-exposure` | 走生产装配，出前后对照 + 清单核对 + 三护栏回归                                                                                                                                                                |
+
+**三护栏（安全方向与权限门禁相反，此处必须说清）**：延迟加载**不是安全性质**而是成本权衡，故方向是**宁多给不少给**：
+① 未登记进任何类别的工具**恒可见**；② `alwaysVisible`（`tool_search`/`ask_user`/`spill_read`，找回/澄清/回读三通道）**恒可见**；
+③ **无类别命中 ⇒ 全部可见**（fail-safe，理由如实写进 `reason`）。
+且**被隐藏的工具仍可找回**：`ToolIndex` 建自 `registry.list()`（**全部**工具，`configToolRegistry.ts:226`），
+命中经 `discovery.add()` 使后续回合可见（`toolSearchTool.ts:64-65`）⇒ 隐藏是**可恢复**的，非能力删除。
+
+### 17.4 可证伪验收（`npm run metrics:tool-exposure`，免网络免模型）
+
+- **清单核对**：类别表登记 30 个工具，**不在真实注册表中的 0 个**（与生产清单零脱节；脚本在不一致时**中止**，防假绿灯）；
+- **覆盖率**：真实 33 个工具中未被类别覆盖的恰为 **3 个**——`spill_read`/`ask_user`/`tool_search`，即**恒可见三通道本身**，属设计内；
+- **前后对照（off=全量直载 vs plan=按需）**：`fix-test` 33→7（**−74.7%**）、`grep-usage` 33→5（**−80.5%**）、
+  `read-doc` 33→8（−75.5%）、`web-fetch` 33→4（**−86.7%**）、`screenshot` 33→5（−81.8%）、`delegate` 33→12（−64.9%）、
+  `memory` 33→6（−76.0%）、`sketch` 33→7（−79.7%）、`plan-todo` 33→13（−67.8%）；
+  **平均 33→10.0 个工具、6937→2167 token（−68.8%）**；
+- **fail-safe 在数字里可见**：`no-signal`（「看看这个仓库整体怎么样」）⇒ **33→33、−0.0%**（全放行，不冒能力损伤）；
+- **三护栏回归**：完备性 `visible∪deferred==全部` **10/10**、两者不相交 **10/10**、恒可见通道恒在 **10/10**。
+
+### 17.5 门禁（本轮实测）
+
+`build` 0；`lint` 0（`--max-warnings=0`）；`format:check` 通过；`check` **559 文件零违规**；`check --strict` 同；
+`arch:gate` **0 新增违规**（依赖方向 0 / ports 纯度 0）；`audit:config-wiring` **559 文件全绿**；
+新单测 **12/12**；受影响的既有单测 **40/40**（`defaultToolsInventory` 2、`toolSearch` 12、`turnRunnerFinalize` 3、
+`planApproval` 4、`planApprovalReadonlyTools` 3、`postWriteDiagnostics` 6、`selfVerifyingToolPort` 10）。
+**全量单测基线对照**：逐文件跑 311 个文件 ⇒ 31 个文件 / 74 例失败；`git stash -u` 撤掉本轮改动后**重跑得到逐字相同**的
+31 文件 / 74 例 ⇒ **全部为既有的环境性失败**（沙箱禁止带管道 stdio 的 `spawn` ⇒ `spawn EPERM`；
+`configWiring`/`apiStability` 断言的是被 spawn 脚本的**捕获输出**，同因被截空），**非本轮回归**。
+
+### 17.6 一处外部数字更正 + 诚实边界
+
+1. **注入护栏度量已更新**（更正 §5 第 A4 条旧记录「24 例 / recall 100% / FP 16.7%」）：本轮实跑
+   `npm run metrics:injection` ⇒ **32 例（恶意 20/良性 12）、recall 90.0%（TP=18/FN=2）、FP 8.3%（FP=1/TN=11）、
+   精度 94.7%**。7 个类别 100%，但**词法天花板**暴露在 `tool-output 75%`、`natural-language 0%`、`source-code 0%`、`config 0%`。
+   **对本轮结论的意义**：Laya 自报注入检测 **0.698 < 现有零依赖规则的 90%** ⇒ 「接 Laya 当注入护栏」**有实测反证**；
+   该缺口属词法问题，对口的是既有 ONNX 语义栈，不是该分类器。
+2. **口径诚实声明**：`tokenize` 是**词法分词器**（与 `production-defaults-check.mjs` 同口径），是**规模代理**而非 provider 真计费；
+   本轮度量的是**省了多少上下文**，**不宣称**任务成功率提升——能力侧风险由三护栏兜底。
+3. **本批（§17.3–17.5）未做**：D1/D2/D4/L1/L3/L5/L6/O1–O3 当时仅登记；未接任何外部依赖；未改动 `dependency-allowlist.json`；
+   未跑 T4.4 真基准（AgentDojo/InjecAgent，需联网+数据集，D4 禁入主门禁，仍挂起）。**→ 已由 §17.7 逐条终局处理。**
+
+### 17.7 第二批落地：D1 / D2 / D4 / L3 / L6 + 余下逐条终局判定（2026-09-21 续）
+
+> 用户指令：「下一步完成剩余的内容」。
+> 本批把 §17.2 余下 10 条**逐条给出终局判定**：本仓库存在真实消费点的，按「移植→接线→可证伪→门禁」落地；
+> 确无消费点的，**给出证据**并登记为「已满足 / 不适用」，**不伪造实现**——否则正是 §15 所治的「有实现无接线」。
+
+#### 17.7.1 落地五项
+
+| #      | 动作                                                                                | 文件                                                                                                                                                               | 可证伪验收                                                                                                              |
+| ------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| **D1** | 护栏由二值升为**三态**（`off`/`shadow`/`enforce`），`shadow` = 跑·记·**不改行为**   | `src/security/enforcementMode.ts`（新）；全链改：`stepTypes` / `stepToolExecutor` / `configFactory` / `cliEnums` / `cliFlagTable` / `argParser` / `cliBuildConfig` | `enforcementMode` **7/7**；`guardShadowMode` **7/7**（端到端：shadow 输出**逐字原样**、enforce 隔离、布尔历史写法等价） |
+| **D2** | 非法模式**装配层抛错**（不静默回落）；`enforce` 兜底由 fail-open 改 **fail-closed** | `configFactory`（字符串过白名单校验）；`promptInjectionGuard.guardFailureResult`（纯函数，可单测）；`cliEnums.ENFORCEMENT_MODES`（`satisfies` 防漂移）             | 非法模式 `ConfigFactory.build` 抛错；CLI 白名单拒绝非法取值；`guardFailureResult` 按模式区分                            |
+| **D4** | 发现结果**绑定当前工具目录**（修既有真缺陷，见 §17.7.2）                            | `src/core/stepContextBuilder.ts` `effectiveTools()`                                                                                                                | `toolCatalogSnapshot` **4/4**（卸载后不并入；仍在则取目录最新定义；目录不可查时不丢能力）                               |
+| **L3** | 护栏来源分级阈值**校准** harness（不改 src，离线复算）                              | `evals/injection-calibrate.mjs` + npm `metrics:injection:calibrate`                                                                                                | 复算一致性 **32/32**（同源校验）；敏感性曲线 + 网格排名（见 §17.7.3）                                                   |
+| **L6** | 降档决策带**可读 `reason`**                                                         | `src/core/stepContextBuilder.ts` `buildRepoMapContext`（`log.info('context.repomap.degrade')` 带 `reason`/`effect`/`queryChars`）                                  | 事件携带理由与影响面，供事后判断「档位为何变」                                                                          |
+
+#### 17.7.2 本批修掉的**既有真缺陷**（不是新功能）
+
+1. **D4 · 陈旧工具 schema 进上下文**：`ToolDiscovery` 只是按名累积的裸 Map（`src/search/toolDiscovery.ts:13`），
+   而 `effectiveTools()` 原先**无条件**并入已发现工具 ⇒ 工具/插件在会话中途卸载
+   （`RegistryToolPort.unregister`，插件热卸载路径）后，寄存器里的陈旧 schema **仍进模型上下文**，
+   模型据此调用必然命中一个**已不存在的工具**。修法：以当前目录为准（目录无则丢弃、仍在则取**最新定义**），
+   且**能核对才绑定、不能核对不丢能力**（`list` 缺失时保持既有行为，避免在该场景下把 #M1 闭环整体打断）。
+2. **D2 · 护栏兜底曾是 fail-open**：`stepToolExecutor.guardInjection` 的 `catch` 原为 `return result`
+   （其自身注释亦写「失败开放」），与模块头「fail-closed」的宣称**不一致**。内层 `scanForInjection`
+   已 fail-closed（`promptInjectionGuard.ts:123-126`），故该外层此前**不可达**——但它使「护栏一定不放行」
+   这一保证**有条件**（依赖内层恰好捕获）。现按模式区分：`enforce` ⇒ fail-closed 隔离；
+   `shadow`/`off` ⇒ 原样（守住「不改行为」契约）。
+
+#### 17.7.3 L3 实测（`npm run metrics:injection:calibrate`）
+
+- **有效性闸**：候选阈值取「当前手设值」时，逐例判决与生产原生 `blocked` **32/32 一致**（不同源则结论作废）；
+- **当前手设阈值** `external=1 / unknown=1 / file=2 / local=3` ⇒ recall **90.0%** / FP **8.3%** / acc **90.6%**，按 accuracy **排名 5/256**；
+- **敏感性（只动单档）**：`external` 1→2 **白丢 15pp recall、FP 零收益**（该档良性样本为 0）；
+  `unknown` 1→2 丢 20pp recall 换 8.3pp FP；`local` 1→2 **FP 腰斩**（16.7%→8.3%）而 recall 不变；
+- **失败档位暴露**：`file` 档恶意/良性仅 **2/2** ⇒ 该档阈值在数学上**不可辨识**；
+- **不可选型**：最高 accuracy 有 **9 个向量并列** ⇒ n=32 下多解。
+  **故本报告只用于「证明手设值的敏感性 + 暴露缺样本档位」，明确不作为生产阈值选型结论。**
+
+#### 17.7.4 余下逐条终局判定（含「已满足 / 不适用」及其证据）
+
+| #      | 判定                              | 证据（可复核）                                                                                                                                                                                                                                                              |
+| ------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **L1** | ✅ **已满足**（本库不存在该缺陷） | 全 `src` grep：`confidence` 仅出现于信念状态（`naturalGradientBelief.ts:67`、`particleFilterBelief.ts:131`）与 `ports/intelligence/metacognition.ts:20`；**无任何**「LLM 自报置信度」门控。前向决策（降档 / 选路）均由确定性信号驱动（`costBudget.ts`），本就不依赖模型自评 |
+| **O1** | ✅ **已有等价实现**               | `rankVetoSpectrum.ts:167-176` 已计算熵并导出 `supportRatio`；两个 belief 实现已产出 **[0,1] 归一化 confidence**。再引入一层 `1−H/lnK` 属重复建设                                                                                                                            |
+| **O2** | ⬜ **不适用**（无消费点）         | 本库无随机采样器（无 noise / denoise 回路），熵触发重采样无处可接；硬造就成「有实现无接线」                                                                                                                                                                                 |
+| **O3** | ✅ **已部分采纳**                 | MCP 工具参数经 Zod / JSON Schema 校验（`src/adapters/mcp/**`）；但「模型永不写答案槽」需**非自回归读**，本库调用的是生成式 LLM，该思想不适用                                                                                                                                |
+| **L5** | ✅ **已落地**（§17.8.2）          | 可注入 loader 接缝使冷启动/预热**离线可验证**（`embeddingPreload` 9/9）；装配层经 `OMNI_EMBED_PRELOAD=1`（默认关）后台触发 `preload()`；并修掉「失败 Promise 被永久缓存 ⇒ 适配器再不可恢复」这一既有缺陷                                                                    |
+| **D3** | ✅ 已在用；增量未做               | 单调合成已有同构物（`supervisorKernel.ts:39`）；「下沉到每调用决策」需先存在该消费点，本批未造                                                                                                                                                                              |
+
+#### 17.7.5 门禁与基线对照（本批实测）
+
+`build` 0；`lint` 0（`--max-warnings=0`）；`format:check` 通过；`check --strict` **560 文件零违规**；
+`arch:gate` **0 新增违规**；`audit:config-wiring` **560 文件全绿**。
+**全量单测基线对照**（逐文件跑）：**314 文件 / pass 1930 / fail 74**；失败仍为**同一批 31 个文件、逐文件失败数逐字相同**
+（基线 31 文件 / 74 例）⇒ **无回归**；pass **1912 → 1930**（+18 = `enforcementMode` 7 + `guardShadowMode` 7 + `toolCatalogSnapshot` 4）。
+受影响的既有专项：`promptInjectionWiring` 6/6、`stepContextBuilderDegrade` 5/5、`stepContextBuilderPrefix` 4/4、
+`contextIntegrityFixes` 8/8、`toolSearch` 12/12、`defaultToolsInventory` 2/2、`turnRunnerFinalize` 3/3 全绿。
+
+#### 17.7.6 边界（诚实登记）
+
+- **D3 增量**（单调合成下沉到每调用模型派生决策）**未做**——需先有该消费点，不预先造；
+- **L5 已于 §17.8.2 落地**（本节当时的「未落地」判定已被后续批次取代）；
+- **O2 判定为不适用 ≠ 该想法无价值**：若将来引入采样式判定器，应重新评估；
+- `shadow` 档目前只在**注入护栏**这一处落地；其余二值开关（`selfVerify` / `rm3` 等）**未**改造，
+  若要全量三态化，应按 `EnforcementModeResolver` 同一形状逐项推进（不在本批范围）。
+
+### 17.8 优化与收尾：`plan()` 热路径提速 + L5 预热接线 + 悬空 JSDoc（2026-09-21 续）
+
+> 用户指令：「请进行优化，处理掉」。两件事：**优化本轮实现的真实开销**，**处理掉仍未决的 L5**。
+
+#### 17.8.1 优化：`ToolExposurePlanner.plan()` 热路径（**7.3× 提速，行为逐字不变**）
+
+**问题（实测，非估计）**：`plan()` 在**每一步**都被调用一次（`effectiveTools()` 消费点），
+而原实现对「每类别 × 每关键词」都 `new RegExp(...)`——默认类别表约 **81 个关键词**，
+即**每步重建 ~81 个正则**。基准（`.omniharness/bench-planner.mjs` 口径，33 工具、2 万次）：
+优化前 **47.53 µs/次**。
+
+**改法（两处，均不改语义）**：
+① 同类 ASCII 关键词合并成**单条交替正则** `(^|[^a-z0-9])(?:kw1|kw2)(?=$|[^a-z0-9])`
+⇒ 每类别最多 1 次正则执行；尾边界改用**前瞻**，对「是否存在命中」这一布尔判定与原先的消费式等价；
+② 按**类别表对象引用**用 `WeakMap` 缓存 ⇒ 默认表只编译一次，自定义表各自编译且可回收。
+
+**实测**：**47.53 µs → 6.49 µs/次（−86.3%，7.3×）**。
+
+**行为不变性的钉法**：不靠性能测试（会随机器漂移），而靠**差分回归测试**
+（`toolExposurePlanner.test.ts`「优化回归」）：测试内保留一份**优化前口径的朴素逐关键词匹配器**，
+在 28 条语料（含词边界陷阱 `latest`/`filex`/`xfile`、大小写、连字符、CJK 紧邻 ASCII、空串、纯符号）
+上与优化实现**逐条比对命中类别**。另有一次性的 33 条语料**逐字比对**（`plan()` 全字段 JSON diff，0 处差异）。
+
+#### 17.8.2 L5 落地：预热纪律（含一处**既有缺陷**修复）
+
+**先厘清 L5 的真实缺口**：本适配器用单实例 `pipelinePromise` 复用管线，**不会**像多模型路由那样
+在请求间重建模型（那才是 Laya 记录的「lazy + 单热缓存 ⇒ 每次冷建 7.4s」陷阱）⇒ **「不重建」本就成立**。
+真正缺的是**冷启动的可观测性与可控时机**：首个语义查询此前会静默承担「加载 2.2GB 可选依赖 + 取权重 + 建管线」的整段耗时。
+
+| 动作                     | 文件                                                     | 说明                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 可注入 loader 接缝       | `src/adapters/embedding/transformersEmbeddingAdapter.ts` | `TransformersModuleLoader` + `TransformersModuleLike`；生产缺省仍是真动态 import。**唯一目的**是让冷启动/预热能在**离线**下被单测钉住——否则验证就得真下载依赖与权重（L5 长期未落地的原由）     |
+| `preload()`              | 同上                                                     | 返回 `{ok, ms, built, error}`；`built` 区分「真由本次构建」与「本来就热」；成功记 `embedding.pipeline.built`、失败记 `embedding.pipeline.failed`                                               |
+| **失败可恢复（修缺陷）** | 同上 `getPipeline()`                                     | 原先失败的 Promise 会被**永久钉在字段上**，后续每步复用它 ⇒ 适配器**此后再不可能恢复**（语义路整会话静默失效）。现失败即清空缓存以便重试，并以 `=== pending` 守卫避免误清新一轮尝试            |
+| 端口契约                 | `src/ports/model/embedding.ts`                           | `EmbeddingPort.preload?(): Promise<EmbeddingPreloadOutcome>`（**可选**能力；契约：**不得抛错**，失败以 `{ok:false}` 回报）                                                                     |
+| **装配接线**             | `src/config/configFactory.ts`                            | 抽出 `buildEmbeddingPort()`；`OMNI_EMBED_PRELOAD=1`（默认关）时**后台**触发 `preload()`——刻意 **不 await**（装配是同步路径，预热不得阻塞启动），可用性仍由首次真实 `embed` 的 fail-closed 决定 |
+| 开关解析                 | 适配器模块导出 `shouldPreloadEmbedding(env)`             | 与 `resolveRemoteHostFromEnv` 同一惯例（env 解析器与适配器同址）；默认关 ⇒ 零行为变更                                                                                                          |
+
+**可证伪验收**：`embeddingPreload` **9/9**——含「N 次 embed 只构建 1 次管线」、「首次 preload 真构建/二次命中缓存」、
+「**首次失败后能重试成功**」（直接钉住上面那处缺陷）、「镜像源在构建 pipeline **之前**写入」、
+「预热开关真值表」、「语义路关 ⇒ 无端口 / 开 ⇒ 端口暴露 `preload`」（接线可达，且**刻意不触发真预热**以免联网）。
+
+#### 17.8.3 顺带处理：一处**悬空 JSDoc**
+
+`configFactory.ts` 文件尾原有一段 JSDoc（「成本预算（#S29）…」）**后面没有任何声明跟随**。
+悬空 JSDoc 会被**下一个**声明吸收——编辑器/文档工具会把这段说明挂到别的头上，是实打实的误挂隐患。
+已降级为普通注释（**内容一字未删**），并把该函数补为 `buildEmbeddingPort()` 的邻居。
+
+#### 17.8.4 O2 / D3 再评估（结论不变，证据加强）
+
+| #      | 结论                    | 加强后的证据                                                                                                                                                                                                                                                           |
+| ------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **O2** | ⬜ **不适用**           | 全 `src` grep `entropy` 仅命中 `genesis/**`、`spark/**`、`rankVetoSpectrum.ts` —— **全部是确定性的信念/排序计算，没有任何采样回路**（无 noise/denoise、无多次采样求平均）。熵触发重采样无处可接                                                                        |
+| **D3** | ✅ 已在用；**下沉不做** | 单调合成已有同构物（`supervisorKernel.ts:39`）；而 `toolGate.ts` 的多重门禁是**有序管线**（`intercept` 监督否决 → 沙箱 → 升级审批 → 提权复核沙箱，`toolGate.ts:75-77` / `118-149`），**不存在多路竞争决策需要合成**。为一条有序管线强加格（lattice）是投机性设计，不做 |
+
+#### 17.8.5 门禁与基线对照（本批实测）
+
+`build` 0；`lint` 0；`format:check` 通过；`check --strict` **560 文件零违规**；`arch:gate` **0 新增违规**；
+`audit:config-wiring` **560 文件全绿**；全量单测基线对照见下（失败集合须与基线**逐文件相同**）。
+零新增依赖（`dependency-allowlist.json` 仍未改动）。
+
+**新增/加强的测试**：`toolExposurePlanner` **13/13**（+1 条差分回归）、`embeddingPreload` **9/9**（新）；
+既有 `transformersEmbedding` 8/8、`semanticRecall` 11/11 仍绿 ⇒ 适配器改造未破坏既有语义路行为。
+
+## 18. 状态盘点与收尾（2026-09-22）
+
+> 用户指令：「盘点当前项目状态，项目稳定状态」→「余下问题全部需要清理收尾掉」。
+> **盘点方法**：不采信任何自我宣称，全部以本会话实跑证据为准。独立报告见 `docs/STATE_AUDIT_2026-09-22.md`
+> （含复跑命令清单与原始证据落点）；本节省略过程，只记结论、处置与边界。
+
+### 18.1 盘点实测（与既有宣称对账）
+
+- **静态九闸门全绿**：build / typecheck / lint / `check --strict`（560 文件零违规）/ `arch:gate` /
+  `audit:config-wiring`（560 全绿）/ `audit:maturity`（41 项）/ `api:check` / `format:check`。
+- **测试实况**：单测 315 文件 2031 例 → 1940 过 / **74 失败** / 17 skip；Web 236 例 → 234 过 / 2 失败；
+  集成 11 例 → 9 过 / 2 失败；`smoke` 全过。
+- **失败归因（决定性证据）**：74 + 2 + 2 例**全部**是沙箱禁「带管道 stdio 的子进程」导致的 `spawn EPERM`
+  （`lspProcess`/`shellTool`/Chrome e2e 等的报错原文即为 `spawn EPERM`；`api:check`/`configWiring` 断言的是
+  被 spawn 脚本的**捕获输出**，EPERM 下为 `undefined`）。用 `git worktree` 在纯 `HEAD` 上建隔离基线独立构建后
+  **逐文件对拍**：失败集合一致，唯一差异是基线 worktree 缺 `native/*.node` 使 `nativeAliasBridge` 3 例转 skip
+  ⇒ **本批次无回归**。
+- **口径更正（诚实记录）**：本沙箱下 `node --test "dist/tests/unit/*.test.js"` 直接 **315/315 全红**——
+  Node 测试运行器为每个文件 spawn 子进程；须加 `--experimental-test-isolation=none`（同进程内跑）才拿得到真实结果。
+  本会话以当前树复现为 **31 文件 / 74 例失败**，纯 HEAD 基线为 **30 文件 / 73 例**（差 1 即上述 skip 变化）。
+- **数字复算通过**：`metrics:tool-exposure` 33→10.0 工具 / 6937→2167 token（−68.8%）；
+  `metrics:injection` recall 90.0% / FP 8.3% / precision 94.7% / acc 90.6%；
+  `injection-calibrate` 同源校验 32/32、手设值按 accuracy 排名 5/256、最高 accuracy **9 向量并列**（n=32 不足以选型）。
+
+### 18.2 本轮修掉的问题（四笔提交）
+
+| #   | 问题（盘点证据）                                                                                                                                                                                                                                                                   | 处置                                                                                                                                                                                          | 提交         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 1   | **`dist/` 从不清理**：`dist/tests/unit/budgetDegradeAdapter.test.js` 的源已改名却仍被 `npm test` 的 `dist/tests/unit/*.test.js` 通配**继续执行**（4 例幽灵用例）；`dist/src` 另有 3 个源已不存在的模块，而 `files` 含 `dist/src`、`prepublishOnly` 只 build ⇒ 陈旧模块会随发布进包 | 新增零依赖 `scripts/cleanDist.mjs`（带越界安全闸）；`build`/`web:build` 编译前各自清理；`prepublishOnly` 补 `web:build`；dist 单测 315→314、通过 1940→1936（减少的正是幽灵用例）              | `76b186f`    |
+| 2   | **一批已验证成果未入库**（13 改 + 15 未跟踪）                                                                                                                                                                                                                                      | §17 批次入库：工具按需暴露 / 护栏三态化 + 目录快照绑定 / 嵌入预热（含修「失败 Promise 永久钉住 ⇒ 适配器此后再不可恢复」）；5 个新测试 **40 例全绿**；3 个 changeset 与 2 份度量报告随提交入库 | `5d5646a`    |
+| 3   | **`arch:gate` 唯一目录告警**：`src/context/` 平铺 32 个 `.ts`（阈值 30）                                                                                                                                                                                                           | rankVeto 一族**整体下沉** `src/context/rankVeto/`（`index.ts` 域出口 + 三实现），调用点改指 `.../rankVeto/index.js`；目录告警 **1→0**                                                         | `3ed7c11`    |
+| 4   | **运行残留与过期数字**                                                                                                                                                                                                                                                             | 删除根目录 5 个 `.omni-alias-*.txt` 探针残留；README 规模按实测更新（441→**560** 文件、5.5→**6.6 万行**、tests 217→**335**、Rust 6 千→**4.9 千行**）                                          | 本笔（docs） |
+
+**入库时被仓库自身门禁拦下、并就地修掉的一处（留档）**：`src/security/enforcementMode.ts` 的主类是
+`EnforcementModeResolver`，而 `auditStandards --delta` 对**新增文件**的「主类名 ≠ 文件名」是**阻断项**。
+已更名为 `enforcementModeResolver.ts` 并同步 5 处 import，随后增量门禁**实跑**通过。
+教训：§16.5 那句「无暂存 `.ts` 时增量门禁通过」意味着该批次此前**从未真正过过这道闸**——
+**「门禁绿」要看清是哪条路径绿的**。
+
+### 18.3 路径引用更正（供交叉核对本板 §17 各表）
+
+| 旧路径（§17 各表所写）                                                            | 新路径（2026-09-22 起）                   |
+| --------------------------------------------------------------------------------- | ----------------------------------------- |
+| `src/security/enforcementMode.ts`                                                 | `src/security/enforcementModeResolver.ts` |
+| `src/context/rankVeto.ts`                                                         | `src/context/rankVeto/index.ts`           |
+| `src/context/rankVetoEvaluator.ts` / `rankVetoOverlap.ts` / `rankVetoSpectrum.ts` | 同名文件收进 `src/context/rankVeto/`      |
+
+### 18.4 门禁与验收（本轮实测）
+
+四笔提交均由仓库自带 **pre-commit 门禁实跑通过**（Node 引擎 → `check --strict` 560 文件零违规 → `audit:maturity` 41 项 →
+`audit:standard --delta` → `arch:gate`（目录告警 0）→ `audit:config-wiring` 560 全绿 → ESLint 0 告警 → Prettier 增量）。
+另有：`build` / `web:build` 0；`typecheck` 0；`api:check` 通过；`format:check` 通过；`smoke` 全过；
+逐文件单测 **314 文件 / 1936 过 / 74 失败 / 17 skip**（失败集合与改动前逐文件一致）。
+
+### 18.5 边界与未覆盖（如实登记，不假装跑过）
+
+- **Rust 三闸门本会话无法验证**：本机 `~/.rustup` 不存在、`cargo` 只是无默认 toolchain 的 rustup 代理，
+  且环境**无网络**（`registry.npmjs.org` 不可达）⇒ 无法安装 toolchain。CI 的 `rust` / `wasm` job 仍覆盖该面，
+  本机证据**留空**。
+- **74 + 2 + 2 例失败不是缺陷**：全部归因于沙箱禁「带管道 stdio 的子进程」；CI（三平台 runner + 真浏览器）才是真门禁。
+- **挂起项不变**：官方 SWE-bench Verified 满分口径、OS 沙箱真机（landlock/seatbelt/bwrap）、T4.4 真注入基准。
+- **未擅自处理**：`main` 的 upstream 仍为 `[gone]`（`mine/main` 已消失），远端状态需联网确认；
+  `.omniharness/` 下另有历史会话的 `commit*.txt` 工作笔记与日志（已被 `.gitignore` 覆盖，保留）。
