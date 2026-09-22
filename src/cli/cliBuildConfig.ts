@@ -359,7 +359,10 @@ export class CliBuildConfig {
       workers: this.buildWorkers(args),
       native: args.native,
       planMode: args.planMode,
-      promptInjectionGuard: args.promptInjectionGuard === true,
+      // (D1) 护栏生效模式：显式 `--guard-prompt-injection-mode` 优先；否则 `--guard-prompt-injection`
+      // 等价 `enforce`（历史语义原样保留为 `true`，由 configFactory 统一校验/归一）；都未给 ⇒ undefined。
+      promptInjectionGuard:
+        args.guardPromptInjectionMode ?? (args.promptInjectionGuard === true ? true : undefined),
       // （P3→P1-⑨）自验证回环：**默认开启**（以「仓库能推断出测试命令」为前提，由
       // SelfVerifyPolicy.forWorkspace + SelfVerifyCommandDetector 判定：package.json#scripts.test /
       // pytest 配置 / Cargo.toml / go.mod / pom.xml / gradle / rspec / Makefile#test；

@@ -17,6 +17,7 @@
  */
 
 import type { ToolResult } from '../ports/tool/tool.js';
+import type { EnforcementMode } from './enforcementModeResolver.js';
 import { ToolOutputTrust, type TrustTier } from './toolOutputTrust.js';
 
 /** 规则强度：`strong` 恒拦；`weak` 计入门限证据数（阈值随来源变化）。 */
@@ -156,5 +157,29 @@ export function guardToolResult(
     blocked: true,
     hits: scan.hits,
     tier,
+  };
+}
+
+/**
+ * 扫描器**自身异常**时的兜底结果（D2：兜底策略按模式区分，且本层绝不静默放行）。
+ *
+ * 为什么按模式区分、而不是一律 fail-closed：
+ *  - `enforce` 档的契约是「不让疑似注入进入模型上下文」——扫描器异常时**必须保守隔离**，
+ *    否则「扫描器坏了」就等于「护栏不存在」，这正是 §17.2 D2 所指的漏；
+ *  - `shadow` 档的契约是「跑、记、但不改行为」——此时若隔离，就等于 shadow **悄悄改了行为**，
+ *    反而毁掉它唯一的用途（在生产流量上量真实误报/漏报）；
+ *  - `off` 档本就不跑，原样返回。
+ *
+ * @param result 原始工具结果。
+ * @param mode 生效模式。
+ * @returns `enforce` ⇒ 带隔离标记的结果；`shadow` / `off` ⇒ 原样返回。
+ */
+export function guardFailureResult(result: ToolResult, mode: EnforcementMode): ToolResult {
+  if (mode !== 'enforce') {
+    return result;
+  }
+  return {
+    ...result,
+    output: '[提示注入拦截] 护栏扫描器异常，按 fail-closed 隔离该结果，未进入模型上下文。',
   };
 }

@@ -2,7 +2,11 @@ import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
 import { ToolScheduler } from './loop/toolScheduler.js';
 import { isLikelySandboxDenied } from '../ports/runtime/sandboxDenial.js';
-import { guardToolResult } from '../security/promptInjectionGuard.js';
+import { guardFailureResult, guardToolResult } from '../security/promptInjectionGuard.js';
+import {
+  EnforcementModeResolver,
+  type EnforcementMode,
+} from '../security/enforcementModeResolver.js';
 import { ToolOutputTrust } from '../security/toolOutputTrust.js';
 import { log } from '../util/logger.js';
 import type { StepRunnerDeps } from './stepTypes.js';
@@ -216,8 +220,11 @@ export class StepToolExecutor {
     if (spiller !== undefined) {
       log.debug('tool.spilled', { tool: toolName, ok: result.ok });
     }
-    const guarded =
-      this.deps.promptInjectionGuard === true ? this.guardInjection(toolName, stored) : stored;
+    // (D1) 三态生效模式：off 不跑 / shadow 跑但不改行为 / enforce 跑且生效。
+    const guardMode = EnforcementModeResolver.modeOf(this.deps.promptInjectionGuard);
+    const guarded = EnforcementModeResolver.observes(guardMode)
+      ? this.guardInjection(toolName, stored, guardMode)
+      : stored;
     const annotated = this.annotateDenial(guarded);
     this.deps.recorder.toolResult(
       annotated.callId,
@@ -231,30 +238,47 @@ export class StepToolExecutor {
   }
 
   /**
-   * 提示注入护栏（opt-in）：工具结果 output 进模型上下文前做确定性扫描，命中即隔离
-   * （替换为隔离标记，保留「已被拦截」信号，不把疑似注入喂给模型）。失败开放：guardToolResult
-   * 异常时回落原始结果，不阻断主流程。
+   * 提示注入护栏：工具结果 output 进模型上下文前做确定性扫描。
+   *
+   * - `enforce`：命中即隔离（替换为隔离标记，保留「已被拦截」信号，不把疑似注入喂给模型）；
+   * - `shadow`：命中**只记不改**——写 `tool.injection.shadow` 告警但原样放行（D1：用于在生产
+   *   流量上攒真实误报/漏报，弥补离线快照仅 32 例的度量不足）；
+   * - `off`：本方法根本不被调用（见 `recordToolResult`）。
    *
    * P4：按工具名推断**来源信任级**并以之判定——外部抓取（web_search）弱证据即拦，
    * 本机命令输出（shell）需更强证据，以降低日志类误报。未登记工具回落 `unknown`（保守）。
    *
+   * **兜底策略（D2）**：扫描器自身异常时**不再一律放行**。`enforce` 档 fail-closed 保守隔离
+   * （否则「扫描器坏了」＝「护栏不存在」）；`shadow`/`off` 档原样返回以守住「不改行为」契约。
+   * 策略抽成纯函数 `guardFailureResult` 以便单测。
+   *
    * @param toolName 工具名（来源推断 + 命中告警用）。
    * @param result 原始（已可选外溢过的）工具结果。
-   * @returns 隔离后的结果；护栏异常时回落原结果。
+   * @param mode 生效模式（`enforce` 改行为；`shadow` 只记录）。
+   * @returns 按模式处理后的结果；扫描器异常时按 `guardFailureResult` 的兜底策略返回。
    */
-  private guardInjection(toolName: string, result: ToolResult): ToolResult {
+  private guardInjection(toolName: string, result: ToolResult, mode: EnforcementMode): ToolResult {
     try {
       const guarded = guardToolResult(result, ToolOutputTrust.fromToolName(toolName));
-      if (guarded.blocked) {
-        log.warn('tool.injection', {
+      if (!guarded.blocked) {
+        return guarded;
+      }
+      if (!EnforcementModeResolver.applies(mode)) {
+        log.warn('tool.injection.shadow', {
           tool: toolName,
           tier: guarded.tier,
           hits: guarded.hits.length,
         });
+        return result;
       }
+      log.warn('tool.injection', {
+        tool: toolName,
+        tier: guarded.tier,
+        hits: guarded.hits.length,
+      });
       return guarded;
     } catch {
-      return result;
+      return guardFailureResult(result, mode);
     }
   }
 

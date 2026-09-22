@@ -16,8 +16,14 @@
  * （Xenova 镜像无 ONNX 权重，404），见底部说明。
  */
 
-import type { Embedding, EmbeddingPort, EmbedOptions } from '../../ports/model/embedding.js';
+import type {
+  Embedding,
+  EmbeddingPort,
+  EmbeddingPreloadOutcome,
+  EmbedOptions,
+} from '../../ports/model/embedding.js';
 import type { FeatureExtractionPipeline } from '@huggingface/transformers';
+import { log } from '../../util/logger.js';
 
 /** 模型前缀模式：决定 embed 时是否、如何注入查询/文档不对称前缀。 */
 type PrefixMode = 'none' | 'e5';
@@ -85,6 +91,24 @@ export function listModelPresets(): readonly EmbeddingModelPreset[] {
   return Object.keys(MODEL_PRESETS) as EmbeddingModelPreset[];
 }
 
+/**
+ * `@huggingface/transformers` 中被本适配器消费的**最小面**（仅为可注入接缝而声明）。
+ */
+export interface TransformersModuleLike {
+  /** 该库的全局环境（本适配器只写 `remoteHost` 镜像源）。 */
+  readonly env: { remoteHost: string };
+  /** 创建特征抽取 pipeline。 */
+  pipeline(task: string, model: string, opts: Record<string, unknown>): Promise<unknown>;
+}
+
+/**
+ * 动态加载 `@huggingface/transformers` 的接缝（生产缺省为真动态 import）。
+ *
+ * 暴露该接缝的唯一目的：让**冷启动与预热**能在**离线**下被单测钉住——否则验证 `preload()`
+ * 就必须真下载 2.2GB 依赖与模型权重（这正是 L5 长期未落地的原由）。
+ */
+export type TransformersModuleLoader = () => Promise<TransformersModuleLike>;
+
 /** 适配器选项。 */
 export interface TransformersEmbeddingOptions {
   /**
@@ -119,6 +143,11 @@ export interface TransformersEmbeddingOptions {
    * 缺省 `undefined` ⇒ 沿用该库默认（huggingface.co），零行为变更。
    */
   readonly remoteHost?: string | undefined;
+  /**
+   * 动态加载 `@huggingface/transformers` 的接缝；生产缺省即真动态 import（见
+   * {@link TransformersModuleLoader}）。仅供测试注入，业务方无需设置。
+   */
+  readonly loader?: TransformersModuleLoader | undefined;
 }
 
 /** transformers.js 的 Tensor 最小形状（feature-extraction 输出）。 */
@@ -186,6 +215,30 @@ export function resolveRemoteHostFromEnv(
 }
 
 /**
+ * 是否在装配期预热嵌入管线（`OMNI_EMBED_PRELOAD=1`，**默认关**）。
+ *
+ * 与 `OMNI_SEMANTIC_RECALL` 同一惯例：默认关 ⇒ 零行为变更。开启后装配层会在**后台**触发
+ * 一次 `preload()`（不阻塞装配、不改变可用性判断），把冷启动成本从「首个用户查询」提前到
+ * 「启动后、接流量前」，并把耗时落成可读数字（L5）。
+ *
+ * @param env 环境变量视图（默认 `process.env`；单测可注入）。
+ * @returns 显式取值 `1` 时为 true，其余一律 false。
+ */
+export function shouldPreloadEmbedding(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return env.OMNI_EMBED_PRELOAD === '1';
+}
+
+/**
+ * 生产缺省的模型包加载器：**真动态 import**（编译期不依赖该包；仅启用语义嵌入时运行时加载）。
+ * 分离成常量是为了让测试注入假 loader，从而在**不下载 2.2GB 依赖与模型权重**的前提下
+ * 验证懒加载/预热/失败恢复三条行为。
+ */
+const defaultModuleLoader: TransformersModuleLoader = async () =>
+  (await import('@huggingface/transformers')) as unknown as TransformersModuleLike;
+
+/**
  * 基于 @huggingface/transformers 的本地嵌入适配器。
  * 懒加载 pipeline（首次 embed 时才下载/加载模型），并复用同一 pipeline 实例。
  *
@@ -209,6 +262,8 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   private readonly localFilesOnly: boolean;
   /** 模型下载源（镜像）host；`undefined` 表示沿用该库默认（huggingface.co）。 */
   private readonly remoteHost?: string | undefined;
+  /** 模型包加载接缝（生产为真动态 import；测试注入假实现以免下载）。 */
+  private readonly loader: TransformersModuleLoader;
   /** 懒加载的 pipeline Promise（null 表示尚未加载；复用同一实例避免重复加载模型）。 */
   private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
 
@@ -237,6 +292,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     this.cacheDir = opts.cacheDir;
     this.localFilesOnly = opts.localFilesOnly ?? false;
     this.remoteHost = normalizeRemoteHost(opts.remoteHost);
+    this.loader = opts.loader ?? defaultModuleLoader;
   }
 
   /** 解析出的 HF 模型 id（诊断用）。 */
@@ -254,9 +310,9 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
    */
   private async getPipeline(): Promise<FeatureExtractionPipeline> {
     if (this.pipelinePromise === null) {
-      this.pipelinePromise = (async () => {
-        // 动态导入：编译期不依赖该包，运行时仅在启用语义嵌入时加载。
-        const mod = await import('@huggingface/transformers');
+      const pending = (async () => {
+        // 动态导入：编译期不依赖该包，运行时仅在启用语义嵌入时加载（测试可注入假 loader）。
+        const mod = await this.loader();
         // 镜像必须在**创建 pipeline 之前**写入：该库在 pipeline 构造期即按 remoteHost 拼 URL 取权重，
         // 之后再改无效（模型已在下载或已失败）。这与 OpenAI 兼容端点的 baseURL 同理，属启动期配置。
         if (this.remoteHost !== undefined) {
@@ -270,8 +326,52 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
         })) as FeatureExtractionPipeline;
         return pipe;
       })();
+      this.pipelinePromise = pending;
+      // 失败必须**清空缓存**：否则一个瞬时的下载/加载失败会把一个已 reject 的 Promise 永久钉在
+      // 字段上，后续每一步都复用它 ⇒ 该适配器此后**再也不可能恢复**（语义路整会话静默失效）。
+      // 清空后下一次调用会重试——冷启动失败通常是瞬时的，而永久瘫痪不可接受。
+      // `=== pending` 守卫：避免把「清空后才发起的新一轮尝试」误清掉。
+      pending.catch(() => {
+        if (this.pipelinePromise === pending) {
+          this.pipelinePromise = null;
+        }
+      });
     }
     return this.pipelinePromise;
+  }
+
+  /**
+   * 预热：显式触发 pipeline 构建，并**把冷启动成本变成可读数字**（L5）。
+   *
+   * 需要说清的一点：本适配器用单实例 `pipelinePromise` 复用管线，**不会**像多模型路由那样
+   * 在请求之间重建模型（那才是 Laya 记录的「lazy + 单热缓存 ⇒ 每次冷建 7.4s」陷阱），
+   * 故「不重建」这一条本就成立。真正缺的是**冷启动的可观测性与可控时机**——此前首个语义
+   * 查询会静默地承担「加载可选依赖 + 取权重 + 建 pipeline」的整段耗时（本机该可选依赖约 2.2GB）。
+   * 预热把这段成本提前到调用方可自主选择的时刻（如服务启动后、接受流量前），并记下毫秒数。
+   *
+   * @returns 预热结果（是否成功 / 耗时 / 是否真由本次构建 / 失败原因）。
+   */
+  public async preload(): Promise<EmbeddingPreloadOutcome> {
+    const wasHot = this.pipelinePromise !== null;
+    const started = Date.now();
+    try {
+      await this.getPipeline();
+      const ms = Date.now() - started;
+      if (!wasHot) {
+        log.info('embedding.pipeline.built', {
+          model: this.model,
+          device: this.device,
+          dtype: this.dtype,
+          ms,
+        });
+      }
+      return { ok: true, ms, built: !wasHot };
+    } catch (error) {
+      const ms = Date.now() - started;
+      const message = error instanceof Error ? error.message : String(error);
+      log.warn('embedding.pipeline.failed', { model: this.model, ms, error: message });
+      return { ok: false, ms, built: !wasHot, error: message };
+    }
   }
 
   /** 按前缀模式 + 角色给文本加前缀（仅 e5 需要；非 e5 原样返回）。

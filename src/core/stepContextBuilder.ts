@@ -9,6 +9,8 @@ import {
   decodeCompactionState,
 } from '../context/contextCompactor.js';
 import type { StepRunnerDeps } from './stepTypes.js';
+import { ToolExposurePlanner } from './toolExposurePlanner.js';
+import { log } from '../util/logger.js';
 import { at } from '../util/arrayAt.js';
 
 /**
@@ -138,21 +140,71 @@ export class StepContextBuilder {
    * 发给模型的工具集：直载（listDirect，剔除 deferred）∪ 经 tool_search 发现的延迟加载工具。
    * 按名去重：被发现的工具补充进上下文，使其可被模型真正调用（#M1 延迟加载闭环）。
    *
+   * **按需暴露（`OMNI_TOOL_EXPOSURE=plan`，默认关）**：开启后先经 {@link ToolExposurePlanner}
+   * 按本轮任务文本判类别相关性，把明显不相关的类别整体降为延迟加载——动机与安全方向见该模块头
+   * （Laya 高基数实测：每选项 token 预算即准确率天花板）。三条不可动摇的护栏：
+   *   - **被 `tool_search` 发现的工具恒可见**（模型已明确表达需要，不得反悔）；
+   *   - **未登记类别的工具恒可见** + **无类别命中即全部可见**（fail-safe，宁多给不少给）；
+   *   - **默认 `off` ⇒ 与接线前逐字等价**（零行为变更）。
+   * 被延迟的工具并未丢失：`ToolIndex` 建自 `registry.list()`（全部工具），可经 `tool_search` 找回。
+   *
    * @returns 去重后的工具定义列表（直载项优先，发现的同名项被丢弃）。
    */
   public effectiveTools(): ToolDefinition[] {
     const direct = this.deps.tools.listDirect?.() ?? this.deps.tools.list();
     const discovered = this.deps.discovery?.list() ?? [];
+    const exposed = this.exposeByRelevance(direct);
     const byName = new Map<string, ToolDefinition>();
-    for (const tool of direct) {
+    for (const tool of exposed) {
       byName.set(tool.name, tool);
     }
+    // 已发现的工具保留：模型已经检索过它们，隐藏会直接打断 #M1 闭环。
+    // (D4) 但**必须绑定当前工具目录快照**：`ToolDiscovery` 只是按名累积的寄存器，插件/工具在
+    // 会话中途卸载（`RegistryToolPort.unregister`，插件热卸载路径）后，它仍持有陈旧 schema；
+    // 若无条件并入，模型会拿到一个**已不存在的工具**并调用它 ⇒ 必然失败。
+    // 契约：**能核对才绑定，不能核对不丢能力**——
+    //   · 目录可查 ⇒ 以目录为准：目录里没有的丢弃；仍在的取目录中的最新定义（不用陈旧副本）；
+    //   · 目录不可查（`list` 缺失）⇒ 无从判定陈旧与否，保持既有行为（并入寄存器内容），
+    //     否则会在一个无法核实的场景下把 #M1 闭环整体打断。
+    const catalog = this.deps.tools.list?.();
+    const live =
+      catalog === undefined
+        ? undefined
+        : new Map<string, ToolDefinition>(catalog.map((tool) => [tool.name, tool]));
     for (const tool of discovered) {
-      if (!byName.has(tool.name)) {
+      if (byName.has(tool.name)) {
+        continue;
+      }
+      if (live === undefined) {
         byName.set(tool.name, tool);
+        continue;
+      }
+      const current = live.get(tool.name);
+      if (current !== undefined) {
+        byName.set(tool.name, current);
       }
     }
     return [...byName.values()];
+  }
+
+  /**
+   * 按相关性裁剪直载工具（`OMNI_TOOL_EXPOSURE=plan` 时生效；否则原样返回）。
+   *
+   * 任务文本复用 repo-map 的同一推导（最近至多 3 条 user 消息），**不额外读状态**，
+   * 保证同一回合内 repo-map 与工具暴露看到的是同一个查询。
+   *
+   * @param direct 直载工具定义列表。
+   * @returns 裁剪后的工具定义列表（默认 `off` 时与入参同一数组，零成本）。
+   */
+  private exposeByRelevance(direct: readonly ToolDefinition[]): readonly ToolDefinition[] {
+    if (ToolExposurePlanner.modeFromEnv() !== 'plan') return direct;
+    const plan = ToolExposurePlanner.plan({
+      taskText: this.deriveQueryText(this.deps.recorder.allEvents()),
+      tools: direct.map((tool) => tool.name),
+    });
+    if (plan.deferred.length === 0) return direct;
+    const keep = new Set(plan.visible);
+    return direct.filter((tool) => keep.has(tool.name));
   }
 
   /**
@@ -218,6 +270,13 @@ export class StepContextBuilder {
     const engine = this.deps.repoMapContext;
     const degrade = this.deps.budgetDegrade?.shouldDegrade === true;
     if (degrade) {
+      // (L6) 降档是**决策**，必须带可读理由落观测——否则事后只能看到「档位变了」，
+      // 无从判断是预算越阈、检索退化还是配置变更导致（借鉴 Laya `router.route(x).reason`）。
+      log.info('context.repomap.degrade', {
+        reason: '软预算已越阈（budgetDegrade.shouldDegrade=true）',
+        effect: `纯 BM25（忽略 embedding）+ 关重排 + 收缩大纲档位（payloadShape=${DEGRADE_PAYLOAD_SHAPE}）`,
+        queryChars: q.length,
+      });
       // 降级：纯 BM25 + 收缩大纲档位 + 关重排（即便注入过 embedding 也强制落在零开销词法路）。
       return engine.getRepoMapContext(root, q, {
         rerank: false,

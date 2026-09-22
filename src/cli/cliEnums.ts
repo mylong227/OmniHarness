@@ -71,3 +71,12 @@ export const A2A_TRANSPORTS = ['http', 'ws'] as const satisfies readonly NonNull
 export const BUDGET_ON_EXCEED = ['fail', 'warn'] as const satisfies readonly NonNullable<
   CliArgs['costBudgetOnExceed']
 >[];
+/**
+ * (D1) 护栏生效模式白名单。与 `EnforcementModeResolver.MODES` **同源**（`satisfies` 保证漂移即编译报错）：
+ * 安全开关的取值若允许裸强转，一个拼写错误就会静默退化成「不跑」或「不生效」。
+ */
+export const ENFORCEMENT_MODES = [
+  'off',
+  'shadow',
+  'enforce',
+] as const satisfies readonly NonNullable<CliArgs['guardPromptInjectionMode']>[];
