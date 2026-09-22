@@ -11,7 +11,7 @@ import {
   RankVetoEvaluator,
   jaccardOverlap,
   meanPairwiseJaccard,
-} from '../../src/context/rankVeto.js';
+} from '../../src/context/rankVeto/index.js';
 
 /** 构造无向完全图 K_n。 */
 function completeGraph(n: number): { n: number; adj: Array<Array<[number, number]>> } {

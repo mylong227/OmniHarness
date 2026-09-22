@@ -49,7 +49,7 @@ const { buildLayeredCodeGraph, edgeCountOf, layeredFileRoute } = await importDis
   'context',
   'layeredCodeGraph.js',
 );
-const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto.js');
+const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto', 'index.js');
 
 /** 语料根（与生产一致）。 */
 const SRC = join(ROOT, 'src');

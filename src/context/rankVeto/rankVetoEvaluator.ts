@@ -49,10 +49,12 @@
  *
  * ## 文件拆分（2026-09-12，为符合「一文件一类 / <500 行」清单标准）
  *
+ * 四文件同处 `src/context/rankVeto/` 一域（2026-09-22 由 `src/context/` 平铺收进本目录）：
+ *
  * - {@link ./rankVetoOverlap.ts}：Top-K 集合重合度量（主判据的量具，与图无关）；
  * - {@link ./rankVetoSpectrum.ts}：图结构性诊断（已被证伪，仅报告）；
  * - 本文件：阈值、输入/输出契约、判据编排；
- * - {@link ./rankVeto.ts}：兼容门面，聚合再导出，调用点零改动。
+ * - {@link ./index.ts}：域出口（barrel），聚合再导出，调用点只依赖这一层。
  *
  * @maturity L2 — 主判据（查询敏感度）经真实语料回溯验证并机械解释已知负结果；
  *   但失败样本 n=1、对照 n=1，样本量不足以支撑 L3，见 `@maturityEvidence`

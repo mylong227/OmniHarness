@@ -24,7 +24,7 @@ import { indexCorpus } from '../dist/src/context/contextEngine.js';
 import { tokenizeExpanded } from '../dist/src/search/bm25Index.js';
 import { getGraphSignal, graphNeighborFileRoute } from '../dist/src/context/codeReferenceGraph.js';
 import { propagate } from '../dist/src/context/codeGraphIndex.js';
-import { RankVetoEvaluator, jaccardOverlap } from '../dist/src/context/rankVeto.js';
+import { RankVetoEvaluator, jaccardOverlap } from '../dist/src/context/rankVeto/index.js';
 import {
   buildLayeredCodeGraph,
   edgeCountOf,
