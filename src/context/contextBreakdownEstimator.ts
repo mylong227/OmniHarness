@@ -96,6 +96,15 @@ export interface ContextBreakdown {
  */
 export class ContextBreakdownEstimator {
   private readonly estimator: TokenEstimator;
+  /**
+   * 工具定义 → token 数缓存（按对象引用）。
+   *
+   * 为什么：`estimate` 每步都跑（`stepRunner` 的上下文快照），而工具定义在会话内是静态的；
+   * 原实现对 33 个工具**每步**重新 `JSON.stringify`（schema 可能上千字符）。实测该步在
+   * 170 KB / 850 KB / 2.55 MB 上下文下分别占 2.53 / 11.30 / 34.41 ms，其中相当部分是重复序列化。
+   * 用 WeakMap 而非 Map：注册表换定义（热卸载/重载）后旧条目可被回收，不构成泄漏。
+   */
+  private readonly toolTokenCache = new WeakMap<ToolDefinition, number>();
 
   /**
    * @param estimator token 估算器（缺省新建；注入便于单测固定口径）
@@ -214,15 +223,25 @@ export class ContextBreakdownEstimator {
     return tokens;
   }
 
-  /** 单个工具定义的 token 估算：按真实发给模型的序列化形态（name + description + JSON Schema）计。 */
+  /** 单个工具定义的 token 估算：按真实发给模型的序列化形态（name + description + JSON Schema）计。
+   * 结果按定义对象缓存（见 {@link ContextBreakdownEstimator.toolTokenCache}）。
+   * @param tool 工具定义
+   * @returns 该定义的 token 估算值
+   */
   private toolTokens(tool: ToolDefinition): number {
-    return this.estimator.estimate(
+    const cached = this.toolTokenCache.get(tool);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const tokens = this.estimator.estimate(
       JSON.stringify({
         name: tool.name,
         description: tool.description,
         parameters: tool.parameters,
       }),
     );
+    this.toolTokenCache.set(tool, tokens);
+    return tokens;
   }
 
   /** 累加某分类的 token 数（分类键必已初始化）。

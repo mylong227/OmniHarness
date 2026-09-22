@@ -2,9 +2,25 @@
  * 零依赖 Okapi BM25 检索器（#M1 工具语义检索）。
  * 仅依赖标准 JS，用于工具 schema 的自然语言检索，无需引入任何 BM25 库。
  *
+ * ## 倒排表（2026-09-22，性能收尾）
+ *
+ * `search` 原先对**每个查询词**遍历**每个文档的每个 token** 现算词频（`O(Q × Σ|doc|)`）：
+ * 实测真实 `src/` 语料（563 文件 / 986,432 token）单次 `fileIndex.search` 为
+ * **18.6 ms（1 命中词）～252 ms（22 命中词，中文查询）**，并按 token 数严格线性放大
+ * （1M token/20 词 = 98.5 ms；配置上限 32 MiB 外推 ≈2.6 s/步），是 agent 每步固定开销的大头。
+ * 现改为 `addDocuments` 期建「词项 → (docId, tf)」倒排表，`search` 只遍历查询词命中的 postings：
+ * 同一组查询实测 **169×～985×**（235 ms → 0.24 ms），建索引一次性代价 +277 ms（file）。
+ *
+ * 行为等价性由三点构造保证，`tests/unit/bm25Index.test.ts` 以暴力实现逐位对拍钉住：
+ * ① 命中集合相同（tf>0 ⇔ 该词项的 postings 含此 docId）；
+ * ② 同一文档的累加顺序不变（查询词外层、docId 升序内层），故浮点结果逐位相同；
+ * ③ df / 文档长度 / 平均长度口径未动，`idf()` 与 `documentFrequencyOf()` 保持对外同源。
+ *
  * @maturity L1 — 主力召回；形态归并已破一层天花板（实测文件召回 67.0%）
  * @maturityEvidence tests/unit/toolSearch.test.ts
  */
+
+import { at } from '../util/arrayAt.js';
 
 /**
  * @beta
@@ -34,6 +50,23 @@ export class Bm25Index {
   private readonly b: number;
   private readonly documents: string[][] = [];
   private readonly documentFrequency = new Map<string, number>();
+  /**
+   * 倒排表：词项 → 该词项在哪些文档中出现、词频多少（`ids` 升序，与 `tfs` 一一对应）。
+   *
+   * 为什么需要：`search` 原先为算 tf 而重扫全部文档 token（见模块头「倒排表」节）。
+   * 用两个并行数组而不是 `Array<{id,tf}>`，是为了避免每篇文档每个词项多分配一个对象
+   * （本语料 98.6 万 token ⇒ 省下近百万次小对象分配）。
+   */
+  private readonly postings = new Map<string, { ids: number[]; tfs: number[] }>();
+  /**
+   * 已加入文档的 token 总数（跨批累加）。
+   *
+   * 为什么单列字段：`averageLength` 是 `Σ|doc| / N` 的口径，而**分批** `addDocuments` 时
+   * 若只用「本批 total / 全部文档数」，平均长度会被算小（2026-09-22 由
+   * `tests/unit/bm25Index.test.ts` 的「分批 = 单批」对拍暴露）。生产调用点目前均为单批，
+   * 故该修复对既有行为零影响；但接口语义（可多次追加）此前是错的。
+   */
+  private totalTokens = 0;
   private averageLength = 0;
 
   public constructor(options: Bm25Options = {}) {
@@ -45,20 +78,27 @@ export class Bm25Index {
    * @returns 无返回值。
    */
   public addDocuments(documents: readonly (readonly string[])[]): void {
-    let total = 0;
     for (const tokens of documents) {
+      const docId = this.documents.length;
       this.documents.push([...tokens]);
-      total += tokens.length;
-      const seen = new Set<string>();
+      this.totalTokens += tokens.length;
+      // 单趟统计本文件的 tf（同时得到 df：出现在本文件即计 1 次）。
+      const termFrequency = new Map<string, number>();
       for (const term of tokens) {
-        if (seen.has(term)) {
-          continue;
-        }
-        seen.add(term);
+        termFrequency.set(term, (termFrequency.get(term) ?? 0) + 1);
+      }
+      for (const [term, frequency] of termFrequency) {
         this.documentFrequency.set(term, (this.documentFrequency.get(term) ?? 0) + 1);
+        const posting = this.postings.get(term);
+        if (posting === undefined) {
+          this.postings.set(term, { ids: [docId], tfs: [frequency] });
+        } else {
+          posting.ids.push(docId);
+          posting.tfs.push(frequency);
+        }
       }
     }
-    this.averageLength = this.documents.length === 0 ? 0 : total / this.documents.length;
+    this.averageLength = this.documents.length === 0 ? 0 : this.totalTokens / this.documents.length;
   }
 
   /**
@@ -129,18 +169,17 @@ export class Bm25Index {
       if (idf <= 0) {
         continue;
       }
-      for (let docId = 0; docId < count; docId += 1) {
+      const posting = this.postings.get(term);
+      if (posting === undefined) {
+        continue;
+      }
+      // 只遍历「含该词项」的文档（原实现此处遍历全部文档并逐篇重扫 token）。
+      // ids 为 docId 升序 ⇒ 同一文档的跨词累加顺序与旧实现一致，浮点结果逐位相同。
+      for (let p = 0; p < posting.ids.length; p += 1) {
+        const docId = at(posting.ids, p);
+        const frequency = at(posting.tfs, p);
         const doc = this.documents[docId];
         if (doc === undefined) {
-          continue;
-        }
-        let frequency = 0;
-        for (const token of doc) {
-          if (token === term) {
-            frequency += 1;
-          }
-        }
-        if (frequency === 0) {
           continue;
         }
         const docLength = doc.length;

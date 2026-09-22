@@ -127,18 +127,118 @@ export class SsrfGuard {
     if (lower === '::1' || lower === '::') {
       return true;
     }
-    // IPv4-mapped（::ffff:127.0.0.1）：取尾部 IPv4 部分按 IPv4 规则判定。
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-    if (mapped !== null) {
-      return this.isBlockedIpv4(mapped[1] ?? '');
+    // 内嵌 IPv4 的三种 IPv6 形态一律按其内嵌 IPv4 判定（2026-09-22 修）：
+    // IPv4-mapped `::ffff:a.b.c.d`、IPv4-compatible `::a.b.c.d`、NAT64 `64:ff9b::/96`、6to4 `2002::/16`。
+    // 此前只认 `::ffff:` 的**点分**写法，于是 `http://[::ffff:169.254.169.254]/`、
+    // `[::ffff:7f00:1]`、`[0:0:0:0:0:ffff:a9fe:a9fe]` 全部绕过「云元数据永远拦截」的声明（已实测复现）。
+    const embedded = this.embeddedIpv4(lower);
+    if (embedded !== null) {
+      return this.isBlockedIpv4(embedded);
     }
-    // fc00::/7（唯一本地）、fe80::/10（链路本地）、ff00::/8（组播）。
-    return (
-      lower.startsWith('fc') ||
-      lower.startsWith('fd') ||
-      lower.startsWith('fe80') ||
-      lower.startsWith('ff')
-    );
+    const groups = SsrfGuard.parseIpv6Groups(lower);
+    if (groups === null) {
+      return true; // 解析不了 ⇒ fail-closed（原实现是前缀启发式，宁可拦错不可漏放）
+    }
+    const h0 = groups[0] ?? 0;
+    if ((h0 & 0xfe00) === 0xfc00) {
+      return true; // fc00::/7 唯一本地
+    }
+    if ((h0 & 0xffc0) === 0xfe80) {
+      return true; // fe80::/10 链路本地
+    }
+    if ((h0 & 0xff00) === 0xff00) {
+      return true; // ff00::/8 组播
+    }
+    return false;
+  }
+
+  /**
+   * 从 IPv6 字面量中取出**内嵌的 IPv4**（点分十进制）；无内嵌返回 null。
+   *
+   * 覆盖：`::ffff:0:0/96`（IPv4-mapped，含点分与十六进制两种写法）、`::/96`（IPv4-compatible）、
+   * `64:ff9b::/96`（NAT64）、`2002::/16`（6to4）。安全性优先于完备性：宁可多判一层。
+   * @param ip 已去方括号、已小写的 IPv6 字面量
+   * @returns 内嵌 IPv4 的点分十进制形式；无内嵌或不可解析时为 null
+   */
+  private embeddedIpv4(ip: string): string | null {
+    const groups = SsrfGuard.parseIpv6Groups(SsrfGuard.expandTrailingIpv4(ip));
+    if (groups === null) {
+      return null;
+    }
+    const [g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, g5 = 0, g6 = 0, g7 = 0] = groups;
+    const dotted = (hi: number, lo: number): string =>
+      `${String(hi >> 8)}.${String(hi & 0xff)}.${String(lo >> 8)}.${String(lo & 0xff)}`;
+    const mapped =
+      g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && (g5 === 0xffff || g5 === 0);
+    if (mapped) {
+      return dotted(g6, g7);
+    }
+    if (g0 === 0x64 && g1 === 0xff9b) {
+      return dotted(g6, g7); // NAT64
+    }
+    if (g0 === 0x2002) {
+      return dotted(g1, g2); // 6to4
+    }
+    return null;
+  }
+
+  /**
+   * 把「尾部点分 IPv4」的混合写法展开为纯十六进制分组（`::ffff:169.254.169.254` → `::ffff:a9fe:a9fe`）。
+   * 该类写法是 URL 中的常见形态（`http://[::ffff:169.254.169.254]/`），不展开会被解析器判为非法分组。
+   * @param ip IPv6 字面量（可能带点分尾巴）
+   * @returns 纯十六进制 IPv6 字面量；无点分尾巴或数值非法时原样返回
+   */
+  private static expandTrailingIpv4(ip: string): string {
+    const m = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+    if (m === null) {
+      return ip;
+    }
+    const nums = [m[2], m[3], m[4], m[5]].map((x) => Number(x));
+    if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+      return ip;
+    }
+    const hi = ((nums[0] ?? 0) * 256 + (nums[1] ?? 0)).toString(16);
+    const lo = ((nums[2] ?? 0) * 256 + (nums[3] ?? 0)).toString(16);
+    return `${m[1] ?? ''}${hi}:${lo}`;
+  }
+
+  /**
+   * 解析 IPv6 为 8 组 16 位整数（支持 `::` 缩写与 `%zone` 后缀）。
+   * @param ip IPv6 字面量
+   * @returns 8 组整数；不可解析返回 null
+   */
+  private static parseIpv6Groups(ip: string): number[] | null {
+    const clean = (ip.split('%')[0] ?? ip).toLowerCase();
+    const halves = clean.split('::');
+    if (halves.length > 2) {
+      return null;
+    }
+    const parseSide = (part: string): number[] | null => {
+      if (part === '') {
+        return [];
+      }
+      const out: number[] = [];
+      for (const group of part.split(':')) {
+        if (!/^[0-9a-f]{1,4}$/.test(group)) {
+          return null;
+        }
+        out.push(Number.parseInt(group, 16));
+      }
+      return out;
+    };
+    const left = parseSide(halves[0] ?? '');
+    const right = parseSide(halves.length === 2 ? (halves[1] ?? '') : '');
+    if (left === null || right === null) {
+      return null;
+    }
+    if (halves.length === 1) {
+      return left.length === 8 ? left : null;
+    }
+    const fill = 8 - left.length - right.length;
+    if (fill < 0) {
+      return null;
+    }
+    return [...left, ...new Array<number>(fill).fill(0), ...right];
   }
 
   /** 纯字面量判定（不发起网络请求）。 */
@@ -147,7 +247,14 @@ export class SsrfGuard {
     if (lower === '') {
       return { blocked: true, reason: '空主机名' };
     }
-    if (options.allowMetadata !== true && SsrfGuard.METADATA_HOSTS.has(lower)) {
+    // 元数据判定必须同时覆盖「IPv6 内嵌 IPv4」的写法（否则 [::ffff:169.254.169.254] 绕过
+    // 「元数据永远拦截」——2026-09-22 实测复现并修复）。
+    const embedded = isIP(lower) === 6 ? this.embeddedIpv4(lower) : null;
+    if (
+      options.allowMetadata !== true &&
+      (SsrfGuard.METADATA_HOSTS.has(lower) ||
+        (embedded !== null && SsrfGuard.METADATA_HOSTS.has(embedded)))
+    ) {
       return { blocked: true, reason: `云元数据地址被拦截: ${host}` };
     }
     if (lower === 'localhost' || SsrfGuard.INTERNAL_SUFFIXES.some((s) => lower.endsWith(s))) {
