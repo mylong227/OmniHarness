@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 「每会话一次」注入的回归测试（技能 / 长期记忆 primer）。
  *
  * 缺陷背景（2026-09-19 实测）：`resume`/`fork` 会先 hydrate 历史，而注入原先**无条件**执行
@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';

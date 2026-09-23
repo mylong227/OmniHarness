@@ -1,5 +1,5 @@
-import { Agent } from '../src/core/agent.js';
-import { createRuntime } from '../src/core/runtime.js';
+﻿import { Agent } from '../src/core/agent.js';
+import { createRuntime } from '../src/composition/runtime.js';
 import { ConfigFactory } from '../src/config/configFactory.js';
 import { MockModel } from '../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';

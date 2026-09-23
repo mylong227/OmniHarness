@@ -15,11 +15,8 @@ import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { RunGoalTool } from '../../src/adapters/tool/workflow/runGoalTool.js';
 import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.js';
 import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
-import type {
-  AgentFactoryPort,
-  AgentPort,
-  OmniHarnessRuntime,
-} from '../../src/ports/runtime/agent.js';
+import type { AgentFactoryPort, AgentPort } from '../../src/ports/runtime/agent.js';
+import type { OmniHarnessRuntime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 
 /**

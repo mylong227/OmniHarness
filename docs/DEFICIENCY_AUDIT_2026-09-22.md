@@ -174,14 +174,23 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
 - 记忆引擎三份同算法实现（≈350 行重复 + 死分支）：`cosmicWebMemoryEngine.ts`/`resonantMemoryEngine.ts` 是
   `resonantFieldEngine.ts` 的真子集，默认装配只走后者（`config/memoryStackAssembler.ts:54,64,74`）。建议删前两者、回退分支改实例化 `ResonantFieldEngine`。
 
-### 3.3【待办·P1】组合根错位：`createRuntime` 住在 `core/` ⇒ 真值循环 + 端口倒置
+### 3.3【本轮已修】组合根错位：`createRuntime` 住在 `core/` ⇒ 真值循环 + 端口倒置
 
 - **证据（实读 + 独立建图复核）**：`core/runtime.ts` 值导入 6 个子系统并导出 `ServiceKeys`；
   `core/runtime.ts:29 ↔ subagent/subagentRuntimeFactory.ts:10` 构成**真值双向环**；
   `ports/runtime/agent.ts:3` 反向 import `core/runtime.js` 并用于端口契约签名。
   架构门禁只判 `core→adapters` / `adapters→core`（这两类经独立复核确为 0），**看不见 ports→core**。
-- **修法**：`createRuntime`/`ServiceKeys`/`OmniHarnessRuntime` 迁到 `src/config/`（或新增 `src/composition/`）；
-  `architectureGate.mjs` 增第四条规则「`src/ports/**` 不得 import core/adapters/config」。
+- **修法（已落地）**：
+  ① **迁出核心层**：`src/core/runtime.ts` → `src/composition/runtime.ts`（新装配层目录，已在
+  `ARCHITECTURE_SPEC.md` §2.1 目录归属表登记）；全仓 42 处 import 说明符同步（含 3 个 benchmark 脚本）。
+  ② **打断真值环**：`ServiceKeys` 下沉到 `src/composition/serviceKeys.ts`（纯常量、零依赖），
+  子代理工厂改依赖它 ⇒ 组合根→子代理仍为值依赖，**反向只剩 type-only** ⇒ 值级环消失。
+  ③ **解端口倒置**：`AgentFactoryPort` 改泛型 `AgentFactoryPort<TRuntime = unknown>`——端口不再 import 任何
+  具体实现类型，由 `config/agentFactory.ts` 绑定 `OmniHarnessRuntime`（方法参数双变，赋值安全、零类型逃逸）。
+  ④ **补门禁规则 [3.5]**：`ports/** 不得 import core|adapters|config|composition`（白名单空 = 新增即红）。
+- **可证伪验证**：`arch:gate` 输出新增 `[3.5] ports→实现层：0 条`；**反向验证**——临时在
+  `ports/runtime/agent.ts` 注入 `→ core/toolGate` ⇒ `[NEW!]` 且 **exit 1**，移除后复绿；
+  搬移后 `tsc` 零错误、`npm test` 与门禁全绿（见 §6 与本轮提交）。
 
 ### 3.4【待办·P1】扩展接缝是「改一处漏一处」
 

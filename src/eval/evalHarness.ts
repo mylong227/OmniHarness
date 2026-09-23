@@ -1,4 +1,4 @@
-// 评估/基准 harness（C3 — 填补 P2-2「评估/benchmark harness 缺失」缺口）。
+﻿// 评估/基准 harness（C3 — 填补 P2-2「评估/benchmark harness 缺失」缺口）。
 //
 // 定位：把一次性基准（tests/bench/agentTask.bench.ts 的 ScriptedModel 范式）泛化为可复用、
 // 可回归的质量回归基准。一条 EvalTask = 一段模型脚本 + 期望断言；runEvalSuite 经真实 Agent
@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { createRuntime } from '../core/runtime.js';
+import { createRuntime } from '../composition/runtime.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件附件「声明未接线」回归测试（第十一处）。
  *
  * 缺陷形态：`FileAttachment` 能力在**三层都已就位**——
@@ -21,7 +21,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,7 +18,7 @@ import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
 import { SubagentRunner } from '../../src/subagent/subagentRunner.js';

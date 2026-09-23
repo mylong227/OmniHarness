@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.js';
 import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.js';
@@ -6,7 +6,7 @@ import { SessionRecorder } from '../../src/core/sessionRecorder.js';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { Agent } from '../../src/core/agent.js';
 import type {

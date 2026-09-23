@@ -1,4 +1,4 @@
-/**
+﻿/**
  * `reasoning` 配置键的接线回归测试（针对第十处「声明未接线」）。
  *
  * 缺陷形态：`reasoning` 在 `FileConfig` / `ENUM_VALUES` / `ENV_ALIASES` 三处都被接受
@@ -12,7 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { configDefaults } from '../../src/cli/argParser.js';
 import { normalizeConfig } from '../../src/config/configError.js';
 import type { FileConfig } from '../../src/config/configFile.js';

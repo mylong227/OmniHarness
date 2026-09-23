@@ -1,4 +1,4 @@
-/**
+﻿/**
  * P5 per-tool token 归因集成测试（走生产装配路径 + 真实 Agent 循环）。
  *
  * 用一个「带 usage 的脚本化模型」真跑一轮 Agent（模型 → 工具门禁 → 执行 → 记录），
@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';

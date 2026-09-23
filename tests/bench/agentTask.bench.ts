@@ -1,4 +1,4 @@
-// #72 基准：#72 工具名别名桥生效后，native（--native FFI）vs JS 全程 agent 任务端到端验证。
+﻿// #72 基准：#72 工具名别名桥生效后，native（--native FFI）vs JS 全程 agent 任务端到端验证。
 //
 // 背景（#71 已证）：标准 JS 工具集命名为 read_file / write_file / list_dir / shell，
 // Rust 内核出厂内置命名为 fs.read_file / fs.write_file / fs.list_dir / shell.run，
@@ -17,7 +17,7 @@ import { join, dirname, resolve, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';

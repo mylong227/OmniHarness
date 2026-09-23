@@ -1,4 +1,4 @@
-// 架构约束门禁（P0.4，docs/REFACTOR_BOARD_2026-09-12.md §P0.4）。
+﻿// 架构约束门禁（P0.4，docs/REFACTOR_BOARD_2026-09-12.md §P0.4）。
 //
 // 职责：把「架构约束」从人工评审变为机械可证，覆盖三类六边形/端口-适配器铁律：
 //   1. 禁 core→adapters：core 层（src/core）不得 import adapters 层（src/adapters）。
@@ -67,16 +67,31 @@ const ADAPTERS_TO_CORE_WL = new Set([]);
 // 原路径仅保留 `export ... from` 再导出，公共 API 面不变）。
 // 空集合 = 「新增即红」：此后 src/ports/** 出现任何 class 声明都会阻断提交。
 const PORTS_CLASS_WL = new Set([]);
+// ports→实现层（core/adapters/config）：**新增规则（2026-09-22）**。
+// 为什么需要：原三条规则只覆盖 core↔adapters 与 ports 的「第三方裸导入 / class 声明」，
+// 于是 `ports/runtime/agent.ts` 曾长期 `import type { OmniHarnessRuntime } from '…/core/runtime.js'`
+// ——端口契约被绑死在 core 具体类型上，而门禁「看不见」。现由 AgentFactoryPort 的**类型参数**解绑，
+// 存量归零 ⇒ 本规则同样「新增即红」。
+const PORTS_IMPL_WL = new Set([]);
 
 // ---- 4. 判定 ----
 const caViolations = [];
 const acViolations = [];
+const portsImplViolations = [];
 for (const { from, to } of edges) {
   const id = `${from}->${to}`;
   if (from.startsWith('core/') && to.startsWith('adapters/')) {
     caViolations.push({ id, whitelisted: CORE_TO_ADAPTERS_WL.has(id) });
   } else if (from.startsWith('adapters/') && to.startsWith('core/')) {
     acViolations.push({ id, whitelisted: ADAPTERS_TO_CORE_WL.has(id) });
+  } else if (
+    from.startsWith('ports/') &&
+    (to.startsWith('core/') ||
+      to.startsWith('adapters/') ||
+      to.startsWith('config/') ||
+      to.startsWith('composition/'))
+  ) {
+    portsImplViolations.push({ id, whitelisted: PORTS_IMPL_WL.has(id) });
   }
 }
 
@@ -116,7 +131,8 @@ const fmt = (v) => (v.whitelisted ? '  [WHITELISTED] ' : '  [NEW!]       ');
 const newCount =
   caViolations.filter((v) => !v.whitelisted).length +
   acViolations.filter((v) => !v.whitelisted).length +
-  portsClassViolations.filter((v) => !v.whitelisted).length;
+  portsClassViolations.filter((v) => !v.whitelisted).length +
+  portsImplViolations.filter((v) => !v.whitelisted).length;
 
 console.log('=== ARCHITECTURE GATE (P0.4) ===');
 console.log(
@@ -130,6 +146,11 @@ acViolations.forEach((v) => console.log(fmt(v) + v.id));
 console.log(`\n[3] ports 纯度（第三方裸导入 / class 实现，白名单文件 ${PORTS_CLASS_WL.size}）：`);
 if (portsClassViolations.length === 0) console.log('  (无)');
 else portsClassViolations.forEach((v) => console.log(fmt(v) + v.id));
+console.log(
+  `\n[3.5] ports→实现层（core/adapters/config，白名单 ${PORTS_IMPL_WL.size}）——端口只依赖契约：`,
+);
+if (portsImplViolations.length === 0) console.log('  (无)');
+else portsImplViolations.forEach((v) => console.log(fmt(v) + v.id));
 console.log(`\n[4] 目录平铺告警（直接 .ts > 30，非阻断）：`);
 if (dirWarnings.length === 0) console.log('  (无)');
 else
@@ -145,6 +166,7 @@ const depWl =
 console.log(
   `\n依赖方向违规：${depTotal} 条（白名单 ${depWl}，新增 ${depTotal - depWl}）` +
     ` ｜ ports 纯度：${portsClassViolations.length} 条` +
+    ` ｜ ports→实现层：${portsImplViolations.length} 条` +
     ` ｜ 目录告警：${dirWarnings.length} 个`,
 );
 
@@ -155,9 +177,21 @@ if (newCount > 0) {
       ` 存量请加入白名单或走 P1/P3 清偿流程，勿绕过。`,
   );
   exitCode = 1;
-} else if (STRICT && caViolations.length + acViolations.length + portsClassViolations.length > 0) {
+} else if (
+  STRICT &&
+  caViolations.length +
+    acViolations.length +
+    portsClassViolations.length +
+    portsImplViolations.length >
+    0
+) {
   console.error(
-    `\n❌ 架构门禁失败（--strict）：仍有 ${caViolations.length + acViolations.length + portsClassViolations.length} 条白名单内存量违规未清偿。`,
+    `\n❌ 架构门禁失败（--strict）：仍有 ${
+      caViolations.length +
+      acViolations.length +
+      portsClassViolations.length +
+      portsImplViolations.length
+    } 条白名单内存量违规未清偿。`,
   );
   exitCode = 1;
 } else {

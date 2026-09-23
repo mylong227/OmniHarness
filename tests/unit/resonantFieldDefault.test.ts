@@ -1,4 +1,4 @@
-// U1 验收（resonantField 默认开启）：默认配置下，长期记忆/共振/宇宙网三态合一于
+﻿// U1 验收（resonantField 默认开启）：默认配置下，长期记忆/共振/宇宙网三态合一于
 // 单一 ResonantFieldEngine 实例（消除双重频谱索引），且 SparkController 能在同一引擎上
 // 同时驱动 燧-3 tune 与宇宙网 consolidate 而不双实例化、不崩。
 //
@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';

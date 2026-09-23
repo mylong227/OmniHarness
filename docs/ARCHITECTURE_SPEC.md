@@ -40,42 +40,43 @@ src/
 > 纪律：**新增目录必须先在此登记**；本表是目录规模门禁（单目录直接 `.ts` ≤ 30）与
 > 「一域一目录族」判定的文档侧权威。同名业务域散落 3 个以上顶层目录即违规（P3.2）。
 
-| 目录             | 层归属   | 职责（一域一族）                                                                        | 允许依赖                              |
-| ---------------- | -------- | --------------------------------------------------------------------------------------- | ------------------------------------- |
-| `ports/`         | 端口层   | 全部端口接口与纯类型契约；**零实现、零第三方、零 class 行为**                           | 无（仅 ports 互引类型）               |
-| `core/`          | 核心层   | 业务编排：agent 主循环、step 执行、审批/沙箱门禁、检查点                                | 仅 `ports/**`、`util/**`、`errors/**` |
-| `adapters/`      | 适配器层 | 端口实现：model/memory/tool/sandbox/kv/vault/lsp/git/diff/live/embedding/approval/skill | `ports/**`、第三方 IO（唯一允许层）   |
-| `context/`       | 核心域   | 上下文引擎：repo-map、检索、压缩、装配、spill 策略（零第三方）                          | `ports/**`、`util/**`                 |
-| `server/`        | 接入层   | AppServer/RPC 承载、HTTP/WS 传输、工作台服务                                            | `ports/**`、`core/**` 装配产物        |
-| `cli/`           | 接入层   | 命令行入口、参数解析、子命令                                                            | `ports/**`、装配函数                  |
-| `sdk/`           | 接入层   | 嵌入方 SDK（WebSocket 流式客户端）                                                      | `ports/**`                            |
-| `mcp/`           | 协议域   | MCP 协议编解码、连接器、网关                                                            | `ports/**`、`util/**`                 |
-| `a2a/`           | 协议域   | A2A 互操作客户端/服务端/传输                                                            | `ports/**`                            |
-| `config/`        | 装配层   | 组合根：ConfigFactory + 各域装配函数 + 配置读写                                         | `ports/**`、各实现（唯一 new 密集区） |
-| `errors/`        | 公共层   | 跨层错误类型（`ports/model` 迁出物）                                                    | 无                                    |
-| `util/`          | 公共层   | 无业务语义工具（logger/diff/日程/谱工具）                                               | 无第三方                              |
-| `schema/`        | 公共层   | 结构化输出/代码生成契约                                                                 | `util/**`                             |
-| `search/`        | 核心域   | 零依赖检索原语（BM25、toolIndex）                                                       | `util/**`                             |
-| `eval/`          | 评测域   | Pass@k、bootstrap 置信区间、SWE replay 基建                                             | 无第三方                              |
-| `evolution/`     | 进化域   | RLVR 可验证奖励、样本回放环                                                             | `ports/**`                            |
-| `genesis/`       | 发明层   | 模态/算子/ledger 数学基板（L2/L3 声明区）                                               | `util/**`                             |
-| `skill/`         | 技能域   | 技能注册、莫尔组合                                                                      | `ports/**`                            |
-| `spark/`         | 发明层   | 燧核引擎集与循环遥测                                                                    | `ports/**`                            |
-| `security/`      | 安全域   | SSRF 防护等安全原语（fail-closed）                                                      | 无                                    |
-| `supervisor/`    | 安全域   | 航天级监督内核（FDIR 状态机）                                                           | `ports/**`                            |
-| `enterprise/`    | 企业域   | SSO(OIDC)、审计哈希链、合规导出                                                         | `ports/**`、第三方 OIDC               |
-| `plugin/`        | 扩展域   | 插件宿主、打包、注册源                                                                  | `ports/**`                            |
-| `subagent/`      | 编排域   | 子代理编排器、运行时工厂、worktree                                                      | `ports/**`、`worker/**`               |
-| `worker/`        | 执行域   | DSH 子进程 worker                                                                       | 无第三方                              |
-| ~~`lsp/`~~       | 已收敛   | 原 LSP 顶层目录已并入 `adapters/lsp/`（P3.2，2026-09-13）                               | —                                     |
-| `native/`        | 原生桥   | Rust 内核加载器（`.node`）                                                              | 无                                    |
-| `observability/` | 观测域   | 指标/追踪导出                                                                           | `util/**`                             |
-| `autonomy/`      | 编排域   | 工作流循环错误与自治循环                                                                | `ports/**`                            |
-| `output/`        | 呈现域   | 输出格式化                                                                              | `util/**`                             |
-| `tui/`           | 呈现域   | 终端渲染                                                                                | 无第三方                              |
-| `daemon/`        | 执行域   | 常驻进程例行任务                                                                        | `ports/**`                            |
-| `hooksCompat/`   | 兼容层   | 旧钩子兼容垫片                                                                          | `util/**`                             |
-| ~~`code/`~~      | 已收敛   | 原代码执行工具已并入 `adapters/tool/code/`（P3.2，2026-09-13）                          | —                                     |
+| 目录             | 层归属   | 职责（一域一族）                                                                                                                           | 允许依赖                                      |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| `ports/`         | 端口层   | 全部端口接口与纯类型契约；**零实现、零第三方、零 class 行为**                                                                              | 无（仅 ports 互引类型）                       |
+| `core/`          | 核心层   | 业务编排：agent 主循环、step 执行、审批/沙箱门禁、检查点                                                                                   | 仅 `ports/**`、`util/**`、`errors/**`         |
+| `adapters/`      | 适配器层 | 端口实现：model/memory/tool/sandbox/kv/vault/lsp/git/diff/live/embedding/approval/skill                                                    | `ports/**`、第三方 IO（唯一允许层）           |
+| `context/`       | 核心域   | 上下文引擎：repo-map、检索、压缩、装配、spill 策略（零第三方）                                                                             | `ports/**`、`util/**`                         |
+| `server/`        | 接入层   | AppServer/RPC 承载、HTTP/WS 传输、工作台服务                                                                                               | `ports/**`、`core/**` 装配产物                |
+| `cli/`           | 接入层   | 命令行入口、参数解析、子命令                                                                                                               | `ports/**`、装配函数                          |
+| `sdk/`           | 接入层   | 嵌入方 SDK（WebSocket 流式客户端）                                                                                                         | `ports/**`                                    |
+| `mcp/`           | 协议域   | MCP 协议编解码、连接器、网关                                                                                                               | `ports/**`、`util/**`                         |
+| `a2a/`           | 协议域   | A2A 互操作客户端/服务端/传输                                                                                                               | `ports/**`                                    |
+| `config/`        | 装配层   | 组合根：ConfigFactory + 各域装配函数 + 配置读写                                                                                            | `ports/**`、各实现（唯一 new 密集区）         |
+| `composition/`   | 装配层   | 运行时组合根：`createRuntime` / `OmniHarnessRuntime` / `ServiceKeys`（2026-09-22 由 `core/` 迁出——核心层不该持有装配知识与各实现的值导入） | `ports/**`、各实现（与 `config/` 同为装配层） |
+| `errors/`        | 公共层   | 跨层错误类型（`ports/model` 迁出物）                                                                                                       | 无                                            |
+| `util/`          | 公共层   | 无业务语义工具（logger/diff/日程/谱工具）                                                                                                  | 无第三方                                      |
+| `schema/`        | 公共层   | 结构化输出/代码生成契约                                                                                                                    | `util/**`                                     |
+| `search/`        | 核心域   | 零依赖检索原语（BM25、toolIndex）                                                                                                          | `util/**`                                     |
+| `eval/`          | 评测域   | Pass@k、bootstrap 置信区间、SWE replay 基建                                                                                                | 无第三方                                      |
+| `evolution/`     | 进化域   | RLVR 可验证奖励、样本回放环                                                                                                                | `ports/**`                                    |
+| `genesis/`       | 发明层   | 模态/算子/ledger 数学基板（L2/L3 声明区）                                                                                                  | `util/**`                                     |
+| `skill/`         | 技能域   | 技能注册、莫尔组合                                                                                                                         | `ports/**`                                    |
+| `spark/`         | 发明层   | 燧核引擎集与循环遥测                                                                                                                       | `ports/**`                                    |
+| `security/`      | 安全域   | SSRF 防护等安全原语（fail-closed）                                                                                                         | 无                                            |
+| `supervisor/`    | 安全域   | 航天级监督内核（FDIR 状态机）                                                                                                              | `ports/**`                                    |
+| `enterprise/`    | 企业域   | SSO(OIDC)、审计哈希链、合规导出                                                                                                            | `ports/**`、第三方 OIDC                       |
+| `plugin/`        | 扩展域   | 插件宿主、打包、注册源                                                                                                                     | `ports/**`                                    |
+| `subagent/`      | 编排域   | 子代理编排器、运行时工厂、worktree                                                                                                         | `ports/**`、`worker/**`                       |
+| `worker/`        | 执行域   | DSH 子进程 worker                                                                                                                          | 无第三方                                      |
+| ~~`lsp/`~~       | 已收敛   | 原 LSP 顶层目录已并入 `adapters/lsp/`（P3.2，2026-09-13）                                                                                  | —                                             |
+| `native/`        | 原生桥   | Rust 内核加载器（`.node`）                                                                                                                 | 无                                            |
+| `observability/` | 观测域   | 指标/追踪导出                                                                                                                              | `util/**`                                     |
+| `autonomy/`      | 编排域   | 工作流循环错误与自治循环                                                                                                                   | `ports/**`                                    |
+| `output/`        | 呈现域   | 输出格式化                                                                                                                                 | `util/**`                                     |
+| `tui/`           | 呈现域   | 终端渲染                                                                                                                                   | 无第三方                                      |
+| `daemon/`        | 执行域   | 常驻进程例行任务                                                                                                                           | `ports/**`                                    |
+| `hooksCompat/`   | 兼容层   | 旧钩子兼容垫片                                                                                                                             | `util/**`                                     |
+| ~~`code/`~~      | 已收敛   | 原代码执行工具已并入 `adapters/tool/code/`（P3.2，2026-09-13）                                                                             | —                                             |
 
 ---
 

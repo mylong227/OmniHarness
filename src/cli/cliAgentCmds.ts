@@ -1,4 +1,4 @@
-/**
+﻿/**
  * cliAgentCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 6/6 层）。
  *
  * 承载「自主 / 编排 / 交互」类子命令：execute（replay/resume/fork/runTask）、goal、workflow、
@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { createRuntime } from '../core/runtime.js';
+import { createRuntime } from '../composition/runtime.js';
 import { GoalRunner } from '../autonomy/goalRunner.js';
 import { GoalChecker } from '../autonomy/goalChecker.js';
 import { WorkflowRunner } from '../autonomy/workflowRunner.js';

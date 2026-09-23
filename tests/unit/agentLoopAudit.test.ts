@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+﻿import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 // Agent loop 审计回归测试（2026-09-08）。
 //
 // 背景：连续多轮「模型 400 / 无结果 / 疑似死循环」的表象修复后，对主循环做一次
@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';

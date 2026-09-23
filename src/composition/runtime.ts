@@ -17,18 +17,18 @@ import { NativeBackend } from '../native/nativeBackend.js';
 import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
-import { MUTATING_TOOLS, ToolGate } from './toolGate.js';
+import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.js';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.js';
 import type { SupervisorPort } from '../ports/runtime/supervisor.js';
-import { Container } from './container.js';
-import type { TurnDiffTracker } from './turnDiffTracker.js';
-import type { ToolHookRunner } from './toolHookRunner.js';
+import { Container } from '../core/container.js';
+import type { TurnDiffTracker } from '../core/turnDiffTracker.js';
+import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import type { EvolutionController } from '../ports/runtime/evolution.js';
 import { createRlvrEvolutionController } from '../evolution/rlvrController.js';
 import type { SparkController } from '../spark/sparkController.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { portsOf } from '../subagent/subagentPorts.js';
-import { Agent } from './agent.js';
+import { Agent } from '../core/agent.js';
 import {
   A2aServer,
   A2aClient,
@@ -38,16 +38,11 @@ import {
   WsA2aServerTransport,
 } from '../a2a/index.js';
 import type { A2aTransport } from '../a2a/a2aProtocol.js';
+import { ServiceKeys } from './serviceKeys.js';
 
-/** 端口服务键（容器内标准键名）。 */
-export const ServiceKeys = {
-  model: 'port.model',
-  tools: 'port.tools',
-  storage: 'port.storage',
-  events: 'port.events',
-  sandbox: 'port.sandbox',
-  approvals: 'port.approvals',
-} as const;
+// 保持既有公共 API：`ServiceKeys` 定义已下沉到 `./serviceKeys.js`（为打断组合根↔子代理的真值环），
+// 此处再导出，使 `src/index.ts` 等既有调用点零改动。
+export { ServiceKeys };
 
 /** OmniHarness运行时：装配全部端口 + 注册进容器（供自定义扩展查询）。 */
 export interface OmniHarnessRuntime {

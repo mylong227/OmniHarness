@@ -1,8 +1,8 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+﻿import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Agent } from '../src/core/agent.js';
-import { createRuntime } from '../src/core/runtime.js';
+import { createRuntime } from '../src/composition/runtime.js';
 import { ConfigFactory } from '../src/config/configFactory.js';
 import { MockModel } from '../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';

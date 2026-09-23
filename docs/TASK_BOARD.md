@@ -1513,9 +1513,25 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
   全仓（含 `dist`）grep 确认**非本仓库任何代码所写** ⇒ 判为外部产物，**未删除**，仅加进 `.gitignore` 与 `.prettierignore`
   （否则 `git add -A` 会误入库、Prettier 扫描会直接报错）。
 
-### 20.7 ⬜ 待执行（本板按 ROI 顺序推进）
+### 20.7 ✅ 已结项：组合根迁出 `core/` ＋ 门禁补 ports→实现层（ROI 第 6 项）
 
-6. 组合根迁出 `core/` ＋ 门禁补 ports→core/adapters 规则；
+- **缺陷（审计 P1-4）**：`core/runtime.ts` 值导入 6 个子系统 ⇒ 与 `subagent/subagentRuntimeFactory.ts` 构成
+  **真值双向环**；`ports/runtime/agent.ts` 反向 import `core/runtime.js` 并写进端口契约签名；
+  而 `arch:gate` 只判 `core↔adapters`，**看不见 ports→core**。
+- **修法**：
+  ① `src/core/runtime.ts` → **`src/composition/runtime.ts`**（新装配层目录，已在 `ARCHITECTURE_SPEC.md` §2.1 登记）；
+  全仓 **42 处** import 说明符同步（含 3 个 benchmark 脚本）；
+  ② `ServiceKeys` 下沉 `src/composition/serviceKeys.ts`（纯常量）⇒ 子代理工厂改为依赖它，
+  **反向只剩 type-only**，值级环消失；
+  ③ `AgentFactoryPort` 改泛型 `AgentFactoryPort<TRuntime = unknown>` ⇒ 端口不再 import 任何具体实现类型
+  （`config/agentFactory.ts` 绑定 `OmniHarnessRuntime`；方法参数双变 ⇒ 赋值安全、零类型逃逸）；
+  ④ `arch:gate` 新增 **`[3.5] ports→实现层`** 规则：`ports/** 不得 import core|adapters|config|composition`，白名单空 = 新增即红。
+- **可证伪验证**：`[3.5]` 输出 0 条；**反向验证**——临时注入 `ports/runtime/agent → core/toolGate` ⇒
+  `[NEW!]` + **exit 1**，移除后复绿；`npm test` **2052 例 / 2047 过 / 1 失败（本机 Chrome）/ 4 skip**，
+  与搬迁前**逐项一致**（无回归）；`check --strict` 561 文件零违规（AST 体量白名单路径已随迁更新）。
+
+### 20.8 ⬜ 待执行（本板按 ROI 顺序推进）
+
 7. repo-map 结果 memo ＋ 上下文记账前缀缓存；
 8. 精排判别器升级（**须先做完 20.1 的复核**）；
 9. **SSRF 策略表配置化**（用户指定）：`METADATA_HOSTS` / `INTERNAL_SUFFIXES` / `IPV4_BLOCKS`

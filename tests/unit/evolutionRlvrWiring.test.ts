@@ -1,4 +1,4 @@
-/**
+﻿/**
  * E3：U4 RLVR autoRun 端到端接线测试。
  *
  * 本批修的是一条**此前断裂的链路**（非新增能力）：RLVR 全机器（`RlvrLoop` /
@@ -25,7 +25,7 @@ import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { createRlvrEvolutionController } from '../../src/evolution/rlvrController.js';
 import { parseArgs, configDefaults } from '../../src/cli/argParser.js';
 import { composeByTwist } from '../../src/skill/moireComposer.js';

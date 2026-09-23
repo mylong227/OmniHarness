@@ -1,4 +1,4 @@
-// `--subagent-max-steps` 覆盖面回归（次级线索 4a）。
+﻿// `--subagent-max-steps` 覆盖面回归（次级线索 4a）。
 //
 // 修复背景：该旋钮此前只经 `SubagentOrchestrator` 生效于 subagent 一条路径；
 // run_goal / run_workflow 的子代 runtime 直接读主会话 `maxSteps`——同一旋钮两条口径，
@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { DEFAULT_SUBAGENT_MAX_STEPS } from '../../src/subagent/subagentTypes.js';

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 受种技能池（`skills`）的**配置通道**接线单测：配置文件内联数组 + `--skills <file.json>`。
  *
  * 事故口径（TASK_BOARD §15.4 登记的功能缺口）：`OmniHarnessConfig.skills` 一直只有**编程入口**，
@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { ConfigError, normalizeConfig } from '../../src/config/configError.js';
 import type { FileConfig } from '../../src/config/configFile.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { parseArgs, configDefaults, CliDefaults } from '../../src/cli/argParser.js';
 import { CliSkillFlags } from '../../src/cli/cliSkillFlags.js';

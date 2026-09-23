@@ -1,4 +1,4 @@
-// SWE-bench 风格能力评估 harness（自包含、可离线、零依赖）。
+﻿// SWE-bench 风格能力评估 harness（自包含、可离线、零依赖）。
 //
 // 定位：把"编码能力"变成可机械验证的指标，直接回应报告 #20 的 P3 诚实缺口
 // （"OmniHarness 尚未跑 SWE-bench，能力分数维度暂无 apples-to-apples 对照"）。
@@ -29,7 +29,7 @@ import { dirname, join } from 'node:path';
 
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { createRuntime } from '../core/runtime.js';
+import { createRuntime } from '../composition/runtime.js';
 import { ToolGate } from '../core/toolGate.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';

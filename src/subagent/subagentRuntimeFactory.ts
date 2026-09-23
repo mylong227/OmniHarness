@@ -1,13 +1,13 @@
-import { mkdirSync } from 'node:fs';
+﻿import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ToolPort } from '../ports/tool/tool.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
-import type { OmniHarnessRuntime } from '../core/runtime.js';
+import type { OmniHarnessRuntime } from '../composition/runtime.js';
 import type { StoragePort } from '../ports/memory/storage.js';
 import { Container } from '../core/container.js';
-import { ServiceKeys } from '../core/runtime.js';
+import { ServiceKeys } from '../composition/serviceKeys.js';
 import { ToolGate } from '../core/toolGate.js';
 import type { SubagentPorts } from './subagentPorts.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';

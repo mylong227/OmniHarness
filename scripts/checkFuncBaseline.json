@@ -14,6 +14,9 @@
   "src/cli/execCli.ts": {
     "run": 135
   },
+  "src/composition/runtime.ts": {
+    "createRuntime": 113
+  },
   "src/config/configFactory.ts": {
     "build": 99
   },
@@ -23,9 +26,6 @@
   "src/context/contextEngine.ts": {
     "indexCorpus": 101,
     "query": 220
-  },
-  "src/core/runtime.ts": {
-    "createRuntime": 113
   },
   "src/core/turnRunner.ts": {
     "run": 96
