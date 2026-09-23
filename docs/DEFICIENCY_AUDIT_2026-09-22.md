@@ -67,18 +67,27 @@
 - **可证伪验证**：`tests/unit/approvalUplinkTimeout.test.ts` 5/5（超时⇒deny、断连⇒立即 deny、正常响应⇒allow 且晚到超时
   不二次兑现、传输层仅在有→无跃迁触发一次、`LineTransport` 未实现该可选能力不影响既有行为）。
 
-### 1.5【待办·P2】`ToolScheduler` 的「写类形成屏障」契约不成立（实测）
+### 1.5【本轮已修】`ToolScheduler` 的「写类形成屏障」契约不成立（实测）
 
 - **证据（实测）**：`core/loop/toolScheduler.ts:39-58` 用**名字子串黑名单**判定串行；实测 `rollback | read_file | remember` 三者
   **同批并发**（总 71 ms），而其 `:6-10` 注释承诺写类形成屏障；生产未注入自定义判定（`stepToolExecutor.ts:51`）。
-- **后果**：回滚/检查点/记忆写入与只读调用并发；与 `toolGate.ts:27-40` 的 `MUTATING_TOOLS` 口径漂移（后者也缺 `rollback`/`checkpoint`）。
-- **最小修法**：并行性改为工具定义显式 `parallelSafe`，或让黑名单由 `MUTATING_TOOLS` 派生并补齐四件工具。
+- **后果**：回滚/检查点/记忆写入与只读调用并发；与 `toolGate.ts` 的 `MUTATING_TOOLS` 口径漂移（后者也缺 `rollback`/`checkpoint`）。
+- **修法（已落地）**：`MUTATING_TOOLS` 升格为**写类单一口径**（补齐 `rollback` / `checkpoint` / `remember`，并写明三处消费者：
+  计划模式拦截 / 监督内核 hazardous / 调度器屏障）；`ToolScheduler.defaultParallelCapable` 改为
+  **先查 `MUTATING_TOOLS`、名字模式仅作未知工具兜底**。
+- **可证伪验证**：`toolScheduler.test.ts` 新增 3 例——`rollback/checkpoint/remember` 各自形成屏障（跨写不并行）、
+  写类之间也串行、**遍历 `MUTATING_TOOLS` 全集断言「在集合内即不可并行」**（防口径再漂移）。
 
-### 1.6【待办·P2】`checkpoint` 的 `label` 未校验 ⇒ 路径穿越写/读
+### 1.6【本轮已修】`checkpoint` 的 `label` 未校验 ⇒ 路径穿越写/读
 
 - **证据（实读）**：`adapters/tool/git/checkpointTool.ts:31-38` 只判 label 非空；`core/checkpointManager.ts:64-67` 直接
-  `join(base, sessionId, `${label}.files.json`)`；`GitWorkspaceSnapshot.restore` 对 `relPath` 亦无包含性校验。
-- **最小修法**：`label`/`sessionId` 白名单 `^[A-Za-z0-9_-]{1,64}$` ＋ 落盘前包含性断言。
+  `join(base, sessionId, `${label}.files.json`)`；`rollback` 取路径同源。
+- **修法（已落地）**：新增白名单 `^[A-Za-z0-9_-]{1,64}$`（拒 `..`、分隔符、空格、超长）；
+  **在 `snapshot`/`rollback` 入口即校验**——只在 `fileSnapshotPath` 里校验是不够的：那条路径仅在注入
+  `workspaceSnapshot` 时才走到，纯事件检查点会跳过校验（本轮由回归测试暴露），且非法标识还会拼进 storage 合成 key；
+  工具层（`checkpointTool`）同样先拒并给出可读错误（纵深第一道）；路径构造处保留**包含性断言**（词法双保险）。
+- **可证伪验证**：新增 4 例——非法 label 7 种写法全被拒、非法 `sessionId` 被拒、合法 label 不被过度收紧（含空格 label）、
+  工具层对 `../../../../tmp/evil` 返回 `ok:false` 且对合法 label 正常打快照。
 
 ### 1.7 其余 P3（摘要，均有 `文件:行号`）
 

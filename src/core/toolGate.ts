@@ -22,7 +22,18 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
 
 /**
  * @beta
- * 计划模式下被门禁拦截的"写类"工具（探索/提问/计划类工具不在其列）。
+ * **写类工具（单一口径）**：会改动工作区文件或持久状态、必须在计划模式被拦、在安全模式被否、
+ * 且不得与只读调用并行的工具集合。
+ *
+ * 三处消费者共用本集合，避免历史上「两套口径各说各话」：
+ *  1. `ToolGate`：`plan` 模式下一律拦截（写前须先获批计划）；
+ *  2. 组合根 `SupervisorKernel({ hazardousTools })`：safe/locked 模式下直接否决；
+ *  3. `ToolScheduler`：形成**串行屏障**（读读可并行、写前全静、写后串行）。
+ *
+ * 2026-09-22 补齐（审计 P2）：`rollback`（还原工作区文件与事件流）、`checkpoint`（落盘快照）、
+ * `remember`（写长期记忆）此前**都不在集合内**，于是三者被调度器判为「可并行」——
+ * 实测 `rollback | read_file | remember` 同批并发，与其自身「写类形成屏障」的契约相矛盾，
+ * 也与本集合口径漂移。
  */
 export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
   'shell',
@@ -37,6 +48,12 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
   'subagent',
   // P2-⑬：网页截图落盘 PNG，与 write_file 同级（plan 模式须拦截）。
   'browser_screenshot',
+  // 2026-09-22：还原工作区文件 + 截断事件流 ⇒ 与 write_file 同级的**写**操作。
+  'rollback',
+  // 2026-09-22：落盘检查点快照（`.files.json`，含工作区文件内容）⇒ 写状态，须串行且计划模式拦截。
+  'checkpoint',
+  // 2026-09-22：写长期记忆（跨会话持久 fact）⇒ 有持久副作用，不得与只读调用并行。
+  'remember',
 ]);
 
 /**

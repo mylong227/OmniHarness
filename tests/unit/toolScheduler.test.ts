@@ -87,3 +87,40 @@ test('ToolScheduler：默认策略把 bash/shell/subagent 视为串行', async (
   // bash 屏障把 read_file 隔开：任意时刻并发 ≤1
   assert.strictEqual(maxObserved.value, 1);
 });
+
+// ---- 2026-09-22 回归（审计 P2）：写类屏障必须覆盖 MUTATING_TOOLS 全集，而不是名字子串 ----
+test('ToolScheduler：rollback / checkpoint / remember 均形成屏障（此前被判为可并行）', async () => {
+  for (const name of ['rollback', 'checkpoint', 'remember']) {
+    const scheduler = new ToolScheduler({ maxParallel: 8 });
+    const calls = [makeCall('r1', 'read_file'), makeCall('w', name), makeCall('r2', 'read_file')];
+    const events: string[] = [];
+    await scheduler.run(calls, async (call) => {
+      events.push(`start:${call.id}`);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      events.push(`end:${call.id}`);
+      return ok(call);
+    });
+    const wEnd = events.indexOf('end:w');
+    const r2Start = events.indexOf('start:r2');
+    assert.ok(wEnd >= 0 && r2Start > wEnd, `${name} 未形成写屏障: ${events.join(', ')}`);
+  }
+});
+
+test('ToolScheduler：写类与写类之间也串行（rollback + remember 不同批并发）', async () => {
+  const scheduler = new ToolScheduler({ maxParallel: 8 });
+  const calls = [makeCall('a', 'rollback'), makeCall('b', 'remember')];
+  const maxObserved = { value: 0 };
+  await scheduler.run(calls, concurrencyRecorder(maxObserved));
+  assert.strictEqual(maxObserved.value, 1, '两个写类工具不得并行');
+});
+
+test('MUTATING_TOOLS 是单一口径：调度器与门禁对同一集合判定', async () => {
+  const { MUTATING_TOOLS } = await import('../../src/core/toolGate.js');
+  const scheduler = new ToolScheduler({ maxParallel: 8 });
+  for (const name of MUTATING_TOOLS) {
+    const calls = [makeCall('r', 'read_file'), makeCall('w', name)];
+    const maxObserved = { value: 0 };
+    await scheduler.run(calls, concurrencyRecorder(maxObserved));
+    assert.strictEqual(maxObserved.value, 1, `${name} 在 MUTATING_TOOLS 内却可并行（口径漂移）`);
+  }
+});
