@@ -59,7 +59,7 @@
     "web:test": "npm run web:build && node --test --test-timeout=30000 \"web/test/**/*.test.mjs\"",
     "prepare": "tsc",
     "prepublishOnly": "npm run build && npm run web:build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
     "check": "node scripts/check.mjs",
     "check:node": "node scripts/checkNodeEngine.mjs",
     "audit:maturity": "node scripts/auditStandards.mjs --maturity",

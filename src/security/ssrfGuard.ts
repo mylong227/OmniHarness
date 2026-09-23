@@ -1,5 +1,6 @@
-import { isIP } from 'node:net';
+﻿import { isIP } from 'node:net';
 import { lookup } from 'node:dns/promises';
+import { embeddedIpv4, isPrivateIpv4, isPrivateIpv6 } from '../util/ipAddress.js';
 
 /**
  * SSRF 防护：拦截私有/保留网段与云元数据端点的访问。
@@ -82,165 +83,6 @@ export class SsrfGuard {
     return { allowPrivate: !strict, allowMetadata: false };
   }
 
-  /** IPv4 点分十进制转 32 位整数（非法输入返回 null）。 */
-  private ipv4ToInt(ip: string): number | null {
-    const parts = ip.split('.');
-    if (parts.length !== 4) {
-      return null;
-    }
-    let value = 0;
-    for (const part of parts) {
-      if (!/^\d{1,3}$/.test(part)) {
-        return null;
-      }
-      const n = Number(part);
-      if (n > 255) {
-        return null;
-      }
-      value = value * 256 + n;
-    }
-    return value;
-  }
-
-  /** IPv4 是否落在屏蔽网段内。 */
-  private isBlockedIpv4(ip: string): boolean {
-    const value = this.ipv4ToInt(ip);
-    if (value === null) {
-      return true;
-    }
-    for (const [base, bits] of SsrfGuard.IPV4_BLOCKS) {
-      const baseValue = this.ipv4ToInt(base);
-      if (baseValue === null) {
-        continue;
-      }
-      const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
-      if ((value & mask) >>> 0 === (baseValue & mask) >>> 0) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /** IPv6 是否属于需屏蔽的本机/私有地址。 */
-  private isBlockedIpv6(ip: string): boolean {
-    const lower = ip.toLowerCase().replace(/^\[|\]$/g, '');
-    if (lower === '::1' || lower === '::') {
-      return true;
-    }
-    // 内嵌 IPv4 的三种 IPv6 形态一律按其内嵌 IPv4 判定（2026-09-22 修）：
-    // IPv4-mapped `::ffff:a.b.c.d`、IPv4-compatible `::a.b.c.d`、NAT64 `64:ff9b::/96`、6to4 `2002::/16`。
-    // 此前只认 `::ffff:` 的**点分**写法，于是 `http://[::ffff:169.254.169.254]/`、
-    // `[::ffff:7f00:1]`、`[0:0:0:0:0:ffff:a9fe:a9fe]` 全部绕过「云元数据永远拦截」的声明（已实测复现）。
-    const embedded = this.embeddedIpv4(lower);
-    if (embedded !== null) {
-      return this.isBlockedIpv4(embedded);
-    }
-    const groups = SsrfGuard.parseIpv6Groups(lower);
-    if (groups === null) {
-      return true; // 解析不了 ⇒ fail-closed（原实现是前缀启发式，宁可拦错不可漏放）
-    }
-    const h0 = groups[0] ?? 0;
-    if ((h0 & 0xfe00) === 0xfc00) {
-      return true; // fc00::/7 唯一本地
-    }
-    if ((h0 & 0xffc0) === 0xfe80) {
-      return true; // fe80::/10 链路本地
-    }
-    if ((h0 & 0xff00) === 0xff00) {
-      return true; // ff00::/8 组播
-    }
-    return false;
-  }
-
-  /**
-   * 从 IPv6 字面量中取出**内嵌的 IPv4**（点分十进制）；无内嵌返回 null。
-   *
-   * 覆盖：`::ffff:0:0/96`（IPv4-mapped，含点分与十六进制两种写法）、`::/96`（IPv4-compatible）、
-   * `64:ff9b::/96`（NAT64）、`2002::/16`（6to4）。安全性优先于完备性：宁可多判一层。
-   * @param ip 已去方括号、已小写的 IPv6 字面量
-   * @returns 内嵌 IPv4 的点分十进制形式；无内嵌或不可解析时为 null
-   */
-  private embeddedIpv4(ip: string): string | null {
-    const groups = SsrfGuard.parseIpv6Groups(SsrfGuard.expandTrailingIpv4(ip));
-    if (groups === null) {
-      return null;
-    }
-    const [g0 = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, g5 = 0, g6 = 0, g7 = 0] = groups;
-    const dotted = (hi: number, lo: number): string =>
-      `${String(hi >> 8)}.${String(hi & 0xff)}.${String(lo >> 8)}.${String(lo & 0xff)}`;
-    const mapped =
-      g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && (g5 === 0xffff || g5 === 0);
-    if (mapped) {
-      return dotted(g6, g7);
-    }
-    if (g0 === 0x64 && g1 === 0xff9b) {
-      return dotted(g6, g7); // NAT64
-    }
-    if (g0 === 0x2002) {
-      return dotted(g1, g2); // 6to4
-    }
-    return null;
-  }
-
-  /**
-   * 把「尾部点分 IPv4」的混合写法展开为纯十六进制分组（`::ffff:169.254.169.254` → `::ffff:a9fe:a9fe`）。
-   * 该类写法是 URL 中的常见形态（`http://[::ffff:169.254.169.254]/`），不展开会被解析器判为非法分组。
-   * @param ip IPv6 字面量（可能带点分尾巴）
-   * @returns 纯十六进制 IPv6 字面量；无点分尾巴或数值非法时原样返回
-   */
-  private static expandTrailingIpv4(ip: string): string {
-    const m = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
-    if (m === null) {
-      return ip;
-    }
-    const nums = [m[2], m[3], m[4], m[5]].map((x) => Number(x));
-    if (nums.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
-      return ip;
-    }
-    const hi = ((nums[0] ?? 0) * 256 + (nums[1] ?? 0)).toString(16);
-    const lo = ((nums[2] ?? 0) * 256 + (nums[3] ?? 0)).toString(16);
-    return `${m[1] ?? ''}${hi}:${lo}`;
-  }
-
-  /**
-   * 解析 IPv6 为 8 组 16 位整数（支持 `::` 缩写与 `%zone` 后缀）。
-   * @param ip IPv6 字面量
-   * @returns 8 组整数；不可解析返回 null
-   */
-  private static parseIpv6Groups(ip: string): number[] | null {
-    const clean = (ip.split('%')[0] ?? ip).toLowerCase();
-    const halves = clean.split('::');
-    if (halves.length > 2) {
-      return null;
-    }
-    const parseSide = (part: string): number[] | null => {
-      if (part === '') {
-        return [];
-      }
-      const out: number[] = [];
-      for (const group of part.split(':')) {
-        if (!/^[0-9a-f]{1,4}$/.test(group)) {
-          return null;
-        }
-        out.push(Number.parseInt(group, 16));
-      }
-      return out;
-    };
-    const left = parseSide(halves[0] ?? '');
-    const right = parseSide(halves.length === 2 ? (halves[1] ?? '') : '');
-    if (left === null || right === null) {
-      return null;
-    }
-    if (halves.length === 1) {
-      return left.length === 8 ? left : null;
-    }
-    const fill = 8 - left.length - right.length;
-    if (fill < 0) {
-      return null;
-    }
-    return [...left, ...new Array<number>(fill).fill(0), ...right];
-  }
-
   /** 纯字面量判定（不发起网络请求）。 */
   public inspectHost(host: string, options: SsrfOptions = {}): SsrfVerdict {
     const lower = host.toLowerCase().replace(/^\[|\]$/g, '');
@@ -249,7 +91,7 @@ export class SsrfGuard {
     }
     // 元数据判定必须同时覆盖「IPv6 内嵌 IPv4」的写法（否则 [::ffff:169.254.169.254] 绕过
     // 「元数据永远拦截」——2026-09-22 实测复现并修复）。
-    const embedded = isIP(lower) === 6 ? this.embeddedIpv4(lower) : null;
+    const embedded = isIP(lower) === 6 ? embeddedIpv4(lower) : null;
     if (
       options.allowMetadata !== true &&
       (SsrfGuard.METADATA_HOSTS.has(lower) ||
@@ -265,7 +107,7 @@ export class SsrfGuard {
       if (options.allowPrivate === true) {
         return { blocked: false };
       }
-      return this.isBlockedIpv4(lower)
+      return isPrivateIpv4(lower)
         ? { blocked: true, reason: `私有/保留 IPv4 被拦截: ${host}` }
         : { blocked: false };
     }
@@ -273,7 +115,7 @@ export class SsrfGuard {
       if (options.allowPrivate === true) {
         return { blocked: false };
       }
-      return this.isBlockedIpv6(lower)
+      return isPrivateIpv6(lower)
         ? { blocked: true, reason: `本机/保留 IPv6 被拦截: ${host}` }
         : { blocked: false };
     }
