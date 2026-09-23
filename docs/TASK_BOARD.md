@@ -1675,8 +1675,9 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
   ① 策划分级模块不得再出现工具名字面量（精确排除 `keywords:` 任务文本模式与类别 `id:`/`hint:`，
   注释不计——前者是词法模式、后者是标识，都不是工具名）；② `src/adapters/tool/**` 的工具类不得写
   `name: '<字面量>'`。**新增工具若忘了在 `toolNames.ts` 登记，测试当场失败**。
-- **可证伪验证**：工具名**逐字未变**（测试逐条钉住历史值）；`npm test` 全绿见下节数字；
-  `check --strict`、`arch:gate --strict`、`audit:config-wiring`（**七条**不变量，含并行轮新增的 I6）、
+- **可证伪验证**：工具名**逐字未变**（测试逐条钉住历史值）；`npm test` **2091 例 / 2086 过 / 1 失败
+  （本机 Chrome，与基线同一条）/ 4 skip**（本轮新增 4 例）；`check --strict`（569 文件零违规）、
+  `arch:gate --strict`、`audit:config-wiring`（**七条**不变量，含并行轮新增的 I6）、`api:check`、
   `lint`、`format:check`、`typecheck`（含 web）全通过。
 - **与并行轮的交集说明**：本轮实施期间，另一会话完成了 §20.13（默认数据随包发布 + 探测路径策略 +
   门禁 I6）。两者无冲突；§20.13 删除的两个一次性 codemod 脚本正是本轮为「33 个工具类 + 47 处策略表」
