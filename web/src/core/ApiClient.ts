@@ -97,10 +97,11 @@ export class ApiClient {
   }
   /**
    * 中断在跑回合：后端取消令牌中止在飞模型请求，turns.run 自然收尾。
-   * @returns 中断 RPC 的响应（{ ok: true }）。
+   * @param threadId 目标会话；**建议总是传**——服务端允许多回合并行，缺省会退化为取消全部在跑回合。
+   * @returns 中断 RPC 的响应（{ ok: true, threadId }）。
    */
-  public abortTurn(): Promise<unknown> {
-    return this.rpc('turns.abort', {});
+  public abortTurn(threadId?: string): Promise<unknown> {
+    return this.rpc('turns.abort', threadId === undefined ? {} : { threadId });
   }
   public getThread(threadId: string): Promise<ThreadGetResult> {
     return this.rpc('threads.get', { threadId });

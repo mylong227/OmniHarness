@@ -37,10 +37,18 @@ const MEMORY_PRIMER_MARKER = '【长期记忆 · 开工前对齐】';
 
 /** Agent 总编排：建会话 → 记录输入 → 跑回合 → 持久化。 */
 export class Agent implements AgentPort {
-  /** 当前在跑会话的取消令牌（V2）：cancel() 可中断模型请求（signal 贯穿 fetch）。 */
-  private currentCancel: CancellationToken | undefined;
-  /** 当前在跑会话的增量持久化器（V2）：供 buildTurnRunner 注入 TurnRunner。 */
-  private currentPersister: EventPersister | undefined;
+  /**
+   * 在跑会话的取消令牌与增量持久化器，**按 sessionId 隔离**。
+   *
+   * 为什么必须按会话存（2026-09-22 修，审计 P1）：服务端允许多回合并行（`appServer` 的 `activeTurns` 是
+   * Set），但此前这里是两个**单字段**（`currentCancel` / `currentPersister`），每个新回合都覆盖写、
+   * `finally` 里置空 ⇒ ① 先结束的回合会把令牌清掉，导致「停止」按钮**静默失效**；
+   * ② 未结束时会话调用取消，取消的是**后启动的那个会话**（停 A 实际停了 B）。
+   */
+  private readonly runningSessions = new Map<
+    string,
+    { readonly cancel: CancellationToken; readonly persister: EventPersister }
+  >();
   /** T5.4 技能稀疏化器（D9：class 形态；预算/豁免判据见 SkillSparsifier）。 */
   private readonly skillSparsifier = new SkillSparsifier({
     maxSkills: SKILL_SPARSE_MAX,
@@ -65,16 +73,32 @@ export class Agent implements AgentPort {
   }
 
   /**
-   * 取消当前在跑的任务（V2）：模型在飞请求被中断（CancelledError 上抛），
-   * 已产生事件仍经 finally 落盘。无在跑任务时为 no-op。
+   * 取消在跑任务（V2）：模型在飞请求被中断（CancelledError 上抛），已产生事件仍经 finally 落盘。
+   *
    * @param reason 取消原因，透传给取消令牌并随事件落盘（默认 'user'）。
-   
- * @returns 无返回值。
-*/
+   * @param sessionId 目标会话；**缺省时取消全部在跑会话**（CLI 单会话语义不变，服务端应显式传 threadId，
+   *   否则并发回合下会误伤其它会话——2026-09-22 修）。
+   * @returns 无返回值。
+   */
   public cancelCurrentRun(
     reason: 'user' | 'timeout' | 'shutdown' | { readonly custom: string } = 'user',
+    sessionId?: string,
   ): void {
-    this.currentCancel?.cancel(reason);
+    if (sessionId !== undefined) {
+      this.runningSessions.get(sessionId)?.cancel.cancel(reason);
+      return;
+    }
+    for (const session of this.runningSessions.values()) {
+      session.cancel.cancel(reason);
+    }
+  }
+
+  /**
+   * 当前在跑会话 id（观测/测试用；顺序为插入顺序）。
+   * @returns 会话 id 数组
+   */
+  public runningSessionIds(): string[] {
+    return [...this.runningSessions.keys()];
   }
 
   /**
@@ -188,19 +212,21 @@ export class Agent implements AgentPort {
           ? '【续跑】上次任务在此中断。基于上方会话历史与当前工作区状态接着完成剩余工作，不要重复已完成的步骤。'
           : prompt;
       recorder.user(effectivePrompt, images, files);
-      // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）。
+      // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind），按 sessionId 登记。
       const cancel = new CancellationToken();
-      this.currentCancel = cancel;
       const persister = new EventPersister(this.runtime.storage, sessionId, () => eventLog.all());
-      this.currentPersister = persister;
-      const runner = this.buildTurnRunner(recorder, cancel);
+      const sessionEntry = { cancel, persister };
+      this.runningSessions.set(sessionId, sessionEntry);
+      const runner = this.buildTurnRunner(recorder, cancel, persister);
       let outcome: TurnOutcome;
       let persistedAt = 0;
       try {
         outcome = await runner.run(this.contextOf(sessionId));
       } finally {
-        this.currentCancel = undefined;
-        this.currentPersister = undefined;
+        // 只清理**自己**那一格：并发回合若复用同一 sessionId（不该发生，但防御），不误删他人的登记。
+        if (this.runningSessions.get(sessionId) === sessionEntry) {
+          this.runningSessions.delete(sessionId);
+        }
         // V2：回合内 write-behind 定时器已由 TurnRunner 收尾 flush+dispose；
         // 此处兜底：无论回合成功还是抛出（模型 500 / 网络中断 / 工具异常 / 取消），
         // 已产生的事件都必须落盘。旧行为是异常直接冒泡、save 被跳过——用户重进
@@ -391,7 +417,11 @@ export class Agent implements AgentPort {
    * @param cancel 会话级取消令牌，其 AbortSignal 贯穿模型请求 fetch。
    * @returns 装配好的 TurnRunner，负责驱动 step 循环直到任务完成或熔断。
    */
-  private buildTurnRunner(recorder: SessionRecorder, cancel: CancellationToken): TurnRunner {
+  private buildTurnRunner(
+    recorder: SessionRecorder,
+    cancel: CancellationToken,
+    persister: EventPersister,
+  ): TurnRunner {
     const step = new StepRunner({
       model: this.runtime.model,
       tools: this.runtime.tools,
@@ -435,9 +465,9 @@ export class Agent implements AgentPort {
       this.runtime.memoryExtractor,
       Agent.buildLoopGuard(),
       // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
-      // TurnRunner 只在每步调 schedule()——但构造签名要实例。这里用轻量桥：
-      // TurnRunner 持有 persister 引用做 schedule/flush；dispose 由 Agent finally 兜底。
-      this.currentPersister,
+      // TurnRunner 只在每步调 schedule()——但构造签名要实例，故由调用方显式传入
+      // （2026-09-22：不再读 `this.currentPersister` 单字段，避免并发回合互相覆盖）。
+      persister,
       // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
       this.resolveTokenBudget(),
     );

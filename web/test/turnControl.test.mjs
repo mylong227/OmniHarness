@@ -78,6 +78,7 @@ function makeApi() {
     runTurnCalls: [],
     rewindCalls: [],
     abortCalls: 0,
+    abortArgs: [],
     async runTurn(params) {
       this.runTurnCalls.push(params);
       return { threadId: 't1' };
@@ -86,8 +87,9 @@ function makeApi() {
       this.rewindCalls.push({ threadId, keepEventId });
       return { ok: true, kept: 1, dropped: 1 };
     },
-    abortTurn() {
+    abortTurn(threadId) {
       this.abortCalls += 1;
+      this.abortArgs.push(threadId);
       return Promise.resolve({ ok: true });
     },
   };
@@ -130,6 +132,13 @@ test('stop：在飞回合立即停 UI（清流式与忙碌 + 写已中止）并�
 
   ctrl.stop();
   assert.equal(api.abortCalls, 1, 'stop 必须调 turns.abort');
+  // 2026-09-22：必须带上当前 threadId——服务端允许多回合并行，不带 id 会退化为「取消全部在跑回合」，
+  // 并发会话下等于误停别人的任务（后端按 sessionId 定向取消，见 src/core/agent.ts）。
+  assert.deepEqual(
+    api.abortArgs,
+    ['t1'],
+    'stop 必须把当前 threadId 传给 turns.abort（防并发会话误停）',
+  );
   assert.equal(state.busy, false, '停止必须立即清掉忙碌态（不等后端回执）');
   assert.equal(state.streamText, '', '停止后不得残留流式缓冲');
   assert.deepEqual(state.liveInputs, [], '停止后不得残留流式工具输入');
