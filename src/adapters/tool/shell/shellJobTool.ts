@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -25,7 +26,7 @@ const MAX_OUTPUT_BYTES = 262_144;
 export class ShellJobTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'shell_job',
+    name: TOOL_NAMES.shellJob,
     description:
       '管理后台作业（配合 shell 的 background=true 使用）。' +
       'action=output 取日志尾部，status 看状态/退出码，kill 终止，list 列出全部。',

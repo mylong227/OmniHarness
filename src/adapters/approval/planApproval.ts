@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
 import type {
   ApprovalDecision,
   ApprovalPort,
@@ -17,40 +18,40 @@ import type {
 
 /** 规划模式下允许的只读工具名（显式白名单，新增可变工具默认被拒绝）。 */
 const PLAN_ALLOWED_TOOLS = new Set<string>([
-  'read_file',
-  'list_dir',
+  TOOL_NAMES.readFile,
+  TOOL_NAMES.listDir,
   // 文件检索（只读）：grep/glob 仅在磁盘上匹配，不写任何内容，故与 read_file 同级放行。
-  'grep',
-  'glob',
-  'memory_search',
+  TOOL_NAMES.grep,
+  TOOL_NAMES.glob,
+  TOOL_NAMES.memorySearch,
   // 跨会话长期记忆检索（只读）：memory_search 的姊妹工具，同样只读不写（remember 才是写类，不放行）。
-  'recall',
+  TOOL_NAMES.recall,
   // 读回被外溢的完整工具输出（只读）：不读回则大输出在 plan 模式下永远取不到全文。
-  'spill_read',
-  'plan_read',
-  'plan_write',
-  'plan_present',
-  'todo_read',
-  'budget_status',
-  'web_search',
+  TOOL_NAMES.spillRead,
+  TOOL_NAMES.planRead,
+  TOOL_NAMES.planWrite,
+  TOOL_NAMES.planPresent,
+  TOOL_NAMES.todoRead,
+  TOOL_NAMES.budgetStatus,
+  TOOL_NAMES.webSearch,
   // 读网页与读图（P2-⑬）：只读外部内容/本地图片，不写任何东西，与 read_file 同级放行。
-  'web_fetch',
-  'view_image',
-  'registry',
-  'tool_search',
-  'policy_eval',
-  'agent_identity',
+  TOOL_NAMES.webFetch,
+  TOOL_NAMES.viewImage,
+  TOOL_NAMES.registry,
+  TOOL_NAMES.toolSearch,
+  TOOL_NAMES.policyEval,
+  TOOL_NAMES.agentIdentity,
   // LSP 查询（只读）。全族必须齐：漏登记即被 fail-closed 误拒（`lsp_workspace_symbols`
   // 由 `ConfigToolRegistry.registerAuxiliaryTools` 在 `lsp.workspaceSymbols` 存在时注册，
   // 曾漏登记 —— 见 tests/unit/planApprovalReadonlyTools.test.ts）。
-  'lsp_go_to_definition',
-  'lsp_find_references',
-  'lsp_hover',
-  'lsp_status',
-  'lsp_diagnostics',
-  'lsp_document_symbols',
-  'lsp_code_action',
-  'lsp_workspace_symbols',
+  TOOL_NAMES.lspGoToDefinition,
+  TOOL_NAMES.lspFindReferences,
+  TOOL_NAMES.lspHover,
+  TOOL_NAMES.lspStatus,
+  TOOL_NAMES.lspDiagnostics,
+  TOOL_NAMES.lspDocumentSymbols,
+  TOOL_NAMES.lspCodeAction,
+  TOOL_NAMES.lspWorkspaceSymbols,
 ]);
 
 /** 规划模式审批选项。 */

@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -12,7 +13,7 @@ import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
 export class ListDirTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'list_dir',
+    name: TOOL_NAMES.listDir,
     description: '列出工作区内目录条目（名称与类型）',
     parameters: {
       type: 'object',

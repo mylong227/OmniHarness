@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type { CheckpointManagerPort } from '../../../ports/runtime/checkpointManager.js';
 import type { RegistryToolPort } from '../registryToolPort.js';
 import type {
@@ -11,7 +12,7 @@ import { rollbackDefinition, makeRollbackHandler } from './rollbackTool.js';
 
 /** `checkpoint` 工具定义：为当前会话打快照。 */
 export const checkpointDefinition: ToolDefinition = {
-  name: 'checkpoint',
+  name: TOOL_NAMES.checkpoint,
   description:
     '为当前会话打快照，保存事件日志到指定 label；之后可用 rollback 回滚（Escape 式安全网）。',
   parameters: {

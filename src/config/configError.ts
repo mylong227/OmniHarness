@@ -11,6 +11,8 @@ import { OmniError, ErrorCode } from '../omniError.js';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { permissionConfigValidator } from './permissionConfigValidator.js';
+import { ssrfPolicyValidator } from './ssrfPolicyValidator.js';
+import { providerPresetValidator } from './providerPresetValidator.js';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -254,6 +256,8 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'providerKeys',
   'workspaces',
   'permission',
+  'ssrfPolicy',
+  'providerPresets',
   'evolutionRlvr',
   'a2a',
   'skills',
@@ -402,6 +406,22 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   // 此处以箭头注册项接入——抛出统一以 ConfigError 表达，保证 fail-closed 语义一致。
   (cfg: FileConfig): void => {
     const message = permissionConfigValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
+  // ssrfPolicy 段（2026-09-22）：SSRF 策略表配置化——元数据主机 / 内网域名后缀 / IPv4 网段。
+  // 校验与运行时解析器同源（`resolveSsrfPolicy`），非法条目一律拒绝而非静默丢弃。
+  (cfg: FileConfig): void => {
+    const message = ssrfPolicyValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
+  // providerPresets 段（2026-09-22 第二轮）：厂商目录覆盖——按 id 整条替换内建预设 / 新 id 追加。
+  // 校验与运行时求解器同源（`providerPresets.resolve`），非法条目一律拒绝而非静默丢弃。
+  (cfg: FileConfig): void => {
+    const message = providerPresetValidator.validate(cfg);
     if (message !== undefined) {
       throw new ConfigError(message);
     }

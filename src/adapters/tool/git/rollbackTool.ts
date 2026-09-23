@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type { CheckpointManagerPort } from '../../../ports/runtime/checkpointManager.js';
 import type {
   ToolCall,
@@ -9,7 +10,7 @@ import type { ToolHandler } from '../toolHandler.js';
 
 /** `rollback` 工具定义：回滚当前会话到指定/最近检查点。 */
 export const rollbackDefinition: ToolDefinition = {
-  name: 'rollback',
+  name: TOOL_NAMES.rollback,
   description:
     '把当前会话回滚到检查点（覆盖当前事件日志，实现"回到该点"）。' +
     '不指定 label 时回滚到最近一次快照；无检查点时失败（fail-closed）。',

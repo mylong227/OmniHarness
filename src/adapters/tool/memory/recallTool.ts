@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -19,7 +20,7 @@ export class RecallTool {
    * 从长期记忆（跨会话持久事实）按自然语言召回条目，用于新会话对齐既有约定。
    */
   public readonly definition: ToolDefinition = {
-    name: 'recall',
+    name: TOOL_NAMES.recall,
     description:
       '从长期记忆（跨会话持久事实）中按自然语言召回相关条目，用于在新会话里回忆用户偏好、项目约定、关键决策或此前踩过的坑。返回命中事实的文本与主题，便于在开工前先对齐既有约定。',
     parameters: {

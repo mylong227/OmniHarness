@@ -11,11 +11,13 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import type { AgentIdentityPort } from '../../../ports/runtime/agentIdentity.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 
 /**
  * @beta
+ * 工具名取自 `ports/tool/toolNames.ts`（单一来源）。
  */
-export const AGENT_IDENTITY_TOOL_NAME = 'agent_identity';
+export const AGENT_IDENTITY_TOOL_NAME = TOOL_NAMES.agentIdentity;
 
 /**
  * @beta

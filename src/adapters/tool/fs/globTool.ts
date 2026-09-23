@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { resolve } from 'node:path';
 import { stat } from 'node:fs/promises';
 import type {
@@ -28,7 +29,7 @@ export class GlobTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'glob',
+    name: TOOL_NAMES.glob,
     description:
       '按通配符在工作区内查找文件路径（支持 **、{a,b}、[abc]；自动忽略 .git/node_modules/构建产物）。' +
       '结果按字典序稳定输出。',

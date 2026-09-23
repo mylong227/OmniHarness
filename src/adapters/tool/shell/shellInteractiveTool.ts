@@ -18,6 +18,7 @@
  *
  * 能力分级由 {@link PtyCapability} 单点负责，本类只做「校验 → 裁决 → 分级 → 执行 → 如实回传」。
  */
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -95,7 +96,7 @@ export class ShellInteractiveTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'shell_interactive',
+    name: TOOL_NAMES.shellInteractive,
     description:
       '在真实终端里以前台直通方式运行交互式命令（vim/htop/ssh/交互式安装器等 TUI）。' +
       '输出直接写在用户终端上、不回灌上下文，只回传真实退出码。' +

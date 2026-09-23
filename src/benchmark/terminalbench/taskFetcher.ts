@@ -14,6 +14,7 @@
  */
 import { mkdirSync, existsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { endpointDefaults } from '../../util/endpointDefaults.js';
 
 /** 抓取结果。 */
 export interface FetchOutcome {
@@ -257,7 +258,7 @@ export class TaskFetcher {
    * @throws 当 HTTP 非 2xx 时。
    */
   private async request<T>(path: string): Promise<T> {
-    const url = `https://api.github.com/repos/${this.repository()}${path}?ref=${encodeURIComponent(this.ref())}`;
+    const url = `${endpointDefaults.urlOf('githubApiBase')}/repos/${this.repository()}${path}?ref=${encodeURIComponent(this.ref())}`;
     const response = await fetch(url, {
       headers: TaskFetcher.headers(this.resolveToken()),
     });

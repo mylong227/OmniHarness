@@ -11,12 +11,14 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import type { PolicyEffect, PolicyPort, PolicyRule } from '../../../ports/runtime/policy.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { SafePolicyEvaluator } from '../../policy/safePolicyEvaluator.js';
 
 /**
  * @beta
+ * 工具名取自 `ports/tool/toolNames.ts`（单一来源）。
  */
-export const POLICY_EVAL_TOOL_NAME = 'policy_eval';
+export const POLICY_EVAL_TOOL_NAME = TOOL_NAMES.policyEval;
 
 /**
  * @beta

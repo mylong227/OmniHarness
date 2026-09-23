@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js'
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../../ports/tool/tool.js';
 
 /** 网络搜索工具选项（注入真实搜索实现，保持零依赖）。 */
@@ -10,7 +11,7 @@ export interface WebSearchToolOptions {
 export class WebSearchTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'web_search',
+    name: TOOL_NAMES.webSearch,
     description: '搜索网络并返回结果摘要',
     parameters: {
       type: 'object',

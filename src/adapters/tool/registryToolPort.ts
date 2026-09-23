@@ -17,7 +17,7 @@ interface RegisteredTool {
 export class RegistryToolPort implements ToolPort {
   /**
    * 端口标识：本聚合适配器在审批/日志中的名称（固定为 'registry'）。
-   * 仅用于后端区分与可观测，不参与工具匹配逻辑。
+   * 仅用于后端区分与可观测，**不参与工具匹配逻辑** ⇒ 不走 `TOOL_NAMES`（那是工具名，不是端口名）。
    */
   public readonly name = 'registry';
 

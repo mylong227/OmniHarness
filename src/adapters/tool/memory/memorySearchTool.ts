@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -20,7 +21,7 @@ export class MemorySearchTool {
    * 在已发生的会话历史中按自然语言检索相关片段，实现跨长对话的 recall。
    */
   public readonly definition: ToolDefinition = {
-    name: 'memory_search',
+    name: TOOL_NAMES.memorySearch,
     description:
       '在已发生的会话历史（用户输入、助手回复、工具输出、系统说明）中按自然语言检索相关片段，用于跨长对话的 recall。返回命中片段的文本与角色，便于在不把所有历史塞进上下文的前提下回忆此前讨论过的细节、决定或关键信息。',
     parameters: {

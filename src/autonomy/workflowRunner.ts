@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkflowCycleError } from './workflowCycleError.js';
 import { WorkflowSpecError, requireWorkflowConcurrency } from './workflowSpecError.js';
 import type { SubagentPorts } from '../subagent/subagentPorts.js';
@@ -259,7 +260,10 @@ export class WorkflowRunner {
     const names = step.tools ?? this.ports.tools.list().map((definition) => definition.name);
     const allowed = new Set(
       names.filter(
-        (name) => name !== RUN_WORKFLOW_TOOL_NAME && name !== 'run_goal' && name !== 'subagent',
+        (name) =>
+          name !== RUN_WORKFLOW_TOOL_NAME &&
+          name !== TOOL_NAMES.runGoal &&
+          name !== TOOL_NAMES.subagent,
       ),
     );
     return new ToolSubset(this.ports.tools, allowed);

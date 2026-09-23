@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -31,7 +32,7 @@ export class EditFileTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'edit',
+    name: TOOL_NAMES.edit,
     description:
       '按内容精确替换工作区文件中的一段文本（推荐用于修改已有代码：无需给行号）。' +
       'old_string 必须在文件中唯一命中，否则请补充上下文或使用 replace_all。' +

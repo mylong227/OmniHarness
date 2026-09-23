@@ -17,6 +17,7 @@
 import { isIP } from 'node:net';
 import { EgressBlockedError } from './egressBlockedError.js';
 import { isPrivateIpv4, isPrivateIpv6 } from '../../util/ipAddress.js';
+import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from '../../security/ssrfPolicy.js';
 
 /** 网络外联守卫配置。 */
 export interface NetworkEgressOptions {
@@ -28,29 +29,13 @@ export interface NetworkEgressOptions {
    * 仅当调用方明确信任本地环路场景时才置 false（如仅允许 localhost 调试）。
    */
   readonly blockPrivateRanges?: boolean;
+  /**
+   * SSRF 策略表（可配置）：元数据主机 / 内网域名后缀 / IPv4 网段。缺省用默认档。
+   * 由组合根从配置解析后注入（
+esolveSsrfPolicy(config.ssrfPolicy)），与 SsrfGuard 同源。
+   */
+  readonly policy?: SsrfPolicy | undefined;
 }
-
-/**
- * 始终拦截的私有/链路本地地址与主机（SSRF 防护，白名单无法覆盖）。
- * 覆盖：环回、RFC1918 私网、CGNAT(100.64/10)、链路本地(含云元数据 169.254.169.254)、
- * IPv6 ULA(fc00::/fd00::) 与链路本地(fe80::)。
- */
-const PRIVATE_HOST_PATTERNS: readonly RegExp[] = [
-  /^localhost$/i,
-  /\.local$/i,
-  /\.internal$/i,
-  /\.corp$/i,
-  /^(127|10)(\.\d{1,3}){3}$/,
-  /^192\.168(\.\d{1,3}){2}$/,
-  /^172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}$/,
-  /^169\.254(\.\d{1,3}){2}$/,
-  /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])(\.\d{1,3}){2}$/,
-  /^0\.0\.0\.0$/,
-  /^::1$/,
-  /^fe80:/i,
-  /^fc[0-9a-f]{2}:/i,
-  /^fd[0-9a-f]{2}:/i,
-];
 
 /** 主机是否命中私有/链路本地网段（SSRF 高危）。 */
 
@@ -62,6 +47,8 @@ export class NetworkEgressGuard {
   private readonly allowed: ReadonlySet<string>;
   /** 是否拦截私有/链路本地地址（SSRF 防护，默认 true，白名单无法覆盖）。 */
   private readonly blockPrivate: boolean;
+  /** 生效的 SSRF 策略表（可配置；缺省默认档）。 */
+  private readonly policy: SsrfPolicy;
 
   /**
    * @param options 网络外联守卫配置（白名单与 SSRF 拦截开关）。
@@ -69,6 +56,7 @@ export class NetworkEgressGuard {
   public constructor(options: NetworkEgressOptions) {
     this.allowed = new Set(options.allowedHosts.map(NetworkEgressGuard.toHost));
     this.blockPrivate = options.blockPrivateRanges ?? true;
+    this.policy = options.policy ?? DEFAULT_SSRF_POLICY;
   }
 
   /** 断言 URL 可外联；命中私有网段或不在白名单则抛 EgressBlockedError（fail-closed）。
@@ -81,7 +69,7 @@ export class NetworkEgressGuard {
     const host = this.hostOf(url);
     if (host !== undefined) {
       // SSRF 优先：私有/链路本地地址（云元数据 169.254.169.254 等）无论白名单一律拒绝。
-      if (this.blockPrivate && NetworkEgressGuard.isPrivateHost(host)) {
+      if (this.blockPrivate && this.isPrivateHost(host)) {
         throw new EgressBlockedError(
           `网络外联被 SSRF 策略拒绝（私有/链路本地地址）: ${text}`,
           text,
@@ -157,21 +145,32 @@ export class NetworkEgressGuard {
    * @param {string} host
    * @returns {boolean}
    */
-  private static isPrivateHost(host: string): boolean {
+  private isPrivateHost(host: string): boolean {
     const h = host.toLowerCase();
     // 先按**共享 IP 分类器**判 IP 字面量（2026-09-22 修，审计 P3）：本类此前的正则族只认
     // `::1` / `fe80:` / `fc..` / `fd..` 前缀，漏掉 IPv4-mapped 等**等价写法**——
     // `http://[::ffff:169.254.169.254]/` 既不是 `169.254.*`（点分正则不匹配）也不带前缀
     // ⇒ 「云元数据一律拒绝」的声明在该写法下不成立。现与 `security/ssrfGuard` 共用同一实现
-    // （`src/util/ipAddress.ts`），两份口径合一，不再有分叉空间。
-    if (isIP(h) === 4 && isPrivateIpv4(h)) {
+    // （`src/util/ipAddress.ts` + 同一份策略表），两份口径合一，不再有分叉空间。
+    if (isIP(h) === 4 && isPrivateIpv4(h, this.policy.ipv4Blocks)) {
       return true;
     }
-    if (isIP(h) === 6 && isPrivateIpv6(h)) {
+    if (isIP(h) === 6 && isPrivateIpv6(h, this.policy.ipv4Blocks)) {
       return true;
     }
-    return PRIVATE_HOST_PATTERNS.some((re) => re.test(h));
+    if (h === 'localhost') {
+      // 裸 `localhost` 不含点，后缀表（`.localhost`）匹配不到——与 `SsrfGuard` 同口径显式拦。
+      return true;
+    }
+    if (this.policy.metadataHosts.includes(h)) {
+      return true;
+    }
+    if (this.policy.internalSuffixes.some((suffix) => h.endsWith(suffix))) {
+      return true;
+    }
+    return false;
   }
+
   /**
    * toHost (internal helper hoisted into NetworkEgressGuard).
    * @param {string} raw

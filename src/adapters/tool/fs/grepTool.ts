@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -75,7 +76,7 @@ export class GrepTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'grep',
+    name: TOOL_NAMES.grep,
     description:
       '在工作区内按正则搜索文件内容（零依赖、自动忽略 .git/node_modules/构建产物）。' +
       '支持 glob 过滤、大小写忽略、字面量模式、上下文行与三种输出模式。',

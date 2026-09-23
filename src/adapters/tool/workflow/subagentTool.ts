@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -17,7 +18,7 @@ const ROOT_DEPTH = 1;
 export class SubagentTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'subagent',
+    name: TOOL_NAMES.subagent,
     description:
       '派生一个进程内子智能体独立完成子任务：独立会话、受限工具集、不可再派生子智能体。适合可并行的长任务或需要隔离上下文的试探性任务。',
     parameters: {

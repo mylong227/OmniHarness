@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
 import type {
   ApprovalDecision,
   ApprovalPort,
@@ -60,7 +61,7 @@ export class CachedApproval implements ApprovalPort {
   ) {
     this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.cacheDeny = options.cacheDeny ?? true;
-    this.commandTools = new Set(options.commandTools ?? ['shell']);
+    this.commandTools = new Set(options.commandTools ?? [TOOL_NAMES.shell]);
   }
 
   /** 被装饰的审批端口。 */

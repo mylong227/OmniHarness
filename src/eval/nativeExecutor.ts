@@ -22,6 +22,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { endpointDefaults } from '../util/endpointDefaults.js';
 import { SwebenchVerified } from './swebenchVerified.js';
 import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerified.js';
 import { PythonVersionResolver } from './pythonVersionResolver.js';
@@ -117,7 +118,7 @@ export class NativeExecutor implements ExecutorPort {
    */
   public constructor(opts: Readonly<NativeExecutorOptions> = {}) {
     this.repoCacheRoot = opts.repoCacheRoot ?? join(tmpdir(), 'omni-swebench-repos');
-    this.repoBaseUrl = opts.repoBaseUrl ?? 'https://github.com/';
+    this.repoBaseUrl = opts.repoBaseUrl ?? endpointDefaults.urlOf('gitRemoteBase');
     this.repoMirrors = opts.repoMirrors ?? {};
     this.envPins = opts.envPins ?? {};
     this.keepWorktree = opts.keepWorktree ?? false;

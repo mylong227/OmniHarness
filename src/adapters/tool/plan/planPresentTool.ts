@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -20,7 +21,7 @@ export class PlanPresentTool {
    * 将当前计划呈现给用户审批，批准前 ToolGate 拦截所有 mutating 工具。
    */
   public readonly definition: ToolDefinition = {
-    name: 'plan_present',
+    name: TOOL_NAMES.planPresent,
     description:
       '呈现当前计划给用户审批。返回 approve 或 reject；approve 后计划门禁解除，方可执行写类工具。',
     parameters: { type: 'object', properties: {} },

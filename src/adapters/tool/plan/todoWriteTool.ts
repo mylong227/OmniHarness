@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -21,7 +22,7 @@ export class TodoWriteTool {
    * 全量替换待办列表（last-write-wins）并广播 todo 事件，用于长任务进度可控。
    */
   public readonly definition: ToolDefinition = {
-    name: 'todo_write',
+    name: TOOL_NAMES.todoWrite,
     description:
       '维护当前任务的待办清单：每次调用传入完整列表（整表替换，last-write-wins）。' +
       '用 in_progress 标记正在做的项，completed 标记已完成的项，帮助长任务保持进度可控。',

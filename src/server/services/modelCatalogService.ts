@@ -1,7 +1,8 @@
 import type { FileConfig } from '../../config/configFile.js';
 import type { ModelPort } from '../../ports/model/model.js';
-import { PROVIDER_PRESETS, type ProviderPreset } from './providerPresets.js';
+import { providerPresets, type ProviderPreset } from './providerPresets.js';
 import { probeProvider, buildModelForProvider } from './providerProbe.js';
+import { resolveSsrfPolicy } from '../../security/ssrfPolicy.js';
 
 /** 单厂商实测缓存项。 */
 export interface ProviderProbeCacheEntry {
@@ -56,7 +57,9 @@ export class ModelCatalogService {
     const requested = typeof params['provider'] === 'string' ? params['provider'] : undefined;
     const file = this.fileConfig();
     const keys: Record<string, string> = { ...(file.providerKeys ?? {}) };
-    const presets = PROVIDER_PRESETS.filter((p) => requested === undefined || p.id === requested);
+    const presets = this.effectivePresets().filter(
+      (p) => requested === undefined || p.id === requested,
+    );
     const results = [];
     for (const preset of presets) {
       let key = keys[preset.id];
@@ -69,7 +72,7 @@ export class ModelCatalogService {
       ) {
         key = file.apiKey;
       }
-      const probed = await probeProvider(preset, key);
+      const probed = await probeProvider(preset, key, resolveSsrfPolicy(file.ssrfPolicy));
       results.push(probed);
       this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
     }
@@ -84,14 +87,15 @@ export class ModelCatalogService {
   public catalog(): unknown {
     const file = this.fileConfig();
     const adapter = this.adapterOverride() ?? file.modelAdapter;
-    const active = this.activePreset(file.baseUrl, adapter);
+    const providers = this.effectivePresets();
+    const active = this.activePreset(file.baseUrl, adapter, providers);
     if (active === undefined) {
-      return { providers: PROVIDER_PRESETS, active: undefined };
+      return { providers, active: undefined };
     }
     const probed = this.probeCache.get(active.id);
     const realModels = probed?.ok === true ? probed.models : [];
     return {
-      providers: PROVIDER_PRESETS,
+      providers,
       active: {
         id: active.id,
         label: active.label,
@@ -119,7 +123,7 @@ export class ModelCatalogService {
     if (adapter === undefined || adapter === 'mock' || adapter === 'llamacpp') {
       return undefined;
     }
-    const preset = PROVIDER_PRESETS.filter((p) => p.adapter === adapter)[0];
+    const preset = this.effectivePresets().filter((p) => p.adapter === adapter)[0];
     if (preset === undefined) {
       return undefined;
     }
@@ -141,22 +145,37 @@ export class ModelCatalogService {
   public async cacheProbe(preset: ProviderPreset, key: string | undefined): Promise<void> {
     // 启用即实测：探测真实 /models 清单进缓存，Composer 下拉立即显示真实可用模型。
     // 探测失败不阻断启用（fail-open 到预设清单），错误由下次「检测」刷新。
-    const probed = await probeProvider(preset, key);
+    const probed = await probeProvider(
+      preset,
+      key,
+      resolveSsrfPolicy(this.fileConfig().ssrfPolicy),
+    );
     this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
+  }
+
+  /**
+   * 生效厂商目录：内建目录（`defaults/providers.json`）+ 配置文件 `providerPresets` 覆盖。
+   * 单一来源在 `config/providerPresets.ts`——UI 必须看到自建/私有化厂商，否则「配了却选不到」。
+   * @returns 生效的厂商预设清单
+   */
+  private effectivePresets(): readonly ProviderPreset[] {
+    return providerPresets.resolve(this.fileConfig().providerPresets);
   }
 
   /**
    * 当前厂商：baseUrl 精确匹配优先，否则 modelAdapter 匹配的第一个预设。
    * @param baseUrl 当前配置的 baseUrl（与预设精确比对）
    * @param adapter 当前生效适配器名（UI 覆盖优先，回退配置文件）
+   * @param presets 生效厂商目录（由调用方传入，保证与 `catalog` 用的是同一份）
    * @returns 匹配到的厂商预设；两者都无匹配时为 undefined
    */
   private activePreset(
     baseUrl: string | undefined,
     adapter: string | undefined,
+    presets: readonly ProviderPreset[],
   ): ProviderPreset | undefined {
-    const byUrl = PROVIDER_PRESETS.find((p) => baseUrl !== undefined && baseUrl === p.baseUrl);
+    const byUrl = presets.find((p) => baseUrl !== undefined && baseUrl === p.baseUrl);
     if (byUrl !== undefined) return byUrl;
-    return PROVIDER_PRESETS.filter((p) => p.adapter === adapter)[0];
+    return presets.filter((p) => p.adapter === adapter)[0];
   }
 }

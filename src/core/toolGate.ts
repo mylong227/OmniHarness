@@ -1,6 +1,7 @@
 import type { ApprovalPort } from '../ports/runtime/approval.js';
 import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../ports/runtime/sandbox.js';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.js';
 /**
  * 提权沙箱默认 fail-closed：未显式注入 elevatedSandbox 时一律拒绝升级，绝不静默全放行
  * （防御性兜底，防止手动/测试构造 ToolGate 漏注入时把提权重试变成沙箱绕过）。
@@ -34,27 +35,11 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
  * `remember`（写长期记忆）此前**都不在集合内**，于是三者被调度器判为「可并行」——
  * 实测 `rollback | read_file | remember` 同批并发，与其自身「写类形成屏障」的契约相矛盾，
  * 也与本集合口径漂移。
+ *
+ * 2026-09-22 第三轮：**集合内容迁至 `ports/tool/toolNames.ts`**（工具名单一来源，用户指令），
+ * 此处保留导出名与 `ReadonlySet<string>` 形态 ⇒ 既有调用点零改动；写类判据见 `MUTATING_TOOL_NAMES`。
  */
-export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
-  'shell',
-  // 交互式 PTY 工具：能在真终端里跑任意命令（vim/htop 等）⇒ 与 shell 同级，plan 模式同样拦截。
-  'shell_interactive',
-  // 后台作业管理（P2-⑫）：能 kill 进程、能启动任意命令 ⇒ 与 shell 同级，plan 模式同样拦截。
-  'shell_job',
-  'write_file',
-  'edit',
-  'apply_patch',
-  'delegate',
-  'subagent',
-  // P2-⑬：网页截图落盘 PNG，与 write_file 同级（plan 模式须拦截）。
-  'browser_screenshot',
-  // 2026-09-22：还原工作区文件 + 截断事件流 ⇒ 与 write_file 同级的**写**操作。
-  'rollback',
-  // 2026-09-22：落盘检查点快照（`.files.json`，含工作区文件内容）⇒ 写状态，须串行且计划模式拦截。
-  'checkpoint',
-  // 2026-09-22：写长期记忆（跨会话持久 fact）⇒ 有持久副作用，不得与只读调用并行。
-  'remember',
-]);
+export const MUTATING_TOOLS: ReadonlySet<string> = new Set<string>(MUTATING_TOOL_NAMES);
 
 /**
  * @beta
@@ -177,19 +162,23 @@ export class ToolGate {
    */
   private sandboxActionOf(call: ToolCall): SandboxAction {
     if (
-      call.name === 'read_file' ||
-      call.name === 'grep' ||
-      call.name === 'glob' ||
+      call.name === TOOL_NAMES.readFile ||
+      call.name === TOOL_NAMES.grep ||
+      call.name === TOOL_NAMES.glob ||
       // 读图（P2-⑬）与抓网页（P2-⑬）都不写本地文件，按「读」归类。
-      call.name === 'view_image' ||
-      call.name === 'web_fetch'
+      call.name === TOOL_NAMES.viewImage ||
+      call.name === TOOL_NAMES.webFetch
     ) {
       return { kind: 'file_read', target: this.targetOf(call) };
     }
-    if (call.name === 'write_file' || call.name === 'edit' || call.name === 'apply_patch') {
+    if (
+      call.name === TOOL_NAMES.writeFile ||
+      call.name === TOOL_NAMES.edit ||
+      call.name === TOOL_NAMES.applyPatch
+    ) {
       return { kind: 'file_write', target: this.targetOf(call) };
     }
-    if (call.name === 'browser_screenshot') {
+    if (call.name === TOOL_NAMES.browserScreenshot) {
       // 落盘 PNG，与 write_file 同属写类；plan 模式应被拦（不进只读白名单）。
       return { kind: 'file_write', target: this.targetOf(call) };
     }
@@ -211,7 +200,7 @@ export class ToolGate {
     if (typeof direct === 'string' && direct !== '') {
       return direct;
     }
-    if (call.name === 'apply_patch') {
+    if (call.name === TOOL_NAMES.applyPatch) {
       const patch = call.arguments['patch'];
       if (typeof patch === 'string') {
         const match = /^\+\+\+ (.+)$/m.exec(patch);

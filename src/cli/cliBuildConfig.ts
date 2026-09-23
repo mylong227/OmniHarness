@@ -25,7 +25,14 @@ import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { PluginRegistry } from '../plugin/pluginRegistry.js';
 import { AuditSink } from '../server/services/auditSink.js';
-import { NetworkEgressGuard, parseAllowList } from '../adapters/sandbox/networkEgressGuard.js';
+import {
+  NetworkEgressGuard,
+  parseAllowList,
+  type NetworkEgressOptions,
+} from '../adapters/sandbox/networkEgressGuard.js';
+import { resolveSsrfPolicy } from '../security/ssrfPolicy.js';
+import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.js';
+import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
@@ -87,6 +94,17 @@ export interface CredentialHydrationArgs {
   /** 密文 KV 落盘路径。 */
   readonly kvFile?: string | undefined;
 }
+
+/**
+ * 出站守卫选项：白名单 + 配置化 SSRF 策略表（缺省回落内置默认档；非法条目在配置加载期已被拒）。
+ * @param allowed 白名单主机（由 `--network-allow` 解析，调用点已保证非空）
+ * @param args 解析后的 CLI 参数（读取 `ssrfPolicy`）
+ * @returns `NetworkEgressGuard` 构造选项
+ */
+const egressOptions = (allowed: string[], args: CliArgs): NetworkEgressOptions => ({
+  allowedHosts: allowed,
+  policy: resolveSsrfPolicy(args.ssrfPolicy),
+});
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */
 export class CliBuildConfig {
@@ -192,8 +210,8 @@ export class CliBuildConfig {
   /**
    * 若配置了 --network-allow，安装网络外联策略门（A5）：包一层 globalThis.fetch，
    * 任何不在白名单的外联地址一律抛 EgressBlockedError（fail-closed）。返回还原函数。
-   * 未配置白名单时返回空操作（开放，不收紧）。
-   * @param args 解析后的 CLI 参数（读取 networkAllow 白名单）。
+   * 未配置白名单时返回空操作（开放，不收紧）。SSRF 策略表走配置（与 A2A 探测共用同一档）。
+   * @param args 解析后的 CLI 参数（读取 networkAllow 白名单 / ssrfPolicy 策略表）。
    * @returns 还原函数（恢复原始 globalThis.fetch）；未配置白名单时为空操作。
    */
   protected applyNetworkGuard(args: CliArgs): () => void {
@@ -201,7 +219,7 @@ export class CliBuildConfig {
     if (allowed.length === 0) {
       return () => {};
     }
-    const guard = new NetworkEgressGuard({ allowedHosts: allowed });
+    const guard = new NetworkEgressGuard(egressOptions(allowed, args));
     const original = globalThis.fetch;
     globalThis.fetch = guard.wrapFetch(original);
     process.stderr.write(`[omniharness] 网络外联策略已启用，仅放行: ${allowed.join(', ')}\n`);
@@ -266,12 +284,11 @@ export class CliBuildConfig {
     const model = this.buildModel(args);
     const config = ConfigFactory.build({
       workspaceRoot: args.workspace,
-      // V2：默认步数 16→32——16 在真实任务上频繁跑满无果（2026-09-08 真机复现），
-      // 且失控检测（LoopGuard）已兜住空转风险，放宽不增加失控成本。
+      ssrfPolicy: args.ssrfPolicy, // 配置文件 → CLI → 组合根；不在此透传则 A2A 拿不到策略表
+      // V2：默认步数 16→32——16 在真实任务上频繁跑满无果（2026-09-08 真机复现）；LoopGuard 已兜住空转风险。
       maxSteps: args.maxSteps ?? 32,
-      // (#B6) 推理强度：此前该键**只由服务端**透传（`appServerBase` 切工作区时 `file.reasoning ?? cfg.reasoning`），
-      // CLI 路径缺映射 ⇒ `omniharness.json` 的 `reasoning` 与 `OMNIHARNESS_REASONING`
-      // 在 CLI 上被静默丢弃（第十处「声明未接线」，由接线完整性门禁的 I5a 不变量实测抓出）。此处补齐。
+      // (#B6) 推理强度：此前该键**只由服务端**透传，CLI 路径缺映射 ⇒ `omniharness.json` 的 `reasoning`
+      // 与 `OMNIHARNESS_REASONING` 在 CLI 上被静默丢弃（I5a 抓出的第十处「声明未接线」）。此处补齐。
       reasoning: args.reasoning,
       // V2.1（A3）：模型重试默认开——生产环境最蠢的单点故障是一次 429 报废整回合。
       // --no-model-retry 显式关闭；策略（3 次 / 500ms 指数退避 / 尊重 Retry-After）见 RetryingModel。
@@ -444,7 +461,29 @@ export class CliBuildConfig {
   }
 
   /**
+   * 取某适配器的**兜底端点 / 兜底模型 / 凭据来源**（`defaults/endpoints.json`，用户指令：地址不硬编码）。
+   *
+   * 改之前同一组地址在本方法与 `configBuilder.buildRouterAdapter` 里**各写了一遍**（改一处漏一处）；
+   * 现在值只有数据文件一份。数据文件缺该适配器时抛错，不静默回落空串——空 baseUrl 会把请求
+   * 打到当前进程的默认主机上，比直接失败更难查。
+   * @param adapter 适配器标识（`--model-adapter` 取值）。
+   * @returns 已解析的兜底值（env 覆盖数据文件）。
+   * @throws Error 数据文件未登记该适配器时抛出。
+   */
+  private adapterDefaultsOf(adapter: string): ResolvedAdapterDefaults {
+    const resolved = endpointDefaults.resolveAdapter(adapter);
+    if (resolved === undefined) {
+      throw new Error(
+        `defaults/endpoints.json 未登记适配器 "${adapter}"（无法确定兜底端点，构建模型端口中止）`,
+      );
+    }
+    return resolved;
+  }
+
+  /**
    * 构建模型端口。
+   *
+   * 优先级（与历史逐字一致，仅把字面量换成数据）：CLI / 配置文件显式值 > 适配器的环境变量 > 数据文件兜底。
    * @param args 解析后的 CLI 参数（读取 modelAdapter / apiKey / baseUrl / model 等）。
    * @returns 按 modelAdapter 选择的模型端口；缺省适配器回退 MockModel，密钥缺失时抛错。
    */
@@ -452,40 +491,44 @@ export class CliBuildConfig {
     args: CliArgs,
   ): MockModel | OpenAiCompatibleModel | AnthropicModel | ResponsesModel | LlamaCppModel {
     if (args.modelAdapter === 'openai') {
-      const apiKey = args.apiKey ?? process.env.OPENAI_API_KEY;
-      const baseUrl = args.baseUrl ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
+      const defaults = this.adapterDefaultsOf('openai');
+      const apiKey = args.apiKey ?? defaults.apiKey;
+      const baseUrl = args.baseUrl ?? defaults.baseUrl;
       // 模型选择：CLI/配置文件显式 > 环境变量 > openai 适配器兜底。绝不能用
       // `args.model === CliDefaults.model` 字符串比较——配置文件里写
       // "deepseek-v4-flash" 恰好等于默认占位时会被误判为「没显式传」并被
-      // 覆写成 'gpt-4o-mini'，发到 deepseek 端点 → HTTP 400
+      // 覆写成兜底模型，发到 deepseek 端点 → HTTP 400
       // （supported: deepseek-v4-pro/flash/vision-exp, you passed gpt-4o-mini）。
-      const model = args.model ?? process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+      const model = args.model ?? defaults.model;
       if (apiKey === undefined) {
-        throw new Error('openai 适配器需要 --api-key 或环境变量 OPENAI_API_KEY');
+        throw new Error(`openai 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
       }
       return new OpenAiCompatibleModel({ baseUrl, apiKey, model });
     }
     if (args.modelAdapter === 'anthropic') {
-      const apiKey = args.apiKey ?? process.env.ANTHROPIC_API_KEY;
-      const baseUrl = args.baseUrl ?? process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com';
-      const model = args.model ?? process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-20250514';
+      const defaults = this.adapterDefaultsOf('anthropic');
+      const apiKey = args.apiKey ?? defaults.apiKey;
+      const baseUrl = args.baseUrl ?? defaults.baseUrl;
+      const model = args.model ?? defaults.model;
       if (apiKey === undefined) {
-        throw new Error('anthropic 适配器需要 --api-key 或环境变量 ANTHROPIC_API_KEY');
+        throw new Error(`anthropic 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
       }
       return new AnthropicModel({ baseUrl, apiKey, model });
     }
     if (args.modelAdapter === 'responses') {
-      const apiKey = args.apiKey ?? process.env.OPENAI_API_KEY;
-      const baseUrl = args.baseUrl ?? process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
-      const model = args.model ?? process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+      const defaults = this.adapterDefaultsOf('responses');
+      const apiKey = args.apiKey ?? defaults.apiKey;
+      const baseUrl = args.baseUrl ?? defaults.baseUrl;
+      const model = args.model ?? defaults.model;
       if (apiKey === undefined) {
-        throw new Error('responses 适配器需要 --api-key 或环境变量 OPENAI_API_KEY');
+        throw new Error(`responses 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
       }
       return new ResponsesModel({ baseUrl, apiKey, model });
     }
     if (args.modelAdapter === 'llamacpp') {
-      const baseUrl = args.baseUrl ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
-      const model = args.model ?? process.env.OLLAMA_MODEL ?? 'llama3';
+      const defaults = this.adapterDefaultsOf('llamacpp');
+      const baseUrl = args.baseUrl ?? defaults.baseUrl;
+      const model = args.model ?? defaults.model;
       return new LlamaCppModel({ baseUrl, model, apiKey: args.apiKey });
     }
     return new MockModel();
@@ -556,9 +599,9 @@ export class CliBuildConfig {
    */
   protected buildRuleApproval(args: CliArgs): RuleApproval {
     const builtin: ApprovalRule[] = [
-      { toolName: 'read_file', decision: 'allow' },
-      { toolName: 'shell', commandPrefix: 'rm ', decision: 'deny' },
-      { toolName: 'shell', commandPrefix: 'del ', decision: 'deny' },
+      { toolName: TOOL_NAMES.readFile, decision: 'allow' },
+      { toolName: TOOL_NAMES.shell, commandPrefix: 'rm ', decision: 'deny' },
+      { toolName: TOOL_NAMES.shell, commandPrefix: 'del ', decision: 'deny' },
     ];
     // 自定义规则（A2，来自配置 permission.rules）：与内置合并。聚合语义为 deny 优先，
     // 故顺序不影响裁决；用户可借 commandGlob 表达参数级约束（如拒绝任何含 `curl | sh` 的命令）。

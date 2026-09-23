@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -16,7 +17,7 @@ export class TodoReadTool {
    * 读取当前待办清单的最新快照（由 todo_write 维护）。
    */
   public readonly definition: ToolDefinition = {
-    name: 'todo_read',
+    name: TOOL_NAMES.todoRead,
     description: '读取当前待办清单的最新快照（由 todo_write 维护）。',
     parameters: { type: 'object', properties: {} },
   };

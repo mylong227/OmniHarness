@@ -3,12 +3,13 @@ import { resolve } from 'node:path';
 import type { ToolResult } from '../../ports/tool/tool.js';
 import type { ToolHookContext, ToolHooks } from '../../ports/tool/toolHook.js';
 import type { TurnDiffTrackerPort } from '../../ports/runtime/turnDiffTracker.js';
+import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
 
 /** 参与变更追踪的写类工具：参数带 `path`，可精确定位目标文件。 */
 export const TRACKED_WRITE_TOOLS: ReadonlySet<string> = new Set([
-  'write_file',
-  'edit',
-  'apply_patch',
+  TOOL_NAMES.writeFile,
+  TOOL_NAMES.edit,
+  TOOL_NAMES.applyPatch,
 ]);
 
 /**
@@ -79,7 +80,7 @@ export class TurnDiffHooks {
    * @returns 写后文本；读不到时为 null（调用方据此 invalidate 整个回合差异）。
    */
   private async afterOf(context: ToolHookContext, path: string): Promise<string | null> {
-    if (context.toolName === 'write_file') {
+    if (context.toolName === TOOL_NAMES.writeFile) {
       return String(context.args !== undefined ? (context.args['content'] ?? '') : '');
     }
     return this.readText(this.absoluteOf(path));

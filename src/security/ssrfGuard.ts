@@ -1,6 +1,7 @@
-﻿import { isIP } from 'node:net';
+import { isIP } from 'node:net';
 import { lookup } from 'node:dns/promises';
 import { embeddedIpv4, isPrivateIpv4, isPrivateIpv6 } from '../util/ipAddress.js';
+import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from './ssrfPolicy.js';
 
 /**
  * SSRF 防护：拦截私有/保留网段与云元数据端点的访问。
@@ -24,6 +25,11 @@ export interface SsrfOptions {
   readonly allowPrivate?: boolean;
   /** 放行云元数据地址（默认 false，元数据端点几乎永远是攻击目标）。 */
   readonly allowMetadata?: boolean;
+  /**
+   * 策略表（可配置）：元数据主机 / 内网域名后缀 / IPv4 网段。缺省用 {`@link DEFAULT_SSRF_POLICY`}。
+   * 由组合根从配置解析后注入（`resolveSsrfPolicy(config.ssrfPolicy)`）。
+   */
+  readonly policy?: SsrfPolicy | undefined;
   /** 是否做 DNS 解析后二次判定（默认 false：解析有网络开销且引入 TOCTOU 窗口）。 */
   readonly resolveDns?: boolean;
 }
@@ -34,40 +40,12 @@ export type SsrfVerdict =
 
 /**
  * SSRF 防护引擎：云元数据/私有网段/非法字面量判定，fail-closed。
+ *
+ * 三张策略表（元数据主机 / 内网域名后缀 / IPv4 网段）**不再硬编码在本类**：
+ * 默认档在 `security/ssrfPolicy.ts`，可由配置 `ssrfPolicy` 覆盖，
+ * 调用方把解析后的策略随 {@link SsrfOptions.policy} 传入（组合根负责解析与注入）。
  */
 export class SsrfGuard {
-  /** 云元数据地址（各厂商链路本地地址，必须拦截）。 */
-  private static readonly METADATA_HOSTS = new Set([
-    '169.254.169.254',
-    '100.100.100.200',
-    'metadata.google.internal',
-    'metadata.goog',
-  ]);
-
-  /** 内网/本机域名后缀模式。 */
-  private static readonly INTERNAL_SUFFIXES = [
-    '.localhost',
-    '.local',
-    '.internal',
-    '.intranet',
-    '.lan',
-  ];
-
-  /** IPv4 私有/保留网段（CIDR 列表）。 */
-  private static readonly IPV4_BLOCKS: readonly (readonly [string, number])[] = [
-    ['0.0.0.0', 8], // 本网络
-    ['10.0.0.0', 8], // 私有
-    ['100.64.0.0', 10], // CGNAT
-    ['127.0.0.0', 8], // 环回
-    ['169.254.0.0', 16], // 链路本地（含云元数据）
-    ['172.16.0.0', 12], // 私有
-    ['192.0.0.0', 24], // IETF 协议分配
-    ['192.168.0.0', 16], // 私有
-    ['198.18.0.0', 15], // 基准测试
-    ['224.0.0.0', 4], // 组播
-    ['240.0.0.0', 4], // 保留（含 255.255.255.255）
-  ];
-
   /**
    * 默认 SSRF 策略。
    *
@@ -89,17 +67,19 @@ export class SsrfGuard {
     if (lower === '') {
       return { blocked: true, reason: '空主机名' };
     }
+    // 策略表：调用方未注入时回落默认档（与历史行为逐字一致）。
+    const policy = options.policy ?? DEFAULT_SSRF_POLICY;
+    const metadataHosts = new Set(policy.metadataHosts);
     // 元数据判定必须同时覆盖「IPv6 内嵌 IPv4」的写法（否则 [::ffff:169.254.169.254] 绕过
     // 「元数据永远拦截」——2026-09-22 实测复现并修复）。
     const embedded = isIP(lower) === 6 ? embeddedIpv4(lower) : null;
     if (
       options.allowMetadata !== true &&
-      (SsrfGuard.METADATA_HOSTS.has(lower) ||
-        (embedded !== null && SsrfGuard.METADATA_HOSTS.has(embedded)))
+      (metadataHosts.has(lower) || (embedded !== null && metadataHosts.has(embedded)))
     ) {
       return { blocked: true, reason: `云元数据地址被拦截: ${host}` };
     }
-    if (lower === 'localhost' || SsrfGuard.INTERNAL_SUFFIXES.some((s) => lower.endsWith(s))) {
+    if (lower === 'localhost' || policy.internalSuffixes.some((s) => lower.endsWith(s))) {
       return { blocked: true, reason: `本机/内网域名被拦截: ${host}` };
     }
     const version = isIP(lower);
@@ -107,7 +87,7 @@ export class SsrfGuard {
       if (options.allowPrivate === true) {
         return { blocked: false };
       }
-      return isPrivateIpv4(lower)
+      return isPrivateIpv4(lower, policy.ipv4Blocks)
         ? { blocked: true, reason: `私有/保留 IPv4 被拦截: ${host}` }
         : { blocked: false };
     }
@@ -115,7 +95,7 @@ export class SsrfGuard {
       if (options.allowPrivate === true) {
         return { blocked: false };
       }
-      return isPrivateIpv6(lower)
+      return isPrivateIpv6(lower, policy.ipv4Blocks)
         ? { blocked: true, reason: `本机/保留 IPv6 被拦截: ${host}` }
         : { blocked: false };
     }
@@ -195,6 +175,20 @@ const ssrfGuard = new SsrfGuard();
 /** 默认 SSRF 策略（见 SsrfGuard.defaultOptions 注释）。 */
 export function defaultSsrfOptions(): SsrfOptions {
   return ssrfGuard.defaultOptions();
+}
+
+/**
+ * 由**策略表**构造 SSRF 选项：默认档（`allowPrivate` 保证本地端点可用、`allowMetadata=false`）
+ * ＋调用方注入的策略表。
+ *
+ * 为什么要有这个统一入口：配置化后每个消费点都要「默认档 + 注入策略」，各写一份
+ * `{ ...defaultSsrfOptions(), policy }` 极易漏掉默认档——漏了会把本地端点（A2A 回环、
+ * 本地 Ollama）误拦，2026-09-22 的 E2 装配回归正是此形态（只传 `{ policy }` ⇒ 本地端点被拦）。
+ * @param policy 已解析的策略表（见 `security/ssrfPolicy.resolveSsrfPolicy`）；缺省用内置默认档
+ * @returns SSRF 校验选项（可直接喂给 {@link inspectUrl} / {@link assertNotSsrf}）
+ */
+export function ssrfOptionsFor(policy?: SsrfPolicy): SsrfOptions {
+  return { ...ssrfGuard.defaultOptions(), policy: policy ?? DEFAULT_SSRF_POLICY };
 }
 
 /** 纯字面量判定（不发起网络请求）。 */

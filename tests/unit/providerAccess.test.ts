@@ -6,6 +6,8 @@ import test from 'node:test';
 import { maskKey, providerPresetOf } from '../../src/server/services/providerPresets.js';
 import { probeProvider } from '../../src/server/services/providerProbe.js';
 import { normalizeConfig, ConfigError } from '../../src/config/configError.js';
+import { resolveSsrfPolicy } from '../../src/security/ssrfPolicy.js';
+import { inspectHost, ssrfOptionsFor } from '../../src/security/ssrfGuard.js';
 
 test('maskKey：保留前 3 后 4，短 Key 全打码', () => {
   assert.strictEqual(maskKey('sk-1234567890abcdef'), 'sk-****cdef');
@@ -44,4 +46,18 @@ test('probeProvider：免 Key 厂商标记为已配置', async () => {
   const result = await probeProvider(ollama, undefined);
   assert.strictEqual(result.configured, true);
   // ok 与否取决于本地 11434 是否在线（环境相关），不在此断言网络结果。
+});
+
+test('probeProvider：注入的 ssrfPolicy 生效（配置化前写死默认档 ⇒ 配了不生效）', async () => {
+  const preset = providerPresetOf('deepseek');
+  assert.ok(preset !== undefined);
+  // 只换主机名：默认档不含 `.provider-probe.invalid` ⇒ 不注入策略时会真的去发请求（拿到「网络不可达」），
+  // 注入后必须在**发请求之前**被 SSRF 拦下 ⇒ 断言错误前缀即可区分两条路径（且无需网络）。
+  const target = { ...preset, baseUrl: 'https://gw.provider-probe.invalid/v1' };
+  const policy = resolveSsrfPolicy({ internalSuffixes: ['.provider-probe.invalid'] });
+  const blocked = await probeProvider(target, 'sk-test', policy);
+  assert.strictEqual(blocked.ok, false);
+  assert.match(String(blocked.error), /^SSRF 拦截/, `应被 SSRF 拦下，实际：${blocked.error}`);
+  // 反向：默认档不含该后缀 ⇒ 同一主机在默认策略下不被 SSRF 拦（证明「拦」来自注入的策略本身）
+  assert.strictEqual(inspectHost('gw.provider-probe.invalid', ssrfOptionsFor()).blocked, false);
 });

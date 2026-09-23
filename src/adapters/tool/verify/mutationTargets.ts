@@ -11,14 +11,15 @@
  * 让装饰器不再依赖「调用方恰好按某种写法传参」。
  */
 import { PatchApplier } from '../fs/patchApplier.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 
 /** 会改动工作区文件的工具（与 `core/toolGate.ts` 的 `MUTATING_TOOLS` 语义不同：此处只含落盘工具）。 */
 export class MutationTargets {
   /** 落盘类工具名集合。 */
   public static readonly WRITE_TOOLS: ReadonlySet<string> = new Set([
-    'write_file',
-    'edit',
-    'apply_patch',
+    TOOL_NAMES.writeFile,
+    TOOL_NAMES.edit,
+    TOOL_NAMES.applyPatch,
   ]);
 
   /**
@@ -32,7 +33,7 @@ export class MutationTargets {
     if (!MutationTargets.WRITE_TOOLS.has(toolName)) {
       return [];
     }
-    if (toolName !== 'apply_patch') {
+    if (toolName !== TOOL_NAMES.applyPatch) {
       return MutationTargets.explicitPath(args);
     }
     return MutationTargets.unique([
@@ -52,13 +53,13 @@ export class MutationTargets {
     toolName: string,
     args: Readonly<Record<string, unknown>>,
   ): string | undefined {
-    if (toolName === 'write_file') {
+    if (toolName === TOOL_NAMES.writeFile) {
       return MutationTargets.textOf(args['content']);
     }
-    if (toolName === 'edit') {
+    if (toolName === TOOL_NAMES.edit) {
       return MutationTargets.textOf(args['new_string']);
     }
-    if (toolName === 'apply_patch') {
+    if (toolName === TOOL_NAMES.applyPatch) {
       return MutationTargets.patchAddedLines(args);
     }
     return undefined;
