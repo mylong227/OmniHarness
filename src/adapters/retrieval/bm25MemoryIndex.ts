@@ -28,8 +28,8 @@ export class Bm25MemoryIndex implements RetrievalPort {
   /** 索引一条会话文档。
    * @param doc 会话文档（含 sessionId 与正文 text）；只入数组不立即建索引。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public index(doc: RetrievalDoc): void {
     this.docs.push(doc);
     this.dirty = true;

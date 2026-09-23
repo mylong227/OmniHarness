@@ -39,8 +39,8 @@ export class HttpA2aTransport implements A2aTransport {
    * 供持有方在建立连接前显式调用——配置错误必须显性暴露，
    * 绝不等到运行时把请求静默发到内网或云元数据服务。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public async validate(): Promise<void> {
     await assertNotSsrf(this.endpoint, this.ssrf);
   }
@@ -49,8 +49,8 @@ export class HttpA2aTransport implements A2aTransport {
    * 订阅入站消息：注册回调，HTTP 响应解析为 JSON-RPC 后经此回传（供 A2aClient 按 id 关联）。
    * @param callback 收到响应消息时的处理回调（重复注册以最后一次为准）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
@@ -61,8 +61,8 @@ export class HttpA2aTransport implements A2aTransport {
    *
    * @param message 待发送的 JSON-RPC 消息（请求/响应/通知）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public send(message: RpcMessage): void {
     // 发送前同步拦截（字面量判定，零网络开销）；命中即不发请求（fail-closed）。
     const verdict = inspectUrl(this.endpoint, this.ssrf);
@@ -105,8 +105,8 @@ export class HttpA2aServerTransport implements A2aTransport {
    * 订阅入站消息：注册处理回调，服务端收到的 POST /a2a 请求体经此转交（如 A2aServer 处理）。
    * @param callback 收到入站请求消息时的处理回调（重复注册以最后一次为准）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public onMessage(callback: (message: RpcMessage) => void): void {
     this.callback = callback;
   }
@@ -117,8 +117,8 @@ export class HttpA2aServerTransport implements A2aTransport {
    *
    * @param message 待回写的 JSON-RPC 消息（须携带 id 才能关联）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public send(message: RpcMessage): void {
     if ('id' in message) {
       const r = this.resolvers.get(message.id);

@@ -52,8 +52,8 @@ export class CancellationToken {
    * 取消；重复调用幂等（首次 reason 生效）。
    * @param reason 结构化取消原因，随 CancelledError 抛出并级联给子令牌。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public cancel(reason: CancelReason = 'user'): void {
     if (this.aborted) {
       return;

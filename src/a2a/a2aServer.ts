@@ -62,8 +62,8 @@ export class A2aServer {
    * 注入任务处理器（本地执行委托）。
    * @param handler 任务委托处理器。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public setTaskHandler(handler: TaskHandler): void {
     this.handler = handler;
   }
@@ -90,8 +90,8 @@ export class A2aServer {
    * UNAUTHORIZED / INVALID 错误响应（通知类无 id 时只吞错不回写）。
    * @param message 入站 JSON-RPC 消息（非请求/通知则忽略）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async onMessage(message: RpcMessage): Promise<void> {
     if (!('method' in message)) return; // 响应，忽略
     const id = 'id' in message ? message.id : null;

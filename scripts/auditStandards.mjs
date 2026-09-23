@@ -277,9 +277,55 @@ function metricsForSource(text, fileName) {
   };
 }
 
+/**
+ * 统计「JSDoc 续行缩进 ≠ 注释起始列 + 1」的行数。
+ *
+ * 为什么需要：全仓曾有 **216 处** `@returns 无返回值。` 是在自动补写文档时被追加到 JSDoc **块外**的
+ * （缩进只剩 0–2 空格），渲染/阅读时会被当成块外内容；Prettier 不管 JSDoc 续行缩进，现有门禁也不查，
+ * 于是这类「注释脱块」能长期存在。本函数用 TS scanner 取多行注释（**不误伤字符串/模板里的 `/**`**），
+ * 只检查以 `*` 开头的续行（空行与块内代码块以外的行不计）。
+ *
+ * 注意：本规则**不**禁止 `void` 方法写 `@returns` —— `auditStandards.mjs` 的增量门禁第
+ * 「方法缺@returns」项把「有显式返回类型的方法」（含 `void` / `Promise<void>`）计入分母，
+ * `@returns 无返回值。` 正是满足该项的合规写法；要改这一政策须先改那条门禁的口径，不在本规则范围。
+ *
+ * @param text 源码文本
+ * @returns 违约行数
+ */
+function jsdocIndentViolations(text) {
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.ES2022,
+    false,
+    ts.LanguageVariant.Standard,
+    text,
+  );
+  let count = 0;
+  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
+    if (kind !== ts.SyntaxKind.MultiLineCommentTrivia) continue;
+    const start = scanner.getTokenStart();
+    const raw = text.slice(start, scanner.getTokenEnd());
+    if (!raw.startsWith('/**')) continue; // 只约束 JSDoc，普通块注释不强制对齐
+    const lineStart = text.lastIndexOf('\n', start) + 1;
+    // BOM 是文件头字节序标记，不是缩进的一部分——不扣除会把 41 个带 BOM 的 .ts 全体误判（实测）。
+    const bom = lineStart === 0 && text.charCodeAt(0) === 0xfeff ? 1 : 0;
+    const openCol = start - lineStart - bom;
+    const lines = raw.split('\n');
+    for (let i = 1; i < lines.length; i += 1) {
+      const line = lines[i];
+      const trimmed = line.trimStart();
+      if (trimmed === '' || !trimmed.startsWith('*')) continue;
+      if (line.length - trimmed.length !== openCol + 1) count += 1;
+    }
+  }
+  return count;
+}
+
 const report = [];
 for (const f of files) {
-  const m = metricsForSource(fs.readFileSync(f, 'utf8'), f);
+  const text = fs.readFileSync(f, 'utf8');
+  const m = metricsForSource(text, f);
+  // JSDoc 续行缩进违约（见 jsdocIndentViolations 的说明）：Prettier 不管 JSDoc 缩进，故单独度量。
+  m.jsdocIndent = jsdocIndentViolations(text);
   m.fanIn = fanIn.get(key(f)) || 0;
   m.hot = isHot(f);
   report.push(m);
@@ -351,6 +397,13 @@ if (process.argv.includes('--delta')) {
     cmp('方法缺@param', s.paramGap, h?.paramGap ?? 0, '有参方法的 JSDoc 缺 @param');
     cmp('方法缺@returns', s.returnsGap, h?.returnsGap ?? 0, '有返回类型的方法缺 @returns');
     cmp('类字段缺注释', s.fieldGap, h?.fieldGap ?? 0, '属性声明缺注释');
+    // JSDoc 续行缩进（新增规则，2026-09-24）：注释脱块「只增即红」，存量已一次性机器修复。
+    cmp(
+      'JSDoc缩进',
+      jsdocIndentViolations(stagedText),
+      h ? jsdocIndentViolations(headText) : 0,
+      'JSDoc 续行缩进 ≠ 注释起始列 + 1（注释脱离所属块）',
+    );
     if (!s.nameMatches && (isNew || h?.nameMatches)) {
       failures.push({ f, item: '文件名≠类名', detail: `主类 ${s.mainClass}` });
     }
@@ -414,6 +467,7 @@ console.log(
 console.log(
   'public members w/o JSDoc: ' + sum(report, 'publicNoJsdoc') + ' / ' + sum(report, 'publicTotal'),
 );
+console.log('JSDoc 续行缩进违约（注释脱块）: ' + sum(report, 'jsdocIndent'));
 
 // 口径（2026-09-12 修正）：「上帝类」是**类**的属性，故只统计**含类**的文件。
 // 口径（D7，2026-09-13 修正）：行数判据用 codeLines（剔注释/空行），不惩罚补文档——见 metricsForSource 内留档。

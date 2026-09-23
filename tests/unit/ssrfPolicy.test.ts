@@ -11,7 +11,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,7 @@ import { DEFAULT_SSRF_POLICY, resolveSsrfPolicy } from '../../src/security/ssrfP
 import { defaultSsrfOptions, inspectHost, ssrfOptionsFor } from '../../src/security/ssrfGuard.js';
 import { NetworkEgressGuard } from '../../src/adapters/sandbox/networkEgressGuard.js';
 import { ssrfPolicyValidator } from '../../src/config/ssrfPolicyValidator.js';
-import { BuiltinDefaults } from '../../src/util/builtinDefaults.js';
+import { BuiltinDefaults, builtinDefaults } from '../../src/util/builtinDefaults.js';
 import { configDefaults } from '../../src/cli/argParser.js';
 import type { FileConfig } from '../../src/config/configFile.js';
 
@@ -161,6 +161,42 @@ test('⑤-2 数据文件缺失 / 坏 JSON 一律抛错（fail-closed，绝不退
   writeFileSync(join(dir, 'ok.json'), '{"a":1}', 'utf8');
   assert.deepStrictEqual(loader.json('ok'), { a: 1 });
   assert.deepStrictEqual(loader.json('ok'), { a: 1 });
+});
+
+test('⑤-3 包根定位：以 package.json 为锚，随包/源码两种布局都命中（不是写死级数）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'omni-root-'));
+  const pkg = join(root, 'pkg');
+  mkdirSync(join(pkg, 'defaults'), { recursive: true });
+  writeFileSync(join(pkg, 'package.json'), '{"name":"x","files":["defaults"]}', 'utf8');
+  writeFileSync(join(pkg, 'defaults', 'ssrf.json'), '{}', 'utf8');
+  // 随包布局：dist/src/util → 向上 3 级
+  const shipped = join(pkg, 'dist', 'src', 'util');
+  mkdirSync(shipped, { recursive: true });
+  assert.strictEqual(BuiltinDefaults.locatePackageRoot(shipped), join(pkg, 'defaults'));
+  // 源码布局：src/util → 向上 2 级（旧实现写死 ../../.. 时会指到仓库父目录）
+  const source = join(pkg, 'src', 'util');
+  mkdirSync(source, { recursive: true });
+  assert.strictEqual(BuiltinDefaults.locatePackageRoot(source), join(pkg, 'defaults'));
+  // 只有 defaults/ 而无 package.json 的祖先不算包根（否则会静默读到别人的数据 = fail-open）
+  const orphan = join(root, 'orphan');
+  mkdirSync(join(orphan, 'defaults'), { recursive: true });
+  mkdirSync(join(orphan, 'src', 'util'), { recursive: true });
+  assert.throws(() => BuiltinDefaults.locatePackageRoot(join(orphan, 'src', 'util')), /定位包根/);
+  // 向上有界：足够深的目录不会无限上溯
+  const deep = join(root, 'a', 'b', 'c', 'd', 'e', 'f');
+  mkdirSync(deep, { recursive: true });
+  assert.throws(() => BuiltinDefaults.locatePackageRoot(deep), /定位包根/);
+  // 最近者胜：嵌套包根取内层
+  const inner = join(pkg, 'vendor', 'inner');
+  mkdirSync(join(inner, 'defaults'), { recursive: true });
+  writeFileSync(join(inner, 'package.json'), '{"name":"inner"}', 'utf8');
+  mkdirSync(join(inner, 'src'), { recursive: true });
+  assert.strictEqual(
+    BuiltinDefaults.locatePackageRoot(join(inner, 'src')),
+    join(inner, 'defaults'),
+  );
+  // 默认实例（真实仓库布局）必须解析成功，且能读到三份数据
+  assert.deepStrictEqual(Object.keys(builtinDefaults.json('ssrf') as object).length > 0, true);
 });
 
 test('⑥ 配置化的 ipv4Blocks 对 IPv6 内嵌写法同样生效（口径修复回归）', () => {

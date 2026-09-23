@@ -269,8 +269,8 @@ export class Agent implements AgentPort {
    * @param sessionId 事件落盘的目标会话 ID。
    * @param events 要写入存储的完整事件序列（append-only 全量快照）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async persist(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     try {
       await this.runtime.storage.save(sessionId, events);
@@ -285,8 +285,8 @@ export class Agent implements AgentPort {
    * @param prompt 用户 prompt，作为技能匹配（keywords/触发规则）的输入。
    * @param log 事件日志（含 hydrate 进来的历史）：用于判断某条技能文本是否已注入过。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private injectSkills(recorder: SessionRecorder, prompt: string, log: AppendOnlyEventLog): void {
     if (this.skills === undefined) {
       return;
@@ -381,8 +381,8 @@ export class Agent implements AgentPort {
    * @param prompt 开场用户 prompt，作为相关性召回的查询文本。
    * @param sessionId 当前会话 ID，用于过滤本会话刚沉淀的事实（避免自指回灌）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private injectMemoryPrimer(recorder: SessionRecorder, prompt: string, sessionId: string): void {
     const memory = this.runtime.longTermMemory;
     if (memory === undefined || memory.count === 0) {
@@ -537,8 +537,8 @@ export class Agent implements AgentPort {
    * 任务完成后可选跑一轮进化闭环（autoRun 开启时）。异常被吞，绝不连累主任务。
    * @param sessionId 触发本轮进化的会话 ID，仅用于结构化日志关联。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async runEvolutionIfEnabled(sessionId: string): Promise<void> {
     const evo: EvolutionController | undefined = this.runtime.evolution;
     if (evo === undefined || !evo.autoRun) {
@@ -562,8 +562,8 @@ export class Agent implements AgentPort {
    * 任务完成后可选跑一轮燧内核调谐/冲刷（autoRun 开启时）。异常被吞，绝不连累主任务。
    * @param sessionId 触发本轮燧周期的会话 ID，仅用于结构化日志关联。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async runSparkIfEnabled(sessionId: string): Promise<void> {
     const spark: SparkController | undefined = this.runtime.spark;
     if (spark === undefined || !spark.autoRun) {

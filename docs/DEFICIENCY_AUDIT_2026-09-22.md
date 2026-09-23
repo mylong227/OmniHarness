@@ -476,3 +476,32 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
   建议加一条标准检查后机器统一修复（详见看板 §20.13）。
 - **清理**：删除两个一次性 codemod 脚本 `scripts/tmpPolicyTableCodemod.mjs` / `scripts/tmpToolNameCodemod.mjs`
   （脚本自述「跑完即删，不入库」，留着即新死资产）。
+
+### 3.11【本轮已做，结清 §3.10 的两项留档】包根锚点定位 + JSDoc 脱块清零（含新标准规则）
+
+- **① 包根定位（原「刻意不做」，本轮改为有锚点的实现）**：`util/builtinDefaults.ts` 原先用
+  `resolve(dirname(import.meta.url), '../../..', 'defaults')` —— 只对 `dist/src/**`（测试与发布布局）正确，
+  源码布局（`src/util/`）会解析到仓库**父目录**。现 `BuiltinDefaults.locatePackageRoot()` 从模块目录向上
+  查找**同时含 `package.json` 与 `defaults/`** 的那一级（最近者胜、上限 4 级）。
+  **为何这不是 fail-open**：只找名为 `defaults/` 的目录，会在某一级父目录碰巧有同名目录时静默读到别人的
+  数据；以 `package.json` 作包根身份锚点后，命中的必是本包根，找不到即**当场抛错**（而非用猜出的相对路径）。
+  测试：随包/源码布局均命中、只有 `defaults/` 无 `package.json` 抛错、超上限深目录抛错、嵌套包根取最近者。
+- **② JSDoc 脱块清零 + 新规则**：全仓 **31 文件 / 94 行**的 JSDoc 续行缩进 ≠ 「注释起始列 + 1」
+  （`@returns 无返回值。` / `*/` 被写在注释块外）。成因：历史自动补写文档按「行首一空格」写，而 Prettier
+  不管 JSDoc 续行缩进、原门禁也不查 ⇒ 长期存活。已一次性机器修复（只动行首空白）。
+  规则接入 `auditStandards.mjs`：`--delta` 「只增即红」+ SUMMARY 打印度量 +
+  `tests/unit/standardsJsdocIndent.test.ts` 钉住「已接线 + 真实仓库为 0」。
+  **统计口径的坑（留档）**：带 BOM 的 41 个 `.ts` 会把 BOM 计入首行列号，首版统计虚报为 122–249 处；
+  真实值为 94 处（实现已显式扣除 BOM）。
+- **③ 刻意不做的相反方向（附理由）**：**不**禁止 `void` 方法写 `@returns 无返回值。`——
+  `auditStandards.mjs` 增量门禁的「方法缺@returns」（`returnsGap`）把「有显式返回类型的方法」含
+  `void` / `Promise<void>` 计入分母，`@returns 无返回值。` 正是合规写法；禁止它须先改那条门禁口径，
+  属独立政策决策。结论：本轮只治「注释脱块」，不动 `@returns` 有无。
+- **④ 工具与流程留档**：codemod 第一版按注释 token 起点累加行长算偏移，导致替换位置右移 `openCol` 个字符、
+  把 31 文件正文改坏（`@returns 无返   回值。`）；已全部 `git checkout` 回滚后重写为「按整行偏移 + 写盘前
+  自证 0 违约」。**教训：批量文本改写必须先 dry-run 抽样核对 diff，且修复器要自带「改完复检为 0」的后置断言。**
+- **⑤ 推送状态**：`mine` 已推送全部提交；**`origin`（`omniharness/omniharness`）推送被拒**——
+  `remote: Permission to omniharness/omniharness.git denied to mylong227` + HTTP 403（账号无写权限，
+  非网络问题）。
+- **实跑证据**：`npm test` **2093 例 / 2088 过 / 1 失败（本机 Chrome e2e，环境问题）/ 4 skip**；`check --strict`、`arch:gate`、`audit:config-wiring`（七条不变量）、
+  `audit:maturity`、`audit:standard --delta`、`lint`、`format:check`、`typecheck`（含 web）全通过。

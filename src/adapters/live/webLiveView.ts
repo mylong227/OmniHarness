@@ -29,8 +29,8 @@ export class WebLiveView implements ToolInputSink {
    *
    * @param delta 工具输入增量事件
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public onToolInput(delta: ToolInputDelta): void {
     this.broadcaster.notify('thread.tool_input', {
       id: delta.id ?? null,

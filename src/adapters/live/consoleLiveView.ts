@@ -28,8 +28,8 @@ export class ConsoleLiveView implements ToolInputSink {
    *
    * @param delta 工具输入增量事件
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public onToolInput(delta: ToolInputDelta): void {
     // 仅 TTY 实时刷新；非 TTY（管道／重定向／CI）静默，避免把控制码刷进 stdout 或日志。
     const tty = (this.out as { isTTY?: unknown }).isTTY === true;

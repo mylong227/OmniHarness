@@ -9,8 +9,8 @@ export class ConsoleEventPort implements EventPort {
   /** 输出事件。
    * @param event 会话事件（JSON 序列化后单行写入 stderr，不与 stdout 结构化输出混流）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public emit(event: SessionEvent): void {
     process.stderr.write(`${JSON.stringify(event)}\n`);
   }

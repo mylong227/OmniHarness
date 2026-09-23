@@ -301,8 +301,8 @@ export class ConfigFile {
    * 写回配置文件（落盘）：先归一化校验（未知 key / 枚举越界 / 类型错误 fail-closed 抛 ConfigError），
    * 目录不存在自动创建，输出 pretty JSON。供 AppServer.config.update 持久化 UI 设置。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public save(filePath: string, cfg: FileConfig): void {
     const dir = dirname(filePath);
     if (!existsSync(dir)) {

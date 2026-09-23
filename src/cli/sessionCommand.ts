@@ -39,8 +39,8 @@ export class SessionCommand {
    * @param file 会话文件绝对路径。
    * @param name 文件名（会话 id 兜底用）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async describe(file: string, name: string): Promise<void> {
     const content = await readFile(file, 'utf8');
     const lines = content.split('\n').filter((line) => line.trim() !== '');

@@ -38,8 +38,8 @@ export class TurnDiffTracker implements TurnDiffTrackerPort {
    * @param before 写入前内容快照；新建文件为 null。
    * @param after 写入后的完整内容。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public noteWrite(path: string, before: string | null, after: string): void {
     if (!this.valid || !this.baseline.has(path)) {
       this.baseline.set(path, before);
