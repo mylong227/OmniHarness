@@ -1530,7 +1530,21 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
   `[NEW!]` + **exit 1**，移除后复绿；`npm test` **2052 例 / 2047 过 / 1 失败（本机 Chrome）/ 4 skip**，
   与搬迁前**逐项一致**（无回归）；`check --strict` 561 文件零违规（AST 体量白名单路径已随迁更新）。
 
-### 20.8 ⬜ 待执行（本板按 ROI 顺序推进）
+### 20.8 ✅ 已结项：写类单一口径（ToolScheduler 屏障）+ checkpoint label 白名单（目标 ③）
+
+- **缺陷（审计 P2）**：① `ToolScheduler` 用**名字子串黑名单**判定串行 ⇒ 实测 `rollback | read_file | remember`
+  **同批并发**，与自身「写类形成屏障」契约矛盾，且与 `MUTATING_TOOLS` 口径漂移；
+  ② `checkpoint` 的 `label` 只判非空却直接拼进快照路径 ⇒ 模型可用 `../../..` 把含工作区文件内容的快照写到工作区外。
+- **修法**：
+  ① `MUTATING_TOOLS` 升格为**写类单一口径**（补 `rollback`/`checkpoint`/`remember`，并写明三处消费者：
+  计划模式拦截 / 监督内核 hazardous / 调度器屏障）；`ToolScheduler` 改为先查该集合、名字模式仅兜底未知工具；
+  ② checkpoint 标识白名单 `^[A-Za-z0-9_-]{1,64}$`，**在 `snapshot`/`rollback` 入口即校验**（仅在路径构造函数里校验会
+  被「无 workspaceSnapshot 的纯事件检查点」绕过——回归测试当场暴露），工具层先拒 + 路径构造处保留包含性断言。
+- **可证伪验证**：`toolScheduler` 新增 3 例（三工具各自形成屏障 / 写写之间串行 / **遍历 `MUTATING_TOOLS` 全集**
+  断言「在集合内即不可并行」）；`checkpoint` 新增 4 例（7 种非法 label + 非法 sessionId 全拒、合法不收紧、工具层拒穿越）。
+  `npm test` **2059 例 / 2054 过 / 1 失败（本机 Chrome）/ 4 skip**（较上一轮 +7 全绿）；门禁全绿。
+
+### 20.9 ⬜ 待执行（本板按 ROI 顺序推进）
 
 7. repo-map 结果 memo ＋ 上下文记账前缀缓存；
 8. 精排判别器升级（**须先做完 20.1 的复核**）；

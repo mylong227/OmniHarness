@@ -15,6 +15,7 @@
 
 import type { ToolCall, ToolResult } from '../../ports/tool/tool.js';
 import { at } from '../../util/arrayAt.js';
+import { MUTATING_TOOLS } from '../toolGate.js';
 
 /** 工具调用执行器（StepRunner.runToolCall 的抽象，保持签名稳定）。 */
 export type ToolExecutor = (call: ToolCall) => Promise<ToolResult>;
@@ -144,11 +145,19 @@ export class ToolScheduler {
   }
 
   /**
-   * 保守内置判定：工具名不含任何写类模式词即视为可并行。
+   * 保守内置判定：**写类（`MUTATING_TOOLS`）一律串行**；其余工具名含写类模式词亦串行。
+   *
+   * 2026-09-22 修（审计 P2）：原实现只看名字子串黑名单，于是 `rollback` / `checkpoint` / `remember`
+   * 这类**不在黑名单但确实有副作用**的工具被判为可并行——实测 `rollback | read_file | remember`
+   * 同批并发，与模块头「写类形成屏障」的契约直接矛盾，也与 `MUTATING_TOOLS` 口径漂移。
+   * 现以 `MUTATING_TOOLS` 为**单一真相**，名字模式仅作未知/第三方工具的兜底。
    * @param toolName 工具名称
    * @returns 是否可并行（只读/无共享可变状态）
    */
   private static defaultParallelCapable(toolName: string): boolean {
+    if (MUTATING_TOOLS.has(toolName)) {
+      return false;
+    }
     const lower = toolName.toLowerCase();
     return !SERIAL_PATTERNS.some((p) => lower.includes(p));
   }

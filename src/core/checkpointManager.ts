@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import type { SessionEvent } from '../ports/runtime/event.js';
 import type { StoragePort } from '../ports/memory/storage.js';
 import type { WorkspaceSnapshotPort } from '../ports/tool/workspaceSnapshot.js';
@@ -22,6 +22,30 @@ export interface CheckpointOptions {
 const INDEX_PREFIX = 'checkpoint_index:';
 /** 检查点事件键前缀：以合成 sessionId 作为独立 key 落盘事件。 */
 const CK_PREFIX = 'checkpoint:';
+
+/**
+ * 标签/会话 id 白名单（**fail-closed**）：只允许字母数字与 `_`/`-`，长度 1–64。
+ *
+ * 为什么必须校验（2026-09-22 修，审计 P2）：`fileSnapshotPath` 用
+ * `join(base, sessionId, `${label}.files.json`)` 直接拼路径，而 `label` 来自**模型可控的工具参数**
+ * ⇒ `checkpoint{label:"../../../../x/y"}` 可把「含工作区文件内容的快照 JSON」写到工作区外任意可写路径，
+ * `rollback` 取路径同源，配合快照还原构成越界读写。白名单 `..`、`/`、`\` 一律被拒。
+ */
+const SAFE_CHECKPOINT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * 校验检查点标识（标签或会话 id）。
+ * @param value 待校验值
+ * @param field 出错信息中的字段名
+ * @throws Error 不符合白名单时抛出（调用方按 fail-closed 返回失败）
+ */
+function assertSafeCheckpointId(value: string, field: string): void {
+  if (!SAFE_CHECKPOINT_ID.test(value)) {
+    throw new Error(
+      `${field} 非法（仅允许字母数字与 _ -，长度 1–64）：${value.replace(/[\r\n]/g, ' ').slice(0, 80)}`,
+    );
+  }
+}
 
 /** 索引 key：检查点 meta 以合成"会话"形式借 StoragePort 存取。 */
 
@@ -56,14 +80,24 @@ export class CheckpointManager implements CheckpointManagerPort {
   }
 
   /**
-   * 文件快照落盘路径。
-   * @param sessionId 检查点所属会话 ID。
-   * @param label 检查点标签（同会话内唯一）。
+   * 文件快照落盘路径（含**越界断言**）。
+   * @param sessionId 检查点所属会话 ID（白名单校验）。
+   * @param label 检查点标签（白名单校验）。
    * @returns `<stateDir>/<sessionId>/<label>.files.json` 形式的绝对路径。
+   * @throws Error 标识非法或结果路径逃出 stateDir 时抛出（fail-closed）
    */
   private fileSnapshotPath(sessionId: string, label: string): string {
-    const base = this.stateDir ?? join(this.workspaceRoot ?? process.cwd(), '.omni-checkpoints');
-    return join(base, sessionId, `${label}.files.json`);
+    assertSafeCheckpointId(sessionId, 'sessionId');
+    assertSafeCheckpointId(label, 'label');
+    const base = resolve(
+      this.stateDir ?? join(this.workspaceRoot ?? process.cwd(), '.omni-checkpoints'),
+    );
+    const target = resolve(join(base, sessionId, `${label}.files.json`));
+    // 双保险：即便白名单未来被放宽，也断言最终路径仍在 base 之内（防「词法在内、真实在外」）。
+    if (target !== base && !target.startsWith(base + sep)) {
+      throw new Error(`检查点路径越界：${target}`);
+    }
+    return target;
   }
 
   /**
@@ -73,6 +107,11 @@ export class CheckpointManager implements CheckpointManagerPort {
    * @returns 本检查点的元信息（标签、时间、事件数、是否含文件快照）。
    */
   public async snapshot(sessionId: string, label: string): Promise<CheckpointMeta> {
+    // 入口即校验（fail-closed）：不能只在 `fileSnapshotPath` 里校验——那条路径仅在注入了
+    // workspaceSnapshot 时才走到，纯事件检查点会**跳过校验**（2026-09-22 由回归测试暴露）。
+    // 非法标识还会被写进 storage 的合成 key（`checkpoint:<sid>:<label>`），故此处必须拦。
+    assertSafeCheckpointId(sessionId, 'sessionId');
+    assertSafeCheckpointId(label, 'label');
     const events = await this.storage.load(sessionId);
     const ts = new Date().toISOString();
     const hasFileSnapshot = await this.snapshotFiles(sessionId, label);
@@ -130,6 +169,12 @@ export class CheckpointManager implements CheckpointManagerPort {
    * @returns 被回滚到的检查点 meta。
    */
   public async rollback(sessionId: string, label?: string): Promise<CheckpointMeta> {
+    // 入口即校验（fail-closed）——理由同 `snapshot()`：非法标识既会拼进 storage 合成 key，
+    // 也会拼进文件快照路径（label 是模型可控参数）。
+    assertSafeCheckpointId(sessionId, 'sessionId');
+    if (label !== undefined) {
+      assertSafeCheckpointId(label, 'label');
+    }
     const index = await this.loadIndex(sessionId);
     if (index.length === 0) {
       throw new Error('无可用检查点');

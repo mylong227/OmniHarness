@@ -76,3 +76,53 @@ test('无快照 rollback 抛错（fail-closed）', async () => {
     (err: Error) => err.message === '无可用检查点',
   );
 });
+
+// ---- 2026-09-22 回归（审计 P2）：label / sessionId 路径穿越必须被拒 ----
+test('checkpoint：非法 label 被拒（路径穿越 fail-closed）', async () => {
+  const storage = new MemoryStorage();
+  const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
+  const sid = 's_traversal';
+  await storage.save(sid, events(1, sid));
+  for (const bad of ['../../evil', '..\\..\\evil', 'a/b', 'a\\b', '', 'x'.repeat(65), 'a.b']) {
+    await assert.rejects(
+      () => mgr.snapshot(sid, bad),
+      /label 非法/,
+      `label=${JSON.stringify(bad)} 应被白名单拒绝`,
+    );
+  }
+});
+
+test('checkpoint：非法 sessionId 被拒（会话 id 同样拼进路径）', async () => {
+  const storage = new MemoryStorage();
+  const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
+  await assert.rejects(() => mgr.snapshot('../outside', 'ok'), /sessionId 非法/);
+});
+
+test('checkpoint：合法 label 仍可用（不过度收紧）', async () => {
+  const storage = new MemoryStorage();
+  const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
+  const sid = 's_ok';
+  await storage.save(sid, events(2, sid));
+  const meta = await mgr.snapshot(sid, 'before-refactor_2');
+  assert.strictEqual(meta.label, 'before-refactor_2');
+  await assert.rejects(() => mgr.snapshot(sid, 'bad label with spaces'), /label 非法/);
+});
+
+test('checkpoint 工具层：模型可控的 label 被白名单拒绝（纵深防御第一道）', async () => {
+  const { makeCheckpointHandler } = await import('../../src/adapters/tool/git/checkpointTool.js');
+  const storage = new MemoryStorage();
+  const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
+  const handler = makeCheckpointHandler(mgr);
+  const ctx = { sessionId: 's_tool', callId: 'c1', workspaceRoot: process.cwd() } as never;
+  const bad = await handler(
+    { id: 'c1', name: 'checkpoint', arguments: { label: '../../../../tmp/evil' } },
+    ctx,
+  );
+  assert.strictEqual(bad.ok, false);
+  assert.match(String(bad.error), /label 非法/);
+  const good = await handler(
+    { id: 'c2', name: 'checkpoint', arguments: { label: 'before-refactor' } },
+    ctx,
+  );
+  assert.strictEqual(good.ok, true);
+});
