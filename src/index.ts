@@ -1,4 +1,4 @@
-// @public 端口层（标准插口）
+﻿// @public 端口层（标准插口）
 export type {
   ApprovalDecision,
   ApprovalPort,
@@ -46,8 +46,8 @@ export { Agent } from './core/agent.js';
 export type { AgentResult } from './core/agent.js';
 export { AppendOnlyEventLog } from './core/appendOnlyEventLog.js';
 export { Container } from './core/container.js';
-export { createRuntime, ServiceKeys } from './core/runtime.js';
-export type { OmniHarnessRuntime } from './core/runtime.js';
+export { createRuntime, ServiceKeys } from './composition/runtime.js';
+export type { OmniHarnessRuntime } from './composition/runtime.js';
 export { SessionRecorder } from './core/sessionRecorder.js';
 export { StepRunner } from './core/stepRunner.js';
 export { TurnRunner } from './core/turnRunner.js';

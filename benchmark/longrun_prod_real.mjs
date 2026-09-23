@@ -1,4 +1,4 @@
-// longrun_prod_real.mjs —— 真实 LLM 端到端验证（I-P4 收口佐证）
+﻿// longrun_prod_real.mjs —— 真实 LLM 端到端验证（I-P4 收口佐证）
 //
 // 目的：证明九算子生产路径在「真实外部 LLM 流量」（非 ScriptedModel 桩）下同样成立。
 //       与 longrun_prod_demo.mjs 的唯一差异：模型换成 OpenAiCompatibleModel（DeepSeek 真实端点）
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
-import { createRuntime } from '../dist/src/core/runtime.js';
+import { createRuntime } from '../dist/src/composition/runtime.js';
 import { Agent } from '../dist/src/core/agent.js';
 import { OpenAiCompatibleModel } from '../dist/src/adapters/model/openaiCompatibleModel.js';
 import { BudgetedModel } from '../dist/src/adapters/model/budgetedModel.js';

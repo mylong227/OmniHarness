@@ -1,4 +1,4 @@
-/**
+﻿/**
  * cliCompareCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 4.5/6 层）。
  *
  * 承载 A/B 模型对比子命令簇：compare / compareSide / buildCompareConfig。
@@ -7,7 +7,7 @@
  */
 
 import { Agent } from '../core/agent.js';
-import { createRuntime } from '../core/runtime.js';
+import { createRuntime } from '../composition/runtime.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';

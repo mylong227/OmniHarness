@@ -2,7 +2,7 @@ import type { SessionEvent } from '../ports/runtime/event.js';
 import type { ToolContext } from '../ports/tool/tool.js';
 import type { MemoryFact } from '../ports/memory/longTermMemory.js';
 import type { ImageContent, FileAttachment } from '../ports/model/model.js';
-import type { OmniHarnessRuntime } from './runtime.js';
+import type { OmniHarnessRuntime } from '../composition/runtime.js';
 import type { EvolutionController, PromotionVerdict } from '../ports/runtime/evolution.js';
 import type { SparkController, SparkCycleReport } from '../spark/sparkController.js';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';

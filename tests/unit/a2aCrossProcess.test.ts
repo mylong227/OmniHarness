@@ -1,4 +1,4 @@
-/**
+﻿/**
  * E2：A2A 跨进程实测 + 真实子代理委托链路。
  *
  * 看板 E2 的可证伪验收是两例：
@@ -28,7 +28,7 @@ import type { Readable } from 'node:stream';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 import { A2aClient, HttpA2aTransport, WsA2aTransport } from '../../src/a2a/index.js';
 import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';

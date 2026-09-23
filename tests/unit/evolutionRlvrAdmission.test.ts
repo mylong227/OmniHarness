@@ -1,4 +1,4 @@
-/**
+﻿/**
  * T5 合流接线测试：把「退火接受 / 多样性闸 / 覆盖率体检 / 失败模式挖掘」钉在**生产装配路径**上。
  *
  * 断言的不是「模块存在」，而是「经生产入口装配出来的控制器确实走了这些闸」：
@@ -17,7 +17,7 @@ import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import {
   createRlvrEvolutionController,
   RlvrEvolutionController,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * execImpl.ts —— OmniHarness CLI 命令实现（god-class 拆分后的实体层）。
  *
  * 自续十七→十九 起，原 2152 行 ExecCli 已拆分为继承链：
@@ -18,7 +18,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { Agent } from '../core/agent.js';
-import { createRuntime } from '../core/runtime.js';
+import { createRuntime } from '../composition/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
 import { configFile } from '../config/configFile.js';
 import type { CliArgs } from './argParser.js';

@@ -1,4 +1,4 @@
-// longrun_prod_demo.mjs —— I-P4-3 真实外部负载路径演示（production 观测累积）
+﻿// longrun_prod_demo.mjs —— I-P4-3 真实外部负载路径演示（production 观测累积）
 //
 // 目的：证明「在真实外部负载下启用 runtimeTelemetry + sparkAutoRun，让闭环跑真实流量」
 //       的整条生产路径真实可用，而非只在 self-driven 驱动里自证。
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
-import { createRuntime } from '../dist/src/core/runtime.js';
+import { createRuntime } from '../dist/src/composition/runtime.js';
 import { Agent } from '../dist/src/core/agent.js';
 import { ScriptedModel } from '../dist/src/eval/scriptedModel.js';
 import { MemoryStorage } from '../dist/src/adapters/storage/memoryStorage.js';

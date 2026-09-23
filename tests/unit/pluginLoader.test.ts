@@ -1,11 +1,11 @@
-import { test } from 'node:test';
+﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { Container } from '../../src/core/container.js';
-import { ServiceKeys } from '../../src/core/runtime.js';
+import { ServiceKeys } from '../../src/composition/runtime.js';
 import { PluginManager } from '../../src/plugin/pluginManager.js';
 import { PermissionGate } from '../../src/plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../../src/plugin/permission.js';

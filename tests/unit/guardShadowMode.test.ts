@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 护栏生效模式端到端单测（D1）：**跑通「CLI → 装配 → 运行时 → 消费点」全链**，而不是只测纯函数。
  *
  * 核心待证命题（shadow 档存在的意义）：**同一段恶意工具输出，在 `shadow` 下必须逐字原样进入上下文**
@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { ExtraTool } from '../../src/config/configFactory.js';
 import { parseArgs } from '../../src/cli/argParser.js';

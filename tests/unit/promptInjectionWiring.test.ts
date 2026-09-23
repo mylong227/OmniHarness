@@ -1,4 +1,4 @@
-/**
+﻿/**
  * P4 提示注入护栏的生产接线回归测试（针对第九处「声明未接线」）。
  *
  * 缺陷形态：`promptInjectionGuard` 只在 `OmniHarnessConfig` 上**声明**，`ConfigFactory.build`
@@ -15,7 +15,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { ExtraTool } from '../../src/config/configFactory.js';
 import { parseArgs } from '../../src/cli/argParser.js';

@@ -1,4 +1,4 @@
-import type { ApprovalPort } from '../ports/runtime/approval.js';
+﻿import type { ApprovalPort } from '../ports/runtime/approval.js';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
@@ -9,7 +9,7 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import type { OmniHarnessRuntime } from '../core/runtime.js';
+import type { OmniHarnessRuntime } from '../composition/runtime.js';
 
 /**
  * @beta

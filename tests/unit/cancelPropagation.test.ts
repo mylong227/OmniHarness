@@ -1,4 +1,4 @@
-// 取消传播探针（线索 3）：父会话 cancelCurrentRun → 子代理 / 工作流 / 目标循环
+﻿// 取消传播探针（线索 3）：父会话 cancelCurrentRun → 子代理 / 工作流 / 目标循环
 // 必须在飞模型请求上观察到中止；否则等于「父已取消，子代仍在烧 token」。
 //
 // 造法：
@@ -22,7 +22,7 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
 import { SubagentRunner } from '../../src/subagent/subagentRunner.js';

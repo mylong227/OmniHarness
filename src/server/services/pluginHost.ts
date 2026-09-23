@@ -1,6 +1,6 @@
-import type { ResolvedConfig } from '../../config/configFactory.js';
+﻿import type { ResolvedConfig } from '../../config/configFactory.js';
 import { Container } from '../../core/container.js';
-import { ServiceKeys } from '../../core/runtime.js';
+import { ServiceKeys } from '../../composition/runtime.js';
 import { PluginManager } from '../../plugin/pluginManager.js';
 import { loadInstalledPlugins } from '../../plugin/pluginLoader.js';
 import { PermissionGate } from '../../plugin/permissionGate.js';

@@ -1,4 +1,4 @@
-// 进化闭环端到端集成测试（P1 首发块的核心主张：发明层原语真进 createRuntime 真实循环做 A/B）。
+﻿// 进化闭环端到端集成测试（P1 首发块的核心主张：发明层原语真进 createRuntime 真实循环做 A/B）。
 // 把 EvolutionController 注入 Agent（autoRun 开启），跑一个真实任务，断言：
 //   ① 任务正常完成、主流程不报错；
 //   ② 任务完成后自动跑一轮 发现→评估→晋升；
@@ -17,7 +17,7 @@ import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolution
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';

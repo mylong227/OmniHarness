@@ -1,4 +1,4 @@
-// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 createRuntime，
+﻿// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 createRuntime，
 // 复用 I-P1-4 进化闭环的 autoRun 钩子范式，使"市面唯一"从端口变为真能力。断言：
 //   ① 启用 resonance 后，注入 Agent 的 longTermMemory 即共振引擎，recall 走频率域代数（drop-in）；
 //   ② 启用 vortexRing 后，注入的 spill 即涡环包适配器，外溢封成 vr_ 拓扑环、解环 fail-closed；
@@ -16,7 +16,7 @@ import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemoryEn
 import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/core/runtime.js';
+import { createRuntime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
