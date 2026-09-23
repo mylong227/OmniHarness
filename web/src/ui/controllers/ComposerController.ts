@@ -119,7 +119,12 @@ export class ComposerController {
     if (!this.inFlight || this.abortRequested) return;
     this.abortRequested = true;
     this.settleRound(true);
-    void this.services.api.abortTurn().catch(() => {});
+    // 带上当前 threadId：服务端允许多回合并行，不带 id 会退化成「取消全部在跑回合」
+    // （2026-09-22 修：此前不带 id，并发会话下会误停别的会话）。
+    const threadId = this.host.getState().currentThreadId;
+    void this.services.api
+      .abortTurn(threadId ?? undefined)
+      .catch(() => {});
   }
 
   /**

@@ -127,11 +127,16 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.handlers.set('threads.get', (params) => this.getThread(params));
     this.handlers.set('threads.rewind', (params) => this.rewindThread(params));
     this.handlers.set('turns.run', (params) => this.runTurn(params));
-    this.handlers.set('turns.abort', async () => {
+    this.handlers.set('turns.abort', async (params) => {
       // 中断在跑回合：取消令牌贯穿模型请求 fetch（见 agent.cancelCurrentRun），
       // 在飞请求被中止后 turns.run 自然收尾，SSE 已推送的增量事件不受影响。
-      this.runtime.agent().cancelCurrentRun('user');
-      return { ok: true };
+      //
+      // 2026-09-22 修（审计 P1）：此前不带 threadId、一律取消「当前」会话，而服务端允许多回合并行
+      // ⇒ 先结束者清空令牌会让「停止」静默失效，或把**别的会话**取消掉。现按会话定向取消：
+      // 传了 threadId 只停该会话；旧前端不带参数时退化为「取消全部在跑回合」（不静默失效）。
+      const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+      this.runtime.agent().cancelCurrentRun('user', threadId === '' ? undefined : threadId);
+      return { ok: true, threadId: threadId === '' ? null : threadId };
     });
     this.handlers.set('approval.respond', (params) => this.respondApproval(params));
     this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
