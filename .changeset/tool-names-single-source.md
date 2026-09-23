@@ -29,6 +29,6 @@
 ① 策划分级模块不得再出现工具名字面量（`keywords:` 任务文本模式与类别 `id:`/`hint:` 除外，注释不计）；
 ② `src/adapters/tool/**` 的工具类不得写 `name: '<字面量>'`。以后新增工具若忘了登记，测试直接失败。
 
-**验证**：`npm test` 2089 例 / 2084 过 / 1 失败（本机 Chrome 环境用例，与基线同一条）/ 4 skip；
+**验证**：`npm test` 2091 例 / 2086 过 / 1 失败（本机 Chrome 环境用例，与基线同一条）/ 4 skip（本轮新增 4 例）；
 `typecheck`（含 web）/ `lint` / `format:check` / `check --strict`（569 文件零违规）/ `arch:gate --strict` /
-`audit:config-wiring`（569 文件）全通过。
+`audit:config-wiring`（569 文件、七条不变量）/ `api:check` 全通过。
