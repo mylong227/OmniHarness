@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -21,7 +22,7 @@ export class ToolSearchTool {
    * 按自然语言检索最相关工具 schema；被延迟加载工具经本工具发现后后续回合可见、可调用。
    */
   public readonly definition: ToolDefinition = {
-    name: 'tool_search',
+    name: TOOL_NAMES.toolSearch,
     description:
       '当工具众多时，按自然语言查询检索最相关的工具定义（名称 / 描述 / 参数 schema）。返回命中工具的完整 schema，模型据此决定如何调用；被标记为「延迟加载(deferred)」的工具默认不在上下文，需先经本工具发现。',
     parameters: {

@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -108,7 +109,7 @@ export class ShellTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'shell',
+    name: TOOL_NAMES.shell,
     description:
       '在工作区内执行 shell 命令并返回输出（支持管道与重定向）。' +
       '构建、测试等长命令可用 timeout_ms 申请更长预算（默认 30000，上限 600000 毫秒）；' +

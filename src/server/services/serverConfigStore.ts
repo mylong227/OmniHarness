@@ -259,7 +259,11 @@ export class ServerConfigStore {
     if (setKey === undefined || typeof setKey !== 'object' || setKey === null) return;
     const vendor = (setKey as Record<string, unknown>)['vendor'];
     const key = (setKey as Record<string, unknown>)['key'];
-    if (typeof vendor !== 'string' || providerPresetOf(vendor) === undefined) return;
+    if (
+      typeof vendor !== 'string' ||
+      providerPresetOf(vendor, this.fileConfig().providerPresets) === undefined
+    )
+      return;
     const merged = { ...this.fileConfig().providerKeys };
     if (typeof key === 'string' && key.length > 0) {
       merged[vendor] = key;
@@ -281,7 +285,7 @@ export class ServerConfigStore {
   ): Promise<void> {
     const enable = params['enableProvider'];
     if (typeof enable !== 'string') return;
-    const preset = providerPresetOf(enable);
+    const preset = providerPresetOf(enable, this.fileConfig().providerPresets);
     if (preset === undefined) return;
     const keys = this.fileConfig().providerKeys ?? {};
     const key = keys[enable];

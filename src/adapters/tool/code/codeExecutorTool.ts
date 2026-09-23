@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -25,7 +26,7 @@ export interface CodeExecutorOptions {
 export class CodeExecutorTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'run_code',
+    name: TOOL_NAMES.runCode,
     description:
       '执行一段 TypeScript/JavaScript 程序；程序内可用 await call("工具名", 参数) 调用工具、log(...) 输出',
     parameters: {

@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -16,7 +17,7 @@ export class PlanReadTool {
    * 读取当前计划草稿与审批状态快照。
    */
   public readonly definition: ToolDefinition = {
-    name: 'plan_read',
+    name: TOOL_NAMES.planRead,
     description: '读取当前计划草稿与审批状态。',
     parameters: { type: 'object', properties: {} },
   };

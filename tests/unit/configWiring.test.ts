@@ -30,7 +30,7 @@ const runAudit = (arg?: string): { status: number; out: string } => {
   return { status: r.status ?? 1, out: `${r.stdout}${r.stderr}` };
 };
 
-test('门禁自检：四条不变量均可触发（护栏不是假绿）', () => {
+test('门禁自检：每条不变量均可触发（含 I6 内建数据随包发布，护栏不是假绿）', () => {
   const { status, out } = runAudit('--selftest');
   assert.strictEqual(status, 0, `selftest 应全通过，实际输出：${out}`);
   assert.match(out, /selftest 全部通过/);

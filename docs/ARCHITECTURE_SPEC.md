@@ -54,7 +54,7 @@ src/
 | `config/`        | 装配层   | 组合根：ConfigFactory + 各域装配函数 + 配置读写                                                                                            | `ports/**`、各实现（唯一 new 密集区）         |
 | `composition/`   | 装配层   | 运行时组合根：`createRuntime` / `OmniHarnessRuntime` / `ServiceKeys`（2026-09-22 由 `core/` 迁出——核心层不该持有装配知识与各实现的值导入） | `ports/**`、各实现（与 `config/` 同为装配层） |
 | `errors/`        | 公共层   | 跨层错误类型（`ports/model` 迁出物）                                                                                                       | 无                                            |
-| `util/`          | 公共层   | 无业务语义工具（logger/diff/日程/谱工具）                                                                                                  | 无第三方                                      |
+| `util/`          | 公共层   | 无业务语义工具（logger/diff/日程/谱工具/**内建默认数据读取 `builtinDefaults` / `endpointDefaults`**）                                      | 无第三方                                      |
 | `schema/`        | 公共层   | 结构化输出/代码生成契约                                                                                                                    | `util/**`                                     |
 | `search/`        | 核心域   | 零依赖检索原语（BM25、toolIndex）                                                                                                          | `util/**`                                     |
 | `eval/`          | 评测域   | Pass@k、bootstrap 置信区间、SWE replay 基建                                                                                                | 无第三方                                      |
@@ -77,6 +77,13 @@ src/
 | `daemon/`        | 执行域   | 常驻进程例行任务                                                                                                                           | `ports/**`                                    |
 | `hooksCompat/`   | 兼容层   | 旧钩子兼容垫片                                                                                                                             | `util/**`                                     |
 | ~~`code/`~~      | 已收敛   | 原代码执行工具已并入 `adapters/tool/code/`（P3.2，2026-09-13）                                                                             | —                                             |
+
+以上仅列 `src/` 内的层。**包根另有数据目录**（非 TS 层，故此表不列行，但同样受「新增目录先登记」纪律约束）：
+
+| 包根目录    | 归属       | 职责                                                                                                                                                                                                                                                   | 发布要求                               |
+| ----------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| `defaults/` | 声明式数据 | 内建默认档：`ssrf.json`（元数据主机/内网后缀/IPv4 网段）、`providers.json`（厂商目录）、`endpoints.json`（适配器兜底端点/模型/凭据 env 名 + 服务端点地址）；由 `util/builtinDefaults` / `util/endpointDefaults` 读取，`omniharness.json` 或 env 可覆盖 | `package.json#files` 必须含 `defaults` |
+| `examples/` | 示例数据   | 插件 catalog 等离线占位数据                                                                                                                                                                                                                            | `package.json#files` 含 `examples`     |
 
 ---
 

@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -19,7 +20,7 @@ export class PlanWriteTool {
    * 计划模式下全量替换草稿，起草完成后须经 plan_present 审批方可执行写类工具。
    */
   public readonly definition: ToolDefinition = {
-    name: 'plan_write',
+    name: TOOL_NAMES.planWrite,
     description:
       '在计划模式下起草/更新计划：传入有序 steps。每次调用全量替换当前草稿。' +
       '起草完成后用 plan_present 呈现给用户审批，批准前不可执行写类工具。',

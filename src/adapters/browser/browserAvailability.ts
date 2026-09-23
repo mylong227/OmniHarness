@@ -18,6 +18,7 @@
  */
 import { ChromeLocator } from './chromeLocator.js';
 import type { ChromeLocatorOptions, ChromeLookup } from './chromeLocator.js';
+import { endpointDefaults } from '../../util/endpointDefaults.js';
 
 /** 浏览器截图不可用的类别（决定给模型的可执行建议）。 */
 export type BrowserUnavailableKind =
@@ -139,7 +140,8 @@ export class BrowserAvailability {
         );
       case 'cdp-unreachable':
         return (
-          '外部 CDP 端点不可达。可执行：1) 确认该浏览器仍在运行且端口正确（自检：请求 <端点>/json/version）；' +
+          '外部 CDP 端点不可达。可执行：1) 确认该浏览器仍在运行且端口正确' +
+          `（自检：请求 <端点>${endpointDefaults.urlOf('cdpVersionPath')}）；` +
           `2) 或删除环境变量 ${BrowserAvailability.ENDPOINT_ENV}，让本工具自行启动 headless Chrome/Edge。`
         );
       case 'cdp-timeout':
@@ -160,14 +162,16 @@ export class BrowserAvailability {
    * @returns 自检 URL。
    */
   public static versionUrl(endpoint: string): string {
+    // 自检路径取自 `defaults/endpoints.json`（用户指令：地址不硬编码）；常规值为 `/json/version`。
+    const path = endpointDefaults.urlOf('cdpVersionPath');
     const trimmed = endpoint.trim().replace(/\/+$/, '');
     if (trimmed.startsWith('ws://')) {
-      return `http://${BrowserAvailability.hostOf(trimmed.slice('ws://'.length))}/json/version`;
+      return `http://${BrowserAvailability.hostOf(trimmed.slice('ws://'.length))}${path}`;
     }
     if (trimmed.startsWith('wss://')) {
-      return `https://${BrowserAvailability.hostOf(trimmed.slice('wss://'.length))}/json/version`;
+      return `https://${BrowserAvailability.hostOf(trimmed.slice('wss://'.length))}${path}`;
     }
-    return `${trimmed}/json/version`;
+    return `${trimmed}${path}`;
   }
 
   /**

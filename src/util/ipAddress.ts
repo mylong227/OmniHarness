@@ -11,27 +11,14 @@
  *
  * ## 覆盖形态（安全优先，宁可多判一层）
  *
- * IPv4：按 CIDR 网段判定（含 0/8、10/8、100.64/10、127/8、169.254/16、172.16/12、192.0.0/24、
- * 192.168/16、198.18/15、224/4、240/4）。
+ * IPv4：按调用方传入的 CIDR 网段表判定。**本模块不再内置网段表**（用户指令：不在代码里硬编码，
+ * 方便以后维护）——默认表在 `defaults/ssrf.json`，由 `security/ssrfPolicy.ts` 读出并随策略注入；
+ * 出厂默认覆盖 0/8、10/8、100.64/10、127/8、169.254/16、172.16/12、192.0.0/24、192.168/16、
+ * 198.18/15、224/4、240/4。
  * IPv6：环回 `::1`、未指定 `::`、ULA `fc00::/7`、链路本地 `fe80::/10`、组播 `ff00::/8`，
  * 以及**内嵌 IPv4** 的四种形态——IPv4-mapped `::ffff:0:0/96`（含尾部点分写法）、
- * IPv4-compatible `::/96`、NAT64 `64:ff9b::/96`、6to4 `2002::/16`。
+ * IPv4-compatible `::/96`、NAT64 `64:ff9b::/96`、6to4 `2002::/16`；内嵌 IPv4 同样按传入网段表判定。
  */
-
-/** IPv4 私有/保留网段（CIDR 列表）。 */
-export const PRIVATE_IPV4_CIDRS: readonly (readonly [string, number])[] = [
-  ['0.0.0.0', 8], // 本网络
-  ['10.0.0.0', 8], // 私有
-  ['100.64.0.0', 10], // CGNAT
-  ['127.0.0.0', 8], // 环回
-  ['169.254.0.0', 16], // 链路本地（含云元数据）
-  ['172.16.0.0', 12], // 私有
-  ['192.0.0.0', 24], // IETF 协议分配
-  ['192.168.0.0', 16], // 私有
-  ['198.18.0.0', 15], // 基准测试
-  ['224.0.0.0', 4], // 组播
-  ['240.0.0.0', 4], // 保留（含 255.255.255.255）
-];
 
 /**
  * IPv4 点分十进制转 32 位整数。
@@ -58,16 +45,18 @@ export function ipv4ToInt(ip: string): number | null {
 }
 
 /**
- * IPv4 是否落在私有/保留网段内。
+ * IPv4 是否落在给定私有/保留网段表内。
  * @param ip 点分十进制 IPv4
+ * @param cidrs 网段表（**必传**：默认表在 `defaults/ssrf.json`，由调用方经策略注入；
+ *   此前这里的默认参数使配置化的 `ssrfPolicy.ipv4Blocks` 在 IPv6 内嵌路径上被静默绕过）
  * @returns 命中任一 CIDR 为 true；不可解析时**fail-closed 返回 true**
  */
-export function isPrivateIpv4(ip: string): boolean {
+export function isPrivateIpv4(ip: string, cidrs: readonly (readonly [string, number])[]): boolean {
   const value = ipv4ToInt(ip);
   if (value === null) {
     return true;
   }
-  for (const [base, bits] of PRIVATE_IPV4_CIDRS) {
+  for (const [base, bits] of cidrs) {
     const baseValue = ipv4ToInt(base);
     if (baseValue === null) {
       continue;
@@ -168,16 +157,18 @@ export function embeddedIpv4(ip: string): string | null {
 /**
  * IPv6 是否属于需屏蔽的本机/私有地址（含内嵌 IPv4 的等价写法）。
  * @param ip IPv6 字面量（可带方括号）
+ * @param cidrs IPv4 网段表（**必传**）：内嵌 IPv4 的判定必须与纯 IPv4 路径同一张表，
+ *   否则「配置了 ipv4Blocks 却仍按出厂网段拦 `[::ffff:10.0.0.1]`」这类双口径会长期潜伏
  * @returns 需要屏蔽为 true；不可解析时 **fail-closed 返回 true**
  */
-export function isPrivateIpv6(ip: string): boolean {
+export function isPrivateIpv6(ip: string, cidrs: readonly (readonly [string, number])[]): boolean {
   const lower = ip.toLowerCase().replace(/^\[|\]$/g, '');
   if (lower === '::1' || lower === '::') {
     return true;
   }
   const embedded = embeddedIpv4(lower);
   if (embedded !== null) {
-    return isPrivateIpv4(embedded);
+    return isPrivateIpv4(embedded, cidrs);
   }
   const groups = parseIpv6Groups(lower);
   if (groups === null) {

@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type {
@@ -24,7 +25,7 @@ import type { FilePatch } from './patchApplier.js';
 export class ApplyPatchTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'apply_patch',
+    name: TOOL_NAMES.applyPatch,
     description:
       '应用 unified diff 补丁到工作区文件（支持多文件；任一段失败则整体不落盘）。' +
       '容错行号偏差、行尾空白与误带的行号前缀。',

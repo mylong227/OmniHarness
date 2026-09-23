@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { type PluginDescriptor, type PluginManifest } from './manifest.js';
+import { endpointDefaults } from '../util/endpointDefaults.js';
 
 /**
  * @beta
@@ -30,9 +31,9 @@ export interface RegistrySource {
 
 /** 默认远程 registry 索引地址（占位，不可达时优雅降级为空）。
  * @beta
- * 支持 env 覆盖，便于企业内网指向私有 registry（缺省优先级低于显式 registryUrl 选项）。 */
-export const DEFAULT_REGISTRY_URL =
-  process.env.OMNI_REGISTRY_URL ?? 'https://registry.omniharness.dev/index.json';
+ * 地址来自 `defaults/endpoints.json` 的 `pluginRegistryIndex`（用户指令：地址不硬编码），
+ * 其 `env` 字段声明 `OMNI_REGISTRY_URL` 可覆盖；缺省优先级低于显式 registryUrl 选项。 */
+export const DEFAULT_REGISTRY_URL = endpointDefaults.urlOf('pluginRegistryIndex');
 
 /**
  * @beta

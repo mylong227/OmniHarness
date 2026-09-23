@@ -16,6 +16,8 @@
  * 事件（`Page.loadEventFired` 等）走 {@link CdpClient.on}，与请求共用同一条连接。
  */
 
+import { endpointDefaults } from '../../util/endpointDefaults.js';
+
 /** 一条在途请求。 */
 interface PendingRequest {
   /** 成功回调。 */
@@ -229,9 +231,12 @@ export class CdpClient {
    * @returns `/json/version` 的 JSON（形状由浏览器决定）。
    */
   public static async version(port: number): Promise<unknown> {
-    const response = await fetch(`http://127.0.0.1:${String(port)}/json/version`);
+    const probeUrl = endpointDefaults.urlOf('cdpProbeUrl').replace('{port}', String(port));
+    const response = await fetch(probeUrl);
     if (!response.ok) {
-      throw new Error(`CDP /json/version 返回 ${String(response.status)}`);
+      throw new Error(
+        `CDP ${endpointDefaults.urlOf('cdpVersionPath')} 返回 ${String(response.status)}`,
+      );
     }
     return await response.json();
   }

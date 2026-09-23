@@ -19,6 +19,7 @@
  * 本工具**写文件**（PNG 落盘），故归 `file_write`：进 `MUTATING_TOOLS`、
  * **不**进 `planApproval` 只读白名单——plan 模式下应当被拦，这与其他写类工具一致。
  */
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type {
@@ -85,7 +86,7 @@ export class BrowserScreenshotTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'browser_screenshot',
+    name: TOOL_NAMES.browserScreenshot,
     description:
       '用本机 Chrome/Edge（headless）打开一个网页并截图，图片会作为附件送入模型，可直接查看页面渲染效果。' +
       '适用于「改完前端确认样式/布局」、核对网页内容。仅支持 http/https/data 地址；会把 PNG 写入工作区。',

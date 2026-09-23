@@ -9,7 +9,8 @@ import { AnthropicModel } from '../../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../../adapters/model/responsesModel.js';
 import { ConfigError } from '../../config/configError.js';
 import type { ProviderPreset } from './providerPresets.js';
-import { assertNotSsrf, defaultSsrfOptions } from '../../security/ssrfGuard.js';
+import { assertNotSsrf, ssrfOptionsFor } from '../../security/ssrfGuard.js';
+import type { SsrfPolicy } from '../../security/ssrfPolicy.js';
 import { withRetry } from '../../util/retry.js';
 
 /**
@@ -20,11 +21,13 @@ export class ProviderProbe {
    * 带 Key 请求厂商 /models 端点，返回模型 ID 清单（端点不存在返回 undefined）。
    * @param preset ProviderPreset
    * @param key string | undefined
+   * @param ssrfPolicy 已解析的 SSRF 策略表（缺省用内置默认档；由持有活动配置的调用点注入）
    * @returns Promise<string[] | undefined>
    */
   public static async fetchModelsEndpoint(
     preset: ProviderPreset,
     key: string | undefined,
+    ssrfPolicy?: SsrfPolicy,
   ): Promise<string[] | undefined> {
     const url =
       preset.adapter === 'anthropic' ? `${preset.baseUrl}/v1/models` : `${preset.baseUrl}/models`;
@@ -35,8 +38,9 @@ export class ProviderProbe {
           ? { authorization: `Bearer ${key}` }
           : {};
     // SSRF 拦截：baseUrl 可由配置注入，必须先校验再发请求。
-    // 用默认策略（放行私有网段以兼容本地 Ollama 等场景，但云元数据地址一律拦截）。
-    await assertNotSsrf(url, defaultSsrfOptions());
+    // 策略表随活动配置注入（放行私有网段以兼容本地 Ollama 等场景，但云元数据地址一律拦截，
+    // 且用户配置的 `ssrfPolicy` 在此同样生效——此前写死默认档 ⇒ 配了不生效）。
+    await assertNotSsrf(url, ssrfOptionsFor(ssrfPolicy));
     let response: Response;
     try {
       response = await fetch(url, { headers, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
@@ -60,9 +64,14 @@ export class ProviderProbe {
    * 回退探测：1-token chat 请求（部分厂商无 /models 端点）。
    * @param preset ProviderPreset
    * @param key string | undefined
+   * @param ssrfPolicy 已解析的 SSRF 策略表（缺省用内置默认档；与 /models 探测同一份）
    * @returns Promise<void>
    */
-  public static async probeViaChat(preset: ProviderPreset, key: string | undefined): Promise<void> {
+  public static async probeViaChat(
+    preset: ProviderPreset,
+    key: string | undefined,
+    ssrfPolicy?: SsrfPolicy,
+  ): Promise<void> {
     const url =
       preset.adapter === 'anthropic'
         ? `${preset.baseUrl}/v1/messages`
@@ -87,9 +96,8 @@ export class ProviderProbe {
             max_tokens: 1,
             messages: [{ role: 'user', content: 'ping' }],
           };
-    // SSRF 拦截：baseUrl 可由配置注入，必须先校验再发请求。
-    // 用默认策略（放行私有网段以兼容本地 Ollama 等场景，但云元数据地址一律拦截）。
-    await assertNotSsrf(url, defaultSsrfOptions());
+    // SSRF 拦截：baseUrl 可由配置注入，必须先校验再发请求（策略表同 /models 探测）。
+    await assertNotSsrf(url, ssrfOptionsFor(ssrfPolicy));
     let response: Response;
     try {
       // 集中重试：网络抖动/5xx 可重试；4xx（含鉴权失败）判定为不可重试，立即失败。
@@ -166,10 +174,17 @@ export function buildModelForProvider(
 
 const PROBE_TIMEOUT_MS = 10_000;
 
-/** 探测单个厂商：已配 Key 才发起真实请求，返回实测模型清单或可读失败原因。 */
+/**
+ * 探测单个厂商：已配 Key 才发起真实请求，返回实测模型清单或可读失败原因。
+ * @param preset 目标厂商预设
+ * @param key 该厂商 API Key（免 Key 厂商可为 undefined）
+ * @param ssrfPolicy 已解析的 SSRF 策略表（缺省内置默认档；调用方持活动配置时应显式注入）
+ * @returns 探测结果（凭据绝不回传，仅打码状态）
+ */
 export async function probeProvider(
   preset: ProviderPreset,
   key: string | undefined,
+  ssrfPolicy?: SsrfPolicy,
 ): Promise<ProviderProbeResult> {
   const base: Omit<ProviderProbeResult, 'ok' | 'models' | 'source' | 'error'> = {
     id: preset.id,
@@ -180,11 +195,15 @@ export async function probeProvider(
     return { ...base, ok: false, models: preset.models, source: 'none', error: '未配置 API Key' };
   }
   try {
-    const ids = await ProviderProbe.fetchModelsEndpoint(preset, preset.needsKey ? key : undefined);
+    const ids = await ProviderProbe.fetchModelsEndpoint(
+      preset,
+      preset.needsKey ? key : undefined,
+      ssrfPolicy,
+    );
     if (ids !== undefined) {
       return { ...base, ok: true, models: ids, source: 'models-endpoint' };
     }
-    await ProviderProbe.probeViaChat(preset, preset.needsKey ? key : undefined);
+    await ProviderProbe.probeViaChat(preset, preset.needsKey ? key : undefined, ssrfPolicy);
     return { ...base, ok: true, models: preset.models, source: 'chat-probe' };
   } catch (error) {
     return {

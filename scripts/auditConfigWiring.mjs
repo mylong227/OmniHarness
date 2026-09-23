@@ -11,11 +11,14 @@
 //   I4  旗标即被用：CLI 旗标表里解析取值的每个字段，必须真的被消费（`args.X` 或按旗标名取值）。
 //   I5a 文件键即被消费：`FileConfig` 的每个顶层字段必须被 CLI 层引用（否则配置文件/env 写入后静默丢弃）。
 //   I5b 映射即被透传：`configDefaults` 写进 `Partial<CliArgs>` 的每个字段必须被 CLI 装配层消费。
+//   I6  内建数据即随包发布：`builtinDefaults.json('<name>')` 的每个数据名必须有对应的
+//                    `defaults/<name>.json`，且 `package.json#files` 含 `defaults`
+//                    （否则 npm 包缺数据文件 ⇒ 装完启动即 fail-closed 抛错，本仓 2026-09-23 实测形态）。
 //
 // 用法：node scripts/auditConfigWiring.mjs [--selftest]
 // 退出码：0 = 全绿；1 = 存在未接线字段。
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
 
 const ROOT = process.cwd();
@@ -196,7 +199,37 @@ const SERVER_ONLY_FIELDS = {
  * @param tree 相对路径 → 文本 的映射，须含 `src/**`。
  * @returns 违规列表（空 = 全绿）。
  */
-export function audit(tree) {
+/**
+ * `defaults/` 是否登记进 `package.json#files`（懒读一次并缓存）。
+ * @returns 已登记为 true。
+ */
+let publishedDefaultsCache;
+function publishedDefaults() {
+  if (publishedDefaultsCache === undefined) {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    publishedDefaultsCache = Array.isArray(pkg.files) && pkg.files.includes('defaults');
+  }
+  return publishedDefaultsCache;
+}
+
+/**
+ * `defaults/<name>.json` 是否存在。
+ * @param name 数据文件名（不含扩展名）。
+ * @returns 存在为 true。
+ */
+function defaultDataFileExists(name) {
+  return existsSync(join(ROOT, 'defaults', `${name}.json`));
+}
+
+/**
+ * 接线审计主入口。
+ * @param tree 路径（正斜杠归一）→ 源码文本 的映射。
+ * @param io 可注入的探针（I6 需触碰文件系统；自证用例注入假探针以保持纯函数可测）。
+ * @returns 违规清单。
+ */
+export function audit(tree, io = {}) {
+  const dataFileExists = io.dataFileExists ?? defaultDataFileExists;
+  const isPublished = io.publishedDefaults ?? publishedDefaults;
   const violations = [];
   const factory = tree.get('src/config/configFactory.ts') ?? '';
   const errText = tree.get('src/config/configError.ts') ?? '';
@@ -320,6 +353,26 @@ export function audit(tree) {
     }
   }
 
+  // I6 内建数据即随包发布
+  const dataNames = new Set();
+  for (const t of tree.values()) {
+    for (const m of t.matchAll(/builtinDefaults\.json\(\s*'([^']+)'\s*\)/g)) dataNames.add(m[1]);
+  }
+  if (dataNames.size > 0 && !isPublished()) {
+    violations.push({
+      id: 'I6',
+      detail: `defaults/ 未登记进 package.json#files（${[...dataNames].join(' / ')} 随包缺失 ⇒ 安装后启动即抛错）`,
+    });
+  }
+  for (const name of dataNames) {
+    if (!dataFileExists(name)) {
+      violations.push({
+        id: 'I6',
+        detail: `builtinDefaults.json('${name}') 找不到 defaults/${name}.json`,
+      });
+    }
+  }
+
   return violations;
 }
 
@@ -375,10 +428,19 @@ function selftest() {
         'src/config/configFactory.ts': `interface OmniHarnessConfig {\n  readonly runtimeTelemetry: number;\n}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      runtimeTelemetry: partial.runtimeTelemetry,\n    };\n  }\n}\n`,
       },
     },
+    {
+      // I6 反向用例的另一半在下方：数据名存在但文件缺失 + defaults 未登记，两条都必须报出。
+      id: 'I6',
+      tree: {
+        'src/config/configFactory.ts': cfg(''),
+        'src/security/ghostDefaults.ts': "const raw = builtinDefaults.json('ghost');\n",
+      },
+      io: { publishedDefaults: () => false, dataFileExists: () => false },
+    },
   ];
   let pass = true;
   for (const c of cases) {
-    const found = audit(new Map(Object.entries(c.tree)));
+    const found = audit(new Map(Object.entries(c.tree)), c.io ?? {});
     // I2b 是**反向**用例：已知的合法豁免必须**不**被报出（防白名单被误用为掩盖真实缺口）。
     const hit =
       c.id === 'I2b' ? !found.some((v) => v.id === 'I2') : found.some((v) => v.id === c.id);

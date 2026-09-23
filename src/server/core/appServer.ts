@@ -12,7 +12,7 @@ import { queryAudit, type AuditQuery } from '../services/auditExporter.js';
 import type { AuditEvent } from '../services/auditSink.js';
 import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
-import { PROVIDER_PRESETS } from '../services/providerPresets.js';
+import { providerPresets } from '../services/providerPresets.js';
 import { RepoPathGuard } from '../services/repoPathGuard.js';
 import { DiffReview } from '../services/diffReview.js';
 import { DiffCommentStore } from '../services/diffCommentStore.js';
@@ -98,12 +98,12 @@ export class AppServer extends AppServerSurfaceHandlers {
       const file = this.configStore.fileConfig();
       const keys = file.providerKeys ?? {};
       const topKey = typeof file.apiKey === 'string' ? file.apiKey : undefined;
+      // 生效目录含用户 `providerPresets` 覆盖：自建厂商配了 Key 也应被暖一遍。
+      const presets = providerPresets.resolve(file.providerPresets);
       const matched =
-        PROVIDER_PRESETS.find(
-          (p) => typeof file.baseUrl === 'string' && file.baseUrl === p.baseUrl,
-        ) ??
+        presets.find((p) => typeof file.baseUrl === 'string' && file.baseUrl === p.baseUrl) ??
         // 注意：必须要求该厂商在 providerKeys 或顶层 apiKey 中有 key，否则探测无意义（无凭据）。
-        PROVIDER_PRESETS.find(
+        presets.find(
           (p) =>
             p.adapter === file.modelAdapter && (topKey !== undefined || keys[p.id] !== undefined),
         );

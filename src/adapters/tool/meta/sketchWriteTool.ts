@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type {
@@ -37,7 +38,7 @@ const MAX_SLUG_LENGTH = 48;
 export class SketchWriteTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'sketch_write',
+    name: TOOL_NAMES.sketchWrite,
     description:
       '把草图落成工作区文件（.omniharness/sketches/）：先用 mermaid 画结构/流程/' +
       '时序，或用 svg 画界面草图，再调用本工具保存。返回相对路径，供后续引用与回看。',

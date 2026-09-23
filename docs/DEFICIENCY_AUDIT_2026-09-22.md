@@ -220,15 +220,90 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
   `modelCatalogService.ts:129`、`configError.ts:198`、`cliEnums.ts:13`、`argParser.ts:20,241`、`providerPresets.ts:12,106`、`routineScheduler.ts:18`）；
   工具名 `'read_file'` 硬编码在 **7 个模块**；存储后端有两套独立字符串工厂（`cliBuildConfig.ts:502-510` vs `cli/kvStoreFactory.ts:44-51`）。
 - **修法**：适配器名→构造器收成一张表；工具名集中到 `ports/tool/toolNames.ts`；存储工厂单一实现来源。
+- **本轮进展（2026-09-22 第二轮，§3.7）**：其中「厂商目录两处维护」已消除——CLI 的 `ADAPTER_PRESETS`
+  手工副本删除，厂商目录单一来源为 `config/providerPresets.ts`（数据在 `defaults/providers.json`），
+  CLI 专属映射改由数据字段 `cliAdapters` 表达。适配器**构造侧**的其余触点仍待办。
+- **本轮进展（2026-09-22 第三轮，§3.9）**：**「工具名硬编码」一项已结项**——本条的「7 个模块」是低估：
+  实测 45 个工具名、注册侧 33 个工具类 + 消费侧 9 张策略表两头都写。现收口为
+  `ports/tool/toolNames.ts` 单一声明处，并加两条反硬编码守卫（策略面 + 注册面）。**剩余未做**：
+  适配器名→构造器一张表、存储后端两套字符串工厂。
 
 ### 3.5 其余（摘要）
 
 审计哈希链两份同构且**已语义分叉**（`auditSink.ts` canonical 含 `ts`，`jsonlRuntimeTelemetry.ts` 不含）·
 JSON-RPC pending/超时/id 关联重复 6 处且 `mcpClient.ts:15-17` **无 reject 通道**（传输关闭时挂起请求永不被拒）·
 shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替身（`MockModel`/`MemoryStorage`/`PassthroughSandbox`）·
-覆盖率门禁是聚合值（`context/rankVeto`、`adapters/tool/git` 可零单测仍全绿）· `web/src`（104 文件）不在本地 `typecheck` 也不在体量门禁 ·
-53 个 eval 脚本中 35 个未接入 npm script · 非 archive 文档 172 处死路径（含 README 指向**不存在**的
-`docs/TASK_BOARD_2026-09-13.md`，而 README 又写明「以它为准」）· `src/` 内 3 个 Python 文件（3919 行）在全部 TS 门禁之外。
+覆盖率门禁是聚合值（`context/rankVeto`、`adapters/tool/git` 可零单测仍全绿）· 53 个 eval 脚本中 35 个未接入 npm script ·
+非 archive 文档 172 处死路径（含 README 指向**不存在**的 `docs/TASK_BOARD_2026-09-13.md`，而 README 又写明「以它为准」）·
+`src/` 内 3 个 Python 文件（3919 行）在全部 TS 门禁之外。
+（`web/src` 不在本地 `typecheck`、`NetworkEgressGuard` 漏映射 IPv6、外溢预览字节预算、worktree 清理不在锁内
+——**已在本轮修掉**，见 §1.7。）
+
+### 3.6【本轮已做，用户指定】SSRF 三张策略表配置化（`METADATA_HOSTS` / `INTERNAL_SUFFIXES` / `IPV4_BLOCKS`）
+
+- **动机（用户指令）**：这类表本身就是**策略数据**（随云厂商清单与企业网络拓扑变化），写死在实现里
+  ⇒ 加一个自建元数据端点、或放行某个内网域都要改代码重发，且散落在两处（护栏与出站守卫）会各自漂移。
+- **改法**：新增 `src/security/ssrfPolicy.ts`（`SsrfPolicy` + `DEFAULT_SSRF_POLICY` + `resolveSsrfPolicy`）——
+  实现只保留默认档，配置 `ssrfPolicy` 可覆盖；声明进 `FileConfig` / `OmniHarnessConfig`，
+  校验器 `ssrfPolicyValidator` 接入 `configError`，**与运行时解析器同源**；
+  消费链：`omniharness.json` → CLI 层（`args.ssrfPolicy`，出站守卫用）→ 组合根（A2A 传输用）。
+- **语义（关键）**：字段缺省 ⇒ 默认表；**显式空数组 ⇒ 清空该项**（危险但显式，不静默）；
+  非法条目（坏 CIDR / 越界前缀 / 不以 `.` 开头的后缀 / 含空白主机）⇒ **抛错**，绝不静默丢弃
+  （静默丢弃会让人以为「配上了」，实际护栏比预期更松）。
+- **顺带合一的口径**：`.corp` 原先只存在于出站守卫的正则里、SSRF 护栏没有 ⇒ 两守卫判定不一致；
+  合一后并入默认后缀表（**收紧**，已登记）。
+- **验证**：新增 7 例单测（默认档与历史逐字一致 / 替换语义生效 / 出站守卫同源 / 非法条目抛错 /
+  显式清空 / 校验器与解析器同源）；`audit:config-wiring` 六条不变量全绿（新字段真的被读、透传、消费）；
+  实测「默认档行为与历史一致」+「自定义 `metadataHosts:['evil.example']` 生效」+「非法 CIDR 被拒」。
+
+### 3.7【本轮已做，用户指定】硬编码策略表**全部**移出代码（接 §3.6，第二轮）
+
+- **动机（用户指令）**：§3.6 只做到「配置可覆盖」，**默认档仍写在 `.ts` 里**；`PRIVATE_IPV4_CIDRS` 还是
+  `isPrivateIpv4` 的函数默认参数；厂商目录硬编码在 `server/services/providerPresets.ts`，而 CLI 另有一份
+  手工副本 `ADAPTER_PRESETS`（注释自称「同源同步」）⇒ 加一家厂商要改两处。用户要求「全部走配置管理，
+  不要在代码里硬编码，方便以后维护」。
+- **改法**：默认档下沉为**随包发布的声明式数据** `defaults/ssrf.json` / `defaults/providers.json`
+  （`package.json#files` 加 `defaults`），`util/builtinDefaults.ts` 按**模块相对路径**读包根（不做 cwd 推断）
+  - 缓存，**缺文件 / 不可读 / 坏 JSON 一律抛错**——安全默认档静默退化成空表等于护栏「看着还在、实际更松」。
+    用户侧 `omniharness.json` 新增 `providerPresets`（`ssrfPolicy` 沿用），语义为「按 `id` 整条替换、新 `id` 追加」，
+    拒绝字段级隐式继承；校验器 `providerPresetValidator` 接入 `configError` 且**与运行时求解器同源**。
+- **单一来源**：厂商目录收敛到 `config/providerPresets.ts`（服务端 + CLI 共用），**删除** `ADAPTER_PRESETS`；
+  CLI 专属映射（`responses` → openai、`llamacpp` → ollama）改由数据字段 `cliAdapters` 表达，
+  测试把「与已删除副本逐项等价」钉死（含 ollama **不在** openai 名下这一细节）。
+- **本轮暴露的两个真实缺陷**（都不是本轮引入，但都属「配置管理没接通」，已修 + 回归）：
+  1. **`ssrfPolicy` 声明未接线**：`configDefaults()` 从不映射 `file.ssrfPolicy` ⇒ `args.ssrfPolicy` 恒 `undefined`，
+     写在 `omniharness.json` 的策略表**从未生效**（只有编程 API 路径生效）。`audit:config-wiring` 的 I5a 只看
+     「`src/cli` 里有没有出现该标识」，`args.ssrfPolicy` 足以命中 ⇒ 这条断链长期为绿。**门禁口径本身值得留档：
+     I5a 是「有没有提到」，不是「有没有从文件读到参数」**。
+  2. **IPv6 内嵌 IPv4 绕过配置网段**：`isPrivateIpv6` 内嵌 IPv4 走的是函数默认参数（内置表），
+     配置的 `ipv4Blocks` 只对纯 IPv4 生效 ⇒ `[::ffff:10.0.0.1]` 与 `10.0.0.1` 判定不一致（双口径）。
+     现 `isPrivateIpv4` / `isPrivateIpv6` 的网段表**必传**，两个守卫统一传入策略表。
+- **验证**：`npm test` 2079 例 / 2074 过 / 1 失败（本机 Chrome 环境用例，与基线同一条）/ 4 skip，新增 18 例；
+  `check --strict`（567 文件零违规，含把 `configDefaults` / `buildConfig` 的函数体拉回基线内）、
+  `arch:gate --strict`、`audit:config-wiring`（567 文件六条不变量全绿）、`lint`、`format:check`、
+  `typecheck`（含 web）全通过。
+
+### 3.8【本轮已做，用户指定】端点/地址硬编码移出代码（接 §3.7，第三轮）
+
+- **用户指令**：「项目中类似的这些**地址**代码链接，也要专门的配置文件进行配置管理，不要在代码中硬编码」，
+  起因是 `cliBuildConfig.buildModel` 里三家默认端点 + 兜底模型名 + 凭据 env 名全是字面量。
+- **扫描后确认的范围**（先量化再动手）：真硬编码的地址 **6 处**，其中
+  `cliBuildConfig.buildModel` 与 `configBuilder.buildRouterAdapter` **各写了一遍同样三个端点**（§3.4 同型缺陷）；
+  其余为插件市场索引、SWE-bench 的 `github.com` / `api.github.com`、浏览器 CDP 自检地址/路径。
+  **明确不在范围**：OTLP 端点（`OTEL_EXPORTER_OTLP_ENDPOINT`，无默认值即不启用）与 embedding 镜像主机
+  （`remoteHost` 缺省 `undefined` 即库默认）——二者本就是 env/选项驱动，没有硬编码可移。
+- **改法**：`defaults/endpoints.json`（`modelAdapters` + `services`）+ `src/util/endpointDefaults.ts`
+  （严格校验；未知服务标识**抛错**而非给 undefined）。与 §3.7 的加载器同放 `util/`：消费方横跨
+  `cli`/`config`/`plugin`/`eval`/`benchmark`/`adapters`，放 `config/` 会让这些层反向依赖装配层
+  （`ARCHITECTURE_SPEC.md` §2.1 的 `adapters` 允许依赖里没有 `config`）。
+- **口径提醒（留档）**：`endpoints.json` 的 `llamacpp` 兜底 `http://localhost:11434`（原生 `/api/chat`）与
+  `providers.json` 的 `ollama` 预设 `http://localhost:11434/v1`（OpenAI 兼容层）**看着重复但不是重复**，
+  已写进两份数据文件的 `notes` 与 `defaults/README.md`，避免后来者「顺手统一」而打断其中一条协议路径。
+- **机械防线**：`tests/unit/endpointDefaults.test.ts` 的**反硬编码守卫**扫描 `src/**` 的代码行（注释除外），
+  地址字面量一旦回到实现即测试失败——本条是本轮最有复用价值的产物（后续再收口地址可直接扩这组字面量）。
+- **验证**：`npm test` 2085 例 / 2080 过 / 1 失败（本机 Chrome 环境用例，与基线同一条）/ 4 skip，新增 6 例；
+  `check --strict`（568 文件零违规）、`arch:gate --strict`、`audit:config-wiring`（568 文件）、`lint`、
+  `format:check`、`typecheck`（含 web）全通过。
 
 ### 3.6 架构上确认**没问题**（避免重复投入）
 
@@ -354,3 +429,33 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 - **满量语料（32 MiB）端到端耗时**：由 1M/3M token 线性实测外推（改造前 ≈2.6 s/步；改造后未复测满量）。
 - **未验证面**：插件热卸载、MCP/SSE 背压、sqlite/oobleck KV、LSP、CDP、quota/sessionArchive、web 未知事件丢帧。
 - 本轮**未改动**：1.3–1.7、2.4–2.5、3.1–3.6 各项（保持只登记状态，避免大范围重构与本次修复混在一起）。
+
+### 3.9【本轮已做，核验收尾】默认数据随包发布 + SSRF 策略在探测路径生效（接 §3.6/§3.7）
+
+- **核验方式**：对 §3.6/§3.7 的迁移链做「不采信自我宣称」复核——不看注释与看板结论，直接读
+  `package.json` 与每个消费点调用处。查出两处收尾缺陷，均属「声明写了、事实没到」。
+- **缺陷 1（发布即不可用）**：`package.json#files` **没有** `defaults`，而 `defaults/README.md`、看板 §20.11/§20.12
+  与对应 changeset 都已宣称「已加入 `defaults`」。npm 包实际会缺 `defaults/*.json`，安装后**启动即抛错**
+  （`util/builtinDefaults.ts` 读不到数据，fail-closed）。已修：`files` 加 `defaults`；并给
+  `scripts/auditConfigWiring.mjs` 新增不变量 **I6「内建数据即随包发布」**——每个 `builtinDefaults.json(name)`
+  调用的数据文件必须存在、且 `defaults` 必须在 `files` 里（带故障注入 selftest）。门禁由六条不变量扩为七条，
+  `tests/unit/configWiring.test.ts` 会跑 ⇒ 此类「迁移漏登记」不再可能复发。
+- **缺陷 2（配了却不生效）**：`server/services/providerProbe.ts` 的 `fetchModelsEndpoint` / `probeViaChat`
+  两处 `assertNotSsrf(url, defaultSsrfOptions())` 把策略写死为默认档 ⇒ 用户写在 `omniharness.json` 里的
+  `ssrfPolicy` 在**厂商探测路径**上不生效（§3.6 的「配置化」在该路径上只做了一半）。已修：新增
+  `security/ssrfGuard.ssrfOptionsFor(policy)` 作为「默认档 ＋ 注入策略」的唯一入口（防「只传 `{policy}`
+  ⇒ 本地端点被误拦」的 E2 装配回归形态），全链增加可选策略入参，`ModelCatalogService` 两个探测点注入
+  `resolveSsrfPolicy(file.ssrfPolicy)`；组合根 `makeA2aTransport` 一并收敛到同一入口。
+- **机械防线与回归**：`providerAccess.test.ts` 新增「注入策略 ⇒ 在发请求前被拦；同一主机用默认档不拦」
+  （无需网络）；`ssrfPolicy.test.ts` 新增 ⑧「`ssrfOptionsFor` 不丢默认档」。
+- **实跑证据（本轮）**：`npm test` 2087 例 / 2082 过 / 1 失败（本机 Chrome e2e，环境问题，与基线同一例）/ 4 skip；
+  `check --strict`（569 文件零违规）、`arch:gate`、`api:check`、`audit:config-wiring`（569 文件、七条不变量＋selftest）、
+  `audit:maturity`、`checkNodeEngine`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全绿。
+- **刻意不做（附理由）**：`util/builtinDefaults.ts` 的包根反推写死 `../../..`，对 `dist/` 布局正确、源码布局直跑
+  会指向仓库父目录；**不加向上搜索**（会在某层意外存在 `defaults/` 时静默读到别的数据 ⇒ fail-open，与本模块
+  fail-closed 口径冲突）。仓库所有入口都是先 build 再跑，无源码直跑路径。
+- **新登记（未修）**：全仓 **216 处 / 104 文件**的 JSDoc 尾部带**错缩进**的 `* @returns 无返回值。`
+  （`void` 方法上无意义；207 处在 HEAD 已存在，本轮改动新增 9 处）。Prettier 不管 JSDoc 缩进、现有门禁不查 ⇒
+  建议加一条标准检查后机器统一修复（详见看板 §20.13）。
+- **清理**：删除两个一次性 codemod 脚本 `scripts/tmpPolicyTableCodemod.mjs` / `scripts/tmpToolNameCodemod.mjs`
+  （脚本自述「跑完即删，不入库」，留着即新死资产）。

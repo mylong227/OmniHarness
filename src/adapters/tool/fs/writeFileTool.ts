@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type {
@@ -13,7 +14,7 @@ import { FileContentLedger } from './fileContentLedger.js';
 export class WriteFileTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'write_file',
+    name: TOOL_NAMES.writeFile,
     description: '写入文件内容（工作区内；覆盖已有文件前自动生成 .bak 备份）',
     parameters: {
       type: 'object',

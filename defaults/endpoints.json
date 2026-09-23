@@ -1,0 +1,72 @@
+{
+  "modelAdapters": [
+    {
+      "id": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "requiresApiKey": true,
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "baseUrlEnv": "OPENAI_BASE_URL",
+      "modelEnv": "OPENAI_MODEL",
+      "notes": "OpenAI 兼容通道的兜底端点与兜底模型。绝大多数国内厂商走本适配器 + 显式 baseUrl/model（见 defaults/providers.json）。"
+    },
+    {
+      "id": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "model": "claude-sonnet-4-20250514",
+      "requiresApiKey": true,
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "baseUrlEnv": "ANTHROPIC_BASE_URL",
+      "modelEnv": "ANTHROPIC_MODEL",
+      "notes": "Anthropic 原生 Messages API（端点路径由适配器拼接 /v1/messages）。"
+    },
+    {
+      "id": "responses",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "requiresApiKey": true,
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "baseUrlEnv": "OPENAI_BASE_URL",
+      "modelEnv": "OPENAI_MODEL",
+      "notes": "OpenAI Responses API 原生通道；与 openai 适配器共用凭据与端点，仅协议不同。"
+    },
+    {
+      "id": "llamacpp",
+      "baseUrl": "http://localhost:11434",
+      "model": "llama3",
+      "requiresApiKey": false,
+      "baseUrlEnv": "OLLAMA_BASE_URL",
+      "modelEnv": "OLLAMA_MODEL",
+      "notes": "Ollama / llama.cpp 原生协议（适配器拼接 /api/chat）。注意本处 baseUrl 不带 /v1——带 /v1 的是走 OpenAI 兼容层的 ollama 厂商预设（defaults/providers.json），两者服务于不同协议路径，勿合并。"
+    }
+  ],
+  "services": [
+    {
+      "id": "pluginRegistryIndex",
+      "url": "https://registry.omniharness.dev/index.json",
+      "env": "OMNI_REGISTRY_URL",
+      "notes": "插件市场索引（占位，不可达时优雅降级为空列表）。企业内网指私有 registry 用 OMNI_REGISTRY_URL 或显式 registryUrl 选项。"
+    },
+    {
+      "id": "gitRemoteBase",
+      "url": "https://github.com/",
+      "notes": "SWE-bench 原生执行器克隆仓库的远端基址（GitHub Enterprise / 内网镜像在此改，或按调用传 repoBaseUrl）。"
+    },
+    {
+      "id": "githubApiBase",
+      "url": "https://api.github.com",
+      "env": "GITHUB_API_URL",
+      "notes": "SWE-bench 任务抓取用的 GitHub Contents API 基址。环境变量名沿用 GitHub Actions 的标准名，GHE 环境天然生效。"
+    },
+    {
+      "id": "cdpProbeUrl",
+      "url": "http://127.0.0.1:{port}/json/version",
+      "notes": "浏览器调试端口自检地址模板（{port} 由调用方代入）。"
+    },
+    {
+      "id": "cdpVersionPath",
+      "url": "/json/version",
+      "notes": "CDP 版本自检路径：把用户给的外部端点（http/ws）规范成自检 URL 时拼在主机之后。"
+    }
+  ]
+}

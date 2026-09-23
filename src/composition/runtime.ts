@@ -1,4 +1,5 @@
 import type { ApprovalPort } from '../ports/runtime/approval.js';
+import { ssrfOptionsFor, type SsrfOptions } from '../security/ssrfGuard.js';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
@@ -39,6 +40,7 @@ import {
 } from '../a2a/index.js';
 import type { A2aTransport } from '../a2a/a2aProtocol.js';
 import { ServiceKeys } from './serviceKeys.js';
+import { resolveSsrfPolicy } from '../security/ssrfPolicy.js';
 
 // 保持既有公共 API：`ServiceKeys` 定义已下沉到 `./serviceKeys.js`（为打断组合根↔子代理的真值环），
 // 此处再导出，使 `src/index.ts` 等既有调用点零改动。
@@ -106,6 +108,20 @@ export interface OmniHarnessRuntime {
     readonly transport: A2aTransport;
   };
 }
+
+/**
+ * 构造 A2A 客户端传输（http / ws 实现同一 `A2aTransport` 端口），并注入 SSRF 选项：
+ * 默认档（含 `allowPrivate`，兼容本地端点）+ 配置化策略表（配置文件 → CLI → 此处）。
+ * 抽成模块级而非内联：两分支需同一份选项，且 `createRuntime` 已贴近 AST 体量门禁基线（不得再长）。
+ * @param peer 对端端点（显式配置或由 `wsMode` 推出的本地回环地址）
+ * @param wsMode 是否走 WebSocket（false ⇒ HTTP `POST /a2a`）
+ * @param config 已解析配置（读取 `ssrfPolicy`）
+ * @returns A2A 客户端传输实现
+ */
+const makeA2aTransport = (peer: string, wsMode: boolean, config: ResolvedConfig): A2aTransport => {
+  const ssrf: SsrfOptions = ssrfOptionsFor(resolveSsrfPolicy(config.ssrfPolicy));
+  return wsMode ? new WsA2aTransport(peer, ssrf) : new HttpA2aTransport(peer, ssrf);
+};
 
 /**
  * 由配置装配出运行时。
@@ -198,10 +214,7 @@ export function createRuntime(
     const peer =
       config.a2a.peerEndpoint ??
       (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
-    const client = new A2aClient(
-      wsMode ? new WsA2aTransport(peer) : new HttpA2aTransport(peer),
-      config.identity,
-    );
+    const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
     server.setTaskHandler({
       async handle(req) {
         const start = Date.now();

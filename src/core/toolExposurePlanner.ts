@@ -28,10 +28,12 @@
  *
  * ## 纯度
  *
- * 纯函数、零依赖、确定性（同输入恒同输出）、无 IO。不引入任何模型，也不联网。
+ * 纯函数、确定性（同输入恒同输出）、无 IO、无第三方；唯一的模块依赖是 `ports/tool/toolNames.ts`
+ * 的**工具名常量表**（纯常量，2026-09-22 第三轮起工具名单一来源）。不引入任何模型，也不联网。
  * 相关度判据是**词法启发式**（英文按词边界、中文按子串），是**粗略代理**而非语义理解；
  * 其价值由 `evals/tool-exposure-ab.mjs` 的 token 对照数字度量，**不宣称能力提升**。
  */
+import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 
 /** 工具类别：一组语义相近的工具 + 触发它的中英文关键词。 */
 export interface ToolCategory {
@@ -100,9 +102,9 @@ export class ToolExposurePlanner {
    *  - `spill_read`：大输出外溢后的回读入口。
    */
   public static readonly DEFAULT_ALWAYS_VISIBLE: readonly string[] = [
-    'tool_search',
-    'ask_user',
-    'spill_read',
+    TOOL_NAMES.toolSearch,
+    TOOL_NAMES.askUser,
+    TOOL_NAMES.spillRead,
   ];
 
   /**
@@ -140,7 +142,13 @@ export class ToolExposurePlanner {
         '补丁',
         '目录',
       ],
-      tools: ['read_file', 'write_file', 'edit', 'apply_patch', 'list_dir'],
+      tools: [
+        TOOL_NAMES.readFile,
+        TOOL_NAMES.writeFile,
+        TOOL_NAMES.edit,
+        TOOL_NAMES.applyPatch,
+        TOOL_NAMES.listDir,
+      ],
     },
     {
       id: 'search',
@@ -158,7 +166,7 @@ export class ToolExposurePlanner {
         '匹配',
         '正则',
       ],
-      tools: ['grep', 'glob'],
+      tools: [TOOL_NAMES.grep, TOOL_NAMES.glob],
     },
     {
       id: 'exec',
@@ -181,7 +189,12 @@ export class ToolExposurePlanner {
         '脚本',
         '安装',
       ],
-      tools: ['shell', 'shell_interactive', 'shell_job', 'run_code'],
+      tools: [
+        TOOL_NAMES.shell,
+        TOOL_NAMES.shellInteractive,
+        TOOL_NAMES.shellJob,
+        TOOL_NAMES.runCode,
+      ],
     },
     {
       id: 'web',
@@ -199,7 +212,7 @@ export class ToolExposurePlanner {
         '链接',
         '在线',
       ],
-      tools: ['web_fetch'],
+      tools: [TOOL_NAMES.webFetch],
     },
     {
       id: 'visual',
@@ -217,7 +230,7 @@ export class ToolExposurePlanner {
         '浏览器',
         '页面',
       ],
-      tools: ['browser_screenshot', 'view_image'],
+      tools: [TOOL_NAMES.browserScreenshot, TOOL_NAMES.viewImage],
     },
     {
       id: 'delegate',
@@ -234,13 +247,19 @@ export class ToolExposurePlanner {
         '工作流',
         '派生',
       ],
-      tools: ['subagent', 'run_goal', 'run_workflow', 'delegate'],
+      tools: [TOOL_NAMES.subagent, TOOL_NAMES.runGoal, TOOL_NAMES.runWorkflow, TOOL_NAMES.delegate],
     },
     {
       id: 'planning',
       hint: '计划与待办',
       keywords: ['plan', 'todo', 'steps', '计划', '待办', '清单', '步骤', '排期'],
-      tools: ['todo_write', 'todo_read', 'plan_write', 'plan_present', 'plan_read'],
+      tools: [
+        TOOL_NAMES.todoWrite,
+        TOOL_NAMES.todoRead,
+        TOOL_NAMES.planWrite,
+        TOOL_NAMES.planPresent,
+        TOOL_NAMES.planRead,
+      ],
     },
     {
       id: 'memory',
@@ -256,7 +275,7 @@ export class ToolExposurePlanner {
         '跨会话',
         '历史',
       ],
-      tools: ['memory_search', 'remember', 'recall'],
+      tools: [TOOL_NAMES.memorySearch, TOOL_NAMES.remember, TOOL_NAMES.recall],
     },
     {
       id: 'meta',
@@ -274,7 +293,12 @@ export class ToolExposurePlanner {
         '外溢',
         '快照',
       ],
-      tools: ['sketch_write', 'policy_eval', 'checkpoint', 'rollback'],
+      tools: [
+        TOOL_NAMES.sketchWrite,
+        TOOL_NAMES.policyEval,
+        TOOL_NAMES.checkpoint,
+        TOOL_NAMES.rollback,
+      ],
     },
   ];
 

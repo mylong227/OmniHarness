@@ -17,6 +17,7 @@ import { AnthropicModel } from '../adapters/model/anthropicModel.js';
 import { ResponsesModel } from '../adapters/model/responsesModel.js';
 import { ConfigError } from './configError.js';
 import type { ModelRouterConfig } from './configFile.js';
+import { endpointDefaults } from '../util/endpointDefaults.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
 import type { EscalationPort } from '../ports/runtime/escalation.js';
 import { join } from 'node:path';
@@ -147,41 +148,31 @@ export class ConfigBuilder {
     });
   }
 
-  /** 按 adapter 类型名构造底层模型适配器（复用既有适配器类，凭据取环境变量）。 */
+  /**
+   * 按 adapter 类型名构造底层模型适配器（复用既有适配器类，凭据取环境变量）。
+   *
+   * 端点与凭据来源取自 `defaults/endpoints.json`（用户指令：地址不硬编码）——此前这些 URL 在本方法
+   * 与 `cliBuildConfig.buildModel` 里**各写了一遍**，改一处漏一处；现在只有数据文件一份。
+   * @param entry modelRouter 的条目（含模型名与可选适配器类型）。
+   * @returns 对应的模型端口。
+   * @throws ConfigError 适配器类型未知，或必需的环境变量缺失时抛出。
+   */
   public buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
     const type = entry.adapter ?? 'mock';
-    if (type === 'openai') {
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (apiKey === undefined) {
-        throw new ConfigError('modelRouter openai 条目需要环境变量 OPENAI_API_KEY');
+    if (type === 'openai' || type === 'anthropic' || type === 'responses') {
+      const defaults = endpointDefaults.resolveAdapter(type);
+      if (defaults === undefined) {
+        throw new ConfigError(`modelRouter 的 adapter "${type}" 未登记于 defaults/endpoints.json`);
       }
-      return new OpenAiCompatibleModel({
-        baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
-        apiKey,
-        model: entry.model,
-      });
-    }
-    if (type === 'anthropic') {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (apiKey === undefined) {
-        throw new ConfigError('modelRouter anthropic 条目需要环境变量 ANTHROPIC_API_KEY');
+      if (defaults.apiKey === undefined) {
+        throw new ConfigError(
+          `modelRouter ${type} 条目需要环境变量 ${defaults.apiKeyEnv ?? '(未声明)'}`,
+        );
       }
-      return new AnthropicModel({
-        baseUrl: process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com',
-        apiKey,
-        model: entry.model,
-      });
-    }
-    if (type === 'responses') {
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (apiKey === undefined) {
-        throw new ConfigError('modelRouter responses 条目需要环境变量 OPENAI_API_KEY');
-      }
-      return new ResponsesModel({
-        baseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
-        apiKey,
-        model: entry.model,
-      });
+      const options = { baseUrl: defaults.baseUrl, apiKey: defaults.apiKey, model: entry.model };
+      if (type === 'openai') return new OpenAiCompatibleModel(options);
+      if (type === 'anthropic') return new AnthropicModel(options);
+      return new ResponsesModel(options);
     }
     if (type !== 'mock') {
       throw new ConfigError(`modelRouter 未知 adapter 类型 "${type}"`);

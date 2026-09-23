@@ -16,7 +16,11 @@
  * - `local`（本机进程执行输出），阈值 3 —— 日志噪声高，需更强证据才拦。
  *
  * 未登记的工具名一律回落 `unknown`（保守阈值）：**新增外部工具「忘了登记」只会更严、不会更松**。
+ *
+ * 工具名来自 `ports/tool/toolNames.ts`（单一来源）；本模块在 `security/`，故另需 `ports/` 与 `util/`
+ * 两个公共层依赖（见 `ARCHITECTURE_SPEC.md` §2.1 的目录归属表）。
  */
+import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 
 /** 工具输出来源信任级（越不可信越敏感）。 */
 export type TrustTier = 'external' | 'file' | 'local' | 'unknown';
@@ -25,21 +29,24 @@ export type TrustTier = 'external' | 'file' | 'local' | 'unknown';
 export class ToolOutputTrust {
   /** 公网抓取类工具名（内容不在本机可控范围内）。新增外部工具请在此登记。 */
   private static readonly EXTERNAL_TOOLS: ReadonlySet<string> = new Set([
-    'web_search',
-    'web_fetch',
+    TOOL_NAMES.webSearch,
+    TOOL_NAMES.webFetch,
   ]);
 
   /** 工作区文件 / 记忆检索类工具名（内容来自本仓库，可信度中）。 */
   private static readonly FILE_TOOLS: ReadonlySet<string> = new Set([
-    'read_file',
-    'list_dir',
-    'memory_search',
-    'recall',
-    'spill_read',
+    TOOL_NAMES.readFile,
+    TOOL_NAMES.listDir,
+    TOOL_NAMES.memorySearch,
+    TOOL_NAMES.recall,
+    TOOL_NAMES.spillRead,
   ]);
 
   /** 本机进程执行类工具名（输出即自身命令结果，可信度最高）。 */
-  private static readonly LOCAL_TOOLS: ReadonlySet<string> = new Set(['shell', 'run_code']);
+  private static readonly LOCAL_TOOLS: ReadonlySet<string> = new Set([
+    TOOL_NAMES.shell,
+    TOOL_NAMES.runCode,
+  ]);
 
   /** 各信任级拦截「弱证据」所需的最低命中数（越低越敏感）。 */
   private static readonly THRESHOLDS: Readonly<Record<TrustTier, number>> = {

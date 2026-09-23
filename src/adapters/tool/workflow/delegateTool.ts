@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -13,7 +14,7 @@ import type { WorkerOrchestrator } from '../../../worker/workerOrchestrator.js';
 export class DelegateTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'delegate',
+    name: TOOL_NAMES.delegate,
     description: '把子任务委派给外部 worker（codex/claude-code/dsh 等）执行，返回结果',
     parameters: {
       type: 'object',

@@ -7,9 +7,11 @@ import type {
   ModelRouterConfig,
   PermissionRuleConfig,
   PermissionRuleDecision,
+  SsrfPolicyConfig,
 } from '../config/configFile.js';
 import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
 import { at } from '../util/arrayAt.js';
+import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
 
 export * from './cliEnums.js';
 export { checkEnum } from './cliFlagTable.js';
@@ -36,6 +38,8 @@ export interface CliArgs {
   approvalAsk: 'allow' | 'deny';
   /** 权限参数级规则（A2，来自配置 permission.rules）：与内置规则合并，命中即按其 decision 裁决。 */
   permissionRules?: readonly PermissionRuleConfig[] | undefined;
+  /** SSRF / 出站策略表（来自配置 ssrfPolicy；供 CLI 出站守卫与组合根 A2A 使用）。 */
+  ssrfPolicy?: SsrfPolicyConfig | undefined;
   /** 权限规则未命中时的默认裁决（A2，来自配置 permission.defaultDecision；缺省 allow，保持既有零行为变更）。 */
   permissionDefault?: PermissionRuleDecision | undefined;
   /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
@@ -221,27 +225,8 @@ export const CliDefaults: CliArgs = {
   planMode: false,
 };
 
-/** 适配器厂商预设（id + baseUrl）。 */
-interface AdapterPreset {
-  /** 厂商标识（与 providerKeys 的键对应）。 */
-  readonly id: string;
-  /** 厂商 OpenAI 兼容端点。 */
-  readonly baseUrl: string;
-}
-
-/** 按 CLI --model-adapter 反查厂商预设的小表（与 src/server/providerPresets.ts 同源同步）。 */
-const ADAPTER_PRESETS: Readonly<Record<string, readonly AdapterPreset[]>> = {
-  openai: [
-    { id: 'deepseek', baseUrl: 'https://api.deepseek.com' },
-    { id: 'moonshot', baseUrl: 'https://api.moonshot.cn/v1' },
-    { id: 'zhipu', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
-    { id: 'dashscope', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-    { id: 'openai', baseUrl: 'https://api.openai.com/v1' },
-  ],
-  anthropic: [{ id: 'anthropic', baseUrl: 'https://api.anthropic.com' }],
-  responses: [{ id: 'openai', baseUrl: 'https://api.openai.com/v1' }],
-  llamacpp: [{ id: 'ollama', baseUrl: 'http://localhost:11434/v1' }],
-};
+/** 适配器厂商预设（id + baseUrl）——完整形状见 `config/providerPresets.ts` 的 `ProviderPreset`。 */
+type AdapterPreset = ProviderPreset;
 
 /**
  * CLI 参数解析器：原模块级纯函数归拢为 `ArgParser` 方法族，现改为实例方法以消除 `static`；
@@ -357,24 +342,8 @@ export class ArgParser {
     if (file.apiKey !== undefined) {
       result.apiKey = file.apiKey;
     }
-    // 兜底：当顶层 apiKey/baseUrl 缺失但 providerKeys 已有该厂商凭据时，
-    // 按 modelAdapter 枚举所有可能的厂商预设，挑第一个 providerKeys 里有 key 的，
-    // 用其 baseUrl/key 补全 apiKey。修复 #OBS-2：「UI 用 providerKeys 模型配的 key，
-    // CLI 启动却因缺 apiKey 崩」的 bug。
-    if (
-      file.modelAdapter !== undefined &&
-      (file.apiKey === undefined || file.baseUrl === undefined)
-    ) {
-      const providerKeys = file.providerKeys ?? {};
-      for (const preset of this.adapterPresets(file.modelAdapter)) {
-        const presetKey = providerKeys[preset.id];
-        if (presetKey !== undefined) {
-          if (file.apiKey === undefined) result.apiKey = presetKey;
-          if (file.baseUrl === undefined) result.baseUrl = preset.baseUrl;
-          break;
-        }
-      }
-    }
+    // 兜底：顶层凭据缺失时按 providerKeys 命中的厂商预设补全（见 fillProviderCredentials）。
+    this.fillProviderCredentials(file, result);
     if (file.model !== undefined) {
       result.model = file.model;
     }
@@ -393,6 +362,13 @@ export class ArgParser {
     }
     if (file.permission?.defaultDecision !== undefined) {
       result.permissionDefault = file.permission.defaultDecision;
+    }
+    // SSRF 策略表（可配置）：**修「声明未接线」**——本函数此前从不映射 `file.ssrfPolicy`，
+    // 于是 `args.ssrfPolicy` 恒为 undefined，写在 omniharness.json 里的策略表从未到达
+    // 出站守卫与组合根（只有编程 API 路径生效）。接线完整性门禁 I5a 只对 src/cli 做字符串
+    // 匹配（`args.ssrfPolicy` 足以命中），因此这条断链长期是绿的——2026-09-22 第二轮实测发现。
+    if (file.ssrfPolicy !== undefined) {
+      result.ssrfPolicy = file.ssrfPolicy;
     }
     if (file.sandbox !== undefined) {
       result.sandbox = file.sandbox;
@@ -473,7 +449,34 @@ export class ArgParser {
     return result;
   }
 
-  /** 打印用法。
+  /**
+   * 凭据兜底：顶层 `apiKey` / `baseUrl` 缺失时，用 `providerKeys` 里命中的厂商预设补全。
+   *
+   * 由来：修复 #OBS-2「UI 用 providerKeys 配的 key，CLI 启动却因缺 apiKey 崩」——
+   * 按 `modelAdapter` 枚举所有可能厂商预设，取第一个在 `providerKeys` 里有 key 的。
+   * 目录用**生效目录**（内建 `defaults/providers.json` + 用户 `providerPresets` 覆盖），
+   * 自建/私有化厂商同样能被命中（否则 UI 配了 Key、CLI 却认不到该厂商）。
+   * @param file 已加载的分层配置。
+   * @param result 正在组装的 CLI 默认值（原地写入 `apiKey` / `baseUrl`）。
+   * @returns 无返回值（无适配器声明或凭据已齐时直接返回）。
+   */
+  private fillProviderCredentials(file: FileConfig, result: Partial<CliArgs>): void {
+    if (file.modelAdapter === undefined) return;
+    if (file.apiKey !== undefined && file.baseUrl !== undefined) return;
+    const providerKeys = file.providerKeys ?? {};
+    const effectivePresets = providerPresets.resolve(file.providerPresets);
+    for (const preset of this.adapterPresets(file.modelAdapter, effectivePresets)) {
+      const presetKey = providerKeys[preset.id];
+      if (presetKey !== undefined) {
+        if (file.apiKey === undefined) result.apiKey = presetKey;
+        if (file.baseUrl === undefined) result.baseUrl = preset.baseUrl;
+        return;
+      }
+    }
+  }
+
+  /**
+   * 打印用法。
    * @returns 无返回值。
    */
   public printUsage(): void {
@@ -565,24 +568,36 @@ export class ArgParser {
   }
 
   /**
-   * 按 CLI --model-adapter 反查厂商预设（id + baseUrl）。
-   * CLI 层独立维护一份小表（与 src/server/providerPresets.ts 同源同步）：
-   * openai 适配器对应多家 OpenAI 兼容厂商，按预设默认 baseUrl 命中第一个匹配 providerKey 的。
-   * @param adapter CLI --model-adapter 取值。
+   * 按 CLI `--model-adapter` 反查厂商预设。
+   *
+   * 来源为**单一目录**（`config/providerPresets.ts`，数据在 `defaults/providers.json`）：
+   * 本类此前独立维护一份手工副本 `ADAPTER_PRESETS`（注释自称「同源同步」），加一家厂商要改两处、
+   * 且两处漂移会出现「UI 有这家厂商、CLI 解析不到」的隐性缺口——已删除。CLI 专属映射
+   * （`responses` → openai、`llamacpp` → ollama）改由预设自带的 `cliAdapters` 数据表达。
+   * @param adapter CLI `--model-adapter` 取值。
+   * @param presets 生效目录（缺省内建目录；调用方传 `providerPresets.resolve(file.providerPresets)`
+   *   以纳入 `omniharness.json` 的用户覆盖）。
    * @returns 首个厂商预设；适配器无预设时返回 undefined。
    */
-  public adapterToPreset(adapter: string): AdapterPreset | undefined {
-    const list = ADAPTER_PRESETS[adapter];
-    return list === undefined || list.length === 0 ? undefined : list[0];
+  public adapterToPreset(
+    adapter: string,
+    presets?: readonly ProviderPreset[],
+  ): AdapterPreset | undefined {
+    const list = this.adapterPresets(adapter, presets);
+    return list.length === 0 ? undefined : list[0];
   }
 
   /**
    * 取适配器下所有可能厂商预设（按 baseUrl 一一对应）。
-   * @param adapter CLI --model-adapter 取值。
+   * @param adapter CLI `--model-adapter` 取值。
+   * @param presets 生效目录（缺省内建目录）。
    * @returns 预设列表（未知适配器返回空数组）。
    */
-  public adapterPresets(adapter: string): readonly AdapterPreset[] {
-    return ADAPTER_PRESETS[adapter] ?? [];
+  public adapterPresets(
+    adapter: string,
+    presets?: readonly ProviderPreset[],
+  ): readonly AdapterPreset[] {
+    return providerPresets.forAdapter(adapter, presets);
   }
 }
 
@@ -617,12 +632,18 @@ export function messageOf(error: unknown): string {
   return argParser.messageOf(error);
 }
 
-/** 按适配器反查首个厂商预设。 */
-export function adapterToPreset(adapter: string): AdapterPreset | undefined {
-  return argParser.adapterToPreset(adapter);
+/** 按适配器反查首个厂商预设（`presets` 可传生效目录以纳入用户覆盖）。 */
+export function adapterToPreset(
+  adapter: string,
+  presets?: readonly ProviderPreset[],
+): AdapterPreset | undefined {
+  return argParser.adapterToPreset(adapter, presets);
 }
 
-/** 取适配器下所有厂商预设。 */
-export function adapterPresets(adapter: string): readonly AdapterPreset[] {
-  return argParser.adapterPresets(adapter);
+/** 取适配器下所有厂商预设（`presets` 可传生效目录以纳入用户覆盖）。 */
+export function adapterPresets(
+  adapter: string,
+  presets?: readonly ProviderPreset[],
+): readonly AdapterPreset[] {
+  return argParser.adapterPresets(adapter, presets);
 }

@@ -15,6 +15,7 @@
  * - `timeout_ms` 默认 30s 且有上限，避免挂在一个不回的服务器上；
  * - 非 HTML 内容（JSON / 纯文本）原样返回，不做转换。
  */
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js'
 import type {
   ToolCall,
   ToolContext,
@@ -62,7 +63,7 @@ export interface WebFetchToolOptions {
 export class WebFetchTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'web_fetch',
+    name: TOOL_NAMES.webFetch,
     description:
       '抓取一个 http(s) 网页并返回正文纯文本（自动剥离脚本/样式与标签）。' +
       '用于读取文档、issue、PR 等在线内容；返回内容会按 max_bytes 截断。',

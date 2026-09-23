@@ -14,6 +14,7 @@
  *   适配器均支持 user 消息携带图像）。不支持图像输入的模型只会看到一行文字说明。
  * - 超大图片会被拒绝而不是静默压缩（压缩需要图像库，与"零依赖"冲突）。
  */
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import type {
@@ -35,7 +36,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export class ViewImageTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'view_image',
+    name: TOOL_NAMES.viewImage,
     description:
       '读取工作区内的图片（png/jpg/gif/webp/bmp/svg）并交给模型查看，' +
       '适用于截图、图表、设计稿的判读。返回尺寸等元数据，图片本体作为附件送入模型。',

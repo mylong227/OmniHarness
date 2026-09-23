@@ -44,11 +44,61 @@ export interface PermissionRuleConfig {
  * 用于把「多档权限」的参数级规则外置为可配置项：`rules` 与内置规则合并后交规则审批，
  * 使「拒绝任何含 `curl | sh` 的命令」这类策略无需改代码即可生效。
  */
+/**
+ * `ssrfPolicy` 段（用户指令，2026-09-22）：把原先硬编码的 SSRF 策略表移入配置。
+ * 三个字段均可缺省（缺省即回落默认表）；**显式给空数组**表示清空该项（显式且危险，故不静默）。
+ */
+export interface SsrfPolicyConfig {
+  /** 云元数据主机清单（覆盖默认表）。 */
+  readonly metadataHosts?: readonly string[];
+  /** 内网/本机域名后缀清单（必须以 "." 开头）。 */
+  readonly internalSuffixes?: readonly string[];
+  /** IPv4 私有/保留网段（形如 `[["10.0.0.0", 8]]`）。 */
+  readonly ipv4Blocks?: readonly (readonly [string, number])[];
+}
+
 export interface PermissionConfig {
   /** 用户自定义规则（与内置规则合并，聚合语义 deny 优先）。 */
   readonly rules?: readonly PermissionRuleConfig[];
   /** 规则未命中时的默认裁决（缺省 allow，保持既有零行为变更）。 */
   readonly defaultDecision?: PermissionRuleDecision;
+}
+
+/**
+ * 单个大模型厂商预设（配置文件形态，与随包发布的 `defaults/providers.json` 记录**同形**）。
+ *
+ * 为什么放进配置层：该结构既是**内建目录的数据形状**（由 `defaults/providers.json` 供给），
+ * 也是**用户覆盖的形状**（`omniharness.json` 的 `providerPresets`），二者必须同源，
+ * 否则「改数据」与「改配置」会出现两套字段口径。
+ */
+export interface ProviderPresetConfig {
+  /** 厂商标识（稳定 ID，`providerKeys` 的键）。 */
+  readonly id: string;
+  /** 展示名（UI 厂商卡片标题）。 */
+  readonly label: string;
+  /** 底层适配器类型（缺省用于模型构造；对应 `FileConfig.modelAdapter`）。 */
+  readonly adapter: 'openai' | 'anthropic' | 'responses';
+  /**
+   * CLI `--model-adapter` 取值中，哪些应解析到本厂商（缺省 `[adapter]`）。
+   * 例：OpenAI 同时是 `responses` 通道的预设；Ollama 的 `adapter` 是 `openai`（兼容层），
+   * 但 CLI 侧 `--model-adapter llamacpp` 才指向它。
+   */
+  readonly cliAdapters?: readonly string[];
+  /** 默认端点。 */
+  readonly baseUrl: string;
+  /** 启用厂商时的默认模型名。 */
+  readonly defaultModel: string;
+  /** 是否必需 Key（Ollama 等本地端点免 Key）。 */
+  readonly needsKey: boolean;
+  /** 兜底已知模型清单（`/models` 不可用时展示）。 */
+  readonly models: readonly string[];
+  /**
+   * 该厂商 `reasoning_effort` 合法值清单（空/缺省 = 该厂商不暴露按强度的推理档位）。
+   * 非空时 UI 推理强度下拉按此清单渲染，保证只会挑到端点接受的值。
+   */
+  readonly reasoningEffort?: readonly string[];
+  /** 维护说明（来源、实测日期、为何这么配）——纯文档字段，不参与任何判定。 */
+  readonly notes?: string;
 }
 
 /** 配置文件内容（omniharness.json，端口选择）。 */
@@ -81,6 +131,17 @@ export interface FileConfig {
    * 支持 `commandGlob`（`*`/`?` 通配），使「拒绝含某子串的命令」无需改代码即可配置。
    */
   readonly permission?: PermissionConfig;
+  /** SSRF / 出站策略表（可配置；缺省用内置默认档）。 */
+  readonly ssrfPolicy?: SsrfPolicyConfig;
+  /**
+   * 厂商目录覆盖（#模型接入页，用户指令 2026-09-22）：按 `id` **整体替换**内建预设，
+   * 新 `id` **追加**。内建目录随包发布于 `defaults/providers.json`（改数据不改代码），
+   * 本字段用于自建/私有化端点与新增厂商。
+   *
+   * 语义为**整条替换**而非字段级合并：只给 `id` 与个别字段会被校验层拒绝（fail-closed），
+   * 避免「没写的字段继承内建值」这种隐式继承在厂商信息变更时静默漂移。
+   */
+  readonly providerPresets?: readonly ProviderPresetConfig[];
   /**
    * profile 继承（A2）：本 profile 以另一 profile 为父，未声明字段继承父 profile 的值。
    * 仅在 `--profile` 加载的 profile 文件内有效；父 profile 相对本文件所在目录解析。

@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -17,7 +18,7 @@ export class BudgetStatusTool {
    * 让模型自查当前成本预算（上限/已花费/剩余/token/缓存折抵/软硬阈值），临近上限时主动收敛用量。
    */
   public readonly definition: ToolDefinition = {
-    name: 'budget_status',
+    name: TOOL_NAMES.budgetStatus,
     description:
       '查询本次会话的模型调用成本预算状态：硬预算上限（USD）、已花费、剩余、输入/输出 token 累计、' +
       '命中提示缓存折抵的金额、软阈值（建议降级）与是否已熔断。' +

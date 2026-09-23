@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../ports/model/model.js';
 
 /** 演示用模型适配器：第一步返回工具调用，后续返回最终文本（无需 API Key）。 */
@@ -17,7 +18,11 @@ export class MockModel implements ModelPort {
     if (this.shouldUseTool(request)) {
       return {
         toolCalls: [
-          { id: 'mock_call_1', name: 'shell', arguments: { command: 'echo OmniHarness运行中' } },
+          {
+            id: 'mock_call_1',
+            name: TOOL_NAMES.shell,
+            arguments: { command: 'echo OmniHarness运行中' },
+          },
         ],
       };
     }

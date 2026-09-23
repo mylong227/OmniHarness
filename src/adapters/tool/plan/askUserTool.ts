@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type {
   ToolCall,
   ToolContext,
@@ -26,7 +27,7 @@ export class AskUserTool {
    * 让模型向用户抛出结构化单选/多选/开放问题，等回答后回灌循环。
    */
   public readonly definition: ToolDefinition = {
-    name: 'ask_user',
+    name: TOOL_NAMES.askUser,
     description:
       '在确实需要用户做选择、确认或提供关键缺失信息时向用户提问。可一次问多个问题，每个带稳定 id（答案回显）。' +
       '需要选择时给 options；想推荐某项就放第一并追加 "(推荐)"。' +

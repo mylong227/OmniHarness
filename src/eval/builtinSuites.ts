@@ -3,6 +3,7 @@
 // 覆盖：① 三步工具链路（read_file → shell → write_file）验证工具执行 + 沙箱 + 事件记录；
 // ② 纯文本应答验证无工具路径；并各自带期望断言（工具名 / 终态文本 / 写出文件）。
 
+import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import type { EvalSuite } from './evalHarness.js';
 
 /**
@@ -19,17 +20,17 @@ export const SMOKE_SUITE: EvalSuite = {
       prompt: '读取 input.txt，处理后把结果写入 output.txt',
       seedFiles: { 'input.txt': 'line1\nline2\nline3\n' },
       script: [
-        { toolCalls: [{ id: 'c1', name: 'read_file', arguments: { path: 'input.txt' } }] },
+        { toolCalls: [{ id: 'c1', name: TOOL_NAMES.readFile, arguments: { path: 'input.txt' } }] },
         {
           toolCalls: [
-            { id: 'c2', name: 'shell', arguments: { command: 'echo PROCESSED-OK-12345' } },
+            { id: 'c2', name: TOOL_NAMES.shell, arguments: { command: 'echo PROCESSED-OK-12345' } },
           ],
         },
         {
           toolCalls: [
             {
               id: 'c3',
-              name: 'write_file',
+              name: TOOL_NAMES.writeFile,
               arguments: { path: 'output.txt', content: 'PROCESSED-OK-12345' },
             },
           ],
@@ -37,7 +38,7 @@ export const SMOKE_SUITE: EvalSuite = {
         { text: '处理完成，结果 PROCESSED-OK-12345 已写入 output.txt' },
       ],
       expect: {
-        tools: ['read_file', 'shell', 'write_file'],
+        tools: [TOOL_NAMES.readFile, TOOL_NAMES.shell, TOOL_NAMES.writeFile],
         text: 'PROCESSED-OK-12345',
         files: { 'output.txt': 'PROCESSED-OK-12345' },
       },

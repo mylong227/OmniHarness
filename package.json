@@ -21,6 +21,7 @@
   },
   "files": [
     "dist/src",
+    "defaults",
     "web",
     "docs",
     "examples",

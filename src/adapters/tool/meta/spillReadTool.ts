@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import type { SpillPort } from '../../../ports/memory/spill.js';
 import type {
   ToolCall,
@@ -13,7 +14,7 @@ import type {
 export class SpillReadTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'spill_read',
+    name: TOOL_NAMES.spillRead,
     description: '按 id 读回被外溢的完整工具输出（输出过大时原文已移出上下文，此处可取回全文）',
     parameters: {
       type: 'object',

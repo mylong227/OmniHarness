@@ -61,7 +61,8 @@ export interface ProviderPreset {
    * 该厂商合法的 reasoning_effort 档位（#B6 扩展，2026-09-08）：
    * - undefined 或 []：UI 退回内置兜底列表（向后兼容）
    * - 非空：Composer「推理强度」下拉按此清单渲染
-   * 后端单一来源：src/server/providerPresets.ts 的 PROVIDER_PRESETS。
+   * 后端单一来源：src/config/providerPresets.ts（数据在随包发布的 defaults/providers.json，
+   * 可由 omniharness.json 的 providerPresets 段按 id 整条覆盖）。
    */
   reasoningEffort?: string[];
 }

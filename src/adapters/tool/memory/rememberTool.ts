@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { randomUUID } from 'node:crypto';
 import type {
   ToolCall,
@@ -18,7 +19,7 @@ export class RememberTool {
    * 把一条值得长期跨会话保留的 durable fact 写入长期记忆，进程重启后仍可经 recall 回忆。
    */
   public readonly definition: ToolDefinition = {
-    name: 'remember',
+    name: TOOL_NAMES.remember,
     description:
       '把一条值得长期跨会话保留的事实写入长期记忆（用户偏好、项目约定、关键决策、环境事实、踩过的坑、对用户的承诺等）。写入后即便进程重启也会保留，并在未来会话中经 recall 被回忆起。仅写真正 durable 的信息，临时输出与可被重新检索的琐碎内容不要用本工具。',
     parameters: {

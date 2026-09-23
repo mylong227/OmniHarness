@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -27,7 +28,7 @@ export class ReadFileTool {
 
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
-    name: 'read_file',
+    name: TOOL_NAMES.readFile,
     description:
       '读取工作区内的文件内容（默认带行号，可用 offset/limit 定点读取大文件而不必整读）。' +
       '行号即真实行号，可直接用于 apply_patch 的 @@ 头；edit 工具会自动忽略行号前缀。',

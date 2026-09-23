@@ -1,4 +1,5 @@
 import type { ApprovalPort } from '../ports/runtime/approval.js';
+import type { SsrfPolicyConfig } from './configFile.js';
 import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ModelPort, RoutePrice } from '../ports/model/model.js';
@@ -320,6 +321,11 @@ export interface OmniHarnessConfig {
     | undefined;
   /** 初始技能池（可选）：受种进内置 SkillRegistry，供 CRISPR 编辑与相变固化复用。缺省空池。 */
   readonly skills?: readonly Skill[] | undefined;
+  /**
+   * SSRF / 出站策略表（2026-09-22 配置化）：元数据主机 / 内网域名后缀 / IPv4 网段。
+   * 缺省用内置默认档（与历史行为逐字一致）；消费方用 `security/ssrfPolicy.resolveSsrfPolicy` 解析。
+   */
+  readonly ssrfPolicy?: SsrfPolicyConfig | undefined;
   /** (P2, I-P2-4) CRISPR 精确技能编辑：启用后构造 CRISPRSkillEditor（接 SkillPort），对技能做定点 patch + 差异测试回滚（fail-closed）。缺省关，零破坏。 */
   readonly skillEditing?:
     | {
@@ -542,8 +548,7 @@ export class ConfigFactory {
       fragments: partial.fragments,
       native: partial.native,
       live: partial.live ?? new CompositeLiveView([new ConsoleLiveView()]),
-      // 语义嵌入端口：`OMNI_SEMANTIC_RECALL=1` 才构造（见 buildEmbeddingPort）；
-      // 内含 L5 预热触发（`OMNI_EMBED_PRELOAD=1`，默认关 ⇒ 零行为变更）。
+      // 语义嵌入端口：`OMNI_SEMANTIC_RECALL=1` 才构造（见 buildEmbeddingPort；L5 预热默认关）。
       embedding: buildEmbeddingPort(),
       evolution: partial.evolution,
       // (U4) RLVR 进化闭环：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
@@ -551,6 +556,7 @@ export class ConfigFactory {
       // → 「默认关、端到端未开」的机械根因。此处显式透传；`createRuntime` 在 `enabled===true`
       // 时构造「可验证门禁 + RLVR sample-filter-replay」控制器。
       evolutionRlvr: partial.evolutionRlvr,
+      ssrfPolicy: partial.ssrfPolicy, // 配置化 SSRF 策略表（消费方：组合根 A2A / CLI 出站守卫）
       // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**（第 220 行）却**未被本
       // 装配字面量透传**；而 `ResolvedConfig extends OmniHarnessConfig` 且该字段可选 ⇒ TS 不报错、
       // 值被静默丢弃，`agent` 读到的 `config.promptInjectionGuard` 恒为 `undefined`
