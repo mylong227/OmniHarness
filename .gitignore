@@ -79,3 +79,14 @@ omniharness.json
 # 评测生成的报告（机器写出、可随时重跑）：入库只会让工作树随每次评测变脏（2026-09-22）
 # 人工确认的结论请写入 docs/ 或 *.baseline.json，而不是把原始产物当权威。
 evals/**/*.report.json
+
+# 第三方资源语料：3414 文件 / 20.8 MB、零代码消费者（2026-09-22 审计实测）——迁出仓库，
+# 需要时按 THIRD_PARTY_ASSETS.md 的说明单独获取。
+resources/comfyui_node_reference/
+
+# 机器生成的评测报告（跑一次即变）：基准结论请入库到 benchmark/ 下的人工确认工件，或写进 docs/。
+benchmark/selfcheck.report.json
+
+# 本机外部产物（非本仓库生成，2026-09-23 发现于工作区根）：Chrome 配置/注册表备份，勿入库。
+chrome-hijack-backup/
+
