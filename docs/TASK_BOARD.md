@@ -1544,7 +1544,19 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
   断言「在集合内即不可并行」）；`checkpoint` 新增 4 例（7 种非法 label + 非法 sessionId 全拒、合法不收紧、工具层拒穿越）。
   `npm test` **2059 例 / 2054 过 / 1 失败（本机 Chrome）/ 4 skip**（较上一轮 +7 全绿）；门禁全绿。
 
-### 20.9 ⬜ 待执行（本板按 ROI 顺序推进）
+### 20.9 ✅ 已结项：P3 批次四项（目标 ④）
+
+- **`NetworkEgressGuard` 漏 IPv4-mapped IPv6**：抽 `src/util/ipAddress.ts`（IPv4 CIDR 表 + IPv6 分组解析 +
+  内嵌 IPv4 四形态），SSRF 护栏与出站守卫**共用一份**实现。复验：白名单显式写 `[::ffff:169.254.169.254]`
+  也依然被拒（SSRF 规则不可被白名单覆盖）。
+- **外溢预览按码元切却宣称字节预算**：改按 UTF-8 字节截断 + 回退到合法字符边界（CJK/emoji 不再超预算、不切半个代理对）。
+- **worktree 清理不在锁内且静默吞错**：清理与创建共用同一把按 repoRoot 的锁，失败一律 `log.warn`。
+- **`web/src` 不在本地 typecheck**：`npm run typecheck` 追加 `tsc -p web/tsconfig.json --noEmit`（实测零错误）。
+- **验证**：新增/加强 4 组测试；`npm test` **2061 例 / 2056 过 / 1 失败（本机 Chrome）/ 4 skip**（+2 全绿，无回归）；
+  `typecheck`（含 web）/ `lint` / `check --strict`（562 文件零违规）/ `arch:gate` / `audit:config-wiring`（562 全绿）/
+  `audit:maturity` / `format:check` 全绿。
+
+### 20.10 ⬜ 待执行（本板按 ROI 顺序推进）
 
 7. repo-map 结果 memo ＋ 上下文记账前缀缓存；
 8. 精排判别器升级（**须先做完 20.1 的复核**）；

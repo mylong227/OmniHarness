@@ -89,13 +89,26 @@
 - **可证伪验证**：新增 4 例——非法 label 7 种写法全被拒、非法 `sessionId` 被拒、合法 label 不被过度收紧（含空格 label）、
   工具层对 `../../../../tmp/evil` 返回 `ok:false` 且对合法 label 正常打快照。
 
-### 1.7 其余 P3（摘要，均有 `文件:行号`）
+### 1.7 P3 批次【本轮已修 4 项 / 其余待办】
 
-shell 不消费取消信号（`shellTool.ts:185-191` 不传 `signal`，最长跑满 600 s 且只杀直接子进程）·
+**已修（2026-09-22）**：
+
+- **`NetworkEgressGuard` 漏 IPv4-mapped IPv6**（`networkEgressGuard.ts`）：其正则族只认 `::1`/`fe80:`/`fc..`/`fd..`
+  前缀 ⇒ `http://[::ffff:169.254.169.254]/` 在出站守卫眼里**既不是** `169.254.*`（点分正则不匹配）**也不带**前缀，
+  「元数据一律拒绝」的声明在该写法下不成立。**修法**：把 IP 分类抽成共享实现 `src/util/ipAddress.ts`
+  （IPv4 CIDR 表 + IPv6 分组解析 + 内嵌 IPv4 四形态），SSRF 护栏与出站守卫**共用一份**——两份实现的分叉
+  已经造成过一次真实缺口，故不再保留第二份。复验：白名单里**显式写上** `[::ffff:169.254.169.254]` 也依然被拒。
+- **外溢预览按 UTF-16 码元切而宣称字节预算**（`spillPolicy.ts`）：CJK/emoji 预览可达预算约 4 倍。**修法**：
+  改按 UTF-8 字节截断并回退到合法字符边界（不产生半个代理对）。
+- **worktree 清理不在锁内且静默吞错**（`worktreeOps.ts`）：并发派生/结束时清理失败会残留
+  `.omni-worktrees/<id>` 与 `omni-sub-*` 分支且无日志。**修法**：清理与创建共用同一把按 repoRoot 的锁，
+  失败一律 `log.warn('worktree.cleanup.failed')`。
+- **`web/src`（104 文件）不在本地 `typecheck`**：`typecheck` 只跑根 tsconfig。**修法**：
+  `npm run typecheck` 追加 `tsc -p web/tsconfig.json --noEmit`（实测零错误）。
+
+**仍待办**：shell 不消费取消信号（`shellTool.ts:185-191` 不传 `signal`，最长跑满 600 s 且只杀直接子进程）·
 `EventPersister` 落盘竞态（`eventPersister.ts:69-72` 不等在飞写入；JSONL 整文件覆盖非原子）·
-JSONL 坏行 ⇒ 静默空历史（`jsonlStorage.ts:37-44`）· spill 产物与涡环包无回收（`fileSpill.ts:33-38`、`vortexRingSpillAdapter.ts:20`）·
-外溢预览按 UTF-16 码元切而宣称字节预算（`spillPolicy.ts:28-33`）· `NetworkEgressGuard` 同样漏 IPv4-mapped IPv6（`networkEgressGuard.ts:36-51`）·
-worktree 清理不在锁内且静默吞错（`worktreeOps.ts:113-130`）· `MUTATING_TOOLS` 缺 `rollback`/`checkpoint`（`toolGate.ts:27-40`）。
+JSONL 坏行 ⇒ 静默空历史（`jsonlStorage.ts:37-44`）· spill 产物与涡环包无回收（`fileSpill.ts:33-38`、`vortexRingSpillAdapter.ts:20`）。
 
 ### 1.8 已核对确认**正确**的核心链路（避免重复投入）
 

@@ -1,4 +1,5 @@
-import { execFile } from 'node:child_process';
+﻿import { execFile } from 'node:child_process';
+import { log } from '../util/logger.js';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -51,13 +52,31 @@ export class WorktreeOps {
         path: wtPath,
         isolated: 'worktree',
         cleanup: async () => {
-          // 移除工作树后尽力清理临时分支，避免分支堆积。
-          await execFileAsync('git', ['worktree', 'remove', '--force', wtPath], {
-            cwd: repoRoot,
-          }).catch(() => undefined);
-          await execFileAsync('git', ['branch', '-D', branch], { cwd: repoRoot }).catch(
-            () => undefined,
-          );
+          // 2026-09-22 修（审计 P3）：清理此前**在锁外**跑、且失败被静默吞掉
+          // ⇒ 并发派生/结束时抢 git 锁会残留 `.omni-worktrees/<id>` 与 `omni-sub-*` 分支，
+          // 而且没有任何日志可归因。现与创建共用同一把按 repoRoot 的锁，失败一律 log.warn。
+          await WorktreeOps.withWorktreeLock(repoRoot, async () => {
+            await execFileAsync('git', ['worktree', 'remove', '--force', wtPath], {
+              cwd: repoRoot,
+            }).catch((error: unknown) => {
+              log.warn('worktree.cleanup.failed', {
+                repoRoot,
+                path: wtPath,
+                step: 'worktree-remove',
+                error: String(error),
+              });
+            });
+            await execFileAsync('git', ['branch', '-D', branch], { cwd: repoRoot }).catch(
+              (error: unknown) => {
+                log.warn('worktree.cleanup.failed', {
+                  repoRoot,
+                  branch,
+                  step: 'branch-delete',
+                  error: String(error),
+                });
+              },
+            );
+          });
         },
       };
     } catch {

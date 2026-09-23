@@ -85,3 +85,21 @@ test('NetworkEgressGuard：blockPrivateRanges=false 放行受信本地地址（�
     (err: unknown) => err instanceof EgressBlockedError,
   );
 });
+
+// ---- 2026-09-22 回归（审计 P3）：出站守卫必须与 SSRF 护栏共用同一 IP 分类实现 ----
+test('networkEgress：IPv4-mapped IPv6 形态的元数据地址被拒（白名单也无法覆盖）', () => {
+  const guard = new NetworkEgressGuard({
+    allowedHosts: ['example.com', '[::ffff:169.254.169.254]', '::ffff:a9fe:a9fe'],
+  });
+  for (const url of [
+    'http://169.254.169.254/latest/meta-data/',
+    'http://[::ffff:169.254.169.254]/latest/meta-data/',
+    'http://[::ffff:a9fe:a9fe]/',
+    'http://[0:0:0:0:0:ffff:a9fe:a9fe]/',
+    'http://[::1]/',
+  ]) {
+    assert.throws(() => guard.assertAllowed(url), /SSRF/, `${url} 必须被拒`);
+  }
+  // 公网不被过度收紧
+  guard.assertAllowed('https://example.com/ok');
+});

@@ -40,6 +40,25 @@ test('外溢策略：预览按字节截断，短内容原样返回', () => {
   assert.strictEqual(policy.preview('abcdefghij'), 'abcde');
 });
 
+// ---- 2026-09-22 回归（审计 P3）：previewBytes 是**字节**预算，不能按 UTF-16 码元切 ----
+test('外溢策略：CJK / emoji 预览严格不超字节预算，且不切出半个字符', () => {
+  const policy = new SpillPolicy({ maxInlineBytes: 10, previewBytes: 8 });
+  // 中文：每字 3 字节 ⇒ 8 字节只能放 2 个字（旧实现会放 8 个字 = 24 字节，超 3 倍）
+  const cjk = '中文测试内容超长'.repeat(3);
+  const p1 = policy.preview(cjk);
+  assert.ok(Buffer.byteLength(p1, 'utf8') <= 8, `中文预览超预算：${Buffer.byteLength(p1, 'utf8')}`);
+  assert.strictEqual(p1, '中文');
+  // emoji（4 字节代理对）：7 字节预算下只能放 1 个（旧实现按码元切会把代理对切成半个）
+  const p2 = new SpillPolicy({ maxInlineBytes: 4, previewBytes: 7 }).preview('🙂🙂🙂');
+  assert.ok(
+    Buffer.byteLength(p2, 'utf8') <= 7,
+    `emoji 预览超预算：${Buffer.byteLength(p2, 'utf8')}`,
+  );
+  assert.strictEqual(p2, '🙂', '不得产出半个代理对/半个 UTF-8 序列');
+  // 预算恰好等于整串字节 ⇒ 原样返回
+  assert.strictEqual(policy.preview('中文'), '中文');
+});
+
 test('内存外溢端口：写入后可原样读回', async () => {
   const port = new MemorySpill();
   const handle = await port.spill('完整内容', 'sess_1');

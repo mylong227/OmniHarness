@@ -14,7 +14,9 @@
  *   100.64/10 CGNAT、::1/fe80::/fc00::/fd00::）无论是否在白名单内**一律拒绝**——
  *   白名单只表达「允许的公网主机」，不能用来放行内网地址（防 SSRF 打元数据服务）。
  */
+import { isIP } from 'node:net';
 import { EgressBlockedError } from './egressBlockedError.js';
+import { isPrivateIpv4, isPrivateIpv6 } from '../../util/ipAddress.js';
 
 /** 网络外联守卫配置。 */
 export interface NetworkEgressOptions {
@@ -157,6 +159,17 @@ export class NetworkEgressGuard {
    */
   private static isPrivateHost(host: string): boolean {
     const h = host.toLowerCase();
+    // 先按**共享 IP 分类器**判 IP 字面量（2026-09-22 修，审计 P3）：本类此前的正则族只认
+    // `::1` / `fe80:` / `fc..` / `fd..` 前缀，漏掉 IPv4-mapped 等**等价写法**——
+    // `http://[::ffff:169.254.169.254]/` 既不是 `169.254.*`（点分正则不匹配）也不带前缀
+    // ⇒ 「云元数据一律拒绝」的声明在该写法下不成立。现与 `security/ssrfGuard` 共用同一实现
+    // （`src/util/ipAddress.ts`），两份口径合一，不再有分叉空间。
+    if (isIP(h) === 4 && isPrivateIpv4(h)) {
+      return true;
+    }
+    if (isIP(h) === 6 && isPrivateIpv6(h)) {
+      return true;
+    }
     return PRIVATE_HOST_PATTERNS.some((re) => re.test(h));
   }
   /**
