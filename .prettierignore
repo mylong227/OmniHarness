@@ -31,3 +31,7 @@ target/
 # 评测生成的报告 JSON（机器写出、非人工维护）：格式化它们只会让 `format:check` 随机变红，
 # 且每次跑评测都产生无意义 diff（2026-09-22 扩容评测集时实测 2 份报告即触发红灯）。
 *.report.json
+
+# 本机外部产物（非本仓库生成）：Chrome profile/注册表备份，含二进制与锁定文件，Prettier 扫描即报错。
+chrome-hijack-backup/
+

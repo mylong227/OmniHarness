@@ -1499,9 +1499,22 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 （实测 `chrome --version` 直接返回「正在现有的浏览器会话中打开」，加 `--user-data-dir` 后 `--dump-dom` 亦为空输出），
 CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑，**不把这两例改成静默 skip**（那正是本仓禁止的假绿）。
 
-### 20.6 ⬜ 待执行（本板按 ROI 顺序推进）
+### 20.6 ✅ 已结项：死资产迁出 + 生成物不入库（ROI 第 5 项）
 
-5. 死资产迁出（`resources/comfyui_node_reference`）＋ `*.report.json` 不入库；
+- **死语料迁出**：`resources/comfyui_node_reference`（**3414 文件 / 20.8 MB**，占当时全仓 tracked 的 **71%**）
+  实测**零代码消费者**（`git grep` 排除自身后仅命中 `THIRD_PARTY_ASSETS.md`；Python 研究码读的是
+  `resources/source_image_pool_comfybench`）。处置：`git rm -r --cached`（**磁盘文件保留**）＋ `.gitignore`
+  ＋ `THIRD_PARTY_ASSETS.md` 写明「已移出版本控制、如何自行获取、licenses.md 要求恢复时同样适用」。
+- **生成物不入库**：38 份 `evals/*.report.json` + `benchmark/selfcheck.report.json` 取消跟踪
+  （跑一次评测即变的机器产物）；**人工确认的基准结果工件保留跟踪**（`benchmark/capability-swebench*.json`、
+  `terminalbench-*.json`、`*-pins/mirrors.json` 等，它们是文档引用的证据）。`.prettierignore` 已忽略 `*.report.json`
+  ⇒ `format:check` 不再随「跑过评测」随机变红。
+- **本机外部产物**：工作区根出现 `chrome-hijack-backup/`（Chrome 配置 + 注册表快照，时间戳 2026-09-23 21:03）；
+  全仓（含 `dist`）grep 确认**非本仓库任何代码所写** ⇒ 判为外部产物，**未删除**，仅加进 `.gitignore` 与 `.prettierignore`
+  （否则 `git add -A` 会误入库、Prettier 扫描会直接报错）。
+
+### 20.7 ⬜ 待执行（本板按 ROI 顺序推进）
+
 6. 组合根迁出 `core/` ＋ 门禁补 ports→core/adapters 规则；
 7. repo-map 结果 memo ＋ 上下文记账前缀缓存；
 8. 精排判别器升级（**须先做完 20.1 的复核**）；
