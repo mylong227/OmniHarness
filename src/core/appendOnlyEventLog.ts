@@ -89,8 +89,8 @@ export class AppendOnlyEventLog {
    * 注入历史事件（resume/fork 用，保持追加语义不破坏顺序）。
    * @param events 历史会话事件序列，按原顺序批量追加。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public hydrate(events: readonly SessionEvent[]): void {
     this.events.push(...events);
   }

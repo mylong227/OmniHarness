@@ -41,8 +41,8 @@ export class CompositeLiveView implements ToolInputSink {
    *
    * @param delta 工具输入增量事件
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public onToolInput(delta: ToolInputDelta): void {
     for (const sink of this.sinks) sink.onToolInput(delta);
   }

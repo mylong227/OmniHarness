@@ -8,8 +8,8 @@ export class Container {
    * @param key 服务键（端口/契约名）。
    * @param instance 服务实例。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public register<T>(key: string, instance: T): void {
     if (this.services.has(key)) {
       throw new Error(`服务重复注册: ${key}`);

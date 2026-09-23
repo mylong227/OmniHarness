@@ -75,8 +75,8 @@ export class CorpusIndexCache {
    * 失效缓存。
    * @param root 指定则只失效该工作区；缺省清空全部。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();

@@ -9,8 +9,8 @@ export class SilentEventPort implements EventPort {
   /** 丢弃事件。
    * @param _event 会话事件（本实现直接忽略，保留参数以符合端口签名）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public emit(_event: SessionEvent): void {
     // 无操作
   }

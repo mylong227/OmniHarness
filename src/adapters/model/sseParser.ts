@@ -12,8 +12,8 @@ export class SseParser {
    * @param stream 响应体字节流。
    * @param onEvent 每解析出一个完整事件块回调一次（含 event 名与 data 文本）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public async read(
     stream: ReadableStream<Uint8Array>,
     onEvent: (event: SseEvent) => void,
@@ -44,8 +44,8 @@ export class SseParser {
    * @param onEvent 事件回调；同一块多条 data 行按 SSE 规范以换行拼接，无 data 行则不回调，
    *                缺省 event 名按规范取 'message'。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private emitBlock(block: string, onEvent: (event: SseEvent) => void): void {
     let eventName = 'message';
     const dataLines: string[] = [];

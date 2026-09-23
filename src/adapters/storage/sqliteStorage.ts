@@ -37,8 +37,8 @@ export class SqliteStorage implements StoragePort {
    * @param sessionId 会话标识（分桶键）。
    * @param events 完整事件列表（先删旧桶再按序号逐条插入，seq 为数组下标）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     const del = this.db.prepare('DELETE FROM events WHERE session_id = ?');
     del.run(sessionId);

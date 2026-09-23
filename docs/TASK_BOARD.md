@@ -1682,3 +1682,36 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
 - **与并行轮的交集说明**：本轮实施期间，另一会话完成了 §20.13（默认数据随包发布 + 探测路径策略 +
   门禁 I6）。两者无冲突；§20.13 删除的两个一次性 codemod 脚本正是本轮为「33 个工具类 + 47 处策略表」
   临时编写的（头注释即写明「跑完即删」），删得对。
+
+### 20.15 ✅ 已结项：配置化收尾三件（包根锚点定位 + JSDoc 脱块清零 + 新标准规则）
+
+- **背景**：§20.13 把三件收尾分别标为「已修 / 刻意不做 / 登记待办」；本轮把后两件一并做完（用户指令
+  「一起完成」），并把删除临时脚本的动作补记。
+- **① 包根定位改为「包根锚点」**（`src/util/builtinDefaults.ts`）：原实现 `'../../..'` 只对 `dist/src/**`
+  正确，源码布局（`src/util/`）会解析到仓库**父目录** ⇒ 任何源码直跑（`tsx` 之类）在 import 期即抛错。
+  现 `BuiltinDefaults.locatePackageRoot()` 从模块目录向上找**同时含 `package.json` 与 `defaults/`** 的一级
+  （最近者胜、上限 4 级）：随包布局（`dist/src/util` → 3 级）与源码布局（`src/util` → 2 级）都命中。
+  **为什么不加「只找 defaults/」的搜索**：那会在某级父目录碰巧有同名目录时静默读到别人的数据（fail-open）；
+  以 `package.json` 为身份锚点后命中的必是本包根，找不到就当场抛错。测试覆盖：随包/源码两种布局命中、
+  只有 `defaults/` 无 `package.json` 必须抛错、深目录（超过上限）必须抛错、嵌套包根取最近者。
+- **② JSDoc 脱块清零**：全仓 **31 文件 / 94 行**的 JSDoc 续行缩进 ≠ 「注释起始列 + 1」——`@returns 无返回值。`
+  与 `*/` 被写在注释块**外**（`/**` 在第 2 列，续行缩进却是 0–1）。成因是历史上自动补写文档时按「行首
+  一空格」写，而 Prettier 不管 JSDoc 续行缩进、原门禁也不查，于是长期存活。已一次性机器修复（只改行首
+  空白，正文一个字符未动）。**统计口径的坑留档**：带 BOM 的 41 个 `.ts` 会把 BOM 算进首行列号，首版统计
+  因此虚报为 122–249 处，实际 94 处（`jsdocIndentViolations` 已显式扣除 BOM）。
+- **③ 新标准规则（`auditStandards` 第 12 项「JSDoc缩进」）**：`--delta` 增量门禁「只增即红」——本次提交
+  新增的脱块注释直接阻断；全量审计在 SUMMARY 打印「JSDoc 续行缩进违约（注释脱块）」；
+  `tests/unit/standardsJsdocIndent.test.ts` 以子进程跑门禁，钉住「度量已接线」+「真实仓库为 0」。
+- **刻意不做的相反方向（附理由）**：**不**禁止 `void` 方法写 `@returns 无返回值。`——`auditStandards.mjs`
+  的增量门禁第「方法缺@returns」项（`returnsGap`）把「有显式返回类型的方法」含 `void` / `Promise<void>`
+  计入分母，`@returns 无返回值。` 正是满足该项的合规写法；禁止它等于同时改那条政策，属独立决策。
+  → 结论：本轮只治「注释脱块」，不动 `@returns` 的有无。
+- **清理**：删除三件一次性脚本（`scripts/tmpJsdocIndentFix.mjs` / `tmpJsdocScan.mjs` / `tmpJsdocShow.mjs`）。
+  codemod 第一版算错偏移（按注释 token 起点累加行长 ⇒ 替换位置右移 `openCol`），把 31 个文件的正文改坏
+  （`@returns 无返   回值。`）；已 `git checkout` 全部回滚后重写为「按整行偏移 + 写盘前自证 0 违约」。
+- **可证伪验证（本轮实跑）**：`npm test` **2093 例 / 2088 过 / 1 失败（本机 Chrome e2e，环境问题，与基线同一条）/ 4 skip**（新增 2 例：包根锚点定位 ⑤-3、JSDoc 缩进规则包裹）；`check --strict`（569 文件零违规）、`arch:gate`、
+  `api:check`、`audit:config-wiring`（七条不变量 + selftest）、`audit:maturity`、`audit:standard --delta`、
+  `lint`、`format:check`、`tsc --noEmit`（含 `web/tsconfig.json`）全绿。
+- **推送状态**：`mine`（ghproxy → `mylong227/OmniHarness`）已推送全部提交；
+  **`origin`（`omniharness/omniharness`）推送被拒**：`remote: Permission to omniharness/omniharness.git
+denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题），需仓库管理员授权或改用 fork + PR。
