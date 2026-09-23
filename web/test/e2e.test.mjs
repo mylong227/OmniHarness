@@ -345,6 +345,31 @@ test('UI e2e：发任务 → 审批 → 流式 → 产物（headless 浏览器 +
     }
   } finally {
     await server.close();
-    rmSync(userDataDir, { recursive: true, force: true });
+    // Chrome 关闭后仍会短暂持有 profile 目录句柄（Windows 上实测 `EBUSY: Account Web Data`），
+    // 直接 rmSync 会让**用例本身**因清理失败而变红——那是清理竞态，不是被测行为。
+    // 故：带间隔重试 + 末次仍失败只告警（临时目录在该情况下留给 OS 清理）。
+    await removeProfileDirBestEffort(userDataDir);
   }
 });
+
+/**
+ * 尽力删除 Chrome 临时 profile 目录：带间隔重试，末次失败只告警不抛。
+ * @param dir profile 目录（mkdtempSync 产物）
+ * @returns 无返回值（清理结果不影响用例判定）
+ */
+async function removeProfileDirBestEffort(dir) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (attempt === 9) {
+        console.warn(
+          `[e2e] 临时 profile 目录清理失败（${String(error?.code ?? error)}），留给 OS 清理：${dir}`,
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}

@@ -95,16 +95,27 @@ test('doctor：输出诊断报告结构正确', () => {
   assert.match(output, /插件目录可读/);
 });
 
-test('doctor：openai 缺 key 报问题', () => {
+test('doctor：openai 缺 key 报问题（**环境隔离**：不继承机器本地配置与 key）', async () => {
+  // 为什么必须隔离（2026-09-22 实测）：本用例此前以仓库根为 cwd 直接跑 doctor，而机器本地可能有
+  // `omniharness.json`（内含 providerKeys）⇒ doctor 找到 key、退出码 0，断言 `failed === true` 失败。
+  // CI 干净检出下侥幸通过 ⇒ 属**非 hermetic 测试**（沙箱禁「带管道子进程」期间它被整文件跳过，
+  // 故该缺陷长期不可见；放开沙箱后立刻暴露）。
+  const dir = await mkdtemp(join(tmpdir(), 'omni-doctor-nokey-'));
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env['OPENAI_API_KEY'];
+  delete env['DEEPSEEK_API_KEY'];
+  delete env['OMNIHARNESS_API_KEY'];
   let failed = false;
   try {
     execFileSync(process.execPath, [cliPath, 'doctor', '--model-adapter', 'openai'], {
       encoding: 'utf8',
+      cwd: dir,
+      env,
     });
   } catch {
     failed = true;
   }
-  assert.strictEqual(failed, true);
+  assert.strictEqual(failed, true, '无 key 时 doctor 必须报问题并以非零退出');
 });
 
 test('compare：两个模型 A/B 对比输出', () => {
