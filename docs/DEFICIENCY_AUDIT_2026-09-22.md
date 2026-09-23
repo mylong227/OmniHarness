@@ -38,20 +38,34 @@
 - **修法（已落地）**：复用 `WorkspaceGuard.resolveSafe`（词法 + realpath 双层），对外错误文案不变；
   回归测试新增「⑦ 符号链接/junction 逃逸被拦截」（无权限建链环境自动跳过，不误报）。
 
-### 1.3【待办·P1】并发回合的取消令牌互相覆盖（`turns.abort` 静默失效或取消错会话）
+### 1.3【本轮已修】并发回合的取消令牌互相覆盖（`turns.abort` 静默失效或取消错会话）
 
 - **证据（实读）**：`server/core/agentRuntimeHost.ts:122-139` 单实例 Agent 缓存被所有回合共用；
   `core/agent.ts:41/193/202` 的 `currentCancel` 是**实例单字段**（每次会话覆盖写、`finally` 置 undefined）；
   `server/core/appServer.ts:130-135` 的 `turns.abort` **不带 threadId**，而 `:459` 的 `activeTurns` 允许并发回合。
 - **后果**：① 先结束者清空令牌 ⇒ 停止按钮静默无效；② 取消的是后启动会话 ⇒ 停 A 却停 B；③ `currentPersister` 同构。
-- **最小修法**：取消令牌按 sessionId 存 `Map`，`turns.abort` 接 `threadId`。
+- **修法（已落地）**：单字段 → `runningSessions: Map<sessionId, {cancel, persister}>`；
+  `cancelCurrentRun(reason, sessionId?)` 定向取消（缺省仍取消全部，保 CLI 与旧前端兼容）；新增 `runningSessionIds()`；
+  `buildTurnRunner` 显式接收 persister；`appServer.turns.abort` 读 `threadId`（兼容 `sessionId`）；
+  前端 `ApiClient.abortTurn(threadId)` + `ComposerController.stop()` 传当前 `currentThreadId`（此前从不带 id）。
+- **可证伪验证**：`tests/unit/sessionCancelIsolation.test.ts` 3/3（定向取消只停目标会话 / 不带 id 取消全部 / 未知会话 no-op）；
+  **变异验证**：把编译产物改回「一律取消全部」⇒ ①③ 立刻变红（`# fail 2`），还原后复绿；
+  前端 `web/test/turnControl.test.mjs` 增断言「stop 必须传当前 threadId」12/12。
 
-### 1.4【待办·P2】审批上行无超时、断连不兑现 ⇒ 回合永久挂起
+### 1.4【本轮已修】审批上行无超时、断连不兑现 ⇒ 回合永久挂起
 
 - **证据（实读）**：`server/core/serverEventBridge.ts:76-88` 审批请求只 `pending.set` 后死等；
   `httpBridgeTransport.ts:109` 的 WS 关闭只移除客户端、**不触碰挂起表**；UI 档 `ask` 无条件走上行（`agentRuntimeHost.ts:105`、`SettingsTab.tsx:40`）。
 - **后果**：`ToolGate` 的 `await decide` 永不 settle ⇒ 回合永不返回、`activeTurns` 永久 running、`POST /rpc` 悬挂、pending 泄漏。
-- **最小修法**：审批请求加超时（按 deny 兑现，fail-closed）＋ 传输 `onClose` 兑现全部挂起为 deny。
+- **修法（已落地）**：① `requestApproval` 增**超时兜底**（默认 120s，`OMNI_APPROVAL_UPLINK_TIMEOUT_MS` 可覆盖，`0` = 不限时），
+  超时按 **deny** 兑现（fail-closed）并记 `approval.uplink.timeout`；三条兑现路径（响应 / 超时 / 断连）共用同一
+  **幂等 settle**（谁先到谁生效，其余 no-op）。
+  ② 传输层新增**可选**能力 `Transport.setOnAllClientsGone`（`HttpBridgeTransport` 实现：SSE/WS 客户端集合由「有」变「无」时触发一次），
+  `AppServer` 注册它 ⇒ **页面一关就立即把挂起审批兑现为 deny**，不必白等一整个超时窗口。
+  ③ 刻意**不 unref** 定时器：实测 unref 后事件循环空闲时进程先退出、超时永不触发（测试直接报
+  `Promise resolution is still pending...`），兜底形同虚设——那正是本类要防的「永久挂起」的另一种形态。
+- **可证伪验证**：`tests/unit/approvalUplinkTimeout.test.ts` 5/5（超时⇒deny、断连⇒立即 deny、正常响应⇒allow 且晚到超时
+  不二次兑现、传输层仅在有→无跃迁触发一次、`LineTransport` 未实现该可选能力不影响既有行为）。
 
 ### 1.5【待办·P2】`ToolScheduler` 的「写类形成屏障」契约不成立（实测）
 

@@ -16,6 +16,13 @@ export class HttpBridgeTransport implements Transport {
   private readonly wsClients = new Set<WsConnection>();
   /** 企业鉴权门禁（D2，opt-in）：设置后所有入站 RPC 调用需有效 Bearer 令牌，fail-closed。 */
   private readonly auth?: EnterpriseAuth | undefined;
+  /**
+   * 「全部客户端已断开」回调（由 AppServer 注册）：用于把挂起的审批上行按 deny 兑现，
+   * 避免回合永久挂起（2026-09-22 修，审计 P2）。
+   */
+  private onAllClientsGone: (() => void) | undefined;
+  /** 是否曾有过客户端：只在「有 → 无」的跃迁上触发回调，避免启动时空触发。 */
+  private hadClients = false;
 
   /**
    * 创建桥接传输（可选注入企业鉴权）。
@@ -23,6 +30,27 @@ export class HttpBridgeTransport implements Transport {
    */
   public constructor(auth?: EnterpriseAuth) {
     this.auth = auth;
+  }
+
+  /**
+   * 注册「全部客户端已断开」回调（见 {@link Transport.setOnAllClientsGone}）。
+   * @param callback 无参回调
+   * @returns 无返回值。
+   */
+  public setOnAllClientsGone(callback: () => void): void {
+    this.onAllClientsGone = callback;
+  }
+
+  /**
+   * 客户端集合变动后调用：从「有客户端」变为「没有客户端」时触发一次回调。
+   * @returns 无返回值。
+   */
+  private notifyIfAllClientsGone(): void {
+    const empty = this.sseClients.size === 0 && this.wsClients.size === 0;
+    if (empty && this.hadClients) {
+      this.hadClients = false;
+      this.onAllClientsGone?.();
+    }
   }
 
   /**
@@ -82,6 +110,7 @@ export class HttpBridgeTransport implements Transport {
    */
   public registerWs(connection: WsConnection): void {
     this.wsClients.add(connection);
+    this.hadClients = true;
     connection.onMessage = (text: string) => {
       const message = jsonRpc.parse(text);
       if (message !== undefined && jsonRpc.isRequest(message)) {
@@ -106,7 +135,10 @@ export class HttpBridgeTransport implements Transport {
         })();
       }
     };
-    connection.onClose = () => this.wsClients.delete(connection);
+    connection.onClose = () => {
+      this.wsClients.delete(connection);
+      this.notifyIfAllClientsGone();
+    };
   }
 
   /**
@@ -128,7 +160,11 @@ export class HttpBridgeTransport implements Transport {
    */
   public registerSse(response: ServerResponse): void {
     this.sseClients.add(response);
-    response.on('close', () => this.sseClients.delete(response));
+    this.hadClients = true;
+    response.on('close', () => {
+      this.sseClients.delete(response);
+      this.notifyIfAllClientsGone();
+    });
   }
 
   /**

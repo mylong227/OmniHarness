@@ -3,12 +3,36 @@ import type { Transport } from '../transport/lineTransport.js';
 import type { Metrics } from '../services/metrics.js';
 import type { AuditSink } from '../services/auditSink.js';
 import { id } from '../../util/id.js';
+import { log } from '../../util/logger.js';
 import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
 } from '../../ports/runtime/approval.js';
 import type { EventPort } from '../../ports/runtime/eventPort.js';
+
+/** 审批上行缺省等待上限（毫秒）：超时按 deny 兑现（fail-closed）。 */
+const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
+
+/**
+ * 审批上行超时解析：显式入参 > env `OMNI_APPROVAL_UPLINK_TIMEOUT_MS` > 缺省 120s；
+ * `0`/负数/非有限表示**不限时**（保留旧行为，供确实需要人工长时间决策的部署显式选择）。
+ * @param explicit 显式入参（毫秒）
+ * @returns 生效超时毫秒数（0 = 不限时）
+ */
+function resolveApprovalTimeoutMs(explicit?: number): number {
+  if (typeof explicit === 'number' && Number.isFinite(explicit)) {
+    return explicit > 0 ? Math.floor(explicit) : 0;
+  }
+  const raw = process.env['OMNI_APPROVAL_UPLINK_TIMEOUT_MS'];
+  if (raw !== undefined && raw.trim() !== '') {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) {
+      return parsed > 0 ? Math.floor(parsed) : 0;
+    }
+  }
+  return DEFAULT_APPROVAL_TIMEOUT_MS;
+}
 
 /** 事件/审批桥依赖。 */
 export interface ServerEventBridgeDeps {
@@ -18,6 +42,16 @@ export interface ServerEventBridgeDeps {
   readonly metrics?: Metrics | undefined;
   /** 审计 sink（事件落盘）。 */
   readonly audit?: AuditSink | undefined;
+  /**
+   * 审批上行等待上限（毫秒；`0` = 不限时）。缺省 120s，可用
+   * `OMNI_APPROVAL_UPLINK_TIMEOUT_MS` 覆盖。
+   *
+   * 为什么必须有上限（2026-09-22 修，审计 P2）：此前 `requestApproval` 只登记 resolver 后**死等**，
+   * 而客户端可随时消失（关页面 / 网络断）。UI 档 `approval=ask` 下一次工具调用即让回合**永久挂起**：
+   * `ToolGate` 的 `await decide` 永不 settle ⇒ 回合不返回、`activeTurns` 永久 running、
+   * `POST /rpc` 悬挂、pending 表泄漏。
+   */
+  readonly approvalTimeoutMs?: number | undefined;
 }
 
 /**
@@ -26,18 +60,27 @@ export interface ServerEventBridgeDeps {
  *
  * 持有「待响应审批」挂起表——`requestApproval` 注册 resolver，`respondApproval`
  * 按 requestId 兑现；两者同处本类，避免 resolver 表散落在 server 各处。
+ *
+ * **挂起不会永久存在**（2026-09-22 修）：每个请求都有超时兜底（deny，fail-closed），
+ * 且传输断开时可经 {@link denyAllPending} 一次性兑现全部挂起——两条路径都不让回合卡死。
  */
 export class ServerEventBridge {
   /** 桥依赖（传输 / 指标 / 审计，指标与审计可缺省）。 */
   private readonly deps: ServerEventBridgeDeps;
-  /** 待响应审批挂起表：requestId → 兑现 resolver（respondApproval 兑现后移除）。 */
-  private readonly pending = new Map<string, (decision: ApprovalDecision) => void>();
+  /** 待响应审批挂起表：requestId → 兑现 resolver 与超时句柄（兑现后移除并清定时器）。 */
+  private readonly pending = new Map<
+    string,
+    { readonly resolve: (decision: ApprovalDecision) => void; readonly timer?: NodeJS.Timeout }
+  >();
+  /** 生效的审批等待上限（毫秒；0 = 不限时）。 */
+  private readonly approvalTimeoutMs: number;
 
   /**
-   * @param deps 传输、指标与审计
+   * @param deps 传输、指标与审计（可选含审批超时）
    */
   public constructor(deps: ServerEventBridgeDeps) {
     this.deps = deps;
+    this.approvalTimeoutMs = resolveApprovalTimeoutMs(deps.approvalTimeoutMs);
   }
 
   /**
@@ -69,14 +112,40 @@ export class ServerEventBridge {
   }
 
   /**
-   * 审批上行：发请求通知并等待响应。
+   * 审批上行：发请求通知并等待响应；**超时按 deny 兑现**（fail-closed，绝不永久挂起）。
    * @param request 审批请求（工具名与目标，随 `approval.request` 通知下发）
-   * @returns 客户端决策（allow/deny）；决策由 `approval.respond` 按 requestId 兑现挂起 resolver
+   * @returns 客户端决策（allow/deny）；决策由 `approval.respond` 兑现，超时则为 deny
    */
   public async requestApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
-    return new Promise((resolve) => {
+    return new Promise<ApprovalDecision>((resolve) => {
       const requestId = id('apr');
-      this.pending.set(requestId, resolve);
+      const settle = (decision: ApprovalDecision): void => {
+        const entry = this.pending.get(requestId);
+        if (entry === undefined) {
+          return; // 已被其他路径兑现（响应 / 超时 / 断连）——幂等
+        }
+        this.pending.delete(requestId);
+        if (entry.timer !== undefined) {
+          clearTimeout(entry.timer);
+        }
+        entry.resolve(decision);
+      };
+      const timer =
+        this.approvalTimeoutMs > 0
+          ? setTimeout(() => {
+              log.warn('approval.uplink.timeout', {
+                requestId,
+                toolName: request.toolName,
+                timeoutMs: this.approvalTimeoutMs,
+              });
+              settle('deny');
+            }, this.approvalTimeoutMs)
+          : undefined;
+      // 刻意**不 unref**：挂起审批必须真的等到「有响应 / 超时 / 断连」三者之一才算完；
+      // 让定时器保持事件循环活跃正是「不许静默丢弃」的语义。实测 unref 会让超时永不触发
+      // （事件循环空闲时进程先结束，测试直接报 `Promise resolution is still pending...`），
+      // 兜底形同虚设——这正是本类要防的「永久挂起」的另一种形态。
+      this.pending.set(requestId, timer === undefined ? { resolve } : { resolve, timer });
       this.deps.transport.send(
         jsonRpc.notify('approval.request', {
           requestId,
@@ -88,17 +157,52 @@ export class ServerEventBridge {
   }
 
   /**
-   * 响应审批上行：按 requestId 兑现挂起的 resolver（未知 id 静默）。
+   * 响应审批上行：按 requestId 兑现挂起的 resolver（未知 id 静默，重复响应幂等）。
    * @param params `{ requestId: string; decision?: unknown }`
    * @returns `{ ok: true }`
    */
   public respondApproval(params: Record<string, unknown>): unknown {
     const requestId = String(params['requestId'] ?? '');
-    const resolve = this.pending.get(requestId);
-    if (resolve !== undefined) {
-      resolve(params['decision'] === 'allow' ? 'allow' : 'deny');
+    const entry = this.pending.get(requestId);
+    if (entry !== undefined) {
       this.pending.delete(requestId);
+      if (entry.timer !== undefined) {
+        clearTimeout(entry.timer);
+      }
+      entry.resolve(params['decision'] === 'allow' ? 'allow' : 'deny');
     }
     return { ok: true };
+  }
+
+  /**
+   * 一次性兑现**全部**挂起审批为 deny（fail-closed）——由传输层在客户端断开时调用。
+   *
+   * 为什么要这条路径：超时兜底有延迟（默认 120s），而「页面关闭」是**确定的**不会再有响应的信号；
+   * 立即兑现可让回合马上收尾，而不是白等一整个超时窗口。
+   * @param reason 断开原因（仅记日志，便于事后归因）
+   * @returns 被兑现的挂起条数
+   */
+  public denyAllPending(reason: string): number {
+    const count = this.pending.size;
+    if (count === 0) {
+      return 0;
+    }
+    log.warn('approval.uplink.disconnected', { reason, pending: count });
+    for (const [requestId, entry] of [...this.pending]) {
+      this.pending.delete(requestId);
+      if (entry.timer !== undefined) {
+        clearTimeout(entry.timer);
+      }
+      entry.resolve('deny');
+    }
+    return count;
+  }
+
+  /**
+   * 当前挂起审批条数（观测/测试用）。
+   * @returns 挂起条数
+   */
+  public pendingApprovalCount(): number {
+    return this.pending.size;
   }
 }

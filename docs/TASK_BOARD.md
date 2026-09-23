@@ -1465,10 +1465,42 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 - **可证伪验证**：当前树两种模式均绿并逐条列出 14 处白名单；临时放入 98 行 `gateProbe`
   ⇒ 两种模式都 exit 1 并报「新增超限函数」；删除后复绿。
 
-### 20.3 ⬜ 待执行（本板按 ROI 顺序推进）
+### 20.3 ✅ 已结项：取消令牌按会话隔离（ROI 第 3 项，`f9ee570`）
 
-3. 取消令牌按会话存放（并发 `turns.abort` 正确性）；
-4. 审批上行超时/断连兑现（回合永久挂起）；
+- **缺陷**：`Agent` 的取消令牌/持久化器是**实例单字段**，而服务端允许多回合并行、`turns.abort` 又不带 threadId
+  ⇒ ① 先结束的回合清空令牌，「停止」**静默失效**；② 取消的是**后启动的会话**（停 A 实际停 B）。
+- **修法**：改为 `runningSessions: Map<sessionId, {cancel, persister}>`；`cancelCurrentRun(reason, sessionId?)` 定向取消
+  （缺省取消全部，保 CLI/旧前端兼容）；`turns.abort` 读 `threadId`；前端 `abortTurn(threadId)` + `stop()` 传当前 threadId。
+- **可证伪验证**：`sessionCancelIsolation` 3/3；**变异验证**——把编译产物改回「一律取消全部」⇒ ①③ 立刻变红
+  （`# fail 2`），还原复绿；`web/test/turnControl.test.mjs` 增「stop 必须传 threadId」断言 12/12。
+
+### 20.4 ✅ 已结项：审批上行超时 + 断连兑现（ROI 第 4 项）
+
+- **缺陷**：`requestApproval` 只登记 resolver 后**死等**，客户端关页面即让回合**永久挂起**
+  （`ToolGate.await decide` 永不 settle、`activeTurns` 永久 running）。
+- **修法**：① 超时兜底（默认 120s，`OMNI_APPROVAL_UPLINK_TIMEOUT_MS` 可覆盖，`0`=不限时）超时按 **deny** 兑现；
+  三条兑现路径共用**幂等 settle**；② 传输层新增可选能力 `Transport.setOnAllClientsGone`（SSE/WS 由「有」变「无」触发一次），
+  `AppServer` 注册 ⇒ 页面一关**立即**兑现为 deny；③ 刻意**不 unref** 定时器（实测 unref 会让超时永不触发，兜底形同虚设）。
+- **可证伪验证**：`approvalUplinkTimeout` 5/5。
+
+### 20.5 🆕 沙箱策略放开后暴露的两处**测试卫生**缺陷（已修）
+
+放开文件策略（danger-full-access）后，此前被「禁带管道子进程」整文件跳过的 74 例**全部真跑**，
+其中暴露两处**非 hermetic / 清理竞态**缺陷（都不是产品缺陷，但都曾长期不可见）：
+
+1. `cliSystem.test.ts` 的「doctor：openai 缺 key 报问题」以仓库根为 cwd 跑 CLI ⇒ 继承机器本地
+   `omniharness.json`（含 providerKeys）导致 doctor 退出码 0、断言失败（CI 干净检出下侥幸通过）。
+   **已修**：改用临时 cwd + 剔除 key 环境变量。
+2. `web/test/e2e.test.mjs` 的 Chrome 临时 profile 清理用裸 `rmSync` ⇒ Windows 上
+   `EBUSY: Account Web Data` 让**用例**因清理失败而非被测行为变红。**已修**：带间隔重试 + 末次只告警。
+
+**当前本机实测（CI 口径 `npm test`，逐文件 spawn）**：`2052 例 / 2046 过 / 2 失败 / 4 skip`；
+两处失败均为**本机环境**：① Chrome 真机截图、② web UI e2e——根因是本机 Chrome **无法 headless 出图**
+（实测 `chrome --version` 直接返回「正在现有的浏览器会话中打开」，加 `--user-data-dir` 后 `--dump-dom` 亦为空输出），
+CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑，**不把这两例改成静默 skip**（那正是本仓禁止的假绿）。
+
+### 20.6 ⬜ 待执行（本板按 ROI 顺序推进）
+
 5. 死资产迁出（`resources/comfyui_node_reference`）＋ `*.report.json` 不入库；
 6. 组合根迁出 `core/` ＋ 门禁补 ports→core/adapters 规则；
 7. repo-map 结果 memo ＋ 上下文记账前缀缓存；

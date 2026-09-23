@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 并发回合的**取消隔离**回归（2026-09-22，审计 P1）。
  *
  * 被修的缺陷：`Agent` 原先把取消令牌与增量持久化器存成**单字段**（`currentCancel` / `currentPersister`），
@@ -22,6 +22,17 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * 等待上限（毫秒）。刻意给得宽松：`npm test`（CI 口径）**并行**跑全部单测文件，
+ * 实测同一用例在并行负载下从 0.1s 涨到 8s+ ⇒ 按「空闲机器」给紧凑超时会变 flaky
+ * （首次并行跑即踩到：初始等待在 5s 上限下失败）。
+ */
+const WAIT_START_MS = 30_000;
+/** 取消后收尾的等待上限（毫秒）。 */
+const WAIT_SETTLE_MS = 15_000;
+/** 「误伤窗口」：给错误地「连带取消」留出暴露时间（abort 是同步兑现的，百余毫秒足够）。 */
+const MISFIRE_WINDOW_MS = 150;
 
 /** 轮询等待谓词成立（最多 timeoutMs）。 */
 async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
@@ -112,20 +123,23 @@ test('① 按 sessionId 取消只停目标会话，另一并发会话仍在跑',
   const settledB = tracker(runB);
 
   assert.ok(
-    await waitFor(() => agent.runningSessionIds().length === 2 && model.started === 2, 5000),
+    await waitFor(
+      () => agent.runningSessionIds().length === 2 && model.started === 2,
+      WAIT_START_MS,
+    ),
     '两个会话都应登记在跑并已发出模型请求',
   );
   const [idA, idB] = agent.runningSessionIds();
   assert.ok(idA !== undefined && idB !== undefined);
 
   agent.cancelCurrentRun('user', idA);
-  assert.ok(await waitFor(() => settledA(), 3000), '目标会话应被取消并收尾');
-  await sleep(60); // 给「误伤」留出暴露窗口
+  assert.ok(await waitFor(() => settledA(), WAIT_SETTLE_MS), '目标会话应被取消并收尾');
+  await sleep(MISFIRE_WINDOW_MS); // 给「误伤」留出暴露窗口
   assert.strictEqual(settledB(), false, '另一会话**不得**被连带取消（旧实现会误停它）');
   assert.deepStrictEqual(agent.runningSessionIds(), [idB], '被取消会话的登记应已清理');
 
   agent.cancelCurrentRun('user', idB);
-  assert.ok(await waitFor(() => settledB(), 3000), '第二个会话也应能按 id 取消');
+  assert.ok(await waitFor(() => settledB(), WAIT_SETTLE_MS), '第二个会话也应能按 id 取消');
   await runA.catch(() => undefined);
   await runB.catch(() => undefined);
   assert.strictEqual(agent.runningSessionIds().length, 0, '全部收尾后无残留登记');
@@ -138,10 +152,10 @@ test('② 不带 sessionId 时取消全部在跑会话（CLI 单会话语义 / �
   const runB = agent.runTask('会话 B');
   const settledA = tracker(runA);
   const settledB = tracker(runB);
-  assert.ok(await waitFor(() => agent.runningSessionIds().length === 2, 5000));
+  assert.ok(await waitFor(() => agent.runningSessionIds().length === 2, WAIT_START_MS));
 
   agent.cancelCurrentRun('user');
-  assert.ok(await waitFor(() => settledA() && settledB(), 3000), '两会话都应被取消');
+  assert.ok(await waitFor(() => settledA() && settledB(), WAIT_SETTLE_MS), '两会话都应被取消');
   await runA.catch(() => undefined);
   await runB.catch(() => undefined);
   assert.strictEqual(agent.runningSessionIds().length, 0);
@@ -152,7 +166,7 @@ test('③ 取消不存在的会话是 no-op（不抛错、不影响在跑会话�
   const agent = buildAgent(model);
   const run = agent.runTask('唯一会话');
   const settled = tracker(run);
-  assert.ok(await waitFor(() => agent.runningSessionIds().length === 1, 5000));
+  assert.ok(await waitFor(() => agent.runningSessionIds().length === 1, WAIT_START_MS));
   const id = agent.runningSessionIds()[0] ?? '';
 
   agent.cancelCurrentRun('user', 'sess_不存在');
@@ -160,6 +174,6 @@ test('③ 取消不存在的会话是 no-op（不抛错、不影响在跑会话�
   assert.strictEqual(settled(), false, '取消未知会话不得误伤在跑会话');
 
   agent.cancelCurrentRun('user', id);
-  assert.ok(await waitFor(() => settled(), 3000));
+  assert.ok(await waitFor(() => settled(), WAIT_SETTLE_MS));
   await run.catch(() => undefined);
 });

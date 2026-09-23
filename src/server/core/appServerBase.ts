@@ -101,6 +101,12 @@ export class AppServerBase {
       metrics: options.metrics,
       audit: options.audit,
     });
+    // 客户端全部断开 ⇒ 立即把挂起的审批上行按 deny 兑现（fail-closed）。
+    // 为什么需要：审批是「等客户端回答」的，页面一关就再也不会有人回答；只靠超时兜底会让回合
+    // 白等一整个超时窗口（默认 120s）才收尾，期间 activeTurns 一直是 running（2026-09-22 修，审计 P2）。
+    options.transport.setOnAllClientsGone?.(() => {
+      this.events.denyAllPending('客户端全部断开（页面关闭 / 连接断开）');
+    });
     this.plugins = new PluginHost({
       pluginsDir: options.pluginsDir,
       baseConfig: () => this.options.config,
