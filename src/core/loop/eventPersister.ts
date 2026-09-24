@@ -30,9 +30,16 @@ export class EventPersister {
   private readonly delayMs: number;
   /** 已排队的落盘定时器句柄（一个窗口内至多一个，幂等）。 */
   private timer: ReturnType<typeof setTimeout> | undefined;
-  /** flush 串行化标志：防止并发 flush 旧快照覆盖新快照。 */
-  private flushing = false;
-  /** 终止标志：dispose 后不再接受 schedule/flush。 */
+  /**
+   * flush 串行队列尾：每个 flush 都排在上一次之后。
+   *
+   * 为什么不是「在飞就返回」：那样**会丢掉请求**——定时器触发时若上一次写还在飞，
+   * 新的那次直接 return，且它的定时器已被清空 ⇒ 期间新增的事件要等**下一次** schedule 才可能落盘；
+   * 而回合末 `await persister.flush()` 也会在在飞写完成前就返回，调用方以为已落盘。
+   * 排队则同时满足两点：**不丢请求**，且 `flush()` 返回时**它的快照确已写入**。
+   */
+  private queue: Promise<void> = Promise.resolve();
+  /** 终止标志：dispose 后不再接受 schedule/flush（但已排队的落盘会自然完成）。 */
   private disposed = false;
   /** 上次成功落盘的事件数（增量语义：事件数未变则跳过写入）。 */
   private lastSavedCount = 0;
@@ -63,29 +70,20 @@ export class EventPersister {
     }, this.delayMs);
   }
 
-  /** 显式落盘当前快照。并发 flush 串行化，避免旧快照覆盖新快照。
-   * @returns 无返回值。
+  /** 显式落盘当前快照：排队执行，返回时该次快照已写入（失败的降级见 {@link saveSnapshot}）。
+   * @returns 该次落盘尝试完成后的 Promise（不抛错：失败仅 warn）。
    */
   public async flush(): Promise<void> {
-    if (this.disposed || this.flushing) {
+    if (this.disposed) {
       return;
     }
-    const events = this.getEvents();
-    if (events.length === 0 || events.length === this.lastSavedCount) {
-      return;
-    }
-    this.flushing = true;
-    try {
-      await this.storage.save(this.sessionId, events);
-      this.lastSavedCount = events.length;
-    } catch (err) {
-      log.warn('session.persist.failed', { sessionId: this.sessionId, error: String(err) });
-    } finally {
-      this.flushing = false;
-    }
+    const task = this.queue.then(() => this.saveSnapshot());
+    // 队列尾始终是「已处理错误」的 Promise，避免一次 getEvents 抛错让后续 flush 全部连锁失败。
+    this.queue = task.catch(() => undefined);
+    await task;
   }
 
-  /** 停止定时器并标记终止（回合结束时调用；已排队的 flush 自然完成）。
+  /** 停止定时器并标记终止（回合结束时调用；**已排队**的落盘自然完成）。
    * @returns 无返回值。
    */
   public dispose(): void {
@@ -93,6 +91,26 @@ export class EventPersister {
     if (this.timer !== undefined) {
       clearTimeout(this.timer);
       this.timer = undefined;
+    }
+  }
+
+  /**
+   * 落盘一次当前快照（增量语义：事件数未变则跳过）。
+   *
+   * 失败**降级为 warn**（fail-soft，与 agent.persist 的既有容错一致）：既不上抛打断回合，
+   * 也不静默——`lastSavedCount` 不前进，故下一次 flush 会重试同一批（直到成功或回合结束）。
+   * @returns 无返回值。
+   */
+  private async saveSnapshot(): Promise<void> {
+    const events = this.getEvents();
+    if (events.length === 0 || events.length === this.lastSavedCount) {
+      return;
+    }
+    try {
+      await this.storage.save(this.sessionId, events);
+      this.lastSavedCount = events.length;
+    } catch (err) {
+      log.warn('session.persist.failed', { sessionId: this.sessionId, error: String(err) });
     }
   }
 }

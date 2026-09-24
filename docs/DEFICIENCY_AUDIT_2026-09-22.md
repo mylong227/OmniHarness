@@ -106,9 +106,30 @@
 - **`web/src`（104 文件）不在本地 `typecheck`**：`typecheck` 只跑根 tsconfig。**修法**：
   `npm run typecheck` 追加 `tsc -p web/tsconfig.json --noEmit`（实测零错误）。
 
-**仍待办**：shell 不消费取消信号（`shellTool.ts:185-191` 不传 `signal`，最长跑满 600 s 且只杀直接子进程）·
-`EventPersister` 落盘竞态（`eventPersister.ts:69-72` 不等在飞写入；JSONL 整文件覆盖非原子）·
-JSONL 坏行 ⇒ 静默空历史（`jsonlStorage.ts:37-44`）· spill 产物与涡环包无回收（`fileSpill.ts:33-38`、`vortexRingSpillAdapter.ts:20`）。
+**本轮已修（2026-09-24，第十轮 §3.15）**：
+
+- **`EventPersister` 落盘竞态（`eventPersister.ts:69-72`）**：原实现 `flush()` 遇到「已有 flush 在飞」**直接 return**
+  ⇒ 该次请求**被丢弃**：定时器触发时若上一次写仍在飞，新事件要等**下一次 schedule** 才可能落盘；回合末
+  `await persister.flush()` 也会在在飞写完成前返回，调用方误以为已落盘。**修法**：改为**串行队列**
+  （每个 flush 排在上一次之后）：既不丢请求，又保证 `flush()` 返回时**它自己的快照确已写入**。
+  回归：新增 `tests/unit/eventPersister.test.ts`（5 例，含「在飞期间的 flush 不被丢弃」与
+  「flush 返回即在飞写已完成」两条窗口复现；用可控存储替身把写入挂在闸门上制造真实竞态）。
+- **JSONL 坏行 ⇒ 静默空历史（`jsonlStorage.ts:37-44`）**：整文件解析放在同一个 `catch` 里，**一行**非法 JSON
+  就让 `load` 返回 `[]`，调用方分不清「没有历史」与「历史读不出来」⇒ 会话续跑/回放**悄悄丢光上下文**。
+  **修法**：逐行解析，坏行**跳过并告警**（带行号 `storage.jsonl.bad_line`），其余事件照常返回；
+  有内容却全部行失败时另发 `storage.jsonl.all_lines_corrupt`（文件级损坏信号）；
+  非 ENOENT 的读取失败改为 `storage.jsonl.unreadable` 告警后返回 `[]`（契约不变，但不再无声）。
+  **同轮修掉同一文件的原子性**：`save` 原为整文件 `writeFile` 覆盖，崩在半途会留下半截文件；
+  改为**先写 `<file>.tmp` 再 `rename`**（同目录 rename 原子），失败时清理半成品。
+  回归：新增 `tests/unit/storageDurability.test.ts`（5 例：往返保序、覆盖写不留 `.tmp`、
+  **个别坏行只丢那一行**、全坏行仍返回 `[]`、缺失/不可读均不抛错）。
+
+**仍待办（§1.7 剩余 2 条）**：
+
+- shell 不消费取消信号（`shellTool.ts:185-191` 不传 `signal`，最长跑满 600 s 且只杀直接子进程）；
+- spill 产物与涡环包无回收（`fileSpill.ts:33-38` 文件只增不减、`vortexRingSpillAdapter.ts:20` 进程内
+  `rings` 表只增不减）——收口方式须遵循本项目既有纪律：**限额进配置**（而不是硬编码常数），
+  故与 §2.4/§2.5 一并作为下一轮的收口项。
 
 ### 1.8 已核对确认**正确**的核心链路（避免重复投入）
 
@@ -307,7 +328,7 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
   基线 `scripts/docLinkBaseline.json`（90 处唯一存量，多为「迁移前路径」与示例 `src/foo.ts` 这类有意引用），
   接入 `pre-commit` 与 `npm run check:doc-links`。**实测 markdown 链接目标 0 处死链**。
 
-**仍未清（本板唯一剩余项，附可机械执行的迁移清单）**：
+**§3.5 逐项状态：六条全部结项（第九轮收口）**：
 
 - ✅ **已结项（第九轮 §3.14）**：JSON-RPC pending 六处重复 —— 见文末 §3.14。
   其**缺陷层**（`mcpClient` 无 reject 通道）早在 §3.12 修掉；本轮把**去重层**也做完了：
