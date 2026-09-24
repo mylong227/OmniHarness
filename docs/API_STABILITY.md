@@ -50,6 +50,20 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 - **`@beta`**：工具语义检索(M1)、会话检索(M2)、子智能体(#76)、自主目标循环(S30)、工作流 DAG(S31)、LSP(S32)、Agent 密码学身份(S33)、安全策略求值(S34)、零依赖 TUI(S35)、计划/待办/提问(#77)、评估基准(C3)。
 - **`@deprecated`**：截至 2026-09-02，**公开桶尚无废弃导出**。本仓库仍处早期快速演进阶段，未积累到需废弃的公开 API——这是健康态，不是缺口。废弃机制（标签 + 校验器 + 版本策略）已就位：一旦某 API 被取代，直接在其分区标注 `// @deprecated` 并给出替代方案即可，校验器不会因此报错。
 
+> **2026-09-24 复核留档（防后人误删）**：审计曾把 `MockModel` / `MemoryStorage` / `PassthroughSandbox`
+> 记为「公开面泄漏测试替身」。**逐条核实：该判断不成立**——三者都是**生产可达**的正式适配器，
+> 不是测试专用件：
+>
+> - `MockModel`：`CliDefaults.modelAdapter` 的默认值（`src/cli/argParser.ts`），且是
+>   `adapters/model/modelAdapterRegistry.ts` 里 `mock` 那一行的实现；
+> - `MemoryStorage`：可选存储后端 `--storage-adapter memory` 的实现（`src/cli/storageFactory.ts`），
+>   评测/对比命令也直接使用（`src/eval/evalHarness.ts`、`src/cli/cliCompareCmds.ts`）；
+> - `PassthroughSandbox`：沙箱档位 `passthrough` 的注册实现（`src/adapters/sandbox/sandboxManager.ts`
+>   的 `register('passthrough', …)`），且 `sandbox` 枚举里就含 `passthrough`。
+>
+> 因此**不对它们做弃用标注**（那等于向用户宣布「默认模型适配器 / 可选沙箱档位将被移除」）。
+> 若将来确有**测试专用**辅助件进入公开桶，再按上面的弃用流程处理。
+
 ## 物理落地：双桶拆分
 
 稳定性分级不是文档标语，而是**真实的导入边界**：

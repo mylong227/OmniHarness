@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { HashChain } from '../../util/hashChain.js';
 import type {
   RuntimeObservation,
   RuntimeTelemetryInput,
@@ -8,10 +9,14 @@ import type {
   TelemetryChainReport,
 } from '../../ports/runtime/runtimeTelemetry.js';
 
-/** 创世前驱哈希：首条记录的 prev，使首条也纳入链校验。 */
-const GENESIS = '0'.repeat(64);
-
-/** 分隔符：隔离 prev 与正文，避免拼接歧义。 */
+/**
+ * 分隔符：隔离 prev 与正文。
+ *
+ * **不可改值**：改分隔符＝改历史哈希，已落盘的遥测链会当场验签失败。
+ * 与审计链的分隔符（NUL）**历史上就不同**，两条链的取值由
+ * `tests/unit/hashChain.test.ts` 的 golden 哈希逐字节钉死；算法本身已共享（{@link HashChain}）。
+ * 空格在此是安全的：`prev` 恒为 64 hex，拼接点无歧义。
+ */
 const SEP = ' ';
 
 /** 规范化序列化：固定键顺序，保证 record 与 verify 两端算出同一哈希。
@@ -53,7 +58,7 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
   /** 已写入的最大链序号。 */
   private seq = 0;
   /** 上一条记录哈希。 */
-  private prev = GENESIS;
+  private prev = HashChain.GENESIS;
 
   /**
    * 构造遥测 sink：解析落盘目标（path 优先，其次 dir/runtime-telemetry.log）、
@@ -86,9 +91,10 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
     const ts = obs.ts || new Date().toISOString();
     const seq = this.seq + 1;
     const prev = this.prev;
-    const hash = JsonlRuntimeTelemetry.hashOf(
+    const hash = HashChain.hash(
       prev,
       JsonlRuntimeTelemetry.canonicalOf(ts, { ...obs, id }, seq),
+      SEP,
     );
     const line = JSON.stringify({
       id,
@@ -147,7 +153,7 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
         reason: '旧格式日志：未启用哈希链，无法校验（非篡改）',
       };
     }
-    let prev = GENESIS;
+    let prev = HashChain.GENESIS;
     for (let i = 0; i < events.length; i += 1) {
       const e = events[i];
       if (e === undefined) continue;
@@ -176,9 +182,10 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
           reason: `第 ${e.seq} 条 prev 与前一条 hash 不匹配`,
         };
       }
-      const expected = JsonlRuntimeTelemetry.hashOf(
+      const expected = HashChain.hash(
         prev,
         JsonlRuntimeTelemetry.canonicalOf(e.ts ?? '', e, e.seq),
+        SEP,
       );
       if (e.hash !== expected) {
         return {
@@ -227,14 +234,5 @@ export class JsonlRuntimeTelemetry implements RuntimeTelemetryPort {
       provenance: entry.provenance,
       seq,
     });
-  }
-  /**
-   * hashOf (internal helper hoisted into JsonlRuntimeTelemetry).
-   * @param {string} prev
-   * @param {string} canonical
-   * @returns {string}
-   */
-  private static hashOf(prev: string, canonical: string): string {
-    return createHash('sha256').update(prev).update(SEP).update(canonical).digest('hex');
   }
 }

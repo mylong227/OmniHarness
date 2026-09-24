@@ -1,0 +1,10 @@
+{
+  "reason": "覆盖率**依赖宿主工具链**的文件：这些文件的被覆盖分支取决于本机能否发现 POSIX bash（以及 bash 询问 `/` 的输出），因此同一份源码在不同机器/不同 PATH 下会得到不同行覆盖率。对它们按**下限**校验（低于下限才红），而不是按冻结值精确比对——否则会在换机器时产生假红。下限取值＝各环境实测最低值再留 3 个点余量；**只允许登记经实测诊断确认的文件**（不要为了消红而登记）。",
+  "files": {
+    "src/benchmark/terminalbench/bashAppRootMapper.js": 70
+  },
+  "notes": [
+    "bashAppRootMapper.js：2026-09-24 实测。源码自 9dc88d9（2026-09-19）未改动；单独重跑 terminalBench*.test.js 两次结果完全一致（72.85%），说明不是随机抖动，而是**环境差异**：本机 `bash` 是 WindowsApps 的 WSL 存根（执行即报「未安装 WSL」），拿不到 MSYS 根，于是 resolveMsysRoot 的 133-149 段与 claim 的 61-70 段进不去。基线 78.81% 来自当时能探到 bash 的运行。",
+    "同轮另有 4 个文件**高于**基线（改进方向，门禁不阻断）：browserSession 91.75→92.41、nativeExecutionBackend 85.95→86.49、memoryStackAssembler 96.28→97.87、pluginLoader 83.17→94.06。它们与本条豁免无关，未登记；若日后出现**反向**漂移并确诊为环境相关，需按同一条纪律登记原因后再入本表。"
+  ]
+}
