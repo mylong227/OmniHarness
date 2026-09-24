@@ -12,14 +12,16 @@ import type {
 import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
 import { at } from '../util/arrayAt.js';
 import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
+import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
+import { cliHelp } from './cliHelp.js';
 
 export * from './cliEnums.js';
 export { checkEnum } from './cliFlagTable.js';
 
 /** CLI 参数（DTO：先组装后消费）。 */
 export interface CliArgs {
-  /** 模型适配器（mock/openai/anthropic/responses/llamacpp）。 */
-  modelAdapter: 'mock' | 'openai' | 'anthropic' | 'responses' | 'llamacpp';
+  /** 模型适配器（取值清单见 `ports/model/modelAdapterId.ts`：唯一声明处）。 */
+  modelAdapter: ModelAdapterId;
   /** OpenAI 兼容端点地址。 */
   baseUrl?: string | undefined;
   /** 模型 API 密钥（缺省回退对应厂商环境变量）。 */
@@ -479,83 +481,11 @@ export class ArgParser {
    * 打印用法。
    * @returns 无返回值。
    */
+  /** 打印用法（文案在 `defaults/cliHelp.json`；枚举取值在渲染时从 `cliEnums` 派生）。
+   * @returns 无返回值。
+   */
   public printUsage(): void {
-    process.stdout.write(
-      [
-        'OmniHarness exec',
-        '用法: omniharness exec --prompt "任务" [选项]',
-        '      omniharness server [选项]       启动 JSON-RPC stdio 服务',
-        '      omniharness serve [选项]        启动 HTTP UI 服务（--port N，--auto-approve 跳过审批弹窗）',
-        '      omniharness mcp serve           以 stdio 暴露本地工具集（MCP 服务器，供第三方客户端调用）',
-        '      omniharness mcp list --server NAME=CMD   列出外部 MCP 服务器的工具',
-        '      omniharness mcp call --server NAME=CMD --tool T [--args JSON]   调用外部 MCP 工具',
-        '      omniharness trace read --session ID [--limit N] [--kind K] [--storage-dir DIR] [--json]   只读自省会话 trace（T4.5：冻结条目，不可借道改历史）',
-        '      omniharness sdk call --url ws://HOST:PORT/ws --method NAME [--params JSON]   用本仓 TypeScript SDK 客户端连 app-server 发一次 JSON-RPC（sdk ping 打 config.get）',
-        '      omniharness kv get|set|del|list [--key K] [--value V] [--prefix P] [--kv-file PATH]  通用键值存储',
-        '      omniharness vault get|set|del|list [--name N] [--value V] [--vault-backend crypto|env] [--vault-key-file PATH]  凭据保险库（AES-256-GCM）',
-        '      omniharness profile list|create <name> [--desc D] [--plugin P ...]|delete <name>|use <name>  插件集 Profile（#G-E/P5.1，命名插件组合，一条命令切换编码/研究模式）',
-        '      omniharness bundle pack <profileName> [--key-file K] [--out-dir D] | bundle unpack <path.ohb> [--key-file K]  Bundle 发布单元（#G-E 5.2/5.3，可 patch 插件叠层 + 零依赖 zip + 可选 HMAC 签名）',
-        '      omniharness native info|ping|tools|approval|session-submit|context|tool-call|bench   进程内直调 Rust 内核（FFI 下沉，需 npm run native:build）',
-        '      omniharness goal "<目标描述>" [--goal-max-iterations N]   自主目标循环（#S30，多轮自主推进直到达成或达上限）',
-        '      omniharness workflow --file workflow.json   DAG 工作流编排（#S31，多步依赖并发，前序产出注入后续）',
-        '      omniharness lsp <definition|references|hover|status> --file PATH --line N --col N [--lsp "server cmd"]   LSP 代码导航（#S32，需自备语言服务器，如 typescript-language-server --stdio）',
-        '      omniharness identity <generate|show|sign|verify> [--private-key PKCS8_B64] [--runtime-id ID] [--payload STR] [--signature B64]   Agent 密码学身份（#S33，Ed25519 零依赖；签名/验签会话产物）',
-        '      omniharness tui [demo]   零依赖交互式终端 UI（#S35，需 TTY；demo 用回声驱动演示事件流渲染）',
-        '选项:',
-        '  --version, -V                     打印 API 契约版本（API_VERSION）并退出，不执行',
-        '  eval [--suite PATH.json] [--out REPORT.json]   运行评估套件（质量回归基准，默认内置 smoke）',
-        '  --model-adapter mock|openai|anthropic|responses|llamacpp   模型端口（默认 mock；responses = OpenAI Responses API 原生通道；llamacpp = 本地 Ollama/llama.cpp 原生 /api/chat）',
-        '  --base-url URL  --api-key KEY      OpenAI 兼容端点',
-        '  --storage-adapter memory|jsonl    存储端口（默认 jsonl，落盘 ~/.omniharness/sessions）',
-        '  --storage-dir DIR                 jsonl 存储目录',
-        '  --vault-hydrate [--vault-hydrate-names N1,N2] [--vault-key-file PATH] [--kv-adapter memory|json-file|sqlite] [--kv-file PATH]   装配期把加密保险库中的凭据水合进进程环境（默认关；仅填充未设置的环境变量，显式配置优先）',
-        '  --evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run]   (U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升',
-        '  --a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http|ws]   (U6) A2A 互操作（默认关）：起对等 agent 服务端监听并对接委托客户端，本端可被对等委托、也可委托对端',
-        '  --approval auto|deny|rules|guardian|plan|ask   审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）',
-        '  --approval-ask allow|deny         rules 模式 ask 时裁决（默认 allow）',
-        '  --sandbox passthrough|policy|restricted|landlock|seatbelt|bwrap|unshare   沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed；landlock=内核路径 ACL，需 Linux 内核 ≥5.13 且启用 Landlock LSM，并经 OMNI_LANDLOCK_HELPER 指向的 helper 施加规则，缺一即 fail-closed；命名空间隔离请用 unshare，用户态沙箱请用 bwrap；`doctor` 打印各后端本机真机可达性）',
-        '  --network-allow host1,host2   网络外联白名单（A5；一旦设置即 fail-closed 仅放行所列主机后缀，如 example.com）',
-        '  daemon start|stop|status       常驻后台 serve（PID 文件管理，多会话由 serve 承接，D3）',
-        '  routines add|list|remove|run   定时任务（interval/cron 调度，D3）',
-        '  auth login|callback            企业 SSO（OIDC 授权码流 + PKCE，D2；需真实 IdP 元数据）',
-        '  audit export [--compliance]    审计日志导出（json/table/csv）或生成合规报告（含完整性哈希，D2）',
-        '  --escalation deny|ask|auto    升级审批（默认 deny=fail-closed 不提权；沙箱拒绝时 ask 交互 / auto 自动提权，危险动作仍 abort）',
-        '  --elevated-sandbox passthrough|policy|restricted   提权复核沙箱（默认 policy=fail-closed 收紧：危险命令/工作区外路径仍拦）：escalate 后以此复核放行',
-        '  --events console|silent           事件端口（默认 console，进度走 stderr；stdout 仅输出最终答案）',
-        '  --compaction-max N                上下文压缩 token 预算（默认 8000）',
-        '  --config PATH                     显式配置文件（优先于向上查找 omniharness.json）',
-        '  --profile NAME                    配置分层 profile：./profiles/<NAME>.json 或 ~/.omniharness/profiles/<NAME>.json，覆盖项目默认（支持 key 别名与严格校验）',
-        '  --plugin-profile NAME             插件集 profile（G-E）：serve/run 启动后把运行时插件集收敛为该命名组合（由 profile.save 创建）',
-        '  --spill-adapter memory|file       工具大结果外溢后端（默认 file，落盘 .omniharness/spill）',
-        '  --spill-bytes N                   输出超过 N 字节触发外溢（默认 16384）',
-        '  --spill-preview N                 外溢后保留的预览字节数（默认 2048）',
-        '  --subagent-max-depth N            子智能体最大派生深度（默认 2，即允许 1 层子智能体）',
-        '  --subagent-concurrency N          子智能体并发上限（默认 4）',
-        '  --subagent-max-steps N            单个子智能体步数上限（默认 12）',
-        '  --plan                            计划模式：未批准计划前拦截写类工具（shell/shell_job/write_file/edit/apply_patch/delegate/subagent）',
-        '  --self-verify / --no-self-verify  写源码后自动跑受限测试并把失败摘要回灌（P3；生产入口默认开，用 --no-self-verify 关闭）',
-        '  --guard-prompt-injection          开启提示注入护栏（工具结果进上下文前扫描并隔离命中项）；等价于 --guard-prompt-injection-mode enforce',
-        '  --guard-prompt-injection-mode off|shadow|enforce   护栏生效模式（默认 off）。shadow=跑但不改行为、只记录「本该拦截」，用于在生产流量上攒真实误报/漏报（D1）',
-        '  --defer-tools LIST                延迟加载工具（逗号分隔），默认不进上下文，需经 tool_search 发现（如 web_search,delegate）',
-        '  --tool FILE                       加载自定义工具模块（可重复）',
-        '  --skills FILE.json                受种技能包（可重复）：数组或 {"skills":[...]}，每项含 name/description/instructions（可选 tags）；与配置文件的 skills 数组合并，同名以本旗标为准',
-        '  --workspace DIR                   工作区',
-        '  --output FILE                     事件 JSONL 输出文件',
-        '  -p, --print                       headless 非交互执行（对标 claude -p / codex exec）：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）',
-        '  --output-format text|json         headless 输出格式：json 输出 {ok,sessionId,steps,finalText} 供 CI 解析（默认 text）',
-        '  --resume ID                       续跑历史会话（加载历史后继续）',
-        '  --fork ID                         分叉历史会话（复制到新会话）',
-        '  --replay ID                       回放历史会话事件（无需 --prompt）',
-        '  --mcp-server NAME=COMMAND         桥接外部 MCP 服务器工具（可重复，工具名前缀 NAME__）',
-        '  --worker-dsh PROFILE              注册真实 dsh worker（替代演示 worker，需 dsh 已配置）',
-        '  --native                          启用 FFI 原生后端：工具执行路由到 Rust 内核 in-process（默认开启；需 npm run native:build；不可用自动回退 TS）',
-        '  --dump-config                     仅打印生效配置（含默认值与配置文件合并结果）并退出，不执行',
-        '  --auto-commit                     执行后用 git 自动提交变更（Aider 式安全网，需处于 git 仓库）',
-        '  --context-window N                上下文窗口 token 数（据此在 75% 处自动压缩，长会话防溢出）',
-        '  --auth-required                  开启服务端鉴权门禁（D2，fail-closed：所有 /rpc 与 /ws 调用需有效 Bearer 令牌）',
-        '  --oidc-issuer URL --oidc-client-id ID --oidc-jwks-uri URI   门禁用 OIDC 配置（需真实 IdP 的 jwks_uri 端点）',
-      ].join('\n') + '\n',
-    );
+    process.stdout.write(cliHelp.render());
   }
 
   /**

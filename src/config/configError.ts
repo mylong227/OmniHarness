@@ -7,6 +7,7 @@
 
 import type { FileConfig } from './configFile.js';
 import type { SkillEntry } from '../skill/skill.js';
+import { MODEL_ADAPTER_IDS } from '../ports/model/modelAdapterId.js';
 import { OmniError, ErrorCode } from '../omniError.js';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -197,7 +198,11 @@ export class ConfigError extends OmniError {
 
 /** 标准配置项及其允许值集合（用于枚举校验与未知 key 拦截）。 */
 const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
-  modelAdapter: ['mock', 'openai', 'anthropic', 'responses'],
+  // 适配器白名单来自端口层的唯一清单（`ports/model/modelAdapterId.ts`）——此前这里手写一份，
+  // 且曾漏掉 `llamacpp`（`FileConfig` 类型与 CLI 枚举都早已包含它）⇒ 配置文件里写
+  // `"modelAdapter": "llamacpp"` 被判非法（声明支持、校验拒绝），与 approval 的 'plan' 同型。
+  // 直接展开清单后，这类漂移在编译期即不可发生。
+  modelAdapter: [...MODEL_ADAPTER_IDS],
   storageAdapter: ['memory', 'jsonl', 'sqlite'],
   // 'plan' 是只读规划模式（写类工具一律拒绝）：`--approval plan` 与 `FileConfig.approval` 早已支持，
   // 且运行时确有处理（cliBuildConfig 的 planMode 分支、agentRuntimeHost 的 'plan' 覆盖），

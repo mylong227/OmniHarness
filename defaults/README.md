@@ -12,8 +12,9 @@
 | `ssrf.json`      | 云元数据主机 / 内网域名后缀 / IPv4 私有保留网段     | `src/security/ssrfPolicy.ts`（`DEFAULT_SSRF_POLICY`） | `omniharness.json` 的 `ssrfPolicy`                               |
 | `providers.json` | 大模型厂商目录（端点 / 模型 / 推理档位 / CLI 映射） | `src/config/providerPresets.ts`（`ProviderPresets`）  | `omniharness.json` 的 `providerPresets`                          |
 | `endpoints.json` | 适配器兜底端点/模型/凭据 env 名 + 各服务端点地址    | `src/util/endpointDefaults.ts`（`EndpointDefaults`）  | CLI/配置文件显式值 > 该适配器的 env > 本文件（服务端点见 `env`） |
+| `cliHelp.json`   | `omniharness --help` 的文案（命令与选项说明）       | `src/cli/cliHelp.ts`（`CliHelp`）                     | 无（面向用户的帮助文案；枚举取值在渲染时从 `cliEnums` 派生）     |
 
-三个文件都由 `src/util/builtinDefaults.ts` 按**模块相对路径**读包根下的 `defaults/`（不做 cwd 推断），
+四个文件都由 `src/util/builtinDefaults.ts` 按**模块相对路径**读包根下的 `defaults/`（不做 cwd 推断），
 结果缓存。**文件缺失 / 不可读 / 不是合法 JSON 一律抛错**（fail-closed）：安全默认档读不到时静默退化成空表，
 等于护栏「看着还在、实际更松」。
 
@@ -171,6 +172,32 @@
 适配器兜底按**适配器**组织、是「没选厂商」时的兜底。合并会让「用户覆盖某厂商」意外改掉适配器兜底。
 最典型的例子是 Ollama：`endpoints.json` 的 `llamacpp` 兜底是 `http://localhost:11434`（原生 `/api/chat`），
 而 `providers.json` 的 `ollama` 预设是 `http://localhost:11434/v1`（OpenAI 兼容层）——**两者都对，勿统一**。
+
+## `cliHelp.json`
+
+`omniharness --help` 的文案。原先它是 `argParser.printUsage()` 里的一段字符串数组，于是帮助成了 CLI 表面的
+**第三份副本**（旗标名/枚举取值在 `cliFlagTable`、`cliEnums` 各一份），并且**已经漂移**：
+帮助写 `--storage-adapter memory|jsonl`，而解析期白名单是 `memory|jsonl|sqlite`。
+
+```json
+{
+  "title": "OmniHarness exec",
+  "usageLine": "用法: omniharness exec --prompt \"任务\" [选项]",
+  "commands": [{ "usage": "omniharness server [选项]", "description": "启动 JSON-RPC stdio 服务" }],
+  "optionsTitle": "选项:",
+  "options": [
+    { "spec": "--storage-adapter {{storageAdapters}}", "description": "存储端口（默认 jsonl…）" }
+  ]
+}
+```
+
+- **占位符**：`{{名字}}` 会在渲染时替换成 `src/cli/cliHelp.ts` 里 `HELP_ENUM_SOURCES` 声明的枚举清单
+  （值全部来自 `cliEnums` ⇒ 帮助里的取值不可能与校验白名单不一致）。引用未登记的名字**直接抛错**，
+  绝不把 `{{x}}` 渲染给用户。可用的名字见 `HELP_ENUM_SOURCES`（`storageAdapters` / `approvals` /
+  `sandboxProfiles` / `outputFormats` …）。
+- **排版**：描述列固定第 36 列；spec 过长则留 3 空格（渲染器统一保证，不需要手工对齐）。
+- **改文案**：直接改本文件的 `description` 即可；**新增旗标**要在这里补一条，否则
+  `tests/unit/cliHelp.test.ts` 的「新增旗标必须文档化」会失败（存量 15 个未文档化旗标已冻结在测试里）。
 
 ## 改完怎么验
 

@@ -1,0 +1,285 @@
+{
+  "title": "OmniHarness exec",
+  "usageLine": "用法: omniharness exec --prompt \"任务\" [选项]",
+  "commands": [
+    {
+      "usage": "omniharness server [选项]",
+      "description": "启动 JSON-RPC stdio 服务"
+    },
+    {
+      "usage": "omniharness serve [选项]",
+      "description": "启动 HTTP UI 服务（--port N，--auto-approve 跳过审批弹窗）"
+    },
+    {
+      "usage": "omniharness mcp serve",
+      "description": "以 stdio 暴露本地工具集（MCP 服务器，供第三方客户端调用）"
+    },
+    {
+      "usage": "omniharness mcp list --server NAME=CMD",
+      "description": "列出外部 MCP 服务器的工具"
+    },
+    {
+      "usage": "omniharness mcp call --server NAME=CMD --tool T [--args JSON]",
+      "description": "调用外部 MCP 工具"
+    },
+    {
+      "usage": "omniharness trace read --session ID [--limit N] [--kind K] [--storage-dir DIR] [--json]",
+      "description": "只读自省会话 trace（T4.5：冻结条目，不可借道改历史）"
+    },
+    {
+      "usage": "omniharness sdk call --url ws://HOST:PORT/ws --method NAME [--params JSON]",
+      "description": "用本仓 TypeScript SDK 客户端连 app-server 发一次 JSON-RPC（sdk ping 打 config.get）"
+    },
+    {
+      "usage": "omniharness kv get|set|del|list [--key K] [--value V] [--prefix P] [--kv-file PATH]",
+      "description": "通用键值存储"
+    },
+    {
+      "usage": "omniharness vault get|set|del|list [--name N] [--value V] [--vault-backend crypto|env] [--vault-key-file PATH]",
+      "description": "凭据保险库（AES-256-GCM）"
+    },
+    {
+      "usage": "omniharness profile list|create <name> [--desc D] [--plugin P ...]|delete <name>|use <name>",
+      "description": "插件集 Profile（#G-E/P5.1，命名插件组合，一条命令切换编码/研究模式）"
+    },
+    {
+      "usage": "omniharness bundle pack <profileName> [--key-file K] [--out-dir D] | bundle unpack <path.ohb> [--key-file K]",
+      "description": "Bundle 发布单元（#G-E 5.2/5.3，可 patch 插件叠层 + 零依赖 zip + 可选 HMAC 签名）"
+    },
+    {
+      "usage": "omniharness native info|ping|tools|approval|session-submit|context|tool-call|bench",
+      "description": "进程内直调 Rust 内核（FFI 下沉，需 npm run native:build）"
+    },
+    {
+      "usage": "omniharness goal \"<目标描述>\" [--goal-max-iterations N]",
+      "description": "自主目标循环（#S30，多轮自主推进直到达成或达上限）"
+    },
+    {
+      "usage": "omniharness workflow --file workflow.json",
+      "description": "DAG 工作流编排（#S31，多步依赖并发，前序产出注入后续）"
+    },
+    {
+      "usage": "omniharness lsp <definition|references|hover|status> --file PATH --line N --col N [--lsp \"server cmd\"]",
+      "description": "LSP 代码导航（#S32，需自备语言服务器，如 typescript-language-server --stdio）"
+    },
+    {
+      "usage": "omniharness identity <generate|show|sign|verify> [--private-key PKCS8_B64] [--runtime-id ID] [--payload STR] [--signature B64]",
+      "description": "Agent 密码学身份（#S33，Ed25519 零依赖；签名/验签会话产物）"
+    },
+    {
+      "usage": "omniharness tui [demo]",
+      "description": "零依赖交互式终端 UI（#S35，需 TTY；demo 用回声驱动演示事件流渲染）"
+    }
+  ],
+  "optionsTitle": "选项:",
+  "options": [
+    {
+      "spec": "--version, -V",
+      "description": "打印 API 契约版本（API_VERSION）并退出，不执行"
+    },
+    {
+      "spec": "eval [--suite PATH.json] [--out REPORT.json]",
+      "description": "运行评估套件（质量回归基准，默认内置 smoke）"
+    },
+    {
+      "spec": "--model-adapter {{modelAdapters}}",
+      "description": "模型端口（默认 mock；responses = OpenAI Responses API 原生通道；llamacpp = 本地 Ollama/llama.cpp 原生 /api/chat）"
+    },
+    {
+      "spec": "--base-url URL  --api-key KEY",
+      "description": "OpenAI 兼容端点"
+    },
+    {
+      "spec": "--storage-adapter {{storageAdapters}}",
+      "description": "存储端口（默认 jsonl，落盘 ~/.omniharness/sessions）"
+    },
+    {
+      "spec": "--storage-dir DIR",
+      "description": "jsonl 存储目录"
+    },
+    {
+      "spec": "--vault-hydrate [--vault-hydrate-names N1,N2] [--vault-key-file PATH] [--kv-adapter {{kvAdapters}}] [--kv-file PATH]",
+      "description": "装配期把加密保险库中的凭据水合进进程环境（默认关；仅填充未设置的环境变量，显式配置优先）"
+    },
+    {
+      "spec": "--evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run]",
+      "description": "(U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升"
+    },
+    {
+      "spec": "--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport {{a2aTransports}}]",
+      "description": "(U6) A2A 互操作（默认关）：起对等 agent 服务端监听并对接委托客户端，本端可被对等委托、也可委托对端"
+    },
+    {
+      "spec": "--approval {{approvals}}",
+      "description": "审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）"
+    },
+    {
+      "spec": "--approval-ask {{approvalAsks}}",
+      "description": "rules 模式 ask 时裁决（默认 allow）"
+    },
+    {
+      "spec": "--sandbox {{sandboxProfiles}}",
+      "description": "沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed；landlock=内核路径 ACL，需 Linux 内核 ≥5.13 且启用 Landlock LSM，并经 OMNI_LANDLOCK_HELPER 指向的 helper 施加规则，缺一即 fail-closed；命名空间隔离请用 unshare，用户态沙箱请用 bwrap；`doctor` 打印各后端本机真机可达性）"
+    },
+    {
+      "spec": "--network-allow host1,host2",
+      "description": "网络外联白名单（A5；一旦设置即 fail-closed 仅放行所列主机后缀，如 example.com）"
+    },
+    {
+      "spec": "daemon start|stop|status",
+      "description": "常驻后台 serve（PID 文件管理，多会话由 serve 承接，D3）"
+    },
+    {
+      "spec": "routines add|list|remove|run",
+      "description": "定时任务（interval/cron 调度，D3）"
+    },
+    {
+      "spec": "auth login|callback",
+      "description": "企业 SSO（OIDC 授权码流 + PKCE，D2；需真实 IdP 元数据）"
+    },
+    {
+      "spec": "audit export [--compliance]",
+      "description": "审计日志导出（json/table/csv）或生成合规报告（含完整性哈希，D2）"
+    },
+    {
+      "spec": "--escalation {{escalations}}",
+      "description": "升级审批（默认 deny=fail-closed 不提权；沙箱拒绝时 ask 交互 / auto 自动提权，危险动作仍 abort）"
+    },
+    {
+      "spec": "--elevated-sandbox {{elevatedSandboxes}}",
+      "description": "提权复核沙箱（默认 policy=fail-closed 收紧：危险命令/工作区外路径仍拦）：escalate 后以此复核放行"
+    },
+    {
+      "spec": "--events {{eventPorts}}",
+      "description": "事件端口（默认 console，进度走 stderr；stdout 仅输出最终答案）"
+    },
+    {
+      "spec": "--compaction-max N",
+      "description": "上下文压缩 token 预算（默认 8000）"
+    },
+    {
+      "spec": "--config PATH",
+      "description": "显式配置文件（优先于向上查找 omniharness.json）"
+    },
+    {
+      "spec": "--profile NAME",
+      "description": "配置分层 profile：./profiles/<NAME>.json 或 ~/.omniharness/profiles/<NAME>.json，覆盖项目默认（支持 key 别名与严格校验）"
+    },
+    {
+      "spec": "--plugin-profile NAME",
+      "description": "插件集 profile（G-E）：serve/run 启动后把运行时插件集收敛为该命名组合（由 profile.save 创建）"
+    },
+    {
+      "spec": "--spill-adapter {{spillAdapters}}",
+      "description": "工具大结果外溢后端（默认 file，落盘 .omniharness/spill）"
+    },
+    {
+      "spec": "--spill-bytes N",
+      "description": "输出超过 N 字节触发外溢（默认 16384）"
+    },
+    {
+      "spec": "--spill-preview N",
+      "description": "外溢后保留的预览字节数（默认 2048）"
+    },
+    {
+      "spec": "--subagent-max-depth N",
+      "description": "子智能体最大派生深度（默认 2，即允许 1 层子智能体）"
+    },
+    {
+      "spec": "--subagent-concurrency N",
+      "description": "子智能体并发上限（默认 4）"
+    },
+    {
+      "spec": "--subagent-max-steps N",
+      "description": "单个子智能体步数上限（默认 12）"
+    },
+    {
+      "spec": "--plan",
+      "description": "计划模式：未批准计划前拦截写类工具（shell/shell_job/write_file/edit/apply_patch/delegate/subagent）"
+    },
+    {
+      "spec": "--self-verify / --no-self-verify",
+      "description": "写源码后自动跑受限测试并把失败摘要回灌（P3；生产入口默认开，用 --no-self-verify 关闭）"
+    },
+    {
+      "spec": "--guard-prompt-injection",
+      "description": "开启提示注入护栏（工具结果进上下文前扫描并隔离命中项）；等价于 --guard-prompt-injection-mode enforce"
+    },
+    {
+      "spec": "--guard-prompt-injection-mode {{enforcementModes}}",
+      "description": "护栏生效模式（默认 off）。shadow=跑但不改行为、只记录「本该拦截」，用于在生产流量上攒真实误报/漏报（D1）"
+    },
+    {
+      "spec": "--defer-tools LIST",
+      "description": "延迟加载工具（逗号分隔），默认不进上下文，需经 tool_search 发现（如 web_search,delegate）"
+    },
+    {
+      "spec": "--tool FILE",
+      "description": "加载自定义工具模块（可重复）"
+    },
+    {
+      "spec": "--skills FILE.json",
+      "description": "受种技能包（可重复）：数组或 {\"skills\":[...]}，每项含 name/description/instructions（可选 tags）；与配置文件的 skills 数组合并，同名以本旗标为准"
+    },
+    {
+      "spec": "--workspace DIR",
+      "description": "工作区"
+    },
+    {
+      "spec": "--output FILE",
+      "description": "事件 JSONL 输出文件"
+    },
+    {
+      "spec": "-p, --print",
+      "description": "headless 非交互执行（对标 claude -p / codex exec）：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）"
+    },
+    {
+      "spec": "--output-format {{outputFormats}}",
+      "description": "headless 输出格式：json 输出 {ok,sessionId,steps,finalText} 供 CI 解析（默认 text）"
+    },
+    {
+      "spec": "--resume ID",
+      "description": "续跑历史会话（加载历史后继续）"
+    },
+    {
+      "spec": "--fork ID",
+      "description": "分叉历史会话（复制到新会话）"
+    },
+    {
+      "spec": "--replay ID",
+      "description": "回放历史会话事件（无需 --prompt）"
+    },
+    {
+      "spec": "--mcp-server NAME=COMMAND",
+      "description": "桥接外部 MCP 服务器工具（可重复，工具名前缀 NAME__）"
+    },
+    {
+      "spec": "--worker-dsh PROFILE",
+      "description": "注册真实 dsh worker（替代演示 worker，需 dsh 已配置）"
+    },
+    {
+      "spec": "--native",
+      "description": "启用 FFI 原生后端：工具执行路由到 Rust 内核 in-process（默认开启；需 npm run native:build；不可用自动回退 TS）"
+    },
+    {
+      "spec": "--dump-config",
+      "description": "仅打印生效配置（含默认值与配置文件合并结果）并退出，不执行"
+    },
+    {
+      "spec": "--auto-commit",
+      "description": "执行后用 git 自动提交变更（Aider 式安全网，需处于 git 仓库）"
+    },
+    {
+      "spec": "--context-window N",
+      "description": "上下文窗口 token 数（据此在 75% 处自动压缩，长会话防溢出）"
+    },
+    {
+      "spec": "--auth-required",
+      "description": "开启服务端鉴权门禁（D2，fail-closed：所有 /rpc 与 /ws 调用需有效 Bearer 令牌）"
+    },
+    {
+      "spec": "--oidc-issuer URL --oidc-client-id ID --oidc-jwks-uri URI",
+      "description": "门禁用 OIDC 配置（需真实 IdP 的 jwks_uri 端点）"
+    }
+  ]
+}

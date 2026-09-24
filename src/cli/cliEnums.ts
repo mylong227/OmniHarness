@@ -1,4 +1,5 @@
 import type { CliArgs } from './argParser.js';
+import { MODEL_ADAPTER_IDS } from '../ports/model/modelAdapterId.js';
 
 /**
  * CLI 枚举参数白名单（与 `CliArgs` 联合类型同源：`satisfies` 保证二者漂移即编译报错）。
@@ -7,13 +8,11 @@ import type { CliArgs } from './argParser.js';
  * 在 `SandboxManager.build()` 落入未知 profile 分支，静默退回直通沙箱（全放行），
  * 把「参数写错」变成「沙箱失效」。安全相关枚举必须显式校验（fail-closed）。
  */
-export const MODEL_ADAPTERS = [
-  'mock',
-  'openai',
-  'anthropic',
-  'responses',
-  'llamacpp',
-] as const satisfies readonly CliArgs['modelAdapter'][];
+/**
+ * 模型适配器白名单：直接复用端口层的**唯一清单**（`ports/model/modelAdapterId.ts`）——
+ * 名字只声明一次，`satisfies` 仍保留（清单若与 `CliArgs.modelAdapter` 类型不符即编译报错）。
+ */
+export const MODEL_ADAPTERS = MODEL_ADAPTER_IDS satisfies readonly CliArgs['modelAdapter'][];
 export const STORAGE_ADAPTERS = [
   'memory',
   'jsonl',

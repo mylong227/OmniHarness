@@ -19,6 +19,30 @@ import {
 } from './cliEnums.js';
 
 /**
+ * 取值受枚举约束的旗标 → 允许值清单。
+ *
+ * **与 `FLAG_TABLE` 的校验引用同一批常量**（`cliEnums` 的数组），故这份「视图」不可能漂移；
+ * 供 CLI 帮助从单一来源派生枚举文本——此前帮助里手写 `--storage-adapter memory|jsonl`，
+ * 而实际白名单早已是 `memory|jsonl|sqlite` ⇒ 帮助与行为不一致（用户按帮助选不到 sqlite）。
+ */
+export const FLAG_ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
+  '--model-adapter': MODEL_ADAPTERS,
+  '--storage-adapter': STORAGE_ADAPTERS,
+  '--approval': APPROVALS,
+  '--approval-ask': APPROVAL_ASKS,
+  '--sandbox': SANDBOX_PROFILES,
+  '--escalation': ESCALATIONS,
+  '--elevated-sandbox': ELEVATED_SANDBOXES,
+  '--guard-prompt-injection-mode': ENFORCEMENT_MODES,
+  '--spill-adapter': SPILL_ADAPTERS,
+  '--events': EVENT_PORTS,
+  '--kv-adapter': KV_ADAPTERS,
+  '--a2a-transport': A2A_TRANSPORTS,
+  '--output-format': OUTPUT_FORMATS,
+  '--cost-budget-on-exceed': BUDGET_ON_EXCEED,
+};
+
+/**
  * CliFlagTable 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
  */
 export class CliFlagTable {
