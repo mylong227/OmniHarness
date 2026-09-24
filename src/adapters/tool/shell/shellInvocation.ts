@@ -27,21 +27,57 @@ export class ShellInvocation {
   /**
    * 构造「以解释器执行一段命令文本」的 argv。
    *
+   * **Windows 形态必须把命令整体再包一层引号**（审计 §1.9，实测修复）：`cmd.exe` 的 `/s` 会按自己的
+   * 规则重解析命令行，而 Node 在拼 Windows 命令行时也会对 argv 做一次转义——**两次解析叠加**会让命令里的
+   * 引号错位。实测（探针，路径与文件名均含空格）：
+   *  - 旧形态 `['/d','/s','/c', command]`（Node 常规转义）⇒ 失败：
+   *    `node "<脚本路径>" "<输出路径>"` 被粘成一个参数，Node 报 `Cannot find module '...\"...\"'`；
+   *  - 新形态 `['/d','/s','/c', '"' + command + '"']` + `windowsVerbatimArguments: true`
+   *    （见 {@link ShellInvocation.needsVerbatimArgs}）⇒ 成功：`/s` 恰好剥掉我们加的那对引号，
+   *    命令文本原样交给 cmd 执行。
+   * 两种形态在**不带引号的简单命令**上行为一致（这也是该缺陷长期未被发现的原因）。
+   *
    * @param shell shell 可执行文件（仅用于判断是否 Windows 风格）。
    * @param command 命令文本。
    * @param platform 平台名（默认 `process.platform`；显式传入是为了让 argv 构造可在
    *   任意平台上被确定性单测，见 {@link PtyCapability.argvOf}）。
-   * @returns argv 数组（命令文本始终作为**单个**参数传递，不再经历二次拼接）。
+   * @returns argv 数组：cmd 形态为 `['/d','/s','/c', '"<command>"']`，POSIX 为 `['-c', command]`。
    */
   public static args(
     shell: string,
     command: string,
     platform: string = process.platform,
   ): string[] {
-    if (platform === 'win32' || /(^|[\\/])cmd(\.exe)?$/i.test(shell)) {
-      return ['/d', '/s', '/c', command];
+    if (ShellInvocation.isCmdShell(shell, platform)) {
+      return ['/d', '/s', '/c', `"${command}"`];
     }
     return ['-c', command];
+  }
+
+  /**
+   * 该 shell 是否要求「argv 原样传递」（Node 不得再转义）。
+   *
+   * 为什么必须配套（审计 §1.9）：`args()` 在 cmd 形态下**自己**加了一对引号，若再让 Node 对参数做
+   * 常规转义，就会回到「两次解析叠加」的旧问题。故 spawn 时必须传
+   * `windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(bin)`。
+   * POSIX 形态返回 `false`（保持 Node 正常转义，`sh -c "<命令>"` 语义不变）。
+   *
+   * @param shell shell 可执行文件。
+   * @param platform 平台名（默认 `process.platform`）。
+   * @returns cmd 形态返回 true。
+   */
+  public static needsVerbatimArgs(shell: string, platform: string = process.platform): boolean {
+    return ShellInvocation.isCmdShell(shell, platform);
+  }
+
+  /**
+   * 判断是否 Windows cmd 形态（`cmd.exe` 或其全路径）。
+   * @param shell shell 可执行文件。
+   * @param platform 平台名。
+   * @returns 是 cmd 返回 true。
+   */
+  private static isCmdShell(shell: string, platform: string): boolean {
+    return platform === 'win32' || /(^|[\\/])cmd(\.exe)?$/i.test(shell);
   }
 
   /**

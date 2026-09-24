@@ -106,21 +106,36 @@
 - **`web/src`（104 文件）不在本地 `typecheck`**：`typecheck` 只跑根 tsconfig。**修法**：
   `npm run typecheck` 追加 `tsc -p web/tsconfig.json --noEmit`（实测零错误）。
 
-### 1.9【第十轮新发现·待办·P2】Windows 下带引号参数的 shell 命令被 `cmd /d /s /c` 破坏
+### 1.9【第十一轮已修】Windows 下带引号参数的 shell 命令被 `cmd /d /s /c` 破坏
 
 - **怎么发现的**：写「取消信号」回归用例时，命令用 `node "<绝对路径>" "<目录>"`，结果**没跑起来**；
-  探针复现（`node` 直接调 `ShellTool`）：报错是 `Cannot find module 'C:\...\Temp\probe-xxx\"C:\...\heartbeat.js"'`
-  ——两个参数被**粘成一个**、引号被吃进路径里。这不是我的改动引入的，是**既有**的执行形态问题。
-- **根因**：`ShellInvocation.args()` 在 Windows 上给的是 `['/d', '/s', '/c', command]`（`shellInvocation.ts:41-44`）。
-  `cmd.exe` 的 `/s` 开关会「剥掉命令串最外层引号并按特定规则重解析」，当命令里已经有引号（带空格路径、
-  引号参数）时就会发生这种重组。Node 把 argv 拼成命令行时又会再加一层转义 ⇒ 双重解析错位。
-- **影响面**：任何**参数带引号**的 Windows 命令（含空格路径、`--flag "value"`）都可能失败或被静默改写；
-  非引号命令（绝大多数）不受影响，故长期未被发现。
-- **最小修法（待验证）**：不用 `/s`（改 `['/d','/c',command]`），或改用「命令经 stdin 喂给 `cmd /d /q`」的形态，
-  或对 `command` 做一次针对 cmd 的转义（`^` 转义元字符 + 引号成对）。**修前必须先建用例**：
-  `node "<带空格路径>" <arg>`、`echo "a b"`、以及含 `&`/`^` 的引号参数，逐条钉住「引号参数原样到达子进程」。
-- **为什么本轮不顺手改**：`/s` 的取舍会影响**所有**跨平台 shell 调用（含用户既有命令的行为），
-  属「解析契约」级改动，需要独立一轮 + 上述用例矩阵，不能在收尾时夹带。
+  探针复现：报错是 `Cannot find module '...\"...\"'` ——两个参数被**粘成一个**、引号被吃进路径。
+- **根因**：`ShellInvocation.args()` 在 Windows 上给的是 `['/d','/s','/c', command]`。
+  两层解析叠加：① `cmd.exe` 的 `/s` 按自己的规则剥引号并重解析命令行；② Node 在拼 Windows 命令行时
+  也会对 argv 转义一次。命令里一旦自带引号（带空格路径、`-e "..."` 等），两层规则就错位。
+- **实测选型（探针，脚本路径与文件名都含空格）**：
+
+  | 形态                                                           | 结果                              |
+  | -------------------------------------------------------------- | --------------------------------- |
+  | `/d /s /c` + 原文（旧）                                        | ❌ 失败：参数被粘成一个           |
+  | `/d /c` + 原文                                                 | ❌ 失败（同因）                   |
+  | `/d /s /c` + **整体加引号** + `windowsVerbatimArguments: true` | ✅ argv 原样到达                  |
+  | `/d /c` + 整体加引号 + verbatim                                | ✅ 同上（故选带 `/s` 的经典形态） |
+
+- **修法**：cmd 形态改为 `['/d','/s','/c', '"' + command + '"']`（`/s` 恰好剥掉这一层），
+  新增 `ShellInvocation.needsVerbatimArgs()`，**三个 spawn 点**（`shellProcessRunner` /
+  `backgroundJobRegistry` / `shellInteractiveExecutor`）统一传 `windowsVerbatimArguments`
+  ——避免「前台修了、后台没修」的口径分叉。**POSIX 形态逐字未变**（`['-c', command]`）。
+- **回归（用例矩阵，`shellProcessRunner.test.ts`）**：① 含空格路径的脚本 + 参数**逐字到达子进程**
+  （断言子进程收到的 argv 与命令里写的完全一致）；② 引号内含空格的参数不被拆开；③ **引号内的 `&`
+  不得被执行成第二条命令**。
+- **反向验证**：临时改回旧形态重跑 ⇒ 矩阵**立刻红**，报错正是
+  `Cannot find module 'D:\deepseek\omniharness\"C:\Users\...\a'`（与当初探针一致）。
+- **兼容性复验（确认没破坏 cmd 常规语义）**：`echo a & echo b` → `a b`（`&` 仍分隔）·
+  `echo "a&b"` → 字面量 · `echo %OS%` → `Windows_NT`（变量展开不变）· 管道 / `1>&2` 重定向 /
+  `node -e "console.log(1+1)"` / `node -e "console.log('x y')"`（引号内套引号）全部正常。
+- **影响面（如实说明）**：不含引号的命令**行为不变**——这正是该缺陷长期未被发现的原因；
+  受影响的是「参数带引号 / 路径含空格」这一类。
 
 **第十轮 §3.15 已修（前 2 条）**：
 

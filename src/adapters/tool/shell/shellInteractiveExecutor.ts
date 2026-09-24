@@ -14,6 +14,7 @@
  */
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
+import { ShellInvocation } from './shellInvocation.js';
 
 /** 单次交互式执行参数。 */
 export interface InteractiveRunOptions {
@@ -59,6 +60,8 @@ export class ShellInteractiveExecutor {
           cwd: options.cwd,
           env: options.env,
           stdio: 'inherit',
+          // cmd 形态的命令串自带引号（见 ShellInvocation.args），须原样传递（审计 §1.9）。
+          windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(bin),
         });
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));

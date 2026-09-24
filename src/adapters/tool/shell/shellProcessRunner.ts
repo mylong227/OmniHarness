@@ -102,6 +102,9 @@ export class ShellProcessRunner {
           env: options.env,
           windowsHide: true,
           stdio: ['ignore', 'pipe', 'pipe'],
+          // cmd 形态下命令串自带引号（见 ShellInvocation.args），必须原样传递，
+          // 否则 Node 的常规转义会与 cmd 的解析叠加，把带引号参数粘成一个（审计 §1.9）。
+          windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(invocation.bin),
           // POSIX 上让 shell 成为**自己的进程组组长**，终止时才能用 `kill(-pid)` 连带整棵树
           // （非 detached 的子进程继承父进程组，负 pid 会 ESRCH ⇒ 只能杀到 shell 本身）。
           // Windows 不用这种方式：那里的树终止交给 `taskkill /T`（见 ProcessTreeKiller）。
