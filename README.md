@@ -589,9 +589,9 @@ npm run web:test               # Web 构建 + 挂载单测
 
 - 源码采用 [Apache License 2.0](LICENSE)。
 - 贡献前请读 [`docs/contributing.md`](docs/contributing.md)（一功能一类 / 一函数一职责）与 [`docs/CODE_STANDARD.md`](docs/CODE_STANDARD.md)。
-- 文档治理：`docs/` 的唯一入口是 [`docs/README.md`](docs/README.md)；进度 / 状态只认 [`docs/TASK_BOARD_2026-09-13.md`](docs/TASK_BOARD_2026-09-13.md)。
+- 文档治理：`docs/` 的唯一入口是 [`docs/README.md`](docs/README.md)；进度 / 状态只认 [`docs/TASK_BOARD.md`](docs/TASK_BOARD.md)。
 - 架构变更先落 ADR（[`docs/adr/`](docs/adr/README.md)）再合代码。
 
 ---
 
-> **本 README 的依据**：`package.json` / `Cargo.toml` / `src/index.ts` 公开 API 面 / `src/cli/argParser.ts` 用法表 / `docs/ARCHITECTURE_SPEC.md` / `docs/ARCHITECTURE_AND_GAP_2026-09-13.md` / `docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` / `docs/library/README.md` / `.github/workflows/ci.yml` 与本机实测（2026-09-14）。数字如与看板不符，以 [`docs/TASK_BOARD_2026-09-13.md`](docs/TASK_BOARD_2026-09-13.md) 为准。
+> **本 README 的依据**：`package.json` / `Cargo.toml` / `src/index.ts` 公开 API 面 / `src/cli/argParser.ts` 用法表 / `docs/ARCHITECTURE_SPEC.md` / `docs/ARCHITECTURE_AND_GAP_2026-09-13.md` / `docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` / `docs/library/README.md` / `.github/workflows/ci.yml` 与本机实测（2026-09-14）。数字如与看板不符，以 [`docs/TASK_BOARD.md`](docs/TASK_BOARD.md) 为准。

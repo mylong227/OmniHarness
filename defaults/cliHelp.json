@@ -102,6 +102,66 @@
       "description": "装配期把加密保险库中的凭据水合进进程环境（默认关；仅填充未设置的环境变量，显式配置优先）"
     },
     {
+      "spec": "--prompt TEXT",
+      "description": "任务提示词（等价于位置参数 `omniharness \"任务\"`；resume/fork 模式必须显式给出）"
+    },
+    {
+      "spec": "--model NAME",
+      "description": "模型名：CLI / 配置文件显式值优先；缺省用该适配器的兜底模型（见 defaults/endpoints.json）"
+    },
+    {
+      "spec": "--memory-encrypt",
+      "description": "长期记忆落盘加密（#4.4：AES-256-GCM 逐行加密 memory.jsonl；默认关）"
+    },
+    {
+      "spec": "--memory-key-file PATH",
+      "description": "长期记忆加密密钥文件路径（缺省 <工作区>/.omniharness/longterm/memory.key）"
+    },
+    {
+      "spec": "--model-router JSON",
+      "description": "模型路由配置（#B4，JSON 字符串）：按 least-cost / round-robin / by-task / health-fallback 在多个底层适配器间路由"
+    },
+    {
+      "spec": "--model-router-file PATH",
+      "description": "从文件读取模型路由配置（JSON；与 --model-router 同形）"
+    },
+    {
+      "spec": "--turn-token-budget N",
+      "description": "单回合 token 预算（超出即触发上下文压缩/收敛；缺省按 contextWindow 推导）"
+    },
+    {
+      "spec": "--stream-text",
+      "description": "流式打印模型文本增量（默认关：非 headless 时只输出最终答案）"
+    },
+    {
+      "spec": "--no-model-retry",
+      "description": "关闭模型重试（默认开：3 次 / 500ms 指数退避 / 尊重 Retry-After）"
+    },
+    {
+      "spec": "--no-model-circuit-breaker",
+      "description": "关闭模型熔断（默认开：下游持续失败即开路，冷却期内不发起调用、到期自动半开探测）"
+    },
+    {
+      "spec": "--model-circuit-breaker-threshold N",
+      "description": "熔断开路阈值（连续失败次数，默认 5）"
+    },
+    {
+      "spec": "--model-circuit-breaker-open-ms N",
+      "description": "熔断开路冷却毫秒（默认 30000）"
+    },
+    {
+      "spec": "--cost-budget-usd N",
+      "description": "(P5) 成本硬预算（USD）：设正数后按路由定价累计花费，越上限即熔断（0 / 不设为关闭）"
+    },
+    {
+      "spec": "--cost-budget-on-exceed {{budgetOnExceed}}",
+      "description": "(P5) 预算耗尽行为（默认 fail=抛错阻断；warn=仅观测不阻断）"
+    },
+    {
+      "spec": "--cost-budget-soft-ratio R",
+      "description": "(P5) 软阈值比例（相对硬预算，0<r≤1，默认 0.8）：达该比例即置位「建议降级」信号"
+    },
+    {
       "spec": "--evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run]",
       "description": "(U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升"
     },

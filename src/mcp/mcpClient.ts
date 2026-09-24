@@ -11,9 +11,11 @@ import {
 } from './mcpProtocol.js';
 import { log } from '../util/logger.js';
 
-/** 等待中的请求。 */
+/** 等待中的请求：成功 / 失败两条通道 + 超时定时器。 */
 interface PendingRequest {
   readonly resolve: (response: RpcResponse) => void;
+  readonly reject: (error: Error) => void;
+  readonly timer: ReturnType<typeof setTimeout>;
 }
 
 /**
@@ -33,9 +35,39 @@ export interface McpClientOptions {
 export class McpClient {
   private readonly pending = new Map<number, PendingRequest>();
   private nextId = 1;
+  /** 是否已关闭（关闭后拒绝新请求，并立即拒绝全部在途请求）。 */
+  private closed = false;
 
   public constructor(private readonly options: McpClientOptions) {
     options.transport.onMessage((message) => this.handle(message));
+  }
+
+  /**
+   * 关闭客户端：立即拒绝全部在途请求（fail-fast），此后拒绝新请求。
+   *
+   * 为什么必须显式提供：`Transport` 契约只有 `onMessage` / `send`，**没有关闭通知**
+   * ⇒ 传输侧结束（stdio 结束、对端进程退出）时，在途请求只能各自等超时定时器（默认 10s）才会被拒，
+   * 调用方在这段时间里拿不到任何信号、表现为「卡住」。调用方在结束连接时应调用本方法。
+   * 幂等：重复调用无副作用。
+   * @param reason 拒绝原因（用于错误消息）。
+   * @returns 无返回值。
+   */
+  public close(reason = 'MCP 连接已关闭'): void {
+    this.closed = true;
+    this.failAll(new Error(reason));
+  }
+
+  /**
+   * 以同一原因拒绝全部在途请求（并清理定时器）。
+   * @param error 拒绝原因。
+   * @returns 无返回值。
+   */
+  private failAll(error: Error): void {
+    for (const [, pending] of this.pending) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
   }
 
   /** 握手，返回服务端信息与能力。 */
@@ -105,6 +137,9 @@ export class McpClient {
 
   /** 发送带 id 的请求并等待响应。 */
   private async request(method: string, params: Record<string, unknown>): Promise<unknown> {
+    if (this.closed) {
+      throw new Error('MCP 客户端已关闭');
+    }
     const requestId = this.nextId;
     this.nextId += 1;
     log.debug('mcp.request', { method, requestId });
@@ -119,6 +154,11 @@ export class McpClient {
           clearTimeout(timer);
           resolve(value);
         },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+        timer,
       });
       this.options.transport.send({ jsonrpc: '2.0', id: requestId, method, params });
     });

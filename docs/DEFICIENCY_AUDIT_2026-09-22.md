@@ -243,7 +243,9 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
   因为清单本身仍是 `as const` 元组）。**新增适配器现在只需**：清单加一个名字 + 表体加一行
   （编译器强制配对）+ `defaults/endpoints.json` 加兜底（测试强制存在）。
 
-### 3.5 其余（摘要）
+### 3.5 其余（摘要）——**逐项状态**（2026-09-22 第七轮更新）
+
+原始发现（保留原文，便于对照）：
 
 审计哈希链两份同构且**已语义分叉**（`auditSink.ts` canonical 含 `ts`，`jsonlRuntimeTelemetry.ts` 不含）·
 JSON-RPC pending/超时/id 关联重复 6 处且 `mcpClient.ts:15-17` **无 reject 通道**（传输关闭时挂起请求永不被拒）·
@@ -251,8 +253,34 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 覆盖率门禁是聚合值（`context/rankVeto`、`adapters/tool/git` 可零单测仍全绿）· 53 个 eval 脚本中 35 个未接入 npm script ·
 非 archive 文档 172 处死路径（含 README 指向**不存在**的 `docs/TASK_BOARD_2026-09-13.md`，而 README 又写明「以它为准」）·
 `src/` 内 3 个 Python 文件（3919 行）在全部 TS 门禁之外。
-（`web/src` 不在本地 `typecheck`、`NetworkEgressGuard` 漏映射 IPv6、外溢预览字节预算、worktree 清理不在锁内
-——**已在本轮修掉**，见 §1.7。）
+
+**本轮（§3.12）已清掉**：
+
+- ✅ **shell 工具族常量各自声明** → 新增 `adapters/tool/shell/shellTimeouts.ts`：**下限**收成一处
+  （两族原本都是 `1000`），默认值与上限**刻意保持分开**并写明理由（前台是钳制上界、交互式另有默认值与
+  1 小时上限），`shellTool.test.ts` 加了「下线共用 / 上限确实不同」两条断言。
+- ✅ **`src/` 内 Python 文件在门禁之外** → 迁到 `python/omniharness/`（3 文件），
+  `scripts/run_omniharness.py` 的 `SOURCE_ROOT` 与文档串同步更新（`repository_root()` 的 `parents[2]` 深度不变）。
+- ✅ **README 指向不存在的看板** → `TASK_BOARD_2026-09-13.md` 实际从未存在（真实看板是 `TASK_BOARD.md`）；
+  非归档文档 8 处引用全部改正（README×2、docs/README×3、两张历史板各 1、llms.txt×1）。
+- 🟡 **`mcpClient` 无 reject 通道**（本条的具体缺陷已修）：`PendingRequest` 增加 `reject` 通道 + `close()`，
+  `mcpConnector` 的句柄关闭改为**先拒在途请求、再关传输**，并加「close() 立即拒绝而非等 60s 超时」的回归。
+  **但「pending/超时/id 关联重复 6 处」未动**——7 个传输类语义各异（有的带定时器、有的靠 socket close 回调），
+  收成一张共享表是独立一轮的重构，不应与本次混做。
+
+**仍未清（附为何不能在这轮安全完成）**：
+
+- ⬜ **审计哈希链 canonical 分叉**：两份实现已产出**不同哈希**，统一必须**逐字节保留两侧输出**
+  （否则已落盘的审计/遥测链当场验签失败），需带 golden-hash 的专项轮次。
+- ⬜ **JSON-RPC pending 六处重复**：见上（7 传输类语义不同，需专项重构）。
+- ⬜ **公开面泄漏测试替身**：删除已发布的导出属**破坏性 API 变更**，需按 `docs/API_STABILITY.md` 的
+  弃用流程走（`@deprecated` 分区 → 次版本移除），不能顺手删。
+- ⬜ **覆盖率门禁聚合值**：改成按模块阈值会立刻大面积变红（存量零单测模块），属**门禁政策决策**
+  （需要先给存量基线、再逐步收紧），不是代码修复。
+- ⬜ **35 个 eval 脚本未接入 npm script**：机械但需决策（逐个接线 vs 一个统一 runner），且部分脚本依赖
+  未装工具/网络，接线后可能变成「永远红」。
+- ⬜ **172 处死路径**：本轮已清掉被点名的 README 那条；余下建议先做**死链检查器**（机械门禁 + 存量冻结），
+  再按批修，而不是手工改 172 处（易漏且不可验证）。
 
 ### 3.6【本轮已做，用户指定】SSRF 三张策略表配置化（`METADATA_HOSTS` / `INTERNAL_SUFFIXES` / `IPV4_BLOCKS`）
 
@@ -382,6 +410,24 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 - **验证**：`npm test` 2105 例 / 2100 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip；
   `check --strict`（573 文件零违规）、`arch:gate --strict`、`audit:config-wiring`（573 文件、七条不变量）、
   `api:check`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全通过。
+
+### 3.12【本轮已做，用户指定】余项清理（接 §3.11，第七轮）
+
+用户指令：「把余下的问题全部处理干净」。逐项处理结果见 §3.5 的**逐项状态**小节，此处只记本轮新增/变更：
+
+- **未文档化旗标清零**：上轮把 15 个「在 `FLAG_TABLE` 里但帮助未记载」的旗标冻结为基线；本轮全部补进
+  `defaults/cliHelp.json`（`--prompt` / `--model` / `--memory-*` / `--model-router*` / `--turn-token-budget` /
+  `--stream-text` / `--no-model-retry` / `--no-model-circuit-breaker` / `--model-circuit-breaker-*` /
+  `--cost-budget-*`），**基线清空** ⇒ 此后任何新增旗标未写进帮助即测试失败。
+  其中 `--cost-budget-on-exceed` 的取值也纳入「枚举必须派生」检查（`{{budgetOnExceed}}`）。
+- **`mcpClient` 拒绝通道**：`PendingRequest` 补 `reject` + `close()`，`mcpConnector` 句柄关闭改为
+  先拒在途请求再关传输；新增回归「close() 立即拒绝（不等 60s 超时）」。
+- **`--auth-required` 读取方式**：从裸 `serveArgs.includes(...)` 改为 `CliArgReader.has(...)`
+  （新增该语义化方法）。**如实说明**：`Array.includes` 本就是精确匹配，这**不是 bug 修复**，
+  只是把「子命令自解析参数」统一到同一套读取惯例（原注释里我一度写成「防子串误判」是错的，已改正）。
+- **shell 工具族超时口径**、**Python 文件迁出 `src/`**、**README 死引用**：见 §3.5。
+- **验证**：`npm test` 2108 例 / 2103 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip；
+  门禁同上（573 文件）。
 
 ### 3.6 架构上确认**没问题**（避免重复投入）
 

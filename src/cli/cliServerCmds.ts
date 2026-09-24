@@ -43,6 +43,7 @@ import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/ind
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
 import { parseArgs, printUsage, toWindowsPath, CliDefaults, configDefaults } from './argParser.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
+import { CliArgReader } from './cliArgReader.js';
 
 /** 服务端 / 身份 / 后台类子命令。 */
 export class CliServerCmds extends CliBuildConfig {
@@ -376,9 +377,9 @@ export class CliServerCmds extends CliBuildConfig {
     this.applyNetworkGuard(args);
     const config = await this.buildConfig(args);
     // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
-    // 服务端门禁不发起授权/换码，仅需 issuer（校验令牌 iss 声明）与 jwks_uri（拉取公钥校验 RS256 签名）。
+    // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
     let auth: EnterpriseAuth | undefined;
-    if (serveArgs.includes('--auth-required')) {
+    if (new CliArgReader(serveArgs).has('--auth-required')) {
       const issuer = this.flagValue(serveArgs, '--oidc-issuer');
       const clientId = this.flagValue(serveArgs, '--oidc-client-id');
       const jwksUri = this.flagValue(serveArgs, '--oidc-jwks-uri');

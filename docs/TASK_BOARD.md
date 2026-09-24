@@ -1773,3 +1773,32 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 - **本轮的环境事故（如实留档）**：收尾清理时用 `Remove-Item *.log` 通配删除，误删了**预先存在**的
   `recall-precision-progress.log`（124 字节，gitignored、**从未入库**，故不可恢复）。它与本仓代码无关，
   但「清理只删自己创建的文件」这条纪律要记牢——共享工作区里通配符删除不安全。
+
+### 20.18 ✅ 已结项：余项清理（用户指定「把余下的问题全部处理干净」）
+
+- **① 未文档化旗标清零**：上轮冻结的 15 个旗标（`--prompt` / `--model` / `--memory-*` / `--model-router*` /
+  `--turn-token-budget` / `--stream-text` / `--no-model-retry` / `--no-model-circuit-breaker` /
+  `--model-circuit-breaker-*` / `--cost-budget-*`）全部补进 `defaults/cliHelp.json`，
+  `cliHelp.test.ts` 的冻结基线**清空** ⇒ 此后任何新增旗标未写进帮助即测试失败；
+  `--cost-budget-on-exceed` 的取值同时纳入「枚举必须派生」检查。
+- **② `mcpClient` 拒绝通道**（审计 §3.5 的具体缺陷）：`PendingRequest` 补 `reject`，新增 `close()`
+  立即拒绝在途请求；`mcpConnector` 句柄关闭改为**先拒请求、再关传输**（原先只能等各自超时，默认 10s，
+  调用方表现为卡住）。回归：`mcp.test.ts` 新增「close() 立即拒绝（不等 60s 超时）+ 幂等 + 关闭后新请求快速失败」。
+- **③ shell 工具族超时口径**：新增 `adapters/tool/shell/shellTimeouts.ts`，**下限**收成一处
+  （两族原本各写 `1000`）；默认值与上限**刻意分开**并写明语义差异（前台是钳制上界；交互式另有默认值
+  与 1 小时上限）。`shellTool.test.ts` 加两条断言钉住「下线共用 / 上限确实不同」。
+- **④ Python 文件迁出 `src/`**：3 个 Python 文件（3919 行，此前不在任何 TS 门禁范围内）移到
+  `python/omniharness/`；`scripts/run_omniharness.py` 的 `SOURCE_ROOT` 与文档串同步
+  （`repository_root()` 的 `parents[2]` 深度不变，路径算术无需改）。
+- **⑤ README 死引用**：`docs/TASK_BOARD_2026-09-13.md` **从未存在**（真实看板是 `TASK_BOARD.md`），
+  而 README 写明「以它为准」。非归档文档 8 处引用全部改正。
+- **如实说明（不是 bug 修复）**：`--auth-required` 的读取由裸 `serveArgs.includes(...)` 改为
+  `CliArgReader.has(...)`——`Array.includes` 本就是精确匹配，**没有**子串误判风险；这只是一次措辞/惯例统一
+  （我一度在注释里把它写成「防子串误判」，已改正）。
+- **仍未清（附理由，见审计 §3.5 逐项状态）**：审计哈希链 canonical 分叉（改哈希需逐字节保真 + golden 测试）、
+  JSON-RPC pending 六处重复（7 个传输类语义各异，需专项重构）、公开面泄漏测试替身（破坏性 API 变更，
+  须走弃用流程）、覆盖率门禁聚合（门禁政策决策）、35 个 eval 脚本接线（需决策且可能变「永远红」）、
+  余下死路径（建议先做死链检查器再按批修）。
+- **可证伪验证**：`npm test` **2108 例 / 2103 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**；
+  `check --strict`（573 文件零违规）、`arch:gate --strict`、`audit:config-wiring`（573 文件、七条不变量）、
+  `api:check`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全通过。
