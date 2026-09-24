@@ -1941,3 +1941,42 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   于是「收紧」照常、「悄悄调低基线」不可能。本轮实测效果：收紧 3 个（`jsonlStorage` 96.61→**100**、
   `eventPersister` 95.7→**100**、`browserSession` 91.75→92.41），**棘轮拒绝下调** 1 个
   （`evalHarness` 保持 87.78），聚合 **90.58% / 509 文件**。
+
+### 20.22 ✅ 已结项：审计 §1.7 剩余两条 + §3.2 逐条核实（第十轮，续）
+
+上节 §20.21 做完 §1.7 前两条；本轮清掉**剩余两条**，并把 goal 里的「核对 §3.2」办完
+（结论是**前两条已结、第三条判断需更正**）。
+
+- **① shell 不消费会话取消信号（修 bug）**：`ToolContext.signal` 早由 `stepToolExecutor` 注入，
+  但 shell 工具**根本没把它传进执行参数** ⇒ 回合已取消的命令仍跑满自己的超时（最长 10 分钟）。
+  修法三件：**参数透传** + 新增 **`ProcessTreeKiller`（终止整棵进程树）** +
+  结果加 `aborted` 字段并把状态优先级改为 **取消 > 超时 > 截断 > 退出码**。
+  树终止分平台：Windows `taskkill /PID <pid> /T /F`（失败回退单进程 kill），
+  POSIX 让 shell 当进程组长（`detached: true`）后 `kill(-pid)`；**超时与输出超限路径一并换用**——
+  即「只杀直接子进程」这个更广的隐患在三条终止路径上一起消失。
+  **反向验证（重要）**：临时把树终止换成「只杀直接子进程」重跑，新用例**会红，而且是挂死**——
+  存活的孙进程仍持有 stdout 管道 ⇒ Node 的 `close` 事件永不触发 ⇒ 工具调用 Promise 永不 settle。
+  这正是该缺陷在生产里的真实后果（回合已取消，调用方一直等），已写进用例注释与审计。
+- **② spill 产物 / 涡环包无回收（修 bug，限额进配置）**：`FileSpill` 加 `maxFiles`（默认 **512**，`0`=不回收），
+  每次写入后按 **mtime 删最旧**；`VortexRingSpillAdapter` 加 `maxRings`（默认 **256**，`0`=不淘汰），
+  超限 **LRU** 淘汰（`read` 命中即续命）并告警。两个限额都是 `OmniHarnessConfig` 字段
+  （`spillMaxFiles` / `spillMaxRings`），由 `configBuilder.buildSpill` 与 `corePortsAssembler` 消费——
+  **没有硬编码策略**（延续前几轮的配置化纪律）。回归 5 例（含「上限经配置真的生效」与 LRU 续命）。
+- **③ §3.2 逐条核实（goal 要求的那一项）**：实测结论 ——
+  `resources/comfyui_node_reference` **0 个 tracked 文件**、`evals/*.report.json` **0 个 tracked** ⇒ 前两条**确已结项**；
+  第三条「记忆引擎三份重复＝死资产」**判断需更正、故不删**：两个引擎在 `resonantField.enabled === false` 时
+  由 `memoryStackAssembler` **显式构造**（`memoryWeb.enabled` / `resonance.enabled`），有 3 个测试文件直接断言，
+  覆盖率 87.4% / 97.95%，且 **`src/index.ts` 对外导出**（删＝破坏性 API 变更）。
+  正解是「先 `@deprecated` 再按次版本移除 + 迁移到 U1 统一基板」，已按此更正审计标题与结论。
+- **④ 顺带发现一条**新缺陷（已登记审计 §1.9，**本轮不修**）：Windows 下 `cmd /d /s /c` 对**带引号参数**
+  的命令做破坏性重解析（探针：`node "<绝对路径>" "<目录>"` 被粘成一个参数、引号被吃进路径）。
+  影响所有含引号/带空格路径的 Windows 命令；修它要先建「引号参数原样到达子进程」的用例矩阵，
+  属解析契约级改动，独立一轮做。
+- **可证伪验证**：`npm test` **2140 例 / 2135 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**
+  （比上轮 2132 多 8 = shell 取消 2 例 + spill 回收 6 例）；`check --strict`（**577** 文件零违规）、
+  `arch:gate --strict`、`audit:config-wiring`（577 文件）、`api:check`、`lint`（0 告警）、
+  `format:check`、`typecheck` 全通过；覆盖率门禁 **90.57% / 510 文件**（棘轮收紧 4 个：
+  `fileSpill` 96.43→**100**、`shellProcessRunner` 90.98→93.14、`shellTool` 89.01→89.62、
+  `configBuilder` 97.75→97.77）。
+  过程中 `shellProcessRunner.run` 因新增终止装配**一度超出 80 行上限**，已按职责拆出
+  `armTermination()`（三条终止路径 + 两路输出收集）而不是删注释凑数——`check` 立刻转绿。

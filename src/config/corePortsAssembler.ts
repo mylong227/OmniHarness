@@ -23,6 +23,7 @@ import { ToolDiscovery } from '../search/toolDiscovery.js';
 import {
   VortexRingPacket,
   VortexRingSpillAdapter,
+  DEFAULT_SPILL_MAX_RINGS,
 } from '../adapters/spill/vortexRingSpillAdapter.js';
 
 import { autoUserResponder, buildApprovals, buildHooks, buildSpill } from './configBuilder.js';
@@ -84,7 +85,9 @@ export function assembleCorePorts(partial: OmniHarnessConfig): CorePortsAssembly
   // 使主循环全部"超大输出外溢"自动走拓扑孤子传输（fail-closed 抗污染、不随内容膨胀）。
   let vortex: VortexRingSpillAdapter | undefined;
   if (partial.vortexRing?.enabled === true) {
-    vortex = new VortexRingSpillAdapter(new VortexRingPacket(spill));
+    vortex = new VortexRingSpillAdapter(new VortexRingPacket(spill), {
+      maxRings: partial.spillMaxRings ?? DEFAULT_SPILL_MAX_RINGS,
+    });
     spill = vortex;
   }
   const spiller = new ToolResultSpiller(spill, {

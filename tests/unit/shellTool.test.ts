@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ShellTool } from '../../src/adapters/tool/shell/shellTool.js';
@@ -211,6 +212,90 @@ describe('shellTool 安全与资源护栏', () => {
 
     assert.strictEqual(result.ok, false, 'Windows 上 tty 必须明确失败');
     assert.match(result.error ?? '', /PTY|伪终端|pseudo-terminal/);
+    await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe('shell 工具族的会话取消（审计 §1.7：取消信号此前完全没被消费）', () => {
+  it('取消信号立即终止命令并如实回报「被取消」（不等自己的超时）', async () => {
+    // 反向验证过（临时把树终止换成「只杀直接子进程」后重跑）：本用例**会红**——而且是**挂死**
+    // 而非断言失败。原因值得记住：存活下来的孙进程仍持有 stdout/stderr 管道，Node 的 `close`
+    // 事件要等所有 stdio 关闭才触发 ⇒ 工具调用的 Promise 永不 settle。这正是「只杀 shell」
+    // 在生产里的真实后果（回合已取消，调用方却一直等）。
+    const dir = await makeWorkspace();
+    // 让命令在取消前先跑起来：先落一个 started 标记，再睡到 5s 后写 late 标记。
+    const script = join(dir, 'heartbeat.js');
+    await writeFile(
+      script,
+      [
+        "const fs = require('node:fs');",
+        "const dir = '.';",
+        "fs.writeFileSync(dir + '/started.txt', '1');",
+        // 心跳：每 100ms 追加一行。取消后**心跳必须停止**——这是「整棵树都死了」的可证伪信号，
+        // 比「某个 5s 后才写的标记没出现」更严密（后者会因检查得太早而漏判）。
+        "setInterval(() => fs.appendFileSync(dir + '/beats.txt', '.'), 100);",
+        'setTimeout(() => {}, 60000);',
+      ].join('\n'),
+    );
+
+    const tool = new ShellTool();
+    const controller = new AbortController();
+    const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir, signal: controller.signal };
+    // 命令刻意**不带引号**：工作目录就是 dir，`node heartbeat.js .` 用相对路径即可。
+    // （Windows 上 `cmd /d /s /c` 对带引号的参数有已知的破坏性解析，见审计 §1.9；本用例不测那件事。）
+    const running = tool.handle(
+      {
+        id: 'c9',
+        name: 'shell',
+        arguments: { command: 'node heartbeat.js .', timeout_ms: 60_000 },
+      },
+      ctx,
+    );
+
+    // 等到子进程真的开始跑（started 标记落盘），再取消——否则测的是「还没 spawn 就取消」
+    const started = join(dir, 'started.txt');
+    for (let i = 0; i < 60 && !existsSync(started); i += 1) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(existsSync(started), '前置条件：子进程应先跑起来（started.txt）');
+
+    const began = Date.now();
+    controller.abort();
+    const result = await running;
+    const elapsed = Date.now() - began;
+
+    assert.strictEqual(result.ok, false, '被取消的命令必须作为失败返回');
+    assert.match(result.error ?? '', /会话取消/, '错误文案应指明是会话取消，而非超时/退出码');
+    assert.ok(elapsed < 10_000, `取消应立即生效（实测 ${elapsed}ms），而不是等命令自己的 60s 超时`);
+
+    // 整棵进程树都要死：孙进程（本用例里的 node 子进程）的心跳必须停
+    const beats = join(dir, 'beats.txt');
+    const before = existsSync(beats) ? readFileSync(beats, 'utf8').length : 0;
+    assert.ok(before > 0, '前置条件：孙进程的心跳应先跑起来（beats.txt 有内容）');
+    await new Promise((r) => setTimeout(r, 900)); // 若还活着，这段时间会追加约 9 个字符
+    const after = existsSync(beats) ? readFileSync(beats, 'utf8').length : 0;
+    assert.strictEqual(
+      after,
+      before,
+      `进程树必须被整体终止（只杀 shell 会让孙进程继续心跳：${before} → ${after}）`,
+    );
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('已取消的信号（进入执行前就已 abort）也会立即终止，不留一棵树', async () => {
+    const dir = await makeWorkspace();
+    const tool = new ShellTool();
+    const controller = new AbortController();
+    controller.abort();
+    const ctx: ToolContext = { sessionId: 's1', workspaceRoot: dir, signal: controller.signal };
+
+    const result = await tool.handle(
+      { id: 'c10', name: 'shell', arguments: { command: 'exit 0', timeout_ms: 60_000 } },
+      ctx,
+    );
+
+    assert.strictEqual(result.ok, false, '已取消的回合不应把命令报成成功');
+    assert.match(result.error ?? '', /会话取消/);
     await rm(dir, { recursive: true, force: true });
   });
 });

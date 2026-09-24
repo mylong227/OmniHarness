@@ -24,7 +24,7 @@ import { CachedApproval } from '../adapters/approval/cachedApproval.js';
 import { TurnDiffTracker } from '../core/turnDiffTracker.js';
 import { TurnDiffHooks } from '../adapters/diff/turnDiffHooks.js';
 import { ToolHookRunner } from '../core/toolHookRunner.js';
-import { FileSpill } from '../adapters/spill/fileSpill.js';
+import { FileSpill, DEFAULT_SPILL_MAX_FILES } from '../adapters/spill/fileSpill.js';
 import { MemorySpill } from '../adapters/spill/memorySpill.js';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
 import { ToolResultSpiller } from '../context/toolResultSpiller.js';
@@ -263,7 +263,9 @@ export class ConfigBuilder {
     if (partial.spillAdapter === 'memory') {
       return new MemorySpill();
     }
-    return new FileSpill(join(partial.workspaceRoot, partial.spillDir ?? DEFAULT_SPILL_DIR));
+    return new FileSpill(join(partial.workspaceRoot, partial.spillDir ?? DEFAULT_SPILL_DIR), {
+      maxFiles: partial.spillMaxFiles ?? DEFAULT_SPILL_MAX_FILES,
+    });
   }
 }
 

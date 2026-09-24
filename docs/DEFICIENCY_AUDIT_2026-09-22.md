@@ -106,7 +106,23 @@
 - **`web/src`（104 文件）不在本地 `typecheck`**：`typecheck` 只跑根 tsconfig。**修法**：
   `npm run typecheck` 追加 `tsc -p web/tsconfig.json --noEmit`（实测零错误）。
 
-**本轮已修（2026-09-24，第十轮 §3.15）**：
+### 1.9【第十轮新发现·待办·P2】Windows 下带引号参数的 shell 命令被 `cmd /d /s /c` 破坏
+
+- **怎么发现的**：写「取消信号」回归用例时，命令用 `node "<绝对路径>" "<目录>"`，结果**没跑起来**；
+  探针复现（`node` 直接调 `ShellTool`）：报错是 `Cannot find module 'C:\...\Temp\probe-xxx\"C:\...\heartbeat.js"'`
+  ——两个参数被**粘成一个**、引号被吃进路径里。这不是我的改动引入的，是**既有**的执行形态问题。
+- **根因**：`ShellInvocation.args()` 在 Windows 上给的是 `['/d', '/s', '/c', command]`（`shellInvocation.ts:41-44`）。
+  `cmd.exe` 的 `/s` 开关会「剥掉命令串最外层引号并按特定规则重解析」，当命令里已经有引号（带空格路径、
+  引号参数）时就会发生这种重组。Node 把 argv 拼成命令行时又会再加一层转义 ⇒ 双重解析错位。
+- **影响面**：任何**参数带引号**的 Windows 命令（含空格路径、`--flag "value"`）都可能失败或被静默改写；
+  非引号命令（绝大多数）不受影响，故长期未被发现。
+- **最小修法（待验证）**：不用 `/s`（改 `['/d','/c',command]`），或改用「命令经 stdin 喂给 `cmd /d /q`」的形态，
+  或对 `command` 做一次针对 cmd 的转义（`^` 转义元字符 + 引号成对）。**修前必须先建用例**：
+  `node "<带空格路径>" <arg>`、`echo "a b"`、以及含 `&`/`^` 的引号参数，逐条钉住「引号参数原样到达子进程」。
+- **为什么本轮不顺手改**：`/s` 的取舍会影响**所有**跨平台 shell 调用（含用户既有命令的行为），
+  属「解析契约」级改动，需要独立一轮 + 上述用例矩阵，不能在收尾时夹带。
+
+**第十轮 §3.15 已修（前 2 条）**：
 
 - **`EventPersister` 落盘竞态（`eventPersister.ts:69-72`）**：原实现 `flush()` 遇到「已有 flush 在飞」**直接 return**
   ⇒ 该次请求**被丢弃**：定时器触发时若上一次写仍在飞，新事件要等**下一次 schedule** 才可能落盘；回合末
@@ -124,12 +140,31 @@
   回归：新增 `tests/unit/storageDurability.test.ts`（5 例：往返保序、覆盖写不留 `.tmp`、
   **个别坏行只丢那一行**、全坏行仍返回 `[]`、缺失/不可读均不抛错）。
 
-**仍待办（§1.7 剩余 2 条）**：
+**第十轮 §3.15 已修（后 2 条）**：
 
-- shell 不消费取消信号（`shellTool.ts:185-191` 不传 `signal`，最长跑满 600 s 且只杀直接子进程）；
-- spill 产物与涡环包无回收（`fileSpill.ts:33-38` 文件只增不减、`vortexRingSpillAdapter.ts:20` 进程内
-  `rings` 表只增不减）——收口方式须遵循本项目既有纪律：**限额进配置**（而不是硬编码常数），
-  故与 §2.4/§2.5 一并作为下一轮的收口项。
+- **shell 不消费取消信号（`shellTool.ts:185-191`）**：会话取消信号此前**完全没被本工具消费**——
+  `ToolContext.signal` 已经由 `stepToolExecutor` 注入（`stepToolExecutor.ts:84-88`），但执行参数里没有它，
+  于是「回合已取消」的命令仍会跑满自己的超时（最长 10 分钟）。**修法**：
+  ① 参数透传（`ShellRunOptions.signal`）；
+  ② 新增 `ProcessTreeKiller`——**终止整棵进程树**（Windows `taskkill /PID <pid> /T /F`，失败回退单进程 kill；
+  POSIX 以 `detached: true` 让 shell 当进程组长后用 `kill(-pid)`），超时与输出超限两条路径**一并**换用它；
+  ③ 结果新增 `aborted` 字段，工具层状态优先级改为 **取消 > 超时 > 截断 > 退出码**，文案「命令被会话取消
+  （已终止整棵进程树）」。
+  回归：`shellTool.test.ts` 新增 2 例（取消立即生效且错误文案指明取消；进入执行前已 abort 也立即终止），
+  其中「整棵树都死了」用**孙进程心跳停止**断言（比「某个 5s 后写的标记没出现」更严密）。
+  **反向验证**：临时把树终止换成「只杀直接子进程」重跑，该用例**会红**——而且是**挂死**（存活孙进程仍持有
+  stdout 管道 ⇒ Node 的 `close` 永不触发 ⇒ 工具调用 Promise 永不 settle）。这正是「只杀 shell」在生产里的
+  真实后果，已写进用例注释。
+- **spill 产物与涡环包无回收（`fileSpill.ts:33-38`、`vortexRingSpillAdapter.ts:20`）**：**修法按本项目纪律
+  「限额进配置」**：
+  - `FileSpill` 新增 `maxFiles`（默认 **512**，`0`=不回收）：每次 `spill` 后按 **mtime 删最旧**，
+    失败只告警不抛错（`spill.collect.*`）；对外新增 `collect()` 便于观测。
+  - `VortexRingSpillAdapter` 新增 `maxRings`（默认 **256**，`0`=不淘汰）：超限按 **LRU** 淘汰
+    （`read` 命中即续命），淘汰时 `spill.ring.evicted` 告警，被淘汰 id 读回仍是 `undefined`（既有 fail-closed 语义）。
+  - 配置面：`OmniHarnessConfig.spillMaxFiles` / `spillMaxRings` 两个字段（与既有 `spillMaxInlineBytes` /
+    `spillPreviewBytes` 同一层），由 `configBuilder.buildSpill` 与 `corePortsAssembler` 消费。
+  - 回归：`spill.test.ts` 新增 5 例（文件上限回收最旧、`maxFiles=0` 不回收、**上限经配置生效**、
+    环包上限与 LRU 续命、`maxRings=0` 不淘汰）。
 
 ### 1.8 已核对确认**正确**的核心链路（避免重复投入）
 
@@ -208,14 +243,27 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
   ② 临时放入一个 98 行的 `gateProbe` 函数 ⇒ **两种模式都 exit 1** 且报「新增超限函数」；删除后复绿。
 - **遗留**：存量 14 处待分批拆（最大 `query` 220 行）——白名单即后续拆分台账。
 
-### 3.2【待办·P0】死资产与生成物入库
+### 3.2【第十轮核实：前两条已结项，第三条**降级为「遗留可选路径」并更正原判断**】
 
-- `resources/comfyui_node_reference`：**3414 tracked 文件 / ≈20.8 MB（占全仓 tracked 文件的 71%）零代码消费者**
-  （`git grep` 仅命中 `THIRD_PARTY_ASSETS.md:15` 一句描述）。建议迁出仓库或转 release 附件 / LFS。
-- `evals/**/*.report.json` 有 **41 份被跟踪**且每次跑评测都改写（本次审计期间工作树即被评测进程弄脏 4 处，
-  且 `BM25+PRF+rerank` 从 57.6 → 39.4 的漂移会被文档当结论引用）。建议只入库人工确认的 `*.baseline.json`。
-- 记忆引擎三份同算法实现（≈350 行重复 + 死分支）：`cosmicWebMemoryEngine.ts`/`resonantMemoryEngine.ts` 是
-  `resonantFieldEngine.ts` 的真子集，默认装配只走后者（`config/memoryStackAssembler.ts:54,64,74`）。建议删前两者、回退分支改实例化 `ResonantFieldEngine`。
+逐条复测（2026-09-24，命令与结果均为实测）：
+
+- ✅ **`resources/comfyui_node_reference` 已不在仓库**：`git ls-files resources/comfyui_node_reference` = **0 个 tracked
+  文件**（原为 3414 tracked / ≈20.8 MB）⇒ 已按建议迁出（看板 §20.6 记录为「死资产迁出」）。
+- ✅ **评测产物已不再入库**：`git ls-files 'evals/*.report.json'` = **0** ⇒ 不再有「跑评测即弄脏工作树」的问题
+  （`evals/**` 下现存 44 个 `*.report.json` 均为**未跟踪**的本地产物）。
+- 🟡 **记忆引擎「三份同算法实现」——原判断需更正，故不删**：
+  - **不是死代码**：`src/config/memoryStackAssembler.ts:63-70,73-77` 会在
+    `resonantField.enabled === false` 时按 `memoryWeb.enabled` / `resonance.enabled` **显式构造**它们；
+    `tests/unit/cosmicWeb.test.ts`（3 例）、`tests/unit/resonantMemory.test.ts`、`tests/unit/sparkMainLoop*.test.ts`
+    直接断言其类型与行为；覆盖率基线里两者分别为 **87.4% / 97.95%**（不是零覆盖）。
+  - **属对外 API**：`src/index.ts:175` 导出 `ResonantMemoryEngine`、`:187-188` 导出
+    `CosmicWebMemoryEngine` 与 `CosmicWebOptions` ⇒ 删除是**破坏性 API 变更**，须走弃用流程
+    （`docs/API_STABILITY.md`），不能当「死资产」顺手删。
+  - **重复确实存在但已被统一基板取代**：默认路径（U1，`resonantField.enabled !== false`）只走
+    `ResonantFieldEngine`，共享频谱索引也已抽到 `ports/memory/resonantField.ts`；两个遗留引擎各自的
+    频谱实现只在显式关闭 U1 时才启用。
+  - **结论**：正确的收口是「**先弃用再移除**」（标 `@deprecated` + 次版本移除 + 迁移到 U1），
+    而不是在审计里当作死资产删掉。已如实登记为**遗留可选路径的弃用议题**，与本轮 §1.7 的缺陷区分开。
 
 ### 3.3【本轮已修】组合根错位：`createRuntime` 住在 `core/` ⇒ 真值循环 + 端口倒置
 
