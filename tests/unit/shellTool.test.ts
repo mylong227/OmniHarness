@@ -4,6 +4,13 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ShellTool } from '../../src/adapters/tool/shell/shellTool.js';
+import { ShellInteractiveTool } from '../../src/adapters/tool/shell/shellInteractiveTool.js';
+import {
+  SHELL_DEFAULT_MAX_TIMEOUT_MS,
+  SHELL_INTERACTIVE_DEFAULT_TIMEOUT_MS,
+  SHELL_INTERACTIVE_MAX_TIMEOUT_MS,
+  SHELL_MIN_TIMEOUT_MS,
+} from '../../src/adapters/tool/shell/shellTimeouts.js';
 import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.js';
 import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
 
@@ -205,5 +212,24 @@ describe('shellTool 安全与资源护栏', () => {
     assert.strictEqual(result.ok, false, 'Windows 上 tty 必须明确失败');
     assert.match(result.error ?? '', /PTY|伪终端|pseudo-terminal/);
     await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe('shell 工具族超时口径（审计 §3.5：常量各自声明）', () => {
+  it('前台与交互式的**下限**共用同一常量（防两族口径分叉）', () => {
+    assert.strictEqual(ShellTool.MIN_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS);
+    assert.strictEqual(ShellInteractiveTool.MIN_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS);
+  });
+
+  it('刻意分开的默认/上限：前台是钳制上界，交互式另有默认值与更大上限', () => {
+    // 前台：调用方必须给 timeout_ms，600s 只是钳制上界
+    assert.strictEqual(ShellTool.DEFAULT_MAX_TIMEOUT_MS, SHELL_DEFAULT_MAX_TIMEOUT_MS);
+    // 交互式：默认超时 600s + 独立上限 3600s（交互会话天然更久）
+    assert.strictEqual(
+      ShellInteractiveTool.DEFAULT_TIMEOUT_MS,
+      SHELL_INTERACTIVE_DEFAULT_TIMEOUT_MS,
+    );
+    assert.strictEqual(ShellInteractiveTool.MAX_TIMEOUT_MS, SHELL_INTERACTIVE_MAX_TIMEOUT_MS);
+    assert.ok(ShellInteractiveTool.MAX_TIMEOUT_MS > ShellTool.DEFAULT_MAX_TIMEOUT_MS);
   });
 });

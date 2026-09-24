@@ -37,7 +37,17 @@ export class McpConnector {
     try {
       const client = new McpClient({ transport: handle.transport, timeoutMs: options.timeoutMs });
       const info = await Promise.race([client.initialize(), handle.failure]);
-      return { client, info, close: () => handle.close() };
+      // 关闭顺序有讲究：**先**拒绝在途请求（`client.close()`），**再**关传输/子进程。
+      // 反过来的话，`Transport` 契约没有关闭通知 ⇒ 在途请求只能等各自超时（默认 10s）
+      // 才被拒，调用方在此期间表现为「卡住」（审计 §3.5 记录的形态）。
+      return {
+        client,
+        info,
+        close: () => {
+          client.close('MCP 连接已关闭');
+          handle.close();
+        },
+      };
     } catch (error) {
       handle.close();
       throw error;

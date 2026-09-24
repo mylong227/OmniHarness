@@ -176,6 +176,24 @@ test('MCP 服务端：注入门禁后外部调用被拦截（fail-closed）', as
   assert.match(result.content[0]?.text ?? '', /拒绝/);
 });
 
+test('MCP 客户端：close() 立即拒绝在途请求（不等超时）', async () => {
+  // 无对端的传输 ⇒ 请求永不回应。超时故意设成 60s：若 close() 没生效，本用例会挂 60s 才算失败。
+  const transport = new PairTransport();
+  const client = new McpClient({ transport, timeoutMs: 60_000 });
+  const inflight = client.listTools();
+  const startedAt = Date.now();
+  client.close('测试关闭');
+  await assert.rejects(inflight, /MCP 连接已关闭|测试关闭/);
+  assert.ok(
+    Date.now() - startedAt < 1000,
+    'close() 必须立即拒绝在途请求（审计 §3.5：Transport 无关闭通知 ⇒ 原先只能等超时）',
+  );
+  // 关闭后新请求同样快速失败（而不是又被挂起）
+  await assert.rejects(client.listTools(), /已关闭/);
+  // 幂等：重复关闭无副作用
+  client.close();
+});
+
 test('MCP 工具映射：本地定义与 MCP 描述双向转换', () => {
   const definition = {
     name: 'read_file',

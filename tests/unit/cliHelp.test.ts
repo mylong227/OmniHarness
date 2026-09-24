@@ -27,26 +27,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '.
 /**
  * 存量「在 `FLAG_TABLE` 里但帮助未记载」的旗标（**冻结基线，只增即红**）。
  *
- * 这些是真实缺口（多属内部/调参旗标），但补齐它们会显著改变用户可见帮助 ⇒ 不在本次数据化范围内。
- * 新增旗标若未写进帮助，会出现在差集里 ⇒ 测试失败，必须二选一：写进帮助，或显式追加到本基线（并说明理由）。
+ * 用户指令「余下的问题全部处理干净」后，15 个未文档化旗标已全部补进 `defaults/cliHelp.json`
+ * ⇒ 本基线清空。此后**任何**新增旗标若未写进帮助，都会直接失败（这正是想要的：帮助与解析器不能脱节）。
  */
-const UNDOCUMENTED_BASELINE: readonly string[] = [
-  '--cost-budget-on-exceed',
-  '--cost-budget-soft-ratio',
-  '--cost-budget-usd',
-  '--memory-encrypt',
-  '--memory-key-file',
-  '--model',
-  '--model-circuit-breaker-open-ms',
-  '--model-circuit-breaker-threshold',
-  '--model-router',
-  '--model-router-file',
-  '--no-model-circuit-breaker',
-  '--no-model-retry',
-  '--prompt',
-  '--stream-text',
-  '--turn-token-budget',
-];
+const UNDOCUMENTED_BASELINE: readonly string[] = [];
 
 test('① 结构与排版：标题 / 用法 / 命令 / 选项，描述列统一为 36', () => {
   const lines = cliHelp.render().split('\n');

@@ -1,7 +1,7 @@
 # OmniHarness 文档索引
 
 > 本文件是 `docs/` 的唯一入口。任何新文档入库前先在这里登记；被取代的文档移入 `archive/` 并在本表保留一行"去向"。
-> 状态口径铁律：**进度与状态只认 `TASK_BOARD_2026-09-13.md`（剩余任务全量看板）**；`REFACTOR_BOARD_2026-09-12.md` 与 `UPGRADE_BOARD_2026-09-12.md` 为历史账（批次记录 + 决策日志 D1–D9 沿用），其余文档中的进度数字一律视为撰写时点快照。
+> 状态口径铁律：**进度与状态只认 `TASK_BOARD.md`（剩余任务全量看板）**；`REFACTOR_BOARD_2026-09-12.md` 与 `UPGRADE_BOARD_2026-09-12.md` 为历史账（批次记录 + 决策日志 D1–D9 沿用），其余文档中的进度数字一律视为撰写时点快照。
 
 ---
 
@@ -13,7 +13,7 @@
 | 评审/投资视角（"比同类差在哪"） | `ARCHITECTURE_AND_GAP_2026-09-13.md` §4–§8                  | `archive/` 下的历史审计（看差距收敛过程）         |
 | 想接入/嵌入的第三方             | `integration.md` → `PORTS_CONTRACT.md` → `API_STABILITY.md` | `protocol.md`（传输 schema）                      |
 | 想写插件的第三方                | `PLUGIN_GUIDE.md` → `contributing.md`                       | `CODE_STANDARD.md`                                |
-| 维护者/开发者                   | `TASK_BOARD_2026-09-13.md` → `ARCHITECTURE_SPEC.md`         | `CODE_STANDARD.md` + `DEPENDENCY_POLICY.md` + ADR |
+| 维护者/开发者                   | `TASK_BOARD.md` → `ARCHITECTURE_SPEC.md`                    | `CODE_STANDARD.md` + `DEPENDENCY_POLICY.md` + ADR |
 | 理解技术方向（为什么这么做）    | `TECH_DIRECTION_SYNTHESIS_2026-09-12.md`                    | `UNITY_FRAMEWORK_UCE.md` + `library/README.md`    |
 
 ---
@@ -22,7 +22,7 @@
 
 | 文档                                                                             | 职责                                                                                                                                         |
 | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [TASK_BOARD_2026-09-13.md](TASK_BOARD_2026-09-13.md)                             | **唯一前进看板**：剩余任务全量盘点（A 兼容性 / B 可信度 / C 工程收口 / D UI 工程化 / E 能力扩展 / F 测试运维六线）+ 进行中/挂起/下一批排序   |
+| [TASK_BOARD.md](TASK_BOARD.md)                                                   | **唯一前进看板**：剩余任务全量盘点（A 兼容性 / B 可信度 / C 工程收口 / D UI 工程化 / E 能力扩展 / F 测试运维六线）+ 进行中/挂起/下一批排序   |
 | [ARCHITECTURE_AND_GAP_2026-09-13.md](ARCHITECTURE_AND_GAP_2026-09-13.md)         | **全景对标报告**：整体架构 + 与全部成熟同类的核心/边缘差距 + 待办 ROI 排序。回答"现在长什么样、差什么、先做什么"（§1 五条更正见 TASK_BOARD） |
 | [ARCHITECTURE_SPEC.md](ARCHITECTURE_SPEC.md)                                     | **工程架构说明书**：六边形分层、目录归属表（与 architectureGate 门禁同口径）、核心数据流、沙箱矩阵、上下文引擎规格                           |
 | [TECH_DIRECTION_SYNTHESIS_2026-09-12.md](TECH_DIRECTION_SYNTHESIS_2026-09-12.md) | **总体技术方向**：UCE 四公理（归一/守恒/演变/度量）+ T0–T6 七条主线 + 反泡沫清单。只论证"为什么"                                             |
@@ -96,7 +96,7 @@
 ## 文档治理规则（铁律）
 
 1. **一主题一权威**：每个主题只有一份现行文档；新报告写完后，旧版移 `archive/` 并在上表登记去向。
-2. **状态只认看板**：进度/状态数字只更新 `TASK_BOARD_2026-09-13.md`；其余文档写"截至 X 日"的快照口径。
+2. **状态只认看板**：进度/状态数字只更新 `TASK_BOARD.md`；其余文档写"截至 X 日"的快照口径。
 3. **命名即时效**：带日期后缀的报告（`*_2026-09-13.md`）天然是快照；不带日期的手册（`QUICKSTART.md` 等）必须保持长期有效。
 4. **负结果必须留档**：实验失败不删文档——进实验报告（如 U3）并在方向书登记结论。
 5. **新 ADR 先于新机制**：改变架构形态的代码合入前，`adr/` 先落一条。

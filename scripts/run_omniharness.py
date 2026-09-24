@@ -3,7 +3,7 @@
 The launcher is intentionally thin at execution time: it resolves and checks
 the experiment configuration, then delegates all proposal, planning, workflow
 generation, execution, verification, recovery, and symbolic policy learning to
-``src/omniharness/omniharness_runtime.py``.
+``python/omniharness/omniharness_runtime.py``.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from urllib.request import Request, urlopen
 
 SCRIPT_PATH = Path(__file__).resolve()
 REPOSITORY_ROOT = SCRIPT_PATH.parents[1]
-SOURCE_ROOT = REPOSITORY_ROOT / "src" / "omniharness"
+SOURCE_ROOT = REPOSITORY_ROOT / "python" / "omniharness"
 RUNTIME_PATH = SOURCE_ROOT / "omniharness_runtime.py"
 PROPOSAL_PATH = SOURCE_ROOT / "self_directed_inquiry.py"
 DEFAULT_CONFIG_PATH = REPOSITORY_ROOT / "config.yaml"

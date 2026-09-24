@@ -43,7 +43,7 @@ UNSUPPORTED_COMPETENCE_PRIOR = 0.05
 
 
 def repository_root() -> Path:
-    """Return the repository root for the ``src/omniharness`` layout."""
+    """Return the repository root for the ``python/omniharness`` layout."""
 
     return Path(__file__).resolve().parents[2]
 

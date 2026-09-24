@@ -12,6 +12,7 @@ import { ShellProcessRunner } from './shellProcessRunner.js';
 import type { ShellRunOutcome } from './shellProcessRunner.js';
 import type { BackgroundJobRegistry } from './backgroundJobRegistry.js';
 import { StackFrameParser } from '../verify/stackFrameParser.js';
+import { SHELL_DEFAULT_MAX_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS } from './shellTimeouts.js';
 
 /** shell 工具可选项。 */
 export interface ShellToolOptions {
@@ -63,11 +64,11 @@ export interface ShellToolOptions {
  *   收紧它属行为变更，需调用方显式确认后再开启。
  */
 export class ShellTool {
-  /** 单次调用允许的最小超时（毫秒）：低于此值等同于立即超时，没有意义。 */
-  public static readonly MIN_TIMEOUT_MS = 1_000;
+  /** 单次调用允许的最小超时（毫秒）：低于此值等同于立即超时，没有意义（与交互式同族共用一口径）。 */
+  public static readonly MIN_TIMEOUT_MS = SHELL_MIN_TIMEOUT_MS;
 
   /** 单次调用允许的最大超时（毫秒）：默认 10 分钟。 */
-  public static readonly DEFAULT_MAX_TIMEOUT_MS = 600_000;
+  public static readonly DEFAULT_MAX_TIMEOUT_MS = SHELL_DEFAULT_MAX_TIMEOUT_MS;
 
   /** 失败摘要中最多回灌的位置候选条数（P1-⑩，防刷屏）。 */
   private static readonly MAX_FRAME_HINTS = 5;

@@ -31,6 +31,11 @@ import { PtyCapability } from './ptyCapability.js';
 import type { PtyProbe, PtyReport } from './ptyCapability.js';
 import { ShellInteractiveExecutor } from './shellInteractiveExecutor.js';
 import type { InteractiveRunOutcome } from './shellInteractiveExecutor.js';
+import {
+  SHELL_INTERACTIVE_DEFAULT_TIMEOUT_MS,
+  SHELL_INTERACTIVE_MAX_TIMEOUT_MS,
+  SHELL_MIN_TIMEOUT_MS,
+} from './shellTimeouts.js';
 
 /** `shell_interactive` 工具选项。 */
 export interface ShellInteractiveToolOptions {
@@ -54,14 +59,14 @@ export interface ShellInteractiveToolOptions {
  * 交互式 shell 工具：TTY 环境下以 `stdio: 'inherit'` 直通真终端。
  */
 export class ShellInteractiveTool {
-  /** 单次调用允许的最小超时（毫秒）。 */
-  public static readonly MIN_TIMEOUT_MS = 1_000;
+  /** 单次调用允许的最小超时（毫秒；与前台 shell 同族共用一口径）。 */
+  public static readonly MIN_TIMEOUT_MS = SHELL_MIN_TIMEOUT_MS;
 
   /** 交互式默认超时（毫秒）：交互式会话天然比批处理久，故默认给 10 分钟。 */
-  public static readonly DEFAULT_TIMEOUT_MS = 600_000;
+  public static readonly DEFAULT_TIMEOUT_MS = SHELL_INTERACTIVE_DEFAULT_TIMEOUT_MS;
 
   /** 单次调用允许的最大超时（毫秒）：1 小时。 */
-  public static readonly MAX_TIMEOUT_MS = 3_600_000;
+  public static readonly MAX_TIMEOUT_MS = SHELL_INTERACTIVE_MAX_TIMEOUT_MS;
 
   /** 工具层命令策略。 */
   private readonly policy: ShellCommandPolicy;

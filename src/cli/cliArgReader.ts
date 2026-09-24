@@ -50,6 +50,20 @@ export class CliArgReader {
   }
 
   /**
+   * 标志是否出现（布尔开关）。
+   *
+   * 语义上等价于 `args.includes(flag)`（`Array.includes` 本就是**精确元素匹配**，不存在子串误判）；
+   * 之所以提供本方法，是为了让「子命令自行解析参数」的地方与 `value` / `number` / `values`
+   * 用**同一套读取惯例**，而不是各写一行裸 `includes`（后者在 `--auth-required` 这类
+   * **安全开关**上不易被检索与统一改造）。
+   * @param flag 标志名（如 `--auth-required`）。
+   * @returns 数组中存在完整等于该标志的元素时为 true。
+   */
+  public has(flag: string): boolean {
+    return this.args.includes(flag);
+  }
+
+  /**
    * 收集可重复标志的全部取值（如 `--allow a --allow b`），跳过无值的尾随标志。
    * @param flag 标志名。
    * @returns 取值列表（可能为空）。
