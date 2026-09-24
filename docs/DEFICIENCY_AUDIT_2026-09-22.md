@@ -243,7 +243,7 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
   因为清单本身仍是 `as const` 元组）。**新增适配器现在只需**：清单加一个名字 + 表体加一行
   （编译器强制配对）+ `defaults/endpoints.json` 加兜底（测试强制存在）。
 
-### 3.5 其余（摘要）——**逐项状态**（2026-09-22 第七轮更新）
+### 3.5 其余（摘要）——**逐项状态**（2026-09-22 第八轮更新）
 
 原始发现（保留原文，便于对照）：
 
@@ -268,19 +268,57 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
   **但「pending/超时/id 关联重复 6 处」未动**——7 个传输类语义各异（有的带定时器、有的靠 socket close 回调），
   收成一张共享表是独立一轮的重构，不应与本次混做。
 
-**仍未清（附为何不能在这轮安全完成）**：
+**第八轮（§3.13）再清四项**（用户指令：「全部进行清理过」）：
 
-- ⬜ **审计哈希链 canonical 分叉**：两份实现已产出**不同哈希**，统一必须**逐字节保留两侧输出**
-  （否则已落盘的审计/遥测链当场验签失败），需带 golden-hash 的专项轮次。
-- ⬜ **JSON-RPC pending 六处重复**：见上（7 传输类语义不同，需专项重构）。
-- ⬜ **公开面泄漏测试替身**：删除已发布的导出属**破坏性 API 变更**，需按 `docs/API_STABILITY.md` 的
-  弃用流程走（`@deprecated` 分区 → 次版本移除），不能顺手删。
-- ⬜ **覆盖率门禁聚合值**：改成按模块阈值会立刻大面积变红（存量零单测模块），属**门禁政策决策**
-  （需要先给存量基线、再逐步收紧），不是代码修复。
-- ⬜ **35 个 eval 脚本未接入 npm script**：机械但需决策（逐个接线 vs 一个统一 runner），且部分脚本依赖
-  未装工具/网络，接线后可能变成「永远红」。
-- ⬜ **172 处死路径**：本轮已清掉被点名的 README 那条；余下建议先做**死链检查器**（机械门禁 + 存量冻结），
-  再按批修，而不是手工改 172 处（易漏且不可验证）。
+- ✅ **审计哈希链 canonical 分叉** → 新增 `util/hashChain.ts`（`HashChain.GENESIS` + `static hash(prev, canonical, sep)`）：
+  **算法与创世哈希只此一份**，两条链各自保留自己的**规范化正文**与**分隔符**
+  （分隔符参与哈希 ⇒ 改分隔符＝改历史，故不能「统一」）。
+  顺带修掉一处真缺陷：`auditSink.ts` 的分隔符在源码里原是**裸 NUL 字节**（而非转义序列），
+  使该文件被工具链判为二进制（读取/ diff / 编辑器全部失效）；改成 `'\u0000'` 转义后
+  **行为逐字节不变**（golden 哈希实测一致）。新增 `tests/unit/hashChain.test.ts`：
+  两条链各一条 golden 哈希（防静默改链）+ 算法等价性 + 分隔符敏感性 + **`src/**` 无裸 NUL 字节**守卫。
+- ✅ **覆盖率门禁聚合值**（实测比审计描述更糟——**是假绿**）：`package.json` 的
+  `--test-coverage-include='dist/**'` **匹配不到任何文件**，覆盖率表里只有 `# all files | 100.00` 一行，
+  旧门禁**恒真**。改为 `dist/src/**/*.js` 后真实聚合 **90.54%（508 文件）**；
+  并重写 `coverageGate.mjs` 为**按文件冻结基线**（`scripts/coverageBaseline.json`）：
+  任一文件下降即红、新增文件低于 `MIN_NEW_FILE_COVERAGE`（默认 30%）即红、高于基线提示收紧。
+  基线立刻暴露审计点名的那些模块（`consoleUserResponder` 8.60%、`agentIdentityTool` 10.89%、
+  `jsonlWriter` 12.50%、`cliServerCmds` 24.12% …）——**以前它们是不可见的**。
+  **收尾时又挖出同源的第二层缺陷**：`npm run coverage` 在 Windows 走 `cmd.exe`，脚本里的
+  **单引号是字面量** ⇒ include 变成带引号字符串 ⇒ 报告又只剩聚合行，**依然假绿**（我最初用 `node` 直跑
+  得到的 90.53% 掩盖了这一点）。两手都补：脚本引号改双引号 + 门禁加**空表守卫**（无逐文件行即阻断，
+  报错里直接写明「检查引号口径」）。此外按文件冻结值会**随宿主漂移**：`bashAppRootMapper.js` 源码未改动、
+  单测重跑两次结果一致（72.85%），差异来自本机 `bash` 是 **WSL 存根**、拿不到 MSYS 根（基线 78.81%
+  来自当时能探到 bash 的运行）⇒ 新增 `scripts/coverageEnvDependent.json`，**经诊断**的宿主相关文件按
+  **下限**校验并在输出里标注，**不对任何文件静默放宽**。
+
+- ✅ **公开面「泄漏测试替身」** → **逐条核实：该判断不成立，故不改**。`MockModel` / `MemoryStorage` /
+  `PassthroughSandbox` 都是**生产可达**的正式适配器（分别是默认模型适配器、`--storage-adapter memory`
+  的实现、沙箱档位 `passthrough` 的注册实现）；若按审计建议弃用/删除，等于宣布默认适配器与可选档位将移除。
+  核验证据与「不要删」的结论已写入 `docs/API_STABILITY.md`，防止后人误删。
+- ✅ **35 个 eval 脚本未接入 npm script** → 新增 `scripts/runEval.mjs`（唯一入口：`--list`、
+  构建先决检查、参数与退出码透传、脚本不存在时退出 2 并列出可用项）+ `eval:list` / `eval:run`，
+  并把**顶层 `evals/*.mjs` 全部 38 个**接成 `eval:<名字>` 别名。实测 `eval:*` 共 50 个键
+  （38 一名一文件 + 4 短别名 + 6 指向 `benchmark/`/`tests/`/`evals/live/` + list/run）；
+  `evals/context-efficiency/bench.mjs` **有意未接线**（依赖同目录 `run.sh` 的 bash+tsc 管线，
+  硬接在 Windows 上会「永远红」），`evals/lib/*.mjs`(3) 是共用模块而非可跑脚本。
+- ✅ **非 archive 文档死路径** → 新增 `scripts/docLinkCheck.mjs`：**markdown 链接目标**必须存在（阻塞），
+  反引号路径提及按**文档相对 OR 仓库根相对**双口径解析后冻结（避免假阳性）；
+  基线 `scripts/docLinkBaseline.json`（90 处唯一存量，多为「迁移前路径」与示例 `src/foo.ts` 这类有意引用），
+  接入 `pre-commit` 与 `npm run check:doc-links`。**实测 markdown 链接目标 0 处死链**。
+
+**仍未清（本板唯一剩余项，附可机械执行的迁移清单）**：
+
+- ⬜ **JSON-RPC pending 六处重复**：该条**内含的具体缺陷**（`mcpClient` 无 reject 通道）已在 §3.12 修掉并有回归，
+  剩下的**去重**需要先统一六种形态——实测它们**确实不一致**：
+  `httpBridgeTransport` 只存 `resolve` 回调（无 reject、无超时）；
+  `serverEventBridge` 是 `{resolve, timer?}` + **计数式** `denyAllPending`；
+  `a2aClient` / `cdpClient` / `lspJsonRpcConnection` 是 `{resolve, reject, timer}` + fail-all；
+  `sdkClient` 是 `{resolve, reject}` + socket close 钩子。
+  统一需一张支持「可选 reject / 可选定时器 / 纯回调」且保留 `failAll → count` 的泛型表，再逐站点替换。
+  **这是独立一轮的重构**：本轮预算下在「挂起请求」这一最敏感路径上出错的概率高于收益，
+  故如实留存并附上述形态清单（下一轮可照此机械替换，风险点＝给 resolve-only 站点新增错误路径、
+  以及 `serverEventBridge` 的计数语义）。
 
 ### 3.6【本轮已做，用户指定】SSRF 三张策略表配置化（`METADATA_HOSTS` / `INTERNAL_SUFFIXES` / `IPV4_BLOCKS`）
 
@@ -428,6 +466,28 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 - **shell 工具族超时口径**、**Python 文件迁出 `src/`**、**README 死引用**：见 §3.5。
 - **验证**：`npm test` 2108 例 / 2103 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip；
   门禁同上（573 文件）。
+
+### 3.13【本轮已做，用户指定】§3.5 六项清理（接 §3.12，第八轮）
+
+用户指令：「全部进行清理过」。**逐条结论见 §3.5 的逐项状态**，此处只记本轮新增/变更与一处"审计判断不成立"的更正：
+
+- **哈希链**：`src/util/hashChain.ts`（新）＝算法与创世哈希的唯一定义；两条链保留各自正文与分隔符
+  （分隔符参与哈希 ⇒ 不可统一）。**同期修掉一个真缺陷**：`auditSink.ts` 的分隔符原为源码内**裸 NUL 字节**
+  （非转义序列），致该文件被工具链当二进制；改 `'\u0000'` 后行为逐字节不变（golden 实测一致）。
+  `tests/unit/hashChain.test.ts`（新，4 例）：两条链 golden + 算法等价性/分隔符敏感性 + **裸 NUL 守卫**。
+- **覆盖率门禁**：审计说「是聚合值」，**实测更严重——是假绿**：`--test-coverage-include='dist/**'`
+  匹配不到文件，旧门禁恒真。修正后真实聚合 **90.54%（508 文件）**，门禁重写为**按文件冻结基线** +
+  新增文件下限（30%）；**收尾又挖出同源第二层**——npm 在 Windows 走 `cmd.exe`、单引号是字面量，
+  改完 include 后 `npm run coverage` **仍**假绿，故同时改引号为双引号并加**空表守卫**；
+  另有 `scripts/coverageEnvDependent.json` 对**经诊断的宿主相关文件**（`bashAppRootMapper`，因本机
+  `bash` 是 WSL 存根）按**下限**校验。见 `scripts/coverageGate.mjs` / `scripts/coverageBaseline.json`。
+- **公开面「泄漏测试替身」**：**审计判断不成立**（三个都是生产可达的正式实现），故**不改**；
+  证据与「不要删」的结论记入 `docs/API_STABILITY.md`。
+- **eval 接线**：`scripts/runEval.mjs`（新）为唯一入口，`evals/*.mjs` 38 个全部接成 `eval:<名字>`。
+- **文档死路径**：`scripts/docLinkCheck.mjs` + 冻结基线（新，接入 `pre-commit`）。实测 **markdown 链接 0 死链**；
+  审计的「172 处」绝大多数是**反引号提及**（含示例与迁移前路径），不是链接。
+- **JSON-RPC pending 六处**：**仅缺陷层已结**（`mcpClient` reject 通道，§3.12）；**去重层未做**并写明六站点
+  形态差异与迁移清单（见 §3.5 末条）——理由是并发最敏感路径上本轮预算不足以安全验完。
 
 ### 3.6 架构上确认**没问题**（避免重复投入）
 

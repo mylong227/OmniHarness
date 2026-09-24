@@ -1,6 +1,7 @@
 #!/bin/sh
 # OmniHarness pre-commit 门禁（零依赖：仅用仓库内 node_modules 工具）。
-# 职责：铁律自检(check --strict) + 成熟度门禁 + 编码标准增量门禁 + ESLint(零告警) + Prettier 增量格式化。
+# 职责：铁律自检(check --strict) + 成熟度门禁 + 编码标准增量门禁 + ESLint(零告警) + Prettier 增量格式化
+#      + 架构门禁 + 接线完整性门禁 + 文档死链门禁。
 # 由 scripts/install-hooks.mjs 通过 git config core.hooksPath 激活。
 # 这是「编码标准任何时候都生效」的机器兜底：任何提交只要新增标准违规即被中止。
 cd "$(git rev-parse --show-toplevel)"
@@ -38,6 +39,12 @@ fi
 echo "[pre-commit] 接线完整性门禁（声明→装配→运行时→消费，断链即红）..."
 if ! node scripts/auditConfigWiring.mjs; then
   echo "[pre-commit] ✗ 检测到未接线字段（本仓最高频缺陷形态「声明未接线」），提交中止。" >&2
+  exit 1
+fi
+
+echo "[pre-commit] 文档死链门禁（链接目标指向不存在文件即红；存量已冻结）..."
+if ! node scripts/docLinkCheck.mjs; then
+  echo "[pre-commit] ✗ 文档新增死链（指向不存在的文件），提交中止。" >&2
   exit 1
 fi
 
