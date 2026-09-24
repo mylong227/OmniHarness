@@ -71,10 +71,13 @@ test('argv：inherit 形态直接继承父进程终端（POSIX 用 -c）', () =>
   assert.deepStrictEqual(argv, { bin: '/bin/bash', args: ['-c', 'vim /tmp/x'] });
 });
 
-test('argv：inherit 形态在 Windows 上按 cmd 语义构造（/d /s /c）', () => {
+test('argv：inherit 形态在 Windows 上按 cmd 语义构造（/d /s /c + 整体引号）', () => {
   const report = PtyCapability.detect({ platform: 'win32', hasTty: true });
   const argv = PtyCapability.argvOf('vim x.txt', report, 'cmd.exe');
-  assert.deepStrictEqual(argv, { bin: 'cmd.exe', args: ['/d', '/s', '/c', 'vim x.txt'] });
+  // 2026-09-24 更新（审计 §1.9）：命令串必须**整体再包一层引号**——`cmd /s` 会剥掉这一层，
+  // 从而把命令原文原样交给 cmd；spawn 侧配套 `windowsVerbatimArguments`
+  // （见 ShellInvocation.needsVerbatimArgs）。旧的无引号形态会让带引号参数粘成一个。
+  assert.deepStrictEqual(argv, { bin: 'cmd.exe', args: ['/d', '/s', '/c', '"vim x.txt"'] });
 });
 
 test('argv：不可用时返回 null（绝不退化成管道 argv）', () => {

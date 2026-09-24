@@ -91,6 +91,8 @@ export class BackgroundJobRegistry {
         env,
         detached: true,
         windowsHide: true,
+        // 与前台同一口径：cmd 形态的命令串自带引号，须原样传递（审计 §1.9）。
+        windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(shell),
         stdio: ['ignore', fd, fd],
       });
       pid = child.pid;

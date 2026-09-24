@@ -91,14 +91,18 @@ describe('shell_interactive 分级与 fail-closed', () => {
     assert.strictEqual(script.capability().mode, 'pty-wrapper');
   });
 
-  it('TTY + 无 script：以 stdio inherit 直通启动（argv 走 shell -c）', async () => {
+  it('TTY + 无 script：以 stdio inherit 直通启动（argv 走 shell -c；cmd 形态带整体引号）', async () => {
     const executor = new FakeExecutor();
     const tool = new ShellInteractiveTool({ probe: TTY_INHERIT, executor });
     const result = await tool.handle(call({ command: 'vim x.txt' }), ctx);
     assert.strictEqual(result.ok, true, result.error ?? '');
     assert.strictEqual(executor.calls.length, 1);
     const first = executor.calls[0];
-    assert.deepStrictEqual(first?.args.slice(-1), ['vim x.txt']);
+    // 本探测输入**显式声明 win32** ⇒ argv 必为 cmd 形态；而「命令串整体再加一层引号」是
+    // 审计 §1.9 的修复口径（`/s` 恰好剥掉这一层，spawn 侧配 `windowsVerbatimArguments`）。
+    // 故这里断言**整段形态**（比原先只断言末位更强），并保留命令文本的可读性断言。
+    assert.deepStrictEqual(first?.args, ['/d', '/s', '/c', '"vim x.txt"']);
+    assert.match(first?.args.at(-1) ?? '', /vim x\.txt/);
     assert.strictEqual(first?.options.cwd, process.cwd());
     assert.match(result.output ?? '', /inherit/);
   });
