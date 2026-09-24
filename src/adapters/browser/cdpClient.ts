@@ -17,16 +17,7 @@
  */
 
 import { endpointDefaults } from '../../util/endpointDefaults.js';
-
-/** 一条在途请求。 */
-interface PendingRequest {
-  /** 成功回调。 */
-  readonly resolve: (value: unknown) => void;
-  /** 失败回调。 */
-  readonly reject: (error: Error) => void;
-  /** 超时定时器。 */
-  readonly timer: ReturnType<typeof setTimeout>;
-}
+import { PendingRequests } from '../../util/pendingRequests.js';
 
 /** 事件监听器。 */
 type EventListener = (params: unknown) => void;
@@ -53,6 +44,9 @@ export interface WebSocketLike {
 
 /**
  * CDP 客户端：面向单一 WebSocket 端点的命令 / 事件复用通道。
+ *
+ * **不变量（本类最重要的一条）**：不允许任何 promise 永久悬着——每条命令要么被回执兑现/拒绝，
+ * 要么被超时收尾，要么在 socket `error`/`close` 与 {@link close} 时由 `pending.failAll` 一次性拒绝。
  */
 export class CdpClient {
   /** 默认单条命令超时。 */
@@ -61,8 +55,8 @@ export class CdpClient {
   /** 默认连接超时。 */
   public static readonly DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
 
-  /** 在途请求表：CDP id → 回调。 */
-  private readonly pending = new Map<number, PendingRequest>();
+  /** 在途请求表：CDP id → 收尾通道（超时 / 断开一律收尾，见 util/pendingRequests）。 */
+  private readonly pending = new PendingRequests<number, unknown>();
 
   /** 事件监听表：CDP 方法名 → 监听器集合。 */
   private readonly listeners = new Map<string, Set<EventListener>>();
@@ -140,11 +134,11 @@ export class CdpClient {
       // 而在 agent 主循环里「悬着」比「报错」危险得多。
       socket.addEventListener('error', () => {
         finish(new Error(`CDP 连接失败: ${url}`));
-        this.failAll(new Error('CDP WebSocket 错误'));
+        this.pending.failAll(new Error('CDP WebSocket 错误'));
       });
       socket.addEventListener('close', () => {
         finish(new Error(`CDP 连接在就绪前被关闭: ${url}`));
-        this.failAll(new Error('CDP WebSocket 已关闭'));
+        this.pending.failAll(new Error('CDP WebSocket 已关闭'));
       });
       socket.addEventListener('message', (event) => this.onMessage(event));
     });
@@ -176,17 +170,19 @@ export class CdpClient {
       sessionId === undefined ? { id, method, params } : { id, method, params, sessionId },
     );
     return await new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`CDP 命令超时（${String(this.timeoutMs)}ms）: ${method}`));
-      }, this.timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.register(
+        id,
+        { resolve, reject },
+        {
+          ms: this.timeoutMs,
+          onTimeout: (handlers) =>
+            handlers.reject?.(new Error(`CDP 命令超时（${String(this.timeoutMs)}ms）: ${method}`)),
+        },
+      );
       try {
         socket.send(payload);
       } catch (error) {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        reject(new Error(`CDP 命令发送失败: ${method}（${String(error)}）`));
+        this.pending.fail(id, new Error(`CDP 命令发送失败: ${method}（${String(error)}）`));
       }
     });
   }
@@ -216,7 +212,7 @@ export class CdpClient {
     this.closed = true;
     const socket = this.socket;
     this.socket = undefined;
-    this.failAll(new Error('CDP 客户端已关闭'));
+    this.pending.failAll(new Error('CDP 客户端已关闭'));
     try {
       socket?.close();
     } catch {
@@ -294,34 +290,16 @@ export class CdpClient {
    * @returns 无返回值。
    */
   private settle(id: number, message: { result?: unknown; error?: unknown }): void {
-    const entry = this.pending.get(id);
-    if (entry === undefined) {
+    const handlers = this.pending.take(id);
+    if (handlers === undefined) {
       return;
     }
-    this.pending.delete(id);
-    clearTimeout(entry.timer);
     const error = message.error;
     if (error !== undefined && error !== null) {
-      entry.reject(new Error(CdpClient.describeError(error)));
+      handlers.reject?.(new Error(CdpClient.describeError(error)));
       return;
     }
-    entry.resolve(message.result ?? {});
-  }
-
-  /**
-   * 一次性拒绝全部在途请求（socket 断开 / 主动关闭时调用）。
-   *
-   * 这是本类最重要的不变量：**没有任何 promise 可以永久悬着**。
-   *
-   * @param error 拒绝原因。
-   * @returns 无返回值。
-   */
-  private failAll(error: Error): void {
-    for (const [, entry] of this.pending) {
-      clearTimeout(entry.timer);
-      entry.reject(error);
-    }
-    this.pending.clear();
+    handlers.resolve(message.result ?? {});
   }
 
   /**

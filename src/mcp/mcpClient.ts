@@ -10,13 +10,7 @@ import {
   type McpPromptDescriptor,
 } from './mcpProtocol.js';
 import { log } from '../util/logger.js';
-
-/** 等待中的请求：成功 / 失败两条通道 + 超时定时器。 */
-interface PendingRequest {
-  readonly resolve: (response: RpcResponse) => void;
-  readonly reject: (error: Error) => void;
-  readonly timer: ReturnType<typeof setTimeout>;
-}
+import { PendingRequests } from '../util/pendingRequests.js';
 
 /**
  * @beta
@@ -33,7 +27,7 @@ export interface McpClientOptions {
  * MCP 客户端：连接单个 MCP 服务器，握手 → 列工具 → 调工具。
  */
 export class McpClient {
-  private readonly pending = new Map<number, PendingRequest>();
+  private readonly pending = new PendingRequests<number, RpcResponse>();
   private nextId = 1;
   /** 是否已关闭（关闭后拒绝新请求，并立即拒绝全部在途请求）。 */
   private closed = false;
@@ -54,20 +48,7 @@ export class McpClient {
    */
   public close(reason = 'MCP 连接已关闭'): void {
     this.closed = true;
-    this.failAll(new Error(reason));
-  }
-
-  /**
-   * 以同一原因拒绝全部在途请求（并清理定时器）。
-   * @param error 拒绝原因。
-   * @returns 无返回值。
-   */
-  private failAll(error: Error): void {
-    for (const [, pending] of this.pending) {
-      clearTimeout(pending.timer);
-      pending.reject(error);
-    }
-    this.pending.clear();
+    this.pending.failAll(new Error(reason));
   }
 
   /** 握手，返回服务端信息与能力。 */
@@ -144,22 +125,17 @@ export class McpClient {
     this.nextId += 1;
     log.debug('mcp.request', { method, requestId });
     const response = await new Promise<RpcResponse>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(requestId);
-        log.warn('mcp.request.timeout', { method, requestId });
-        reject(new Error(`MCP 请求超时: ${method}`));
-      }, this.options.timeoutMs ?? 10000);
-      this.pending.set(requestId, {
-        resolve: (value) => {
-          clearTimeout(timer);
-          resolve(value);
+      this.pending.register(
+        requestId,
+        { resolve, reject },
+        {
+          ms: this.options.timeoutMs ?? 10000,
+          onTimeout: (handlers) => {
+            log.warn('mcp.request.timeout', { method, requestId });
+            handlers.reject?.(new Error(`MCP 请求超时: ${method}`));
+          },
         },
-        reject: (error) => {
-          clearTimeout(timer);
-          reject(error);
-        },
-        timer,
-      });
+      );
       this.options.transport.send({ jsonrpc: '2.0', id: requestId, method, params });
     });
     if (response.error !== undefined) {
@@ -184,10 +160,9 @@ export class McpClient {
     if (!('id' in message)) {
       return;
     }
-    const pending = this.pending.get(Number(message.id));
-    if (pending !== undefined) {
-      this.pending.delete(Number(message.id));
-      pending.resolve(message);
+    const handler = this.pending.take(Number(message.id));
+    if (handler !== undefined) {
+      handler.resolve(message);
     }
   }
 

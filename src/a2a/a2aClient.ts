@@ -18,19 +18,10 @@ import type {
   DelegateResult,
 } from './a2aProtocol.js';
 import { A2A_CAPABILITIES_DECLARE, A2A_TASK_DELEGATE } from './a2aProtocol.js';
+import { PendingRequests } from '../util/pendingRequests.js';
 
 /** 委托/声明调用超时（ms）。 */
 const DEFAULT_TIMEOUT_MS = 60_000;
-
-/** 挂起请求的关联记录（按 JSON-RPC id 索引）。 */
-interface Pending {
-  /** 成功回包时的 resolver。 */
-  resolve: (value: unknown) => void;
-  /** 远端错误/超时/关闭时的 rejector。 */
-  reject: (reason: Error) => void;
-  /** 超时定时器（DEFAULT_TIMEOUT_MS 后触发 reject）。 */
-  timer: ReturnType<typeof setTimeout>;
-}
 
 /**
  * A2A 客户端：连接一个对端 agent（server）。
@@ -38,8 +29,8 @@ interface Pending {
 export class A2aClient {
   /** 下一个 JSON-RPC 请求 id（自增）。 */
   private nextId = 1;
-  /** 挂起请求表：JSON-RPC id → Pending（响应到达或超时时移除）。 */
-  private readonly pending = new Map<number | string, Pending>();
+  /** 挂起请求表：JSON-RPC id → 收尾通道（响应到达或超时时移出，见 util/pendingRequests）。 */
+  private readonly pending = new PendingRequests<number | string, unknown>();
 
   /**
    * @param transport 底层传输端口（负责实际收发 JSON-RPC 消息）。
@@ -92,11 +83,7 @@ export class A2aClient {
    */
   public close(): void {
     this.transport.close?.();
-    for (const p of this.pending.values()) {
-      clearTimeout(p.timer);
-      p.reject(new Error('A2aClient 已关闭'));
-    }
-    this.pending.clear();
+    this.pending.failAll(new Error('A2aClient 已关闭'));
   }
 
   /**
@@ -107,20 +94,17 @@ export class A2aClient {
    */
   private onMessage(message: RpcMessage): void {
     if (!('id' in message)) return; // 通知，忽略
-    const id = message.id;
-    const pending = this.pending.get(id);
-    if (pending === undefined) return;
-    this.pending.delete(id);
-    clearTimeout(pending.timer);
+    const handlers = this.pending.take(message.id);
+    if (handlers === undefined) return;
     if ('error' in message && message.error !== undefined) {
-      pending.reject(new Error(`A2A 远端错误 [${message.error.code}] ${message.error.message}`));
+      handlers.reject?.(new Error(`A2A 远端错误 [${message.error.code}] ${message.error.message}`));
       return;
     }
     if ('result' in message) {
-      pending.resolve(message.result);
+      handlers.resolve(message.result);
       return;
     }
-    pending.reject(new Error('A2A 响应缺少 result/error'));
+    handlers.reject?.(new Error('A2A 响应缺少 result/error'));
   }
 
   /**
@@ -132,11 +116,14 @@ export class A2aClient {
   private call(method: string, params: unknown): Promise<unknown> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`A2A 调用超时: ${method}`));
-      }, DEFAULT_TIMEOUT_MS);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.register(
+        id,
+        { resolve, reject },
+        {
+          ms: DEFAULT_TIMEOUT_MS,
+          onTimeout: (handlers) => handlers.reject?.(new Error(`A2A 调用超时: ${method}`)),
+        },
+      );
       this.transport.send(jsonRpc.request(id, method, params as Record<string, unknown>));
     });
   }

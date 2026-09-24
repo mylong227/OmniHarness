@@ -1866,3 +1866,42 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   `arch:gate --strict`（依赖方向 0 / ports 纯度 0 / ports→实现 0）、`audit:config-wiring`（575 文件）、
   `api:check`、`lint`（0 告警）、`format:check`、`typecheck` 全通过；
   `check:doc-links`（新增 0）与覆盖率门禁（**90.54% / 508 文件、无文件回退**）亦通过。
+
+### 20.20 ✅ 已结项：JSON-RPC pending 去重（用户指定「把其他问题全解决掉」）
+
+上节 §20.19 里**唯一保留**的一项（七个站点的在途请求簿记重复）。上一轮判断「形态各异、不宜混做」，
+本轮给出正面解法：**差异交给调用方表达，簿记只留一份**。
+
+- **新增 `src/util/pendingRequests.ts`**：`PendingRequests<K, V>` = 登记 / 命中 / 超时 / 一次性收尾。
+  三条不变量：① 每个处理器**恰好**收尾一次；② **移出条目的同时清定时器**（eliminates「已兑现但定时器还在、
+  稍后又 reject 一次」的双收尾——原先七份实现里只有一部分写到这一点）；③ 一次性收尾**返回条数**。
+- **形态差异的落点**（都不是靠「统一形状」硬抹平）：`reject` 可缺省（`httpBridgeTransport` 只登记成功通道）；
+  超时可缺省（审批可 0 = 不限时）；超时动作由 `onTimeout` 决定（五个站点 **reject**，审批 **兑现 deny**）；
+  一次性收尾分 `failAll`（断开全拒）与 `settleAll`（断连一律 deny，并保留 `denyAllPending` 返回条数）。
+- **七个站点全部改接**并删掉各自的本地接口与私有收尾方法：`a2aClient`、`httpBridgeTransport`、`cdpClient`、
+  `lspJsonRpcConnection`、`mcpClient`、`sdkClient`、`serverEventBridge`。
+  `cdpClient` 的「**任何 promise 都不得永久悬着**」与 `mcpClient` 的「传输无关闭通知、必须显式 close」
+  两条不变量**提升到类注释**（原先只写在被删掉的私有方法上，重构后不再有丢失风险）。
+- **行为保真**：五条超时错误文案逐字未变；登记仍在**发送之前**；`mcp.request.timeout` 告警字段与时机不变；
+  重复响应 / 重复审批幂等（`settle` 返回 false 的路径即原先的 `entry === undefined` 早退）。
+- **可证伪验证**：新增 `tests/unit/pendingRequests.test.ts`（**9 例**：结算幂等、未知 key、
+  无 reject 通道的站点失败时只清理不误兑现、两种超时动作、**结算后定时器必须已清**、`take` 分支、
+  `failAll`/`settleAll` 条数、同 key 覆盖）；站点侧回归 **15 文件 97 例 + 9 文件 67 例全过**
+  （含 `mcp.test.ts` 的「close() 立即拒绝而非等 60s」、`approvalUplinkTimeout.test.ts`、
+  `cdpClient.test.ts`、`sdkStream.test.ts`、`a2aCrossProcess.test.ts`、`wsTransport.test.ts`）。
+- **覆盖率门禁随之有三处下降，逐个查清后分两类处理（如实记录判定依据）**：
+  - `src/mcp/mcpClient.js` 87.26→**85.29**、`src/server/transport/httpBridgeTransport.js` 97.66→**97.63**：
+    **改前改后各跑一次全量，数值完全相同** ⇒ 与抖动无关，是**去重把被覆盖的样板代码删掉**（分母变小，
+    逻辑搬进 98.83% 覆盖的 `pendingRequests.js`）造成的**度量效应**，不是行为覆盖丢失 ⇒ 更新这两条冻结值。
+  - `src/server/transport/wsConnection.js` 85.14→**84.42**：**源码未被本次改动触及**；用 `wsTransport.test.js`
+    单跑两次恒为 74.64%；而**不含**新增的 `pendingRequests.test.ts` 时全量恰好回到基线的 **85.14%**，
+    含它则为 84.42%（差异只有 243-244 两行，一个看竞态的走向）⇒ 属**测试文件集合改变并发交错**引起的
+    度量抖动 ⇒ **不改写基线**，登记进 `scripts/coverageEnvDependent.json` 按**下限 84%** 校验。
+  - 另一面：去重让 6 个站点覆盖率**上升**（`a2aClient` 94.44→**100**、`sdkClient` 91.14→95.38、
+    `serverEventBridge` 95.68→96.5、`lspJsonRpcConnection` 83.83→85.07、`cdpClient` 85→85.61…），
+    已 `--dump-baseline` **收紧**；聚合 90.54→**90.56%**、文件数 508→**509**（新增 `pendingRequests.js`）。
+- **可证伪验证**：`npm test` **2121 例 / 2116 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**
+  （比上轮 2112 多 9，正是新增的 `pendingRequests.test.ts` 九例）；`check --strict`（**576** 文件零违规）、
+  `arch:gate --strict`（依赖方向 0 / ports 纯度 0 / ports→实现 0）、`audit:config-wiring`（576 文件）、
+  `api:check`、`lint`（0 告警，含新测试统一用 `assert.strictEqual`）、`format:check`、`typecheck` 全通过；
+  `check:doc-links`（新增 0）与覆盖率门禁（**90.56% / 509 文件、无文件回退**）亦通过。

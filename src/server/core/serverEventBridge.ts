@@ -10,6 +10,7 @@ import type {
   ApprovalRequest,
 } from '../../ports/runtime/approval.js';
 import type { EventPort } from '../../ports/runtime/eventPort.js';
+import { PendingRequests, type PendingTimeout } from '../../util/pendingRequests.js';
 
 /** 审批上行缺省等待上限（毫秒）：超时按 deny 兑现（fail-closed）。 */
 const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
@@ -67,11 +68,8 @@ export interface ServerEventBridgeDeps {
 export class ServerEventBridge {
   /** 桥依赖（传输 / 指标 / 审计，指标与审计可缺省）。 */
   private readonly deps: ServerEventBridgeDeps;
-  /** 待响应审批挂起表：requestId → 兑现 resolver 与超时句柄（兑现后移除并清定时器）。 */
-  private readonly pending = new Map<
-    string,
-    { readonly resolve: (decision: ApprovalDecision) => void; readonly timer?: NodeJS.Timeout }
-  >();
+  /** 待响应审批挂起表：requestId → 收尾通道（兑现 / 超时 deny / 断连 deny 都会移出）。 */
+  private readonly pending = new PendingRequests<string, ApprovalDecision>();
   /** 生效的审批等待上限（毫秒；0 = 不限时）。 */
   private readonly approvalTimeoutMs: number;
 
@@ -119,33 +117,26 @@ export class ServerEventBridge {
   public async requestApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
     return new Promise<ApprovalDecision>((resolve) => {
       const requestId = id('apr');
-      const settle = (decision: ApprovalDecision): void => {
-        const entry = this.pending.get(requestId);
-        if (entry === undefined) {
-          return; // 已被其他路径兑现（响应 / 超时 / 断连）——幂等
-        }
-        this.pending.delete(requestId);
-        if (entry.timer !== undefined) {
-          clearTimeout(entry.timer);
-        }
-        entry.resolve(decision);
-      };
-      const timer =
-        this.approvalTimeoutMs > 0
-          ? setTimeout(() => {
-              log.warn('approval.uplink.timeout', {
-                requestId,
-                toolName: request.toolName,
-                timeoutMs: this.approvalTimeoutMs,
-              });
-              settle('deny');
-            }, this.approvalTimeoutMs)
-          : undefined;
+      // 超时**按 deny 兑现**（不是 reject）：审批是「没有答复就不放行」，fail-closed 而非报错。
       // 刻意**不 unref**：挂起审批必须真的等到「有响应 / 超时 / 断连」三者之一才算完；
       // 让定时器保持事件循环活跃正是「不许静默丢弃」的语义。实测 unref 会让超时永不触发
       // （事件循环空闲时进程先结束，测试直接报 `Promise resolution is still pending...`），
       // 兜底形同虚设——这正是本类要防的「永久挂起」的另一种形态。
-      this.pending.set(requestId, timer === undefined ? { resolve } : { resolve, timer });
+      const timeout: PendingTimeout<ApprovalDecision> | undefined =
+        this.approvalTimeoutMs > 0
+          ? {
+              ms: this.approvalTimeoutMs,
+              onTimeout: (handlers) => {
+                log.warn('approval.uplink.timeout', {
+                  requestId,
+                  toolName: request.toolName,
+                  timeoutMs: this.approvalTimeoutMs,
+                });
+                handlers.resolve('deny');
+              },
+            }
+          : undefined;
+      this.pending.register(requestId, { resolve }, timeout);
       this.deps.transport.send(
         jsonRpc.notify('approval.request', {
           requestId,
@@ -163,14 +154,7 @@ export class ServerEventBridge {
    */
   public respondApproval(params: Record<string, unknown>): unknown {
     const requestId = String(params['requestId'] ?? '');
-    const entry = this.pending.get(requestId);
-    if (entry !== undefined) {
-      this.pending.delete(requestId);
-      if (entry.timer !== undefined) {
-        clearTimeout(entry.timer);
-      }
-      entry.resolve(params['decision'] === 'allow' ? 'allow' : 'deny');
-    }
+    this.pending.settle(requestId, params['decision'] === 'allow' ? 'allow' : 'deny');
     return { ok: true };
   }
 
@@ -183,18 +167,12 @@ export class ServerEventBridge {
    * @returns 被兑现的挂起条数
    */
   public denyAllPending(reason: string): number {
-    const count = this.pending.size;
+    const count = this.pending.size();
     if (count === 0) {
       return 0;
     }
     log.warn('approval.uplink.disconnected', { reason, pending: count });
-    for (const [requestId, entry] of [...this.pending]) {
-      this.pending.delete(requestId);
-      if (entry.timer !== undefined) {
-        clearTimeout(entry.timer);
-      }
-      entry.resolve('deny');
-    }
+    this.pending.settleAll('deny');
     return count;
   }
 
@@ -203,6 +181,6 @@ export class ServerEventBridge {
    * @returns 挂起条数
    */
   public pendingApprovalCount(): number {
-    return this.pending.size;
+    return this.pending.size();
   }
 }

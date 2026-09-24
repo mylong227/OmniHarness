@@ -1,5 +1,6 @@
 import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.js';
 import type { SdkSocket } from './webSocketSdkSocket.js';
+import { PendingRequests } from '../util/pendingRequests.js';
 
 /** SDK 客户端选项。 */
 export interface SdkClientOptions {
@@ -8,19 +9,13 @@ export interface SdkClientOptions {
   readonly timeoutMs?: number;
 }
 
-/** 等待中的请求。 */
-interface PendingCall {
-  readonly resolve: (response: RpcResponse) => void;
-  readonly reject: (error: Error) => void;
-}
-
 /** 通知处理器集合。 */
 type EventHandler = (params: Record<string, unknown>) => void;
 
 /** SDK 客户端：请求-响应 + 服务端通知订阅（生成的 SDK 直接接这两个能力）。 */
 export class SdkClient {
-  /** 等待响应的请求表：请求 id → resolve/reject（含超时清理）。 */
-  private readonly pending = new Map<number, PendingCall>();
+  /** 等待响应的请求表：请求 id → 收尾通道（超时 / 连接关闭都会移出）。 */
+  private readonly pending = new PendingRequests<number, RpcResponse>();
   /** 通知订阅表：事件名 → 处理器集合。 */
   private readonly handlers = new Map<string, Set<EventHandler>>();
   /** 连接就绪 Promise（构造期开始握手，socket open 后 resolve）。 */
@@ -55,21 +50,14 @@ export class SdkClient {
     const id = this.nextId;
     this.nextId += 1;
     const response = await new Promise<RpcResponse>((resolve, reject) => {
-      const entry: PendingCall = { resolve, reject };
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`SDK 请求超时: ${method}`));
-      }, this.options.timeoutMs ?? 30000);
-      this.pending.set(id, {
-        resolve: (value) => {
-          clearTimeout(timer);
-          entry.resolve(value);
+      this.pending.register(
+        id,
+        { resolve, reject },
+        {
+          ms: this.options.timeoutMs ?? 30000,
+          onTimeout: (handlers) => handlers.reject?.(new Error(`SDK 请求超时: ${method}`)),
         },
-        reject: (error) => {
-          clearTimeout(timer);
-          entry.reject(error);
-        },
-      });
+      );
       this.options.socket.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
     });
     if (response.error !== undefined) {
@@ -98,10 +86,7 @@ export class SdkClient {
    * @returns 无返回值。
    */
   public close(): void {
-    for (const [, entry] of this.pending) {
-      entry.reject(new Error('SDK 连接已关闭'));
-    }
-    this.pending.clear();
+    this.pending.failAll(new Error('SDK 连接已关闭'));
     this.handlers.clear();
     this.options.socket.close();
   }
@@ -117,7 +102,7 @@ export class SdkClient {
       socket.onError((error) => reject(error));
     });
     socket.onMessage((text) => this.handleMessage(text));
-    socket.onClose(() => this.rejectPending(new Error('SDK 连接已关闭')));
+    socket.onClose(() => this.pending.failAll(new Error('SDK 连接已关闭')));
     return opened;
   }
 
@@ -132,11 +117,7 @@ export class SdkClient {
       return;
     }
     if (this.isResponse(message)) {
-      const entry = this.pending.get(Number(message.id));
-      if (entry !== undefined) {
-        this.pending.delete(Number(message.id));
-        entry.resolve(message);
-      }
+      this.pending.settle(Number(message.id), message);
       return;
     }
     this.dispatch(message);
@@ -167,17 +148,5 @@ export class SdkClient {
     for (const handler of handlers) {
       handler((message.params ?? {}) as Record<string, unknown>);
     }
-  }
-
-  /**
-   * 挂起请求全部失败。
-   * @param error 拒绝原因（如连接已关闭）。
-   * @returns 无返回值。
-   */
-  private rejectPending(error: Error): void {
-    for (const [, entry] of this.pending) {
-      entry.reject(error);
-    }
-    this.pending.clear();
   }
 }
