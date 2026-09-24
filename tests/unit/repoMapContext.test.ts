@@ -503,3 +503,72 @@ test('getHybridRepoMapContext：mergeSymbols=true 且嵌入抛错仍 fail-closed
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ---- 2026-09-24（审计 §2.4：repo-map 结果零记忆化）----
+
+test('getRepoMapContext：同一查询/同一语料命中 memo，结果逐字相同（第 2..N 步不再重算）', () => {
+  const engine = new RepoMapContextEngine();
+  const root = tmpRepo({ 'a.ts': 'export function alphaTarget() { return 1; }\n' });
+  try {
+    const first = engine.getRepoMapContext(root, 'alphaTarget');
+    const second = engine.getRepoMapContext(root, 'alphaTarget');
+    assert.ok(first !== null);
+    assert.strictEqual(second, first, '同键同语料必须命中 memo 且文本逐字相同');
+  } finally {
+    engine.clear(root);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('getRepoMapContext：memo 不会跨语料实例复用（重新索引后必须重算，不读陈旧图）', () => {
+  const engine = new RepoMapContextEngine();
+  const root = tmpRepo({ 'a.ts': 'export function alphaTarget() { return 1; }\n' });
+  try {
+    const before = engine.getRepoMapContext(root, 'alphaTarget');
+    assert.ok(before !== null);
+
+    // 清缓存 ⇒ 语料实例重建（等价于 TTL 到期/被驱逐）；
+    // 结果文本可以相同（内容没变），但**必须重新计算**而不是命中旧槽位。
+    engine.clear(root);
+    const after = engine.getRepoMapContext(root, 'alphaTarget');
+    assert.strictEqual(after, before, '重算结果应与缓存命中时逐字相同（memo 不改变口径）');
+  } finally {
+    engine.clear(root);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('getRepoMapContext：旋钮不同即不同键（memo 不得把不同预算档混为一谈）', () => {
+  const engine = new RepoMapContextEngine();
+  const root = tmpRepo({
+    'a.ts': 'export function alphaTarget() { return 1; }\n',
+    'b.ts': 'export function betaOther() { return 2; }\n',
+  });
+  try {
+    const k1 = engine.getRepoMapContext(root, 'alphaTarget betaOther', { fileK: 1, rerank: false });
+    const k2 = engine.getRepoMapContext(root, 'alphaTarget betaOther', {
+      fileK: 20,
+      rerank: false,
+    });
+    assert.ok(k1 !== null && k2 !== null);
+    // fileK 不同 ⇒ 覆盖文件数不同 ⇒ 文本必须不同（若错当成同键就会返回 k1）
+    assert.notStrictEqual(k2, k1, 'fileK 是 memo 键的一部分');
+  } finally {
+    engine.clear(root);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('getRepoMapContext：enabled=false 与空查询不写 memo（廉价早退路径）', () => {
+  const engine = new RepoMapContextEngine();
+  const root = tmpRepo({ 'a.ts': 'export function alphaTarget() { return 1; }\n' });
+  try {
+    assert.strictEqual(engine.getRepoMapContext(root, 'alphaTarget', { enabled: false }), null);
+    assert.strictEqual(engine.getRepoMapContext(root, '   '), null);
+    // 早退不污染槽位：正常查询仍能拿到非空结果
+    assert.ok(engine.getRepoMapContext(root, 'alphaTarget') !== null);
+  } finally {
+    engine.clear(root);
+    rmSync(root, { recursive: true, force: true });
+  }
+});

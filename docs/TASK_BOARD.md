@@ -1980,3 +1980,35 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   `configBuilder` 97.75→97.77）。
   过程中 `shellProcessRunner.run` 因新增终止装配**一度超出 80 行上限**，已按职责拆出
   `armTermination()`（三条终止路径 + 两路输出收集）而不是删注释凑数——`check` 立刻转绿。
+
+### 20.23 ✅ 已结项：性能两节 §2.4 / §2.5（第十一轮，goal 最后两项）
+
+审计里最后两条待办。**每条先实测、再决定改不改**——其中一条实测为可忽略，明确不修并留档。
+
+- **① §2.4 repo-map 结果零记忆化 → 已修**：新增 `src/context/repoMapMemo.ts`，单槽位 memo，
+  键 = `root + 查询 + 生效旋钮指纹`（env 覆盖后的值参与键），失效判据**另加语料实例比对**
+  （重新索引即新实例）⇒ 缓存生命期严格不长于语料生命期，比按 TTL 猜精确。
+  **实测（本仓真实语料）**：memo 未命中（换查询、索引已在）**24.1 ms** → 命中 **0.557 ms/次**。
+- **② §2.4 每步全文记账无前缀缓存 → 已修（带实测门槛）**：新增 `src/context/tokenCountCache.ts`
+  （按内容字符串的有界 LRU，默认 512 条）并接进 `TokenEstimator.estimate` **内部**——既有调用点零改动。
+  **实测**：40 步混合长度会话 **11.48 → 1.61 ms（7.13×）**；长文本命中 0.1–0.6 µs（重算最长 1712 µs@256 KB）。
+  **关键**：实测发现**极短文本会倒挂**（查表 + LRU 续命 > 直接计数），故加 `MIN_CACHEABLE_CHARS = 512`
+  门槛：短文本直接计数、不进缓存。交叉点数据表写在源码注释里，可复算。
+- **③ §2.5 `all()` 每步浅拷贝 → 实测可忽略，明确不修**：4.5/9.2/17.9 µs（1000/3000/10000 事件），
+  每步 4 次 ⇒ **0.018–0.072 ms/步**，比①的 24.1 ms 小三个数量级；改它要把返回类型收成 `readonly`
+  并冻结共享快照（调用方可能就地改写），**风险大于收益**。留档理由与实测数字。
+- **④ §2.5 SQLite 无事务 → 已修**：`save` 改单事务 + 失败 `ROLLBACK`。**实测（500 事件）**
+  **3360 ms → 16.9 ms（≈199×）**；更要紧的是**原子性**：中途失败不再留下「旧快照已删、新快照半截」的会话。
+  （审计原文记 8.1 ms，与本机差两个数量级，已如实并列以本次实测为准。）
+- **⑤ §2.5 前端 `StreamView` 每滚动帧全量重算 → 已修**：新增 `web/src/ui/models/StreamModelCache.ts`
+  （键 = `events 引用 + 长度 + busy`），把块划分/键/末条 id/工具 id 集合移出滚动帧路径。
+  **实测**：每帧 **147 / 151 / 380 µs**（1000/3000/10000 事件）→ 命中 **0.1–0.3 µs**。
+- **回归**：`tokenCountCache.test.ts` 9 例、`repoMapContext.test.ts` +4 例、`sqliteStorage.test.ts` +2 例、
+  `web/test/streamModelCache.test.mjs` 7 例。**前提核对**：web e2e 那条 `not ok`（headless 浏览器场景）
+  经**回退本次 web 改动复测同样失败** ⇒ 确认是**既有环境性失败**，不是本轮引入。
+- **可证伪验证**：`npm test` **2155 例 / 2150 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**
+  （比上轮 2140 多 15 = tokenCountCache 9 + repoMapMemo 4 + sqlite 2）；`npm run web:test`
+  **243 例 / 242 过 / 1 失败（即上述既有 e2e，非本轮）**；`check --strict`（**579** 文件零违规）、
+  `arch:gate --strict`、`audit:config-wiring`（579 文件）、`api:check`、`lint`（0 告警）、`format:check`、
+  根与 web 双 `tsc --noEmit` 全通过；覆盖率门禁 **90.63% / 512 文件**（收紧 `repoMapContextEngine` 97.2→97.66；
+  `sqliteStorage` 92.71% 在 1 点漂移容差内——新增的 best-effort 回滚 `catch` 无法构造，如实列出不阻断）。
