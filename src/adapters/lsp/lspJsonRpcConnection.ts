@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { PendingRequests } from '../../util/pendingRequests.js';
 
 /** JSON-RPC 2.0 消息（宽松结构，仅取我们需要的字段）。 */
 interface JsonRpcMessage {
@@ -8,13 +9,6 @@ interface JsonRpcMessage {
   readonly params?: unknown;
   readonly result?: unknown;
   readonly error?: { readonly code: number; readonly message: string };
-}
-
-/** 单个挂起请求的回调登记。 */
-interface Pending {
-  readonly resolve: (value: unknown) => void;
-  readonly reject: (error: Error) => void;
-  readonly timer: ReturnType<typeof setTimeout>;
 }
 
 /** 默认请求超时（ms）：服务器无响应即 fail-closed 上抛，绝不干等。 */
@@ -57,8 +51,8 @@ export class LspJsonRpcConnection {
   private started = false;
   /** 进程是否已异常退出（死亡后所有新请求立即 reject）。 */
   private dead = false;
-  /** 挂起请求登记表：id → resolve/reject 回调与超时定时器。 */
-  private readonly pending = new Map<number, Pending>();
+  /** 挂起请求登记表：id → 收尾通道（响应 / 超时 / 进程退出都会移出）。 */
+  private readonly pending = new PendingRequests<number, unknown>();
 
   public constructor(
     /** 连接配置：外部命令与参数、服务器请求应答器、请求超时。 */
@@ -91,11 +85,11 @@ export class LspJsonRpcConnection {
     this.proc.stdout?.on('data', (chunk: Buffer) => this.onData(chunk));
     this.proc.on('exit', () => {
       this.dead = true;
-      this.failAll(new Error('LSP 子进程已退出'));
+      this.pending.failAll(new Error('LSP 子进程已退出'));
     });
     this.proc.on('error', (error: Error) => {
       this.dead = true;
-      this.failAll(error);
+      this.pending.failAll(error);
     });
   }
 
@@ -113,11 +107,14 @@ export class LspJsonRpcConnection {
     const id = this.nextId;
     this.nextId += 1;
     return new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`LSP 请求超时: ${method}`));
-      }, this.options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.register(
+        id,
+        { resolve, reject },
+        {
+          ms: this.options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+          onTimeout: (handlers) => handlers.reject?.(new Error(`LSP 请求超时: ${method}`)),
+        },
+      );
       this.send({ jsonrpc: '2.0', id, method, params });
     });
   }
@@ -223,14 +220,12 @@ export class LspJsonRpcConnection {
 */
   private dispatch(msg: JsonRpcMessage): void {
     if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined)) {
-      const entry = this.pending.get(msg.id);
-      if (entry !== undefined) {
-        clearTimeout(entry.timer);
-        this.pending.delete(msg.id);
+      const handlers = this.pending.take(msg.id);
+      if (handlers !== undefined) {
         if (msg.error !== undefined) {
-          entry.reject(new Error(`LSP 错误: ${msg.error.message}`));
+          handlers.reject?.(new Error(`LSP 错误: ${msg.error.message}`));
         } else {
-          entry.resolve(msg.result);
+          handlers.resolve(msg.result);
         }
       }
       return;
@@ -249,19 +244,6 @@ export class LspJsonRpcConnection {
     if (msg.method !== undefined && msg.id === undefined) {
       this.options.onNotification?.(msg.method, msg.params);
     }
-  }
-
-  /** 进程死亡时拒绝所有挂起请求并清空登记。
-   * @param error 拒绝所有挂起请求所用的错误（退出或 spawn 失败原因）。
-   
- * @returns 无返回值。
-*/
-  private failAll(error: Error): void {
-    for (const entry of this.pending.values()) {
-      clearTimeout(entry.timer);
-      entry.reject(error);
-    }
-    this.pending.clear();
   }
 
   /** 复位连接状态，使同一实例可重新启动。

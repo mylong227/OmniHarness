@@ -309,16 +309,14 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 
 **仍未清（本板唯一剩余项，附可机械执行的迁移清单）**：
 
-- ⬜ **JSON-RPC pending 六处重复**：该条**内含的具体缺陷**（`mcpClient` 无 reject 通道）已在 §3.12 修掉并有回归，
-  剩下的**去重**需要先统一六种形态——实测它们**确实不一致**：
-  `httpBridgeTransport` 只存 `resolve` 回调（无 reject、无超时）；
-  `serverEventBridge` 是 `{resolve, timer?}` + **计数式** `denyAllPending`；
-  `a2aClient` / `cdpClient` / `lspJsonRpcConnection` 是 `{resolve, reject, timer}` + fail-all；
-  `sdkClient` 是 `{resolve, reject}` + socket close 钩子。
-  统一需一张支持「可选 reject / 可选定时器 / 纯回调」且保留 `failAll → count` 的泛型表，再逐站点替换。
-  **这是独立一轮的重构**：本轮预算下在「挂起请求」这一最敏感路径上出错的概率高于收益，
-  故如实留存并附上述形态清单（下一轮可照此机械替换，风险点＝给 resolve-only 站点新增错误路径、
-  以及 `serverEventBridge` 的计数语义）。
+- ✅ **已结项（第九轮 §3.14）**：JSON-RPC pending 六处重复 —— 见文末 §3.14。
+  其**缺陷层**（`mcpClient` 无 reject 通道）早在 §3.12 修掉；本轮把**去重层**也做完了：
+  新增 `util/pendingRequests.ts`（`PendingRequests<K, V>`）作为「登记 / 命中 / 超时 / 一次性收尾」的
+  唯一实现，**七个**站点全部改接（`a2aClient` / `httpBridgeTransport` / `cdpClient` /
+  `lspJsonRpcConnection` / `mcpClient` / `sdkClient` / `serverEventBridge`）。
+  原先登记的形态差异**不是靠统一形状**解决，而是让调用方表达差异：`reject` 可缺省（`httpBridgeTransport`
+  只有成功通道）、超时可缺省（审批可设 0 不限时）、超时动作由 `onTimeout` 决定
+  （五个站点是 reject，审批是**兑现 deny**）、一次性收尾分 `failAll` 与 `settleAll` 两种。
 
 ### 3.6【本轮已做，用户指定】SSRF 三张策略表配置化（`METADATA_HOSTS` / `INTERNAL_SUFFIXES` / `IPV4_BLOCKS`）
 
@@ -486,8 +484,44 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 - **eval 接线**：`scripts/runEval.mjs`（新）为唯一入口，`evals/*.mjs` 38 个全部接成 `eval:<名字>`。
 - **文档死路径**：`scripts/docLinkCheck.mjs` + 冻结基线（新，接入 `pre-commit`）。实测 **markdown 链接 0 死链**；
   审计的「172 处」绝大多数是**反引号提及**（含示例与迁移前路径），不是链接。
-- **JSON-RPC pending 六处**：**仅缺陷层已结**（`mcpClient` reject 通道，§3.12）；**去重层未做**并写明六站点
-  形态差异与迁移清单（见 §3.5 末条）——理由是并发最敏感路径上本轮预算不足以安全验完。
+- **JSON-RPC pending 六处**：**缺陷层 + 去重层都已结**（详见 §3.14 与 §3.5 末条）。
+
+### 3.14【本轮已做，用户指定】JSON-RPC pending 去重（接 §3.13，第九轮）
+
+用户指令：「把其他问题全解决掉」——即 §3.13 里**唯一保留**的那一项（七个站点的在途请求簿记重复）。
+
+- **新增** `src/util/pendingRequests.ts`：`PendingRequests<K, V>` 是「登记 → 命中 / 超时 / 一次性收尾」的
+  **唯一实现**，含三条不变量：① 每个被登记的处理器**恰好**在一条路径上收尾；② 移出条目的同时清定时器
+  （故不存在「已兑现但定时器still在、稍后又 reject 一次」的双收尾，`onTimeout` 用 `take` 的返回值判幂等）；
+  ③ 一次性收尾返回条数（供日志/断言）。
+- **形态差异不靠「统一形状」消除，而由调用方表达**（这是上一轮判断「不能安全合并」的正面解法）：
+  - `reject` **可缺省** → `httpBridgeTransport` 只登记成功通道（原样保留「谁兑现这个响应」语义）；
+  - 超时**可缺省** → 审批等待上限可为 0（不限时，保留 `OMNI_APPROVAL_UPLINK_TIMEOUT_MS=0` 的旧行为）；
+  - 超时动作由 `onTimeout` 决定 → `a2aClient`/`cdpClient`/`lspJsonRpcConnection`/`mcpClient`/`sdkClient`
+    是 **reject**，`serverEventBridge` 是 **兑现 deny**（fail-closed 而非报错）；
+  - 一次性收尾两种都在：`failAll`（断开 → 全部 reject）与 `settleAll`（断连 → 全部按同一值兑现，
+    审批即「一律 deny」，并保留 `denyAllPending(reason)` **返回条数**的对外契约）。
+- **七个站点全部改接**：`a2aClient`（删本地 `Pending` 接口）、`httpBridgeTransport`、
+  `cdpClient`（删本地 `PendingRequest` + 私有 `failAll`，其「任何 promise 都不得永久悬着」的不变量提到类注释）、
+  `lspJsonRpcConnection`（删本地 `Pending` + 私有 `failAll`）、`mcpClient`（删本地 `PendingRequest` +
+  私有 `failAll`）、`sdkClient`（删本地 `PendingCall` + 私有 `rejectPending`，原先「包一层只为 clearTimeout」
+  的 resolve/reject 包装随之消失）、`serverEventBridge`（删内联 `settle`/定时器分支，`pendingApprovalCount()`
+  与 `denyAllPending()` 改走 `size()`/`settleAll()`）。
+- **行为保真点（逐条核对过）**：超时错误文案逐字未变（`A2A 调用超时: <method>` / `CDP 命令超时（<ms>ms）: <method>` /
+  `LSP 请求超时: <method>` / `MCP 请求超时: <method>` / `SDK 请求超时: <method>`）；登记发生在**发送之前**
+  （避免回包早于登记）；`mcp.request.timeout` 的告警字段与顺序不变；重复响应/重复审批幂等。
+- **回归证据**：新增 `tests/unit/pendingRequests.test.ts`（9 例：结算幂等、未知 key、无 reject 通道、
+  两种超时动作、结算后定时器必须已清、`take` 分支、`failAll`/`settleAll` 计数、同 key 覆盖）；
+  站点侧 15 个测试文件 97 例 + 审批/LSP 侧 9 个文件 67 例全过（含 `mcp.test.ts` 的
+  「close() 立即拒绝而非等 60s 超时」、`approvalUplinkTimeout.test.ts`、`cdpClient.test.ts`、`sdkStream.test.ts`）。
+- **对覆盖率门禁的影响（三处下降，逐个查清，不静默放宽）**：`mcpClient` 87.26→85.29 与
+  `httpBridgeTransport` 97.66→97.63 在**两次全量运行中数值相同** ⇒ 是「删掉被覆盖的样板」造成的
+  **度量效应**（逻辑搬进 98.83% 覆盖的 `pendingRequests.js`），故更新冻结值；
+  `wsConnection` 85.14→84.42 则**源码未被本次改动触及**，且**不含**新测试文件时全量恰好回到 85.14%
+  ⇒ 属「测试文件集合改变并发交错」的度量抖动，故**不改基线**，登记为**下限 84%**
+  （`scripts/coverageEnvDependent.json`，附证据）。同时 6 个站点覆盖率**上升**
+  （`a2aClient` 94.44→100、`sdkClient` 91.14→95.38、`serverEventBridge` 95.68→96.5 等），已收紧基线；
+  聚合 **90.56% / 509 文件**。
 
 ### 3.6 架构上确认**没问题**（避免重复投入）
 

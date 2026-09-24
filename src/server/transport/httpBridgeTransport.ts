@@ -3,13 +3,14 @@ import { jsonRpc, type RpcMessage, type RpcRequest } from '../core/jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 import { type WsConnection } from './wsConnection.js';
 import { EnterpriseAuth } from '../../enterprise/index.js';
+import { PendingRequests } from '../../util/pendingRequests.js';
 
 /** HTTP/WS/SSE 桥接传输：POST /rpc 与 WS 请求-响应共用 pending 表，通知广播给全部 SSE/WS 客户端（实现 {@link Transport}）。 */
 export class HttpBridgeTransport implements Transport {
   /** 入站消息回调（AppServer 注册的处理器）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
-  /** 等待响应的请求表：请求 id → 响应回调。 */
-  private readonly pending = new Map<number | string, (message: RpcMessage) => void>();
+  /** 等待响应的请求表：请求 id → 收尾通道（本传输只用成功通道，见 send）。 */
+  private readonly pending = new PendingRequests<number | string, RpcMessage>();
   /** SSE 长连接客户端集合（连接断开自动移除）。 */
   private readonly sseClients = new Set<ServerResponse>();
   /** WebSocket 客户端集合（连接关闭自动移除）。 */
@@ -60,11 +61,8 @@ export class HttpBridgeTransport implements Transport {
    */
   public send(message: RpcMessage): void {
     if ('id' in message && message.id !== undefined) {
-      const respond = this.pending.get(message.id);
-      if (respond !== undefined) {
-        respond(message);
-        this.pending.delete(message.id);
-      }
+      // 只有「谁来兑现这个响应」这一条通道：本传输的在途请求按契约必被上层回写（无超时/拒绝通道）。
+      this.pending.settle(message.id, message);
       return;
     }
     this.broadcast(message);
@@ -148,7 +146,7 @@ export class HttpBridgeTransport implements Transport {
    */
   private handleRequest(message: RpcRequest): Promise<RpcMessage> {
     return new Promise((resolve) => {
-      this.pending.set(message.id, resolve);
+      this.pending.register(message.id, { resolve });
       this.callback?.(message);
     });
   }
