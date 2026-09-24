@@ -33,7 +33,14 @@ export class SqliteStorage implements StoragePort {
     );
   }
 
-  /** 保存会话事件（整会话覆盖写）。
+  /**
+   * 保存会话事件（整会话覆盖写，**单事务**）。
+   *
+   * 为什么必须在一个事务里（审计 §2.5）：原实现「`DELETE` + 逐条 `INSERT`」每条语句各自自动提交，
+   * 于是 ① 每次写入都付一次 fsync（实测 500 事件 8.1 ms）；② 中途失败/进程被杀会留下**半截会话**
+   * ——旧快照已删、新快照只写了一半，且无法分辨。改为 `BEGIN … COMMIT` 后两条都解决：
+   * 读方只可能看到「旧快照」或「新快照」，且整批写入只提交一次。
+   * 失败时**回滚**（fail-closed）：宁可保留旧快照，也不要半截历史。
    * @param sessionId 会话标识（分桶键）。
    * @param events 完整事件列表（先删旧桶再按序号逐条插入，seq 为数组下标）。
    
@@ -41,10 +48,21 @@ export class SqliteStorage implements StoragePort {
    */
   public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     const del = this.db.prepare('DELETE FROM events WHERE session_id = ?');
-    del.run(sessionId);
     const insert = this.db.prepare('INSERT INTO events (session_id, seq, data) VALUES (?, ?, ?)');
-    for (let index = 0; index < events.length; index += 1) {
-      insert.run(sessionId, index, JSON.stringify(events[index]));
+    this.db.exec('BEGIN');
+    try {
+      del.run(sessionId);
+      for (let index = 0; index < events.length; index += 1) {
+        insert.run(sessionId, index, JSON.stringify(events[index]));
+      }
+      this.db.exec('COMMIT');
+    } catch (error) {
+      try {
+        this.db.exec('ROLLBACK');
+      } catch {
+        /* 事务可能已被 SQLite 自动回滚 */
+      }
+      throw error;
     }
   }
 

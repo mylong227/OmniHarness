@@ -203,21 +203,50 @@
 - `ContextBreakdownEstimator.toolTokens` 增 WeakMap 缓存：原先每步对 33 个工具重新 `JSON.stringify`
   （该步实测 2.53–34.41 ms 的一部分）。
 
-### 2.4【待办·P1】repo-map 结果零记忆化 + 每步全文记账无前缀缓存
+### 2.4【第十一轮已修】repo-map 结果零记忆化 + 每步全文记账无前缀缓存
 
-- **证据（实测 + 实读）**：`core/stepContextBuilder.ts:86-92` 每步调 repo-map，而 `deriveQueryText`（同文件 `:217-229`）
-  在同一回合内返回**逐字相同**的查询；`context/repoMapContextEngine.ts:127-178` 无 (root,q,opts)→结果缓存
-  （`CorpusIndexCache` 只缓存**索引**）。
-- **修法**：① 单槽位 memo（键 = root+q+旋钮指纹）；② 消息级 token 数按内容字符串做前缀增量缓存，
-  把每步 O(全文) 降为 O(新增)（实测 170 KB/850 KB/2.55 MB 上下文的记账为 10 / 48 / 84 ms/步，全会话 O(n²)）。
-- 注：2.1 落地后 repo-map 查询本身已降到 3–6 ms，memo 的收益从「每步几十~几百 ms」变为「每步几 ms」，
-  优先级随之下降——但仍值做（第 2..N 步可归零）。
+- **证据（实读 + 实测）**：`core/stepContextBuilder.ts:86-92` 每步调 repo-map，而 `deriveQueryText`（同文件 `:217-229`）
+  在同一回合内返回**逐字相同**的查询；`context/repoMapContextEngine.ts` 无 (root,q,opts)→结果缓存
+  （`CorpusIndexCache` 只缓存**索引**）。上下文记账则每步对**全部**消息重新数 token（全会话 O(n²)）。
+- **① repo-map 单槽位 memo（已修）**：新增 `context/repoMapMemo.ts`，键 = `root + 查询 + 生效旋钮指纹`
+  （旋钮含 `layered/fileK/symK/rerank/prf/payloadPlan`，**env 覆盖后的值**参与键，故运行期改 env 不会命中旧键），
+  失效判据**另加语料实例比对**——`CorpusIndexCache` 每次重新索引都产出新实例，于是「缓存生命期严格不长于
+  语料生命期」，比按 TTL 猜更精确；`clear()` 同步 `invalidate()`。
+  **实测（本仓真实语料 1328 文件）**：索引已在、memo 未命中（换查询）**24.1 ms** → memo 命中 **0.557 ms/次**
+  （20 次共 11.1 ms）；索引本身由 `CorpusIndexCache` 负责（首次 ~3.1 s）。
+- **② 消息级计数缓存（已修，但**带实测门槛**）**：新增 `context/tokenCountCache.ts`（按内容字符串的**有界 LRU**，
+  默认 512 条），`TokenEstimator.estimate` 内部接上——所有既有调用点零改动受益。
+  实测（µs/次）：长文本命中恒定在 0.1–0.6 µs，而重算随长度线性到 1712 µs（256 KB）；
+  **逐步会话**（混合 80/300/1200/3000 字，40 步）**11.48 → 1.61 ms（7.13×）**。
+  **关键实测边界**：极短文本上「查表 + LRU 续命」可能**倒挂**（哈希 + 两次 Map 操作 > 直接逐码元计数），
+  故设 `MIN_CACHEABLE_CHARS = 512` 门槛：短于它的文本**不进缓存、直接计数**（既避倒挂，也不让短消息挤占缓存）。
+  该门槛与交叉点数据一并写在 `tokenEstimator.ts` 注释里（可复算）。
+- **回归**：`tests/unit/tokenCountCache.test.ts`（9 例：开/关口径逐字一致、命中计数、**逐步会话每条只算一次**、
+  LRU 上限、门槛不缓存短文本、`maxCachedTexts=0` 保留旧行为、原生估算器不介入、LRU 续命与逐出、clear）
+  - `tests/unit/repoMapContext.test.ts` 新增 4 例（同键命中同一文本、`clear` 后重算、**旋钮不同即不同键**、
+    早退路径不污染槽位）。
 
-### 2.5【待办·P2】事件日志与持久化、前端滚动帧
+### 2.5【第十一轮处理】事件日志与持久化、前端滚动帧
 
-`appendOnlyEventLog.all()` 每次浅拷贝全数组（每步 2–4 次调用）· 持久化每 200 ms 全量重写
-（JSONL 整文件覆盖；SQLite `DELETE` + 逐条 INSERT 无事务，实测 500 事件 8.1 ms）·
-`StreamView` 每滚动帧全量重算（无 `useMemo`/rAF，实测 ≈180 µs@1000、≈510 µs@3000 事件/帧）。
+逐条实测后分三类处理（**一条实测为可忽略，故不修**）：
+
+- **① `appendOnlyEventLog.all()` 每步 2–4 次浅拷贝 —— 实测可忽略，不修**：
+  实测 `all()` 浅拷贝 **4.5 / 9.2 / 17.9 µs**（1000 / 3000 / 10000 事件），按每步 4 次算
+  **0.018 / 0.037 / 0.072 ms/步**——比同轮的 repo-map memo（24.1 ms）小**三个数量级**。
+  改它需要把返回类型收成 `readonly` + 冻结共享快照（调用方可能就地排序/改写），**风险大于收益**，故明确不修并留档。
+- **② SQLite 写入无事务（已修）**：原 `save` 是 `DELETE` + 逐条 `INSERT`，每条语句自动提交。
+  **实测（本机，500 事件）**：逐条自动提交 **3360 ms** → 单事务 **16.9 ms（≈199×）**；
+  （审计原文记「500 事件 8.1 ms」，与本机实测差距很大，应是不同磁盘/口径——此处以**本次实测**为准并如实并列。）
+  更重要的是**原子性**：中途失败不再留下「旧快照已删、新快照只写一半」的半截会话，失败即 `ROLLBACK`（fail-closed）。
+  回归：`tests/unit/sqliteStorage.test.ts` 新增 2 例（**写入中途失败必须整体回滚**——用循环引用让
+  `JSON.stringify` 在第二条抛出；单事务批量写入在规模上够快）。
+- **③ 前端 `StreamView` 每滚动帧全量重算（已修）**：新增 `web/src/ui/models/StreamModelCache.ts`
+  （单击缓存，键 = `events 引用 + events.length + busy`），把「块划分 / 键 / 末条 user·assistant id /
+  工具调用 id 集合」从滚动帧路径移出。
+  **实测（本机）**：每帧重算 **147 / 151 / 380 µs**（1000 / 3000 / 10000 事件）→ 命中缓存 **0.1–0.3 µs**。
+  失效判据纳入 `length` 是为了兜住「就地 push 同一数组」的写法；残留边界（长度不变的就地内容修改）写在类注释里。
+  回归：`web/test/streamModelCache.test.mjs`（7 例：同输入返回同一对象且只算一次、引用变化重算、
+  **就地 push 也必须重算**、busy 变化重算、缓存与纯计算逐字段一致、末条 id/工具 id 口径、clear 后计数归零）。
 
 ### 2.6 已核对无问题
 

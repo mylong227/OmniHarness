@@ -61,6 +61,7 @@ import { CorpusIndexCache } from './corpusIndexCache.js';
 import { SemanticIndexCache } from './semanticIndexCache.js';
 import { HybridRanker, type RankedRepoMap } from './hybridRanker.js';
 import { FileReranker } from './fileReranker.js';
+import { RepoMapMemo } from './repoMapMemo.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
 export type { RepoMapContextOptions } from './recallKnobs.js';
@@ -82,6 +83,16 @@ const SEMANTIC_CANDIDATES = 40;
  */
 const DEFAULT_FILE_K = 20;
 
+/** 已解析（env + opts 合流后）的纯 BM25 路径旋钮：既用于检索，也构成 memo 键。 */
+interface ResolvedRepoMapKnobs {
+  readonly layered: boolean;
+  readonly fileK: number;
+  readonly symK: number;
+  readonly rerank: boolean;
+  readonly prf: boolean;
+  readonly plan: RepoMapPayloadPlan | null;
+}
+
 /**
  * repo-map 检索引擎——混合检索的编排门面（Facade）。
  *
@@ -102,6 +113,11 @@ export class RepoMapContextEngine {
   private readonly ranker = new HybridRanker();
   /** 第二段零依赖词法精排（无状态；内部词法视图按语料惰性缓存）。 */
   private readonly fileReranker = new FileReranker();
+  /**
+   * 纯 BM25 路径的**结果 memo**（审计 §2.4）：同一回合内查询逐字相同 ⇒ 第 2..N 步可归零。
+   * 失效判据是**语料实例**（重新索引即新实例），故不会读到陈旧 repo-map。
+   */
+  private readonly memo = new RepoMapMemo();
 
   /**
    * 解析载荷档位计划（三级：opts > env > 默认 tiered）。
@@ -139,28 +155,83 @@ export class RepoMapContextEngine {
     if (corpus === null) {
       return null;
     }
+    // 生效旋钮先解析成局部量（含 env 覆盖），再用它们构造 memo 键——
+    // 这样 env（OMNI_RERANK / OMNI_RM3 / OMNI_PAYLOAD）在运行期变化也不会命中旧键的缓存。
+    const knobs: ResolvedRepoMapKnobs = {
+      layered: opts.layered === true,
+      fileK: opts.fileK ?? DEFAULT_FILE_K,
+      symK: opts.symK ?? 24,
+      rerank: opts.rerank ?? process.env.OMNI_RERANK !== '0',
+      prf: opts.prf ?? process.env.OMNI_RM3 === '1',
+      plan: RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
+    };
+    const key = RepoMapContextEngine.memoKey(root, q, knobs);
+    const memoized = this.memo.lookup(key, corpus);
+    if (memoized.hit) {
+      return memoized.text;
+    }
+    const text = this.computeRepoMapContext(corpus, q, knobs);
+    this.memo.store(key, corpus, text);
+    return text;
+  }
+
+  /**
+   * 构造 memo 键：root + 查询原文 + **生效后**的旋钮指纹。
+   * @param root workspace 根。
+   * @param q 查询原文。
+   * @param knobs 已解析的旋钮（不得含 `undefined`）。
+   * @returns 稳定字符串键。
+   */
+  private static memoKey(root: string, q: string, knobs: ResolvedRepoMapKnobs): string {
+    // 用 NUL 分隔：查询文本可能含换行与任意符号，NUL 不会出现在查询里（与哈希链同一取舍）。
+    return [
+      root,
+      q,
+      String(knobs.layered),
+      String(knobs.fileK),
+      String(knobs.symK),
+      String(knobs.rerank),
+      String(knobs.prf),
+      knobs.plan === null
+        ? 'full'
+        : `plan:${String(knobs.plan.fullTier)}/${String(knobs.plan.nameTier)}`,
+    ].join('\u0000');
+  }
+
+  /**
+   * 计算（未命中 memo 时）repo-map 上下文；任意失败返回 `null`（fail-closed）。
+   * @param corpus 已索引语料。
+   * @param q 查询文本。
+   * @param knobs 已解析旋钮。
+   * @returns 上下文文本或 `null`。
+   */
+  private computeRepoMapContext(
+    corpus: IndexedCorpus,
+    q: string,
+    knobs: ResolvedRepoMapKnobs,
+  ): string | null {
     try {
       // 注：`query()` 的历史第 3 位置参数（候选数）已于 2026-09-16 移除——它从不被读取，
       // 本处原传的 `BM25_ONLY_CANDIDATES`(=20) 与 `query` 内部固定候选上限（文件 20 / 符号 60）一致，故删除不改变行为。
       const res = query(corpus, q, {
         graph: false,
         lsa: false,
-        layered: opts.layered === true,
-        fileK: opts.fileK ?? DEFAULT_FILE_K,
-        symK: opts.symK ?? 24,
+        layered: knobs.layered,
+        fileK: knobs.fileK,
+        symK: knobs.symK,
         // 第二段零依赖词法重排（打磨第二批 P1）：**2026-09-17 起默认开**。
         // 为什么此刻翻默认：本档与预算档是**耦合**的——精排的增益取决于候选池深度。
         //   · fileK=10（旧默认）：26.9%→33.2% 召回，CI95 [−0.45, 14.74]pp 下界跨 0 ⇒ 未过阈值；
         //   · fileK=14（新默认）：33 条对抗锚点查询命中率 51.5%→69.7%，CI95 [54.5, 84.8] 下界超基线 ⇒ 两关全过。
         // 即：此前不翻默认不是「重排器不行」，而是**预算太浅让重排施展不开**（rerank-ab 报告结论）。
         // 关闭：`opts.rerank = false` 或 env `OMNI_RERANK=0`（用 !== '0' 而非 === '1'：默认开、显式 0 关）。
-        rerank: opts.rerank ?? process.env.OMNI_RERANK !== '0',
+        rerank: knobs.rerank,
         // 伪相关反馈（PRF / RM3 风格查询扩展）：**默认关（opt-in）**——突破纯词法召回天花板。
         // 实测（`evals/recall-precision.mjs`，33 条锚点查询）fileK=5/10 档提升准确度 +0.9~4.3pp、
         // 召回 +2.8~7.9pp、命中率持平；仅 fileK=14 命中率略降。命中率未过两关阈值、K=14 略回退 ⇒ 不翻默认。
         // 与 P5 预算降档（fileK=5）天然互补：降档后 token 更紧，PRF 精度/召回增益最显著。
         // 开启：`opts.prf = true` 或 env `OMNI_RM3=1`；显式 `false` / `OMNI_RM3=0` 关闭（?? 非 ||）。
-        prf: opts.prf ?? process.env.OMNI_RM3 === '1',
+        prf: knobs.prf,
       });
       // 载荷投送（RepoMapPayload）：命中哪些文件由**排序**决定，注入多少字由**呈现**决定。
       // 梯度投送把注入 token 压降 60~70% 而**文件集合逐字不变**（构造性，33/33 实测）。
@@ -168,7 +239,7 @@ export class RepoMapContextEngine {
       return RepoMapContextEngine.withCoverageNote(
         RepoMapPayload.assemble(
           { corpus, files: res.files, symbols: res.symbols, query: q },
-          RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
+          knobs.plan,
         ),
         corpus,
       );
@@ -276,6 +347,7 @@ export class RepoMapContextEngine {
  * @returns 无返回值。
 */
   public clear(root?: string): void {
+    this.memo.invalidate();
     this.corpusCache.clear(root);
     this.semanticCache.clear(root);
     if (root !== undefined) {

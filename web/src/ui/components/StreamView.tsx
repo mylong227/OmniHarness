@@ -31,6 +31,7 @@ import {
 import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
+import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
 import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
@@ -113,8 +114,8 @@ interface EventCtx {
   onRegenerate?: () => void;
   /** 已被 assistant 事件收口的流式文本。 */
   finalizedStreamText: string;
-  /** 本回合出现过的工具调用 id。 */
-  toolCallIds: Set<string>;
+  /** 本回合出现过的工具调用 id（只读：仅用于 `has` 判定）。 */
+  toolCallIds: ReadonlySet<string>;
 }
 
 /**
@@ -302,6 +303,8 @@ function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: 
 
 /** 虚拟窗口计算器：无状态，全组件共用一个实例（避免每次渲染 new）。 */
 const STREAM_WINDOW = new StreamWindow();
+/** 事件流模型缓存：滚动帧复用同一批派生结果（键＝events 引用 + 长度 + busy）。 */
+const STREAM_MODEL_CACHE = new StreamModelCache();
 
 /**
  * 事件流组件：渲染事件块、流式占位与底部输入区，并锚定滚动到底部。
@@ -378,21 +381,11 @@ export function StreamView(props: StreamViewProps): ReactElement {
     if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
   };
 
-  // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口。
-  let lastUserId = '';
-  let lastAssistantId = '';
-  for (const e of events) {
-    if (e.type === 'user') lastUserId = e.id;
-    else if (e.type === 'assistant') lastAssistantId = e.id;
-  }
-  /** 本回合内出现过的工具调用 id：用于判断 tool_result 是否已被调用卡内联。 */
-  const toolCallIds = new Set<string>();
-  for (const e of events) {
-    if (e.type === 'tool_call') {
-      const p = e.payload || {};
-      toolCallIds.add((p.callId as string) || e.id);
-    }
-  }
+  // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口；工具调用 id 集合决定 tool_result 是否内联。
+  // 这三项 + 块划分都是 O(事件数)，而**滚动帧也会重渲染**（scrollTop 是 state）⇒ 交给单击缓存复用，
+  // 滚动时不再重算（审计 §2.5：每帧全量重算 ≈180 µs@1000 / ≈510 µs@3000 条）。
+  const streamModel = STREAM_MODEL_CACHE.get(events, busy === true);
+  const { blocks, keys, lastUserId, lastAssistantId, toolCallIds } = streamModel;
   const ctx: EventCtx = {
     toolResults,
     onEventClick,
@@ -405,8 +398,6 @@ export function StreamView(props: StreamViewProps): ReactElement {
     finalizedStreamText: finalizedStreamText ?? '',
     toolCallIds,
   };
-  const blocks = buildDisplayBlocks(events, busy);
-  const keys = blocks.map(blockKeyOf);
   const streaming = streamText ?? '';
   // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。
   const tailCount = liveInputs.length + (streaming !== '' ? 1 : 0);
