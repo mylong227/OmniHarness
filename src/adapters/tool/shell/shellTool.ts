@@ -190,6 +190,9 @@ export class ShellTool {
         timeoutMs,
         maxBufferBytes: this.maxBufferBytes,
         pty: usePty,
+        // 会话取消信号（审计 §1.7）：此前**完全没被消费** ⇒ 取消后命令仍跑到自己的超时
+        // （最长 10 分钟）且只杀直接子进程。透传后由执行器终止整棵树并回 `aborted`。
+        signal: context.signal,
       });
       return this.toResult(call.id, outcome, timeoutMs);
     } catch (error) {
@@ -244,18 +247,22 @@ export class ShellTool {
   }
 
   /**
-   * 把执行结果映射为工具结果：状态优先级 超时 > 截断 > 退出码。
+   * 把执行结果映射为工具结果：状态优先级 **取消 > 超时 > 截断 > 退出码**。
    *
+   * 取消排在最前：会话已取消时，即便子进程恰好以别的形态结束，对模型最有用的事实也是「这条命令被取消了」。
    * @param callId 工具调用 ID。
    * @param outcome 子进程执行结果。
    * @param timeoutMs 本次调用生效的超时（用于超时文案，避免报默认值误导）。
-   * @returns 工具结果（非零退出与超时都会保留已产生的输出）。
+   * @returns 工具结果（取消/非零退出/超时都会保留已产生的输出）。
    */
   private toResult(callId: string, outcome: ShellRunOutcome, timeoutMs: number): ToolResult {
     const output = this.composeOutput(
       this.decoder.decode(outcome.stdout),
       this.decoder.decode(outcome.stderr),
     );
+    if (outcome.aborted) {
+      return this.exitFailure(callId, '命令被会话取消（已终止整棵进程树）', output);
+    }
     if (outcome.timedOut) {
       return this.exitFailure(callId, `命令超时（${timeoutMs}ms）`, output);
     }

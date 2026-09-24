@@ -14,6 +14,7 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { ShellInvocation } from './shellInvocation.js';
+import { ProcessTreeKiller } from './processTreeKiller.js';
 
 /** 单次执行参数。 */
 export interface ShellRunOptions {
@@ -32,6 +33,12 @@ export interface ShellRunOptions {
    * 省略时按 `false` 处理（普通管道执行）。
    */
   readonly pty?: boolean;
+  /**
+   * 会话取消信号（审计 §1.7）：给出时，取消即**立即终止整棵进程树**并置 `aborted`。
+   * 此前该信号根本没被本执行器消费——取消后命令仍会跑到自己的超时（最长 10 分钟），
+   * 且只杀直接子进程。省略时行为与改造前逐字一致（零行为变更）。
+   */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /** 单次执行结果（不抛异常，全部状态显式回传）。 */
@@ -48,12 +55,30 @@ export interface ShellRunOutcome {
   readonly timedOut: boolean;
   /** 输出是否超限被截断（截断同时会终止子进程）。 */
   readonly overflowed: boolean;
+  /** 是否因会话取消信号被终止（与超时区分，便于上层给出不同文案）。 */
+  readonly aborted: boolean;
 }
 
 /** 输出累积器。 */
 interface Collector {
   chunks: Buffer[];
   bytes: number;
+}
+
+/** 一次执行的内部状态（`run` 与其终止装配共享，避免把 `run` 撑成超长函数）。 */
+interface RunState {
+  readonly out: Collector;
+  readonly err: Collector;
+  timedOut: boolean;
+  overflowed: boolean;
+  aborted: boolean;
+  settled: boolean;
+}
+
+/** 终止装配的句柄：`clear()` 撤销定时器与取消订阅，`terminate()` 终止整棵树。 */
+interface TerminationHandle {
+  clear(): void;
+  terminate(): void;
 }
 
 /**
@@ -64,7 +89,7 @@ export class ShellProcessRunner {
    * 执行命令。
    *
    * @param command 命令文本（调用方已完成校验与策略裁决）。
-   * @param options 执行参数（cwd / env / 超时 / 缓冲上限）。
+   * @param options 执行参数（cwd / env / 超时 / 缓冲上限 / 可选会话取消信号）。
    * @returns 执行结果；`spawn` 自身失败（如 shell 不存在）时 reject。
    */
   public run(command: string, options: ShellRunOptions): Promise<ShellRunOutcome> {
@@ -77,66 +102,111 @@ export class ShellProcessRunner {
           env: options.env,
           windowsHide: true,
           stdio: ['ignore', 'pipe', 'pipe'],
+          // POSIX 上让 shell 成为**自己的进程组组长**，终止时才能用 `kill(-pid)` 连带整棵树
+          // （非 detached 的子进程继承父进程组，负 pid 会 ESRCH ⇒ 只能杀到 shell 本身）。
+          // Windows 不用这种方式：那里的树终止交给 `taskkill /T`（见 ProcessTreeKiller）。
+          detached: process.platform !== 'win32',
         });
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
         return;
       }
 
-      const out: Collector = { chunks: [], bytes: 0 };
-      const err: Collector = { chunks: [], bytes: 0 };
-      let timedOut = false;
-      let overflowed = false;
-      let settled = false;
+      const state: RunState = {
+        out: { chunks: [], bytes: 0 },
+        err: { chunks: [], bytes: 0 },
+        timedOut: false,
+        overflowed: false,
+        aborted: false,
+        settled: false,
+      };
+      const handle = this.armTermination(child, options, state);
 
       const finish = (exitCode: number | null, signal: string | null): void => {
-        if (settled) {
+        if (state.settled) {
           return;
         }
-        settled = true;
-        clearTimeout(timer);
+        state.settled = true;
+        handle.clear();
         resolve({
-          stdout: Buffer.concat(out.chunks),
-          stderr: Buffer.concat(err.chunks),
+          stdout: Buffer.concat(state.out.chunks),
+          stderr: Buffer.concat(state.err.chunks),
           exitCode,
           signal,
-          timedOut,
-          overflowed,
+          timedOut: state.timedOut,
+          overflowed: state.overflowed,
+          aborted: state.aborted,
         });
       };
 
-      const terminate = (): void => {
-        if (!settled) {
-          child.kill('SIGKILL');
-        }
-      };
-
-      const timer = setTimeout(() => {
-        timedOut = true;
-        terminate();
-      }, options.timeoutMs);
-
-      this.pipe(child.stdout, out, options.maxBufferBytes, () => {
-        overflowed = true;
-        terminate();
-      });
-      this.pipe(child.stderr, err, options.maxBufferBytes, () => {
-        overflowed = true;
-        terminate();
-      });
-
       child.on('error', (error: Error) => {
-        if (settled) {
+        if (state.settled) {
           return;
         }
-        settled = true;
-        clearTimeout(timer);
+        state.settled = true;
+        handle.clear();
         reject(error);
       });
       child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
         finish(code, signal);
       });
     });
+  }
+
+  /**
+   * 装配三条终止路径（**超时 / 输出超限 / 会话取消**）与两路输出收集。
+   *
+   * 三条路径都调用同一个 `terminate()`：终止**整棵进程树**（见 {@link ProcessTreeKiller}），
+   * 而不是只杀 shell 本身——否则孙进程会继续跑并**持有 stdout 管道**，让 `close` 事件永不触发。
+   * @param child 已 spawn 的子进程。
+   * @param options 执行参数（超时 / 缓冲上限 / 可选取消信号）。
+   * @param state 本次执行的共享状态（终止原因写在其中）。
+   * @returns 句柄：`clear()` 撤销定时器与取消订阅，`terminate()` 主动终止。
+   */
+  private armTermination(
+    child: ChildProcess,
+    options: ShellRunOptions,
+    state: RunState,
+  ): TerminationHandle {
+    const terminate = (): void => {
+      if (!state.settled) {
+        ProcessTreeKiller.kill(child);
+      }
+    };
+    const onAbort = (): void => {
+      state.aborted = true;
+      terminate();
+    };
+    const timer = setTimeout(() => {
+      state.timedOut = true;
+      terminate();
+    }, options.timeoutMs);
+
+    if (options.signal !== undefined) {
+      if (options.signal.aborted) {
+        // 已取消：仍然 spawn 了（无法在此处提前返回而不改契约），立即终止，避免白留一棵树。
+        onAbort();
+      } else {
+        options.signal.addEventListener('abort', onAbort, { once: true });
+      }
+    }
+
+    this.pipe(child.stdout, state.out, options.maxBufferBytes, () => {
+      state.overflowed = true;
+      terminate();
+    });
+    this.pipe(child.stderr, state.err, options.maxBufferBytes, () => {
+      state.overflowed = true;
+      terminate();
+    });
+
+    return {
+      clear: (): void => {
+        clearTimeout(timer);
+        options.signal?.removeEventListener('abort', onAbort);
+      },
+      terminate,
+    };
   }
 
   /**

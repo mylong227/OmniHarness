@@ -135,6 +135,20 @@ export interface OmniHarnessConfig {
   readonly spillMaxInlineBytes?: number | undefined;
   /** 外溢后保留的预览字节数（默认 2048）。 */
   readonly spillPreviewBytes?: number | undefined;
+  /**
+   * 文件外溢**产物保留上限**（个，默认 512；`0` = 不回收）。
+   *
+   * 审计 §1.7「spill 产物无回收」的收口：此前 `.omniharness/spill` 只写不删、无界增长。
+   * 超限按 mtime 删最旧（`spill_read` 的现实用法是同回合回读，最旧的先淘汰）。
+   */
+  readonly spillMaxFiles?: number | undefined;
+  /**
+   * 燧-4 涡环包**进程内保留上限**（个，默认 256；`0` = 不淘汰）。
+   *
+   * 审计 §1.7「涡环包无回收」的收口：`rings` 表此前只增不减 ⇒ 长跑会话内存单调增长。
+   * 超限按 LRU 淘汰（`read` 命中即续命）。
+   */
+  readonly spillMaxRings?: number | undefined;
   readonly workers?: WorkerRegistry | undefined;
   /** 子智能体最大派生深度（默认 2：允许 1 层子智能体，depth >= 该值即拒绝）。 */
   readonly subagentMaxDepth?: number | undefined;
