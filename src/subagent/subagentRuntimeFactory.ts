@@ -1,4 +1,4 @@
-﻿import { mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ToolPort } from '../ports/tool/tool.js';
@@ -113,6 +113,7 @@ export class SubagentRuntimeFactory {
       return new JsonlStorage(dir);
     }
     if (storage instanceof SqliteStorage) {
+      // 子代自己的事件库文件名（与会话存储的 `omniharness.db` 不同名，故不并到存储工厂的缺省常量里）。
       return new SqliteStorage(join(dir, 'events.db'));
     }
     return storage;

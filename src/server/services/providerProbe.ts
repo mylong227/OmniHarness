@@ -4,9 +4,7 @@
  * 返回实测连通状态与真实模型清单——「有 Key 支持接多少显示多少」的数据来源。
  */
 import type { ModelPort } from '../../ports/model/model.js';
-import { OpenAiCompatibleModel } from '../../adapters/model/openAiCompatibleModel.js';
-import { AnthropicModel } from '../../adapters/model/anthropicModel.js';
-import { ResponsesModel } from '../../adapters/model/responsesModel.js';
+import { modelAdapterRegistry } from '../../adapters/model/modelAdapterRegistry.js';
 import { ConfigError } from '../../config/configError.js';
 import type { ProviderPreset } from './providerPresets.js';
 import { assertNotSsrf, ssrfOptionsFor } from '../../security/ssrfGuard.js';
@@ -151,25 +149,16 @@ export function buildModelForProvider(
   if (preset.needsKey && (apiKey === undefined || apiKey.length === 0)) {
     throw new ConfigError(`厂商 ${preset.label} 未配置 API Key，无法启用（fail-closed）`);
   }
-  if (preset.adapter === 'anthropic') {
-    return new AnthropicModel({
-      baseUrl: preset.baseUrl,
-      apiKey: apiKey ?? '',
-      model: pickedModel,
-    });
+  // 适配器名 → 构造器走一张表（`adapters/model/modelAdapterRegistry.ts`）：此前本函数自带
+  // `if (preset.adapter === 'anthropic') …` 分支，与 cliBuildConfig.buildModel / configBuilder
+  // 各写一遍（审计 §3.4）。此处只需把厂商预设端点与 Key 交给表。
+  const spec = modelAdapterRegistry.get(preset.adapter);
+  if (spec === undefined) {
+    throw new ConfigError(
+      `厂商 ${preset.label} 的 adapter "${preset.adapter}" 未登记于模型适配器注册表`,
+    );
   }
-  if (preset.adapter === 'responses') {
-    return new ResponsesModel({
-      baseUrl: preset.baseUrl,
-      apiKey: apiKey ?? '',
-      model: pickedModel,
-    });
-  }
-  return new OpenAiCompatibleModel({
-    baseUrl: preset.baseUrl,
-    apiKey: apiKey ?? '',
-    model: pickedModel,
-  });
+  return spec.create({ baseUrl: preset.baseUrl, apiKey: apiKey ?? '', model: pickedModel });
 }
 
 const PROBE_TIMEOUT_MS = 10_000;

@@ -1715,3 +1715,54 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
 - **推送状态**：`mine`（ghproxy → `mylong227/OmniHarness`）已推送全部提交；
   **`origin`（`omniharness/omniharness`）推送被拒**：`remote: Permission to omniharness/omniharness.git
 denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题），需仓库管理员授权或改用 fork + PR。
+
+### 20.16 ✅ 已结项：适配器名与存储后端名各收成一张表（用户指定，结项审计 §3.4 剩余两项）
+
+- **用户指令**：把 §3.4 剩余两项收掉——「适配器名→构造器一张表」与「存储后端两套字符串工厂」。
+- **① 适配器名→构造器一张表**：新增 `adapters/model/modelAdapterRegistry.ts`，成为全仓**唯一**允许
+  `new` 模型适配器的地方（`cliBuildConfig.buildModel` 4 分支 / `configBuilder.buildRouterAdapter` 3 分支 /
+  `providerProbe.buildModelForProvider` 2 分支 → 全部退化为查表）。语义按调用方分层保留：**路由条目与厂商预设
+  对未知 id 抛错**（配置错误要响亮），**CLI 未知 id 回落 mock**（枚举已把关）。兜底端点/模型/env 名仍走
+  `defaults/endpoints.json`（§20.12 的成果），表只持有构造器与引用。
+- **② 存储后端字符串工厂**：新增 `cli/storageFactory.ts` 收走「后端名 → 实现 + 缺省落盘路径」
+  （`DEFAULT_SQLITE_FILE` 成命名常量、sqlite 懒加载保留），`cliBuildConfig.buildStorage` 退化为一次转发；
+  与既有 `kvStoreFactory` 同形（**两个 family 各一个工厂**）。刻意**未**并子代理的 `events.db`：
+  `subagent/` 反向依赖 `cli/` 不合分层，且该文件名全仓仅一处（无重复可收）。
+- **本轮发现的真缺陷（已修）**：`configError.ENUM_VALUES.modelAdapter` **漏 `llamacpp`**——`FileConfig` 类型与
+  `cliEnums.MODEL_ADAPTERS` 都早已包含它 ⇒ 配置文件里写 `"modelAdapter": "llamacpp"` 被判非法
+  （与 `approval` 的 `'plan'` 同型：声明支持、校验拒绝）。三方一致性现由测试机械核对。
+- **机械防线**：`tests/unit/adapterFactories.test.ts` 6 例，其中两条守卫——模型适配器的 `new` 只允许在注册表内；
+  `storageAdapter === '<后端名>'` 的字符串分支只允许在存储工厂内。
+- **如实登记的残留**：新增适配器仍需改 **4 处声明**（`CliArgs.modelAdapter`、`FileConfig.modelAdapter`、
+  `cliEnums.MODEL_ADAPTERS`、`configError.ENUM_VALUES.modelAdapter`）+ daemon 的 `RoutineModelAdapter`；构造已单点、
+  声明仍重复，一致性靠测试①；要让声明也从表推导会失去 `satisfies` 的编译期防漂移，属可选后续（见审计 §3.4 末条）。
+- **可证伪验证**：`npm test` **2099 例 / 2094 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**（本轮新增 6 例）；
+  行为与文案逐字保留（护栏/兜底/报错口径不变）；`check --strict`（571 文件零违规）、`arch:gate --strict`、
+  `audit:config-wiring`（571 文件）、`api:check`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全通过。
+
+### 20.17 ✅ 已结项：CLI 帮助数据化 + 适配器声明收成单一来源（用户指定「帮助也该按配置实现」）
+
+- **用户指令**：`printUsage()` 那份 80 余行帮助数组「也应自觉按配置的方式实现，而不是在代码中硬写」。
+- **改法（帮助）**：文案移入 `defaults/cliHelp.json`，`src/cli/cliHelp.ts`（`CliHelp`）负责校验 + 渲染。
+  关键在于**枚举取值不用抄**：数据里写 `{{storageAdapters}}` 等占位符，渲染时从 `HELP_ENUM_SOURCES`
+  （值全部来自 `cliEnums`）派生；引用未登记的名字**构造期即抛错**。排版口径（描述列 36 / 过长留 3 空格）
+  由 `lineOf` 统一保证。
+- **顺手修掉一处真漂移**：帮助写 `--storage-adapter memory|jsonl`，而解析期白名单早已是
+  `memory|jsonl|sqlite` ⇒ 用户照帮助敲下去选不到 sqlite。修后该行由白名单派生，**不可能再漂移**。
+  逐行比对（`git show HEAD:…` 取旧数组 vs 新渲染）：73 行对 73 行，除该行外文案逐字不变；
+  另 15 行因旧数组手工对齐不一致，描述起始列统一到第 36 列（纯空格位移）。
+- **改法（适配器声明）**：新增 `ports/model/modelAdapterId.ts` 的 `MODEL_ADAPTER_IDS` + `ModelAdapterId`，
+  成为唯一名字来源；注册表表体改用 `Record<ModelAdapterId, …>` ⇒ **漏一行即编译报错**。
+  原 5 处重复声明（`CliArgs` / `FileConfig` / `cliEnums` / `configError.ENUM_VALUES` / daemon
+  `RoutineModelAdapter`）与厂商预设置子集（`ProviderAdapterId`）全部改为引用它。
+- **机械防线（本轮的重点产物）**：`tests/unit/cliHelp.test.ts` 6 例——枚举取值必须派生、排版描述列恒 36、
+  占位符 fail-closed、**帮助不得宣传不存在的旗标**（幽灵文档；`--config`/`--profile`/`--auth-required`
+  三个 CLI 自解析旗标入例外清单，且例外本身腐化也会失败）、**新增旗标必须文档化**（存量 15 个未文档化
+  旗标冻结，只增即红）、渲染确定性。**测试自己也修了两轮**：首版把「类别关键词/短旗标」误判为幽灵，
+  又漏看 `-p, --print` 这种「短旗标与长旗标同条」的写法——守卫需被反向用例校准。
+- **测试环境污染（已修，留档）**：`adapterFactories.test.ts` 初版用相对路径建 sqlite 后端，跑完在**仓库根**
+  留下 `omniharness.db` 与 `custom.db`（`git add -A` 会直接提交它们）。现改为一律落 `mkdtempSync` 临时目录、
+  句柄 `close()` 后再清理（Windows 上不 close 会 EBUSY）。
+- **可证伪验证**：`npm test` **2105 例 / 2100 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**（本轮 +6 例）；
+  `check --strict`（573 文件零违规）、`arch:gate --strict`、`audit:config-wiring`（573 文件、七条不变量）、
+  `api:check`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全通过。

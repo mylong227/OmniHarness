@@ -6,15 +6,12 @@ import { BudgetedModel } from '../adapters/model/budgetedModel.js';
 import { CircuitBreakingModel } from '../adapters/model/circuitBreakingModel.js';
 import { CircuitBreaker } from '../util/circuitBreaker.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
-import { MockModel } from '../adapters/model/mockModel.js';
+import { modelAdapterRegistry } from '../adapters/model/modelAdapterRegistry.js';
 import {
   ModelRouter,
   type ModelRouterOptions,
   type RouterStrategy,
 } from '../adapters/model/modelRouter.js';
-import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
-import { AnthropicModel } from '../adapters/model/anthropicModel.js';
-import { ResponsesModel } from '../adapters/model/responsesModel.js';
 import { ConfigError } from './configError.js';
 import type { ModelRouterConfig } from './configFile.js';
 import { endpointDefaults } from '../util/endpointDefaults.js';
@@ -149,35 +146,40 @@ export class ConfigBuilder {
   }
 
   /**
-   * 按 adapter 类型名构造底层模型适配器（复用既有适配器类，凭据取环境变量）。
+   * 按 adapter 类型名构造底层模型适配器（**走一张表**：`adapters/model/modelAdapterRegistry.ts`；
+   * 凭据取环境变量，fail-closed）。
    *
-   * 端点与凭据来源取自 `defaults/endpoints.json`（用户指令：地址不硬编码）——此前这些 URL 在本方法
-   * 与 `cliBuildConfig.buildModel` 里**各写了一遍**，改一处漏一处；现在只有数据文件一份。
+   * 端点的兜底值来自 `defaults/endpoints.json`（用户指令：地址不硬编码）。此前本方法自带一份
+   * `if (type === 'openai') …` 分支，与 `cliBuildConfig.buildModel`、
+   * `providerProbe.buildModelForProvider` 各写一遍（审计 §3.4「改一处漏一处」）——
+   * 现构造只在注册表里，本方法只做「查表 + 取兜底 + 组装」。
    * @param entry modelRouter 的条目（含模型名与可选适配器类型）。
    * @returns 对应的模型端口。
    * @throws ConfigError 适配器类型未知，或必需的环境变量缺失时抛出。
    */
   public buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
     const type = entry.adapter ?? 'mock';
-    if (type === 'openai' || type === 'anthropic' || type === 'responses') {
-      const defaults = endpointDefaults.resolveAdapter(type);
-      if (defaults === undefined) {
-        throw new ConfigError(`modelRouter 的 adapter "${type}" 未登记于 defaults/endpoints.json`);
-      }
-      if (defaults.apiKey === undefined) {
-        throw new ConfigError(
-          `modelRouter ${type} 条目需要环境变量 ${defaults.apiKeyEnv ?? '(未声明)'}`,
-        );
-      }
-      const options = { baseUrl: defaults.baseUrl, apiKey: defaults.apiKey, model: entry.model };
-      if (type === 'openai') return new OpenAiCompatibleModel(options);
-      if (type === 'anthropic') return new AnthropicModel(options);
-      return new ResponsesModel(options);
-    }
-    if (type !== 'mock') {
+    const spec = modelAdapterRegistry.get(type);
+    if (spec === undefined) {
       throw new ConfigError(`modelRouter 未知 adapter 类型 "${type}"`);
     }
-    return new MockModel();
+    if (spec.defaultsId === undefined) {
+      return spec.create({ baseUrl: '', model: entry.model }); // mock：无端点、无凭据
+    }
+    const defaults = endpointDefaults.resolveAdapter(spec.defaultsId);
+    if (defaults === undefined) {
+      throw new ConfigError(`modelRouter 的 adapter "${type}" 未登记于 defaults/endpoints.json`);
+    }
+    if (defaults.requiresApiKey && defaults.apiKey === undefined) {
+      throw new ConfigError(
+        `modelRouter ${type} 条目需要环境变量 ${defaults.apiKeyEnv ?? '(未声明)'}`,
+      );
+    }
+    return spec.create({
+      baseUrl: defaults.baseUrl,
+      model: entry.model,
+      ...(defaults.apiKey === undefined ? {} : { apiKey: defaults.apiKey }),
+    });
   }
 
   /**

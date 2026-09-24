@@ -38,14 +38,8 @@ import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpGateway } from '../mcp/mcpGateway.js';
 import { formatBridgeResults } from '../mcp/mcpServerCommand.js';
-import { MockModel } from '../adapters/model/mockModel.js';
-import { OpenAiCompatibleModel } from '../adapters/model/openAiCompatibleModel.js';
-import { AnthropicModel } from '../adapters/model/anthropicModel.js';
-import { ResponsesModel } from '../adapters/model/responsesModel.js';
-import { LlamaCppModel } from '../adapters/model/llamaCppModel.js';
-import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
-import { JsonlStorage } from '../adapters/storage/jsonlStorage.js';
-import type { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
+import { modelAdapterRegistry, MOCK_ADAPTER_ID } from '../adapters/model/modelAdapterRegistry.js';
+import { storageFactory, type StorageHandle } from './storageFactory.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { DenyApproval } from '../adapters/approval/denyApproval.js';
 import { RuleApproval } from '../adapters/approval/ruleApproval.js';
@@ -481,76 +475,49 @@ export class CliBuildConfig {
   }
 
   /**
-   * 构建模型端口。
+   * 构建模型端口（**适配器名 → 构造器走一张表**：`adapters/model/modelAdapterRegistry.ts`）。
    *
-   * 优先级（与历史逐字一致，仅把字面量换成数据）：CLI / 配置文件显式值 > 适配器的环境变量 > 数据文件兜底。
+   * 此前这里是 4 个 `if (args.modelAdapter === ...)` 分支，而 `configBuilder.buildRouterAdapter` 与
+   * `providerProbe.buildModelForProvider` 各写了一遍同型分支——加适配器要改三处（审计 §3.4）。
+   * 现本方法只负责「把 CLI 参数与兜底数据合成为一次构造请求」：
+   *
+   * 优先级（与历史逐字一致）：CLI / 配置文件显式值 > 适配器的环境变量 > `defaults/endpoints.json` 兜底。
    * @param args 解析后的 CLI 参数（读取 modelAdapter / apiKey / baseUrl / model 等）。
-   * @returns 按 modelAdapter 选择的模型端口；缺省适配器回退 MockModel，密钥缺失时抛错。
+   * @returns 按 modelAdapter 选择的模型端口；未知适配器（枚举已把关）与 mock 都返回演示模型，
+   *   必需 Key 缺失时抛错（fail-closed）。
    */
-  protected buildModel(
-    args: CliArgs,
-  ): MockModel | OpenAiCompatibleModel | AnthropicModel | ResponsesModel | LlamaCppModel {
-    if (args.modelAdapter === 'openai') {
-      const defaults = this.adapterDefaultsOf('openai');
-      const apiKey = args.apiKey ?? defaults.apiKey;
-      const baseUrl = args.baseUrl ?? defaults.baseUrl;
-      // 模型选择：CLI/配置文件显式 > 环境变量 > openai 适配器兜底。绝不能用
-      // `args.model === CliDefaults.model` 字符串比较——配置文件里写
-      // "deepseek-v4-flash" 恰好等于默认占位时会被误判为「没显式传」并被
-      // 覆写成兜底模型，发到 deepseek 端点 → HTTP 400
-      // （supported: deepseek-v4-pro/flash/vision-exp, you passed gpt-4o-mini）。
-      const model = args.model ?? defaults.model;
-      if (apiKey === undefined) {
-        throw new Error(`openai 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
-      }
-      return new OpenAiCompatibleModel({ baseUrl, apiKey, model });
+  protected buildModel(args: CliArgs): ModelPort {
+    // 未知适配器回落 mock：适配器名已由 CLI 枚举把关，此分支只作防御（不静默连到错误端点）。
+    const spec =
+      modelAdapterRegistry.get(args.modelAdapter) ?? modelAdapterRegistry.get(MOCK_ADAPTER_ID);
+    if (spec === undefined) {
+      // 注册表恒含 mock（见 modelAdapterRegistry 的表）；走到这里说明表被改坏 ⇒ fail-closed。
+      throw new Error('模型适配器注册表缺少 mock 适配器');
     }
-    if (args.modelAdapter === 'anthropic') {
-      const defaults = this.adapterDefaultsOf('anthropic');
-      const apiKey = args.apiKey ?? defaults.apiKey;
-      const baseUrl = args.baseUrl ?? defaults.baseUrl;
-      const model = args.model ?? defaults.model;
-      if (apiKey === undefined) {
-        throw new Error(`anthropic 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
-      }
-      return new AnthropicModel({ baseUrl, apiKey, model });
+    if (spec.defaultsId === undefined) {
+      return spec.create({ baseUrl: '', model: args.model }); // mock：无端点、无凭据
     }
-    if (args.modelAdapter === 'responses') {
-      const defaults = this.adapterDefaultsOf('responses');
-      const apiKey = args.apiKey ?? defaults.apiKey;
-      const baseUrl = args.baseUrl ?? defaults.baseUrl;
-      const model = args.model ?? defaults.model;
-      if (apiKey === undefined) {
-        throw new Error(`responses 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
-      }
-      return new ResponsesModel({ baseUrl, apiKey, model });
+    const defaults = this.adapterDefaultsOf(spec.defaultsId);
+    const apiKey = args.apiKey ?? defaults.apiKey;
+    // 模型选择：CLI/配置文件显式 > 环境变量 > 适配器兜底。绝不能用
+    // `args.model === CliDefaults.model` 字符串比较——配置文件里写
+    // "deepseek-v4-flash" 恰好等于默认占位时会被误判为「没显式传」并被
+    // 覆写成兜底模型，发到 deepseek 端点 → HTTP 400
+    // （supported: deepseek-v4-pro/flash/vision-exp, you passed gpt-4o-mini）。
+    const model = args.model ?? defaults.model;
+    if (defaults.requiresApiKey && apiKey === undefined) {
+      throw new Error(`${spec.id} 适配器需要 --api-key 或环境变量 ${defaults.apiKeyEnv ?? ''}`);
     }
-    if (args.modelAdapter === 'llamacpp') {
-      const defaults = this.adapterDefaultsOf('llamacpp');
-      const baseUrl = args.baseUrl ?? defaults.baseUrl;
-      const model = args.model ?? defaults.model;
-      return new LlamaCppModel({ baseUrl, model, apiKey: args.apiKey });
-    }
-    return new MockModel();
+    return spec.create({ baseUrl: args.baseUrl ?? defaults.baseUrl, model, apiKey });
   }
 
   /**
-   * 构建存储端口。
+   * 构建存储端口（后端名 → 实现 + 缺省落盘路径的**单一实现来源**：`cli/storageFactory.ts`）。
    * @param args 解析后的 CLI 参数（读取 storageAdapter / storageDir）。
    * @returns 按适配器选择的存储端口（jsonl / sqlite；sqlite 懒加载），缺省为内存存储。
    */
-  protected async buildStorage(
-    args: CliArgs,
-  ): Promise<MemoryStorage | JsonlStorage | SqliteStorage> {
-    if (args.storageAdapter === 'jsonl') {
-      return new JsonlStorage(args.storageDir ?? process.cwd());
-    }
-    if (args.storageAdapter === 'sqlite') {
-      // 懒加载：同 buildKv，避免 node:sqlite 拖垮旧 Node 的非 sqlite 路径
-      const { SqliteStorage } = await import('../adapters/storage/sqliteStorage.js');
-      return new SqliteStorage(args.storageDir ?? 'omniharness.db');
-    }
-    return new MemoryStorage();
+  protected async buildStorage(args: CliArgs): Promise<StorageHandle> {
+    return storageFactory.createFor(args.storageAdapter, args.storageDir);
   }
 
   /**

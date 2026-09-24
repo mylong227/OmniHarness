@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { profileLoader } from './profileLoader.js';
+import type { ProviderAdapterId, ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { SkillEntry } from '../skill/skill.js';
 import {
   ConfigError,
@@ -77,7 +78,7 @@ export interface ProviderPresetConfig {
   /** 展示名（UI 厂商卡片标题）。 */
   readonly label: string;
   /** 底层适配器类型（缺省用于模型构造；对应 `FileConfig.modelAdapter`）。 */
-  readonly adapter: 'openai' | 'anthropic' | 'responses';
+  readonly adapter: ProviderAdapterId;
   /**
    * CLI `--model-adapter` 取值中，哪些应解析到本厂商（缺省 `[adapter]`）。
    * 例：OpenAI 同时是 `responses` 通道的预设；Ollama 的 `adapter` 是 `openai`（兼容层），
@@ -104,7 +105,7 @@ export interface ProviderPresetConfig {
 /** 配置文件内容（omniharness.json，端口选择）。 */
 export interface FileConfig {
   readonly mcpServers?: readonly FileMcpServer[];
-  readonly modelAdapter?: 'mock' | 'openai' | 'anthropic' | 'responses' | 'llamacpp';
+  readonly modelAdapter?: ModelAdapterId;
   readonly baseUrl?: string;
   readonly apiKey?: string;
   readonly model?: string;
