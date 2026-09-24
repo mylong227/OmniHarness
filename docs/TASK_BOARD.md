@@ -1765,4 +1765,11 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   句柄 `close()` 后再清理（Windows 上不 close 会 EBUSY）。
 - **可证伪验证**：`npm test` **2105 例 / 2100 过 / 1 失败（本机 Chrome，与基线同一条）/ 4 skip**（本轮 +6 例）；
   `check --strict`（573 文件零违规）、`arch:gate --strict`、`audit:config-wiring`（573 文件、七条不变量）、
-  `api:check`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全通过。
+  `api:check`、`lint`（0 告警）、`format:check`、`typecheck`（含 web）全通过。提交 `fd74191` 亦已通过
+  pre-commit 钩子的同一组门禁（钩子独立复跑）。
+- **推送状态**：`fd74191` 已推送到 `mine`（ghproxy → `mylong227/OmniHarness`），远端 head 核验一致；
+  `origin`（`omniharness/omniharness`）仍推不上去——本次报 `Could not resolve host: github.com`
+  （本环境只通 ghproxy），与 §20.15 记录的 403（账号无写权限）叠加，需管理员授权或 fork + PR。
+- **本轮的环境事故（如实留档）**：收尾清理时用 `Remove-Item *.log` 通配删除，误删了**预先存在**的
+  `recall-precision-progress.log`（124 字节，gitignored、**从未入库**，故不可恢复）。它与本仓代码无关，
+  但「清理只删自己创建的文件」这条纪律要记牢——共享工作区里通配符删除不安全。
