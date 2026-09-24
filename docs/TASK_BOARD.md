@@ -1770,6 +1770,18 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 - **推送状态**：`fd74191` 已推送到 `mine`（ghproxy → `mylong227/OmniHarness`），远端 head 核验一致；
   `origin`（`omniharness/omniharness`）仍推不上去——本次报 `Could not resolve host: github.com`
   （本环境只通 ghproxy），与 §20.15 记录的 403（账号无写权限）叠加，需管理员授权或 fork + PR。
+- **推送通道排查（2026-09-24 补齐，已定因）**：`~/.gitconfig` 里有两条 URL 重写规则——
+  `url."https://ghproxy.net/https://github.com/".insteadOf` 让**拉取**走镜像，而
+  `url."https://github.com/".pushInsteadOf` 把**推送**改回 `github.com` **直连**（本机直连不通）。
+  即此前「直连报连接重置 / 解析失败」的真实原因不是账号问题，而是这条 push 规则把推送踢出了镜像。
+  **已修**：`git remote set-url --push origin https://ghproxy.net/https://github.com/omniharness/omniharness.git`
+  （只改本仓，未动全局配置）。
+  **改后实测（`git push --dry-run origin main`）**：请求已到达 GitHub 并由其本人回包
+  `remote: Permission to omniharness/omniharness.git denied to mylong227.` + `403`
+  ⇒ **网络这一层已通，唯一剩余拦路石是权限**（`mylong227` 对 `omniharness/omniharness` 无 Write）。
+  待管理员在 `omniharness/omniharness → Settings → Collaborators and teams`（或
+  `github.com/orgs/omniharness/people`）授予 **Write** 后，`git push origin main` 即可直接生效
+  （实测该仓 `main` **无分支保护**，不需要走 PR）。仓库为**公开**仓库 ⇒ 零授权的替代路径是 fork + PR。
 - **本轮的环境事故（如实留档）**：收尾清理时用 `Remove-Item *.log` 通配删除，误删了**预先存在**的
   `recall-precision-progress.log`（124 字节，gitignored、**从未入库**，故不可恢复）。它与本仓代码无关，
   但「清理只删自己创建的文件」这条纪律要记牢——共享工作区里通配符删除不安全。
