@@ -21,6 +21,15 @@ export interface EnvInstallStep {
   readonly label: string;
   /** `uv pip install` 的参数列表（如 `['-e', '.']`、`['-r', 'requirements/tests.txt']`）。 */
   readonly args: readonly string[];
+  /**
+   * 该步**必须成功**（失败即判定为环境阻塞）。
+   *
+   * 只有「仓库本体 `-e .`」是 required：它在补丁应用**之前**执行，因此失败必然是环境/工具链问题
+   * （例如 Windows 上没有 MSVC ⇒ astropy/matplotlib/scikit-learn 的 C 扩展编译不了），
+   * 与「模型没修好」无关。其余步骤（可选 extras、requirements 文件、兜底 pytest）保持 best-effort：
+   * uv 对未声明的 extras 会优雅报错，把这些也算环境阻塞会制造假信号。
+   */
+  readonly required: boolean;
 }
 
 /** 阶梯规划输入。 */
@@ -65,29 +74,42 @@ export class PythonEnvPlan {
   /**
    * 生成安装阶梯（数组顺序即执行顺序，后步可修正前步的过宽解析）。
    *
-   * 顺序：① 仓库本体 `-e .` → ② 可选 extras `.[test]`/`.[tests]` → ③ 仓库已 pinned 测试依赖文件 →
+   * 顺序：① 仓库本体 `-e .`（**required**）→ ② 可选 extras `.[test]`/`.[tests]` → ③ 仓库已 pinned 测试依赖文件 →
    * ④ 该仓库额外约束 → ⑤ **仅在 pytest 缺失时**兜底装 pytest。
+   *
+   * 只有步骤 ① 标 {@link EnvInstallStep.required}：它在补丁应用之前跑，失败即「环境/工具链阻塞」，
+   * 由 {@link NativeEnvBuilder} 转成 `envError` 而不是「模型未修好」（实测现场：无 MSVC 时
+   * astropy/matplotlib/scikit-learn 的 C 扩展编译失败，旧实现把它记成模型失败）。
    * @param input 规划输入。
    * @returns 有序步骤列表。
    */
   public static steps(input: EnvPlanInput): readonly EnvInstallStep[] {
     const steps: EnvInstallStep[] = [
-      { label: '仓库本体（含其声明的运行时依赖）', args: ['-e', '.'] },
+      { label: '仓库本体（含其声明的运行时依赖）', args: ['-e', '.'], required: true },
     ];
     for (const extra of PythonEnvPlan.testExtras) {
-      steps.push({ label: `可选 extras [${extra}]`, args: ['-e', `.[${extra}]`] });
+      steps.push({ label: `可选 extras [${extra}]`, args: ['-e', `.[${extra}]`], required: false });
     }
     if (input.requirementsFile !== undefined) {
       steps.push({
         label: `仓库已 pinned 测试依赖（${input.requirementsFile}）`,
         args: ['-r', input.requirementsFile],
+        required: false,
       });
     }
     if (input.pins.length > 0) {
-      steps.push({ label: '仓库额外约束（修复不设上界的开发期依赖）', args: [...input.pins] });
+      steps.push({
+        label: '仓库额外约束（修复不设上界的开发期依赖）',
+        args: [...input.pins],
+        required: false,
+      });
     }
     if (!input.pytestPresent) {
-      steps.push({ label: '兜底安装 pytest（仅在缺失时，绝不覆盖仓库 pin）', args: ['pytest'] });
+      steps.push({
+        label: '兜底安装 pytest（仅在缺失时，绝不覆盖仓库 pin）',
+        args: ['pytest'],
+        required: false,
+      });
     }
     return steps;
   }

@@ -58,6 +58,40 @@ test('parseDjango：同一测试多行出现时以最后一次为准', () => {
   assert.strictEqual(RepoTestSpecs.parseDjango(output, ids).get(ids[0]), true);
 });
 
+test('parseDjango：**真实输出**的两种形态混用——双行 docstring 的「裸展示名」id 必须对上', () => {
+  // 逐字取自 eval-data/_dj_probe_django__django-11133.log（django 3.0 + `--verbosity 2`）：
+  // 无 docstring 的测试是单行；有 docstring 的测试是**双行**（`getDescription()` 返回 `str(test)\n<docstring 首行>`
+  // ⇒ 状态词落在第二行）。数据集里那 8/65 个「裸展示名」id 正是第二行去掉 ` ... ok` 的形态。
+  const output = [
+    'Testing against Django installed in ...',
+    'test_cookie_edgecases (httpwrappers.tests.CookieTests) ... ok',
+    'test_decode (httpwrappers.tests.CookieTests)',
+    'Semicolons and commas are decoded. ... ok',
+    'test_invalid_redirect_repr (httpwrappers.tests.HttpResponseSubclassesTests)',
+    'If HttpResponseRedirect raises DisallowedRedirect, its __repr__() ... ok',
+    'test_httponly_after_load (httpwrappers.tests.CookieTests) ... ok',
+    'Ran 4 tests in 0.011s',
+    'OK',
+  ].join('\n');
+  const ids = [
+    'Semicolons and commas are decoded.', // 裸展示名（双行形态第二行）
+    'test_cookie_edgecases (httpwrappers.tests.CookieTests)', // 单行形态原文
+    'test_decode (httpwrappers.tests.CookieTests)', // 双行形态的第一行
+    'If HttpResponseRedirect raises DisallowedRedirect, its __repr__()', // 裸展示名（含括号，必须不被误当 `名 (类)`）
+    'test_memoryview_content (httpwrappers.tests.HttpResponseTests)', // 输出里没有 ⇒ fail-closed
+  ] as const;
+  const passed = RepoTestSpecs.parseDjango(output, ids);
+  assert.strictEqual(passed.get(ids[0]), true, '裸展示名须由双行形态的第二行命中');
+  assert.strictEqual(passed.get(ids[1]), true, '单行形态原文命中');
+  assert.strictEqual(
+    passed.get(ids[2]),
+    true,
+    '双行形态的第一行也须登记（无 docstring 时它就是结果行）',
+  );
+  assert.strictEqual(passed.get(ids[3]), true, '展示名自带括号时不能被切成 `展示名 (类)`');
+  assert.strictEqual(passed.get(ids[4]), false, '未出现 ⇒ 未通过（fail-closed）');
+});
+
 test('parseDjango：docstring 展示名（含空格）也能对上——类级 directive + 展示名 id 原文双索引', () => {
   const ids = ['Semicolons and commas are decoded (httpwrappers.tests.QueryDictTests)'] as const;
   const output = [

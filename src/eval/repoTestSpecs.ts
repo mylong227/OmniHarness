@@ -72,10 +72,16 @@ export class RepoTestSpecs {
     return {
       label: 'django: ./tests/runtests.py --settings=test_sqlite',
       argsOf: (ids, ctx) => {
-        // **关键（2026-09-26 实测，第二版踩中）**：不能把数据集里的 id 原样（或转成 `类.展示名`）当 directive——
+        // **关键（2026-09-26 实测）**：不能把数据集里的 id 原样（或转成 `类.展示名`）当 directive——
         // unittest 用 docstring 当展示名，`Semicolons and commas are decoded (...)` 会被 runtests.py 当**模块名**
-        // 导入 ⇒ `ModuleNotFoundError`（实测 8/65 行 ERROR）。官方 harness 的做法是**按 test_patch 推出要跑的
-        // 测试模块**（`tests/httpwrappers/tests.py` → `httpwrappers.tests`），再用日志解析器把 F2P/P2P 挑回来。
+        // 导入 ⇒ `ModuleNotFoundError`（实测 8/65 行 ERROR）。官方 harness 的做法（`get_test_directives` 对
+        // django 把 `tests/a/b.py` 转成 `a.b`）是**按 test_patch 推出要跑的测试模块**，再用日志解析器把
+        // F2P/P2P 挑回来——本实现与之一致。
+        //
+        // 实测（django__django-11133，2026-09-26 复现）：模块 label `httpwrappers.tests` 与 app label
+        // `httpwrappers` 均能跑出全部 65 个测试（`Ran 65 tests ... OK`）。此前记为「模块 label 跑出 0 条结果行」
+        // 是**测量假象**：django 把测试结果写 stderr、把 `Testing against Django installed in ...` 等写 stdout，
+        // 两路合并后**顺序交错**（头部可能出现在结果之后），只看单路或截断读缓冲就会读成「零结果」。
         const modules = RepoTestSpecs.djangoModuleDirectivesOf(ctx.testPatch);
         const directives =
           modules.length > 0 ? modules : ids.map((id) => RepoTestSpecs.djangoDirectiveOf(id));
@@ -139,40 +145,156 @@ export class RepoTestSpecs {
   /**
    * 解析 django `runtests.py --verbosity 2` 的输出。
    *
-   * 结果行形态（unittest TextTestRunner，**stderr 与 stdout 都可能出现**，故调用方须合并两路）：
-   * `test_memoryview_content (httpwrappers.tests.HttpResponseTests) ... ok`
-   * 判定：`ok` ⇒ 通过；`FAIL` / `ERROR` / `skipped…` / 未出现 ⇒ 未通过（与 pytest 路径同口径，fail-closed）。
+   * 结果行有**两种形态**（同一份输出里混用；unittest 开 `descriptions` 时 `getDescription()` 会返回
+   * `str(test)\n<docstring 首行>`，于是状态落到第二行）：
    *
-   * 索引方式：同时以「**展示名 id 原文**（`名 (类)`）」与「点分 directive」两种键登记，
-   * 于是 docstring 展示名（类级 directive）与普通方法名两类 id 都能对上。
-   * @param output 合并后的输出文本。
+   * - 单行（无 docstring）：`test_not_modified (httpwrappers.tests.HttpResponseSubclassesTests) ... ok`
+   * - 双行（有 docstring）：第一行 `test_invalid_redirect_repr (httpwrappers.tests.HttpResponseSubclassesTests)`
+   *   第二行 `If HttpResponseRedirect raises DisallowedRedirect, its __repr__() ... ok`
+   *
+   * 数据集里的 id 正是这两种形态：**带括号**的是无 docstring 测试（`test_x (模块.类)`），
+   * **不带括号**的是 docstring 展示名（如 `Semicolons and commas are decoded.`、
+   * `#13572 - QueryDict with a non-default encoding`）——实测 django__django-11133 的 65 个 id 里 **8 个**，
+   * 全 django 集 F2P 的 1058 个 id 里 **64 个**（F2P+P2P 20305 个里 3663 个）。
+   * 故索引必须**同时登记**两种键，否则那批「裸展示名」id 永远对不上 ⇒ 被 fail-closed 判未通过。
+   *
+   * ⚠️ 已知边界：docstring 展示名可能跨类重复，此时裸展示名键是**歧义的**（数据集本身如此，
+   * 官方 harness 同样无从区分），本实现取**后出现者**；带括号的 id 不受影响。
+   * @param output 标准输出与标准错误合并后的文本。
    * @param ids 数据集口径的测试 id 列表。
-   * @returns id → 是否通过。
+   * @returns id → 是否通过（缺项视为未通过，fail-closed）。
    */
   public static parseDjango(output: string, ids: readonly string[]): Map<string, boolean> {
-    const status = new Map<string, boolean>();
-    for (const raw of output.split('\n')) {
-      const line = raw.trim();
-      const m = /^(\S.*?)\s+\(([^)]+)\)(?:\s*\.\.\.)?\s*(ok|FAIL|ERROR|skipped.*)$/.exec(line);
-      if (m === null) continue;
-      const display = m[1] ?? '';
-      const target = (m[2] ?? '').trim();
-      const ok = (m[3] ?? '') === 'ok';
-      // ① 展示名 id 原文（docstring 展示名走这条）② 点分 directive（普通方法名走这条）。
-      status.set(`${display} (${target})`, ok);
-      status.set(
-        /^[A-Za-z_][A-Za-z0-9_]*$/.test(display) && !target.endsWith(`.${display}`)
-          ? `${target}.${display}`
-          : target,
-        ok,
-      );
-    }
+    const status = RepoTestSpecs.indexDjangoResults(output);
     const out = new Map<string, boolean>();
     for (const id of ids) {
-      const key = id.trim();
-      const hit = status.get(key) ?? status.get(RepoTestSpecs.djangoDirectiveOf(key));
+      const key = RepoTestSpecs.normalizeSpace(id);
+      const directive = RepoTestSpecs.normalizeSpace(RepoTestSpecs.djangoDirectiveOf(key));
+      const hit = status.get(key) ?? status.get(directive);
       out.set(id, hit === true);
     }
     return out;
+  }
+
+  /**
+   * 把 unittest 结果行索引成「多种键形态 → 是否通过」。
+   * @param output 合并后的输出文本。
+   * @returns 键 → 是否通过（键含 `展示名 (模块.类)`、裸展示名、点分 directive 三种形态）。
+   */
+  private static indexDjangoResults(output: string): Map<string, boolean> {
+    const status = new Map<string, boolean>();
+    let pending: { display: string; target: string } | null = null;
+    for (const raw of output.split('\n')) {
+      const line = raw.trim();
+      const split = line === '' ? null : RepoTestSpecs.splitStatus(line);
+      if (split === null) {
+        pending = RepoTestSpecs.pendingTestIdOf(line);
+        continue;
+      }
+      const inline = RepoTestSpecs.displayTargetOf(split.head);
+      if (inline !== null) {
+        RepoTestSpecs.indexInlineResult(status, inline, split.ok);
+      } else {
+        // 双行形态：`split.head` 是 docstring 展示名，与上一行的「测试 id + 类」配对。
+        status.set(RepoTestSpecs.normalizeSpace(split.head), split.ok);
+        if (pending !== null) status.set(`${pending.display} (${pending.target})`, split.ok);
+      }
+      pending = null;
+    }
+    return status;
+  }
+
+  /**
+   * 登记**单行形态**的结果（`test_x (模块.类) ... ok`）。
+   * @param status 结果索引（原地写入）。
+   * @param inline 解析出的展示名与类路径。
+   * @param ok 是否通过。
+   * @returns 无（原地写入 `status`）。
+   */
+  private static indexInlineResult(
+    status: Map<string, boolean>,
+    inline: { display: string; target: string },
+    ok: boolean,
+  ): void {
+    status.set(`${inline.display} (${inline.target})`, ok);
+    if (!RepoTestSpecs.isIdentifier(inline.display)) return;
+    status.set(
+      inline.target.endsWith(`.${inline.display}`)
+        ? inline.target
+        : `${inline.target}.${inline.display}`,
+      ok,
+    );
+  }
+
+  /**
+   * 把一行切成「描述 + 状态」。
+   *
+   * 用**最后一个** ` ... ` 分隔（docstring 自身可能含 ` ... `），并要求右侧确实是 unittest 状态词，
+   * 否则判定该行不是结果行（返回 null ⇒ 当作双行形态的候选首行）。
+   * @param line 去首尾空白后的行文本。
+   * @returns `{ head, ok }`；非结果行返回 null。
+   */
+  private static splitStatus(line: string): { head: string; ok: boolean } | null {
+    const idx = line.lastIndexOf(RepoTestSpecs.statusSeparator);
+    if (idx < 0) return null;
+    const tail = line.slice(idx + RepoTestSpecs.statusSeparator.length).trim();
+    if (!RepoTestSpecs.statusWord.test(tail)) return null;
+    return { head: line.slice(0, idx).trim(), ok: tail === 'ok' };
+  }
+
+  /**
+   * 解析**双行形态的第一行**——形如 `test_x (模块.类)` 的测试 id。
+   *
+   * 必须要求展示名是**合法标识符**：stdout/stderr 合并后顺序会交错（实测 django 的
+   * `System check identified no issues (0 silenced).` 可能排在结果之后），若不设此闸，
+   * 这类头部行会被当成「待配对的测试 id」，把真正的前一行挤掉。
+   * @param line 去首尾空白后的行文本。
+   * @returns 测试 id 的展示名与类路径；不匹配返回 null。
+   */
+  private static pendingTestIdOf(line: string): { display: string; target: string } | null {
+    const pair = RepoTestSpecs.displayTargetOf(line);
+    return pair !== null && RepoTestSpecs.isIdentifier(pair.display) ? pair : null;
+  }
+
+  /**
+   * 解析 `展示名 (模块.类)` 形态。
+   * @param text 行或描述片段。
+   * @returns `{ display, target }`；不匹配返回 null。
+   */
+  private static displayTargetOf(text: string): { display: string; target: string } | null {
+    const m = /^(.+?)\s+\(([^)]+)\)$/.exec(text.trim());
+    if (m === null) return null;
+    return {
+      display: RepoTestSpecs.normalizeSpace(m[1] ?? ''),
+      target: RepoTestSpecs.normalizeSpace(m[2] ?? ''),
+    };
+  }
+
+  /** unittest 状态分隔符。 */
+  private static readonly statusSeparator = ' ... ';
+
+  /**
+   * unittest 结果行的状态词（`ok` 之外一律不算通过）。
+   * 覆盖：`FAIL` / `ERROR` / `skipped '...'` / `expected failure` / `unexpected success`。
+   */
+  private static readonly statusWord =
+    /^(ok|FAIL|ERROR|skipped\b|expected failure|unexpected success)/;
+
+  /**
+   * 折叠连续空白（展示名可能含多空格/换行折叠差异）。
+   * @param text 原文本。
+   * @returns 折叠后的文本。
+   */
+  private static normalizeSpace(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * 是否为合法 Python 标识符（决定能否拼成 `类.方法` directive）。
+   * @param text 待判定文本。
+   * @returns 合法返回 true。
+   */
+  private static isIdentifier(text: string): boolean {
+    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(text);
   }
 }

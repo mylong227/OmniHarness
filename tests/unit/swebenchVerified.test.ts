@@ -239,6 +239,20 @@ test('PythonVersionResolver.resolve：老仓库 3.6/3.7 经降级链落到 3.8',
   assert.strictEqual(PythonVersionResolver.resolve('django/django', '2.1'), '3.8'); // 2.1→3.7→3.8
 });
 
+test('PythonVersionResolver.resolve：Verified-30 里此前**整仓/整版缺登记**的实例不再落 FALLBACK', () => {
+  // 实测（2026-09-26）：这些实例此前一律落到 FALLBACK 3.11，老仓库的依赖栈在 3.11 上装不起来
+  // ⇒ gold 恒判未通过（xarray 0.12 / pytest 4.5 尤其明显；sphinx 的次版本号因 `startsWith` 前缀
+  // 匹配的语义（`5.1` 不以 `5.0` 开头）也全都落空）。
+  assert.strictEqual(PythonVersionResolver.resolve('pydata/xarray', '0.12'), '3.8'); // 整仓此前缺登记
+  assert.strictEqual(PythonVersionResolver.resolve('pydata/xarray', '2022.06'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('pytest-dev/pytest', '4.5'), '3.8'); // →3.7→3.8
+  assert.strictEqual(PythonVersionResolver.resolve('sphinx-doc/sphinx', '5.1'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('sphinx-doc/sphinx', '3.3'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('sphinx-doc/sphinx', '4.1'), '3.8');
+  assert.strictEqual(PythonVersionResolver.resolve('sphinx-doc/sphinx', '7.2'), '3.9'); // sphinx 7.2 要求 ≥3.9
+  assert.strictEqual(PythonVersionResolver.resolve('astropy/astropy', '1.3'), '3.8'); // →3.6→3.8
+});
+
 test('PytestVerdict.parseResults：PASSED→true，FAILED/ERROR/SKIPPED/缺失→false', () => {
   const output = [
     'tests/test_x.py::test_a PASSED',

@@ -150,6 +150,7 @@ const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
 const { CoverageLocator } = await import('../dist/src/eval/coverageLocator.js');
 const { PytestVerdict } = await import('../dist/src/eval/pytestVerdict.js');
 const { UvLocator } = await import('../dist/src/eval/uvLocator.js');
+const { RepoTestSpecs } = await import('../dist/src/eval/repoTestSpecs.js');
 
 /** 生产默认 fileK（与 `repoMapContextEngine.ts` 的 DEFAULT_FILE_K 对齐）。
  * @returns {number} 默认文件预算。 */
@@ -865,20 +866,16 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
 }
 
 /**
- * 跑 SBFL 覆盖率定位：在已准备环境里对官方 FAIL_TO_PASS 测试执行 `pytest --cov`，解析
- * `coverage.json` 得「文件 → 覆盖语句数」，返回降序的可疑文件列表（供 `prependBoosted` 前置进检索）。
+ * 把 `pytest-cov` 装进**这个 venv**。
  *
- * best-effort：缺 pytest-cov / 测试无法跑 ⇒ 返回空数组（不阻断主流程，SBFL 仅作为召回兜底）。
- * @param {string} wt 已 prepareRuntime 的工作区。
+ * 关键事实（2026-09-26 实测）：`uv venv` 默认**不装 pip**，`python -m pip …` 直接
+ * "No module named pip" ⇒ 旧实现恒失败，SBFL **从未真正生效**（armB 名为 `_sbfl` 却零条 `[sbfl]` 行即此因）。
+ * 故走 uv 自己的 pip 通道（`uv pip install --python <venvPython>`），uv 缺失才回落 `-m pip`。
+ * @param {string} wt 工作区（`uv pip install` 的 cwd）。
  * @param {string} venvPython venv 的 python 可执行路径。
- * @param {object} task 归一化任务（取 testPatch 决定跑哪些测试文件）。
- * @returns {Promise<Array<{file:string, score:number}>>} 降序可疑文件列表。
+ * @returns {void}
  */
-async function runSbfl(wt, venvPython, task) {
-  // pytest-cov 必须装进**这个 venv**。关键事实（2026-09-26 实测）：`uv venv` 默认**不装 pip**，
-  // `python -m pip …` 直接 "No module named pip" ⇒ 旧实现恒失败，SBFL **从未真正生效**
-  // （armB 名为 `_sbfl` 却零条 `[sbfl] 前置` 行即此因）。故改走 uv 自己的 pip 通道
-  // （`uv pip install --python <venvPython>`，与执行器其它依赖安装同一条路）；uv 缺失才回落 `-m pip`。
+function installPytestCov(wt, venvPython) {
   try {
     const uv = UvLocator.locate().executable;
     if (uv !== null) {
@@ -893,31 +890,98 @@ async function runSbfl(wt, venvPython, task) {
       });
     }
   } catch {
-    // best-effort：装不上也继续（`pytest --cov` 会失败 ⇒ 下面打印「未产出可疑文件」告警，不静默）
+    // best-effort：装不上也继续（`pytest --cov` 会失败 ⇒ 调用方打印「未产出可疑文件」告警，不静默）
   }
-  const reportPath = join(wt, '.coverage.json');
-  const testFiles = PytestVerdict.testFilesOf(task.testPatch);
-  const args = [
-    '-m',
-    'pytest',
-    ...testFiles,
-    '-rA',
-    '--tb=no',
-    '-p',
-    'no:cacheprovider',
-    '--cov=.',
-    `--cov-report=json:${reportPath}`,
-  ];
+}
+
+/**
+ * 把工作区恢复到干净态（丢弃测试补丁与新增测试文件），但**保留 `.venv`**：
+ * SBFL 只是临时借用官方 test_patch 跑一次覆盖，跑完必须还原，否则新增的测试文件会进入
+ * 随后构建的 prompt 上下文（等于把答案线索写进提示词）。
+ * @param {string} wt 工作区。
+ * @returns {void}
+ */
+function restoreWorktree(wt) {
   try {
-    execFileSync(venvPython, args, { cwd: wt, stdio: 'ignore' });
+    execFileSync('git', ['-C', wt, 'checkout', '--', '.'], { stdio: 'ignore' });
   } catch {
-    // 测试失败（FAIL_TO_PASS 本就预期失败）也照常产出 coverage.json，故这里仅兜底
+    // best-effort：无已修改追踪文件时 checkout 空转
   }
   try {
-    const json = readFileSync(reportPath, 'utf8');
-    return CoverageLocator.rankFilesFromCoverageJson(json);
+    execFileSync('git', ['-C', wt, 'clean', '-fd', '-e', '.venv', '-e', 'venv'], {
+      stdio: 'ignore',
+    });
   } catch {
+    // best-effort
+  }
+}
+
+/**
+ * 跑 SBFL 覆盖率定位：**先应用官方 test_patch**，对 gold FAIL_TO_PASS 所在测试文件执行 `pytest --cov`，
+ * 解析 `coverage.json` 得「文件 → 覆盖语句数」，返回降序的可疑文件列表（供 `prependBoosted` 前置进检索）。
+ *
+ * 为什么必须先应用 test_patch（2026-09-26 实测修正）：FAIL_TO_PASS 的测试**由 test_patch 新增**，
+ * base_commit 上根本不存在。旧实现直接在 base 工作区跑 `pytest <test_patch 的文件>`：新增测试不存在
+ * ⇒ 只覆盖到旧测试走过的代码，而「gold 测试真正执行到的新代码」恰恰是要定位的目标 ⇒
+ * 号称「按 gold 测试覆盖前置」实为**旧测试覆盖前置**，信号与承诺不符。现改为：应用 → 测覆盖 → 还原。
+ *
+ * best-effort：缺 pytest-cov / 补丁应用不上 / 测试跑不起来 ⇒ 返回空数组（不阻断主流程）。
+ * ⚠️ 本函数**用了官方 test_patch**，属 oracle 辅助的检索上界旋钮：**只可用于研究对照**，
+ * 绝不可用于产品口径跑分（那会把「已知正确答案的测试」泄漏成检索信号）。
+ * @param {string} wt 已 prepareRuntime 的工作区。
+ * @param {string} venvPython venv 的 python 可执行路径。
+ * @param {object} task 归一化任务（取 testPatch 决定跑哪些测试文件）。
+ * @returns {Promise<Array<{file:string, score:number}>>} 降序可疑文件列表。
+ */
+async function runSbfl(wt, venvPython, task) {
+  installPytestCov(wt, venvPython);
+  if (RepoTestSpecs.for(task.repo) !== null) {
+    // 该仓库的判定走专属 runner（如 django 的 runtests.py，非 pytest）⇒ `pytest --cov` 不成立。
+    // 显式告警而非静默返回空：否则与「跑了但没命中」无法区分。
+    console.warn(
+      `  ⚠️ --sbfl：${task.repo} 走 per-repo 测试命令（非 pytest），覆盖率定位尚未适配 ⇒ 本次未前置任何文件。`,
+    );
     return [];
+  }
+  const scratch = mkdtempSync(join(tmpdir(), 'omni-sbfl-'));
+  const patchFile = join(scratch, 'test.patch');
+  writeFileSync(patchFile, task.testPatch, 'utf8');
+  const reportPath = join(wt, '.coverage.json');
+  let applied = false;
+  try {
+    execFileSync('git', ['-C', wt, 'apply', '--whitespace=nowarn', patchFile], { stdio: 'ignore' });
+    applied = true;
+  } catch {
+    // 应用失败（如已被改动）⇒ 不产出可疑文件，由调用方告警
+  }
+  try {
+    if (!applied) return [];
+    const args = [
+      '-m',
+      'pytest',
+      ...PytestVerdict.testFilesOf(task.testPatch),
+      '-rA',
+      '--tb=no',
+      '-p',
+      'no:cacheprovider',
+      '--cov=.',
+      `--cov-report=json:${reportPath}`,
+    ];
+    try {
+      execFileSync(venvPython, args, { cwd: wt, stdio: 'ignore' });
+    } catch {
+      // 测试失败（FAIL_TO_PASS 本就预期失败）也照常产出 coverage.json，故这里仅兜底
+    }
+    try {
+      return CoverageLocator.rankFilesFromCoverageJson(readFileSync(reportPath, 'utf8'));
+    } catch {
+      return [];
+    }
+  } finally {
+    // 必须还原：随后 `buildContentBlocks` 会**读工作区文件正文**，留着 test_patch 等于把新测试写进 prompt。
+    if (applied) restoreWorktree(wt);
+    rmSync(reportPath, { force: true });
+    rmSync(scratch, { recursive: true, force: true });
   }
 }
 

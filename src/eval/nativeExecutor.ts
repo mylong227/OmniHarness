@@ -192,10 +192,20 @@ export class NativeExecutor implements ExecutorPort {
           : this.fail(task.id, reason);
       }
       const ids = [...task.failToPass, ...task.passToPass];
-      const passed = await this.testRunner.runFor(task, worktree, ids);
-      const failToPassOk = task.failToPass.every((id) => passed.get(id) === true);
-      const passToPassOk = task.passToPass.every((id) => passed.get(id) === true);
-      return { id: task.id, resolved: failToPassOk && passToPassOk, backend: this.kind };
+      const run = await this.testRunner.runFor(task, worktree, ids);
+      const failToPassOk = task.failToPass.every((id) => run.passed.get(id) === true);
+      const passToPassOk = task.passToPass.every((id) => run.passed.get(id) === true);
+      if (failToPassOk && passToPassOk) {
+        return { id: task.id, resolved: true, backend: this.kind };
+      }
+      // 失败必须**带原因**：旧实现只记 resolved=false，使 gold 对照里 26 个失败实例无法与
+      // 「模型没修好」区分（判分可信度调查因此在报告层断线索）。计数 + 短诊断足以分流三类原因。
+      return {
+        id: task.id,
+        resolved: false,
+        backend: this.kind,
+        reason: NativeTestRunner.describeFailure(task.failToPass, task.passToPass, run),
+      };
     } catch (error) {
       const msg = this.msg(error);
       // 环境构建失败（pytest 未装入 venv）与「模型未解出/执行异常」严格区分：前者是执行设施缺失，
@@ -267,8 +277,8 @@ export class NativeExecutor implements ExecutorPort {
     }
     try {
       const ids = task.failToPass;
-      const passed = await this.testRunner.runFor(task, worktree, ids);
-      const failed = task.failToPass.filter((id) => passed.get(id) !== true);
+      const run = await this.testRunner.runFor(task, worktree, ids);
+      const failed = task.failToPass.filter((id) => run.passed.get(id) !== true);
       const ok = task.failToPass.length - failed.length;
       return { reward: ok / task.failToPass.length, failures: failed };
     } catch {

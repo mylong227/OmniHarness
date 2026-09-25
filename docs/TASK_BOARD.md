@@ -2479,3 +2479,44 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
 - **下一步（收敛到可翻默认）**：① 用「单条已知可行」（class 级 label 已证可行）做**二分**，定出正确的
   label 粒度（app / module / class）；② 解析器补「裸展示名（去尾点）」索引；③ 达标的判据不变——
   `--gold-control` 上 django 判过，才允许把 `OMNI_REPO_TEST_SPECS` 的默认打开。
+
+### 21.19 §21.18 三层坑全部收口 + 判分链路四个真缺陷（**已修，含机器证据**）
+
+**结论先行**：django 的 `--gold-control` **首次判过**（`django__django-11133` resolved=true，65.3s）。
+§21.18 记的「三层坑」里有两层是**误判**，是被自己的测量方式骗的——记在这里防重踩。
+
+- **坑 3 是假的（测量假象）**：此前记「模块 label `httpwrappers.tests` 跑出 **0 条结果行**」。实测复现：
+  模块 label 与 app label **都能跑出全部 65 个测试**（`Ran 65 tests ... OK`）。真相是 django 把
+  `Testing against Django installed in …` 写 **stdout**、把测试结果写 **stderr**，两路合并后**顺序交错**
+  （头部行会出现在结果**之后**）⇒ 只看单路或截断读缓冲就会读成「零结果」。
+  另加一条同源事实：官方 `parse_log_django`（已核对上游源码）也是**按行末状态词**取值，
+  单行形态 `test_x (模块.类) ... ok` 与双行形态（docstring 展示名在第二行）**两种 key 混用**。
+- **坑 2 的补丁**：数据集里 **8/65**（全 django 集 F2P 的 64/1058、F2P+P2P 的 3663/20305）个 id 是
+  **裸 docstring 展示名**（`Semicolons and commas are decoded.`、`#13572 - …`），它们出现在**双行形态的第二行**。
+  解析器改为「双行状态机 + 三键索引（`展示名 (类)` / 裸展示名 / 点分 directive）」，并要求待配对的
+  首行展示名是**合法标识符**（否则 `System check identified no issues (0 silenced).` 这类头部行会被误当测试 id）。
+  证据：`eval-data/_dj_spec_probe.mjs` 用**真实 65 个 id**跑真机 → `matched_ok=65/65`、`FAIL_TO_PASS verdict=true`。
+
+**判分链路四个真缺陷（本轮修完，均有单测或真机证据）**
+
+1. **失败无原因 ⇒ 不可诊断**：`resolved=false` 的记录**不带 reason**，于是 gold 对照里 26 个失败实例
+   无法与「模型没修好」区分，判分可信度调查在报告层就断线索。
+   ⇒ `NativeExecutor` 现回 `测试未通过（FAIL_TO_PASS a/b、PASS_TO_PASS c/d）` + **短诊断**
+   （`NativeTestRunner.diagnose`：无输出 / 收集错误 / conftest 导入失败 / 模块缺失 / 零收集 / 语法错误）。
+2. **仓库本体装不上却算「模型失败」**：安装阶梯全是 best-effort，`-e .` 失败被静默吞掉。
+   而 `-e .` 在**补丁应用之前**执行 ⇒ 失败必然是环境/工具链问题。
+   ⇒ `PythonEnvPlan` 给首步加 `required`（**只有 `-e .`**），`NativeEnvBuilder` 据此抛 `ENV_BUILD_FAILED`
+   ⇒ 记 `envError`、不进 resolved 分母。**真机证据**：`psf__requests-2317` 现在报
+   `仓库本体未能装入 venv（环境/工具链阻塞）——…: from collections import Mapping` ImportError。
+3. **Python 版本表漏登记 ⇒ 老仓库跑在 3.11 上**：500 题里 **73 个实例**落 FALLBACK 3.11，且多为老仓库
+   （requests 2.4/2.9 的 vendored urllib3 在 3.10+ 直接 ImportError）。另有一个**语义陷阱**：
+   前缀匹配是 `version.startsWith(key)`，`5.1` **不以** `5.0` 开头 ⇒ 只写 `5.0` 时 sphinx 5.1 会落 FALLBACK。
+   ⇒ 补 `pydata/xarray`（**整仓缺登记**）、`sphinx` 各次版本、`pytest 4.5/6.3`、`astropy 1.3/3.1`、
+   `requests 1.1–2.9`；**sympy 明确不动**（其 4 题在 3.11 上 gold 已判过，不动已验证可用的路径）。
+4. **`--sbfl` 从"接线通了"到"真跑通"**：旧实现直接在 base 工作区跑 `pytest --cov`，
+   但 **FAIL_TO_PASS 的测试由 test_patch 新增、base 上根本不存在** ⇒ 号称「按 gold 测试覆盖前置」
+   实为「按**旧**测试覆盖前置」，信号与承诺不符。现改为**应用 test_patch → 测覆盖 → 还原**
+   （还原是硬要求：随后 `buildContentBlocks` 会读工作区正文，留着补丁等于把新测试写进 prompt）。
+   **真机证据**（`--dry-run --sbfl`，零模型调用）：`[sbfl] 前置 7 个可疑文件（命中 20 → 27）`，
+   跑完 `git status` 干净、无 `.coverage.json` 残留。
+   ⚠️ **口径声明**：SBFL 用了官方 test_patch ⇒ 属 **oracle 辅助的研究上界旋钮，绝不可用于产品口径跑分**。
