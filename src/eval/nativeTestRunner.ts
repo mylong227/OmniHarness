@@ -10,6 +10,8 @@
  *  - **默认 pytest 路径**：测试文件取自 `test_patch`，`-rA` 列全量结果后按叶子名比对。
  */
 import { execFile } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { NativeEnvBuilder } from './nativeEnvBuilder.js';
 import { PytestVerdict } from './pytestVerdict.js';
 import { RepoTestSpecs } from './repoTestSpecs.js';
@@ -56,7 +58,29 @@ export class NativeTestRunner {
         : await this.runPytest(worktree, PytestVerdict.testFilesOf(task.testPatch), ids);
     const passed =
       spec !== null ? spec.parse(run.stdout, ids) : PytestVerdict.parseResults(run.stdout, ids);
+    NativeTestRunner.dumpIfRequested(task.id, run.stdout);
     return { passed, diagnosis: NativeTestRunner.diagnose(run.stdout) };
+  }
+
+  /**
+   * 按需把**合并后的原始测试输出**落盘（`OMNI_EVAL_DUMP_TEST_OUTPUT=<目录>`）。
+   *
+   * 为什么需要它（2026-09-26 实测）：`pytest-dev__pytest-5262` / `sphinx-doc__sphinx-8120` 的 gold
+   * 判出「0/108、0/44」却**看不出原因**——短诊断只覆盖已知形态，未知形态仍要手工重建环境复现，
+   * 一次排查十几分钟。落盘后直接读原始输出即可定位（默认**不写盘**，零行为变更）。
+   * @param instanceId 实例 id（作为文件名）。
+   * @param output 合并后的输出。
+   * @returns 无。
+   */
+  private static dumpIfRequested(instanceId: string, output: string): void {
+    const dir = process.env['OMNI_EVAL_DUMP_TEST_OUTPUT'];
+    if (dir === undefined || dir === '') return;
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, `${instanceId}.log`), output, 'utf8');
+    } catch {
+      // 诊断落盘失败不得影响判定（best-effort）
+    }
   }
 
   /**
@@ -87,8 +111,32 @@ export class NativeTestRunner {
     const parts = [`测试未通过（${detail}）`];
     const sample = NativeTestRunner.failedSample([...failToPass, ...passToPass], run);
     if (sample !== '') parts.push(`未通过样例: ${sample}`);
+    const artifact = NativeTestRunner.artifactIdNote([...failToPass, ...passToPass], run);
+    if (artifact !== '') parts.push(artifact);
     if (run.diagnosis !== '') parts.push(run.diagnosis);
     return parts.join('；');
+  }
+
+  /**
+   * 指出「未通过的 id 里有**官方解析器的换行产物 id**」——即根本不是测试的 id。
+   *
+   * 实证（2026-09-26，`pytest-dev__pytest-5262`）：其 PASS_TO_PASS 里含一个字面量 **`[100%]`**。
+   * 那是官方 `parse_log_pytest` 在**终端换行**把 `-v` 行的百分比折到下一行时，把 `PASSED [100%]`
+   * 单独成行后 `split()[1]` 取到的 token（上游源码注释亦承认「P2P for pytest-5262 / -7521 literally
+   * expects `[100%]`」）。我们以钉住输出的方式跑（无 TTY 换行）⇒ 该行不出现 ⇒ 这一条永远对不上。
+   *
+   * 为什么要显式写出来：否则报告只显示「107/108 未通过」，读者会以为还差一个真实测试没修好。
+   * @param ids FAIL_TO_PASS 与 PASS_TO_PASS 的合并清单。
+   * @param run 测试运行结果。
+   * @returns 说明短句；无此类 id 时为空串。
+   */
+  private static artifactIdNote(ids: readonly string[], run: NativeTestRun): string {
+    const artifacts = ids.filter(
+      (id) => run.passed.get(id) !== true && /^\[\s*\d+%\s*\]$/.test(id),
+    );
+    return artifacts.length === 0
+      ? ''
+      : `注意 ${artifacts.join(', ')} 是官方解析器的终端换行产物 id（非测试），本机无 TTY 换行不会产生该行`;
   }
 
   /**
@@ -143,6 +191,13 @@ export class NativeTestRunner {
     [/(?:^|\n)(collected 0 items[^\n]*)/, '零收集（测试选择口径可疑）'],
     [/(?:^|\n)(no tests ran[^\n]*)/, '零执行（测试选择口径可疑）'],
     [/(?:^|\n)(SyntaxError[^\n]*)/, '语法错误（补丁或测试文件不可导入）'],
+    // 通用兜底：**启动期崩溃**（第三方 pytest 插件与老版本不兼容、依赖主版本过新）会打出 Traceback
+    // 而**不产出任何结果行**。实证现场：pytest 4.5 + 新版 setuptools 自带 typeguard 插件 ⇒ `AssertionError`；
+    // sphinx 3.3 + jinja2 3.1 ⇒ `cannot import name 'environmentfilter'`。两者都曾被读成「模型没修好」。
+    [
+      /Traceback \(most recent call last\)[\s\S]{0,6000}?\n((?:\w+\.)*\w*(?:Error|Exception)[^\n]*)/,
+      '测试运行崩溃（Python 异常，疑插件/依赖主版本冲突）',
+    ],
   ];
 
   /**
@@ -175,10 +230,16 @@ export class NativeTestRunner {
    * 有测试文件（来自 test_patch）⇒ 跑整份文件并 `-rA` 列全量结果，再按**叶子名**比对 —— 对齐官方口径，
    * 且能覆盖「FAIL_TO_PASS 给裸测试名」的仓库（裸名当参数会被 pytest 当路径 ⇒ 0 收集 ⇒ 恒假）。
    * 无测试文件 ⇒ 退回按 id 直跑（保持历史行为，兼容完整 nodeid 的仓库）。
+   *
+   * ⚠️ **必须同时收 stderr**（2026-09-26 实测修）：旧实现只取 `stdout`，而 pytest 的
+   * **启动期崩溃/收集期致命错误几乎都写 stderr**（解释器不兼容、conftest 导入失败、插件缺失），
+   * 于是输出被读成**空字符串** ⇒ 全部 id 判假 + 诊断为「测试命令无任何输出」。
+   * 真实现场：`pytest-dev__pytest-5262`（pytest 4.5 在老解释器上启动即崩）与 `sphinx-doc__sphinx-8120`
+   * 都恰好落在这一形态上——它们是**判分链路缺陷**，不是「模型没修好」。
    * @param worktree worktree 路径。
    * @param testFiles test_patch 改动的测试文件（可为空）。
    * @param ids 测试 id 列表（无测试文件时的直跑参数）。
-   * @returns pytest 标准输出与退出码。
+   * @returns 合并后的输出与退出码。
    */
   private runPytest(
     worktree: string,
@@ -191,10 +252,15 @@ export class NativeTestRunner {
         ? ['-m', 'pytest', ...testFiles, '-rA', '--tb=no', '-p', 'no:cacheprovider']
         : ['-m', 'pytest', ...ids, '-v', '--tb=short', '-p', 'no:cacheprovider'];
     return new Promise<TestRun>((resolve) => {
-      execFile(venvPython, args, { cwd: worktree, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
-        const code = err !== null && typeof err.code === 'number' ? err.code : 0;
-        resolve({ stdout: stdout ?? '', code });
-      });
+      execFile(
+        venvPython,
+        args,
+        { cwd: worktree, maxBuffer: 64 * 1024 * 1024 },
+        (err, stdout, stderr) => {
+          const code = err !== null && typeof err.code === 'number' ? err.code : 0;
+          resolve({ stdout: `${stdout ?? ''}\n${stderr ?? ''}`, code });
+        },
+      );
     });
   }
 }

@@ -302,7 +302,8 @@ if (verifiedIdx !== -1) {
   const mirrorIdx = process.argv.indexOf('--repo-mirrors');
   const mirrorPath = mirrorIdx !== -1 ? process.argv[mirrorIdx + 1] : undefined;
   const pinsIdx = process.argv.indexOf('--env-pins');
-  const pinsPath = pinsIdx !== -1 ? process.argv[pinsIdx + 1] : undefined;
+  const pinsPath =
+    pinsIdx !== -1 ? process.argv[pinsIdx + 1] : join(__dirname, 'swebench-env-pins.json');
   // 镜像映射为可选：未给则在执行器内保持空映射 ⇒ 克隆 URL 与历史完全一致（零行为变更）。
   let repoMirrors = {};
   if (mirrorPath !== undefined) {
@@ -312,9 +313,11 @@ if (verifiedIdx !== -1) {
       `[capability:swebench:verified] 镜像映射 ${Object.keys(repoMirrors).length} 条（${mirrorPath}）`,
     );
   }
-  // 环境约束为可选：未给则保持空映射 ⇒ 安装阶梯与历史一致（零行为变更）。
+  // 环境约束**默认启用**（`benchmark/swebench-env-pins.json`）：该文件只收录**实测过**的条目，
+  // 默认不启用等于让已验证的修复在默认路径上失效（真实现场：flask 的 `Werkzeug<3` 只在显式传参时才生效）。
+  // 文件不存在 ⇒ 保持空映射（零行为变更）。
   let envPins = {};
-  if (pinsPath !== undefined) {
+  if (pinsPath !== undefined && existsSync(pinsPath)) {
     const parsed = JSON.parse(readFileSync(pinsPath, 'utf8'));
     envPins = parsed.pins ?? {};
     console.log(

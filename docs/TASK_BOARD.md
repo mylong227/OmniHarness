@@ -2552,3 +2552,51 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
 - **当前可信度账（诚实口径）**：Verified-30 里 **django 14 + sympy 4 = 18/30 已通过 gold 对照**；
   其余 12（astropy 2 / matplotlib 2 / xarray 2 / pytest 1 / scikit-learn 2 / sphinx 3）**尚未在有本轮修复的
   代码上重跑**，不得对外引用其 resolved 率。下一批即跑这 16 个非 django 实例的 gold 对照。
+
+### 21.21 非 django 16 题 gold 对照重跑：20/30 可信 + 三类残余全部定性 + 两个真缺陷
+
+**结果（`eval-data/gold_control_nondjango16.json`）**：resolved 6、envError 6、其余 4。
+合并 §21.20 的 django 14 ⇒ **Verified-30 中 20 题判分链路已由 gold 对照背书**（此前是 4 题）。
+
+| 类别                                           | 题数                   | 明细                                                                     | 定性                                   |
+| ---------------------------------------------- | ---------------------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| ✅ gold 判过（可信）                           | 6 + django 14 = **20** | sympy 4、sphinx 10449、sphinx 9320                                       | 判分链路可信                           |
+| 🟡 近失手、原因完全查明**且非代码缺陷**        | 2                      | pytest-5262（F2P 1/1、P2P 107/108）、sphinx-8120（F2P 1/1、P2P 41/44）   | 残余 = 数据集/平台产物，见下           |
+| 🔴 环境阻塞（**正确标成 envError，不进分母**） | 6                      | astropy 2、matplotlib 2、scikit-learn 2                                  | 无 C/C++ 工具链 + 老 setuptools 不兼容 |
+| ⚪ 未定性                                      | 2                      | xarray 3151（F2P 1/1、P2P 56/66）、xarray 6992（F2P 12/12、P2P 825/945） | 缺可选测试依赖，待 env-pins 实测       |
+
+**两个真缺陷（本轮修完，均有真机证据）**
+
+1. **`runPytest` 丢 stderr ⇒ 崩溃被读成「零测试」**：`runCommand`（per-repo 路径）当初已修「必须合并
+   stderr」，但 pytest 路径漏改——而 pytest 的**启动期崩溃/收集期致命错误几乎全写 stderr**。
+   现象：`pytest-5262` 与 `sphinx-8120` 都判出 **F2P 0/1、P2P 0/108（0/44）**，诊断是「测试命令无任何输出」。
+   修后 4 个隐藏真因当场现形（见下）。
+   > 顺带加的**诊断落盘闸**（`OMNI_EVAL_DUMP_TEST_OUTPUT=<目录>`，默认不写盘）是这次排查的关键工具：
+   > 短诊断只覆盖已知形态，未知形态过去只能手工重建环境复现。
+2. **`--env-pins` 默认不启用 ⇒ 已验证的修复在默认路径上失效**：pins 文件里明明写着「仅收录已实测条目」，
+   却要显式 `--env-pins` 才生效（真实现场：flask 的 `Werkzeug<3` 只在传参时才起作用）。
+   现改为**默认读 `benchmark/swebench-env-pins.json`**（文件不存在即空映射，零行为变更）。
+
+**env-pins 新增两条（都写了实测效果与残余缺口，不冒充「已 resolved」）**
+
+- `pytest-dev/pytest: ["setuptools<60"]`：pytest 4.5 启动即被**新版 setuptools 自带的 typeguard pytest 插件**
+  打崩（`parser.addini(type='string')` → `AssertionError`，pytest 4.5 只认 None/pathlist/args/linelist/bool）。
+  实测：**F2P 0/1 → 1/1**、P2P 0/108 → 107/108。
+- `sphinx-doc/sphinx: ["jinja2<3.1"]`：sphinx 3.3 的测试插件导入期
+  `from jinja2 import environmentfilter`（Jinja2 3.1 已移除该名字）。实测：**F2P 0/1 → 1/1**、P2P 0/44 → 41/44。
+- **回归验证**（pins 默认启用后重跑此前已通过的实例）：flask-5014 ✅、sphinx 10449 ✅、sphinx 9320 ✅ —— 无回归。
+
+**两类残余（不是判分链路缺陷，必须与「模型没修好」区分）**
+
+- **数据集产物 id**：`pytest-5262` 的 P2P 里有个字面量 **`[100%]`**。它是官方 `parse_log_pytest` 因**终端换行**
+  把 `-v` 行百分比折到下一行、`PASSED [100%]` 单独成行后 `split()[1]` 取到的 token（上游源码注释亦承认
+  5262/7521 的 P2P 就写着 `[100%]`）。本机以钉住输出的方式跑（无 TTY 换行）不会产生该行 ⇒ **永远对不上**。
+  ⇒ 已让 `describeFailure` 直接点名「该 id 是官方解析器的换行产物（非测试）」，报告不再是「107/108 说不清」。
+- **Windows 平台差异**：`sphinx-8120` 残余 3 条在 Windows 上被 `@pytest.mark.xfail("Not working on windows")`
+  标记（输出 `XFAIL`/`XPASS`），官方镜像是 Linux、那边是普通 PASSED。属平台保真度缺口。
+- **环境阻塞（6 题）**：`-e .` 失败 → envError，原因逐条可查（astropy 4.3 要老 setuptools 且需编译 C 扩展；
+  matplotlib/sklearn 需 C/C++ 工具链与 Freetype 等）。**本机无 MSVC/C 工具链**，故这类只能靠 Docker/WSL
+  或预建镜像解决，不是再加代码能修的——记在这里，避免下次又去「优化判分器」。
+
+**下一步（xarray 两题）**：F2P 已全过（1/1、12/12），缺口全在 P2P 的**可选测试依赖**（dask / bottleneck /
+netCDF4 / cftime / scipy 等按版本择一）。按 env-pins 纪律：先实测哪几条能把 P2P 补齐**并写明残余**，再收录。

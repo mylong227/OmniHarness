@@ -1,8 +1,28 @@
 {
-  "_comment": "SWE-bench 上游仓库 → 额外 pip 约束，用于修复「不设上界的开发期运行时依赖」解析到过新主版本的保真度缺口。在基础安装 + 仓库已 pin 的测试依赖文件之后应用。官方 harness 用预建 conda 镜像规避此问题；本原生执行器无镜像，故以显式约束 best-effort 逼近。仅收录**已实测验证**的条目，勿凭猜测添加。",
-  "_verifiedAt": "2026-09-17",
-  "_verificationMethod": "本地 E2E：应用官方 gold patch + test_patch 后跑 pytest，须 resolved=true。flask 已实测（pytest 7.2.2 + Werkzeug<3 ⇒ FAIL_TO_PASS 全过）。",
+  "_comment": "SWE-bench 上游仓库 → 额外 pip 约束，用于修复「不设上界的开发期运行时依赖」解析到过新主版本的保真度缺口。在基础安装 + 仓库已 pin 的测试依赖文件之后应用。官方 harness 用预建 conda 镜像规避此问题；本原生执行器无镜像，故以显式约束 best-effort 逼近。仅收录**已实测**的条目，勿凭猜测添加。**默认启用**（capability_swebench 的 --env-pins 缺省即本文件）：只收录实测条目却默认不启用，等于让已验证的修复在默认路径上失效。",
+  "_verifiedAt": "2026-09-26",
+  "_verificationMethod": "本地 E2E：应用官方 gold patch + test_patch 后跑该仓库的测试命令，记录实测效果。收录门槛 = 「实测有明确改善」，并**必须写明残余缺口与原因**；resolved=true 是理想目标，未达标的条目要能说清为什么达不到（否则会把平台/数据集产物误当成模型能力）。",
   "pins": {
-    "pallets/flask": ["Werkzeug<3"]
+    "pallets/flask": ["Werkzeug<3"],
+    "pytest-dev/pytest": ["setuptools<60"],
+    "sphinx-doc/sphinx": ["jinja2<3.1"]
+  },
+  "_evidence": {
+    "pallets/flask": {
+      "measured": "resolved=true（pytest 7.2.2 + Werkzeug<3 ⇒ FAIL_TO_PASS 全过）",
+      "verifiedAt": "2026-09-17"
+    },
+    "pytest-dev/pytest": {
+      "measured": "pytest-dev__pytest-5262：加约束前 F2P 0/1、P2P 0/108（**测试命令零有效输出**，实为启动崩溃）；加约束后 F2P 1/1、P2P 107/108。",
+      "residual": "残余 1 条 = PASS_TO_PASS 里那个字面量 `[100%]`——它是官方 parse_log_pytest 在终端**换行**把 `-v` 行百分比折到下一行后 split()[1] 取到的 token（上游源码注释亦承认 5262/7521 的 P2P 就写着 `[100%]`），不是测试。本机以钉住输出的方式跑（无 TTY 换行）不会产生该行 ⇒ 该条永远对不上，与模型能力无关。",
+      "rootCause": "pytest 4.5 启动时被新版 setuptools 自带的 typeguard pytest 插件打崩：`parser.addini(type='string')` 触发 `AssertionError`（pytest 4.5 只认 None/pathlist/args/linelist/bool）。",
+      "verifiedAt": "2026-09-26"
+    },
+    "sphinx-doc/sphinx": {
+      "measured": "sphinx-doc__sphinx-8120：加约束前 F2P 0/1、P2P 0/44（插件导入期崩溃）；加约束后 F2P 1/1、P2P 41/44。",
+      "residual": "残余 3 条是**平台差异**：test_image_glob_intl / test_image_glob_intl_using_figure_language_filename 在 Windows 上被 @pytest.mark.xfail 标为 'Not working on windows'（输出 XFAIL），test_text_title_underline 为 XPASS；官方镜像为 Linux，这三个在那边是普通 PASSED。属 Windows 保真度缺口，不是判分链路缺陷。",
+      "rootCause": "sphinx 3.3 的 pytest 插件 sphinx.testing.fixtures 导入期 `from jinja2 import environmentfilter`，而 Jinja2 3.1 已移除该名字。",
+      "verifiedAt": "2026-09-26"
+    }
   }
 }
