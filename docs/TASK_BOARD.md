@@ -2161,3 +2161,29 @@ Terminal-Bench 环境保真（gold 3/20，待官方镜像口径）、OS 级沙�
   「三类快照 recall 0%」升级为官方数据集证据。出路仍是既有结论：语义/模型级检测
   （依赖 opt-in 嵌入栈或更强判别器），且需先解决「无干净对照」的 FP 度量（引入 benign 工具输出集）。
   脚本：`evals/injection-injecagent.mjs`（新增 npm script `metrics:injection:real`，不进主门禁，D4 不变）。
+
+### 21.9 挂起项替代结项（用户拍板「不等外部条件」）+ CI 从未绿过的真相
+
+- **🔴 新发现：CI 136 个 run 0 绿**。经 Actions API 实证（私有仓凭据只读查询）：86 failure + 14
+  startup_failure，**无一成功**——「CI 的跨 OS/Rust/gitleaks job 兜底」一直是纸面覆盖。根因两层：
+  ① security job 的 gitleaks-action 在私有仓**必须**付费 GITLEAKS_LICENSE，恒红（工作流注释自己
+  写明替代方案但从未执行）；② 8-job×3-OS 矩阵把私有仓免费 2000 分钟/月几天烧尽 ⇒ 尾部全部
+  startup_failure（job 0 步骤、0 runner、日志 BlobNotFound）。
+- **替代修复（本批落地）**：gitleaks-action → **免费 CLI 直装**（v8.21.2 tarball + `detect --redact`，
+  扫描语义不变、私有仓零许可）；两工作流加 **concurrency cancel-in-progress**（同分支新推送取消
+  旧 run，止住配额燃烧）。CI 恢复全绿的剩余前提是额度（等月度重置 / 开通计费 / 转公开——用户决策）。
+- **CI 各 job 的本地替代证据（2026-09-25 全部本机实跑）**：gate=12 门禁全绿；web=243/243 +
+  真浏览器断言 + responsiveProbe 640/1280 零溢出；test(Windows)=coverage 90.67% + 集成 11/11
+  （OMNI_REQUIRE_BROWSER 口径含真 Chrome）；eval=`eval:ci` 门禁达标 + `eval:veto` 3/3；
+  security=npm audit 0 + format 0 + check:secrets 0（gitleaks 修复后由 CI 补跑）；rust=三闸门首次
+  本机全绿；e2e=smoke + stress（保留量 +1.0MB 无泄漏）；wasm=`wasm:test` ALL OK（本机补装
+  wasm32 target）。唯一无本地替代的残项：macOS 真机（等 CI 额度恢复）。
+- **Terminal-Bench 定案结项**：接受文档预置的「本地对照口径」选项——原生 uv 重建作为**本地迭代
+  对照**（gold 3/20 的环境保真缺口如实保留在 B2 记录），不再等待官方 Docker 镜像口径；不出官方分。
+- **官方 SWE-bench Verified 口径定案**：以**可复现 30 题等距子集**为准（`verified30_ids.txt`，
+  预测+评分链路见 §21.6，跑完入真值）；500 满口径从挂起清单移除（未来若需对外满分口径另行立项）。
+- **T4.4 补误报口径**：官方数据集无干净对照 ⇒ **重构对照**（direct 设置 1,054 条删嵌入指令，
+  双重自证：删后无指令子串、无强触发语残留；成功 1054/失败 0）⇒ **误报 0.0%（0/1054）**。
+  结合召回分层（direct 0% / scenario 100%-by-boilerplate / 裸指令 0%），词法护栏在真实数据上的
+  完整画像是：**零误报、零（自然语言）召回的纯触发语探测器**——升级/替代方案（语义级检测）
+  的对照基线就此钉死。

@@ -11,6 +11,11 @@ permissions:
   pull-requests: write
   id-token: write
 
+# 同 CI：取消被新推送覆盖的旧 run，止住私有仓 Actions 分钟配额的无谓燃烧。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     name: 版本化 + 发布 npm

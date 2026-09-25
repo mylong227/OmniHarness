@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, master]
 
+# 配额保护（2026-09-25 实测：私有仓免费额度 2000 分/月被 8-job×3-OS 矩阵几天烧尽，
+# 136 个 run 0 绿——后续 run 全部 startup_failure）。同一分支新推送自动取消未完成的旧 run，
+# 消除「文档改动也全矩阵重跑」的浪费；额度彻底耗尽仍需开通计费或转公开仓库（用户决策）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate:
     name: 铁律自检 + 类型检查 + 构建
@@ -140,13 +147,14 @@ jobs:
       - name: 格式校验
         run: npm run format:check
       # secrets 检测：凭据一旦进入仓库历史即为永久泄露，必须在 PR 阶段就拦下。
-      # 注：私有仓库需配置 GITLEAKS_LICENSE（组织级 secret），否则该步骤会失败——
-      # 这是有意为之的阻断，不是可忽略的噪声；若确实无法获取许可，应改用本地 gitleaks CLI
-      # 作为 pre-commit 钩子，而不是把这一步设成 continue-on-error 自欺欺人。
-      - name: secrets 扫描（gitleaks）
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 2026-09-25 改为免费 CLI 直装：gitleaks-action 在私有仓必须 GITLEAKS_LICENSE（付费），
+      # 没有 license 则本 job 恒红——CI 因此从未绿过（136 run 0 绿的根因之一）。CLI 版零许可要求，
+      # 扫描语义不变（全历史 + --redact），命中即非零退出阻断；本地 pre-commit 另有 check:secrets 双保险。
+      - name: secrets 扫描（gitleaks CLI，私有仓免许可口径）
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz -o gitleaks.tgz
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks detect --source . --no-banner --redact
 
   rust:
     name: Rust 门禁（fmt + clippy + test）
