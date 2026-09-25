@@ -111,13 +111,15 @@ function loadReport() {
     const lines = out.split('\n');
     const printed = [];
     for (let i = 0; i < lines.length && printed.length < 60; i += 1) {
-      if (!lines[i].startsWith('not ok')) continue;
+      if (!lines[i].trimStart().startsWith('not ok')) continue;
       printed.push(lines[i].trim());
-      // not ok 块的详情行（error:/expected/actual 等，缩进缩进块）一并透传，直到下一个顶层 TAP 行。
+      // not ok 块的详情行（error:/expected/actual 等，缩进块）一并透传，直到下一个顶层 TAP 行。
+      // 用 trimStart 判定：嵌套 describe 的失败行带缩进（ubuntu 首跑实证——顶层过滤漏掉内部用例）。
       for (let j = i + 1; j < lines.length && printed.length < 60; j += 1) {
         const l = lines[j];
-        if (l === '' || l.startsWith('ok ') || l.startsWith('not ok') || l.startsWith('#')) break;
-        printed.push('    ' + l.trim());
+        const t = l.trimStart();
+        if (t === '' || /^(ok|not ok|#)\b/.test(t)) break;
+        printed.push('    ' + t);
         i = j;
       }
     }
@@ -174,9 +176,10 @@ const { all, files } = parseCoverage(loadReport());
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : {};
 // 宿主相关的覆盖率下限（见 scripts/coverageEnvDependent.json 的 reason/notes）：
 // 这些文件的被覆盖分支取决于本机能否发现 POSIX bash，按**下限**校验以避免换机器假红。
-const envDependent = existsSync(envDependentPath)
-  ? (JSON.parse(readFileSync(envDependentPath, 'utf8')).files ?? {})
+const envDependentRaw = existsSync(envDependentPath)
+  ? JSON.parse(readFileSync(envDependentPath, 'utf8'))
   : {};
+const envDependent = envDependentRaw.files ?? {};
 
 // 空表守卫：`--test-coverage-include` 口径一旦写错（曾因 Windows cmd 不吃单引号 ⇒ 字面量带引号 ⇒
 // 匹配不到任何文件），覆盖率表就只剩 `# all files | 100.00` 一行，门禁会**假绿**。这里显式阻断。
@@ -243,14 +246,49 @@ const newLow = [];
 const improved = [];
 const envChecked = [];
 const drifted = [];
+
+// ---- 环境探测（2026-09-25，CI 三平台首跑实证）----
+// 下限本身也可能**按环境而变**：同一文件「本机（有原生 .node / bash 是 WSL 存根）」与
+// 「CI（无原生 / 真 bash）」的可达分支不同。两类环境差异都经实测诊断后在
+// coverageEnvDependent.json 的 environmentFloors 里登记，这里探测环境并选用对应下限，
+// 且**显式打印**正在用哪套（不静默换尺子）。
+const nativeModulePath = join(root, 'native', 'omni_napi.node');
+const nativeMissing = !existsSync(nativeModulePath);
+let realBash = false;
+try {
+  execFileSync('bash', ['-c', '[ -n "$BASH_VERSION" ]'], { stdio: 'ignore' });
+  realBash = true;
+} catch {
+  realBash = false;
+}
+const envFloorsAll = envDependentRaw.environmentFloors ?? {};
+const envKey = [];
+if (nativeMissing) {
+  envKey.push('native 缺席');
+  process.env.OMNI_COVERAGE_NATIVE_ABSENT = '1';
+}
+console.log(
+  `ℹ️ 环境：native/omni_napi.node ${nativeMissing ? '缺席（原生依赖文件按 environmentFloors.nativeAbsent 下限）' : '在场（按冻结基线棘轮）'}；bash ${realBash ? '真 bash' : '存根/不可用'}${realBash ? '（bash 族文件按 environmentFloors.realBash 下限）' : ''}`,
+);
+const floorFor = (file) => {
+  if (nativeMissing && typeof envFloorsAll.nativeAbsent?.files?.[file] === 'number') {
+    return { floor: envFloorsAll.nativeAbsent.files[file], tag: '无原生下限' };
+  }
+  if (realBash && typeof envFloorsAll.realBash?.files?.[file] === 'number') {
+    return { floor: envFloorsAll.realBash.files[file], tag: '真 bash 下限' };
+  }
+  const base = envDependent[file];
+  return typeof base === 'number' ? { floor: base, tag: '宿主相关下限' } : undefined;
+};
+
 for (const [file, pct] of files) {
-  const floor = envDependent[file];
-  if (typeof floor === 'number') {
+  const resolved = floorFor(file);
+  if (resolved !== undefined) {
     // 宿主相关文件：按下限校验（低于下限才红），并如实标注是按下限过的。
-    if (pct + TOLERANCE < floor) {
-      regressions.push(`${file}  ${pct}%（宿主相关下限 ${floor}%）`);
+    if (pct + TOLERANCE < resolved.floor) {
+      regressions.push(`${file}  ${pct}%（${resolved.tag} ${resolved.floor}%）`);
     } else {
-      envChecked.push(`${file}  ${pct}%（下限 ${floor}%）`);
+      envChecked.push(`${file}  ${pct}%（${resolved.tag} ${resolved.floor}%）`);
     }
     continue;
   }
