@@ -23,6 +23,14 @@ interface TestRun {
   readonly code: number;
 }
 
+/** 一次测试运行的判定结果（含诊断）。 */
+export interface NativeTestRun {
+  /** id → 是否通过（缺项视为未通过，fail-closed）。 */
+  readonly passed: ReadonlyMap<string, boolean>;
+  /** 失败诊断的**短**提示（空串表示输出里没看到明显的环境/口径异常）。 */
+  readonly diagnosis: string;
+}
+
 /**
  * 测试执行协作者：把「跑测试 + 按仓库口径解析」从执行器里独立出来（无 git/venv/补丁职责）。
  */
@@ -34,22 +42,85 @@ export class NativeTestRunner {
    * @param task 归一化任务。
    * @param worktree worktree 路径（venv 须已就绪）。
    * @param ids 测试 id 列表。
-   * @returns id → 是否通过（缺项视为未通过，fail-closed）。
+   * @returns 逐 id 判定 + 短诊断。
    */
   public async runFor(
     task: VerifiedTask,
     worktree: string,
     ids: readonly string[],
-  ): Promise<ReadonlyMap<string, boolean>> {
+  ): Promise<NativeTestRun> {
     const spec = RepoTestSpecs.for(task.repo);
-    if (spec !== null) {
-      const run = await this.runCommand(worktree, spec.argsOf(ids, { testPatch: task.testPatch }));
-      return spec.parse(run.stdout, ids);
-    }
-    const testFiles = PytestVerdict.testFilesOf(task.testPatch);
-    const run = await this.runPytest(worktree, testFiles, ids);
-    return PytestVerdict.parseResults(run.stdout, ids);
+    const run =
+      spec !== null
+        ? await this.runCommand(worktree, spec.argsOf(ids, { testPatch: task.testPatch }))
+        : await this.runPytest(worktree, PytestVerdict.testFilesOf(task.testPatch), ids);
+    const passed =
+      spec !== null ? spec.parse(run.stdout, ids) : PytestVerdict.parseResults(run.stdout, ids);
+    return { passed, diagnosis: NativeTestRunner.diagnose(run.stdout) };
   }
+
+  /**
+   * 构造「测试未通过」的**可读原因**：F2P/P2P 通过计数 + 测试输出短诊断。
+   *
+   * 为什么必须带计数与诊断（2026-09-26 实测）：gold 对照跑出 26 个 `resolved=false` 而报告里
+   * **没有任何原因**，于是「环境没装好」「测试选择口径不对」「真的没修好」三类混在一起不可分，
+   * 判分可信度的调查只能靠手工复现。计数能立刻看出「F2P 全挂但 P2P 全过」（口径/环境）
+   * 与「只有 F2P 挂」（真的没修好）的区别。
+   *
+   * 放在这里而不是执行器里：执行器已顶到「上帝类」红线（>25 方法），按纪律**把职责放到正确的类**，
+   * 而不是删注释凑数。
+   * @param failToPass 该实例的 FAIL_TO_PASS 清单。
+   * @param passToPass 该实例的 PASS_TO_PASS 清单。
+   * @param run 测试运行结果（含短诊断）。
+   * @returns 人类可读原因。
+   */
+  public static describeFailure(
+    failToPass: readonly string[],
+    passToPass: readonly string[],
+    run: NativeTestRun,
+  ): string {
+    const count = (ids: readonly string[]): number =>
+      ids.filter((id) => run.passed.get(id) === true).length;
+    const detail =
+      `FAIL_TO_PASS ${count(failToPass)}/${failToPass.length}、` +
+      `PASS_TO_PASS ${count(passToPass)}/${passToPass.length}`;
+    return run.diagnosis === ''
+      ? `测试未通过（${detail}）`
+      : `测试未通过（${detail}）；${run.diagnosis}`;
+  }
+
+  /**
+   * 从测试输出里给出**短诊断**：区分「环境/依赖没装好」「测试选择口径不对」「测试真的失败」三类。
+   *
+   * 为什么必须有它（2026-09-26 实测）：旧实现只把失败记成 `resolved=false` 而**不带任何原因**，
+   * 于是 gold 对照报告里 26 个未 resolved 的实例无法与「模型没修好」区分，也无从判断是环境、口径
+   * 还是真的测试失败——判分可信度调查因此在报告层就断了线索。这里只回**短句**（明细截断），
+   * 既不膨胀报告，又能把三类原因分流。
+   * @param output 合并后的测试输出。
+   * @returns 诊断短句；无异常时为空串。
+   */
+  public static diagnose(output: string): string {
+    if (output.trim() === '') return '测试命令无任何输出（命令形态/流捕获可疑）';
+    for (const [pattern, label] of NativeTestRunner.diagnosisPatterns) {
+      const m = pattern.exec(output);
+      if (m !== null) return `${label}：${(m[1] ?? m[0]).trim().slice(0, 160)}`;
+    }
+    return '';
+  }
+
+  /**
+   * 诊断规则（按序匹配、命中即返回；正则第 1 组为明细行，缺省用整段匹配）。
+   * 覆盖实测见过的四类：依赖未装齐、conftest 导入失败、测试选择口径不对（零收集）、命令无输出。
+   */
+  private static readonly diagnosisPatterns: readonly (readonly [RegExp, string])[] = [
+    [/(?:^|\n)(ERROR collecting [^\n]+)/, '收集错误（疑似依赖未装齐/导入失败）'],
+    [/(?:^|\n)(ImportError while loading conftest[^\n]*)/, 'conftest 导入失败（疑似依赖未装齐）'],
+    [/(?:^|\n)(ModuleNotFoundError[^\n]*)/, '模块缺失（疑似依赖未装齐）'],
+    [/(unittest\.loader\._FailedTest[^\n]*)/, '测试无法导入（directive/口径不对）'],
+    [/(?:^|\n)(collected 0 items[^\n]*)/, '零收集（测试选择口径可疑）'],
+    [/(?:^|\n)(no tests ran[^\n]*)/, '零执行（测试选择口径可疑）'],
+    [/(?:^|\n)(SyntaxError[^\n]*)/, '语法错误（补丁或测试文件不可导入）'],
+  ];
 
   /**
    * 用 venv 的解释器执行**显式参数**的测试命令，返回 stdout+stderr 合并输出。

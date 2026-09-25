@@ -85,8 +85,20 @@ export class NativeEnvBuilder {
       pins: this.envPins[repo] ?? [],
       pytestPresent: NativeEnvBuilder.hasModule(worktree, 'pytest'),
     });
+    let repoInstallError: string | undefined;
     for (const step of steps) {
-      await this.install(worktree, step.args, uv);
+      const failure = await this.install(worktree, step.args, uv);
+      if (failure !== undefined && step.required) {
+        repoInstallError = `${step.label}（${step.args.join(' ')}）: ${failure}`;
+      }
+    }
+    // 仓库本体 `-e .` 在**补丁应用之前**执行 ⇒ 它失败必然是环境/工具链问题（无编译器、pypi 不可达、
+    // 老仓库与当前解释器不兼容），与「模型没修好」无关。旧实现把它一并 best-effort 吞掉，
+    // 于是这类实例被记成模型失败（实测：astropy/matplotlib/scikit-learn 的 C 扩展编译失败）。
+    if (repoInstallError !== undefined) {
+      throw new Error(
+        `${ENV_BUILD_FAILED}仓库本体未能装入 venv（环境/工具链阻塞，非模型未解出）——${repoInstallError}`,
+      );
     }
     // 环境构建后校验 pytest 真装入 venv：best-effort 安装在实时网络/pypi 镜像抖动下可能全盘失败，
     // 若继续跑 pytest 会把「环境故障」误记为「模型未解出」。显式抛出哨兵错误交由上层标记 envError。
@@ -117,15 +129,21 @@ export class NativeEnvBuilder {
   }
 
   /**
-   * best-effort 安装（失败不阻断：部分仓库装不全仍可跑部分测试）。**带有限重试+线性退避**：
-   * 实时网络/pypi 镜像偶发抖动时自动自愈，避免把「瞬时装不上」误记为「模型未解出」。
+   * best-effort 安装（**带有限重试+线性退避**）。返回失败明细（成功返回 undefined），
+   * 由调用方按 {@link PythonEnvPlan} 的 `required` 标记决定「忽略」还是「判为环境阻塞」。
    *
+   * 为什么保留 best-effort：部分仓库的可选 extras 本就不存在，uv 会报错而这不代表环境不可用；
+   * 但**仓库本体 `-e .` 失败**必须上抛（见 {@link NativeEnvBuilder.build}）。
    * @param worktree worktree 路径。
    * @param args `uv pip install` 的参数（如 `['-e', '.']` 或 `['-r', 'requirements/tests.txt']`）。
    * @param uv uv 可执行文件绝对路径。
-   * @returns 无。
+   * @returns 失败明细；成功返回 undefined。
    */
-  private async install(worktree: string, args: readonly string[], uv: string): Promise<void> {
+  private async install(
+    worktree: string,
+    args: readonly string[],
+    uv: string,
+  ): Promise<string | undefined> {
     const MAX_ATTEMPTS = 3;
     let lastErr: unknown = undefined;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -135,7 +153,7 @@ export class NativeEnvBuilder {
           ['pip', 'install', '--python', NativeEnvBuilder.pythonPath(worktree), ...args],
           worktree,
         );
-        return;
+        return undefined;
       } catch (error) {
         lastErr = error;
         if (attempt < MAX_ATTEMPTS) {
@@ -144,7 +162,7 @@ export class NativeEnvBuilder {
         }
       }
     }
-    // best-effort：忽略安装失败，交给 build() 末尾的 pytest 校验兜底（区分环境失败与模型失败）。
-    void lastErr;
+    const detail = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    return detail.split('\n').slice(-4).join(' ').slice(0, 400);
   }
 }

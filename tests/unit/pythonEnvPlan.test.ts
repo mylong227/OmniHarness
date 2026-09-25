@@ -29,6 +29,22 @@ test('PythonEnvPlan.steps：仓库本体恒为首步；extras 紧随其后', () 
   assert.deepEqual([...ArrayAt.at(steps, 2).args], ['-e', '.[tests]']);
 });
 
+test('PythonEnvPlan.steps：**只有仓库本体是 required**（失败即环境阻塞，其余 best-effort）', () => {
+  const steps = PythonEnvPlan.steps({
+    requirementsFile: 'requirements/tests.txt',
+    pins: ['Werkzeug<3'],
+    pytestPresent: false,
+  });
+  // 判据来源：`-e .` 在补丁应用之前执行 ⇒ 它失败与环境/工具链有关，与「模型没修好」无关；
+  // 其余步骤（extras/requirements/pins/兜底 pytest）失败不算环境阻塞（未声明的 extras 本就会报错）。
+  assert.deepEqual(
+    steps.map((s) => s.required),
+    [true, false, false, false, false, false],
+    '仅首步（-e .）为 required',
+  );
+  assert.strictEqual(ArrayAt.at(steps, 0).required, true);
+});
+
 test('PythonEnvPlan.steps：pytest 已存在 ⇒ 不生成兜底安装步（绝不覆盖仓库 pin）', () => {
   const steps = PythonEnvPlan.steps({ pins: [], pytestPresent: true });
   assert.ok(
