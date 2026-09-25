@@ -130,6 +130,12 @@ jobs:
       # T2 排序否决器回溯门禁：否决器必须能复盘已知失败（稠密图 −6.1pp / 稀疏图 −2.6pp）
       # 且对已知有效的 BM25 不误杀。--gate 只校验回溯一致率，新候选裁决不锁 CI。
       - run: npm run eval:veto
+      # 检索评测集锚点门禁：84 条查询的 GT 锚点必须在 `src/` 真实出现。
+      # 根因（2026-09-25 实测）：§21.10 删除 `CosmicWebOptions` 后，冻结查询集仍指向它 ⇒
+      # recall-query-audit / recall-precision / headroom-analysis / production-defaults-check
+      # 四个脚本当场 fail-closed，而此前它们都不在 CI 里 ⇒ 门禁全绿却评测集已废。
+      # 本步把「删代码必须同步改锚点」变成机器判据（免网络免模型，秒级）。
+      - run: npm run eval:recall-query-audit
 
   security:
     name: 安全左移（依赖 CVE + secrets + 格式）

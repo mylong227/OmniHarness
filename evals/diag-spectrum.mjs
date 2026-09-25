@@ -23,7 +23,7 @@ const QUERIES = [
   ['which component remembers decisions the operator already blessed', 'ApprovalStore'],
   ['how is a signed claim from an agent packaged', 'AgentAssertionEnvelope'],
   ['which key-value store replicates records across nodes', 'OobleckStore'],
-  ['tuning knobs for the graph that links distant memories', 'CosmicWebOptions'],
+  ['tuning knobs for the graph that links distant memories', 'ResonantFieldOptions'],
   ['settings for the planner that gradually cools down', 'HeatAnnealerOptions'],
   ['options controlling what gets pulled out of conversations', 'MemoryExtractorOptions'],
   ['knobs for the parity based error correction layer', 'QECOptions'],

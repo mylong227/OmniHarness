@@ -63,7 +63,7 @@ const QUERIES = [
   },
   { q: 'how is a signed claim from an agent packaged', anchor: 'AgentAssertionEnvelope' },
   { q: 'which key-value store replicates records across nodes', anchor: 'OobleckStore' },
-  { q: 'tuning knobs for the graph that links distant memories', anchor: 'CosmicWebOptions' },
+  { q: 'tuning knobs for the graph that links distant memories', anchor: 'ResonantFieldOptions' },
   { q: 'settings for the planner that gradually cools down', anchor: 'HeatAnnealerOptions' },
   {
     q: 'options controlling what gets pulled out of conversations',
