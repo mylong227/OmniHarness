@@ -253,8 +253,10 @@ describe('shell 工具族的会话取消（审计 §1.7：取消信号此前完�
     );
 
     // 等到子进程真的开始跑（started 标记落盘），再取消——否则测的是「还没 spawn 就取消」
+    // 预算 30s（600×50ms）：本地冷启动 <1s，CI runner（Windows Defender 扫描 + 冷 FS）实测
+    // 3s 预算不够用 ⇒ 用例在 windows-latest 上假红（CI 首跑实证）。
     const started = join(dir, 'started.txt');
-    for (let i = 0; i < 60 && !existsSync(started); i += 1) {
+    for (let i = 0; i < 600 && !existsSync(started); i += 1) {
       await new Promise((r) => setTimeout(r, 50));
     }
     assert.ok(existsSync(started), '前置条件：子进程应先跑起来（started.txt）');

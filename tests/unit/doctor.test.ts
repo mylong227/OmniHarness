@@ -54,18 +54,24 @@ test('runDoctor 对非法配置如实报告（fail-closed，不静默）', () =>
   }
 });
 
-test('isElevated：提权探测成功→true，失败→false（注入探针，不依赖真实 OS）', () => {
-  assert.strictEqual(
-    isElevated(() => {}),
-    true,
-  );
-  assert.strictEqual(
-    isElevated(() => {
-      throw new Error('System error 5: Access is denied');
-    }),
-    false,
-  );
-});
+test(
+  'isElevated：提权探测成功→true，失败→false（注入探针，不依赖真实 OS）',
+  { skip: process.platform !== 'win32' },
+  () => {
+    // 注入探针语义只在 Windows 提权路径上生效；非 Windows 平台 isElevated 先短路返回 false
+    //（下一例专测短路），故本例必须平台门禁——否则 CI 上 ubuntu/macos 必红（首跑实证）。
+    assert.strictEqual(
+      isElevated(() => {}),
+      true,
+    );
+    assert.strictEqual(
+      isElevated(() => {
+        throw new Error('System error 5: Access is denied');
+      }),
+      false,
+    );
+  },
+);
 
 test('isElevated：非 Windows 平台恒为 false（短路，不跑提权探测）', () => {
   if (process.platform === 'win32') return; // 仅在非 Windows 验证平台短路

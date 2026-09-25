@@ -67,8 +67,10 @@ test('策略沙箱：越界路径被拦截', async () => {
     (await sandbox.check({ kind: 'file_read', target: '../secret.txt' })).allowed,
     false,
   );
+  // 平台中性越界目标：POSIX 上 'C:/Windows/system32' 是相对路径，不会越界（CI 首跑实证）。
+  const outsideAbsolute = process.platform === 'win32' ? 'C:/Windows/system32' : '/etc/hostname';
   assert.strictEqual(
-    (await sandbox.check({ kind: 'file_write', target: 'C:/Windows/system32' })).allowed,
+    (await sandbox.check({ kind: 'file_write', target: outsideAbsolute })).allowed,
     false,
   );
 });

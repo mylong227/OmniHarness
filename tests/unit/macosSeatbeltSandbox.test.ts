@@ -6,7 +6,9 @@ import type { SandboxAction } from '../../src/ports/runtime/sandbox.js';
 const WS = '/Users/dev/project';
 
 test('macOS seatbelt：非 macOS 平台 fail-closed（绝不谎称已隔离）', () => {
-  // 该断言在所有平台都应成立：只要 sandbox-exec 不可用，决策必为拒绝且归类为 os。
+  // workspace 外写入在**所有平台**都必须拒绝；「category=os（本机无 sandbox-exec）」
+  // 只在非 darwin 成立——macOS 上 sandbox-exec 真实可用，归类走策略路径（真机验证见第 4 例）。
+  // （ubuntu/macOS 首跑实证：原断言在 darwin 上必红。）
   const sb = new MacOsSeatbeltSandbox(WS);
   const writeOutside: SandboxAction = {
     kind: 'file_write',
@@ -14,7 +16,9 @@ test('macOS seatbelt：非 macOS 平台 fail-closed（绝不谎称已隔离）',
   };
   const decision = sb.decide(writeOutside);
   assert.strictEqual(decision.allowed, false, 'sandbox-exec 不可用时必须拒绝，不得声称已隔离');
-  assert.strictEqual(decision.category, 'os');
+  if (process.platform !== 'darwin') {
+    assert.strictEqual(decision.category, 'os');
+  }
 });
 
 test('macOS seatbelt：策略文本含禁网出站 + 仅 workspace 可写（隔离意图可验证）', () => {
