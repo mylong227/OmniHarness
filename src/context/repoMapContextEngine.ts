@@ -267,7 +267,16 @@ export class RepoMapContextEngine {
    * @param corpus 语料（带截断事实）。
    * @returns 追加说明后的文本；无截断时原样返回。
    */
-  private static withCoverageNote(text: string, corpus: IndexedCorpus): string {
+  /**
+   * 覆盖度注记包装（语料遍历达上限 / 有超限文件被跳过时在上下文尾部追加说明）。
+   * 2026-09-25 由 private 升为 public：`benchmark/swebench_predict.mjs` 的零漂移复刻
+   * 必须调用**同一实现**（sympy 等含超 512KiB 文件的仓库曾有 1 例注记 33 字符的分叉，
+   * 致使「复刻 vs 生产」自证拒绝起跑——单一实现后该类分叉在结构上不可能再出现）。
+   * @param text 已装配的上下文文本。
+   * @param corpus 已索引语料（读取 truncated / skippedLargeFiles 标记）。
+   * @returns 原文（无需注记）或追加注记后的文本。
+   */
+  public static withCoverageNote(text: string, corpus: IndexedCorpus): string {
     const notes: string[] = [];
     if (corpus.truncated) {
       notes.push(

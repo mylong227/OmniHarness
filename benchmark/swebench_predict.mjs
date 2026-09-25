@@ -252,9 +252,12 @@ function retrieve(cache, root, q) {
       : opts.payloadShape === 'degrade'
         ? RepoMapPayload.DEGRADE_PLAN
         : RepoMapPayload.DEFAULT_PLAN;
-  const text = RepoMapPayload.assemble(
-    { corpus, files: res.files, symbols: res.symbols, query: q },
-    plan,
+  // 2026-09-25 修复：生产入口在装配后还有一层 `withCoverageNote`（语料超限/跳过大文件注记，
+  // c12d5b5 引入）——sympy 等含超 512KiB 文件的仓库会多出 33 字符注记，零漂移自证因此拒绝起跑。
+  // 复刻改为**直接调用生产实现**（withCoverageNote 已升 public），分叉在结构上不可能再出现。
+  const text = RepoMapContextEngine.withCoverageNote(
+    RepoMapPayload.assemble({ corpus, files: res.files, symbols: res.symbols, query: q }, plan),
+    corpus,
   );
   return { text, files: res.files, symbols: res.symbols, tokens: res.tokens };
 }

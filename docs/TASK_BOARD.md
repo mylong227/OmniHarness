@@ -2171,7 +2171,7 @@ Terminal-Bench 环境保真（gold 3/20，待官方镜像口径）、OS 级沙�
   startup_failure（job 0 步骤、0 runner、日志 BlobNotFound）。
 - **替代修复（本批落地）**：gitleaks-action → **免费 CLI 直装**（v8.21.2 tarball + `detect --redact`，
   扫描语义不变、私有仓零许可）；两工作流加 **concurrency cancel-in-progress**（同分支新推送取消
-  旧 run，止住配额燃烧）。CI 恢复全绿的剩余前提是额度（等月度重置 / 开通计费 / 转公开——用户决策）。
+  旧 run，止住配额燃烧）。**终局根因（转公开后仍在 SF 才定位到）**：仓库 Actions 权限被设为 `allowed_actions: local_only` + `sha_pinning_required: true`——工作流引用的任何外部 action（`actions/checkout@v4` 等 tag 引用）两者皆违反 ⇒ 每次 run 必 startup_failure，与额度无关。**修复（更佳替代：去第三方 action 化）**：全部 `uses:` 收敛为 GitHub 官方 checkout/setup-node 两项（完整 SHA 钉定，rustup 用 runner 预装工具链的 run: 步骤替代 dtolnay/rust-toolchain）；策略端 `selected` + 仅放行 github-owned（第三方供应链归零，比 patterns 白名单更彻底）；`release.yml` 删除（依赖第三方 changesets/action + 未配置 NPM_TOKEN，且 npm publish 已暂停——发布走本地 changeset version + publish）。转公开已由用户拍板执行（2026-09-25，API PATCH private=false）。
 - **CI 各 job 的本地替代证据（2026-09-25 全部本机实跑）**：gate=12 门禁全绿；web=243/243 +
   真浏览器断言 + responsiveProbe 640/1280 零溢出；test(Windows)=coverage 90.67% + 集成 11/11
   （OMNI_REQUIRE_BROWSER 口径含真 Chrome）；eval=`eval:ci` 门禁达标 + `eval:veto` 3/3；
