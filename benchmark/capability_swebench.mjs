@@ -363,27 +363,95 @@ if (verifiedIdx !== -1) {
     );
   }
 
-  if (predsPath === undefined) {
+  // ---- 第二关（机器化，2026-09-26）：**gold 对照** ----
+  // 「放行 ≠ 有效」在本仓早有两关纪律（空补丁必判 false / gold 必判 true），但此前只在文档与手工 smoke 里，
+  // 判分主链路没有它。实测代价：`astropy__astropy-12907` 的官方 gold patch 在该原生环境里**判不过**
+  // （缺 hypothesis → 补 hypotheses 后缺 erfa…），而报告把它记成「模型失败」——
+  // 于是「30 题 1/30」里到底有多少是环境不可信，无法区分。
+  // 本开关用官方 gold patch 当"预测"跑**同一判分链路**（零成本、不调模型）：
+  //   gold resolved=true ⇒ 该实例判分链路可信；false ⇒ **不可信**，其"模型失败"结论不得采信。
+  const goldControl = process.argv.includes('--gold-control');
+  const predictions = new Map();
+  if (goldControl) {
+    for (const t of suiteTasks) {
+      if (typeof t.goldPatch === 'string' && t.goldPatch.length > 0) {
+        predictions.set(t.id, t.goldPatch);
+      }
+    }
+    console.log(
+      `[gold-control] 以官方 gold patch 充当预测：${predictions.size}/${suiteTasks.length} 条` +
+        '（判据：须 resolved=true，否则该实例判分链路不可信）',
+    );
+  } else if (predsPath === undefined) {
     console.error(
       '[capability:swebench:verified] ❌ 缺 --predictions：官方 Verified 需先由我们的 live agent 在具备 git+uv+网络的环境生成模型补丁（predictions.jsonl）。' +
         ' 本命令只负责"打分"一环（fail-closed）。',
     );
     process.exit(1);
-  }
-  const predictions = new Map();
-  for (const line of readFileSync(predsPath, 'utf8').split('\n')) {
-    const t = line.trim();
-    if (t.length === 0) continue;
-    const obj = JSON.parse(t);
-    if (typeof obj.instance_id === 'string' && typeof obj.model_patch === 'string') {
-      predictions.set(obj.instance_id, obj.model_patch);
+  } else {
+    for (const line of readFileSync(predsPath, 'utf8').split('\n')) {
+      const t = line.trim();
+      if (t.length === 0) continue;
+      const obj = JSON.parse(t);
+      if (typeof obj.instance_id === 'string' && typeof obj.model_patch === 'string') {
+        predictions.set(obj.instance_id, obj.model_patch);
+      }
     }
+    console.log(`[capability:swebench:verified] 载入 ${predictions.size} 条预测`);
   }
-  console.log(`[capability:swebench:verified] 载入 ${predictions.size} 条预测`);
 
   const outIdx = process.argv.indexOf('--out');
   const reportPath =
-    outIdx !== -1 ? process.argv[outIdx + 1] : join(__dirname, 'capability-swebench-verified.json');
+    outIdx !== -1
+      ? process.argv[outIdx + 1]
+      : join(
+          __dirname,
+          goldControl ? 'capability-swebench-gold.json' : 'capability-swebench-verified.json',
+        );
+
+  // ---- 判分可信度标注（2026-09-26）----
+  // 起因（实测）：Verified-30 上跑 `--gold-control` ⇒ 官方 gold patch 只有 **4/30** 判 resolved
+  // （sympy 4 题；astropy/django/matplotlib/xarray/pytest/scikit-learn/sphinx 共 26 题 gold 都判不过），
+  // 而主报告的「模型失败 29」把这些**不可信的失败**一并算成了能力分。
+  // 故：给主链路一个显式的可信度闸——`--gold-report <gold.json>` 提供 gold 对照报告，
+  // 本命令会打印「本次 N 个实例中仅 M 个判分链路可信」，未通过 gold 的实例其"未通过"**不代表模型能力**。
+  const goldReportIdx = process.argv.indexOf('--gold-report');
+  const goldReportPath = goldReportIdx !== -1 ? process.argv[goldReportIdx + 1] : undefined;
+  /** gold 对照里 resolved=true 的实例集合；未提供/文件缺失返回 null（= 未校验）。 */
+  function judgeValidIds() {
+    if (goldReportPath === undefined || !existsSync(goldReportPath)) return null;
+    try {
+      const r = JSON.parse(readFileSync(goldReportPath, 'utf8'));
+      return new Set((r.results ?? []).filter((x) => x.resolved === true).map((x) => x.id));
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * 打印判分可信度（未提供 gold 报告时给出提示）。
+   * @param report 本次评分报告。
+   * @returns 无返回值。
+   */
+  function printJudgeValidity(report) {
+    const valid = judgeValidIds();
+    const scored = (report.results ?? []).map((r) => r.id);
+    if (valid === null) {
+      console.log(
+        'ℹ️ 判分可信度未校验：建议先跑 `npm run eval:swebench:gold`（gold 对照），再用 --gold-report 复核本次分数。',
+      );
+      return;
+    }
+    const untrusted = scored.filter((id) => !valid.has(id));
+    console.log(
+      untrusted.length === 0
+        ? `✅ 判分可信度：本次 ${scored.length} 个实例全部通过 gold 对照。`
+        : `⚠️ 判分可信度：本次 ${scored.length} 个实例中仅 ${scored.length - untrusted.length} 个通过 gold 对照；` +
+            `其余 ${untrusted.length} 个的「未通过」**不代表模型能力**（环境/判分链路不可信，见看板 §21.17）。`,
+    );
+    if (untrusted.length > 0 && untrusted.length <= 12) {
+      console.log(`   不可信实例：${untrusted.join(', ')}`);
+    }
+  }
 
   // ---- 增量 + 断点续跑 + 并发锁 模式（长批/易中断场景必走：抗会话被杀、抗重复并发踩踏）----
   // 根因：原 runVerifiedSuite 一次性跑完才返回报告，会话一结束即全废；且无任何锁，两个进程会抢同一
@@ -447,6 +515,7 @@ if (verifiedIdx !== -1) {
       const report = buildVerifiedReport(jsonlPath, executor.kind, suiteTasks.length, subsetIds);
       writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
       console.log(SwebenchVerified.formatVerifiedReport(report));
+      printJudgeValidity(report);
       console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
     } finally {
       releaseScoreLock(lockFd, lockPath);
@@ -463,6 +532,7 @@ if (verifiedIdx !== -1) {
   );
   writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(SwebenchVerified.formatVerifiedReport(report));
+  printJudgeValidity(report);
   console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
   process.exit(0);
 }
