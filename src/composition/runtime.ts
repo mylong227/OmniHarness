@@ -164,6 +164,7 @@ export function createRuntime(
           samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,
           minReward: config.evolutionRlvr.minReward,
           verifyCommand: config.evolutionRlvr.verifyCommand,
+          verifyCodeFileExtension: config.evolutionRlvr.verifyCodeFileExtension,
           minGain: config.evolutionRlvr.minGain,
           autoRun: config.evolutionRlvr.autoRun === true,
         }).controller

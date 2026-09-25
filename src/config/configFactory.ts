@@ -241,6 +241,8 @@ export interface OmniHarnessConfig {
         readonly minReward?: number | undefined;
         /** 候选代码验证命令（含 `%CODE_FILE%` 占位符）。缺省则 RLVR 奖励恒 0（无样本进回放，安全旁路）。 */
         readonly verifyCommand?: string | undefined;
+        /** 验证临时文件扩展名（默认 `.ts`）。`node --check` 验证 JS 代码须传 `.js`（Node 22.18 起才默认解析 `.ts`）。 */
+        readonly verifyCodeFileExtension?: string | undefined;
         /** 门禁基准增益阈值（默认 0.05）。 */
         readonly minGain?: number | undefined;
         /** 任务完成后自动进化（默认 false）。 */

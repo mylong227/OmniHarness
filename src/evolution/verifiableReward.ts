@@ -10,7 +10,7 @@
  * @maturityEvidence tests/unit/rlvr.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Candidate } from '../ports/runtime/evolution.js';
@@ -96,12 +96,29 @@ export function createVerifiableGate(
   });
 }
 
+/** 代码级可验证奖励的公共选项（`verifiableRewardForCode` / `verifiableVerdictForCode` 共用）。 */
+export interface VerifiableCodeRewardOptions {
+  /** 工作目录抽取器（可选；缺省继承当前进程 cwd）。 */
+  readonly cwdFor?: (candidate: CodeCandidate) => string | undefined;
+  /** 命令中的代码路径占位符（默认 `%CODE_FILE%`）。 */
+  readonly codeFileToken?: string;
+  /**
+   * 临时代码文件的扩展名（默认 `.ts`）。必须与验证命令的语言匹配：
+   * `npx tsc --noEmit %CODE_FILE%` 用默认 `.ts`；`node --check %CODE_FILE%` 验证 JS 代码传 `.js`。
+   */
+  readonly codeFileExtension?: string | undefined;
+}
+
 /**
  * (U4 桥) 代码级可验证奖励：把 `verifiableReward` 接到 `RlvrLoop`（后者作用在 `CodeCandidate` 上）。
  *
  * - `commandFor` 从代码候选抽取待验证命令（如 `npx tsc --noEmit %CODE_FILE%`）；命令缺失 → 0。
- * - 命令中含 `%CODE_FILE%` 占位符时，先把 `candidate.code` 写入临时 `.ts` 文件、把路径代入命令，
- *   使「编译/测试这段代码」成为真实可验证信号（这就是 RLVR 的奖励来源：客观编译/测试绿度）。
+ * - 命令中含 `%CODE_FILE%` 占位符时，先把 `candidate.code` 写入临时代码文件（扩展名由
+ *   `codeFileExtension` 指定，默认 `.ts`）、把路径代入命令，使「编译/测试这段代码」成为真实
+ *   可验证信号（这就是 RLVR 的奖励来源：客观编译/测试绿度）。验证结束即删除临时文件。
+ *
+ *   扩展名必须与命令的语言匹配：如 `node --check %CODE_FILE%` 验证 JS 代码须传 `.js`——
+ *   Node 22.18 起才默认解析 `.ts`，把 JS 代码写进 `.ts` 文件会得到与代码质量无关的假红。
  * - 退出码 0 → 1（绿），否则 0。异常 → 0（fail-closed，绝不假通过）。
  *
  * 这一道桥正是 U4 两模块（`verifiableReward` 的 skill 型奖励 ↔ `RlvrLoop` 的代码型采样）此前
@@ -109,10 +126,7 @@ export function createVerifiableGate(
  */
 export function verifiableRewardForCode(
   commandFor: (candidate: CodeCandidate) => string | undefined,
-  opts: {
-    readonly cwdFor?: (candidate: CodeCandidate) => string | undefined;
-    readonly codeFileToken?: string;
-  } = {},
+  opts: VerifiableCodeRewardOptions = {},
 ): (candidate: CodeCandidate) => Promise<number> {
   const verdictFor = verifiableVerdictForCode(commandFor, opts);
   return async (candidate) => (await verdictFor(candidate)).reward;
@@ -132,26 +146,30 @@ export function verifiableRewardForCode(
  */
 export function verifiableVerdictForCode(
   commandFor: (candidate: CodeCandidate) => string | undefined,
-  opts: {
-    readonly cwdFor?: (candidate: CodeCandidate) => string | undefined;
-    readonly codeFileToken?: string;
-  } = {},
+  opts: VerifiableCodeRewardOptions = {},
 ): (candidate: CodeCandidate) => Promise<RewardVerdict> {
   const token = opts.codeFileToken ?? '%CODE_FILE%';
+  const extension = opts.codeFileExtension ?? '.ts';
   return async (candidate) => {
     const cmd = commandFor(candidate);
     if (cmd === undefined) {
       return { reward: 0, verifiable: false, reason: 'unverifiable:no-command' };
     }
     let command = cmd;
+    let tmp: string | undefined;
     if (command.includes(token)) {
-      const tmp = join(
+      tmp = join(
         tmpdir(),
-        `omni-rlvr-${Date.now()}-${Math.random().toString(36).slice(2)}.ts`,
+        `omni-rlvr-${Date.now()}-${Math.random().toString(36).slice(2)}${extension}`,
       );
       try {
         writeFileSync(tmp, candidate.code, 'utf8');
       } catch (err) {
+        try {
+          unlinkSync(tmp);
+        } catch {
+          // 半写文件清不掉就交给系统临时目录策略
+        }
         return {
           reward: 0,
           verifiable: false,
@@ -171,6 +189,14 @@ export function verifiableVerdictForCode(
       status = r.status ?? -1;
     } catch (err) {
       return { reward: 0, verifiable: false, reason: `unverifiable:spawn-error:${String(err)}` };
+    } finally {
+      if (tmp !== undefined) {
+        try {
+          unlinkSync(tmp);
+        } catch {
+          // 清理失败不影响判据（fail-closed 已按退出码定论；垃圾文件交给系统临时目录策略）
+        }
+      }
     }
     return status === 0
       ? { reward: 1, verifiable: true, reason: 'verified-pass' }
