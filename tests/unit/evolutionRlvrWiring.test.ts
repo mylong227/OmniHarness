@@ -296,3 +296,22 @@ test('U4 桥：验证临时文件用后即清——绿样本与红样本两条�
   const leaked = after.filter((f) => !before.has(f));
   assert.deepStrictEqual(leaked, [], '验证结束后不得遗留任何临时代码文件');
 });
+
+test('U4 桥：临时文件写入失败 → fail-closed 判 0（verifiable=false）且不留垃圾', async () => {
+  const before = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-')));
+  // 扩展名携带不存在的子目录段 → 拼出的临时路径必写失败（Windows/POSIX 一致），
+  // 以此触发 write-error 分支，锁死「验证不可达 ≠ 假通过」的 fail-closed 语义。
+  const verdictFor = verifiableVerdictForCode(() => VERIFY_COMMAND, {
+    codeFileExtension: `no-such-dir-${Date.now()}/x.ts`,
+  });
+  const verdict = await verdictFor({ id: 't-unwritable', code: GREEN_CODE });
+  assert.strictEqual(verdict.reward, 0, '写不进临时文件必须判 0');
+  assert.strictEqual(verdict.verifiable, false, '写失败属「未能验证」而非「验证为红」');
+  assert.ok(
+    verdict.reason.startsWith('unverifiable:write-error'),
+    `实际 reason: ${verdict.reason}`,
+  );
+  const after = readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-'));
+  const leaked = after.filter((f) => !before.has(f));
+  assert.deepStrictEqual(leaked, [], '写失败路径同样不得遗留垃圾');
+});
