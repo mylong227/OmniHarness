@@ -162,7 +162,8 @@
     "wasm:build:release": "cargo build --release --target wasm32-unknown-unknown -p omni-wasm",
     "wasm:test": "cargo build --release --target wasm32-unknown-unknown -p omni-wasm && node tests/wasmE2e.mjs",
     "native:build": "node scripts/nativeBuild.mjs",
-    "native:test": "npm run native:build && node tests/napiE2e.cjs"
+    "native:test": "npm run native:build && node tests/napiE2e.cjs",
+    "audit:top-level-fn": "node scripts/auditTopLevelFunctions.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
