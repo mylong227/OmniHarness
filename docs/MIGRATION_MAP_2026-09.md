@@ -18,41 +18,41 @@
 
 ### 2. ports 纯化 + 错误类迁移（`6f5d016`，P1.3）
 
-| 旧                                              | 新                                  | 门面                                                                                               |
-| ----------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `src/ports/model.ts` 内嵌 `ModelCallError`      | `src/errors/modelCallError.ts`      | `ports/model.ts` 保留 `export { ModelCallError } from '../errors/modelCallError.js'`，调用点零改动 |
-| `src/ports/model.ts` 内嵌 `BudgetExceededError` | `src/errors/budgetExceededError.ts` | 同上                                                                                               |
+| 旧                                                    | 新                                  | 门面                                                                                               |
+| ----------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/ports/model/model.ts` 内嵌 `ModelCallError`      | `src/errors/modelCallError.ts`      | `ports/model.ts` 保留 `export { ModelCallError } from '../errors/modelCallError.js'`，调用点零改动 |
+| `src/ports/model/model.ts` 内嵌 `BudgetExceededError` | `src/errors/budgetExceededError.ts` | 同上                                                                                               |
 
 ### 3. P1 双向依赖解耦系列（`b605b89` → `508d0ea`，P1.1/P1.2/T1.2）
 
-| 旧（违规边）                                                    | 新（端口化产物）                                                        | 提交      |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------- | --------- |
-| `core/checkpointManager` → `adapters/git/...`（快照读 git）     | 快照逻辑迁回 core；无新端口                                             | `b605b89` |
-| `adapters/tool/*Tool` 等 4 处直接用 `core/eventFactory`         | `src/ports/eventFactory.ts`（EventFactoryPort）+ 组合根注入             | `4540062` |
-| `adapters/diff/turnDiffHooks` 等 2 处直接用 `CheckpointManager` | `src/ports/checkpointManager.ts` + 注入                                 | `e35db0b` |
-| toolHook / turnDiffTracker 调用点                               | `src/ports/toolHook.ts`、`src/ports/turnDiffTracker.ts`                 | `1787064` |
-| `core/runtime.ts` 组装 live/embedding 具体实现                  | `src/ports/memoryExtractor.ts` + 组合根装配（`runtime` 降级为装配函数） | `bdc53d1` |
-| `core/toolGate` → sandbox 具体类                                | denial 上移 `src/ports/sandboxDenial.ts`；ToolGate fail-closed 内联     | `c9509ba` |
-| `adapters/tool/runGoalTool` → `core/agent`（值导入，最后 1 条） | 改端口/依赖倒置                                                         | `508d0ea` |
+| 旧（违规边）                                                    | 新（端口化产物）                                                               | 提交      |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------- |
+| `core/checkpointManager` → `adapters/git/...`（快照读 git）     | 快照逻辑迁回 core；无新端口                                                    | `b605b89` |
+| `adapters/tool/*Tool` 等 4 处直接用 `core/eventFactory`         | `src/ports/runtime/eventFactory.ts`（EventFactoryPort）+ 组合根注入            | `4540062` |
+| `adapters/diff/turnDiffHooks` 等 2 处直接用 `CheckpointManager` | `src/ports/runtime/checkpointManager.ts` + 注入                                | `e35db0b` |
+| toolHook / turnDiffTracker 调用点                               | `src/ports/tool/toolHook.ts`、`src/ports/runtime/turnDiffTracker.ts`           | `1787064` |
+| `core/runtime.ts` 组装 live/embedding 具体实现                  | `src/ports/memory/memoryExtractor.ts` + 组合根装配（`runtime` 降级为装配函数） | `bdc53d1` |
+| `core/toolGate` → sandbox 具体类                                | denial 上移 `src/ports/runtime/sandboxDenial.ts`；ToolGate fail-closed 内联    | `c9509ba` |
+| `adapters/tool/runGoalTool` → `core/agent`（值导入，最后 1 条） | 改端口/依赖倒置                                                                | `508d0ea` |
 
 ### 4. T2.5 新技术合规收口（`689d0a1`，§8 第二批）
 
-| 旧                                                       | 新                                                                                                                               | 门面                                                                                              |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `src/context/rankVeto.ts`（503 行上帝类，类名 ≠ 文件名） | `rankVetoOverlap.ts`（重合度量）/ `rankVetoSpectrum.ts`（结构性诊断）/ `rankVetoEvaluator.ts`（阈值+判据编排，`@maturity` 随迁） | `rankVeto.ts` 保留门面再导出，`tests/unit/rankVeto.test.ts` 与 `evals/rank-veto-retro.mjs` 零改动 |
-| `layeredCodeGraph.ts` 112 行主函数                       | `indexByName` / `indexByFile` / `documentFrequency` / `layerWeight` / `pushEdge` / `collectEdges` / `toAdjacency` 7 个助手       | 单文件内拆分，无路径变化                                                                          |
-| `configError.validateConfig`（88 行）                    | 8 个字段族校验器 + `FIELD_VALIDATORS` 注册表                                                                                     | 同文件内拆分                                                                                      |
-| `projectInstructions.loadProjectInstructions`（90 行）   | 三级候选收集 + `mergeCandidates` / `appendLlmsTxt`                                                                               | 同文件内拆分                                                                                      |
+| 旧                                                             | 新                                                                                                                               | 门面                                                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/context/rankVeto/index.ts`（503 行上帝类，类名 ≠ 文件名） | `rankVetoOverlap.ts`（重合度量）/ `rankVetoSpectrum.ts`（结构性诊断）/ `rankVetoEvaluator.ts`（阈值+判据编排，`@maturity` 随迁） | `rankVeto.ts` 保留门面再导出，`tests/unit/rankVeto.test.ts` 与 `evals/rank-veto-retro.mjs` 零改动 |
+| `layeredCodeGraph.ts` 112 行主函数                             | `indexByName` / `indexByFile` / `documentFrequency` / `layerWeight` / `pushEdge` / `collectEdges` / `toAdjacency` 7 个助手       | 单文件内拆分，无路径变化                                                                          |
+| `configError.validateConfig`（88 行）                          | 8 个字段族校验器 + `FIELD_VALIDATORS` 注册表                                                                                     | 同文件内拆分                                                                                      |
+| `projectInstructions.loadProjectInstructions`（90 行）         | 三级候选收集 + `mergeCandidates` / `appendLlmsTxt`                                                                               | 同文件内拆分                                                                                      |
 
 ### 1.5 P3.2 域收敛（2026-09-13，批次十三）
 
-| 旧                                                   | 新                                                                                                      | 说明                                                                                           |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `src/lsp/lspUri.ts`、`src/lsp/lspToolNames.ts`       | `src/adapters/lsp/`                                                                                     | LSP 工具域收敛：顶层目录撤销，全部引用重写                                                     |
-| `src/code/codeExecutorTool.ts`、`codeInterpreter.ts` | `src/adapters/tool/code/`                                                                               | 代码执行工具归入工具域；顺带消除 `codeExecutorTool → core/toolGate` 越层（门禁改结构化窄接口） |
-| ports 平铺 49 文件                                   | `ports/{memory,runtime,tool,intelligence,model}/` 五域                                                  | P3.1，全库 import 重写                                                                         |
-| adapters/tool 平铺 39 文件                           | `tool/{fs,shell,memory,plan,lsp,git,web,workflow,meta}/` 九域 + `registryToolPort`/`toolHandler` 根驻留 | P3.1                                                                                           |
-| server 平铺 39 文件                                  | `server/{core,transport,services}/` 三域                                                                | P3.1                                                                                           |
+| 旧                                                                 | 新                                                                                                      | 说明                                                                                           |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/adapters/lsp/lspUri.ts`、`src/adapters/lsp/lspToolNames.ts`   | `src/adapters/lsp/`                                                                                     | LSP 工具域收敛：顶层目录撤销，全部引用重写                                                     |
+| `src/adapters/tool/code/codeExecutorTool.ts`、`codeInterpreter.ts` | `src/adapters/tool/code/`                                                                               | 代码执行工具归入工具域；顺带消除 `codeExecutorTool → core/toolGate` 越层（门禁改结构化窄接口） |
+| ports 平铺 49 文件                                                 | `ports/{memory,runtime,tool,intelligence,model}/` 五域                                                  | P3.1，全库 import 重写                                                                         |
+| adapters/tool 平铺 39 文件                                         | `tool/{fs,shell,memory,plan,lsp,git,web,workflow,meta}/` 九域 + `registryToolPort`/`toolHandler` 根驻留 | P3.1                                                                                           |
+| server 平铺 39 文件                                                | `server/{core,transport,services}/` 三域                                                                | P3.1                                                                                           |
 
 **评估结论（诚实记录）**：spill 策略（`spillPolicy.ts`/`toolResultSpiller.ts`）曾短暂迁入 `adapters/spill/`，arch:gate 立即暴露 `core → adapters/spill` 两条真实越层——判定为 **core 层逻辑**并回迁 `src/context/`（未提交过错误状态）。spark/memory/sandbox 三域评估为已收敛（组合根装配与工具族约定不构成散落）。
 

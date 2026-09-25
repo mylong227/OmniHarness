@@ -49,7 +49,7 @@ node scripts/init-config.mjs          # 在 cwd 生成 omniharness.json
 node dist/src/cli/exec.js serve --port 8787
 ```
 
-配置字段全部落在严格白名单内（`src/config/configLayer.ts` 的 `KNOWN_KEYS`）。
+配置字段全部落在严格白名单内（`src/config/configError.ts` 的 `KNOWN_KEYS`）。
 也可直接复制 `omniharness.json.example` 改名使用。
 
 ## 4. Web 工作台速览

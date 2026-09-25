@@ -94,7 +94,7 @@
 
 ## 四、代码状态（择优保留，非推倒重来）
 
-- `src/search/bm25.ts`：
+- `src/search/bm25Index.ts`：
   - **原 `tokenize()` 一个字未改** → 工具检索(M1)、会话检索(M2) 等既有调用方**零影响**。
   - 新增 `splitCamel()` / `morphVariants()` / `tokenizeExpanded()`（并行分支，仅 repo-map 使用）。
 - `src/context/contextEngine.ts`：
@@ -102,6 +102,6 @@
   - `IndexedCorpus.morph` 字段保证查询侧分词与索引侧**严格一致**。
   - `grepTopKFiles()` 新增，使竞品 baseline 召回可测（公平对比前提）。
   - 开关实测定值：`morph` 开、`lsa` 关、`graph` 关、`prf` 关。
-- 新增模块（均默认关，**保留为已验证无效路径的证据**，不删除）：`src/context/codeGraph.ts`、`src/context/lsaRecall.ts`。
+- 新增模块（均默认关，**保留为已验证无效路径的证据**，不删除）：`src/context/codeGraphIndex.ts`、`src/context/lsaEngine.ts`。
 - `evals/context-efficiency/bench.mjs`：三配置 A/B（baseline / morph / morph+lsa）+ 竞品召回 + 同等预算对照，落盘 `RESULTS.json`。
 - 项目 `tsc --noEmit` **零错误**（`strict` + `noUncheckedIndexedAccess`）。

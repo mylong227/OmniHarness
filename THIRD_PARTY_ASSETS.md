@@ -17,7 +17,9 @@ The repository uses the following resources.
   它只是参考资料（非可执行 custom-node 代码），执行期节点 schema 由 ComfyUI 的 `/object_info` 提供，
   故不影响任何运行路径。需要时按上游 ComfyUI 节点包自行获取即可；本地副本仍保留在磁盘上（已被 `.gitignore` 忽略）。
   历史上本文档记录的 `licenses.md` 保留要求，在恢复该目录时同样适用。
-- `assets/` and `docs/assets/` contain paper figures and project-page media.
+- `docs/assets/` contains paper figures and project-page media. The root-level
+  `assets/` copy (three JPGs byte-identical to `docs/assets/` figures, zero
+  consumers) was removed from version control on 2026-09-25 to de-duplicate.
   These directories are not runtime source-image or policy libraries.
 
 The root Apache-2.0 license applies to OmniHarness code. It does not relicense

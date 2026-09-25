@@ -8,4 +8,4 @@ description = "OmniHarness Rust 内核 CLI：exec / tools / run / approval / con
 [dependencies]
 omni-core = { path = "../omni-core" }
 omni-sdk = { path = "../omni-sdk" }
-serde_json = "1"
+serde_json.workspace = true

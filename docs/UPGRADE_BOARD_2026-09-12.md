@@ -112,8 +112,8 @@
 
 **改动（随本提交）**：
 
-- `src/server/appServerState.ts`：`AppServerOptions` 新增可选字段 `modelOverrideEnabled?: boolean`（含 JSDoc）——嵌入方与单测注入 mock 模型时须显式传 `false`，否则会读落盘 `omniharness.json` 并拿真实凭据打真实 API。
-- `src/server/appServerBase.ts`：`modelOverride` getter 在 `modelOverrideEnabled === false` 时返回 `undefined`；缺省 `true`（serve 模式依赖此行为热切换真模型）。
+- `src/server/core/appServerState.ts`：`AppServerOptions` 新增可选字段 `modelOverrideEnabled?: boolean`（含 JSDoc）——嵌入方与单测注入 mock 模型时须显式传 `false`，否则会读落盘 `omniharness.json` 并拿真实凭据打真实 API。
+- `src/server/core/appServerBase.ts`：`modelOverride` getter 在 `modelOverrideEnabled === false` 时返回 `undefined`；缺省 `true`（serve 模式依赖此行为热切换真模型）。
 - `tests/unit/{appServer,httpServer,sdkStream,wsTransport}.test.ts`：测试脚手架统一传 `modelOverrideEnabled: false`，使 AppServer 构造变为 hermetic。
 
 **作用**：直接消除 §八「9 项单元债务」中 `appServer(27-30,32)` 一类「构造即读本机模型配置」的假失败根因；serve 模式默认行为不变。
