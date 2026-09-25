@@ -2065,3 +2065,80 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   小于 2.5 点的真实回退与噪声无法可靠区分，这正是「棘轮只升不降 + 下调须先做排除实验」要配合的原因。
   另：`shellInteractiveTool.test.ts` 有一处断言随修复语义更新（cmd 形态 argv 现为整体带引号），
   已改为**断言整段形态**（强于原先只断言末位），非放宽。
+
+---
+
+## 21. 2026-09-25 全量收口批次（P0 密钥事故闭环 + 检索评测第二方复核 + 精排默认回关 + 死链清零）
+
+> 背景：本日两轮。上半场（凌晨～午后）为 9-22 盘点余项（§20.21–20.24 已入库：持久化耐久性
+> `ae189a6`、会话取消/进程树终止 `0509393`、性能 §2.4/§2.5 `29ceb96`、Windows 引号命令 `675fc56`）
+> 加推送通道定案（`9f6a12a`/`cd90989`/`9cb8695`/`8e083d7`）与 **P0 密钥事故根治**（`fba8ae0`/`2d3b4db`）；
+> 下半场为本节记录的全量收口批次。
+
+### 21.1 P0 密钥入库事故——闭环（含用户实测轮换验证）
+
+| 环节              | 结果                                                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 事故              | 密钥被放错层（仓库树项目级文件 + `.env`，re-init 时带入历史）                                                                                                                         |
+| 根治（`fba8ae0`） | 凭据分层：密钥只住用户级 `~/.omniharness/omniharness.json`（`readUserProviderKey` fail-closed）；`check:secrets` 门禁入 pre-commit；真实流量脚本统一回退用户级                        |
+| 历史              | purge 已生效：当前可达历史无 `.env`、无密钥模式命中；远端已推平（`origin/main` 同步）；GitHub API 对 pre-purge 旧提交 **404**（不可达）；pre-purge 备份 bundle 在轮换确认后**已删除** |
+| 轮换（用户实测）  | 新 key 真实推理 200 OK（路由 deepseek-flash）；旧泄漏 key **401 已失效** ⇒ 泄漏风险正式解除                                                                                           |
+
+### 21.2 检索评测集第二方复核 + 精排默认回关（§4.5 处置第 1/2 条、§20.1 ⚠️、§6「未接线」同批结项）
+
+- **复核（51 条 EXTENDED，独立会话逐条）**：KEEP 43 / FIX_ANCHOR 4 / REPLACE_QUERY 4 / DROP 0。
+  4 处过泛锚点改为定义字面（`scanForInjection` / `class LineTransport` / `class AuditSink` / `class MemoryExtractor`——
+  GT 分别 5/1/1/1 个文件，全部命中定义处）；4 处查询答非所问（SafePolicyEvaluator 的 outbound、SafeRemoveTree 的
+  locked、DiffReview 的「补丁呈现给人评」、QuotaService 的 per-tenant——能力本不存在或属他处）重写为定义文件可真答的问题。
+- **复验**：单测三不变量 5/5 + `recall-query-audit` 门禁过；all84 命中 63.1%（OK 53 / RANKING 22 / LEXICAL 9），
+  冻结 core33 78.8% 不变（历史数字可比性不受影响）。
+- **rerank 重跑与默认重判**：`rerank-ab.mjs` 退役内联 33 条改接 fixture（分层增益 + querySource 入报告）；
+  复核后 all84：core33 +5.9pp / extended51 +0.4pp，基准档（K=14）+2.6pp 但 **CI95 [−1.59, +7.59] 跨 0 ⇒ 两关未过**。
+  按本仓「CI 下界 > 0 才配当默认」纪律，**精排默认回关为 opt-in**（`opts.rerank: true` 或 env `OMNI_RERANK=1`）；
+  core33 上 opt-in 仍 **+9.1pp（78.8% vs 69.7%）**，深池场景建议显式开启。
+  配套：`production-defaults-check` 默认档/opt-in **双 33/33 逐字对拍** + env 探针改向 `=1`（5/5）；
+  `swebench_predict` 复刻解析口径跟随生产默认（零漂移自证恢复）；新增 `tests/unit/rerankDefault.test.ts` 三例行为钉。
+  提交：`80cb12d`（含 changeset）。
+
+### 21.3 账目更正与实测入账
+
+- **S1 陈旧读保护其实已完整闭环**（P0_ACCOUNTING §2.3 账目过期，非缺口）：`fileContentLedger`（指纹账本）
+  - read/write/edit/apply_patch 四工具接线 + 组合根共享单例（`configToolRegistry.ts:101`）+
+    `tests/unit/staleReadGuard.test.ts` 6 例。本会话逐层复核确认，账目就此更正。
+- **P5 预算降档重估出数**（RECALL_HEADROOM_SURVEY §5 建议 2 的「待测」清偿）：现实现**已不缩 fileK**
+  （降档 = 纯 BM25 + `payloadShape:'degrade'` + 关重排，文件预算维持 20——见 `stepContextBuilder.ts:261-263`），
+  即建议中的「只关语义路、不缩 fileK」形态；本批实测其代价：**召回** core33 −9.1pp / all84 −1.2pp（CI 跨 0，不可判定），
+  **token** 1010→624（−38%）。若未来重引入「缩 fileK」型降档，实测阶梯为：K20→14 = −7.1pp / →10 = −13.1pp /
+  →5 = −22.6pp（all84，`evals/budget-recall-tradeoff.report.json`）——5 是最差档，勿回头。
+- **npm audit（官方源）**：**0 漏洞**（2026-09-25 实测，`--omit=dev`）——镜像 `NOT_IMPLEMENTED` 的「无法判定」口径解除。
+- **Rust 三闸门首次本机全绿**：`cargo fmt --check` / `clippy -D warnings` / `test --workspace`（6 crate 全过）——
+  此前历次审计该项空白（无工具链），§18.5「本机留空」对账完成。
+- **全量测试本机首次全绿**：单测 **2168 例 0 失败**（历史 74 失败全为沙箱 `spawn EPERM` 环境性）、
+  Web 243/243、集成 11/11（**含真 Chrome e2e**）、smoke 过——§20.5/§20.13 各轮「本机 Chrome 唯一失败」在本机环境闭环。
+
+### 21.4 死链清零与文档口径
+
+- 15 处冻结死链全部清偿（改名→指现路径；已删脚本/示例→去路径化如实注记；历史引用→注记改前改后），
+  `scripts/docLinkBaseline.json` **15 → 0**，门禁仍全绿——§3.5 门禁的存量余量清偿完毕。
+- README 规模/依赖行按实测更新（src 580 文件/8.6 万行；**「dependencies 为 0」系过期宣称**——D10 政策
+  2026-09-14 改「择优依赖」后未同步，现按实际 2 项 allowlist + 1 项 optional 登记）。提交：`38b157a`。
+
+### 21.5 遗留记忆引擎弃用流程启动（§3.2 / §20.22 ③ 结项）
+
+`ResonantMemoryEngine` / `CosmicWebMemoryEngine` 标记 `@deprecated`（与 U1 基板同算法重复），
+本版本行为不变，**下一个次版本移除**并迁移 U1。提交：`e8747d2`（含 changeset）。
+
+### 21.6 官方 SWE-bench Verified 出数（启动，进行中）
+
+- 数据集就绪：官方 Verified 500 题经 hf-mirror 落盘 `eval-data/swe_bench_verified.json`
+  （JSON 数组 + `patch`/FAIL_TO_PASS/PASS_TO_PASS 全字段，`loadVerified` fail-closed 校验通过）。
+- 子集口径：按 instance_id 字典序**等距抽样 30 题**（8 仓，`eval-data/verified30_ids.txt`，可复现；
+  显式标注子集口径，非 500 满分）。
+- 链路：`swebench_predict`（tiered、`--model deepseek-v4-flash`、生产默认档含 21.2 回关决策、
+  gitee 镜像、`--resume` 断点续跑）→ `--verified` 评分（`--jsonl` 同进度文件）。
+  结果落 `eval-data/`，跑完在看板补一行真值（不预设）。
+
+### 21.7 仍挂起（外部条件不变，如实登记）
+
+Terminal-Bench 环境保真（gold 3/20，待官方镜像口径）、OS 级沙箱真机证据（待 Linux/macOS CI matrix）、
+T4.4 真提示注入基准（待数据集快照，禁入主门禁）、500 题满口径跑分（预算另定）。
