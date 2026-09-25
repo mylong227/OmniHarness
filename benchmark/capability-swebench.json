@@ -1,6 +1,6 @@
 {
   "suite": "capability-swebench",
-  "generatedAt": "2026-09-19T14:57:15.770Z",
+  "generatedAt": "2026-09-25T07:17:25.608Z",
   "scripted": {
     "passed": 10,
     "total": 10,
@@ -76,7 +76,7 @@
         "steps": 3
       }
     ],
-    "totalDurationMs": 1292
+    "totalDurationMs": 3088
   },
   "controls": {
     "valid": true,
@@ -244,83 +244,5 @@
       "delta": -50
     }
   },
-  "live": {
-    "model": "deepseek-chat",
-    "passed": 10,
-    "total": 10,
-    "results": [
-      {
-        "id": "off-by-one-sum",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 4
-      },
-      {
-        "id": "null-guard-greet",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 5
-      },
-      {
-        "id": "wrong-op-avg",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 4
-      },
-      {
-        "id": "reversed-sort",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 5
-      },
-      {
-        "id": "loop-start-firstN",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 4
-      },
-      {
-        "id": "fencepost-slice",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 6
-      },
-      {
-        "id": "regex-anchored",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 4
-      },
-      {
-        "id": "float-precision",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 4
-      },
-      {
-        "id": "type-coercion",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 5
-      },
-      {
-        "id": "inverted-condition",
-        "passed": true,
-        "evalExitCode": 0,
-        "mode": "live",
-        "steps": 4
-      }
-    ],
-    "totalDurationMs": 45597,
-    "costUsd": 0.168
-  }
+  "live": null
 }
