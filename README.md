@@ -480,6 +480,16 @@ node dist/src/cli/exec.js native info    # 查看原生后端是否可用
 合并优先级：**内置默认 → 用户级 → 项目级 → profile 覆盖 → 环境变量 → 显式 CLI**。
 `./profiles/<NAME>.json` 或 `~/.omniharness/profiles/<NAME>.json` 覆盖项目默认；支持 key 别名归一化与严格校验。
 
+### 9.3 凭据分层纪律（个人数据零入库）
+
+真实密钥**只**放用户级 `~/.omniharness/omniharness.json` 的 `providerKeys`（在仓库树之外，
+任何克隆/发布物天然不含个人数据）；项目级 `omniharness.json` 只放非个人配置；
+仓库内仅保留模板 `omniharness.json.example`（占位值）。曾放仓库树的 `.env` 形态已废除——
+eval / bench 脚本（`eval:live`、`eval:swebench`、`eval:cache-probe`、`longrun:prod:real` 等）
+在环境变量缺失时会自动回退读取用户级 `providerKeys`（`src/eval/liveCredentials.ts`），
+无需任何仓库内密钥文件。机器兜底：`npm run check:secrets`（pre-commit 已接入）扫描
+暂存内容中的形似真实密钥的模式，命中即提交中止——个人数据在机制上不可能抵达发布物。
+
 ---
 
 ## 10. 项目结构
