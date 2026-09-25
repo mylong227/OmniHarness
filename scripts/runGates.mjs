@@ -181,7 +181,9 @@ const prefix = hookMode ? 'pre-commit' : 'gates';
 let failed = 0;
 for (const gate of selected) {
   if (skip.has(gate.id)) {
-    console.error(`[${prefix}] ⚠️ 已按 --skip=${gate.id} 跳过「${gate.label}」——须在放宽环境补跑。`);
+    console.error(
+      `[${prefix}] ⚠️ 已按 --skip=${gate.id} 跳过「${gate.label}」——须在放宽环境补跑。`,
+    );
     continue;
   }
   console.log(`[${prefix}] ${gate.label}...`);

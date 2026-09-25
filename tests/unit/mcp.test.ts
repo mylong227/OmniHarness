@@ -8,7 +8,7 @@ import { McpClient } from '../../src/mcp/mcpClient.js';
 import { McpGateway } from '../../src/mcp/mcpGateway.js';
 import { McpProtocol } from '../../src/mcp/mcpProtocol.js';
 import { mcpToolMapper } from '../../src/mcp/mcpToolMapper.js';
-import { parseMcpServerSpec } from '../../src/mcp/mcpServerCommand.js';
+import { McpServerCommand } from '../../src/mcp/mcpServerCommand.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
@@ -271,7 +271,7 @@ test('MCP 网关：服务器启动失败不影响其他服务器且记录错误'
 });
 
 test('MCP 参数解析：NAME=COMMAND ARGS 拆分正确', () => {
-  const config = parseMcpServerSpec('fs=node server.js --port 1');
+  const config = McpServerCommand.parseMcpServerSpec('fs=node server.js --port 1');
   assert.strictEqual(config.name, 'fs');
   assert.strictEqual(config.command, 'node');
   assert.deepStrictEqual(config.args, ['server.js', '--port', '1']);

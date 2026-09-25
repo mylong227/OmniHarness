@@ -1,8 +1,8 @@
-import { ConcurrencyLimiter, requireConcurrencyLimit } from '../util/concurrencyLimiter.js';
-import { id } from '../util/id.js';
+import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
+import { Id } from '../util/id.js';
 import { SubagentRunner } from './subagentRunner.js';
-import { createWorktree } from './worktreeOps.js';
-import type { SubagentPorts } from './subagentPorts.js';
+import { WorktreeOps } from './worktreeOps.js';
+import type { SubagentPortsShape } from './subagentPorts.js';
 import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
 import {
   CANCELLED_BY_PARENT_MESSAGE,
@@ -27,12 +27,12 @@ export class SubagentOrchestrator {
   private readonly tree = new Map<string, string[]>();
 
   public constructor(
-    private readonly ports: SubagentPorts,
+    private readonly ports: SubagentPortsShape,
     private readonly options: SubagentOptions = {},
   ) {
     // 非法并发上限 fail-closed（`--subagent-concurrency 0` 会让闸门永不放行 ⇒ 每个子代理永久挂起）。
     this.limiter = new ConcurrencyLimiter(
-      requireConcurrencyLimit(
+      ConcurrencyLimiter.requireConcurrencyLimit(
         options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY,
         'subagentConcurrency',
       ),
@@ -57,9 +57,9 @@ export class SubagentOrchestrator {
         return this.failure(request, CANCELLED_BY_PARENT_MESSAGE);
       }
       // 每个子智能体独立隔离文件系统（git worktree，失败降级为目录拷贝）。
-      const worktree = await createWorktree(this.ports.workspaceRoot, id('wt'));
+      const worktree = await WorktreeOps.createWorktree(this.ports.workspaceRoot, Id.id('wt'));
       try {
-        const isolatedPorts: SubagentPorts = { ...this.ports, workspaceRoot: worktree.path };
+        const isolatedPorts: SubagentPortsShape = { ...this.ports, workspaceRoot: worktree.path };
         const result = await new SubagentRunner(isolatedPorts, this.maxSteps()).run(request);
         this.link(request.parentSessionId, result.sessionId);
         return result;
@@ -118,7 +118,7 @@ export class SubagentOrchestrator {
   private failure(request: SubagentRequest, error: string): SubagentResult {
     return {
       ok: false,
-      sessionId: id('sess'),
+      sessionId: Id.id('sess'),
       output: '',
       steps: 0,
       durationMs: 0,

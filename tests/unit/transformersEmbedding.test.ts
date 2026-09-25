@@ -2,15 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MODEL_PRESETS,
-  listModelPresets,
-  withPrefix,
-  normalizeRemoteHost,
-  resolveRemoteHostFromEnv,
   TransformersEmbeddingAdapter,
 } from '../../src/adapters/embedding/transformersEmbeddingAdapter.js';
 
 test('预设表含 minilm、三个 e5 变体与 gte-large，且 e5 带前缀模式', () => {
-  const presets = listModelPresets();
+  const presets = TransformersEmbeddingAdapter.listModelPresets();
   assert.deepStrictEqual([...presets].sort(), [
     'e5-base-v2',
     'e5-large-v2',
@@ -63,51 +59,68 @@ test('未知 preset 抛错并给出可选列表', () => {
 test('withPrefix：none 模式原样返回，e5 按角色注入 query:/passage: 前缀', () => {
   const docs = ['hello world', 'foo bar'];
   // none
-  assert.deepStrictEqual(withPrefix(docs, 'none', 'document'), docs);
-  assert.deepStrictEqual(withPrefix(docs, 'none', 'query'), docs);
+  assert.deepStrictEqual(TransformersEmbeddingAdapter.withPrefix(docs, 'none', 'document'), docs);
+  assert.deepStrictEqual(TransformersEmbeddingAdapter.withPrefix(docs, 'none', 'query'), docs);
   // e5 document → passage:
-  assert.deepStrictEqual(withPrefix(docs, 'e5', 'document'), [
+  assert.deepStrictEqual(TransformersEmbeddingAdapter.withPrefix(docs, 'e5', 'document'), [
     'passage: hello world',
     'passage: foo bar',
   ]);
   // e5 query → query:
-  assert.deepStrictEqual(withPrefix(docs, 'e5', 'query'), ['query: hello world', 'query: foo bar']);
+  assert.deepStrictEqual(TransformersEmbeddingAdapter.withPrefix(docs, 'e5', 'query'), [
+    'query: hello world',
+    'query: foo bar',
+  ]);
 });
 
 test('normalizeRemoteHost：补尾斜杠、剪空白、空值归 undefined', () => {
   // 缺尾斜杠必须补：该库拼 URL 是 remoteHost + remotePathTemplate，缺 '/' 会拼出坏域名路径
-  assert.strictEqual(normalizeRemoteHost('https://hf-mirror.com'), 'https://hf-mirror.com/');
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.normalizeRemoteHost('https://hf-mirror.com'),
+    'https://hf-mirror.com/',
+  );
   // 已有尾斜杠保持不变
-  assert.strictEqual(normalizeRemoteHost('https://hf-mirror.com/'), 'https://hf-mirror.com/');
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.normalizeRemoteHost('https://hf-mirror.com/'),
+    'https://hf-mirror.com/',
+  );
   // 剪首尾空白（env 值常带空白）
-  assert.strictEqual(normalizeRemoteHost('  https://hf-mirror.com  '), 'https://hf-mirror.com/');
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.normalizeRemoteHost('  https://hf-mirror.com  '),
+    'https://hf-mirror.com/',
+  );
   // 未配置 / 空串 / 全空白 → undefined（沿用库默认源）
-  assert.strictEqual(normalizeRemoteHost(undefined), undefined);
-  assert.strictEqual(normalizeRemoteHost(''), undefined);
-  assert.strictEqual(normalizeRemoteHost('   '), undefined);
+  assert.strictEqual(TransformersEmbeddingAdapter.normalizeRemoteHost(undefined), undefined);
+  assert.strictEqual(TransformersEmbeddingAdapter.normalizeRemoteHost(''), undefined);
+  assert.strictEqual(TransformersEmbeddingAdapter.normalizeRemoteHost('   '), undefined);
 });
 
 test('resolveRemoteHostFromEnv：OMNI_HF_ENDPOINT 优先，回落 HF_ENDPOINT', () => {
   assert.strictEqual(
-    resolveRemoteHostFromEnv({ OMNI_HF_ENDPOINT: 'https://hf-mirror.com' }),
+    TransformersEmbeddingAdapter.resolveRemoteHostFromEnv({
+      OMNI_HF_ENDPOINT: 'https://hf-mirror.com',
+    }),
     'https://hf-mirror.com/',
   );
   assert.strictEqual(
-    resolveRemoteHostFromEnv({ HF_ENDPOINT: 'https://hf-mirror.com' }),
+    TransformersEmbeddingAdapter.resolveRemoteHostFromEnv({ HF_ENDPOINT: 'https://hf-mirror.com' }),
     'https://hf-mirror.com/',
   );
   // 两者都给：OMNI_ 优先
   assert.strictEqual(
-    resolveRemoteHostFromEnv({
+    TransformersEmbeddingAdapter.resolveRemoteHostFromEnv({
       OMNI_HF_ENDPOINT: 'https://mirror.internal',
       HF_ENDPOINT: 'https://hf-mirror.com',
     }),
     'https://mirror.internal/',
   );
   // 两者皆空 → undefined（沿用库默认 huggingface.co）
-  assert.strictEqual(resolveRemoteHostFromEnv({}), undefined);
+  assert.strictEqual(TransformersEmbeddingAdapter.resolveRemoteHostFromEnv({}), undefined);
   assert.strictEqual(
-    resolveRemoteHostFromEnv({ OMNI_HF_ENDPOINT: '', HF_ENDPOINT: '  ' }),
+    TransformersEmbeddingAdapter.resolveRemoteHostFromEnv({
+      OMNI_HF_ENDPOINT: '',
+      HF_ENDPOINT: '  ',
+    }),
     undefined,
   );
 });

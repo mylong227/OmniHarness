@@ -1,4 +1,49 @@
-import { DANGEROUS_PERMISSIONS, isPluginPermission, type PluginPermission } from './permission.js';
+import { DANGEROUS_PERMISSIONS, Permission, type PluginPermission } from './permission.js';
+
+/**
+ * Manifest —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class Manifest {
+  /**
+   * @beta
+   * 校验清单权限字符串是否全部合法；非法则抛错（fail-closed）。
+   * 返回归一化后的 PluginPermission 列表。
+   */
+  public static validateManifestPermissions(manifest: PluginManifest): PluginPermission[] {
+    const perms: PluginPermission[] = [];
+    for (const raw of manifest.permissions ?? []) {
+      if (!Permission.isPluginPermission(raw)) {
+        throw new Error(
+          `插件 "${manifest.name}" 声明了未知权限: ${raw}（合法项见 ALL_PERMISSIONS）`,
+        );
+      }
+      perms.push(raw);
+    }
+    return perms;
+  }
+
+  /**
+   * @beta
+   * 清单是否含危险权限（用于安装时显式提示，非阻断）。
+   */
+  public static manifestHasDangerous(manifest: PluginManifest): boolean {
+    return (manifest.permissions ?? []).some((p) =>
+      DANGEROUS_PERMISSIONS.has(p as PluginPermission),
+    );
+  }
+
+  /**
+   * @beta
+   * 查询是否命中（名称/描述子串，大小写不敏感）。
+   */
+  public static manifestMatches(query: string, manifest: PluginManifest): boolean {
+    const q = query.toLowerCase();
+    return (
+      manifest.name.toLowerCase().includes(q) ||
+      (manifest.description ?? '').toLowerCase().includes(q)
+    );
+  }
+}
 
 /**
  * @beta
@@ -41,40 +86,4 @@ export interface PluginDescriptor {
     | { readonly kind: 'url'; readonly url: string };
   /** 来源类型。 */
   readonly source: 'bundled' | 'local' | 'remote';
-}
-
-/**
- * @beta
- * 校验清单权限字符串是否全部合法；非法则抛错（fail-closed）。
- * 返回归一化后的 PluginPermission 列表。
- */
-export function validateManifestPermissions(manifest: PluginManifest): PluginPermission[] {
-  const perms: PluginPermission[] = [];
-  for (const raw of manifest.permissions ?? []) {
-    if (!isPluginPermission(raw)) {
-      throw new Error(`插件 "${manifest.name}" 声明了未知权限: ${raw}（合法项见 ALL_PERMISSIONS）`);
-    }
-    perms.push(raw);
-  }
-  return perms;
-}
-
-/**
- * @beta
- * 清单是否含危险权限（用于安装时显式提示，非阻断）。
- */
-export function manifestHasDangerous(manifest: PluginManifest): boolean {
-  return (manifest.permissions ?? []).some((p) => DANGEROUS_PERMISSIONS.has(p as PluginPermission));
-}
-
-/**
- * @beta
- * 查询是否命中（名称/描述子串，大小写不敏感）。
- */
-export function manifestMatches(query: string, manifest: PluginManifest): boolean {
-  const q = query.toLowerCase();
-  return (
-    manifest.name.toLowerCase().includes(q) ||
-    (manifest.description ?? '').toLowerCase().includes(q)
-  );
 }

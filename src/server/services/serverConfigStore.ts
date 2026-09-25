@@ -1,9 +1,9 @@
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { configFile, type FileConfig } from '../../config/configFile.js';
-import { mergeConfigs } from '../../config/configError.js';
+import { ConfigError } from '../../config/configError.js';
 import { PERSISTABLE_KEYS } from '../core/appServerState.js';
-import { providerPresetOf, maskKey, type ProviderPreset } from './providerPresets.js';
+import { ProviderPresets, type ProviderPreset } from './providerPresets.js';
 
 /** 配置存储依赖。 */
 export interface ServerConfigStoreDeps {
@@ -83,13 +83,13 @@ export class ServerConfigStore {
       autoApprove: this.auto,
     };
     if (typeof merged['apiKey'] === 'string' && merged['apiKey'] !== '') {
-      merged['apiKey'] = maskKey(merged['apiKey']);
+      merged['apiKey'] = ProviderPresets.maskKey(merged['apiKey']);
     }
     const pk = merged['providerKeys'];
     if (pk !== undefined && typeof pk === 'object' && !Array.isArray(pk)) {
       const masked: Record<string, string> = {};
       for (const [vendor, key] of Object.entries(pk as Record<string, unknown>)) {
-        if (typeof key === 'string') masked[vendor] = maskKey(key);
+        if (typeof key === 'string') masked[vendor] = ProviderPresets.maskKey(key);
       }
       merged['providerKeys'] = masked;
     }
@@ -101,7 +101,7 @@ export class ServerConfigStore {
    * @returns 合并后的文件级配置。
    */
   public fileConfig(): FileConfig {
-    return mergeConfigs(configFile.load(this.configFilePath()), this.overrides);
+    return ConfigError.mergeConfigs(configFile.load(this.configFilePath()), this.overrides);
   }
 
   /**
@@ -153,7 +153,7 @@ export class ServerConfigStore {
     this.applyProviderKeyPatch(params, patch);
     await this.applyEnableProvider(params, patch);
     if (Object.keys(patch).length > 0 || cleared.length > 0) {
-      this.overrides = mergeConfigs(this.overrides, patch as Partial<FileConfig>);
+      this.overrides = ConfigError.mergeConfigs(this.overrides, patch as Partial<FileConfig>);
       for (const key of cleared) {
         delete (this.overrides as Record<string, unknown>)[key];
       }
@@ -225,7 +225,7 @@ export class ServerConfigStore {
   public persist(): void {
     const path = this.configFilePath();
     const existing = configFile.load(path);
-    const merged = mergeConfigs(existing, this.overrides) as Record<string, unknown>;
+    const merged = ConfigError.mergeConfigs(existing, this.overrides) as Record<string, unknown>;
     // 被显式清除的键必须从**落盘结果**里删掉：`mergeConfigs` 只做覆盖不做删除，
     // 否则「清除 base-url」会被旧文件里的值悄悄复活（UI 显示清了、实际没清）。
     for (const key of this.clearedKeys) {
@@ -261,7 +261,7 @@ export class ServerConfigStore {
     const key = (setKey as Record<string, unknown>)['key'];
     if (
       typeof vendor !== 'string' ||
-      providerPresetOf(vendor, this.fileConfig().providerPresets) === undefined
+      ProviderPresets.providerPresetOf(vendor, this.fileConfig().providerPresets) === undefined
     )
       return;
     const merged = { ...this.fileConfig().providerKeys };
@@ -285,7 +285,7 @@ export class ServerConfigStore {
   ): Promise<void> {
     const enable = params['enableProvider'];
     if (typeof enable !== 'string') return;
-    const preset = providerPresetOf(enable, this.fileConfig().providerPresets);
+    const preset = ProviderPresets.providerPresetOf(enable, this.fileConfig().providerPresets);
     if (preset === undefined) return;
     const keys = this.fileConfig().providerKeys ?? {};
     const key = keys[enable];

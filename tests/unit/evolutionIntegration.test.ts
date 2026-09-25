@@ -1,4 +1,4 @@
-﻿// 进化闭环端到端集成测试（P1 首发块的核心主张：发明层原语真进 createRuntime 真实循环做 A/B）。
+// 进化闭环端到端集成测试（P1 首发块的核心主张：发明层原语真进 createRuntime 真实循环做 A/B）。
 // 把 EvolutionController 注入 Agent（autoRun 开启），跑一个真实任务，断言：
 //   ① 任务正常完成、主流程不报错；
 //   ② 任务完成后自动跑一轮 发现→评估→晋升；
@@ -11,13 +11,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Skill } from '../../src/skill/skill.js';
-import { composeByTwist } from '../../src/skill/moireComposer.js';
-import { moireEnergy } from '../../src/evolution/benchmark.js';
+import { MoireComposer } from '../../src/skill/moireComposer.js';
+import { Benchmark } from '../../src/evolution/benchmark.js';
 import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.js';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -45,14 +45,14 @@ test('端到端：evolution 注入 Agent 后，任务完成跑闭环并把达标
   registry.register(B);
 
   const gate = new FailClosedEvolutionGate({
-    benchmark: (c) => moireEnergy(c.skill, N),
-    baseline: Math.max(moireEnergy(A, N), moireEnergy(B, N)),
+    benchmark: (c) => Benchmark.moireEnergy(c.skill, N),
+    baseline: Math.max(Benchmark.moireEnergy(A, N), Benchmark.moireEnergy(B, N)),
     minGain: 0.05,
   });
   const controller = new EvolutionControllerImpl({
     discovery: new TwistDiscoveryEngine({
       skills: [A, B],
-      compose: (a, b) => composeByTwist(a, b),
+      compose: (a, b) => MoireComposer.composeByTwist(a, b),
       maxCandidates: 4,
     }),
     gate,
@@ -78,7 +78,7 @@ test('端到端：evolution 注入 Agent 后，任务完成跑闭环并把达标
     events: new SilentEventPort(),
     evolution: controller,
   });
-  const agent = new Agent(createRuntime(config), registry);
+  const agent = new Agent(Runtime.createRuntime(config), registry);
 
   const result = await agent.runTask('做点事');
   assert.ok(result.finalText?.includes('任务完成'), '主任务应正常完成');
@@ -99,7 +99,7 @@ test('零破坏：未注入 evolution 时 Agent 行为与以往一致（不跑�
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const agent = new Agent(createRuntime(config));
+  const agent = new Agent(Runtime.createRuntime(config));
   const result = await agent.runTask('做点事');
   assert.ok(result.finalText?.includes('正常完成'));
   assert.strictEqual(config.evolution, undefined);

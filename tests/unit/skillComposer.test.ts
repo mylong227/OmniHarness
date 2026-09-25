@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { composeByTwist, capabilityFieldOf, emergenceAt } from '../../src/skill/moireComposer.js';
+import { MoireComposer } from '../../src/skill/moireComposer.js';
 import { SkillRegistry } from '../../src/skill/skillRegistry.js';
 import type { Skill } from '../../src/skill/skill.js';
 
@@ -19,17 +19,17 @@ const B: Skill = {
 };
 
 test('能力场派生确定可复现', () => {
-  const f1 = capabilityFieldOf(A, 64);
-  const f2 = capabilityFieldOf(A, 64);
+  const f1 = MoireComposer.capabilityFieldOf(A, 64);
+  const f2 = MoireComposer.capabilityFieldOf(A, 64);
   assert.strictEqual(f1.length, 64);
   assert.strictEqual(f1[5]![7]!, f2[5]![7]!);
   // 不同技能产生不同场（非角点单元，角点 (0,0) 恒为 0）
-  const fB = capabilityFieldOf(B, 64);
+  const fB = MoireComposer.capabilityFieldOf(B, 64);
   assert.notStrictEqual(f1[5]![7]!, fB[5]![7]!);
 });
 
 test('莫尔组合产生涌现长波（扫描到最优扭转角）', () => {
-  const c = composeByTwist(A, B);
+  const c = MoireComposer.composeByTwist(A, B);
   assert.ok(c.moire, '复合技能应带 moire 元数据');
   const e = c.moire!.emergence;
   assert.ok(e > 0.3, `涌现强度应明显 > 0.3，实测=${e.toFixed(3)}`);
@@ -41,12 +41,12 @@ test('莫尔组合产生涌现长波（扫描到最优扭转角）', () => {
 });
 
 test('单技能自身无此长波：涌现由组合而非任一技能单独产生', () => {
-  const fa = capabilityFieldOf(A, 64);
-  const fb = capabilityFieldOf(B, 64);
+  const fa = MoireComposer.capabilityFieldOf(A, 64);
+  const fb = MoireComposer.capabilityFieldOf(B, 64);
   // 任一技能与自身相乘（无相对扭转）→ 只是 f²，不产生莫尔长波
-  const selfA = emergenceAt(fa, fa, 64, 0, 2);
-  const selfB = emergenceAt(fb, fb, 64, 0, 2);
-  const moire = composeByTwist(A, B).moire!.emergence;
+  const selfA = MoireComposer.emergenceAt(fa, fa, 64, 0, 2);
+  const selfB = MoireComposer.emergenceAt(fb, fb, 64, 0, 2);
+  const moire = MoireComposer.composeByTwist(A, B).moire!.emergence;
   assert.ok(
     selfA < 0.15 && selfB < 0.15,
     `单技能自身涌现应很低(selfA=${selfA.toFixed(3)}, selfB=${selfB.toFixed(3)})`,

@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -73,7 +73,7 @@ test('集成：真实运行事件流 → per-tool 归因与 usage 一致', async
     sandbox: new PassthroughSandbox(),
     events,
   });
-  const agent = new Agent(createRuntime(config));
+  const agent = new Agent(Runtime.createRuntime(config));
   await agent.runTask('跑一次工具回路');
 
   const modelEvents = events.events.filter((e) => e.type === 'model');

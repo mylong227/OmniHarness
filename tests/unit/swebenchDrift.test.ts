@@ -15,7 +15,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Swebench, formatSweReport, runGoldControl, runSweSuite } from '../../src/eval/swebench.js';
+import { Swebench } from '../../src/eval/swebench.js';
 import type { SweReport, SweTask } from '../../src/eval/swebench.js';
 import { EditDriftDetector } from '../../src/eval/editDriftDetector.js';
 import { ScriptedModel } from '../../src/eval/scriptedModel.js';
@@ -133,9 +133,13 @@ test('T4.2 补丁应用路径：runGoldControl 真的把「应用前/后」差�
   const ws = mkdtempSync(join(tmpdir(), 'omni-drift-gold-'));
   try {
     const detector = new EditDriftDetector({ windowSize: 20, maxEditsPerFile: 50 });
-    const result = await runGoldControl(sweTask('gold-a-to-b', CONTENT_A, PATCH_A_TO_B), ws, {
-      driftDetector: detector,
-    });
+    const result = await Swebench.runGoldControl(
+      sweTask('gold-a-to-b', CONTENT_A, PATCH_A_TO_B),
+      ws,
+      {
+        driftDetector: detector,
+      },
+    );
     assert.strictEqual(result.passed, true, 'goldPatch 应用后评测应通过');
     assert.strictEqual(detector.recorded, 1, '补丁改了 1 个文件 ⇒ 检测器收到 1 次编辑事件');
     assert.strictEqual(result.driftAlarms, undefined, '单次补丁不产生告警');
@@ -149,11 +153,11 @@ test('T4.2 按工作区重置：两个独立工作区不得被误判为跨工作
   const wsB = mkdtempSync(join(tmpdir(), 'omni-drift-ws-b-'));
   try {
     const detector = new EditDriftDetector({ windowSize: 20, maxEditsPerFile: 50 });
-    const first = await runGoldControl(sweTask('ws-a', CONTENT_A, PATCH_A_TO_B), wsA, {
+    const first = await Swebench.runGoldControl(sweTask('ws-a', CONTENT_A, PATCH_A_TO_B), wsA, {
       driftDetector: detector,
     });
     // 第二个工作区：内容回到首次见过的 A（若沿用旧指纹历史会被误判为振荡）。
-    const second = await runGoldControl(sweTask('ws-b', CONTENT_B, PATCH_B_TO_A), wsB, {
+    const second = await Swebench.runGoldControl(sweTask('ws-b', CONTENT_B, PATCH_B_TO_A), wsB, {
       driftDetector: detector,
     });
     assert.strictEqual(first.driftAlarms, undefined);
@@ -187,14 +191,14 @@ test('T4.2 报告面：formatSweReport 把漂移告警写进输出', () => {
       },
     ],
   };
-  const text = formatSweReport(report);
+  const text = Swebench.formatSweReport(report);
   assert.match(text, /反漂移·thrash/);
   assert.match(text, /反漂移告警合计: 1/);
 });
 
 test('T5.5 套件接线：runSweSuite 的 reasoningFor 把档位透传进模型请求', async () => {
   const captured = new CapturingModel(new ScriptedModel([{ text: '已完成。' }]));
-  const report = await runSweSuite(
+  const report = await Swebench.runSweSuite(
     'reasoning-probe',
     [sweTask('probe', CONTENT_A)],
     null,

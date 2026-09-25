@@ -13,7 +13,7 @@ import type { AuditSinkLike } from '../ports/runtime/supervisor.js';
 import type { Candidate, EvolutionGate, PromotionVerdict } from '../ports/runtime/evolution.js';
 
 /** 基准函数：候选 → 0..1 得分。 */
-export type Benchmark = (candidate: Candidate) => number | Promise<number>;
+export type BenchmarkFn = (candidate: Candidate) => number | Promise<number>;
 
 /** 安全检查：返回 false 即拒（fail-closed）。 */
 export type SafetyCheck = (candidate: Candidate) => boolean | Promise<boolean>;
@@ -24,7 +24,7 @@ export interface FailClosedEvolutionGateOptions {
    * 真实基准：候选 → 0..1 得分。缺省返回 0 → 候选永远不过评估（fail-closed 兜底，
    * 迫使调用方必须提供真实基准才可能产生晋升）。
    */
-  readonly benchmark?: Benchmark | undefined;
+  readonly benchmark?: BenchmarkFn | undefined;
   /**
    * 对照基线：
    * - 数字：固定阈值（如 0）；
@@ -48,7 +48,7 @@ export interface FailClosedEvolutionGateOptions {
  * 进化门禁（fail-closed）。
  */
 export class FailClosedEvolutionGate implements EvolutionGate {
-  private readonly benchmarkImpl: Benchmark;
+  private readonly benchmarkImpl: BenchmarkFn;
   private readonly baseline: number | Candidate;
   private readonly minGain: number;
   private readonly safetyImpl?: SafetyCheck | undefined;
@@ -130,5 +130,5 @@ export class FailClosedEvolutionGate implements EvolutionGate {
    * NO_BENCHMARK — module-level helper moved into FailClosedEvolutionGate.
    * @returns {number} - result
    */
-  private static NO_BENCHMARK: Benchmark = () => 0;
+  private static NO_BENCHMARK: BenchmarkFn = () => 0;
 }

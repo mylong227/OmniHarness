@@ -4,7 +4,7 @@ import type {
   ApprovalPort,
   ApprovalRequest,
 } from '../../ports/runtime/approval.js';
-import { canonicalizeCommand, canonicalKeyOf } from '../../util/commandCanonicalizer.js';
+import { CommandCanonicalizer } from '../../util/commandCanonicalizer.js';
 
 /** 审批缓存选项。 */
 export interface CachedApprovalOptions {
@@ -154,7 +154,9 @@ export class CachedApproval implements ApprovalPort {
    */
   private keyOf(request: ApprovalRequest): string {
     const target = this.commandTools.has(request.toolName)
-      ? canonicalKeyOf(canonicalizeCommand(request.target))
+      ? CommandCanonicalizer.canonicalKeyOf(
+          CommandCanonicalizer.canonicalizeCommand(request.target),
+        )
       : request.target;
     return JSON.stringify([
       request.toolName,

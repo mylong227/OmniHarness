@@ -18,8 +18,7 @@ import {
   type RegimeSignals,
   type SparkEngines,
   HARNESS_OPERATORS,
-  planHarnessRegime,
-  deriveRegime,
+  Operators,
 } from './operators.js';
 
 /** 算子名 → SparkCycleReport 字段（同构映射）。 */
@@ -39,19 +38,6 @@ const REPORT_FIELD: Readonly<Record<string, keyof SparkCycleReport>> = {
   confinement: 'confinement',
 };
 
-/** 由工况信号构造初始 Harness 状态。 */
-export function initialState(signals: RegimeSignals): HarnessState {
-  return {
-    temperature: 1,
-    orderParameter: 0,
-    exposed: false,
-    entropy: signals.entropy,
-    modalityCount: signals.modalityCount,
-    costAccumTokens: 0,
-    successRate: signals.successRate,
-  };
-}
-
 /**
  * 自适应编排桥：一次 cycle 的真实执行。
  * 返回 SparkCycleReport（ran=false 当无引擎触发），并暴露 lastLedger 供守恒校验。
@@ -70,9 +56,9 @@ export class GenesisSparkBridge {
    * @returns 与 SparkController.cycle() 同构的周期报告；无任何引擎产出时 ran=false
    */
   public cycle(signals: RegimeSignals): SparkCycleReport {
-    const regime = deriveRegime(signals);
-    const order = planHarnessRegime(regime);
-    let state = initialState(signals);
+    const regime = Operators.deriveRegime(signals);
+    const order = Operators.planHarnessRegime(regime);
+    let state = GenesisSparkBridge.initialState(signals);
     const ledger = new Ledger();
     const frags: Record<string, unknown> = {};
     let ran = false;
@@ -98,5 +84,18 @@ export class GenesisSparkBridge {
     }
     // fields 恰好覆盖全部报告键 → 结构重叠成立，单一 as 收口（无 unknown 双跳）。
     return { ran, ...fields } as SparkCycleReport;
+  }
+
+  /** 由工况信号构造初始 Harness 状态。 */
+  public static initialState(signals: RegimeSignals): HarnessState {
+    return {
+      temperature: 1,
+      orderParameter: 0,
+      exposed: false,
+      entropy: signals.entropy,
+      modalityCount: signals.modalityCount,
+      costAccumTokens: 0,
+      successRate: signals.successRate,
+    };
   }
 }

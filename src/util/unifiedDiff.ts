@@ -1,4 +1,4 @@
-import { at } from './arrayAt.js';
+import { ArrayAt } from './arrayAt.js';
 /**
  * 行级 unified diff（零依赖，对标 codex diff 渲染）。
  *
@@ -128,23 +128,23 @@ export class UnifiedDiff {
     let j = 0;
     while (i < a.length && j < b.length) {
       if (a[i] === b[j]) {
-        ops.push({ kind: 'equal', text: at(a, i) });
+        ops.push({ kind: 'equal', text: ArrayAt.at(a, i) });
         i += 1;
         j += 1;
       } else if ((table[(i + 1) * width + j] ?? 0) >= (table[i * width + (j + 1)] ?? 0)) {
-        ops.push({ kind: 'delete', text: at(a, i) });
+        ops.push({ kind: 'delete', text: ArrayAt.at(a, i) });
         i += 1;
       } else {
-        ops.push({ kind: 'insert', text: at(b, j) });
+        ops.push({ kind: 'insert', text: ArrayAt.at(b, j) });
         j += 1;
       }
     }
     while (i < a.length) {
-      ops.push({ kind: 'delete', text: at(a, i) });
+      ops.push({ kind: 'delete', text: ArrayAt.at(a, i) });
       i += 1;
     }
     while (j < b.length) {
-      ops.push({ kind: 'insert', text: at(b, j) });
+      ops.push({ kind: 'insert', text: ArrayAt.at(b, j) });
       j += 1;
     }
     return ops;
@@ -156,10 +156,10 @@ export class UnifiedDiff {
     let beforeStart = 0;
     let afterStart = 0;
     for (let k = 0; k < start; k += 1) {
-      if (at(ops, k).kind !== 'insert') {
+      if (ArrayAt.at(ops, k).kind !== 'insert') {
         beforeStart += 1;
       }
-      if (at(ops, k).kind !== 'delete') {
+      if (ArrayAt.at(ops, k).kind !== 'delete') {
         afterStart += 1;
       }
     }
@@ -181,35 +181,35 @@ export class UnifiedDiff {
       ops: slice,
     };
   }
+
+  /** 计算行级差异操作序列。 */
+  public static diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
+    return unifiedDiff.diffLines(before, after);
+  }
+
+  /** 把操作序列切分为带上下文的 hunk。 */
+  public static hunksOf(
+    ops: readonly DiffOp[],
+    context = DEFAULT_CONTEXT_LINES,
+  ): readonly DiffHunk[] {
+    return unifiedDiff.hunksOf(ops, context);
+  }
+
+  /** 渲染单文件 unified diff（无差异时返回空串）。 */
+  public static renderUnifiedDiff(
+    path: string,
+    before: string,
+    after: string,
+    context = DEFAULT_CONTEXT_LINES,
+  ): string {
+    return unifiedDiff.renderUnifiedDiff(path, before, after, context);
+  }
+
+  /** 拆分为行（空文本视为零行，避免产出幽灵空行）。 */
+  public static splitLines(text: string): string[] {
+    return unifiedDiff.splitLines(text);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const unifiedDiff = new UnifiedDiff();
-
-/** 计算行级差异操作序列。 */
-export function diffLines(before: readonly string[], after: readonly string[]): readonly DiffOp[] {
-  return unifiedDiff.diffLines(before, after);
-}
-
-/** 把操作序列切分为带上下文的 hunk。 */
-export function hunksOf(
-  ops: readonly DiffOp[],
-  context = DEFAULT_CONTEXT_LINES,
-): readonly DiffHunk[] {
-  return unifiedDiff.hunksOf(ops, context);
-}
-
-/** 渲染单文件 unified diff（无差异时返回空串）。 */
-export function renderUnifiedDiff(
-  path: string,
-  before: string,
-  after: string,
-  context = DEFAULT_CONTEXT_LINES,
-): string {
-  return unifiedDiff.renderUnifiedDiff(path, before, after, context);
-}
-
-/** 拆分为行（空文本视为零行，避免产出幽灵空行）。 */
-export function splitLines(text: string): string[] {
-  return unifiedDiff.splitLines(text);
-}

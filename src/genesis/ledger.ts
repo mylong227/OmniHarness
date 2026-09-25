@@ -14,7 +14,7 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
-import { type Cost, emptyCost, concatCost } from './algebra.js';
+import { type Cost, emptyCost, Algebra } from './algebra.js';
 
 /** 成本账本实例：以 pending/recorded/committed 三列维护成本流水，并给出记账闭合判定。 */
 export class Ledger {
@@ -83,12 +83,12 @@ export class Ledger {
       this.recordedJoules === this.committedJoules
     );
   }
-}
 
-/** 便捷：累计合并多笔成本（复用 Cost 幺半群）。
- * @param costs 成本增量数组。
- * @returns 全部增量按幺半群合并后的单笔总成本。
- */
-export function sumCosts(costs: ReadonlyArray<Cost>): Cost {
-  return costs.reduce<Cost>((acc, c) => concatCost(acc, c), emptyCost);
+  /** 便捷：累计合并多笔成本（复用 Cost 幺半群）。
+   * @param costs 成本增量数组。
+   * @returns 全部增量按幺半群合并后的单笔总成本。
+   */
+  public static sumCosts(costs: ReadonlyArray<Cost>): Cost {
+    return costs.reduce<Cost>((acc, c) => Algebra.concatCost(acc, c), emptyCost);
+  }
 }

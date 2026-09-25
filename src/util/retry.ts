@@ -10,6 +10,44 @@ export class Retry {
   public static defaultSleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+
+  /** 计算第 n 次失败后的退避（指数 + 全抖动），封顶 maxDelayMs。 */
+  public static backoffMs(attempt: number, opts: BackoffParams): number {
+    const raw = opts.baseDelayMs * Math.pow(opts.factor, attempt - 1);
+    const capped = Math.min(raw, opts.maxDelayMs);
+    // 全抖动：[0, capped] 均匀随机，避免重试风暴共振。
+    return Math.random() * capped;
+  }
+
+  /**
+   * 对 `fn` 施加重试。所有尝试失败则抛出最后一次错误。
+   * fail-closed：非可重试错误立即抛出，不浪费重试预算。
+   */
+  public static async withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+    const opts = {
+      maxAttempts: options.maxAttempts ?? 3,
+      baseDelayMs: options.baseDelayMs ?? 200,
+      maxDelayMs: options.maxDelayMs ?? 5000,
+      factor: options.factor ?? 2,
+    };
+    const isRetryable = options.isRetryable ?? (() => true);
+    const sleep = options.sleep ?? Retry.defaultSleep;
+
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= opts.maxAttempts; attempt += 1) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        if (attempt >= opts.maxAttempts || !isRetryable(error)) {
+          throw error;
+        }
+        const delay = Retry.backoffMs(attempt, opts);
+        await sleep(delay);
+      }
+    }
+    throw lastError;
+  }
 }
 /**
  * 通用重试原语（零依赖）。
@@ -39,42 +77,4 @@ export interface BackoffParams {
   readonly baseDelayMs: number;
   readonly maxDelayMs: number;
   readonly factor: number;
-}
-
-/** 计算第 n 次失败后的退避（指数 + 全抖动），封顶 maxDelayMs。 */
-export function backoffMs(attempt: number, opts: BackoffParams): number {
-  const raw = opts.baseDelayMs * Math.pow(opts.factor, attempt - 1);
-  const capped = Math.min(raw, opts.maxDelayMs);
-  // 全抖动：[0, capped] 均匀随机，避免重试风暴共振。
-  return Math.random() * capped;
-}
-
-/**
- * 对 `fn` 施加重试。所有尝试失败则抛出最后一次错误。
- * fail-closed：非可重试错误立即抛出，不浪费重试预算。
- */
-export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
-  const opts = {
-    maxAttempts: options.maxAttempts ?? 3,
-    baseDelayMs: options.baseDelayMs ?? 200,
-    maxDelayMs: options.maxDelayMs ?? 5000,
-    factor: options.factor ?? 2,
-  };
-  const isRetryable = options.isRetryable ?? (() => true);
-  const sleep = options.sleep ?? Retry.defaultSleep;
-
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= opts.maxAttempts; attempt += 1) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (attempt >= opts.maxAttempts || !isRetryable(error)) {
-        throw error;
-      }
-      const delay = backoffMs(attempt, opts);
-      await sleep(delay);
-    }
-  }
-  throw lastError;
 }

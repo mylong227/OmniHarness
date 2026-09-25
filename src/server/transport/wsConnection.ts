@@ -2,14 +2,6 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Duplex } from 'node:stream';
 import type { IncomingMessage, Server } from 'node:http';
 
-/** RFC6455 握手 accept 值：base64(sha1(key + 固定 GUID))。
- * @param key 客户端 `Sec-WebSocket-Key`。
- * @returns 应回填进 `Sec-WebSocket-Accept` 的 base64 串。
- */
-export function webSocketAcceptKey(key: string): string {
-  return createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
-}
-
 /** WebSocket 连接：RFC6455 帧编解码（文本帧，零依赖）。 */
 export class WsConnection {
   /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
@@ -212,6 +204,14 @@ export class WsConnection {
     }
     return Buffer.concat([header, mask, masked]);
   }
+
+  /** RFC6455 握手 accept 值：base64(sha1(key + 固定 GUID))。
+   * @param key 客户端 `Sec-WebSocket-Key`。
+   * @returns 应回填进 `Sec-WebSocket-Accept` 的 base64 串。
+   */
+  public static webSocketAcceptKey(key: string): string {
+    return createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
+  }
 }
 
 /** WebSocket 服务端：HTTP upgrade 握手，连接交由外部接管消息。 */
@@ -266,7 +266,7 @@ export class WsServer {
       socket.destroy();
       return;
     }
-    const accept = webSocketAcceptKey(key);
+    const accept = WsConnection.webSocketAcceptKey(key);
     socket.write(
       `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
     );

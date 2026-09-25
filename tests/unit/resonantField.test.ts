@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.js';
-import { eigenSpectrum } from '../../src/util/eigenspectrum.js';
+import { EigenSpectrum } from '../../src/util/eigenspectrum.js';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';
@@ -97,7 +97,7 @@ test('③ 纤维召回：发射探针返回共振簇成员', () => {
   const mem = new MemLongTermMemory();
   const engine = new ResonantFieldEngine(mem, { adhesionThreshold: 0.2 });
   engine.remember(fact(A));
-  const hits = engine.fiber(eigenSpectrum(A, 257), 5);
+  const hits = engine.fiber(EigenSpectrum.eigenSpectrum(A, 257), 5);
   assert.ok(hits.length >= 1, '纤维应返回共振簇成员');
   assert.ok(
     hits.every((f) => f.text === A),

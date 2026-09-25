@@ -10,7 +10,7 @@
  * @maturity L1 — 接受概率公式为标准模拟退火 Metropolis 准则；「免费增益」依赖搜索空间，本模块只提供机制
  * @maturityEvidence tests/unit/annealedAcceptance.test.ts
  */
-import { mulberry32 } from '../eval/bootstrap.js';
+import { Bootstrap } from '../eval/bootstrap.js';
 
 /** 退火接受选项。 */
 export interface AnnealedAcceptanceOptions {
@@ -50,7 +50,7 @@ export class AnnealedAcceptance {
    * @param opts 种子 / 初始温度 / 冷却系数
    */
   public constructor(opts: AnnealedAcceptanceOptions = {}) {
-    this.rng = mulberry32(opts.seed ?? 20260913);
+    this.rng = Bootstrap.mulberry32(opts.seed ?? 20260913);
     this._temperature = Math.max(1e-6, opts.initialTemperature ?? 1.0);
     this.cooling = Math.min(1, Math.max(0.01, opts.cooling ?? 0.95));
   }

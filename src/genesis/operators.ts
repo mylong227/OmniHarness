@@ -1,5 +1,5 @@
 /**
- * 仿生算子提升层（Operator lift）——把既有九个仿生引擎统一接入 Genesis 代数。
+ * 仿生算子提升层（OperatorFn lift）——把既有九个仿生引擎统一接入 Genesis 代数。
  *
  * 这不是功能堆砌，而是把"一次系统变换"统一为 `HarnessOperator`：
  *   `HarnessOperator = (state, engines) => { next, cost, report, events }`
@@ -10,7 +10,7 @@
  * 使"架构适应力强"成为运行时真实行为（见 sparkBridge.ts）。
  */
 
-import { type Cost, emptyCost, cost } from './algebra.js';
+import { type Cost, emptyCost, Algebra } from './algebra.js';
 import { type Regime } from './regimeCost.js';
 import { type ModalityKind } from './modalityPort.js';
 
@@ -43,6 +43,73 @@ export class Operators {
    */
   public static noop(state: HarnessState): HarnessOperatorResult {
     return { next: state, cost: emptyCost, report: undefined, events: [] };
+  }
+
+  /** 由信号派生代数 Regime（模态数 → 具体模态种类列表，供 plan 判定）。 */
+  public static deriveRegime(s: RegimeSignals): Regime {
+    const modalities: ModalityKind[] = [];
+    for (let i = 0; i < Math.max(1, s.modalityCount); i++) {
+      const k = KINDS[i % KINDS.length];
+      if (k !== undefined) modalities.push(k);
+    }
+    return {
+      entropy: s.entropy,
+      modalities,
+      costPressure: Math.max(0, Math.min(1, s.costPressure)),
+    };
+  }
+
+  /**
+   * 自适应管线规划（纯函数）：依工况重排算子发射顺序。
+   * - 高成本压力：退火/冷却优先，剪掉昂贵尾算子（降本，对应报告 #18 的"能耗入适应度"）。
+   * - 高熵（混乱）：先建立秩序（对称破缺 + 禁闭）再生长。
+   * - 默认：沿用既有稳定顺序。
+   */
+  public static planHarnessRegime(regime: Regime): readonly string[] {
+    const base = [
+      'resonance',
+      'vortex',
+      'heatAnnealer',
+      'web',
+      'qec',
+      'immuneMonitoring',
+      'belief',
+      'crispr',
+      'capabilityCrystallizer',
+      'etching',
+      'elementComposer',
+      'symmetryBreaking',
+      'confinement',
+    ];
+    if (regime.costPressure > 0.7) {
+      return [
+        'heatAnnealer',
+        'web',
+        'qec',
+        'immuneMonitoring',
+        'belief',
+        'symmetryBreaking',
+        'confinement',
+      ];
+    }
+    if (regime.entropy > 0.5 && regime.modalities.length >= 3) {
+      return [
+        'symmetryBreaking',
+        'confinement',
+        'resonance',
+        'vortex',
+        'heatAnnealer',
+        'web',
+        'qec',
+        'immuneMonitoring',
+        'belief',
+        'crispr',
+        'capabilityCrystallizer',
+        'etching',
+        'elementComposer',
+      ];
+    }
+    return base;
   }
 }
 
@@ -111,32 +178,18 @@ export type HarnessOperator = (state: HarnessState, engines: SparkEngines) => Ha
 
 const KINDS: ModalityKind[] = ['text', 'image', 'audio', 'tensor', 'video'];
 
-/** 由信号派生代数 Regime（模态数 → 具体模态种类列表，供 plan 判定）。 */
-export function deriveRegime(s: RegimeSignals): Regime {
-  const modalities: ModalityKind[] = [];
-  for (let i = 0; i < Math.max(1, s.modalityCount); i++) {
-    const k = KINDS[i % KINDS.length];
-    if (k !== undefined) modalities.push(k);
-  }
-  return {
-    entropy: s.entropy,
-    modalities,
-    costPressure: Math.max(0, Math.min(1, s.costPressure)),
-  };
-}
-
 // ---- 九个仿生算子：真实调用既有引擎（镜像 SparkController.cycle） ----
 
 export const opResonance: HarnessOperator = (state, e) => {
   const r = e.resonance?.tune();
   if (r === undefined) return Operators.noop(state);
-  return { next: state, cost: cost(5), report: r, events: ['resonance'] };
+  return { next: state, cost: Algebra.cost(5), report: r, events: ['resonance'] };
 };
 
 export const opVortex: HarnessOperator = (state, e) => {
   const r = e.vortex?.flush();
   if (r === undefined) return Operators.noop(state);
-  return { next: state, cost: cost(5), report: r, events: ['vortex'] };
+  return { next: state, cost: Algebra.cost(5), report: r, events: ['vortex'] };
 };
 
 export const opHeatAnnealer: HarnessOperator = (state, e) => {
@@ -144,7 +197,7 @@ export const opHeatAnnealer: HarnessOperator = (state, e) => {
   if (r === undefined) return Operators.noop(state);
   return {
     next: { ...state, temperature: (r as AnnealStepReport).temperature },
-    cost: cost(20),
+    cost: Algebra.cost(20),
     report: r,
     events: ['heatAnnealer'],
   };
@@ -153,13 +206,13 @@ export const opHeatAnnealer: HarnessOperator = (state, e) => {
 export const opWeb: HarnessOperator = (state, e) => {
   const r = e.web?.consolidate();
   if (r === undefined) return Operators.noop(state);
-  return { next: state, cost: cost(8), report: r, events: ['web'] };
+  return { next: state, cost: Algebra.cost(8), report: r, events: ['web'] };
 };
 
 export const opQec: HarnessOperator = (state, e) => {
   const r = e.qec?.repairAll();
   if (r === undefined) return Operators.noop(state);
-  return { next: state, cost: cost(8), report: r, events: ['qec'] };
+  return { next: state, cost: Algebra.cost(8), report: r, events: ['qec'] };
 };
 
 export const opImmuneMonitoring: HarnessOperator = (state, e) => {
@@ -167,7 +220,7 @@ export const opImmuneMonitoring: HarnessOperator = (state, e) => {
   const sample = e.immuneSample?.();
   if (sample !== undefined) e.immune.observe(sample);
   const r = e.immune.selfCheck();
-  return { next: state, cost: cost(10), report: r, events: ['immuneMonitoring'] };
+  return { next: state, cost: Algebra.cost(10), report: r, events: ['immuneMonitoring'] };
 };
 
 export const opBelief: HarnessOperator = (state, e) => {
@@ -183,19 +236,19 @@ export const opBelief: HarnessOperator = (state, e) => {
         }
       : undefined;
   if (report === undefined) return Operators.noop(state);
-  return { next: state, cost: cost(15), report, events: ['belief'] };
+  return { next: state, cost: Algebra.cost(15), report, events: ['belief'] };
 };
 
 export const opCrispr: HarnessOperator = (state, e) => {
   const r = e.crispr?.flush();
   if (r === undefined || r.length === 0) return Operators.noop(state);
-  return { next: state, cost: cost(6), report: r, events: ['crispr'] };
+  return { next: state, cost: Algebra.cost(6), report: r, events: ['crispr'] };
 };
 
 export const opCapabilityCrystallizer: HarnessOperator = (state, e) => {
   const r = e.crystallizer?.crystallize();
   if (r === undefined) return Operators.noop(state);
-  return { next: state, cost: cost(15), report: r, events: ['capabilityCrystallizer'] };
+  return { next: state, cost: Algebra.cost(15), report: r, events: ['capabilityCrystallizer'] };
 };
 
 export const opEtching: HarnessOperator = (state, e) => {
@@ -205,7 +258,7 @@ export const opEtching: HarnessOperator = (state, e) => {
     e.etchProbe !== undefined
       ? e.etching.conduct(e.etchProbe()).flatMap((c: EtchConduction) => c.path)
       : undefined;
-  return { next: state, cost: cost(6), report: { traces, conducted }, events: ['etching'] };
+  return { next: state, cost: Algebra.cost(6), report: { traces, conducted }, events: ['etching'] };
 };
 
 export const opElementComposer: HarnessOperator = (state, e) => {
@@ -216,7 +269,7 @@ export const opElementComposer: HarnessOperator = (state, e) => {
     : null;
   return {
     next: state,
-    cost: cost(8),
+    cost: Algebra.cost(8),
     report: { elements, compound },
     events: ['elementComposer'],
   };
@@ -229,7 +282,7 @@ export const opSymmetryBreaking: HarnessOperator = (state, e) => {
   const r = e.symmetry.snapshot();
   return {
     next: { ...state, orderParameter: r.orderParameter ?? state.orderParameter },
-    cost: cost(12),
+    cost: Algebra.cost(12),
     report: r,
     events: ['symmetryBreaking'],
   };
@@ -240,7 +293,7 @@ export const opConfinement: HarnessOperator = (state, e) => {
   const r = e.confinement.expose(e.confinementProbe());
   return {
     next: { ...state, exposed: (r as ConfinementVerdict).exposed },
-    cost: cost(12),
+    cost: Algebra.cost(12),
     report: r,
     events: ['confinement'],
   };
@@ -262,56 +315,3 @@ export const HARNESS_OPERATORS: Readonly<Record<string, HarnessOperator>> = {
   symmetryBreaking: opSymmetryBreaking,
   confinement: opConfinement,
 };
-
-/**
- * 自适应管线规划（纯函数）：依工况重排算子发射顺序。
- * - 高成本压力：退火/冷却优先，剪掉昂贵尾算子（降本，对应报告 #18 的"能耗入适应度"）。
- * - 高熵（混乱）：先建立秩序（对称破缺 + 禁闭）再生长。
- * - 默认：沿用既有稳定顺序。
- */
-export function planHarnessRegime(regime: Regime): readonly string[] {
-  const base = [
-    'resonance',
-    'vortex',
-    'heatAnnealer',
-    'web',
-    'qec',
-    'immuneMonitoring',
-    'belief',
-    'crispr',
-    'capabilityCrystallizer',
-    'etching',
-    'elementComposer',
-    'symmetryBreaking',
-    'confinement',
-  ];
-  if (regime.costPressure > 0.7) {
-    return [
-      'heatAnnealer',
-      'web',
-      'qec',
-      'immuneMonitoring',
-      'belief',
-      'symmetryBreaking',
-      'confinement',
-    ];
-  }
-  if (regime.entropy > 0.5 && regime.modalities.length >= 3) {
-    return [
-      'symmetryBreaking',
-      'confinement',
-      'resonance',
-      'vortex',
-      'heatAnnealer',
-      'web',
-      'qec',
-      'immuneMonitoring',
-      'belief',
-      'crispr',
-      'capabilityCrystallizer',
-      'etching',
-      'elementComposer',
-    ];
-  }
-  return base;
-}

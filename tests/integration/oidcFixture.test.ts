@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  enterpriseAuthFromIssuer,
-  OidcClient,
-  type OidcProviderConfig,
-} from '../../src/enterprise/oidcClient.js';
+import { OidcClient, type OidcProviderConfig } from '../../src/enterprise/oidcClient.js';
 import { OidcFixture } from './oidcFixture.js';
 
 /**
@@ -23,7 +19,7 @@ test('OidcFixture: 真实 HTTP + RS256 id_token 被 EnterpriseAuth 端到端验�
       redirectUri: 'http://localhost/cb',
     };
     // 走真实 discovery fetch（HTTP）→ 真实 JWKS fetch（HTTP）→ 真实 RS256 校验。
-    const auth = await enterpriseAuthFromIssuer(config, globalThis.fetch);
+    const auth = await OidcClient.enterpriseAuthFromIssuer(config, globalThis.fetch);
     const token = idp.issueIdToken({ sub: 'alice', clientId: 'omniharness' });
     const principal = await auth.authenticate(`Bearer ${token}`);
     assert.notStrictEqual(principal, null, '真实签名令牌竟未通过校验');
@@ -38,7 +34,7 @@ test('OidcFixture: 签名被篡改 → fail-closed 返回 null', async () => {
   await idp.start();
   try {
     const config: OidcProviderConfig = { issuer: idp.issuerUrl, clientId: 'omniharness' };
-    const auth = await enterpriseAuthFromIssuer(config, globalThis.fetch);
+    const auth = await OidcClient.enterpriseAuthFromIssuer(config, globalThis.fetch);
     const token = idp.issueIdToken({ sub: 'bob', clientId: 'omniharness' });
     const tampered = `${token.slice(0, -2)}xx`;
     const principal = await auth.authenticate(`Bearer ${tampered}`);
@@ -53,7 +49,7 @@ test('OidcFixture: 过期 id_token → fail-closed 返回 null', async () => {
   await idp.start();
   try {
     const config: OidcProviderConfig = { issuer: idp.issuerUrl, clientId: 'omniharness' };
-    const auth = await enterpriseAuthFromIssuer(config, globalThis.fetch);
+    const auth = await OidcClient.enterpriseAuthFromIssuer(config, globalThis.fetch);
     const token = idp.issueIdToken({ sub: 'carol', clientId: 'omniharness', expiresInSec: -10 });
     const principal = await auth.authenticate(`Bearer ${token}`);
     assert.strictEqual(principal, null, '过期令牌仍放行，门禁失效');

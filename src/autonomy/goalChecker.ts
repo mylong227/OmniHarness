@@ -37,7 +37,22 @@ export class GoalChecker {
     ];
     const output = await this.model.generate({ messages, tools: [] });
     const raw = (output.text ?? '').trim();
-    return { achieved: parseAchieved(raw), raw };
+    return { achieved: GoalChecker.parseAchieved(raw), raw };
+  }
+
+  /**
+   * @beta
+   * 从模型文本解析达成度：含独立 YES 且未被否定修饰视为达成（保守，避免过早停止）。
+   */
+  public static parseAchieved(text: string): boolean {
+    const t = text.toLowerCase();
+    // 任何独立 NO 都视为未达成（no / not yet / no longer 等）。
+    if (/\bno\b/.test(t)) {
+      return false;
+    }
+    // YES 被 not / n't / 否 / 未 / 不 等否定修饰时，仍判未达成。
+    const negatedYes = /(not|n't|否|未|不)\s*yes/.test(t) || /yes\s*(not|never)/.test(t);
+    return /\byes\b/.test(t) && !negatedYes;
   }
 }
 
@@ -46,18 +61,3 @@ const CHECKER_SYSTEM =
   '你是目标达成度评审。判断给定目标是否已被最近一轮产出完全且可验证地达成。' +
   '只输出一行：YES 或 NO，其后跟一句简短理由。' +
   '除非目标被实际完成且可验证，否则回答 NO（例如仅声称完成、或只完成部分、或仍需人工确认，均判 NO）。';
-
-/**
- * @beta
- * 从模型文本解析达成度：含独立 YES 且未被否定修饰视为达成（保守，避免过早停止）。
- */
-export function parseAchieved(text: string): boolean {
-  const t = text.toLowerCase();
-  // 任何独立 NO 都视为未达成（no / not yet / no longer 等）。
-  if (/\bno\b/.test(t)) {
-    return false;
-  }
-  // YES 被 not / n't / 否 / 未 / 不 等否定修饰时，仍判未达成。
-  const negatedYes = /(not|n't|否|未|不)\s*yes/.test(t) || /yes\s*(not|never)/.test(t);
-  return /\byes\b/.test(t) && !negatedYes;
-}

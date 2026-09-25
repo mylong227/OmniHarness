@@ -11,7 +11,7 @@
  *    （带 root 与堆栈），否则调用方只看到「语料索引失败」而无法定位真因。
  */
 
-import { indexCorpus, type IndexedCorpus } from './contextEngine.js';
+import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
 import { log } from '../util/logger.js';
 
 /** 缓存条目：语料 + 索引时间戳（用于 TTL 失效与 LRU 驱逐）。 */
@@ -98,7 +98,7 @@ export class CorpusIndexCache {
    */
   private indexRoot(root: string): IndexedCorpus | null {
     try {
-      return indexCorpus(root, { morph: true, light: true });
+      return ContextEngine.indexCorpus(root, { morph: true, light: true });
     } catch (error) {
       // 保持 fail-closed（返回 null 不抛），但必须留下可定位的证据：
       // 2026-09-17 batch_next 25/25「语料索引失败」曾因这里的静默 catch 而把真因

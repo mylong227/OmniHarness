@@ -9,7 +9,7 @@
  */
 
 import type { FileConfig } from './configFile.js';
-import { resolveSsrfPolicy } from '../security/ssrfPolicy.js';
+import { SsrfPolicy } from '../security/ssrfPolicy.js';
 
 /** `ssrfPolicy` 段允许的 key 全集。 */
 const SSRF_POLICY_KEYS: ReadonlySet<string> = new Set([
@@ -49,7 +49,7 @@ export class SsrfPolicyValidator {
     }
     try {
       // 复用运行时解析器做逐条校验（非法条目一律抛错，不静默丢弃）。
-      resolveSsrfPolicy(raw as Parameters<typeof resolveSsrfPolicy>[0]);
+      SsrfPolicy.resolveSsrfPolicy(raw as Parameters<typeof SsrfPolicy.resolveSsrfPolicy>[0]);
       return undefined;
     } catch (error) {
       return error instanceof Error ? error.message : String(error);

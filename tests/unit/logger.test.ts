@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Logger, type LogLevel, nextTraceId } from '../../src/util/logger.js';
+import { Logger, type LogLevel } from '../../src/util/logger.js';
 
 function collector(minLevel: LogLevel = 'debug'): { logger: Logger; lines: string[] } {
   const lines: string[] = [];
@@ -46,7 +46,7 @@ test('withTrace 跨 async 仍传播', async () => {
 });
 
 test('nextTraceId：优先用注入值，否则生成随机值', () => {
-  assert.strictEqual(nextTraceId('given'), 'given');
-  const rnd = nextTraceId();
+  assert.strictEqual(Logger.nextTraceId('given'), 'given');
+  const rnd = Logger.nextTraceId();
   assert.ok(typeof rnd === 'string' && rnd.length > 0 && rnd !== 'given');
 });

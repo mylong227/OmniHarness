@@ -1,9 +1,6 @@
 import { strict as assert } from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  Ed25519AgentIdentity,
-  generateAgentKeyMaterial,
-} from '../../src/adapters/identity/ed25519AgentIdentity.js';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
 import type { AgentIdentityPort } from '../../src/ports/runtime/agentIdentity.js';
 
 function make(port?: AgentIdentityPort): AgentIdentityPort {
@@ -11,7 +8,7 @@ function make(port?: AgentIdentityPort): AgentIdentityPort {
 }
 
 test('generateAgentKeyMaterial 产出可加载的 PKCS#8 私钥与 ssh-ed25519 公钥', () => {
-  const material = generateAgentKeyMaterial('rt-1');
+  const material = Ed25519AgentIdentity.generateAgentKeyMaterial('rt-1');
   assert.ok(material.privateKeyPkcs8Base64.length > 0);
   assert.match(material.publicKeySsh, /^ssh-ed25519 /);
   // 用导出的私钥加载，runtimeId 应一致。
@@ -68,7 +65,7 @@ test('authorizationHeader 形如 "AgentAssertion <envelope>"', () => {
 
 test('固定私钥签名确定且跨实例可验（公钥可独立验证）', () => {
   const a = new Ed25519AgentIdentity({
-    privateKeyPkcs8Base64: generateAgentKeyMaterial('k').privateKeyPkcs8Base64,
+    privateKeyPkcs8Base64: Ed25519AgentIdentity.generateAgentKeyMaterial('k').privateKeyPkcs8Base64,
     agentRuntimeId: 'k',
   });
   const payload = 'payload-x';

@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readUserProviderKey, userConfigPath } from '../../src/eval/liveCredentials.js';
+import { LiveCredentials } from '../../src/eval/liveCredentials.js';
 
 /** 新建临时用户配置目录。 */
 function home(): string {
@@ -19,14 +19,17 @@ test('用户级凭据：providerKeys 命中 → 返回密钥字符串', () => {
     'utf8',
   );
   assert.strictEqual(
-    readUserProviderKey({ userConfigPath: join(dir, 'omniharness.json') }),
+    LiveCredentials.readUserProviderKey({ userConfigPath: join(dir, 'omniharness.json') }),
     'sk-fixture-key',
   );
 });
 
 test('用户级凭据：文件缺失 → undefined（fail-closed，不抛错）', () => {
   const dir = home();
-  assert.strictEqual(readUserProviderKey({ userConfigPath: join(dir, 'absent.json') }), undefined);
+  assert.strictEqual(
+    LiveCredentials.readUserProviderKey({ userConfigPath: join(dir, 'absent.json') }),
+    undefined,
+  );
 });
 
 test('用户级凭据：非法 JSON / 顶层非对象 / 缺 providerKeys / 值缺型 → 一律 undefined', () => {
@@ -43,7 +46,11 @@ test('用户级凭据：非法 JSON / 顶层非对象 / 缺 providerKeys / 值�
   for (const [i, raw] of cases.entries()) {
     const p = join(dir, `case-${i}.json`);
     writeFileSync(p, raw, 'utf8');
-    assert.strictEqual(readUserProviderKey({ userConfigPath: p }), undefined, `case#${i}: ${raw}`);
+    assert.strictEqual(
+      LiveCredentials.readUserProviderKey({ userConfigPath: p }),
+      undefined,
+      `case#${i}: ${raw}`,
+    );
   }
 });
 
@@ -52,11 +59,11 @@ test('用户级凭据：provider 名可注入（非 deepseek 键同样可读）'
   const p = join(dir, 'omniharness.json');
   writeFileSync(p, JSON.stringify({ providerKeys: { openai: 'sk-openai-fixture' } }), 'utf8');
   assert.strictEqual(
-    readUserProviderKey({ userConfigPath: p, provider: 'openai' }),
+    LiveCredentials.readUserProviderKey({ userConfigPath: p, provider: 'openai' }),
     'sk-openai-fixture',
   );
   assert.strictEqual(
-    readUserProviderKey({ userConfigPath: p }),
+    LiveCredentials.readUserProviderKey({ userConfigPath: p }),
     undefined,
     '缺省 deepseek 键不存在 → undefined',
   );
@@ -64,5 +71,8 @@ test('用户级凭据：provider 名可注入（非 deepseek 键同样可读）'
 
 test('用户级凭据：路径派生与 ConfigFile 用户层同源（homedir/.omniharness/omniharness.json）', () => {
   const dir = home();
-  assert.strictEqual(userConfigPath(dir), join(dir, '.omniharness', 'omniharness.json'));
+  assert.strictEqual(
+    LiveCredentials.userConfigPath(dir),
+    join(dir, '.omniharness', 'omniharness.json'),
+  );
 });

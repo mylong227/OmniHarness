@@ -4,12 +4,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  getGraphSignal,
-  graphNeighborFileRoute,
-  clearGraphSignal,
-  MAX_CACHED_ROOTS,
-} from '../../src/context/codeReferenceGraph.js';
+import { CodeReferenceGraph, MAX_CACHED_ROOTS } from '../../src/context/codeReferenceGraph.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
 
 // 最小合成语料：3 文件、3 符号，其中 registerTool / execPolicy 互为罕见共享引用，
@@ -51,8 +46,8 @@ function makeCorpus(): IndexedCorpus {
 }
 
 test('稀疏引用图只保留罕见共享标识符边，稠密噪声边被过滤', () => {
-  clearGraphSignal('fake');
-  const sig = getGraphSignal('fake', makeCorpus());
+  CodeReferenceGraph.clearGraphSignal('fake');
+  const sig = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
   // a.ts ↔ b.ts 因罕见符号互引连边；config 是噪声名 → 无 c.ts 相关边。
   // 图节点数 = 符号数 = 3；边来自 a↔b（双向各 1）。
   assert.ok(sig.edgeCount >= 2, `应至少有 a↔b 两条边，实际 ${sig.edgeCount}`);
@@ -64,40 +59,40 @@ test('稀疏引用图只保留罕见共享标识符边，稠密噪声边被过�
 });
 
 test('查询邻域第四路只返回邻居文件，不含 seed 自身文件', () => {
-  clearGraphSignal('fake');
-  const sig = getGraphSignal('fake', makeCorpus());
+  CodeReferenceGraph.clearGraphSignal('fake');
+  const sig = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
   // seed = registerTool（符号下标 0，属 a.ts）→ 1 跳邻居应到 b.ts（execPolicy），不含 a.ts。
-  const route = graphNeighborFileRoute(makeCorpus(), [0], sig);
+  const route = CodeReferenceGraph.graphNeighborFileRoute(makeCorpus(), [0], sig);
   // 路由里不应含 seed 自身文件 a.ts。
   assert.ok(!route.includes('file:a.ts'), '邻域路由不应包含 seed 自身文件');
   assert.ok(route.includes('file:b.ts'), '应沿引用边召回邻居文件 b.ts');
 });
 
 test('seed 为空时邻域路由返回空列表（fail-closed 友好，不抛不崩）', () => {
-  clearGraphSignal('fake');
-  const sig = getGraphSignal('fake', makeCorpus());
-  const route = graphNeighborFileRoute(makeCorpus(), [], sig);
+  CodeReferenceGraph.clearGraphSignal('fake');
+  const sig = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
+  const route = CodeReferenceGraph.graphNeighborFileRoute(makeCorpus(), [], sig);
   assert.deepStrictEqual(route, []);
 });
 
 test('同 root 图信号按缓存复用，不重复构建', () => {
-  clearGraphSignal('fake');
-  const sig1 = getGraphSignal('fake', makeCorpus());
-  const sig2 = getGraphSignal('fake', makeCorpus());
+  CodeReferenceGraph.clearGraphSignal('fake');
+  const sig1 = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
+  const sig2 = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
   assert.strictEqual(sig1, sig2, '同 root 应返回同一缓存实例');
 });
 
 test('图信号缓存有界：超过 MAX_CACHED_ROOTS 时按插入序淘汰最旧（进程级 Map 不得无界增长）', () => {
-  clearGraphSignal();
-  const first = getGraphSignal('root-0', makeCorpus());
+  CodeReferenceGraph.clearGraphSignal();
+  const first = CodeReferenceGraph.getGraphSignal('root-0', makeCorpus());
   for (let i = 1; i <= MAX_CACHED_ROOTS; i += 1) {
-    getGraphSignal(`root-${String(i)}`, makeCorpus());
+    CodeReferenceGraph.getGraphSignal(`root-${String(i)}`, makeCorpus());
   }
-  const rebuilt = getGraphSignal('root-0', makeCorpus());
+  const rebuilt = CodeReferenceGraph.getGraphSignal('root-0', makeCorpus());
   assert.notStrictEqual(
     rebuilt,
     first,
     `超上限后 root-0 应被淘汰并重建（上限 ${String(MAX_CACHED_ROOTS)}）`,
   );
-  clearGraphSignal();
+  CodeReferenceGraph.clearGraphSignal();
 });

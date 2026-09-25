@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runDoctor, isElevated } from '../../src/cli/doctorRunner.js';
+import { DoctorRunner } from '../../src/cli/doctorRunner.js';
 
 test('runDoctor 返回结构包含 nodeVersion / config / sandbox / issues 字段', () => {
-  const report = runDoctor();
+  const report = DoctorRunner.runDoctor();
   assert.strictEqual(typeof report.nodeVersion, 'string');
   assert.ok(report.nodeVersion.length > 0);
   assert.strictEqual(typeof report.config.exists, 'boolean');
@@ -28,9 +28,9 @@ test('runDoctor 在临时目录场景端到端跑通不抛，且如实报告合�
       JSON.stringify({ allow: ['fs.read'] }),
       'utf8',
     );
-    let report: ReturnType<typeof runDoctor> | undefined;
+    let report: ReturnType<typeof DoctorRunner.runDoctor> | undefined;
     assert.doesNotThrow(() => {
-      report = runDoctor({ workspaceRoot: root });
+      report = DoctorRunner.runDoctor({ workspaceRoot: root });
     });
     assert.ok(report !== undefined);
     assert.strictEqual(report!.config.exists, true);
@@ -45,7 +45,7 @@ test('runDoctor 对非法配置如实报告（fail-closed，不静默）', () =>
   const root = mkdtempSync(join(tmpdir(), 'omni-doctor-bad-'));
   try {
     writeFileSync(join(root, 'omniharness.json'), '{ not valid json', 'utf8');
-    const report = runDoctor({ workspaceRoot: root });
+    const report = DoctorRunner.runDoctor({ workspaceRoot: root });
     assert.strictEqual(report.config.exists, true);
     assert.strictEqual(report.config.valid, false);
     assert.ok(report.issues.some((issue) => issue.includes('JSON 非法')));
@@ -61,11 +61,11 @@ test(
     // 注入探针语义只在 Windows 提权路径上生效；非 Windows 平台 isElevated 先短路返回 false
     //（下一例专测短路），故本例必须平台门禁——否则 CI 上 ubuntu/macos 必红（首跑实证）。
     assert.strictEqual(
-      isElevated(() => {}),
+      DoctorRunner.isElevated(() => {}),
       true,
     );
     assert.strictEqual(
-      isElevated(() => {
+      DoctorRunner.isElevated(() => {
         throw new Error('System error 5: Access is denied');
       }),
       false,
@@ -76,7 +76,7 @@ test(
 test('isElevated：非 Windows 平台恒为 false（短路，不跑提权探测）', () => {
   if (process.platform === 'win32') return; // 仅在非 Windows 验证平台短路
   assert.strictEqual(
-    isElevated(() => {}),
+    DoctorRunner.isElevated(() => {}),
     false,
   );
 });

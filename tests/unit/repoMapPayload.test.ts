@@ -21,11 +21,11 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { indexCorpus } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
-import { outlineText } from '../../src/context/repoMap.js';
+import { RepoMap } from '../../src/context/repoMap.js';
 import { RepoMapPayload } from '../../src/context/repoMapPayload.js';
-import { tokenize } from '../../src/search/bm25Index.js';
+import { Bm25Index } from '../../src/search/bm25Index.js';
 
 /** 夹具：12 个文件，每个声明一个名字含 `alpha` / `widget` 的符号。 */
 class Fixture {
@@ -42,7 +42,7 @@ class Fixture {
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(join(dir, name), content, 'utf8');
     }
-    return { dir, corpus: indexCorpus(dir, { morph: true, light: true }) };
+    return { dir, corpus: ContextEngine.indexCorpus(dir, { morph: true, light: true }) };
   }
 
   /**
@@ -89,7 +89,7 @@ test('零行为变更：tiered=false 与历史组装逐字相同', () => {
     const files = corpus.files.map((f) => f.rel);
     const symbols = corpus.symbols.slice(0, 5);
     const fileSet = new Set(files);
-    const outline = outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
+    const outline = RepoMap.outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
     const sigLines = symbols.map((s) => `L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
     const expected = [
       '# Repo Map (relevant files)',
@@ -164,8 +164,8 @@ test('token 更省：同文件集合下 tiered 严格少于 full', () => {
       RepoMapPayload.DEFAULT_PLAN,
     );
     assert.ok(
-      tokenize(tiered).length < tokenize(full).length,
-      `tiered(${tokenize(tiered).length}) 应少于 full(${tokenize(full).length})`,
+      Bm25Index.tokenize(tiered).length < Bm25Index.tokenize(full).length,
+      `tiered(${Bm25Index.tokenize(tiered).length}) 应少于 full(${Bm25Index.tokenize(full).length})`,
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -198,7 +198,10 @@ test('应急压缩档：只留 Top-1 完整大纲，文件集合仍不变且 tok
     assert.strictEqual(RepoMapPayload.DEGRADE_PLAN.fullTier, 1, '应急档只保留 Top-1 的完整大纲');
     assert.strictEqual(outlineLines(degrade).length, 1, '应急档应只有 1 行符号大纲');
     assert.deepEqual(docPaths(degrade).sort(), docPaths(tiered).sort(), '文件集合仍不变');
-    assert.ok(tokenize(degrade).length < tokenize(tiered).length, '应急档 token 应少于默认梯度档');
+    assert.ok(
+      Bm25Index.tokenize(degrade).length < Bm25Index.tokenize(tiered).length,
+      '应急档 token 应少于默认梯度档',
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -13,6 +13,44 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
+/**
+ * Algebra —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class Algebra {
+  /** 由 token 数构造成本（joules 为估算代理）。 */
+  public static cost(tokens: number): Cost {
+    const t = Math.abs(tokens);
+    return { tokens: t, joules: t * JOULES_PER_TOKEN_ESTIMATE };
+  }
+
+  /** 幺半群 concat：逐维相加。实数加法 ⇒ 结合律 + 交换律严格成立。 */
+  public static concatCost(a: Cost, b: Cost): Cost {
+    return { tokens: a.tokens + b.tokens, joules: a.joules + b.joules };
+  }
+
+  /**
+   * 数值向量上的自由交换幺半群：逐维相加，单位元为零向量。
+   * 用于多维资源（token / 算力 / 存储 / 网络）的统一计量骨架。
+   */
+  public static vectorConcat(a: readonly number[], b: readonly number[]): number[] {
+    const n = Math.max(a.length, b.length);
+    const out = new Array<number>(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      out[i] = (a[i] ?? 0) + (b[i] ?? 0);
+    }
+    return out;
+  }
+
+  /**
+   * 生成指定长度的零向量（各单位元），用于初始化多维资源计量。
+   * @param length 向量维度
+   * @returns 全零向量
+   */
+  public static vectorEmpty(length: number): number[] {
+    return new Array<number>(length).fill(0);
+  }
+}
+
 /** 资源成本：token 计量 + 能耗代理值（单位：估算焦耳）。 */
 export interface Cost {
   /** 语言模型 token 数（真实计量来源：ModelUsage）。 */
@@ -26,17 +64,6 @@ export const JOULES_PER_TOKEN_ESTIMATE = 1e-6;
 
 /** 幺半群单位元：零成本。 */
 export const emptyCost: Cost = Object.freeze({ tokens: 0, joules: 0 });
-
-/** 由 token 数构造成本（joules 为估算代理）。 */
-export function cost(tokens: number): Cost {
-  const t = Math.abs(tokens);
-  return { tokens: t, joules: t * JOULES_PER_TOKEN_ESTIMATE };
-}
-
-/** 幺半群 concat：逐维相加。实数加法 ⇒ 结合律 + 交换律严格成立。 */
-export function concatCost(a: Cost, b: Cost): Cost {
-  return { tokens: a.tokens + b.tokens, joules: a.joules + b.joules };
-}
 
 /**
  * 半群接口（泛型，供后续结构复用）。
@@ -55,27 +82,5 @@ export interface Monoid<A> extends Semigroup<A> {
 /** Cost 的幺半群实例（交换幺半群）。 */
 export const costMonoid: Monoid<Cost> = {
   empty: () => emptyCost,
-  concat: concatCost,
+  concat: Algebra.concatCost,
 };
-
-/**
- * 数值向量上的自由交换幺半群：逐维相加，单位元为零向量。
- * 用于多维资源（token / 算力 / 存储 / 网络）的统一计量骨架。
- */
-export function vectorConcat(a: readonly number[], b: readonly number[]): number[] {
-  const n = Math.max(a.length, b.length);
-  const out = new Array<number>(n).fill(0);
-  for (let i = 0; i < n; i++) {
-    out[i] = (a[i] ?? 0) + (b[i] ?? 0);
-  }
-  return out;
-}
-
-/**
- * 生成指定长度的零向量（各单位元），用于初始化多维资源计量。
- * @param length 向量维度
- * @returns 全零向量
- */
-export function vectorEmpty(length: number): number[] {
-  return new Array<number>(length).fill(0);
-}

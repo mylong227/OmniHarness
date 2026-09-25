@@ -12,7 +12,7 @@ import http from 'node:http';
 import type { RpcMessage } from '../server/core/jsonRpc.js';
 import { jsonRpc } from '../server/core/jsonRpc.js';
 import type { A2aTransport } from './a2aProtocol.js';
-import { inspectUrl, assertNotSsrf, defaultSsrfOptions } from '../security/ssrfGuard.js';
+import { SsrfGuard } from '../security/ssrfGuard.js';
 import type { SsrfOptions } from '../security/ssrfGuard.js';
 import { log } from '../util/logger.js';
 
@@ -31,7 +31,7 @@ export class HttpA2aTransport implements A2aTransport {
    */
   public constructor(endpoint: string, ssrf?: SsrfOptions) {
     this.endpoint = endpoint;
-    this.ssrf = ssrf ?? defaultSsrfOptions();
+    this.ssrf = ssrf ?? SsrfGuard.defaultSsrfOptions();
   }
 
   /**
@@ -42,7 +42,7 @@ export class HttpA2aTransport implements A2aTransport {
    * @returns 无返回值。
    */
   public async validate(): Promise<void> {
-    await assertNotSsrf(this.endpoint, this.ssrf);
+    await SsrfGuard.assertNotSsrf(this.endpoint, this.ssrf);
   }
 
   /**
@@ -65,7 +65,7 @@ export class HttpA2aTransport implements A2aTransport {
    */
   public send(message: RpcMessage): void {
     // 发送前同步拦截（字面量判定，零网络开销）；命中即不发请求（fail-closed）。
-    const verdict = inspectUrl(this.endpoint, this.ssrf);
+    const verdict = SsrfGuard.inspectUrl(this.endpoint, this.ssrf);
     if (verdict.blocked) {
       log.warn('a2a.ssrfBlocked', { endpoint: this.endpoint, reason: verdict.reason });
       return;

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { DEFAULT_SUBAGENT_MAX_STEPS } from '../../src/subagent/subagentTypes.js';
@@ -69,7 +69,7 @@ function buildTools(subagentMaxSteps?: number): { model: StepLoopModel; tools: T
     events: new SilentEventPort(),
     spillAdapter: 'memory',
   });
-  return { model, tools: createRuntime(config).tools };
+  return { model, tools: Runtime.createRuntime(config).tools };
 }
 
 describe('--subagent-max-steps 覆盖 run_workflow 子步', () => {

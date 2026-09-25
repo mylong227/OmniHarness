@@ -25,7 +25,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { scanForInjection } from '../dist/src/security/promptInjectionGuard.js';
+import { PromptInjectionGuard } from '../dist/src/security/promptInjectionGuard.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(here, '..', 'eval-data', 'injecagent');
@@ -76,10 +76,16 @@ for (const entry of FILES) {
   for (const c of cases) {
     const type = String(c['Attack Type'] ?? 'unknown');
     const response = String(c['Tool Response'] ?? '');
-    const on = { blocked: scanForInjection(response, 'external').blocked, type };
+    const on = {
+      blocked: PromptInjectionGuard.scanForInjection(response, 'external').blocked,
+      type,
+    };
     responseScans.push(on);
     instructionScans.push({
-      blocked: scanForInjection(String(c['Attacker Instruction'] ?? ''), 'external').blocked,
+      blocked: PromptInjectionGuard.scanForInjection(
+        String(c['Attacker Instruction'] ?? ''),
+        'external',
+      ).blocked,
       type,
     });
     cell.total += 1;
@@ -92,7 +98,10 @@ for (const entry of FILES) {
       if (instruction.length > 0 && !benign.toLowerCase().includes(instruction.toLowerCase())) {
         reconstructOk += 1;
         if (!triggerResidue) {
-          benignScans.push({ blocked: scanForInjection(benign, 'external').blocked, type });
+          benignScans.push({
+            blocked: PromptInjectionGuard.scanForInjection(benign, 'external').blocked,
+            type,
+          });
         }
       } else {
         reconstructFail += 1;

@@ -1,7 +1,7 @@
 import type { SkillPort, MoireOptions } from '../ports/runtime/skill.js';
 import type { MoireMeta } from './skill.js';
 import type { Skill } from './skill.js';
-import { composeByTwist as moireCompose } from './moireComposer.js';
+import { MoireComposer } from './moireComposer.js';
 
 /**
  * @beta
@@ -66,7 +66,7 @@ export class SkillRegistry implements SkillPort {
    * 返回承载「两片都没有的涌现长波」的可用技能。
    */
   public composeByTwist(a: Skill, b: Skill, opts?: MoireOptions): Skill & { moire: MoireMeta } {
-    const composed = moireCompose(a, b, opts);
+    const composed = MoireComposer.composeByTwist(a, b, opts);
     this.register(composed);
     return composed as Skill & { moire: MoireMeta };
   }

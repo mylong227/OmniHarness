@@ -15,10 +15,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { ExtraTool } from '../../src/config/configFactory.js';
-import { parseArgs } from '../../src/cli/argParser.js';
+import { ArgParser } from '../../src/cli/argParser.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
@@ -146,11 +146,11 @@ test('P4 runtime 真读得到（装配层透传的下一段）', () => {
     ...base(new CapturingEventPort()),
     promptInjectionGuard: true,
   });
-  assert.strictEqual(createRuntime(config).config.promptInjectionGuard, true);
+  assert.strictEqual(Runtime.createRuntime(config).config.promptInjectionGuard, true);
 });
 
 test('P4 CLI 旗标被解析且不污染 prompt', () => {
-  const args = parseArgs(['--prompt', 'hi', '--guard-prompt-injection']);
+  const args = ArgParser.parseArgs(['--prompt', 'hi', '--guard-prompt-injection']);
   assert.strictEqual(args?.promptInjectionGuard, true);
   assert.strictEqual(args?.prompt, 'hi', '无取值旗标不得把取值并入 prompt');
 });
@@ -158,7 +158,7 @@ test('P4 CLI 旗标被解析且不污染 prompt', () => {
 test('P4 消费点：开启后恶意工具输出被隔离（不喂给模型）', async () => {
   const events = new CapturingEventPort();
   const agent = new Agent(
-    createRuntime(ConfigFactory.build({ ...base(events), promptInjectionGuard: true })),
+    Runtime.createRuntime(ConfigFactory.build({ ...base(events), promptInjectionGuard: true })),
   );
   await agent.runTask('抓一个网页并总结');
 
@@ -173,7 +173,7 @@ test('P4 消费点：开启后恶意工具输出被隔离（不喂给模型）',
 
 test('P4 消费点：缺省关闭时同一路径原样放行（证明确是该开关在起作用）', async () => {
   const events = new CapturingEventPort();
-  const agent = new Agent(createRuntime(ConfigFactory.build(base(events))));
+  const agent = new Agent(Runtime.createRuntime(ConfigFactory.build(base(events))));
   await agent.runTask('抓一个网页并总结');
 
   const texts = toolResultTexts(events.events);

@@ -1,5 +1,5 @@
 import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
-import { id } from '../../util/id.js';
+import { Id } from '../../util/id.js';
 
 /**
  * @beta
@@ -18,7 +18,7 @@ export class MemorySpill implements SpillPort {
    * @returns 外溢句柄（全局唯一 id 与内容字节数）。
    */
   public async spill(content: string, _sessionId: string): Promise<SpillHandle> {
-    const handle = { id: id('spill'), bytes: Buffer.byteLength(content, 'utf8') };
+    const handle = { id: Id.id('spill'), bytes: Buffer.byteLength(content, 'utf8') };
     this.store.set(handle.id, content);
     return handle;
   }

@@ -14,31 +14,86 @@
  * @maturityEvidence tests/unit/coverageLocator.test.ts
  */
 
+/**
+ * CoverageLocator —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class CoverageLocator {
+  /**
+   * Ochiai 可疑度系数（SBFL 经典公式）。
+   *
+   * `susp = N_CF / sqrt((N_CF + N_UF) * (N_CF + N_CS))`
+   * - `N_CF`：覆盖该语句的**失败**测试数；
+   * - `N_UF`：未覆盖该语句的失败测试数；
+   * - `N_CS`：覆盖该语句的**通过**测试数。
+   * 分母 ≤ 0（无失败测试覆盖）⇒ 返回 `N_CF>0 ? 1 : 0`（无信号）。
+   * @param nCf 覆盖该语句的失败测试数。
+   * @param nUf 未覆盖该语句的失败测试数。
+   * @param nCs 覆盖该语句的通过测试数。
+   * @returns 0..1 的可疑度。
+   */
+  public static ochiai(nCf: number, nUf: number, nCs: number): number {
+    const denom = Math.sqrt((nCf + nUf) * (nCf + nCs));
+    if (denom <= 0) return nCf > 0 ? 1 : 0;
+    return nCf / denom;
+  }
+
+  /**
+   * 从 `coverage.json` 文本解析出「文件 → 覆盖语句数」，按覆盖语句数降序排列。
+   *
+   * 覆盖语句数越多 ⇒ 该文件被 FAIL_TO_PASS 测试执行得越深 ⇒ 越可能是缺陷所在（best-effort 近似；
+   * 更严谨的可疑度应结合失败/通过测试覆盖谱，由 {@link ochiai} 加权，留给调用方组合）。
+   * @param jsonText `coverage.json` 的原始文本。
+   * @returns 按 score 降序的文件可疑度列表（空输入/解析失败返回空数组，fail-closed）。
+   */
+  public static rankFilesFromCoverageJson(jsonText: string): readonly FileScore[] {
+    let data: CoverageJson;
+    try {
+      data = JSON.parse(jsonText) as CoverageJson;
+    } catch {
+      return [];
+    }
+    const out: FileScore[] = [];
+    for (const [file, info] of Object.entries(data.files ?? {})) {
+      const n = info.summary?.covered_lines ?? info.executed_lines?.length ?? 0;
+      if (n > 0) out.push({ file, score: n });
+    }
+    out.sort((a, b) => b.score - a.score);
+    return out;
+  }
+
+  /**
+   * 把 SBFL 定位出的可疑文件**前置**进现有检索命中列表（去重，保持原序）。
+   *
+   * 这是把「覆盖率定位」接到检索层的接缝：检索召回漏掉的目标文件，由 SBFL 兜底补回，
+   * 直接攻击对抗口径的召回缺口。仅当 SBFL 产出了额外文件时才改变顺序（零行为变更于 SBFL 关闭时）。
+   * @param boosted SBFL 排序后的可疑文件（降序）。
+   * @param retrieved 检索命中的文件（按检索次序）。
+   * @param limit 最多前置多少 SBFL 文件（避免把整库塞进上下文）。
+   * @returns 合并后的文件列表（boosted 在前，retrieved 去重在后）。
+   */
+  public static prependBoosted(
+    boosted: readonly FileScore[],
+    retrieved: readonly string[],
+    limit: number,
+  ): readonly string[] {
+    const seen = new Set<string>(retrieved);
+    const head: string[] = [];
+    for (const b of boosted.slice(0, limit)) {
+      if (!seen.has(b.file)) {
+        head.push(b.file);
+        seen.add(b.file);
+      }
+    }
+    return [...head, ...retrieved];
+  }
+}
+
 /** 单文件可疑度得分（score 越大越可疑）。 */
 export interface FileScore {
   /** 仓库内相对路径。 */
   readonly file: string;
   /** 可疑度（此处用覆盖语句数近似；配合 {@link ochiai} 可作加权）。 */
   readonly score: number;
-}
-
-/**
- * Ochiai 可疑度系数（SBFL 经典公式）。
- *
- * `susp = N_CF / sqrt((N_CF + N_UF) * (N_CF + N_CS))`
- * - `N_CF`：覆盖该语句的**失败**测试数；
- * - `N_UF`：未覆盖该语句的失败测试数；
- * - `N_CS`：覆盖该语句的**通过**测试数。
- * 分母 ≤ 0（无失败测试覆盖）⇒ 返回 `N_CF>0 ? 1 : 0`（无信号）。
- * @param nCf 覆盖该语句的失败测试数。
- * @param nUf 未覆盖该语句的失败测试数。
- * @param nCs 覆盖该语句的通过测试数。
- * @returns 0..1 的可疑度。
- */
-export function ochiai(nCf: number, nUf: number, nCs: number): number {
-  const denom = Math.sqrt((nCf + nUf) * (nCf + nCs));
-  if (denom <= 0) return nCf > 0 ? 1 : 0;
-  return nCf / denom;
 }
 
 /**
@@ -56,54 +111,4 @@ interface CoverageFileEntry {
   readonly executed_lines?: readonly number[];
   /** 汇总（covered_lines / num_statements 等）。 */
   readonly summary?: { readonly covered_lines?: number };
-}
-
-/**
- * 从 `coverage.json` 文本解析出「文件 → 覆盖语句数」，按覆盖语句数降序排列。
- *
- * 覆盖语句数越多 ⇒ 该文件被 FAIL_TO_PASS 测试执行得越深 ⇒ 越可能是缺陷所在（best-effort 近似；
- * 更严谨的可疑度应结合失败/通过测试覆盖谱，由 {@link ochiai} 加权，留给调用方组合）。
- * @param jsonText `coverage.json` 的原始文本。
- * @returns 按 score 降序的文件可疑度列表（空输入/解析失败返回空数组，fail-closed）。
- */
-export function rankFilesFromCoverageJson(jsonText: string): readonly FileScore[] {
-  let data: CoverageJson;
-  try {
-    data = JSON.parse(jsonText) as CoverageJson;
-  } catch {
-    return [];
-  }
-  const out: FileScore[] = [];
-  for (const [file, info] of Object.entries(data.files ?? {})) {
-    const n = info.summary?.covered_lines ?? info.executed_lines?.length ?? 0;
-    if (n > 0) out.push({ file, score: n });
-  }
-  out.sort((a, b) => b.score - a.score);
-  return out;
-}
-
-/**
- * 把 SBFL 定位出的可疑文件**前置**进现有检索命中列表（去重，保持原序）。
- *
- * 这是把「覆盖率定位」接到检索层的接缝：检索召回漏掉的目标文件，由 SBFL 兜底补回，
- * 直接攻击对抗口径的召回缺口。仅当 SBFL 产出了额外文件时才改变顺序（零行为变更于 SBFL 关闭时）。
- * @param boosted SBFL 排序后的可疑文件（降序）。
- * @param retrieved 检索命中的文件（按检索次序）。
- * @param limit 最多前置多少 SBFL 文件（避免把整库塞进上下文）。
- * @returns 合并后的文件列表（boosted 在前，retrieved 去重在后）。
- */
-export function prependBoosted(
-  boosted: readonly FileScore[],
-  retrieved: readonly string[],
-  limit: number,
-): readonly string[] {
-  const seen = new Set<string>(retrieved);
-  const head: string[] = [];
-  for (const b of boosted.slice(0, limit)) {
-    if (!seen.has(b.file)) {
-      head.push(b.file);
-      seen.add(b.file);
-    }
-  }
-  return [...head, ...retrieved];
 }

@@ -21,9 +21,9 @@
  * @maturityEvidence tests/unit/lsaRecall.test.ts
  */
 
-import { tokenize } from '../search/bm25Index.js';
+import { Bm25Index } from '../search/bm25Index.js';
 import type { SymbolNode } from './repoMap.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 export interface LsaModel {
   readonly k: number;
@@ -83,7 +83,7 @@ export class LsaEngine {
     // 每个符号的「文档」= 其所属文件的全部文本（符号与文件共现信号最丰富）。
     const fileTextOfSymbol: string[] = new Array(n);
     for (let i = 0; i < n; i++) {
-      const rel = at(corpus.symbols, i).file;
+      const rel = ArrayAt.at(corpus.symbols, i).file;
       const text = corpus.fileText.get(rel) ?? '';
       fileTextOfSymbol[i] = text;
     }
@@ -91,7 +91,7 @@ export class LsaEngine {
     // 第一遍：建词表 + 文档频率。
     const docTokens: string[][] = new Array(n);
     for (let j = 0; j < n; j++) {
-      const toks = tokenize(fileTextOfSymbol[j] ?? '');
+      const toks = Bm25Index.tokenize(fileTextOfSymbol[j] ?? '');
       docTokens[j] = toks;
       const uniq = new Set(toks);
       for (const t of uniq) {
@@ -105,7 +105,7 @@ export class LsaEngine {
 
     const m = vocab.length;
     const df = new Float64Array(m);
-    for (let t = 0; t < m; t++) df[t] = dfCount.get(at(vocab, t)) ?? 1;
+    for (let t = 0; t < m; t++) df[t] = dfCount.get(ArrayAt.at(vocab, t)) ?? 1;
 
     // 第二遍：TF-IDF 值（对数 tf × idf）。
     const cols: number[][] = [];
@@ -119,7 +119,7 @@ export class LsaEngine {
       const val: number[] = [];
       for (const [t, c] of tf) {
         const ti = termIndex.get(t)!;
-        const idf = Math.log(1 + N / (at(df, ti) + 1e-9));
+        const idf = Math.log(1 + N / (ArrayAt.at(df, ti) + 1e-9));
         const tfidf = (1 + Math.log(c)) * idf;
         col.push(ti);
         val.push(tfidf);
@@ -144,9 +144,10 @@ export class LsaEngine {
       const col = Acols[j] ?? [];
       const val = Avals[j] ?? [];
       for (let a = 0; a < col.length; a++) {
-        const row = at(col, a);
-        const v = at(val, a);
-        for (let c = 0; c < r; c++) Y[row * r + c] = at(Y, row * r + c) + v * at(X, j * r + c);
+        const row = ArrayAt.at(col, a);
+        const v = ArrayAt.at(val, a);
+        for (let c = 0; c < r; c++)
+          Y[row * r + c] = ArrayAt.at(Y, row * r + c) + v * ArrayAt.at(X, j * r + c);
       }
     }
     return Y;
@@ -157,16 +158,16 @@ export class LsaEngine {
     const Q = new Float64Array(m * r);
     for (let c = 0; c < r; c++) {
       const col = new Float64Array(m);
-      for (let i = 0; i < m; i++) col[i] = at(Y, i * r + c);
+      for (let i = 0; i < m; i++) col[i] = ArrayAt.at(Y, i * r + c);
       for (let d = 0; d < c; d++) {
         let dot = 0;
-        for (let i = 0; i < m; i++) dot += at(col, i) * at(Q, i * r + d);
-        for (let i = 0; i < m; i++) col[i] = at(col, i) - dot * at(Q, i * r + d);
+        for (let i = 0; i < m; i++) dot += ArrayAt.at(col, i) * ArrayAt.at(Q, i * r + d);
+        for (let i = 0; i < m; i++) col[i] = ArrayAt.at(col, i) - dot * ArrayAt.at(Q, i * r + d);
       }
       let norm = 0;
-      for (let i = 0; i < m; i++) norm += at(col, i) * at(col, i);
+      for (let i = 0; i < m; i++) norm += ArrayAt.at(col, i) * ArrayAt.at(col, i);
       norm = Math.sqrt(norm) || 1;
-      for (let i = 0; i < m; i++) Q[i * r + c] = at(col, i) / norm;
+      for (let i = 0; i < m; i++) Q[i * r + c] = ArrayAt.at(col, i) / norm;
     }
     return Q;
   }
@@ -179,32 +180,32 @@ export class LsaEngine {
     for (let sweep = 0; sweep < 50; sweep++) {
       let off = 0;
       for (let p = 0; p < k; p++)
-        for (let q = p + 1; q < k; q++) off += at(a, p * k + q) * at(a, p * k + q);
+        for (let q = p + 1; q < k; q++) off += ArrayAt.at(a, p * k + q) * ArrayAt.at(a, p * k + q);
       if (off < 1e-12) break;
       for (let p = 0; p < k; p++) {
         for (let q = p + 1; q < k; q++) {
-          const apq = at(a, p * k + q);
+          const apq = ArrayAt.at(a, p * k + q);
           if (Math.abs(apq) < 1e-15) continue;
-          const app = at(a, p * k + p);
-          const aqq = at(a, q * k + q);
+          const app = ArrayAt.at(a, p * k + p);
+          const aqq = ArrayAt.at(a, q * k + q);
           const phi = 0.5 * Math.atan2(2 * apq, aqq - app);
           const c = Math.cos(phi);
           const s = Math.sin(phi);
           for (let i = 0; i < k; i++) {
-            const aip = at(a, i * k + p);
-            const aiq = at(a, i * k + q);
+            const aip = ArrayAt.at(a, i * k + p);
+            const aiq = ArrayAt.at(a, i * k + q);
             a[i * k + p] = c * aip - s * aiq;
             a[i * k + q] = s * aip + c * aiq;
           }
           for (let i = 0; i < k; i++) {
-            const api = at(a, p * k + i);
-            const aqi = at(a, q * k + i);
+            const api = ArrayAt.at(a, p * k + i);
+            const aqi = ArrayAt.at(a, q * k + i);
             a[p * k + i] = c * api - s * aqi;
             a[q * k + i] = s * api + c * aqi;
           }
           for (let i = 0; i < k; i++) {
-            const vip = at(V, i * k + p);
-            const viq = at(V, i * k + q);
+            const vip = ArrayAt.at(V, i * k + p);
+            const viq = ArrayAt.at(V, i * k + q);
             V[i * k + p] = c * vip - s * viq;
             V[i * k + q] = s * vip + c * viq;
           }
@@ -212,7 +213,7 @@ export class LsaEngine {
       }
     }
     const values = new Float64Array(k);
-    for (let i = 0; i < k; i++) values[i] = at(a, i * k + i);
+    for (let i = 0; i < k; i++) values[i] = ArrayAt.at(a, i * k + i);
     return { values, vectors: V };
   }
 
@@ -237,7 +238,8 @@ export class LsaEngine {
         const col = cols[j] ?? [];
         const val = vals[j] ?? [];
         let s = 0;
-        for (let a = 0; a < col.length; a++) s += at(Q, col[a]! * r + c) * at(val, a);
+        for (let a = 0; a < col.length; a++)
+          s += ArrayAt.at(Q, col[a]! * r + c) * ArrayAt.at(val, a);
         B[c * n + j] = s;
       }
     }
@@ -247,21 +249,21 @@ export class LsaEngine {
     for (let i = 0; i < r; i++)
       for (let jj = 0; jj < r; jj++) {
         let s = 0;
-        for (let j = 0; j < n; j++) s += at(B, i * n + j) * at(B, jj * n + j);
+        for (let j = 0; j < n; j++) s += ArrayAt.at(B, i * n + j) * ArrayAt.at(B, jj * n + j);
         C[i * r + jj] = s;
       }
     const { values, vectors: Vc } = this.jacobiEigen(C, r);
 
     // 奇异值 Σ = sqrt(λ)，U_B = 特征向量。
     const sigma = new Float64Array(r);
-    for (let i = 0; i < r; i++) sigma[i] = Math.sqrt(Math.max(at(values, i), 0));
+    for (let i = 0; i < r; i++) sigma[i] = Math.sqrt(Math.max(ArrayAt.at(values, i), 0));
 
     // U = Q · U_B（m×k）。
     const U = new Float64Array(m * r);
     for (let i = 0; i < m; i++)
       for (let c = 0; c < r; c++) {
         let s = 0;
-        for (let d = 0; d < r; d++) s += at(Q, i * r + d) * at(Vc, d * r + c);
+        for (let d = 0; d < r; d++) s += ArrayAt.at(Q, i * r + d) * ArrayAt.at(Vc, d * r + c);
         U[i * r + c] = s;
       }
 
@@ -269,7 +271,7 @@ export class LsaEngine {
     const symLatent = new Float64Array(n * r);
     for (let j = 0; j < n; j++) {
       for (let c = 0; c < r; c++) {
-        const s = at(sigma, c) > 1e-9 ? at(B, c * n + j) / at(sigma, c) : 0;
+        const s = ArrayAt.at(sigma, c) > 1e-9 ? ArrayAt.at(B, c * n + j) / ArrayAt.at(sigma, c) : 0;
         symLatent[j * r + c] = s;
       }
     }
@@ -282,41 +284,43 @@ export class LsaEngine {
     const { k, n, termIndex, symLatent, U, sigma } = model;
     // 查询词项向量（TF-IDF，idf 近似取 1）。
     const qTf = new Map<string, number>();
-    for (const t of tokenize(q)) qTf.set(t, (qTf.get(t) ?? 0) + 1);
+    for (const t of Bm25Index.tokenize(q)) qTf.set(t, (qTf.get(t) ?? 0) + 1);
     // q_proj = Σ⁻¹ Uᵀ q（k 维）。
     const qProj = new Float64Array(k);
     for (const [t, c] of qTf) {
       const ti = termIndex.get(t);
       if (ti === undefined) continue;
-      for (let d = 0; d < k; d++) qProj[d] = at(qProj, d) + at(U, ti * k + d) * (1 + Math.log(c));
+      for (let d = 0; d < k; d++)
+        qProj[d] = ArrayAt.at(qProj, d) + ArrayAt.at(U, ti * k + d) * (1 + Math.log(c));
     }
-    for (let d = 0; d < k; d++) qProj[d] = at(sigma, d) > 1e-9 ? at(qProj, d) / at(sigma, d) : 0;
+    for (let d = 0; d < k; d++)
+      qProj[d] = ArrayAt.at(sigma, d) > 1e-9 ? ArrayAt.at(qProj, d) / ArrayAt.at(sigma, d) : 0;
 
     const scores = new Float64Array(n);
     for (let j = 0; j < n; j++) {
       let s = 0;
-      for (let d = 0; d < k; d++) s += at(qProj, d) * at(symLatent, j * k + d);
+      for (let d = 0; d < k; d++) s += ArrayAt.at(qProj, d) * ArrayAt.at(symLatent, j * k + d);
       scores[j] = s;
     }
     const idx = Array.from({ length: n }, (_, i) => i);
-    idx.sort((a, b) => at(scores, b) - at(scores, a));
-    return idx.slice(0, limit).map((id) => ({ id, score: at(scores, id) }));
+    idx.sort((a, b) => ArrayAt.at(scores, b) - ArrayAt.at(scores, a));
+    return idx.slice(0, limit).map((id) => ({ id, score: ArrayAt.at(scores, id) }));
+  }
+
+  /** 在已索引语料上训练 LSA 模型（截断秩 k）。 */
+  public static trainLsa(corpus: LsaCorpusInput, k = 64, seed = 1234567): LsaModel {
+    return lsaEngine.train(corpus, k, seed);
+  }
+
+  /** 用 LSA 模型对查询做潜语义符号召回，返回 [符号id, 分数] 降序列表（Top limit）。 */
+  public static lsaQuery(
+    model: LsaModel,
+    q: string,
+    limit = 40,
+  ): Array<{ id: number; score: number }> {
+    return lsaEngine.query(model, q, limit);
   }
 }
 
 // ---- 门面兼容：保留原函数名，委托单例，既有调用点无需改动 ----
 const lsaEngine = new LsaEngine();
-
-/** 在已索引语料上训练 LSA 模型（截断秩 k）。 */
-export function trainLsa(corpus: LsaCorpusInput, k = 64, seed = 1234567): LsaModel {
-  return lsaEngine.train(corpus, k, seed);
-}
-
-/** 用 LSA 模型对查询做潜语义符号召回，返回 [符号id, 分数] 降序列表（Top limit）。 */
-export function lsaQuery(
-  model: LsaModel,
-  q: string,
-  limit = 40,
-): Array<{ id: number; score: number }> {
-  return lsaEngine.query(model, q, limit);
-}

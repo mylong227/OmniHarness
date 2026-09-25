@@ -8,10 +8,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Skill } from '../../src/skill/skill.js';
-import { composeByTwist } from '../../src/skill/moireComposer.js';
-import { jointProfile, capabilityCoverage, moireEnergy } from '../../src/evolution/benchmark.js';
+import { MoireComposer } from '../../src/skill/moireComposer.js';
+import { Benchmark } from '../../src/evolution/benchmark.js';
 import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.js';
-import type { Benchmark } from '../../src/evolution/failClosedEvolutionGate.js';
+import type { BenchmarkFn } from '../../src/evolution/failClosedEvolutionGate.js';
+
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
 import { AuditSink } from '../../src/server/services/auditSink.js';
@@ -33,19 +34,19 @@ const A = baseSkill('skill-a', '检索');
 const B = baseSkill('skill-b', '推理');
 
 /** 联合任务画像（"需同时具备 A 与 B"，用于针对性覆盖基准）。 */
-const PROFILE = jointProfile(A, B, N);
+const PROFILE = Benchmark.jointProfile(A, B, N);
 
 /** 通用涌现能量基准（与文本无关、稳定分离：组合技能自带长波乘积结构 → 高）。 */
-const benchmark: Benchmark = (c: Candidate) => moireEnergy(c.skill, N);
+const benchmark: BenchmarkFn = (c: Candidate) => Benchmark.moireEnergy(c.skill, N);
 
 /** 单技能涌现能量（用作基线，应显著低于组合技能）。 */
-const eA = moireEnergy(A, N);
-const eB = moireEnergy(B, N);
+const eA = Benchmark.moireEnergy(A, N);
+const eB = Benchmark.moireEnergy(B, N);
 const baseline = Math.max(eA, eB);
 
 test('A/B 实证：莫尔组合技能涌现能量 > 任一单技能（市面唯一增益）', () => {
-  const composed = composeByTwist(A, B);
-  const eComposed = moireEnergy(composed, N);
+  const composed = MoireComposer.composeByTwist(A, B);
+  const eComposed = Benchmark.moireEnergy(composed, N);
   // 单技能仅单一频率光栅 → 模糊后均匀衰减；组合技能含低频莫尔项 → 显著更高。
   assert.ok(eComposed > eA, `组合 ${eComposed.toFixed(3)} 应 > A ${eA.toFixed(3)}`);
   assert.ok(eComposed > eB, `组合 ${eComposed.toFixed(3)} 应 > B ${eB.toFixed(3)}`);
@@ -53,17 +54,17 @@ test('A/B 实证：莫尔组合技能涌现能量 > 任一单技能（市面唯�
 });
 
 test('A/B 实证（针对性）：组合技能对联合画像覆盖 > 单技能', () => {
-  const composed = composeByTwist(A, B);
-  const covComposed = capabilityCoverage(composed, PROFILE, N);
-  const covA = capabilityCoverage(A, PROFILE, N);
-  const covB = capabilityCoverage(B, PROFILE, N);
+  const composed = MoireComposer.composeByTwist(A, B);
+  const covComposed = Benchmark.capabilityCoverage(composed, PROFILE, N);
+  const covA = Benchmark.capabilityCoverage(A, PROFILE, N);
+  const covB = Benchmark.capabilityCoverage(B, PROFILE, N);
   assert.ok(covComposed > covA, `覆盖 ${covComposed.toFixed(3)} 应 > A ${covA.toFixed(3)}`);
   assert.ok(covComposed > covB, `覆盖 ${covComposed.toFixed(3)} 应 > B ${covB.toFixed(3)}`);
 });
 
 test('fail-closed 默认拒绝：未配置真实基准时任何候选都不晋升', async () => {
   const gate = new FailClosedEvolutionGate(); // 无 benchmark
-  const composed = composeByTwist(A, B);
+  const composed = MoireComposer.composeByTwist(A, B);
   const v = await gate.evaluate({ skill: composed, source: 'twist:a+b' });
   assert.strictEqual(v.promoted, false);
   assert.strictEqual(v.score, 0);
@@ -73,7 +74,7 @@ test('fail-closed 默认拒绝：未配置真实基准时任何候选都不晋�
 
 test('晋升：组合技能得分超过基线+增益 → 晋升', async () => {
   const gate = new FailClosedEvolutionGate({ benchmark, baseline, minGain: 0.05 });
-  const composed = composeByTwist(A, B);
+  const composed = MoireComposer.composeByTwist(A, B);
   const v = await gate.evaluate({
     skill: composed,
     source: 'twist:a+b',
@@ -93,7 +94,7 @@ test('安全检查阻断：safety 返回 false → 不晋升且标记 blocked', 
     baseline,
     safety: () => false, // 任何候选都不安全
   });
-  const composed = composeByTwist(A, B);
+  const composed = MoireComposer.composeByTwist(A, B);
   const v = await gate.evaluate({ skill: composed, source: 'twist:a+b' });
   assert.strictEqual(v.promoted, false);
   assert.strictEqual(v.safety, 'blocked');
@@ -110,7 +111,7 @@ test('审计链：每次裁决写入哈希链，verify ok 且含 evolution 事�
     audit: sink,
     sessionId: 'eval-1',
   });
-  const composed = composeByTwist(A, B);
+  const composed = MoireComposer.composeByTwist(A, B);
   await gate.evaluate({ skill: composed, source: 'twist:a+b' });
   const report = sink.verify();
   assert.strictEqual(report.ok, true);
@@ -121,7 +122,7 @@ test('控制器闭环：发现→评估→晋升，onPromote 被调用且仅晋�
   const promoted: string[] = [];
   const discovery = new TwistDiscoveryEngine({
     skills: [A, B],
-    compose: (a, b) => composeByTwist(a, b),
+    compose: (a, b) => MoireComposer.composeByTwist(a, b),
     maxCandidates: 4,
   });
   const gate = new FailClosedEvolutionGate({ benchmark, baseline, minGain: 0.05 });

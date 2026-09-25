@@ -277,33 +277,33 @@ export class DoctorRunner {
     }
     process.stdout.write(lines.join('\n') + '\n');
   }
+
+  /**
+   * 运行环境诊断（门面：委托默认诊断器实例）。
+   * @param opts 诊断选项（缺省取 process.cwd()）。
+   * @returns 汇总诊断报告。
+   */
+  public static runDoctor(opts: DoctorOptions = {}): DoctorReport {
+    return doctorRunner.runDoctor(opts);
+  }
+
+  /**
+   * 进程是否已提权（仅 Windows 有意义；门面：委托默认诊断器实例）。
+   * @param runProbe 可注入的探测函数（缺省执行 `net session`）。
+   * @returns 非 Windows 恒为 false；Windows 已提权为 true。
+   */
+  public static isElevated(runProbe?: () => void): boolean {
+    return doctorRunner.isElevated(runProbe);
+  }
+
+  /**
+   * 把报告以人类可读摘要打到 stdout（门面：委托默认诊断器实例）。
+   * @param report 待输出的诊断报告。
+   */
+  public static printDoctor(report: DoctorReport): void {
+    doctorRunner.printDoctor(report);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const doctorRunner = new DoctorRunner();
-
-/**
- * 运行环境诊断（门面：委托默认诊断器实例）。
- * @param opts 诊断选项（缺省取 process.cwd()）。
- * @returns 汇总诊断报告。
- */
-export function runDoctor(opts: DoctorOptions = {}): DoctorReport {
-  return doctorRunner.runDoctor(opts);
-}
-
-/**
- * 进程是否已提权（仅 Windows 有意义；门面：委托默认诊断器实例）。
- * @param runProbe 可注入的探测函数（缺省执行 `net session`）。
- * @returns 非 Windows 恒为 false；Windows 已提权为 true。
- */
-export function isElevated(runProbe?: () => void): boolean {
-  return doctorRunner.isElevated(runProbe);
-}
-
-/**
- * 把报告以人类可读摘要打到 stdout（门面：委托默认诊断器实例）。
- * @param report 待输出的诊断报告。
- */
-export function printDoctor(report: DoctorReport): void {
-  doctorRunner.printDoctor(report);
-}

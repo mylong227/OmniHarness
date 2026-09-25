@@ -2,10 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Candidate } from '../../src/ports/runtime/evolution.js';
 import type { Skill } from '../../src/skill/skill.js';
-import {
-  verifiableRewardFromCommand,
-  createVerifiableGate,
-} from '../../src/evolution/verifiableReward.js';
+import { VerifiableReward } from '../../src/evolution/verifiableReward.js';
 import {
   RlvrLoop,
   InMemoryReplayBuffer,
@@ -19,7 +16,9 @@ function stubCandidate(source: string, meta: Record<string, unknown> = {}): Cand
 }
 
 test('verifiableRewardFromCommand: 退出 0 → 1，退出非 0 → 0', async () => {
-  const reward = verifiableRewardFromCommand((c) => c.meta?.cmd as string | undefined);
+  const reward = VerifiableReward.verifiableRewardFromCommand(
+    (c) => c.meta?.cmd as string | undefined,
+  );
   const green = await reward(stubCandidate('a', { cmd: 'node -e "process.exit(0)"' }));
   const red = await reward(stubCandidate('b', { cmd: 'node -e "process.exit(1)"' }));
   assert.strictEqual(green, 1);
@@ -29,8 +28,10 @@ test('verifiableRewardFromCommand: 退出 0 → 1，退出非 0 → 0', async ()
 });
 
 test('createVerifiableGate: 可验证奖励达成 → 晋升', async () => {
-  const reward = verifiableRewardFromCommand((c) => c.meta?.cmd as string | undefined);
-  const gate = createVerifiableGate(reward, { minGain: 0.05, baseline: 0 });
+  const reward = VerifiableReward.verifiableRewardFromCommand(
+    (c) => c.meta?.cmd as string | undefined,
+  );
+  const gate = VerifiableReward.createVerifiableGate(reward, { minGain: 0.05, baseline: 0 });
   const verdict = await gate.evaluate(stubCandidate('ok', { cmd: 'node -e "process.exit(0)"' }));
   assert.strictEqual(verdict.promoted, true);
   assert.strictEqual(verdict.score, 1);

@@ -35,7 +35,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PromptCacheUsageReader } from '../dist/src/adapters/model/promptCacheUsageReader.js';
-import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
+import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const READER = new PromptCacheUsageReader();
@@ -266,7 +266,7 @@ async function main() {
   const apiKey =
     envOf('DEEPSEEK_API_KEY', 'OMNIHARNESS_API_KEY') ??
     envOf('OPENAI_API_KEY', 'OMNIHARNESS_API_KEY') ??
-    readUserProviderKey();
+    LiveCredentials.readUserProviderKey();
   const baseUrl = envOf('DEEPSEEK_BASE_URL', 'OMNIHARNESS_BASE_URL') ?? 'https://api.deepseek.com';
   const model = envOf('DEEPSEEK_MODEL', 'OMNIHARNESS_MODEL') ?? 'deepseek-chat';
   const url = completionsUrl(baseUrl);

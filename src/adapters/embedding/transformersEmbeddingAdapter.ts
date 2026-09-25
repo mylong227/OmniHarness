@@ -84,13 +84,6 @@ export const DEFAULT_EMBEDDING_MODEL = MODEL_PRESETS['e5-large-v2'].id;
 /** 默认维度（e5-large-v2 = 1024）。换默认模型需同步调整本常量与上方 id。 */
 export const DEFAULT_EMBEDDING_DIM = MODEL_PRESETS['e5-large-v2'].dim;
 
-/** 列出预设名（供 CLI / 单测 / 诊断输出）。
- * @returns 全部可用预设名数组。
- */
-export function listModelPresets(): readonly EmbeddingModelPreset[] {
-  return Object.keys(MODEL_PRESETS) as EmbeddingModelPreset[];
-}
-
 /**
  * `@huggingface/transformers` 中被本适配器消费的**最小面**（仅为可注入接缝而声明）。
  */
@@ -164,73 +157,6 @@ const E5_QUERY_PREFIX = 'query: ';
 const E5_PASSAGE_PREFIX = 'passage: ';
 
 /**
- * 纯函数：按前缀模式 + 角色给文本加前缀（零依赖、可单测）。
- * 仅 'e5' 模式注入；'none' 原样返回。供 embed 调用，也便于单测验证前缀注入正确。
- *
- * @param texts 待处理文本列表。
- * @param mode 前缀模式（仅 'e5' 注入）。
- * @param role 文本角色（决定注入 query 还是 passage 前缀）。
- * @returns 加前缀后的文本数组（与输入等长、顺序一致）。
- */
-export function withPrefix(
-  texts: readonly string[],
-  mode: PrefixMode,
-  role: 'query' | 'document',
-): string[] {
-  if (mode !== 'e5') return texts as string[];
-  const p = role === 'query' ? E5_QUERY_PREFIX : E5_PASSAGE_PREFIX;
-  return texts.map((t) => p + t);
-}
-
-/**
- * 归一化模型下载源主机地址（纯函数、零依赖、可单测）。
- *
- * 必须补尾斜杠：该库拼下载 URL 的方式是 `env.remoteHost + env.remotePathTemplate`，
- * 而 `remotePathTemplate` 是相对片段（`"{model}/resolve/{revision}/"`）⇒ host 缺尾斜杠会拼出
- * `https://hf-mirror.comXenova/all-MiniLM-L6-v2/resolve/...` 这类坏 URL（域名与路径粘连）。
- *
- * @param host 原始 host（可能含首尾空白、可能缺尾斜杠）。
- * @returns 补好尾斜杠的 host；未提供或全空白时返回 `undefined`（表示沿用库默认源）。
- */
-export function normalizeRemoteHost(host: string | undefined): string | undefined {
-  if (host === undefined) return undefined;
-  const trimmed = host.trim();
-  if (trimmed === '') return undefined;
-  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
-}
-
-/**
- * 从环境变量解析模型下载源（纯函数、可注入 env 以便单测）。
- *
- * 约定：`OMNI_HF_ENDPOINT` 优先（本项目命名空间），回落 `HF_ENDPOINT`（业界通行约定，
- * 便于复用既有的镜像部署脚本）。两者皆空 ⇒ `undefined`（沿用库默认 huggingface.co）。
- *
- * @param env 环境变量视图（默认 `process.env`；单测可注入）。
- * @returns 归一化后的镜像 host，或 `undefined`。
- */
-export function resolveRemoteHostFromEnv(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-): string | undefined {
-  return normalizeRemoteHost(env.OMNI_HF_ENDPOINT ?? env.HF_ENDPOINT);
-}
-
-/**
- * 是否在装配期预热嵌入管线（`OMNI_EMBED_PRELOAD=1`，**默认关**）。
- *
- * 与 `OMNI_SEMANTIC_RECALL` 同一惯例：默认关 ⇒ 零行为变更。开启后装配层会在**后台**触发
- * 一次 `preload()`（不阻塞装配、不改变可用性判断），把冷启动成本从「首个用户查询」提前到
- * 「启动后、接流量前」，并把耗时落成可读数字（L5）。
- *
- * @param env 环境变量视图（默认 `process.env`；单测可注入）。
- * @returns 显式取值 `1` 时为 true，其余一律 false。
- */
-export function shouldPreloadEmbedding(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  return env.OMNI_EMBED_PRELOAD === '1';
-}
-
-/**
  * 生产缺省的模型包加载器：**真动态 import**（编译期不依赖该包；仅启用语义嵌入时运行时加载）。
  * 分离成常量是为了让测试注入假 loader，从而在**不下载 2.2GB 依赖与模型权重**的前提下
  * 验证懒加载/预热/失败恢复三条行为。
@@ -280,7 +206,9 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
       const preset = opts.preset ?? 'minilm';
       const found = MODEL_PRESETS[preset];
       if (found === undefined) {
-        throw new Error(`未知嵌入预设 "${preset}"；可选：${listModelPresets().join(', ')}`);
+        throw new Error(
+          `未知嵌入预设 "${preset}"；可选：${TransformersEmbeddingAdapter.listModelPresets().join(', ')}`,
+        );
       }
       spec = found;
     }
@@ -291,7 +219,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     this.dtype = opts.dtype ?? 'q8';
     this.cacheDir = opts.cacheDir;
     this.localFilesOnly = opts.localFilesOnly ?? false;
-    this.remoteHost = normalizeRemoteHost(opts.remoteHost);
+    this.remoteHost = TransformersEmbeddingAdapter.normalizeRemoteHost(opts.remoteHost);
     this.loader = opts.loader ?? defaultModuleLoader;
   }
 
@@ -380,7 +308,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
    * @returns 加前缀后的文本列表。
    */
   private applyPrefix(texts: readonly string[], role: 'query' | 'document'): string[] {
-    return withPrefix(texts, this.prefixMode, role);
+    return TransformersEmbeddingAdapter.withPrefix(texts, this.prefixMode, role);
   }
 
   /**
@@ -402,5 +330,81 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     })) as HFTensor;
     const matrix = out.tolist();
     return matrix.map((v) => v as Embedding);
+  }
+
+  /** 列出预设名（供 CLI / 单测 / 诊断输出）。
+   * @returns 全部可用预设名数组。
+   */
+  public static listModelPresets(): readonly EmbeddingModelPreset[] {
+    return Object.keys(MODEL_PRESETS) as EmbeddingModelPreset[];
+  }
+
+  /**
+   * 纯函数：按前缀模式 + 角色给文本加前缀（零依赖、可单测）。
+   * 仅 'e5' 模式注入；'none' 原样返回。供 embed 调用，也便于单测验证前缀注入正确。
+   *
+   * @param texts 待处理文本列表。
+   * @param mode 前缀模式（仅 'e5' 注入）。
+   * @param role 文本角色（决定注入 query 还是 passage 前缀）。
+   * @returns 加前缀后的文本数组（与输入等长、顺序一致）。
+   */
+  public static withPrefix(
+    texts: readonly string[],
+    mode: PrefixMode,
+    role: 'query' | 'document',
+  ): string[] {
+    if (mode !== 'e5') return texts as string[];
+    const p = role === 'query' ? E5_QUERY_PREFIX : E5_PASSAGE_PREFIX;
+    return texts.map((t) => p + t);
+  }
+
+  /**
+   * 归一化模型下载源主机地址（纯函数、零依赖、可单测）。
+   *
+   * 必须补尾斜杠：该库拼下载 URL 的方式是 `env.remoteHost + env.remotePathTemplate`，
+   * 而 `remotePathTemplate` 是相对片段（`"{model}/resolve/{revision}/"`）⇒ host 缺尾斜杠会拼出
+   * `https://hf-mirror.comXenova/all-MiniLM-L6-v2/resolve/...` 这类坏 URL（域名与路径粘连）。
+   *
+   * @param host 原始 host（可能含首尾空白、可能缺尾斜杠）。
+   * @returns 补好尾斜杠的 host；未提供或全空白时返回 `undefined`（表示沿用库默认源）。
+   */
+  public static normalizeRemoteHost(host: string | undefined): string | undefined {
+    if (host === undefined) return undefined;
+    const trimmed = host.trim();
+    if (trimmed === '') return undefined;
+    return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
+  }
+
+  /**
+   * 从环境变量解析模型下载源（纯函数、可注入 env 以便单测）。
+   *
+   * 约定：`OMNI_HF_ENDPOINT` 优先（本项目命名空间），回落 `HF_ENDPOINT`（业界通行约定，
+   * 便于复用既有的镜像部署脚本）。两者皆空 ⇒ `undefined`（沿用库默认 huggingface.co）。
+   *
+   * @param env 环境变量视图（默认 `process.env`；单测可注入）。
+   * @returns 归一化后的镜像 host，或 `undefined`。
+   */
+  public static resolveRemoteHostFromEnv(
+    env: Readonly<Record<string, string | undefined>> = process.env,
+  ): string | undefined {
+    return TransformersEmbeddingAdapter.normalizeRemoteHost(
+      env.OMNI_HF_ENDPOINT ?? env.HF_ENDPOINT,
+    );
+  }
+
+  /**
+   * 是否在装配期预热嵌入管线（`OMNI_EMBED_PRELOAD=1`，**默认关**）。
+   *
+   * 与 `OMNI_SEMANTIC_RECALL` 同一惯例：默认关 ⇒ 零行为变更。开启后装配层会在**后台**触发
+   * 一次 `preload()`（不阻塞装配、不改变可用性判断），把冷启动成本从「首个用户查询」提前到
+   * 「启动后、接流量前」，并把耗时落成可读数字（L5）。
+   *
+   * @param env 环境变量视图（默认 `process.env`；单测可注入）。
+   * @returns 显式取值 `1` 时为 true，其余一律 false。
+   */
+  public static shouldPreloadEmbedding(
+    env: Record<string, string | undefined> = process.env,
+  ): boolean {
+    return env.OMNI_EMBED_PRELOAD === '1';
   }
 }

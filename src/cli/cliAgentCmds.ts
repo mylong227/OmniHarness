@@ -11,18 +11,18 @@ import { readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { createRuntime } from '../composition/runtime.js';
+import { Runtime } from '../composition/runtime.js';
 import { GoalRunner } from '../autonomy/goalRunner.js';
 import { GoalChecker } from '../autonomy/goalChecker.js';
 import { WorkflowRunner } from '../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../autonomy/workflowTypes.js';
-import { portsOf } from '../subagent/subagentPorts.js';
+import { SubagentPorts } from '../subagent/subagentPorts.js';
 import { RoutineScheduler } from '../daemon/routineScheduler.js';
 import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/routineScheduler.js';
-import { startInteractive } from '../tui/interactive.js';
+import { Interactive } from '../tui/interactive.js';
 import type { TuiEvent } from '../tui/tuiRenderer.js';
-import { runEvalSuite, formatEvalReport, loadSuiteFromJson, SMOKE_SUITE } from '../eval/index.js';
-import { parseArgs, messageOf, CliDefaults } from './argParser.js';
+import { EvalHarness, SMOKE_SUITE } from '../eval/index.js';
+import { ArgParser, CliDefaults } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import { CliNativeCmds } from './cliNativeCmds.js';
 
@@ -130,9 +130,9 @@ export class CliAgentCmds extends CliNativeCmds {
       return 2;
     }
     const maxIter = this.flagNumber(args, '--goal-max-iterations') ?? 10;
-    const cliArgs = parseArgs(['--prompt', 'goal-placeholder', ...args]) ?? CliDefaults;
+    const cliArgs = ArgParser.parseArgs(['--prompt', 'goal-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
-    const agent = new Agent(createRuntime(config));
+    const agent = new Agent(Runtime.createRuntime(config));
     const runner = new GoalRunner(agent, new GoalChecker(config.model), { maxIterations: maxIter });
     const result = await runner.run(goal);
     process.stdout.write(
@@ -159,13 +159,14 @@ export class CliAgentCmds extends CliNativeCmds {
     try {
       def = JSON.parse(await readFile(resolve(file), 'utf8')) as WorkflowDef;
     } catch (error) {
-      console.error(`工作流文件读取/解析失败: ${messageOf(error)}`);
+      console.error(`工作流文件读取/解析失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
-    const cliArgs = parseArgs(['--prompt', 'workflow-placeholder', ...args]) ?? CliDefaults;
+    const cliArgs =
+      ArgParser.parseArgs(['--prompt', 'workflow-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
-    const runtime = createRuntime(config);
-    const result = await new WorkflowRunner(portsOf(runtime)).run(def);
+    const runtime = Runtime.createRuntime(config);
+    const result = await new WorkflowRunner(SubagentPorts.portsOf(runtime)).run(def);
     process.stdout.write(
       `${JSON.stringify({ ok: result.ok, steps: result.steps, blackboard: result.blackboard })}\n`,
     );
@@ -269,7 +270,7 @@ export class CliAgentCmds extends CliNativeCmds {
       prompt: routine.prompt,
     };
     const config = await this.buildConfig(args);
-    const agent = new Agent(createRuntime(config));
+    const agent = new Agent(Runtime.createRuntime(config));
     const result = await agent.runTask(routine.prompt);
     const summary = this.summaryOf(result);
     const finalText = (summary as { finalText?: string } | undefined)?.finalText ?? '';
@@ -290,7 +291,7 @@ export class CliAgentCmds extends CliNativeCmds {
     }
     const demo = args[0] === 'demo';
     try {
-      await startInteractive({
+      await Interactive.startInteractive({
         send: async function* (input: string): AsyncIterable<TuiEvent> {
           if (demo) {
             yield { kind: 'assistant', text: `收到：${input}` };
@@ -316,9 +317,9 @@ export class CliAgentCmds extends CliNativeCmds {
    */
   protected async runEval(args: readonly string[]): Promise<number> {
     const suitePath = this.flagValue(args, '--suite');
-    const suite = suitePath !== undefined ? loadSuiteFromJson(suitePath) : SMOKE_SUITE;
-    const report = await runEvalSuite(suite);
-    process.stdout.write(formatEvalReport(report) + '\n');
+    const suite = suitePath !== undefined ? EvalHarness.loadSuiteFromJson(suitePath) : SMOKE_SUITE;
+    const report = await EvalHarness.runEvalSuite(suite);
+    process.stdout.write(EvalHarness.formatEvalReport(report) + '\n');
     const outPath = this.flagValue(args, '--out');
     if (outPath !== undefined) {
       writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');

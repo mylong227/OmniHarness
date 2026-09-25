@@ -10,7 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EnforcementModeResolver } from '../../src/security/enforcementModeResolver.js';
-import { guardFailureResult } from '../../src/security/promptInjectionGuard.js';
+import { PromptInjectionGuard } from '../../src/security/promptInjectionGuard.js';
 import type { ToolResult } from '../../src/ports/tool/tool.js';
 
 const result: ToolResult = { callId: 'c1', ok: true, output: '原文' };
@@ -52,7 +52,7 @@ test('MODES 白名单与三态同源且无重复', () => {
 });
 
 test('guardFailureResult：enforce 档 fail-closed 隔离（扫描器坏了 ≠ 护栏不存在）', () => {
-  const out = guardFailureResult(result, 'enforce');
+  const out = PromptInjectionGuard.guardFailureResult(result, 'enforce');
   assert.notStrictEqual(out.output, '原文', 'enforce 档不得把原文放行');
   assert.match(String(out.output), /提示注入拦截/);
   assert.strictEqual(out.callId, 'c1', '隔离不得篡改 callId');
@@ -60,7 +60,7 @@ test('guardFailureResult：enforce 档 fail-closed 隔离（扫描器坏了 ≠ 
 
 test('guardFailureResult：shadow / off 档原样返回（守住「不改行为」契约）', () => {
   for (const mode of ['shadow', 'off'] as const) {
-    const out = guardFailureResult(result, mode);
+    const out = PromptInjectionGuard.guardFailureResult(result, mode);
     assert.strictEqual(out, result, `${mode} 档必须原样返回同一对象`);
   }
 });

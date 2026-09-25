@@ -4,9 +4,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { assembleSpark } from '../../src/config/sparkAssembler.js';
-import { assembleMemoryStack } from '../../src/config/memoryStackAssembler.js';
-import { assembleSkillStack } from '../../src/config/skillStackAssembler.js';
+import { SparkAssembler } from '../../src/config/sparkAssembler.js';
+import { MemoryStackAssembler } from '../../src/config/memoryStackAssembler.js';
+import { SkillStackAssembler } from '../../src/config/skillStackAssembler.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.js';
@@ -31,10 +31,10 @@ function base(root: string, over: Partial<OmniHarnessConfig> = {}): OmniHarnessC
 /** 由配置装配三栈并跑燧内核装配。 */
 function assemble(root: string, over: Partial<OmniHarnessConfig> = {}) {
   const partial = base(root, over);
-  return assembleSpark(partial, {
+  return SparkAssembler.assembleSpark(partial, {
     vortex: undefined,
-    memory: assembleMemoryStack(partial, undefined),
-    skills: assembleSkillStack(partial),
+    memory: MemoryStackAssembler.assembleMemoryStack(partial, undefined),
+    skills: SkillStackAssembler.assembleSkillStack(partial),
   });
 }
 
@@ -78,11 +78,11 @@ test('SparkAssembler：分别启用刻蚀 / 遥测即活跃', () => {
 test('SparkAssembler：涡环包适配器经输入注入即活跃', () => {
   withWorkspace((root) => {
     const partial = base(root, { resonantField: { enabled: false } });
-    const skillStack = assembleSkillStack(partial);
-    const memory = assembleMemoryStack(partial, undefined);
+    const skillStack = SkillStackAssembler.assembleSkillStack(partial);
+    const memory = MemoryStackAssembler.assembleMemoryStack(partial, undefined);
     // 涡环包由 CorePortsAssembler 产出，此处以真实适配器验证「存在即活跃」。
     const vortex = new VortexRingSpillAdapter(new VortexRingPacket(new MemorySpill()));
-    const spark = assembleSpark(partial, { vortex, memory, skills: skillStack });
+    const spark = SparkAssembler.assembleSpark(partial, { vortex, memory, skills: skillStack });
     assert.ok(spark !== undefined);
   });
 });

@@ -3,7 +3,7 @@
 //   ② 覆盖率出数：混合样本 → 精确数字；全不可验证 → coverage 0；
 //   ③ 诚实降级表述：低于阈值必须使用降级措辞（不得声称有效 RLVR 信号）；达标用达标措辞；
 //   ④ 确定性：同输入重复体检 20 次报告完全一致；
-//   ⑤ wrap 后数值口径与原 VerifiableReward 兼容（绿=1/失败/异常=0，fail-closed 不变）。
+//   ⑤ wrap 后数值口径与原 VerifiableRewardFn 兼容（绿=1/失败/异常=0，fail-closed 不变）。
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

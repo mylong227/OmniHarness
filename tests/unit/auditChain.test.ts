@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AuditSink } from '../../src/server/services/auditSink.js';
-import { buildComplianceReport } from '../../src/server/services/auditExporter.js';
+import { AuditExporter } from '../../src/server/services/auditExporter.js';
 
 /** 建临时审计文件（每次唯一，避免跨运行互相污染）。 */
 function tmpFile(tag: string): string {
@@ -112,11 +112,16 @@ test('空日志与未配置目标均视为完整（no-op 安全）', () => {
 
 test('合规报告携带链校验结果，且旧调用方式不受影响', () => {
   const sink = seed(tmpFile('report'), 2);
-  const report = buildComplianceReport(sink.read(), {}, { generatedBy: 'test' }, sink.verify());
+  const report = AuditExporter.buildComplianceReport(
+    sink.read(),
+    {},
+    { generatedBy: 'test' },
+    sink.verify(),
+  );
   assert.strictEqual(report.summary.chain?.ok, true);
   assert.strictEqual(report.summary.chain?.count, 2);
 
-  const legacy = buildComplianceReport(sink.read(), {});
+  const legacy = AuditExporter.buildComplianceReport(sink.read(), {});
   assert.strictEqual(legacy.summary.chain, undefined, '不传 chain 时字段应缺席（向后兼容）');
 });
 
@@ -130,7 +135,7 @@ test('链断裂时合规报告仍标记为不可信（供 CLI 拒绝流转）', 
   const sink = new AuditSink({ path });
   const chain = sink.verify();
   assert.strictEqual(chain.ok, false);
-  const report = buildComplianceReport(sink.read(), {}, {}, chain);
+  const report = AuditExporter.buildComplianceReport(sink.read(), {}, {}, chain);
   assert.strictEqual(
     report.summary.chain?.ok,
     false,

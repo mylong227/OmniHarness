@@ -19,7 +19,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { indexCorpus, query } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
 import { FileReranker } from '../../src/context/fileReranker.js';
 import { FileRerankIndex } from '../../src/context/fileRerankIndex.js';
@@ -39,7 +39,7 @@ class Fixture {
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(join(dir, name), content, 'utf8');
     }
-    return { dir, corpus: indexCorpus(dir, { morph: true, light: true }) };
+    return { dir, corpus: ContextEngine.indexCorpus(dir, { morph: true, light: true }) };
   }
 }
 
@@ -215,14 +215,18 @@ test('集成：query 的 rerank 只重排不增删，且 rerankFloor 端到端�
   files['alpha.ts'] = 'export function alphaHelper(): void {\n  return;\n}';
   const { dir, corpus } = Fixture.build(files);
   try {
-    const pool = [...query(corpus, 'alpha widget', { fileK: 999, rerank: false }).files];
+    const pool = [
+      ...ContextEngine.query(corpus, 'alpha widget', { fileK: 999, rerank: false }).files,
+    ];
     assert.ok(pool.length >= 2, `前置条件：池内应有多个候选，实际 ${pool.length}`);
-    const reranked = [...query(corpus, 'alpha widget', { fileK: pool.length, rerank: true }).files];
+    const reranked = [
+      ...ContextEngine.query(corpus, 'alpha widget', { fileK: pool.length, rerank: true }).files,
+    ];
     assert.strictEqual(reranked.length, pool.length, '重排不得丢弃候选');
     assert.deepEqual([...reranked].sort(), [...pool].sort(), '重排不得新增候选');
     // 地板 = 池大小 ⇒ 全部钉住 ⇒ 与第一段次序逐字相同（证明 rerankFloor 真的传到了重排器）。
     const allPinned = [
-      ...query(corpus, 'alpha widget', {
+      ...ContextEngine.query(corpus, 'alpha widget', {
         fileK: pool.length,
         rerank: true,
         rerankFloor: pool.length,
@@ -231,7 +235,11 @@ test('集成：query 的 rerank 只重排不增删，且 rerankFloor 端到端�
     assert.deepEqual(allPinned, pool, 'rerankFloor=池大小 应逐字复现第一段次序');
     // 地板 = 0 ⇒ 重排自由发挥，但仍只是同一集合的置换。
     const free = [
-      ...query(corpus, 'alpha widget', { fileK: pool.length, rerank: true, rerankFloor: 0 }).files,
+      ...ContextEngine.query(corpus, 'alpha widget', {
+        fileK: pool.length,
+        rerank: true,
+        rerankFloor: 0,
+      }).files,
     ];
     assert.deepEqual([...free].sort(), [...pool].sort());
   } finally {

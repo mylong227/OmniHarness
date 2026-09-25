@@ -9,7 +9,7 @@ import { ServiceKeys } from '../../src/composition/runtime.js';
 import { PluginManager } from '../../src/plugin/pluginManager.js';
 import { PermissionGate } from '../../src/plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../../src/plugin/permission.js';
-import { loadInstalledPlugins } from '../../src/plugin/pluginLoader.js';
+import { PluginLoader } from '../../src/plugin/pluginLoader.js';
 import { AppServer } from '../../src/server/core/appServer.js';
 import { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 import type { Transport } from '../../src/server/transport/lineTransport.js';
@@ -54,7 +54,7 @@ test('pluginLoader：扫描 pluginsDir 并把插件工具注册进 RegistryToolP
   container.register(ServiceKeys.tools, tools);
   const manager = new PluginManager(container, PermissionGate.fromList(ALL_PERMISSIONS));
 
-  const loaded = await loadInstalledPlugins(manager, root);
+  const loaded = await PluginLoader.loadInstalledPlugins(manager, root);
   assert.deepStrictEqual(loaded, ['ping-tool'], '应加载新插件');
   assert.ok(
     tools.list().some((t) => t.name === 'ping-tool'),
@@ -62,7 +62,7 @@ test('pluginLoader：扫描 pluginsDir 并把插件工具注册进 RegistryToolP
   );
 
   // 幂等：再次加载不重复注册
-  const again = await loadInstalledPlugins(manager, root);
+  const again = await PluginLoader.loadInstalledPlugins(manager, root);
   assert.deepStrictEqual(again, [], '已加载插件不应重复加载');
   assert.strictEqual(
     tools.list().filter((t) => t.name === 'ping-tool').length,

@@ -20,6 +20,106 @@ import type { ToolResult } from '../ports/tool/tool.js';
 import type { EnforcementMode } from './enforcementModeResolver.js';
 import { ToolOutputTrust, type TrustTier } from './toolOutputTrust.js';
 
+/**
+ * PromptInjectionGuard —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class PromptInjectionGuard {
+  /**
+   * 按来源信任级扫描文本，返回命中明细。
+   *
+   * 判定：强规则命中 ⇒ blocked；否则弱 + 启发式命中数 ≥ {@link ToolOutputTrust.weakEvidenceThreshold}
+   * ⇒ blocked。默认 `tier = 'unknown'`（阈值 1）等价于「任意命中即拦」，向后兼容。
+   *
+   * @param text 待扫描文本（工具结果 output / 外部内容）。
+   * @param tier 内容来源信任级（缺省 `unknown`，行为同 P4 之前）。
+   * @returns 命中明细与判定结果（含本次所用信任级）。
+   */
+  public static scanForInjection(text: string, tier: TrustTier = 'unknown'): InjectionScan {
+    if (text.length === 0) {
+      return { blocked: false, score: 0, hits: [], tier };
+    }
+    try {
+      const hits: InjectionHit[] = [];
+      for (const re of STRONG_DIRECTIVES) {
+        const m = re.exec(text);
+        if (m !== null) {
+          hits.push({ pattern: re.source, snippet: m[0].slice(0, 64), severity: 'strong' });
+        }
+      }
+      const weakHits: InjectionHit[] = [];
+      for (const re of [...WEAK_DIRECTIVES, ...INSTRUCTION_HEURISTICS]) {
+        const m = re.exec(text);
+        if (m !== null) {
+          weakHits.push({ pattern: re.source, snippet: m[0].slice(0, 64), severity: 'weak' });
+        }
+      }
+      const blocked =
+        hits.length > 0 || weakHits.length >= ToolOutputTrust.weakEvidenceThreshold(tier);
+      return { blocked, score: hits.length + weakHits.length, hits: [...hits, ...weakHits], tier };
+    } catch {
+      // fail-closed：扫描器异常（如非预期输入）时保守判定为注入，隔离而非放行。
+      return { blocked: true, score: -1, hits: [], tier };
+    }
+  }
+
+  /**
+   * 护栏变换：对工具结果 output 做注入扫描。
+   * - 未命中：原样返回。
+   * - 命中：返回净化结果（output 替换为隔离标记，保留「已被拦截」信号），不把疑似注入喂给模型。
+   *
+   * @param result 工具结果（含调用方已知的工具名来源，见 `ToolOutputTrust.fromToolName`）。
+   * @param tier 该结果的内容来源信任级（缺省 `unknown`，行为同 P4 之前）。
+   * @returns 隔离后的结果（附 `blocked` / `hits` / `tier` 以便可观测）。
+   */
+  public static guardToolResult(
+    result: ToolResult,
+    tier: TrustTier = 'unknown',
+  ): ToolResult & {
+    readonly blocked: boolean;
+    readonly hits: readonly InjectionHit[];
+    readonly tier: TrustTier;
+  } {
+    if (result.output === undefined) {
+      return { ...result, blocked: false, hits: [], tier };
+    }
+    const scan = PromptInjectionGuard.scanForInjection(result.output, tier);
+    if (!scan.blocked) {
+      return { ...result, blocked: false, hits: [], tier };
+    }
+    return {
+      ...result,
+      output: `[提示注入拦截] 工具结果疑似含指令注入（来源 ${ToolOutputTrust.labelOf(tier)}，命中 ${scan.hits.length} 处），已隔离，未进入模型上下文。`,
+      blocked: true,
+      hits: scan.hits,
+      tier,
+    };
+  }
+
+  /**
+   * 扫描器**自身异常**时的兜底结果（D2：兜底策略按模式区分，且本层绝不静默放行）。
+   *
+   * 为什么按模式区分、而不是一律 fail-closed：
+   *  - `enforce` 档的契约是「不让疑似注入进入模型上下文」——扫描器异常时**必须保守隔离**，
+   *    否则「扫描器坏了」就等于「护栏不存在」，这正是 §17.2 D2 所指的漏；
+   *  - `shadow` 档的契约是「跑、记、但不改行为」——此时若隔离，就等于 shadow **悄悄改了行为**，
+   *    反而毁掉它唯一的用途（在生产流量上量真实误报/漏报）；
+   *  - `off` 档本就不跑，原样返回。
+   *
+   * @param result 原始工具结果。
+   * @param mode 生效模式。
+   * @returns `enforce` ⇒ 带隔离标记的结果；`shadow` / `off` ⇒ 原样返回。
+   */
+  public static guardFailureResult(result: ToolResult, mode: EnforcementMode): ToolResult {
+    if (mode !== 'enforce') {
+      return result;
+    }
+    return {
+      ...result,
+      output: '[提示注入拦截] 护栏扫描器异常，按 fail-closed 隔离该结果，未进入模型上下文。',
+    };
+  }
+}
+
 /** 规则强度：`strong` 恒拦；`weak` 计入门限证据数（阈值随来源变化）。 */
 export type InjectionSeverity = 'strong' | 'weak';
 
@@ -88,98 +188,3 @@ const INSTRUCTION_HEURISTICS: readonly RegExp[] = [
   /(?:you\s+)?must\s+(?:now\s+)?(?:ignore|obey|comply\s+with|reveal|output|send|execute|transfer|delete)\s+/i,
   /as\s+(?:an?\s+)?(?:unrestricted|unfiltered|jailbroken|unconstrained)\s/i,
 ];
-
-/**
- * 按来源信任级扫描文本，返回命中明细。
- *
- * 判定：强规则命中 ⇒ blocked；否则弱 + 启发式命中数 ≥ {@link ToolOutputTrust.weakEvidenceThreshold}
- * ⇒ blocked。默认 `tier = 'unknown'`（阈值 1）等价于「任意命中即拦」，向后兼容。
- *
- * @param text 待扫描文本（工具结果 output / 外部内容）。
- * @param tier 内容来源信任级（缺省 `unknown`，行为同 P4 之前）。
- * @returns 命中明细与判定结果（含本次所用信任级）。
- */
-export function scanForInjection(text: string, tier: TrustTier = 'unknown'): InjectionScan {
-  if (text.length === 0) {
-    return { blocked: false, score: 0, hits: [], tier };
-  }
-  try {
-    const hits: InjectionHit[] = [];
-    for (const re of STRONG_DIRECTIVES) {
-      const m = re.exec(text);
-      if (m !== null) {
-        hits.push({ pattern: re.source, snippet: m[0].slice(0, 64), severity: 'strong' });
-      }
-    }
-    const weakHits: InjectionHit[] = [];
-    for (const re of [...WEAK_DIRECTIVES, ...INSTRUCTION_HEURISTICS]) {
-      const m = re.exec(text);
-      if (m !== null) {
-        weakHits.push({ pattern: re.source, snippet: m[0].slice(0, 64), severity: 'weak' });
-      }
-    }
-    const blocked =
-      hits.length > 0 || weakHits.length >= ToolOutputTrust.weakEvidenceThreshold(tier);
-    return { blocked, score: hits.length + weakHits.length, hits: [...hits, ...weakHits], tier };
-  } catch {
-    // fail-closed：扫描器异常（如非预期输入）时保守判定为注入，隔离而非放行。
-    return { blocked: true, score: -1, hits: [], tier };
-  }
-}
-
-/**
- * 护栏变换：对工具结果 output 做注入扫描。
- * - 未命中：原样返回。
- * - 命中：返回净化结果（output 替换为隔离标记，保留「已被拦截」信号），不把疑似注入喂给模型。
- *
- * @param result 工具结果（含调用方已知的工具名来源，见 `ToolOutputTrust.fromToolName`）。
- * @param tier 该结果的内容来源信任级（缺省 `unknown`，行为同 P4 之前）。
- * @returns 隔离后的结果（附 `blocked` / `hits` / `tier` 以便可观测）。
- */
-export function guardToolResult(
-  result: ToolResult,
-  tier: TrustTier = 'unknown',
-): ToolResult & {
-  readonly blocked: boolean;
-  readonly hits: readonly InjectionHit[];
-  readonly tier: TrustTier;
-} {
-  if (result.output === undefined) {
-    return { ...result, blocked: false, hits: [], tier };
-  }
-  const scan = scanForInjection(result.output, tier);
-  if (!scan.blocked) {
-    return { ...result, blocked: false, hits: [], tier };
-  }
-  return {
-    ...result,
-    output: `[提示注入拦截] 工具结果疑似含指令注入（来源 ${ToolOutputTrust.labelOf(tier)}，命中 ${scan.hits.length} 处），已隔离，未进入模型上下文。`,
-    blocked: true,
-    hits: scan.hits,
-    tier,
-  };
-}
-
-/**
- * 扫描器**自身异常**时的兜底结果（D2：兜底策略按模式区分，且本层绝不静默放行）。
- *
- * 为什么按模式区分、而不是一律 fail-closed：
- *  - `enforce` 档的契约是「不让疑似注入进入模型上下文」——扫描器异常时**必须保守隔离**，
- *    否则「扫描器坏了」就等于「护栏不存在」，这正是 §17.2 D2 所指的漏；
- *  - `shadow` 档的契约是「跑、记、但不改行为」——此时若隔离，就等于 shadow **悄悄改了行为**，
- *    反而毁掉它唯一的用途（在生产流量上量真实误报/漏报）；
- *  - `off` 档本就不跑，原样返回。
- *
- * @param result 原始工具结果。
- * @param mode 生效模式。
- * @returns `enforce` ⇒ 带隔离标记的结果；`shadow` / `off` ⇒ 原样返回。
- */
-export function guardFailureResult(result: ToolResult, mode: EnforcementMode): ToolResult {
-  if (mode !== 'enforce') {
-    return result;
-  }
-  return {
-    ...result,
-    output: '[提示注入拦截] 护栏扫描器异常，按 fail-closed 隔离该结果，未进入模型上下文。',
-  };
-}

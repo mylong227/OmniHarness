@@ -11,13 +11,13 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Container } from '../core/container.js';
 import { PluginManager } from '../plugin/pluginManager.js';
-import { manifestHasDangerous } from '../plugin/manifest.js';
+import { Manifest } from '../plugin/manifest.js';
 import { PermissionGate, PermissionDeniedError } from '../plugin/permissionGate.js';
-import { isPluginPermission } from '../plugin/permission.js';
+import { Permission } from '../plugin/permission.js';
 import type { PluginPermission } from '../plugin/permission.js';
 import type { Plugin } from '../plugin/plugin.js';
 import type { PluginRegistry } from '../plugin/pluginRegistry.js';
-import { messageOf } from './argParser.js';
+import { ArgParser } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** 构造插件注册表的工厂（由命令继承链注入，避免命令类依赖继承链）。 */
@@ -85,7 +85,7 @@ export class PluginCommand {
     const allowAll = args.includes('--allow-all');
     const allowed = reader.values('--allow');
     for (const permission of allowed) {
-      if (!isPluginPermission(permission)) {
+      if (!Permission.isPluginPermission(permission)) {
         process.stdout.write(`未知权限: ${permission}（合法项见 ALL_PERMISSIONS）\n`);
         return 2;
       }
@@ -121,7 +121,7 @@ export class PluginCommand {
       return 0;
     }
     for (const manifest of installed) {
-      const flag = manifestHasDangerous(manifest) ? '  [危险权限]' : '';
+      const flag = Manifest.manifestHasDangerous(manifest) ? '  [危险权限]' : '';
       process.stdout.write(
         `${manifest.name}@${manifest.version}\t${manifest.description ?? ''}${flag}\n`,
       );
@@ -143,7 +143,7 @@ export class PluginCommand {
       return 0;
     }
     for (const descriptor of results) {
-      const flag = manifestHasDangerous(descriptor.manifest) ? '  [危险权限]' : '';
+      const flag = Manifest.manifestHasDangerous(descriptor.manifest) ? '  [危险权限]' : '';
       process.stdout.write(
         `[${descriptor.source}]\t${descriptor.manifest.name}@${descriptor.manifest.version}\t${descriptor.manifest.description ?? ''}${flag}\n`,
       );
@@ -165,13 +165,13 @@ export class PluginCommand {
     }
     try {
       const manifest = await this.createRegistry(args).install(name);
-      const warn = manifestHasDangerous(manifest)
+      const warn = Manifest.manifestHasDangerous(manifest)
         ? '\n注意: 该插件声明危险权限，加载时将被 PermissionGate 拦截，除非显式 --allow 放行。'
         : '';
       process.stdout.write(`已安装插件: ${manifest.name}@${manifest.version}${warn}\n`);
       return 0;
     } catch (error) {
-      console.error(`安装失败: ${messageOf(error)}`);
+      console.error(`安装失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
   }
@@ -193,7 +193,7 @@ export class PluginCommand {
       process.stdout.write(`已移除插件: ${name}\n`);
       return 0;
     } catch (error) {
-      console.error(`移除失败: ${messageOf(error)}`);
+      console.error(`移除失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
   }

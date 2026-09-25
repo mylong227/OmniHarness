@@ -1,19 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  ochiai,
-  rankFilesFromCoverageJson,
-  prependBoosted,
-} from '../../src/eval/coverageLocator.js';
+import { CoverageLocator } from '../../src/eval/coverageLocator.js';
 
 test('ochiai：失败测试独占覆盖的可疑度高于共享覆盖', () => {
   // 仅失败测试覆盖 ⇒ susp=1；失败+通过都覆盖 ⇒ susp<1；无覆盖 ⇒ 0。
-  assert.strictEqual(ochiai(1, 0, 0), 1);
-  assert.ok(ochiai(1, 0, 1) < 1 && ochiai(1, 0, 1) > 0);
-  assert.strictEqual(ochiai(0, 1, 5), 0);
+  assert.strictEqual(CoverageLocator.ochiai(1, 0, 0), 1);
+  assert.ok(CoverageLocator.ochiai(1, 0, 1) < 1 && CoverageLocator.ochiai(1, 0, 1) > 0);
+  assert.strictEqual(CoverageLocator.ochiai(0, 1, 5), 0);
   // 分母 0 且无失败覆盖 ⇒ 0（fail-closed，不假阳）。
-  assert.strictEqual(ochiai(0, 0, 0), 0);
+  assert.strictEqual(CoverageLocator.ochiai(0, 0, 0), 0);
 });
 
 test('rankFilesFromCoverageJson：按覆盖语句数降序，忽略 0 覆盖', () => {
@@ -24,7 +20,7 @@ test('rankFilesFromCoverageJson：按覆盖语句数降序，忽略 0 覆盖', (
       'src/unused.py': { summary: { covered_lines: 0 } },
     },
   });
-  const ranked = rankFilesFromCoverageJson(json);
+  const ranked = CoverageLocator.rankFilesFromCoverageJson(json);
   assert.deepStrictEqual(
     ranked.map((r) => r.file),
     ['src/bad.py', 'src/good.py'],
@@ -33,7 +29,7 @@ test('rankFilesFromCoverageJson：按覆盖语句数降序，忽略 0 覆盖', (
 });
 
 test('rankFilesFromCoverageJson：非法 JSON 返回空（fail-closed）', () => {
-  assert.deepStrictEqual(rankFilesFromCoverageJson('not json'), []);
+  assert.deepStrictEqual(CoverageLocator.rankFilesFromCoverageJson('not json'), []);
 });
 
 test('prependBoosted：SBFL 文件去重前置，不重复检索已命中项', () => {
@@ -42,7 +38,7 @@ test('prependBoosted：SBFL 文件去重前置，不重复检索已命中项', (
     { file: 'src/ok.py', score: 10 },
   ];
   const retrieved = ['src/ok.py', 'src/other.py'];
-  const merged = prependBoosted(boosted, retrieved, 5);
+  const merged = CoverageLocator.prependBoosted(boosted, retrieved, 5);
   assert.deepStrictEqual(merged, ['src/bad.py', 'src/ok.py', 'src/other.py']);
 });
 
@@ -52,6 +48,6 @@ test('prependBoosted：limit 截断前置数量', () => {
     { file: 'b.py', score: 8 },
     { file: 'c.py', score: 7 },
   ];
-  const merged = prependBoosted(boosted, ['z.py'], 2);
+  const merged = CoverageLocator.prependBoosted(boosted, ['z.py'], 2);
   assert.deepStrictEqual(merged, ['a.py', 'b.py', 'z.py']);
 });

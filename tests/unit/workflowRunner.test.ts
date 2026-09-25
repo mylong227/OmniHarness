@@ -11,13 +11,9 @@ import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js'
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import {
-  computeLevels,
-  WorkflowRunner,
-  WorkflowCycleError,
-} from '../../src/autonomy/workflowRunner.js';
+import { WorkflowRunner, WorkflowCycleError } from '../../src/autonomy/workflowRunner.js';
 import type { WorkflowStep } from '../../src/autonomy/workflowTypes.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 
 /** 回显模型：返回最后一条 user 消息内容（便于验证依赖注入——下游步骤 prompt 含上游产出）。 */
 class EchoModel implements ModelPort {
@@ -86,7 +82,7 @@ function makeLongTermStub(): LongTermMemoryPort {
 }
 
 /** 构造子智能体端口集。 */
-function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPorts {
+function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPortsShape {
   const spill = new MemorySpill();
   return {
     model,
@@ -122,7 +118,7 @@ describe('computeLevels', () => {
       { id: 'B', prompt: 'b', dependsOn: ['A'] },
       { id: 'C', prompt: 'c', dependsOn: ['B'] },
     ];
-    assert.deepStrictEqual(computeLevels(steps), [['A'], ['B'], ['C']]);
+    assert.deepStrictEqual(WorkflowRunner.computeLevels(steps), [['A'], ['B'], ['C']]);
   });
 
   it('菱形依赖：B/C 同层、D 在下层', () => {
@@ -132,7 +128,7 @@ describe('computeLevels', () => {
       { id: 'C', prompt: 'c', dependsOn: ['A'] },
       { id: 'D', prompt: 'd', dependsOn: ['B', 'C'] },
     ];
-    assert.deepStrictEqual(computeLevels(steps), [['A'], ['B', 'C'], ['D']]);
+    assert.deepStrictEqual(WorkflowRunner.computeLevels(steps), [['A'], ['B', 'C'], ['D']]);
   });
 
   it('存在环抛 WorkflowCycleError（fail-closed）', () => {
@@ -140,12 +136,12 @@ describe('computeLevels', () => {
       { id: 'A', prompt: 'a', dependsOn: ['B'] },
       { id: 'B', prompt: 'b', dependsOn: ['A'] },
     ];
-    assert.throws(() => computeLevels(steps), WorkflowCycleError);
+    assert.throws(() => WorkflowRunner.computeLevels(steps), WorkflowCycleError);
   });
 
   it('依赖不存在的步骤抛 WorkflowCycleError', () => {
     const steps: WorkflowStep[] = [{ id: 'X', prompt: 'x', dependsOn: ['Y'] }];
-    assert.throws(() => computeLevels(steps), WorkflowCycleError);
+    assert.throws(() => WorkflowRunner.computeLevels(steps), WorkflowCycleError);
   });
 });
 

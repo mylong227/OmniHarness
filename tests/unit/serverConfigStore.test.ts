@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ServerConfigStore } from '../../src/server/services/serverConfigStore.js';
 import { configFile } from '../../src/config/configFile.js';
-import { maskKey } from '../../src/server/services/providerPresets.js';
+import { ProviderPresets } from '../../src/server/services/providerPresets.js';
 
 /** 在临时工作区内构造配置存储并执行。 */
 function withStore<T>(fn: (ws: string, store: ServerConfigStore) => T | Promise<T>): Promise<T> {
@@ -62,9 +62,9 @@ test('ServerConfigStore.get：apiKey 与 providerKeys 一律打码，原文不�
     const raw = 'sk-abcdefghijklmn';
     await store.update({ apiKey: raw, providerKeys: { deepseek: 'sk-deepseek-secret' } });
     const out = store.get() as { apiKey: string; providerKeys: Record<string, string> };
-    assert.strictEqual(out.apiKey, maskKey(raw));
+    assert.strictEqual(out.apiKey, ProviderPresets.maskKey(raw));
     assert.ok(!out.apiKey.includes('efghijkl'), '打码后不得含原文中段');
-    assert.strictEqual(out.providerKeys['deepseek'], maskKey('sk-deepseek-secret'));
+    assert.strictEqual(out.providerKeys['deepseek'], ProviderPresets.maskKey('sk-deepseek-secret'));
   });
 });
 

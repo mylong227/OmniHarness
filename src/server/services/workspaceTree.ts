@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { safeReadFile } from './safeFs.js';
+import { SafeFs } from './safeFs.js';
 
 /** 工作区树/文件读取依赖：工作区根以 getter 注入，支持运行时切换工作区后仍取最新根。 */
 export interface WorkspaceTreeDeps {
@@ -50,7 +50,7 @@ export class WorkspaceTree {
   public readFile(params: Record<string, unknown>): unknown {
     // #OBS-11：复用 safeReadFile 做工作区越界校验，与 HTTP /files 路由共一套安全逻辑。
     const rel = typeof params['path'] === 'string' ? params['path'] : '';
-    const r = safeReadFile(this.workspaceRoot(), rel);
+    const r = SafeFs.safeReadFile(this.workspaceRoot(), rel);
     if (!r.ok) {
       throw new Error(r.error);
     }

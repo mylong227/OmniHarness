@@ -17,9 +17,9 @@ import type { Duplex } from 'node:stream';
 import type { IncomingMessage } from 'node:http';
 import type { RpcMessage } from '../server/core/jsonRpc.js';
 import { jsonRpc } from '../server/core/jsonRpc.js';
-import { WsConnection, webSocketAcceptKey } from '../server/transport/wsConnection.js';
+import { WsConnection } from '../server/transport/wsConnection.js';
 import type { A2aTransport } from './a2aProtocol.js';
-import { inspectUrl, assertNotSsrf, defaultSsrfOptions } from '../security/ssrfGuard.js';
+import { SsrfGuard } from '../security/ssrfGuard.js';
 import type { SsrfOptions } from '../security/ssrfGuard.js';
 import { log } from '../util/logger.js';
 
@@ -47,7 +47,7 @@ export class WsA2aTransport implements A2aTransport {
    */
   public constructor(endpoint: string, ssrf?: SsrfOptions) {
     this.endpoint = endpoint;
-    this.ssrf = ssrf ?? defaultSsrfOptions();
+    this.ssrf = ssrf ?? SsrfGuard.defaultSsrfOptions();
   }
 
   /**
@@ -55,7 +55,7 @@ export class WsA2aTransport implements A2aTransport {
    * @returns 校验通过时 resolve；命中规则或域名不可解析时 reject。
    */
   public async validate(): Promise<void> {
-    await assertNotSsrf(this.ssrfTarget(), this.ssrf);
+    await SsrfGuard.assertNotSsrf(this.ssrfTarget(), this.ssrf);
   }
 
   /**
@@ -104,7 +104,7 @@ export class WsA2aTransport implements A2aTransport {
    * @returns 写入完成（或静默失败）时的 Promise。
    */
   private async sendAsync(message: RpcMessage): Promise<void> {
-    const verdict = inspectUrl(this.ssrfTarget(), this.ssrf);
+    const verdict = SsrfGuard.inspectUrl(this.ssrfTarget(), this.ssrf);
     if (verdict.blocked) {
       log.warn('a2a.ssrfBlocked', { endpoint: this.endpoint, reason: verdict.reason });
       return;
@@ -267,7 +267,7 @@ export class WsA2aServerTransport implements A2aTransport {
       return;
     }
     socket.write(
-      `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${webSocketAcceptKey(key)}\r\n\r\n`,
+      `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${WsConnection.webSocketAcceptKey(key)}\r\n\r\n`,
     );
     const connection = new WsConnection(socket);
     this.connections.add(connection);

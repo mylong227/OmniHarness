@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
-import { createRuntime } from '../composition/runtime.js';
+import { Runtime } from '../composition/runtime.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
@@ -34,6 +34,358 @@ import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
 import { ScriptedModel, type ScriptStep } from './scriptedModel.js';
 import { IsolatedEvaluator } from './isolatedEvaluator.js';
 import type { ReasoningEffort } from './reasoningRouter.js';
+
+/**
+ * EvalHarness —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class EvalHarness {
+  /**
+   * @beta
+   * 纯函数评分：依据期望断言对一次任务结果打分（不依赖 Agent，便于单测）。
+   * 任一期望不满足即 fail-closed（记 reason），不假通过。
+   */
+  public static scoreTask(params: {
+    readonly toolCalls: readonly string[];
+    readonly finalText: string | undefined;
+    readonly expectation: EvalExpectation;
+    readonly steps: number;
+    readonly workspaceRoot: string;
+  }): { readonly passed: boolean; readonly reasons: readonly string[] } {
+    const { toolCalls, finalText, expectation, steps, workspaceRoot } = params;
+    const reasons: string[] = [];
+
+    if (expectation.tools !== undefined) {
+      for (const expected of expectation.tools) {
+        if (!toolCalls.includes(expected)) {
+          reasons.push(`缺少期望工具调用: ${expected}（实际: [${toolCalls.join(', ')}]）`);
+        }
+      }
+    }
+    if (expectation.text !== undefined) {
+      if (finalText === undefined || !finalText.includes(expectation.text)) {
+        reasons.push(`最终文本不含期望子串: ${expectation.text}`);
+      }
+    }
+    if (expectation.files !== undefined) {
+      for (const [rel, sub] of Object.entries(expectation.files)) {
+        const fp = join(workspaceRoot, rel);
+        if (!existsSync(fp)) {
+          reasons.push(`期望文件不存在: ${rel}`);
+          continue;
+        }
+        const content = readFileSync(fp, 'utf8');
+        if (!content.includes(sub)) {
+          reasons.push(`文件 ${rel} 内容不含期望子串: ${sub}`);
+        }
+      }
+    }
+    if (expectation.run !== undefined) {
+      const want = expectation.run.expectExit ?? 0;
+      let status = -1;
+      let stderr = '';
+      try {
+        const r = spawnSync(expectation.run.cmd, [], {
+          cwd: workspaceRoot,
+          encoding: 'utf8',
+          shell: true,
+          timeout: 60_000,
+        });
+        status = r.status ?? -1;
+        stderr = typeof r.stderr === 'string' ? r.stderr : '';
+      } catch (err) {
+        stderr = err instanceof Error ? err.message : String(err);
+      }
+      if (status !== want) {
+        reasons.push(
+          `验证命令「${expectation.run.cmd}」退出码 ${status} ≠ 期望 ${want}` +
+            (stderr ? `: ${stderr.slice(0, 200)}` : ''),
+        );
+      }
+    }
+    if (expectation.maxSteps !== undefined && steps > expectation.maxSteps) {
+      reasons.push(`步数 ${steps} 超过期望上限 ${expectation.maxSteps}`);
+    }
+
+    return { passed: reasons.length === 0, reasons };
+  }
+
+  /** 预置任务自带的种子文件到工作区（套件自包含，read_file 等不必依赖外部资源）。 */
+  public static seedTaskWorkspace(task: EvalTask, workspaceRoot: string): void {
+    for (const [rel, content] of Object.entries(task.seedFiles ?? {})) {
+      const fp = join(workspaceRoot, rel);
+      mkdirSync(dirname(fp), { recursive: true });
+      writeFileSync(fp, content, 'utf8');
+    }
+  }
+
+  /** 解析本任务的模型端口：注入的真实模型优先，否则确定性 ScriptedModel（CI / 离线回归）。 */
+  public static resolveTaskModel(task: EvalTask, model: ModelPort | undefined): ModelPort {
+    return model ?? new ScriptedModel(task.script ?? [], task.finalText ?? '任务完成（eval）');
+  }
+
+  /**
+   * 采集生成阶段产物快照（投影：工作区文本文件 + 事件流统计）。
+   * 采集期读取失败的文件（并发写入等）跳过——快照只记录可稳定读取的产物。
+   * @param result 生成阶段结果（AgentResult）
+   * @param workspaceRoot 工作区根
+   * @returns 产物快照
+   */
+  public static async collectTaskArtifact(
+    result: AgentResult,
+    workspaceRoot: string,
+  ): Promise<TaskArtifact> {
+    const walker = new WorkspaceFileWalker(workspaceRoot, { maxFiles: 2000 });
+    const { files: rels } = await walker.list();
+    const files: Record<string, string> = {};
+    for (const rel of rels) {
+      const fp = join(workspaceRoot, ...rel.split('/'));
+      try {
+        if (statSync(fp).size > MAX_SNAPSHOT_FILE_BYTES) continue;
+        files[rel] = readFileSync(fp, 'utf8');
+      } catch {
+        // 采集期文件已消失 → 跳过（不会进入评测快照）
+      }
+    }
+    return {
+      toolCalls: NoopSupervisor.extractToolCalls(result.events),
+      steps: result.steps,
+      finalText: result.finalText,
+      files,
+    };
+  }
+
+  /**
+   * 生成阶段（T4.6 隔离的一半）：预置文件 → 装配真实 Agent → 执行任务 → 采集产物快照。
+   * 本函数**不做任何评测**：评测由调用方在快照上完成。
+   * @param task 评估任务
+   * @param workspaceRoot 工作区根
+   * @param model 模型端口（缺省 ScriptedModel）
+   * @param reasoningEffort 推理强度（缺省不发该字段）
+   * @returns 生成结果与产物快照
+   */
+  public static async generateTaskArtifact(
+    task: EvalTask,
+    workspaceRoot: string,
+    model: ModelPort | undefined,
+    reasoningEffort: ReasoningEffort | undefined,
+  ): Promise<{ readonly result: AgentResult; readonly artifact: TaskArtifact }> {
+    EvalHarness.seedTaskWorkspace(task, workspaceRoot);
+    const config = ConfigFactory.build({
+      workspaceRoot,
+      maxSteps: task.maxSteps ?? 16,
+      model: EvalHarness.resolveTaskModel(task, model),
+      storage: new MemoryStorage(),
+      approvals: new AutoApproval(),
+      sandbox: new PassthroughSandbox(),
+      events: new SilentEventPort(),
+      ...(reasoningEffort !== undefined ? { reasoning: reasoningEffort } : {}),
+    });
+    const agent = new Agent(Runtime.createRuntime({ ...config, supervisor: new NoopSupervisor() }));
+    const result = await agent.runTask(task.prompt);
+    return { result, artifact: await EvalHarness.collectTaskArtifact(result, workspaceRoot) };
+  }
+
+  /** 把冻结快照物化到 scratch 目录（评测命令只在该副本上执行，绝不碰生成方工作区）。 */
+  public static materializeSnapshot(snapshot: Readonly<TaskArtifact>, root: string): number {
+    let written = 0;
+    for (const [rel, content] of Object.entries(snapshot.files)) {
+      const fp = join(root, ...rel.split('/'));
+      mkdirSync(dirname(fp), { recursive: true });
+      writeFileSync(fp, content, 'utf8');
+      written += 1;
+    }
+    return written;
+  }
+
+  /**
+   * 在冻结快照上评分（T4.6 隔离的另一半）：快照物化到临时 scratch 后跑全部断言，
+   * 故评测结论只依赖快照内容——生成方此后对工作区的任何修改都进不了本次 verdict。
+   * @param task 评估任务
+   * @param snapshot 冻结快照
+   * @returns 通过与否 + 失败原因
+   */
+  public static scoreFrozenSnapshot(
+    task: EvalTask,
+    snapshot: Readonly<TaskArtifact>,
+  ): { readonly passed: boolean; readonly reasons: readonly string[] } {
+    const scratch = mkdtempSync(join(tmpdir(), 'omni-eval-snapshot-'));
+    try {
+      EvalHarness.materializeSnapshot(snapshot, scratch);
+      return EvalHarness.scoreTask({
+        toolCalls: snapshot.toolCalls,
+        finalText: snapshot.finalText,
+        expectation: task.expect ?? {},
+        steps: snapshot.steps,
+        workspaceRoot: scratch,
+      });
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }
+
+  /** 跑单条任务：预置文件 → 装配模型（注入真实模型或默认 ScriptedModel）+ 真实 Agent → 执行 → 评分。 */
+  public static async runTask(
+    task: EvalTask,
+    workspaceRoot: string,
+    model?: ModelPort,
+  ): Promise<EvalTaskResult> {
+    const t0 = Date.now();
+    const { result, artifact } = await EvalHarness.generateTaskArtifact(
+      task,
+      workspaceRoot,
+      model,
+      undefined,
+    );
+    const durationMs = Date.now() - t0;
+    const { passed, reasons } = EvalHarness.scoreTask({
+      toolCalls: artifact.toolCalls,
+      finalText: artifact.finalText,
+      expectation: task.expect ?? {},
+      steps: artifact.steps,
+      workspaceRoot,
+    });
+
+    return {
+      id: task.id,
+      passed,
+      steps: artifact.steps,
+      toolCalls: artifact.toolCalls,
+      durationMs,
+      reasons,
+      finalText: artifact.finalText,
+      usage: NoopSupervisor.extractUsage(result.events),
+    };
+  }
+
+  /**
+   * 跑单条任务（**隔离评测版**，T4.6 · H6）：生成 → 深克隆冻结快照 → **评测只吃快照**。
+   *
+   * 与 {@link runTask} 的差别只在评测侧：`runTask` 的断言直接读生成方工作区（自评偏差通道），
+   * 本函数把产物采集为快照交给 `IsolatedEvaluator`（结构化克隆 + 逐层冻结），断言与验证命令
+   * 都只在快照副本上执行。生成方后续任何写操作都不可能改变本次 verdict。
+   *
+   * @param task 评估任务
+   * @param workspaceRoot 工作区根（生成阶段用；评测阶段只用其快照副本）
+   * @param model 模型端口（缺省 ScriptedModel）
+   * @param opts 推理强度等（缺省零行为变更）
+   * @returns 任务结果（含 {@link IsolationEvidence}）
+   */
+  public static async runTaskIsolated(
+    task: EvalTask,
+    workspaceRoot: string,
+    model?: ModelPort,
+    opts: IsolatedRunOptions = {},
+  ): Promise<EvalTaskResult> {
+    const t0 = Date.now();
+    const { result, artifact } = await EvalHarness.generateTaskArtifact(
+      task,
+      workspaceRoot,
+      model,
+      opts.reasoningEffort,
+    );
+    const durationMs = Date.now() - t0;
+    let passed = false;
+    let reasons: readonly string[] = ['隔离评测未执行（生成阶段未产出可评测快照）'];
+    const evaluator = IsolatedEvaluator.projected<TaskArtifact, TaskArtifact>({
+      generate: () => artifact,
+      project: (a) => a,
+      evaluate: (snapshot) => {
+        const scored = EvalHarness.scoreFrozenSnapshot(task, snapshot);
+        passed = scored.passed;
+        reasons = scored.reasons;
+        return scored.passed ? 1 : 0;
+      },
+    });
+    const verdict = await evaluator.run();
+
+    return {
+      id: task.id,
+      passed,
+      steps: artifact.steps,
+      toolCalls: artifact.toolCalls,
+      durationMs,
+      reasons,
+      finalText: artifact.finalText,
+      usage: NoopSupervisor.extractUsage(result.events),
+      isolation: {
+        frozen: Object.isFrozen(verdict.snapshot),
+        snapshotFiles: Object.keys(verdict.snapshot.files).length,
+        verdict: verdict.verdict,
+      },
+    };
+  }
+
+  /** 跑整套件：逐任务执行并聚合报告。未提供 workspaceRoot 时自建临时目录并在末尾清理。 */
+  public static async runEvalSuite(
+    suite: EvalSuite,
+    opts?: { readonly workspaceRoot?: string },
+  ): Promise<EvalReport> {
+    const ownWorkspace = opts?.workspaceRoot === undefined;
+    const workspaceRoot = opts?.workspaceRoot ?? mkdtempSync(join(tmpdir(), 'omni-eval-'));
+    const results: EvalTaskResult[] = [];
+    const t0 = Date.now();
+    try {
+      for (const task of suite.tasks) {
+        results.push(await EvalHarness.runTask(task, workspaceRoot));
+      }
+    } finally {
+      if (ownWorkspace) {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }
+    const totalDurationMs = Date.now() - t0;
+    const passed = results.filter((r) => r.passed).length;
+    return {
+      suite: suite.name,
+      passed,
+      failed: results.length - passed,
+      total: results.length,
+      results,
+      totalDurationMs,
+    };
+  }
+
+  /**
+   * @beta
+   * 人类可读报告。
+   */
+  public static formatEvalReport(report: EvalReport): string {
+    const lines: string[] = [];
+    lines.push(`=== Eval 套件: ${report.suite} ===`);
+    if (report.results.length === 0) {
+      lines.push('（无任务）');
+    }
+    for (const r of report.results) {
+      const mark = r.passed ? '✅' : '❌';
+      const usageStr = r.usage
+        ? `  tokens=${r.usage.totalTokens}(in:${r.usage.promptTokens}/out:${r.usage.completionTokens})`
+        : '';
+      lines.push(
+        `${mark} ${r.id}  steps=${r.steps}  tools=[${r.toolCalls.join(', ')}]  ${r.durationMs}ms${usageStr}`,
+      );
+      if (!r.passed) {
+        for (const reason of r.reasons) lines.push(`     - ${reason}`);
+      }
+    }
+    lines.push(
+      `--- 汇总: ${report.passed}/${report.total} 通过, 失败 ${report.failed}, 总耗时 ${report.totalDurationMs}ms ---`,
+    );
+    return lines.join('\n');
+  }
+
+  /**
+   * @beta
+   * 从 JSON 文件加载套件（最小形状校验：须含 tasks 数组）。
+   */
+  public static loadSuiteFromJson(path: string): EvalSuite {
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj !== 'object' || obj === null || !Array.isArray(obj.tasks)) {
+      throw new Error(`eval suite 格式错误（缺少 tasks 数组）: ${path}`);
+    }
+    return raw as EvalSuite;
+  }
+}
 
 export type { ScriptStep } from './scriptedModel.js';
 
@@ -261,347 +613,5 @@ export interface EvalReport {
  * 找不到则保持 undefined（如 ScriptedModel 确定性回归）。
  */
 
-/**
- * @beta
- * 纯函数评分：依据期望断言对一次任务结果打分（不依赖 Agent，便于单测）。
- * 任一期望不满足即 fail-closed（记 reason），不假通过。
- */
-export function scoreTask(params: {
-  readonly toolCalls: readonly string[];
-  readonly finalText: string | undefined;
-  readonly expectation: EvalExpectation;
-  readonly steps: number;
-  readonly workspaceRoot: string;
-}): { readonly passed: boolean; readonly reasons: readonly string[] } {
-  const { toolCalls, finalText, expectation, steps, workspaceRoot } = params;
-  const reasons: string[] = [];
-
-  if (expectation.tools !== undefined) {
-    for (const expected of expectation.tools) {
-      if (!toolCalls.includes(expected)) {
-        reasons.push(`缺少期望工具调用: ${expected}（实际: [${toolCalls.join(', ')}]）`);
-      }
-    }
-  }
-  if (expectation.text !== undefined) {
-    if (finalText === undefined || !finalText.includes(expectation.text)) {
-      reasons.push(`最终文本不含期望子串: ${expectation.text}`);
-    }
-  }
-  if (expectation.files !== undefined) {
-    for (const [rel, sub] of Object.entries(expectation.files)) {
-      const fp = join(workspaceRoot, rel);
-      if (!existsSync(fp)) {
-        reasons.push(`期望文件不存在: ${rel}`);
-        continue;
-      }
-      const content = readFileSync(fp, 'utf8');
-      if (!content.includes(sub)) {
-        reasons.push(`文件 ${rel} 内容不含期望子串: ${sub}`);
-      }
-    }
-  }
-  if (expectation.run !== undefined) {
-    const want = expectation.run.expectExit ?? 0;
-    let status = -1;
-    let stderr = '';
-    try {
-      const r = spawnSync(expectation.run.cmd, [], {
-        cwd: workspaceRoot,
-        encoding: 'utf8',
-        shell: true,
-        timeout: 60_000,
-      });
-      status = r.status ?? -1;
-      stderr = typeof r.stderr === 'string' ? r.stderr : '';
-    } catch (err) {
-      stderr = err instanceof Error ? err.message : String(err);
-    }
-    if (status !== want) {
-      reasons.push(
-        `验证命令「${expectation.run.cmd}」退出码 ${status} ≠ 期望 ${want}` +
-          (stderr ? `: ${stderr.slice(0, 200)}` : ''),
-      );
-    }
-  }
-  if (expectation.maxSteps !== undefined && steps > expectation.maxSteps) {
-    reasons.push(`步数 ${steps} 超过期望上限 ${expectation.maxSteps}`);
-  }
-
-  return { passed: reasons.length === 0, reasons };
-}
-
 /** 快照单文件上限（超过则不入快照：评测产物应是可评审的文本，不是大二进制）。 */
 const MAX_SNAPSHOT_FILE_BYTES = 512 * 1024;
-
-/** 预置任务自带的种子文件到工作区（套件自包含，read_file 等不必依赖外部资源）。 */
-function seedTaskWorkspace(task: EvalTask, workspaceRoot: string): void {
-  for (const [rel, content] of Object.entries(task.seedFiles ?? {})) {
-    const fp = join(workspaceRoot, rel);
-    mkdirSync(dirname(fp), { recursive: true });
-    writeFileSync(fp, content, 'utf8');
-  }
-}
-
-/** 解析本任务的模型端口：注入的真实模型优先，否则确定性 ScriptedModel（CI / 离线回归）。 */
-function resolveTaskModel(task: EvalTask, model: ModelPort | undefined): ModelPort {
-  return model ?? new ScriptedModel(task.script ?? [], task.finalText ?? '任务完成（eval）');
-}
-
-/**
- * 采集生成阶段产物快照（投影：工作区文本文件 + 事件流统计）。
- * 采集期读取失败的文件（并发写入等）跳过——快照只记录可稳定读取的产物。
- * @param result 生成阶段结果（AgentResult）
- * @param workspaceRoot 工作区根
- * @returns 产物快照
- */
-async function collectTaskArtifact(
-  result: AgentResult,
-  workspaceRoot: string,
-): Promise<TaskArtifact> {
-  const walker = new WorkspaceFileWalker(workspaceRoot, { maxFiles: 2000 });
-  const { files: rels } = await walker.list();
-  const files: Record<string, string> = {};
-  for (const rel of rels) {
-    const fp = join(workspaceRoot, ...rel.split('/'));
-    try {
-      if (statSync(fp).size > MAX_SNAPSHOT_FILE_BYTES) continue;
-      files[rel] = readFileSync(fp, 'utf8');
-    } catch {
-      // 采集期文件已消失 → 跳过（不会进入评测快照）
-    }
-  }
-  return {
-    toolCalls: NoopSupervisor.extractToolCalls(result.events),
-    steps: result.steps,
-    finalText: result.finalText,
-    files,
-  };
-}
-
-/**
- * 生成阶段（T4.6 隔离的一半）：预置文件 → 装配真实 Agent → 执行任务 → 采集产物快照。
- * 本函数**不做任何评测**：评测由调用方在快照上完成。
- * @param task 评估任务
- * @param workspaceRoot 工作区根
- * @param model 模型端口（缺省 ScriptedModel）
- * @param reasoningEffort 推理强度（缺省不发该字段）
- * @returns 生成结果与产物快照
- */
-async function generateTaskArtifact(
-  task: EvalTask,
-  workspaceRoot: string,
-  model: ModelPort | undefined,
-  reasoningEffort: ReasoningEffort | undefined,
-): Promise<{ readonly result: AgentResult; readonly artifact: TaskArtifact }> {
-  seedTaskWorkspace(task, workspaceRoot);
-  const config = ConfigFactory.build({
-    workspaceRoot,
-    maxSteps: task.maxSteps ?? 16,
-    model: resolveTaskModel(task, model),
-    storage: new MemoryStorage(),
-    approvals: new AutoApproval(),
-    sandbox: new PassthroughSandbox(),
-    events: new SilentEventPort(),
-    ...(reasoningEffort !== undefined ? { reasoning: reasoningEffort } : {}),
-  });
-  const agent = new Agent(createRuntime({ ...config, supervisor: new NoopSupervisor() }));
-  const result = await agent.runTask(task.prompt);
-  return { result, artifact: await collectTaskArtifact(result, workspaceRoot) };
-}
-
-/** 把冻结快照物化到 scratch 目录（评测命令只在该副本上执行，绝不碰生成方工作区）。 */
-function materializeSnapshot(snapshot: Readonly<TaskArtifact>, root: string): number {
-  let written = 0;
-  for (const [rel, content] of Object.entries(snapshot.files)) {
-    const fp = join(root, ...rel.split('/'));
-    mkdirSync(dirname(fp), { recursive: true });
-    writeFileSync(fp, content, 'utf8');
-    written += 1;
-  }
-  return written;
-}
-
-/**
- * 在冻结快照上评分（T4.6 隔离的另一半）：快照物化到临时 scratch 后跑全部断言，
- * 故评测结论只依赖快照内容——生成方此后对工作区的任何修改都进不了本次 verdict。
- * @param task 评估任务
- * @param snapshot 冻结快照
- * @returns 通过与否 + 失败原因
- */
-function scoreFrozenSnapshot(
-  task: EvalTask,
-  snapshot: Readonly<TaskArtifact>,
-): { readonly passed: boolean; readonly reasons: readonly string[] } {
-  const scratch = mkdtempSync(join(tmpdir(), 'omni-eval-snapshot-'));
-  try {
-    materializeSnapshot(snapshot, scratch);
-    return scoreTask({
-      toolCalls: snapshot.toolCalls,
-      finalText: snapshot.finalText,
-      expectation: task.expect ?? {},
-      steps: snapshot.steps,
-      workspaceRoot: scratch,
-    });
-  } finally {
-    rmSync(scratch, { recursive: true, force: true });
-  }
-}
-
-/** 跑单条任务：预置文件 → 装配模型（注入真实模型或默认 ScriptedModel）+ 真实 Agent → 执行 → 评分。 */
-export async function runTask(
-  task: EvalTask,
-  workspaceRoot: string,
-  model?: ModelPort,
-): Promise<EvalTaskResult> {
-  const t0 = Date.now();
-  const { result, artifact } = await generateTaskArtifact(task, workspaceRoot, model, undefined);
-  const durationMs = Date.now() - t0;
-  const { passed, reasons } = scoreTask({
-    toolCalls: artifact.toolCalls,
-    finalText: artifact.finalText,
-    expectation: task.expect ?? {},
-    steps: artifact.steps,
-    workspaceRoot,
-  });
-
-  return {
-    id: task.id,
-    passed,
-    steps: artifact.steps,
-    toolCalls: artifact.toolCalls,
-    durationMs,
-    reasons,
-    finalText: artifact.finalText,
-    usage: NoopSupervisor.extractUsage(result.events),
-  };
-}
-
-/**
- * 跑单条任务（**隔离评测版**，T4.6 · H6）：生成 → 深克隆冻结快照 → **评测只吃快照**。
- *
- * 与 {@link runTask} 的差别只在评测侧：`runTask` 的断言直接读生成方工作区（自评偏差通道），
- * 本函数把产物采集为快照交给 `IsolatedEvaluator`（结构化克隆 + 逐层冻结），断言与验证命令
- * 都只在快照副本上执行。生成方后续任何写操作都不可能改变本次 verdict。
- *
- * @param task 评估任务
- * @param workspaceRoot 工作区根（生成阶段用；评测阶段只用其快照副本）
- * @param model 模型端口（缺省 ScriptedModel）
- * @param opts 推理强度等（缺省零行为变更）
- * @returns 任务结果（含 {@link IsolationEvidence}）
- */
-export async function runTaskIsolated(
-  task: EvalTask,
-  workspaceRoot: string,
-  model?: ModelPort,
-  opts: IsolatedRunOptions = {},
-): Promise<EvalTaskResult> {
-  const t0 = Date.now();
-  const { result, artifact } = await generateTaskArtifact(
-    task,
-    workspaceRoot,
-    model,
-    opts.reasoningEffort,
-  );
-  const durationMs = Date.now() - t0;
-  let passed = false;
-  let reasons: readonly string[] = ['隔离评测未执行（生成阶段未产出可评测快照）'];
-  const evaluator = IsolatedEvaluator.projected<TaskArtifact, TaskArtifact>({
-    generate: () => artifact,
-    project: (a) => a,
-    evaluate: (snapshot) => {
-      const scored = scoreFrozenSnapshot(task, snapshot);
-      passed = scored.passed;
-      reasons = scored.reasons;
-      return scored.passed ? 1 : 0;
-    },
-  });
-  const verdict = await evaluator.run();
-
-  return {
-    id: task.id,
-    passed,
-    steps: artifact.steps,
-    toolCalls: artifact.toolCalls,
-    durationMs,
-    reasons,
-    finalText: artifact.finalText,
-    usage: NoopSupervisor.extractUsage(result.events),
-    isolation: {
-      frozen: Object.isFrozen(verdict.snapshot),
-      snapshotFiles: Object.keys(verdict.snapshot.files).length,
-      verdict: verdict.verdict,
-    },
-  };
-}
-
-/** 跑整套件：逐任务执行并聚合报告。未提供 workspaceRoot 时自建临时目录并在末尾清理。 */
-export async function runEvalSuite(
-  suite: EvalSuite,
-  opts?: { readonly workspaceRoot?: string },
-): Promise<EvalReport> {
-  const ownWorkspace = opts?.workspaceRoot === undefined;
-  const workspaceRoot = opts?.workspaceRoot ?? mkdtempSync(join(tmpdir(), 'omni-eval-'));
-  const results: EvalTaskResult[] = [];
-  const t0 = Date.now();
-  try {
-    for (const task of suite.tasks) {
-      results.push(await runTask(task, workspaceRoot));
-    }
-  } finally {
-    if (ownWorkspace) {
-      rmSync(workspaceRoot, { recursive: true, force: true });
-    }
-  }
-  const totalDurationMs = Date.now() - t0;
-  const passed = results.filter((r) => r.passed).length;
-  return {
-    suite: suite.name,
-    passed,
-    failed: results.length - passed,
-    total: results.length,
-    results,
-    totalDurationMs,
-  };
-}
-
-/**
- * @beta
- * 人类可读报告。
- */
-export function formatEvalReport(report: EvalReport): string {
-  const lines: string[] = [];
-  lines.push(`=== Eval 套件: ${report.suite} ===`);
-  if (report.results.length === 0) {
-    lines.push('（无任务）');
-  }
-  for (const r of report.results) {
-    const mark = r.passed ? '✅' : '❌';
-    const usageStr = r.usage
-      ? `  tokens=${r.usage.totalTokens}(in:${r.usage.promptTokens}/out:${r.usage.completionTokens})`
-      : '';
-    lines.push(
-      `${mark} ${r.id}  steps=${r.steps}  tools=[${r.toolCalls.join(', ')}]  ${r.durationMs}ms${usageStr}`,
-    );
-    if (!r.passed) {
-      for (const reason of r.reasons) lines.push(`     - ${reason}`);
-    }
-  }
-  lines.push(
-    `--- 汇总: ${report.passed}/${report.total} 通过, 失败 ${report.failed}, 总耗时 ${report.totalDurationMs}ms ---`,
-  );
-  return lines.join('\n');
-}
-
-/**
- * @beta
- * 从 JSON 文件加载套件（最小形状校验：须含 tasks 数组）。
- */
-export function loadSuiteFromJson(path: string): EvalSuite {
-  const raw = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  const obj = raw as Record<string, unknown>;
-  if (typeof obj !== 'object' || obj === null || !Array.isArray(obj.tasks)) {
-    throw new Error(`eval suite 格式错误（缺少 tasks 数组）: ${path}`);
-  }
-  return raw as EvalSuite;
-}

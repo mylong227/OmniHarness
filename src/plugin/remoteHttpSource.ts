@@ -1,5 +1,9 @@
-import { manifestMatches, type PluginDescriptor, type PluginManifest } from './manifest.js';
-import { httpsJson, type RemoteFetcher, type RegistrySource } from './registrySourcesShared.js';
+import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.js';
+import {
+  RegistrySourcesShared,
+  type RemoteFetcher,
+  type RegistrySource,
+} from './registrySourcesShared.js';
 
 /**
  * @beta
@@ -12,7 +16,7 @@ export class RemoteHttpSource implements RegistrySource {
   /** @param indexUrl 索引地址 @param fetcher 可注入拉取器（测试用） */
   public constructor(
     private readonly indexUrl: string,
-    private readonly fetcher: RemoteFetcher = httpsJson,
+    private readonly fetcher: RemoteFetcher = RegistrySourcesShared.httpsJson,
   ) {}
 
   /**
@@ -23,7 +27,9 @@ export class RemoteHttpSource implements RegistrySource {
    */
   public async search(query?: string): Promise<PluginDescriptor[]> {
     const all = await this.index();
-    return query === undefined ? all : all.filter((d) => manifestMatches(query, d.manifest));
+    return query === undefined
+      ? all
+      : all.filter((d) => Manifest.manifestMatches(query, d.manifest));
   }
 
   /** 按唯一名取远程插件（索引不可达或不存在返回 undefined）。 */

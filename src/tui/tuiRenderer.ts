@@ -139,74 +139,74 @@ export class TuiRenderer {
     const preview = this.truncateToWidth(opts.json, 64);
     return `${head} ${c}调用 ${opts.name}${ANSI.reset} ${ANSI.dim}参数: ${preview}${ANSI.reset}`;
   }
+
+  /**
+   * @beta
+   * 按终端宽度截断（近似：CJK 计 2 宽）。
+   * @param input 原始文本。
+   * @param width 最大显示宽度（列数）。
+   * @returns 截断后的文本（超宽时以「…」结尾）。
+   */
+  public static truncateToWidth(input: string, width: number): string {
+    return tuiRenderer.truncateToWidth(input, width);
+  }
+
+  /**
+   * @beta
+   * 渲染单行事件（带 ANSI 颜色 + 前缀）。
+   * @param ev 待渲染事件。
+   * @returns 带颜色与前缀的终端行。
+   */
+  public static renderEventLine(ev: TuiEvent): string {
+    return tuiRenderer.renderEventLine(ev);
+  }
+
+  /**
+   * @beta
+   * 渲染状态行（如「运行中 / 已暂停」）。
+   * @param status 状态文案。
+   * @param detail 附加说明（可选）。
+   * @returns 带状态点的状态行。
+   */
+  public static renderStatusLine(status: string, detail?: string): string {
+    return tuiRenderer.renderStatusLine(status, detail);
+  }
+
+  /**
+   * @beta
+   * 清行（用于进度刷新）。
+   * @returns 清行转义序列。
+   */
+  public static clearLine(): string {
+    return tuiRenderer.clearLine();
+  }
+
+  /**
+   * @beta
+   * 提示符（用户输入行前缀）。
+   * @param prefix 前缀文案（缺省 'you'）。
+   * @returns 带颜色的提示符字符串。
+   */
+  public static prompt(prefix = 'you'): string {
+    return tuiRenderer.prompt(prefix);
+  }
+
+  /**
+   * @beta
+   * 渲染工具参数渐进（#B3）：供 ConsoleLiveView / TUI 复用，带 ANSI 颜色 + 前缀。
+   * @param opts `{ name, json }` — 工具名与参数 JSON 增量文本。
+   * @returns 渲染后的单行进度。
+   */
+  public static renderToolInputProgress(opts: {
+    readonly name: string;
+    readonly json: string;
+  }): string {
+    return tuiRenderer.renderToolInputProgress(opts);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const tuiRenderer = new TuiRenderer();
-
-/**
- * @beta
- * 按终端宽度截断（近似：CJK 计 2 宽）。
- * @param input 原始文本。
- * @param width 最大显示宽度（列数）。
- * @returns 截断后的文本（超宽时以「…」结尾）。
- */
-export function truncateToWidth(input: string, width: number): string {
-  return tuiRenderer.truncateToWidth(input, width);
-}
-
-/**
- * @beta
- * 渲染单行事件（带 ANSI 颜色 + 前缀）。
- * @param ev 待渲染事件。
- * @returns 带颜色与前缀的终端行。
- */
-export function renderEventLine(ev: TuiEvent): string {
-  return tuiRenderer.renderEventLine(ev);
-}
-
-/**
- * @beta
- * 渲染状态行（如「运行中 / 已暂停」）。
- * @param status 状态文案。
- * @param detail 附加说明（可选）。
- * @returns 带状态点的状态行。
- */
-export function renderStatusLine(status: string, detail?: string): string {
-  return tuiRenderer.renderStatusLine(status, detail);
-}
-
-/**
- * @beta
- * 清行（用于进度刷新）。
- * @returns 清行转义序列。
- */
-export function clearLine(): string {
-  return tuiRenderer.clearLine();
-}
-
-/**
- * @beta
- * 提示符（用户输入行前缀）。
- * @param prefix 前缀文案（缺省 'you'）。
- * @returns 带颜色的提示符字符串。
- */
-export function prompt(prefix = 'you'): string {
-  return tuiRenderer.prompt(prefix);
-}
-
-/**
- * @beta
- * 渲染工具参数渐进（#B3）：供 ConsoleLiveView / TUI 复用，带 ANSI 颜色 + 前缀。
- * @param opts `{ name, json }` — 工具名与参数 JSON 增量文本。
- * @returns 渲染后的单行进度。
- */
-export function renderToolInputProgress(opts: {
-  readonly name: string;
-  readonly json: string;
-}): string {
-  return tuiRenderer.renderToolInputProgress(opts);
-}
 
 /**
  * @beta

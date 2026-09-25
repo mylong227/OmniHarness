@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { FileConfig } from './configFile.js';
-import { ConfigError, mergeConfigs, normalizeConfig } from './configError.js';
+import { ConfigError } from './configError.js';
 
 /** 继承链最大深度（防深层 / 环形 extends 造成的无限递归）。 */
 const MAX_EXTENDS_DEPTH = 8;
@@ -60,7 +60,7 @@ export class ProfileLoader {
       throw new ConfigError(`profile 继承存在环: ${filePath} → ${parentPath}`);
     }
     visited.add(parentKey);
-    return mergeConfigs(this.loadWithChain(parentPath, visited), current);
+    return ConfigError.mergeConfigs(this.loadWithChain(parentPath, visited), current);
   }
 
   /**
@@ -85,7 +85,7 @@ export class ProfileLoader {
     if (typeof parsed !== 'object' || parsed === null) {
       throw new ConfigError(`profile 文件 ${filePath} 顶层应为对象`);
     }
-    return normalizeConfig(parsed as Record<string, unknown>);
+    return ConfigError.normalizeConfig(parsed as Record<string, unknown>);
   }
 }
 

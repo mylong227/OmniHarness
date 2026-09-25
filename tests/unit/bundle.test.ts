@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { packBundle, unpackBundle } from '../../src/plugin/pluginBundler.js';
+import { PluginBundler } from '../../src/plugin/pluginBundler.js';
 import type { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 import type { PluginProfile } from '../../src/plugin/pluginProfileStore.js';
 
@@ -35,7 +35,7 @@ test('bundle pack → unpack 往返：插件还原 + 补丁层写出', async () 
     mkdirSync(pluginsDir, { recursive: true });
 
     const profile: PluginProfile = { name: 'demo', plugins: ['myplugin'], config: { maxSteps: 8 } };
-    const packed = await packBundle({
+    const packed = await PluginBundler.packBundle({
       workspaceDir,
       profile,
       registry: makeRegistry(pluginDir),
@@ -46,7 +46,7 @@ test('bundle pack → unpack 往返：插件还原 + 补丁层写出', async () 
 
     const outPlugins = join(base, 'out');
     mkdirSync(outPlugins, { recursive: true });
-    const unpacked = await unpackBundle({
+    const unpacked = await PluginBundler.unpackBundle({
       zipPath: packed.path,
       pluginsDir: outPlugins,
       workspaceDir,
@@ -76,7 +76,7 @@ test('bundle HMAC 签名：同密钥可校验，异密钥拒绝', async () => {
     const keyFile = join(base, 'key.hex');
 
     const profile: PluginProfile = { name: 'signed', plugins: ['p'] };
-    const packed = await packBundle({
+    const packed = await PluginBundler.packBundle({
       workspaceDir,
       profile,
       registry: makeRegistry(pluginDir),
@@ -88,7 +88,7 @@ test('bundle HMAC 签名：同密钥可校验，异密钥拒绝', async () => {
     const out1 = join(base, 'out1');
     mkdirSync(out1, { recursive: true });
     await assert.doesNotReject(
-      unpackBundle({ zipPath: packed.path, pluginsDir: out1, workspaceDir, keyFile }),
+      PluginBundler.unpackBundle({ zipPath: packed.path, pluginsDir: out1, workspaceDir, keyFile }),
     );
 
     const out2 = join(base, 'out2');
@@ -96,7 +96,12 @@ test('bundle HMAC 签名：同密钥可校验，异密钥拒绝', async () => {
     const badKey = join(base, 'badkey.hex');
     writeFileSync(badKey, '00'.repeat(32));
     await assert.rejects(
-      unpackBundle({ zipPath: packed.path, pluginsDir: out2, workspaceDir, keyFile: badKey }),
+      PluginBundler.unpackBundle({
+        zipPath: packed.path,
+        pluginsDir: out2,
+        workspaceDir,
+        keyFile: badKey,
+      }),
       /签名校验失败/,
     );
   } finally {

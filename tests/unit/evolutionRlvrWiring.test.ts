@@ -25,11 +25,11 @@ import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
-import { createRlvrEvolutionController } from '../../src/evolution/rlvrController.js';
-import { verifiableVerdictForCode } from '../../src/evolution/verifiableReward.js';
-import { parseArgs, configDefaults } from '../../src/cli/argParser.js';
-import { composeByTwist } from '../../src/skill/moireComposer.js';
+import { Runtime } from '../../src/composition/runtime.js';
+import { RlvrController } from '../../src/evolution/rlvrController.js';
+import { VerifiableReward } from '../../src/evolution/verifiableReward.js';
+import { ArgParser } from '../../src/cli/argParser.js';
+import { MoireComposer } from '../../src/skill/moireComposer.js';
 import type { ModelPort } from '../../src/ports/model/model.js';
 import type { Skill } from '../../src/skill/skill.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -133,7 +133,7 @@ test('E3 装配透传：显式开启的 evolutionRlvr 不再被 ConfigFactory.bu
 test('E3 默认关：不显式开启时零破坏（evolutionRlvr 与 runtime.evolution 均为 undefined）', () => {
   const config = ConfigFactory.build(basePartial(workspace('rlvr-off'), fixedModel(GREEN_CODE)));
   assert.strictEqual(config.evolutionRlvr, undefined, '缺省不得写入 evolutionRlvr');
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   assert.strictEqual(runtime.evolution, undefined, '缺省不得装配进化控制器');
 });
 
@@ -144,15 +144,15 @@ test('E3 运行时装配：显式开启 → createRuntime 构造 RLVR 控制器�
       evolutionRlvr: { enabled: true, verifyCommand: VERIFY_COMMAND, autoRun: true },
     }),
   );
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   assert.ok(runtime.evolution !== undefined, '显式开启且技能注册表在 → 应装配 RLVR 控制器');
   assert.strictEqual(runtime.evolution.autoRun, true, 'autoRun 应来自 evolutionRlvr.autoRun');
 });
 
 test('E3 闭环一例：采样 → 可验证奖励（真实 node --check）→ 绿样本进回放缓冲', async () => {
-  const bundle = createRlvrEvolutionController({
+  const bundle = RlvrController.createRlvrEvolutionController({
     skills: baseSkills(),
-    compose: (a, b) => composeByTwist(a, b),
+    compose: (a, b) => MoireComposer.composeByTwist(a, b),
     model: fixedModel(GREEN_CODE),
     gateBenchmark: () => 1, // 门禁恒过 → 单独考察 RLVR 阶段
     minReward: 0,
@@ -169,9 +169,9 @@ test('E3 闭环一例：采样 → 可验证奖励（真实 node --check）→ �
 });
 
 test('E3 fail-closed：红样本（编译不过）绝不进回放缓冲且 RLVR 否决晋升', async () => {
-  const bundle = createRlvrEvolutionController({
+  const bundle = RlvrController.createRlvrEvolutionController({
     skills: baseSkills(),
-    compose: (a, b) => composeByTwist(a, b),
+    compose: (a, b) => MoireComposer.composeByTwist(a, b),
     model: fixedModel(RED_CODE),
     gateBenchmark: () => 1,
     minReward: 0,
@@ -199,7 +199,7 @@ test('E3 端到端：显式开启经 createRuntime 装配后，cycle() 因绿样
       },
     }),
   );
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   assert.ok(runtime.evolution !== undefined);
   const verdicts = await runtime.evolution.cycle();
   assert.ok(verdicts.length >= 1, '运行时控制器应产出候选');
@@ -223,7 +223,7 @@ test('E3 端到端（全红）：显式开启但候选全红 → 运行时控制
       },
     }),
   );
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   assert.ok(runtime.evolution !== undefined);
   const verdicts = await runtime.evolution.cycle();
   assert.ok(verdicts.length >= 1);
@@ -236,7 +236,7 @@ test('E3 端到端（全红）：显式开启但候选全红 → 运行时控制
 });
 
 test('E3 入口（argv）：--evolution-rlvr 系列旗标解析为对应 CliArgs 字段', () => {
-  const args = parseArgs([
+  const args = ArgParser.parseArgs([
     '--prompt',
     'hi',
     '--evolution-rlvr',
@@ -263,7 +263,7 @@ test('E3 入口（argv）：--evolution-rlvr 系列旗标解析为对应 CliArgs
 });
 
 test('E3 入口（配置文件）：omniharness.json 的 evolutionRlvr 对象映射为 CliArgs 字段', () => {
-  const mapped = configDefaults({
+  const mapped = ArgParser.configDefaults({
     evolutionRlvr: {
       enabled: true,
       verifyCommand: VERIFY_COMMAND,
@@ -285,7 +285,7 @@ test('E3 入口（配置文件）：omniharness.json 的 evolutionRlvr 对象映
 
 test('U4 桥：验证临时文件用后即清——绿样本与红样本两条路径都不留 omni-rlvr-* 垃圾', async () => {
   const before = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-')));
-  const verdictFor = verifiableVerdictForCode(() => VERIFY_COMMAND, {
+  const verdictFor = VerifiableReward.verifiableVerdictForCode(() => VERIFY_COMMAND, {
     codeFileExtension: '.js',
   });
   const green = await verdictFor({ id: 't-green', code: GREEN_CODE });
@@ -301,7 +301,7 @@ test('U4 桥：临时文件写入失败 → fail-closed 判 0（verifiable=false
   const before = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-')));
   // 扩展名携带不存在的子目录段 → 拼出的临时路径必写失败（Windows/POSIX 一致），
   // 以此触发 write-error 分支，锁死「验证不可达 ≠ 假通过」的 fail-closed 语义。
-  const verdictFor = verifiableVerdictForCode(() => VERIFY_COMMAND, {
+  const verdictFor = VerifiableReward.verifiableVerdictForCode(() => VERIFY_COMMAND, {
     codeFileExtension: `no-such-dir-${Date.now()}/x.ts`,
   });
   const verdict = await verdictFor({ id: 't-unwritable', code: GREEN_CODE });

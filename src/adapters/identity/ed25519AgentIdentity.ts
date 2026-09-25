@@ -225,27 +225,27 @@ export class Ed25519AgentIdentity implements AgentIdentityPort {
     Ed25519AgentIdentity.appendSshString(blob, o, keyBytes);
     return `ssh-ed25519 ${blob.toString('base64')}`;
   }
-}
 
-/**
- * @beta
- * 生成可持久化的密钥物料（参考 Rust `generate_agent_key_material`）。
- * @param agentRuntimeId 可选的显式身份 id；缺省自动生成。
- * @returns 含 PKCS#8 base64 私钥、ssh-ed25519 公钥与身份 id 的物料对象（私钥须安全持久化）。
- */
-export function generateAgentKeyMaterial(agentRuntimeId?: string): {
-  privateKeyPkcs8Base64: string;
-  publicKeySsh: string;
-  agentRuntimeId: string;
-} {
-  const identity = new Ed25519AgentIdentity(
-    agentRuntimeId === undefined ? undefined : { agentRuntimeId },
-  );
-  return {
-    privateKeyPkcs8Base64: identity.privateKeyPkcs8Base64(),
-    publicKeySsh: identity.publicKeySsh(),
-    agentRuntimeId: identity.runtimeId(),
-  };
+  /**
+   * @beta
+   * 生成可持久化的密钥物料（参考 Rust `generate_agent_key_material`）。
+   * @param agentRuntimeId 可选的显式身份 id；缺省自动生成。
+   * @returns 含 PKCS#8 base64 私钥、ssh-ed25519 公钥与身份 id 的物料对象（私钥须安全持久化）。
+   */
+  public static generateAgentKeyMaterial(agentRuntimeId?: string): {
+    privateKeyPkcs8Base64: string;
+    publicKeySsh: string;
+    agentRuntimeId: string;
+  } {
+    const identity = new Ed25519AgentIdentity(
+      agentRuntimeId === undefined ? undefined : { agentRuntimeId },
+    );
+    return {
+      privateKeyPkcs8Base64: identity.privateKeyPkcs8Base64(),
+      publicKeySsh: identity.publicKeySsh(),
+      agentRuntimeId: identity.runtimeId(),
+    };
+  }
 }
 
 export { KEY_DERIVATION_CONTEXT };

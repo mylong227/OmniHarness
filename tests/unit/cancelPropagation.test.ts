@@ -22,11 +22,11 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
 import { SubagentRunner } from '../../src/subagent/subagentRunner.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 import type { SubagentRequest } from '../../src/subagent/subagentTypes.js';
 
 // 关掉 repo-map 注入：本文件只审计取消传播控制流，索引整个仓库既慢又与断言无关。
@@ -221,7 +221,7 @@ class RecordingEvents implements EventPort {
 }
 
 /** 构造子智能体端口集（工作区用仓库根：沙箱禁写 tmpdir，子代理测试不建隔离工作树）。 */
-function makePorts(model: ModelPort, tools: ToolPort): SubagentPorts {
+function makePorts(model: ModelPort, tools: ToolPort): SubagentPortsShape {
   const spill = new MemorySpill();
   return {
     model,
@@ -251,7 +251,7 @@ function buildAgent(model: ModelPort): Agent {
     events: new SilentEventPort(),
     spillAdapter: 'memory',
   });
-  return new Agent(createRuntime(config));
+  return new Agent(Runtime.createRuntime(config));
 }
 
 /**

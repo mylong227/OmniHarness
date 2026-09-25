@@ -1,6 +1,28 @@
 import type { RoutePrice } from '../../ports/model/model.js';
 
 /**
+ * RoutePricing —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class RoutePricing {
+  /**
+   * @beta
+   * 把用户自定义定价表叠到默认表之上（用户表优先）。
+   */
+  public static mergeRoutePricing(custom?: Record<string, RoutePrice>): Map<string, RoutePrice> {
+    const merged = new Map<string, RoutePrice>();
+    for (const [key, value] of Object.entries(DEFAULT_ROUTE_PRICING)) {
+      merged.set(key, value);
+    }
+    if (custom !== undefined) {
+      for (const [key, value] of Object.entries(custom)) {
+        merged.set(key, value);
+      }
+    }
+    return merged;
+  }
+}
+
+/**
  * @beta
  * 默认路由定价表（#S29，单位 USD / 百万 token）。
  * 仅供成本计量参考，非计费凭据；前缀匹配生效（如 `gpt-4o-2024-...` → `gpt-4o`）。
@@ -34,20 +56,3 @@ export const DEFAULT_FALLBACK_PRICE: RoutePrice = {
   outputPer1M: 3.0,
   cachedInputPer1M: 0.5,
 };
-
-/**
- * @beta
- * 把用户自定义定价表叠到默认表之上（用户表优先）。
- */
-export function mergeRoutePricing(custom?: Record<string, RoutePrice>): Map<string, RoutePrice> {
-  const merged = new Map<string, RoutePrice>();
-  for (const [key, value] of Object.entries(DEFAULT_ROUTE_PRICING)) {
-    merged.set(key, value);
-  }
-  if (custom !== undefined) {
-    for (const [key, value] of Object.entries(custom)) {
-      merged.set(key, value);
-    }
-  }
-  return merged;
-}

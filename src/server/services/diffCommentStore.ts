@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { id } from '../../util/id.js';
+import { Id } from '../../util/id.js';
 import type { RepoPathGuard } from './repoPathGuard.js';
 
 /** diff 行内评论记录（锚定 文件 + 行号 + 侧别），持久化在工作区 .omni/diff-comments.json。 */
@@ -61,7 +61,7 @@ export class DiffCommentStore {
     const side: 'old' | 'new' = params['side'] === 'old' ? 'old' : 'new';
     const rel = this.options.guard.resolve(rawPath);
     const comment: DiffCommentRecord = {
-      id: id('cmt'),
+      id: Id.id('cmt'),
       path: rel,
       side,
       line,

@@ -12,14 +12,7 @@
 
 import type { ModelMessage } from '../ports/model/model.js';
 import type { RetrievalPort, RetrievalDoc } from '../ports/intelligence/retrieval.js';
-import {
-  type Modality,
-  encodeText,
-  encodeImage,
-  fuseModality,
-  alignModality,
-  textFeatures,
-} from './modalityPort.js';
+import { type Modality, ModalityPort } from './modalityPort.js';
 
 /**
  * 多模态桥接器。
@@ -36,16 +29,17 @@ export class MultimodalBridge {
    * @returns 该消息的统一 Modality 表示（纯文本为 text，含图融合后为 tensor）。
    */
   public modelMessageToModality(msg: ModelMessage): Modality<unknown> {
-    const text = encodeText(msg.content ?? '');
+    const text = ModalityPort.encodeText(msg.content ?? '');
     if (msg.images && msg.images.length > 0) {
       const first = msg.images[0];
       if (first === undefined) return text as Modality<unknown>;
       let acc: Modality<unknown> = this.imageModality(first) as Modality<unknown>;
       for (let i = 1; i < msg.images.length; i++) {
         const im = msg.images[i];
-        if (im !== undefined) acc = fuseModality(acc, this.imageModality(im)) as Modality<unknown>;
+        if (im !== undefined)
+          acc = ModalityPort.fuseModality(acc, this.imageModality(im)) as Modality<unknown>;
       }
-      return fuseModality(text, acc) as Modality<unknown>;
+      return ModalityPort.fuseModality(text, acc) as Modality<unknown>;
     }
     return text as Modality<unknown>;
   }
@@ -69,7 +63,7 @@ export class MultimodalBridge {
       bytes = new Uint8Array([0]);
     }
     // 占位宽高：真实维度由视觉编码器提供；此处仅保证确定性与代数不变。
-    return encodeImage(bytes, Math.max(1, bytes.length), 1);
+    return ModalityPort.encodeImage(bytes, Math.max(1, bytes.length), 1);
   }
 
   /**
@@ -79,7 +73,10 @@ export class MultimodalBridge {
    * @returns 两消息统一 Modality 特征的余弦相似度 ∈ [-1, 1]。
    */
   public crossModalAlign(a: ModelMessage, b: ModelMessage): number {
-    return alignModality(this.modelMessageToModality(a), this.modelMessageToModality(b));
+    return ModalityPort.alignModality(
+      this.modelMessageToModality(a),
+      this.modelMessageToModality(b),
+    );
   }
 
   /**
@@ -104,7 +101,7 @@ export class MultimodalBridge {
    * @returns 千分位取整特征值以下划线连接的签名字符串。
    */
   public modalitySignature(text: string): string {
-    return textFeatures(text)
+    return ModalityPort.textFeatures(text)
       .map((v) => Math.round(v * 1000))
       .join('_');
   }
@@ -134,46 +131,46 @@ export class MultimodalBridge {
     for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i) & 0xff;
     return out;
   }
+
+  /**
+   * 把一条模型消息映射为统一 Modality（原生多模态表示）。
+   * 含图像时：每图 encodeImage 后两两 fuse，再与文本 fuse 为 tensor。
+   * 视觉字节缺失宽高时以确定性占位（length, 1），真实编码器可替换本路径。
+   * @param msg 模型消息（文本 + 可选图像数组）。
+   * @returns 该消息的统一 Modality 表示（纯文本为 text，含图融合后为 tensor）。
+   */
+  public static modelMessageToModality(msg: ModelMessage): Modality<unknown> {
+    return multimodalBridge.modelMessageToModality(msg);
+  }
+
+  /** 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。
+   * @param a 第一条模型消息。
+   * @param b 第二条模型消息。
+   * @returns 两消息统一 Modality 特征的余弦相似度 ∈ [-1, 1]。
+   */
+  public static crossModalAlign(a: ModelMessage, b: ModelMessage): number {
+    return multimodalBridge.crossModalAlign(a, b);
+  }
+
+  /**
+   * 跨模态检索增强：把每个文档的模态特征签名追加进可检索文本，
+   * 使 BM25 索引具备"语义特征"维度（同义/同构文本更易聚类召回）。
+   * 零依赖、复用 #M2 内核，不改变 RetrievalPort 契约。
+   * @param index 目标检索端口（文档将被带特征签名地重新索引）。
+   * @param docs 待增强索引的检索文档集合。
+   */
+  public static registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
+    multimodalBridge.registerCrossModal(index, docs);
+  }
+
+  /** 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。
+   * @param text 源文本。
+   * @returns 千分位取整特征值以下划线连接的签名字符串。
+   */
+  public static modalitySignature(text: string): string {
+    return multimodalBridge.modalitySignature(text);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const multimodalBridge = new MultimodalBridge();
-
-/**
- * 把一条模型消息映射为统一 Modality（原生多模态表示）。
- * 含图像时：每图 encodeImage 后两两 fuse，再与文本 fuse 为 tensor。
- * 视觉字节缺失宽高时以确定性占位（length, 1），真实编码器可替换本路径。
- * @param msg 模型消息（文本 + 可选图像数组）。
- * @returns 该消息的统一 Modality 表示（纯文本为 text，含图融合后为 tensor）。
- */
-export function modelMessageToModality(msg: ModelMessage): Modality<unknown> {
-  return multimodalBridge.modelMessageToModality(msg);
-}
-
-/** 跨模态对齐打分：两消息特征向量的余弦相似度（文本与图像可直接比较）。
- * @param a 第一条模型消息。
- * @param b 第二条模型消息。
- * @returns 两消息统一 Modality 特征的余弦相似度 ∈ [-1, 1]。
- */
-export function crossModalAlign(a: ModelMessage, b: ModelMessage): number {
-  return multimodalBridge.crossModalAlign(a, b);
-}
-
-/**
- * 跨模态检索增强：把每个文档的模态特征签名追加进可检索文本，
- * 使 BM25 索引具备"语义特征"维度（同义/同构文本更易聚类召回）。
- * 零依赖、复用 #M2 内核，不改变 RetrievalPort 契约。
- * @param index 目标检索端口（文档将被带特征签名地重新索引）。
- * @param docs 待增强索引的检索文档集合。
- */
-export function registerCrossModal(index: RetrievalPort, docs: readonly RetrievalDoc[]): void {
-  multimodalBridge.registerCrossModal(index, docs);
-}
-
-/** 由文本派生确定性格征签名（n-gram 哈希串），作为 BM25 可索引的跨模态桥。
- * @param text 源文本。
- * @returns 千分位取整特征值以下划线连接的签名字符串。
- */
-export function modalitySignature(text: string): string {
-  return multimodalBridge.modalitySignature(text);
-}

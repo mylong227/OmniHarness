@@ -28,7 +28,7 @@ import type { Readable } from 'node:stream';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 import { A2aClient, HttpA2aTransport, WsA2aTransport } from '../../src/a2a/index.js';
 import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
@@ -234,7 +234,7 @@ test('E2 装配透传 + 运行时真装配：显式 a2a 不再被静默丢弃，
   assert.ok(config.a2a !== undefined, 'a2a 必须活着穿到 ResolvedConfig（装配透传护栏）');
   assert.strictEqual(config.a2a.enabled, true);
 
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   try {
     assert.ok(runtime.a2a !== undefined, '显式开启 → 运行时必须装配 A2A server/client');
     const result = await runtime.a2a.client.delegateTask({ taskId: 'in-proc-1', task: 'ping' });
@@ -248,6 +248,6 @@ test('E2 装配透传 + 运行时真装配：显式 a2a 不再被静默丢弃，
 test('E2 缺省关零破坏：未显式开启时 a2a 与 runtime.a2a 均不存在', () => {
   const config = ConfigFactory.build(basePartial(workspace('a2a-off')));
   assert.strictEqual(config.a2a, undefined, '缺省不得写入 a2a');
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   assert.strictEqual(runtime.a2a, undefined, '缺省不得装配 A2A（零监听、零行为变更）');
 });

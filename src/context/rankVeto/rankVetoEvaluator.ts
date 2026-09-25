@@ -61,8 +61,8 @@
  * @maturityEvidence tests/unit/rankVeto.test.ts
  */
 
-import { jaccardOverlap, meanPairwiseJaccard } from './rankVetoOverlap.js';
-import { structuralDiagnostics } from './rankVetoSpectrum.js';
+import { RankVetoOverlap } from './rankVetoOverlap.js';
+import { RankVetoSpectrum } from './rankVetoSpectrum.js';
 import type { StructuralDiagnostics, VetoGraph } from './rankVetoSpectrum.js';
 
 /** 否决阈值集合。 */
@@ -205,16 +205,19 @@ export class RankVetoEvaluator {
     const cand =
       input.candidateProbeLists === undefined
         ? null
-        : meanPairwiseJaccard(input.candidateProbeLists);
+        : RankVetoOverlap.meanPairwiseJaccard(input.candidateProbeLists);
     const base =
-      input.baselineProbeLists === undefined ? null : meanPairwiseJaccard(input.baselineProbeLists);
+      input.baselineProbeLists === undefined
+        ? null
+        : RankVetoOverlap.meanPairwiseJaccard(input.baselineProbeLists);
     const ratio =
       cand !== null && base !== null ? cand / Math.max(base, INSENSITIVITY_FLOOR) : null;
     const overlap =
       input.baselineFiles !== undefined && input.candidateFiles !== undefined
-        ? jaccardOverlap(input.baselineFiles, input.candidateFiles)
+        ? RankVetoOverlap.jaccardOverlap(input.baselineFiles, input.candidateFiles)
         : null;
-    const structural = input.graph === undefined ? null : structuralDiagnostics(input.graph);
+    const structural =
+      input.graph === undefined ? null : RankVetoSpectrum.structuralDiagnostics(input.graph);
 
     return {
       queryInsensitivity: cand,

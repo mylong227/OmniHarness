@@ -14,7 +14,7 @@ import type {
   EtchConduction,
   EtchBranch,
 } from '../../ports/memory/insightEtching.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
 
 export interface InsightEtchingOptions {
   /** 共振阈值（conduct 命中下限，默认 0.4）。 */
@@ -77,7 +77,7 @@ export class InsightEtchingEngine implements InsightEtchingPort {
       event.label,
       ...InsightEtchingEngine.flattenLabelsFromBranches(event.branches ?? []),
     ].join(' ');
-    this.store.set(event.id, { trace, spectrum: eigenSpectrum(corpus, this.bins) });
+    this.store.set(event.id, { trace, spectrum: EigenSpectrum.eigenSpectrum(corpus, this.bins) });
     return trace;
   }
 
@@ -91,10 +91,10 @@ export class InsightEtchingEngine implements InsightEtchingPort {
    */
   public conduct(query: string, k = 1): readonly EtchConduction[] {
     if (this.store.size === 0) return [];
-    const q = eigenSpectrum(query, this.bins);
+    const q = EigenSpectrum.eigenSpectrum(query, this.bins);
     const scored: EtchConduction[] = [];
     for (const { trace, spectrum } of this.store.values()) {
-      const r = resonance(q, spectrum);
+      const r = EigenSpectrum.resonance(q, spectrum);
       if (r >= this.threshold) {
         scored.push({
           traceId: trace.id,

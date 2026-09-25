@@ -10,7 +10,7 @@ import type {
   ElementDef,
   CompoundCapability,
 } from '../../ports/intelligence/elementComposer.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /** 默认元素周期表（有限基元集，valence 互补即合法组合）。 */
 const DEFAULT_TABLE: readonly ElementDef[] = [
@@ -79,7 +79,7 @@ export class ElementComposer implements ElementComposerPort {
     }
     // 全相邻对必须价互补，否则组合不合法。
     for (let i = 0; i < defs.length - 1; i++) {
-      if (at(defs, i).valence + at(defs, i + 1).valence !== 0) return undefined;
+      if (ArrayAt.at(defs, i).valence + ArrayAt.at(defs, i + 1).valence !== 0) return undefined;
     }
     const tags = [...new Set(defs.flatMap((d) => d.tags))];
     return { symbol: symbols.join(''), elements: [...symbols], tags };

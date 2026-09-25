@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Writable } from 'node:stream';
 import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.js';
-import { renderToolInputProgress } from '../../src/tui/tuiRenderer.js';
+import { TuiRenderer } from '../../src/tui/tuiRenderer.js';
 
 /** 内存可写流（模拟 TTY），便于断言渲染输出。 */
 class MemStream {
@@ -16,7 +16,10 @@ class MemStream {
 }
 
 test('renderToolInputProgress 渲染工具名与参数预览', () => {
-  const line = renderToolInputProgress({ name: 'shell.run', json: '{"command":"echo hi"}' });
+  const line = TuiRenderer.renderToolInputProgress({
+    name: 'shell.run',
+    json: '{"command":"echo hi"}',
+  });
   assert.match(line, /shell\.run/);
   assert.match(line, /echo hi/);
 });

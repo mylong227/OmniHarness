@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { AuditChainReport, AuditEvent } from './auditSink.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /**
  * @beta
@@ -136,8 +136,8 @@ export class AuditExporter {
       .map((e) => e.ts ?? '')
       .filter((t) => t.length > 0)
       .sort();
-    const firstEvent = times.length > 0 ? at(times, 0) : null;
-    const lastEvent = times.length > 0 ? at(times, times.length - 1) : null;
+    const firstEvent = times.length > 0 ? ArrayAt.at(times, 0) : null;
+    const lastEvent = times.length > 0 ? ArrayAt.at(times, times.length - 1) : null;
     const integrityHash = crypto
       .createHash('sha256')
       .update(JSON.stringify(filtered))
@@ -169,78 +169,78 @@ export class AuditExporter {
   public formatCompliance(report: ComplianceReport): string {
     return JSON.stringify(report, null, 2);
   }
+
+  /**
+   * @beta
+   * 按查询条件过滤审计事件。
+   * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
+   * @param events 全量审计事件。
+   * @param query 过滤条件（全字段可选）。
+   * @returns 过滤后的事件数组（limit 取最近 N 条）。
+   */
+  public static queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
+    return auditExporter.queryAudit(events, query);
+  }
+
+  /**
+   * @beta
+   * 把审计事件格式化为指定格式的文本。
+   * @param events 待格式化的事件。
+   * @param format 输出格式（json / csv / table）。
+   * @returns 格式化文本（末尾带换行）。
+   */
+  public static formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
+    return auditExporter.formatAudit(events, format);
+  }
+
+  /**
+   * @beta
+   * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
+   * @param events 全量审计事件。
+   * @param query 过滤条件。
+   * @param format 输出格式。
+   * @returns 过滤并格式化后的文本。
+   */
+  public static exportAudit(
+    events: readonly AuditEvent[],
+    query: AuditQuery,
+    format: AuditFormat,
+  ): string {
+    return auditExporter.exportAudit(events, query, format);
+  }
+
+  /**
+   * @beta
+   * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
+   * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
+   * @param events 全量审计事件。
+   * @param query 过滤条件（写入报告供复现）。
+   * @param meta 报告元数据（缺省为空）。
+   * @param chain 可选的哈希链校验结果（由调用方传入）。
+   * @returns 合规报告（含摘要与完整性哈希）。
+   */
+  public static buildComplianceReport(
+    events: readonly AuditEvent[],
+    query: AuditQuery,
+    meta: ComplianceReportMeta = {},
+    chain?: AuditChainReport,
+  ): ComplianceReport {
+    return auditExporter.buildComplianceReport(events, query, meta, chain);
+  }
+
+  /**
+   * @beta
+   * 合规报告序列化为 JSON 文本。
+   * @param report 合规报告。
+   * @returns 缩进 2 的 JSON 文本。
+   */
+  public static formatCompliance(report: ComplianceReport): string {
+    return auditExporter.formatCompliance(report);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const auditExporter = new AuditExporter();
-
-/**
- * @beta
- * 按查询条件过滤审计事件。
- * 时间比较采用 ISO 字符串字典序（ISO-8601 具备该性质）；坏值按宽松处理。
- * @param events 全量审计事件。
- * @param query 过滤条件（全字段可选）。
- * @returns 过滤后的事件数组（limit 取最近 N 条）。
- */
-export function queryAudit(events: readonly AuditEvent[], query: AuditQuery): AuditEvent[] {
-  return auditExporter.queryAudit(events, query);
-}
-
-/**
- * @beta
- * 把审计事件格式化为指定格式的文本。
- * @param events 待格式化的事件。
- * @param format 输出格式（json / csv / table）。
- * @returns 格式化文本（末尾带换行）。
- */
-export function formatAudit(events: readonly AuditEvent[], format: AuditFormat): string {
-  return auditExporter.formatAudit(events, format);
-}
-
-/**
- * @beta
- * 一步到位：过滤 + 格式化（供 CLI / RPC 直接调用）。
- * @param events 全量审计事件。
- * @param query 过滤条件。
- * @param format 输出格式。
- * @returns 过滤并格式化后的文本。
- */
-export function exportAudit(
-  events: readonly AuditEvent[],
-  query: AuditQuery,
-  format: AuditFormat,
-): string {
-  return auditExporter.exportAudit(events, query, format);
-}
-
-/**
- * @beta
- * 由审计事件构造合规报告（先按 query 过滤，再汇总摘要 + 完整性哈希）。
- * 完整性哈希覆盖筛选后的全部事件 JSON，任一事件被改动都会改变哈希，fail-closed 可审计。
- * @param events 全量审计事件。
- * @param query 过滤条件（写入报告供复现）。
- * @param meta 报告元数据（缺省为空）。
- * @param chain 可选的哈希链校验结果（由调用方传入）。
- * @returns 合规报告（含摘要与完整性哈希）。
- */
-export function buildComplianceReport(
-  events: readonly AuditEvent[],
-  query: AuditQuery,
-  meta: ComplianceReportMeta = {},
-  chain?: AuditChainReport,
-): ComplianceReport {
-  return auditExporter.buildComplianceReport(events, query, meta, chain);
-}
-
-/**
- * @beta
- * 合规报告序列化为 JSON 文本。
- * @param report 合规报告。
- * @returns 缩进 2 的 JSON 文本。
- */
-export function formatCompliance(report: ComplianceReport): string {
-  return auditExporter.formatCompliance(report);
-}
 
 /** @beta 合规报告元数据（可由调用方填入组织/生成方/备注）。 */
 export interface ComplianceReportMeta {

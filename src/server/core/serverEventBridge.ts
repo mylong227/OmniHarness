@@ -2,7 +2,7 @@ import { jsonRpc } from './jsonRpc.js';
 import type { Transport } from '../transport/lineTransport.js';
 import type { Metrics } from '../services/metrics.js';
 import type { AuditSink } from '../services/auditSink.js';
-import { id } from '../../util/id.js';
+import { Id } from '../../util/id.js';
 import { log } from '../../util/logger.js';
 import type {
   ApprovalDecision,
@@ -14,26 +14,6 @@ import { PendingRequests, type PendingTimeout } from '../../util/pendingRequests
 
 /** 审批上行缺省等待上限（毫秒）：超时按 deny 兑现（fail-closed）。 */
 const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
-
-/**
- * 审批上行超时解析：显式入参 > env `OMNI_APPROVAL_UPLINK_TIMEOUT_MS` > 缺省 120s；
- * `0`/负数/非有限表示**不限时**（保留旧行为，供确实需要人工长时间决策的部署显式选择）。
- * @param explicit 显式入参（毫秒）
- * @returns 生效超时毫秒数（0 = 不限时）
- */
-function resolveApprovalTimeoutMs(explicit?: number): number {
-  if (typeof explicit === 'number' && Number.isFinite(explicit)) {
-    return explicit > 0 ? Math.floor(explicit) : 0;
-  }
-  const raw = process.env['OMNI_APPROVAL_UPLINK_TIMEOUT_MS'];
-  if (raw !== undefined && raw.trim() !== '') {
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed)) {
-      return parsed > 0 ? Math.floor(parsed) : 0;
-    }
-  }
-  return DEFAULT_APPROVAL_TIMEOUT_MS;
-}
 
 /** 事件/审批桥依赖。 */
 export interface ServerEventBridgeDeps {
@@ -78,7 +58,7 @@ export class ServerEventBridge {
    */
   public constructor(deps: ServerEventBridgeDeps) {
     this.deps = deps;
-    this.approvalTimeoutMs = resolveApprovalTimeoutMs(deps.approvalTimeoutMs);
+    this.approvalTimeoutMs = ServerEventBridge.resolveApprovalTimeoutMs(deps.approvalTimeoutMs);
   }
 
   /**
@@ -116,7 +96,7 @@ export class ServerEventBridge {
    */
   public async requestApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
     return new Promise<ApprovalDecision>((resolve) => {
-      const requestId = id('apr');
+      const requestId = Id.id('apr');
       // 超时**按 deny 兑现**（不是 reject）：审批是「没有答复就不放行」，fail-closed 而非报错。
       // 刻意**不 unref**：挂起审批必须真的等到「有响应 / 超时 / 断连」三者之一才算完；
       // 让定时器保持事件循环活跃正是「不许静默丢弃」的语义。实测 unref 会让超时永不触发
@@ -182,5 +162,25 @@ export class ServerEventBridge {
    */
   public pendingApprovalCount(): number {
     return this.pending.size();
+  }
+
+  /**
+   * 审批上行超时解析：显式入参 > env `OMNI_APPROVAL_UPLINK_TIMEOUT_MS` > 缺省 120s；
+   * `0`/负数/非有限表示**不限时**（保留旧行为，供确实需要人工长时间决策的部署显式选择）。
+   * @param explicit 显式入参（毫秒）
+   * @returns 生效超时毫秒数（0 = 不限时）
+   */
+  public static resolveApprovalTimeoutMs(explicit?: number): number {
+    if (typeof explicit === 'number' && Number.isFinite(explicit)) {
+      return explicit > 0 ? Math.floor(explicit) : 0;
+    }
+    const raw = process.env['OMNI_APPROVAL_UPLINK_TIMEOUT_MS'];
+    if (raw !== undefined && raw.trim() !== '') {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed)) {
+        return parsed > 0 ? Math.floor(parsed) : 0;
+      }
+    }
+    return DEFAULT_APPROVAL_TIMEOUT_MS;
   }
 }

@@ -7,14 +7,14 @@
  */
 
 import { Agent } from '../core/agent.js';
-import { createRuntime } from '../composition/runtime.js';
+import { Runtime } from '../composition/runtime.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
-import { CliDefaults, MODEL_ADAPTERS, checkEnum } from './argParser.js';
+import { CliDefaults, MODEL_ADAPTERS, CliFlagTable } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import { CliDataCmds } from './cliDataCmds.js';
 
@@ -58,7 +58,7 @@ export class CliCompareCmds extends CliDataCmds {
     prompt: string,
   ): Promise<{ modelName: string; durationMs: number; finalText?: string | undefined }> {
     const config = await this.buildCompareConfig(args, suffix);
-    const agent = new Agent(createRuntime(config));
+    const agent = new Agent(Runtime.createRuntime(config));
     const startedAt = Date.now();
     const result = await agent.runTask(prompt);
     return {
@@ -84,7 +84,7 @@ export class CliCompareCmds extends CliDataCmds {
     const model = this.flagValue(args, `--model-${suffix}`) ?? 'deepseek-v4-flash';
     const cliArgs: CliArgs = {
       ...CliDefaults,
-      modelAdapter: checkEnum(adapter, `--adapter-${suffix}`, MODEL_ADAPTERS),
+      modelAdapter: CliFlagTable.checkEnum(adapter, `--adapter-${suffix}`, MODEL_ADAPTERS),
       baseUrl,
       apiKey,
       model,

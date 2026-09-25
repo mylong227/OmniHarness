@@ -1,10 +1,6 @@
-import { loadInstalledPlugins } from '../../plugin/pluginLoader.js';
-import {
-  PluginProfileStore,
-  applyProfile,
-  type PluginProfile,
-} from '../../plugin/pluginProfileStore.js';
-import { packBundle, unpackBundle } from '../../plugin/pluginBundler.js';
+import { PluginLoader } from '../../plugin/pluginLoader.js';
+import { PluginProfileStore, type PluginProfile } from '../../plugin/pluginProfileStore.js';
+import { PluginBundler } from '../../plugin/pluginBundler.js';
 import { jsonRpc } from './jsonRpc.js';
 import { AppServerBase } from './appServerBase.js';
 
@@ -70,7 +66,7 @@ export class AppServerHandlers extends AppServerBase {
       if (profile === undefined) {
         throw new Error('profile.apply 需要有效的 id 或内联 profile');
       }
-      const result = await applyProfile(manager, pluginsDir, registry, profile, {
+      const result = await PluginProfileStore.applyProfile(manager, pluginsDir, registry, profile, {
         onInstall: (name) =>
           this.options.transport.send(jsonRpc.notify('profile.event', { type: 'install', name })),
         onLoad: (name) =>
@@ -119,7 +115,7 @@ export class AppServerHandlers extends AppServerBase {
         throw new Error('bundle.pack 需要有效的 id 或内联 profile');
       }
       const keyFile = typeof params['keyFile'] === 'string' ? params['keyFile'] : undefined;
-      const result = await packBundle({
+      const result = await PluginBundler.packBundle({
         workspaceDir: workspaceRoot(),
         profile,
         registry,
@@ -138,7 +134,7 @@ export class AppServerHandlers extends AppServerBase {
         throw new Error('插件系统未初始化（serve 需注入 pluginsDir）');
       }
       const keyFile = typeof params['keyFile'] === 'string' ? params['keyFile'] : undefined;
-      const result = await unpackBundle({
+      const result = await PluginBundler.unpackBundle({
         zipPath,
         pluginsDir,
         workspaceDir: workspaceRoot(),
@@ -196,7 +192,7 @@ export class AppServerHandlers extends AppServerBase {
       if (this.pluginManager === undefined || this.pluginsDir === undefined) {
         return { ok: false, reason: '插件目录未配置' };
       }
-      const loaded = await loadInstalledPlugins(
+      const loaded = await PluginLoader.loadInstalledPlugins(
         this.pluginManager,
         this.pluginsDir,
         (name, error) =>

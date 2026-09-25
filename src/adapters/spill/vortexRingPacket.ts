@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import type { SpillPort } from '../../ports/memory/spill.js';
 import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.js';
-import { fnv1a } from '../../util/eigenspectrum.js';
+import { EigenSpectrum } from '../../util/eigenspectrum.js';
 
 /** 内容校验和（SHA256 前 16 位）。 */
 
@@ -67,9 +67,9 @@ export class VortexRingPacket implements VortexRingPort {
   private static windingNumber(content: string): number {
     if (content.length === 0) return 0;
     let w = 0;
-    let prev = fnv1a(content.charAt(0));
+    let prev = EigenSpectrum.fnv1a(content.charAt(0));
     for (let i = 1; i < content.length; i++) {
-      const cur = fnv1a(content.charAt(i));
+      const cur = EigenSpectrum.fnv1a(content.charAt(i));
       const d = cur - prev;
       if (d > 0) w += 1;
       else if (d < 0) w -= 1;

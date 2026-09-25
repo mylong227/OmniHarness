@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadPluginCodeInSandbox } from '../../src/plugin/sandbox.js';
-import { loadInstalledPlugins } from '../../src/plugin/pluginLoader.js';
+import { Sandbox } from '../../src/plugin/sandbox.js';
+import { PluginLoader } from '../../src/plugin/pluginLoader.js';
 import { PluginManager } from '../../src/plugin/pluginManager.js';
 import { Container } from '../../src/core/container.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
@@ -31,7 +31,7 @@ test('沙箱插件：apply 经 ctx 注册工具，且看不到宿主全局（pro
     };
     export default plugin;
   `;
-  const plugin = loadPluginCodeInSandbox(code, 'sbox.js');
+  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'sbox.js');
   const manager = makeManager();
   await manager.register(plugin);
   const container = (manager as unknown as { container: Container }).container;
@@ -50,23 +50,23 @@ test('沙箱插件：apply 经 ctx 注册工具，且看不到宿主全局（pro
 
 test('沙箱插件：禁止 import / require / module', () => {
   assert.throws(
-    () => loadPluginCodeInSandbox("import x from 'y'; export default {}", 'bad.js'),
+    () => Sandbox.loadPluginCodeInSandbox("import x from 'y'; export default {}", 'bad.js'),
     /禁止/,
   );
   assert.throws(
-    () => loadPluginCodeInSandbox("const x = require('x'); export default {}", 'bad.js'),
+    () => Sandbox.loadPluginCodeInSandbox("const x = require('x'); export default {}", 'bad.js'),
     /禁止/,
   );
-  assert.throws(() => loadPluginCodeInSandbox('module.exports = {};', 'bad.js'), /禁止/);
+  assert.throws(() => Sandbox.loadPluginCodeInSandbox('module.exports = {};', 'bad.js'), /禁止/);
 });
 
 test('沙箱插件：缺 export default 抛错', () => {
-  assert.throws(() => loadPluginCodeInSandbox('const a = 1;', 'bad.js'), /export default/);
+  assert.throws(() => Sandbox.loadPluginCodeInSandbox('const a = 1;', 'bad.js'), /export default/);
 });
 
 test('沙箱插件：apply 超时熔断', async () => {
   const code = "export default { meta:{name:'hang'}, apply(){ return new Promise(()=>{}); } };";
-  const plugin = loadPluginCodeInSandbox(code, 'hang.js', 50);
+  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'hang.js', 50);
   const manager = makeManager();
   await assert.rejects(() => manager.register(plugin), /超时/);
 });
@@ -90,7 +90,7 @@ test('loadInstalledPlugins：source=remote 的已安装插件走沙箱加载', a
     }),
   );
   const manager = makeManager();
-  const loaded = await loadInstalledPlugins(manager, dir);
+  const loaded = await PluginLoader.loadInstalledPlugins(manager, dir);
   assert.deepStrictEqual(loaded, [name], '远程源插件应被沙箱加载');
   const tools = (manager as unknown as { container: Container }).container.get(
     'port.tools',

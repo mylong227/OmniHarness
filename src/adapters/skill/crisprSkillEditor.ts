@@ -15,7 +15,7 @@
  */
 import type { Skill } from '../../skill/skill.js';
 import type { SkillPort } from '../../ports/runtime/skill.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
 import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
 import type {
   CRISPRSkillEditorPort,
@@ -168,11 +168,14 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
    * @returns 共振最强的技能；无技能超过阈值时为 undefined。
    */
   private semanticLocate(desc: string): Skill | undefined {
-    const probe: Spectrum = eigenSpectrum(desc, this.bins);
+    const probe: Spectrum = EigenSpectrum.eigenSpectrum(desc, this.bins);
     let best: Skill | undefined;
     let bestR = this.addressThreshold - 1e-9;
     for (const s of this.port.list()) {
-      const r = resonance(probe, eigenSpectrum(s.instructions, this.bins));
+      const r = EigenSpectrum.resonance(
+        probe,
+        EigenSpectrum.eigenSpectrum(s.instructions, this.bins),
+      );
       if (r > bestR) {
         bestR = r;
         best = s;

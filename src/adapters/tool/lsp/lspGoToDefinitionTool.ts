@@ -6,7 +6,7 @@ import type {
 } from '../../../ports/tool/tool.js';
 import type { LspPort } from '../../../ports/tool/lsp.js';
 import { LSP_GO_TO_DEFINITION_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
-import { renderLocation, parseTarget } from './lspToolsShared.js';
+import { LspToolsShared } from './lspToolsShared.js';
 
 /**
  * @beta
@@ -41,7 +41,7 @@ export class LspGoToDefinitionTool {
    * @returns 命中定义以 0..n 个 file:line:col 返回；无定义返回提示；LSP 异常返回 ok:false。
    */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
-    const target = parseTarget(call);
+    const target = LspToolsShared.parseTarget(call);
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
     }
@@ -50,7 +50,11 @@ export class LspGoToDefinitionTool {
       if (locs.length === 0) {
         return { callId: call.id, ok: true, output: '未找到定义' };
       }
-      return { callId: call.id, ok: true, output: locs.map(renderLocation).join('\n') };
+      return {
+        callId: call.id,
+        ok: true,
+        output: locs.map(LspToolsShared.renderLocation).join('\n'),
+      };
     } catch (error) {
       return {
         callId: call.id,

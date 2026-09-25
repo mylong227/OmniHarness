@@ -20,16 +20,12 @@
  * 用法：`node evals/rank-veto-retro.mjs`（需先 `tsc -p tsconfig.json` 产出 dist/）
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { indexCorpus } from '../dist/src/context/contextEngine.js';
-import { tokenizeExpanded } from '../dist/src/search/bm25Index.js';
-import { getGraphSignal, graphNeighborFileRoute } from '../dist/src/context/codeReferenceGraph.js';
-import { propagate } from '../dist/src/context/codeGraphIndex.js';
-import { RankVetoEvaluator, jaccardOverlap } from '../dist/src/context/rankVeto/index.js';
-import {
-  buildLayeredCodeGraph,
-  edgeCountOf,
-  layeredFileRoute,
-} from '../dist/src/context/layeredCodeGraph.js';
+import { ContextEngine } from '../dist/src/context/contextEngine.js';
+import { Bm25Index } from '../dist/src/search/bm25Index.js';
+import { CodeReferenceGraph } from '../dist/src/context/codeReferenceGraph.js';
+import { CodeGraphIndex } from '../dist/src/context/codeGraphIndex.js';
+import { RankVetoEvaluator, RankVetoOverlap } from '../dist/src/context/rankVeto/index.js';
+import { LayeredCodeGraph } from '../dist/src/context/layeredCodeGraph.js';
 
 /** 语料根目录（与生产口径一致）。 */
 const SRC = 'src';
@@ -64,7 +60,7 @@ function loadQueries() {
  */
 function bm25TopFiles(corpus, q, k) {
   return corpus.fileIndex
-    .search(tokenizeExpanded(q), k)
+    .search(Bm25Index.tokenizeExpanded(q), k)
     .map((h) => corpus.files[h.id]?.rel)
     .filter((r) => typeof r === 'string');
 }
@@ -85,7 +81,7 @@ function signalOf(corpus, graph) {
   const uniform = new Map();
   const inv = 1 / Math.max(corpus.symbols.length, 1);
   for (let i = 0; i < corpus.symbols.length; i++) uniform.set(i, inv);
-  const scores = propagate(graph, uniform, GRAPH_ITERS, DAMPING);
+  const scores = CodeGraphIndex.propagate(graph, uniform, GRAPH_ITERS, DAMPING);
   const fileCen = new Map();
   for (let i = 0; i < corpus.symbols.length; i++) {
     const f = corpus.symbols[i]?.file;
@@ -110,8 +106,8 @@ function signalOf(corpus, graph) {
  * @returns 相对路径数组
  */
 function graphTopFiles(corpus, sig, q, k) {
-  const seed = corpus.symbolIndex.search(tokenizeExpanded(q), 40).map((h) => h.id);
-  return graphNeighborFileRoute(corpus, seed, sig)
+  const seed = corpus.symbolIndex.search(Bm25Index.tokenizeExpanded(q), 40).map((h) => h.id);
+  return CodeReferenceGraph.graphNeighborFileRoute(corpus, seed, sig)
     .slice(0, k)
     .map((id) => (id.startsWith('file:') ? id.slice(5) : id));
 }
@@ -129,14 +125,14 @@ function graphTopFiles(corpus, sig, q, k) {
  * @returns 相对路径数组
  */
 function layeredTopFiles(corpus, graph, q, k) {
-  const hits = corpus.symbolIndex.search(tokenizeExpanded(q), 40);
+  const hits = corpus.symbolIndex.search(Bm25Index.tokenizeExpanded(q), 40);
   const seed = new Map(hits.map((h) => [h.id, h.score]));
-  return layeredFileRoute(corpus.symbols, graph, seed, k);
+  return LayeredCodeGraph.layeredFileRoute(corpus.symbols, graph, seed, k);
 }
 
 const t0 = Date.now();
 // 本脚本确实要用 corpus.codeGraph（full 模式独有）⇒ 显式声明 light:false（默认已翻为 light）。
-const corpus = indexCorpus(SRC, { light: false });
+const corpus = ContextEngine.indexCorpus(SRC, { light: false });
 console.log(
   `语料：${corpus.symbols.length} 符号 / ${corpus.files.length} 文件（索引 ${Date.now() - t0}ms）`,
 );
@@ -162,7 +158,7 @@ const denseLists = SELFTEST
   : queries.map((q) => graphTopFiles(corpus, denseSig, q, FILE_K));
 
 // ── 候选 2：稀疏引用图路由（生产 opt-in 的第四路）────────────────────────
-const sparseSig = getGraphSignal(SRC, corpus);
+const sparseSig = CodeReferenceGraph.getGraphSignal(SRC, corpus);
 const sparseLists = queries.map((q) => graphTopFiles(corpus, sparseSig, q, FILE_K));
 
 /**
@@ -176,7 +172,7 @@ const sparseLists = queries.map((q) => graphTopFiles(corpus, sparseSig, q, FILE_
  */
 function evaluateRoute(label, graph, candidateLists, knownDeltaPp) {
   const overlapSum = candidateLists.reduce(
-    (s, list, i) => s + jaccardOverlap(baselineLists[i], list),
+    (s, list, i) => s + RankVetoOverlap.jaccardOverlap(baselineLists[i], list),
     0,
   );
   const report = evaluator.evaluate({
@@ -216,10 +212,10 @@ const sparse = evaluateRoute('稀疏 codeReferenceGraph 图路由', sparseSig.gr
 // 尚无已知实测，因此**不进回溯一致率**，只由否决器做前置判定：
 // 放行 ⇒ 值得跑完整召回评测；否决 ⇒ 直接放弃，省下整轮实验成本。
 const tLay0 = Date.now();
-const layeredGraph = buildLayeredCodeGraph(corpus);
+const layeredGraph = LayeredCodeGraph.buildLayeredCodeGraph(corpus);
 const layeredLists = queries.map((q) => layeredTopFiles(corpus, layeredGraph, q, FILE_K));
 console.log(
-  `\n[稀疏化] 稠密图 ${edgeCountOf(corpus.codeGraph)} 边 → 层化图 ${edgeCountOf(
+  `\n[稀疏化] 稠密图 ${LayeredCodeGraph.edgeCountOf(corpus.codeGraph)} 边 → 层化图 ${LayeredCodeGraph.edgeCountOf(
     layeredGraph,
   )} 边（构建 ${Date.now() - tLay0}ms）`,
 );
@@ -293,8 +289,8 @@ writeFileSync(
         verdict: layered.report.verdict,
         reasons: layered.report.reasons,
         notes: layered.report.notes,
-        edgeCount: edgeCountOf(layeredGraph),
-        denseEdgeCount: edgeCountOf(corpus.codeGraph),
+        edgeCount: LayeredCodeGraph.edgeCountOf(layeredGraph),
+        denseEdgeCount: LayeredCodeGraph.edgeCountOf(corpus.codeGraph),
         knownDeltaPp: null,
       },
       retro: { consistent, total: rows.length },

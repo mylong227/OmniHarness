@@ -1,5 +1,5 @@
 ﻿import { Agent } from '../src/core/agent.js';
-import { createRuntime } from '../src/composition/runtime.js';
+import { Runtime } from '../src/composition/runtime.js';
 import { ConfigFactory } from '../src/config/configFactory.js';
 import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../src/adapters/event/silentEventPort.js';
@@ -33,7 +33,7 @@ async function runPtcStress(): Promise<void> {
       events: new SilentEventPort(),
       compactionMaxTokens: 60,
     });
-    const agent = new Agent(createRuntime(config));
+    const agent = new Agent(Runtime.createRuntime(config));
     const result = await agent.runTask(`组合压测 ${round}`);
     for (const event of result.events) {
       if (event.type === 'system') {

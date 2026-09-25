@@ -1,11 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  ContextCompactor,
-  encodeCompactionState,
-  decodeCompactionState,
-  headFingerprint,
-} from '../../src/context/contextCompactor.js';
+import { ContextCompactor } from '../../src/context/contextCompactor.js';
 import type {
   ModelMessage,
   ModelOutput,
@@ -68,14 +63,20 @@ test('压缩游标：前缀漂移（headHash 不匹配）自动失效重算', as
 
 test('压缩状态编解码：roundtrip 一致，坏格式 fail-closed 返回 undefined', () => {
   const state = { compactedUpTo: 12, headHash: 'ab12cd', summary: '任务：写测试\n进度：过半' };
-  const encoded = encodeCompactionState(state);
+  const encoded = ContextCompactor.encodeCompactionState(state);
   assert.ok(encoded.startsWith('OMNI_COMPACTION_V1 upTo=12 hash=ab12cd\n'));
-  const decoded = decodeCompactionState(encoded);
+  const decoded = ContextCompactor.decodeCompactionState(encoded);
   assert.deepStrictEqual(decoded, state);
 
-  assert.strictEqual(decodeCompactionState('乱七八糟'), undefined);
-  assert.strictEqual(decodeCompactionState('OMNI_COMPACTION_V1 upTo=x hash=zz\n正文'), undefined);
-  assert.strictEqual(decodeCompactionState('OMNI_COMPACTION_V1 upTo=1 hash=ab\n'), undefined);
+  assert.strictEqual(ContextCompactor.decodeCompactionState('乱七八糟'), undefined);
+  assert.strictEqual(
+    ContextCompactor.decodeCompactionState('OMNI_COMPACTION_V1 upTo=x hash=zz\n正文'),
+    undefined,
+  );
+  assert.strictEqual(
+    ContextCompactor.decodeCompactionState('OMNI_COMPACTION_V1 upTo=1 hash=ab\n'),
+    undefined,
+  );
 });
 
 test('前缀指纹：内容相同指纹相同，内容变化指纹变化', () => {
@@ -83,12 +84,18 @@ test('前缀指纹：内容相同指纹相同，内容变化指纹变化', () =>
     { role: 'user', content: 'hello' },
     { role: 'assistant', content: 'hi' },
   ];
-  assert.strictEqual(headFingerprint(a), headFingerprint([...a]));
-  assert.notStrictEqual(headFingerprint(a), headFingerprint([{ role: 'user', content: 'hellp' }]));
+  assert.strictEqual(ContextCompactor.headFingerprint(a), ContextCompactor.headFingerprint([...a]));
+  assert.notStrictEqual(
+    ContextCompactor.headFingerprint(a),
+    ContextCompactor.headFingerprint([{ role: 'user', content: 'hellp' }]),
+  );
   // toolCallId 纳入指纹
   const withCall: ModelMessage[] = [{ role: 'assistant', content: '', toolCallId: 't1' }];
   const withCall2: ModelMessage[] = [{ role: 'assistant', content: '', toolCallId: 't2' }];
-  assert.notStrictEqual(headFingerprint(withCall), headFingerprint(withCall2));
+  assert.notStrictEqual(
+    ContextCompactor.headFingerprint(withCall),
+    ContextCompactor.headFingerprint(withCall2),
+  );
 });
 
 test('压缩器：contextWindowTokens 提供时阈值 = 0.8×window 优先', async () => {

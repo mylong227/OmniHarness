@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CostBudget } from '../../src/adapters/model/costBudget.js';
 import {
-  mergeRoutePricing,
+  RoutePricing,
   DEFAULT_ROUTE_PRICING,
   DEFAULT_FALLBACK_PRICE,
 } from '../../src/adapters/model/routePricing.js';
 import { BudgetExceededError } from '../../src/ports/model/model.js';
 
 test('priceFor: 精确 / 最长前缀 / 兜底', () => {
-  const pricing = mergeRoutePricing();
+  const pricing = RoutePricing.mergeRoutePricing();
   const budget = new CostBudget(100, pricing);
   assert.strictEqual(
     budget.priceFor('deepseek-chat').inputPer1M,
@@ -23,7 +23,10 @@ test('priceFor: 精确 / 最长前缀 / 兜底', () => {
 });
 
 test('record 累计 token 与成本（按定价）', () => {
-  const budget = new CostBudget(100, mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 1 } }));
+  const budget = new CostBudget(
+    100,
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 1 } }),
+  );
   budget.record('x', {
     promptTokens: 1_000_000,
     completionTokens: 1_000_000,
@@ -37,14 +40,23 @@ test('record 累计 token 与成本（按定价）', () => {
 });
 
 test('越硬预算即熔断并阻断', () => {
-  const budget = new CostBudget(1, mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 1 } }));
+  const budget = new CostBudget(
+    1,
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 1 } }),
+  );
   budget.record('x', { promptTokens: 1_000_000, completionTokens: 0, totalTokens: 1_000_000 }); // cost 1.0 >= 1
   assert.strictEqual(budget.exceeded, true);
   assert.throws(() => budget.ensureWithin('x'), BudgetExceededError);
 });
 
 test('软预算（blocking=false）只标记不阻断', () => {
-  const budget = new CostBudget(1, mergeRoutePricing(), DEFAULT_FALLBACK_PRICE, undefined, false);
+  const budget = new CostBudget(
+    1,
+    RoutePricing.mergeRoutePricing(),
+    DEFAULT_FALLBACK_PRICE,
+    undefined,
+    false,
+  );
   budget.record('deepseek-chat', {
     promptTokens: 10_000_000,
     completionTokens: 0,
@@ -55,7 +67,10 @@ test('软预算（blocking=false）只标记不阻断', () => {
 });
 
 test('snapshot 反映全部计数', () => {
-  const budget = new CostBudget(50, mergeRoutePricing({ x: { inputPer1M: 2, outputPer1M: 0 } }));
+  const budget = new CostBudget(
+    50,
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 2, outputPer1M: 0 } }),
+  );
   budget.record('x', { promptTokens: 5_000_000, completionTokens: 0, totalTokens: 5_000_000 }); // cost 10
   const snap = budget.snapshot();
   assert.strictEqual(snap.limitUsd, 50);
@@ -68,7 +83,7 @@ test('snapshot 反映全部计数', () => {
 test('P5 缓存命中按缓存价折抵（并量化省下金额）', () => {
   const budget = new CostBudget(
     100,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
   );
   budget.record('x', {
     promptTokens: 1_000_000,
@@ -84,7 +99,7 @@ test('P5 缓存命中按缓存价折抵（并量化省下金额）', () => {
 test('P5 部分命中：未命中部分仍按输入价', () => {
   const budget = new CostBudget(
     100,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.2 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.2 } }),
   );
   budget.record('x', {
     promptTokens: 1_000_000,
@@ -99,7 +114,7 @@ test('P5 部分命中：未命中部分仍按输入价', () => {
 test('P5 cachedPromptTokens 缺值 = 未知：不打折（保守记成本）', () => {
   const budget = new CostBudget(
     100,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
   );
   budget.record('x', { promptTokens: 1_000_000, completionTokens: 0, totalTokens: 1_000_000 });
   assert.strictEqual(Number(budget.totalCostUsd.toFixed(4)), 1.0);
@@ -108,7 +123,10 @@ test('P5 cachedPromptTokens 缺值 = 未知：不打折（保守记成本）', (
 });
 
 test('P5 无缓存价配置的模型：命中亦不打折', () => {
-  const budget = new CostBudget(100, mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0 } }));
+  const budget = new CostBudget(
+    100,
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0 } }),
+  );
   budget.record('x', {
     promptTokens: 1_000_000,
     completionTokens: 0,
@@ -122,7 +140,7 @@ test('P5 无缓存价配置的模型：命中亦不打折', () => {
 test('P5 越界命中量被截断到 promptTokens（防端点脏值）', () => {
   const budget = new CostBudget(
     100,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
   );
   budget.record('x', {
     promptTokens: 1_000_000,
@@ -138,7 +156,7 @@ test('P5 软阈值置位一次并回调（degradeSuggested 在熔断前为真）
   const seen: string[] = [];
   const budget = new CostBudget(
     10,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0 } }),
     DEFAULT_FALLBACK_PRICE,
     undefined,
     true,
@@ -160,7 +178,7 @@ test('P5 软阈值置位一次并回调（degradeSuggested 在熔断前为真）
 test('P5 硬熔断后 degradeSuggested 归假（已无需降级，只待阻断）', () => {
   const budget = new CostBudget(
     10,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0 } }),
     DEFAULT_FALLBACK_PRICE,
     undefined,
     true,
@@ -175,7 +193,7 @@ test('P5 硬熔断后 degradeSuggested 归假（已无需降级，只待阻断�
 test('P5 非法 softRatio 回落默认 0.8', () => {
   const bad = new CostBudget(
     10,
-    mergeRoutePricing(),
+    RoutePricing.mergeRoutePricing(),
     DEFAULT_FALLBACK_PRICE,
     undefined,
     true,
@@ -184,14 +202,21 @@ test('P5 非法 softRatio 回落默认 0.8', () => {
   assert.strictEqual(bad.softRatio, 0.8);
   const tooBig = new CostBudget(
     10,
-    mergeRoutePricing(),
+    RoutePricing.mergeRoutePricing(),
     DEFAULT_FALLBACK_PRICE,
     undefined,
     true,
     2,
   );
   assert.strictEqual(tooBig.softRatio, 0.8);
-  const ok = new CostBudget(10, mergeRoutePricing(), DEFAULT_FALLBACK_PRICE, undefined, true, 0.25);
+  const ok = new CostBudget(
+    10,
+    RoutePricing.mergeRoutePricing(),
+    DEFAULT_FALLBACK_PRICE,
+    undefined,
+    true,
+    0.25,
+  );
   assert.strictEqual(ok.softRatio, 0.25);
   assert.strictEqual(ok.softLimitUsd, 2.5);
 });
@@ -199,7 +224,7 @@ test('P5 非法 softRatio 回落默认 0.8', () => {
 test('P5 snapshot 含缓存折抵与软硬阈值字段', () => {
   const budget = new CostBudget(
     10,
-    mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
+    RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 0, cachedInputPer1M: 0.1 } }),
     DEFAULT_FALLBACK_PRICE,
     undefined,
     true,

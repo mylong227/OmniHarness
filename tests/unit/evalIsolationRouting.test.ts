@@ -14,7 +14,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { runTask, runTaskIsolated } from '../../src/eval/evalHarness.js';
+import { EvalHarness } from '../../src/eval/evalHarness.js';
 import type { EvalTask } from '../../src/eval/evalHarness.js';
 import { ScriptedModel } from '../../src/eval/scriptedModel.js';
 import type { ScriptStep } from '../../src/eval/scriptedModel.js';
@@ -101,7 +101,7 @@ test('T5.5 路由接线：易任务的档位（low）真的进了模型请求', 
   const ws = mkdtempSync(join(tmpdir(), 'omni-route-low-'));
   try {
     const model = new CapturingModel(new ScriptedModel(writeOutScript()));
-    const result = await runTaskIsolated(writeOutTask(prompt), ws, model, {
+    const result = await EvalHarness.runTaskIsolated(writeOutTask(prompt), ws, model, {
       reasoningEffort: effort,
     });
     assert.strictEqual(result.passed, true);
@@ -127,7 +127,7 @@ test('T5.5 路由接线：难任务的档位（high）真的进了模型请求',
   const ws = mkdtempSync(join(tmpdir(), 'omni-route-high-'));
   try {
     const model = new CapturingModel(new ScriptedModel(writeOutScript()));
-    const result = await runTaskIsolated(writeOutTask(prompt), ws, model, {
+    const result = await EvalHarness.runTaskIsolated(writeOutTask(prompt), ws, model, {
       reasoningEffort: effort,
     });
     assert.strictEqual(result.passed, true);
@@ -141,7 +141,7 @@ test('T5.5 缺省零行为变更：不注入档位 → 请求不带 reasoningEff
   const ws = mkdtempSync(join(tmpdir(), 'omni-route-none-'));
   try {
     const model = new CapturingModel(new ScriptedModel(writeOutScript()));
-    const result = await runTaskIsolated(writeOutTask('写 out.txt'), ws, model);
+    const result = await EvalHarness.runTaskIsolated(writeOutTask('写 out.txt'), ws, model);
     assert.strictEqual(result.passed, true);
     assert.ok(model.calls.length >= 1);
     assert.ok(model.calls.every((c) => c.effort === undefined));
@@ -159,7 +159,7 @@ test('T4.6 隔离接线：评测命令只在快照副本上执行，生成方工
   const isoWs = mkdtempSync(join(tmpdir(), 'omni-iso-snap-'));
   try {
     // 非隔离路径：断言命令在活工作区执行 → 留下 marker。
-    const live = await runTask(task, liveWs);
+    const live = await EvalHarness.runTask(task, liveWs);
     assert.strictEqual(live.passed, true);
     assert.strictEqual(
       existsSync(join(liveWs, marker)),
@@ -168,7 +168,7 @@ test('T4.6 隔离接线：评测命令只在快照副本上执行，生成方工
     );
 
     // 隔离路径：同一任务、同一产物，但断言只在冻结快照的 scratch 副本上跑 → 活工作区无 marker。
-    const iso = await runTaskIsolated(task, isoWs);
+    const iso = await EvalHarness.runTaskIsolated(task, isoWs);
     assert.strictEqual(iso.passed, true, '隔离不得改变判据（同产物同结论）');
     assert.strictEqual(
       existsSync(join(isoWs, marker)),

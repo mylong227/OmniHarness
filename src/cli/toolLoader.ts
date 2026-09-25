@@ -66,16 +66,16 @@ export class ToolLoader {
     const candidate = value as Partial<ToolDefinition>;
     return typeof candidate.name === 'string' && typeof candidate.description === 'string';
   }
+
+  /**
+   * 加载一个工具模块（默认导出 ToolPort 或 { definition, handler }）。
+   * @param filePath 工具模块文件路径。
+   * @returns 加载出的工具（形态非法时抛错）。
+   */
+  public static async loadToolModule(filePath: string): Promise<ExtraTool | ToolPort> {
+    return toolLoader.load(filePath);
+  }
 }
 
 // ---- 门面兼容：委托默认实例，导出名与签名不变 ----
 const toolLoader = new ToolLoader();
-
-/**
- * 加载一个工具模块（默认导出 ToolPort 或 { definition, handler }）。
- * @param filePath 工具模块文件路径。
- * @returns 加载出的工具（形态非法时抛错）。
- */
-export async function loadToolModule(filePath: string): Promise<ExtraTool | ToolPort> {
-  return toolLoader.load(filePath);
-}

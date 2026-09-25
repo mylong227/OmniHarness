@@ -96,9 +96,9 @@ export class EvolutionControllerImpl implements EvolutionController {
   public budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
     return this.discovery.budgetUsed();
   }
-}
 
-/** 便捷构造（同 EvolutionControllerImpl，名称更贴近端口）。 */
-export function createEvolutionController(opts: EvolutionControllerOptions): EvolutionController {
-  return new EvolutionControllerImpl(opts);
+  /** 便捷构造（同 EvolutionControllerImpl，名称更贴近端口）。 */
+  public static createEvolutionController(opts: EvolutionControllerOptions): EvolutionController {
+    return new EvolutionControllerImpl(opts);
+  }
 }

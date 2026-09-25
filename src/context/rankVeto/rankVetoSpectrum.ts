@@ -1,8 +1,8 @@
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 /**
  * RankVetoSpectrum — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */
-class RankVetoSpectrum {
+export class RankVetoSpectrum {
   /**
    * 计算对称归一化邻接 `S = D^{-1/2} · (A + A^T)/2 · D^{-1/2}` 的对称度向量。
    * @param {VetoGraph} g - g
@@ -11,7 +11,7 @@ class RankVetoSpectrum {
   public static symmetricDegree(g: VetoGraph): Float64Array {
     const d = new Float64Array(g.n);
     for (let i = 0; i < g.n; i++) {
-      const es = at(g.adj, i);
+      const es = ArrayAt.at(g.adj, i);
       let out = 0;
       for (const [, w] of es) out += w;
       d[i] = (d[i] ?? 0) + out / 2;
@@ -34,15 +34,15 @@ class RankVetoSpectrum {
   ): Float64Array {
     const out = new Float64Array(g.n);
     for (let i = 0; i < g.n; i++) {
-      const di = at(d, i);
+      const di = ArrayAt.at(d, i);
       if (di <= 0) continue;
       const scale = 1 / Math.sqrt(di);
-      for (const [j, w] of at(g.adj, i)) {
-        const dj = at(d, j);
+      for (const [j, w] of ArrayAt.at(g.adj, i)) {
+        const dj = ArrayAt.at(d, j);
         if (dj <= 0) continue;
         const coef = ((w / 2) * scale) / Math.sqrt(dj);
-        out[i] = (out[i] ?? 0) + coef * at(v, j);
-        out[j] = (out[j] ?? 0) + coef * at(v, i);
+        out[i] = (out[i] ?? 0) + coef * ArrayAt.at(v, j);
+        out[j] = (out[j] ?? 0) + coef * ArrayAt.at(v, i);
       }
     }
     return out;
@@ -59,36 +59,36 @@ class RankVetoSpectrum {
     const phi = new Float64Array(g.n);
     let phiNorm = 0;
     for (let i = 0; i < g.n; i++) {
-      const v = Math.sqrt(Math.max(0, at(d, i)));
+      const v = Math.sqrt(Math.max(0, ArrayAt.at(d, i)));
       phi[i] = v;
       phiNorm += v * v;
     }
     if (phiNorm <= 0) return 1;
     phiNorm = Math.sqrt(phiNorm);
-    for (let i = 0; i < g.n; i++) phi[i] = at(phi, i) / phiNorm;
+    for (let i = 0; i < g.n; i++) phi[i] = ArrayAt.at(phi, i) / phiNorm;
 
     // 确定性伪随机初值（避免测试因 Math.random 而不稳定）。
     let v: Float64Array = new Float64Array(g.n);
     for (let i = 0; i < g.n; i++) v[i] = Math.sin(i * 12.9898) * 0.5 + Math.cos(i * 78.233) * 0.5;
     let dot = 0;
-    for (let i = 0; i < g.n; i++) dot += at(v, i) * at(phi, i);
-    for (let i = 0; i < g.n; i++) v[i] = at(v, i) - dot * at(phi, i);
+    for (let i = 0; i < g.n; i++) dot += ArrayAt.at(v, i) * ArrayAt.at(phi, i);
+    for (let i = 0; i < g.n; i++) v[i] = ArrayAt.at(v, i) - dot * ArrayAt.at(phi, i);
 
     let lambda2 = 0;
     for (let it = 0; it < SPECTRAL_ITERS; it++) {
       let norm = 0;
-      for (let i = 0; i < g.n; i++) norm += at(v, i) * at(v, i);
+      for (let i = 0; i < g.n; i++) norm += ArrayAt.at(v, i) * ArrayAt.at(v, i);
       norm = Math.sqrt(norm);
       if (norm <= 1e-12) return 0;
-      for (let i = 0; i < g.n; i++) v[i] = at(v, i) / norm;
+      for (let i = 0; i < g.n; i++) v[i] = ArrayAt.at(v, i) / norm;
 
       const next = RankVetoSpectrum.applyNormalizedAdjacency(g, d, v);
       dot = 0;
-      for (let i = 0; i < g.n; i++) dot += at(next, i) * at(phi, i);
-      for (let i = 0; i < g.n; i++) next[i] = at(next, i) - dot * at(phi, i);
+      for (let i = 0; i < g.n; i++) dot += ArrayAt.at(next, i) * ArrayAt.at(phi, i);
+      for (let i = 0; i < g.n; i++) next[i] = ArrayAt.at(next, i) - dot * ArrayAt.at(phi, i);
 
       let nextNorm = 0;
-      for (let i = 0; i < g.n; i++) nextNorm += at(next, i) * at(next, i);
+      for (let i = 0; i < g.n; i++) nextNorm += ArrayAt.at(next, i) * ArrayAt.at(next, i);
       lambda2 = Math.sqrt(nextNorm);
       v = next;
     }
@@ -105,7 +105,7 @@ class RankVetoSpectrum {
     const outWeight = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       let s = 0;
-      for (const [, w] of at(g.adj, i)) s += w;
+      for (const [, w] of ArrayAt.at(g.adj, i)) s += w;
       outWeight[i] = s;
     }
     let pi: Float64Array = new Float64Array(n).fill(1 / n);
@@ -114,21 +114,21 @@ class RankVetoSpectrum {
       next.fill(0);
       let danglingMass = 0;
       for (let i = 0; i < n; i++) {
-        const ow = at(outWeight, i);
-        const mass = at(pi, i);
+        const ow = ArrayAt.at(outWeight, i);
+        const mass = ArrayAt.at(pi, i);
         if (ow <= 0) {
           danglingMass += mass;
           continue;
         }
-        for (const [j, w] of at(g.adj, i)) next[j] = (next[j] ?? 0) + (mass * w) / ow;
+        for (const [j, w] of ArrayAt.at(g.adj, i)) next[j] = (next[j] ?? 0) + (mass * w) / ow;
       }
       const teleport = (1 - DAMPING) / n;
       for (let i = 0; i < n; i++) {
-        next[i] = DAMPING * at(next, i) + teleport + (DAMPING * danglingMass) / n;
+        next[i] = DAMPING * ArrayAt.at(next, i) + teleport + (DAMPING * danglingMass) / n;
       }
       let sum = 0;
-      for (let i = 0; i < n; i++) sum += at(next, i);
-      if (sum > 0) for (let i = 0; i < n; i++) next[i] = at(next, i) / sum;
+      for (let i = 0; i < n; i++) sum += ArrayAt.at(next, i);
+      if (sum > 0) for (let i = 0; i < n; i++) next[i] = ArrayAt.at(next, i) / sum;
       pi = next.slice();
     }
     return pi;
@@ -146,8 +146,8 @@ class RankVetoSpectrum {
     let sum = 0;
     let weighted = 0;
     for (let i = 0; i < n; i++) {
-      sum += at(sorted, i);
-      weighted += at(sorted, i) * (i + 1);
+      sum += ArrayAt.at(sorted, i);
+      weighted += ArrayAt.at(sorted, i) * (i + 1);
     }
     if (sum <= 0) return 0;
     return (2 * weighted) / (n * sum) - (n + 1) / n;
@@ -167,13 +167,40 @@ class RankVetoSpectrum {
     let entropy = 0;
     let kl = 0;
     for (let i = 0; i < n; i++) {
-      const p = at(pi, i);
+      const p = ArrayAt.at(pi, i);
       if (p > 0) {
         entropy -= p * Math.log(p);
         kl += p * Math.log(p * n);
       }
     }
     return { kl: Math.max(0, kl), supportRatio: Math.exp(entropy) / n };
+  }
+
+  /**
+   * 一次性采集图的全部结构性诊断项。
+   *
+   * **这些项不参与否决**（见模块头部：已被回溯验证证伪），仅供复核与报告。
+   *
+   * @param g 待诊断的图
+   * @returns 结构性诊断快照
+   */
+  public static structuralDiagnostics(g: VetoGraph): StructuralDiagnostics {
+    const d = RankVetoSpectrum.symmetricDegree(g);
+    const pi = RankVetoSpectrum.stationaryRank(g);
+    const { kl, supportRatio } = RankVetoSpectrum.uniformityOf(pi);
+    let edgeCount = 0;
+    for (let i = 0; i < g.n; i++) edgeCount += ArrayAt.at(g.adj, i).length;
+    const degs: number[] = [];
+    for (let i = 0; i < g.n; i++) degs.push(ArrayAt.at(d, i));
+    return {
+      nodeCount: g.n,
+      edgeCount,
+      avgDegree: g.n > 0 ? edgeCount / g.n : 0,
+      degreeGini: RankVetoSpectrum.gini(degs),
+      spectralGap: RankVetoSpectrum.estimateSpectralGap(g, d),
+      uniformKl: kl,
+      effectiveSupportRatio: supportRatio,
+    };
   }
 }
 
@@ -240,30 +267,3 @@ const RANK_ITERS = 24;
 
 /** 谱隙幂迭代轮数。 */
 const SPECTRAL_ITERS = 30;
-
-/**
- * 一次性采集图的全部结构性诊断项。
- *
- * **这些项不参与否决**（见模块头部：已被回溯验证证伪），仅供复核与报告。
- *
- * @param g 待诊断的图
- * @returns 结构性诊断快照
- */
-export function structuralDiagnostics(g: VetoGraph): StructuralDiagnostics {
-  const d = RankVetoSpectrum.symmetricDegree(g);
-  const pi = RankVetoSpectrum.stationaryRank(g);
-  const { kl, supportRatio } = RankVetoSpectrum.uniformityOf(pi);
-  let edgeCount = 0;
-  for (let i = 0; i < g.n; i++) edgeCount += at(g.adj, i).length;
-  const degs: number[] = [];
-  for (let i = 0; i < g.n; i++) degs.push(at(d, i));
-  return {
-    nodeCount: g.n,
-    edgeCount,
-    avgDegree: g.n > 0 ? edgeCount / g.n : 0,
-    degreeGini: RankVetoSpectrum.gini(degs),
-    spectralGap: RankVetoSpectrum.estimateSpectralGap(g, d),
-    uniformKl: kl,
-    effectiveSupportRatio: supportRatio,
-  };
-}

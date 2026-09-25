@@ -1,6 +1,6 @@
 import type { ToolCall, ToolContext, ToolPort } from '../ports/tool/tool.js';
 import type { ToolGate } from '../core/toolGate.js';
-import { id } from '../util/id.js';
+import { Id } from '../util/id.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/core/jsonRpc.js';
 import type { Transport } from '../server/transport/lineTransport.js';
 import {
@@ -120,7 +120,7 @@ export class McpServer {
     if (typeof name !== 'string') {
       throw new Error('tools/call 缺少 name');
     }
-    const call: ToolCall = { id: id('mcp'), name, arguments: this.argumentsOf(params) };
+    const call: ToolCall = { id: Id.id('mcp'), name, arguments: this.argumentsOf(params) };
     const denied = await this.gateOf(call);
     if (denied !== undefined) {
       return mcpProtocol.toolResult(denied.output, denied.error);

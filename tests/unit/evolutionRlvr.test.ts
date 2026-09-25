@@ -4,7 +4,7 @@ import { EvolutionControllerImpl } from '../../src/evolution/evolutionController
 import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.js';
 import { RlvrLoop, InMemoryReplayBuffer } from '../../src/evolution/rlvrLoop.js';
 import type { CodeCandidate } from '../../src/evolution/rlvrLoop.js';
-import { createRlvrEvolutionController } from '../../src/evolution/rlvrController.js';
+import { RlvrController } from '../../src/evolution/rlvrController.js';
 import type { Candidate } from '../../src/ports/runtime/evolution.js';
 import type { Skill } from '../../src/skill/skill.js';
 import type { ModelPort } from '../../src/ports/model/model.js';
@@ -73,7 +73,7 @@ test('U4 组合器：无 verifyCommand → RLVR 奖励恒 0 → 不晋升且回�
   } as unknown as ModelPort;
   const a: Skill = { name: 'a', description: 'da', instructions: 'ia' };
   const b: Skill = { name: 'b', description: 'db', instructions: 'ib' };
-  const { controller, buffer } = createRlvrEvolutionController({
+  const { controller, buffer } = RlvrController.createRlvrEvolutionController({
     skills: [a, b],
     compose: (x) => ({ ...x, name: 'composed' }),
     model: mockModel,

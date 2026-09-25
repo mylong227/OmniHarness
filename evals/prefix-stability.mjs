@@ -36,7 +36,7 @@ import { AutoApproval } from '../dist/src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../dist/src/adapters/sandbox/passthroughSandbox.js';
 import { SilentEventPort } from '../dist/src/adapters/event/silentEventPort.js';
 import { PrefixStability } from '../dist/src/context/prefixStability.js';
-import { scrubVolatile } from '../dist/src/context/canonical.js';
+import { Canonical } from '../dist/src/context/canonical.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TURNS = Math.max(2, Number(process.argv[2] ?? 4) || 4);
@@ -152,7 +152,9 @@ const analyzeSegments = (requests) => {
       presentInAll,
       byteIdentical: presentInAll && texts.every((t) => t === texts[0]),
       chars: presentInAll ? texts[0].length : 0,
-      volatileBytesScrubbed: presentInAll ? texts[0].length - scrubVolatile(texts[0]).length : 0,
+      volatileBytesScrubbed: presentInAll
+        ? texts[0].length - Canonical.scrubVolatile(texts[0]).length
+        : 0,
       preview: presentInAll ? texts[0].slice(0, 60).replace(/\n/g, '⏎') : '',
     });
   }

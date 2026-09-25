@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { Skill } from '../../src/skill/skill.js';
-import { composeByTwist } from '../../src/skill/moireComposer.js';
+import { MoireComposer } from '../../src/skill/moireComposer.js';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import type { Candidate } from '../../src/ports/runtime/evolution.js';
 
@@ -28,7 +28,7 @@ const pool = [
 test('生成组合候选：无序配对，来源标注 twist:', () => {
   const engine = new TwistDiscoveryEngine({
     skills: pool,
-    compose: (a, b) => composeByTwist(a, b),
+    compose: (a, b) => MoireComposer.composeByTwist(a, b),
     maxCandidates: 10,
   });
   const got = engine.nextCandidates();
@@ -42,7 +42,7 @@ test('生成组合候选：无序配对，来源标注 twist:', () => {
 test('discoveryBudget 硬上限：生成数不超过 maxCandidates', () => {
   const engine = new TwistDiscoveryEngine({
     skills: pool,
-    compose: (a, b) => composeByTwist(a, b),
+    compose: (a, b) => MoireComposer.composeByTwist(a, b),
     maxCandidates: 3,
   });
   const all: Candidate[] = [];
@@ -62,7 +62,7 @@ test('discoveryBudget 硬上限：生成数不超过 maxCandidates', () => {
 test('预算等于配对总数：恰好全生成', () => {
   const engine = new TwistDiscoveryEngine({
     skills: pool,
-    compose: (a, b) => composeByTwist(a, b),
+    compose: (a, b) => MoireComposer.composeByTwist(a, b),
     maxCandidates: 6,
   });
   const got = engine.nextCandidates();

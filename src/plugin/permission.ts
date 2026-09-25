@@ -6,6 +6,19 @@
  */
 
 /**
+ * Permission —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class Permission {
+  /**
+   * @beta
+   * 权限名是否合法。
+   */
+  public static isPluginPermission(value: string): value is PluginPermission {
+    return (ALL_PERMISSIONS as readonly string[]).includes(value);
+  }
+}
+
+/**
  * @beta
  * 插件可声明的权限范围（`域.动作`）。
  */
@@ -51,11 +64,3 @@ export const DANGEROUS_PERMISSIONS: ReadonlySet<PluginPermission> = new Set<Plug
   'env.write',
   'store.write',
 ]);
-
-/**
- * @beta
- * 权限名是否合法。
- */
-export function isPluginPermission(value: string): value is PluginPermission {
-  return (ALL_PERMISSIONS as readonly string[]).includes(value);
-}

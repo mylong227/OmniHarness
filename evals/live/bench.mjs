@@ -36,7 +36,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { readUserProviderKey } from '../../dist/src/eval/liveCredentials.js';
+import { LiveCredentials } from '../../dist/src/eval/liveCredentials.js';
 import {
   SWEBENCH_LITE_TASKS,
   buildEnhancedTasks,
@@ -129,7 +129,7 @@ function resolveConfig() {
     process.env.OMNIHARNESS_API_KEY ??
     process.env.DEEPSEEK_API_KEY ??
     process.env.OPENAI_API_KEY ??
-    readUserProviderKey();
+    LiveCredentials.readUserProviderKey();
   const baseUrl =
     flag('--base-url') ??
     process.env.OMNIHARNESS_BASE_URL ??

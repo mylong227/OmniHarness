@@ -24,8 +24,8 @@ import {
   type ProviderPreset,
 } from '../../src/config/providerPresets.js';
 import { providerPresetValidator } from '../../src/config/providerPresetValidator.js';
-import { adapterPresets, configDefaults } from '../../src/cli/argParser.js';
-import { normalizeConfig, ConfigError } from '../../src/config/configError.js';
+import { ArgParser } from '../../src/cli/argParser.js';
+import { ConfigError } from '../../src/config/configError.js';
 import type { FileConfig } from '../../src/config/configFile.js';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
@@ -75,12 +75,12 @@ test('① 内建目录逐字来自 defaults/providers.json', () => {
 test('② CLI 适配器映射与原手工副本逐项等价（含 ollama 的归属）', () => {
   for (const [adapter, ids] of Object.entries(EXPECTED_CLI_ADAPTERS)) {
     assert.deepStrictEqual(
-      adapterPresets(adapter).map((preset) => preset.id),
+      ArgParser.adapterPresets(adapter).map((preset) => preset.id),
       ids,
       `--model-adapter ${adapter} 的厂商顺序/归属必须与改造前一致`,
     );
   }
-  assert.deepStrictEqual(adapterPresets('no-such-adapter'), []);
+  assert.deepStrictEqual(ArgParser.adapterPresets('no-such-adapter'), []);
 });
 
 test('③ 覆盖语义：同 id 整条替换（保持原位置）、新 id 追加到末尾', () => {
@@ -153,7 +153,7 @@ test('④-2 CLI 兜底用上覆盖后的目录（自建厂商也能吃到 provid
       },
     ],
   };
-  const defaults = configDefaults(file);
+  const defaults = ArgParser.configDefaults(file);
   assert.strictEqual(defaults.apiKey, 'sk-acme');
   assert.strictEqual(defaults.baseUrl, 'https://acme.example/v1');
 });
@@ -178,15 +178,16 @@ test('⑤ 配置段校验器与运行时求解器同源（同一批拒绝项）'
 
 test('⑥ normalizeConfig：providerPresets 合法即通过、非法即 ConfigError（严格配置链）', () => {
   const openai = builtinOf('openai');
-  const ok = normalizeConfig({ providerPresets: [openai] } as Record<string, unknown>);
+  const ok = ConfigError.normalizeConfig({ providerPresets: [openai] } as Record<string, unknown>);
   assert.deepStrictEqual(ok.providerPresets, [openai]);
   assert.throws(
-    () => normalizeConfig({ providerPresets: 'not-an-array' } as Record<string, unknown>),
+    () =>
+      ConfigError.normalizeConfig({ providerPresets: 'not-an-array' } as Record<string, unknown>),
     ConfigError,
   );
   assert.throws(
     () =>
-      normalizeConfig({
+      ConfigError.normalizeConfig({
         providerPresets: [{ ...openai, adapter: 'nope' }],
       } as Record<string, unknown>),
     ConfigError,

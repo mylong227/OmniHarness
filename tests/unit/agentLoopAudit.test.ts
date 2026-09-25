@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -50,7 +50,7 @@ function buildAgent(storage: StoragePort, model: ModelPort, maxSteps = 4): Agent
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  return new Agent(createRuntime(config));
+  return new Agent(Runtime.createRuntime(config));
 }
 
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };

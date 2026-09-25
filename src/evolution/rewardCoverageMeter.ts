@@ -15,7 +15,7 @@
 
 /** 单个样本的奖励判定明细。 */
 export interface RewardVerdict {
-  /** 奖励值（0..1，与既有 VerifiableReward 同口径）。 */
+  /** 奖励值（0..1，与既有 VerifiableRewardFn 同口径）。 */
   readonly reward: number;
   /** 是否为「真实可验证判定」：false 表示未能验证（命令缺失/运行异常/空集），并非判负。 */
   readonly verifiable: boolean;
@@ -36,7 +36,7 @@ export class RewardCoverageMeter {
   /**
    * 包装探针为普通数值奖励（记录明细，只透出数值；fail-closed 同原口径）。
    * @param probe 带判据明细的命令探针（或任何 InstrumentedReward 形状的对象）
-   * @returns 与既有 VerifiableReward 兼容的数值奖励
+   * @returns 与既有 VerifiableRewardFn 兼容的数值奖励
    */
   public wrap(probe: {
     verify(candidate: unknown): Promise<RewardVerdict>;

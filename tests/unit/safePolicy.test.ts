@@ -1,9 +1,6 @@
 import { strict as assert } from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  SafePolicyEvaluator,
-  compileExpression,
-} from '../../src/adapters/policy/safePolicyEvaluator.js';
+import { SafePolicyEvaluator } from '../../src/adapters/policy/safePolicyEvaluator.js';
 import type { PolicyFacts, PolicyRule } from '../../src/ports/runtime/policy.js';
 
 const ev = new SafePolicyEvaluator();
@@ -78,5 +75,5 @@ test('括号改变优先级', () => {
 });
 
 test('compileExpression 拒绝多余 token', () => {
-  assert.throws(() => compileExpression('a == 1 2'));
+  assert.throws(() => SafePolicyEvaluator.compileExpression('a == 1 2'));
 });

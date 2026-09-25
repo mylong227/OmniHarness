@@ -1,8 +1,8 @@
 import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
 import { ToolScheduler } from './loop/toolScheduler.js';
-import { isLikelySandboxDenied } from '../ports/runtime/sandboxDenial.js';
-import { guardFailureResult, guardToolResult } from '../security/promptInjectionGuard.js';
+import { SandboxDenial } from '../ports/runtime/sandboxDenial.js';
+import { PromptInjectionGuard } from '../security/promptInjectionGuard.js';
 import {
   EnforcementModeResolver,
   type EnforcementMode,
@@ -259,7 +259,10 @@ export class StepToolExecutor {
    */
   private guardInjection(toolName: string, result: ToolResult, mode: EnforcementMode): ToolResult {
     try {
-      const guarded = guardToolResult(result, ToolOutputTrust.fromToolName(toolName));
+      const guarded = PromptInjectionGuard.guardToolResult(
+        result,
+        ToolOutputTrust.fromToolName(toolName),
+      );
       if (!guarded.blocked) {
         return guarded;
       }
@@ -278,7 +281,7 @@ export class StepToolExecutor {
       });
       return guarded;
     } catch {
-      return guardFailureResult(result, mode);
+      return PromptInjectionGuard.guardFailureResult(result, mode);
     }
   }
 
@@ -293,7 +296,7 @@ export class StepToolExecutor {
     if (result.ok || result.error === undefined) {
       return result;
     }
-    if (isLikelySandboxDenied({ message: result.error })) {
+    if (SandboxDenial.isLikelySandboxDenied({ message: result.error })) {
       return { ...result, error: `[沙箱拒绝] ${result.error}` };
     }
     return result;

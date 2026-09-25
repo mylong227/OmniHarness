@@ -9,6 +9,73 @@
  * 比「整文件硬塞」或「裸 grep 整文件」成本低一个数量级，且完全可复现。
  */
 
+/**
+ * RepoMap —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class RepoMap {
+  /** 从单文件内容抽取符号。relPath 用于语言判断与回填。 */
+  public static extractSymbols(relPath: string, content: string): SymbolNode[] {
+    const lines = content.split('\n');
+    const rules = relPath.endsWith('.py') ? PY_RULES : TS_RULES;
+    const nodes: SymbolNode[] = [];
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const lineText = lines[i] ?? '';
+      for (const rule of rules) {
+        const m = rule.pattern.exec(lineText);
+        if (m !== null && m[1] !== undefined) {
+          nodes.push({
+            file: relPath,
+            line: i + 1,
+            kind: rule.kind,
+            name: m[1],
+            signature: lineText.trim().slice(0, 120),
+          });
+          break;
+        }
+      }
+      if (!relPath.endsWith('.py')) {
+        const mm = METHOD_RULE.exec(lineText);
+        if (mm !== null && mm[1] !== undefined) {
+          // 过滤明显非方法的噪音（如箭头函数赋值已归入 const）。
+          const trimmed = lineText.trim();
+          if (!trimmed.startsWith('const ') && !trimmed.startsWith('let ')) {
+            nodes.push({
+              file: relPath,
+              line: i + 1,
+              kind: 'method',
+              name: mm[1],
+              signature: trimmed.slice(0, 120),
+            });
+          }
+        }
+      }
+    }
+    return nodes;
+  }
+
+  /** 生成紧凑结构大纲（按文件分组）。用于作为 repo-map 的「场拓扑」表示。 */
+  public static outlineText(nodes: readonly SymbolNode[]): string {
+    const byFile = new Map<string, SymbolNode[]>();
+    for (const n of nodes) {
+      const arr = byFile.get(n.file);
+      if (arr === undefined) {
+        byFile.set(n.file, [n]);
+      } else {
+        arr.push(n);
+      }
+    }
+    const parts: string[] = [];
+    for (const [file, syms] of byFile) {
+      parts.push(`📄 ${file}`);
+      for (const s of syms) {
+        parts.push(`   L${s.line} ${s.kind} ${s.name}`);
+      }
+    }
+    return parts.join('\n');
+  }
+}
+
 /** 符号种类。 */
 export type SymbolKind = 'function' | 'class' | 'interface' | 'type' | 'const' | 'method';
 
@@ -51,65 +118,3 @@ const PY_RULES: readonly KindRule[] = [
 
 const METHOD_RULE =
   /^\s*(?:public\s+|private\s+|protected\s+|static\s+|async\s+|readonly\s+)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/;
-
-/** 从单文件内容抽取符号。relPath 用于语言判断与回填。 */
-export function extractSymbols(relPath: string, content: string): SymbolNode[] {
-  const lines = content.split('\n');
-  const rules = relPath.endsWith('.py') ? PY_RULES : TS_RULES;
-  const nodes: SymbolNode[] = [];
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const lineText = lines[i] ?? '';
-    for (const rule of rules) {
-      const m = rule.pattern.exec(lineText);
-      if (m !== null && m[1] !== undefined) {
-        nodes.push({
-          file: relPath,
-          line: i + 1,
-          kind: rule.kind,
-          name: m[1],
-          signature: lineText.trim().slice(0, 120),
-        });
-        break;
-      }
-    }
-    if (!relPath.endsWith('.py')) {
-      const mm = METHOD_RULE.exec(lineText);
-      if (mm !== null && mm[1] !== undefined) {
-        // 过滤明显非方法的噪音（如箭头函数赋值已归入 const）。
-        const trimmed = lineText.trim();
-        if (!trimmed.startsWith('const ') && !trimmed.startsWith('let ')) {
-          nodes.push({
-            file: relPath,
-            line: i + 1,
-            kind: 'method',
-            name: mm[1],
-            signature: trimmed.slice(0, 120),
-          });
-        }
-      }
-    }
-  }
-  return nodes;
-}
-
-/** 生成紧凑结构大纲（按文件分组）。用于作为 repo-map 的「场拓扑」表示。 */
-export function outlineText(nodes: readonly SymbolNode[]): string {
-  const byFile = new Map<string, SymbolNode[]>();
-  for (const n of nodes) {
-    const arr = byFile.get(n.file);
-    if (arr === undefined) {
-      byFile.set(n.file, [n]);
-    } else {
-      arr.push(n);
-    }
-  }
-  const parts: string[] = [];
-  for (const [file, syms] of byFile) {
-    parts.push(`📄 ${file}`);
-    for (const s of syms) {
-      parts.push(`   L${s.line} ${s.kind} ${s.name}`);
-    }
-  }
-  return parts.join('\n');
-}

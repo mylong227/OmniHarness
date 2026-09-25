@@ -10,7 +10,7 @@
  * 守卫在被需要的那一刻静默失效。这里靠 `clear()` / 超时路径显式清理，不靠 unref。
  */
 import type { LspDiagnostic, LspDiagnosticSeverity } from '../../ports/tool/lsp.js';
-import { uriToFile } from './lspUri.js';
+import { LspUri } from './lspUri.js';
 
 /** 等待推送诊断的登记项。 */
 interface DiagnosticsWaiter {
@@ -49,7 +49,7 @@ export class LspDiagnosticsCollector {
     if (typeof uri !== 'string') {
       return false;
     }
-    const file = uriToFile(uri);
+    const file = LspUri.uriToFile(uri);
     this.published.set(file, LspDiagnosticsCollector.toDiagnostics(file, payload?.diagnostics));
     this.settle(file);
     return true;

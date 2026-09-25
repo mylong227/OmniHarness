@@ -20,7 +20,7 @@
  *    重构编辑可达数万条，全量渲染会瞬间吃光上下文。
  */
 import type { LspCodeAction, LspRange, LspTextEdit } from '../../ports/tool/lsp.js';
-import { uriToFile } from './lspUri.js';
+import { LspUri } from './lspUri.js';
 
 /** 最多保留的操作数。 */
 const MAX_ACTIONS = 50;
@@ -105,7 +105,7 @@ export class LspCodeActionNormalizer {
       return;
     }
     for (const [uri, edits] of Object.entries(changes as Record<string, unknown>)) {
-      LspCodeActionNormalizer.pushEdits(uriToFile(uri), edits, out);
+      LspCodeActionNormalizer.pushEdits(LspUri.uriToFile(uri), edits, out);
     }
   }
 
@@ -137,7 +137,7 @@ export class LspCodeActionNormalizer {
       if (typeof uri !== 'string' || uri === '') {
         continue;
       }
-      LspCodeActionNormalizer.pushEdits(uriToFile(uri), record['edits'], out);
+      LspCodeActionNormalizer.pushEdits(LspUri.uriToFile(uri), record['edits'], out);
     }
   }
 

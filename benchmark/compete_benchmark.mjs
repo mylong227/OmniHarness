@@ -6,9 +6,9 @@
 //       竞品组合=图/crew 调度（聚合而非干涉）；本基准"parts-sum"基线即"分别用 A、B"，
 //       度量单技能自乘积能否产生涌现结构（不能 → 0）。
 
-import { composeByTwist, capabilityFieldOf, emergenceAt } from '../dist/src/skill/moireComposer.js';
-import { moireEnergy } from '../dist/src/evolution/benchmark.js';
-import { eigenSpectrum, spectrumFromValues, resonance } from '../dist/src/util/eigenspectrum.js';
+import { MoireComposer } from '../dist/src/skill/moireComposer.js';
+import { BenchmarkFn } from '../dist/src/evolution/benchmark.js';
+import { EigenSpectrum } from '../dist/src/util/eigenspectrum.js';
 import { ResonantFieldEngine } from '../dist/src/adapters/memory/resonantFieldEngine.js';
 import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRingPacket.js';
 
@@ -130,12 +130,15 @@ const B = {
   instructions: '执行 推理 任务 推导',
   tags: ['推理'],
 };
-const composed = composeByTwist(A, B);
-const emComposed = moireEnergy(composed, N); // 组合场低通能量比（旋转不变）
-const emA = moireEnergy(A, N); // 单技能场
-const fa = capabilityFieldOf(A, N);
-const fb = capabilityFieldOf(B, N);
-const selfEmergence = Math.max(emergenceAt(fa, fa, 0, 2), emergenceAt(fb, fb, 0, 2)); // parts-sum 能做到的最大涌现
+const composed = MoireComposer.composeByTwist(A, B);
+const emComposed = Benchmark.moireEnergy(composed, N); // 组合场低通能量比（旋转不变）
+const emA = Benchmark.moireEnergy(A, N); // 单技能场
+const fa = MoireComposer.capabilityFieldOf(A, N);
+const fb = MoireComposer.capabilityFieldOf(B, N);
+const selfEmergence = Math.max(
+  MoireComposer.emergenceAt(fa, fa, 0, 2),
+  MoireComposer.emergenceAt(fb, fb, 0, 2),
+); // parts-sum 能做到的最大涌现
 console.log(
   `  涌现莫尔能量(旋转不变) : 组合=${round(emComposed)}  单技能A=${round(emA)}  parts-sum自乘积=${round(selfEmergence)}`,
 );
@@ -171,10 +174,10 @@ console.log(`  词面查询 recall@3   : 共振=${recResonant}  向量=${recVec}
 
 // 不同点：共振接受"纯频率签名"探针（无需自然语言词面）
 const schedFacts = mem.all().filter((f) => f.topic === '调度');
-const sig = schedFacts.map((f) => eigenSpectrum(f.text, BINS).values);
+const sig = schedFacts.map((f) => EigenSpectrum.eigenSpectrum(f.text, BINS).values);
 const avg = new Array(BINS).fill(0);
 for (const s of sig) for (let i = 0; i < BINS; i++) avg[i] += s[i] / sig.length;
-const freqProbe = spectrumFromValues(avg, BINS);
+const freqProbe = EigenSpectrum.spectrumFromValues(avg, BINS);
 const rFreq = engine.resonate(freqProbe, 3);
 const recFreq = round(recallAtK(rFreq, '调度', 3));
 console.log(`  纯频率签名探针 recall@3 : 共振=${recFreq}  向量=不可寻址(须词面)`);
@@ -184,7 +187,7 @@ const shift = (spec, r) => {
   const n = spec.values.length;
   const v = new Array(n).fill(0);
   for (let i = 0; i < n; i++) v[(i + r) % n] = spec.values[i];
-  return spectrumFromValues(v, n);
+  return EigenSpectrum.spectrumFromValues(v, n);
 };
 const rShift = engine.resonate(shift(freqProbe, 1), 3);
 const recShift = round(recallAtK(rShift, '调度', 3));

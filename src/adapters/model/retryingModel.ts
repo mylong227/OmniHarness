@@ -98,7 +98,7 @@ export class RetryingModel implements ModelPort {
         return await fn();
       } catch (err) {
         lastError = err;
-        if (attempt >= this.policy.maxAttempts || !isRetryable(err)) {
+        if (attempt >= this.policy.maxAttempts || !RetryingModel.isRetryable(err)) {
           break;
         }
         await this.delay(this.delayFor(err, attempt));
@@ -124,52 +124,52 @@ export class RetryingModel implements ModelPort {
    * realDelay — module-level helper moved into RetryingModel.
    */
   private static realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-}
 
-/**
- * @beta
- * 错误可重试性判定（#M6）。
- * 优先级：`ModelCallError.retryable` > 显式 `retryable` 标记 > HTTP 状态码 > 网络码/消息。
- * 兼容不抛 `ModelCallError` 的模型端口（duck-typing 兜底）。
- * @param err 待判定的错误（任意抛出值）。
- * @returns 是否值得重试（429/408/409/5xx、显式 retryable 标记或网络类错误码/消息）。
- */
-export function isRetryable(err: unknown): boolean {
-  if (err instanceof ModelCallError) {
-    return err.retryable;
+  /**
+   * @beta
+   * 错误可重试性判定（#M6）。
+   * 优先级：`ModelCallError.retryable` > 显式 `retryable` 标记 > HTTP 状态码 > 网络码/消息。
+   * 兼容不抛 `ModelCallError` 的模型端口（duck-typing 兜底）。
+   * @param err 待判定的错误（任意抛出值）。
+   * @returns 是否值得重试（429/408/409/5xx、显式 retryable 标记或网络类错误码/消息）。
+   */
+  public static isRetryable(err: unknown): boolean {
+    if (err instanceof ModelCallError) {
+      return err.retryable;
+    }
+    const e = err as {
+      readonly status?: number;
+      readonly retryable?: boolean;
+      readonly code?: string;
+      readonly message?: string;
+    };
+    if (e.retryable === true) {
+      return true;
+    }
+    if (e.retryable === false) {
+      return false;
+    }
+    if (typeof e.status === 'number') {
+      return (
+        e.status === 429 ||
+        e.status === 408 ||
+        e.status === 409 ||
+        (e.status >= 500 && e.status <= 599)
+      );
+    }
+    const code = e.code;
+    if (typeof code === 'string') {
+      return [
+        'ECONNRESET',
+        'ETIMEDOUT',
+        'ECONNREFUSED',
+        'ENOTFOUND',
+        'ECONNABORTED',
+        'UND_ERR_SOCKET',
+        'UND_ERR_CONNECT_TIMEOUT',
+      ].includes(code);
+    }
+    const message = typeof e.message === 'string' ? e.message : '';
+    return /fetch failed|network|timeout|econnreset/i.test(message);
   }
-  const e = err as {
-    readonly status?: number;
-    readonly retryable?: boolean;
-    readonly code?: string;
-    readonly message?: string;
-  };
-  if (e.retryable === true) {
-    return true;
-  }
-  if (e.retryable === false) {
-    return false;
-  }
-  if (typeof e.status === 'number') {
-    return (
-      e.status === 429 ||
-      e.status === 408 ||
-      e.status === 409 ||
-      (e.status >= 500 && e.status <= 599)
-    );
-  }
-  const code = e.code;
-  if (typeof code === 'string') {
-    return [
-      'ECONNRESET',
-      'ETIMEDOUT',
-      'ECONNREFUSED',
-      'ENOTFOUND',
-      'ECONNABORTED',
-      'UND_ERR_SOCKET',
-      'UND_ERR_CONNECT_TIMEOUT',
-    ].includes(code);
-  }
-  const message = typeof e.message === 'string' ? e.message : '';
-  return /fetch failed|network|timeout|econnreset/i.test(message);
 }

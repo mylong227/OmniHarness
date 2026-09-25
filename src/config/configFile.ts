@@ -4,13 +4,7 @@ import { dirname, join } from 'node:path';
 import { profileLoader } from './profileLoader.js';
 import type { ProviderAdapterId, ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { SkillEntry } from '../skill/skill.js';
-import {
-  ConfigError,
-  loadBundlePatchLayer,
-  mergeConfigs,
-  normalizeConfig,
-  readEnvConfig,
-} from './configError.js';
+import { ConfigError } from './configError.js';
 
 /** 配置文件里的 MCP 服务器声明。 */
 export interface FileMcpServer {
@@ -314,7 +308,7 @@ export class ConfigFile {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    const normalized = normalizeConfig(cfg as Record<string, unknown>);
+    const normalized = ConfigError.normalizeConfig(cfg as Record<string, unknown>);
     writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
   }
 
@@ -352,12 +346,12 @@ export class ConfigFile {
 
     // bundle 补丁层（G-E 5.2/5.3）：由 `bundle unpack` 写出的 config 覆盖，叠在 profile 之上、
     // 低于显式 env。放在 env 之前插入，使发布单元携带的推荐配置在运行时生效。
-    layers.push(loadBundlePatchLayer(opts.workspace));
+    layers.push(ConfigError.loadBundlePatchLayer(opts.workspace));
 
     // 环境变量层：最高优先级（仍低于 CLI 参数）。
-    layers.push(readEnvConfig());
+    layers.push(ConfigError.readEnvConfig());
 
-    return mergeConfigs(...layers);
+    return ConfigError.mergeConfigs(...layers);
   }
 
   /** 读文件并严格归一化（未知 key / 枚举越界 / 类型错误抛 ConfigError）。 */
@@ -377,7 +371,7 @@ export class ConfigFile {
     if (typeof parsed !== 'object' || parsed === null) {
       throw new ConfigError(`配置文件 ${filePath} 顶层应为对象`);
     }
-    return normalizeConfig(parsed as Record<string, unknown>);
+    return ConfigError.normalizeConfig(parsed as Record<string, unknown>);
   }
 }
 

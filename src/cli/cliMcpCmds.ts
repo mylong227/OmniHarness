@@ -7,9 +7,9 @@
 
 import { McpServeRunner } from '../adapters/mcp/mcpServeRunner.js';
 import { mcpConnector } from '../mcp/mcpConnector.js';
-import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';
+import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import { ToolGate } from '../core/toolGate.js';
-import { parseArgs, messageOf } from './argParser.js';
+import { ArgParser } from './argParser.js';
 import { CliServerCmds } from './cliServerCmds.js';
 
 /** MCP 网关子命令。 */
@@ -32,7 +32,7 @@ export class CliMcpCmds extends CliServerCmds {
         return await this.runMcpCall(args.slice(1));
       }
     } catch (error) {
-      console.error(`MCP 操作失败: ${messageOf(error)}`);
+      console.error(`MCP 操作失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
     process.stdout.write(
@@ -52,7 +52,7 @@ export class CliMcpCmds extends CliServerCmds {
    * @returns 永不 resolve 的 Promise（常驻 stdio 服务，直至流关闭或外部终止）。
    */
   protected async runMcpServe(args: readonly string[]): Promise<number> {
-    const cliArgs = parseArgs(['--prompt', 'mcp-serve', ...args]);
+    const cliArgs = ArgParser.parseArgs(['--prompt', 'mcp-serve', ...args]);
     if (cliArgs === undefined) {
       return 2;
     }
@@ -95,7 +95,7 @@ export class CliMcpCmds extends CliServerCmds {
       process.stdout.write('用法: omniharness mcp list --server NAME=COMMAND\n');
       return 2;
     }
-    const connection = await mcpConnector.connect(parseMcpServerSpec(spec));
+    const connection = await mcpConnector.connect(McpServerCommand.parseMcpServerSpec(spec));
     try {
       const tools = await connection.client.listTools();
       const info = connection.info;
@@ -125,7 +125,7 @@ export class CliMcpCmds extends CliServerCmds {
       );
       return 2;
     }
-    const connection = await mcpConnector.connect(parseMcpServerSpec(spec));
+    const connection = await mcpConnector.connect(McpServerCommand.parseMcpServerSpec(spec));
     try {
       const result = await connection.client.callTool(
         tool,

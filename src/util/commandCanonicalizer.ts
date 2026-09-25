@@ -1,4 +1,4 @@
-import { at } from './arrayAt.js';
+import { ArrayAt } from './arrayAt.js';
 /**
  * 命令规范化（对标 codex `command_canonicalization.rs`）。
  *
@@ -42,7 +42,7 @@ export class CommandCanonicalizer {
     let opened = false;
     let quote: '"' | "'" | undefined;
     for (let i = 0; i < input.length; i += 1) {
-      const ch = at(input, i);
+      const ch = ArrayAt.at(input, i);
       if (quote !== undefined) {
         if (ch === quote) {
           quote = undefined;
@@ -57,7 +57,7 @@ export class CommandCanonicalizer {
         continue;
       }
       if (ch === '\\' && i + 1 < input.length) {
-        current += at(input, i + 1);
+        current += ArrayAt.at(input, i + 1);
         i += 1;
         opened = true;
         continue;
@@ -131,7 +131,7 @@ export class CommandCanonicalizer {
     if (tokens.length < 3) {
       return undefined;
     }
-    const shell = this.basenameOf(at(tokens, 0));
+    const shell = this.basenameOf(ArrayAt.at(tokens, 0));
     if (!SHELLS.has(shell)) {
       return undefined;
     }
@@ -139,7 +139,7 @@ export class CommandCanonicalizer {
     if (!flags.some((flag) => SHELL_SCRIPT_FLAGS.has(flag))) {
       return undefined;
     }
-    return { shell, script: at(tokens, tokens.length - 1) };
+    return { shell, script: ArrayAt.at(tokens, tokens.length - 1) };
   }
 
   /** 提取 `powershell -Command "script"` 形态（-EncodedCommand 无法规范化，按原文降级）。 */
@@ -147,12 +147,12 @@ export class CommandCanonicalizer {
     if (tokens.length < 2) {
       return undefined;
     }
-    const program = this.basenameOf(at(tokens, 0));
+    const program = this.basenameOf(ArrayAt.at(tokens, 0));
     if (program !== 'powershell' && program !== 'pwsh') {
       return undefined;
     }
     for (let i = 1; i < tokens.length; i += 1) {
-      const flag = at(tokens, i).toLowerCase();
+      const flag = ArrayAt.at(tokens, i).toLowerCase();
       if (flag === '-encodedcommand') {
         return undefined;
       }
@@ -169,11 +169,11 @@ export class CommandCanonicalizer {
     if (tokens.length < 2) {
       return undefined;
     }
-    if (this.basenameOf(at(tokens, 0)) !== 'cmd') {
+    if (this.basenameOf(ArrayAt.at(tokens, 0)) !== 'cmd') {
       return undefined;
     }
     for (let i = 1; i < tokens.length; i += 1) {
-      const flag = at(tokens, i).toLowerCase();
+      const flag = ArrayAt.at(tokens, i).toLowerCase();
       if (flag === '/c' || flag === '/k') {
         const rest = tokens.slice(i + 1).join(' ');
         return rest === '' ? undefined : rest;
@@ -181,28 +181,28 @@ export class CommandCanonicalizer {
     }
     return undefined;
   }
+
+  /**
+   * shell 词法切分：按空白分词，处理单/双引号与反斜杠转义。
+   * 引号本身不保留，只保留其内容——保证「加不加引号」不改变 canonical 结果。
+   */
+  public static tokenizeShell(input: string): string[] {
+    return commandCanonicalizer.tokenizeShell(input);
+  }
+
+  /**
+   * 规范化命令：成功去包装时返回内层命令 token 序列；无法安全拆分时返回 `[标记, 原文]`。
+   * 空输入返回空数组，调用方应视为「无可审批目标」。
+   */
+  public static canonicalizeCommand(command: string): string[] {
+    return commandCanonicalizer.canonicalizeCommand(command);
+  }
+
+  /** 规范化结果的稳定字符串表示（供审批缓存键使用）。 */
+  public static canonicalKeyOf(tokens: readonly string[]): string {
+    return commandCanonicalizer.canonicalKeyOf(tokens);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const commandCanonicalizer = new CommandCanonicalizer();
-
-/**
- * shell 词法切分：按空白分词，处理单/双引号与反斜杠转义。
- * 引号本身不保留，只保留其内容——保证「加不加引号」不改变 canonical 结果。
- */
-export function tokenizeShell(input: string): string[] {
-  return commandCanonicalizer.tokenizeShell(input);
-}
-
-/**
- * 规范化命令：成功去包装时返回内层命令 token 序列；无法安全拆分时返回 `[标记, 原文]`。
- * 空输入返回空数组，调用方应视为「无可审批目标」。
- */
-export function canonicalizeCommand(command: string): string[] {
-  return commandCanonicalizer.canonicalizeCommand(command);
-}
-
-/** 规范化结果的稳定字符串表示（供审批缓存键使用）。 */
-export function canonicalKeyOf(tokens: readonly string[]): string {
-  return commandCanonicalizer.canonicalKeyOf(tokens);
-}

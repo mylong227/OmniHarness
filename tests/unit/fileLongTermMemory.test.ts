@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileLongTermMemory } from '../../src/adapters/memory/fileLongTermMemory.js';
 import { AesGcmTextCodec } from '../../src/adapters/memory/aesGcmTextCodec.js';
-import { decayFactor, rankWithDecay } from '../../src/adapters/memory/timeDecay.js';
+import { TimeDecay } from '../../src/adapters/memory/timeDecay.js';
 import type { MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 
 // 临时目录在模块加载期急切创建（不可放进 before() 钩子）：钩子若在部分运行器/版本下
@@ -159,11 +159,11 @@ describe('FileLongTermMemory（T3.1 时间维度：衰减召回 + 失效丢弃 +
 
   it('decayFactor：越旧衰减越多，非法/过期时间不衰减', () => {
     // 年龄近 0 → 衰减≈1（精确）
-    assert.ok(Math.abs(decayFactor(new Date(NOW).toISOString(), NOW, 30) - 1) < 1e-9);
+    assert.ok(Math.abs(TimeDecay.decayFactor(new Date(NOW).toISOString(), NOW, 30) - 1) < 1e-9);
     // 400 天（13+ 个半衰期）→ 衰减 < 1e-3
-    assert.ok(decayFactor(new Date(NOW - 400 * DAY).toISOString(), NOW, 30) < 1e-3);
+    assert.ok(TimeDecay.decayFactor(new Date(NOW - 400 * DAY).toISOString(), NOW, 30) < 1e-3);
     // 非法时间 → 不衰减
-    assert.strictEqual(decayFactor('not-a-date', NOW, 30), 1);
+    assert.strictEqual(TimeDecay.decayFactor('not-a-date', NOW, 30), 1);
   });
 
   it('rankWithDecay：失效事实过滤 + 同分按年龄降序', () => {
@@ -180,7 +180,7 @@ describe('FileLongTermMemory（T3.1 时间维度：衰减召回 + 失效丢弃 +
         score: 100,
       },
     ];
-    const ranked = rankWithDecay(items, NOW, 30, 10);
+    const ranked = TimeDecay.rankWithDecay(items, NOW, 30, 10);
     assert.deepStrictEqual(
       ranked.map((f) => f.id),
       ['new', 'old'],

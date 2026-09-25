@@ -7,8 +7,8 @@ import { WorkflowRunner } from '../../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../../autonomy/workflowTypes.js';
 import { jsonRpc } from './jsonRpc.js';
 import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
-import { id } from '../../util/id.js';
-import { queryAudit, type AuditQuery } from '../services/auditExporter.js';
+import { Id } from '../../util/id.js';
+import { AuditExporter, type AuditQuery } from '../services/auditExporter.js';
 import type { AuditEvent } from '../services/auditSink.js';
 import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
 import type { AppServerOptions, GraphRunState } from './appServerState.js';
@@ -320,7 +320,7 @@ export class AppServer extends AppServerSurfaceHandlers {
       const rawImp = typeof params['importance'] === 'number' ? params['importance'] : 3;
       const importance = Math.min(5, Math.max(1, Math.round(rawImp)));
       const fact: MemoryFact = {
-        id: id('mem'),
+        id: Id.id('mem'),
         text: text.trim(),
         topic,
         importance,
@@ -505,7 +505,7 @@ export class AppServer extends AppServerSurfaceHandlers {
       actor: str(params['actor']),
       limit: num(params['limit']),
     };
-    return queryAudit(sink.read(), query);
+    return AuditExporter.queryAudit(sink.read(), query);
   }
 
   /**
@@ -591,7 +591,7 @@ export class AppServer extends AppServerSurfaceHandlers {
       throw new Error('graph.run 需要 id（已存图）或 def（内联定义）');
     }
 
-    const runId = id('run');
+    const runId = Id.id('run');
     const runState: GraphRunState = {
       runId,
       defId: idParam,

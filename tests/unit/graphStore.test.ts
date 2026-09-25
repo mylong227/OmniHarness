@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GraphStore, sanitize } from '../../src/autonomy/graphStore.js';
+import { GraphStore } from '../../src/autonomy/graphStore.js';
 import type { WorkflowDef } from '../../src/autonomy/workflowTypes.js';
 
 function makeStore(): GraphStore {
@@ -55,9 +55,9 @@ test('GraphStore：缺 name / 空 steps 应 fail-closed 抛错', () => {
 });
 
 test('sanitize：归一化特殊字符为安全文件名', () => {
-  assert.strictEqual(sanitize('My Pipeline! @v2'), 'my-pipeline-v2');
-  assert.strictEqual(sanitize('  trim  '), 'trim');
-  assert.strictEqual(sanitize('---'), '');
+  assert.strictEqual(GraphStore.sanitize('My Pipeline! @v2'), 'my-pipeline-v2');
+  assert.strictEqual(GraphStore.sanitize('  trim  '), 'trim');
+  assert.strictEqual(GraphStore.sanitize('---'), '');
 });
 
 test('GraphStore：坏文件在 list 中跳过不阻断', () => {

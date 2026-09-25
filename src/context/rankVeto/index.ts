@@ -21,8 +21,8 @@
  * @see ./rankVetoEvaluator.ts
  */
 
-export { jaccardOverlap, meanPairwiseJaccard } from './rankVetoOverlap.js';
-export { structuralDiagnostics } from './rankVetoSpectrum.js';
+export { RankVetoOverlap } from './rankVetoOverlap.js';
+export { RankVetoSpectrum } from './rankVetoSpectrum.js';
 export type { StructuralDiagnostics, VetoGraph } from './rankVetoSpectrum.js';
 export { DEFAULT_VETO_THRESHOLDS, RankVetoEvaluator } from './rankVetoEvaluator.js';
 export type {

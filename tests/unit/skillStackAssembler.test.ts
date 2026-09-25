@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { assembleSkillStack } from '../../src/config/skillStackAssembler.js';
+import { SkillStackAssembler } from '../../src/config/skillStackAssembler.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import type { Skill } from '../../src/skill/skill.js';
@@ -26,7 +26,7 @@ const SAMPLE_SKILL: Skill = {
 };
 
 test('技能栈：缺省仅空注册表，各算子旁路', () => {
-  const stack = assembleSkillStack(base());
+  const stack = SkillStackAssembler.assembleSkillStack(base());
   assert.strictEqual(stack.skillRegistry.list().length, 0);
   assert.strictEqual(stack.crispr, undefined);
   assert.strictEqual(stack.crystallizer, undefined);
@@ -37,13 +37,13 @@ test('技能栈：缺省仅空注册表，各算子旁路', () => {
 });
 
 test('技能栈：受种技能池进注册表', () => {
-  const stack = assembleSkillStack(base({ skills: [SAMPLE_SKILL] }));
+  const stack = SkillStackAssembler.assembleSkillStack(base({ skills: [SAMPLE_SKILL] }));
   assert.strictEqual(stack.skillRegistry.list().length, 1);
   assert.strictEqual(stack.skillRegistry.get('demo')?.name, 'demo');
 });
 
 test('技能栈：各算子按开关构造且共享同一注册表', () => {
-  const stack = assembleSkillStack(
+  const stack = SkillStackAssembler.assembleSkillStack(
     base({
       skills: [SAMPLE_SKILL],
       skillEditing: { enabled: true },

@@ -12,7 +12,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CliDefaults, parseArgs } from '../../src/cli/argParser.js';
+import { CliDefaults, ArgParser } from '../../src/cli/argParser.js';
 import type { CliArgs } from '../../src/cli/argParser.js';
 import { FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.js';
 
@@ -42,7 +42,7 @@ test('CLI 机制护栏：所有消费取值的旗标都已在 VALUE_FLAGS 登记
 });
 
 test('CLI 回归：取值旗标的取值不得被并入 prompt（新增旗标 + 漏登记的 RLVR 旗标）', () => {
-  const args = parseArgs([
+  const args = ArgParser.parseArgs([
     '--evolution-rlvr',
     '--rlvr-verify',
     'node --check candidate.ts',
@@ -70,7 +70,7 @@ test('CLI 回归：取值旗标的取值不得被并入 prompt（新增旗标 + 
 
 test('CLI 校验：--a2a-transport 非法取值 fail-closed 抛错', () => {
   assert.throws(
-    () => parseArgs(['--a2a', '--a2a-transport', 'quic', '--prompt', 'x']),
+    () => ArgParser.parseArgs(['--a2a', '--a2a-transport', 'quic', '--prompt', 'x']),
     /非法参数值/,
     '枚举旗标必须显式校验，不得裸强转',
   );

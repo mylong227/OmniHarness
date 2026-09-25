@@ -5,7 +5,7 @@ import type {
   ModelRequest,
   StreamCallbacks,
 } from '../../ports/model/model.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /** 路由条目：一个底层模型适配器 + 其标识与定价。 */
 export interface RouterEntry {
@@ -103,7 +103,7 @@ export class ModelRouter implements ModelPort {
    * @returns 选中的路由条目。
    */
   private pick(request: ModelRequest): RouterEntry {
-    return at(this.options.entries, this.select(request));
+    return ArrayAt.at(this.options.entries, this.select(request));
   }
 
   /** health-fallback：依次尝试 entries，某 adapter 抛错则下一个；全失败才抛（fail-closed）。
@@ -175,7 +175,7 @@ export class ModelRouter implements ModelPort {
     let best = 0;
     let bestCost = Infinity;
     for (let i = 0; i < this.options.entries.length; i += 1) {
-      const cost = this.spend.get(at(this.options.entries, i).model) ?? 0;
+      const cost = this.spend.get(ArrayAt.at(this.options.entries, i).model) ?? 0;
       if (cost < bestCost) {
         bestCost = cost;
         best = i;

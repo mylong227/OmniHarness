@@ -6,7 +6,7 @@ import {
   type CheckpointMeta,
   type CheckpointManagerPort,
 } from '../ports/runtime/checkpointManager.js';
-import { readSnapshotFile, writeSnapshotFile } from './snapshotFileIo.js';
+import { SnapshotFileIo } from './snapshotFileIo.js';
 
 /** 检查点管理器选项。 */
 export interface CheckpointOptions {
@@ -32,20 +32,6 @@ const CK_PREFIX = 'checkpoint:';
  * `rollback` 取路径同源，配合快照还原构成越界读写。白名单 `..`、`/`、`\` 一律被拒。
  */
 const SAFE_CHECKPOINT_ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-/**
- * 校验检查点标识（标签或会话 id）。
- * @param value 待校验值
- * @param field 出错信息中的字段名
- * @throws Error 不符合白名单时抛出（调用方按 fail-closed 返回失败）
- */
-function assertSafeCheckpointId(value: string, field: string): void {
-  if (!SAFE_CHECKPOINT_ID.test(value)) {
-    throw new Error(
-      `${field} 非法（仅允许字母数字与 _ -，长度 1–64）：${value.replace(/[\r\n]/g, ' ').slice(0, 80)}`,
-    );
-  }
-}
 
 /** 索引 key：检查点 meta 以合成"会话"形式借 StoragePort 存取。 */
 
@@ -87,8 +73,8 @@ export class CheckpointManager implements CheckpointManagerPort {
    * @throws Error 标识非法或结果路径逃出 stateDir 时抛出（fail-closed）
    */
   private fileSnapshotPath(sessionId: string, label: string): string {
-    assertSafeCheckpointId(sessionId, 'sessionId');
-    assertSafeCheckpointId(label, 'label');
+    CheckpointManager.assertSafeCheckpointId(sessionId, 'sessionId');
+    CheckpointManager.assertSafeCheckpointId(label, 'label');
     const base = resolve(
       this.stateDir ?? join(this.workspaceRoot ?? process.cwd(), '.omni-checkpoints'),
     );
@@ -110,8 +96,8 @@ export class CheckpointManager implements CheckpointManagerPort {
     // 入口即校验（fail-closed）：不能只在 `fileSnapshotPath` 里校验——那条路径仅在注入了
     // workspaceSnapshot 时才走到，纯事件检查点会**跳过校验**（2026-09-22 由回归测试暴露）。
     // 非法标识还会被写进 storage 的合成 key（`checkpoint:<sid>:<label>`），故此处必须拦。
-    assertSafeCheckpointId(sessionId, 'sessionId');
-    assertSafeCheckpointId(label, 'label');
+    CheckpointManager.assertSafeCheckpointId(sessionId, 'sessionId');
+    CheckpointManager.assertSafeCheckpointId(label, 'label');
     const events = await this.storage.load(sessionId);
     const ts = new Date().toISOString();
     const hasFileSnapshot = await this.snapshotFiles(sessionId, label);
@@ -140,7 +126,7 @@ export class CheckpointManager implements CheckpointManagerPort {
     }
     try {
       const snapshot = await this.snapshotter.capture(this.workspaceRoot);
-      await writeSnapshotFile(this.fileSnapshotPath(sessionId, label), snapshot);
+      await SnapshotFileIo.writeSnapshotFile(this.fileSnapshotPath(sessionId, label), snapshot);
       return true;
     } catch (error) {
       // 文件快照失败时降级为纯事件检查点，但显式标记无文件快照（不谎称已捕获）。
@@ -171,9 +157,9 @@ export class CheckpointManager implements CheckpointManagerPort {
   public async rollback(sessionId: string, label?: string): Promise<CheckpointMeta> {
     // 入口即校验（fail-closed）——理由同 `snapshot()`：非法标识既会拼进 storage 合成 key，
     // 也会拼进文件快照路径（label 是模型可控参数）。
-    assertSafeCheckpointId(sessionId, 'sessionId');
+    CheckpointManager.assertSafeCheckpointId(sessionId, 'sessionId');
     if (label !== undefined) {
-      assertSafeCheckpointId(label, 'label');
+      CheckpointManager.assertSafeCheckpointId(label, 'label');
     }
     const index = await this.loadIndex(sessionId);
     if (index.length === 0) {
@@ -210,7 +196,7 @@ export class CheckpointManager implements CheckpointManagerPort {
 */
   private async restoreFiles(sessionId: string, label: string): Promise<void> {
     const path = this.fileSnapshotPath(sessionId, label);
-    const snapshot = await readSnapshotFile(path);
+    const snapshot = await SnapshotFileIo.readSnapshotFile(path);
     await this.snapshotter!.restore(this.workspaceRoot ?? snapshot.root, snapshot);
   }
 
@@ -276,5 +262,19 @@ export class CheckpointManager implements CheckpointManagerPort {
    */
   private static checkpointKey(sessionId: string, label: string): string {
     return `${CK_PREFIX}${sessionId}:${label}`;
+  }
+
+  /**
+   * 校验检查点标识（标签或会话 id）。
+   * @param value 待校验值
+   * @param field 出错信息中的字段名
+   * @throws Error 不符合白名单时抛出（调用方按 fail-closed 返回失败）
+   */
+  public static assertSafeCheckpointId(value: string, field: string): void {
+    if (!SAFE_CHECKPOINT_ID.test(value)) {
+      throw new Error(
+        `${field} 非法（仅允许字母数字与 _ -，长度 1–64）：${value.replace(/[\r\n]/g, ' ').slice(0, 80)}`,
+      );
+    }
   }
 }

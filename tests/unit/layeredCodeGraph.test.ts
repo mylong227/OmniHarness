@@ -11,17 +11,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildCodeGraph } from '../../src/context/codeGraphIndex.js';
-import {
-  arityOf,
-  buildLayeredCodeGraph,
-  edgeCountOf,
-  indentOf,
-  layeredFileRoute,
-  moduleOf,
-  nodeLayers,
-  scopeOwners,
-} from '../../src/context/layeredCodeGraph.js';
+import { CodeGraphIndex } from '../../src/context/codeGraphIndex.js';
+import { LayeredCodeGraph } from '../../src/context/layeredCodeGraph.js';
 import type { SymbolNode } from '../../src/context/repoMap.js';
 
 /** 构造符号节点的测试夹具。 */
@@ -69,31 +60,31 @@ const CORPUS = {
 };
 
 test('indentOf：空格、制表符与混合缩进', () => {
-  assert.strictEqual(indentOf('no indent'), 0);
-  assert.strictEqual(indentOf('  two'), 2);
-  assert.strictEqual(indentOf('\tone tab'), 2);
-  assert.strictEqual(indentOf('\t  mixed'), 4);
+  assert.strictEqual(LayeredCodeGraph.indentOf('no indent'), 0);
+  assert.strictEqual(LayeredCodeGraph.indentOf('  two'), 2);
+  assert.strictEqual(LayeredCodeGraph.indentOf('\tone tab'), 2);
+  assert.strictEqual(LayeredCodeGraph.indentOf('\t  mixed'), 4);
 });
 
 test('arityOf：无参 / 单参 / 多参 / 嵌套泛型不误计', () => {
-  assert.strictEqual(arityOf('function f(): void'), 0);
-  assert.strictEqual(arityOf('function f()'), 0);
-  assert.strictEqual(arityOf('function f(a: string)'), 1);
-  assert.strictEqual(arityOf('function f(a: string, b: number): void'), 2);
+  assert.strictEqual(LayeredCodeGraph.arityOf('function f(): void'), 0);
+  assert.strictEqual(LayeredCodeGraph.arityOf('function f()'), 0);
+  assert.strictEqual(LayeredCodeGraph.arityOf('function f(a: string)'), 1);
+  assert.strictEqual(LayeredCodeGraph.arityOf('function f(a: string, b: number): void'), 2);
   // Map<string, Array<number>> 里的逗号处于嵌套中，不应计入。
-  assert.strictEqual(arityOf('function f(m: Map<string, number[]>): void'), 1);
+  assert.strictEqual(LayeredCodeGraph.arityOf('function f(m: Map<string, number[]>): void'), 1);
   // 无参数列表的构造器式签名记 0。
-  assert.strictEqual(arityOf('class Foo'), 0);
+  assert.strictEqual(LayeredCodeGraph.arityOf('class Foo'), 0);
 });
 
 test('moduleOf：根目录 / 一级 / 多级目录', () => {
-  assert.strictEqual(moduleOf('index.ts'), '.');
-  assert.strictEqual(moduleOf('src/index.ts'), 'src');
-  assert.strictEqual(moduleOf('src/context/repoMap.ts'), 'src');
+  assert.strictEqual(LayeredCodeGraph.moduleOf('index.ts'), '.');
+  assert.strictEqual(LayeredCodeGraph.moduleOf('src/index.ts'), 'src');
+  assert.strictEqual(LayeredCodeGraph.moduleOf('src/context/repoMap.ts'), 'src');
 });
 
 test('nodeLayers：导出性、模块与元数被正确填充', () => {
-  const layers = nodeLayers(SYMBOLS);
+  const layers = LayeredCodeGraph.nodeLayers(SYMBOLS);
   assert.strictEqual(layers.length, SYMBOLS.length);
   assert.strictEqual(layers[0]?.exported, true, 'alpha 带 export');
   assert.strictEqual(layers[0]?.arity, 1, 'alpha 单参');
@@ -104,7 +95,7 @@ test('nodeLayers：导出性、模块与元数被正确填充', () => {
 test('scopeOwners：引用行归属所在作用域的宿主，定义行不归属自己', () => {
   const lines = FILE_A.split('\n');
   const localSyms = [SYMBOLS[0]!, SYMBOLS[1]!, SYMBOLS[2]!];
-  const owners = scopeOwners(lines, localSyms, 120);
+  const owners = LayeredCodeGraph.scopeOwners(lines, localSyms, 120);
 
   assert.strictEqual(owners.length, lines.length);
   assert.strictEqual(owners[0], -1, 'alpha 的定义行不自归属');
@@ -115,16 +106,16 @@ test('scopeOwners：引用行归属所在作用域的宿主，定义行不归属
 });
 
 test('scopeOwners：无符号文件时全为 -1', () => {
-  const owners = scopeOwners(['a', 'b'], [], 120);
+  const owners = LayeredCodeGraph.scopeOwners(['a', 'b'], [], 120);
   assert.deepStrictEqual(owners, [-1, -1]);
 });
 
 test('层化图 vs 稠密图：稀疏化显著，且真实关联一条不丢', () => {
-  const dense = buildCodeGraph(CORPUS);
-  const layered = buildLayeredCodeGraph(CORPUS);
+  const dense = CodeGraphIndex.buildCodeGraph(CORPUS);
+  const layered = LayeredCodeGraph.buildLayeredCodeGraph(CORPUS);
 
-  const denseCount = edgeCountOf(dense);
-  const layeredCount = edgeCountOf(layered);
+  const denseCount = LayeredCodeGraph.edgeCountOf(dense);
+  const layeredCount = LayeredCodeGraph.edgeCountOf(layered);
 
   // 稠密图：3 个本地符号 × 2 个外部引用 = 6 对 = 12 条有向边。
   assert.strictEqual(denseCount, 12, '稠密图为笛卡尔积');
@@ -144,43 +135,43 @@ test('层化图 vs 稠密图：稀疏化显著，且真实关联一条不丢', (
 });
 
 test('层化图：确定性（同输入两次构建结果一致）', () => {
-  const a = buildLayeredCodeGraph(CORPUS);
-  const b = buildLayeredCodeGraph(CORPUS);
-  assert.strictEqual(edgeCountOf(a), edgeCountOf(b));
+  const a = LayeredCodeGraph.buildLayeredCodeGraph(CORPUS);
+  const b = LayeredCodeGraph.buildLayeredCodeGraph(CORPUS);
+  assert.strictEqual(LayeredCodeGraph.edgeCountOf(a), LayeredCodeGraph.edgeCountOf(b));
   assert.deepStrictEqual(a.adj, b.adj);
 });
 
 test('layeredFileRoute：空种子返回空列表', () => {
-  const g = buildLayeredCodeGraph(CORPUS);
-  assert.deepStrictEqual(layeredFileRoute(SYMBOLS, g, new Map(), 10), []);
+  const g = LayeredCodeGraph.buildLayeredCodeGraph(CORPUS);
+  assert.deepStrictEqual(LayeredCodeGraph.layeredFileRoute(SYMBOLS, g, new Map(), 10), []);
 });
 
 test('layeredFileRoute：种子沿边扩散到被引用文件，且结果确定', () => {
-  const g = buildLayeredCodeGraph(CORPUS);
+  const g = LayeredCodeGraph.buildLayeredCodeGraph(CORPUS);
   // 只给 alpha（a.ts）打种子，扩散后应把 betahelper 所在的 b.ts 带出来。
   const seed = new Map<number, number>([[0, 1]]);
-  const route = layeredFileRoute(SYMBOLS, g, seed, 10);
+  const route = LayeredCodeGraph.layeredFileRoute(SYMBOLS, g, seed, 10);
   assert.ok(route.includes('a.ts'), '种子自身文件应在列');
   assert.ok(route.includes('b.ts'), 'alpha 引用 betahelper ⇒ b.ts 应被扩散带出');
   assert.ok(!route.includes('c.ts'), 'c.ts 与本种子无边（gamma 才引用它）');
 
   // 确定性：同输入两次结果完全相同。
-  assert.deepStrictEqual(route, layeredFileRoute(SYMBOLS, g, seed, 10));
+  assert.deepStrictEqual(route, LayeredCodeGraph.layeredFileRoute(SYMBOLS, g, seed, 10));
 });
 
 test('layeredFileRoute：limit 生效且按分数降序', () => {
-  const g = buildLayeredCodeGraph(CORPUS);
+  const g = LayeredCodeGraph.buildLayeredCodeGraph(CORPUS);
   const seed = new Map<number, number>([
     [0, 1],
     [1, 1],
   ]);
-  const all = layeredFileRoute(SYMBOLS, g, seed, 10);
+  const all = LayeredCodeGraph.layeredFileRoute(SYMBOLS, g, seed, 10);
   assert.ok(all.length >= 3);
-  assert.deepStrictEqual(layeredFileRoute(SYMBOLS, g, seed, 2), all.slice(0, 2));
+  assert.deepStrictEqual(LayeredCodeGraph.layeredFileRoute(SYMBOLS, g, seed, 2), all.slice(0, 2));
 });
 
 test('buildLayeredCodeGraph：空语料不抛错', () => {
-  const g = buildLayeredCodeGraph({ symbols: [], fileText: new Map() });
+  const g = LayeredCodeGraph.buildLayeredCodeGraph({ symbols: [], fileText: new Map() });
   assert.strictEqual(g.n, 0);
-  assert.strictEqual(edgeCountOf(g), 0);
+  assert.strictEqual(LayeredCodeGraph.edgeCountOf(g), 0);
 });

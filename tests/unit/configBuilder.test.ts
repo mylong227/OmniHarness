@@ -7,17 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  ConfigBuilder,
-  autoUserResponder,
-  buildApprovals,
-  buildHooks,
-  buildIdentity,
-  buildLsp,
-  buildModel,
-  buildSpill,
-  seedOf,
-} from '../../src/config/configBuilder.js';
+import { ConfigBuilder } from '../../src/config/configBuilder.js';
 import { ConfigError } from '../../src/config/configError.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { CachedApproval } from '../../src/adapters/approval/cachedApproval.js';
@@ -199,13 +189,13 @@ test('buildSpill：自定义优先；memory 选内存实现；缺省落文件实
 });
 
 test('autoUserResponder：非 TTY 环境回落 fail-soft 的 default 回答器', () => {
-  const out = autoUserResponder();
+  const out = ConfigBuilder.autoUserResponder();
   assert.strictEqual(out.name, process.stdout.isTTY ? 'console' : 'default');
 });
 
 test('buildHooks：返回含变更追踪钩子的运行器（pre/post 可调用）', () => {
   withWorkspace((root) => {
-    const runner = buildHooks(new TurnDiffTracker(), root);
+    const runner = ConfigBuilder.buildHooks(new TurnDiffTracker(), root);
     assert.strictEqual(typeof runner.pre, 'function');
     assert.strictEqual(typeof runner.post, 'function');
   });
@@ -214,7 +204,7 @@ test('buildHooks：返回含变更追踪钩子的运行器（pre/post 可调用�
 test('seedOf：透传标量字段并填 goalMaxIterations / subagent 缺省', () => {
   withWorkspace((root) => {
     const spill = new MemorySpill();
-    const seed = seedOf(
+    const seed = ConfigBuilder.seedOf(
       base(root, { subagentMaxDepth: 3, subagentConcurrency: 6, subagentMaxSteps: 9 }),
       new AutoApproval(),
       new PassthroughSandbox(),
@@ -238,11 +228,13 @@ test('seedOf：透传标量字段并填 goalMaxIterations / subagent 缺省', ()
 test('门面函数与 ConfigBuilder 方法同源（委托默认实例）', () => {
   withWorkspace((root) => {
     const partial = base(root);
-    assert.strictEqual(buildModel(partial, undefined), partial.model);
-    assert.strictEqual(buildSpill(base(root)).name, 'file');
-    assert.strictEqual(buildLsp(partial), undefined);
-    assert.strictEqual(buildIdentity(partial), undefined);
-    assert.ok(buildApprovals(partial, new PassthroughSandbox()) instanceof AutoApproval);
+    assert.strictEqual(ConfigBuilder.buildModel(partial, undefined), partial.model);
+    assert.strictEqual(ConfigBuilder.buildSpill(base(root)).name, 'file');
+    assert.strictEqual(ConfigBuilder.buildLsp(partial), undefined);
+    assert.strictEqual(ConfigBuilder.buildIdentity(partial), undefined);
+    assert.ok(
+      ConfigBuilder.buildApprovals(partial, new PassthroughSandbox()) instanceof AutoApproval,
+    );
   });
 });
 

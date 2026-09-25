@@ -14,7 +14,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TransformersEmbeddingAdapter,
-  shouldPreloadEmbedding,
   type TransformersModuleLoader,
   type TransformersModuleLike,
 } from '../../src/adapters/embedding/transformersEmbeddingAdapter.js';
@@ -143,11 +142,23 @@ test('L5 ⑤ embed 经注入管线取回向量（形状透传）', async () => {
 });
 
 test('L5 ⑥ 预热开关：仅显式 `OMNI_EMBED_PRELOAD=1` 才开（默认关 ⇒ 零行为变更）', () => {
-  assert.strictEqual(shouldPreloadEmbedding({}), false);
-  assert.strictEqual(shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: '' }), false);
-  assert.strictEqual(shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: '0' }), false);
-  assert.strictEqual(shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: 'true' }), false);
-  assert.strictEqual(shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: '1' }), true);
+  assert.strictEqual(TransformersEmbeddingAdapter.shouldPreloadEmbedding({}), false);
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: '' }),
+    false,
+  );
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: '0' }),
+    false,
+  );
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: 'true' }),
+    false,
+  );
+  assert.strictEqual(
+    TransformersEmbeddingAdapter.shouldPreloadEmbedding({ OMNI_EMBED_PRELOAD: '1' }),
+    true,
+  );
 });
 
 /**

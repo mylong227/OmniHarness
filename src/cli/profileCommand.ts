@@ -9,7 +9,7 @@
 
 import { join } from 'node:path';
 import { configFile } from '../config/configFile.js';
-import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfileStore.js';
+import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** profile 用法提示。 */
@@ -99,7 +99,7 @@ export class ProfileCommand {
       process.stdout.write('用法: omniharness profile delete <name>\n');
       return 2;
     }
-    const removed = store.delete(sanitizeProfileName(name));
+    const removed = store.delete(PluginProfileStore.sanitizeProfileName(name));
     process.stdout.write(
       removed ? `已删除插件集 profile: ${name}\n` : `（未找到 profile: ${name}）\n`,
     );
@@ -119,7 +119,7 @@ export class ProfileCommand {
       process.stdout.write('用法: omniharness profile use <name>\n');
       return 2;
     }
-    const id = sanitizeProfileName(name);
+    const id = PluginProfileStore.sanitizeProfileName(name);
     const profile = store.get(id);
     if (profile === undefined) {
       process.stderr.write(`未找到插件集 profile: ${name}\n`);

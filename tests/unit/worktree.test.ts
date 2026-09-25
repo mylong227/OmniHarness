@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, existsSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createWorktree, withWorktree } from '../../src/subagent/worktreeOps.js';
+import { WorktreeOps } from '../../src/subagent/worktreeOps.js';
 
 /** 探测 git 是否可用。 */
 function gitAvailable(): boolean {
@@ -39,7 +39,7 @@ test(
   async () => {
     const repo = makeRepo(true);
     try {
-      const wt = await createWorktree(repo, 'alpha');
+      const wt = await WorktreeOps.createWorktree(repo, 'alpha');
       assert.strictEqual(wt.isolated, 'worktree');
       assert.ok(existsSync(wt.path), 'worktree 路径应存在');
       await wt.cleanup();
@@ -53,7 +53,7 @@ test(
 test('createWorktree 在 git 不可用时降级为目录拷贝并可清理', { skip: gitAvailable() }, async () => {
   const repo = makeRepo(false);
   try {
-    const wt = await createWorktree(repo, 'beta');
+    const wt = await WorktreeOps.createWorktree(repo, 'beta');
     assert.strictEqual(wt.isolated, 'copy');
     assert.ok(existsSync(wt.path), '拷贝隔离路径应存在');
     await wt.cleanup();
@@ -68,7 +68,7 @@ test('withWorktree 在 fn 抛错时仍执行 cleanup（finally）', async () => 
   try {
     let observedPath = '';
     await assert.rejects(
-      withWorktree(repo, 'gamma', async (path) => {
+      WorktreeOps.withWorktree(repo, 'gamma', async (path) => {
         observedPath = path;
         throw new Error('boom');
       }),
@@ -84,7 +84,7 @@ test('withWorktree 在 fn 抛错时仍执行 cleanup（finally）', async () => 
 test('withWorktree 正常返回 fn 结果', async () => {
   const repo = makeRepo(gitAvailable());
   try {
-    const result = await withWorktree(repo, 'delta', async (path) => {
+    const result = await WorktreeOps.withWorktree(repo, 'delta', async (path) => {
       writeFileSync(join(path, 'child.txt'), 'x');
       return existsSync(join(path, 'child.txt'));
     });

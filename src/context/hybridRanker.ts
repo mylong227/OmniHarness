@@ -17,8 +17,8 @@
 
 import type { IndexedCorpus } from './contextEngine.js';
 import type { SymbolNode } from './repoMap.js';
-import { rrfMerge, type RecallHit } from './semanticIndex.js';
-import { getGraphSignal, graphNeighborFileRoute } from './codeReferenceGraph.js';
+import { SemanticIndex, type RecallHit } from './semanticIndex.js';
+import { CodeReferenceGraph } from './codeReferenceGraph.js';
 import type { RecallKnobs } from './recallKnobs.js';
 
 /** 融合排序结果：入选文件（rel 路径，按融合分降序）与符号（已截断到预算）。 */
@@ -74,7 +74,7 @@ export class HybridRanker {
 
     const toHits = (ids: readonly string[]): { id: string }[] => ids.map((id) => ({ id }));
     // 符号融合：BM25 符号路 ∪ 语义符号路，等权/semWeight 加权。
-    const mergedSym = rrfMerge([toHits(bm25SymIds), toHits(symSemIds)], knobs.rrfK, [
+    const mergedSym = SemanticIndex.rrfMerge([toHits(bm25SymIds), toHits(symSemIds)], knobs.rrfK, [
       1,
       knobs.semWeight,
     ]);
@@ -104,7 +104,7 @@ export class HybridRanker {
         fileWeights.push(knobs.graphWeight);
       }
     }
-    const mergedFile = rrfMerge(fileLists, knobs.rrfK, fileWeights);
+    const mergedFile = SemanticIndex.rrfMerge(fileLists, knobs.rrfK, fileWeights);
 
     const allFiles = mergedFile.map((id) => id.slice('file:'.length));
     let rankedFiles = allFiles.slice(0, knobs.fileK);
@@ -201,8 +201,8 @@ export class HybridRanker {
       if (seedSymIdx.length === 0) {
         return [];
       }
-      const sig = getGraphSignal(root, corpus);
-      return graphNeighborFileRoute(corpus, seedSymIdx, sig);
+      const sig = CodeReferenceGraph.getGraphSignal(root, corpus);
+      return CodeReferenceGraph.graphNeighborFileRoute(corpus, seedSymIdx, sig);
     } catch {
       return [];
     }

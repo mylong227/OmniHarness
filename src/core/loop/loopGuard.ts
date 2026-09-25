@@ -1,4 +1,4 @@
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 /**
  * LoopGuard（Agent Loop V2 失控检测，对标 OpenHands StuckDetector + agent-loop-guard
  * 品类思想，零依赖）。
@@ -121,7 +121,7 @@ export class LoopGuard {
     // 本步调用统一入序列（一次！exactRepeat 与 cycle 共享同一条历史，
     // 各自 push 会把序列翻倍、把单调用误判成周期 1 循环）。
     for (const call of observation.toolCalls) {
-      this.callSeq.push(`${call.name}::${canonicalArgs(call.arguments)}`);
+      this.callSeq.push(`${call.name}::${LoopGuard.canonicalArgs(call.arguments)}`);
     }
     this.trimSeq();
     if (this.maxExactRepeats > 0 && this.trailingRepeatsExceed()) {
@@ -161,7 +161,7 @@ export class LoopGuard {
     if (this.callSeq.length === 0) {
       return false;
     }
-    const last = at(this.callSeq, this.callSeq.length - 1);
+    const last = ArrayAt.at(this.callSeq, this.callSeq.length - 1);
     return this.countTrailingRepeats(last) >= this.maxExactRepeats;
   }
 
@@ -264,21 +264,22 @@ export class LoopGuard {
     // 40+ 字符、无空格、字母数字混合且熵高的 token（粗判：含数字且无空白的连续串）。
     return /^[A-Za-z0-9_\-+/=]{40,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s);
   }
+
+  /**
+   * 参数规范化：易变字段掩码 + 键排序序列化，使「同意图」参数归一为同一签名。
+   * 递归处理嵌套对象；数组保序（顺序通常有语义，如多个路径）。
+   * @param args 工具调用原始入参对象。
+   * @returns 规范化后的 JSON 字符串签名（同意图调用恒相同）。
+   */
+  public static canonicalArgs(args: Record<string, unknown>): string {
+    return JSON.stringify(LoopGuard.maskValue(args));
+  }
 }
 
 /**
  * 参数规范化：易变字段掩码 + 键排序序列化，使「同意图」参数归一为同一签名。
  * 递归处理嵌套对象；数组保序（顺序通常有语义，如多个路径）。
  */
-/**
- * 参数规范化：易变字段掩码 + 键排序序列化，使「同意图」参数归一为同一签名。
- * 递归处理嵌套对象；数组保序（顺序通常有语义，如多个路径）。
- * @param args 工具调用原始入参对象。
- * @returns 规范化后的 JSON 字符串签名（同意图调用恒相同）。
- */
-export function canonicalArgs(args: Record<string, unknown>): string {
-  return JSON.stringify(LoopGuard.maskValue(args));
-}
 
 /**
  * 递归掩码易变字段与高熵随机串（canonicalArgs 的实现核心）。

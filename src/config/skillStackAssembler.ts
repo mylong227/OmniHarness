@@ -11,7 +11,7 @@ import type { OmniHarnessConfig } from './configFactory.js';
 /**
  * SkillStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */
-class SkillStackAssembler {
+export class SkillStackAssembler {
   /**
    * (P2, I-P2-4) CRISPR 精确技能编辑：启用时构造编辑器（接受种技能端口）。
    * @param {OmniHarnessConfig} partial - partial
@@ -91,6 +91,34 @@ class SkillStackAssembler {
     }
     return new ConfinementEngine({ groupOrder: partial.confinement.groupOrder });
   }
+
+  /**
+   * 装配技能 / 能力算子栈（组合根一侧）。
+   *
+   * 先由配置技能池构造 `SkillRegistry`（空池亦安全），再把编辑器 / 固化器 / 各型能力算子
+   * 依次挂到同一注册表上——保证「编辑—固化—观测」面对的是同一份技能状态，不产生影子副本。
+   * 各算子均为 opt-in：未显式启用即 undefined，主循环零侵入。
+   *
+   * @param partial 未解析的运行配置。
+   * @returns 技能栈切片（技能注册表恒存在，其余算子按开关可选）。
+   */
+  public static assembleSkillStack(partial: OmniHarnessConfig): SkillStack {
+    // 受种技能注册表：从配置技能池构造，供 CRISPR 编辑与相变固化复用（零破坏：空池亦安全）。
+    const skillRegistry = new SkillRegistry();
+    if (partial.skills !== undefined) {
+      for (const skill of partial.skills) skillRegistry.register(skill);
+    }
+    return {
+      skillRegistry,
+      crispr: SkillStackAssembler.buildCrispr(partial, skillRegistry),
+      crystallizer: SkillStackAssembler.buildCrystallizer(partial, skillRegistry),
+      etching: SkillStackAssembler.buildEtching(partial),
+      elementComposerEngine:
+        partial.elementComposer?.enabled === true ? new ElementComposer() : undefined,
+      symmetry: SkillStackAssembler.buildSymmetry(partial),
+      confinementEngine: SkillStackAssembler.buildConfinement(partial),
+    };
+  }
 }
 
 /**
@@ -112,32 +140,4 @@ export interface SkillStack {
   readonly symmetry: SymmetryBreakingEngine | undefined;
   /** (P3, I-P3-4) 禁闭色荷引擎（可选）：`confinement.enabled` 时构造。 */
   readonly confinementEngine: ConfinementEngine | undefined;
-}
-
-/**
- * 装配技能 / 能力算子栈（组合根一侧）。
- *
- * 先由配置技能池构造 `SkillRegistry`（空池亦安全），再把编辑器 / 固化器 / 各型能力算子
- * 依次挂到同一注册表上——保证「编辑—固化—观测」面对的是同一份技能状态，不产生影子副本。
- * 各算子均为 opt-in：未显式启用即 undefined，主循环零侵入。
- *
- * @param partial 未解析的运行配置。
- * @returns 技能栈切片（技能注册表恒存在，其余算子按开关可选）。
- */
-export function assembleSkillStack(partial: OmniHarnessConfig): SkillStack {
-  // 受种技能注册表：从配置技能池构造，供 CRISPR 编辑与相变固化复用（零破坏：空池亦安全）。
-  const skillRegistry = new SkillRegistry();
-  if (partial.skills !== undefined) {
-    for (const skill of partial.skills) skillRegistry.register(skill);
-  }
-  return {
-    skillRegistry,
-    crispr: SkillStackAssembler.buildCrispr(partial, skillRegistry),
-    crystallizer: SkillStackAssembler.buildCrystallizer(partial, skillRegistry),
-    etching: SkillStackAssembler.buildEtching(partial),
-    elementComposerEngine:
-      partial.elementComposer?.enabled === true ? new ElementComposer() : undefined,
-    symmetry: SkillStackAssembler.buildSymmetry(partial),
-    confinementEngine: SkillStackAssembler.buildConfinement(partial),
-  };
 }

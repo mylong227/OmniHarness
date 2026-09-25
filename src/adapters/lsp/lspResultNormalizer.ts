@@ -19,7 +19,7 @@
  * 2. **不认识的形状一律剔除**：宁可少给一条位置，也不抛错中断整批结果。
  */
 import type { LspLocation } from '../../ports/tool/lsp.js';
-import { uriToFile } from './lspUri.js';
+import { LspUri } from './lspUri.js';
 
 /** 扩展名 → LSP `languageId` 查表（未收录的回退 `plaintext`）。 */
 const LANGUAGE_IDS: Readonly<Record<string, string>> = {
@@ -70,7 +70,7 @@ export class LspResultNormalizer {
           };
         };
         out.push({
-          uri: uriToFile(loc.uri),
+          uri: LspUri.uriToFile(loc.uri),
           range: {
             start: { line: loc.range.start.line + 1, character: loc.range.start.character + 1 },
             end: { line: loc.range.end.line + 1, character: loc.range.end.character + 1 },

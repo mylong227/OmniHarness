@@ -18,14 +18,9 @@ import { HttpServer, HttpBridgeTransport } from '../server/transport/httpServer.
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.js';
 import { Metrics } from '../server/services/metrics.js';
 import { AppServer } from '../server/core/appServer.js';
-import { runDoctor as runDoctorReport, printDoctor } from './doctorRunner.js';
+import { DoctorRunner } from './doctorRunner.js';
 import {
-  fetchDiscovery,
-  generatePkcePair,
-  buildAuthorizationUrl,
-  exchangeCode,
-  writeAuthState,
-  readAuthState,
+  OidcClient,
   EnterpriseAuth,
   type OidcProviderConfig,
   type AuthState,
@@ -33,15 +28,12 @@ import {
 } from '../enterprise/index.js';
 import { CodeGenerator } from '../schema/codeGenerator.js';
 import { protocolSchema } from '../schema/protocolSchema.js';
-import {
-  Ed25519AgentIdentity,
-  generateAgentKeyMaterial,
-} from '../adapters/identity/ed25519AgentIdentity.js';
+import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
 import { DaemonController } from '../daemon/daemonController.js';
 import { configFile } from '../config/configFile.js';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.js';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
-import { parseArgs, printUsage, toWindowsPath, CliDefaults, configDefaults } from './argParser.js';
+import { ArgParser, CliDefaults } from './argParser.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
 import { CliArgReader } from './cliArgReader.js';
 
@@ -53,9 +45,9 @@ export class CliServerCmds extends CliBuildConfig {
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
    */
   protected async runServer(serverArgs: readonly string[]): Promise<number> {
-    const args = parseArgs(['--prompt', 'server', ...serverArgs]);
+    const args = ArgParser.parseArgs(['--prompt', 'server', ...serverArgs]);
     if (args === undefined) {
-      printUsage();
+      ArgParser.printUsage();
       return 2;
     }
     const config = await this.buildConfig(args);
@@ -134,8 +126,8 @@ export class CliServerCmds extends CliBuildConfig {
    */
   protected async runDoctor(args: readonly string[]): Promise<number> {
     const configPath = this.flagValue(args, '--config');
-    const report = runDoctorReport({ configPath });
-    printDoctor(report);
+    const report = DoctorRunner.runDoctor({ configPath });
+    DoctorRunner.printDoctor(report);
     return report.issues.length === 0 ? 0 : 1;
   }
 
@@ -176,10 +168,10 @@ export class CliServerCmds extends CliBuildConfig {
       scope: this.flagValue(rest, '--scope'),
     };
     // 真实拉取 discovery（需可达 IdP；本机仅做编译/单测，真实接入需目标 IdP，见 D2 说明）。
-    const discovery = await fetchDiscovery(issuer);
-    const pkce = generatePkcePair();
+    const discovery = await OidcClient.fetchDiscovery(issuer);
+    const pkce = OidcClient.generatePkcePair();
     const state = crypto.randomBytes(16).toString('hex');
-    const authUrl = buildAuthorizationUrl(discovery, config, {
+    const authUrl = OidcClient.buildAuthorizationUrl(discovery, config, {
       state,
       codeChallenge: pkce.challenge,
     });
@@ -194,7 +186,7 @@ export class CliServerCmds extends CliBuildConfig {
       createdAt: new Date().toISOString(),
     };
     const statePath = join(homedir(), '.omni-auth-state.json');
-    writeAuthState(statePath, authState);
+    OidcClient.writeAuthState(statePath, authState);
     process.stdout.write(
       `请在浏览器打开以下地址完成登录（登录后回调将携带 ?code=...&state=${state}）：\n\n${authUrl}\n\n` +
         `中间态已写入 ${statePath}；拿到 code 后执行：\n` +
@@ -219,7 +211,7 @@ export class CliServerCmds extends CliBuildConfig {
       process.stderr.write(`未找到中间态文件 ${statePath}，请先执行 auth login\n`);
       return 1;
     }
-    const st = readAuthState(statePath);
+    const st = OidcClient.readAuthState(statePath);
     const stateArg = this.flagValue(rest, '--state');
     if (stateArg !== undefined && stateArg !== st.state) {
       process.stderr.write('state 不匹配，拒绝处理（防 CSRF）\n');
@@ -232,8 +224,8 @@ export class CliServerCmds extends CliBuildConfig {
       redirectUri: st.redirectUri,
       scope: st.scope,
     };
-    const discovery = await fetchDiscovery(st.issuer);
-    const tokens = await exchangeCode(discovery, config, {
+    const discovery = await OidcClient.fetchDiscovery(st.issuer);
+    const tokens = await OidcClient.exchangeCode(discovery, config, {
       code,
       codeVerifier: st.codeVerifier,
       redirectUri: st.redirectUri,
@@ -261,11 +253,12 @@ export class CliServerCmds extends CliBuildConfig {
       return 2;
     }
     if (sub === 'generate') {
-      const material = generateAgentKeyMaterial();
+      const material = Ed25519AgentIdentity.generateAgentKeyMaterial();
       process.stdout.write(`${JSON.stringify(material)}\n`);
       return 0;
     }
-    const cliArgs = parseArgs(['--prompt', 'identity-placeholder', ...args]) ?? CliDefaults;
+    const cliArgs =
+      ArgParser.parseArgs(['--prompt', 'identity-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
     const privateKey = this.flagValue(args, '--private-key');
     const runtimeId = this.flagValue(args, '--runtime-id');
@@ -340,15 +333,17 @@ export class CliServerCmds extends CliBuildConfig {
    */
   protected async runServe(serveArgs: readonly string[]): Promise<number> {
     // 先预解析一次以定位工作区与配置文件（--workspace/--config 影响查找路径）。
-    const preArgs = parseArgs(['--prompt', 'serve', ...serveArgs]);
+    const preArgs = ArgParser.parseArgs(['--prompt', 'serve', ...serveArgs]);
     if (preArgs === undefined) {
-      printUsage();
+      ArgParser.printUsage();
       return 2;
     }
-    const wsRoot = toWindowsPath(preArgs.workspace ?? process.cwd());
+    const wsRoot = ArgParser.toWindowsPath(preArgs.workspace ?? process.cwd());
     const explicitConfig = this.flagValue(serveArgs, '--config');
     const foundConfig =
-      explicitConfig !== undefined ? toWindowsPath(explicitConfig) : configFile.find(wsRoot);
+      explicitConfig !== undefined
+        ? ArgParser.toWindowsPath(explicitConfig)
+        : configFile.find(wsRoot);
     if (explicitConfig === undefined && foundConfig === undefined) {
       process.stderr.write(
         '[omniharness] 未找到 omniharness.json，serve 将使用内置默认配置（mock 模型）。\n',
@@ -361,10 +356,10 @@ export class CliServerCmds extends CliBuildConfig {
     // 加载项目配置文件后，把其中字段作为 CLI 默认值：这样 serve 启动时后端实际运行配置
     // 与文件内容一致（如 approval=auto），不再出现 UI 显示 auto 后端却用 rules 的漂移。
     const loadedFile = configFile.load(configPath);
-    const fileDefaults = configDefaults(loadedFile);
-    const args = parseArgs(['--prompt', 'serve', ...serveArgs], fileDefaults);
+    const fileDefaults = ArgParser.configDefaults(loadedFile);
+    const args = ArgParser.parseArgs(['--prompt', 'serve', ...serveArgs], fileDefaults);
     if (args === undefined) {
-      printUsage();
+      ArgParser.printUsage();
       return 2;
     }
     // 修复「工作区错位」：配置文件里的 workspace 字段是 UI「当前选中工作区」的运行时状态，

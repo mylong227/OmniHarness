@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
-import { id } from '../../util/id.js';
+import { Id } from '../../util/id.js';
 import { log } from '../../util/logger.js';
 
 /** 合法外溢 ID（防目录穿越：id 会被拼进文件路径）。 */
@@ -55,7 +55,7 @@ export class FileSpill implements SpillPort {
    */
   public async spill(content: string, _sessionId: string): Promise<SpillHandle> {
     await mkdir(this.root, { recursive: true });
-    const handle = { id: id('spill'), bytes: Buffer.byteLength(content, 'utf8') };
+    const handle = { id: Id.id('spill'), bytes: Buffer.byteLength(content, 'utf8') };
     await writeFile(this.pathOf(handle.id), content, 'utf8');
     await this.collect();
     return handle;

@@ -11,7 +11,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { evaluateSnapshot } from '../dist/src/security/injectionMetric.js';
+import { InjectionMetric } from '../dist/src/security/injectionMetric.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const snapPath = join(here, 'fixtures', 'injection-snapshot.json');
@@ -19,7 +19,7 @@ const reportPath = join(here, 'injection-metric.report.json');
 
 const snapshot = JSON.parse(readFileSync(snapPath, 'utf8'));
 const cases = snapshot.cases;
-const report = evaluateSnapshot(cases);
+const report = InjectionMetric.evaluateSnapshot(cases);
 
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
 const lines = [];

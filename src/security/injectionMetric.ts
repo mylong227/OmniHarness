@@ -18,13 +18,35 @@
  *
  * 聚合细节见 `InjectionSnapshotAggregator`；本模块只做「逐例扫描 + 编排」。
  */
-import { scanForInjection } from './promptInjectionGuard.js';
+import { PromptInjectionGuard } from './promptInjectionGuard.js';
 import {
   InjectionSnapshotAggregator,
   type CaseOutcome,
   type InjectionCase,
   type SnapshotReport,
 } from './injectionSnapshotAggregator.js';
+
+/**
+ * InjectionMetric —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class InjectionMetric {
+  /**
+   * 对快照跑护栏并汇总度量（含按类别、按来源拆分）。
+   *
+   * @param cases 离线 curated 用例（可带 `source` 指定来源信任级）。
+   * @returns 度量报告。
+   */
+  public static evaluateSnapshot(cases: readonly InjectionCase[]): SnapshotReport {
+    const aggregator = new InjectionSnapshotAggregator();
+    const outcomes: CaseOutcome[] = [];
+    for (const c of cases) {
+      const tier = c.source ?? 'unknown';
+      const scan = PromptInjectionGuard.scanForInjection(c.text, tier);
+      outcomes.push(aggregator.record(c, tier, scan.blocked, scan.score < 0 ? 0 : scan.score));
+    }
+    return aggregator.build(cases.length, outcomes);
+  }
+}
 
 export type {
   CaseOutcome,
@@ -33,20 +55,3 @@ export type {
   SnapshotReport,
   SourceStat,
 } from './injectionSnapshotAggregator.js';
-
-/**
- * 对快照跑护栏并汇总度量（含按类别、按来源拆分）。
- *
- * @param cases 离线 curated 用例（可带 `source` 指定来源信任级）。
- * @returns 度量报告。
- */
-export function evaluateSnapshot(cases: readonly InjectionCase[]): SnapshotReport {
-  const aggregator = new InjectionSnapshotAggregator();
-  const outcomes: CaseOutcome[] = [];
-  for (const c of cases) {
-    const tier = c.source ?? 'unknown';
-    const scan = scanForInjection(c.text, tier);
-    outcomes.push(aggregator.record(c, tier, scan.blocked, scan.score < 0 ? 0 : scan.score));
-  }
-  return aggregator.build(cases.length, outcomes);
-}

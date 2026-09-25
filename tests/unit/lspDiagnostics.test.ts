@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
-import { fileToUri } from '../../src/adapters/lsp/lspUri.js';
+import { LspUri } from '../../src/adapters/lsp/lspUri.js';
 import { LspDiagnosticsTool } from '../../src/adapters/tool/lsp/lspDiagnosticsTool.js';
 import type { LspPort } from '../../src/ports/tool/lsp.js';
 
@@ -17,7 +17,7 @@ const adapter = (): LspProcessAdapter =>
   new LspProcessAdapter({
     serverCommand: process.execPath,
     serverArgs: [mockServer],
-    rootUri: fileToUri(process.cwd()),
+    rootUri: LspUri.fileToUri(process.cwd()),
   });
 
 test('lsp_diagnostics：端到端拿到真实推送的诊断，且坐标转回 1-based', async () => {

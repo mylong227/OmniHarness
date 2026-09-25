@@ -1,14 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  validateManifestPermissions,
-  type PluginDescriptor,
-  type PluginManifest,
-} from './manifest.js';
+import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.js';
 import { BUNDLED_PLUGINS, type BundledPlugin } from './bundledRegistry.js';
 import {
   DEFAULT_REGISTRY_URL,
-  httpsBuffer,
+  RegistrySourcesShared,
   type RegistrySource,
   type RemoteDownloader,
   LocalDirSource,
@@ -122,7 +118,7 @@ export class PluginRegistry {
       throw new Error(`未找到插件: ${name}（用 plugin search 查看可用项）`);
     }
     // 先校验权限，非法即中止（fail-closed），避免落盘半成品。
-    validateManifestPermissions(descriptor.manifest);
+    Manifest.validateManifestPermissions(descriptor.manifest);
 
     const target = join(this.options.pluginsDir, descriptor.manifest.name);
     if (descriptor.installFrom.kind === 'path') {
@@ -132,7 +128,9 @@ export class PluginRegistry {
       }
       PluginRegistry.copyDirRecursive(source, target);
     } else {
-      const buffer = await (this.options.downloader ?? httpsBuffer)(descriptor.installFrom.url);
+      const buffer = await (this.options.downloader ?? RegistrySourcesShared.httpsBuffer)(
+        descriptor.installFrom.url,
+      );
       mkdirSync(target, { recursive: true });
       writeFileSync(join(target, descriptor.manifest.entry ?? 'index.js'), buffer);
     }

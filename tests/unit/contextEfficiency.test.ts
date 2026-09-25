@@ -1,47 +1,39 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  canonicalize,
-  stableStringify,
-  scrubVolatile,
-  commonPrefixLength,
-  prefixReuse,
-  buildStablePrompt,
-  jitterSegments,
-  measurePrefixStability,
-  compressContext,
-  collapseBlankLines,
-  truncateLongOutput,
-  deduplicateSegments,
-  byteLength,
-} from '../../src/context/index.js';
+import { Canonical, PrefixStability, DeterministicCompressor } from '../../src/context/index.js';
 import type { ContextSegment, PromptSegment } from '../../src/context/index.js';
 
 // ---------- canonical ----------
 
 test('canonicalize：幂等（canonicalize ∘ canonicalize ≡ canonicalize）', () => {
   const value = { b: 1, a: { d: 2, c: [3, { f: 4, e: 5 }] } };
-  const once = canonicalize(value);
-  assert.deepStrictEqual(canonicalize(once), once);
+  const once = Canonical.canonicalize(value);
+  assert.deepStrictEqual(Canonical.canonicalize(once), once);
 });
 
 test('canonicalize：对象 key 顺序无关（数组保序）', () => {
-  const a = canonicalize({ x: 1, y: [1, 2, 3] });
-  const b = canonicalize({ y: [1, 2, 3], x: 1 });
+  const a = Canonical.canonicalize({ x: 1, y: [1, 2, 3] });
+  const b = Canonical.canonicalize({ y: [1, 2, 3], x: 1 });
   assert.deepStrictEqual(a, b);
   // 数组顺序是语义，不得排序
-  assert.notDeepStrictEqual(canonicalize({ y: [3, 2, 1] }), a);
+  assert.notDeepStrictEqual(Canonical.canonicalize({ y: [3, 2, 1] }), a);
 });
 
 test('stableStringify：key 顺序不同仍产出同一字节串', () => {
-  assert.strictEqual(stableStringify({ a: 1, b: 2 }), stableStringify({ b: 2, a: 1 }));
+  assert.strictEqual(
+    Canonical.stableStringify({ a: 1, b: 2 }),
+    Canonical.stableStringify({ b: 2, a: 1 }),
+  );
   // 剔除 undefined 字段
-  assert.strictEqual(stableStringify({ a: 1, b: undefined }), stableStringify({ a: 1 }));
+  assert.strictEqual(
+    Canonical.stableStringify({ a: 1, b: undefined }),
+    Canonical.stableStringify({ a: 1 }),
+  );
 });
 
 test('scrubVolatile：擦除时间戳 / UUID / pid', () => {
   const noisy = 'run at 2024-01-02T03:04:05.678Z id=0a1b2c3d-eeee-4aaa-8bbb-ccccddddeeee pid=4242';
-  const cleaned = scrubVolatile(noisy);
+  const cleaned = Canonical.scrubVolatile(noisy);
   assert.ok(!/\d{4}-\d{2}-\d{2}T/.test(cleaned));
   assert.ok(!/pid=4242/.test(cleaned));
   assert.ok(cleaned.includes('<TS>'));
@@ -51,11 +43,11 @@ test('scrubVolatile：擦除时间戳 / UUID / pid', () => {
 // ---------- prefix stability ----------
 
 test('commonPrefixLength / prefixReuse：自反率为 1', () => {
-  assert.strictEqual(commonPrefixLength('abcdef', 'abcxyz'), 3);
+  assert.strictEqual(PrefixStability.commonPrefixLength('abcdef', 'abcxyz'), 3);
   const text = 'hello world';
-  assert.strictEqual(prefixReuse(text, text), 1);
+  assert.strictEqual(PrefixStability.prefixReuse(text, text), 1);
   // 空前缀视为完全可复用
-  assert.strictEqual(prefixReuse('', 'anything'), 1);
+  assert.strictEqual(PrefixStability.prefixReuse('', 'anything'), 1);
 });
 
 const BASE_SEGMENTS: readonly PromptSegment[] = [
@@ -71,27 +63,33 @@ function naivePrompt(segments: readonly PromptSegment[]): string {
 }
 
 test('前缀复用：规范化后 ≡ 1（顺序抖动 + 易变注入下仍完全复用）', () => {
-  const report = measurePrefixStability(BASE_SEGMENTS, 12, true);
+  const report = PrefixStability.measurePrefixStability(BASE_SEGMENTS, 12, true);
   assert.strictEqual(report.minReuse, 1, '规范前缀在任何抖变体下都应 100% 可复用');
   assert.strictEqual(report.meanReuse, 1);
 });
 
 test('前缀复用：不规范化时显著劣化（证明治理必要，非装饰）', () => {
-  const raw = measurePrefixStability(BASE_SEGMENTS, 12, false);
+  const raw = PrefixStability.measurePrefixStability(BASE_SEGMENTS, 12, false);
   assert.ok(raw.meanReuse < 1, `未规范化复用率应 <1，实测 ${raw.meanReuse}`);
 });
 
 test('对照：朴素拼接在顺序抖动下复用率崩塌，规范拼接不受影响', () => {
   // 基准同样是抖变体（真实每轮都带噪声），否则是拿理想态比真实态
-  const naiveBase = naivePrompt(jitterSegments(BASE_SEGMENTS, 1));
-  const stableBase = buildStablePrompt(jitterSegments(BASE_SEGMENTS, 1), { scrub: true });
+  const naiveBase = naivePrompt(PrefixStability.jitterSegments(BASE_SEGMENTS, 1));
+  const stableBase = PrefixStability.buildStablePrompt(
+    PrefixStability.jitterSegments(BASE_SEGMENTS, 1),
+    { scrub: true },
+  );
   let naiveSum = 0;
   let stableSum = 0;
   const n = 12;
   for (let i = 1; i <= n; i += 1) {
-    const jittered = jitterSegments(BASE_SEGMENTS, i);
-    naiveSum += prefixReuse(naiveBase, naivePrompt(jittered));
-    stableSum += prefixReuse(stableBase, buildStablePrompt(jittered, { scrub: true }));
+    const jittered = PrefixStability.jitterSegments(BASE_SEGMENTS, i);
+    naiveSum += PrefixStability.prefixReuse(naiveBase, naivePrompt(jittered));
+    stableSum += PrefixStability.prefixReuse(
+      stableBase,
+      PrefixStability.buildStablePrompt(jittered, { scrub: true }),
+    );
   }
   const naiveMean = naiveSum / n;
   const stableMean = stableSum / n;
@@ -101,7 +99,10 @@ test('对照：朴素拼接在顺序抖动下复用率崩塌，规范拼接不�
 
 test('buildStablePrompt：按 (tier, key) 排序，与输入顺序无关', () => {
   const shuffled = [BASE_SEGMENTS[3]!, BASE_SEGMENTS[1]!, BASE_SEGMENTS[0]!, BASE_SEGMENTS[2]!];
-  assert.strictEqual(buildStablePrompt(shuffled), buildStablePrompt(BASE_SEGMENTS));
+  assert.strictEqual(
+    PrefixStability.buildStablePrompt(shuffled),
+    PrefixStability.buildStablePrompt(BASE_SEGMENTS),
+  );
 });
 
 // ---------- deterministic compression ----------
@@ -128,22 +129,22 @@ function sampleSegments(): readonly ContextSegment[] {
 }
 
 test('compressContext：单调性（压缩后字节 ≤ 压缩前）', () => {
-  const { report } = compressContext(sampleSegments());
+  const { report } = DeterministicCompressor.compressContext(sampleSegments());
   assert.ok(report.compressedBytes <= report.originalBytes);
   assert.ok(report.ratio < 1, `应有实际压缩，实测 ratio=${report.ratio}`);
   assert.strictEqual(report.savedBytes, report.originalBytes - report.compressedBytes);
 });
 
 test('compressContext：幂等（compress ∘ compress ≡ compress）', () => {
-  const once = compressContext(sampleSegments());
-  const twice = compressContext(once.segments);
+  const once = DeterministicCompressor.compressContext(sampleSegments());
+  const twice = DeterministicCompressor.compressContext(once.segments);
   assert.deepStrictEqual(twice.segments, once.segments);
   assert.strictEqual(twice.report.compressedBytes, once.report.compressedBytes);
 });
 
 test('compressContext：保序（去重保留首次出现，相对顺序不变）', () => {
   const input = sampleSegments();
-  const { segments } = compressContext(input);
+  const { segments } = DeterministicCompressor.compressContext(input);
   const keys = segments.map((s) => s.key);
   // user-2 与 user-1 内容重复 → 被去除
   assert.ok(!keys.includes('user-2'));
@@ -155,18 +156,18 @@ test('compressContext：保序（去重保留首次出现，相对顺序不变�
 
 test('truncateLongOutput：幂等 + 保留可追溯行数（不制造幻觉）', () => {
   const long = LONG_OUTPUT(500);
-  const once = truncateLongOutput(long, 200, 40, 40);
-  assert.strictEqual(truncateLongOutput(once, 200, 40, 40), once);
+  const once = DeterministicCompressor.truncateLongOutput(long, 200, 40, 40);
+  assert.strictEqual(DeterministicCompressor.truncateLongOutput(once, 200, 40, 40), once);
   assert.ok(once.includes('[420 lines omitted of 500]'));
   // 短文本原样返回
   const short = 'a\nb';
-  assert.strictEqual(truncateLongOutput(short, 200, 40, 40), short);
+  assert.strictEqual(DeterministicCompressor.truncateLongOutput(short, 200, 40, 40), short);
 });
 
 test('collapseBlankLines：幂等', () => {
   const messy = 'a   \n\n\n\nb\t\n';
-  const once = collapseBlankLines(messy);
-  assert.strictEqual(collapseBlankLines(once), once);
+  const once = DeterministicCompressor.collapseBlankLines(messy);
+  assert.strictEqual(DeterministicCompressor.collapseBlankLines(once), once);
   assert.ok(!/\n{3,}/.test(once));
 });
 
@@ -176,15 +177,15 @@ test('deduplicateSegments：幂等 + 保留首次', () => {
     { key: 'b', kind: 'user', text: 'same' },
     { key: 'c', kind: 'user', text: 'other' },
   ];
-  const once = deduplicateSegments(input);
+  const once = DeterministicCompressor.deduplicateSegments(input);
   assert.deepStrictEqual(
     once.map((s) => s.key),
     ['a', 'c'],
   );
-  assert.deepStrictEqual(deduplicateSegments(once), once);
+  assert.deepStrictEqual(DeterministicCompressor.deduplicateSegments(once), once);
 });
 
 test('byteLength：UTF-8 计（中文 3 字节，非 UTF-16）', () => {
-  assert.strictEqual(byteLength('ab'), 2);
-  assert.strictEqual(byteLength('中'), 3);
+  assert.strictEqual(DeterministicCompressor.byteLength('ab'), 2);
+  assert.strictEqual(DeterministicCompressor.byteLength('中'), 3);
 });

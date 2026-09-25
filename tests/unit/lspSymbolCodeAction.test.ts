@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { strict as assert } from 'node:assert/strict';
 import { after, describe, test } from 'node:test';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
-import { fileToUri } from '../../src/adapters/lsp/lspUri.js';
+import { LspUri } from '../../src/adapters/lsp/lspUri.js';
 import { LspDocumentSymbolsTool } from '../../src/adapters/tool/lsp/lspDocumentSymbolsTool.js';
 import { LspCodeActionTool } from '../../src/adapters/tool/lsp/lspCodeActionTool.js';
 import type { LspPort } from '../../src/ports/tool/lsp.js';
@@ -29,7 +29,7 @@ function adapter(): LspProcessAdapter {
   return new LspProcessAdapter({
     serverCommand: process.execPath,
     serverArgs: [mockServer],
-    rootUri: fileToUri(process.cwd()),
+    rootUri: LspUri.fileToUri(process.cwd()),
   });
 }
 

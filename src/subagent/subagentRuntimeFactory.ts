@@ -9,7 +9,7 @@ import type { StoragePort } from '../ports/memory/storage.js';
 import { Container } from '../core/container.js';
 import { ServiceKeys } from '../composition/serviceKeys.js';
 import { ToolGate } from '../core/toolGate.js';
-import type { SubagentPorts } from './subagentPorts.js';
+import type { SubagentPortsShape } from './subagentPorts.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';
 import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
@@ -20,7 +20,7 @@ import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
 import { JsonlStorage } from '../adapters/storage/jsonlStorage.js';
 import { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
-import { cancellableModel } from './cancellableModel.js';
+import { CancellableModel } from './cancellableModel.js';
 
 /**
  * @beta
@@ -34,7 +34,7 @@ import { cancellableModel } from './cancellableModel.js';
 export class SubagentRuntimeFactory {
   /** 构造子代 runtime 视图。 */
   public build(
-    ports: SubagentPorts,
+    ports: SubagentPortsShape,
     tools: ToolPort,
     events: EventPort,
     maxSteps: number,
@@ -44,7 +44,8 @@ export class SubagentRuntimeFactory {
     const storage = this.rerootStorage(ports.storage, ports.workspaceRoot);
     // 取消传播：父会话的取消信号并进子代每次模型请求（父取消 → 在飞请求中止、不再烧 token）。
     // 未注入信号时逐字沿用原模型对象，零行为变更。
-    const model = signal === undefined ? ports.model : cancellableModel(ports.model, signal);
+    const model =
+      signal === undefined ? ports.model : CancellableModel.cancellableModel(ports.model, signal);
     const config: ResolvedConfig = {
       workspaceRoot: ports.workspaceRoot,
       maxSteps,
@@ -121,7 +122,7 @@ export class SubagentRuntimeFactory {
 
   /** 子代容器：与父隔离（register 重名即抛错），键名沿用标准 ServiceKeys。 */
   private containerOf(
-    ports: SubagentPorts,
+    ports: SubagentPortsShape,
     tools: ToolPort,
     events: EventPort,
     storage: StoragePort,

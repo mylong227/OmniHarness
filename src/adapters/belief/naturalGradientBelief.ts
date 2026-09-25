@@ -7,8 +7,8 @@ import type {
   BeliefSnapshot,
   BeliefUpdateReport,
 } from '../../ports/intelligence/metacognition.js';
-import { klDiagonal, reparamInvariant } from '../../util/beliefMath.js';
-import { at } from '../../util/arrayAt.js';
+import { BeliefMath } from '../../util/beliefMath.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /** 自然梯度信念选项（fail-closed 边界夹紧）。 */
 export interface NaturalGradientOptions {
@@ -84,7 +84,7 @@ export class NaturalGradientBelief implements MetacognitionPort {
     const lr = Math.max(0, learningRate);
     for (let i = 0; i < this.dim; i++) {
       const g = gradient[i] ?? 0;
-      this.mean[i] = at(this.mean, i) + lr * at(this.variance, i) * g;
+      this.mean[i] = ArrayAt.at(this.mean, i) + lr * ArrayAt.at(this.variance, i) * g;
     }
     return this.report(before);
   }
@@ -100,11 +100,12 @@ export class NaturalGradientBelief implements MetacognitionPort {
     const before = this.snapshot();
     const noise2 = Math.max(this.floor, observationNoise * observationNoise);
     for (let i = 0; i < this.dim; i++) {
-      const precPrior = 1 / at(this.variance, i);
+      const precPrior = 1 / ArrayAt.at(this.variance, i);
       const precLike = 1 / noise2;
       const precPost = precPrior + precLike;
       const vPost = 1 / precPost;
-      const muPost = vPost * (at(this.mean, i) * precPrior + (observation[i] ?? 0) * precLike);
+      const muPost =
+        vPost * (ArrayAt.at(this.mean, i) * precPrior + (observation[i] ?? 0) * precLike);
       this.variance[i] = Math.max(this.floor, vPost);
       this.mean[i] = muPost;
     }
@@ -117,7 +118,7 @@ export class NaturalGradientBelief implements MetacognitionPort {
    */
   private report(before: BeliefSnapshot): BeliefUpdateReport {
     const after = this.snapshot();
-    const kl = klDiagonal(
+    const kl = BeliefMath.klDiagonal(
       after.mean as number[],
       after.variance as number[],
       before.mean as number[],
@@ -128,7 +129,7 @@ export class NaturalGradientBelief implements MetacognitionPort {
       before,
       after,
       kl,
-      reparamInvariant: reparamInvariant(
+      reparamInvariant: BeliefMath.reparamInvariant(
         after.mean as number[],
         after.variance as number[],
         before.mean as number[],

@@ -12,9 +12,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
-import { configDefaults } from '../../src/cli/argParser.js';
-import { normalizeConfig } from '../../src/config/configError.js';
+import { Runtime } from '../../src/composition/runtime.js';
+import { ArgParser } from '../../src/cli/argParser.js';
+import { ConfigError } from '../../src/config/configError.js';
 import type { FileConfig } from '../../src/config/configFile.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
@@ -43,23 +43,26 @@ const base = (): {
 });
 
 test('reasoning：配置文件 → CliArgs 映射存在（修复前该字段在 CLI 侧完全缺失）', () => {
-  const mapped = configDefaults({ reasoning: 'high' } as FileConfig);
+  const mapped = ArgParser.configDefaults({ reasoning: 'high' } as FileConfig);
   assert.strictEqual(mapped.reasoning, 'high');
 });
 
 test('reasoning：配置文件缺该键时不写入（保持 undefined，零行为变更）', () => {
-  assert.strictEqual(configDefaults({} as FileConfig).reasoning, undefined);
+  assert.strictEqual(ArgParser.configDefaults({} as FileConfig).reasoning, undefined);
 });
 
 test('reasoning：装配透传 → 运行时读得到（生产路径）', () => {
   const config = ConfigFactory.build({ ...base(), reasoning: 'xhigh' });
   assert.strictEqual(config.reasoning, 'xhigh');
-  assert.strictEqual(createRuntime(config).config.reasoning, 'xhigh');
+  assert.strictEqual(Runtime.createRuntime(config).config.reasoning, 'xhigh');
 });
 
 test('reasoning：7 档取值与校验器同口径（放宽类型不改校验白名单）', () => {
   for (const level of LEVELS) {
-    assert.strictEqual(normalizeConfig({ reasoning: level }).reasoning, level);
+    assert.strictEqual(ConfigError.normalizeConfig({ reasoning: level }).reasoning, level);
   }
-  assert.throws(() => normalizeConfig({ reasoning: 'bogus' }), '越界取值仍须 fail-closed');
+  assert.throws(
+    () => ConfigError.normalizeConfig({ reasoning: 'bogus' }),
+    '越界取值仍须 fail-closed',
+  );
 });

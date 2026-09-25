@@ -21,8 +21,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
-import { createRuntime } from '../dist/src/composition/runtime.js';
-import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
+import { Runtime } from '../dist/src/composition/runtime.js';
+import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
 import { Agent } from '../dist/src/core/agent.js';
 import { OpenAiCompatibleModel } from '../dist/src/adapters/model/openAiCompatibleModel.js';
 import { BudgetedModel } from '../dist/src/adapters/model/budgetedModel.js';
@@ -38,7 +38,7 @@ const PROD_PATH = join(__dirname, 'runtime-telemetry.prod-real.log');
 
 // ---- 硬依赖：真实 LLM 凭证（缺失即失败，绝不臆造）----
 // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
-const apiKey = process.env.DEEPSEEK_API_KEY ?? readUserProviderKey();
+const apiKey = process.env.DEEPSEEK_API_KEY ?? LiveCredentials.readUserProviderKey();
 if (!apiKey) {
   console.error(
     '[longrun:prod:real] 硬依赖缺失：需要 DEEPSEEK_API_KEY（环境变量，或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek）。\n' +
@@ -140,7 +140,7 @@ const config = ConfigFactory.build({
   sparkAutoRun: true,
 });
 
-const agent = new Agent(createRuntime.create(config));
+const agent = new Agent(Runtime.createRuntime.create(config));
 const N = 3; // 小额验证任务数（三重成本护栏之一）
 
 // 预生成技能两两组合，供相变固化器在多任务中反复冻结，真实流出涌现样本。

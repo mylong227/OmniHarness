@@ -27,17 +27,16 @@ import { PluginRegistry } from '../plugin/pluginRegistry.js';
 import { AuditSink } from '../server/services/auditSink.js';
 import {
   NetworkEgressGuard,
-  parseAllowList,
   type NetworkEgressOptions,
 } from '../adapters/sandbox/networkEgressGuard.js';
-import { resolveSsrfPolicy } from '../security/ssrfPolicy.js';
+import { SsrfPolicy } from '../security/ssrfPolicy.js';
 import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.js';
 import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpGateway } from '../mcp/mcpGateway.js';
-import { formatBridgeResults } from '../mcp/mcpServerCommand.js';
+import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import { modelAdapterRegistry, MOCK_ADAPTER_ID } from '../adapters/model/modelAdapterRegistry.js';
 import { storageFactory, type StorageHandle } from './storageFactory.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
@@ -55,7 +54,7 @@ import type { EscalationRequest, EscalationDecision } from '../ports/runtime/esc
 import type { ModelPort } from '../ports/model/model.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
 import type { LspServerConfig } from '../ports/tool/lsp.js';
-import { loadToolModule } from './toolLoader.js';
+import { ToolLoader } from './toolLoader.js';
 import { CliArgReader } from './cliArgReader.js';
 import { KvStoreFactory } from './kvStoreFactory.js';
 import { CredentialResolver } from '../config/credentialResolver.js';
@@ -97,7 +96,7 @@ export interface CredentialHydrationArgs {
  */
 const egressOptions = (allowed: string[], args: CliArgs): NetworkEgressOptions => ({
   allowedHosts: allowed,
-  policy: resolveSsrfPolicy(args.ssrfPolicy),
+  policy: SsrfPolicy.resolveSsrfPolicy(args.ssrfPolicy),
 });
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */
@@ -209,7 +208,7 @@ export class CliBuildConfig {
    * @returns 还原函数（恢复原始 globalThis.fetch）；未配置白名单时为空操作。
    */
   protected applyNetworkGuard(args: CliArgs): () => void {
-    const allowed = parseAllowList(args.networkAllow);
+    const allowed = NetworkEgressGuard.parseAllowList(args.networkAllow);
     if (allowed.length === 0) {
       return () => {};
     }
@@ -451,7 +450,7 @@ export class CliBuildConfig {
     });
     this.gateway = gateway;
     const results = await gateway.connectAll();
-    process.stderr.write(`MCP 桥接:\n${formatBridgeResults(results)}\n`);
+    process.stderr.write(`MCP 桥接:\n${McpServerCommand.formatBridgeResults(results)}\n`);
   }
 
   /**
@@ -651,7 +650,7 @@ export class CliBuildConfig {
   protected async loadCustomTools(files: readonly string[]): Promise<ExtraTool[]> {
     const tools: ExtraTool[] = [];
     for (const file of files) {
-      const loaded = await loadToolModule(file);
+      const loaded = await ToolLoader.loadToolModule(file);
       if ('definition' in loaded) {
         tools.push(loaded);
       }

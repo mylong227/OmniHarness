@@ -77,16 +77,16 @@ export class Logger {
     const v = (process.env['OMNI_LOG_LEVEL'] ?? 'info').toLowerCase();
     return v in ORDER ? (v as LogLevel) : 'info';
   }
-}
 
-/** 当前异步上下文的 traceId（无则为 undefined）。 */
-export function currentTrace(): string | undefined {
-  return traceStorage.getStore();
-}
+  /** 当前异步上下文的 traceId（无则为 undefined）。 */
+  public static currentTrace(): string | undefined {
+    return traceStorage.getStore();
+  }
 
-/** 为传入的 traceId 生成 UUID（无则为随机值），供 HTTP 层统一建号。 */
-export function nextTraceId(provided?: string | undefined): string {
-  return provided && provided.length > 0 ? provided : randomUUID();
+  /** 为传入的 traceId 生成 UUID（无则为随机值），供 HTTP 层统一建号。 */
+  public static nextTraceId(provided?: string | undefined): string {
+    return provided && provided.length > 0 ? provided : randomUUID();
+  }
 }
 
 /** 默认单例：级别取自环境变量，写入 stderr。 */

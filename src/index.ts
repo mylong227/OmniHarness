@@ -1,4 +1,4 @@
-﻿// @public 端口层（标准插口）
+// @public 端口层（标准插口）
 export type {
   ApprovalDecision,
   ApprovalPort,
@@ -46,7 +46,7 @@ export { Agent } from './core/agent.js';
 export type { AgentResult } from './core/agent.js';
 export { AppendOnlyEventLog } from './core/appendOnlyEventLog.js';
 export { Container } from './core/container.js';
-export { createRuntime, ServiceKeys } from './composition/runtime.js';
+export { Runtime, ServiceKeys } from './composition/runtime.js';
 export type { OmniHarnessRuntime } from './composition/runtime.js';
 export { SessionRecorder } from './core/sessionRecorder.js';
 export { StepRunner } from './core/stepRunner.js';
@@ -59,13 +59,7 @@ export type { ExtraTool, OmniHarnessConfig } from './config/configFactory.js';
 export { ConfigFile } from './config/configFile.js';
 export type { FileConfig, FileMcpServer, LayeredOptions } from './config/configFile.js';
 export { ProfileLoader } from './config/profileLoader.js';
-export {
-  ConfigError,
-  normalizeConfig,
-  validateConfig,
-  readEnvConfig,
-  mergeConfigs,
-} from './config/configError.js';
+export { ConfigError } from './config/configError.js';
 
 // @public 适配器（各端口默认实现）
 export {
@@ -83,8 +77,7 @@ export {
   RestrictedSandbox,
   UnsupportedSandbox,
   SandboxManager,
-  isLikelySandboxDenied,
-  classifyDenial,
+  SandboxDenial,
   DenyEscalation,
   AskEscalation,
   AutoEscalation,
@@ -103,27 +96,19 @@ export type { LiveBroadcaster } from './adapters/live/webLiveView.js';
 export type { OpenAiCompatibleConfig } from './adapters/model/openAiCompatibleModel.js';
 export { LlamaCppModel } from './adapters/model/llamaCppModel.js';
 export type { LlamaCppConfig } from './adapters/model/llamaCppModel.js';
-export {
-  NetworkEgressGuard,
-  EgressBlockedError,
-  parseAllowList,
-} from './adapters/sandbox/networkEgressGuard.js';
+export { NetworkEgressGuard, EgressBlockedError } from './adapters/sandbox/networkEgressGuard.js';
 export { DaemonController } from './daemon/daemonController.js';
-export { RoutineScheduler, matchesCron } from './daemon/routineScheduler.js';
+export { RoutineScheduler } from './daemon/routineScheduler.js';
 export type { Routine, RoutineSchedule, RoutineModelAdapter } from './daemon/routineScheduler.js';
 export { ResponsesModel } from './adapters/model/responsesModel.js';
 export type { ResponsesConfig } from './adapters/model/responsesModel.js';
-export {
-  RetryingModel,
-  isRetryable,
-  DEFAULT_RETRY_POLICY,
-} from './adapters/model/retryingModel.js';
+export { RetryingModel, DEFAULT_RETRY_POLICY } from './adapters/model/retryingModel.js';
 export type { RetryPolicy, DelayFn } from './adapters/model/retryingModel.js';
 export { BudgetedModel } from './adapters/model/budgetedModel.js';
 export { CostBudget } from './adapters/model/costBudget.js';
 export type { BudgetSnapshot } from './adapters/model/costBudget.js';
 export {
-  mergeRoutePricing,
+  RoutePricing,
   DEFAULT_ROUTE_PRICING,
   DEFAULT_FALLBACK_PRICE,
 } from './adapters/model/routePricing.js';
@@ -157,7 +142,7 @@ export type { Plugin, PluginApplyContext, PluginMeta } from './plugin/plugin.js'
 export { PermissionGate, PermissionDeniedError } from './plugin/permissionGate.js';
 export type { PermissionDecision } from './plugin/permissionGate.js';
 export type { PluginPermission } from './plugin/permission.js';
-export { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, isPluginPermission } from './plugin/permission.js';
+export { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, Permission } from './plugin/permission.js';
 
 // @public 门禁 / PTC 代码执行
 export { ToolGate } from './core/toolGate.js';
@@ -207,12 +192,7 @@ export type {
   BeliefUpdateReport,
   BeliefKlComponent,
 } from './ports/intelligence/metacognition.js';
-export {
-  eigenSpectrum,
-  spectrumFromValues,
-  resonance,
-  type Spectrum,
-} from './util/eigenspectrum.js';
+export { EigenSpectrum, type Spectrum } from './util/eigenspectrum.js';
 
 // @public (P2) 组合·拓扑 — CRISPR 精确技能编辑（I-P2-4）+ 相变固化（I-P2-5）
 export { CRISPRSkillEditor } from './adapters/skill/crisprSkillEditor.js';
@@ -268,30 +248,17 @@ export type {
 // @public 进化闭环（P1：发现 → 评估 → 晋升，fail-closed）
 export { FailClosedEvolutionGate } from './evolution/failClosedEvolutionGate.js';
 export type {
-  Benchmark,
+  BenchmarkFn,
   SafetyCheck,
   FailClosedEvolutionGateOptions,
 } from './evolution/failClosedEvolutionGate.js';
 export { TwistDiscoveryEngine } from './evolution/twistDiscoveryEngine.js';
 export type { TwistDiscoveryOptions } from './evolution/twistDiscoveryEngine.js';
-export {
-  EvolutionControllerImpl,
-  createEvolutionController,
-} from './evolution/evolutionControllerImpl.js';
-export { createRlvrEvolutionController } from './evolution/rlvrController.js';
+export { EvolutionControllerImpl } from './evolution/evolutionControllerImpl.js';
+export { RlvrController } from './evolution/rlvrController.js';
 export type { RlvrEvolutionOptions, RlvrEvolutionBundle } from './evolution/rlvrController.js';
-export {
-  verifiableRewardForCode,
-  verifiableRewardFromCommand,
-  verifiableRewardFromEvalRunner,
-  createVerifiableGate,
-} from './evolution/verifiableReward.js';
-export {
-  capabilityCoverage,
-  jointProfile,
-  fieldMatch,
-  moireEnergy,
-} from './evolution/benchmark.js';
+export type { VerifiableRewardFn } from './evolution/verifiableReward.js';
+export { Benchmark } from './evolution/benchmark.js';
 export type {
   Candidate,
   PromotionVerdict,
@@ -366,7 +333,7 @@ export { McpConnector } from './mcp/mcpConnector.js';
 export type { McpConnection, McpConnectorOptions } from './mcp/mcpConnector.js';
 export { McpGateway } from './mcp/mcpGateway.js';
 export type { McpBridgeResult, McpGatewayOptions, McpServerConfig } from './mcp/mcpGateway.js';
-export { formatBridgeResults, parseMcpServerSpec } from './mcp/mcpServerCommand.js';
+export { McpServerCommand } from './mcp/mcpServerCommand.js';
 
 // @public 原生内核（FFI 下沉 #65：Node 进程内直调 Rust 内核，N-API / .node）
 export { NativeKernel, NativeKernelUnavailableError } from './native/index.js';
@@ -375,18 +342,7 @@ export { NativeBackend } from './native/index.js';
 export type { NativeToolRunner } from './native/index.js';
 
 // @public 企业管控（D2：SSO / 合规导出）
-export {
-  EnterpriseAuth,
-  fetchDiscovery,
-  generatePkcePair,
-  buildAuthorizationUrl,
-  exchangeCode,
-  decodeJwt,
-  verifyIdTokenClaims,
-  verifyJwtSignature,
-  writeAuthState,
-  readAuthState,
-} from './enterprise/index.js';
+export { EnterpriseAuth, OidcClient } from './enterprise/index.js';
 export type {
   OidcProviderConfig,
   OidcDiscovery,
@@ -396,7 +352,7 @@ export type {
   JwtParts,
   AuthState,
 } from './enterprise/index.js';
-export { buildComplianceReport, formatCompliance } from './server/services/auditExporter.js';
+export { AuditExporter } from './server/services/auditExporter.js';
 export type { ComplianceReport, ComplianceReportMeta } from './server/services/auditExporter.js';
 
 // @public 版本契约（API 版本锚点，见 docs/API_STABILITY.md）
@@ -419,73 +375,39 @@ export type {
 // 多模态函子（原生支持多模态）、按工况重配置管线的收敛型自适应控制器。
 export {
   emptyCost,
-  cost,
-  concatCost,
+  Algebra,
   costMonoid,
   JOULES_PER_TOKEN_ESTIMATE,
-  vectorConcat,
-  vectorEmpty,
-  dot,
-  norm,
-  cosine,
-  shannon,
+  Mathutil,
   type Cost,
   type Semigroup,
   type Monoid,
-  encodeText,
-  encodeImage,
-  mapModality,
-  fuseModality,
-  alignModality,
-  textFeatures,
-  imageFeatures,
+  ModalityPort,
   type Modality,
   type ModalityKind,
-  identityOperator,
-  composeOperator,
+  type OperatorFn,
   operatorMonoid,
-  liftOperator,
-  liftCosted,
-  type Operator,
   type OperatorResult,
   Ledger,
-  sumCosts,
-  deriveEntropy,
-  characteristicRegime,
+  RegimeCost,
   fuseOperator,
   pruneOperator,
-  plan,
-  adaptOnce,
   type GenesisState,
   type Regime,
 } from './genesis/index.js';
 
 // @public 上下文效率层（自研 · 零依赖）：确定性压缩 + 前缀稳定性治理（KV 缓存命中率根因变量）
 export {
-  canonicalize,
-  stableStringify,
-  scrubVolatile,
-  commonPrefixLength,
-  prefixReuse,
-  buildStablePrompt,
-  reorderDeterministic,
-  injectVolatile,
-  jitterSegments,
-  measurePrefixStability,
+  Canonical,
+  PrefixStability,
   type PromptSegment,
   type PromptBuildOptions,
   type PrefixStabilityReport,
-  byteLength,
+  DeterministicCompressor,
   type SegmentKind,
   type ContextSegment,
   type CompressOptions,
   type CompressStageMetric,
   type CompressReport,
   type CompressResult,
-  collapseBlankLines,
-  minifyJsonBlock,
-  truncateLongOutput,
-  deduplicateSegments,
-  foldHistorySegments,
-  compressContext,
 } from './context/index.js';

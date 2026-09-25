@@ -14,7 +14,7 @@
  */
 
 import type { ToolCall, ToolResult } from '../../ports/tool/tool.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 import { MUTATING_TOOLS } from '../toolGate.js';
 
 /** 工具调用执行器（StepRunner.runToolCall 的抽象，保持签名稳定）。 */
@@ -83,10 +83,10 @@ export class ToolScheduler {
     const results = new Array<ScheduledResult | undefined>(calls.length);
     let i = 0;
     while (i < calls.length) {
-      if (this.parallelCapable(at(calls, i).name)) {
+      if (this.parallelCapable(ArrayAt.at(calls, i).name)) {
         // 收集连续的并行安全调用为一批（有界：批内再按 maxParallel 滚动并发）。
         let j = i;
-        while (j < calls.length && this.parallelCapable(at(calls, j).name)) {
+        while (j < calls.length && this.parallelCapable(ArrayAt.at(calls, j).name)) {
           j += 1;
         }
         await this.runParallelBatch(calls, i, j, execute, results);
@@ -94,8 +94,8 @@ export class ToolScheduler {
       } else {
         // 屏障：此刻必然没有在飞任务（并行批已在上方 await 排空），直接串行执行。
         results[i] = {
-          call: at(calls, i),
-          result: await ToolScheduler.safeExecute(at(calls, i), execute),
+          call: ArrayAt.at(calls, i),
+          result: await ToolScheduler.safeExecute(ArrayAt.at(calls, i), execute),
         };
         i += 1;
       }
@@ -103,8 +103,8 @@ export class ToolScheduler {
     return results.map(
       (r, idx) =>
         r ?? {
-          call: at(calls, idx),
-          result: ToolScheduler.failedResult(at(calls, idx), new Error('调度遗漏')),
+          call: ArrayAt.at(calls, idx),
+          result: ToolScheduler.failedResult(ArrayAt.at(calls, idx), new Error('调度遗漏')),
         },
     );
   }
@@ -134,8 +134,8 @@ export class ToolScheduler {
             const idx = cursor;
             cursor += 1;
             results[idx] = {
-              call: at(calls, idx),
-              result: await ToolScheduler.safeExecute(at(calls, idx), execute),
+              call: ArrayAt.at(calls, idx),
+              result: await ToolScheduler.safeExecute(ArrayAt.at(calls, idx), execute),
             };
           }
         })(),

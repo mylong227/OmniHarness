@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { manifestMatches, type PluginDescriptor } from './manifest.js';
+import { Manifest, type PluginDescriptor } from './manifest.js';
 import { type BundledPlugin } from './bundledRegistry.js';
 import type { RegistrySource } from './registrySourcesShared.js';
 
@@ -24,7 +24,9 @@ export class BundledSource implements RegistrySource {
    */
   public async search(query?: string): Promise<PluginDescriptor[]> {
     const all = this.descriptors();
-    return query === undefined ? all : all.filter((d) => manifestMatches(query, d.manifest));
+    return query === undefined
+      ? all
+      : all.filter((d) => Manifest.manifestMatches(query, d.manifest));
   }
 
   /** 按唯一名取内置插件描述符（不存在返回 undefined）。 */

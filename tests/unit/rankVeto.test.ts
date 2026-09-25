@@ -7,11 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  RankVetoEvaluator,
-  jaccardOverlap,
-  meanPairwiseJaccard,
-} from '../../src/context/rankVeto/index.js';
+import { RankVetoEvaluator, RankVetoOverlap } from '../../src/context/rankVeto/index.js';
 
 /** 构造无向完全图 K_n。 */
 function completeGraph(n: number): { n: number; adj: Array<Array<[number, number]>> } {
@@ -41,10 +37,10 @@ function distinctProbe(): string[][] {
 }
 
 test('meanPairwiseJaccard：全同=1、全异=0、样本不足=null', () => {
-  assert.strictEqual(meanPairwiseJaccard(constantProbe()), 1);
-  assert.strictEqual(meanPairwiseJaccard(distinctProbe()), 0);
-  assert.strictEqual(meanPairwiseJaccard([['a.ts']]), null);
-  assert.strictEqual(meanPairwiseJaccard([]), null);
+  assert.strictEqual(RankVetoOverlap.meanPairwiseJaccard(constantProbe()), 1);
+  assert.strictEqual(RankVetoOverlap.meanPairwiseJaccard(distinctProbe()), 0);
+  assert.strictEqual(RankVetoOverlap.meanPairwiseJaccard([['a.ts']]), null);
+  assert.strictEqual(RankVetoOverlap.meanPairwiseJaccard([]), null);
 });
 
 test('常量路由被否决：查询不敏感度达上限', () => {
@@ -102,10 +98,10 @@ test('与基线重合度过高会被否决（预先承诺的失败判据）', ()
 });
 
 test('jaccardOverlap 精确：全等=1、互斥=0、半重叠=1/3', () => {
-  assert.strictEqual(jaccardOverlap(['a', 'b'], ['a', 'b']), 1);
-  assert.strictEqual(jaccardOverlap(['a', 'b'], ['c', 'd']), 0);
-  assert.strictEqual(jaccardOverlap(['a', 'b'], ['b', 'c']), 1 / 3);
-  assert.strictEqual(jaccardOverlap([], []), 1);
+  assert.strictEqual(RankVetoOverlap.jaccardOverlap(['a', 'b'], ['a', 'b']), 1);
+  assert.strictEqual(RankVetoOverlap.jaccardOverlap(['a', 'b'], ['c', 'd']), 0);
+  assert.strictEqual(RankVetoOverlap.jaccardOverlap(['a', 'b'], ['b', 'c']), 1 / 3);
+  assert.strictEqual(RankVetoOverlap.jaccardOverlap([], []), 1);
 });
 
 test('确定性：同输入两次评估完全一致（无随机数依赖）', () => {
