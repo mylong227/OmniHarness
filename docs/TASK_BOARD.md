@@ -1782,6 +1782,18 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   待管理员在 `omniharness/omniharness → Settings → Collaborators and teams`（或
   `github.com/orgs/omniharness/people`）授予 **Write** 后，`git push origin main` 即可直接生效
   （实测该仓 `main` **无分支保护**，不需要走 PR）。仓库为**公开**仓库 ⇒ 零授权的替代路径是 fork + PR。
+- **推送目标定案（2026-09-25，用户澄清 + 已固定）**：`omniharness/omniharness` 是**误建**的仓库，
+  本账号对其**只有只读**（API 实测 `pull=true, push/maintain/admin=false`）且**不是该组织成员**、
+  **也无法删除**它。此前把它当成「上游」去申请写权限、改推送地址、排查镜像与代理，**方向是错的**
+  （用户明确：要求一直是推到 `mylong227` 账号下的仓库）。**最终固定**：
+  ① 本仓**只保留一个远端** `origin → mylong227/OmniHarness`（原 `origin`=误建仓**已删除**，
+  `mine` 已改名为 `origin`），并设 `remote.pushDefault=origin`、`main` 跟踪 `origin/main`；
+  ② `origin` 的 pushurl 固定为 **ghproxy 镜像地址**（`github.com` 直连在本机**间歇**可通，实测 3 次里 1 次）；
+  ③ 新增 `scripts/git-hooks/pre-push` **机器兜底**：推往误建仓**硬拦**、推往其它非本账号仓库默认告警
+  （`OMNI_STRICT_PUSH=1` 可硬拦，`OMNI_ALLOW_FOREIGN_PUSH=1` 可临时放行）；
+  ④ 新增根目录 `AGENTS.md` 记录该纪律（由 projectInstructions 自动注入后续会话上下文）。
+  **验证**：钩子 7 种情形逐条符合预期；端到端用本地 bare 仓库实测——非规范仓库告警放行、
+  路径含误建仓名的**在传输前即中止**（注：对 403 的远端会先连接失败，属正常且不阻塞）。
 - **本轮的环境事故（如实留档）**：收尾清理时用 `Remove-Item *.log` 通配删除，误删了**预先存在**的
   `recall-precision-progress.log`（124 字节，gitignored、**从未入库**，故不可恢复）。它与本仓代码无关，
   但「清理只删自己创建的文件」这条纪律要记牢——共享工作区里通配符删除不安全。
