@@ -285,20 +285,20 @@ SWE-bench(swebench.com)、Terminal-Bench(tbench.ai)、τ-bench(github.com/sierra
 
 ## 7. 综合优先级路线图（缺口 → 技术 → 论文 → 行动）
 
-| 优先级 | 缺口/机会           | 复用技术                        | 关键论文/源                   | 具体行动                                                         |
-| ------ | ------------------- | ------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
-| P0     | AST 图上下文压缩    | repo-map (tree-sitter+PageRank) | Aider; SWE-agent history proc | 加 `src/context/repoMap.ts`，BM25 之上叠符号排名；token 预算上限 |
-| P0     | 专属 eval 集成      | SWE-bench/Terminal-Bench 管线   | 2310.06770; tbench.ai         | `evals/` 下建 SWE-bench + Terminal-Bench 跑分，接 CI 回归门禁    |
-| P1     | A2A 互操作          | Agent Card + HTTP/SSE           | google/A2A                    | 加 `src/server/a2a.ts`，暴露 discover/delegate；做差异化身份     |
-| P1     | 模型列表动态下发    | models.list RPC                 | Qwen/Kilo 市场                | 后端加 `models.list`，前端切换器从硬编码改为动态                 |
-| P1     | 努力/预算 UI 旋钮   | effort/budget 可视化            | Codex reasoning_effort; Amp   | 前端加成本上限显示 + 拦截；接 token-meter                        |
-| P2     | 钩子深度            | 12+ 生命周期 hooks              | Claude Code hooks             | 扩 hooks 兼容层覆盖面                                            |
-| P2     | 记忆自编辑          | Mem0 管线                       | 2504.19413; 2507.03724        | 共振记忆升级 ADD/UPDATE/DELETE/NOOP                              |
-| P2     | 工具分层检索        | AnyTool 分层                    | ToolLLM 综述                  | `tool_search` 加分层检索，降长列表压窗                           |
-| P2     | ACP 客户端          | Agent Client Protocol           | Zed/JetBrains ACP             | 做 ACP 客户端，被 Zed 等宿主驱动                                 |
-| P3     | 进化闭环 × RLVR     | verifiable reward               | 2504.20073; 2506.14245        | GoalRunner 加奖励分支                                            |
-| P3     | 沙箱真机验证        | landlock/seatbelt/bwrap         | Codex; gVisor                 | 把占位升级为运行时验证（S78 限制）                               |
-| P3     | MCP server 访问控制 | AgentBound/AgentBox             | 2510.21236*                   | 给 MCP server 加访问框架                                         |
+| 优先级 | 缺口/机会           | 复用技术                        | 关键论文/源                   | 具体行动                                                          |
+| ------ | ------------------- | ------------------------------- | ----------------------------- | ----------------------------------------------------------------- |
+| P0     | AST 图上下文压缩    | repo-map (tree-sitter+PageRank) | Aider; SWE-agent history proc | 加 `src/context/repoMap.ts`，BM25 之上叠符号排名；token 预算上限  |
+| P0     | 专属 eval 集成      | SWE-bench/Terminal-Bench 管线   | 2310.06770; tbench.ai         | `evals/` 下建 SWE-bench + Terminal-Bench 跑分，接 CI 回归门禁     |
+| P1     | A2A 互操作          | Agent Card + HTTP/SSE           | google/A2A                    | 加 `src/a2a/a2aProtocol.ts`，暴露 discover/delegate；做差异化身份 |
+| P1     | 模型列表动态下发    | models.list RPC                 | Qwen/Kilo 市场                | 后端加 `models.list`，前端切换器从硬编码改为动态                  |
+| P1     | 努力/预算 UI 旋钮   | effort/budget 可视化            | Codex reasoning_effort; Amp   | 前端加成本上限显示 + 拦截；接 token-meter                         |
+| P2     | 钩子深度            | 12+ 生命周期 hooks              | Claude Code hooks             | 扩 hooks 兼容层覆盖面                                             |
+| P2     | 记忆自编辑          | Mem0 管线                       | 2504.19413; 2507.03724        | 共振记忆升级 ADD/UPDATE/DELETE/NOOP                               |
+| P2     | 工具分层检索        | AnyTool 分层                    | ToolLLM 综述                  | `tool_search` 加分层检索，降长列表压窗                            |
+| P2     | ACP 客户端          | Agent Client Protocol           | Zed/JetBrains ACP             | 做 ACP 客户端，被 Zed 等宿主驱动                                  |
+| P3     | 进化闭环 × RLVR     | verifiable reward               | 2504.20073; 2506.14245        | GoalRunner 加奖励分支                                             |
+| P3     | 沙箱真机验证        | landlock/seatbelt/bwrap         | Codex; gVisor                 | 把占位升级为运行时验证（S78 限制）                                |
+| P3     | MCP server 访问控制 | AgentBound/AgentBox             | 2510.21236*                   | 给 MCP server 加访问框架                                          |
 
 ---
 

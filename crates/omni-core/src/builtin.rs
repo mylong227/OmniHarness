@@ -496,8 +496,16 @@ mod tests {
         // GBK（传统中文控制台）只在 Windows 上能靠 OEM 码页还原；非 Windows 无 OEM 码页概念
         #[cfg(windows)]
         {
+            use windows_sys::Win32::Globalization::GetOEMCP;
             let gbk: [u8; 9] = [0xb1, 0xf0, 0xc3, 0xfb, 0xc7, 0xc5, 0x2d, 0x6f, 0x6b];
-            assert_eq!(decode_output(&gbk), "别名桥-ok");
+            // 实现语义是「按**本机** OEM 码页回退」：GBK 字节仅在 OEMCP=936（中文）机器上
+            // 可还原。西欧/UTF-8 码页机器上这些字节本就不可映射，属环境差异而非实现缺陷。
+            if unsafe { GetOEMCP() } == 936 {
+                assert_eq!(decode_output(&gbk), "别名桥-ok");
+            }
+            // 任何码页下的不变量：非 UTF-8 输入不得 panic，ASCII 段必须保真，禁止「真判负」误报。
+            let decoded = decode_output(&gbk);
+            assert!(decoded.ends_with("-ok"), "ASCII 段必须保真：{decoded}");
         }
     }
 

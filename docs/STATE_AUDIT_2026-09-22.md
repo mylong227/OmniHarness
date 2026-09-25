@@ -57,14 +57,14 @@
 
 内容：**§17「借鉴外部 System 1 决策项目」的第二、三批**，全部围绕「装配→运行时→消费」全链。
 
-| 主题                       | src 改动                                                                                                                                                   | 测试                                         | 复算证据                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| **工具按需暴露**           | `src/core/toolExposurePlanner.ts`（新）+ `stepContextBuilder.effectiveTools` 接线                                                                          | `toolExposurePlanner` 13/13                  | 33→10.0 工具、6937→2167 token（−68.8%），三护栏 10/10/10                       |
-| **护栏三态化（D1/D2）**    | `src/security/enforcementMode.ts`（新）+ `stepToolExecutor` / `configFactory` / `cliEnums` / `cliFlagTable` / `argParser` / `cliBuildConfig` / `stepTypes` | `enforcementMode` 7/7、`guardShadowMode` 7/7 | 非法模式装配层抛错；`shadow` 逐字原样                                          |
-| **陈旧 schema 绑定（D4）** | `stepContextBuilder.effectiveTools` 以当前目录为准                                                                                                         | `toolCatalogSnapshot` 4/4                    | 卸载后不并入、仍在则取最新定义                                                 |
-| **嵌入预热（L5）**         | `transformersEmbeddingAdapter`（可注入 loader + `preload()` + **失败可恢复**修缺陷）+ `ports/model/embedding.ts` + `configFactory.buildEmbeddingPort()`    | `embeddingPreload` 9/9                       | 默认关 ⇒ 零行为变更；`OMNI_EMBED_PRELOAD=1` 后台预热                           |
-| **阈值校准（L3）**         | `evals/injection-calibrate.mjs`（不改 src）                                                                                                                | —                                            | 同源校验 32/32；手设值 acc 排名 5/256，**9 向量并列** ⇒ 只证明敏感性、不作选型 |
-| **降档可读理由（L6）**     | `stepContextBuilder.buildRepoMapContext` 带 `reason`/`effect`/`queryChars`                                                                                 | 既有 `stepContextBuilder*` 全绿              | —                                                                              |
+| 主题                       | src 改动                                                                                                                                                           | 测试                                         | 复算证据                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------ |
+| **工具按需暴露**           | `src/core/toolExposurePlanner.ts`（新）+ `stepContextBuilder.effectiveTools` 接线                                                                                  | `toolExposurePlanner` 13/13                  | 33→10.0 工具、6937→2167 token（−68.8%），三护栏 10/10/10                       |
+| **护栏三态化（D1/D2）**    | `src/security/enforcementModeResolver.ts`（新）+ `stepToolExecutor` / `configFactory` / `cliEnums` / `cliFlagTable` / `argParser` / `cliBuildConfig` / `stepTypes` | `enforcementMode` 7/7、`guardShadowMode` 7/7 | 非法模式装配层抛错；`shadow` 逐字原样                                          |
+| **陈旧 schema 绑定（D4）** | `stepContextBuilder.effectiveTools` 以当前目录为准                                                                                                                 | `toolCatalogSnapshot` 4/4                    | 卸载后不并入、仍在则取最新定义                                                 |
+| **嵌入预热（L5）**         | `transformersEmbeddingAdapter`（可注入 loader + `preload()` + **失败可恢复**修缺陷）+ `ports/model/embedding.ts` + `configFactory.buildEmbeddingPort()`            | `embeddingPreload` 9/9                       | 默认关 ⇒ 零行为变更；`OMNI_EMBED_PRELOAD=1` 后台预热                           |
+| **阈值校准（L3）**         | `evals/injection-calibrate.mjs`（不改 src）                                                                                                                        | —                                            | 同源校验 32/32；手设值 acc 排名 5/256，**9 向量并列** ⇒ 只证明敏感性、不作选型 |
+| **降档可读理由（L6）**     | `stepContextBuilder.buildRepoMapContext` 带 `reason`/`effect`/`queryChars`                                                                                         | 既有 `stepContextBuilder*` 全绿              | —                                                                              |
 
 **风险面评估**：默认行为零变更（`OMNI_TOOL_EXPOSURE` 未设 ⇒ `off`；`OMNI_EMBED_PRELOAD` 未设 ⇒ 不预热；
 护栏历史二值写法 `true/false` 语义不变），新增能力全部 opt-in，且装配层对非法取值**抛错而非静默回落**。
@@ -193,7 +193,7 @@ spawn 子进程并捕获其 stdout，而本沙箱**禁止带管道 stdio 的子�
 
 ### 8.1 收尾过程中被仓库自身门禁拦下的一处（教训留档）
 
-提交 §17 批次时，`pre-commit` 的 `auditStandards --delta` **实跑**拦下了 `src/security/enforcementMode.ts`：
+提交 §17 批次时，`pre-commit` 的 `auditStandards --delta` **实跑**拦下了 `src/security/enforcementModeResolver.ts`：
 该文件主类是 `EnforcementModeResolver`，而「主类名 ≠ 文件名」对**新增文件**是阻断项。
 按规则更名为 `src/security/enforcementModeResolver.ts` 并同步 5 处 import 后通过。
 **这对看板 §16.5 那句「`audit:standard:delta` 通过（无暂存 .ts 时增量门禁通过）」是重要更正**——

@@ -92,7 +92,7 @@ CLI / Web 工作台
 输入是高熵的：仓库任意大、历史任意长、工具输出任意脏。上下文工程的目标是——在有限预算里保留信息量最大、最可复用的那一部分。
 
 - **repo-map 上下文引擎**（零第三方）：零依赖正则抽取符号（TS/JS/Py），文件级 + 符号级**双 BM25 混合打分**，注入紧凑 repo-map（Top-N 文件大纲 + 符号签名）替代整文件硬塞。
-- **零依赖检索原语**：手写 Okapi BM25（`src/search/bm25.ts`）；`tokenize` 覆盖 ASCII 词、snake 子词、CJK 单字/二元组，中英混合友好。
+- **零依赖检索原语**：手写 Okapi BM25（`src/search/bm25Index.ts`）；`tokenize` 覆盖 ASCII 词、snake 子词、CJK 单字/二元组，中英混合友好。
 - **确定性压缩 + 前缀稳定治理**：`context/` 自研压缩管线（折叠空行 / 压缩 JSON / 截断长输出 / 去重 / 折叠历史）+ **前缀复用度量**（KV 缓存命中率的根因变量）。
 - **Spill 外溢**：超大工具输出落盘（`.omniharness/spill`）或转内存，保留预览字节，跨重启可读回（少擦写即少开销）。
 - **可选语义召回**：`EmbeddingPort` + `SemanticIndex`（余弦最近邻 + RRF 混合检索）；真实适配器经动态 `import()` 懒加载，模型缺失 **fail-closed 回退 BM25**。
@@ -247,7 +247,7 @@ node scripts/init-config.mjs      # 在 cwd 生成 omniharness.json
 node dist/src/cli/exec.js serve --port 8787
 ```
 
-也可直接复制 [`omniharness.json.example`](omniharness.json.example) 改名使用。配置字段全部落在严格白名单内（`src/config/configLayer.ts` 的 `KNOWN_KEYS`），白名单外字段即报错。
+也可直接复制 [`omniharness.json.example`](omniharness.json.example) 改名使用。配置字段全部落在严格白名单内（`src/config/configError.ts` 的 `KNOWN_KEYS`），白名单外字段即报错。
 
 **headless / CI 用法：**
 

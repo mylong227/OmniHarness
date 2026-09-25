@@ -203,7 +203,7 @@ r = α P r + (1−α) v,    α ≈ 0.85,  ‖r‖_1 = 1
 > 枢纽文件在 33/33 查询中全部出现。它不是「退化」，而是**常量偏置**。
 >
 > **现行可操作判据（已回溯验证 3/3）**：量候选路由在各查询 Top-K 之间的**平均两两 Jaccard**（无需标注数据）；
-> ≥0.5 即否决。实现见 `src/context/rankVeto.ts`。
+> ≥0.5 即否决。实现见 `src/context/rankVeto/index.ts`。
 
 ### 5.3 图 Laplacian 与 Dirichlet 能量
 

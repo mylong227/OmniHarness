@@ -316,7 +316,7 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
   `ports/runtime/agent.ts:3` 反向 import `core/runtime.js` 并用于端口契约签名。
   架构门禁只判 `core→adapters` / `adapters→core`（这两类经独立复核确为 0），**看不见 ports→core**。
 - **修法（已落地）**：
-  ① **迁出核心层**：`src/core/runtime.ts` → `src/composition/runtime.ts`（新装配层目录，已在
+  ① **迁出核心层**：`src/composition/runtime.ts` → `src/composition/runtime.ts`（新装配层目录，已在
   `ARCHITECTURE_SPEC.md` §2.1 目录归属表登记）；全仓 42 处 import 说明符同步（含 3 个 benchmark 脚本）。
   ② **打断真值环**：`ServiceKeys` 下沉到 `src/composition/serviceKeys.ts`（纯常量、零依赖），
   子代理工厂改依赖它 ⇒ 组合根→子代理仍为值依赖，**反向只剩 type-only** ⇒ 值级环消失。
