@@ -47,3 +47,34 @@ test('diagnose：真的只是测试失败（无环境/口径线索）⇒ 空诊�
   ].join('\n');
   assert.strictEqual(NativeTestRunner.diagnose(out), '');
 });
+
+test('diagnose：启动期崩溃（Traceback，无任何结果行）不得被读成「测试失败」', () => {
+  // 实证两例：pytest 4.5 + 新版 setuptools 自带 typeguard 插件（AssertionError）；
+  // sphinx 3.3 + jinja2 3.1（ImportError: cannot import name 'environmentfilter'）。
+  const out = [
+    'Traceback (most recent call last):',
+    '  File "site-packages/pluggy/callers.py", line 187, in _multicall',
+    '    res = hook_impl.function(*args)',
+    '  File "site-packages/setuptools/_vendor/typeguard/_pytest_plugin.py", line 22',
+    '    parser.addini(',
+    'AssertionError',
+  ].join('\n');
+  assert.match(NativeTestRunner.diagnose(out), /测试运行崩溃/);
+});
+
+test('describeFailure：官方解析器换行产物 id（`[100%]`）必须被点名为「非测试」', () => {
+  const run = {
+    passed: new Map([['real_test', true]]),
+    diagnosis: '',
+  };
+  const text = NativeTestRunner.describeFailure(['real_test'], ['[100%]'], run);
+  assert.match(text, /PASS_TO_PASS 0\/1/);
+  assert.match(
+    text,
+    /换行产物 id（非测试）/,
+    '`[100%]` 必须被解释为数据集/解析器产物而不是失败测试',
+  );
+  // 不含此类 id 时不得出现该提示（避免噪声）
+  const clean = NativeTestRunner.describeFailure([], ['real_test'], run);
+  assert.ok(!clean.includes('换行产物'), '普通失败不得带该提示');
+});
