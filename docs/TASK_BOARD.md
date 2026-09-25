@@ -2386,3 +2386,17 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
   `astropy/astropy` 条目加入——但该文件纪律是「**仅收录已实测验证**的条目」（须以 gold 补丁跑通 FAIL_TO_PASS
   为凭据），且 pin 在仓库 pin 之后应用会**升级 numpy**（实测拉到 2.0.2，对 astropy 4.x 有风险），
   故须先做一次 gold 对照再决定 pin 的组合与上界。
+
+### 21.15 零付费「完全取代」付费产品口径：调研 + 本轮补齐的接线（用户口径）
+
+- **交付物**：`docs/ZERO_COST_CAPABILITY_EVAL.md`——三条零付费路线（① 本机 Ollama/llama.cpp + 开源代码模型、
+  ② 免费额度 API（`defaults/providers.json` 已内置 `gemini` 等预设）、③ 零模型 scripted/replay）的
+  **成本 / 时延量级 / 质量预期 / 前置条件**，外加可执行配方（逐字命令）与诚实边界。
+- **本轮补齐的接线**（`benchmark/swebench_predict.mjs`）：新增 `--base-url` 与 `--no-key`（并支持
+  `OMNI_EVAL_BASE_URL`），把**同一套产品口径协议**（best-of-N=4 + self-test）指向本地/免费的 OpenAI 兼容端点；
+  缺 key 且未显式 `--no-key` 时**仍 fail-closed**；默认值逐字未变 ⇒ 付费路径零行为变更（`--dry-run` 实测通过）。
+- **关键事实（省掉重复调研）**：**判分早已免费**（`capability_swebench.mjs --verified` 是本地 git+uv+pytest），
+  付费只覆盖「生成补丁」那一步；本机**没有任何本地推理运行时**（ollama / llama.cpp / LM Studio 均未安装）
+  ⇒ 路线①的时延与质量是**外推估计**，落跑前须先做单题冒烟；三条路线都不改变既有环境保真度边界（§21.14 同）。
+- **ROI 结论**：产品口径分走 **②免费层**（唯一能在零付费下与付费口径对话）；日常回归走 **①本地**（离线可反复）
+  或 **③`eval:ci`**（分钟级、只管管线）。
