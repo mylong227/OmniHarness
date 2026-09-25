@@ -265,6 +265,11 @@ export interface LayeredOptions {
   readonly configPath?: string | undefined;
   /** 选中的 profile 名（--profile），PATH 在 profiles/ 下查找。 */
   readonly profile?: string | undefined;
+  /**
+   * 用户层根目录覆盖（缺省取真实 home）。测试注入隔离 home 用——否则真实机器上的
+   * `~/.omniharness/omniharness.json` 会渗进断言（非封闭测试）。
+   */
+  readonly userHomedir?: string | undefined;
 }
 
 /** 配置文件加载器：omniharness.json，向上逐级查找（无隐式状态，默认实例见文件末尾）。 */
@@ -322,8 +327,8 @@ export class ConfigFile {
   public loadLayered(opts: LayeredOptions): FileConfig {
     const layers: Partial<FileConfig>[] = [];
 
-    // 用户级：固定路径 ~/.omniharness/omniharness.json（若存在）。
-    const userPath = join(homedir(), '.omniharness', 'omniharness.json');
+    // 用户级：固定路径 ~/.omniharness/omniharness.json（若存在；userHomedir 供测试隔离注入）。
+    const userPath = join(opts.userHomedir ?? homedir(), '.omniharness', 'omniharness.json');
     if (existsSync(userPath)) {
       layers.push(this.readStrict(userPath));
     }

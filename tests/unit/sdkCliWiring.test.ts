@@ -162,8 +162,10 @@ test('SDK 端到端：WebSocketSdkSocket 连真实 HttpServer /ws 打一发 mode
       Array.isArray(catalog.providers),
       'model.catalog 必须回 providers 数组（真实 RPC 往返）',
     );
-    const config = await client.call<{ modelAdapter?: string }>('config.get', {});
-    assert.strictEqual(typeof config.modelAdapter, 'string', 'config.get 必须回配置摘要');
+    // 断言用 get() 无条件写入的 autoApprove（封闭）：摘要里的文件层字段（如 modelAdapter）
+    // 取决于工作区是否落有 omniharness.json——仓库树凭据分层收口后零个人配置，不得隐式依赖。
+    const config = await client.call<{ autoApprove?: unknown }>('config.get', {});
+    assert.strictEqual(typeof config.autoApprove, 'boolean', 'config.get 必须回配置摘要');
   } finally {
     client.close();
     await server.close();
