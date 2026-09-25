@@ -120,7 +120,7 @@ spawn 子进程并捕获其 stdout，而本沙箱**禁止带管道 stdio 的子�
 
 `npm run build` 只执行 `tsc`（无 clean），且 `tsconfig` 非增量清理模式，于是**被改名/删除的源文件，其编译产物永久留在 `dist/`**。实测：
 
-- `dist/tests/unit/budgetDegradeAdapter.test.js` —— 源文件 `tests/unit/budgetDegradeAdapter.test.ts` **已不存在**
+- `dist/tests/unit/budgetDegradeAdapter.test.js` —— 源文件「tests/unit/budgetDegradeAdapter.test.ts」（改名前，现 costBudgetDegradeAdapter.test.ts）**已不存在**
   （改名为 `costBudgetDegradeAdapter.test.ts`），但其**陈旧副本仍在 `dist/tests/unit/*.test.js` 通配内被 `npm test` 执行**（4 例，且与新版内容不同：hash 不同）。这构成一层「看着绿、其实跑的是已删除的测试」的假绿面。
 - `dist/src/` 另有 **3 个源已不存在的模块**：`adapters/model/budgetDegradeAdapter.js`、
   `benchmark/terminalbench/localContainerBackend.js`、`benchmark/terminalbench/taskEnvironment.js`

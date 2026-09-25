@@ -1,17 +1,1 @@
-[
-  "mention: docs/DEFICIENCY_AUDIT_2026-09-22.md -> docs/TASK_BOARD_2026-09-13.md",
-  "mention: docs/DEFICIENCY_AUDIT_2026-09-22.md -> scripts/tmpPolicyTableCodemod.mjs",
-  "mention: docs/DEFICIENCY_AUDIT_2026-09-22.md -> scripts/tmpToolNameCodemod.mjs",
-  "mention: docs/DEFICIENCY_AUDIT_2026-09-22.md -> src/foo.ts",
-  "mention: docs/FRONTEND_GAP_SOURCE_AUDIT.md -> web/src/ui/base/AppComponent.tsx",
-  "mention: docs/STATE_AUDIT_2026-09-22.md -> tests/unit/budgetDegradeAdapter.test.ts",
-  "mention: docs/TASK_BOARD.md -> docs/TASK_BOARD_2026-09-13.md",
-  "mention: docs/TASK_BOARD.md -> scripts/tmpJsdocIndentFix.mjs",
-  "mention: docs/TASK_BOARD.md -> scripts/tmpPolicyTableCodemod.mjs",
-  "mention: docs/TASK_BOARD.md -> scripts/tmpToolNameCodemod.mjs",
-  "mention: docs/TASK_BOARD.md -> src/benchmark/terminalbench/dockerfileReader.ts",
-  "mention: docs/TASK_BOARD.md -> src/core/foo.ts",
-  "mention: docs/TASK_BOARD.md -> src/hello.ts",
-  "mention: docs/TASK_BOARD.md -> tests/unit/hello.test.ts",
-  "mention: docs/maturity-audit-2026-09-09.md -> web/src/ui/StreamView.tsx"
-]
+[]

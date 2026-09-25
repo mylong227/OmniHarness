@@ -623,7 +623,7 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 ### 10.2 ★ 本轮新增的两条判据（写进后续纪律）
 
-1. **定向测试只接受「像测试文件」的目标**：堆栈帧多数指向**被测源码**，把 `src/core/foo.ts` 直接透传给 `npm test --` 会被运行器判成「没有匹配的测试」而**假失败**。**不做定向 ＞ 假定向。**
+1. **定向测试只接受「像测试文件」的目标**：堆栈帧多数指向**被测源码**，把「src/core/foo.ts」直接透传给 `npm test --` 会被运行器判成「没有匹配的测试」而**假失败**。**不做定向 ＞ 假定向。**
 2. **装饰器的装配条件是「端口能力存在」而非「端口存在」**：`withPostWriteDiagnostics` 在 `lsp.diagnostics === undefined` 时**原样返回内层**——否则每次写调用都白付一次注定失败的 `await`，还给模型一个必然报错的假信号。
 
 ### 10.3 本轮门禁自查出的自身回归（诚实记录）
@@ -730,12 +730,12 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 ### 12.1 盘点：仓库里到底还剩哪些 Docker（实测，不引旧述）
 
-| 位置                                            | 实测结论                                                                                                                                                                                                                                                     |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 执行路径（`src/**`、`scripts/**`、CI）          | **0 处 Docker 调用**：无 `docker run/build`、无 docker-compose 编排、`.github/workflows/*` 无 docker job；SWE-bench 侧早已是 `src/eval/nativeExecutor.ts`（`git` + `uv` + `pytest`），OIDC 侧早已是零依赖本地 IdP 夹具                                       |
-| Terminal-Bench 适配器                           | **唯一耦合点**：`src/benchmark/terminalbench/dockerfileReader.ts` 解析上游构建配方（`FROM`/`WORKDIR`/`COPY`/`RUN pip\|apt`）反推「Python 版本 / 依赖包 / 种子落点」；契约里随之有 `imageBase`/`dockerfilePath`/`workingDir`/`copyDirectives`/`setupCommands` |
-| `eval-data/tbench/tasks/**`（语料，gitignored） | 每题带上游 `Dockerfile` + `docker-compose.yaml`（本适配器**不执行**它们，仅被上面那个读取器当数据读）                                                                                                                                                        |
-| `docs/**` 其余 docker 字样                      | 均为「免 Docker」的自我声明或对第三方项目的对比描述，**不是实现**                                                                                                                                                                                            |
+| 位置                                            | 实测结论                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 执行路径（`src/**`、`scripts/**`、CI）          | **0 处 Docker 调用**：无 `docker run/build`、无 docker-compose 编排、`.github/workflows/*` 无 docker job；SWE-bench 侧早已是 `src/eval/nativeExecutor.ts`（`git` + `uv` + `pytest`），OIDC 侧早已是零依赖本地 IdP 夹具                                                                             |
+| Terminal-Bench 适配器                           | **唯一耦合点**：`src/benchmark/terminalbench/appRootMapper.ts`（AppRootMapper，原 dockerfileReader 职责）解析上游构建配方（`FROM`/`WORKDIR`/`COPY`/`RUN pip\|apt`）反推「Python 版本 /依赖包 / 种子落点」；契约里随之有 `imageBase`/`dockerfilePath`/`workingDir`/`copyDirectives`/`setupCommands` |
+| `eval-data/tbench/tasks/**`（语料，gitignored） | 每题带上游 `Dockerfile` + `docker-compose.yaml`（本适配器**不执行**它们，仅被上面那个读取器当数据读）                                                                                                                                                                                              |
+| `docs/**` 其余 docker 字样                      | 均为「免 Docker」的自我声明或对第三方项目的对比描述，**不是实现**                                                                                                                                                                                                                                  |
 
 ### 12.2 动作（删实现 + 开源替代，效率更优）
 
@@ -1010,7 +1010,7 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 - **cwd 必须是临时工作区**：`serve` 以 cwd 为 workspaceRoot 并向上找 `omniharness.json`。第一版在仓库根起，
   仓库自己的配置（openai + providerKeys）**覆盖**了 `--model-adapter mock` ⇒ 那次体检实际跑了一个
-  **真实模型回合**：12 步、真写了 `src/hello.ts` 与 `tests/unit/hello.test.ts`（生成质量不错：JSDoc + `@public` 标注、
+  **真实模型回合**：12 步、真写了「hello.ts」与「hello.test.ts」（评测沙箱工作区内；生成质量不错：JSDoc + `@public` 标注、
   `src/`+`tests/unit/` 分置、含空白名回退等边界用例——已如实删除，未入库）。隔离后 mock 生效，零额度可复现。
 - **截图写临时目录**：不往仓库塞二进制产物；断言只看「非空白 + 尺寸」，人眼复核用一次性脚本另行出图。
 
@@ -1639,8 +1639,8 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
   `check --strict`（**569 文件零违规**）、`arch:gate`、`api:check`（162 + 70 导出分区）、
   `audit:config-wiring`（569 文件、**七条不变量 + selftest 全绿**）、`audit:maturity`、
   `checkNodeEngine`、`lint`（0 告警）、`format:check`、`tsc --noEmit`（含 `web/tsconfig.json`）全通过。
-- **清理**：删除两个一次性 codemod 脚本 `scripts/tmpPolicyTableCodemod.mjs` /
-  `scripts/tmpToolNameCodemod.mjs`（它们自己的头注释写着「跑完即删，不入库」）——否则下一次
+- **清理**：删除两个一次性 codemod 脚本（tmpPolicyTableCodemod.mjs /
+  tmpToolNameCodemod.mjs，均已删除；它们自己的头注释写着「跑完即删，不入库」）——否则下一次
   `git add -A` 就会把它们变成 §20.5 同型的死资产。
 - **刻意不做（留档，附理由）**：`util/builtinDefaults.ts` 的包根反推写死 `'../../..'`，对 `dist/` 布局
   （测试与发布）正确，源码布局直跑会指向仓库父目录。**不加向上搜索**：那会在"某一层意外存在 `defaults/`"
@@ -1706,7 +1706,7 @@ CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑
   的增量门禁第「方法缺@returns」项（`returnsGap`）把「有显式返回类型的方法」含 `void` / `Promise<void>`
   计入分母，`@returns 无返回值。` 正是满足该项的合规写法；禁止它等于同时改那条政策，属独立决策。
   → 结论：本轮只治「注释脱块」，不动 `@returns` 的有无。
-- **清理**：删除三件一次性脚本（`scripts/tmpJsdocIndentFix.mjs` / `tmpJsdocScan.mjs` / `tmpJsdocShow.mjs`）。
+- **清理**：删除三件一次性脚本（tmpJsdocIndentFix.mjs / tmpJsdocScan.mjs / tmpJsdocShow.mjs，均已删除）。
   codemod 第一版算错偏移（按注释 token 起点累加行长 ⇒ 替换位置右移 `openCol`），把 31 个文件的正文改坏
   （`@returns 无返   回值。`）；已 `git checkout` 全部回滚后重写为「按整行偏移 + 写盘前自证 0 违约」。
 - **可证伪验证（本轮实跑）**：`npm test` **2093 例 / 2088 过 / 1 失败（本机 Chrome e2e，环境问题，与基线同一条）/ 4 skip**（新增 2 例：包根锚点定位 ⑤-3、JSDoc 缩进规则包裹）；`check --strict`（569 文件零违规）、`arch:gate`、
@@ -1814,7 +1814,7 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 - **④ Python 文件迁出 `src/`**：3 个 Python 文件（3919 行，此前不在任何 TS 门禁范围内）移到
   `python/omniharness/`；`scripts/run_omniharness.py` 的 `SOURCE_ROOT` 与文档串同步
   （`repository_root()` 的 `parents[2]` 深度不变，路径算术无需改）。
-- **⑤ README 死引用**：`docs/TASK_BOARD_2026-09-13.md` **从未存在**（真实看板是 `TASK_BOARD.md`），
+- **⑤ README 死引用**：「TASK_BOARD_2026-09-13.md」**从未存在**（真实看板是 `docs/TASK_BOARD.md`），
   而 README 写明「以它为准」。非归档文档 8 处引用全部改正。
 - **如实说明（不是 bug 修复）**：`--auth-required` 的读取由裸 `serveArgs.includes(...)` 改为
   `CliArgReader.has(...)`——`Array.includes` 本就是精确匹配，**没有**子串误判风险；这只是一次措辞/惯例统一
