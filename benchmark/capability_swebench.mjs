@@ -428,16 +428,60 @@ if (verifiedIdx !== -1) {
     }
   }
   /**
+   * gold 对照报告落盘路径。
+   *
+   * ⚠️ 这里修的是一个**真缺陷**（2026-09-26 实测）：`--gold-report` 此前**只被读、从不被写**——
+   * 于是文档里那套「先跑 `--gold-control --gold-report g.json`，再用 `--gold-report g.json` 复核后续分数」
+   * 的两步工作流**根本不可能成立**（g.json 永远不会出现，复核永远走「未校验」分支）。
+   * 显现现场：django 14 题 gold 全过，收尾仍打印「判分可信度未校验」。
+   * @returns gold 报告应写入的路径。
+   */
+  function goldReportOutPath() {
+    if (goldReportPath !== undefined) return goldReportPath;
+    return reportPath.endsWith('.json')
+      ? `${reportPath.slice(0, -'.json'.length)}.gold.json`
+      : `${reportPath}.gold.json`;
+  }
+
+  /**
+   * 写入 gold 对照报告（仅 `--gold-control` 时）。产出的文件正是 {@link judgeValidIds} 要读的格式。
+   * @param report 本次报告。
+   * @returns 无返回值。
+   */
+  function writeGoldReport(report) {
+    if (!goldControl) return;
+    const path = goldReportOutPath();
+    writeFileSync(path, JSON.stringify(report, null, 2), 'utf8');
+    console.log(
+      `[capability:swebench:verified] gold 对照报告已写入: ${path}（供后续 --gold-report 复核）`,
+    );
+  }
+
+  /**
    * 打印判分可信度（未提供 gold 报告时给出提示）。
    * @param report 本次评分报告。
    * @returns 无返回值。
    */
   function printJudgeValidity(report) {
+    // 本次**就是** gold 对照 ⇒ 可信度结论由本次结果直接给出，不必（也不能）去读一份外部报告：
+    // 旧实现无条件去读 `--gold-report` 文件，导致 gold 运行收尾还在喊「未校验」，是自相矛盾的假信号。
+    if (goldControl) {
+      const rows = report.results ?? [];
+      const bad = rows.filter((r) => r.resolved !== true);
+      console.log(
+        bad.length === 0
+          ? `✅ 判分可信度（gold 对照）：${rows.length}/${rows.length} 实例的 gold 补丁判 resolved —— 该子集判分链路可信。`
+          : `⚠️ 判分可信度（gold 对照）：${rows.length - bad.length}/${rows.length} 通过；` +
+              `未通过的 ${bad.length} 个实例**判分链路不可信**，其「模型未通过」不含能力信息：`,
+      );
+      for (const r of bad) console.log(`   ❌ ${r.id} — ${r.reason ?? '无原因'}`);
+      return;
+    }
     const valid = judgeValidIds();
     const scored = (report.results ?? []).map((r) => r.id);
     if (valid === null) {
       console.log(
-        'ℹ️ 判分可信度未校验：建议先跑 `npm run eval:swebench:gold`（gold 对照），再用 --gold-report 复核本次分数。',
+        'ℹ️ 判分可信度未校验：建议先跑 `npm run eval:swebench:gold`（gold 对照，会写入 --gold-report），再用 --gold-report 复核本次分数。',
       );
       return;
     }
@@ -514,6 +558,7 @@ if (verifiedIdx !== -1) {
       await Promise.all(workers);
       const report = buildVerifiedReport(jsonlPath, executor.kind, suiteTasks.length, subsetIds);
       writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+      writeGoldReport(report);
       console.log(SwebenchVerified.formatVerifiedReport(report));
       printJudgeValidity(report);
       console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
@@ -531,6 +576,7 @@ if (verifiedIdx !== -1) {
     concurrency,
   );
   writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
+  writeGoldReport(report);
   console.log(SwebenchVerified.formatVerifiedReport(report));
   printJudgeValidity(report);
   console.log(`[capability:swebench:verified] 报告已写入: ${reportPath}`);
