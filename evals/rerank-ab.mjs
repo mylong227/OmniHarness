@@ -42,44 +42,15 @@ const GATE = process.argv.includes('--gate');
 const FK_ARG = process.argv.indexOf('--filek');
 const FILE_KS = FK_ARG >= 0 ? [Number(process.argv[FK_ARG + 1])] : [10, 14];
 
-// ── 查询集与锚点（与 recall-codebase-real.mjs 同源，便于纵向对照）─────────────────
+// ── 查询集与锚点（2026-09-25 起改接 tests/fixtures/recallQueries.ts 全量 84 条）──────
+// 旧内联 33 条退役：它与 fixture core33 存在锚点漂移（OpenAiModelConfig vs OpenAiCompatibleModel），
+// 且只覆盖冻结子集——两关结论必须建立在**第二方复核过的全量集**上（DEFICIENCY_AUDIT §4.5 处置 2）。
 // 设计原则（引用上游口径）：查询用自然语言改写、刻意避开锚点字面词（制造词法鸿沟）；
 // 锚点必须真实存在于语料，否则 GT 为空会让召回兜底成 100%，污染绝对值。
-const QUERIES = [
-  ['where is tool registration handled', 'registerTool'],
-  ['how does sandbox denial escalate to approval', 'EscalationPort'],
-  ['what does ContextAssembler project events into', 'class ContextAssembler'],
-  ['how are images attached to model messages', 'imagesOf'],
-  ['where is reasoning_effort sent to the openai model', 'reasoning_effort'],
-  ['how does BM25 tokenize CJK text', 'export function tokenize'],
-  ['how is the resonant memory probe mapped from text', 'resonateByText'],
-  ['where is the sandbox policy evaluated', 'execPolicy'],
-  ['how are tool results spilled out of context', 'spill_read'],
-  ['which component remembers decisions the operator already blessed', 'ApprovalStore'],
-  ['how is a signed claim from an agent packaged', 'AgentAssertionEnvelope'],
-  ['which key-value store replicates records across nodes', 'OobleckStore'],
-  ['tuning knobs for the graph that links distant memories', 'CosmicWebOptions'],
-  ['settings for the planner that gradually cools down', 'HeatAnnealerOptions'],
-  ['options controlling what gets pulled out of conversations', 'MemoryExtractorOptions'],
-  ['knobs for the parity based error correction layer', 'QECOptions'],
-  ['what signals that a parity check has failed', 'Syndrome'],
-  ['where is the remaining spend captured at a point in time', 'BudgetSnapshot'],
-  ['how is a chain of thought persisted to disk', 'StoredTrace'],
-  ['what normalizes text before it is compared', 'Canonicalizer'],
-  ['how long is a prior yes remembered before asking again', 'CachedApprovalOptions'],
-  ['settings for the belief updater that follows curvature', 'NaturalGradientOptions'],
-  ['tunables for the sampler tracking many hypotheses at once', 'ParticleFilterOptions'],
-  ['how is the local vector model configured', 'TransformersEmbeddingOptions'],
-  ['where are ed25519 signing credentials created', 'KeyPairSync'],
-  ['how are orphaned tool call identifiers tracked', 'ToolCallRef'],
-  ['where is the chat completion provider configured', 'OpenAiModelConfig'],
-  ['where do language server error reports come from', 'Diagnostics'],
-  ['how many characters of a conversation are retained', 'TranscriptChars'],
-  ['what does a delegated child task return', 'SubagentResult'],
-  ['what represents one entry in a multi stage plan', 'PlanStep'],
-  ['where are capabilities discovered and registered', 'SkillRegistry'],
-  ['which component gates dangerous tool calls at runtime', 'SupervisorKernel'],
-];
+const { RECALL_QUERIES, CORE_COUNT } = await import(
+  pathToFileURL(join(ROOT, 'dist', 'tests', 'fixtures', 'recallQueries.js')).href
+);
+const QUERIES = RECALL_QUERIES.map((entry) => [entry.q, entry.anchor]);
 
 // ── [0] 语料 + ground truth ──────────────────────────────────────────────────
 const engine = new RepoMapContextEngine();
@@ -97,7 +68,7 @@ const groundTruth = (anchor) => {
 
 const items = [];
 const skipped = [];
-for (const [q, anchor] of QUERIES) {
+for (const [idx, [q, anchor]] of QUERIES.entries()) {
   const gt = groundTruth(anchor);
   if (gt.size === 0) {
     // 纪律：锚点失效（GT=0）会白送 100% 召回，必须**跳过并记账**，不得静默吞掉也不得崩溃。
@@ -105,7 +76,7 @@ for (const [q, anchor] of QUERIES) {
     console.log(`  SKIP(GT=0) ${q}  anchor=${anchor}`);
     continue;
   }
-  items.push({ q, anchor, gt });
+  items.push({ q, anchor, gt, tier: idx < CORE_COUNT ? 'core' : 'extended' });
 }
 const n = items.length;
 console.log(`valid queries: ${n}/${QUERIES.length}（跳过 ${skipped.length}）`);
@@ -199,6 +170,15 @@ const runFileK = (fileK) => {
   const up = gains.filter((g) => g > 1e-9).length;
   const down = gains.filter((g) => g < -1e-9).length;
   const flat = n - up - down;
+  // 分层增益：冻结子集与复核后新增子集分开记账（对照 recall-query-audit 的两档口径）。
+  const tierDeltaOf = (tier) =>
+    +avg(
+      rows.filter((_, i) => items[i].tier === tier).map((r) => r.onRecall - r.offRecall),
+    ).toFixed(1);
+  const tierDeltas = { core: tierDeltaOf('core'), extended: tierDeltaOf('extended') };
+  console.log(
+    `  分层   core33 ${tierDeltas.core >= 0 ? '+' : ''}${tierDeltas.core}pp / extended51 ${tierDeltas.extended >= 0 ? '+' : ''}${tierDeltas.extended}pp`,
+  );
   console.log(
     `  召回   ${offRecall}% → ${onRecall}%  (${onRecall - offRecall >= 0 ? '+' : ''}${(onRecall - offRecall).toFixed(1)}pp)  ↑${up}/↓${down}/=${flat}`,
   );
@@ -212,6 +192,7 @@ const runFileK = (fileK) => {
     offPrec,
     onPrec,
     gains,
+    tierDeltas,
     up,
     down,
     flat,
@@ -360,6 +341,7 @@ for (const fileK of FILE_KS) {
     },
     precision: { off: ab.offPrec, on: ab.onPrec, deltaPp: +(ab.onPrec - ab.offPrec).toFixed(1) },
     distribution: { up: ab.up, down: ab.down, flat: ab.flat },
+    tierDeltas: ab.tierDeltas,
     robustness: rob,
     veto,
     wiring: { changedQueries: changed, totalQueries: n, ok: wiringOk },
@@ -370,8 +352,9 @@ for (const fileK of FILE_KS) {
 const decisiveRow = perFileK.find((x) => x.decisive);
 const report = {
   eval: 'rerank-ab',
-  batch: 'polish-2/检索命中',
+  batch: 'polish-2/检索命中（2026-09-25 改接复核后全量 84 条）',
   path: 'production: RepoMapContextEngine.getRepoMapContext',
+  querySource: 'tests/fixtures/recallQueries.ts（all84，2026-09-25 第二方复核版）',
   decisionFileK: DECISION_FILE_K,
   // 「翻默认」的结论必须能由报告本身复算出来，而不是只写在散文里。
   decisionBasis:
@@ -379,8 +362,12 @@ const report = {
     '其余档位如实登记但不参与判定。',
   verdict: {
     rerankPassesAtDecisionFileK: decisiveRow?.passed === true,
+    // 生产现状（2026-09-25 起）：repoMapContextEngine 缺省 OFF（本轮 gate 未过 ⇒ 按纪律回关），
+    // 开启方式 = `opts.rerank: true` 或 env `OMNI_RERANK=1`。
     enabledByDefault: false,
-    note: '生产入口默认预算 fileK=10 档 CI 下界略跨 0 ⇒ 未过阈值，故 enabled 默认关（opt-in，OMNI_RERANK=1）。',
+    note:
+      '本报告为 2026-09-25 复核修正后全量 84 条的复跑结果：core33 +5.9pp / extended51 +0.4pp，' +
+      '基准档点增益 +2.6pp 但 CI 下界 −1.59pp ⇒ 两关未过，生产默认据 DEFICIENCY_AUDIT §4.5 处置回关（opt-in）。',
   },
   corpus: {
     root: 'src',

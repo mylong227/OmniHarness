@@ -28,8 +28,11 @@
  *
  * ## 已知代价（诚实登记）
  *
- * 新增条目由人（模型）按上述协议撰写，非人工交叉复核；难度分布见 audit 报告，
- * 若某条明显偏易/偏难，可在报告中标注并按需替换（替换即破坏该条的纵向可比性，故不轻易动）。
+ * 新增条目由人（模型）按上述协议撰写；**2026-09-25 已完成第二方逐条复核**（独立会话，
+ * 51 条：KEEP 43 / FIX_ANCHOR 4 / REPLACE_QUERY 4 / DROP 0——4 处锚点过泛改为定义字面
+ * `scanForInjection` / `class LineTransport` / `class AuditSink` / `class MemoryExtractor`，
+ * 4 处查询答非所问或描述不存在的能力已重写），修正后经单测三不变量 + audit 门禁复验通过。
+ * 后续若再修条目，难度分布见 audit 报告（替换即破坏该条的纵向可比性，故不轻易动）。
  */
 
 /**
@@ -83,7 +86,8 @@ export const CORE_RECALL_QUERIES = [
 ];
 
 /**
- * 新增查询集（51 条，2026-09-22）：覆盖 core / context / security / server / adapters /
+ * 新增查询集（51 条，2026-09-22；2026-09-25 第二方逐条复核并修正 8 条——
+ * 见模块头「已知代价」节）。覆盖 core / context / security / server / adapters /
  * observability / evolution / plugin / subagent / eval / memory / sandbox 各域，
  * 每条均满足模块头的采集协议（锚点存在 + 查询避开锚点子词）。
  */
@@ -98,7 +102,10 @@ export const EXTENDED_RECALL_QUERIES = [
     anchor: 'ApprovalRuleDecision',
   },
   { q: 'which component decides whether an elevated action may proceed', anchor: 'AskEscalation' },
-  { q: 'how does an outbound rule set get evaluated safely', anchor: 'SafePolicyEvaluator' },
+  {
+    q: 'how are rule expressions judged without executing any code',
+    anchor: 'SafePolicyEvaluator',
+  },
   {
     q: 'how are equivalent shell invocations reduced to a single canonical form',
     anchor: 'CommandCanonicalizer',
@@ -125,17 +132,20 @@ export const EXTENDED_RECALL_QUERIES = [
   { q: 'how is the reliability of fetched content graded', anchor: 'ToolOutputTrust' },
   {
     q: 'how are hostile instructions inside fetched text isolated',
-    anchor: 'PromptInjectionGuard',
+    anchor: 'scanForInjection',
   },
   {
     q: 'how does an in flight request learn that it should stop early',
     anchor: 'CancellationToken',
   },
-  { q: 'how does cleanup cope with files that are locked on disk', anchor: 'SafeRemoveTree' },
+  {
+    q: 'how does cleanup fall back to a child process when bulk deletion is blocked',
+    anchor: 'SafeRemoveTree',
+  },
 
   // —— 服务端 / 传输 ——
   { q: 'how are remote procedure calls framed over a socket', anchor: 'JsonRpc' },
-  { q: 'how are messages delimited when sent down a pipe', anchor: 'LineTransport' },
+  { q: 'how are messages delimited when sent down a pipe', anchor: 'class LineTransport' },
   { q: 'how is the local dashboard protected from other machines', anchor: 'ServerAuthGuard' },
   { q: 'where are past conversations stored for later listing', anchor: 'SessionArchive' },
   {
@@ -143,13 +153,13 @@ export const EXTENDED_RECALL_QUERIES = [
     anchor: 'SessionCheckpoints',
   },
   { q: 'how are file modifications collected for review', anchor: 'WorkspaceChanges' },
-  { q: 'how is a patch presented for human comment', anchor: 'DiffReview' },
-  { q: 'how are per tenant usage limits enforced', anchor: 'QuotaService' },
+  { q: 'how can reviewed hunks be staged or reverted', anchor: 'DiffReview' },
+  { q: 'how are daily token budgets reported per model', anchor: 'QuotaService' },
   { q: 'where are extensions loaded and isolated at runtime', anchor: 'PluginHost' },
   { q: 'how are available vendors discovered from the endpoint', anchor: 'ProviderProbe' },
 
   // —— 可观测 / 审计 ——
-  { q: 'where do tamper evident records get written', anchor: 'AuditSink' },
+  { q: 'where do tamper evident records get written', anchor: 'class AuditSink' },
   { q: 'how are nested timing records assembled for export', anchor: 'TraceSpanBuilder' },
   { q: 'how is spend assigned back to the individual calls', anchor: 'TokenAttribution' },
   { q: 'how is the reusable prefix ratio monitored', anchor: 'CacheHitRateWatch' },
@@ -167,7 +177,7 @@ export const EXTENDED_RECALL_QUERIES = [
     anchor: 'FailurePatternMiner',
   },
   { q: 'how is the injected capability list trimmed', anchor: 'SkillSparsifier' },
-  { q: 'what pulls durable facts out of a conversation', anchor: 'MemoryExtractor' },
+  { q: 'what pulls durable facts out of a conversation', anchor: 'class MemoryExtractor' },
   { q: 'how are repeated identical actions detected and stopped', anchor: 'LoopGuard' },
 
   // —— 工具 / 工作区 / 并发 ——
