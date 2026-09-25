@@ -19,7 +19,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,6 +27,7 @@ import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
 import { createRuntime } from '../../src/composition/runtime.js';
 import { createRlvrEvolutionController } from '../../src/evolution/rlvrController.js';
+import { verifiableVerdictForCode } from '../../src/evolution/verifiableReward.js';
 import { parseArgs, configDefaults } from '../../src/cli/argParser.js';
 import { composeByTwist } from '../../src/skill/moireComposer.js';
 import type { ModelPort } from '../../src/ports/model/model.js';
@@ -115,6 +116,7 @@ test('E3 装配透传：显式开启的 evolutionRlvr 不再被 ConfigFactory.bu
       evolutionRlvr: {
         enabled: true,
         verifyCommand: VERIFY_COMMAND,
+        verifyCodeFileExtension: '.js',
         samplesPerPrompt: 2,
         autoRun: true,
       },
@@ -123,6 +125,7 @@ test('E3 装配透传：显式开启的 evolutionRlvr 不再被 ConfigFactory.bu
   assert.ok(config.evolutionRlvr !== undefined, 'evolutionRlvr 必须活着穿到 ResolvedConfig');
   assert.strictEqual(config.evolutionRlvr.enabled, true);
   assert.strictEqual(config.evolutionRlvr.verifyCommand, VERIFY_COMMAND);
+  assert.strictEqual(config.evolutionRlvr.verifyCodeFileExtension, '.js');
   assert.strictEqual(config.evolutionRlvr.samplesPerPrompt, 2);
   assert.strictEqual(config.evolutionRlvr.autoRun, true);
 });
@@ -154,6 +157,7 @@ test('E3 闭环一例：采样 → 可验证奖励（真实 node --check）→ �
     gateBenchmark: () => 1, // 门禁恒过 → 单独考察 RLVR 阶段
     minReward: 0,
     verifyCommand: VERIFY_COMMAND,
+    verifyCodeFileExtension: '.js',
     samplesPerPrompt: 2,
   });
 
@@ -172,6 +176,7 @@ test('E3 fail-closed：红样本（编译不过）绝不进回放缓冲且 RLVR 
     gateBenchmark: () => 1,
     minReward: 0,
     verifyCommand: VERIFY_COMMAND,
+    verifyCodeFileExtension: '.js',
     samplesPerPrompt: 2,
   });
 
@@ -188,6 +193,7 @@ test('E3 端到端：显式开启经 createRuntime 装配后，cycle() 因绿样
       evolutionRlvr: {
         enabled: true,
         verifyCommand: VERIFY_COMMAND,
+        verifyCodeFileExtension: '.js',
         samplesPerPrompt: 2,
         maxCandidates: 4,
       },
@@ -211,6 +217,7 @@ test('E3 端到端（全红）：显式开启但候选全红 → 运行时控制
       evolutionRlvr: {
         enabled: true,
         verifyCommand: VERIFY_COMMAND,
+        verifyCodeFileExtension: '.js',
         samplesPerPrompt: 2,
         maxCandidates: 4,
       },
@@ -274,4 +281,18 @@ test('E3 入口（配置文件）：omniharness.json 的 evolutionRlvr 对象映
   assert.strictEqual(mapped.rlvrCandidates, 6);
   assert.strictEqual(mapped.rlvrMinGain, 0.1);
   assert.strictEqual(mapped.rlvrAutoRun, true);
+});
+
+test('U4 桥：验证临时文件用后即清——绿样本与红样本两条路径都不留 omni-rlvr-* 垃圾', async () => {
+  const before = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-')));
+  const verdictFor = verifiableVerdictForCode(() => VERIFY_COMMAND, {
+    codeFileExtension: '.js',
+  });
+  const green = await verdictFor({ id: 't-green', code: GREEN_CODE });
+  const red = await verdictFor({ id: 't-red', code: RED_CODE });
+  assert.strictEqual(green.reward, 1, '绿 JS 代码经 node --check 应得满奖励');
+  assert.strictEqual(red.reward, 0, '红 JS 代码经 node --check 应得零奖励');
+  const after = readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-'));
+  const leaked = after.filter((f) => !before.has(f));
+  assert.deepStrictEqual(leaked, [], '验证结束后不得遗留任何临时代码文件');
 });

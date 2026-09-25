@@ -73,6 +73,12 @@ export interface RlvrEvolutionOptions {
    * 如 `npx tsc --noEmit %CODE_FILE%`。缺省则 RLVR 奖励恒 0（无样本进回放，fail-closed 安全）。
    */
   readonly verifyCommand?: string | undefined;
+  /**
+   * 验证临时文件的扩展名（默认 `.ts`，透传 `verifiableVerdictForCode`）。
+   * 必须与验证命令的语言匹配：`node --check %CODE_FILE%` 验证 JS 代码须传 `.js`
+   * （Node 22.18 起才默认解析 `.ts`，扩展名错配会得到与代码质量无关的假红）。
+   */
+  readonly verifyCodeFileExtension?: string | undefined;
   /** 能力场边长（透传燧-1）。 */
   readonly fieldSize?: number | undefined;
   /** 门禁基准（skill 级 0..1；缺省 fail-closed 0 → 无候选晋升，安全旁路）。 */
@@ -351,7 +357,11 @@ export function createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrE
   const meter = new RewardCoverageMeter();
   const reward =
     opts.verifyCommand !== undefined
-      ? meter.wrap({ verify: verifiableVerdictForCode(() => opts.verifyCommand) })
+      ? meter.wrap({
+          verify: verifiableVerdictForCode(() => opts.verifyCommand, {
+            codeFileExtension: opts.verifyCodeFileExtension,
+          }),
+        })
       : () => Promise.resolve(0);
   const loop = new RlvrLoop({
     sampler,
