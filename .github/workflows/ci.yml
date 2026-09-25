@@ -99,6 +99,10 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm install
+      # 构建前端 bundle：test:integration 的「真 serve + 真 SPA + 真 Chrome」serve 的是
+      # web/dist——本 job 不跑 web:build 的话，index.html 有 #root 却没有 bundle，
+      # composer 永不出现（windows runner 首跑实证：waitMounted 800 次轮询超时）。
+      - run: npm run web:build
       # 原生内核（.node）在 CI 环境未构建，相关用例会自动 skip；其余用例真实执行。
       # coverage:check = 构建 + 全量测试 + Node 内置覆盖率 + 行覆盖率阈值门禁（零依赖）。
       - run: npm run coverage:check
