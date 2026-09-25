@@ -16,7 +16,7 @@ const QUERIES = [
   ['what does ContextAssembler project events into', 'class ContextAssembler'],
   ['how are images attached to model messages', 'imagesOf'],
   ['where is reasoning_effort sent to the openai model', 'reasoning_effort'],
-  ['how does BM25 tokenize CJK text', 'export function tokenize'],
+  ['how does BM25 tokenize CJK text', 'public static tokenize'],
   ['how is the resonant memory probe mapped from text', 'resonateByText'],
   ['where is the sandbox policy evaluated', 'execPolicy'],
   ['how are tool results spilled out of context', 'spill_read'],

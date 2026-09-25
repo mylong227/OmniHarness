@@ -18,13 +18,13 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 const K = 20; // 生产默认注入预算
 const RANK_CAP = 200; // 超出即判为词法盲区（与 headroom-analysis 同口径）
 
-const corpus = indexCorpus(join(ROOT, 'src'), { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(join(ROOT, 'src'), { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 console.log(`查询：${RECALL_QUERIES.length} 条（其中冻结子集 ${CORE_COUNT} 条）\n`);
 
@@ -47,7 +47,7 @@ for (const { q, anchor } of RECALL_QUERIES) {
     console.error(`✗ 锚点不存在（GT=0）：anchor="${anchor}" query="${q}"`);
   }
   // 深层候选池里的最佳排位（全语料），用于难度分类
-  const tokens = tokenizeExpanded(q);
+  const tokens = Bm25Index.tokenizeExpanded(q);
   const deep = corpus.fileIndex.search(tokens, corpus.files.length);
   let bestRank = Number.POSITIVE_INFINITY;
   for (let i = 0; i < deep.length; i += 1) {
@@ -59,7 +59,7 @@ for (const { q, anchor } of RECALL_QUERIES) {
       break;
     }
   }
-  const top = query(corpus, q, { fileK: K, rerank: true }).files;
+  const top = ContextEngine.query(corpus, q, { fileK: K, rerank: true }).files;
   const hit = top.some((f) => gt.has(f));
   const band = hit
     ? 'OK'

@@ -33,16 +33,24 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...s) => import(pathToFileURL(join(DIST, ...s)).href);
 
-const { indexCorpus } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',
   'transformersEmbeddingAdapter.js',
 );
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { CachedEmbeddingPort } = await import('./lib/embedding-cache.mjs');
-const { QUERIES } = await import('./lib/query-set.mjs');
+
+// 查询集可选：默认 core33（33 条，历史可比）；`OMNI_SEMANTIC_SET=all84` 用**全量 84 条**——
+// 动机：语义路在 core33 上 +6.1pp 但 CI 跨 0（n=33 的 CI 宽约 ±12pp），换到 84 条 CI 收窄到 ±6pp 级，
+// 3–6pp 的增益才可能被判为显著（这正是 2026-09-22 扩容的初衷，本轮把它接到语义 A/B 上）。
+const SET = process.env.OMNI_SEMANTIC_SET ?? 'core33';
+const QUERIES =
+  SET === 'all84'
+    ? (await import('../dist/tests/fixtures/recallQueries.js')).RECALL_QUERIES
+    : (await import('./lib/query-set.mjs')).QUERIES;
 
 const SRC = join(ROOT, 'src');
 const PRESET = process.argv[2] ?? 'e5-small-v2';
@@ -63,7 +71,7 @@ console.log(`=== 语义召回 A/B ===`);
 console.log(`preset=${PRESET}  fileK=${FILE_K}  symK=${SYM_K}  cacheDir=${CACHE_DIR}`);
 console.log(`HF endpoint=${process.env.OMNI_HF_ENDPOINT ?? process.env.HF_ENDPOINT ?? '(未设)'}`);
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 const engine = new RepoMapContextEngine();
@@ -163,7 +171,7 @@ for (const sc of scenarios) {
       hit: files.some((f) => gt.has(f)) ? 1 : 0,
       files,
       text: text ?? '',
-      tokens: tokenize(text ?? '').length,
+      tokens: Bm25Index.tokenize(text ?? '').length,
     });
   }
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
@@ -204,7 +212,7 @@ const baseMiss = baselinePerQuery.map((r, i) => (r.hit === 0 ? i : -1)).filter((
 // 按标签定位而非下标（2026-09-25 起场景表有多个基准点，下标会随插入漂移）。
 const best = results.find((r) => r.label.startsWith('混合 + 精排开（'));
 if (best === undefined) throw new Error('场景表缺少「混合 + 精排开」行：无法做失败模式对照');
-console.log(`\n=== 失败模式对照（基线漏掉 ${baseMiss.length}/33 条）===`);
+console.log(`\n=== 失败模式对照（基线漏掉 ${baseMiss.length}/${QUERIES.length} 条）===`);
 let recovered = 0;
 for (const i of baseMiss) {
   const q = baselinePerQuery[i].q;

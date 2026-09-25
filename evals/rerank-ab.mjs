@@ -29,13 +29,13 @@ const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { RankVetoEvaluator, jaccardOverlap, DEFAULT_VETO_THRESHOLDS } = await importDist(
   'context',
   'rankVeto',
   'index.js',
 );
-const { bootstrapInterval } = await importDist('eval', 'bootstrap.js');
+const { Bootstrap } = await importDist('eval', 'bootstrap.js');
 
 const SRC = join(ROOT, 'src');
 const GATE = process.argv.includes('--gate');
@@ -54,7 +54,7 @@ const QUERIES = RECALL_QUERIES.map((entry) => [entry.q, entry.anchor]);
 
 // ── [0] 语料 + ground truth ──────────────────────────────────────────────────
 const engine = new RepoMapContextEngine();
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`corpus: ${corpus.files.length} files / ${corpus.symbols.length} symbols`);
 
 const groundTruth = (anchor) => {
@@ -104,7 +104,7 @@ const ceiling = { byK: {}, bestRankHistogram: {}, unreachable: [] };
 const poolSizes = [];
 const bestRanks = [];
 for (const it of items) {
-  const res = query(corpus, it.q, { fileK: 400, symK: 24 });
+  const res = ContextEngine.query(corpus, it.q, { fileK: 400, symK: 24 });
   poolSizes.push(res.files.length);
   const rankOf = new Map(res.files.map((f, i) => [f, i + 1]));
   let best = Number.POSITIVE_INFINITY;
@@ -204,7 +204,7 @@ const runFileK = (fileK) => {
 
 // ── [3] 稳健性：bootstrap CI（种子化）+ repeated 2-fold 留出折 ────────────────
 const robustnessOf = (gains) => {
-  const ci = bootstrapInterval(gains, (rs) => avg(rs), { rounds: 2000, seed: 0x5eed1e });
+  const ci = Bootstrap.bootstrapInterval(gains, (rs) => avg(rs), { rounds: 2000, seed: 0x5eed1e });
   // repeated 2-fold：把增益随机对半分，看「任意一半上是否仍为正」——单点击穿的增益过不了这一关。
   let seed = 0x9e3779b9;
   const rnd = () => {

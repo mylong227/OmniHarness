@@ -52,12 +52,9 @@ function importDist(...segments) {
   return import(pathToFileURL(join(DIST, ...segments)).href);
 }
 
-const { runTaskIsolated } = await importDist('eval', 'evalHarness.js');
+const { EvalHarness } = await importDist('eval', 'evalHarness.js');
 const { OpenAiCompatibleModel } = await importDist('adapters', 'model', 'openAiCompatibleModel.js');
-const { summarizePassK, passKGate, bootstrapPassK, passKGateWithCI } = await importDist(
-  'eval',
-  'passK.js',
-);
+const { PassK } = await importDist('eval', 'passK.js');
 // T4.7：固定种子由 bootstrap 模块导出——打印它即证明区间门禁跑的就是种子化重采样实现。
 const { DEFAULT_BOOTSTRAP_SEED } = await importDist('eval', 'bootstrap.js');
 // T5.5：难度分层推理强度路由（易 low / 中 medium / 难 high）。
@@ -453,7 +450,7 @@ async function main() {
         const t0 = Date.now();
         const before = snapshotWorkspace(workspaceRoot);
         try {
-          const res = await runTaskIsolated(task, workspaceRoot, model, {
+          const res = await EvalHarness.runTaskIsolated(task, workspaceRoot, model, {
             reasoningEffort: effort,
           });
           const alarms = recordDrift(driftDetector, before, snapshotWorkspace(workspaceRoot));
@@ -506,7 +503,7 @@ async function main() {
 
   // Pass@k 汇总（仅 when repeat>1 才有意义；repeat=1 时 passAtK[0]=通过率）。
   const outcomes = [...taskSamples.values()];
-  const summary = summarizePassK(outcomes, Math.max(passKTarget, 1));
+  const summary = PassK.summarizePassK(outcomes, Math.max(passKTarget, 1));
   const passedTasks = perTaskSummary.filter((t) => t.pass === t.total).length;
   const totalPrompt = perTaskSummary.reduce((s, t) => s + t.promptTokens, 0);
   const totalCompletion = perTaskSummary.reduce((s, t) => s + t.completionTokens, 0);
@@ -539,7 +536,7 @@ async function main() {
   let ciGate = null;
   if (wantCI) {
     const maxKForCI = Math.max(passKTarget, ...minPassKCiReq.map((r) => r.k), 1);
-    const report = bootstrapPassK(outcomes, maxKForCI, { rounds: ciRounds });
+    const report = PassK.bootstrapPassK(outcomes, maxKForCI, { rounds: ciRounds });
     console.log(
       `\n--- 置信区间（bootstrap 95%，rounds=${ciRounds}，种子固定 seed=0x${DEFAULT_BOOTSTRAP_SEED.toString(16)} ⇒ 可复现）---`,
     );
@@ -554,11 +551,11 @@ async function main() {
     console.log(
       `通过率: ${report.meanPassRateCI.mean.toFixed(3)}  CI=[${report.meanPassRateCI.lo.toFixed(3)}, ${report.meanPassRateCI.hi.toFixed(3)}]`,
     );
-    ciGate = passKGateWithCI(report, { minPassRate, minPassK: minPassKCiReq });
+    ciGate = PassK.passKGateWithCI(report, { minPassRate, minPassK: minPassKCiReq });
   }
 
   // fail-closed 门禁判定（点阈值 + 区间 + 反漂移，任一不达标即红）。
-  const gate = passKGate(summary, {
+  const gate = PassK.passKGate(summary, {
     minPassRate: minPassRate ?? (repeat > 1 ? undefined : 1),
     minPassK: minPassKReq,
   });

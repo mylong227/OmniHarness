@@ -25,15 +25,15 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus } = await importDist('context', 'contextEngine.js');
-const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { FileReranker } = await importDist('context', 'fileReranker.js');
 
 const SRC = join(ROOT, 'src');
 const K = 10;
 const POOLS = [20, 40, 80, 150, 482];
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 const reranker = new FileReranker();
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
@@ -53,7 +53,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -97,7 +97,7 @@ const QUERIES = [
  * 对应 contextEngine.ts: fileIndex.search(qk, POOL) ∪ symbolIndex.search(qk, 60) 映射回的文件。
  */
 function buildCandidates(q, pool) {
-  const qk = tokenizeExpanded(q);
+  const qk = Bm25Index.tokenizeExpanded(q);
   const fileHits = corpus.fileIndex.search(qk, pool);
   const symHits = corpus.symbolIndex.search(qk, 60);
   const score = new Map();

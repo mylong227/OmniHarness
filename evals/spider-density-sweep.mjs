@@ -27,13 +27,13 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 const SRC = join(ROOT, 'src');
 const DEEP = 600;
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 const N = corpus.files.length;
 console.log(`语料：${N} 文件 / ${corpus.symbols.length} 符号`);
 
@@ -52,7 +52,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -129,7 +129,7 @@ function buildGraph({ maxDf, dirWeight, cap }) {
   for (const [rel, text] of corpus.fileText) {
     const i = nodeOf.get(rel);
     if (i === undefined) continue;
-    for (const t of new Set(tokenize(text))) {
+    for (const t of new Set(Bm25Index.tokenize(text))) {
       const defs = nameToFiles.get(t);
       if (defs === undefined) continue;
       const d = defs.size;
@@ -239,7 +239,7 @@ function ppr(g, seedVec, alpha, iters = 30) {
 /** 逐查询的 BM25 种子（与 query() 内部一致）。 */
 function seedOf(g, q) {
   const seedVec = new Float64Array(N);
-  const hits = [...corpus.fileIndex.search(tokenize(q), 20)];
+  const hits = [...corpus.fileIndex.search(Bm25Index.tokenize(q), 20)];
   let max = 0;
   for (const h of hits) max = Math.max(max, h.score);
   for (const h of hits) {
@@ -256,7 +256,7 @@ function seedOf(g, q) {
 /** 旧口径：生产 query() 深池里 GT 的最佳排位（= 词法池覆盖 81.8% 的来源）。 */
 const oldRanks = new Map();
 for (const { q } of QUERIES) {
-  const deep = query(corpus, q, { fileK: DEEP, rerank: false, prf: false }).files;
+  const deep = ContextEngine.query(corpus, q, { fileK: DEEP, rerank: false, prf: false }).files;
   const gt = gts.get(q);
   let r = Infinity;
   for (let i = 0; i < deep.length; i++) {

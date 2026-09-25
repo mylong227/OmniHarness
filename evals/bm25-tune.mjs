@@ -27,14 +27,14 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 
 const SRC = join(ROOT, 'src');
 const FILE_K = Number(process.env.OMNI_FILE_K ?? 14);
 const SYM_K = 30;
 
 // ── 语料与真值 ──────────────────────────────────────────────────────────────
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`[corpus] ${corpus.files.length} files, ${corpus.symbols.length} symbols`);
 
 function groundTruth(anchor) {
@@ -53,7 +53,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -112,7 +112,12 @@ console.log(`[queries] 有效 ${N} / 共 ${QUERIES.length}`);
 
 /** 单条查询在给定 BM25 参数下的文件召回 ∈ [0,1]。 */
 function recallOne(i, k1, b) {
-  const res = query(corpus, Q[i], { fileK: FILE_K, symK: SYM_K, bm25K1: k1, bm25B: b });
+  const res = ContextEngine.query(corpus, Q[i], {
+    fileK: FILE_K,
+    symK: SYM_K,
+    bm25K1: k1,
+    bm25B: b,
+  });
   const surfaced = new Set(res.files);
   const gt = GT[i];
   if (gt.size === 0) return 0;

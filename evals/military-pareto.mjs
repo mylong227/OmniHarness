@@ -25,14 +25,14 @@ const PLOG = join(ROOT, 'military-pareto-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenize, tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { outlineText } = await importDist('context', 'repoMap.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
+const { RepoMap } = await importDist('context', 'repoMap.js');
 const { ContentStopWords } = await importDist('context', 'contentStopWords.js');
 const { QUERIES } = await import('./lib/query-set.mjs');
 
 const SRC = join(ROOT, 'src');
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 log(`corpus: ${corpus.files.length} files`);
 
 const symsByFile = new Map();
@@ -79,13 +79,13 @@ function assemble(files, syms, mode, M, terms) {
   const headN = mode === 'A' ? files.length : M;
   const head = files.slice(0, headN);
   const tail = files.slice(headN);
-  if (head.length) parts.push(outlineText(head.flatMap((f) => symsByFile.get(f) ?? [])));
+  if (head.length) parts.push(RepoMap.outlineText(head.flatMap((f) => symsByFile.get(f) ?? [])));
   for (const f of tail) parts.push(`📄 ${f}`);
   parts.push('# Relevant Symbols');
   const keep = mode === 'C' ? syms.filter((s) => terms.has(s.name.toLowerCase())) : syms;
   for (const s of keep) parts.push(`L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
   const text = parts.join('\n');
-  return tokenize(text).length;
+  return Bm25Index.tokenize(text).length;
 }
 
 const KS = [3, 4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 30, 40];
@@ -100,8 +100,8 @@ const modes = [
 // 预算扫描上限：query 的候选池 ≈ 37，故 fileK 超过池深无意义
 const perQuery = [];
 for (const { q } of QUERIES) {
-  const r = query(corpus, q, { fileK: 40, rerank: true });
-  const terms = new Set(tokenizeExpanded(q).filter((t) => ContentStopWords.isContent(t)));
+  const r = ContextEngine.query(corpus, q, { fileK: 40, rerank: true });
+  const terms = new Set(Bm25Index.tokenizeExpanded(q).filter((t) => ContentStopWords.isContent(t)));
   perQuery.push({ q, files: [...r.files], syms: [...r.symbols], terms });
 }
 log('prepared');

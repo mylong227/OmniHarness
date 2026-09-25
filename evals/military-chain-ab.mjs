@@ -32,9 +32,9 @@ const PLOG = join(ROOT, 'military-chain-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { Bm25Index, tokenize, tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { outlineText } = await importDist('context', 'repoMap.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index, Bm25Index } = await importDist('search', 'bm25Index.js');
+const { RepoMap } = await importDist('context', 'repoMap.js');
 
 const SRC = join(ROOT, 'src');
 const KS = [5, 10, 14, 20];
@@ -47,7 +47,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -86,7 +86,7 @@ const QUERIES = [
   { q: 'which component gates dangerous tool calls at runtime', anchor: 'SupervisorKernel' },
 ];
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 const rels = corpus.files.map((f) => f.rel);
 const N = rels.length;
 log(`corpus: ${N} files, ${corpus.symbols.length} symbols`);
@@ -115,11 +115,11 @@ const FIELDS = ['content', 'path', 'symbols', 'signature'];
 const fieldDocs = { content: [], path: [], symbols: [], signature: [] };
 for (const rel of rels) {
   const text = corpus.fileText.get(rel) ?? '';
-  fieldDocs.content.push(tokenize(text));
-  fieldDocs.path.push(tokenizeExpanded(rel));
+  fieldDocs.content.push(Bm25Index.tokenize(text));
+  fieldDocs.path.push(Bm25Index.tokenizeExpanded(rel));
   const syms = byFile.get(rel) ?? [];
-  fieldDocs.symbols.push(syms.flatMap((s) => tokenizeExpanded(s.name)));
-  fieldDocs.signature.push(syms.flatMap((s) => tokenizeExpanded(s.signature)));
+  fieldDocs.symbols.push(syms.flatMap((s) => Bm25Index.tokenizeExpanded(s.name)));
+  fieldDocs.signature.push(syms.flatMap((s) => Bm25Index.tokenizeExpanded(s.signature)));
 }
 const fieldIndex = {};
 for (const f of FIELDS) {
@@ -135,7 +135,7 @@ function scoreVec(ix, qk) {
   return arr;
 }
 
-const qkOf = QUERIES.map(({ q }) => tokenizeExpanded(q));
+const qkOf = QUERIES.map(({ q }) => Bm25Index.tokenizeExpanded(q));
 const rawVec = {};
 for (const f of FIELDS) rawVec[f] = qkOf.map((qk) => scoreVec(fieldIndex[f], qk));
 
@@ -202,8 +202,8 @@ function topKOf(v, K) {
 const SIG_LINE_CONST = 30;
 function outlineTokens(files) {
   const fileSet = new Set(files);
-  const outline = outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
-  return tokenize(outline).length + SIG_LINE_CONST;
+  const outline = RepoMap.outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
+  return Bm25Index.tokenize(outline).length + SIG_LINE_CONST;
 }
 
 function ci(values, B = 2000) {
@@ -306,7 +306,7 @@ const push = (r) => {
 log('V0 production default');
 push(
   evaluate('V0 生产默认 fileK=14+rerank', (qi, K) => [
-    ...query(corpus, QUERIES[qi].q, { fileK: K, rerank: true }).files,
+    ...ContextEngine.query(corpus, QUERIES[qi].q, { fileK: K, rerank: true }).files,
   ]),
 );
 
@@ -314,7 +314,7 @@ push(
 log('V1 single-field');
 push(
   evaluate('V1 单字段 BM25（第一段）', (qi, K) => [
-    ...query(corpus, QUERIES[qi].q, { fileK: K, rerank: false }).files,
+    ...ContextEngine.query(corpus, QUERIES[qi].q, { fileK: K, rerank: false }).files,
   ]),
 );
 

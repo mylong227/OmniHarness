@@ -34,7 +34,7 @@ const { MemoryStorage } = await importDist('adapters', 'storage', 'memoryStorage
 const { AutoApproval } = await importDist('adapters', 'approval', 'autoApproval.js');
 const { PassthroughSandbox } = await importDist('adapters', 'sandbox', 'passthroughSandbox.js');
 const { ToolExposurePlanner } = await importDist('core', 'toolExposurePlanner.js');
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 /** 生产默认装配（与 `promptInjectionWiring.test.ts` 的 base() 同构，去掉无关替身）。 */
 const config = ConfigFactory.build({
@@ -54,7 +54,7 @@ const names = direct.map((t) => t.name);
 
 /** 工具 schema 的投递形态代理：名称 + 描述 + 参数 JSON Schema。 */
 const wire = (t) => `${t.name}\n${t.description ?? ''}\n${JSON.stringify(t.parameters)}`;
-const tokensOf = (defs) => tokenize(defs.map(wire).join('\n')).length;
+const tokensOf = (defs) => Bm25Index.tokenize(defs.map(wire).join('\n')).length;
 
 const allTokens = tokensOf(direct);
 

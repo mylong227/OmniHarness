@@ -30,15 +30,15 @@ const PLOG = join(ROOT, 'military-payload-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenize, tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { outlineText } = await importDist('context', 'repoMap.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
+const { RepoMap } = await importDist('context', 'repoMap.js');
 const { ContentStopWords } = await importDist('context', 'contentStopWords.js');
 
 const { QUERIES } = await import('./lib/query-set.mjs');
 
 const SRC = join(ROOT, 'src');
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 log(`corpus: ${corpus.files.length} files, ${corpus.symbols.length} symbols`);
 
 const symsByFile = new Map();
@@ -89,7 +89,8 @@ function assemble(files, syms, opts = {}) {
   const head = files.slice(0, headM);
   const tail = files.slice(headM);
   const parts = ['# Repo Map (relevant files)'];
-  if (head.length > 0) parts.push(outlineText(head.flatMap((f) => symsByFile.get(f) ?? [])));
+  if (head.length > 0)
+    parts.push(RepoMap.outlineText(head.flatMap((f) => symsByFile.get(f) ?? [])));
   for (const f of tail) parts.push(`📄 ${f}`);
   parts.push('# Relevant Symbols');
   if (!dropSigLines) {
@@ -98,7 +99,7 @@ function assemble(files, syms, opts = {}) {
     for (const s of keep) parts.push(`L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
   }
   const text = parts.join('\n');
-  return { text, tokens: tokenize(text).length };
+  return { text, tokens: Bm25Index.tokenize(text).length };
 }
 
 const KS = [10, 14];
@@ -108,8 +109,8 @@ const report = { queryCount: QUERIES.length, variants: [] };
 /** 每个查询先算一次生产结果（文件集合与符号行），供所有呈现变体共用。 */
 const perQuery = [];
 for (const { q } of QUERIES) {
-  const r = query(corpus, q, { fileK: 20, rerank: true });
-  const terms = new Set(tokenizeExpanded(q).filter((t) => ContentStopWords.isContent(t)));
+  const r = ContextEngine.query(corpus, q, { fileK: 20, rerank: true });
+  const terms = new Set(Bm25Index.tokenizeExpanded(q).filter((t) => ContentStopWords.isContent(t)));
   perQuery.push({ q, files: [...r.files], syms: [...r.symbols], terms });
   if (perQuery.length % 10 === 0) log(`prepared ${perQuery.length}`);
 }
