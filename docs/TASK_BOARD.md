@@ -2151,8 +2151,7 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 
 ### 21.7 仍挂起（外部条件不变，如实登记）
 
-Terminal-Bench 环境保真（gold 3/20，待官方镜像口径）、OS 级沙箱真机证据（待 Linux/macOS CI matrix）、
-500 题满口径跑分（预算另定）。~~T4.4 真提示注入基准~~ → **已出数**（§21.8）。
+~~Terminal-Bench 环境保真~~（已定案本地对照口径）、~~OS 级沙箱真机证据~~（**CI run #78 三平台真机全绿，landlock/seatbelt 真机执行验证**）、~~500 题满口径~~（定案 30 题子集口径）、~~T4.4 真提示注入基准~~（已出数，§21.8）——**§21 挂起项清零**。
 
 ### 21.8 T4.4 真提示注入基准出数（挂起项清偿：InjecAgent 官方数据集）
 
@@ -2183,6 +2182,14 @@ Terminal-Bench 环境保真（gold 3/20，待官方镜像口径）、OS 级沙�
 - **替代修复（本批落地）**：gitleaks-action → **免费 CLI 直装**（v8.21.2 tarball + `detect --redact`，
   扫描语义不变、私有仓零许可）；两工作流加 **concurrency cancel-in-progress**（同分支新推送取消
   旧 run，止住配额燃烧）。**终局根因（转公开后仍在 SF 才定位到）**：仓库 Actions 权限被设为 `allowed_actions: local_only` + `sha_pinning_required: true`——工作流引用的任何外部 action（`actions/checkout@v4` 等 tag 引用）两者皆违反 ⇒ 每次 run 必 startup_failure，与额度无关。**修复（更佳替代：去第三方 action 化）**：全部 `uses:` 收敛为 GitHub 官方 checkout/setup-node 两项（完整 SHA 钉定，rustup 用 runner 预装工具链的 run: 步骤替代 dtolnay/rust-toolchain）；策略端 `selected` + 仅放行 github-owned（第三方供应链归零，比 patterns 白名单更彻底）；`release.yml` 删除（依赖第三方 changesets/action + 未配置 NPM_TOKEN，且 npm publish 已暂停——发布走本地 changeset version + publish）。转公开已由用户拍板执行（2026-09-25，API PATCH private=false）。
+- **🏆 CI 历史首次全绿（CI run #78，`dcb6a3f`，2026-09-25）**：10/10 job 全过——gate / web /
+  security（gitleaks CLI）/ rust（真 ubuntu）/**test ×3 真机**（windows + ubuntu + macOS：
+  coverage:check + OMNI_REQUIRE_BROWSER 强制集成）/ eval / e2e / wasm。
+  达成过程 = 五轮真实迭代，每轮由 CI 信号定位并修掉一批**只在本机看不见的缺陷**：
+  跨平台 rust cfg 门控 ×3、import 大小写 ×4、「Windows 视角」测试 ×7、coverage 基线的环境依赖
+  （environmentFloors 16 文件 / 3 环境维度：nativeAbsent·posix·realBash）、test job 缺 web:build。
+  这也一次性清偿「OS 级沙箱零真机证据」挂起项：landlock 在真 Linux 内核、seatbelt 在真 macOS 上
+  经集成测试实际执行验证（§21.7 该项移出挂起清单）。
 - **CI 各 job 的本地替代证据（2026-09-25 全部本机实跑）**：gate=12 门禁全绿；web=243/243 +
   真浏览器断言 + responsiveProbe 640/1280 零溢出；test(Windows)=coverage 90.67% + 集成 11/11
   （OMNI_REQUIRE_BROWSER 口径含真 Chrome）；eval=`eval:ci` 门禁达标 + `eval:veto` 3/3；
