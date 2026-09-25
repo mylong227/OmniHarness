@@ -47,7 +47,7 @@ export { LinuxBwrapSandbox } from './sandbox/linuxBwrapSandbox.js';
 export { MacOsSeatbeltSandbox } from './sandbox/macosSeatbeltSandbox.js';
 export { SandboxManager } from './sandbox/sandboxManager.js';
 export type { SandboxProfile } from './sandbox/sandboxManager.js';
-export { SandboxDenial } from '../ports/runtime/sandboxDenial.js';
+export { SandboxDenial } from '../security/sandboxDenial.js';
 export type { RuntimeFailure } from '../ports/runtime/sandboxDenial.js';
 export { DangerousCommands } from './sandbox/dangerousCommands.js';
 export { AutoApproval } from './approval/autoApproval.js';

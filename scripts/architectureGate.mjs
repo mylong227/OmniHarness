@@ -1,4 +1,4 @@
-﻿// 架构约束门禁（P0.4，docs/REFACTOR_BOARD_2026-09-12.md §P0.4）。
+// 架构约束门禁（P0.4，docs/REFACTOR_BOARD_2026-09-12.md §P0.4）。
 //
 // 职责：把「架构约束」从人工评审变为机械可证，覆盖三类六边形/端口-适配器铁律：
 //   1. 禁 core→adapters：core 层（src/core）不得 import adapters 层（src/adapters）。
@@ -111,9 +111,12 @@ for (const f of files) {
     }
   }
   // class 声明（端口只应是接口/类型，不应有实现类）
+  // 2026-09-26 修假信号：判据原为「对**原始文本**跑正则」，于是**注释里提到** `class X`（例如记录
+  // 「实现类已迁出 ports」）也会被判成实现类——门禁自身的假阳性。现先剥掉块注释与行注释再匹配。
+  const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
   const classRe = /\bclass\s+[A-Za-z0-9_]+/g;
   let cm;
-  while ((cm = classRe.exec(text))) {
+  while ((cm = classRe.exec(code))) {
     portsClassViolations.push({ id: `${fk}  ::  ${cm[0]}`, whitelisted: fileWl });
   }
 }
