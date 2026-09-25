@@ -254,6 +254,7 @@ const drifted = [];
 // 且**显式打印**正在用哪套（不静默换尺子）。
 const nativeModulePath = join(root, 'native', 'omni_napi.node');
 const nativeMissing = !existsSync(nativeModulePath);
+const isPosix = process.platform !== 'win32';
 let realBash = false;
 try {
   execFileSync('bash', ['-c', '[ -n "$BASH_VERSION" ]'], { stdio: 'ignore' });
@@ -267,12 +268,16 @@ if (nativeMissing) {
   envKey.push('native 缺席');
   process.env.OMNI_COVERAGE_NATIVE_ABSENT = '1';
 }
+if (isPosix) envKey.push('POSIX 平台');
 console.log(
-  `ℹ️ 环境：native/omni_napi.node ${nativeMissing ? '缺席（原生依赖文件按 environmentFloors.nativeAbsent 下限）' : '在场（按冻结基线棘轮）'}；bash ${realBash ? '真 bash' : '存根/不可用'}${realBash ? '（bash 族文件按 environmentFloors.realBash 下限）' : ''}`,
+  `ℹ️ 环境：native/omni_napi.node ${nativeMissing ? '缺席（原生依赖文件按 environmentFloors.nativeAbsent 下限）' : '在场（按冻结基线棘轮）'}；平台 ${process.platform}${isPosix ? '（平台语义文件按 environmentFloors.posix 下限）' : ''}；bash ${realBash ? '真 bash' : '存根/不可用'}${realBash ? '（bash 族文件按 environmentFloors.realBash 下限）' : ''}`,
 );
 const floorFor = (file) => {
   if (nativeMissing && typeof envFloorsAll.nativeAbsent?.files?.[file] === 'number') {
     return { floor: envFloorsAll.nativeAbsent.files[file], tag: '无原生下限' };
+  }
+  if (isPosix && typeof envFloorsAll.posix?.files?.[file] === 'number') {
+    return { floor: envFloorsAll.posix.files[file], tag: 'POSIX 下限' };
   }
   if (realBash && typeof envFloorsAll.realBash?.files?.[file] === 'number') {
     return { floor: envFloorsAll.realBash.files[file], tag: '真 bash 下限' };

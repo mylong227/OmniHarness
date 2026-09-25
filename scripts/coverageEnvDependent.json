@@ -18,13 +18,20 @@
     "2026-09-25 全量盘点实测：`coverage:check` 在 HEAD 冻结基线下报 4 文件回退，三次全量运行数值逐字节一致（确定性），且四个文件源码自基线提交 0b20829 起**零改动**——差异来自基线之后的提交改变了测试文件集合/交错与宿主环境。逐个诊断：① `dshWorker.js` 67.35 vs 85.71（18.36 点）：`dshWorker.test.ts` 全部 3 个用例以 `dshReady`（本机装有 dsh CLI）为前置，本机 `dsh` 不在 PATH（`which dsh` 失败）→ 全部 skip，隔离复跑 pass 0/fail 0、覆盖率与全量完全一致，属**宿主工具链差异**；② `bashLocator.js` 74.36 vs 78.21（3.85 点）：与已登记的 `bashAppRootMapper.js` 同族——本机 `bash` 是 WSL 存根导致探测分支进不去，同源同豁免；③ `cliWorker.js` 97.06 vs 100（2.94 点）：workerSystem 6/6 绿，未覆盖仅 16-17 两行（worker 入口引导段，import 语境不可达）；④ `contextCompactor.js` 94.31 vs 97.01（2.70 点）：源码零改动、f8b2968 自述「零改动受益」，纯交错抖动略超 1 点容差。四者均无法由代码改动消除，按下限登记（66/73/96/93，实测最低值再留余量），冻结基线**不**改写。",
     "2026-09-25 凭据分层收口（fba8ae0）后的 providerProbe 基线改写（63.76→57.05，--force 下调）：受控实验定位——providerProbe 的部分分支覆盖此前**来自仓库树 omniharness.json 恰好存在**（含 providerKeys）这一开发机偶然条件；凭据分层迁移删除仓库树个人配置（本就是收口目标）后，这些分支在正常环境下不可达，57.05 连续 4 次全量实测完全一致。实验：放回仓库级配置 → 恢复 63.76 门禁绿；移除 → 57.05 门禁红，可精确复现。此为**旧基线在被个人配置污染的环境下记录**所致，非行为回归——直接改写冻结值（同 mcpClient/httpBridgeTransport 先例）。教训：基线曾依赖「仓库树有真实密钥」这一不应存在的状态。",
     "2026-09-25 补充：pluginLoader.js 反向漂移如期而至（94.06 → 83.17，差 10.89 点）——正是本表 notes 预测的「日后出现反向漂移需按纪律登记」情形。诊断：隔离单跑 pluginLoader.test.js 两次均 83.17（未覆盖 21-22/35-36/63-64/73-74/78-79/91-97 等错误分支），94.06 需特定全量交错才能到达；源码未改动。属文件集合/交错抖动，按下限 82 登记。",
-    "2026-09-25 CI 三平台首跑补充：公开仓 + 去 action 化后 coverage:check 在 CI 红于三类**环境差异**（非代码回归）：① nativeExecutionBackend.js 60% vs 86.49（无原生 .node）；② bashAppRootMapper 51.66 vs 下限 70、bashLocator 57.69 vs 73——原下限在「WSL 存根 bash」宿主上校准，真 bash 宿主走向不同分支。处置：coverageEnvDependent 新增 environmentFloors（nativeAbsent / realBash 两组条件化下限，取值=CI 实测再留余量），coverageGate 显式探测环境、打印所用下限来源；有原生/WSL 存根宿主的原门禁语义逐字不变。诊断透明化同步：gate 失败透传改为 trimStart 匹配（嵌套 describe 的内部 not ok 行不再漏报）。"
+    "2026-09-25 CI 三平台首跑补充：公开仓 + 去 action 化后 coverage:check 在 CI 红于三类**环境差异**（非代码回归）：① nativeExecutionBackend.js 60% vs 86.49（无原生 .node）；② bashAppRootMapper 51.66 vs 下限 70、bashLocator 57.69 vs 73——原下限在「WSL 存根 bash」宿主上校准，真 bash 宿主走向不同分支。处置：coverageEnvDependent 新增 environmentFloors（nativeAbsent / realBash 两组条件化下限，取值=CI 实测再留余量），coverageGate 显式探测环境、打印所用下限来源；有原生/WSL 存根宿主的原门禁语义逐字不变。诊断透明化同步：gate 失败透传改为 trimStart 匹配（嵌套 describe 的内部 not ok 行不再漏报）。",
+    "2026-09-25 CI 第 5 轮补充：三平台阻断清单全量诊断后按纪律登记——nativeAbsent 从 1 文件扩到 7 文件（windows runner 阻断清单即原生家族全集），新增 posix 组（ubuntu/macos 阻断交集，均为平台语义而非回归：lspUri 的 fileURLToPath 在 POSIX 可解析、shellInvocation 的 cmd 形态分支、processTreeKiller/safeRemoveTree 的平台回退分支等）。所有取值均来自公开 CI run 的实测输出。WASM job 的失败为 crates.io 网络抖动（spurious network error，重试后即绿），与代码无关。"
   ],
   "environmentFloors": {
     "nativeAbsent": {
-      "reason": "CI（GitHub runner，2026-09-25 首跑实测）无原生 omni_napi.node：nativeBuild.mjs 是 Windows/mingw 专属，runner 上不构建 ⇒ nativeExecutionBackend 的相关用例整体 skip，覆盖率 60%（本机有原生时 86.49，差 26.49 点）。按实测值留余量登记下限 55；有原生的环境仍走冻结基线棘轮，不受影响。",
+      "reason": "CI 三平台（GitHub runner，2026-09-25 实测，run 108015218719/738/884）无原生 omni_napi.node：nativeBuild.mjs 为 Windows/mingw 专属，runner 不构建 ⇒ 原生执行链路的用例整体 skip。七文件取各平台实测最低值再留 ~2 点余量登记；有原生环境仍走冻结基线棘轮。",
       "files": {
-        "src/benchmark/terminalbench/nativeExecutionBackend.js": 55
+        "src/benchmark/terminalbench/nativeExecutionBackend.js": 55,
+        "src/benchmark/terminalbench/pythonEnvironmentProvisioner.js": 54,
+        "src/benchmark/terminalbench/taskSeeder.js": 63,
+        "src/eval/nativeExecutor.js": 51,
+        "src/eval/swebenchVerified.js": 88,
+        "src/native/nativeBackend.js": 31,
+        "src/native/nativeKernel.js": 73
       }
     },
     "realBash": {
@@ -32,6 +39,18 @@
       "files": {
         "src/benchmark/terminalbench/bashAppRootMapper.js": 48,
         "src/benchmark/terminalbench/bashLocator.js": 54
+      }
+    },
+    "posix": {
+      "reason": "POSIX runner（ubuntu/macos，2026-09-25 实测）：平台语义差异导致部分 Windows 校准的分支不可达（fileURLToPath 成功路径、cmd 形态、进程树语义、safeRemoveTree 回退、doctorRunner 提权探测等）。七文件取 ubuntu/macos 实测最低值再留 ~2 点余量登记；win32 仍走冻结基线棘轮。",
+      "files": {
+        "src/adapters/lsp/lspUri.js": 84,
+        "src/adapters/tool/shell/shellInvocation.js": 91,
+        "src/adapters/tool/shell/shellProcessRunner.js": 87,
+        "src/adapters/tool/shell/processTreeKiller.js": 52,
+        "src/benchmark/terminalbench/appRootMapper.js": 61,
+        "src/util/safeRemoveTree.js": 52,
+        "src/cli/doctorRunner.js": 93
       }
     }
   }
