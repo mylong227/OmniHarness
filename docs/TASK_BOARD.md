@@ -2149,6 +2149,15 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   可复现（子集选择器确定性）的真值；② 把「检索/投送改动是否伤害端到端完成率」从无据可查变为有基线可对照。
   提升路径按 ROI：开 best-of-N=4 + self-test 出「产品口径」分数（成本另批），检索侧对照本基线做 A/B。
 
+- **发布（2026-09-25）**：包名改 scoped `@mylong227/omniharness`（npm 裸名已被第三方
+  tim_carter_clausen 占用，`5f2a73d`）；**GitHub Release v0.2.0 已上线**
+  （`releases/tag/v0.2.0`，附 tarball，匿名下载已验证 200）——安装方式：tarball 直装 /
+  `npm i github:mylong227/OmniHarness#v0.2.0`。
+  npm registry 发布链就绪（scoped 名 + 凭据 + publishConfig 全部就位），**唯一剩余动作 =
+  账号 2FA 的一次性验证码**（`npm publish --otp=<验证器6位码>`，物理上需机主读码；
+  bypass 型 granular token 已被 npm 新政策弃用——PUT 直接 404，实测见本日排障记录；
+  npm 登录链路另实测：web 授权必须选 Read and write，只读会话的写请求被 404 遮蔽）。
+
 ### 21.7 仍挂起（外部条件不变，如实登记）
 
 ~~Terminal-Bench 环境保真~~（已定案本地对照口径）、~~OS 级沙箱真机证据~~（**CI run #78 三平台真机全绿，landlock/seatbelt 真机执行验证**）、~~500 题满口径~~（定案 30 题子集口径）、~~T4.4 真提示注入基准~~（已出数，§21.8）——**§21 挂起项清零**。
