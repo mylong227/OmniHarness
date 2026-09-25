@@ -4,6 +4,7 @@
     "src/benchmark/terminalbench/bashAppRootMapper.js": 70,
     "src/benchmark/terminalbench/bashLocator.js": 73,
     "src/context/contextCompactor.js": 93,
+    "src/plugin/pluginLoader.js": 82,
     "src/server/transport/wsConnection.js": 84,
     "src/worker/cliWorker.js": 96,
     "src/worker/dshWorker.js": 66
@@ -14,6 +15,8 @@
     "同轮另有 4 个文件**高于**基线（改进方向，门禁不阻断）：browserSession 91.75→92.41、nativeExecutionBackend 85.95→86.49、memoryStackAssembler 96.28→97.87、pluginLoader 83.17→94.06。它们与本条豁免无关，未登记；若日后出现**反向**漂移并确诊为环境/交错相关，需按同一条纪律登记原因后再入本表。",
     "本轮**直接改写**（不是按下限）的两条冻结值，均经两次全量复现且原因明确——去重把**被覆盖的样板代码删掉**，分母变小导致百分比下降（逻辑搬进了 98.83% 覆盖的 `pendingRequests.js`）：`src/mcp/mcpClient.js` 87.26→85.29、`src/server/transport/httpBridgeTransport.js` 97.66→97.63。判定依据：这两行改动前后两次全量运行数值完全相同，而 wsConnection 会随文件集合变化。",
     "第十轮补充：上面这类「文件集合/交错」抖动又出现一次（`evalHarness.js` 87.78 ↔ 87.28，源码未改动，去掉新测试文件后精确回到 87.78），说明它**不是个案**而不是「某几个文件的怪癖」。故已在 `coverageGate.mjs` 统一加 **1 点度量漂移容差**（容差内的下浮如实列出但不阻断），并让 `--dump-baseline` 变成**棘轮**（只升不降，`--force` 才可下调）——这样既不必逐个登记，也不会把回归悄悄合法化。本表的 `wsConnection.js` 条目保留为现已由容差覆盖的历史证据；`bashAppRootMapper.js` 仍是**换机器就变**的宿主差异（6 点量级），容差覆盖不了，继续按下限校验。",
-    "2026-09-25 全量盘点实测：`coverage:check` 在 HEAD 冻结基线下报 4 文件回退，三次全量运行数值逐字节一致（确定性），且四个文件源码自基线提交 0b20829 起**零改动**——差异来自基线之后的提交改变了测试文件集合/交错与宿主环境。逐个诊断：① `dshWorker.js` 67.35 vs 85.71（18.36 点）：`dshWorker.test.ts` 全部 3 个用例以 `dshReady`（本机装有 dsh CLI）为前置，本机 `dsh` 不在 PATH（`which dsh` 失败）→ 全部 skip，隔离复跑 pass 0/fail 0、覆盖率与全量完全一致，属**宿主工具链差异**；② `bashLocator.js` 74.36 vs 78.21（3.85 点）：与已登记的 `bashAppRootMapper.js` 同族——本机 `bash` 是 WSL 存根导致探测分支进不去，同源同豁免；③ `cliWorker.js` 97.06 vs 100（2.94 点）：workerSystem 6/6 绿，未覆盖仅 16-17 两行（worker 入口引导段，import 语境不可达）；④ `contextCompactor.js` 94.31 vs 97.01（2.70 点）：源码零改动、f8b2968 自述「零改动受益」，纯交错抖动略超 1 点容差。四者均无法由代码改动消除，按下限登记（66/73/96/93，实测最低值再留余量），冻结基线**不**改写。"
+    "2026-09-25 全量盘点实测：`coverage:check` 在 HEAD 冻结基线下报 4 文件回退，三次全量运行数值逐字节一致（确定性），且四个文件源码自基线提交 0b20829 起**零改动**——差异来自基线之后的提交改变了测试文件集合/交错与宿主环境。逐个诊断：① `dshWorker.js` 67.35 vs 85.71（18.36 点）：`dshWorker.test.ts` 全部 3 个用例以 `dshReady`（本机装有 dsh CLI）为前置，本机 `dsh` 不在 PATH（`which dsh` 失败）→ 全部 skip，隔离复跑 pass 0/fail 0、覆盖率与全量完全一致，属**宿主工具链差异**；② `bashLocator.js` 74.36 vs 78.21（3.85 点）：与已登记的 `bashAppRootMapper.js` 同族——本机 `bash` 是 WSL 存根导致探测分支进不去，同源同豁免；③ `cliWorker.js` 97.06 vs 100（2.94 点）：workerSystem 6/6 绿，未覆盖仅 16-17 两行（worker 入口引导段，import 语境不可达）；④ `contextCompactor.js` 94.31 vs 97.01（2.70 点）：源码零改动、f8b2968 自述「零改动受益」，纯交错抖动略超 1 点容差。四者均无法由代码改动消除，按下限登记（66/73/96/93，实测最低值再留余量），冻结基线**不**改写。",
+    "2026-09-25 凭据分层收口（fba8ae0）后的 providerProbe 基线改写（63.76→57.05，--force 下调）：受控实验定位——providerProbe 的部分分支覆盖此前**来自仓库树 omniharness.json 恰好存在**（含 providerKeys）这一开发机偶然条件；凭据分层迁移删除仓库树个人配置（本就是收口目标）后，这些分支在正常环境下不可达，57.05 连续 4 次全量实测完全一致。实验：放回仓库级配置 → 恢复 63.76 门禁绿；移除 → 57.05 门禁红，可精确复现。此为**旧基线在被个人配置污染的环境下记录**所致，非行为回归——直接改写冻结值（同 mcpClient/httpBridgeTransport 先例）。教训：基线曾依赖「仓库树有真实密钥」这一不应存在的状态。",
+    "2026-09-25 补充：pluginLoader.js 反向漂移如期而至（94.06 → 83.17，差 10.89 点）——正是本表 notes 预测的「日后出现反向漂移需按纪律登记」情形。诊断：隔离单跑 pluginLoader.test.js 两次均 83.17（未覆盖 21-22/35-36/63-64/73-74/78-79/91-97 等错误分支），94.06 需特定全量交错才能到达；源码未改动。属文件集合/交错抖动，按下限 82 登记。"
   ]
 }

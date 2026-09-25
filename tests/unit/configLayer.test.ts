@@ -141,11 +141,15 @@ describe('profile: 查找与加载', () => {
 
 describe('configFile.loadLayered: 分层合并 + 严格校验', () => {
   let dir: string;
+  let home: string;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'oh-layered-'));
+    // 用户层隔离：真实机器可能存在 ~/.omniharness/omniharness.json，会渗进断言（非封闭测试）
+    home = mkdtempSync(join(tmpdir(), 'oh-layered-home-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   });
 
   it('项目文件 + profile 合并，profile 覆盖', () => {
@@ -159,7 +163,7 @@ describe('configFile.loadLayered: 分层合并 + 严格校验', () => {
       join(profiles, 'strict.json'),
       JSON.stringify({ approval: 'deny', sandbox: 'policy' }),
     );
-    const merged = configFile.loadLayered({ workspace: dir, profile: 'strict' });
+    const merged = configFile.loadLayered({ workspace: dir, profile: 'strict', userHomedir: home });
     assert.strictEqual(merged.model, 'base');
     assert.strictEqual(merged.approval, 'deny'); // profile 覆盖
     assert.strictEqual(merged.sandbox, 'policy');
@@ -168,19 +172,22 @@ describe('configFile.loadLayered: 分层合并 + 严格校验', () => {
 
   it('项目文件含未知 key 严格抛错', () => {
     writeFileSync(join(dir, 'omniharness.json'), JSON.stringify({ weird_field: true }));
-    assert.throws(() => configFile.loadLayered({ workspace: dir }), ConfigError);
+    assert.throws(() => configFile.loadLayered({ workspace: dir, userHomedir: home }), ConfigError);
   });
 
   it('未指定 profile 时不加载 profile 层', () => {
     writeFileSync(join(dir, 'omniharness.json'), JSON.stringify({ model: 'ok' }));
-    const merged = configFile.loadLayered({ workspace: dir });
+    const merged = configFile.loadLayered({ workspace: dir, userHomedir: home });
     assert.strictEqual(merged.model, 'ok');
     assert.strictEqual(merged.approval, undefined);
   });
 
   it('不存在的 profile 抛 ConfigError', () => {
     writeFileSync(join(dir, 'omniharness.json'), JSON.stringify({ model: 'ok' }));
-    assert.throws(() => configFile.loadLayered({ workspace: dir, profile: 'ghost' }), ConfigError);
+    assert.throws(
+      () => configFile.loadLayered({ workspace: dir, userHomedir: home, profile: 'ghost' }),
+      ConfigError,
+    );
   });
 });
 
@@ -243,11 +250,14 @@ describe('profile: extends 继承（A2）', () => {
 
 describe('configFile.loadLayered: permission 段透传（A2）', () => {
   let dir: string;
+  let home: string;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'oh-perm-'));
+    home = mkdtempSync(join(tmpdir(), 'oh-perm-home-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   });
 
   it('项目文件的 permission.rules 保留在合并结果中', () => {
@@ -257,7 +267,7 @@ describe('configFile.loadLayered: permission 段透传（A2）', () => {
         permission: { rules: [{ toolName: 'shell', commandGlob: '*rm -rf*', decision: 'deny' }] },
       }),
     );
-    const merged = configFile.loadLayered({ workspace: dir });
+    const merged = configFile.loadLayered({ workspace: dir, userHomedir: home });
     assert.strictEqual(merged.permission?.rules?.length, 1);
     assert.strictEqual(merged.permission?.rules?.[0]?.commandGlob, '*rm -rf*');
   });
@@ -267,6 +277,6 @@ describe('configFile.loadLayered: permission 段透传（A2）', () => {
       join(dir, 'omniharness.json'),
       JSON.stringify({ permission: { rules: [{ decision: 'maybe' }] } }),
     );
-    assert.throws(() => configFile.loadLayered({ workspace: dir }), ConfigError);
+    assert.throws(() => configFile.loadLayered({ workspace: dir, userHomedir: home }), ConfigError);
   });
 });
