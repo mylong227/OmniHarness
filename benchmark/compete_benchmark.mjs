@@ -6,11 +6,11 @@
 //       竞品组合=图/crew 调度（聚合而非干涉）；本基准"parts-sum"基线即"分别用 A、B"，
 //       度量单技能自乘积能否产生涌现结构（不能 → 0）。
 
-import { composeByTwist, capabilityFieldOf, emergenceAt } from '../dist/src/skill/skillComposer.js';
+import { composeByTwist, capabilityFieldOf, emergenceAt } from '../dist/src/skill/moireComposer.js';
 import { moireEnergy } from '../dist/src/evolution/benchmark.js';
 import { eigenSpectrum, spectrumFromValues, resonance } from '../dist/src/util/eigenspectrum.js';
-import { ResonantMemoryEngine } from '../dist/src/adapters/memory/resonantMemory.js';
-import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRing.js';
+import { ResonantFieldEngine } from '../dist/src/adapters/memory/resonantFieldEngine.js';
+import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRingPacket.js';
 
 const BINS = 257;
 const N = 64;
@@ -40,8 +40,8 @@ class MemStub {
   get count() {
     return this.facts.length;
   }
-  get() {
-    return undefined;
+  get(id) {
+    return this.facts.find((f) => f.id === id);
   }
   update() {
     return false;
@@ -159,7 +159,7 @@ const corpus = [
 ];
 const mem = new MemStub();
 for (const c of corpus) mem.remember(c);
-const engine = new ResonantMemoryEngine(mem, BINS);
+const engine = new ResonantFieldEngine(mem, { bins: BINS });
 const vec = new VectorRetriever(mem.all());
 
 const qSched = '夜间调度坤';

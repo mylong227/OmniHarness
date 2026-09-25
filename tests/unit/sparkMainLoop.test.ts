@@ -1,6 +1,6 @@
 ﻿// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 createRuntime，
 // 复用 I-P1-4 进化闭环的 autoRun 钩子范式，使"市面唯一"从端口变为真能力。断言：
-//   ① 启用 resonance 后，注入 Agent 的 longTermMemory 即共振引擎，recall 走频率域代数（drop-in）；
+//   ① U1 统一基板（默认开）下，注入 Agent 的 longTermMemory 即单一 ResonantField 引擎，recall 走频率域代数（drop-in）；
 //   ② 启用 vortexRing 后，注入的 spill 即涡环包适配器，外溢封成 vr_ 拓扑环、解环 fail-closed；
 //   ③ SparkController 在配置层正确构造 / autoRun 门控；
 //   ④ 任务完成后 autoRun 钩子真触发 燧-3 tune（证明钩子进主循环），且零破坏（关时不动）。
@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import { ResonantMemoryEngine } from '../../src/adapters/memory/resonantMemoryEngine.js';
+import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.js';
 import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { Agent } from '../../src/core/agent.js';
@@ -95,13 +95,11 @@ test('① 燧-3 接入主循环：注入的 longTermMemory 即共振引擎，rec
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base,
-    resonantField: { enabled: false },
-    resonance: { enabled: true },
   });
-  // 注入主循环的即共振引擎（而非原始 base）。
+  // 注入主循环的即单一 ResonantField 引擎（而非原始 base）。
   assert.ok(
-    config.longTermMemory instanceof ResonantMemoryEngine,
-    'longTermMemory 应被封包成 ResonantMemoryEngine',
+    config.longTermMemory instanceof ResonantFieldEngine,
+    'longTermMemory 应被封包成 ResonantFieldEngine（U1 统一基板）',
   );
   // recall 走共振：主题 A 探针 → top-3 全为 A（BM25 子串法对正交字符集会失准，共振代数不依赖子串）。
   // 注：必须在 mutate 之前召回，否则 delete 减少 A 事实数会使 top-3 无法全 A。
@@ -172,17 +170,15 @@ test('③ SparkController 装配与 autoRun 门控', async () => {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base,
-    resonantField: { enabled: false },
-    resonance: { enabled: true },
     vortexRing: { enabled: true },
     spillAdapter: 'memory' as const,
   };
 
-  // 两个都启用 + sparkAutoRun=true → 构造且 autoRun 开。
+  // 燧-3（U1 默认开）+ 燧-4 都启用 + sparkAutoRun=true → 构造且 autoRun 开。
   const on = ConfigFactory.build({ ...opts, sparkAutoRun: true });
   assert.ok(on.spark instanceof SparkController, '任一燧能力启用时应构造 SparkController');
   assert.strictEqual(on.spark!.autoRun, true);
-  assert.ok(on.longTermMemory instanceof ResonantMemoryEngine);
+  assert.ok(on.longTermMemory instanceof ResonantFieldEngine);
   assert.ok(on.spill instanceof VortexRingSpillAdapter);
 
   // 两个都启用但无 autoRun → autoRun 默认关（零破坏旁路）。
@@ -190,8 +186,12 @@ test('③ SparkController 装配与 autoRun 门控', async () => {
   assert.ok(off.spark instanceof SparkController);
   assert.strictEqual(off.spark!.autoRun, false);
 
-  // 都不启用 → 不构造（零侵入）。
-  const none = ConfigFactory.build({ ...opts, resonance: undefined, vortexRing: undefined });
+  // 都不启用 → 不构造（零侵入）：关掉 U1 基板与涡环包后无任何燧能力。
+  const none = ConfigFactory.build({
+    ...opts,
+    resonantField: { enabled: false },
+    vortexRing: undefined,
+  });
   assert.strictEqual(none.spark, undefined, '无燧能力时不应构造 SparkController');
 
   // cycle() 报告两个维度。
@@ -215,10 +215,9 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base,
-    resonance: { enabled: true },
     sparkAutoRun: true,
   });
-  const engineOn = configOn.longTermMemory as ResonantMemoryEngine;
+  const engineOn = configOn.longTermMemory as ResonantFieldEngine;
   let tuned = false;
   const realTune = engineOn.tune.bind(engineOn);
   engineOn.tune = () => {
@@ -241,9 +240,9 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base2,
-    resonance: { enabled: true }, // 启用了共振，但没开 sparkAutoRun
+    // U1 基板默认开（共振引擎在），但没开 sparkAutoRun
   });
-  const engineOff = configOff.longTermMemory as ResonantMemoryEngine;
+  const engineOff = configOff.longTermMemory as ResonantFieldEngine;
   let tunedOff = false;
   const realTuneOff = engineOff.tune.bind(engineOff);
   engineOff.tune = () => {

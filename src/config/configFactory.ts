@@ -259,8 +259,6 @@ export interface OmniHarnessConfig {
    * 纪律：不进主门禁、可关、有超时与预算上限（见各字段默认值）。
    */
   readonly selfVerify?: SelfVerifyConfig | undefined;
-  /** 燧-3 共振寻址（S+ 发明层）：启用后长期记忆召回改用频率域共振代数（非 BM25 几何距离），使"市面唯一"寻址维度真进主循环。缺省关，零破坏。 */
-  readonly resonance?: { enabled: boolean } | undefined;
   /** 燧-4 涡环包（S+ 发明层）：启用后工具大输出外溢封成拓扑环包（fail-closed 抗污染、不随内容膨胀）。缺省关，零破坏。 */
   readonly vortexRing?: { enabled: boolean } | undefined;
   /** 燧内核 autoRun（复用 I-P1-4 进化闭环的 autoRun 钩子）：任务完成后跑一轮 燧-3/燧-4 调谐/冲刷/(D) 退火。缺省关，零破坏。 */
@@ -277,15 +275,11 @@ export interface OmniHarnessConfig {
         readonly maxFacts?: number | undefined;
       }
     | undefined;
-  /** (E, I-P1-2) 宇宙网记忆：启用后长期记忆自组织成宇宙网——写入走 Burgers 黏附去重、consolidate 走 RG 粗粒化坍缩（Bekenstein 容量界约束、存储不膨胀）。缺省关，零破坏。 */
-  readonly memoryWeb?:
-    | {
-        readonly enabled?: boolean | undefined;
-        readonly adhesionThreshold?: number | undefined;
-        readonly bekensteinCap?: number | undefined;
-      }
-    | undefined;
-  /** (U1) 共振场统一基板：启用后长期记忆走单一 ResonantField 引擎（合并 燧-3 共振寻址 + 宇宙网，消除双重频谱索引），取代分别启用的 resonance + memoryWeb。缺省关，零破坏。 */
+  /**
+   * (U1) 共振场统一基板：长期记忆走单一 ResonantField 引擎（合并 燧-3 共振寻址 + 宇宙网，
+   * 消除双重频谱索引）。**默认开启**；显式 `enabled: false` 才关（关闭 = 裸长期记忆，无共振/宇宙网能力）。
+   * 原分别启用的 `resonance` / `memoryWeb` 配置块已随 0.3.0 移除（与 U1 同算法重复，见弃用公告）。
+   */
   readonly resonantField?:
     | {
         readonly enabled?: boolean | undefined;
@@ -474,7 +468,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly spark?: SparkController | undefined;
   /** (D) 热方程记忆退火器（memoryAnnealing.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
   readonly annealer?: MemoryAnnealer | undefined;
-  /** (E, I-P1-2) 宇宙网记忆引擎（memoryWeb.enabled 时构造并注入 spark；U1 默认开时即 ResonantField 单一状态源，实现 CosmicWebPort）；缺省 undefined，零破坏。 */
+  /** (E, I-P1-2) 宇宙网记忆端口（U1 默认开时即 ResonantField 单一状态源，实现 CosmicWebPort，注入 spark）；缺省 undefined，零破坏。 */
   readonly web?: CosmicWebPort | undefined;
   /** (E, I-P1-3) QEC 记忆编码器（qec.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
   readonly qecEncoder?: QECEncoder | undefined;

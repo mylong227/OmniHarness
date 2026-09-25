@@ -923,14 +923,14 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 
 ### 15.4 待办与边界（本轮未闭环，如实登记）
 
-| 项                                       | 现状                                                                                                                                                                                                                             | 下一步                                                                                                                                    |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 官方基准满分口径                         | 子集口径（SWE-bench Verified 33/25）与**自研套件 live 出数**均已有（见 15.3）。**更正**：`eval:ci` 本身零 key（scripted）、已实测 exit 0，不需授权；需要额度的是默认任务集/`--suite` 的 live 路径（已授权跑过）与官方 500 题口径 | 官方 500 题需另行确认预算与时长（按本轮实测：12 任务 ≈ 88.6 万 token；500 题量级 ≈ 数亿 token）                                           |
-| OS 沙箱真机证据                          | 实现齐全（landlock/unshare/bwrap/seatbelt + PTY），但本机 Windows 只能真跑 RestrictedToken；其余在 `doctor` 能力表里按实打印为不可达                                                                                             | 由 CI matrix（Linux/macOS）出证据                                                                                                         |
-| Terminal-Bench 环境保真度                | gold 仅 3/20 通过（3 例 envError）⇒ 原生后端（uv 现场重建）与官方预建镜像差距明显                                                                                                                                                | 需按仓库语义补环境契约或接受「只作本地对照、不出官方分」                                                                                  |
-| `skills` 输入通道（**已闭环，见 15.6**） | 原先只有编程入口；现已补配置文件 `skills` 内联数组 + `--skills <file.json>`（可重复），并修掉更深的「受种技能从不注入」缺陷                                                                                                      | 已完成（2026-09-19）                                                                                                                      |
-| 多供应商原生适配                         | Gemini/Bedrock 无原生适配器（Gemini 可经 OpenAI 兼容端点接入，需文档化）                                                                                                                                                         | 视需求决定是否补适配器                                                                                                                    |
-| 国内镜像不提供 `npm audit` 端点          | `registry.npmmirror.com/-/npm/v1/security/*` 返回 `NOT_IMPLEMENTED` ⇒ 用镜像跑这一步**测不了**（不是「无漏洞」，是「无法判定」）                                                                                                 | CI 的 audit 步须显式指官方源；本机实测 `npm audit --audit-level=high --registry=https://registry.npmjs.org` ⇒ **found 0 vulnerabilities** |
+| 项                                                       | 现状                                                                                                                                                                                                                                                                                           | 下一步                                                                                                                                    |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 官方基准满分口径                                         | 子集口径（SWE-bench Verified 33/25）与**自研套件 live 出数**均已有（见 15.3）。**更正**：`eval:ci` 本身零 key（scripted）、已实测 exit 0，不需授权；需要额度的是默认任务集/`--suite` 的 live 路径（已授权跑过）与官方 500 题口径                                                               | 官方 500 题需另行确认预算与时长（按本轮实测：12 任务 ≈ 88.6 万 token；500 题量级 ≈ 数亿 token）                                           |
+| OS 沙箱真机证据                                          | 实现齐全（landlock/unshare/bwrap/seatbelt + PTY），但本机 Windows 只能真跑 RestrictedToken；其余在 `doctor` 能力表里按实打印为不可达                                                                                                                                                           | 由 CI matrix（Linux/macOS）出证据                                                                                                         |
+| Terminal-Bench 环境保真度                                | gold 仅 3/20 通过（3 例 envError）⇒ 原生后端（uv 现场重建）与官方预建镜像差距明显                                                                                                                                                                                                              | 需按仓库语义补环境契约或接受「只作本地对照、不出官方分」                                                                                  |
+| `skills` 输入通道（**已闭环，见 15.6**）                 | 原先只有编程入口；现已补配置文件 `skills` 内联数组 + `--skills <file.json>`（可重复），并修掉更深的「受种技能从不注入」缺陷                                                                                                                                                                    | 已完成（2026-09-19）                                                                                                                      |
+| ~~多供应商原生适配~~ **✅ 已结案（2026-09-25，§21.10）** | Gemini 经 Google 官方 OpenAI 兼容层以厂商预设接入：`defaults/providers.json` 新增 `gemini`（/v1beta/openai，AI Studio key 即用，UI/CLI 同源可达，`providerPresets.test.ts` ②映射表同步）；Bedrock 需 AWS SigV4 签名 + 事件流协议、无任何需求信号 → **明确不做**（判负留档，有 AWS 需求再立项） | 已完成                                                                                                                                    |
+| 国内镜像不提供 `npm audit` 端点                          | `registry.npmmirror.com/-/npm/v1/security/*` 返回 `NOT_IMPLEMENTED` ⇒ 用镜像跑这一步**测不了**（不是「无漏洞」，是「无法判定」）                                                                                                                                                               | CI 的 audit 步须显式指官方源；本机实测 `npm audit --audit-level=high --registry=https://registry.npmjs.org` ⇒ **found 0 vulnerabilities** |
 
 ### 15.5 全量门禁实测（2026-09-19，本机）
 
@@ -2126,7 +2126,7 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 ### 21.5 遗留记忆引擎弃用流程启动（§3.2 / §20.22 ③ 结项）
 
 `ResonantMemoryEngine` / `CosmicWebMemoryEngine` 标记 `@deprecated`（与 U1 基板同算法重复），
-本版本行为不变，**下一个次版本移除**并迁移 U1。提交：`e8747d2`（含 changeset）。
+本版本行为不变，**下一个次版本移除**并迁移 U1。提交：`e8747d2`（含 changeset）。 **已移除（2026-09-25，§21.10）**：两适配器 + `resonance`/`memoryWeb` 配置块删除，迁移 U1 完成。
 
 ### 21.6 官方 SWE-bench Verified 出数（启动，进行中）
 
@@ -2214,3 +2214,20 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   结合召回分层（direct 0% / scenario 100%-by-boilerplate / 裸指令 0%），词法护栏在真实数据上的
   完整画像是：**零误报、零（自然语言）召回的纯触发语探测器**——升级/替代方案（语义级检测）
   的对照基线就此钉死。
+
+### 21.10 尾巴收口批次（2026-09-25）
+
+- **遗留记忆双引擎移除（§21.5 弃用流程兑现，0.3.0 起）**：`ResonantMemoryEngine` /
+  `CosmicWebMemoryEngine` 两适配器删除，只服务它们的配置块 `resonance` / `memoryWeb`
+  同步移除（删除后即成死旋钮，I2 口径零容忍）。迁移 = U1 统一基板 `resonantField`
+  **默认开启**（单一状态源），绝大多数消费者零改动；显式关时返回裸长期记忆（不再回落遗留双引擎）。
+  `ResonantFieldEngine` / `ResonantFieldOptions` / `ResonantFieldPort` 升为公开导出（迁移目标一等化）；
+  端口 `ResonantMemoryPort` / `CosmicWebPort` 不变。连带修复 `benchmark/compete_benchmark.mjs`
+  三处 C7 改名后失配的 dist 路径（`resonantMemory`→`resonantFieldEngine`、`skillComposer`→`moireComposer`、
+  `vortexRing`→`vortexRingPacket`）并补 MemStub.get——该基准自改名起即不可运行，本批实测恢复出数且记分卡不变。
+  测试面：删 2 个遗留引擎专属测试，`sparkMainLoop`/`sparkMainLoopE`/`memoryStackAssembler`/`sparkAssembler`
+  迁移至 U1 口径；coverage 基线剔 2 条目。
+- **多供应商原生适配结案（§15.4）**：Gemini 经 Google 官方 OpenAI 兼容层以厂商预设接入
+  （`defaults/providers.json` 增 `gemini` 预设）；Bedrock 判负留档（SigV4 + 事件流协议、无需求信号）。
+- **门禁**：typecheck / lint / check --strict / audit:maturity / audit:standard:delta 全绿；
+  全量单测 2161 例 0 失败（8 skip 环境性）；compete 基准本机复跑通过。changeset：remove-legacy-memory-engines（minor）。

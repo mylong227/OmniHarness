@@ -171,8 +171,9 @@ export type {
   AuditSinkLike,
 } from './ports/runtime/supervisor.js';
 
-// @public 燧-3 共振寻址 / 燧-4 涡环包（发明层 S+ 原语）
-export { ResonantMemoryEngine } from './adapters/memory/resonantMemoryEngine.js';
+// @public 燧-3 共振寻址 / 燧-4 涡环包（发明层 S+ 原语；共振寻址由 U1 统一基板 ResonantFieldEngine 承载）
+export { ResonantFieldEngine } from './adapters/memory/resonantFieldEngine.js';
+export type { ResonantFieldOptions, ResonantFieldPort } from './ports/memory/resonantField.js';
 export {
   VortexRingPacket,
   VortexRingSpillAdapter,
@@ -184,8 +185,6 @@ export { HeatEquationAnnealer } from './adapters/memory/heatEquationAnnealer.js'
 export type { HeatAnnealerOptions } from './adapters/memory/heatEquationAnnealer.js';
 export type { MemoryAnnealer, AnnealStepReport } from './ports/memory/memoryAnnealing.js';
 // @public (E) 宇宙网记忆 / QEC 记忆 / 免疫异常监控（发明层 S+ 原语，I-P1-2/3/5）
-export { CosmicWebMemoryEngine } from './adapters/memory/cosmicWebMemoryEngine.js';
-export type { CosmicWebOptions } from './adapters/memory/cosmicWebMemoryEngine.js';
 export type { CosmicWebPort, WebConsolidationReport } from './ports/memory/cosmicWeb.js';
 export { QECEncoder } from './adapters/memory/qecEncoder.js';
 export type { QECOptions } from './adapters/memory/qecEncoder.js';

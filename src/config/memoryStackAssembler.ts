@@ -9,10 +9,8 @@ import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
 import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.js';
 import { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
 import { AesGcmTextCodec } from '../adapters/memory/aesGcmTextCodec.js';
-import { ResonantMemoryEngine } from '../adapters/memory/resonantMemoryEngine.js';
 import { ResonantFieldEngine } from '../adapters/memory/resonantFieldEngine.js';
 import { HeatEquationAnnealer } from '../adapters/memory/heatEquationAnnealer.js';
-import { CosmicWebMemoryEngine } from '../adapters/memory/cosmicWebMemoryEngine.js';
 import { QECEncoder } from '../adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
 import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
@@ -28,7 +26,7 @@ import type { OmniHarnessConfig } from './configFactory.js';
  */
 class MemoryStackAssembler {
   /**
-   * 构造长期记忆端口并逐层封包。 #S28 默认文件落盘；#4.4 开启加密则用 AES-256-GCM 逐行加密（密钥文件缺省自动生成）。 U1 统一基板（默认开）→ 否则分别按 `memoryWeb` / `resonance` 封包。
+   * 构造长期记忆端口并逐层封包。 #S28 默认文件落盘；#4.4 开启加密则用 AES-256-GCM 逐行加密（密钥文件缺省自动生成）。 U1 统一基板（默认开，显式 `resonantField.enabled:false` 才关）→ 关闭时返回未封包的裸长期记忆（遗留双引擎已随 0.3.0 移除）。
    * @param {OmniHarnessConfig} partial - partial
    * @returns {MemoryPortStack} - result
    */
@@ -36,7 +34,7 @@ class MemoryStackAssembler {
     const memoryPath =
       partial.longTermMemoryPath ??
       join(partial.workspaceRoot, '.omniharness', 'longterm', 'memory.jsonl');
-    let port: LongTermMemoryPort =
+    const port: LongTermMemoryPort =
       partial.longTermMemory ??
       new FileLongTermMemory(
         memoryPath,
@@ -58,24 +56,7 @@ class MemoryStackAssembler {
       });
       return { port: field, web: field, resonance: field };
     }
-    // 宇宙网记忆（E, I-P1-2）：写入走 Burgers 黏附去重、consolidate 走 RG 粗粒化坍缩
-    // （节点数受 Bekenstein 容量界约束、存储不膨胀）。
-    let web: (CosmicWebPort & LongTermMemoryPort) | undefined;
-    if (partial.memoryWeb?.enabled === true) {
-      web = new CosmicWebMemoryEngine(port, {
-        adhesionThreshold: partial.memoryWeb.adhesionThreshold,
-        bekensteinCap: partial.memoryWeb.bekensteinCap,
-      });
-      port = web;
-    }
-    // 燧-3 共振寻址（S+）：把（可能已被宇宙网封包的）长期记忆再封为共振引擎，
-    // 使开场 primer 召回、recall 工具、回合末蒸馏全部自动走频率域共振代数（取代 BM25 几何召回）。
-    let resonance: (ResonantMemoryPort & LongTermMemoryPort) | undefined;
-    if (partial.resonance?.enabled === true) {
-      resonance = new ResonantMemoryEngine(port, 257);
-      port = resonance;
-    }
-    return { port, web, resonance };
+    return { port, web: undefined, resonance: undefined };
   }
 
   /**
@@ -214,8 +195,8 @@ export interface MemoryStackAssembly {
 /** 已逐层封包的长期记忆端口及其包装层句柄。 */
 interface MemoryPortStack {
   readonly port: LongTermMemoryPort;
-  readonly web: (CosmicWebPort & LongTermMemoryPort) | undefined;
-  readonly resonance: (ResonantMemoryPort & LongTermMemoryPort) | undefined;
+  readonly web: CosmicWebPort | undefined;
+  readonly resonance: ResonantMemoryPort | undefined;
 }
 
 /** 信念引擎组。 */
