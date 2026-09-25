@@ -227,7 +227,8 @@ function ensureCheckout(repo, base, instanceId) {
 /** 复刻 `getRepoMapContext` 的检索与载荷组装，并返回命中文件列表（生产接口只回文本）。
  *
  * 与生产逐字对齐的三处：第一段候选 = `query()` 的 `max(fileBM25, 0.7×symBM25)` 池；
- * 第二段精排由 `query({rerank:true})` 承担；载荷由 `RepoMapPayload.assemble` 按档位组装。
+ * 第二段精排由 `query({rerank})` 承担（解析口径与 `repoMapContextEngine` 逐字一致：
+ * 2026-09-25 起生产默认关，`OMNI_RERANK=1` opt-in）；载荷由 `RepoMapPayload.assemble` 按档位组装。
  * @param {import('../dist/src/context/corpusIndexCache.js').CorpusIndexCache} cache 语料缓存。
  * @param {string} root 工作区根。
  * @param {string} q 查询（问题陈述）。
@@ -242,7 +243,7 @@ function retrieve(cache, root, q) {
     layered: false,
     fileK: FILE_K,
     symK: 24,
-    rerank: process.env.OMNI_RERANK !== '0',
+    rerank: process.env.OMNI_RERANK === '1',
     prf: process.env.OMNI_RM3 === '1',
   });
   const plan =

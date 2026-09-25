@@ -7,10 +7,11 @@
 //   真的落在目标档上——而不是靠评测脚本直接 import `query()` 得出一个自我印证的绿灯。
 //
 // 本脚本做六件事：
-//   ① **等价性**：生产入口零 opts 的产出，与 `assemble(query(fileK=20, rerank=true), DEFAULT_PLAN)`
-//      **逐字相同** ⇒ 生产默认档 = 被实测的那一档。
+//   ① **等价性**：生产入口零 opts 的产出，与 `assemble(query(fileK=20, rerank=false), DEFAULT_PLAN)`
+//      **逐字相同** ⇒ 生产默认档 = 被实测的那一档（2026-09-25 起精排默认关；opt-in 档
+//      K=20+精排开另做逐字对拍）。
 //   ② **三档形态**：`payloadShape:'full'`（历史全大纲）/ `'degrade'`（应急压缩）各与对应组装逐字相同。
-//   ③ **可变性**：`OMNI_RERANK=0` / `OMNI_PAYLOAD=full` 都能真的改变行为（防「死旋钮」）。
+//   ③ **可变性**：`OMNI_RERANK=1` / `OMNI_PAYLOAD=full` 都能真的改变行为（防「死旋钮」）。
 //   ④ **构造性不变量**：tiered 与 full 的**选中文件集合完全相同**（33/33），且 tiered token 更少。
 //   ⑤ **命中率**：新默认（K=20）vs 第一轮默认（K=14）在 33 条对抗锚点查询上的 hitRate + bootstrap CI。
 //   ⑥ **口径边界**：自然口径命中率与仍失败的条（诚实登记）。
@@ -62,21 +63,36 @@ function assembleOf(q, plan, fileK = FILE_K, rerank = true) {
 
 // —— ① 等价性：生产入口默认档 == 被实测的档？——
 let eqDefault = 0;
+let eqOptInRerank = 0;
 let eqFull = 0;
 let eqDegrade = 0;
 for (const { q } of QUERIES) {
   // 注：生产入口固定 `symK: 24`（query() 自身默认是 30），故对比时必须显式给 24，否则口径不同。
-  if (engine.getRepoMapContext(SRC, q) === assembleOf(q, RepoMapPayload.DEFAULT_PLAN)) eqDefault++;
-  if (engine.getRepoMapContext(SRC, q, { payloadShape: 'full' }) === assembleOf(q, null)) eqFull++;
   if (
-    engine.getRepoMapContext(SRC, q, { payloadShape: 'degrade' }) ===
+    engine.getRepoMapContext(SRC, q) === assembleOf(q, RepoMapPayload.DEFAULT_PLAN, FILE_K, false)
+  )
+    eqDefault++;
+  if (
+    engine.getRepoMapContext(SRC, q, { rerank: true }) ===
+    assembleOf(q, RepoMapPayload.DEFAULT_PLAN)
+  )
+    eqOptInRerank++;
+  if (
+    engine.getRepoMapContext(SRC, q, { payloadShape: 'full', rerank: true }) === assembleOf(q, null)
+  )
+    eqFull++;
+  if (
+    engine.getRepoMapContext(SRC, q, { payloadShape: 'degrade', rerank: true }) ===
     assembleOf(q, RepoMapPayload.DEGRADE_PLAN)
   )
     eqDegrade++;
 }
 console.log('=== ① 生产入口等价性（逐字相同才算一致）===');
 console.log(
-  `  默认档 == assemble(K=20, 精排开, DEFAULT_PLAN)       : ${eqDefault}/${QUERIES.length}`,
+  `  默认档 == assemble(K=20, 精排关, DEFAULT_PLAN)        : ${eqDefault}/${QUERIES.length}`,
+);
+console.log(
+  `  精排 opt-in == assemble(K=20, 精排开, DEFAULT_PLAN)   : ${eqOptInRerank}/${QUERIES.length}`,
 );
 console.log(`  payloadShape='full' == assemble(K=20, 精排开, null) : ${eqFull}/${QUERIES.length}`);
 console.log(
@@ -95,10 +111,10 @@ const envProbe = (key, value) => {
   }
   return differs;
 };
-const rerankDiffers = envProbe('OMNI_RERANK', '0');
+const rerankDiffers = envProbe('OMNI_RERANK', '1');
 const payloadDiffers = envProbe('OMNI_PAYLOAD', 'full');
 console.log('\n=== ② 旋钮可变性（设了它，行为真的变）===');
-console.log(`  OMNI_RERANK=0 改变产出：${rerankDiffers}/5 条（应为 5/5）`);
+console.log(`  OMNI_RERANK=1 改变产出：${rerankDiffers}/5 条（应为 5/5；默认已回关，opt-in）`);
 console.log(`  OMNI_PAYLOAD=full 改变产出：${payloadDiffers}/5 条（应为 5/5）`);
 
 // —— ③ 构造性不变量：排序结果相同 + token 更省 ——
@@ -183,7 +199,11 @@ function hitRatesOf(filesOf, items) {
 }
 
 const adversarial = QUERIES.map(({ q }) => ({ q, gt: gts.get(q) }));
-const newDefault = hitRatesOf(
+const currentDefault = hitRatesOf(
+  (q) => query(corpus, q, { fileK: 20, rerank: false }).files,
+  adversarial,
+);
+const optInRerank = hitRatesOf(
   (q) => query(corpus, q, { fileK: 20, rerank: true }).files,
   adversarial,
 );
@@ -193,20 +213,23 @@ const roundOne = hitRatesOf(
 );
 console.log('\n=== ④ 命中率（33 条对抗锚点查询，hitRate@K）===');
 console.log(
-  `  第一轮默认（K=14, 精排开）：${roundOne.ci.mean}% [${roundOne.ci.lo}, ${roundOne.ci.hi}]`,
+  `  生产默认（K=20, 精排关）：${currentDefault.ci.mean}% [${currentDefault.ci.lo}, ${currentDefault.ci.hi}]`,
 );
 console.log(
-  `  新默认（K=20, 梯度投送）：${newDefault.ci.mean}% [${newDefault.ci.lo}, ${newDefault.ci.hi}]  ` +
-    `(+${(newDefault.ci.mean - roundOne.ci.mean).toFixed(1)}pp)`,
+  `  精排 opt-in（K=20, 精排开）：${optInRerank.ci.mean}% [${optInRerank.ci.lo}, ${optInRerank.ci.hi}]  ` +
+    `(+${(optInRerank.ci.mean - currentDefault.ci.mean).toFixed(1)}pp vs 默认)`,
+);
+console.log(
+  `  第一轮默认（K=14, 精排开）：${roundOne.ci.mean}% [${roundOne.ci.lo}, ${roundOne.ci.hi}]`,
 );
 
 // —— ⑤ 口径边界：自然口径 ——
 const natural = QUERIES.map(({ q, anchor }) => ({ q: `${anchor} ${q}`, gt: gts.get(q) }));
 const naturalRes = hitRatesOf((q) => query(corpus, q, { fileK: 20, rerank: true }).files, natural);
-console.log('\n=== ⑤ 口径边界（同批锚点，自然提问方式）===');
+console.log('\n=== ⑤ 口径边界（同批锚点，自然提问方式，精排 opt-in 档）===');
 console.log(
   `  自然口径（锚点 + 自然语言）：${naturalRes.ci.mean}% [${naturalRes.ci.lo}, ${naturalRes.ci.hi}]  ` +
-    `（对抗口径 ${newDefault.ci.mean}%）`,
+    `（对抗口径 ${optInRerank.ci.mean}%）`,
 );
 console.log(`  自然口径下仅 ${naturalRes.failed.length} 条未命中：`);
 for (const q of naturalRes.failed) console.log(`    · ${q}`);
@@ -229,7 +252,11 @@ const report = {
     avgTokensTiered: Math.round(tokTiered / n),
     avgTokensDegrade: Math.round(tokDegrade / n),
   },
-  adversarial: { roundOne: roundOne.ci, newDefault: newDefault.ci },
+  adversarial: {
+    currentDefault: currentDefault.ci,
+    optInRerank: optInRerank.ci,
+    roundOne: roundOne.ci,
+  },
   natural: { ci: naturalRes.ci, failed: naturalRes.failed },
 };
 writeFileSync(

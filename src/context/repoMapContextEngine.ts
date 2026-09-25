@@ -8,18 +8,25 @@
  *  - 索引强制 light 模式：仅 morph + 符号/文件双 BM25，跳过频域共振 / 44 万边代码图 / LSA SVD
  *    （三项在 omniharness 语料实测均零增益）。召回配置即基准里 67.0% 那档。
  *  - **两阶段检索（打磨第二批 P1）**：第一段之后追加**零依赖词法精排**
- *    （`FileReranker`：符号名 IDF 加权覆盖率 + 第一段倒数秩）。**2026-09-17 起默认开**——
- *    与检索预算**耦合**，见下节。关闭：`opts.rerank = false`。
+ *    （`FileReranker`：符号名 IDF 加权覆盖率 + 第一段倒数秩）。**2026-09-17 起默认开；
+ *    2026-09-25 起默认回关（opt-in）**——51 条新查询经第二方复核修正后，`evals/rerank-ab.mjs`
+ *    改接全量 84 条复跑，基准档 CI 下界 −1.59pp ⇒ 两关未过（见模块头「第三轮」）。
+ *    开启：`opts.rerank = true` 或 env `OMNI_RERANK=1`。
  *    **同日混合（语义）路径也接上了第二段**：旧注释曾写「语义路需嵌入模型，离线无法度量，
  *    按『不报未测数字』纪律留给可测时再定」。模型通道打通后实测：纯混合 **75.8%** →
  *    混合+精排 **81.8%**（33 条对抗锚点，2 条捞回 / 0 条丢失），注入 token 反降 16.8%。
  *    候选池必须用**未截断**的 `ranked.allFiles`——先截到 fileK 会让重排无余地（差 9.1pp）。
  *
- * 检索预算、精排与载荷投送默认档（2026-09-17 两轮决策）：
+ * 检索预算、精排与载荷投送默认档（2026-09-17 两轮决策；2026-09-25 第三轮回关精排）：
  *  - **第一轮**：fileK 默认 **10 → 14**、精排默认 **关 → 开** 是**同一个决策**：精排增益随候选池深度
  *    放大，此前「不翻默认」的真因不是重排器无用，而是**预算太浅让它施展不开**（`evals/rerank-ab.mjs`
  *    早已指出）。实测（33 条对抗锚点查询，bootstrap 95% CI）：旧默认（K=10，无精排）**51.5%**
  *    → K=10+精排 54.5% [36.4, 69.7] → **K=14+精排 69.7% [54.5, 84.8]**。
+ *  - **第三轮（2026-09-25）**：51 条新查询经**第二方逐条复核**（修正 4 锚点 + 4 查询）后，
+ *    `evals/rerank-ab.mjs` 退役内联 33 条、改接**全量 84 条**复跑：core33 +5.9pp / extended51 +0.4pp，
+ *    基准档（K=14）点增益 +2.6pp 但 **CI95 [−1.59, +7.59] 跨 0** ⇒ 按本仓纪律「CI 下界 > 0 才配当默认」
+ *    两关未过，精排默认**回关**（opt-in）。历史两轮数字的口径是 core33，纵向可比性不受影响；
+ *    深池场景（K≥14 + 语义路）仍建议显式开启。
  *  - **第二轮**：fileK **14 → 20**，由**载荷梯度投送**（{@link RepoMapPayload}）买单。
  *    此前不敢扩档的唯一理由是「token 再翻一倍」（K=20 全大纲 4886 token）；梯度投送把同一批
  *    20 个文件的注入压到 **1496 token（−69.4%）**——**比原来的 K=14 全大纲（3703）还少 59.6%**，
@@ -161,7 +168,7 @@ export class RepoMapContextEngine {
       layered: opts.layered === true,
       fileK: opts.fileK ?? DEFAULT_FILE_K,
       symK: opts.symK ?? 24,
-      rerank: opts.rerank ?? process.env.OMNI_RERANK !== '0',
+      rerank: opts.rerank ?? process.env.OMNI_RERANK === '1',
       prf: opts.prf ?? process.env.OMNI_RM3 === '1',
       plan: RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
     };
@@ -224,7 +231,8 @@ export class RepoMapContextEngine {
         //   · fileK=10（旧默认）：26.9%→33.2% 召回，CI95 [−0.45, 14.74]pp 下界跨 0 ⇒ 未过阈值；
         //   · fileK=14（新默认）：33 条对抗锚点查询命中率 51.5%→69.7%，CI95 [54.5, 84.8] 下界超基线 ⇒ 两关全过。
         // 即：此前不翻默认不是「重排器不行」，而是**预算太浅让重排施展不开**（rerank-ab 报告结论）。
-        // 关闭：`opts.rerank = false` 或 env `OMNI_RERANK=0`（用 !== '0' 而非 === '1'：默认开、显式 0 关）。
+        // 关闭/开启：`opts.rerank` 显式值优先；env `OMNI_RERANK=1` 显式开（用 === '1' 而非 !== '0'：
+        // 2026-09-25 复核后全量复跑未过两关 ⇒ 默认回关，见模块头「第三轮」）。
         rerank: knobs.rerank,
         // 伪相关反馈（PRF / RM3 风格查询扩展）：**默认关（opt-in）**——突破纯词法召回天花板。
         // 实测（`evals/recall-precision.mjs`，33 条锚点查询）fileK=5/10 档提升准确度 +0.9~4.3pp、
@@ -318,8 +326,8 @@ export class RepoMapContextEngine {
       //   且注入 token 更低（1191 vs 1431，−16.8%）。
       // 注意候选池必须用 `ranked.allFiles`（**未截断**的完整融合排名），而不是 `ranked.files`：
       // 重排只能在入池候选里换位，池子先截到 fileK 会让重排无余地（实测该口径差 9.1pp）。
-      // 关闭：`opts.rerank = false` 或 env `OMNI_RERANK=0`（与纯 BM25 路径同一解析口径）。
-      const useRerank = opts.rerank ?? process.env.OMNI_RERANK !== '0';
+      // 开启：`opts.rerank = true` 或 env `OMNI_RERANK=1`（与纯 BM25 路径同一解析口径；默认关）。
+      const useRerank = opts.rerank ?? process.env.OMNI_RERANK === '1';
       const files = useRerank
         ? this.fileReranker.rerank({
             corpus,
