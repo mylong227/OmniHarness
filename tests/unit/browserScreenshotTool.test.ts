@@ -135,8 +135,10 @@ test('output_path 缺省写入 .omniharness/screenshots/，且相对路径须落
     assert.strictEqual(escaped.ok, false);
     assert.match(escaped.error ?? '', /路径越界/);
 
+    // 平台中性「工作区外绝对路径」：win32 用盘符（POSIX 上 'C:\\x.png' 是相对名，不会越界——CI 首跑实证）。
+    const absOutside = process.platform === 'win32' ? 'C:\\x.png' : '/tmp/omni-abs-escape.png';
     const abs = await tool.handle(
-      call({ url: 'https://example.com', output_path: 'C:\\x.png' }),
+      call({ url: 'https://example.com', output_path: absOutside }),
       ctx(dir),
     );
     assert.strictEqual(abs.ok, false);

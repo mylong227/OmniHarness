@@ -24,8 +24,11 @@ test('② 越界相对路径：../etc/passwd', () => {
   if (!r.ok) assert.strictEqual(r.error, '路径越界工作区');
 });
 
-test('③ 越界绝对路径：D:/Windows/system.ini', () => {
-  const r = safeReadFile(WS, 'D:/Windows/system.ini');
+test('③ 越界绝对路径', () => {
+  // 平台中性：win32 用盘符绝对路径，POSIX 用 /etc 下的绝对路径——两者都不落工作区内
+  //（POSIX 上 'D:/Windows/system.ini' 会被解析成**相对**路径，越界断言落空——CI 首跑实证）。
+  const outside = process.platform === 'win32' ? 'D:/Windows/system.ini' : '/etc/hostname';
+  const r = safeReadFile(WS, outside);
   assert.strictEqual(r.ok, false);
   if (!r.ok) assert.strictEqual(r.error, '路径越界工作区');
 });

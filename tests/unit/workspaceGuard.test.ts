@@ -28,7 +28,9 @@ test('路径守卫：上级目录越界拦截', () => {
 
 test('路径守卫：绝对路径越界拦截', () => {
   const guard = new WorkspaceGuard(root);
-  assert.strictEqual(guard.isInside('C:/Windows/system32'), false);
+  // 盘符绝对路径只在 win32 上是「绝对」；POSIX 把 'C:/...' 解析成相对路径（CI 首跑实证）。
+  const outsideAbsolute = process.platform === 'win32' ? 'C:/Windows/system32' : '/etc';
+  assert.strictEqual(guard.isInside(outsideAbsolute), false);
   assert.strictEqual(guard.isInside('/etc/passwd'), false);
 });
 

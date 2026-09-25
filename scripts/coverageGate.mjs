@@ -108,11 +108,20 @@ function loadReport() {
     // CI 日志只有一句「未全绿」而无从定位（ubuntu 首跑实测踩坑）。此处显式提取 not ok 行。
     console.error('✗ 测试运行未全绿，覆盖率门禁终止。失败用例：');
     const out = e && typeof e.stdout === 'string' ? e.stdout : '';
-    const notOk = out
-      .split('\n')
-      .filter((l) => l.startsWith('not ok') || l.startsWith('# fail'))
-      .slice(0, 40);
-    if (notOk.length > 0) for (const l of notOk) console.error('  ' + l.trim());
+    const lines = out.split('\n');
+    const printed = [];
+    for (let i = 0; i < lines.length && printed.length < 60; i += 1) {
+      if (!lines[i].startsWith('not ok')) continue;
+      printed.push(lines[i].trim());
+      // not ok 块的详情行（error:/expected/actual 等，缩进缩进块）一并透传，直到下一个顶层 TAP 行。
+      for (let j = i + 1; j < lines.length && printed.length < 60; j += 1) {
+        const l = lines[j];
+        if (l === '' || l.startsWith('ok ') || l.startsWith('not ok') || l.startsWith('#')) break;
+        printed.push('    ' + l.trim());
+        i = j;
+      }
+    }
+    if (printed.length > 0) for (const l of printed) console.error('  ' + l);
     else console.error('  （被捕获输出中无 TAP not ok 行——测试可能在汇总前崩溃，见上方 stderr）');
     process.exit(1);
   }
