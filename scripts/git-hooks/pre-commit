@@ -48,6 +48,12 @@ if ! node scripts/docLinkCheck.mjs; then
   exit 1
 fi
 
+echo "[pre-commit] 发布物零密钥门禁（个人凭据不得进版本库）..."
+if ! node scripts/checkSecrets.mjs --staged; then
+  echo "[pre-commit] ✗ 暂存内容含疑似真实密钥（个人凭据只放用户级 ~/.omniharness/omniharness.json；测试假密钥加行内标记 omniharness:fake-secret），提交中止。" >&2
+  exit 1
+fi
+
 echo "[pre-commit] ESLint（零告警：--max-warnings=0，warn 亦阻断）..."
 if ! npm run --silent lint; then
   echo "[pre-commit] ✗ ESLint 存在 error 或 warning，提交中止（告警预算已归零：静态告警曾编码真实断链）。" >&2

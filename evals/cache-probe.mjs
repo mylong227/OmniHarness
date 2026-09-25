@@ -35,6 +35,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PromptCacheUsageReader } from '../dist/src/adapters/model/promptCacheUsageReader.js';
+import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const READER = new PromptCacheUsageReader();
@@ -261,9 +262,11 @@ function simulatedRounds() {
 async function main() {
   const allowZero = process.argv.includes('--allow-zero');
   const simulate = process.argv.includes('--simulate');
+  // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
   const apiKey =
     envOf('DEEPSEEK_API_KEY', 'OMNIHARNESS_API_KEY') ??
-    envOf('OPENAI_API_KEY', 'OMNIHARNESS_API_KEY');
+    envOf('OPENAI_API_KEY', 'OMNIHARNESS_API_KEY') ??
+    readUserProviderKey();
   const baseUrl = envOf('DEEPSEEK_BASE_URL', 'OMNIHARNESS_BASE_URL') ?? 'https://api.deepseek.com';
   const model = envOf('DEEPSEEK_MODEL', 'OMNIHARNESS_MODEL') ?? 'deepseek-chat';
   const url = completionsUrl(baseUrl);
@@ -286,7 +289,9 @@ async function main() {
   }
 
   if (apiKey === undefined) {
-    console.error('[cache-probe] 未找到凭据：请设置 DEEPSEEK_API_KEY 或 OMNIHARNESS_API_KEY。');
+    console.error(
+      '[cache-probe] 未找到凭据：请设置 DEEPSEEK_API_KEY 或 OMNIHARNESS_API_KEY，或在用户级 ~/.omniharness/omniharness.json 配置 providerKeys.deepseek。',
+    );
     console.error('[cache-probe] 本机可用：node --env-file=.env evals/cache-probe.mjs');
     process.exitCode = 3;
     return;

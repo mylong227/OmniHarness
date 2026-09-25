@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path';
 
 import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
 import { createRuntime } from '../dist/src/composition/runtime.js';
+import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
 import { Agent } from '../dist/src/core/agent.js';
 import { OpenAiCompatibleModel } from '../dist/src/adapters/model/openaiCompatibleModel.js';
 import { BudgetedModel } from '../dist/src/adapters/model/budgetedModel.js';
@@ -36,10 +37,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROD_PATH = join(__dirname, 'runtime-telemetry.prod-real.log');
 
 // ---- 硬依赖：真实 LLM 凭证（缺失即失败，绝不臆造）----
-const apiKey = process.env.DEEPSEEK_API_KEY;
+// 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
+const apiKey = process.env.DEEPSEEK_API_KEY ?? readUserProviderKey();
 if (!apiKey) {
   console.error(
-    '[longrun:prod:real] 硬依赖缺失：需要环境变量 DEEPSEEK_API_KEY（真实 LLM 流量凭证）。\n' +
+    '[longrun:prod:real] 硬依赖缺失：需要 DEEPSEEK_API_KEY（环境变量，或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek）。\n' +
       '  请提供后重跑：DEEPSEEK_API_KEY=sk-xxx npm run longrun:prod:real',
   );
   process.exit(2);

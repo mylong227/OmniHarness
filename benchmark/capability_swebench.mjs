@@ -37,6 +37,7 @@ import { dirname, join } from 'node:path';
 import { runSweSuite, runControls, formatSweReport } from '../dist/src/eval/swebench.js';
 import { ScriptedModel } from '../dist/src/eval/scriptedModel.js';
 import { EditDriftDetector } from '../dist/src/eval/editDriftDetector.js';
+import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
 import { ReasoningRouter } from '../dist/src/eval/reasoningRouter.js';
 import { SWEBENCH_LITE_TASKS, buildEnhancedTasks } from './swebenchTasks.mjs';
 
@@ -498,9 +499,12 @@ const report = {
 // 真实 LLM 能力分数（需 key + 显式 --live）
 const live = process.argv.includes('--live');
 if (live) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
+  const apiKey = process.env.DEEPSEEK_API_KEY ?? readUserProviderKey();
   if (!apiKey) {
-    console.error('[capability:swebench] --live 需要 DEEPSEEK_API_KEY，未提供，跳过 live。');
+    console.error(
+      '[capability:swebench] --live 需要 DEEPSEEK_API_KEY（或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek），未提供，跳过 live。',
+    );
   } else {
     const { OpenAiCompatibleModel } =
       await import('../dist/src/adapters/model/openaiCompatibleModel.js');

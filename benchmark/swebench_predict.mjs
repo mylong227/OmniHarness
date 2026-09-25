@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -926,9 +927,12 @@ console.log(
 );
 
 // ---------- 模型 ----------
-const apiKey = process.env.DEEPSEEK_API_KEY;
+// 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
+const apiKey = process.env.DEEPSEEK_API_KEY ?? readUserProviderKey();
 if (!opts.dryRun && apiKey === undefined) {
-  console.error('❌ 缺 DEEPSEEK_API_KEY（.env 或环境变量）');
+  console.error(
+    '❌ 缺 DEEPSEEK_API_KEY（环境变量，或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek）',
+  );
   process.exit(1);
 }
 const modelName = opts.model;

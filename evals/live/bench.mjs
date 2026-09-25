@@ -36,6 +36,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { readUserProviderKey } from '../../dist/src/eval/liveCredentials.js';
 import {
   SWEBENCH_LITE_TASKS,
   buildEnhancedTasks,
@@ -122,11 +123,13 @@ function numFlag(name, dflt) {
 
 /** 解析配置：flag > OMNIHARNESS_* > DEEPSEEK_* > OPENAI_*。缺密钥返回 { error }。 */
 function resolveConfig() {
+  // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
   const apiKey =
     flag('--api-key') ??
     process.env.OMNIHARNESS_API_KEY ??
     process.env.DEEPSEEK_API_KEY ??
-    process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY ??
+    readUserProviderKey();
   const baseUrl =
     flag('--base-url') ??
     process.env.OMNIHARNESS_BASE_URL ??

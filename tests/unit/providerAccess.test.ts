@@ -10,7 +10,7 @@ import { resolveSsrfPolicy } from '../../src/security/ssrfPolicy.js';
 import { inspectHost, ssrfOptionsFor } from '../../src/security/ssrfGuard.js';
 
 test('maskKey：保留前 3 后 4，短 Key 全打码', () => {
-  assert.strictEqual(maskKey('sk-1234567890abcdef'), 'sk-****cdef');
+  assert.strictEqual(maskKey('sk-1234567890abcdef'), 'sk-****cdef'); // omniharness:fake-secret（测试夹具假密钥）
   assert.strictEqual(maskKey('short'), '****');
   assert.strictEqual(maskKey('12345678'), '****');
 });
