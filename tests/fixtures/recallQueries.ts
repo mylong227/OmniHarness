@@ -38,7 +38,14 @@
 /**
  * 冻结的历史查询集（33 条，2026-09-17 口径）。
  *
- * **不得修改**：任何改动都会使看板 §17 与 `RECALL_HEADROOM_SURVEY.md` 的历史数字失去可比性。
+ * **不得修改**（查询文本逐字冻结）：任何改动都会使看板 §17 与 `RECALL_HEADROOM_SURVEY.md` 的历史数字失去可比性。
+ *
+ * **唯一例外（2026-09-25，被迫）**：第 13 条的**锚点**由 `CosmicWebOptions` 改为 `ResonantFieldOptions`——
+ * 前者随 §21.10「遗留记忆双引擎移除」从 `src/` 删除，GT 变空 ⇒ `recall-query-audit` / `recall-precision` /
+ * `headroom-analysis` / `production-defaults-check` 四个脚本**当场 fail-closed**（锚点不存在被误读成检索失败，
+ * 正是本仓反复治的假信号）。查询文本**逐字未动**（可比性锚在查询侧），只把 GT 定位子改到同一能力的**迁移目标**
+ * （U1 统一基板 `ResonantFieldOptions`，`src/ports/memory/resonantField.ts`）。
+ * 口径变更登记：本条的历史命中/未命中不再跨 2026-09-25 可比（改动前的历史数字见看板 §17/§21.2）。
  */
 export const CORE_RECALL_QUERIES = [
   { q: 'where is tool registration handled', anchor: 'registerTool' },
@@ -56,7 +63,7 @@ export const CORE_RECALL_QUERIES = [
   },
   { q: 'how is a signed claim from an agent packaged', anchor: 'AgentAssertionEnvelope' },
   { q: 'which key-value store replicates records across nodes', anchor: 'OobleckStore' },
-  { q: 'tuning knobs for the graph that links distant memories', anchor: 'CosmicWebOptions' },
+  { q: 'tuning knobs for the graph that links distant memories', anchor: 'ResonantFieldOptions' },
   { q: 'settings for the planner that gradually cools down', anchor: 'HeatAnnealerOptions' },
   {
     q: 'options controlling what gets pulled out of conversations',

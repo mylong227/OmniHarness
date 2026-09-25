@@ -43,7 +43,8 @@ function groundTruth(anchor) {
   return set;
 }
 
-// 与 evals/recall-precision.mjs 同源的 33 条查询。
+// 与 evals/recall-precision.mjs 同源的全量查询集（2026-09-22 起为 84 条；主表口径 = 全量，
+// 冻结 core33 另在「CI 宽度对照」一节单独报，两者不可混引）。
 const QUERIES = RECALL_QUERIES;
 const CORE_SUBSET = CORE_COUNT;
 
@@ -72,7 +73,8 @@ function bootstrapCI(values, B = 2000) {
 }
 
 const results = [];
-console.log('\n=== 命中率 × 预算 权衡（33 查询，bootstrap 95% CI）===');
+// 口径标签动态打印：扩容后主表跑的是**全量**（84 条），硬写「33 查询」会让读者把 all84 数字当 core33 引用。
+console.log(`\n=== 命中率 × 预算 权衡（${QUERIES.length} 查询，bootstrap 95% CI）===`);
 console.log('fileK prf rerank | 命中率 [CI下界–上界]       | 准确度 | 召回   | 相对默认');
 let baseline = null;
 for (const fileK of FILE_KS) {

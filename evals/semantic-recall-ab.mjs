@@ -1,15 +1,27 @@
 #!/usr/bin/env node
-// 语义嵌入路 A/B：真实 ONNX 模型（经镜像下载）对 33 条对抗锚点查询的召回增益实测。
+// 语义嵌入路 A/B：真实 ONNX 模型（本地缓存 / hf-mirror）对 33 条对抗锚点查询的召回增益实测。
 //
 // 背景：语义路（`getHybridRepoMapContext`）此前**只在评测脚本里可用**——脚本自行设 `env.remoteHost`，
 // 而生产装配路径（`configFactory`）无对应旋钮 ⇒ 在无法直连 huggingface.co 的网络里必然不可达。
 // 本轮补齐了 `remoteHost` 旋钮（`OMNI_HF_ENDPOINT` / `HF_ENDPOINT`），故本实验**走生产入口**：
-//   基线 = `engine.getRepoMapContext(root, q)`（当前生产默认档，纯 BM25 + 精排 + K=20 + 梯度投送）
+//   基线 = `engine.getRepoMapContext(root, q)`（纯 BM25 + K=20 + 梯度投送，`rerank` 显式给定）
 //   实验 = `engine.getHybridRepoMapContext(root, q, embedding, opts)`（BM25 ∪ 语义，RRF 融合）
 // 两者都从返回文本解析 `📄 路径` 行得到**文件秩**，与实际注入给模型的集合完全一致。
 //
-// 用法：
-//   OMNI_HF_ENDPOINT=https://hf-mirror.com node evals/semantic-recall-ab.mjs [preset]
+// ⚠️ 两处 2026-09-25 修正（此前会给出假信号）：
+//   ① **`rerank` 必须显式给**：§21.2 已把精排默认**回关为 opt-in**，而本脚本的场景此前靠「默认值」，
+//      于是「混合 + 精排开」三档实际跑的是**精排关**——标签与事实不符。现全部显式 `rerank: true/false`。
+//   ② **接线活性守卫**：`getHybridRepoMapContext` 对嵌入层异常**fail-closed 静默回落纯 BM25**，
+//      嵌入端口根本没被调用时，全部场景会显示 Δ=0（假阴性，而非「语义路无效」）。故新增守卫：
+//      嵌入端口零调用即 fail-closed 退出，不产出报告。
+//
+// 用法（免付费、免 LLM key；模型权重可走本地缓存 + hf-mirror 的元数据）：
+//   OMNI_VEC_CACHE=<可写目录> OMNI_HF_ENDPOINT=https://hf-mirror.com node evals/semantic-recall-ab.mjs [preset]
+//   OMNI_EMBEDDING_OFFLINE=1 OMNI_EMBEDDING_CACHE_DIR=<模型缓存> node evals/semantic-recall-ab.mjs
+// ⚠️ `OMNI_VEC_CACHE` **必须可写**：默认值 `D:/deepseek/.omni-vec-cache` 在本仓沙箱下位于 workspace 之外，
+//    写入被拒（EPERM）→ `SemanticIndexCache.build` 的 catch 吞成「构建失败」→ 引擎静默 fail-closed 回落纯 BM25
+//    ⇒ 全部 Δ=0 且**看不出是环境问题**（2026-09-25 实测踩中，已由脚本末尾守卫 B 拦下）。沙箱内请指到
+//    `./eval-data/vec-cache`（可先把历史缓存文件拷进来复用，省一次全语料编码）。
 // 输出：evals/semantic-recall-ab.report.json + 控制台摘要。
 
 import { join, dirname } from 'node:path';
@@ -108,11 +120,18 @@ function pairedBootstrap(diffs, B = 4000) {
 }
 
 const scenarios = [
-  { label: '基线（纯 BM25 + 精排 + K=20 + 梯度）', hybrid: false, opts: {} },
+  { label: '基线（纯 BM25 + 精排 + K=20 + 梯度）', hybrid: false, opts: { rerank: true } },
+  // 第二个基准点（2026-09-25 补）：没有它就无法区分「语义融合本身没改变结果」与「只是精排把差异抹平」——
+  // 有它才能定位 Δ=0 的层次（融合层 vs 精排层）。行序在第 1 行之后 ⇒ 仍以第 1 行为对照基准。
+  { label: '基线（纯 BM25 + 精排关）', hybrid: false, opts: { rerank: false } },
   { label: '混合 + 精排关（旧口径，未接第二段）', hybrid: true, opts: { rerank: false } },
-  { label: '混合 + 精排开（★新接线，走生产入口）', hybrid: true, opts: {} },
-  { label: '混合 + 精排开 + docMode=id', hybrid: true, opts: { docMode: 'id' } },
-  { label: '混合 + 精排开 + semWeight=1.5', hybrid: true, opts: { semWeight: 1.5 } },
+  { label: '混合 + 精排开（★新接线，走生产入口）', hybrid: true, opts: { rerank: true } },
+  { label: '混合 + 精排开 + docMode=id', hybrid: true, opts: { rerank: true, docMode: 'id' } },
+  {
+    label: '混合 + 精排开 + semWeight=1.5',
+    hybrid: true,
+    opts: { rerank: true, semWeight: 1.5 },
+  },
 ];
 // 注：`chunkRecall` 变体**刻意不纳入**——它在 `recallKnobs` 已记录为「噪声（minilm +0.2pp）/
 // 有害（e5-large −0.8pp）」，且需对 7787 个函数体各切一个 chunk（实测单次构建 >13min 编码税）。
@@ -135,6 +154,7 @@ for (const sc of scenarios) {
       q,
       hit: files.some((f) => gt.has(f)) ? 1 : 0,
       files,
+      text: text ?? '',
       tokens: tokenize(text ?? '').length,
     });
   }
@@ -158,20 +178,25 @@ for (const sc of scenarios) {
     avgTokens: avgTok,
     buildSeconds: +dt,
   };
-  results.push({ ...line, perQuery: perQuery.map((r) => ({ q: r.q, hit: r.hit })) });
+  results.push({
+    ...line,
+    perQuery: perQuery.map((r) => ({ q: r.q, hit: r.hit, files: r.files, text: r.text })),
+  });
 
   const flag = line.significant ? (ci.mean > 0 ? '✅ 显著正' : '❌ 显著负') : '·  不显著';
   console.log(
     `  ${sc.label.padEnd(38)} hitRate=${String(line.hitRate).padStart(5)}%  ` +
       `Δ=${String(line.delta).padStart(5)}pp [${ci.lo}, ${ci.hi}]  ${flag}  ` +
-      `变动 ${moved}/33  平均 ${avgTok} tok  ${dt}s`,
+      `变动 ${moved}/${QUERIES.length}  平均 ${avgTok} tok  ${dt}s`,
   );
 }
 
 // —— 失败模式对照：基线漏掉的条，混合是否捞回 ——
 const baseMiss = baselinePerQuery.map((r, i) => (r.hit === 0 ? i : -1)).filter((i) => i >= 0);
+// 按标签定位而非下标（2026-09-25 起场景表有多个基准点，下标会随插入漂移）。
+const best = results.find((r) => r.label.startsWith('混合 + 精排开（'));
+if (best === undefined) throw new Error('场景表缺少「混合 + 精排开」行：无法做失败模式对照');
 console.log(`\n=== 失败模式对照（基线漏掉 ${baseMiss.length}/33 条）===`);
-const best = results[1];
 let recovered = 0;
 for (const i of baseMiss) {
   const q = baselinePerQuery[i].q;
@@ -179,7 +204,63 @@ for (const i of baseMiss) {
   if (best.perQuery[i].hit === 1) recovered++;
   console.log(`  [${now}] ${q}`);
 }
-console.log(`  混合（默认旋钮）捞回 ${recovered}/${baseMiss.length} 条`);
+console.log(`  ${best.label} 捞回 ${recovered}/${baseMiss.length} 条`);
+
+// —— 融合层活性：同 `rerank` 状态下，「混合」与「纯 BM25」的**完整注入文本**是否逐字相同 ——
+// 只比 hit 向量或文件集合都不够（符号大纲可能变而文件不变），必须比注入文本本体，
+// 才能区分「语义候选真的没参与排序」与「重排把差异抹平 / 命中恰好重合」。
+console.log('\n=== 融合层活性（混合 vs 纯 BM25，同 rerank 状态，完整注入文本逐条比对）===');
+let identicalStates = 0;
+for (const [pureLabel, hybridLabel, state] of [
+  ['基线（纯 BM25 + 精排关）', '混合 + 精排关（旧口径，未接第二段）', '精排关'],
+  ['基线（纯 BM25 + 精排 + K=20 + 梯度）', '混合 + 精排开（★新接线，走生产入口）', '精排开'],
+]) {
+  const pure = results.find((r) => r.label === pureLabel);
+  const hyb = results.find((r) => r.label === hybridLabel);
+  if (pure === undefined || hyb === undefined) continue;
+  let sameText = 0;
+  for (let i = 0; i < pure.perQuery.length; i++) {
+    if (pure.perQuery[i].text === hyb.perQuery[i].text) sameText++;
+  }
+  if (sameText === pure.perQuery.length) identicalStates += 1;
+  console.log(
+    `  ${state}：注入文本逐字相同 ${sameText}/${pure.perQuery.length}` +
+      (sameText === pure.perQuery.length
+        ? ' ⇒ 语义候选未进入注入内容（**零贡献**，或 fail-closed 回落——见下节守卫）'
+        : ' ⇒ 语义候选确参与排序'),
+  );
+}
+
+// —— 守卫 A（fail-closed）：嵌入端口零调用 ⇒ 上表所有 Δ 都是 fail-closed 回落的假阴性 ——
+// 根因（2026-09-25 实测）：`getHybridRepoMapContext` 对嵌入层异常**静默**回落纯 BM25，
+// 模型加载失败（离线缓存缺元数据 / 网络不可达）时全部场景与基线逐字相同、Δ=0、「不显著」——
+// 这与「语义路无效」在报告里长得一模一样，正是本仓反复治的假信号。故零调用即拒绝出报告。
+if (embedding.hits + embedding.misses === 0) {
+  console.error(
+    '\n❌ 接线失效：嵌入端口零调用（向量缓存 命中 0 / 回源 0）⇒ 混合路径是 fail-closed 回落纯 BM25，' +
+      '上表 Δ 全为**假阴性**，不构成「语义路无效」的证据。\n' +
+      '   排查：① 能否加载模型（OMNI_HF_ENDPOINT=https://hf-mirror.com 或 OMNI_EMBEDDING_CACHE_DIR 指向完整缓存）；' +
+      '② 是否被本沙箱阻断（子进程/网络）。',
+  );
+  process.exit(1);
+}
+
+// —— 守卫 B（fail-closed）：端口有调用但**注入文本仍逐字相同** ⇒ 索引构建失败被 build 的 catch 吞掉 ——
+// 实测根因（2026-09-25，本仓沙箱）：评测侧向量缓存默认写在 `D:/deepseek/.omni-vec-cache`（**workspace 之外**），
+// 沙箱拒绝写入 ⇒ `CachedEmbeddingPort.flush` 抛 EPERM ⇒ `SemanticIndexCache.build` 的 `catch { return null }`
+// 把它吞成「构建失败」⇒ 引擎 fail-closed 回落纯 BM25。此时**端口计数不为 0**（守卫 A 不触发），
+// 而全部 Δ=0 —— 一个看起来像「语义路无效」的纯环境假阴性。故：逐字相同即拒绝出报告。
+if (identicalStates === 2 && process.env.OMNI_ALLOW_ZERO_SEMANTIC !== '1') {
+  console.error(
+    '\n❌ 语义路未进入注入内容：两个 rerank 状态下「混合」与纯 BM25 的注入文本**逐条逐字相同**。\n' +
+      '   这通常不是「语义路无效」，而是索引构建失败被静默 fail-closed（典型：向量缓存目录不可写 →' +
+      ' EPERM → build 返回 null）。\n' +
+      '   排查：① OMNI_VEC_CACHE 指向**可写**目录（沙箱下必须在 workspace 内，如 ./eval-data/vec-cache）；' +
+      '② 模型可加载（OMNI_HF_ENDPOINT / OMNI_EMBEDDING_CACHE_DIR）。\n' +
+      '   若已确认是真实零贡献，显式设 OMNI_ALLOW_ZERO_SEMANTIC=1 再跑（该判定须同时写进报告/看板）。',
+  );
+  process.exit(1);
+}
 
 const report = {
   generatedAt: new Date().toISOString(),

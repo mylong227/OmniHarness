@@ -1042,6 +1042,22 @@ for (const task of pending) {
       process.exit(1);
     }
 
+    // ---- 验证环境（venv）按需准备一次/实例：SBFL / best-of-N / self-test 都复用它跑 gold FAIL_TO_PASS。----
+    // 必须先于 SBFL 块：SBFL 要在就绪的 venv 里跑 pytest --cov（TDZ 修复：venvReady 声明原在 SBFL 之后）。
+    let venvReady = false;
+    let venvPython = '';
+    if (executor !== null) {
+      try {
+        venvPython = await executor.prepareRuntime(wt, task);
+        venvReady = true;
+        console.log(`  [verify] venv 就绪 (${venvPython})`);
+      } catch (e) {
+        console.warn(
+          `  ⚠️ 验证环境准备失败，跳过 best-of-N/self-test/SBFL：${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
     // SBFL 覆盖率定位：把 gold FAIL_TO_PASS 真正执行到的源文件前置进检索结果，攻击召回缺口。
     // 仅改变 files 顺序（mapText 不变），故上面的零漂移自证依旧成立。
     let boostedFiles = files;
@@ -1082,20 +1098,7 @@ for (const task of pending) {
     }
 
     // ---- 求解：单候选修复环 / best-of-N + 验证器 / self-test 反馈 ----
-    // 验证环境（venv）按需准备一次/实例：best-of-N / self-test / SBFL 都复用它跑 gold FAIL_TO_PASS。
-    let venvReady = false;
-    let venvPython = '';
-    if (executor !== null) {
-      try {
-        venvPython = await executor.prepareRuntime(wt, task);
-        venvReady = true;
-        console.log(`  [verify] venv 就绪 (${venvPython})`);
-      } catch (e) {
-        console.warn(
-          `  ⚠️ 验证环境准备失败，跳过 best-of-N/self-test/SBFL：${e instanceof Error ? e.message : String(e)}`,
-        );
-      }
-    }
+    //（venv 已在 SBFL 块前准备完毕：best-of-N / self-test / SBFL 三者共用同一就绪状态。）
 
     const solve = await solveInstance(opts, task, wt, model, executor, venvReady, messages);
     const diff = solve.diff;
