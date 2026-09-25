@@ -99,6 +99,16 @@ const opts = {
   repoBaseUrl: arg('--repo-base') ?? 'https://gitee.com/',
   mirrorPath: arg('--repo-mirrors') ?? join(ROOT, 'benchmark', 'swebench-gitee-mirrors.json'),
   dryRun: process.argv.includes('--dry-run'),
+  // ---- 零付费路径（2026-09-26）----
+  // 把同一套 SWE-bench 协议指向**本地/免费**的 OpenAI 兼容端点（Ollama `http://localhost:11434/v1`、
+  // llama.cpp `llama-server`、LM Studio、vLLM，或 Gemini 等免费层预设），无需任何付费 key。
+  // `--no-key` 用占位密钥（本地端点不校验）；默认值不变 ⇒ 既有付费路径零行为变更。
+  baseUrl:
+    arg('--base-url') ??
+    process.env.OMNI_EVAL_BASE_URL ??
+    process.env.DEEPSEEK_BASE_URL ??
+    'https://api.deepseek.com',
+  noKey: process.argv.includes('--no-key'),
   keepWorktree: process.argv.includes('--keep-worktree'),
   dumpDir: arg('--dump-dir'),
 };
@@ -945,10 +955,15 @@ console.log(
 
 // ---------- 模型 ----------
 // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
-const apiKey = process.env.DEEPSEEK_API_KEY ?? LiveCredentials.readUserProviderKey();
+// 零付费路径：`--no-key`（本地端点）显式跳过凭据要求，用占位密钥——**不会**静默接受缺 key，
+// 缺 key 且未显式 `--no-key` 时仍然 fail-closed 报错退出。
+const apiKey = opts.noKey
+  ? 'local-no-key'
+  : (process.env.DEEPSEEK_API_KEY ?? LiveCredentials.readUserProviderKey());
 if (!opts.dryRun && apiKey === undefined) {
   console.error(
-    '❌ 缺 DEEPSEEK_API_KEY（环境变量，或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek）',
+    '❌ 缺 DEEPSEEK_API_KEY（环境变量，或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek）。\n' +
+      '   零付费本地/免费端点请显式加 `--no-key --base-url <OpenAI 兼容端点>`（如 http://localhost:11434/v1）。',
   );
   process.exit(1);
 }
@@ -956,12 +971,17 @@ const modelName = opts.model;
 const openAiModel = opts.dryRun
   ? null
   : new OpenAiCompatibleModel({
-      baseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
+      baseUrl: opts.baseUrl,
       apiKey,
       model: modelName,
       // 每次尝试（含重试）各自的空闲超时预算：`<=0` 时适配器侧完全关闭（回退旧无限挂起）。
       requestTimeoutMs: opts.requestTimeoutMs,
     });
+if (!opts.dryRun && opts.noKey) {
+  console.log(
+    `[predict] 零付费模式：baseUrl=${opts.baseUrl} model=${modelName}（占位密钥；适合 Ollama / llama.cpp / LM Studio 本地端点）`,
+  );
+}
 // 瞬时网络错误（`fetch failed` 等）重试：把「整实例判死」降级为「退避后重试」。策略与
 // RetryingModel 默认同族（指数退避 + 抖动 + 尊重 Retry-After），仅开放次数/基础退避为旗标。
 const model =
