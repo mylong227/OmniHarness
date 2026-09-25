@@ -2149,6 +2149,11 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   可复现（子集选择器确定性）的真值；② 把「检索/投送改动是否伤害端到端完成率」从无据可查变为有基线可对照。
   提升路径按 ROI：开 best-of-N=4 + self-test 出「产品口径」分数（成本另批），检索侧对照本基线做 A/B。
 
+  > **⚠️ 2026-09-26 解读更正（§21.17 实证）**：gold 对照显示该子集**只有 4/30 题的判分链路可信**
+  > （官方 gold patch 在这 4 题上判 resolved，其余 26 题 gold 一律判不过）⇒ 本行「模型失败 29」
+  > **不能读成能力分**；可解读的部分只有 sympy 四题：**基线 1/4（25%）**。原「零环境失败」只说明
+  > 「环境构建 + pytest 跑起来了」，**不等于判定可信**——这正是第二关（gold 必判 true）要拦的形态。
+
 - **发布（2026-09-25）**：包名改 scoped `@mylong227/omniharness`（npm 裸名已被第三方
   tim_carter_clausen 占用，`5f2a73d`）；**GitHub Release v0.2.0 已上线**
   （`releases/tag/v0.2.0`，附 tarball，匿名下载已验证 200）——安装方式：tarball 直装 /
@@ -2421,3 +2426,30 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
   **+ semWeight=1.5 66.7%（+4.8pp，CI [−4.8, 14.3]）**；捞回基线漏项 **6/32**（core33 上仅 1/8）。
   CI 由 ±12pp 收窄到 ±9.6pp，但**仍跨 0** ⇒ **「语义路翻默认」依旧缺证据，结论不变**（与 §21.16 之前的判断一致，
   只是现在有了 n=84 的实测支撑）。
+
+### 21.17 ★判分链路自证（第二关机器化）：gold 对照只有 **4/30** 通过 —— 「1/30 基线」不是能力分
+
+- **背景**：本仓早有「放行 ≠ 有效」的两关纪律（空补丁必判 `false` / **gold 必须判 `true`**，
+  见 `RECALL_HEADROOM_SURVEY.md` §10.2），但它此前只活在文档与**手工冒烟**里，**判分主链路没有它**。
+- **本轮机器化**：`capability_swebench.mjs` 新增 **`--gold-control`**——用官方 `goldPatch` 当"预测"跑
+  **同一判分链路**（零成本、不调模型；报告默认 `capability-swebench-gold.json`），并加 npm script
+  `eval:swebench:gold`；主链路新增 **`--gold-report <gold.json>`**，评分收尾**强制打印判分可信度**
+  （未提供则显式提示"未校验"）。实测（1 实例冒烟）：`⚠️ 判分可信度：本次 1 个实例中仅 0 个通过 gold 对照；
+其余 1 个的「未通过」不代表模型能力`。
+- **实测（Verified-30 全量 gold 对照，`eval-data/gold_control_30.json`）**：**resolved = 4/30（13.3%）**，
+  只有 `sympy__sympy-13480 / 15599 / 18698 / 21847` 四题 gold 判过；
+  astropy(2) / django(14) / matplotlib(2) / xarray(2) / pytest(1) / scikit-learn(2) / sphinx(3)
+  共 **26 题的 gold 一律判不过**（记录 `resolved=false` 且**无 reason**：补丁应用成功、pytest 真跑，
+  只是 FAIL_TO_PASS 没转绿）。
+- **⇒ §21.6 的解读必须更正（已就地加注）**：「resolved 1/30（3.3%）、模型失败 29」**不是能力分**——
+  26/30 的判分链路连 gold 都不认，那些"模型失败"不含能力信息；**可解读的部分只有 sympy 四题：基线 1/4（25%）**。
+  同理，两臂 armA/armB 的 **0/13 落在不可信区**（astropy + django），**其分数结论作废**，待判分链路修复后重跑。
+  「环境失败 0」只说明环境**建起来了**，**不等于判定可信**——这正是第二关要拦的形态（原表述已更正）。
+- **根因（两类，均有实证）**：① **依赖缺失**——astropy 缺 `hypothesis`（conftest 装不进），补装后
+  又缺 `erfa`(pyerfa) C 扩展（另注：补装测试依赖会把 numpy 拉到 2.0.2，对 astropy 4.x 有风险）；
+  ② **官方 per-repo 测试命令未复刻**——本案统一用 `pytest <test files> <ids>`，而官方 harness 对每个仓库有
+  专属 `test_cmd`（django 走 `./tests/runtests.py`、pytest 仓库走自身入口…）⇒ **结构化不保真**，
+  与补丁对不对无关。
+- **处置与下一步（有据可依）**：① 建 **per-repo 测试命令表**（对齐 SWE-bench 的 `MAP_REPO_VERSION_TO_SPECS`）；
+  ② 依赖补齐（`env-pins` 纪律：**只有 gold 判过才收录**）；③ **在 gold 通过率达标前，不再对外引用任何
+  SWE-bench resolved 率**（含 best-of-N 产品口径）——这条已由 `--gold-report` 的收尾告警机器兜住。
