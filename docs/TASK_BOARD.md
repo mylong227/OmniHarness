@@ -2231,3 +2231,95 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   （`defaults/providers.json` 增 `gemini` 预设）；Bedrock 判负留档（SigV4 + 事件流协议、无需求信号）。
 - **门禁**：typecheck / lint / check --strict / audit:maturity / audit:standard:delta 全绿；
   全量单测 2161 例 0 失败（8 skip 环境性）；compete 基准本机复跑通过。changeset：remove-legacy-memory-engines（minor）。
+
+### 21.11 研究侧召回率补齐 + 免成本判分（付费 best-of-N 产品口径**未启动**，成本另批）
+
+> 用户口径：**「成本另批」的 best-of-N 产品口径跑分外完成研究召回率和跑分**——即付费的模型跑分不动
+> （由用户另批启动，本批**零模型成本**），本轮只做免成本那一半：**研究侧召回率**（离线，免网络免模型）
+> 与**本地判分**（本地 git+uv+pytest，不调模型）。
+
+#### ① 先修拦路缺陷：冻结召回查询集指向**已被删除**的代码（4 个脚本 fail-closed，而 CI 是全绿的）
+
+- **根因**：`bb97a39`（§21.10 移除遗留记忆双引擎）删掉了 `CosmicWebOptions`，而检索评测的**冻结 33 条**
+  第 13 条仍以它为锚（锚点字面量在 `src/` 不再出现 ⇒ GT=0）。该锚点被**复制在 13 处**：
+  `tests/fixtures/recallQueries.ts`（单一真相来源）、`evals/lib/query-set.mjs`、以及 11 个内联副本
+  （`spider-*`×6 / `military-chain-ab` / `pool-depth-probe` / `recall-codebase-real` / `bm25-tune` / `diag-spectrum`）。
+- **实测后果（本批首跑，同一坏数据在不同脚本表现不一）**：`recall-query-audit` **exit 1**（锚点 GT=0 即中止）、
+  `recall-precision` / `headroom-analysis` / `production-defaults-check` 直接抛错；
+  `rerank-ab` / `budget-recall-tradeoff` 则**静默按 83 条算**（33→32、84→83，口径悄悄变窄）。
+- **修法**：锚点 → 删除能力的**迁移目标** `ResonantFieldOptions`（§21.10 指定的 U1 统一基板），
+  **查询文本逐字未动**（历史可比性锚在查询侧，只换 GT 定位子）；13 处同步，fixture 注释里登记口径变更与原因。
+- **防复发**：CI `eval` job 新增 `npm run eval:recall-query-audit`——该门禁此前**根本不在 CI**，
+  所以「CI 全绿」与「评测集已废」可以同时成立。放 CI 而非 pre-commit：它读 `dist/`，
+  而 pre-commit 时 dist 可能滞后于暂存源码（会造成假绿/假红）。
+- **顺带修两处「标签撒谎」（扩容 / 翻默认后没跟着改，读者会引错口径）**：
+  ① `budget-recall-tradeoff.mjs` 主表实跑**全量 84 条**却硬写「33 查询」⇒ 改为按 `QUERIES.length` 动态打印；
+  ② `semantic-recall-ab.mjs` 的「混合 + 精排开」三档此前靠**默认值**取到的是**精排关**（§21.2 已把精排默认回关）
+  ⇒ 标签与事实相反，现全部显式给 `rerank`，并补一个「纯 BM25 + 精排关」基准点（用于定位 Δ 出在融合层还是精排层）。
+
+#### ② 研究侧召回率真值（578 文件 / 9745 符号；全部免网络免模型，可复跑）
+
+| 口径（本轮实测）                | 值                                                                                                                                                                                                                 | 证据脚本                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| all84 hitRate@20（K=20 + 精排） | **61.9%**（52/84）                                                                                                                                                                                                 | `recall-query-audit`        |
+| core33（冻结子集）              | **75.8%**（25/33）                                                                                                                                                                                                 | `recall-query-audit`        |
+| ext51（2026-09-22 新增）        | **52.9%**（27/51）                                                                                                                                                                                                 | `recall-query-audit`        |
+| 难度画像                        | OK 52 / RANKING 23 / LEXICAL 9                                                                                                                                                                                     | `recall-query-audit`        |
+| 生产默认档（K=20, 精排关）      | **69.7%** [54.5, 84.8]                                                                                                                                                                                             | `production-defaults-check` |
+| 精排 opt-in（K=20, 精排开）     | **75.8%** [60.6, 90.9]（+6.1pp）                                                                                                                                                                                   | `production-defaults-check` |
+| 第一轮默认档（K=14, 精排开）    | 69.7% [54.5, 84.8]                                                                                                                                                                                                 | `production-defaults-check` |
+| 自然口径（锚点 + 自然语言）     | **100%** [100, 100]（0 条未命中）                                                                                                                                                                                  | `production-defaults-check` |
+| headroom（K=10, all84）         | OK 41 / RANKING 15 / LEXICAL 28 ⇒ 排序可吃 **17.9pp**、语义盲区 **33.3pp**；oracle D=20 61.9% / D≥50 66.7% 饱和                                                                                                    | `headroom-analysis`         |
+| 预算×PRF×精排 16 档（all84）    | K=20 三档并列最优 **61.9%**（+13.1pp，CI 下界 52.4% > 基线）；唯一 CI 下界 > 0 的配对视差 = **K20 vs K14 +8.3pp [3.6, 14.3]**；PRF 仍负（K=20 −4.8pp）；rerank all84 Δ=0.0pp [−5.9, 5.9]                           | `budget-recall-tradeoff`    |
+| 四项指标（all84, BM25）         | K5/K10/K14 命中 39.3/48.8/56.0%、P@K 10.9/7.0/6.1%、recall 19.2/22.9/28.3%、MRR 0.207/0.220/0.226；**+RM3 全面更低**（29.8/42.9/50.0%）                                                                            | `recall-precision`          |
+| 生产入口验收                    | 等价性 默认/精排 opt-in/full/degrade **各 33/33**；旋钮可变性 **5/5 + 5/5**；构造性不变量 排序 33/33、可见集合 30/33（3 条 tiered **更全**）；token 全大纲 3999 → 梯度 **1008（−74.8%）** → 应急 **632（−84.2%）** | `production-defaults-check` |
+
+**语义路 opt-in 档（core33, K=20, e5-small-v2 本地 ONNX）**：基线（纯 BM25 + 精排）**75.8%** →
+混合 + 精排关 72.7%（−3.0pp）→ 混合 + 精排开 75.8%（Δ=0，CI [−9.1, 9.1]）→ docMode=id 75.8% →
+**混合 + 精排开 + semWeight=1.5 ⇒ 81.8%（+6.1pp，CI [−6.1, 18.2] 跨 0）**；token 1008 → 1114（+10.5%）；
+捞回基线漏项 1/8。⇒ **`RECALL_HEADROOM_SURVEY` §4.3 的历史结论在当前代码 + 当前语料上复现**
+（+6.1pp 但 CI 跨 0 ⇒ 仍 opt-in，**不翻默认**）。
+
+**与 §21.2（14:05，580 文件）相比的差异只有一条查询**：core33 78.8% → **75.8%**、all84 63.1% → **61.9%**，
+两个差量都**恰好等于 1 条查询**，即被换锚点的那条（新锚点 GT=4 文件、**深层最佳排位 23**，差 3 位进不了 K=20）；
+其余 83 条逐条不变（ext51 52.9% 持平）⇒ 这是**能力被删**的代价，不是检索退化。
+
+#### ③ 一个被守卫抓住的**假阴性**（已写进脚本，防复发）
+
+首测语义路时三档全 Δ=0，且「混合」与纯 BM25 的注入文本**逐条逐字相同**——看上去就是「语义路无效」。
+挖出的真因是**本仓沙箱**（不是产品缺陷）：评测侧向量缓存默认写 `D:/deepseek/.omni-vec-cache`（**workspace 之外**）
+⇒ 写入 EPERM ⇒ `CachedEmbeddingPort.flush` 抛错 ⇒ `SemanticIndexCache.build` 的 `catch { return null }`
+把它吞成「构建失败」⇒ 引擎 **fail-closed 静默回落纯 BM25**。此时端口计数**不为 0**（33737 命中），
+所以「零调用」守卫抓不到它，全部 Δ=0 与「语义路无效」在报告里长得一模一样。
+**处置**（`evals/semantic-recall-ab.mjs`）：新增**守卫 B**——两个 rerank 状态下注入文本逐条逐字相同即
+fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认真实零贡献须显式 `OMNI_ALLOW_ZERO_SEMANTIC=1`）；
+另加**守卫 A**（嵌入端口零调用即 fail-closed）与**融合层活性**逐条比对（混合 vs 纯 BM25 注入文本），
+把「语义候选是否真的进了注入内容」从「看 Δ 猜」变成机器判据。沙箱内跑法已写进脚本头：
+`OMNI_VEC_CACHE=<workspace 内可写目录>` + `OMNI_HF_ENDPOINT=https://hf-mirror.com`。
+
+#### ④ 免成本判分（本地 pytest，零模型调用）：上一批**中断**的两臂
+
+- **现场**：`22:29–22:41` 起的 armA / armB（best-of-N=4 + self-test）在 **3/30** 与 **10/30** 处被中断
+  （进程已死；预测落盘 `eval-data/preds_product_armA.jsonl` / `preds_product_armB_sbfl.jsonl`）。
+- **判分**（`benchmark/capability_swebench.mjs --verified --jsonl`，本地 git+uv+pytest）：
+  首跑 13 题**全判「工作区检出失败: spawn EPERM」**——沙箱阻断 piped-stdio 子进程；放行后 13/13 真跑（env 失败 1）。
+
+| 批次                    | 协议                    | 已判 | resolved      | 环境失败                            |
+| ----------------------- | ----------------------- | ---- | ------------- | ----------------------------------- |
+| verified30 基线（对照） | 单候选 temp=0           | 30   | **1（3.3%）** | 0                                   |
+| armA                    | best-of-N=4 + self-test | 3    | 0             | 0                                   |
+| armB（名为 `_sbfl`）    | 同上                    | 10   | 0             | 1（`django-11951` pytest 装入失败） |
+
+- **诚实边界（三条）**：① 两臂均为**中断批次**且只覆盖字典序最前 10 题（astropy/django），
+  **不可**与 30 题基线做比率比较；在重叠的 10 题上**基线同样 0/10** ⇒ 「best-of-N 在这 10 题上既无增益也无损害」，
+  无统计功效。② armB 日志里**没有一条 `[sbfl] 前置 …`**（SBFL 生效时会打印）⇒ 要么没开 `--sbfl`，
+  要么 `pytest --cov` 走了 best-effort 空返回；两臂按**同一协议**解读。③ 预测日志显示候选=4 的**绿样本数多为 0**
+  （armA 3/3 全 0）——验证器没选出绿样本，与官方判分 0 分自洽。
+- 上一批中断时留在工作树的 `benchmark/swebench_predict.mjs` 修复（venv 准备前移到 SBFL 块之前；
+  原位置使 `--sbfl` 撞 TDZ）本批一并入库。
+
+#### ⑤ 仍待（按用户口径**不在本轮**）
+
+- **付费的「产品口径」分数未启动**：best-of-N=4 + self-test × 30 题 × 两臂。成本量级（实测外推）：
+  基线单候选 30 题 ≈ 687K token，本协议约 4–8× ⇒ 每臂 ~3–5M token、数小时。
+- 语义路仍 opt-in（+6.1pp 但 CI 跨 0，n=33）；all84 上 rerank Δ=0.0pp——**翻默认仍缺证据**。
