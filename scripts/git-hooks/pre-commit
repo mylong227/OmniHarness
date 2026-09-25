@@ -1,72 +1,13 @@
 #!/bin/sh
-# OmniHarness pre-commit 门禁（零依赖：仅用仓库内 node_modules 工具）。
-# 职责：铁律自检(check --strict) + 成熟度门禁 + 编码标准增量门禁 + ESLint(零告警) + Prettier 增量格式化
-#      + 架构门禁 + 接线完整性门禁 + 文档死链门禁。
-# 由 scripts/install-hooks.mjs 通过 git config core.hooksPath 激活。
-# 这是「编码标准任何时候都生效」的机器兜底：任何提交只要新增标准违规即被中止。
-cd "$(git rev-parse --show-toplevel)"
-
-echo "[pre-commit] Node 引擎门禁（engines.node 下限，fail-closed）..."
-if ! node scripts/checkNodeEngine.mjs; then
-  echo "[pre-commit] ✗ Node 版本不满足 engines.node，提交中止。请切换/安装符合要求的 Node（见 .nvmrc）。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] OmniHarness 门禁：铁律自检（--strict）..."
-if ! node scripts/check.mjs --strict; then
-  echo "[pre-commit] ✗ check.mjs 铁律校验未通过，提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] 成熟度门禁（L2/L3 须有测试证据）..."
-if ! npm run --silent audit:maturity; then
-  echo "[pre-commit] ✗ 成熟度门禁未通过（L2/L3 须有 @maturityEvidence 指向真实测试），提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] 编码标准增量门禁（禁止本次提交新增违规）..."
-if ! node scripts/auditStandards.mjs --delta; then
-  echo "[pre-commit] ✗ 检测到本次提交新增了编码标准违规，提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] 架构门禁（core↔adapters 冻结白名单，新增即红）..."
-if ! npm run --silent arch:gate; then
-  echo "[pre-commit] ✗ 检测到新增架构违规（core↔adapters 不在白名单内或 ports 纯度受损），提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] 接线完整性门禁（声明→装配→运行时→消费，断链即红）..."
-if ! node scripts/auditConfigWiring.mjs; then
-  echo "[pre-commit] ✗ 检测到未接线字段（本仓最高频缺陷形态「声明未接线」），提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] 文档死链门禁（链接目标指向不存在文件即红；存量已冻结）..."
-if ! node scripts/docLinkCheck.mjs; then
-  echo "[pre-commit] ✗ 文档新增死链（指向不存在的文件），提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] 发布物零密钥门禁（个人凭据不得进版本库）..."
-if ! node scripts/checkSecrets.mjs --staged; then
-  echo "[pre-commit] ✗ 暂存内容含疑似真实密钥（个人凭据只放用户级 ~/.omniharness/omniharness.json；测试假密钥加行内标记 omniharness:fake-secret），提交中止。" >&2
-  exit 1
-fi
-
-echo "[pre-commit] ESLint（零告警：--max-warnings=0，warn 亦阻断）..."
-if ! npm run --silent lint; then
-  echo "[pre-commit] ✗ ESLint 存在 error 或 warning，提交中止（告警预算已归零：静态告警曾编码真实断链）。" >&2
-  exit 1
-fi
-
-# 仅格式化已暂存的源码/配置/文档文件（增量，不触碰历史文件），随后重新暂存
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|js|mjs|cjs|json|md)$' || true)
-if [ -n "$STAGED" ]; then
-  echo "[pre-commit] Prettier 格式化已暂存文件..."
-  echo "$STAGED" | xargs ./node_modules/.bin/prettier --write
-  echo "$STAGED" | xargs git add
-fi
-
-echo "[pre-commit] ✓ 门禁通过"
-exit 0
+# OmniHarness pre-commit 钩子——**薄包装**：判定逻辑单点在 `scripts/runGates.mjs`（node 实现）。
+#
+# 为什么不在本文件里写门禁（2026-09-25 事故后改写）：
+#   ① 受限环境下 git 只能经 `sh.exe` 起钩子，而沙箱会拒绝 cygwin 共享内存创建
+#      （`sh.exe: *** fatal error - CreateFileMapping ..., Win32 error 5`）⇒ 钩子整段不可执行、
+#      提交**静默绕过全部门禁**；node 实现可用 `node scripts/runGates.mjs --hook` 在任何环境手工跑齐同一套判定。
+#   ② 门禁清单只留一份，避免钩子 / CI / 人工三处漂移（历史上已漂过：钩子用 `npm run`、CI 用 `node`；
+#      而本机 `npm.ps1` 实测损坏，指向 npm 的写法在这里根本跑不起来）。
+#
+# 由 scripts/install-hooks.mjs 通过 git config core.hooksPath 激活（与 pre-push 同一目录）。
+cd "$(git rev-parse --show-toplevel)" || exit 1
+exec node scripts/runGates.mjs --hook

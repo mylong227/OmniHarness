@@ -961,21 +961,29 @@ const model =
         jitter: 0.1,
       });
 
-// ---------- 验证执行器（best-of-N / self-test 用）----------
+// ---------- 执行器（SBFL / best-of-N / self-test 用）----------
 // 仅在需要验证时创建：复用同一缓存根 ⇒ 与打分阶段零重复克隆。环境准备（建 venv + 装仓库）在
-// 每个实例的 solveInstance 内惰性进行，准备失败即降级为「单候选、不验证」，不阻断整批。
-const verificationEnabled = !opts.dryRun && (opts.bestOfN > 1 || opts.selfTest);
-const executor = verificationEnabled
+// 每个实例内惰性进行，准备失败即降级为「不验证」，不阻断整批。
+//
+// 2026-09-25 修正（两处静默失效，均实测踩中）：SBFL 是**检索侧**能力，与 best-of-N / self-test 无关，
+// 却因 executor 旧判据只有 `bestOfN>1 || selfTest` 而**静默变成死旋钮**（`--sbfl` 单开时整段被跳过、
+// 且日志零提示；armB 命名为 `_sbfl` 但日志无一条 `[sbfl]` 行，正是此因）。现纳入同一判据，
+// 并允许 `--dry-run --sbfl` 走通——dry-run 不调模型，正是「零成本验证 SBFL 接线」的用法。
+const needExecutor = opts.sbfl || (!opts.dryRun && (opts.bestOfN > 1 || opts.selfTest));
+const executor = needExecutor
   ? new NativeExecutor({
       repoCacheRoot: opts.cacheRoot,
       repoBaseUrl: opts.repoBaseUrl,
       ...(Object.keys(mirrors).length > 0 ? { repoMirrors: mirrors } : {}),
     })
   : null;
-if (verificationEnabled) {
-  console.log(
-    `[predict] 验证模式：best-of-N=${opts.bestOfN} self-test=${opts.selfTest} executor=${executor.describe()}`,
-  );
+if (needExecutor && executor !== null) {
+  const modes = [
+    opts.sbfl ? `sbfl=on(limit=${opts.sbflLimit})` : null,
+    opts.bestOfN > 1 ? `best-of-N=${opts.bestOfN}` : null,
+    opts.selfTest ? 'self-test=true' : null,
+  ].filter((s) => s !== null);
+  console.log(`[predict] 验证模式：${modes.join(' ')} executor=${executor.describe()}`);
 }
 
 // ---------- 主循环 ----------
@@ -1060,14 +1068,25 @@ for (const task of pending) {
 
     // SBFL 覆盖率定位：把 gold FAIL_TO_PASS 真正执行到的源文件前置进检索结果，攻击召回缺口。
     // 仅改变 files 顺序（mapText 不变），故上面的零漂移自证依旧成立。
+    // 两条「不静默空转」告警：开了 --sbfl 却什么都没前置时，必须能从日志里看出来（否则与「跑了但无效」无法区分）。
     let boostedFiles = files;
-    if (opts.sbfl && venvReady) {
-      const ranked = await runSbfl(wt, venvPython, task);
-      if (ranked.length > 0) {
-        boostedFiles = CoverageLocator.prependBoosted(ranked, files, opts.sbflLimit);
-        console.log(
-          `  [sbfl] 前置 ${boostedFiles.length - files.length} 个可疑文件（命中 ${files.length} → ${boostedFiles.length}）`,
+    if (opts.sbfl) {
+      if (!venvReady) {
+        console.warn(
+          '  ⚠️ --sbfl 已开但验证环境未就绪：本次**未**做覆盖率定位（不是「SBFL 无效」，是没跑）。',
         );
+      } else {
+        const ranked = await runSbfl(wt, venvPython, task);
+        if (ranked.length > 0) {
+          boostedFiles = CoverageLocator.prependBoosted(ranked, files, opts.sbflLimit);
+          console.log(
+            `  [sbfl] 前置 ${boostedFiles.length - files.length} 个可疑文件（命中 ${files.length} → ${boostedFiles.length}）`,
+          );
+        } else {
+          console.warn(
+            '  ⚠️ --sbfl 已开但未产出可疑文件（pytest --cov 缺失 / gold 测试在本环境无法执行）：本次**未**前置任何文件。',
+          );
+        }
       }
     }
 
