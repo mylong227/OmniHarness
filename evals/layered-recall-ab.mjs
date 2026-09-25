@@ -42,13 +42,10 @@ const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
 const repoMap = new RepoMapContextEngine();
-const { indexCorpus } = await importDist('context', 'contextEngine.js');
-const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { buildCodeGraph, propagate } = await importDist('context', 'codeGraphIndex.js');
-const { buildLayeredCodeGraph, edgeCountOf, layeredFileRoute } = await importDist(
-  'context',
-  'layeredCodeGraph.js',
-);
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
+const { CodeGraphIndex } = await importDist('context', 'codeGraphIndex.js');
+const { LayeredCodeGraph } = await importDist('context', 'layeredCodeGraph.js');
 const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto', 'index.js');
 
 /** 语料根（与生产一致）。 */
@@ -97,7 +94,7 @@ function loadQueries() {
 }
 
 const t0 = Date.now();
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 
 /** 按锚点定位 ground truth（不依赖任何被测路由）。 */
 const groundTruth = (anchor) => {
@@ -130,7 +127,7 @@ const surfacedFiles = (ctx) => {
  * @returns 文件相对路径数组
  */
 function routeFromGraph(graph, seed, k) {
-  const scores = propagate(graph, seed, ITERS, DAMPING);
+  const scores = CodeGraphIndex.propagate(graph, seed, ITERS, DAMPING);
   const byFile = new Map();
   for (let i = 0; i < scores.length; i += 1) {
     const f = corpus.symbols[i]?.file;
@@ -175,11 +172,12 @@ queries = usable;
 if (queries.length === 0) throw new Error('全部查询的锚点均失效，无法评测');
 
 const tBuild = Date.now();
-const denseGraph = buildCodeGraph(corpus);
-const layeredGraph = buildLayeredCodeGraph(corpus);
+const denseGraph = CodeGraphIndex.buildCodeGraph(corpus);
+const layeredGraph = LayeredCodeGraph.buildLayeredCodeGraph(corpus);
 console.log(
-  `[图] 稠密 ${edgeCountOf(denseGraph)} 边 / 层化 ${edgeCountOf(layeredGraph)} 边（稀疏 ${(
-    edgeCountOf(denseGraph) / Math.max(edgeCountOf(layeredGraph), 1)
+  `[图] 稠密 ${LayeredCodeGraph.edgeCountOf(denseGraph)} 边 / 层化 ${LayeredCodeGraph.edgeCountOf(layeredGraph)} 边（稀疏 ${(
+    LayeredCodeGraph.edgeCountOf(denseGraph) /
+    Math.max(LayeredCodeGraph.edgeCountOf(layeredGraph), 1)
   ).toFixed(1)}×，构建 ${Date.now() - tBuild}ms）\n`,
 );
 
@@ -193,11 +191,18 @@ for (const { q, anchor } of queries) {
   const bm25Files = surfacedFiles(repoMap.getRepoMapContext(SRC, q, { fileK: FILE_K }));
 
   // 种子：符号路 BM25 Top-40（三张图共用）
-  const hits = corpus.symbolIndex.search(tokenizeExpanded(q), SEED_K);
+  const hits = corpus.symbolIndex.search(Bm25Index.tokenizeExpanded(q), SEED_K);
   const seed = new Map(hits.map((h) => [h.id, h.score]));
 
   // B) 层化图路由（本轮候选）
-  const layeredFiles = layeredFileRoute(corpus.symbols, layeredGraph, seed, FILE_K, ITERS, DAMPING);
+  const layeredFiles = LayeredCodeGraph.layeredFileRoute(
+    corpus.symbols,
+    layeredGraph,
+    seed,
+    FILE_K,
+    ITERS,
+    DAMPING,
+  );
 
   // C) 稠密图路由（负对照：已知 −6.1pp）
   const denseFiles = routeFromGraph(denseGraph, seed, FILE_K);
@@ -373,9 +378,11 @@ writeFileSync(
       damping: DAMPING,
       seedK: SEED_K,
       graphs: {
-        denseEdges: edgeCountOf(denseGraph),
-        layeredEdges: edgeCountOf(layeredGraph),
-        sparsification: edgeCountOf(denseGraph) / Math.max(edgeCountOf(layeredGraph), 1),
+        denseEdges: LayeredCodeGraph.edgeCountOf(denseGraph),
+        layeredEdges: LayeredCodeGraph.edgeCountOf(layeredGraph),
+        sparsification:
+          LayeredCodeGraph.edgeCountOf(denseGraph) /
+          Math.max(LayeredCodeGraph.edgeCountOf(layeredGraph), 1),
       },
       recall: {
         bm25: bm25Avg,

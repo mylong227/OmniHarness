@@ -24,7 +24,7 @@ function importDist(...segments) {
 }
 
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除）。 */
 const repoMap = new RepoMapContextEngine();
@@ -130,8 +130,8 @@ try {
     const h = surfaced(hybrid, gt);
     if (b) bm25Hit++;
     if (h) hybridHit++;
-    const bt = bm25 ? tokenize(bm25).length : 0;
-    const ht = hybrid ? tokenize(hybrid).length : 0;
+    const bt = bm25 ? Bm25Index.tokenize(bm25).length : 0;
+    const ht = hybrid ? Bm25Index.tokenize(hybrid).length : 0;
     bm25Tok += bt;
     hybridTok += ht;
     rows.push({

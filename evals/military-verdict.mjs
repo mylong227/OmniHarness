@@ -26,14 +26,14 @@ const PLOG = join(ROOT, 'military-verdict-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { Bm25Index, tokenize, tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { outlineText } = await importDist('context', 'repoMap.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index, Bm25Index } = await importDist('search', 'bm25Index.js');
+const { RepoMap } = await importDist('context', 'repoMap.js');
 const { ContentStopWords } = await importDist('context', 'contentStopWords.js');
 const { QUERIES } = await import('./lib/query-set.mjs');
 
 const SRC = join(ROOT, 'src');
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 const rels = corpus.files.map((f) => f.rel);
 const N = rels.length;
 log(`corpus ${N}`);
@@ -91,11 +91,11 @@ const fmtCI = (c) =>
 const FIELDS = ['content', 'path', 'symbols', 'signature'];
 const docs = { content: [], path: [], symbols: [], signature: [] };
 for (const rel of rels) {
-  docs.content.push(tokenize(corpus.fileText.get(rel) ?? ''));
-  docs.path.push(tokenizeExpanded(rel));
+  docs.content.push(Bm25Index.tokenize(corpus.fileText.get(rel) ?? ''));
+  docs.path.push(Bm25Index.tokenizeExpanded(rel));
   const syms = symsByFile.get(rel) ?? [];
-  docs.symbols.push(syms.flatMap((s) => tokenizeExpanded(s.name)));
-  docs.signature.push(syms.flatMap((s) => tokenizeExpanded(s.signature)));
+  docs.symbols.push(syms.flatMap((s) => Bm25Index.tokenizeExpanded(s.name)));
+  docs.signature.push(syms.flatMap((s) => Bm25Index.tokenizeExpanded(s.signature)));
 }
 const fieldIndex = {};
 for (const f of FIELDS) {
@@ -116,7 +116,7 @@ function maxNorm(v) {
   for (let i = 0; i < v.length; i++) o[i] = v[i] / m;
   return o;
 }
-const qkOf = QUERIES.map(({ q }) => tokenizeExpanded(q));
+const qkOf = QUERIES.map(({ q }) => Bm25Index.tokenizeExpanded(q));
 const raw = {};
 for (const f of FIELDS) raw[f] = qkOf.map((qk) => scoreVec(fieldIndex[f], qk));
 const multW = { content: 1, symbols: 4, signature: 4 };
@@ -153,7 +153,7 @@ function payloadTokens(files, syms, terms, plan) {
   const parts = ['# Repo Map (relevant files)'];
   files.forEach((f, i) => {
     const tier = plan(i, files.length);
-    if (tier === 'full') parts.push(outlineText(symsByFile.get(f) ?? []));
+    if (tier === 'full') parts.push(RepoMap.outlineText(symsByFile.get(f) ?? []));
     else if (tier === 'name') {
       const ss = (symsByFile.get(f) ?? []).filter((s) => terms.has(s.name.toLowerCase()));
       parts.push(`📄 ${f}`);
@@ -162,7 +162,7 @@ function payloadTokens(files, syms, terms, plan) {
   });
   parts.push('# Relevant Symbols');
   for (const s of syms) parts.push(`L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
-  return tokenize(parts.join('\n')).length;
+  return Bm25Index.tokenize(parts.join('\n')).length;
 }
 
 const report = { queryCount: QUERIES.length, verdicts: [] };
@@ -190,7 +190,9 @@ function collect(rankFn, K) {
   return { hit, mrr };
 }
 
-const baseFn = (qi, K) => [...query(corpus, QUERIES[qi].q, { fileK: K, rerank: true }).files];
+const baseFn = (qi, K) => [
+  ...ContextEngine.query(corpus, QUERIES[qi].q, { fileK: K, rerank: true }).files,
+];
 
 for (const K of [10, 14]) {
   const base = collect(baseFn, K);
@@ -220,11 +222,11 @@ for (const K of [14, 20]) {
   const toks = { full: [], layered3: [], grad: [], layered1: [] };
   let sameSet = 0;
   for (let qi = 0; qi < QUERIES.length; qi++) {
-    const r = query(corpus, QUERIES[qi].q, { fileK: K, rerank: true });
+    const r = ContextEngine.query(corpus, QUERIES[qi].q, { fileK: K, rerank: true });
     const files = [...r.files];
     const syms = [...r.symbols];
     const terms = new Set(
-      tokenizeExpanded(QUERIES[qi].q).filter((t) => ContentStopWords.isContent(t)),
+      Bm25Index.tokenizeExpanded(QUERIES[qi].q).filter((t) => ContentStopWords.isContent(t)),
     );
     toks.full.push(payloadTokens(files, syms, terms, () => 'full'));
     toks.layered3.push(payloadTokens(files, syms, terms, (i) => (i < 3 ? 'full' : 'path')));

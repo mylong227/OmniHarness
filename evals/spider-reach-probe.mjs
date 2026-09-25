@@ -30,8 +30,8 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 const SRC = join(ROOT, 'src');
 const DEEP = 600;
@@ -48,7 +48,7 @@ const ITERS = 30;
 /** 多跳邻域的 hop 数（用于「硬邻域」对照）。 */
 const HOPS = [1, 2, 3];
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 function groundTruth(anchor) {
@@ -67,7 +67,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -152,7 +152,7 @@ let refEdges = 0;
 for (const [rel, text] of corpus.fileText) {
   const i = nodeOf.get(rel);
   if (i === undefined) continue;
-  const toks = new Set(tokenize(text));
+  const toks = new Set(Bm25Index.tokenize(text));
   for (const t of toks) {
     const defs = nameToFiles.get(t);
     if (defs === undefined) continue;
@@ -266,10 +266,10 @@ const BETAS = [0, 0.25, 0.5, 1.0, 2.0];
 const rows = [];
 for (const { q, anchor } of QUERIES) {
   const gt = groundTruth(anchor);
-  const qk = tokenize(q);
+  const qk = Bm25Index.tokenize(q);
 
   // 旧口径：生产 query() 的深池排序（= 当前代码能给出的最深序）。
-  const deep = query(corpus, q, { fileK: DEEP, rerank: false, prf: false }).files;
+  const deep = ContextEngine.query(corpus, q, { fileK: DEEP, rerank: false, prf: false }).files;
   let oldRank = Infinity;
   for (let i = 0; i < deep.length; i++) {
     if (gt.has(deep[i])) {

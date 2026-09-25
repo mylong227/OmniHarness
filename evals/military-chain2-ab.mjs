@@ -23,16 +23,16 @@ const PLOG = join(ROOT, 'military-chain2-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { Bm25Index, tokenize, tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { outlineText } = await importDist('context', 'repoMap.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index, Bm25Index } = await importDist('search', 'bm25Index.js');
+const { RepoMap } = await importDist('context', 'repoMap.js');
 const { ContentStopWords } = await importDist('context', 'contentStopWords.js');
 const { FileReranker } = await importDist('context', 'fileReranker.js');
 
 const { QUERIES } = await import('./lib/query-set.mjs');
 
 const SRC = join(ROOT, 'src');
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 const rels = corpus.files.map((f) => f.rel);
 const N = rels.length;
 log(`corpus: ${N} files`);
@@ -61,12 +61,12 @@ const docs = { content: [], path: [], symbols: [], signature: [] };
 const nameSetByFile = new Map();
 for (const rel of rels) {
   const text = corpus.fileText.get(rel) ?? '';
-  docs.content.push(tokenize(text));
-  docs.path.push(tokenizeExpanded(rel));
+  docs.content.push(Bm25Index.tokenize(text));
+  docs.path.push(Bm25Index.tokenizeExpanded(rel));
   const syms = byFile.get(rel) ?? [];
-  const names = syms.flatMap((s) => tokenizeExpanded(s.name));
+  const names = syms.flatMap((s) => Bm25Index.tokenizeExpanded(s.name));
   docs.symbols.push(names);
-  docs.signature.push(syms.flatMap((s) => tokenizeExpanded(s.signature)));
+  docs.signature.push(syms.flatMap((s) => Bm25Index.tokenizeExpanded(s.signature)));
   nameSetByFile.set(rel, new Set(names));
 }
 const fieldIndex = {};
@@ -88,7 +88,7 @@ function maxNorm(v) {
   for (let i = 0; i < v.length; i++) o[i] = v[i] / m;
   return o;
 }
-const qkOf = QUERIES.map(({ q }) => tokenizeExpanded(q));
+const qkOf = QUERIES.map(({ q }) => Bm25Index.tokenizeExpanded(q));
 const raw = {};
 for (const f of FIELDS) raw[f] = qkOf.map((qk) => scoreVec(fieldIndex[f], qk));
 
@@ -213,7 +213,10 @@ function evaluate(name, rankFn, Ks = KS) {
         }
       mrrs.push(rank > 0 ? 1 / rank : 0);
       const fs = new Set(files);
-      toks.push(tokenize(outlineText(corpus.symbols.filter((s) => fs.has(s.file)))).length + 160);
+      toks.push(
+        Bm25Index.tokenize(RepoMap.outlineText(corpus.symbols.filter((s) => fs.has(s.file))))
+          .length + 160,
+      );
     }
     perK[K] = {
       hitRate: ci(hits),
@@ -241,7 +244,7 @@ function evaluate(name, rankFn, Ks = KS) {
 // 生产基线
 log('C0');
 evaluate('C0 生产默认(单字段+重排)', (qi, K) => [
-  ...query(corpus, QUERIES[qi].q, { fileK: K, rerank: true }).files,
+  ...ContextEngine.query(corpus, QUERIES[qi].q, { fileK: K, rerank: true }).files,
 ]);
 
 // 第一段候选池深度对齐生产（37），保证可比

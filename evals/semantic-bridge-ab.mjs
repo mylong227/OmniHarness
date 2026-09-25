@@ -24,13 +24,13 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...s) => import(pathToFileURL(join(DIST, ...s)).href);
 
-const { indexCorpus } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { SemanticIndexCache } = await importDist('context', 'semanticIndexCache.js');
-const { rrfMerge } = await importDist('context', 'semanticIndex.js');
+const { SemanticIndex } = await importDist('context', 'semanticIndex.js');
 const { RecallKnobs } = await importDist('context', 'recallKnobs.js');
 const { FileReranker } = await importDist('context', 'fileReranker.js');
 const { RepoMapPayload } = await importDist('context', 'repoMapPayload.js');
-const { tokenize, tokenizeExpanded } = await importDist('search', 'bm25Index.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',
@@ -46,7 +46,7 @@ const SYM_K = 24;
 const CACHE_DIR = process.env.OMNI_EMBEDDING_CACHE_DIR ?? 'D:/deepseek/.omni-model-cache';
 const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? 'D:/deepseek/.omni-vec-cache';
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 const embedding = new CachedEmbeddingPort(
@@ -148,7 +148,7 @@ function bm25Syms(queryTokens) {
     .map((h) => corpus.symbols[h.id])
     .filter((s) => s !== undefined);
 }
-const lex = (q) => (corpus.morph ? tokenizeExpanded(q) : tokenize(q));
+const lex = (q) => (corpus.morph ? Bm25Index.tokenizeExpanded(q) : Bm25Index.tokenize(q));
 
 /** 从语义命中收割标识符词（只取语料内已存在的词，避免引入语料外噪声）。 */
 function harvest(hits, topN, useSym, usePath) {
@@ -160,9 +160,10 @@ function harvest(hits, topN, useSym, usePath) {
     const pieces = [];
     if (h.id.startsWith('sym:') && useSym) {
       const sym = corpus.symbols[n];
-      if (sym !== undefined) pieces.push(...tokenize(sym.name), ...tokenize(sym.file));
+      if (sym !== undefined)
+        pieces.push(...Bm25Index.tokenize(sym.name), ...Bm25Index.tokenize(sym.file));
     } else if (h.id.startsWith('file:') && usePath) {
-      pieces.push(...tokenize(h.id.slice(5)));
+      pieces.push(...Bm25Index.tokenize(h.id.slice(5)));
     }
     for (const p of pieces) {
       if (p.length >= 3 && !seen.has(p)) {
@@ -176,7 +177,7 @@ function harvest(hits, topN, useSym, usePath) {
 
 /** 估注入 token：走生产同一 `RepoMapPayload` 梯度档（符号取 BM25 符号路，与生产一致）。 */
 function payloadTokens(rels, q) {
-  return tokenize(
+  return Bm25Index.tokenize(
     RepoMapPayload.assemble(
       { corpus, files: rels, symbols: bm25Syms(lex(q)), query: q },
       RepoMapPayload.DEFAULT_PLAN,
@@ -218,7 +219,7 @@ for (const sc of scenarios) {
       rels = secondStage(firstStageTokens(lex(q)), q);
     } else if (sc.kind === 'rrf') {
       const base = firstStageTokens(lex(q));
-      const merged = rrfMerge(
+      const merged = SemanticIndex.rrfMerge(
         [base.map((id) => ({ id })), semFiles.map((id) => ({ id }))],
         60,
         [1, 1],

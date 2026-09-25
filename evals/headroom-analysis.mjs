@@ -30,14 +30,14 @@ const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 import { RECALL_QUERIES, CORE_COUNT } from '../dist/tests/fixtures/recallQueries.js';
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 
 const SRC = join(ROOT, 'src');
 const K = 10; // 生产默认预算（P5 降档档=5）
 const DEEP = 600; // 深层候选池（>语料文件数，等价于全排序）
 const RANK_CAP = 200; // 「排序可救」的深度上限（超出即判为词法盲区）
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 function groundTruth(anchor) {
@@ -61,7 +61,7 @@ for (const { q, anchor } of QUERIES) {
 
 /** 取某配置下的 Top-K 文件（有序）。 */
 function topFiles(q, k, opts = {}) {
-  return query(corpus, q, { fileK: k, rerank: false, prf: false, ...opts }).files;
+  return ContextEngine.query(corpus, q, { fileK: k, rerank: false, prf: false, ...opts }).files;
 }
 
 /** GT 文件在深层候选池中的最佳排位（1-based）；未出现则为 Infinity。 */

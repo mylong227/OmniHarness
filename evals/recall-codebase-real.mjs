@@ -21,13 +21,13 @@ writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
-const { indexCorpus } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',
   'transformersEmbeddingAdapter.js',
 );
-const { SemanticIndex, rrfMerge } = await importDist('context', 'semanticIndex.js');
+const { SemanticIndex, SemanticIndex } = await importDist('context', 'semanticIndex.js');
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
 const repoMap = new RepoMapContextEngine();
 
@@ -52,7 +52,7 @@ const MODEL_ARG_IDX = process.argv.indexOf('--model');
 const MODEL_ARG = MODEL_ARG_IDX >= 0 ? process.argv[MODEL_ARG_IDX + 1] : undefined;
 
 // 真实代码库语料（用于无偏 ground truth：含锚点字符串的文件集合）。
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 log(`[2] corpus indexed: ${corpus.files.length} files, ${corpus.symbols.length} symbols`);
 function groundTruth(anchor) {
   const needle = anchor.toLowerCase();
@@ -75,7 +75,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -431,7 +431,7 @@ let heavyRows = null;
 if (process.argv.includes('--heavy')) {
   console.log('\n=== Path② HEAVY：全量索引 + graph/lsa/频谱 诚实重测（33 查询文件召回） ===');
   log('[heavy] building full (light:false) corpus...');
-  const full = indexCorpus(SRC, { morph: true, light: false });
+  const full = ContextEngine.indexCorpus(SRC, { morph: true, light: false });
   log(
     `[heavy] full corpus: ${full.files.length} files, ${full.symbols.length} symbols, edges=${full.codeGraph.adj.reduce((a, x) => a + x.length, 0)}, lsaK=${full.lsaModel.k}`,
   );

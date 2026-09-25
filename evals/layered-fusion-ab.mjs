@@ -39,9 +39,9 @@ const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
 const repoMap = new RepoMapContextEngine();
-const { indexCorpus } = await importDist('context', 'contextEngine.js');
-const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
-const { buildLayeredCodeGraph, edgeCountOf } = await importDist('context', 'layeredCodeGraph.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
+const { LayeredCodeGraph } = await importDist('context', 'layeredCodeGraph.js');
 const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto', 'index.js');
 
 /** 语料根（与生产一致）。 */
@@ -81,7 +81,7 @@ function loadQueries() {
 }
 
 const t0 = Date.now();
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 
 /** 按锚点定位 ground truth（不依赖任何被测路由）。 */
 const groundTruth = (anchor) => {
@@ -129,9 +129,9 @@ queries = usable;
 if (queries.length === 0) throw new Error('全部查询的锚点均失效，无法评测');
 
 const tBuild = Date.now();
-const layeredGraph = buildLayeredCodeGraph(corpus);
+const layeredGraph = LayeredCodeGraph.buildLayeredCodeGraph(corpus);
 console.log(
-  `[图] 层化 ${edgeCountOf(layeredGraph)} 边（稀疏；构建 ${Date.now() - tBuild}ms，query 内另走 WeakMap 缓存）\n`,
+  `[图] 层化 ${LayeredCodeGraph.edgeCountOf(layeredGraph)} 边（稀疏；构建 ${Date.now() - tBuild}ms，query 内另走 WeakMap 缓存）\n`,
 );
 
 /** 每查询的评估结果。 */

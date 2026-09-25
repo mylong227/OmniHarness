@@ -26,12 +26,12 @@ const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 import { RECALL_QUERIES, CORE_COUNT } from '../dist/tests/fixtures/recallQueries.js';
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 
 const SRC = join(ROOT, 'src');
 const FILE_KS = [5, 10, 14, 20];
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 function groundTruth(anchor) {
@@ -85,7 +85,7 @@ for (const fileK of FILE_KS) {
       const recs = [];
       for (const { q, anchor } of QUERIES) {
         const gt = groundTruth(anchor);
-        const files = query(corpus, q, { fileK, prf, rerank }).files;
+        const files = ContextEngine.query(corpus, q, { fileK, prf, rerank }).files;
         const h = files.filter((f) => gt.has(f)).length;
         hits.push(h > 0 ? 1 : 0);
         precs.push(files.length ? h / files.length : 0);

@@ -35,14 +35,14 @@ const log = (m) => appendFileSync(PLOG, m + '\n');
 // 直接复用生产检索核心 query()（getRepoMapContext 内部即调用它，default rerank=false），
 // 读取其返回的 ranked 文件数组，避免解析 context 字符串（生产 context 用 # Repo Map / # Relevant
 // Symbols 分节，无 📄 标记，字符串解析会丢文件）。与生产口径逐字一致。
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 
 const SRC = join(ROOT, 'src');
 const KS = [5, 10, 14];
 const NO_RM3 = process.argv.includes('--no-rm3');
 
 // 语料（用于无偏 ground truth：含锚点字符串的文件集合）。
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 log(`[1] corpus indexed: ${corpus.files.length} files, ${corpus.symbols.length} symbols`);
 
 function groundTruth(anchor) {
@@ -74,7 +74,7 @@ for (const { q, anchor } of QUERIES) {
 // 对一个查询 + 给定 K，取 repo-map 结果（prf=true 即引擎内置 PRF/RM3 扩展），
 // 算四项指标。prf 直接透传给 query()，确保度量的是**真实生产算法**。
 function measure(qText, gt, K, prf = false) {
-  const surf = query(corpus, qText, { fileK: K, rerank: false, prf }).files;
+  const surf = ContextEngine.query(corpus, qText, { fileK: K, rerank: false, prf }).files;
   const hits = surf.filter((f) => gt.has(f)).length;
   const recall = gt.size ? hits / gt.size : 0;
   const precision = surf.length ? hits / surf.length : 0;

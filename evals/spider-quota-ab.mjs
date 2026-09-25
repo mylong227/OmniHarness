@@ -27,8 +27,8 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { FileReranker } = await importDist('context', 'fileReranker.js');
 const { FileRerankIndex } = await importDist('context', 'fileRerankIndex.js');
 const { buildSpiderGraph, personalizedPageRank, bm25Seed, pprOrder } = await import(
@@ -49,7 +49,7 @@ const GRAPH_CFGS = [
   { maxDf: 1, dirWeight: 0.15, cap: 8, alpha: 0.15 },
 ];
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 function groundTruth(anchor) {
@@ -67,7 +67,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -117,7 +117,7 @@ for (const { q, anchor } of QUERIES) {
 const basePool = new Map();
 const bm25PoolRank = new Map();
 for (const { q } of QUERIES) {
-  const pool = query(corpus, q, { fileK: DEEP, rerank: false, prf: false }).files;
+  const pool = ContextEngine.query(corpus, q, { fileK: DEEP, rerank: false, prf: false }).files;
   basePool.set(q, pool);
   let r = Infinity;
   const gt = gts.get(q);
@@ -186,7 +186,10 @@ console.log(`词法盲区（BM25 深池内不含 GT）查询数：${lexicalQueri
 
 const rows = [];
 for (const cfg of GRAPH_CFGS) {
-  const g = buildSpiderGraph(corpus, tokenize, { maxDf: cfg.maxDf, dirWeight: cfg.dirWeight });
+  const g = buildSpiderGraph(corpus, Bm25Index.tokenize, {
+    maxDf: cfg.maxDf,
+    dirWeight: cfg.dirWeight,
+  });
   // 每节点度数上限截断（cap>0 时）
   let graph = g;
   if (cfg.cap > 0) {
@@ -200,7 +203,7 @@ for (const cfg of GRAPH_CFGS) {
 
   const perQ = new Map();
   for (const { q } of QUERIES) {
-    const { seedVec } = bm25Seed(corpus, tokenize(q), graph);
+    const { seedVec } = bm25Seed(corpus, Bm25Index.tokenize(q), graph);
     const p = personalizedPageRank(graph, seedVec, { alpha: cfg.alpha });
     const order = pprOrder(graph, p);
     let maxP = 0;

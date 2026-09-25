@@ -29,8 +29,8 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
-const { tokenizeExpanded } = await importDist('search', 'bm25Index.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { ContentStopWords } = await importDist('context', 'contentStopWords.js');
 
 const SRC = join(ROOT, 'src');
@@ -38,7 +38,7 @@ const K = 14;
 const PREFIX_LEN = 4;
 const TOPS = [2, 4, 8];
 
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
 
 function groundTruth(anchor) {
@@ -56,7 +56,7 @@ const QUERIES = [
   { q: 'what does ContextAssembler project events into', anchor: 'class ContextAssembler' },
   { q: 'how are images attached to model messages', anchor: 'imagesOf' },
   { q: 'where is reasoning_effort sent to the openai model', anchor: 'reasoning_effort' },
-  { q: 'how does BM25 tokenize CJK text', anchor: 'export function tokenize' },
+  { q: 'how does BM25 tokenize CJK text', anchor: 'public static tokenize' },
   { q: 'how is the resonant memory probe mapped from text', anchor: 'resonateByText' },
   { q: 'where is the sandbox policy evaluated', anchor: 'execPolicy' },
   { q: 'how are tool results spilled out of context', anchor: 'spill_read' },
@@ -106,7 +106,7 @@ for (const { q, anchor } of QUERIES) {
 const dfCount = new Map();
 for (const [, text] of corpus.fileText) {
   const set = new Set();
-  for (const t of tokenizeExpanded(text)) {
+  for (const t of Bm25Index.tokenizeExpanded(text)) {
     if (t.length < 3 || !ContentStopWords.isContent(t)) continue;
     set.add(t);
   }
@@ -128,7 +128,7 @@ console.log(`词表：${vocab.length} 词（df≥2）/ 前缀桶 ${byPrefix.size
 
 function contentTerms(q) {
   const out = [];
-  for (const t of tokenizeExpanded(q)) {
+  for (const t of Bm25Index.tokenizeExpanded(q)) {
     if (t.length < 3 || !ContentStopWords.isContent(t)) continue;
     if (!out.includes(t)) out.push(t);
   }
@@ -164,7 +164,8 @@ function prefixBridge(q, top) {
   return [...cand.entries()].sort((a, b) => b[1] - a[1]).slice(0, top);
 }
 
-const rerankStd = (qText) => query(corpus, qText, { fileK: K, rerank: true, prf: false }).files;
+const rerankStd = (qText) =>
+  ContextEngine.query(corpus, qText, { fileK: K, rerank: true, prf: false }).files;
 
 function measure(qText, gt) {
   const files = rerankStd(qText);

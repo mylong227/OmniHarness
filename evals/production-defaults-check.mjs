@@ -28,15 +28,15 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-const { indexCorpus, query } = await importDist('context', 'contextEngine.js');
+const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 const { RepoMapPayload } = await importDist('context', 'repoMapPayload.js');
-const { tokenize } = await importDist('search', 'bm25Index.js');
+const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { QUERIES } = await import('./lib/query-set.mjs');
 
 const SRC = join(ROOT, 'src');
 const engine = new RepoMapContextEngine();
-const corpus = indexCorpus(SRC, { morph: true, light: true });
+const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 const FILE_K = 20;
 const SYM_K = 24;
 
@@ -57,7 +57,7 @@ for (const { q, anchor } of QUERIES) {
 
 /** 复现生产内部的「检索 + 载荷组装」两步。 */
 function assembleOf(q, plan, fileK = FILE_K, rerank = true) {
-  const r = query(corpus, q, { fileK, symK: SYM_K, rerank });
+  const r = ContextEngine.query(corpus, q, { fileK, symK: SYM_K, rerank });
   return RepoMapPayload.assemble({ corpus, files: r.files, symbols: r.symbols, query: q }, plan);
 }
 
@@ -136,8 +136,8 @@ let tokFull = 0;
 let tokTiered = 0;
 let tokDegrade = 0;
 for (const { q } of QUERIES) {
-  const a = query(corpus, q, { fileK: FILE_K, symK: SYM_K, rerank: true });
-  const b = query(corpus, q, { fileK: FILE_K, symK: SYM_K, rerank: true });
+  const a = ContextEngine.query(corpus, q, { fileK: FILE_K, symK: SYM_K, rerank: true });
+  const b = ContextEngine.query(corpus, q, { fileK: FILE_K, symK: SYM_K, rerank: true });
   if (a.files.join('|') === b.files.join('|')) sameRank++;
   const input = { corpus, files: a.files, symbols: a.symbols, query: q };
   const full = RepoMapPayload.assemble(input, null);
@@ -147,9 +147,9 @@ for (const { q } of QUERIES) {
   const vt = docPaths(tiered).sort().join('|');
   if (vf === vt) sameVisible++;
   else if (docPaths(tiered).length > docPaths(full).length) tieredMoreVisible++;
-  tokFull += tokenize(full).length;
-  tokTiered += tokenize(tiered).length;
-  tokDegrade += tokenize(degrade).length;
+  tokFull += Bm25Index.tokenize(full).length;
+  tokTiered += Bm25Index.tokenize(tiered).length;
+  tokDegrade += Bm25Index.tokenize(degrade).length;
 }
 const n = QUERIES.length;
 console.log('\n=== ③ 构造性不变量（排序结果相同 ⇒ hitRate 必然不降）===');
@@ -200,15 +200,15 @@ function hitRatesOf(filesOf, items) {
 
 const adversarial = QUERIES.map(({ q }) => ({ q, gt: gts.get(q) }));
 const currentDefault = hitRatesOf(
-  (q) => query(corpus, q, { fileK: 20, rerank: false }).files,
+  (q) => ContextEngine.query(corpus, q, { fileK: 20, rerank: false }).files,
   adversarial,
 );
 const optInRerank = hitRatesOf(
-  (q) => query(corpus, q, { fileK: 20, rerank: true }).files,
+  (q) => ContextEngine.query(corpus, q, { fileK: 20, rerank: true }).files,
   adversarial,
 );
 const roundOne = hitRatesOf(
-  (q) => query(corpus, q, { fileK: 14, rerank: true }).files,
+  (q) => ContextEngine.query(corpus, q, { fileK: 14, rerank: true }).files,
   adversarial,
 );
 console.log('\n=== ④ 命中率（33 条对抗锚点查询，hitRate@K）===');
@@ -225,7 +225,10 @@ console.log(
 
 // —— ⑤ 口径边界：自然口径 ——
 const natural = QUERIES.map(({ q, anchor }) => ({ q: `${anchor} ${q}`, gt: gts.get(q) }));
-const naturalRes = hitRatesOf((q) => query(corpus, q, { fileK: 20, rerank: true }).files, natural);
+const naturalRes = hitRatesOf(
+  (q) => ContextEngine.query(corpus, q, { fileK: 20, rerank: true }).files,
+  natural,
+);
 console.log('\n=== ⑤ 口径边界（同批锚点，自然提问方式，精排 opt-in 档）===');
 console.log(
   `  自然口径（锚点 + 自然语言）：${naturalRes.ci.mean}% [${naturalRes.ci.lo}, ${naturalRes.ci.hi}]  ` +
