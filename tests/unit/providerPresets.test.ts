@@ -50,7 +50,9 @@ const builtinOf = (id: string): ProviderPreset => {
  * 注意 ollama：其 `adapter` 是 openai（兼容层），但 CLI 侧归属 llamacpp，且**不在** openai 名下。
  */
 const EXPECTED_CLI_ADAPTERS: Readonly<Record<string, readonly string[]>> = {
-  openai: ['deepseek', 'moonshot', 'zhipu', 'dashscope', 'openai'],
+  // gemini（2026-09-25 结案 §15.4：Gemini 走官方 OpenAI 兼容层，以厂商预设接入）为唯一一次
+  // 有意的数据追加；本表其余项仍钉死迁移时的原始归属，防无意漂移。
+  openai: ['deepseek', 'moonshot', 'zhipu', 'dashscope', 'openai', 'gemini'],
   anthropic: ['anthropic'],
   responses: ['openai'],
   llamacpp: ['ollama'],

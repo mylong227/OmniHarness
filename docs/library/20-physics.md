@@ -125,7 +125,7 @@ Kuramoto:  dθ_i/dt = ω_i + (K/N) Σ_j sin(θ_j − θ_i)
 
 **性质**：$K < K_c$ 时 $r \approx 0$（异步）；$K > K_c$ 时 $r$ 随 $K$ **连续**上升（二级相变）；还有**爆炸同步**（explosive synchronization，一级相变）等变体。
 
-> **本仓库（`resonantMemoryEngine` / `cosmicWebMemoryEngine` / `resonantFieldEngine`）**：
+> **本仓库（`resonantFieldEngine`，U1 统一基板）**：
 > 「共振」当前是**相似度/邻接连通**（静态图上的分数），**没有相位、没有动力学、没有序参量** ⇒ **L0→L1**。
 > **升到 L2 的最小改动（原创、零依赖、可测）**：
 > ① 给每个记忆条目一个**相位** $\theta_i$（可从写入时间或哈希导出）；

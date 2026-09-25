@@ -105,7 +105,7 @@
 | 自发对称破缺                 | `adapters/monitoring/symmetryBreakingEngine.ts`                    | **L0**    | 命名级；未定义序参量                                    |
 | 拓扑荷守恒 / 涡环            | `adapters/spill/vortexRingPacket.ts`                               | **L0**    | 打包语义，非拓扑不变量                                  |
 | 量子纠错码                   | `adapters/memory/qecEncoder.ts`                                    | **L0**    | 用冗余/校验思想；**非量子**，宜改称「纠删/校验码」      |
-| 大尺度结构 / 共振同步        | `cosmicWebMemoryEngine` / `resonantFieldEngine`                    | **L0→L1** | 邻接/相似连通在；Kuramoto 同步动力学**未实现**          |
+| 大尺度结构 / 共振同步        | `resonantFieldEngine`（U1 统一基板，含宇宙网）                     | **L0→L1** | 邻接/相似连通在；Kuramoto 同步动力学**未实现**          |
 | 编辑与变异（CRISPR 隐喻）    | `adapters/skill/crisprSkillEditor.ts`                              | **L0**    | 技能改写；非基因编辑                                    |
 | 进化·适应度地形              | `evolution/evolutionControllerImpl.ts` + `twistDiscoveryEngine.ts` | **L1**    | 闭环在；势函数是否真可验证看向下一条                    |
 | 可验证奖励（RLVR）           | `evolution/verifiableReward.ts` + `rlvrController.ts`              | **L1**    | **本库最值得升到 L3 的方向**（编译/测试绿即奖励）       |

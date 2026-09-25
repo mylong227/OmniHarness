@@ -1,6 +1,6 @@
 // (E) 宇宙网记忆 / QEC / 免疫监控 接入主循环：复用 I-P1-4 进化闭环的 autoRun 钩子，使三个
 // 发明层算子从端口变为主循环里真跑的能力。断言：
-//   ① 同时启用 memoryWeb/qec/immuneMonitoring → 构造 spark + 三个算子，cycle 报告三维度；
+//   ① 宇宙网（U1 统一基板默认承载）+ qec + immuneMonitoring → 构造 spark + 三个算子，cycle 报告三维度；
 //   ② 主循环 QEC 阶段真纠正单点损坏（非空转）；
 //   ③ 仅启用免疫监控也构造 spark（证明三算子各自独立触发接线），cycle 报告 immune 维度。
 
@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
 import { SparkController } from '../../src/spark/sparkController.js';
-import { CosmicWebMemoryEngine } from '../../src/adapters/memory/cosmicWebMemoryEngine.js';
+import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.js';
 import { QECEncoder } from '../../src/adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../../src/adapters/monitoring/immuneMonitor.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
@@ -82,14 +82,12 @@ test('① 三算子同时启用 → 构造 spark + 各算子，cycle 报告 web/
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: mem,
-    resonantField: { enabled: false },
-    memoryWeb: { enabled: true, bekensteinCap: 4 },
     qec: { enabled: true },
     immuneMonitoring: { enabled: true },
     sparkAutoRun: true,
   });
   assert.ok(config.spark instanceof SparkController, '三算子启用时应构造 SparkController');
-  assert.ok(config.web instanceof CosmicWebMemoryEngine, '应注入宇宙网引擎');
+  assert.ok(config.web instanceof ResonantFieldEngine, '宇宙网应由 U1 统一基板单一状态源承载');
   assert.ok(config.qecEncoder instanceof QECEncoder, '应注入 QEC 编码器');
   assert.ok(config.immune instanceof ImmuneMonitor, '应注入免疫监控器');
 

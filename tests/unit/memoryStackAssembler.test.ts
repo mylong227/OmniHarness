@@ -91,25 +91,6 @@ test('MemoryStackAssembler：显式关统一基板后回落到基础文件存储
   });
 });
 
-test('MemoryStackAssembler：分别启用宇宙网 / 共振时按序封包', () => {
-  withWorkspace((root) => {
-    const webOnly = assembleMemoryStack(
-      base(root, { resonantField: { enabled: false }, memoryWeb: { enabled: true } }),
-      undefined,
-    );
-    assert.strictEqual(webOnly.stack.web?.name, 'cosmic-web-memory');
-    assert.strictEqual(webOnly.stack.longTermMemory, webOnly.stack.web);
-
-    const resOnly = assembleMemoryStack(
-      base(root, { resonantField: { enabled: false }, resonance: { enabled: true } }),
-      undefined,
-    );
-    assert.strictEqual(resOnly.stack.longTermMemory.name, 'resonant-memory');
-    assert.strictEqual(resOnly.sparkInput.resonance, resOnly.stack.longTermMemory);
-    assert.strictEqual(resOnly.stack.web, undefined);
-  });
-});
-
 test('MemoryStackAssembler：注入自定义长期记忆优先于内置文件存储', () => {
   withWorkspace((root) => {
     const custom = new StubMemory();

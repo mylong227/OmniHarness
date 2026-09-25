@@ -61,12 +61,8 @@ test('SparkAssembler：统一基板默认开启即视为活跃燧能力', () => 
   });
 });
 
-test('SparkAssembler：分别启用共振 / 刻蚀 / 遥测即活跃', () => {
+test('SparkAssembler：分别启用刻蚀 / 遥测即活跃', () => {
   withWorkspace((root) => {
-    assert.ok(
-      assemble(root, { resonantField: { enabled: false }, resonance: { enabled: true } }) !==
-        undefined,
-    );
     assert.ok(
       assemble(root, { resonantField: { enabled: false }, insightEtching: { enabled: true } }) !==
         undefined,

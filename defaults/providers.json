@@ -84,6 +84,17 @@
       "models": [],
       "reasoningEffort": [],
       "notes": "本地端点免 Key（needsKey=false）；adapter 为 openai（Ollama 的 OpenAI 兼容层），但 CLI 侧 --model-adapter llamacpp 指向本厂商（cliAdapters）。模型各异，空数组让 UI 显示「无推理档位」，由用户按本地模型自行决定。"
+    },
+    {
+      "id": "gemini",
+      "label": "Google Gemini",
+      "adapter": "openai",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "defaultModel": "gemini-2.5-flash",
+      "needsKey": true,
+      "models": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+      "reasoningEffort": ["low", "medium", "high"],
+      "notes": "Gemini 走 Google 官方 OpenAI 兼容层（/v1beta/openai），API Key 即 AI Studio key，无需原生适配器（§15.4「多供应商原生适配」就此结案；Bedrock 需 AWS SigV4 签名且无需求信号，明确不做）。models 为 UI 引导默认（厂商下发列表不可达时的回退），新系列按需自改。"
     }
   ]
 }

@@ -66,13 +66,13 @@ export interface SparkCycleReport {
 
 /** 燧内核控制器选项。 */
 export interface SparkControllerOptions {
-  /** 已封包进 createRuntime 的燧-3 共振寻址引擎（resonance/memoryWeb 或 U1 统一基板传入；端口接口以兼容 ResonantFieldEngine 单一状态源）。 */
+  /** 已封包进 createRuntime 的燧-3 共振寻址端口（U1 统一基板 ResonantFieldEngine 单一状态源传入）。 */
   readonly resonance?: ResonantMemoryPort | undefined;
   /** 已封包进 createRuntime 的燧-4 涡环包外溢适配器（vortexRing.enabled 时传入）。 */
   readonly vortex?: VortexRingSpillAdapter | undefined;
   /** (D) 热方程记忆退火器（memoryAnnealing.enabled 时传入）。 */
   readonly annealer?: MemoryAnnealer | undefined;
-  /** (E) 宇宙网记忆引擎（memoryWeb.enabled 或 U1 统一基板传入；端口接口以兼容 ResonantFieldEngine 单一状态源）。 */
+  /** (E) 宇宙网记忆端口（U1 统一基板 ResonantFieldEngine 单一状态源传入）。 */
   readonly web?: CosmicWebPort | undefined;
   /** (E) QEC 记忆编码器（qec.enabled 时传入）。 */
   readonly qec?: QECEncoder | undefined;

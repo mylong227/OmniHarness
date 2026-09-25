@@ -296,18 +296,20 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
 - ✅ **评测产物已不再入库**：`git ls-files 'evals/*.report.json'` = **0** ⇒ 不再有「跑评测即弄脏工作树」的问题
   （`evals/**` 下现存 44 个 `*.report.json` 均为**未跟踪**的本地产物）。
 - 🟡 **记忆引擎「三份同算法实现」——原判断需更正，故不删**：
-  - **不是死代码**：`src/config/memoryStackAssembler.ts:63-70,73-77` 会在
-    `resonantField.enabled === false` 时按 `memoryWeb.enabled` / `resonance.enabled` **显式构造**它们；
-    `tests/unit/cosmicWeb.test.ts`（3 例）、`tests/unit/resonantMemory.test.ts`、`tests/unit/sparkMainLoop*.test.ts`
-    直接断言其类型与行为；覆盖率基线里两者分别为 **87.4% / 97.95%**（不是零覆盖）。
-  - **属对外 API**：`src/index.ts:175` 导出 `ResonantMemoryEngine`、`:187-188` 导出
-    `CosmicWebMemoryEngine` 与 `CosmicWebOptions` ⇒ 删除是**破坏性 API 变更**，须走弃用流程
+  - **不是死代码**（移除时点快照）：装配器会在 `resonantField.enabled === false` 时按
+    `memoryWeb.enabled` / `resonance.enabled` **显式构造**它们；遗留引擎专属测试（2 个文件）与
+    `sparkMainLoop*.test.ts` 直接断言其类型与行为；覆盖率基线里两者分别为 **87.4% / 97.95%**（不是零覆盖）。
+  - **属对外 API**：`src/index.ts` 导出两引擎类 ⇒ 删除是**破坏性 API 变更**，须走弃用流程
     （`docs/API_STABILITY.md`），不能当「死资产」顺手删。
   - **重复确实存在但已被统一基板取代**：默认路径（U1，`resonantField.enabled !== false`）只走
     `ResonantFieldEngine`，共享频谱索引也已抽到 `ports/memory/resonantField.ts`；两个遗留引擎各自的
     频谱实现只在显式关闭 U1 时才启用。
   - **结论**：正确的收口是「**先弃用再移除**」（标 `@deprecated` + 次版本移除 + 迁移到 U1），
     而不是在审计里当作死资产删掉。已如实登记为**遗留可选路径的弃用议题**，与本轮 §1.7 的缺陷区分开。
+  - **✅ 已兑现（2026-09-25，看板 §21.10）**：两适配器 + `resonance`/`memoryWeb` 配置块 +
+    2 个专属测试文件 + 覆盖率基线 2 条目均已移除，`ResonantFieldEngine` 升为公开导出；
+    上文文件路径为**移除前快照**，现存测试面见 `tests/unit/sparkMainLoop*.test.ts`（U1 口径）与
+    `tests/unit/resonantFieldDefault.test.ts`。
 
 ### 3.3【本轮已修】组合根错位：`createRuntime` 住在 `core/` ⇒ 真值循环 + 端口倒置
 

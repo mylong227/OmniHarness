@@ -203,7 +203,7 @@ src/
 
 - **Node.js** ≥ 22.18（`package.json` 的 `engines` 声明）
 - **Rust**（可选，仅原生内核 / `cargo test` 需要）；Windows 上 GNU 工具链即可，**无需 MSVC**
-- 真实模型：任一 OpenAI 兼容端点（OpenAI / DeepSeek 等）
+- 真实模型：任一 OpenAI 兼容端点（OpenAI / DeepSeek / Gemini 等；内建厂商预设见 `defaults/providers.json`）
 
 ### 4.2 安装与构建
 
