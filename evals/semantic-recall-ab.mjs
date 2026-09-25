@@ -148,6 +148,20 @@ const scenarios = [
     hybrid: true,
     opts: { rerank: true, semWeight: 1.5 },
   },
+  // 位移假设的直接检验（2026-09-26 新增）：显著性分析显示生产语义档是「改善 6 / 回退 5」的**平手**——
+  // 语义路救回 6 条 BM25 漏掉的查询，同时把 5 条原本命中的查询**挤掉**了。`bm25Floor`（BM25 保护位）
+  // 正是为此设计的旋钮：把 BM25 自己头部 N 个文件钉住，语义候选只能在剩余位置竞争。
+  // 注意**不能取 floor=FILE_K(=20)**：那会钉死全部 20 个位置、退化为纯 BM25（与基线逐字相同，无信息）。
+  {
+    label: '混合 + 精排开 + bm25Floor=5',
+    hybrid: true,
+    opts: { rerank: true, bm25Floor: 5 },
+  },
+  {
+    label: '混合 + 精排开 + bm25Floor=10',
+    hybrid: true,
+    opts: { rerank: true, bm25Floor: 10 },
+  },
 ];
 // 注：`chunkRecall` 变体**刻意不纳入**——它在 `recallKnobs` 已记录为「噪声（minilm +0.2pp）/
 // 有害（e5-large −0.8pp）」，且需对 7787 个函数体各切一个 chunk（实测单次构建 >13min 编码税）。
