@@ -261,6 +261,14 @@ describe('shell 工具族的会话取消（审计 §1.7：取消信号此前完�
     }
     assert.ok(existsSync(started), '前置条件：子进程应先跑起来（started.txt）');
 
+    // 等到**首个心跳真正落盘**再取消：started 只证明子进程已启动，不保证 100ms 间隔的首跳
+    // 已写入。ubuntu CI 上取消快于首跳，让后面的前置断言竞争失败（首跑实测 198ms 即红）。
+    const beats = join(dir, 'beats.txt');
+    for (let i = 0; i < 600; i += 1) {
+      if (existsSync(beats) && readFileSync(beats, 'utf8').length > 0) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
     const began = Date.now();
     controller.abort();
     const result = await running;
@@ -271,7 +279,6 @@ describe('shell 工具族的会话取消（审计 §1.7：取消信号此前完�
     assert.ok(elapsed < 10_000, `取消应立即生效（实测 ${elapsed}ms），而不是等命令自己的 60s 超时`);
 
     // 整棵进程树都要死：孙进程（本用例里的 node 子进程）的心跳必须停
-    const beats = join(dir, 'beats.txt');
     const before = existsSync(beats) ? readFileSync(beats, 'utf8').length : 0;
     assert.ok(before > 0, '前置条件：孙进程的心跳应先跑起来（beats.txt 有内容）');
     await new Promise((r) => setTimeout(r, 900)); // 若还活着，这段时间会追加约 9 个字符
