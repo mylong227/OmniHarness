@@ -1,5 +1,5 @@
 {
-  "name": "omniharness",
+  "name": "@mylong227/omniharness",
   "version": "0.2.0",
   "description": "OmniHarness —— 通用 Agent Harness：TypeScript（CLI / Web 前端 / 编排）+ Rust（原生内核）",
   "type": "module",

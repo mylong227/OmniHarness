@@ -90,3 +90,6 @@ benchmark/selfcheck.report.json
 # 本机外部产物（非本仓库生成，2026-09-23 发现于工作区根）：Chrome 配置/注册表备份，勿入库。
 chrome-hijack-backup/
 
+
+# 发布产物（走 GitHub Release 分发，不入库）
+*.tgz
