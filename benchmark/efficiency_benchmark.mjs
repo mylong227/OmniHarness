@@ -11,15 +11,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Bm25Index, tokenize } from '../dist/src/search/bm25.js';
-import {
-  compressContext,
-  byteLength,
-  buildStablePrompt,
-  jitterSegments,
-  prefixReuse,
-  measurePrefixStability,
-} from '../dist/src/context/index.js';
-import { cost, concatCost } from '../dist/src/genesis/algebra.js';
+import { DeterministicCompressor, PrefixStability } from '../dist/src/context/index.js';
+import { Algebra } from '../dist/src/genesis/algebra.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const round = (x, d = 3) => Number(x.toFixed(d));
@@ -154,7 +147,7 @@ for (let i = 1; i <= 6; i += 1) {
     text: `已读取 src/a1.ts，第 3 行是导入语句。这是第 ${i} 轮。`,
   });
 }
-const { report: cr } = compressContext(corpus);
+const { report: cr } = DeterministicCompressor.compressContext(corpus);
 results.compression = {
   originalKb: round(cr.originalBytes / 1024, 2),
   compressedKb: round(cr.compressedBytes / 1024, 2),
@@ -178,12 +171,15 @@ const segs = [
 ];
 const naiveJoin = (ss) => ss.map((s) => `\n## ${s.key}\n${s.text}`).join('');
 const N_VAR = 20;
-const canonicalRep = measurePrefixStability(segs, N_VAR, true);
-const rawRep = measurePrefixStability(segs, N_VAR, false);
+const canonicalRep = PrefixStability.measurePrefixStability(segs, N_VAR, true);
+const rawRep = PrefixStability.measurePrefixStability(segs, N_VAR, false);
 let naiveSum = 0;
-const nBase = naiveJoin(jitterSegments(segs, 1));
+const nBase = naiveJoin(PrefixStability.jitterSegments(segs, 1));
 for (let i = 1; i <= N_VAR; i += 1)
-  naiveSum += prefixReuse(nBase, naiveJoin(jitterSegments(segs, i)));
+  naiveSum += PrefixStability.prefixReuse(
+    nBase,
+    naiveJoin(PrefixStability.jitterSegments(segs, i)),
+  );
 const naiveMean = naiveSum / N_VAR;
 results.prefix = {
   variants: N_VAR,
@@ -230,11 +226,11 @@ const QUERIES = [
 ];
 const TOP_K = 5;
 let selBytes = 0;
-let allBytes = byteLength(allToolsText);
+let allBytes = DeterministicCompressor.byteLength(allToolsText);
 for (const q of QUERIES) {
   const hits = index.search(tokenize(q), TOP_K);
   const sel = hits.map((h) => `${tools[h.id].name}: ${tools[h.id].description}`).join('\n');
-  selBytes += byteLength(sel);
+  selBytes += DeterministicCompressor.byteLength(sel);
 }
 const avgSel = selBytes / QUERIES.length;
 results.toolLoading = {
@@ -270,9 +266,9 @@ console.log(
 // ══════════ 8. Genesis 能耗代数开销 ══════════
 console.log('── 8. Genesis 能耗代数吞吐（可证交换幺半群） ──');
 const GN = 50000;
-let acc = cost(0);
+let acc = Algebra.cost(0);
 const g0 = process.hrtime.bigint();
-for (let i = 0; i < GN; i += 1) acc = concatCost(acc, cost(i % 7));
+for (let i = 0; i < GN; i += 1) acc = Algebra.concatCost(acc, Algebra.cost(i % 7));
 const g1 = process.hrtime.bigint();
 const gMs = Number(g1 - g0) / 1e6;
 results.genesisAlgebra = {

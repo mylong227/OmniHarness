@@ -17,7 +17,7 @@
  * @maturityEvidence tests/unit/fileRerankIndex.test.ts
  */
 
-import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
+import { Bm25Index } from '../search/bm25Index.js';
 import type { SymbolNode } from './repoMap.js';
 import type { IndexedCorpus } from './contextEngine.js';
 import { ContentStopWords } from './contentStopWords.js';
@@ -138,6 +138,6 @@ export class FileRerankIndex {
    * @returns 词项列表
    */
   private tokenizeLike(corpus: IndexedCorpus, text: string): readonly string[] {
-    return corpus.morph ? tokenizeExpanded(text) : tokenize(text);
+    return corpus.morph ? Bm25Index.tokenizeExpanded(text) : Bm25Index.tokenize(text);
   }
 }

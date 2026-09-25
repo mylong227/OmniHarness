@@ -20,10 +20,16 @@
  * @returns 下标 `index` 处的元素，类型收窄为 `T`（绝不为 `undefined`）
  * @throws {RangeError} 当 `index` 落在 `[0, xs.length)` 之外时
  */
-export function at<T>(xs: ArrayLike<T>, index: number): T {
-  const value = xs[index];
-  if (value === undefined) {
-    throw new RangeError(`array index out of range: ${index} (length ${xs.length})`);
+
+/**
+ * ArrayAt —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class ArrayAt {
+  public static at<T>(xs: ArrayLike<T>, index: number): T {
+    const value = xs[index];
+    if (value === undefined) {
+      throw new RangeError(`array index out of range: ${index} (length ${xs.length})`);
+    }
+    return value;
   }
-  return value;
 }

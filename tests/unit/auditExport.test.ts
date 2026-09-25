@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { queryAudit, formatAudit, exportAudit } from '../../src/server/services/auditExporter.js';
+import { AuditExporter } from '../../src/server/services/auditExporter.js';
 import { AuditSink, type AuditEvent } from '../../src/server/services/auditSink.js';
 
 const sample: AuditEvent[] = [
@@ -27,13 +27,13 @@ const sample: AuditEvent[] = [
 ];
 
 test('queryAudit：按类型过滤', () => {
-  const out = queryAudit(sample, { type: 'tool_call' });
+  const out = AuditExporter.queryAudit(sample, { type: 'tool_call' });
   assert.strictEqual(out.length, 2);
   assert.ok(out.every((e) => e.type === 'tool_call'));
 });
 
 test('queryAudit：按会话 + actor 过滤', () => {
-  const out = queryAudit(sample, { session: 's1', actor: 'user' });
+  const out = AuditExporter.queryAudit(sample, { session: 's1', actor: 'user' });
   assert.deepStrictEqual(
     out.map((e) => e.type),
     ['tool_call', 'approval'],
@@ -41,7 +41,7 @@ test('queryAudit：按会话 + actor 过滤', () => {
 });
 
 test('queryAudit：时间窗过滤', () => {
-  const out = queryAudit(sample, {
+  const out = AuditExporter.queryAudit(sample, {
     since: '2026-01-02T00:00:00.000Z',
     until: '2026-01-03T00:00:00.000Z',
   });
@@ -52,7 +52,7 @@ test('queryAudit：时间窗过滤', () => {
 });
 
 test('queryAudit：limit 截尾取最近 N 条', () => {
-  const out = queryAudit(sample, { limit: 2 });
+  const out = AuditExporter.queryAudit(sample, { limit: 2 });
   assert.strictEqual(out.length, 2);
   assert.deepStrictEqual(
     out.map((e) => e.ts),
@@ -61,27 +61,27 @@ test('queryAudit：limit 截尾取最近 N 条', () => {
 });
 
 test('formatAudit：json 格式可回解析', () => {
-  const out = formatAudit(sample, 'json');
+  const out = AuditExporter.formatAudit(sample, 'json');
   const parsed = JSON.parse(out) as AuditEvent[];
   assert.strictEqual(parsed.length, sample.length);
   assert.strictEqual(parsed[0]?.type, 'tool_call');
 });
 
 test('formatAudit：table 含表头与制表分隔', () => {
-  const out = formatAudit(sample.slice(0, 1), 'table');
+  const out = AuditExporter.formatAudit(sample.slice(0, 1), 'table');
   assert.match(out, /ts\ttype\tsessionId\tactor/);
   assert.match(out, /tool_call/);
 });
 
 test('formatAudit：csv 含表头且坏字符被转义', () => {
   const bad: AuditEvent[] = [{ ts: 't', type: 'x', actor: 'user,admin' }];
-  const out = formatAudit(bad, 'csv');
+  const out = AuditExporter.formatAudit(bad, 'csv');
   assert.match(out, /ts,type,sessionId,actor/);
   assert.match(out, /"user,admin"/);
 });
 
 test('exportAudit：过滤 + 格式化组合', () => {
-  const text = exportAudit(sample, { type: 'tool_call' }, 'json');
+  const text = AuditExporter.exportAudit(sample, { type: 'tool_call' }, 'json');
   assert.strictEqual((JSON.parse(text) as AuditEvent[]).length, 2);
 });
 

@@ -1,7 +1,7 @@
 import type { Writable } from 'node:stream';
 import type { ToolInputDelta } from '../../ports/model/model.js';
 import type { ToolInputSink } from '../../ports/tool/toolInputSink.js';
-import { clearLine, renderToolInputProgress } from '../../tui/tuiRenderer.js';
+import { TuiRenderer } from '../../tui/tuiRenderer.js';
 
 /**
  * @beta
@@ -39,8 +39,8 @@ export class ConsoleLiveView implements ToolInputSink {
     prev.name = delta.name ?? prev.name;
     prev.acc += delta.partialJson;
     this.states.set(key, prev);
-    const line = renderToolInputProgress({ name: prev.name, json: prev.acc });
-    this.out.write(`${clearLine()}${line}`);
+    const line = TuiRenderer.renderToolInputProgress({ name: prev.name, json: prev.acc });
+    this.out.write(`${TuiRenderer.clearLine()}${line}`);
   }
 
   /**

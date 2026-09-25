@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sanitizeToolRounds } from '../../src/util/toolRoundSanitizer.js';
+import { ToolRoundSanitizer } from '../../src/util/toolRoundSanitizer.js';
 import type { ModelMessage } from '../../src/ports/model/model.js';
 
 const toolCall = (id: string) => ({ id, name: 'x', arguments: {} as Record<string, unknown> });
@@ -14,7 +14,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'tool', content: 'rB', toolCallId: 'B' },
       { role: 'assistant', content: 'done' },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     assert.strictEqual(out.length, 5);
     assert.strictEqual(out[2]?.role, 'tool');
     assert.strictEqual(out[3]?.role, 'tool');
@@ -27,7 +27,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'tool', content: 'rA', toolCallId: 'A' },
       { role: 'assistant', content: 'done' },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     // user + assistant(filtered toolCalls=[A]) + tool(rA) + assistant(done) = 4
     assert.strictEqual(out.length, 4);
     assert.strictEqual(out[0]?.role, 'user');
@@ -45,7 +45,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'tool', content: 'orphan', toolCallId: 'X' },
       { role: 'assistant', content: 'done' },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     assert.strictEqual(out.length, 2);
     assert.strictEqual(out[0]?.role, 'user');
     assert.strictEqual(out[1]?.role, 'assistant');
@@ -56,7 +56,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: 'no response', toolCalls: [toolCall('A')] },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     assert.strictEqual(out.length, 2);
     assert.strictEqual(out[0]?.role, 'user');
     const a = out[1];
@@ -73,7 +73,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'user', content: '插入' },
       { role: 'tool', content: 'rB', toolCallId: 'B' },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     // A 紧邻响应 OK，validIds={A}；B 隔断后不算合法。
     // 重建：user, assistant(toolCalls=[A]), tool(rA), user(插入), tool(rB) 丢
     assert.strictEqual(out.length, 4);
@@ -92,7 +92,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'assistant', content: '', toolCalls: [toolCall('A')] },
       { role: 'tool', content: 'rB', toolCallId: 'B' },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     assert.strictEqual(out.length, 2);
     assert.strictEqual(out[0]?.role, 'user');
     const a = out[1];
@@ -106,7 +106,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: 'hello' },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     assert.strictEqual(out.length, 3);
   });
 
@@ -120,7 +120,7 @@ describe('toolRoundSanitizer（#OBS-8 全链路兜底，最低破坏版）', () 
         toolCalls: [toolCall('A')],
       },
     ];
-    const out = sanitizeToolRounds(messages);
+    const out = ToolRoundSanitizer.sanitizeToolRounds(messages);
     assert.strictEqual(out.length, 2);
     const a = out[1];
     assert.strictEqual(a?.content, 'final answer');

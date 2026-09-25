@@ -105,6 +105,34 @@ export class WorktreeOps {
       };
     }
   }
+
+  /**
+   * 为某个子智能体创建隔离的文件系统工作树。
+   *
+   * 优先使用 git worktree 分支隔离；当 git 不可用或命令失败时，fail-closed
+   * 降级为整目录拷贝（绝不静默共享父工作区），并在结果中标记 isolated:'copy'。
+   */
+  public static async createWorktree(repoRoot: string, name: string): Promise<Worktree> {
+    return WorktreeOps.withWorktreeLock(repoRoot, () =>
+      WorktreeOps.createWorktreeUnsafe(repoRoot, name),
+    );
+  }
+
+  /**
+   * 创建隔离工作树 → 执行 fn(path) → 无论成败均 cleanup（finally）。
+   */
+  public static async withWorktree<T>(
+    repoRoot: string,
+    name: string,
+    fn: (path: string) => Promise<T>,
+  ): Promise<T> {
+    const worktree = await WorktreeOps.createWorktree(repoRoot, name);
+    try {
+      return await fn(worktree.path);
+    } finally {
+      await worktree.cleanup();
+    }
+  }
 }
 
 const execFileAsync = promisify(execFile);
@@ -135,31 +163,3 @@ const WORKTREE_DIR = '.omni-worktrees';
  * 返回一条 promise 链，每次调用挂在上一次之后执行。
  */
 const worktreeLocks = new Map<string, Promise<unknown>>();
-
-/**
- * 为某个子智能体创建隔离的文件系统工作树。
- *
- * 优先使用 git worktree 分支隔离；当 git 不可用或命令失败时，fail-closed
- * 降级为整目录拷贝（绝不静默共享父工作区），并在结果中标记 isolated:'copy'。
- */
-export async function createWorktree(repoRoot: string, name: string): Promise<Worktree> {
-  return WorktreeOps.withWorktreeLock(repoRoot, () =>
-    WorktreeOps.createWorktreeUnsafe(repoRoot, name),
-  );
-}
-
-/**
- * 创建隔离工作树 → 执行 fn(path) → 无论成败均 cleanup（finally）。
- */
-export async function withWorktree<T>(
-  repoRoot: string,
-  name: string,
-  fn: (path: string) => Promise<T>,
-): Promise<T> {
-  const worktree = await createWorktree(repoRoot, name);
-  try {
-    return await fn(worktree.path);
-  } finally {
-    await worktree.cleanup();
-  }
-}

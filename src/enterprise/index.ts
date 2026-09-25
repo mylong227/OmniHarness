@@ -1,15 +1,4 @@
-export {
-  EnterpriseAuth,
-  fetchDiscovery,
-  generatePkcePair,
-  buildAuthorizationUrl,
-  exchangeCode,
-  decodeJwt,
-  verifyIdTokenClaims,
-  verifyJwtSignature,
-  writeAuthState,
-  readAuthState,
-} from './oidcClient.js';
+export { EnterpriseAuth, OidcClient } from './oidcClient.js';
 export type {
   OidcProviderConfig,
   OidcDiscovery,

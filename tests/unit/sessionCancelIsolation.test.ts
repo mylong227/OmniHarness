@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
@@ -97,7 +97,7 @@ function buildAgent(model: ModelPort): Agent {
     sandbox: new PassthroughSandbox(),
     spillAdapter: 'memory',
   });
-  return new Agent(createRuntime(config));
+  return new Agent(Runtime.createRuntime(config));
 }
 
 /** 追踪 promise 是否已 settle（不关心成功/失败）。 */

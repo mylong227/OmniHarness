@@ -22,7 +22,7 @@ import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { WorkflowRunner } from '../../src/autonomy/workflowRunner.js';
 import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 
 /** 探针观察结果：settle / reject / 超时（= 永久挂起）。 */
 type Outcome<T> =
@@ -146,7 +146,7 @@ class RecordingEvents implements EventPort {
 }
 
 /** 构造子智能体端口集。 */
-function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPorts {
+function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPortsShape {
   const spill = new MemorySpill();
   return {
     model,

@@ -10,7 +10,7 @@
  * 并证明：经 buildStablePrompt 规范化后，同一逻辑状态的所有抖变体 reuse ≡ 1。
  */
 
-import { scrubVolatile } from './canonical.js';
+import { Canonical } from './canonical.js';
 
 /**
  * 前缀稳定性度量器。
@@ -56,7 +56,7 @@ export class PrefixStability {
     });
     const parts: string[] = [];
     for (const segment of ordered) {
-      const body = options.scrub === true ? scrubVolatile(segment.text) : segment.text;
+      const body = options.scrub === true ? Canonical.scrubVolatile(segment.text) : segment.text;
       parts.push(`\n## ${segment.key}\n${body}`);
     }
     return parts.join('');
@@ -149,65 +149,65 @@ export class PrefixStability {
       baseBytes: base.length,
     };
   }
+
+  /** 字节级公共前缀长度（UTF-16 code unit 计）。 */
+  public static commonPrefixLength(a: string, b: string): number {
+    return prefixStability.commonPrefixLength(a, b);
+  }
+
+  /**
+   * 前缀复用率：以 `cached` 为已缓存前缀时，`incoming` 能复用的比例。
+   * 定律：prefixReuse(x, x) ≡ 1；prefixReuse 对第二参数非递减于公共前缀。
+   */
+  public static prefixReuse(cached: string, incoming: string): number {
+    return prefixStability.prefixReuse(cached, incoming);
+  }
+
+  /** 按 (tier, key) 规范排序后拼接——使分片遍历顺序不再影响字节输出。 */
+  public static buildStablePrompt(
+    segments: readonly PromptSegment[],
+    options: PromptBuildOptions = {},
+  ): string {
+    return prefixStability.buildStablePrompt(segments, options);
+  }
+
+  /** 确定性洗牌：模拟注册表 / 遍历顺序在不同运行间的抖动。 */
+  public static reorderDeterministic<T>(items: readonly T[], seed: number): T[] {
+    return prefixStability.reorderDeterministic(items, seed);
+  }
+
+  /** 注入易变片段（时间戳 / UUID / pid），模拟真实运行时噪声。 */
+  public static injectVolatile(text: string, seed: number): string {
+    return prefixStability.injectVolatile(text, seed);
+  }
+
+  /** 生成一个抖变体：分片顺序重排 + 注入易变片段。 */
+  public static jitterSegments(
+    segments: readonly PromptSegment[],
+    seed: number,
+  ): readonly PromptSegment[] {
+    return prefixStability.jitterSegments(segments, seed);
+  }
+
+  /**
+   * 度量「第 1 轮真实请求」与「第 i 轮真实请求」之间的前缀复用率。
+   *
+   * 物理模型：真实运行时**每一轮**请求都携带时间戳 / traceId / pid，
+   * 因此基准也必须是抖变体（而非无噪声的干净态），否则是拿理想态对比真实态，虚高。
+   *
+   * `canonical` 为 true 时走规范化（排序 + 擦除），用于证明规范化把复用率提到 1。
+   */
+  public static measurePrefixStability(
+    segments: readonly PromptSegment[],
+    variantCount: number,
+    canonical: boolean,
+  ): PrefixStabilityReport {
+    return prefixStability.measurePrefixStability(segments, variantCount, canonical);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const prefixStability = new PrefixStability();
-
-/** 字节级公共前缀长度（UTF-16 code unit 计）。 */
-export function commonPrefixLength(a: string, b: string): number {
-  return prefixStability.commonPrefixLength(a, b);
-}
-
-/**
- * 前缀复用率：以 `cached` 为已缓存前缀时，`incoming` 能复用的比例。
- * 定律：prefixReuse(x, x) ≡ 1；prefixReuse 对第二参数非递减于公共前缀。
- */
-export function prefixReuse(cached: string, incoming: string): number {
-  return prefixStability.prefixReuse(cached, incoming);
-}
-
-/** 按 (tier, key) 规范排序后拼接——使分片遍历顺序不再影响字节输出。 */
-export function buildStablePrompt(
-  segments: readonly PromptSegment[],
-  options: PromptBuildOptions = {},
-): string {
-  return prefixStability.buildStablePrompt(segments, options);
-}
-
-/** 确定性洗牌：模拟注册表 / 遍历顺序在不同运行间的抖动。 */
-export function reorderDeterministic<T>(items: readonly T[], seed: number): T[] {
-  return prefixStability.reorderDeterministic(items, seed);
-}
-
-/** 注入易变片段（时间戳 / UUID / pid），模拟真实运行时噪声。 */
-export function injectVolatile(text: string, seed: number): string {
-  return prefixStability.injectVolatile(text, seed);
-}
-
-/** 生成一个抖变体：分片顺序重排 + 注入易变片段。 */
-export function jitterSegments(
-  segments: readonly PromptSegment[],
-  seed: number,
-): readonly PromptSegment[] {
-  return prefixStability.jitterSegments(segments, seed);
-}
-
-/**
- * 度量「第 1 轮真实请求」与「第 i 轮真实请求」之间的前缀复用率。
- *
- * 物理模型：真实运行时**每一轮**请求都携带时间戳 / traceId / pid，
- * 因此基准也必须是抖变体（而非无噪声的干净态），否则是拿理想态对比真实态，虚高。
- *
- * `canonical` 为 true 时走规范化（排序 + 擦除），用于证明规范化把复用率提到 1。
- */
-export function measurePrefixStability(
-  segments: readonly PromptSegment[],
-  variantCount: number,
-  canonical: boolean,
-): PrefixStabilityReport {
-  return prefixStability.measurePrefixStability(segments, variantCount, canonical);
-}
 
 /** 提示词分片。tier 越小越稳定、越靠前（system=0 → tools=1 → history=2 → user=3）。 */
 export interface PromptSegment {

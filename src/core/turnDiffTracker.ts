@@ -1,4 +1,4 @@
-import { renderUnifiedDiff } from '../util/unifiedDiff.js';
+import { UnifiedDiff } from '../util/unifiedDiff.js';
 import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.js';
 
 /**
@@ -83,7 +83,11 @@ export class TurnDiffTracker implements TurnDiffTrackerPort {
     }
     const parts = this.changedPaths()
       .map((path) =>
-        renderUnifiedDiff(path, this.baseline.get(path) ?? '', this.current.get(path) ?? ''),
+        UnifiedDiff.renderUnifiedDiff(
+          path,
+          this.baseline.get(path) ?? '',
+          this.current.get(path) ?? '',
+        ),
       )
       .filter((diff) => diff !== '');
     return parts.length === 0 ? undefined : parts.join('\n');

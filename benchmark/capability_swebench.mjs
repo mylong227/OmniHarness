@@ -34,10 +34,10 @@ import {
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { runSweSuite, runControls, formatSweReport } from '../dist/src/eval/swebench.js';
+import { Swebench } from '../dist/src/eval/swebench.js';
 import { ScriptedModel } from '../dist/src/eval/scriptedModel.js';
 import { EditDriftDetector } from '../dist/src/eval/editDriftDetector.js';
-import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
+import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
 import { ReasoningRouter } from '../dist/src/eval/reasoningRouter.js';
 import { SWEBENCH_LITE_TASKS, buildEnhancedTasks } from './swebenchTasks.mjs';
 
@@ -467,12 +467,18 @@ if (verifiedIdx !== -1) {
   process.exit(0);
 }
 
-const scripted = await runSweSuite('capability-scripted', ENHANCED_TASKS, null, 'scripted', {
-  modelFor: scriptedModelFor,
-  driftDetector: DRIFT_DETECTOR,
-  reasoningFor: (task) => ROUTED_EFFORT.get(task.id),
-});
-const controls = await runControls(ENHANCED_TASKS, { driftDetector: DRIFT_DETECTOR });
+const scripted = await Swebench.runSweSuite(
+  'capability-scripted',
+  ENHANCED_TASKS,
+  null,
+  'scripted',
+  {
+    modelFor: scriptedModelFor,
+    driftDetector: DRIFT_DETECTOR,
+    reasoningFor: (task) => ROUTED_EFFORT.get(task.id),
+  },
+);
+const controls = await Swebench.runControls(ENHANCED_TASKS, { driftDetector: DRIFT_DETECTOR });
 
 const report = {
   suite: 'capability-swebench',
@@ -500,7 +506,7 @@ const report = {
 const live = process.argv.includes('--live');
 if (live) {
   // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
-  const apiKey = process.env.DEEPSEEK_API_KEY ?? readUserProviderKey();
+  const apiKey = process.env.DEEPSEEK_API_KEY ?? LiveCredentials.readUserProviderKey();
   if (!apiKey) {
     console.error(
       '[capability:swebench] --live 需要 DEEPSEEK_API_KEY（或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek），未提供，跳过 live。',
@@ -518,10 +524,16 @@ if (live) {
       budget,
     );
     console.log(`[capability:swebench] live 模式：用 ${modelName} @ ${baseUrl}（预算 $0.50 护栏）`);
-    const liveReport = await runSweSuite('capability-live', ENHANCED_TASKS, liveModel, 'live', {
-      driftDetector: DRIFT_DETECTOR,
-      reasoningFor: (task) => ROUTED_EFFORT.get(task.id),
-    });
+    const liveReport = await Swebench.runSweSuite(
+      'capability-live',
+      ENHANCED_TASKS,
+      liveModel,
+      'live',
+      {
+        driftDetector: DRIFT_DETECTOR,
+        reasoningFor: (task) => ROUTED_EFFORT.get(task.id),
+      },
+    );
     report.live = {
       model: modelName,
       passed: liveReport.passed,
@@ -538,7 +550,7 @@ writeFileSync(OUT, JSON.stringify(report, null, 2), 'utf8');
 // ---------- 控制台 ----------
 printRouting();
 driftGate(scripted, controls);
-console.log(formatSweReport(scripted, controls));
+console.log(Swebench.formatSweReport(scripted, controls));
 if (report.live !== null) {
   console.log(
     `=== LIVE 能力分数: ${report.live.passed}/${report.live.total} 通过, 花费 $${report.live.costUsd} ===`,

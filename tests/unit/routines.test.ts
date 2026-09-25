@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RoutineScheduler, matchesCron } from '../../src/daemon/routineScheduler.js';
+import { RoutineScheduler } from '../../src/daemon/routineScheduler.js';
 import type { Routine } from '../../src/daemon/routineScheduler.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,15 +23,27 @@ function routine(over: Partial<Routine> = {}): Routine {
 
 test('matchesCron：解析 * / 范围 / 列表 / 步长', () => {
   // 每 5 分钟：0,5,10,... 命中
-  assert.strictEqual(matchesCron('*/5 * * * *', new Date(2026, 0, 1, 10, 0)), true);
-  assert.strictEqual(matchesCron('*/5 * * * *', new Date(2026, 0, 1, 10, 3)), false);
+  assert.strictEqual(
+    RoutineScheduler.matchesCron('*/5 * * * *', new Date(2026, 0, 1, 10, 0)),
+    true,
+  );
+  assert.strictEqual(
+    RoutineScheduler.matchesCron('*/5 * * * *', new Date(2026, 0, 1, 10, 3)),
+    false,
+  );
   // 指定分/时/日；周与日取并集（此处日命中）
-  assert.strictEqual(matchesCron('0 9 1 * *', new Date(2026, 0, 1, 9, 0)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 1 * *', new Date(2026, 0, 1, 9, 0)), true);
   // 列表
-  assert.strictEqual(matchesCron('0,30 * * * *', new Date(2026, 0, 1, 9, 30)), true);
+  assert.strictEqual(
+    RoutineScheduler.matchesCron('0,30 * * * *', new Date(2026, 0, 1, 9, 30)),
+    true,
+  );
   // 范围
-  assert.strictEqual(matchesCron('1-3 * * * *', new Date(2026, 0, 1, 9, 2)), true);
-  assert.strictEqual(matchesCron('1-3 * * * *', new Date(2026, 0, 1, 9, 4)), false);
+  assert.strictEqual(RoutineScheduler.matchesCron('1-3 * * * *', new Date(2026, 0, 1, 9, 2)), true);
+  assert.strictEqual(
+    RoutineScheduler.matchesCron('1-3 * * * *', new Date(2026, 0, 1, 9, 4)),
+    false,
+  );
 });
 
 test('RoutineScheduler：interval 到期判定与 lastRun 防重复', () => {

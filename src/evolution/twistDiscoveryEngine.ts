@@ -13,7 +13,7 @@
  */
 import type { Skill, MoireOptions } from '../skill/skill.js';
 import type { Candidate, DiscoveryEngine } from '../ports/runtime/evolution.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 /** TwistDiscoveryEngine 选项。 */
 export interface TwistDiscoveryOptions {
@@ -66,9 +66,9 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
   public nextCandidates(): Candidate[] {
     const out: Candidate[] = [];
     while (this.cursor < this.pairs.length && this.generated < this.maxCandidates) {
-      const [i, j] = at(this.pairs, this.cursor++);
-      const a = at(this.skills, i);
-      const b = at(this.skills, j);
+      const [i, j] = ArrayAt.at(this.pairs, this.cursor++);
+      const a = ArrayAt.at(this.skills, i);
+      const b = ArrayAt.at(this.skills, j);
       const composed = this.compose(
         a,
         b,

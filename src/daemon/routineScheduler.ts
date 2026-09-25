@@ -43,31 +43,6 @@ export interface Routine {
 
 /**
  * @beta
- * 判定 cron 表达式是否命中给定时间（同分钟只算一次）。
- * @param expr 5 段标准 cron 表达式（分 时 日 月 周）。
- * @param date 待判定的本地时间。
- * @returns 命中返回 true（表达式非法返回 false）。
- */
-export function matchesCron(expr: string, date: Date): boolean {
-  const fields = expr.trim().split(/\s+/);
-  if (fields.length !== 5) return false;
-  const minute = RoutineScheduler.expandField(fields[0] ?? '*', 0, 59);
-  const hour = RoutineScheduler.expandField(fields[1] ?? '*', 0, 23);
-  const dom = RoutineScheduler.expandField(fields[2] ?? '*', 1, 31);
-  const month = RoutineScheduler.expandField(fields[3] ?? '*', 1, 12);
-  const dow = RoutineScheduler.expandField(fields[4] ?? '*', 0, 6);
-  if (!minute.has(date.getMinutes())) return false;
-  if (!hour.has(date.getHours())) return false;
-  if (!month.has(date.getMonth() + 1)) return false;
-  // 日/周：cron 约定「日或周命中即触发」（取并集）。
-  const domHit = dom.has(date.getDate());
-  const dowHit = dow.has(date.getDay());
-  if (!domHit && !dowHit) return false;
-  return true;
-}
-
-/**
- * @beta
  * 定时任务调度器（含持久化）。
  */
 export class RoutineScheduler {
@@ -167,7 +142,7 @@ export class RoutineScheduler {
       if (routine.lastRun === undefined) return true;
       return now - routine.lastRun >= gap;
     }
-    return matchesCron(routine.schedule.expr, new Date(now));
+    return RoutineScheduler.matchesCron(routine.schedule.expr, new Date(now));
   }
 
   /**
@@ -240,5 +215,30 @@ export class RoutineScheduler {
    */
   private static defaultStorePath(): string {
     return resolve(homedir(), '.omniharness', 'routines.json');
+  }
+
+  /**
+   * @beta
+   * 判定 cron 表达式是否命中给定时间（同分钟只算一次）。
+   * @param expr 5 段标准 cron 表达式（分 时 日 月 周）。
+   * @param date 待判定的本地时间。
+   * @returns 命中返回 true（表达式非法返回 false）。
+   */
+  public static matchesCron(expr: string, date: Date): boolean {
+    const fields = expr.trim().split(/\s+/);
+    if (fields.length !== 5) return false;
+    const minute = RoutineScheduler.expandField(fields[0] ?? '*', 0, 59);
+    const hour = RoutineScheduler.expandField(fields[1] ?? '*', 0, 23);
+    const dom = RoutineScheduler.expandField(fields[2] ?? '*', 1, 31);
+    const month = RoutineScheduler.expandField(fields[3] ?? '*', 1, 12);
+    const dow = RoutineScheduler.expandField(fields[4] ?? '*', 0, 6);
+    if (!minute.has(date.getMinutes())) return false;
+    if (!hour.has(date.getHours())) return false;
+    if (!month.has(date.getMonth() + 1)) return false;
+    // 日/周：cron 约定「日或周命中即触发」（取并集）。
+    const domHit = dom.has(date.getDate());
+    const dowHit = dow.has(date.getDay());
+    if (!domHit && !dowHit) return false;
+    return true;
   }
 }

@@ -14,40 +14,45 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** 用户级配置的固定位置（与 `ConfigFile.loadLayered` 的用户层同源）。 */
-export function userConfigPath(homedirOverride?: string | undefined): string {
-  return join(homedirOverride ?? homedir(), '.omniharness', 'omniharness.json');
-}
-
 /**
- * 从用户级配置读取指定 provider 的密钥（缺省 `deepseek`）。
- *
- * @param opts.userConfigPath 覆盖用户级配置路径（测试注入用；缺省 `~/.omniharness/omniharness.json`）
- * @param opts.provider provider 名（对应配置内 `providerKeys` 的键；缺省 `deepseek`）
- * @returns 密钥字符串；用户级配置缺失 / 非法 / 无该 provider 或值非非空字符串时返回 `undefined`
+ * LiveCredentials —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
  */
-export function readUserProviderKey(
-  opts: {
-    readonly userConfigPath?: string | undefined;
-    readonly provider?: string | undefined;
-  } = {},
-): string | undefined {
-  const path = opts.userConfigPath ?? userConfigPath();
-  if (!existsSync(path)) {
-    return undefined;
+export class LiveCredentials {
+  /** 用户级配置的固定位置（与 `ConfigFile.loadLayered` 的用户层同源）。 */
+  public static userConfigPath(homedirOverride?: string | undefined): string {
+    return join(homedirOverride ?? homedir(), '.omniharness', 'omniharness.json');
   }
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-    if (typeof parsed !== 'object' || parsed === null) {
+
+  /**
+   * 从用户级配置读取指定 provider 的密钥（缺省 `deepseek`）。
+   *
+   * @param opts.userConfigPath 覆盖用户级配置路径（测试注入用；缺省 `~/.omniharness/omniharness.json`）
+   * @param opts.provider provider 名（对应配置内 `providerKeys` 的键；缺省 `deepseek`）
+   * @returns 密钥字符串；用户级配置缺失 / 非法 / 无该 provider 或值非非空字符串时返回 `undefined`
+   */
+  public static readUserProviderKey(
+    opts: {
+      readonly userConfigPath?: string | undefined;
+      readonly provider?: string | undefined;
+    } = {},
+  ): string | undefined {
+    const path = opts.userConfigPath ?? LiveCredentials.userConfigPath();
+    if (!existsSync(path)) {
       return undefined;
     }
-    const keys: unknown = (parsed as { providerKeys?: unknown }).providerKeys;
-    if (typeof keys !== 'object' || keys === null) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+      if (typeof parsed !== 'object' || parsed === null) {
+        return undefined;
+      }
+      const keys: unknown = (parsed as { providerKeys?: unknown }).providerKeys;
+      if (typeof keys !== 'object' || keys === null) {
+        return undefined;
+      }
+      const value: unknown = (keys as Record<string, unknown>)[opts.provider ?? 'deepseek'];
+      return typeof value === 'string' && value.length > 0 ? value : undefined;
+    } catch {
       return undefined;
     }
-    const value: unknown = (keys as Record<string, unknown>)[opts.provider ?? 'deepseek'];
-    return typeof value === 'string' && value.length > 0 ? value : undefined;
-  } catch {
-    return undefined;
   }
 }

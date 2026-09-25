@@ -24,7 +24,7 @@ import type { OmniHarnessConfig } from './configFactory.js';
 /**
  * MemoryStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */
-class MemoryStackAssembler {
+export class MemoryStackAssembler {
   /**
    * 构造长期记忆端口并逐层封包。 #S28 默认文件落盘；#4.4 开启加密则用 AES-256-GCM 逐行加密（密钥文件缺省自动生成）。 U1 统一基板（默认开，显式 `resonantField.enabled:false` 才关）→ 关闭时返回未封包的裸长期记忆（遗留双引擎已随 0.3.0 移除）。
    * @param {OmniHarnessConfig} partial - partial
@@ -139,6 +139,66 @@ class MemoryStackAssembler {
       return [mean, Math.sqrt(variance), Math.min(1, facts.length / 64)];
     };
   }
+
+  /**
+   * 装配长期记忆栈（组合根一侧）。
+   *
+   * 负责「基础存储 → 加密 → 能力封包（共振场 / 宇宙网 / 共振）→ 知识基础算子（退火 / QEC / 免疫 / 信念）」
+   * 这条有序装配链。顺序敏感：知识算子必须拿到**最终封包**的长期记忆端口才能与主循环共用同一状态源。
+   *
+   * 统一基板（U1）优先：`resonantField.enabled !== false` 时以单一 `ResonantFieldEngine` 同时充当
+   * 共振寻址与宇宙网（消除双重频谱索引）；仅显式 `enabled: false` 才回落到分别启用。
+   *
+   * @param partial 未解析的运行配置。
+   * @param model 已装配的模型端口（供回合末蒸馏器使用；undefined 则只支持显式 remember）。
+   * @returns 记忆栈切片 + 燧专用内部件。
+   */
+  public static assembleMemoryStack(
+    partial: OmniHarnessConfig,
+    model: ModelPort | undefined,
+  ): MemoryStackAssembly {
+    const memory = MemoryStackAssembler.buildMemoryPort(partial);
+    const annealer = MemoryStackAssembler.buildAnnealer(partial, memory.port);
+    const qecEncoder =
+      partial.qec?.enabled === true
+        ? new QECEncoder(memory.port, { cols: partial.qec.cols })
+        : undefined;
+    const immune =
+      partial.immuneMonitoring?.enabled === true
+        ? new ImmuneMonitor({ threshold: partial.immuneMonitoring.threshold })
+        : undefined;
+    const belief = MemoryStackAssembler.buildBelief(partial);
+    const memoryExtractor =
+      partial.memoryConsolidate !== false && model !== undefined
+        ? new MemoryExtractor(model, memory.port, {
+            maxFactsPerTurn: partial.memoryConsolidateMaxFacts,
+          })
+        : undefined;
+    const beliefEnabled =
+      belief.naturalGradient !== undefined || belief.particleFilter !== undefined;
+    return {
+      stack: {
+        longTermMemory: memory.port,
+        memoryExtractor,
+        annealer,
+        qecEncoder,
+        immune,
+        naturalGradient: belief.naturalGradient,
+        particleFilter: belief.particleFilter,
+        web: memory.web,
+        repoMapContext: new RepoMapContextEngine(),
+        scratchpad: new FileScratchpad(() => partial.workspaceRoot ?? process.cwd()),
+      },
+      sparkInput: {
+        resonance: memory.resonance,
+        immuneSample:
+          immune === undefined ? undefined : MemoryStackAssembler.immuneSampleOf(memory.port),
+        beliefObservation: beliefEnabled
+          ? MemoryStackAssembler.beliefObservationOf(memory.port)
+          : undefined,
+      },
+    };
+  }
 }
 
 /**
@@ -203,63 +263,4 @@ interface MemoryPortStack {
 interface BeliefEngines {
   readonly naturalGradient: NaturalGradientBelief | undefined;
   readonly particleFilter: ParticleFilterBelief | undefined;
-}
-
-/**
- * 装配长期记忆栈（组合根一侧）。
- *
- * 负责「基础存储 → 加密 → 能力封包（共振场 / 宇宙网 / 共振）→ 知识基础算子（退火 / QEC / 免疫 / 信念）」
- * 这条有序装配链。顺序敏感：知识算子必须拿到**最终封包**的长期记忆端口才能与主循环共用同一状态源。
- *
- * 统一基板（U1）优先：`resonantField.enabled !== false` 时以单一 `ResonantFieldEngine` 同时充当
- * 共振寻址与宇宙网（消除双重频谱索引）；仅显式 `enabled: false` 才回落到分别启用。
- *
- * @param partial 未解析的运行配置。
- * @param model 已装配的模型端口（供回合末蒸馏器使用；undefined 则只支持显式 remember）。
- * @returns 记忆栈切片 + 燧专用内部件。
- */
-export function assembleMemoryStack(
-  partial: OmniHarnessConfig,
-  model: ModelPort | undefined,
-): MemoryStackAssembly {
-  const memory = MemoryStackAssembler.buildMemoryPort(partial);
-  const annealer = MemoryStackAssembler.buildAnnealer(partial, memory.port);
-  const qecEncoder =
-    partial.qec?.enabled === true
-      ? new QECEncoder(memory.port, { cols: partial.qec.cols })
-      : undefined;
-  const immune =
-    partial.immuneMonitoring?.enabled === true
-      ? new ImmuneMonitor({ threshold: partial.immuneMonitoring.threshold })
-      : undefined;
-  const belief = MemoryStackAssembler.buildBelief(partial);
-  const memoryExtractor =
-    partial.memoryConsolidate !== false && model !== undefined
-      ? new MemoryExtractor(model, memory.port, {
-          maxFactsPerTurn: partial.memoryConsolidateMaxFacts,
-        })
-      : undefined;
-  const beliefEnabled = belief.naturalGradient !== undefined || belief.particleFilter !== undefined;
-  return {
-    stack: {
-      longTermMemory: memory.port,
-      memoryExtractor,
-      annealer,
-      qecEncoder,
-      immune,
-      naturalGradient: belief.naturalGradient,
-      particleFilter: belief.particleFilter,
-      web: memory.web,
-      repoMapContext: new RepoMapContextEngine(),
-      scratchpad: new FileScratchpad(() => partial.workspaceRoot ?? process.cwd()),
-    },
-    sparkInput: {
-      resonance: memory.resonance,
-      immuneSample:
-        immune === undefined ? undefined : MemoryStackAssembler.immuneSampleOf(memory.port),
-      beliefObservation: beliefEnabled
-        ? MemoryStackAssembler.beliefObservationOf(memory.port)
-        : undefined,
-    },
-  };
 }

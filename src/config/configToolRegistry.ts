@@ -9,7 +9,7 @@ import { RememberTool, RecallTool } from '../adapters/tool/memory/longTermMemory
 import { CheckpointManager } from '../core/checkpointManager.js';
 import { eventFactory } from '../core/eventFactory.js';
 import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.js';
-import { registerCheckpointTools } from '../adapters/tool/git/checkpointTool.js';
+import { CheckpointTool } from '../adapters/tool/git/checkpointTool.js';
 import { BudgetStatusTool } from '../adapters/tool/meta/budgetStatusTool.js';
 import { ToolIndex } from '../search/toolIndex.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';
@@ -133,7 +133,9 @@ export class ConfigToolRegistry {
       ),
       tools: registry,
     });
-    const delegator = new DelegateTool(new WorkerOrchestrator(workers ?? demoWorkers()));
+    const delegator = new DelegateTool(
+      new WorkerOrchestrator(workers ?? ConfigToolRegistry.demoWorkers()),
+    );
     const spillReader = new SpillReadTool(seed.spill);
     // 绘图（草图）：把 Mermaid / SVG / 文本草图落成 .omniharness/sketches/ 下的文件，
     // 与 UI 的「+ → 绘图」入口配套——入口负责把模型切到「先画后写」的回合指令，本工具负责产物落地。
@@ -313,7 +315,7 @@ export class ConfigToolRegistry {
         snapshotter: new GitWorkspaceSnapshot(),
         workspaceRoot: seed.workspaceRoot,
       });
-      registerCheckpointTools(registry, checkpointManager);
+      CheckpointTool.registerCheckpointTools(registry, checkpointManager);
     }
   }
 
@@ -393,70 +395,70 @@ export class ConfigToolRegistry {
         ),
     });
   }
-}
 
-/** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */
-export function demoWorkers(): WorkerRegistry {
-  const registry = new WorkerRegistry();
-  registry.register(new SimpleWorker('demo-a', 'demo-a 完成任务'));
-  registry.register(new SimpleWorker('demo-b', 'demo-b 完成任务'));
-  return registry;
-}
+  /** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */
+  public static demoWorkers(): WorkerRegistry {
+    const registry = new WorkerRegistry();
+    registry.register(new SimpleWorker('demo-a', 'demo-a 完成任务'));
+    registry.register(new SimpleWorker('demo-b', 'demo-b 完成任务'));
+    return registry;
+  }
 
-/**
- * 默认工具端口：条目由 {@link ConfigToolRegistry.registerCoreTools}（文件读写/检索/执行/委派）、
- * {@link ConfigToolRegistry.registerAgentTools}（子代理/目标/工作流/待办/提问/计划/检索发现）、
- * {@link ConfigToolRegistry.registerAuxiliaryTools}（记忆、预算、LSP、身份、策略，**按注入端口条件注册**）
- * 三处汇总而成，故不写死总数——总数随 `longTerm`/`costBudget`/`lsp`/`identity` 是否为 undefined 而变
- * （实测 `ConfigFactory.build` 默认路径 31 个，注入 LSP 后 36 个）。另可经 `extraTools` 追加自定义工具，
- * 且**同名时显式注入覆盖内置默认**（先反注册再注册，便于整体替换 `web_fetch` 等内置实现）。
- * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。
- * web_fetch / view_image 默认注册：前者自带实现（零密钥），后者只读本地图片——都不会"未配置即批量失败"。
- * 两个后置装饰器按条件叠加（都属"写后质量信号"，不装配即零行为）：
- *  - `lsp.diagnostics` 可用 ⇒ {@link ConfigToolRegistry.withPostWriteDiagnostics}（写后错误级诊断）；
- *  - `selfVerify` 非空（P3）⇒ {@link ConfigToolRegistry.withSelfVerify}（写源码后跑受限测试并回灌失败摘要）。 */
-export function defaultTools(
-  seed: SubagentPortSeed,
-  extraTools: readonly ExtraTool[] | undefined,
-  workers: WorkerRegistry | undefined,
-  planning: {
-    readonly todo: TodoPort;
-    readonly plan: PlanPort;
-    readonly userResponder: UserResponder;
-    readonly planMode: boolean;
-  },
-  discovery: ToolDiscovery,
-  retrieval: RetrievalPort,
-  deferredTools: readonly string[] | undefined,
-  longTerm: LongTermMemoryPort | undefined,
-  costBudget: CostBudget | undefined,
-  lsp: LspPort | undefined,
-  identity: AgentIdentityPort | undefined,
-  selfVerify?: SelfVerifyPolicy | undefined,
-): ToolPort {
-  const registry = new RegistryToolPort();
-  ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
-  ConfigToolRegistry.registerAgentTools(registry, seed, planning, discovery, retrieval);
-  ConfigToolRegistry.registerAuxiliaryTools(registry, seed, longTerm, costBudget, lsp, identity);
-  for (const extra of extraTools ?? []) {
-    // 显式注入**优先于内置默认**：`web_fetch` / `view_image` 等内置工具允许被调用方整体替换
-    // （如换成带鉴权的抓取实现）。故先反注册同名内置再注册，避免撞上 `RegistryToolPort` 的重名拦截。
-    // 重名拦截本身不放松——它留在**内置注册**处，专门拦「内置之间互撞」这类真缺陷。
-    registry.unregister(extra.definition.name);
-    registry.register(extra.definition, extra.handler);
+  /**
+   * 默认工具端口：条目由 {@link ConfigToolRegistry.registerCoreTools}（文件读写/检索/执行/委派）、
+   * {@link ConfigToolRegistry.registerAgentTools}（子代理/目标/工作流/待办/提问/计划/检索发现）、
+   * {@link ConfigToolRegistry.registerAuxiliaryTools}（记忆、预算、LSP、身份、策略，**按注入端口条件注册**）
+   * 三处汇总而成，故不写死总数——总数随 `longTerm`/`costBudget`/`lsp`/`identity` 是否为 undefined 而变
+   * （实测 `ConfigFactory.build` 默认路径 31 个，注入 LSP 后 36 个）。另可经 `extraTools` 追加自定义工具，
+   * 且**同名时显式注入覆盖内置默认**（先反注册再注册，便于整体替换 `web_fetch` 等内置实现）。
+   * web_search 默认不注册：它依赖外部搜索实现，未配置时会让模型反复调用并批量失败；需要时通过 extraTools 注入 {@link WebSearchTool}。
+   * web_fetch / view_image 默认注册：前者自带实现（零密钥），后者只读本地图片——都不会"未配置即批量失败"。
+   * 两个后置装饰器按条件叠加（都属"写后质量信号"，不装配即零行为）：
+   *  - `lsp.diagnostics` 可用 ⇒ {@link ConfigToolRegistry.withPostWriteDiagnostics}（写后错误级诊断）；
+   *  - `selfVerify` 非空（P3）⇒ {@link ConfigToolRegistry.withSelfVerify}（写源码后跑受限测试并回灌失败摘要）。 */
+  public static defaultTools(
+    seed: SubagentPortSeed,
+    extraTools: readonly ExtraTool[] | undefined,
+    workers: WorkerRegistry | undefined,
+    planning: {
+      readonly todo: TodoPort;
+      readonly plan: PlanPort;
+      readonly userResponder: UserResponder;
+      readonly planMode: boolean;
+    },
+    discovery: ToolDiscovery,
+    retrieval: RetrievalPort,
+    deferredTools: readonly string[] | undefined,
+    longTerm: LongTermMemoryPort | undefined,
+    costBudget: CostBudget | undefined,
+    lsp: LspPort | undefined,
+    identity: AgentIdentityPort | undefined,
+    selfVerify?: SelfVerifyPolicy | undefined,
+  ): ToolPort {
+    const registry = new RegistryToolPort();
+    ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
+    ConfigToolRegistry.registerAgentTools(registry, seed, planning, discovery, retrieval);
+    ConfigToolRegistry.registerAuxiliaryTools(registry, seed, longTerm, costBudget, lsp, identity);
+    for (const extra of extraTools ?? []) {
+      // 显式注入**优先于内置默认**：`web_fetch` / `view_image` 等内置工具允许被调用方整体替换
+      // （如换成带鉴权的抓取实现）。故先反注册同名内置再注册，避免撞上 `RegistryToolPort` 的重名拦截。
+      // 重名拦截本身不放松——它留在**内置注册**处，专门拦「内置之间互撞」这类真缺陷。
+      registry.unregister(extra.definition.name);
+      registry.register(extra.definition, extra.handler);
+    }
+    if (deferredTools !== undefined && deferredTools.length > 0) {
+      registry.markDeferred(deferredTools);
+    }
+    // P1-⑦ 写后自动诊断：装配了 LSP 且适配器支持 diagnostics 时包一层（否则原样返回）。
+    const withDiagnostics =
+      lsp === undefined
+        ? registry
+        : ConfigToolRegistry.withPostWriteDiagnostics(registry, lsp, seed.workspaceRoot);
+    // P3 自验证回环：仅在策略存在（= 仓库有测试脚本且配置开启）时包装；
+    // 缺省不包装 ⇒ 与 P3 之前逐字等价（零行为变更）。
+    if (selfVerify === undefined) {
+      return withDiagnostics;
+    }
+    return ConfigToolRegistry.withSelfVerify(withDiagnostics, selfVerify, seed.workspaceRoot);
   }
-  if (deferredTools !== undefined && deferredTools.length > 0) {
-    registry.markDeferred(deferredTools);
-  }
-  // P1-⑦ 写后自动诊断：装配了 LSP 且适配器支持 diagnostics 时包一层（否则原样返回）。
-  const withDiagnostics =
-    lsp === undefined
-      ? registry
-      : ConfigToolRegistry.withPostWriteDiagnostics(registry, lsp, seed.workspaceRoot);
-  // P3 自验证回环：仅在策略存在（= 仓库有测试脚本且配置开启）时包装；
-  // 缺省不包装 ⇒ 与 P3 之前逐字等价（零行为变更）。
-  if (selfVerify === undefined) {
-    return withDiagnostics;
-  }
-  return ConfigToolRegistry.withSelfVerify(withDiagnostics, selfVerify, seed.workspaceRoot);
 }

@@ -6,12 +6,10 @@ import type {
   ApprovalRequest,
 } from '../../src/ports/runtime/approval.js';
 import {
-  canonicalizeCommand,
-  canonicalKeyOf,
+  CommandCanonicalizer,
   CMD_SCRIPT_MARKER,
   POWERSHELL_SCRIPT_MARKER,
   SHELL_SCRIPT_MARKER,
-  tokenizeShell,
 } from '../../src/util/commandCanonicalizer.js';
 import { CachedApproval } from '../../src/adapters/approval/cachedApproval.js';
 
@@ -42,27 +40,40 @@ function fileRequest(path: string): ApprovalRequest {
 
 describe('命令规范化（M4）', () => {
   it('去包装：bash -lc 与 /bin/bash -c 归一为同一 token 序列', () => {
-    assert.deepStrictEqual(canonicalizeCommand('bash -lc "ls -la"'), ['ls', '-la']);
-    assert.deepStrictEqual(canonicalizeCommand('/bin/bash -c "ls -la"'), ['ls', '-la']);
-    assert.deepStrictEqual(canonicalizeCommand("sh -c 'ls -la'"), ['ls', '-la']);
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('bash -lc "ls -la"'), [
+      'ls',
+      '-la',
+    ]);
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('/bin/bash -c "ls -la"'), [
+      'ls',
+      '-la',
+    ]);
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand("sh -c 'ls -la'"), [
+      'ls',
+      '-la',
+    ]);
     assert.strictEqual(
-      canonicalKeyOf(canonicalizeCommand('bash -lc "ls -la"')),
-      canonicalKeyOf(canonicalizeCommand('/bin/bash -c "ls -la"')),
+      CommandCanonicalizer.canonicalKeyOf(
+        CommandCanonicalizer.canonicalizeCommand('bash -lc "ls -la"'),
+      ),
+      CommandCanonicalizer.canonicalKeyOf(
+        CommandCanonicalizer.canonicalizeCommand('/bin/bash -c "ls -la"'),
+      ),
     );
   });
 
   it('含串联/管道时不拆脚本，降级为标记 + 原文', () => {
-    assert.deepStrictEqual(canonicalizeCommand('bash -lc "a && b"'), [
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('bash -lc "a && b"'), [
       SHELL_SCRIPT_MARKER,
       'bash',
       'a && b',
     ]);
-    assert.deepStrictEqual(canonicalizeCommand('bash -lc "a | b"'), [
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('bash -lc "a | b"'), [
       SHELL_SCRIPT_MARKER,
       'bash',
       'a | b',
     ]);
-    assert.deepStrictEqual(canonicalizeCommand('bash -lc "a; b"'), [
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('bash -lc "a; b"'), [
       SHELL_SCRIPT_MARKER,
       'bash',
       'a; b',
@@ -70,23 +81,32 @@ describe('命令规范化（M4）', () => {
   });
 
   it('PowerShell 与 cmd 包装各归一类', () => {
-    assert.deepStrictEqual(canonicalizeCommand('powershell -Command "Get-ChildItem"'), [
-      POWERSHELL_SCRIPT_MARKER,
-      'Get-ChildItem',
+    assert.deepStrictEqual(
+      CommandCanonicalizer.canonicalizeCommand('powershell -Command "Get-ChildItem"'),
+      [POWERSHELL_SCRIPT_MARKER, 'Get-ChildItem'],
+    );
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('cmd /c "dir"'), [
+      CMD_SCRIPT_MARKER,
+      'dir',
     ]);
-    assert.deepStrictEqual(canonicalizeCommand('cmd /c "dir"'), [CMD_SCRIPT_MARKER, 'dir']);
   });
 
   it('裸命令与引号：引号不进 token，空格内内容保留', () => {
-    assert.deepStrictEqual(canonicalizeCommand('git status'), ['git', 'status']);
-    assert.deepStrictEqual(canonicalizeCommand('echo "hello world"'), ['echo', 'hello world']);
-    assert.deepStrictEqual(canonicalizeCommand(''), []);
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('git status'), [
+      'git',
+      'status',
+    ]);
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand('echo "hello world"'), [
+      'echo',
+      'hello world',
+    ]);
+    assert.deepStrictEqual(CommandCanonicalizer.canonicalizeCommand(''), []);
   });
 
   it('tokenizeShell 处理转义与单引号', () => {
-    assert.deepStrictEqual(tokenizeShell(`echo 'a b'`), ['echo', 'a b']);
-    assert.deepStrictEqual(tokenizeShell('echo a\\ b'), ['echo', 'a b']);
-    assert.deepStrictEqual(tokenizeShell('   '), []);
+    assert.deepStrictEqual(CommandCanonicalizer.tokenizeShell(`echo 'a b'`), ['echo', 'a b']);
+    assert.deepStrictEqual(CommandCanonicalizer.tokenizeShell('echo a\\ b'), ['echo', 'a b']);
+    assert.deepStrictEqual(CommandCanonicalizer.tokenizeShell('   '), []);
   });
 });
 

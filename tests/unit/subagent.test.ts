@@ -18,12 +18,12 @@ import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
 import { SubagentRunner } from '../../src/subagent/subagentRunner.js';
 import { ToolSubset } from '../../src/subagent/toolSubset.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 
 /** 可观测模型：记录每轮可见工具名、并发峰值，可注入延迟与故障。 */
 class ObservableModel implements ModelPort {
@@ -174,7 +174,7 @@ function makeLongTermStub(): LongTermMemoryPort {
 }
 
 /** 构造子智能体端口集。 */
-function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPorts {
+function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPortsShape {
   const spill = new MemorySpill();
   return {
     model,
@@ -369,7 +369,7 @@ describe('子智能体端到端（真实主循环）', () => {
       events,
       spillAdapter: 'memory',
     });
-    const runtime = createRuntime(config);
+    const runtime = Runtime.createRuntime(config);
     const result = await new Agent(runtime).runTask('派一个子智能体去做调研');
 
     assert.ok(result.finalText !== undefined);

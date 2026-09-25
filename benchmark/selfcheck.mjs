@@ -14,7 +14,7 @@ import { FailClosedEvolutionGate } from '../dist/src/evolution/evolutionGate.js'
 import { HeatEquationAnnealer } from '../dist/src/adapters/memory/heatAnnealer.js';
 import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRing.js';
 import { composeByTwist } from '../dist/src/skill/skillComposer.js';
-import { moireEnergy } from '../dist/src/evolution/benchmark.js';
+import { BenchmarkFn } from '../dist/src/evolution/benchmark.js';
 import { ElementComposer } from '../dist/src/adapters/skill/elementComposer.js';
 
 const N = 64;
@@ -144,8 +144,8 @@ function check(prop, probe, measured, pass, evidence) {
     tags: ['推理'],
   };
   const composed = composeByTwist(A, B);
-  const emComposed = moireEnergy(composed, N);
-  const emA = moireEnergy(A, N);
+  const emComposed = Benchmark.moireEnergy(composed, N);
+  const emA = Benchmark.moireEnergy(A, N);
   const elem = new ElementComposer();
   const naCl = elem.compose(['Na', 'Cl']); // 碱金属(+1) + 卤素(-1) 价互补 = 合法组合
   check(

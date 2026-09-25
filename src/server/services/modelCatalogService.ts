@@ -1,8 +1,8 @@
 import type { FileConfig } from '../../config/configFile.js';
 import type { ModelPort } from '../../ports/model/model.js';
 import { providerPresets, type ProviderPreset } from './providerPresets.js';
-import { probeProvider, buildModelForProvider } from './providerProbe.js';
-import { resolveSsrfPolicy } from '../../security/ssrfPolicy.js';
+import { ProviderProbe } from './providerProbe.js';
+import { SsrfPolicy } from '../../security/ssrfPolicy.js';
 
 /** 单厂商实测缓存项。 */
 export interface ProviderProbeCacheEntry {
@@ -72,7 +72,11 @@ export class ModelCatalogService {
       ) {
         key = file.apiKey;
       }
-      const probed = await probeProvider(preset, key, resolveSsrfPolicy(file.ssrfPolicy));
+      const probed = await ProviderProbe.probeProvider(
+        preset,
+        key,
+        SsrfPolicy.resolveSsrfPolicy(file.ssrfPolicy),
+      );
       results.push(probed);
       this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
     }
@@ -133,7 +137,7 @@ export class ModelCatalogService {
       (adapter === 'anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY);
     const effectivePreset =
       file.baseUrl !== undefined ? { ...preset, baseUrl: file.baseUrl } : preset;
-    return buildModelForProvider(effectivePreset, apiKey ?? undefined, file.model);
+    return ProviderProbe.buildModelForProvider(effectivePreset, apiKey ?? undefined, file.model);
   }
 
   /**
@@ -145,10 +149,10 @@ export class ModelCatalogService {
   public async cacheProbe(preset: ProviderPreset, key: string | undefined): Promise<void> {
     // 启用即实测：探测真实 /models 清单进缓存，Composer 下拉立即显示真实可用模型。
     // 探测失败不阻断启用（fail-open 到预设清单），错误由下次「检测」刷新。
-    const probed = await probeProvider(
+    const probed = await ProviderProbe.probeProvider(
       preset,
       key,
-      resolveSsrfPolicy(this.fileConfig().ssrfPolicy),
+      SsrfPolicy.resolveSsrfPolicy(this.fileConfig().ssrfPolicy),
     );
     this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
   }

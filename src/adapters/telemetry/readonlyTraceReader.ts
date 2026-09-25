@@ -13,7 +13,7 @@ import type {
   TraceEntry,
   TraceIntrospectionPort,
 } from '../../ports/intelligence/traceIntrospection.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /** 带源下标的事件（seq 语义的载体：下标属于**源事件流**，与过滤无关）。 */
 interface IndexedEvent {
@@ -96,7 +96,7 @@ export class ReadonlyTraceReader implements TraceIntrospectionPort {
   private take(entries: readonly IndexedEvent[], k: number): readonly TraceEntry[] {
     const out: TraceEntry[] = [];
     for (let i = entries.length - 1; i >= 0 && out.length < k; i--) {
-      const { event, index } = at(entries, i);
+      const { event, index } = ArrayAt.at(entries, i);
       out.push(
         Object.freeze({
           seq: index,

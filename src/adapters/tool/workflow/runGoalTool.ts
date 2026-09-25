@@ -4,7 +4,7 @@ import type {
   ToolDefinition,
   ToolResult,
 } from '../../../ports/tool/tool.js';
-import type { SubagentPorts } from '../../../subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../../subagent/subagentPorts.js';
 import type { AgentFactoryPort } from '../../../ports/runtime/agent.js';
 import { subagentRuntimeFactory } from '../../../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../../../subagent/subagentEventBridge.js';
@@ -47,7 +47,7 @@ export class RunGoalTool {
    * @param agentFactory 智能体工厂（由目标循环运行时创建 Agent）。
    */
   public constructor(
-    private readonly ports: SubagentPorts,
+    private readonly ports: SubagentPortsShape,
     private readonly options: GoalRunnerOptions = {},
     private readonly agentFactory: AgentFactoryPort,
   ) {}

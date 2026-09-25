@@ -12,7 +12,7 @@
 import { CryptoVault } from '../adapters/vault/cryptoVault.js';
 import { EnvVault } from '../adapters/vault/envVault.js';
 import type { VaultPort } from '../ports/memory/vault.js';
-import { messageOf } from './argParser.js';
+import { ArgParser } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 import { KvStoreFactory, type KvHandle } from './kvStoreFactory.js';
 
@@ -54,7 +54,7 @@ export class StoreCommand {
         await kv.close();
       }
     } catch (error) {
-      console.error(`KV 操作失败: ${messageOf(error)}`);
+      console.error(`KV 操作失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
     process.stdout.write(KV_USAGE);
@@ -88,7 +88,7 @@ export class StoreCommand {
         await vault.close();
       }
     } catch (error) {
-      console.error(`凭据操作失败: ${messageOf(error)}`);
+      console.error(`凭据操作失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
     process.stdout.write(VAULT_USAGE);

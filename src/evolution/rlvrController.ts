@@ -23,21 +23,23 @@
 import type { Candidate } from '../ports/runtime/evolution.js';
 import type { ModelPort } from '../ports/model/model.js';
 import type { Skill, MoireOptions } from '../skill/skill.js';
-import type { Benchmark } from './failClosedEvolutionGate.js';
-import { moireEnergy } from './benchmark.js';
 import { FailClosedEvolutionGate } from './failClosedEvolutionGate.js';
+import type { BenchmarkFn } from './failClosedEvolutionGate.js';
+
+import { Benchmark } from './benchmark.js';
+
 import { TwistDiscoveryEngine } from './twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from './evolutionControllerImpl.js';
 import type { EvolutionController, PromotionVerdict } from '../ports/runtime/evolution.js';
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
 import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
-import { verifiableVerdictForCode } from './verifiableReward.js';
+import { VerifiableReward } from './verifiableReward.js';
 import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.js';
 import type { RewardCoverageReport } from './rewardCoverageMeter.js';
 import { PromotionAdmission } from './promotionAdmission.js';
 import type { AdmissionResult } from './promotionAdmission.js';
 import { log } from '../util/logger.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 /**
  * RlvrController 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -51,6 +53,110 @@ export class RlvrController {
   public static promptForCandidate(c: Candidate): string {
     const intent = (c.skill.instructions ?? '').slice(0, 240);
     return `Implement a reusable capability named "${c.skill.name}". Intent: ${intent}`;
+  }
+
+  /** 从代码块/文本抽取首个 ```lang ... ``` 代码，否则返回原文。 */
+  public static extractCodeFence(text: string): string {
+    const m = text.match(/```[^\n]*\n([\s\S]*?)```/);
+    if (m !== null) return ArrayAt.at(m, 1).trim();
+    return text.trim();
+  }
+
+  /** 模型后端 RLVR 采样器：对第 index 个候选调用模型生成代码变体（fail-closed：失败返回伪样本）。 */
+  public static modelRlvrSampler(model: ModelPort, samplesPerPrompt: number): RlvrSampler {
+    return {
+      sample(
+        prompt: string,
+        index: number,
+      ): CodeCandidate | undefined | Promise<CodeCandidate | undefined> {
+        if (index >= samplesPerPrompt) return undefined;
+        return (async (): Promise<CodeCandidate> => {
+          try {
+            const out = await model.generate({
+              messages: [
+                {
+                  role: 'user',
+                  content: `Write code only (no prose, no explanation) implementing:\n${prompt}`,
+                },
+              ],
+              tools: [],
+            });
+            const code = RlvrController.extractCodeFence(out.text ?? '');
+            return {
+              id: `s${index}`,
+              code: code.length > 0 ? code : '// empty generation',
+              meta: { prompt },
+            };
+          } catch {
+            // fail-closed：生成失败 → 伪样本（reward 0，不进回放），不中止整轮。
+            return { id: `s${index}`, code: '// generation error', meta: { prompt } };
+          }
+        })();
+      },
+    };
+  }
+
+  /**
+   * 构造带「可验证门禁 + RLVR sample-filter-replay + 准入/覆盖率闸」的进化控制器
+   * （U4 真接进进化闭环；T5 起晋升路径经过退火接受与多样性闸）。
+   * @param opts 组合选项
+   * @returns 控制器 / 回放缓冲 / 体检报告读取口
+   */
+  public static createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrEvolutionBundle {
+    const buffer: ReplayBuffer = new InMemoryReplayBuffer();
+    const sampler = RlvrController.modelRlvrSampler(opts.model, opts.samplesPerPrompt ?? 8);
+    const meter = new RewardCoverageMeter();
+    const reward =
+      opts.verifyCommand !== undefined
+        ? meter.wrap({
+            verify: VerifiableReward.verifiableVerdictForCode(() => opts.verifyCommand, {
+              codeFileExtension: opts.verifyCodeFileExtension,
+            }),
+          })
+        : () => Promise.resolve(0);
+    const loop = new RlvrLoop({
+      sampler,
+      reward,
+      buffer,
+      samplesPerPrompt: opts.samplesPerPrompt ?? 8,
+      minReward: opts.minReward,
+    });
+    const discovery = new TwistDiscoveryEngine({
+      skills: opts.skills,
+      compose: opts.compose,
+      maxCandidates: opts.maxCandidates ?? 12,
+      fieldSize: opts.fieldSize,
+    });
+    const gate = new FailClosedEvolutionGate({
+      // 默认门禁基准：候选技能是否携带复合（莫尔）结构（moireEnergy）；缺省安全旁路由调用方注入更针对性基准。
+      benchmark:
+        opts.gateBenchmark ??
+        ((c: Candidate) => Benchmark.moireEnergy(c.skill, DEFAULT_MOIRE_FIELD_SIZE)),
+      minGain: opts.minGain,
+    });
+    const admission = opts.admission ?? new PromotionAdmission();
+    const minCoverage = opts.minCoverage ?? COVERAGE_THRESHOLD;
+    // 内层不持晋升回调：只有过了准入与覆盖率闸的候选才由外层触发 onPromote（否则闸只是事后观测）。
+    const inner = new EvolutionControllerImpl({
+      discovery,
+      gate,
+      autoRun: opts.autoRun ?? false,
+      rlvr: { loop, promptFor: RlvrController.promptForCandidate },
+    });
+    const controller = new RlvrEvolutionController({
+      inner,
+      admission,
+      meter,
+      minCoverage,
+      onPromote: opts.onPromote,
+    });
+    log.info('evolution.rlvr.controller.ready', {
+      autoRun: controller.autoRun,
+      minCoverage,
+      verifyCommand: opts.verifyCommand !== undefined,
+      samplesPerPrompt: opts.samplesPerPrompt ?? 8,
+    });
+    return { controller, buffer, report: () => controller.report() };
   }
 }
 
@@ -82,7 +188,7 @@ export interface RlvrEvolutionOptions {
   /** 能力场边长（透传燧-1）。 */
   readonly fieldSize?: number | undefined;
   /** 门禁基准（skill 级 0..1；缺省 fail-closed 0 → 无候选晋升，安全旁路）。 */
-  readonly gateBenchmark?: Benchmark | undefined;
+  readonly gateBenchmark?: BenchmarkFn | undefined;
   /** 门禁须超过基线的最小增益（默认 0.05，透传 `FailClosedEvolutionGate`）。 */
   readonly minGain?: number | undefined;
   /**
@@ -131,47 +237,6 @@ export interface RlvrEvolutionBundle {
   readonly buffer: ReplayBuffer;
   /** 最近一轮闭环体检报告；尚未跑过任何一轮时返回 undefined。 */
   readonly report: () => RlvrCycleReport | undefined;
-}
-
-/** 从代码块/文本抽取首个 ```lang ... ``` 代码，否则返回原文。 */
-export function extractCodeFence(text: string): string {
-  const m = text.match(/```[^\n]*\n([\s\S]*?)```/);
-  if (m !== null) return at(m, 1).trim();
-  return text.trim();
-}
-
-/** 模型后端 RLVR 采样器：对第 index 个候选调用模型生成代码变体（fail-closed：失败返回伪样本）。 */
-export function modelRlvrSampler(model: ModelPort, samplesPerPrompt: number): RlvrSampler {
-  return {
-    sample(
-      prompt: string,
-      index: number,
-    ): CodeCandidate | undefined | Promise<CodeCandidate | undefined> {
-      if (index >= samplesPerPrompt) return undefined;
-      return (async (): Promise<CodeCandidate> => {
-        try {
-          const out = await model.generate({
-            messages: [
-              {
-                role: 'user',
-                content: `Write code only (no prose, no explanation) implementing:\n${prompt}`,
-              },
-            ],
-            tools: [],
-          });
-          const code = extractCodeFence(out.text ?? '');
-          return {
-            id: `s${index}`,
-            code: code.length > 0 ? code : '// empty generation',
-            meta: { prompt },
-          };
-        } catch {
-          // fail-closed：生成失败 → 伪样本（reward 0，不进回放），不中止整轮。
-          return { id: `s${index}`, code: '// generation error', meta: { prompt } };
-        }
-      })();
-    },
-  };
 }
 
 /**
@@ -343,66 +408,4 @@ export class RlvrEvolutionController implements EvolutionController {
       // 观测失败不影响进化结果（fail-closed 旁路）
     }
   }
-}
-
-/**
- * 构造带「可验证门禁 + RLVR sample-filter-replay + 准入/覆盖率闸」的进化控制器
- * （U4 真接进进化闭环；T5 起晋升路径经过退火接受与多样性闸）。
- * @param opts 组合选项
- * @returns 控制器 / 回放缓冲 / 体检报告读取口
- */
-export function createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrEvolutionBundle {
-  const buffer: ReplayBuffer = new InMemoryReplayBuffer();
-  const sampler = modelRlvrSampler(opts.model, opts.samplesPerPrompt ?? 8);
-  const meter = new RewardCoverageMeter();
-  const reward =
-    opts.verifyCommand !== undefined
-      ? meter.wrap({
-          verify: verifiableVerdictForCode(() => opts.verifyCommand, {
-            codeFileExtension: opts.verifyCodeFileExtension,
-          }),
-        })
-      : () => Promise.resolve(0);
-  const loop = new RlvrLoop({
-    sampler,
-    reward,
-    buffer,
-    samplesPerPrompt: opts.samplesPerPrompt ?? 8,
-    minReward: opts.minReward,
-  });
-  const discovery = new TwistDiscoveryEngine({
-    skills: opts.skills,
-    compose: opts.compose,
-    maxCandidates: opts.maxCandidates ?? 12,
-    fieldSize: opts.fieldSize,
-  });
-  const gate = new FailClosedEvolutionGate({
-    // 默认门禁基准：候选技能是否携带复合（莫尔）结构（moireEnergy）；缺省安全旁路由调用方注入更针对性基准。
-    benchmark:
-      opts.gateBenchmark ?? ((c: Candidate) => moireEnergy(c.skill, DEFAULT_MOIRE_FIELD_SIZE)),
-    minGain: opts.minGain,
-  });
-  const admission = opts.admission ?? new PromotionAdmission();
-  const minCoverage = opts.minCoverage ?? COVERAGE_THRESHOLD;
-  // 内层不持晋升回调：只有过了准入与覆盖率闸的候选才由外层触发 onPromote（否则闸只是事后观测）。
-  const inner = new EvolutionControllerImpl({
-    discovery,
-    gate,
-    autoRun: opts.autoRun ?? false,
-    rlvr: { loop, promptFor: RlvrController.promptForCandidate },
-  });
-  const controller = new RlvrEvolutionController({
-    inner,
-    admission,
-    meter,
-    minCoverage,
-    onPromote: opts.onPromote,
-  });
-  log.info('evolution.rlvr.controller.ready', {
-    autoRun: controller.autoRun,
-    minCoverage,
-    verifyCommand: opts.verifyCommand !== undefined,
-    samplesPerPrompt: opts.samplesPerPrompt ?? 8,
-  });
-  return { controller, buffer, report: () => controller.report() };
 }

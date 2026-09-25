@@ -233,16 +233,6 @@ class Parser {
 
 /**
  * @beta
- * 编译一条表达式字符串为 AST（缓存由调用方决定；单次求值直接调 `test`）。
- * @param src 表达式源码。
- * @returns 解析出的 AST；语法错误时抛出（fail-closed 由调用方决定跳过策略）。
- */
-export function compileExpression(src: string): Ast {
-  return new Parser(Parser.tokenize(src)).parse();
-}
-
-/**
- * @beta
  * 零依赖安全策略求值器。
  */
 export class SafePolicyEvaluator implements PolicyPort {
@@ -266,7 +256,7 @@ export class SafePolicyEvaluator implements PolicyPort {
         matched =
           rule.when.trim() === ''
             ? true
-            : SafePolicyEvaluator.evalAst(compileExpression(rule.when), facts);
+            : SafePolicyEvaluator.evalAst(SafePolicyEvaluator.compileExpression(rule.when), facts);
       } catch (err) {
         // 规则表达式解析失败 → fail-closed：跳过该规则，绝不意外放行。
         warnings.push(`规则「${rule.name}」表达式解析失败已跳过: ${(err as Error).message}`);
@@ -286,7 +276,7 @@ export class SafePolicyEvaluator implements PolicyPort {
    */
   public test(expression: string, facts: PolicyFacts): boolean {
     try {
-      return SafePolicyEvaluator.evalAst(compileExpression(expression), facts);
+      return SafePolicyEvaluator.evalAst(SafePolicyEvaluator.compileExpression(expression), facts);
     } catch {
       return false; // fail-closed
     }
@@ -368,5 +358,15 @@ export class SafePolicyEvaluator implements PolicyPort {
     if (typeof a === 'number' && typeof b === 'number') return a === b;
     if (typeof a === 'boolean' && typeof b === 'boolean') return a === b;
     return String(a) === String(b);
+  }
+
+  /**
+   * @beta
+   * 编译一条表达式字符串为 AST（缓存由调用方决定；单次求值直接调 `test`）。
+   * @param src 表达式源码。
+   * @returns 解析出的 AST；语法错误时抛出（fail-closed 由调用方决定跳过策略）。
+   */
+  public static compileExpression(src: string): Ast {
+    return new Parser(Parser.tokenize(src)).parse();
   }
 }

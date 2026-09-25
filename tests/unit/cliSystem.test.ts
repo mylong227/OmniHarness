@@ -4,14 +4,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { parseArgs, CliDefaults } from '../../src/cli/argParser.js';
+import { ArgParser, CliDefaults } from '../../src/cli/argParser.js';
 import { configFile } from '../../src/config/configFile.js';
 
 /** CLI 入口路径。 */
 const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');
 
 test('parseArgs：配置文件默认值生效且 CLI 参数优先', () => {
-  const fromConfig = parseArgs(['--prompt', 'hi'], {
+  const fromConfig = ArgParser.parseArgs(['--prompt', 'hi'], {
     storageAdapter: 'jsonl',
     sandbox: 'policy',
     maxSteps: 32,
@@ -20,7 +20,7 @@ test('parseArgs：配置文件默认值生效且 CLI 参数优先', () => {
   assert.strictEqual(fromConfig?.sandbox, 'policy');
   assert.strictEqual(fromConfig?.maxSteps, 32);
 
-  const overridden = parseArgs(['--prompt', 'hi', '--storage-adapter', 'memory'], {
+  const overridden = ArgParser.parseArgs(['--prompt', 'hi', '--storage-adapter', 'memory'], {
     storageAdapter: 'jsonl',
   });
   assert.strictEqual(overridden?.storageAdapter, 'memory');

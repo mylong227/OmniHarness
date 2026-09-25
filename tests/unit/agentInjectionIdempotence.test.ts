@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -46,7 +46,7 @@ function workspaceWithSkill(): { readonly dir: string; readonly agent: Agent } {
       },
     ],
   });
-  return { dir, agent: new Agent(createRuntime(config)) };
+  return { dir, agent: new Agent(Runtime.createRuntime(config)) };
 }
 
 /** 统计事件流里技能注入 system 事件的条数。 */

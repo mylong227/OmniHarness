@@ -12,10 +12,10 @@ import type {
   MemoryFact,
   MemoryFactPatch,
 } from '../../ports/memory/longTermMemory.js';
-import { Bm25Index, tokenize } from '../../search/bm25Index.js';
-import { rankWithDecay, type ScoredFact } from './timeDecay.js';
+import { Bm25Index } from '../../search/bm25Index.js';
+import { TimeDecay, type ScoredFact } from './timeDecay.js';
 import type { TextCodec } from './aesGcmTextCodec.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /**
  * @beta
@@ -109,7 +109,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     if (this.dirty || this.bm25 === undefined) {
       this.rebuild();
     }
-    const hits = (this.bm25 as Bm25Index).search(tokenize(trimmed), this.facts.length);
+    const hits = (this.bm25 as Bm25Index).search(Bm25Index.tokenize(trimmed), this.facts.length);
     const items: ScoredFact[] = [];
     for (const hit of hits) {
       const fact = this.facts[hit.id];
@@ -117,7 +117,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
         items.push({ fact, score: hit.score });
       }
     }
-    return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
+    return TimeDecay.rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
 
   /** 全部事实。
@@ -150,7 +150,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     if (idx === -1) {
       return false;
     }
-    const current = at(this.facts, idx);
+    const current = ArrayAt.at(this.facts, idx);
     this.facts[idx] = {
       ...current,
       ...(patch.text !== undefined ? { text: patch.text } : {}),
@@ -199,7 +199,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
    */
   private rebuild(): void {
     const next = new Bm25Index();
-    next.addDocuments(this.facts.map((fact) => tokenize(fact.text)));
+    next.addDocuments(this.facts.map((fact) => Bm25Index.tokenize(fact.text)));
     this.bm25 = next;
     this.dirty = false;
   }

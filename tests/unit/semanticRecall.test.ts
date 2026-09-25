@@ -1,12 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  SemanticIndex,
-  rrfMerge,
-  cosine,
-  defaultEmbedBatchSize,
-  resolveEmbedBatchSize,
-} from '../../src/context/semanticIndex.js';
+import { SemanticIndex } from '../../src/context/semanticIndex.js';
 import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.js';
 
 /**
@@ -48,8 +42,8 @@ test('cosine：相同向量=1，正交=0', () => {
   const a: Embedding = [1, 0, 0];
   const b: Embedding = [1, 0, 0];
   const c: Embedding = [0, 1, 0];
-  assert.strictEqual(cosine(a, b), 1);
-  assert.strictEqual(cosine(a, c), 0);
+  assert.strictEqual(SemanticIndex.cosine(a, b), 1);
+  assert.strictEqual(SemanticIndex.cosine(a, c), 0);
 });
 
 test('SemanticIndex：查询与代码字面不同但语义同义 → 向量召回命中（补 U3 鸿沟）', async () => {
@@ -79,14 +73,14 @@ test('rrfMerge：混合检索融合 BM25(词法) + 语义，互补提召回', ()
   // BM25 因字面无重叠漏掉 a，但语义召回到 a；融合后 a 应进前列
   const bm25 = [{ id: 'b' }, { id: 'c' }];
   const semantic = [{ id: 'a' }, { id: 'b' }];
-  const merged = rrfMerge([bm25, semantic]);
+  const merged = SemanticIndex.rrfMerge([bm25, semantic]);
   assert.ok(merged.includes('a'), '融合结果应包含 BM25 漏掉的语义命中 a');
   assert.strictEqual(merged[0], 'b', '两路都命中的 b 应排最前');
 });
 
 test('rrfMerge：空输入返回空', () => {
-  assert.deepStrictEqual(rrfMerge([]), []);
-  assert.deepStrictEqual(rrfMerge([[]]), []);
+  assert.deepStrictEqual(SemanticIndex.rrfMerge([]), []);
+  assert.deepStrictEqual(SemanticIndex.rrfMerge([[]]), []);
 });
 
 // ── RRF 调参旋钮（U3 后续：真实代码库扫描证明 semWeight 是主杠杆） ──────────────
@@ -95,13 +89,13 @@ test('rrfMerge：weights 缺省 / 短于 lists 时回落等权 1', () => {
   const l1 = [{ id: 'a' }, { id: 'b' }];
   const l2 = [{ id: 'b' }, { id: 'c' }];
   assert.deepStrictEqual(
-    rrfMerge([l1, l2], 60),
-    rrfMerge([l1, l2], 60, [1, 1]),
+    SemanticIndex.rrfMerge([l1, l2], 60),
+    SemanticIndex.rrfMerge([l1, l2], 60, [1, 1]),
     '不传 weights 应等价于各路等权 1',
   );
   assert.deepStrictEqual(
-    rrfMerge([l1, l2], 60, [1]),
-    rrfMerge([l1, l2], 60, [1, 1]),
+    SemanticIndex.rrfMerge([l1, l2], 60, [1]),
+    SemanticIndex.rrfMerge([l1, l2], 60, [1, 1]),
     'weights 短于 lists 时缺失位应回落 1',
   );
 });
@@ -110,8 +104,8 @@ test('rrfMerge：weights<1 抑制弱路噪声（仅语义命中的项下沉）',
   // k=1 放大排名差异：w=1 时语义命中 a 与 BM25 次位 c 争第二，w=0.3 时 a 掉到 c 之后。
   const bm25 = [{ id: 'b' }, { id: 'c' }];
   const semanticOnly = [{ id: 'a' }];
-  const equal = rrfMerge([bm25, semanticOnly], 1, [1, 1]);
-  const damped = rrfMerge([bm25, semanticOnly], 1, [1, 0.3]);
+  const equal = SemanticIndex.rrfMerge([bm25, semanticOnly], 1, [1, 1]);
+  const damped = SemanticIndex.rrfMerge([bm25, semanticOnly], 1, [1, 0.3]);
   assert.ok(equal.indexOf('a') < equal.indexOf('c'), 'w=1 时语义命中 a 应压过 BM25 次位 c');
   assert.ok(
     damped.indexOf('a') > damped.indexOf('c'),
@@ -123,42 +117,53 @@ test('rrfMerge：k 越小排名越尖锐（头部命中权重更高，可翻转�
   // A 只在路 1 排第 1；B 在路 1 第 2、路 2 第 6（尾部）。
   const l1 = [{ id: 'A' }, { id: 'B' }];
   const l2 = [{ id: 'z0' }, { id: 'z1' }, { id: 'z2' }, { id: 'z3' }, { id: 'z4' }, { id: 'B' }];
-  const sharp = rrfMerge([l1, l2], 1);
-  const flat = rrfMerge([l1, l2], 60);
+  const sharp = SemanticIndex.rrfMerge([l1, l2], 1);
+  const flat = SemanticIndex.rrfMerge([l1, l2], 60);
   assert.ok(sharp.indexOf('A') < sharp.indexOf('B'), 'k=1 时单路头部命中 A 应压过多路浅命中 B');
   assert.ok(flat.indexOf('B') < flat.indexOf('A'), 'k=60 时排名扁平化，B 反超 A');
 });
 
 test('defaultEmbedBatchSize：批大小随模型维度收缩（大模型不得沿用 minilm 的 256）', () => {
   // 回归事故：256 是 minilm(384) 的标定值；e5-large(1024) 沿用会冲到 ~11.8GB 常驻内存并挂死。
-  assert.strictEqual(defaultEmbedBatchSize(384), 256, '384 维（minilm）保持历史标定值');
-  assert.strictEqual(defaultEmbedBatchSize(768), 64, '768 维应收缩到 1/4');
-  assert.strictEqual(defaultEmbedBatchSize(1024), 36, '1024 维（e5-large）应收缩到约 1/7');
+  assert.strictEqual(
+    SemanticIndex.defaultEmbedBatchSize(384),
+    256,
+    '384 维（minilm）保持历史标定值',
+  );
+  assert.strictEqual(SemanticIndex.defaultEmbedBatchSize(768), 64, '768 维应收缩到 1/4');
+  assert.strictEqual(
+    SemanticIndex.defaultEmbedBatchSize(1024),
+    36,
+    '1024 维（e5-large）应收缩到约 1/7',
+  );
   assert.ok(
-    defaultEmbedBatchSize(1024) < defaultEmbedBatchSize(384),
+    SemanticIndex.defaultEmbedBatchSize(1024) < SemanticIndex.defaultEmbedBatchSize(384),
     '维度越大批大小必须越小（内存 ∝ batch × seq × dim × layers）',
   );
   // 边界：极小维度（测试用伪嵌入 dim=4）被上限夹住，不得爆到天文数字
-  assert.strictEqual(defaultEmbedBatchSize(4), 256, '极小维度由上界 256 夹住');
-  assert.strictEqual(defaultEmbedBatchSize(0), 256, 'dim=0 不得产生除零/Infinity');
-  assert.ok(defaultEmbedBatchSize(4096) >= 8, '超大维度仍有下界 8，不得退化为 0 批（死循环）');
+  assert.strictEqual(SemanticIndex.defaultEmbedBatchSize(4), 256, '极小维度由上界 256 夹住');
+  assert.strictEqual(SemanticIndex.defaultEmbedBatchSize(0), 256, 'dim=0 不得产生除零/Infinity');
+  assert.ok(
+    SemanticIndex.defaultEmbedBatchSize(4096) >= 8,
+    '超大维度仍有下界 8，不得退化为 0 批（死循环）',
+  );
 });
 
 test('resolveEmbedBatchSize：env OMNI_EMBED_BATCH 可覆盖，非法值回落推算值', () => {
   const prev = process.env.OMNI_EMBED_BATCH;
   try {
     process.env.OMNI_EMBED_BATCH = '16';
-    assert.strictEqual(resolveEmbedBatchSize(1024), 16, '显式 env 优先');
+    assert.strictEqual(SemanticIndex.resolveEmbedBatchSize(1024), 16, '显式 env 优先');
     process.env.OMNI_EMBED_BATCH = 'abc';
     assert.strictEqual(
-      resolveEmbedBatchSize(1024),
-      defaultEmbedBatchSize(1024),
+      SemanticIndex.resolveEmbedBatchSize(1024),
+      SemanticIndex.defaultEmbedBatchSize(1024),
       '非法 env 回落推算值（不产出 NaN）',
     );
     process.env.OMNI_EMBED_BATCH = '0';
     assert.strictEqual(
-      resolveEmbedBatchSize(1024),
-      defaultEmbedBatchSize(1024),
+      SemanticIndex.resolveEmbedBatchSize(1024),
+      SemanticIndex.defaultEmbedBatchSize(1024),
       '0 非法，回落推算值',
     );
   } finally {

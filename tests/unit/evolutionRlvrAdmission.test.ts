@@ -17,11 +17,8 @@ import { join } from 'node:path';
 
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
-import {
-  createRlvrEvolutionController,
-  RlvrEvolutionController,
-} from '../../src/evolution/rlvrController.js';
+import { Runtime } from '../../src/composition/runtime.js';
+import { RlvrController, RlvrEvolutionController } from '../../src/evolution/rlvrController.js';
 import { PromotionAdmission } from '../../src/evolution/promotionAdmission.js';
 import { DiversityGuard } from '../../src/evolution/diversityGuard.js';
 import { RewardCoverageMeter } from '../../src/evolution/rewardCoverageMeter.js';
@@ -96,7 +93,7 @@ test('T5 生产装配：经 createRuntime 装配的 RLVR 控制器跑一轮 → 
       },
     }),
   );
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   assert.ok(runtime.evolution !== undefined, 'CLI 装配路径必须构造出进化控制器');
 
   const verdicts = await runtime.evolution.cycle();
@@ -116,7 +113,7 @@ test('T5 生产工厂：同指纹候选超配额被多样性闸拒，onPromote �
     instructions: '始终相同的一步。',
     tags: ['回声'],
   };
-  const bundle = createRlvrEvolutionController({
+  const bundle = RlvrController.createRlvrEvolutionController({
     skills: [
       { name: 'a', description: 'a', instructions: 'a 步。' },
       { name: 'b', description: 'b', instructions: 'b 步。' },

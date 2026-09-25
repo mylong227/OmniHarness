@@ -14,7 +14,7 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { RunGoalTool } from '../../src/adapters/tool/workflow/runGoalTool.js';
 import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 import type { AgentFactoryPort, AgentPort } from '../../src/ports/runtime/agent.js';
 import type { OmniHarnessRuntime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
@@ -102,7 +102,7 @@ function makeLongTermStub(): LongTermMemoryPort {
 }
 
 /** 构造子智能体端口集。 */
-function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPorts {
+function makePorts(model: ModelPort, events: EventPort, tools: ToolPort): SubagentPortsShape {
   const spill = new MemorySpill();
   return {
     model,

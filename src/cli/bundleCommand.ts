@@ -11,9 +11,9 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { PluginProfileStore, sanitizeProfileName } from '../plugin/pluginProfileStore.js';
-import { packBundle, unpackBundle } from '../plugin/pluginBundler.js';
-import { messageOf } from './argParser.js';
+import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
+import { PluginBundler } from '../plugin/pluginBundler.js';
+import { ArgParser } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 import type { PluginRegistryFactory } from './pluginCommand.js';
 
@@ -74,7 +74,7 @@ export class BundleCommand {
       return 2;
     }
     const store = new PluginProfileStore(wsRoot);
-    const profile = store.get(sanitizeProfileName(name));
+    const profile = store.get(PluginProfileStore.sanitizeProfileName(name));
     if (profile === undefined) {
       process.stderr.write(`未找到插件集 profile: ${name}\n`);
       return 1;
@@ -83,7 +83,7 @@ export class BundleCommand {
     const keyFile = reader.value('--key-file');
     const outDir = reader.value('--out-dir');
     try {
-      const result = await packBundle({
+      const result = await PluginBundler.packBundle({
         workspaceDir: wsRoot,
         profile,
         registry,
@@ -96,7 +96,7 @@ export class BundleCommand {
       );
       return 0;
     } catch (error) {
-      console.error(`打包失败: ${messageOf(error)}`);
+      console.error(`打包失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
   }
@@ -116,7 +116,7 @@ export class BundleCommand {
     }
     const keyFile = reader.value('--key-file');
     try {
-      const result = await unpackBundle({
+      const result = await PluginBundler.unpackBundle({
         zipPath: path,
         pluginsDir,
         workspaceDir: wsRoot,
@@ -127,7 +127,7 @@ export class BundleCommand {
       );
       return 0;
     } catch (error) {
-      console.error(`解包失败: ${messageOf(error)}`);
+      console.error(`解包失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
   }

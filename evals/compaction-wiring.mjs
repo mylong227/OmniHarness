@@ -23,10 +23,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ContextCompactor } from '../dist/src/context/contextCompactor.js';
-import {
-  DeterministicCompressor,
-  byteLength,
-} from '../dist/src/context/deterministicCompressor.js';
+import { DeterministicCompressor } from '../dist/src/context/deterministicCompressor.js';
 import { TokenEstimator } from '../dist/src/context/tokenEstimator.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -97,7 +94,8 @@ const compressor = new DeterministicCompressor();
 
 /** 只统计可收缩角色（system 由 harness 编排、不由本条链路改动）。 */
 const shrinkable = messages.filter((m) => m.role !== 'system');
-const bytesOf = (list) => list.reduce((sum, m) => sum + byteLength(m.content), 0);
+const bytesOf = (list) =>
+  list.reduce((sum, m) => sum + DeterministicCompressor.byteLength(m.content), 0);
 
 const beforeBytes = bytesOf(shrinkable);
 const beforeTokens = estimator.estimateMessages(shrinkable);
@@ -107,8 +105,12 @@ let collapseSaved = 0;
 let minifySaved = 0;
 for (const m of shrinkable) {
   const raw = m.content;
-  collapseSaved += byteLength(raw) - byteLength(compressor.collapseBlankLines(raw));
-  minifySaved += byteLength(raw) - byteLength(compressor.minifyJsonBlock(raw));
+  collapseSaved +=
+    DeterministicCompressor.byteLength(raw) -
+    DeterministicCompressor.byteLength(compressor.collapseBlankLines(raw));
+  minifySaved +=
+    DeterministicCompressor.byteLength(raw) -
+    DeterministicCompressor.byteLength(compressor.minifyJsonBlock(raw));
 }
 
 // —— 口径 ①：未达阈值（长会话常态），接线前 vs 接线后 ——
@@ -151,15 +153,15 @@ const retainedShrunkBytes = bytesOf(dropSystem(tightOn.messages));
 const jsonMessages = shrinkable.filter((m) => isWholeJson(m.content));
 const jsonBeforeBytes = bytesOf(jsonMessages);
 const jsonAfterBytes = jsonMessages.reduce(
-  (sum, m) => sum + byteLength(compressor.shrinkLossless(m.content)),
+  (sum, m) => sum + DeterministicCompressor.byteLength(compressor.shrinkLossless(m.content)),
   0,
 );
 
 const pct = (from, to) => (from === 0 ? 0 : round((1 - to / from) * 100, 2));
 
 const perMessage = shrinkable.map((m) => {
-  const before = byteLength(m.content);
-  const after = byteLength(compressor.shrinkLossless(m.content));
+  const before = DeterministicCompressor.byteLength(m.content);
+  const after = DeterministicCompressor.byteLength(compressor.shrinkLossless(m.content));
   return {
     role: m.role,
     json: isWholeJson(m.content),

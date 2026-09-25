@@ -19,7 +19,7 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 import type { EventPort } from '../../src/ports/runtime/eventPort.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
@@ -84,7 +84,7 @@ const makeLongTerm = (): LongTermMemoryPort => {
  * @param model 子会话使用的模型（注入失败标记即可制造步骤失败）。
  * @returns 端口束。
  */
-const makePorts = (model: ModelPort): SubagentPorts => {
+const makePorts = (model: ModelPort): SubagentPortsShape => {
   const spill = new MemorySpill();
   return {
     model,
@@ -101,7 +101,7 @@ const makePorts = (model: ModelPort): SubagentPorts => {
     maxSteps: 8,
     longTermMemory: makeLongTerm(),
     goalMaxIterations: 10,
-  } as unknown as SubagentPorts;
+  } as unknown as SubagentPortsShape;
 };
 
 /** 工具上下文。 */

@@ -1,7 +1,7 @@
 ﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
@@ -35,7 +35,7 @@ function buildAgent(): Agent {
     // 故此处预算须低于「脚本历史本身」的 token 量（~70+），与 repo-map 解耦。30 稳定低于该量。
     compactionMaxTokens: 30,
   });
-  return new Agent(createRuntime(config));
+  return new Agent(Runtime.createRuntime(config));
 }
 
 test('PTC × 压缩：长会话触发压缩并记录 system 事件', async () => {

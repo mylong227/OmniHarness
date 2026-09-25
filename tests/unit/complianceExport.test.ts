@@ -4,10 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  buildComplianceReport,
-  formatCompliance,
-} from '../../src/server/services/auditExporter.js';
+import { AuditExporter } from '../../src/server/services/auditExporter.js';
 import type { AuditEvent } from '../../src/server/services/auditSink.js';
 
 const sample: AuditEvent[] = [
@@ -30,7 +27,7 @@ const sample: AuditEvent[] = [
 ];
 
 test('buildComplianceReport：摘要计数 + 按类型分布 + 完整性哈希', () => {
-  const report = buildComplianceReport(sample, { type: 'tool_call' });
+  const report = AuditExporter.buildComplianceReport(sample, { type: 'tool_call' });
   assert.strictEqual(report.schema, 'omniharness.audit.compliance/v1');
   assert.strictEqual(report.summary.total, 2);
   assert.strictEqual(report.summary.byType['tool_call'], 2);
@@ -39,7 +36,7 @@ test('buildComplianceReport：摘要计数 + 按类型分布 + 完整性哈希',
 });
 
 test('buildComplianceReport：时间窗过滤 + actors + 首末事件时间', () => {
-  const report = buildComplianceReport(sample, { since: '2026-01-03T00:00:00.000Z' });
+  const report = AuditExporter.buildComplianceReport(sample, { since: '2026-01-03T00:00:00.000Z' });
   assert.strictEqual(report.summary.total, 2);
   assert.deepStrictEqual(report.summary.actors.slice().sort(), ['system']);
   assert.strictEqual(report.summary.firstEvent, '2026-01-03T00:00:00.000Z');
@@ -47,7 +44,7 @@ test('buildComplianceReport：时间窗过滤 + actors + 首末事件时间', ()
 });
 
 test('formatCompliance：合法 JSON 含 summary', () => {
-  const json = formatCompliance(buildComplianceReport(sample, {}));
+  const json = AuditExporter.formatCompliance(AuditExporter.buildComplianceReport(sample, {}));
   const parsed = JSON.parse(json) as { schema: string; summary: { total: number } };
   assert.strictEqual(parsed.schema, 'omniharness.audit.compliance/v1');
   assert.strictEqual(parsed.summary.total, 4);

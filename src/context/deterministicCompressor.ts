@@ -267,72 +267,72 @@ export class DeterministicCompressor {
       },
     };
   }
+
+  /** UTF-8 字节数（token 成本的真实代理）。 */
+  public static byteLength(text: string): number {
+    return compressor.byteLength(text);
+  }
+
+  /** 折叠空行与行尾空白。 */
+  public static collapseBlankLines(text: string): string {
+    return compressor.collapseBlankLines(text);
+  }
+
+  /** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
+  public static minifyJsonBlock(text: string): string {
+    return compressor.minifyJsonBlock(text);
+  }
+
+  /**
+   * **无损子集**收缩：只裁「确定冗余」（行尾空白 / 3+ 连续空行 / 整段 JSON 缩进），
+   * 不删任何字符级事实；幂等、单调、保序。
+   * @param text 待收缩的单条文本。
+   * @returns 收缩后的文本。
+   */
+  public static shrinkLossless(text: string): string {
+    return compressor.shrinkLossless(text);
+  }
+
+  /**
+   * 超长输出截断：保留头部与尾部，**中段替换为带原始行数的省略标记**。
+   * 省略标记保留可追溯信息（共几行、省略几行），不制造幻觉。
+   * 幂等：行数 ≤ maxLines 时原样返回。
+   */
+  public static truncateLongOutput(
+    text: string,
+    maxLines: number,
+    headLines: number,
+    tailLines: number,
+  ): string {
+    return compressor.truncateLongOutput(text, maxLines, headLines, tailLines);
+  }
+
+  /** 去除内容完全相同的重复分片，保留首次出现（保序）。 */
+  public static deduplicateSegments(
+    segments: readonly ContextSegment[],
+  ): readonly ContextSegment[] {
+    return compressor.deduplicateSegments(segments);
+  }
+
+  /** 把第 N 条之后的对话轮次折叠为单行摘要；已折叠（kind==='history'）的不再处理。 */
+  public static foldHistorySegments(
+    segments: readonly ContextSegment[],
+    foldAfter: number,
+  ): readonly ContextSegment[] {
+    return compressor.foldHistorySegments(segments, foldAfter);
+  }
+
+  /**
+   * 确定性上下文压缩主入口。
+   * 按「去空行 → JSON 紧凑 → 去重 → 长输出截断 → 历史折叠」顺序施加，全程纯函数。
+   */
+  public static compressContext(
+    segments: readonly ContextSegment[],
+    options: CompressOptions = {},
+  ): CompressResult {
+    return compressor.compress(segments, options);
+  }
 }
 
 // ---- 门面兼容：保留原函数名，委托单例 ----
 const compressor = new DeterministicCompressor();
-
-/** UTF-8 字节数（token 成本的真实代理）。 */
-export function byteLength(text: string): number {
-  return compressor.byteLength(text);
-}
-
-/** 折叠空行与行尾空白。 */
-export function collapseBlankLines(text: string): string {
-  return compressor.collapseBlankLines(text);
-}
-
-/** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
-export function minifyJsonBlock(text: string): string {
-  return compressor.minifyJsonBlock(text);
-}
-
-/**
- * **无损子集**收缩：只裁「确定冗余」（行尾空白 / 3+ 连续空行 / 整段 JSON 缩进），
- * 不删任何字符级事实；幂等、单调、保序。
- * @param text 待收缩的单条文本。
- * @returns 收缩后的文本。
- */
-export function shrinkLossless(text: string): string {
-  return compressor.shrinkLossless(text);
-}
-
-/**
- * 超长输出截断：保留头部与尾部，**中段替换为带原始行数的省略标记**。
- * 省略标记保留可追溯信息（共几行、省略几行），不制造幻觉。
- * 幂等：行数 ≤ maxLines 时原样返回。
- */
-export function truncateLongOutput(
-  text: string,
-  maxLines: number,
-  headLines: number,
-  tailLines: number,
-): string {
-  return compressor.truncateLongOutput(text, maxLines, headLines, tailLines);
-}
-
-/** 去除内容完全相同的重复分片，保留首次出现（保序）。 */
-export function deduplicateSegments(
-  segments: readonly ContextSegment[],
-): readonly ContextSegment[] {
-  return compressor.deduplicateSegments(segments);
-}
-
-/** 把第 N 条之后的对话轮次折叠为单行摘要；已折叠（kind==='history'）的不再处理。 */
-export function foldHistorySegments(
-  segments: readonly ContextSegment[],
-  foldAfter: number,
-): readonly ContextSegment[] {
-  return compressor.foldHistorySegments(segments, foldAfter);
-}
-
-/**
- * 确定性上下文压缩主入口。
- * 按「去空行 → JSON 紧凑 → 去重 → 长输出截断 → 历史折叠」顺序施加，全程纯函数。
- */
-export function compressContext(
-  segments: readonly ContextSegment[],
-  options: CompressOptions = {},
-): CompressResult {
-  return compressor.compress(segments, options);
-}

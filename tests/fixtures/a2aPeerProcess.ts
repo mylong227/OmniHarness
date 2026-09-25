@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import type { SubagentPorts } from '../../src/subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 import type { DelegateRequest, DelegateResult } from '../../src/a2a/index.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -59,7 +59,7 @@ const memoryStub: LongTermMemoryPort = {
 };
 
 /** 构造子代理端口集（工具为空：桩模型不产出工具调用）。 */
-function buildPorts(): SubagentPorts {
+function buildPorts(): SubagentPortsShape {
   const spill = new MemorySpill();
   return {
     model: stubModel,

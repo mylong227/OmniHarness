@@ -4,7 +4,7 @@
  */
 import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.js';
 import type { QECEncoderPort, QECStatus, QECReport } from '../../ports/intelligence/qec.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 const SYNDROME_TOPIC = '__qec_syndrome__';
 
@@ -133,7 +133,7 @@ export class QECEncoder implements QECEncoderPort {
     const idx = ri * this.cols + cj;
     const corrupted = codes[idx] ?? 0;
     // 错误位 = 当前行(列)奇偶差；原始码 = 损坏码 XOR 错误位。
-    const errBit = at(cur.rows, ri) ^ at(stored.rows, ri);
+    const errBit = ArrayAt.at(cur.rows, ri) ^ ArrayAt.at(stored.rows, ri);
     const original = corrupted ^ errBit;
     codes[idx] = original;
     const fixed = String.fromCharCode(...codes);
@@ -180,8 +180,8 @@ export class QECEncoder implements QECEncoderPort {
     for (let i = 0; i < codes.length; i++) {
       const r = Math.floor(i / cols);
       const c = i % cols;
-      rows[r] = (at(rows, r) ^ at(codes, i)) & 0xff;
-      colsArr[c] = (at(colsArr, c) ^ at(codes, i)) & 0xff;
+      rows[r] = (ArrayAt.at(rows, r) ^ ArrayAt.at(codes, i)) & 0xff;
+      colsArr[c] = (ArrayAt.at(colsArr, c) ^ ArrayAt.at(codes, i)) & 0xff;
     }
     return { rows, colsArr, nRows };
   }
@@ -195,10 +195,10 @@ export class QECEncoder implements QECEncoderPort {
     const parts = text.split('|');
     if (parts.length !== 4 || parts[0] !== 'QEC') return null;
     const cols = Number(parts[1]);
-    const rows = at(parts, 2)
+    const rows = ArrayAt.at(parts, 2)
       .split('.')
       .map((x) => Number(x) || 0);
-    const colsArr = at(parts, 3)
+    const colsArr = ArrayAt.at(parts, 3)
       .split('.')
       .map((x) => Number(x) || 0);
     if (!Number.isFinite(cols) || cols < 2) return null;

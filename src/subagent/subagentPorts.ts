@@ -12,12 +12,41 @@ import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
 import type { OmniHarnessRuntime } from '../composition/runtime.js';
 
 /**
+ * SubagentPortsShape —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class SubagentPorts {
+  /**
+   * @beta
+   * 从运行时投影出子智能体端口集（供库使用方在装配完成后自行编排）。
+   */
+  public static portsOf(runtime: OmniHarnessRuntime): SubagentPortsShape {
+    return {
+      model: runtime.model,
+      tools: runtime.tools,
+      storage: runtime.storage,
+      events: runtime.events,
+      sandbox: runtime.sandbox,
+      approvals: runtime.approvals,
+      escalation: runtime.escalation,
+      elevatedSandbox: runtime.elevatedSandbox,
+      spill: runtime.config.spill,
+      spiller: runtime.spiller,
+      workspaceRoot: runtime.config.workspaceRoot,
+      maxSteps: runtime.config.maxSteps,
+      longTermMemory: runtime.longTermMemory,
+      goalMaxIterations: runtime.config.goalMaxIterations,
+      native: runtime.native,
+    };
+  }
+}
+
+/**
  * @beta
  * 子智能体所需的最小端口集合。
  * 存在的意义：`ConfigFactory.defaultTools` 需要在运行时装配完成之前就注册 subagent 工具，
  * 而编排器又依赖工具端口——直接依赖 `OmniHarnessRuntime` 会形成循环依赖，故投影为最小集。
  */
-export interface SubagentPorts {
+export interface SubagentPortsShape {
   readonly model: ModelPort;
   readonly tools: ToolPort;
   readonly storage: StoragePort;
@@ -37,28 +66,4 @@ export interface SubagentPorts {
   /** 自主目标循环默认最大迭代次数（#S30，供 run_goal 工具读取）。 */
   readonly goalMaxIterations: number;
   readonly native?: NativeToolRunner | undefined;
-}
-
-/**
- * @beta
- * 从运行时投影出子智能体端口集（供库使用方在装配完成后自行编排）。
- */
-export function portsOf(runtime: OmniHarnessRuntime): SubagentPorts {
-  return {
-    model: runtime.model,
-    tools: runtime.tools,
-    storage: runtime.storage,
-    events: runtime.events,
-    sandbox: runtime.sandbox,
-    approvals: runtime.approvals,
-    escalation: runtime.escalation,
-    elevatedSandbox: runtime.elevatedSandbox,
-    spill: runtime.config.spill,
-    spiller: runtime.spiller,
-    workspaceRoot: runtime.config.workspaceRoot,
-    maxSteps: runtime.config.maxSteps,
-    longTermMemory: runtime.longTermMemory,
-    goalMaxIterations: runtime.config.goalMaxIterations,
-    native: runtime.native,
-  };
 }

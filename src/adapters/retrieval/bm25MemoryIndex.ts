@@ -3,7 +3,7 @@ import type {
   RetrievalHit,
   RetrievalPort,
 } from '../../ports/intelligence/retrieval.js';
-import { Bm25Index, tokenize } from '../../search/bm25Index.js';
+import { Bm25Index } from '../../search/bm25Index.js';
 
 /**
  * @beta
@@ -49,7 +49,7 @@ export class Bm25MemoryIndex implements RetrievalPort {
     if (this.dirty || this.bm25 === undefined) {
       this.rebuild();
     }
-    const hits = (this.bm25 as Bm25Index).search(tokenize(trimmed), limit);
+    const hits = (this.bm25 as Bm25Index).search(Bm25Index.tokenize(trimmed), limit);
     const result: RetrievalHit[] = [];
     for (const hit of hits) {
       const doc = this.docs[hit.id];
@@ -76,7 +76,7 @@ export class Bm25MemoryIndex implements RetrievalPort {
    */
   private rebuild(): void {
     const next = new Bm25Index();
-    next.addDocuments(this.docs.map((doc) => tokenize(doc.text)));
+    next.addDocuments(this.docs.map((doc) => Bm25Index.tokenize(doc.text)));
     this.bm25 = next;
     this.dirty = false;
   }

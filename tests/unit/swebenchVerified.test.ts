@@ -16,7 +16,7 @@ import { NativeExecutor } from '../../src/eval/nativeExecutor.js';
 import { UvLocator } from '../../src/eval/uvLocator.js';
 import { PytestVerdict } from '../../src/eval/pytestVerdict.js';
 import { PythonVersionResolver } from '../../src/eval/pythonVersionResolver.js';
-import { at } from '../../src/util/arrayAt.js';
+import { ArrayAt } from '../../src/util/arrayAt.js';
 
 /**
  * 写一份最小合法官方 Verified 实例文件，返回路径。
@@ -68,10 +68,10 @@ test('loadVerified：合法数据集可被加载（fail-closed 不抛）', () =>
     writeValid(p);
     const tasks = SwebenchVerified.loadVerified(p);
     assert.strictEqual(tasks.length, 1);
-    const first = at(tasks, 0);
+    const first = ArrayAt.at(tasks, 0);
     assert.strictEqual(first.id, 'django__django-1');
-    assert.strictEqual(at(first.failToPass, 0), 'x passes');
-    assert.strictEqual(at(first.passToPass, 0), 'y passes');
+    assert.strictEqual(ArrayAt.at(first.failToPass, 0), 'x passes');
+    assert.strictEqual(ArrayAt.at(first.passToPass, 0), 'y passes');
     assert.strictEqual(first.version, '4.2');
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -87,7 +87,7 @@ test('loadVerified：FAIL_TO_PASS 为官方 JSON 字符串时被正确解析（�
       PASS_TO_PASS: '["tests/test_x.py::test_c"]',
     });
     const tasks = SwebenchVerified.loadVerified(p);
-    const first = at(tasks, 0);
+    const first = ArrayAt.at(tasks, 0);
     assert.deepEqual([...first.failToPass], ['tests/test_x.py::test_a', 'tests/test_x.py::test_b']);
     assert.deepEqual([...first.passToPass], ['tests/test_x.py::test_c']);
   } finally {
@@ -115,7 +115,7 @@ test('loadVerified：PASS_TO_PASS 为空 ⇒ 允许（官方确有 11/500 合规
     const p = join(dir, 'empty-p2p.json');
     writeValid(p, { PASS_TO_PASS: '[]' });
     const tasks = SwebenchVerified.loadVerified(p);
-    assert.strictEqual(at(tasks, 0).passToPass.length, 0);
+    assert.strictEqual(ArrayAt.at(tasks, 0).passToPass.length, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

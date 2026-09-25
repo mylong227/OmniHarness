@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
-import { createRuntime } from '../dist/src/composition/runtime.js';
+import { Runtime } from '../dist/src/composition/runtime.js';
 import { Agent } from '../dist/src/core/agent.js';
 import { ScriptedModel } from '../dist/src/eval/scriptedModel.js';
 import { MemoryStorage } from '../dist/src/adapters/storage/memoryStorage.js';
@@ -139,7 +139,7 @@ const config = ConfigFactory.build({
   sparkAutoRun: true,
 });
 
-const agent = new Agent(createRuntime.create(config));
+const agent = new Agent(Runtime.createRuntime.create(config));
 const N = 40;
 
 // 预生成所有技能两两组合（供相变固化器在多任务中反复冻结，真实流出多组涌现样本）。

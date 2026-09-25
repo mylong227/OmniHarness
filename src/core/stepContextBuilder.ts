@@ -2,16 +2,12 @@ import type { SessionEvent } from '../ports/runtime/event.js';
 import type { ModelMessage } from '../ports/model/model.js';
 import type { ToolDefinition } from '../ports/tool/tool.js';
 import { ContextAssembler } from '../context/contextAssembler.js';
-import { loadProjectInstructionsCached } from '../context/projectInstructions.js';
-import {
-  type CompactionState,
-  encodeCompactionState,
-  decodeCompactionState,
-} from '../context/contextCompactor.js';
+import { ProjectInstructions } from '../context/projectInstructions.js';
+import { type CompactionState, ContextCompactor } from '../context/contextCompactor.js';
 import type { StepRunnerDeps } from './stepTypes.js';
 import { ToolExposurePlanner } from './toolExposurePlanner.js';
 import { log } from '../util/logger.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 /**
  * P5 自动降档时的载荷形态（`payloadShape`）——**只保留 Top-1 的完整符号大纲**，其余命中文件
@@ -74,7 +70,7 @@ export class StepContextBuilder {
     // 常驻指令（静态：同一工作区内容稳定）放头部，构成稳定前缀缓存锚点，先于动态派生信息。
     // 任何读取/解析失败均 fail-closed（返回 null 即跳过），绝不因指令文件问题阻断主流程。
     if (this.deps.workspaceRoot !== undefined && this.deps.projectInstructionsEnabled !== false) {
-      const instructions = await loadProjectInstructionsCached({
+      const instructions = await ProjectInstructions.loadProjectInstructionsCached({
         workspaceRoot: this.deps.workspaceRoot,
       });
       if (instructions !== null) {
@@ -113,9 +109,10 @@ export class StepContextBuilder {
         this.compactionState = result.state;
         if (
           previous === undefined ||
-          encodeCompactionState(previous) !== encodeCompactionState(result.state)
+          ContextCompactor.encodeCompactionState(previous) !==
+            ContextCompactor.encodeCompactionState(result.state)
         ) {
-          this.deps.recorder.system(encodeCompactionState(result.state));
+          this.deps.recorder.system(ContextCompactor.encodeCompactionState(result.state));
         }
       } else if (result.compacted && previous === undefined) {
         // 无游标路径（head 为空的退化压缩）：维持旧行为的提示文本（仅首次，避免每步重复）。
@@ -217,7 +214,7 @@ export class StepContextBuilder {
   private deriveQueryText(events: readonly SessionEvent[]): string {
     const texts: string[] = [];
     for (let i = events.length - 1; i >= 0 && texts.length < 3; i--) {
-      const e = at(events, i);
+      const e = ArrayAt.at(events, i);
       if (e.type === 'user') {
         const content = (e.payload as { content?: string }).content;
         if (content !== undefined && content.trim() !== '') {
@@ -237,7 +234,7 @@ export class StepContextBuilder {
    */
   private restoreCompactionState(events: readonly SessionEvent[]): CompactionState | undefined {
     for (let i = events.length - 1; i >= 0; i--) {
-      const e = at(events, i);
+      const e = ArrayAt.at(events, i);
       if (e.type !== 'system') {
         continue;
       }
@@ -245,7 +242,7 @@ export class StepContextBuilder {
       if (typeof content !== 'string' || !content.startsWith('OMNI_COMPACTION_V1')) {
         continue;
       }
-      return decodeCompactionState(content);
+      return ContextCompactor.decodeCompactionState(content);
     }
     return undefined;
   }

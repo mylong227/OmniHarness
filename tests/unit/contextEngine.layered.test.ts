@@ -14,7 +14,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { indexCorpus, query } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.js';
 
 /** fib.ts：含 fibonacci / fibSequence（被查询词法命中）。 */
 const FIB_TS = [
@@ -53,7 +53,7 @@ function buildMiniCorpus() {
   const dir = mkdtempSync(join(tmpdir(), 'oh-ctx-layered-'));
   writeFileSync(join(dir, 'fib.ts'), FIB_TS);
   writeFileSync(join(dir, 'cache.ts'), CACHE_TS);
-  const corpus = indexCorpus(dir, { morph: true, light: true });
+  const corpus = ContextEngine.indexCorpus(dir, { morph: true, light: true });
   return { dir, corpus };
 }
 
@@ -61,8 +61,8 @@ test('query 层化软融合：保留文件 BM25 地板（修复 −9.1pp 丢信�
   const { dir, corpus } = buildMiniCorpus();
   try {
     const q = 'fibonacci sequence';
-    const base = query(corpus, q, { layered: false });
-    const fused = query(corpus, q, { layered: true });
+    const base = ContextEngine.query(corpus, q, { layered: false });
+    const fused = ContextEngine.query(corpus, q, { layered: true });
     assert.ok(base.files.includes('fib.ts'), 'BM25 基线应命中 fib.ts');
     // 关键不变量：软融合绝不能把文件 BM25 命中的 fib.ts 静默丢掉。
     assert.ok(fused.files.includes('fib.ts'), '软融合必须保留文件 BM25 命中的 fib.ts');
@@ -75,8 +75,8 @@ test('query 层化软融合：确定性（同输入两次结果一致）', () =>
   const { dir, corpus } = buildMiniCorpus();
   try {
     const q = 'memoize cache';
-    const a = query(corpus, q, { layered: true });
-    const b = query(corpus, q, { layered: true });
+    const a = ContextEngine.query(corpus, q, { layered: true });
+    const b = ContextEngine.query(corpus, q, { layered: true });
     assert.deepStrictEqual(a.files, b.files, '两次调用结果应完全一致');
     assert.ok(a.files.includes('cache.ts'), '缓存相关查询应命中 cache.ts');
   } finally {
@@ -87,7 +87,7 @@ test('query 层化软融合：确定性（同输入两次结果一致）', () =>
 test('query 层化软融合：结构合法（文件数 ≤ 预算，符号为数组，token 为正）', () => {
   const { dir, corpus } = buildMiniCorpus();
   try {
-    const fused = query(corpus, 'fibonacci', { layered: true });
+    const fused = ContextEngine.query(corpus, 'fibonacci', { layered: true });
     assert.ok(Array.isArray(fused.files));
     assert.ok(fused.files.length <= 14, '文件数不超过预算');
     assert.ok(Array.isArray(fused.symbols));
@@ -101,7 +101,7 @@ test('query 层化软融合：开启不影响纯 BM25 文件集之外的基本�
   const { dir, corpus } = buildMiniCorpus();
   try {
     // 用「memoize fibonacci」这种跨文件查询，验证图能把 cache.ts↔fib.ts 关联带出。
-    const fused = query(corpus, 'memoize fibonacci', { layered: true });
+    const fused = ContextEngine.query(corpus, 'memoize fibonacci', { layered: true });
     assert.ok(fused.files.length > 0, '应至少呈现一个文件');
   } finally {
     rmSync(dir, { recursive: true, force: true });

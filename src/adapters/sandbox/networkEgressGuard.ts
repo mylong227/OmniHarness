@@ -16,7 +16,7 @@
  */
 import { isIP } from 'node:net';
 import { EgressBlockedError } from './egressBlockedError.js';
-import { isPrivateIpv4, isPrivateIpv6 } from '../../util/ipAddress.js';
+import { IpAddress } from '../../util/ipAddress.js';
 import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from '../../security/ssrfPolicy.js';
 
 /** 网络外联守卫配置。 */
@@ -152,10 +152,10 @@ export class NetworkEgressGuard {
     // `http://[::ffff:169.254.169.254]/` 既不是 `169.254.*`（点分正则不匹配）也不带前缀
     // ⇒ 「云元数据一律拒绝」的声明在该写法下不成立。现与 `security/ssrfGuard` 共用同一实现
     // （`src/util/ipAddress.ts` + 同一份策略表），两份口径合一，不再有分叉空间。
-    if (isIP(h) === 4 && isPrivateIpv4(h, this.policy.ipv4Blocks)) {
+    if (isIP(h) === 4 && IpAddress.isPrivateIpv4(h, this.policy.ipv4Blocks)) {
       return true;
     }
-    if (isIP(h) === 6 && isPrivateIpv6(h, this.policy.ipv4Blocks)) {
+    if (isIP(h) === 6 && IpAddress.isPrivateIpv6(h, this.policy.ipv4Blocks)) {
       return true;
     }
     if (h === 'localhost') {
@@ -188,16 +188,17 @@ export class NetworkEgressGuard {
     }
     return host;
   }
+
+  /** 解析 --network-allow 的逗号分隔主机串为白名单数组（空串返回 []）。 */
+  public static parseAllowList(raw: string | undefined): string[] {
+    if (raw === undefined || raw.trim() === '') {
+      return [];
+    }
+    return raw
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== '');
+  }
 }
 
-/** 解析 --network-allow 的逗号分隔主机串为白名单数组（空串返回 []）。 */
-export function parseAllowList(raw: string | undefined): string[] {
-  if (raw === undefined || raw.trim() === '') {
-    return [];
-  }
-  return raw
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '');
-}
 export { EgressBlockedError };

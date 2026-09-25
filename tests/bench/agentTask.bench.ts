@@ -17,7 +17,7 @@ import { join, dirname, resolve, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -165,7 +165,7 @@ async function runMode(useNative: boolean): Promise<ModeResult> {
     events: new SilentEventPort(),
     native: useNative,
   });
-  const runtime = createRuntime(config);
+  const runtime = Runtime.createRuntime(config);
   let instrumented: InstrumentedNativeBackend | undefined;
   if (useNative) {
     if (runtime.native === undefined) {

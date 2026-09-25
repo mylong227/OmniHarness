@@ -13,7 +13,7 @@ import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser } from './sseParser.js';
 import { RequestStallGuard } from './requestStallGuard.js';
 import { log } from '../../util/logger.js';
-import { sanitizeToolRounds } from '../../util/toolRoundSanitizer.js';
+import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.js';
 
 /** 库级默认的模型请求**空闲**超时（毫秒）：连续 5 分钟无任何数据即中止；`<=0` 表示关闭。 */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;
@@ -304,7 +304,10 @@ export class OpenAiCompatibleModel implements ModelPort {
     const thinking = typeof request.reasoningEffort === 'string' && request.reasoningEffort !== '';
     // 消息出栈前统一规整：丢弃 orphan tool、丢弃 tool_calls 响应不全的整段 assistant
     // 回合（#OBS-8 全链路兜底，2026-09-08 二次复现，OpenAI/DeepSeek HTTP 400）。
-    const messages = this.toWireMessages(sanitizeToolRounds(request.messages), thinking);
+    const messages = this.toWireMessages(
+      ToolRoundSanitizer.sanitizeToolRounds(request.messages),
+      thinking,
+    );
     const body: Record<string, unknown> = {
       model: this.config.model,
       messages,

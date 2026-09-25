@@ -10,7 +10,7 @@ import {
   chmodSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { zipStore, unzip, type ZipEntry } from './zip.js';
+import { Zip, type ZipEntry } from './zip.js';
 import type { PluginProfile } from './pluginProfileStore.js';
 import type { PluginRegistry } from './pluginRegistry.js';
 
@@ -219,7 +219,7 @@ export class PluginBundler {
       mkdirSync(outDir, { recursive: true });
       const fileName = `${options.profile.name.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'bundle'}.ohb`;
       const outPath = join(outDir, fileName);
-      writeFileSync(outPath, zipStore(entries));
+      writeFileSync(outPath, Zip.zipStore(entries));
       return { path: outPath, manifest };
     } finally {
       rmSync(staging, { recursive: true, force: true });
@@ -235,7 +235,7 @@ export class PluginBundler {
       throw new Error(`bundle 文件不存在: ${options.zipPath}`);
     }
     const buffer = readFileSync(options.zipPath);
-    const entries = unzip(buffer);
+    const entries = Zip.unzip(buffer);
     const manifestEntry = entries.find((e) => e.name === 'bundle.json');
     if (manifestEntry === undefined) {
       throw new Error('bundle 缺少 bundle.json');
@@ -291,17 +291,17 @@ export class PluginBundler {
       .replace(/^-+|-+$/g, '');
     return id === '' ? 'unnamed' : id;
   }
+
+  /** 打包 profile 为自包含 `.ohb` 发布单元（门面：委托默认打包器实例）。 */
+  public static packBundle(options: PackBundleOptions): Promise<PackBundleResult> {
+    return pluginBundler.packBundle(options);
+  }
+
+  /** 解包 `.ohb`（门面：委托默认打包器实例）。 */
+  public static unpackBundle(options: UnpackBundleOptions): Promise<UnpackBundleResult> {
+    return pluginBundler.unpackBundle(options);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const pluginBundler = new PluginBundler();
-
-/** 打包 profile 为自包含 `.ohb` 发布单元（门面：委托默认打包器实例）。 */
-export function packBundle(options: PackBundleOptions): Promise<PackBundleResult> {
-  return pluginBundler.packBundle(options);
-}
-
-/** 解包 `.ohb`（门面：委托默认打包器实例）。 */
-export function unpackBundle(options: UnpackBundleOptions): Promise<UnpackBundleResult> {
-  return pluginBundler.unpackBundle(options);
-}

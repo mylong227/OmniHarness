@@ -9,16 +9,12 @@ import {
   EnforcementModeResolver,
   type EnforcementMode,
 } from '../security/enforcementModeResolver.js';
-import { mergeRoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
+import { RoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import { log } from '../util/logger.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
-import {
-  TransformersEmbeddingAdapter,
-  resolveRemoteHostFromEnv,
-  shouldPreloadEmbedding,
-} from '../adapters/embedding/transformersEmbeddingAdapter.js';
+import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
 
 import type { ModelRouterConfig } from './configFile.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
@@ -56,7 +52,7 @@ import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
 
 import type { LspPort, LspServerConfig } from '../ports/tool/lsp.js';
 import type { AgentIdentityConfig, AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
-import type { SubagentPorts } from '../subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../subagent/subagentPorts.js';
 import type { SubagentOptions } from '../subagent/subagentTypes.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 import type { TodoPort } from '../ports/runtime/todo.js';
@@ -64,15 +60,15 @@ import type { PlanPort } from '../ports/runtime/plan.js';
 import type { EvolutionController } from '../ports/runtime/evolution.js';
 import type { RegimeSignals } from '../genesis/operators.js';
 
-import { buildIdentity, buildLsp, buildModel, seedOf } from './configBuilder.js';
-import { defaultTools } from './configToolRegistry.js';
+import { ConfigBuilder } from './configBuilder.js';
+import { ConfigToolRegistry } from './configToolRegistry.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
-import { assembleCorePorts } from './corePortsAssembler.js';
-import { assembleMemoryStack } from './memoryStackAssembler.js';
+import { CorePortsAssembler } from './corePortsAssembler.js';
+import { MemoryStackAssembler } from './memoryStackAssembler.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
-import { assembleSkillStack } from './skillStackAssembler.js';
-import { assembleSpark } from './sparkAssembler.js';
+import { SkillStackAssembler } from './skillStackAssembler.js';
+import { SparkAssembler } from './sparkAssembler.js';
 
 /** OmniHarness运行时配置：端口注入即插即用，核心零依赖具体实现。 */
 /**
@@ -495,7 +491,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
 }
 
 /** 子智能体端口种子（缺 tools，待注册表构造完成后回填）。 */
-export type SubagentPortSeed = Omit<SubagentPorts, 'tools'> & {
+export type SubagentPortSeed = Omit<SubagentPortsShape, 'tools'> & {
   readonly subagent: SubagentOptions;
   /** 自主目标循环默认最大迭代次数（#S30，供 run_goal 工具读取）。 */
   readonly goalMaxIterations: number;
@@ -518,21 +514,21 @@ export class ConfigFactory {
    * @returns 全部端口已填默认实现的 `ResolvedConfig`。
    */
   public static build(partial: OmniHarnessConfig): ResolvedConfig {
-    const core = assembleCorePorts(partial);
+    const core = CorePortsAssembler.assembleCorePorts(partial);
     const costBudget = ConfigFactory.buildCostBudget(partial);
     // P5 自动降档：把预算计量桥成只读端口，注入 core 消费点（守住 `core → adapters` 红线）。
     // 无预算（costBudgetUsd 未设/非正）时不构造 ⇒ budgetDegrade 恒 undefined，零行为变更。
     const budgetDegrade: BudgetDegradeSignal | undefined =
       costBudget !== undefined ? new CostBudgetDegradeAdapter(costBudget) : undefined;
-    const model = buildModel(partial, costBudget);
-    const memory = assembleMemoryStack(partial, model);
-    const skills = assembleSkillStack(partial);
+    const model = ConfigBuilder.buildModel(partial, costBudget);
+    const memory = MemoryStackAssembler.assembleMemoryStack(partial, model);
+    const skills = SkillStackAssembler.assembleSkillStack(partial);
     const goalMaxIterations = partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS;
     // #S32 LSP 代码导航：配置了服务器命令才构造进程级适配器；否则 undefined（LSP 工具不注册，主循环零侵入）。
-    const lsp = buildLsp(partial);
+    const lsp = ConfigBuilder.buildLsp(partial);
     // #S33 Agent 密码学身份：配置了私钥/runtimeId 才构造 Ed25519 身份；否则 undefined（agent_identity 工具不注册）。
-    const identity = buildIdentity(partial);
-    const seed = seedOf(
+    const identity = ConfigBuilder.buildIdentity(partial);
+    const seed = ConfigBuilder.seedOf(
       partial,
       core.ports.approvals,
       core.ports.sandbox,
@@ -544,7 +540,7 @@ export class ConfigFactory {
       memory.stack.longTermMemory,
       costBudget,
     );
-    const spark = assembleSpark(partial, { vortex: core.vortex, memory, skills });
+    const spark = SparkAssembler.assembleSpark(partial, { vortex: core.vortex, memory, skills });
     return {
       workspaceRoot: partial.workspaceRoot,
       maxSteps: partial.maxSteps,
@@ -559,7 +555,7 @@ export class ConfigFactory {
       native: partial.native,
       live: partial.live ?? new CompositeLiveView([new ConsoleLiveView()]),
       // 语义嵌入端口：`OMNI_SEMANTIC_RECALL=1` 才构造（见 buildEmbeddingPort；L5 预热默认关）。
-      embedding: buildEmbeddingPort(),
+      embedding: ConfigFactory.buildEmbeddingPort(),
       evolution: partial.evolution,
       // (U4) RLVR 进化闭环：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
       // 导致调用方即便设置 `evolutionRlvr` 也会在此处被静默丢弃，`createRuntime` 恒读不到
@@ -592,7 +588,7 @@ export class ConfigFactory {
       a2a: partial.a2a,
       tools:
         partial.tools ??
-        defaultTools(
+        ConfigToolRegistry.defaultTools(
           seed,
           partial.extraTools,
           partial.workers,
@@ -657,7 +653,7 @@ export class ConfigFactory {
     // 均可被日志管道 / 事件桥观测；降级决策另经 `BudgetSnapshot.degradeSuggested` 暴露。
     return new CostBudget(
       partial.costBudgetUsd,
-      mergeRoutePricing(partial.routePricing),
+      RoutePricing.mergeRoutePricing(partial.routePricing),
       DEFAULT_FALLBACK_PRICE,
       (snapshot) => {
         log.error('budget.exceeded', {
@@ -676,6 +672,34 @@ export class ConfigFactory {
       },
     );
   }
+
+  /**
+   * 构造语义嵌入端口（U3 混合检索），并按需触发 L5 预热。
+   *
+   * @returns 嵌入端口；`OMNI_SEMANTIC_RECALL !== '1'` 时为 `undefined`（纯 BM25、零开销）。
+   */
+  public static buildEmbeddingPort(): EmbeddingPort | undefined {
+    if (process.env.OMNI_SEMANTIC_RECALL !== '1') {
+      return undefined;
+    }
+    const adapter = new TransformersEmbeddingAdapter({
+      cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
+      localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
+      // 模型下载源：`OMNI_HF_ENDPOINT` 优先、回落 `HF_ENDPOINT`（见 resolveRemoteHostFromEnv）。
+      // 此前**只有评测脚本**（evals/recall-*-real.mjs）自行设 `env.remoteHost`，生产装配路径
+      // 没有任何旋钮 ⇒ 无法直连 huggingface.co 的网络上语义检索**必然不可达**——典型的
+      // 「基准脚本绕过装配层给假绿灯」（缺陷形态④）。此处补齐生产入口，使该能力可真正部署。
+      // 未配置时为 undefined ⇒ 沿用该库默认源，零行为变更。
+      remoteHost: TransformersEmbeddingAdapter.resolveRemoteHostFromEnv(),
+    });
+    if (TransformersEmbeddingAdapter.shouldPreloadEmbedding()) {
+      // L5 预热：把冷启动成本从「首个用户查询」提前到「启动后、接流量前」。
+      // **刻意不 await**：装配是同步路径，预热不得阻塞启动；失败由 preload() 自身兜成
+      // `{ok:false}` 并落观测（契约保证不抛错），可用性判断仍由首次真实 embed 的 fail-closed 决定。
+      void adapter.preload();
+    }
+    return adapter;
+  }
 }
 
 // 成本预算（#S29）：设正数硬预算时构造单例，`BudgetedModel` 与 `budget_status` 工具共享
@@ -684,31 +708,3 @@ export class ConfigFactory {
 // 注（2026-09-21）：本段原为 JSDoc 却**没有任何声明跟随其后**（悬空注释）。悬空 JSDoc 会被
 // **下一个**声明吸收——文档工具/编辑器会把这段说明挂到别的头上，是实打实的误挂隐患。
 // 故降级为普通注释，内容一字未删。
-
-/**
- * 构造语义嵌入端口（U3 混合检索），并按需触发 L5 预热。
- *
- * @returns 嵌入端口；`OMNI_SEMANTIC_RECALL !== '1'` 时为 `undefined`（纯 BM25、零开销）。
- */
-function buildEmbeddingPort(): EmbeddingPort | undefined {
-  if (process.env.OMNI_SEMANTIC_RECALL !== '1') {
-    return undefined;
-  }
-  const adapter = new TransformersEmbeddingAdapter({
-    cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
-    localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
-    // 模型下载源：`OMNI_HF_ENDPOINT` 优先、回落 `HF_ENDPOINT`（见 resolveRemoteHostFromEnv）。
-    // 此前**只有评测脚本**（evals/recall-*-real.mjs）自行设 `env.remoteHost`，生产装配路径
-    // 没有任何旋钮 ⇒ 无法直连 huggingface.co 的网络上语义检索**必然不可达**——典型的
-    // 「基准脚本绕过装配层给假绿灯」（缺陷形态④）。此处补齐生产入口，使该能力可真正部署。
-    // 未配置时为 undefined ⇒ 沿用该库默认源，零行为变更。
-    remoteHost: resolveRemoteHostFromEnv(),
-  });
-  if (shouldPreloadEmbedding()) {
-    // L5 预热：把冷启动成本从「首个用户查询」提前到「启动后、接流量前」。
-    // **刻意不 await**：装配是同步路径，预热不得阻塞启动；失败由 preload() 自身兜成
-    // `{ok:false}` 并落观测（契约保证不抛错），可用性判断仍由首次真实 embed 的 fail-closed 决定。
-    void adapter.preload();
-  }
-  return adapter;
-}

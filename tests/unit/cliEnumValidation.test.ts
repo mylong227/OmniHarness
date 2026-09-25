@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs } from '../../src/cli/argParser.js';
+import { ArgParser } from '../../src/cli/argParser.js';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
 import type { SandboxProfile } from '../../src/adapters/sandbox/sandboxManager.js';
 
@@ -16,7 +16,7 @@ test('非法 --sandbox 抛错而非静默回落 passthrough（fail-open 回归�
   // 拼错一个字母：修复前会经 `as` 强转穿过类型系统，
   // 再由 SandboxManager.build() 回落 PassthroughSandbox = 全放行。
   assert.throws(
-    () => parseArgs(['--prompt', 'hi', '--sandbox', 'landock']),
+    () => ArgParser.parseArgs(['--prompt', 'hi', '--sandbox', 'landock']),
     /非法参数值: --sandbox = landock/,
     '拼错的沙箱 profile 必须报错，绝不能静默变成全放行',
   );
@@ -25,7 +25,7 @@ test('非法 --sandbox 抛错而非静默回落 passthrough（fail-open 回归�
 test('非法 --elevated-sandbox 抛错（提权复核同样不容 fail-open）', () => {
   // 'restricted' 已是合法提权后端（见 ELEVATED_SANDBOXES），此处用真不在枚举内的值验 fail-closed。
   assert.throws(
-    () => parseArgs(['--prompt', 'hi', '--elevated-sandbox', 'passthru']),
+    () => ArgParser.parseArgs(['--prompt', 'hi', '--elevated-sandbox', 'passthru']),
     /非法参数值: --elevated-sandbox = passthru/,
   );
 });
@@ -42,7 +42,7 @@ test('其余安全/行为枚举参数全部严格校验', () => {
   ];
   for (const [flag, value] of cases) {
     assert.throws(
-      () => parseArgs(['--prompt', 'hi', flag, value]),
+      () => ArgParser.parseArgs(['--prompt', 'hi', flag, value]),
       new RegExp(`非法参数值: ${flag.replace('-', '\\-')} = ${value}`),
       `${flag} 应拒绝非法值 ${value}`,
     );
@@ -51,7 +51,7 @@ test('其余安全/行为枚举参数全部严格校验', () => {
 
 test('错误提示列出可选值（可自愈，不留用户在黑暗里）', () => {
   try {
-    parseArgs(['--prompt', 'hi', '--sandbox', 'nope']);
+    ArgParser.parseArgs(['--prompt', 'hi', '--sandbox', 'nope']);
     assert.fail('应抛错');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -73,10 +73,10 @@ test('合法枚举值全部正常解析（无过度收紧）', () => {
     'unshare',
   ] as const;
   for (const profile of sandboxProfiles) {
-    const args = parseArgs(['--prompt', 'hi', '--sandbox', profile]);
+    const args = ArgParser.parseArgs(['--prompt', 'hi', '--sandbox', profile]);
     assert.strictEqual(args?.sandbox, profile, `${profile} 应可正常解析`);
   }
-  const mixed = parseArgs([
+  const mixed = ArgParser.parseArgs([
     '--prompt',
     'hi',
     '--approval',

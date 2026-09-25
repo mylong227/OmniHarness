@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LoopGuard, canonicalArgs } from '../../src/core/loop/loopGuard.js';
+import { LoopGuard } from '../../src/core/loop/loopGuard.js';
 
 function call(name: string, args: Record<string, unknown> = {}) {
   return { name, arguments: args };
@@ -41,11 +41,14 @@ test('LoopGuard：参数易变字段（timestamp/uuid）规范化后算重复', 
 
 test('LoopGuard：长随机串参数掩码归一（opaque token）', () => {
   assert.strictEqual(
-    canonicalArgs({ key: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6' }), // omniharness:fake-secret（测试掩码归一夹具，非真实凭据）
-    canonicalArgs({ key: 'ffffffffffffffffffffffffffffffff' }),
+    LoopGuard.canonicalArgs({ key: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6' }), // omniharness:fake-secret（测试掩码归一夹具，非真实凭据）
+    LoopGuard.canonicalArgs({ key: 'ffffffffffffffffffffffffffffffff' }),
   );
   // 短普通字符串不掩码
-  assert.notStrictEqual(canonicalArgs({ key: 'hello' }), canonicalArgs({ key: 'world' }));
+  assert.notStrictEqual(
+    LoopGuard.canonicalArgs({ key: 'hello' }),
+    LoopGuard.canonicalArgs({ key: 'world' }),
+  );
 });
 
 test('LoopGuard：A→B→A→B 循环模式被识别（周期 2）', () => {

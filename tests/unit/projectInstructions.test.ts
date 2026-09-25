@@ -4,9 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  loadProjectInstructions,
-  loadProjectInstructionsCached,
-  clearProjectInstructionsCache,
+  ProjectInstructions,
   MAX_INSTRUCTIONS_CACHE_KEYS,
 } from '../../src/context/projectInstructions.js';
 
@@ -21,13 +19,13 @@ before(async () => {
 after(async () => {
   await rm(root, { recursive: true, force: true });
   await rm(home, { recursive: true, force: true });
-  clearProjectInstructionsCache();
+  ProjectInstructions.clearProjectInstructionsCache();
 });
 
 describe('仓库常驻指令加载', () => {
   it('无任何指令文件时返回 null（调用方应跳过注入而非注入空串）', async () => {
     const empty = await mkdtemp(join(tmpdir(), 'omni-empty-'));
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: empty,
       home,
       cwd: empty,
@@ -41,7 +39,7 @@ describe('仓库常驻指令加载', () => {
     await writeFile(join(dir, 'AGENTS.md'), '# 项目规则\n先写测试');
     await writeFile(join(dir, 'CLAUDE.md'), '# Claude 规则\n禁裸强转');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,
@@ -63,7 +61,7 @@ describe('仓库常驻指令加载', () => {
     await writeFile(join(dir, 'AGENTS.md'), '原始规则');
     await writeFile(join(dir, 'AGENTS.override.md'), '覆盖规则');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,
@@ -82,7 +80,7 @@ describe('仓库常驻指令加载', () => {
     await writeFile(join(dir, 'AGENTS.md'), '根级规则');
     await writeFile(join(sub, 'AGENTS.md'), '子目录规则');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: sub,
@@ -102,7 +100,7 @@ describe('仓库常驻指令加载', () => {
     await mkdir(join(userDir, '.omniharness'), { recursive: true });
     await writeFile(join(userDir, '.omniharness', 'AGENTS.md'), '用户级规则');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home: userDir,
       cwd: dir,
@@ -119,7 +117,7 @@ describe('仓库常驻指令加载', () => {
     await writeFile(join(dir, 'shared.md'), '共享约定内容');
     await writeFile(join(dir, 'AGENTS.md'), '# 主规则\n@import ./shared.md');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,
@@ -134,7 +132,7 @@ describe('仓库常驻指令加载', () => {
     const dir = await mkdtemp(join(tmpdir(), 'omni-escape-'));
     await writeFile(join(dir, 'AGENTS.md'), '@import ../../../../etc/passwd');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,
@@ -151,7 +149,7 @@ describe('仓库常驻指令加载', () => {
     await writeFile(join(dir, 'AGENTS.md'), 'A'.repeat(1000));
     await writeFile(join(dir, 'CLAUDE.md'), 'B'.repeat(1000));
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,
@@ -168,8 +166,12 @@ describe('仓库常驻指令加载', () => {
     const dir = await mkdtemp(join(tmpdir(), 'omni-llms-'));
     await writeFile(join(dir, 'llms.txt'), '# 文档索引\n- 指南: /docs');
 
-    const on = await loadProjectInstructions({ workspaceRoot: dir, home, cwd: dir });
-    const off = await loadProjectInstructions({
+    const on = await ProjectInstructions.loadProjectInstructions({
+      workspaceRoot: dir,
+      home,
+      cwd: dir,
+    });
+    const off = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,
@@ -184,7 +186,7 @@ describe('仓库常驻指令加载', () => {
   });
 
   it('读取器抛错时 fail-closed 跳过，不阻断主流程', async () => {
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: root,
       home,
       cwd: root,
@@ -199,31 +201,31 @@ describe('仓库常驻指令加载', () => {
     const dir = await mkdtemp(join(tmpdir(), 'omni-cache-'));
     await writeFile(join(dir, 'AGENTS.md'), '第一版');
 
-    const first = await loadProjectInstructionsCached(
+    const first = await ProjectInstructions.loadProjectInstructionsCached(
       { workspaceRoot: dir, home, cwd: dir },
       60_000,
     );
     assert.ok(first!.content.includes('第一版'));
 
     await writeFile(join(dir, 'AGENTS.md'), '第二版');
-    const cached = await loadProjectInstructionsCached(
+    const cached = await ProjectInstructions.loadProjectInstructionsCached(
       { workspaceRoot: dir, home, cwd: dir },
       60_000,
     );
     assert.ok(cached!.content.includes('第一版'), 'TTL 内应命中缓存');
 
-    clearProjectInstructionsCache();
-    const fresh = await loadProjectInstructionsCached(
+    ProjectInstructions.clearProjectInstructionsCache();
+    const fresh = await ProjectInstructions.loadProjectInstructionsCached(
       { workspaceRoot: dir, home, cwd: dir },
       60_000,
     );
     assert.ok(fresh!.content.includes('第二版'), '清缓存后应重读');
-    clearProjectInstructionsCache();
+    ProjectInstructions.clearProjectInstructionsCache();
     await rm(dir, { recursive: true, force: true });
   });
 
   it('指令缓存有界：键数超过上限时最旧键被淘汰（进程级 Map 不得无界增长）', async () => {
-    clearProjectInstructionsCache();
+    ProjectInstructions.clearProjectInstructionsCache();
     const dir = await mkdtemp(join(tmpdir(), 'omni-cache-bound-'));
     await writeFile(join(dir, 'AGENTS.md'), '第一版');
     const subdirs: string[] = [];
@@ -232,11 +234,14 @@ describe('仓库常驻指令加载', () => {
       const sub = join(dir, `sub${String(i)}`);
       await mkdir(sub, { recursive: true });
       subdirs.push(sub);
-      await loadProjectInstructionsCached({ workspaceRoot: dir, home, cwd: sub }, 60_000);
+      await ProjectInstructions.loadProjectInstructionsCached(
+        { workspaceRoot: dir, home, cwd: sub },
+        60_000,
+      );
     }
     // 第一版内容已在 TTL 内被缓存；改盘后，只有「被淘汰」的那个键会重新读盘。
     await writeFile(join(dir, 'AGENTS.md'), '第二版');
-    const oldestAgain = await loadProjectInstructionsCached(
+    const oldestAgain = await ProjectInstructions.loadProjectInstructionsCached(
       { workspaceRoot: dir, home, cwd: subdirs[0]! },
       60_000,
     );
@@ -244,7 +249,7 @@ describe('仓库常驻指令加载', () => {
       oldestAgain!.content.includes('第二版'),
       `最旧键应已被淘汰并重读（上限 ${String(MAX_INSTRUCTIONS_CACHE_KEYS)}）`,
     );
-    clearProjectInstructionsCache();
+    ProjectInstructions.clearProjectInstructionsCache();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -252,7 +257,7 @@ describe('仓库常驻指令加载', () => {
     const dir = await mkdtemp(join(tmpdir(), 'omni-mark-'));
     await writeFile(join(dir, 'AGENTS.md'), '规则正文');
 
-    const result = await loadProjectInstructions({
+    const result = await ProjectInstructions.loadProjectInstructions({
       workspaceRoot: dir,
       home,
       cwd: dir,

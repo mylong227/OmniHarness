@@ -109,10 +109,10 @@ test('checkpoint：合法 label 仍可用（不过度收紧）', async () => {
 });
 
 test('checkpoint 工具层：模型可控的 label 被白名单拒绝（纵深防御第一道）', async () => {
-  const { makeCheckpointHandler } = await import('../../src/adapters/tool/git/checkpointTool.js');
+  const { CheckpointTool } = await import('../../src/adapters/tool/git/checkpointTool.js');
   const storage = new MemoryStorage();
   const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
-  const handler = makeCheckpointHandler(mgr);
+  const handler = CheckpointTool.makeCheckpointHandler(mgr);
   const ctx = { sessionId: 's_tool', callId: 'c1', workspaceRoot: process.cwd() } as never;
   const bad = await handler(
     { id: 'c1', name: 'checkpoint', arguments: { label: '../../../../tmp/evil' } },

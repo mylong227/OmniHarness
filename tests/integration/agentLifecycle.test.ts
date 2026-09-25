@@ -1,7 +1,7 @@
 ﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -23,7 +23,7 @@ function buildAgent(approvals: AutoApproval | PlanApproval): Agent {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  return new Agent(createRuntime(config));
+  return new Agent(Runtime.createRuntime(config));
 }
 
 test('集成：agent 默认循环跑通（模型→工具门禁→存储）', async () => {

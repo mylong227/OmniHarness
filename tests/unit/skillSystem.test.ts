@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SkillRegistry } from '../../src/skill/skillRegistry.js';
 import type { Skill } from '../../src/skill/skill.js';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -63,7 +63,7 @@ test('Agent 集成：命中技能时 system 事件注入日志', async () => {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const agent = new Agent(createRuntime(config), registry);
+  const agent = new Agent(Runtime.createRuntime(config), registry);
   const result = await agent.runTask('请审查一下这段代码');
   const systems = result.events.filter((event) => event.type === 'system');
   assert.ok(systems.length >= 1, '应注入技能 system 事件');
@@ -83,7 +83,7 @@ test('Agent 集成：未命中技能不注入', async () => {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const agent = new Agent(createRuntime(config), registry);
+  const agent = new Agent(Runtime.createRuntime(config), registry);
   const result = await agent.runTask('写一首诗');
   // 只统计技能专属 system 事件（render 标记 `# 技能：`），排除开场记忆 primer 等其它 system 事件。
   const skillEvents = result.events.filter(

@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { indexCorpus, query, type IndexedCorpus } from '../../src/context/contextEngine.js';
+import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dirname, '..', '..', 'src');
 
 let CORPUS: IndexedCorpus | undefined;
 function corpus(): IndexedCorpus {
-  if (CORPUS === undefined) CORPUS = indexCorpus(SRC, { morph: true, light: true });
+  if (CORPUS === undefined) CORPUS = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
   return CORPUS;
 }
 
@@ -24,8 +24,8 @@ const QUERIES = [
 test('PRF 默认关 = 显式 prf:false（零行为变更）', () => {
   const c = corpus();
   for (const q of QUERIES) {
-    const def = query(c, q, { fileK: 10 }).files;
-    const off = query(c, q, { fileK: 10, prf: false }).files;
+    const def = ContextEngine.query(c, q, { fileK: 10 }).files;
+    const off = ContextEngine.query(c, q, { fileK: 10, prf: false }).files;
     assert.deepEqual(def, off, `query 默认应等同 prf:false（${q}）`);
   }
 });
@@ -34,8 +34,8 @@ test('PRF 开启（prf:true）真正改变检索排序（扩展+重排生效，�
   const c = corpus();
   let changed = 0;
   for (const q of QUERIES) {
-    const off = query(c, q, { fileK: 10, prf: false }).files;
-    const on = query(c, q, { fileK: 10, prf: true }).files;
+    const off = ContextEngine.query(c, q, { fileK: 10, prf: false }).files;
+    const on = ContextEngine.query(c, q, { fileK: 10, prf: true }).files;
     assert.ok(on.length > 0, `prf:true 应返回非空结果（${q}）`);
     if (JSON.stringify(off) !== JSON.stringify(on)) changed += 1;
   }
@@ -47,7 +47,7 @@ test('PRF 不破坏结果有效性（全部为语料内真实文件）', () => {
   const c = corpus();
   const valid = new Set(c.files.map((fr) => fr.rel));
   for (const q of QUERIES) {
-    for (const f of query(c, q, { fileK: 10, prf: true }).files) {
+    for (const f of ContextEngine.query(c, q, { fileK: 10, prf: true }).files) {
       assert.ok(valid.has(f), `PRF 结果含未知文件：${f}`);
     }
   }

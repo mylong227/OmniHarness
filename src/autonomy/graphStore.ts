@@ -86,7 +86,7 @@ export class GraphStore {
     if (!Array.isArray(def.steps) || def.steps.length === 0) {
       throw new Error('图定义至少需要一个步骤');
     }
-    const id = sanitize(def.name);
+    const id = GraphStore.sanitize(def.name);
     if (id.length === 0) {
       throw new Error('name 归一化后为空，请使用字母/数字/下划线/连字符');
     }
@@ -109,16 +109,16 @@ export class GraphStore {
     rmSync(path, { force: true });
     return true;
   }
-}
 
-/**
- * @beta
- * 把 name 归一化为安全文件名 id。
- */
-export function sanitize(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  /**
+   * @beta
+   * 把 name 归一化为安全文件名 id。
+   */
+  public static sanitize(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
 }

@@ -15,7 +15,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { indexCorpus } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.js';
 import { FileRerankIndex } from '../../src/context/fileRerankIndex.js';
 import { ContentStopWords } from '../../src/context/contentStopWords.js';
 
@@ -30,12 +30,12 @@ class Fixture {
   public static build(
     files: Readonly<Record<string, string>>,
     morph = true,
-  ): { dir: string; corpus: ReturnType<typeof indexCorpus> } {
+  ): { dir: string; corpus: ReturnType<typeof ContextEngine.indexCorpus> } {
     const dir = mkdtempSync(join(tmpdir(), 'rerank-'));
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(join(dir, name), content, 'utf8');
     }
-    return { dir, corpus: indexCorpus(dir, { morph, light: true }) };
+    return { dir, corpus: ContextEngine.indexCorpus(dir, { morph, light: true }) };
   }
 }
 

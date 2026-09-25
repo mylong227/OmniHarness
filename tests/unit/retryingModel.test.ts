@@ -1,10 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  RetryingModel,
-  isRetryable,
-  DEFAULT_RETRY_POLICY,
-} from '../../src/adapters/model/retryingModel.js';
+import { RetryingModel, DEFAULT_RETRY_POLICY } from '../../src/adapters/model/retryingModel.js';
 import { ModelCallError } from '../../src/ports/model/model.js';
 import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model/model.js';
 
@@ -102,18 +98,21 @@ test('透明：成功时不改变输出与 name', async () => {
 });
 
 test('isRetryable：结构化错误以 retryable 为准', () => {
-  assert.strictEqual(isRetryable(new ModelCallError('x', { status: 503, retryable: true })), true);
   assert.strictEqual(
-    isRetryable(new ModelCallError('x', { status: 404, retryable: false })),
+    RetryingModel.isRetryable(new ModelCallError('x', { status: 503, retryable: true })),
+    true,
+  );
+  assert.strictEqual(
+    RetryingModel.isRetryable(new ModelCallError('x', { status: 404, retryable: false })),
     false,
   );
 });
 
 test('isRetryable：duck-typing 兜底（无 ModelCallError）', () => {
-  assert.strictEqual(isRetryable({ status: 429 }), true);
-  assert.strictEqual(isRetryable({ status: 500 }), true);
-  assert.strictEqual(isRetryable({ status: 400 }), false);
-  assert.strictEqual(isRetryable({ code: 'ECONNRESET' }), true);
-  assert.strictEqual(isRetryable({ message: 'fetch failed' }), true);
-  assert.strictEqual(isRetryable(new Error('boom')), false);
+  assert.strictEqual(RetryingModel.isRetryable({ status: 429 }), true);
+  assert.strictEqual(RetryingModel.isRetryable({ status: 500 }), true);
+  assert.strictEqual(RetryingModel.isRetryable({ status: 400 }), false);
+  assert.strictEqual(RetryingModel.isRetryable({ code: 'ECONNRESET' }), true);
+  assert.strictEqual(RetryingModel.isRetryable({ message: 'fetch failed' }), true);
+  assert.strictEqual(RetryingModel.isRetryable(new Error('boom')), false);
 });

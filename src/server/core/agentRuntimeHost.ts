@@ -1,13 +1,14 @@
-﻿import type { ApprovalPort } from '../../ports/runtime/approval.js';
+import type { ApprovalPort } from '../../ports/runtime/approval.js';
 import type { EventPort } from '../../ports/runtime/eventPort.js';
 import type { ModelPort } from '../../ports/model/model.js';
 import type { ResolvedConfig } from '../../config/configFactory.js';
 import type { SkillRegistry } from '../../skill/skillRegistry.js';
 import type { SupervisorPort } from '../../ports/runtime/supervisor.js';
-import { createRuntime } from '../../composition/runtime.js';
+import { Runtime } from '../../composition/runtime.js';
 import { Agent } from '../../core/agent.js';
 import { GraphStore } from '../../autonomy/graphStore.js';
-import { portsOf, type SubagentPorts } from '../../subagent/subagentPorts.js';
+import { type SubagentPortsShape, SubagentPorts } from '../../subagent/subagentPorts.js';
+
 import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from './appServerState.js';
 import { PlanApproval } from '../../adapters/approval/planApproval.js';
 import { ServerNoopSupervisor } from './serverNoopSupervisor.js';
@@ -49,7 +50,7 @@ export class AgentRuntimeHost {
   /** 图存储缓存（按工作区根懒建，invalidateGraph 失效）。 */
   private storeCache?: GraphStore | undefined;
   /** 子智能体端口集缓存（图运行复用）。 */
-  private portsCache?: SubagentPorts | undefined;
+  private portsCache?: SubagentPortsShape | undefined;
 
   /**
    * @param deps 配置来源、事件/审批工厂与工作区根
@@ -131,7 +132,9 @@ export class AgentRuntimeHost {
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
       this.agentCache = new Agent(
-        createRuntime(supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig),
+        Runtime.createRuntime(
+          supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig,
+        ),
         this.deps.skills,
       );
     }
@@ -161,7 +164,7 @@ export class AgentRuntimeHost {
    * 懒初始化子智能体端口集（供图运行复用同一运行时能力）。
    * @returns 端口集（图运行审批固定 AUTO_ALLOW，见实现内注释）。
    */
-  public graphPorts(): SubagentPorts {
+  public graphPorts(): SubagentPortsShape {
     if (this.portsCache === undefined) {
       const config = this.deps.baseConfig();
       const serverConfig: ResolvedConfig = {
@@ -173,8 +176,10 @@ export class AgentRuntimeHost {
         approvals: AUTO_ALLOW,
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
-      this.portsCache = portsOf(
-        createRuntime(supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig),
+      this.portsCache = SubagentPorts.portsOf(
+        Runtime.createRuntime(
+          supervisor !== undefined ? { ...serverConfig, supervisor } : serverConfig,
+        ),
       );
     }
     return this.portsCache;

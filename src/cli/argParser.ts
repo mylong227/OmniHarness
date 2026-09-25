@@ -10,13 +10,13 @@ import type {
   SsrfPolicyConfig,
 } from '../config/configFile.js';
 import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import { cliHelp } from './cliHelp.js';
 
 export * from './cliEnums.js';
-export { checkEnum } from './cliFlagTable.js';
+export { CliFlagTable } from './cliFlagTable.js';
 
 /** CLI 参数（DTO：先组装后消费）。 */
 export interface CliArgs {
@@ -268,7 +268,7 @@ export class ArgParser {
     let s = p.trim();
     const drive = s.match(/^\/([a-zA-Z])\/(.*)$/);
     if (drive !== null) {
-      s = `${at(drive, 1).toUpperCase()}:/${at(drive, 2)}`;
+      s = `${ArrayAt.at(drive, 1).toUpperCase()}:/${ArrayAt.at(drive, 2)}`;
     }
     return s.replace(/\//g, '\\');
   }
@@ -529,51 +529,51 @@ export class ArgParser {
   ): readonly AdapterPreset[] {
     return providerPresets.forAdapter(adapter, presets);
   }
+
+  /** GitBash / MSYS 路径 → 本机 Windows 路径。 */
+  public static toWindowsPath(p: string): string {
+    return argParser.toWindowsPath(p);
+  }
+
+  /** 解析 CLI 参数（`undefined` 表示 --help 或无任务）。 */
+  public static parseArgs(
+    argv: readonly string[],
+    defaults?: Partial<CliArgs>,
+  ): CliArgs | undefined {
+    return argParser.parseArgs(argv, defaults);
+  }
+
+  /** 配置文件 → CLI 默认参数。 */
+  public static configDefaults(file: FileConfig): Partial<CliArgs> {
+    return argParser.configDefaults(file);
+  }
+
+  /** 打印用法。 */
+  public static printUsage(): void {
+    argParser.printUsage();
+  }
+
+  /** 提取错误消息。 */
+  public static messageOf(error: unknown): string {
+    return argParser.messageOf(error);
+  }
+
+  /** 按适配器反查首个厂商预设（`presets` 可传生效目录以纳入用户覆盖）。 */
+  public static adapterToPreset(
+    adapter: string,
+    presets?: readonly ProviderPreset[],
+  ): AdapterPreset | undefined {
+    return argParser.adapterToPreset(adapter, presets);
+  }
+
+  /** 取适配器下所有厂商预设（`presets` 可传生效目录以纳入用户覆盖）。 */
+  public static adapterPresets(
+    adapter: string,
+    presets?: readonly ProviderPreset[],
+  ): readonly AdapterPreset[] {
+    return argParser.adapterPresets(adapter, presets);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const argParser = new ArgParser();
-
-/** GitBash / MSYS 路径 → 本机 Windows 路径。 */
-export function toWindowsPath(p: string): string {
-  return argParser.toWindowsPath(p);
-}
-
-/** 解析 CLI 参数（`undefined` 表示 --help 或无任务）。 */
-export function parseArgs(
-  argv: readonly string[],
-  defaults?: Partial<CliArgs>,
-): CliArgs | undefined {
-  return argParser.parseArgs(argv, defaults);
-}
-
-/** 配置文件 → CLI 默认参数。 */
-export function configDefaults(file: FileConfig): Partial<CliArgs> {
-  return argParser.configDefaults(file);
-}
-
-/** 打印用法。 */
-export function printUsage(): void {
-  argParser.printUsage();
-}
-
-/** 提取错误消息。 */
-export function messageOf(error: unknown): string {
-  return argParser.messageOf(error);
-}
-
-/** 按适配器反查首个厂商预设（`presets` 可传生效目录以纳入用户覆盖）。 */
-export function adapterToPreset(
-  adapter: string,
-  presets?: readonly ProviderPreset[],
-): AdapterPreset | undefined {
-  return argParser.adapterToPreset(adapter, presets);
-}
-
-/** 取适配器下所有厂商预设（`presets` 可传生效目录以纳入用户覆盖）。 */
-export function adapterPresets(
-  adapter: string,
-  presets?: readonly ProviderPreset[],
-): readonly AdapterPreset[] {
-  return argParser.adapterPresets(adapter, presets);
-}

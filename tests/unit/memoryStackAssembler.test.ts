@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { assembleMemoryStack } from '../../src/config/memoryStackAssembler.js';
+import { MemoryStackAssembler } from '../../src/config/memoryStackAssembler.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import type {
@@ -71,7 +71,7 @@ function withWorkspace<T>(fn: (root: string) => T): T {
 
 test('MemoryStackAssembler：缺省开统一基板——长期记忆/宇宙网/共振三态同一实例', () => {
   withWorkspace((root) => {
-    const { stack, sparkInput } = assembleMemoryStack(base(root), undefined);
+    const { stack, sparkInput } = MemoryStackAssembler.assembleMemoryStack(base(root), undefined);
     assert.strictEqual(stack.longTermMemory.name, 'resonant-field');
     // 单一状态源：RG 坍缩与调谐必须作用在同一实例上，否则双重频谱索引会各自漂移。
     assert.strictEqual(stack.web, stack.longTermMemory);
@@ -81,7 +81,7 @@ test('MemoryStackAssembler：缺省开统一基板——长期记忆/宇宙网/�
 
 test('MemoryStackAssembler：显式关统一基板后回落到基础文件存储', () => {
   withWorkspace((root) => {
-    const { stack, sparkInput } = assembleMemoryStack(
+    const { stack, sparkInput } = MemoryStackAssembler.assembleMemoryStack(
       base(root, { resonantField: { enabled: false } }),
       undefined,
     );
@@ -94,7 +94,7 @@ test('MemoryStackAssembler：显式关统一基板后回落到基础文件存储
 test('MemoryStackAssembler：注入自定义长期记忆优先于内置文件存储', () => {
   withWorkspace((root) => {
     const custom = new StubMemory();
-    const { stack } = assembleMemoryStack(
+    const { stack } = MemoryStackAssembler.assembleMemoryStack(
       base(root, { longTermMemory: custom, resonantField: { enabled: false } }),
       undefined,
     );
@@ -104,26 +104,29 @@ test('MemoryStackAssembler：注入自定义长期记忆优先于内置文件存
 
 test('MemoryStackAssembler：蒸馏器仅在「有模型 + 未关自动沉淀」时构造', () => {
   withWorkspace((root) => {
-    const noModel = assembleMemoryStack(base(root), undefined);
+    const noModel = MemoryStackAssembler.assembleMemoryStack(base(root), undefined);
     assert.strictEqual(noModel.stack.memoryExtractor, undefined);
 
-    const withModel = assembleMemoryStack(base(root), new MockModel());
+    const withModel = MemoryStackAssembler.assembleMemoryStack(base(root), new MockModel());
     assert.ok(withModel.stack.memoryExtractor !== undefined);
 
-    const off = assembleMemoryStack(base(root, { memoryConsolidate: false }), new MockModel());
+    const off = MemoryStackAssembler.assembleMemoryStack(
+      base(root, { memoryConsolidate: false }),
+      new MockModel(),
+    );
     assert.strictEqual(off.stack.memoryExtractor, undefined);
   });
 });
 
 test('MemoryStackAssembler：退火 / QEC / 免疫按开关构造', () => {
   withWorkspace((root) => {
-    const off = assembleMemoryStack(base(root), undefined);
+    const off = MemoryStackAssembler.assembleMemoryStack(base(root), undefined);
     assert.strictEqual(off.stack.annealer, undefined);
     assert.strictEqual(off.stack.qecEncoder, undefined);
     assert.strictEqual(off.stack.immune, undefined);
     assert.strictEqual(off.sparkInput.immuneSample, undefined);
 
-    const on = assembleMemoryStack(
+    const on = MemoryStackAssembler.assembleMemoryStack(
       base(root, {
         memoryAnnealing: { enabled: true },
         qec: { enabled: true },
@@ -140,19 +143,22 @@ test('MemoryStackAssembler：退火 / QEC / 免疫按开关构造', () => {
 
 test('MemoryStackAssembler：信念按 algorithm 分派引擎与采样器', () => {
   withWorkspace((root) => {
-    const none = assembleMemoryStack(base(root), undefined);
+    const none = MemoryStackAssembler.assembleMemoryStack(base(root), undefined);
     assert.strictEqual(none.stack.naturalGradient, undefined);
     assert.strictEqual(none.stack.particleFilter, undefined);
     assert.strictEqual(none.sparkInput.beliefObservation, undefined);
 
-    const ng = assembleMemoryStack(
+    const ng = MemoryStackAssembler.assembleMemoryStack(
       base(root, { belief: { enabled: true, algorithm: 'natural-gradient' } }),
       undefined,
     );
     assert.ok(ng.stack.naturalGradient !== undefined);
     assert.strictEqual(ng.stack.particleFilter, undefined);
 
-    const both = assembleMemoryStack(base(root, { belief: { enabled: true } }), undefined);
+    const both = MemoryStackAssembler.assembleMemoryStack(
+      base(root, { belief: { enabled: true } }),
+      undefined,
+    );
     assert.ok(both.stack.naturalGradient !== undefined);
     assert.ok(both.stack.particleFilter !== undefined);
     assert.ok(both.sparkInput.beliefObservation !== undefined);
@@ -161,7 +167,7 @@ test('MemoryStackAssembler：信念按 algorithm 分派引擎与采样器', () =
 
 test('MemoryStackAssembler：免疫采样器对空记忆返回全零三维向量', () => {
   withWorkspace((root) => {
-    const { sparkInput } = assembleMemoryStack(
+    const { sparkInput } = MemoryStackAssembler.assembleMemoryStack(
       base(root, { immuneMonitoring: { enabled: true } }),
       undefined,
     );

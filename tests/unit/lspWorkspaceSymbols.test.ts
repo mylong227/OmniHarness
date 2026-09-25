@@ -15,7 +15,7 @@ import { before, describe, test } from 'node:test';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
-import { fileToUri } from '../../src/adapters/lsp/lspUri.js';
+import { LspUri } from '../../src/adapters/lsp/lspUri.js';
 import { LspSymbolNormalizer } from '../../src/adapters/lsp/lspSymbolNormalizer.js';
 import { LspWorkspaceSymbolsTool } from '../../src/adapters/tool/lsp/lspWorkspaceSymbolsTool.js';
 import type { LspPort, LspWorkspaceSymbol } from '../../src/ports/tool/lsp.js';
@@ -65,7 +65,7 @@ function adapter(): LspProcessAdapter {
   return new LspProcessAdapter({
     serverCommand: process.execPath,
     serverArgs: [mockServer],
-    rootUri: fileToUri(process.cwd()),
+    rootUri: LspUri.fileToUri(process.cwd()),
   });
 }
 

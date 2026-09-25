@@ -3,19 +3,13 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import {
-  ConfigError,
-  mergeConfigs,
-  normalizeConfig,
-  readEnvConfig,
-  validateConfig,
-} from '../../src/config/configError.js';
+import { ConfigError } from '../../src/config/configError.js';
 import { configFile, type FileConfig } from '../../src/config/configFile.js';
 import { profileLoader } from '../../src/config/profileLoader.js';
 
 describe('configLayer: 别名归一化', () => {
   it('下划线/连字符别名归一为标准 key', () => {
-    const cfg = normalizeConfig({
+    const cfg = ConfigError.normalizeConfig({
       model_adapter: 'openai',
       base_url: 'https://x',
       api_key: 'k',
@@ -32,26 +26,26 @@ describe('configLayer: 别名归一化', () => {
   });
 
   it('未知 key 抛 ConfigError（fail-closed）', () => {
-    assert.throws(() => normalizeConfig({ mysteriousKey: 1 }), ConfigError);
-    assert.throws(() => normalizeConfig({ model_adapterx: 'openai' }), ConfigError);
+    assert.throws(() => ConfigError.normalizeConfig({ mysteriousKey: 1 }), ConfigError);
+    assert.throws(() => ConfigError.normalizeConfig({ model_adapterx: 'openai' }), ConfigError);
   });
 });
 
 describe('configLayer: 严格校验', () => {
   it('枚举越界抛 ConfigError', () => {
-    assert.throws(() => validateConfig({ approval: 'whatever' as never }), ConfigError);
-    assert.throws(() => validateConfig({ sandbox: 'magic' as never }), ConfigError);
+    assert.throws(() => ConfigError.validateConfig({ approval: 'whatever' as never }), ConfigError);
+    assert.throws(() => ConfigError.validateConfig({ sandbox: 'magic' as never }), ConfigError);
   });
 
   it('类型错误抛 ConfigError', () => {
-    assert.throws(() => validateConfig({ maxSteps: -3 } as FileConfig), ConfigError);
-    assert.throws(() => validateConfig({ model: 123 } as never), ConfigError);
-    assert.throws(() => validateConfig({ mcpServers: 'nope' } as never), ConfigError);
+    assert.throws(() => ConfigError.validateConfig({ maxSteps: -3 } as FileConfig), ConfigError);
+    assert.throws(() => ConfigError.validateConfig({ model: 123 } as never), ConfigError);
+    assert.throws(() => ConfigError.validateConfig({ mcpServers: 'nope' } as never), ConfigError);
   });
 
   it('合法枚举/数字通过', () => {
     assert.doesNotThrow(() =>
-      validateConfig({ approval: 'deny', maxSteps: 10, sandbox: 'policy' }),
+      ConfigError.validateConfig({ approval: 'deny', maxSteps: 10, sandbox: 'policy' }),
     );
   });
 });
@@ -69,7 +63,7 @@ describe('configLayer: 环境变量层', () => {
     process.env.OMNIHARNESS_MODEL = 'gpt-4';
     process.env.OMNIHARNESS_APPROVAL = 'deny';
     process.env.OMNIHARNESS_MAX_STEPS = '7';
-    const env = readEnvConfig();
+    const env = ConfigError.readEnvConfig();
     assert.strictEqual(env.model, 'gpt-4');
     assert.strictEqual(env.approval, 'deny');
     assert.strictEqual(env.maxSteps, 7);
@@ -78,13 +72,13 @@ describe('configLayer: 环境变量层', () => {
   it('无关环境变量被忽略', () => {
     process.env.PATH = '/usr/bin';
     process.env.OMNIHARNESS_UNKNOWN = 'x';
-    const env = readEnvConfig();
+    const env = ConfigError.readEnvConfig();
     assert.deepStrictEqual(env, {});
   });
 
   it('环境变量枚举越界仍抛 ConfigError', () => {
     process.env.OMNIHARNESS_SANDBOX = 'bogus';
-    assert.throws(() => readEnvConfig(), ConfigError);
+    assert.throws(() => ConfigError.readEnvConfig(), ConfigError);
   });
 });
 
@@ -92,7 +86,7 @@ describe('configLayer: 多层合并', () => {
   it('靠后层非零值覆盖靠前层，undefined 不覆盖', () => {
     const base: FileConfig = { model: 'a', approval: 'auto' };
     const override: FileConfig = { model: 'b', maxSteps: 3 };
-    const merged = mergeConfigs(base, override);
+    const merged = ConfigError.mergeConfigs(base, override);
     assert.strictEqual(merged.model, 'b');
     assert.strictEqual(merged.approval, 'auto');
     assert.strictEqual(merged.maxSteps, 3);
@@ -101,7 +95,7 @@ describe('configLayer: 多层合并', () => {
   it('mcpServers 数组整体替换不拼接', () => {
     const a: FileConfig = { mcpServers: [{ name: 'x', command: 'c1' }] };
     const b: FileConfig = { mcpServers: [{ name: 'y', command: 'c2' }] };
-    const merged = mergeConfigs(a, b);
+    const merged = ConfigError.mergeConfigs(a, b);
     assert.strictEqual(merged.mcpServers?.length, 1);
     assert.strictEqual(merged.mcpServers?.[0]?.name, 'y');
   });

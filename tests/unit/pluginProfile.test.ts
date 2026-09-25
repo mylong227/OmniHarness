@@ -3,18 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  PluginProfileStore,
-  sanitizeProfileName,
-  applyProfile,
-  type PluginProfile,
-} from '../../src/plugin/pluginProfileStore.js';
+import { PluginProfileStore, type PluginProfile } from '../../src/plugin/pluginProfileStore.js';
 import type { PluginManager } from '../../src/plugin/pluginManager.js';
 import type { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
 
 test('sanitizeProfileName 归一化', () => {
-  assert.strictEqual(sanitizeProfileName('My Profile! @v2'), 'my-profile-v2');
-  assert.strictEqual(sanitizeProfileName(''), 'unnamed');
+  assert.strictEqual(PluginProfileStore.sanitizeProfileName('My Profile! @v2'), 'my-profile-v2');
+  assert.strictEqual(PluginProfileStore.sanitizeProfileName(''), 'unnamed');
 });
 
 test('PluginProfileStore save/list/get/delete + 坏文件跳过', () => {
@@ -53,7 +48,12 @@ test('applyProfile 卸载目标集之外的插件', async () => {
     install: async () => {},
   } as unknown as PluginRegistry;
   const profile: PluginProfile = { name: 'p', plugins: ['a'] };
-  const result = await applyProfile(fakeManager, '/tmp/x', fakeRegistry, profile);
+  const result = await PluginProfileStore.applyProfile(
+    fakeManager,
+    '/tmp/x',
+    fakeRegistry,
+    profile,
+  );
   assert.deepStrictEqual(result.deactivated, ['b']);
   assert.deepStrictEqual(result.missing, []);
   assert.deepStrictEqual(uninstalled, ['b']);
@@ -72,7 +72,7 @@ test('applyProfile 引用无法解析的插件时 fail-closed 抛错', async () 
   } as unknown as PluginRegistry;
   const profile: PluginProfile = { name: 'p', plugins: ['ghost'] };
   await assert.rejects(
-    () => applyProfile(fakeManager, '/tmp/x', fakeRegistry, profile),
+    () => PluginProfileStore.applyProfile(fakeManager, '/tmp/x', fakeRegistry, profile),
     /无法激活/,
   );
 });

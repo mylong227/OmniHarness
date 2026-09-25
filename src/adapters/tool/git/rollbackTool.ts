@@ -8,6 +8,37 @@ import type {
 } from '../../../ports/tool/tool.js';
 import type { ToolHandler } from '../toolHandler.js';
 
+/**
+ * RollbackTool —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class RollbackTool {
+  /**
+   * 构造 `rollback` 工具的处理函数（闭包持有 `manager`）。
+   * @param manager 检查点管理器（调用方创建并传入，保持零配置依赖）
+   * @returns 符合 `ToolHandler` 的处理函数：回滚到指定/最近检查点并返回结果
+   */
+  public static makeRollbackHandler(manager: CheckpointManagerPort): ToolHandler {
+    return async function rollbackHandler(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
+      const raw = call.arguments['label'];
+      const label = typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+      try {
+        const meta = await manager.rollback(ctx.sessionId, label);
+        return {
+          callId: call.id,
+          ok: true,
+          output: `已回滚到检查点 ${meta.label}（${meta.eventCount} 事件）`,
+        };
+      } catch (error) {
+        return {
+          callId: call.id,
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
+  }
+}
+
 /** `rollback` 工具定义：回滚当前会话到指定/最近检查点。 */
 export const rollbackDefinition: ToolDefinition = {
   name: TOOL_NAMES.rollback,
@@ -21,29 +52,3 @@ export const rollbackDefinition: ToolDefinition = {
     },
   },
 };
-
-/**
- * 构造 `rollback` 工具的处理函数（闭包持有 `manager`）。
- * @param manager 检查点管理器（调用方创建并传入，保持零配置依赖）
- * @returns 符合 `ToolHandler` 的处理函数：回滚到指定/最近检查点并返回结果
- */
-export function makeRollbackHandler(manager: CheckpointManagerPort): ToolHandler {
-  return async function rollbackHandler(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
-    const raw = call.arguments['label'];
-    const label = typeof raw === 'string' && raw.length > 0 ? raw : undefined;
-    try {
-      const meta = await manager.rollback(ctx.sessionId, label);
-      return {
-        callId: call.id,
-        ok: true,
-        output: `已回滚到检查点 ${meta.label}（${meta.eventCount} 事件）`,
-      };
-    } catch (error) {
-      return {
-        callId: call.id,
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  };
-}

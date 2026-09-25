@@ -3,16 +3,15 @@ import assert from 'node:assert/strict';
 import {
   NetworkEgressGuard,
   EgressBlockedError,
-  parseAllowList,
 } from '../../src/adapters/sandbox/networkEgressGuard.js';
 
 test('parseAllowList：逗号分隔去空白，空串返回空数组', () => {
-  assert.deepStrictEqual(parseAllowList('example.com, api.example.com'), [
+  assert.deepStrictEqual(NetworkEgressGuard.parseAllowList('example.com, api.example.com'), [
     'example.com',
     'api.example.com',
   ]);
-  assert.deepStrictEqual(parseAllowList(undefined), []);
-  assert.deepStrictEqual(parseAllowList('   '), []);
+  assert.deepStrictEqual(NetworkEgressGuard.parseAllowList(undefined), []);
+  assert.deepStrictEqual(NetworkEgressGuard.parseAllowList('   '), []);
 });
 
 test('NetworkEgressGuard：白名单命中放行（含子域/端口/大小写）', () => {

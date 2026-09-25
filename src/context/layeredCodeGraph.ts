@@ -64,15 +64,15 @@
  * @maturityEvidence tests/unit/layeredCodeGraph.test.ts
  */
 
-import { tokenize } from '../search/bm25Index.js';
-import { NOISE_NAMES, propagate } from './codeGraphIndex.js';
+import { Bm25Index } from '../search/bm25Index.js';
+import { NOISE_NAMES, CodeGraphIndex } from './codeGraphIndex.js';
 import type { CodeGraph, GraphSource } from './codeGraphIndex.js';
 import type { SymbolNode } from './repoMap.js';
 
 /**
  * LayeredCodeGraph — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */
-class LayeredCodeGraph {
+export class LayeredCodeGraph {
   /**
    * 解析层化选项，填充默认值。
    * @param {LayeredGraphOptions | undefined} options - options
@@ -211,7 +211,7 @@ class LayeredCodeGraph {
         .map((i) => syms[i])
         .filter((s): s is SymbolNode => s !== undefined);
       const lines = text.split('\n');
-      const owners = scopeOwners(lines, localSyms, opt.maxScopeSpan);
+      const owners = LayeredCodeGraph.scopeOwners(lines, localSyms, opt.maxScopeSpan);
 
       let collected = 0;
       for (let li = 0; li < lines.length && collected < opt.maxRefsPerFile; li += 1) {
@@ -222,7 +222,7 @@ class LayeredCodeGraph {
         const hostLayer = layers[hostId];
         if (hostLayer === undefined) continue;
 
-        for (const tok of new Set(tokenize(lines[li] ?? ''))) {
+        for (const tok of new Set(Bm25Index.tokenize(lines[li] ?? ''))) {
           if (tok.length < 3 || NOISE_NAMES.has(tok)) continue;
           const ids = nameToIds.get(tok);
           if (ids === undefined) continue;
@@ -272,6 +272,205 @@ class LayeredCodeGraph {
     }
     return { n, adj };
   }
+
+  /**
+   * 计算单行文本的缩进空格数（制表符按 2 空格折算）。
+   *
+   * @param line 单行文本（不含换行符）
+   * @returns 前导空白折算出的缩进宽度
+   */
+  public static indentOf(line: string): number {
+    let n = 0;
+    for (const ch of line) {
+      if (ch === ' ') n += 1;
+      else if (ch === '\t') n += 2;
+      else break;
+    }
+    return n;
+  }
+
+  /**
+   * 从紧凑签名估算形参个数。
+   *
+   * 取第一对圆括号内的内容，只数**顶层**逗号（跳过 `<>[]{}()` 嵌套）。
+   * 这是正则级近似，非 AST：默认参数、解构、泛型尖括号里的逗号可能被误计，
+   * 但对「区分零参/单参/多参」这一用途足够。
+   *
+   * @param signature 紧凑签名文本（如 `public query(q: string, limit: number): Hit[]`）
+   * @returns 形参个数；无参数列表或空参记 0
+   */
+  public static arityOf(signature: string): number {
+    const open = signature.indexOf('(');
+    const close = signature.lastIndexOf(')');
+    if (open < 0 || close <= open + 1) return 0;
+    const inner = signature.slice(open + 1, close).trim();
+    if (inner.length === 0) return 0;
+    let depth = 0;
+    let commas = 0;
+    for (const ch of inner) {
+      if (ch === '<' || ch === '[' || ch === '{' || ch === '(') depth += 1;
+      else if (ch === '>' || ch === ']' || ch === '}' || ch === ')') depth -= 1;
+      else if (ch === ',' && depth === 0) commas += 1;
+    }
+    return commas + 1;
+  }
+
+  /**
+   * 取文件所属模块（一级目录；根目录下的文件记 `'.'`）。
+   *
+   * @param rel 相对仓库根的路径（分隔符统一为 `/`）
+   * @returns 模块标识
+   */
+  public static moduleOf(rel: string): string {
+    const parts = rel.split('/');
+    if (parts.length <= 1) return '.';
+    return parts[0] ?? '.';
+  }
+
+  /**
+   * 批量计算语料中每个符号的层坐标。
+   *
+   * @param symbols 符号节点序列（下标即符号 id）
+   * @returns 与 `symbols` 等长、下标一一对应的层坐标数组
+   */
+  public static nodeLayers(symbols: readonly SymbolNode[]): NodeLayer[] {
+    return symbols.map((s) => ({
+      arity: LayeredCodeGraph.arityOf(s.signature),
+      exported: /^\s*export\b/.test(s.signature),
+      module: LayeredCodeGraph.moduleOf(s.file),
+      indent: LayeredCodeGraph.indentOf(s.signature),
+    }));
+  }
+
+  /**
+   * 为单个文件建立「引用行 → 宿主符号 id」的作用域归属表。
+   *
+   * 归属规则：引用行 L 归属给**上方最近的**、满足
+   * 「定义行 ≤ L 且 缩进 ≤ L 行缩进 且 行距 ≤ maxScopeSpan」的符号。
+   * 找不到宿主的行返回 `-1`（该行引用不建边）。
+   *
+   * 复杂度：O(行数 + 符号数)，两路指针线性扫描。
+   *
+   * @param lines     文件按行切分后的文本
+   * @param localSyms 该文件内的符号，按行号升序
+   * @param maxSpan   宿主与引用行的最大行距
+   * @returns 长度等于 `lines` 的数组，元素为宿主符号 id 或 `-1`
+   */
+  public static scopeOwners(
+    lines: readonly string[],
+    localSyms: readonly SymbolNode[],
+    maxSpan: number,
+  ): number[] {
+    const owners = new Array<number>(lines.length).fill(-1);
+    if (localSyms.length === 0) return owners;
+
+    // 预计算每行的缩进，避免在两路扫描里重复解析。
+    const indents = lines.map(LayeredCodeGraph.indentOf);
+
+    // 候选宿主按行号升序；用栈维持「当前可见的作用域链」。
+    const stack: Array<{ readonly line: number; readonly indent: number; readonly id: number }> =
+      [];
+    let si = 0;
+    for (let i = 0; i < lines.length; i += 1) {
+      const curIndent = indents[i] ?? 0;
+      // 把行号 <= i 的新符号压栈。
+      while (si < localSyms.length && (localSyms[si]?.line ?? 0) - 1 <= i) {
+        const s = localSyms[si];
+        if (s !== undefined) {
+          stack.push({ line: s.line - 1, indent: LayeredCodeGraph.indentOf(s.signature), id: si });
+        }
+        si += 1;
+      }
+      // 弹出缩进 > 当前行的（作用域已闭合）与超出跨度的。
+      while (stack.length > 0) {
+        const top = stack[stack.length - 1];
+        if (top === undefined) break;
+        if (top.indent > curIndent || i - top.line > maxSpan) stack.pop();
+        else break;
+      }
+      const top = stack[stack.length - 1];
+      // 定义行自身不归属给自己（避免自环噪音）。
+      owners[i] = top !== undefined && top.line < i ? top.id : -1;
+    }
+    return owners;
+  }
+
+  /**
+   * 构建**层化**代码图。
+   *
+   * 与 {@link buildCodeGraph} 的差别：
+   * - 边由「作用域归属」而非「文件笛卡尔积」确定 ⇒ 稀疏且带位置语义；
+   * - 边权由层坐标一致性调制（跨模块 / 导出性 / idf）⇒ 罕见且跨模块的引用更强。
+   *
+   * @param corpus  最小语料视图（符号 + 文件文本）
+   * @param options 可选调参
+   * @returns 有向带权邻接表形式的图
+   */
+  public static buildLayeredCodeGraph(
+    corpus: GraphSource,
+    options?: LayeredGraphOptions,
+  ): CodeGraph {
+    const opt = LayeredCodeGraph.resolveOptions(options);
+    const syms = corpus.symbols;
+    const n = syms.length;
+    const byFile = LayeredCodeGraph.indexByFile(syms);
+    const ctx: EdgeBuildContext = {
+      syms,
+      layers: LayeredCodeGraph.nodeLayers(syms),
+      nameToIds: LayeredCodeGraph.indexByName(syms),
+      byFile,
+      df: LayeredCodeGraph.documentFrequency(syms, byFile),
+      opt,
+    };
+    return LayeredCodeGraph.toAdjacency(LayeredCodeGraph.collectEdges(corpus, ctx), n);
+  }
+
+  /**
+   * 在层化图上做带重启随机游走，聚合成**文件级**排序。
+   *
+   * @param symbols 符号节点序列（用于把符号分归到文件）
+   * @param graph   {@link buildLayeredCodeGraph} 产出的图
+   * @param seed    种子分数：符号 id → 原始分（如 BM25 命中分）
+   * @param limit   返回的文件数上限
+   * @param iters   扩散轮数，默认 4
+   * @param damping 阻尼系数，默认 0.85
+   * @returns 按分数降序的文件相对路径列表（已去重）
+   */
+  public static layeredFileRoute(
+    symbols: readonly SymbolNode[],
+    graph: CodeGraph,
+    seed: ReadonlyMap<number, number>,
+    limit: number,
+    iters = 4,
+    damping = 0.85,
+  ): string[] {
+    const scores = CodeGraphIndex.propagate(graph, seed, iters, damping);
+    const byFile = new Map<string, number>();
+    for (let i = 0; i < scores.length; i += 1) {
+      const f = symbols[i]?.file;
+      if (f === undefined) continue;
+      const v = scores[i] ?? 0;
+      if (v <= 0) continue;
+      const cur = byFile.get(f) ?? 0;
+      if (v > cur) byFile.set(f, v);
+    }
+    return [...byFile.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, limit)
+      .map(([f]) => f);
+  }
+
+  /**
+   * 统计图的边数（有向），用于稀疏度对照与回归断言。
+   *
+   * @param graph 待统计的图
+   * @returns 有向边总数
+   */
+  public static edgeCountOf(graph: CodeGraph): number {
+    let n = 0;
+    for (const es of graph.adj) n += es.length;
+    return n;
+  }
 }
 
 /**
@@ -310,127 +509,6 @@ interface ResolvedOptions {
   readonly maxScopeSpan: number;
 }
 
-/**
- * 计算单行文本的缩进空格数（制表符按 2 空格折算）。
- *
- * @param line 单行文本（不含换行符）
- * @returns 前导空白折算出的缩进宽度
- */
-export function indentOf(line: string): number {
-  let n = 0;
-  for (const ch of line) {
-    if (ch === ' ') n += 1;
-    else if (ch === '\t') n += 2;
-    else break;
-  }
-  return n;
-}
-
-/**
- * 从紧凑签名估算形参个数。
- *
- * 取第一对圆括号内的内容，只数**顶层**逗号（跳过 `<>[]{}()` 嵌套）。
- * 这是正则级近似，非 AST：默认参数、解构、泛型尖括号里的逗号可能被误计，
- * 但对「区分零参/单参/多参」这一用途足够。
- *
- * @param signature 紧凑签名文本（如 `public query(q: string, limit: number): Hit[]`）
- * @returns 形参个数；无参数列表或空参记 0
- */
-export function arityOf(signature: string): number {
-  const open = signature.indexOf('(');
-  const close = signature.lastIndexOf(')');
-  if (open < 0 || close <= open + 1) return 0;
-  const inner = signature.slice(open + 1, close).trim();
-  if (inner.length === 0) return 0;
-  let depth = 0;
-  let commas = 0;
-  for (const ch of inner) {
-    if (ch === '<' || ch === '[' || ch === '{' || ch === '(') depth += 1;
-    else if (ch === '>' || ch === ']' || ch === '}' || ch === ')') depth -= 1;
-    else if (ch === ',' && depth === 0) commas += 1;
-  }
-  return commas + 1;
-}
-
-/**
- * 取文件所属模块（一级目录；根目录下的文件记 `'.'`）。
- *
- * @param rel 相对仓库根的路径（分隔符统一为 `/`）
- * @returns 模块标识
- */
-export function moduleOf(rel: string): string {
-  const parts = rel.split('/');
-  if (parts.length <= 1) return '.';
-  return parts[0] ?? '.';
-}
-
-/**
- * 批量计算语料中每个符号的层坐标。
- *
- * @param symbols 符号节点序列（下标即符号 id）
- * @returns 与 `symbols` 等长、下标一一对应的层坐标数组
- */
-export function nodeLayers(symbols: readonly SymbolNode[]): NodeLayer[] {
-  return symbols.map((s) => ({
-    arity: arityOf(s.signature),
-    exported: /^\s*export\b/.test(s.signature),
-    module: moduleOf(s.file),
-    indent: indentOf(s.signature),
-  }));
-}
-
-/**
- * 为单个文件建立「引用行 → 宿主符号 id」的作用域归属表。
- *
- * 归属规则：引用行 L 归属给**上方最近的**、满足
- * 「定义行 ≤ L 且 缩进 ≤ L 行缩进 且 行距 ≤ maxScopeSpan」的符号。
- * 找不到宿主的行返回 `-1`（该行引用不建边）。
- *
- * 复杂度：O(行数 + 符号数)，两路指针线性扫描。
- *
- * @param lines     文件按行切分后的文本
- * @param localSyms 该文件内的符号，按行号升序
- * @param maxSpan   宿主与引用行的最大行距
- * @returns 长度等于 `lines` 的数组，元素为宿主符号 id 或 `-1`
- */
-export function scopeOwners(
-  lines: readonly string[],
-  localSyms: readonly SymbolNode[],
-  maxSpan: number,
-): number[] {
-  const owners = new Array<number>(lines.length).fill(-1);
-  if (localSyms.length === 0) return owners;
-
-  // 预计算每行的缩进，避免在两路扫描里重复解析。
-  const indents = lines.map(indentOf);
-
-  // 候选宿主按行号升序；用栈维持「当前可见的作用域链」。
-  const stack: Array<{ readonly line: number; readonly indent: number; readonly id: number }> = [];
-  let si = 0;
-  for (let i = 0; i < lines.length; i += 1) {
-    const curIndent = indents[i] ?? 0;
-    // 把行号 <= i 的新符号压栈。
-    while (si < localSyms.length && (localSyms[si]?.line ?? 0) - 1 <= i) {
-      const s = localSyms[si];
-      if (s !== undefined) {
-        stack.push({ line: s.line - 1, indent: indentOf(s.signature), id: si });
-      }
-      si += 1;
-    }
-    // 弹出缩进 > 当前行的（作用域已闭合）与超出跨度的。
-    while (stack.length > 0) {
-      const top = stack[stack.length - 1];
-      if (top === undefined) break;
-      if (top.indent > curIndent || i - top.line > maxSpan) stack.pop();
-      else break;
-    }
-    const top = stack[stack.length - 1];
-    // 定义行自身不归属给自己（避免自环噪音）。
-    owners[i] = top !== undefined && top.line < i ? top.id : -1;
-  }
-  return owners;
-}
-
 /** 建边所需的预计算索引（避免在多重循环里重复传递散参数）。 */
 interface EdgeBuildContext {
   /** 符号节点序列（下标即符号 id）。 */
@@ -445,81 +523,4 @@ interface EdgeBuildContext {
   readonly df: ReadonlyMap<string, number>;
   /** 已填充默认值的选项。 */
   readonly opt: ResolvedOptions;
-}
-
-/**
- * 构建**层化**代码图。
- *
- * 与 {@link buildCodeGraph} 的差别：
- * - 边由「作用域归属」而非「文件笛卡尔积」确定 ⇒ 稀疏且带位置语义；
- * - 边权由层坐标一致性调制（跨模块 / 导出性 / idf）⇒ 罕见且跨模块的引用更强。
- *
- * @param corpus  最小语料视图（符号 + 文件文本）
- * @param options 可选调参
- * @returns 有向带权邻接表形式的图
- */
-export function buildLayeredCodeGraph(
-  corpus: GraphSource,
-  options?: LayeredGraphOptions,
-): CodeGraph {
-  const opt = LayeredCodeGraph.resolveOptions(options);
-  const syms = corpus.symbols;
-  const n = syms.length;
-  const byFile = LayeredCodeGraph.indexByFile(syms);
-  const ctx: EdgeBuildContext = {
-    syms,
-    layers: nodeLayers(syms),
-    nameToIds: LayeredCodeGraph.indexByName(syms),
-    byFile,
-    df: LayeredCodeGraph.documentFrequency(syms, byFile),
-    opt,
-  };
-  return LayeredCodeGraph.toAdjacency(LayeredCodeGraph.collectEdges(corpus, ctx), n);
-}
-
-/**
- * 在层化图上做带重启随机游走，聚合成**文件级**排序。
- *
- * @param symbols 符号节点序列（用于把符号分归到文件）
- * @param graph   {@link buildLayeredCodeGraph} 产出的图
- * @param seed    种子分数：符号 id → 原始分（如 BM25 命中分）
- * @param limit   返回的文件数上限
- * @param iters   扩散轮数，默认 4
- * @param damping 阻尼系数，默认 0.85
- * @returns 按分数降序的文件相对路径列表（已去重）
- */
-export function layeredFileRoute(
-  symbols: readonly SymbolNode[],
-  graph: CodeGraph,
-  seed: ReadonlyMap<number, number>,
-  limit: number,
-  iters = 4,
-  damping = 0.85,
-): string[] {
-  const scores = propagate(graph, seed, iters, damping);
-  const byFile = new Map<string, number>();
-  for (let i = 0; i < scores.length; i += 1) {
-    const f = symbols[i]?.file;
-    if (f === undefined) continue;
-    const v = scores[i] ?? 0;
-    if (v <= 0) continue;
-    const cur = byFile.get(f) ?? 0;
-    if (v > cur) byFile.set(f, v);
-  }
-  return [...byFile.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([f]) => f);
-}
-
-/**
- * 统计图的边数（有向），用于稀疏度对照与回归断言。
- *
- * @param graph 待统计的图
- * @returns 有向边总数
- */
-export function edgeCountOf(graph: CodeGraph): number {
-  let n = 0;
-  for (const es of graph.adj) n += es.length;
-  return n;
 }

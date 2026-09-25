@@ -6,7 +6,7 @@ import type {
 } from '../../../ports/tool/tool.js';
 import type { LspPort } from '../../../ports/tool/lsp.js';
 import { LSP_HOVER_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
-import { parseTarget } from './lspToolsShared.js';
+import { LspToolsShared } from './lspToolsShared.js';
 
 /**
  * @beta
@@ -41,7 +41,7 @@ export class LspHoverTool {
    * @returns 命中时返回文档文本；无文档返回提示；LSP 异常返回 ok:false。
    */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
-    const target = parseTarget(call);
+    const target = LspToolsShared.parseTarget(call);
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
     }

@@ -1,7 +1,7 @@
 import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkflowCycleError } from './workflowCycleError.js';
-import { WorkflowSpecError, requireWorkflowConcurrency } from './workflowSpecError.js';
-import type { SubagentPorts } from '../subagent/subagentPorts.js';
+import { WorkflowSpecError } from './workflowSpecError.js';
+import type { SubagentPortsShape } from '../subagent/subagentPorts.js';
 import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
 import { Agent } from '../core/agent.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
@@ -79,12 +79,12 @@ export class WorkflowRunner {
   private readonly maxConcurrency: number;
 
   public constructor(
-    private readonly ports: SubagentPorts,
+    private readonly ports: SubagentPortsShape,
     private readonly options: WorkflowRunnerOptions = {},
   ) {
     // 非法并发上限 fail-closed：非法值会让闸门永不放行（调用方永久挂起），
     // 故在构造期就拒绝并给出可执行信息，而不是留给 run() 挂死。
-    this.maxConcurrency = requireWorkflowConcurrency(
+    this.maxConcurrency = WorkflowSpecError.requireWorkflowConcurrency(
       options.maxConcurrency,
       DEFAULT_WORKFLOW_CONCURRENCY,
     );
@@ -97,12 +97,15 @@ export class WorkflowRunner {
    */
   public async run(def: WorkflowDef): Promise<WorkflowResult> {
     const byId = new Map(def.steps.map((step) => [step.id, step]));
-    const levels = computeLevels(def.steps);
+    const levels = WorkflowRunner.computeLevels(def.steps);
     const blackboard: Record<string, string> = {};
     const results: WorkflowStepResult[] = [];
     const skipped = new Set<string>();
     // spec 中的 maxConcurrency 优先于构造期默认值（非法值同样 fail-closed 拒绝）。
-    const maxConcurrency = requireWorkflowConcurrency(def.maxConcurrency, this.maxConcurrency);
+    const maxConcurrency = WorkflowSpecError.requireWorkflowConcurrency(
+      def.maxConcurrency,
+      this.maxConcurrency,
+    );
 
     for (const level of levels) {
       // 父会话已取消：本层及其后所有步骤不再启动（不继续烧 token / 不留孤儿步骤）。
@@ -268,52 +271,55 @@ export class WorkflowRunner {
     );
     return new ToolSubset(this.ports.tools, allowed);
   }
-}
 
-/**
- * @beta
- * 拓扑分层（Kahn 算法）：返回按依赖顺序排列的层级（同层步骤互不依赖，可并发）。
- * 存在环时抛 {@link WorkflowCycleError}（fail-closed，不偷偷按错误顺序跑）。
- */
-export function computeLevels(steps: readonly WorkflowStep[]): readonly (readonly string[])[] {
-  const byId = new Map(steps.map((step) => [step.id, step]));
-  if (new Set(steps.map((step) => step.id)).size !== steps.length) {
-    throw new WorkflowCycleError();
-  }
-  const indegree = new Map<string, number>();
-  const dependents = new Map<string, string[]>();
-  for (const step of steps) {
-    indegree.set(step.id, step.dependsOn?.length ?? 0);
-    for (const dep of step.dependsOn ?? []) {
-      if (!byId.has(dep)) {
-        throw new WorkflowCycleError();
-      }
-      dependents.set(dep, [...(dependents.get(dep) ?? []), step.id]);
+  /**
+   * @beta
+   * 拓扑分层（Kahn 算法）：返回按依赖顺序排列的层级（同层步骤互不依赖，可并发）。
+   * 存在环时抛 {@link WorkflowCycleError}（fail-closed，不偷偷按错误顺序跑）。
+   */
+  public static computeLevels(steps: readonly WorkflowStep[]): readonly (readonly string[])[] {
+    const byId = new Map(steps.map((step) => [step.id, step]));
+    if (new Set(steps.map((step) => step.id)).size !== steps.length) {
+      throw new WorkflowCycleError();
     }
-  }
-  const levels: string[][] = [];
-  let current = steps.filter((step) => (step.dependsOn?.length ?? 0) === 0).map((step) => step.id);
-  // 种子层（无依赖的起点）同样计入已访问，否则会漏算导致误判成环。
-  const visited = new Set<string>(current);
-  while (current.length > 0) {
-    levels.push(current);
-    const next: string[] = [];
-    for (const id of current) {
-      for (const dependent of dependents.get(id) ?? []) {
-        const remaining = (indegree.get(dependent) ?? 0) - 1;
-        indegree.set(dependent, remaining);
-        if (remaining === 0 && !visited.has(dependent)) {
-          visited.add(dependent);
-          next.push(dependent);
+    const indegree = new Map<string, number>();
+    const dependents = new Map<string, string[]>();
+    for (const step of steps) {
+      indegree.set(step.id, step.dependsOn?.length ?? 0);
+      for (const dep of step.dependsOn ?? []) {
+        if (!byId.has(dep)) {
+          throw new WorkflowCycleError();
+        }
+        dependents.set(dep, [...(dependents.get(dep) ?? []), step.id]);
+      }
+    }
+    const levels: string[][] = [];
+    let current = steps
+      .filter((step) => (step.dependsOn?.length ?? 0) === 0)
+      .map((step) => step.id);
+    // 种子层（无依赖的起点）同样计入已访问，否则会漏算导致误判成环。
+    const visited = new Set<string>(current);
+    while (current.length > 0) {
+      levels.push(current);
+      const next: string[] = [];
+      for (const id of current) {
+        for (const dependent of dependents.get(id) ?? []) {
+          const remaining = (indegree.get(dependent) ?? 0) - 1;
+          indegree.set(dependent, remaining);
+          if (remaining === 0 && !visited.has(dependent)) {
+            visited.add(dependent);
+            next.push(dependent);
+          }
         }
       }
+      current = next;
     }
-    current = next;
+    if (visited.size !== steps.length) {
+      throw new WorkflowCycleError();
+    }
+    return levels;
   }
-  if (visited.size !== steps.length) {
-    throw new WorkflowCycleError();
-  }
-  return levels;
 }
+
 export { WorkflowCycleError };
 export { WorkflowSpecError };

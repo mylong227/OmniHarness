@@ -1,4 +1,4 @@
-import { at } from './arrayAt.js';
+import { ArrayAt } from './arrayAt.js';
 
 /**
  * @beta
@@ -30,7 +30,7 @@ export class ConcurrencyLimiter {
    * @param limit 并发上限（≥1 的有限数；非法即抛 RangeError，不构造会挂死的闸门）。
    */
   public constructor(limit: number) {
-    this.limit = requireConcurrencyLimit(limit, 'limit');
+    this.limit = ConcurrencyLimiter.requireConcurrencyLimit(limit, 'limit');
   }
 
   /** 当前活跃任务数（观测用）。
@@ -65,7 +65,7 @@ export class ConcurrencyLimiter {
    */
   public release(): void {
     if (this.head < this.waiters.length) {
-      const next = at(this.waiters, this.head);
+      const next = ArrayAt.at(this.waiters, this.head);
       this.head += 1;
       // 队列已清空即重置；否则消费过半时压缩一次（摊还 O(1)，避免数组无界增长）。
       if (this.head >= this.waiters.length) {
@@ -93,25 +93,25 @@ export class ConcurrencyLimiter {
       this.release();
     }
   }
-}
 
-/**
- * 校验并发上限：有限、≥1 的整数（`Math.floor` 归一化）。
- *
- * 为什么必须在这里 fail-closed：非法上限不会「跑得慢」，而是让闸门**永不放行**——
- * `active < limit` 恒假、`release()` 又永不被调用，调用方永久挂起且无任何日志。
- * 拒绝（带可执行信息）远优于静默挂死。
- *
- * @param value 待校验的并发上限（运行时可能来自配置/CLI/模型实参，故按 unknown 收）
- * @param label 出错信息中指代该值的名称（如配置项名、工具参数名）
- * @returns 归一化后的并发上限（≥1 的整数）
- * @throws RangeError 非有限数、非数字或 < 1 时抛出（fail-closed）
- */
-export function requireConcurrencyLimit(value: unknown, label = 'concurrency'): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) {
-    throw new RangeError(
-      `并发上限非法（${label}=${String(value)}）：需为 ≥1 的整数（例如 ${label}=4）`,
-    );
+  /**
+   * 校验并发上限：有限、≥1 的整数（`Math.floor` 归一化）。
+   *
+   * 为什么必须在这里 fail-closed：非法上限不会「跑得慢」，而是让闸门**永不放行**——
+   * `active < limit` 恒假、`release()` 又永不被调用，调用方永久挂起且无任何日志。
+   * 拒绝（带可执行信息）远优于静默挂死。
+   *
+   * @param value 待校验的并发上限（运行时可能来自配置/CLI/模型实参，故按 unknown 收）
+   * @param label 出错信息中指代该值的名称（如配置项名、工具参数名）
+   * @returns 归一化后的并发上限（≥1 的整数）
+   * @throws RangeError 非有限数、非数字或 < 1 时抛出（fail-closed）
+   */
+  public static requireConcurrencyLimit(value: unknown, label = 'concurrency'): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) {
+      throw new RangeError(
+        `并发上限非法（${label}=${String(value)}）：需为 ≥1 的整数（例如 ${label}=4）`,
+      );
+    }
+    return Math.floor(value);
   }
-  return Math.floor(value);
 }

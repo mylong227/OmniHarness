@@ -33,7 +33,7 @@ import type { LspPort } from '../ports/tool/lsp.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
 import { LspProcessAdapter } from '../adapters/lsp/lspProcessAdapter.js';
-import { fileToUri } from '../adapters/lsp/lspUri.js';
+import { LspUri } from '../adapters/lsp/lspUri.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
@@ -194,7 +194,7 @@ export class ConfigBuilder {
     return new LspProcessAdapter({
       serverCommand: partial.lspServer.serverCommand,
       serverArgs: partial.lspServer.serverArgs,
-      rootUri: partial.lspServer.rootUri ?? fileToUri(partial.workspaceRoot),
+      rootUri: partial.lspServer.rootUri ?? LspUri.fileToUri(partial.workspaceRoot),
     });
   }
 
@@ -267,79 +267,79 @@ export class ConfigBuilder {
       maxFiles: partial.spillMaxFiles ?? DEFAULT_SPILL_MAX_FILES,
     });
   }
+
+  /** 装配审批端口（门面：委托默认装配器实例）。 */
+  public static buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
+    return configBuilder.buildApprovals(partial, sandbox);
+  }
+
+  /** 装配工具钩子（门面：委托默认装配器实例）。 */
+  public static buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
+    return configBuilder.buildHooks(tracker, workspaceRoot);
+  }
+
+  /** 装配模型端口（门面：委托默认装配器实例）。 */
+  public static buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
+    return configBuilder.buildModel(partial, budget);
+  }
+
+  /** 装配模型路由（门面：委托默认装配器实例）。 */
+  public static buildRouter(cfg: ModelRouterConfig): ModelPort {
+    return configBuilder.buildRouter(cfg);
+  }
+
+  /** 按 adapter 类型名构造底层模型适配器（门面：委托默认装配器实例）。 */
+  public static buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
+    return configBuilder.buildRouterAdapter(entry);
+  }
+
+  /** 装配 LSP 端口（门面：委托默认装配器实例）。 */
+  public static buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
+    return configBuilder.buildLsp(partial);
+  }
+
+  /** 装配 Agent 密码学身份端口（门面：委托默认装配器实例）。 */
+  public static buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
+    return configBuilder.buildIdentity(partial);
+  }
+
+  /** 自动选择用户回答器（门面：委托默认装配器实例）。 */
+  public static autoUserResponder(): UserResponder {
+    return configBuilder.autoUserResponder();
+  }
+
+  /** 构造子智能体端口种子（门面：委托默认装配器实例）。 */
+  public static seedOf(
+    partial: OmniHarnessConfig,
+    approvals: ApprovalPort,
+    sandbox: SandboxPort,
+    events: EventPort,
+    spill: SpillPort,
+    spiller: ToolResultSpiller,
+    escalation: EscalationPort,
+    elevatedSandbox: SandboxPort,
+    longTermMemory: LongTermMemoryPort,
+    costBudget: CostBudget | undefined,
+  ): SubagentPortSeed {
+    return configBuilder.seedOf(
+      partial,
+      approvals,
+      sandbox,
+      events,
+      spill,
+      spiller,
+      escalation,
+      elevatedSandbox,
+      longTermMemory,
+      costBudget,
+    );
+  }
+
+  /** 构建外溢端口（门面：委托默认装配器实例）。 */
+  public static buildSpill(partial: OmniHarnessConfig): SpillPort {
+    return configBuilder.buildSpill(partial);
+  }
 }
 
 // ---- 门面兼容：保留原函数名（同名函数），调用点零改动 ----
 const configBuilder = new ConfigBuilder();
-
-/** 装配审批端口（门面：委托默认装配器实例）。 */
-export function buildApprovals(partial: OmniHarnessConfig, sandbox: SandboxPort): ApprovalPort {
-  return configBuilder.buildApprovals(partial, sandbox);
-}
-
-/** 装配工具钩子（门面：委托默认装配器实例）。 */
-export function buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
-  return configBuilder.buildHooks(tracker, workspaceRoot);
-}
-
-/** 装配模型端口（门面：委托默认装配器实例）。 */
-export function buildModel(partial: OmniHarnessConfig, budget: CostBudget | undefined): ModelPort {
-  return configBuilder.buildModel(partial, budget);
-}
-
-/** 装配模型路由（门面：委托默认装配器实例）。 */
-export function buildRouter(cfg: ModelRouterConfig): ModelPort {
-  return configBuilder.buildRouter(cfg);
-}
-
-/** 按 adapter 类型名构造底层模型适配器（门面：委托默认装配器实例）。 */
-export function buildRouterAdapter(entry: ModelRouterConfig['entries'][number]): ModelPort {
-  return configBuilder.buildRouterAdapter(entry);
-}
-
-/** 装配 LSP 端口（门面：委托默认装配器实例）。 */
-export function buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
-  return configBuilder.buildLsp(partial);
-}
-
-/** 装配 Agent 密码学身份端口（门面：委托默认装配器实例）。 */
-export function buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
-  return configBuilder.buildIdentity(partial);
-}
-
-/** 自动选择用户回答器（门面：委托默认装配器实例）。 */
-export function autoUserResponder(): UserResponder {
-  return configBuilder.autoUserResponder();
-}
-
-/** 构造子智能体端口种子（门面：委托默认装配器实例）。 */
-export function seedOf(
-  partial: OmniHarnessConfig,
-  approvals: ApprovalPort,
-  sandbox: SandboxPort,
-  events: EventPort,
-  spill: SpillPort,
-  spiller: ToolResultSpiller,
-  escalation: EscalationPort,
-  elevatedSandbox: SandboxPort,
-  longTermMemory: LongTermMemoryPort,
-  costBudget: CostBudget | undefined,
-): SubagentPortSeed {
-  return configBuilder.seedOf(
-    partial,
-    approvals,
-    sandbox,
-    events,
-    spill,
-    spiller,
-    escalation,
-    elevatedSandbox,
-    longTermMemory,
-    costBudget,
-  );
-}
-
-/** 构建外溢端口（门面：委托默认装配器实例）。 */
-export function buildSpill(partial: OmniHarnessConfig): SpillPort {
-  return configBuilder.buildSpill(partial);
-}

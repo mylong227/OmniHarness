@@ -4,7 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 /**
  * ProjectInstructions — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */
-class ProjectInstructions {
+export class ProjectInstructions {
   /**
    * 默认读取器：失败抛错，由调用方 fail-closed 跳过。
    * @param {string} path - path
@@ -255,6 +255,83 @@ class ProjectInstructions {
       truncated: outcome.truncated,
     };
   }
+
+  /** 清空常驻指令缓存（测试或工作区切换时使用）。 */
+  public static clearProjectInstructionsCache(): void {
+    instructionsCache.clear();
+  }
+
+  /**
+   * 带进程级 TTL 缓存的加载入口。
+   * 键由 workspaceRoot / cwd / home / includeLlmsTxt 组成；过期后重新读盘。
+   * 无可用指令时返回 `null`（与 {@link loadProjectInstructions} 语义一致）。
+   */
+  public static async loadProjectInstructionsCached(
+    options: ProjectInstructionsOptions,
+    ttlMs: number = DEFAULT_INSTRUCTIONS_TTL_MS,
+  ): Promise<ProjectInstructionsResult | null> {
+    const workspaceRoot = resolve(options.workspaceRoot);
+    const cwd = resolve(options.cwd ?? process.cwd());
+    const home = ProjectInstructions.homeOf(options.home) ?? '';
+    const includeLlmsTxt = options.includeLlmsTxt !== false;
+    const key = `${workspaceRoot}|${cwd}|${home}|${includeLlmsTxt}`;
+    const now = Date.now();
+    const hit = instructionsCache.get(key);
+    if (hit !== undefined && hit.expiresAt > now) {
+      return hit.result;
+    }
+    const result = await ProjectInstructions.loadProjectInstructions(options);
+    ProjectInstructions.evictIfNeeded(now);
+    instructionsCache.set(key, { result, expiresAt: now + ttlMs });
+    return result;
+  }
+
+  /**
+   * 加载仓库常驻指令（AGENTS.md / CLAUDE.md / llms.txt），按业界约定分层合并。
+   *
+   * 层级（优先级从低到高）：
+   * 1. 用户级：`~/.omniharness/`、`~/.claude/` 下的同名文件；
+   * 2. 项目级：工作区根目录下的 `AGENTS.md`（存在 `AGENTS.override.md` 时整体取代）、`CLAUDE.md`、`CLAUDE.local.md`；
+   * 3. 子目录级：从工作区根到 `cwd` 的每一级同名文件（越靠近 cwd 越优先）。
+   *
+   * `llms.txt` 作为独立段落附在末尾（文档可发现性约定），不参与层级覆盖。
+   * 任何单文件读取失败都静默跳过，绝不因指令文件问题阻断主流程。
+   *
+   * @param options 加载选项（工作区根、cwd、home、容量上限、读取器）
+   * @returns 无可用指令时返回 `null`（调用方应跳过注入，而非注入空串）
+   */
+  public static async loadProjectInstructions(
+    options: ProjectInstructionsOptions,
+  ): Promise<ProjectInstructionsResult | null> {
+    const workspaceRoot = resolve(options.workspaceRoot);
+    const cwd = resolve(options.cwd ?? process.cwd());
+    const home = ProjectInstructions.homeOf(options.home);
+    const ctx: MergeContext = {
+      workspaceRoot,
+      read: options.read ?? ProjectInstructions.defaultReader,
+      maxBytes: options.maxBytes ?? DEFAULT_INSTRUCTIONS_MAX_BYTES,
+    };
+
+    const overrideExists = await ProjectInstructions.hasAgentsOverride(workspaceRoot, ctx.read);
+    const candidates = [
+      ...ProjectInstructions.userLevelCandidates(home),
+      ...ProjectInstructions.projectLevelCandidates(workspaceRoot, overrideExists),
+      ...ProjectInstructions.subdirLevelCandidates(workspaceRoot, cwd),
+    ];
+
+    let outcome = await ProjectInstructions.mergeCandidates(candidates, ctx);
+    if (options.includeLlmsTxt !== false) {
+      outcome = await ProjectInstructions.appendLlmsTxt(outcome, ctx);
+    }
+    if (outcome.sections.length === 0) {
+      return null;
+    }
+    return {
+      content: outcome.sections.join('\n\n'),
+      sources: outcome.sources,
+      truncated: outcome.truncated,
+    };
+  }
 }
 
 /**
@@ -327,36 +404,6 @@ export const DEFAULT_INSTRUCTIONS_TTL_MS = 30_000;
  */
 export const MAX_INSTRUCTIONS_CACHE_KEYS = 16;
 
-/** 清空常驻指令缓存（测试或工作区切换时使用）。 */
-export function clearProjectInstructionsCache(): void {
-  instructionsCache.clear();
-}
-
-/**
- * 带进程级 TTL 缓存的加载入口。
- * 键由 workspaceRoot / cwd / home / includeLlmsTxt 组成；过期后重新读盘。
- * 无可用指令时返回 `null`（与 {@link loadProjectInstructions} 语义一致）。
- */
-export async function loadProjectInstructionsCached(
-  options: ProjectInstructionsOptions,
-  ttlMs: number = DEFAULT_INSTRUCTIONS_TTL_MS,
-): Promise<ProjectInstructionsResult | null> {
-  const workspaceRoot = resolve(options.workspaceRoot);
-  const cwd = resolve(options.cwd ?? process.cwd());
-  const home = ProjectInstructions.homeOf(options.home) ?? '';
-  const includeLlmsTxt = options.includeLlmsTxt !== false;
-  const key = `${workspaceRoot}|${cwd}|${home}|${includeLlmsTxt}`;
-  const now = Date.now();
-  const hit = instructionsCache.get(key);
-  if (hit !== undefined && hit.expiresAt > now) {
-    return hit.result;
-  }
-  const result = await loadProjectInstructions(options);
-  ProjectInstructions.evictIfNeeded(now);
-  instructionsCache.set(key, { result, expiresAt: now + ttlMs });
-  return result;
-}
-
 /**
  * 加载仓库常驻指令（AGENTS.md / CLAUDE.md / llms.txt），按业界约定分层合并。
  *
@@ -390,51 +437,4 @@ interface MergeOutcome {
   readonly usedBytes: number;
   /** 是否因超出上限被截断。 */
   readonly truncated: boolean;
-}
-
-/**
- * 加载仓库常驻指令（AGENTS.md / CLAUDE.md / llms.txt），按业界约定分层合并。
- *
- * 层级（优先级从低到高）：
- * 1. 用户级：`~/.omniharness/`、`~/.claude/` 下的同名文件；
- * 2. 项目级：工作区根目录下的 `AGENTS.md`（存在 `AGENTS.override.md` 时整体取代）、`CLAUDE.md`、`CLAUDE.local.md`；
- * 3. 子目录级：从工作区根到 `cwd` 的每一级同名文件（越靠近 cwd 越优先）。
- *
- * `llms.txt` 作为独立段落附在末尾（文档可发现性约定），不参与层级覆盖。
- * 任何单文件读取失败都静默跳过，绝不因指令文件问题阻断主流程。
- *
- * @param options 加载选项（工作区根、cwd、home、容量上限、读取器）
- * @returns 无可用指令时返回 `null`（调用方应跳过注入，而非注入空串）
- */
-export async function loadProjectInstructions(
-  options: ProjectInstructionsOptions,
-): Promise<ProjectInstructionsResult | null> {
-  const workspaceRoot = resolve(options.workspaceRoot);
-  const cwd = resolve(options.cwd ?? process.cwd());
-  const home = ProjectInstructions.homeOf(options.home);
-  const ctx: MergeContext = {
-    workspaceRoot,
-    read: options.read ?? ProjectInstructions.defaultReader,
-    maxBytes: options.maxBytes ?? DEFAULT_INSTRUCTIONS_MAX_BYTES,
-  };
-
-  const overrideExists = await ProjectInstructions.hasAgentsOverride(workspaceRoot, ctx.read);
-  const candidates = [
-    ...ProjectInstructions.userLevelCandidates(home),
-    ...ProjectInstructions.projectLevelCandidates(workspaceRoot, overrideExists),
-    ...ProjectInstructions.subdirLevelCandidates(workspaceRoot, cwd),
-  ];
-
-  let outcome = await ProjectInstructions.mergeCandidates(candidates, ctx);
-  if (options.includeLlmsTxt !== false) {
-    outcome = await ProjectInstructions.appendLlmsTxt(outcome, ctx);
-  }
-  if (outcome.sections.length === 0) {
-    return null;
-  }
-  return {
-    content: outcome.sections.join('\n\n'),
-    sources: outcome.sources,
-    truncated: outcome.truncated,
-  };
 }

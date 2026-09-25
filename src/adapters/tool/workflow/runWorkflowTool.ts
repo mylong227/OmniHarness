@@ -4,7 +4,7 @@ import type {
   ToolDefinition,
   ToolResult,
 } from '../../../ports/tool/tool.js';
-import type { SubagentPorts } from '../../../subagent/subagentPorts.js';
+import type { SubagentPortsShape } from '../../../subagent/subagentPorts.js';
 import {
   WorkflowRunner,
   DEFAULT_WORKFLOW_CONCURRENCY,
@@ -37,7 +37,7 @@ export class RunWorkflowTool {
   /**
    * @param ports 子智能体端口束（工作流各步骤以受限会话运行所需依赖）。
    */
-  public constructor(private readonly ports: SubagentPorts) {}
+  public constructor(private readonly ports: SubagentPortsShape) {}
 
   /** 校验并运行工作流。
    * @param call 工具调用（实参含 spec 工作流定义）。

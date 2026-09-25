@@ -193,7 +193,9 @@ export class NativeExecutor implements ExecutorPort {
       const applied = this.applyPatches(worktree, modelPatch, task.testPatch);
       if (!applied.ok) {
         const reason = applied.reason ?? '补丁应用失败';
-        return applied.envFailure === true ? this.failEnv(task.id, reason) : this.fail(task.id, reason);
+        return applied.envFailure === true
+          ? this.failEnv(task.id, reason)
+          : this.fail(task.id, reason);
       }
       const ids = [...task.failToPass, ...task.passToPass];
       // 测试文件取自官方 test_patch 的头（见 testFilesOf）：官方 harness 是「跑 test_patch 改动的

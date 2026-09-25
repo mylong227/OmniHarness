@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { safeReadFile } from '../../src/server/services/safeFs.js';
+import { SafeFs } from '../../src/server/services/safeFs.js';
 
 const WS = await mkdtemp(join(tmpdir(), 'omni-safefs-'));
 
 test('① 读工作区内文件', async () => {
   await writeFile(join(WS, 'a.txt'), 'hello');
-  const r = safeReadFile(WS, 'a.txt');
+  const r = SafeFs.safeReadFile(WS, 'a.txt');
   assert.strictEqual(r.ok, true);
   if (r.ok) {
     assert.strictEqual(r.size, 5);
@@ -19,7 +19,7 @@ test('① 读工作区内文件', async () => {
 });
 
 test('② 越界相对路径：../etc/passwd', () => {
-  const r = safeReadFile(WS, '../etc/passwd');
+  const r = SafeFs.safeReadFile(WS, '../etc/passwd');
   assert.strictEqual(r.ok, false);
   if (!r.ok) assert.strictEqual(r.error, '路径越界工作区');
 });
@@ -28,26 +28,26 @@ test('③ 越界绝对路径', () => {
   // 平台中性：win32 用盘符绝对路径，POSIX 用 /etc 下的绝对路径——两者都不落工作区内
   //（POSIX 上 'D:/Windows/system.ini' 会被解析成**相对**路径，越界断言落空——CI 首跑实证）。
   const outside = process.platform === 'win32' ? 'D:/Windows/system.ini' : '/etc/hostname';
-  const r = safeReadFile(WS, outside);
+  const r = SafeFs.safeReadFile(WS, outside);
   assert.strictEqual(r.ok, false);
   if (!r.ok) assert.strictEqual(r.error, '路径越界工作区');
 });
 
 test('④ 不存在的文件：返回错误而非抛错', () => {
-  const r = safeReadFile(WS, 'nope.txt');
+  const r = SafeFs.safeReadFile(WS, 'nope.txt');
   assert.strictEqual(r.ok, false);
   if (!r.ok) assert.match(r.error, /读取失败/);
 });
 
 test('⑤ 空工作区根 / 空路径：拒绝', () => {
-  assert.strictEqual(safeReadFile('', 'a.txt').ok, false);
-  assert.strictEqual(safeReadFile(WS, '').ok, false);
+  assert.strictEqual(SafeFs.safeReadFile('', 'a.txt').ok, false);
+  assert.strictEqual(SafeFs.safeReadFile(WS, '').ok, false);
 });
 
 test('⑥ 子目录读取', async () => {
   await mkdir(join(WS, 'sub'));
   await writeFile(join(WS, 'sub/x.md'), '# hi');
-  const r = safeReadFile(WS, 'sub/x.md');
+  const r = SafeFs.safeReadFile(WS, 'sub/x.md');
   assert.strictEqual(r.ok, true);
   if (r.ok) assert.strictEqual(r.buffer.toString('utf8'), '# hi');
 });
@@ -63,7 +63,7 @@ test('⑦ 符号链接 / junction 逃逸被拦截（词法在内、真实在外�
     linked = false; // 无权限建链的环境（如受限沙箱）——不误报为失败
   }
   if (linked) {
-    const r = safeReadFile(WS, 'junc/secret.txt');
+    const r = SafeFs.safeReadFile(WS, 'junc/secret.txt');
     assert.strictEqual(r.ok, false, '经链接逃逸到工作区外必须被拒');
     if (!r.ok) assert.strictEqual(r.error, '路径越界工作区');
   }

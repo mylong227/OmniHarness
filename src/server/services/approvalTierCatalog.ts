@@ -1,4 +1,4 @@
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 /**
  * 审批档位目录：审批等级的唯一事实源（后端定语义，UI 只做展示）。
  *
@@ -87,7 +87,7 @@ export class ApprovalTierCatalog {
    * @returns 匹配档位；未知值回退「默认」档（fail-soft：UI 不至于因一个脏配置整个权限区空白）
    */
   public of(value: string | undefined): ApprovalTier {
-    return this.tiers.find((tier) => tier.value === value) ?? at(this.tiers, 0);
+    return this.tiers.find((tier) => tier.value === value) ?? ArrayAt.at(this.tiers, 0);
   }
 
   /**

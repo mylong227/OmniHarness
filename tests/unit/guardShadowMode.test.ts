@@ -8,10 +8,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import type { ExtraTool } from '../../src/config/configFactory.js';
-import { parseArgs } from '../../src/cli/argParser.js';
+import { ArgParser } from '../../src/cli/argParser.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
@@ -120,7 +120,7 @@ async function runOnce(guard: boolean | EnforcementMode | undefined): Promise<st
   const config = ConfigFactory.build(
     guard === undefined ? partial : { ...partial, promptInjectionGuard: guard },
   );
-  await new Agent(createRuntime(config)).runTask('抓一个网页并总结');
+  await new Agent(Runtime.createRuntime(config)).runTask('抓一个网页并总结');
   const texts = toolResultTexts(events.events);
   assert.strictEqual(texts.length, 1, '应有且仅有一次工具结果');
   return texts[0] ?? '';
@@ -156,18 +156,18 @@ test('D2：非法模式在**装配层**抛错，不静默回落成 off', () => {
 });
 
 test('D1 CLI：`--guard-prompt-injection` 仍等价 enforce（历史语义保留）', () => {
-  const args = parseArgs(['--prompt', 'hi', '--guard-prompt-injection']);
+  const args = ArgParser.parseArgs(['--prompt', 'hi', '--guard-prompt-injection']);
   assert.strictEqual(args?.promptInjectionGuard, true);
   assert.strictEqual(args?.prompt, 'hi', '无取值旗标不得把取值并入 prompt');
 });
 
 test('D1 CLI：`--guard-prompt-injection-mode shadow` 被解析，且取值不污染 prompt', () => {
-  const args = parseArgs(['--prompt', 'hi', '--guard-prompt-injection-mode', 'shadow']);
+  const args = ArgParser.parseArgs(['--prompt', 'hi', '--guard-prompt-injection-mode', 'shadow']);
   assert.strictEqual(args?.guardPromptInjectionMode, 'shadow');
   assert.strictEqual(args?.promptInjectionGuard, undefined, '模式旗标不得顺带置真值');
   assert.strictEqual(args?.prompt, 'hi');
 });
 
 test('D2 CLI：非法模式取值被白名单拒绝（fail-closed，禁裸强转）', () => {
-  assert.throws(() => parseArgs(['--guard-prompt-injection-mode', 'shdow']));
+  assert.throws(() => ArgParser.parseArgs(['--guard-prompt-injection-mode', 'shdow']));
 });

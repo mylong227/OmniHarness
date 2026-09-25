@@ -8,8 +8,8 @@ import { type RpcRequest } from '../core/jsonRpc.js';
 import { WsServer } from './wsConnection.js';
 import { ServerAuthGuard } from './serverAuthGuard.js';
 import type { Metrics } from '../services/metrics.js';
-import { log, nextTraceId } from '../../util/logger.js';
-import { safeReadFile } from '../services/safeFs.js';
+import { log, Logger } from '../../util/logger.js';
+import { SafeFs } from '../services/safeFs.js';
 
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
 
@@ -118,7 +118,7 @@ export class HttpServer {
    */
   private async route(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = request.url ?? '/';
-    const traceId = nextTraceId(
+    const traceId = Logger.nextTraceId(
       typeof request.headers['x-trace-id'] === 'string' ? request.headers['x-trace-id'] : undefined,
     );
     await log.withTrace(traceId, async () => {
@@ -292,7 +292,7 @@ export class HttpServer {
       response.writeHead(400).end('path 解码失败');
       return;
     }
-    const r = safeReadFile(ws, decoded);
+    const r = SafeFs.safeReadFile(ws, decoded);
     if (!r.ok) {
       // 越界/缺失：403/404 区分；其他错误统一 500。
       const status =

@@ -8,24 +8,29 @@
  */
 import { providerPresets, type ProviderPreset } from '../../config/providerPresets.js';
 
+/**
+ * ProviderPresets —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class ProviderPresets {
+  /**
+   * 按厂商标识查预设（内建目录 + 用户覆盖）。
+   * @param id 厂商标识（`providerKeys` 的键）。
+   * @param overrides 配置文件 `providerPresets` 段（可缺省；用于让 UI/CLI 认到自建厂商）。
+   * @returns 命中的预设；无此厂商时 undefined。
+   */
+  public static providerPresetOf(
+    id: string,
+    overrides?: readonly ProviderPreset[],
+  ): ProviderPreset | undefined {
+    return providerPresets.byId(id, overrides);
+  }
+
+  /** Key 打码：保留前 3 后 4，中间星号；短 Key 全打码。凭据永不回传 UI。 */
+  public static maskKey(key: string): string {
+    if (key.length <= 8) return '****';
+    return `${key.slice(0, 3)}****${key.slice(-4)}`;
+  }
+}
+
 export { PROVIDER_PRESETS, providerPresets } from '../../config/providerPresets.js';
 export type { ProviderPreset } from '../../config/providerPresets.js';
-
-/**
- * 按厂商标识查预设（内建目录 + 用户覆盖）。
- * @param id 厂商标识（`providerKeys` 的键）。
- * @param overrides 配置文件 `providerPresets` 段（可缺省；用于让 UI/CLI 认到自建厂商）。
- * @returns 命中的预设；无此厂商时 undefined。
- */
-export function providerPresetOf(
-  id: string,
-  overrides?: readonly ProviderPreset[],
-): ProviderPreset | undefined {
-  return providerPresets.byId(id, overrides);
-}
-
-/** Key 打码：保留前 3 后 4，中间星号；短 Key 全打码。凭据永不回传 UI。 */
-export function maskKey(key: string): string {
-  if (key.length <= 8) return '****';
-  return `${key.slice(0, 3)}****${key.slice(-4)}`;
-}

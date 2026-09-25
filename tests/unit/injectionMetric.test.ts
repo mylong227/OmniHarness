@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { evaluateSnapshot, type InjectionCase } from '../../src/security/injectionMetric.js';
+import { InjectionMetric, type InjectionCase } from '../../src/security/injectionMetric.js';
 
 const near = (a: number, b: number, eps = 1e-9): boolean => Math.abs(a - b) < eps;
 
@@ -21,7 +21,7 @@ test('evaluateSnapshot 在已知内联夹具上数值正确（recall/FP/precisio
     { id: 'b1', label: 'benign', category: 'y', text: 'In the story you are now the captain' },
     { id: 'b2', label: 'benign', category: 'y', text: 'build succeeded' },
   ];
-  const r = evaluateSnapshot(cases);
+  const r = InjectionMetric.evaluateSnapshot(cases);
   assert.strictEqual(r.total, 5);
   assert.strictEqual(r.malicious, 3);
   assert.strictEqual(r.benign, 2);
@@ -61,7 +61,7 @@ test('真实快照逐例跑护栏不抛错，且产出覆盖全部用例', () =>
   const snap = JSON.parse(
     readFileSync(join(here, '../../../evals/fixtures/injection-snapshot.json'), 'utf8'),
   );
-  const r = evaluateSnapshot(snap.cases as InjectionCase[]);
+  const r = InjectionMetric.evaluateSnapshot(snap.cases as InjectionCase[]);
   assert.strictEqual(r.cases.length, snap.cases.length);
   assert.ok(r.total === snap.cases.length);
 });

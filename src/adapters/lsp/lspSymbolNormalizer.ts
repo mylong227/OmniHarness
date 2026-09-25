@@ -23,7 +23,7 @@ import type {
   LspSymbolKind,
   LspWorkspaceSymbol,
 } from '../../ports/tool/lsp.js';
-import { uriToFile } from './lspUri.js';
+import { LspUri } from './lspUri.js';
 
 /** LSP `SymbolKind` 数值 → 人类可读名（未收录的数值回落 `symbol#<n>`）。 */
 const SYMBOL_KIND_NAMES: Readonly<Record<number, LspSymbolKind>> = {
@@ -232,7 +232,7 @@ export class LspSymbolNormalizer {
     }
     // LSP 3.17 允许 WorkspaceSymbol 的 location 只有 uri、没有区间：用文件起点占位
     // （名字与文件是真的，位置只是不精确），比整条丢掉有用得多。
-    return { file: uriToFile(rawUri), range: converted ?? LspSymbolNormalizer.FILE_START };
+    return { file: LspUri.uriToFile(rawUri), range: converted ?? LspSymbolNormalizer.FILE_START };
   }
 
   /**

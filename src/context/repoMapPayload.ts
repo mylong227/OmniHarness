@@ -43,8 +43,8 @@
  * @maturityEvidence tests/unit/repoMapPayload.test.ts
  */
 
-import { outlineText, type SymbolNode } from './repoMap.js';
-import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
+import { RepoMap, type SymbolNode } from './repoMap.js';
+import { Bm25Index } from '../search/bm25Index.js';
 import { ContentStopWords } from './contentStopWords.js';
 import type { IndexedCorpus } from './contextEngine.js';
 
@@ -113,7 +113,7 @@ export class RepoMapPayload {
     if (plan === null) {
       // 历史组装路径：逐字不动（评测报告口径冻结）。
       const fileSet = new Set(files);
-      const outline = outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
+      const outline = RepoMap.outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
       return ['# Repo Map (relevant files)', outline, '# Relevant Symbols', ...sigLines].join('\n');
     }
     const view = RepoMapPayload.viewOf(corpus);
@@ -125,7 +125,7 @@ export class RepoMapPayload {
       const full = i < plan.fullTier;
       const named = !full && i < plan.fullTier + plan.nameTier;
       if (full) {
-        const outline = outlineText(view.byFile.get(rel) ?? []);
+        const outline = RepoMap.outlineText(view.byFile.get(rel) ?? []);
         if (outline !== '') parts.push(outline);
         continue;
       }
@@ -193,7 +193,7 @@ export class RepoMapPayload {
     if (cached !== undefined) return cached;
     const syms = view.byFile.get(rel) ?? [];
     const out = syms.map((s) => {
-      const raw = corpus.morph ? tokenizeExpanded(s.name) : tokenize(s.name);
+      const raw = corpus.morph ? Bm25Index.tokenizeExpanded(s.name) : Bm25Index.tokenize(s.name);
       return new Set(raw);
     });
     view.nameTokens.set(rel, out);
@@ -207,7 +207,7 @@ export class RepoMapPayload {
    * @returns 内容词集合
    */
   private static contentTermsOf(corpus: IndexedCorpus, query: string): ReadonlySet<string> {
-    const tokens = corpus.morph ? tokenizeExpanded(query) : tokenize(query);
+    const tokens = corpus.morph ? Bm25Index.tokenizeExpanded(query) : Bm25Index.tokenize(query);
     const out = new Set<string>();
     for (const t of tokens) {
       if (ContentStopWords.isContent(t)) out.add(t);

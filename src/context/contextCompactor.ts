@@ -2,8 +2,8 @@ import type { ModelMessage, ModelPort } from '../ports/model/model.js';
 import { TokenEstimator } from './tokenEstimator.js';
 import { DeterministicCompressor } from './deterministicCompressor.js';
 import { log } from '../util/logger.js';
-import { sanitizeToolRounds } from '../util/toolRoundSanitizer.js';
-import { at } from '../util/arrayAt.js';
+import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 /** 上下文压缩选项。 */
 export interface CompactionOptions {
@@ -60,18 +60,6 @@ export interface CompactionResult {
  * 判断位置 `idx` 处的 tool 消息有没有前序 assistant.tool_calls 与之匹配。
  * 用于把 compaction 后会被 DeepSeek/OpenAI HTTP 400 拒收的"orphan tool 块"挪进 head。
  */
-
-/** djb2 前缀指纹（零依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */
-export function headFingerprint(messages: readonly ModelMessage[]): string {
-  let h = 5381;
-  for (const m of messages) {
-    const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}`;
-    for (let i = 0; i < s.length; i++) {
-      h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-    }
-  }
-  return (h >>> 0).toString(16);
-}
 
 /** 结构化摘要模板（对标 dsh compaction-basic 8 段结构，保关键工程信息不丢）。 */
 const SUMMARY_TEMPLATE = [
@@ -178,8 +166,10 @@ export class ContextCompactor {
     // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。
     if (state !== undefined && state.compactedUpTo > 0 && state.compactedUpTo < messages.length) {
       const head = messages.slice(0, state.compactedUpTo);
-      if (headFingerprint(head) === state.headHash) {
-        const tail = this.shrink(sanitizeToolRounds(messages.slice(state.compactedUpTo)));
+      if (ContextCompactor.headFingerprint(head) === state.headHash) {
+        const tail = this.shrink(
+          ToolRoundSanitizer.sanitizeToolRounds(messages.slice(state.compactedUpTo)),
+        );
         // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
         // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
         const composed = this.composeWithinBudget(state.summary, tail.messages);
@@ -221,7 +211,7 @@ export class ContextCompactor {
     const keepCount = Math.min(this.options.keepRecent, messages.length);
     let headEnd = messages.length - keepCount;
     while (headEnd > 0 && ContextCompactor.isToolOrphan(messages, headEnd)) headEnd--;
-    const tail = this.shrink(sanitizeToolRounds(messages.slice(headEnd)));
+    const tail = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0) {
       // 无 head 可折叠（keepRecent ≥ 总条数）⇒ 没有摘要可生成，但**绝不能原样透传**：
@@ -246,7 +236,7 @@ export class ContextCompactor {
     const summary = await this.summarize(head);
     const newState: CompactionState = {
       compactedUpTo: headEnd,
-      headHash: headFingerprint(head),
+      headHash: ContextCompactor.headFingerprint(head),
       summary,
     };
     // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
@@ -289,7 +279,7 @@ export class ContextCompactor {
       const before = final.length;
       const summaryMessage = final[0] as ModelMessage;
       // 丢弃下标 1..（较旧的 tail），保留摘要与最新一条；丢弃后重新消毒避免 orphan tool。
-      final = [summaryMessage, ...sanitizeToolRounds(final.slice(2))];
+      final = [summaryMessage, ...ToolRoundSanitizer.sanitizeToolRounds(final.slice(2))];
       dropped += before - final.length;
     }
     return { messages: final, dropped };
@@ -308,11 +298,11 @@ export class ContextCompactor {
     readonly messages: readonly ModelMessage[];
     readonly dropped: number;
   } {
-    let current = sanitizeToolRounds(messages);
+    let current = ToolRoundSanitizer.sanitizeToolRounds(messages);
     let dropped = 0;
     while (current.length > 1 && this.estimator.estimateMessages(current) > this.threshold) {
       const before = current.length;
-      current = sanitizeToolRounds(current.slice(1));
+      current = ToolRoundSanitizer.sanitizeToolRounds(current.slice(1));
       dropped += before - current.length;
     }
     return { messages: current, dropped };
@@ -368,41 +358,53 @@ export class ContextCompactor {
     const id = m.toolCallId;
     if (id === undefined) return true; // 无 toolCallId 的 tool 消息无法被前置调用认领
     for (let j = idx - 1; j >= 0; j--) {
-      const prev = at(messages, j);
+      const prev = ArrayAt.at(messages, j);
       if (prev.role === 'assistant' && prev.toolCalls?.some((c) => c.id === id)) {
         return false; // 找到匹配的 assistant.tool_calls.id
       }
     }
     return true; // 到头都没找到匹配的前置 assistant → 孤儿
   }
-}
 
-/**
- * 序列化压缩状态为事件日志文本（崩溃恢复用）：标记行 + 摘要正文。
- * 格式：`OMNI_COMPACTION_V1 upTo=<n> hash=<hex>\n<summary>`
- */
-export function encodeCompactionState(state: CompactionState): string {
-  return `${COMPACTION_MARKER} upTo=${state.compactedUpTo} hash=${state.headHash}\n${state.summary}`;
-}
+  /** djb2 前缀指纹（零依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */
+  public static headFingerprint(messages: readonly ModelMessage[]): string {
+    let h = 5381;
+    for (const m of messages) {
+      const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}`;
+      for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+      }
+    }
+    return (h >>> 0).toString(16);
+  }
 
-/** 从事件日志文本解析压缩状态（格式不符返回 undefined，fail-closed）。 */
-export function decodeCompactionState(text: string): CompactionState | undefined {
-  const nl = text.indexOf('\n');
-  if (nl < 0) {
-    return undefined;
+  /**
+   * 序列化压缩状态为事件日志文本（崩溃恢复用）：标记行 + 摘要正文。
+   * 格式：`OMNI_COMPACTION_V1 upTo=<n> hash=<hex>\n<summary>`
+   */
+  public static encodeCompactionState(state: CompactionState): string {
+    return `${COMPACTION_MARKER} upTo=${state.compactedUpTo} hash=${state.headHash}\n${state.summary}`;
   }
-  const header = text.slice(0, nl);
-  const m = /^OMNI_COMPACTION_V1 upTo=(\d+) hash=([0-9a-f]+)$/.exec(header);
-  if (m === null) {
-    return undefined;
+
+  /** 从事件日志文本解析压缩状态（格式不符返回 undefined，fail-closed）。 */
+  public static decodeCompactionState(text: string): CompactionState | undefined {
+    const nl = text.indexOf('\n');
+    if (nl < 0) {
+      return undefined;
+    }
+    const header = text.slice(0, nl);
+    const m = /^OMNI_COMPACTION_V1 upTo=(\d+) hash=([0-9a-f]+)$/.exec(header);
+    if (m === null) {
+      return undefined;
+    }
+    const summary = text.slice(nl + 1);
+    if (summary === '') {
+      return undefined;
+    }
+    return {
+      compactedUpTo: Number(m[1]),
+      headHash: m[2] ?? '',
+      summary,
+    };
   }
-  const summary = text.slice(nl + 1);
-  if (summary === '') {
-    return undefined;
-  }
-  return {
-    compactedUpTo: Number(m[1]),
-    headHash: m[2] ?? '',
-    summary,
-  };
 }

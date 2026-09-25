@@ -11,7 +11,7 @@ import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
 import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.js';
 import { UnsupportedSandbox } from '../../src/adapters/sandbox/unsupportedSandbox.js';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
-import { isLikelySandboxDenied, classifyDenial } from '../../src/ports/runtime/sandboxDenial.js';
+import { SandboxDenial } from '../../src/ports/runtime/sandboxDenial.js';
 import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
 import { AskEscalation } from '../../src/adapters/escalation/askEscalation.js';
 import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.js';
@@ -235,19 +235,28 @@ describe('ToolGate 升级审批闭环（G3/G4）', () => {
 
 describe('沙箱拒绝分类器（G3）', () => {
   it('isLikelySandboxDenied 识别 OS 拒绝签名', () => {
-    assert.strictEqual(isLikelySandboxDenied({ stderr: 'bash: /x: Permission denied' }), true);
-    assert.strictEqual(isLikelySandboxDenied({ message: 'Operation not permitted' }), true);
-    assert.strictEqual(isLikelySandboxDenied({ signal: 'SIGSYS' }), true);
-    assert.strictEqual(isLikelySandboxDenied({ message: 'command not found' }), false);
+    assert.strictEqual(
+      SandboxDenial.isLikelySandboxDenied({ stderr: 'bash: /x: Permission denied' }),
+      true,
+    );
+    assert.strictEqual(
+      SandboxDenial.isLikelySandboxDenied({ message: 'Operation not permitted' }),
+      true,
+    );
+    assert.strictEqual(SandboxDenial.isLikelySandboxDenied({ signal: 'SIGSYS' }), true);
+    assert.strictEqual(
+      SandboxDenial.isLikelySandboxDenied({ message: 'command not found' }),
+      false,
+    );
   });
 
   it('classifyDenial 归类网络/OS/其他', () => {
     assert.strictEqual(
-      classifyDenial({ stderr: 'curl: (7) Failed to connect: Connection refused' }),
+      SandboxDenial.classifyDenial({ stderr: 'curl: (7) Failed to connect: Connection refused' }),
       'network',
     );
-    assert.strictEqual(classifyDenial({ message: 'access is denied' }), 'os');
-    assert.strictEqual(classifyDenial({ message: 'something broke' }), 'other');
+    assert.strictEqual(SandboxDenial.classifyDenial({ message: 'access is denied' }), 'os');
+    assert.strictEqual(SandboxDenial.classifyDenial({ message: 'something broke' }), 'other');
   });
 });
 

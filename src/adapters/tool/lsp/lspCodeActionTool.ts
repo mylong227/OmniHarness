@@ -6,7 +6,7 @@ import type {
 } from '../../../ports/tool/tool.js';
 import type { LspCodeAction, LspPort } from '../../../ports/tool/lsp.js';
 import { LSP_CODE_ACTION_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
-import { parseTarget } from './lspToolsShared.js';
+import { LspToolsShared } from './lspToolsShared.js';
 
 /** 单条编辑文本在渲染时的截断长度（重构编辑可达数万字符，全渲染会吃光上下文）。 */
 const MAX_TEXT_CHARS = 400;
@@ -58,7 +58,7 @@ export class LspCodeActionTool {
    * @returns 操作清单文本；无操作返回提示；参数或 LSP 异常返回 ok:false。
    */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
-    const target = parseTarget(call);
+    const target = LspToolsShared.parseTarget(call);
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
     }

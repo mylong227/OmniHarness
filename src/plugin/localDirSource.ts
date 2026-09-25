@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { manifestMatches, type PluginDescriptor } from './manifest.js';
-import { readManifest, safeReaddir, type RegistrySource } from './registrySourcesShared.js';
+import { Manifest, type PluginDescriptor } from './manifest.js';
+import { RegistrySourcesShared, type RegistrySource } from './registrySourcesShared.js';
 
 /**
  * @beta
@@ -24,13 +24,13 @@ export class LocalDirSource implements RegistrySource {
    */
   public async search(query?: string): Promise<PluginDescriptor[]> {
     const out: PluginDescriptor[] = [];
-    for (const entry of safeReaddir(this.dir)) {
+    for (const entry of RegistrySourcesShared.safeReaddir(this.dir)) {
       const manifestPath = join(this.dir, entry, 'omni.plugin.json');
       if (!existsSync(manifestPath)) {
         continue;
       }
-      const manifest = readManifest(manifestPath);
-      if (query !== undefined && !manifestMatches(query, manifest)) {
+      const manifest = RegistrySourcesShared.readManifest(manifestPath);
+      if (query !== undefined && !Manifest.manifestMatches(query, manifest)) {
         continue;
       }
       out.push({

@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
+import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -130,7 +130,7 @@ loadEnv(join(ROOT, '.env'));
 const { SwebenchVerified } = await import('../dist/src/eval/swebenchVerified.js');
 const { RepoMapContextEngine } = await import('../dist/src/context/repoMapContextEngine.js');
 const { CorpusIndexCache } = await import('../dist/src/context/corpusIndexCache.js');
-const { query } = await import('../dist/src/context/contextEngine.js');
+const { ContextEngine } = await import('../dist/src/context/contextEngine.js');
 const { RepoMapPayload } = await import('../dist/src/context/repoMapPayload.js');
 const { OpenAiCompatibleModel } =
   await import('../dist/src/adapters/model/openAiCompatibleModel.js');
@@ -237,7 +237,7 @@ function ensureCheckout(repo, base, instanceId) {
 function retrieve(cache, root, q) {
   const corpus = cache.get(root);
   if (corpus === null) throw new Error('语料索引失败');
-  const res = query(corpus, q, {
+  const res = ContextEngine.query(corpus, q, {
     graph: false,
     lsa: false,
     layered: false,
@@ -932,7 +932,7 @@ console.log(
 
 // ---------- 模型 ----------
 // 凭据分层纪律：env 缺失时回退用户级配置 ~/.omniharness/omniharness.json（仓库树不放密钥）。
-const apiKey = process.env.DEEPSEEK_API_KEY ?? readUserProviderKey();
+const apiKey = process.env.DEEPSEEK_API_KEY ?? LiveCredentials.readUserProviderKey();
 if (!opts.dryRun && apiKey === undefined) {
   console.error(
     '❌ 缺 DEEPSEEK_API_KEY（环境变量，或用户级 ~/.omniharness/omniharness.json 的 providerKeys.deepseek）',

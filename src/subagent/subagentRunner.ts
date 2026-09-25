@@ -5,7 +5,7 @@ import { SubagentEventBridge } from './subagentEventBridge.js';
 import { subagentRuntimeFactory } from './subagentRuntimeFactory.js';
 import { ToolSubset } from './toolSubset.js';
 import { SUBAGENT_TOOL_NAME } from './subagentTypes.js';
-import type { SubagentPorts } from './subagentPorts.js';
+import type { SubagentPortsShape } from './subagentPorts.js';
 import type { SubagentRequest, SubagentResult } from './subagentTypes.js';
 
 /**
@@ -17,7 +17,7 @@ import type { SubagentRequest, SubagentResult } from './subagentTypes.js';
  */
 export class SubagentRunner {
   public constructor(
-    private readonly ports: SubagentPorts,
+    private readonly ports: SubagentPortsShape,
     private readonly maxSteps: number,
   ) {}
 

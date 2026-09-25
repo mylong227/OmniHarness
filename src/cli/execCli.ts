@@ -18,11 +18,11 @@
 
 import { execFileSync } from 'node:child_process';
 import { Agent } from '../core/agent.js';
-import { createRuntime } from '../composition/runtime.js';
+import { Runtime } from '../composition/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
 import { configFile } from '../config/configFile.js';
 import type { CliArgs } from './argParser.js';
-import { parseArgs, printUsage, messageOf, configDefaults } from './argParser.js';
+import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
 
 /** OmniHarness CLI 命令入口：omniharness exec / server … */
@@ -115,9 +115,9 @@ export class ExecCli extends CliAgentCmds {
     let restoreEgress: () => void = () => {};
     try {
       const defaults = this.loadDefaults(argv);
-      const args = parseArgs(argv, defaults);
+      const args = ArgParser.parseArgs(argv, defaults);
       if (args === undefined) {
-        printUsage();
+        ArgParser.printUsage();
         return 2;
       }
       restoreEgress = this.applyNetworkGuard(args);
@@ -129,7 +129,7 @@ export class ExecCli extends CliAgentCmds {
       if (args.print === true) {
         this.assertHeadlessSafe(args);
       }
-      const agent = new Agent(createRuntime(config));
+      const agent = new Agent(Runtime.createRuntime(config));
       const result = await this.execute(agent, args);
       if (args.output !== undefined) {
         const writer = new JsonlWriter(args.output);
@@ -160,7 +160,7 @@ export class ExecCli extends CliAgentCmds {
       }
       return 0;
     } catch (error) {
-      console.error(`OmniHarness执行失败: ${messageOf(error)}`);
+      console.error(`OmniHarness执行失败: ${ArgParser.messageOf(error)}`);
       return 1;
     } finally {
       restoreEgress();
@@ -246,6 +246,6 @@ export class ExecCli extends CliAgentCmds {
       configPath: explicitConfig,
       profile,
     });
-    return configDefaults(merged);
+    return ArgParser.configDefaults(merged);
   }
 }

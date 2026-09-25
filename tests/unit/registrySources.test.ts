@@ -13,9 +13,7 @@ import { RemoteHttpSource } from '../../src/plugin/remoteHttpSource.js';
 import { FileRegistrySource } from '../../src/plugin/fileRegistrySource.js';
 import {
   DEFAULT_REGISTRY_URL,
-  readManifest,
-  safeReaddir,
-  textOf,
+  RegistrySourcesShared,
 } from '../../src/plugin/registrySourcesShared.js';
 // 桶文件（registrySources.ts）同时导出上述四类，单独覆盖一次确保再导出面不腐坏。
 import {
@@ -206,11 +204,20 @@ test('FileRegistrySource：缺文件/JSON 损坏/结构异常一律降级空数�
 test('共享工具：readManifest / safeReaddir / textOf 的行为契约', async () => {
   await withDir(async (dir) => {
     writePlugin(dir, 'p', { name: 'p', version: '1.0.0' });
-    assert.strictEqual(readManifest(join(dir, 'p', 'omni.plugin.json')).name, 'p');
-    assert.deepStrictEqual(safeReaddir(join(dir, 'p')).sort(), ['omni.plugin.json']);
-    assert.deepStrictEqual(safeReaddir(join(dir, 'ghost')), [], '不存在的目录返回空数组');
-    assert.strictEqual(textOf(new Error('boom')), 'boom');
-    assert.strictEqual(textOf('plain'), 'plain', '非 Error 一律 String 化');
+    assert.strictEqual(
+      RegistrySourcesShared.readManifest(join(dir, 'p', 'omni.plugin.json')).name,
+      'p',
+    );
+    assert.deepStrictEqual(RegistrySourcesShared.safeReaddir(join(dir, 'p')).sort(), [
+      'omni.plugin.json',
+    ]);
+    assert.deepStrictEqual(
+      RegistrySourcesShared.safeReaddir(join(dir, 'ghost')),
+      [],
+      '不存在的目录返回空数组',
+    );
+    assert.strictEqual(RegistrySourcesShared.textOf(new Error('boom')), 'boom');
+    assert.strictEqual(RegistrySourcesShared.textOf('plain'), 'plain', '非 Error 一律 String 化');
   });
 });
 

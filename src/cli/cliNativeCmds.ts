@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import { NativeKernel } from '../native/nativeKernel.js';
 import { RuleApproval } from '../adapters/approval/ruleApproval.js';
 import type { LspPort } from '../ports/tool/lsp.js';
-import { parseArgs, messageOf, CliDefaults } from './argParser.js';
+import { ArgParser, CliDefaults } from './argParser.js';
 import { CliCompareCmds } from './cliCompareCmds.js';
 
 /** 原生内核 / LSP 类子命令。 */
@@ -93,7 +93,7 @@ export class CliNativeCmds extends CliCompareCmds {
         return this.runNativeBench(kernel, iterations);
       }
     } catch (error) {
-      console.error(`原生内核操作失败: ${messageOf(error)}`);
+      console.error(`原生内核操作失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
     process.stdout.write(
@@ -220,7 +220,7 @@ export class CliNativeCmds extends CliCompareCmds {
       );
       return 2;
     }
-    const cliArgs = parseArgs(['--prompt', 'lsp-placeholder', ...args]) ?? CliDefaults;
+    const cliArgs = ArgParser.parseArgs(['--prompt', 'lsp-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
     if (config.lsp === undefined) {
       process.stdout.write(

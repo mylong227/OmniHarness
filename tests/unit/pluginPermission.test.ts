@@ -3,11 +3,7 @@ import assert from 'node:assert/strict';
 import { Container } from '../../src/core/container.js';
 import { PluginManager } from '../../src/plugin/pluginManager.js';
 import { PermissionGate, PermissionDeniedError } from '../../src/plugin/permissionGate.js';
-import {
-  ALL_PERMISSIONS,
-  DANGEROUS_PERMISSIONS,
-  isPluginPermission,
-} from '../../src/plugin/permission.js';
+import { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, Permission } from '../../src/plugin/permission.js';
 import type { Plugin } from '../../src/plugin/plugin.js';
 import type { PluginPermission } from '../../src/plugin/permission.js';
 
@@ -71,11 +67,11 @@ test('危险权限集覆盖写/删除/执行/监听等高危能力', () => {
 });
 
 test('isPluginPermission：校验合法与非法权限名', () => {
-  assert.strictEqual(isPluginPermission('fs.read'), true);
-  assert.strictEqual(isPluginPermission('proc.exec'), true);
-  assert.strictEqual(isPluginPermission('fs.*'), false);
-  assert.strictEqual(isPluginPermission('unknown'), false);
-  assert.strictEqual(isPluginPermission(''), false);
+  assert.strictEqual(Permission.isPluginPermission('fs.read'), true);
+  assert.strictEqual(Permission.isPluginPermission('proc.exec'), true);
+  assert.strictEqual(Permission.isPluginPermission('fs.*'), false);
+  assert.strictEqual(Permission.isPluginPermission('unknown'), false);
+  assert.strictEqual(Permission.isPluginPermission(''), false);
 });
 
 test('PluginManager：无权限声明的插件可正常注册启动', async () => {

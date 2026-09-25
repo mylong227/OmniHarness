@@ -3,11 +3,7 @@ export { OpenAiCompatibleModel } from './model/openAiCompatibleModel.js';
 export type { OpenAiCompatibleConfig } from './model/openAiCompatibleModel.js';
 export { LlamaCppModel } from './model/llamaCppModel.js';
 export type { LlamaCppConfig } from './model/llamaCppModel.js';
-export {
-  NetworkEgressGuard,
-  EgressBlockedError,
-  parseAllowList,
-} from './sandbox/networkEgressGuard.js';
+export { NetworkEgressGuard, EgressBlockedError } from './sandbox/networkEgressGuard.js';
 export { AnthropicModel } from './model/anthropicModel.js';
 export type { AnthropicModelConfig } from './model/anthropicModel.js';
 export { SseParser } from './model/sseParser.js';
@@ -51,7 +47,7 @@ export { LinuxBwrapSandbox } from './sandbox/linuxBwrapSandbox.js';
 export { MacOsSeatbeltSandbox } from './sandbox/macosSeatbeltSandbox.js';
 export { SandboxManager } from './sandbox/sandboxManager.js';
 export type { SandboxProfile } from './sandbox/sandboxManager.js';
-export { isLikelySandboxDenied, classifyDenial } from '../ports/runtime/sandboxDenial.js';
+export { SandboxDenial } from '../ports/runtime/sandboxDenial.js';
 export type { RuntimeFailure } from '../ports/runtime/sandboxDenial.js';
 export { DangerousCommands } from './sandbox/dangerousCommands.js';
 export { AutoApproval } from './approval/autoApproval.js';

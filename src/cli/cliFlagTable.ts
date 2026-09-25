@@ -1,5 +1,5 @@
 import type { CliArgs } from './argParser.js';
-import { parseMcpServerSpec } from '../mcp/mcpServerCommand.js';
+import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
 import {
   MODEL_ADAPTERS,
@@ -74,7 +74,20 @@ export class CliFlagTable {
     flag: string,
     allowed: readonly T[],
   ): T {
-    return checkEnum(CliFlagTable.valueOf(argv, index, flag), flag, allowed);
+    return CliFlagTable.checkEnum(CliFlagTable.valueOf(argv, index, flag), flag, allowed);
+  }
+
+  /**
+   * 校验枚举值属于白名单，非法即抛错（fail-closed）。
+   *
+   * 与 `valueOf` 同为抛错风格：错误由 `ExecCli.run()` 的 catch 统一以非零码退出，
+   * 绝不静默回落到默认值——回落会让「拼错的安全参数」变成「配置未生效」的假绿。
+   */
+  public static checkEnum<T extends string>(value: string, flag: string, allowed: readonly T[]): T {
+    if (!(allowed as readonly string[]).includes(value)) {
+      throw new Error(`非法参数值: ${flag} = ${value}（可选: ${allowed.join(' | ')}）`);
+    }
+    return value as T;
   }
 }
 
@@ -148,19 +161,6 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--model-circuit-breaker-threshold',
   '--model-circuit-breaker-open-ms',
 ]);
-
-/**
- * 校验枚举值属于白名单，非法即抛错（fail-closed）。
- *
- * 与 `valueOf` 同为抛错风格：错误由 `ExecCli.run()` 的 catch 统一以非零码退出，
- * 绝不静默回落到默认值——回落会让「拼错的安全参数」变成「配置未生效」的假绿。
- */
-export function checkEnum<T extends string>(value: string, flag: string, allowed: readonly T[]): T {
-  if (!(allowed as readonly string[]).includes(value)) {
-    throw new Error(`非法参数值: ${flag} = ${value}（可选: ${allowed.join(' | ')}）`);
-  }
-  return value as T;
-}
 
 /**
  * 手写参数解析（零依赖；defaults 来自配置文件，CLI 参数优先）。
@@ -335,7 +335,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   '--mcp-server': (a, argv, i) => {
     a.mcpServers = [
       ...a.mcpServers,
-      parseMcpServerSpec(CliFlagTable.valueOf(argv, i, '--mcp-server')),
+      McpServerCommand.parseMcpServerSpec(CliFlagTable.valueOf(argv, i, '--mcp-server')),
     ];
     return 1;
   },

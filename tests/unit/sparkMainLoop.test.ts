@@ -16,7 +16,7 @@ import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngi
 import { VortexRingSpillAdapter } from '../../src/adapters/spill/vortexRingSpillAdapter.js';
 import { SparkController } from '../../src/spark/sparkController.js';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -224,7 +224,7 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     tuned = true;
     return realTune();
   };
-  const agentOn = new Agent(createRuntime(configOn));
+  const agentOn = new Agent(Runtime.createRuntime(configOn));
   const resOn = await agentOn.runTask('做点事');
   assert.ok(resOn.finalText?.includes('共振完成'), '主任务应正常完成');
   assert.ok(tuned, 'spark autoRun 应在任务末调用 resonance.tune()（钩子真进主循环）');
@@ -249,7 +249,7 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     tunedOff = true;
     return realTuneOff();
   };
-  const agentOff = new Agent(createRuntime(configOff));
+  const agentOff = new Agent(Runtime.createRuntime(configOff));
   const resOff = await agentOff.runTask('做点事');
   assert.ok(resOff.finalText?.includes('正常完成'));
   assert.strictEqual(tunedOff, false, '未开 sparkAutoRun 时不应触发 燧 调谐（零破坏）');

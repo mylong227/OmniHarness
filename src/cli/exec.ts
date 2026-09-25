@@ -18,7 +18,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { API_VERSION } from '../version.js';
-import { printUsage } from './argParser.js';
+import { ArgParser } from './argParser.js';
 
 /**
  * Exec 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -41,7 +41,7 @@ export class Exec {
 
     // 快速路径 ②：显式求助 —— 零重模块加载（退出码与原先 parseArgs 失败路径一致，为 2）
     if (argv.some((flag) => HELP_FLAGS.has(flag))) {
-      printUsage();
+      ArgParser.printUsage();
       process.exitCode = 2;
       return;
     }

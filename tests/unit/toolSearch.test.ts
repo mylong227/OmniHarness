@@ -1,7 +1,7 @@
 import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Bm25Index, tokenize } from '../../src/search/bm25Index.js';
+import { Bm25Index } from '../../src/search/bm25Index.js';
 import { ToolIndex } from '../../src/search/toolIndex.js';
 import { ToolDiscovery } from '../../src/search/toolDiscovery.js';
 import { ToolSearchTool } from '../../src/adapters/tool/meta/toolSearchTool.js';
@@ -64,7 +64,7 @@ class ScriptedModel implements ModelPort {
 
 describe('tokenize', () => {
   it('中英混合：ASCII 词 + CJK 二元组', () => {
-    const tokens = tokenize('读取文件 read_file');
+    const tokens = Bm25Index.tokenize('读取文件 read_file');
     assert.ok(tokens.includes('read_file'), '应含原始蛇形词');
     assert.ok(tokens.includes('file'), '应含 ascii 词');
     assert.ok(tokens.includes('读取'), '应含 CJK 二元组 读取');
@@ -72,7 +72,7 @@ describe('tokenize', () => {
   });
 
   it('过滤单字符 ascii 噪声', () => {
-    const tokens = tokenize('a the read');
+    const tokens = Bm25Index.tokenize('a the read');
     assert.ok(!tokens.includes('a'));
     assert.ok(tokens.includes('read'));
   });
@@ -82,10 +82,10 @@ describe('Bm25Index', () => {
   it('检索返回最相关文档（降序、截断）', () => {
     const index = new Bm25Index();
     index.addDocuments([
-      tokenize('read file content from disk'),
-      tokenize('write file content to disk'),
+      Bm25Index.tokenize('read file content from disk'),
+      Bm25Index.tokenize('write file content to disk'),
     ]);
-    const hits = index.search(tokenize('read file'), 1);
+    const hits = index.search(Bm25Index.tokenize('read file'), 1);
     assert.strictEqual(hits.length, 1);
     const top = hits[0];
     assert.ok(top !== undefined);
@@ -94,8 +94,8 @@ describe('Bm25Index', () => {
 
   it('空查询 / 空索引安全返回空', () => {
     const index = new Bm25Index();
-    assert.deepStrictEqual([...index.search(tokenize('x'), 5)], []);
-    index.addDocuments([tokenize('a b c')]);
+    assert.deepStrictEqual([...index.search(Bm25Index.tokenize('x'), 5)], []);
+    index.addDocuments([Bm25Index.tokenize('a b c')]);
     assert.deepStrictEqual([...index.search([], 5)], []);
   });
 });

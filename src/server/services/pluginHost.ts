@@ -2,11 +2,11 @@
 import { Container } from '../../core/container.js';
 import { ServiceKeys } from '../../composition/runtime.js';
 import { PluginManager } from '../../plugin/pluginManager.js';
-import { loadInstalledPlugins } from '../../plugin/pluginLoader.js';
+import { PluginLoader } from '../../plugin/pluginLoader.js';
 import { PermissionGate } from '../../plugin/permissionGate.js';
 import { ALL_PERMISSIONS } from '../../plugin/permission.js';
 import {
-  applyProfile,
+  PluginProfileStore,
   type PluginProfile,
   type ApplyProfileResult,
 } from '../../plugin/pluginProfileStore.js';
@@ -91,7 +91,7 @@ export class PluginHost {
       container.register(ServiceKeys.approvals, config.approvals);
       const manager = new PluginManager(container, PermissionGate.fromList(ALL_PERMISSIONS));
       this.pluginManager = manager;
-      const loaded = await loadInstalledPlugins(manager, pluginsDir, (name, error) =>
+      const loaded = await PluginLoader.loadInstalledPlugins(manager, pluginsDir, (name, error) =>
         this.notifyLoadError({ name, error: this.deps.messageOf(error) }),
       );
       if (loaded.length > 0) {
@@ -115,7 +115,7 @@ export class PluginHost {
     if (registry === undefined || manager === undefined || pluginsDir === undefined) {
       throw new Error('插件系统未初始化（serve 需注入 registry/pluginsDir）');
     }
-    return applyProfile(manager, pluginsDir, registry, profile, {
+    return PluginProfileStore.applyProfile(manager, pluginsDir, registry, profile, {
       onInstall: (name) => this.notifyProfile('install', name),
       onLoad: (name) => this.notifyProfile('load', name),
       onUnload: (name) => this.notifyProfile('unload', name),

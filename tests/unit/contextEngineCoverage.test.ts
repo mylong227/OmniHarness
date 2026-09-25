@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ContextEngine, indexCorpus } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.js';
 
 /** 建临时语料根。 */
 const makeRoot = (): string => mkdtempSync(join(tmpdir(), 'omni-corpus-'));
@@ -42,7 +42,7 @@ test('walk：重目录（依赖/构建产物/基准语料/缓存/点目录）一
   write(root, '__pycache__/g.py', 'g = 1\n');
   write(root, '.hidden/h.ts', 'export const h = 1;\n');
 
-  const corpus = indexCorpus(root, { morph: true, light: true });
+  const corpus = ContextEngine.indexCorpus(root, { morph: true, light: true });
   const rels = [...corpus.fileText.keys()];
   assert.deepStrictEqual(rels, ['src/keep.ts'], `只应索引真实源码，实际 ${rels.join(',')}`);
   assert.strictEqual(corpus.truncated, false);
@@ -54,7 +54,7 @@ test('walk：单文件超过字节上限即不入图，并如实计数（不静�
   const root = makeRoot();
   write(root, 'src/small.ts', 'export const s = 1;\n');
   write(root, 'src/huge.ts', `export const big = "${'x'.repeat(4096)}";\n`);
-  const corpus = indexCorpus(root, { morph: true, light: true, maxFileBytes: 512 });
+  const corpus = ContextEngine.indexCorpus(root, { morph: true, light: true, maxFileBytes: 512 });
   assert.deepStrictEqual([...corpus.fileText.keys()], ['src/small.ts']);
   assert.strictEqual(corpus.skippedLargeFiles, 1, '被排除的大文件必须计数上报');
   rmSync(root, { recursive: true, force: true });
@@ -65,7 +65,7 @@ test('walk：文件数上限触顶 → truncated=true 且不无限吃内存', ()
   for (let i = 0; i < 6; i += 1) {
     write(root, `src/f${String(i)}.ts`, `export const v${String(i)} = ${String(i)};\n`);
   }
-  const corpus = indexCorpus(root, { morph: true, light: true, maxFiles: 2 });
+  const corpus = ContextEngine.indexCorpus(root, { morph: true, light: true, maxFiles: 2 });
   assert.strictEqual(corpus.fileText.size, 2);
   assert.strictEqual(corpus.truncated, true, '触顶必须回报截断');
   rmSync(root, { recursive: true, force: true });
@@ -81,7 +81,7 @@ test('walk：语料总字节预算触顶 → truncated=true（文件数没到也
     );
   }
   // 单文件约 2.0 KB；预算 2.5 KB ⇒ 恰好装下 1 个，第 2 个越界即截断（与文件数上限无关）。
-  const corpus = indexCorpus(root, { morph: true, light: true, maxTotalBytes: 2500 });
+  const corpus = ContextEngine.indexCorpus(root, { morph: true, light: true, maxTotalBytes: 2500 });
   assert.strictEqual(
     corpus.fileText.size,
     1,
@@ -102,14 +102,14 @@ test('full 模式索引大语料必须在日志里看得见（只告警、不改
     return true;
   }) as typeof process.stderr.write;
   try {
-    indexCorpus(root, { morph: true, light: false, fullModeWarnBytes: 100 });
+    ContextEngine.indexCorpus(root, { morph: true, light: false, fullModeWarnBytes: 100 });
     assert.strictEqual(
       captured.some((line) => line.includes('full 模式索引较大语料')),
       true,
       '超过阈值必须以 warn 级别暴露（否则又会是「静默吃内存」）',
     );
     captured.length = 0;
-    indexCorpus(root, { morph: true, light: true, fullModeWarnBytes: 100 });
+    ContextEngine.indexCorpus(root, { morph: true, light: true, fullModeWarnBytes: 100 });
     assert.strictEqual(
       captured.some((line) => line.includes('full 模式索引较大语料')),
       false,
@@ -124,7 +124,7 @@ test('full 模式索引大语料必须在日志里看得见（只告警、不改
 test('默认即安全档：不传 light 时走 light（不建频谱/代码图/LSA）', () => {
   const root = makeRoot();
   write(root, 'src/a.ts', 'export function alpha(b: number) { return b + 1; }\n');
-  const corpus = indexCorpus(root, { morph: true });
+  const corpus = ContextEngine.indexCorpus(root, { morph: true });
   assert.strictEqual(corpus.symbolSpectra.length, 0, '默认不应建频域谱');
   assert.strictEqual(corpus.codeGraph.n, 0, '默认不应建代码图（full 模式独有）');
   rmSync(root, { recursive: true, force: true });
@@ -137,17 +137,21 @@ test('full 模式触顶即拒跑（fail-closed），并给出可执行出路', (
   }
   // 用文件数上限制造触顶：full 模式下「未显式给预算」时不得静默只索引一半。
   assert.throws(
-    () => indexCorpus(root, { morph: true, light: false, maxFiles: 1 }),
+    () => ContextEngine.indexCorpus(root, { morph: true, light: false, maxFiles: 1 }),
     /full 模式语料超出上限[\s\S]*light: true/,
   );
   // 显式确认预算（maxTotalBytes）即视为接受代价，不再拒跑。
-  const corpus = indexCorpus(root, { morph: true, light: false, maxTotalBytes: 1024 * 1024 });
+  const corpus = ContextEngine.indexCorpus(root, {
+    morph: true,
+    light: false,
+    maxTotalBytes: 1024 * 1024,
+  });
   assert.strictEqual(corpus.files.length, 3);
   rmSync(root, { recursive: true, force: true });
 });
 
 test('真机回归：索引本仓根目录不会再吞下 eval-data/target（堆爆事故同口径）', () => {
-  const corpus = indexCorpus(process.cwd(), { morph: true, light: true });
+  const corpus = ContextEngine.indexCorpus(process.cwd(), { morph: true, light: true });
   const rels = [...corpus.fileText.keys()];
   const leaked = rels.filter(
     (rel) =>

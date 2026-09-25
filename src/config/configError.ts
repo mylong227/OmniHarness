@@ -192,7 +192,208 @@ export class ConfigError extends OmniError {
     // 配置里写 `name: " a "` 若只校验不裁剪，会通过校验却在 `SkillRegistry.match()` 里永远命中不了
     // ——技能名对不上文本，症状是「配了但从不生效」，属最难查的静默失效。
     // 归一化同时丢弃莫尔/固化等运行时字段（见 `SkillEntry`），避免配置伪造涌现/固化来源。
-    (cfg as Record<string, unknown>).skills = normalizeSkillEntries(skills, 'omniharness.json');
+    (cfg as Record<string, unknown>).skills = ConfigError.normalizeSkillEntries(
+      skills,
+      'omniharness.json',
+    );
+  }
+
+  /** 把任意层原始对象归一化为标准 FileConfig（别名映射 + 类型/枚举校验 + 未知 key 拦截）。 */
+  public static normalizeConfig(raw: Record<string, unknown>): FileConfig {
+    const out: Record<string, unknown> = {};
+    for (const [rawKey, value] of Object.entries(raw)) {
+      if (value === undefined) {
+        continue;
+      }
+      const key = KEY_ALIASES[rawKey] ?? rawKey;
+      if (!KNOWN_KEYS.has(key)) {
+        throw new ConfigError(`未知配置项 "${rawKey}"（标准名 "${key}" 不被支持）`);
+      }
+      out[key] = value;
+    }
+    ConfigError.validateConfig(out as FileConfig);
+    return out as FileConfig;
+  }
+
+  /**
+   * 校验并归一化「声明式技能子集」（配置文件 `skills` 与 CLI `--skills <file.json>` 共用同一份规则）。
+   *
+   * 为什么必须共用：技能会**注入系统提示**（影响模型行为），所以每条技能都要求
+   * `name` / `description` / `instructions` 三件齐全且非空；只写 name 的「空技能」会静默命中
+   * 却不注入任何内容，属最难查的配置错误。同一来源内重名直接拒绝——`SkillRegistry.register`
+   * 遇重名会抛「技能重复注册」，那是**装配期**的错，报错点离配置文件很远。
+   *
+   * @param raw 原始值（来自 JSON：数组或 `{ skills: [...] }`）。
+   * @param source 诊断用的来源标识（如 `omniharness.json` 或 `--skills <path>`）。
+   * @returns 规范化后的技能子集（`tags` 缺省不写入；未声明的运行时字段一律丢弃）。
+   * @throws ConfigError 结构/字段/重名任一不合法（fail-closed，绝不半途放行）
+   */
+  public static normalizeSkillEntries(raw: unknown, source: string): readonly SkillEntry[] {
+    const list =
+      raw !== null && typeof raw === 'object' && !Array.isArray(raw) && 'skills' in raw
+        ? (raw as { skills?: unknown }).skills
+        : raw;
+    if (list === undefined) {
+      return [];
+    }
+    if (!Array.isArray(list)) {
+      throw new ConfigError(
+        `${source}: skills 必须是数组（每项含 name/description/instructions，可选 tags）`,
+      );
+    }
+    const out: SkillEntry[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < list.length; i += 1) {
+      const entry = list[i];
+      const where = `${source}: skills[${i}]`;
+      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+        throw new ConfigError(`${where} 必须是对象（含 name/description/instructions）`);
+      }
+      const obj = entry as Record<string, unknown>;
+      const name = ConfigError.requiredText(obj['name'], `${where}.name`);
+      const description = ConfigError.requiredText(obj['description'], `${where}.description`);
+      const instructions = ConfigError.requiredText(obj['instructions'], `${where}.instructions`);
+      const tags = ConfigError.readTags(obj['tags'], `${where}.tags`);
+      if (seen.has(name)) {
+        throw new ConfigError(`${source}: 技能重名 "${name}"（同一来源内不允许重复定义）`);
+      }
+      seen.add(name);
+      out.push(
+        tags === undefined
+          ? { name, description, instructions }
+          : {
+              name,
+              description,
+              instructions,
+              tags,
+            },
+      );
+    }
+    return out;
+  }
+
+  /**
+   * 取必填非空字符串字段。
+   *
+   * @param value 原始值。
+   * @param where 诊断位置（如 `skills[0].name`）。
+   * @returns 去空白后的文本。
+   * @throws ConfigError 缺失/非字符串/全空白
+   */
+  public static requiredText(value: unknown, where: string): string {
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new ConfigError(`${where} 必须是非空字符串`);
+    }
+    return value.trim();
+  }
+
+  /**
+   * 读取可选 `tags`（字符串数组，逐项去空白；空串项被丢弃）。
+   *
+   * @param value 原始值（undefined 表示未声明）。
+   * @param where 诊断位置。
+   * @returns 非空标签数组；未声明或全为空串时返回 undefined（不写入该键）。
+   * @throws ConfigError 非数组或含非字符串项
+   */
+  public static readTags(value: unknown, where: string): readonly string[] | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (!Array.isArray(value) || value.some((tag) => typeof tag !== 'string')) {
+      throw new ConfigError(`${where} 必须是字符串数组`);
+    }
+    const tags = (value as readonly string[]).map((tag) => tag.trim()).filter((tag) => tag !== '');
+    return tags.length > 0 ? tags : undefined;
+  }
+
+  /**
+   * 严格校验已归一化配置的类型与枚举（未知 key 已在 normalize 阶段拦截）。
+   *
+   * @param cfg 已归一化的配置
+   * @throws ConfigError 任一字段族校验失败（fail-closed）
+   */
+  public static validateConfig(cfg: FileConfig): void {
+    for (const validate of FIELD_VALIDATORS) validate(cfg);
+  }
+
+  /** 从环境变量读取配置层（OMNIHARNESS_* 映射为标准 key，数字字段做 coerce）。 */
+  public static readEnvConfig(): Partial<FileConfig> {
+    const raw: Record<string, string> = {};
+    for (const [envKey, stdKey] of Object.entries(ENV_MAP)) {
+      const value = process.env[envKey];
+      if (value !== undefined && value !== '') {
+        raw[stdKey] = value;
+      }
+    }
+    if (Object.keys(raw).length === 0) {
+      return {};
+    }
+    // 环境变量值全是字符串，需先 coerce 数字字段再走 normalize。
+    const coerced: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      coerced[key] = NUMBER_FIELDS.has(key) ? Number(value) : value;
+    }
+    return ConfigError.normalizeConfig(coerced);
+  }
+
+  /** 多层合并：靠后层非零值覆盖靠前层（mcpServers 数组整体替换，不拼接）。 */
+  public static mergeConfigs(...layers: readonly Partial<FileConfig>[]): FileConfig {
+    const result: Record<string, unknown> = {};
+    for (const layer of layers) {
+      if (layer === undefined) {
+        continue;
+      }
+      for (const [key, value] of Object.entries(layer)) {
+        if (value !== undefined) {
+          result[key] = value;
+        }
+      }
+    }
+    return result as FileConfig;
+  }
+
+  /**
+   * 读取工作区 bundle 补丁层目录（`.omniharness/bundle-patches/*.json`），合并为单一 config 覆盖层。
+   *
+   * 由 `bundle unpack` 写出（G-E 5.2/5.3），使「用户覆盖层叠在 base 之上」在运行时真正生效：
+   * 在 `loadLayered` 中插入于 profile 层之后、环境变量层之前（权限：> profile，< 显式 env）。
+   * 每个补丁按标准 key 严格校验——未知 key / 类型 / 枚举越界一律跳过并告警，绝不 brick 整个配置。
+   */
+  public static loadBundlePatchLayer(workspaceDir: string): Partial<FileConfig> {
+    const dir = join(workspaceDir, '.omniharness', 'bundle-patches');
+    if (!existsSync(dir)) {
+      return {};
+    }
+    const out: Record<string, unknown> = {};
+    for (const file of readdirSync(dir)) {
+      if (!file.endsWith('.json')) {
+        continue;
+      }
+      let data: { patches?: Array<{ key: string; value: unknown }> };
+      try {
+        data = JSON.parse(readFileSync(join(dir, file), 'utf8')) as {
+          patches?: Array<{ key: string; value: unknown }>;
+        };
+      } catch {
+        process.stderr.write(`[omniharness] 无法解析 bundle 补丁层: ${file}（已跳过）\n`);
+        continue;
+      }
+      for (const patch of data.patches ?? []) {
+        if (typeof patch.key !== 'string') {
+          continue;
+        }
+        // 逐 key 归一化校验：合法则应用，非法（未知 key / 类型错 / 枚举越界）跳过并告警。
+        try {
+          const single = ConfigError.normalizeConfig({ [patch.key]: patch.value });
+          out[patch.key] = (single as Record<string, unknown>)[patch.key];
+        } catch {
+          process.stderr.write(
+            `[omniharness] bundle 补丁层忽略非法配置项: ${patch.key}（来自 ${file}）\n`,
+          );
+        }
+      }
+    }
+    return out as Partial<FileConfig>;
   }
 }
 
@@ -318,23 +519,6 @@ const ENV_MAP: Readonly<Record<string, string>> = {
   OMNIHARNESS_MAX_STEPS: 'maxSteps',
 };
 
-/** 把任意层原始对象归一化为标准 FileConfig（别名映射 + 类型/枚举校验 + 未知 key 拦截）。 */
-export function normalizeConfig(raw: Record<string, unknown>): FileConfig {
-  const out: Record<string, unknown> = {};
-  for (const [rawKey, value] of Object.entries(raw)) {
-    if (value === undefined) {
-      continue;
-    }
-    const key = KEY_ALIASES[rawKey] ?? rawKey;
-    if (!KNOWN_KEYS.has(key)) {
-      throw new ConfigError(`未知配置项 "${rawKey}"（标准名 "${key}" 不被支持）`);
-    }
-    out[key] = value;
-  }
-  validateConfig(out as FileConfig);
-  return out as FileConfig;
-}
-
 /**
  * 校验枚举字段：存在则必须是字符串且落在该字段的允许集合内。
  *
@@ -432,184 +616,3 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
     }
   },
 ];
-
-/**
- * 校验并归一化「声明式技能子集」（配置文件 `skills` 与 CLI `--skills <file.json>` 共用同一份规则）。
- *
- * 为什么必须共用：技能会**注入系统提示**（影响模型行为），所以每条技能都要求
- * `name` / `description` / `instructions` 三件齐全且非空；只写 name 的「空技能」会静默命中
- * 却不注入任何内容，属最难查的配置错误。同一来源内重名直接拒绝——`SkillRegistry.register`
- * 遇重名会抛「技能重复注册」，那是**装配期**的错，报错点离配置文件很远。
- *
- * @param raw 原始值（来自 JSON：数组或 `{ skills: [...] }`）。
- * @param source 诊断用的来源标识（如 `omniharness.json` 或 `--skills <path>`）。
- * @returns 规范化后的技能子集（`tags` 缺省不写入；未声明的运行时字段一律丢弃）。
- * @throws ConfigError 结构/字段/重名任一不合法（fail-closed，绝不半途放行）
- */
-export function normalizeSkillEntries(raw: unknown, source: string): readonly SkillEntry[] {
-  const list =
-    raw !== null && typeof raw === 'object' && !Array.isArray(raw) && 'skills' in raw
-      ? (raw as { skills?: unknown }).skills
-      : raw;
-  if (list === undefined) {
-    return [];
-  }
-  if (!Array.isArray(list)) {
-    throw new ConfigError(
-      `${source}: skills 必须是数组（每项含 name/description/instructions，可选 tags）`,
-    );
-  }
-  const out: SkillEntry[] = [];
-  const seen = new Set<string>();
-  for (let i = 0; i < list.length; i += 1) {
-    const entry = list[i];
-    const where = `${source}: skills[${i}]`;
-    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new ConfigError(`${where} 必须是对象（含 name/description/instructions）`);
-    }
-    const obj = entry as Record<string, unknown>;
-    const name = requiredText(obj['name'], `${where}.name`);
-    const description = requiredText(obj['description'], `${where}.description`);
-    const instructions = requiredText(obj['instructions'], `${where}.instructions`);
-    const tags = readTags(obj['tags'], `${where}.tags`);
-    if (seen.has(name)) {
-      throw new ConfigError(`${source}: 技能重名 "${name}"（同一来源内不允许重复定义）`);
-    }
-    seen.add(name);
-    out.push(
-      tags === undefined
-        ? { name, description, instructions }
-        : {
-            name,
-            description,
-            instructions,
-            tags,
-          },
-    );
-  }
-  return out;
-}
-
-/**
- * 取必填非空字符串字段。
- *
- * @param value 原始值。
- * @param where 诊断位置（如 `skills[0].name`）。
- * @returns 去空白后的文本。
- * @throws ConfigError 缺失/非字符串/全空白
- */
-function requiredText(value: unknown, where: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new ConfigError(`${where} 必须是非空字符串`);
-  }
-  return value.trim();
-}
-
-/**
- * 读取可选 `tags`（字符串数组，逐项去空白；空串项被丢弃）。
- *
- * @param value 原始值（undefined 表示未声明）。
- * @param where 诊断位置。
- * @returns 非空标签数组；未声明或全为空串时返回 undefined（不写入该键）。
- * @throws ConfigError 非数组或含非字符串项
- */
-function readTags(value: unknown, where: string): readonly string[] | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!Array.isArray(value) || value.some((tag) => typeof tag !== 'string')) {
-    throw new ConfigError(`${where} 必须是字符串数组`);
-  }
-  const tags = (value as readonly string[]).map((tag) => tag.trim()).filter((tag) => tag !== '');
-  return tags.length > 0 ? tags : undefined;
-}
-
-/**
- * 严格校验已归一化配置的类型与枚举（未知 key 已在 normalize 阶段拦截）。
- *
- * @param cfg 已归一化的配置
- * @throws ConfigError 任一字段族校验失败（fail-closed）
- */
-export function validateConfig(cfg: FileConfig): void {
-  for (const validate of FIELD_VALIDATORS) validate(cfg);
-}
-
-/** 从环境变量读取配置层（OMNIHARNESS_* 映射为标准 key，数字字段做 coerce）。 */
-export function readEnvConfig(): Partial<FileConfig> {
-  const raw: Record<string, string> = {};
-  for (const [envKey, stdKey] of Object.entries(ENV_MAP)) {
-    const value = process.env[envKey];
-    if (value !== undefined && value !== '') {
-      raw[stdKey] = value;
-    }
-  }
-  if (Object.keys(raw).length === 0) {
-    return {};
-  }
-  // 环境变量值全是字符串，需先 coerce 数字字段再走 normalize。
-  const coerced: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    coerced[key] = NUMBER_FIELDS.has(key) ? Number(value) : value;
-  }
-  return normalizeConfig(coerced);
-}
-
-/** 多层合并：靠后层非零值覆盖靠前层（mcpServers 数组整体替换，不拼接）。 */
-export function mergeConfigs(...layers: readonly Partial<FileConfig>[]): FileConfig {
-  const result: Record<string, unknown> = {};
-  for (const layer of layers) {
-    if (layer === undefined) {
-      continue;
-    }
-    for (const [key, value] of Object.entries(layer)) {
-      if (value !== undefined) {
-        result[key] = value;
-      }
-    }
-  }
-  return result as FileConfig;
-}
-
-/**
- * 读取工作区 bundle 补丁层目录（`.omniharness/bundle-patches/*.json`），合并为单一 config 覆盖层。
- *
- * 由 `bundle unpack` 写出（G-E 5.2/5.3），使「用户覆盖层叠在 base 之上」在运行时真正生效：
- * 在 `loadLayered` 中插入于 profile 层之后、环境变量层之前（权限：> profile，< 显式 env）。
- * 每个补丁按标准 key 严格校验——未知 key / 类型 / 枚举越界一律跳过并告警，绝不 brick 整个配置。
- */
-export function loadBundlePatchLayer(workspaceDir: string): Partial<FileConfig> {
-  const dir = join(workspaceDir, '.omniharness', 'bundle-patches');
-  if (!existsSync(dir)) {
-    return {};
-  }
-  const out: Record<string, unknown> = {};
-  for (const file of readdirSync(dir)) {
-    if (!file.endsWith('.json')) {
-      continue;
-    }
-    let data: { patches?: Array<{ key: string; value: unknown }> };
-    try {
-      data = JSON.parse(readFileSync(join(dir, file), 'utf8')) as {
-        patches?: Array<{ key: string; value: unknown }>;
-      };
-    } catch {
-      process.stderr.write(`[omniharness] 无法解析 bundle 补丁层: ${file}（已跳过）\n`);
-      continue;
-    }
-    for (const patch of data.patches ?? []) {
-      if (typeof patch.key !== 'string') {
-        continue;
-      }
-      // 逐 key 归一化校验：合法则应用，非法（未知 key / 类型错 / 枚举越界）跳过并告警。
-      try {
-        const single = normalizeConfig({ [patch.key]: patch.value });
-        out[patch.key] = (single as Record<string, unknown>)[patch.key];
-      } catch {
-        process.stderr.write(
-          `[omniharness] bundle 补丁层忽略非法配置项: ${patch.key}（来自 ${file}）\n`,
-        );
-      }
-    }
-  }
-  return out as Partial<FileConfig>;
-}

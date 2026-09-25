@@ -17,12 +17,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigError, normalizeConfig } from '../../src/config/configError.js';
+import { ConfigError } from '../../src/config/configError.js';
 import type { FileConfig } from '../../src/config/configFile.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';
-import { parseArgs, configDefaults, CliDefaults } from '../../src/cli/argParser.js';
+import { ArgParser, CliDefaults } from '../../src/cli/argParser.js';
 import { CliSkillFlags } from '../../src/cli/cliSkillFlags.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
@@ -51,14 +51,14 @@ function workspace(): string {
 }
 
 test('配置文件：内联 skills 通过校验并映射进 CLI 参数（tags 保留、空白被裁剪）', () => {
-  const file = normalizeConfig({
+  const file = ConfigError.normalizeConfig({
     skills: [{ name: ' a ', description: ' b ', instructions: ' c ', tags: ['  t  ', ''] }],
   });
   assert.deepStrictEqual(file.skills, [
     { name: 'a', description: 'b', instructions: 'c', tags: ['t'] },
   ]);
 
-  const mapped = configDefaults({ skills: file.skills } as FileConfig);
+  const mapped = ArgParser.configDefaults({ skills: file.skills } as FileConfig);
   assert.deepStrictEqual(
     mapped.skills,
     file.skills,
@@ -68,12 +68,15 @@ test('配置文件：内联 skills 通过校验并映射进 CLI 参数（tags �
 });
 
 test('配置文件：未声明 skills 时不写该键（零行为变更）', () => {
-  assert.strictEqual(configDefaults({} as FileConfig).skills, undefined);
-  assert.strictEqual(normalizeConfig({ maxSteps: 3 }).skills, undefined);
+  assert.strictEqual(ArgParser.configDefaults({} as FileConfig).skills, undefined);
+  assert.strictEqual(ConfigError.normalizeConfig({ maxSteps: 3 }).skills, undefined);
 });
 
 test('--skills 旗标：解析为文件路径数组（可重复），且值不被当成 prompt', () => {
-  const args = parseArgs(['--skills', 'a.json', '--skills', 'b.json', '修个 bug'], CliDefaults);
+  const args = ArgParser.parseArgs(
+    ['--skills', 'a.json', '--skills', 'b.json', '修个 bug'],
+    CliDefaults,
+  );
   assert.ok(args !== undefined, 'parseArgs 应给出参数（未落在用法错误分支）');
   assert.deepStrictEqual(args.skillsFile, ['a.json', 'b.json']);
   assert.strictEqual(args.prompt, '修个 bug', '旗标取值不得被吞成位置参数 prompt');
@@ -132,7 +135,7 @@ test('校验 fail-closed：结构/字段/重名/tags 各自给出带来源与下
   ];
   for (const { raw, match } of cases) {
     assert.throws(
-      () => normalizeConfig(raw as Record<string, unknown>),
+      () => ConfigError.normalizeConfig(raw as Record<string, unknown>),
       (error: unknown) => {
         assert.ok(error instanceof ConfigError, `应为 ConfigError，实际 ${String(error)}`);
         assert.match(error.message, match);
@@ -182,7 +185,7 @@ test('端到端：经 ConfigFactory.build 后技能真进 skillRegistry（不是
 });
 
 test('配置校验缺陷回归：approval: "plan" 必须被文件校验接受（声明支持、校验曾拒绝）', () => {
-  assert.strictEqual(normalizeConfig({ approval: 'plan' }).approval, 'plan');
+  assert.strictEqual(ConfigError.normalizeConfig({ approval: 'plan' }).approval, 'plan');
 });
 
 test('端到端（真 Agent）：命中技能时把 instructions 渲染为 system 事件注入会话', async () => {
@@ -198,7 +201,7 @@ test('端到端（真 Agent）：命中技能时把 instructions 渲染为 syste
   });
   // 刻意**不传**第二参：验证「缺省取运行时组合根那一份」的兜底真的生效
   // （此前 11 个 new Agent(runtime) 调用点里只有 1 个传了技能注册表 ⇒ 受种技能从不注入）。
-  const agent = new Agent(createRuntime(config));
+  const agent = new Agent(Runtime.createRuntime(config));
   const result = await agent.runTask('请用 sql-review 帮我审查这段数据库迁移');
   const systemTexts = result.events
     .filter((event) => event.type === 'system')
@@ -220,7 +223,7 @@ test('端到端（真 Agent）：未命中技能的会话不注入（零噪声�
     events: new SilentEventPort(),
     skills: [SKILL],
   });
-  const agent = new Agent(createRuntime(config));
+  const agent = new Agent(Runtime.createRuntime(config));
   const result = await agent.runTask('把一个数组按长度排序');
   const injected = result.events
     .filter((event) => event.type === 'system')

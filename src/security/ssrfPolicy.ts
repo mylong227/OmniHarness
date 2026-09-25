@@ -23,7 +23,96 @@
  *   静默丢弃会让人以为「配上了」，实际护栏比预期更松。
  */
 import { builtinDefaults } from '../util/builtinDefaults.js';
-import { ipv4ToInt } from '../util/ipAddress.js';
+import { IpAddress } from '../util/ipAddress.js';
+
+/**
+ * SsrfPolicy —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
+ */
+export class SsrfPolicy {
+  /**
+   * 校验并解析策略配置（缺省回落默认档）。
+   * @param config 配置文件中的 `ssrfPolicy` 段（可为 undefined）
+   * @returns 已解析的策略表（可直接喂给 SsrfGuard / NetworkEgressGuard）
+   * @throws Error 条目非法时抛出（fail-closed，绝不静默丢弃）
+   */
+  public static resolveSsrfPolicy(config?: SsrfPolicyConfig): SsrfPolicy {
+    if (config === undefined) {
+      return DEFAULT_SSRF_POLICY;
+    }
+    return {
+      metadataHosts: SsrfPolicy.resolveMetadataHosts(config.metadataHosts),
+      internalSuffixes: SsrfPolicy.resolveInternalSuffixes(config.internalSuffixes),
+      ipv4Blocks: SsrfPolicy.resolveIpv4Blocks(config.ipv4Blocks),
+    };
+  }
+
+  /**
+   * 主机清单校验：非空、无空白、小写归一。
+   * @param hosts 原始清单（undefined ⇒ 默认表）
+   * @returns 归一化后的清单
+   * @throws Error 存在空串或含空白的条目
+   */
+  public static resolveMetadataHosts(hosts?: readonly string[]): readonly string[] {
+    if (hosts === undefined) {
+      return DEFAULT_SSRF_POLICY.metadataHosts;
+    }
+    return hosts.map((host) => {
+      if (typeof host !== 'string' || host.trim() === '' || /\s/.test(host)) {
+        throw new Error(`ssrfPolicy.metadataHosts 含非法主机：${JSON.stringify(host)}`);
+      }
+      return host.toLowerCase();
+    });
+  }
+
+  /**
+   * 域名后缀校验：必须以 `.` 开头（否则「后缀」会退化成任意包含匹配）。
+   * @param suffixes 原始后缀清单（undefined ⇒ 默认表）
+   * @returns 归一化后的后缀清单
+   * @throws Error 存在不以点开头 / 空 / 含空白的条目
+   */
+  public static resolveInternalSuffixes(suffixes?: readonly string[]): readonly string[] {
+    if (suffixes === undefined) {
+      return DEFAULT_SSRF_POLICY.internalSuffixes;
+    }
+    return suffixes.map((suffix) => {
+      if (typeof suffix !== 'string' || suffix.trim() === '' || /\s/.test(suffix)) {
+        throw new Error(`ssrfPolicy.internalSuffixes 含非法后缀：${JSON.stringify(suffix)}`);
+      }
+      const lowered = suffix.toLowerCase();
+      if (!lowered.startsWith('.')) {
+        throw new Error(`ssrfPolicy.internalSuffixes 必须以 "." 开头：${suffix}`);
+      }
+      return lowered;
+    });
+  }
+
+  /**
+   * CIDR 清单校验：base 必须是合法 IPv4、bits 必须是 0–32 的整数。
+   * @param blocks 原始 CIDR 清单（undefined ⇒ 默认表）
+   * @returns 已校验的 CIDR 清单
+   * @throws Error 存在非法网段（坏 IP 或越界前缀长度）
+   */
+  public static resolveIpv4Blocks(
+    blocks?: readonly (readonly [string, number])[],
+  ): readonly (readonly [string, number])[] {
+    if (blocks === undefined) {
+      return DEFAULT_SSRF_POLICY.ipv4Blocks;
+    }
+    return blocks.map((entry) => {
+      const base = Array.isArray(entry) ? entry[0] : undefined;
+      const bits = Array.isArray(entry) ? entry[1] : undefined;
+      if (typeof base !== 'string' || IpAddress.ipv4ToInt(base) === null) {
+        throw new Error(`ssrfPolicy.ipv4Blocks 含非法网段地址：${JSON.stringify(entry)}`);
+      }
+      if (typeof bits !== 'number' || !Number.isInteger(bits) || bits < 0 || bits > 32) {
+        throw new Error(
+          `ssrfPolicy.ipv4Blocks 的前缀长度须为 0–32 的整数：${JSON.stringify(entry)}`,
+        );
+      }
+      return [base, bits] as const;
+    });
+  }
+}
 
 /** SSRF 策略表（已解析、已校验，供实现直接消费）。 */
 export interface SsrfPolicy {
@@ -81,92 +170,10 @@ for (const field of ['metadataHosts', 'internalSuffixes', 'ipv4Blocks'] as const
  * 想「只对自己环境生效」请写配置文件，而不是改数据文件。
  */
 export const DEFAULT_SSRF_POLICY: SsrfPolicy = {
-  metadataHosts: resolveMetadataHosts(BUILTIN_SSRF_DEFAULTS.metadataHosts),
+  metadataHosts: SsrfPolicy.resolveMetadataHosts(BUILTIN_SSRF_DEFAULTS.metadataHosts),
   // 注意 `.corp`：它原先**只**存在于出站守卫（NetworkEgressGuard）的私有主机正则里，
   // 而 SSRF 护栏的默认后缀表没有它 ⇒ 两个守卫对「企业内网域名」的判定不一致。
   // 配置化时把两处合一，`.corp` 并入默认后缀表（属**收紧**：SSRF 护栏现在也拦 `.corp`）。
-  internalSuffixes: resolveInternalSuffixes(BUILTIN_SSRF_DEFAULTS.internalSuffixes),
-  ipv4Blocks: resolveIpv4Blocks(BUILTIN_SSRF_DEFAULTS.ipv4Blocks),
+  internalSuffixes: SsrfPolicy.resolveInternalSuffixes(BUILTIN_SSRF_DEFAULTS.internalSuffixes),
+  ipv4Blocks: SsrfPolicy.resolveIpv4Blocks(BUILTIN_SSRF_DEFAULTS.ipv4Blocks),
 };
-
-/**
- * 校验并解析策略配置（缺省回落默认档）。
- * @param config 配置文件中的 `ssrfPolicy` 段（可为 undefined）
- * @returns 已解析的策略表（可直接喂给 SsrfGuard / NetworkEgressGuard）
- * @throws Error 条目非法时抛出（fail-closed，绝不静默丢弃）
- */
-export function resolveSsrfPolicy(config?: SsrfPolicyConfig): SsrfPolicy {
-  if (config === undefined) {
-    return DEFAULT_SSRF_POLICY;
-  }
-  return {
-    metadataHosts: resolveMetadataHosts(config.metadataHosts),
-    internalSuffixes: resolveInternalSuffixes(config.internalSuffixes),
-    ipv4Blocks: resolveIpv4Blocks(config.ipv4Blocks),
-  };
-}
-
-/**
- * 主机清单校验：非空、无空白、小写归一。
- * @param hosts 原始清单（undefined ⇒ 默认表）
- * @returns 归一化后的清单
- * @throws Error 存在空串或含空白的条目
- */
-function resolveMetadataHosts(hosts?: readonly string[]): readonly string[] {
-  if (hosts === undefined) {
-    return DEFAULT_SSRF_POLICY.metadataHosts;
-  }
-  return hosts.map((host) => {
-    if (typeof host !== 'string' || host.trim() === '' || /\s/.test(host)) {
-      throw new Error(`ssrfPolicy.metadataHosts 含非法主机：${JSON.stringify(host)}`);
-    }
-    return host.toLowerCase();
-  });
-}
-
-/**
- * 域名后缀校验：必须以 `.` 开头（否则「后缀」会退化成任意包含匹配）。
- * @param suffixes 原始后缀清单（undefined ⇒ 默认表）
- * @returns 归一化后的后缀清单
- * @throws Error 存在不以点开头 / 空 / 含空白的条目
- */
-function resolveInternalSuffixes(suffixes?: readonly string[]): readonly string[] {
-  if (suffixes === undefined) {
-    return DEFAULT_SSRF_POLICY.internalSuffixes;
-  }
-  return suffixes.map((suffix) => {
-    if (typeof suffix !== 'string' || suffix.trim() === '' || /\s/.test(suffix)) {
-      throw new Error(`ssrfPolicy.internalSuffixes 含非法后缀：${JSON.stringify(suffix)}`);
-    }
-    const lowered = suffix.toLowerCase();
-    if (!lowered.startsWith('.')) {
-      throw new Error(`ssrfPolicy.internalSuffixes 必须以 "." 开头：${suffix}`);
-    }
-    return lowered;
-  });
-}
-
-/**
- * CIDR 清单校验：base 必须是合法 IPv4、bits 必须是 0–32 的整数。
- * @param blocks 原始 CIDR 清单（undefined ⇒ 默认表）
- * @returns 已校验的 CIDR 清单
- * @throws Error 存在非法网段（坏 IP 或越界前缀长度）
- */
-function resolveIpv4Blocks(
-  blocks?: readonly (readonly [string, number])[],
-): readonly (readonly [string, number])[] {
-  if (blocks === undefined) {
-    return DEFAULT_SSRF_POLICY.ipv4Blocks;
-  }
-  return blocks.map((entry) => {
-    const base = Array.isArray(entry) ? entry[0] : undefined;
-    const bits = Array.isArray(entry) ? entry[1] : undefined;
-    if (typeof base !== 'string' || ipv4ToInt(base) === null) {
-      throw new Error(`ssrfPolicy.ipv4Blocks 含非法网段地址：${JSON.stringify(entry)}`);
-    }
-    if (typeof bits !== 'number' || !Number.isInteger(bits) || bits < 0 || bits > 32) {
-      throw new Error(`ssrfPolicy.ipv4Blocks 的前缀长度须为 0–32 的整数：${JSON.stringify(entry)}`);
-    }
-    return [base, bits] as const;
-  });
-}

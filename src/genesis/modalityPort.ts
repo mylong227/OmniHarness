@@ -17,7 +17,7 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
-import { cosine } from './mathutil.js';
+import { Mathutil } from './mathutil.js';
 
 /** 模态种类。扩展种类不影响既有代数定律。 */
 export type ModalityKind = 'text' | 'image' | 'audio' | 'video' | 'tensor' | 'none';
@@ -111,7 +111,7 @@ export class ModalityPort {
    * @returns 两特征向量的余弦相似度；零向量时按 cosine 实现返回 0。
    */
   public alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
-    return cosine(a.features as number[], b.features as number[]);
+    return Mathutil.cosine(a.features as number[], b.features as number[]);
   }
 
   // ---- 真实可计算特征提取（零依赖） ----
@@ -177,81 +177,81 @@ export class ModalityPort {
     const len = Math.sqrt(padded.reduce((s, x) => s + x * x, 0)) || 1;
     return padded.map((x) => x / len);
   }
+
+  /** 函子 map：仅变换 data，保留 kind 与 features（特征空间不变）。
+   * @param m 源模态容器。
+   * @param f 对 data 的纯变换函数（不影响特征向量）。
+   * @returns data 被替换、kind/features 原样保留的新模态容器。
+   */
+  public static mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
+    return modalityPort.mapModality(m, f);
+  }
+
+  /** 文本模态：确定性 n-gram 包特征（长度 32，单位化）。
+   * @param s 原始文本内容。
+   * @returns kind='text'、特征为 32 维单位化 n-gram 包的模态容器。
+   */
+  public static encodeText(s: string): Modality<string> {
+    return modalityPort.encodeText(s);
+  }
+
+  /**
+   * 图像模态：由原始字节计算**真实结构特征**（零依赖、可离线）。
+   * 这是"视觉语义"的可计算占位；真实 CLIP 类编码器可替换本函数而代数不变。
+   * @param bytes 图像原始字节序列。
+   * @param width 图像宽度（像素，用于宽高比特征）。
+   * @param height 图像高度（像素，用于宽高比特征）。
+   * @returns kind='image'、特征为 8 维结构向量的模态容器。
+   */
+  public static encodeImage(
+    bytes: Uint8Array,
+    width: number,
+    height: number,
+  ): Modality<Uint8Array> {
+    return modalityPort.encodeImage(bytes, width, height);
+  }
+
+  /**
+   * 融合（交换幺半群乘积）：按 (kind, 特征签名) 规范排序保证交换律
+   * （fuse(a,b) ≡ fuse(b,a)，即使同种类模态也成立）。
+   * 特征为两向量拼接后重新单位化。
+   * @param a 参与融合的第一个模态。
+   * @param b 参与融合的第二个模态。
+   * @returns kind='tensor'、data 为二元组、特征为拼接后单位化的融合模态。
+   */
+  public static fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
+    return modalityPort.fuseModality(a, b);
+  }
+
+  /** 跨模态对齐度：特征向量余弦相似度 ∈ [-1, 1]。文本与图像可直接比较。
+   * @param a 第一个模态（取其特征向量）。
+   * @param b 第二个模态（取其特征向量）。
+   * @returns 两特征向量的余弦相似度。
+   */
+  public static alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
+    return modalityPort.alignModality(a, b);
+  }
+
+  /** 文本 n-gram 包特征（确定性、可复现），单位化到长度 TEXT_DIM。
+   * @param s 原始文本内容。
+   * @returns 32 维单位化特征向量（相邻字符对哈希落桶计数）。
+   */
+  public static textFeatures(s: string): number[] {
+    return modalityPort.textFeatures(s);
+  }
+
+  /**
+   * 图像结构特征（真实可计算）：亮度均值/标准差、字节香农熵、宽高比。
+   * 长度 8，单位化。作为视觉语义编码器的可计算占位。
+   * @param bytes 图像原始字节序列。
+   * @param width 图像宽度（像素）。
+   * @param height 图像高度（像素）。
+   * @returns 8 维（5 有效维 + 3 填充零维）单位化结构特征向量。
+   */
+  public static imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
+    return modalityPort.imageFeatures(bytes, width, height);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const modalityPort = new ModalityPort();
-
-/** 函子 map：仅变换 data，保留 kind 与 features（特征空间不变）。
- * @param m 源模态容器。
- * @param f 对 data 的纯变换函数（不影响特征向量）。
- * @returns data 被替换、kind/features 原样保留的新模态容器。
- */
-export function mapModality<A, B>(m: Modality<A>, f: (a: A) => B): Modality<B> {
-  return modalityPort.mapModality(m, f);
-}
-
-/** 文本模态：确定性 n-gram 包特征（长度 32，单位化）。
- * @param s 原始文本内容。
- * @returns kind='text'、特征为 32 维单位化 n-gram 包的模态容器。
- */
-export function encodeText(s: string): Modality<string> {
-  return modalityPort.encodeText(s);
-}
-
-/**
- * 图像模态：由原始字节计算**真实结构特征**（零依赖、可离线）。
- * 这是"视觉语义"的可计算占位；真实 CLIP 类编码器可替换本函数而代数不变。
- * @param bytes 图像原始字节序列。
- * @param width 图像宽度（像素，用于宽高比特征）。
- * @param height 图像高度（像素，用于宽高比特征）。
- * @returns kind='image'、特征为 8 维结构向量的模态容器。
- */
-export function encodeImage(
-  bytes: Uint8Array,
-  width: number,
-  height: number,
-): Modality<Uint8Array> {
-  return modalityPort.encodeImage(bytes, width, height);
-}
-
-/**
- * 融合（交换幺半群乘积）：按 (kind, 特征签名) 规范排序保证交换律
- * （fuse(a,b) ≡ fuse(b,a)，即使同种类模态也成立）。
- * 特征为两向量拼接后重新单位化。
- * @param a 参与融合的第一个模态。
- * @param b 参与融合的第二个模态。
- * @returns kind='tensor'、data 为二元组、特征为拼接后单位化的融合模态。
- */
-export function fuseModality<A, B>(a: Modality<A>, b: Modality<B>): Modality<[A, B]> {
-  return modalityPort.fuseModality(a, b);
-}
-
-/** 跨模态对齐度：特征向量余弦相似度 ∈ [-1, 1]。文本与图像可直接比较。
- * @param a 第一个模态（取其特征向量）。
- * @param b 第二个模态（取其特征向量）。
- * @returns 两特征向量的余弦相似度。
- */
-export function alignModality(a: Modality<unknown>, b: Modality<unknown>): number {
-  return modalityPort.alignModality(a, b);
-}
-
-/** 文本 n-gram 包特征（确定性、可复现），单位化到长度 TEXT_DIM。
- * @param s 原始文本内容。
- * @returns 32 维单位化特征向量（相邻字符对哈希落桶计数）。
- */
-export function textFeatures(s: string): number[] {
-  return modalityPort.textFeatures(s);
-}
-
-/**
- * 图像结构特征（真实可计算）：亮度均值/标准差、字节香农熵、宽高比。
- * 长度 8，单位化。作为视觉语义编码器的可计算占位。
- * @param bytes 图像原始字节序列。
- * @param width 图像宽度（像素）。
- * @param height 图像高度（像素）。
- * @returns 8 维（5 有效维 + 3 填充零维）单位化结构特征向量。
- */
-export function imageFeatures(bytes: Uint8Array, width: number, height: number): number[] {
-  return modalityPort.imageFeatures(bytes, width, height);
-}

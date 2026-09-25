@@ -10,11 +10,7 @@ import {
   PluginRegistry,
   RemoteHttpSource,
 } from '../../src/plugin/pluginRegistry.js';
-import {
-  manifestHasDangerous,
-  validateManifestPermissions,
-  type PluginManifest,
-} from '../../src/plugin/manifest.js';
+import { Manifest, type PluginManifest } from '../../src/plugin/manifest.js';
 import { Container } from '../../src/core/container.js';
 import { PermissionDeniedError, PermissionGate } from '../../src/plugin/permissionGate.js';
 import { PluginManager } from '../../src/plugin/pluginManager.js';
@@ -210,23 +206,35 @@ test('install 拒绝未知权限且不落盘半成品（fail-closed）', async (
 
 test('validateManifestPermissions 校验合法与非法权限', () => {
   assert.deepStrictEqual(
-    validateManifestPermissions({ name: 'ok', version: '1.0.0', permissions: ['fs.read'] }),
+    Manifest.validateManifestPermissions({
+      name: 'ok',
+      version: '1.0.0',
+      permissions: ['fs.read'],
+    }),
     ['fs.read'],
   );
-  assert.deepStrictEqual(validateManifestPermissions({ name: 'none', version: '1.0.0' }), []);
+  assert.deepStrictEqual(
+    Manifest.validateManifestPermissions({ name: 'none', version: '1.0.0' }),
+    [],
+  );
   assert.throws(
-    () => validateManifestPermissions({ name: 'bad', version: '1.0.0', permissions: ['nope'] }),
+    () =>
+      Manifest.validateManifestPermissions({
+        name: 'bad',
+        version: '1.0.0',
+        permissions: ['nope'],
+      }),
     /未知权限/,
   );
 });
 
 test('manifestHasDangerous 标记危险权限声明', () => {
   assert.strictEqual(
-    manifestHasDangerous({ name: 'a', version: '1.0.0', permissions: ['fs.read'] }),
+    Manifest.manifestHasDangerous({ name: 'a', version: '1.0.0', permissions: ['fs.read'] }),
     false,
   );
   assert.strictEqual(
-    manifestHasDangerous({ name: 'b', version: '1.0.0', permissions: ['proc.exec'] }),
+    Manifest.manifestHasDangerous({ name: 'b', version: '1.0.0', permissions: ['proc.exec'] }),
     true,
   );
 });

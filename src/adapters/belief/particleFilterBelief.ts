@@ -7,8 +7,8 @@ import type {
   BeliefSnapshot,
   BeliefUpdateReport,
 } from '../../ports/intelligence/metacognition.js';
-import { klDiagonal, reparamInvariant } from '../../util/beliefMath.js';
-import { at } from '../../util/arrayAt.js';
+import { BeliefMath } from '../../util/beliefMath.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /** 粒子滤波信念选项（fail-closed 边界夹紧）。 */
 export interface ParticleFilterOptions {
@@ -97,22 +97,23 @@ export class ParticleFilterBelief implements MetacognitionPort {
     const mean = new Array<number>(this.dim).fill(0);
     let wsum = 0;
     for (let i = 0; i < this.n; i++) {
-      const w = at(this.weights, i);
+      const w = ArrayAt.at(this.weights, i);
       wsum += w;
-      for (let d = 0; d < this.dim; d++) mean[d] = at(mean, d) + w * at(this.particles[i]!, d);
+      for (let d = 0; d < this.dim; d++)
+        mean[d] = ArrayAt.at(mean, d) + w * ArrayAt.at(this.particles[i]!, d);
     }
-    if (wsum > 0) for (let d = 0; d < this.dim; d++) mean[d] = at(mean, d) / wsum;
+    if (wsum > 0) for (let d = 0; d < this.dim; d++) mean[d] = ArrayAt.at(mean, d) / wsum;
     const variance = new Array<number>(this.dim).fill(0);
     for (let i = 0; i < this.n; i++) {
-      const w = at(this.weights, i);
+      const w = ArrayAt.at(this.weights, i);
       for (let d = 0; d < this.dim; d++) {
-        const diff = at(this.particles[i]!, d) - at(mean, d);
-        variance[d] = at(variance, d) + w * diff * diff;
+        const diff = ArrayAt.at(this.particles[i]!, d) - ArrayAt.at(mean, d);
+        variance[d] = ArrayAt.at(variance, d) + w * diff * diff;
       }
     }
     let ess = 0;
     for (let i = 0; i < this.n; i++) {
-      const w = at(this.weights, i);
+      const w = ArrayAt.at(this.weights, i);
       ess += w * w;
     }
     ess = ess > 0 ? 1 / ess : 0;
@@ -148,7 +149,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     for (let i = 0; i < this.n; i++) {
       let ll = 0;
       for (let d = 0; d < dim; d++) {
-        const diff = (observation[d] ?? 0) - at(this.particles[i]!, d);
+        const diff = (observation[d] ?? 0) - ArrayAt.at(this.particles[i]!, d);
         ll += (-0.5 * (diff * diff)) / noise2;
       }
       ll -= 0.5 * dim * Math.log(2 * Math.PI * noise2);
@@ -158,7 +159,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     // 稳定归一化：减去最大值防 exp 下溢。
     let sum = 0;
     for (let i = 0; i < this.n; i++) {
-      const w = Math.exp(at(logW, i) - maxLog);
+      const w = Math.exp(ArrayAt.at(logW, i) - maxLog);
       this.weights[i] = w;
       sum += w;
     }
@@ -166,7 +167,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
       // fail-closed：观测离所有粒子极远 → 权值溢出，保持均匀、置信记 0，不崩溃。
       for (let i = 0; i < this.n; i++) this.weights[i] = 1 / this.n;
     } else {
-      for (let i = 0; i < this.n; i++) this.weights[i] = at(this.weights, i) / sum;
+      for (let i = 0; i < this.n; i++) this.weights[i] = ArrayAt.at(this.weights, i) / sum;
     }
     const ess = this.effectiveSampleSize();
     if (ess < this.resampleFloor) this.resample();
@@ -185,12 +186,12 @@ export class ParticleFilterBelief implements MetacognitionPort {
     const { variance } = this.fit();
     const sd = variance.map((v) => Math.sqrt(Math.max(v, 1e-6)));
     for (let i = 0; i < this.n; i++) {
-      const p = at(this.particles, i);
+      const p = ArrayAt.at(this.particles, i);
       for (let d = 0; d < this.dim; d++) {
         p[d] =
-          at(p, d) +
+          ArrayAt.at(p, d) +
           lr * (gradient[d] ?? 0) +
-          this.jitter * at(sd, d) * ParticleFilterBelief.randn(this.rng);
+          this.jitter * ArrayAt.at(sd, d) * ParticleFilterBelief.randn(this.rng);
       }
     }
     return this.report(before);
@@ -202,7 +203,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
   private effectiveSampleSize(): number {
     let s = 0;
     for (let i = 0; i < this.n; i++) {
-      const w = at(this.weights, i);
+      const w = ArrayAt.at(this.weights, i);
       s += w * w;
     }
     return s > 0 ? 1 / s : 0;
@@ -215,7 +216,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
     const cum: number[] = [];
     let acc = 0;
     for (let i = 0; i < this.n; i++) {
-      acc += at(this.weights, i);
+      acc += ArrayAt.at(this.weights, i);
       cum.push(acc);
     }
     const step = 1 / this.n;
@@ -223,11 +224,11 @@ export class ParticleFilterBelief implements MetacognitionPort {
     const next: number[][] = [];
     for (let i = 0; i < this.n; i++) {
       const target = (i + this.rng()) * step;
-      while (j < this.n - 1 && target > at(cum, j)) j++;
-      const src = at(this.particles, j);
+      while (j < this.n - 1 && target > ArrayAt.at(cum, j)) j++;
+      const src = ArrayAt.at(this.particles, j);
       const p: number[] = new Array<number>(this.dim);
       for (let d = 0; d < this.dim; d++)
-        p[d] = at(src, d) + this.jitter * ParticleFilterBelief.randn(this.rng);
+        p[d] = ArrayAt.at(src, d) + this.jitter * ParticleFilterBelief.randn(this.rng);
       next.push(p);
     }
     this.particles = next;
@@ -240,7 +241,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
    */
   private report(before: BeliefSnapshot): BeliefUpdateReport {
     const after = this.snapshot();
-    const kl = klDiagonal(
+    const kl = BeliefMath.klDiagonal(
       after.mean as number[],
       after.variance as number[],
       before.mean as number[],
@@ -250,7 +251,7 @@ export class ParticleFilterBelief implements MetacognitionPort {
       before,
       after,
       kl,
-      reparamInvariant: reparamInvariant(
+      reparamInvariant: BeliefMath.reparamInvariant(
         after.mean as number[],
         after.variance as number[],
         before.mean as number[],

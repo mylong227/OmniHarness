@@ -25,8 +25,8 @@ import type {
 import type { ResonantHit, ResonantMemoryPort } from '../../ports/memory/resonantMemory.js';
 import type { CosmicWebPort, WebConsolidationReport } from '../../ports/memory/cosmicWeb.js';
 import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/memory/resonantField.js';
-import { eigenSpectrum, resonance, type Spectrum } from '../../util/eigenspectrum.js';
-import { rankWithDecay, type ScoredFact } from './timeDecay.js';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
+import { TimeDecay, type ScoredFact } from './timeDecay.js';
 import { ResonantFieldMath } from './resonantFieldMath.js';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
@@ -93,7 +93,7 @@ export class ResonantFieldEngine
     this.clusters.clear();
     this.knownIds.clear();
     for (const f of this.base.all()) {
-      const s = eigenSpectrum(f.text, this.bins);
+      const s = EigenSpectrum.eigenSpectrum(f.text, this.bins);
       this.spectra.set(f.id, s);
       this.knownIds.add(f.id);
       if (f.topic === '__web_abstract__') {
@@ -118,15 +118,15 @@ export class ResonantFieldEngine
   public remember(fact: MemoryFact): void {
     if (this.knownIds.has(fact.id)) {
       // 已存在：更新谱与所属簇。
-      const s = eigenSpectrum(fact.text, this.bins);
+      const s = EigenSpectrum.eigenSpectrum(fact.text, this.bins);
       this.spectra.set(fact.id, s);
       return;
     }
-    const s = eigenSpectrum(fact.text, this.bins);
+    const s = EigenSpectrum.eigenSpectrum(fact.text, this.bins);
     let bestId: string | undefined;
     let bestRes = this.adhesionThreshold;
     for (const [cid, cl] of this.clusters) {
-      const r = resonance(s, cl.centroid);
+      const r = EigenSpectrum.resonance(s, cl.centroid);
       if (r >= bestRes) {
         bestRes = r;
         bestId = cid;
@@ -161,7 +161,7 @@ export class ResonantFieldEngine
     for (const [id, s] of this.spectra) {
       const f = this.base.get(id);
       if (f === undefined) continue;
-      hits.push({ fact: f, score: resonance(s, probe) });
+      hits.push({ fact: f, score: EigenSpectrum.resonance(s, probe) });
     }
     hits.sort((a, b) => b.score - a.score);
     return hits.slice(0, k);
@@ -174,7 +174,7 @@ export class ResonantFieldEngine
    * @returns 共振度降序的命中数组。
    */
   public resonateByText(query: string, k: number): readonly ResonantHit[] {
-    return this.resonate(eigenSpectrum(query, this.bins), k);
+    return this.resonate(EigenSpectrum.eigenSpectrum(query, this.bins), k);
   }
 
   // ── 纤维召回（宇宙网） ──
@@ -190,7 +190,7 @@ export class ResonantFieldEngine
     let bestId: string | undefined;
     let bestRes = -1;
     for (const [cid, cl] of this.clusters) {
-      const r = resonance(probe, cl.centroid);
+      const r = EigenSpectrum.resonance(probe, cl.centroid);
       if (r > bestRes) {
         bestRes = r;
         bestId = cid;
@@ -233,7 +233,7 @@ export class ResonantFieldEngine
       let largeRes = -1;
       for (const [cid, cl] of this.clusters) {
         if (cid === smallId) continue;
-        const r = resonance(small.centroid, cl.centroid);
+        const r = EigenSpectrum.resonance(small.centroid, cl.centroid);
         if (r > largeRes) {
           largeRes = r;
           largeId = cid;
@@ -282,7 +282,7 @@ export class ResonantFieldEngine
       for (let j = i + 1; j < ids.length; j++) {
         const a = this.clusters.get(ids[i]!)!;
         const b = this.clusters.get(ids[j]!)!;
-        if (resonance(a.centroid, b.centroid) >= this.edgeThreshold) fibers++;
+        if (EigenSpectrum.resonance(a.centroid, b.centroid) >= this.edgeThreshold) fibers++;
       }
     }
     return fibers;
@@ -312,7 +312,7 @@ export class ResonantFieldEngine
   public recall(query: string, k: number): readonly MemoryFact[] {
     const hits = this.resonateByText(query, this.base.all().length);
     const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
-    return rankWithDecay(items, this.clock(), this.halfLifeDays, k);
+    return TimeDecay.rankWithDecay(items, this.clock(), this.halfLifeDays, k);
   }
   /** 全部事实（委托 base，供导出/调试）。
    * @returns base 中的全部事实列表。
@@ -340,7 +340,7 @@ export class ResonantFieldEngine
     const ok = this.base.update(id, patch);
     if (ok) {
       const f = this.base.get(id);
-      if (f !== undefined) this.spectra.set(id, eigenSpectrum(f.text, this.bins));
+      if (f !== undefined) this.spectra.set(id, EigenSpectrum.eigenSpectrum(f.text, this.bins));
     }
     return ok;
   }

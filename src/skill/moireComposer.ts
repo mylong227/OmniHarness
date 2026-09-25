@@ -4,7 +4,7 @@
  * @beta
  */
 import type { MoireMeta, MoireOptions, Skill } from './skill.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 interface Resolved {
   n: number;
@@ -84,7 +84,7 @@ export class MoireComposer {
         const sx = Math.round(dx * c - dy * s + cx);
         const sy = Math.round(dx * s + dy * c + cx);
         if (sx < 0 || sy < 0 || sx >= n || sy >= n) row.push(0);
-        else row.push(at(B[sy]!, sx));
+        else row.push(ArrayAt.at(B[sy]!, sx));
       }
       out.push(row);
     }
@@ -102,7 +102,7 @@ export class MoireComposer {
         for (let k = -r; k <= r; k++) {
           const xx = x + k;
           if (xx >= 0 && xx < n) {
-            sum += at(P[y]!, xx);
+            sum += ArrayAt.at(P[y]!, xx);
             cnt++;
           }
         }
@@ -119,7 +119,7 @@ export class MoireComposer {
         for (let k = -r; k <= r; k++) {
           const yy = y + k;
           if (yy >= 0 && yy < n) {
-            sum += at(tmp[yy]!, x);
+            sum += ArrayAt.at(tmp[yy]!, x);
             cnt++;
           }
         }
@@ -147,7 +147,7 @@ export class MoireComposer {
     for (let y = 0; y < n; y++) {
       const row: number[] = [];
       for (let x = 0; x < n; x++) {
-        const v = at(A[y]!, x) * at(R[y]!, x);
+        const v = ArrayAt.at(A[y]!, x) * ArrayAt.at(R[y]!, x);
         row.push(v);
         mean += v;
       }
@@ -156,11 +156,13 @@ export class MoireComposer {
     mean /= n * n;
     let totC = 0;
     for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) totC += (at(P[y]!, x) - mean) * (at(P[y]!, x) - mean);
+      for (let x = 0; x < n; x++)
+        totC += (ArrayAt.at(P[y]!, x) - mean) * (ArrayAt.at(P[y]!, x) - mean);
     const blur = this.boxBlur(P, n, blurR);
     let low = 0;
     for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) low += (at(blur[y]!, x) - mean) * (at(blur[y]!, x) - mean);
+      for (let x = 0; x < n; x++)
+        low += (ArrayAt.at(blur[y]!, x) - mean) * (ArrayAt.at(blur[y]!, x) - mean);
     return totC > 0 ? low / totC : 0;
   }
 
@@ -194,7 +196,7 @@ export class MoireComposer {
     const R = this.rotateSample(fb, n, (best.theta * Math.PI) / 180);
     const field: number[] = [];
     for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) field.push(at(fa[y]!, x) * at(R[y]!, x));
+      for (let x = 0; x < n; x++) field.push(ArrayAt.at(fa[y]!, x) * ArrayAt.at(R[y]!, x));
     const meta: MoireMeta = {
       composedFrom: [a.name, b.name],
       twistDeg: best.theta,
@@ -211,34 +213,34 @@ export class MoireComposer {
       moire: meta,
     };
   }
+
+  /** 单个技能的能力场（N×N 正弦光栅）。显式声明优先，否则按文本确定性派生。 */
+  public static capabilityFieldOf(skill: Skill, n: number): number[][] {
+    return moireComposer.capabilityFieldOf(skill, n);
+  }
+
+  /**
+   * 乘积场「涌现强度」：先去均值，再算低通能量 / 中心化总能量。
+   * 该比值越高，说明乘积场含越多「两片各自都没有」的长波莫尔结构。
+   */
+  public static emergenceAt(
+    A: number[][],
+    B: number[][],
+    n: number,
+    theta: number,
+    blurR: number,
+  ): number {
+    return moireComposer.emergenceAt(A, B, n, theta, blurR);
+  }
+
+  /**
+   * 莫尔转角组合：固定 a 的场，对 b 的场扫描相对转角 θ，取涌现峰值 θ* 处的乘积场
+   * 作为复合技能的能力场。返回的技能既是可用技能，又承载「两片都没有」的涌现长波。
+   */
+  public static composeByTwist(a: Skill, b: Skill, opts?: MoireOptions): Skill {
+    return moireComposer.composeByTwist(a, b, opts);
+  }
 }
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const moireComposer = new MoireComposer();
-
-/** 单个技能的能力场（N×N 正弦光栅）。显式声明优先，否则按文本确定性派生。 */
-export function capabilityFieldOf(skill: Skill, n: number): number[][] {
-  return moireComposer.capabilityFieldOf(skill, n);
-}
-
-/**
- * 乘积场「涌现强度」：先去均值，再算低通能量 / 中心化总能量。
- * 该比值越高，说明乘积场含越多「两片各自都没有」的长波莫尔结构。
- */
-export function emergenceAt(
-  A: number[][],
-  B: number[][],
-  n: number,
-  theta: number,
-  blurR: number,
-): number {
-  return moireComposer.emergenceAt(A, B, n, theta, blurR);
-}
-
-/**
- * 莫尔转角组合：固定 a 的场，对 b 的场扫描相对转角 θ，取涌现峰值 θ* 处的乘积场
- * 作为复合技能的能力场。返回的技能既是可用技能，又承载「两片都没有」的涌现长波。
- */
-export function composeByTwist(a: Skill, b: Skill, opts?: MoireOptions): Skill {
-  return moireComposer.composeByTwist(a, b, opts);
-}

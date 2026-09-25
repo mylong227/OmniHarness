@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 
 import type { SkillEntry } from '../skill/skill.js';
-import { normalizeSkillEntries } from '../config/configError.js';
+import { ConfigError } from '../config/configError.js';
 import type { CliArgs } from './argParser.js';
 
 /** `--skills` 技能包解析器（纯静态工具类）。 */
@@ -78,6 +78,6 @@ export class CliSkillFlags {
         `${source}: JSON 解析失败（${error instanceof Error ? error.message : String(error)}）`,
       );
     }
-    return normalizeSkillEntries(parsed, source);
+    return ConfigError.normalizeSkillEntries(parsed, source);
   }
 }

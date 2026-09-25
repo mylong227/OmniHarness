@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.js';
-import { parseArgs } from '../../src/cli/argParser.js';
+import { ArgParser } from '../../src/cli/argParser.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
@@ -62,7 +62,7 @@ test('P5 预算存在时 budget_status 工具被注册（真实消费点）', ()
 });
 
 test('P5 三个成本旗标被解析且取值不污染 prompt', () => {
-  const args = parseArgs([
+  const args = ArgParser.parseArgs([
     '--prompt',
     'hi',
     '--cost-budget-usd',
@@ -79,5 +79,5 @@ test('P5 三个成本旗标被解析且取值不污染 prompt', () => {
 });
 
 test('P5 非法 on-exceed 取值 fail-closed（枚举白名单抛错）', () => {
-  assert.throws(() => parseArgs(['--prompt', 'hi', '--cost-budget-on-exceed', 'bogus']));
+  assert.throws(() => ArgParser.parseArgs(['--prompt', 'hi', '--cost-budget-on-exceed', 'bogus']));
 });

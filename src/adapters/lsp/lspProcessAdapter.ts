@@ -9,7 +9,7 @@ import type {
   LspSymbol,
   LspWorkspaceSymbol,
 } from '../../ports/tool/lsp.js';
-import { fileToUri } from '../../adapters/lsp/lspUri.js';
+import { LspUri } from '../../adapters/lsp/lspUri.js';
 import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
 import { LspDiagnosticsCollector } from './lspDiagnosticsCollector.js';
 import { LspSymbolNormalizer } from './lspSymbolNormalizer.js';
@@ -120,7 +120,7 @@ export class LspProcessAdapter implements LspPort {
     await this.ensureStarted();
     await this.didOpen(file);
     const result = await this.requireConn().request('textDocument/hover', {
-      textDocument: { uri: fileToUri(file) },
+      textDocument: { uri: LspUri.fileToUri(file) },
       position: { line: line - 1, character: character - 1 },
     });
     return LspResultNormalizer.hoverText(result);
@@ -140,7 +140,7 @@ export class LspProcessAdapter implements LspPort {
     await this.ensureStarted();
     await this.didOpen(file);
     const result = await this.requireConn().request('textDocument/documentSymbol', {
-      textDocument: { uri: fileToUri(file) },
+      textDocument: { uri: LspUri.fileToUri(file) },
     });
     return LspSymbolNormalizer.normalize(result, file);
   }
@@ -180,7 +180,7 @@ export class LspProcessAdapter implements LspPort {
     await this.ensureStarted();
     await this.didOpen(file);
     const result = await this.requireConn().request('textDocument/codeAction', {
-      textDocument: { uri: fileToUri(file) },
+      textDocument: { uri: LspUri.fileToUri(file) },
       range: {
         start: { line: range.start.line - 1, character: range.start.character - 1 },
         end: { line: range.end.line - 1, character: range.end.character - 1 },
@@ -246,7 +246,7 @@ export class LspProcessAdapter implements LspPort {
     await this.ensureStarted();
     await this.didOpen(file);
     const params = {
-      textDocument: { uri: fileToUri(file) },
+      textDocument: { uri: LspUri.fileToUri(file) },
       position: { line: line - 1, character: character - 1 },
       ...(context !== undefined ? { context } : {}),
     };
@@ -342,7 +342,7 @@ export class LspProcessAdapter implements LspPort {
     }
     this.requireConn().notify('textDocument/didOpen', {
       textDocument: {
-        uri: fileToUri(file),
+        uri: LspUri.fileToUri(file),
         languageId: LspResultNormalizer.languageId(file),
         version: 1,
         text,
@@ -373,7 +373,7 @@ export class LspProcessAdapter implements LspPort {
       // 读不到内容时发空文本，交由服务器按磁盘状态判定。
     }
     this.requireConn().notify('textDocument/didChange', {
-      textDocument: { uri: fileToUri(file), version },
+      textDocument: { uri: LspUri.fileToUri(file), version },
       contentChanges: [{ text }],
     });
   }

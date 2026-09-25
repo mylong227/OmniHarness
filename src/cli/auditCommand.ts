@@ -8,10 +8,7 @@
 import { writeFileSync } from 'node:fs';
 import { AuditSink, type AuditEvent } from '../server/services/auditSink.js';
 import {
-  formatAudit,
-  queryAudit,
-  buildComplianceReport,
-  formatCompliance,
+  AuditExporter,
   type AuditFormat,
   type AuditQuery,
 } from '../server/services/auditExporter.js';
@@ -106,7 +103,12 @@ export class AuditCommand {
     reader: CliArgReader,
   ): number {
     const chain = sink.verify();
-    const report = buildComplianceReport(events, query, { generatedBy: 'omniharness' }, chain);
+    const report = AuditExporter.buildComplianceReport(
+      events,
+      query,
+      { generatedBy: 'omniharness' },
+      chain,
+    );
     if (chain.ok === false) {
       process.stderr.write(
         `[omniharness] 审计哈希链校验失败：${chain.reason ?? '未知原因'}（断裂处 seq=${String(chain.brokenAt)}）\n` +
@@ -114,7 +116,7 @@ export class AuditCommand {
       );
     }
     const chainLabel = chain.ok === true ? '完整' : chain.ok === false ? '断裂' : '未启用';
-    const text = formatCompliance(report);
+    const text = AuditExporter.formatCompliance(report);
     const outFile = reader.value('--out');
     if (outFile !== undefined) {
       writeFileSync(outFile, text);
@@ -141,8 +143,8 @@ export class AuditCommand {
   ): number {
     const formatRaw = reader.value('--format');
     const format: AuditFormat = formatRaw === 'json' || formatRaw === 'csv' ? formatRaw : 'table';
-    const filtered = queryAudit(events, query);
-    const matched = formatAudit(filtered, format);
+    const filtered = AuditExporter.queryAudit(events, query);
+    const matched = AuditExporter.formatAudit(filtered, format);
     const outFile = reader.value('--out');
     if (outFile !== undefined) {
       writeFileSync(outFile, matched);

@@ -11,7 +11,7 @@
  */
 
 import type { Embedding, EmbeddingPort } from '../ports/model/embedding.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 /** 可嵌入的文档单元（符号或文件）。 */
 export interface RecallItem {
@@ -28,42 +28,6 @@ export interface RecallHit {
   readonly score: number;
 }
 
-/** 余弦相似度（输入视为已 L2 归一化时等价点积）。 */
-export function cosine(a: Embedding, b: Embedding): number {
-  const n = Math.min(a.length, b.length);
-  let dot = 0;
-  for (let i = 0; i < n; i++) {
-    dot += at(a, i) * at(b, i);
-  }
-  return dot;
-}
-
-/**
- * 按嵌入维度推算单批大小（纯函数，可单测）。
- *
- * 背景（真实事故，勿回退成常量）：批大小 256 是按 minilm（384 维 / 6 层）调出来的。
- * 换到 e5-large（1024 维 / 24 层）时，transformer 中间激活 ≈ batch × seq × dim × layers，
- * 随维度近似**平方**增长，实测常驻内存冲到约 11.8GB → 整机换页 → 索引构建挂死（不是慢，是假死）。
- * 故批大小必须随模型规模收缩，不能用一个常量走天下。
- */
-export function defaultEmbedBatchSize(dim: number): number {
-  const refDim = 384; // minilm 标定基准：该规模下 256 实测安全
-  const scaled = Math.round(256 * (refDim / Math.max(dim, 1)) ** 2);
-  return Math.min(256, Math.max(8, scaled));
-}
-
-/** 解析批大小：env OMNI_EMBED_BATCH（应急/调参）> 按维度推算。非法值回落推算值，不产出 NaN。 */
-export function resolveEmbedBatchSize(dim: number): number {
-  const raw = process.env.OMNI_EMBED_BATCH;
-  if (raw !== undefined && raw.trim() !== '') {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 1) {
-      return Math.floor(n);
-    }
-  }
-  return defaultEmbedBatchSize(dim);
-}
-
 /**
  * 语义索引：索引一组文档的向量，并提供查询时的最近邻召回。
  * 索引期调用 port.embed 一次（可内部批处理）；查询期只 embed 查询文本一次。
@@ -78,7 +42,7 @@ export class SemanticIndex {
 
   public constructor(port: EmbeddingPort) {
     this.port = port;
-    this.batchSize = resolveEmbedBatchSize(port.dim);
+    this.batchSize = SemanticIndex.resolveEmbedBatchSize(port.dim);
   }
 
   /** 构建索引（嵌入全部文档文本）。分块嵌入以控制单批规模，结果等价但更稳健。任何嵌入异常向上抛，由调用方 fail-closed。
@@ -101,7 +65,7 @@ export class SemanticIndex {
         if (v === undefined) {
           continue;
         }
-        this.ids.push(at(slice, j).id);
+        this.ids.push(ArrayAt.at(slice, j).id);
         this.vectors.push(v);
       }
     }
@@ -118,33 +82,72 @@ export class SemanticIndex {
     }
     const scored: RecallHit[] = [];
     for (let i = 0; i < this.ids.length; i++) {
-      scored.push({ id: at(this.ids, i), score: cosine(qv, at(this.vectors, i)) });
+      scored.push({
+        id: ArrayAt.at(this.ids, i),
+        score: SemanticIndex.cosine(qv, ArrayAt.at(this.vectors, i)),
+      });
     }
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, k);
   }
-}
 
-/**
- * 混合检索融合：Reciprocal Rank Fusion（RRF）。
- * 把多路召回（BM25 词法 + 语义向量）按排名倒数融合，对分数尺度不敏感，无需各自归一化。
- * 默认 k=60（经典取值）。
- * @param weights 可选，与 lists 等长；每路召回的贡献权重（BM25 通常取 1，语义路可 <1 以抑制噪声稀释）。
- *                 缺省则各路等权（=1）。返回按融合分降序的 id 列表。
- */
-export function rrfMerge(
-  lists: ReadonlyArray<readonly { readonly id: string }[]>,
-  k = 60,
-  weights?: ReadonlyArray<number>,
-): string[] {
-  const score = new Map<string, number>();
-  for (let li = 0; li < lists.length; li++) {
-    const w = weights?.[li] ?? 1;
-    const list = at(lists, li);
-    list.forEach((hit, rank) => {
-      const id = hit.id;
-      score.set(id, (score.get(id) ?? 0) + w / (k + rank + 1));
-    });
+  /** 余弦相似度（输入视为已 L2 归一化时等价点积）。 */
+  public static cosine(a: Embedding, b: Embedding): number {
+    const n = Math.min(a.length, b.length);
+    let dot = 0;
+    for (let i = 0; i < n; i++) {
+      dot += ArrayAt.at(a, i) * ArrayAt.at(b, i);
+    }
+    return dot;
   }
-  return [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+
+  /**
+   * 按嵌入维度推算单批大小（纯函数，可单测）。
+   *
+   * 背景（真实事故，勿回退成常量）：批大小 256 是按 minilm（384 维 / 6 层）调出来的。
+   * 换到 e5-large（1024 维 / 24 层）时，transformer 中间激活 ≈ batch × seq × dim × layers，
+   * 随维度近似**平方**增长，实测常驻内存冲到约 11.8GB → 整机换页 → 索引构建挂死（不是慢，是假死）。
+   * 故批大小必须随模型规模收缩，不能用一个常量走天下。
+   */
+  public static defaultEmbedBatchSize(dim: number): number {
+    const refDim = 384; // minilm 标定基准：该规模下 256 实测安全
+    const scaled = Math.round(256 * (refDim / Math.max(dim, 1)) ** 2);
+    return Math.min(256, Math.max(8, scaled));
+  }
+
+  /** 解析批大小：env OMNI_EMBED_BATCH（应急/调参）> 按维度推算。非法值回落推算值，不产出 NaN。 */
+  public static resolveEmbedBatchSize(dim: number): number {
+    const raw = process.env.OMNI_EMBED_BATCH;
+    if (raw !== undefined && raw.trim() !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 1) {
+        return Math.floor(n);
+      }
+    }
+    return SemanticIndex.defaultEmbedBatchSize(dim);
+  }
+
+  /**
+   * 混合检索融合：Reciprocal Rank Fusion（RRF）。
+   * 把多路召回（BM25 词法 + 语义向量）按排名倒数融合，对分数尺度不敏感，无需各自归一化。
+   * 默认 k=60（经典取值）。
+   * @param weights 可选，与 lists 等长；每路召回的贡献权重（BM25 通常取 1，语义路可 <1 以抑制噪声稀释）。
+   *                 缺省则各路等权（=1）。返回按融合分降序的 id 列表。
+   */
+  public static rrfMerge(
+    lists: ReadonlyArray<readonly { readonly id: string }[]>,
+    k = 60,
+    weights?: ReadonlyArray<number>,
+  ): string[] {
+    const score = new Map<string, number>();
+    for (let li = 0; li < lists.length; li++) {
+      const w = weights?.[li] ?? 1;
+      const list = ArrayAt.at(lists, li);
+      list.forEach((hit, rank) => {
+        const id = hit.id;
+        score.set(id, (score.get(id) ?? 0) + w / (k + rank + 1));
+      });
+    }
+    return [...score.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  }
 }

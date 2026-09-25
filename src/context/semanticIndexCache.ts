@@ -14,7 +14,7 @@ import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { IndexedCorpus } from './contextEngine.js';
 import { SemanticIndex, type RecallItem } from './semanticIndex.js';
 import type { RecallKnobs } from './recallKnobs.js';
-import { at } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.js';
 
 /** 全文文件文档最大字符数（约 8K token 内，留余量；ALiBi 可外推但质量在训练窗口内最佳）。 */
 const FULL_FILE_DOC_MAX_CHARS = 8000;
@@ -79,7 +79,7 @@ export class SemanticIndexCache {
   public buildChunkItems(corpus: IndexedCorpus): RecallItem[] {
     const byFile = new Map<string, number[]>();
     for (let i = 0; i < corpus.symbols.length; i++) {
-      const f = at(corpus.symbols, i).file;
+      const f = ArrayAt.at(corpus.symbols, i).file;
       const arr = byFile.get(f);
       if (arr === undefined) {
         byFile.set(f, [i]);
@@ -89,7 +89,7 @@ export class SemanticIndexCache {
     }
     const items: RecallItem[] = [];
     for (let i = 0; i < corpus.symbols.length; i++) {
-      const s = at(corpus.symbols, i);
+      const s = ArrayAt.at(corpus.symbols, i);
       const text = corpus.fileText.get(s.file);
       if (text === undefined) {
         continue;
@@ -100,7 +100,7 @@ export class SemanticIndexCache {
       const start = Math.max(0, s.line - 1);
       let end: number;
       if (pos >= 0 && pos + 1 < arr!.length) {
-        const next = at(corpus.symbols, arr![pos + 1]!);
+        const next = ArrayAt.at(corpus.symbols, arr![pos + 1]!);
         end = Math.max(start, next.line - 1);
       } else {
         end = Math.min(lines.length, start + CHUNK_BODY_MAX_LINES);

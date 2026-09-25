@@ -35,10 +35,10 @@ import { storageFactory, DEFAULT_SQLITE_FILE } from '../../src/cli/storageFactor
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.js';
 import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.js';
-import { normalizeConfig } from '../../src/config/configError.js';
 import { ConfigError } from '../../src/config/configError.js';
-import { buildModelForProvider } from '../../src/server/services/providerProbe.js';
-import { buildRouterAdapter } from '../../src/config/configBuilder.js';
+
+import { ProviderProbe } from '../../src/server/services/providerProbe.js';
+import { ConfigBuilder } from '../../src/config/configBuilder.js';
 import { endpointDefaults } from '../../src/util/endpointDefaults.js';
 import { providerPresets } from '../../src/config/providerPresets.js';
 
@@ -55,7 +55,7 @@ test('① 注册表 ↔ CLI 枚举 ↔ 配置校验白名单：三方一致（�
   // 每个适配器名都必须能通过配置文件的枚举校验（这是 llamacpp 缺陷的机械防线）
   for (const id of registryIds) {
     assert.doesNotThrow(
-      () => normalizeConfig({ modelAdapter: id }),
+      () => ConfigError.normalizeConfig({ modelAdapter: id }),
       `配置文件校验白名单缺 "${id}"（声明支持、校验拒绝）`,
     );
   }
@@ -79,7 +79,11 @@ test('② 表的兜底引用真实存在：除 mock 外每个适配器都在 def
 test('③ 厂商探测与模型路由都按表构造出正确类', () => {
   // 探测路径：preset.adapter → 具体类（用真实预设断言；免 Key 厂商不必给 Key）
   for (const preset of providerPresets.builtin) {
-    const model = buildModelForProvider(preset, preset.needsKey ? 'sk-test' : undefined, undefined);
+    const model = ProviderProbe.buildModelForProvider(
+      preset,
+      preset.needsKey ? 'sk-test' : undefined,
+      undefined,
+    );
     const expected =
       preset.adapter === 'anthropic'
         ? AnthropicModel
@@ -91,12 +95,23 @@ test('③ 厂商探测与模型路由都按表构造出正确类', () => {
   // 必需 Key 缺失 ⇒ fail-closed（与表的 requiresApiKey 口径无关，这是厂商预设的 needsKey）
   const needKey = providerPresets.builtin.find((preset) => preset.needsKey);
   assert.ok(needKey !== undefined);
-  assert.throws(() => buildModelForProvider(needKey, undefined, undefined), ConfigError);
+  assert.throws(
+    () => ProviderProbe.buildModelForProvider(needKey, undefined, undefined),
+    ConfigError,
+  );
 
   // 路由路径：未知 adapter 抛 ConfigError（不静默退化）；mock 走表返回演示模型
-  assert.throws(() => buildRouterAdapter({ model: 'x', adapter: 'no-such-adapter' }), ConfigError);
-  assert.ok(buildRouterAdapter({ model: 'x', adapter: MOCK_ADAPTER_ID }) instanceof MockModel);
-  assert.ok(buildRouterAdapter({ model: 'x' }) instanceof MockModel, '缺省适配器应为 mock');
+  assert.throws(
+    () => ConfigBuilder.buildRouterAdapter({ model: 'x', adapter: 'no-such-adapter' }),
+    ConfigError,
+  );
+  assert.ok(
+    ConfigBuilder.buildRouterAdapter({ model: 'x', adapter: MOCK_ADAPTER_ID }) instanceof MockModel,
+  );
+  assert.ok(
+    ConfigBuilder.buildRouterAdapter({ model: 'x' }) instanceof MockModel,
+    '缺省适配器应为 mock',
+  );
 
   // 表内每一行都真的能造出对应的类（含 llamacpp——它免 Key，故不传 apiKey）
   const built = {

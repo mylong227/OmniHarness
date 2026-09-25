@@ -1,5 +1,5 @@
 ﻿import { Agent } from '../src/core/agent.js';
-import { createRuntime } from '../src/composition/runtime.js';
+import { Runtime } from '../src/composition/runtime.js';
 import { ConfigFactory } from '../src/config/configFactory.js';
 import { MockModel } from '../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';
@@ -26,7 +26,7 @@ async function runStress(): Promise<void> {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const agent = new Agent(createRuntime(config));
+  const agent = new Agent(Runtime.createRuntime(config));
 
   // 预热：把一次性索引 / 懒装配成本排除在基线之外。
   await agent.runTask('压测预热');

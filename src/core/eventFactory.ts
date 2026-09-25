@@ -6,7 +6,7 @@ import type {
   ModelUsage,
 } from '../ports/model/model.js';
 import type { EventFactoryPort } from '../ports/runtime/eventFactory.js';
-import { id } from '../util/id.js';
+import { Id } from '../util/id.js';
 
 /**
  * 事件工厂：统一构造各类会话事件，保证结构一致。
@@ -218,7 +218,7 @@ export class EventFactory implements EventFactoryPort {
    */
   private base(sessionId: string, type: SessionEvent['type'], payload: unknown): SessionEvent {
     return {
-      id: id(),
+      id: Id.id(),
       type,
       sessionId,
       timestamp: new Date().toISOString(),

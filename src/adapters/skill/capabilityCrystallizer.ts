@@ -19,13 +19,13 @@
  */
 import type { Skill } from '../../skill/skill.js';
 import type { SkillPort, MoireOptions } from '../../ports/runtime/skill.js';
-import { composeByTwist as moireCompose } from '../../skill/moireComposer.js';
+import { MoireComposer } from '../../skill/moireComposer.js';
 import type {
   CapabilityCrystallizerPort,
   CrystallizationReport,
   FrozenCapability,
 } from '../../ports/intelligence/capability.js';
-import { at } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.js';
 
 /** 相变固化器选项。 */
 export interface CapabilityCrystallizerOptions {
@@ -147,9 +147,9 @@ export class CapabilityCrystallizer implements CapabilityCrystallizerPort {
         continue;
       }
       // 莫尔组合（纯函数入口，不自动注册中间产物）。
-      let composed: Skill = at(skills, 0);
+      let composed: Skill = ArrayAt.at(skills, 0);
       for (let i = 1; i < skills.length; i++) {
-        composed = moireCompose(composed, at(skills, i), this.moireOpts);
+        composed = MoireComposer.composeByTwist(composed, ArrayAt.at(skills, i), this.moireOpts);
       }
       // 捕获真实涌现（composeByTwist 经 emergenceAt 算出），低于接纳下限则拒收（不冻结）。
       const em = composed.moire?.emergence ?? 0;

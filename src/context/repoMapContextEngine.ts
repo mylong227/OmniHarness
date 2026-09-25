@@ -57,11 +57,11 @@
  * 单例 `repoMapContextEngine` 的薄包装；新调用方应直接用引擎实例。
  */
 
-import { ContextEngine, query, type IndexedCorpus } from './contextEngine.js';
+import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
 import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.js';
-import { tokenize, tokenizeExpanded } from '../search/bm25Index.js';
+import { Bm25Index } from '../search/bm25Index.js';
 import type { RecallItem } from './semanticIndex.js';
-import { clearGraphSignal } from './codeReferenceGraph.js';
+import { CodeReferenceGraph } from './codeReferenceGraph.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
 import { RecallKnobs, type RepoMapContextOptions } from './recallKnobs.js';
 import { CorpusIndexCache } from './corpusIndexCache.js';
@@ -232,7 +232,7 @@ export class RepoMapContextEngine {
     try {
       // 注：`query()` 的历史第 3 位置参数（候选数）已于 2026-09-16 移除——它从不被读取，
       // 本处原传的 `BM25_ONLY_CANDIDATES`(=20) 与 `query` 内部固定候选上限（文件 20 / 符号 60）一致，故删除不改变行为。
-      const res = query(corpus, q, {
+      const res = ContextEngine.query(corpus, q, {
         graph: false,
         lsa: false,
         layered: knobs.layered,
@@ -404,7 +404,7 @@ export class RepoMapContextEngine {
     this.semanticCache.clear(root);
     if (root !== undefined) {
       // P5 稀疏引用图按 root 缓存，文件结构剧变须同步失效。
-      clearGraphSignal(root);
+      CodeReferenceGraph.clearGraphSignal(root);
     }
   }
 
@@ -427,7 +427,7 @@ export class RepoMapContextEngine {
     corpus: IndexedCorpus,
     q: string,
   ): { bm25SymIds: string[]; bm25FileIds: string[] } {
-    const tk = corpus.morph ? tokenizeExpanded(q) : tokenize(q);
+    const tk = corpus.morph ? Bm25Index.tokenizeExpanded(q) : Bm25Index.tokenize(q);
     const bm25SymIds = [...corpus.symbolIndex.search(tk, BM25_SYM_CANDIDATES)].map(
       (h) => `sym:${h.id}`,
     );

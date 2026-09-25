@@ -1,17 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import {
-  fetchDiscovery,
-  generatePkcePair,
-  buildAuthorizationUrl,
-  exchangeCode,
-  decodeJwt,
-  verifyIdTokenClaims,
-  verifyJwtSignature,
-  EnterpriseAuth,
-  type OidcDiscovery,
-} from '../../src/enterprise/oidcClient.js';
+import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.js';
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf)
@@ -40,7 +30,7 @@ function genRsa(): { publicKey: string; privateKey: crypto.KeyObject } {
 }
 
 test('generatePkcePair：challenge = SHA256(verifier) 的 base64url', () => {
-  const p = generatePkcePair();
+  const p = OidcClient.generatePkcePair();
   assert.strictEqual(p.method, 'S256');
   const expected = crypto
     .createHash('sha256')
@@ -64,7 +54,7 @@ test('fetchDiscovery：解析端点；缺端点抛错', async () => {
       }),
       { headers: { 'content-type': 'application/json' } },
     )) as unknown as typeof fetch;
-  const d = await fetchDiscovery('https://idp/', okFetch);
+  const d = await OidcClient.fetchDiscovery('https://idp/', okFetch);
   assert.strictEqual(d.authorization_endpoint, 'https://idp/a');
   assert.strictEqual(d.jwks_uri, 'https://idp/j');
 
@@ -72,7 +62,7 @@ test('fetchDiscovery：解析端点；缺端点抛错', async () => {
     new Response(JSON.stringify({ issuer: 'x' }), {
       headers: { 'content-type': 'application/json' },
     })) as unknown as typeof fetch;
-  await assert.rejects(() => fetchDiscovery('https://idp', badFetch));
+  await assert.rejects(() => OidcClient.fetchDiscovery('https://idp', badFetch));
 });
 
 test('buildAuthorizationUrl：含授权码流必要参数 + PKCE + nonce', () => {
@@ -81,7 +71,7 @@ test('buildAuthorizationUrl：含授权码流必要参数 + PKCE + nonce', () =>
     authorization_endpoint: 'https://idp/auth',
     token_endpoint: 'https://idp/t',
   };
-  const url = buildAuthorizationUrl(
+  const url = OidcClient.buildAuthorizationUrl(
     d,
     { issuer: 'https://idp', clientId: 'cli', redirectUri: 'https://app/cb' },
     { state: 's1', codeChallenge: 'cc' },
@@ -117,7 +107,7 @@ test('exchangeCode：POST 正确表单并解析 token 集', async () => {
     authorization_endpoint: 'https://idp/a',
     token_endpoint: 'https://idp/t',
   };
-  const ts = await exchangeCode(
+  const ts = await OidcClient.exchangeCode(
     d,
     { issuer: 'https://idp', clientId: 'cli', clientSecret: 'sec', redirectUri: 'https://app/cb' },
     { code: 'c', codeVerifier: 'cv', fetchImpl: mockFetch },
@@ -133,7 +123,7 @@ test('decodeJwt：三段解码（不校验签名）', () => {
   const header = b64url(JSON.stringify({ alg: 'RS256' }));
   const payload = b64url(JSON.stringify({ iss: 'x', sub: 'u' }));
   const token = `${header}.${payload}.sig`;
-  const parts = decodeJwt(token);
+  const parts = OidcClient.decodeJwt(token);
   assert.strictEqual(parts.header['alg'], 'RS256');
   assert.strictEqual(parts.payload['sub'], 'u');
   assert.strictEqual(parts.signature, 'sig');
@@ -146,12 +136,17 @@ test('verifyIdTokenClaims：匹配通过；aud 不匹配 / 过期抛错', () => 
     sub: 'u1',
     exp: Math.floor(Date.now() / 1000) + 3600,
   };
-  assert.doesNotThrow(() => verifyIdTokenClaims(base, { issuer: 'https://idp', clientId: 'cli' }));
-  assert.throws(() =>
-    verifyIdTokenClaims({ ...base, aud: 'other' }, { issuer: 'https://idp', clientId: 'cli' }),
+  assert.doesNotThrow(() =>
+    OidcClient.verifyIdTokenClaims(base, { issuer: 'https://idp', clientId: 'cli' }),
   );
   assert.throws(() =>
-    verifyIdTokenClaims({ ...base, exp: 1 }, { issuer: 'https://idp', clientId: 'cli' }),
+    OidcClient.verifyIdTokenClaims(
+      { ...base, aud: 'other' },
+      { issuer: 'https://idp', clientId: 'cli' },
+    ),
+  );
+  assert.throws(() =>
+    OidcClient.verifyIdTokenClaims({ ...base, exp: 1 }, { issuer: 'https://idp', clientId: 'cli' }),
   );
 });
 
@@ -168,9 +163,9 @@ test('verifyJwtSignature：正确 RS256 令牌通过；篡改抛错', () => {
     { iss: 'https://idp', aud: 'cli', exp: Math.floor(Date.now() / 1000) + 3600, sub: 'u1' },
     privateKey,
   );
-  assert.doesNotThrow(() => verifyJwtSignature(token, jwks));
+  assert.doesNotThrow(() => OidcClient.verifyJwtSignature(token, jwks));
   const [h, p] = token.split('.');
-  assert.throws(() => verifyJwtSignature(`${h}.${p}.abc`, jwks));
+  assert.throws(() => OidcClient.verifyJwtSignature(`${h}.${p}.abc`, jwks));
 });
 
 test('EnterpriseAuth.authenticate：有效 Bearer 返回主体；非法返回 null（fail-closed）', async () => {

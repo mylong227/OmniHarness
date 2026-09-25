@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '../ports/tool/tool.js';
-import { Bm25Index, tokenize } from './bm25Index.js';
+import { Bm25Index } from './bm25Index.js';
 
 /**
  * @beta
@@ -29,7 +29,7 @@ export class ToolIndex {
     if (trimmed === '') {
       return [];
     }
-    const hits = this.index.search(tokenize(trimmed), Math.max(1, limit));
+    const hits = this.index.search(Bm25Index.tokenize(trimmed), Math.max(1, limit));
     const result: ToolDefinition[] = [];
     for (const hit of hits) {
       const tool = this.tools[hit.id];
@@ -47,7 +47,7 @@ export class ToolIndex {
 
   private build(tools: readonly ToolDefinition[]): Bm25Index {
     const index = new Bm25Index();
-    index.addDocuments(tools.map((tool) => tokenize(this.searchableText(tool))));
+    index.addDocuments(tools.map((tool) => Bm25Index.tokenize(this.searchableText(tool))));
     return index;
   }
 

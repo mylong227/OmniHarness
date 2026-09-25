@@ -21,7 +21,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.js';
-import { createRuntime } from '../../src/composition/runtime.js';
+import { Runtime } from '../../src/composition/runtime.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
@@ -95,7 +95,7 @@ const userMessages = (request: ModelRequest): readonly ModelMessage[] =>
 
 test('附件接线：runTask 传入的 files 必须真抵达模型 user 消息', async () => {
   const model = new RecordingTextModel();
-  const agent = new Agent(createRuntime(ConfigFactory.build(base(model))));
+  const agent = new Agent(Runtime.createRuntime(ConfigFactory.build(base(model))));
   await agent.runTask('看看这两个附件', undefined, ATTACHMENTS);
 
   assert.strictEqual(model.requests.length, 1, '本用例应只产生一次模型请求');
@@ -110,7 +110,7 @@ test('附件接线：runTask 传入的 files 必须真抵达模型 user 消息',
 
 test('附件接线：resume 路径同样把 files 透传到模型', async () => {
   const model = new RecordingTextModel();
-  const agent = new Agent(createRuntime(ConfigFactory.build(base(model))));
+  const agent = new Agent(Runtime.createRuntime(ConfigFactory.build(base(model))));
   const first = await agent.runTask('第一轮');
   const second = await agent.resume(first.sessionId, '第二轮带附件', undefined, ATTACHMENTS);
 
@@ -124,7 +124,7 @@ test('附件接线：resume 路径同样把 files 透传到模型', async () => 
 
 test('附件接线：缺省不传附件时不得出现 files 键（零行为变更）', async () => {
   const model = new RecordingTextModel();
-  const agent = new Agent(createRuntime(ConfigFactory.build(base(model))));
+  const agent = new Agent(Runtime.createRuntime(ConfigFactory.build(base(model))));
   await agent.runTask('没有附件');
 
   const message = userMessage(model.requests[0]!);

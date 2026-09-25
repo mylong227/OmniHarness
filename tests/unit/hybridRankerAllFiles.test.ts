@@ -16,7 +16,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { indexCorpus, type IndexedCorpus } from '../../src/context/contextEngine.js';
+import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.js';
 import { HybridRanker } from '../../src/context/hybridRanker.js';
 import { RecallKnobs } from '../../src/context/recallKnobs.js';
 import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
@@ -37,7 +37,7 @@ class Fixture {
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(join(dir, name), content, 'utf8');
     }
-    return { dir, corpus: indexCorpus(dir, { morph: true, light: true }) };
+    return { dir, corpus: ContextEngine.indexCorpus(dir, { morph: true, light: true }) };
   }
 }
 

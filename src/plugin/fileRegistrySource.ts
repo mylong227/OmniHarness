@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { manifestMatches, type PluginDescriptor, type PluginManifest } from './manifest.js';
+import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.js';
 import type { RegistrySource } from './registrySourcesShared.js';
 
 /**
@@ -29,7 +29,9 @@ export class FileRegistrySource implements RegistrySource {
    */
   public async search(query?: string): Promise<PluginDescriptor[]> {
     const all = await this.catalog();
-    return query === undefined ? all : all.filter((d) => manifestMatches(query, d.manifest));
+    return query === undefined
+      ? all
+      : all.filter((d) => Manifest.manifestMatches(query, d.manifest));
   }
 
   /** 按唯一名取 catalog 中的插件（文件缺失/解析失败/不存在均返回 undefined）。 */
