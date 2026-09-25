@@ -139,6 +139,7 @@ const { RlvrLoop, InMemoryReplayBuffer } = await import('../dist/src/evolution/r
 const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
 const { CoverageLocator } = await import('../dist/src/eval/coverageLocator.js');
 const { PytestVerdict } = await import('../dist/src/eval/pytestVerdict.js');
+const { UvLocator } = await import('../dist/src/eval/uvLocator.js');
 
 /** 生产默认 fileK（与 `repoMapContextEngine.ts` 的 DEFAULT_FILE_K 对齐）。
  * @returns {number} 默认文件预算。 */
@@ -864,13 +865,25 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
  * @returns {Promise<Array<{file:string, score:number}>>} 降序可疑文件列表。
  */
 async function runSbfl(wt, venvPython, task) {
+  // pytest-cov 必须装进**这个 venv**。关键事实（2026-09-26 实测）：`uv venv` 默认**不装 pip**，
+  // `python -m pip …` 直接 "No module named pip" ⇒ 旧实现恒失败，SBFL **从未真正生效**
+  // （armB 名为 `_sbfl` 却零条 `[sbfl] 前置` 行即此因）。故改走 uv 自己的 pip 通道
+  // （`uv pip install --python <venvPython>`，与执行器其它依赖安装同一条路）；uv 缺失才回落 `-m pip`。
   try {
-    execFileSync(venvPython, ['-m', 'pip', 'install', 'pytest-cov'], {
-      cwd: wt,
-      stdio: 'ignore',
-    });
+    const uv = UvLocator.locate().executable;
+    if (uv !== null) {
+      execFileSync(uv, ['pip', 'install', '--python', venvPython, 'pytest-cov'], {
+        cwd: wt,
+        stdio: 'ignore',
+      });
+    } else {
+      execFileSync(venvPython, ['-m', 'pip', 'install', 'pytest-cov'], {
+        cwd: wt,
+        stdio: 'ignore',
+      });
+    }
   } catch {
-    // best-effort：装不上也继续（后续 pytest --cov 会失败并回退）
+    // best-effort：装不上也继续（`pytest --cov` 会失败 ⇒ 下面打印「未产出可疑文件」告警，不静默）
   }
   const reportPath = join(wt, '.coverage.json');
   const testFiles = PytestVerdict.testFilesOf(task.testPatch);

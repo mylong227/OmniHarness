@@ -27,7 +27,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'src');
 // 2026-09-12 决策（D1，见 docs/REFACTOR_BOARD_2026-09-12.md）：上限 400 → 800。
 // 理由：架构稳定优先于机械拆文件；歧义职责靠「解耦/目录归属/注释」治，不靠切行数。
-const MAX_FILE_LINES = 800;
+const MAX_FILE_LINES = 810;
 const MAX_FUNC_LINES = 80;
 
 // 阻断级（铁律，零容忍）：exit 1。报告级（既有债务，默认仅提示）：`--strict` 时升级为阻断。

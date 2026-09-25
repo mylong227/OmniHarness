@@ -634,6 +634,11 @@ export class ContextEngine {
     return { context, tokens: Bm25Index.tokenize(context).length, symbols, files: rankedFiles };
   }
 
+  /**
+   * 语料级文档频率（df）视图，按语料实例缓存（同一语料重复查询零重算）。
+   * @param corpus 已索引语料。
+   * @returns 词元 → 出现该词元的文件数。
+   */
   public static docFreqOf(corpus: IndexedCorpus): Map<string, number> {
     const cached = DF_CACHE.get(corpus);
     if (cached !== undefined) return cached;

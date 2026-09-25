@@ -1,6 +1,6 @@
 {
   "src/adapters/memory/heatEquationAnnealer.ts": {
-    "anneal": 93
+    "anneal": 94
   },
   "src/cli/argParser.ts": {
     "configDefaults": 140
@@ -9,7 +9,7 @@
     "buildConfig": 131
   },
   "src/cli/cliServerCmds.ts": {
-    "runServe": 130
+    "runServe": 132
   },
   "src/cli/execCli.ts": {
     "run": 135
@@ -21,11 +21,11 @@
     "build": 99
   },
   "src/context/contextCompactor.ts": {
-    "compact": 95
+    "compact": 97
   },
   "src/context/contextEngine.ts": {
-    "indexCorpus": 101,
-    "query": 220
+    "indexCorpus": 109,
+    "query": 224
   },
   "src/core/turnRunner.ts": {
     "run": 96

@@ -2366,3 +2366,23 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
   跑齐同一套判定；`--skip=<id>` 是显式出口（会打印告警）。
 - 另：本机 `npm.ps1` 实测损坏（`Could not determine Node.js install directory`，nvm4w 的 `npm.cmd` 里 CALL 行坏），
   标准命令请用 `npm.cmd run …` 或直调 `node node_modules/...`；`npm.cmd run` 实测可用。
+
+### 21.14 SBFL 真机验证（§21.11 ④ 的 `--sbfl` 死旋钮后续）：修好两处，第三处是环境保真缺口
+
+- **① 死旋钮（已修，`benchmark/swebench_predict.mjs`）**：`executor` 旧判据只有 `bestOfN>1 || selfTest`，
+  单开 `--sbfl` 时整段被跳过且**零日志**。现纳入同判据并允许 `--dry-run --sbfl` 零成本验证；
+  「未产出可疑文件」「venv 未就绪」两条静默空转改为**显式告警**。
+- **② pytest-cov 恒装不上（已修，真因实测）**：`uv venv` **默认不装 pip**（`python -m pip` 直接
+  "No module named pip"）⇒ 旧实现 `python -m pip install pytest-cov` 必然失败 ⇒ SBFL **从未真正生效**
+  （armB 名为 `_sbfl` 却零条 `[sbfl] 前置` 行即此因）。改走 `uv pip install --python <venvPython> pytest-cov`
+  后**实测装入成功**（venv `site-packages` 出现 `pytest_cov 7.1.0` + `coverage 7.10.7`）。
+- **③ 仍不出数：环境保真缺口（如实登记，未修）**。`--dry-run --sbfl` 在 `astropy__astropy-12907` 上仍
+  未产出 `.coverage.json`；逐层定位到**真因**：该 venv 缺仓库自身测试依赖 ⇒ pytest 连 `conftest.py` 都装不进去
+  （`conftest.py:9: import hypothesis → ModuleNotFoundError`，pytest exit 4）⇒ 无覆盖率产物。
+  机制上还有一层：`prepareRuntime` 每实例先 `uv venv --clear` **清空重建** venv ⇒ **SBFL 侧现装依赖也会被清掉**
+  （实测：手工 `uv pip install pytest-astropy hypothesis` 成功后，再跑一次 smoke 即被清空、只剩 pytest-cov）。
+  ⇒ 正解在**环境构建阶梯**（让 astropy 这类仓库的 `[test]` extras 进入 7 档候选），而不是 SBFL 脚本临时补装。
+- **下一步（有据可依）**：把 `hypothesis` / `pytest-astropy` 作为 `benchmark/swebench-env-pins.json` 的
+  `astropy/astropy` 条目加入——但该文件纪律是「**仅收录已实测验证**的条目」（须以 gold 补丁跑通 FAIL_TO_PASS
+  为凭据），且 pin 在仓库 pin 之后应用会**升级 numpy**（实测拉到 2.0.2，对 astropy 4.x 有风险），
+  故须先做一次 gold 对照再决定 pin 的组合与上界。

@@ -25,6 +25,13 @@
  * ArrayAt —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
  */
 export class ArrayAt {
+  /**
+   * 越界即抛错的数组取值（取代 `xs[i]!` 之类的非空断言）。
+   * @param xs 数组或类数组。
+   * @param index 下标。
+   * @returns 该下标的元素（类型收窄为 `T`，不含 `undefined`）。
+   * @throws RangeError 当 `xs[index]` 为 `undefined`（越界）。
+   */
   public static at<T>(xs: ArrayLike<T>, index: number): T {
     const value = xs[index];
     if (value === undefined) {

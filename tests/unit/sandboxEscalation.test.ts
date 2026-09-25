@@ -11,7 +11,7 @@ import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
 import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.js';
 import { UnsupportedSandbox } from '../../src/adapters/sandbox/unsupportedSandbox.js';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
-import { SandboxDenial } from '../../src/ports/runtime/sandboxDenial.js';
+import { SandboxDenial } from '../../src/security/sandboxDenial.js';
 import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
 import { AskEscalation } from '../../src/adapters/escalation/askEscalation.js';
 import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.js';
