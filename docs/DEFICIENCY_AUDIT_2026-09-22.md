@@ -364,7 +364,7 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
 JSON-RPC pending/超时/id 关联重复 6 处且 `mcpClient.ts:15-17` **无 reject 通道**（传输关闭时挂起请求永不被拒）·
 shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替身（`MockModel`/`MemoryStorage`/`PassthroughSandbox`）·
 覆盖率门禁是聚合值（`context/rankVeto`、`adapters/tool/git` 可零单测仍全绿）· 53 个 eval 脚本中 35 个未接入 npm script ·
-非 archive 文档 172 处死路径（含 README 指向**不存在**的 `docs/TASK_BOARD_2026-09-13.md`，而 README 又写明「以它为准」）·
+非 archive 文档 172 处死路径（含 README 指向**不存在**的「docs/TASK_BOARD_2026-09-13.md」，而 README 又写明「以它为准」）·
 `src/` 内 3 个 Python 文件（3919 行）在全部 TS 门禁之外。
 
 **本轮（§3.12）已清掉**：
@@ -417,7 +417,7 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
   硬接在 Windows 上会「永远红」），`evals/lib/*.mjs`(3) 是共用模块而非可跑脚本。
 - ✅ **非 archive 文档死路径** → 新增 `scripts/docLinkCheck.mjs`：**markdown 链接目标**必须存在（阻塞），
   反引号路径提及按**文档相对 OR 仓库根相对**双口径解析后冻结（避免假阳性）；
-  基线 `scripts/docLinkBaseline.json`（90 处唯一存量，多为「迁移前路径」与示例 `src/foo.ts` 这类有意引用），
+  基线 `scripts/docLinkBaseline.json`（90 处唯一存量，多为「迁移前路径」与示例 src/foo.ts 这类有意引用），
   接入 `pre-commit` 与 `npm run check:doc-links`。**实测 markdown 链接目标 0 处死链**。
 
 **§3.5 逐项状态：六条全部结项（第九轮收口）**：
@@ -788,7 +788,7 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 - **新登记（未修）**：全仓 **216 处 / 104 文件**的 JSDoc 尾部带**错缩进**的 `* @returns 无返回值。`
   （`void` 方法上无意义；207 处在 HEAD 已存在，本轮改动新增 9 处）。Prettier 不管 JSDoc 缩进、现有门禁不查 ⇒
   建议加一条标准检查后机器统一修复（详见看板 §20.13）。
-- **清理**：删除两个一次性 codemod 脚本 `scripts/tmpPolicyTableCodemod.mjs` / `scripts/tmpToolNameCodemod.mjs`
+- **清理**：删除两个一次性 codemod 脚本（tmpPolicyTableCodemod.mjs / tmpToolNameCodemod.mjs，跑完即删）
   （脚本自述「跑完即删，不入库」，留着即新死资产）。
 
 ### 3.11【本轮已做，结清 §3.10 的两项留档】包根锚点定位 + JSDoc 脱块清零（含新标准规则）

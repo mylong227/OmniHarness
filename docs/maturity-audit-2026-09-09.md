@@ -71,7 +71,7 @@
 
 ## 4. 主代理亲自核实的更正（推翻/修正代理结论）
 
-- **代理路径误报（已修正）**：代理报 `web/src/ui/StreamView.tsx`，实为 `web/src/ui/components/StreamView.tsx`（缺 `components/` 段）。内容结论有效，仅路径修正。
+- **代理路径误报（已修正）**：代理报「ui/StreamView.tsx」，实为 `web/src/ui/components/StreamView.tsx`（缺 `components/` 段）。内容结论有效，仅路径修正。
 - **`window.alert` 次数上修**：代理报 4 处，实测 **7 处**（App.ts:426/437/459/496/518 + 另 2 处），缺口更严重。
 - **"无隐藏残桩"被证实**：`grep "TODO\|FIXME\|not implemented"` 在 `src` 命中 **0**（此前带 `placeholder` 关键字的 3 处全为 CLI 默认占位 `'goal-placeholder'`，非真桩）。代码诚实度高。
 - **零测试模块被坐实**：`lsaRecall.ts`(284) / `cliDataCmds.ts`(569) / `configBuilders.ts`(252) / `registrySources.ts`(293) 在 `tests/` 中 **0 引用**，确为长期无人测。
