@@ -2453,3 +2453,29 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
 - **处置与下一步（有据可依）**：① 建 **per-repo 测试命令表**（对齐 SWE-bench 的 `MAP_REPO_VERSION_TO_SPECS`）；
   ② 依赖补齐（`env-pins` 纪律：**只有 gold 判过才收录**）；③ **在 gold 通过率达标前，不再对外引用任何
   SWE-bench resolved 率**（含 best-of-N 产品口径）——这条已由 `--gold-report` 的收尾告警机器兜住。
+
+### 21.18 per-repo 测试命令（第 ① 条）落地 + django 的三层坑（**仍是 opt-in，gold 未过不翻默认**）
+
+- **本轮落地**：新增 `src/eval/repoTestSpecs.ts`（**注册表 + 纯函数**，无 IO、可单测）与
+  `tests/unit/repoTestSpecs.test.ts`（8 例）；`NativeExecutor` 抽出 `runTestsFor()`（官方 judge 与
+  best-of-N 可验证奖励**共用同一口径**）+ `runTestCommand()`（**同时收 stderr**——django 的
+  `runtests.py` 把结果行写 stderr，只收 stdout 会把"全过"读成"零收集 ⇒ 恒未通过"）。
+- **默认关闭**：`RepoTestSpecs.for()` 需 `OMNI_REPO_TEST_SPECS=1` 才返回 django 规格，否则 `null` ⇒
+  既有 pytest 路径零行为变更。**理由**：下述三层坑尚未吃完，gold 仍未判过 ⇒ 按「两关」纪律不翻默认。
+- **三层坑（逐层实测，全部留档防重踩）**：
+  1. **命令不对**：通用 `pytest <test_patch 文件>` 对 django 结构性无效；官方是
+     `./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 <labels>`。
+     ✅ 已实证可行：手工跑
+     `... HttpResponseTests.test_memoryview_content` → `test_memoryview_content (...) ... ok`（1 test OK）。
+  2. **id→directive 不可直转**：unittest 用 **docstring 当展示名**，数据集里存在
+     `Semicolons and commas are decoded (httpwrappers.tests.QueryDictTests)` 这类 id；拼成
+     `类.展示名` 会被 `runtests.py` 当**模块名**导入 ⇒ `ModuleNotFoundError`
+     （实测 65 个 id 里 **8 行** `unittest.loader._FailedTest`）。
+  3. **"按 test_patch 推模块"也不够**：由 test_patch 里的 Django 测试文件路径推出 app 模块
+     （`httpwrappers` 应用 → label `httpwrappers.tests`）跑下来
+     **0 条结果行**（脚本 import 了 app 却没选到测试）；且数据集里还有 **7/65 个"裸展示名 + 句点"** 形态
+     （如 `Semicolons and commas are decoded.`，无 `(模块.类)` 括号），**任何 directive 都表达不了**，
+     只能靠**输出行按展示名回捞**。
+- **下一步（收敛到可翻默认）**：① 用「单条已知可行」（class 级 label 已证可行）做**二分**，定出正确的
+  label 粒度（app / module / class）；② 解析器补「裸展示名（去尾点）」索引；③ 达标的判据不变——
+  `--gold-control` 上 django 判过，才允许把 `OMNI_REPO_TEST_SPECS` 的默认打开。
