@@ -92,6 +92,30 @@ test('parseDjango：**真实输出**的两种形态混用——双行 docstring 
   assert.strictEqual(passed.get(ids[4]), false, '未出现 ⇒ 未通过（fail-closed）');
 });
 
+test('parseDjango：**docstring 以括号短语结尾**时不得被误判为「展示名 (类)」（django-11477 现场）', () => {
+  // 逐字取自 eval-data/_dj11477_raw.log：docstring 末尾正好是 `(pattern, app_name)`。
+  // 旧判别只要求「以 `)` 结尾」，于是这行被当成行内结果行，**丢弃**了上一行待配对的测试 id
+  // ⇒ `test_app_object_default_namespace (…)` 永远拿不到状态、被判假（gold 因此 150/151）。
+  const output = [
+    'test_patterns_reported (urlpatterns_reverse.tests.URLPatternReverse) ... ok',
+    'Dynamic URL objects can return a (pattern, app_name) 2-tuple, and ... ok',
+    'test_app_object_default_namespace (urlpatterns_reverse.tests.NamespaceTests)',
+    'Namespace defaults to app_name when including a (pattern, app_name) ... ok',
+    'Ran 154 tests in 7.679s',
+    'OK',
+  ].join('\n');
+  const ids = [
+    'test_app_object_default_namespace (urlpatterns_reverse.tests.NamespaceTests)',
+    'Dynamic URL objects can return a (pattern, app_name) 2-tuple, and',
+  ] as const;
+  const passed = RepoTestSpecs.parseDjango(output, ids);
+  assert.strictEqual(passed.get(ids[0]), true, '双行配对必须成立（括号短语不能被当类路径）');
+  assert.strictEqual(passed.get(ids[1]), true, '「以 and 结尾」的 docstring 裸名照常命中');
+  // 反向钉子：括号内是点分标识符路径时才是行内形态。
+  const inline = RepoTestSpecs.parseDjango('test_x (mod.ClassA) ... ok', ['test_x (mod.ClassA)']);
+  assert.strictEqual(inline.get('test_x (mod.ClassA)'), true);
+});
+
 test('parseDjango：docstring 展示名（含空格）也能对上——类级 directive + 展示名 id 原文双索引', () => {
   const ids = ['Semicolons and commas are decoded (httpwrappers.tests.QueryDictTests)'] as const;
   const output = [
@@ -137,14 +161,22 @@ test('argsOf：django 命令走 test_patch 推出的模块（而非把 id 当模
   );
 });
 
-test('for：默认关闭（回落既有 pytest 路径）；OMNI_REPO_TEST_SPECS=1 时才启用 django 专属规格', () => {
+test('for：**默认启用** django 专属规格；OMNI_REPO_TEST_SPECS=0 是显式逃生口', () => {
   const prev = process.env['OMNI_REPO_TEST_SPECS'];
   try {
     delete process.env['OMNI_REPO_TEST_SPECS'];
-    assert.strictEqual(RepoTestSpecs.for('django/django'), null, '默认零行为变更');
+    // 翻默认的判据：django 14 题 gold-control 14/14 判 resolved（eval-data/gold_control_django14.json）。
+    assert.strictEqual(
+      RepoTestSpecs.for('django/django')?.label.includes('runtests.py'),
+      true,
+      '默认即启用（不再需要 =1）',
+    );
+    process.env['OMNI_REPO_TEST_SPECS'] = '0';
+    assert.strictEqual(RepoTestSpecs.for('django/django'), null, '=0 强制回落既有 pytest 路径');
     process.env['OMNI_REPO_TEST_SPECS'] = '1';
     assert.strictEqual(RepoTestSpecs.for('django/django')?.label.includes('runtests.py'), true);
-    assert.strictEqual(RepoTestSpecs.for('sympy/sympy'), null, '未登记仓库始终 null');
+    // 未登记仓库始终 null（否则会静默改掉它们的判定口径）
+    assert.strictEqual(RepoTestSpecs.for('sympy/sympy'), null);
     assert.strictEqual(RepoTestSpecs.for('astropy/astropy'), null);
   } finally {
     if (prev === undefined) delete process.env['OMNI_REPO_TEST_SPECS'];

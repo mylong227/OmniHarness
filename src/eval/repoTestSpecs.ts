@@ -46,20 +46,22 @@ export interface RepoTestSpec {
 }
 
 /**
- * per-repo 测试规格注册表（未登记 / 未开启 ⇒ 返回 null，调用方回落通用 pytest 路径）。
+ * per-repo 测试规格注册表（未登记仓库 ⇒ 返回 null，调用方回落通用 pytest 路径）。
  */
 export class RepoTestSpecs {
   /**
    * 取某仓库的专属测试规格。
    *
-   * ⚠️ **默认关闭、须先通过 gold 对照才可翻默认**（本仓「两关」纪律）：django 专属路径已实现且单测覆盖，
-   * 但 2026-09-26 实测**尚未让 gold 判过**（标签/输出形态还有三层未收口，见看板 §21.18），
-   * 故置于 `OMNI_REPO_TEST_SPECS=1` 之后；未开启时返回 `null` ⇒ 走既有 pytest 路径（零行为变更）。
+   * **默认启用**（2026-09-26 翻默认）：翻默认的判据是「两关」齐过——`--gold-control` 在
+   * **django 14 题上 14/14 判 resolved**（`eval-data/gold_control_django14.json`），
+   * 且解析器对真实输出 65/65、154/154 全命中。此前默认关闭的理由（gold 判不过）已消除。
+   *
+   * 逃生口：`OMNI_REPO_TEST_SPECS=0` 强制回落既有 pytest 路径（用于对照实验/排障）。
    * @param repo 仓库 slug（如 `django/django`）。
-   * @returns 规格；未登记 / 未开启 / 尚无实证时返回 `null`。
+   * @returns 规格；未登记仓库返回 `null`（走既有 pytest 路径）。
    */
   public static for(repo: string): RepoTestSpec | null {
-    if (process.env.OMNI_REPO_TEST_SPECS !== '1') return null;
+    if (process.env['OMNI_REPO_TEST_SPECS'] === '0') return null;
     if (repo === 'django/django') return RepoTestSpecs.django();
     return null;
   }
@@ -188,7 +190,7 @@ export class RepoTestSpecs {
       const line = raw.trim();
       const split = line === '' ? null : RepoTestSpecs.splitStatus(line);
       if (split === null) {
-        pending = RepoTestSpecs.pendingTestIdOf(line);
+        pending = RepoTestSpecs.displayTargetOf(line);
         continue;
       }
       const inline = RepoTestSpecs.displayTargetOf(split.head);
@@ -243,32 +245,35 @@ export class RepoTestSpecs {
   }
 
   /**
-   * 解析**双行形态的第一行**——形如 `test_x (模块.类)` 的测试 id。
+   * 解析 `展示名 (模块.类)` 形态——即 unittest 的 `str(test)`。
    *
-   * 必须要求展示名是**合法标识符**：stdout/stderr 合并后顺序会交错（实测 django 的
-   * `System check identified no issues (0 silenced).` 可能排在结果之后），若不设此闸，
-   * 这类头部行会被当成「待配对的测试 id」，把真正的前一行挤掉。
-   * @param line 去首尾空白后的行文本。
-   * @returns 测试 id 的展示名与类路径；不匹配返回 null。
-   */
-  private static pendingTestIdOf(line: string): { display: string; target: string } | null {
-    const pair = RepoTestSpecs.displayTargetOf(line);
-    return pair !== null && RepoTestSpecs.isIdentifier(pair.display) ? pair : null;
-  }
-
-  /**
-   * 解析 `展示名 (模块.类)` 形态。
+   * 两道闸缺一不可（都是实测踩出来的）：
+   *
+   * - **展示名必须是合法 Python 标识符**：否则 `System check identified no issues (0 silenced).`
+   *   这类头部行会被当成「测试 id」（合并 stdout/stderr 后头部行可能紧邻结果行）。
+   * - **括号内必须是点分标识符路径**（`模块.类[.方法]`）：否则**以括号短语结尾的 docstring** 会被误判。
+   *   实测现场（`django__django-11477`，gold 因此判 150/151）：docstring 行
+   *   `Namespace defaults to app_name when including a (pattern, app_name) ... ok`
+   *   末尾正好是括号短语 ⇒ 旧实现把它当成「`展示名 (类)`」的行内结果行，
+   *   **丢弃了上一行的待配对测试 id** ⇒ `test_app_object_default_namespace (…)` 永远拿不到状态、fail-closed 判假。
    * @param text 行或描述片段。
    * @returns `{ display, target }`；不匹配返回 null。
    */
   private static displayTargetOf(text: string): { display: string; target: string } | null {
     const m = /^(.+?)\s+\(([^)]+)\)$/.exec(text.trim());
     if (m === null) return null;
-    return {
-      display: RepoTestSpecs.normalizeSpace(m[1] ?? ''),
-      target: RepoTestSpecs.normalizeSpace(m[2] ?? ''),
-    };
+    const display = RepoTestSpecs.normalizeSpace(m[1] ?? '');
+    const target = RepoTestSpecs.normalizeSpace(m[2] ?? '');
+    if (!RepoTestSpecs.isIdentifier(display)) return null;
+    if (!RepoTestSpecs.dottedPath.test(target)) return null;
+    return { display, target };
   }
+
+  /**
+   * unittest `str(test)` 括号内的类路径形态：`模块[.子模块].类[.方法]`（至少一个点）。
+   * 用点分标识符路径把「类路径」和「docstring 里的括号短语」区分开。
+   */
+  private static readonly dottedPath = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$/;
 
   /** unittest 状态分隔符。 */
   private static readonly statusSeparator = ' ... ';

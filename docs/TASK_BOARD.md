@@ -2520,3 +2520,35 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
    **真机证据**（`--dry-run --sbfl`，零模型调用）：`[sbfl] 前置 7 个可疑文件（命中 20 → 27）`，
    跑完 `git status` 干净、无 `.coverage.json` 残留。
    ⚠️ **口径声明**：SBFL 用了官方 test_patch ⇒ 属 **oracle 辅助的研究上界旋钮，绝不可用于产品口径跑分**。
+
+### 21.20 django 翻默认（gold 14/14）+ 判分可信度闸自身两个缺陷
+
+**django per-repo 规格已翻默认**（`RepoTestSpecs.for()` 默认返回 django 规格，`OMNI_REPO_TEST_SPECS=0` 是显式逃生口）。
+翻默认的判据是「两关」齐过，不是「代码写完了」：
+
+- `--gold-control` 14 题 **14/14 判 resolved**（`eval-data/gold_control_django14.json`，用时 50–73s/题）；
+- 解析器在**真实输出**上全命中：`django__django-11133` **65/65**、`django__django-11477` **154/154**。
+
+**本轮真正的收获来自「失败必须带原因」这条修复**：11477 第一次重跑就打出
+`FAIL_TO_PASS 3/3、PASS_TO_PASS 150/151`，把问题从「gold 又挂了」一步缩到「只有 1 个 P2P 对不上」；
+再给原因加「未通过样例」后直接点名
+`test_app_object_default_namespace (urlpatterns_reverse.tests.NamespaceTests)`。
+
+- **根因（解析器真缺陷，已修）**：unittest 双行形态的第二行是 docstring，而该 docstring 恰好以
+  **括号短语**结尾——`Namespace defaults to app_name when including a (pattern, app_name) ... ok`。
+  旧判别只要求「以 `)` 结尾」就当成行内形态 `展示名 (类)` ⇒ **丢弃了上一行待配对的测试 id**
+  ⇒ 该 id 永远拿不到状态、被 fail-closed 判假。
+  修法：`展示名 (类)` 的括号内必须是**点分标识符路径**（`dottedPath` 正则），加上原有的
+  「展示名必须是合法标识符」两道闸。回归钉子已进单测（含该行逐字原文）。
+  真机复核：手工复现该实例得 `Ran 154 tests ... OK`，修后解析 154/154 全过、gold 判 resolved。
+- **判分可信度闸自身也有两个缺陷（已修，否则「可信度」二字会变成假信号）**：
+  1. `--gold-report` **只被读、从不被写** ⇒ 文档里「gold 跑完再用它复核后续分数」的两步工作流
+     **不可能成立**（文件永不出现）。现象：django 14/14 全过，收尾仍打印「判分可信度未校验」。
+     现：`--gold-control` 会把报告写到 `--gold-report`（缺省 `<报告名>.gold.json`），并打印落盘路径。
+  2. `gold` 运行本身就是可信度证据，**不该再去读外部报告**。现 `--gold-control` 直接由本次结果给结论，
+     且逐条列出未通过实例的 `reason`（配合 21.19 的短诊断，环境/口径/真失败当场分流）。
+- **两步工作流已端到端验证**：gold 跑出报告 → 打分时传 `--gold-report` ⇒
+  `✅ 判分可信度：本次 1 个实例全部通过 gold 对照。`
+- **当前可信度账（诚实口径）**：Verified-30 里 **django 14 + sympy 4 = 18/30 已通过 gold 对照**；
+  其余 12（astropy 2 / matplotlib 2 / xarray 2 / pytest 1 / scikit-learn 2 / sphinx 3）**尚未在有本轮修复的
+  代码上重跑**，不得对外引用其 resolved 率。下一批即跑这 16 个非 django 实例的 gold 对照。

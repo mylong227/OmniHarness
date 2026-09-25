@@ -84,10 +84,33 @@ export class NativeTestRunner {
     const detail =
       `FAIL_TO_PASS ${count(failToPass)}/${failToPass.length}、` +
       `PASS_TO_PASS ${count(passToPass)}/${passToPass.length}`;
-    return run.diagnosis === ''
-      ? `测试未通过（${detail}）`
-      : `测试未通过（${detail}）；${run.diagnosis}`;
+    const parts = [`测试未通过（${detail}）`];
+    const sample = NativeTestRunner.failedSample([...failToPass, ...passToPass], run);
+    if (sample !== '') parts.push(`未通过样例: ${sample}`);
+    if (run.diagnosis !== '') parts.push(run.diagnosis);
+    return parts.join('；');
   }
+
+  /**
+   * 取最多 {@link NativeTestRunner.maxFailedSample} 个未通过 id 作为样例（截断到 60 字符）。
+   *
+   * 为什么要给 id 样例（2026-09-26 实测）：`django__django-11477` 的 gold 判出
+   * 「FAIL_TO_PASS 3/3、PASS_TO_PASS 150/151」——计数说明只有一个 P2P 对不上，但**是哪一个**
+   * 只能靠再跑一次并手工回捞。带上样例后，报告本身就能直接指向那一个 id。
+   * @param ids FAIL_TO_PASS 与 PASS_TO_PASS 的合并清单（顺序即优先级：先报 F2P）。
+   * @param run 测试运行结果。
+   * @returns 逗号分隔的样例；全部通过时为空串。
+   */
+  private static failedSample(ids: readonly string[], run: NativeTestRun): string {
+    const failed = ids.filter((id) => run.passed.get(id) !== true);
+    return failed
+      .slice(0, NativeTestRunner.maxFailedSample)
+      .map((id) => (id.length > 60 ? `${id.slice(0, 60)}…` : id))
+      .join(', ');
+  }
+
+  /** 原因里最多列出的未通过 id 个数（避免报告膨胀）。 */
+  private static readonly maxFailedSample = 3;
 
   /**
    * 从测试输出里给出**短诊断**：区分「环境/依赖没装好」「测试选择口径不对」「测试真的失败」三类。
