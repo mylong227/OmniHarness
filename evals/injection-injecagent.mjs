@@ -9,10 +9,12 @@
  *
  * 口径（实测钉死，勿再想当然）：
  *   - 四套文件**全部是攻击用例**（逐条验证过 `Attacker Instruction` 确嵌入 `Tool Response`）；
- *     数据集**没有干净对照组** ⇒ 本脚本只出**召回**，误报仍由 curated 快照口径
- *     （`metrics:injection`）承担。字段 `Modifed` 是生成管线的变体位（0/1），**不是** clean 标记。
+ *     字段 `Modifed` 是生成管线的变体位（0/1），**不是** clean 标记，数据集**没有官方干净对照组**。
  *   - **总召回**：`Tool Response`（攻击指令嵌入其中的真实工具输出）被护栏 blocked 的比例
- *     （信任档取生产 web 路径 `external`）；
+ *     （信任档取生产 web 路径 `external`）——官方口径；
+ *   - **误报（重构对照）**：取 **direct 设置**（纯净工具输出 + 逐字追加指令）的响应，
+ *     机械删除攻击指令重构出干净工具输出后量 blocked 率。重构双重自证：删后①不含指令子串、
+ *     ②不含「ignore…instructions」强触发语（防脚手架残留虚增）。scenario 设置不用（脚手架残留）。
  *   - **裸指令诊断**：`Attacker Instruction`（不带工具输出包装）的召回——差值即「包装的触发词贡献」；
  *   - 分层：direct-harm（dh）/ data-stealing（ds）× base（直接附加）/ enhanced（场景嵌入）× Attack Type。
  *
@@ -64,16 +66,17 @@ if (!existsSync(dataDir)) {
 
 const responseScans = [];
 const instructionScans = [];
+const benignScans = [];
+let reconstructOk = 0;
+let reconstructFail = 0;
 const byCell = {};
 for (const entry of FILES) {
   const cases = JSON.parse(readFileSync(join(dataDir, entry.file), 'utf8'));
   const cell = { total: 0, blocked: 0 };
   for (const c of cases) {
     const type = String(c['Attack Type'] ?? 'unknown');
-    const on = {
-      blocked: scanForInjection(String(c['Tool Response'] ?? ''), 'external').blocked,
-      type,
-    };
+    const response = String(c['Tool Response'] ?? '');
+    const on = { blocked: scanForInjection(response, 'external').blocked, type };
     responseScans.push(on);
     instructionScans.push({
       blocked: scanForInjection(String(c['Attacker Instruction'] ?? ''), 'external').blocked,
@@ -81,12 +84,27 @@ for (const entry of FILES) {
     });
     cell.total += 1;
     if (on.blocked) cell.blocked += 1;
+    // 重构对照（仅 direct 设置）：删除逐字嵌入的攻击指令 ⇒ 干净工具输出。
+    if (entry.setting === 'direct') {
+      const instruction = String(c['Attacker Instruction'] ?? '');
+      const benign = response.split(instruction).join('');
+      const triggerResidue = /ignore\s+(?:all\s+)?(?:previous|prior|above|earlier)/i.test(benign);
+      if (instruction.length > 0 && !benign.toLowerCase().includes(instruction.toLowerCase())) {
+        reconstructOk += 1;
+        if (!triggerResidue) {
+          benignScans.push({ blocked: scanForInjection(benign, 'external').blocked, type });
+        }
+      } else {
+        reconstructFail += 1;
+      }
+    }
   }
   byCell[`${entry.intent}/${entry.setting}`] = { ...cell, recall: cell.blocked / cell.total };
 }
 
 const recall = summarize(responseScans);
 const bare = summarize(instructionScans);
+const fp = summarize(benignScans);
 
 const lines = [];
 lines.push('=== T4.4 真注入基准（InjecAgent 2,108 条攻击呈现，scanForInjection@external）===');
@@ -94,7 +112,10 @@ lines.push(
   `真实召回（poisoned 工具输出）：${pct(recall.rate)}（${recall.blocked}/${recall.total}）`,
 );
 lines.push(`裸攻击指令召回（诊断）　　　：${pct(bare.rate)}（${bare.blocked}/${bare.total}）`);
-lines.push('  （数据集无干净对照组 ⇒ 误报口径仍由 curated 快照 metrics:injection 承担）');
+lines.push(
+  `误报（重构对照·direct 删指令）: ${pct(fp.rate)}（${fp.blocked}/${fp.total}；重构成功 ${reconstructOk} / 失败 ${reconstructFail}）`,
+);
+lines.push('  （官方无干净对照组：误报为重构对照口径，非官方 clean 集）');
 lines.push('--- 分层（intent/setting）---');
 for (const [cell, s] of Object.entries(byCell)) {
   lines.push(`  ${cell}: ${pct(s.recall)}（${s.blocked}/${s.total}）`);
@@ -112,7 +133,7 @@ writeFileSync(
     {
       benchmark: 'InjecAgent (Zhan et al., 2024) — real indirect prompt injection cases',
       tier: 'external',
-      note: '数据集全部为攻击用例、无干净对照组：只出召回；FP 由 curated 快照口径承担。',
+      note: '官方数据集全部为攻击用例：召回为官方口径；FP 为 direct 设置删指令的重构对照（非官方 clean 集）。',
       recall: {
         rate: recall.rate,
         blocked: recall.blocked,
@@ -120,6 +141,13 @@ writeFileSync(
         byAttackType: recall.byType,
       },
       bareInstructionRecall: { rate: bare.rate, blocked: bare.blocked, total: bare.total },
+      reconstructedBenignFalsePositive: {
+        rate: fp.rate,
+        blocked: fp.blocked,
+        total: fp.total,
+        reconstructOk,
+        reconstructFail,
+      },
       byCell,
       generatedAt: new Date().toISOString(),
     },
