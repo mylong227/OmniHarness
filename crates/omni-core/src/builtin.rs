@@ -577,7 +577,10 @@ mod tests {
 
     #[test]
     fn list_dir_rejects_outside_root() {
-        let t = ListDirTool::new(PathBuf::from("C:/sandbox"));
+        // 根必须是**平台中性绝对路径**（C:/sandbox 在 Linux 是相对路径，守卫会走
+        // 「根不存在」分支而非「越界」分支，断言即落空——ubuntu 首跑实证）。
+        let root = std::env::temp_dir().join(format!("omni_listdir_root_{}", std::process::id()));
+        let t = ListDirTool::new(root);
         let res = t.call(serde_json::json!({"path": "../"}));
         assert!(!res.ok, "越界应拒绝");
         assert!(res.error.unwrap_or_default().contains("沙箱"));
@@ -585,16 +588,23 @@ mod tests {
 
     #[test]
     fn read_file_rejects_outside_root() {
-        let root = PathBuf::from("C:/sandbox");
+        let root = std::env::temp_dir().join(format!("omni_readfile_root_{}", std::process::id()));
         let t = ReadFileTool::new(root);
-        let res = t.call(serde_json::json!({"path": "C:/Windows/system32/win.ini"}));
+        // 越界目标同样取平台中性的「根外绝对路径」：Windows 用 C:/Windows/...，
+        // 非 Windows 用 /etc/hostname（均不落根内）。
+        let outside = if cfg!(windows) {
+            "C:/Windows/system32/win.ini".to_string()
+        } else {
+            "/etc/hostname".to_string()
+        };
+        let res = t.call(serde_json::json!({"path": outside}));
         assert!(!res.ok, "越界应拒绝");
         assert!(res.error.unwrap_or_default().contains("沙箱"));
     }
 
     #[test]
     fn write_file_rejects_outside_root() {
-        let root = PathBuf::from("C:/sandbox");
+        let root = std::env::temp_dir().join(format!("omni_writefile_root_{}", std::process::id()));
         let t = WriteFileTool::new(root);
         let res = t.call(serde_json::json!({"path": "../escape.txt"}));
         assert!(!res.ok);
