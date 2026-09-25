@@ -17,7 +17,7 @@
  *   git + uv + 网络的环境跑出。
  * @maturityEvidence tests/unit/swebenchVerified.test.ts
  */
-import { execFile, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,8 +26,8 @@ import { endpointDefaults } from '../util/endpointDefaults.js';
 import { SwebenchVerified } from './swebenchVerified.js';
 import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerified.js';
 import { PythonVersionResolver } from './pythonVersionResolver.js';
-import { PytestVerdict } from './pytestVerdict.js';
 import { NativeEnvBuilder, ENV_BUILD_FAILED } from './nativeEnvBuilder.js';
+import { NativeTestRunner } from './nativeTestRunner.js';
 import { UvLocator } from './uvLocator.js';
 import type { UvLookup } from './uvLocator.js';
 
@@ -84,14 +84,6 @@ interface PatchApply {
   readonly envFailure?: boolean | undefined;
 }
 
-/** pytest 运行产物。 */
-interface PytestRun {
-  /** 标准输出。 */
-  readonly stdout: string;
-  /** 退出码。 */
-  readonly code: number;
-}
-
 /**
  * 原生本地执行器：免 Docker、免云，在本地用 `git` + `uv` + `pytest` 直接复现 SWE-bench 判定。
  * 每题：git worktree 检出 base → uv venv → 安装 → 应用补丁 → pytest 判定（fail-closed）。
@@ -114,6 +106,8 @@ export class NativeExecutor implements ExecutorPort {
   private readonly uvLocate: () => UvLookup;
   /** 环境构建器（uv venv + 依赖阶梯 + pytest 存在性校验）。 */
   private readonly envBuilder: NativeEnvBuilder;
+  /** 测试执行协作者（per-repo 命令 + 结果解析；方法数越线后按职责拆出，见其文件头）。 */
+  private readonly testRunner = new NativeTestRunner();
   /** 每仓库串行锁（git worktree add/remove 不可并发同一仓库）。 */
   private readonly repoLocks = new Map<string, Promise<unknown>>();
 
@@ -198,12 +192,7 @@ export class NativeExecutor implements ExecutorPort {
           : this.fail(task.id, reason);
       }
       const ids = [...task.failToPass, ...task.passToPass];
-      // 测试文件取自官方 test_patch 的头（见 testFilesOf）：官方 harness 是「跑 test_patch 改动的
-      // 测试文件 + 按 -rA 比对名字」，而非把 FAIL_TO_PASS 名字直接当 pytest 参数（后者对 sympy 等
-      // 给**裸测试名**的仓库会 0 收集 ⇒ 判定恒假，实测 gold 都判不过）。
-      const testFiles = PytestVerdict.testFilesOf(task.testPatch);
-      const run = await this.runPytest(worktree, testFiles, ids);
-      const passed = PytestVerdict.parseResults(run.stdout, ids);
+      const passed = await this.testRunner.runFor(task, worktree, ids);
       const failToPassOk = task.failToPass.every((id) => passed.get(id) === true);
       const passToPassOk = task.passToPass.every((id) => passed.get(id) === true);
       return { id: task.id, resolved: failToPassOk && passToPassOk, backend: this.kind };
@@ -278,9 +267,7 @@ export class NativeExecutor implements ExecutorPort {
     }
     try {
       const ids = task.failToPass;
-      const testFiles = PytestVerdict.testFilesOf(task.testPatch);
-      const run = await this.runPytest(worktree, testFiles, ids);
-      const passed = PytestVerdict.parseResults(run.stdout, ids);
+      const passed = await this.testRunner.runFor(task, worktree, ids);
       const failed = task.failToPass.filter((id) => passed.get(id) !== true);
       const ok = task.failToPass.length - failed.length;
       return { reward: ok / task.failToPass.length, failures: failed };
@@ -467,35 +454,6 @@ export class NativeExecutor implements ExecutorPort {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * 在 venv 内运行 pytest（无论退出码均返回输出，供解析）。
-   *
-   * 有测试文件（来自 test_patch）⇒ 跑整份文件并 `-rA` 列全量结果，再按**叶子名**比对 —— 对齐官方口径，
-   * 且能覆盖「FAIL_TO_PASS 给裸测试名」的仓库（裸名当参数会被 pytest 当路径 ⇒ 0 收集 ⇒ 恒假）。
-   * 无测试文件 ⇒ 退回按 id 直跑（保持历史行为，兼容完整 nodeid 的仓库）。
-   * @param worktree worktree 路径。
-   * @param testFiles test_patch 改动的测试文件（可为空）。
-   * @param ids 测试 id 列表（无测试文件时的直跑参数）。
-   * @returns pytest 标准输出与退出码。
-   */
-  private runPytest(
-    worktree: string,
-    testFiles: readonly string[],
-    ids: readonly string[],
-  ): Promise<PytestRun> {
-    const venvPython = NativeEnvBuilder.pythonPath(worktree);
-    const args =
-      testFiles.length > 0
-        ? ['-m', 'pytest', ...testFiles, '-rA', '--tb=no', '-p', 'no:cacheprovider']
-        : ['-m', 'pytest', ...ids, '-v', '--tb=short', '-p', 'no:cacheprovider'];
-    return new Promise<PytestRun>((resolve) => {
-      execFile(venvPython, args, { cwd: worktree, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
-        const code = err !== null && typeof err.code === 'number' ? err.code : 0;
-        resolve({ stdout: stdout ?? '', code });
-      });
-    });
   }
 
   /**
