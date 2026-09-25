@@ -2138,6 +2138,17 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
   gitee 镜像、`--resume` 断点续跑）→ `--verified` 评分（`--jsonl` 同进度文件）。
   结果落 `eval-data/`，跑完在看板补一行真值（不预设）。
 
+- **真值（2026-09-25 出数，`eval-data/capability-swebench-verified30.report.json`）**：
+  **resolved = 1/30（3.3%）**——环境失败 **0**（原生执行器 30/30 正确构建环境并跑完官方测试，保真度达标），
+  模型失败 29（含 1 个空补丁）；唯一 resolved：`sympy__sympy-21847`。
+  配置（如实）：deepseek-v4-flash、temperature 0（贪婪）、tiered 载荷、**单候选**（best-of-N=1）、
+  无 self-test 自纠环、生产默认检索档。预测阶段总 token in/out ≈ 687K。
+  **解读（不粉饰）**：这是**基线**而非产品口径——同类公开系统的跑分协议普遍启用 best-of-N
+  （本项目已实现 `--best-of-n`，官方协议 N=4）与测试驱动自纠环（`--self-test` 已落地），
+  二者按设计大幅提升 resolved 但成本数倍。本基线的价值：① 首次拿到**官方口径**、**零环境失败**、
+  可复现（子集选择器确定性）的真值；② 把「检索/投送改动是否伤害端到端完成率」从无据可查变为有基线可对照。
+  提升路径按 ROI：开 best-of-N=4 + self-test 出「产品口径」分数（成本另批），检索侧对照本基线做 A/B。
+
 ### 21.7 仍挂起（外部条件不变，如实登记）
 
 Terminal-Bench 环境保真（gold 3/20，待官方镜像口径）、OS 级沙箱真机证据（待 Linux/macOS CI matrix）、
