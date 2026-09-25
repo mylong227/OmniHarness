@@ -77,6 +77,11 @@ interface PatchApply {
   readonly ok: boolean;
   /** 失败原因（ok=false 时填）。 */
   readonly reason?: string | undefined;
+  /**
+   * 失败是否属**执行设施/环境**层面（官方 test_patch 都应用不上 ⇒ 该实例未进入模型能力判定）。
+   * 为 true 时上层标 `envError`、不污染 resolved 率分母。
+   */
+  readonly envFailure?: boolean | undefined;
 }
 
 /** pytest 运行产物。 */
@@ -146,13 +151,13 @@ export class NativeExecutor implements ExecutorPort {
     // `failToPass` 为空时 `[].every(...)` 恒真 ⇒ 任何补丁都会被误判 resolved。VerifiedTask 可由
     // 任意调用方手工构造（不必经 loadVerified），故执行边界再兜一次，宁可拒判也不假绿。
     if (task.failToPass.length === 0) {
-      return this.fail(
+      return this.failEnv(
         task.id,
         'FAIL_TO_PASS 为空 —— 拒绝判定（空清单会使「全过=resolved」恒真，属 fail-open 假绿）',
       );
     }
     if (!SwebenchVerified.commandAvailable('git')) {
-      return this.fail(task.id, 'git 不可用（NativeExecutor 需要 git 克隆/检出仓库）');
+      return this.failEnv(task.id, 'git 不可用（NativeExecutor 需要 git 克隆/检出仓库）');
     }
     // uv 定位不止看 PATH：官方安装脚本默认落在 ~/.local/bin（本机实测不在 PATH 上），
     // 只查 PATH 会把「装了但没配 PATH」误报成「没装」，让整条判定链路无声 fail-closed。
@@ -160,13 +165,13 @@ export class NativeExecutor implements ExecutorPort {
     try {
       uv = this.requireUv();
     } catch (error) {
-      return this.fail(task.id, this.msg(error));
+      return this.failEnv(task.id, this.msg(error));
     }
     let cacheDir: string;
     try {
       cacheDir = await this.prepareRepo(task.repo);
     } catch (error) {
-      return this.fail(task.id, `仓库克隆失败: ${this.msg(error)}`);
+      return this.failEnv(task.id, `仓库克隆失败: ${this.msg(error)}`);
     }
     // 注：`ensureCommit` 刻意吞掉取回失败（见其实现），把判定权交给随后的 `addWorktree`；
     // 因此这里**必须**兜住 worktree 抛出——残留/半克隆的缓存会把 `git worktree add --detach <base>`
@@ -180,14 +185,15 @@ export class NativeExecutor implements ExecutorPort {
         return this.addWorktree(cacheDir, task.baseCommit);
       });
     } catch (error) {
-      return this.fail(task.id, `工作区检出失败: ${this.msg(error)}`);
+      return this.failEnv(task.id, `工作区检出失败: ${this.msg(error)}`);
     }
     try {
       const pythonVersion = PythonVersionResolver.resolve(task.repo, task.version);
       await this.envBuilder.build(worktree, pythonVersion, task.repo, uv);
       const applied = this.applyPatches(worktree, modelPatch, task.testPatch);
       if (!applied.ok) {
-        return this.fail(task.id, applied.reason ?? '补丁应用失败');
+        const reason = applied.reason ?? '补丁应用失败';
+        return applied.envFailure === true ? this.failEnv(task.id, reason) : this.fail(task.id, reason);
       }
       const ids = [...task.failToPass, ...task.passToPass];
       // 测试文件取自官方 test_patch 的头（见 testFilesOf）：官方 harness 是「跑 test_patch 改动的
@@ -204,7 +210,7 @@ export class NativeExecutor implements ExecutorPort {
       // 环境构建失败（pytest 未装入 venv）与「模型未解出/执行异常」严格区分：前者是执行设施缺失，
       // 该实例未进入 pytest 判定，标 envError 以便单独重试、且不污染 resolved 率分母。
       if (msg.startsWith(ENV_BUILD_FAILED)) {
-        return { id: task.id, resolved: false, backend: this.kind, envError: true, reason: msg };
+        return this.failEnv(task.id, msg);
       }
       return this.fail(task.id, `原生执行异常: ${msg}`);
     } finally {
@@ -406,7 +412,12 @@ export class NativeExecutor implements ExecutorPort {
    */
   private applyPatches(worktree: string, modelPatch: string, testPatch: string): PatchApply {
     if (!this.gitApply(worktree, testPatch)) {
-      return { ok: false, reason: 'test_patch 应用失败（官方测试补丁无法应用）' };
+      // 官方 test_patch 应用不上：**不是模型的锅**，该实例压根没进入模型能力判定 ⇒ 标 envFailure。
+      return {
+        ok: false,
+        envFailure: true,
+        reason: 'test_patch 应用失败（官方测试补丁无法应用）',
+      };
     }
     if (!this.gitApply(worktree, modelPatch)) {
       return { ok: false, reason: 'model_patch 应用失败（模型补丁无法应用，视为未修复）' };
@@ -493,6 +504,22 @@ export class NativeExecutor implements ExecutorPort {
    */
   private fail(instanceId: string, reason: string): VerifiedResult {
     return { id: instanceId, resolved: false, backend: 'native', reason };
+  }
+
+  /**
+   * 构造**环境失败**结果（`envError: true`）——用于「执行设施/环境把该实例打断、根本没进入模型能力判定」
+   * 的四类现场：缺 git/uv、仓库克隆失败、工作区检出失败、官方 test_patch 应用失败（另加空 FAIL_TO_PASS
+   * 这类数据集缺陷）。报告侧据此把它们从 resolved 率**分母**里剔除并单独重试。
+   *
+   * 为什么必须分开（2026-09-25 实测）：沙箱阻断 piped-stdio 子进程时，`git worktree add` 抛
+   * `spawn EPERM`，旧实现把它记成**模型失败**（13/13 全记模型失败、envErrors=0）——一次环境事故
+   * 会被读成「模型 0 分」，正是本仓反复治的假信号。
+   * @param instanceId 实例 id。
+   * @param reason 失败原因（原样进报告，便于定位与重试）。
+   * @returns 带 envError 标记的未通过结果。
+   */
+  private failEnv(instanceId: string, reason: string): VerifiedResult {
+    return { id: instanceId, resolved: false, backend: 'native', envError: true, reason };
   }
 
   /**

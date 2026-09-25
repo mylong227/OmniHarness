@@ -330,6 +330,11 @@ test('getHybridRepoMapContext：嵌入抛错时 fail-closed 回退纯 BM25（仍
     );
     assert.ok(ctx !== null, '嵌入失败应回退 BM25 而非返回 null');
     assert.match(ctx!, /SandboxPolicyEvaluator/, '回退路径仍应含 BM25 命中符号');
+    // 回落**不得静默**：累计计数必须可见，供遥测/评测区分「环境打断」与「语义路无效」。
+    assert.strictEqual(engine.semanticFallbackTotal(), 1, '一次嵌入失败应记 1 次回落');
+    // 第二次回落继续计数（仍回退、不抛错）——计数单调不减是判据的一部分。
+    await engine.getHybridRepoMapContext(root, 'sandbox policy evaluate', new ThrowingEmbedding());
+    assert.strictEqual(engine.semanticFallbackTotal(), 2, '回落计数应随每次失败递增');
     engine.clear(root);
   } finally {
     rmSync(root, { recursive: true, force: true });

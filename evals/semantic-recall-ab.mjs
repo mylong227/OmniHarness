@@ -26,7 +26,7 @@
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -48,8 +48,16 @@ const SRC = join(ROOT, 'src');
 const PRESET = process.argv[2] ?? 'e5-small-v2';
 const FILE_K = 20;
 const SYM_K = 24;
-const CACHE_DIR = process.env.OMNI_EMBEDDING_CACHE_DIR ?? 'D:/deepseek/.omni-model-cache';
-const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? 'D:/deepseek/.omni-vec-cache';
+// 默认值全部落在**仓库内**（workspace 可写），不再指向 `D:/deepseek/.omni-*`：那两个路径在受限沙箱里
+// 位于 workspace 之外，写入被拒（EPERM）→ `CachedEmbeddingPort.flush` 抛错 → 索引构建失败被 catch 吞掉 →
+// 引擎静默 fail-closed 回落纯 BM25 ⇒ 全部 Δ=0 的**假阴性**（2026-09-25 实测踩中）。历史缓存仍可用：
+// 把 `e5-small-v2-20.{f32,keys}` 拷进 `eval-data/vec-cache/` 即复用它，省一次全语料编码。
+const CACHE_DIR =
+  process.env.OMNI_EMBEDDING_CACHE_DIR ??
+  (existsSync('D:/deepseek/.omni-model-cache')
+    ? 'D:/deepseek/.omni-model-cache'
+    : join(ROOT, '.omniharness', 'model-cache'));
+const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? join(ROOT, 'eval-data', 'vec-cache');
 
 console.log(`=== 语义召回 A/B ===`);
 console.log(`preset=${PRESET}  fileK=${FILE_K}  symK=${SYM_K}  cacheDir=${CACHE_DIR}`);

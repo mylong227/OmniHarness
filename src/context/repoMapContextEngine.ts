@@ -69,6 +69,7 @@ import { SemanticIndexCache } from './semanticIndexCache.js';
 import { HybridRanker, type RankedRepoMap } from './hybridRanker.js';
 import { FileReranker } from './fileReranker.js';
 import { RepoMapMemo } from './repoMapMemo.js';
+import { log } from '../util/logger.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
 export type { RepoMapContextOptions } from './recallKnobs.js';
@@ -125,6 +126,17 @@ export class RepoMapContextEngine {
    * 失效判据是**语料实例**（重新索引即新实例），故不会读到陈旧 repo-map。
    */
   private readonly memo = new RepoMapMemo();
+  /**
+   * 语义路 fail-closed 回落的累计次数（0 = 从未回落）。
+   *
+   * 为什么需要它：`getHybridRepoMapContext` 对嵌入/索引异常**静默**回落纯 BM25（设计如此，绝不拖垮主流程），
+   * 但「静默」会让「语义路开了却零效果」与「语义路本来就没用」长得一模一样——评测侧据此写出过
+   * 「语义路 Δ=0、不显著」的**假阴性**结论（2026-09-25 实测：沙箱致向量缓存目录不可写 → 索引构建失败）。
+   * 故：计数 + 首次回落 warn（后续 debug，防刷屏），让回落在日志与遥测里可见。
+   */
+  private semanticFallbackCount = 0;
+  /** 首次语义回落是否已 warn（避免每步查询都刷 warn）。 */
+  private semanticFallbackWarned = false;
 
   /**
    * 解析载荷档位计划（三级：opts > env > 默认 tiered）。
@@ -351,10 +363,33 @@ export class RepoMapContextEngine {
         q,
         RepoMapContextEngine.payloadPlanOf(knobs.payloadShape),
       );
-    } catch {
+    } catch (error) {
       // fail-closed：语义层失败 → 回落纯 BM25 上下文。
+      // 回落本身是设计（绝不因语义层失败丢上下文），但**不允许静默**：计数 + 首次 warn（后续 debug）。
+      this.semanticFallbackCount += 1;
+      const detail = error instanceof Error ? error.message : String(error);
+      const line =
+        `语义路 fail-closed 回落纯 BM25（累计 ${this.semanticFallbackCount} 次）：${detail}` +
+        ' —— 常见真因：向量缓存目录不可写（EPERM）、模型权重缺失/离线、嵌入端口未注入。';
+      if (!this.semanticFallbackWarned) {
+        this.semanticFallbackWarned = true;
+        log.warn(line, { event: 'semantic_fallback', query: q });
+      } else {
+        log.debug(line, { event: 'semantic_fallback', query: q });
+      }
       return this.getRepoMapContext(root, q, opts);
     }
+  }
+
+  /**
+   * 语义路 fail-closed 回落的累计次数（0 = 从未回落）。
+   *
+   * 供遥测/测试断言「语义路开了却零效果」的真实原因：若是回落计数 > 0，则 Δ=0 是**环境/设施**问题，
+   * 不是「语义路无效」的证据（2026-09-25 假阴性事故的机器判据）。
+   * @returns 累计回落次数（进程/实例生命周期内单调不减）。
+   */
+  public semanticFallbackTotal(): number {
+    return this.semanticFallbackCount;
   }
 
   /**

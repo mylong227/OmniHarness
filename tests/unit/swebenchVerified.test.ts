@@ -139,6 +139,8 @@ test('NativeExecutor：failToPass 为空 ⇒ 执行边界拒绝判定（纵深�
   const r = await exec.run({ ...TASK('django__django-1'), failToPass: [] }, '--- a\n+++ b\n');
   assert.strictEqual(r.resolved, false);
   assert.match(r.reason ?? '', /FAIL_TO_PASS 为空/);
+  // 数据集缺陷 ⇒ 该实例未进入模型能力判定，必须标 envError（否则污染 resolved 率分母）。
+  assert.strictEqual(r.envError, true, '空 FAIL_TO_PASS 属环境/数据集失败，不得记成模型失败');
 });
 
 test('loadVerified：缺字段数据集被拒绝（fail-closed 抛错）', () => {
@@ -182,6 +184,8 @@ test('NativeExecutor：缺 uv 设施即 fail-closed 返回未通过，且报错�
   assert.match(r.reason ?? '', /已查找/, 'fail-closed 必须给出可执行诊断');
   assert.match(r.reason ?? '', /C:\\nowhere\\uv\.exe/, '须列出真实找过的位置');
   assert.match(r.reason ?? '', /OMNI_UV/, '须给出环境变量出口');
+  // 缺设施 = 环境失败（不是模型没解出来）：报告必须能把它从 resolved 率分母里剔除。
+  assert.strictEqual(r.envError, true, '缺 uv 属环境失败，不得记成模型失败');
 });
 
 test('NativeExecutor：缓存根不存在时自动创建（首次真实跑分不再 spawn git ENOENT）', async () => {
