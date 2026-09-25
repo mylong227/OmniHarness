@@ -161,6 +161,10 @@ jobs:
   rust:
     name: Rust 门禁（fmt + clippy + test）
     runs-on: ubuntu-latest
+    # crates.io 从 runner 偶发「transfer too slow」（WASM job 首跑实证，重试 3 次仍失败即红）。
+    env:
+      CARGO_NET_RETRY: '5'
+      CARGO_HTTP_TIMEOUT: '120'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # Rust 此前零门禁：本 job 补上 fmt/clippy/test 三道关卡。
@@ -194,6 +198,10 @@ jobs:
     name: WASM 构建 + E2E
     runs-on: ubuntu-latest
     needs: gate
+    # 同 rust job：crates.io 偶发慢传输，加重试与超时预算（首跑实测抖动即红）。
+    env:
+      CARGO_NET_RETRY: '5'
+      CARGO_HTTP_TIMEOUT: '120'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # 去 action 化（同 rust job）：runner 预装 rustup，直接补 wasm32 target。
