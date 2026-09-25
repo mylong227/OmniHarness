@@ -5,6 +5,9 @@ use std::sync::{Arc, Mutex};
 use omni_core::approval::RuleDecision;
 use omni_core::context::{ContextManager, TruncateSummarizer};
 use omni_core::queue::{Op, Submission};
+// RestrictedTokenSandbox 仅 Windows 有真实实现（非 Windows 返回不可用，用例内自行跳过）；
+// 导入同样按平台门控——否则 Linux 上 unused import，clippy -D warnings 阻断（ubuntu 首跑实证）。
+#[cfg(windows)]
 use omni_core::sandbox::RestrictedTokenSandbox;
 use omni_core::session::Session;
 use omni_core::PlatformSandbox;

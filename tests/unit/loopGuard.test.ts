@@ -41,7 +41,7 @@ test('LoopGuard：参数易变字段（timestamp/uuid）规范化后算重复', 
 
 test('LoopGuard：长随机串参数掩码归一（opaque token）', () => {
   assert.strictEqual(
-    canonicalArgs({ key: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6' }),
+    canonicalArgs({ key: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6' }), // omniharness:fake-secret（测试掩码归一夹具，非真实凭据）
     canonicalArgs({ key: 'ffffffffffffffffffffffffffffffff' }),
   );
   // 短普通字符串不掩码

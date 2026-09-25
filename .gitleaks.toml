@@ -1,0 +1,13 @@
+# gitleaks 配置：默认规则全量启用 + 测试夹具豁免。
+# 纪律：真实密钥一律住用户级配置（~/.omniharness/omniharness.json），仓库树零密钥
+# （scripts/checkSecrets.mjs 4 类高置信模式 + 行内豁免标记 omniharness:fake-secret）。
+# 本豁免仅收 gitleaks 自带规则对**测试夹具**的形态误报，逐条登记、不给路径面豁免。
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
+description = "tests/unit/loopGuard.test.ts 的掩码归一夹具（omniharness:fake-secret）"
+regexTarget = "line"
+regexes = ['''key: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6''']

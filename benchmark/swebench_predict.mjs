@@ -133,7 +133,7 @@ const { CorpusIndexCache } = await import('../dist/src/context/corpusIndexCache.
 const { query } = await import('../dist/src/context/contextEngine.js');
 const { RepoMapPayload } = await import('../dist/src/context/repoMapPayload.js');
 const { OpenAiCompatibleModel } =
-  await import('../dist/src/adapters/model/openaiCompatibleModel.js');
+  await import('../dist/src/adapters/model/openAiCompatibleModel.js');
 const { RetryingModel } = await import('../dist/src/adapters/model/retryingModel.js');
 const { RlvrLoop, InMemoryReplayBuffer } = await import('../dist/src/evolution/rlvrLoop.js');
 const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');

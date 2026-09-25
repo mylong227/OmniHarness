@@ -507,7 +507,7 @@ if (live) {
     );
   } else {
     const { OpenAiCompatibleModel } =
-      await import('../dist/src/adapters/model/openaiCompatibleModel.js');
+      await import('../dist/src/adapters/model/openAiCompatibleModel.js');
     const { BudgetedModel } = await import('../dist/src/adapters/model/budgetedModel.js');
     const { CostBudget } = await import('../dist/src/adapters/model/costBudget.js');
     const baseUrl = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
