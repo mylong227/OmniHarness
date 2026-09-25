@@ -9,6 +9,13 @@
 //!
 //! 构建：`cargo build --profile ffi -p omni-napi` → `target/ffi/omni_napi.dll`，
 //! 复制为 `native/omni_napi.node` 供 Node 加载。
+//!
+//! 平台边界（2026-09-25 钉死）：本 crate 是 **Windows 专属**——napi_glue 经
+//! `GetModuleHandleW/GetProcAddress` 从 node.exe 动态解析符号，handler/受限令牌/作业对象
+//! 全部基于 Win32。非 Windows 平台本 crate 编译为空（`#![cfg(windows)]`），
+//! `cargo test --workspace` / `clippy -D warnings` 在 ubuntu 首跑实证需此门控。
+
+#![cfg(windows)]
 
 mod handler;
 mod napi_glue;

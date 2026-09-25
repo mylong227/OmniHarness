@@ -34,13 +34,14 @@ fn check() -> ExitCode {
 
 /// 以受限令牌 + Job Object 启动命令并等待，透传退出码。
 fn run(args: &[String]) -> ExitCode {
-    let Some(command) = flag_value(args, "--command") else {
-        eprintln!("{{ \"ok\": false, \"error\": \"缺少 --command\" }}");
-        return ExitCode::from(1);
-    };
-
+    // 参数提取放进 Windows 分支（--command 仅该分支消费；无门控提取会在 Linux 上触发
+    // unused variable，clippy -D warnings 阻断——ubuntu 首跑实证）。
     #[cfg(windows)]
     {
+        let Some(command) = flag_value(args, "--command") else {
+            eprintln!("{{ \"ok\": false, \"error\": \"缺少 --command\" }}");
+            return ExitCode::from(1);
+        };
         let launcher = match omni_core::RestrictedProcessLauncher::new() {
             Ok(launcher) => launcher,
             Err(e) => {
@@ -64,12 +65,15 @@ fn run(args: &[String]) -> ExitCode {
 
     #[cfg(not(windows))]
     {
+        let _ = args;
         eprintln!("{{ \"ok\": false, \"error\": \"RestrictedToken 仅 Windows 可用\" }}");
         ExitCode::from(1)
     }
 }
 
 /// 从参数切片取 `--flag value` 的值。
+/// 仅 Windows 分支消费（平台门控同 run；Linux 上无其他调用点，dead_code 会被 -D warnings 阻断）。
+#[cfg(windows)]
 fn flag_value(args: &[String], flag: &str) -> Option<String> {
     args.windows(2)
         .find(|pair| pair[0] == flag)

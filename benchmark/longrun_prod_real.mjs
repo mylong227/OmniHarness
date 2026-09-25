@@ -24,7 +24,7 @@ import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
 import { createRuntime } from '../dist/src/composition/runtime.js';
 import { readUserProviderKey } from '../dist/src/eval/liveCredentials.js';
 import { Agent } from '../dist/src/core/agent.js';
-import { OpenAiCompatibleModel } from '../dist/src/adapters/model/openaiCompatibleModel.js';
+import { OpenAiCompatibleModel } from '../dist/src/adapters/model/openAiCompatibleModel.js';
 import { BudgetedModel } from '../dist/src/adapters/model/budgetedModel.js';
 import { CostBudget } from '../dist/src/adapters/model/costBudget.js';
 import { MemoryStorage } from '../dist/src/adapters/storage/memoryStorage.js';

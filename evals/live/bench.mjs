@@ -53,7 +53,7 @@ function importDist(...segments) {
 }
 
 const { runTaskIsolated } = await importDist('eval', 'evalHarness.js');
-const { OpenAiCompatibleModel } = await importDist('adapters', 'model', 'openaiCompatibleModel.js');
+const { OpenAiCompatibleModel } = await importDist('adapters', 'model', 'openAiCompatibleModel.js');
 const { summarizePassK, passKGate, bootstrapPassK, passKGateWithCI } = await importDist(
   'eval',
   'passK.js',

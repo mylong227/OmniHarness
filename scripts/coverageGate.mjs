@@ -104,8 +104,16 @@ function loadReport() {
     });
   } catch (e) {
     // 测试失败时 npm 非零退出，但覆盖率表仍在 stdout —— 仍按「测试未全绿」处理。
-    console.error('✗ 测试运行未全绿，覆盖率门禁终止（见上方测试输出）。');
-    if (e && typeof e.stdout === 'string' && e.stdout.length > 0) process.exit(1);
+    // 2026-09-25 增补：TAP 失败行默认只在被捕获的 stdout 里（stderr 为空），不透传则
+    // CI 日志只有一句「未全绿」而无从定位（ubuntu 首跑实测踩坑）。此处显式提取 not ok 行。
+    console.error('✗ 测试运行未全绿，覆盖率门禁终止。失败用例：');
+    const out = e && typeof e.stdout === 'string' ? e.stdout : '';
+    const notOk = out
+      .split('\n')
+      .filter((l) => l.startsWith('not ok') || l.startsWith('# fail'))
+      .slice(0, 40);
+    if (notOk.length > 0) for (const l of notOk) console.error('  ' + l.trim());
+    else console.error('  （被捕获输出中无 TAP not ok 行——测试可能在汇总前崩溃，见上方 stderr）');
     process.exit(1);
   }
 }
