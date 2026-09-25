@@ -56,6 +56,11 @@ jobs:
       # P1 清偿后白名单已清空（实测 0/0），--strict 升为全阻断：任何依赖方向违规（含存量）即判红，
       # 目录平铺告警保持非阻断（待 P3 清偿）。防止架构回归。
       - run: npm run arch:gate -- --strict
+      # 顶层 function 门禁（2026-09-26 用户口径）：非 UI 的 .ts 一律以 `export class` 实现，
+      # 禁止 `function f()` / `export function f()`。存量 309 个（104 文件）已一次性改造完毕，
+      # 本关防回潮；--selftest 先自证判据可证伪（函数声明判红 / 类静态方法判绿 / 箭头常量不判）。
+      - run: node scripts/auditTopLevelFunctions.mjs --selftest
+      - run: npm run audit:top-level-fn
 
   web:
     name: Web UI 构建 + 单测

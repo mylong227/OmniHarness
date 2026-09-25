@@ -101,6 +101,12 @@ const GATES = [
       '测试假密钥加行内标记 omniharness:fake-secret），提交中止。',
   },
   {
+    id: 'top-level-fn',
+    label: '顶层 function 门禁（非 UI .ts 必须用 export class 实现）',
+    argv: ['scripts/auditTopLevelFunctions.mjs'],
+    fail: '非 UI 的 .ts 出现顶层 function 声明（用户口径：一律 export class 实现），提交中止。',
+  },
+  {
     id: 'eslint',
     label: 'ESLint（零告警：--max-warnings=0，warn 亦阻断）',
     argv: [ESLINT_BIN, '.', '--max-warnings=0'],

@@ -2323,3 +2323,46 @@ fail-closed 退出（打印 EPERM / 索引构建失败的排查路径；确认�
 - **付费的「产品口径」分数未启动**：best-of-N=4 + self-test × 30 题 × 两臂。成本量级（实测外推）：
   基线单候选 30 题 ≈ 687K token，本协议约 4–8× ⇒ 每臂 ~3–5M token、数小时。
 - 语义路仍 opt-in（+6.1pp 但 CI 跨 0，n=33）；all84 上 rerank Δ=0.0pp——**翻默认仍缺证据**。
+
+### 21.12 顶层 `function` 全量清零（用户口径：非 UI 的 .ts 一律 `export class` 实现）
+
+- **口径**（用户指令，2026-09-26）：非前端 React UI 页面的 `.ts` 里不得再出现 `export function f()` /
+  `function f()` 的**实现方式**，全部改为 `export class` 实现。**范围**：`src/**`（309 个顶层函数 / 104 文件，
+  其中 291 个 export）；`tests/**`（测试辅助函数）与 `web/src/ui/**`（React UI 页面）**不在**改造范围，
+  仅作为调用方被同步改写。
+- **形态由本仓既有门禁反推（不是随手选型）**：`auditStandards` 的「文件名≠类名」只认**第一个 exported class**
+  （字母归一化比对文件名）⇒ 每个文件保留**一个**导出类且名=文件名（`src/util/ipAddress.ts` → `class IpAddress`）；
+  「上帝类」判据（>25 方法 / >500 代码行）⇒ 一文件所有原函数并进同一类（实测单文件最多 12 个）；
+  「公开成员须 JSDoc」「类成员须显式访问修饰符」⇒ 静态方法继承原函数 JSDoc 并加 `public static`（文件内部函数用
+  `private static`）。文件已有同名类（含**未导出**者，7 例）则并入并导出；文件既有**类型**与目标类同名（4 例：
+  `Operator` / `VerifiableReward` / `SubagentPorts` / `Benchmark`）则给类型改名（→ `OperatorFn` /
+  `VerifiableRewardFn` / `SubagentPortsShape` / `BenchmarkFn`），类名保持与文件名一致。
+- **规模与工具链**（工具在 `eval-data/` 下，**未入库**）：AST codemod 改写声明 + **全仓调用点 2,166 处 / 309 文件**，
+  覆盖桶文件重导出、别名导入、命名空间导入、动态 `import()` 解构、跨语句导入去重；4 处类型改名走语言服务
+  `findRenameLocations`（`class`+`interface` 声明合并会把类引用一起改名，故改完按用法还原类名）；
+  最后一轮导入去重脚本收尾。**写前硬守卫**：产出必须能被 TS 解析，否则拒绝写入——首轮全量正是靠它拦下
+  「注释被切碎 / 接口成员名被改写」两类损坏。
+- **可证伪验证**：`tsc --noEmit` **0 错**；ESLint **0 告警**；`check --strict` 578 文件**零违规**；
+  `audit:maturity` / `arch:gate` / `audit:config-wiring` / `docLinkCheck` 全绿；
+  **全量单测 2161 例：2155 过 / 1 失败 / 5 skip**——唯一失败是 **本机 Chrome 那条既有环境失败**
+  （`真机 e2e：用本机 Chrome 截一张 data: 页面`，与改造前基线同一条）⇒ 本次重构**零测试回归**。
+- **防回潮（新门禁）**：`scripts/auditTopLevelFunctions.mjs`——非 UI `.ts` 顶层出现 `FunctionDeclaration` 即红
+  （`audit:top-level-fn`；`--selftest` 自证「函数声明判红 / 类静态方法判绿 / 箭头常量不判」，`--list` 打印整改清单）。
+  已接入 `scripts/runGates.mjs`（pre-commit 的单一实现）+ CI `gate` job + npm script。
+- **诚实边界**：① 方法名沿用原函数名（机械可核对、不发明命名）；② `function` 之外的**相邻形态**
+  （`export const f = () => …`，实测 130 个）**未**纳入本轮口径，门禁也刻意不判——若要一并治理需另开批次；
+  ③ `tests/**` 与 `web/src/ui/**` 内部函数按用户口径保留原样。
+- **本轮遗留（未擅自放宽门禁）**：`check --strict` 的**度量型**规则因「函数变方法 + prettier 重排签名」增长 6 处
+  （5 个函数体：`anneal` 93→94、`runServe` 130→132、`compact` 95→97、`indexCorpus` 101→109、`query` 220→224；
+  1 个文件行数：`src/context/contextEngine.ts` 800→803）。处置选项：① 抽取辅助方法把体量压回基线（符合本仓
+  「不删注释凑数、按职责拆」的先例）；② 按纪律**先做排除实验**再调基线。**本轮不动基线**，留作下一批——
+  这是「度量惩罚换形态」的第 N 次复现：签名换行不该算实现体量增长。
+
+### 21.13 提交门禁在本沙箱的可用性（补 21.11 ④）
+
+- 本机 `git` 起钩子必须经 `sh.exe`，而受限沙箱拒绝 cygwin 共享内存创建
+  （`sh.exe: *** fatal error - CreateFileMapping ..., Win32 error 5`）⇒ **钩子整段不可执行、提交静默绕过门禁**。
+  缓解：门禁逻辑单点在 `scripts/runGates.mjs`（node 实现），提交后手工 `node scripts/runGates.mjs --staged`
+  跑齐同一套判定；`--skip=<id>` 是显式出口（会打印告警）。
+- 另：本机 `npm.ps1` 实测损坏（`Could not determine Node.js install directory`，nvm4w 的 `npm.cmd` 里 CALL 行坏），
+  标准命令请用 `npm.cmd run …` 或直调 `node node_modules/...`；`npm.cmd run` 实测可用。
