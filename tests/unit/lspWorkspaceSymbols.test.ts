@@ -173,6 +173,9 @@ describe('LSP workspace/symbol（进程级 JSON-RPC 归一化）', () => {
   });
 
   test('畸形 file:// URI：降级返回原串，绝不抛错（Windows 上缺盘符的 URI 会解析失败）', () => {
+    // 平台分支（CI 三平台首跑实证）：`file:///repo/a.ts` 在 **POSIX 上能被 fileURLToPath
+    // 成功解析**（→ /repo/a.ts，照常归一），只有 Windows 因缺盘符解析失败才降级为原串。
+    const degradedFile = process.platform === 'win32' ? 'file:///repo/a.ts' : '/repo/a.ts';
     // 无区间 ⇒ 文件串原样呈现（URI 至少说明「在哪个文件」），位置用文件起点。
     assert.deepStrictEqual(
       LspSymbolNormalizer.normalizeWorkspace(
@@ -183,7 +186,7 @@ describe('LSP workspace/symbol（进程级 JSON-RPC 归一化）', () => {
         {
           name: 'broken',
           kind: 'function',
-          file: 'file:///repo/a.ts',
+          file: degradedFile,
           range: { start: { line: 1, character: 1 }, end: { line: 1, character: 1 } },
         },
       ],
