@@ -1,0 +1,52 @@
+#!/bin/sh
+# OmniHarness pre-push 守卫：把「推送目标」钉死在 mylong227 账号下的仓库。
+#
+# 为什么需要它：`omniharness/omniharness` 是一个**误建**的组织仓库，本仓所有者对该仓只有只读权限、
+# 也无法删除它。历史上曾因「以为要推到上游」而反复尝试申请该仓写权限、改推送地址、排查镜像与代理，
+# 白白耗费多轮（见 docs/TASK_BOARD.md 的推送状态留档）。此处用机器兜底，避免再犯：
+#   ① 向该误建仓库推送 ⇒ **直接中止**；
+#   ② 向其它非本账号仓库推送 ⇒ 默认**告警但放行**；设 OMNI_STRICT_PUSH=1 则一并中止；
+#   ③ 确实需要临时放行 ⇒ OMNI_ALLOW_FOREIGN_PUSH=1（打印放行原因，便于事后归因）。
+#
+# 规范目标：mylong227/OmniHarness（本仓 `origin`，push 走 ghproxy 镜像地址）。
+# 由 scripts/install-hooks.mjs 通过 git config core.hooksPath 激活（与 pre-commit 同一目录）。
+#
+# 实现约束：**只用 shell 内建**（case 的字符类做大小写不敏感匹配），不依赖 tr/grep/sed ——
+# 钩子运行环境的 PATH 不保证包含 Git 的 usr/bin（实测该环境里 `tr` 不存在，会导致守卫静默失效）。
+#
+# 参数：$1 = 远端名，$2 = 远端 URL（git 传入；URL 可能为空，故同时看名与 URL）。
+
+REMOTE_NAME="$1"
+REMOTE_URL="$2"
+target="${REMOTE_URL:-$REMOTE_NAME}"
+
+# ③ 显式放行
+if [ "${OMNI_ALLOW_FOREIGN_PUSH}" = "1" ]; then
+  echo "[pre-push] OMNI_ALLOW_FOREIGN_PUSH=1 ⇒ 放行本次推送（目标：${target}）"
+  exit 0
+fi
+
+# ① 误建仓库：硬拦（[Oo]mni[Hh]arness 覆盖大小写变体）
+case "$target" in
+  *[Oo]mni[Hh]arness/[Oo]mni[Hh]arness*)
+    echo "[pre-push] ✗ 拒绝推送：目标是误建的仓库 omniharness/omniharness。" >&2
+    echo "[pre-push]   该仓非本项目归属，本账号对其只有只读权限（且无法删除）。" >&2
+    echo "[pre-push]   推送目标固定为 mylong227/OmniHarness（远端名 origin）。" >&2
+    echo "[pre-push]   确需临时放行：OMNI_ALLOW_FOREIGN_PUSH=1 git push ..." >&2
+    exit 1
+    ;;
+esac
+
+# ② 规范目标：放行
+case "$target" in
+  *mylong227/[Oo]mni[Hh]arness*) exit 0 ;;
+esac
+
+# ② 其它目标：默认告警放行；STRICT 时中止
+echo "[pre-push] ⚠ 本次推送目标不是 mylong227/OmniHarness：${target}" >&2
+if [ "${OMNI_STRICT_PUSH}" = "1" ]; then
+  echo "[pre-push] ✗ OMNI_STRICT_PUSH=1 ⇒ 中止。确需推送该目标：OMNI_ALLOW_FOREIGN_PUSH=1 git push ..." >&2
+  exit 1
+fi
+echo "[pre-push]   （默认放行；如需硬拦，设 OMNI_STRICT_PUSH=1）" >&2
+exit 0
