@@ -43,6 +43,9 @@ export interface CosmicWebOptions {
  * 同时实现 `LongTermMemoryPort`：作为长期记忆端口的零侵入 drop-in 替换（委托标准读写给
  * base，仅改写 `remember` 为黏附巩固 + 增 `consolidate`/`fiber`）。复用燧-3 频率域共振度
  * 构建边权。零运行时依赖。
+ *
+ * @deprecated 与 U1 统一记忆基板同算法重复（DEFICIENCY_AUDIT §3.2 定案，2026-09-25 起标记）：
+ * 按弃用流程将在**下一个次版本移除**，届时请迁移到 U1 基板路径；存量装配在本版本内继续可用。
  */
 export class CosmicWebMemoryEngine implements CosmicWebPort, LongTermMemoryPort {
   /** 适配器标识：用于端口注册与诊断日志归组（固定值 'cosmic-web-memory'）。 */

@@ -19,6 +19,10 @@ import { rankWithDecay, type ScoredFact } from './timeDecay.js';
  * `resonance.enabled` 时把 `config.longTermMemory` 封包为本引擎，Agent 主循环
  * （开场 primer 召回、recall 工具、回合末蒸馏）经同一端口即自动走共振代数——
  * 燧-3 从"端口"变为"真能力"，无需改动任何核心逻辑。
+ *
+ * @deprecated 与 U1 统一记忆基板同算法重复（DEFICIENCY_AUDIT §3.2 定案，2026-09-25 起标记）：
+ * 按弃用流程将在**下一个次版本移除**，届时请迁移到 U1 基板路径；存量
+ * `resonance.enabled` 装配在本版本内继续可用（行为不变）。
  */
 export class ResonantMemoryEngine implements ResonantMemoryPort, LongTermMemoryPort {
   /** 适配器标识：用于端口注册与诊断日志归组（固定值 'resonant-memory'）。 */
