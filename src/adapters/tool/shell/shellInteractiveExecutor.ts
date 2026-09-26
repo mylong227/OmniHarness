@@ -15,6 +15,7 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { ShellInvocation } from './shellInvocation.js';
+import { ProcessTreeKiller } from './processTreeKiller.js';
 
 /** 单次交互式执行参数。 */
 export interface InteractiveRunOptions {
@@ -24,6 +25,8 @@ export interface InteractiveRunOptions {
   readonly env: NodeJS.ProcessEnv;
   /** 超时（毫秒），到时终止子进程并置 `timedOut`。 */
   readonly timeoutMs: number;
+  /** 会话取消信号（可选）：中止即终止整棵进程树（与前台 shell 同一口径）。 */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /** 单次交互式执行结果（不抛异常，状态显式回传）。 */
@@ -69,30 +72,45 @@ export class ShellInteractiveExecutor {
       }
       let timedOut = false;
       let settled = false;
+      /** 会话取消时的收尾（与超时同一路径：终止整棵进程树，如实回传 signal）。 */
+      const onAbort = (): void => {
+        if (settled) {
+          return;
+        }
+        ProcessTreeKiller.kill(child);
+      };
       const finish = (exitCode: number | null, signal: string | null): void => {
         if (settled) {
           return;
         }
         settled = true;
         clearTimeout(timer);
+        options.signal?.removeEventListener('abort', onAbort);
         resolve({ exitCode, signal, timedOut });
       };
       const timer = setTimeout(() => {
         timedOut = true;
         if (!settled) {
-          try {
-            child.kill('SIGKILL');
-          } catch {
-            // 进程可能已退出；超时仍如实回传（不因 kill 失败而谎报成功）。
-          }
+          // 树杀而非 `child.kill`（2026-09-26 审计 S12）：交互式会话的载荷是孙进程，
+          // 只杀直接子进程会让「已超时」的命令继续跑（最长到 1 小时上限）。
+          ProcessTreeKiller.kill(child);
         }
       }, options.timeoutMs);
+      // 转发会话取消（前台 shell 早已这么做，交互式这条支路漏了）：不转发时撤销回合也停不下来。
+      if (options.signal !== undefined) {
+        if (options.signal.aborted) {
+          onAbort();
+        } else {
+          options.signal.addEventListener('abort', onAbort, { once: true });
+        }
+      }
       child.on('error', (error: Error) => {
         if (settled) {
           return;
         }
         settled = true;
         clearTimeout(timer);
+        options.signal?.removeEventListener('abort', onAbort);
         reject(error);
       });
       child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {

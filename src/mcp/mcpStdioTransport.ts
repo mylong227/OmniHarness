@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { LineTransport, type Transport } from '../server/transport/lineTransport.js';
+import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.js';
+import { log } from '../util/logger.js';
 
 /**
  * @beta
@@ -45,11 +47,20 @@ export class McpStdioTransport {
       throw new Error('MCP 子进程 stdio 管道不可用');
     }
     const reader = createInterface({ input: stdout, crlfDelay: Infinity });
+    // stdin 也必须接 'error'（2026-09-26 审计 S6）：对端已死时 `stdin.write` 会发 EPIPE，
+    // 无监听时它就是 uncaughtException —— **整个宿主进程被一个子进程带走**。
+    stdin.on('error', (error: Error) => {
+      log.warn('mcp.stdio.stdinFailed', { error: error.message });
+    });
     const transport = new LineTransport(
       (onLine) => {
         reader.on('line', onLine);
       },
-      (line) => stdin.write(`${line}\n`),
+      (line) => {
+        if (stdin.writable) {
+          stdin.write(`${line}\n`);
+        }
+      },
     );
     return {
       transport,
@@ -57,7 +68,14 @@ export class McpStdioTransport {
       failure: this.failureOf(child),
       close: () => {
         reader.close();
-        child.kill();
+        // 树杀而非 `child.kill()`（2026-09-26 审计 S6）：`npx @scope/server` 这类命令的直接子进程
+        // 只是 wrapper，真正的 MCP 服务是它的孙进程 —— 只杀 wrapper 会留下孤儿常驻。
+        // 仓内已有可用的跨平台树杀原语（Windows taskkill /T /F，POSIX 组杀），此处直接复用。
+        if (child.pid !== undefined) {
+          ProcessTreeKiller.killPid(child.pid);
+        } else {
+          child.kill();
+        }
       },
     };
   }

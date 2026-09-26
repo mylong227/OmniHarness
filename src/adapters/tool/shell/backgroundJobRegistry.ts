@@ -17,6 +17,8 @@ import { spawn } from 'node:child_process';
 import { closeSync, fstatSync, mkdirSync, openSync, readSync } from 'node:fs';
 import { join } from 'node:path';
 import { ShellInvocation } from './shellInvocation.js';
+import { ProcessTreeKiller } from './processTreeKiller.js';
+import { log } from '../../../util/logger.js';
 
 /** 单个后台作业的可观测状态。 */
 export interface BackgroundJob {
@@ -112,6 +114,13 @@ export class BackgroundJobRegistry {
           job.exitCode = code;
         }
       });
+      // spawn 失败（ENOENT/EACCES）会以 'error' 事件抛出；无监听时在 detached 子进程上就是
+      // unhandled 'error' ⇒ 进程直接死（2026-09-26 审计 X7）。
+      child.on('error', (error: Error) => {
+        log.warn('shell.bgjob.spawnFailed', { id, error: error.message });
+        job.status = 'exited';
+        job.exitCode = -1;
+      });
       // detached + unref：父进程退出不带走子进程（「长时命令」的本义）。
       child.unref();
       return BackgroundJobRegistry.snapshot(job);
@@ -140,9 +149,17 @@ export class BackgroundJobRegistry {
       if (length <= 0) {
         return '';
       }
-      const buffer = Buffer.alloc(length);
-      readSync(fd, buffer, 0, length, size - length);
-      return buffer.toString('utf8');
+      // 多读最多 3 字节再把起点对齐到 UTF-8 **首字节**（2026-09-26 审计 S17）：日志按字节尾部
+      // 截取时起点常常落在多字节字符中间，直接 toString('utf8') 会在模型可见输出开头插入 U+FFFD
+      // （静默损坏）。UTF-8 续字节形如 10xxxxxx，故向右跳过它们即得合法起点。
+      const readLength = Math.min(size, length + 3);
+      const buffer = Buffer.alloc(readLength);
+      readSync(fd, buffer, 0, readLength, size - readLength);
+      let start = readLength - length;
+      while (start < readLength && ((buffer[start] ?? 0) & 0xc0) === 0x80) {
+        start += 1;
+      }
+      return buffer.subarray(start).toString('utf8');
     } catch {
       return '';
     } finally {
@@ -162,7 +179,10 @@ export class BackgroundJobRegistry {
   }
 
   /**
-   * 终止作业（尽力而为：Windows 上只保证终结 shell 本体，孙进程可能存活）。
+   * 终止作业（**整棵进程树**：Windows `taskkill /T /F`，POSIX 组杀）。
+   *
+   * 语义修正（2026-09-26 审计 S17）：旧实现 `process.kill(pid,'SIGTERM')` 在 Windows 上只终结
+   * shell 外壳，真正的载荷树继续跑——而状态已被置为 `killed`，等于谎报。
    *
    * @param id 作业 id。
    * @returns 找到并发出终止信号时为 true；作业不存在或 pid 未知时为 false。
@@ -172,13 +192,9 @@ export class BackgroundJobRegistry {
     if (job === undefined || job.pid === undefined) {
       return false;
     }
-    try {
-      process.kill(job.pid, 'SIGTERM');
-      job.status = 'killed';
-      return true;
-    } catch {
-      return false;
-    }
+    ProcessTreeKiller.killPid(job.pid);
+    job.status = 'killed';
+    return true;
   }
 
   /**

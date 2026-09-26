@@ -461,6 +461,31 @@ export class CliServerCmds extends CliBuildConfig {
     const authNote =
       serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
     process.stdout.write(`OmniHarness UI: http://${serveHost}:${actual} ${authNote}\n`);
-    return new Promise(() => undefined);
+    return CliServerCmds.awaitShutdown(server);
+  }
+
+  /**
+   * 常驻等待信号并**优雅收尾**（2026-09-26 审计 S5）。
+   *
+   * 原实现 `return new Promise(() => undefined)` 且不注册任何信号处理 —— Ctrl-C / SIGTERM 时
+   * 监听套接字、WS/SSE 客户端、MCP/LSP/Chrome/后台作业子进程全部不被关闭，端口要等进程被强杀
+   * 才释放（Windows 上孙进程还可能残留）。
+   * @param server 已启动的 HTTP 服务。
+   * @returns 关闭完成后 resolve（调用方据此正常退出）。
+   */
+  private static awaitShutdown(server: HttpServer): Promise<number> {
+    return new Promise<number>((resolve) => {
+      const shutdown = (signal: NodeJS.Signals): void => {
+        process.stdout.write(`\n收到 ${signal}，正在关闭服务…\n`);
+        void server
+          .close()
+          .catch(() => undefined)
+          .finally(() => {
+            resolve(0);
+          });
+      };
+      process.once('SIGINT', () => shutdown('SIGINT'));
+      process.once('SIGTERM', () => shutdown('SIGTERM'));
+    });
   }
 }
