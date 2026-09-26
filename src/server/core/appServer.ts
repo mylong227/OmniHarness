@@ -135,7 +135,7 @@ export class AppServer extends AppServerSurfaceHandlers {
       // ⇒ 先结束者清空令牌会让「停止」静默失效，或把**别的会话**取消掉。现按会话定向取消：
       // 传了 threadId 只停该会话；旧前端不带参数时退化为「取消全部在跑回合」（不静默失效）。
       const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
-      this.runtime.agent().cancelCurrentRun('user', threadId === '' ? undefined : threadId);
+      this.runtime.cancelAll('user', threadId === '' ? undefined : threadId);
       // 连带中止该会话在跑的**图运行**（F13）：图驱动的子步也是真 Agent 回合，会话已停就不该继续烧。
       return {
         ok: true,
