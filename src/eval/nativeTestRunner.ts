@@ -23,6 +23,8 @@ interface TestRun {
   readonly stdout: string;
   /** 退出码。 */
   readonly code: number;
+  /** 是否因**超时**被强杀（见 {@link NativeTestRunner.testTimeoutMs}）。 */
+  readonly timedOut?: boolean;
 }
 
 /** 一次测试运行的判定结果（含诊断）。 */
@@ -59,7 +61,12 @@ export class NativeTestRunner {
     const passed =
       spec !== null ? spec.parse(run.stdout, ids) : PytestVerdict.parseResults(run.stdout, ids);
     NativeTestRunner.dumpIfRequested(task.id, run.stdout);
-    return { passed, diagnosis: NativeTestRunner.diagnose(run.stdout) };
+    // 超时优先于其它诊断：被强杀时输出必然是**截断的半截**，此时任何「无输出/零收集」的解读都会误导。
+    const diagnosis =
+      run.timedOut === true
+        ? `测试执行超时（${(NativeTestRunner.testTimeoutMs() ?? 0) / 1000}s 上限）——补丁可能把测试变成病态慢，或该套件本就超过上限`
+        : NativeTestRunner.diagnose(run.stdout);
+    return { passed, diagnosis };
   }
 
   /**
@@ -215,13 +222,41 @@ export class NativeTestRunner {
       execFile(
         venvPython,
         [...args],
-        { cwd: worktree, maxBuffer: 128 * 1024 * 1024 },
+        {
+          cwd: worktree,
+          maxBuffer: 128 * 1024 * 1024,
+          timeout: NativeTestRunner.testTimeoutMs(),
+          killSignal: 'SIGKILL',
+        },
         (err, stdout, stderr) => {
           const code = err !== null && typeof err.code === 'number' ? err.code : 0;
-          resolve({ stdout: `${stdout ?? ''}\n${stderr ?? ''}`, code });
+          resolve({
+            stdout: `${stdout ?? ''}\n${stderr ?? ''}`,
+            code,
+            timedOut: err?.killed === true,
+          });
         },
       );
     });
+  }
+
+  /**
+   * 测试执行的**超时上限**（毫秒）。
+   *
+   * 为什么必须有（2026-09-26 实测）：`execFile` 两个调用点原先**都没有 `timeout`**，于是一个
+   * **病态慢**的模型补丁（把某个测试变成原耗时的百倍）会让判分**无限期挂住**——整批被一题拖死。
+   * 真实现场：`sympy__sympy-18698` 的 N=1 补丁令 `pytest sympy/polys/tests/test_polytools.py`
+   * 持续计算 >15 分钟（CPU 稳步增长、非死锁），判分侧因此停在同一题上十多分钟。
+   * 默认取 **30 分钟**（宽到不会误杀正常的大测试套件——sympy 全量也就分钟级；
+   * django 全套 60-90s；官方口径本身也依赖容器级超时）；`OMNI_EVAL_TEST_TIMEOUT_MS` 可覆盖，
+   * 设 `0` 表示关闭（保留旧行为）。
+   * @returns 超时毫秒数；关闭时返回 undefined（`execFile` 不设超时）。
+   */
+  private static testTimeoutMs(): number | undefined {
+    const raw = process.env['OMNI_EVAL_TEST_TIMEOUT_MS'];
+    if (raw === '0') return undefined;
+    const parsed = raw === undefined || raw === '' ? Number.NaN : Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30 * 60 * 1000;
   }
 
   /**
@@ -255,10 +290,19 @@ export class NativeTestRunner {
       execFile(
         venvPython,
         args,
-        { cwd: worktree, maxBuffer: 64 * 1024 * 1024 },
+        {
+          cwd: worktree,
+          maxBuffer: 64 * 1024 * 1024,
+          timeout: NativeTestRunner.testTimeoutMs(),
+          killSignal: 'SIGKILL',
+        },
         (err, stdout, stderr) => {
           const code = err !== null && typeof err.code === 'number' ? err.code : 0;
-          resolve({ stdout: `${stdout ?? ''}\n${stderr ?? ''}`, code });
+          resolve({
+            stdout: `${stdout ?? ''}\n${stderr ?? ''}`,
+            code,
+            timedOut: err?.killed === true,
+          });
         },
       );
     });
