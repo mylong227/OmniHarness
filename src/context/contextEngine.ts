@@ -257,9 +257,9 @@ export class ContextEngine {
    * {@link IndexedCorpus.truncated} / {@link IndexedCorpus.skippedLargeFiles} 如实回报。
    */
   public static indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpus {
-    // 索引侧与查询侧必须同用一套分词，否则两侧变体集不相交，归并反而掉召回。
     const tk = opts.morph === false ? Bm25Index.tokenize : Bm25Index.tokenizeExpanded;
-    // light 模式：跳过三项重型索引（**默认开**；要 full 必须显式 `light: false`）。
+    // R6：文档侧保留词频（去重会让 tf 恒为 1、k1/tf 失效）；查询侧仍去重。
+    const symTk = opts.morph === false ? Bm25Index.tokenize : Bm25Index.tokenizeExpandedCounted;
     const light = opts.light !== false;
     const files: string[] = [];
     const budget =
@@ -270,8 +270,7 @@ export class ContextEngine {
       ...(opts.maxFileBytes !== undefined ? { maxFileBytes: opts.maxFileBytes } : {}),
       maxTotalBytes: budget,
     });
-    const truncated = walked.truncated;
-    const skippedLargeFiles = walked.skippedLargeFiles;
+    const { truncated, skippedLargeFiles } = walked;
     if (!light) {
       // full 模式的每字节代价比 light 高一个数量级（见 FULL_MODE_WARN_BYTES 的实测），
       // 大语料必须**拒跑**而不是「静默只索引一半」——半份语料会给出错误的对照结论。
@@ -317,7 +316,7 @@ export class ContextEngine {
       const syms = RepoMap.extractSymbols(rel, text);
       for (const s of syms) {
         allSymbols.push(s);
-        symbolDocs.push(tk(`${s.name} ${s.kind} ${s.signature} ${s.file}`));
+        symbolDocs.push(symTk(`${s.name} ${s.kind} ${s.signature} ${s.file}`));
       }
     }
 

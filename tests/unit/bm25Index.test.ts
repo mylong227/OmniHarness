@@ -177,3 +177,30 @@ test('R9：非 ASCII 拉丁词不再被切碎，日文假名 / 谚文可检索',
   const zh = Bm25Index.tokenize('读取文件');
   assert.ok(zh.includes('读取') && zh.includes('文件'));
 });
+
+test('R6：文档侧分词保留词频（查询侧仍去重）——tf 与 k1 对符号索引真正生效', () => {
+  // 回归（2026-09-26 审计 R6）：tokenizeExpanded 内部用 Set 去重 ⇒ **索引侧 tf 恒为 1**，
+  // BM25 的 tf 分量与调优过的 k1 对符号索引完全失效。
+  const counted = Bm25Index.tokenizeExpandedCounted('alpha alpha alpha alpha');
+  assert.strictEqual(
+    counted.filter((t) => t === 'alpha').length,
+    4,
+    `文档侧必须保留 4 次 alpha，实际：${JSON.stringify(counted)}`,
+  );
+  const deduped = Bm25Index.tokenizeExpanded('alpha alpha alpha alpha');
+  assert.strictEqual(deduped.filter((t) => t === 'alpha').length, 1, '查询侧仍须去重');
+
+  // 端到端：同一查询下，重复 4 次的文档必须**高于**只出现 1 次的文档（旧实现两者同分）。
+  const index = new Bm25Index();
+  index.addDocuments([
+    Bm25Index.tokenizeExpandedCounted('alpha alpha alpha alpha beta'),
+    Bm25Index.tokenizeExpandedCounted('alpha beta'),
+  ]);
+  const hits = index.search(Bm25Index.tokenizeExpanded('alpha'), 2);
+  assert.strictEqual(hits.length, 2, '前置条件：两篇文档都应命中');
+  assert.strictEqual(hits[0]?.id, 0, '重复更多次者应排前（tf 生效）');
+  assert.ok(
+    (hits[0]?.score ?? 0) > (hits[1]?.score ?? 0),
+    'tf 生效后两篇文档分数必须不同（旧实现完全相同）',
+  );
+});
