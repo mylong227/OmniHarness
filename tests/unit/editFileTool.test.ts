@@ -108,3 +108,29 @@ test('EditFileTool：越界路径拒绝', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('EditFileTool：new_string 与 old_string 等价时空操作必须如实回报（不写盘、不报「已替换」）', async () => {
+  // 编码能力缺口（2026-09-26）：旧实现照样写 `.bak`、照样回「已替换 1 处」，模型据此认为改动已落地，
+  // 后续自证与结论全部建立在假事实上。修复后：显式回报无变化、不写盘、不留 `.bak`。
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-edit-'));
+  try {
+    const original = 'const a = 1;\n';
+    await writeFile(join(dir, 'a.ts'), original, 'utf8');
+    const tool = new EditFileTool(dir);
+    const result = await tool.handle(
+      {
+        id: 'c1',
+        name: 'edit',
+        arguments: { path: 'a.ts', old_string: 'const a = 1;', new_string: 'const a = 1;' },
+      },
+      context,
+    );
+    assert.strictEqual(result.ok, true, '工具本身没有失败');
+    assert.match(result.output ?? '', /无变化/);
+    assert.ok(!/已替换/.test(result.output ?? ''), '不得再声称「已替换」');
+    assert.strictEqual(await readFile(join(dir, 'a.ts'), 'utf8'), original, '内容不得变');
+    await assert.rejects(() => readFile(join(dir, 'a.ts.bak'), 'utf8'), '空操作不应留下 .bak 备份');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

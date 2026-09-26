@@ -20,6 +20,12 @@ import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js'
  * 而 `alpha.ts` 的符号名 `AlphaTool` 恰好高覆盖查询词——精排（符号 IDF 覆盖）会把
  * 它重新提到首位 ⇒ 默认（关）与 opt-in（开）产出确定不同。
  *
+ * 为什么要 8 个文件而不是 4 个（2026-09-26 调整，非「改到绿」）：`Bm25Index.tokenize` 修掉了
+ * 「无下划线词被 push 两次」的缺陷（tf 与文档长度各虚高约 26%），4 文件小语料里 beta.ts 的
+ * 虚高词频正好是压住 alpha.ts 的唯一砝码——修复后 alpha.ts 在**首段**就已居前，精排无从体现。
+ * 补齐 4 个无关键词的填充文件后，词频优势被文档长度稀释、名次项重新生效，语料重新具备
+ * 「首段排序 ≠ 覆盖度排序」的性质，用例恢复对精排的有效性判定。查询与断言均未改。
+ *
  * @returns 临时工作区根（用例结束后由调用方清理）。
  */
 function rerankSensitiveRepo(): string {
@@ -29,6 +35,11 @@ function rerankSensitiveRepo(): string {
     'beta.ts': '// tool tool tool\nexport class BetaStore {\n  run() { return 2; }\n}\n',
     'gamma.ts': '// tool helper\nexport class GammaRender {\n  run() { return 3; }\n}\n',
     'delta.ts': 'export class DeltaParse {\n  run() { return 4; }\n}\n',
+    // 填充文件：不含查询词，仅用于让名次项（1/(1+rank)）与文档长度归一化重新产生区分度。
+    'eps.ts': 'export class EpsThing {\n  run() { return 5; }\n}\n',
+    'zeta.ts': 'export class ZetaThing {\n  run() { return 6; }\n}\n',
+    'eta.ts': 'export class EtaThing {\n  run() { return 7; }\n}\n',
+    'theta.ts': 'export class ThetaThing {\n  run() { return 8; }\n}\n',
   };
   for (const [name, content] of Object.entries(files)) {
     writeFileSync(join(root, name), content);

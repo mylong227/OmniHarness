@@ -312,7 +312,7 @@ export class ContextEngine {
       fileText.set(rel, text);
       const toks = Bm25Index.tokenize(text);
       fileRecords.push({ rel, tokens: toks.length });
-      fileDocs.push([...toks, ...tk(rel)]);
+      fileDocs.push([...toks, ...tk(rel)]); // 正文侧不做扩展分词（净负面 −6.0pp，见 TASK_BOARD §22.3）
 
       const syms = RepoMap.extractSymbols(rel, text);
       for (const s of syms) {

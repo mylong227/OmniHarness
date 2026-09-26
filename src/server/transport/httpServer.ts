@@ -88,7 +88,14 @@ export class HttpServer {
         reject(error instanceof Error ? error : new Error(String(error)));
         return;
       }
+      // 监听失败（EADDRINUSE / EACCES）不走 listen 回调，而是把 'error' 事件抛到该 Server
+      // 对象上——**无人监听时它就是 uncaughtException（进程直接死）**，同时 start() 的 Promise
+      // 永不 settle（调用方连报错的机会都没有）。故必须显式接一次并 reject；监听成功后立刻摘下，
+      // 免得留一个长期吞掉后续 'error' 的监听器。
+      const onListenError = (error: Error): void => reject(error);
+      this.server.once('error', onListenError);
       this.server.listen(port, host, () => {
+        this.server.removeListener('error', onListenError);
         const address = this.server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });

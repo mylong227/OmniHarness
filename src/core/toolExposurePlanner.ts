@@ -96,15 +96,25 @@ interface CompiledCategory {
  */
 export class ToolExposurePlanner {
   /**
-   * 恒可见工具：三条「出事时要有」的通道，缺任一条都可能让模型卡死而非仅仅少省钱。
+   * 恒可见工具：三条件「出事时要有」的通道 + 五个**规划产物**通道。
    *  - `tool_search`：找回被隐藏工具的唯一入口（隐藏即可恢复的前提）；
    *  - `ask_user`：澄清通道，被隐藏时模型会转向猜测而非提问；
-   *  - `spill_read`：大输出外溢后的回读入口。
+   *  - `spill_read`：大输出外溢后的回读入口；
+   *  - `todo_*` / `plan_*`：**任务拆解的唯一落地面**。它们已登记在 `planning` 类别，因此不属于
+   *    「未登记 ⇒ 恒可见」的保护范围——任务文本里没出现「计划/待办/steps」字样时会被整体降级，
+   *    于是「按需暴露」恰好把**规划工具本身**藏了起来：模型想拆解却找不到写待办的入口
+   *    （`OMNI_TOOL_EXPOSURE=plan` 下的真实退化）。规划是元能力，按定义在任何任务里都可能需要，
+   *    故并入恒可见。
    */
   public static readonly DEFAULT_ALWAYS_VISIBLE: readonly string[] = [
     TOOL_NAMES.toolSearch,
     TOOL_NAMES.askUser,
     TOOL_NAMES.spillRead,
+    TOOL_NAMES.todoWrite,
+    TOOL_NAMES.todoRead,
+    TOOL_NAMES.planWrite,
+    TOOL_NAMES.planRead,
+    TOOL_NAMES.planPresent,
   ];
 
   /**

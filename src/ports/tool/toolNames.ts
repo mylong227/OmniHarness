@@ -146,6 +146,12 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   TOOL_NAMES.applyPatch,
   TOOL_NAMES.delegate,
   TOOL_NAMES.subagent,
+  // 工作流 / 目标驱动：每一步都会起一个真 Agent 回合，可落盘、可跑命令 ⇒ 与 subagent 同级。
+  // 漏收的实际后果有两层：① plan 模式下 ToolGate 不拦它，一纸未批准的「计划」就能派生数十个
+  // 子会话去改盘；② 监督内核进 safe/locked 后只否 `subagent`、放行 `run_workflow`——最强的
+  // 放大入口反而最不受控（2026-09-26 审计 X8/F15）。
+  TOOL_NAMES.runWorkflow,
+  TOOL_NAMES.runGoal,
   // 网页截图落盘 PNG ⇒ 与 write_file 同级。
   TOOL_NAMES.browserScreenshot,
   // 还原工作区文件 + 截断事件流 ⇒ 与 write_file 同级。

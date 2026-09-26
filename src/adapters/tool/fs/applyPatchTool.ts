@@ -97,7 +97,7 @@ export class ApplyPatchTool {
     if (!result.ok) {
       return { callId: call.id, ok: false, error: `补丁应用失败: ${result.error}` };
     }
-    return this.writeAll(call.id, result.outputs);
+    return this.writeAll(call.id, result.outputs, originals);
   }
 
   /**
@@ -138,32 +138,61 @@ export class ApplyPatchTool {
   }
 
   /**
-   * 原子写入全部产出（先 `mkdir -p` 各自父目录，再逐个落盘）。
+   * 原子写入全部产出（先 `mkdir -p` 各自父目录，再逐个落盘），并**回报每个目标是否真的变了**。
+   *
+   * 为什么必须比对前后内容（编码能力，2026-09-26 缺口修复）：旧实现无条件回一句
+   * `补丁已应用到 N 个文件`。但 `PatchApplier` 会在 ±200 行内模糊搜位，hunk 只含上下文行时
+   * 写入结果与原文件**逐字节相同**——模型却收到「成功」。于是「改了个空操作」被当成「改好了」，
+   * 后续自证与结论都建立在假事实上。现在把「变更 / 无变化」如实分开回报。
    *
    * @param callId 工具调用 ID。
    * @param outputs 各目标的新内容。
-   * @returns 成功结果（附写入清单）；写盘失败时返回失败。
+   * @param originals 各目标应用前的内容（新建文件为空串）。
+   * @returns 成功结果（附变更清单）；写盘失败时返回失败。
    */
   private async writeAll(
     callId: string,
     outputs: readonly { readonly targetFile: string; readonly content: string }[],
+    originals: ReadonlyMap<string, string>,
   ): Promise<ToolResult> {
     try {
+      const changed: string[] = [];
+      const unchanged: string[] = [];
       for (const output of outputs) {
         const absolute = resolve(this.workspaceRoot, output.targetFile);
+        if ((originals.get(output.targetFile) ?? '') === output.content) {
+          unchanged.push(output.targetFile);
+          continue;
+        }
         await mkdir(dirname(absolute), { recursive: true });
         await writeFile(absolute, output.content, 'utf8');
         this.ledger?.remember(absolute, output.content);
+        changed.push(output.targetFile);
       }
-      const names = outputs.map((output) => output.targetFile).join(', ');
-      return {
-        callId,
-        ok: true,
-        output: `补丁已应用到 ${outputs.length} 个文件: ${names}`,
-      };
+      return { callId, ok: true, output: ApplyPatchTool.describe(changed, unchanged) };
     } catch (error) {
       return { callId, ok: false, error: this.messageOf(error) };
     }
+  }
+
+  /**
+   * 组装变更回报文本（零变化时给出显式提示，避免模型把空操作读成成功修改）。
+   *
+   * @param changed 内容确实发生变化的相对路径。
+   * @param unchanged 内容与原文件逐字节相同的相对路径。
+   * @returns 面向模型的可读回报。
+   */
+  private static describe(changed: readonly string[], unchanged: readonly string[]): string {
+    if (changed.length === 0) {
+      return (
+        `补丁已解析，但**未改变任何文件**（${unchanged.join(', ')}）：hunk 可能只含上下文行，` +
+        '或改动已存在。请核对补丁内容后重发。'
+      );
+    }
+    const head = `补丁已应用，变更 ${changed.length} 个文件: ${changed.join(', ')}`;
+    return unchanged.length === 0
+      ? head
+      : `${head}；另有 ${unchanged.length} 个文件无变化（${unchanged.join(', ')}）`;
   }
 
   /** 读取已有文件（不存在视为空）。

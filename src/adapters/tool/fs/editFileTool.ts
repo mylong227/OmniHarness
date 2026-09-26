@@ -102,9 +102,22 @@ export class EditFileTool {
       if (!outcome.ok) {
         return { callId: call.id, ok: false, error: `${relative}: ${outcome.error ?? '替换失败'}` };
       }
+      const next = outcome.content ?? '';
+      // 空操作必须**说清楚**（编码能力，2026-09-26 缺口修复）：`new_string === old_string`（或仅
+      // 大小写/空白等价）时替换结果与原文件逐字节相同。旧实现照样写 `.bak`、照样回报「已替换 1 处」，
+      // 模型据此认为改动已落地，后续自证与结论全部建立在假事实上。现在不写盘、如实回报无变化。
+      if (next === original) {
+        return {
+          callId: call.id,
+          ok: true,
+          output:
+            `无变化: ${relative} 替换后内容与原文件逐字节相同（new_string 与 old_string 等价），未写盘。` +
+            '若本意是修改，请检查 new_string 是否真的不同。',
+        };
+      }
       await writeFile(`${absolute}.bak`, original, 'utf8');
-      await writeFile(absolute, outcome.content ?? '', 'utf8');
-      this.ledger?.remember(absolute, outcome.content ?? '');
+      await writeFile(absolute, next, 'utf8');
+      this.ledger?.remember(absolute, next);
       return { callId: call.id, ok: true, output: this.report(relative, outcome, newText) };
     } catch (error) {
       return { callId: call.id, ok: false, error: this.readError(relative, error) };
