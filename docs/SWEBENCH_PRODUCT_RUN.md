@@ -49,12 +49,14 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
   eval-data/preds_product_bestof4.jsonl eval-data/preds_product_bestof4_b.jsonl
 ```
 
-⚠️ **诚实更正**：我起初预期「墙钟约减半」，但**实测不支持这个预期**——两 worker 并行时，
-单题耗时反而升到 **≈25 min**（A 的 django-12419、B 的 sphinx-10449 都是 10:03:52 起、10:28 前完成），
-而**同一批串行**时的单题耗时是 django 6.6~16 min / sphinx 12 min。瓶颈看来是**账号级的生成吞吐**
-（不是本机 CPU：进程常年 ~1% CPU、端点 1-token 探测 707ms 健康），并发只是把同一份带宽切成两半。
-⇒ **结论：这类长生成任务并行无收益，串行更简单也可控**（本文档保留这次并行是因为它已在跑）。
-若要重跑，建议串行；`selfTestRepair` 的随机性也让多 worker 的耗时对比难以严格归因（n=1，样本不足）。
+⚠️ **诚实更正（两次）**：我起初写「墙钟约减半」，**实测不支持**；随后又想归因为「并发把带宽切成两半」，
+**同样被数据否掉**。两个数据点：两 worker 并行时，A 的 django-12419 与 B 的 sphinx-10449 都是
+10:03:52 起、10:28 前完成（**≈25 min**），但 A 的下一题 django-13128 只用了 **≈10 min**（10:28→10:38）；
+而**串行**时同批 django 是 6.6~16 min、sphinx 12 min。
+⇒ 正确结论是：**单题耗时被「该题的生成量/修复轮数」主导，方差极大，样本不足以下任何并行加速或减速的结论**。
+可确定的只有两件事：① 端点当时健康（1-token 探测 707ms）；② 进程常年 ~1% CPU ⇒ **瓶颈在模型侧生成**，
+不在本机。给后续批次的操作建议：**串行更简单也可控**（不需要拆列表/分文件/合并），除非有证据表明
+账号允许真并发（本次没测出来）。
 
 **信任闸不自证循环（代码级证据）**：`--gold-report` 只被 `judgeValidIds()` 读入、只被
 `printJudgeValidity()` 使用（`benchmark/capability_swebench.mjs` 第 430/449/474 行附近），
