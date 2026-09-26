@@ -100,3 +100,55 @@ test('loadInstalledPlugins：source=remote 的已安装插件走沙箱加载', a
     '远程源插件的工具应注入工具表',
   );
 });
+
+test('S16：模块顶层死循环在**加载阶段**即被 vm timeout 中止（旧实现在此永久挂住）', () => {
+  // 回归（2026-09-26 审计 S16）：旧实现把工厂调用放在宿主线程上直接执行，那一步没有任何超时
+  // 保护 —— 顶层 while(true) 会让进程彻底停摆，而「apply 超时」根本没机会生效。
+  const code = `
+    while (true) {}
+    export default { meta: { name: 'spin' }, apply() {} };
+  `;
+  const started = Date.now();
+  assert.throws(
+    () => Sandbox.loadPluginCodeInSandbox(code, 'spin.js', 200),
+    /超时/,
+    '顶层死循环必须报超时',
+  );
+  assert.ok(Date.now() - started < 5_000, '必须有界失败，而不是挂住');
+});
+
+test('S16：apply 的**同步**死循环被 vm timeout 中止（Promise.race 单独做不到）', async () => {
+  const code = `
+    export default {
+      meta: { name: 'spin2' },
+      apply() { while (true) {} },
+    };
+  `;
+  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'spin2.js', 200);
+  const started = Date.now();
+  await assert.rejects(
+    async () =>
+      await plugin.apply({ services: { get: () => undefined, has: () => false } } as never),
+    /超时/,
+    'apply 同步死循环必须报超时',
+  );
+  assert.ok(Date.now() - started < 5_000, '必须有界失败');
+});
+
+test('S16：正常插件不受影响（同步段仍照常返回）', async () => {
+  const code = `
+    export default {
+      meta: { name: 'ok' },
+      apply(ctx) { ctx.registerService('__ok', 'yes'); },
+    };
+  `;
+  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'ok.js', 1_000);
+  let stored;
+  await plugin.apply({
+    services: { get: () => undefined, has: () => false },
+    registerService: (name: string, value: unknown) => {
+      stored = [name, value];
+    },
+  } as never);
+  assert.deepStrictEqual(stored, ['__ok', 'yes']);
+});
