@@ -3,7 +3,15 @@
  *
  * - Fault Detection：滑动窗口统计每工具成败，算健康分与失败率。
  * - Isolation：失败率/连续失败越线即把系统推进更严模式，危险工具被隔离。
- * - Recovery：健康恢复后 `attemptRecovery()` 逐级回升；模式每次切换都入审计哈希链。
+ * - Recovery：**双向**（口径已按事实更正，2026-09-26 审计 F16）——`evaluate()` 在每次上报后
+ *   按当前健康向量重算模式，**既能收紧也能放松**（放松要求「窗口内无失败」且**至少有样本**）；
+ *   `attemptRecovery()` 是给调用方的**显式提前量**（只回升一级，同样要求全部工具健康）。
+ *   两种途径的每次转移都入审计哈希链。
+ *
+ *   > 原文写「Recovery：健康恢复后 `attemptRecovery()` 逐级回升」「评估只单向收紧」，与代码
+ *   > 事实不符（`evaluate()` 会直接按健康向量回落，且可能跨级）。经对照既有单测
+ *   > （`健康恢复后自动回落 nominal`）判定：**自动回落是有意设计**，故更正文档而非改行为；
+ *   > 只补上「无样本不得放松」这一条 fail-closed 缺口。
  *
  * 默认零配置即可用；注入 AuditSink 后，每次模式转移把健康向量写入哈希链
  * （满足「健康向量入审计链」验收项）。
@@ -208,13 +216,30 @@ export class SupervisorKernel implements SupervisorPort {
   }
 
   /**
-   * 依据最新统计重算模式（FDIR 分级降级，fail-closed 单向收紧）：任一工具连续失败达
-   * lockAfter 直升 locked；失败率越 safeThreshold 或危险工具出现失败推到 safe；失败率越
-   * degradeThreshold 推到 degraded；多工具并存时取最严。只收紧不放松，回升必须走
-   * attemptRecovery 逐级进行。
+   * 依据最新统计重算模式（FDIR 分级降级）：任一工具连续失败达 lockAfter 直升 locked；
+   * 失败率越 safeThreshold 或危险工具出现失败推到 safe；失败率越 degradeThreshold 推到
+   * degraded；多工具并存时取最严。
+   *
+   * **双向**（口径更正，2026-09-26 审计 F16）：健康向量整体转好时本方法**会**把模式放松回去
+   * （此前的注释写「只收紧不放松」与代码不符）。放松的判据只有一条：**按当前统计算出的模式确实
+   * 更宽** —— `report` 每次都会写入一条样本，故不存在「无样本却放松」的路径。
+   * 需要「在统计尚未完全转好时试探性回升一级」的调用方用
+   * {@link SupervisorKernel.attemptRecovery}（生产路径上并不需要它：每次工具成败都会 `report`，
+   * 自动回落已经足够及时）。
    * @returns 无返回值（模式变化经 transition 生效并广播）。
    */
   private evaluate(): void {
+    const next = this.computeMode();
+    if (next !== this.currentMode) {
+      this.transition(next);
+    }
+  }
+
+  /**
+   * 按当前统计算出「健康向量支持的模式」。
+   * @returns 支持的模式（无任何样本时为 nominal）。
+   */
+  private computeMode(): SafeMode {
     let next: SafeMode = 'nominal';
     for (const [tool, stat] of this.stats) {
       const total = stat.window.length;
@@ -236,9 +261,7 @@ export class SupervisorKernel implements SupervisorPort {
         next = this.raise(next, 'degraded');
       }
     }
-    if (next !== this.currentMode) {
-      this.transition(next);
-    }
+    return next;
   }
 
   /**
