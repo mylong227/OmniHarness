@@ -254,13 +254,33 @@ export class Agent implements AgentPort {
         steps: outcome.steps,
         hasText: outcome.finalText !== undefined,
       });
-      return {
-        sessionId,
-        finalText: outcome.finalText,
-        steps: outcome.steps,
-        events: eventLog.all(),
-      };
+      return Agent.resultOf(sessionId, outcome, eventLog.all());
     });
+  }
+
+  /**
+   * 组装任务结果（把回合产出映射为端口契约的 `AgentResult`）。
+   *
+   * `truncated` / `aborted` 如实透传：「步数耗尽」不等于「任务完成」，子代理与工作流步骤据此
+   * 避免把兜底摘要读成完成（2026-09-26 审计 F10）。
+   * @param sessionId 会话 ID。
+   * @param outcome 回合结果。
+   * @param events 本会话全部事件。
+   * @returns 端口契约的任务结果。
+   */
+  private static resultOf(
+    sessionId: string,
+    outcome: TurnOutcome,
+    events: readonly SessionEvent[],
+  ): AgentResult {
+    return {
+      sessionId,
+      finalText: outcome.finalText,
+      steps: outcome.steps,
+      events,
+      truncated: outcome.truncated,
+      aborted: outcome.aborted,
+    };
   }
 
   /**
