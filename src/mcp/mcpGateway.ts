@@ -145,6 +145,11 @@ export class McpGateway {
   }
 
   /** 关闭全部子进程连接。
+   *
+   * 必须**同时**清掉 `bridged` 已桥接名册（2026-09-26 审计 X2）：它原先只清 handles，于是
+   * close 之后再次 `connectAll()` 会因「名字已在 bridged 里」而**跳过注册**，而注册表里留下的
+   * 仍是绑定到**旧已关闭 client** 的闭包 —— 表现是 connectAll 报成功、所有 MCP 调用全失败。
+   * 一并清空名册，使重连真正重新注册。
    * @returns 无返回值。
    */
   public close(): void {
@@ -152,6 +157,7 @@ export class McpGateway {
       handle.close();
     }
     this.handles.length = 0;
+    this.bridged.length = 0;
   }
 
   /** 提取错误消息。 */
