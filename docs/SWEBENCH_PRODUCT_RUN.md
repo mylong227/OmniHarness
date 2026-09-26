@@ -5,7 +5,13 @@
 
 ## 一句话结论
 
-<!-- 待填：跑完后写 20 题汇总（resolved / 有效分母 / 成本）+ 一句口径提示 -->
+在 **gold 对照可信的 20 题子集**（django 14 + sphinx 2 + sympy 4）上，产品口径
+（`--best-of-n 4 --self-test` + 梯度投送，`deepseek-v4-flash`，temp=0）**20 题全部生成、全部判分**：
+**`resolved = 19/20 = 95.0%`**，模型失败 1、环境失败 0，判分侧打印
+`✅ 判分可信度：本次 20 个实例全部通过 gold 对照` ⇒ **这批通过不是判分链路幻觉**。
+唯一失败是**真实的模型回归**（`sympy-18698`：F2P 1/1 过，却打破 P2P 的 `test_sqf`），不是环境或口径问题。
+成本：**≈7.6M token 实测**（18 题有记录）+ 2 题因中途 kill 丢了 token 记录 ⇒ 估 **≈8.4M**；判分 0 成本（本地）。
+口径提示：**这是子集口径（20/500），不是官方满分口径**，且集中在三个判分链路已被 gold 背书的仓库，**不可与官方榜直接比较**。
 
 ## 1. 协议（逐字可复现）
 
@@ -65,37 +71,32 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 
 ## 2. 成本（实测，不是估算）
 
-**已实测到 token 的部分**：
+**已实测到 token 的部分（18 题有记录，2 题因中途 kill 丢失，见下）**：
 
-| 来源                                                               | 题数  | token in | token out | 小计          |
-| ------------------------------------------------------------------ | ----- | -------- | --------- | ------------- |
-| 首批 pilot 3 题（django-11133 / sphinx-9320 / sympy-13480）        | 3     | 617,854  | 619,995   | 1,237,849     |
-| Worker B（sphinx-10449 / sympy-15599 / sympy-18698 / sympy-21847） | 4     | 872,340  | 1,045,769 | 1,918,109     |
-| **合计**                                                           | **7** | —        | —         | **3,155,958** |
+| 来源                                                               | 题数 | token in  | token out | 小计          |
+| ------------------------------------------------------------------ | ---- | --------- | --------- | ------------- |
+| 首批 pilot 3 题（django-11133 / sphinx-9320 / sympy-13480）        | 3    | 617,854   | 619,995   | 1,237,849     |
+| Worker A（django 11 题：12419…17087）                              | 11   | 2,226,195 | 2,189,514 | 4,415,709     |
+| Worker B（sphinx-10449 / sympy-15599 / sympy-18698 / sympy-21847） | 4    | 872,340   | 1,045,769 | 1,918,109     |
+| **合计（18 题）**                                                  | 18   | 3,716,389 | 3,855,278 | **7,571,667** |
 
-⇒ **≈451K token/题** ⇒ 按此外推 **20 题 ≈ 9.0M token**（与早先按 pilot 单题外推的 8.25M 同量级）。
-判分成本 0（本地执行器；付费只在生成侧）。
+⇒ **≈420,648 token/题**（18 题实测均值）。判分成本 = **0**（本地执行器；付费只在生成侧）。
 
-逐题（token / 用时 / 绿样本 / 最佳奖励）：
+⚠️ **两项缺口（诚实标注）**
 
-| 实例                     | token   | 用时   | 绿样本 | 最佳奖励 |
-| ------------------------ | ------- | ------ | ------ | -------- |
-| django__django-11133     | 169,670 | 395s   | 4/4    | 1        |
-| sphinx-doc__sphinx-9320  | 421,822 | 741s   | 4/4    | 1        |
-| sympy__sympy-13480       | 646,357 | 1,458s | 2/4    | 1        |
-| sphinx-doc__sphinx-10449 | 617,986 | 1,469s | 3/4    | 1        |
-| sympy__sympy-15599       | 319,293 | 849s   | 2/4    | 1        |
-| sympy__sympy-18698       | 525,470 | 3,717s | 1/4    | 1        |
-| sympy__sympy-21847       | 455,360 | 847s   | 2/4    | 1        |
+1. **2 题的 token 记录已丢**：早期串行 worker 被 kill 时，11477 / 11951 两题的补丁已落盘，但 token 只在
+   整批结束时才写进 *.report.json ⇒ 记录丢失。按均值补估 ⇒ **20 题总量 ≈ 8.4M token**。
+   （这正是「预测产物只存 instance_id + model_patch、不存 token」的代价；要拿完整成本须让 worker 自然退出。）
+2. 首题含**环境构建**（uv venv + 装依赖），故单题 token 略高于稳态。
 
-⚠️ **成本记录的已知缺口（诚实标注）**：worker A 那批的 token **只在它退出时才写进报告**
-（`*.report.json` 整批结束落盘），而预测产物 `*.jsonl` **只存 `instance_id + model_patch`、不含 token**
-⇒ 若 worker 在跑完前被杀，这批的 token 记录会**丢**（补丁不丢）。上表因此只覆盖已退出的部分；
-要拿完整成本**必须等 worker 自然退出**再读报告。
+**关于 --self-test 自纠环：本批 20 题的最佳奖励全部为 1**（即 4 个候选里至少有一个把 F2P 全跑绿）
+⇒ 按设计自纠环**一次都没触发**（它只在 estReward < 1 时启动）。这不是失效，而是**该协议的 best-of-4 已足够**：
+绿样本数逐题落在 1–4 之间（sympy-18698 只有 1 个绿样本，其余 3 个候选没修好）。
+⇒ **本批的成绩来自 best-of-4 的候选选择；自纠环的增益本批无数据**（要测它需更难的任务集或 N 更小的对照臂）。
 
 ## 3. 结果
 
-### 3.1 已判分的 16 题（**增量落盘**可续）
+### 3.1 全部 20 题判分结果
 
 | 实例                     | resolved | 仓库              | 备注                                                                                                                     |
 | ------------------------ | -------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -109,6 +110,10 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 | django__django-14349     | ✅       | django/django     |                                                                                                                          |
 | django__django-14752     | ✅       | django/django     |                                                                                                                          |
 | django__django-15268     | ✅       | django/django     |                                                                                                                          |
+| django__django-15572     | ✅       | django/django     |                                                                                                                          |
+| django__django-16100     | ✅       | django/django     |                                                                                                                          |
+| django__django-16569     | ✅       | django/django     |                                                                                                                          |
+| django__django-17087     | ✅       | django/django     |                                                                                                                          |
 | sphinx-doc__sphinx-10449 | ✅       | sphinx-doc/sphinx |                                                                                                                          |
 | sphinx-doc__sphinx-9320  | ✅       | sphinx-doc/sphinx |                                                                                                                          |
 | sympy__sympy-13480       | ✅       | sympy/sympy       |                                                                                                                          |
@@ -116,8 +121,8 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 | sympy__sympy-21847       | ✅       | sympy/sympy       |                                                                                                                          |
 | sympy__sympy-18698       | ❌       | sympy/sympy       | **真实模型失败（非环境/口径）**：`FAIL_TO_PASS 1/1` 通过，但 `PASS_TO_PASS 146/147`——补丁**打破了此前通过**的 `test_sqf` |
 
-**汇总（已判 16 题）**：`resolved = 15/16 (93.8%)`，`模型失败 = 1`，`环境失败 = 0`，
-判分侧打印 `✅ 判分可信度：本次 16 个实例全部通过 gold 对照`。
+**汇总（全部 20 题）**：`resolved = 19/20 (95.0%)`，`模型失败 = 1`，`环境失败 = 0`，
+判分侧打印 `✅ 判分可信度：本次 20 个实例全部通过 gold 对照`（⇒ 连那条 ❌ 所属仓库也在可信之列，故这个 95% 可解读）。
 
 **这条 ❌ 值得单独说明**：它正是本会话新增「失败必带原因」的价值体现——报告直接给出
 `FAIL_TO_PASS 1/1、PASS_TO_PASS 146/147；未通过样例: test_sqf`，一眼可判：
@@ -125,17 +130,32 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 既不是环境缺依赖（那会 F2P 也全挂），也不是解析口径问题（那会「零收集」或 id 对不上）。
 若没有原因字段，这条会被读成「sympy 不行」，而真相是「补丁过宽，需收窄」。
 
-⚠️ **口径提示（不要把 15/16 读成能力分）**：n=16，且是可信子集里**先跑完**的一批；剩余 4 题（均为 django）
-尚未跑完。产品口径本身很强（4 候选 + 以真跑测试为奖励 + 测试驱动自纠环），小样本时任何百分比都不能外推。
+⚠️ **口径提示**：这是**子集口径（20/500）**，且集中在**判分链路已被 gold 背书**的三个仓库
+（django 14 / sphinx 2 / sympy 4）⇒ **不可与官方满分榜直接比较**，也不代表模型在 500 题上的水平。
+可解读的部分是：**在这个子集、这套协议下，模型 20 题过了 19 题，且这个数字的判分链路已被 gold 对照背书。**
 
-### 3.2 剩余 4 题
+**与历史数字的关系**：§21.6 早先记的「resolved 1/30（3.3%）」**已被判定为不可解读**（gold 只有 4/30 能过，
+那些「模型失败」不含能力信息）。本批把可信度问题修好、把不可信实例排除后重跑，得到 19/20——
+两者**不可直接对比**，因为口径、可信度与协议都变了（旧数字是单候选 + 坏判分链路）。
 
-<!-- 待填：跑完后合并、续判，给出 20 题汇总与逐题 token（含两份 worker 报告之和） -->
+### 3.2 批次状态：**已完成**（20/20 生成 + 20/20 判分）
 
-判分产物按 `--jsonl` **逐题落盘**（`eval-data/score_product.jsonl`）⇒ 最终一轮只需判**新增**的 4 题，
-不会重跑已判过的 16 题。
-⚠️ **续判时 `--instance-list` 只能给「已有预测」的实例**：若把 20 题全给，尚未生成补丁的题会被记成
-「未提供模型预测」并写进 jsonl，之后续判会**以为它们已判过**而永久跳过（这是个会静默丢分的陷阱）。
+判分产物按 `--jsonl` **逐题落盘**（`eval-data/score_product.jsonl`），可随时断点续判。
+
+**复现本批的完整两条命令**（先合并两个 worker 的产物，再判分）：
+
+```bash
+node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
+  eval-data/preds_product_bestof4.jsonl eval-data/preds_product_bestof4_b.jsonl
+node benchmark/capability_swebench.mjs --verified eval-data/swe_bench_verified.json \
+  --predictions eval-data/preds_product_bestof4_all.jsonl --instance-list eval-data/gold_trusted_ids.txt \
+  --gold-report eval-data/gold_control_trusted20.json --jsonl eval-data/score_product.jsonl \
+  --out eval-data/score_product_bestof4.json
+```
+
+⚠️ **续判陷阱（本次踩过并留档）**：`--instance-list` 只能给「**已有预测**」的实例。若把 20 题全给，
+尚未生成补丁的题会被记为「未提供模型预测」并写进 jsonl，之后续判会**以为它们已判过**而永久跳过
+（静默丢分）。本次因此每次都用「有预测的 id 列表」而非全量列表。
 
 ## 4. 跑之前修掉的付费路径缺陷（否则这一次的钱会白花）
 
@@ -157,10 +177,13 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 2. **判分能力边界**：本机无 Docker 预建镜像、无 C/C++ 工具链 ⇒ 编译型仓库（astropy/matplotlib/
    scikit-learn）无法判定，已标 `envError` 并排除在分母外。
 3. **self-test 自纠环的触发条件**：只有「选中的候选没有全绿」（`bestReward < 1`）时才会跑。
-   本批运行的是**修正前的一版**：全红（4 个候选 reward 都为 0 ⇒ `RlvrLoop` 的 `best` 为 undefined）
-   时**不会**进入自纠环。该空档已在本批跑动期间修掉（改用首候选 `c0` 作种子，并在日志里显式标注
-   「全红 ⇒ 自纠环以首候选为种子」），但**本批产物出自修正前的那版**，故本批是否触发过自纠环以日志为准。
-   <!-- 待填：本批是否出现 bestReward<1（grep 两份日志的 [best-of-N] 行） -->
-   另：`RlvrLoop` 的契约已核对（`src/evolution/rlvrLoop.ts`：`reward(candidate)` 收到的是 sampler 返回的
+   ✅ **本批实测答案：20 题的最佳奖励全部为 1 ⇒ 自纠环一次都没触发**（两份 worker 日志的
+   `[best-of-N]` 行逐条可查；绿样本数 1–4，故它是「有候选修好了」而非「没跑」）。
+   因此**本批成绩来自 best-of-4 的候选选择，自纠环的增益本批无数据**——要测它需更难的任务集、
+   或对比 `--best-of-n 1 --self-test` 臂。
+   另：本批运行的是**修正前的一版**（全红时 `RlvrLoop.best` 为 undefined ⇒ 不会进自纠环）；该空档已在
+   本批跑动期间修掉（改用首候选 `c0` 作种子并显式打日志），但**本批产物出自修正前那一版**（本批全红也没出现，
+   故实际未受影响）。
+   `RlvrLoop` 的契约已核对（`src/evolution/rlvrLoop.ts`：`reward(candidate)` 收到的是 sampler 返回的
    同一个对象、`best = { candidate, reward }`），故按 `candidate.id` 反查「原始输出 + 未通过清单」是成立的。
 4. 本文档的数字全部来自本机实测产物（`eval-data/` 为 gitignore 目录，故正文留档在 `docs/`）。
