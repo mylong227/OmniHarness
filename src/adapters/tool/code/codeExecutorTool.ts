@@ -17,6 +17,8 @@ export interface CodeExecutorOptions {
   readonly gate: { gate(call: ToolCall, sessionId: string): Promise<ToolResult | undefined> };
   /** 工具端口：程序内 call("tool", args) 的执行后端。 */
   readonly tools: ToolPort;
+  /** 单次执行的硬超时（毫秒，缺省 `CodeInterpreter.DEFAULT_TIMEOUT_MS`）。 */
+  readonly timeoutMs?: number | undefined;
 }
 
 /**
@@ -53,6 +55,8 @@ export class CodeExecutorTool {
     const code = String(call.arguments['code'] ?? '');
     const result = await this.interpreter.run(code, {
       execute: (inner) => this.executeGated(inner, context),
+      // 超时是**硬上限**：到期 terminate 掉沙箱 Worker（见 CodeInterpreter 的模块注释）。
+      ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
     return { callId: call.id, ok: result.ok, output: result.output };
   }
