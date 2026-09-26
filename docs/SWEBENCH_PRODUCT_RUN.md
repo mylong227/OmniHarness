@@ -75,7 +75,7 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 
 ## 3. 结果
 
-### 3.1 首批 8 题（判分已完成，**增量落盘**可续）
+### 3.1 已判分的 11 题（**增量落盘**可续）
 
 | 实例                     | resolved | 仓库              |
 | ------------------------ | -------- | ----------------- |
@@ -84,23 +84,29 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 | django__django-11951     | ✅       | django/django     |
 | django__django-12419     | ✅       | django/django     |
 | django__django-13128     | ✅       | django/django     |
+| django__django-13512     | ✅       | django/django     |
+| django__django-13837     | ✅       | django/django     |
 | sphinx-doc__sphinx-10449 | ✅       | sphinx-doc/sphinx |
 | sphinx-doc__sphinx-9320  | ✅       | sphinx-doc/sphinx |
 | sympy__sympy-13480       | ✅       | sympy/sympy       |
+| sympy__sympy-15599       | ✅       | sympy/sympy       |
 
-**汇总（首批 8 题）**：`resolved = 8/8 (100%)`，`模型失败 = 0`，`环境失败 = 0`，
-判分侧打印 `✅ 判分可信度：本次 8 个实例全部通过 gold 对照`（⇒ 这 8 个的「通过」不是判分链路幻觉）。
+**汇总（已判 11 题）**：`resolved = 11/11 (100%)`，`模型失败 = 0`，`环境失败 = 0`，
+判分侧打印 `✅ 判分可信度：本次 11 个实例全部通过 gold 对照`（⇒ 这批「通过」不是判分链路幻觉）。
+**增量续判已实测有效**：第二轮打印「已从 score_product.jsonl 读入 8 个已完成实例，断点续跑」后**只判新增 3 题**。
 
-⚠️ **口径提示（不要把 8/8 读成能力分）**：n=8，且是可信子集里**先跑完的一批**（django 5 + sphinx 2 + sympy 1），
-剩余 12 题（django 9 + sympy 3）尚未跑完。产品口径本身很强（4 候选 + 以真跑测试为奖励 + 测试驱动自纠环），
+⚠️ **口径提示（不要把 11/11 读成能力分）**：n=11，且是可信子集里**先跑完**的一批（django 7 + sphinx 2 + sympy 2），
+剩余 9 题（django 7 + sympy 2）尚未跑完。产品口径本身很强（4 候选 + 以真跑测试为奖励 + 测试驱动自纠环），
 但**小样本 + 未跑完**时任何百分比都不能外推。
 
-### 3.2 剩余 12 题
+### 3.2 剩余 9 题
 
-<!-- 待填：跑完后合并、续判、给出 20 题汇总与逐题 token -->
+<!-- 待填：跑完后合并、续判，给出 20 题汇总与逐题 token（含两份 worker 报告之和） -->
 
-判分产物按 `--jsonl` **逐题落盘**（`eval-data/score_product.jsonl`）⇒ 最终一轮只需判**新增**的 12 题，
-不会重跑已判过的 8 题。
+判分产物按 `--jsonl` **逐题落盘**（`eval-data/score_product.jsonl`）⇒ 最终一轮只需判**新增**的 9 题，
+不会重跑已判过的 11 题。
+⚠️ **续判时 `--instance-list` 只能给「已有预测」的实例**：若把 20 题全给，尚未生成补丁的题会被记成
+「未提供模型预测」并写进 jsonl，之后续判会**以为它们已判过**而永久跳过（这是个会静默丢分的陷阱）。
 
 ## 4. 跑之前修掉的付费路径缺陷（否则这一次的钱会白花）
 
