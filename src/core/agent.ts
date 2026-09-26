@@ -490,6 +490,19 @@ export class Agent implements AgentPort {
       persister,
       // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
       this.resolveTokenBudget(),
+      // 完成闸门（A1）：工具端口在 selfVerify 启用时是 SelfVerifyingToolPort（暴露 lastFailure）；
+      // 未启用时结构上取不到，闸门自然缺省（零行为变更）。**内联**探测而不抽新方法：Agent 的方法数
+      // 已贴着上帝类阈值（>25 即违规），再加一个就会被编码标准门禁拦下。
+      typeof (this.runtime.tools as { lastFailure?: unknown }).lastFailure === 'function'
+        ? {
+            lastFailure: (id: string): string | undefined =>
+              (
+                this.runtime.tools as unknown as {
+                  lastFailure: (s: string) => string | undefined;
+                }
+              ).lastFailure(id),
+          }
+        : undefined,
     );
   }
 
