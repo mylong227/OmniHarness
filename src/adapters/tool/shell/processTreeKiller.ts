@@ -16,12 +16,15 @@
  * （与 `ChromeProcess.kill` 的既有取舍一致）。
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { log } from '../../../util/logger.js';
 
 /** 子进程树终止器。 */
 export class ProcessTreeKiller {
+  /** 同步 taskkill 的上限（毫秒）：超时即放弃（进程可能已退出）。 */
+  private static readonly TASKKILL_TIMEOUT_MS = 5_000;
+
   /**
    * 终止一棵进程树（幂等；进程已退出或权限不足时静默回退）。
    * @param child 待终止的子进程（其 `pid` 可能已回收/为空）。
@@ -49,6 +52,41 @@ export class ProcessTreeKiller {
       log.debug('shell.killTree.groupFailed', { pid, error: String(error) });
       try {
         child.kill('SIGKILL');
+      } catch {
+        /* 已退出 */
+      }
+    }
+  }
+
+  /**
+   * 按 **pid** 终止一棵进程树（不需要 `ChildProcess` 句柄的场景，如 detached 后台作业）。
+   *
+   * 与 {@link ProcessTreeKiller.kill} 同一分平台策略；只持有 pid 的调用方（后台作业注册表）
+   * 原先用 `process.kill(pid,'SIGTERM')` —— Windows 上那只终结外壳，真正的载荷树会继续跑。
+   * @param pid 目标进程 pid。
+   * @returns 无返回值（失败静默，与 `kill` 同一取舍）。
+   */
+  public static killPid(pid: number): void {
+    if (process.platform === 'win32') {
+      try {
+        // **同步**执行：`kill` 的调用方（后台作业注册表）紧接着就可能清理工作目录/日志文件，
+        // 异步 taskkill 会让「已开启的子进程句柄」多存活一小段时间 ⇒ 调用方 `rmdir` 撞 EBUSY。
+        // 终止属收尾路径，阻塞几十毫秒可接受，换来的是「kill 返回即已死」的可依赖语义。
+        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+          stdio: 'ignore',
+          timeout: ProcessTreeKiller.TASKKILL_TIMEOUT_MS,
+        });
+      } catch (error) {
+        log.debug('shell.killTree.taskkillPidFailed', { pid, error: String(error) });
+      }
+      return;
+    }
+    try {
+      // detached 子进程是会话组长 ⇒ 负 pid 即整组。
+      process.kill(-pid, 'SIGKILL');
+    } catch {
+      try {
+        process.kill(pid, 'SIGKILL');
       } catch {
         /* 已退出 */
       }

@@ -176,6 +176,9 @@ export class ShellInteractiveTool {
         cwd,
         env: this.childEnv(),
         timeoutMs,
+        // 转发会话取消（2026-09-26 审计 S12）：前台 shell 早已透传 `context.signal`，
+        // 交互式这条支路漏了 ⇒ 撤销回合也停不下来，命令最长跑到 1 小时上限。
+        ...(context.signal !== undefined ? { signal: context.signal } : {}),
       });
       return this.toResult(call.id, report, outcome, timeoutMs);
     } catch (error) {
