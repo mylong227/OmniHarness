@@ -50,6 +50,14 @@ export interface HealthStatus {
 
 /** HTTP + SSE + WebSocket 服务：静态页 + JSON-RPC + 事件推送（零依赖）。 */
 export class HttpServer {
+  /**
+   * 请求体总量上限（字节）：8 MiB。
+   *
+   * 依据：本服务的请求体只有 JSON-RPC 帧与 `/attach` 载荷两类，正常量级为 KB；8 MiB 给
+   * 附件类请求留足余量，同时把「不封口的 POST 吃光内存」这条 OOM 路径彻底封死。
+   */
+  public static readonly MAX_BODY_BYTES = 8 * 1024 * 1024;
+
   /** node:http 原生服务器实例（承载静态页 / RPC / SSE / WS 升级）。 */
   private readonly server: Server;
   /** WS 服务端：close 时须先强制断开 upgrade 连接，否则 server.close 永不回调。 */
@@ -65,7 +73,24 @@ export class HttpServer {
    */
   public constructor(private readonly options: HttpServerOptions) {
     this.guard = new ServerAuthGuard(options.authToken);
-    this.server = createServer((request, response) => void this.route(request, response));
+    // 路由是异步的：浮动 Promise 一旦抛出（例如 readBody 后的解析异常），既不会写出响应，
+    // 也会变成 unhandledRejection —— Node 22 默认**终止进程**（2026-09-26 审计 S21）。
+    // 这里统一收口：写一次 500（若尚未写出）并记结构化日志，进程不受影响。
+    this.server = createServer((request, response) => {
+      void this.route(request, response).catch((error: unknown) => {
+        log.warn('http.route.failed', {
+          url: request.url ?? '',
+          method: request.method ?? '',
+          error: error instanceof Error ? error.message : String(error),
+        });
+        if (!response.headersSent) {
+          response.writeHead(500, { 'content-type': 'application/json' });
+        }
+        if (!response.writableEnded) {
+          response.end(JSON.stringify({ error: 'internal' }));
+        }
+      });
+    });
     this.ws = new WsServer(
       this.server,
       (connection) => this.options.bridge.registerWs(connection),
@@ -320,14 +345,28 @@ export class HttpServer {
   }
 
   /**
-   * 读取请求体。
+   * 读取请求体（带**总量上限**）。
+   *
+   * 为什么要上限（2026-09-26 审计 S21）：原实现无界累积分块，一个不封口的 POST 就能把
+   * 服务端内存吃光（OOM），而请求体在上限内本应是小 JSON。超限即销毁连接（fail-closed），
+   * 不再等对端把余下字节吐完。
    * @param request 请求流（收集 data 分块直到 end）
    * @returns 完整请求体的 UTF-8 字符串
    */
   private readBody(request: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      request.on('data', (chunk: Buffer) => chunks.push(chunk));
+      let size = 0;
+      request.on('data', (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > HttpServer.MAX_BODY_BYTES) {
+          // 先拒后断：让调用方拿到明确的「请求体过大」，而不是一个连接重置。
+          request.destroy();
+          reject(new Error(`请求体超过上限 ${String(HttpServer.MAX_BODY_BYTES)} 字节`));
+          return;
+        }
+        chunks.push(chunk);
+      });
       request.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
       request.on('error', reject);
     });

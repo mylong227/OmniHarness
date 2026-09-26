@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { PendingRequests } from '../../util/pendingRequests.js';
+import { log } from '../../util/logger.js';
 
 /** JSON-RPC 2.0 消息（宽松结构，仅取我们需要的字段）。 */
 interface JsonRpcMessage {
@@ -41,6 +42,14 @@ export interface LspJsonRpcConnectionOptions {
  * - **fail-closed**：进程异常退出或请求超时一律 reject，绝不静默吞掉。
  */
 export class LspJsonRpcConnection {
+  /**
+   * 单帧声明长度上限（字节）：16 MiB。
+   *
+   * 依据：LSP 帧只承载诊断 / 补全 / 符号列表等结构化结果，正常为 KB～MB 级；上限存在的意义
+   * 是把「对端声明一个巨大长度后静默不发数据 ⇒ 客户端缓冲无限增长」这条内存耗尽路径封死。
+   */
+  public static readonly MAX_FRAME_BYTES = 16 * 1024 * 1024;
+
   /** 已 spawn 的子进程（未启动或已复位时为 undefined）。 */
   private proc: ChildProcess | undefined;
   /** stdout 分帧缓冲区：暂存尚未凑齐完整 Content-Length 帧的字节。 */
@@ -198,6 +207,15 @@ export class LspJsonRpcConnection {
       }
       const length = Number(match[1]);
       const bodyStart = headerEnd + 4;
+      // 声明长度上限（fail-closed，2026-09-26 审计 S25）：`Content-Length` 是**对端声明**的，
+      // 原实现无条件等待 `bodyStart + length` 字节到齐 ⇒ 一个 `Content-Length: 4000000000`
+      // 之后静默不发数据，就能让 `Buffer.concat` 的缓冲无限增长（内存耗尽）。
+      // 超限即丢弃整个缓冲（连接已不可信），不再继续累积。
+      if (!Number.isFinite(length) || length > LspJsonRpcConnection.MAX_FRAME_BYTES) {
+        log.warn('lsp.frame.rejected', { contentLength: match[1] });
+        this.buf = Buffer.alloc(0);
+        return;
+      }
       if (this.buf.length < bodyStart + length) {
         return;
       }

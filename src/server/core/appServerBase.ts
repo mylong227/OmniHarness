@@ -6,7 +6,8 @@ import type { PluginManager } from '../../plugin/pluginManager.js';
 import type { PluginProfile, ApplyProfileResult } from '../../plugin/pluginProfileStore.js';
 import type { SupervisorPort } from '../../ports/runtime/supervisor.js';
 import { jsonRpc, type RpcMessage } from './jsonRpc.js';
-import type { AppServerOptions, GraphRunState } from './appServerState.js';
+import type { AppServerOptions } from './appServerState.js';
+import { GraphRunRegistry } from './graphRunRegistry.js';
 import { ServerConfigStore } from '../services/serverConfigStore.js';
 import { FsExplorer } from '../services/fsExplorer.js';
 import { WorkspaceTree } from '../services/workspaceTree.js';
@@ -41,8 +42,8 @@ export class AppServerBase {
     string,
     (params: Record<string, unknown>) => Promise<unknown>
   >();
-  /** 进行中的图运行态（runId → 状态），供 graph.status 查询。 */
-  protected readonly graphRuns = new Map<string, GraphRunState>();
+  /** 图运行台账（运行态 + 取消句柄；有界保留，见 {@link GraphRunRegistry}）。 */
+  protected readonly graphRuns = new GraphRunRegistry();
 
   /** 配置存储（UI 覆盖 + 落盘 + 工作区列表）。 */
   protected readonly configStore: ServerConfigStore;
