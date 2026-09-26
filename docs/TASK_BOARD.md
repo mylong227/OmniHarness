@@ -2671,6 +2671,10 @@ fail-closed 日志**（`semantic index build failed`），没有产出「语义�
    实测两向：错误旗标 ⇒ exit 2 +「是否想写 --best-of-n？大小写敏感」；合法旗标 ⇒ 正常跑完。
    ⚠️ **已知缺口**：该守卫目前只有手工两向实测证据，**没有 CI 自动化测试**（写它需 spawn 脚本，
    而合法路径要联网 clone，CI 离线会假红），故以「启动即守卫 + 手工实测」留档。
+   ✅ **已补齐（同轮修复）**：把纯逻辑搬到 `src/util/flagGuard.ts`（`FlagGuard`）并加
+   `tests/unit/flagGuard.test.ts`（4 例：只认三种解析写法 / 扫不到即抛错 / 未知旗标识别含 `--x=1` /
+   就近提示），`benchmark/lib/flagGuard.mjs` 退化为「读源码 + 退出进程」的薄壳 ⇒ **进得了 CI**。
+   实测复核（薄壳重构后两向仍正确）：错误旗标 exit 2、合法旗标放行、判分脚本同理 exit 2。
 
 **成本实测（产品口径：best-of-4 + self-test + tiered，模型 `deepseek-v4-flash`）**
 
