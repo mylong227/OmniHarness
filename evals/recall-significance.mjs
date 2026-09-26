@@ -132,16 +132,46 @@ function requiredSample(b, c, total) {
 }
 
 const report = JSON.parse(readFileSync(REPORT, 'utf8'));
-const base = report.results.find((r) => r.label === BASE_LABEL);
-if (base === undefined) {
+const baseRaw = report.results.find((r) => r.label === BASE_LABEL);
+if (baseRaw === undefined) {
   console.error(`❌ 报告里找不到基线场景：${BASE_LABEL}`);
   console.error(`   可用：${report.results.map((r) => r.label).join(' | ')}`);
   process.exit(1);
 }
-const scenarios = report.results.filter((r) => r.label !== BASE_LABEL);
-if (scenarios.length === 0) {
+const scenariosRaw = report.results.filter((r) => r.label !== BASE_LABEL);
+if (scenariosRaw.length === 0) {
   console.error(`❌ 除基线外没有可比场景（baseline=${BASE_LABEL}）`);
   process.exit(1);
+}
+
+// —— 条件子集（2026-09-26 新增，回答「机制在哪里起作用」）——
+// 动机：语义路的设计目标是补 BM25 的**词法盲区**，但摊在全部 84 条查询上测会被大量「BM25 本来就能命中」
+// 的查询稀释（实测：84 条里只有 ~11 条不一致对 ⇒ 检验力仅个位数百分比）。故增加一个**预登记**的条件估计量：
+// 「在 BM25 未命中的那些查询上，混合路能捞回多少」。
+// ⚠️ 口径纪律：这是**条件估计量**（对基线失败取条件，存在选择效应），它回答「机制有没有在起作用」，
+// **不能**直接当作「该不该把语义路默认打开」的依据——后者需要无条件口径（或一个不依赖真值的触发规则）。
+const SUBSET = arg('--subset', 'all');
+const includeIdx = [];
+for (let i = 0; i < baseRaw.perQuery.length; i += 1) {
+  if (SUBSET === 'baseline-miss' ? baseRaw.perQuery[i].hit === 0 : true) includeIdx.push(i);
+}
+if (includeIdx.length === 0) {
+  console.error(`❌ 子集 "${SUBSET}" 为空（基线未命中的查询为 0 条）`);
+  process.exit(1);
+}
+/** 按 includeIdx 裁出子集场景（保持字段结构，hitRate 由子集重算）。 */
+const subsetOf = (s) => {
+  const perQuery = includeIdx.map((i) => s.perQuery[i]);
+  const hitRate = perQuery.reduce((a, q) => a + q.hit, 0) / perQuery.length;
+  return { ...s, perQuery, hitRate };
+};
+const base = subsetOf(baseRaw);
+const scenarios = scenariosRaw.map(subsetOf);
+if (SUBSET !== 'all') {
+  console.log(
+    `[subset=${SUBSET}] 基线未命中 ${includeIdx.length}/${baseRaw.perQuery.length} 条 —— ` +
+      '条件估计量：只回答「机制有没有起作用」，不能直接当默认开关的依据。\n',
+  );
 }
 
 // 单位归一：报告里 `hitRate` 是**百分数**（61.9），perQuery 的 `hit` 是 0/1。
