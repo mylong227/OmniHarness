@@ -880,21 +880,21 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
       samplesPerPrompt: o.bestOfN,
     });
     const res = await rlvr.run(JSON.stringify(messages));
-    const bestId = res.best?.candidate?.id;
+    // ⚠️ 全红时 `res.best` 为 **undefined**（RlvrLoop 只把 reward>0 的样本纳入 best），此时回落到
+    // **首候选**（`firstDiff` 即 `c0`）。自纠环必须在这个情形下也跑——「4 个候选都没能让 F2P 变绿」
+    // 恰恰是最需要测试反馈的一档；若用 `res.best?.candidate?.id` 直接判空就会**静默跳过**自纠。
+    const bestId = res.best?.candidate?.id ?? 'c0';
     let diff = res.best !== undefined ? res.best.candidate.code : firstDiff;
     const bestReward = res.best?.reward ?? 0;
     let rounds = o.bestOfN;
     let lastReason = '';
-    console.log(`  [best-of-N] 候选=${o.bestOfN} 绿样本=${res.kept} 最佳奖励=${bestReward}`);
+    console.log(
+      `  [best-of-N] 候选=${o.bestOfN} 绿样本=${res.kept} 最佳奖励=${bestReward}` +
+        (res.best === undefined ? '（全红 ⇒ 自纠环以首候选为种子）' : ''),
+    );
     // 测试驱动自纠环（`--self-test`）：**必须在 best-of-N 之后也跑**——旧实现在这里直接 return，
     // 使 `--best-of-n 4 --self-test` 组合下自纠环一次都不执行（与「产品口径」定义不符，且日志无提示）。
-    if (
-      o.selfTest &&
-      bestReward < 1 &&
-      diff.length > 0 &&
-      checkPatch(wt, diff).ok &&
-      bestId !== undefined
-    ) {
+    if (o.selfTest && bestReward < 1 && diff.length > 0 && checkPatch(wt, diff).ok) {
       const rep = await selfTestRepair({
         seedMessages: messages,
         seedRaw: rawById.get(bestId) ?? '',

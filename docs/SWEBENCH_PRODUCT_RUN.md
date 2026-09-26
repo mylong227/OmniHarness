@@ -88,6 +88,11 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
    报告里 `total` 就是子集大小，**不可与官方满分榜直接比较**。
 2. **判分能力边界**：本机无 Docker 预建镜像、无 C/C++ 工具链 ⇒ 编译型仓库（astropy/matplotlib/
    scikit-learn）无法判定，已标 `envError` 并排除在分母外。
-3. **self-test 自纠环是否真的被触发**：只有「4 个候选都没全绿」（`bestReward < 1`）时才会跑。
-   <!-- 待填：本批是否出现 bestReward<1；若从未出现，如实写「已接线但本批未触发」 -->
+3. **self-test 自纠环的触发条件**：只有「选中的候选没有全绿」（`bestReward < 1`）时才会跑。
+   本批运行的是**修正前的一版**：全红（4 个候选 reward 都为 0 ⇒ `RlvrLoop` 的 `best` 为 undefined）
+   时**不会**进入自纠环。该空档已在本批跑动期间修掉（改用首候选 `c0` 作种子，并在日志里显式标注
+   「全红 ⇒ 自纠环以首候选为种子」），但**本批产物出自修正前的那版**，故本批是否触发过自纠环以日志为准。
+   <!-- 待填：本批是否出现 bestReward<1（grep 两份日志的 [best-of-N] 行） -->
+   另：`RlvrLoop` 的契约已核对（`src/evolution/rlvrLoop.ts`：`reward(candidate)` 收到的是 sampler 返回的
+   同一个对象、`best = { candidate, reward }`），故按 `candidate.id` 反查「原始输出 + 未通过清单」是成立的。
 4. 本文档的数字全部来自本机实测产物（`eval-data/` 为 gitignore 目录，故正文留档在 `docs/`）。
