@@ -111,3 +111,54 @@ node benchmark/capability_swebench.mjs --verified eval-data/swe_bench_verified.j
 
 ⚠️ **给接手方的边界**：这条对照臂**只在当时已可信的 20 题**上跑（`gold_trusted_ids.txt` 现为 21 题）。
 **不要只给一臂加题**——配对设计要求两臂同实例；若要纳入新可信实例，两臂一起补。
+
+## 8. 接手方进展（2026-09-26 下午）：DockerExecutor 已落地，卡在镜像获取
+
+**① 官方镜像执行器已实现并过门禁（实测）**：`src/eval/dockerExecutor.ts`（`DockerExecutor`，
+实现 `ExecutorPort`，backend=`docker`）+ `benchmark/capability_swebench.mjs --docker` 旗标接线
+（`--docker-cli` / `--docker-mirrors` / `--docker-timeout` 可覆盖；FlagGuard 自扫描源码，新旗标自动入白名单）。
+五道门禁（typecheck/lint/check --strict/audit:maturity/audit:standard:delta）全绿。
+语义与 harness 2.1.8（预建镜像同代）逐条对齐：镜像名 `__`→`_1776_`、env 名 `testbed`、
+test_cmd=`pytest --no-header -rA --tb=no -p no:cacheprovider`（六个 pytest 类仓库逐仓核实自 2.1.8 constants）、
+模型补丁 `git apply` 失败回退 `patch --fuzz=5`、test 文件 reset 用 test_patch 全量文件、directives 过滤测试样貌文件。
+脚本经 **stdin** 送 `docker run -i … bash -s`（零挂载零 docker cp）；解析复用 `PytestVerdict`（fail-closed 不变）。
+⚠️ 交接附注：15:38 提交进仓的版本用 `execFile(..., {input})`——**该选项在 execFile 上不存在，tsc 不过**；
+接手后已改 `spawn` 手写 stdin（现工作区版本，未提交），顺带绕开 Windows 命令行长度上限。
+
+**② 镜像获取的实测记录（截至 17:40，均有证据）**：
+
+| 源                                | 状态                                                                                                                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Docker Hub 直连                   | **不可用**：`registry-1.docker.io` DNS 污染（解析到 Dropbox 段）；本机无任何代理（12 个常见端口 + 全部监听进程 + 网关端口均查过）                                                                                         |
+| docker.m.daocloud.io              | alpine 等**白名单内**秒拉；`swebench/*` **不在白名单**直接拒（错误信息指向其 GitHub issue 申请流程）                                                                                                                      |
+| hub.rat.dev → docker.1ms.run      | 14:00 前后**可用**（真实下载过 astropy-12907 多层）；17:00 起 blob 挂死（manifest 秒回、层数据零传输）。302 追踪实测：hub.rat.dev 把 blob 重定向到 1ms.run，`astropy-12907` 有一层（`2f183d…`）在 1ms.run 上 **404 缺失** |
+| docker.xuanyuan.me                | 免费节点持续「繁忙」403（官方提示付费专业版）                                                                                                                                                                             |
+| 学术镜像（iscas/nju/baidubce 等） | 404/403/不可达                                                                                                                                                                                                            |
+
+- ⚠️ **`:latest` 陷阱**：不带标签拉取时 docker 默认 `:latest`，hub.rat.dev 对该引用 **manifest 解析直接挂死**；
+  必须显式 `:v1`。
+- 重试循环脚本：`/d/deepseek/.tmp/pull_loop.sh`（后台长跑，8 分钟一轮，三源轮换，最长 4 小时）；
+  镜像落盘后 `docker tag` 回官方名，DockerExecutor 只认官方名。
+
+**③ 镜像到位后的两条命令（零成本，判据不变）**：
+
+```bash
+export OMNI_DOCKER_CLI="D:\Docker\Desktop\resources\bin\docker.exe"
+# 第一关：gold 对照（9 题：astropy 2 / matplotlib 2 / sklearn 2 / xarray-6992 / sphinx-8120 / pytest-5262）
+node benchmark/capability_swebench.mjs --verified eval-data/swe_bench_verified.json \
+  --docker --docker-mirrors "hub.rat.dev,docker.1ms.run" \
+  --instance-list eval-data/docker_env_blocked_ids.txt --gold-control \
+  --gold-report eval-data/gold_control_docker9.json --jsonl eval-data/gold_docker9.jsonl
+# 第二关：模型补丁判分（preds_verified30.jsonl 里 9 题补丁已齐，判分免费）
+node benchmark/capability_swebench.mjs --verified eval-data/swe_bench_verified.json \
+  --docker --docker-mirrors "hub.rat.dev,docker.1ms.run" \
+  --predictions eval-data/preds_verified30.jsonl \
+  --instance-list eval-data/docker_env_blocked_ids.txt \
+  --gold-report eval-data/gold_control_docker9.json \
+  --jsonl eval-data/score_docker9.jsonl --out eval-data/score_docker9.json
+```
+
+预期（按 §0 表）：astropy/matplotlib/sklearn/sphinx 的 gold 应全绿（进入可信子集）；
+xarray-6992 取决于镜像内可选依赖（cupy/iris/cdms2 难装，可能仍判不过）；pytest-5262 的 `[100%]`
+数据集产物 id **永远**对不上（本机无 TTY 换行，官方镜像无 TTY 同样不产生）。
+判分纪律不变：**gold 没过的实例，其模型分不进任何结论**。

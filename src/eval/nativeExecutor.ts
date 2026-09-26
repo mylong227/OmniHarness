@@ -26,7 +26,8 @@ import { endpointDefaults } from '../util/endpointDefaults.js';
 import { SwebenchVerified } from './swebenchVerified.js';
 import type { ExecutorPort, VerifiedResult, VerifiedTask } from './swebenchVerified.js';
 import { PythonVersionResolver } from './pythonVersionResolver.js';
-import { NativeEnvBuilder, ENV_BUILD_FAILED } from './nativeEnvBuilder.js';
+import { NativeEnvBuilder } from './nativeEnvBuilder.js';
+import { execFailureClassifier } from './execFailureClassifier.js';
 import { NativeTestRunner } from './nativeTestRunner.js';
 import { UvLocator } from './uvLocator.js';
 import type { UvLookup } from './uvLocator.js';
@@ -207,13 +208,12 @@ export class NativeExecutor implements ExecutorPort {
         reason: NativeTestRunner.describeFailure(task.failToPass, task.passToPass, run),
       };
     } catch (error) {
-      const msg = this.msg(error);
-      // 环境构建失败（pytest 未装入 venv）与「模型未解出/执行异常」严格区分：前者是执行设施缺失，
-      // 该实例未进入 pytest 判定，标 envError 以便单独重试、且不污染 resolved 率分母。
-      if (msg.startsWith(ENV_BUILD_FAILED)) {
-        return this.failEnv(task.id, msg);
-      }
-      return this.fail(task.id, `原生执行异常: ${msg}`);
+      // 设施层异常（环境构建失败 / spawn 系统错误）与模型侧失败严格分流——判定规则与实测现场
+      // 见 `ExecFailureClassifier` 模块头；`env` 不进 resolved 分母、可单独重试。
+      const verdict = execFailureClassifier.classify(this.msg(error));
+      return verdict.kind === 'env'
+        ? this.failEnv(task.id, verdict.message)
+        : this.fail(task.id, verdict.message);
     } finally {
       if (!this.keepWorktree) {
         await this.withRepoLock(task.repo, () => this.removeWorktree(cacheDir, worktree));

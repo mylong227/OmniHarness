@@ -73,7 +73,7 @@ export class RepoTestSpecs {
   public static django(): RepoTestSpec {
     return {
       label: 'django: ./tests/runtests.py --settings=test_sqlite',
-      argsOf: (ids, ctx) => {
+      argsOf: (_ids, ctx) => {
         // **关键（2026-09-26 实测）**：不能把数据集里的 id 原样（或转成 `类.展示名`）当 directive——
         // unittest 用 docstring 当展示名，`Semicolons and commas are decoded (...)` 会被 runtests.py 当**模块名**
         // 导入 ⇒ `ModuleNotFoundError`（实测 8/65 行 ERROR）。官方 harness 的做法（`get_test_directives` 对
@@ -85,8 +85,12 @@ export class RepoTestSpecs {
         // 是**测量假象**：django 把测试结果写 stderr、把 `Testing against Django installed in ...` 等写 stdout，
         // 两路合并后**顺序交错**（头部可能出现在结果之后），只看单路或截断读缓冲就会读成「零结果」。
         const modules = RepoTestSpecs.djangoModuleDirectivesOf(ctx.testPatch);
-        const directives =
-          modules.length > 0 ? modules : ids.map((id) => RepoTestSpecs.djangoDirectiveOf(id));
+        // test_patch 推不出 .py 模块时（实测 django-10097：只改 `tests/validators/*.txt` 数据文件）
+        // **不能**把全部 id 转 directive 兜底：F2P+P2P 可达十万字符级 argv ⇒ Windows `spawn
+        // ENAMETOOLONG`（2026-09-26 实测，还被归成模型失败）。官方 harness 的 directive 同样只来自
+        // test_patch ⇒ 此时正解是**全量套件**（runtests.py 无 label 参数，argv 恒有界），
+        // 由解析器从全量日志把 F2P/P2P id 挑回来。
+        const directives = modules;
         return [
           './tests/runtests.py',
           '--verbosity',

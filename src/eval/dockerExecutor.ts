@@ -34,7 +34,7 @@
  *   路径齐备；真实可信度以**官方镜像上的 gold 对照**为准（判分链路可信闸，见
  *   benchmark/capability_swebench.mjs `--gold-control`），单元测试尚未覆盖（需镜像环境）。
  */
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 
 import { NativeTestRunner } from './nativeTestRunner.js';
 import { PytestVerdict } from './pytestVerdict.js';
@@ -82,6 +82,9 @@ const MODEL_PATCH_FILE = '/tmp/patch.diff';
 /** 容器退出码协议：3=模型补丁应用失败（模型侧），4=官方测试补丁应用失败（环境侧）。 */
 const EXIT_MODEL_PATCH_FAILED = 3;
 const EXIT_TEST_PATCH_FAILED = 4;
+
+/** 合并输出的字符数上限（防御性：超限停止追加，避免病态日志撑爆内存）。 */
+const MAX_OUTPUT_CHARS = 512 * 1024 * 1024;
 
 /** 单次容器运行产物。 */
 interface ContainerRun {
@@ -322,27 +325,43 @@ export class DockerExecutor implements ExecutorPort {
   }
 
   /**
-   * 运行容器：脚本经 stdin 送入 `bash -s`，合并回捕 stdout/stderr 作为测试日志。
+   * 运行容器：脚本经 stdin 送入 `bash -s`（`execFile` 的 options 不支持 `input`，故用 spawn
+   * 手写 stdin——同时规避 Windows 命令行长度上限，脚本再大也不受影响），合并回捕 stdout/stderr
+   * 作为测试日志；超时由宿主定时器杀掉 docker 进程（容器随 `--rm`+kill 一并终止）。
    * @param image 镜像引用（官方名）。
    * @param script eval 脚本文本。
-   * @returns 运行产物（退出码/合并输出/是否超时；docker 自身失败时 code=-1 并带诊断）。
+   * @returns 运行产物（退出码/合并输出/是否超时；docker 本身启动失败时 code=-1 并带诊断）。
    */
   private runContainer(image: string, script: string): Promise<ContainerRun> {
     return new Promise<ContainerRun>((resolve) => {
-      execFile(
-        this.dockerCli,
-        ['run', '--rm', '-i', image, '/bin/bash', '-s'],
-        { timeout: this.testTimeoutMs, maxBuffer: 128 * 1024 * 1024, input: script },
-        (err, stdout, stderr) => {
-          const output = `${stdout ?? ''}\n${stderr ?? ''}`;
-          if (err === null) {
-            resolve({ code: 0, output, timedOut: false });
-            return;
-          }
-          const code = typeof err.code === 'number' ? err.code : -1;
-          resolve({ code, output, timedOut: err.killed === true });
-        },
-      );
+      const child = spawn(this.dockerCli, ['run', '--rm', '-i', image, '/bin/bash', '-s'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      let output = '';
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        child.kill();
+      }, this.testTimeoutMs);
+      const append = (chunk: string): void => {
+        if (output.length < MAX_OUTPUT_CHARS) output += chunk;
+      };
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
+      child.stdout.on('data', append);
+      child.stderr.on('data', append);
+      child.on('error', (error: Error) => {
+        clearTimeout(timer);
+        resolve({ code: -1, output: `${output}\n${error.message}`, timedOut });
+      });
+      child.on('close', (code: number | null) => {
+        clearTimeout(timer);
+        resolve({ code: code ?? -1, output, timedOut });
+      });
+      // docker 提前退出（镜像缺失/CLI 失败）时，往已关闭的管道写脚本会触发 EPIPE；
+      // 吞掉流错误，让 close/error 事件按既有路径给出诊断，而不是让整个判分进程崩溃。
+      child.stdin.on('error', () => undefined);
+      child.stdin.end(script);
     });
   }
 
