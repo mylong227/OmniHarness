@@ -5,7 +5,8 @@
   "pins": {
     "pallets/flask": ["Werkzeug<3"],
     "pytest-dev/pytest": ["setuptools<60"],
-    "sphinx-doc/sphinx": ["jinja2<3.1"]
+    "sphinx-doc/sphinx": ["jinja2<3.1"],
+    "pydata/xarray": ["pandas<2"]
   },
   "_evidence": {
     "pallets/flask": {
@@ -22,6 +23,12 @@
       "measured": "sphinx-doc__sphinx-8120：加约束前 F2P 0/1、P2P 0/44（插件导入期崩溃）；加约束后 F2P 1/1、P2P 41/44。",
       "residual": "残余 3 条是**平台差异**：test_image_glob_intl / test_image_glob_intl_using_figure_language_filename 在 Windows 上被 @pytest.mark.xfail 标为 'Not working on windows'（输出 XFAIL），test_text_title_underline 为 XPASS；官方镜像为 Linux，这三个在那边是普通 PASSED。属 Windows 保真度缺口，不是判分链路缺陷。",
       "rootCause": "sphinx 3.3 的 pytest 插件 sphinx.testing.fixtures 导入期 `from jinja2 import environmentfilter`，而 Jinja2 3.1 已移除该名字。",
+      "verifiedAt": "2026-09-26"
+    },
+    "pydata/xarray": {
+      "measured": "两个 xarray 实例都实测（2026-09-26）：① `pydata__xarray-3151`（0.12）**由 not-resolved 变为 resolved=true**（P2P 56/66 → 66/66）；② `pydata__xarray-6992`（2022.06）P2P 825/945 → 843/945（passed 836→854、failed 19→1），仍未 resolved。",
+      "residual": "6992 的残余已定量：**1 个真实失败**（test_drop_index_labels）+ **109 个 skip**（需可选依赖 dask / scipy / bottleneck / numexpr / cftime / pint / flox / sparse；iris / cdms2 / cupy 在本机不可得）。⇒ 属**环境保真度**缺口（官方用预建 conda 镜像装齐这些），与 astropy/matplotlib/scikit-learn 那 6 题同类，**不是判分链路缺陷**。",
+      "rootCause": "默认 `-e .` 在 Python 3.8 上把 pandas 解析到 **2.x**，而 xarray 0.12 与 2022.06 的 concat/merge/resample 语义与 pandas 2 不兼容 ⇒ 大量原本应通过的 P2P 变成 FAILED。另一候选 `pandas<1.1` 实测**更差**（collection error：`collected 0 items / 1 error`），故取 `pandas<2`。",
       "verifiedAt": "2026-09-26"
     }
   }
