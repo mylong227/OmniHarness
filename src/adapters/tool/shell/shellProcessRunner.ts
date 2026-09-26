@@ -79,12 +79,23 @@ interface RunState {
 interface TerminationHandle {
   clear(): void;
   terminate(): void;
+  /** 绑定「终止后宽限期到期仍未收到 close」的兜底收尾回调（见 `run` 内注释）。 */
+  onGiveUp(callback: () => void): void;
 }
 
 /**
  * shell 子进程执行器：`spawn` 显式 argv 执行命令文本，状态全过程显式。
  */
 export class ShellProcessRunner {
+  /**
+   * 终止后的宽限期（毫秒）：到期仍未收到 `close` 即按已终止收尾。
+   *
+   * 依据：树杀是**尽力而为**（taskkill 可能不可用、child.kill 可能抛错），而本模块把这三种
+   * 终止路径都当成「进程已死 ⇒ close 必来」。宽限期把这个假设的失败面收敛为有界等待，
+   * 代价只是少一次真实退出码（`exitCode=null`），换来的是回合不会永久挂住。
+   */
+  private static readonly TERMINATE_GRACE_MS = 3_000;
+
   /**
    * 执行命令。
    *
@@ -142,6 +153,14 @@ export class ShellProcessRunner {
         });
       };
 
+      // 兜底：三条终止路径都把「进程已死」当作 `close` 事件的充分条件，但**树杀本身可能失败**
+      // （taskkill 不可用 + child.kill 抛错），此时 `close` 永不触发、`run()` 永不 settle
+      // （2026-09-26 审计 X5，本模块的变异测试曾在此挂死）。绑定「终止后宽限期」回调：到期仍未
+      // 收到 close 就按已终止收尾——宁可少一次真实退出码，也不能让整个回合挂住。
+      handle.onGiveUp(() => {
+        finish(null, 'SIGKILL');
+      });
+
       child.on('error', (error: Error) => {
         if (state.settled) {
           return;
@@ -164,16 +183,28 @@ export class ShellProcessRunner {
    * @param child 已 spawn 的子进程。
    * @param options 执行参数（超时 / 缓冲上限 / 可选取消信号）。
    * @param state 本次执行的共享状态（终止原因写在其中）。
-   * @returns 句柄：`clear()` 撤销定时器与取消订阅，`terminate()` 主动终止。
+   * @returns 句柄：`clear()` 撤销定时器与取消订阅，`terminate()` 主动终止，
+   *          `onGiveUp(cb)` 绑定「终止后宽限期到期仍未收到 close」的兜底收尾。
    */
   private armTermination(
     child: ChildProcess,
     options: ShellRunOptions,
     state: RunState,
   ): TerminationHandle {
+    let giveUpTimer: ReturnType<typeof setTimeout> | undefined;
+    let onGiveUp: (() => void) | undefined;
     const terminate = (): void => {
-      if (!state.settled) {
-        ProcessTreeKiller.kill(child);
+      if (state.settled) {
+        return;
+      }
+      ProcessTreeKiller.kill(child);
+      // 宽限期：树杀失败时 `close` 永不触发，到期强制收尾（见 `run` 内注释）。
+      if (giveUpTimer === undefined) {
+        giveUpTimer = setTimeout(() => {
+          if (!state.settled) {
+            onGiveUp?.();
+          }
+        }, ShellProcessRunner.TERMINATE_GRACE_MS);
       }
     };
     const onAbort = (): void => {
@@ -206,9 +237,15 @@ export class ShellProcessRunner {
     return {
       clear: (): void => {
         clearTimeout(timer);
+        if (giveUpTimer !== undefined) {
+          clearTimeout(giveUpTimer);
+        }
         options.signal?.removeEventListener('abort', onAbort);
       },
       terminate,
+      onGiveUp: (callback: () => void): void => {
+        onGiveUp = callback;
+      },
     };
   }
 
