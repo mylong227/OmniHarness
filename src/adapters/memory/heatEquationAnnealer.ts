@@ -179,6 +179,10 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     let drift = 0;
     let decayed = 0;
     let dissociatedNow = 0;
+    // 批量写（2026-09-26 审计 S13）：原先在下面这个循环里**逐条** `memory.update(...)`，
+    // 而 `FileLongTermMemory.update` 每次都整文件重写 + 重加密 ⇒ 一步退火 = 上千次全量落盘，
+    // O(n²) 同步 IO 把事件循环整段钉住。这里先把补丁攒起来，循环结束只写一次。
+    const patches: { id: string; patch: { importance: number } }[] = [];
     for (const i of activeIdx) {
       const before = ArrayAt.at(imp, i);
       const after = ArrayAt.at(next, i);
@@ -192,23 +196,64 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
       } else {
         decayed += 1;
       }
-      this.memory.update(ArrayAt.at(facts, i).id, { importance: after });
+      patches.push({ id: ArrayAt.at(facts, i).id, patch: { importance: after } });
     }
+    this.applyPatches(patches);
+    return this.finishStep(step, n, { drift, charged, decayed, dissociated: dissociatedNow });
+  }
 
+  /**
+   * 收尾一步退火：冷却并组装报告。
+   * @param step 步号。
+   * @param facts 事实总数。
+   * @param counters 本步统计（漂移/充能/衰减/解离）。
+   * @returns 本步报告。
+   */
+  private finishStep(
+    step: number,
+    facts: number,
+    counters: {
+      readonly drift: number;
+      readonly charged: number;
+      readonly decayed: number;
+      readonly dissociated: number;
+    },
+  ): AnnealStepReport {
     this.cool();
     return {
       step,
       temperature: this._temperature,
-      facts: n,
-      drift,
-      charged,
-      decayed,
-      dissociated: dissociatedNow,
+      facts,
+      drift: counters.drift,
+      charged: counters.charged,
+      decayed: counters.decayed,
+      dissociated: counters.dissociated,
     };
   }
 
-  /** 温度调度：T ← T0 · exp(−steps/τ)（几何冷却，单调下降、渐近趋 0）。
+  /**
+   * 应用一批重要性补丁：优先走端口的**批量入口**（一次落盘），端口未提供时按 `update` 逐条回落
+   * —— 契约向后兼容，内存实现与旧实现行为不变。
+   * @param patches 待应用的补丁列表。
    * @returns 无返回值。
+   */
+  private applyPatches(
+    patches: readonly { readonly id: string; readonly patch: { readonly importance: number } }[],
+  ): void {
+    if (patches.length === 0) {
+      return;
+    }
+    const bulk = this.memory.updateMany;
+    if (typeof bulk === 'function') {
+      bulk.call(this.memory, patches);
+      return;
+    }
+    for (const entry of patches) {
+      this.memory.update(entry.id, entry.patch);
+    }
+  }
+
+  /** 温度调度：T ← T0 · exp(−steps/τ)（几何冷却，单调下降、渐近趋 0）。   * @returns 无返回值。
    */
   private cool(): void {
     this._temperature = this.initialTemperature * Math.exp(-this._steps / this.coolingRate);
