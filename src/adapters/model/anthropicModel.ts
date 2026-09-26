@@ -16,6 +16,8 @@ import {
   type AnthropicWireMessage,
 } from './anthropicCacheBreakpoints.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
+import { ModelRequestGuard } from './modelRequestGuard.js';
+import { RequestStallGuard } from './requestStallGuard.js';
 import { sseParser } from './sseParser.js';
 
 /** Anthropic 模型配置。 */
@@ -28,6 +30,12 @@ export interface AnthropicModelConfig {
   readonly model: string;
   /** 单次响应的最大输出 token 数（缺省 4096）。 */
   readonly maxTokens?: number;
+  /**
+   * 单次请求的**空闲**超时（毫秒，可选）：连续静默超过该值即中止并抛可重试错误。
+   * 优先级 本字段 > 环境变量 `OMNI_MODEL_REQUEST_TIMEOUT_MS` > 库级默认；`<=0` 关闭空闲超时
+   * （此时仅在调用方给了 `ModelRequest.signal` 时才开守卫）。语义与 OpenAI 兼容适配器同一口径。
+   */
+  readonly requestTimeoutMs?: number | undefined;
 }
 
 /** Anthropic Messages API 适配器（真实第二协议）。 */
@@ -38,12 +46,15 @@ export class AnthropicModel implements ModelPort {
   private readonly promptCache = new PromptCacheUsageReader();
   /** 滚动缓存断点规划器：system + 最近若干轮 user 消息共 ≤4 个断点（纯函数）。 */
   private readonly cacheBreakpoints = new AnthropicCacheBreakpoints();
+  /** 请求空闲超时装配器（S2）：裸 fetch 在服务端不回包时会永不 settle ⇒ 必须收敛为有界等待。 */
+  private readonly guard: ModelRequestGuard;
 
   public constructor(
     /** 适配器配置：端点、密钥、模型标识与输出上限。 */
     private readonly config: AnthropicModelConfig,
   ) {
     this.name = config.model;
+    this.guard = new ModelRequestGuard(config.requestTimeoutMs);
   }
 
   /** 生成响应。
@@ -51,12 +62,21 @@ export class AnthropicModel implements ModelPort {
    * @returns 解析后的统一输出（文本、工具调用与口径合成后的用量）；非 2xx 时抛出错误。
    */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
-    const response = await fetch(this.endpoint(), this.buildRequest(request));
-    if (!response.ok) {
-      throw new Error(`Anthropic 请求失败: HTTP ${response.status}`);
+    const guard = this.guard.open(request);
+    try {
+      const response = await fetch(this.endpoint(), this.buildRequest(request, guard));
+      // 响应头到达即算「有进展」：为紧随其后的响应体读取续期。
+      guard?.touch();
+      if (!response.ok) {
+        throw new Error(`Anthropic 请求失败: HTTP ${response.status}`);
+      }
+      const body = (await response.json()) as AnthropicResponse;
+      return this.parseOutput(body);
+    } catch (error) {
+      throw this.guard.wrap(error, guard, 'Anthropic 模型请求');
+    } finally {
+      guard?.dispose();
     }
-    const body = (await response.json()) as AnthropicResponse;
-    return this.parseOutput(body);
   }
 
   /** 流式生成（SSE）。
@@ -66,7 +86,30 @@ export class AnthropicModel implements ModelPort {
    *          两类事件离线累积后合成。响应体缺失时降级为非流式 generate；非 2xx 时抛出错误。
    */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
-    const response = await fetch(this.endpoint(), this.buildRequest(request));
+    const guard = this.guard.open(request);
+    try {
+      return await this.streamRequest(request, callbacks, guard);
+    } catch (error) {
+      throw this.guard.wrap(error, guard, 'Anthropic 模型流式请求');
+    } finally {
+      guard?.dispose();
+    }
+  }
+
+  /**
+   * 流式生成主体（守卫生命周期由 `stream` 掌管）。
+   * @param request 模型请求。
+   * @param callbacks 流式回调集合。
+   * @param guard 本次请求的空闲超时守卫（`undefined` = 既无空闲超时也无调用方信号）。
+   * @returns 流结束后的完整输出。
+   */
+  private async streamRequest(
+    request: ModelRequest,
+    callbacks: StreamCallbacks,
+    guard: RequestStallGuard | undefined,
+  ): Promise<ModelOutput> {
+    const response = await fetch(this.endpoint(), this.buildRequest(request, guard));
+    guard?.touch();
     if (!response.ok) {
       throw new Error(`Anthropic 流式请求失败: HTTP ${response.status}`);
     }
@@ -84,9 +127,11 @@ export class AnthropicModel implements ModelPort {
     // 流式用量累积：message_start 给 input/cache 三段，message_delta 给 output，
     // 与 generate 路径同口径合成 ModelUsage（此前流式路径完全丢弃用量，成本护栏看不到 Anthropic 消耗）。
     const usageState: AnthropicUsageState = {};
-    await sseParser.read(body, (event) =>
-      this.handleEvent(event.data, callbacks, chunks, toolBlocks, usageState),
-    );
+    await sseParser.read(body, (event) => {
+      // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
+      guard?.touch();
+      this.handleEvent(event.data, callbacks, chunks, toolBlocks, usageState);
+    });
     const usage = this.usageOf(usageState);
     if (usage === undefined) {
       return { text: chunks.join('') };
@@ -104,16 +149,22 @@ export class AnthropicModel implements ModelPort {
   /**
    * 构造请求。
    * @param request 模型请求（system 被剥离为独立字段并打 ephemeral 缓存断点）。
+   * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal。
    * @returns 可直接交给 fetch 的 RequestInit（POST、协议头、JSON 请求体与可选取消信号）。
    */
-  private buildRequest(request: ModelRequest): RequestInit {
+  private buildRequest(request: ModelRequest, guard?: RequestStallGuard): RequestInit {
     const { system, messages } = this.splitSystem(request.messages);
     return {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(this.wireBody(system, messages, request.tools)),
       // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
-      ...(request.signal !== undefined ? { signal: request.signal } : {}),
+      // S2：改为守卫的组合信号（空闲超时 ∪ 调用方取消），二者任一触发都中断在飞请求。
+      ...(guard !== undefined
+        ? { signal: guard.signal }
+        : request.signal !== undefined
+          ? { signal: request.signal }
+          : {}),
     };
   }
 

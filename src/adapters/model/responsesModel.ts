@@ -8,6 +8,8 @@ import type {
   StreamCallbacks,
 } from '../../ports/model/model.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
+import { ModelRequestGuard } from './modelRequestGuard.js';
+import { RequestStallGuard } from './requestStallGuard.js';
 import { sseParser, type SseEvent } from './sseParser.js';
 
 /**
@@ -22,6 +24,11 @@ export interface ResponsesConfig {
   readonly previousResponseId?: string;
   /** 是否让服务端保存上下文（续接前提，默认 true）。 */
   readonly store?: boolean;
+  /**
+   * 单次请求的**空闲**超时（毫秒，可选）：连续静默超过该值即中止并抛可重试错误。
+   * 优先级 本字段 > 环境变量 `OMNI_MODEL_REQUEST_TIMEOUT_MS` > 库级默认；`<=0` 关闭空闲超时。
+   */
+  readonly requestTimeoutMs?: number | undefined;
 }
 
 /** 流式累积状态。 */
@@ -41,6 +48,8 @@ export class ResponsesModel implements ModelPort {
   private lastResponseId: string | undefined;
   /** 提示缓存读取器：Responses 用 `input_tokens_details.cached_tokens` 表达命中。 */
   private readonly promptCache = new PromptCacheUsageReader();
+  /** 请求空闲超时装配器（S2）：裸 fetch 在服务端不回包时会永不 settle ⇒ 必须收敛为有界等待。 */
+  private readonly guard: ModelRequestGuard;
 
   public constructor(
     /** 适配器配置：端点地址、API 密钥、模型标识与续接/存储选项。 */
@@ -48,6 +57,7 @@ export class ResponsesModel implements ModelPort {
   ) {
     this.name = config.model;
     this.lastResponseId = config.previousResponseId;
+    this.guard = new ModelRequestGuard(config.requestTimeoutMs);
   }
 
   /** 当前续接 ID（下一轮请求带上，由服务端持有历史上下文）。
@@ -69,12 +79,20 @@ export class ResponsesModel implements ModelPort {
    * @returns 解析后的统一输出（文本、推理摘要、工具调用与用量）；HTTP 非 2xx 时抛出错误。
    */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
-    const response = await fetch(this.endpoint(), this.buildRequest(request, false));
-    if (!response.ok) {
-      throw new Error(`模型请求失败: HTTP ${response.status}`);
+    const guard = this.guard.open(request);
+    try {
+      const response = await fetch(this.endpoint(), this.buildRequest(request, false, guard));
+      guard?.touch();
+      if (!response.ok) {
+        throw new Error(`模型请求失败: HTTP ${response.status}`);
+      }
+      const body = (await response.json()) as ResponsesResponse;
+      return this.parseOutput(body);
+    } catch (error) {
+      throw this.guard.wrap(error, guard, 'Responses 模型请求');
+    } finally {
+      guard?.dispose();
     }
-    const body = (await response.json()) as ResponsesResponse;
-    return this.parseOutput(body);
   }
 
   /** 流式生成（SSE：文本增量实时回调，终态以 response.completed 为准）。
@@ -84,7 +102,30 @@ export class ResponsesModel implements ModelPort {
    *          若流中断未收到终态则退回已累积文本拼接；响应体缺失时降级为非流式 generate。
    */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
-    const response = await fetch(this.endpoint(), this.buildRequest(request, true));
+    const guard = this.guard.open(request);
+    try {
+      return await this.streamRequest(request, callbacks, guard);
+    } catch (error) {
+      throw this.guard.wrap(error, guard, 'Responses 模型流式请求');
+    } finally {
+      guard?.dispose();
+    }
+  }
+
+  /**
+   * 流式生成主体（守卫生命周期由 `stream` 掌管）。
+   * @param request 模型请求。
+   * @param callbacks 流式回调集合。
+   * @param guard 本次请求的空闲超时守卫（`undefined` = 既无空闲超时也无调用方信号）。
+   * @returns 流结束后的完整输出。
+   */
+  private async streamRequest(
+    request: ModelRequest,
+    callbacks: StreamCallbacks,
+    guard: RequestStallGuard | undefined,
+  ): Promise<ModelOutput> {
+    const response = await fetch(this.endpoint(), this.buildRequest(request, true, guard));
+    guard?.touch();
     if (!response.ok) {
       throw new Error(`模型流式请求失败: HTTP ${response.status}`);
     }
@@ -93,7 +134,11 @@ export class ResponsesModel implements ModelPort {
       return this.generate(request);
     }
     const state: StreamState = { text: [], completed: undefined };
-    await sseParser.read(streamBody, (event) => this.handleStreamEvent(event, callbacks, state));
+    await sseParser.read(streamBody, (event) => {
+      // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
+      guard?.touch();
+      this.handleStreamEvent(event, callbacks, state);
+    });
     return state.completed === undefined
       ? { text: state.text.join('') }
       : this.parseOutput(state.completed);
@@ -109,15 +154,25 @@ export class ResponsesModel implements ModelPort {
   /** 构造请求体（stream 时不带 previous_response_id 亦可，此处统一带上以支持续接）。
    * @param request 模型请求，决定 body 内容与是否透传取消信号。
    * @param stream true 表示请求 SSE 流式响应，false 表示一次性 JSON 响应。
+   * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal。
    * @returns 可直接交给 fetch 的 RequestInit（POST 方法、鉴权头与 JSON 序列化后的请求体）。
    */
-  private buildRequest(request: ModelRequest, stream: boolean): RequestInit {
+  private buildRequest(
+    request: ModelRequest,
+    stream: boolean,
+    guard?: RequestStallGuard,
+  ): RequestInit {
     return {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ ...this.bodyOf(request), stream }),
       // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
-      ...(request.signal !== undefined ? { signal: request.signal } : {}),
+      // S2：改为守卫的组合信号（空闲超时 ∪ 调用方取消），二者任一触发都中断在飞请求。
+      ...(guard !== undefined
+        ? { signal: guard.signal }
+        : request.signal !== undefined
+          ? { signal: request.signal }
+          : {}),
     };
   }
 
