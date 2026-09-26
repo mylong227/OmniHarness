@@ -8,6 +8,8 @@ import type {
   StreamCallbacks,
 } from '../../ports/model/model.js';
 import { ModelCallError } from '../../ports/model/model.js';
+import { ModelRequestGuard } from './modelRequestGuard.js';
+import { RequestStallGuard } from './requestStallGuard.js';
 
 /**
  * @beta
@@ -26,6 +28,11 @@ export interface LlamaCppConfig {
   readonly model: string;
   /** 可选鉴权（vLLM 等需 Bearer）。Ollama 通常留空。 */
   readonly apiKey?: string | undefined;
+  /**
+   * 单次请求的**空闲**超时（毫秒，可选）：连续静默超过该值即中止并抛可重试错误。
+   * 优先级 本字段 > 环境变量 `OMNI_MODEL_REQUEST_TIMEOUT_MS` > 库级默认；`<=0` 关闭空闲超时。
+   */
+  readonly requestTimeoutMs?: number | undefined;
 }
 
 /**
@@ -37,10 +44,13 @@ export class LlamaCppModel implements ModelPort {
   public readonly name: string;
   /** 适配器配置：本地服务基址、模型名与可选鉴权。 */
   private readonly config: LlamaCppConfig;
+  /** 请求空闲超时装配器（S2）：本地服务卡死时裸 fetch 会永不 settle ⇒ 必须收敛为有界等待。 */
+  private readonly guard: ModelRequestGuard;
 
   public constructor(config: LlamaCppConfig) {
     this.config = config;
     this.name = config.model;
+    this.guard = new ModelRequestGuard(config.requestTimeoutMs);
   }
 
   /** 非流式生成。
@@ -48,15 +58,23 @@ export class LlamaCppModel implements ModelPort {
    * @returns 解析后的统一输出（文本、工具调用与 token 用量）；非 2xx 时抛出结构化 ModelCallError。
    */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
-    const response = await fetch(
-      `${this.config.baseUrl}/api/chat`,
-      this.buildRequest(request, false),
-    );
-    if (!response.ok) {
-      throw this.httpError(response, '本地模型请求失败');
+    const guard = this.guard.open(request);
+    try {
+      const response = await fetch(
+        `${this.config.baseUrl}/api/chat`,
+        this.buildRequest(request, false, guard),
+      );
+      guard?.touch();
+      if (!response.ok) {
+        throw this.httpError(response, '本地模型请求失败');
+      }
+      const body = (await response.json()) as OllamaChatResponse;
+      return this.parseOutput(body);
+    } catch (error) {
+      throw this.guard.wrap(error, guard, '本地模型请求');
+    } finally {
+      guard?.dispose();
     }
-    const body = (await response.json()) as OllamaChatResponse;
-    return this.parseOutput(body);
   }
 
   /** 流式生成：Ollama 以换行分隔的 JSON 对象（NDJSON）推送，末条 done:true 收尾。
@@ -67,10 +85,33 @@ export class LlamaCppModel implements ModelPort {
    *          末尾无换行的残余 JSON 片段尽力解析，非法则忽略；非 2xx 时抛出结构化错误。
    */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+    const guard = this.guard.open(request);
+    try {
+      return await this.streamRequest(request, callbacks, guard);
+    } catch (error) {
+      throw this.guard.wrap(error, guard, '本地模型流式请求');
+    } finally {
+      guard?.dispose();
+    }
+  }
+
+  /**
+   * 流式生成主体（守卫生命周期由 `stream` 掌管）。
+   * @param request 模型请求。
+   * @param callbacks 流式回调集合。
+   * @param guard 本次请求的空闲超时守卫（`undefined` = 既无空闲超时也无调用方信号）。
+   * @returns 流结束后的完整输出。
+   */
+  private async streamRequest(
+    request: ModelRequest,
+    callbacks: StreamCallbacks,
+    guard: RequestStallGuard | undefined,
+  ): Promise<ModelOutput> {
     const response = await fetch(
       `${this.config.baseUrl}/api/chat`,
-      this.buildRequest(request, true),
+      this.buildRequest(request, true, guard),
     );
+    guard?.touch();
     if (!response.ok) {
       throw this.httpError(response, '本地模型流式请求失败');
     }
@@ -84,6 +125,8 @@ export class LlamaCppModel implements ModelPort {
     const decoder = new TextDecoder();
     let buffer = '';
     for await (const piece of body) {
+      // 每一块 NDJSON 数据都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
+      guard?.touch();
       buffer += decoder.decode(piece, { stream: true });
       let nl: number;
       while ((nl = buffer.indexOf('\n')) >= 0) {
@@ -138,10 +181,15 @@ export class LlamaCppModel implements ModelPort {
   /** 构造请求体。
    * @param request 模型请求，提供消息与工具规格。
    * @param stream true 表示 NDJSON 流式响应，false 表示一次性 JSON 响应。
+   * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal。
    * @returns 可直接交给 fetch 的 RequestInit（POST、JSON 请求体；配置了 apiKey 时附 Bearer 头，
    *          signal 存在时透传以支持取消）。
    */
-  private buildRequest(request: ModelRequest, stream: boolean): RequestInit {
+  private buildRequest(
+    request: ModelRequest,
+    stream: boolean,
+    guard?: RequestStallGuard,
+  ): RequestInit {
     const tools =
       request.tools.length > 0 ? request.tools.map((tool) => this.toOllamaTool(tool)) : undefined;
     const body: Record<string, unknown> = {
@@ -164,7 +212,12 @@ export class LlamaCppModel implements ModelPort {
       headers,
       body: JSON.stringify(body),
       // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
-      ...(request.signal !== undefined ? { signal: request.signal } : {}),
+      // S2：改为守卫的组合信号（空闲超时 ∪ 调用方取消），二者任一触发都中断在飞请求。
+      ...(guard !== undefined
+        ? { signal: guard.signal }
+        : request.signal !== undefined
+          ? { signal: request.signal }
+          : {}),
     };
   }
 

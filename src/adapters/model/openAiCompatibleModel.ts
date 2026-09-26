@@ -12,14 +12,17 @@ import { ModelCallError } from '../../ports/model/model.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { sseParser } from './sseParser.js';
 import { RequestStallGuard } from './requestStallGuard.js';
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  REQUEST_TIMEOUT_ENV_KEY,
+  ModelRequestGuard,
+} from './modelRequestGuard.js';
 import { log } from '../../util/logger.js';
 import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.js';
 
-/** 库级默认的模型请求**空闲**超时（毫秒）：连续 5 分钟无任何数据即中止；`<=0` 表示关闭。 */
-export const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;
-
-/** 覆盖库级默认空闲超时的环境变量名（取值须为有限数字；`0` 或负数表示关闭空闲超时）。 */
-export const REQUEST_TIMEOUT_ENV_KEY = 'OMNI_MODEL_REQUEST_TIMEOUT_MS';
+// 空闲超时的库级默认与覆盖环境变量**单一来源**在 `modelRequestGuard`（四个适配器共用）：
+// 这里只做再导出，保持既有公开 API 不变（测试与下游按此名引用）。
+export { DEFAULT_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_ENV_KEY };
 
 /** OpenAI 兼容模型适配器配置。 */
 export interface OpenAiCompatibleConfig {
@@ -46,8 +49,10 @@ export interface OpenAiCompatibleConfig {
 export class OpenAiCompatibleModel implements ModelPort {
   /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
-  /** 生效的请求空闲超时（毫秒，`<=0` 表示关闭）：构造期解析，见 `resolveRequestTimeoutMs`。 */
+  /** 生效的请求空闲超时（毫秒，`<=0` 表示关闭）：构造期解析，见 `ModelRequestGuard`。 */
   public readonly requestTimeoutMs: number;
+  /** 请求空闲超时装配器（四个适配器共用的同一份语义）。 */
+  private readonly guard: ModelRequestGuard;
   /** 提示缓存命中量读取器（三家字段名不同，读取逻辑集中在 reader，本类只调用）。 */
   private readonly promptCache = new PromptCacheUsageReader();
 
@@ -56,7 +61,8 @@ export class OpenAiCompatibleModel implements ModelPort {
     private readonly config: OpenAiCompatibleConfig,
   ) {
     this.name = config.model;
-    this.requestTimeoutMs = OpenAiCompatibleModel.resolveRequestTimeoutMs(config.requestTimeoutMs);
+    this.guard = new ModelRequestGuard(config.requestTimeoutMs);
+    this.requestTimeoutMs = this.guard.timeoutMs;
   }
 
   /** 生成响应。
@@ -225,23 +231,18 @@ export class OpenAiCompatibleModel implements ModelPort {
   }
 
   /**
-   * 为单次请求构造空闲超时守卫。既无空闲超时（`requestTimeoutMs <= 0`）又无调用方信号时返回
-   * `undefined` —— 此时完全不传 signal，与改造前逐字一致（零行为变更）。
+   * 为单次请求构造空闲超时守卫（委托给共用的 {@link ModelRequestGuard}；语义与其余三个适配器一致）。
    * @param request 模型请求（其 `signal` 被转发进守卫，取消语义与改造前同）。
    * @returns 该请求专属的守卫；无需守卫时为 `undefined`。
    */
   private guardOf(request: ModelRequest): RequestStallGuard | undefined {
-    if (this.requestTimeoutMs <= 0 && request.signal === undefined) {
-      return undefined;
-    }
-    return new RequestStallGuard(this.requestTimeoutMs, request.signal);
+    return this.guard.open(request);
   }
 
   /**
    * 把「空闲超时」收敛为**可重试**的结构化错误；其余错误原样返回。
    * 关键区分：`guard.timedOut` 为假即中止来自**调用方取消**（上层意图），必须原样上抛 ——
    * 改造前 `AbortError` 亦不可重试（`isRetryable` 不匹配），语义不变。
-   * 已是 `ModelCallError` 的错误（如 HTTP 4xx/5xx）不覆盖：结构化错误信息量更大，不该被超时顶掉。
    * @param err fetch / 解析阶段抛出的原始错误。
    * @param guard 本次请求的守卫（可为 `undefined`）。
    * @param label 错误消息前缀（区分普通生成与流式生成两条路径）。
@@ -252,33 +253,7 @@ export class OpenAiCompatibleModel implements ModelPort {
     guard: RequestStallGuard | undefined,
     label: string,
   ): unknown {
-    if (guard === undefined || !guard.timedOut || err instanceof ModelCallError) {
-      return err;
-    }
-    return new ModelCallError(`${label}超时：连续 ${this.requestTimeoutMs}ms 无响应`, {
-      retryable: true,
-    });
-  }
-
-  /**
-   * 解析生效的请求空闲超时：显式配置 > 环境变量 > 库级默认。
-   * 环境变量为空串或非有限数字时回落库级默认 —— 不静默变成 `NaN`（否则 `idleMs > 0` 判据会被
-   * NaN 击穿，等于静默关掉整个守卫）。
-   * @param explicit 调用方在 `OpenAiCompatibleConfig.requestTimeoutMs` 显式给出的值（可选）。
-   * @returns 生效的空闲超时毫秒数；`<=0` 语义为关闭空闲超时。
-   */
-  private static resolveRequestTimeoutMs(explicit: number | undefined): number {
-    if (explicit !== undefined) {
-      return explicit;
-    }
-    const raw = process.env[REQUEST_TIMEOUT_ENV_KEY];
-    if (raw !== undefined && raw.trim() !== '') {
-      const parsed = Number(raw);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-    return DEFAULT_REQUEST_TIMEOUT_MS;
+    return this.guard.wrap(err, guard, label);
   }
 
   /** 请求头。
