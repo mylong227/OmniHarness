@@ -355,6 +355,9 @@ export class RepoMapContextEngine {
             query: q,
             candidates: ranked.allFiles,
             fileK: knobs.fileK,
+            // R8：生产路径终于转发 `rerankFloor`（此前该旋钮只存在于 ContextEngine 的入参上，
+            // 生产恒为 floor=0，而文档宣称有个 round(fileK/3) 的默认值）。
+            ...(knobs.rerankFloor !== undefined ? { floor: knobs.rerankFloor } : {}),
           }).files
         : ranked.files;
       return this.formatContext(

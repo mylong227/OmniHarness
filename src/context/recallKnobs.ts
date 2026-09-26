@@ -117,6 +117,16 @@ export interface RepoMapContextOptions {
    */
   readonly rerank?: boolean;
   /**
+   * 重排的头部地板个数（把第一段前 N 个候选钉在原位）。**缺省 0（不设地板）**。
+   *
+   * 接线补齐（2026-09-26 审计 R8）：该旋钮原先只存在于 `ContextEngine.query` 的入参上，
+   * **没有任何生产路径转发它**，`RepoMapContextOptions` 里也没有这个字段 ⇒ 生产链路恒为
+   * floor=0，而文档却宣称有个 `round(fileK/3)` 的默认值（纯属虚构）。现补上字段并在两条
+   * 重排调用点转发，使「文档说的旋钮」真的可达；默认值保持 0（`FileReranker` 实测本语料上
+   * 地板近乎无操作）。
+   */
+  readonly rerankFloor?: number;
+  /**
    * 伪相关反馈（PRF / RM3 风格查询扩展，突破纯词法召回天花板）：用首轮 Top-3 文件的
    * 高频内容词扩展查询再搜一次并并集。**默认 false（opt-in）**：
    * 实测（`evals/recall-precision.mjs`，33 条锚点查询，真实 `src/` 语料）在 fileK=5/10
@@ -154,6 +164,8 @@ export class RecallKnobs {
   public readonly graphWeight: number;
   /** 载荷投送形态：'tiered'（梯度，默认）| 'degrade'（应急压缩）| 'full'（历史全大纲）。 */
   public readonly payloadShape: 'full' | 'tiered' | 'degrade';
+  /** 重排头部地板个数；`undefined` = 不设地板（见 `RepoMapContextOptions.rerankFloor`）。 */
+  public readonly rerankFloor: number | undefined;
 
   /**
    * 解析并冻结全部旋钮（三级：opts > env > 默认）。
@@ -175,6 +187,8 @@ export class RecallKnobs {
     // 载荷投送默认 tiered（梯度）；env OMNI_PAYLOAD=full 全局回退到历史全大纲口径。
     this.payloadShape =
       opts.payloadShape ?? (process.env.OMNI_PAYLOAD === 'full' ? 'full' : 'tiered');
+    // 重排地板：显式给出才生效（缺省不设地板，见字段 JSDoc）。
+    this.rerankFloor = opts.rerankFloor;
   }
 
   /**

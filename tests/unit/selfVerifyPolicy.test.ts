@@ -64,11 +64,32 @@ test('forWorkspace：空 workspaceRoot → 不启用', () => {
 
 test('默认预算保守（超时 / 冷却 / 次数 / 摘要行数）', () => {
   const p = SelfVerifyPolicy.from();
-  assert.strictEqual(p.timeoutMs, 120_000);
+  // 300s（2026-09-26 审计 A3 上调，原 120s）：带构建步骤的测试命令（本仓 npm test = build + 单测）
+  // 两分钟根本不够，实测「首次触发即超时、3 次预算被白烧」⇒ 功能形同不存在。
+  assert.strictEqual(p.timeoutMs, 300_000);
   assert.strictEqual(p.cooldownMs, 60_000);
   assert.strictEqual(p.maxRunsPerSession, 3);
   assert.strictEqual(p.maxDigestLines, 15);
   assert.strictEqual(p.maxOutputBytes, 262_144);
+});
+
+test('超时可由环境变量覆盖，非法值回落默认（不静默变 NaN）', () => {
+  const saved = process.env[SelfVerifyPolicy.TIMEOUT_ENV_KEY];
+  try {
+    process.env[SelfVerifyPolicy.TIMEOUT_ENV_KEY] = '45000';
+    assert.strictEqual(SelfVerifyPolicy.from().timeoutMs, 45_000);
+    for (const bad of ['abc', '-1', '0', 'NaN', 'Infinity', '   ']) {
+      process.env[SelfVerifyPolicy.TIMEOUT_ENV_KEY] = bad;
+      assert.strictEqual(
+        SelfVerifyPolicy.from().timeoutMs,
+        SelfVerifyPolicy.DEFAULT_TIMEOUT_MS,
+        `非法值 ${JSON.stringify(bad)} 应回落默认`,
+      );
+    }
+  } finally {
+    if (saved === undefined) delete process.env[SelfVerifyPolicy.TIMEOUT_ENV_KEY];
+    else process.env[SelfVerifyPolicy.TIMEOUT_ENV_KEY] = saved;
+  }
 });
 
 test('覆盖项生效（含 command）', () => {
