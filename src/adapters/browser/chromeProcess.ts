@@ -104,7 +104,16 @@ export class ChromeProcess {
     ];
     const child = spawn(this.options.executable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     this.child = child;
-    const result = await this.awaitDevToolsUrl(child);
+    let result: ChromeLaunchResult;
+    try {
+      result = await this.awaitDevToolsUrl(child);
+    } catch (error) {
+      // 启动失败（超时 / 提前退出）必须**就地回收**：否则 Chromium 子进程成为孤儿、stdio 管道
+      // 仍被引用（把宿主钉住不退出）、且 `this.child` 不复位 ⇒ 之后每次 launch() 都抛
+      // 「浏览器已在启动中」，而 `process.once('exit')` 兜底钩子此时**还没注册**。
+      this.kill();
+      throw error;
+    }
     this.launched = result;
     ChromeProcess.detach(child);
     // 进程退出钩子：`unref` 之后 Node 可以正常退出，但那样浏览器会被抛在后台成为孤儿。

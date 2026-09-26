@@ -215,9 +215,14 @@ export class Bm25Index {
       if (word.length >= 2) {
         tokens.push(word);
         // 蛇形词按 _ 拆出子词（read_file → read / file），提升子串召回。
-        for (const part of word.split('_')) {
-          if (part.length >= 2) {
-            tokens.push(part);
+        // 只在**真含下划线**时拆：`word.split('_')` 对无下划线的词会返回 `[word]` 自身，
+        // 旧实现无条件拆 ⇒ 每个非蛇形词被 push 两次（tf 与文档长度双双虚高 ~1.26×，
+        // 实测 wholeCorpusTokens 从 80.9 万膨胀到 101.7 万），BM25 的 tf/长度项被系统性扭曲。
+        if (word.includes('_')) {
+          for (const part of word.split('_')) {
+            if (part.length >= 2) {
+              tokens.push(part);
+            }
           }
         }
       }

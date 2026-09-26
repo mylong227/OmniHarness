@@ -280,7 +280,13 @@ export class WorkflowRunner {
   public static computeLevels(steps: readonly WorkflowStep[]): readonly (readonly string[])[] {
     const byId = new Map(steps.map((step) => [step.id, step]));
     if (new Set(steps.map((step) => step.id)).size !== steps.length) {
-      throw new WorkflowCycleError();
+      const seen = new Set<string>();
+      const dupes = new Set<string>();
+      for (const step of steps) {
+        if (seen.has(step.id)) dupes.add(step.id);
+        seen.add(step.id);
+      }
+      throw new WorkflowCycleError(`步骤 id 重复：${[...dupes].join('、')}`);
     }
     const indegree = new Map<string, number>();
     const dependents = new Map<string, string[]>();
@@ -288,7 +294,9 @@ export class WorkflowRunner {
       indegree.set(step.id, step.dependsOn?.length ?? 0);
       for (const dep of step.dependsOn ?? []) {
         if (!byId.has(dep)) {
-          throw new WorkflowCycleError();
+          throw new WorkflowCycleError(
+            `步骤「${step.id}」依赖不存在的步骤「${dep}」（可用步骤：${[...byId.keys()].join('、')}）`,
+          );
         }
         dependents.set(dep, [...(dependents.get(dep) ?? []), step.id]);
       }
@@ -315,7 +323,10 @@ export class WorkflowRunner {
       current = next;
     }
     if (visited.size !== steps.length) {
-      throw new WorkflowCycleError();
+      const stuck = steps.filter((step) => !visited.has(step.id)).map((step) => step.id);
+      throw new WorkflowCycleError(
+        `依赖成环，无法排序的步骤：${stuck.join('、')}（请检查这些步骤之间的 dependsOn）`,
+      );
     }
     return levels;
   }

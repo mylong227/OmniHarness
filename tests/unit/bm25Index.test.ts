@@ -137,3 +137,26 @@ test('k1 / b 覆盖仍可用（同一索引零成本重打分）', () => {
   assert.deepStrictEqual(tuned, bruteForce(DOCS, ['tool', 'sandbox'], 10, 0.8, 0.2));
   assert.notDeepStrictEqual(tuned, base, '不同 k1/b 应改变分数');
 });
+
+test('tokenize 不重复推入：无下划线词只出现一次（tf 与文档长度不被虚高）', () => {
+  // 旧实现无条件 `word.split('_')`，对无下划线词返回 [word] 自身 ⇒ 每个词被 push 两次。
+  // 实测后果：真实语料 wholeCorpusTokens 从 80.9 万膨胀到 101.7 万（1.258×），
+  // BM25 的 tf 与长度归一化项被系统性扭曲，且所有报出的 token 预算都虚高 ~26%。
+  assert.deepStrictEqual(Bm25Index.tokenize('register tool'), ['register', 'tool']);
+  // 蛇形词仍按 _ 拆子词（行为不变），且原词保留。
+  assert.deepStrictEqual(Bm25Index.tokenize('read_file tool'), [
+    'read_file',
+    'read',
+    'file',
+    'tool',
+  ]);
+});
+
+test('tokenize：任意输入下每个词项的出现次数不超过「原词 1 次 + 拆分出的真子词」', () => {
+  const tokens = Bm25Index.tokenize('alpha_widget beta GammaDelta context assembler');
+  const counts = new Map<string, number>();
+  for (const token of tokens) counts.set(token, (counts.get(token) ?? 0) + 1);
+  for (const [token, count] of counts) {
+    assert.strictEqual(count, 1, `词项 ${token} 出现 ${count} 次，说明发生了重复推入`);
+  }
+});

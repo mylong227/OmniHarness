@@ -60,5 +60,12 @@ const HELP_FLAGS: ReadonlySet<string> = new Set(['--help', '-h']);
 const isEntry =
   process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isEntry) {
-  void Exec.main();
+  // `main()` 是浮动 Promise：子命令分发若在 try/catch 之外抛出（例如 `runServe` 启动失败），
+  // 就是一条 unhandledRejection —— Node 22 默认终止进程并打裸栈，用户看不到可行动的提示。
+  // 这里统一收口为「人话 + 非零退出码」。
+  Exec.main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`omniharness: 启动失败：${message}\n`);
+    process.exitCode = 1;
+  });
 }

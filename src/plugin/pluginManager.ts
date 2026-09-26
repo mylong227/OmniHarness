@@ -2,6 +2,7 @@ import type { Container } from '../core/container.js';
 import type { Plugin, PluginApplyContext } from './plugin.js';
 import type { PermissionGate } from './permissionGate.js';
 import type { ToolPort } from '../ports/tool/tool.js';
+import { log } from '../util/logger.js';
 
 /**
  * @beta
@@ -138,11 +139,22 @@ export class PluginManager {
   }
 
   /** 构造插件上下文。 */
-  private createContext(_plugin: Plugin): PluginApplyContext {
+  private createContext(plugin: Plugin): PluginApplyContext {
     return {
       services: this.container,
       onService: (name, handler) => this.onService(name, handler),
-      registerService: (name, service) => void this.registerService(name, service),
+      registerService: (name, service) => {
+        // 必须接住拒绝：`Container.register` 对重名服务**直接抛错**（fail-closed），而这里若是
+        // 火忘式 `void`，插件重复注册就是一条 unhandledRejection —— Node 22 默认**终止进程**。
+        // 插件注册失败应记成一条可观测告警，而不是把宿主带走。
+        void this.registerService(name, service).catch((error: unknown) => {
+          log.warn('plugin.service.registerFailed', {
+            plugin: plugin.meta.name,
+            service: name,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      },
     };
   }
 

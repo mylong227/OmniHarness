@@ -221,3 +221,59 @@ test('ApplyPatchTool：单文件补丁仍可用 path 覆盖 +++ 头目标', asyn
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('ApplyPatchTool：hunk 无增删行（纯上下文）时必须回报「未改变任何文件」', async () => {
+  // 编码能力缺口（2026-09-26）：旧实现无条件回「补丁已应用到 1 个文件」，而此类补丁写入内容与
+  // 原文件逐字节相同 ⇒ 模型把空操作读成「改好了」，后续自证与结论全建立在假事实上。
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-patch-'));
+  try {
+    const original = 'a\nb\nc';
+    await writeFile(join(dir, 'f.txt'), original, 'utf8');
+    const patch = ['--- a/f.txt', '+++ b/f.txt', '@@ -1,3 +1,3 @@', ' a', ' b', ' c'].join('\n');
+    const tool = new ApplyPatchTool(dir);
+    const result = await tool.handle(
+      { id: 'c1', name: 'apply_patch', arguments: { patch } },
+      context,
+    );
+    assert.strictEqual(result.ok, true, '补丁本身可解析、可落位，不算工具失败');
+    assert.match(result.output ?? '', /未改变任何文件/);
+    assert.strictEqual(await readFile(join(dir, 'f.txt'), 'utf8'), original);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ApplyPatchTool：多文件补丁如实区分「变更」与「无变化」', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-patch-'));
+  try {
+    await writeFile(join(dir, 'one.txt'), 'a\nb\nc', 'utf8');
+    await writeFile(join(dir, 'two.txt'), 'x\ny\nz', 'utf8');
+    const patch = [
+      '--- a/one.txt',
+      '+++ b/one.txt',
+      '@@ -1,3 +1,3 @@',
+      ' a',
+      '-b',
+      '+B',
+      ' c',
+      '--- a/two.txt',
+      '+++ b/two.txt',
+      '@@ -1,3 +1,3 @@',
+      ' x',
+      ' y',
+      ' z',
+    ].join('\n');
+    const tool = new ApplyPatchTool(dir);
+    const result = await tool.handle(
+      { id: 'c1', name: 'apply_patch', arguments: { patch } },
+      context,
+    );
+    assert.strictEqual(result.ok, true);
+    assert.match(result.output ?? '', /变更 1 个文件: one\.txt/);
+    assert.match(result.output ?? '', /无变化（two\.txt）/);
+    assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'a\nB\nc');
+    assert.strictEqual(await readFile(join(dir, 'two.txt'), 'utf8'), 'x\ny\nz');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

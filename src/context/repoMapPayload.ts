@@ -126,7 +126,10 @@ export class RepoMapPayload {
       const named = !full && i < plan.fullTier + plan.nameTier;
       if (full) {
         const outline = RepoMap.outlineText(view.byFile.get(rel) ?? []);
-        if (outline !== '') parts.push(outline);
+        // 零符号文件（`index.ts` / `context/index.ts` 等纯再导出模块）大纲为空：**仍要给路径行**。
+        // 旧实现直接 `continue` 会把它整个从载荷里抹掉，与模块头「梯度档对每个命中文件都显式给一行
+        // 📄 路径」的承诺不符——模型看不到该文件被检索命中，也就不会去读它（白丢一次召回）。
+        parts.push(outline !== '' ? outline : `📄 ${rel}`);
         continue;
       }
       parts.push(`📄 ${rel}`);

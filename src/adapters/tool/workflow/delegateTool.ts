@@ -34,14 +34,19 @@ export class DelegateTool {
   /** 委派任务。
    * @param call 工具调用（实参含 worker 与 task）。
    * @param context 工具上下文（workspaceRoot 传给 worker 作执行目录）。
-   * @returns 执行结果：worker 输出加名称前缀；委派异常返回失败。
+   * @returns 执行结果：worker 输出加名称前缀；worker 失败时**原因同时进 error**（否则模型看不到）；委派异常返回失败。
    */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const worker = String(call.arguments['worker'] ?? '');
     const task = String(call.arguments['task'] ?? '');
     try {
       const result = await this.orchestrator.delegate({ worker, task }, context.workspaceRoot);
-      return { callId: call.id, ok: result.ok, output: `[${worker}] ${result.output}` };
+      // worker 失败时**必须同时给 error**：`ContextAssembler` 对 ok=false 只渲染 `error`
+      // （`工具执行失败: ${error ?? '未知错误'}`），把原因塞进 output 等于丢掉——实测 worker
+      // 的「退出码 1 + stderr」会变成「未知错误」，模型无从自修（任务拆解能力的真实瓶颈）。
+      return result.ok
+        ? { callId: call.id, ok: true, output: `[${worker}] ${result.output}` }
+        : { callId: call.id, ok: false, error: `[${worker}] ${result.output}` };
     } catch (error) {
       return { callId: call.id, ok: false, error: this.messageOf(error) };
     }

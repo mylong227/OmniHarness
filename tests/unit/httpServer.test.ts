@@ -273,3 +273,36 @@ test('GET /healthz：存活探针恒 200，不依赖任何可选能力', async (
     await server.close();
   }
 });
+
+test('start()：端口被占用时必须 reject（而不是 uncaughtException + Promise 永不 settle）', async () => {
+  // 稳定性缺口（2026-09-26 审计 S9）：`server.listen` 失败不走 listen 回调，而是把 'error'
+  // 事件抛到 Server 对象上——无人监听时它既是 uncaughtException（进程直接死），又让 start()
+  // 的 Promise 永不 settle（调用方连报错的机会都没有）。本用例先占住一个端口，再断言 reject。
+  const first = await startTestServer();
+  try {
+    const config = ConfigFactory.build({
+      workspaceRoot: tempWorkspace(),
+      maxSteps: 4,
+      model: new MockModel(),
+      storage: new MemoryStorage(),
+      approvals: new AutoApproval(),
+      sandbox: new PassthroughSandbox(),
+      events: new SilentEventPort(),
+    });
+    const bridge = new HttpBridgeTransport();
+    const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
+    const second = new HttpServer({
+      app,
+      bridge,
+      webDir: resolve(process.cwd(), 'web'),
+      host: '127.0.0.1',
+    });
+    await assert.rejects(
+      () => second.start(first.port),
+      (error: unknown) => error instanceof Error && /EADDRINUSE/.test(error.message),
+      '端口占用应 reject 出 EADDRINUSE，而不是静默挂起或让进程崩溃',
+    );
+  } finally {
+    await first.server.close();
+  }
+});

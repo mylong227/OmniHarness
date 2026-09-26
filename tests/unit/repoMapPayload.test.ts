@@ -187,6 +187,44 @@ test('确定性：同输入两次调用逐字相同', () => {
   }
 });
 
+test('零符号文件在完整档也必须出一行路径（否则被整个抹掉，白丢一次召回）', () => {
+  // 现场：16/583 个语料文件零声明符号（`index.ts` / `context/index.ts` / `a2a/index.ts` …）。
+  // 旧实现在完整档（Top-3）对 outline === '' 直接 continue ⇒ 该文件在载荷里**完全消失**，
+  // 与模块头「梯度档对每个命中文件都显式给一行 📄 路径」的承诺相矛盾——模型看不到它被命中，
+  // 也就不会去读它。修复：大纲为空时回落为路径行。
+  const files: Record<string, string> = {
+    'barrel.ts': ['export * from "./alpha.js";', 'export * from "./beta.js";'].join('\n'),
+    'alpha.ts': ['export function alphaWidget(): void {', '  return;', '}'].join('\n'),
+    'beta.ts': ['export function betaWidget(): void {', '  return;', '}'].join('\n'),
+  };
+  const { dir, corpus } = Fixture.build(files);
+  try {
+    // 前置条件：barrel.ts 确实零声明符号（否则本用例测不到目标分支）。
+    assert.strictEqual(
+      corpus.symbols.filter((s) => s.file === 'barrel.ts').length,
+      0,
+      '前置条件：barrel.ts 应零声明符号',
+    );
+    const text = RepoMapPayload.assemble(
+      {
+        corpus,
+        files: ['barrel.ts', 'alpha.ts', 'beta.ts'],
+        symbols: corpus.symbols.slice(0, 2),
+        query: 'widget',
+      },
+      RepoMapPayload.DEFAULT_PLAN,
+    );
+    assert.ok(text.includes('📄 barrel.ts'), '零符号文件必须仍以路径行出现');
+    assert.deepStrictEqual(
+      docPaths(text),
+      ['barrel.ts', 'alpha.ts', 'beta.ts'],
+      '文件集合与顺序不得改变（只换呈现）',
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('应急压缩档：只留 Top-1 完整大纲，文件集合仍不变且 token 更少', () => {
   const { dir, corpus } = Fixture.build(Fixture.twelve());
   try {

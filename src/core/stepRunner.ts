@@ -141,7 +141,12 @@ export class StepRunner {
       if (text === undefined || text.trim() === '') return undefined;
       this.deps.recorder.assistant(text, output.reasoning);
       return text;
-    } catch {
+    } catch (error) {
+      // 兜底收尾失败必须**留痕**：吞掉异常后本回合会以「没有任何输出」结束，用户与事后排障都
+      // 看不到原因（本文件其他失败路径均有日志，唯独这里没有）。
+      log.warn('step.finalize.failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return undefined;
     }
   }
