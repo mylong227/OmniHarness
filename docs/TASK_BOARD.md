@@ -2915,7 +2915,25 @@ fileK=20 / 生产纯 BM25 口径 / 确定性 bootstrap 2000 次）**：
 ### 22.8 本轮提交与门禁
 
 - 只读审计 5 份（检索 / 缓存 / 编码 / 拆解 / 稳定性），全部要求 `文件:行 + 引用代码` 证据；
-- 修复分 3 笔提交（判分链路 / 缓存 wire 前缀 / 本轮汇总），每笔附可证伪测试；
-- 门禁：typecheck、build、eslint（0 告警）、`audit:standard:delta`、`check --strict` 全绿；
-- 本机全量单测 2203+ 例（唯一失败为**真机 Chrome 截图 e2e**：本机已有 50 个 chrome 进程，
-  Chrome 以 code=0 提前退出——**环境性**，与本批改动无关，已如实登记）。
+- 修复分 3 笔提交（判分链路 `c1ec882` / 缓存 wire 前缀 `3734092` / 本轮汇总 `8a71092`），每笔附可证伪测试；
+- 门禁全绿：`tsc` / `build` / `eslint --max-warnings=0` / `check --strict`（零违规）/
+  `arch:gate`（0 违规）/ `audit:maturity` / `audit:standard:delta` / `api:check` / `docLinkCheck`（死链 0）/
+  `audit:config-wiring`（584 文件接线完整）；
+- **本机全量单测 2214 例：2208 通过 / 1 失败 / 5 跳过**。唯一失败是**真机 Chrome 截图 e2e**（`browserScreenshotTool.test.ts`）。
+
+**该失败的定性（已实测到根因，非代码缺陷）**：本机 Chrome 为 **154.0.8037.58**，**仓外最小复现**——
+用与本仓相同的旗标直接起 `chrome.exe --headless=new --disable-gpu … --remote-debugging-port=0 --user-data-dir=<临时目录> about:blank`，
+进程 **立即退出（code=0）且 stderr 为空**（换 `--headless` / `--headless=old` 同样）。
+即该机器当前的 headless Chrome 根本起不来，与本批改动无关（本批无任何文件落在浏览器路径上）。
+**顺带修掉的真实缺陷**：`ChromeProcess.launch` 在启动失败时不回收子进程、不复位 `this.child`、
+且兜底 `process.once('exit')` 钩子此时尚未注册 ⇒ 反复失败会**持续累积孤儿 Chrome 进程**
+（本机当前已有 50 个 chrome 进程）并让后续 `launch()` 恒报「浏览器已在启动中」。
+修复 + 单测见 `tests/unit/chromeProcessCleanup.test.ts`（2 例）。
+
+### 22.9 另外两处 Chrome 依赖项的环境失败 + 一处**真 flake**（如实登记）
+
+| 项                                                  | 现象                                                                                             | 定性                                                                                                                                                                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web/test/e2e.test.mjs`（`npm run web:test` 87 号） | DOM 里找不到 `E2E_RESULT:` 标记（`--dump-dom` 输出为空）                                         | **同一 Chrome 根因**。注意该用例的守卫只判「浏览器是否存在」（`findBrowser()` 非空即跑），不判「是否可用」——故浏览器存在但起不来时是**失败**而非跳过。这是守卫口径的已知边界，未擅自改成跳过（那会把真回归也一起掩盖） |
+| `tests/integration/liveUiE2e.test.js`               | 单跑 **1/1 通过**；全量 integration 一起跑时**偶发失败**（本次 11 例中挂 1 例，重跑 11/11 通过） | **真 flake（并发/顺序相关）**，与 Chrome 环境叠加放大。修法方向：给集成里的浏览器 e2e 串行化或加可用性预检。已登记，未在本批动                                                                                         |
+| `tests/unit/browserScreenshotTool.test.js` 真机 e2e | 同上（Chrome 起不来）                                                                            | 同 Chrome 根因                                                                                                                                                                                                         |
