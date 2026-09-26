@@ -79,11 +79,19 @@ export class PlanWriteTool {
         ? { title: call.arguments['title'] as string, steps }
         : { steps };
     this.plan.write(draft);
-    this.events?.emit(this.eventFactory.plan(ctx.sessionId, this.plan.get()));
+    const state = this.plan.get();
+    this.events?.emit(this.eventFactory.plan(ctx.sessionId, state));
+    // 如实回报**实际**状态（2026-09-26 审计 F14）：步骤集合未变时已批准的计划会保持 approved
+    // （否则「汇报进度」这一步会把写类工具重新锁死），此时不该再谎称「状态 drafting」。
+    const status = state?.status ?? 'drafting';
+    const hint =
+      status === 'approved'
+        ? '计划已批准且步骤未变，保持批准态（可直接继续执行；改步骤集合才需要重新呈现审批）。'
+        : '用 plan_present 呈现审批。';
     return {
       callId: call.id,
       ok: true,
-      output: `计划已起草（${steps.length} 步，状态 drafting）；用 plan_present 呈现审批。`,
+      output: `计划已起草（${String(steps.length)} 步，状态 ${status}）；${hint}`,
     };
   }
 }
