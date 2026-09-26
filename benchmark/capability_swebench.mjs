@@ -40,9 +40,15 @@ import { EditDriftDetector } from '../dist/src/eval/editDriftDetector.js';
 import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
 import { ReasoningRouter } from '../dist/src/eval/reasoningRouter.js';
 import { SWEBENCH_LITE_TASKS, buildEnhancedTasks } from './swebenchTasks.mjs';
+import { assertKnownFlags } from './lib/flagGuard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dirname, 'capability-swebench.json');
+
+// 未知旗标 fail-closed（与 predict 脚本同一纪律）：本脚本的信任闸就是 `--gold-control` / `--gold-report`，
+// 一旦把旗标名拼错，闸会**静默失效**、报告仍照常出分——那正是「不可信的分数被当成绩效」的入口。
+// 白名单由本文件里真正被解析的旗标扫出（见 lib/flagGuard.mjs）。
+assertKnownFlags(import.meta.url);
 
 // 增强提示：要求用 read_file + apply_patch 工具完成修复（规范 agent 工具使用，不泄露答案）。
 // 这是合理的 agent 引导（对标成熟 agent 的 system 指令），仅规范工具使用方式。
