@@ -2693,15 +2693,17 @@ fail-closed 日志**（`semantic index build failed`），没有产出「语义�
 验通了**（产物格式、pins 生效、gold 报告复核都实测过），而不是给出 3/3 的能力分。
 剩余 17 题在后台按同一协议续跑（`--resume`，产物 `eval-data/preds_product_bestof4.jsonl`）。
 
-**产品口径付费批次进展（截至本轮）**：预测 **16/20**、判分 **15/16 resolved（93.8%）**、模型失败 1、环境失败 0；
-判分侧每次都打印「本次 N 个实例全部通过 gold 对照」⇒ 这些通过/未通过都不是判分链路幻觉。
+**产品口径付费批次结果（已跑完）**：预测 **20/20**、判分 **19/20 resolved（95.0%）**、模型失败 1、环境失败 0；
+判分侧打印「本次 20 个实例全部通过 gold 对照」⇒ 这些判定不是判分链路幻觉。
 
 - 唯一失败 `sympy__sympy-18698` 是**真实模型失败**：`FAIL_TO_PASS 1/1` 通过但 `PASS_TO_PASS 146/147`
   （补丁打破了此前通过的 `test_sqf`）——正是本会话新增「失败必带原因」的价值：没有原因字段这条会被读成
   「sympy 不行」，真相是「补丁过宽」。
-- 成本实测（已退出部分）：pilot 3 题 1,237,849 + worker B 4 题 1,918,109 = **3,155,958 token（≈451K/题）**
-  ⇒ 20 题外推 ≈9.0M。⚠️ 缺口：worker 的 token 只在**整批结束**写进 `*.report.json`，而 `*.jsonl`
-  只存 `instance_id + model_patch` ⇒ 中途 kill 会丢 token 记录（补丁不丢）。
-- **剩余 4 题**（均为 django）在后台 worker A（job `pwsh-25`）继续跑；产物 `preds_product_bestof4.jsonl` **逐题落盘**、
-  支持 `--resume`。跑完后的收尾命令与陷阱（续判 `--instance-list` 只能给「已有预测」的实例）见
-  `docs/SWEBENCH_PRODUCT_RUN.md` §3.2。
+- 成本实测：18 题有记录 = **7,571,667 token（≈421K/题）**；另 2 题的 token 记录因早期 worker 被 kill 丢失
+  （补丁没丢）⇒ 20 题估 **≈8.4M token**；判分成本 0（本地）。⚠️ 缺口成因：token 只在 worker 整批退出时写进
+  `*.report.json`，而预测产物 `*.jsonl` 只存 `instance_id + model_patch`。
+- **`--self-test` 自纠环本批一次未触发**（20 题的最佳奖励全为 1，即 best-of-4 里已有候选把 F2P 全跑绿）
+  ⇒ 本批成绩来自 **best-of-4 的候选选择**，自纠环增益**本批无数据**（需更难任务集或 N=1 对照臂）。
+- **口径**：子集口径（20/500），且集中在判分链路已被 gold 背书的三个仓库 ⇒ 不可与官方满分榜比较；
+  与 §21.6 那个「1/30」**不可直接对比**（旧数字是单候选 + 坏判分链路，已判为不可解读）。
+- 全流程留档见 `docs/SWEBENCH_PRODUCT_RUN.md`（协议、成本、逐题结果、复现命令、续判陷阱）。
