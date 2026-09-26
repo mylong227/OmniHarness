@@ -72,3 +72,47 @@ test('RequestStallGuard：中止后 touch 不再重新武装', async () => {
   assert.strictEqual(guard.signal.aborted, true);
   guard.dispose();
 });
+
+test('RequestStallGuard：dispose 后不得再中止（泄漏的定时器/监听器不得影响已收尾的请求）', async () => {
+  const guard = new RequestStallGuard(120);
+  guard.dispose();
+  await wait(260);
+  assert.strictEqual(guard.signal.aborted, false, 'dispose 之后定时器不得再触发中止');
+  assert.strictEqual(guard.timedOut, false);
+});
+
+test('RequestStallGuard：长寿命外部信号上不留监听器（复用同一 signal 不得累积闭包）', () => {
+  const controller = new AbortController();
+  // 模拟会话级取消令牌：同一个 signal 被成百上千次请求复用。
+  const counts = { added: 0, removed: 0 };
+  const originalAdd = controller.signal.addEventListener.bind(controller.signal);
+  const originalRemove = controller.signal.removeEventListener.bind(controller.signal);
+  controller.signal.addEventListener = (...args) => {
+    counts.added += 1;
+    return originalAdd(...args);
+  };
+  controller.signal.removeEventListener = (...args) => {
+    counts.removed += 1;
+    return originalRemove(...args);
+  };
+
+  for (let i = 0; i < 50; i += 1) {
+    const guard = new RequestStallGuard(10_000, controller.signal);
+    guard.dispose();
+  }
+  assert.ok(counts.added > 0, '前置条件：守卫应转发外部信号');
+  assert.strictEqual(
+    counts.removed,
+    counts.added,
+    `addEventListener/removeEventListener 必须成对：added=${counts.added} removed=${counts.removed}`,
+  );
+});
+
+test('RequestStallGuard：dispose 之后外部取消不得再中止已收尾的请求', async () => {
+  const controller = new AbortController();
+  const guard = new RequestStallGuard(10_000, controller.signal);
+  guard.dispose();
+  controller.abort();
+  await wait(20);
+  assert.strictEqual(guard.signal.aborted, false, '转发器已摘除 ⇒ 不再联动中止');
+});
