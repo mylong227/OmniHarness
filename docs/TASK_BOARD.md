@@ -2707,3 +2707,28 @@ fail-closed 日志**（`semantic index build failed`），没有产出「语义�
 - **口径**：子集口径（20/500），且集中在判分链路已被 gold 背书的三个仓库 ⇒ 不可与官方满分榜比较；
   与 §21.6 那个「1/30」**不可直接对比**（旧数字是单候选 + 坏判分链路，已判为不可解读）。
 - 全流程留档见 `docs/SWEBENCH_PRODUCT_RUN.md`（协议、成本、逐题结果、复现命令、续判陷阱）。
+
+### 21.24 剩余项收口（一）：xarray 从「环境保真度」里抢回 1 题 + 成本账不再随 kill 丢
+
+**① `pydata/xarray` 加 pin `pandas<2` ⇒ 多出 1 个 gold 可信实例**（可信子集 20 → **21**）。
+
+- **根因**：默认 `-e .` 在 Python 3.8 上把 pandas 解析到 **2.x**，而 xarray 0.12 / 2022.06 的
+  `concat`/`merge`/`resample` 语义与 pandas 2 不兼容 ⇒ 大量**本应通过**的 P2P 变成 FAILED
+  （不是缺依赖导致的 skip，是**真的失败**：dump 出来 3151 是 `10 failed`）。
+- **实测**（`--gold-control`，逐条可复现）：`pydata__xarray-3151`（0.12）**由 not-resolved 变为
+  resolved=true**（P2P **56/66 → 66/66**）；`pydata__xarray-6992`（2022.06）P2P 825/945 → **843/945**
+  （passed 836→854、failed **19→1**），**仍未 resolved**。
+- **另一候选被否**：`pandas<1.1` 实测**更差** —— 3151 直接 `collected 0 items / 1 error`（collection error）
+  ⇒ 保留 `pandas<2`。**两个方向都实测过才定案**，不是猜的。
+- **残余已定量**（6992）：**1 个真实失败** + **109 个 skip**（需 dask / scipy / bottleneck / numexpr /
+  cftime / pint / flox / sparse；iris / cdms2 / cupy 本机不可得）⇒ 属**环境保真度**（官方用预建 conda
+  镜像装齐），与 astropy/matplotlib/scikit-learn 那 6 题同类，**不是判分链路缺陷**。
+- **口径影响（重要）**：可信子集现在是 **21 题**，而付费产品口径批次是在**当时可信的 20 题**上跑的
+  ⇒ 批次覆盖 20/21。**刻意不为新实例补跑单臂**：对照实验（best-of-N vs N=1）必须是**配对**的，
+  只给一臂加题会破坏配对；要纳入就两臂一起加（1 题 ≈ 420K token）。
+
+**② 预测产物的成本账不再随 kill 丢失**：此前 token 只在**整批结束**写进 `*.report.json`，而 `*.jsonl`
+只存 `instance_id + model_patch` ⇒ 中途 kill 会丢已完成实例的 token 记录（本批**真的丢了 2 题**）。
+现每题的 `prompt_tokens / completion_tokens / rounds / best_of_n / duration_ms` **随补丁一起逐题落盘**，
+`--resume` 也会读回。**零成本自证**：合成一条带 token 字段的产物 → `--resume` 跑一次无待办批次 →
+往返后字段原样保留（实测通过）。

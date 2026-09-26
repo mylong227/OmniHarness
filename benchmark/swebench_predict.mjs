@@ -1211,6 +1211,11 @@ let totalMapChars = 0;
 // 每实例落盘后整文件重写（而非 append）：同 id 新结果覆盖旧值，文件恒与内存态一致，
 // 中途被杀也不丢已完成实例——此前「启动即 writeFileSync 清空」曾把 13 条真实成果置于险境。
 const patchById = new Map();
+// 每实例的**成本/过程**记录（token、轮数、耗时）。为什么要落进同一个文件（2026-09-26 实测教训）：
+// token 此前只在**整批结束**写进 `*.report.json`，而产物 jsonl 只存 `instance_id + model_patch`
+// ⇒ 一旦中途 kill（本批真发生过），已完成实例的 token 记录**永久丢失**（补丁还在）。
+// 现随补丁一起逐题落盘，kill 也不再丢成本账；且 `--resume` 会把它一并读回。
+const tokensById = new Map();
 if (opts.resume && existsSync(opts.out)) {
   for (const line of readFileSync(opts.out, 'utf8').split('\n')) {
     const t = line.trim();
@@ -1219,6 +1224,15 @@ if (opts.resume && existsSync(opts.out)) {
       const obj = JSON.parse(t);
       if (typeof obj.instance_id === 'string' && typeof obj.model_patch === 'string') {
         patchById.set(obj.instance_id, obj.model_patch);
+        if (typeof obj.prompt_tokens === 'number') {
+          tokensById.set(obj.instance_id, {
+            prompt_tokens: obj.prompt_tokens,
+            completion_tokens: obj.completion_tokens ?? 0,
+            rounds: obj.rounds ?? 0,
+            best_of_n: obj.best_of_n ?? undefined,
+            duration_ms: obj.duration_ms ?? 0,
+          });
+        }
       }
     } catch {
       // 半截行（上次被杀时写坏）：忽略，该实例按未完成重跑。
@@ -1236,7 +1250,7 @@ const writeOut = () => {
   writeFileSync(
     opts.out,
     [...patchById.entries()]
-      .map(([id, p]) => JSON.stringify({ instance_id: id, model_patch: p }))
+      .map(([id, p]) => JSON.stringify({ instance_id: id, model_patch: p, ...tokensById.get(id) }))
       .join('\n') + '\n',
     'utf8',
   );
@@ -1348,6 +1362,14 @@ for (const task of pending) {
     const applied = checkPatch(wt, diff).ok;
 
     patchById.set(task.id, diff);
+    // 成本/过程随补丁一起落盘（kill 也不丢；见 tokensById 的注释）。
+    tokensById.set(task.id, {
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      rounds,
+      best_of_n: opts.bestOfN,
+      duration_ms: Date.now() - t0,
+    });
     writeOut();
     records.push({
       id: task.id,
