@@ -12,7 +12,8 @@ import { ArrayAt } from '../../util/arrayAt.js';
  */
 
 /** 失控检测类型。 */
-export type LoopViolationKind = 'exact-repeat' | 'cycle' | 'wall-clock';
+export type LoopViolationKind =
+  'exact-repeat' | 'cycle' | 'wall-clock' | 'edit-oscillation' | 'edit-thrash';
 
 /** 一次观测输入：本步模型产出（空步不观测）。 */
 export interface LoopObservation {
@@ -74,7 +75,27 @@ const NUDGE_TEXT: Record<LoopViolationKind, string> = {
     '【失控预警】检测到你在两个及以上工具之间循环往复（A→B→A→B）。请打破循环：重新评估当前进度，换一条完全不同的路径，或直接总结已有信息给出结论。',
   'wall-clock':
     '【超时预警】本任务运行时间已达上限。请立即基于已获得的信息收尾：给出当前结论与剩余风险说明，不要再开启新的探索。',
+  'edit-oscillation':
+    '【失控预警】检测到你在同一个文件上来回改写（改回先前的内容形态）。请停下来读一遍当前文件，明确你要达成的那一种形态，一次改到位；若两次改动互相矛盾，先说明为什么。',
+  'edit-thrash':
+    '【失控预警】检测到你在短时间内反复重写同一个文件。请停止试错式改写：先 read_file 看现状、想清楚目标，再一次性改完；必要时缩小改动范围。',
 };
+
+/**
+ * 写类工具名 → 目标文件与「写入内容指纹」的抽取判据。
+ *
+ * 为什么需要它（2026-09-26 审计 A5）：循环守卫原先只认「名 + 规范化参数」的**字节等价**签名，
+ * 而 `edit` / `apply_patch` 的振荡（A→B→A）只要有一个字节不同就完全不可见 —— 模型可以无限
+ * 来回改同一个文件而守卫一声不响。这里改成按**文件维度**看内容指纹的重复与重现。
+ */
+const WRITE_TOOL_NAMES = new Set(['edit', 'write_file', 'apply_patch']);
+
+/** 指纹窗口（最近 N 次写操作）；与 cycleWindow 同一量级。 */
+const EDIT_WINDOW = 24;
+/** 同文件指纹重现（中间隔了别的形态）即判振荡。 */
+const EDIT_OSCILLATION_MIN_EDITS = 3;
+/** 窗口内同文件写入次数上限，超过即判抖动。 */
+const EDIT_THRASH_MAX_PER_FILE = 6;
 
 export class LoopGuard {
   /** 同调用（名+规范化参数）连续重复上限；0 = 关闭该检测器。 */
@@ -90,6 +111,8 @@ export class LoopGuard {
 
   /** 最近工具调用序列（规范化后），供循环窗口检测。 */
   private readonly callSeq: string[] = [];
+  /** 最近写操作序列（文件 + 写入内容指纹），供文件维度失控检测（A5）。 */
+  private readonly editLog: { readonly file: string; readonly fp: string }[] = [];
   /** 各检测器连续触发计数（nudge 升级 abort 用）。 */
   private readonly streaks = new Map<LoopViolationKind, number>();
   /** 会话起点：取首次观测的 ts（时间轴由调用方驱动，可测试注入）；无 ts 用挂钟。 */
@@ -130,9 +153,116 @@ export class LoopGuard {
     if (this.cycleWindow > 0 && this.hasCycle()) {
       return this.decide('cycle');
     }
+    // 文件维度的失控（A5）：签名级检测看不见「改了 A 又改回 A」这类振荡，必须另看一眼。
+    const editViolation = this.observeEdits(observation.toolCalls);
+    if (editViolation !== undefined) {
+      return this.decide(editViolation);
+    }
     // 本步观测健康 → 清零全部连续计数（nudge 只认「连续」违规）。
     this.streaks.clear();
     return { kind: 'allow' };
+  }
+
+  /**
+   * 观测本步的**写操作**，判定是否存在「同文件振荡」或「同文件抖动」。
+   *
+   * 判据基于**写入内容指纹**（而非整个调用签名）：振荡 = 同一文件的某个指纹在≥1 个中间形态
+   * 之后重现（A→B→A）；抖动 = 窗口内同一文件被写超过阈值次。
+   * @param calls 本步工具调用序列。
+   * @returns 命中的违规类型；健康返回 undefined。
+   */
+  private observeEdits(
+    calls: readonly {
+      readonly name: string;
+      readonly arguments: Record<string, unknown>;
+    }[],
+  ): LoopViolationKind | undefined {
+    for (const call of calls) {
+      if (!WRITE_TOOL_NAMES.has(call.name)) {
+        continue;
+      }
+      const target = LoopGuard.writeTargetOf(call.name, call.arguments);
+      if (target === undefined) {
+        continue;
+      }
+      this.editLog.push({ file: target, fp: LoopGuard.fingerprintOf(call.arguments) });
+      if (this.editLog.length > EDIT_WINDOW) {
+        this.editLog.splice(0, this.editLog.length - EDIT_WINDOW);
+      }
+    }
+    if (this.editLog.length < EDIT_OSCILLATION_MIN_EDITS) {
+      return undefined;
+    }
+    // 抖动优先：同文件写入过于频繁，先劝停再谈形态。
+    const perFile = new Map<string, number>();
+    for (const entry of this.editLog) {
+      perFile.set(entry.file, (perFile.get(entry.file) ?? 0) + 1);
+    }
+    for (const count of perFile.values()) {
+      if (count > EDIT_THRASH_MAX_PER_FILE) {
+        return 'edit-thrash';
+      }
+    }
+    // 振荡：把该文件的指纹序列压成「连续去重」后的形态，若其中出现重复 ⇒ A→B→A。
+    const last = ArrayAt.at(this.editLog, this.editLog.length - 1);
+    const sequence: string[] = [];
+    for (const entry of this.editLog) {
+      if (entry.file !== last.file) {
+        continue;
+      }
+      const tail = sequence[sequence.length - 1];
+      if (tail !== entry.fp) {
+        sequence.push(entry.fp);
+      }
+    }
+    return new Set(sequence).size < sequence.length ? 'edit-oscillation' : undefined;
+  }
+
+  /**
+   * 取写操作的目标文件（相对路径原样，不做路径归一 —— 归一需要 IO，而本类刻意无 IO）。
+   * @param toolName 工具名。
+   * @param args 工具参数。
+   * @returns 目标文件标识；无法判定时 undefined（跳过该次观测，不误报）。
+   */
+  private static writeTargetOf(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): string | undefined {
+    const path = args['path'];
+    if (typeof path === 'string' && path !== '') {
+      return path;
+    }
+    if (toolName !== 'apply_patch') {
+      return undefined;
+    }
+    // apply_patch 可能不给 path：从补丁头里取第一个 `+++ b/<target>`。
+    const patch = args['patch'];
+    if (typeof patch !== 'string') {
+      return undefined;
+    }
+    const match = /^\+\+\+ b\/(.+)$/m.exec(patch);
+    return match?.[1]?.trim();
+  }
+
+  /**
+   * 取「写入内容」的指纹：对三个写工具各自的内容字段做 FNV-1a（32 位十六进制）。
+   *
+   * 为什么不直接复用 `canonicalArgs`：那个会**掩码高熵串**（uuid / 长 hex），而补丁与代码片段
+   * 恰恰属于此类 —— 掩码后所有大改动会长得一样，振荡就永远检测不到了。
+   * @param args 工具参数。
+   * @returns 稳定的短指纹（内容缺失时为固定标记）。
+   */
+  private static fingerprintOf(args: Record<string, unknown>): string {
+    const parts = [args['content'], args['new_string'], args['patch'], args['old_string']].filter(
+      (value): value is string => typeof value === 'string',
+    );
+    const text = parts.join('\u0000');
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
   }
 
   /** 检测触发计数 +1 并产出决策。wall-clock 到点直接熔断（时间已尽，nudge 无意义，
