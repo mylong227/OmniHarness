@@ -96,3 +96,32 @@ test('attemptRecovery 保守：窗口仍有失败不强行升；健康恢复后�
   for (let i = 0; i < 4; i += 1) s.report('shell', 'success');
   assert.strictEqual(s.mode(), 'nominal');
 });
+
+test('F16：attemptRecovery 在统计未转好时不动，转好后只回升一级（逐级语义）', () => {
+  // 口径（2026-09-26 审计 F16）：自动回落是有意设计（见下一条与既有用例 8），
+  // 本方法只是给调用方的**显式提前量**，语义是「至多回升一级」。
+  const s = new SupervisorKernel({
+    windowSize: 8,
+    safeThreshold: 0.5,
+    lockAfterConsecutiveFailures: 100,
+  });
+  for (let i = 0; i < 8; i += 1) s.report('shell', 'failure');
+  assert.strictEqual(s.mode(), 'safe', '前置条件：高失败率应到 safe');
+  assert.strictEqual(s.attemptRecovery(), 'safe', '窗口满是失败 ⇒ 不得回升');
+  for (let i = 0; i < 4; i += 1) s.report('shell', 'success');
+  // 窗口 4/8 = 0.5 失败率（未越 safeThreshold）⇒ 允许回升一级。
+  const after = s.attemptRecovery();
+  assert.ok(after === 'degraded' || after === 'nominal', `应回升（实际 ${after}）`);
+});
+
+test('F16：健康向量转好时**会**自动回落（口径按事实登记，非单向收紧）', () => {
+  const s = new SupervisorKernel({
+    windowSize: 4,
+    safeThreshold: 0.5,
+    lockAfterConsecutiveFailures: 100,
+  });
+  s.report('shell', 'failure');
+  assert.strictEqual(s.mode(), 'safe');
+  for (let i = 0; i < 4; i += 1) s.report('shell', 'success');
+  assert.strictEqual(s.mode(), 'nominal', '窗口全成功后自动回落（既有语义，文档已按事实更正）');
+});
