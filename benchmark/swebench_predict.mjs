@@ -1047,14 +1047,11 @@ async function runSbfl(wt, venvPython, task) {
   const tInstall = Date.now();
   installPytestCov(wt, venvPython);
   const tAfterInstall = Date.now();
-  if (RepoTestSpecs.for(task.repo) !== null) {
-    // 该仓库的判定走专属 runner（如 django 的 runtests.py，非 pytest）⇒ `pytest --cov` 不成立。
-    // 显式告警而非静默返回空：否则与「跑了但没命中」无法区分。
-    console.warn(
-      `  ⚠️ --sbfl：${task.repo} 走 per-repo 测试命令（非 pytest），覆盖率定位尚未适配 ⇒ 本次未前置任何文件。`,
-    );
-    return [];
-  }
+  // per-repo 运行器（如 django 的 `./tests/runtests.py`，非 pytest）用 **`coverage run`** 采集覆盖率：
+  // `pytest --cov` 对它不成立（根本不是 pytest 在跑），所以此前只能显式告警 + 跳过 —— 而这恰好意味着
+  // **我们最可信的那批实例（django 14 题）用不上 SBFL**。2026-09-26 补齐：同一个 `spec.argsOf()` 交出的
+  // 测试命令，前面挂 `-m coverage run --source=.`、后面用 `coverage json` 导出，再走同一套可疑度排序。
+  const spec = RepoTestSpecs.for(task.repo);
   const scratch = mkdtempSync(join(tmpdir(), 'omni-sbfl-'));
   const patchFile = join(scratch, 'test.patch');
   writeFileSync(patchFile, task.testPatch, 'utf8');
@@ -1073,17 +1070,20 @@ async function runSbfl(wt, venvPython, task) {
       console.warn('  ⚠️ --sbfl：test_patch 应用失败 ⇒ 覆盖率定位跳过（未前置任何文件）');
       return [];
     }
-    const args = [
-      '-m',
-      'pytest',
-      ...PytestVerdict.testFilesOf(task.testPatch),
-      '-rA',
-      '--tb=no',
-      '-p',
-      'no:cacheprovider',
-      '--cov=.',
-      `--cov-report=json:${reportPath}`,
-    ];
+    const args =
+      spec !== null
+        ? ['-m', 'coverage', 'run', '--source=.', ...spec.argsOf([], { testPatch: task.testPatch })]
+        : [
+            '-m',
+            'pytest',
+            ...PytestVerdict.testFilesOf(task.testPatch),
+            '-rA',
+            '--tb=no',
+            '-p',
+            'no:cacheprovider',
+            '--cov=.',
+            `--cov-report=json:${reportPath}`,
+          ];
     const tCov = Date.now();
     try {
       execFileSync(venvPython, args, { cwd: wt, stdio: 'ignore' });
@@ -1091,10 +1091,25 @@ async function runSbfl(wt, venvPython, task) {
       // 测试失败（FAIL_TO_PASS 本就预期失败）也照常产出 coverage.json，故这里仅兜底
     }
     const tDone = Date.now();
+    const phaseDesc =
+      spec !== null
+        ? `coverage run ${spec.argsOf([], { testPatch: task.testPatch }).join(' ')}`
+        : `pytest --cov（测试文件 ${PytestVerdict.testFilesOf(task.testPatch).join(',') || '(无)'}）`;
     console.log(
       `  [sbfl] 阶段耗时：装 pytest-cov ${((tAfterInstall - tInstall) / 1000).toFixed(1)}s、` +
-        `pytest --cov ${((tDone - tCov) / 1000).toFixed(1)}s（测试文件 ${PytestVerdict.testFilesOf(task.testPatch).join(',') || '(无)'}）`,
+        `${phaseDesc} ${((tDone - tCov) / 1000).toFixed(1)}s`,
     );
+    // per-repo 路径的覆盖率由 `coverage run` 累积在 `.coverage` 里，需显式导出 JSON 才能复用同一解析器。
+    if (spec !== null) {
+      try {
+        execFileSync(venvPython, ['-m', 'coverage', 'json', '-o', reportPath], {
+          cwd: wt,
+          stdio: 'ignore',
+        });
+      } catch {
+        // 导出失败（如 coverage 未装上）⇒ 走下面的 catch 返回空，由调用方告警
+      }
+    }
     try {
       return CoverageLocator.rankFilesFromCoverageJson(readFileSync(reportPath, 'utf8'));
     } catch {
