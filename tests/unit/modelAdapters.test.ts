@@ -562,18 +562,36 @@ test('OpenAI 兼容：开启空闲超时时调用方取消仍能穿透守卫到�
   });
   const controller = new AbortController();
   let captured: RequestInit | undefined;
+  let release: (() => void) | undefined;
+  const inFlight = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await withFetch(
     async (_url, init) => {
       captured = init;
+      // 让请求停在「已发出、未返回」的状态：取消语义只有**在飞期间**才有意义。
+      await inFlight;
       return new Response(
         JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }),
         { status: 200 },
       );
     },
-    () => model.generate({ ...request, signal: controller.signal }),
+    async () => {
+      const running = model.generate({ ...request, signal: controller.signal });
+      // 等到 fetch 真的被调用（signal 已捕获）再取消。
+      for (let i = 0; i < 200 && captured === undefined; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      assert.strictEqual(captured?.signal instanceof AbortSignal, true, 'signal 仍须传给 fetch');
+      assert.strictEqual(captured?.signal?.aborted, false);
+      controller.abort();
+      assert.strictEqual(captured?.signal?.aborted, true, '在飞期间调用方取消语义不得被守卫吞掉');
+      release?.();
+      await running;
+    },
   );
-  assert.strictEqual(captured?.signal instanceof AbortSignal, true, 'signal 仍须传给 fetch');
-  assert.strictEqual(captured?.signal?.aborted, false);
+  // 请求收尾后守卫会摘掉转发器（这正是「长寿命取消令牌上不留监听器」的修复）：
+  // 此时再取消**不应**再影响已完成的请求——下面这条断言把该新语义钉住。
   controller.abort();
-  assert.strictEqual(captured?.signal?.aborted, true, '调用方取消语义不得被守卫吞掉');
+  assert.strictEqual(captured?.signal?.aborted, true, '收尾后信号状态不应回退');
 });
