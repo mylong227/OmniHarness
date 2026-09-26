@@ -336,15 +336,41 @@ if (verifiedIdx !== -1) {
   const jsonlPath = jsonlIdx !== -1 ? process.argv[jsonlIdx + 1] : undefined;
 
   const { SwebenchVerified } = await import('../dist/src/eval/swebenchVerified.js');
-  const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
-  const executor = new NativeExecutor({
-    repoCacheRoot: join(__dirname, '..', 'eval-data', 'repos'),
-    ...(repoBaseUrl !== undefined ? { repoBaseUrl } : {}),
-    ...(Object.keys(repoMirrors).length > 0 ? { repoMirrors } : {}),
-    ...(Object.keys(envPins).length > 0 ? { envPins } : {}),
-  });
+  // 后端选择：默认 native（本地 uv 重建）；--docker 切到官方预建镜像执行器，补齐编译型仓库
+  // （astropy/matplotlib/scikit-learn 等，本地装不进 venv）的判分能力。两后端共用同一条
+  // 判分主链路（gold 对照 / 断点续跑 / 可信度闸全部通用），报告以 backend 字段区分口径。
+  const useDocker = process.argv.includes('--docker');
+  let executor;
+  if (useDocker) {
+    const { DockerExecutor } = await import('../dist/src/eval/dockerExecutor.js');
+    const dockerCliIdx = process.argv.indexOf('--docker-cli');
+    const mirrorsIdx = process.argv.indexOf('--docker-mirrors');
+    const timeoutIdx = process.argv.indexOf('--docker-timeout');
+    executor = new DockerExecutor({
+      ...(dockerCliIdx !== -1 ? { dockerCli: process.argv[dockerCliIdx + 1] } : {}),
+      ...(mirrorsIdx !== -1
+        ? {
+            mirrorBases: (process.argv[mirrorsIdx + 1] ?? '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0),
+          }
+        : {}),
+      ...(timeoutIdx !== -1 ? { testTimeoutMs: Number(process.argv[timeoutIdx + 1]) } : {}),
+    });
+  } else {
+    const { NativeExecutor } = await import('../dist/src/eval/nativeExecutor.js');
+    executor = new NativeExecutor({
+      repoCacheRoot: join(__dirname, '..', 'eval-data', 'repos'),
+      ...(repoBaseUrl !== undefined ? { repoBaseUrl } : {}),
+      ...(Object.keys(repoMirrors).length > 0 ? { repoMirrors } : {}),
+      ...(Object.keys(envPins).length > 0 ? { envPins } : {}),
+    });
+  }
 
-  console.log(`[capability:swebench:verified] backend=native executor=${executor.describe()}`);
+  console.log(
+    `[capability:swebench:verified] backend=${executor.kind} executor=${executor.describe()}`,
+  );
   const tasks = SwebenchVerified.loadVerified(verifiedPath);
   console.log(`[capability:swebench:verified] 加载 ${tasks.length} 个官方 Verified 实例`);
 

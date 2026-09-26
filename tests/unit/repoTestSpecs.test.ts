@@ -161,6 +161,32 @@ test('argsOf：django 命令走 test_patch 推出的模块（而非把 id 当模
   );
 });
 
+test('argsOf：test_patch 推不出 .py 模块时跑**全量套件**，绝不把 id 灌进 argv（django-10097 现场）', () => {
+  // 实测现场：test_patch 只改 `tests/validators/*.txt` 数据文件 ⇒ 推不出模块 directive；
+  // 旧实现把 F2P+P2P（十万字符级）全部转 directive ⇒ Windows `spawn ENAMETOOLONG`。
+  const spec = RepoTestSpecs.django();
+  const ctx = {
+    testPatch: [
+      'diff --git a/tests/validators/invalid_urls.txt b/tests/validators/invalid_urls.txt',
+      '--- a/tests/validators/invalid_urls.txt',
+      '+++ b/tests/validators/invalid_urls.txt',
+      '@@ -1 +1 @@',
+    ].join('\n'),
+  };
+  const manyIds = Array.from(
+    { length: 500 },
+    (_, i) => `test_x_${i} (validators.tests.URLValidatorTests)`,
+  );
+  assert.deepStrictEqual(spec.argsOf(manyIds, ctx), [
+    './tests/runtests.py',
+    '--verbosity',
+    '2',
+    '--settings=test_sqlite',
+    '--parallel',
+    '1',
+  ]);
+});
+
 test('for：**默认启用** django 专属规格；OMNI_REPO_TEST_SPECS=0 是显式逃生口', () => {
   const prev = process.env['OMNI_REPO_TEST_SPECS'];
   try {
