@@ -92,9 +92,22 @@ node benchmark/capability_swebench.mjs --verified eval-data/swe_bench_verified.j
 
 ## 7. 我这边的在飞状态（截至交接）
 
-- **付费对照臂（best-of-N vs 单候选）仍在跑**：`eval-data/preds_ablation_n1*.jsonl`（N=1 + self-test）。
-  它回答「best-of-N 值不值这个钱」与「自纠环有没有用」——**自纠环已实证有效**（日志出现
-  `⚠️ self-test：1 个 FAIL_TO_PASS 未通过：test_Mod` → `✅ self-test 修复后全绿`）。
-  配套分析脚本已就绪：`eval-data/_ablation_compare.mjs`（配对 McNemar + 成本对比）。
-- 若 Docker/WSL 构建会造成资源争抢（或你不需要这条对照），**可以先把它停掉**——停之前请记住：
-  它的 token 账已随补丁逐题落盘，`--resume` 可续。
+**付费对照臂（best-of-N 4 vs 单候选 1，同一批 20 题）——已基本跑完，正在补缺失点。**
+
+- **目的**：回答两个至今无数据的问题——① best-of-N 的增益（N4 vs N1 配对）；② `--self-test` 自纠环的增益。
+- **已拿到的实证（重要）**：
+  - N=4 臂 20 题的最佳奖励**全为 1** ⇒ 自纠环**一次未触发**（best-of-4 里总有候选全绿）。
+  - N=1 臂则**频繁触发并修得回来**：日志反复出现
+    `⚠️ self-test：1 个 FAIL_TO_PASS 未通过：test_Mod` /
+    `…：2 个 FAIL_TO_PASS 未通过：test_re_path_with_optional_parameter …`
+    → `✅ self-test 修复后 FAIL_TO_PASS 全绿`。⇒ **自纠环不是摆设，但它的价值只在「单候选修不动」时才兑现**。
+- **成本实测**：N=4 臂 ≈ **421K token/题**；N=1 臂 ≈ **81K token/题**
+  （django 14 题实测 604,527 in / 525,140 out）⇒ 配对判分后才知道那 4 倍候选买到了什么。
+- **需要修掉的缺失点（不是「没修好」，是网络中断）**：N=1 臂有 3 题被 undici `terminated` 掐断
+  （`django__django-11477 / 13128 / 13512`）⇒ 已在**带重试修复**的代码上重跑；
+  `django__django-12419` 是**真实的「未抽出 diff」**，按口径保留、**不重掷**。
+  `sympy__sympy-18698`（本批最慢，单题 >70 分钟）仍在自纠环里跑。
+- **收尾脚本已就绪**：`eval-data/_ablation_compare.mjs`（配对 McNemar + 两臂 token 成本对比）。
+
+⚠️ **给接手方的边界**：这条对照臂**只在当时已可信的 20 题**上跑（`gold_trusted_ids.txt` 现为 21 题）。
+**不要只给一臂加题**——配对设计要求两臂同实例；若要纳入新可信实例，两臂一起补。

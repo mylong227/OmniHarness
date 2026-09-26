@@ -1,8 +1,9 @@
-// SWE-bench 官方 Verified 子集接入（B1 官方跑分的真实接线，免 Docker、免云）。
+// SWE-bench 官方 Verified 子集接入（B1 官方跑分的真实接线）。
 //
 // 定位：把报告 #20 的 P3 诚实缺口对接到**官方 500 题 Verified 子集**。本模块只负责：
-// ① 加载并校验官方 Verified JSON（fail-closed）；② 定义执行器端口（NativeExecutor）把
-// "模型补丁 → pytest 判定 resolved"这一环真正本地跑起来；③ 聚合官方报告。
+// ① 加载并校验官方 Verified JSON（fail-closed）；② 定义执行器端口把"模型补丁 → pytest 判定
+// resolved"这一环真正跑起来（NativeExecutor 本地 uv 重建 / DockerExecutor 官方预建镜像，
+// 后者补齐编译型仓库的环境保真度缺口）；③ 聚合官方报告。
 // 模型补丁（predictions）由调用方注入（我们的 live agent 在你侧生成）。
 //
 // 铁律：
@@ -78,14 +79,17 @@ export interface VerifiedTask {
   readonly version: string;
 }
 
+/** 执行后端种类（native=本地 uv 重建环境；docker=官方预建镜像）。 */
+export type ExecutionBackend = 'native' | 'docker';
+
 /** 单实例执行结果。 */
 export interface VerifiedResult {
   /** 实例 id。 */
   readonly id: string;
   /** 官方 harness 是否判定 resolved（FAIL_TO_PASS 全过 且 PASS_TO_PASS 全过）。 */
   readonly resolved: boolean;
-  /** 执行后端（恒 native）。 */
-  readonly backend: 'native';
+  /** 执行后端（native=本地 uv 重建；docker=官方预建镜像）。 */
+  readonly backend: ExecutionBackend;
   /** 未通过原因（resolved 时缺省）。 */
   readonly reason?: string | undefined;
   /**
@@ -100,8 +104,8 @@ export interface VerifiedResult {
 export interface VerifiedReport {
   /** 来源数据集路径。 */
   readonly source: string;
-  /** 执行后端（恒 native）。 */
-  readonly backend: 'native';
+  /** 执行后端（native=本地 uv 重建；docker=官方预建镜像）。 */
+  readonly backend: ExecutionBackend;
   /** 解析到的实例总数。 */
   readonly total: number;
   /** 已 resolved 数。 */
@@ -118,11 +122,12 @@ export interface VerifiedReport {
 
 /**
  * 执行器端口：把"给定模型补丁 → pytest 判定 resolved"这一环真正本地跑起来。
- * 具体后端（当前仅 {@link NativeExecutor}）必须保证 fail-closed：任何异常都返回 resolved=false 并写明原因。
+ * 具体后端（{@link NativeExecutor} 本地重建、{@link DockerExecutor} 官方预建镜像）必须保证
+ * fail-closed：任何异常都返回 resolved=false 并写明原因。
  */
 export interface ExecutorPort {
-  /** 后端种类（恒 native）。 */
-  readonly kind: 'native';
+  /** 后端种类（native=本地 uv 重建；docker=官方预建镜像）。 */
+  readonly kind: ExecutionBackend;
   /**
    * 运行单实例：应用给定模型补丁，交由 pytest 判定 resolved。
    * @param task 归一化任务（含 repo/base_commit/version/测试清单）。
