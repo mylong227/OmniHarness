@@ -2767,3 +2767,31 @@ fail-closed 日志**（`semantic index build failed`），没有产出「语义�
 成功状态判成非零，**内层 node 的退出码始终是 0**。**实操结论（留档防误判）**：本 harness 里**要可信的退出码
 就不要用 `2>&1 |`**（本会话早先几次 `git push` 也报过同样的 exit 1，属同源）。判断批次是否成功**看产物与报告**，
 不要看 job 的退出码。
+
+### 21.26 剩余项收口（三）：SBFL 的**答案泄漏风险**（真问题，已修）+ 「慢」的定性
+
+**① 完整性问题（比「慢」严重得多，已修）**：`--worktree-root` 是**持久目录**，而 `runSbfl` 只在
+**finally** 里还原工作区 ⇒ 一旦那次运行被外部超时/中断杀掉（本会话**真的发生了**：`pytest --cov`
+在大测试文件上可能超过 10 分钟），**官方 test_patch 就留在工作区**。后果两条：
+
+1. 下次 `--sbfl` 的 `git apply` 直接失败 ⇒ SBFL 被跳过（现在有明确告警，不是静默）；**更严重的是**：
+2. 下次**即使不开 `--sbfl`**，随后的 `buildContentBlocks` 会**读工作区文件正文**，把已打上的
+   **官方测试补丁读进 prompt** ⇒ **答案线索泄漏给模型**。这正是 `restoreWorktree` 存在的意义，
+   但它当时只在正常路径上生效。
+
+**现场证据**：`eval-data/prepare/psf__requests-2317` 实测残留 `M test_requests.py`（就是被打上的测试补丁）。
+**修法**：把「工作区必须是 base_commit 干净检出」提升为**实例开始处的不变量**——`ensureCheckout` 之后
+立刻 `restoreWorktree(wt)`，**与 `--sbfl` 开关无关**（SBFL 内的还原只保留 finally 那一处，避免冗余）。
+**零成本验证**：先确认工作区脏（`M test_requests.py`）→ 用**不开 `--sbfl`** 的一次 dry-run 运行 →
+运行后 `git status` **为空** ⇒ 泄漏路径关闭。
+
+**② `--sbfl` 的「慢」定性：是慢，不是挂；且受并发负载影响。**
+
+- 同一实例（`psf__requests-2317`）实测：早先一次完整 SBFL **286s**；本次在两个对照臂同时跑时
+  **两次都超过 600s**（外部超时），并在超时后留下脏工作区（即 ① 的现场）。
+- 根因是 `pytest --cov=.`（对整个测试文件插桩）的开销 + requests 测试套件本身较慢；进程未挂
+  （超时点都落在 `pytest --cov` 相内）。
+- **可观测性补齐**：`runSbfl` 原先在内部**零输出** ⇒「慢」与「挂了」无法区分。现打印**阶段耗时**
+  （装 pytest-cov / `pytest --cov`，并带上测试文件名），并给「test_patch 应用失败」加上明确告警。
+- **未做**（明确留档，避免半成品）：把 SBFL 的覆盖率采集适配到 per-repo 运行器（django 的
+  `runtests.py` 需 `coverage run` 而非 `pytest --cov`）。当前行为是**显式告警 + 跳过**（fail-loud）。
