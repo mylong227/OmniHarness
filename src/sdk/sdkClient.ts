@@ -98,9 +98,23 @@ export class SdkClient {
    */
   private bindSocket(socket: SdkSocket): Promise<void> {
     const opened = new Promise<void>((resolve, reject) => {
-      socket.onOpen(() => resolve());
-      socket.onError((error) => reject(error));
+      let settled = false;
+      const settle = (error?: unknown): void => {
+        if (settled) return;
+        settled = true;
+        if (error === undefined) resolve();
+        else reject(error instanceof Error ? error : new Error(String(error)));
+      };
+      socket.onOpen(() => settle());
+      // 握手前即失败（如 401 upgrade 被拒）走 onError 自然收尾；但若 socket 先 close 再 error
+      // （或只 close），旧实现从不兑现 `opened` ⇒ 所有 `call()` 都卡在 `await this.opened`
+      // 上永久挂起（2026-09-26 审计 S14）。close 也必须兑现（按失败计）。
+      socket.onError((error) => settle(error));
+      socket.onClose(() => settle(new Error('SDK 连接在就绪前关闭')));
     });
+    // 未加 catch 时，若没有 in-flight 调用，`opened` 的拒绝会变成 unhandledRejection
+    // （Node 22 默认终止进程）。这里显式吞掉——真正的调用方在 `call()` 里 await 得到同一拒绝。
+    void opened.catch(() => undefined);
     socket.onMessage((text) => this.handleMessage(text));
     socket.onClose(() => this.pending.failAll(new Error('SDK 连接已关闭')));
     return opened;

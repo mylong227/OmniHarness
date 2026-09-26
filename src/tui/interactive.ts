@@ -31,7 +31,19 @@ export class Interactive {
     try {
       while (true) {
         const input = await new Promise<string | null>((resolve) => {
-          rl.question(TuiRenderer.prompt(), (answer) => resolve(answer));
+          // stdin 结束（EOF / 管道关闭）时 readline **不会**调用 question 的回调，而是发 'close'
+          // 事件。只听 question 会让这个 Promise 永不 settle，`input === null` 那条 EOF 分支
+          // 成为死代码，交互式会话在 stdin 结束时**永久挂住**（2026-09-26 审计 S18）。
+          let settled = false;
+          const finish = (value: string | null): void => {
+            if (settled) return;
+            settled = true;
+            rl.removeListener('close', onClose);
+            resolve(value);
+          };
+          const onClose = (): void => finish(null);
+          rl.once('close', onClose);
+          rl.question(TuiRenderer.prompt(), (answer) => finish(answer));
         });
         if (input === null) break; // EOF
         const trimmed = input.trim();

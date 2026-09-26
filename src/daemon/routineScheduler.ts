@@ -8,7 +8,7 @@
  * 持久化到 routines.json；`runDue(now)` 返回本次应立即执行的任务（按 lastRun 防同分钟重复）。
  * 执行动作（真正跑 Agent）由 CLI 层负责，本模块只负责「何时该跑」的判定与存储。
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
@@ -146,29 +146,49 @@ export class RoutineScheduler {
   }
 
   /**
-   * 从磁盘读任务存储；文件缺失或损坏一律返回空表（不抛错）。
+   * 从磁盘读任务存储。
+   *
+   * 文件缺失 → 空表（首次启动的正常形态）。文件**损坏**（截断/非法 JSON）→ **隔离并抛错**：
+   * 旧实现静默返回空表，而下一次 add/remove/markRun 会把这份空表**原样写回**，
+   * 于是用户此前定义的全部定时任务被无声抹掉（2026-09-26 审计 S24）。
    * @returns `{ routines }` 存储结构。
    */
   private load(): { routines: Routine[] } {
     if (!existsSync(this.storePath)) {
       return { routines: [] };
     }
+    const raw = readFileSync(this.storePath, 'utf8');
+    let parsed: { routines?: Routine[] };
     try {
-      const parsed = JSON.parse(readFileSync(this.storePath, 'utf8')) as { routines?: Routine[] };
-      return { routines: Array.isArray(parsed.routines) ? parsed.routines : [] };
-    } catch {
-      return { routines: [] };
+      parsed = JSON.parse(raw) as { routines?: Routine[] };
+    } catch (error) {
+      // 先留证（重命名而非删除），再 fail-closed 抛错——绝不覆盖可能还可人工修复的内容。
+      const quarantine = `${this.storePath}.corrupt-${String(Date.now())}`;
+      try {
+        renameSync(this.storePath, quarantine);
+      } catch {
+        /* 留证失败不掩盖原始错误 */
+      }
+      throw new Error(
+        `定时任务存储损坏（已隔离到 ${quarantine}，未覆盖）：${error instanceof Error ? error.message : String(error)}`,
+      );
     }
+    return { routines: Array.isArray(parsed.routines) ? parsed.routines : [] };
   }
 
   /**
-   * 任务存储落盘（自动建目录，JSON 缩进 2）。
+   * 任务存储落盘（先写临时文件再原子 rename，自动建目录）。
+   *
+   * 原子性理由：直接 `writeFileSync` 中途崩溃会留下**截断的半份 JSON**，
+   * 而损坏文件在下次启动即触发上面的隔离路径——即一次崩溃毁掉全部任务。
    * @param store 待写入的存储结构。
    * @returns 无返回值。
    */
   private save(store: { routines: Routine[] }): void {
     mkdirSync(dirname(this.storePath), { recursive: true });
-    writeFileSync(this.storePath, JSON.stringify(store, null, 2), 'utf8');
+    const tmp = `${this.storePath}.tmp`;
+    writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf8');
+    renameSync(tmp, this.storePath);
   }
   /**
    * expandField — module-level helper moved into RoutineScheduler.

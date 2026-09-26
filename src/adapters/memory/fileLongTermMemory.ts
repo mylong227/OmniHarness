@@ -16,6 +16,7 @@ import { Bm25Index } from '../../search/bm25Index.js';
 import { TimeDecay, type ScoredFact } from './timeDecay.js';
 import type { TextCodec } from './aesGcmTextCodec.js';
 import { ArrayAt } from '../../util/arrayAt.js';
+import { log } from '../../util/logger.js';
 
 /**
  * @beta
@@ -87,8 +88,10 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     try {
       mkdirSync(dirname(this.path), { recursive: true });
       appendFileSync(this.path, this.codec.encode(JSON.stringify(fact)) + '\n', 'utf8');
-    } catch {
-      // 落盘失败不致命：进程内内存态仍可用。
+    } catch (error) {
+      // 内存态保留（进程内仍可用），但**必须留痕**：旧实现静默吞掉，于是 remember() 照常返回、
+      // 调用方以为事实已持久化，重启后却查无此条（2026-09-26 审计 S26）。
+      this.reportPersistFailure('append', error);
     }
   }
 
@@ -189,9 +192,27 @@ export class FileLongTermMemory implements LongTermMemoryPort {
         this.facts.map((fact) => this.codec.encode(JSON.stringify(fact))).join('\n') + '\n';
       writeFileSync(tmp, lines, 'utf8');
       renameSync(tmp, this.path);
-    } catch {
-      // 重写失败不致命：内存态仍反映最新，下次写入再尝试落盘。
+    } catch (error) {
+      // 同上：内存态照常反映最新，但落盘失败必须可观测（否则「改了但没存」无人知晓）。
+      this.reportPersistFailure('rewrite', error);
     }
+  }
+
+  /**
+   * 上报一次持久化失败（结构化 warn，带路径与失败模式）。
+   *
+   * 刻意**不抛出**：长期记忆是 best-effort 增强，落盘失败不该中断主流程（改记忆的回合仍应完成）。
+   * 但静默吞掉会让「调用方以为已持久化」成为事实——留痕是这个取舍成立的前提。
+   * @param stage 失败阶段（`append` 单条追加 / `rewrite` 全量重写）。
+   * @param error 原始错误。
+   * @returns 无返回值。
+   */
+  private reportPersistFailure(stage: 'append' | 'rewrite', error: unknown): void {
+    log.warn('memory.longterm.persist_failed', {
+      stage,
+      path: this.path,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   /** 用全量事实重建 BM25 索引。

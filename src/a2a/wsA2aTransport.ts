@@ -189,8 +189,23 @@ export class WsA2aTransport implements A2aTransport {
 export class WsA2aServerTransport implements A2aTransport {
   /** 入站请求处理回调（经 {@link onMessage} 注册，通常是 A2aServer 的处理入口）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
-  /** 挂起请求的 id → 响应写入器映射（send 命中 id 时把响应帧写回发起连接）。 */
-  private readonly resolvers = new Map<number | string, (m: RpcMessage) => void>();
+  /**
+   * **服务端唯一**路由键 → 挂起请求（含发起连接与对端原始 id）。
+   *
+   * 为什么不能用客户端给的 JSON-RPC id 当键（2026-09-26 审计 S1，P0）：每个 `A2aClient`
+   * 的 id 都**从 1 开始编号**，两条连接并发发 id=1 时后到的 `set` 覆盖前一个写入器 ——
+   * 响应被写回**后注册的那条连接**（发错人），先来的那条**永久挂起**。
+   * 故入库时把 id 改写成服务端唯一键再交给处理回调，回写时按唯一键查表、还原对端原始 id。
+   */
+  private readonly resolvers = new Map<
+    string,
+    {
+      readonly remoteId: number | string;
+      readonly respond: (m: RpcMessage) => void;
+    }
+  >();
+  /** 服务端唯一键的单调计数器（进程内唯一即可）。 */
+  private seq = 0;
   /** 活跃 WebSocket 连接（close 时逐一关闭）。 */
   private readonly connections = new Set<WsConnection>();
   /** 底层 node:http 服务实例（listen 后才有值）。 */
@@ -206,19 +221,21 @@ export class WsA2aServerTransport implements A2aTransport {
   }
 
   /**
-   * 发送一条消息：按 JSON-RPC id 关联到挂起请求并以其发起连接回写响应帧。
-   * 无匹配 id（通知/未知 id）时静默丢弃。
-   * @param message 待回写的 JSON-RPC 消息（须携带 id 才能关联）。
+   * 发送一条消息：按**服务端唯一键**关联到挂起请求并以其发起连接回写响应帧。
+   * 无匹配键（通知/未知 id）时静默丢弃。
+   * @param message 待回写的 JSON-RPC 消息（id 须为本传输在入库时改写的唯一键）。
    * @returns 无返回值。
    */
   public send(message: RpcMessage): void {
     if (!('id' in message)) {
       return;
     }
-    const write = this.resolvers.get(message.id);
-    if (write !== undefined) {
-      this.resolvers.delete(message.id);
-      write(message);
+    const key = String(message.id);
+    const entry = this.resolvers.get(key);
+    if (entry !== undefined) {
+      this.resolvers.delete(key);
+      // 还原对端的原始 id 再回帧：否则对端按自己的 id 关联会匹配不上。
+      entry.respond({ ...message, id: entry.remoteId });
     }
   }
 
@@ -290,7 +307,12 @@ export class WsA2aServerTransport implements A2aTransport {
     if (id === null) {
       return;
     }
-    this.resolvers.set(id, (response) => connection.send(JSON.stringify(response)));
-    this.callback?.(message);
+    this.seq += 1;
+    const key = `a2a-ws-${String(this.seq)}`;
+    this.resolvers.set(key, {
+      remoteId: id,
+      respond: (response) => connection.send(JSON.stringify(response)),
+    });
+    this.callback?.({ ...message, id: key });
   }
 }

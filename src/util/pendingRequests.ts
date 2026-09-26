@@ -75,6 +75,14 @@ export class PendingRequests<K, V> {
    * @returns 无返回值。
    */
   public register(key: K, handlers: PendingHandlers<V>, timeout?: PendingTimeout<V>): void {
+    // 覆盖旧条目前**先清掉它的超时定时器**：否则旧定时器到点时会 `onTimeout(key) → take(key)`，
+    // 而 take 按 key 取到的是**新**条目 —— 于是新请求被旧超时配置提前 reject/收尾
+    // （2026-09-26 审计 S28；本仓现有站点都用单调 id 故尚未触发，但模块文档宣称的
+    // 「任何被登记的处理器必然恰好在一条路径上被收尾、绝不二次兑现」必须真的成立）。
+    const previous = this.entries.get(key);
+    if (previous?.timer !== undefined) {
+      clearTimeout(previous.timer);
+    }
     const entry: PendingEntry<V> =
       timeout === undefined
         ? { handlers }

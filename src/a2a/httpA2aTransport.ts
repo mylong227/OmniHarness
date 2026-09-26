@@ -96,8 +96,20 @@ export class HttpA2aTransport implements A2aTransport {
 export class HttpA2aServerTransport implements A2aTransport {
   /** 入站请求处理回调（经 {@link onMessage} 注册，通常是 A2aServer 的处理入口）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
-  /** 挂起请求的 id → 响应 resolver 映射（send 命中 id 时回写对应 HTTP 响应）。 */
-  private readonly resolvers = new Map<number | string, (m: RpcMessage) => void>();
+  /**
+   * **服务端唯一**路由键 → 挂起请求。
+   *
+   * 为什么不能用客户端给的 JSON-RPC id 当键（2026-09-26 审计 S1，P0）：每个 `A2aClient`
+   * 的 id 都**从 1 开始编号**，两个对端并发进来必然撞 id —— 后到的 `set` 覆盖前一个 resolver，
+   * 于是「一方拿到别人的响应、另一方永久挂起」。故入库时把 id 改写成服务端唯一键再交给
+   * 处理回调，回写时按唯一键查表、还原对端的原始 id 再回响应。
+   */
+  private readonly resolvers = new Map<
+    string,
+    { readonly remoteId: number | string; readonly resolve: (m: RpcMessage) => void }
+  >();
+  /** 服务端唯一键的单调计数器（进程内唯一即可，不跨进程保证）。 */
+  private seq = 0;
   /** 底层 node:http 服务实例（listen 后才有值）。 */
   private server: http.Server | undefined;
 
@@ -112,21 +124,25 @@ export class HttpA2aServerTransport implements A2aTransport {
   }
 
   /**
-   * 发送一条消息：按 JSON-RPC id 关联到挂起的 HTTP 请求并以其回写响应。
-   * 无匹配 id（通知/未知 id）时静默丢弃。
+   * 发送一条消息：按**服务端唯一键**关联到挂起的 HTTP 请求并以其回写响应。
+   * 无匹配键（通知/未知 id）时静默丢弃。
    *
-   * @param message 待回写的 JSON-RPC 消息（须携带 id 才能关联）。
+   * @param message 待回写的 JSON-RPC 消息（id 须为本传输在入库时改写的唯一键）。
    
    * @returns 无返回值。
    */
   public send(message: RpcMessage): void {
-    if ('id' in message) {
-      const r = this.resolvers.get(message.id);
-      if (r !== undefined) {
-        this.resolvers.delete(message.id);
-        r(message);
-      }
+    if (!('id' in message)) {
+      return;
     }
+    const key = String(message.id);
+    const entry = this.resolvers.get(key);
+    if (entry === undefined) {
+      return;
+    }
+    this.resolvers.delete(key);
+    // 还原**对端**的原始 id 再回响应：否则对端按自己的 id 关联会匹配不上。
+    entry.resolve({ ...message, id: entry.remoteId });
   }
 
   /**
@@ -159,10 +175,17 @@ export class HttpA2aServerTransport implements A2aTransport {
           res.end();
           return;
         }
+        this.seq += 1;
+        const key = `a2a-${String(this.seq)}`;
         const promise = new Promise<RpcMessage>((resolve) => {
-          this.resolvers.set(id, resolve);
+          this.resolvers.set(key, { remoteId: id, resolve });
         });
-        this.callback?.(msg);
+        // 对端在响应前断开 ⇒ 该挂起项永远不会被回写，必须就地回收，否则长跑服务里逐请求泄漏
+        // （审计 X4：原实现无 close 清理，resolver 与连接一起悬着）。
+        res.on('close', () => {
+          this.resolvers.delete(key);
+        });
+        this.callback?.({ ...msg, id: key });
         promise
           .then((response) => {
             res.writeHead(200, { 'content-type': 'application/json' });
