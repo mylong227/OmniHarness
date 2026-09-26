@@ -80,7 +80,9 @@ export class TodoWriteTool {
       }
       items.push({ content, status });
     }
-    this.port.snapshot(items);
+    // 按**本会话**写入（2026-09-26 审计 F7/F9）：待办端口是进程级单例，不分桶时子代理的
+    // todo_write 会整表覆盖父会话的清单。
+    this.port.snapshot(items, ctx.sessionId);
     this.events?.emit(this.eventFactory.todo(ctx.sessionId, items));
     const counts = items.reduce(
       (acc, it) => {

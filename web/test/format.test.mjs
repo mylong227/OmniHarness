@@ -108,6 +108,21 @@ test('todoView 按状态给圆点上 done/doing，状态缺失时类名保持带
   assert.deepEqual(allText(node), ['已完成', '进行中', '待开始']);
 });
 
+test('todoView 必须认得生产者的状态词（completed / in_progress）', () => {
+  // 回归（2026-09-26 审计 F8）：生产者（ports/runtime/todo.ts 的 TodoStatus）只发
+  // pending|in_progress|completed，而渲染器原先只认 done/doing ⇒ 所有圆点恒为中性灰，
+  // 每个待办的进度在 UI 上不可见（旧单测用错词把该 bug 一并钉死）。
+  const node = todoView([
+    { status: 'completed', content: '已完成' },
+    { status: 'in_progress', content: '进行中' },
+    { status: 'pending', content: '待开始' },
+  ]);
+  const items = kids(node);
+  assert.deepEqual(kids(items[0]).map(clsOf), ['todo-dot done', '']);
+  assert.deepEqual(kids(items[1]).map(clsOf), ['todo-dot doing', '']);
+  assert.deepEqual(kids(items[2]).map(clsOf), ['todo-dot ', '']);
+});
+
 test('diffView 逐行染 add/del/ctx 且保留原始行首符号', () => {
   const node = diffView('+新增\n-删除\n上下文');
   assert.equal(clsOf(node), 'diff');
