@@ -40,6 +40,16 @@ resolved** 的实例；Verified-30 里只有 20 题满足（django 14 + sphinx 2
 
 ⇒ **判分可信度以 gold 对照为准**（看板 §21.20/§21.21），不可信实例一律不进入分数。
 
+**大 batch 的并行做法（本次实际使用，墙钟约减半）**：该脚本**没有并发锁**，但每题跑完会**整文件重写**
+`--out`（`patchById.set(...) + writeOut()`）⇒ 两个 worker **必须用不同的 `--out`**，否则互相清空。
+本次按仓库把剩余题拆成两个不相交列表（A：django 11 题；B：sphinx 1 + sympy 3 —— 刻意把最慢的 sympy
+从队尾挪到并行侧），跑完再合并去重：
+
+```bash
+node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
+  eval-data/preds_product_bestof4.jsonl eval-data/preds_product_bestof4_b.jsonl
+```
+
 **信任闸不自证循环（代码级证据）**：`--gold-report` 只被 `judgeValidIds()` 读入、只被
 `printJudgeValidity()` 使用（`benchmark/capability_swebench.mjs` 第 430/449/474 行附近），
 **不参与 `resolved` 的计算**——判定只来自 `NativeExecutor` 的真 pytest 结果。
