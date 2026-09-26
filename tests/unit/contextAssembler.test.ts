@@ -184,3 +184,27 @@ test('OBS-6：纯非思考对话（全程无 reasoning）绝不注入 reasoning_
     assert.strictEqual(a?.reasoningContent, undefined);
   }
 });
+
+test('A7：turn_diff 必须回灌给模型（原先被投影丢弃，模型看不到自己改了什么）', () => {
+  const assembler = new ContextAssembler();
+  const diff = ['--- a/x.ts', '+++ b/x.ts', '@@ -1,1 +1,1 @@', '-old', '+new'].join('\n');
+  const messages = assembler.build([event('turn_diff', { content: diff })]);
+  assert.strictEqual(messages.length, 1, '应产生一条回灌消息');
+  assert.strictEqual(messages[0]?.role, 'user');
+  assert.match(messages[0]?.content ?? '', /实际改动 diff/);
+  assert.match(messages[0]?.content ?? '', /\+new/, 'diff 正文必须可见');
+});
+
+test('A7：超大 diff 回灌时有上限（保留头部 + 截断说明）', () => {
+  const assembler = new ContextAssembler();
+  const huge = `--- a/x.ts\n+++ b/x.ts\n${'+x'.repeat(ContextAssembler.MAX_DIFF_CHARS)}\n`;
+  const messages = assembler.build([event('turn_diff', { content: huge })]);
+  const content = messages[0]?.content ?? '';
+  assert.ok(content.length < huge.length, '必须被截断');
+  assert.match(content, /diff 已截断/);
+});
+
+test('A7：空 diff 不产生消息（零噪声）', () => {
+  const assembler = new ContextAssembler();
+  assert.deepStrictEqual(assembler.build([event('turn_diff', { content: '   ' })]), []);
+});

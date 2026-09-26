@@ -12,6 +12,7 @@ import { ShellProcessRunner } from './shellProcessRunner.js';
 import type { ShellRunOutcome } from './shellProcessRunner.js';
 import type { BackgroundJobRegistry } from './backgroundJobRegistry.js';
 import { StackFrameParser } from '../verify/stackFrameParser.js';
+import type { FileContentLedger } from '../fs/fileContentLedger.js';
 import { SHELL_DEFAULT_MAX_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS } from './shellTimeouts.js';
 
 /** shell 工具可选项。 */
@@ -41,6 +42,11 @@ export interface ShellToolOptions {
    * 未注入时该参数会返回明确失败（不静默退化成前台执行）。
    */
   readonly jobs?: BackgroundJobRegistry;
+  /**
+   * 内容账本（S1 陈旧读保护，可选）：命令执行后把「命令文本里提及的已记账文件」失效。
+   * 未注入时零行为变更（与改造前逐字一致）。
+   */
+  readonly ledger?: FileContentLedger | undefined;
 }
 
 /**
@@ -91,6 +97,14 @@ export class ShellTool {
   private readonly guard: ShellToolOptions['guard'];
   /** 后台作业注册表（未注入时 `background=true` 明确失败）。 */
   private readonly jobs: BackgroundJobRegistry | undefined;
+  /**
+   * 内容账本（S1 陈旧读保护，可选）：命令执行后把「文本里提及的已记账文件」失效。
+   *
+   * 存在理由（2026-09-26 审计 A6）：账本原先只在 read_file 与三个 fs 写工具之间闭环，
+   * **完全不知道 shell 的改动** —— `read_file(a)` → `shell: echo x > a` → `write_file(a)`
+   * 的第三步会拿着陈旧指纹把 shell 的改动静默抹掉。这里只做**保守失效**（宁可少拦不可误拦）。
+   */
+  private readonly ledger: ShellToolOptions['ledger'];
 
   /**
    * @param options shell 工具选项（超时/缓冲/长度上限、可选裁决器、策略与后台作业注册表，全有默认）。
@@ -106,6 +120,7 @@ export class ShellTool {
     this.guard = options.guard;
     this.policy = options.policy ?? new ShellCommandPolicy();
     this.jobs = options.jobs;
+    this.ledger = options.ledger;
   }
 
   /** 工具定义。 */
@@ -178,6 +193,9 @@ export class ShellTool {
     }
 
     if (call.arguments['background'] === true) {
+      // 后台命令同样可能改文件（`npm install` / 代码生成器）；账本一并失效，
+      // 否则紧接着的 write_file 会把它的改动静默抹掉（见 `ledger` 字段注释）。
+      this.invalidateLedger(command, context.workspaceRoot);
       return this.startBackground(call.id, command);
     }
 
@@ -194,9 +212,31 @@ export class ShellTool {
         // （最长 10 分钟）且只杀直接子进程。透传后由执行器终止整棵树并回 `aborted`。
         signal: context.signal,
       });
+      this.invalidateLedger(command, context.workspaceRoot);
       return this.toResult(call.id, outcome, timeoutMs);
     } catch (error) {
       return this.failure(call.id, error);
+    }
+  }
+
+  /**
+   * 把命令文本里提及的已记账文件失效（A6：账本原先对 shell 改动完全不可见）。
+   *
+   * 取舍写明白：失效只让后续写入**不再被陈旧读守卫拦**（等价于改造前行为），
+   * 而代价是「同一条命令顺带改的别的文件」也不会被拦 —— 这是刻意的：**宁可少拦，不可误拦**，
+   * 因为误拦会直接挡住正常编码流程，而漏拦最多退回到改造前的保护水位。
+   * @param command 已执行的命令文本。
+   * @param workspaceRoot 工作区根（用于把相对路径与记账键对上）。
+   * @returns 无返回值。
+   */
+  private invalidateLedger(command: string, workspaceRoot: string): void {
+    if (this.ledger === undefined || workspaceRoot === '') {
+      return;
+    }
+    try {
+      this.ledger.forgetMentionedIn(command, workspaceRoot);
+    } catch {
+      // 账本失效失败不影响命令结果（陈旧读保护是增强，不是主链路）。
     }
   }
 

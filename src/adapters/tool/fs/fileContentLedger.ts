@@ -62,6 +62,43 @@ export class FileContentLedger {
   }
 
   /**
+   * 丢弃「命令文本里可能被改到的」文件的记录。
+   *
+   * 存在理由（2026-09-26 审计 A6）：账本原先只在 `read_file` 与三个 fs 写工具之间闭环，
+   * **完全不知道 `shell` 的改动** —— 于是 `read_file(a)` → `shell: echo x > a` →
+   * `write_file(a)` 这条链上，第三步会拿着「陈旧但账本认为新鲜」的指纹把 shell 的改动静默抹掉。
+   *
+   * 实现刻意**不做 shell 语法解析**（解析错判会引入新的绕过面）：只做「保守失效」——
+   * 命令文本里出现了某条已记账路径的**绝对形式或其工作区相对形式**，就把该条丢掉；丢记录
+   * 只会让后续写入**不再被拦**（等价于改造前行为），不会误拦。
+   *
+   * @param command 即将执行的 shell 命令文本。
+   * @param workspaceRoot 工作区根（用于把相对形式与绝对记账键对上）。
+   * @returns 被失效的条目数。
+   */
+  public forgetMentionedIn(command: string, workspaceRoot: string): number {
+    if (command === '' || this.known.size === 0) {
+      return 0;
+    }
+    let forgotten = 0;
+    const root = workspaceRoot.replace(/[\\/]+$/, '');
+    for (const absolute of [...this.known.keys()]) {
+      const relative = absolute.startsWith(root) ? absolute.slice(root.length + 1) : undefined;
+      // 分隔符两种写法都要试：Windows 上记账键是 `a\b.ts`，而模型写的命令常见 `a/b.ts`。
+      const forward = relative?.split('\\').join('/');
+      const hit =
+        command.includes(absolute) ||
+        (relative !== undefined && relative !== '' && command.includes(relative)) ||
+        (forward !== undefined && forward !== '' && command.includes(forward));
+      if (hit) {
+        this.known.delete(absolute);
+        forgotten += 1;
+      }
+    }
+    return forgotten;
+  }
+
+  /**
    * 当前被追踪的文件数（供测试与诊断）。
    *
    * @returns 已记录指纹的文件数量。
