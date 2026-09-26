@@ -1041,7 +1041,12 @@ function restoreWorktree(wt) {
  * @returns {Promise<Array<{file:string, score:number}>>} 降序可疑文件列表。
  */
 async function runSbfl(wt, venvPython, task) {
+  // 阶段计时（2026-09-26 新增）：SBFL 在**大测试文件**上可能跑很久，而脚本原先在它内部**没有任何输出**
+  // ⇒ 「慢」与「挂了」从日志上无法区分（实测：requests-2317 的一次 dry-run 超过 10 分钟未返回）。
+  // 故把三个阶段各自耗时打出来，让「慢在哪」有据可查，而不是靠猜。
+  const tInstall = Date.now();
   installPytestCov(wt, venvPython);
+  const tAfterInstall = Date.now();
   if (RepoTestSpecs.for(task.repo) !== null) {
     // 该仓库的判定走专属 runner（如 django 的 runtests.py，非 pytest）⇒ `pytest --cov` 不成立。
     // 显式告警而非静默返回空：否则与「跑了但没命中」无法区分。
@@ -1054,6 +1059,8 @@ async function runSbfl(wt, venvPython, task) {
   const patchFile = join(scratch, 'test.patch');
   writeFileSync(patchFile, task.testPatch, 'utf8');
   const reportPath = join(wt, '.coverage.json');
+  // 注：工作区在**实例开始时**已统一还原过一次（见 ensureCheckout 之后的不变量注释），此处不再重复；
+  // 本函数只需保证「跑完还原」（finally）。
   let applied = false;
   try {
     execFileSync('git', ['-C', wt, 'apply', '--whitespace=nowarn', patchFile], { stdio: 'ignore' });
@@ -1062,7 +1069,10 @@ async function runSbfl(wt, venvPython, task) {
     // 应用失败（如已被改动）⇒ 不产出可疑文件，由调用方告警
   }
   try {
-    if (!applied) return [];
+    if (!applied) {
+      console.warn('  ⚠️ --sbfl：test_patch 应用失败 ⇒ 覆盖率定位跳过（未前置任何文件）');
+      return [];
+    }
     const args = [
       '-m',
       'pytest',
@@ -1074,11 +1084,17 @@ async function runSbfl(wt, venvPython, task) {
       '--cov=.',
       `--cov-report=json:${reportPath}`,
     ];
+    const tCov = Date.now();
     try {
       execFileSync(venvPython, args, { cwd: wt, stdio: 'ignore' });
     } catch {
       // 测试失败（FAIL_TO_PASS 本就预期失败）也照常产出 coverage.json，故这里仅兜底
     }
+    const tDone = Date.now();
+    console.log(
+      `  [sbfl] 阶段耗时：装 pytest-cov ${((tAfterInstall - tInstall) / 1000).toFixed(1)}s、` +
+        `pytest --cov ${((tDone - tCov) / 1000).toFixed(1)}s（测试文件 ${PytestVerdict.testFilesOf(task.testPatch).join(',') || '(无)'}）`,
+    );
     try {
       return CoverageLocator.rankFilesFromCoverageJson(readFileSync(reportPath, 'utf8'));
     } catch {
@@ -1262,6 +1278,14 @@ for (const task of pending) {
   console.log(`\n=== ${task.id} (${task.repo} @ ${task.baseCommit.slice(0, 10)}) ===`);
   try {
     const wt = ensureCheckout(task.repo, task.baseCommit, task.id);
+    // **工作区创建后立刻还原到 base_commit 干净态**（2026-09-26 实测修，完整性问题）：
+    // `--worktree-root` 是**持久目录**，上一次运行若在 SBFL 中途被外部超时杀掉，
+    // `git apply` 的**官方 test_patch 会留在工作区**。旧实现只在 SBFL 的 finally 里还原 ⇒
+    // 被杀那一次不会还原，于是：① 下次 `--sbfl` 的 apply 失败（SBFL 被跳过）；② **更严重**——
+    // 下次即使不开 `--sbfl`，随后 `buildContentBlocks` 也会**读工作区文件正文**，把已打上的
+    // 官方测试补丁读进 prompt ⇒ 答案线索泄漏给模型。
+    // 此处还原与 SBFL 开关无关，是「用工作区之前先确认它是干净检出错」的不变量。
+    restoreWorktree(wt);
     const { text: mapText, files, symbols } = retrieve(cache, wt, task.problemStatement);
 
     // 零漂移自证：生产入口在同一 root/query/形态下必须逐字节等于本脚本的复刻产出。
