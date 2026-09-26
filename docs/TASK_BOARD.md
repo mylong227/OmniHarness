@@ -2692,3 +2692,9 @@ fail-closed 日志**（`semantic index build failed`），没有产出「语义�
 `✅ 判分可信度：本次 N 个实例全部通过 gold 对照`。意义在于**把「付费生成 → 免费判分 → 可信度自证」整条链
 验通了**（产物格式、pins 生效、gold 报告复核都实测过），而不是给出 3/3 的能力分。
 剩余 17 题在后台按同一协议续跑（`--resume`，产物 `eval-data/preds_product_bestof4.jsonl`）。
+
+**首批 8 题（判分已完成、增量落盘）**：**8/8 resolved=true**、模型失败 0、环境失败 0，判分侧打印
+`✅ 判分可信度：本次 8 个实例全部通过 gold 对照`（django 5 + sphinx 2 + sympy 1）。
+判分产物按 `--jsonl` 逐题落盘（`eval-data/score_product.jsonl`）⇒ 最终一轮只需判**新增的 12 题**。
+⚠️ n=8 且是可信子集里**先跑完**的一批，**不可外推为能力分**；剩余 12 题（django 9 + sympy 3）跑完后才有 20 题口径。
+详见 `docs/SWEBENCH_PRODUCT_RUN.md`。

@@ -75,7 +75,32 @@ node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
 
 ## 3. 结果
 
-<!-- 待填：逐题表（resolved / reason / 用时 / token）+ 汇总行 -->
+### 3.1 首批 8 题（判分已完成，**增量落盘**可续）
+
+| 实例                     | resolved | 仓库              |
+| ------------------------ | -------- | ----------------- |
+| django__django-11133     | ✅       | django/django     |
+| django__django-11477     | ✅       | django/django     |
+| django__django-11951     | ✅       | django/django     |
+| django__django-12419     | ✅       | django/django     |
+| django__django-13128     | ✅       | django/django     |
+| sphinx-doc__sphinx-10449 | ✅       | sphinx-doc/sphinx |
+| sphinx-doc__sphinx-9320  | ✅       | sphinx-doc/sphinx |
+| sympy__sympy-13480       | ✅       | sympy/sympy       |
+
+**汇总（首批 8 题）**：`resolved = 8/8 (100%)`，`模型失败 = 0`，`环境失败 = 0`，
+判分侧打印 `✅ 判分可信度：本次 8 个实例全部通过 gold 对照`（⇒ 这 8 个的「通过」不是判分链路幻觉）。
+
+⚠️ **口径提示（不要把 8/8 读成能力分）**：n=8，且是可信子集里**先跑完的一批**（django 5 + sphinx 2 + sympy 1），
+剩余 12 题（django 9 + sympy 3）尚未跑完。产品口径本身很强（4 候选 + 以真跑测试为奖励 + 测试驱动自纠环），
+但**小样本 + 未跑完**时任何百分比都不能外推。
+
+### 3.2 剩余 12 题
+
+<!-- 待填：跑完后合并、续判、给出 20 题汇总与逐题 token -->
+
+判分产物按 `--jsonl` **逐题落盘**（`eval-data/score_product.jsonl`）⇒ 最终一轮只需判**新增**的 12 题，
+不会重跑已判过的 8 题。
 
 ## 4. 跑之前修掉的付费路径缺陷（否则这一次的钱会白花）
 
