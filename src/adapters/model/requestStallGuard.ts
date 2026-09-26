@@ -21,6 +21,12 @@ export class RequestStallGuard {
   private timer: ReturnType<typeof setTimeout> | undefined;
   /** 是否由**本守卫的空闲计时器**触发中止（调用方取消时为 false，二者须区别对待）。 */
   private stalled = false;
+  /** 外部信号上挂的中止转发器（`dispose` 必须摘掉，见 {@link RequestStallGuard.dispose}）。 */
+  private forwarder: (() => void) | undefined;
+  /** 外部信号本体（`removeEventListener` 需要同一引用）。 */
+  private external: AbortSignal | undefined;
+  /** 是否已释放（释放后不得再因泄漏的定时器/监听器中止请求）。 */
+  private disposed = false;
 
   /**
    * @param idleMs 空闲阈值毫秒数；`<=0` 时只转发外部信号、不武装计时器。
@@ -56,13 +62,22 @@ export class RequestStallGuard {
     this.arm();
   }
 
-  /** 释放计时器（请求收尾必调）。不主动中止请求——中止只由超时或调用方取消触发。
+  /** 释放计时器与外部信号监听（请求收尾必调）。不主动中止请求——中止只由超时或调用方取消触发。
    * @returns 无返回值。
    */
   public dispose(): void {
+    this.disposed = true;
     if (this.timer !== undefined) {
       clearTimeout(this.timer);
       this.timer = undefined;
+    }
+    // 外部信号可能是**长寿命**的（会话级取消令牌被成百上千次请求复用）：不摘监听器的话，每次
+    // 请求都会在这条信号上永久留下一个闭包（连带其 AbortController），且它随后可能在已 dispose 的
+    // 控制器上触发 abort。必须成对移除。
+    if (this.forwarder !== undefined && this.external !== undefined) {
+      this.external.removeEventListener('abort', this.forwarder);
+      this.forwarder = undefined;
+      this.external = undefined;
     }
   }
 
@@ -75,6 +90,9 @@ export class RequestStallGuard {
     }
     this.timer = setTimeout(() => {
       this.timer = undefined;
+      if (this.disposed) {
+        return;
+      }
       this.stalled = true;
       this.controller.abort();
     }, this.idleMs);
@@ -94,8 +112,13 @@ export class RequestStallGuard {
       this.controller.abort(external.reason);
       return;
     }
-    external.addEventListener('abort', () => this.controller.abort(external.reason), {
-      once: true,
-    });
+    const forwarder = (): void => {
+      if (!this.disposed) {
+        this.controller.abort(external.reason);
+      }
+    };
+    this.forwarder = forwarder;
+    this.external = external;
+    external.addEventListener('abort', forwarder, { once: true });
   }
 }
