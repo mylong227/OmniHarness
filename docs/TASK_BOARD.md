@@ -2642,3 +2642,36 @@ netCDF4 / cftime / scipy 等按版本择一）。按 env-pins 纪律：先实测
 **运维注意（实测踩中一次）**：跑该 A/B 必须给 `OMNI_HF_ENDPOINT=https://hf-mirror.com`（本机不能直连
 huggingface.co，缺 tokenizer 元数据 ⇒ 索引构建失败）。漏设时**守卫 B 当场拦下并打印了完整的
 fail-closed 日志**（`semantic index build failed`），没有产出「语义路无效」的假报告——这条守卫是有效的。
+
+### 21.23 付费「产品口径」开跑前后：**最花钱的那条路上有三个真缺陷**（全部已修 + 成本实测）
+
+用户口径：DeepSeek key 已配置，直接跑。首次试跑（3 题）就在付费路径上暴露出三个「会让钱白花」的缺陷——
+全部属本仓反复治的同一族：**静默失效的旋钮 / 口径不一致 / 成本不可见**。
+
+1. **`--best-of-n 4 --self-test` 组合下 `--self-test` 静默失效**（最严重）：`solveInstance` 的 best-of-N
+   分支在选中最佳候选后**直接 `return`**，测试驱动自纠环只存在于单候选路径 ⇒ 而「产品口径」的定义恰恰是
+   「4 候选 **+ 测试驱动自纠环**」⇒ **文档口径与实际执行不一致，且日志里没有任何提示**。
+   修法：抽出 `selfTestRepair()` 由两条路径**共用同一实现**（两处各写一份必然再次分叉，故从结构上消除）。
+   诚实边界：3 题试跑里最佳候选奖励都是 1（无需自纠）⇒ 该路径**已接线但本次未被触发**，需在后续批次里
+   出现 `bestReward<1` 时以日志实证。
+2. **best-of-N 路径的 token 完全没被统计**：`sampler.sample()` 把 `generateCandidate` 的用量直接丢弃 ⇒
+   报告里**最花钱的路径**恒为 `总 token in/out=0/0`（而单候选路径有数）。成本无从核算，恰恰是最需要核算的地方。
+   修后实测 3 题：**617,854 in / 619,995 out**。
+3. **predict 侧环境与判分侧不同源**：predict 打印 `pins=0`，而判分侧已是 `pins=3` ⇒ best-of-N 用来**选候选**的
+   奖励环境 ≠ 最终判定环境；更糟的是奖励环境若测试集体崩溃（如 21.21 的插件冲突），**所有候选 reward=0**
+   ⇒ best-of-N **静默退化成「只看第一个候选」**，还照样打印「候选=4」。
+   修法：predict 侧默认读同一个 `benchmark/swebench-env-pins.json`（修后日志 `pins=3`）。
+4. **操作事故留档（我自己的）**：`--best-of-N`（驼峰）不被识别，而 `arg()` 对未知旗标**静默返回 undefined**
+   ⇒ 那一次跑成了**单候选**（日志 `best-of-N=1`），白花一次 pilot。建议后续给该脚本加「未知旗标 fail-closed」；
+   在此之前，**跑完必须核对日志首行的 `best-of-N= / self-test= / pins=` 三个值**。
+
+**成本实测（产品口径：best-of-4 + self-test + tiered，模型 `deepseek-v4-flash`）**
+
+| 指标  | 实测（3 题）                                           | 20 题外推  |
+| ----- | ------------------------------------------------------ | ---------- |
+| token | **412,616/题**（206K in + 207K out）                   | ≈ 8.25M    |
+| 时延  | **865s/题**（django 395s / sphinx 741s / sympy 1458s） | ≈ 4.8 小时 |
+
+**口径纪律（本次出分的前置）**：只在 **gold 对照可信的 20 题**上出分（`eval-data/gold_trusted_ids.txt`
+= django 14 + sphinx 2 + sympy 4），并把两份 gold 报告合并成 `eval-data/gold_control_trusted20.json`
+（total 30 / resolved 20 / envErrors 6）供判分侧 `--gold-report` 复核——**不可信实例一律不引用分数**。

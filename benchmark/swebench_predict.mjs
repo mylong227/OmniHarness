@@ -765,6 +765,63 @@ async function generateCandidate(messages, wt, model, o, temp, taskId) {
 }
 
 /**
+ * self-test 修复环：把未通过的 FAIL_TO_PASS 回喂给模型，最多 `repairRounds` 轮。
+ *
+ * 抽成独立函数的原因（2026-09-26 实测）：这段逻辑原先**只存在于单候选路径**，而 best-of-N 分支
+ * 在选中最佳候选后**直接 return** ⇒ `--best-of-n 4 --self-test` 组合下 `--self-test` **静默失效**
+ * （自纠环一次都不跑），而「产品口径」的定义恰恰是「4 候选 + 测试驱动自纠环」——即文档口径与实际
+ * 执行不一致，且日志里看不出来。抽出来后两条路径**共用同一实现**，从结构上防止再次分叉。
+ * @param {object} a 参数对象。
+ * @param {Array} a.seedMessages 原始消息（重建对话用）。
+ * @param {string} a.seedRaw 被选中候选的原始输出（保留给模型看自己的补丁）。
+ * @param {string} a.seedDiff 被选中候选的 diff。
+ * @param {Array<string>} a.seedFailures 该候选未通过的 FAIL_TO_PASS 清单。
+ * @param {object} a.model 模型。
+ * @param {object} a.o 选项。
+ * @param {string} a.wt 工作区。
+ * @param {object} a.executor 原生执行器（跑 F2P 判定）。
+ * @param {object} a.task 归一化任务。
+ * @returns {Promise<{diff:string, promptTokens:number, completionTokens:number, rounds:number, lastReason:string, passed:boolean}>} 修复结果。
+ */
+async function selfTestRepair({
+  seedMessages,
+  seedRaw,
+  seedDiff,
+  seedFailures,
+  model,
+  o,
+  wt,
+  executor,
+  task,
+}) {
+  let diff = seedDiff;
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let rounds = 0;
+  let lastReason = '';
+  let convo = buildSelfTestConvo(seedMessages, seedRaw, seedDiff, seedFailures);
+  for (let attempt = 0; attempt < o.repairRounds; attempt += 1) {
+    const fix = await generateCandidate(convo, wt, model, o, o.temperature, task.id);
+    promptTokens += fix.promptTokens;
+    completionTokens += fix.completionTokens;
+    rounds += fix.rounds;
+    if (fix.diff.length === 0 || !checkPatch(wt, fix.diff).ok) {
+      lastReason = fix.lastReason;
+      continue;
+    }
+    diff = fix.diff;
+    const sc = await executor.scorePatch(task, diff, wt);
+    if (sc.reward >= 1) {
+      return { diff, promptTokens, completionTokens, rounds, lastReason: '', passed: true };
+    }
+    lastReason = `self-test：${sc.failures.length} 个 FAIL_TO_PASS 未通过`;
+    console.log(`  ⚠️ ${lastReason}：${sc.failures.slice(0, 8).join(', ')}`);
+    convo = buildSelfTestConvo(seedMessages, fix.raw, diff, sc.failures);
+  }
+  return { diff, promptTokens, completionTokens, rounds, lastReason, passed: false };
+}
+
+/**
  * 求解单实例：按开关选择「单候选修复环」或「best-of-N + 可验证奖励」，可选 self-test 反馈。
  *
  * - best-of-N（o.bestOfN>1 且环境就绪）：用 {@link RlvrLoop} 采样 N 个候选，奖励 = 本地跑 gold
@@ -788,14 +845,29 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
   if (o.bestOfN > 1 && venvReady && model !== null && executor !== null) {
     const samplerTemp = o.temperature > 0 ? o.temperature : 0.8;
     let firstDiff = '';
+    // 逐候选留存 {raw, failures}：选中最佳候选后若要跑 self-test 自纠环，需要它的**原始输出**
+    // （让模型看到自己的补丁）与**未通过清单**（回喂内容）；RlvrLoop 只回传 {id, code}。
+    const rawById = new Map();
+    const failuresById = new Map();
     const sampler = {
       async sample(/* prompt */ _p, i) {
         const cand = await generateCandidate(messages, wt, model, o, samplerTemp, task.id);
+        // ⚠️ 必须在此累加：best-of-N 路径的 token 原先**完全没被统计**（`generateCandidate` 的用量
+        // 被直接丢掉），于是「产品口径」这一最花钱的路径在报告里恒为 `token in/out=0/0`——
+        // 成本无从核算，而这正是最需要核算的路径。
+        promptTokens += cand.promptTokens;
+        completionTokens += cand.completionTokens;
+        const id = `c${i}`;
+        rawById.set(id, cand.raw);
         if (i === 0) firstDiff = cand.diff;
-        return { id: `c${i}`, code: cand.diff };
+        return { id, code: cand.diff };
       },
     };
-    const reward = async (cand) => (await executor.scorePatch(task, cand.code, wt)).reward;
+    const reward = async (cand) => {
+      const sc = await executor.scorePatch(task, cand.code, wt);
+      failuresById.set(cand.id, sc.failures ?? []);
+      return sc.reward;
+    };
     const rlvr = new RlvrLoop({
       sampler,
       reward,
@@ -803,17 +875,50 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
       samplesPerPrompt: o.bestOfN,
     });
     const res = await rlvr.run(JSON.stringify(messages));
-    const diff = res.best !== undefined ? res.best.candidate.code : firstDiff;
-    console.log(
-      `  [best-of-N] 候选=${o.bestOfN} 绿样本=${res.kept} 最佳奖励=${res.best?.reward ?? 0}`,
-    );
+    const bestId = res.best?.candidate?.id;
+    let diff = res.best !== undefined ? res.best.candidate.code : firstDiff;
+    const bestReward = res.best?.reward ?? 0;
+    let rounds = o.bestOfN;
+    let lastReason = '';
+    console.log(`  [best-of-N] 候选=${o.bestOfN} 绿样本=${res.kept} 最佳奖励=${bestReward}`);
+    // 测试驱动自纠环（`--self-test`）：**必须在 best-of-N 之后也跑**——旧实现在这里直接 return，
+    // 使 `--best-of-n 4 --self-test` 组合下自纠环一次都不执行（与「产品口径」定义不符，且日志无提示）。
+    if (
+      o.selfTest &&
+      bestReward < 1 &&
+      diff.length > 0 &&
+      checkPatch(wt, diff).ok &&
+      bestId !== undefined
+    ) {
+      const rep = await selfTestRepair({
+        seedMessages: messages,
+        seedRaw: rawById.get(bestId) ?? '',
+        seedDiff: diff,
+        seedFailures: failuresById.get(bestId) ?? [],
+        model,
+        o,
+        wt,
+        executor,
+        task,
+      });
+      promptTokens += rep.promptTokens;
+      completionTokens += rep.completionTokens;
+      rounds += rep.rounds;
+      diff = rep.diff;
+      lastReason = rep.lastReason;
+      console.log(
+        rep.passed
+          ? '  ✅ self-test：修复后 FAIL_TO_PASS 全绿'
+          : `  ⚠️ self-test 未全绿：${lastReason}`,
+      );
+    }
     return {
       diff,
-      rounds: o.bestOfN,
+      rounds,
       promptTokens,
       completionTokens,
-      bestOfN: { candidates: o.bestOfN, kept: res.kept, bestReward: res.best?.reward ?? 0 },
-      lastReason: '',
+      bestOfN: { candidates: o.bestOfN, kept: res.kept, bestReward },
+      lastReason,
     };
   }
 
@@ -827,6 +932,7 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
   if (diff.length > 0 && checkPatch(wt, diff).ok) {
     console.log(`  ✅ 补丁可应用（生成 ${cand.raw.length} 字符 → diff ${diff.length} 字符）`);
     // self-test：补丁可应用 ⇒ 就地跑 gold FAIL_TO_PASS；未全绿则回喂失败项进下一轮。
+    // 与 best-of-N 路径**共用** {@link selfTestRepair}（抽出的动因见该函数注释：两处各写一份必然分叉）。
     if (o.selfTest && venvReady && executor !== null) {
       const sc = await executor.scorePatch(task, diff, wt);
       if (sc.reward >= 1) {
@@ -834,27 +940,23 @@ async function solveInstance(o, task, wt, model, executor, venvReady, messages) 
       } else {
         lastReason = `self-test：${sc.failures.length} 个 FAIL_TO_PASS 未通过`;
         console.log(`  ⚠️ ${lastReason}：${sc.failures.slice(0, 8).join(', ')}`);
-        let convo = buildSelfTestConvo(messages, cand.raw, diff, sc.failures);
-        for (let attempt = 0; attempt < o.repairRounds; attempt += 1) {
-          const fix = await generateCandidate(convo, wt, model, o, o.temperature, task.id);
-          diff = fix.diff;
-          promptTokens += fix.promptTokens;
-          completionTokens += fix.completionTokens;
-          rounds += fix.rounds;
-          if (diff.length === 0 || !checkPatch(wt, diff).ok) {
-            lastReason = fix.lastReason;
-            continue;
-          }
-          const sc2 = await executor.scorePatch(task, diff, wt);
-          if (sc2.reward >= 1) {
-            console.log('  ✅ self-test 修复后 FAIL_TO_PASS 全绿');
-            lastReason = '';
-            break;
-          }
-          lastReason = `self-test：${sc2.failures.length} 个 FAIL_TO_PASS 未通过`;
-          console.log(`  ⚠️ ${lastReason}：${sc2.failures.slice(0, 8).join(', ')}`);
-          convo = buildSelfTestConvo(messages, fix.raw, diff, sc2.failures);
-        }
+        const rep = await selfTestRepair({
+          seedMessages: messages,
+          seedRaw: cand.raw,
+          seedDiff: diff,
+          seedFailures: sc.failures,
+          model,
+          o,
+          wt,
+          executor,
+          task,
+        });
+        diff = rep.diff;
+        promptTokens += rep.promptTokens;
+        completionTokens += rep.completionTokens;
+        rounds += rep.rounds;
+        lastReason = rep.lastReason;
+        if (rep.passed) console.log('  ✅ self-test 修复后 FAIL_TO_PASS 全绿');
       }
     }
   } else if (diff.length === 0) {
@@ -1067,11 +1169,20 @@ const model =
 // 且日志零提示；armB 命名为 `_sbfl` 但日志无一条 `[sbfl]` 行，正是此因）。现纳入同一判据，
 // 并允许 `--dry-run --sbfl` 走通——dry-run 不调模型，正是「零成本验证 SBFL 接线」的用法。
 const needExecutor = opts.sbfl || (!opts.dryRun && (opts.bestOfN > 1 || opts.selfTest));
+// 环境约束（`benchmark/swebench-env-pins.json`）**必须与判分侧同源**：best-of-N / self-test 用同一个
+// 环境跑 F2P 打分**选候选**，若这里不装 pins 而判分侧装了，两边就不是同一个环境——
+// 轻则「候选选择」与「最终判定」口径不一致，重则奖励环境里测试集体崩溃 ⇒ 所有候选 reward=0
+// ⇒ best-of-N **静默退化成只看第一个候选**。实测现场：predict 侧打印 `pins=0`，而判分侧已是 `pins=3`。
+const envPinsPath = join(ROOT, 'benchmark', 'swebench-env-pins.json');
+const envPins = existsSync(envPinsPath)
+  ? (JSON.parse(readFileSync(envPinsPath, 'utf8')).pins ?? {})
+  : {};
 const executor = needExecutor
   ? new NativeExecutor({
       repoCacheRoot: opts.cacheRoot,
       repoBaseUrl: opts.repoBaseUrl,
       ...(Object.keys(mirrors).length > 0 ? { repoMirrors: mirrors } : {}),
+      ...(Object.keys(envPins).length > 0 ? { envPins } : {}),
     })
   : null;
 if (needExecutor && executor !== null) {
