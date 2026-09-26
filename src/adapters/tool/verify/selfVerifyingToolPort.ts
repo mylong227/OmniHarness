@@ -56,6 +56,14 @@ export interface SelfVerifyWiring {
  * 自验证回环装饰器：透明转发 `ToolPort` 全部方法，仅在「改源码」调用后追加回灌。
  */
 export class SelfVerifyingToolPort implements ToolPort {
+  /**
+   * 追踪的会话数上限（超出即按登记顺序淘汰最早的会话）。
+   *
+   * 依据：每条追踪项只是「已触发次数 + 最近时间 + 上次失败文件」三个小值，256 条足够覆盖
+   * server 上的并发会话；上限存在的意义是把「每个见过的会话常驻一条」这条无界增长封死。
+   */
+  public static readonly MAX_TRACKED_SESSIONS = 256;
+
   /** 端口名（透传内层，保持审批/日志中的标识不变）。 */
   public readonly name: string;
 
@@ -265,6 +273,16 @@ export class SelfVerifyingToolPort implements ToolPort {
   private recordRun(sessionId: string): void {
     this.runs.set(sessionId, (this.runs.get(sessionId) ?? 0) + 1);
     this.lastRunAt.set(sessionId, this.now());
+    // 有界保留（2026-09-26 审计 S31）：`runs` / `lastRunAt` 原先按 sessionId 只写不删，
+    // 长跑 server 里每见过一个会话就常驻一条（本文件的 `failingTargets` 有清理路径，这两个没有）。
+    // Map 保持插入序，故按序淘汰最早登记的会话即可（预算/冷却只关心**当前**会话）。
+    while (this.runs.size > SelfVerifyingToolPort.MAX_TRACKED_SESSIONS) {
+      const oldest = this.runs.keys().next();
+      if (oldest.done === true) break;
+      this.runs.delete(oldest.value);
+      this.lastRunAt.delete(oldest.value);
+      this.failingTargets.delete(oldest.value);
+    }
   }
 
   /**

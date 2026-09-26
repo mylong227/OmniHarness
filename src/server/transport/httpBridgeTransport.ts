@@ -7,6 +7,14 @@ import { PendingRequests } from '../../util/pendingRequests.js';
 
 /** HTTP/WS/SSE 桥接传输：POST /rpc 与 WS 请求-响应共用 pending 表，通知广播给全部 SSE/WS 客户端（实现 {@link Transport}）。 */
 export class HttpBridgeTransport implements Transport {
+  /**
+   * 单条入站 RPC 的等待上限（毫秒）：60 秒。
+   *
+   * 依据：服务端 RPC 的正常量级是毫秒～秒（长任务走 `turns.run` 的通知流，不是同步 RPC 等待）。
+   * 超时把它收敛为一条可解释的错误响应，而不是让 HTTP 连接与 pending 条目一起悬挂。
+   */
+  public static readonly REQUEST_TIMEOUT_MS = 60_000;
+
   /** 入站消息回调（AppServer 注册的处理器）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
   /** 等待响应的请求表：请求 id → 收尾通道（本传输只用成功通道，见 send）。 */
@@ -128,8 +136,22 @@ export class HttpBridgeTransport implements Transport {
               return;
             }
           }
-          const response = await this.handleRequest(message);
-          connection.send(JSON.stringify(response));
+          // 超时/内部异常都必须变成**一条有 id 的错误响应**：否则调用方的 HTTP 请求永远等不到
+          // 答复（原实现无超时、无拒绝通道，见 2026-09-26 审计 S15）。
+          try {
+            const response = await this.handleRequest(message);
+            connection.send(JSON.stringify(response));
+          } catch (error) {
+            connection.send(
+              JSON.stringify(
+                jsonRpc.errorResponse(
+                  message.id,
+                  -32000,
+                  error instanceof Error ? error.message : String(error),
+                ),
+              ),
+            );
+          }
         })();
       }
     };
@@ -141,12 +163,25 @@ export class HttpBridgeTransport implements Transport {
 
   /**
    * 分发请求并等待响应。
+   *
+   * 必须带超时（2026-09-26 审计 S15）：原实现只登记 `{resolve}`、既无超时也无拒绝通道，
+   * 而对端可自选 JSON-RPC id —— 重复 id 会覆盖 `PendingRequests` 里的旧条目，使**先到的那条**
+   * 永远等不到答复（HTTP 侧连接悬挂、条目泄漏）。超时把它收敛为一条可解释的错误响应。
    * @param message 入站 RPC 请求。
    * @returns 上层处理完成后回写的响应消息。
    */
   private handleRequest(message: RpcRequest): Promise<RpcMessage> {
-    return new Promise((resolve) => {
-      this.pending.register(message.id, { resolve });
+    return new Promise<RpcMessage>((resolve, reject) => {
+      this.pending.register(
+        message.id,
+        { resolve, reject },
+        {
+          ms: HttpBridgeTransport.REQUEST_TIMEOUT_MS,
+          onTimeout: (handlers) => {
+            handlers.reject?.(new Error(`RPC 超时（${HttpBridgeTransport.REQUEST_TIMEOUT_MS}ms）`));
+          },
+        },
+      );
       this.callback?.(message);
     });
   }
