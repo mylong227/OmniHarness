@@ -29,6 +29,14 @@ interface StoredTrace {
 }
 
 export class InsightEtchingEngine implements InsightEtchingPort {
+  /**
+   * 保留的刻痕上限（超出即按插入序淘汰最旧一条）。
+   *
+   * 依据：刻痕是「顿悟事件」的共振寻址索引，属于召回增强而非事实存储；每条目一个 257 维
+   * 频谱，无上限等同于把长跑会话的内存交给调用频率决定。1024 条在实践中远超命中所需。
+   */
+  public static readonly MAX_TRACES = 1024;
+
   /** 引擎标识名（记忆检索引擎注册键，用于诊断与装配区分）。 */
   public readonly name = 'insight-etching';
   /** 共振导通命中下限（低于此刻痕不导通）。 */
@@ -78,6 +86,13 @@ export class InsightEtchingEngine implements InsightEtchingPort {
       ...InsightEtchingEngine.flattenLabelsFromBranches(event.branches ?? []),
     ].join(' ');
     this.store.set(event.id, { trace, spectrum: EigenSpectrum.eigenSpectrum(corpus, this.bins) });
+    // 有界保留（2026-09-26 审计 S30）：`store` 原本无上限、重复 id 又抛错 ⇒ 只能单调增长，
+    // 每条刻痕还带一个 257 维浮点频谱。Map 保持插入序，故按序淘汰最旧一条即可（FIFO）。
+    while (this.store.size > InsightEtchingEngine.MAX_TRACES) {
+      const oldest = this.store.keys().next();
+      if (oldest.done === true) break;
+      this.store.delete(oldest.value);
+    }
     return trace;
   }
 
