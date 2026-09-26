@@ -67,6 +67,19 @@ export class SelfVerifyingToolPort implements ToolPort {
   /** 端口名（透传内层，保持审批/日志中的标识不变）。 */
   public readonly name: string;
 
+  /**
+   * 本会话**最近一次**自验证失败的可读摘要（成功即清除）。
+   *
+   * 供回合完成闸门（`TurnRunner` 的可选 `completionGate`）询问：模型声明「做完了」时，
+   * 若这里仍有内容，说明它对源码的改动**验证未通过**却打算收尾 —— 闸门会把它回灌并再给一步
+   * （有界，每回合至多一次）。返回 `undefined` 表示「最近一次验证通过」或「本会话没跑过」。
+   * @param sessionId 会话 id。
+   * @returns 失败摘要；无失败记录时为 undefined。
+   */
+  public lastFailure(sessionId: string): string | undefined {
+    return this.lastFailureBySession.get(sessionId);
+  }
+
   /** 被装饰的内层端口。 */
   private readonly inner: ToolPort;
   /** 装配项。 */
@@ -77,6 +90,14 @@ export class SelfVerifyingToolPort implements ToolPort {
   private readonly lastRunAt = new Map<string, number>();
   /** 每会话上次失败所指向的文件（供下次「定向测试」收窄命令，P1-⑨ 后半）。 */
   private readonly failingTargets = new Map<string, readonly string[]>();
+  /**
+   * 每会话**最近一次**自验证失败的摘要（成功即清除）。
+   *
+   * 存在理由（2026-09-26 审计 A1）：自验证此前只是**信号**（把摘要追加进工具结果），模型完全可以
+   * 无视它直接说「做完了」。回合完成闸门（`TurnRunner`）需要问一句「本会话最近一次验证过了吗」，
+   * 本表就是它的数据源。
+   */
+  private readonly lastFailureBySession = new Map<string, string>();
 
   /**
    * @param inner 被装饰的工具端口（生产为 `RegistryToolPort`）。
@@ -183,14 +204,19 @@ export class SelfVerifyingToolPort implements ToolPort {
         policy.maxOutputBytes,
       );
       if (outcome.timedOut) {
-        return `[自验证回环] 测试命令超时（${policy.timeoutMs}ms）：${command}。请先修复或缩小测试范围。`;
+        const note = `[自验证回环] 测试命令超时（${policy.timeoutMs}ms）：${command}。请先修复或缩小测试范围。`;
+        this.lastFailureBySession.set(sessionId, note);
+        return note;
       }
       if (outcome.exitCode !== 0) {
         this.rememberFailing(sessionId, outcome.output);
         const digest = this.digestOf(outcome.output, policy.maxDigestLines);
-        return `[自验证回环] 改动源码后自动跑测试未通过（exit=${String(outcome.exitCode)}）：${command}\n${digest}`;
+        const note = `[自验证回环] 改动源码后自动跑测试未通过（exit=${String(outcome.exitCode)}）：${command}\n${digest}`;
+        this.lastFailureBySession.set(sessionId, note);
+        return note;
       }
       this.failingTargets.delete(sessionId);
+      this.lastFailureBySession.delete(sessionId);
       return undefined;
     } catch (error) {
       return `[自验证回环] 测试命令未能执行：${error instanceof Error ? error.message : String(error)}`;
@@ -282,6 +308,7 @@ export class SelfVerifyingToolPort implements ToolPort {
       this.runs.delete(oldest.value);
       this.lastRunAt.delete(oldest.value);
       this.failingTargets.delete(oldest.value);
+      this.lastFailureBySession.delete(oldest.value);
     }
   }
 

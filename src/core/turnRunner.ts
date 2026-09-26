@@ -9,6 +9,22 @@ import { LoopGuard, type LoopDecision } from './loop/loopGuard.js';
 import type { EventPersister } from './loop/eventPersister.js';
 import { log } from '../util/logger.js';
 
+/**
+ * 回合**完成闸门**（2026-09-26 审计 A1）：模型声明「做完了」时的一次外部核验。
+ *
+ * 为什么需要它：自验证回环此前只是**信号**（把失败摘要追加进工具结果），模型完全可以无视它
+ * 直接输出结论收尾 —— 产品路径上没有任何东西阻止「改坏了代码还宣布完成」。
+ * 本接口把「本会话最近一次对源码改动的验证结果」暴露给 `TurnRunner`：仍有失败则回灌并再给一步。
+ */
+export interface CompletionGate {
+  /**
+   * 本会话最近一次自验证失败的可读摘要。
+   * @param sessionId 会话 id。
+   * @returns 失败摘要；最近一次验证通过、或本会话从未验证时为 undefined。
+   */
+  lastFailure(sessionId: string): string | undefined;
+}
+
 /** 回合运行结果。 */
 export interface TurnOutcome {
   readonly steps: number;
@@ -58,6 +74,11 @@ export class TurnRunner {
      * 交由兜底总结收尾——对标 codex 的 token 预算终止，比纯步数更贴近真实成本。
      */
     private readonly tokenBudget = 0,
+    /**
+     * 回合完成闸门（A1，可选）：模型声明「做完了」时核验本会话最近一次自验证结果；
+     * 仍有失败则回灌并再给一步（**每回合至多一次**）。缺省 undefined＝不设闸门（旧行为）。
+     */
+    private readonly completionGate?: CompletionGate,
   ) {
     this.loopGuard = loopGuard;
   }
@@ -71,6 +92,8 @@ export class TurnRunner {
     let consecutiveEmpty = 0;
     let aborted = false;
     let usageTokens = 0;
+    /** 本回合是否已用过完成闸门（有界：至多一次）。 */
+    let gated = false;
     while (steps < this.maxSteps) {
       // V2.1：成本预算熔断（B5 补全）——BudgetedModel 抛 BudgetExceededError 时
       // 不再让整回合硬崩（异常冒泡 → 用户颗粒无收），而是记录事件、跳出循环，
@@ -112,6 +135,20 @@ export class TurnRunner {
         continue;
       }
       if (outcome === 'text') {
+        // 完成闸门（A1）：模型说要收尾了，但本会话最近一次对源码改动的验证**没通过** ⇒
+        // 把失败摘要回灌并再给一步（有界：每回合至多一次，且照常消耗步数预算）。
+        const digest = gated ? undefined : this.completionGate?.lastFailure(context.sessionId);
+        if (digest !== undefined && digest !== '') {
+          gated = true;
+          log.warn('turn.completion_gate.blocked', { steps, sessionId: context.sessionId });
+          this.recorder.user(
+            '【完成闸门】你已声明完成，但本回合对源码的改动**验证未通过**：\n' +
+              `${digest}\n` +
+              '请先修好它再收尾；若你判断该失败与本次改动无关（例如环境缺失/既有失败），' +
+              '请在结论里**逐条说明**是哪一条、依据是什么。',
+          );
+          continue;
+        }
         break;
       }
       // 'empty'：模型既没给文本也没调工具（空响应/被安全过滤/上游截断）。
