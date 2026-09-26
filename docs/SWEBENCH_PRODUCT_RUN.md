@@ -40,15 +40,21 @@ resolved** 的实例；Verified-30 里只有 20 题满足（django 14 + sphinx 2
 
 ⇒ **判分可信度以 gold 对照为准**（看板 §21.20/§21.21），不可信实例一律不进入分数。
 
-**大 batch 的并行做法（本次实际使用，墙钟约减半）**：该脚本**没有并发锁**，但每题跑完会**整文件重写**
-`--out`（`patchById.set(...) + writeOut()`）⇒ 两个 worker **必须用不同的 `--out`**，否则互相清空。
-本次按仓库把剩余题拆成两个不相交列表（A：django 11 题；B：sphinx 1 + sympy 3 —— 刻意把最慢的 sympy
-从队尾挪到并行侧），跑完再合并去重：
+**大 batch 的并行做法（本次实际使用；⚠️ 实测**未**证实能提速）**：该脚本**没有并发锁**，但每题跑完会
+**整文件重写** `--out`（`patchById.set(...) + writeOut()`）⇒ 两个 worker **必须用不同的 `--out`**，否则互相清空。
+本次按仓库把剩余题拆成两个不相交列表（A：django 11 题；B：sphinx 1 + sympy 3），跑完再合并去重：
 
 ```bash
 node eval-data/_merge_preds.mjs eval-data/preds_product_bestof4_all.jsonl \
   eval-data/preds_product_bestof4.jsonl eval-data/preds_product_bestof4_b.jsonl
 ```
+
+⚠️ **诚实更正**：我起初预期「墙钟约减半」，但**实测不支持这个预期**——两 worker 并行时，
+单题耗时反而升到 **≈25 min**（A 的 django-12419、B 的 sphinx-10449 都是 10:03:52 起、10:28 前完成），
+而**同一批串行**时的单题耗时是 django 6.6~16 min / sphinx 12 min。瓶颈看来是**账号级的生成吞吐**
+（不是本机 CPU：进程常年 ~1% CPU、端点 1-token 探测 707ms 健康），并发只是把同一份带宽切成两半。
+⇒ **结论：这类长生成任务并行无收益，串行更简单也可控**（本文档保留这次并行是因为它已在跑）。
+若要重跑，建议串行；`selfTestRepair` 的随机性也让多 worker 的耗时对比难以严格归因（n=1，样本不足）。
 
 **信任闸不自证循环（代码级证据）**：`--gold-report` 只被 `judgeValidIds()` 读入、只被
 `printJudgeValidity()` 使用（`benchmark/capability_swebench.mjs` 第 430/449/474 行附近），
