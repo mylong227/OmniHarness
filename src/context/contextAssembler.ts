@@ -10,6 +10,14 @@ import { COMPACTION_MARKER } from './contextCompactor.js';
 /** 上下文组装器：固定碎片（world_state）+ 事件日志投影 → 模型消息（model-visible means logged）。 */
 export class ContextAssembler {
   /**
+   * 回灌给模型的回合 diff 上限（字符）：8000。
+   *
+   * 依据：足以覆盖「改了哪几个文件、哪些 hunk」的复核需求，又不至于让一次大重构的 diff
+   * 挤掉后续工具结果所需的上下文预算。
+   */
+  public static readonly MAX_DIFF_CHARS = 8_000;
+
+  /**
    * 待 flush 的 assistant 工具调用（跨事件累积）。
    * OmniHarness 把「模型返回 tool_calls」与「工具执行结果」记录为分离事件，
    * 但 OpenAI 多轮要求二者合并为 assistant(tool_calls) + tool(tool_call_id) 的配对序列，
@@ -149,6 +157,13 @@ export class ContextAssembler {
         });
         this.collectAttachments(event);
         break;
+      case 'turn_diff': {
+        // 模型**必须看到自己改了什么**（2026-09-26 审计 A7）：`turn_diff` 原先只广播给 UI，
+        // 投影时被 default 分支丢弃 ⇒ 模型无法复核本回合的实际改动，只能凭记忆断言「已改好」。
+        // 这里以 user 消息回灌（带总量上限，避免大 diff 撑爆上下文）。
+        this.appendTurnDiff(messages, this.contentOf(event));
+        break;
+      }
       default:
         break;
     }
@@ -177,10 +192,39 @@ export class ContextAssembler {
     this.pendingReasoning = undefined;
   }
 
+  /**
+   * 把回合 diff 以 user 消息回灌（空 diff 不产生任何消息）。
+   * @param messages 已组装的消息序列（原地追加）。
+   * @param diff 原始 unified diff 文本。
+   * @returns 无返回值。
+   */
+  private appendTurnDiff(messages: ModelMessage[], diff: string): void {
+    if (diff.trim() === '') {
+      return;
+    }
+    messages.push({
+      role: 'user',
+      content: `[上一回合的实际改动 diff]\n${ContextAssembler.boundDiff(diff)}`,
+    });
+  }
+
   /** 提取普通内容。 */
   private contentOf(event: SessionEvent): string {
     const payload = event.payload as { content?: string };
     return payload.content ?? '';
+  }
+
+  /**
+   * 把回合 diff 截到上限（保留**头部**：diff 的头部含文件与 hunk 起点，是最需要复核的部分）。
+   * @param diff 原始 unified diff。
+   * @returns 截断后的文本（超限时附截断说明）。
+   */
+  private static boundDiff(diff: string): string {
+    const limit = ContextAssembler.MAX_DIFF_CHARS;
+    if (diff.length <= limit) {
+      return diff;
+    }
+    return `${diff.slice(0, limit)}\n…（diff 已截断，共 ${String(diff.length)} 字符）`;
   }
 
   /** 提取用户消息附带的图像（多模态输入，#B1）；无则返回 undefined。 */
