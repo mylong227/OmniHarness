@@ -36,6 +36,7 @@ import { BashAppRootMapper } from './bashAppRootMapper.js';
 import type { BashAppRootClaim } from './bashAppRootMapper.js';
 import { PythonEnvironmentProvisioner } from './pythonEnvironmentProvisioner.js';
 import { SafeRemoveTree } from '../../util/safeRemoveTree.js';
+import { log } from '../../util/logger.js';
 
 /** 后端可选项（全部可注入，便于测试与跨平台部署）。 */
 export interface NativeExecutionBackendOptions {
@@ -363,9 +364,15 @@ export class NativeExecutionBackend implements ExecutionBackend {
     }
     try {
       // 逐条目删除，绕开宿主对「单目录条目数过多」的批量删除拦截（见 safeRemoveTree）。
+      // 该工具内部已对瞬时占用（EPERM/EBUSY/ENOTEMPTY）做退避重试——实测全量并行时
+      // 「工作根残留」正是瞬时占用被这里静默吞掉造成的（2026-09-26 审计）。
       SafeRemoveTree.remove(parent);
-    } catch {
-      // best-effort：临时目录残留由系统回收
+    } catch (error) {
+      // 到这里就是**真正持久**的失败：残留不可避免，但必须留痕（否则只有断言失败可查）。
+      log.warn('tbench.teardown.leftover', {
+        parent,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

@@ -25,13 +25,13 @@ export class TodoReadTool {
   public constructor(private readonly port: TodoPort) {}
 
   /**
-   * 执行 todo_read：返回当前待办列表快照。
+   * 执行 todo_read：返回**本会话**的待办列表快照。
    * @param call 模型传入的工具调用（本工具无参数）。
-   * @param _ctx 工具执行上下文（本工具不依赖，保留签名兼容）。
+   * @param ctx 工具执行上下文（取 sessionId 定位本会话的待办桶）。
    * @returns 始终 ok:true，output 为待办项 JSON 数组。
    */
-  public async handle(call: ToolCall, _ctx: ToolContext): Promise<ToolResult> {
-    const items = this.port.list();
+  public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
+    const items = this.port.list(ctx.sessionId);
     return {
       callId: call.id,
       ok: true,

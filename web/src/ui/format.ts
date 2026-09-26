@@ -171,13 +171,18 @@ export function permChip(p: string): ReactElement {
 
 /**
  * 待办清单渲染：按状态给圆点上 `done` / `doing` 修饰类。
+ *
+ * 状态词表**必须与生产者一致**（2026-09-26 审计 F8）：生产者
+ * （`ports/runtime/todo.ts` 的 `TodoStatus`）只发 `pending | in_progress | completed`，
+ * 而渲染器原先只认 `done` / `doing` ⇒ 所有圆点恒为中性灰，每个待办的进度在 UI 上不可见。
+ * 两种词表都接受（兼容历史事件），语义映射：completed→done、in_progress→doing。
  * @param todos 待办项数组，每项含可选 status 与 content。
  * @returns 待办卡片元素。
  */
 export function todoView(todos: { status?: string; content?: string }[]): ReactElement {
   const dotClass = (status?: string): string => {
-    if (status === 'done') return 'todo-dot done';
-    if (status === 'doing') return 'todo-dot doing';
+    if (status === 'completed' || status === 'done') return 'todo-dot done';
+    if (status === 'in_progress' || status === 'doing') return 'todo-dot doing';
     return 'todo-dot ';
   };
   return React.createElement(

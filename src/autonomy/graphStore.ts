@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { WorkflowDef } from './workflowTypes.js';
+import { WorkflowRunner } from './workflowRunner.js';
 
 /** 图存储目录名（位于工作区 .omniharness 下）。 */
 const GRAPH_DIR = '.omniharness/graphs';
@@ -86,6 +87,10 @@ export class GraphStore {
     if (!Array.isArray(def.steps) || def.steps.length === 0) {
       throw new Error('图定义至少需要一个步骤');
     }
+    // 结构性预检（2026-09-26 审计 F17）：原先只校验 name 与「steps 非空」，环 / 悬空依赖 /
+    // 重复 id 都能存盘，直到 `graph.run` 才以「存在环」这类误导性错误爆出——而那一刻用户已经
+    // 以为图被正确保存了。这里复用拓扑排序做一次机械校验，把错误挡在**保存**这一步。
+    WorkflowRunner.computeLevels(def.steps);
     const id = GraphStore.sanitize(def.name);
     if (id.length === 0) {
       throw new Error('name 归一化后为空，请使用字母/数字/下划线/连字符');

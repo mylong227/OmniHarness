@@ -20,27 +20,72 @@ import { spawnSync } from 'node:child_process';
  * 设计为静态工具类（无状态），符合本仓「减少 static 但有状态者才实例化」的纪律。
  */
 export class SafeRemoveTree {
+  /** 瞬时失败的最大尝试次数（含首次）。 */
+  private static readonly MAX_ATTEMPTS = 5;
+
+  /** 首次重试前的等待（毫秒）；后续按尝试次数线性放大。 */
+  private static readonly RETRY_BASE_MS = 60;
+
+  /**
+   * 判定删除失败是否为**瞬时**（进程刚退出、文件句柄尚未释放、杀软/索引器短暂占用）。
+   *
+   * 为什么必须区分（2026-09-26 审计：Terminal-Bench 原生 e2e 在全量并行下偶发「工作根残留」）：
+   * 递归删除 Python venv / 刚跑完 pytest 的目录树时，Windows 上 `EPERM`/`EBUSY`/`ENOTEMPTY`
+   * 是**常见且自愈**的——旧实现直接上抛，调用方的 best-effort 捕获把它吞掉，于是临时目录残留。
+   * @param err 捕获的异常。
+   * @returns 属瞬时占用返回 true。
+   */
+  private static isTransient(err: unknown): boolean {
+    const code = (err as { code?: unknown } | null)?.code;
+    return code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY' || code === 'EACCES';
+  }
+
+  /**
+   * 同步小睡（删除是同步路径，内部用 Atomics.wait 而非定时器）。
+   * @param ms 毫秒数。
+   * @returns 无返回值。
+   */
+  private static sleepMs(ms: number): void {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  }
+
   /**
    * 删除任意路径：文件直接 `unlink`，目录先递归清空再 `rmdir`。
    *
-   * 命中宿主批量删除栅栏时自动降级到子进程兜底删除；其余异常原样上抛。
+   * 命中宿主批量删除栅栏时自动降级到子进程兜底删除；**瞬时占用**（EPERM/EBUSY/ENOTEMPTY/EACCES）
+   * 按线性退避重试若干次；其余异常原样上抛。
    *
    * @param target 待删除的文件或目录路径。
    * @returns 无返回值（路径不存在时静默返回）。
    */
   public static remove(target: string): void {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        SafeRemoveTree.attemptRemove(target);
+        return;
+      } catch (err) {
+        if (SafeRemoveTree.isBulkGuardError(err)) {
+          SafeRemoveTree.removeViaChild(target);
+          return;
+        }
+        if (attempt >= SafeRemoveTree.MAX_ATTEMPTS || !SafeRemoveTree.isTransient(err)) {
+          throw err;
+        }
+        SafeRemoveTree.sleepMs(SafeRemoveTree.RETRY_BASE_MS * attempt);
+      }
+    }
+  }
+
+  /**
+   * 单次删除尝试（不存在时静默返回）。
+   * @param target 待删除的文件或目录路径。
+   * @returns 无返回值。
+   */
+  private static attemptRemove(target: string): void {
     if (!existsSync(target)) {
       return;
     }
-    try {
-      SafeRemoveTree.removeOneByOne(target);
-    } catch (err) {
-      if (SafeRemoveTree.isBulkGuardError(err)) {
-        SafeRemoveTree.removeViaChild(target);
-        return;
-      }
-      throw err;
-    }
+    SafeRemoveTree.removeOneByOne(target);
   }
 
   /**

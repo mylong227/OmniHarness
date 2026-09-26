@@ -15,6 +15,15 @@ import { RUN_GOAL_TOOL_NAME } from '../../../autonomy/goalToolNames.js';
 
 /** 模型面 run_goal 工具：派生一个进程内自主目标循环完成子目标。 */
 export class RunGoalTool {
+  /**
+   * 单次 `run_goal` 的迭代上限（硬夹）。
+   *
+   * 依据（2026-09-26 审计 F5）：每轮迭代都是一次**完整 Agent 回合**（含检索、工具、模型调用），
+   * 原实现只校验「正有限数」，模型可以合法地传 `1e9` ⇒ 等于把无上限的时间与 token 预算交给
+   * 模型的单次工具调用。50 轮远超实际需要（默认 10 已足够完成任务级目标）。
+   */
+  public static readonly MAX_ITERATIONS = 50;
+
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
     name: RUN_GOAL_TOOL_NAME,
@@ -121,7 +130,8 @@ export class RunGoalTool {
   private maxIterationsOf(call: ToolCall): number | undefined {
     const raw = call.arguments['maxIterations'];
     if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
-      return Math.floor(raw);
+      // 上限硬夹（2026-09-26 审计 F5）：见 {@link RunGoalTool.MAX_ITERATIONS} 的说明。
+      return Math.min(Math.floor(raw), RunGoalTool.MAX_ITERATIONS);
     }
     return this.options.maxIterations;
   }
