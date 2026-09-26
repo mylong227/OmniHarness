@@ -208,7 +208,10 @@ export class Bm25Index {
   public static tokenize(text: string): string[] {
     const lower = text.toLowerCase();
     const tokens: string[] = [];
-    const ascii = /[a-z0-9_]+/g;
+    // Unicode 属性转义而非写死区间（2026-09-26 审计 R9）：原先 `/[a-z0-9_]+/` + `/[一-鿿]+/`
+    // 只覆盖 ASCII 与 U+4E00–9FFF —— 带音标的拉丁词被切碎（`naïve` → `na`+`ve`），
+    // 假名/谚文**零 token**（日韩查询完全不可检索），CJK 扩展区与全角拉丁同样漏掉。
+    const ascii = /[\p{Script=Latin}\p{N}_]+/gu;
     let match = ascii.exec(lower);
     while (match !== null) {
       const word = match[0];
@@ -228,7 +231,8 @@ export class Bm25Index {
       }
       match = ascii.exec(lower);
     }
-    const cjk = /[一-鿿]+/g;
+    // CJK（含扩展区）+ 日文假名 + 谚文：逐字 + 二元组（与原先对汉字的口径一致）。
+    const cjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+/gu;
     match = cjk.exec(lower);
     while (match !== null) {
       const run = match[0];

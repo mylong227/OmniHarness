@@ -160,3 +160,20 @@ test('tokenize：任意输入下每个词项的出现次数不超过「原词 1 
     assert.strictEqual(count, 1, `词项 ${token} 出现 ${count} 次，说明发生了重复推入`);
   }
 });
+
+test('R9：非 ASCII 拉丁词不再被切碎，日文假名 / 谚文可检索', () => {
+  // 回归（2026-09-26 审计 R9）：原实现 `/[a-z0-9_]+/` + `/[一-鿿]+/` 只覆盖 ASCII 与
+  // U+4E00–9FFF —— 带音标的拉丁词被切成垃圾（`naïve` → `na`+`ve`），假名/谚文**零 token**
+  // （日韩查询完全不可检索）。改为 Unicode 属性转义后逐条钉住。
+  const cafe = Bm25Index.tokenize('café');
+  assert.ok(cafe.includes('café'), `café 应整体成词，实际：${JSON.stringify(cafe)}`);
+  assert.ok(!cafe.includes('caf'), '不得被切成 caf');
+  const naive = Bm25Index.tokenize('naïve');
+  assert.ok(naive.includes('naïve'));
+  assert.ok(!naive.includes('ve'), '不得留下碎片 ve');
+  assert.ok(Bm25Index.tokenize('テスト').length > 0, '片假名应产出 token');
+  assert.ok(Bm25Index.tokenize('한국어').length > 0, '谚文应产出 token');
+  // 中文口径不变（逐字 + 二元组）。
+  const zh = Bm25Index.tokenize('读取文件');
+  assert.ok(zh.includes('读取') && zh.includes('文件'));
+});
