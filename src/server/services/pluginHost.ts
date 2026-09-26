@@ -1,4 +1,4 @@
-﻿import type { ResolvedConfig } from '../../config/configFactory.js';
+import type { ResolvedConfig } from '../../config/configFactory.js';
 import { Container } from '../../core/container.js';
 import { ServiceKeys } from '../../composition/runtime.js';
 import { PluginManager } from '../../plugin/pluginManager.js';
@@ -41,6 +41,8 @@ export class PluginHost {
   private pluginManager?: PluginManager;
   /** 插件加载是否已尝试（幂等保护，避免重复初始化）。 */
   private ready = false;
+  /** 在飞加载 Promise（并发合流，见 `ensure` 注释）。 */
+  private readyPromise: Promise<void> | undefined;
 
   /**
    * @param deps 插件目录、配置来源、传输、注册表与错误口径
@@ -72,9 +74,19 @@ export class PluginHost {
    * @returns 就绪后 resolve，无载荷。
    */
   public async ensure(): Promise<void> {
-    if (this.ready) {
-      return;
-    }
+    // 在飞合流（2026-09-26 审计 X1）：原实现先置 `ready = true` 再 await 加载，于是并发的
+    // `plugins.list` / `profile.apply` 会在**加载尚未完成**时就看到 `ready` 并读到半加载的系统
+    // （插件管理器刚建好、插件还没进来）。改为缓存同一个在飞 Promise：并发调用共享同一次加载，
+    // 且都在它 settle 之后才返回。
+    this.readyPromise ??= this.loadOnce();
+    return this.readyPromise;
+  }
+
+  /**
+   * 真正执行一次加载（由 {@link PluginHost.ensure} 的在飞 Promise 独占调用）。
+   * @returns 加载完成后 resolve，无载荷。
+   */
+  private async loadOnce(): Promise<void> {
     this.ready = true;
     const pluginsDir = this.deps.pluginsDir;
     if (pluginsDir === undefined) {
