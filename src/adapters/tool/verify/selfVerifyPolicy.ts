@@ -53,8 +53,19 @@ export class SelfVerifyPolicy {
   /** 默认每会话触发上限。 */
   public static readonly DEFAULT_MAX_RUNS_PER_SESSION = 3;
 
-  /** 默认超时（毫秒）：120s（受限：不超过两分钟）。 */
-  public static readonly DEFAULT_TIMEOUT_MS = 120_000;
+  /**
+   * 默认超时（毫秒）：**300 秒**。
+   *
+   * 口径更正（2026-09-26 审计 A3）：原为 120 秒并注明「受限：不超过两分钟」，但对**带构建步骤**
+   * 的测试命令（本仓 `npm test` = `npm run build && node --test …`）两分钟根本不够 —— 实测结果是
+   * 自验证**首次触发即超时**，每会话 3 次预算被白烧，功能形同不存在。300 秒覆盖「构建 + 单测」这一
+   * 最常见组合，同时仍受 `maxRunsPerSession`（3 次）约束，最坏耗时可控。
+   * 需要更长/更短可用 `selfVerify.timeoutMs` 或环境变量 {@link SelfVerifyPolicy.TIMEOUT_ENV_KEY}。
+   */
+  public static readonly DEFAULT_TIMEOUT_MS = 300_000;
+
+  /** 覆盖自验证超时的环境变量名（取值须为正有限数，否则回落默认）。 */
+  public static readonly TIMEOUT_ENV_KEY = 'OMNI_SELF_VERIFY_TIMEOUT_MS';
 
   /** 默认单路输出缓冲上限（字节）：256 KiB。 */
   public static readonly DEFAULT_MAX_OUTPUT_BYTES = 262_144;
@@ -127,10 +138,30 @@ export class SelfVerifyPolicy {
         explicit !== undefined && explicit !== '' ? explicit : SelfVerifyPolicy.DEFAULT_COMMAND,
       cooldownMs: options.cooldownMs ?? SelfVerifyPolicy.DEFAULT_COOLDOWN_MS,
       maxRunsPerSession: options.maxRunsPerSession ?? SelfVerifyPolicy.DEFAULT_MAX_RUNS_PER_SESSION,
-      timeoutMs: options.timeoutMs ?? SelfVerifyPolicy.DEFAULT_TIMEOUT_MS,
+      timeoutMs: options.timeoutMs ?? SelfVerifyPolicy.resolveTimeoutMs(),
       maxOutputBytes: options.maxOutputBytes ?? SelfVerifyPolicy.DEFAULT_MAX_OUTPUT_BYTES,
       maxDigestLines: options.maxDigestLines ?? SelfVerifyPolicy.DEFAULT_MAX_DIGEST_LINES,
     });
+  }
+
+  /**
+   * 解析生效的自验证超时（毫秒）：环境变量 > 库级默认；非法值回落默认（不静默变 NaN）。
+   *
+   * 为什么要给一个 env 出口（2026-09-26 审计 A3）：`DEFAULT_TIMEOUT_MS` 对**带构建步骤**的
+   * 测试命令偏小（本仓 `npm test` = `npm run build && node --test …`，实测数分钟），于是自验证
+   * 首次触发即超时、每会话 3 次预算随即耗尽——看起来「开了」，实际什么都没验证到。
+   * 配置层 `selfVerify.timeoutMs` 早已可覆盖，但对只想临时放大的使用者来说改配置文件太重。
+   * @returns 生效的超时毫秒数（严格正有限数，否则默认）。
+   */
+  public static resolveTimeoutMs(): number {
+    const raw = process.env[SelfVerifyPolicy.TIMEOUT_ENV_KEY];
+    if (raw !== undefined && raw.trim() !== '') {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return Math.floor(parsed);
+      }
+    }
+    return SelfVerifyPolicy.DEFAULT_TIMEOUT_MS;
   }
 
   /**

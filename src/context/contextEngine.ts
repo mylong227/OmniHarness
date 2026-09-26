@@ -404,8 +404,10 @@ export class ContextEngine {
        */
       rerank?: boolean;
       /**
-       * 重排的头部地板个数（把第一段前 N 个候选钉在原位）。缺省交由 `FileReranker`
-       * 按 `round(fileK / 3)` 决定（实测两档 fileK 下的最优点）。仅在 `rerank: true` 时生效。
+       * 重排的头部地板个数（把第一段前 N 个候选钉在原位）。**缺省 0（不设地板）**，仅在
+       * `rerank: true` 时生效。口径更正（2026-09-26 审计 R8）：此处原写「缺省交由
+       * FileReranker 按 round(fileK/3) 决定」，而 resolveFloor 实际返回 0 —— 文档承诺的默认
+       * 值从未存在过；现按事实改写，并在生产路径补上转发。
        */
       rerankFloor?: number;
     } = {},

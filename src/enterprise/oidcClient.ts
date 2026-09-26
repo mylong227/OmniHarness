@@ -499,8 +499,19 @@ const oidcClient = new OidcClient();
  * 企业认证门禁：持有 discovery + 可重载 JWKS，校验 Bearer 令牌并返回主体。fail-closed。
  */
 export class EnterpriseAuth {
+  /**
+   * JWKS 拉取超时（毫秒）：5 秒。
+   *
+   * 依据：JWKS 拉取在鉴权**热路径**上（`--auth-required` 下每个 /rpc 与 /ws 都要过），
+   * 无超时时一个卡住的 IdP 就能让全部请求一起悬住（同仓其它出网点都带超时）。
+   */
+  private static readonly JWKS_TIMEOUT_MS = 5_000;
+
   /** JWKS 缓存（含取回时间戳）；1 小时内复用，过期后重新拉取。 */
   private jwksCache: { readonly keys: readonly Jwk[]; readonly fetchedAt: number } | undefined;
+
+  /** 在飞 JWKS 拉取（并发合流；settle 后清空，失败下次重试）。 */
+  private jwksInFlight: Promise<{ readonly keys: readonly Jwk[] }> | undefined;
 
   /**
    * @param config OIDC 提供方配置（校验 aud 用 clientId）。
@@ -544,15 +555,34 @@ export class EnterpriseAuth {
   }
 
   /**
-   * 取 JWKS（带 1 小时缓存）；缓存过期或缺失时经 fetchImpl 重新拉取。
+   * 取 JWKS（带 1 小时缓存 + 在飞合流）。
+   *
+   * 两处加固（2026-09-26 审计 S8）：
+   *  1. **超时**：JWKS 拉取在鉴权热路径上（`--auth-required` 下每个 /rpc 与 /ws 都要过），
+   *     原实现无 AbortSignal —— IdP 卡住会让所有请求一起卡住（同仓其它出网点都带超时）。
+   *  2. **在飞合流**：缓存只在**成功后**赋值，故并发请求会各发一次 fetch；改为复用同一个在飞 Promise。
    * @returns JWKS 密钥集；discovery 未提供 jwks_uri 或拉取失败时抛错。
    */
   private async getJwks(): Promise<{ readonly keys: readonly Jwk[] }> {
     if (this.jwksCache !== undefined && Date.now() - this.jwksCache.fetchedAt < 3_600_000)
       return this.jwksCache;
     if (this.discovery.jwks_uri === undefined) throw new Error('discovery 未提供 jwks_uri');
-    const res = await this.fetchImpl(this.discovery.jwks_uri, {
+    // 在飞合流：并发请求共享同一次拉取（失败时清空，下一次请求重新尝试）。
+    this.jwksInFlight ??= this.fetchJwks(this.discovery.jwks_uri).finally(() => {
+      this.jwksInFlight = undefined;
+    });
+    return this.jwksInFlight;
+  }
+
+  /**
+   * 真正拉取 JWKS（带超时）。
+   * @param uri jwks_uri。
+   * @returns 拉取成功的缓存对象（同时写入 `jwksCache`）。
+   */
+  private async fetchJwks(uri: string): Promise<{ readonly keys: readonly Jwk[] }> {
+    const res = await this.fetchImpl(uri, {
       headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(EnterpriseAuth.JWKS_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`JWKS 获取失败: ${res.status}`);
     const doc = (await res.json()) as { keys?: readonly Jwk[] };

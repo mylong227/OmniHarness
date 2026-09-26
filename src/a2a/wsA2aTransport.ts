@@ -151,7 +151,28 @@ export class WsA2aTransport implements A2aTransport {
           'Sec-WebSocket-Key': randomBytes(16).toString('base64'),
         },
       });
+      // 超时与「非 101 响应」都必须收敛为拒绝（2026-09-26 审计 S7）：原实现只监听 'upgrade' 与
+      // 'error'，而对端回 405/426 这类普通 HTTP 响应时二者都不触发 ⇒ Promise 永不 settle、
+      // socket 永久挂着；更糟的是 `this.connecting ??= this.handshake()` 会把这次永不兑现的
+      // Promise 缓存在 `connecting` 上，**之后每次 send 都 await 同一个死 Promise**（传输永久毒化）。
+      const timer = setTimeout(() => {
+        request.destroy(
+          new Error(`WebSocket 握手超时（${String(WsA2aTransport.HANDSHAKE_TIMEOUT_MS)}ms）`),
+        );
+      }, WsA2aTransport.HANDSHAKE_TIMEOUT_MS);
+      const settle = (): void => {
+        clearTimeout(timer);
+        this.connecting = undefined;
+      };
+      request.on('response', (res: { statusCode?: number }) => {
+        // 非 101：升级被拒（HTTP 版 A2A 端点会回 405/426）。必须显式拒绝并断开。
+        res.statusCode;
+        settle();
+        request.destroy();
+        reject(new Error(`WebSocket 握手被拒：HTTP ${String(res.statusCode ?? 0)}`));
+      });
       request.on('upgrade', (_res, socket: Duplex, head: Buffer) => {
+        clearTimeout(timer);
         const connection = new WsConnection(socket, undefined, 'client', head);
         connection.onMessage = (text) => this.deliver(text);
         connection.onClose = () => {
@@ -164,12 +185,15 @@ export class WsA2aTransport implements A2aTransport {
         resolve(connection);
       });
       request.on('error', (error: unknown) => {
-        this.connecting = undefined;
+        settle();
         reject(error instanceof Error ? error : new Error(String(error)));
       });
       request.end();
     });
   }
+
+  /** 握手上限（毫秒）：对端不回任何东西时也必须收敛为有界等待。 */
+  private static readonly HANDSHAKE_TIMEOUT_MS = 10_000;
 
   /**
    * 处理入站帧：解析 JSON-RPC 并投递给订阅者（非 JSON / 解析失败即丢弃）。

@@ -34,6 +34,22 @@ export class SemanticIndexCache {
   private readonly cache = new Map<string, Promise<SemanticIndex | null>>();
 
   /**
+   * 语料身份表（`IndexedCorpus` 实例 → 单调 id）。
+   *
+   * 存在理由（2026-09-26 审计 R3）：缓存键原先只有 `<chunk|rep>|<root>`，**不含语料身份**。
+   * 而 TTL 到期重建语料时是**新对象**，旧语义索引不会失效 ⇒ 索引里的 `sym:<i>` / `file:<rel>`
+   * 会被拿去新语料里解析：轻则静默丢弃，重则把**别的文件**顶上来。用 WeakMap 记身份既让新语料
+   * 天然拿新键（不再脏读），又不阻止旧语料被回收。
+   */
+  private readonly corpusIds = new WeakMap<IndexedCorpus, number>();
+
+  /** 下一个语料身份号（单调递增）。 */
+  private nextCorpusId = 1;
+
+  /** 缓存条目上限（超出即淘汰最早插入的一条；键含语料身份，故旧语料条目不会命中）。 */
+  private static readonly MAX_ENTRIES = 16;
+
+  /**
    * 取（复用缓存或构建）语义索引。
    * @param root workspace 根路径（参与缓存键）。
    * @param corpus 已索引语料。
@@ -48,7 +64,7 @@ export class SemanticIndexCache {
     embedding: EmbeddingPort,
     knobs: RecallKnobs,
   ): Promise<SemanticIndex> {
-    const key = this.cacheKey(root, knobs);
+    const key = this.cacheKey(root, knobs, corpus);
     const existing = this.cache.get(key);
     if (existing !== undefined) {
       const idx = await existing;
@@ -59,6 +75,7 @@ export class SemanticIndexCache {
     }
     const promise = this.build(corpus, embedding, knobs);
     this.cache.set(key, promise);
+    this.evictIfNeeded();
     const built = await promise;
     if (built === null) {
       throw new Error('semantic index build failed');
@@ -230,8 +247,39 @@ export class SemanticIndexCache {
    * @param knobs 已解析旋钮。
    * @returns 唯一键。
    */
-  private cacheKey(root: string, knobs: RecallKnobs): string {
+  private cacheKey(root: string, knobs: RecallKnobs, corpus: IndexedCorpus): string {
     const rep = knobs.fullFileDoc ? 'fulldoc' : knobs.docMode === 'id' ? 'id' : 'snip600';
-    return `${knobs.chunkRecall ? 'chunk' : 'nochunk'}|${rep}|${root}`;
+    // `root` 仍放**最后一位**：`invalidate(root)` 按最后一个 `|` 切分，格式不能变。
+    return `${knobs.chunkRecall ? 'chunk' : 'nochunk'}|${rep}|c${String(this.corpusIdOf(corpus))}|${root}`;
+  }
+
+  /**
+   * 取（或分配）语料身份号。
+   * @param corpus 已索引语料。
+   * @returns 该语料的稳定身份号（同实例恒同号）。
+   */
+  private corpusIdOf(corpus: IndexedCorpus): number {
+    const existing = this.corpusIds.get(corpus);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const id = this.nextCorpusId;
+    this.nextCorpusId += 1;
+    this.corpusIds.set(corpus, id);
+    return id;
+  }
+
+  /**
+   * 缓存条目有界：超出上限即淘汰最早插入的一条。
+   * @returns 无返回值。
+   */
+  private evictIfNeeded(): void {
+    while (this.cache.size > SemanticIndexCache.MAX_ENTRIES) {
+      const oldest = this.cache.keys().next();
+      if (oldest.done === true) {
+        return;
+      }
+      this.cache.delete(oldest.value);
+    }
   }
 }
