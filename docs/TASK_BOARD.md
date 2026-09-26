@@ -2682,3 +2682,9 @@ fail-closed 日志**（`semantic index build failed`），没有产出「语义�
 **口径纪律（本次出分的前置）**：只在 **gold 对照可信的 20 题**上出分（`eval-data/gold_trusted_ids.txt`
 = django 14 + sphinx 2 + sympy 4），并把两份 gold 报告合并成 `eval-data/gold_control_trusted20.json`
 （total 30 / resolved 20 / envErrors 6）供判分侧 `--gold-report` 复核——**不可信实例一律不引用分数**。
+
+**首批 3 题结果（链路验证用，n=3 不构成能力结论）**：`django__django-11133` / `sphinx-doc__sphinx-9320` /
+`sympy__sympy-13480` 三题**全部 resolved=true**（3/3），判分侧逐题打印
+`✅ 判分可信度：本次 N 个实例全部通过 gold 对照`。意义在于**把「付费生成 → 免费判分 → 可信度自证」整条链
+验通了**（产物格式、pins 生效、gold 报告复核都实测过），而不是给出 3/3 的能力分。
+剩余 17 题在后台按同一协议续跑（`--resume`，产物 `eval-data/preds_product_bestof4.jsonl`）。
