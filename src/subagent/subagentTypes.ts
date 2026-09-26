@@ -14,9 +14,12 @@ export const DEFAULT_MAX_DEPTH = 2;
 
 /**
  * @beta
- * 默认并发上限。
+ * 默认并发上限（**单一来源**：`SubagentOrchestrator` 直接引用本常量，不再自留一份）。
+ *
+ * 口径更正（2026-09-26 审计 F19）：本常量原为 4 且**无人引用**，而编排器自留了一份 16 ——
+ * 「文档写的默认」与「真实默认」长期不一致。现按事实统一为 16（成熟产品量级，可被 config 覆盖）。
  */
-export const DEFAULT_MAX_CONCURRENCY = 4;
+export const DEFAULT_MAX_CONCURRENCY = 16;
 
 /**
  * @beta

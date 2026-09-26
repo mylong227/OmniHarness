@@ -6,12 +6,10 @@ import type { SubagentPortsShape } from './subagentPorts.js';
 import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
 import {
   CANCELLED_BY_PARENT_MESSAGE,
+  DEFAULT_MAX_CONCURRENCY,
   DEFAULT_MAX_DEPTH,
   DEFAULT_SUBAGENT_MAX_STEPS,
 } from './subagentTypes.js';
-
-/** 默认并发上限（成熟产品量级，仍可被 config 覆盖）。 */
-const DEFAULT_MAX_CONCURRENCY = 16;
 
 /**
  * @beta
