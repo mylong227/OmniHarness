@@ -165,11 +165,20 @@ export class RetryingModel implements ModelPort {
         'ECONNREFUSED',
         'ENOTFOUND',
         'ECONNABORTED',
+        'EPIPE',
         'UND_ERR_SOCKET',
         'UND_ERR_CONNECT_TIMEOUT',
+        'UND_ERR_HEADERS_TIMEOUT',
+        'UND_ERR_BODY_TIMEOUT',
       ].includes(code);
     }
+    // 消息兜底：`terminated` 是 **undici/fetch 在连接被中途掐断**（server 提前关闭 socket）时的标准错误文本，
+    // 属典型瞬时网络故障，但 2026-09-26 实测它**不在**原正则里 ⇒ `isRetryable` 判 false ⇒ 不重试 ⇒
+    // 一次网络抖动就**白丢一整题**（并白花该题已消耗的 token；付费批次实测 20 题里出现 4 次）。
+    // 同族文本一并收录：`socket hang up`（Node http 客户端）、`other side closed`（undici 的 cause）。
     const message = typeof e.message === 'string' ? e.message : '';
-    return /fetch failed|network|timeout|econnreset/i.test(message);
+    return /fetch failed|network|timeout|econnreset|terminated|socket hang up|other side closed|premature close/i.test(
+      message,
+    );
   }
 }

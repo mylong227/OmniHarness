@@ -116,3 +116,24 @@ test('isRetryable：duck-typing 兜底（无 ModelCallError）', () => {
   assert.strictEqual(RetryingModel.isRetryable({ message: 'fetch failed' }), true);
   assert.strictEqual(RetryingModel.isRetryable(new Error('boom')), false);
 });
+
+test('isRetryable：**连接被中途掐断**必须可重试（付费批次实测白丢 4 题的根因）', () => {
+  // undici/fetch 在 server 提前关闭 socket 时抛的就是 `TypeError: terminated`——它**不在**原正则里，
+  // 于是被当成不可重试 ⇒ 一次网络抖动白丢一整题（并白花该题已消耗的 token）。
+  const terminated = new Error('terminated');
+  assert.strictEqual(
+    RetryingModel.isRetryable(terminated),
+    true,
+    'undici 的 terminated 属瞬时网络故障',
+  );
+  // 同族文本（Node http 客户端 / undici 的 cause）
+  assert.strictEqual(RetryingModel.isRetryable(new Error('socket hang up')), true);
+  assert.strictEqual(RetryingModel.isRetryable(new Error('other side closed')), true);
+  assert.strictEqual(RetryingModel.isRetryable(new Error('premature close')), true);
+  // 同族网络码
+  assert.strictEqual(RetryingModel.isRetryable({ code: 'EPIPE' }), true);
+  assert.strictEqual(RetryingModel.isRetryable({ code: 'UND_ERR_HEADERS_TIMEOUT' }), true);
+  // 反向钉子：业务性错误不得被误判为可重试
+  assert.strictEqual(RetryingModel.isRetryable(new Error('invalid api key')), false);
+  assert.strictEqual(RetryingModel.isRetryable(new Error('context length exceeded')), false);
+});
