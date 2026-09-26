@@ -29,6 +29,7 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
+import { assertKnownFlags } from './lib/flagGuard.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -112,6 +113,10 @@ const opts = {
   keepWorktree: process.argv.includes('--keep-worktree'),
   dumpDir: arg('--dump-dir'),
 };
+
+// 未知旗标 fail-closed：驼峰写法（`best-of-N` 用了大写 N）曾被静默忽略 ⇒「产品口径 4 候选」跑成了
+// 单候选。注意**注释里也不要写错的旗标字面量**——白名单是从本文件源码扫出来的，写错就等于放行它。
+assertKnownFlags(import.meta.url);
 
 if (!['full', 'tiered', 'degrade'].includes(opts.payloadShape)) {
   console.error(`❌ --payload-shape 只能是 full|tiered|degrade，收到 ${opts.payloadShape}`);
