@@ -11,7 +11,7 @@ import { Id } from '../../util/id.js';
 import { AuditExporter, type AuditQuery } from '../services/auditExporter.js';
 import type { AuditEvent } from '../services/auditSink.js';
 import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
-import type { AppServerOptions, GraphRunState } from './appServerState.js';
+import type { AppServerOptions } from './appServerState.js';
 import { providerPresets } from '../services/providerPresets.js';
 import { RepoPathGuard } from '../services/repoPathGuard.js';
 import { DiffReview } from '../services/diffReview.js';
@@ -136,7 +136,12 @@ export class AppServer extends AppServerSurfaceHandlers {
       // 传了 threadId 只停该会话；旧前端不带参数时退化为「取消全部在跑回合」（不静默失效）。
       const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
       this.runtime.agent().cancelCurrentRun('user', threadId === '' ? undefined : threadId);
-      return { ok: true, threadId: threadId === '' ? null : threadId };
+      // 连带中止该会话在跑的**图运行**（F13）：图驱动的子步也是真 Agent 回合，会话已停就不该继续烧。
+      return {
+        ok: true,
+        threadId: threadId === '' ? null : threadId,
+        abortedGraphs: this.graphRuns.abortMatching(threadId),
+      };
     });
     this.handlers.set('approval.respond', (params) => this.respondApproval(params));
     this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
@@ -590,26 +595,35 @@ export class AppServer extends AppServerSurfaceHandlers {
     } else {
       throw new Error('graph.run 需要 id（已存图）或 def（内联定义）');
     }
-
-    const runId = Id.id('run');
-    const runState: GraphRunState = {
-      runId,
-      defId: idParam,
-      defName: def.name,
-      nodes: {},
-      done: false,
-      startedAt: Date.now(),
-    };
-    for (const step of def.steps) {
-      runState.nodes[step.id] = { id: step.id, status: 'pending' };
+    // 空计划必须拒绝：`WorkflowRunner.run([])` 会返回 `ok:true` 且零节点，于是模型收到
+    // 「图跑成功了」却什么都没做（模型面的 `run_workflow` 早有同款守卫，两条入口口径必须一致）。
+    if (def.steps.length === 0) {
+      throw new Error('graph.run 拒绝空计划：steps 至少需要一步');
     }
-    this.graphRuns.set(runId, runState);
+    const owner = typeof params['threadId'] === 'string' ? params['threadId'] : '';
+    return this.startGraphRun(def, idParam, owner === '' ? undefined : owner);
+  }
 
+  /**
+   * 启动一次图运行（`runGraph` 的落地半段：建态、登记、淘汰、装配 `WorkflowRunner` 并接线通知）。
+   * @param def 已解析的图定义（调用方保证 `steps` 非空）。
+   * @param idParam 已存图 id（内联定义时为 undefined）。
+   * @param owner 归属会话 id（用于 `turns.abort` 连带取消；无归属时 undefined）。
+   * @returns `{ runId, nodeCount }`。
+   */
+  private startGraphRun(
+    def: WorkflowDef,
+    idParam: string | undefined,
+    owner: string | undefined,
+  ): { runId: string; nodeCount: number } {
+    const handle = this.graphRuns.begin(def, idParam, owner);
+    const { runId, state } = handle;
     const ports = this.runtime.graphPorts();
     void new WorkflowRunner(ports, {
       maxConcurrency: def.maxConcurrency,
+      signal: handle.signal,
       onNodeUpdate: (update) => {
-        const node = runState.nodes[update.id];
+        const node = state.nodes[update.id];
         if (node !== undefined) {
           node.status = update.status;
           node.error = update.error;
@@ -621,9 +635,9 @@ export class AppServer extends AppServerSurfaceHandlers {
     })
       .run(def)
       .then((result) => {
-        runState.done = true;
-        runState.ok = result.ok;
-        runState.blackboard = result.blackboard;
+        state.done = true;
+        state.ok = result.ok;
+        state.blackboard = result.blackboard;
         this.options.transport.send(
           jsonRpc.notify('graph.done', {
             runId,
@@ -633,13 +647,13 @@ export class AppServer extends AppServerSurfaceHandlers {
         );
       })
       .catch((error: unknown) => {
-        runState.done = true;
-        runState.ok = false;
+        state.done = true;
+        state.ok = false;
         this.options.transport.send(
           jsonRpc.notify('graph.done', { runId, ok: false, error: this.messageOf(error) }),
         );
-      });
-
+      })
+      .finally(() => this.graphRuns.release(runId));
     return { runId, nodeCount: def.steps.length };
   }
 }

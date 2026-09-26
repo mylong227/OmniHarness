@@ -24,6 +24,10 @@ export interface DaemonStatus {
  * @beta
  */
 export class DaemonController {
+  /** SIGTERM 后等待进程自行退出的上限（毫秒）。 */
+  private static readonly STOP_TIMEOUT_MS = 5_000;
+  /** 树杀兜底后等待进程消失的上限（毫秒）。 */
+  private static readonly KILL_TIMEOUT_MS = 3_000;
   /** PID 文件路径（缺省 ~/.omniharness/daemon.pid，可覆盖）。 */
   private readonly pidFile: string;
   /** serve 入口脚本路径（后台进程以它重新拉起）。 */
@@ -98,7 +102,12 @@ export class DaemonController {
 
   /**
    * 停止常驻 serve。无 PID 文件时静默返回 false。
-   * @returns 是否真的停止了一个运行中的进程（SIGTERM 后清理 PID 文件）。
+   *
+   * 顺序有讲究（2026-09-26 审计 S23）：先 SIGTERM，**等进程真的退出**（轮询 `isAlive` 到截止），
+   * 超时则树杀兜底（Windows 上 SIGTERM 只终结外壳，孙进程会继续占着端口），最后才删 PID 文件。
+   * 旧实现发完信号立即 unlink ⇒ `status()` 谎报「未运行」，而进程仍活着占端口，于是下一次
+   * `start()` 又拉起第二个 daemon。
+   * @returns 是否真的停止了一个运行中的进程。
    */
   public stop(): boolean {
     const st = this.status();
@@ -108,14 +117,53 @@ export class DaemonController {
       }
       return false;
     }
+    const pid = st.pid;
     try {
-      process.kill(st.pid, 'SIGTERM');
+      process.kill(pid, 'SIGTERM');
     } catch {
       // 已被回收，忽略。
+    }
+    if (!this.waitForExit(pid, DaemonController.STOP_TIMEOUT_MS)) {
+      DaemonController.forceKillTree(pid);
+      this.waitForExit(pid, DaemonController.KILL_TIMEOUT_MS);
     }
     if (existsSync(this.pidFile)) {
       unlinkSync(this.pidFile);
     }
     return true;
+  }
+
+  /**
+   * 轮询等待进程退出（同步 sleep 自旋：stop 是 CLI 一次性动作，不需要事件循环让位）。
+   * @param pid 目标进程 id。
+   * @param timeoutMs 最长等待毫秒数。
+   * @returns 已退出返回 true；超时仍存活返回 false。
+   */
+  private waitForExit(pid: number, timeoutMs: number): boolean {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!this.isAlive(pid)) {
+        return true;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+    }
+    return !this.isAlive(pid);
+  }
+
+  /**
+   * 树杀兜底：Windows 用 `taskkill /T /F`（连带孙进程），其余平台退化为 SIGKILL。
+   * @param pid 目标进程 id。
+   * @returns 无返回值（失败静默——清理失败不该让 stop 抛错）。
+   */
+  private static forceKillTree(pid: number): void {
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+        return;
+      }
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      /* 进程可能已退出 */
+    }
   }
 }

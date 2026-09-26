@@ -7,6 +7,14 @@ import { homedir } from 'node:os';
 const MAX_ATTACH_BYTES = 20 * 1024 * 1024;
 /** 单次附加文件个数上限。 */
 const MAX_ATTACH_COUNT = 50;
+/**
+ * 单次 attach.read 的**总字节**上限（32 MiB）。
+ *
+ * 存在理由（2026-09-26 审计 S19）：原先只有单文件（20MB）与个数（50）两道闸，二者相乘
+ * 允许一次 RPC 读入 ~1 GB 并全部转成 base64 驻留内存（再叠加 JSON 序列化放大 ~1.37×）⇒ 单请求 OOM。
+ * 32 MiB 对「多张截图/短片」仍有余量，同时把这条路径封死。
+ */
+const MAX_ATTACH_TOTAL_BYTES = 32 * 1024 * 1024;
 /** 允许附加的 mediaType 前缀白名单（凭扩展名推断后的二次校验）。 */
 const ALLOWED_MEDIA_PREFIXES: readonly string[] = [
   'image/',
@@ -129,15 +137,43 @@ export class FsExplorer {
     }
     const files: AttachedFile[] = [];
     const errors: { path: string; error: string }[] = [];
+    let totalBytes = 0;
     for (const p of paths) {
+      // 总量闸：先看 stat 再读盘，超限即整条 RPC 失败（fail-closed）——部分返回会让调用方
+      // 以为「附件齐了」而实际被静默截断。
+      const probe = FsExplorer.sizeOf(p);
+      if (probe !== undefined && totalBytes + probe > MAX_ATTACH_TOTAL_BYTES) {
+        throw new Error(
+          `附件总大小超过 ${String(MAX_ATTACH_TOTAL_BYTES / 1024 / 1024)}MB 限制` +
+            `（已累计 ${String(Math.round(totalBytes / 1024 / 1024))}MB，本项 ${String(Math.round(probe / 1024 / 1024))}MB）`,
+        );
+      }
       const one = this.readOne(p);
       if ('error' in one) {
         errors.push({ path: one.path, error: one.error });
       } else {
+        totalBytes += one.file.size;
         files.push(one.file);
       }
     }
     return { files, errors };
+  }
+
+  /**
+   * 取路径对应文件的大小（用于总量闸的**先验**判断）；非文件/不存在/类型非法时 undefined。
+   * @param value 路径条目（期望字符串）。
+   * @returns 字节数；不可判定时 undefined（由 readOne 自行给出精确错误）。
+   */
+  private static sizeOf(value: unknown): number | undefined {
+    if (typeof value !== 'string' || value.trim() === '') {
+      return undefined;
+    }
+    try {
+      const st = statSync(resolve(value.trim()));
+      return st.isFile() ? st.size : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**

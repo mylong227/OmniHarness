@@ -153,12 +153,24 @@ export class ServerConfigStore {
     this.applyProviderKeyPatch(params, patch);
     await this.applyEnableProvider(params, patch);
     if (Object.keys(patch).length > 0 || cleared.length > 0) {
-      this.overrides = ConfigError.mergeConfigs(this.overrides, patch as Partial<FileConfig>);
+      // 先构造候选、落盘成功后才提交内存（2026-09-26 审计 S22）：`persist()` 会经
+      // `normalizeConfig` 校验并可能抛错，旧实现**先改内存再落盘** ⇒ 抛错时 UI/内存已显示新配置，
+      // 而磁盘与在跑的 Agent 仍是旧配置（且 clearedKeys 残留到下次写入），形成静默不一致。
+      const previousOverrides = this.overrides;
+      const previousCleared = this.clearedKeys;
+      const next = ConfigError.mergeConfigs(this.overrides, patch as Partial<FileConfig>);
       for (const key of cleared) {
-        delete (this.overrides as Record<string, unknown>)[key];
+        delete (next as Record<string, unknown>)[key];
       }
+      this.overrides = next;
       this.clearedKeys = cleared;
-      this.persist();
+      try {
+        this.persist();
+      } catch (error) {
+        this.overrides = previousOverrides;
+        this.clearedKeys = previousCleared;
+        throw error;
+      }
       this.clearedKeys = [];
     }
     this.deps.onChanged();

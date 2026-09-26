@@ -4,6 +4,14 @@ import type { IncomingMessage, Server } from 'node:http';
 
 /** WebSocket 连接：RFC6455 帧编解码（文本帧，零依赖）。 */
 export class WsConnection {
+  /**
+   * 单帧声明长度上限（字节）：8 MiB。
+   *
+   * 依据：本服务的 WS 帧只承载 JSON-RPC 消息与事件推送（正常为 KB 级）；上限存在的意义是
+   * 把「对端声明一个巨大长度后静默不发数据 ⇒ 服务端缓冲无限增长」这条内存耗尽路径封死。
+   */
+  public static readonly MAX_FRAME_BYTES = 8 * 1024 * 1024;
+
   /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
   private buffer: Buffer = Buffer.alloc(0);
   /** 连接是否已关闭（关闭后 send 直接丢弃）。 */
@@ -128,6 +136,13 @@ export class WsConnection {
       }
       maskKey = buffer.subarray(offset, offset + 4);
       offset += 4;
+    }
+    // 声明长度上限（fail-closed）：WebSocket 头的长度字段是**对端声明**的 64 位数，原实现无条件
+    // 等待 `offset + length` 字节到齐 ⇒ 一个 `Content-Length` 式的大数字 + 静默不发数据，就能让
+    // 缓冲无限增长（内存耗尽）。超限即关闭连接，不再等待（2026-09-26 审计 S21）。
+    if (length > WsConnection.MAX_FRAME_BYTES) {
+      this.close();
+      return undefined;
     }
     if (buffer.length < offset + length) {
       return undefined;
