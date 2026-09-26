@@ -166,6 +166,40 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     return true;
   }
 
+  /** 批量编辑（内存 + **一次**整文件原子重写）。
+   *
+   * 为什么需要它（2026-09-26 审计 S13）：退火器一步会更新上千条事实的重要性，若走 `update`
+   * 就是上千次「整文件重写 + 重加密 + writeFileSync + renameSync」—— O(n²) 的同步 IO 把事件
+   * 循环整段钉住。批量入口把落盘次数收敛为 1。
+   * @param patches 待应用的补丁列表（未命中的 id 跳过）。
+   * @returns 实际被修改的条数。
+   */
+  public updateMany(
+    patches: readonly { readonly id: string; readonly patch: MemoryFactPatch }[],
+  ): number {
+    let changed = 0;
+    for (const entry of patches) {
+      const idx = this.facts.findIndex((fact) => fact.id === entry.id);
+      if (idx === -1) {
+        continue;
+      }
+      const current = ArrayAt.at(this.facts, idx);
+      this.facts[idx] = {
+        ...current,
+        ...(entry.patch.text !== undefined ? { text: entry.patch.text } : {}),
+        ...(entry.patch.topic !== undefined ? { topic: entry.patch.topic } : {}),
+        ...(entry.patch.importance !== undefined
+          ? { importance: Math.min(5, Math.max(1, Math.round(entry.patch.importance))) }
+          : {}),
+      };
+      changed += 1;
+    }
+    if (changed > 0) {
+      this.persistAll();
+    }
+    return changed;
+  }
+
   /** 删除一条事实（内存 + 整文件原子重写）。
    * @param id 要删除的事实 id。
    * @returns 是否删除成功（id 不存在为 false）。
