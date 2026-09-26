@@ -47,6 +47,19 @@ export class AgentRuntimeHost {
   private readonly deps: AgentRuntimeDeps;
   /** Agent 缓存（invalidateAgent 失效）。 */
   private agentCache?: Agent | undefined;
+  /**
+   * 已被缓存失效但仍可能有在跑回合的 Agent（用于「停止」不失效）。
+   *
+   * 存在理由（2026-09-26 审计 S4，P1「Stop 静默失效」）：`config.update` / 切换工作区会
+   * `invalidateAgent()`，而 `turns.abort` 走的是 `this.runtime.agent()` —— 它会**新建**一个
+   * Agent（`runningSessions` 为空），于是取消令牌找不到在跑的会话，停止按钮变成空操作，
+   * 原回合继续跑到完成。故失效时把旧实例留在退役表里，取消时一并尝试。
+   * 上限 4：足够覆盖「切换几次配置后仍有一个长回合在跑」的现实场景，且不至于无限持有。
+   */
+  private readonly retiredAgents: Agent[] = [];
+
+  /** 退役表上限（超出即淘汰最旧，运行中回合的窗口足够覆盖）。 */
+  private static readonly MAX_RETIRED_AGENTS = 4;
   /** 图存储缓存（按工作区根懒建，invalidateGraph 失效）。 */
   private storeCache?: GraphStore | undefined;
   /** 子智能体端口集缓存（图运行复用）。 */
@@ -143,10 +156,42 @@ export class AgentRuntimeHost {
 
   /**
    * 失效 Agent 缓存（配置变更 / 切换工作区后下回合重建）。
+   *
+   * 旧实例进入**退役表**而不是直接丢弃：它可能仍有在跑回合，`turns.abort` 必须还能找到它的取消
+   * 令牌（见 {@link AgentRuntimeHost.cancelAll}）。
    * @returns 无返回值。
    */
   public invalidateAgent(): void {
+    if (this.agentCache !== undefined) {
+      this.retiredAgents.push(this.agentCache);
+      while (this.retiredAgents.length > AgentRuntimeHost.MAX_RETIRED_AGENTS) {
+        this.retiredAgents.shift();
+      }
+    }
     this.agentCache = undefined;
+  }
+
+  /**
+   * 取消在跑回合：**当前 Agent ∪ 全部退役 Agent**。
+   *
+   * 为什么必须覆盖退役实例（2026-09-26 审计 S4）：`config.update` / 切换工作区只清缓存，
+   * 若取消只打当前缓存实例，则「配置改过一次之后停止按钮就是死的」—— 用户在 UI 上点了停止，
+   * 回合却继续跑完。返回被触及的实例数，供调用方与测试观测。
+   * @param reason 取消原因（透传取消令牌，用于事件与错误文案）。
+   * @param sessionId 目标会话 id；缺省表示取消全部在跑会话。
+   * @returns 实际被尝试取消的 Agent 实例数（含当前与退役）。
+   */
+  public cancelAll(reason: 'user' | 'timeout' | 'shutdown', sessionId?: string): number {
+    let touched = 0;
+    const targets = [
+      ...(this.agentCache !== undefined ? [this.agentCache] : []),
+      ...this.retiredAgents,
+    ];
+    for (const agent of targets) {
+      agent.cancelCurrentRun(reason, sessionId);
+      touched += 1;
+    }
+    return touched;
   }
 
   /**

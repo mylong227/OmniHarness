@@ -137,3 +137,25 @@ test('AgentRuntimeHost.graphStore / graphPorts：懒构造并缓存，失效后�
   assert.notStrictEqual(host.graphStore(), store);
   assert.notStrictEqual(host.graphPorts(), ports);
 });
+
+test('S4：配置失效后「停止」仍能触及退役 Agent（否则 Stop 在 config.update 之后变成空操作）', () => {
+  const host = buildHost(buildConfig());
+  const first = host.agent();
+  const calls: { reason: string; sessionId: string | undefined }[] = [];
+  // 用桩替换真实取消：本用例只验证「退役实例是否仍被触及」，不驱动真实回合。
+  first.cancelCurrentRun = (reason, sessionId) => {
+    calls.push({ reason: String(reason), sessionId });
+  };
+  // 模拟用户在回合进行中改了配置（config.update / 切换工作区都会走到这里）。
+  host.invalidateAgent();
+  const second = host.agent();
+  assert.notStrictEqual(second, first, '失效后应重建 Agent（前置条件）');
+
+  const touched = host.cancelAll('user', 'thread-1');
+  assert.strictEqual(touched, 2, '当前与退役实例都应被触及');
+  assert.deepStrictEqual(
+    calls,
+    [{ reason: 'user', sessionId: 'thread-1' }],
+    '退役实例（真正在跑回合的那个）必须被取消——旧实现在这里静默失效',
+  );
+});
