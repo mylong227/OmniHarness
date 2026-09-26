@@ -133,9 +133,14 @@ export class ConfigToolRegistry {
       ),
       tools: registry,
     });
-    const delegator = new DelegateTool(
-      new WorkerOrchestrator(workers ?? ConfigToolRegistry.demoWorkers()),
-    );
+    // `delegate` 只在**真有 worker** 时注册（2026-09-26 审计 F1）：默认配置下它由演示桩
+    // `SimpleWorker` 支撑，而桩恒返回 `ok:true` + 固定文案 ⇒ 模型拿到的是**伪造的委派成功**，
+    // 据此继续往下做，结论全建立在假事实上。「工具不存在」远好过「工具撒谎」：没有 worker 时
+    // 模型会改用 subagent / run_workflow（这两条是真实执行路径）。
+    if (workers !== undefined) {
+      const delegator = new DelegateTool(new WorkerOrchestrator(workers));
+      registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
+    }
     const spillReader = new SpillReadTool(seed.spill);
     // 绘图（草图）：把 Mermaid / SVG / 文本草图落成 .omniharness/sketches/ 下的文件，
     // 与 UI 的「+ → 绘图」入口配套——入口负责把模型切到「先画后写」的回合指令，本工具负责产物落地。
@@ -156,7 +161,6 @@ export class ConfigToolRegistry {
     registry.register(screenshotTool.definition, (call, ctx) => screenshotTool.handle(call, ctx));
     registry.register(jobTool.definition, (call, ctx) => jobTool.handle(call, ctx));
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
-    registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
     registry.register(spillReader.definition, (call, ctx) => spillReader.handle(call, ctx));
     registry.register(sketcher.definition, (call, ctx) => sketcher.handle(call, ctx));
   }
@@ -396,7 +400,14 @@ export class ConfigToolRegistry {
     });
   }
 
-  /** 演示 worker 注册表（离线可用，可替换为真实 CLI worker）。 */
+  /**
+   * 演示 worker 注册表（仅供**测试与离线演示**显式注入）。
+   *
+   * 为什么加了这条限定（2026-09-26 审计 F1）：它曾被当作 `delegate` 的**生产默认后端**，
+   * 而演示桩恒返回 `ok:true` + 固定文案 —— 模型拿到的是**伪造的委派成功**并据此继续往下做。
+   * 现在生产装配在 `workers === undefined` 时**根本不注册** `delegate`（工具不存在优于工具撒谎），
+   * 本方法退化为纯粹的测试夹具。
+   */
   public static demoWorkers(): WorkerRegistry {
     const registry = new WorkerRegistry();
     registry.register(new SimpleWorker('demo-a', 'demo-a 完成任务'));

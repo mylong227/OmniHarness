@@ -62,6 +62,21 @@ export class PlanPresentTool {
     if (answer === undefined) {
       return { callId: call.id, ok: false, error: '用户回答缺失' };
     }
+    // 无人值守（`DefaultUserResponder` 等）返回**空 selected + 说明**：这不是「用户驳回」，
+    // 而是「根本没拿到用户意见」。旧实现把它一律当成 reject 并 `plan.decide('reject')` ——
+    // 在非 TTY 的 Web/serve/子代/eval 里，计划模式就此**永久锁死**（ToolGate 对写类工具恒拒），
+    // 且回报文案还谎称「用户驳回了计划」（2026-09-26 审计 F6）。
+    // 正确处置：不改计划状态、如实说明无法取得审批，让模型自行分支（改走 ask_user 或直接说明）。
+    const decided = answer.selected.some((label) => label === 'approve' || label === 'reject');
+    if (!decided) {
+      return {
+        callId: call.id,
+        ok: false,
+        error:
+          '无法取得计划审批：当前运行环境没有可交互的用户（未拿到 approve/reject）。' +
+          '计划状态保持不变；请改用 ask_user 说明情况，或直接按最小可行步骤推进。',
+      };
+    }
     const decision: 'approve' | 'reject' = answer.selected.includes('approve')
       ? 'approve'
       : 'reject';

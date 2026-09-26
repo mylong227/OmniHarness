@@ -62,6 +62,15 @@ export interface SubagentResult {
   readonly error?: string;
   /** 子会话完整轨迹（由事件桥收集，不污染父观测流）。 */
   readonly events: readonly SessionEvent[];
+  /**
+   * 是否**未做完**（步数耗尽或失控熔断）。
+   *
+   * 存在理由（2026-09-26 审计 F10）：原先 `ok` 恒为 true，被截断的子任务以「成功 + 兜底摘要」
+   * 上报父级，父级无法区分「完成」与「跑满步数」——这正是任务拆解里最有害的一类假信号。
+   */
+  readonly truncated?: boolean | undefined;
+  /** 是否因失控熔断 / 取消而中断。 */
+  readonly aborted?: boolean | undefined;
 }
 
 /**

@@ -67,11 +67,20 @@ export class SubagentTool {
   }
 
   /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。
+   *
+   * **必须显式标注「未完成」**（2026-09-26 审计 F10）：子代理被步数截断 / 失控熔断时，
+   * 它依然带着一段兜底摘要返回；若不标注，父级会把「跑满预算」读成「已完成」，据此继续往下做。
    * @param result 子智能体运行结果。
-   * @returns 首行元信息（会话 ID/步数/耗时）+ 输出文本。
+   * @returns 首行元信息（会话 ID/步数/耗时 + 未完成标注）+ 输出文本。
    */
   private render(result: SubagentResult): string {
-    const head = `[子智能体 ${result.sessionId}] ${result.steps} 步 / ${result.durationMs}ms`;
+    const status =
+      result.truncated === true
+        ? ' ⚠️ 未完成：达步数上限（结论可能不完整，建议拆小后重派或改由主会话继续）'
+        : result.aborted === true
+          ? ' ⚠️ 未完成：被失控熔断/取消'
+          : '';
+    const head = `[子智能体 ${result.sessionId}] ${result.steps} 步 / ${result.durationMs}ms${status}`;
     return `${head}\n${result.output}`;
   }
 

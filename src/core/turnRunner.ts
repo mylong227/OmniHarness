@@ -15,6 +15,10 @@ export interface TurnOutcome {
   readonly finalText?: string | undefined;
   /** 本回合累计模型 token 用量（V2.1；模型未上报 usage 时为 0）。 */
   readonly usageTokens: number;
+  /** 是否因**步数耗尽**而收尾（未自然收敛）——调用方据此区分「完成」与「被截断」。 */
+  readonly truncated: boolean;
+  /** 是否因**失控熔断**而中断（同属「没做完」）。 */
+  readonly aborted: boolean;
 }
 
 /**
@@ -137,10 +141,27 @@ export class TurnRunner {
         finalText = summary;
       }
     }
+    return this.closeTurn({ steps, usageTokens, aborted, finalText });
+  }
+
+  /**
+   * 回合收尾（观测 → 落盘 flush → diff 广播 → 记忆蒸馏 → 组装结果）。
+   *
+   * 抽出的动因有两层：① `run` 已达函数体上限；② 收尾语义（含「是否被截断」的判定）集中一处，
+   * 避免以后再加退出路径时漏带状态。
+   * @param summary 本回合的收尾事实（步数 / token 用量 / 是否熔断 / 最终文本）。
+   * @returns 回合结果（含 `truncated` 标记：步数耗尽即未自然收敛）。
+   */
+  private async closeTurn(summary: {
+    readonly steps: number;
+    readonly usageTokens: number;
+    readonly aborted: boolean;
+    readonly finalText: string | undefined;
+  }): Promise<TurnOutcome> {
     log.info('turn.end', {
-      steps,
-      hasText: finalText !== undefined,
-      aborted,
+      steps: summary.steps,
+      hasText: summary.finalText !== undefined,
+      aborted: summary.aborted,
     });
     // V2：回合末强落盘 + 停止 write-behind 定时器（防泄漏）。
     if (this.persister !== undefined) {
@@ -153,7 +174,15 @@ export class TurnRunner {
     // 任务结果（finalText/steps）正常返回，UI 不会卡在「处理中」。这是稳健性改进，
     // 与审批上行无关（审批闭环本身已验证正常）。
     void this.consolidateMemory().catch(() => {});
-    return { steps, finalText, usageTokens };
+    return {
+      steps: summary.steps,
+      finalText: summary.finalText,
+      usageTokens: summary.usageTokens,
+      // 步数耗尽 ⇒ 被截断（未自然收敛）：调用方（子代理 / 工作流步骤）据此避免把
+      // 「跑满预算」当成「做完了」（2026-09-26 审计 F10）。
+      truncated: summary.steps >= this.maxSteps,
+      aborted: summary.aborted,
+    };
   }
 
   /**
