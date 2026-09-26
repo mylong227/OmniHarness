@@ -137,13 +137,13 @@ export class ResponsesModel implements ModelPort {
    *          与 previous_response_id（已有续接锚点时）。
    */
   private bodyOf(request: ModelRequest): Record<string, unknown> {
+    const { instructions, input } = this.splitSystem(request.messages);
     const body: Record<string, unknown> = {
       model: this.config.model,
-      input: this.toWireInput(request.messages),
+      input,
       tools: this.toWireTools(request.tools),
       store: this.config.store ?? true,
     };
-    const instructions = this.instructionsOf(request.messages);
     if (instructions !== '') {
       body['instructions'] = instructions;
     }
@@ -153,25 +153,37 @@ export class ResponsesModel implements ModelPort {
     return body;
   }
 
-  /** 提取 system 指令（Responses API 用独立 instructions 字段）。
-   * @param messages 完整消息列表，仅筛选 role 为 system 的条目。
-   * @returns 所有 system 消息按原顺序以空行拼接的文本；无 system 消息时为空串。
+  /**
+   * 拆分 system 消息（Responses API 用独立 `instructions` 字段）。
+   *
+   * **只有开头连续的 system 消息**才提升进 `instructions`；出现在事件历史**之后**的 system
+   * 消息（典型：每步随查询变化的 repo-map 尾段）**留在原位**（Responses 的 `input` 项本就允许
+   * `role:'system'`）。理由与 Anthropic 适配器同源：`instructions` 排在**所有 input 之前**，
+   * 把逐步变化的尾段提升上去会让其后整段事件历史每步都重新计费——`StepContextBuilder` 的
+   * 「动态段置尾」治理（P_prefix）会在 wire 层被静默撤销。
+   *
+   * @param messages 完整消息列表。
+   * @returns `instructions`（开头连续 system 以空行拼接；无则空串）与 `input` 数组
+   *          （保留原角色与顺序，头部 system 已被剥离）。
    */
-  private instructionsOf(messages: readonly ModelRequest['messages'][number][]): string {
-    return messages
-      .filter((message) => message.role === 'system')
-      .map((message) => message.content)
-      .join('\n\n');
-  }
-
-  /** 消息转 wire 输入（system 已剥离到 instructions）。
-   * @param messages 完整消息列表，过滤掉 system 角色后逐条转换。
-   * @returns Responses API input 数组，每项形如 { role, content }。
-   */
-  private toWireInput(messages: readonly ModelRequest['messages'][number][]): unknown[] {
-    return messages
-      .filter((message) => message.role !== 'system')
-      .map((message) => ({ role: message.role, content: message.content }));
+  private splitSystem(messages: readonly ModelRequest['messages'][number][]): {
+    instructions: string;
+    input: unknown[];
+  } {
+    let head = 0;
+    while (head < messages.length && messages[head]?.role === 'system') {
+      head += 1;
+    }
+    return {
+      instructions: messages
+        .slice(0, head)
+        .map((message) => message.content)
+        .join('\n\n'),
+      input: messages.slice(head).map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    };
   }
 
   /** 工具转 wire 格式（Responses 为扁平结构，无 function 嵌套）。

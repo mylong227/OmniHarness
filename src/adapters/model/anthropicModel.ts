@@ -161,25 +161,40 @@ export class AnthropicModel implements ModelPort {
     };
   }
 
-  /** 拆分 system 消息（Anthropic 用独立字段）。
+  /**
+   * 拆分 system 消息（Anthropic 用独立字段，且 `messages` 里**没有** system 角色）。
+   *
+   * **只有开头连续的 system 消息**才提升进顶层 `system` 字段；出现在事件历史**之后**的
+   * system 消息（典型：每步随查询变化的 repo-map 尾段、运行期提示）**留在原位**并降级为
+   * `user` 消息。理由是一条物理事实：Anthropic 的提示缓存只复用**字节级公共前缀**，而顶层
+   * `system` 排在**所有消息之前**——一旦把逐步变化的尾段提升上去，其后整段事件历史（提示里
+   * 的大头）每一步都会重新计费。`StepContextBuilder` 已按「固定头 → 事件历史 → 动态尾段」
+   * 排布（P_prefix 治理），若这里把尾段搬回最前，等于在 wire 层把该治理**静默撤销**。
+   *
+   * 现场度量（同一 fixture，`tests/unit/anthropicWirePrefix.test.ts`）：提升时整请求前缀复用率
+   * **~17%**；留在原位后 **≥ 90%**。零信息损失（内容逐字节不变，只换承载角色与位置）。
+   *
    * @param messages 统一消息列表。
-   * @returns system 文本（无 system 消息时为 undefined）与剥离 system 后的 wire 消息数组
-   *          （tool 角色消息映射为 user 以兼容 Anthropic 协议）。
+   * @returns system 文本（开头无 system 消息时为 undefined）与剥离后的 wire 消息数组
+   *          （tool 角色映射为 user 以兼容 Anthropic 协议；非开头的 system 同样降级为 user）。
    */
   private splitSystem(messages: readonly ModelMessage[]): {
     system?: string | undefined;
     messages: AnthropicWireMessage[];
   } {
+    let head = 0;
+    while (head < messages.length && messages[head]?.role === 'system') {
+      head += 1;
+    }
     const system = messages
-      .filter((message) => message.role === 'system')
+      .slice(0, head)
       .map((message) => message.content)
       .join('\n');
-    const rest = messages
-      .filter((message) => message.role !== 'system')
-      .map((message) => ({
-        role: message.role === 'tool' ? 'user' : message.role,
-        content: this.toWireContent(message),
-      }));
+    const rest = messages.slice(head).map((message) => ({
+      // assistant 保持原角色；user / tool / 非开头 system 一律映射为 user。
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content: this.toWireContent(message),
+    }));
     return { system: system === '' ? undefined : system, messages: rest };
   }
 
