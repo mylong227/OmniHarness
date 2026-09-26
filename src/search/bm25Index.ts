@@ -310,12 +310,47 @@ export class Bm25Index {
    * 以免波及工具检索、会话检索等既有调用方。
    */
   public static tokenizeExpanded(text: string): string[] {
+    return Bm25Index.expandedTokens(text, true);
+  }
+
+  /**
+   * @beta
+   * 与 {@link tokenizeExpanded} 同口径，但**保留词频**（不做集合去重）。
+   *
+   * 为什么要它（2026-09-26 审计 R6）：`tokenizeExpanded` 内部用 `Set` 去重，于是**索引侧**的
+   * tf 恒为 1 —— BM25 的 tf 分量与调优过的 `k1` 对符号索引（以及文件路径部分）完全失效
+   * （实测 `tokenizeExpanded('alpha alpha alpha alpha')` 与 `'alpha'` 打分完全相同）。
+   * 查询侧仍需去重（重复查询词不该重复计分），故两个变体并存：**文档用本方法，查询用上面那个**。
+   * @param text 待分词的文档文本。
+   * @returns 词项列表（含重复，顺序即出现顺序）。
+   */
+  public static tokenizeExpandedCounted(text: string): string[] {
+    return Bm25Index.expandedTokens(text, false);
+  }
+
+  /**
+   * 扩展分词实现（去重与保留词频共用同一套规则，避免两个变体口径漂移）。
+   * @param text 待分词文本。
+   * @param dedup true=集合去重（查询侧）；false=保留词频（文档侧）。
+   * @returns 词项列表。
+   */
+  private static expandedTokens(text: string, dedup: boolean): string[] {
     const out = new Set<string>();
+    const list: string[] = [];
     const push = (w: string): void => {
       if (w.length < 2) return;
       const lw = w.toLowerCase();
-      out.add(lw);
-      for (const v of Bm25Index.morphVariants(lw)) out.add(v);
+      if (dedup) {
+        out.add(lw);
+        for (const v of Bm25Index.morphVariants(lw)) out.add(v);
+        return;
+      }
+      list.push(lw);
+      for (const v of Bm25Index.morphVariants(lw)) {
+        // `morphVariants` 把原词自身也算作一个变体：计数路径必须跳过它，否则每次出现都被 push
+        // 两次（tf 直接翻倍）——与本类 `tokenize` 里那个「无下划线词被 push 两次」的缺陷同型。
+        if (v !== lw) list.push(v);
+      }
     };
 
     const ascii = /[A-Za-z0-9_]+/g;
@@ -323,8 +358,15 @@ export class Bm25Index {
     while (m !== null) {
       const word = m[0];
       push(word);
-      for (const part of word.split('_')) push(part);
-      for (const part of Bm25Index.splitCamel(word)) push(part);
+      // 跳过「自身即整词」的拆分结果：`word.split('_')` 对无下划线词返回 `[word]`，
+      // `splitCamel` 对全小写词同样返回 `[word]` —— 去重路径下这两次是空操作（Set 幂等），
+      // 但计数路径会把 tf 直接翻三倍（与 `tokenize` 里那个同型缺陷一个道理）。
+      for (const part of word.split('_')) {
+        if (part !== word) push(part);
+      }
+      for (const part of Bm25Index.splitCamel(word)) {
+        if (part !== word) push(part);
+      }
       m = ascii.exec(text);
     }
 
@@ -335,12 +377,19 @@ export class Bm25Index {
       const run = m[0];
       for (let i = 0; i < run.length; i += 1) {
         const ch = run[i];
-        if (ch !== undefined) out.add(ch);
-        if (i + 1 < run.length) out.add(run.slice(i, i + 2));
+        if (ch !== undefined) {
+          if (dedup) out.add(ch);
+          else list.push(ch);
+        }
+        if (i + 1 < run.length) {
+          const bigram = run.slice(i, i + 2);
+          if (dedup) out.add(bigram);
+          else list.push(bigram);
+        }
       }
       m = cjk.exec(text);
     }
-    return [...out].filter((t) => t !== '');
+    return dedup ? [...out].filter((t) => t !== '') : list.filter((t) => t !== '');
   }
 }
 
