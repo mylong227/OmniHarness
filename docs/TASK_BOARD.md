@@ -3368,3 +3368,36 @@ toast 现在把下一步说清（「先点『停止』结束本回合再删」�
 **验收**：`web:test` **252/252**；eslint / `check --strict` / `arch:gate` 全绿。
 **待用户侧**：若再出现白屏（现在会显示面板），请把面板上的错误消息（或控制台 `RenderErrorBoundary` 那条）
 发我 —— 那正是我一直缺的抛出点。
+
+### 26.9 用户复现结果：`Illegal invocation` ⇒ 边界面板升级为「自带定位信息」
+
+用户在真机上复现后看到了错误消息：**`Illegal invocation`**（原生方法被脱离宿主调用——与「会话删除无效」
+同源的 `this` 丢失，只是发生在原生 API 上）。该消息**本身不含位置**，只有组件栈能定位，故把边界面板
+升级成「可直接把真因交回来」的形态：
+
+| 项             | 处置                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| 面板显示组件栈 | ✅ 新增 **`位置：<组件栈前 4 层>`**（`componentDidCatch` 的 componentStack 落 state 后渲染） |
+| 一键交现场     | ✅ 新增 **「复制详情」**（时间 + 消息 + 栈前 8 行 + 组件栈 + URL 进剪贴板）                  |
+| 控制台         | ✅ `console.error` 同时打印组件栈                                                            |
+| 门禁加强       | ✅ 注入渲染错误后必须出现 `.crash-where`，且组件栈**必须指到抛错组件**（`TopBar`）           |
+
+**排查留档（并行做过的反证，供下一轮接着查）**：① 只读加载报障 URL 正常（`#root` 74343 字符、零错误）；
+② 真按 Enter 跑一轮带 `shell` 工具的短回合正常（hash 正确变为 `#pane=tools&thread=…`、零错误）；
+③ **用该会话真实事件序列（74 条：reasoning×33 / model×35 / tool_call×37 / tool_result×37 / turn_diff×2）
+在 stub 页里按实时节奏重放**（先置忙再逐条 `thread.event` + `text_delta`）—— **未复现**；
+④ 静态审计：`Intl.*` / `history.*` / `pointer*` / `ResizeObserver` / `.bind(` / `.call(` / 取出原生方法的写法
+**均无命中**，`Router.ts`（含 `navigate`/`onRouteChange`）实现规范。
+⇒ `Illegal invocation` 的来源仍待组件栈定位；最可能是我无法凭空重放的两条链路：**审批弹窗**与**拖拽/指针**。
+
+### 26.10 顺带修掉：新加 CDP 用例在并行档里超时（真实 flake）
+
+`npm run web:test` 并行跑 23 个文件时，`chromeCleanup` / `popoverFit` / `renderErrorBoundary` 三个真机
+用例**撞 30s 文件级预算**（单跑各 4–10s；三者同跑墙钟 27s ⇒ 全量并行必然超）。两层处置：
+
+1. **每个文件只起一次 Chrome / 一个服务器**（`popoverFit` 4 次启动 → 1 次；`renderErrorBoundary` 2 次 → 1 次；
+   改为「一个服务器多路由 + 多次导航」）；`chromeCleanup` 的进程轮询 250ms → 800ms（每轮都要起一次
+   PowerShell 列进程，250ms 一轮本身就在拖机器）。
+2. `web:test` 文件级预算 **30s → 60s**（真机 CDP 用例 7 路并行下互相争抢，实测依据写进提交信息）。
+
+**验收**：`npm run web:test` 连跑 **3 次** 均 **251/251 pass / 0 fail**（墙钟 31s / 34s / 42s）。
