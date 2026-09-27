@@ -30,6 +30,8 @@ import type { SparkController } from '../spark/sparkController.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { SubagentPorts } from '../subagent/subagentPorts.js';
 import { Agent } from '../core/agent.js';
+import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.js';
+import type { CompletionGateFactory } from '../ports/runtime/completionGate.js';
 import {
   A2aServer,
   A2aClient,
@@ -126,47 +128,60 @@ export class Runtime {
       spark: config.spark,
       // P5 自动降档：预算计量桥成的只读端口，透传给 StepRunnerDeps（core 消费点）。
       budgetDegrade: config.budgetDegrade,
+      // A1 回合完成闸门：组合根注入实现（core 只认端口 `CompletionGateFactory`），口径见其模块头。
+      completionGateFactory: (ctx) => TurnCompletionGateFactory.of(ctx),
     } as OmniHarnessRuntime;
-    // U6 A2A 互操作：启用时实例化 server（监听）+ client，server 任务处理器跑子 agent 完成对等委托。
-    // 能力胶囊 = Ed25519 签名即身份（fail-closed 验签），复用 config.identity + 子 agent 隔离运行时。
-    if (config.a2a?.enabled === true) {
-      const a2aPort = config.a2a.port ?? 8790;
-      // 传输形态：http（默认，POST /a2a）或 ws（RFC6455，/a2a-ws）。二者实现同一 A2aTransport 端口，
-      // 协议与门禁完全共用；缺省 http 保持原行为（零破坏）。
-      const wsMode = config.a2a.transport === 'ws';
-      const serverTransport = wsMode ? new WsA2aServerTransport() : new HttpA2aServerTransport();
-      const server = new A2aServer(serverTransport, config.identity);
-      const peer =
-        config.a2a.peerEndpoint ??
-        (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
-      const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
-      server.setTaskHandler({
-        async handle(req) {
-          const start = Date.now();
-          try {
-            const sub = subagentRuntimeFactory.build(
-              SubagentPorts.portsOf(runtime),
-              runtime.tools,
-              runtime.events,
-              runtime.config.maxSteps,
-            );
-            const result = await new Agent(sub).runTask(req.task);
-            return {
-              ok: true,
-              output: result.finalText ?? '',
-              steps: result.steps,
-              durationMs: Date.now() - start,
-            };
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            return { ok: false, output: '', steps: 0, durationMs: Date.now() - start, error: msg };
-          }
-        },
-      });
-      void serverTransport.listen(a2aPort);
-      runtime.a2a = { server, client, transport: serverTransport };
-    }
+    Runtime.attachA2a(runtime, config);
     return runtime;
+  }
+
+  /**
+   * U6 A2A 互操作接线：启用时实例化 server（监听）+ client，server 任务处理器跑子 agent 完成对等委托。
+   * 能力胶囊 = Ed25519 签名即身份（fail-closed 验签），复用 config.identity + 子 agent 隔离运行时。
+   * 抽成独立方法：`createRuntime` 已贴近 AST 体量门禁基线（不得再长）。
+   * @param runtime 已装配的运行时（就地为 `a2a` 字段赋值）。
+   * @param config 已解析配置（读取 `a2a` / `identity`）。
+   * @returns 无返回值。
+   */
+  private static attachA2a(runtime: OmniHarnessRuntime, config: ResolvedConfig): void {
+    if (config.a2a?.enabled !== true) {
+      return;
+    }
+    const a2aPort = config.a2a.port ?? 8790;
+    // 传输形态：http（默认，POST /a2a）或 ws（RFC6455，/a2a-ws）。二者实现同一 A2aTransport 端口，
+    // 协议与门禁完全共用；缺省 http 保持原行为（零破坏）。
+    const wsMode = config.a2a.transport === 'ws';
+    const serverTransport = wsMode ? new WsA2aServerTransport() : new HttpA2aServerTransport();
+    const server = new A2aServer(serverTransport, config.identity);
+    const peer =
+      config.a2a.peerEndpoint ??
+      (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
+    const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
+    server.setTaskHandler({
+      async handle(req) {
+        const start = Date.now();
+        try {
+          const sub = subagentRuntimeFactory.build(
+            SubagentPorts.portsOf(runtime),
+            runtime.tools,
+            runtime.events,
+            runtime.config.maxSteps,
+          );
+          const result = await new Agent(sub).runTask(req.task);
+          return {
+            ok: true,
+            output: result.finalText ?? '',
+            steps: result.steps,
+            durationMs: Date.now() - start,
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, output: '', steps: 0, durationMs: Date.now() - start, error: msg };
+        }
+      },
+    });
+    void serverTransport.listen(a2aPort);
+    runtime.a2a = { server, client, transport: serverTransport };
   }
 }
 
@@ -227,6 +242,11 @@ export interface OmniHarnessRuntime {
    * `StepContextBuilder` 在软阈值越过后收敛检索预算（缩 fileK / 关语义路）。缺省 undefined，零破坏。
    */
   readonly budgetDegrade?: BudgetDegradeSignal | undefined;
+  /**
+   * 回合完成闸门工厂（A1 收口，可选）：由组合根注入实现（核心只认端口），`Agent` 每个回合调用一次
+   * 决定本回合用哪种闸门。缺省 undefined＝不设闸门（旧行为；子代理运行时即如此）。
+   */
+  readonly completionGateFactory?: CompletionGateFactory | undefined;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务末跑 燧-3/燧-4 调谐/冲刷；缺省 undefined，零破坏。 */
   readonly spark?: SparkController | undefined;
   /** (U6) A2A 互操作：启用时本端起 A2aServer（监听）并构造 A2aClient，server 任务处理器跑子 agent 完成对等委托。缺省 undefined，零破坏。 */

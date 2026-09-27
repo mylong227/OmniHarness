@@ -51,6 +51,16 @@ test('pytest / cargo 风格失败行同样被抽到', () => {
   assert.ok(digest.includes('1 failed, 2 passed'));
 });
 
+test('vitest / jest 的「● 用例名」失败标题被抽到（回灌定位失败用例）', () => {
+  const raw = [
+    'FAIL src/a.test.ts',
+    '  ● parser 应当分词',
+    'AssertionError: expected 1 got 2',
+  ].join('\n');
+  const digest = TestFailureDigest.from(raw, 5);
+  assert.ok(digest.includes('● parser 应当分词'), `digest=${digest}`);
+});
+
 test('超长行被截断（避免单行撑爆上下文）', () => {
   const raw = `not ok 1 - ${'x'.repeat(1000)}`;
   const digest = TestFailureDigest.from(raw, 3);

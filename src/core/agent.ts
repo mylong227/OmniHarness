@@ -490,19 +490,14 @@ export class Agent implements AgentPort {
       persister,
       // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
       this.resolveTokenBudget(),
-      // 完成闸门（A1）：工具端口在 selfVerify 启用时是 SelfVerifyingToolPort（暴露 lastFailure）；
-      // 未启用时结构上取不到，闸门自然缺省（零行为变更）。**内联**探测而不抽新方法：Agent 的方法数
-      // 已贴着上帝类阈值（>25 即违规），再加一个就会被编码标准门禁拦下。
-      typeof (this.runtime.tools as { lastFailure?: unknown }).lastFailure === 'function'
-        ? {
-            lastFailure: (id: string): string | undefined =>
-              (
-                this.runtime.tools as unknown as {
-                  lastFailure: (s: string) => string | undefined;
-                }
-              ).lastFailure(id),
-          }
-        : undefined,
+      // 完成闸门（A1 收口）：实现由**组合根**经端口注入（`runtime.completionGateFactory`），
+      // core 不认识任何具体闸门——写时自验证已启用则读它的结论；未启用则回合末尾现跑一次
+      // （显式 enabled:false 才两者皆无）。缺省未注入＝不设闸门（旧行为）。
+      this.runtime.completionGateFactory?.({
+        tools: this.runtime.tools,
+        selfVerify: this.runtime.config.selfVerify,
+        workspaceRoot: this.runtime.config.workspaceRoot,
+      }),
     );
   }
 

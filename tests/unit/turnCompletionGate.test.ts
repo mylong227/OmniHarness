@@ -88,7 +88,10 @@ function build(
 
 test('A1：最近一次自验证失败 ⇒ 模型说「完成」被闸门拦下并再给一步（只给一次）', async () => {
   const { model, prompts } = textModel(['我改好了。', '已按闸门提示修复。']);
-  const gate: CompletionGate = { lastFailure: () => '[自验证回环] 测试未通过（exit=1）：3 failed' };
+  const gate: CompletionGate = {
+    kind: 'status',
+    verify: async () => '[自验证回环] 测试未通过（exit=1）：3 failed',
+  };
   const { runner, recorder } = build('s-a1-1', model, 6, gate);
   const outcome = await runner.run({ sessionId: 's-a1-1', workspaceRoot: '/tmp' });
 
@@ -116,7 +119,7 @@ test('A1：最近一次自验证失败 ⇒ 模型说「完成」被闸门拦下�
 
 test('A1：闸门每回合至多触发一次（模型第二次仍说完成就放行，不死循环）', async () => {
   const { model } = textModel(['我改好了。', '我坚持完成。', '我不会被用到。']);
-  const gate: CompletionGate = { lastFailure: () => '测试未通过' };
+  const gate: CompletionGate = { kind: 'status', verify: async () => '测试未通过' };
   const { runner } = build('s-a1-2', model, 8, gate);
   const outcome = await runner.run({ sessionId: 's-a1-2', workspaceRoot: '/tmp' });
   assert.strictEqual(outcome.steps, 2, '只多给一步');
@@ -125,7 +128,7 @@ test('A1：闸门每回合至多触发一次（模型第二次仍说完成就放
 
 test('A1：最近一次验证通过（无失败记录）⇒ 闸门不介入，正常收敛零行为变更', async () => {
   const { model, prompts } = textModel(['一次到位。']);
-  const gate: CompletionGate = { lastFailure: () => undefined };
+  const gate: CompletionGate = { kind: 'status', verify: async () => undefined };
   const { runner } = build('s-a1-3', model, 6, gate);
   const outcome = await runner.run({ sessionId: 's-a1-3', workspaceRoot: '/tmp' });
   assert.strictEqual(outcome.steps, 1, '不应多给步');
