@@ -60,6 +60,15 @@ const DEFAULT_OVERSCAN = 8;
 /** 默认兜底可视高度（px）：中栏流区域的常见高度量级。 */
 const DEFAULT_FALLBACK_VIEWPORT = 600;
 
+/**
+ * 「视口算空洞」的覆盖率下限：低于它才允许把内容拉回视口（动用户的滚动位置）。
+ *
+ * 口径：健康时视口被已渲染块完整覆盖（≈100%），空洞时接近 0%（真机实测最差 8%）。取 0.5 让
+ * 「明显有洞」与「只是边角没盖满」分开，避免为了几个像素去动滚动条。见
+ * {@link StreamWindow.needsAnchorRepair}。
+ */
+const HOLE_COVERAGE_FLOOR = 0.5;
+
 /** 事件流虚拟窗口计算器（无状态，可复用同一实例）。 */
 export class StreamWindow {
   /** 单块估算高度（px），恒为正整数。 */
@@ -243,6 +252,56 @@ export class StreamWindow {
     }
     const domOffset = scrollTop + (best.top - viewportTop);
     return offsetOf(best.index) - domOffset;
+  }
+
+  /**
+   * 视口被「已渲染块」覆盖的比例（0..1）。
+   * @param viewportTop 视口顶（`scroll 容器 rect.top`）
+   * @param viewportHeight 视口高（clientHeight）
+   * @param anchors 已渲染块的 DOM 锚点（下标 + rect top/bottom）
+   * @returns 覆盖比例（视口高 ≤ 0 时返回 1，即「无需修复」）
+   */
+  public static viewportCoverage(
+    viewportTop: number,
+    viewportHeight: number,
+    anchors: ReadonlyArray<{ readonly index: number; readonly top: number; readonly bottom: number }>,
+  ): number {
+    if (viewportHeight <= 0) return 1;
+    let covered = 0;
+    for (const a of anchors) {
+      const top = Math.max(a.top, viewportTop);
+      const bottom = Math.min(a.bottom, viewportTop + viewportHeight);
+      if (bottom > top) covered += bottom - top;
+    }
+    return Math.min(1, covered / viewportHeight);
+  }
+
+  /**
+   * 是否需要「把内容拉回视口」（空洞修复）——**只有视口几乎没内容时才允许动用户的滚动位置**。
+   *
+   * ## 为什么必须加这道闸（2026-09-27 用户报「滚动会被回退回原本的位置」）
+   *
+   * `anchorDelta` 的动机是修空洞（§26.12），但它原先**无条件**在每次窗口变化时套用：用户把滚动条
+   * 拖到一个「从没渲染过的区域」时，该区域上方的 overscan 块本轮才第一次被测量，估算 88px 与真实
+   * 几百 px 的差会一次性算进校正量 ⇒ 位置被推回原来那一带。真机实测（真服务 + 真会话
+   * `sess_mujn1om2_1`，1280×800，跳转式滚动）：请求 943 稳定在 2489（**被回退 1546px**）、
+   * 请求 3772 → 4614（842px）、请求 1650 → 1983（333px）；把本校正临时停用后同一序列
+   * **逐档 0px**。即症状 100% 来自这里。
+   *
+   * 故把「是否动 scrollTop」与「要不要修空洞」绑在一起：覆盖率低于 {@link HOLE_COVERAGE_FLOOR}
+   * （视口里几乎看不到任何块）才修，其余情况**一律不碰**用户的位置。
+   * @param viewportTop 视口顶（`scroll 容器 rect.top`）
+   * @param viewportHeight 视口高（clientHeight）
+   * @param anchors 已渲染块的 DOM 锚点
+   * @returns 需要修复返回 true
+   */
+  public static needsAnchorRepair(
+    viewportTop: number,
+    viewportHeight: number,
+    anchors: ReadonlyArray<{ readonly index: number; readonly top: number; readonly bottom: number }>,
+  ): boolean {
+    if (anchors.length === 0) return false;
+    return StreamWindow.viewportCoverage(viewportTop, viewportHeight, anchors) < HOLE_COVERAGE_FLOOR;
   }
 
   /**
