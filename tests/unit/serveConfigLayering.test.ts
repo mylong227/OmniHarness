@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { CliServerCmds } from '../../src/cli/cliServerCmds.js';
+import { ArgParser } from '../../src/cli/argParser.js';
 
 /** 造一个临时家目录，写入用户级 `~/.omniharness/omniharness.json`。 */
 function makeHome(cfg: Record<string, unknown>): string {
@@ -77,6 +78,32 @@ test('serve：环境变量层优先级最高（仍低于 CLI 参数）', () => {
   } finally {
     if (prev === undefined) delete process.env['OMNIHARNESS_MODEL'];
     else process.env['OMNIHARNESS_MODEL'] = prev;
+    rmSync(home, { recursive: true, force: true });
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test('serve：显示配置必须反映后端实际所用（含 reasoning——曾漏出该项）', () => {
+  const home = makeHome({
+    modelAdapter: 'openai',
+    model: 'deepseek-v4-flash',
+    reasoning: 'high',
+    approval: 'auto',
+  });
+  const ws = makeWorkspace({});
+  try {
+    const merged = CliServerCmds.loadServeConfig(ws, join(ws, 'omniharness.json'), undefined, home);
+    // 后端真正用的口径（configDefaults 把它并进 CLI 参数 ⇒ 运行时按 high 跑）。
+    assert.strictEqual(ArgParser.configDefaults(merged).reasoning, 'high');
+    // UI 展示的口径必须与之一致；2026-09-27 跑真 UI 时这里曾是空白（UI 显示「默认」而后端跑 high）。
+    const shown = CliServerCmds.displayConfigOf(merged, ArgParser.parseArgs(['serve'])!, ws);
+    assert.strictEqual(shown['reasoning'], 'high', 'UI 展示的 reasoning 不得漏项');
+    assert.strictEqual(shown['modelAdapter'], 'openai');
+    assert.strictEqual(shown['model'], 'deepseek-v4-flash');
+    assert.strictEqual(shown['approval'], 'auto');
+    // 未配置时不显示成别的东西（空串 ⇒ UI 走自己的默认展示）。
+    assert.strictEqual(shown['workspace'], ws);
+  } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(ws, { recursive: true, force: true });
   }
