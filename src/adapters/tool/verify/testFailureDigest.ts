@@ -22,6 +22,8 @@ const FAIL_LINE_PATTERNS: readonly RegExp[] = [
   /^\s*not ok\b/i,
   /^\s*✖/,
   /^\s*✗/,
+  // vitest / jest 的失败标题行：`● 用例名`，是回灌里定位失败用例的唯一线索。
+  /^\s*●/,
   /^\s*FAIL(?:ED)?\b/,
   /\bAssertionError\b/,
   /^\s*(?:Error|TypeError|ReferenceError|SyntaxError|RangeError)\s*:/,

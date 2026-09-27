@@ -1,4 +1,5 @@
 import type { ToolContext } from '../ports/tool/tool.js';
+import type { CompletionGate } from '../ports/runtime/completionGate.js';
 import { BudgetExceededError } from '../ports/model/model.js';
 import type { StepRunner, StepOutcome } from './stepRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
@@ -9,21 +10,9 @@ import { LoopGuard, type LoopDecision } from './loop/loopGuard.js';
 import type { EventPersister } from './loop/eventPersister.js';
 import { log } from '../util/logger.js';
 
-/**
- * 回合**完成闸门**（2026-09-26 审计 A1）：模型声明「做完了」时的一次外部核验。
- *
- * 为什么需要它：自验证回环此前只是**信号**（把失败摘要追加进工具结果），模型完全可以无视它
- * 直接输出结论收尾 —— 产品路径上没有任何东西阻止「改坏了代码还宣布完成」。
- * 本接口把「本会话最近一次对源码改动的验证结果」暴露给 `TurnRunner`：仍有失败则回灌并再给一步。
- */
-export interface CompletionGate {
-  /**
-   * 本会话最近一次自验证失败的可读摘要。
-   * @param sessionId 会话 id。
-   * @returns 失败摘要；最近一次验证通过、或本会话从未验证时为 undefined。
-   */
-  lastFailure(sessionId: string): string | undefined;
-}
+// 完成闸门契约已下沉到 `ports/runtime/completionGate.ts`（2026-09-27，修架构违规：契约留在 core
+// 会逼适配器 import core）。此处原路径**继续导出**，保持既有公共 API 面不变。
+export type { CompletionGate } from '../ports/runtime/completionGate.js';
 
 /** 回合运行结果。 */
 export interface TurnOutcome {
@@ -137,7 +126,7 @@ export class TurnRunner {
       if (outcome === 'text') {
         // 完成闸门（A1）：模型说要收尾了，但本会话最近一次对源码改动的验证**没通过** ⇒
         // 把失败摘要回灌并再给一步（有界：每回合至多一次，且照常消耗步数预算）。
-        const digest = gated ? undefined : this.completionGate?.lastFailure(context.sessionId);
+        const digest = gated ? undefined : await this.completionDigest(context.sessionId);
         if (digest !== undefined && digest !== '') {
           gated = true;
           log.warn('turn.completion_gate.blocked', { steps, sessionId: context.sessionId });
@@ -223,8 +212,26 @@ export class TurnRunner {
   }
 
   /**
-   * V2 失控检测观测：true = 熔断（应退出循环）。
-   * nudge 决策把纠偏文本作为 user 消息注入（模型下一轮看到引导，换方法继续）。
+   * 取完成闸门的核验结果（含「何时才该问」的前置条件）。
+   *
+   * `turn-end` 型闸门会在**回合末尾现跑一次验证命令**，因此必须限定「本回合确实改过文件」——
+   * 否则纯问答回合也会平白跑一次测试。`status` 型只是读已有结论（零开销），任何时机都可问。
+   * @param sessionId 会话 id。
+   * @returns 失败摘要；不应问、或验证通过/无法验证时为 undefined。
+   */
+  private async completionDigest(sessionId: string): Promise<string | undefined> {
+    const gate = this.completionGate;
+    if (gate === undefined) {
+      return undefined;
+    }
+    if (gate.kind === 'turn-end' && (this.turnDiff?.changedCount ?? 0) === 0) {
+      return undefined;
+    }
+    return await gate.verify(sessionId);
+  }
+
+  /**
+   * V2 失控检测观测：true = 熔断（应退出循环）。   * nudge 决策把纠偏文本作为 user 消息注入（模型下一轮看到引导，换方法继续）。
    */
   private observeLoopGuard(): boolean {
     if (this.loopGuard === undefined) {
