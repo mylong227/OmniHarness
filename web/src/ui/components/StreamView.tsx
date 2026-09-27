@@ -308,6 +308,15 @@ const STREAM_WINDOW = new StreamWindow();
 const STREAM_MODEL_CACHE = new StreamModelCache();
 
 /**
+ * 空洞修复时**两侧各多渲染**的块数：视口装不满（模型高估高度）时把窗口撑大，直到视口被真实内容
+ * 覆盖。取 24 的依据：真机实测缺口来自「模型 88px 估算 vs 真实几十 px」的累积，一屏 581px 在
+ * 最坏情形下需要多渲染十余块；24 留一倍余量，同时仍在虚拟化的常量成本内（DOM 块数上限 ≈
+ * 一屏块数 + 2×overscan + 2×本值）。
+ */
+const HOLE_BOOST_BLOCKS = 24;
+
+
+/**
  * 事件流组件：渲染事件块、流式占位与底部输入区，并锚定滚动到底部。
  * @param props 组件入参
  * @returns 中栏节点
@@ -360,12 +369,21 @@ export function StreamView(props: StreamViewProps): ReactElement {
   /** 测量回填计数器：索引变化后置位触发一次重渲染，随后实测稳定即停。 */
   const [measureTick, setMeasureTick] = React.useState<number>(0);
   /**
-   * 滚动校正预算（**防 React #185 的硬上界**）：写回 scrollTop 的次数被限死在「每次用户滚动 N 次」，
-   * 且我们自己写回所触发的 scroll 事件不补充预算 ⇒「render → layoutEffect → setState → render」
-   * 的同步死循环在结构上不可能成立。见 {@link ScrollRepairBudget} 的模块头（真机 #185 实测）。
+   * 空洞修复预算（**防 React #185 的硬上界**）：因修复而 setState 的次数被限死在「每次用户滚动 N 次」，
+   * 且只有用户自己滚动才补充 ⇒「render → layoutEffect → setState → render」的同步死循环在结构上
+   * 不可能成立。见 {@link ScrollRepairBudget} 的模块头（真机 #185 实测）。
    */
   const repairBudgetRef = React.useRef<ScrollRepairBudget | null>(null);
   if (repairBudgetRef.current === null) repairBudgetRef.current = new ScrollRepairBudget();
+  /**
+   * 空洞修复的方式：**多渲染块，绝不移动用户的滚动位置**（粘性，直到用户下次滚动才复位）。
+   *
+   * 为什么不是「写回 scrollTop」（2026-09-27 用户两次报障的最终结论）：
+   * ① 写回会把用户拖到的位置推回去（「滚动被回退」）；② 写回发生在布局效应里，可能形成同步更新
+   * 循环（React #185）。而空洞的**真实成因**是「模型高估了区块高度 ⇒ 渲染窗口装不满一屏」，
+   * 正确解法是**多渲染几块**把视口填满 —— 用户的滚动位置从头到尾不用改。
+   */
+  const [holeBoost, setHoleBoost] = React.useState<number>(0);
 
   // 新事件 / 流式输入 / 流式正文到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
   // 同时同步可视高度：首屏拿到 DOM 真实高度后虚拟窗口才准。
@@ -384,8 +402,9 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const onScroll = (e: Event): void => {
     const el = e.currentTarget as HTMLDivElement | null;
     if (!el) return;
-    // 只有「不是我们自己写回造成的」滚动才补充校正预算（否则校正能无限自我续期 ⇒ #185）。
-    repairBudgetRef.current!.noteScroll(el.scrollTop);
+    // 用户自己滚动了 ⇒ 补满修复预算，并把「空洞加渲」复位（位置是用户说了算）。
+    repairBudgetRef.current!.noteScroll();
+    if (holeBoost !== 0) setHoleBoost(0);
     stickyRef.current = StreamWindow.atBottom(el);
     if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
     if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
@@ -414,7 +433,28 @@ export function StreamView(props: StreamViewProps): ReactElement {
   // 真实高度路径：用 BlockHeightIndex 回填的逐块高度算窗口（padTop/padBottom 为前缀偏移）。
   // 未测到的块由索引回落到估算值，故首屏/长会话顶部与「统一估算」行为一致、不崩。
   const index = indexRef.current!;
-  const win = STREAM_WINDOW.computeWithHeights(keys, (k) => index.get(k), scrollTop, viewportHeight);
+  const winBase = STREAM_WINDOW.computeWithHeights(
+    keys,
+    (k) => index.get(k),
+    scrollTop,
+    viewportHeight,
+  );
+  // 空洞加渲：视口装不满时**只多渲染块**（两侧各 holeBoost 块），绝不移动用户的滚动位置。
+  const win: typeof winBase =
+    holeBoost > 0
+      ? (() => {
+          const start = Math.max(0, winBase.start - holeBoost);
+          const end = Math.min(keys.length, winBase.end + holeBoost);
+          return {
+            start,
+            end,
+            rendered: end - start,
+            padTop: index.prefix(keys, start),
+            padBottom: index.prefix(keys, keys.length) - index.prefix(keys, end),
+            total: winBase.total,
+          };
+        })()
+      : winBase;
   // 记录本帧已提交的 padTop，供测量后做滚动锚定补偿，避免内容跳动。
   lastPadTopRef.current = win.padTop;
 
@@ -424,8 +464,8 @@ export function StreamView(props: StreamViewProps): ReactElement {
     indexRef.current!.prune(keep);
   }, [events, busy]);
 
-  // 逐块真实高度回填 + 滚动锚定：实测已渲染块高度写入索引；若非贴底且窗口上方块高度
-  // 发生了变化，按增量补偿 scrollTop，使视口内容不跳动（避免「测量→重排→跳变」）。
+  // 逐块真实高度回填 + 空洞修复：实测已渲染块高度写入索引；**若视口基本没内容（空洞）**，
+  // 则多渲染一批块把视口填满（见下），**绝不移动用户的滚动位置**。
   // 索引变化才触发一次重渲染，随后实测值稳定、本 effect 直接返回，不会死循环。
   React.useLayoutEffect(() => {
     const idx = indexRef.current!;
@@ -437,22 +477,17 @@ export function StreamView(props: StreamViewProps): ReactElement {
     }
     if (!changed && el === null) return;
     if (el && !stickyRef.current) {
-      // 锚定自愈校正（取代原先只看 padTop 的增量补偿）：以「DOM 里最接近视口顶的已渲染块」为锚，
-      // 把它的真实滚动偏移对齐到模型偏移，修掉「高度索引（实测 ∪ 估算）与真实 DOM 不一致 ⇒
-      // 模型偏移与浏览器 scrollTop 错位 ⇒ 视口落在空洞里一个块都看不到」（2026-09-27 用户报
-      // 「滚到该区域没有任何显示」；跳转式滚动实测真实会话最差一档覆盖率 0%、DOM 里却有 23 个块）。
-      // 见 StreamWindow.anchorDelta。
+      // 空洞修复：真机实测（真服务 + 真会话 sess_mujn1om2_1，跳转滚动 12 档）里有两档覆盖率只有
+      // 8% / 36%（模型高估了区块高度 ⇒ 渲染窗口装不满一屏 ⇒ 视口下半截落在占位区）。
       //
-      // **但必须加闸（2026-09-27 用户报「滚动会被回退回原本的位置」）**：本校正原先无条件套用，
-      // 用户拖到从没渲染过的区域时，该区域上方 overscan 块本轮才第一次被测量（估算 88px vs 真实
-      // 几百 px），差值一次性算进校正量 ⇒ 位置被推回原来那一带。真机实测（真服务 + 真会话
-      // sess_mujn1om2_1）：请求 943 稳定 2489（**被回退 1546px**）、3772→4614、1650→1983；
-      // 临时停用本校正后同一序列**逐档 0px**。故只在「视口基本没内容（空洞）」时才动 scrollTop
-      // —— 见 StreamWindow.needsAnchorRepair；内容看得见时一律不碰用户的位置。
-      //
-      // **注意：不能只在「实测有变化」时校正** —— 跳转到一个「窗口内的块都已测过、但窗口外仍有
-      // 大量估算块」的位置时，实测集不变 ⇒ 若跳过校正，错位就留在那里（实测第二轮仍会出现 0% 覆盖）。
-      // 反正收敛性有保证：校正后 scrollTop 变化 → 重算窗口 → 锚点差值落到 1px 以内即停。
+      // **修法演进（三次，前两次都被用户实测打回，留档防回退）**：
+      // ① 无条件把「锚块的真实偏移」对齐到「模型偏移」（写回 scrollTop）⇒ 拖到没渲染过的区域时，
+      //    该区域上方 overscan 块本轮才第一次被测量（估算 88px vs 真实几百 px），差量一次性算进
+      //    校正量 ⇒ **位置被推回原来那一带**（实测 943→2489，回退 1546px；3772→4614；1650→1983）。
+      // ② 加闸「只有视口 < 50% 覆盖才动」⇒ 用户仍报「滚动依旧回退、无法滚到顶」：近顶部那两档
+      //    覆盖率本就是 8% / 36%，一往上拖就被推回去（实测 236→569、463→1411）。
+      // ③ **本版：不改位置，只多渲染**。用户的滚动位置全程不动；空洞靠「两侧各多渲染
+      //    HOLE_BOOST_BLOCKS 块」把视口填满（粘性到用户下次滚动）。
       const anchors: { index: number; top: number; bottom: number }[] = [];
       const viewportTop = el.getBoundingClientRect().top;
       for (let i = 0; i < keys.length; i++) {
@@ -461,27 +496,19 @@ export function StreamView(props: StreamViewProps): ReactElement {
         const rect = node.getBoundingClientRect();
         anchors.push({ index: i, top: rect.top, bottom: rect.bottom });
       }
-      const delta = StreamWindow.anchorDelta(
-        viewportTop,
-        el.scrollTop,
-        anchors,
-        (i) => idx.prefix(keys, i),
-      );
-      // **必须有硬上界**：写回 scrollTop 会改变窗口 ⇒ 本布局效应再次运行；若校正量始终 > 1px 就
-      // 形成同步死循环（真机实测 React #185「Maximum update depth exceeded」、页面主线程占满到连 CDP
-      // 都不响应）。故写回前先向 {@link ScrollRepairBudget} 申请一次预算：预算只在用户自己滚动时补充，
-      // 我们写回所触发的 scroll 事件不补充 ⇒ 循环无法自我续期。
+      // **必须有硬上界**：修复会 setState ⇒ 本布局效应可能再次运行；若「修完仍不达标」一直成立就
+      // 形成同步死循环（真机实测 React #185「Maximum update depth exceeded」）。故先申请一次预算：
+      // 预算只在用户自己滚动时补充 ⇒ 循环无法自我续期。{@link ScrollRepairBudget}
       if (
-        Math.abs(delta) > 1 &&
+        holeBoost < HOLE_BOOST_BLOCKS &&
         StreamWindow.needsAnchorRepair(viewportTop, el.clientHeight, anchors) &&
-        repairBudgetRef.current!.take(el.scrollTop + delta)
+        repairBudgetRef.current!.take()
       ) {
-        el.scrollTop = el.scrollTop + delta;
-        if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
+        setHoleBoost(HOLE_BOOST_BLOCKS);
       }
     }
     if (changed) setMeasureTick((t) => t + 1);
-  }, [win.start, win.end, blocks.length, measureTick]);
+  }, [win.start, win.end, blocks.length, measureTick, holeBoost]);
 
   const visibleBlocks = blocks.slice(win.start, win.end);
   const renderedCount = win.rendered + tailCount;
