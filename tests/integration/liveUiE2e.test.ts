@@ -46,6 +46,12 @@ interface BrowserHarness {
     userDataDir: string,
     port: number,
   ) => ChildProcess;
+  /**
+   * 终止**整棵** Chrome 进程树（Windows 上启动器 spawn 完就退出，只 kill 它会留下浏览器及其子进程）。
+   * @param child launchChromeForCdp 的返回值。
+   * @param userDataDir 该次启动的 `--user-data-dir`（唯一标记，用于扫出真浏览器进程）。
+   */
+  readonly killChromeTree: (child: ChildProcess | undefined, userDataDir?: string) => void;
   /** 等页面 target 的 CDP WebSocket 出现。 */
   readonly waitForPageWs: (port: number, marker: string, timeoutMs?: number) => Promise<string>;
   /** CDP 会话。 */
@@ -230,13 +236,9 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
     assert.ok(afterShot > 1024, `回环后截图不应是空白页（len=${afterShot}）`);
   } finally {
     if (cdp !== undefined) cdp.close();
-    if (chrome !== undefined) {
-      try {
-        chrome.kill('SIGKILL');
-      } catch {
-        /* 已退出 */
-      }
-    }
+    // 整树终止（实测：只 `chrome.kill('SIGKILL')` 会在 Windows 上留下浏览器 + 渲染/gpu 子进程，
+    // 反复跑集成会在几分钟内堆到几十个进程 / GB 级内存 —— 正是「偶发失败」的温床）。
+    harness.killChromeTree(chrome, userDataDir);
     if (server !== undefined) server.kill('SIGKILL');
     // Chrome/服务端退出瞬时可能仍持锁，尽力而为（残目录交 OS 回收）。
     for (const dir of [userDataDir, shotDir, storageDir, workspaceDir]) {

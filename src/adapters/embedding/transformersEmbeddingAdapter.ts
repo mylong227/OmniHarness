@@ -88,8 +88,8 @@ export const DEFAULT_EMBEDDING_DIM = MODEL_PRESETS['e5-large-v2'].dim;
  * `@huggingface/transformers` 中被本适配器消费的**最小面**（仅为可注入接缝而声明）。
  */
 export interface TransformersModuleLike {
-  /** 该库的全局环境（本适配器只写 `remoteHost` 镜像源）。 */
-  readonly env: { remoteHost: string };
+  /** 该库的全局环境（本适配器只写 `remoteHost` 镜像源与 `cacheDir` 缓存目录）。 */
+  readonly env: { remoteHost: string; cacheDir: string };
   /** 创建特征抽取 pipeline。 */
   pipeline(task: string, model: string, opts: Record<string, unknown>): Promise<unknown>;
 }
@@ -120,7 +120,13 @@ export interface TransformersEmbeddingOptions {
   readonly device?: 'wasm' | 'webgpu' | 'cpu' | 'auto' | undefined;
   /** 量化：q8 默认（快、省内存）。 */
   readonly dtype?: DType | undefined;
-  /** 模型缓存目录（离线场景预置权重于此）。 */
+  /**
+   * 模型缓存目录（离线场景预置权重于此）。
+   *
+   * 该值会被写进 `env.cacheDir`（并同时作为管道选项 `cache_dir` 传入）——两者都要，
+   * 理由见 {@link TransformersEmbeddingAdapter} 的 `getPipeline`：只传 `cache_dir` 时，
+   * 库里「本地已下载文件的解析」仍走 `env.cacheDir` 默认值，离线复用**不生效**。
+   */
   readonly cacheDir?: string | undefined;
   /** 仅用本地缓存、禁止联网下载（离线环境置 true）。 */
   readonly localFilesOnly?: boolean | undefined;
@@ -245,6 +251,18 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
         // 之后再改无效（模型已在下载或已失败）。这与 OpenAI 兼容端点的 baseURL 同理，属启动期配置。
         if (this.remoteHost !== undefined) {
           mod.env.remoteHost = this.remoteHost;
+        }
+        // 缓存目录**同样必须在创建 pipeline 之前**写进 `env.cacheDir`，且不能只靠管道选项
+        // `cache_dir`——2026-09-27 在 e5-small-v2 权重**已就位**（`D:/deepseek/.omni-model-cache`，
+        // 含 config/tokenizer/tokenizer_config/onnx/model_quantized.onnx）时逐配置实测：
+        //   ① 默认 env.cacheDir + 只传 `cache_dir` + `local_files_only:true`
+        //      ⇒ 仍去 huggingface.co 取 tokenizer_config.json（网络不可达，11.0s 后失败），
+        //        抛出的却是**极具误导性**的 `this.tokenizer is not a function`；
+        //   ② `env.cacheDir` 指向该目录（`cache_dir` 给不给都一样）⇒ 388/392ms 离线加载成功、384 维。
+        // 即：缺这一行时 `cacheDir` 选项对「离线复用已下载权重」**形同不存在**，语义路在国内网络 /
+        // 离线沙箱里会静默失效，且失败形态看起来像库的内部 bug 而不是配置问题。
+        if (this.cacheDir !== undefined) {
+          mod.env.cacheDir = this.cacheDir;
         }
         const pipe = (await mod.pipeline('feature-extraction', this.model, {
           device: this.device,

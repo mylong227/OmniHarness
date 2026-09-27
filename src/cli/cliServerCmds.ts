@@ -1,4 +1,4 @@
-/**
+﻿/**
  * cliServerCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 2/6 层）。
  *
  * 承载「服务端 / 身份 / 后台」类子命令：server / schema / doctor / auth(login|callback) /
@@ -31,9 +31,11 @@ import { protocolSchema } from '../schema/protocolSchema.js';
 import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
 import { DaemonController } from '../daemon/daemonController.js';
 import { configFile } from '../config/configFile.js';
+import type { FileConfig } from '../config/configFile.js';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.js';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
 import { ArgParser, CliDefaults } from './argParser.js';
+import type { CliArgs } from './argParser.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
 import { CliArgReader } from './cliArgReader.js';
 
@@ -327,6 +329,66 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
+   * 分层加载 serve 的配置（用户级 → 项目级 → profile → bundle → 环境变量）。
+   *
+   * 抽成独立方法有两个原因：① `runServe` 的函数体已贴近门禁基线；② 分层顺序（尤其「用户级必须生效」）
+   * 是**可单测**的行为——单测注入 `userHomedir` 即可在临时目录里造出两层配置并断言合并结果，
+   * 而直接调 `runServe` 要真绑端口、真起服务，成本高且易 flake。
+   *
+   * **为什么必须 `loadLayered` 而不是「向上找第一份 + 单文件 load」**（2026-09-27 验收实测的缺陷）：
+   * 旧写法只读**项目级那一份**，于是用户级 `~/.omniharness/omniharness.json` 里的配置
+   * （`modelAdapter` / `providerKeys` / `model` / `reasoning`）被**静默忽略**——UI 上 `config.get`
+   * 报 `modelAdapter: mock`，而用户明明配了真实 provider 与凭据；`dsh exec` 走的是 loadLayered
+   * （`execCli.loadDefaults`），于是同一个仓库里「一次性运行用真模型、Web UI 用 mock」这种自相矛盾
+   * 的表现会长期无人发现。回归见 `tests/unit/serveConfigLayering.test.ts`。
+   * @param wsRoot 工作区根（项目级配置从这里向上查找）。
+   * @param configPath 项目级配置路径（`--config` 显式指定或 `find` 结果）。
+   * @param profile `--profile` 指定的配置 profile 名（缺省 undefined＝不叠加 profile 层）。
+   * @param userHomedir 用户级配置的家目录（缺省 `os.homedir()`；测试隔离注入用）。
+   * @returns 分层合并后的配置（严格校验：非法即抛 `ConfigError`，由入口 fail-closed 退出）。
+   */
+  public static loadServeConfig(
+    wsRoot: string,
+    configPath: string,
+    profile?: string,
+    userHomedir?: string,
+  ): FileConfig {
+    return configFile.loadLayered({
+      workspace: wsRoot,
+      configPath,
+      ...(profile !== undefined ? { profile } : {}),
+      ...(userHomedir !== undefined ? { userHomedir } : {}),
+    });
+  }
+
+  /**
+   * 组装 serve 的「显示配置」（供 UI 展示运行口径）。
+   *
+   * 优先级刻意是「已落盘文件值 → CLI 传入 → 内置默认」：重启后 UI 显示必须与后端**实际所用**一致
+   * （否则又会出现「UI 显示 auto、后端跑 rules」这类漂移）。抽成独立方法的另一个原因是
+   * `runServe` 的函数体贴近门禁基线。
+   * @param loadedFile 分层加载后的配置（用户级 → 项目级 → profile → bundle → env 的合并结果）。
+   * @param args 解析后的 CLI 参数。
+   * @param wsRoot 工作区根（恒等于启动目录，见 runServe 里「工作区错位」的说明）。
+   * @returns 键值表（值恒为字符串，缺失时用内置默认）。
+   */
+  private static displayConfigOf(
+    loadedFile: FileConfig,
+    args: CliArgs,
+    wsRoot: string,
+  ): Record<string, string> {
+    return {
+      modelAdapter: loadedFile.modelAdapter ?? args.modelAdapter ?? 'mock',
+      model: loadedFile.model ?? args.model ?? '',
+      approval: loadedFile.approval ?? args.approval ?? 'rules',
+      approvalAsk: args.approvalAsk ?? 'allow',
+      sandbox: loadedFile.sandbox ?? args.sandbox ?? 'policy',
+      escalation: loadedFile.escalation ?? args.escalation ?? 'deny',
+      workspace: wsRoot,
+    };
+  }
+
+  /**
    * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
    * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
@@ -353,9 +415,12 @@ export class CliServerCmds extends CliBuildConfig {
       );
     }
     const configPath = foundConfig ?? join(wsRoot, configFile.FILE_NAME);
-    // 加载项目配置文件后，把其中字段作为 CLI 默认值：这样 serve 启动时后端实际运行配置
-    // 与文件内容一致（如 approval=auto），不再出现 UI 显示 auto 后端却用 rules 的漂移。
-    const loadedFile = configFile.load(configPath);
+    // 分层加载（用户级 → 项目级 → profile → bundle → 环境变量）；缺陷原委见 loadServeConfig 的 JSDoc。
+    const loadedFile = CliServerCmds.loadServeConfig(
+      wsRoot,
+      configPath,
+      this.flagValue(serveArgs, '--profile'),
+    );
     const fileDefaults = ArgParser.configDefaults(loadedFile);
     const args = ArgParser.parseArgs(['--prompt', 'serve', ...serveArgs], fileDefaults);
     if (args === undefined) {
@@ -398,16 +463,7 @@ export class CliServerCmds extends CliBuildConfig {
     // 危险工具按规则裁决），避免每次都弹框；「审批」档由 config.update(approval=ask) 经
     // resolveApprovals 强制上行端口（approvalPort）显式触发弹框，与 uplink 总开关解耦。
     const uplink = false;
-    // 重启后 UI 显示优先取已落盘文件值，再回退 CLI 传入，再回退内置默认，保证「所见即运行时所用」。
-    const displayConfig: Record<string, string> = {
-      modelAdapter: loadedFile.modelAdapter ?? args.modelAdapter ?? 'mock',
-      model: loadedFile.model ?? args.model ?? '',
-      approval: loadedFile.approval ?? args.approval ?? 'rules',
-      approvalAsk: args.approvalAsk ?? 'allow',
-      sandbox: loadedFile.sandbox ?? args.sandbox ?? 'policy',
-      escalation: loadedFile.escalation ?? args.escalation ?? 'deny',
-      workspace: wsRoot,
-    };
+    const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
     const pluginsDir =
       this.flagValue(serveArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
     // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），

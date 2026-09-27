@@ -33,6 +33,19 @@ for (const target of targets) {
     console.log(`[cleanDist] 跳过（不存在）：${posix(rel)}`);
     continue;
   }
-  rmSync(abs, { recursive: true, force: true });
+  // Windows 的 unlink 可能成功但文件处于 delete-pending（句柄未完全释放），紧随的 rmdir 报
+  // ENOTEMPTY；单测刚跑完的几秒内最易触发。整体重试几次即可，不必逐项追杀。
+  let removed = false;
+  for (let attempt = 1; attempt <= 5 && !removed; attempt++) {
+    try {
+      rmSync(abs, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      removed = true;
+    } catch (error) {
+      if (attempt === 5) throw error;
+      const transient = ['ENOTEMPTY', 'EBUSY', 'EPERM', 'EACCES'].includes(error.code);
+      if (!transient) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250 * attempt);
+    }
+  }
   console.log(`[cleanDist] 已清理：${posix(rel)}`);
 }

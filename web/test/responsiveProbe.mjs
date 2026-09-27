@@ -1,4 +1,4 @@
-// 响应式溢出探针（零依赖，真实浏览器）：测量 OmniHarness Web UI 在 640px / 1280px 视口下
+﻿// 响应式溢出探针（零依赖，真实浏览器）：测量 OmniHarness Web UI 在 640px / 1280px 视口下
 // 是否出现横向溢出，并给出具体越界元素。
 //
 // 路线与 e2e-cdp.test.mjs 完全同源（复用 ./browserHarness.mjs）：
@@ -31,6 +31,7 @@ import {
   stubHtmlCdp,
   getFreePort,
   launchChromeForCdp,
+  killChromeTree,
   waitForPageWs,
   CdpSession,
   WEB_ROOT_PATH,
@@ -514,13 +515,8 @@ async function main() {
     process.stderr.write('PROBE ERROR: ' + String((err && err.stack) || err) + '\n');
   } finally {
     if (cdp) cdp.close();
-    if (proc) {
-      try {
-        proc.kill('SIGKILL');
-      } catch {
-        /* 已退出 */
-      }
-    }
+    // 整树终止：Windows 上只 kill 启动器会留下浏览器 + 全部 --type=* 子进程（见 browserHarness.killChromeTree）。
+    killChromeTree(proc, userDataDir);
     await server.close();
     try {
       rmSync(userDataDir, { recursive: true, force: true });

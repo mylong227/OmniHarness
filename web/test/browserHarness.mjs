@@ -1,13 +1,13 @@
 // 共享浏览器验证工具（E1 CDP 路线；**零依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
 //
-// 与 D3 的 --dump-dom 路线（web/test/e2e.test.mjs）同源：复用本机已装 Chrome/Edge，
+// 与 D3 的 UI e2e（`web/test/e2e.test.mjs`）**同一传输**：复用本机已装 Chrome/Edge，
 // 用零依赖 Node http 静态服务托管 web/，并注入假 /rpc + 假 /events 使前端在确定性假后端下渲染。
 // 本文件在其上新增 **CDP 路线**：用 Node 22 内置全局 `WebSocket` 直连 Chrome DevTools Protocol，
 // 做「截图 → 视觉核对 → 操作回环」一例（E1 的可证伪验收）。
 //
 // 无浏览器时调用方应显式 skip（不伪装通过）；可用 OMNI_CHROME_PATH 指定可执行文件。
 
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -231,6 +231,99 @@ export function launchChromeForCdp(browser, url, userDataDir, port) {
     url,
   ];
   return spawn(browser, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/**
+ * 终止**整棵** Chrome 进程树（收尾必须走这里，不能只 `child.kill`）。
+ *
+ * 为什么（2026-09-27 逐条实测）：
+ * 1. Windows 上 `spawn(browser, …)` 拿到的 pid 是**启动器 stub**——它把真浏览器作为子进程拉起后
+ *    **立刻退出**（实测 `child.exitCode === 0`）。于是收尾时的 `child.kill('SIGKILL')` 打在一个
+ *    已不存在的进程上，真浏览器 + 它的 `--type=renderer|gpu-process|…` 后代**全部留下且不会自杀**。
+ * 2. 也**不能**靠 `taskkill /PID <child.pid> /T /F` 补救：父进程已死 ⇒ 实测报
+ *    `ERROR: The process "<pid>" not found`（退出码 128），/T 无从遍历。逐次实测：kill 前该
+ *    user-data-dir 下 12 个 chrome.exe，`child.kill` 后**残留 9–10 个**，再对**残留 pid** 逐个
+ *    `taskkill /T /F` 才归零。
+ * 3. 故正确做法 = 按**唯一 `--user-data-dir` 标记**扫出这些进程再逐个整树终止（每个用例都用
+ *    `mkdtempSync` 造独立目录，标记天然唯一）。
+ *
+ * 代价与取舍：Windows 上要起一次 PowerShell CIM 查询（`wmic` 在新版 Windows 已移除，不能用），
+ * 数百毫秒，只在收尾路径。**同步**执行是刻意的：调用方紧接着要删 `--user-data-dir`，异步终止会让
+ * 句柄多存活一会儿 ⇒ `rmSync` 撞 EBUSY（此前 e2e 用例一直打印「临时 profile 目录清理失败」即此）。
+ *
+ * 平台策略与仓内 `src/adapters/tool/shell/processTreeKiller.ts` 同源（那边注释解释同一取舍）；
+ * 此处**刻意不 import dist**：`web:test` 只跑 `web:build`（CI 的 web job 没有后端构建产物），
+ * 依赖 dist 会让浏览器用例在 CI 的 web job 里直接崩掉。
+ *
+ * @param {import('node:child_process').ChildProcess | undefined} child launchChromeForCdp 的返回值
+ * @param {string} [userDataDir] 该次启动用的 `--user-data-dir`（唯一标记；缺省时退化为单进程 kill）
+ * @returns {void}
+ */
+export function killChromeTree(child, userDataDir) {
+  // ① 启动器（可能早已退出；幂等，失败忽略）。
+  try {
+    child?.kill('SIGKILL');
+  } catch {
+    /* 已退出 */
+  }
+  // ② 真浏览器及其后代：按唯一 user-data-dir 标记扫（见上「为什么不能靠父链」）。
+  if (typeof userDataDir !== 'string' || userDataDir === '') return;
+  for (const pid of chromePidsWithMarker(userDataDir)) {
+    if (process.platform === 'win32') {
+      try {
+        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+          stdio: 'ignore',
+          timeout: 8000,
+          windowsHide: true,
+        });
+      } catch {
+        /* 已退出 / 权限不足：尽力而为，不假装成功 */
+      }
+      continue;
+    }
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      /* 已退出 */
+    }
+  }
+}
+
+/**
+ * 列出命令行包含 `marker` 的 Chrome 进程 pid。
+ *
+ * 仅用于收尾清理/回归断言；失败一律返回空数组（清理属收尾路径，不因环境异常抛错）。
+ * @param {string} marker 命令行子串（这里是唯一的 `--user-data-dir` 路径）
+ * @returns {number[]} 命中进程的 pid
+ */
+function chromePidsWithMarker(marker) {
+  try {
+    if (process.platform === 'win32') {
+      const script =
+        "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | " +
+        'Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress';
+      const raw = execFileSync('powershell', ['-NoProfile', '-Command', script], {
+        encoding: 'utf8',
+        timeout: 15000,
+        windowsHide: true,
+      }).trim();
+      if (raw === '') return [];
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      return list
+        .filter((p) => String(p.CommandLine ?? '').includes(marker))
+        .map((p) => Number(p.ProcessId))
+        .filter((pid) => Number.isInteger(pid) && pid > 0);
+    }
+    const raw = execFileSync('ps', ['-eo', 'pid=,args='], { encoding: 'utf8', timeout: 15000 });
+    return raw
+      .split('\n')
+      .filter((line) => line.includes(marker))
+      .map((line) => Number(line.trim().split(/\s+/)[0]))
+      .filter((pid) => Number.isInteger(pid) && pid > 0);
+  } catch {
+    return [];
+  }
 }
 
 /**
