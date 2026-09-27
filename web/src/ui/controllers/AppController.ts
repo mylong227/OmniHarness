@@ -37,7 +37,14 @@ import { ShortcutActions } from './ShortcutActions.js';
 
 /** 应用根组件的全部 UI 状态（原 useAppController 的各 useState 合集）。 */
 export interface AppState {
+  /** SSE 是否已连接（`streamState === 'open'`；历史消费者只认这个布尔量）。 */
   connected: boolean;
+  /**
+   * SSE 连接三态（驱动顶栏徽标文案与配色）。
+   *
+   * `connecting` 覆盖「首次连接中」与「断线自动重连中」——两者都不该显示成红色的「断开」。
+   */
+  streamState: 'open' | 'connecting' | 'closed';
   adapter: string;
   activePane: string;
   model: string;
@@ -125,6 +132,15 @@ export class AppController {
   public commands: CommandItem[];
   /** 全局快捷键监听句柄（卸载时移除）。 */
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  /**
+   * 「断开」宽限期（毫秒）：SSE 抖动先显示「重连中」，超过该时长仍未重连上才判「断开」。
+   *
+   * 取值 4s 的依据：EventSource 的自动重连间隔由服务端的 `retry: 1000` 指定（1s），正常抖动
+   * 一两秒内就能恢复；4s 足够覆盖，又不会把真正的断线藏太久。
+   */
+  private static readonly STREAM_DISCONNECT_GRACE_MS = 4_000;
+  /** 宽限定时器句柄（null = 当前没有待判定的断线）。 */
+  private streamGraceTimer: ReturnType<typeof setTimeout> | null = null;
   /** 哈希路由绑定（F8：深链 / 浏览器前进后退，逻辑在 RouteBinding 内，避免越过上帝类红线）。 */
   private readonly routeBinding: RouteBinding;
 
@@ -158,8 +174,7 @@ export class AppController {
    * @param host 视图（App class 组件）实现的状态宿主
    */
   public constructor(host: AppHost) {
-    this.host = host;
-    this.services = {
+    this.host = host;    this.services = {
       api: new ApiClient(),
       stream: new EventStream(),
       toastSvc: new ToastService(),
@@ -222,15 +237,41 @@ export class AppController {
   /** 卸载：关闭 SSE 流、移除全局快捷键与路由订阅。 @returns 无 */
   public unmount(): void {
     this.services.stream.close();
+    this.clearStreamGrace();
     if (this.keyHandler) window.removeEventListener('keydown', this.keyHandler);
     this.routeBinding.stop();
+  }
+
+  /** 清掉「断开」宽限定时器（重连成功 / 卸载时调用）。 @returns 无返回值 */
+  private clearStreamGrace(): void {
+    if (this.streamGraceTimer !== null) {
+      clearTimeout(this.streamGraceTimer);
+      this.streamGraceTimer = null;
+    }
   }
 
   /** 连接 SSE 并把各消息方法路由到对应子控制器。 @returns 无 */
   public connectStream(): void {
     const stream = this.services.stream;
-    stream.onOpen = () => this.host.patch({ connected: true });
-    stream.onClose = () => this.host.patch({ connected: false });
+    // 连接态三态（2026-09-27 用户报「显示区域会出现显示断开」）：
+    //   open       = 已连接（绿）
+    //   connecting = 重连中（黄）——EventSource 的瞬时抖动（含每秒自动重连）都会先落到这里
+    //   closed     = 断开（红）——只有在 `STREAM_DISCONNECT_GRACE_MS` 内一直没重连上才认定
+    // 为什么要去抖：原先 `onClose` 一触发就把徽标刷成红色的「断开」，而 EventSource 本就是**自动重连**
+    // 的（服务端正常情况下也不主动关流）⇒ 任何一次瞬时抖动都会让徽标闪一下红，用户看到的就是
+    // 「显示断开」的假故障。宽限期内重连成功则完全无感。
+    stream.onOpen = () => {
+      this.clearStreamGrace();
+      this.host.patch({ connected: true, streamState: 'open' });
+    };
+    stream.onClose = () => {
+      this.host.patch({ connected: true, streamState: 'connecting' });
+      this.clearStreamGrace();
+      this.streamGraceTimer = setTimeout(() => {
+        this.streamGraceTimer = null;
+        this.host.patch({ connected: false, streamState: 'closed' });
+      }, AppController.STREAM_DISCONNECT_GRACE_MS);
+    };
     stream.onMessage = (msg: SseEnvelope) => {
       const params = msg.params as Record<string, unknown>;
       switch (msg.method) {

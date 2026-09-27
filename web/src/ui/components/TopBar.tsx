@@ -7,6 +7,12 @@ import { React } from '../deps.js';
 export interface TopBarProps {
   /** SSE 是否已连接（决定状态灯颜色与文案）。 */
   connected: boolean;
+  /**
+   * SSE 三态（可选：缺省时按 `connected` 推）。`connecting` = 连接中 / 断线重连中，
+   * 显示成黄色的「重连中」——**不显示红色的「断开」**：EventSource 本就自动重连，
+   * 瞬时抖动报红等于制造假故障（用户报的「显示区域会出现显示断开」）。
+   */
+  streamState?: 'open' | 'connecting' | 'closed';
   /** 模型适配器摘要文案（如 `openai · gpt-4o`）。 */
   adapter: string;
   /** 切换浅色 / 深色主题。 */
@@ -27,6 +33,9 @@ export interface TopBarProps {
 export function TopBar(props: TopBarProps): ReactElement {
   const { connected, adapter, onToggleTheme, onToggleLeft, onToggleRight, onCommandPalette } =
     props;
+  const state = props.streamState ?? (connected ? 'open' : 'closed');
+  const label = state === 'open' ? '已连接' : state === 'connecting' ? '重连中' : '断开';
+  const pillClass = 'pill' + (state === 'open' ? ' on' : state === 'connecting' ? ' warn' : '');
   return (
     <div className="topbar" role="banner">
       <div className="brand">
@@ -41,8 +50,8 @@ export function TopBar(props: TopBarProps): ReactElement {
       >
         ☰
       </button>
-      <span className={'pill' + (connected ? ' on' : '')} role="status">
-        <span className="dot" aria-hidden="true"></span> {connected ? '已连接' : '断开'}
+      <span className={pillClass} role="status" aria-live="polite">
+        <span className="dot" aria-hidden="true"></span> {label}
       </span>
       <div className="spacer"></div>
       <button

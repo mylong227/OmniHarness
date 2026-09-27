@@ -43,6 +43,8 @@ type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
 function initialState(): AppState {
   return {
     connected: false,
+    // 首屏是「连接中」而不是「断开」：还没连上就报红色断开是假故障（徽标文案见 TopBar）。
+    streamState: 'connecting',
     adapter: '',
     activePane: 'tools',
     model: '',
@@ -139,6 +141,7 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
     { className: 'app' },
     React.createElement(TopBar, {
       connected: s.connected,
+      streamState: s.streamState,
       adapter: s.adapter,
       onToggleTheme: () => ctrl.layout.toggleTheme(),
       onToggleLeft: () => ctrl.layout.toggleLeft(),
