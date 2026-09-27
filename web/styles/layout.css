@@ -19,6 +19,10 @@
 }
 .pill .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle; background:var(--err); }
 .pill.on .dot { background:var(--ok); }
+/* 「重连中」：黄色。EventSource 断开后会自动重连（服务端 retry: 1000），瞬时抖动报红=假故障，
+   故宽限期内用黄色提示「正在恢复」，只有真的连不上才落到红色「断开」（见 AppController.connectStream）。 */
+.pill.warn { border-color:var(--warn, #d9a441); color:var(--warn, #d9a441); }
+.pill.warn .dot { background:var(--warn, #d9a441); }
 .spacer { flex:1; }
 .iconbtn {
   background:transparent; border:1px solid var(--border); color:var(--text);

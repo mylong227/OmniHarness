@@ -6,8 +6,12 @@
 .stream { flex:1; overflow:auto; padding:18px 22px; min-height:0; }
 /* 逐块真实高度测量容器：flow-root 建立 BFC，使子块 margin 不外溢，offsetHeight 即完整竖直占位。 */
 .sw-block { display:flow-root; }
-.ev { margin-bottom:14px; animation:fade .22s ease; }
-@keyframes fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+/* 注意：**不要**给 `.ev` 加入场动画（曾有过 `animation:fade .22s`）。
+   中栏是**虚拟化列表**（只有滚动窗口内的块在 DOM 里，窗口随内容高度重算而滑动）⇒ 块会被反复
+   卸载/重挂，而 CSS 动画在重新插入时会**重放**（`opacity:0 → 1`）⇒ 视觉上就是「对话区一直在闪」，
+   并且块短暂消失会被读成「显示断开」（2026-09-27 用户报障）。
+   新块的出现感交给流式卡片自己的光标动画即可；若将来要恢复入场动画，必须先解决虚拟化重挂。 */
+.ev { margin-bottom:14px; }
 .ev .head { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
 .badge { font-size:11px; padding:1px 9px; border-radius:999px; font-weight:600; }
 .b-user { background:rgba(255,255,255,.07); color:var(--user); }
