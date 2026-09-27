@@ -3293,3 +3293,45 @@ shell 重定向到文件 0 字节、`--print-to-pdf` 也不产出文件（即失
 `check --strict`（591 文件零违规）、`arch:gate` 全绿。真 UI 侧：`/healthz` 200、SPA 挂载（`#root` 6760
 字符、composer/send 就位）、SSE 徽标 406ms 转「已连接」且 30s 无掉线、顶栏显示
 `openai · deepseek-v4-flash`（分层配置修复生效的活证据）。
+
+### 26.7 控制器方法绑定：一批「点了没反应 / 静默失败」的统一根因（用户报「删除无效」）
+
+**报障**：「会话删除，也是删除无效」「上下文显示也存在问题」。
+
+**根因（实测取证，非推断）**：`App.ts` 把控制器方法以**裸引用**传给子组件
+（`onDelete: ctrl.sessions.deleteSession`、`onToggleTheme: ctrl.layout.toggleTheme` …），
+而各控制器在构造函数里**手写** `bind` 清单，这份清单**已经漂过两处**：
+`SessionController` 漏了 `renameSession` / `deleteSession` / `forkSession`，`LayoutController` **整类 0 绑定**。
+裸引用调用时 `this` 丢失，而这些方法都要用 `this.host` / `this.services`：
+
+- **同步**方法 ⇒ 事件处理器里抛 `TypeError`：按钮点了毫无反应（只在控制台留一行）；
+- **async** 方法 ⇒ **静默 unhandledRejection**。
+
+隔离 mock 实例 + 真 Chrome 复现：点「删除」→「删除？」→「删除」之后，storage 里 `sess_*.jsonl` **仍在**、
+列表不变、界面**无任何提示**，页面只留下 `rejection: Cannot read properties of undefined (reading 'services')`。
+
+**修法**：新增 `web/src/ui/controllers/methodBinder.ts` 的 `MethodBinder.bindAll(this)`，
+在**每个**控制器构造函数里按**原型**一次性绑定全部方法（新方法自动纳入 ⇒ 「忘了加进清单」在结构上不可能再发生）：
+SessionController / LayoutController / ComposerController / GraphController / AppController /
+RouteBinding / ShortcutActions 全部接入，手写清单删除。另：删除被服务端以 `session_running` 拒绝时，
+toast 现在把下一步说清（「先点『停止』结束本回合再删」）。
+
+**连带修掉「上下文显示」**：面板只在「展开」与 `threadId` 变化时拉数，而 `context.usage` 的**用量快照是
+回合推进中才产生**的 ⇒ 回合进行中打开面板会一直显示 `0/…` 全零，**关掉重开才更新**（用户截图正是此形态；
+该会话当时 `running: true`）。修法：`busy` 作为**刷新信号**纳入依赖。实测：回合中打开显示空 → 回合结束
+自动变为 `6108/3.3万`（系统工具 87.3%），无需关掉重开。另修一处误导文案：明细为空时原先恒写
+「未连接模型，暂无配额数据」，而该列表来自「厂商模型清单 ∪ 当日有消耗的模型」，服务端启动探测未返回时
+就是空的（同一实例稍后再查就有 `deepseek-v4-flash` 一行）⇒ 按是否已有消耗区分两种真因（`QuotaView.emptyHint`）。
+
+**门禁（新增，可证伪）**：`web/test/controllerBindings.test.mjs` 4 例——① 接线（`App.ts` 裸引用传出的分组
+控制器必须统一走 `MethodBinder.bindAll`，不接受手写清单）；② 行为（delete/rename/fork **脱离实例**调用仍
+必须到达 api）；③ 行为（主题/抽屉切换脱离实例调用仍改到宿主状态）；④ 结构（公共方法全部是实例自有属性）。
+**变异验证**：把绑定改回旧清单 ⇒ ①②④ 红（② 报的正是现场那句 `reading 'services'`）；还原 ⇒ 绿。
+
+**空白页（用户另报）**：无法复现——只读加载该 URL（`#pane=tools&thread=…`）时 `#root` 40844 字符、零错误。
+最可能的时序是：**我在重建 `web/dist`（cleanDist 会短暂删掉 `main.js`）期间该页发生刷新** ⇒ 静态资源 404、
+页面空白。后续如再现，先看浏览器控制台（真错误会在那里）。**用户那条卡在 `running: true` 的会话**：服务端
+以 `session_running` 拒绝删除属**有意设计**；该回合最终自行收尾（复查时 `running` 已归零），现可直接删。
+
+**验收**：`web:test` **251/251**；eslint / `check --strict`（591 文件零违规）/ `arch:gate`（0 违规）/
+`responsiveProbe`（640/1280 零横向溢出）全绿。
