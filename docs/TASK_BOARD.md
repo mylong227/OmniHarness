@@ -3335,3 +3335,36 @@ toast 现在把下一步说清（「先点『停止』结束本回合再删」�
 
 **验收**：`web:test` **251/251**；eslint / `check --strict`（591 文件零违规）/ `arch:gate`（0 违规）/
 `responsiveProbe`（640/1280 零横向溢出）全绿。
+
+### 26.8 渲染错误边界：把「整页空白」变成可读错误（用户第二次报「按 Enter 白屏」）
+
+**报障**：聊天框输入按 Enter → 整页空白（URL 停在 `#pane=tools&thread=…`）。
+
+**排查（反证逐条排除）**：
+
+1. **只读加载该 URL**：`#root` 74343 字符、零错误 ⇒ 不是路由 / 会话数据问题；
+2. **复现短回合**（含 shell 工具调用、真按 Enter 提交 keyEvent）：hash 正常变为 `#pane=tools&thread=…`、
+   页面 21653 字符、零错误 ⇒ 不是「Enter 提交」这条路径；
+3. **服务端日志**：`RPC 超时（60000ms）` 出现在长回合（60s+ 多次工具调用 + `compaction.done`）时，
+   但 `send` 的 catch/finally 都有守卫（写 system 提示 + toast + 收尾），不足以白屏；
+4. **代码逐个对过**：`renderLiveInputRow` 的 `JSON.parse`（有 try/catch）、`ToolCallCard` 的 `res`
+   （全部 `res ? … : …`）、`buildToolItems`、`pruneToolResults`、`handleEvent` 的 payload 兜底
+   —— **都没找到无守卫解引用**。
+
+⇒ 只能确认「**渲染期抛错 + 树上无错误边界 ⇒ React 卸载整棵树 = 全黑空白页**」这一形态与现象吻合，
+**具体抛出点未复现到**（需要用户那次长回合的现场）。故本轮先做工程上正确的兜底，并让下次能定位：
+
+| 项                       | 处置                                                                                                                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **渲染错误边界**         | ✅ 新增 `RenderErrorBoundary`（class 组件：`componentDidCatch` 无 Hook 等价物，按 `react-shim.d.ts` 预留约定补最小 class 形态）；`mountApp` 最外层套上                                                                                                                 |
+| 表现                     | 页面不再空白：显示「界面渲染出错」+ 真实错误消息 + 「重试」（原地重挂）/「重新加载」；`.crash-panel` 样式入 `components.css`                                                                                                                                           |
+| 现场留存                 | `sessionStorage['omni-last-render-error']`（message / stack / 组件栈）⇒ 用户一句话即可把真因带回来                                                                                                                                                                     |
+| **顺带修掉的夹具真缺陷** | `browserHarness.serveStatic` 的内存路由**硬编码 `text/html`** ⇒ 任何替换 `.js` 模块的夹具都会被 MIME 强校验拒执行，表现为 `Failed to fetch dynamically imported module: /dist/main.js` + 空白页（看着像被测代码崩了，其实是夹具弄坏了模块图）。改为**按扩展名给 MIME** |
+
+**门禁**：`web/test/renderErrorBoundary.test.mjs`（真浏览器 + 内存路由注入「一渲染就抛错的 TopBar」，
+**只改夹具不改产品**）5 条断言：不空白 / 面板文案含注入消息 / 现场已留存 / 「重试」后仍在降级面板 /
+对照组不误报。
+
+**验收**：`web:test` **252/252**；eslint / `check --strict` / `arch:gate` 全绿。
+**待用户侧**：若再出现白屏（现在会显示面板），请把面板上的错误消息（或控制台 `RenderErrorBoundary` 那条）
+发我 —— 那正是我一直缺的抛出点。
