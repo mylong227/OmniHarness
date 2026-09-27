@@ -3067,3 +3067,58 @@ R1 只留下一条「修法已证伪，但判定力不足（84 条 CI ±7pp）�
 - 门禁全绿：`tsc`、`build`、`eslint --max-warnings=0`、`check --strict`（590 文件零违规）、
   `arch:gate`（0 违规）、`api:check`、`check:doc-links`（死链 0）、`audit:standard:delta`、
   `audit:config-wiring`、`audit:maturity`、`eval:recall-query-audit`（193 条锚点全在）。
+
+## 25. 2026-09-27 收口二：§22.7「已登记未修」五条逐条对账 + 全局进程护栏落地
+
+§22.7 当年把 5 条按 ROI 排队「供下一批」；此后 §23 / §23.4 修掉了其中 4 条，但**看板的 ID 清单从未逐条
+对账**——例如 S2 早已修好（还专门抽出了模块），却不出现在任何「已修」列表里。后果很实在：
+**「还有没有剩余」这个问题在本仓无法用看板回答**（只能靠重新读代码）。本轮补两件事：把第 5 条真做掉，
+并把五条逐条对账（每条给出可 `grep` 复核的证据路径，不靠叙述）。
+
+### 25.1 五条对账（机械可复核）
+
+| §22.7 ID                        | 状态                    | 证据（可直接 grep）                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S2** 三个模型适配器无空闲超时 | ✅ 已修（此前**漏记**） | `src/adapters/model/modelRequestGuard.ts`（模块头明写 S2）+ 四个适配器均 `import { RequestStallGuard }`；`tests/unit/modelStallGuardAdapters.test.ts`                                                                                                                                                                                                                                               |
+| **S3** `run_code` 主线程执行    | ✅ 已修（§23.4）        | `src/adapters/tool/code/codeSandboxWorker.ts`（worker 入口）+ 宿主到点 `terminate()`；`tests/unit/codeSandbox.test.ts`                                                                                                                                                                                                                                                                              |
+| **S1** A2A pending 表全体共用   | ✅ 已修（§23.1）        | 按对端分表；`tests/unit/a2aIdCollision.test.ts`                                                                                                                                                                                                                                                                                                                                                     |
+| **S5/S6/S10/S12** 子进程孤儿类  | ✅ 已修（§23.1）        | serve 信号：`src/cli/cliServerCmds.ts` 的 `process.once('SIGINT'/'SIGTERM')`；MCP stdio：`src/mcp/mcpStdioTransport.ts` 的 `stdin.on('error')` + `ProcessTreeKiller`；Chrome：`src/adapters/browser/chromeProcess.ts` 的 `process.once('exit')` + 失败复位（`tests/unit/chromeProcessCleanup.test.ts`）；交互式 PTY 取消：`src/adapters/tool/shell/shellInteractiveExecutor.ts` 的 `onAbort` → 树杀 |
+| **全局进程护栏**                | ✅ **本轮新增**         | `src/cli/crashGuard.ts` + `tests/unit/crashGuard.test.ts`（7 例）+ 入口接线 `src/cli/exec.ts`                                                                                                                                                                                                                                                                                                       |
+
+### 25.2 全局进程护栏：口径（三条，刻意不含糊）
+
+此前全仓**零** `process.on('unhandledRejection' | 'uncaughtException')`；Node 22 下两者默认都会**终止
+进程并打裸栈**，而 `void promise` 在本仓很常见（后台任务、事件桥、插件注册、A2A 处理器）——逐点补
+`.catch` 治标不治本（漏掉的第 N 个照样杀进程），故在**入口**兜一次：
+
+1. `unhandledRejection`：**记录 + 继续运行**，并计数；连达 `maxRejections`（默认 5）即升级为致命路径——
+   一条浮动 rejection 不该带走整个会话，但**不做「继续运行绝对安全」的承诺**，故有界。
+2. `uncaughtException`：**记录 + 优雅收尾 + 退出码 1**（抛出点之外的栈已不可信，继续跑等于带着未知
+   损坏改用户工作区 ⇒ fail-closed）。
+3. `SIGINT` / `SIGTERM`：**记录 + 优雅收尾 + 退出码 130 / 143**（与 `serve` 自带的处理器并存，
+   重复 `exit` 无副作用）。
+
+工程细节：护栏只用**注入**的目标进程视图（`on` + 可选 `exit`），生产传 `process`，于是「收尾抛错」
+「收尾悬挂必须在宽限到点后强退」「收尾只做一次」这些**致命路径**都能在单测里完整验证而不动真进程；
+入口走**动态 import** 安装（不得让 `--version` / `--help` 两条冷启动快速路径付代价）；`shutdown` 宽限
+默认 3000ms，超时即强退（防「收尾自身挂死导致永远退不出去」）。
+
+**真机冒烟（`.omniharness/crashGuardSmoke.mjs`，不入库）**：浮动 rejection → 报告 + `STILL_ALIVE`
+（退出码 0）；未捕获异常 → 报告 + 收尾一次 + 退出码 1；合成 `process.emit('SIGTERM')` → 报告 +
+收尾一次 + 退出码 143；无事件 → 零报告退出码 0。**平台诚实边界**：Windows 上
+`process.kill(pid,'SIGTERM')` 是 `TerminateProcess` 语义、**不触发**监听器（实测退出码 1、无报告），
+故信号路径只有「处理器接线 + 退出码」这一半可在本机脚本化验证，OS 投递那一半需真实 Ctrl-C / POSIX 信号。
+
+### 25.3 对账后的结论：**看板上再无「已登记未修」的缺陷项**
+
+剩下的两类「未做」都**不是缺陷**，且各有明文理由：
+
+- **Chrome 真机截图 e2e 1 例失败**：本机 Chrome 154 headless 对最小 `data:` 页面也返回 exit 0 空输出
+  （§22.8 已给仓外最小复现）⇒ 环境问题，非产品缺陷；不改为「无输出即跳过」，因为那会把真正的
+  截图回归一起吞掉（宁可留一条明确的红）。
+- **`docs/SUSPENDED_BETTER_PATHS.md` 的挂起路径**（如官方 SWE-bench 500 题的吞吐）：卡在本机网络
+  带宽/凭据，属结构性外因，非仓内可收口项。
+
+**验收**：`check --strict` 591 文件零违规；`arch:gate` 依赖方向违规 0；`api:check` / `check:doc-links` /
+`audit:standard:delta` / `audit:config-wiring`（591 源文件）/ `audit:maturity` 全绿；
+全量单测见提交信息（唯一失败仍是上述 Chrome 环境例）。

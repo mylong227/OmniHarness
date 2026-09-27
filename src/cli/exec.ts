@@ -47,9 +47,35 @@ export class Exec {
     }
 
     // 慢路径：真正要执行命令，才加载整条继承链
-    const { ExecCli } = await import('./execCli.js');
-    const exitCode = await new ExecCli().run(argv);
-    process.exitCode = exitCode;
+    // 进程级护栏（§22.7 第 5 条收口）在**此处**安装而不是文件顶层：顶层静态 import 会让
+    // `--version` / `--help` 这两条冷启动快速路径也付出代价（本文件的存在理由就是省这笔）。
+    // 为什么必须兜全局：`void promise` 在本仓很常见（后台任务、事件桥、插件注册），
+    // 漏掉 `.catch` 的第 N 个照样能把进程带走；逐点补 catch 治标不治本。
+    const [{ CrashGuard }, { log }, { ExecCli }] = await Promise.all([
+      import('./crashGuard.js'),
+      import('../util/logger.js'),
+      import('./execCli.js'),
+    ]);
+    CrashGuard.install({
+      proc: process,
+      report: (r) => {
+        const fields = {
+          kind: r.kind,
+          count: r.count,
+          ...(r.stack !== undefined ? { stack: r.stack } : {}),
+        };
+        if (r.kind === 'unhandledRejection') {
+          log.warn(`未处理的 Promise 拒绝：${r.message}`, fields);
+          return;
+        }
+        log.error(`${r.kind === 'signal' ? '终止信号' : '未捕获异常'}：${r.message}`, fields);
+      },
+      // 收尾：让 stdout/stderr 写干净（护栏最终走 `process.exit`，会截断尚未落盘的写）。
+      shutdown: () => {
+        process.exitCode = process.exitCode ?? 1;
+      },
+    });
+    process.exitCode = await new ExecCli().run(argv);
   }
 }
 
@@ -62,7 +88,8 @@ const isEntry =
 if (isEntry) {
   // `main()` 是浮动 Promise：子命令分发若在 try/catch 之外抛出（例如 `runServe` 启动失败），
   // 就是一条 unhandledRejection —— Node 22 默认终止进程并打裸栈，用户看不到可行动的提示。
-  // 这里统一收口为「人话 + 非零退出码」。
+  // 这里统一收口为「人话 + 非零退出码」（与 `CrashGuard` 互补：护栏兜全局，这条兜 main 自身，
+  // 且护栏此时可能尚未安装——模块加载失败就属于这一类）。
   Exec.main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`omniharness: 启动失败：${message}\n`);
