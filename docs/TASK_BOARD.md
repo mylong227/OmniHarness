@@ -3443,3 +3443,41 @@ CI 全量 checkout 覆盖不变），git 不可用时退化为全量扫描。**�
 
 **验收**：`npm run web:test` **260/260 pass / 0 fail**；eslint / `check --strict`（592 文件零违规）/
 `arch:gate`（0 违规）全绿。
+
+### 26.13 「运行失败：RPC 错误」= 两处叠加的真缺陷（`turns.run` 被 60s 一刀切 + 归因在客户端丢失）
+
+**报障**：真 UI 里发「写一段分桶排序」，回合中途弹出「运行失败：RPC 错误。可尝试切换模型或检查 API Key。」，
+**而服务端仍在继续跑**（错误横幅之后还有工具调用完成）。服务端日志同期反复出现
+`http.route.failed /rpc: RPC 超时（60000ms）`（实测 06:46:12Z / 08:50:04Z / 09:29:51Z 三次）。
+
+**根因（两条叠加，各自独立可证伪）**：
+
+1. **预算一刀切**：`HttpBridgeTransport` 对**所有** RPC 用同一个 60s 上限，而 `turns.run` 的实现是
+   **同步等待整个回合跑完**（UI `api.runTurn` await 到回合结束）。带工具的回合几分钟很正常
+   ⇒ 到点报错，服务端照旧推进 = **状态分叉**。
+2. **归因在客户端 100% 丢失**：超时 reject 原先冒泡到 `httpServer` 的 route 兜底，写出
+   `500 {"error":"internal"}`；前端 `ApiClient.rpc` 无条件读 `data.error.message`
+   —— `"internal"` 是**字符串**，`.message` 为 `undefined` ⇒ 界面只剩一句无归因的「RPC 错误」，
+   还把用户引向「换模型 / 查 API Key」这条错误方向。
+
+**修法（三处，皆为「按事实说话」而非绕过）**：
+
+| 层     | 处置                                                                                                                                                                                                                                                                |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 服务端 | 新增 `LONG_REQUEST_TIMEOUT_MS = 30min` 与 `LONG_RUNNING_METHODS = {turns.run, threads.create, threads.continue, graph.run}`，`budgetFor(method)` **按方法**取预算；普通 RPC 仍 60s（S15 的「不得悬挂」性质不放弃，未知方法按**严**的一侧处理）                      |
+| 服务端 | `handlePost` 把超时/异常**落成一条 JSON-RPC error 响应**（超时 `-32002`，其它 `-32000`），不再冒泡成 `500 {"error":"internal"}`                                                                                                                                     |
+| 前端   | `ApiClient.rpc` 只在「error 是对象」时读 `message`，否则按 `res.ok === false` 报 **HTTP 状态**（轻量桩只给 `json()` 也照旧可用）；`ComposerController.failureHint` 按原因分流——超时给「回合可能仍在后台继续，可稍候重开该会话查看或点停止」，**不再劝换模型查 Key** |
+
+**门禁**：`tests/unit/rpcTimeoutBudget.test.ts`（3 例）——① 预算映射（4 个长任务方法 30min、普通/未知方法
+60s、长预算 ≥10× 普通）；② 错误码映射；③ **行为**：注入毫秒级预算后，同一个「慢 200ms」处理器下
+`turns.run` 拿到 result、`sessions.list` 拿到 `RPC 超时（60ms）` + code `-32002`。
+`web/test/rpcFailureMessage.test.mjs`（4 例）——HTTP 500 非协议形状 ⇒ 报 HTTP 状态；
+协议 error ⇒ 原样报出 message（毫秒数可见）；缺 message ⇒ 带错误码；建议语分流。
+
+**变异验证（三处，各自单独做）**：① `budgetFor` 退回一刀切 ⇒ 单元测试 ③ 红；
+② `handlePost` 不兜底（`throw error` 还原旧形态）⇒ ③ 红（超时直接逃出 `handlePost`）；
+③ `ApiClient` 退回 `data.error.message || 'RPC 错误'` + `failureHint` 退回常量 ⇒ web 用例 ①/②b/③ 三红。
+**诚实边界**：30min 仍是**有限**预算（真正的长回合若超过它，仍会得到一条**可解释**的超时错误，
+而不是悬挂）——「要不要无限等」不在本次改动范围内。
+
+**验收**：`tsc` / `build` / `web:build` 绿；新增两文件全绿（3 + 4 例）；全量门禁见提交信息。
