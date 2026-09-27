@@ -7,6 +7,7 @@ import type { ThreadEvent } from '../../types/models.js';
 import type { SessionEntry, ToolItem } from '../shared.js';
 import { langOf } from '../highlight.js';
 import { StreamThrottle } from '../models/StreamThrottle.js';
+import { MethodBinder } from './methodBinder.js';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
 export class SessionController {
@@ -30,16 +31,8 @@ export class SessionController {
   public constructor(host: AppHost, services: AppServices) {
     this.host = host;
     this.services = services;
-    this.handleEvent = this.handleEvent.bind(this);
-    this.appendTextDelta = this.appendTextDelta.bind(this);
-    this.updateToolInput = this.updateToolInput.bind(this);
-    this.refreshSessions = this.refreshSessions.bind(this);
-    this.loadThread = this.loadThread.bind(this);
-    this.newSession = this.newSession.bind(this);
-    this.openFile = this.openFile.bind(this);
-    this.showDetail = this.showDetail.bind(this);
-    this.closeDrawers = this.closeDrawers.bind(this);
-    this.onShowTool = this.onShowTool.bind(this);
+    // 一次绑定**全部**原型方法（见 MethodBinder：手写清单曾漏掉 rename/delete/fork ⇒「删除无效」）。
+    MethodBinder.bindAll(this);
   }
 
   /**
@@ -228,7 +221,15 @@ export class SessionController {
     try {
       const r = await this.services.api.deleteSession(id);
       if (!r.ok) {
-        this.services.toast('删除失败：' + (r.error === 'session_running' ? '会话正在运行，无法删除' : r.error ?? ''), 'err');
+        // 「运行中拒绝删除」是服务端的有意设计（避免删掉正在写盘的会话）——把**下一步动作**一并说清，
+        // 否则用户只看到一句「无法删除」不知道该怎么办。
+        this.services.toast(
+          '删除失败：' +
+            (r.error === 'session_running'
+              ? '会话正在运行，无法删除（先点「停止」结束本回合再删）'
+              : r.error ?? ''),
+          'err',
+        );
         return;
       }
       if (this.host.getState().currentThreadId === id) this.newSession();

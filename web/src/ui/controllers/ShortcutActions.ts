@@ -3,6 +3,7 @@
 // 回调由组合根注入，本类不直接依赖任何控制器，避免出现反向依赖。
 
 import type { ShortcutAction } from '../models/KeyboardShortcuts.js';
+import { MethodBinder } from './methodBinder.js';
 
 /** 快捷键动作的执行回调集合（由组合根注入）。 */
 export interface ShortcutHandlers {
@@ -23,7 +24,10 @@ export class ShortcutActions {
   /**
    * @param handlers 各动作对应的执行回调
    */
-  public constructor(private readonly handlers: ShortcutHandlers) {}
+  public constructor(private readonly handlers: ShortcutHandlers) {
+    // `run` 以裸引用形式挂在键盘监听上（`shortcuts.run`）⇒ 必须绑定。见 MethodBinder。
+    MethodBinder.bindAll(this);
+  }
 
   /**
    * 执行动作对应的回调（动作与回调一一对应，未识别动作不触发任何行为）。

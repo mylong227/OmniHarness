@@ -6,6 +6,7 @@ import type { AppHost, AppServices } from './AppController.js';
 import type { FileAttachment, ThreadEvent } from '../../types/models.js';
 import type { ToolResultView } from '../shared.js';
 import type { SessionController } from './SessionController.js';
+import { MethodBinder } from './methodBinder.js';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
 export class ComposerController {
@@ -32,13 +33,8 @@ export class ComposerController {
     this.host = host;
     this.services = services;
     this.sessions = sessions;
-    this.send = this.send.bind(this);
-    this.stop = this.stop.bind(this);
-    this.regenerate = this.regenerate.bind(this);
-    this.editLastUser = this.editLastUser.bind(this);
-    this.changeModel = this.changeModel.bind(this);
-    this.changeReasoning = this.changeReasoning.bind(this);
-    this.changePermission = this.changePermission.bind(this);
+    // 一次绑定全部原型方法（这些方法都以裸引用传给输入区子组件）。见 MethodBinder。
+    MethodBinder.bindAll(this);
   }
 
   /**

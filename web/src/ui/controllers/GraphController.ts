@@ -4,6 +4,7 @@
 
 import type { AppHost, AppServices } from './AppController.js';
 import type { GraphDone, GraphProgress } from '../../types/models.js';
+import { MethodBinder } from './methodBinder.js';
 
 /** graph 运行态控制器：单一职责，仅供 App 组合使用。 */
 export class GraphController {
@@ -20,9 +21,8 @@ export class GraphController {
   public constructor(host: AppHost, services: AppServices) {
     this.host = host;
     this.services = services;
-    this.onRunStart = this.onRunStart.bind(this);
-    this.applyGraphProgress = this.applyGraphProgress.bind(this);
-    this.applyGraphDone = this.applyGraphDone.bind(this);
+    // 一次绑定全部原型方法。见 MethodBinder。
+    MethodBinder.bindAll(this);
   }
 
   /**

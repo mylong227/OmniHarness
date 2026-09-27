@@ -19,6 +19,14 @@ export interface ContextCapacityPanelProps {
   /** 当前会话 id（空串时报告为空）。 */
   threadId: string;
   api: ApiClient;
+  /**
+   * 回合是否进行中（**刷新信号**）。
+   *
+   * 为什么必须传：面板只在「展开」与「threadId 变化」时拉数，而 `context.usage` 的用量快照是
+   * **回合推进中逐步产生**的——面板在回合开始前打开就会一直显示 `0/…` 全零（实测：开面板后再发消息，
+   * 数字不变；用户报的「上下文显示不对」即此）。把 busy 纳入依赖 ⇒ 回合开始/结束各刷新一次。
+   */
+  busy?: boolean;
   /** 配额档位切换提示。 */
   onToast: (msg: string, kind?: 'info' | 'err') => void;
 }
@@ -29,7 +37,7 @@ export interface ContextCapacityPanelProps {
  * @returns 容量面板节点
  */
 export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactElement {
-  const { threadId, api, onToast } = props;
+  const { threadId, api, onToast, busy } = props;
   const [open, setOpen] = React.useState<boolean>(false);
   const [usage, setUsage] = React.useState<ContextUsageReport | undefined>(undefined);
   const [quota, setQuota] = React.useState<QuotaStatus | undefined>(undefined);
@@ -67,7 +75,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     return () => {
       alive = false;
     };
-  }, [open, api, threadId, onToast]);
+  }, [open, api, threadId, onToast, busy]);
 
   /** 触发按钮：阻断冒泡后切换展开态。 */
   const toggle = (e: MouseEvent): void => {
@@ -151,7 +159,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
                 <span className="cap-reset">{quotaView.resetText} 重置</span>
               </div>
               {quotaView.isEmpty ? (
-                <div className="cap-empty">未连接模型，暂无配额数据</div>
+                <div className="cap-empty">{quotaView.emptyHint}</div>
               ) : (
                 <div className="cap-rows">
                   {quotaView.rows.map((row) => (
