@@ -3259,3 +3259,37 @@ shell 重定向到文件 0 字节、`--print-to-pdf` 也不产出文件（即失
   `audit:top-level-fn`、`audit:standard:delta`。
 - 原始评测报告按 `.gitignore` 政策**不入库**（机器产物），结论以本节数字为准；重跑
   `npm run eval:semantic-crossrepo` / `eval:recall-crossrepo`（需 `eval-data/repos/**` 就位）。
+
+### 26.6 跑真 UI（`serve --port 8787` + 真 Chrome）时发现并修掉的三处
+
+**用户报障**：「页面被截断遮挡」——窄窗口下输入区的「添加」菜单右半边、以及「上下文容量」面板的
+右侧数值与档位按钮被切掉。
+
+1. **弹层越出视口被列容器裁切（真缺陷，已修）**：`.addmenu-pop` / `.cap-pop` 是
+   `position:absolute; left:0; width:300/320px`，且以**触发器**为定位基准（`.addmenu` 仅 30px、
+   `.cap` 107px，都在 `.composer-bar` 里随 flex 排到右半侧）⇒ **800×900 实测右边缘分别到 920 / 826px**
+   （视口 800），再被可滚动列 `.col.center`（`overflow:auto`）切掉右半边。
+   **修法**：定位基准换成整个 `.composer`（恒 ≳570px 宽）并水平居中（`left:50%; translateX(-50%)`），
+   宽度加 `min(300/320px, calc(100vw - 24px))` 兜底极窄窗口；`.dd-menu` 补 `max-width`。
+   注：既有的 ≤880px 媒体查询只给了 `max-width: calc(100vw - 24px)`——**对 300px 的浮层毫无作用**，
+   真正的问题是锚点位置，不是宽度。
+2. **形状不符会把整个工作台卸载（真缺陷，已修）**：stub 页里 `plugins.list` / `agents.list` /
+   `quota.get` 回落成 `{}` 时，`setPlugins(undefined)` 与 `new QuotaView({})`（读 `status.plan.upgraded`、
+   `status.models.map`）在**渲染期**抛错 ⇒ React 卸载整棵树：`#root` 清空、输入区消失。
+   修法：两处形状守卫（`Array.isArray(...)` / `'plan' in quota && Array.isArray(quota.models)`），
+   缺字段即降级展示；同时把 `web/test/browserHarness.mjs` 的 stub 补成**正确形状**（缺这几项时
+   弹层类用例根本测不到渲染）。
+3. **同类「显示 ≠ 实际」漂移（已修）**：`displayConfigOf` 漏了 `reasoning` ⇒ 用户级配置
+   `reasoning:"high"`（后端确实按 high 跑，`ArgParser.configDefaults` 透传）在 UI 的「推理强度」处
+   显示「默认」。补上该字段（方法转为 public 以便单测直接断言），`serveConfigLayering.test.ts` 增 1 例。
+
+**门禁**：新增 `web/test/popoverFit.test.mjs`（2 例，真 Chrome + CDP）——① 600/800/1280 三档逐条断言
+弹层四边在视口内**且不被任何裁切祖先切掉**（只查 `documentElement.scrollWidth` 抓不到本缺陷：实测它
+恒等于视口宽，裁切发生在列容器上）；② 形状不符时两个弹层都降级渲染、`#root` 不被清空。
+**两处都做过变异验证**：CSS 还原旧写法 ⇒ 用例红（`弹层横向越出视口 582..882 / 视口 800`）；
+撤掉两处守卫 ⇒ 用例红。
+
+**验收**：`web:test` **246/246**；`responsiveProbe`（640/1280）零横向溢出；`web:build`、eslint、
+`check --strict`（591 文件零违规）、`arch:gate` 全绿。真 UI 侧：`/healthz` 200、SPA 挂载（`#root` 6760
+字符、composer/send 就位）、SSE 徽标 406ms 转「已连接」且 30s 无掉线、顶栏显示
+`openai · deepseek-v4-flash`（分层配置修复生效的活证据）。
