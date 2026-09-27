@@ -67,7 +67,13 @@ export function serveStatic(root, memoryRoutes) {
     const rawPath = decodeURIComponent((req.url || '/').split('?')[0]);
     const html = memoryRoutes[rawPath];
     if (html !== undefined) {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      // MIME **按扩展名**给，不能一律 text/html：内存路由也用来替换 `.js` 模块（如给某个组件注入
+      // 一个渲染期抛错的版本，用于验证错误边界）。模块脚本的 MIME 是**强校验**的——发成 text/html
+      // 浏览器会拒绝执行该模块，整个 import 图随之失败（表现是 `Failed to fetch dynamically imported
+      // module: /dist/main.js` + 页面空白），看起来像「被测代码崩了」，其实是夹具把模块图弄坏了。
+      res.writeHead(200, {
+        'content-type': MIME[extname(rawPath).toLowerCase()] || 'text/html; charset=utf-8',
+      });
       res.end(html);
       return;
     }
