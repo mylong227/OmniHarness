@@ -3532,3 +3532,42 @@ overscan 的 8 块**本轮才第一次被测量**（估算 88px vs 真实几百 
 
 **验收**：`npm run web:test` **271/271**；`tsc` / `web:build` / eslint / `check --strict` / `arch:gate`
 全绿。
+
+### 26.15 用户截图里的 React #185（Maximum update depth exceeded）：给写回 scrollTop 加**结构上可证**的上界
+
+**报障**：真 UI 打开 `#pane=settings` 后整页被错误边界接住，消息为 `Minified React error #185`
+（= **Maximum update depth exceeded**），组件栈指向 `StreamView`。
+
+**定性**：`StreamView` 的锚定校正写在 `useLayoutEffect` 里，而**写回 `scrollTop` 会改变虚拟窗口**
+⇒ 布局效应再次运行 ⇒ 只要校正量始终 > 1px，就形成
+`render → layoutEffect → setState(scrollTop) → render` 的**同步**更新循环——正是 #185 的形态。
+§26.14 的「只在空洞时修」闸降低了触发概率，但**几何自愈并不保证收敛**（收敛性只是经验判断，
+不是上界），因此**不能**只靠闸。
+
+**修法（第三道防线，专门管「上界」）**：新增纯状态机 `web/src/ui/models/ScrollRepairBudget.ts`——
+写回前必须 `take()` 申请一次预算（默认每次 2 次），而预算**只由 `onScroll` 里「不是我们自己写回的」
+滚动补充**（容差 1px 识别自写回）：我们自己写回所触发的 scroll 事件不补充预算 ⇒ **循环无法自我
+续期**，`render → effect → setState` 的连环在结构上有上界（可证的终止性）。`StreamView` 三处接线：
+`repairBudgetRef` 实例、`onScroll` 里的 `noteScroll`、写回条件里的 `take`。
+
+**门禁**：`web/test/scrollRepairBudget.test.mjs`（7 例）——默认预算与耗尽拒绝、用户滚动补充、
+**自写回不补充**（循环防线的关键）、±1px 取整容差、`max<=0` 彻底禁用，以及**死循环模拟**：在
+「几何永不收敛」的最坏输入下写回次数必须被限死在 2 次；外加接线守卫（从**写回语句所在的 if
+条件**里取文本断言：必须同时含 `needsAnchorRepair(` 与 `take(`，且**不得**出现 `|| true` 之类短路）。
+**变异验证**：把写回条件改成 `take(...) || true` ⇒ 守卫红；还原 ⇒ 绿。
+
+**同时如实登记两条排查教训（都花了时间，值得留档）**：
+
+1. **前 5 次「复现 #185」的探针全部无效**：判 HANG 的依据是「CDP `Runtime.evaluate` 超时」，而当时
+   **服务进程自身已冻结**（实测：进程存活、8787 监听仍在、3 秒 CPU 增量 **0.00s**、连静态文件请求
+   都超时）。本机 8787 重启后**同一探针立即正常**（`#pane=tools` 首屏 `root=1 / body=1293 / 无面板 /
+零超时`）。⇒ 服务不健康时用「页面无响应」推断页面缺陷是**无效测量**；此后一律先验 `/healthz`
+   与静态资源，再谈页面行为。
+2. **服务冻结的疑似机理与对策**：`serve` 作为后台 job 运行时其 stdout/stderr 走 job 管道；管道无人
+   及时消费时的**同步写阻塞**足以让事件循环停摆（进程存活、CPU 空闲、端口仍监听、请求全超时——
+   与实测吻合）。故重启改为**日志重定向到文件**
+   （`cmd /c "node dist\src\cli\exec.js serve --port 8787 > .omniharness\serve.log 2>&1"`），从结构上
+   不再依赖「有人读管道」。**诚实边界**：这是与实测吻合的**疑似**机理，未做隔离实验坐实。
+
+**验收**：`npm run web:test` **278/278**；重启后的真机活证据：`/healthz` 200、干净 Chrome 首屏
+`root=1 / body=1293 / 无 crash 面板`、`#pane=tools` 默认会话可加载。
