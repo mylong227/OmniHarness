@@ -10,9 +10,16 @@
  *
  * ## 范围（可执行、可解释）
  *
- * - **纳入**：`src/**\/*.ts`（生产代码；不含 `.d.ts`）。
+ * - **纳入**：`src/**\/*.ts`（生产代码；不含 `.d.ts`），且**必须在 git 索引里**（见下「只审代码库」）。
  * - **排除**：`web/src/ui/**`（React UI 页面，按用户口径排除）、`tests/**`（测试辅助函数，用户明确
  *   不在范围内）、`evals/`、`benchmark/`、`scripts/`（.mjs 工具脚本，不是产品实现）。
+ *
+ * ## 只审「代码库」，不审草稿（2026-09-27 修）
+ *
+ * 原先按盘上文件全量扫描 ⇒ 任何**未跟踪**的草稿/生成物（例如在工作台里让 agent 现写的练习文件）
+ * 都会让**所有**提交被拦下，而它根本不在本次提交里。改为：只扫 `git ls-files` 列出的文件
+ * （索引 = 已跟踪 ∪ 已暂存）——这正是「代码库」的机械定义；CI 全量 checkout 时覆盖不变。
+ * git 不可用时退化为全量扫描（宁可严，不可漏）。
  *
  * ## 判据与失败面
  *
@@ -23,6 +30,7 @@
  *
  * 用法：`node scripts/auditTopLevelFunctions.mjs [--selftest|--list]`
  */
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,7 +43,27 @@ const SCOPE = ['src'];
 const EXCLUDE_PREFIXES = ['web/src/ui/'];
 
 /**
- * 递归收集纳入范围的 .ts 文件。
+ * git 索引里的文件集合（相对仓库根，正斜杠）。
+ * @returns 文件路径集合；git 不可用时为 null（调用方退化为全量扫描）。
+ */
+function trackedFiles() {
+  try {
+    const out = execFileSync('git', ['ls-files', '-z'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    return new Set(out.split('\0').filter((s) => s !== ''));
+  } catch {
+    return null;
+  }
+}
+
+/** 索引文件集合（模块级取一次）。 */
+const TRACKED = trackedFiles();
+
+/**
+ * 递归收集纳入范围的 .ts 文件（只收 git 索引里的；未跟踪草稿不算代码库）。
  * @param dir 绝对目录。
  * @param out 累积数组。
  * @returns 文件绝对路径数组。
@@ -50,6 +78,7 @@ function collect(dir, out = []) {
     if (!entry.endsWith('.ts') || entry.endsWith('.d.ts')) continue;
     const rel = relative(ROOT, full).replace(/\\/g, '/');
     if (EXCLUDE_PREFIXES.some((p) => rel.startsWith(p))) continue;
+    if (TRACKED !== null && !TRACKED.has(rel)) continue;
     out.push(full);
   }
   return out;

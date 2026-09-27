@@ -202,6 +202,50 @@ export class StreamWindow {
   }
 
   /**
+   * 由「已渲染块的 DOM 实际位置」算出 scrollTop 应做的**自愈校正量**。
+   *
+   * ## 为什么需要它（2026-09-27 用户报「滚到某区域没有任何显示」）
+   *
+   * 虚拟窗口的 padTop/padBottom 与滚动定位都基于 `heightOf`（`BlockHeightIndex`：实测 ∪ 估算），
+   * 而**浏览器的 scrollTop 是 DOM 高度**。两者只要不一致（估算 88px vs 真实几百 px 的长回复、
+   * 簇展开/折叠后索引里的陈旧高、忙/闲分组换掉块含义），模型偏移与真实位置就会错位积累，
+   * 表现为「滚到某处视口里全是占位、一个块都没有」（实测真实会话：最差一档视口覆盖率仅 1%，
+   * DOM 里明明有 23 个块）。
+   *
+   * 做法：拿「DOM 里最接近视口顶的那块」当锚，把它**真实的滚动偏移**（`scrollTop + (rect.top - viewportTop)`）
+   * 与**模型偏移**（`offsetOf(index)`）对齐，差值就是校正量。锚在视口内时该校正等价于
+   * 「上方块高度变化引起的内容跳动」补偿；视口落在空洞里时它把内容重新拉回视口。
+   *
+   * @param viewportTop 视口顶在文档中的位置（`scroll 容器 rect.top`）
+   * @param scrollTop 当前滚动偏移
+   * @param anchors 已渲染块的 DOM 锚点（下标 + `getBoundingClientRect()` 的 top/bottom）
+   * @param offsetOf 取某块下标对应的**模型**偏移（通常 `BlockHeightIndex.prefix`）
+   * @returns 建议叠加到 scrollTop 的校正量（px；锚点为空返回 0）
+   */
+  public static anchorDelta(
+    viewportTop: number,
+    scrollTop: number,
+    anchors: ReadonlyArray<{ readonly index: number; readonly top: number; readonly bottom: number }>,
+    offsetOf: (index: number) => number,
+  ): number {
+    if (anchors.length === 0) return 0;
+    // 优先取「跨过视口顶」的那块；没有则取顶边最接近视口顶的那块。
+    let best = anchors[0]!;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const a of anchors) {
+      const straddles = a.top <= viewportTop && a.bottom > viewportTop;
+      const score = straddles ? 0 : Math.abs(a.top - viewportTop);
+      if (score < bestScore) {
+        bestScore = score;
+        best = a;
+      }
+      if (score === 0) break;
+    }
+    const domOffset = scrollTop + (best.top - viewportTop);
+    return offsetOf(best.index) - domOffset;
+  }
+
+  /**
    * 判断滚动容器是否处于「贴底」状态（内容不足一屏时恒为真）。
    * @param box 滚动容器的最小度量（scrollTop / scrollHeight / clientHeight）
    * @param epsilon 容差像素（缺省 4px）

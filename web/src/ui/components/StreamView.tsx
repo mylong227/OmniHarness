@@ -425,16 +425,37 @@ export function StreamView(props: StreamViewProps): ReactElement {
       const h = node.offsetHeight; // .sw-block 为 flow-root，offsetHeight 已含子块 margin
       if (h > 0 && idx.set(k, h)) changed = true;
     }
-    if (!changed) return;
+    if (!changed && el === null) return;
     if (el && !stickyRef.current) {
-      const newPadTop = idx.prefix(keys, win.start);
-      const delta = newPadTop - win.padTop;
-      if (Math.abs(delta) > 0.5) {
+      // 锚定自愈校正（取代原先只看 padTop 的增量补偿）：以「DOM 里最接近视口顶的已渲染块」为锚，
+      // 把它的真实滚动偏移对齐到模型偏移。既补偿「上方块高度变化引起的内容跳动」，也修掉
+      // 「高度索引（实测 ∪ 估算）与真实 DOM 不一致 ⇒ 模型偏移与浏览器 scrollTop 错位 ⇒ 视口落在
+      // 空洞里一个块都看不到」（2026-09-27 用户报「滚到该区域没有任何显示」；跳转式滚动实测
+      // 真实会话最差一档覆盖率 0%、DOM 里却有 23 个块）。见 StreamWindow.anchorDelta。
+      //
+      // **注意：不能只在「实测有变化」时校正** —— 跳转到一个「窗口内的块都已测过、但窗口外仍有
+      // 大量估算块」的位置时，实测集不变 ⇒ 若跳过校正，错位就留在那里（实测第二轮仍会出现 0% 覆盖）。
+      // 反正收敛性有保证：校正后 scrollTop 变化 → 重算窗口 → 锚点差值落到 1px 以内即停。
+      const anchors: { index: number; top: number; bottom: number }[] = [];
+      const viewportTop = el.getBoundingClientRect().top;
+      for (let i = 0; i < keys.length; i++) {
+        const node = blockElsRef.current.get(keys[i]!);
+        if (node === undefined) continue;
+        const rect = node.getBoundingClientRect();
+        anchors.push({ index: i, top: rect.top, bottom: rect.bottom });
+      }
+      const delta = StreamWindow.anchorDelta(
+        viewportTop,
+        el.scrollTop,
+        anchors,
+        (i) => idx.prefix(keys, i),
+      );
+      if (Math.abs(delta) > 1) {
         el.scrollTop = el.scrollTop + delta;
         if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
       }
     }
-    setMeasureTick((t) => t + 1);
+    if (changed) setMeasureTick((t) => t + 1);
   }, [win.start, win.end, blocks.length, measureTick]);
 
   const visibleBlocks = blocks.slice(win.start, win.end);
