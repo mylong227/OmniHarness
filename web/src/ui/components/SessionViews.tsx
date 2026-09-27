@@ -32,6 +32,8 @@ export interface RowCtx {
   onCancelDelete: () => void;
   onCommitDelete: (id: string) => void;
   onFork: (id: string) => void;
+  /** 右键打开行菜单（Codex 式：右键给出打开 / 重命名 / 复制 / 删除）。缺省则行不响应右键。 */
+  onContextMenu?: (id: string, x: number, y: number) => void;
 }
 
 /** 列表视图（任务卡 / 分组）渲染所需上下文。 */
@@ -276,6 +278,66 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
                 ))}
                 {rest > 0 ? (
                   <button className="ws-more" onClick={() => ctx.onShowAll(g.key, g.items.length)}>
+                    显示全部 {g.items.length} 条
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * 时间分组视图（Codex 式：今天 / 昨天 / 更早，可折叠）。
+ *
+ * 与 `renderGroupsView`（按工作区分组）并列存在，由左栏的视图切换决定用哪一个；两处共用同一套
+ * `renderSessionBody` 行渲染，故行内重命名 / 删除确认 / 右键菜单行为完全一致。
+ * @param ctx 列表上下文
+ * @param now 参照时刻（毫秒；单测注入以获得确定性）
+ * @returns 时间分组节点
+ */
+export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
+  const all = filterSessions(ctx.sessions, ctx.query);
+  if (all.length === 0) {
+    return emptyState('🗂️', '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
+  }
+  return (
+    <>
+      {SessionGrouper.groupByTime(all, now).map((g) => {
+        const key = 'time:' + g.key;
+        const isCollapsed = ctx.collapsed[key] ?? false;
+        const limit = ctx.limits[key] ?? PAGE;
+        const shown = isCollapsed ? [] : g.items.slice(0, limit);
+        const rest = g.items.length - shown.length;
+        return (
+          <div className="ws-group" key={key}>
+            <div className="ws-head" onClick={() => ctx.onToggleGroup(key, isCollapsed)}>
+              <span className="ws-caret">{isCollapsed ? '▸' : '▾'}</span>
+              <span className="ws-name">{g.name}</span>
+              <span className="ws-count">{g.items.length}</span>
+            </div>
+            {isCollapsed ? null : (
+              <div className="ws-list">
+                {shown.map((s) => (
+                  <div
+                    key={s.id}
+                    className={'session' + (s.id === ctx.currentThreadId ? ' active' : '')}
+                    onClick={() => ctx.onSelect(s.id)}
+                    onContextMenu={(e: MouseEvent) => {
+                      if (ctx.onContextMenu === undefined) return;
+                      e.preventDefault();
+                      ctx.onContextMenu(s.id, e.clientX, e.clientY);
+                    }}
+                    title={s.id}
+                  >
+                    {renderSessionBody(s, ctx)}
+                  </div>
+                ))}
+                {rest > 0 ? (
+                  <button className="ws-more" onClick={() => ctx.onShowAll(key, g.items.length)}>
                     显示全部 {g.items.length} 条
                   </button>
                 ) : null}
