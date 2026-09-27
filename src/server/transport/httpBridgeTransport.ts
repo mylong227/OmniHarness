@@ -5,15 +5,59 @@ import { type WsConnection } from './wsConnection.js';
 import { EnterpriseAuth } from '../../enterprise/index.js';
 import { PendingRequests } from '../../util/pendingRequests.js';
 
+/** 传输层超时预算覆写（仅供单测注入；生产用类常量）。 */
+export interface HttpBridgeTimeouts {
+  /** 普通 RPC 的等待上限（毫秒）。 */
+  readonly normalMs?: number;
+  /** 长任务 RPC 的等待上限（毫秒）。 */
+  readonly longMs?: number;
+}
+
 /** HTTP/WS/SSE 桥接传输：POST /rpc 与 WS 请求-响应共用 pending 表，通知广播给全部 SSE/WS 客户端（实现 {@link Transport}）。 */
 export class HttpBridgeTransport implements Transport {
   /**
-   * 单条入站 RPC 的等待上限（毫秒）：60 秒。
+   * 单条**普通**入站 RPC 的等待上限（毫秒）：60 秒。
    *
-   * 依据：服务端 RPC 的正常量级是毫秒～秒（长任务走 `turns.run` 的通知流，不是同步 RPC 等待）。
-   * 超时把它收敛为一条可解释的错误响应，而不是让 HTTP 连接与 pending 条目一起悬挂。
+   * 依据：普通 RPC（会话列表 / 配置 / 文件…）的正常量级是毫秒～秒。超时把它收敛为一条可解释的错误
+   * 响应，而不是让 HTTP 连接与 pending 条目一起悬挂（2026-09-26 审计 S15）。
+   *
+   * **长任务 RPC 不适用本预算**，见 {@link HttpBridgeTransport.LONG_REQUEST_TIMEOUT_MS}。
    */
   public static readonly REQUEST_TIMEOUT_MS = 60_000;
+
+  /**
+   * **长任务** RPC 的等待上限（毫秒）：30 分钟。
+   *
+   * ## 为什么必须分开（2026-09-27 用户报「运行失败：RPC 错误」的根因）
+   *
+   * 这些方法**同步等待 agent 跑完**——`turns.run`（一个带工具的回合动辄几分钟）、`threads.create` /
+   * `threads.continue`（同样会跑一轮）、`graph.run`（多 agent 编排更久）。原先 60 秒一刀切 ⇒
+   * **回合仍在正常推进时报错**：界面写「运行失败」，服务端继续跑（状态分叉，用户看到错误横幅之后
+   * 仍有工具调用完成）。服务端日志反复出现 `http.route.failed /rpc: RPC 超时（60000ms）` 即此。
+   *
+   * 仍**保留上限**（不是无限等）：S15 的「挂起可收敛为一条可解释错误」性质不放弃，只是把预算放到
+   * 长任务的量级。真正需要更长时可走 `turns.abort` 主动收尾，而不是让连接永久悬挂。
+   */
+  public static readonly LONG_REQUEST_TIMEOUT_MS = 30 * 60_000;
+
+  /** 走**长预算**的 RPC 方法（同步等待 agent / 编排跑完的那些）。 */
+  private static readonly LONG_RUNNING_METHODS: ReadonlySet<string> = new Set([
+    'turns.run',
+    'threads.create',
+    'threads.continue',
+    'graph.run',
+  ]);
+
+  /**
+   * 取某个 RPC 方法的等待上限（纯函数，便于单测）。
+   * @param method JSON-RPC 方法名（`turns.run` 等长任务走长预算）
+   * @returns 等待上限（毫秒）
+   */
+  public static timeoutFor(method: string): number {
+    return HttpBridgeTransport.LONG_RUNNING_METHODS.has(method)
+      ? HttpBridgeTransport.LONG_REQUEST_TIMEOUT_MS
+      : HttpBridgeTransport.REQUEST_TIMEOUT_MS;
+  }
 
   /** 入站消息回调（AppServer 注册的处理器）。 */
   private callback: ((message: RpcMessage) => void) | undefined;
@@ -25,6 +69,8 @@ export class HttpBridgeTransport implements Transport {
   private readonly wsClients = new Set<WsConnection>();
   /** 企业鉴权门禁（D2，opt-in）：设置后所有入站 RPC 调用需有效 Bearer 令牌，fail-closed。 */
   private readonly auth?: EnterpriseAuth | undefined;
+  /** 超时预算覆写（单测注入；缺省用类常量）。 */
+  private readonly timeouts: HttpBridgeTimeouts;
   /**
    * 「全部客户端已断开」回调（由 AppServer 注册）：用于把挂起的审批上行按 deny 兑现，
    * 避免回合永久挂起（2026-09-22 修，审计 P2）。
@@ -34,11 +80,24 @@ export class HttpBridgeTransport implements Transport {
   private hadClients = false;
 
   /**
-   * 创建桥接传输（可选注入企业鉴权）。
+   * 创建桥接传输（可选注入企业鉴权与超时预算）。
    * @param auth 企业鉴权门禁（opt-in；缺省则不做 Bearer 校验）
+   * @param timeouts 超时预算覆写（**仅供单测**把 60s / 30min 缩到毫秒级；生产不传即用类常量）
    */
-  public constructor(auth?: EnterpriseAuth) {
+  public constructor(auth?: EnterpriseAuth, timeouts?: HttpBridgeTimeouts) {
     this.auth = auth;
+    this.timeouts = timeouts ?? {};
+  }
+
+  /**
+   * 取某方法实际生效的等待上限（实例级：允许单测覆写）。
+   * @param method JSON-RPC 方法名
+   * @returns 毫秒
+   */
+  private budgetFor(method: string): number {
+    return HttpBridgeTransport.LONG_RUNNING_METHODS.has(method)
+      ? (this.timeouts.longMs ?? HttpBridgeTransport.LONG_REQUEST_TIMEOUT_MS)
+      : (this.timeouts.normalMs ?? HttpBridgeTransport.REQUEST_TIMEOUT_MS);
   }
 
   /**
@@ -106,7 +165,28 @@ export class HttpBridgeTransport implements Transport {
         );
       }
     }
-    return this.handleRequest(message);
+    try {
+      return await this.handleRequest(message);
+    } catch (error) {
+      // 超时/内部异常必须落成**一条 JSON-RPC error 响应**，而不是让它冒泡成 HTTP 500。
+      //
+      // 原先直接 `return this.handleRequest(...)`：超时 reject 冒到 httpServer 的 route 兜底，写出
+      // `500 {"error":"internal"}`。而前端 ApiClient 把「有 error 字段」当 JSON-RPC 错误读
+      // `error.message` —— `"internal"` 是字符串，`.message` 为 undefined，于是界面只剩一句没有任何
+      // 归因的「RPC 错误」（2026-09-27 用户报的「运行失败：RPC 错误。可尝试切换模型或检查 API Key。」）。
+      // 真正的超时原因在客户端 100% 丢失，用户只能去猜模型与 API Key。
+      const text = error instanceof Error ? error.message : String(error);
+      return jsonRpc.errorResponse(message.id, HttpBridgeTransport.errorCodeFor(text), text);
+    }
+  }
+
+  /**
+   * 把失败原因映射为 JSON-RPC 错误码（纯函数，便于单测）。
+   * @param text 失败原因文本。
+   * @returns `-32002`（等待超时，客户端应提示「可继续等待/中止」）或 `-32000`（其它服务端错误）。
+   */
+  public static errorCodeFor(text: string): number {
+    return text.startsWith('RPC 超时') ? -32002 : -32000;
   }
 
   /**
@@ -172,13 +252,16 @@ export class HttpBridgeTransport implements Transport {
    */
   private handleRequest(message: RpcRequest): Promise<RpcMessage> {
     return new Promise<RpcMessage>((resolve, reject) => {
+      // 预算**按方法**取：普通 RPC 60s（防悬挂/泄漏），长任务 RPC（turns.run 等同步等 agent 的）30min
+      // —— 一刀切 60s 会在回合仍在正常推进时报错（详见 LONG_REQUEST_TIMEOUT_MS 的说明）。
+      const ms = this.budgetFor(message.method);
       this.pending.register(
         message.id,
         { resolve, reject },
         {
-          ms: HttpBridgeTransport.REQUEST_TIMEOUT_MS,
+          ms,
           onTimeout: (handlers) => {
-            handlers.reject?.(new Error(`RPC 超时（${HttpBridgeTransport.REQUEST_TIMEOUT_MS}ms）`));
+            handlers.reject?.(new Error(`RPC 超时（${ms}ms）`));
           },
         },
       );

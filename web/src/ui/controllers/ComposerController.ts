@@ -38,6 +38,24 @@ export class ComposerController {
   }
 
   /**
+   * 按失败原因给出**可执行**的下一步建议（静态纯函数，便于单测）。
+   *
+   * 原先无论什么失败都拼「可尝试切换模型或检查 API Key」，而 2026-09-27 用户遭遇的是
+   * `turns.run` 等服务端等待超时（回合仍在后台推进）——把用户引向换模型查 Key 是误导。
+   * @param message 失败原因文本（来自 ApiClient 的真实错误消息）。
+   * @returns 追加在系统提示末尾的建议句（含前导句号）。
+   */
+  public static failureHint(message: string): string {
+    if (/RPC 超时|HTTP 5\d\d|RPC 请求失败/.test(message)) {
+      return '。服务端等待超时，回合可能仍在后台继续；可稍候重新打开该会话查看结果，或点「停止」后再发一次。';
+    }
+    if (/中止|abort/i.test(message)) {
+      return '。';
+    }
+    return '。可尝试切换模型或检查 API Key。';
+  }
+
+  /**
    * 发送一轮对话：标注 busy、调用后端、补 finalText 兜底事件、错误写回流 + toast。
    * @param prompt 用户输入
    * @param images 图片附件
@@ -93,7 +111,7 @@ export class ComposerController {
         // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。
         this.services.toast('运行失败：' + msg, 'err');
         this.host.patch((s) => ({
-          events: [...s.events, this.systemNote('运行失败：' + msg + '。可尝试切换模型或检查 API Key。')],
+          events: [...s.events, this.systemNote('运行失败：' + msg + ComposerController.failureHint(msg))],
         }));
       }
     } finally {

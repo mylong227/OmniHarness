@@ -50,9 +50,22 @@ export class ApiClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
     });
-    const data = (await res.json()) as JsonRpcResponse<T>;
-    if (data && data.error) {
-      throw new Error(data.error.message || 'RPC 错误');
+    // 归因必须保住：只有「JSON-RPC error **对象**」才当作协议错误读它的 message。
+    // 曾经无条件 `data.error.message || 'RPC 错误'`，而 HTTP 500 的兜底体是 `{"error":"internal"}`
+    // ——`error` 是字符串，`.message` 为 undefined，于是任何服务端异常在界面上都退化成同一句
+    // 无归因的「RPC 错误」（2026-09-27 用户报的那句就是这么来的）。此处按「协议层 → 传输层」顺序
+    // 逐级报出真实原因；`res.ok === false` 才判传输失败，以便轻量桩（只给 json()）继续可用。
+    const data = (await Promise.resolve(res.json()).catch(() => undefined)) as
+      | JsonRpcResponse<T>
+      | undefined;
+    if (data !== undefined && typeof data.error === 'object' && data.error !== null) {
+      throw new Error(data.error.message || `RPC 错误（code ${data.error.code}）`);
+    }
+    if (res.ok === false) {
+      throw new Error(`RPC 请求失败：HTTP ${res.status}`);
+    }
+    if (data === undefined) {
+      throw new Error('RPC 响应不是合法 JSON');
     }
     return data.result as T;
   }
