@@ -46,7 +46,7 @@ const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { CodeGraphIndex } = await importDist('context', 'codeGraphIndex.js');
 const { LayeredCodeGraph } = await importDist('context', 'layeredCodeGraph.js');
-const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto', 'index.js');
+const { RankVetoEvaluator, RankVetoOverlap } = await importDist('context', 'rankVeto', 'index.js');
 
 /** 语料根（与生产一致）。 */
 const SRC = join(ROOT, 'src');
@@ -334,7 +334,7 @@ const vetoReport = evaluator.evaluate({
   baselineProbeLists: bm25Ranked,
 });
 const overlapAvg =
-  layeredRanked.reduce((s, list, i) => s + jaccardOverlap(bm25Ranked[i], list), 0) /
+  layeredRanked.reduce((s, list, i) => s + RankVetoOverlap.jaccardOverlap(bm25Ranked[i], list), 0) /
   layeredRanked.length;
 
 console.log('\n══════ 预先承诺的失败判据 ══════');
