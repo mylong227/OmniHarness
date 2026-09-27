@@ -1498,6 +1498,9 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 两处失败均为**本机环境**：① Chrome 真机截图、② web UI e2e——根因是本机 Chrome **无法 headless 出图**
 （实测 `chrome --version` 直接返回「正在现有的浏览器会话中打开」，加 `--user-data-dir` 后 `--dump-dom` 亦为空输出），
 CI 的 web 作业有「浏览器存在性断言」并在 GitHub runner 上真跑，**不把这两例改成静默 skip**（那正是本仓禁止的假绿）。
+**⚠ 本段定性已于 2026-09-27 被实测推翻**（见 §26.3）：本机 Chrome 的 headless **完全正常**，上面那条
+「`--dump-dom` 空输出」是 **GUI 子系统 + 启动器交接**造成的**测量假象**，不是浏览器起不来；
+两例已分别按真因修好（②换 CDP 传输、①改读 `DevToolsActivePort`）。
 
 ### 20.6 ✅ 已结项：死资产迁出 + 生成物不入库（ROI 第 5 项）
 
@@ -2938,6 +2941,11 @@ fileK=20 / 生产纯 BM25 口径 / 确定性 bootstrap 2000 次）**：
 | `tests/integration/liveUiE2e.test.js`               | 单跑 **1/1 通过**；全量 integration 一起跑时**偶发失败**（本次 11 例中挂 1 例，重跑 11/11 通过） | **真 flake（并发/顺序相关）**，与 Chrome 环境叠加放大。修法方向：给集成里的浏览器 e2e 串行化或加可用性预检。已登记，未在本批动                                                                                         |
 | `tests/unit/browserScreenshotTool.test.js` 真机 e2e | 同上（Chrome 起不来）                                                                            | 同 Chrome 根因                                                                                                                                                                                                         |
 
+> **⚠ 本表定性已于 2026-09-27 被实测推翻**（见 §26.3）：「Chrome 起不来」**不成立**——真因是
+> **Windows 启动器交接**（`spawn` 拿到的 pid 交接完即 `exit 0`，真浏览器 stderr 不接我们的管道），
+> 而 `--dump-dom` 的「空输出」是 **GUI 子系统 + 未等待进程**造成的**测量假象**。三例已按真因修好并转绿；
+> 同源缺陷还包含**孤儿 Chrome 泄漏**（实测堆到 **75 个进程 / ~4GB**），一并根治。
+
 ---
 
 ## 23. 2026-09-26 残留缺陷全量修复轮（§22 审计清单收口）
@@ -3116,9 +3124,138 @@ R1 只留下一条「修法已证伪，但判定力不足（84 条 CI ±7pp）�
 - **Chrome 真机截图 e2e 1 例失败**：本机 Chrome 154 headless 对最小 `data:` 页面也返回 exit 0 空输出
   （§22.8 已给仓外最小复现）⇒ 环境问题，非产品缺陷；不改为「无输出即跳过」，因为那会把真正的
   截图回归一起吞掉（宁可留一条明确的红）。
+  **⚠ 2026-09-27 推翻（§26.3）**：**是产品缺陷**——产品 `ChromeProcess` 只读 stderr 的端点声明，
+  而 Windows 启动器交接后真浏览器 stderr **不接我们的管道**；改读 `DevToolsActivePort` 后该例转绿，
+  全量单测**首个 0 失败**。保留红是对的（它最终逼出了真因），但「环境问题」的定性当时就下早了。
 - **`docs/SUSPENDED_BETTER_PATHS.md` 的挂起路径**（如官方 SWE-bench 500 题的吞吐）：卡在本机网络
   带宽/凭据，属结构性外因，非仓内可收口项。
 
 **验收**：`check --strict` 591 文件零违规；`arch:gate` 依赖方向违规 0；`api:check` / `check:doc-links` /
 `audit:standard:delta` / `audit:config-wiring`（591 源文件）/ `audit:maturity` 全绿；
 全量单测见提交信息（唯一失败仍是上述 Chrome 环境例）。
+
+---
+
+## 26. 2026-09-27 L3 跨仓语义 A/B + 三个 Chrome 依赖测试收口 + 跨仓 fixture 门禁
+
+> 本轮指令：先快速核对嵌入端口接口与混合路径签名（避免长跑中途崩），再后台跑语义 A/B，
+> 趁跑的时间把 web e2e / integration 两个 Chrome 依赖测试验证掉，并补跨仓 fixture 的单测与门禁。
+> **核对环节当场挖出一个会让长跑白跑的阻断缺陷**（26.1），修完后 A/B 离线跑通并给出**负结果**（26.2）。
+
+### 26.1 接口核对 → 一个真阻断缺陷：离线权重**永远找不到**（`cacheDir` 形同不存在）
+
+**核对结论（签名全部对齐，无误）**：`getHybridRepoMapContext(root, q, embedding, opts)` /
+`getRepoMapContext(root, q, opts)` 与仪器调用一致；`EmbeddingPort = { dim, embed(texts, opts) }`；
+`TransformersEmbeddingAdapter({ preset, cacheDir, remoteHost, localFilesOnly, loader })`；
+`CachedEmbeddingPort` 包装 `inner/dim/embed`；`dist/tests/fixtures/recallQueriesCrossRepo.js` 与源同步。
+
+**但**：`TransformersEmbeddingAdapter` 只把缓存目录作为**管道选项** `cache_dir` 传入，从没写
+`env.cacheDir`；而 transformers.js 解析「本地已存在的文件」走的是 `env.cacheDir`（默认指向
+`node_modules/@huggingface/transformers/.cache/`）。逐配置实测（e5-small-v2 权重**已在**
+`D:/deepseek/.omni-model-cache`，含 config/tokenizer/tokenizer_config/onnx 共 34MB）：
+
+| 配置                                                             | 结果                                                                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 默认 `env.cacheDir` + 只传 `cache_dir` + `local_files_only:true` | **失败**：仍去 huggingface.co 取 `tokenizer_config.json`，11.0s 后抛 `this.tokenizer is not a function`（**极具误导性**的报错） |
+| `env.cacheDir` 指向缓存目录（`cache_dir` 给不给都一样）          | **388 / 392ms** 加载成功、384 维向量                                                                                            |
+
+**修法**：`getPipeline` 在创建 pipeline **之前**写 `mod.env.cacheDir = this.cacheDir`（与 `remoteHost`
+同一时序要求）。回归：`tests/unit/embeddingPreload.test.ts` 新增 2 例（④c 构建前写入 `env.cacheDir`
+且 `cache_dir`/`local_files_only` 照传；④d 未设时不改写库默认、不凭空造 `cache_dir`）。
+**影响**：修前语义路在离线/国内网络下**形同不存在**（且失败形态看起来像库的 bug）；修后本次 A/B
+得以**全程离线**跑完（672ms 冷启动，`embedCalls=328`）。
+
+### 26.2 L3 跨仓语义 A/B：**增益未跨语料复现**（负结果留档）
+
+仪器 `evals/semantic-crossrepo.mjs`（本轮新增）：5 个外部真实 Python 仓库 / 60 条查询 / fileK=14 /
+e5-small-v2 离线；三档 = 基线（纯 BM25）、混合（BM25 ∪ 语义 RRF）、混合 + 第二段精排。
+**守卫**：① 嵌入端口零调用即 fail-closed；② **新增 A′**——引擎回落计数 > 0 即 fail-closed 且不产出报告
+（否则「语义路静默旁路」与「语义路无效」长得一模一样，2026-09-25 已踩过该假阴性）。
+本轮实测 `embedCalls=328`、`semanticFallbacks=0` ⇒ 报告有效。
+
+| 语料                   | 文件 | 基线     | 混合（精排关）                | 混合 + 精排（★生产入口）            |
+| ---------------------- | ---- | -------- | ----------------------------- | ----------------------------------- |
+| pallets/flask          | 24   | 72.2%    | 77.8%                         | 77.8%                               |
+| psf/requests           | 18   | **100%** | 100%                          | 100%                                |
+| pytest-dev/pytest      | 77   | 62.5%    | 58.3%                         | 66.7%                               |
+| django/django          | 993  | 37.5%    | 27.8%                         | 36.1%                               |
+| sphinx-doc/sphinx      | 385  | 50.0%    | 41.7%                         | 41.7%                               |
+| **跨仓合并（主判据）** | —    | —        | **−3.3pp** CI95 [−13.6, +6.7] | **0.0pp** CI95 [−8.6, +9.4]（n=60） |
+
+**结论**：语义路（含生产入口口径）在外部语料上**没有复现仓内的正增益**——`0.0pp` 的 CI 上界 +9.4pp
+**足以排除** L2 上那个 +18.8pp（CI [6.3, 34.4]），即该增益至少不是「换一批真实仓库也成立」的普遍性质。
+词法侧对照（`evals/recall-crossrepo.mjs` 同批重跑）：fileK=14 纯 BM25 → +精排 **+1.4pp**
+CI95 [−3.61, 7.22]（否决器 `veto`）、fileK=10 +2.2pp [−2.5, 8.06] ⇒ **两条改进在 L3 上都未过「两关」**。
+
+**诚实边界（三条）**：① `psf/requests` 基线 100%（天花板）、`flask` 72.2%，真正有判别力的只有
+pytest / django / sphinx 三仓；② n=60 ⇒ CI 半宽约 ±9pp，能排除大效应、**排除不了 ±9pp 以内的小效应**；
+③ 查询由模型依公开文档撰写、只经机械协议校验（GT / 稀有性 / 对抗性 / 路径词），**未经第二方独立复核**
+（与仓内 193 条流程的差异如实登记）。
+**后续若要翻案**（需新批次、不在本轮）：更大模型（e5-base / large）＋ 每仓查询数 12 → 30+ ＋ 更难的锚点档
+（当前「锚点出现文件数 ≤3」使 GT 仅 1–3 个文件，单条命中即 33–100% 召回，噪声大）。
+
+### 26.3 三个 Chrome 依赖测试收口（并更正 §22.8 / §22.9 / §25.3 的错误定性）
+
+**(1) 定性更正**：§22.8 的「本机 headless Chrome 根本起不来」**不成立**。实测：`chrome.exe --version`
+与 `--dump-dom` 走 PowerShell/Node 管道 stdout 为空，是 **GUI 子系统 + 启动器交接**造成的**测量假象**；
+**同一台机器、同一个二进制**在 CDP 路线下渲染 / 截图 / 求值全部正常（`e2e-cdp` 2.1s 通过、截图 48KB）。
+
+**(2) `web/test/e2e.test.mjs`（D3）**：`--dump-dom` 路线已失效——实测 exit 0 + stdout 0 字节、
+shell 重定向到文件 0 字节、`--print-to-pdf` 也不产出文件（即失效的是这组**一次性 headless CLI 输出**，
+不是 headless 本身，也不是被测前端）。**换 CDP 路线**（与 `e2e-cdp` / `liveUiE2e` / `responsiveProbe`
+同一传输，仍零第三方依赖），9 步场景（挂载→派发→SSE→流式→审批弹窗→审批响应→产物卡→最终卡→输入框复原）
+逐条断言，**现绿**（4.0s）；同文件里重复的 `findBrowser`/`serveStatic` 也改为复用 `browserHarness`。
+
+**(3) `tests/integration/liveUiE2e.test.ts`**：单跑 1/1 通过（17.6s）；**全量 integration 并发连跑 7 次
+全绿**（11/11，10.8–17.9s，其中 5 次是在语义 A/B 抢 CPU 与内存的条件下跑的）⇒ §22.9 登记的
+「全量并发偶发失败」本轮**未复现**，故**不做投机性改动**（无证据的串行化只是把未知挪个位置）。
+
+**(4) `tests/unit/browserScreenshotTool.test.ts` 真机 e2e（长期唯一红）**：根因与 (1)(2) **同源且是产品缺陷**——
+产品 `ChromeProcess` 只等 stderr 的 `DevTools listening on ws://…` 一行，而 Windows 启动器把真浏览器
+拉起后**立即 exit 0**，且真浏览器的 stderr **不接我们这条管道**（实测 stderr **零字节**、全文不含该行）
+⇒ 正常交接被读成「浏览器进程提前退出（code=0）」。**修法**：改读 `--user-data-dir` 下的
+`DevToolsActivePort`（实测内容 `18818\n/devtools/browser/<uuid>`，据此拼出的浏览器级 ws 端点与
+`/json/version` 的 `webSocketDebuggerUrl` **逐字相同**），stderr 仅作快路径；子进程退出后给
+**2s 宽限**再判死（启动器交接需要这几百毫秒）。**全量单测 2306 例 / 2301 通过 / 0 失败**——本仓首个全绿。
+
+**(5) 连带根治孤儿 Chrome 泄漏（两侧同一缺陷）**：`child.kill()` 打的是启动器 stub（交接后它已退出）
+⇒ 真浏览器 + 其 `--type=renderer|gpu-process|…` 子进程**全部留下**。实测：一次 e2e 残留 **10 个**；
+反复跑集成/浏览器用例几分钟内堆到 **75 个进程 / ~3.96GB**（16GB 机器一度只剩 **559MB** 可用内存）。
+修法两侧同源、皆按**唯一 `--user-data-dir` 标记**扫出真浏览器再整树终止：
+
+- 测试脚手架 `web/test/browserHarness.mjs` 新增 `killChromeTree(child, userDataDir)`（Windows `taskkill /T /F`、
+  POSIX 单进程 kill），5 处调用点接入（`e2e.test` / `e2e-cdp` / `responsiveProbe` / `virtualProbe` / `liveUiE2e`）；
+  **同步**执行让 profile 目录当场可删（此前 e2e 一直打印「临时 profile 目录清理失败 EBUSY」）。
+- 产品 `ChromeProcess.kill()` 同法回收（复用 `ProcessTreeKiller.killPid`）。
+  **回归**：新增 `web/test/chromeCleanup.test.mjs`（起真 Chrome → 断言 kill 前 ≥2 个进程、kill 后 0 残留、
+  profile 目录即刻可删）；修后跑完整套件 **headless Chrome 残留 = 0**。
+
+### 26.4 跨仓 fixture 的单测与门禁（零语料依赖，可进 CI）
+
+- **新增 `tests/unit/recallQueriesCrossRepo.test.ts`（4 例）**：① 注册结构（5 仓、字段非空、root 必须是
+  仓内相对路径、查询文本全库唯一、锚点仓内唯一、每仓 ≥12 条、每查询内容词 ≥4）；② 对抗性零交集
+  （复用 `adversarialOverlap` 单一真相来源）；③ **路径词禁令的离线代理**（查询不得含包目录名 / 仓名词元）；
+  ④ **单一真相来源**：三份跨仓仪器都必须读本 fixture，且**代码里**不得再硬编码 `eval-data/repos/`。
+- **诚实边界**：「锚点 GT 非空 / 出现文件数 ≤3」必须读语料，而 `eval-data/` **整目录 `.gitignore`** ⇒
+  这两条只能留在 `evals/recall-crossrepo.mjs` 的 [0] 段（语料就位时 fail-closed）。故门禁分两层：
+  **可进 CI 的结构/对抗性层**（本单测）＋**需语料的协议层**（仪器）。
+- **去重与陈旧计数**：`evals/crossrepo-anchor-probe.mjs` 原先自带一份 5 仓清单（第二真相来源）⇒ 改为
+  从 fixture 读；三处陈旧计数（「4 个仓库」/「48 条」）改为按实计算（**5 仓 / 60 条**），报告字段同步。
+- **门禁接线**：`package.json` 增 `eval:crossrepo-anchor-probe` / `eval:recall-crossrepo` /
+  `eval:semantic-crossrepo`（统一走 `scripts/runEval.mjs`，与既有 `eval:*` 同形）。
+- **顺带清掉一条红线**：`check --strict` 报 `runServe` 体 136 行 > 基线 132（上一轮 `loadServeConfig` 的
+  原委注释留在了函数体里）⇒ 把原委移进 `loadServeConfig` 的 JSDoc，并把 `displayConfig` 组装抽成
+  `displayConfigOf`（同时给「UI 显示必须等于后端实际所用」这条口径一个可读的落点），函数体回到基线内。
+  注：**Prettier 会把长调用折行**（本次实测 +2 行 ⇒ 又超基线），故门禁通过与否要在**格式化之后**再核一遍——
+  这也解释了为什么「本机 check --strict 绿、提交时又红」这种反复。
+
+### 26.5 本轮验收
+
+- 全量单测 **2306 例 / 2301 通过 / 0 失败 / 5 跳过**（**本仓首个 0 失败**，此前长期 1 红）；
+  `web:test` **245 / 245**；`test:integration` **11 / 11**（含 5 次并发复跑）；浏览器类用例跑完
+  **headless Chrome 残留 0**。
+- 门禁全绿：`tsc`、`eslint --max-warnings=0`、`check --strict`（591 文件零违规）、`arch:gate`（0 违规）、
+  `api:check`、`check:doc-links`（死链 0）、`audit:config-wiring`（591 源文件）、`audit:maturity`、
+  `audit:top-level-fn`、`audit:standard:delta`。
+- 原始评测报告按 `.gitignore` 政策**不入库**（机器产物），结论以本节数字为准；重跑
+  `npm run eval:semantic-crossrepo` / `eval:recall-crossrepo`（需 `eval-data/repos/**` 就位）。
