@@ -1,4 +1,4 @@
-﻿// 浏览器子进程**树**终止回归（2026-09-27 实测的孤儿进程泄漏）。
+// 浏览器子进程**树**终止回归（2026-09-27 实测的孤儿进程泄漏）。
 //
 // ## 缺陷形态（真实，非假想）
 //
@@ -66,19 +66,20 @@ function procsWithMarker(marker) {
   }
 }
 
-/** 轮询直到谓词为真或超时。 */
+/** 轮询直到谓词为真或超时（间隔 800ms：每次探测都要起一次 PowerShell 列进程，250ms 一轮会在
+ * `web:test` 的并行档里把机器拖到超时——本用例单跑 4s、并行下曾撞 30s 预算）。 */
 async function until(fn, timeoutMs, label) {
   const deadline = Date.now() + timeoutMs;
   let last;
   while (Date.now() < deadline) {
     last = await fn();
     if (last) return last;
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 800));
   }
   throw new Error(`超时等待：${label}（最后结果：${JSON.stringify(last)}）`);
 }
 
-test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会留下 10 个子进程）', async (t) => {
+test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会留下 10 个子进程）', { timeout: 120_000 }, async (t) => {
   const browser = findBrowser();
   if (!browser) {
     t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');

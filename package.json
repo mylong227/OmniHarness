@@ -57,7 +57,7 @@
     "build": "node scripts/cleanDist.mjs dist && tsc",
     "web:build": "node scripts/cleanDist.mjs web/dist && tsc -p web/tsconfig.json",
     "web:watch": "tsc -p web/tsconfig.json --watch",
-    "web:test": "npm run web:build && node --test --test-timeout=30000 \"web/test/**/*.test.mjs\"",
+    "web:test": "npm run web:build && node --test --test-timeout=60000 \"web/test/**/*.test.mjs\"",
     "prepare": "tsc",
     "prepublishOnly": "npm run build && npm run web:build",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",

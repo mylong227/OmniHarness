@@ -526,11 +526,16 @@ select:focus-visible,
   padding: 9px 11px; overflow-wrap: anywhere; white-space: pre-wrap;
 }
 .crash-hint { font-size: 12.5px; color: var(--dim); line-height: 1.6; }
+.crash-where {
+  font-family: var(--mono); font-size: 11.5px; color: var(--dim);
+  background: var(--panel-2); border: 1px dashed var(--border); border-radius: 8px;
+  padding: 7px 9px; overflow-wrap: anywhere;
+}
 .crash-actions { display: flex; gap: 10px; margin-top: 2px; }
-.crash-retry, .crash-reload {
+.crash-retry, .crash-reload, .crash-copy {
   font: 13px/1 inherit; padding: 7px 14px; border-radius: 9px; cursor: pointer;
   background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
 }
 .crash-reload { border-color: var(--accent); }
-.crash-retry:hover, .crash-reload:hover { background: var(--hover, var(--panel-2)); }
+.crash-retry:hover, .crash-reload:hover, .crash-copy:hover { background: var(--hover, var(--panel-2)); }
 
