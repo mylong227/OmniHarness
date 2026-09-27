@@ -20,9 +20,11 @@ import {
   renderCardsView,
   renderGroupsView,
   renderProjectsView,
+  renderTimeGroupsView,
   renderTreeView,
 } from './SessionViews.js';
 import type { ListCtx, RowCtx } from './SessionViews.js';
+import { PathJoiner } from '../models/PathJoiner.js';
 import type { FsNode } from '../../types/models.js';
 import type { SearchHit } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
@@ -76,8 +78,17 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [wsPath, setWsPath] = React.useState<string>('');
   const [projects, setProjects] = React.useState<string[]>([]);
   const [picking, setPicking] = React.useState<boolean>(false);
-  const [view, setView] = React.useState<'list' | 'cards'>('list');
+  const [view, setView] = React.useState<'time' | 'ws' | 'cards'>('time');
   const [query, setQuery] = React.useState<string>('');
+  /** 顶部工作区切换器是否展开（Codex 式：项目是一等入口，占据左栏最上方）。 */
+  const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
+  /** 两个区块是否展开（会话 / 文件），可按需收起，让另一块占满左栏。 */
+  const [sessionsOpen, setSessionsOpen] = React.useState<boolean>(true);
+  const [treeOpen, setTreeOpen] = React.useState<boolean>(true);
+  /** 左栏是否收成图标条（Codex 式可折叠侧栏；快捷键 `[`）。 */
+  const [rail, setRail] = React.useState<boolean>(false);
+  /** 行右键菜单（会话 id + 视口坐标；null 表示未打开）。 */
+  const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameValue, setRenameValue] = React.useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
@@ -144,6 +155,35 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   // 卸载即丢弃在途防抖（否则定时器会在组件消失后打一次远端搜索）。
   React.useEffect(() => () => search.dispose(), [search]);
 
+  // 快捷键 `[` 收起/展开左栏；Esc 关掉右键菜单。挂在 window 上（焦点在左栏之外也能用），卸载即摘。
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target !== null &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (e.key === '[' && !typing) {
+        e.preventDefault();
+        setRail((prev) => !prev);
+      }
+      if (e.key === 'Escape') setMenu(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // 右键菜单：点空白处 / 滚动即关闭（菜单 fixed 定位，滚动后位置就错了）。
+  React.useEffect(() => {
+    if (menu === null) return;
+    const close = (): void => setMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [menu]);
+
   /** 打开内嵌文件夹选择器。 @returns 无 */
   const addProject = (): void => setPicking(true);
 
@@ -185,8 +225,16 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     }
   };
 
-  /** 切换视图：分组列表 ⇄ 并行任务卡。 @returns 无 */
-  const toggleView = (): void => setView((prev) => (prev === 'list' ? 'cards' : 'list'));
+  /** 切换视图：时间分组 → 按工作区分组 → 并行任务卡（三态循环）。 @returns 无 */
+  const toggleView = (): void => {
+    setView((prev) => (prev === 'time' ? 'ws' : prev === 'ws' ? 'cards' : 'time'));
+  };
+
+  /** 视图按钮文案（同时作为 aria-label，见下）。 @returns 中文字样 */
+  const viewLabel = (): string => (view === 'time' ? '时间' : view === 'ws' ? '工作区' : '任务卡');
+  /** 下一个视图的提示文案。 @returns 中文字样 */
+  const nextViewTitle = (): string =>
+    view === 'time' ? '切换到按工作区分组' : view === 'ws' ? '切换到任务卡视图' : '切换到时间分组';
 
   /** 进入行内重命名：预填当前标签，并清掉其他行内态。 */
   const startRename = (s: SessionEntry): void => {
@@ -292,6 +340,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onCancelDelete: cancelDelete,
     onCommitDelete: (id: string) => void commitDelete(id),
     onFork: (id: string) => void onFork(id),
+    onContextMenu: (id: string, x: number, y: number) => setMenu({ id, x, y }),
   };
   const listCtx: ListCtx = {
     ...rowCtx,
@@ -311,69 +360,166 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   };
 
   const listOpen = query.trim() !== '';
+  const wsName = wsPath === '' ? '未选择项目' : PathJoiner.basename(wsPath);
+  const menuSession = menu === null ? undefined : sessions.find((s) => s.id === menu.id);
   return (
-    <div className={'col left' + (open ? ' open' : '')} style={style}>
-      <div className="col-head">
-        <span>会话</span>
+    <div className={'col left' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
+      {/* 顶部：工作区/项目切换器（Codex 式一等入口）。收成图标条时只留这一个按钮。 */}
+      <div className="ws-switch">
         <button
-          className="ws-add"
-          title={view === 'list' ? '切换到并行任务卡视图' : '切换到列表视图'}
-          aria-label={view === 'list' ? '切换到任务卡视图' : '切换到列表视图'}
-          onClick={toggleView}
+          className="ws-switch-btn"
+          title={wsPath || '选择项目'}
+          aria-haspopup="menu"
+          aria-expanded={wsMenuOpen ? 'true' : 'false'}
+          onClick={() => setWsMenuOpen((v) => !v)}
         >
-          {view === 'list' ? '任务卡' : '列表'}
+          <span className="ws-switch-icon">📁</span>
+          {rail ? null : <span className="ws-switch-name">{wsName}</span>}
+          {rail ? null : <span className="ws-caret">▾</span>}
         </button>
+        {wsMenuOpen && !rail ? (
+          <div className="ws-switch-menu" role="menu">
+            {renderProjectsView(projects, wsPath, (p) => {
+              setWsMenuOpen(false);
+              void switchProject(p);
+            })}
+            <button
+              className="ws-add"
+              onClick={() => {
+                setWsMenuOpen(false);
+                addProject();
+              }}
+            >
+              + 添加项目
+            </button>
+          </div>
+        ) : null}
       </div>
-      <div className="section">
-        <div className="session-toolbar">
-          <input
-            className="session-search"
-            placeholder="搜索会话…"
-            value={query}
-            spellCheck={false}
-            role="combobox"
-            aria-label="搜索会话与文件"
-            aria-autocomplete="list"
-            aria-expanded={listOpen ? 'true' : 'false'}
-            aria-controls={SEARCH_LIST_ID}
-            aria-activedescendant={hitIndex >= 0 ? 'sr-opt-' + String(hitIndex) : undefined}
-            onChange={onSearchInput}
-            onKeyDown={onSearchKey}
-          />
-          <button className="btn primary" onClick={onNew}>
-            + 新建
+      <div className="col-head">
+        <button
+          className="sec-toggle"
+          aria-expanded={sessionsOpen ? 'true' : 'false'}
+          onClick={() => setSessionsOpen((v) => !v)}
+        >
+          <span className="ws-caret">{sessionsOpen ? '▾' : '▸'}</span>
+          {rail ? null : <span>会话</span>}
+        </button>
+        {rail ? null : (
+          <button
+            className="ws-add"
+            title={nextViewTitle()}
+            aria-label={nextViewTitle()}
+            onClick={toggleView}
+          >
+            {viewLabel()}
           </button>
-        </div>
-        <SearchResults
-          groups={groups}
-          selectedIndex={hitIndex}
-          query={query}
-          loading={searching}
-          onPick={openHit}
-        />
-        <div id="sessions">
-          {view === 'cards' ? renderCardsView(listCtx) : renderGroupsView(listCtx)}
-        </div>
-      </div>
-      <div className="col-head">
-        <span>工作区</span>
+        )}
         <button
-          className="ws-add"
-          title="添加项目文件夹"
-          aria-label="添加项目文件夹"
-          onClick={addProject}
+          className="ws-add rail-toggle"
+          title={rail ? '展开左栏（[）' : '收起左栏（[）'}
+          aria-label={rail ? '展开左栏' : '收起左栏'}
+          onClick={() => setRail((v) => !v)}
         >
-          + 添加项目
+          {rail ? '»' : '«'}
         </button>
       </div>
-      {renderProjectsView(projects, wsPath, (p) => void switchProject(p))}
-      <div className="section tree">{renderTreeView(tree, treeLoaded, treeError, onOpenFile)}</div>
+      {sessionsOpen ? (
+        <div className="section">
+          <div className="session-toolbar">
+            <input
+              className="session-search"
+              placeholder="搜索会话…"
+              value={query}
+              spellCheck={false}
+              role="combobox"
+              aria-label="搜索会话与文件"
+              aria-autocomplete="list"
+              aria-expanded={listOpen ? 'true' : 'false'}
+              aria-controls={SEARCH_LIST_ID}
+              aria-activedescendant={hitIndex >= 0 ? 'sr-opt-' + String(hitIndex) : undefined}
+              onChange={onSearchInput}
+              onKeyDown={onSearchKey}
+            />
+            <button className="btn primary" onClick={onNew}>
+              + 新建
+            </button>
+          </div>
+          <SearchResults
+            groups={groups}
+            selectedIndex={hitIndex}
+            query={query}
+            loading={searching}
+            onPick={openHit}
+          />
+          <div id="sessions">
+            {view === 'cards'
+              ? renderCardsView(listCtx)
+              : view === 'ws'
+                ? renderGroupsView(listCtx)
+                : renderTimeGroupsView(listCtx)}
+          </div>
+        </div>
+      ) : null}
+      <div className="col-head">
+        <button
+          className="sec-toggle"
+          aria-expanded={treeOpen ? 'true' : 'false'}
+          onClick={() => setTreeOpen((v) => !v)}
+        >
+          <span className="ws-caret">{treeOpen ? '▾' : '▸'}</span>
+          {rail ? null : <span>文件</span>}
+        </button>
+      </div>
+      {treeOpen ? (
+        <div className="section tree">{renderTreeView(tree, treeLoaded, treeError, onOpenFile)}</div>
+      ) : null}
       {picking ? (
         <FolderPicker
           api={api}
           onCancel={() => setPicking(false)}
           onPick={(path) => void pickProject(path)}
         />
+      ) : null}
+      {menu !== null && menuSession !== undefined ? (
+        <div className="row-menu" style={{ left: menu.x + 'px', top: menu.y + 'px' }} role="menu">
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              onSelect(menu.id);
+            }}
+          >
+            打开
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              startRename(menuSession);
+            }}
+          >
+            重命名
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              void onFork(menu.id);
+            }}
+          >
+            复制为副本
+          </button>
+          <button
+            role="menuitem"
+            className="danger"
+            onClick={() => {
+              setMenu(null);
+              askDelete(menu.id);
+            }}
+          >
+            删除…
+          </button>
+        </div>
       ) : null}
     </div>
   );
