@@ -17,6 +17,10 @@ import { React } from '../deps.js';
 interface RenderErrorBoundaryState {
   /** 捕获到的渲染错误（null = 正常）。 */
   error: Error | null;
+  /** React 给出的组件栈（定位「哪个组件抛的」——渲染错误里最有价值的一段）。 */
+  componentStack: string;
+  /** 详情是否已复制（按钮反馈）。 */
+  copied: boolean;
 }
 
 /** 现场留存键（sessionStorage：不跨标签页，避免旧错误干扰新会话）。 */
@@ -49,33 +53,38 @@ export class RenderErrorBoundary extends React.Component<
    */
   public constructor(props: { children?: unknown }) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, componentStack: '', copied: false };
   }
 
   /**
    * 渲染期抛错时把错误放进 state（React 据此重渲染为降级面板）。
    * @param error 抛出的错误
-   * @returns 新的边界状态
+   * @returns 新的边界状态（保留既有 componentStack，随后由 componentDidCatch 补齐）
    */
-  public static getDerivedStateFromError(error: Error): RenderErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): Partial<RenderErrorBoundaryState> {
     return { error };
   }
 
   /**
-   * 记录现场（控制台 + sessionStorage）。
+   * 记录现场（控制台 + sessionStorage），并把组件栈放进 state 以便**直接显示在面板上**。
+   *
+   * 为什么要显示出来：`Illegal invocation` 这类消息本身不含位置信息，只有组件栈能指出抛在哪一层；
+   * 让用户去翻控制台是把定位成本推给用户（2026-09-27 实测：截图上只有一行消息，仍无法定位）。
    * @param error 抛出的错误
    * @param info React 提供的组件栈
    * @returns 无返回值
    */
   public componentDidCatch(error: Error, info: { componentStack?: string }): void {
-    remember(error, info?.componentStack ?? '');
+    const componentStack = info?.componentStack ?? '';
+    remember(error, componentStack);
+    this.setState({ componentStack });
     // 边界本身不该吞掉错误：控制台照样打印，便于开发时定位。
-    console.error('[RenderErrorBoundary]', error);
+    console.error('[RenderErrorBoundary]', error, componentStack);
   }
 
   /** 清掉边界态，原地重挂子树。 @returns 无返回值 */
   private reset = (): void => {
-    this.setState({ error: null });
+    this.setState({ error: null, componentStack: '', copied: false });
   };
 
   /** 整页重载（兜底：子树状态已不可信时）。 @returns 无返回值 */
@@ -84,7 +93,30 @@ export class RenderErrorBoundary extends React.Component<
   };
 
   /**
-   * 正常时渲染子树；捕获到错误时渲染可读降级面板。
+   * 把「错误消息 + 组件栈 + 时间」复制到剪贴板（用户一句话即可把现场交给维护者）。
+   * @returns 无返回值
+   */
+  private copyDetail = (): void => {
+    const error = this.state.error;
+    const text = [
+      `时间：${new Date().toISOString()}`,
+      `消息：${error?.message ?? ''}`,
+      `栈：${(error?.stack ?? '').split('\n').slice(0, 8).join('\n')}`,
+      `组件栈：${this.state.componentStack}`,
+      `URL：${location.href}`,
+    ].join('\n');
+    try {
+      void navigator.clipboard.writeText(text).then(
+        () => this.setState({ copied: true }),
+        () => undefined,
+      );
+    } catch {
+      /* 剪贴板不可用：面板上的组件栈仍可手抄 */
+    }
+  };
+
+  /**
+   * 正常时渲染子树；捕获到错误时渲染可读降级面板（含组件栈与复制入口）。
    * @returns React 节点
    */
   public render(): unknown {
@@ -92,15 +124,24 @@ export class RenderErrorBoundary extends React.Component<
     if (error === null) {
       return this.props.children;
     }
+    const where = this.state.componentStack
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '')
+      .slice(0, 4)
+      .join(' ← ');
     return React.createElement(
       'div',
       { className: 'crash-panel', role: 'alert' },
       React.createElement('div', { className: 'crash-title' }, '界面渲染出错'),
       React.createElement('div', { className: 'crash-msg' }, error.message || String(error)),
+      where === ''
+        ? null
+        : React.createElement('div', { className: 'crash-where' }, '位置：' + where),
       React.createElement(
         'div',
         { className: 'crash-hint' },
-        '这是界面自身的渲染异常（不是你的操作问题）。现场已记录，可按「重新加载」继续使用；若反复出现，请把控制台里的 RenderErrorBoundary 报错发我。',
+        '这是界面自身的渲染异常（不是你的操作问题）。现场已记录，可按「重新加载」继续使用；若反复出现，请点「复制详情」把内容发我。',
       ),
       React.createElement(
         'div',
@@ -114,6 +155,11 @@ export class RenderErrorBoundary extends React.Component<
           'button',
           { type: 'button', className: 'crash-reload', onClick: this.reload },
           '重新加载',
+        ),
+        React.createElement(
+          'button',
+          { type: 'button', className: 'crash-copy', onClick: this.copyDetail },
+          this.state.copied ? '已复制' : '复制详情',
         ),
       ),
     );
