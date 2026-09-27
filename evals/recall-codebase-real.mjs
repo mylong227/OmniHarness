@@ -27,7 +27,7 @@ const { TransformersEmbeddingAdapter } = await importDist(
   'embedding',
   'transformersEmbeddingAdapter.js',
 );
-const { SemanticIndex, SemanticIndex } = await importDist('context', 'semanticIndex.js');
+const { SemanticIndex } = await importDist('context', 'semanticIndex.js');
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除，统一走实例方法）。 */
 const repoMap = new RepoMapContextEngine();
 
@@ -435,7 +435,6 @@ if (process.argv.includes('--heavy')) {
   log(
     `[heavy] full corpus: ${full.files.length} files, ${full.symbols.length} symbols, edges=${full.codeGraph.adj.reduce((a, x) => a + x.length, 0)}, lsaK=${full.lsaModel.k}`,
   );
-  const { query } = await importDist('context', 'contextEngine.js');
   const variants = [
     { name: 'base(BM25+spectrum)', opts: { graph: false, lsa: false } },
     { name: 'BM25+spectrum+graph', opts: { graph: true, lsa: false } },
@@ -447,7 +446,7 @@ if (process.argv.includes('--heavy')) {
     let hit = 0;
     const rows = [];
     for (const p of pre) {
-      const res = query(full, p.q, { ...v.opts, fileK: FILE_K, symK: 24 });
+      const res = ContextEngine.query(full, p.q, { ...v.opts, fileK: FILE_K, symK: 24 });
       const surf = new Set(res.files);
       const rec = p.gt.size ? [...p.gt].filter((f) => surf.has(f)).length / p.gt.size : 0;
       hit += rec;

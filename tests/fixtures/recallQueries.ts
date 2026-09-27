@@ -1,17 +1,20 @@
 /**
- * 检索评测查询集（**单一真相来源**）——34 → 84 条，2026-09-22 扩容。
+ * 检索评测查询集（**单一真相来源**）——34 → 84 条（2026-09-22 扩容）→ **193 条**（2026-09-27 再扩）。
  *
  * ## 为什么扩容（`docs/RECALL_HEADROOM_SURVEY.md` §5 建议 4，长期未做）
  *
  * 原集合 33 条使 bootstrap 95% CI 宽达 **±13–15pp**，于是「+3pp / +6pp」量级的改进**不可判定**——
  * 语义路（+6.1pp）与 PRF（+3pp）都是因此长期停在 opt-in。扩容后 CI 收窄，3–6pp 级效果才可判。
+ * 2026-09-27 再扩到 193 条（见 {@link GROWTH_RECALL_QUERIES} 的模块注释）：84 条的成对 CI 依旧宽达
+ * ±7pp，「1–3pp」级问题（精排判别器）仍不可判。
  *
  * ## 为什么不直接改原 33 条
  *
  * 原 33 条是**历史口径**：看板 §17、调研报告、多处「两关」判定都引用它们的数字。故本模块把
  * 原 33 条**逐字冻结**为 {@link CORE_RECALL_QUERIES}，新增的 51 条放在
  * {@link EXTENDED_RECALL_QUERIES}；消费方应当**同时**报告两档（`core33` 与 `all84`），
- * 既保历史可比，又拿到统计功效。
+ * 既保历史可比，又拿到统计功效。第三批 109 条同理独立成 {@link GROWTH_RECALL_QUERIES}，
+ * 并用 {@link FROZEN_COUNT} 标出「84 条冻结全量」这一历史切片。
  *
  * ## 采集协议（新增条目的可复核约束）
  *
@@ -198,11 +201,511 @@ export const EXTENDED_RECALL_QUERIES = [
   { q: 'how is a patch rendered as readable hunks', anchor: 'UnifiedDiff' },
 ];
 
-/** 全量查询集（84 条）。 */
+/**
+ * 扩容查询集（109 条，2026-09-27；R1「精排判别器」调研所需判定力）。
+ *
+ * ## 为什么再扩（`fileReranker.ts` 模块头明写的缺口）
+ *
+ * 84 条使成对 bootstrap 95% CI 宽达 **±7pp 量级**，于是「兄弟文件抬升的修法能否带来 1–3pp」这类问题
+ * **不可判定**——R1 第一轮（稀有词门）就是在噪声里被读成「−2.4pp / −1.2pp」。本次把集合扩到
+ * `193` 条（core33 + ext51 + growth109），CI 收窄约 1.5×，让 2–3pp 级效果可判。
+ *
+ * ## 采集与复核协议（在模块头三条之上再加两条）
+ *
+ *  1. **锚点必存在**、2. **对抗性（查询避开锚点全部子词）**、3. **同语料同口径** —— 同模块头。
+ *  4. **锚点不过泛**：锚点字面量在 `src/` 中出现的文件数 ≤ 3（过泛锚点把 GT 摊大、命中率被抬成
+ *     噪声；本批因此淘汰 `FileContentLedger`(7) / `CommandGlob`(6) / `A2aCapabilityDeclaration`(4) /
+ *     `DenyApproval`(4)` 等候选）。
+ *  5. **查询不含 GT 文件路径词**（目录名与文件名分出的词一并算）：避免「靠文件名白送分」——
+ *     这一条 ext51 没管，本批机械校验据此拦下并修好 5 条。
+ *
+ * ## 生成与复核分离（防「自证」）
+ *
+ * 三名**互不相通**的作者会话按域切片各写 36 条（context/检索/记忆；server/工具/安全；监督/进化/
+ * 工具链），再由**独立会话**逐条机械复验（锚点存在性、GT 计数、锚点子词交集、路径词交集、条目重复），
+ * 拦下的 16 条由**第三个独立会话**修复（14 条改写措辞 + 2 条换锚点），最后经
+ * `evals/recall-query-audit.mjs` 与 `tests/unit/recallQueries.test.ts` 复验。
+ *
+ * **诚实边界**：作者是模型（与 ext51 同），复核是**机械判据**（存在性 / 交集 / 计数）而非逐条人工
+ * 语义审读——「查询是否真描述锚点所在文件的能力」只由作者自查 + 抽样人工抽查覆盖。故本档数字用于
+ * **同集内成对对照**（同一查询集上的 A/B），不作跨仓库绝对命中率承诺。
+ */
+export const GROWTH_RECALL_QUERIES = [
+  // —— src/a2a（1 条）——
+  {
+    q: 'which numeric codes are handed back for a rejected or unknown call',
+    anchor: 'A2A_ERROR_UNAUTHORIZED',
+  },
+  // —— src/adapters（11 条）——
+  {
+    q: 'how is raw input broken into runnable segments or a refusal',
+    anchor: 'ShellParseOutcome',
+  },
+  {
+    q: 'what must the composition root supply to check code after a save',
+    anchor: 'PostWriteDiagnosticsWiring',
+  },
+  {
+    q: 'what pieces come back after a remote page is retrieved',
+    anchor: 'FetchedDocument',
+  },
+  {
+    q: 'what gets injected to build the check that runs as a reply finishes',
+    anchor: 'TurnEndCompletionGateDeps',
+  },
+  {
+    q: 'how many times may the check command fire in one conversation',
+    anchor: 'SelfVerifyPolicyOptions',
+  },
+  {
+    q: 'which slice of rows can be requested when opening a document',
+    anchor: 'LineWindowResult',
+  },
+  {
+    q: 'how closely must text agree before a swap is accepted',
+    anchor: 'MatchKind',
+  },
+  {
+    q: 'how is a risky request rendered for a model to judge',
+    anchor: 'GuardianPrompt',
+  },
+  {
+    q: 'where are repeated identical permission verdicts kept in memory',
+    anchor: 'class CachedApproval',
+  },
+  {
+    q: 'what does a terminal session report once its process exits',
+    anchor: 'InteractiveRunOutcome',
+  },
+  {
+    q: 'how is drift spotted before a stored copy is overwritten',
+    anchor: 'class FileContentLedger',
+  },
+  // —— src/adapters/approval（1 条）——
+  {
+    q: 'how are the escape characters kept out of pattern expansion',
+    anchor: 'REGEX_META',
+  },
+  // —— src/adapters/embedding（1 条）——
+  {
+    q: 'which surface of a third party model package does the wrapper consume',
+    anchor: 'interface TransformersModuleLike',
+  },
+  // —— src/adapters/memory（7 条）——
+  {
+    q: 'which stateless helpers sit beside the resonance simulation code',
+    anchor: 'class ResonantFieldMath',
+  },
+  {
+    q: 'a durable store kept as one growing append only journal',
+    anchor: 'class FileLongTermMemory',
+  },
+  {
+    q: 'which ceiling governs how many latest jottings survive',
+    anchor: 'interface FileScratchpadOptions',
+  },
+  {
+    q: 'how many degrees of temperature a diffusion step applies per connection',
+    anchor: 'class HeatEquationAnnealer',
+  },
+  {
+    q: 'at most how many engraved results are kept before the oldest is dropped',
+    anchor: 'class InsightEtchingEngine',
+  },
+  {
+    q: 'how is a note laid out in a grid with row and column parity',
+    anchor: 'class QECEncoder',
+  },
+  {
+    q: 'a candidate paired with its relevance number before ageing is applied',
+    anchor: 'interface ScoredFact',
+  },
+  // —— src/adapters/tool（9 条）——
+  {
+    q: 'how many warning lines are drawn for one file at most',
+    anchor: 'MAX_RENDERED_DIAGNOSTICS',
+  },
+  {
+    q: 'what an attached terminal reports about this host',
+    anchor: 'PtyReport',
+  },
+  {
+    q: 'how is an unresponsive build command given a ceiling',
+    anchor: 'SHELL_INTERACTIVE_MAX_TIMEOUT_MS',
+  },
+  {
+    q: 'tunables for the capability that downloads a page',
+    anchor: 'WebFetchToolOptions',
+  },
+  {
+    q: 'callback shape used to notice an unfinished stub after a write',
+    anchor: 'FakeCompletionProbe',
+  },
+  {
+    q: 'how is a live capture hook supplied when taking a picture',
+    anchor: 'ScreenshotSessionFactory',
+  },
+  {
+    q: 'what outcome comes back when a change bundle is applied across documents',
+    anchor: 'PatchApplierResult',
+  },
+  {
+    q: 'what can be undone once a saved point exists',
+    anchor: 'checkpointDefinition',
+  },
+  {
+    q: 'how is a stored command managed while it is still running',
+    anchor: 'ShellJobTool',
+  },
+  // —— src/cli（6 条）——
+  {
+    q: 'which confinement backends were detected as usable on this host',
+    anchor: 'SandboxStatus',
+  },
+  {
+    q: 'what collaborators are injected into the kit bridge',
+    anchor: 'SdkCommandDeps',
+  },
+  {
+    q: 'one row describing an available switch in the manual',
+    anchor: 'HelpEntry',
+  },
+  {
+    q: 'a canned bundle of settings for a known vendor',
+    anchor: 'AdapterPreset',
+  },
+  {
+    q: 'what inputs are needed to materialize secrets for the runtime',
+    anchor: 'CredentialHydrationArgs',
+  },
+  {
+    q: 'a reference to one of the interchangeable record backends',
+    anchor: 'KvHandle',
+  },
+  // —— src/context（10 条）——
+  {
+    q: 'what marks how much of a chat was already folded away',
+    anchor: 'interface CompactionState',
+  },
+  {
+    q: 'what bounds how many hops a neighborhood scan may take',
+    anchor: 'interface WalkLimits',
+  },
+  {
+    q: 'which artifact carries the sparse adjacency plus normalized importance',
+    anchor: 'interface GraphSignal',
+  },
+  {
+    q: 'how many characters of a symbol body may a slice retain',
+    anchor: 'const CHUNK_BODY_MAX_LINES',
+  },
+  {
+    q: 'how often the memoized measurements were reused',
+    anchor: 'interface TokenCountCacheStats',
+  },
+  {
+    q: 'what a remembered lookup reports back plus a nullable payload',
+    anchor: 'interface RepoMapMemoHit',
+  },
+  {
+    q: 'when is a big output swapped for a bounded preview and a locator',
+    anchor: 'class ToolResultSpiller',
+  },
+  {
+    q: 'identifiers whose output must never be offloaded',
+    anchor: 'interface SpillerOptions',
+  },
+  {
+    q: 'which category keys and window size are handed to the size auditor',
+    anchor: 'interface ContextBreakdownInput',
+  },
+  {
+    q: 'which knob list and share of identical leading bytes are reported',
+    anchor: 'interface PrefixStabilityReport',
+  },
+  // —— src/context/rankVeto（3 条）——
+  {
+    q: 'what the first pass produced alongside the tuning knobs',
+    anchor: 'interface RankVetoInput',
+  },
+  {
+    q: 'how many citations point at a node and how uneven they are',
+    anchor: 'interface StructuralDiagnostics',
+  },
+  {
+    q: 'which numeric cut offs decide if a ranking route is discarded',
+    anchor: 'interface VetoThresholds',
+  },
+  // —— src/eval（6 条）——
+  {
+    q: 'how is a broken run blamed on either the setup or the model',
+    anchor: 'ExecFailureKind',
+  },
+  {
+    q: 'what outcome is reported when a case runs in its own snapshot',
+    anchor: 'IsolatedVerdict',
+  },
+  {
+    q: 'one entry in the ordered recipe for preparing dependencies',
+    anchor: 'EnvInstallStep',
+  },
+  {
+    q: 'how are tasks bucketed by how hard they look',
+    anchor: 'DifficultyBreakdown',
+  },
+  {
+    q: 'the overall outcome of grading against a list of criteria',
+    anchor: 'ChecklistVerdict',
+  },
+  {
+    q: 'how is each python case graded from captured output',
+    anchor: 'PytestVerdict',
+  },
+  // —— src/evolution（4 条）——
+  {
+    q: 'the outcome telling whether a worse candidate was taken',
+    anchor: 'AcceptanceDecision',
+  },
+  {
+    q: 'what change was taken on board after a flaw was found',
+    anchor: 'AdoptedImprovement',
+  },
+  {
+    q: 'why was a candidate turned away before being merged',
+    anchor: 'AdmissionRejection',
+  },
+  {
+    q: 'what comes back after one pass of reinforced sampling',
+    anchor: 'RlvrRoundResult',
+  },
+  // —— src/genesis（3 条）——
+  {
+    q: 'what each step hands back to the driver',
+    anchor: 'HarnessOperatorResult',
+  },
+  {
+    q: 'the lookup translating each stage label into a key',
+    anchor: 'REPORT_FIELD',
+  },
+  {
+    q: 'the running picture of budget and consumed work',
+    anchor: 'GenesisState',
+  },
+  // —— src/native（2 条）——
+  {
+    q: 'the shape of the compiled addon this process loads',
+    anchor: 'NativeModule',
+  },
+  {
+    q: 'how is a label from our side rewritten for the inner dialect',
+    anchor: 'toNativeToolName',
+  },
+  // —— src/observability（3 条）——
+  {
+    q: 'which settings point at the collector and name the service',
+    anchor: 'OtlpExporterOptions',
+  },
+  {
+    q: 'dials controlling how spans are gathered from the bus',
+    anchor: 'TraceCollectingOptions',
+  },
+  {
+    q: 'what flags a moment when too little of the prompt prefix was reused',
+    anchor: 'CacheHitRateBreach',
+  },
+  // —— src/plugin（1 条）——
+  {
+    q: 'how is an extension pulled in by dynamically loading its entry module',
+    anchor: 'importPlugin',
+  },
+  // —— src/ports/intelligence（10 条）——
+  {
+    q: 'what an immutable base unit lists besides its group and tags',
+    anchor: 'interface ElementDef',
+  },
+  {
+    q: 'how can two symbols be joined when their valences cancel out',
+    anchor: 'interface ElementComposerPort',
+  },
+  {
+    q: 'how many normal samples trained the detector and what it last flagged',
+    anchor: 'interface ImmuneSelfReport',
+  },
+  {
+    q: 'how far a data point sits from the learned normal band',
+    anchor: 'interface AnomalyAlert',
+  },
+  {
+    q: 'the four speaker kinds a stored utterance may belong to',
+    anchor: 'type RetrievalRole',
+  },
+  {
+    q: 'where a promoted skill is written down and what it came from',
+    anchor: 'interface FrozenCapability',
+  },
+  {
+    q: 'a named slice of divergence computed for one axis instead of the total',
+    anchor: 'interface BeliefKlComponent',
+  },
+  {
+    q: 'a call that may only look, naming a chat and a cap on rows',
+    anchor: 'interface TraceReadRequest',
+  },
+  {
+    q: 'how is a passage sealed into a compact packet and opened again',
+    anchor: 'interface VortexRingPort',
+  },
+  {
+    q: 'one observation of how much a skill was leaned on',
+    anchor: 'interface UsageSample',
+  },
+  // —— src/ports/memory（1 条）——
+  {
+    q: 'which pluggable backend keeps a log of sessions for later reading',
+    anchor: 'interface StoragePort',
+  },
+  // —— src/ports/model（1 条）——
+  {
+    q: 'how do we learn whether the warm up succeeded and how long it took',
+    anchor: 'interface EmbeddingPreloadOutcome',
+  },
+  // —— src/search（3 条）——
+  {
+    q: 'what a scored slot in the inverted list hands back',
+    anchor: 'interface Bm25Hit',
+  },
+  {
+    q: 'how many picks can the lookup table score the same way',
+    anchor: 'interface Bm25Options',
+  },
+  {
+    q: 'where a plain text request is matched against known schemas',
+    anchor: 'class ToolIndex',
+  },
+  // —— src/server（14 条）——
+  {
+    q: 'how is a one way notice delivered without awaiting a reply',
+    anchor: 'RpcNotification',
+  },
+  {
+    q: 'what comes back when a long workflow starts and can be aborted later',
+    anchor: 'GraphRunHandle',
+  },
+  {
+    q: 'which preferences survive a restart and get written back',
+    anchor: 'PERSISTABLE_KEYS',
+  },
+  {
+    q: 'what extra fields travel with a generated regulatory filing',
+    anchor: 'ComplianceReportMeta',
+  },
+  {
+    q: 'tunables for keeping operator remarks about proposed changes',
+    anchor: 'DiffCommentStoreOptions',
+  },
+  {
+    q: 'which plan is chosen when no subscription was picked',
+    anchor: 'QUOTA_DEFAULT_ID',
+  },
+  {
+    q: 'what value stands in when nothing has been toggled yet',
+    anchor: 'EMPTY_SESSION_MODES',
+  },
+  {
+    q: 'possible results of moving an exchange backwards in time',
+    anchor: 'SessionRewindOutcome',
+  },
+  {
+    q: 'what comes back when a bounded workspace fetch succeeds or fails',
+    anchor: 'SafeReadResult',
+  },
+  {
+    q: 'what the dashboard reports for an external uptime checker',
+    anchor: 'HealthStatus',
+  },
+  {
+    q: 'how long each exchange took at the lowest and highest',
+    anchor: 'TurnStats',
+  },
+  {
+    q: 'what snapshot does the status call hand back about a workflow',
+    anchor: 'GraphRunState',
+  },
+  {
+    q: 'payload carrying a numeric fault code back to the caller',
+    anchor: 'RpcError',
+  },
+  {
+    q: 'how is the loopback listener configured together with an access credential',
+    anchor: 'HttpServerOptions',
+  },
+  // —— src/skill（1 条）——
+  {
+    q: 'how is a sliding average applied to a grid of numbers',
+    anchor: 'boxBlur',
+  },
+  // —— src/spark（2 条）——
+  {
+    q: 'the bundle of subsystem handles handed to each round',
+    anchor: 'SparkEngineSet',
+  },
+  {
+    q: 'where per round readings are pushed to the sink',
+    anchor: 'SparkCycleTelemetry',
+  },
+  // —— src/subagent（2 条）——
+  {
+    q: 'a handle that relays an outside abort to an inner request',
+    anchor: 'LinkedSignal',
+  },
+  {
+    q: 'the role description that shapes how a helper behaves',
+    anchor: 'AgentPersona',
+  },
+  // —— src/supervisor（1 条）——
+  {
+    q: 'what tracks the recent pass or fail record of each executable',
+    anchor: 'ToolStat',
+  },
+  // —— src/util（6 条）——
+  {
+    q: 'the split of divergence into two additive parts',
+    anchor: 'KlDecomposition',
+  },
+  {
+    q: 'a reading of how many recent calls failed plus the open instant',
+    anchor: 'CircuitSnapshot',
+  },
+  {
+    q: 'what comes back from scanning every path in a tree',
+    anchor: 'WorkspaceWalkResult',
+  },
+  {
+    q: 'callbacks stored while an answer is still awaited',
+    anchor: 'PendingHandlers',
+  },
+  {
+    q: 'fallback vendor settings used when nothing was configured',
+    anchor: 'ModelAdapterDefaults',
+  },
+  {
+    q: 'raised when a relative route escapes its root',
+    anchor: 'PathTraversalError',
+  },
+];
+
+/** 全量查询集（193 条 = core33 + ext51 + growth109）。 */
 export const RECALL_QUERIES: readonly RecallQuery[] = [
   ...CORE_RECALL_QUERIES,
   ...EXTENDED_RECALL_QUERIES,
+  ...GROWTH_RECALL_QUERIES,
 ];
+
+/**
+ * 2026-09-27 之前的**冻结全量**（84 条）——历史数字（`all84`）的对照切片。
+ * 新报告应**同时**给出 `frozen84` 与 `all193` 两档：前者与看板 §23 可比，后者是新判定口径。
+ */
+export const FROZEN_COUNT: number = CORE_RECALL_QUERIES.length + EXTENDED_RECALL_QUERIES.length;
 
 /** 历史子集条数（33）——报告里用于「core33 / all84」双档对照。 */
 export const CORE_COUNT: number = CORE_RECALL_QUERIES.length;

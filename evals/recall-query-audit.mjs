@@ -11,7 +11,7 @@
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { writeFileSync } from 'node:fs';
-import { CORE_COUNT, RECALL_QUERIES } from '../dist/tests/fixtures/recallQueries.js';
+import { CORE_COUNT, FROZEN_COUNT, RECALL_QUERIES } from '../dist/tests/fixtures/recallQueries.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -90,7 +90,8 @@ const bandCounts = {
   LEXICAL: count((r) => r.band === 'LEXICAL'),
 };
 const core = rows.slice(0, CORE_COUNT);
-const ext = rows.slice(CORE_COUNT);
+const ext = rows.slice(CORE_COUNT, FROZEN_COUNT);
+const growth = rows.slice(FROZEN_COUNT);
 const hitRateOf = (list) =>
   +((list.filter((r) => r.hitAtK === 1).length / Math.max(1, list.length)) * 100).toFixed(1);
 
@@ -107,7 +108,8 @@ console.log(
   bandCounts.LEXICAL,
 );
 console.log(`  冻结子集 %d 条：命中 %s%`, core.length, hitRateOf(core));
-console.log(`  新增子集 %d 条：命中 %s%`, ext.length, hitRateOf(ext));
+console.log(`  复核后新增子集 %d 条：命中 %s%`, ext.length, hitRateOf(ext));
+console.log(`  2026-09-27 再扩子集 %d 条：命中 %s%`, growth.length, hitRateOf(growth));
 const rankBands = [
   ['≤20', (r) => r.bestRank !== null && r.bestRank <= 20],
   ['21–50', (r) => r.bestRank !== null && r.bestRank > 20 && r.bestRank <= 50],
@@ -128,10 +130,12 @@ writeFileSync(
       config: { K, RANK_CAP },
       total: n,
       coreCount: CORE_COUNT,
+      frozenCount: FROZEN_COUNT,
       hitRate: {
         all: rate((r) => r.hitAtK === 1),
         core: hitRateOf(core),
         extended: hitRateOf(ext),
+        growth: hitRateOf(growth),
       },
       bands: bandCounts,
       rows,

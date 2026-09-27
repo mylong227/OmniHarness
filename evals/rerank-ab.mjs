@@ -30,7 +30,7 @@ const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)
 
 const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
-const { RankVetoEvaluator, jaccardOverlap, DEFAULT_VETO_THRESHOLDS } = await importDist(
+const { RankVetoEvaluator, RankVetoOverlap, DEFAULT_VETO_THRESHOLDS } = await importDist(
   'context',
   'rankVeto',
   'index.js',
@@ -47,7 +47,7 @@ const FILE_KS = FK_ARG >= 0 ? [Number(process.argv[FK_ARG + 1])] : [10, 14];
 // 且只覆盖冻结子集——两关结论必须建立在**第二方复核过的全量集**上（DEFICIENCY_AUDIT §4.5 处置 2）。
 // 设计原则（引用上游口径）：查询用自然语言改写、刻意避开锚点字面词（制造词法鸿沟）；
 // 锚点必须真实存在于语料，否则 GT 为空会让召回兜底成 100%，污染绝对值。
-const { RECALL_QUERIES, CORE_COUNT } = await import(
+const { RECALL_QUERIES, CORE_COUNT, FROZEN_COUNT } = await import(
   pathToFileURL(join(ROOT, 'dist', 'tests', 'fixtures', 'recallQueries.js')).href
 );
 const QUERIES = RECALL_QUERIES.map((entry) => [entry.q, entry.anchor]);
@@ -76,7 +76,13 @@ for (const [idx, [q, anchor]] of QUERIES.entries()) {
     console.log(`  SKIP(GT=0) ${q}  anchor=${anchor}`);
     continue;
   }
-  items.push({ q, anchor, gt, tier: idx < CORE_COUNT ? 'core' : 'extended' });
+  items.push({
+    q,
+    anchor,
+    gt,
+    // 三档切片（2026-09-27 起）：core33（冻结历史）/ ext51（复核后新增，与 core 合称 frozen84）/ growth109。
+    tier: idx < CORE_COUNT ? 'core' : idx < FROZEN_COUNT ? 'extended' : 'growth',
+  });
 }
 const n = items.length;
 console.log(`valid queries: ${n}/${QUERIES.length}（跳过 ${skipped.length}）`);
@@ -175,9 +181,13 @@ const runFileK = (fileK) => {
     +avg(
       rows.filter((_, i) => items[i].tier === tier).map((r) => r.onRecall - r.offRecall),
     ).toFixed(1);
-  const tierDeltas = { core: tierDeltaOf('core'), extended: tierDeltaOf('extended') };
+  const tierDeltas = {
+    core: tierDeltaOf('core'),
+    extended: tierDeltaOf('extended'),
+    growth: tierDeltaOf('growth'),
+  };
   console.log(
-    `  分层   core33 ${tierDeltas.core >= 0 ? '+' : ''}${tierDeltas.core}pp / extended51 ${tierDeltas.extended >= 0 ? '+' : ''}${tierDeltas.extended}pp`,
+    `  分层   core33 ${tierDeltas.core >= 0 ? '+' : ''}${tierDeltas.core}pp / ext51 ${tierDeltas.extended >= 0 ? '+' : ''}${tierDeltas.extended}pp / growth109 ${tierDeltas.growth >= 0 ? '+' : ''}${tierDeltas.growth}pp`,
   );
   console.log(
     `  召回   ${offRecall}% → ${onRecall}%  (${onRecall - offRecall >= 0 ? '+' : ''}${(onRecall - offRecall).toFixed(1)}pp)  ↑${up}/↓${down}/=${flat}`,
@@ -245,7 +255,7 @@ const vetoOf = (offLists, onLists) => {
   let worst = 0;
   let worstIdx = 0;
   for (let i = 0; i < onLists.length; i += 1) {
-    const ov = jaccardOverlap(offLists[i], onLists[i]);
+    const ov = RankVetoOverlap.jaccardOverlap(offLists[i], onLists[i]);
     sum += ov;
     if (ov > worst) {
       worst = ov;
@@ -352,9 +362,10 @@ for (const fileK of FILE_KS) {
 const decisiveRow = perFileK.find((x) => x.decisive);
 const report = {
   eval: 'rerank-ab',
-  batch: 'polish-2/检索命中（2026-09-25 改接复核后全量 84 条）',
+  batch: 'polish-2/检索命中（2026-09-27 起接扩容后全量 193 条；frozen84 切片保留历史可比）',
   path: 'production: RepoMapContextEngine.getRepoMapContext',
-  querySource: 'tests/fixtures/recallQueries.ts（all84，2026-09-25 第二方复核版）',
+  querySource: 'tests/fixtures/recallQueries.ts（all193 = core33 + ext51 + growth109）',
+  queryCounts: { all: n, core: CORE_COUNT, frozen: FROZEN_COUNT, growth: n - FROZEN_COUNT },
   decisionFileK: DECISION_FILE_K,
   // 「翻默认」的结论必须能由报告本身复算出来，而不是只写在散文里。
   decisionBasis:
@@ -366,8 +377,9 @@ const report = {
     // 开启方式 = `opts.rerank: true` 或 env `OMNI_RERANK=1`。
     enabledByDefault: false,
     note:
-      '本报告为 2026-09-25 复核修正后全量 84 条的复跑结果：core33 +5.9pp / extended51 +0.4pp，' +
-      '基准档点增益 +2.6pp 但 CI 下界 −1.59pp ⇒ 两关未过，生产默认据 DEFICIENCY_AUDIT §4.5 处置回关（opt-in）。',
+      '2026-09-27 起本报告接扩容后全量 193 条（growth109 为再扩样本，见 fixture 注释）。' +
+      '历史 84 条口径下的结论（core33 +5.9pp / extended51 +0.4pp，基准档点增益 +2.6pp 但 CI 下界负）' +
+      '见看板 §23 与本文件 git 历史；生产默认仍为 opt-in（DEFICIENCY_AUDIT §4.5 处置）。',
   },
   corpus: {
     root: 'src',

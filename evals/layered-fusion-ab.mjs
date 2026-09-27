@@ -42,7 +42,7 @@ const repoMap = new RepoMapContextEngine();
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { LayeredCodeGraph } = await importDist('context', 'layeredCodeGraph.js');
-const { RankVetoEvaluator, jaccardOverlap } = await importDist('context', 'rankVeto', 'index.js');
+const { RankVetoEvaluator, RankVetoOverlap } = await importDist('context', 'rankVeto', 'index.js');
 
 /** 语料根（与生产一致）。 */
 const SRC = join(ROOT, 'src');
@@ -239,7 +239,7 @@ console.log(
 const fusionRanked = rows.map((r) => r.fusionFiles.slice(0, FILE_K));
 const bm25Ranked = rows.map((r) => r.bm25Files.slice(0, FILE_K));
 const overlapAvg =
-  fusionRanked.reduce((s, list, i) => s + jaccardOverlap(bm25Ranked[i], list), 0) /
+  fusionRanked.reduce((s, list, i) => s + RankVetoOverlap.jaccardOverlap(bm25Ranked[i], list), 0) /
   fusionRanked.length;
 console.log(
   `\n与 BM25 簇重合度 ${overlapAvg.toFixed(4)}（软融合为增强路，高重合是预期，不作为复读判据）`,

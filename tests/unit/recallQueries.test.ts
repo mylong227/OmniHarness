@@ -16,6 +16,8 @@ import {
   CORE_COUNT,
   CORE_RECALL_QUERIES,
   EXTENDED_RECALL_QUERIES,
+  FROZEN_COUNT,
+  GROWTH_RECALL_QUERIES,
   RECALL_QUERIES,
   adversarialOverlap,
   anchorTokensOf,
@@ -38,18 +40,19 @@ test('① 结构完整：字段非空且查询文本不重复', () => {
   }
 });
 
-test('② 规模达标：全量 ≥80 条，冻结子集恰为 33 条', () => {
-  assert.ok(RECALL_QUERIES.length >= 80, `全量仅 ${RECALL_QUERIES.length} 条（目标 ≥80）`);
+test('② 规模达标：全量 ≥190 条，冻结子集恰为 33 条、冻结全量恰为 84 条', () => {
+  assert.ok(RECALL_QUERIES.length >= 190, `全量仅 ${RECALL_QUERIES.length} 条（目标 ≥190）`);
   assert.strictEqual(CORE_COUNT, 33, '冻结的历史子集必须恰为 33 条（看板 §17 数字依赖它）');
   assert.strictEqual(CORE_RECALL_QUERIES.length, 33);
+  assert.strictEqual(FROZEN_COUNT, 84, '冻结全量必须恰为 84 条（看板 §23 数字依赖它）');
   assert.strictEqual(
     RECALL_QUERIES.length,
-    CORE_RECALL_QUERIES.length + EXTENDED_RECALL_QUERIES.length,
+    CORE_RECALL_QUERIES.length + EXTENDED_RECALL_QUERIES.length + GROWTH_RECALL_QUERIES.length,
   );
 });
 
 test('③ 对抗性：新增条目的查询内容词与锚点子词零交集', () => {
-  for (const entry of EXTENDED_RECALL_QUERIES) {
+  for (const entry of [...EXTENDED_RECALL_QUERIES, ...GROWTH_RECALL_QUERIES]) {
     const overlap = adversarialOverlap(entry);
     assert.deepStrictEqual(
       overlap,
