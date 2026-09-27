@@ -1,4 +1,4 @@
-﻿/**
+/**
  * cliServerCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 2/6 层）。
  *
  * 承载「服务端 / 身份 / 后台」类子命令：server / schema / doctor / auth(login|callback) /
@@ -365,14 +365,18 @@ export class CliServerCmds extends CliBuildConfig {
    * 组装 serve 的「显示配置」（供 UI 展示运行口径）。
    *
    * 优先级刻意是「已落盘文件值 → CLI 传入 → 内置默认」：重启后 UI 显示必须与后端**实际所用**一致
-   * （否则又会出现「UI 显示 auto、后端跑 rules」这类漂移）。抽成独立方法的另一个原因是
-   * `runServe` 的函数体贴近门禁基线。
+   * （否则又会出现「UI 显示 auto、后端跑 rules」这类漂移）。抽成独立方法（并公开，供单测直接断言）
+   * 的另一个原因是 `runServe` 的函数体贴近门禁基线。
+   *
+   * **`reasoning` 曾漏在这里**（2026-09-27 跑真 UI 时发现）：用户级配置写了 `reasoning: "high"`、
+   * 后端也确实按 high 跑（`ArgParser.configDefaults` 会透传），但 UI 的「推理强度」显示「默认」——
+   * 与 `modelAdapter` 那次是同一类「显示 ≠ 实际」的漂移，故一并补上。
    * @param loadedFile 分层加载后的配置（用户级 → 项目级 → profile → bundle → env 的合并结果）。
    * @param args 解析后的 CLI 参数。
    * @param wsRoot 工作区根（恒等于启动目录，见 runServe 里「工作区错位」的说明）。
    * @returns 键值表（值恒为字符串，缺失时用内置默认）。
    */
-  private static displayConfigOf(
+  public static displayConfigOf(
     loadedFile: FileConfig,
     args: CliArgs,
     wsRoot: string,
@@ -380,6 +384,7 @@ export class CliServerCmds extends CliBuildConfig {
     return {
       modelAdapter: loadedFile.modelAdapter ?? args.modelAdapter ?? 'mock',
       model: loadedFile.model ?? args.model ?? '',
+      reasoning: loadedFile.reasoning ?? args.reasoning ?? '',
       approval: loadedFile.approval ?? args.approval ?? 'rules',
       approvalAsk: args.approvalAsk ?? 'allow',
       sandbox: loadedFile.sandbox ?? args.sandbox ?? 'policy',

@@ -104,7 +104,10 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     api
       .listPlugins()
       .then((list) => {
-        setPlugins(list);
+        // 防御：响应形状不符（旧版服务端没有该方法 ⇒ 回落成 `{}`）时给空列表，而不是把 `undefined`
+        // 塞进 state——那会让 `sections()` 在 `.length`/`.map` 上抛错，React 直接把整块输入区卸载掉
+        // （2026-09-27 在 stub 页实测：点＋后 `.addmenu` 整个消失）。
+        setPlugins(Array.isArray(list) ? list : []);
         setPluginsLoading(false);
       })
       .catch(() => setPluginsLoading(false));
@@ -112,7 +115,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     api
       .agentsList()
       .then((r) => {
-        setAgents(r.agents);
+        setAgents(Array.isArray(r.agents) ? r.agents : []);
         setAgentsLoading(false);
       })
       .catch(() => setAgentsLoading(false));

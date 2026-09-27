@@ -88,7 +88,12 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
   };
 
   const view = usage !== undefined ? new ContextUsageView(usage) : undefined;
-  const quotaView = quota !== undefined ? new QuotaView(quota) : undefined;
+  // 形状守卫：`QuotaView` 会在取值时直接读 `status.plan.upgraded` / `status.models.map`，而服务端
+  // 版本不匹配（旧版没有 `quota.get`，RPC 回落成 `{}`）时构造即抛错 —— 后果不是「这块空着」而是
+  // **整个工作台被卸载**（2026-09-27 实测 root 清空、输入区消失）。缺字段就降级为「无配额数据」。
+  const hasQuotaShape =
+    quota !== undefined && 'plan' in quota && Array.isArray(quota.models) && quota.plan !== null;
+  const quotaView = hasQuotaShape ? new QuotaView(quota) : undefined;
   const percent = view !== undefined ? view.barPercent : 0;
   return (
     <div

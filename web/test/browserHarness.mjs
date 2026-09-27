@@ -118,7 +118,15 @@ function injectedBody() {
     "    'approval.tiers': { tiers: [] },",
     "    'changes.list': { files: [] },",
     "    'usage.stats': { source:'live', dir:'', byModel:{}, total:{calls:0,prompt:0,completion:0,total:0}, sessions:[] },",
-    "    'context.usage': { categories:[] },",
+    "    'context.usage': { threadId:'', windowTokens:0, usedTokens:0, percent:0, rows:[], mcpToolCount:0, systemToolCount:0, source:'empty', cache:{ hitRate:0, calls:0 }, collectedAt:'' },",
+    // 配额：**形状必须完整**——`QuotaView` 会直接读 `status.plan.upgraded` 与 `status.models.map`，
+    // 形状不符（旧版服务端无该方法 ⇒ 回落 `{}`）会在渲染期抛错并把整个工作台卸载（root 清空）。
+    "    'quota.get': { plan:{ id:'free', label:'免费', multiplier:1, upgraded:false, fallback:true }, dailyTokens:1000000, effectiveTokens:1000000, usedTokens:0, remainingPercent:100, models:[], dayKey:'1970-01-01', resetAt:'1970-01-01T23:59:59.999Z', source:'local-budget' },",
+    // 添加菜单要这两项（插件/智能体目录）：缺失时旧实现会把 undefined 塞进 state，点＋即整块输入区
+    // 崩掉卸载（2026-09-27 实测）⇒ stub 必须给**正确形状**，否则弹层类用例根本测不到渲染。
+    "    'plugins.list': { plugins: [] },",
+    "    'agents.list': { agents: [] },",
+    "    'modes.get': { goal:'', planMode:false, sketchMode:false },",
     "    'approval.respond': { ok:true },",
     "    'turns.run': { pending:true }",
     '  };',

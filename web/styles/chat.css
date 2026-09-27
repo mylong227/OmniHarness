@@ -97,6 +97,11 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 /* ---------- 输入区（Codex 式悬浮圆角容器） ---------- */
 /* ---------- 底部输入区（Codex 风格：切换器 + 附件 + 文本） ---------- */
 .composer {
+  /* 弹层（添加菜单 / 上下文容量）以**整个输入区**为定位基准：它们原先挂在 `.addmenu` / `.cap` 上
+     再用 `left:0` + 固定 300–320px 展开，而这两个触发器在 `.composer-bar` 里会随 flex 排到右半侧
+     ⇒ 弹层右边缘冲出视口（800px 窗口实测到 920px），被可滚动列裁掉右半边（用户报「页面被截断遮挡」）。
+     改为基准 = `.composer` + 弹层居中：输入区恒 ≳570px 宽，任何窗口下都装得下。 */
+  position:relative;
   margin:0 14px 14px; padding:10px 12px;
   background:var(--panel); border:1px solid var(--border); border-radius:14px;
   display:flex; flex-direction:column; gap:8px;
