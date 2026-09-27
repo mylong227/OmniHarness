@@ -10,6 +10,7 @@ import type { AppRoute } from '../../core/Router.js';
 import { EventStream } from '../../core/EventStream.js';
 import { RouteBinding } from './RouteBinding.js';
 import { LayoutController } from './LayoutController.js';
+import { MethodBinder } from './methodBinder.js';
 import { ToastService } from '../../core/ToastService.js';
 import type { ToastKind } from '../../core/ToastService.js';
 import { DialogService } from '../../core/DialogService.js';
@@ -189,13 +190,10 @@ export class AppController {
     // F8：路由绑定在组合根装配（需 children.sessions 作为打开会话回调）。
     this.routeBinding = new RouteBinding(this.host, (id: string) => void this.children.sessions.loadThread(id));
     // 绑定对外回调，保证作为 props 传递给子组件时 this 正确。
-    this.setActivePane = this.setActivePane.bind(this);
-    this.openPane = this.openPane.bind(this);
-    this.openSettingsPane = this.openSettingsPane.bind(this);
-    this.openPalette = this.openPalette.bind(this);
-    this.closePalette = this.closePalette.bind(this);
-    this.respondApproval = this.respondApproval.bind(this);
-    this.showToast = this.showToast.bind(this);
+    // 2026-09-27：改为**按原型全量绑定**——手写清单曾漏掉 SessionController 的
+    // rename/delete/fork（用户报「删除无效」，实为 this 丢失后的静默 unhandledRejection）。
+    // 见 MethodBinder。
+    MethodBinder.bindAll(this);
   }
 
   /** 挂载：绑定 toast / 对话框服务、拉取目录/配置、初始化主题、连接 SSE、刷新会话。 @returns 无 */

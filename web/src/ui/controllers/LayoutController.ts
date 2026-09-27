@@ -2,6 +2,7 @@
 // 单一职责：主题切换、左右面板开合、面板宽度持久化、首屏偏好恢复。全部经 AppHost.patch 驱动状态。
 
 import type { AppHost } from './AppController.js';
+import { MethodBinder } from './methodBinder.js';
 
 /** 布局 / 主题偏好控制器。 */
 export class LayoutController {
@@ -14,6 +15,10 @@ export class LayoutController {
    */
   public constructor(host: AppHost) {
     this.host = host;
+    // 本类的方法**全部**以裸引用传给子组件（onToggleTheme / onToggleLeft / onToggleRight /
+    // onLeftWidthChange / onRightWidthChange）⇒ 必须绑定，否则每次点击都在事件处理器里抛
+    // `this.host` 读取失败（表现为「按钮点了没反应」）。见 MethodBinder。
+    MethodBinder.bindAll(this);
   }
 
   /**

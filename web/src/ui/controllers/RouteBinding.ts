@@ -3,6 +3,7 @@
 
 import { parseHash, navigate, onRouteChange, type AppRoute } from '../../core/Router.js';
 import type { AppHost, AppState } from './AppController.js';
+import { MethodBinder } from './methodBinder.js';
 
 /** 路由收口回调（把解析后的路由落到应用状态）。 */
 export type RouteApply = (route: AppRoute) => void;
@@ -32,6 +33,8 @@ export class RouteBinding {
     this.host = host;
     this.onThread = onThread;
     this.route = parseHash();
+    // start/stop 会作为回调挂到 window 事件上（`onRouteChange` 的订阅与卸载），必须绑定。见 MethodBinder。
+    MethodBinder.bindAll(this);
   }
 
   /** 当前路由。 @returns 路由 */

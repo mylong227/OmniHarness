@@ -436,7 +436,13 @@ export function Composer(props: ComposerProps): ReactElement {
         />
         <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
         {hint ? <span className="ctl-hint">{hint}</span> : null}
-        <ContextCapacityPanel threadId={threadId ?? ''} api={api} onToast={(m, k) => onToast?.(m, k)} />
+        {/* `busy` 是**刷新信号**：用量快照在回合推进中才产生，不随 busy 变化重拉就会一直显示回合前的空快照。 */}
+        <ContextCapacityPanel
+          threadId={threadId ?? ''}
+          api={api}
+          busy={busy === true}
+          onToast={(m, k) => onToast?.(m, k)}
+        />
         <AddMenu
           threadId={threadId ?? ''}
           api={api}
