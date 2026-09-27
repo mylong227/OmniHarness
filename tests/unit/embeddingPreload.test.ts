@@ -30,6 +30,10 @@ interface LoaderState {
   remainingFailures: number;
   /** 每次 `pipeline()` 被调用时看到的 `env.remoteHost`（用于验证镜像在构建前写入）。 */
   capturedRemoteHost: string[];
+  /** 每次 `pipeline()` 被调用时看到的 `env.cacheDir`（用于验证缓存目录在构建前写入）。 */
+  capturedCacheDir: string[];
+  /** 每次 `pipeline()` 被调用时收到的选项（用于验证 `cache_dir` / `local_files_only` 透传）。 */
+  capturedOptions: Record<string, unknown>[];
   /** `pipeline()` 被调用次数（= 真正构建管线的次数）。 */
   pipelineCalls: number;
 }
@@ -44,6 +48,8 @@ function makeLoader(failTimes = 0): { loader: TransformersModuleLoader; state: L
     calls: 0,
     remainingFailures: failTimes,
     capturedRemoteHost: [],
+    capturedCacheDir: [],
+    capturedOptions: [],
     pipelineCalls: 0,
   };
   const loader: TransformersModuleLoader = async (): Promise<TransformersModuleLike> => {
@@ -53,10 +59,16 @@ function makeLoader(failTimes = 0): { loader: TransformersModuleLoader; state: L
       throw new Error('模拟模型包加载失败');
     }
     const module: TransformersModuleLike = {
-      env: { remoteHost: 'https://default.invalid' },
-      pipeline: async (): Promise<unknown> => {
+      env: { remoteHost: 'https://default.invalid', cacheDir: '/library/default-cache' },
+      pipeline: async (
+        _task: string,
+        _model: string,
+        opts: Record<string, unknown>,
+      ): Promise<unknown> => {
         state.pipelineCalls += 1;
         state.capturedRemoteHost.push(module.env.remoteHost);
+        state.capturedCacheDir.push(module.env.cacheDir);
+        state.capturedOptions.push(opts);
         // 假管线：返回带 tolist() 的对象，形状与 transformers.js 的张量输出一致。
         return async (): Promise<unknown> => ({ tolist: () => [[0.1, 0.2, 0.3]] });
       },
@@ -66,11 +78,12 @@ function makeLoader(failTimes = 0): { loader: TransformersModuleLoader; state: L
   return { loader, state };
 }
 
-const makeAdapter = (loader: TransformersModuleLoader, remoteHost?: string) =>
+const makeAdapter = (loader: TransformersModuleLoader, remoteHost?: string, cacheDir?: string) =>
   new TransformersEmbeddingAdapter({
     preset: 'minilm',
     loader,
     ...(remoteHost === undefined ? {} : { remoteHost }),
+    ...(cacheDir === undefined ? {} : { cacheDir }),
     localFilesOnly: true,
   });
 
@@ -132,6 +145,32 @@ test('L5 ④b 未设镜像源时沿用该库默认（零行为变更）', async 
   const adapter = makeAdapter(loader);
   await adapter.preload();
   assert.deepEqual(state.capturedRemoteHost, ['https://default.invalid'], '不得擅自改写默认源');
+});
+
+test('L5 ④c 缓存目录在构建 pipeline **之前**写入 env.cacheDir（否则离线复用形同不存在）', async () => {
+  const { loader, state } = makeLoader();
+  const adapter = makeAdapter(loader, undefined, 'D:/models/cache');
+  await adapter.preload();
+  assert.deepEqual(
+    state.capturedCacheDir,
+    ['D:/models/cache'],
+    'pipeline 构建时应已看到缓存目录（该库解析本地已下载文件走 env.cacheDir）',
+  );
+  // 两条路径都要给：`env.cacheDir` 负责本地命中，管道选项 `cache_dir` 负责下载落盘位置。
+  assert.strictEqual(state.capturedOptions[0]?.['cache_dir'], 'D:/models/cache');
+  assert.strictEqual(
+    state.capturedOptions[0]?.['local_files_only'],
+    true,
+    '离线开关必须透传到管道选项',
+  );
+});
+
+test('L5 ④d 未设缓存目录时沿用该库默认（零行为变更）', async () => {
+  const { loader, state } = makeLoader();
+  const adapter = makeAdapter(loader);
+  await adapter.preload();
+  assert.deepEqual(state.capturedCacheDir, ['/library/default-cache']);
+  assert.ok(!('cache_dir' in (state.capturedOptions[0] ?? {})), '不得凭空造 cache_dir');
 });
 
 test('L5 ⑤ embed 经注入管线取回向量（形状透传）', async () => {

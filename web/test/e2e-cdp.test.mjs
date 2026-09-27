@@ -1,4 +1,4 @@
-// E1：浏览器验证 / computer use（CDP 路线，零依赖）。
+﻿// E1：浏览器验证 / computer use（CDP 路线，零依赖）。
 //
 // 可证伪验收（同 board E1 行）：CDP 驱动本机已装浏览器做「截图 → 视觉核对 → 操作回环」一例。
 // 本例用 Node 22 内置 WebSocket 直连 Chrome DevTools Protocol，全程不引入任何浏览器自动化库：
@@ -22,6 +22,7 @@ import {
   stubHtmlCdp,
   getFreePort,
   launchChromeForCdp,
+  killChromeTree,
   waitForPageWs,
   CdpSession,
   WEB_ROOT_PATH,
@@ -101,16 +102,12 @@ test('E1 CDP：截图 → 视觉核对 → 操作回环（本机 Chrome，零依
     }
   } finally {
     if (cdp) cdp.close();
-    if (proc) {
-      try {
-        proc.kill('SIGKILL');
-      } catch {
-        /* 已退出 */
-      }
-    }
+    // 必须整树终止：Windows 上 spawn 拿到的是启动器，真正的浏览器是它的子进程
+    // ⇒ 只 `proc.kill()` 会留下浏览器 + 渲染/gpu 子进程（实测一次残留 10 个）。见 browserHarness.killChromeTree。
+    killChromeTree(proc, userDataDir);
     await server.close();
-    // Chrome 退出瞬时可能仍持 user-data-dir 锁（Affiliation Database 等），
-    // 强行同步 rm 会 EBUSY 误判失败；改为尽力而为，残目录交由 OS 回收。
+    // killChromeTree 是同步的（taskkill 返回即已死），故此处通常能直接删掉 profile 目录；
+    // 仍保留尽力而为的 fallback（残留锁由 OS 回收）。
     try {
       rmSync(userDataDir, { recursive: true, force: true });
     } catch {

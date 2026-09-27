@@ -1,4 +1,4 @@
-// 逐块真实高度 —— 真机探针（零依赖，真实浏览器）：把 OmniHarness Web UI 在一台真 Chrome 里
+﻿// 逐块真实高度 —— 真机探针（零依赖，真实浏览器）：把 OmniHarness Web UI 在一台真 Chrome 里
 // 推成一個「长短不一」的长会话，验证：
 //   1) 虚拟窗口确实生效（data-rendered-count 远小于 data-total-count，DOM 里只挂有限个 .sw-block）；
 //   2) 滚动条总高来自「真实高度累加」而非 index×估算（scrollHeight 与 N×88 明显不同）；
@@ -20,6 +20,7 @@ import {
   stubHtmlCdp,
   getFreePort,
   launchChromeForCdp,
+  killChromeTree,
   waitForPageWs,
   CdpSession,
   WEB_ROOT_PATH,
@@ -171,13 +172,8 @@ async function main() {
     emit({ kind: 'error', message: String((err && err.message) || err) });
   } finally {
     if (cdp) cdp.close();
-    if (proc) {
-      try {
-        proc.kill('SIGKILL');
-      } catch {
-        /* 已退出 */
-      }
-    }
+    // 整树终止：Windows 上只 kill 启动器会留下浏览器 + 全部 --type=* 子进程（见 browserHarness.killChromeTree）。
+    killChromeTree(proc, userDataDir);
     await server.close();
     try {
       rmSync(userDataDir, { recursive: true, force: true });
