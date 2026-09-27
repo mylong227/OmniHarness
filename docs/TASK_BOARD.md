@@ -3615,3 +3615,39 @@ overscan 的 8 块**本轮才第一次被测量**（估算 88px vs 真实几百 
 
 **验收**：`npm run web:test` **270/270**；`tsc` / `web:build` / eslint / `check --strict` /
 `arch:gate` 全绿。
+
+### 26.17 「删除并未刷新」+「删除失败: session_not_found」= 两条症状同一根因（用户截图）
+
+**报障**：左栏点某会话的删除 → 行**没有消失**（「删除并未刷新」）；再点一次 → toast
+「删除失败：session_not_found」（截图里的 `删除失败: session_not_found`）。
+
+**根因（一条，不是两条）**：`SessionController.deleteSession` 成功后只调 `refreshSessions()`，而刷新走
+`AppReducers.mergeSessions(prev, fromDisk)`，它**刻意保留「内存态里未落盘的会话」**（用于「刚发出、
+还没写盘」的行）。而**删除成功后该 id 恰好「不在磁盘上」**——于是被这条契约当成「未落盘的新会话」
+**原样留下**：磁盘文件删了、列表行还在（症状①）。用户再点一次，文件确实没了 ⇒ 服务端
+`session_not_found`（症状②）。同一契约还导致「只存在于内存的会话」**永远删不掉**。
+
+**修法（`SessionController.deleteSession`）**：① 成功或 `session_not_found` 时**先在本地摘掉该行**
+（`filter(x => x.id !== id)`）再刷新——`session_not_found` 不再是错误，而是「磁盘上本来就没有」，
+提示改为「该会话未落盘，已从列表移除」；② `session_running` 等其它错误照旧保留该行并给出可执行的
+下一步（「先点停止」）。
+
+**门禁**：`web/test/sessionDeleteRefresh.test.mjs`（3 例）——用**真的** `AppReducers.mergeSessions`
+驱动控制器：① 成功删除后该行必须不在列表；② `session_not_found` ⇒ 摘掉本地行且**不报错**；
+③ `session_running` ⇒ 保留该行且提示含「停止」。
+**变异验证**：去掉那一行本地摘除（还原旧行为）⇒ ① / ② 红，① 的报错正是
+`删除后列表仍是 ["s2", …]`。**诚实边界**：`mergeSessions` 保留内存会话的契约本身没改（它对「刚发出
+未落盘」的行是对的），本版只在删除路径上显式摘除；「幽灵行」若由其它路径产生（例如 `send` 失败后既
+不落盘也不清理），仍会留在列表里——那种情况现在**可以删掉了**（走 `session_not_found` 分支）。
+
+**并行 flake 如实登记**：`npm run web:test` 全量并行（7 路 Chrome）时 `e2e.test.mjs`
+（E1 CDP 截图回环）**偶发**超 60s 文件级预算；**单独跑 1/1 通过**（与 §26.10 同源：真机 CDP 用例在
+并行档里互相争抢）。未做投机性改动。
+
+**登记下一项（用户本轮同时提出，未开工）**：**左侧栏按 Codex 的形态重做**（用户截图圈出左栏：
+会话列表 / 工作区 / 文件树三段的组织与交互）。这属**交互与信息架构改版**，需要先与用户对齐
+「要哪些 Codex 特征」（例如：会话按时间分组 + 内联重命名、工作区切换器位置、文件树是否常驻、
+快捷键与右键菜单），再动手；本轮只修上面那条功能缺陷。
+
+**验收**：`web/test/sessionDeleteRefresh.test.mjs` 3/3；`npm run web:test` **272/273**（唯一红是上述
+并行 flake，单跑通过）；`tsc` / `web:build` / eslint / `check --strict` / `arch:gate` 全绿。
