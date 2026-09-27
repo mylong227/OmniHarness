@@ -13,6 +13,7 @@ import { AppController } from './controllers/AppController.js';
 import type { AppHost, AppState } from './controllers/AppController.js';
 
 import { TopBar } from './components/TopBar.js';
+import { RenderErrorBoundary } from './components/RenderErrorBoundary.js';
 import { SessionPanel } from './components/SessionPanel.js';
 import { StreamView } from './components/StreamView.js';
 import { RightPanel } from './components/RightPanel.js';
@@ -274,5 +275,9 @@ export function App(): ReactElement {
  * @returns 无
  */
 export function mountApp(container: Element): void {
-  ReactDOM.createRoot(container).render(React.createElement(App, null));
+  // 最外层套**渲染错误边界**：渲染期抛错若无人接管，React 会卸载整棵树 ⇒ 用户看到全黑空白页
+  // （2026-09-27 两次报障即此形态）。有边界则降级为可读错误面板 + 原地重试，并留存现场。
+  ReactDOM.createRoot(container).render(
+    React.createElement(RenderErrorBoundary, null, React.createElement(App, null)),
+  );
 }

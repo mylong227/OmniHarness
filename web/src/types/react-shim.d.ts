@@ -29,11 +29,23 @@ type EffectCallback = () => void | (() => void);
 
 // ---- Hooks / 元素 / 上下文（函数组件范式）----
 // 说明：本工程 UI 已全量迁移为函数组件 + Hooks（R1），故不再声明 class 组件基类
-// （`React.Component` / `createRef` / `SetStateAction`）。若将来必须新增 class
-// 错误边界（componentDidCatch 无 Hook 等价物），需在此重新声明最小 class 形态。
+// （`React.Component` / `createRef` / `SetStateAction`）。**唯一的例外是渲染错误边界**：
+// `componentDidCatch` / `getDerivedStateFromError` 无 Hook 等价物（React 未提供），
+// 故按此处注释的约定补上**最小 class 形态**（见 web/src/ui/components/RenderErrorBoundary.tsx）。
+
+/** 最小 class 组件基类（仅供错误边界使用）。 */
+declare class ReactComponent<P = Record<string, unknown>, S = Record<string, unknown>> {
+  public constructor(props: P);
+  public props: P;
+  public state: S;
+  public setState(next: Partial<S> | ((prev: S) => Partial<S>)): void;
+  public render(): unknown;
+}
 
 interface ReactApi {
   createElement(type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]): ReactElement;
+  /** class 组件基类（仅错误边界需要；见上）。 */
+  Component: typeof ReactComponent;
   Fragment: unknown;
   createContext<T>(defaultValue: T): ReactContext<T>;
   useState<S>(initial: S | (() => S)): [S, Dispatch<S>];
