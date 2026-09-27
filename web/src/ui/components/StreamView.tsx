@@ -30,6 +30,7 @@ import {
 } from '../format.js';
 import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
+import { ScrollRepairBudget } from '../models/ScrollRepairBudget.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
@@ -358,6 +359,13 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const lastPadTopRef = React.useRef<number>(0);
   /** 测量回填计数器：索引变化后置位触发一次重渲染，随后实测稳定即停。 */
   const [measureTick, setMeasureTick] = React.useState<number>(0);
+  /**
+   * 滚动校正预算（**防 React #185 的硬上界**）：写回 scrollTop 的次数被限死在「每次用户滚动 N 次」，
+   * 且我们自己写回所触发的 scroll 事件不补充预算 ⇒「render → layoutEffect → setState → render」
+   * 的同步死循环在结构上不可能成立。见 {@link ScrollRepairBudget} 的模块头（真机 #185 实测）。
+   */
+  const repairBudgetRef = React.useRef<ScrollRepairBudget | null>(null);
+  if (repairBudgetRef.current === null) repairBudgetRef.current = new ScrollRepairBudget();
 
   // 新事件 / 流式输入 / 流式正文到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
   // 同时同步可视高度：首屏拿到 DOM 真实高度后虚拟窗口才准。
@@ -376,6 +384,8 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const onScroll = (e: Event): void => {
     const el = e.currentTarget as HTMLDivElement | null;
     if (!el) return;
+    // 只有「不是我们自己写回造成的」滚动才补充校正预算（否则校正能无限自我续期 ⇒ #185）。
+    repairBudgetRef.current!.noteScroll(el.scrollTop);
     stickyRef.current = StreamWindow.atBottom(el);
     if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
     if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
@@ -457,9 +467,14 @@ export function StreamView(props: StreamViewProps): ReactElement {
         anchors,
         (i) => idx.prefix(keys, i),
       );
+      // **必须有硬上界**：写回 scrollTop 会改变窗口 ⇒ 本布局效应再次运行；若校正量始终 > 1px 就
+      // 形成同步死循环（真机实测 React #185「Maximum update depth exceeded」、页面主线程占满到连 CDP
+      // 都不响应）。故写回前先向 {@link ScrollRepairBudget} 申请一次预算：预算只在用户自己滚动时补充，
+      // 我们写回所触发的 scroll 事件不补充 ⇒ 循环无法自我续期。
       if (
         Math.abs(delta) > 1 &&
-        StreamWindow.needsAnchorRepair(viewportTop, el.clientHeight, anchors)
+        StreamWindow.needsAnchorRepair(viewportTop, el.clientHeight, anchors) &&
+        repairBudgetRef.current!.take(el.scrollTop + delta)
       ) {
         el.scrollTop = el.scrollTop + delta;
         if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
