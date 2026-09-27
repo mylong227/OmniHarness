@@ -220,7 +220,7 @@ export class SessionController {
   public async deleteSession(id: string): Promise<void> {
     try {
       const r = await this.services.api.deleteSession(id);
-      if (!r.ok) {
+      if (!r.ok && r.error !== 'session_not_found') {
         // 「运行中拒绝删除」是服务端的有意设计（避免删掉正在写盘的会话）——把**下一步动作**一并说清，
         // 否则用户只看到一句「无法删除」不知道该怎么办。
         this.services.toast(
@@ -232,9 +232,14 @@ export class SessionController {
         );
         return;
       }
+      // **必须先本地摘掉这一行**（2026-09-27 用户报「删除并未刷新」+「删除失败: session_not_found」）：
+      // 刷新走 `mergeSessions(prev, fromDisk)`，而它的契约是「保留内存态中**未落盘**的会话」——
+      // 删除成功后该 id 恰好「不在磁盘上」，于是被当成「未落盘的新会话」**原样留下**：文件删了、
+      // 行还在；用户再点一次删除就是 `session_not_found`（文件真没了）。故本地先移除再刷新。
+      this.host.patch((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) }));
       if (this.host.getState().currentThreadId === id) this.newSession();
       await this.refreshSessions();
-      this.services.toast('会话已删除', 'ok');
+      this.services.toast(r.ok ? '会话已删除' : '该会话未落盘，已从列表移除', 'ok');
     } catch (e) {
       this.services.toast('删除失败：' + (e as Error).message, 'err');
     }
