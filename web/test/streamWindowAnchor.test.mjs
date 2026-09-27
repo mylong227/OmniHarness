@@ -85,3 +85,94 @@ test('接线守卫：StreamView 必须真的用上锚定校正（防被摘掉）
     'StreamView 必须调用 StreamWindow.anchorDelta（否则「滚动空洞」会复发）',
   );
 });
+
+// ============================================================================
+// 第二段：**动 scrollTop 的闸**（2026-09-27 用户报「滚动会被回退回原本的位置」）
+//
+// 校正不能无条件套用：用户拖到从没渲染过的区域时，该区域上方 overscan 块本轮才第一次被测量
+// （估算 88px vs 真实几百 px），差值一次性算进校正量 ⇒ 位置被推回原来那一带。
+// 真机实测（真服务 + 真会话 sess_mujn1om2_1，1280×800，跳转滚动）：
+//   加闸前：请求 943→2489（回退 1546px）、3772→4614（842）、1650→1983（333）
+//   加闸后：同序列**逐档 0px**；而「视口几乎没内容」的两档仍被修（覆盖 8%→100%、36%→100%）。
+// ============================================================================
+
+test('覆盖率：完整覆盖为 1，锚点为空为 0', () => {
+  const anchors = [{ index: 0, top: 100, bottom: 700 }];
+  assert.strictEqual(StreamWindow.viewportCoverage(100, 600, anchors), 1);
+  assert.strictEqual(StreamWindow.viewportCoverage(100, 600, []), 0);
+});
+
+test('覆盖率：只算与视口相交的部分，且不超过 1', () => {
+  // 视口 [100, 700]：块 A 只覆盖上半 [100,400]，块 B 覆盖 [600,900] ⇒ (300 + 100) / 600
+  const anchors = [
+    { index: 0, top: 0, bottom: 400 },
+    { index: 1, top: 600, bottom: 900 },
+  ];
+  assert.ok(Math.abs(StreamWindow.viewportCoverage(100, 600, anchors) - 400 / 600) < 1e-9);
+  // 两块与视口完全重叠（真实场景不会同时发生，但口径必须夹到 1，不得 >1）
+  const overlap = [
+    { index: 0, top: 90, bottom: 710 },
+    { index: 1, top: 90, bottom: 710 },
+  ];
+  assert.strictEqual(StreamWindow.viewportCoverage(100, 600, overlap), 1);
+});
+
+test('覆盖率：视口高 ≤ 0（尚未测到）时按「无需修复」处理', () => {
+  assert.strictEqual(StreamWindow.viewportCoverage(100, 0, [{ index: 0, top: 0, bottom: 10 }]), 1);
+});
+
+test('是否需要修空洞：内容看得见时**一律不动**用户的滚动位置', () => {
+  // 视口被完整覆盖 ⇒ 不修（这正是「滚动被回退」的判据：那三档当时覆盖率都是 100%）
+  assert.strictEqual(
+    StreamWindow.needsAnchorRepair(100, 600, [{ index: 0, top: 100, bottom: 700 }]),
+    false,
+  );
+  // 只覆盖一半以上：仍不修（避免为边角缺几像素去动滚动条）
+  assert.strictEqual(
+    StreamWindow.needsAnchorRepair(100, 600, [{ index: 0, top: 100, bottom: 460 }]),
+    false,
+  );
+});
+
+test('是否需要修空洞：视口基本没内容（空洞）时必须修', () => {
+  // 实测那一档：覆盖率 8%（43/581）⇒ 必须修
+  assert.strictEqual(
+    StreamWindow.needsAnchorRepair(0, 581, [{ index: 0, top: -538, bottom: -495 }]),
+    true,
+  );
+  // 一点内容都没有：更要修
+  assert.strictEqual(
+    StreamWindow.needsAnchorRepair(0, 581, [{ index: 0, top: -3000, bottom: -2500 }]),
+    true,
+  );
+  // 锚点为空（窗口内一个块都没有）：不猜，直接返回 false
+  assert.strictEqual(StreamWindow.needsAnchorRepair(0, 581, []), false);
+});
+
+test('接线守卫：校正必须**在闸内**执行（无条件套用即视为回归）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const src = readFileSync(join(here, '..', 'src', 'ui', 'components', 'StreamView.tsx'), 'utf8');
+  assert.match(
+    src,
+    /Math\.abs\(delta\) > 1 &&\s*StreamWindow\.needsAnchorRepair\(/,
+    '写回 scrollTop 必须同时满足 needsAnchorRepair（否则「滚动被回退」会复发）',
+  );
+});
+
+test('接线守卫：中栏必须关掉浏览器自带的滚动锚定（overflow-anchor:none）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const css = readFileSync(join(here, '..', 'styles', 'chat.css'), 'utf8');
+  const rule = /\n\.stream\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule !== null, 'chat.css 必须仍有 .stream 规则');
+  assert.match(
+    rule[1],
+    /overflow-anchor:\s*none/,
+    '中栏必须 overflow-anchor:none：浏览器自带锚定会自行改 scrollTop（实测 +440 / +527px 回退）',
+  );
+});

@@ -428,10 +428,17 @@ export function StreamView(props: StreamViewProps): ReactElement {
     if (!changed && el === null) return;
     if (el && !stickyRef.current) {
       // 锚定自愈校正（取代原先只看 padTop 的增量补偿）：以「DOM 里最接近视口顶的已渲染块」为锚，
-      // 把它的真实滚动偏移对齐到模型偏移。既补偿「上方块高度变化引起的内容跳动」，也修掉
-      // 「高度索引（实测 ∪ 估算）与真实 DOM 不一致 ⇒ 模型偏移与浏览器 scrollTop 错位 ⇒ 视口落在
-      // 空洞里一个块都看不到」（2026-09-27 用户报「滚到该区域没有任何显示」；跳转式滚动实测
-      // 真实会话最差一档覆盖率 0%、DOM 里却有 23 个块）。见 StreamWindow.anchorDelta。
+      // 把它的真实滚动偏移对齐到模型偏移，修掉「高度索引（实测 ∪ 估算）与真实 DOM 不一致 ⇒
+      // 模型偏移与浏览器 scrollTop 错位 ⇒ 视口落在空洞里一个块都看不到」（2026-09-27 用户报
+      // 「滚到该区域没有任何显示」；跳转式滚动实测真实会话最差一档覆盖率 0%、DOM 里却有 23 个块）。
+      // 见 StreamWindow.anchorDelta。
+      //
+      // **但必须加闸（2026-09-27 用户报「滚动会被回退回原本的位置」）**：本校正原先无条件套用，
+      // 用户拖到从没渲染过的区域时，该区域上方 overscan 块本轮才第一次被测量（估算 88px vs 真实
+      // 几百 px），差值一次性算进校正量 ⇒ 位置被推回原来那一带。真机实测（真服务 + 真会话
+      // sess_mujn1om2_1）：请求 943 稳定 2489（**被回退 1546px**）、3772→4614、1650→1983；
+      // 临时停用本校正后同一序列**逐档 0px**。故只在「视口基本没内容（空洞）」时才动 scrollTop
+      // —— 见 StreamWindow.needsAnchorRepair；内容看得见时一律不碰用户的位置。
       //
       // **注意：不能只在「实测有变化」时校正** —— 跳转到一个「窗口内的块都已测过、但窗口外仍有
       // 大量估算块」的位置时，实测集不变 ⇒ 若跳过校正，错位就留在那里（实测第二轮仍会出现 0% 覆盖）。
@@ -450,7 +457,10 @@ export function StreamView(props: StreamViewProps): ReactElement {
         anchors,
         (i) => idx.prefix(keys, i),
       );
-      if (Math.abs(delta) > 1) {
+      if (
+        Math.abs(delta) > 1 &&
+        StreamWindow.needsAnchorRepair(viewportTop, el.clientHeight, anchors)
+      ) {
         el.scrollTop = el.scrollTop + delta;
         if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
       }

@@ -3,7 +3,13 @@
   ========================================================================= */
 
 /* ---------- 中栏：对话流 ---------- */
-.stream { flex:1; overflow:auto; padding:18px 22px; min-height:0; }
+/* `overflow-anchor:none`：**关掉浏览器自带的滚动锚定**。
+   中栏是虚拟化列表，padTop/padBottom 会随「实测高度回填」变化 ⇒ 浏览器会自作主张改 scrollTop 来
+   保持可见内容不动，效果是「用户拖到某处、滚动条自己跳回去」。真机实测（真会话 sess_mujn1om2_1，
+   跳转式滚动 12 档）：请求 1527 → 稳定 1967（+440）、请求 3632 → 4159（+527），而**把本仓自己的
+   锚定校正停用后这两处位移仍然存在** ⇒ 证明确实来自浏览器而非本仓代码。
+   位置校正改由唯一一处负责：`StreamWindow.needsAnchorRepair`（只在视口基本没内容时才修空洞）。 */
+.stream { flex:1; overflow:auto; padding:18px 22px; min-height:0; overflow-anchor:none; }
 /* 逐块真实高度测量容器：flow-root 建立 BFC，使子块 margin 不外溢，offsetHeight 即完整竖直占位。 */
 .sw-block { display:flow-root; }
 /* 注意：**不要**给 `.ev` 加入场动画（曾有过 `animation:fade .22s`）。
