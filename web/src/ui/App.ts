@@ -161,6 +161,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         onRename: ctrl.sessions.renameSession,
         onDelete: ctrl.sessions.deleteSession,
         onFork: ctrl.sessions.forkSession,
+        onArchive: ctrl.sessions.archiveSession,
+        onReorder: ctrl.sessions.reorderSessions,
         onWorkspaceSwitched: () => ctrl.sessions.refreshSessions(),
         open: s.leftOpen,
         style: { width: s.leftWidth + 'px' },

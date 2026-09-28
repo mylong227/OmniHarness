@@ -17,6 +17,8 @@ export interface SessionEntry {
   turns?: number;
   /** 服务端真实运行态（runTurn 进行中）；缺省视为空闲。 */
   running?: boolean;
+  /** 是否已归档（侧车标记）：归档会话在左栏折叠到「已归档」组，可随时恢复。 */
+  archived?: boolean;
 }
 
 export interface FileView {

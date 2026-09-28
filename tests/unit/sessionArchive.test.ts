@@ -128,6 +128,95 @@ test('SessionArchive.list：提取工作区标记与首条用户消息，按 mti
   });
 });
 
+test('SessionArchive.list：updatedAt 取**最后一条事件的时间**，不是文件 mtime', () => {
+  withTemp((dir) => {
+    const file = join(dir, 's1.jsonl');
+    writeFileSync(
+      file,
+      [
+        line('session_meta', { workspace: 'D:\\p' }, '2026-09-01T00:00:00.000Z'),
+        line('user', { content: '第一句' }, '2026-09-02T00:00:00.000Z'),
+        line('assistant', { content: '回复' }, '2026-09-03T08:30:00.000Z'),
+      ].join('\n'),
+    );
+    // 故意把 mtime 设成完全不同的时间：左栏「今天/昨天」分桶用的是事件时间，不能被 mtime 带偏。
+    utimesSync(file, new Date('2026-01-01'), new Date('2026-01-01'));
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    const out = load.list() as { sessions: { updatedAt: string }[] };
+    assert.strictEqual(out.sessions[0]?.updatedAt, '2026-09-03T08:30:00.000Z');
+  });
+});
+
+test('SessionArchive：归档侧车只写名单、不动事件流；列表带 archived 标记', () => {
+  withTemp((dir) => {
+    writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
+    writeFileSync(join(dir, 'b.jsonl'), line('user', { content: '乙' }));
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    assert.deepEqual(load.setArchived('a', true), { ok: true });
+    const out = load.list() as {
+      sessions: { sessionId: string; archived: boolean; label: string }[];
+    };
+    const byId = new Map(out.sessions.map((s) => [s.sessionId, s]));
+    assert.strictEqual(byId.get('a')?.archived, true);
+    assert.strictEqual(byId.get('b')?.archived, false);
+    assert.strictEqual(byId.get('a')?.label, '甲', '归档不得影响标签');
+    // 取消归档：名单里移除
+    assert.deepEqual(load.setArchived('a', false), { ok: true });
+    const after = load.list() as { sessions: { sessionId: string; archived: boolean }[] };
+    assert.strictEqual(
+      after.sessions.every((s) => !s.archived),
+      true,
+    );
+  });
+});
+
+test('SessionArchive：归档不存在的会话 → session_not_found；非法 id 同样拒绝', () => {
+  withTemp((dir) => {
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    assert.deepEqual(load.setArchived('nope', true), { ok: false, error: 'session_not_found' });
+    assert.deepEqual(load.setArchived('../escape', true), {
+      ok: false,
+      error: 'session_not_found',
+    });
+  });
+});
+
+test('SessionArchive：reorder 登记的用户顺序优先，未登记的按 mtime 倒序排在其后', () => {
+  withTemp((dir) => {
+    writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
+    writeFileSync(join(dir, 'b.jsonl'), line('user', { content: '乙' }));
+    writeFileSync(join(dir, 'c.jsonl'), line('user', { content: '丙' }));
+    utimesSync(join(dir, 'a.jsonl'), new Date('2026-09-03'), new Date('2026-09-03'));
+    utimesSync(join(dir, 'b.jsonl'), new Date('2026-09-02'), new Date('2026-09-02'));
+    utimesSync(join(dir, 'c.jsonl'), new Date('2026-09-01'), new Date('2026-09-01'));
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    assert.deepEqual(load.reorder(['c', 'a']), { ok: true });
+    const out = load.list() as { sessions: { sessionId: string }[] };
+    assert.deepEqual(
+      out.sessions.map((s) => s.sessionId),
+      ['c', 'a', 'b'],
+      '登记过的按用户顺序在前，未登记的（b）按 mtime 倒序垫后',
+    );
+    assert.deepEqual(load.reorder(['c', '../bad']), { ok: false, error: 'bad_session_id' });
+  });
+});
+
 test('SessionArchive.list：storageLocation 缺省返回空列表', () => {
   withTemp((dir) => {
     const load = new SessionArchive({

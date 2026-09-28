@@ -161,8 +161,33 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.handlers.set('trace.read', (params) => this.readTraceRpc(params));
     this.registerCheckpointHandlers();
     this.registerReviewHandlers();
+    this.registerSessionHandlers();
     this.handlers.set('fs.list', (params) => Promise.resolve(this.workspaceTree.list(params)));
     this.handlers.set('fs.read', (params) => Promise.resolve(this.workspaceTree.readFile(params)));
+    this.handlers.set('changes.list', (params) =>
+      Promise.resolve(this.workspaceChanges.list(params)),
+    );
+    this.handlers.set('fs.browse', (params) => Promise.resolve(this.fsExplorer.browse(params)));
+    this.handlers.set('fs.mkdir', (params) => Promise.resolve(this.fsExplorer.mkdir(params)));
+    this.handlers.set('attach.read', (params) =>
+      Promise.resolve(this.fsExplorer.readAttachments(params)),
+    );
+    this.registerPluginHandlers();
+    this.registerGraphHandlers();
+    this.registerMemoryHandlers();
+    this.registerProfileHandlers();
+    this.registerBundleHandlers();
+    this.registerSurfaceHandlers();
+  }
+
+  /**
+   * 会话存档 RPC：列表（带运行态/归档标记）、改名、删除、分叉、归档、拖拽排序。
+   *
+   * 独立成方法的原因：`registerHandlers` 是方法表编排入口，把六个会话方法留在里面会顶到函数体
+   * 行数上限（门禁 `check --strict` 的「函数体行数」闸）；会话这一族本身内聚，抽出来更清晰。
+   * @returns 无返回值。
+   */
+  protected registerSessionHandlers(): void {
     this.handlers.set('sessions.list', async () => {
       const r = (await this.sessionArchive.list()) as {
         dir: string;
@@ -185,20 +210,19 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.handlers.set('sessions.fork', async (params) =>
       this.sessionArchive.fork(String(params['sessionId'] ?? '')),
     );
-    this.handlers.set('changes.list', (params) =>
-      Promise.resolve(this.workspaceChanges.list(params)),
+    // 归档 / 取消归档（只写侧车，不动事件流）：归档会话在 UI 里折叠到「已归档」组。
+    this.handlers.set('sessions.archive', async (params) =>
+      this.sessionArchive.setArchived(
+        String(params['sessionId'] ?? ''),
+        params['archived'] !== false,
+      ),
     );
-    this.handlers.set('fs.browse', (params) => Promise.resolve(this.fsExplorer.browse(params)));
-    this.handlers.set('fs.mkdir', (params) => Promise.resolve(this.fsExplorer.mkdir(params)));
-    this.handlers.set('attach.read', (params) =>
-      Promise.resolve(this.fsExplorer.readAttachments(params)),
-    );
-    this.registerPluginHandlers();
-    this.registerGraphHandlers();
-    this.registerMemoryHandlers();
-    this.registerProfileHandlers();
-    this.registerBundleHandlers();
-    this.registerSurfaceHandlers();
+    // 保存左栏拖拽排序（用户指定顺序；未登记的会话仍按 mtime 倒序排在其后）。
+    this.handlers.set('sessions.reorder', async (params) => {
+      const raw = params['ids'];
+      const ids = Array.isArray(raw) ? raw.map((x) => String(x)) : [];
+      return this.sessionArchive.reorder(ids);
+    });
   }
 
   /**
