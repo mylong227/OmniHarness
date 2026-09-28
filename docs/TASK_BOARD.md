@@ -4135,3 +4135,60 @@ v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空�
 - `genesis/multimodalBridge.ts` 视觉宽高「确定性占位」：可 drop-in 替换真实编码器的扩展点，代数结构不依赖占位值。
 - 视频依赖本机 ffmpeg：设计使然，已诚实写进工具描述与错误文案。
 - registry 远程响应：已有超时（5s/10s），仅缺体积上限（本次已补）；属加固 nit 非「可用就行」。
+
+---
+
+### §30 函数级全量审计（2026-09-28，下沉到每个子系统逐函数过一遍）
+
+**范围**：全项目 637 个 `src` 源文件、约 90 个子目录，逐函数过审（用户要求"全部都审一遍"）。
+**方法**：三层客观法（标记扫描 + 门禁盲区复核 + 高危子系统深挖）+ 6 路并行 Explore 子代理分片
+（eval/core、server/daemon/worker/native、security/mcp/subagent/supervisor/autonomy/composition、
+config/ports/schema/sdk/cli、adapters、其余子系统）+ 定向 grep 兜底（同步子进程 / 无超时 fetch /
+`new Function` / 无界循环）。两路子代理因频率限制未成，改用定向 grep 自审补齐，结论一致。
+
+**总判断**：项目主体已是商用级（零 `any`/`var`/`console.log` 调试残留/硬编码配置路径；`ports`/`core`
+第三方-free 达标；"声明未接线"历史缺陷由单测护栏守住——复核确认 OIDC 三旗标已正确登记于 `VALUE_FLAGS`、
+`a2a`/`evolutionRlvr`/`promptInjectionGuard`/`media`/`ssrfPolicy` 等均已显式透传）。
+**审计纪律**：对子代理结论一律"先读源码复核再采纳"——由此排除两处误报：`evolution/verifiableReward.ts`
+的 `spawnSync` 已带 `timeout: 120_000`；`cliFlagTable` 的 OIDC 三旗标已在 `VALUE_FLAGS`（145–147 行）。
+本次新发现并修复的真实缺口如下。
+
+**本次修复（6 类代码 + 1 类可配置化，均补单测）**
+
+1. HTTP 服务进程崩溃防护：`createServer` 回调的 `response` 与 SSE 的 `response` 均无 `'error'` 监听
+   → 客户端在响应写出前断开会让写失败升级为 `uncaughtException` 终止进程。补 `response.on('error', ()=>{})`；
+   并设 `headersTimeout=30s` / `requestTimeout=60s` / `maxConnections=2048` 防 Slowloris 与 fd 耗尽
+   （`requestTimeout` 仅约束收请求阶段，不影响 SSE 长连接）。[`src/server/transport/httpServer.ts`]
+2. CDP 版本探测挂起/OOM：`CdpClient.version()` 原 `await fetch(probeUrl)` 无 timeout 且无体积上限
+   → 不可达端点永久 pending（主循环整轮挂死）、超大响应 OOM。加 `AbortController` 超时(10s) + 边读边限长(1MiB)。
+   [`src/adapters/browser/cdpClient.ts`]
+3. eval 子进程无超时（整批卡死高危）：`Swebench.runEval` 的 `execFileSync` 与 `SwebenchVerified.execFileAsync`
+   的 `execFile` 均无超时 → pytest/构建/网络挂起冻结整事件循环、占满并发槽永不释放。补 `timeout`
+   （5min / 10min，fail-closed 记非零）。[`src/eval/swebench.ts`、`src/eval/swebenchVerified.ts`]
+4. daemon 杀进程组：非 win32 仅 `process.kill(pid,'SIGKILL')` 不杀组 → detached 孙进程残留占端口。
+   改 `process.kill(-pid,'SIGKILL')` 回退直杀。[`src/daemon/daemonController.ts`]
+5. 图运行台账淘汰中止：超 `MAX_RUNS` 仅 `delete` 台账，被淘汰的 `WorkflowRunner` 仍在后台烧 token/子进程。
+   淘汰时先 `controller.abort()`。[`src/server/core/graphRunRegistry.ts`]
+6. **可配置化（用户显式要求）**：新增 `src/util/limitEnv.ts`（`int(name,fallback,min)` 校验回退），
+   把四处运维上限改为环境变量可配、非法值安全回退：
+   `OMNI_A2A_MAX_BODY_BYTES`(1MiB) / `OMNI_A2A_READ_TIMEOUT_MS`(30s) / `OMNI_A2A_SEND_TIMEOUT_MS`(10s) /
+   `OMNI_MEDIA_PROCESS_CONCURRENCY`(4) / `OMNI_REGISTRY_MAX_RESPONSE_BYTES`(16MiB)。
+   [`src/util/limitEnv.ts`、`src/a2a/httpA2aTransport.ts`、`src/plugin/registrySourcesShared.ts`、
+   `src/config/mediaStackAssembler.ts`]
+7. 单测：`limitEnv`(6) / `graphRunRegistry` 淘汰中止(1) / `cdpClient.version`(3) —— 17/17 全绿。
+
+**审计中识别、建议后续跟进（本轮未改，避免改动面过大引入回归）**
+
+- server 背压：WS `send` 与 SSE `broadcast` 未检查 `write()` 返回值（慢客户端积压 OOM）；
+  `auditSink.read` / `workspaceTree` 整文件读进内存（大日志/大文件 OOM）。建议流式/分页。
+- security/mcp：`mcpToolMapper` 未对 MCP 工具 `description` 跑注入扫描；`mcpServer` 无 gate 时 fail-open 放行；
+  `composition/runtime` 的 A2A 任务处理器无并发闸门且授予对等方完整工具面。建议受限子集 + `ConcurrencyLimiter` 复用。
+- 共享状态淘汰上限：`subagentOrchestrator.tree` / `supervisorKernel.stats&listeners` /
+  `subagentRuntimeFactory.rerootStorage` 跨会话无淘汰/可能共享父存储；`autonomy/graphStore.get` 不重校验结构与体积。
+- config：`configFile.load` 解析失败静默回退默认（fail-open）；`cli/cliBuildConfig` 的 `applyNetworkGuard`
+  全局 fetch 包装与 `bridgeMcpServers` 的 gateway 未在 `finally` 复原/关闭。
+- eval/docker 执行器：`ExecutorPort.run` 未接 `CancellationToken`，调用方无法取消；`dockerExecutor` 超时仅
+  SIGTERM 可能留孤儿容器。建议透传 `AbortSignal` + `docker kill`/`cidfile` 兜底清理。
+
+**验收**：七道门禁全绿（typecheck / lint / check --strict / arch:gate / audit:maturity /
+audit:standard:delta / audit:config-wiring）；相关单测 17/17；提交「代码一笔 + 看板一笔」。
