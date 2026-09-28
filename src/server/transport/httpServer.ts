@@ -77,6 +77,9 @@ export class HttpServer {
     // 也会变成 unhandledRejection —— Node 22 默认**终止进程**（2026-09-26 审计 S21）。
     // 这里统一收口：写一次 500（若尚未写出）并记结构化日志，进程不受影响。
     this.server = createServer((request, response) => {
+      // 客户端在响应写出前断开时，`response` 的 'error' 事件若无人处理会升级为 uncaughtException
+      // 直接终止进程（Node 22 默认行为，2026-09-28 审计）。此处统一吞掉写失败，进程不受影响。
+      response.on('error', () => {});
       void this.route(request, response).catch((error: unknown) => {
         log.warn('http.route.failed', {
           url: request.url ?? '',
@@ -96,6 +99,13 @@ export class HttpServer {
       (connection) => this.options.bridge.registerWs(connection),
       (request) => this.guard.verify(request),
     );
+    // 连接级防护（2026-09-28 审计）：防 Slowloris（慢速头/体耗尽连接）与 fd 耗尽。
+    // - headersTimeout：收齐完整 HTTP 头的时限（慢速头攻击）。
+    // - requestTimeout：收齐整段请求的时限；SSE 在 writeHead 后即进入响应阶段，不再受此约束，长连接不受影响。
+    // - maxConnections：并发打开连接上限，防 fd 耗尽。
+    this.server.headersTimeout = 30_000;
+    this.server.requestTimeout = 60_000;
+    this.server.maxConnections = 2048;
   }
 
   /**
@@ -238,6 +248,9 @@ export class HttpServer {
    * @returns 无返回值。
    */
   private openSse(response: ServerResponse): void {
+    // 客户端断开后 bridge 向该 response 写 SSE 帧会抛 'error'，若无人处理即 uncaughtException
+    // 终止进程（每帧通知都可能触发，2026-09-28 审计）。吞掉写失败，进程不受影响。
+    response.on('error', () => {});
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',

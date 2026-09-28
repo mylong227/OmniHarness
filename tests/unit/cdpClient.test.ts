@@ -6,6 +6,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { CdpClient } from '../../src/adapters/browser/cdpClient.js';
 import type { WebSocketLike } from '../../src/adapters/browser/cdpClient.js';
 
@@ -170,4 +171,55 @@ test('未连接就 send → 抛「尚未连接」', async () => {
   const socket = new FakeSocket();
   const client = new CdpClient({ webSocket: () => socket, timeoutMs: 1000 });
   await assert.rejects(client.send('Page.enable', {}), /尚未连接/);
+});
+
+/**
+ * 以下三例验证 `version()` 的超时与体积上限（2026-09-28 审计发现的「无超时 + 无体积上限」缺口）。
+ * 修复前 `await fetch(probeUrl)` 既无 `signal` 也无响应体积上限——不可达端点让 promise 永久
+ * pending（主循环整轮挂死），超大响应会 OOM。
+ */
+
+/** 拉起一个返回给定状态码/体的临时 HTTP 服务，返回端口与关闭函数。 */
+function startVersionServer(
+  status: number,
+  body: string,
+): Promise<{ readonly port: number; readonly close: () => void }> {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(status, { 'content-type': 'application/json' });
+    res.end(body);
+  });
+  return new Promise((resolve) => {
+    server.listen(0, () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+      resolve({ port, close: () => server.close() });
+    });
+  });
+}
+
+test('version()：可达端点返回解析后的 JSON', async () => {
+  const { port, close } = await startVersionServer(
+    200,
+    JSON.stringify({ Browser: 'HeadlessChrome', protocolVersion: '1.3' }),
+  );
+  try {
+    const v = (await CdpClient.version(port)) as { Browser: string };
+    assert.strictEqual(v.Browser, 'HeadlessChrome');
+  } finally {
+    close();
+  }
+});
+
+test('version()：非 200 抛错', async () => {
+  const { port, close } = await startVersionServer(404, '');
+  try {
+    await assert.rejects(() => CdpClient.version(port));
+  } finally {
+    close();
+  }
+});
+
+test('version()：不可达端口快速 reject（不永久挂起）', async () => {
+  // 回环上一个极不可能在监听的端口；连接被拒应让 fetch 立即 reject。
+  await assert.rejects(() => CdpClient.version(1));
 });

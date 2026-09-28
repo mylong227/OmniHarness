@@ -220,21 +220,67 @@ export class CdpClient {
     }
   }
 
+  /** 版本探测超时（毫秒）：不可达的 CDP 端点必须按时中止，否则 `await fetch` 永久 pending 卡死调用方。 */
+  private static readonly VERSION_PROBE_TIMEOUT_MS = 10_000;
+  /** 版本响应体字节上限：防畸形/超大响应撑爆内存。 */
+  private static readonly VERSION_PROBE_MAX_BYTES = 1 * 1024 * 1024;
+
   /**
    * 探测一个调试端口的版本信息（用于「附着到已在运行的浏览器」）。
+   *
+   * 为什么带超时与体积上限（2026-09-28 审计）：原实现 `await fetch(probeUrl)` 既无 `signal`
+   * 也无响应体积上限——不可达端点会让 promise 永久 pending（主循环整轮挂死），超大响应会 OOM。
+   * 此处统一挂 `AbortController` 超时 + 边读边限长。
    *
    * @param port 调试端口。
    * @returns `/json/version` 的 JSON（形状由浏览器决定）。
    */
   public static async version(port: number): Promise<unknown> {
     const probeUrl = endpointDefaults.urlOf('cdpProbeUrl').replace('{port}', String(port));
-    const response = await fetch(probeUrl);
-    if (!response.ok) {
-      throw new Error(
-        `CDP ${endpointDefaults.urlOf('cdpVersionPath')} 返回 ${String(response.status)}`,
-      );
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CdpClient.VERSION_PROBE_TIMEOUT_MS);
+    try {
+      const response = await fetch(probeUrl, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(
+          `CDP ${endpointDefaults.urlOf('cdpVersionPath')} 返回 ${String(response.status)}`,
+        );
+      }
+      const text = await CdpClient.readBoundedVersion(response, CdpClient.VERSION_PROBE_MAX_BYTES);
+      return JSON.parse(text) as unknown;
+    } finally {
+      clearTimeout(timer);
     }
-    return await response.json();
+  }
+
+  /**
+   * 边读边计数地读取 CDP 版本响应体（超限即取消读取并抛错）。
+   *
+   * @param response fetch 响应。
+   * @param maxBytes 字节上限。
+   * @returns 已读文本。
+   */
+  private static async readBoundedVersion(response: Response, maxBytes: number): Promise<string> {
+    const body = response.body as ReadableStream<Uint8Array> | null;
+    if (body === null) {
+      return '';
+    }
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const step = await reader.read();
+      if (step.done === true) {
+        break;
+      }
+      total += step.value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new Error('CDP 版本探测响应过大');
+      }
+      chunks.push(step.value);
+    }
+    return Buffer.concat(chunks).toString('utf8');
   }
 
   /**

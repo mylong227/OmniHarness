@@ -131,10 +131,13 @@ export class Swebench {
     return driftAlarms.length > 0 ? { driftAlarms } : {};
   }
 
-  /** 在给定 cwd 执行命令，返回退出码（异常/非 0 均如实返回状态码）。 */
+  /** eval 命令执行超时（毫秒）：pytest/构建挂起会冻结整个事件循环，必须按时中止（fail-closed 记非零）。 */
+  private static readonly EVAL_CMD_TIMEOUT_MS = 300_000;
+
+  /** 在给定 cwd 执行命令，返回退出码（异常/超时/非 0 均如实返回非零状态码）。 */
   public static runEval(cmd: string, cwd: string): number {
     try {
-      execFileSync(cmd, { cwd, shell: true, stdio: 'pipe' });
+      execFileSync(cmd, { cwd, shell: true, stdio: 'pipe', timeout: Swebench.EVAL_CMD_TIMEOUT_MS });
       return 0;
     } catch (error) {
       const status = (error as { status?: number }).status;

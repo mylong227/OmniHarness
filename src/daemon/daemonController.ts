@@ -161,7 +161,13 @@ export class DaemonController {
         spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
         return;
       }
-      process.kill(pid, 'SIGKILL');
+      // 杀整个进程组（负 pid = 组），避免 detached 子进程的孙进程残留继续占端口；
+      // 组不存在时回退到只杀直接子进程。
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        process.kill(pid, 'SIGKILL');
+      }
     } catch {
       /* 进程可能已退出 */
     }

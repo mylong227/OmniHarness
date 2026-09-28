@@ -139,6 +139,11 @@ export interface ExecutorPort {
 
 /** 官方 Verified 套件汇总报告聚合（C7 收口：纯函数/编排迁入静态方法）。 */
 export class SwebenchVerified {
+  /** 命令可用性探测超时（毫秒）：`--version` 是毫秒级动作，探测卡死不应永久挂起。 */
+  private static readonly PROBE_TIMEOUT_MS = 10_000;
+  /** 异步执行超时（毫秒）：git/uv/pytest 任一网络或挂起会让执行器槽位永久占用、整批 eval 卡死。 */
+  private static readonly EXEC_TIMEOUT_MS = 600_000;
+
   /**
    * 校验某命令是否可用（fail-closed 前置检查）。
    * @param cmd 命令名（如 git / uv / python3）。
@@ -146,7 +151,10 @@ export class SwebenchVerified {
    */
   public static commandAvailable(cmd: string): boolean {
     try {
-      execFileSync(cmd, ['--version'], { stdio: 'ignore' });
+      execFileSync(cmd, ['--version'], {
+        stdio: 'ignore',
+        timeout: SwebenchVerified.PROBE_TIMEOUT_MS,
+      });
       return true;
     } catch {
       return false;
@@ -162,13 +170,18 @@ export class SwebenchVerified {
    */
   public static execFileAsync(cmd: string, args: readonly string[], cwd: string): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      execFile(cmd, args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout) => {
-        if (err !== null) {
-          reject(err);
-        } else {
-          resolve(stdout);
-        }
-      });
+      execFile(
+        cmd,
+        args,
+        { cwd, maxBuffer: 64 * 1024 * 1024, timeout: SwebenchVerified.EXEC_TIMEOUT_MS },
+        (err, stdout) => {
+          if (err !== null) {
+            reject(err);
+          } else {
+            resolve(stdout);
+          }
+        },
+      );
     });
   }
 
