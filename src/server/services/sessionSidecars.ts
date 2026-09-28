@@ -14,6 +14,7 @@
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { FileLock } from '../../util/fileLock.js';
 // 排序模型（显式名次 + 新会话置顶）单独成文件：本文件只管侧车文件的读写。
 import { SessionRanking, type OrderDoc } from './sessionRanking.js';
 
@@ -186,6 +187,17 @@ export class SessionSidecars {
    * @returns 提交成功返回 true；目录未知或重试耗尽返回 false
    */
   private updateJson(name: string, mutate: (current: unknown, rev: number) => unknown): boolean {
+    const path = this.pathOf(name);
+    if (path === undefined) return false;
+    // 第一道防线：跨进程锁（有界等待）。拿到锁 ⇒ 「读—改—写」不再有人插进来，写入**不会放弃**。
+    const lock = new FileLock(path);
+    let applied = false;
+    const ok = lock.withLock(() => {
+      this.writeJson(name, mutate(this.readJson(name), SessionSidecars.revOf(this.readJson(name))));
+      applied = true;
+    });
+    if (ok && applied) return true;
+    // 第二道防线（锁没拿到，例如别的进程崩在临界区里、且还没到陈旧阈值）：退回乐观并发重试。
     for (let attempt = 0; attempt < UPDATE_RETRIES; attempt++) {
       const current = this.readJson(name);
       const rev = SessionSidecars.revOf(current);
