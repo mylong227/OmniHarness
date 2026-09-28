@@ -3788,3 +3788,42 @@ v2（{@link SessionRanking}，`sessionSidecars.ts`）把排序键分成三层，
 **验收**：`npm run web:test` **293/293**；全量单测 **2333 例 / 2328 通过 / 0 失败 / 5 跳过**；
 `tsc` / `build` / `web:build` / eslint / `check --strict`（593 文件零违规）/ `arch:gate`（0 违规）/
 `check:doc-links` 全绿。
+
+### 26.22 §26.21 的三条边界也全部收口（用户：「全都完成」）
+
+**① 侧车写入：整文件覆盖 → 原子替换 + 乐观并发（`rev`）。**
+两处都修：**原子性** —— 先写同目录 `<file>.<pid>.tmp` 再 `renameSync`（同分区原子），任何时刻读到的
+要么是旧的完整版、要么是新的完整版；半截 JSON 会让「损坏即回落默认」的侧车**整体丢失**（标题 / 归档 /
+顺序一起没），这比丢一条严重得多。**并发** —— 文档带 `rev`，`updateJson` 只在「读到的 rev 仍是磁盘上
+的 rev」时提交，否则**重读重算**（有界 8 轮）⇒ 跨进程并发写收敛而非互相覆盖。同进程内更简单：读—改—写
+全是同步代码（Node 单线程、中间无 `await`）⇒ 天然不可交错。
+门禁 `tests/unit/sessionSidecarConcurrency.test.ts`（6 例）：`rev` 单调递增、**不残留临时文件**、
+v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空操作。
+
+**② 拖拽：新增「拖拽把手」⇒ 短按即可拖，长按降级为行本体的备选路径。**
+行首新增 `⠿` 把手（`data-drag-handle` + `touch-action:none`）：按住把手**任何指针类型都立即进入拖拽**
+（鼠标 / 触屏都不需要长按）；行本体仍保留触屏长按 250ms（那块面积要留给滚动）。三条路径（HTML5 DnD /
+把手 pointer / 长按 pointer）最终都汇到同一个 `onDropOn`。门禁 `sessionOrder.test.mjs` 维持 8 例。
+
+**③ 归档冷存储：真的把 `.jsonl` 挪进 `archive/`。**
+新增 `src/util/sessionArchiveLayout.ts`（**路径规则只此一处**，纯函数、可单测）：
+`archive / restore / find / isArchived / ensureMain`，全部用 `rename`（同分区原子）⇒ 不存在「两边都有
+半截」或「两边都没有」的中间态。三处接线：
+
+- **会话服务**：归档挪走 + 侧车名单同步；`resolveSessionFile` 改为「主目录优先、其次归档目录」⇒
+  归档会话**仍可改名 / 删除 / 分叉 / 恢复**；列表只在 `includeArchived=true` 时扫 `archive/`；
+- **事件存储 `JsonlStorage`**：`load` 回落归档目录（否则「打开归档会话」得到空历史，看起来像历史丢了）；
+  `save` 前先 `ensureMain` **把文件挪回主目录**（否则续聊会在主目录新建一个只有新事件的文件，把历史
+  劈成两半）；
+- **遥测读取 `sessionEventReader`**：同样回落归档目录。
+
+门禁 `tests/unit/sessionArchiveLayout.test.ts`（4 例）：挪动 / 恢复 / 幂等 / `find`；**归档后仍能读到
+历史**；**续聊归档会话时不劈历史**（写入后归档目录已空、主目录 2 条事件）；列表带 `archived` 标记且
+归档会话仍可改名与恢复。
+
+**本版仍有的边界（更窄的两条）**：① 乐观并发是**进程级 rev 检测 + 有界重试**，不是文件锁：极端并发
+（同一毫秒内 >8 轮互相打断）会让最后一次写入放弃并保持旧值 —— **不损坏、不半截**，只是这次改动没落地；
+② 归档挪文件要求主目录与 `archive/` 在**同一分区**（同目录内天然成立；跨分区挂载的存储目录不支持）。
+
+**验收**：`npm run web:test` **293/293**；全量单测 **2343 例 / 2338 通过 / 0 失败 / 5 跳过**；
+`tsc` / `build` / `web:build` / eslint / `check --strict`（595 文件零违规）/ `arch:gate`（0 违规）全绿。

@@ -13,6 +13,7 @@ import type { Metrics } from './metrics.js';
 import type { LocalDay } from '../../util/localDay.js';
 import { SessionSidecars } from './sessionSidecars.js';
 import { SessionRanking } from './sessionRanking.js';
+import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';
@@ -146,23 +147,34 @@ export class SessionArchive {
     const sessions: SessionInfo[] = [];
     const titles = this.sidecars.readTitles();
     const archivedSet = new Set(this.sidecars.readArchived());
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith('.jsonl')) continue;
-      const id = name.replace(/\.jsonl$/, '');
-      const isArchived = archivedSet.has(id);
-      // 归档会话在默认列表里**整个跳过**（连事件流都不解析）：归档的意义就是「不再占日常开销」，
-      // 而它们仍可被「已归档」组按需读出（传 includeArchived=true）。
-      if (isArchived && !includeArchived) continue;
-      const parsed = this.scanSessionFile(join(dir, name));
-      if (parsed === undefined) continue;
+    const push = (file: string, id: string, archived: boolean): void => {
+      const parsed = this.scanSessionFile(file);
+      if (parsed === undefined) return;
       const t = titles[id];
       sessions.push({
         sessionId: id,
         ...parsed,
         label: t !== undefined && t !== '' ? t : parsed.label,
-        mtimeMs: SessionArchive.mtimeOf(join(dir, name)),
-        archived: isArchived,
+        mtimeMs: SessionArchive.mtimeOf(file),
+        archived,
       });
+    };
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith('.jsonl')) continue;
+      const id = name.replace(/\.jsonl$/, '');
+      push(join(dir, name), id, archivedSet.has(id));
+    }
+    // 归档会话现在住在 `archive/` 子目录里：日常列表（includeArchived=false）**整个目录都不扫**，
+    // 连事件流都不解析；「已归档」组按需请求时才读。
+    if (includeArchived) {
+      const archDir = SessionArchiveLayout.archiveDirOf(dir);
+      if (existsSync(archDir) && statSync(archDir).isDirectory()) {
+        for (const name of readdirSync(archDir)) {
+          if (!name.endsWith('.jsonl')) continue;
+          const id = name.replace(/\.jsonl$/, '');
+          push(join(archDir, name), id, true);
+        }
+      }
     }
     const doc = this.sidecars.readOrderDoc();
     const keyed = sessions.map((s) => ({
@@ -174,15 +186,21 @@ export class SessionArchive {
   }
 
   /**
-   * 归档 / 取消归档会话（只写侧车，不动事件流）。
+   * 归档 / 取消归档会话：**挪动文件**（主目录 ⇄ `archive/`，见 {@link SessionArchiveLayout}）并同步侧车
+   * 名单。挪动用 `rename`，同分区原子 —— 任何时刻文件要么在主目录要么在归档目录，不存在中间态。
    * @param sessionId 会话 id
-   * @param archived true 归档、false 取消归档
+   * @param archived true 归档、false 恢复
    * @returns `{ ok }`；id 非法或存档不存在时 `{ ok:false, error }`
    */
   public setArchived(sessionId: string, archived: boolean): { ok: boolean; error?: string } {
-    if (this.resolveSessionFile(sessionId) === undefined) {
+    const dir = this.storageLocation();
+    if (dir === undefined || this.resolveSessionFile(sessionId) === undefined) {
       return { ok: false, error: 'session_not_found' };
     }
+    const move = archived
+      ? SessionArchiveLayout.archive(dir, sessionId)
+      : SessionArchiveLayout.restore(dir, sessionId);
+    if (move === 'missing') return { ok: false, error: 'session_not_found' };
     const list = this.sidecars.readArchived();
     const next = archived
       ? [...new Set([...list, sessionId])]
@@ -214,8 +232,8 @@ export class SessionArchive {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(sessionId)) return undefined;
     const dir = this.storageLocation();
     if (dir === undefined) return undefined;
-    const file = join(dir, `${sessionId}.jsonl`);
-    return existsSync(file) && statSync(file).isFile() ? file : undefined;
+    // 主目录优先，其次归档目录（归档会话仍可改名 / 删除 / 分叉 / 恢复）。
+    return SessionArchiveLayout.find(dir, sessionId);
   }
 
   /**

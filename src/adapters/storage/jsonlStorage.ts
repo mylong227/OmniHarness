@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { SessionEvent } from '../../ports/runtime/event.js';
 import type { StoragePort } from '../../ports/memory/storage.js';
 import { log } from '../../util/logger.js';
+import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.js';
 
 /** JSONL 文件存储适配器：每个会话一个 .jsonl 文件（可观测、可回放）。 */
 export class JsonlStorage implements StoragePort {
@@ -32,6 +33,8 @@ export class JsonlStorage implements StoragePort {
   public async save(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
     const file = this.fileOf(sessionId);
     await mkdir(this.directory, { recursive: true });
+    // 归档冷存储：主目录没有文件但 `archive/` 有 ⇒ 先挪回来，避免把历史劈成两半（新文件只有新事件）。
+    SessionArchiveLayout.ensureMain(this.directory, sessionId);
     const lines = events.map((event) => JSON.stringify(event)).join('\n');
     const tmp = `${file}.tmp`;
     try {
@@ -58,7 +61,9 @@ export class JsonlStorage implements StoragePort {
    * @returns 成功解析出的事件列表（按文件行序）；文件缺失/不可读时为空数组（不抛错）。
    */
   public async load(sessionId: string): Promise<readonly SessionEvent[]> {
-    const file = this.fileOf(sessionId);
+    // 归档冷存储：主目录找不到时读 `archive/` 里的副本（否则「打开归档会话」会得到空历史，
+    // 看起来像历史丢了 —— 比报错更糟）。找不到时退回主目录路径，交由下面的 ENOENT 分支处理。
+    const file = SessionArchiveLayout.find(this.directory, sessionId) ?? this.fileOf(sessionId);
     let content: string;
     try {
       content = await readFile(file, 'utf8');

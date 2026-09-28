@@ -12,10 +12,13 @@
 // 也就是说「侧车坏了」的最坏后果是「自定义标题没了、归档状态没了、顺序回到时间倒序」，
 // **不会**让任何会话从列表里消失（那是比丢一条元数据严重得多的失败模式）。
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 // 排序模型（显式名次 + 新会话置顶）单独成文件：本文件只管侧车文件的读写。
 import { SessionRanking, type OrderDoc } from './sessionRanking.js';
+
+/** 乐观并发「读—改—写」的重试轮数（每轮都重读，故并发写会收敛而不是互相覆盖）。 */
+const UPDATE_RETRIES = 8;
 
 /** 自定义标题侧车文件名（`{ sessionId: title }`）。 */
 const TITLE_FILE = 'sessions.meta.json';
@@ -51,12 +54,12 @@ export class SessionSidecars {
   }
 
   /**
-   * 写入自定义标题表（整体重写）。
+   * 写入自定义标题表（整体重写；乐观并发下会重读重算，保证并发改名不互相覆盖）。
    * @param map `sessionId → 标题` 映射
    * @returns 无返回值。
    */
   public writeTitles(map: Record<string, string>): void {
-    this.writeJson(TITLE_FILE, map);
+    this.updateJson(TITLE_FILE, (_current, rev) => ({ rev: rev + 1, ...map }));
   }
 
   /**
@@ -73,11 +76,14 @@ export class SessionSidecars {
    * @returns 无返回值。
    */
   public writeArchived(ids: readonly string[]): void {
-    this.writeIdList(ARCHIVED_FILE, ids);
+    this.updateJson(ARCHIVED_FILE, (_current, rev) => ({
+      rev: rev + 1,
+      ids: [...ids],
+    }));
   }
 
   /**
-   * 读取排序文档（兼容 v1 数组）。
+   * 读取排序文档（兼容 v1 数组 / v2 对象）。
    * @returns 排序文档；缺失/损坏时为空文档
    */
   public readOrderDoc(): OrderDoc {
@@ -85,12 +91,17 @@ export class SessionSidecars {
   }
 
   /**
-   * 写入排序文档（v2 形状）。
+   * 写入排序文档（v2 形状；`rev` 供跨进程乐观并发检测）。
    * @param doc 排序文档
    * @returns 无返回值。
    */
   public writeOrderDoc(doc: OrderDoc): void {
-    this.writeJson(ORDER_FILE, { v: 2, at: doc.at, rank: doc.rank });
+    this.updateJson(ORDER_FILE, (_current, rev) => ({
+      v: 2,
+      rev: rev + 1,
+      at: doc.at,
+      rank: doc.rank,
+    }));
   }
 
   /**
@@ -105,14 +116,19 @@ export class SessionSidecars {
   }
 
   /**
-   * 读一个「id 数组」侧车（非字符串项丢弃）。
+   * 读一个「id 数组」侧车（兼容 `string[]` 与 `{ rev, ids }` 两种形状；非字符串项丢弃）。
    * @param name 文件名
    * @returns id 列表
    */
   private readIdList(name: string): string[] {
     const parsed = this.readJson(name);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x): x is string => typeof x === 'string');
+    const raw = Array.isArray(parsed)
+      ? parsed
+      : parsed !== null && typeof parsed === 'object'
+        ? ((parsed as Record<string, unknown>)['ids'] ?? [])
+        : [];
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((x): x is string => typeof x === 'string');
   }
 
   /**
@@ -141,7 +157,15 @@ export class SessionSidecars {
   }
 
   /**
-   * 整体重写侧车（低频用户操作，不做增量）。
+   * 原子写侧车：先写同目录临时文件再 `rename`（同分区 rename 是原子的）。
+   *
+   * 为什么不是「直接 writeFileSync」：整文件重写期间若进程被杀 / 断电，目标文件会**半截**——
+   * 而侧车是「损坏即回落默认」的设计，半截 JSON 会让用户的自定义标题 / 归档 / 顺序**整体丢失**
+   * （不是丢一条）。原子替换保证任何时刻读到的都是「旧的完整版」或「新的完整版」。
+   *
+   * **并发口径（本版边界①②的修法）**：同一进程内的「读—改—写」全是同步代码（Node 单线程、中间无
+   * `await`）⇒ 天然不可交错；**跨进程**（两个 serve 指向同一存储目录）用 `rev` 做乐观并发：
+   * {@link updateJson} 读到旧 `rev` 才提交，否则重读重算（有界重试）。故并发拖拽不会丢写入。
    * @param name 文件名
    * @param value 待写入的 JSON 值
    * @returns 无返回值。
@@ -149,6 +173,41 @@ export class SessionSidecars {
   private writeJson(name: string, value: unknown): void {
     const path = this.pathOf(name);
     if (path === undefined) return;
-    writeFileSync(path, JSON.stringify(value, null, 2) + '\n', 'utf8');
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf8');
+    renameSync(tmp, path);
+  }
+
+  /**
+   * 乐观并发的「读—改—写」：读当前文档（含 `rev`）→ 交给纯函数算新值 → 若 `rev` 未变则提交，
+   * 变了就重读重算（最多 {@link UPDATE_RETRIES} 轮）。全同步、进程内不可交错；跨进程靠 `rev` 检测。
+   * @param name 文件名
+   * @param mutate 纯函数：由「当前文档 + rev」算出新文档
+   * @returns 提交成功返回 true；目录未知或重试耗尽返回 false
+   */
+  private updateJson(name: string, mutate: (current: unknown, rev: number) => unknown): boolean {
+    for (let attempt = 0; attempt < UPDATE_RETRIES; attempt++) {
+      const current = this.readJson(name);
+      const rev = SessionSidecars.revOf(current);
+      const next = mutate(current, rev);
+      const onDisk = SessionSidecars.revOf(this.readJson(name));
+      if (onDisk !== rev) continue; // 期间被别人改过 ⇒ 重读重算
+      this.writeJson(name, next);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 取文档里的 `rev`（无 / 非法按 0 处理）。
+   * @param parsed 侧车 JSON
+   * @returns rev 数值
+   */
+  private static revOf(parsed: unknown): number {
+    if (parsed !== null && typeof parsed === 'object') {
+      const rev = (parsed as Record<string, unknown>)['rev'];
+      if (typeof rev === 'number' && Number.isFinite(rev)) return rev;
+    }
+    return 0;
   }
 }
