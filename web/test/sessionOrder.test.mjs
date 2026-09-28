@@ -69,6 +69,42 @@ test('按时间分组：归档会话单独成组且垫底，不混进今天/昨�
   assert.strictEqual(groups.find((g) => g.key === 'archived')?.name, '已归档');
 });
 
+test('移到顶部 / 移到底部：等价于「与首/末行交换位置」的一次移动', () => {
+  const items = [row('a'), row('b'), row('c'), row('d')];
+  const first = items[0];
+  const last = items[items.length - 1];
+  assert.deepStrictEqual(
+    SessionOrder.move(items, 'c', first.id).map((x) => x.id),
+    ['c', 'a', 'b', 'd'],
+    '移到顶部 = 插到首行之前',
+  );
+  assert.deepStrictEqual(
+    SessionOrder.move(items, 'b', last.id).map((x) => x.id),
+    ['a', 'c', 'd', 'b'],
+    '移到底部 = 插到末行之后',
+  );
+  // 已在首/末行时是幂等空操作（面板里直接 return，这里确认移动语义本身也不动）
+  assert.deepStrictEqual(SessionOrder.move(items, 'a', 'a').map((x) => x.id), ['a', 'b', 'c', 'd']);
+});
+
+test('接线守卫：三个视图都可拖拽，右键菜单含「移到顶部 / 移到底部」', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const views = readFileSync(join(here, '..', 'src', 'ui', 'components', 'SessionViews.tsx'), 'utf8');
+  const drags = views.match(/draggable=\{ctx\.onDragStart !== undefined\}/g) ?? [];
+  assert.strictEqual(
+    drags.length,
+    3,
+    `时间分组 / 按工作区分组 / 任务卡三个视图都必须可拖拽（实测 ${drags.length} 处）`,
+  );
+  const panel = readFileSync(join(here, '..', 'src', 'ui', 'components', 'SessionPanel.tsx'), 'utf8');
+  assert.match(panel, /移到顶部/, '右键菜单必须有「移到顶部」');
+  assert.match(panel, /移到底部/, '右键菜单必须有「移到底部」');
+  assert.match(panel, /const moveToEdge = /, '移到底部/顶部必须走统一的 moveToEdge');
+});
+
 test('接线守卫：左栏把拖拽与归档都接到控制器（不得只画 UI 不接线）', async () => {
   const { readFileSync } = await import('node:fs');
   const { dirname, join } = await import('node:path');

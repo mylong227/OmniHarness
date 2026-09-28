@@ -227,10 +227,26 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
           className={
             'task-card' +
             (s.id === ctx.currentThreadId ? ' active' : '') +
-            (s.running ? ' running' : '')
+            (s.running ? ' running' : '') +
+            (s.id === ctx.draggingId ? ' dragging' : '')
           }
           title={s.id}
+          draggable={ctx.onDragStart !== undefined}
+          onDragStart={() => ctx.onDragStart?.(s.id)}
+          onDragEnd={() => ctx.onDragEnd?.()}
+          onDragOver={(e: DragEvent) => {
+            if (ctx.onDropOn !== undefined) e.preventDefault();
+          }}
+          onDrop={(e: DragEvent) => {
+            e.preventDefault();
+            ctx.onDropOn?.(s.id);
+          }}
           onClick={() => ctx.onSelect(s.id)}
+          onContextMenu={(e: MouseEvent) => {
+            if (ctx.onContextMenu === undefined) return;
+            e.preventDefault();
+            ctx.onContextMenu(s.id, e.clientX, e.clientY);
+          }}
         >
           <div className="tc-top">
             <span
@@ -292,8 +308,27 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
                 {shown.map((s) => (
                   <div
                     key={s.id}
-                    className={'session' + (s.id === ctx.currentThreadId ? ' active' : '')}
+                    className={
+                      'session' +
+                      (s.id === ctx.currentThreadId ? ' active' : '') +
+                      (s.id === ctx.draggingId ? ' dragging' : '')
+                    }
+                    draggable={ctx.onDragStart !== undefined}
+                    onDragStart={() => ctx.onDragStart?.(s.id)}
+                    onDragEnd={() => ctx.onDragEnd?.()}
+                    onDragOver={(e: DragEvent) => {
+                      if (ctx.onDropOn !== undefined) e.preventDefault();
+                    }}
+                    onDrop={(e: DragEvent) => {
+                      e.preventDefault();
+                      ctx.onDropOn?.(s.id);
+                    }}
                     onClick={() => ctx.onSelect(s.id)}
+                    onContextMenu={(e: MouseEvent) => {
+                      if (ctx.onContextMenu === undefined) return;
+                      e.preventDefault();
+                      ctx.onContextMenu(s.id, e.clientX, e.clientY);
+                    }}
                     title={s.id}
                   >
                     {renderSessionBody(s, ctx)}

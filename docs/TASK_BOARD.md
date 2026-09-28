@@ -3716,3 +3716,29 @@ overscan 的 8 块**本轮才第一次被测量**（估算 88px vs 真实几百 
 **验收**：`npm run web:test` **290/290**；全量单测 **2325 例 / 2320 通过 / 0 失败 / 5 跳过**；
 `tsc` / `build` / `web:build` / eslint / `check --strict`（592 文件零违规）/ `arch:gate`（0 违规）/
 `audit:top-level-fn` / `check:doc-links` 全绿。
+
+### 26.20 §26.19 边界①的收口：拖拽铺到三个视图 + 右键「移到顶部 / 移到底部」
+
+**用户要求**：「需要」（把拖拽铺到另外两个视图、并在右键菜单加移到顶部/底部）。
+
+**处置**：
+
+1. **三个视图都能拖**：`draggable` + `dragover/drop` 从「只做时间分组」铺到 **按工作区分组**与
+   **任务卡视图**（`.task-card` 一起加，含 `.dragging` 半透明样式）。三处共用同一组
+   `ListCtx.onDragStart/onDragEnd/onDropOn`，落点判定与持久化路径完全一致。
+2. **右键菜单加「移到顶部 / 移到底部」**：面板里统一走 `moveToEdge(id, 'top'|'bottom')` —— 复用
+   `SessionOrder.move` + `props.onReorder`（与拖拽同一条通路：顺序语义、持久化、失败提示都不另开一套）；
+   已在首/末行时是幂等空操作。
+
+**门禁**：`web/test/sessionOrder.test.mjs` 由 5 例扩到 **7 例** —— 新增「移到顶部/底部 = 与首/末行
+交换位置的一次移动」语义用例，以及接线守卫：`SessionViews` 里 `draggable={ctx.onDragStart !== undefined}`
+必须**恰好 3 处**（三个视图一个都不能漏，数量断言比「存在即通过」更能挡住漏改），右键菜单必须含
+「移到顶部」「移到底部」且必须走 `moveToEdge`。
+
+**诚实边界（仍有的）**：① 「移到顶部」是对**当前内存顺序**的整表登记，若另一个客户端此时新建了会话，
+它仍按时间倒序排在已登记项之后（跨客户端并发排序未做，需要服务端序号+版本号，本版没做）；
+② 拖拽是 HTML5 DnD，**触屏设备不支持**（要做需 pointer 事件手写拖拽）；③ 归档语义不变（折叠隐藏、
+不删事件流）。
+
+**验收**：`npm run web:test` **292/292**；`tsc` / `web:build` / eslint / `check --strict`（593 文件
+零违规）/ `arch:gate`（0 违规）全绿。
