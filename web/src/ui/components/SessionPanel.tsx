@@ -103,6 +103,54 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
   /** 正在被拖动的会话 id（拖拽排序高亮 / 落点判定）。 */
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  /** 触屏长按拖拽的在途状态（指针 id + 长按定时器）。 */
+  const touchDragRef = React.useRef<{ id: string; timer: number | null } | null>(null);
+
+  /** 清掉触屏长按定时器。 @returns 无 */
+  const clearTouchTimer = (): void => {
+    const cur = touchDragRef.current;
+    if (cur !== null && cur.timer !== null) window.clearTimeout(cur.timer);
+    if (cur !== null) cur.timer = null;
+  };
+
+  /**
+   * 触屏拖拽入口（长按 250ms 生效）。
+   *
+   * 为什么不是 HTML5 DnD：`draggable` 在触屏上**不触发**（移动端浏览器不派发 dragstart），
+   * 故触屏走 pointer 事件：长按进入拖拽 → 移动时用 `elementFromPoint` 找落点行 → 抬手落下。
+   * 鼠标路径不变（仍是 HTML5 DnD），两条路径最终都汇到同一个 `ListCtx.onDropOn`。
+   * @param e 指针事件
+   * @returns 无
+   */
+  const onSessionsPointerDown = (e: PointerEvent): void => {
+    if (e.pointerType !== 'touch' || props.onReorder === undefined) return;
+    const el = e.target as HTMLElement | null;
+    if (el === null || el.closest('button') !== null) return; // 行内按钮不触发拖拽
+    const row = el.closest('[data-session-id]');
+    const id = row?.getAttribute('data-session-id');
+    if (id === null || id === undefined) return;
+    const timer = window.setTimeout(() => setDraggingId(id), 250);
+    touchDragRef.current = { id, timer };
+  };
+
+  /**
+   * 触屏抬手：若处于拖拽态，则按落点行落下（用 `elementFromPoint` 命中，因为指针被隐式捕获在原行）。
+   * @param e 指针事件
+   * @returns 无
+   */
+  const onSessionsPointerUp = (e: PointerEvent): void => {
+    const cur = touchDragRef.current;
+    clearTouchTimer();
+    touchDragRef.current = null;
+    if (cur === null || draggingId === null) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const row = target instanceof Element ? target.closest('[data-session-id]') : null;
+    const toId = row?.getAttribute('data-session-id') ?? null;
+    setDraggingId(null);
+    if (toId !== null && toId !== cur.id) {
+      void props.onReorder?.(SessionOrder.move(sessions, cur.id, toId));
+    }
+  };
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameValue, setRenameValue] = React.useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
@@ -534,7 +582,17 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             loading={searching}
             onPick={openHit}
           />
-          <div id="sessions">
+          <div
+            id="sessions"
+            className={draggingId === null ? undefined : 'touch-drag'}
+            onPointerDown={onSessionsPointerDown}
+            onPointerUp={onSessionsPointerUp}
+            onPointerCancel={() => {
+              clearTouchTimer();
+              touchDragRef.current = null;
+              setDraggingId(null);
+            }}
+          >
             {view === 'cards'
               ? renderCardsView(listCtx)
               : view === 'ws'

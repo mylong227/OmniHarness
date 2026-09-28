@@ -131,11 +131,13 @@ export class SessionController {
 
   /**
    * 刷新磁盘会话列表（含各项目工作区标记），保留内存态中未落盘的会话。
+   * @param includeArchived 是否连归档会话一起读（缺省 false = 快速路径：服务端跳过归档文件的逐个
+   *   扫描；归档行已在内存时会被 `mergeSessions` 保留，故不影响「已归档」组的显示）
    * @returns 异步完成
    */
-  public async refreshSessions(): Promise<void> {
+  public async refreshSessions(includeArchived = false): Promise<void> {
     try {
-      const r = await this.services.api.listSessions();
+      const r = await this.services.api.listSessions({ includeArchived });
       const fromDisk: SessionEntry[] = r.sessions.map((s) => ({
         id: s.sessionId,
         label: s.label || s.sessionId,

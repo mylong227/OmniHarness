@@ -14,12 +14,14 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 排序模型（显式名次 + 新会话置顶）单独成文件：本文件只管侧车文件的读写。
+import { SessionRanking, type OrderDoc } from './sessionRanking.js';
 
 /** 自定义标题侧车文件名（`{ sessionId: title }`）。 */
 const TITLE_FILE = 'sessions.meta.json';
 /** 归档名单侧车文件名（`string[]`）。 */
 const ARCHIVED_FILE = 'sessions.archived.json';
-/** 用户指定顺序侧车文件名（`string[]`）。 */
+/** 用户指定顺序侧车文件名（v2 文档；v1 为 `string[]`，读取时兼容）。 */
 const ORDER_FILE = 'sessions.order.json';
 
 /** 会话侧车存储：标题 / 归档 / 顺序。 */
@@ -75,20 +77,20 @@ export class SessionSidecars {
   }
 
   /**
-   * 读取用户指定顺序。
-   * @returns 有序 id 列表；缺失/损坏时为空数组（= 全部按时间倒序）
+   * 读取排序文档（兼容 v1 数组）。
+   * @returns 排序文档；缺失/损坏时为空文档
    */
-  public readOrder(): string[] {
-    return this.readIdList(ORDER_FILE);
+  public readOrderDoc(): OrderDoc {
+    return SessionRanking.parse(this.readJson(ORDER_FILE));
   }
 
   /**
-   * 写入用户指定顺序。
-   * @param ids 有序 id 列表
+   * 写入排序文档（v2 形状）。
+   * @param doc 排序文档
    * @returns 无返回值。
    */
-  public writeOrder(ids: readonly string[]): void {
-    this.writeIdList(ORDER_FILE, ids);
+  public writeOrderDoc(doc: OrderDoc): void {
+    this.writeJson(ORDER_FILE, { v: 2, at: doc.at, rank: doc.rank });
   }
 
   /**

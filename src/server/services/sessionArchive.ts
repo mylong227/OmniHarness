@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import type { Metrics } from './metrics.js';
 import type { LocalDay } from '../../util/localDay.js';
 import { SessionSidecars } from './sessionSidecars.js';
+import { SessionRanking } from './sessionRanking.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';
@@ -130,43 +131,46 @@ export class SessionArchive {
    * 会话列表 RPC：扫描 StoragePort 实际位置下全部会话存档，提取工作区标记
    * （session_meta 事件）与首条用户消息（作标签），供 UI 按项目收纳、切换项目查看对应会话。
    * 无标记的历史会话 workspace 为 undefined，UI 归入「更早会话」组。
-   * @returns `{ dir: string|undefined; sessions: SessionInfo[] }`（按 mtime 倒序）
+   *
+   * **排序（v2，跨客户端成立）**：见 {@link SessionRanking} —— 新会话（上次排序之后出现的）置顶、
+   * 用户显式排过的按名次、升级前的历史会话垫后；另一个客户端新建的会话因此不会被丢到列表底部。
+   * @param includeArchived 是否连归档会话一起读（缺省 true，保持既有调用方行为；UI 的「已归档」组
+   *   按需请求，日常列表可传 false 从而**跳过归档文件的逐个扫描**）
+   * @returns `{ dir: string|undefined; sessions: SessionInfo[] }`
    */
-  public list(): unknown {
+  public list(includeArchived = true): unknown {
     const dir = this.storageLocation();
     if (dir === undefined || !existsSync(dir) || !statSync(dir).isDirectory()) {
       return { dir, sessions: [] };
     }
     const sessions: SessionInfo[] = [];
     const titles = this.sidecars.readTitles();
-    const archived = new Set(this.sidecars.readArchived());
+    const archivedSet = new Set(this.sidecars.readArchived());
     for (const name of readdirSync(dir)) {
       if (!name.endsWith('.jsonl')) continue;
+      const id = name.replace(/\.jsonl$/, '');
+      const isArchived = archivedSet.has(id);
+      // 归档会话在默认列表里**整个跳过**（连事件流都不解析）：归档的意义就是「不再占日常开销」，
+      // 而它们仍可被「已归档」组按需读出（传 includeArchived=true）。
+      if (isArchived && !includeArchived) continue;
       const parsed = this.scanSessionFile(join(dir, name));
       if (parsed === undefined) continue;
-      const id = name.replace(/\.jsonl$/, '');
       const t = titles[id];
       sessions.push({
         sessionId: id,
         ...parsed,
         label: t !== undefined && t !== '' ? t : parsed.label,
         mtimeMs: SessionArchive.mtimeOf(join(dir, name)),
-        archived: archived.has(id),
+        archived: isArchived,
       });
     }
-    // 排序：先在**用户指定顺序**（侧车 `sessions.order.json`，拖拽排序的产物）里找位置，
-    // 未在其中的按 mtime 倒序排在后面（新会话默认置顶，符合「刚聊过的在最上面」）。
-    const order = this.sidecars.readOrder();
-    const rank = new Map(order.map((id, i) => [id, i]));
-    sessions.sort((a, b) => {
-      const ra = rank.get(a.sessionId);
-      const rb = rank.get(b.sessionId);
-      if (ra !== undefined && rb !== undefined) return ra - rb;
-      if (ra !== undefined) return -1;
-      if (rb !== undefined) return 1;
-      return b.mtimeMs - a.mtimeMs;
-    });
-    return { dir, sessions };
+    const doc = this.sidecars.readOrderDoc();
+    const keyed = sessions.map((s) => ({
+      s,
+      key: SessionRanking.sortKey(doc.rank[s.sessionId], s.mtimeMs, doc.at),
+    }));
+    keyed.sort((a, b) => SessionRanking.compare(a.key, b.key));
+    return { dir, sessions: keyed.map((k) => k.s) };
   }
 
   /**
@@ -195,7 +199,9 @@ export class SessionArchive {
   public reorder(ids: readonly string[]): { ok: boolean; error?: string } {
     const clean = ids.filter((id) => /^[A-Za-z0-9_-]{1,128}$/.test(id));
     if (clean.length !== ids.length) return { ok: false, error: 'bad_session_id' };
-    this.sidecars.writeOrder(clean);
+    const prev = this.sidecars.readOrderDoc();
+    // 稠密名次 + 推进 `at`：此后新出现的会话会被判为「新会话」而置顶（跨客户端也成立）。
+    this.sidecars.writeOrderDoc(SessionRanking.densify(clean, prev, Date.now()));
     return { ok: true };
   }
 

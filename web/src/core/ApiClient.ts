@@ -174,8 +174,14 @@ export class ApiClient {
   public listWorkspaces(): Promise<{ current: string; workspaces: string[] }> {
     return this.rpc('workspace.list', {});
   }
-  /** 全部会话存档列表（含工作区标记），供按项目收纳。running = 服务端真实运行态。 */
-  public listSessions(): Promise<{
+  /**
+   * 全部会话存档列表（含工作区标记），供按项目收纳。running = 服务端真实运行态。
+   * @param opts `includeArchived=false` 时服务端**跳过归档文件的逐个扫描**（快速路径）
+   * @returns 存档目录与有序会话列表
+   */
+  public listSessions(opts?: {
+    includeArchived?: boolean;
+  }): Promise<{
     dir: string;
     sessions: {
       sessionId: string;
@@ -187,7 +193,7 @@ export class ApiClient {
       archived?: boolean;
     }[];
   }> {
-    return this.rpc('sessions.list', {});
+    return this.rpc('sessions.list', { includeArchived: opts?.includeArchived !== false });
   }
   /**
    * 归档 / 取消归档会话（只写侧车，不动事件流）。
