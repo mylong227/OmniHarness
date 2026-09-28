@@ -8,7 +8,16 @@
 // ③ 归档会话**续聊前先挪回主目录**（`ensureMain`），否则主目录会新建一个只有新事件的文件，把历史劈成两半。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionArchiveLayout } from '../../src/util/sessionArchiveLayout.js';
@@ -104,6 +113,75 @@ test('续聊归档会话：save 前先把文件挪回主目录（不劈历史）
       '写入时必须已挪回',
     );
     assert.strictEqual((await storage.load('a')).length, 2);
+  });
+});
+
+test('跨分区回退：rename 抛 EXDEV 时改走「复制 → 校验 → 目标内原子改名 → 删源」', () => {
+  withTemp((dir) => {
+    const src = SessionArchiveLayout.mainFileOf(dir, 'a');
+    const dest = SessionArchiveLayout.archivedFileOf(dir, 'a');
+    writeFileSync(src, line('user', { content: '甲' }));
+    const exdev = Object.assign(new Error('cross-device link not permitted'), { code: 'EXDEV' });
+    const moves: string[] = [];
+    const r = SessionArchiveLayout.moveFile(src, dest, (from, to) => {
+      moves.push(`${from} → ${to}`);
+      if (moves.length === 1) throw exdev; // 第一次 rename 失败（模拟跨设备）⇒ 必须走复制回退
+      renameSync(from, to);
+    });
+    assert.strictEqual(r, 'moved');
+    assert.strictEqual(
+      moves.length >= 2,
+      true,
+      `回退路径必须再做一次「目标目录内」的 rename（实测 ${moves.length} 次）`,
+    );
+    assert.strictEqual(existsSync(src), false, '源必须被删掉（复制已校验通过）');
+    assert.strictEqual(existsSync(dest), true, '目标必须就位');
+    assert.strictEqual(
+      readFileSync(dest, 'utf8'),
+      line('user', { content: '甲' }),
+      '内容必须逐字节一致',
+    );
+    const leftovers = readdirSync(dir).filter((n) => n.includes('.tmp'));
+    assert.deepEqual(leftovers, [], '不得残留临时文件');
+  });
+});
+
+test('跨分区回退：校验失败 ⇒ 抛错且不留下目标文件（源消失时宁可失败）', () => {
+  withTemp((dir) => {
+    const src = SessionArchiveLayout.mainFileOf(dir, 'a');
+    const dest = SessionArchiveLayout.archivedFileOf(dir, 'a');
+    writeFileSync(src, line('user', { content: '甲' }));
+    const exdev = Object.assign(new Error('EXDEV'), { code: 'EXDEV' });
+    assert.throws(() => {
+      SessionArchiveLayout.moveFile(src, dest, () => {
+        rmSync(src, { force: true }); // 模拟「跨分区复制过程中源被外部删掉」⇒ 复制校验必然失败
+        throw exdev;
+      });
+    });
+    assert.strictEqual(existsSync(dest), false, '校验失败时不得留下目标文件');
+    assert.deepEqual(
+      readdirSync(dir).filter((n) => n.includes('.tmp')),
+      [],
+      '不得残留临时文件',
+    );
+  });
+});
+
+test('被打断的跨分区搬运：下次归档按大小清理重复（半截的那份被丢弃）', () => {
+  withTemp((dir) => {
+    const src = SessionArchiveLayout.mainFileOf(dir, 'a');
+    const dest = SessionArchiveLayout.archivedFileOf(dir, 'a');
+    writeFileSync(src, line('user', { content: '完整内容' }));
+    mkdirSync(SessionArchiveLayout.archiveDirOf(dir), { recursive: true });
+    writeFileSync(dest, '半截'); // 上次复制被打断留下的半截副本
+    assert.strictEqual(SessionArchiveLayout.archive(dir, 'a'), 'moved');
+    assert.strictEqual(existsSync(src), false);
+    assert.strictEqual(existsSync(dest), true);
+    assert.strictEqual(
+      readFileSync(dest, 'utf8'),
+      line('user', { content: '完整内容' }),
+      '必须保留完整的那份',
+    );
   });
 });
 
