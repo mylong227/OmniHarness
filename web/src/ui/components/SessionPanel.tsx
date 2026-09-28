@@ -114,21 +114,34 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   };
 
   /**
-   * 触屏拖拽入口（长按 250ms 生效）。
+   * 触屏 / 指针拖拽入口。
    *
-   * 为什么不是 HTML5 DnD：`draggable` 在触屏上**不触发**（移动端浏览器不派发 dragstart），
-   * 故触屏走 pointer 事件：长按进入拖拽 → 移动时用 `elementFromPoint` 找落点行 → 抬手落下。
-   * 鼠标路径不变（仍是 HTML5 DnD），两条路径最终都汇到同一个 `ListCtx.onDropOn`。
+   * 两条路径，最终都汇到同一个 `ListCtx.onDropOn`：
+   * ① **拖拽把手**（行首 `⠿`）：任何指针类型**立即**进入拖拽（把手自身 `touch-action:none`，
+   *    触屏也不与滚动冲突）——「短按即可拖」；
+   * ② **行本体**：触屏长按 250ms 才进入（行本体要留给滚动，这是与滚动手势共存的取舍）；鼠标走
+   *    既有的 HTML5 DnD。
    * @param e 指针事件
    * @returns 无
    */
   const onSessionsPointerDown = (e: PointerEvent): void => {
-    if (e.pointerType !== 'touch' || props.onReorder === undefined) return;
+    if (props.onReorder === undefined) return;
     const el = e.target as HTMLElement | null;
-    if (el === null || el.closest('button') !== null) return; // 行内按钮不触发拖拽
+    if (el === null) return;
     const row = el.closest('[data-session-id]');
     const id = row?.getAttribute('data-session-id');
     if (id === null || id === undefined) return;
+    // ① 抓到**拖拽把手**：任何指针类型都立即进入拖拽（把手自带 `touch-action:none`，
+    //    所以触屏上也不需要长按 —— 这就是「短按即可拖」的入口）。
+    if (el.closest('[data-drag-handle]') !== null) {
+      setDraggingId(id);
+      touchDragRef.current = { id, timer: null };
+      return;
+    }
+    // ② 行内按钮不触发拖拽。
+    if (el.closest('button') !== null) return;
+    // ③ 触屏按在行本体上：仍保留长按 250ms（与「列表滚动」共存；想立即拖就用把手）。
+    if (e.pointerType !== 'touch') return;
     const timer = window.setTimeout(() => setDraggingId(id), 250);
     touchDragRef.current = { id, timer };
   };

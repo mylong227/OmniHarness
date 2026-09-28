@@ -305,6 +305,14 @@
 .session.dragging { opacity:.45; }
 /* 触屏长按拖拽进行中：禁掉容器自身的滚动手势，让 pointermove 全部交给我们（否则手指一动就变成滚动）。 */
 #sessions.touch-drag { touch-action:none; }
+/* 拖拽把手：鼠标悬停 / 拖拽中显形；自带 touch-action:none ⇒ 触屏上短按即可拖（无需长按）。 */
+.drag-handle {
+  flex:0 0 auto; cursor:grab; touch-action:none; color:var(--dim);
+  opacity:0; transition:opacity .12s; font-size:11px; line-height:1; user-select:none;
+}
+.session:hover .drag-handle, .task-card:hover .drag-handle,
+.session.dragging .drag-handle, .task-card.dragging .drag-handle { opacity:1; }
+.session[draggable='true'] > .drag-handle { margin-right:2px; }
 .task-card.dragging { opacity:.45; }
 .task-card[draggable='true'] { cursor:grab; }
 

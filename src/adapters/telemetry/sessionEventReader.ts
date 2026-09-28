@@ -12,6 +12,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.js';
 import type { SessionEvent } from '../../ports/runtime/event.js';
 
 /** 合法的会话 id 形态（与 `SessionArchive.resolveSessionFile` 同一口径）。 */
@@ -54,7 +55,11 @@ export class SessionEventReader implements SessionEventReaderPort {
     }
     let text: string;
     try {
-      text = await readFile(join(this.storageDir, `${sessionId}.jsonl`), 'utf8');
+      // 归档冷存储：主目录没有就读 `archive/` 里的副本（否则归档会话的历史会被读成空）。
+      const file =
+        SessionArchiveLayout.find(this.storageDir, sessionId) ??
+        join(this.storageDir, `${sessionId}.jsonl`);
+      text = await readFile(file, 'utf8');
     } catch {
       return [];
     }
