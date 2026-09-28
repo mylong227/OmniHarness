@@ -262,6 +262,24 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     setView((prev) => (prev === 'time' ? 'ws' : prev === 'ws' ? 'cards' : 'time'));
   };
 
+  /**
+   * 把某会话钉到列表最前 / 最后（右键菜单「移到顶部 / 移到底部」）。
+   *
+   * 与拖拽共用同一条通路：`SessionOrder.move` + `props.onReorder` ⇒ 顺序语义、持久化、失败提示
+   * 全都一致（不另开一套）。
+   * @param id 目标会话 id
+   * @param edge 'top' 移到最前、'bottom' 移到最后
+   * @returns 无
+   */
+  const moveToEdge = (id: string, edge: 'top' | 'bottom'): void => {
+    if (props.onReorder === undefined) return;
+    const first = sessions[0];
+    const last = sessions[sessions.length - 1];
+    const anchor = edge === 'top' ? first : last;
+    if (anchor === undefined || anchor.id === id) return;
+    void props.onReorder(SessionOrder.move(sessions, id, anchor.id));
+  };
+
   /** 视图按钮文案（同时作为 aria-label，见下）。 @returns 中文字样 */
   const viewLabel = (): string => (view === 'time' ? '时间' : view === 'ws' ? '工作区' : '任务卡');
   /** 下一个视图的提示文案。 @returns 中文字样 */
@@ -589,6 +607,25 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             }}
           >
             复制为副本
+          </button>
+          {/* 排序：不用拖拽也能把会话钉到最前/最后（Codex 式右键菜单的做法）。 */}
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              moveToEdge(menu.id, 'top');
+            }}
+          >
+            移到顶部
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              moveToEdge(menu.id, 'bottom');
+            }}
+          >
+            移到底部
           </button>
           <button
             role="menuitem"
