@@ -24,6 +24,8 @@ export class HttpA2aTransport implements A2aTransport {
   private readonly endpoint: string;
   /** SSRF 策略：默认放行私有网段但拦截云元数据（出厂默认端点即 localhost/a2a）。 */
   private readonly ssrf: SsrfOptions;
+  /** 出站 `send` 的空闲超时（毫秒）：fire-and-forget 也必须释放 socket，否则对端挂起会泄漏连接。 */
+  private static readonly SEND_TIMEOUT_MS = 10_000;
 
   /**
    * @param endpoint 对端 `/a2a` 端点。
@@ -74,6 +76,7 @@ export class HttpA2aTransport implements A2aTransport {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(message),
+      signal: AbortSignal.timeout(HttpA2aTransport.SEND_TIMEOUT_MS),
     })
       .then((r) => r.json())
       .then((resp: unknown) => {
@@ -145,6 +148,11 @@ export class HttpA2aServerTransport implements A2aTransport {
     entry.resolve({ ...message, id: entry.remoteId });
   }
 
+  /** 入站请求体字节上限（fail-closed）：JSON-RPC 委托消息体量很小，1 MiB 已是极宽松上界。 */
+  private static readonly MAX_BODY_BYTES = 1_048_576;
+  /** 入站读超时（毫秒）：对端慢速/不发数据时必须释放连接，不能长期占用。 */
+  private static readonly READ_TIMEOUT_MS = 30_000;
+
   /**
    * 在给定端口监听（返回实际端口）。
    * @param port 期望监听的端口（可传 0 取系统分配的临时端口）。
@@ -152,57 +160,94 @@ export class HttpA2aServerTransport implements A2aTransport {
    *          仅接受 POST /a2a，其余返回 405/400/500。
    */
   public async listen(port: number): Promise<number> {
-    this.server = http.createServer((req, res) => {
-      if (req.method !== 'POST') {
-        res.writeHead(405);
-        res.end();
-        return;
-      }
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        const msg = jsonRpc.parse(body);
-        if (msg === undefined || !('method' in msg)) {
-          res.writeHead(400);
-          res.end();
-          return;
-        }
-        const id = 'id' in msg ? msg.id : null;
-        if (id === null) {
-          res.writeHead(400);
-          res.end();
-          return;
-        }
-        this.seq += 1;
-        const key = `a2a-${String(this.seq)}`;
-        const promise = new Promise<RpcMessage>((resolve) => {
-          this.resolvers.set(key, { remoteId: id, resolve });
-        });
-        // 对端在响应前断开 ⇒ 该挂起项永远不会被回写，必须就地回收，否则长跑服务里逐请求泄漏
-        // （审计 X4：原实现无 close 清理，resolver 与连接一起悬着）。
-        res.on('close', () => {
-          this.resolvers.delete(key);
-        });
-        this.callback?.({ ...msg, id: key });
-        promise
-          .then((response) => {
-            res.writeHead(200, { 'content-type': 'application/json' });
-            res.end(JSON.stringify(response));
-          })
-          .catch(() => {
-            res.writeHead(500);
-            res.end();
-          });
-      });
-    });
+    this.server = http.createServer((req, res) => this.handleRequest(req, res));
     const server = this.server;
     return new Promise<number>((resolve) => {
       server.listen(port, () => {
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });
+    });
+  }
+
+  /**
+   * 处理单条入站 HTTP 请求（POST /a2a）：带体积上限与读超时的 fail-closed 解析。
+   *
+   * @param req 入站请求。
+   * @param res 响应对象。
+   * @returns 无返回值。
+   */
+  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (req.method !== 'POST') {
+      res.writeHead(405);
+      res.end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    let received = 0;
+    let aborted = false;
+    // 入站读超时 + 体积上限（fail-closed）：A2A 服务端是网络端口，对端不可信，裸
+    // `body += chunk` 既无体积上限也无读超时 ⇒ 超大/慢速请求可耗尽内存或长期占用连接。
+    req.socket.setTimeout(HttpA2aServerTransport.READ_TIMEOUT_MS);
+    req.socket.on('timeout', () => {
+      if (!aborted) {
+        aborted = true;
+        req.destroy();
+      }
+    });
+    req.on('data', (chunk: Buffer) => {
+      if (aborted) {
+        return;
+      }
+      received += chunk.length;
+      if (received > HttpA2aServerTransport.MAX_BODY_BYTES) {
+        aborted = true;
+        res.writeHead(413, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end('request body too large');
+        // 排空剩余请求体并释放连接：不得 `req.destroy()`（会在响应发出前断连，
+        // 让客户端收不到 413）；`aborted` 已保证后续分片不再累积进内存。
+        req.resume();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (aborted) {
+        return;
+      }
+      const body = Buffer.concat(chunks).toString('utf8');
+      const msg = jsonRpc.parse(body);
+      if (msg === undefined || !('method' in msg)) {
+        res.writeHead(400);
+        res.end();
+        return;
+      }
+      const id = 'id' in msg ? msg.id : null;
+      if (id === null) {
+        res.writeHead(400);
+        res.end();
+        return;
+      }
+      this.seq += 1;
+      const key = `a2a-${String(this.seq)}`;
+      const promise = new Promise<RpcMessage>((resolve) => {
+        this.resolvers.set(key, { remoteId: id, resolve });
+      });
+      // 对端在响应前断开 ⇒ 该挂起项永远不会被回写，必须就地回收，否则长跑服务里逐请求泄漏
+      // （审计 X4：原实现无 close 清理，resolver 与连接一起悬着）。
+      res.on('close', () => {
+        this.resolvers.delete(key);
+      });
+      this.callback?.({ ...msg, id: key });
+      promise
+        .then((response) => {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify(response));
+        })
+        .catch(() => {
+          res.writeHead(500);
+          res.end();
+        });
     });
   }
 

@@ -6,6 +6,7 @@ import { GifFrameExtractor } from '../adapters/media/gifFrameExtractor.js';
 import { MediaProbeChain } from '../adapters/media/mediaProbeChain.js';
 import { PathBinaryResolver } from '../adapters/media/pathBinaryResolver.js';
 import { RoutingFrameExtractor } from '../adapters/media/routingFrameExtractor.js';
+import { BoundedMediaProcessRunner } from '../adapters/media/boundedMediaProcessRunner.js';
 import { SpawnMediaProcessRunner } from '../adapters/media/spawnMediaProcessRunner.js';
 import { FrameEncoder } from '../media/frameEncoder.js';
 import { MediaConfigResolver } from './mediaConfigResolver.js';
@@ -14,6 +15,9 @@ import type { MediaFrameExtractor } from '../ports/media/frameExtractor.js';
 
 /** 二进制定位验证超时（毫秒）：`-version` 是毫秒级动作，10s 已是极宽松上界。 */
 const VERIFY_TIMEOUT_MS = 10_000;
+
+/** 单支媒体栈的 ffmpeg 家族进程并发上限（安全闸，非调参旋钮；详见 `BoundedMediaProcessRunner`）。 */
+const MAX_CONCURRENT_PROCESSES = 4;
 
 /**
  * 媒体抽帧栈：一支「路由提取器」+ 一份已收敛的选项。
@@ -67,7 +71,12 @@ export class MediaStackAssembler {
     env: Readonly<Record<string, string | undefined>> = process.env,
   ): MediaStack {
     const options = MediaConfigResolver.resolve(config, env);
-    const runner = new SpawnMediaProcessRunner();
+    // 并发闸：裸 spawn 对并发无上限，多 agent 并发抽视频会同时拉起任意多个 ffmpeg；
+    // 包一层有界执行器，超过上限的请求排队，前面的进程退场后 FIFO 补位。
+    const runner = new BoundedMediaProcessRunner(
+      new SpawnMediaProcessRunner(),
+      MAX_CONCURRENT_PROCESSES,
+    );
     const locator = new FfmpegLocator({
       configuredFfmpegPath: options.ffmpegPath,
       configuredFfprobePath: options.ffprobePath,
