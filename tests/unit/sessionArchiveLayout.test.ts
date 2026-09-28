@@ -201,6 +201,23 @@ test('遗留临时文件清理：只清「过期」的（正在搬运的刚创�
   });
 });
 
+test('接线：列表首读会做一次遗留临时文件清扫（生产里真的会跑，不只是「有这个函数」）', () => {
+  withTemp((dir) => {
+    writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
+    const stale = join(dir, 'a.jsonl.999.tmp');
+    writeFileSync(stale, '半截');
+    const old = new Date(Date.now() - 2 * 3_600_000);
+    utimesSync(stale, old, old);
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    load.list(false);
+    assert.strictEqual(existsSync(stale), false, '列表首读必须顺手清掉过期的遗留临时文件');
+  });
+});
+
 test('列表：归档后主目录扫不到、带 includeArchived 能读到且带 archived 标记', () => {
   withTemp((dir) => {
     writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
