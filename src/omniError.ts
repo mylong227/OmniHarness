@@ -28,6 +28,8 @@ export const ErrorCode = {
   NATIVE_KERNEL_UNAVAILABLE: 'NATIVE_KERNEL_UNAVAILABLE',
   /** 网络外联被 SSRF / 白名单策略拒绝。 */
   EGRESS_BLOCKED: 'EGRESS_BLOCKED',
+  /** 媒体容器损坏或不符合格式规范（动画 GIF 解码、媒体字节结构校验失败）。 */
+  MEDIA_FORMAT_ERROR: 'MEDIA_FORMAT_ERROR',
   /** 未分类的未知错误。 */
   UNKNOWN: 'UNKNOWN',
 } as const;

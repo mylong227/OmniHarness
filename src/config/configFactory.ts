@@ -62,8 +62,11 @@ import type { RegimeSignals } from '../genesis/operators.js';
 
 import { ConfigBuilder } from './configBuilder.js';
 import { ConfigToolRegistry } from './configToolRegistry.js';
+import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
+import type { MediaStack } from './mediaStackAssembler.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { CorePortsAssembler } from './corePortsAssembler.js';
+import type { CorePorts } from './corePortsAssembler.js';
 import { MemoryStackAssembler } from './memoryStackAssembler.js';
 import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
@@ -328,6 +331,16 @@ export interface OmniHarnessConfig {
   /** 初始技能池（可选）：受种进内置 SkillRegistry，供 CRISPR 编辑与相变固化复用。缺省空池。 */
   readonly skills?: readonly Skill[] | undefined;
   /**
+   * 媒体抽帧配置（`view_media` 工具）：帧数 / 尺寸 / 字节预算、采样阈值，以及
+   * `ffmpeg`/`ffprobe` 的显式路径。全字段可选，缺省见 `MediaConfigResolver` 的默认值
+   * （配置 > 环境变量 > 内置默认，且数值一律收敛到安全区间）。
+   *
+   * 配置文件（`omniharness.json` 的 `media` 键）与 CLI 共用同一份结构，故这里不再拆成
+   * 十几个扁平旗标 —— 但字段仍逐个声明（不是 `Record<string, unknown>`），
+   * 未知子键会被 `ConfigError` 拒绝，避免「写错了却不生效」。
+   */
+  readonly media?: MediaAnalysisConfig | undefined;
+  /**
    * SSRF / 出站策略表（2026-09-22 配置化）：元数据主机 / 内网域名后缀 / IPv4 网段。
    * 缺省用内置默认档（与历史行为逐字一致）；消费方用 `security/ssrfPolicy.resolveSsrfPolicy` 解析。
    */
@@ -495,6 +508,15 @@ export type SubagentPortSeed = Omit<SubagentPortsShape, 'tools'> & {
   readonly subagent: SubagentOptions;
   /** 自主目标循环默认最大迭代次数（#S30，供 run_goal 工具读取）。 */
   readonly goalMaxIterations: number;
+  /**
+   * 已装配的媒体抽帧栈（动画 GIF / 视频的逐帧判读）。
+   *
+   * 为什么放在种子里而不是让工具自己 new：`view_media` 同一份栈要同时喂给主会话工具集与
+   * 子代工具集（`defaultTools` 两个调用路径共用本种子）——各自装配会得到**两个独立的
+   * ffmpeg 定位缓存**（多跑一遍 `-version`）与两套可能漂移的预算口径。
+   * 种子本就是「装配工具集所需的一切」的收口（`spill` / `events` / `workspaceRoot` 同理）。
+   */
+  readonly media: MediaStack;
 };
 
 /**
@@ -563,6 +585,13 @@ export class ConfigFactory {
       // 时构造「可验证门禁 + RLVR sample-filter-replay」控制器。
       evolutionRlvr: partial.evolutionRlvr,
       ssrfPolicy: partial.ssrfPolicy, // 配置化 SSRF 策略表（消费方：组合根 A2A / CLI 出站守卫）
+      // 媒体抽帧配置：**原样透传**（不做二次收敛）。为什么留原始形态而不换成已解析选项：
+      //  `ResolvedConfig extends OmniHarnessConfig` ⇒ 消费方（服务端配置页 / 切换工作区重基
+      //  `ConfigRebase`）读到的 `config.media` 必须还是**声明式字段**，否则「重基」会把一份
+      //  烘死了旧环境的解析结果搬到新工作区；已解析的产物（提取路由 + 收敛值）随种子进入工具集，
+      //  不在此重复暴露。若此处漏透传，`config.media` 恒为 `undefined` 而 TS 不报错
+      //  （字段可选）—— 正是本仓高频的「声明未接线」形态（同 `a2a` / `evolutionRlvr`）。
+      media: partial.media,
       // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**（第 220 行）却**未被本
       // 装配字面量透传**；而 `ResolvedConfig extends OmniHarnessConfig` 且该字段可选 ⇒ TS 不报错、
       // 值被静默丢弃，`agent` 读到的 `config.promptInjectionGuard` 恒为 `undefined`
@@ -586,31 +615,69 @@ export class ConfigFactory {
       // 导致 `runtime` 的 `if (config.a2a?.enabled === true)` 恒不可达 —— A2A 生产路径整体不可用
       // （U6 回环实测脚本直接 import a2a 模块、绕过了装配层，故长期未暴露）。此处显式透传。
       a2a: partial.a2a,
-      tools:
-        partial.tools ??
-        ConfigToolRegistry.defaultTools(
-          seed,
-          partial.extraTools,
-          partial.workers,
-          {
-            todo: core.ports.todo,
-            plan: core.ports.plan,
-            userResponder: core.ports.userResponder,
-            planMode: core.ports.planMode,
-          },
-          core.ports.discovery,
-          core.ports.retrieval,
-          partial.deferredTools,
-          memory.stack.longTermMemory,
-          costBudget,
-          lsp,
-          identity,
-          ConfigFactory.resolveSelfVerify(partial),
-        ),
+      tools: ConfigFactory.resolveTools(
+        partial,
+        seed,
+        core.ports,
+        memory.stack.longTermMemory,
+        costBudget,
+        lsp,
+        identity,
+      ),
       ...core.ports,
       ...memory.stack,
       ...skills,
     };
+  }
+
+  /**
+   * 装配工具端口（`tools` 字段的**唯一构造点**）。
+   *
+   * 为什么从 `build` 里抽出来：`build` 的职责是「编排」（定装配顺序、拼各切片），而工具端口的
+   * 装配是一次**参数转发 + 条件装饰**——`defaultTools` 十余个入参，末尾还有一层由
+   * `selfVerify` 决定的「写后跑受限测试并回灌」装饰。留在字面量中间会把 `build` 的体量推向
+   * 门禁上限（`scripts/check.mjs` 的函数体红线），也让「工具集从哪来」这件事淹没在配置字段里。
+   *
+   * @param partial 未解析的运行配置（读 `tools` / `extraTools` / `workers` / `deferredTools` / `selfVerify`）。
+   * @param seed 子代端口种子（工具装配所需的一切端口，含媒体抽帧栈）。
+   * @param ports 基础设施端口切片（计划 / 发现 / 检索等）。
+   * @param longTermMemory 长期记忆端口（`remember` / `recall` 仅在其存在时注册）。
+   * @param costBudget 成本预算（`budget_status` 仅在其存在时注册）。
+   * @param lsp LSP 端口（导航 / 诊断工具仅在其存在时注册）。
+   * @param identity 密码学身份端口（`agent_identity` 仅在其存在时注册）。
+   * @returns 工具端口；调用方显式传入 `tools` 时原样返回，否则走内置注册表（可能已叠加装饰器）。
+   */
+  private static resolveTools(
+    partial: OmniHarnessConfig,
+    seed: SubagentPortSeed,
+    ports: CorePorts,
+    longTermMemory: LongTermMemoryPort,
+    costBudget: CostBudget | undefined,
+    lsp: LspPort | undefined,
+    identity: AgentIdentityPort | undefined,
+  ): ToolPort {
+    if (partial.tools !== undefined) {
+      return partial.tools;
+    }
+    return ConfigToolRegistry.defaultTools(
+      seed,
+      partial.extraTools,
+      partial.workers,
+      {
+        todo: ports.todo,
+        plan: ports.plan,
+        userResponder: ports.userResponder,
+        planMode: ports.planMode,
+      },
+      ports.discovery,
+      ports.retrieval,
+      partial.deferredTools,
+      longTermMemory,
+      costBudget,
+      lsp,
+      identity,
+      ConfigFactory.resolveSelfVerify(partial),
+    );
   }
 
   /**

@@ -88,6 +88,8 @@ export const TOOL_NAMES = {
   sketchWrite: 'sketch_write',
   /** 查看图片。 */
   viewImage: 'view_image',
+  /** 按时间抽帧查看动画 GIF / 视频。 */
+  viewMedia: 'view_media',
   /** 联网搜索。 */
   webSearch: 'web_search',
   /** 抓取网页。 */

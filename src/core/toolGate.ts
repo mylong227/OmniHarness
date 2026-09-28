@@ -167,6 +167,10 @@ export class ToolGate {
       call.name === TOOL_NAMES.glob ||
       // 读图（P2-⑬）与抓网页（P2-⑬）都不写本地文件，按「读」归类。
       call.name === TOOL_NAMES.viewImage ||
+      // 抽帧读媒体（动画 GIF / 视频）：只读该媒体文件、不落盘（帧走内存附件），故同属「读」。
+      // 漏登记的实际后果：会掉进末尾的 `command` 分支，在限制命令执行的沙箱下被误拒，
+      // 且审批/沙箱展示的目标文案会退化成「当命令看」（与 plan 只读白名单同源的漏登记形态）。
+      call.name === TOOL_NAMES.viewMedia ||
       call.name === TOOL_NAMES.webFetch
     ) {
       return { kind: 'file_read', target: this.targetOf(call) };

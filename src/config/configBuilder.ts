@@ -38,6 +38,7 @@ import type { UserResponder } from '../ports/runtime/userResponder.js';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
 import type { OmniHarnessConfig, SubagentPortSeed } from './configFactory.js';
+import { MediaStackAssembler } from './mediaStackAssembler.js';
 
 /** Spill 默认目录（#74：超大工具输出外溢，避免撑爆上下文）。 */
 const DEFAULT_SPILL_DIR = '.omniharness/spill';
@@ -247,6 +248,9 @@ export class ConfigBuilder {
       elevatedSandbox,
       longTermMemory,
       goalMaxIterations: partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS,
+      // 媒体抽帧栈（`view_media`）：在此把配置段收敛成一份已装配产物，随种子交给工具装配层。
+      // 放在种子里的理由见 `SubagentPortSeed.media` 的注释（主/子工具集共用同一份定位缓存）。
+      media: MediaStackAssembler.assemble(partial.media),
       subagent: {
         maxDepth: partial.subagentMaxDepth,
         maxConcurrency: partial.subagentConcurrency,

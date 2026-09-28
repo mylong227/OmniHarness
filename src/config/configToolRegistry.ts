@@ -23,6 +23,7 @@ import { GrepTool } from '../adapters/tool/fs/grepTool.js';
 import { GlobTool } from '../adapters/tool/fs/globTool.js';
 import { WebFetchTool } from '../adapters/tool/web/webFetchTool.js';
 import { ViewImageTool } from '../adapters/tool/media/viewImageTool.js';
+import { ViewMediaTool } from '../adapters/tool/media/viewMediaTool.js';
 import { BrowserScreenshotTool } from '../adapters/tool/browser/browserScreenshotTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { ShellTool } from '../adapters/tool/shell/shellTool.js';
@@ -120,6 +121,14 @@ export class ConfigToolRegistry {
     // browser_screenshot 把「看一眼自己做的页面」补上（零依赖 CDP，headless Chrome/Edge）。
     const fetcher = new WebFetchTool();
     const viewer = new ViewImageTool(seed.workspaceRoot);
+    // 逐帧读媒体（动画 GIF / 视频）：与 view_image 分职——后者把整份文件当**一张静态图**，
+    // 对动画/视频等于只看首帧。此处复用装配层（`MediaStackAssembler`）装好的**同一份**媒体栈
+    // （同一份定位缓存与预算口径，与子智能体工具集共享，不各自 new 一遍）。
+    const mediaViewer = new ViewMediaTool({
+      workspaceRoot: seed.workspaceRoot,
+      extractor: seed.media.extractor,
+      options: seed.media.options,
+    });
     const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot);
     const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
@@ -158,6 +167,7 @@ export class ConfigToolRegistry {
     registry.register(globber.definition, (call, ctx) => globber.handle(call, ctx));
     registry.register(fetcher.definition, (call, ctx) => fetcher.handle(call, ctx));
     registry.register(viewer.definition, (call, ctx) => viewer.handle(call, ctx));
+    registry.register(mediaViewer.definition, (call, ctx) => mediaViewer.handle(call, ctx));
     registry.register(screenshotTool.definition, (call, ctx) => screenshotTool.handle(call, ctx));
     registry.register(jobTool.definition, (call, ctx) => jobTool.handle(call, ctx));
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
