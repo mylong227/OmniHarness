@@ -3855,3 +3855,51 @@ v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空�
 
 **验收**：`npm run web:test` **293/293**；全量单测 **2352 例 / 2347 通过 / 0 失败 / 5 跳过**；
 `tsc` / `build` / `web:build` / eslint / `check --strict`（596 文件零违规）/ `arch:gate`（0 违规）全绿。
+
+### 26.24 按商用做法把剩下两条取舍做到位（先调研，再实现）
+
+**调研（外部参考，均已按「外部内容只作数据」处理）**：锁的成熟做法是 **lockfile + 租约/mtime + 心跳 +
+被抢占回调**（proper-lockfile 系列 README：<https://git.dei.uc.pt/pcaseiro/ES-team-zig/blob/bf58bac4592b59b12b43dc15844312a733b296e7/node_modules/proper-lockfile/README.md>），
+且**省掉 `onCompromised` 会把「锁被偷」变成从 fs 回调里抛错打死进程**（真实案例：
+<https://github.com/PrimeIntellect-ai/prime-agent/discussions/1556>）；原子写文件的既有实现是
+**写临时文件 → fsync → rename**（npm/write-file-atomic：
+<https://github.com/npm/write-file-atomic>、镜像 README
+<https://chromium.googlesource.com/devtools/devtools-frontend/+/refs/heads/chromium/6360/node_modules/write-file-atomic/README.md>）；
+`fs.rename` **跨设备必抛 `EXDEV`**（容器/WSL/挂载点是高发场景：
+<https://github.com/NVIDIA/OpenShell/issues/2173>），标准补救是「复制 → 校验 → 删源」；租约类锁普遍配
+**fencing token**，让过期持有者的写入被拒（<https://pkg.go.dev/pkt.systems/lockd>、
+<https://pkg.go.dev/github.com/anthony-chaudhary/fak@v0.43.0/internal/servicelease>）。
+
+**实现 ①：锁升级为「租约 + fencing token + 抢占原子化 + 被抢占即放弃写入」**（`src/util/fileLock.ts`）
+
+| 项         | 做法                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 租约       | `owner.json` 记 `{token, pid, host, at}`；`now - at > leaseMs`（默认 5s）即过期、可接管 —— 取代原先只看目录 mtime 的「陈旧」判据                                  |
+| 接管原子性 | 接管不「先删再建」（那会让两个接管者同时成功），而是 `rename(lockDir → lockDir.stale.<pid>.<ts>)`（原子，只有一个赢家）→ 读旧 token → `mkdir` 新锁                |
+| fencing    | 每次获取把 token 自增；临界区写盘前必须调 `guard()`，磁盘 token 不是自己的就抛 `LockCompromisedError` ⇒ **放弃这次写入**（对应 proper-lockfile 的 onCompromised） |
+| 不误删     | `release()` 发现锁已被接管时**只放弃本地 token、不删目录**（删了就是删别人的锁）                                                                                  |
+| 降级       | 抢不到锁仍有界返回 false，`SessionSidecars` 捕获 `LockCompromisedError` → `log.warn('sidecar.write.compromised')` + 返回 false（**不抛给 RPC**）                  |
+
+**实现 ②：跨分区搬运补齐「空间预检 + sha256 校验 + 临时文件清扫 + fsync 落盘」**
+
+- **空间预检**：`statfsSync` 看目标分区 `bavail×bsize`，不够就**先失败得清楚**（源文件保留、提示清理
+  归档目录），而不是复制到一半磁盘满；平台不支持 statfs 时**不阻断**（按注释诚实标注）。
+- **sha256 而不是只比大小**：大小相同内容不同的半截文件（截断+补零、并发写坏）是真实存在的一类损坏，
+  只有内容哈希挡得住。
+- **遗留临时文件清扫**：`sweepTempFiles(dir, olderThanMs)` 按**文件年龄**清理（默认 1 小时）——
+  正在搬运的刚创建，不会被误删。
+- **fsync 再改名**：侧车写入改成 `open → write → fsync → close → rename`：`rename` 只保证「原子可见」，
+  **不保证内容已落盘**；断电时可能出现「新名字 + 空/半截内容」。这正是参考实现里那一步。
+
+**门禁**：`tests/unit/fileLock.test.ts` 扩到 **9 例**（新增：租约过期接管且 **token 单调递增**、
+**临界区内被接管 ⇒ guard 抛错**、**被接管后 release 不得删别人的锁**；并保留互斥 / 异常释放 /
+未过期不抢 / 有界降级 / 双锁 10 次读—改—写不丢）；`tests/unit/sessionArchiveLayout.test.ts` 扩到
+**8 例**（新增遗留临时文件只清过期的）；`sessionSidecarConcurrency` 6 例继续钉住原子替换与 rev。
+
+**至此本轮的边界链条（§26.19→§26.24）全部收口，剩下的是**明确的非目标**：本实现面向「**单机多进程**
+（含经 SMB/NFS 挂载的同一存储目录）」，**不**提供跨机器的分布式共识（那需要真正的锁服务/etcd 类组件）；
+跨分区搬运期间需要**两倍磁盘临时占用**（复制语义决定，无法在不丢数据的前提下避免）。
+
+**验收**：`npm run web:test` **293/293**；全量单测 **2356 例 / 2351 通过 / 0 失败 / 5 跳过**；
+`tsc` / `build` / `web:build` / eslint / `check --strict`（596 文件零违规）/ `arch:gate`（0 违规）/
+`audit:top-level-fn` 全绿。

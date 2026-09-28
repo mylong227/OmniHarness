@@ -23,11 +23,15 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   statSync,
+  statfsSync,
   unlinkSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
 /** 归档子目录名（与 `.jsonl` 同级）。 */
@@ -149,7 +153,7 @@ export class SessionArchiveLayout {
   }
 
   /**
-   * 跨分区搬运：复制 → 校验大小 → 目标目录内原子改名 → 删源。
+   * 跨分区搬运：**空间预检 → 复制 → sha256 校验 → 目标目录内原子改名 → 删源**。
    * @param src 源路径
    * @param dest 目标路径
    * @param renameImpl rename 实现（与 {@link moveFile} 同一个，便于单测注入）
@@ -161,18 +165,85 @@ export class SessionArchiveLayout {
     renameImpl: (from: string, to: string) => void,
   ): 'moved' {
     const tmp = `${dest}.${process.pid}.tmp`;
-    copyFileSync(src, tmp);
     const srcSize = statSync(src).size;
+    SessionArchiveLayout.assertSpace(dest, srcSize);
+    // 校验用 **sha256 而不是只比大小**：大小相同但内容不同的半截文件（截断+补零、并发写坏）是真实
+    // 存在的一类损坏，只有内容哈希能挡住。代价是一次多读，仅发生在跨分区回退路径上。
+    const srcHash = SessionArchiveLayout.hashOf(src);
+    copyFileSync(src, tmp);
     const tmpSize = statSync(tmp).size;
-    if (srcSize !== tmpSize) {
+    const tmpHash = SessionArchiveLayout.hashOf(tmp);
+    if (tmpSize !== srcSize || tmpHash !== srcHash) {
       rmSync(tmp, { force: true });
       throw new Error(
-        `跨分区复制校验失败：源 ${srcSize} 字节 ≠ 目标 ${tmpSize} 字节（源文件保留）`,
+        `跨分区复制校验失败（源 ${srcSize} 字节/${srcHash.slice(0, 12)}… ≠ 目标 ${tmpSize} 字节/${tmpHash.slice(0, 12)}…）：源文件保留`,
       );
     }
     renameImpl(tmp, dest); // 目标目录内 ⇒ 同分区 ⇒ 原子
     unlinkSync(src);
     return 'moved';
+  }
+
+  /**
+   * 搬运前检查目标分区剩余空间：**先失败得清楚**，而不是复制到一半磁盘满。
+   * @param dest 目标路径（取其所在分区）
+   * @param size 需要写入的字节数
+   * @returns 无返回值。
+   */
+  private static assertSpace(dest: string, size: number): void {
+    let free: number;
+    try {
+      const fs = statfsSync(dirname(dest));
+      free = Number(fs.bavail) * Number(fs.bsize);
+    } catch {
+      return; // 个别平台/网络盘不支持 statfs ⇒ 不阻断（真正的校验在复制之后）
+    }
+    if (Number.isFinite(free) && free < size) {
+      throw new Error(
+        `跨分区搬运用空间不足：目标分区剩余 ${free} 字节 < 需要 ${size} 字节（源文件保留，可先清理归档目录）`,
+      );
+    }
+  }
+
+  /**
+   * 取文件内容的 sha256（十六进制）。
+   * @param file 路径
+   * @returns sha256 十六进制串
+   */
+  private static hashOf(file: string): string {
+    return createHash('sha256').update(readFileSync(file)).digest('hex');
+  }
+
+  /**
+   * 清理历史遗留的临时文件（跨分区复制被打断留下的 `<dest>.<pid>.tmp`；**按年龄**判定，
+   * 正在搬运的刚创建、不会被误删）。
+   * @param dir 存档主目录（连带清理 `archive/`）
+   * @param olderThanMs 只清理早于该年龄的临时文件（默认 1 小时）
+   * @returns 被清理的文件数
+   */
+  public static sweepTempFiles(dir: string, olderThanMs = 3_600_000): number {
+    let removed = 0;
+    for (const d of [dir, SessionArchiveLayout.archiveDirOf(dir)]) {
+      if (!existsSync(d)) continue;
+      let names: string[];
+      try {
+        names = readdirSync(d);
+      } catch {
+        continue;
+      }
+      for (const name of names) {
+        if (!name.endsWith('.tmp')) continue;
+        const file = join(d, name);
+        try {
+          if (Date.now() - statSync(file).mtimeMs < olderThanMs) continue;
+          rmSync(file, { force: true });
+          removed += 1;
+        } catch {
+          /* 清理失败不阻断主流程 */
+        }
+      }
+    }
+    return removed;
   }
 
   /**

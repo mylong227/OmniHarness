@@ -12,9 +12,18 @@
 // 也就是说「侧车坏了」的最坏后果是「自定义标题没了、归档状态没了、顺序回到时间倒序」，
 // **不会**让任何会话从列表里消失（那是比丢一条元数据严重得多的失败模式）。
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { FileLock } from '../../util/fileLock.js';
+import { log } from '../../util/logger.js';
 // 排序模型（显式名次 + 新会话置顶）单独成文件：本文件只管侧车文件的读写。
 import { SessionRanking, type OrderDoc } from './sessionRanking.js';
 
@@ -175,7 +184,16 @@ export class SessionSidecars {
     const path = this.pathOf(name);
     if (path === undefined) return;
     const tmp = `${path}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf8');
+    const fd = openSync(tmp, 'w');
+    try {
+      writeFileSync(fd, JSON.stringify(value, null, 2) + '\n', 'utf8');
+      // **fsync 再改名**：`rename` 保证「原子可见」，但**不保证内容已落盘** —— 断电时可能留下一个
+      // 「名字是新的、内容是空的/半截」的文件。参考实现（npm/write-file-atomic）同样是
+      // 「写临时文件 → fsync → rename」，本仓此前省掉了 fsync 这一步。
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
     renameSync(tmp, path);
   }
 
@@ -189,15 +207,26 @@ export class SessionSidecars {
   private updateJson(name: string, mutate: (current: unknown, rev: number) => unknown): boolean {
     const path = this.pathOf(name);
     if (path === undefined) return false;
-    // 第一道防线：跨进程锁（有界等待）。拿到锁 ⇒ 「读—改—写」不再有人插进来，写入**不会放弃**。
+    // 第一道防线：跨进程租约锁（有界等待）。拿到锁 ⇒ 「读—改—写」不再有人插进来，写入不会放弃；
+    // 写盘前用 guard 做 **fencing 核对**：锁若已被接管则抛错并放弃写入（宁可这次改动不落地，
+    // 也不覆盖别人的修改 —— 这是 proper-lockfile 系列里 onCompromised 要处理的失败模式）。
     const lock = new FileLock(path);
-    let applied = false;
-    const ok = lock.withLock(() => {
-      this.writeJson(name, mutate(this.readJson(name), SessionSidecars.revOf(this.readJson(name))));
-      applied = true;
-    });
-    if (ok && applied) return true;
-    // 第二道防线（锁没拿到，例如别的进程崩在临界区里、且还没到陈旧阈值）：退回乐观并发重试。
+    try {
+      const ok = lock.withLock((guard) => {
+        const next = mutate(this.readJson(name), SessionSidecars.revOf(this.readJson(name)));
+        guard(); // fencing：锁若已被接管，这里抛错 ⇒ 放弃写入
+        this.writeJson(name, next);
+      });
+      if (ok) return true;
+    } catch (err) {
+      // 锁被接管（onCompromised 语义）：**放弃这次写入**并留痕，不覆盖别人的修改、不把异常抛给 RPC。
+      log.warn('sidecar.write.compromised', {
+        name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+    // 第二道防线（锁没拿到，例如别的进程崩在临界区里、且租约还没到期）：退回乐观并发重试。
     for (let attempt = 0; attempt < UPDATE_RETRIES; attempt++) {
       const current = this.readJson(name);
       const rev = SessionSidecars.revOf(current);
