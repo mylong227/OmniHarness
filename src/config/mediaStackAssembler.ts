@@ -12,12 +12,13 @@ import { FrameEncoder } from '../media/frameEncoder.js';
 import { MediaConfigResolver } from './mediaConfigResolver.js';
 import type { MediaAnalysisConfig, ResolvedMediaOptions } from './mediaConfigResolver.js';
 import type { MediaFrameExtractor } from '../ports/media/frameExtractor.js';
+import { LimitEnv } from '../util/limitEnv.js';
 
 /** 二进制定位验证超时（毫秒）：`-version` 是毫秒级动作，10s 已是极宽松上界。 */
 const VERIFY_TIMEOUT_MS = 10_000;
 
-/** 单支媒体栈的 ffmpeg 家族进程并发上限（安全闸，非调参旋钮；详见 `BoundedMediaProcessRunner`）。 */
-const MAX_CONCURRENT_PROCESSES = 4;
+/** 单支媒体栈的 ffmpeg 家族进程并发上限（安全闸，非调参旋钮；可由 `OMNI_MEDIA_PROCESS_CONCURRENCY` 覆盖）。 */
+const MAX_CONCURRENT_PROCESSES = LimitEnv.int('OMNI_MEDIA_PROCESS_CONCURRENCY', 4);
 
 /**
  * 媒体抽帧栈：一支「路由提取器」+ 一份已收敛的选项。

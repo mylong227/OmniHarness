@@ -15,6 +15,7 @@ import type { A2aTransport } from './a2aProtocol.js';
 import { SsrfGuard } from '../security/ssrfGuard.js';
 import type { SsrfOptions } from '../security/ssrfGuard.js';
 import { log } from '../util/logger.js';
+import { LimitEnv } from '../util/limitEnv.js';
 
 /** 客户端 HTTP 传输：向对端端点发请求，响应经 onMessage 回传。 */
 export class HttpA2aTransport implements A2aTransport {
@@ -24,8 +25,8 @@ export class HttpA2aTransport implements A2aTransport {
   private readonly endpoint: string;
   /** SSRF 策略：默认放行私有网段但拦截云元数据（出厂默认端点即 localhost/a2a）。 */
   private readonly ssrf: SsrfOptions;
-  /** 出站 `send` 的空闲超时（毫秒）：fire-and-forget 也必须释放 socket，否则对端挂起会泄漏连接。 */
-  private static readonly SEND_TIMEOUT_MS = 10_000;
+  /** 出站 `send` 的空闲超时（毫秒，可由 `OMNI_A2A_SEND_TIMEOUT_MS` 覆盖）：fire-and-forget 也必须释放 socket。 */
+  private static readonly SEND_TIMEOUT_MS = LimitEnv.int('OMNI_A2A_SEND_TIMEOUT_MS', 10_000);
 
   /**
    * @param endpoint 对端 `/a2a` 端点。
@@ -148,10 +149,10 @@ export class HttpA2aServerTransport implements A2aTransport {
     entry.resolve({ ...message, id: entry.remoteId });
   }
 
-  /** 入站请求体字节上限（fail-closed）：JSON-RPC 委托消息体量很小，1 MiB 已是极宽松上界。 */
-  private static readonly MAX_BODY_BYTES = 1_048_576;
-  /** 入站读超时（毫秒）：对端慢速/不发数据时必须释放连接，不能长期占用。 */
-  private static readonly READ_TIMEOUT_MS = 30_000;
+  /** 入站请求体字节上限（fail-closed，可由 `OMNI_A2A_MAX_BODY_BYTES` 覆盖）：JSON-RPC 委托消息体量很小，1 MiB 已是极宽松上界。 */
+  private static readonly MAX_BODY_BYTES = LimitEnv.int('OMNI_A2A_MAX_BODY_BYTES', 1_048_576);
+  /** 入站读超时（毫秒，可由 `OMNI_A2A_READ_TIMEOUT_MS` 覆盖）：对端慢速/不发数据时必须释放连接，不能长期占用。 */
+  private static readonly READ_TIMEOUT_MS = LimitEnv.int('OMNI_A2A_READ_TIMEOUT_MS', 30_000);
 
   /**
    * 在给定端口监听（返回实际端口）。

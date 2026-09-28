@@ -3,13 +3,17 @@ import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { type PluginDescriptor, type PluginManifest } from './manifest.js';
 import { endpointDefaults } from '../util/endpointDefaults.js';
+import { LimitEnv } from '../util/limitEnv.js';
 
 /**
  * RegistrySourcesShared —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
  */
 export class RegistrySourcesShared {
-  /** 远端响应字节上限（fail-closed）：operator 信任的 registry 亦不得借超大响应耗尽内存。 */
-  private static readonly MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+  /** 远端响应字节上限（fail-closed，可由 `OMNI_REGISTRY_MAX_RESPONSE_BYTES` 覆盖）：operator 信任的 registry 亦不得借超大响应耗尽内存。 */
+  private static readonly MAX_RESPONSE_BYTES = LimitEnv.int(
+    'OMNI_REGISTRY_MAX_RESPONSE_BYTES',
+    16 * 1024 * 1024,
+  );
 
   /**
    * @beta

@@ -74,6 +74,12 @@ export class GraphRunRegistry {
     while (this.runs.size > GraphRunRegistry.MAX_RUNS) {
       const oldest = this.runs.keys().next();
       if (oldest.done === true) break;
+      // 淘汰最旧一条时必须中止其后台运行：否则被淘汰的 `WorkflowRunner` 仍在烧 token/子进程
+      // （2026-09-28 审计）。先 abort 再删台账。
+      const evicted = this.aborts.get(oldest.value);
+      if (evicted !== undefined && !evicted.controller.signal.aborted) {
+        evicted.controller.abort();
+      }
       this.runs.delete(oldest.value);
       this.aborts.delete(oldest.value);
     }
