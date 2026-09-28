@@ -8,6 +8,9 @@ import { endpointDefaults } from '../util/endpointDefaults.js';
  * RegistrySourcesShared —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
  */
 export class RegistrySourcesShared {
+  /** 远端响应字节上限（fail-closed）：operator 信任的 registry 亦不得借超大响应耗尽内存。 */
+  private static readonly MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+
   /**
    * @beta
    * 用 https GET 拉取 JSON（默认 5s 超时）。
@@ -22,7 +25,16 @@ export class RegistrySourcesShared {
           return;
         }
         const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        let received = 0;
+        response.on('data', (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > RegistrySourcesShared.MAX_RESPONSE_BYTES) {
+            response.destroy();
+            rejectPromise(new Error('registry 响应过大'));
+            return;
+          }
+          chunks.push(chunk);
+        });
         response.on('end', () => {
           try {
             resolvePromise(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
@@ -52,7 +64,16 @@ export class RegistrySourcesShared {
           return;
         }
         const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        let received = 0;
+        response.on('data', (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > RegistrySourcesShared.MAX_RESPONSE_BYTES) {
+            response.destroy();
+            rejectPromise(new Error(`下载过大: ${url}`));
+            return;
+          }
+          chunks.push(chunk);
+        });
         response.on('end', () => resolvePromise(Buffer.concat(chunks)));
       });
       request.on('timeout', () => request.destroy(new Error(`下载超时: ${url}`)));
