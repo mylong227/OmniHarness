@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { profileLoader } from './profileLoader.js';
 import type { ProviderAdapterId, ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { SkillEntry } from '../skill/skill.js';
+import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
 import { ConfigError } from './configError.js';
 
 /** 配置文件里的 MCP 服务器声明。 */
@@ -217,6 +218,15 @@ export interface FileConfig {
     readonly transport?: 'http' | 'ws';
   };
   readonly workspace?: string;
+  /**
+   * 媒体抽帧配置（`view_media` 工具）：帧数 / 尺寸 / 字节预算、采样阈值，
+   * 以及 `ffmpeg` / `ffprobe` 的显式路径。
+   *
+   * 与 `OmniHarnessConfig.media` 共用同一份结构（`MediaAnalysisConfig`）；
+   * 逐字段校验见 `MediaConfigValidator`（未知 key / 类型不符一律拒绝启动），
+   * 数值越界则由 `MediaConfigResolver` 收敛并在工具输出回显生效值。
+   */
+  readonly media?: MediaAnalysisConfig;
   /** 项目工作区列表（UI「添加项目」维护）：绝对路径数组，供工作区面板分组展示与快速切换。 */
   readonly workspaces?: string[];
   /** 激活的插件集 Profile（#G-E/P5.1）：`omniharness profile use <name>` 落盘，serve 启动时默认应用。 */

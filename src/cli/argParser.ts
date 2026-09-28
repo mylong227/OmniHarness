@@ -13,6 +13,7 @@ import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
 import { ArrayAt } from '../util/arrayAt.js';
 import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
+import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.js';
 import { cliHelp } from './cliHelp.js';
 
 export * from './cliEnums.js';
@@ -203,6 +204,14 @@ export interface CliArgs {
   skills?: readonly SkillEntry[] | undefined;
   /** `--skills <file.json>`（可重复）：从 JSON 文件追加技能（数组或 `{"skills":[...]}`），同名以旗标为准。 */
   skillsFile?: readonly string[] | undefined;
+  /**
+   * 媒体抽帧配置（来自配置文件 `media` 键，原样透传到 `OmniHarnessConfig.media`）。
+   *
+   * 为什么整段透传而不是拆成扁平旗标：这些参数是**展示型预算**（帧数 / 尺寸 / 字节 / 阈值），
+   * 逐个开旗标会得到十几个几乎没人记忆的口子（`--media-max-frames` …），而写进配置文件才是
+   * 常态用法。整段透传同时保证「配置文件、编程注入」两条路走**同一份结构**（不两套口径）。
+   */
+  media?: MediaAnalysisConfig | undefined;
 }
 
 /** CLI 默认值。 */
@@ -334,6 +343,10 @@ export class ArgParser {
     // 受种技能池：配置文件内联数组直接进 CLI 参数；`--skills <file.json>` 在装配层追加（同名以旗标为准）。
     if (file.skills !== undefined) {
       result.skills = file.skills;
+    }
+    // 媒体抽帧配置：整段透传（结构同一份，字段校验已在「配置文件归一化」阶段 fail-closed 完成）。
+    if (file.media !== undefined) {
+      result.media = file.media;
     }
     if (file.modelAdapter !== undefined) {
       result.modelAdapter = file.modelAdapter;

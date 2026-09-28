@@ -17,6 +17,7 @@ import { readFile } from 'node:fs/promises';
 import { NativeKernel } from '../native/nativeKernel.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { CliSkillFlags } from './cliSkillFlags.js';
+import { CliSubsystemSections } from './cliSubsystemSections.js';
 import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
 import type { ResolvedConfig } from '../config/configFactory.js';
 import type { ExtraTool } from '../config/configFactory.js';
@@ -295,32 +296,10 @@ export class CliBuildConfig {
       ...(args.modelCircuitBreakerOpenMs !== undefined
         ? { modelCircuitBreakerOpenMs: args.modelCircuitBreakerOpenMs }
         : {}),
-      // (U4) RLVR 进化闭环：仅显式 `--evolution-rlvr` 时写入 partial；缺省不写 = 零行为变更。
-      // 未给 `--rlvr-verify` 时 verifyCommand 缺省 → RLVR 奖励恒 0（无绿样本进回放，fail-closed 安全旁路）。
-      ...(args.evolutionRlvr === true
-        ? {
-            evolutionRlvr: {
-              enabled: true,
-              ...(args.rlvrVerify !== undefined ? { verifyCommand: args.rlvrVerify } : {}),
-              ...(args.rlvrSamples !== undefined ? { samplesPerPrompt: args.rlvrSamples } : {}),
-              ...(args.rlvrMinReward !== undefined ? { minReward: args.rlvrMinReward } : {}),
-              ...(args.rlvrCandidates !== undefined ? { maxCandidates: args.rlvrCandidates } : {}),
-              ...(args.rlvrMinGain !== undefined ? { minGain: args.rlvrMinGain } : {}),
-              autoRun: args.rlvrAutoRun === true,
-            },
-          }
-        : {}),
-      // (U6) A2A 互操作：仅显式 `--a2a` 时写入 partial；缺省不写 = 零行为变更。
-      ...(args.a2a === true
-        ? {
-            a2a: {
-              enabled: true,
-              ...(args.a2aPort !== undefined ? { port: args.a2aPort } : {}),
-              ...(args.a2aPeer !== undefined ? { peerEndpoint: args.a2aPeer } : {}),
-              ...(args.a2aTransport !== undefined ? { transport: args.a2aTransport } : {}),
-            },
-          }
-        : {}),
+      // (U4) RLVR 进化闭环 / (U6) A2A 互操作 / 媒体抽帧（`view_media`）：三段共同的语义是
+      // 「**未显式配置就不写 partial** = 零行为变更」，故收在 `CliSubsystemSections` 里
+      // （不放在本类：本类方法数已贴上帝类红线，再加一刻即越线）。
+      ...CliSubsystemSections.of(args),
       // V2.1（B4）：回合 token 预算（未设不进 config，维持缺省关闭语义）。
       ...(args.turnTokenBudget !== undefined && args.turnTokenBudget > 0
         ? { turnTokenBudget: args.turnTokenBudget }

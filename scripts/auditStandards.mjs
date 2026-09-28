@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
-import { execSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 
 const root = 'src';
 const HOT = new Set([
@@ -335,31 +335,58 @@ if (process.argv.includes('--delta')) {
   // 增量门禁（pre-commit 用）：仅阻断**本次提交新增**的标准违规，不阻挡历史债务。
   // 口径：对每个暂存 .ts，比较「暂存版本」与「HEAD 版本」的标准度量；
   // 暂存版违规数 > HEAD 版（或新文件存在任何违规）即判失败。
+  // 子进程一律走**异步** `execFile` 直起 git，不用 `*Sync` 族、也不经 shell。两条理由都是实测的：
+  // ① `execFileSync` / `execSync` 在本机与沙箱环境以 `spawnSync git EBUSY`（Windows 上还表现为
+  //    `spawnSync cmd.exe EBUSY`）直接失败，而异步 `spawn`/`execFile` 正常 —— 同步版一旦失败就
+  //    落进下面的 catch、**静默跳过并 exit 0**，门禁从此永远"绿"（假绿灯比没有门禁更糟）；
+  // ② 直起进程免掉 `-- "*.ts"` 的 shell 引号转义，也不依赖 cmd.exe（受限容器常禁 spawn cmd）。
+  const runGit = (gitArgs) =>
+    new Promise((resolve, reject) => {
+      execFile(
+        'git',
+        gitArgs,
+        { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+        (error, stdout) => {
+          if (error) reject(error);
+          else resolve(stdout);
+        },
+      );
+    });
   const staged = [];
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACMR -- "*.ts"', {
-      encoding: 'utf8',
-    });
+    const out = await runGit([
+      'diff',
+      '--cached',
+      '--name-only',
+      '--diff-filter=ACMR',
+      '--',
+      '*.ts',
+    ]);
     for (const line of out.split('\n')) {
       const f = line.trim();
       if (f && /\.ts$/.test(f) && !f.endsWith('.d.ts')) staged.push(f);
     }
-  } catch {
-    console.error('[delta] 无法获取暂存文件（非 git 环境？），跳过增量门禁。');
+  } catch (error) {
+    // 只有「连 git 都不存在」才是可跳过的情形；其余一律把真实原因打出来，
+    // 避免「静默跳过 + exit 0」把一次真实的读取失败伪装成通过。
+    const code = error && typeof error === 'object' ? error.code : undefined;
+    if (code === 'ENOENT') {
+      console.error('[delta] 未找到 git 可执行文件，跳过增量门禁（该环境无法做 HEAD/暂存比对）。');
+      process.exit(0);
+    }
+    console.error(`[delta] 无法获取暂存文件，跳过增量门禁：${String(error).slice(0, 400)}`);
     process.exit(0);
   }
   if (staged.length === 0) {
     console.log('[delta] 无暂存 .ts 文件，增量门禁通过。');
     process.exit(0);
   }
-  const readGit = (revFile) => {
+  const readGit = async (revFile) => {
     try {
       // stderr 静默：新文件在 HEAD 不存在时 `git show HEAD:<f>` 会打印 fatal，
       // 但那是预期路径（返回 '' 交由 isNew 分支处理），不应污染门禁输出。
-      return execSync(`git show ${revFile}`, {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
+      // `HEAD:src/a b.ts` 这类含空格的 rev 作为**单个 argv** 传递，无需转义。
+      return await runGit(['show', revFile]);
     } catch {
       return '';
     }
@@ -368,8 +395,8 @@ if (process.argv.includes('--delta')) {
   for (const f of staged) {
     const abs = path.resolve(process.cwd(), f);
     if (!fs.existsSync(abs)) continue; // 删除文件：无新增违规
-    const stagedText = readGit(`:${f}`) || fs.readFileSync(abs, 'utf8');
-    const headText = readGit(`HEAD:${f}`);
+    const stagedText = (await readGit(`:${f}`)) || fs.readFileSync(abs, 'utf8');
+    const headText = await readGit(`HEAD:${f}`);
     if (isHot(abs)) continue; // 热区豁免（与全量审计一致）
     const s = metricsForSource(stagedText, abs);
     const h = headText ? metricsForSource(headText, abs) : null;

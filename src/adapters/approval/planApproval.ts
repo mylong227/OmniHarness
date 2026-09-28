@@ -37,6 +37,11 @@ const PLAN_ALLOWED_TOOLS = new Set<string>([
   // 读网页与读图（P2-⑬）：只读外部内容/本地图片，不写任何东西，与 read_file 同级放行。
   TOOL_NAMES.webFetch,
   TOOL_NAMES.viewImage,
+  // 抽帧读媒体（动画 GIF / 视频）：只读取工作区内的媒体文件，**不落盘任何产物**
+  // —— 帧是以 base64 附件形式随工具结果回传的，工作区一个字节都不动，故与 view_image 同级。
+  // （视频路径内部会起本机 ffmpeg，但 argv 由实现内部按数字参数拼装、无用户可控的命令串，
+  //  属「读取该文件的实现细节」，与 browser_screenshot 落盘 PNG 的性质不同 —— 后者才是写类。）
+  TOOL_NAMES.viewMedia,
   TOOL_NAMES.registry,
   TOOL_NAMES.toolSearch,
   TOOL_NAMES.policyEval,

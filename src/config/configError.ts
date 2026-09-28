@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { permissionConfigValidator } from './permissionConfigValidator.js';
 import { ssrfPolicyValidator } from './ssrfPolicyValidator.js';
 import { providerPresetValidator } from './providerPresetValidator.js';
+import { mediaConfigValidator } from './mediaConfigValidator.js';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -467,6 +468,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'evolutionRlvr',
   'a2a',
   'skills',
+  'media',
 ]);
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
@@ -611,6 +613,14 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   // 校验与运行时求解器同源（`providerPresets.resolve`），非法条目一律拒绝而非静默丢弃。
   (cfg: FileConfig): void => {
     const message = providerPresetValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
+  // media 段（媒体抽帧）：`view_media` 的预算与二进制路径。只拦「写错了」
+  // （未知 key / 类型不符 / 枚举越界）；数值范围由 `MediaConfigResolver` 收敛并回显。
+  (cfg: FileConfig): void => {
+    const message = mediaConfigValidator.validate(cfg);
     if (message !== undefined) {
       throw new ConfigError(message);
     }
