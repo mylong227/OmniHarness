@@ -143,6 +143,7 @@ export class SessionController {
         updatedAt: s.updatedAt,
         turns: s.turns,
         running: s.running === true,
+        archived: s.archived === true,
       }));
       this.host.patch((s) => ({ sessions: this.services.reducers.mergeSessions(s.sessions, fromDisk) }));
     } catch {
@@ -242,6 +243,40 @@ export class SessionController {
       this.services.toast(r.ok ? '会话已删除' : '该会话未落盘，已从列表移除', 'ok');
     } catch (e) {
       this.services.toast('删除失败：' + (e as Error).message, 'err');
+    }
+  }
+
+  /**
+   * 归档 / 取消归档会话：成功后刷新列表（归档会话在左栏落到「已归档」组）。
+   * @param id 会话 id
+   * @param archived true 归档、false 恢复
+   * @returns 异步完成
+   */
+  public async archiveSession(id: string, archived: boolean): Promise<void> {
+    try {
+      const r = await this.services.api.archiveSession(id, archived);
+      if (!r.ok) {
+        this.services.toast('归档失败：' + (r.error ?? ''), 'err');
+        return;
+      }
+      await this.refreshSessions();
+      this.services.toast(archived ? '已归档' : '已恢复', 'ok');
+    } catch (e) {
+      this.services.toast('归档失败：' + (e as Error).message, 'err');
+    }
+  }
+
+  /**
+   * 保存左栏拖拽排序：先按新顺序落本地（即时生效，不等往返），再持久化到服务端侧车。
+   * @param ordered 新的完整顺序（会话条目）
+   * @returns 异步完成
+   */
+  public async reorderSessions(ordered: SessionEntry[]): Promise<void> {
+    this.host.patch({ sessions: ordered });
+    try {
+      await this.services.api.reorderSessions(ordered.map((s) => s.id));
+    } catch (e) {
+      this.services.toast('排序保存失败：' + (e as Error).message, 'err');
     }
   }
 

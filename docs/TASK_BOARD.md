@@ -3675,3 +3675,44 @@ overscan 的 8 块**本轮才第一次被测量**（估算 88px vs 真实几百 
 
 **验收**：`npm run web:test` **278/278**（重构后全绿）；`tsc` / `web:build` / eslint /
 `check --strict`（592 文件零违规）/ `check:doc-links`（死链 0）全绿。
+
+### 26.19 §26.18 的四条诚实边界：逐条清偿（用户要求「彻底完成」）
+
+**① 时间分桶的时间来源 —— 查证结论：本来就是「最后一条事件的时间」，我先前的边界写错了。**
+`SessionArchive.scanSessionFile` 在扫描时**用最后一条可解析事件的 `timestamp` 覆盖 `updatedAt`**
+（`sessionArchive.ts:424`），列表返回的 `updatedAt` 即事件时间；`mtimeMs` 只用于排序。
+本轮**补上可证伪的门禁**把它钉死：`tests/unit/sessionArchive.test.ts` 新增一例 —— 事件时间
+`2026-09-03` 而文件 mtime 故意设成 `2026-01-01`，断言 `updatedAt` 取前者。
+
+**② 右键菜单贴边翻转（新）**：新增纯函数 `MenuPlacement.clamp(x, y, size, viewport)` —— 放不下就朝
+反方向翻（右→左、下→上），翻完仍放不下则夹到 8px 留白内；菜单比视口还大时夹到左上（此时必然溢出，
+但保证左/上可见）。左栏在 `useLayoutEffect` 里**先量菜单真实宽高再定位**（未测量前 `visibility:hidden`，
+避免「先在鼠标处闪一下再跳走」）。门禁 `web/test/menuPlacement.test.mjs`（7 例，含**用户点名的右下角
+场景**：横竖两个方向必须同时完整可见）。
+
+**③ 收成图标条后搜索/文件树仍可达（新）**：图标条模式下点区块标题 = 「展开左栏并进入该区块」；
+另加 🔍 按钮 = 展开 + 打开会话区 + `requestAnimationFrame` 后聚焦搜索框。折叠语义保留（可见面积小），
+但**每个入口都还在**。
+
+**④ 会话拖拽排序 + 归档（新，含服务端持久化）**：
+
+| 层     | 处置                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 服务端 | 新增两个**独立侧车**（刻意不塞进标题侧车：那是 `id → 标题` 的扁平映射，改形状会破坏既有数据）：`sessions.archived.json`（归档名单）与 `sessions.order.json`（用户指定顺序）。`list()` 返回 `archived` 标记，并把「登记过的顺序」排在前面、未登记的按 mtime 倒序垫后；新增 `setArchived` / `reorder` 与两个 RPC（`sessions.archive` / `sessions.reorder`）     |
+| 前端   | `SessionOrder.move`（纯函数：拖拽落点 → 一次数组移动，同 id / 未知 id / 空数组幂等返回）；时间分组新增**「已归档」桶**（垫底，归档会话不再混进今天/昨天）；行支持 HTML5 拖拽（`draggable` + `dragover/drop`，被拖行半透明、落点高亮）；行操作条与右键菜单都加「归档 / 恢复」；控制器 `archiveSession` / `reorderSessions`（排序**先落本地即时生效**再持久化） |
+
+**门禁**：新增 `tests/unit/sessionArchive.test.ts` 4 例（`updatedAt` 取事件时间、归档标记往返 +
+不影响标签、归档不存在/非法 id → `session_not_found`、`reorder` 顺序优先且未登记按 mtime 垫后）；
+新增 `web/test/sessionOrder.test.mjs` 5 例（移动语义、输入不被修改、幂等边界、已归档分组、接线守卫）；
+`web/test/sessionTimeGrouping.test.mjs` 与 `menuPlacement.test.mjs` 覆盖其余。
+
+**顺带修掉一条门禁红线**：`registerHandlers` 因新增两个 handler 顶到函数体上限（90 > 80）⇒ 把六个
+会话方法抽成 `registerSessionHandlers()`（内聚、且在编排入口里更清晰），`check --strict` 回到零违规。
+
+**诚实边界（本版仍有的）**：① 拖拽排序只在**时间分组视图**里生效（按工作区分组/任务卡视图未加拖拽）；
+② 排序是「整表登记」而不是范围补丁，未登记的新会话仍按时间倒序排在已登记之后；③ 归档是**隐藏到
+折叠组**，不删事件流、也不影响磁盘上的 `.jsonl`（这是刻意的：归档可逆）。
+
+**验收**：`npm run web:test` **290/290**；全量单测 **2325 例 / 2320 通过 / 0 失败 / 5 跳过**；
+`tsc` / `build` / `web:build` / eslint / `check --strict`（592 文件零违规）/ `arch:gate`（0 违规）/
+`audit:top-level-fn` / `check:doc-links` 全绿。

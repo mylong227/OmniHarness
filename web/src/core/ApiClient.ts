@@ -184,9 +184,31 @@ export class ApiClient {
       turns: number;
       updatedAt: string;
       running?: boolean;
+      archived?: boolean;
     }[];
   }> {
     return this.rpc('sessions.list', {});
+  }
+  /**
+   * 归档 / 取消归档会话（只写侧车，不动事件流）。
+   * @param sessionId 会话 id
+   * @param archived true 归档、false 恢复
+   * @returns `{ ok }`；会话不存在时 `{ ok:false, error:'session_not_found' }`
+   */
+  public archiveSession(
+    sessionId: string,
+    archived: boolean,
+  ): Promise<{ ok: boolean; error?: string }> {
+    return this.rpc('sessions.archive', { sessionId, archived });
+  }
+
+  /**
+   * 保存左栏拖拽排序（用户指定顺序；未登记的会话仍按时间倒序排在其后）。
+   * @param ids 有序会话 id 列表
+   * @returns `{ ok }`；id 形态非法时 `{ ok:false, error:'bad_session_id' }`
+   */
+  public reorderSessions(ids: string[]): Promise<{ ok: boolean; error?: string }> {
+    return this.rpc('sessions.reorder', { ids });
   }
   /** 重命名会话（自定义标题，空串清除）；服务端写入侧车，列表回落首条用户消息。 */
   public renameSession(sessionId: string, title: string): Promise<{ ok: boolean; error?: string }> {

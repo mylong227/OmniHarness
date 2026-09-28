@@ -20,8 +20,8 @@ interface WorkspaceTagged {
   workspace?: string;
 }
 
-/** 时间分组键（Codex 式左栏：今天 / 昨天 / 更早）。 */
-export type TimeBucketKey = 'today' | 'yesterday' | 'earlier';
+/** 时间分组键（Codex 式左栏：今天 / 昨天 / 更早；归档会话单独一组）。 */
+export type TimeBucketKey = 'today' | 'yesterday' | 'earlier' | 'archived';
 
 /** 一个时间分组。 */
 export interface TimeGroup<T> {
@@ -37,11 +37,17 @@ interface TimeTagged {
   updatedAt?: string;
 }
 
-/** 桶展示名（顺序即分组顺序）。 */
+/** 具备归档标记的会话条目。 */
+interface ArchivedTagged {
+  archived?: boolean;
+}
+
+/** 桶展示名（顺序即分组顺序；归档垫底）。 */
 const TIME_BUCKET_NAMES: ReadonlyArray<{ key: TimeBucketKey; name: string }> = [
   { key: 'today', name: '今天' },
   { key: 'yesterday', name: '昨天' },
   { key: 'earlier', name: '更早' },
+  { key: 'archived', name: '已归档' },
 ];
 
 /** 会话分组器。 */
@@ -85,15 +91,20 @@ export class SessionGrouper {
    * @param now 参照时刻（毫秒；缺省取当前时间，单测注入以获得确定性）
    * @returns 非空的时间分组（顺序：今天 → 昨天 → 更早）
    */
-  public static groupByTime<T extends TimeTagged>(
+  public static groupByTime<T extends TimeTagged & ArchivedTagged>(
     sessions: readonly T[],
     now: number = Date.now(),
   ): TimeGroup<T>[] {
     const ref = new Date(now);
     const refDay = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()).getTime();
     const DAY = 24 * 60 * 60 * 1000;
-    const buckets: Record<TimeBucketKey, T[]> = { today: [], yesterday: [], earlier: [] };
+    const buckets: Record<TimeBucketKey, T[]> = { today: [], yesterday: [], earlier: [], archived: [] };
     for (const s of sessions) {
+      // 归档会话单独成组（排在最后）：它们仍可见可恢复，但不再混在今天/昨天的日常流里。
+      if (s.archived === true) {
+        buckets.archived.push(s);
+        continue;
+      }
       const t = SessionGrouper.dayStartOf(s.updatedAt);
       const key: TimeBucketKey =
         t === undefined || t < refDay - DAY ? 'earlier' : t >= refDay ? 'today' : 'yesterday';

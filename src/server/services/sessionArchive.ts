@@ -6,12 +6,12 @@ import {
   readdirSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Metrics } from './metrics.js';
 import type { LocalDay } from '../../util/localDay.js';
+import { SessionSidecars } from './sessionSidecars.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';
@@ -32,6 +32,8 @@ interface SessionInfo {
   readonly turns: number;
   readonly updatedAt: string;
   readonly mtimeMs: number;
+  /** 是否已归档（侧车 `sessions.archived.json`；归档会话在 UI 里折叠到「已归档」组）。 */
+  readonly archived: boolean;
 }
 
 /** 会话存档读取依赖。 */
@@ -62,6 +64,8 @@ export class SessionArchive {
   private readonly configuredStorageDir: () => string | undefined;
   /** 进程内指标（磁盘无历史时回退）。 */
   private readonly metrics: Metrics | undefined;
+  /** 侧车存储（自定义标题 / 归档名单 / 用户指定顺序）：细节见 {@link SessionSidecars}。 */
+  private readonly sidecars: SessionSidecars;
 
   /**
    * @param deps 工作区根、存储位置、storageDir 覆盖与进程内指标
@@ -71,6 +75,8 @@ export class SessionArchive {
     this.storageLocation = deps.storageLocation;
     this.configuredStorageDir = deps.configuredStorageDir;
     this.metrics = deps.metrics;
+    // 闭包**惰性**取目录：切换工作区后侧车路径自动跟随（与列表 / 用量同一口径）。
+    this.sidecars = new SessionSidecars(() => this.storageLocation());
   }
 
   /**
@@ -132,7 +138,8 @@ export class SessionArchive {
       return { dir, sessions: [] };
     }
     const sessions: SessionInfo[] = [];
-    const titles = this.readTitles();
+    const titles = this.sidecars.readTitles();
+    const archived = new Set(this.sidecars.readArchived());
     for (const name of readdirSync(dir)) {
       if (!name.endsWith('.jsonl')) continue;
       const parsed = this.scanSessionFile(join(dir, name));
@@ -144,52 +151,52 @@ export class SessionArchive {
         ...parsed,
         label: t !== undefined && t !== '' ? t : parsed.label,
         mtimeMs: SessionArchive.mtimeOf(join(dir, name)),
+        archived: archived.has(id),
       });
     }
-    sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    // 排序：先在**用户指定顺序**（侧车 `sessions.order.json`，拖拽排序的产物）里找位置，
+    // 未在其中的按 mtime 倒序排在后面（新会话默认置顶，符合「刚聊过的在最上面」）。
+    const order = this.sidecars.readOrder();
+    const rank = new Map(order.map((id, i) => [id, i]));
+    sessions.sort((a, b) => {
+      const ra = rank.get(a.sessionId);
+      const rb = rank.get(b.sessionId);
+      if (ra !== undefined && rb !== undefined) return ra - rb;
+      if (ra !== undefined) return -1;
+      if (rb !== undefined) return 1;
+      return b.mtimeMs - a.mtimeMs;
+    });
     return { dir, sessions };
   }
 
   /**
-   * 会话自定义标题侧车路径（与 .jsonl 同目录）：`sessions.meta.json` 记录 `sessionId → title`。
-   * 用独立文件而非改写事件流，避免与运行中的追加写入竞态；标题缺失时列表回落首条用户消息。
-   * @returns 侧车文件路径；存储位置未知时 undefined。
+   * 归档 / 取消归档会话（只写侧车，不动事件流）。
+   * @param sessionId 会话 id
+   * @param archived true 归档、false 取消归档
+   * @returns `{ ok }`；id 非法或存档不存在时 `{ ok:false, error }`
    */
-  private titlePath(): string | undefined {
-    const dir = this.storageLocation();
-    if (dir === undefined) return undefined;
-    return join(dir, 'sessions.meta.json');
-  }
-
-  /**
-   * 读取自定义标题表；文件缺失/损坏时回落空表（不抛错）。
-   * @returns `sessionId → title` 映射（可能为空）。
-   */
-  private readTitles(): Record<string, string> {
-    const path = this.titlePath();
-    if (path === undefined || !existsSync(path)) return {};
-    try {
-      const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-      if (parsed === null || typeof parsed !== 'object') return {};
-      const out: Record<string, string> = {};
-      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-        if (typeof v === 'string') out[k] = v;
-      }
-      return out;
-    } catch {
-      return {};
+  public setArchived(sessionId: string, archived: boolean): { ok: boolean; error?: string } {
+    if (this.resolveSessionFile(sessionId) === undefined) {
+      return { ok: false, error: 'session_not_found' };
     }
+    const list = this.sidecars.readArchived();
+    const next = archived
+      ? [...new Set([...list, sessionId])]
+      : list.filter((id) => id !== sessionId);
+    this.sidecars.writeArchived(next);
+    return { ok: true };
   }
 
   /**
-   * 写入自定义标题表（整体重写，幂等且原子性足够于低频用户操作）。
-   * @param map `sessionId → title` 映射。
-   * @returns 无返回值。
+   * 保存**用户指定顺序**（左栏拖拽排序的结果）：只登记传入的 id，其余会话仍按 mtime 倒序。
+   * @param ids 有序会话 id 列表（未登记的会话排在其后）
+   * @returns `{ ok }`；id 形态非法时 `{ ok:false, error }`
    */
-  private writeTitles(map: Record<string, string>): void {
-    const path = this.titlePath();
-    if (path === undefined) return;
-    writeFileSync(path, JSON.stringify(map, null, 2) + '\n', 'utf8');
+  public reorder(ids: readonly string[]): { ok: boolean; error?: string } {
+    const clean = ids.filter((id) => /^[A-Za-z0-9_-]{1,128}$/.test(id));
+    if (clean.length !== ids.length) return { ok: false, error: 'bad_session_id' };
+    this.sidecars.writeOrder(clean);
+    return { ok: true };
   }
 
   /**
@@ -216,11 +223,11 @@ export class SessionArchive {
     if (this.resolveSessionFile(sessionId) === undefined) {
       return { ok: false, error: 'session_not_found' };
     }
-    const map = this.readTitles();
+    const map = this.sidecars.readTitles();
     const t = title.trim();
     if (t === '') delete map[sessionId];
     else map[sessionId] = t.slice(0, 200);
-    this.writeTitles(map);
+    this.sidecars.writeTitles(map);
     return { ok: true };
   }
 
@@ -234,10 +241,10 @@ export class SessionArchive {
     if (file === undefined) return { ok: false, error: 'session_not_found' };
     if (this.isRunning(sessionId)) return { ok: false, error: 'session_running' };
     rmSync(file, { force: true });
-    const map = this.readTitles();
+    const map = this.sidecars.readTitles();
     if (map[sessionId] !== undefined) {
       delete map[sessionId];
-      this.writeTitles(map);
+      this.sidecars.writeTitles(map);
     }
     return { ok: true };
   }
@@ -398,7 +405,9 @@ export class SessionArchive {
    * @param file 存档文件路径。
    * @returns 工作区标记、标签（首条用户消息前 80 字）、回合数与最后更新时间；不可读时 undefined。
    */
-  private scanSessionFile(file: string): Omit<SessionInfo, 'sessionId' | 'mtimeMs'> | undefined {
+  private scanSessionFile(
+    file: string,
+  ): Omit<SessionInfo, 'sessionId' | 'mtimeMs' | 'archived'> | undefined {
     let lines: string[] = [];
     try {
       lines = readFileSync(file, 'utf8').split('\n');

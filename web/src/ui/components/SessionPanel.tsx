@@ -25,6 +25,8 @@ import {
 } from './SessionViews.js';
 import type { ListCtx, RowCtx } from './SessionViews.js';
 import { PathJoiner } from '../models/PathJoiner.js';
+import { MenuPlacement } from '../models/MenuPlacement.js';
+import { SessionOrder } from '../models/SessionOrder.js';
 import type { FsNode } from '../../types/models.js';
 import type { SearchHit } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
@@ -42,6 +44,10 @@ export interface SessionPanelProps {
   onDelete: (id: string) => void | Promise<void>;
   /** 分叉会话为新副本。 */
   onFork: (id: string) => void | Promise<void>;
+  /** 归档 / 恢复会话。 */
+  onArchive?: (id: string, archived: boolean) => void | Promise<void>;
+  /** 保存拖拽排序（新顺序的完整列表）。 */
+  onReorder?: (ordered: SessionEntry[]) => void | Promise<void>;
   /** 切换项目成功后回调（App 刷新会话列表等）。 */
   onWorkspaceSwitched?: () => void;
   open: boolean;
@@ -89,6 +95,14 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [rail, setRail] = React.useState<boolean>(false);
   /** 行右键菜单（会话 id + 视口坐标；null 表示未打开）。 */
   const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
+  /** 菜单**实际**左上角坐标（由 MenuPlacement 贴边翻转算出；null 表示尚未测量）。 */
+  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
+  /** 菜单元素（量它的真实宽高用于翻转判定）。 */
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  /** 搜索输入框（收成图标条时点 🔍 展开并聚焦它）。 */
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+  /** 正在被拖动的会话 id（拖拽排序高亮 / 落点判定）。 */
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameValue, setRenameValue] = React.useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
@@ -182,6 +196,24 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       window.removeEventListener('click', close);
       window.removeEventListener('scroll', close, true);
     };
+  }, [menu]);
+
+  // 贴边翻转：量出菜单真实宽高后把它夹进视口（贴近右下角时向左/向上翻，永不溢出屏幕边缘）。
+  // 先隐藏后定位，避免用户看到「先在鼠标处闪一下再跳走」。
+  React.useLayoutEffect(() => {
+    if (menu === null) {
+      setMenuPos(null);
+      return;
+    }
+    const el = menuRef.current;
+    if (el === null) return;
+    const p = MenuPlacement.clamp(
+      menu.x,
+      menu.y,
+      { w: el.offsetWidth, h: el.offsetHeight },
+      { w: window.innerWidth, h: window.innerHeight },
+    );
+    setMenuPos((prev) => (prev !== null && prev.x === p.x && prev.y === p.y ? prev : p));
   }, [menu]);
 
   /** 打开内嵌文件夹选择器。 @returns 无 */
@@ -341,6 +373,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onCommitDelete: (id: string) => void commitDelete(id),
     onFork: (id: string) => void onFork(id),
     onContextMenu: (id: string, x: number, y: number) => setMenu({ id, x, y }),
+    ...(props.onArchive !== undefined ? { onArchive: props.onArchive } : {}),
   };
   const listCtx: ListCtx = {
     ...rowCtx,
@@ -356,6 +389,15 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     },
     onShowAll: (key: string, total: number) => {
       setLimits((prev) => ({ ...prev, [key]: total }));
+    },
+    draggingId,
+    onDragStart: (id: string) => setDraggingId(id),
+    onDragEnd: () => setDraggingId(null),
+    onDropOn: (id: string) => {
+      const from = draggingId;
+      setDraggingId(null);
+      if (from === null || from === id || props.onReorder === undefined) return;
+      void props.onReorder(SessionOrder.move(sessions, from, id));
     },
   };
 
@@ -399,11 +441,33 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         <button
           className="sec-toggle"
           aria-expanded={sessionsOpen ? 'true' : 'false'}
-          onClick={() => setSessionsOpen((v) => !v)}
+          onClick={() => {
+            // 收成图标条时，点区块标题的语义是「展开左栏并进入该区块」（否则点了没反应）。
+            if (rail) {
+              setRail(false);
+              setSessionsOpen(true);
+              return;
+            }
+            setSessionsOpen((v) => !v);
+          }}
         >
           <span className="ws-caret">{sessionsOpen ? '▾' : '▸'}</span>
           {rail ? null : <span>会话</span>}
         </button>
+        {rail ? (
+          <button
+            className="ws-add"
+            title="搜索会话（展开左栏并聚焦搜索框）"
+            aria-label="搜索会话"
+            onClick={() => {
+              setRail(false);
+              setSessionsOpen(true);
+              window.requestAnimationFrame(() => searchInputRef.current?.focus());
+            }}
+          >
+            🔍
+          </button>
+        ) : null}
         {rail ? null : (
           <button
             className="ws-add"
@@ -428,6 +492,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           <div className="session-toolbar">
             <input
               className="session-search"
+              ref={searchInputRef}
               placeholder="搜索会话…"
               value={query}
               spellCheck={false}
@@ -464,7 +529,14 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         <button
           className="sec-toggle"
           aria-expanded={treeOpen ? 'true' : 'false'}
-          onClick={() => setTreeOpen((v) => !v)}
+          onClick={() => {
+            if (rail) {
+              setRail(false);
+              setTreeOpen(true);
+              return;
+            }
+            setTreeOpen((v) => !v);
+          }}
         >
           <span className="ws-caret">{treeOpen ? '▾' : '▸'}</span>
           {rail ? null : <span>文件</span>}
@@ -481,7 +553,16 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         />
       ) : null}
       {menu !== null && menuSession !== undefined ? (
-        <div className="row-menu" style={{ left: menu.x + 'px', top: menu.y + 'px' }} role="menu">
+        <div
+          className="row-menu"
+          ref={menuRef}
+          style={{
+            left: (menuPos?.x ?? menu.x) + 'px',
+            top: (menuPos?.y ?? menu.y) + 'px',
+            visibility: menuPos === null ? 'hidden' : 'visible',
+          }}
+          role="menu"
+        >
           <button
             role="menuitem"
             onClick={() => {

@@ -34,6 +34,8 @@ export interface RowCtx {
   onFork: (id: string) => void;
   /** 右键打开行菜单（Codex 式：右键给出打开 / 重命名 / 复制 / 删除）。缺省则行不响应右键。 */
   onContextMenu?: (id: string, x: number, y: number) => void;
+  /** 归档 / 恢复（缺省则行不显示该按钮）。 */
+  onArchive?: (id: string, archived: boolean) => void;
 }
 
 /** 列表视图（任务卡 / 分组）渲染所需上下文。 */
@@ -47,6 +49,14 @@ export interface ListCtx extends RowCtx {
   onSelect: (id: string) => void;
   onToggleGroup: (key: string, isCollapsed: boolean) => void;
   onShowAll: (key: string, total: number) => void;
+  /** 正在被拖动的会话 id（拖拽排序高亮用；缺省无）。 */
+  draggingId?: string | null;
+  /** 开始拖动某行（缺省则行不可拖动）。 */
+  onDragStart?: (id: string) => void;
+  /** 拖动结束（清高亮）。 */
+  onDragEnd?: () => void;
+  /** 拖到某行上放下（目标 id）。 */
+  onDropOn?: (id: string) => void;
 }
 
 /**
@@ -181,6 +191,19 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
         >
           🗑
         </button>
+        {ctx.onArchive === undefined ? null : (
+          <button
+            className="session-act"
+            title={s.archived === true ? '取消归档' : '归档'}
+            aria-label={(s.archived === true ? '取消归档会话 ' : '归档会话 ') + (s.label || s.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onArchive?.(s.id, s.archived !== true);
+            }}
+          >
+            {s.archived === true ? '↩' : '📥'}
+          </button>
+        )}
       </span>
     </>
   );
@@ -324,7 +347,21 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
                 {shown.map((s) => (
                   <div
                     key={s.id}
-                    className={'session' + (s.id === ctx.currentThreadId ? ' active' : '')}
+                    className={
+                      'session' +
+                      (s.id === ctx.currentThreadId ? ' active' : '') +
+                      (s.id === ctx.draggingId ? ' dragging' : '')
+                    }
+                    draggable={ctx.onDragStart !== undefined}
+                    onDragStart={() => ctx.onDragStart?.(s.id)}
+                    onDragEnd={() => ctx.onDragEnd?.()}
+                    onDragOver={(e: DragEvent) => {
+                      if (ctx.onDropOn !== undefined) e.preventDefault();
+                    }}
+                    onDrop={(e: DragEvent) => {
+                      e.preventDefault();
+                      ctx.onDropOn?.(s.id);
+                    }}
                     onClick={() => ctx.onSelect(s.id)}
                     onContextMenu={(e: MouseEvent) => {
                       if (ctx.onContextMenu === undefined) return;

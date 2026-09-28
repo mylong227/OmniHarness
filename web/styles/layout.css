@@ -299,6 +299,10 @@
 }
 .row-menu button:hover { background:var(--panel-2); }
 .row-menu button.danger:hover { background:rgba(255,120,120,.16); color:#ff9a9a; }
+/* 拖拽排序：被拖的行半透明并高亮悬停落点（HTML5 DnD 的默认反馈太弱）。 */
+.session[draggable='true'] { cursor:grab; }
+.session[draggable='true']:hover { background:var(--panel-2); }
+.session.dragging { opacity:.45; }
 
 /* ---------- DAG 编排使用引导卡 ---------- */
 .graph-guide {
