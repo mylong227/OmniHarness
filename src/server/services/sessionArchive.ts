@@ -1,4 +1,4 @@
-import {
+﻿import {
   appendFileSync,
   copyFileSync,
   existsSync,
@@ -14,6 +14,8 @@ import type { LocalDay } from '../../util/localDay.js';
 import { SessionSidecars } from './sessionSidecars.js';
 import { SessionRanking } from './sessionRanking.js';
 import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.js';
+import { log } from '../../util/logger.js';
+import { SessionFileScanner } from './sessionFileScanner.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';
@@ -68,6 +70,8 @@ export class SessionArchive {
   private readonly metrics: Metrics | undefined;
   /** 侧车存储（自定义标题 / 归档名单 / 用户指定顺序）：细节见 {@link SessionSidecars}。 */
   private readonly sidecars: SessionSidecars;
+  /** 本进程是否已做过遗留临时文件清扫（只做一次）。 */
+  private sweptTempFiles = false;
 
   /**
    * @param deps 工作区根、存储位置、storageDir 覆盖与进程内指标
@@ -144,6 +148,14 @@ export class SessionArchive {
     if (dir === undefined || !existsSync(dir) || !statSync(dir).isDirectory()) {
       return { dir, sessions: [] };
     }
+    // 每次进程生命周期内做一次**遗留临时文件清扫**（跨分区复制被打断留下的 `<dest>.<pid>.tmp`；
+    // 按文件年龄判定，正在搬运的刚创建、不会被误删）。放在这里是因为它扫的就是本目录，
+    // 且低频：一次 readdir + 最多几次 stat。见 {@link SessionArchiveLayout.sweepTempFiles}。
+    if (!this.sweptTempFiles) {
+      this.sweptTempFiles = true;
+      const removed = SessionArchiveLayout.sweepTempFiles(dir);
+      if (removed > 0) log.warn('session.temp_files.swept', { dir, removed });
+    }
     const sessions: SessionInfo[] = [];
     const titles = this.sidecars.readTitles();
     const archivedSet = new Set(this.sidecars.readArchived());
@@ -155,7 +167,7 @@ export class SessionArchive {
         sessionId: id,
         ...parsed,
         label: t !== undefined && t !== '' ? t : parsed.label,
-        mtimeMs: SessionArchive.mtimeOf(file),
+        mtimeMs: SessionFileScanner.mtimeOf(file),
         archived,
       });
     };
@@ -366,7 +378,7 @@ export class SessionArchive {
       return;
     }
     for (const line of lines) {
-      const ev = SessionArchive.parseLine(line);
+      const ev = SessionFileScanner.parseLine(line);
       if (ev?.type !== 'model') continue;
       if (!day.contains(ev.timestamp)) continue;
       const usage = ev.payload?.['usage'] as Record<string, unknown> | undefined;
@@ -409,7 +421,7 @@ export class SessionArchive {
     let calls = 0;
     let total = 0;
     for (const line of lines) {
-      const ev = SessionArchive.parseLine(line);
+      const ev = SessionFileScanner.parseLine(line);
       if (ev?.type !== 'model') continue;
       const usage = ev.payload?.['usage'];
       if (usage === undefined) continue;
@@ -443,7 +455,7 @@ export class SessionArchive {
     let turns = 0;
     let updatedAt = '';
     for (const line of lines) {
-      const ev = SessionArchive.parseLine(line);
+      const ev = SessionFileScanner.parseLine(line);
       if (ev === undefined) continue;
       if (ev.type === 'session_meta' && typeof ev.payload?.['workspace'] === 'string') {
         workspace = ev.payload['workspace'] as string;
@@ -457,25 +469,6 @@ export class SessionArchive {
       if (typeof ev.timestamp === 'string') updatedAt = ev.timestamp;
     }
     return { workspace, label, turns, updatedAt };
-  }
-
-  /**
-   * 解析一行 JSONL；空行/坏行/非对象返回 undefined。
-   * @param line 单行文本
-   * @returns 解析出的事件对象；空行/坏行/非对象返回 undefined
-   */
-  private static parseLine(
-    line: string,
-  ): { type?: string; timestamp?: string; payload?: Record<string, unknown> } | undefined {
-    if (line.trim() === '') return undefined;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line) as unknown;
-    } catch {
-      return undefined;
-    }
-    if (parsed === null || typeof parsed !== 'object') return undefined;
-    return parsed as { type?: string; timestamp?: string; payload?: Record<string, unknown> };
   }
 
   /**
