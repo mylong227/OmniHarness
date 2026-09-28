@@ -29,9 +29,14 @@
  *
  * ## 诚实边界
  *
- * - 本脚本用 `spawnSync(..., { stdio: 'inherit' })` 起子进程：受限沙箱**允许** inherit，但被它拒绝的是
- *   **子进程自己**再用管道起孙进程（例：`checkSecrets.mjs` 内部 `execFileSync('git', ...)`）——那种情况
- *   会在该关报 `EPERM`，请按上文 `--skip` 显式跳过并在放宽环境里补跑，不要改判定。
+ * - 本脚本用 `spawnSync(..., { stdio: 'inherit' })` 起子进程。
+ * - **`stdio` 必须显式写全**（2026-09-28 实测纠偏）：在本机（Windows），子进程的 **stdin 若走管道**
+ *   会直接 `EBUSY`（`spawnSync git EBUSY`），与「同步 / 异步」无关 —— 同步的 `spawnSync`/`execFileSync`
+ *   一旦把 stdin 设为 `'ignore'` 就立刻恢复正常（实测 53311 字节正常返回），而异步版同样可用。
+ *   历史上这里的注释把真因写成「子进程再用管道起孙进程 / EPERM」，属**误判**；它导致过一个真实后果：
+ *   `stagedFormattable()` 的 `spawnSync('git', …)` 走默认管道 ⇒ 恒失败并**静默返回空数组** ⇒
+ *   pre-commit 的 prettier 增量格式化**长期被静默跳过**（「声明有格式化」≠「路径上真的格式化」）。
+ * - 新增任何子进程调用时，请显式给出 `stdio: ['ignore', 'pipe', 'ignore']`（或 `'inherit'`），不要依赖默认值。
  * - 本脚本不读暂存内容做判断（除 prettier/git add）：语义判定全在各门禁脚本里，避免第二份真相。
  */
 import { existsSync } from 'node:fs';
@@ -148,8 +153,16 @@ function stagedFormattable() {
   const r = spawnSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
     cwd: ROOT,
     encoding: 'utf8',
+    // 显式 `stdio` 不可省：默认 stdin 是管道 ⇒ 本机 `EBUSY` ⇒ 本函数曾恒返回 `[]`，
+    // prettier 增量格式化因此被**静默跳过**（详见文件头「诚实边界」）。
+    stdio: ['ignore', 'pipe', 'ignore'],
   });
-  if (r.status !== 0 || typeof r.stdout !== 'string') return [];
+  if (r.status !== 0 || typeof r.stdout !== 'string') {
+    console.error(
+      `[gates] ⚠️ 无法列出暂存文件（${r.error?.message ?? `status ${String(r.status)}`}）⇒ 跳过 prettier 增量格式化。`,
+    );
+    return [];
+  }
   return r.stdout
     .split('\n')
     .map((s) => s.trim())

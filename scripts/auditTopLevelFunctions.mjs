@@ -44,7 +44,18 @@ const EXCLUDE_PREFIXES = ['web/src/ui/'];
 
 /**
  * git 索引里的文件集合（相对仓库根，正斜杠）。
- * @returns 文件路径集合；git 不可用时为 null（调用方退化为全量扫描）。
+ *
+ * ## 为什么必须显式写 `stdio`（2026-09-28 实测）
+ *
+ * `execFileSync('git', …)` 默认 `stdio` 的 **stdin 是管道**，而本机（Windows）在这种情况下
+ * 直接 `EBUSY`（`spawnSync git EBUSY`）——与「同步 / 异步」无关：同步版把 stdin 改为 `'ignore'`
+ * 就立刻恢复（实测正常返回 53311 字节），异步版同样可用。
+ *
+ * 这个坑曾经以**最坏的形式**暴露：拿不到索引 ⇒ 静默退化为全量扫描 ⇒ **未跟踪的草稿**
+ * （并行会话正在写的文件）让**所有**提交被误拦，而它根本不在本次提交里。
+ * 故本函数失败时不再沉默，由调用方打印原因。
+ *
+ * @returns 文件路径集合；git 不可用时为 null（调用方退化为全量扫描并说明）。
  */
 function trackedFiles() {
   try {
@@ -52,6 +63,7 @@ function trackedFiles() {
       cwd: ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
     });
     return new Set(out.split('\0').filter((s) => s !== ''));
   } catch {
@@ -61,6 +73,13 @@ function trackedFiles() {
 
 /** 索引文件集合（模块级取一次）。 */
 const TRACKED = trackedFiles();
+if (TRACKED === null) {
+  console.error(
+    '⚠️  无法读取 git 索引（`git ls-files` 执行失败）⇒ 退化为全量扫描：未跟踪的草稿也会被判定，' +
+      '可能出现「不在本次提交里却被拦下」的假红。若为 stdin 管道问题，请确认调用处显式传了 ' +
+      "`stdio: ['ignore','pipe','ignore']`。",
+  );
+}
 
 /**
  * 递归收集纳入范围的 .ts 文件（只收 git 索引里的；未跟踪草稿不算代码库）。
