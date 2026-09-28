@@ -1,4 +1,4 @@
-﻿// 归档**冷存储**门禁（真文件、真 IO）：用户要求「归档冷存储也做完」。
+// 归档**冷存储**门禁（真文件、真 IO）：用户要求「归档冷存储也做完」。
 //
 // ## 语义
 //
@@ -16,6 +16,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -182,6 +183,21 @@ test('被打断的跨分区搬运：下次归档按大小清理重复（半截�
       line('user', { content: '完整内容' }),
       '必须保留完整的那份',
     );
+  });
+});
+
+test('遗留临时文件清理：只清「过期」的（正在搬运的刚创建，不得误删）', () => {
+  withTemp((dir) => {
+    const oldTmp = join(dir, 'a.jsonl.123.tmp');
+    const freshTmp = join(dir, 'b.jsonl.456.tmp');
+    writeFileSync(oldTmp, '旧');
+    writeFileSync(freshTmp, '新');
+    const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000);
+    utimesSync(oldTmp, twoHoursAgo, twoHoursAgo);
+    const removed = SessionArchiveLayout.sweepTempFiles(dir, 3_600_000);
+    assert.strictEqual(removed, 1, '只应清掉过期的那一个');
+    assert.strictEqual(existsSync(oldTmp), false);
+    assert.strictEqual(existsSync(freshTmp), true, '刚创建的临时文件不得被误删');
   });
 });
 
