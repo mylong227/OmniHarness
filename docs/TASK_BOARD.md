@@ -4103,3 +4103,35 @@ v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空�
 而顶层 function 门禁现在报 635（= **索引**）。两者口径不同是**有意为之**：前者判「仓库里有没有违规写法」，
 后者判「代码库（已跟踪 ∪ 已暂存）里有没有违规写法」。代价是前者同样会被未跟踪草稿影响；
 若并行会话的草稿触发假红，按 §28.1 的判据先确认真因，**不要**用改口径的方式换绿。
+
+## 29. 2026-09-28 全项目商用级审计：补三处真实缺口（非 demo 化，对应 `96875b8`）
+
+### 审计方法（可复跑）
+
+- 客观标记扫描全 `src`（635 文件）：`as any`/`: any`/`any[]`/`<any>`、`catch {}`、console.log 调试残留、硬编码绝对路径、`unref()`、TODO/FIXME/占位/demo、`eval`/`new Function`、无限循环、fetch 调用、readFileSync。
+- 门禁覆盖盲区复核：`auditStandards.mjs`（AST 实测 any/var/JSDoc/上帝类/文件命名）、`auditConfigWiring.mjs`（I1–I6 声明未接线）、`architectureGate.mjs`（ports 纯度 / core↛adapters）。
+- 高危子系统深挖：模型调用超时、网络端口（WS/HTTP/A2A）、子进程并发、信任边界（路径穿越/SSRF）。
+
+### 审计结论：项目整体已商用级（非 demo）
+
+- **零 `any` / 零 `var` / 零 console.log 调试残留 / 零硬编码配置路径**（bashLocator/chromeLocator 的 `C:\Program Files` 仅为二进制定位 OS fallback，带 env 覆盖，非铁律违例）。
+- 既有加固已就位：模型调用**空闲超时**（`RequestStallGuard`，慢但有进展的长推理不被误杀）；WS `MAX_FRAME_BYTES` fail-closed（修缓冲耗尽 DoS）；主 HTTP 服务端请求体带总量上限；`WorkspaceGuard` 防穿越含 `realpath` symlink 逃逸；截断 GIF 容错；内容嗅探（魔数）而非扩展名分流；`defaultPromptFragments` 自身写明「禁止用 TODO/空实现当完成」；`ParallelMap`/`ConcurrencyLimiter` 信号量原语已被评测/基准用于有界并发。
+- `new Function` 仅出现在 `codeSandboxWorker.ts` 且**明确在 Worker 线程内**（防主线程 `while(true)` 冻结，2026-09-26 审计 S3）。`unref()` 全部在后台/守护/长任务有意场景，且媒体/LSP 写明「为何不 unref」。
+
+### 本次修掉的三处真实缺口（标准商用思路）
+
+1. **A2A HTTP 服务端无界请求体**（网络端口 DoS）：原 `body += chunk` 无体积上限、无读超时 → 加 `MAX_BODY_BYTES=1MiB`（溢出 413 + 排空剩余体释放连接）+ `READ_TIMEOUT_MS=30s`。WS A2A 服务端走既有 `WsConnection.MAX_FRAME_BYTES`，已防护，未改。
+2. **A2A 客户端 `send` 无超时**：原 fire-and-forget `fetch` 无 `signal` → 对端挂起泄漏 socket → 加 `AbortSignal.timeout(10s)`。
+3. **媒体子进程并发无上限**：`SpawnMediaProcessRunner` 原可拉起任意多 ffmpeg → 新增 `BoundedMediaProcessRunner` 装饰器（默认 4 并发、FIFO、<1 串行、内层异常兜底为 spawnError），接线进 `MediaStackAssembler`。
+4. 顺手：`plugin/registrySourcesShared` 远端响应无体积上限 → 加 `MAX_RESPONSE_BYTES=16MiB`（同「无界读取」形态，operator 信任但防御性收敛）。
+
+### 验收
+
+- 新增单测 `a2aServerHardening`（413 + 正常小请求仍解析）、`boundedMediaProcessRunner`（峰值≤上限 / <1 串行 / 内层 reject 不破外层）。
+- 七道门禁全绿；相关测试 56/56；提交后 pre-commit 顶层 function 门禁真实读索引（636 文件）通过。
+
+### 明确不升级的项（有意的开放接口 / 误报，已记录理由）
+
+- `genesis/multimodalBridge.ts` 视觉宽高「确定性占位」：可 drop-in 替换真实编码器的扩展点，代数结构不依赖占位值。
+- 视频依赖本机 ffmpeg：设计使然，已诚实写进工具描述与错误文案。
+- registry 远程响应：已有超时（5s/10s），仅缺体积上限（本次已补）；属加固 nit 非「可用就行」。
