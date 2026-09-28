@@ -217,6 +217,52 @@ test('SessionArchive：reorder 登记的用户顺序优先，未登记的按 mti
   });
 });
 
+test('SessionArchive：排序 v2 —— 另一个客户端新建的会话置顶，不被丢到显式顺序之后', () => {
+  withTemp((dir) => {
+    writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
+    writeFileSync(join(dir, 'b.jsonl'), line('user', { content: '乙' }));
+    utimesSync(join(dir, 'a.jsonl'), new Date('2026-09-03'), new Date('2026-09-03'));
+    utimesSync(join(dir, 'b.jsonl'), new Date('2026-09-02'), new Date('2026-09-02'));
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    load.reorder(['a', 'b']);
+    // 另一个客户端此刻新建了会话 c（mtime 晚于上次排序时刻）
+    writeFileSync(join(dir, 'c.jsonl'), line('user', { content: '丙' }));
+    utimesSync(join(dir, 'c.jsonl'), new Date('2030-01-01'), new Date('2030-01-01'));
+    const out = load.list() as { sessions: { sessionId: string }[] };
+    assert.deepEqual(
+      out.sessions.map((s) => s.sessionId),
+      ['c', 'a', 'b'],
+      '新会话必须置顶（在用户显式顺序之前），而不是垫到最后',
+    );
+  });
+});
+
+test('SessionArchive：includeArchived=false 时归档会话整个跳过（不解析事件流）', () => {
+  withTemp((dir) => {
+    writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
+    writeFileSync(join(dir, 'b.jsonl'), line('user', { content: '乙' }));
+    const load = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    load.setArchived('a', true);
+    const fast = load.list(false) as { sessions: { sessionId: string }[] };
+    assert.deepEqual(
+      fast.sessions.map((s) => s.sessionId),
+      ['b'],
+      '快速路径不得包含归档会话',
+    );
+    const full = load.list(true) as { sessions: { sessionId: string; archived: boolean }[] };
+    const byId = new Map(full.sessions.map((s) => [s.sessionId, s]));
+    assert.strictEqual(byId.get('a')?.archived, true, '带归档的读取仍要能拿到归档行（可恢复）');
+  });
+});
+
 test('SessionArchive.list：storageLocation 缺省返回空列表', () => {
   withTemp((dir) => {
     const load = new SessionArchive({

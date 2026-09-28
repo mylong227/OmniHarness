@@ -229,7 +229,9 @@ export class AppController {
       })
       .catch(() => {});
     this.connectStream();
-    void this.children.sessions.refreshSessions();
+    // 启动时**连归档一起读一次**：此后日常刷新走快速路径（跳过归档文件的逐个扫描），而归档行已在内存
+    // ⇒ `mergeSessions` 会一直保留它们（「已归档」组不会因为快速刷新而消失）。
+    void this.children.sessions.refreshSessions(true);
     // F8：应用初始深链（面板 + 会话）并订阅浏览器前进 / 后退。
     this.routeBinding.start();
   }

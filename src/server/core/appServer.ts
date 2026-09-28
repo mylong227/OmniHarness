@@ -188,8 +188,9 @@ export class AppServer extends AppServerSurfaceHandlers {
    * @returns 无返回值。
    */
   protected registerSessionHandlers(): void {
-    this.handlers.set('sessions.list', async () => {
-      const r = (await this.sessionArchive.list()) as {
+    this.handlers.set('sessions.list', async (params) => {
+      const includeArchived = params['includeArchived'] !== false;
+      const r = (await this.sessionArchive.list(includeArchived)) as {
         dir: string;
         sessions: { sessionId: string; running?: boolean }[];
       };

@@ -303,6 +303,10 @@
 .session[draggable='true'] { cursor:grab; }
 .session[draggable='true']:hover { background:var(--panel-2); }
 .session.dragging { opacity:.45; }
+/* 触屏长按拖拽进行中：禁掉容器自身的滚动手势，让 pointermove 全部交给我们（否则手指一动就变成滚动）。 */
+#sessions.touch-drag { touch-action:none; }
+.task-card.dragging { opacity:.45; }
+.task-card[draggable='true'] { cursor:grab; }
 
 /* ---------- DAG 编排使用引导卡 ---------- */
 .graph-guide {

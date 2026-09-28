@@ -105,6 +105,22 @@ test('接线守卫：三个视图都可拖拽，右键菜单含「移到顶部 /
   assert.match(panel, /const moveToEdge = /, '移到底部/顶部必须走统一的 moveToEdge');
 });
 
+test('接线守卫：触屏拖拽走 pointer 事件（HTML5 DnD 在触屏上不触发）', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const panel = readFileSync(join(here, '..', 'src', 'ui', 'components', 'SessionPanel.tsx'), 'utf8');
+  const views = readFileSync(join(here, '..', 'src', 'ui', 'components', 'SessionViews.tsx'), 'utf8');
+  const css = readFileSync(join(here, '..', 'styles', 'layout.css'), 'utf8');
+  assert.match(panel, /e\.pointerType !== 'touch'/, '触屏分支必须显式判 pointerType');
+  assert.match(panel, /setTimeout\(\(\) => setDraggingId\(id\), 250\)/, '触屏必须长按进入拖拽（否则与滚动冲突）');
+  assert.match(panel, /document\.elementFromPoint\(/, '触屏落点必须用 elementFromPoint 命中（指针被隐式捕获在原行）');
+  const ids = views.match(/data-session-id=\{s\.id\}/g) ?? [];
+  assert.strictEqual(ids.length, 3, `三个视图的行都必须带 data-session-id 作为落点标识（实测 ${ids.length} 处）`);
+  assert.match(css, /#sessions\.touch-drag \{ touch-action:none; \}/, '拖拽中必须禁掉容器滚动');
+});
+
 test('接线守卫：左栏把拖拽与归档都接到控制器（不得只画 UI 不接线）', async () => {
   const { readFileSync } = await import('node:fs');
   const { dirname, join } = await import('node:path');

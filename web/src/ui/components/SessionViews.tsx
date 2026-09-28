@@ -1,4 +1,4 @@
-// 左栏的模块级渲染函数：会话行 / 任务卡视图 / 分组列表视图 / 项目条 / 文件树。
+﻿// 左栏的模块级渲染函数：会话行 / 任务卡视图 / 分组列表视图 / 项目条 / 文件树。
 //
 // 从 SessionPanel 抽出（原文件 457 行实现逼近 500 行上限，且这里全是纯渲染、无状态）：
 // 每个函数只吃一个 ctx（状态 + 回调），不持有任何状态、不发任何请求，故可被 SessionPanel
@@ -231,6 +231,7 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
             (s.id === ctx.draggingId ? ' dragging' : '')
           }
           title={s.id}
+          data-session-id={s.id}
           draggable={ctx.onDragStart !== undefined}
           onDragStart={() => ctx.onDragStart?.(s.id)}
           onDragEnd={() => ctx.onDragEnd?.()}
@@ -330,6 +331,7 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
                       ctx.onContextMenu(s.id, e.clientX, e.clientY);
                     }}
                     title={s.id}
+                    data-session-id={s.id}
                   >
                     {renderSessionBody(s, ctx)}
                   </div>
@@ -404,6 +406,7 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
                       ctx.onContextMenu(s.id, e.clientX, e.clientY);
                     }}
                     title={s.id}
+                    data-session-id={s.id}
                   >
                     {renderSessionBody(s, ctx)}
                   </div>
