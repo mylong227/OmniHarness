@@ -4394,3 +4394,65 @@ if (nodeMatch !== null) {
 - 真实 SWE-bench（pytest）路径仍依赖 `pytest` 在 PATH（本环境缺 `uv`/`pytest`；capability 套件是 node 版，已修复）。`process.execPath` 仅对 `node` 前缀生效，pytest 类命令走 shell——该路径若在本沙箱跑需另装 pytest。
 - 教训固化：评测/脚本里**任何子进程调用一律显式给 `stdio`**，否则本机 `EBUSY` 静默把分数压成 0，极难察觉（本次先被「全 0/10」表象误导，靠手动复现才定位 harness）。
 - `benchmark/capability-swebench.json` 已更新为可信基线（scripted 10/10 + 对照有效 + live 10/10），保留跟踪。
+
+---
+
+## 34. Laya 战略线：本地决策引擎骨架（端口 + 适配器 + Python 桥 + self-verify verdict 预判）
+
+### 34.1 解锁来源与定位
+
+用户指令「下一步直接LAya」解锁 Laya 战略线——记忆中「最值钱」之外的高价值战略线，即借鉴
+Laya（github.com/NandhaKishorM/laya，Apache-2.0，非自回归多语言 System-1 决策引擎，原语
+`choice`/`score`/`noul`）做高频结构化判断点。本轮落地借鉴清单 ② 的 **self-verify verdict（noul）**
+预判，并搭好端口 + 适配器 + 配置装配骨架，为后续 ③④⑤（模型路由 / 相关度裁剪 / 全工具选择）留缝。
+
+采用与 §32 一致的 `shadow` 范式：fail-open、零行为回归、积累自有 trace，待后端就绪再升 `enforce`。
+
+### 34.2 新增文件（一文件一类）
+
+| 文件                                      | 职责                                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `src/ports/decision/decisionEngine.ts`    | 第三方-free 决策引擎端口契约（`DecisionEngine` 接口 + fail-open 铁律）    |
+| `src/adapters/laya/layaDecisionEngine.ts` | `LayaDecisionEngine implements DecisionEngine`，经 Python 桥推理          |
+| `src/adapters/laya/laya_infer.py`         | Python 桥：`from laya import Router; router.predict(state, questions)`    |
+| `src/config/decisionEngineResolver.ts`    | 组合根「配置 → 适配器」唯一构造点（从 configFactory 抽出，给其减 ~18 行） |
+
+端口导出：`DecisionKind = 'choice'|'score'|'noul'`、`DecisionQuestion`、`DecisionRequest`、
+`DecisionAnswer`、`DecisionResponse`、`DecisionEngine`（`isAvailable()` + `decide()`，fail-open 注释铁律）。
+
+### 34.3 改动文件（装配透传）
+
+- `src/config/configFactory.ts`：新增 `DecisionEngineConfig` 接口与 `OmniHarnessConfig.decisionEngine`
+  字段；`resolveTools` 末参改调 `new DecisionEngineResolver().resolve(partial)`（独立 `DecisionEngineResolver` 类）；删除内联 private 方法（回落 810 行内）。
+- `src/config/configToolRegistry.ts`：`defaultTools` 加 `decisionEngine?` 末参，透传给 `withSelfVerify`；
+  `withSelfVerify` 加 `verdictPredictor?` 并注入 `SelfVerifyingToolPort` 装配对象。
+- `src/adapters/tool/verify/selfVerifyingToolPort.ts`：新增 `VerdictObserver` 类型与 `observeVerdict()`；
+  `afterSourceWrite` 首行调 `observeVerdict`（构造 noul 问题调 predictor，shadow 观测不进回灌、不阻断）。
+
+### 34.4 单测（3 个，权威缝）
+
+| 测试                                        | 锁死                                                                                   |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `tests/unit/decisionEngine.test.ts`         | 端口契约 + 后端不可用 fail-open 不抛错                                                 |
+| `tests/unit/layaWiring.test.ts`             | `DecisionEngineResolver.resolve`：off/缺省→undefined、shadow→`LayaDecisionEngine` 实例 |
+| `tests/unit/selfVerifyVerdictProbe.test.ts` | verdictPredictor 在 execute 路径上被消费（写源码触发 shadow 观测，不进回灌不阻断）     |
+
+### 34.5 环境约束（实测）
+
+- pypi 可达、`hf-mirror.com` 可达；`huggingface.co` 本机 502 不可达（权重须走 `HF_ENDPOINT` 镜像）。
+- `envs/default` venv **尚未建**，`laya` 包待装 ⇒ 集成测试（Python 真跑推理）待后端就绪后补；
+  当前单测只覆盖 fail-open 与装配缝，不触发真实推理。
+- 子进程纪律：Python 桥走 `execFileSync(pythonPath, [scriptPath], { input, stdio:['ignore','pipe','ignore'], timeout, env:{...process.env, HF_ENDPOINT}, windowsHide:true })`。
+
+### 34.6 门禁（全绿）
+
+typecheck ✅ / lint `--max-warnings=0` 0 警告 ✅ / check --strict 零违规 ✅ / arch:gate ✅ /
+audit:maturity ✅（LayaDecisionEngine `@maturity L1` + 真实测试证据路径）/ audit:standard:delta ✅ /
+audit:config-wiring ✅。
+
+### 34.7 后续待办
+
+1. 建 `envs/default` venv 并 `pip install laya`（torch 2.14 + transformers 5.x + huggingface_hub 1.x，Python ≥3.10），补 Python 真跑集成测试（权重走 `HF_ENDPOINT` 镜像）。
+2. 用自有 trace 微调 + 校准出厂过置信温度（RLCD 训练，需拟合温度）。
+3. 接借鉴清单 ③④⑤：模型路由 / 文件·段落相关度裁剪（补 BM25 命中）/ 全工具选择（高基数弱，需微调 + LLM 兜底）。
+4. 后端就绪后把 `decisionEngine.mode` 从 `shadow` 升 `enforce`，并补 fail-closed 安全边界评估（注：质量信号非安全边界，仍 fail-open）。
