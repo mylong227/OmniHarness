@@ -4437,22 +4437,38 @@ Laya（github.com/NandhaKishorM/laya，Apache-2.0，非自回归多语言 System
 | `tests/unit/layaWiring.test.ts`             | `DecisionEngineResolver.resolve`：off/缺省→undefined、shadow→`LayaDecisionEngine` 实例 |
 | `tests/unit/selfVerifyVerdictProbe.test.ts` | verdictPredictor 在 execute 路径上被消费（写源码触发 shadow 观测，不进回灌不阻断）     |
 
-### 34.5 环境约束（实测）
+### 34.5 环境约束（实测 2026-09-29）
 
-- pypi 可达、`hf-mirror.com` 可达；`huggingface.co` 本机 502 不可达（权重须走 `HF_ENDPOINT` 镜像）。
-- `envs/default` venv **尚未建**，`laya` 包待装 ⇒ 集成测试（Python 真跑推理）待后端就绪后补；
-  当前单测只覆盖 fail-open 与装配缝，不触发真实推理。
-- 子进程纪律：Python 桥走 `execFileSync(pythonPath, [scriptPath], { input, stdio:['ignore','pipe','ignore'], timeout, env:{...process.env, HF_ENDPOINT}, windowsHide:true })`。
+- pypi 可达、`hf-mirror.com` 可达；`huggingface.co` 本机不可达（权重须走镜像）。
+- **权重离线落地（绕开 huggingface_hub / hf_xet）**：`hf-mirror.com/resolve/main/<file>` 对 `model.safetensors`（842MB，Xet 存储）直接回实际字节（HTTP 206），小文件普通 GET + UA 即 200（`resolve` + Range 头会触发 403，故小文件不送 Range）；纯 urllib 直连镜像手动拉取（脚本 `_laya_fetch.py`，可断点续传），权重落到 `D:/deepseek/laya-model/laya`（结构：`rl_agent_config.json` + `model.safetensors` + `tokenizer/` + `encoder/`）。
+- **safe-delete 死结（已定位，离线路径天然规避）**：huggingface_hub/hf_xet 在 Windows 上清理 >50 个临时文件时非交互 `sys.exit(1)`（`[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]`），在线 `snapshot_download` 永远下不完；离线手动下载不触 huggingface_hub，故无此问题。Xet CAS `cas-server.xethub.hf.co` 经镜像走 401（镜像不代理 Xet），进一步证伪在线路径。
+- **Router 路由陷阱（已修）**：`Router.predict(model=...)` 把 `model` 当作具名 checkpoint（english / multilingual / typed-decisions）而非路径，传本地目录会 `ValueError`；桥改为本地目录走 `Agent(modelDir).system_one(...)` 直载（见 §34.9）。
+- venv `envs/default` 已建：`torch 2.14+cpu` + `transformers 5.17` + `huggingface_hub 1.33` + `laya 0.3.21`，ModernBERT CPU 推理可用。
+- 子进程纪律（实测修正 2026-09-29）：本机 Windows 同步子进程一旦建 **stdin 管道**必 `EBUSY`（仓库铁律要求 `stdio:['ignore','pipe','ignore']`，stdin 接 `/dev/null`）；但 `execFileSync` 的 `input` 选项在 `stdin='ignore'` 下会被**静默丢弃**——初版集成测试因此读到空 stdin、`JSON 解析失败`、被适配器 `return { ...parsed, available:true }` 误判成功、掩盖 fail-open。修正：请求改走临时文件，桥加 `--request-file <path>` 读参（`laya_infer.py#_read_request_text`），适配器 `LayaDecisionEngine#runBridge` 写临时文件后调起；stdout 仍走 pipe 捕获。CPU 冷加载 842MB 权重需放宽超时（集成测试 180s）。
 
 ### 34.6 门禁（全绿）
 
 typecheck ✅ / lint `--max-warnings=0` 0 警告 ✅ / check --strict 零违规 ✅ / arch:gate ✅ /
-audit:maturity ✅（LayaDecisionEngine `@maturity L1` + 真实测试证据路径）/ audit:standard:delta ✅ /
+audit:maturity ✅（LayaDecisionEngine `@maturity L2` + 真实端到端测试证据 `tests/integration/layaBackend.test.ts`）/ audit:standard:delta ✅ /
 audit:config-wiring ✅。
 
 ### 34.7 后续待办
 
-1. 建 `envs/default` venv 并 `pip install laya`（torch 2.14 + transformers 5.x + huggingface_hub 1.x，Python ≥3.10），补 Python 真跑集成测试（权重走 `HF_ENDPOINT` 镜像）。
+1. ✅ **已完成（2026-09-29）**：`envs/default` venv 已建（`torch 2.14+cpu` + `transformers 5.17` + `huggingface_hub 1.33` + `laya 0.3.21`）；权重离线落 `D:/deepseek/laya-model/laya`（纯 urllib 直连 hf-mirror，绕开 safe-delete 死结）；Python 真跑集成测试 `tests/integration/layaBackend.test.ts` 已就绪（设 `LAYA_PYTHON_BIN` + `LAYA_MODEL_DIR`，超时 180s）。桥修 `kind`→`type` 翻译 + 本地目录 `Agent` 直载（见 §34.9）。
 2. 用自有 trace 微调 + 校准出厂过置信温度（RLCD 训练，需拟合温度）。
 3. 接借鉴清单 ③④⑤：模型路由 / 文件·段落相关度裁剪（补 BM25 命中）/ 全工具选择（高基数弱，需微调 + LLM 兜底）。
 4. 后端就绪后把 `decisionEngine.mode` 从 `shadow` 升 `enforce`，并补 fail-closed 安全边界评估（注：质量信号非安全边界，仍 fail-open）。
+
+### 34.8 后端就绪记录（实测 2026-09-29）
+
+- 默认 checkpoint = `convaiinnovations/laya` 根（english，421M ModernBERT-large，512 tokens）；`multilingual`/`typed-decisions` 为 `subfolder` 备选。
+- 真实推理验证：本地 `Agent(modelDir).system_one(...)` 对 `noul`/`score` 原语返回 `{"answers":{...},"routing":{"model":modelDir}}`，`noul`∈[0,1]、`score`∈[0,选项数-1]。
+- 离线目录结构（laya Agent 期望）：`rl_agent_config.json` + `model.safetensors` + `tokenizer/{tokenizer.json,tokenizer_config.json}` + `encoder/config.json`。
+
+### 34.9 桥实现要点（六边形适配器边界）
+
+- 端口契约 `DecisionQuestion.kind`（`choice`/`score`/`noul`）→ laya 线格式 `type` 的翻译在 `layaDecisionEngine.ts#toLayaQuestion`（适配器职责，不污染端口）。
+- 本地目录必须走 `Agent(modelDir).system_one(...)`：**`Router.predict(model=本地目录)` 会把路径当具名 checkpoint 名 → `ValueError`**。在线兜底才用 `Router()`。
+- 请求投递（实测修正）：桥默认读 stdin、也支持 `--request-file <path>`（TS 适配器一律走文件，规避 `stdin='ignore'` 丢弃输入 + 本机管道 EBUSY）。两种来源均 `utf-8-sig` 解码容忍 BOM。
+- fail-open 不掩盖：`LayaDecisionEngine#decide` 直接 `return parsed`（桥已带 `available`），**不再** `return { ...parsed, available:true }`——否则桥在测试上下文失败（`available:false` 无 `answers`）会被伪装成成功，静默漏掉真实推理失败。
+- `laya_infer.py` 解码用 `utf-8-sig`（容忍 BOM）；`available:false` 时只回 `{available:false, note}`，不抛错（fail-open）。
