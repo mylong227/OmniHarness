@@ -31,6 +31,7 @@ import {
   type NetworkEgressOptions,
 } from '../adapters/sandbox/networkEgressGuard.js';
 import { SsrfPolicy } from '../security/ssrfPolicy.js';
+import { EnforcementModeResolver } from '../security/enforcementModeResolver.js';
 import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.js';
 import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
@@ -349,9 +350,13 @@ export class CliBuildConfig {
       native: args.native,
       planMode: args.planMode,
       // (D1) 护栏生效模式：显式 `--guard-prompt-injection-mode` 优先；否则 `--guard-prompt-injection`
-      // 等价 `enforce`（历史语义原样保留为 `true`，由 configFactory 统一校验/归一）；都未给 ⇒ undefined。
-      promptInjectionGuard:
-        args.guardPromptInjectionMode ?? (args.promptInjectionGuard === true ? true : undefined),
+      // 等价 `enforce`（历史语义保留）；两者皆未给 ⇒ **默认 `shadow`**（观测档常开：跑检测、记录、
+      // 但原样放行，零误拦零行为回归，覆盖「默认关丢覆盖面」死结）。显式 `off` 可关回；库级默认
+      // （ConfigFactory）仍 off，单测/嵌入方零行为。归一化见 `EnforcementModeResolver.fromCliArgs`。
+      promptInjectionGuard: EnforcementModeResolver.fromCliArgs(
+        args.guardPromptInjectionMode,
+        args.promptInjectionGuard,
+      ),
       // （P3→P1-⑨）自验证回环：**默认开启**（以「仓库能推断出测试命令」为前提，由
       // SelfVerifyPolicy.forWorkspace + SelfVerifyCommandDetector 判定：package.json#scripts.test /
       // pytest 配置 / Cargo.toml / go.mod / pom.xml / gradle / rspec / Makefile#test；

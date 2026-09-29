@@ -91,7 +91,7 @@ export interface CliArgs {
   native: boolean;
   /** 计划模式（#77）：开启后未批准计划前拦截写类工具。 */
   planMode?: boolean | undefined;
-  /** 提示注入护栏（opt-in）：开启后工具结果进上下文前扫描指令注入并隔离命中项（默认关）。 */
+  /** 提示注入护栏（opt-in 布尔旗标）：`--guard-prompt-injection` 等价 `enforce`；未显式传任何护栏旗标时，生产入口默认 `shadow` 观测档常开（`--guard-prompt-injection-mode off` 可显式关回）。 */
   promptInjectionGuard?: boolean | undefined;
   /**
    * （D1）护栏生效模式：`off` 不跑 / `shadow` 跑但不改行为（只记） / `enforce` 跑且生效。

@@ -68,4 +68,29 @@ export class EnforcementModeResolver {
   public static applies(mode: EnforcementMode): boolean {
     return mode === 'enforce';
   }
+
+  /**
+   * 从 CLI 参数归一化护栏生效模式（生产入口默认 `shadow` 观测档常开）。
+   *
+   * 为什么默认 `shadow` 而非 `off`：护栏的「观测档」只跑检测、记录「本该拦截」的证据，但
+   * **原样放行**（见 `guardShadowMode` 端到端测试），零误拦、零行为回归；默认 `off` 会丢掉对生产
+   * 流量的覆盖（此前 `promptInjectionGuard` 纯靠显式 opt-in，覆盖面几乎为零）。`--guard-prompt-injection-mode off`
+   * 可显式关回；`--guard-prompt-injection`（历史布尔旗标）仍等价 `enforce`。
+   *
+   * @param guardPromptInjectionMode 显式 `--guard-prompt-injection-mode` 取值（off/shadow/enforce）。
+   * @param guardPromptInjection 历史布尔旗标 `--guard-prompt-injection`（`true` ⇒ `enforce`）。
+   * @returns 归一化后的生效模式；两者皆未给 ⇒ `'shadow'`（观测档常开）。
+   */
+  public static fromCliArgs(
+    guardPromptInjectionMode: EnforcementMode | undefined,
+    guardPromptInjection: boolean | undefined,
+  ): EnforcementMode {
+    if (guardPromptInjectionMode !== undefined) {
+      return EnforcementModeResolver.modeOf(guardPromptInjectionMode);
+    }
+    if (guardPromptInjection === true) {
+      return 'enforce';
+    }
+    return 'shadow';
+  }
 }

@@ -64,3 +64,48 @@ test('guardFailureResult：shadow / off 档原样返回（守住「不改行为�
     assert.strictEqual(out, result, `${mode} 档必须原样返回同一对象`);
   }
 });
+
+test('fromCliArgs：CLI 生产入口默认 shadow 常开（零误拦、零行为回归）', () => {
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs(undefined, undefined),
+    'shadow',
+    '未传任何护栏旗标 ⇒ 观测档常开',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs('off', undefined),
+    'off',
+    '显式 off 可关回',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs('shadow', undefined),
+    'shadow',
+    '显式 shadow 保留',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs('enforce', undefined),
+    'enforce',
+    '显式 enforce 保留',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs(undefined, true),
+    'enforce',
+    '历史布尔旗标 ⇒ enforce（零行为变更）',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs('enforce', true),
+    'enforce',
+    '显式模式优先于布尔旗标',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.fromCliArgs('shadow', false),
+    'shadow',
+    '显式模式优先于布尔旗标',
+  );
+});
+
+test('fromCliArgs：非法模式在归一化层抛错（D2，不静默回落成 off）', () => {
+  assert.throws(
+    () => EnforcementModeResolver.fromCliArgs('shdow' as unknown as 'off', undefined),
+    /未知的生效模式/,
+  );
+});
