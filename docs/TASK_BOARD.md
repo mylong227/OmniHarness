@@ -4258,3 +4258,139 @@ audit:standard:delta / audit:config-wiring）；相关单测 17/17；提交「�
 
 - 这仅完成 Laya 借鉴清单**首条**（P0 护栏常开的中间档）。剩余：`self-verify verdict(noul)`、模型路由、文件/段落相关度裁剪、全工具选择（高基数弱，需微调 + LLM 兜底）——均依赖本地推理基建（`Laya` 自托管范式，不接闭源 API），未启动。
 - `shadow` 档会跑正则扫描（轻微开销），但只记录不改行为；要真正「拦截」仍需用户显式 `--guard-prompt-injection`（enforce）。
+
+## 33. 2026-09-29 能力基准 harness 回归修复 + live 复测闭环（记忆「最值钱两条」之二）
+
+### 33.1 动机（解锁并发锁后的 live 复测，撞出真缺陷）
+
+记忆把「改动后的 live 端到端复测」列为**最值钱两条**之二：P0/P1 换过工具面，但 `benchmark/capability-swebench.json` 的 live 成绩停在 2026-09-15（9/10），**只有单测证据、无端到端证据**。
+
+本轮并发锁已清（无 `scores_incremental.jsonl.lock`、无 model 跑批进程），按纪律跑 live 复测，却撞出**整条基准 0/10**——连零模型的 scripted 回放与 gold 对照都 0/10。初步误判为 agent 回归，实测排除：
+
+- 手动复现 `head` 任务（bug=`slice(0,n-1)`、gold=`slice(0,n)`）：bug 版 `node test.js` 退出 1、gold 版 PASS ⇒ **任务定义本身正确**；
+- `git status` 确认近期提交只动 prompt-injection 护栏，不触碰评测装配。
+
+⇒ 失败在**评测脚手架**，不是 agent 行为——是 harness 回归。
+
+### 33.2 根因（`src/eval/swebench.ts` 的 `runEval`）
+
+`runEval` 原实现：
+
+```ts
+execFileSync(cmd, { cwd, shell: true, stdio: 'pipe', timeout: Swebench.EVAL_CMD_TIMEOUT_MS });
+```
+
+两处叠加，恰撞项目子进程铁律（记忆 2026-09-28：`spawnSync/execFileSync` 默认 stdio 走管道 ⇒ `EBUSY`，必须显式 `['ignore','pipe','ignore']`）：
+
+1. **`stdio: 'pipe'`（stdin 走管道）** → 本机 `execFileSync` 触发 `spawnSync cmd.exe EBUSY`，评测命令**根本没跑起来**，catch 回落退出码 1；
+2. **Windows `shell: true` 走 `cmd.exe`**，而沙箱 managed-node 不在 `cmd.exe` 的 PATH ⇒ 即便绕开 EBUSY，`node test.js` 也「找不到 node」。
+
+两项叠加 → `node test.js` 全失败 → scripted/gold/live 一律 0/10、对照失效（gold 已知正确补丁也 FAIL_TO_PASS 不过）。这正是项目头号缺陷类「声明未接线 / 不可信分数被当成绩效」的评测侧实例。
+
+### 33.3 修复（端口无关、最小改动）
+
+`runEval` 改为：
+
+- 显式 `stdio: ['ignore', 'pipe', 'ignore']`（修 EBUSY，符合子进程纪律）；
+- `node` 前缀命令直接 `execFileSync(process.execPath, args, …)`（**不经 shell、不依赖 `cmd.exe` PATH**），环境无关；其余命令仍 `shell: true` + 同款 stdio。
+
+```ts
+const trimmed = cmd.trim();
+const nodeMatch = /^node(?:\.exe)?\b/i.exec(trimmed);
+if (nodeMatch !== null) {
+  const args = trimmed
+    .slice(nodeMatch[0].length)
+    .trim()
+    .split(/\s+/)
+    .filter((a) => a.length > 0);
+  execFileSync(process.execPath, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'], timeout });
+} else {
+  execFileSync(trimmed, { cwd, shell: true, stdio: ['ignore', 'pipe', 'ignore'], timeout });
+}
+```
+
+### 33.4 验收（修复后重跑）
+
+`npm run build` 后 `node benchmark/capability_swebench.mjs --live`：
+
+| 段                        | 结果      | 说明                                        |
+| ------------------------- | --------- | ------------------------------------------- |
+| scripted（零 key）        | **10/10** | 修复步骤回放链路可用                        |
+| 对照有效性                | **true**  | gold 过、阴性正确不过（评分器不假阴不假阳） |
+| **live（deepseek-chat）** | **10/10** | 花费 $0.1518，46s                           |
+
+⇒ **P0/P1 工具面改动后 agent 仍 10/10**（历史 9/10），回归风险以真实端到端证据清零。七道门禁全绿（typecheck / lint `--max-warnings=0` / check --strict / arch:gate / audit:maturity / audit:standard:delta / audit:config-wiring）。
+
+### 33.5 边界与后续
+
+- 真实 SWE-bench（pytest）路径仍依赖 `pytest` 在 PATH（本环境缺 `uv`/`pytest`；capability 套件是 node 版，已修复）。`process.execPath` 仅对 `node` 前缀生效，pytest 类命令走 shell——该路径若在本沙箱跑需另装 pytest。
+- 教训固化：评测/脚本里**任何子进程调用一律显式给 `stdio`**，否则本机 `EBUSY` 静默把分数压成 0，极难察觉（本次先被「全 0/10」表象误导，靠手动复现才定位 harness）。
+- `benchmark/capability-swebench.json` 已更新为可信基线（scripted 10/10 + 对照有效 + live 10/10），保留跟踪。
+
+## 33. 2026-09-29 能力基准 harness 回归修复 + live 复测闭环（记忆「最值钱两条」之二）
+
+### 33.1 动机（解锁并发锁后的 live 复测，撞出真缺陷）
+
+记忆把「改动后的 live 端到端复测」列为**最值钱两条**之二：P0/P1 换过工具面，但 `benchmark/capability-swebench.json` 的 live 成绩停在 2026-09-15（9/10），**只有单测证据、无端到端证据**。
+
+本轮并发锁已清（无 `scores_incremental.jsonl.lock`、无 model 跑批进程），按纪律跑 live 复测，却撞出**整条基准 0/10**——连零模型的 scripted 回放与 gold 对照都 0/10。初步误判为 agent 回归，实测排除：
+
+- 手动复现 `head` 任务（bug=`slice(0,n-1)`、gold=`slice(0,n)`）：bug 版 `node test.js` 退出 1、gold 版 PASS ⇒ **任务定义本身正确**；
+- `git status` 确认近期提交只动 prompt-injection 护栏，不触碰评测装配。
+
+⇒ 失败在**评测脚手架**，不是 agent 行为——是 harness 回归。
+
+### 33.2 根因（`src/eval/swebench.ts` 的 `runEval`）
+
+`runEval` 原实现：
+
+```ts
+execFileSync(cmd, { cwd, shell: true, stdio: 'pipe', timeout: Swebench.EVAL_CMD_TIMEOUT_MS });
+```
+
+两处叠加，恰撞项目子进程铁律（记忆 2026-09-28：`spawnSync/execFileSync` 默认 stdio 走管道 ⇒ `EBUSY`，必须显式 `['ignore','pipe','ignore']`）：
+
+1. **`stdio: 'pipe'`（stdin 走管道）** → 本机 `execFileSync` 触发 `spawnSync cmd.exe EBUSY`，评测命令**根本没跑起来**，catch 回落退出码 1；
+2. **Windows `shell: true` 走 `cmd.exe`**，而沙箱 managed-node 不在 `cmd.exe` 的 PATH ⇒ 即便绕开 EBUSY，`node test.js` 也「找不到 node」。
+
+两项叠加 → `node test.js` 全失败 → scripted/gold/live 一律 0/10、对照失效（gold 已知正确补丁也 FAIL_TO_PASS 不过）。这正是项目头号缺陷类「声明未接线 / 不可信分数被当成绩效」的评测侧实例。
+
+### 33.3 修复（端口无关、最小改动）
+
+`runEval` 改为：
+
+- 显式 `stdio: ['ignore', 'pipe', 'ignore']`（修 EBUSY，符合子进程纪律）；
+- `node` 前缀命令直接 `execFileSync(process.execPath, args, …)`（**不经 shell、不依赖 `cmd.exe` PATH**），环境无关；其余命令仍 `shell: true` + 同款 stdio。
+
+```ts
+const trimmed = cmd.trim();
+const nodeMatch = /^node(?:\.exe)?\b/i.exec(trimmed);
+if (nodeMatch !== null) {
+  const args = trimmed
+    .slice(nodeMatch[0].length)
+    .trim()
+    .split(/\s+/)
+    .filter((a) => a.length > 0);
+  execFileSync(process.execPath, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'], timeout });
+} else {
+  execFileSync(trimmed, { cwd, shell: true, stdio: ['ignore', 'pipe', 'ignore'], timeout });
+}
+```
+
+### 33.4 验收（修复后重跑）
+
+`npm run build` 后 `node benchmark/capability_swebench.mjs --live`：
+
+| 段                        | 结果      | 说明                                        |
+| ------------------------- | --------- | ------------------------------------------- |
+| scripted（零 key）        | **10/10** | 修复步骤回放链路可用                        |
+| 对照有效性                | **true**  | gold 过、阴性正确不过（评分器不假阴不假阳） |
+| **live（deepseek-chat）** | **10/10** | 花费 $0.1518，46s                           |
+
+⇒ **P0/P1 工具面改动后 agent 仍 10/10**（历史 9/10），回归风险以真实端到端证据清零。七道门禁全绿（typecheck / lint `--max-warnings=0` / check --strict / arch:gate / audit:maturity / audit:standard:delta / audit:config-wiring）。
+
+### 33.5 边界与后续
+
+- 真实 SWE-bench（pytest）路径仍依赖 `pytest` 在 PATH（本环境缺 `uv`/`pytest`；capability 套件是 node 版，已修复）。`process.execPath` 仅对 `node` 前缀生效，pytest 类命令走 shell——该路径若在本沙箱跑需另装 pytest。
+- 教训固化：评测/脚本里**任何子进程调用一律显式给 `stdio`**，否则本机 `EBUSY` 静默把分数压成 0，极难察觉（本次先被「全 0/10」表象误导，靠手动复现才定位 harness）。
+- `benchmark/capability-swebench.json` 已更新为可信基线（scripted 10/10 + 对照有效 + live 10/10），保留跟踪。
