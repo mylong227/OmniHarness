@@ -2,6 +2,7 @@ import { type ServerResponse } from 'node:http';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../core/jsonRpc.js';
 import type { Transport } from './lineTransport.js';
 import { type WsConnection } from './wsConnection.js';
+import { SseBackpressureGuard } from './sseBackpressureGuard.js';
 import { EnterpriseAuth } from '../../enterprise/index.js';
 import { PendingRequests } from '../../util/pendingRequests.js';
 
@@ -65,6 +66,11 @@ export class HttpBridgeTransport implements Transport {
   private readonly pending = new PendingRequests<number | string, RpcMessage>();
   /** SSE 长连接客户端集合（连接断开自动移除）。 */
   private readonly sseClients = new Set<ServerResponse>();
+  /**
+   * SSE 客户端背压守卫：委托 {@link SseBackpressureGuard} 跟踪每个慢客户端连续写失败次数，
+   * 超阈值即丢弃该客户端（fail-closed 偏严，避免单条慢连接拖垮服务端事件总线）。
+   */
+  private readonly sseBackpressure = new SseBackpressureGuard();
   /** WebSocket 客户端集合（连接关闭自动移除）。 */
   private readonly wsClients = new Set<WsConnection>();
   /** 企业鉴权门禁（D2，opt-in）：设置后所有入站 RPC 调用需有效 Bearer 令牌，fail-closed。 */
@@ -279,6 +285,7 @@ export class HttpBridgeTransport implements Transport {
     this.hadClients = true;
     response.on('close', () => {
       this.sseClients.delete(response);
+      this.sseBackpressure.remove(response);
       this.notifyIfAllClientsGone();
     });
   }
@@ -291,7 +298,22 @@ export class HttpBridgeTransport implements Transport {
   private broadcast(message: RpcMessage): void {
     const ssePayload = `data: ${JSON.stringify(message)}\n\n`;
     for (const client of this.sseClients) {
-      client.write(ssePayload);
+      // 背压兜底：对端消费慢、`write` 返回 false 时累计计数，连续超限即丢弃慢客户端
+      // （宁可少推一个慢连接，也不让服务端事件总线被单条慢连接拖垮）。
+      if (client.write(ssePayload)) {
+        this.sseBackpressure.clear(client);
+        continue;
+      }
+      if (this.sseBackpressure.hit(client)) {
+        this.sseClients.delete(client);
+        try {
+          client.end();
+        } catch {
+          // 已断开：忽略
+        }
+        this.notifyIfAllClientsGone();
+        continue;
+      }
     }
     const wsPayload = JSON.stringify(message);
     for (const client of this.wsClients) {
