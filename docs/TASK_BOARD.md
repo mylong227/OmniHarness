@@ -4192,3 +4192,36 @@ config/ports/schema/sdk/cli、adapters、其余子系统）+ 定向 grep 兜底�
 
 **验收**：七道门禁全绿（typecheck / lint / check --strict / arch:gate / audit:maturity /
 audit:standard:delta / audit:config-wiring）；相关单测 17/17；提交「代码一笔 + 看板一笔」。
+
+### §31 §30 九类跟进项闭环登记（2026-09-29）
+
+§30 审计识别的 9 类跟进项全部收尾，每类一笔提交 + 本看板一笔。映射与落点：
+
+| Gap | 跟进项（来自 §30「建议后续跟进」） | 落刀点 | 提交 |
+| --- | --- | --- | --- |
+| ① | server 背压：WS `send` / SSE `broadcast` 未查 `write()` 返回值 | WS/SSE 背压 | `3011978` |
+| ② | `auditSink.read` / `workspaceTree` 整文件读内存有界化 | auditSink / safeFs 整文件读内存有界 | `3011978` |
+| ③ | `mcpToolMapper` 未对 MCP `description` 跑注入扫描；`mcpServer` 无 gate 时 fail-open | `McpToolMapper.scanToolDescription`（双向扫描，命中抛错拒绝透传）；`mcpServer.gateOf` 仅文档化「未注入门禁即放行是有意设计」（本地可信工具集走受控 MCP 客户端，生产路径经 `cliBuildConfig`/`appServer` 装配注入门禁） | `2c1bded` |
+| ④ | `composition/runtime` A2A 任务处理器无并发闸门且授予对等方完整工具面 | 新增 `A2aTaskExecutor`（`ConcurrencyLimiter` 默认 4）+ `FilteredToolPort`（剔除 `MUTATING_TOOLS`、委托 `tools` 子集取交集）；`runtime.attachA2a` 改为注入 `A2aTaskExecutor` | `2c1bded` |
+| ⑤ | 共享状态淘汰上限：`tree` / `stats&listeners` / `graphStore.get` 无界或体积未重校验 | `subagentOrchestrator.tree` 4096 淘汰最旧 / `supervisorKernel.onTransition` 去重+64 上限 / `graphStore.readBounded` 4MiB 读有界（fail-closed） | `2c1bded` |
+| ⑥ | `configFile.load` 解析失败静默回退默认（fail-open） | 非法 JSON 抛 `ConfigError`；缺失文件仍返回 `{}`（不破坏 `cliSystem.test.ts` 语义） | `2c1bded` |
+| ⑦ | `cliBuildConfig.applyNetworkGuard` 全局 fetch 包装 + `bridgeMcpServers` gateway 未在 `finally` 复原/关闭 | `cliServerCmds.runServe` 的 `finally` 复原 `restoreEgress()` + 关闭网关；`closeGateway` 置于继承链公共祖先 `cliServerCmds` 为 `protected` 供 `execCli` 复用（避免重复定义成员越上帝类上限） | `2c1bded` |
+| ⑧ | `ExecutorPort.run` 未接 `CancellationToken`；`dockerExecutor` 超时仅 SIGTERM 可能留孤儿容器 | `ExecutorPort.run` 透传 `AbortSignal`；`nativeExecutor` 信号已触发 fail-closed 收尾；`dockerExecutor` 改用 `--cidfile` + 超时/`signal` 触发 `docker kill` 兜底清理孤儿容器 | `2c1bded` |
+| ⑨ | 为 ③–⑧ 源码改动补单测 | 新增 9 个单测文件、27 例：注入扫描双向拒绝 / FilteredToolPort 受限视图 / A2aTaskExecutor 并发受限+受限于 tools 子集 / configFile 非法JSON抛错 / graphStore 超 4MiB 抛错 / tree 4096 淘汰最旧 / onTransition 去重+64 上限 / nativeExecutor 取消 fail-closed / dockerExecutor 取消传播 | `2c1bded` |
+
+**门禁结论（本轮 `2c1bded`，24 文件 / +951 −132）**：七道门禁 + pre-commit（`runGates.mjs`，含 prettier 增量格式化）全绿。
+- typecheck：`tsc --noEmit` 0 错；
+- lint：`eslint --max-warnings=0` 0 告警；
+- check --strict：0（含函数 ≤80 行 / 类成员 ≤25 冻结基线）；
+- arch:gate：0 新增违规（ports 纯度 / 依赖方向）；
+- audit:maturity：41 项声明均带 L2/L3 存在性证据；
+- audit:standard:delta：本次提交未新增标准违规；
+- audit:config-wiring：641 源文件接线全绿（声明→装配→运行时→消费断链即红）。
+
+**上帝类规避（本轮两件）**：
+- `nativeExecutor` 把 `fail`/`failEnv` 合并为 `verdict`、把 `gitApply` 内联进 `applyPatches`，空出 1 个成员容纳 `evaluate` 抽取 → 成员数维持 25（≤25 不变量）；
+- `closeGateway` 不落在 `cliBuildConfig`（其已 25 成员）也不在 `execCli` 重复定义，而是置于继承链公共祖先 `cliServerCmds` 为 `protected`，下游 `execCli` 直接复用。
+
+**验证**：scope 编译（绕过并行会话未跟踪草稿）+ 运行 130 例单测（既有 102 + 新增 27 + 夹具 1）全绿；既有相关模块（`mcp`/`graphStore`/`supervisor`/`a2a`/`subagent`/`swebenchVerified`/`configLayer`/`configWiring`/`serveConfigLayering`）回归零退化。
+
+**状态**：§30 九类跟进项 ✅ 全部闭环（①② `3011978`、③–⑨ `2c1bded`）。任务 #27–#33 标记完成。
