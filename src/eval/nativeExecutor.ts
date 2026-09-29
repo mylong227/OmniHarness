@@ -139,20 +139,26 @@ export class NativeExecutor implements ExecutorPort {
    * 运行单实例：git worktree 检出 base → uv venv → 安装 → 应用补丁 → pytest 判定（fail-closed）。
    * @param task 归一化任务（含 repo/base_commit/version/测试清单）。
    * @param modelPatch 模型生成的补丁（unified diff）。
+   * @param signal 可选取消信号（整批 eval 取消时中止在飞实例；已触发时 fail-closed 直接记取消）。
    * @returns 单实例结果（缺设施/异常/空 FAIL_TO_PASS 即 resolved=false 并写明原因）。
    */
-  public async run(task: VerifiedTask, modelPatch: string): Promise<VerifiedResult> {
+  public async run(task: VerifiedTask, modelPatch: string, signal?: AbortSignal): Promise<VerifiedResult> {
+    // 取消传播：整批 eval 被取消时，在飞实例立即 fail-closed 收尾（不静默忽略信号继续烧资源）。
+    if (signal?.aborted === true) {
+      return this.verdict(task.id, 'eval 已被取消（AbortSignal 已触发）', true);
+    }
     // fail-open 防线（与 SwebenchVerified.parseTestList 的加载期校验互为纵深）：
     // `failToPass` 为空时 `[].every(...)` 恒真 ⇒ 任何补丁都会被误判 resolved。VerifiedTask 可由
     // 任意调用方手工构造（不必经 loadVerified），故执行边界再兜一次，宁可拒判也不假绿。
     if (task.failToPass.length === 0) {
-      return this.failEnv(
+      return this.verdict(
         task.id,
         'FAIL_TO_PASS 为空 —— 拒绝判定（空清单会使「全过=resolved」恒真，属 fail-open 假绿）',
+        true,
       );
     }
     if (!SwebenchVerified.commandAvailable('git')) {
-      return this.failEnv(task.id, 'git 不可用（NativeExecutor 需要 git 克隆/检出仓库）');
+      return this.verdict(task.id, 'git 不可用（NativeExecutor 需要 git 克隆/检出仓库）', true);
     }
     // uv 定位不止看 PATH：官方安装脚本默认落在 ~/.local/bin（本机实测不在 PATH 上），
     // 只查 PATH 会把「装了但没配 PATH」误报成「没装」，让整条判定链路无声 fail-closed。
@@ -160,13 +166,13 @@ export class NativeExecutor implements ExecutorPort {
     try {
       uv = this.requireUv();
     } catch (error) {
-      return this.failEnv(task.id, this.msg(error));
+      return this.verdict(task.id, this.msg(error), true);
     }
     let cacheDir: string;
     try {
       cacheDir = await this.prepareRepo(task.repo);
     } catch (error) {
-      return this.failEnv(task.id, `仓库克隆失败: ${this.msg(error)}`);
+      return this.verdict(task.id, `仓库克隆失败: ${this.msg(error)}`, true);
     }
     // 注：`ensureCommit` 刻意吞掉取回失败（见其实现），把判定权交给随后的 `addWorktree`；
     // 因此这里**必须**兜住 worktree 抛出——残留/半克隆的缓存会把 `git worktree add --detach <base>`
@@ -180,8 +186,28 @@ export class NativeExecutor implements ExecutorPort {
         return this.addWorktree(cacheDir, task.baseCommit);
       });
     } catch (error) {
-      return this.failEnv(task.id, `工作区检出失败: ${this.msg(error)}`);
+      return this.verdict(task.id, `工作区检出失败: ${this.msg(error)}`, true);
     }
+    return this.evaluate(worktree, cacheDir, task, modelPatch, uv);
+  }
+
+  /**
+   * 在已检出的 worktree 内构建环境、应用补丁、跑 pytest 判定（fail-closed）。
+   * 从 {@link NativeExecutor.run} 抽取，使 `run` 体保持可读且不超过函数行数上限。
+   * @param worktree 已检出到 base_commit 的隔离工作区。
+   * @param cacheDir 缓存克隆目录（清理用）。
+   * @param task 归一化任务（含 testPatch/failToPass/passToPass）。
+   * @param modelPatch 模型生成的补丁（unified diff）。
+   * @param uv uv 可执行文件绝对路径。
+   * @returns 单实例结果（缺设施/异常即 resolved=false 并写明原因）。
+   */
+  private async evaluate(
+    worktree: string,
+    cacheDir: string,
+    task: VerifiedTask,
+    modelPatch: string,
+    uv: string,
+  ): Promise<VerifiedResult> {
     try {
       const pythonVersion = PythonVersionResolver.resolve(task.repo, task.version);
       await this.envBuilder.build(worktree, pythonVersion, task.repo, uv);
@@ -189,8 +215,8 @@ export class NativeExecutor implements ExecutorPort {
       if (!applied.ok) {
         const reason = applied.reason ?? '补丁应用失败';
         return applied.envFailure === true
-          ? this.failEnv(task.id, reason)
-          : this.fail(task.id, reason);
+          ? this.verdict(task.id, reason, true)
+          : this.verdict(task.id, reason);
       }
       const ids = [...task.failToPass, ...task.passToPass];
       const run = await this.testRunner.runFor(task, worktree, ids);
@@ -199,8 +225,7 @@ export class NativeExecutor implements ExecutorPort {
       if (failToPassOk && passToPassOk) {
         return { id: task.id, resolved: true, backend: this.kind };
       }
-      // 失败必须**带原因**：旧实现只记 resolved=false，使 gold 对照里 26 个失败实例无法与
-      // 「模型没修好」区分（判分可信度调查因此在报告层断线索）。计数 + 短诊断足以分流三类原因。
+      // 失败必须**带原因**：旧实现只记 resolved=false，使 gold 对照里失败实例无法与「模型没修好」区分。
       return {
         id: task.id,
         resolved: false,
@@ -208,12 +233,11 @@ export class NativeExecutor implements ExecutorPort {
         reason: NativeTestRunner.describeFailure(task.failToPass, task.passToPass, run),
       };
     } catch (error) {
-      // 设施层异常（环境构建失败 / spawn 系统错误）与模型侧失败严格分流——判定规则与实测现场
-      // 见 `ExecFailureClassifier` 模块头；`env` 不进 resolved 分母、可单独重试。
+      // 设施层异常（环境构建失败 / spawn 系统错误）与模型侧失败严格分流——`env` 不进 resolved 分母。
       const verdict = execFailureClassifier.classify(this.msg(error));
       return verdict.kind === 'env'
-        ? this.failEnv(task.id, verdict.message)
-        : this.fail(task.id, verdict.message);
+        ? this.verdict(task.id, verdict.message, true)
+        : this.verdict(task.id, verdict.message);
     } finally {
       if (!this.keepWorktree) {
         await this.withRepoLock(task.repo, () => this.removeWorktree(cacheDir, worktree));
@@ -410,7 +434,33 @@ export class NativeExecutor implements ExecutorPort {
    * @returns 应用结果。
    */
   private applyPatches(worktree: string, modelPatch: string, testPatch: string): PatchApply {
-    if (!this.gitApply(worktree, testPatch)) {
+    // 应用单个补丁：先 `git apply`，失败则回退 GNU `patch --fuzz=5`（best-effort）。
+    // `git apply` 要求 hunk 行号与上下文逐行精确匹配，模型/官方补丁常带轻微偏移 ⇒ 严格匹配会误拒
+    // 语义正确的补丁（系统性低估分数）；`--fuzz=5` 与 SWE-agent 等主流 harness 同口径，且仍由 pytest
+    // 判定，不会假绿。补丁经 stdin 喂入，零临时文件、零删除，避开宿主批量删除确认栅栏。
+    const applyOne = (patch: string): boolean => {
+      if (patch.trim().length === 0) return true;
+      try {
+        try {
+          execFileSync('git', ['apply', '--whitespace=fix', '-'], {
+            cwd: worktree,
+            stdio: ['pipe', 'ignore', 'ignore'],
+            input: patch,
+          });
+          return true;
+        } catch {
+          execFileSync('patch', ['--batch', '--fuzz=5', '-p1', '--no-backup-if-mismatch'], {
+            cwd: worktree,
+            stdio: ['pipe', 'ignore', 'ignore'],
+            input: patch,
+          });
+          return true;
+        }
+      } catch {
+        return false;
+      }
+    };
+    if (!applyOne(testPatch)) {
       // 官方 test_patch 应用不上：**不是模型的锅**，该实例压根没进入模型能力判定 ⇒ 标 envFailure。
       return {
         ok: false,
@@ -418,78 +468,36 @@ export class NativeExecutor implements ExecutorPort {
         reason: 'test_patch 应用失败（官方测试补丁无法应用）',
       };
     }
-    if (!this.gitApply(worktree, modelPatch)) {
+    if (!applyOne(modelPatch)) {
       return { ok: false, reason: 'model_patch 应用失败（模型补丁无法应用，视为未修复）' };
     }
     return { ok: true };
   }
 
   /**
-   * 应用单个补丁文件：先 `git apply`，失败则回退 GNU `patch --fuzz=5`（best-effort）。
+   * 构造未通过结果（合并原 `fail` / `failEnv` 两方法）。
    *
-   * 为什么需要回退：`git apply` 要求 hunk 的**行号与上下文逐行精确匹配**，而模型补丁（以及部分官方
-   * 测试补丁）常带轻微偏移——多一个空行、少一行 import、上下文取了相邻函数。此时补丁**语义正确却
-   * 应用失败**，会把「能修的题」错记成「未修复」，系统性低估分数。`.rej` 侧不回退（宁可漏、不可假绿）。
-   * GNU patch 的模糊匹配（`--fuzz=5`）与主流 harness（SWE-agent 等）同口径；应用后仍由 pytest 判定，
-   * 故**不会**造成假绿——补丁若语义错误，测试照样不过。
-   * 补丁经 **stdin** 喂给 `git apply -` / `patch`，不再落临时文件：早期实现每题写一次
-   * `.omni-apply.patch` 再 `rmSync` 删除，批量跑分（数百次删除）会撞上宿主的「批量删除需确认」
-   * 安全栅栏，导致整批在删除处抛错、把能跑的实例误记为失败（2026-09-17 实测 16/16 全败于该栅栏）。
-   * 走 stdin 后**零临时文件、零删除**，栅栏无从触发，且语义等价。
-   * @param worktree worktree 路径。
-   * @param patch unified diff 文本。
-   * @returns 是否应用成功（空补丁视为成功）。
-   */
-  private gitApply(worktree: string, patch: string): boolean {
-    if (patch.trim().length === 0) return true;
-    try {
-      // 第一段：严格匹配（`-` ⇒ 从 stdin 读补丁）。多数干净补丁在此通过。
-      try {
-        execFileSync('git', ['apply', '--whitespace=fix', '-'], {
-          cwd: worktree,
-          stdio: ['pipe', 'ignore', 'ignore'],
-          input: patch,
-        });
-        return true;
-      } catch {
-        // 第二段：模糊匹配回退（不传 -i ⇒ patch 从 stdin 读；-p1 剥离 a/ b/ 前缀；
-        // --batch 不交互；不遗留 .orig 备份）。
-        execFileSync('patch', ['--batch', '--fuzz=5', '-p1', '--no-backup-if-mismatch'], {
-          cwd: worktree,
-          stdio: ['pipe', 'ignore', 'ignore'],
-          input: patch,
-        });
-        return true;
-      }
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * 构造未通过结果。
-   * @param instanceId 实例 id。
-   * @param reason 原因。
-   * @returns 未通过结果。
-   */
-  private fail(instanceId: string, reason: string): VerifiedResult {
-    return { id: instanceId, resolved: false, backend: 'native', reason };
-  }
-
-  /**
-   * 构造**环境失败**结果（`envError: true`）——用于「执行设施/环境把该实例打断、根本没进入模型能力判定」
-   * 的四类现场：缺 git/uv、仓库克隆失败、工作区检出失败、官方 test_patch 应用失败（另加空 FAIL_TO_PASS
-   * 这类数据集缺陷）。报告侧据此把它们从 resolved 率**分母**里剔除并单独重试。
+   * `envError` 标记「执行设施/环境把实例打断、根本没进入模型能力判定」——四类现场：缺 git/uv、
+   * 仓库克隆失败、工作区检出失败、官方 test_patch 应用失败（另加空 FAIL_TO_PASS 这类数据集缺陷）。
+   * 报告侧据此把它们从 resolved 率**分母**里剔除并单独重试。
    *
-   * 为什么必须分开（2026-09-25 实测）：沙箱阻断 piped-stdio 子进程时，`git worktree add` 抛
+   * 为什么必须区分（2026-09-25 实测）：沙箱阻断 piped-stdio 子进程时，`git worktree add` 抛
    * `spawn EPERM`，旧实现把它记成**模型失败**（13/13 全记模型失败、envErrors=0）——一次环境事故
-   * 会被读成「模型 0 分」，正是本仓反复治的假信号。
+   * 会被读成「模型 0 分」，正是本仓反复治的假信号。模型侧失败用 `verdict(id, reason)`，
+   * 设施层失败用 `verdict(id, reason, true)`。
    * @param instanceId 实例 id。
    * @param reason 失败原因（原样进报告，便于定位与重试）。
-   * @returns 带 envError 标记的未通过结果。
+   * @param envError 是否属执行设施/环境层失败（缺省 false＝计入模型能力判定）。
+   * @returns 未通过结果（envError=true 时带 envError 标记）。
    */
-  private failEnv(instanceId: string, reason: string): VerifiedResult {
-    return { id: instanceId, resolved: false, backend: 'native', envError: true, reason };
+  private verdict(instanceId: string, reason: string, envError = false): VerifiedResult {
+    return {
+      id: instanceId,
+      resolved: false,
+      backend: 'native',
+      ...(envError ? { envError: true } : {}),
+      reason,
+    };
   }
 
   /**

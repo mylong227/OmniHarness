@@ -35,6 +35,9 @@
  *   benchmark/capability_swebench.mjs `--gold-control`），单元测试尚未覆盖（需镜像环境）。
  */
 import { execFile, execFileSync, spawn } from 'node:child_process';
+import { readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { NativeTestRunner } from './nativeTestRunner.js';
 import { PytestVerdict } from './pytestVerdict.js';
@@ -82,6 +85,8 @@ const MODEL_PATCH_FILE = '/tmp/patch.diff';
 /** 容器退出码协议：3=模型补丁应用失败（模型侧），4=官方测试补丁应用失败（环境侧）。 */
 const EXIT_MODEL_PATCH_FAILED = 3;
 const EXIT_TEST_PATCH_FAILED = 4;
+/** 容器 cidfile 序号（每个 runContainer 生成唯一临时文件路径，避免并发实例互相覆盖）。 */
+let CID_SEQ = 0;
 
 /** 合并输出的字符数上限（防御性：超限停止追加，避免病态日志撑爆内存）。 */
 const MAX_OUTPUT_CHARS = 512 * 1024 * 1024;
@@ -137,9 +142,10 @@ export class DockerExecutor implements ExecutorPort {
    * 运行单实例：官方镜像内应用 model/test 补丁 → 跑官方 test_cmd → 按 pytest 输出判定 resolved。
    * @param task 归一化任务（含 repo/base_commit/version/测试清单）。
    * @param modelPatch 模型生成的补丁（unified diff；空串视为无补丁，直接跑测试）。
+   * @param signal 可选取消信号（整批 eval 取消时中止在飞容器；fail-closed 不静默忽略）。
    * @returns 单实例结果（fail-closed：设施缺失标 envError，模型补丁打不上记模型失败）。
    */
-  public async run(task: VerifiedTask, modelPatch: string): Promise<VerifiedResult> {
+  public async run(task: VerifiedTask, modelPatch: string, signal?: AbortSignal): Promise<VerifiedResult> {
     // fail-open 防线（与 NativeExecutor 同口径）：空 FAIL_TO_PASS 会使「全过=resolved」恒真。
     if (task.failToPass.length === 0) {
       return this.failEnv(task.id, 'FAIL_TO_PASS 为空 —— 拒绝判定（fail-open 假绿防线）');
@@ -161,7 +167,7 @@ export class DockerExecutor implements ExecutorPort {
     if (pullError !== null) {
       return this.failEnv(task.id, `官方镜像拉取失败: ${pullError}`);
     }
-    const run = await this.runContainer(image, this.evalScriptOf(task, modelPatch));
+    const run = await this.runContainer(image, this.evalScriptOf(task, modelPatch), signal);
     if (run.timedOut) {
       return this.failEnv(
         task.id,
@@ -332,17 +338,41 @@ export class DockerExecutor implements ExecutorPort {
    * @param script eval 脚本文本。
    * @returns 运行产物（退出码/合并输出/是否超时；docker 本身启动失败时 code=-1 并带诊断）。
    */
-  private runContainer(image: string, script: string): Promise<ContainerRun> {
+  private runContainer(image: string, script: string, signal?: AbortSignal): Promise<ContainerRun> {
     return new Promise<ContainerRun>((resolve) => {
-      const child = spawn(this.dockerCli, ['run', '--rm', '-i', image, '/bin/bash', '-s'], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      const cidFile = this.cidPath();
+      const child = spawn(
+        this.dockerCli,
+        ['run', '--rm', '-i', '--cidfile', cidFile, image, '/bin/bash', '-s'],
+        { stdio: ['pipe', 'pipe', 'pipe'] },
+      );
       let output = '';
       let timedOut = false;
+      // 兜底清理孤儿容器：cidfile 记录容器 id，超时/取消时显式 docker kill（--rm 未必及时回收卡死容器）。
+      const killContainer = (): void => {
+        try {
+          const cid = readFileSync(cidFile, 'utf8').trim();
+          if (cid.length > 0) execFileSync(this.dockerCli, ['kill', cid], { stdio: 'ignore' });
+        } catch {
+          // best-effort：cidfile 尚未写出或容器已由 --rm 自行清理
+        }
+      };
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill();
+        killContainer();
       }, this.testTimeoutMs);
+      const onAbort = (): void => {
+        child.kill();
+        killContainer();
+      };
+      if (signal !== undefined) {
+        if (signal.aborted) {
+          onAbort();
+        } else {
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      }
       const append = (chunk: string): void => {
         if (output.length < MAX_OUTPUT_CHARS) output += chunk;
       };
@@ -352,10 +382,14 @@ export class DockerExecutor implements ExecutorPort {
       child.stderr.on('data', append);
       child.on('error', (error: Error) => {
         clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         resolve({ code: -1, output: `${output}\n${error.message}`, timedOut });
       });
       child.on('close', (code: number | null) => {
         clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        // 容器已由 --rm 回收，cidfile 仅留 id，顺手删除避免残留。
+        rmSync(cidFile, { force: true });
         resolve({ code: code ?? -1, output, timedOut });
       });
       // docker 提前退出（镜像缺失/CLI 失败）时，往已关闭的管道写脚本会触发 EPIPE；
@@ -363,6 +397,15 @@ export class DockerExecutor implements ExecutorPort {
       child.stdin.on('error', () => undefined);
       child.stdin.end(script);
     });
+  }
+
+  /**
+   * 容器 cidfile 临时路径（每个实例唯一，供超时/取消时 docker kill 兜底清理孤儿容器）。
+   * @returns cidfile 绝对路径
+   */
+  private cidPath(): string {
+    CID_SEQ += 1;
+    return join(tmpdir(), `omni-docker-cid-${process.pid}-${CID_SEQ}.cid`);
   }
 
   /**

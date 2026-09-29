@@ -297,13 +297,26 @@ export class ConfigFile {
     }
   }
 
-  /** 加载并解析配置文件（文件不存在返回空配置，宽松：不校验未知 key）。 */
+  /**
+   * 加载并解析配置文件。
+   *
+   * 区分两种情形（fail-closed）：
+   * - 文件不存在 → 返回空配置 `{}`（合法空配置，调用方与 `cliSystem.test` 依赖此语义）；
+   * - 文件存在但解析失败（非法 JSON / 编码错误）→ 抛 `ConfigError` 暴露，不再静默回退 `{}`
+   *   掩盖错误（否则生产环境配置写坏也无症状，且 UI 覆盖会悄悄覆盖掉整份文件）。
+   * @param filePath 配置文件路径
+   * @returns 解析后的配置；文件不存在为空配置
+   */
   public load(filePath: string): FileConfig {
+    if (!existsSync(filePath)) {
+      return {};
+    }
     try {
       const raw = readFileSync(filePath, 'utf8');
       return JSON.parse(raw) as FileConfig;
-    } catch {
-      return {};
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new ConfigError(`配置文件解析失败: ${filePath} —— ${reason}`);
     }
   }
 

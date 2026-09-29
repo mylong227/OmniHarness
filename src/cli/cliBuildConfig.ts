@@ -102,7 +102,7 @@ const egressOptions = (allowed: string[], args: CliArgs): NetworkEgressOptions =
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */
 export class CliBuildConfig {
-  /** 当前活动的 MCP 网关（执行结束后由子类 closeGateway 关闭子进程）。 */
+  /** 当前活动的 MCP 网关（执行结束后由调用方内联关闭子进程，避免网关残留占端口）。 */
   protected gateway: McpGateway | undefined;
 
   /**

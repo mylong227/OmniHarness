@@ -21,6 +21,8 @@ import {
  * - 父子树：失败与耗时可追溯到具体子会话，否则子智能体是黑盒。
  */
 export class SubagentOrchestrator {
+  /** 父子关系表上限：跨长时运行进程可能累积海量会话，超出后淘汰最旧条目避免无界增长。 */
+  private static readonly MAX_TREE_ENTRIES = 4096;
   private readonly limiter: ConcurrencyLimiter;
   private readonly tree = new Map<string, string[]>();
 
@@ -104,12 +106,18 @@ export class SubagentOrchestrator {
     return this.options.maxSteps ?? DEFAULT_SUBAGENT_MAX_STEPS;
   }
 
-  /** 记录父子关系。
+  /** 记录父子关系（超出上限淘汰最旧条目，避免跨长时进程无界增长）。
    * @returns 无返回值。
    */
   private link(parentSessionId: string, childSessionId: string): void {
     const existing = this.tree.get(parentSessionId) ?? [];
     this.tree.set(parentSessionId, [...existing, childSessionId]);
+    if (this.tree.size > SubagentOrchestrator.MAX_TREE_ENTRIES) {
+      const oldest = this.tree.keys().next().value;
+      if (oldest !== undefined) {
+        this.tree.delete(oldest);
+      }
+    }
   }
 
   /** 构造失败结果（保留深度与父子关系，便于定位）。 */
