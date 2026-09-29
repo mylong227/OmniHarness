@@ -41,6 +41,7 @@ import { SelfChecklist } from '../eval/selfChecklist.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { MutationTargets } from '../adapters/tool/verify/mutationTargets.js';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.js';
+import type { DecisionEngine } from '../ports/decision/decisionEngine.js';
 import { PostWriteDiagnosticsPort } from '../adapters/tool/verify/postWriteDiagnosticsPort.js';
 import { ShellTestCommandRunner } from '../adapters/tool/verify/shellTestCommandRunner.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
@@ -356,11 +357,13 @@ export class ConfigToolRegistry {
     registry: ToolPort,
     policy: SelfVerifyPolicy,
     workspaceRoot: string,
+    verdictPredictor?: DecisionEngine | undefined,
   ): ToolPort {
     return new SelfVerifyingToolPort(registry, {
       policy,
       workspaceRoot,
       runner: new ShellTestCommandRunner(),
+      verdictPredictor,
       shouldVerify: (toolName, args) =>
         MutationTargets.of(toolName, args).some((path) =>
           SelfVerifyPolicy.isVerifiableTarget(path),
@@ -455,6 +458,7 @@ export class ConfigToolRegistry {
     lsp: LspPort | undefined,
     identity: AgentIdentityPort | undefined,
     selfVerify?: SelfVerifyPolicy | undefined,
+    decisionEngine?: DecisionEngine | undefined,
   ): ToolPort {
     const registry = new RegistryToolPort();
     ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
@@ -480,6 +484,11 @@ export class ConfigToolRegistry {
     if (selfVerify === undefined) {
       return withDiagnostics;
     }
-    return ConfigToolRegistry.withSelfVerify(withDiagnostics, selfVerify, seed.workspaceRoot);
+    return ConfigToolRegistry.withSelfVerify(
+      withDiagnostics,
+      selfVerify,
+      seed.workspaceRoot,
+      decisionEngine,
+    );
   }
 }

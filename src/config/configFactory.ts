@@ -65,6 +65,7 @@ import { ConfigToolRegistry } from './configToolRegistry.js';
 import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
 import type { MediaStack } from './mediaStackAssembler.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
+import { DecisionEngineResolver } from './decisionEngineResolver.js';
 import { CorePortsAssembler } from './corePortsAssembler.js';
 import type { CorePorts } from './corePortsAssembler.js';
 import { MemoryStackAssembler } from './memoryStackAssembler.js';
@@ -97,6 +98,23 @@ export interface SelfVerifyConfig {
   readonly maxOutputBytes?: number | undefined;
   /** 回灌摘要行数上限（默认 15）。 */
   readonly maxDigestLines?: number | undefined;
+}
+
+/**
+ * （Laya 战略线）决策引擎配置：用本地 System-1 推理（参考 Laya 的 choice / score / noul）
+ * 替代 LLM 长推理做高频结构化判断点。
+ *
+ * 默认 `off`（库级零行为，单测 / 嵌入方不受影响）；生产入口可经 CLI 开 `shadow`
+ * （观测档：记录决策与真实结果一致性、原样放行）或 `enforce`。当前仅 `selfVerify` 的
+ * verdict 预判接了 shadow 观测（见 `SelfVerifyingToolPort`）。
+ */
+export interface DecisionEngineConfig {
+  /** 生效模式：off / shadow / enforce（默认 off）。 */
+  readonly mode: 'off' | 'shadow' | 'enforce';
+  /** 选用的 checkpoint repo（缺省 convaiinnovations/laya-typed-decisions）。 */
+  readonly repo?: string | undefined;
+  /** Python 解释器路径（缺省 python3）。 */
+  readonly pythonPath?: string | undefined;
 }
 
 export interface OmniHarnessConfig {
@@ -258,6 +276,8 @@ export interface OmniHarnessConfig {
    * 纪律：不进主门禁、可关、有超时与预算上限（见各字段默认值）。
    */
   readonly selfVerify?: SelfVerifyConfig | undefined;
+  /** （Laya 战略线）决策引擎：用本地 System-1 推理替代 LLM 长推理做高频结构化判断。默认 off（零行为）。 */
+  readonly decisionEngine?: DecisionEngineConfig | undefined;
   /** 燧-4 涡环包（S+ 发明层）：启用后工具大输出外溢封成拓扑环包（fail-closed 抗污染、不随内容膨胀）。缺省关，零破坏。 */
   readonly vortexRing?: { enabled: boolean } | undefined;
   /** 燧内核 autoRun（复用 I-P1-4 进化闭环的 autoRun 钩子）：任务完成后跑一轮 燧-3/燧-4 调谐/冲刷/(D) 退火。缺省关，零破坏。 */
@@ -677,6 +697,7 @@ export class ConfigFactory {
       lsp,
       identity,
       ConfigFactory.resolveSelfVerify(partial),
+      new DecisionEngineResolver().resolve(partial),
     );
   }
 
@@ -706,6 +727,7 @@ export class ConfigFactory {
       ...(cfg.maxDigestLines !== undefined ? { maxDigestLines: cfg.maxDigestLines } : {}),
     });
   }
+
   /**
    * buildCostBudget — module-level helper moved into ConfigFactory.
    * @param {OmniHarnessConfig} partial - partial

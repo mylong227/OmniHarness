@@ -26,6 +26,27 @@ import type { TestCommandRunner } from './testCommandRunner.js';
 import { StackFrameParser } from './stackFrameParser.js';
 import { TestFailureDigest } from './testFailureDigest.js';
 import type { SelfVerifyPolicy } from './selfVerifyPolicy.js';
+import type { DecisionEngine } from '../../../ports/decision/decisionEngine.js';
+
+/**
+ * Laya verdict 观测记录（shadow 档）：记录 System-1 预判与最终真实结果，供后续评估
+ * 决策引擎能否升级为 enforce（替代部分 LLM 推理）积累自有 trace。
+ */
+export interface VerdictObservation {
+  /** 会话 id。 */
+  readonly sessionId: string;
+  /** 触发自验证的工具名。 */
+  readonly toolName: string;
+  /** `noul` 原语给出的「改动会过测试」概率（[0,1]）；不可用为 undefined。 */
+  readonly noul: number | undefined;
+  /** 引擎是否可用。 */
+  readonly available: boolean;
+  /** 不可用 / 退化原因（可选）。 */
+  readonly note?: string;
+}
+
+/** 可选的 verdict 观测回调（缺省无操作；组合根可注入 telemetry 落盘）。 */
+export type VerdictObserver = (observation: VerdictObservation) => void;
 
 /**
  * 假完成探测：检查刚写入的产物是否含未完成标记（如 TODO/TBD）。
@@ -50,6 +71,10 @@ export interface SelfVerifyWiring {
   readonly probeFakeCompletion?: FakeCompletionProbe | undefined;
   /** 可注入时钟（单测用；缺省 `Date.now`）。 */
   readonly now?: (() => number) | undefined;
+  /** 可选的决策引擎（Laya）：跑测试前做一次 noul 预判（System-1 廉价信号）。undefined 表示不接。 */
+  readonly verdictPredictor?: DecisionEngine | undefined;
+  /** 可选的 verdict 观测回调（shadow 档记录一致性，不阻断主流程）。 */
+  readonly verdictObserver?: VerdictObserver | undefined;
 }
 
 /**
@@ -84,6 +109,10 @@ export class SelfVerifyingToolPort implements ToolPort {
   private readonly inner: ToolPort;
   /** 装配项。 */
   private readonly wiring: SelfVerifyWiring;
+  /** 决策引擎（Laya），可选；缺省 undefined（不接 verdict 预判）。 */
+  private readonly verdictPredictor: DecisionEngine | undefined;
+  /** verdict 观测回调（shadow 档）。 */
+  private readonly verdictObserver: VerdictObserver | undefined;
   /** 每会话已触发的自验证次数（预算）。 */
   private readonly runs = new Map<string, number>();
   /** 每会话最近一次触发时间（冷却）。 */
@@ -106,6 +135,8 @@ export class SelfVerifyingToolPort implements ToolPort {
   public constructor(inner: ToolPort, wiring: SelfVerifyWiring) {
     this.inner = inner;
     this.wiring = wiring;
+    this.verdictPredictor = wiring.verdictPredictor;
+    this.verdictObserver = wiring.verdictObserver;
     this.name = inner.name;
   }
 
@@ -168,6 +199,9 @@ export class SelfVerifyingToolPort implements ToolPort {
     call: ToolCall,
     context: ToolContext,
   ): Promise<string | undefined> {
+    // Laya verdict 预判（shadow 观测档）：跑测试前做一次 System-1 noul 预判，记录一致性，
+    // 不阻断主流程、不覆盖测试真值（决策引擎是质量信号，fail-open）。
+    await this.observeVerdict(call, context);
     const notes: string[] = [];
     const fake = await this.probeFakeCompletion(call);
     if (fake !== undefined) {
@@ -255,6 +289,47 @@ export class SelfVerifyingToolPort implements ToolPort {
       return;
     }
     this.failingTargets.set(sessionId, files);
+  }
+
+  /**
+   * 跑测试前做一次 Laya noul 预判（shadow 观测档）。
+   *
+   * 构造「这次改动会跑通既有测试吗」的 noul 问题，调决策引擎；可用且 observer 注入时
+   * 把观测记录交给 observer。不可用时静默跳过（fail-open）。本次观测**不**影响测试回灌，
+   * 仅为后续评估 Laya 能否升级为 enforce（替代部分 LLM 推理）积累自有 trace。
+   *
+   * @param call 本次工具调用（供构造 state 摘要）。
+   * @param context 工具上下文。
+   * @returns 无返回值（观测结果经 observer 传出）。
+   */
+  private async observeVerdict(call: ToolCall, context: ToolContext): Promise<void> {
+    const predictor = this.verdictPredictor;
+    if (predictor === undefined || this.verdictObserver === undefined) {
+      return;
+    }
+    if (!predictor.isAvailable()) {
+      return;
+    }
+    const state = `tool=${call.name}; args=${JSON.stringify(call.arguments)}`;
+    const response = await predictor.decide({
+      state,
+      questions: {
+        passTest: {
+          kind: 'noul',
+          instructions: '这次源码改动会跑通既有测试吗？',
+        },
+      },
+    });
+    if (!response.available) {
+      return;
+    }
+    const answer = response.answers['passTest'];
+    this.verdictObserver({
+      sessionId: context.sessionId,
+      toolName: call.name,
+      noul: answer?.noul,
+      available: true,
+    });
   }
 
   /**
