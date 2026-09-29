@@ -54,7 +54,7 @@
   },
   "scripts": {
     "clean": "node scripts/cleanDist.mjs dist web/dist",
-    "build": "node scripts/cleanDist.mjs dist && tsc",
+    "build": "node scripts/cleanDist.mjs dist && tsc && node scripts/copyAssets.mjs",
     "web:build": "node scripts/cleanDist.mjs web/dist && tsc -p web/tsconfig.json",
     "web:watch": "tsc -p web/tsconfig.json --watch",
     "web:test": "npm run web:build && node --test --test-timeout=60000 \"web/test/**/*.test.mjs\"",
