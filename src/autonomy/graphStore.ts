@@ -1,10 +1,13 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { WorkflowDef } from './workflowTypes.js';
 import { WorkflowRunner } from './workflowRunner.js';
 
 /** 图存储目录名（位于工作区 .omniharness 下）。 */
 const GRAPH_DIR = '.omniharness/graphs';
+
+/** 单图文件体积上限：超此大小的图文件拒绝整文件读入内存（fail-closed，避免病态大文件 OOM）。 */
+const MAX_GRAPH_BYTES = 4 * 1024 * 1024;
 
 /**
  * @beta
@@ -51,10 +54,10 @@ export class GraphStore {
       }
       const id = file.slice(0, -'.json'.length);
       try {
-        const def = JSON.parse(readFileSync(join(dir, file), 'utf8')) as WorkflowDef;
+        const def = GraphStore.readBounded(join(dir, file));
         out.push({ id, name: def.name ?? id, stepCount: def.steps?.length ?? 0 });
       } catch {
-        // 坏文件跳过：不污染列表，也不静默覆盖（由 get 显式暴露错误）。
+        // 坏文件 / 超大文件跳过：不污染列表，也不静默覆盖（由 get 显式暴露错误）。
       }
     }
     return out;
@@ -71,6 +74,22 @@ export class GraphStore {
     const path = join(this.dir(), `${id}.json`);
     if (!existsSync(path)) {
       return undefined;
+    }
+    return GraphStore.readBounded(path);
+  }
+
+  /**
+   * 有界读取图文件：先校验体积，超过 {@link MAX_GRAPH_BYTES} 直接抛错（fail-closed），
+   * 拒绝把病态大文件整读进内存。正常图定义远小于该上限。
+   * @param path 图文件路径
+   * @returns 解析后的工作流定义
+   */
+  private static readBounded(path: string): WorkflowDef {
+    const size = statSync(path).size;
+    if (size > MAX_GRAPH_BYTES) {
+      throw new Error(
+        `图文件过大（${size} 字节 > 上限 ${MAX_GRAPH_BYTES}），拒绝整文件读入内存`,
+      );
     }
     return JSON.parse(readFileSync(path, 'utf8')) as WorkflowDef;
   }

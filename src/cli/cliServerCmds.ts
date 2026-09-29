@@ -439,8 +439,9 @@ export class CliServerCmds extends CliBuildConfig {
     // serve 的工作区必须恒等于启动时的真实目录（--workspace 参数 > process.cwd()），
     // 绝不从持久化的「当前工作区」状态反推。
     args.workspace = wsRoot;
-    this.applyNetworkGuard(args);
-    const config = await this.buildConfig(args);
+    const restoreEgress = this.applyNetworkGuard(args);
+    try {
+      const config = await this.buildConfig(args);
     // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
     // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
     let auth: EnterpriseAuth | undefined;
@@ -523,6 +524,21 @@ export class CliServerCmds extends CliBuildConfig {
       serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
     process.stdout.write(`OmniHarness UI: http://${serveHost}:${actual} ${authNote}\n`);
     return CliServerCmds.awaitShutdown(server);
+    } finally {
+      // 退出（含 Ctrl-C / SIGTERM / 早期 return）复原全局 fetch 包装并关闭 MCP 网关子进程（补齐 serve 路径不变量）。
+      restoreEgress();
+      this.closeGateway();
+    }
+  }
+
+  /**
+   * 关闭 MCP 网关子进程（若已连接）：serve / exec 路径退出时由 finally 调用，避免网关子进程残留占端口。
+   * 声明为 protected，使继承链下游（execCli 等）可直接复用，不重复定义成员。
+   * @returns 无返回值。
+   */
+  protected closeGateway(): void {
+    this.gateway?.close();
+    this.gateway = undefined;
   }
 
   /**

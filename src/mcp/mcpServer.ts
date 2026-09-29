@@ -174,7 +174,17 @@ export class McpServer {
     return typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   }
 
-  /** 门禁裁决（未注入门禁直接放行）。 */
+  /**
+   * 门禁裁决。
+   *
+   * 未注入门禁时**直接放行**是有意设计：McpServer 暴露的是本地可信工具集给受控 MCP 客户端
+   * （本地握手 / 同一进程内桥接），与本地 `mcp.test.ts` 的放行语义一致；生产路径经
+   * `cliBuildConfig` / `appServer` 装配时一律注入门禁（审批 + 沙箱 + 计划态），不会走到此分支。
+   * 外部不可信面（桥接进来的远端工具描述）的提示注入由 `mcpToolMapper.scanToolDescription`
+   * 在映射层拦截，二者分工：本方法管「调用是否过审批」，mapper 管「描述是否含注入」。
+   * @param call 待裁决的工具调用
+   * @returns 拒绝结果（含输出与错误）；未注入门禁或裁决放行时为 undefined
+   */
   private async gateOf(
     call: ToolCall,
   ): Promise<{ output?: string | undefined; error?: string | undefined } | undefined> {

@@ -168,14 +168,6 @@ export class ExecCli extends CliAgentCmds {
     }
   }
 
-  /** 关闭 MCP 网关子进程（若已连接）。
-   * @returns 无返回值。
-   */
-  private closeGateway(): void {
-    this.gateway?.close();
-    this.gateway = undefined;
-  }
-
   /**
    * headless（--print / -p）可用性校验：拦截一切需要 stdin 的交互配置。
    *

@@ -32,6 +32,8 @@ const DEFAULT_WINDOW = 32;
 const DEFAULT_DEGRADE = 0.25;
 const DEFAULT_SAFE = 0.5;
 const DEFAULT_LOCK = 5;
+/** 模式转移订阅者上限：避免长期运行进程重复订阅导致 listeners 无界增长。 */
+const MAX_LISTENERS = 64;
 
 /** 单工具统计（滑动窗口 + 连续失败计数）。 */
 interface ToolStat {
@@ -172,6 +174,15 @@ export class SupervisorKernel implements SupervisorPort {
    * @returns 无返回值。
    */
   public onTransition(cb: (from: SafeMode, to: SafeMode, snapshot: HealthSnapshot) => void): void {
+    // 去重：同一回调重复订阅只保留一份，避免同一转移被同一订阅者多次广播。
+    const idx = this.listeners.indexOf(cb);
+    if (idx >= 0) {
+      this.listeners.splice(idx, 1);
+    }
+    // 超出上限淘汰最旧订阅者，避免长期运行进程无界增长。
+    if (this.listeners.length >= MAX_LISTENERS) {
+      this.listeners.shift();
+    }
     this.listeners.push(cb);
   }
 

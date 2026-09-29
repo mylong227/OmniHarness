@@ -132,9 +132,10 @@ export interface ExecutorPort {
    * 运行单实例：应用给定模型补丁，交由 pytest 判定 resolved。
    * @param task 归一化任务（含 repo/base_commit/version/测试清单）。
    * @param modelPatch 模型生成的补丁（unified diff）。
+   * @param signal 可选取消信号（调用方在整批 eval 取消时中止在飞实例；fail-closed，不静默忽略）。
    * @returns 单实例结果（fail-closed，异常即 resolved=false）。
    */
-  run(task: VerifiedTask, modelPatch: string): Promise<VerifiedResult>;
+  run(task: VerifiedTask, modelPatch: string, signal?: AbortSignal): Promise<VerifiedResult>;
 }
 
 /** 官方 Verified 套件汇总报告聚合（C7 收口：纯函数/编排迁入静态方法）。 */
@@ -306,8 +307,9 @@ export class SwebenchVerified {
    *
    * @param tasks 归一化任务列表。
    * @param predictions 实例 id → 模型补丁 映射（由调用方注入，如我们的 live agent 产出）。
-   * @param executor 执行器（native）。
+   * @param executor 执行器（native / docker）。
    * @param concurrency 并发上限（默认 1=串行）。
+   * @param signal 可选取消信号（整批 eval 被取消时透传给每个在飞实例，fail-closed 不静默忽略）。
    * @returns 汇总报告。
    */
   public static async runVerifiedSuite(
@@ -315,6 +317,7 @@ export class SwebenchVerified {
     predictions: ReadonlyMap<string, string>,
     executor: ExecutorPort,
     concurrency = 1,
+    signal?: AbortSignal,
   ): Promise<VerifiedReport> {
     const t0 = Date.now();
     const runner = new ParallelMap(concurrency);
@@ -330,7 +333,7 @@ export class SwebenchVerified {
             reason: '未提供模型预测（predictions 缺该 instance_id）',
           };
         }
-        return executor.run(task, patch);
+        return executor.run(task, patch, signal);
       },
     );
     const resolved = results.filter((r) => r.resolved).length;

@@ -27,9 +27,7 @@ import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import type { EvolutionController } from '../ports/runtime/evolution.js';
 import { RlvrController } from '../evolution/rlvrController.js';
 import type { SparkController } from '../spark/sparkController.js';
-import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
-import { SubagentPorts } from '../subagent/subagentPorts.js';
-import { Agent } from '../core/agent.js';
+import { A2aTaskExecutor } from '../a2a/a2aTaskExecutor.js';
 import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.js';
 import type { CompletionGateFactory } from '../ports/runtime/completionGate.js';
 import {
@@ -157,29 +155,10 @@ export class Runtime {
       config.a2a.peerEndpoint ??
       (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
     const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
-    server.setTaskHandler({
-      async handle(req) {
-        const start = Date.now();
-        try {
-          const sub = subagentRuntimeFactory.build(
-            SubagentPorts.portsOf(runtime),
-            runtime.tools,
-            runtime.events,
-            runtime.config.maxSteps,
-          );
-          const result = await new Agent(sub).runTask(req.task);
-          return {
-            ok: true,
-            output: result.finalText ?? '',
-            steps: result.steps,
-            durationMs: Date.now() - start,
-          };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return { ok: false, output: '', steps: 0, durationMs: Date.now() - start, error: msg };
-        }
-      },
-    });
+    // 委托执行器：并发闸门 + 受限工具子集（剔除 MUTATING_TOOLS，若委托声明 tools 授权则取交集），
+    // 复用既有子代理隔离运行时，避免对等方突发委托拖垮进程或越权调用写类工具。
+    const executor = new A2aTaskExecutor(runtime);
+    server.setTaskHandler(executor);
     void serverTransport.listen(a2aPort);
     runtime.a2a = { server, client, transport: serverTransport };
   }
