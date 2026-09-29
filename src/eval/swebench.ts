@@ -134,10 +134,41 @@ export class Swebench {
   /** eval 命令执行超时（毫秒）：pytest/构建挂起会冻结整个事件循环，必须按时中止（fail-closed 记非零）。 */
   private static readonly EVAL_CMD_TIMEOUT_MS = 300_000;
 
-  /** 在给定 cwd 执行命令，返回退出码（异常/超时/非 0 均如实返回非零状态码）。 */
+  /**
+   * 在给定 cwd 执行命令，返回退出码（异常/超时/非 0 均如实返回非零状态码）。
+   *
+   * 可移植性修复（本机实测）：`execFileSync` 默认 `stdio` 走管道会触发 `EBUSY`
+   * （子进程 stdin 走管道 ⇒ spawnSync EBUSY，与同步/异步无关），故显式 `['ignore','pipe','ignore']`。
+   * 此外 `node` 前缀命令直接改用 `process.execPath` 执行（不经 shell、不依赖 `cmd.exe` 的 PATH），
+   * 避免沙箱 managed-node 不在系统 PATH 时「找不到 node」而把能力分数误判为 0。
+   *
+   * @param cmd 待执行命令（如 `node test.js`）；非 node 命令仍走 `shell: true`。
+   * @param cwd 工作区根（绝对路径）。
+   * @returns 退出码（0 = 通过）。
+   */
   public static runEval(cmd: string, cwd: string): number {
     try {
-      execFileSync(cmd, { cwd, shell: true, stdio: 'pipe', timeout: Swebench.EVAL_CMD_TIMEOUT_MS });
+      const trimmed = cmd.trim();
+      const nodeMatch = /^node(?:\.exe)?\b/i.exec(trimmed);
+      if (nodeMatch !== null) {
+        const args = trimmed
+          .slice(nodeMatch[0].length)
+          .trim()
+          .split(/\s+/)
+          .filter((a: string): boolean => a.length > 0);
+        execFileSync(process.execPath, args, {
+          cwd,
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: Swebench.EVAL_CMD_TIMEOUT_MS,
+        });
+      } else {
+        execFileSync(trimmed, {
+          cwd,
+          shell: true,
+          stdio: ['ignore', 'pipe', 'ignore'],
+          timeout: Swebench.EVAL_CMD_TIMEOUT_MS,
+        });
+      }
       return 0;
     } catch (error) {
       const status = (error as { status?: number }).status;
