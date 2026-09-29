@@ -1,4 +1,14 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { log } from '../../util/logger.js';
 import { HashChain } from '../../util/hashChain.js';
@@ -68,6 +78,15 @@ const SEP = '\u0000';
  */
 
 /** 计算链哈希。 */
+
+/**
+ * 审计日志单次读回流的上限（字节）：64 MiB。
+ *
+ * 长运行服务会产生很大的审计日志；`read`/`verify`/`resumeChain` 都依赖把日志读回内存。
+ * 若整文件读入，超大日志会撑爆内存。超过此上限即只读**末尾** 64 MiB（审计是 append-only、
+ * 尾部才是最新且 `verify`/`resume` 真正需要的部分），并丢弃首条可能被截断的半行。
+ */
+const MAX_READ_BYTES = 64 * 1024 * 1024;
 
 /**
  * @beta
@@ -145,7 +164,7 @@ export class AuditSink {
    */
   public read(): AuditEvent[] {
     if (this.target === undefined || !existsSync(this.target)) return [];
-    const content = readFileSync(this.target, 'utf8');
+    const content = AuditSink.readCapped(this.target);
     const out: AuditEvent[] = [];
     for (const raw of content.split('\n')) {
       const line = raw.trim();
@@ -157,6 +176,31 @@ export class AuditSink {
       }
     }
     return out;
+  }
+
+  /**
+   * 有界读回审计日志原文：文件超过 {@link MAX_READ_BYTES} 时只读末尾该字节数，
+   * 丢弃首条可能被截断的半行（避免在超大日志上把内存撑爆）。
+   * @param path 审计日志文件路径。
+   * @returns 日志文本（可能只是尾部）。
+   */
+  private static readCapped(path: string): string {
+    const size = statSync(path).size;
+    if (size <= MAX_READ_BYTES) {
+      return readFileSync(path, 'utf8');
+    }
+    const start = size - MAX_READ_BYTES;
+    const fd = openSync(path, 'r');
+    try {
+      const buf = Buffer.alloc(MAX_READ_BYTES);
+      readSync(fd, buf, 0, MAX_READ_BYTES, start);
+      const text = buf.toString('utf8');
+      // 首段可能是半行（从中间字节切开的），丢弃直到第一个换行，避免解析出坏 JSON。
+      const nl = text.indexOf('\n');
+      return nl >= 0 ? text.slice(nl + 1) : '';
+    } finally {
+      closeSync(fd);
+    }
   }
 
   /**

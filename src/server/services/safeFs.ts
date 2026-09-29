@@ -9,9 +9,18 @@
 // （实测：junction → 外部目录，`safeReadFile` 返回 ok:true 与外部文件内容，而同路径
 // `WorkspaceGuard.isInside` 为 false ⇒ 属漏用既有守卫，不是策略差异）。
 // 现改为复用 {@link WorkspaceGuard.resolveSafe}：词法判定 + realpath 判定两层一致。
-import { readFileSync } from 'node:fs';
+import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { WorkspaceGuard } from '../../util/workspaceGuard.js';
+
+/**
+ * 单文件读取硬上限（字节）：64 MiB。
+ *
+ * `readFileSync` 整文件读进 Buffer 是 OOM 经典路径（workspaceTree 的 `fs.read`、HTTP /files
+ * 下载都走这里，大文件会瞬间撑爆内存）。超过此上限即 fail-closed 拒绝读取；调用方可传更小的
+ * `maxBytes` 进一步收紧（如 UI 代码视图默认 200 KiB）。
+ */
+const HARD_READ_CAP = 64 * 1024 * 1024;
 
 /**
  * SafeFs —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -21,9 +30,15 @@ export class SafeFs {
    * 安全读工作区内文件。
    * @param workspaceRoot 工作区根（绝对路径）；为空字符串/undefined → 一律拒绝。
    * @param rel 相对路径（允许 ./、../、绝对路径）；绝对路径会被相对化以防绕过。
-   * @returns 成功返回 Buffer 与字节数；越界 / 不存在 / 未配置返回错误描述（不抛错）。
+   * @param maxBytes 单次读取字节上限（缺省 {@link HARD_READ_CAP}）；实际读取取
+   *   `min(文件大小, maxBytes, HARD_READ_CAP)`，返回 Buffer 为该上限内字节，`size` 为文件真实大小。
+   * @returns 成功返回 Buffer 与字节数；越界 / 不存在 / 未配置 / 过大返回错误描述（不抛错）。
    */
-  public static safeReadFile(workspaceRoot: string, rel: string): SafeReadResult {
+  public static safeReadFile(
+    workspaceRoot: string,
+    rel: string,
+    maxBytes: number = HARD_READ_CAP,
+  ): SafeReadResult {
     if (!workspaceRoot) {
       return { ok: false, error: '工作区未配置' };
     }
@@ -38,16 +53,29 @@ export class SafeFs {
     } catch {
       return { ok: false, error: '路径越界工作区' };
     }
+    let stat: { size: number };
     let buf: Buffer;
     try {
-      buf = readFileSync(target);
+      stat = statSync(target);
+      // 体积上限 fail-closed：超大文件（如几百 MiB 的构建产物）绝不允许整文件读进内存。
+      if (stat.size > HARD_READ_CAP) {
+        return { ok: false, error: '文件过大（超过 64 MiB，拒绝整文件读入内存）' };
+      }
+      const limit = Math.max(0, Math.min(stat.size, maxBytes, HARD_READ_CAP));
+      const fd = openSync(target, 'r');
+      try {
+        buf = Buffer.alloc(limit);
+        readSync(fd, buf, 0, limit, 0);
+      } finally {
+        closeSync(fd);
+      }
     } catch (err) {
       return {
         ok: false,
         error: '读取失败: ' + (err instanceof Error ? err.message : String(err)),
       };
     }
-    return { ok: true, buffer: buf, size: buf.length };
+    return { ok: true, buffer: buf, size: stat.size };
   }
 }
 

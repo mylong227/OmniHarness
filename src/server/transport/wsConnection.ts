@@ -12,10 +12,23 @@ export class WsConnection {
    */
   public static readonly MAX_FRAME_BYTES = 8 * 1024 * 1024;
 
+  /**
+   * 发送队列字节硬上限（背压兜底）：慢客户端持续积压超过此量即断开连接（fail-closed），
+   * 避免单个慢对等方把服务端内存拖垮。正常 JSON-RPC/事件帧为 KB 级，16 MiB 是极宽松上界。
+   */
+  private static readonly MAX_QUEUE_BYTES = 16 * 1024 * 1024;
+
   /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
   private buffer: Buffer = Buffer.alloc(0);
   /** 连接是否已关闭（关闭后 send 直接丢弃）。 */
   private closed = false;
+  /**
+   * 背压发送队列：对端消费慢、`socket.write` 返回 false 时，待发帧暂存于此，待 `'drain'`
+   * 后有序 flush。禁止「调用 send 即无限堆积」——那是慢客户端 OOM 的经典路径。
+   */
+  private readonly sendQueue: Buffer[] = [];
+  /** 当前是否处于背压（socket 内部写缓冲已满，需等 drain）。 */
+  private paused = false;
   /** 消息回调（由外部接管）。 */
   public onMessage: (text: string) => void = () => undefined;
   /** 关闭回调。 */
@@ -39,6 +52,13 @@ export class WsConnection {
     // socket 错误（对端重置 / 网络中断 / 握手后被杀）不得以**未捕获异常**炸掉宿主进程：
     // 收敛为一次正常关闭（close 幂等）。缺此监听时，一次 ECONNRESET 就会让整个进程崩溃。
     socket.on('error', () => this.close());
+    // 背压释放：内部写缓冲排空后触发，继续 flush 暂存队列（若有）。
+    socket.on('drain', () => {
+      if (this.paused) {
+        this.paused = false;
+        this.drainQueue();
+      }
+    });
   }
 
   /**
@@ -54,6 +74,10 @@ export class WsConnection {
 
   /**
    * 发送文本帧。
+   *
+   * 背压语义：对端消费慢导致 `socket.write` 返回 false 时，本帧与后续帧进入有界队列，
+   * 待 `'drain'` 后有序 flush；队列字节超 {@link WsConnection.MAX_QUEUE_BYTES} 即断开连接
+   * （fail-closed），宁可丢弃一个慢对等方也不让服务端内存被拖垮。
    * @param text 待发送的 UTF-8 文本。
    * @returns 无返回值（连接已关闭时直接丢弃）。
    */
@@ -61,7 +85,55 @@ export class WsConnection {
     if (this.closed) {
       return;
     }
-    this.socket.write(this.buildFrame(Buffer.from(text, 'utf8')));
+    const frame = this.buildFrame(Buffer.from(text, 'utf8'));
+    if (this.paused || this.sendQueue.length > 0) {
+      this.enqueue(frame);
+      return;
+    }
+    this.writeFrame(frame);
+  }
+
+  /**
+   * 写出一帧并据返回值更新背压状态。
+   * @param frame 待写出的字节帧。
+   * @returns 无返回值。
+   */
+  private writeFrame(frame: Buffer): void {
+    this.paused = !this.socket.write(frame);
+  }
+
+  /**
+   * 把帧压入背压队列；超字节上限即 fail-closed 断开（宁可丢慢客户端）。
+   * @param frame 待入队帧。
+   * @returns 无返回值。
+   */
+  private enqueue(frame: Buffer): void {
+    let bytes = 0;
+    for (const queued of this.sendQueue) {
+      bytes += queued.length;
+    }
+    if (bytes + frame.length > WsConnection.MAX_QUEUE_BYTES) {
+      this.close();
+      return;
+    }
+    this.sendQueue.push(frame);
+    if (!this.paused) {
+      this.drainQueue();
+    }
+  }
+
+  /**
+   * 有序 flush 背压队列，直到队列清空或再次背压。
+   * @returns 无返回值。
+   */
+  private drainQueue(): void {
+    while (this.sendQueue.length > 0 && !this.paused) {
+      const frame = this.sendQueue.shift();
+      if (frame === undefined) {
+        break;
+      }
+      this.writeFrame(frame);
+    }
   }
 
   /**
@@ -73,6 +145,7 @@ export class WsConnection {
       return;
     }
     this.closed = true;
+    this.sendQueue.length = 0;
     this.onClose();
     try {
       this.socket.end(Buffer.from([0x88, 0x00]));
