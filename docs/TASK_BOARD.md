@@ -4197,19 +4197,20 @@ audit:standard:delta / audit:config-wiring）；相关单测 17/17；提交「�
 
 §30 审计识别的 9 类跟进项全部收尾，每类一笔提交 + 本看板一笔。映射与落点：
 
-| Gap | 跟进项（来自 §30「建议后续跟进」） | 落刀点 | 提交 |
-| --- | --- | --- | --- |
-| ① | server 背压：WS `send` / SSE `broadcast` 未查 `write()` 返回值 | WS/SSE 背压 | `3011978` |
-| ② | `auditSink.read` / `workspaceTree` 整文件读内存有界化 | auditSink / safeFs 整文件读内存有界 | `3011978` |
-| ③ | `mcpToolMapper` 未对 MCP `description` 跑注入扫描；`mcpServer` 无 gate 时 fail-open | `McpToolMapper.scanToolDescription`（双向扫描，命中抛错拒绝透传）；`mcpServer.gateOf` 仅文档化「未注入门禁即放行是有意设计」（本地可信工具集走受控 MCP 客户端，生产路径经 `cliBuildConfig`/`appServer` 装配注入门禁） | `2c1bded` |
-| ④ | `composition/runtime` A2A 任务处理器无并发闸门且授予对等方完整工具面 | 新增 `A2aTaskExecutor`（`ConcurrencyLimiter` 默认 4）+ `FilteredToolPort`（剔除 `MUTATING_TOOLS`、委托 `tools` 子集取交集）；`runtime.attachA2a` 改为注入 `A2aTaskExecutor` | `2c1bded` |
-| ⑤ | 共享状态淘汰上限：`tree` / `stats&listeners` / `graphStore.get` 无界或体积未重校验 | `subagentOrchestrator.tree` 4096 淘汰最旧 / `supervisorKernel.onTransition` 去重+64 上限 / `graphStore.readBounded` 4MiB 读有界（fail-closed） | `2c1bded` |
-| ⑥ | `configFile.load` 解析失败静默回退默认（fail-open） | 非法 JSON 抛 `ConfigError`；缺失文件仍返回 `{}`（不破坏 `cliSystem.test.ts` 语义） | `2c1bded` |
-| ⑦ | `cliBuildConfig.applyNetworkGuard` 全局 fetch 包装 + `bridgeMcpServers` gateway 未在 `finally` 复原/关闭 | `cliServerCmds.runServe` 的 `finally` 复原 `restoreEgress()` + 关闭网关；`closeGateway` 置于继承链公共祖先 `cliServerCmds` 为 `protected` 供 `execCli` 复用（避免重复定义成员越上帝类上限） | `2c1bded` |
-| ⑧ | `ExecutorPort.run` 未接 `CancellationToken`；`dockerExecutor` 超时仅 SIGTERM 可能留孤儿容器 | `ExecutorPort.run` 透传 `AbortSignal`；`nativeExecutor` 信号已触发 fail-closed 收尾；`dockerExecutor` 改用 `--cidfile` + 超时/`signal` 触发 `docker kill` 兜底清理孤儿容器 | `2c1bded` |
-| ⑨ | 为 ③–⑧ 源码改动补单测 | 新增 9 个单测文件、27 例：注入扫描双向拒绝 / FilteredToolPort 受限视图 / A2aTaskExecutor 并发受限+受限于 tools 子集 / configFile 非法JSON抛错 / graphStore 超 4MiB 抛错 / tree 4096 淘汰最旧 / onTransition 去重+64 上限 / nativeExecutor 取消 fail-closed / dockerExecutor 取消传播 | `2c1bded` |
+| Gap | 跟进项（来自 §30「建议后续跟进」）                                                                       | 落刀点                                                                                                                                                                                                                                                                               | 提交      |
+| --- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| ①   | server 背压：WS `send` / SSE `broadcast` 未查 `write()` 返回值                                           | WS/SSE 背压                                                                                                                                                                                                                                                                          | `3011978` |
+| ②   | `auditSink.read` / `workspaceTree` 整文件读内存有界化                                                    | auditSink / safeFs 整文件读内存有界                                                                                                                                                                                                                                                  | `3011978` |
+| ③   | `mcpToolMapper` 未对 MCP `description` 跑注入扫描；`mcpServer` 无 gate 时 fail-open                      | `McpToolMapper.scanToolDescription`（双向扫描，命中抛错拒绝透传）；`mcpServer.gateOf` 仅文档化「未注入门禁即放行是有意设计」（本地可信工具集走受控 MCP 客户端，生产路径经 `cliBuildConfig`/`appServer` 装配注入门禁）                                                                | `2c1bded` |
+| ④   | `composition/runtime` A2A 任务处理器无并发闸门且授予对等方完整工具面                                     | 新增 `A2aTaskExecutor`（`ConcurrencyLimiter` 默认 4）+ `FilteredToolPort`（剔除 `MUTATING_TOOLS`、委托 `tools` 子集取交集）；`runtime.attachA2a` 改为注入 `A2aTaskExecutor`                                                                                                          | `2c1bded` |
+| ⑤   | 共享状态淘汰上限：`tree` / `stats&listeners` / `graphStore.get` 无界或体积未重校验                       | `subagentOrchestrator.tree` 4096 淘汰最旧 / `supervisorKernel.onTransition` 去重+64 上限 / `graphStore.readBounded` 4MiB 读有界（fail-closed）                                                                                                                                       | `2c1bded` |
+| ⑥   | `configFile.load` 解析失败静默回退默认（fail-open）                                                      | 非法 JSON 抛 `ConfigError`；缺失文件仍返回 `{}`（不破坏 `cliSystem.test.ts` 语义）                                                                                                                                                                                                   | `2c1bded` |
+| ⑦   | `cliBuildConfig.applyNetworkGuard` 全局 fetch 包装 + `bridgeMcpServers` gateway 未在 `finally` 复原/关闭 | `cliServerCmds.runServe` 的 `finally` 复原 `restoreEgress()` + 关闭网关；`closeGateway` 置于继承链公共祖先 `cliServerCmds` 为 `protected` 供 `execCli` 复用（避免重复定义成员越上帝类上限）                                                                                          | `2c1bded` |
+| ⑧   | `ExecutorPort.run` 未接 `CancellationToken`；`dockerExecutor` 超时仅 SIGTERM 可能留孤儿容器              | `ExecutorPort.run` 透传 `AbortSignal`；`nativeExecutor` 信号已触发 fail-closed 收尾；`dockerExecutor` 改用 `--cidfile` + 超时/`signal` 触发 `docker kill` 兜底清理孤儿容器                                                                                                           | `2c1bded` |
+| ⑨   | 为 ③–⑧ 源码改动补单测                                                                                    | 新增 9 个单测文件、27 例：注入扫描双向拒绝 / FilteredToolPort 受限视图 / A2aTaskExecutor 并发受限+受限于 tools 子集 / configFile 非法JSON抛错 / graphStore 超 4MiB 抛错 / tree 4096 淘汰最旧 / onTransition 去重+64 上限 / nativeExecutor 取消 fail-closed / dockerExecutor 取消传播 | `2c1bded` |
 
 **门禁结论（本轮 `2c1bded`，24 文件 / +951 −132）**：七道门禁 + pre-commit（`runGates.mjs`，含 prettier 增量格式化）全绿。
+
 - typecheck：`tsc --noEmit` 0 错；
 - lint：`eslint --max-warnings=0` 0 告警；
 - check --strict：0（含函数 ≤80 行 / 类成员 ≤25 冻结基线）；
@@ -4219,9 +4220,41 @@ audit:standard:delta / audit:config-wiring）；相关单测 17/17；提交「�
 - audit:config-wiring：641 源文件接线全绿（声明→装配→运行时→消费断链即红）。
 
 **上帝类规避（本轮两件）**：
+
 - `nativeExecutor` 把 `fail`/`failEnv` 合并为 `verdict`、把 `gitApply` 内联进 `applyPatches`，空出 1 个成员容纳 `evaluate` 抽取 → 成员数维持 25（≤25 不变量）；
 - `closeGateway` 不落在 `cliBuildConfig`（其已 25 成员）也不在 `execCli` 重复定义，而是置于继承链公共祖先 `cliServerCmds` 为 `protected`，下游 `execCli` 直接复用。
 
 **验证**：scope 编译（绕过并行会话未跟踪草稿）+ 运行 130 例单测（既有 102 + 新增 27 + 夹具 1）全绿；既有相关模块（`mcp`/`graphStore`/`supervisor`/`a2a`/`subagent`/`swebenchVerified`/`configLayer`/`configWiring`/`serveConfigLayering`）回归零退化。
 
 **状态**：§30 九类跟进项 ✅ 全部闭环（①② `3011978`、③–⑨ `2c1bded`）。任务 #27–#33 标记完成。
+
+## 32. 2026-09-29 P0 提示注入护栏生产入口默认 `shadow` 常开（Laya 借鉴清单首条落地）
+
+### 32.1 动机（对照记忆 Laya 借鉴清单）
+
+记忆 `MEMORY.md` 外部参考段点名「P0 护栏常开（`promptInjectionGuard` 当前默认关）」为尚未启动的战略项首条。原实现 `promptInjectionGuard` 默认关，纯靠用户显式 opt-in，生产流量覆盖几乎为零——正是「默认关丢覆盖面」死结。
+
+### 32.2 解法（不冒误拦风险）
+
+护栏已有 `off` / `shadow` / `enforce` 三态（`EnforcementModeResolver` + `stepToolExecutor` 消费）：
+
+- `shadow` 档**跑检测、记录「本该拦截」证据，但原样放行**（见 `guardShadowMode.test.ts` 端到端证明）——零误拦、零行为回归。
+- 故「常开」选 **`shadow`** 而非 `enforce`：覆盖生产流量、攒真实误报/漏报，且不担误拦责任。
+
+### 32.3 改动（生产入口，不污染库入口）
+
+- 抽 `EnforcementModeResolver.fromCliArgs(guardPromptInjectionMode, guardPromptInjection)` 纯函数：显式 `--guard-prompt-injection-mode` 优先；`--guard-prompt-injection` 等价 `enforce`；皆未给 ⇒ `'shadow'`。
+- `cliBuildConfig.ts` 生产装配改调 `fromCliArgs`，默认 `shadow`。
+- **库级默认（`ConfigFactory.build`）仍 `off`**：单测/嵌入方零行为（与 `selfVerify` 同模式，避免 harness 跑自身测试时递归/意外启用）。显式 `--guard-prompt-injection-mode off` 可关回。
+- `argParser.ts` 注释更正「默认关」为「默认 shadow 常开」。
+
+### 32.4 验收
+
+- `enforcementMode.test.ts` 新增 `fromCliArgs` 全用例（含 D2 非法模式抛错，不静默回落）。
+- 既有 `promptInjectionWiring.test.ts` / `guardShadowMode.test.ts` 全绿（shadow 行为、enforce 行为、库入口默认 off 断言均无回归）。
+- 七道门禁 + pre-commit 全绿（提交 `f8f0cc7`）；`typecheck` / `build` / 三单测 `TEST=0`。
+
+### 32.5 边界与后续
+
+- 这仅完成 Laya 借鉴清单**首条**（P0 护栏常开的中间档）。剩余：`self-verify verdict(noul)`、模型路由、文件/段落相关度裁剪、全工具选择（高基数弱，需微调 + LLM 兜底）——均依赖本地推理基建（`Laya` 自托管范式，不接闭源 API），未启动。
+- `shadow` 档会跑正则扫描（轻微开销），但只记录不改行为；要真正「拦截」仍需用户显式 `--guard-prompt-injection`（enforce）。
