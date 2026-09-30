@@ -1,4 +1,4 @@
-import type { ToolPort } from '../tool/tool.js';
+import type { ToolPort } from '../../tool/tool.js';
 import type { CompletionGateSelfVerifyConfig } from './completionGateSelfVerifyConfig.js';
 
 /**
