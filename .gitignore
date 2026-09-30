@@ -84,6 +84,11 @@ evals/**/*.report.json
 # 需要时按 THIRD_PARTY_ASSETS.md 的说明单独获取。
 resources/comfyui_node_reference/
 
+# 第三方资源总管（third-party/）：模型权重与 Python 运行时 venv 不入库（机器相关 + 大体积），
+# 仅开源源码 + 许可随仓库跟踪；获取/重建方式见 THIRD_PARTY_ASSETS.md。
+third-party/laya-model/
+third-party/laya-venv/
+
 # 机器生成的评测报告（跑一次即变）：基准结论请入库到 benchmark/ 下的人工确认工件，或写进 docs/。
 benchmark/selfcheck.report.json
 
