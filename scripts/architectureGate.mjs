@@ -95,6 +95,117 @@ for (const { from, to } of edges) {
   }
 }
 
+// ---- 4.5 依赖环（新增规则，2026-09-29） ----
+// 为什么需要：上面三条只拦「跨层直连」，拦不住「同层/跨域互引成环」。实测存量 5 组环（41 个模块）,
+// 成因全部是**接口定义散落在实现文件里**——A 为了用 B 的 `interface` 而 import B，B 又反向依赖 A。
+// 把接口抽到基础层（src/ports/**，一接口一文件）即可断环；本规则负责「不许再新增环」。
+//
+// 白名单口径 = **成员集合**，不是「整组完全相等」：环缩小 = 重构有进展 ⇒ 放行；
+// 一旦环里出现白名单之外的模块 ⇒ 判新增环，阻断。这样白名单只减不增，天然配合「冻结-递减」。
+// 注：环的**存量**不计入 `--strict`（CI 跑的就是 `--strict`，纳入即红）；清偿至 0 组后随白名单清空一并纳入。
+const CYCLE_WL_MEMBERS = new Set([
+  // 环① CLI 旗标表组（4）：cliFlagTable ↔ cliHelp ↔ cliEnums ↔ argParser 互相取类型。
+  'cli/argParser',
+  'cli/cliEnums',
+  'cli/cliFlagTable',
+  'cli/cliHelp',
+  // 环② 配置校验器组（8）：configFile 与 5 个 validator + providerPresets + configError 互引。
+  'config/configError',
+  'config/configFile',
+  'config/mediaConfigValidator',
+  'config/permissionConfigValidator',
+  'config/profileLoader',
+  'config/providerPresetValidator',
+  'config/providerPresets',
+  'config/ssrfPolicyValidator',
+  // 环③ 上下文检索组（3）：contextEngine ↔ fileRerankIndex ↔ fileReranker。
+  'context/contextEngine',
+  'context/fileRerankIndex',
+  'context/fileReranker',
+  // 环④ 进化回放组（2）：rlvrLoop ↔ inMemoryReplayBuffer。
+  'evolution/inMemoryReplayBuffer',
+  'evolution/rlvrLoop',
+  // 环⑤ Spark 桥组（4）：sparkController 与引擎集 / 遥测 / genesis 桥互引。
+  'genesis/genesisSparkBridge',
+  'spark/sparkController',
+  'spark/sparkCycleTelemetry',
+  'spark/sparkEngineSet',
+  // 环⑥ 装配-运行时大环（20）：组合根 / 配置装配 / 子代理 / 工具适配器 / core.agent / a2a 互引。
+  // 本环正是「接口散落在实现文件里」最典型的一处（SubagentPortsShape、OmniHarnessRuntime、
+  // ResolvedConfig 三个跨模块接口都在环内的实现文件里声明），抽到 ports 后应显著收缩。
+  'a2a/a2aTaskExecutor',
+  'adapters/tool/workflow/runGoalTool',
+  'adapters/tool/workflow/runWorkflowTool',
+  'adapters/tool/workflow/subagentTool',
+  'autonomy/workflowRunner',
+  'composition/runtime',
+  'config/agentFactory',
+  'config/configBuilder',
+  'config/configFactory',
+  'config/configToolRegistry',
+  'config/corePortsAssembler',
+  'config/decisionEngineResolver',
+  'config/memoryStackAssembler',
+  'config/skillStackAssembler',
+  'config/sparkAssembler',
+  'core/agent',
+  'subagent/subagentOrchestrator',
+  'subagent/subagentPorts',
+  'subagent/subagentRunner',
+  'subagent/subagentRuntimeFactory',
+]);
+
+/** Tarjan 强连通分量：返回全部「真环」（size>1，或 size==1 且自环）。 */
+function findCycleGroups(adjacency) {
+  const index = new Map();
+  const low = new Map();
+  const onStack = new Set();
+  const stack = [];
+  const groups = [];
+  let counter = 0;
+  const strong = (v) => {
+    index.set(v, counter);
+    low.set(v, counter);
+    counter += 1;
+    stack.push(v);
+    onStack.add(v);
+    for (const w of adjacency.get(v) ?? []) {
+      if (!adjacency.has(w)) continue;
+      if (!index.has(w)) {
+        strong(w);
+        low.set(v, Math.min(low.get(v), low.get(w)));
+      } else if (onStack.has(w)) {
+        low.set(v, Math.min(low.get(v), index.get(w)));
+      }
+    }
+    if (low.get(v) !== index.get(v)) return;
+    const group = [];
+    for (;;) {
+      const w = stack.pop();
+      onStack.delete(w);
+      group.push(w);
+      if (w === v) break;
+    }
+    groups.push(group);
+  };
+  for (const v of adjacency.keys()) if (!index.has(v)) strong(v);
+  return groups
+    .filter((g) => g.length > 1 || (adjacency.get(g[0]) ?? new Set()).has(g[0]))
+    .map((g) => g.slice().sort());
+}
+
+const adjacency = new Map();
+for (const { from, to } of edges) {
+  if (from === to) continue;
+  if (!adjacency.has(from)) adjacency.set(from, new Set());
+  adjacency.get(from).add(to);
+}
+const cycleViolations = findCycleGroups(adjacency).map((g) => ({
+  id: g.join(' | '),
+  size: g.length,
+  whitelisted: g.every((m) => CYCLE_WL_MEMBERS.has(m)),
+}));
+
 const portsClassViolations = [];
 for (const f of files) {
   const fk = f.split(path.sep).join('/');
@@ -135,7 +246,8 @@ const newCount =
   caViolations.filter((v) => !v.whitelisted).length +
   acViolations.filter((v) => !v.whitelisted).length +
   portsClassViolations.filter((v) => !v.whitelisted).length +
-  portsImplViolations.filter((v) => !v.whitelisted).length;
+  portsImplViolations.filter((v) => !v.whitelisted).length +
+  cycleViolations.filter((v) => !v.whitelisted).length;
 
 console.log('=== ARCHITECTURE GATE (P0.4) ===');
 console.log(
@@ -154,6 +266,11 @@ console.log(
 );
 if (portsImplViolations.length === 0) console.log('  (无)');
 else portsImplViolations.forEach((v) => console.log(fmt(v) + v.id));
+console.log(
+  `\n[5] 依赖环（Tarjan SCC，白名单成员 ${CYCLE_WL_MEMBERS.size}）——新增环即红，环缩小放行：`,
+);
+if (cycleViolations.length === 0) console.log('  (无)');
+else cycleViolations.forEach((v) => console.log(`${fmt(v)}[${v.size} 成员] ${v.id}`));
 console.log(`\n[4] 目录平铺告警（直接 .ts > 30，非阻断）：`);
 if (dirWarnings.length === 0) console.log('  (无)');
 else
@@ -170,6 +287,7 @@ console.log(
   `\n依赖方向违规：${depTotal} 条（白名单 ${depWl}，新增 ${depTotal - depWl}）` +
     ` ｜ ports 纯度：${portsClassViolations.length} 条` +
     ` ｜ ports→实现层：${portsImplViolations.length} 条` +
+    ` ｜ 依赖环：${cycleViolations.length} 组（新增 ${cycleViolations.filter((v) => !v.whitelisted).length}）` +
     ` ｜ 目录告警：${dirWarnings.length} 个`,
 );
 
@@ -181,6 +299,9 @@ if (newCount > 0) {
   );
   exitCode = 1;
 } else if (
+  // 注意：这里**故意不含** cycleViolations——CI 的 `gate` job 跑的就是 `--strict`，
+  // 而存量 5 组环在清偿前必然存在，纳入即让 CI 恒红。环的阻断由上面的 newCount 承担（新增即红），
+  // 待白名单成员清偿为空后，再把 cycleViolations.length 加进本条件、与「环存量清零」一并生效。
   STRICT &&
   caViolations.length +
     acViolations.length +
