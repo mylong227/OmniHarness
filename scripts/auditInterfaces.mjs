@@ -9,7 +9,8 @@
 //
 //   1. **跨模块接口**（crossModule）——该 `interface` / `type` 被「声明所在 src 二级目录之外」
 //      的文件引用。这类接口只能靠「实现文件 → 实现文件」的 import 才能共享，
-//      是依赖环与耦合的根源，应升格为基础模块：`src/ports/<域>/<InterfaceName>.ts`，一接口一文件。
+//      是依赖环与耦合的根源，应升格为基础模块：`src/ports/<域>/<interfaceName>.ts`
+//      （小驼峰文件名，与铁律 check.mjs 规则6 兼容；接口符号本身仍是 PascalCase），一接口一文件。
 //      （声明所在目录内的引用不算跨模块——那是该功能的内部细节。）
 //
 //   2. **混装文件**（mixed）——同一文件既声明 `interface`/`type` 又声明 `class`/`function`，
@@ -311,20 +312,31 @@ const ADAPTER_DOMAIN_MAP = {
  */
 const TARGET_OVERRIDES = {
   'src/adapters/approval/approvalRule.ts#ApprovalRule':
-    'src/ports/runtime/approval/ApprovalRule.ts',
+    'src/ports/runtime/approval/approvalRule.ts',
   'src/adapters/sandbox/networkEgressGuard.ts#NetworkEgressOptions':
-    'src/ports/runtime/sandbox/NetworkEgressOptions.ts',
+    'src/ports/runtime/sandbox/networkEgressOptions.ts',
   'src/adapters/sandbox/sandboxManager.ts#SandboxProfile':
-    'src/ports/runtime/sandbox/SandboxProfile.ts',
+    'src/ports/runtime/sandbox/sandboxProfile.ts',
   'src/adapters/sandbox/sandboxCapabilityTable.ts#SandboxCapabilityEntry':
-    'src/ports/runtime/sandbox/SandboxCapabilityEntry.ts',
-  'src/adapters/tool/toolHandler.ts#ToolHandler': 'src/ports/tool/tool/ToolHandler.ts',
+    'src/ports/runtime/sandbox/sandboxCapabilityEntry.ts',
+  'src/adapters/tool/toolHandler.ts#ToolHandler': 'src/ports/tool/tool/toolHandler.ts',
   'src/adapters/model/modelRouter.ts#ModelRouterOptions':
-    'src/ports/model/model/ModelRouterOptions.ts',
-  'src/adapters/model/modelRouter.ts#RouterStrategy': 'src/ports/model/model/RouterStrategy.ts',
+    'src/ports/model/model/modelRouterOptions.ts',
+  'src/adapters/model/modelRouter.ts#RouterStrategy': 'src/ports/model/model/routerStrategy.ts',
   'src/adapters/media/ffmpegFrameExtractor.ts#VideoFrameFormat':
-    'src/ports/media/mediaTypes/VideoFrameFormat.ts',
+    'src/ports/media/mediaTypes/videoFrameFormat.ts',
 };
+
+/**
+ * 接口名（PascalCase）转文件名（camelCase）：仅首字母小写。
+ * 铁律 scripts/check.mjs 规则6 要求 src 下任意 .ts 文件基名匹配 ^[a-z][a-zA-Z0-9]*$，
+ * 故拆分后的接口文件名必须小驼峰；接口符号本身仍是 PascalCase（仅文件名变）。
+ */
+function toCamel(name) {
+  if (name.length === 0) return name;
+  const first = name.charAt(0);
+  return /[A-Z]/.test(first) ? first.toLowerCase() + name.slice(1) : name;
+}
 
 /** 计算某个声明文件的迁移目标文件路径。 */
 function migrationTarget(file, name) {
@@ -333,7 +345,7 @@ function migrationTarget(file, name) {
   const seg = file.split('/');
   let domain = seg[1];
   if (domain === 'adapters') domain = ADAPTER_DOMAIN_MAP[seg[2]] ?? seg[2];
-  return `src/ports/${domain}/${name}.ts`;
+  return `src/ports/${domain}/${toCamel(name)}.ts`;
 }
 
 /** Batch A：ports 内「一个文件多个导出接口」→ 拆到 `<域>/<原文件基名>/<接口名>.ts`，原文件留桶。 */
