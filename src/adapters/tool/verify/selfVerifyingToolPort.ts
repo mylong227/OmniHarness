@@ -26,7 +26,7 @@ import type { TestCommandRunner } from './testCommandRunner.js';
 import { StackFrameParser } from './stackFrameParser.js';
 import { TestFailureDigest } from './testFailureDigest.js';
 import type { SelfVerifyPolicy } from './selfVerifyPolicy.js';
-import type { DecisionEngine } from '../../../ports/decision/decisionEngine.js';
+import type { DecisionEngine, DecisionResponse } from '../../../ports/decision/decisionEngine.js';
 
 /**
  * Laya verdict 观测记录（shadow 档）：记录 System-1 预判与最终真实结果，供后续评估
@@ -75,6 +75,8 @@ export interface SelfVerifyWiring {
   readonly verdictPredictor?: DecisionEngine | undefined;
   /** 可选的 verdict 观测回调（shadow 档记录一致性，不阻断主流程）。 */
   readonly verdictObserver?: VerdictObserver | undefined;
+  /** 决策引擎生效模式：shadow（仅经 observer 记 telemetry、不回灌）/ enforce（回灌预判供模型同一步使用）。缺省 undefined（不接 verdict 时）。 */
+  readonly verdictMode?: 'shadow' | 'enforce' | undefined;
 }
 
 /**
@@ -113,6 +115,8 @@ export class SelfVerifyingToolPort implements ToolPort {
   private readonly verdictPredictor: DecisionEngine | undefined;
   /** verdict 观测回调（shadow 档）。 */
   private readonly verdictObserver: VerdictObserver | undefined;
+  /** 决策引擎生效模式（shadow / enforce；缺省 undefined）。 */
+  private readonly verdictMode: 'shadow' | 'enforce' | undefined;
   /** 每会话已触发的自验证次数（预算）。 */
   private readonly runs = new Map<string, number>();
   /** 每会话最近一次触发时间（冷却）。 */
@@ -137,6 +141,7 @@ export class SelfVerifyingToolPort implements ToolPort {
     this.wiring = wiring;
     this.verdictPredictor = wiring.verdictPredictor;
     this.verdictObserver = wiring.verdictObserver;
+    this.verdictMode = wiring.verdictMode;
     this.name = inner.name;
   }
 
@@ -199,10 +204,16 @@ export class SelfVerifyingToolPort implements ToolPort {
     call: ToolCall,
     context: ToolContext,
   ): Promise<string | undefined> {
-    // Laya verdict 预判（shadow 观测档）：跑测试前做一次 System-1 noul 预判，记录一致性，
-    // 不阻断主流程、不覆盖测试真值（决策引擎是质量信号，fail-open）。
-    await this.observeVerdict(call, context);
+    // Laya verdict 预判：跑测试前做一次 System-1 noul 预判。enforce 档把预判回灌进结果，
+    // 供模型同一步拿到廉价信号；shadow 档仅经 observer 记 telemetry（见 observeVerdict）。
+    // 决策引擎是质量信号，fail-open：预判不可用/退化时静默跳过，且不替代真实测试真值。
+    const noul = await this.observeVerdict(call, context);
     const notes: string[] = [];
+    if (this.verdictMode === 'enforce' && noul !== undefined) {
+      notes.push(
+        `[自验证·Laya预判] System-1 预判本次源码改动会跑通既有测试的概率 p=${noul.toFixed(2)}（仅供参考，不替代真实测试结果）`,
+      );
+    }
     const fake = await this.probeFakeCompletion(call);
     if (fake !== undefined) {
       notes.push(`[自验证·假完成探测] ${fake}`);
@@ -292,44 +303,55 @@ export class SelfVerifyingToolPort implements ToolPort {
   }
 
   /**
-   * 跑测试前做一次 Laya noul 预判（shadow 观测档）。
+   * 跑测试前做一次 Laya noul 预判。
    *
-   * 构造「这次改动会跑通既有测试吗」的 noul 问题，调决策引擎；可用且 observer 注入时
-   * 把观测记录交给 observer。不可用时静默跳过（fail-open）。本次观测**不**影响测试回灌，
-   * 仅为后续评估 Laya 能否升级为 enforce（替代部分 LLM 推理）积累自有 trace。
+   * 构造「这次改动会跑通既有测试吗」的 noul 问题，调决策引擎；
+   * 可用且 observer 注入时把观测记录交给 observer（shadow 档 telemetry，不阻断主流程）。
+   * 返回的 noul 预判在 enforce 模式下被回灌进工具结果（fail-open：仅供参考、不覆盖测试真值）。
+   * 决策引擎不可用 / 抛错时静默返回 undefined（fail-open）。
    *
    * @param call 本次工具调用（供构造 state 摘要）。
    * @param context 工具上下文。
-   * @returns 无返回值（观测结果经 observer 传出）。
+   * @returns noul 预判值（[0,1]）；不可用 / 退化时为 undefined。
    */
-  private async observeVerdict(call: ToolCall, context: ToolContext): Promise<void> {
+  private async observeVerdict(call: ToolCall, context: ToolContext): Promise<number | undefined> {
     const predictor = this.verdictPredictor;
-    if (predictor === undefined || this.verdictObserver === undefined) {
-      return;
-    }
-    if (!predictor.isAvailable()) {
-      return;
+    if (predictor === undefined || !predictor.isAvailable()) {
+      return undefined;
     }
     const state = `tool=${call.name}; args=${JSON.stringify(call.arguments)}`;
-    const response = await predictor.decide({
-      state,
-      questions: {
-        passTest: {
-          kind: 'noul',
-          instructions: '这次源码改动会跑通既有测试吗？',
+    let response: DecisionResponse;
+    try {
+      response = await predictor.decide({
+        state,
+        questions: {
+          passTest: {
+            kind: 'noul',
+            instructions: '这次源码改动会跑通既有测试吗？',
+          },
         },
-      },
-    });
-    if (!response.available) {
-      return;
+      });
+    } catch {
+      return undefined;
     }
-    const answer = response.answers['passTest'];
-    this.verdictObserver({
-      sessionId: context.sessionId,
-      toolName: call.name,
-      noul: answer?.noul,
-      available: true,
-    });
+    if (!response.available) {
+      return undefined;
+    }
+    const noul = response.answers['passTest']?.noul;
+    // shadow 档 telemetry：观测记录交给 observer（不阻断主流程；observer 抛错也静默）。
+    if (this.verdictObserver !== undefined) {
+      try {
+        this.verdictObserver({
+          sessionId: context.sessionId,
+          toolName: call.name,
+          noul,
+          available: true,
+        });
+      } catch {
+        // fail-open：telemetry 异常不得影响主流程。
+      }
+    }
+    return noul;
   }
 
   /**

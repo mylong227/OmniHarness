@@ -13,6 +13,8 @@ import type {
   TestRunOutcome,
 } from '../../src/adapters/tool/verify/testCommandRunner.js';
 import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
+import type { DecisionEngine, DecisionResponse } from '../../src/ports/decision/decisionEngine.js';
+import type { VerdictObserver } from '../../src/adapters/tool/verify/selfVerifyingToolPort.js';
 
 /** 可注入时钟（用于精确控制冷却窗口与预算判定）。 */
 class Clock {
@@ -61,6 +63,45 @@ class StubRunner implements TestCommandRunner {
   }
 }
 
+/** 决策引擎替身：返回固定 noul=0.9（模拟 Laya System-1 预判「会过测试」）。 */
+class StubDecisionEngine implements DecisionEngine {
+  /** 端口名。 */
+  public readonly name = 'stub';
+
+  /** 是否可用（缺省可用，可经构造置否验证 fail-open）。 */
+  public constructor(private readonly availableFlag = true) {}
+
+  /** @returns 由构造标志决定。 */
+  public isAvailable(): boolean {
+    return this.availableFlag;
+  }
+
+  /**
+   * @returns 首题 noul=0.9 的答案。
+   */
+  public async decide(): Promise<DecisionResponse> {
+    return { answers: { passTest: { noul: 0.9 } }, available: true };
+  }
+}
+
+/** 决策引擎替身：isAvailable 为真，但 decide 抛错（模拟后端调用异常）。 */
+class BoomDecisionEngine implements DecisionEngine {
+  /** 端口名。 */
+  public readonly name = 'boom';
+
+  /** @returns 始终可用。 */
+  public isAvailable(): boolean {
+    return true;
+  }
+
+  /**
+   * @returns 永不返回，恒抛错。
+   */
+  public async decide(): Promise<DecisionResponse> {
+    throw new Error('backend down');
+  }
+}
+
 /** 内层工具端口替身（固定返回给定结果）。 */
 const innerPort = (result: ToolResult): ToolPort => ({
   name: 'stub-registry',
@@ -87,6 +128,9 @@ const build = (
     clock?: Clock;
     policy?: SelfVerifyPolicy;
     probe?: () => string | undefined;
+    verdictPredictor?: DecisionEngine;
+    verdictMode?: 'shadow' | 'enforce';
+    verdictObserver?: VerdictObserver;
   } = {},
 ): SelfVerifyingToolPort => {
   const clock = overrides.clock ?? new Clock();
@@ -97,6 +141,13 @@ const build = (
     shouldVerify: () => overrides.shouldVerify ?? true,
     now: clock.now,
     ...(overrides.probe !== undefined ? { probeFakeCompletion: overrides.probe } : {}),
+    ...(overrides.verdictPredictor !== undefined
+      ? { verdictPredictor: overrides.verdictPredictor }
+      : {}),
+    ...(overrides.verdictMode !== undefined ? { verdictMode: overrides.verdictMode } : {}),
+    ...(overrides.verdictObserver !== undefined
+      ? { verdictObserver: overrides.verdictObserver }
+      : {}),
   });
 };
 
@@ -203,4 +254,54 @@ test('ToolPort 透传：name / list / listDirect / unregister', () => {
   assert.strictEqual(port.list().length, 1);
   assert.strictEqual(port.listDirect().length, 1);
   assert.strictEqual(port.unregister('write_file'), false);
+});
+
+test('enforce：noul 预判回灌进工具结果（测试通过也附信号）', async () => {
+  const runner = new StubRunner({ exitCode: 0, output: 'all pass', timedOut: false });
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new StubDecisionEngine(),
+    verdictMode: 'enforce',
+  });
+  const out = await port.execute(call, ctx);
+  assert.ok(out.output?.includes('[自验证·Laya预判]'), 'enforce 应回灌预判');
+  assert.ok(out.output?.includes('p=0.90'), '应给出量化的 noul 概率');
+  assert.strictEqual(runner.calls, 1, '测试仍照常跑（预判不替代真值）');
+});
+
+test('shadow：只观测 telemetry、不回灌预判', async () => {
+  const runner = new StubRunner({ exitCode: 0, output: '', timedOut: false });
+  let observed = false;
+  const observer: VerdictObserver = (o) => {
+    observed = true;
+    assert.strictEqual(o.noul, 0.9);
+  };
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new StubDecisionEngine(),
+    verdictMode: 'shadow',
+    verdictObserver: observer,
+  });
+  const out = await port.execute(call, ctx);
+  assert.strictEqual(observed, true, 'shadow 应触发 observer');
+  assert.ok(!out.output?.includes('[自验证·Laya预判]'), 'shadow 不应回灌预判到结果');
+});
+
+test('enforce 但预判引擎不可用 → fail-open 不回灌', async () => {
+  const runner = new StubRunner({ exitCode: 0, output: '', timedOut: false });
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new StubDecisionEngine(false),
+    verdictMode: 'enforce',
+  });
+  const out = await port.execute(call, ctx);
+  assert.ok(!out.output?.includes('[自验证·Laya预判]'), '不可用时不回灌');
+});
+
+test('enforce 但预判 decide 抛错 → fail-open 不回灌', async () => {
+  const runner = new StubRunner({ exitCode: 0, output: '', timedOut: false });
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new BoomDecisionEngine(),
+    verdictMode: 'enforce',
+  });
+  const out = await port.execute(call, ctx);
+  assert.strictEqual(out.ok, true, '后端异常不得破坏主流程');
+  assert.ok(!out.output?.includes('[自验证·Laya预判]'), 'decide 抛错时不回灌');
 });

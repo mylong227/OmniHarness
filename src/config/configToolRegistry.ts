@@ -351,6 +351,8 @@ export class ConfigToolRegistry {
    * @param registry 已注册全部工具的内层端口。
    * @param policy 受控预算（命令 / 超时 / 冷却 / 每会话次数 / 摘要行数）。
    * @param workspaceRoot 工作区根（测试命令 cwd）。
+   * @param verdictPredictor 可选的决策引擎（Laya）：跑测试前做一次 noul 预判（System-1 廉价信号）。undefined 表示不接。
+   * @param verdictMode 决策引擎生效模式：shadow（仅经 observer 记 telemetry）/ enforce（回灌预判供模型同一步使用）。缺省 undefined（不接 verdict 时）。
    * @returns 装饰后的工具端口（对外行为除「写源码后追加回灌」外完全不变）。
    */
   public static withSelfVerify(
@@ -358,12 +360,14 @@ export class ConfigToolRegistry {
     policy: SelfVerifyPolicy,
     workspaceRoot: string,
     verdictPredictor?: DecisionEngine | undefined,
+    verdictMode?: 'shadow' | 'enforce' | undefined,
   ): ToolPort {
     return new SelfVerifyingToolPort(registry, {
       policy,
       workspaceRoot,
       runner: new ShellTestCommandRunner(),
       verdictPredictor,
+      ...(verdictMode !== undefined ? { verdictMode } : {}),
       shouldVerify: (toolName, args) =>
         MutationTargets.of(toolName, args).some((path) =>
           SelfVerifyPolicy.isVerifiableTarget(path),
@@ -459,6 +463,7 @@ export class ConfigToolRegistry {
     identity: AgentIdentityPort | undefined,
     selfVerify?: SelfVerifyPolicy | undefined,
     decisionEngine?: DecisionEngine | undefined,
+    verdictMode?: 'shadow' | 'enforce' | undefined,
   ): ToolPort {
     const registry = new RegistryToolPort();
     ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
@@ -489,6 +494,7 @@ export class ConfigToolRegistry {
       selfVerify,
       seed.workspaceRoot,
       decisionEngine,
+      verdictMode,
     );
   }
 }

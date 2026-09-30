@@ -101,12 +101,12 @@ export interface SelfVerifyConfig {
 }
 
 /**
- * （Laya 战略线）决策引擎配置：用本地 System-1 推理（参考 Laya 的 choice / score / noul）
- * 替代 LLM 长推理做高频结构化判断点。
+ * （Laya 战略线）决策引擎配置：用本地 System-1 推理（choice / score / noul）替代 LLM 长推理
+ * 做高频结构化判断点。
  *
- * 默认 `off`（库级零行为，单测 / 嵌入方不受影响）；生产入口可经 CLI 开 `shadow`
- * （观测档：记录决策与真实结果一致性、原样放行）或 `enforce`。当前仅 `selfVerify` 的
- * verdict 预判接了 shadow 观测（见 `SelfVerifyingToolPort`）。
+ * 默认 `off`（零行为）；生产入口可经 CLI 开 `shadow`（仅观测 telemetry）或 `enforce`
+ * （写源码后把 noul 预判回灌进工具结果，供模型同一步拿到 System-1 廉价信号）。
+ * 质量信号非安全边界，无论 shadow / enforce 均 fail-open（不替代真实测试真值）。
  */
 export interface DecisionEngineConfig {
   /** 生效模式：off / shadow / enforce（默认 off）。 */
@@ -679,6 +679,13 @@ export class ConfigFactory {
     if (partial.tools !== undefined) {
       return partial.tools;
     }
+    // 决策引擎：off/缺省零行为；shadow 仅观测、enforce 回灌 noul 预判（质量信号，全程 fail-open）。
+    const decisionEngine = new DecisionEngineResolver().resolve(partial);
+    const decisionMode = partial.decisionEngine?.mode;
+    const verdictMode =
+      decisionEngine !== undefined && (decisionMode === 'enforce' || decisionMode === 'shadow')
+        ? decisionMode
+        : undefined;
     return ConfigToolRegistry.defaultTools(
       seed,
       partial.extraTools,
@@ -697,7 +704,8 @@ export class ConfigFactory {
       lsp,
       identity,
       ConfigFactory.resolveSelfVerify(partial),
-      new DecisionEngineResolver().resolve(partial),
+      decisionEngine,
+      verdictMode,
     );
   }
 

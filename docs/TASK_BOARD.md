@@ -4454,10 +4454,10 @@ audit:config-wiring ✅。
 
 ### 34.7 后续待办
 
-1. ✅ **已完成（2026-09-29）**：`envs/default` venv 已建（`torch 2.14+cpu` + `transformers 5.17` + `huggingface_hub 1.33` + `laya 0.3.21`）；权重离线落 `D:/deepseek/laya-model/laya`（纯 urllib 直连 hf-mirror，绕开 safe-delete 死结）；Python 真跑集成测试 `tests/integration/layaBackend.test.ts` 已就绪（设 `LAYA_PYTHON_BIN` + `LAYA_MODEL_DIR`，超时 180s）。桥修 `kind`→`type` 翻译 + 本地目录 `Agent` 直载（见 §34.9）。
+1. ✅ **已完成（2026-09-29）**：第三方资源总管 `third-party/` 已建立（`laya/` 开源包源码+许可、`laya-model/` 模型权重、`laya-venv/` Python 运行时）；权重由项目外 `D:/deepseek/laya-model/laya` 迁至 `third-party/laya-model/`（纯 urllib 直连 hf-mirror，绕开 safe-delete 死结）；venv 原为托管运行时 `envs/default`，现按项目自包含要求在 `third-party/laya-venv/` 重建（`torch 2.14+cpu` + `transformers 5.17` + `huggingface_hub 1.33` + `laya 0.3.21`，`LAYA_PYTHON_BIN`/`LAYA_MODEL_DIR` 默认指项目内、env 可覆盖）；Python 真跑集成测试 `tests/integration/layaBackend.test.ts` 已就绪（超时 180s）。桥修 `kind`→`type` 翻译 + 本地目录 `Agent` 直载（见 §34.9）。
 2. 用自有 trace 微调 + 校准出厂过置信温度（RLCD 训练，需拟合温度）。
 3. 接借鉴清单 ③④⑤：模型路由 / 文件·段落相关度裁剪（补 BM25 命中）/ 全工具选择（高基数弱，需微调 + LLM 兜底）。
-4. 后端就绪后把 `decisionEngine.mode` 从 `shadow` 升 `enforce`，并补 fail-closed 安全边界评估（注：质量信号非安全边界，仍 fail-open）。
+4. ✅ **已完成（2026-09-30 续）**：`decisionEngine.mode` 从 `shadow` 升 `enforce` 已落地——`configFactory.resolveTools` 把 `decisionEngine.mode` 透传给 `SelfVerifyingToolPort`（`verdictMode` 字段，`wiring` 持有、构造注入）；enforce 档在写源码后把 Laya `noul` 预判（「本次改动会跑通既有测试的概率 p」）回灌进工具结果，供模型同一步拿到 System-1 廉价信号；shadow 档仍仅经 `verdictObserver` 记 telemetry、不回灌（实测 enforce 与 shadow 此前行为无差异的根因：`observeVerdict` 仅在 observer 注入时才跑、且预判从不回灌，装配链从未注入 observer）。全程 fail-open：预判引擎不可用 / `decide` 抛错 / 未注入 observer 均静默跳过，且不替代真实测试真值。`fail-closed` 安全边界评估结论：决策引擎是质量信号、**非安全边界**，故保持 fail-open（§34.7「4.」原注）。门禁：typecheck ✅ / lint ✅ / check --strict ✅ / arch:gate ✅ / audit:maturity ✅ / audit:config-wiring ✅；单测 `tests/unit/selfVerifyingToolPort.test.ts` 新增 enforce 回灌 / shadow 只观测 / 不可用·抛错 fail-open 共 4 例，全绿。
 
 ### 34.8 后端就绪记录（实测 2026-09-29）
 

@@ -18,7 +18,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -76,11 +76,33 @@ export class LayaDecisionEngine implements DecisionEngine {
   /** 选用的 checkpoint repo。 */
   private readonly repo: string;
 
-  /** 本地已下载的 checkpoint 目录（离线推理用）。 */
+  /** 本地已下载的 checkpoint 目录（离线推理用；缺省取 env `LAYA_MODEL_DIR` → 项目内 `third-party/laya-model`）。 */
   private readonly modelDir: string;
 
   /** 可用性探测结果缓存（undefined 表示尚未探测）。 */
   private availability: boolean | undefined = undefined;
+
+  /**
+   * 解析项目内 laya 模型权重的默认目录（无需 env 即可定位）。
+   *
+   * 从本文件所在目录向上找项目根（含 `package.json` / `omniharness.json`），再拼
+   * `third-party/laya-model`。权重目录不存在时返回空串 ⇒ 适配器 fail-open，不强行指向缺失路径。
+   *
+   * @param from 起始目录（通常本文件目录）。
+   * @returns 项目内权重目录绝对路径，或空串。
+   */
+  private resolveInProjectModelDir(from: string): string {
+    let dir = from;
+    for (;;) {
+      if (existsSync(join(dir, 'package.json')) || existsSync(join(dir, 'omniharness.json'))) {
+        const candidate = join(dir, 'third-party', 'laya-model');
+        return existsSync(candidate) ? candidate : '';
+      }
+      const parent = dirname(dir);
+      if (parent === dir) return '';
+      dir = parent;
+    }
+  }
 
   /**
    * @param options 适配器配置（全部可选，缺省取环境无关保守值）。
@@ -92,7 +114,8 @@ export class LayaDecisionEngine implements DecisionEngine {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.hfEndpoint = options.hfEndpoint ?? DEFAULT_HF_ENDPOINT;
     this.repo = options.repo ?? DEFAULT_REPO;
-    this.modelDir = options.modelDir ?? process.env.LAYA_MODEL_DIR ?? '';
+    this.modelDir =
+      options.modelDir ?? process.env.LAYA_MODEL_DIR ?? this.resolveInProjectModelDir(here);
   }
 
   /**

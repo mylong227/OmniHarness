@@ -22,6 +22,10 @@ The repository uses the following resources.
   consumers) was removed from version control on 2026-09-25 to de-duplicate.
   These directories are not runtime source-image or policy libraries.
 
+- `third-party/laya/` 存档 laya 开源 Python 包（Apache-2.0，上游 github.com/NandhaKishorM/laya，v0.3.21）的**源码快照**与 `licenses/LICENSE` + `METADATA`，仅作溯源 / 离线审查。运行时仍由 `third-party/laya-venv/` 内 pip 安装的 `laya` 提供，不从此目录加载（避免重复维护两份）。
+- `third-party/laya-model/` 含本地决策引擎权重（`convaiinnovations/laya` checkpoint：`model.safetensors` 842MB + `rl_agent_config.json` + `tokenizer/` + `encoder/`）。**不入库**（gitignore，仓库政策不 bundled 权重）；离线获取：本机 `huggingface.co` 不可达，统一走 `HF_ENDPOINT=https://hf-mirror.com` 镜像，纯 urllib 直连 `hf-mirror.com/resolve/main/<file>` 手动拉取（小文件普通 GET、大文件带 Range 头触发 206；可断点续传），绕开 huggingface_hub 在本机 Windows 的 safe-delete 死结（Xet CAS 经镜像 401）。
+- `third-party/laya-venv/` 为 laya 运行时的 Python venv（torch 2.14+cpu + transformers 5.17 + huggingface_hub 1.33 + laya 0.3.21）。**不入库**（gitignore，机器相关 + 大体积）；重建：`python -m venv third-party/laya-venv` 后 `pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu transformers==5.17 huggingface_hub==1.33 laya==0.3.21`。适配器默认 `LAYA_PYTHON_BIN` 指向 `third-party/laya-venv/Scripts/python.exe`、`LAYA_MODEL_DIR` 指向 `third-party/laya-model`（均可用环境变量覆盖）。
+
 The root Apache-2.0 license applies to OmniHarness code. It does not relicense
 third-party images, model weights, node packages, or benchmark material.
 Upstream licenses and included notices continue to apply. No model weights
