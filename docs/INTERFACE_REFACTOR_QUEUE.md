@@ -107,14 +107,19 @@ node scripts/architectureGate.mjs        # 架构门禁：[5] 节即依赖环现
       export interface ApprovalRequest { … }
       export interface ApprovalDecision { … }
 
-改后：src/ports/runtime/approval/ApprovalPort.ts       ← 只含 ApprovalPort
-      src/ports/runtime/approval/ApprovalRequest.ts    ← 只含 ApprovalRequest
-      src/ports/runtime/approval/ApprovalDecision.ts   ← 只含 ApprovalDecision
+改后：src/ports/runtime/approval/approvalPort.ts       ← 只含 ApprovalPort（文件名小驼峰，符号仍 PascalCase）
+      src/ports/runtime/approval/approvalRequest.ts    ← 只含 ApprovalRequest
+      src/ports/runtime/approval/approvalDecision.ts   ← 只含 ApprovalDecision
       src/ports/runtime/approval.ts                    ← 桶，内容仅三行再导出：
-        export type { ApprovalPort } from './approval/ApprovalPort.js';
-        export type { ApprovalRequest } from './approval/ApprovalRequest.js';
-        export type { ApprovalDecision } from './approval/ApprovalDecision.js';
+        export type { ApprovalPort } from './approval/approvalPort.js';
+        export type { ApprovalRequest } from './approval/approvalRequest.js';
+        export type { ApprovalDecision } from './approval/approvalDecision.js';
 ```
+
+> **命名铁律（2026-09-30 决策）**：接口文件名必须 **camelCase**（如 `approvalPort.ts`），
+> 因为铁律 `scripts/check.mjs` 规则6 要求 `src/**/*.ts` 基名匹配 `^[a-z][a-zA-Z0-9]*$`——
+> 仓库内 `src/ports` / `src/core` / `src/adapters` **零** PascalCase 先例。接口**符号**仍是 PascalCase，
+> 仅文件名变。`auditInterfaces.mjs` 的 `migrationTarget` / `TARGET_OVERRIDES` 已统一按 camelCase 生成目标路径。
 
 调用点 `import type { ApprovalPort } from '../ports/runtime/approval.js'` **一字不改**。
 本批收尾时更新 `src/ports/index.ts` 聚合出口（保持导出名与分区标注不变，`npm run api:check` 须仍绿）。
@@ -139,8 +144,9 @@ node scripts/architectureGate.mjs        # 架构门禁：[5] 节即依赖环现
 
 ### Batch D — 收尾（Batch A/B 完成后再启动）
 
-- 更新 `docs/PORTS_CONTRACT.md`：现行约定写的是「文件名 = 端口名，camelCase」，拆分后应改为
-  **「文件名 = 接口名（PascalCase）」**，并说明桶文件的存在。
+- 更新 `docs/PORTS_CONTRACT.md`：现行约定写的是「文件名 = 端口名，camelCase」，拆分后仍保持
+  **「文件名 = 接口名的小驼峰（camelCase）」**（接口符号本身是 PascalCase，仅文件名小驼峰，
+  以兼容铁律 `check.mjs` 规则6），并说明桶文件的存在。
 - 混装文件 294 个：逐个判断该 `interface` 是「跨模块契约」（→ 迁 ports）还是「实现细节」（→ 降为文件私有）。
   **本批不机械执行**，逐个看，`--queue` 的 Batch A/B 两张表都不含它们即为已判定为域内细节。
 
