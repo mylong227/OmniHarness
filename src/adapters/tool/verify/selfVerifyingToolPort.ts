@@ -26,27 +26,27 @@ import type { TestCommandRunner } from './testCommandRunner.js';
 import { StackFrameParser } from './stackFrameParser.js';
 import { TestFailureDigest } from './testFailureDigest.js';
 import type { SelfVerifyPolicy } from './selfVerifyPolicy.js';
-import type { DecisionEngine, DecisionResponse } from '../../../ports/decision/decisionEngine.js';
+import type { DecisionEngine } from '../../../ports/decision/decisionEngine.js';
+import type { DecisionTracePort } from '../../../ports/decision/decisionTrace.js';
+import { VerdictTracer } from './verdictTracer.js';
 
-/**
- * Laya verdict 观测记录（shadow 档）：记录 System-1 预判与最终真实结果，供后续评估
- * 决策引擎能否升级为 enforce（替代部分 LLM 推理）积累自有 trace。
- */
-export interface VerdictObservation {
-  /** 会话 id。 */
-  readonly sessionId: string;
-  /** 触发自验证的工具名。 */
-  readonly toolName: string;
-  /** `noul` 原语给出的「改动会过测试」概率（[0,1]）；不可用为 undefined。 */
-  readonly noul: number | undefined;
-  /** 引擎是否可用。 */
-  readonly available: boolean;
-  /** 不可用 / 退化原因（可选）。 */
-  readonly note?: string;
+import type { VerdictObservation, VerdictObserver } from './verdictTypes.js';
+// verdict 观测类型已抽至 `./verdictTypes.ts`（中性模块），以打断
+// `selfVerifyingToolPort ↔ verdictTracer` 循环依赖（架构门禁 [5]）。
+export type { VerdictObservation, VerdictObserver };
+/** 跑测试的结构化结果（供回灌文本与配对 trace 共用，避免二次推断真实结果）。 */
+interface RunTestResult {
+  /** 回灌文本；测试通过/未跑时为 undefined（静默）。 */
+  readonly note: string | undefined;
+  /** 测试命令是否实际执行（受预算/冷却约束可能未跑）。 */
+  readonly ran: boolean;
+  /** 测试是否通过（ran=false 时 undefined）。 */
+  readonly passed: boolean | undefined;
+  /** 测试退出码（ran=false 时 undefined；超时记为 undefined）。 */
+  readonly exitCode: number | undefined;
+  /** 是否超时。 */
+  readonly timedOut: boolean;
 }
-
-/** 可选的 verdict 观测回调（缺省无操作；组合根可注入 telemetry 落盘）。 */
-export type VerdictObserver = (observation: VerdictObservation) => void;
 
 /**
  * 假完成探测：检查刚写入的产物是否含未完成标记（如 TODO/TBD）。
@@ -77,6 +77,8 @@ export interface SelfVerifyWiring {
   readonly verdictObserver?: VerdictObserver | undefined;
   /** 决策引擎生效模式：shadow（仅经 observer 记 telemetry、不回灌）/ enforce（回灌预判供模型同一步使用）。缺省 undefined（不接 verdict 时）。 */
   readonly verdictMode?: 'shadow' | 'enforce' | undefined;
+  /** 决策 trace 落盘端口（配对样本：noul 预判 vs 真实测试结果）。缺省 undefined（不落盘）。 */
+  readonly verdictTrace?: DecisionTracePort | undefined;
 }
 
 /**
@@ -111,12 +113,8 @@ export class SelfVerifyingToolPort implements ToolPort {
   private readonly inner: ToolPort;
   /** 装配项。 */
   private readonly wiring: SelfVerifyWiring;
-  /** 决策引擎（Laya），可选；缺省 undefined（不接 verdict 预判）。 */
-  private readonly verdictPredictor: DecisionEngine | undefined;
-  /** verdict 观测回调（shadow 档）。 */
-  private readonly verdictObserver: VerdictObserver | undefined;
-  /** 决策引擎生效模式（shadow / enforce；缺省 undefined）。 */
-  private readonly verdictMode: 'shadow' | 'enforce' | undefined;
+  /** verdict 观测 + trace 落盘协作器（Laya 战略线；质量信号采集已从本装饰器抽离）。 */
+  private readonly tracer: VerdictTracer;
   /** 每会话已触发的自验证次数（预算）。 */
   private readonly runs = new Map<string, number>();
   /** 每会话最近一次触发时间（冷却）。 */
@@ -139,9 +137,13 @@ export class SelfVerifyingToolPort implements ToolPort {
   public constructor(inner: ToolPort, wiring: SelfVerifyWiring) {
     this.inner = inner;
     this.wiring = wiring;
-    this.verdictPredictor = wiring.verdictPredictor;
-    this.verdictObserver = wiring.verdictObserver;
-    this.verdictMode = wiring.verdictMode;
+    this.tracer = new VerdictTracer({
+      predictor: wiring.verdictPredictor,
+      observer: wiring.verdictObserver,
+      mode: wiring.verdictMode,
+      trace: wiring.verdictTrace,
+      now: wiring.now ?? (() => Date.now()),
+    });
     this.name = inner.name;
   }
 
@@ -205,11 +207,11 @@ export class SelfVerifyingToolPort implements ToolPort {
     context: ToolContext,
   ): Promise<string | undefined> {
     // Laya verdict 预判：跑测试前做一次 System-1 noul 预判。enforce 档把预判回灌进结果，
-    // 供模型同一步拿到廉价信号；shadow 档仅经 observer 记 telemetry（见 observeVerdict）。
+    // 供模型同一步拿到廉价信号；shadow 档仅经 observer 记 telemetry（见 VerdictTracer.observe）。
     // 决策引擎是质量信号，fail-open：预判不可用/退化时静默跳过，且不替代真实测试真值。
-    const noul = await this.observeVerdict(call, context);
+    const { noul, available } = await this.tracer.observe(call, context);
     const notes: string[] = [];
-    if (this.verdictMode === 'enforce' && noul !== undefined) {
+    if (this.tracer.mode === 'enforce' && noul !== undefined) {
       notes.push(
         `[自验证·Laya预判] System-1 预判本次源码改动会跑通既有测试的概率 p=${noul.toFixed(2)}（仅供参考，不替代真实测试结果）`,
       );
@@ -218,13 +220,23 @@ export class SelfVerifyingToolPort implements ToolPort {
     if (fake !== undefined) {
       notes.push(`[自验证·假完成探测] ${fake}`);
     }
+    let testRan = false;
+    let testPassed: boolean | undefined;
+    let testExitCode: number | undefined;
     if (this.allowRun(context.sessionId)) {
       this.recordRun(context.sessionId);
-      const testNote = await this.runTests(context.sessionId);
-      if (testNote !== undefined) {
-        notes.push(testNote);
+      const result = await this.runTests(context.sessionId);
+      testRan = result.ran;
+      testPassed = result.passed;
+      testExitCode = result.exitCode;
+      if (result.note !== undefined) {
+        notes.push(result.note);
       }
     }
+    // 配对 trace：预判（noul）与真实结果（testRan/testPassed/testExitCode）关联落盘，
+    // 供离线 RLCD 温度校准与借鉴清单项训练。仅当 verdict 引擎启用（verdictMode 非空）时记录，
+    // 避免无预判的噪声样本；落盘异常静默（fail-open）。
+    this.tracer.emit(call, context, noul, available, testRan, testPassed, testExitCode);
     return notes.length > 0 ? notes.join('\n') : undefined;
   }
 
@@ -238,7 +250,7 @@ export class SelfVerifyingToolPort implements ToolPort {
    * @param sessionId 会话 id（定向集按会话隔离）。
    * @returns 回灌文本；测试通过时为 `undefined`（静默）。
    */
-  private async runTests(sessionId: string): Promise<string | undefined> {
+  private async runTests(sessionId: string): Promise<RunTestResult> {
     const { policy, workspaceRoot, runner } = this.wiring;
     const command = policy.narrowedCommand(this.failingTargets.get(sessionId) ?? []);
     try {
@@ -251,20 +263,27 @@ export class SelfVerifyingToolPort implements ToolPort {
       if (outcome.timedOut) {
         const note = `[自验证回环] 测试命令超时（${policy.timeoutMs}ms）：${command}。请先修复或缩小测试范围。`;
         this.lastFailureBySession.set(sessionId, note);
-        return note;
+        return { note, ran: true, passed: false, exitCode: undefined, timedOut: true };
       }
       if (outcome.exitCode !== 0) {
         this.rememberFailing(sessionId, outcome.output);
         const digest = this.digestOf(outcome.output, policy.maxDigestLines);
         const note = `[自验证回环] 改动源码后自动跑测试未通过（exit=${String(outcome.exitCode)}）：${command}\n${digest}`;
         this.lastFailureBySession.set(sessionId, note);
-        return note;
+        return {
+          note,
+          ran: true,
+          passed: false,
+          exitCode: outcome.exitCode ?? undefined,
+          timedOut: false,
+        };
       }
       this.failingTargets.delete(sessionId);
       this.lastFailureBySession.delete(sessionId);
-      return undefined;
+      return { note: undefined, ran: true, passed: true, exitCode: 0, timedOut: false };
     } catch (error) {
-      return `[自验证回环] 测试命令未能执行：${error instanceof Error ? error.message : String(error)}`;
+      const note = `[自验证回环] 测试命令未能执行：${error instanceof Error ? error.message : String(error)}`;
+      return { note, ran: false, passed: undefined, exitCode: undefined, timedOut: false };
     }
   }
 
@@ -300,58 +319,6 @@ export class SelfVerifyingToolPort implements ToolPort {
       return;
     }
     this.failingTargets.set(sessionId, files);
-  }
-
-  /**
-   * 跑测试前做一次 Laya noul 预判。
-   *
-   * 构造「这次改动会跑通既有测试吗」的 noul 问题，调决策引擎；
-   * 可用且 observer 注入时把观测记录交给 observer（shadow 档 telemetry，不阻断主流程）。
-   * 返回的 noul 预判在 enforce 模式下被回灌进工具结果（fail-open：仅供参考、不覆盖测试真值）。
-   * 决策引擎不可用 / 抛错时静默返回 undefined（fail-open）。
-   *
-   * @param call 本次工具调用（供构造 state 摘要）。
-   * @param context 工具上下文。
-   * @returns noul 预判值（[0,1]）；不可用 / 退化时为 undefined。
-   */
-  private async observeVerdict(call: ToolCall, context: ToolContext): Promise<number | undefined> {
-    const predictor = this.verdictPredictor;
-    if (predictor === undefined || !predictor.isAvailable()) {
-      return undefined;
-    }
-    const state = `tool=${call.name}; args=${JSON.stringify(call.arguments)}`;
-    let response: DecisionResponse;
-    try {
-      response = await predictor.decide({
-        state,
-        questions: {
-          passTest: {
-            kind: 'noul',
-            instructions: '这次源码改动会跑通既有测试吗？',
-          },
-        },
-      });
-    } catch {
-      return undefined;
-    }
-    if (!response.available) {
-      return undefined;
-    }
-    const noul = response.answers['passTest']?.noul;
-    // shadow 档 telemetry：观测记录交给 observer（不阻断主流程；observer 抛错也静默）。
-    if (this.verdictObserver !== undefined) {
-      try {
-        this.verdictObserver({
-          sessionId: context.sessionId,
-          toolName: call.name,
-          noul,
-          available: true,
-        });
-      } catch {
-        // fail-open：telemetry 异常不得影响主流程。
-      }
-    }
-    return noul;
   }
 
   /**

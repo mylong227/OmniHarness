@@ -66,6 +66,7 @@ import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
 import type { MediaStack } from './mediaStackAssembler.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { DecisionEngineResolver } from './decisionEngineResolver.js';
+import { FileDecisionTraceAdapter } from '../adapters/decision/fileDecisionTraceAdapter.js';
 import { CorePortsAssembler } from './corePortsAssembler.js';
 import type { CorePorts } from './corePortsAssembler.js';
 import { MemoryStackAssembler } from './memoryStackAssembler.js';
@@ -100,14 +101,7 @@ export interface SelfVerifyConfig {
   readonly maxDigestLines?: number | undefined;
 }
 
-/**
- * （Laya 战略线）决策引擎配置：用本地 System-1 推理（choice / score / noul）替代 LLM 长推理
- * 做高频结构化判断点。
- *
- * 默认 `off`（零行为）；生产入口可经 CLI 开 `shadow`（仅观测 telemetry）或 `enforce`
- * （写源码后把 noul 预判回灌进工具结果，供模型同一步拿到 System-1 廉价信号）。
- * 质量信号非安全边界，无论 shadow / enforce 均 fail-open（不替代真实测试真值）。
- */
+/** （Laya 战略线）决策引擎配置：本地 System-1 推理（choice/score/noul）替代 LLM 长推理做高频判断点。默认 off；生产开 shadow（仅观测）/ enforce（回灌 noul 预判）。质量信号非安全边界，全程 fail-open。 */
 export interface DecisionEngineConfig {
   /** 生效模式：off / shadow / enforce（默认 off）。 */
   readonly mode: 'off' | 'shadow' | 'enforce';
@@ -115,6 +109,8 @@ export interface DecisionEngineConfig {
   readonly repo?: string | undefined;
   /** Python 解释器路径（缺省 python3）。 */
   readonly pythonPath?: string | undefined;
+  /** 是否落盘决策 trace（append-only JSONL，供 RLCD 温度校准/借鉴清单训练）。默认 true（仅当 mode≠off 时生效）。 */
+  readonly trace?: boolean | undefined;
 }
 
 export interface OmniHarnessConfig {
@@ -686,6 +682,11 @@ export class ConfigFactory {
       decisionEngine !== undefined && (decisionMode === 'enforce' || decisionMode === 'shadow')
         ? decisionMode
         : undefined;
+    // trace 埋点（§34.7 ①）：引擎生效且未显式关 trace 时落盘配对样本供离线 RLCD 校准（fail-open 由适配器内部吞掉写入异常）。
+    const verdictTrace =
+      verdictMode !== undefined && (partial.decisionEngine?.trace ?? true)
+        ? new FileDecisionTraceAdapter(partial.workspaceRoot)
+        : undefined;
     return ConfigToolRegistry.defaultTools(
       seed,
       partial.extraTools,
@@ -706,6 +707,7 @@ export class ConfigFactory {
       ConfigFactory.resolveSelfVerify(partial),
       decisionEngine,
       verdictMode,
+      verdictTrace,
     );
   }
 

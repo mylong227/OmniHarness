@@ -42,6 +42,7 @@ import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { MutationTargets } from '../adapters/tool/verify/mutationTargets.js';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.js';
 import type { DecisionEngine } from '../ports/decision/decisionEngine.js';
+import type { DecisionTracePort } from '../ports/decision/decisionTrace.js';
 import { PostWriteDiagnosticsPort } from '../adapters/tool/verify/postWriteDiagnosticsPort.js';
 import { ShellTestCommandRunner } from '../adapters/tool/verify/shellTestCommandRunner.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
@@ -361,6 +362,7 @@ export class ConfigToolRegistry {
     workspaceRoot: string,
     verdictPredictor?: DecisionEngine | undefined,
     verdictMode?: 'shadow' | 'enforce' | undefined,
+    verdictTrace?: DecisionTracePort | undefined,
   ): ToolPort {
     return new SelfVerifyingToolPort(registry, {
       policy,
@@ -368,6 +370,7 @@ export class ConfigToolRegistry {
       runner: new ShellTestCommandRunner(),
       verdictPredictor,
       ...(verdictMode !== undefined ? { verdictMode } : {}),
+      ...(verdictTrace !== undefined ? { verdictTrace } : {}),
       shouldVerify: (toolName, args) =>
         MutationTargets.of(toolName, args).some((path) =>
           SelfVerifyPolicy.isVerifiableTarget(path),
@@ -464,6 +467,7 @@ export class ConfigToolRegistry {
     selfVerify?: SelfVerifyPolicy | undefined,
     decisionEngine?: DecisionEngine | undefined,
     verdictMode?: 'shadow' | 'enforce' | undefined,
+    verdictTrace?: DecisionTracePort | undefined,
   ): ToolPort {
     const registry = new RegistryToolPort();
     ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
@@ -495,6 +499,7 @@ export class ConfigToolRegistry {
       seed.workspaceRoot,
       decisionEngine,
       verdictMode,
+      verdictTrace,
     );
   }
 }
