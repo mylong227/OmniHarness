@@ -9,59 +9,12 @@
  * 组合合法 = 张量收缩（逐维相加 mod 群阶）得单态（全 0）。跨维度须同时满足的复合约束。
  *
  * fail-closed：非单态能力 → expose 返回 confined（拒配）；bind 非单态组合 → undefined。
+ *
+ * 本文件已退化为桶：5 个接口各自独立成文件于 `./confinement/`，调用点零改动。
  */
 
-/** 多维色荷（整数群元素，运行时 mod 群阶）。 */
-export interface Charge {
-  /** 色。 */
-  readonly color: number;
-  /** 味。 */
-  readonly flavor: number;
-  /** 权限。 */
-  readonly permission: number;
-  /** 时效。 */
-  readonly expiry: number;
-}
-
-/** 带色荷的能力。 */
-export interface CapabilityCharge {
-  /** 能力 ID。 */
-  readonly id: string;
-  /** 多维色荷。 */
-  readonly charge: Charge;
-}
-
-/** 两能力束缚后的单态能力。 */
-export interface BoundCapability {
-  /** 束缚态 ID。 */
-  readonly id: string;
-  /** 成员能力 ID 序列。 */
-  readonly members: readonly string[];
-  /** 束缚态色荷（必为单态：全 0）。 */
-  readonly charge: Charge;
-}
-
-/** 暴露裁决。 */
-export interface ConfinementVerdict {
-  /** 能力 ID。 */
-  readonly id: string;
-  /** 是否可暴露（仅单态为 true）。 */
-  readonly exposed: boolean;
-  /** 理由。 */
-  readonly reason: string;
-}
-
-/** 禁闭色荷端口。 */
-export interface ConfinementPort {
-  /** 群阶（色荷 mod 此值；默认 3，对应 SU(3) 三色）。 */
-  readonly groupOrder: number;
-  /**
-   * 两能力色荷张量收缩（逐维相加 mod 群阶）；得单态(全 0)→束缚能力可暴露，
-   * 否则 undefined（fail-closed 拒绝组合）。
-   */
-  bind(a: CapabilityCharge, b: CapabilityCharge): BoundCapability | undefined;
-  /** 单态校验：裸能力(非全 0)→ false（结构性拒绝暴露）。 */
-  isSinglet(c: CapabilityCharge): boolean;
-  /** 暴露裁决：仅单态能力可暴露；裸/非单态 → confined。 */
-  expose(c: CapabilityCharge): ConfinementVerdict;
-}
+export type { Charge } from './confinement/charge.js';
+export type { CapabilityCharge } from './confinement/capabilityCharge.js';
+export type { BoundCapability } from './confinement/boundCapability.js';
+export type { ConfinementVerdict } from './confinement/confinementVerdict.js';
+export type { ConfinementPort } from './confinement/confinementPort.js';
