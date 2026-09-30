@@ -14,6 +14,7 @@ import type {
 } from '../../src/adapters/tool/verify/testCommandRunner.js';
 import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
 import type { DecisionEngine, DecisionResponse } from '../../src/ports/decision/decisionEngine.js';
+import type { DecisionTrace, DecisionTracePort } from '../../src/ports/decision/decisionTrace.js';
 import type { VerdictObserver } from '../../src/adapters/tool/verify/selfVerifyingToolPort.js';
 
 /** 可注入时钟（用于精确控制冷却窗口与预算判定）。 */
@@ -102,6 +103,23 @@ class BoomDecisionEngine implements DecisionEngine {
   }
 }
 
+/** 决策 trace 端口替身：记录所有被落盘的配对样本（断言用）。 */
+class StubDecisionTracePort implements DecisionTracePort {
+  /** 端口名。 */
+  public readonly name = 'stub-trace';
+
+  /** 已记录的所有 trace（按调用顺序）。 */
+  public readonly records: DecisionTrace[] = [];
+
+  /**
+   * @param trace 一条配对样本。
+   * @returns 无返回值。
+   */
+  public record(trace: DecisionTrace): void {
+    this.records.push(trace);
+  }
+}
+
 /** 内层工具端口替身（固定返回给定结果）。 */
 const innerPort = (result: ToolResult): ToolPort => ({
   name: 'stub-registry',
@@ -131,6 +149,7 @@ const build = (
     verdictPredictor?: DecisionEngine;
     verdictMode?: 'shadow' | 'enforce';
     verdictObserver?: VerdictObserver;
+    verdictTrace?: DecisionTracePort;
   } = {},
 ): SelfVerifyingToolPort => {
   const clock = overrides.clock ?? new Clock();
@@ -148,6 +167,7 @@ const build = (
     ...(overrides.verdictObserver !== undefined
       ? { verdictObserver: overrides.verdictObserver }
       : {}),
+    ...(overrides.verdictTrace !== undefined ? { verdictTrace: overrides.verdictTrace } : {}),
   });
 };
 
@@ -304,4 +324,51 @@ test('enforce 但预判 decide 抛错 → fail-open 不回灌', async () => {
   const out = await port.execute(call, ctx);
   assert.strictEqual(out.ok, true, '后端异常不得破坏主流程');
   assert.ok(!out.output?.includes('[自验证·Laya预判]'), 'decide 抛错时不回灌');
+});
+
+test('enforce + trace 端口 → 落盘一条配对样本（noul vs 真实通过）', async () => {
+  const runner = new StubRunner({ exitCode: 0, output: 'all pass', timedOut: false });
+  const trace = new StubDecisionTracePort();
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new StubDecisionEngine(),
+    verdictMode: 'enforce',
+    verdictTrace: trace,
+  });
+  await port.execute(call, ctx);
+  assert.strictEqual(trace.records.length, 1, '应落盘一条 trace');
+  const t = trace.records[0] as DecisionTrace;
+  assert.strictEqual(t.mode, 'enforce');
+  assert.strictEqual(t.noul, 0.9);
+  assert.strictEqual(t.available, true);
+  assert.strictEqual(t.testRan, true);
+  assert.strictEqual(t.testPassed, true);
+  assert.strictEqual(t.testExitCode, 0);
+  assert.strictEqual(t.sessionId, 's1');
+  assert.strictEqual(t.toolName, 'write_file');
+});
+
+test('shadow + trace 端口 → 落盘 mode=shadow 的配对样本', async () => {
+  const runner = new StubRunner({ exitCode: 1, output: 'not ok 1', timedOut: false });
+  const trace = new StubDecisionTracePort();
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new StubDecisionEngine(),
+    verdictMode: 'shadow',
+    verdictTrace: trace,
+  });
+  const out = await port.execute(call, ctx);
+  assert.strictEqual(trace.records.length, 1);
+  assert.strictEqual(trace.records[0]?.mode, 'shadow');
+  assert.strictEqual(trace.records[0]?.testPassed, false, '真实失败应写入 passed=false');
+  assert.ok(out.output?.includes('[自验证回环]'), 'shadow 档测试失败摘要仍回灌');
+});
+
+test('verdictMode 未设置 → 即使注入了 trace 端口也不落盘（避免噪声样本）', async () => {
+  const runner = new StubRunner({ exitCode: 0, output: 'all pass', timedOut: false });
+  const trace = new StubDecisionTracePort();
+  const port = build({ callId: 'c1', ok: true, output: 'wrote' }, runner, {
+    verdictPredictor: new StubDecisionEngine(),
+    verdictTrace: trace,
+  });
+  await port.execute(call, ctx);
+  assert.strictEqual(trace.records.length, 0, '无预判时不产生无配对意义的 trace');
 });
