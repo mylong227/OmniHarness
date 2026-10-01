@@ -21,8 +21,9 @@
  * 因为「参数写错」若静默退化成「全放行」，就把配置错误变成了安全失效。
  */
 
-/** 生效模式：`off` 不跑；`shadow` 跑但不改行为（只记）；`enforce` 跑且生效。 */
-export type EnforcementMode = 'off' | 'shadow' | 'enforce';
+import type { EnforcementMode } from '../ports/security/enforcementMode.js';
+
+export type { EnforcementMode } from '../ports/security/enforcementMode.js';
 
 /**
  * 生效模式解析器（纯函数、无状态、零依赖）。
