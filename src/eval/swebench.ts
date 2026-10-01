@@ -31,6 +31,7 @@ import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
 import { ToolGate } from '../core/toolGate.js';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
@@ -227,7 +228,7 @@ export class Swebench {
     // 否则单次 apply_patch 失败即被监督内核推进 safe 模式、永久拦截写类工具，阻断编码迭代；
     // 评估只测模型编码能力，不测安全 FDIR，故在此卸载监督内核并重建无监督门禁。
     (runtime as { supervisor?: unknown }).supervisor = undefined;
-    (runtime as { gate: ToolGate }).gate = new ToolGate(
+    (runtime as { gate: ToolGatePort }).gate = new ToolGate(
       config.approvals,
       config.sandbox,
       config.plan,
