@@ -1,5 +1,6 @@
 import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.js';
 import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
 import { ToolScheduler } from './loop/toolScheduler.js';
 import { SandboxDenial } from '../security/sandboxDenial.js';
 import { PromptInjectionGuard } from '../security/promptInjectionGuard.js';
@@ -29,7 +30,7 @@ import type { StepRunnerDeps } from './stepTypes.js';
  */
 export class StepToolExecutor {
   /** 工具门禁（审批 + 沙箱 + 计划态 + 监督否决）：native 与 JS 路径共用。 */
-  private readonly gate: ToolGate;
+  private readonly gate: ToolGatePort;
   /** 工具并行调度器（V2）：读类并行、写类屏障、model-order 提交。 */
   private readonly scheduler: ToolScheduler;
 

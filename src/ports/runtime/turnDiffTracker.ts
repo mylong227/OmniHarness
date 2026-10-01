@@ -12,4 +12,10 @@ export interface TurnDiffTrackerPort {
   noteWrite(path: string, before: string | null, after: string): void;
   /** 标记本回合出现不可精确追踪的变更：清空并永久失效，直到 `reset()`。 */
   invalidate(): void;
+  /** 本回合变更文件数（含新建与改写）。 */
+  readonly changedCount: number;
+  /** 产出整回合 unified diff；无实质差异或已失效时返回 undefined。 */
+  getUnifiedDiff(): string | undefined;
+  /** 重置（新回合开始）：恢复有效并清空基线/当前快照。 */
+  reset(): void;
 }

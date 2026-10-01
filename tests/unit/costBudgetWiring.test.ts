@@ -9,6 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { ArgParser } from '../../src/cli/argParser.js';
+import { CostBudget } from '../../src/adapters/model/costBudget.js';
 import { MockModel } from '../../src/adapters/model/mockModel.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
@@ -46,8 +47,9 @@ test('P5 设 costBudgetUsd ⇒ 生产装配路径真构造预算并透传 softRa
   });
   assert.ok(config.costBudget !== undefined, 'costBudgetUsd 必须真的构造出预算实例');
   assert.strictEqual(config.costBudget.limitUsd, 5);
-  assert.strictEqual(config.costBudget.softRatio, 0.5);
-  assert.strictEqual(config.costBudget.blocking, false, "'warn' ⇒ 软预算（不阻断）");
+  const budget = config.costBudget as CostBudget;
+  assert.strictEqual(budget.softRatio, 0.5);
+  assert.strictEqual(budget.blocking, false, "'warn' ⇒ 软预算（不阻断）");
 });
 
 test('P5 非正数 costBudgetUsd ⇒ 视为关闭', () => {

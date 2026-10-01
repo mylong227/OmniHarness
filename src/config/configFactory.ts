@@ -1,7 +1,4 @@
-import type { ApprovalPort } from '../ports/runtime/approval.js';
 import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
-import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
 import { CostBudget, DEFAULT_SOFT_RATIO } from '../adapters/model/costBudget.js';
 import { CostBudgetDegradeAdapter } from '../adapters/model/costBudgetDegradeAdapter.js';
 import { EnforcementModeResolver } from '../security/enforcementModeResolver.js';
@@ -12,42 +9,15 @@ import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
 import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
 
-import type { SandboxPort } from '../ports/runtime/sandbox.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
-import type { RetrievalPort } from '../ports/intelligence/retrieval.js';
-import type { EscalationPort } from '../ports/runtime/escalation.js';
-import type { SpillPort } from '../ports/memory/spill.js';
 import type { ToolPort } from '../ports/tool/tool.js';
-import type { TurnDiffTracker } from '../core/turnDiffTracker.js';
-import type { ToolHookRunner } from '../core/toolHookRunner.js';
-import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.js';
-import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
-import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
-import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
-import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
-import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
-import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
-import type { ElementComposer } from '../adapters/skill/elementComposer.js';
-import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
-import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { SkillRegistry } from '../skill/skillRegistry.js';
-import type { SparkController } from '../spark/sparkController.js';
-import type { ToolDiscovery } from '../search/toolDiscovery.js';
 import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
 
 import type { LspPort } from '../ports/tool/lsp.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import type { SubagentPortsShape } from '../subagent/subagentPorts.js';
 import type { SubagentOptions } from '../subagent/subagentTypes.js';
-import type { UserResponder } from '../ports/runtime/userResponder.js';
-import type { TodoPort } from '../ports/runtime/todo.js';
-import type { PlanPort } from '../ports/runtime/plan.js';
-import type { EvolutionController } from '../ports/runtime/evolution.js';
 
 import { ConfigBuilder } from './configBuilder.js';
 import { ConfigToolRegistry } from './configToolRegistry.js';
@@ -58,94 +28,14 @@ import { FileDecisionTraceAdapter } from '../adapters/decision/fileDecisionTrace
 import { CorePortsAssembler } from './corePortsAssembler.js';
 import type { CorePorts } from './corePortsAssembler.js';
 import { MemoryStackAssembler } from './memoryStackAssembler.js';
-import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
-import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
 import { SkillStackAssembler } from './skillStackAssembler.js';
 import { SparkAssembler } from './sparkAssembler.js';
 
 export type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 export type { SelfVerifyConfig } from '../ports/config/selfVerifyConfig.js';
 export type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
-export interface ResolvedConfig extends OmniHarnessConfig {
-  readonly approvals: ApprovalPort;
-  readonly sandbox: SandboxPort;
-  readonly events: EventPort;
-  readonly tools: ToolPort;
-  readonly spill: SpillPort;
-  readonly spiller: ToolResultSpiller;
-  readonly planMode: boolean;
-  readonly userResponder: UserResponder;
-  readonly todo: TodoPort;
-  readonly plan: PlanPort;
-  /** 工具发现寄存器（#M1）：tool_search 命中后登记，使延迟加载工具后续回合对模型可见。 */
-  readonly discovery: ToolDiscovery;
-  /** 检索端口（#M2）：会话历史事件索引供 memory_search 检索，实现跨长对话 recall。 */
-  readonly retrieval: RetrievalPort;
-  /** 升级审批端口（#G3/G4）：沙箱拒绝时咨询，决定是否提权重试（fail-closed 默认不提权）。 */
-  readonly escalation: EscalationPort;
-  /** 提权后的复核沙箱（#G3/G4，默认 policy=fail-closed 收紧）：escalate 裁决后以此复核放行，危险命令/工作区外路径仍拦。 */
-  readonly elevatedSandbox: SandboxPort;
-  /** 回合级变更追踪器（#M5）：关闭时为 undefined，不追踪也不产事件。与 `OmniHarnessConfig.turnDiff`（布尔开关）区分命名，避免类型冲突。 */
-  readonly turnDiffTracker?: TurnDiffTracker | undefined;
-  /** 工具钩子运行器（#M5）：变更追踪钩子注册于此；无追踪需求时为 undefined。 */
-  readonly hooks?: ToolHookRunner | undefined;
-  /** 长期记忆端口（#S28）：跨会话持久 fact 存储，默认文件落盘；recall 工具与回合末蒸馏共用。 */
-  readonly longTermMemory: LongTermMemoryPort;
-  /** repo-map 上下文引擎（P2.2 单例收敛）：组合根唯一构造点，注入 StepRunnerDeps。 */
-  readonly repoMapContext: RepoMapContextEngine;
-  /** 跨重置便签（T3.4）：重置后读回交接物恢复任务。 */
-  readonly scratchpad: ScratchpadPort;
-  /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关 memoryConsolidate 时构造，回合末自动沉淀；否则 undefined（仅支持显式 remember）。 */
-  readonly memoryExtractor?: MemoryExtractorPort | undefined;
-  /** 成本预算计量（#S29，可选）：配置 costBudgetUsd 正数时构造，BudgetedModel 与 budget_status 工具共享同一实例（含子代）。 */
-  readonly costBudget?: CostBudget | undefined;
-  /**
-   * 预算降级信号端口（P5 自动降档，可选）：仅当 `costBudget` 存在时桥接构造，供 `core`
-   * 消费点（`StepContextBuilder`）在软阈值越过后收敛检索预算。缺省（无预算）为 undefined
-   * ⇒ 消费点 `?.shouldDegrade` 恒 false，零行为变更。建模为端口是为守住 `core → adapters` 架构红线。
-   */
-  readonly budgetDegrade?: BudgetDegradeSignal | undefined;
-  /** 自主目标循环最大迭代次数（#S30，默认 10，CLI/工具可覆盖）。 */
-  readonly goalMaxIterations: number;
-  /** LSP 代码导航端口（#S32，可选）：配置了 lsp 服务器时构造 LspProcessAdapter，否则 undefined（LSP 工具不注册）。 */
-  readonly lsp?: LspPort | undefined;
-  /** Agent 密码学身份端口（#S33，可选）：配置了 agentIdentity 时构造 Ed25519AgentIdentity，否则 undefined（agent_identity 工具不注册）。 */
-  readonly identity?: AgentIdentityPort | undefined;
-  /** 工具输入实时观察端口（#B3，可选）：模型流式生成的工具参数增量经此推给 UI；由 ConfigFactory 默认 ConsoleLiveView。 */
-  readonly live?: ToolInputSink | undefined;
-  /** 语义嵌入端口（U3 混合检索，可选）：env OMNI_SEMANTIC_RECALL=1 时由 ConfigFactory 构造并注入本地 ONNX 嵌入适配器；默认 undefined（纯 BM25、零开销）。 */
-  readonly embedding?: EmbeddingPort | undefined;
-  /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省不启用，零破坏。 */
-  readonly evolution?: EvolutionController | undefined;
-  /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务完成后可在 fail-closed 下跑 燧-3/燧-4 调谐/冲刷/(D) 退火/(E) 宇宙网/QEC/免疫；缺省不启用，零破坏。 */
-  readonly spark?: SparkController | undefined;
-  /** (D) 热方程记忆退火器（memoryAnnealing.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly annealer?: MemoryAnnealer | undefined;
-  /** (E, I-P1-2) 宇宙网记忆端口（U1 默认开时即 ResonantField 单一状态源，实现 CosmicWebPort，注入 spark）；缺省 undefined，零破坏。 */
-  readonly web?: CosmicWebPort | undefined;
-  /** (E, I-P1-3) QEC 记忆编码器（qec.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly qecEncoder?: QECEncoder | undefined;
-  /** (E, I-P1-5) 免疫异常监控器（immuneMonitoring.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly immune?: ImmuneMonitor | undefined;
-  /** (P2, I-P2-2) 自然梯度信念引擎（belief 启用且 algorithm 含 natural-gradient 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly naturalGradient?: NaturalGradientBelief | undefined;
-  /** (P2, I-P2-3) 粒子滤波信念引擎（belief 启用且 algorithm 含 particle-filter 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly particleFilter?: ParticleFilterBelief | undefined;
-  /** (P2, I-P2-4/5) 受种技能注册表：CRISPR 编辑面 / 相变固化组合解析面；同时可注入 Agent 增强技能匹配。 */
-  readonly skillRegistry: SkillRegistry;
-  /** (P2, I-P2-4) CRISPR 精确技能编辑器（skillEditing.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly crispr?: CRISPRSkillEditor | undefined;
-  /** (P2, I-P2-5) 相变固化器（capabilityCrystallization.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly crystallizer?: CapabilityCrystallizer | undefined;
-  /** (P3, I-P3-1) 刻蚀记忆引擎（insightEtching.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly etching?: InsightEtchingEngine | undefined;
-  /** (P3, I-P3-2) 元素组合基元引擎（elementComposer.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly elementComposerEngine?: ElementComposer | undefined;
-  /** (P3, I-P3-3) 对称破缺引擎（symmetryBreaking.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly symmetry?: SymmetryBreakingEngine | undefined;
-  /** (P3, I-P3-4) 禁闭色荷引擎（confinement.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
-  readonly confinementEngine?: ConfinementEngine | undefined;
-}
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+export type { ResolvedConfig };
 
 /** 子智能体端口种子（缺 tools，待注册表构造完成后回填）。 */
 export type SubagentPortSeed = Omit<SubagentPortsShape, 'tools'> & {

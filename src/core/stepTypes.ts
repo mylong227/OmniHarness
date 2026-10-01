@@ -9,8 +9,8 @@ import type { EnforcementMode } from '../security/enforcementModeResolver.js';
 import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
-import type { ToolGate } from './toolGate.js';
-import type { ToolHookRunner } from './toolHookRunner.js';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
+import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
 import type { ToolDiscovery } from '../search/toolDiscovery.js';
@@ -43,7 +43,7 @@ export interface StepRunnerDeps {
   /** 额外常驻系统片段（可选）。 */
   readonly fragments?: readonly string[] | undefined;
   /** 工具钩子运行器（可选）：pre/post 拦截与审计。 */
-  readonly hooks?: ToolHookRunner | undefined;
+  readonly hooks?: ToolHookRunnerPort | undefined;
   /** 外溢器（#74）：超大工具输出入历史前先落后端，只留有界预览。 */
   readonly spiller?: ToolResultSpiller | undefined;
   /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核 in-process；内核不可用由 createRuntime 置空以回退 JS。 */
@@ -58,7 +58,7 @@ export interface StepRunnerDeps {
    * 统一门禁（审批 + 沙箱 + 计划态）。不传则由 approvals/sandbox 造默认，
    * 但会丢失计划门禁——运行时装配应传入 `runtime.gate`（plan-aware）。
    */
-  readonly gate?: ToolGate | undefined;
+  readonly gate?: ToolGatePort | undefined;
   /** 航天级监督内核（I-P0-3，可选）：工具执行成败上报此端口，驱动健康监控与 Safe mode 分级降级。 */
   readonly supervisor?: SupervisorPort | undefined;
   /**
