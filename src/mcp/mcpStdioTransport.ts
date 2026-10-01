@@ -4,16 +4,8 @@ import { LineTransport, type Transport } from '../server/transport/lineTransport
 import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.js';
 import { log } from '../util/logger.js';
 
-/**
- * @beta
- * 外部 MCP 服务器启动参数。
- */
-export interface McpStdioServerOptions {
-  readonly command: string;
-  readonly args?: readonly string[];
-  readonly env?: Record<string, string>;
-  readonly cwd?: string;
-}
+import type { McpStdioServerOptions } from '../ports/mcp/mcpStdioServerOptions.js';
+export type { McpStdioServerOptions };
 
 /**
  * @beta

@@ -1,4 +1,4 @@
-import type { McpStdioServerOptions } from '../../mcp/mcpStdioTransport.js';
+import type { McpStdioServerOptions } from './mcpStdioServerOptions.js';
 
 /**
  * @beta
