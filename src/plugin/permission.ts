@@ -4,6 +4,7 @@
  * 插件通过 `meta.permissions` 声明其所需能力，`PermissionGate` 依白名单校验，
  * 未声明或超白名单的能力一律拒绝（fail-closed）。权限名采用 `域.动作` 两级命名。
  */
+import type { PluginPermission } from '../ports/plugin/pluginPermission.js';
 
 /**
  * Permission —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -22,17 +23,7 @@ export class Permission {
  * @beta
  * 插件可声明的权限范围（`域.动作`）。
  */
-export type PluginPermission =
-  | 'fs.read'
-  | 'fs.write'
-  | 'fs.delete'
-  | 'net.connect'
-  | 'net.listen'
-  | 'proc.exec'
-  | 'env.read'
-  | 'env.write'
-  | 'store.read'
-  | 'store.write';
+export type { PluginPermission } from '../ports/plugin/pluginPermission.js';
 
 /**
  * @beta
