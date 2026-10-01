@@ -19,8 +19,8 @@
  * 且判分脚本在「工作目录 = `/app`、`$TEST_DIR` = 判分脚本目录」的环境里跑。
  * 本适配器把这三件事逐条原生复现，而不是去模拟某个运行时：
  *
- * ① **一次性 / 可回收**：{@link ExecutionBackend.prepare} 为每个任务开一个独立目录树，
- *    {@link ExecutionBackend.teardown} 整棵删除。源任务目录在整轮评测里**只读**——
+ * ① **一次性 / 可回收**：{@link TerminalBenchExecutionBackend.prepare} 为每个任务开一个独立目录树，
+ *    {@link TerminalBenchExecutionBackend.teardown} 整棵删除。源任务目录在整轮评测里**只读**——
  *    这条不变量保证同批任务可重复跑、结果可第三方复算。
  * ② **环境自足**：Python 用户态由 `uv` 现场重建（{@link PythonEnvironmentProvisioner}），
  *    任务依赖与版本取 `env.json`（缺失时取 `.python-version` / `requirements.txt` /
@@ -111,7 +111,7 @@ export interface PreparedTask {
  * - `runCommand` 必须**有界**：超时必须终止子进程并返回，绝不无限等待。
  * - `teardown` 幂等；回收失败不得让整轮评测失败（只记警告）。
  */
-export interface ExecutionBackend {
+export interface TerminalBenchExecutionBackend {
   /** 后端名（用于报告区分与可观测，如 `native`）。 */
   readonly name: string;
   /**
@@ -214,7 +214,7 @@ export interface SolverInput {
   /** 任务元信息。 */
   readonly task: TerminalBenchTask;
   /** 执行后端（命令都经它执行，不直连宿主）。 */
-  readonly backend: ExecutionBackend;
+  readonly backend: TerminalBenchExecutionBackend;
   /** 预算约束。 */
   readonly budget: BenchmarkBudget;
   /** 本次任务的一次性执行上下文（`backend.prepare` 的返回值）。 */
@@ -291,7 +291,7 @@ export interface AgentRunnerInput {
   /** 待求解任务。 */
   readonly task: TerminalBenchTask;
   /** 执行后端（供 Agent 执行命令）。 */
-  readonly backend: ExecutionBackend;
+  readonly backend: TerminalBenchExecutionBackend;
   /** 预算约束。 */
   readonly budget: BenchmarkBudget;
   /** 本次任务的一次性执行上下文（Agent 的落点，不是源任务目录）。 */

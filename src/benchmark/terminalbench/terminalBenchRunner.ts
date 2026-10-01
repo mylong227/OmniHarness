@@ -6,7 +6,7 @@
  * 使 OmniHarness 与 grep 基线走同一计分口径。
  *
  * 三条关键纪律（都是 2026-09-19 重写时补上的）：
- *  ① **执行只发生在一次性上下文里**，源任务目录全程只读（见 {@link ExecutionBackend} 的契约）。
+ *  ① **执行只发生在一次性上下文里**，源任务目录全程只读（见 {@link TerminalBenchExecutionBackend} 的契约）。
  *  ② **环境失败与能力失败分账**：机器级不可用、准备失败、判分未真正启动，一律记 `envError`，
  *     计分时从分母剔除并单独报「有效解题率」——环境噪声不得伪装成「模型没做出来」。
  *  ③ **映射启用时强制串行**：容器内 `/app` 是全机唯一名字，后端会如实通告
@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { ParallelMap } from '../../util/parallelMap.js';
 import type {
   BenchmarkBudget,
-  ExecutionBackend,
+  TerminalBenchExecutionBackend,
   JudgeOutcome,
   PreparedTask,
   Solver,
@@ -34,7 +34,7 @@ export interface SuiteConfig {
   /** Terminal-Bench tasks 根目录（其下每子目录为一个任务）。 */
   readonly tasksRoot: string;
   /** 执行后端。 */
-  readonly backend: ExecutionBackend;
+  readonly backend: TerminalBenchExecutionBackend;
   /** Solver（OmniHarness 或 grep 基线）。 */
   readonly solver: Solver;
   /** 判分器（通常 `new PytestJudge(backend)`）。 */
@@ -127,7 +127,7 @@ export class TerminalBenchRunner {
    */
   private static async runOne(
     task: TerminalBenchTask,
-    backend: ExecutionBackend,
+    backend: TerminalBenchExecutionBackend,
     solver: Solver,
     judge: TaskJudge,
     budget: BenchmarkBudget,
@@ -243,13 +243,13 @@ export class TerminalBenchRunner {
   /**
    * 问后端「本机能不能跑」（可选能力，鸭子类型探测；未实现视为可用）。
    *
-   * 为什么不放进 {@link ExecutionBackend} 接口：这是一个**可选**能力
+   * 为什么不放进 {@link TerminalBenchExecutionBackend} 接口：这是一个**可选**能力
    * （远程/托管后端天然没有「本机缺 uv」这回事），强制实现只会逼出空实现。
    *
    * @param backend 执行后端
    * @returns 不可用原因；可用时为 null
    */
-  private static backendUnavailableReason(backend: ExecutionBackend): string | null {
+  private static backendUnavailableReason(backend: TerminalBenchExecutionBackend): string | null {
     return TerminalBenchRunner.callOptional(backend, 'unavailableReason') ?? null;
   }
 
@@ -259,7 +259,7 @@ export class TerminalBenchRunner {
    * @param backend 执行后端
    * @returns 必须串行时为 true
    */
-  private static codeBackendRequiresSerial(backend: ExecutionBackend): boolean {
+  private static codeBackendRequiresSerial(backend: TerminalBenchExecutionBackend): boolean {
     return TerminalBenchRunner.callOptional(backend, 'requiresSerialExecution') === true;
   }
 
@@ -270,13 +270,16 @@ export class TerminalBenchRunner {
    * @param method 方法名
    * @returns 返回值；不可用时为 undefined
    */
-  private static callOptional<T>(backend: ExecutionBackend, method: string): T | undefined {
+  private static callOptional<T>(
+    backend: TerminalBenchExecutionBackend,
+    method: string,
+  ): T | undefined {
     const fn = (backend as unknown as Record<string, unknown>)[method];
     if (typeof fn !== 'function') {
       return undefined;
     }
     try {
-      return (fn as (this: ExecutionBackend) => T).call(backend);
+      return (fn as (this: TerminalBenchExecutionBackend) => T).call(backend);
     } catch {
       return undefined;
     }

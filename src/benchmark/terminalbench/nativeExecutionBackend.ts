@@ -27,7 +27,12 @@
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join, parse as parsePath } from 'node:path';
-import type { CommandOutcome, ExecutionBackend, PreparedTask, TerminalBenchTask } from './types.js';
+import type {
+  CommandOutcome,
+  TerminalBenchExecutionBackend,
+  PreparedTask,
+  TerminalBenchTask,
+} from './types.js';
 import type { TaskEnvironment } from './taskEnvironmentReader.js';
 import { TaskSeeder } from './taskSeeder.js';
 import { AppRootMapper } from './appRootMapper.js';
@@ -69,7 +74,7 @@ const APP_DIR_NAME = 'app';
 const TESTS_DIR_NAME = 'tests';
 
 /** 原生执行后端。 */
-export class NativeExecutionBackend implements ExecutionBackend {
+export class NativeExecutionBackend implements TerminalBenchExecutionBackend {
   /** 后端名（写入报告）。 */
   public readonly name = 'native';
 
