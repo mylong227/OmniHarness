@@ -1,4 +1,5 @@
 import type { SandboxPort } from '../../ports/runtime/sandbox.js';
+import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.js';
 import { PassthroughSandbox } from './passthroughSandbox.js';
 import { PolicySandbox } from './policySandbox.js';
 import { RestrictedSandbox } from './restrictedSandbox.js';
@@ -8,9 +9,7 @@ import { LinuxUnshareSandbox } from './linuxUnshareSandbox.js';
 import { LinuxLandlockSandbox } from './linuxLandlockSandbox.js';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.js';
 
-/** 沙箱后端 profile 名（G4 多后端切换）。 */
-export type SandboxProfile =
-  'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap' | 'unshare';
+export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.js';
 
 /**
  * 沙箱多后端注册表（G4）：按 profile 名选后端，新后端即插即用。
