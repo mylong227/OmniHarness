@@ -14,7 +14,7 @@
  */
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AgentRunner, BenchmarkBudget, Solver } from './types.js';
+import type { BenchmarkAgentRunner, BenchmarkBudget, Solver } from './types.js';
 import { TerminalBenchRunner } from './terminalBenchRunner.js';
 import { NativeExecutionBackend } from './nativeExecutionBackend.js';
 import { PytestJudge } from './pytestJudge.js';
@@ -206,7 +206,7 @@ export class TerminalBenchCli {
    *
    * @returns 永不 resolve（抛错）
    */
-  private static readonly failClosedRunner: AgentRunner = () => {
+  private static readonly failClosedRunner: BenchmarkAgentRunner = () => {
     throw new Error(
       'OmniSolver 未注入真实 Agent 运行时。请编写自定义脚本：import { OmniSolver } from ".../omniSolver.js"; OmniSolver.create(realRunner)，再调用 TerminalBenchRunner.run(...)',
     );
