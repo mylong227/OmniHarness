@@ -1,34 +1,13 @@
-/** JSON-RPC 2.0 请求。 */
-export interface RpcRequest {
-  readonly jsonrpc: '2.0';
-  readonly id: number | string;
-  readonly method: string;
-  readonly params?: Record<string, unknown> | undefined;
-}
+import type { RpcRequest } from '../../ports/server/rpcRequest.js';
+import type { RpcResponse } from '../../ports/server/rpcResponse.js';
+import type { RpcNotification } from '../../ports/server/rpcNotification.js';
+import type { RpcMessage } from '../../ports/server/rpcMessage.js';
 
-/** JSON-RPC 2.0 响应。 */
-export interface RpcResponse {
-  readonly jsonrpc: '2.0';
-  readonly id: number | string;
-  readonly result?: unknown;
-  readonly error?: RpcError;
-}
-
-/** JSON-RPC 2.0 通知（无 id）。 */
-export interface RpcNotification {
-  readonly jsonrpc: '2.0';
-  readonly method: string;
-  readonly params?: Record<string, unknown>;
-}
-
-/** JSON-RPC 2.0 错误。 */
-export interface RpcError {
-  readonly code: number;
-  readonly message: string;
-}
-
-/** 统一消息类型。 */
-export type RpcMessage = RpcRequest | RpcResponse | RpcNotification;
+export type { RpcRequest } from '../../ports/server/rpcRequest.js';
+export type { RpcResponse } from '../../ports/server/rpcResponse.js';
+export type { RpcNotification } from '../../ports/server/rpcNotification.js';
+export type { RpcError } from '../../ports/server/rpcError.js';
+export type { RpcMessage } from '../../ports/server/rpcMessage.js';
 
 /**
  * JSON-RPC 协议工具。
