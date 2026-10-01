@@ -11,33 +11,15 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
+import type { Routine } from '../ports/daemon/routine.js';
+import type { RoutineModelAdapter } from '../ports/daemon/routineModelAdapter.js';
+import type { RoutineSchedule } from '../ports/daemon/routineSchedule.js';
 
 /**
- * @beta
- * 定时任务可用的模型适配器：直接复用端口层唯一清单推导出的联合类型
- * （本处曾手写一份同样的 5 元联合，与 `CliArgs` / `FileConfig` / 校验白名单重复；见 §3.4 收口）。
+ * 定时任务相关契约（唯一声明见 `src/ports/daemon/`：`routine.ts` / `routineModelAdapter.ts` /
+ * `routineSchedule.ts`；此处为原路径再导出，调用点零改动）。
  */
-export type RoutineModelAdapter = ModelAdapterId;
-
-/**
- * @beta
- */
-export type RoutineSchedule =
-  | { readonly kind: 'interval'; readonly minutes: number }
-  | { readonly kind: 'cron'; readonly expr: string };
-
-/**
- * @beta
- */
-export interface Routine {
-  readonly name: string;
-  readonly prompt: string;
-  readonly modelAdapter: RoutineModelAdapter;
-  readonly schedule: RoutineSchedule;
-  /** 上次执行时间戳（ms）；未执行过为 undefined。 */
-  readonly lastRun?: number | undefined;
-}
+export type { Routine, RoutineModelAdapter, RoutineSchedule };
 
 /** 把单段 cron 字段（如「每5分」「1-3,9」「任意」）展开为命中的数值集合。 */
 
