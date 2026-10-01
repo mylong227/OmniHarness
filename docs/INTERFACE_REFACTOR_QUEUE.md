@@ -150,6 +150,33 @@ node scripts/architectureGate.mjs        # 架构门禁：[5] 节即依赖环现
 - 混装文件 294 个：逐个判断该 `interface` 是「跨模块契约」（→ 迁 ports）还是「实现细节」（→ 降为文件私有）。
   **本批不机械执行**，逐个看，`--queue` 的 Batch A/B 两张表都不含它们即为已判定为域内细节。
 
+#### Batch D 收尾记录（2026-10-01）
+
+Batch A / B / C 全部完成，`--queue` 实测：
+
+- **Batch A** `src/ports/**` 内部拆分：**0 文件 / 0 接口**（已清零，单接口文件 275 个合规）。
+- **Batch B** `ports` 外跨模块接口迁入：**8 接口 / 6 文件**，且**全部被 `arch:gate [3.5]` 禁边**
+  （接口体引用 `core`/`adapters`/`config`/`composition`），属「须先解耦再迁」，**本批不机械迁入**，
+  留作独立的解耦重构（改名 / 抽端口），与逐接口提取分开推进：
+  - `config`：`ResolvedConfig`(configFactory.ts:441)、`ExtraTool`(configFactory.ts:435)、
+    `OmniHarnessConfig`(configFactory.ts:116，传递引用 `ExtraTool`)；
+  - `security`：`SsrfPolicy`(ssrfPolicy.ts:119，类/接口同名合并，改名类会破调用点)；
+  - `composition`：`OmniHarnessRuntime`(runtime.ts:172)；
+  - `genesis`：`SparkEngines`(operators.ts:138)；
+  - `mcp`：`McpServerOptions`(mcpServer.ts:41，引用 `core.ToolGate`)；
+  - `plugin`：`PluginApplyContext`(pluginApplyContext.ts:12)。
+- **Batch C** 重名冲突：**0 组**（SsrfPolicyConfig 合并、AgentRunner/ExecutionBackend 改名均已于前序完成）。
+- **混装文件 279 个（294 → 279）**：逐个判定结论——
+  - 其中 **6 个**含上述 Batch B 的 8 个跨模块接口（同文件内 `class`+`interface` 同居），判为
+    「跨模块契约但被 [3.5] 阻断」→ 暂缓，随解耦重构处理；
+  - 其余 **273 个**的 `interface`/`type` 均未出现在 Batch A/B 队列（即无域外引用者），按协议判据
+    判为**「实现细节 / 域内共享」→ 不迁、降为文件私有或保持域内，本批零改动**。
+  - 故 279 混装文件**无需机械提取**；`ports` 外非跨模块类型 624 个（域内共享 516 + 文件私有 108）同口径不迁。
+- 依赖环：恒 **6 组 / 0 运行时**（全部类型环，存量白名单），重构全程未新增环。
+- **`docs/PORTS_CONTRACT.md` 文件名约定已更新**：明确「每接口一 camelCase 文件 + 原文件留桶」并说明桶文件存在（见该文档 §1 末段）。
+
+> 结论：接口层重构（Batch A/B/C + 可迁项）已收口；余数仅为 [3.5] 阻断项，需另起解耦重构批次，不在本队列机械执行范围内。
+
 ## 5. 单文件验收协议（每个文件改完必跑，全绿才算收尾）
 
 ```bash
