@@ -177,6 +177,32 @@ Batch A / B / C 全部完成，`--queue` 实测：
 
 > 结论：接口层重构（Batch A/B/C + 可迁项）已收口；余数仅为 [3.5] 阻断项，需另起解耦重构批次，不在本队列机械执行范围内。
 
+#### Batch B [3.5] 阻断项解耦收尾（2026-10-01，全部 8 接口已迁入 ports）
+
+上表 §4 登记的 8 个 `arch:gate [3.5]` 阻断接口，经「解耦重构批次」已全部外迁到 `src/ports/**`，
+原文件退化为桶再导出（调用点零改动，R3），每笔提交均经 pre-commit 门禁全绿：
+
+| 接口（原域）                                                                | 外迁目标                                      | 提交      | 动作                       |
+| --------------------------------------------------------------------------- | --------------------------------------------- | --------- | -------------------------- |
+| `ExtraTool`（config）                                                       | `src/ports/tool/extraTool.ts`                 | `fcc8280` | 原文件退化纯桶             |
+| `SsrfPolicy`（security）                                                    | `src/ports/security/ssrfPolicy.ts`            | `d06870f` | 原名合并，类/接口解耦      |
+| `OmniHarnessConfig` / `SelfVerifyConfig` / `DecisionEngineConfig`（config） | `src/ports/config/*.ts`                       | `ce3916f` | 三配置接口外迁，桶再导出   |
+| `ToolGatePort`（runtime，抽端口契约）                                       | `src/ports/runtime/toolGatePort.ts`           | `32978d5` | 解耦 `core.ToolGate` 依赖  |
+| `McpServerOptions`（mcp）                                                   | `src/ports/mcp/mcpServerOptions.ts`           | `32978d5` | 外迁，桶再导出             |
+| `ContainerPort`（runtime，抽端口契约）                                      | `src/ports/runtime/containerPort.ts`          | `46d58c5` | 解耦 `core` 容器依赖       |
+| `PluginApplyContext`（plugin）                                              | `src/ports/plugin/pluginApplyContext.ts`      | `46d58c5` | 外迁，桶再导出             |
+| `SparkEngines`（genesis）                                                   | `src/ports/genesis/sparkEngines.ts`           | `a8e211e` | 字段统一引擎端口，桶再导出 |
+| `ResolvedConfig`（config）                                                  | `src/ports/config/resolvedConfig.ts`          | `4c6c6cc` | 字段统一端口契约，桶再导出 |
+| `OmniHarnessRuntime`（composition）                                         | `src/ports/composition/omniHarnessRuntime.ts` | `4c6c6cc` | 字段统一端口契约，桶再导出 |
+
+- 8 个 `[3.5]` 阻断接口已清零；`ports/**` 不再 import `core` / `adapters` / `config` / `composition`
+  （`arch:gate` 实测 0 违规，`audit:standard:delta` 增量 0）。
+- 下游消费者（core 三层：`stepTypes` / `stepToolExecutor` / `turnRunner`）已改依赖端口契约；
+  `TurnDiffTrackerPort` 扩 `changedCount` / `getUnifiedDiff()` / `reset()` 三成员以覆盖 `TurnRunner` 使用面。
+- 门禁（每笔提交均经 pre-commit 全绿，收尾复测亦全绿）：typecheck / lint / check --strict /
+  arch:gate / audit:maturity / audit:standard:delta / audit:config-wiring / build，零回归。
+- **结论**：Batch B「[3.5] 阻断项」已全部清偿，接口层重构队列（A / B / C / D）彻底收口。
+
 ## 5. 单文件验收协议（每个文件改完必跑，全绿才算收尾）
 
 ```bash
