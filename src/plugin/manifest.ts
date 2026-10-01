@@ -1,4 +1,5 @@
 import { DANGEROUS_PERMISSIONS, Permission, type PluginPermission } from './permission.js';
+import type { PluginManifest } from '../ports/plugin/pluginManifest.js';
 
 /**
  * Manifest —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -52,27 +53,7 @@ export class Manifest {
  * 吸收 DeepSeek Harness 的插件元数据思想，但字段自研、不引入 dsh 依赖。
  * 清单声明的权限必须在 `ALL_PERMISSIONS` 白名单内，否则安装/加载阶段 fail-closed 拒绝。
  */
-export interface PluginManifest {
-  /** 唯一名（小写连字符，如 github-tools）。 */
-  readonly name: string;
-  /** 语义化版本。 */
-  readonly version: string;
-  /** 一句话描述。 */
-  readonly description?: string;
-  /** 作者。 */
-  readonly author?: string;
-  /** 主页/源码地址。 */
-  readonly homepage?: string;
-  /**
-   * 声明权限（域.动作）。未声明=无能力。
-   * 加载时经 PermissionGate 校验，超白名单即拒绝（fail-closed）。
-   */
-  readonly permissions?: readonly string[];
-  /** 入口文件（相对插件目录），默认 index.js。 */
-  readonly entry?: string;
-  /** 来源标记，便于 UI/CLI 展示。 */
-  readonly source?: 'bundled' | 'local' | 'remote';
-}
+export type { PluginManifest } from '../ports/plugin/pluginManifest.js';
 
 /**
  * @beta

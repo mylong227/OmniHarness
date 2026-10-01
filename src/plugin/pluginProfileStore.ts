@@ -4,6 +4,8 @@ import type { FileConfig } from '../config/configFile.js';
 import type { PluginManager } from './pluginManager.js';
 import type { PluginRegistry } from './pluginRegistry.js';
 import { PluginLoader } from './pluginLoader.js';
+import type { PluginProfile } from '../ports/plugin/pluginProfile.js';
+import type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.js';
 
 /**
  * @beta
@@ -13,16 +15,7 @@ import { PluginLoader } from './pluginLoader.js';
  * 此处是**命名插件组合**：一份 profile = 一串插件名，激活后即把 Agent 的运行时插件集
  * 收敛为该集合，实现「一条命令切换编码/研究模式插件集」。
  */
-export interface PluginProfile {
-  /** 展示名（也用于生成文件名 id）。 */
-  readonly name: string;
-  /** 简介（可选）。 */
-  readonly description?: string;
-  /** 激活时应当加载的插件名列表（顺序无关）。 */
-  readonly plugins: readonly string[];
-  /** 可选 config 覆盖层（激活时浅合并进运行时配置，fail-closed 校验）。 */
-  readonly config?: Record<string, unknown>;
-}
+export type { PluginProfile } from '../ports/plugin/pluginProfile.js';
 
 /**
  * @beta
@@ -39,16 +32,7 @@ export interface PluginProfileSummary {
  * @beta
  * 激活结果。
  */
-export interface ApplyProfileResult {
-  /** 本次新加载的插件。 */
-  readonly activated: string[];
-  /** 本次卸载的插件。 */
-  readonly deactivated: string[];
-  /** 因 profile 引用而新安装的插件。 */
-  readonly installed: string[];
-  /** 无法解析（未找到/安装失败）的插件名。 */
-  readonly missing: string[];
-}
+export type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.js';
 
 /**
  * @beta
