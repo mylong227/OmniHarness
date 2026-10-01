@@ -20,6 +20,7 @@ const FAIL_CLOSED_ELEVATED_SANDBOX: SandboxPort = {
 import type { PlanPort } from '../ports/runtime/plan.js';
 import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
 import type { EscalationPort } from '../ports/runtime/escalation.js';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
 
 /**
  * @beta
@@ -45,7 +46,7 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set<string>(MUTATING_TOOL
  * @beta
  * 工具门禁：审批 + 沙箱 + 计划态三道门禁统一裁决（fail-closed，任意拒绝即拦截）。
  */
-export class ToolGate {
+export class ToolGate implements ToolGatePort {
   public constructor(
     /** 审批端口：策略层裁决（auto/rules/plan 白名单），deny 不升级直接拒绝。 */
     private readonly approvals: ApprovalPort,
@@ -217,3 +218,5 @@ export class ToolGate {
     return call.name;
   }
 }
+
+export type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
