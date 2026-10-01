@@ -8,19 +8,9 @@ import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
  */
 export const DEFAULT_GOAL_MAX_ITERATIONS = 10;
 
-/**
- * @beta
- * 自主目标循环选项。
- */
-export interface GoalRunnerOptions {
-  /** 最大迭代次数（默认 10）；每轮 = 一次回合推进 + 一次达成度判定。 */
-  readonly maxIterations?: number | undefined;
-  /**
-   * 父会话取消信号（可选）：置位后不再开启下一轮迭代（当前轮的在飞模型请求由
-   * 子代 runtime 的取消感知模型端口中止）。缺省 undefined＝不传播取消。
-   */
-  readonly signal?: AbortSignal | undefined;
-}
+import type { GoalRunnerOptions } from '../ports/autonomy/goalRunnerOptions.js';
+
+export type { GoalRunnerOptions } from '../ports/autonomy/goalRunnerOptions.js';
 
 /**
  * @beta
