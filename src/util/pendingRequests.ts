@@ -28,24 +28,11 @@
  * 唯一的例外由调用方造成且被显式记录：**同一 key 重复登记会覆盖旧条目**（见 {@link register}）。
  */
 
-/** 一条在途请求的收尾通道；`reject` 缺省表示该站点只关心成功路径。 */
-export interface PendingHandlers<T> {
-  /** 兑现该请求。 */
-  readonly resolve: (value: T) => void;
-  /** 失败该请求（缺省时失败路径只做清理，不通知调用方）。 */
-  readonly reject?: (error: Error) => void;
-}
+import type { PendingHandlers } from '../ports/util/pendingHandlers.js';
+import type { PendingTimeout } from '../ports/util/pendingTimeout.js';
 
-/**
- * 可选超时：到点后表**先移出条目并清定时器**，再把处理器交给 `onTimeout`，
- * 由调用方决定 reject（超时即错）或 resolve（如审批超时按 deny 兑现）。
- */
-export interface PendingTimeout<T> {
-  /** 超时毫秒数。 */
-  readonly ms: number;
-  /** 到点动作（此时条目已移出，回调内不必也不应再查表）。 */
-  readonly onTimeout: (handlers: PendingHandlers<T>) => void;
-}
+export type { PendingHandlers } from '../ports/util/pendingHandlers.js';
+export type { PendingTimeout } from '../ports/util/pendingTimeout.js';
 
 /** 表内条目：处理器 + 超时句柄（无超时时缺省）。 */
 interface PendingEntry<T> {
