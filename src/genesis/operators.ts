@@ -31,6 +31,7 @@ import type { ElementComposer } from '../adapters/skill/elementComposer.js';
 import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
 import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
 import type { ConfinementVerdict, CapabilityCharge } from '../ports/runtime/confinement.js';
+import type { RegimeSignals } from '../ports/genesis/regimeSignals.js';
 
 /**
  * Operators 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -131,14 +132,7 @@ export interface HarnessState {
   readonly successRate: number;
 }
 
-/** 工况信号（由运行时提取，交给 deriveRegime 映射为代数 Regime）。 */
-export interface RegimeSignals {
-  readonly entropy: number;
-  readonly modalityCount: number;
-  /** 成本压力 ∈ [0,1]（spent/budget）。 */
-  readonly costPressure: number;
-  readonly successRate: number;
-}
+export type { RegimeSignals } from '../ports/genesis/regimeSignals.js';
 
 /** 算子所需的真实引擎集合（镜像 SparkControllerOptions 的引擎字段）。 */
 export interface SparkEngines {
