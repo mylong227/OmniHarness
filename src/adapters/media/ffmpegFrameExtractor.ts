@@ -11,9 +11,9 @@ import type { MediaFrame, MediaKind, MediaProbeInfo } from '../../ports/media/me
 import type { MediaProbePort } from '../../ports/media/mediaProbe.js';
 import type { FfmpegLocator } from './ffmpegLocator.js';
 import type { MediaProcessOutcome, MediaProcessRunner } from './mediaProcessRunner.js';
+import type { VideoFrameFormat } from '../../ports/media/mediaTypes/videoFrameFormat.js';
 
-/** 输出格式（`jpeg` 体积小、适合连续色调；`png` 无损、适合含文字/UI 的录屏）。 */
-export type VideoFrameFormat = 'jpeg' | 'png';
+export type { VideoFrameFormat } from '../../ports/media/mediaTypes/videoFrameFormat.js';
 
 /** showinfo 的帧信息行（真实输出见 `tests/unit/frameTimestampParser.test.ts` 的样本）。 */
 const SHOWINFO_ENTRY = /(?:^|\s)n:\s*(\d+)\s+pts:\s*(-?\d+)\s+pts_time:(\S+)/g;
