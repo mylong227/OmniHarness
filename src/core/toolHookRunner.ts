@@ -1,8 +1,9 @@
 import type { ToolResult } from '../ports/tool/tool.js';
 import type { ToolHookContext, ToolHooks } from '../ports/tool/toolHook.js';
+import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';
 
 /** 工具钩子运行器：pre 依序、post 逆序（策略插件可拦截/改写/记录，权限即插件）。 */
-export class ToolHookRunner {
+export class ToolHookRunner implements ToolHookRunnerPort {
   /** 已注册的钩子组（注册序即 pre 执行序；post 逆序保证对称清理）。 */
   private readonly hooks: ToolHooks[] = [];
 
@@ -45,3 +46,5 @@ export class ToolHookRunner {
     }
   }
 }
+
+export type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';

@@ -1,5 +1,7 @@
 import type { ModelUsage, RoutePrice } from '../../ports/model/model.js';
 import { BudgetExceededError } from '../../ports/model/model.js';
+import type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.js';
+import type { CostBudgetPort } from '../../ports/model/costBudgetPort.js';
 import { DEFAULT_FALLBACK_PRICE } from './routePricing.js';
 
 /**
@@ -8,35 +10,6 @@ import { DEFAULT_FALLBACK_PRICE } from './routePricing.js';
  * 供上层「降级」决策（缩检索预算 / 收敛工具使用）而非直接熔断。
  */
 export const DEFAULT_SOFT_RATIO = 0.8;
-
-/**
- * @beta
- * 预算快照（供 budget_status 工具与事件上报）。
- */
-export interface BudgetSnapshot {
-  /** 硬预算上限（USD）。 */
-  readonly limitUsd: number;
-  /** 已累计花费（USD）。 */
-  readonly spentUsd: number;
-  /** 剩余额度（USD，下限 0）。 */
-  readonly remainingUsd: number;
-  /** 累计输入 token 数（含命中缓存的 prompt token）。 */
-  readonly totalPromptTokens: number;
-  /** 累计输出 token 数。 */
-  readonly totalCompletionTokens: number;
-  /** 累计命中「提示缓存」的 prompt token 数（P5；只统计已上报命中量的调用）。 */
-  readonly cachedPromptTokens: number;
-  /** 因缓存折抵而少记的花费（USD，P5；未提供缓存价时为 0）。 */
-  readonly savedUsd: number;
-  /** 软阈值金额（USD）= `softRatio × limitUsd`。 */
-  readonly softLimitUsd: number;
-  /** 是否已越过软阈值（P5）。 */
-  readonly softExceeded: boolean;
-  /** 是否已越过硬预算（熔断标记）。 */
-  readonly exceeded: boolean;
-  /** 是否建议降级（P5）= 已越软阈值但尚未硬熔断。 */
-  readonly degradeSuggested: boolean;
-}
 
 /**
  * @beta
@@ -58,7 +31,7 @@ export interface BudgetSnapshot {
  * 注意：单次调用的 token 数只能事后得知，故超支幅度以「单次调用成本」为上界，
  * 不会无限放大；若要在首调前就严格禁支，请把 `limitUsd` 设为正数且接受一次调用的上界。
  */
-export class CostBudget {
+export class CostBudget implements CostBudgetPort {
   /** 累计输入 token 数。 */
   private promptTokens = 0;
   /** 累计输出 token 数。 */
@@ -279,3 +252,7 @@ export class CostBudget {
     return Math.max(0, Math.min(cached, promptTokens));
   }
 }
+
+// `BudgetSnapshot` / `CostBudgetPort` 契约已外迁至 ports 层，此处仅再导出以维持公共 API 面零改动。
+export type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.js';
+export type { CostBudgetPort } from '../../ports/model/costBudgetPort.js';
