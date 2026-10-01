@@ -6,19 +6,11 @@
 // （native/omni_napi.node，GNU 工具链编译，无需 MSVC），不引入任何第三方 FFI 库。
 
 import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
+import type { NativeToolRunner } from '../ports/native/nativeToolRunner.js';
 import type { NativeDecision } from './nativeKernel.js';
 import { NativeKernel } from './nativeKernel.js';
 
-/**
- * @beta
- * 原生工具执行器最小面（便于测试注入 stub，解耦具体 NativeKernel）。
- */
-export interface NativeToolRunner {
-  /** 经 Rust 内核执行工具。内部失败（非业务拒绝）应抛错以触发 JS 回退。 */
-  runTool(call: ToolCall): ToolResult;
-  /** 经 Rust 内核批量估算消息 token 数（单次 FFI 往返）。可选，缺省回退 JS。 */
-  estimateTokens?(messages: readonly { content: string }[]): number;
-}
+export type { NativeToolRunner } from '../ports/native/nativeToolRunner.js';
 
 /**
  * 工具名别名桥（#72）：标准工具集的 JS 名 → Rust 内核出厂内置名。
