@@ -18,24 +18,9 @@ import { isIP } from 'node:net';
 import { EgressBlockedError } from './egressBlockedError.js';
 import { IpAddress } from '../../util/ipAddress.js';
 import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from '../../security/ssrfPolicy.js';
+import type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEgressOptions.js';
 
-/** 网络外联守卫配置。 */
-export interface NetworkEgressOptions {
-  /** 允许的主机后缀列表。 */
-  readonly allowedHosts: readonly string[];
-  /**
-   * 是否拦截私有/链路本地地址（SSRF 防护，默认 true）。
-   * 即使主机在白名单内，命中私有网段/云元数据 IP 也一律拒绝——白名单不能覆盖 SSRF。
-   * 仅当调用方明确信任本地环路场景时才置 false（如仅允许 localhost 调试）。
-   */
-  readonly blockPrivateRanges?: boolean;
-  /**
-   * SSRF 策略表（可配置）：元数据主机 / 内网域名后缀 / IPv4 网段。缺省用默认档。
-   * 由组合根从配置解析后注入（
-esolveSsrfPolicy(config.ssrfPolicy)），与 SsrfGuard 同源。
-   */
-  readonly policy?: SsrfPolicy | undefined;
-}
+export type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEgressOptions.js';
 
 /** 主机是否命中私有/链路本地网段（SSRF 高危）。 */
 
