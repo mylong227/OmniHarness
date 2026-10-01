@@ -1,8 +1,7 @@
 import { builtinDefaults } from '../util/builtinDefaults.js';
 import type { ProviderPresetConfig } from '../ports/config/providerPresetConfig.js';
-
-/** 厂商预设（运行时视图）：与 `defaults/providers.json` 记录、配置段 `providerPresets` 同形。 */
-export type ProviderPreset = ProviderPresetConfig;
+import type { ProviderPreset } from '../ports/config/providerPreset.js';
+export type { ProviderPreset };
 
 /** 单条预设允许出现的 key 全集（多余 key 一律拒绝——拼错字段会被静默忽略才最危险）。 */
 const PRESET_KEYS: ReadonlySet<string> = new Set([
