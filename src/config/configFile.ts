@@ -5,6 +5,7 @@ import { profileLoader } from './profileLoader.js';
 import type { ProviderAdapterId, ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { SkillEntry } from '../skill/skill.js';
 import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
+import type { SsrfPolicyConfig } from '../security/ssrfPolicy.js';
 import { ConfigError } from './configError.js';
 
 /** 配置文件里的 MCP 服务器声明。 */
@@ -43,15 +44,11 @@ export interface PermissionRuleConfig {
 /**
  * `ssrfPolicy` 段（用户指令，2026-09-22）：把原先硬编码的 SSRF 策略表移入配置。
  * 三个字段均可缺省（缺省即回落默认表）；**显式给空数组**表示清空该项（显式且危险，故不静默）。
+ *
+ * 该契约的**唯一声明**位于 `src/security/ssrfPolicy.ts`（与 `resolveSsrfPolicy` 实现同源）；
+ * 此处为配置层提供再导出，调用点零改动。
  */
-export interface SsrfPolicyConfig {
-  /** 云元数据主机清单（覆盖默认表）。 */
-  readonly metadataHosts?: readonly string[];
-  /** 内网/本机域名后缀清单（必须以 "." 开头）。 */
-  readonly internalSuffixes?: readonly string[];
-  /** IPv4 私有/保留网段（形如 `[["10.0.0.0", 8]]`）。 */
-  readonly ipv4Blocks?: readonly (readonly [string, number])[];
-}
+export type { SsrfPolicyConfig };
 
 export interface PermissionConfig {
   /** 用户自定义规则（与内置规则合并，聚合语义 deny 优先）。 */
