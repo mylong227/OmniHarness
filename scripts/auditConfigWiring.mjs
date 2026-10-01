@@ -233,7 +233,7 @@ export function audit(tree, io = {}) {
   const violations = [];
   const factory = tree.get('src/config/configFactory.ts') ?? '';
   const errText = tree.get('src/config/configError.ts') ?? '';
-  const fileCfgText = tree.get('src/config/configFile.ts') ?? '';
+  const fileCfgText = tree.get('src/ports/config/fileConfig.ts') ?? '';
   const flagTable = tree.get('src/cli/cliFlagTable.ts') ?? '';
   const argParser = tree.get('src/cli/argParser.ts') ?? '';
 
@@ -285,7 +285,12 @@ export function audit(tree, io = {}) {
   // I3 文件键已承认（禁幽灵键）
   const declared = new Set(cfgFields);
   for (const [p, t] of tree.entries()) {
-    if (!p.startsWith('src/config/') && !p.startsWith('src/cli/')) continue;
+    if (
+      !p.startsWith('src/config/') &&
+      !p.startsWith('src/ports/config/') &&
+      !p.startsWith('src/cli/')
+    )
+      continue;
     for (const m of t.matchAll(/^\s*(?:readonly\s+)?([A-Za-z0-9_]+)\??\s*:/gm)) declared.add(m[1]);
   }
   for (const k of [...expandKnownKeys(errText), ...keyAliasValues(errText)]) {

@@ -1,5 +1,5 @@
 import { builtinDefaults } from '../util/builtinDefaults.js';
-import type { ProviderPresetConfig } from './configFile.js';
+import type { ProviderPresetConfig } from '../ports/config/providerPresetConfig.js';
 
 /** 厂商预设（运行时视图）：与 `defaults/providers.json` 记录、配置段 `providerPresets` 同形。 */
 export type ProviderPreset = ProviderPresetConfig;
