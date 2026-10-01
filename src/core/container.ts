@@ -1,5 +1,7 @@
+import type { ContainerPort } from '../ports/runtime/containerPort.js';
+
 /** 服务容器：注册/覆盖/获取任意端口实现（定制接入的入口）。 */
-export class Container {
+export class Container implements ContainerPort {
   /** 服务注册表（key → 实例），定制接入的端口实现都挂在这里。 */
   private readonly services = new Map<string, unknown>();
 
@@ -50,3 +52,5 @@ export class Container {
     return this.services.has(key);
   }
 }
+
+export type { ContainerPort } from '../ports/runtime/containerPort.js';
