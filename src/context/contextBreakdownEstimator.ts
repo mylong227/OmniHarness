@@ -4,6 +4,8 @@ import type {
   ModelMessage,
 } from '../ports/model/model.js';
 import type { ToolDefinition } from '../ports/tool/tool.js';
+import type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.js';
+import type { ContextBreakdown } from '../ports/context/contextBreakdown.js';
 import { TokenEstimator } from './tokenEstimator.js';
 
 /**
@@ -41,17 +43,7 @@ const SKILL_MARKER = '# 技能：';
 /** 每条消息的角色/协议固定开销（与 `TokenEstimator.estimateMessages` 的 +4 保持同口径）。 */
 const MESSAGE_OVERHEAD_TOKENS = 4;
 
-/** 单行分类占比。 */
-export interface ContextBreakdownRow {
-  /** 分类键。 */
-  readonly key: ContextCategoryKey;
-  /** 分类展示名（取自 CONTEXT_CATEGORIES）。 */
-  readonly label: string;
-  /** 该类估算 token 数。 */
-  readonly tokens: number;
-  /** 占**已用上下文**的百分比（0–100，一位小数）。与窗口占比是两回事：本字段各行之和不含余量。 */
-  readonly percent: number;
-}
+export type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.js';
 
 /** 估算输入。 */
 export interface ContextBreakdownInput {
@@ -65,21 +57,7 @@ export interface ContextBreakdownInput {
   readonly windowTokens: number;
 }
 
-/** 估算结果。 */
-export interface ContextBreakdown {
-  /** 上下文窗口 token 数。 */
-  readonly windowTokens: number;
-  /** 已用 token 数（各行之和）。 */
-  readonly usedTokens: number;
-  /** 已用占窗口百分比（0–100，一位小数）。 */
-  readonly percent: number;
-  /** 分类明细（按 CONTEXT_CATEGORIES 顺序，含 0 值行）。 */
-  readonly rows: readonly ContextBreakdownRow[];
-  /** MCP 工具条数（诊断用）。 */
-  readonly mcpToolCount: number;
-  /** 系统工具条数（诊断用）。 */
-  readonly systemToolCount: number;
-}
+export type { ContextBreakdown } from '../ports/context/contextBreakdown.js';
 
 /**
  * 上下文容量分解器。
