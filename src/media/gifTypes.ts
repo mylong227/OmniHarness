@@ -14,6 +14,8 @@
  * - `2` 还原为背景（本实现＝清空为透明）
  * - `3` 还原为上一帧绘制前的状态
  */
+import type { GifDecodedFrame } from '../ports/media/gifDecodedFrame.js';
+
 export type GifDisposalMethod = 0 | 1 | 2 | 3;
 
 /**
@@ -59,53 +61,11 @@ export interface GifColorTableRef {
   writeRgba(target: Uint8Array, offset: number, index: number): void;
 }
 
-/** 已解码的一帧（RGBA 像素 + 它在动画中的时间点）。 */
-export interface GifDecodedFrame {
-  /** 画布像素（宽 × 高 × 4，RGBA，非预乘）。 */
-  readonly rgba: Uint8Array;
-  /** 画布宽度。 */
-  readonly width: number;
-  /** 画布高度。 */
-  readonly height: number;
-  /** 该帧显示时长（毫秒）。 */
-  readonly delayMs: number;
-  /** 该帧在动画中的起始时间（毫秒，自 0 累加）。 */
-  readonly timestampMs: number;
-  /** 该帧在源中的序号（0 起，**不等同于** `frames` 数组下标——后者只含被选中的帧）。 */
-  readonly sourceIndex: number;
-}
+export type { GifDecodedFrame } from '../ports/media/gifDecodedFrame.js';
 
-/** 帧时间轴条目（**不含像素**，故逐帧收集也不占内存）。 */
-export interface GifFrameTiming {
-  /** 源中的帧序号（0 起）。 */
-  readonly sourceIndex: number;
-  /** 该帧起始时间（毫秒，自 0 累加）。 */
-  readonly timestampMs: number;
-  /** 该帧显示时长（毫秒）。 */
-  readonly delayMs: number;
-}
+export type { GifFrameTiming } from '../ports/media/gifFrameTiming.js';
 
-/** 解码结果（含完整的结构统计，供探测与采样使用）。 */
-export interface GifAnimation {
-  /** 逻辑屏宽度。 */
-  readonly width: number;
-  /** 逻辑屏高度。 */
-  readonly height: number;
-  /** 循环次数（0＝无限）。 */
-  readonly loopCount: number;
-  /** 源中的**总帧数**（无论是否被选中）。 */
-  readonly frameCount: number;
-  /** 动画总时长（毫秒，按归一化后的帧延迟累加）。 */
-  readonly totalDurationMs: number;
-  /** 帧时间轴（长度等于已扫描帧数；`skipPixels` 模式下同样可用）。 */
-  readonly timeline: readonly GifFrameTiming[];
-  /** 被选中并解码的帧（按时间升序）。 */
-  readonly frames: readonly GifDecodedFrame[];
-  /** 因码流不完整而受损的帧数（如实上报，不静默）。 */
-  readonly damagedFrameCount: number;
-  /** 是否因 `stopAfterIndex` 而提前停止解码（此时结构统计为「至少这么多」，不是全量）。 */
-  readonly truncated: boolean;
-}
+export type { GifAnimation } from '../ports/media/gifAnimation.js';
 
 /** LZW 解码结果。 */
 export interface GifLzwResult {
