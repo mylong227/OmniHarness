@@ -6,6 +6,9 @@
  * 纯函数、零依赖（仅 ANSI 转义），便于单测与在 `interactive.ts` 中复用。
  */
 
+import type { TuiEvent } from '../ports/tui/tuiEvent.js';
+import type { TuiEventKind } from '../ports/tui/tuiEventKind.js';
+
 /** ANSI 颜色码（暗色终端友好，跟随终端主题）。 */
 const ANSI = {
   reset: '\x1b[0m',
@@ -208,18 +211,5 @@ export class TuiRenderer {
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const tuiRenderer = new TuiRenderer();
 
-/**
- * @beta
- */
-export type TuiEventKind =
-  'assistant' | 'tool_call' | 'tool_result' | 'turn_diff' | 'question' | 'error' | 'system';
-
-/**
- * @beta
- * 待渲染的事件（SessionEvent 的精简视图）。
- */
-export interface TuiEvent {
-  readonly kind: TuiEventKind;
-  readonly text: string;
-  readonly meta?: string;
-}
+export type { TuiEventKind } from '../ports/tui/tuiEventKind.js';
+export type { TuiEvent } from '../ports/tui/tuiEvent.js';
