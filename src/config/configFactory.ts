@@ -23,8 +23,8 @@ import type { StoragePort } from '../ports/memory/storage.js';
 import type { RetrievalPort } from '../ports/intelligence/retrieval.js';
 import type { EscalationPort } from '../ports/runtime/escalation.js';
 import type { SpillPort } from '../ports/memory/spill.js';
-import type { ToolDefinition, ToolPort } from '../ports/tool/tool.js';
-import type { ToolHandler } from '../adapters/tool/toolHandler.js';
+import type { ToolPort } from '../ports/tool/tool.js';
+import type { ExtraTool } from '../ports/tool/extraTool.js';
 import type { TurnDiffTracker } from '../core/turnDiffTracker.js';
 import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
@@ -431,12 +431,6 @@ export interface OmniHarnessConfig {
     | undefined;
 }
 
-/** 额外自定义工具（定制接入专用插口）。 */
-export interface ExtraTool {
-  readonly definition: ToolDefinition;
-  readonly handler: ToolHandler;
-}
-
 /** 解析后的配置：全部端口已填默认实现（ConfigFactory.build 的返回类型）。 */
 export interface ResolvedConfig extends OmniHarnessConfig {
   readonly approvals: ApprovalPort;
@@ -800,6 +794,8 @@ export class ConfigFactory {
     return adapter;
   }
 }
+
+export type { ExtraTool } from '../ports/tool/extraTool.js';
 
 // 成本预算（#S29）：设正数硬预算时构造单例，`BudgetedModel` 与 `budget_status` 工具共享
 // （含子代同一实例）。非正数 / 未设置即关闭。
