@@ -13,25 +13,12 @@
 import { type Cost, emptyCost, Algebra } from './algebra.js';
 import { type Regime } from './regimeCost.js';
 import { type ModalityKind } from './modalityPort.js';
-
-import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
-import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
-import type { MemoryAnnealer, AnnealStepReport } from '../ports/memory/memoryAnnealing.js';
-import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
-import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { ImmuneMonitorPort } from '../ports/intelligence/immune.js';
-import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
-import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
+import type { AnnealStepReport } from '../ports/memory/memoryAnnealing.js';
 import type { BeliefUpdateReport } from '../ports/intelligence/metacognition.js';
-import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
-import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
 import type { EtchConduction } from '../ports/memory/insightEtching.js';
-import type { ElementComposer } from '../adapters/skill/elementComposer.js';
-import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
-import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { ConfinementVerdict, CapabilityCharge } from '../ports/runtime/confinement.js';
+import type { ConfinementVerdict } from '../ports/runtime/confinement.js';
 import type { RegimeSignals } from '../ports/genesis/regimeSignals.js';
+import type { SparkEngines } from '../ports/genesis/sparkEngines.js';
 
 /**
  * Operators 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -134,29 +121,9 @@ export interface HarnessState {
 
 export type { RegimeSignals } from '../ports/genesis/regimeSignals.js';
 
-/** 算子所需的真实引擎集合（镜像 SparkControllerOptions 的引擎字段）。 */
-export interface SparkEngines {
-  readonly resonance?: ResonantMemoryPort | undefined;
-  readonly vortex?: VortexRingSpillAdapter | undefined;
-  readonly annealer?: MemoryAnnealer | undefined;
-  readonly web?: CosmicWebPort | undefined;
-  readonly qec?: QECEncoder | undefined;
-  readonly immune?: ImmuneMonitorPort | undefined;
-  readonly immuneSample?: (() => readonly number[]) | undefined;
-  readonly naturalGradient?: NaturalGradientBelief | undefined;
-  readonly particleFilter?: ParticleFilterBelief | undefined;
-  readonly beliefObservation?: (() => readonly number[]) | undefined;
-  readonly crispr?: CRISPRSkillEditor | undefined;
-  readonly crystallizer?: CapabilityCrystallizer | undefined;
-  readonly etching?: InsightEtchingEngine | undefined;
-  readonly etchProbe?: (() => string) | undefined;
-  readonly elementComposer?: ElementComposer | undefined;
-  readonly composeProbe?: (() => readonly string[]) | undefined;
-  readonly symmetry?: SymmetryBreakingEngine | undefined;
-  readonly symmetryProbe?: (() => readonly { capability: string; weight: number }[]) | undefined;
-  readonly confinement?: ConfinementEngine | undefined;
-  readonly confinementProbe?: (() => CapabilityCharge) | undefined;
-}
+// `SparkEngines` 契约已外迁至 `ports/genesis/sparkEngines.ts`（字段统一为 ports 层引擎端口，
+// 不再引用 `adapters/*` 具体实现）；此处仅再导出以维持公共 API 面零改动。
+export type { SparkEngines } from '../ports/genesis/sparkEngines.js';
 
 /** 算子执行结果（统一代数形态）。 */
 export interface HarnessOperatorResult {
