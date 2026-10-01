@@ -50,6 +50,7 @@ src/
 | `cli/`           | 接入层   | 命令行入口、参数解析、子命令                                                                                                               | `ports/**`、装配函数                          |
 | `sdk/`           | 接入层   | 嵌入方 SDK（WebSocket 流式客户端）                                                                                                         | `ports/**`                                    |
 | `mcp/`           | 协议域   | MCP 协议编解码、连接器、网关                                                                                                               | `ports/**`、`util/**`                         |
+| `media/`         | 呈现域   | 媒体类型契约（GIF 动画/帧时序、视频帧格式）                                                                                                | `ports/**`                                    |
 | `a2a/`           | 协议域   | A2A 互操作客户端/服务端/传输                                                                                                               | `ports/**`                                    |
 | `config/`        | 装配层   | 组合根：ConfigFactory + 各域装配函数 + 配置读写                                                                                            | `ports/**`、各实现（唯一 new 密集区）         |
 | `composition/`   | 装配层   | 运行时组合根：`createRuntime` / `OmniHarnessRuntime` / `ServiceKeys`（2026-09-22 由 `core/` 迁出——核心层不该持有装配知识与各实现的值导入） | `ports/**`、各实现（与 `config/` 同为装配层） |
