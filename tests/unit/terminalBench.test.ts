@@ -22,7 +22,7 @@ import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import type {
   CommandOutcome,
-  ExecutionBackend,
+  TerminalBenchExecutionBackend,
   JudgeOutcome,
   PreparedTask,
   Solver,
@@ -121,7 +121,7 @@ function makeRealTaskDir(root: string, name: string): string {
 }
 
 /** 假后端：不落盘、不 spawn，只按序返回预设结果。 */
-class FakeBackend implements ExecutionBackend {
+class FakeBackend implements TerminalBenchExecutionBackend {
   /** 后端名（固定 fake）。 */
   public readonly name = 'fake';
   /** runCommand 调用计数。 */

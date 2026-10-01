@@ -16,7 +16,7 @@
  * 把后者记成环境失败等于替模型开脱；把前者记成能力失败等于把机器问题算到模型头上。
  */
 import type { JudgeOutcome, PreparedTask, TaskJudge, TerminalBenchTask } from './types.js';
-import type { ExecutionBackend } from './types.js';
+import type { TerminalBenchExecutionBackend } from './types.js';
 
 /** 判分输出进报告的上限（字符）。 */
 const MAX_OUTPUT_CHARS = 4000;
@@ -27,12 +27,12 @@ export class PytestJudge implements TaskJudge {
   public readonly name = 'pytest';
 
   /** 执行后端（判分命令经它执行，不直连宿主）。 */
-  private readonly backend: ExecutionBackend;
+  private readonly backend: TerminalBenchExecutionBackend;
 
   /**
    * @param backend 执行后端。
    */
-  public constructor(backend: ExecutionBackend) {
+  public constructor(backend: TerminalBenchExecutionBackend) {
     this.backend = backend;
   }
 

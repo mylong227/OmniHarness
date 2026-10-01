@@ -80,7 +80,7 @@ export interface VerifiedTask {
 }
 
 /** 执行后端种类（native=本地 uv 重建环境；docker=官方预建镜像）。 */
-export type ExecutionBackend = 'native' | 'docker';
+export type SwebenchExecutionBackend = 'native' | 'docker';
 
 /** 单实例执行结果。 */
 export interface VerifiedResult {
@@ -89,7 +89,7 @@ export interface VerifiedResult {
   /** 官方 harness 是否判定 resolved（FAIL_TO_PASS 全过 且 PASS_TO_PASS 全过）。 */
   readonly resolved: boolean;
   /** 执行后端（native=本地 uv 重建；docker=官方预建镜像）。 */
-  readonly backend: ExecutionBackend;
+  readonly backend: SwebenchExecutionBackend;
   /** 未通过原因（resolved 时缺省）。 */
   readonly reason?: string | undefined;
   /**
@@ -105,7 +105,7 @@ export interface VerifiedReport {
   /** 来源数据集路径。 */
   readonly source: string;
   /** 执行后端（native=本地 uv 重建；docker=官方预建镜像）。 */
-  readonly backend: ExecutionBackend;
+  readonly backend: SwebenchExecutionBackend;
   /** 解析到的实例总数。 */
   readonly total: number;
   /** 已 resolved 数。 */
@@ -127,7 +127,7 @@ export interface VerifiedReport {
  */
 export interface ExecutorPort {
   /** 后端种类（native=本地 uv 重建；docker=官方预建镜像）。 */
-  readonly kind: ExecutionBackend;
+  readonly kind: SwebenchExecutionBackend;
   /**
    * 运行单实例：应用给定模型补丁，交由 pytest 判定 resolved。
    * @param task 归一化任务（含 repo/base_commit/version/测试清单）。

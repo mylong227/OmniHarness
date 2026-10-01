@@ -31,7 +31,7 @@ import { PytestJudge } from '../../src/benchmark/terminalbench/pytestJudge.js';
 import { TaskParser } from '../../src/benchmark/terminalbench/taskParser.js';
 import type {
   CommandOutcome,
-  ExecutionBackend,
+  TerminalBenchExecutionBackend,
   PreparedTask,
   TerminalBenchTask,
 } from '../../src/benchmark/terminalbench/types.js';
@@ -360,7 +360,7 @@ function taskOn(appDir: string, testsDir: string): TerminalBenchTask {
 }
 
 /** 假后端：只记录最后一次调用，不做任何真执行。 */
-class FakeRunBackend implements ExecutionBackend {
+class FakeRunBackend implements TerminalBenchExecutionBackend {
   /** 后端名。 */
   public readonly name = 'fake-run';
   /** 最后一次命令。 */
