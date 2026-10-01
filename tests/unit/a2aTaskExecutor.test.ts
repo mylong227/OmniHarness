@@ -4,7 +4,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { A2aTaskExecutor, type AgentRunner, type SubagentBuilder } from '../../src/a2a/a2aTaskExecutor.js';
+import {
+  A2aTaskExecutor,
+  type A2aAgentRunner,
+  type SubagentBuilder,
+} from '../../src/a2a/a2aTaskExecutor.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { MUTATING_TOOLS } from '../../src/core/toolGate.js';
 import type { OmniHarnessRuntime } from '../../src/composition/runtime.js';
@@ -43,7 +47,7 @@ test('受限工具子集：剔除 MUTATING_TOOLS（写类/危险工具不暴露�
     captured = tools;
     return {} as OmniHarnessRuntime;
   };
-  const runTask: AgentRunner = async () => ({ finalText: 'done', steps: 1 });
+  const runTask: A2aAgentRunner = async () => ({ finalText: 'done', steps: 1 });
   const ex = new A2aTaskExecutor(fakeRuntime(baseTools(), noopEvents), { buildSubagent, runTask });
   const result = await ex.handle({ taskId: 't1', task: 'do something' } as DelegateRequest);
   assert.strictEqual(result.ok, true);
@@ -60,10 +64,14 @@ test('受限工具子集：委托声明 tools 子集取交集（授权外工具�
     captured = tools;
     return {} as OmniHarnessRuntime;
   };
-  const runTask: AgentRunner = async () => ({ finalText: 'done', steps: 1 });
+  const runTask: A2aAgentRunner = async () => ({ finalText: 'done', steps: 1 });
   const ex = new A2aTaskExecutor(fakeRuntime(baseTools(), noopEvents), { buildSubagent, runTask });
   // 即便委托方声明了 write_file，受限视图仍须剔除（写类优先于授权）。
-  await ex.handle({ taskId: 't2', task: 'x', tools: ['read_file', 'write_file'] } as DelegateRequest);
+  await ex.handle({
+    taskId: 't2',
+    task: 'x',
+    tools: ['read_file', 'write_file'],
+  } as DelegateRequest);
   const exposed = captured!.list().map((d) => d.name);
   assert.deepStrictEqual(exposed, ['read_file'], '授权子集与「非写类」取交集');
 });
@@ -71,7 +79,7 @@ test('受限工具子集：委托声明 tools 子集取交集（授权外工具�
 test('并发闸门：默认上限 4，突发委托受有界（peak ≤ 上限）', async () => {
   let active = 0;
   let peak = 0;
-  const runTask: AgentRunner = async () => {
+  const runTask: A2aAgentRunner = async () => {
     active += 1;
     peak = Math.max(peak, active);
     await new Promise((r) => setTimeout(r, 40));
@@ -79,11 +87,14 @@ test('并发闸门：默认上限 4，突发委托受有界（peak ≤ 上限）
     return { finalText: 'ok', steps: 1 };
   };
   const buildSubagent: SubagentBuilder = () => ({}) as OmniHarnessRuntime;
-  const ex = new A2aTaskExecutor(
-    fakeRuntime(baseTools(), noopEvents),
-    { buildSubagent, runTask, maxConcurrency: 2 },
+  const ex = new A2aTaskExecutor(fakeRuntime(baseTools(), noopEvents), {
+    buildSubagent,
+    runTask,
+    maxConcurrency: 2,
+  });
+  const reqs = Array.from({ length: 6 }, (_, i) =>
+    ex.handle({ taskId: `c${i}`, task: 'x' } as DelegateRequest),
   );
-  const reqs = Array.from({ length: 6 }, (_, i) => ex.handle({ taskId: `c${i}`, task: 'x' } as DelegateRequest));
   await Promise.all(reqs);
   assert.ok(peak <= 2, `并发峰值应被闸门限制在 ≤2（实际 ${peak}）`);
   assert.ok(peak >= 2, `闸门应确实生效（峰值实际 ${peak}，说明并发过松或调度未重叠）`);
@@ -91,7 +102,7 @@ test('并发闸门：默认上限 4，突发委托受有界（peak ≤ 上限）
 
 test('异常收敛：子代理抛错不向对等方抛协议错误，转为 ok:false', async () => {
   const buildSubagent: SubagentBuilder = () => ({}) as OmniHarnessRuntime;
-  const runTask: AgentRunner = async () => {
+  const runTask: A2aAgentRunner = async () => {
     throw new Error('子代理内部故障');
   };
   const ex = new A2aTaskExecutor(fakeRuntime(baseTools(), noopEvents), { buildSubagent, runTask });

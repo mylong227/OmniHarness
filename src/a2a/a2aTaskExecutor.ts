@@ -22,7 +22,7 @@ export type SubagentBuilder = (
 ) => OmniHarnessRuntime;
 
 /** 任务执行器（注入点，便于测试替换真实 Agent 运行）。 */
-export type AgentRunner = (
+export type A2aAgentRunner = (
   runtime: OmniHarnessRuntime,
   task: string,
 ) => Promise<{ readonly finalText?: string | undefined; readonly steps: number }>;
@@ -34,7 +34,7 @@ export interface A2aTaskExecutorOptions {
   /** 子代理运行时构造器（缺省用全局 subagentRuntimeFactory）。 */
   readonly buildSubagent?: SubagentBuilder | undefined;
   /** 任务执行器（缺省用 `new Agent(runtime).runTask`）。 */
-  readonly runTask?: AgentRunner | undefined;
+  readonly runTask?: A2aAgentRunner | undefined;
 }
 
 /**
@@ -54,7 +54,7 @@ export class A2aTaskExecutor implements TaskHandler {
   /** 子代理运行时构造器（注入点，缺省走生产默认路径）。 */
   private readonly buildSubagent: SubagentBuilder;
   /** 任务执行器（注入点，缺省走 `new Agent(runtime).runTask`）。 */
-  private readonly runTask: AgentRunner;
+  private readonly runTask: A2aAgentRunner;
 
   /**
    * 构造 A2A 任务委托执行器。
@@ -119,5 +119,5 @@ export class A2aTaskExecutor implements TaskHandler {
     subagentRuntimeFactory.build(ports, tools, events, maxSteps);
 
   /** 默认任务执行器（生产路径）。 */
-  private static defaultRunTask: AgentRunner = (rt, task) => new Agent(rt).runTask(task);
+  private static defaultRunTask: A2aAgentRunner = (rt, task) => new Agent(rt).runTask(task);
 }

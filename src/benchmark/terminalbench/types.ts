@@ -307,4 +307,4 @@ export interface AgentRunnerOutcome {
 }
 
 /** 真实 Agent 运行时接缝：未注入时 fail-closed。 */
-export type AgentRunner = (input: AgentRunnerInput) => Promise<AgentRunnerOutcome>;
+export type BenchmarkAgentRunner = (input: AgentRunnerInput) => Promise<AgentRunnerOutcome>;

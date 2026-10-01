@@ -1,10 +1,10 @@
 /**
  * OmniHarness 驱动 Solver（B2）。
  *
- * 把任务交给真实 Agent 流水线求解。真实 Agent 运行时通过 {@link AgentRunner} 注入，
+ * 把任务交给真实 Agent 流水线求解。真实 Agent 运行时通过 {@link BenchmarkAgentRunner} 注入，
  * 默认 fail-closed（提示改用注入了真实 runner 的自定义脚本）。
  */
-import type { AgentRunner, Solver, SolverInput, SolverOutcome } from './types.js';
+import type { BenchmarkAgentRunner, Solver, SolverInput, SolverOutcome } from './types.js';
 
 /** OmniHarness Agent 驱动 Solver。 */
 export class OmniSolver implements Solver {
@@ -12,9 +12,9 @@ export class OmniSolver implements Solver {
   public readonly name = 'omniharness';
 
   /** 注入的真实 Agent 运行时接缝。 */
-  private readonly runAgent: AgentRunner;
+  private readonly runAgent: BenchmarkAgentRunner;
 
-  private constructor(runAgent: AgentRunner) {
+  private constructor(runAgent: BenchmarkAgentRunner) {
     this.runAgent = runAgent;
   }
 
@@ -24,7 +24,7 @@ export class OmniSolver implements Solver {
    * @param runAgent 真实 Agent 运行时接缝（必填）
    * @returns 实例
    */
-  public static create(runAgent: AgentRunner): OmniSolver {
+  public static create(runAgent: BenchmarkAgentRunner): OmniSolver {
     return new OmniSolver(runAgent);
   }
 
