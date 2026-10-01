@@ -19,21 +19,10 @@ import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { LinuxLandlockSandbox } from './linuxLandlockSandbox.js';
 import type { LandlockProbeReport } from './linuxLandlockSandbox.js';
-import type { SandboxProfile } from './sandboxManager.js';
+import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.js';
+import type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.js';
 
-/** 单个后端的能力自述。 */
-export interface SandboxCapabilityEntry {
-  /** profile 名（与 `--sandbox` 取值一致）。 */
-  readonly profile: SandboxProfile;
-  /** 实际承载该 profile 的后端名（用于识别「profile 名 ≠ 实现」的映射）。 */
-  readonly backend: string;
-  /** 本机是否**真机可达**（不是「代码存在」）。 */
-  readonly real: boolean;
-  /** 判定依据（平台/二进制/内核探测结论）。 */
-  readonly basis: string;
-  /** 跑不了时的可执行补救；真机可达时为空串。 */
-  readonly actionable: string;
-}
+export type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.js';
 
 /** 能力表输入（全部可注入，便于跨平台确定性单测）。 */
 export interface SandboxCapabilityInput {
