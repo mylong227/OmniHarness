@@ -1,4 +1,5 @@
-import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
+import type { SpillHandle } from '../../ports/memory/spill.js';
+import type { VortexRingSpillAdapterPort } from '../../ports/memory/spill/vortexRingSpillAdapterPort.js';
 import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.js';
 import { log } from '../../util/logger.js';
 
@@ -31,7 +32,7 @@ export interface VortexRingSpillOptions {
  * {@link VortexRingSpillOptions.maxRings}）；跨进程重启后读回未知环包返回
  * `undefined`（fail-closed，安全）。完整内容仍由底层 SpillPort 持久化。
  */
-export class VortexRingSpillAdapter implements SpillPort {
+export class VortexRingSpillAdapter implements VortexRingSpillAdapterPort {
   /** 适配器标识名（SpillPort 注册键，用于诊断）。 */
   public readonly name = 'vortex-ring-spill';
 
