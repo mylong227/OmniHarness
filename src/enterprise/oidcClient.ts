@@ -1,6 +1,9 @@
 import crypto from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { ArrayAt } from '../util/arrayAt.js';
+import type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.js';
+import type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.js';
+import type { AuthState } from '../ports/enterprise/authState.js';
 
 /**
  * 企业级 SSO（OIDC）零依赖实现（D2）。
@@ -18,34 +21,9 @@ import { ArrayAt } from '../util/arrayAt.js';
  * 原模块级导出名以门面函数保留（签名不变，调用点零改动）；`EnterpriseAuth` 门禁委托门面。
  */
 
-/**
- * @beta
- * OIDC 提供方配置。
- */
-export interface OidcProviderConfig {
-  /** Issuer（如 https://accounts.example.com），将拼接 /.well-known/openid-configuration。 */
-  readonly issuer: string;
-  /** 在 IdP 注册的应用 client_id。 */
-  readonly clientId: string;
-  /**  confidential client 的 client_secret（public client 可省略）。 */
-  readonly clientSecret?: string | undefined;
-  /** 回调地址（需与 IdP 注册一致）。 */
-  readonly redirectUri?: string | undefined;
-  /** 申请的 scope，默认 `openid profile email`。 */
-  readonly scope?: string | undefined;
-}
+export type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.js';
 
-/**
- * @beta
- * OIDC discovery 文档的已校验子集。
- */
-export interface OidcDiscovery {
-  readonly issuer: string;
-  readonly authorization_endpoint: string;
-  readonly token_endpoint: string;
-  readonly jwks_uri?: string | undefined;
-  readonly userinfo_endpoint?: string | undefined;
-}
+export type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.js';
 
 /**
  * @beta
@@ -94,20 +72,7 @@ export interface JwtParts {
   readonly signingInput: string;
 }
 
-/**
- * @beta
- * `auth login` 持久化的中间态（state + verifier + 配置），供 `auth callback` 续跑。
- */
-export interface AuthState {
-  readonly issuer: string;
-  readonly clientId: string;
-  readonly clientSecret?: string | undefined;
-  readonly redirectUri?: string | undefined;
-  readonly scope?: string | undefined;
-  readonly state: string;
-  readonly codeVerifier: string;
-  readonly createdAt: string;
-}
+export type { AuthState } from '../ports/enterprise/authState.js';
 
 // ---------------------------------------------------------------------------
 // OIDC 客户端：OAuth/OIDC 流程族（纯函数 + 内聚操作）
