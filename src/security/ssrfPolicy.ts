@@ -24,6 +24,7 @@
  */
 import { builtinDefaults } from '../util/builtinDefaults.js';
 import { IpAddress } from '../util/ipAddress.js';
+import type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.js';
 
 /**
  * SsrfPolicy —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -128,14 +129,7 @@ export interface SsrfPolicy {
  * 配置文件中 `ssrfPolicy` 段的形状（原始 JSON 值，未校验）。
  * 三个字段均可缺省（缺省即回落默认表）。
  */
-export interface SsrfPolicyConfig {
-  /** 云元数据主机清单（覆盖默认表）。 */
-  readonly metadataHosts?: readonly string[];
-  /** 内网/本机域名后缀清单（覆盖默认表）。 */
-  readonly internalSuffixes?: readonly string[];
-  /** IPv4 私有/保留网段（形如 `[["10.0.0.0", 8], ...]`，覆盖默认表）。 */
-  readonly ipv4Blocks?: readonly (readonly [string, number])[];
-}
+export type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.js';
 
 /**
  * `defaults/ssrf.json` 的原始内容（模块加载期读出，缺失/残缺即抛错）。
