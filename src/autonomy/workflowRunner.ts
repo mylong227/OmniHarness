@@ -27,11 +27,9 @@ export const DEFAULT_WORKFLOW_CONCURRENCY = 4;
  * 工作流 DAG 中存在环。
  */
 
-/**
- * @beta
- * 单节点实时状态（供 Web 编排视图与 graph.progress 通知）。
- */
-export type GraphNodeStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+import type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.js';
+
+export type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.js';
 
 /**
  * @beta
