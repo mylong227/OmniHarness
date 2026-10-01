@@ -234,12 +234,21 @@ export function audit(tree, io = {}) {
   const factory = tree.get('src/config/configFactory.ts') ?? '';
   const errText = tree.get('src/config/configError.ts') ?? '';
   const fileCfgText = tree.get('src/ports/config/fileConfig.ts') ?? '';
+  const ohConfigText = tree.get('src/ports/config/omniHarnessConfig.ts') ?? '';
   const flagTable = tree.get('src/cli/cliFlagTable.ts') ?? '';
   const argParser = tree.get('src/cli/argParser.ts') ?? '';
 
-  const cfgFields = interfaceFields(factory, 'OmniHarnessConfig');
+  // OmniHarnessConfig 已外迁到 ports/config/omniHarnessConfig.ts；兼容仍在 configFactory.ts 的合成自证用例，两处合并取并集。
+  const cfgFields = [
+    ...new Set([
+      ...interfaceFields(ohConfigText, 'OmniHarnessConfig'),
+      ...interfaceFields(factory, 'OmniHarnessConfig'),
+    ]),
+  ];
   if (cfgFields.length === 0)
-    throw new Error('未能从 configFactory.ts 解析出 OmniHarnessConfig 字段');
+    throw new Error(
+      '未能解析出 OmniHarnessConfig 字段（configFactory.ts / ports/config/omniHarnessConfig.ts）',
+    );
 
   const configTexts = [...tree.entries()]
     .filter(([p]) => p.startsWith('src/config/'))
