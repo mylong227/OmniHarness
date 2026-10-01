@@ -7,28 +7,12 @@ import type {
 } from '../../ports/model/model.js';
 import { ArrayAt } from '../../util/arrayAt.js';
 
-/** 路由条目：一个底层模型适配器 + 其标识与定价。 */
-export interface RouterEntry {
-  /** 底层模型适配器（真正执行 generate/stream 的对象）。 */
-  readonly adapter: ModelPort;
-  /** 该 entry 的模型标识（记账与日志按键）。 */
-  readonly model: string;
-  /** 每 1k token 的输入/输出单价（USD）；缺省时 least-cost 策略无法对该模型计价。 */
-  readonly pricing?: { readonly inputPer1k: number; readonly outputPer1k: number } | undefined;
-}
+import type { RouterEntry } from '../../ports/model/routerEntry.js';
+import type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.js';
 
-/** 路由策略。 */
-export type RouterStrategy = 'least-cost' | 'round-robin' | 'by-task' | 'health-fallback';
-
-/** ModelRouter 构造参数。 */
-export interface ModelRouterOptions {
-  /** 候选底层模型列表（至少一项，空则构造即抛错）。 */
-  readonly entries: readonly RouterEntry[];
-  /** 路由策略：最低成本 / 轮询 / 按任务关键词 / 健康度降级。 */
-  readonly strategy: RouterStrategy;
-  /** by-task 策略下，仅在该 role 的消息中匹配关键词（缺省匹配全部消息）。 */
-  readonly taskField?: string | undefined;
-}
+export type { RouterEntry } from '../../ports/model/routerEntry.js';
+export type { RouterStrategy } from '../../ports/model/routerStrategy.js';
+export type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.js';
 
 /** 「写/实现」类任务关键词（不区分大小写）。 */
 const BY_TASK_CODE_PATTERN = /代码|实现|写|code|implement/i;
