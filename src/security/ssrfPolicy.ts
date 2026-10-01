@@ -25,6 +25,7 @@
 import { builtinDefaults } from '../util/builtinDefaults.js';
 import { IpAddress } from '../util/ipAddress.js';
 import type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.js';
+import type { ResolvedSsrfPolicy } from '../ports/security/ssrfPolicy.js';
 
 /**
  * SsrfPolicy —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -115,21 +116,19 @@ export class SsrfPolicy {
   }
 }
 
-/** SSRF 策略表（已解析、已校验，供实现直接消费）。 */
-export interface SsrfPolicy {
-  /** 云元数据主机（恒拦截，白名单不可覆盖）。 */
-  readonly metadataHosts: readonly string[];
-  /** 内网/本机域名后缀（如前缀任意位置命中即拦）。 */
-  readonly internalSuffixes: readonly string[];
-  /** IPv4 私有/保留网段（CIDR 列表）。 */
-  readonly ipv4Blocks: readonly (readonly [string, number])[];
-}
+/**
+ * SSRF 策略表（已解析、已校验，供实现直接消费）。
+ * 纯数据形状定义见 `ports/security/ssrfPolicy` 的 `ResolvedSsrfPolicy`；此处同名合并以保持与
+ * `class SsrfPolicy` 的既有「值（解析器）+ 数据形状」双语义，调用点零改动。
+ */
+export interface SsrfPolicy extends ResolvedSsrfPolicy {}
 
 /**
  * 配置文件中 `ssrfPolicy` 段的形状（原始 JSON 值，未校验）。
  * 三个字段均可缺省（缺省即回落默认表）。
  */
 export type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.js';
+export type { ResolvedSsrfPolicy } from '../ports/security/ssrfPolicy.js';
 
 /**
  * `defaults/ssrf.json` 的原始内容（模块加载期读出，缺失/残缺即抛错）。
