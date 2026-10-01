@@ -1,11 +1,7 @@
-/** 取消原因分类（结构化，供 UI/日志/重试决策）。 */
-export type CancelReason =
-  | 'user' // 用户主动中断（Ctrl-C / 请求断开）
-  | 'timeout' // wall-clock / 单步超时
-  | 'loop-guard' // 失控检测熔断
-  | 'shutdown' // 进程退出
-  | 'parent' // 父令牌级联
-  | { readonly custom: string };
+import type { CancelReason } from '../../ports/core/cancelReason.js';
+
+/** 取消原因分类（契约唯一声明见 `src/ports/core/cancelReason.ts`；此处为原路径再导出，调用点零改动）。 */
+export type { CancelReason } from '../../ports/core/cancelReason.js';
 
 /** 取消异常：throwIfAborted 抛出，catch 侧可精确识别「取消」与一般错误。 */
 export class CancelledError extends Error {
