@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+  rmSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import type { WorkflowDef } from './workflowTypes.js';
 import { WorkflowRunner } from './workflowRunner.js';
@@ -9,18 +17,9 @@ const GRAPH_DIR = '.omniharness/graphs';
 /** 单图文件体积上限：超此大小的图文件拒绝整文件读入内存（fail-closed，避免病态大文件 OOM）。 */
 const MAX_GRAPH_BYTES = 4 * 1024 * 1024;
 
-/**
- * @beta
- * 列表项（不回传完整定义，减小负载）。
- */
-export interface GraphSummary {
-  /** 图的唯一 ID（= 文件名去扩展）。 */
-  readonly id: string;
-  /** 可读名（缺省与 id 相同）。 */
-  readonly name: string;
-  /** 步骤数。 */
-  readonly stepCount: number;
-}
+import type { GraphSummary } from '../ports/autonomy/graphSummary.js';
+
+export type { GraphSummary } from '../ports/autonomy/graphSummary.js';
 
 /**
  * @beta
@@ -87,9 +86,7 @@ export class GraphStore {
   private static readBounded(path: string): WorkflowDef {
     const size = statSync(path).size;
     if (size > MAX_GRAPH_BYTES) {
-      throw new Error(
-        `图文件过大（${size} 字节 > 上限 ${MAX_GRAPH_BYTES}），拒绝整文件读入内存`,
-      );
+      throw new Error(`图文件过大（${size} 字节 > 上限 ${MAX_GRAPH_BYTES}），拒绝整文件读入内存`);
     }
     return JSON.parse(readFileSync(path, 'utf8')) as WorkflowDef;
   }
