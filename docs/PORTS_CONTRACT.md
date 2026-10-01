@@ -14,7 +14,10 @@
 | **高级扩展**                 | `agent`、`subagent`、`supervisor`、`confinement`、`policy`、`escalation`、`evolution`、`metacognition`、`immune`、`qec`、`oobleck`、`memoryAnnealing`、`insightEtching`、`symmetryBreaking`、`vortexRing`、`cosmicWeb`、`resonantMemory` | 发明层/治理层机制端口，实现须带 `@maturity` 声明与证据（见 §4） |
 | **回调/钩子**                | `toolHook`、`toolInputSink`、`turnDiffTracker`、`eventFactory`、`memoryExtractor`、`sandboxDenial`                                                                                                                                       | 供宿主监听与注入；实现不得阻塞主循环                            |
 
-完整接口清单以 `src/ports/` 目录为准（文件名 = 端口名，camelCase）。
+完整接口清单以 `src/ports/` 目录为准。拆分后约定：**每个接口独占一个 camelCase 文件**（如 `approvalPort.ts`，
+接口符号仍是 PascalCase `ApprovalPort`），原声明文件退化为纯桶再导出（`export type { X } from './…/X.js'`，
+调用点零改动），桶文件内不残留任何类型声明。文件名小驼峰是为兼容铁律 `check.mjs` 规则6
+（`src/**/*.ts` 基名须匹配 `^[a-z][a-zA-Z0-9]*$`，仓库内 `src/ports` 零 PascalCase 先例）。
 
 ## 2. 实现一个端口的标准步骤
 
