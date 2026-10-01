@@ -1,55 +1,9 @@
-import type { ToolCall, ToolContext, ToolPort } from '../ports/tool/tool.js';
-import type { ToolGate } from '../core/toolGate.js';
+import type { ToolCall } from '../ports/tool/tool.js';
+import type { McpServerOptions } from '../ports/mcp/mcpServerOptions.js';
 import { Id } from '../util/id.js';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/core/jsonRpc.js';
-import type { Transport } from '../server/transport/lineTransport.js';
-import {
-  McpProtocol,
-  mcpProtocol,
-  type McpServerInfo,
-  type McpResourceDescriptor,
-  type McpResourceContent,
-  type McpPromptDescriptor,
-} from './mcpProtocol.js';
+import { McpProtocol, mcpProtocol } from './mcpProtocol.js';
 import { mcpToolMapper } from './mcpToolMapper.js';
-
-/**
- * @beta
- * 资源后端端口：MCP 服务端以此把宿主资源（文件、文档、KV 等）暴露为 resources/list + resources/read。
- * 可选；未注入时服务端对 resources/* 返回空列表（符合协议，不伪造数据）。
- */
-export interface ResourcePort {
-  readonly name: string;
-  list(): Promise<readonly McpResourceDescriptor[]>;
-  read(uri: string): Promise<McpResourceContent>;
-}
-
-/**
- * @beta
- * 提示模板后端端口：暴露 prompts/list + prompts/get。
- */
-export interface PromptPort {
-  readonly name: string;
-  list(): Promise<readonly McpPromptDescriptor[]>;
-  get(name: string, args: Record<string, unknown>): Promise<string>;
-}
-
-/**
- * @beta
- * MCP 服务端选项。
- */
-export interface McpServerOptions {
-  readonly transport: Transport;
-  readonly tools: ToolPort;
-  readonly context: ToolContext;
-  readonly serverInfo?: McpServerInfo | undefined;
-  /** 可选门禁：注入后外部 MCP 调用同样过审批 + 沙箱。 */
-  readonly gate?: ToolGate | undefined;
-  /** 可选资源后端：注入后服务端应答 resources/*。 */
-  readonly resources?: ResourcePort | undefined;
-  /** 可选提示模板后端：注入后服务端应答 prompts/*。 */
-  readonly prompts?: PromptPort | undefined;
-}
 
 /**
  * @beta
@@ -207,3 +161,7 @@ export class McpServer {
     return error instanceof Error ? error.message : String(error);
   }
 }
+
+// `McpServerOptions` / `ResourcePort` / `PromptPort` 的契约已外迁至 `ports/mcp/mcpServerOptions.ts`，
+// 此处仅再导出以维持既有公共 API 面（`index.ts`、`mcpServeRunner.ts`、`mcp.test.ts` 等调用点零改动）。
+export type { McpServerOptions, ResourcePort, PromptPort } from '../ports/mcp/mcpServerOptions.js';
