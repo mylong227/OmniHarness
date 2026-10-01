@@ -2,18 +2,11 @@ import type { ToolContext, ToolResult } from '../ports/tool/tool.js';
 import type { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { McpClient } from './mcpClient.js';
 import { mcpConnector, type McpConnection } from './mcpConnector.js';
-import type { McpStdioServerOptions } from './mcpStdioTransport.js';
 import { mcpToolMapper } from './mcpToolMapper.js';
 import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.js';
+import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.js';
 
-/**
- * @beta
- * 单个 MCP 服务器配置。
- */
-export interface McpServerConfig extends McpStdioServerOptions {
-  /** 服务器别名（用作工具名前缀，避免跨服务器重名）。 */
-  readonly name: string;
-}
+export type { McpServerConfig } from '../ports/mcp/mcpServerConfig.js';
 
 /**
  * @beta
