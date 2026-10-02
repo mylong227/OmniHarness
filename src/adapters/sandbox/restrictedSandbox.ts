@@ -60,8 +60,8 @@ export class RestrictedSandbox implements SandboxPort {
 
   /** 工作区路径守卫（白名单判定委托给它）。 */
   private readonly guard: WorkspaceGuard;
-  /** 危险命令正则集（默认黑名单 + 受限强化规则 + 用户扩展）。 */
-  private readonly patterns: readonly RegExp[];
+  /** 危险命令匹配集（默认黑名单子串短语 + 受限强化正则 + 用户扩展正则）。 */
+  private readonly patterns: readonly (string | RegExp)[];
 
   /**
    * @param options 受限沙箱选项（工作区根目录与额外危险模式）。
@@ -91,10 +91,15 @@ export class RestrictedSandbox implements SandboxPort {
    * @returns 决策结果（网络工具命中归 'network'，其余归 'command'）。
    */
   private checkCommand(command: string): SandboxDecision {
+    const normalized = dangerousCommands.normalize(command);
+    const networkHit = /\b(?:curl|wget|nc|ncat|ssh|scp)\b/i.test(command);
     for (const pattern of this.patterns) {
-      if (pattern.test(command)) {
-        const category = /\b(?:curl|wget|nc|ncat|ssh|scp)\b/i.test(command) ? 'network' : 'command';
-        return { allowed: false, reason: `受限沙箱命中规则: ${pattern.source}`, category };
+      const hit =
+        typeof pattern === 'string' ? normalized.includes(pattern) : pattern.test(command);
+      if (hit) {
+        const label = typeof pattern === 'string' ? pattern : pattern.source;
+        const category = networkHit ? 'network' : 'command';
+        return { allowed: false, reason: `受限沙箱命中规则: ${label}`, category };
       }
     }
     return { allowed: true };
