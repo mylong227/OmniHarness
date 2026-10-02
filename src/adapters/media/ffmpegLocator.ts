@@ -60,8 +60,20 @@ const FFPROBE_VERSION = /ffprobe version\s+(\S+)/;
  * 定位到的候选都要**跑一次 `-version`** 才算数：存在 ≠ 可执行（权限、架构、损坏）。
  */
 export class FfmpegLocator {
+  /**
+   * 定位结果缓存有效期（毫秒，2026-10-02 补齐：原实现**永不失效**）。
+   *
+   * 「永不失效」的代价是：ffmpeg 被卸载、升级或换路径后，本类会一直返回**旧结论**
+   * 直到进程退出——而它缓存的正是「有没有 ffmpeg 这种能力」，结论过期会直接让
+   * 「视频抽帧」这个能力在长驻进程里长期误报可用或不可用。取 5 分钟：长于一次抽帧作业，
+   * 短到足以在运维动作后被感知；到期后重新跑一次 `-version`（两个进程，成本极低）。
+   */
+  private static readonly CACHE_TTL_MS = 300_000;
+
   /** 定位结果缓存（含 promise，避免并发重复定位）。 */
   private cached: Promise<FfmpegLocation> | undefined;
+  /** 上次发起定位的时刻（Date.now()），配合 {@link CACHE_TTL_MS} 判失效。 */
+  private cachedAt = 0;
 
   /**
    * @param options 定位依赖。
@@ -74,7 +86,11 @@ export class FfmpegLocator {
    * @returns 定位结果（失败时 `reason` 给出原因与解决办法）。
    */
   public locate(): Promise<FfmpegLocation> {
-    this.cached ??= this.compute();
+    const now = Date.now();
+    if (this.cached === undefined || now - this.cachedAt >= FfmpegLocator.CACHE_TTL_MS) {
+      this.cached = this.compute();
+      this.cachedAt = now;
+    }
     return this.cached;
   }
 

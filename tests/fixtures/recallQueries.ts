@@ -435,30 +435,32 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'which numeric cut offs decide if a ranking route is discarded',
     anchor: 'interface VetoThresholds',
   },
-  // —— src/eval（6 条）——
+  // —— 缓存与命中率（5 条；2026-10-02 替换 src/eval 已删符号，条数不变）——
+  // 锚点须为查询集**尚未收录**的目标，否则同一 GT 被重复计入，会扭曲全量命中率统计。
   {
-    q: 'how is a broken run blamed on either the setup or the model',
-    anchor: 'ExecFailureKind',
+    q: 'what trims a long transcript back under the window',
+    anchor: 'class ContextCompactor',
   },
   {
-    q: 'what outcome is reported when a case runs in its own snapshot',
-    anchor: 'IsolatedVerdict',
+    q: 'where is the size of a piece of text remembered',
+    anchor: 'class TokenCountCache',
   },
   {
-    q: 'one entry in the ordered recipe for preparing dependencies',
-    anchor: 'EnvInstallStep',
+    q: 'which marks tell one provider what may be reused',
+    anchor: 'class AnthropicCacheBreakpoints',
   },
   {
-    q: 'how are tasks bucketed by how hard they look',
-    anchor: 'DifficultyBreakdown',
+    q: 'what reads back how many tokens were served from cache',
+    anchor: 'class PromptCacheUsageReader',
   },
+  {
+    q: 'what reorders the shortlist after the first pass',
+    anchor: 'class FileReranker',
+  },
+  // —— src/core/selfChecklist（原 src/eval，2026-10-02 随 SelfChecklist 迁出）——
   {
     q: 'the overall outcome of grading against a list of criteria',
     anchor: 'ChecklistVerdict',
-  },
-  {
-    q: 'how is each python case graded from captured output',
-    anchor: 'PytestVerdict',
   },
   // —— src/evolution（4 条）——
   {

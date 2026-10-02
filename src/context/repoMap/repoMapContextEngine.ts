@@ -71,6 +71,10 @@ import { FileReranker } from '../fileReranker.js';
 import { RepoMapMemo } from './repoMapMemo.js';
 import { LspCandidateSource, type LspCandidateSourceOptions } from '../lspCandidateSource.js';
 import type { LspPort } from '../../ports/tool/lsp.js';
+import {
+  CacheHitRateCollector,
+  type CacheHitStats,
+} from '../../observability/cacheHitRateCollector.js';
 import { log } from '../../util/logger.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
@@ -110,14 +114,22 @@ interface ResolvedRepoMapKnobs {
  * 并把「语料缓存驱逐」与「语义缓存失效」通过回调解耦地连起来。进程级共享单例见文件底部。
  */
 export class RepoMapContextEngine {
+  /**
+   * 缓存命中率聚合器（2026-10-02 补齐：此前全仓 20 处缓存仅 prompt cache 一处有度量）。
+   * **必须先于**下面三个缓存字段声明——TS 字段按声明顺序初始化，它们的 `onSample` 闭包引用本字段。
+   */
+  private readonly cacheHits = new CacheHitRateCollector();
   /** 语义索引缓存（先于 corpusCache 构造，供其驱逐回调引用）。 */
-  private readonly semanticCache = new SemanticIndexCache();
+  private readonly semanticCache = new SemanticIndexCache((hit) =>
+    this.cacheHits.record('SemanticIndexCache', hit),
+  );
   /**
    * 语料索引缓存；某 root 被 LRU 驱逐时，同步失效该 root 的语义索引（避免陈旧索引残留）。
    * 注：旧实现用 `semanticCache.delete(root)` 因键不匹配实为空操作，此处经回调修正为按 root 全变体失效。
    */
   private readonly corpusCache = new CorpusIndexCache({
     onEvict: (root) => this.semanticCache.clear(root),
+    onSample: (hit) => this.cacheHits.record('CorpusIndexCache', hit),
   });
   /** 多路召回融合排序器（无状态，可复用）。 */
   private readonly ranker = new HybridRanker();
@@ -127,7 +139,7 @@ export class RepoMapContextEngine {
    * 纯 BM25 路径的**结果 memo**（审计 §2.4）：同一回合内查询逐字相同 ⇒ 第 2..N 步可归零。
    * 失效判据是**语料实例**（重新索引即新实例），故不会读到陈旧 repo-map。
    */
-  private readonly memo = new RepoMapMemo();
+  private readonly memo = new RepoMapMemo((hit) => this.cacheHits.record('RepoMapMemo', hit));
   /**
    * LSP 候选源（opt-in 第四路，仅 `getRepoMapContextWithLsp` 使用；默认同步 BM25 路径完全不触达）。
    * 无状态、可复用；其 fail-closed 行为见 {@link LspCandidateSource}。
@@ -144,6 +156,18 @@ export class RepoMapContextEngine {
   private semanticFallbackCount = 0;
   /** 首次语义回落是否已 warn（避免每步查询都刷 warn）。 */
   private semanticFallbackWarned = false;
+
+  /**
+   * 缓存命中率快照（观测出口，2026-10-02 补齐「有缓存、无度量」缺口）。
+   *
+   * 覆盖本门面直接持有的三类缓存：语料索引 / 语义索引 / repo-map memo。
+   * 从未被调用的缓存**不会**出现在结果里；`hitRate` 无样本时记 0，故判读前**必须**先看
+   * `samples`——把「没被调用」误读成「命中率为 0」是本仓反复治的假信号之一。
+   * @returns 缓存名到 `{ hits, misses, samples, hitRate }` 的映射（按名排序）。
+   */
+  public cacheStats(): Record<string, CacheHitStats> {
+    return this.cacheHits.snapshot();
+  }
 
   /**
    * 解析载荷档位计划（三级：opts > env > 默认 tiered）。

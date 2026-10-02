@@ -26,6 +26,20 @@ const FILE_DOC_MAX_SYMBOLS = 60;
 export const CHUNK_BODY_MAX_LINES = 80;
 
 export class SemanticIndexCache {
+  /** 命中率上报回调（可缺省；缺省即不统计，行为与接入前完全一致）。 */
+  private readonly onSample?: ((hit: boolean) => void) | undefined;
+  /** 命中次数（观测用）。 */
+  private hits = 0;
+  /** 未命中次数（观测用）。 */
+  private misses = 0;
+
+  /**
+   * @param onSample 命中率上报回调：每次查询判定后调用（命中=true）。
+   */
+  public constructor(onSample?: (hit: boolean) => void) {
+    this.onSample = onSample;
+  }
+
   /**
    * 语义索引缓存：按「配置键」缓存已构建的 SemanticIndex。
    * 存 Promise 以便并发请求复用同一次构建（构建期需 embed 全部符号/文件，较重）。
@@ -69,10 +83,12 @@ export class SemanticIndexCache {
     if (existing !== undefined) {
       const idx = await existing;
       if (idx !== null) {
+        this.sample(true);
         return idx;
       }
-      // 上次构建失败：落空，重新尝试。
+      // 上次构建失败：落空，重新尝试（计为未命中——本次确实要重新构建）。
     }
+    this.sample(false);
     const promise = this.build(corpus, embedding, knobs);
     this.cache.set(key, promise);
     this.evictIfNeeded();
@@ -267,6 +283,27 @@ export class SemanticIndexCache {
     this.nextCorpusId += 1;
     this.corpusIds.set(corpus, id);
     return id;
+  }
+
+  /**
+   * 命中率观测（与 `onSample` 同源的自有计数，供单测与诊断直接读取）。
+   * @returns `{ hits, misses, entries }`：命中数、未命中数、当前条目数。
+   */
+  public stats(): { readonly hits: number; readonly misses: number; readonly entries: number } {
+    return { hits: this.hits, misses: this.misses, entries: this.cache.size };
+  }
+
+  /** 上报一次命中判定（同时累加自有计数）。
+   * @param hit 是否命中。
+   * @returns 无返回值。
+   */
+  private sample(hit: boolean): void {
+    if (hit) {
+      this.hits += 1;
+    } else {
+      this.misses += 1;
+    }
+    this.onSample?.(hit);
   }
 
   /**

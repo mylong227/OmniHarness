@@ -11,6 +11,10 @@
  *    onEvict 回调通知外部（如语义索引缓存同步失效该 root 的全部变体），保持两类缓存一致。
  *  - 全程 fail-closed：索引失败返回 null，绝不抛错崩主流程；但**不静默**——失败会记 warn 日志
  *    （带 root 与堆栈），否则调用方只看到「语料索引失败」而无法定位真因。
+ *  - **命中率埋点（2026-10-02）**：本类是全仓最热的缓存，却长期零命中率观测。现每次 `get`
+ *    都判定命中/未命中并上报注入的 `onSample`；「TTL 内直取」与「mtime 未变复用」均计为命中，
+ *    只有真正走到 `indexRoot` 才算未命中。索引失败（返回 null）**不计入样本**——它不是缓存语义，
+ *    混入会低估命中率。
  */
 
 import { statSync } from 'node:fs';
@@ -39,6 +43,8 @@ export interface CorpusIndexCacheOptions {
   readonly maxEntries?: number;
   /** 驱逐回调：某 root 被 LRU 淘汰时调用，供外部同步失效关联缓存。 */
   readonly onEvict?: (root: string) => void;
+  /** 命中率上报回调：每次查询判定后调用（缺省即不统计，行为与接入前完全一致）。 */
+  readonly onSample?: (hit: boolean) => void;
 }
 
 export class CorpusIndexCache {
@@ -48,24 +54,32 @@ export class CorpusIndexCache {
   private readonly maxEntries: number;
   /** 驱逐回调（可缺省）。 */
   private readonly onEvict?: ((root: string) => void) | undefined;
+  /** 命中率上报回调（可缺省）。 */
+  private readonly onSample?: ((hit: boolean) => void) | undefined;
+  /** 命中次数（观测用）。 */
+  private hits = 0;
+  /** 未命中次数（观测用）。 */
+  private misses = 0;
 
   /**
-   * @param options 上限与驱逐回调（均可缺省）。
+   * @param options 上限、驱逐回调与命中率上报回调（均可缺省）。
    */
   public constructor(options: CorpusIndexCacheOptions = {}) {
     this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.onEvict = options.onEvict;
+    this.onSample = options.onSample;
   }
 
   /**
    * 取（命中缓存或重索引）语料。
    * @param root workspace 根路径。
-   * @returns 可查询语料；索引不可用时返回 null（fail-closed）。
+   * @returns 可查询语料；索引不可用时返回 null（fail-closed，且不计入命中率样本）。
    */
   public get(root: string): IndexedCorpus | null {
     const now = Date.now();
     const existing = this.cache.get(root);
     if (existing !== undefined && now - existing.indexedAt < this.ttlMs()) {
+      this.sample(true);
       return existing.corpus;
     }
     // TTL 已过期（或首次）：先用 mtime 签名判断文件集合是否真的变了。
@@ -79,6 +93,7 @@ export class CorpusIndexCache {
           indexedAt: now,
           mtimeSig: existing.mtimeSig,
         });
+        this.sample(true);
         return existing.corpus;
       }
     }
@@ -86,6 +101,7 @@ export class CorpusIndexCache {
     if (corpus === null) {
       return null;
     }
+    this.sample(false);
     const sig = this.mtimeSignature(root) ?? '';
     this.evictIfNeeded();
     this.cache.set(root, { corpus, indexedAt: now, mtimeSig: sig });
@@ -95,7 +111,7 @@ export class CorpusIndexCache {
   /**
    * 失效缓存。
    * @param root 指定则只失效该工作区；缺省清空全部。
-   
+
    * @returns 无返回值。
    */
   public clear(root?: string): void {
@@ -104,6 +120,27 @@ export class CorpusIndexCache {
     } else {
       this.cache.delete(root);
     }
+  }
+
+  /**
+   * 命中率观测（与 `onSample` 同源的自有计数，供单测与诊断直接读取）。
+   * @returns `{ hits, misses, entries }`：命中数、未命中数、当前条目数。
+   */
+  public stats(): { readonly hits: number; readonly misses: number; readonly entries: number } {
+    return { hits: this.hits, misses: this.misses, entries: this.cache.size };
+  }
+
+  /** 上报一次命中判定（同时累加自有计数）。
+   * @param hit 是否命中。
+   * @returns 无返回值。
+   */
+  private sample(hit: boolean): void {
+    if (hit) {
+      this.hits += 1;
+    } else {
+      this.misses += 1;
+    }
+    this.onSample?.(hit);
   }
 
   /** 索引 TTL（毫秒）：env OMNI_REPO_MAP_TTL_MS 覆盖，非法值回落默认。 */

@@ -29,6 +29,15 @@ export class CryptoVault implements VaultPort {
   /** 密文载荷缓存：凭据名 → iv/cipher/tag，避免重复读 KV。 */
   private readonly cache = new Map<string, CipherPayload>();
 
+  /**
+   * 密文缓存条目上限（2026-10-02 补齐：原实现**无上限**）。
+   *
+   * 淘汰是**安全的**：唯一真源是底层 KV（`this.kv`），缓存只是「少读一次盘」的加速层，
+   * 被淘汰的条目下次读取会原样从 KV 重新载入，不存在丢数据的可能——这与「缓存即真源」的
+   * 结构（那种不能随便淘汰）有本质区别。取 256 = 凭据数量合理上界的数倍。
+   */
+  private static readonly MAX_CACHED_PAYLOADS = 256;
+
   public constructor(options: {
     /** 底层键值存储端口：密文实际落盘位置。 */
     kv: KvPort;
@@ -112,8 +121,24 @@ export class CryptoVault implements VaultPort {
       return undefined;
     }
     const payload = this.parsePayload(raw);
-    this.cache.set(name, payload);
+    this.remember(name, payload);
     return payload;
+  }
+
+  /** 写入缓存并在超上限时淘汰最早的一条。
+   * @param name 凭据名。
+   * @param payload 密文载荷。
+   * @returns 无返回值。
+   */
+  private remember(name: string, payload: CipherPayload): void {
+    this.cache.set(name, payload);
+    while (this.cache.size > CryptoVault.MAX_CACHED_PAYLOADS) {
+      const oldest = this.cache.keys().next();
+      if (oldest.done === true) {
+        return;
+      }
+      this.cache.delete(oldest.value);
+    }
   }
 
   /** 将密文载荷以 `iv:cipher:tag` 串写入 KV 并刷新本地缓存。
@@ -123,7 +148,7 @@ export class CryptoVault implements VaultPort {
    */
   private async writePayload(name: string, payload: CipherPayload): Promise<void> {
     await this.kv.set(name, `${payload.iv}:${payload.cipher}:${payload.tag}`);
-    this.cache.set(name, payload);
+    this.remember(name, payload);
   }
 
   /**

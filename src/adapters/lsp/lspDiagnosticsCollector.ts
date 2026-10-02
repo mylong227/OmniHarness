@@ -27,6 +27,15 @@ export class LspDiagnosticsCollector {
   /** 诊断推送的 LSP 通知方法名。 */
   public static readonly NOTIFICATION_METHOD = 'textDocument/publishDiagnostics';
 
+  /**
+   * 诊断缓存条目上限（2026-10-02 补齐：原实现**无上限**，长会话下每打开一个文件就永久留一份
+   * 诊断，属进程常驻只增不删）。取 512 = 一次大型重构同时打开的合理文件数的数倍；
+   * 淘汰最早写入的一条（Map 保持插入顺序），语义是「最久没被推送更新的文件先走」。
+   * 淘汰**不影响**正确性：诊断是**可重算的服务器推送**，不是唯一真源；被淘汰的文件下次
+   * 推送会重新写入，而 `waiters` 是独立结构、其 `settle` 已在推送时同步发生。
+   */
+  private static readonly MAX_PUBLISHED = 512;
+
   /** 各文件最近一次收到的诊断（键为文件绝对路径）。 */
   private readonly published = new Map<string, readonly LspDiagnostic[]>();
 
@@ -51,6 +60,7 @@ export class LspDiagnosticsCollector {
     }
     const file = LspUri.uriToFile(uri);
     this.published.set(file, LspDiagnosticsCollector.toDiagnostics(file, payload?.diagnostics));
+    this.evictOldestIfNeeded();
     this.settle(file);
     return true;
   }
@@ -100,6 +110,21 @@ export class LspDiagnosticsCollector {
       }
       clearTimeout(waiter.timer);
       waiter.resolve(false);
+    }
+  }
+
+  /**
+   * 条目超上限时淘汰最早写入的一条（见 {@link MAX_PUBLISHED} 的取舍说明）。
+   *
+   * @returns 无返回值
+   */
+  private evictOldestIfNeeded(): void {
+    while (this.published.size > LspDiagnosticsCollector.MAX_PUBLISHED) {
+      const oldest = this.published.keys().next();
+      if (oldest.done === true) {
+        return;
+      }
+      this.published.delete(oldest.value);
     }
   }
 
