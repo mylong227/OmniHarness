@@ -4,7 +4,7 @@ import type { Transport } from './lineTransport.js';
 import { type WsConnection } from './wsConnection.js';
 import { SseBackpressureGuard } from './sseBackpressureGuard.js';
 import { EnterpriseAuth } from '../../enterprise/index.js';
-import { PendingRequests } from '../../util/pendingRequests.js';
+import { PendingRequests } from '../../util/concurrency/pendingRequests.js';
 
 /** 传输层超时预算覆写（仅供单测注入；生产用类常量）。 */
 export interface HttpBridgeTimeouts {

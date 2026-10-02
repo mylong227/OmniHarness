@@ -7,7 +7,7 @@ import { ContextUsageService } from '../services/contextUsageService.js';
 import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
 import { QuotaService } from '../services/quotaService.js';
 import { QuotaStore } from '../services/quotaStore.js';
-import { SessionModeStore } from '../services/sessionModeStore.js';
+import { SessionModeStore } from '../services/session/sessionModeStore.js';
 import { TurnDirectiveComposer } from '../services/turnDirectiveComposer.js';
 import { WorkspaceSearchService } from '../services/workspaceSearchService.js';
 

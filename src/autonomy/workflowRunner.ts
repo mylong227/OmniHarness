@@ -7,7 +7,7 @@ import { Agent } from '../core/agent.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../subagent/subagentEventBridge.js';
 import { ToolSubset } from '../subagent/toolSubset.js';
-import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
 import type {
   WorkflowDef,
   WorkflowResult,

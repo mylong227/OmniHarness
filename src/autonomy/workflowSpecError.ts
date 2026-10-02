@@ -1,5 +1,5 @@
 import { OmniError, ErrorCode } from '../omniError.js';
-import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
 
 /**
  * @beta

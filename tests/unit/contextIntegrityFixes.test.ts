@@ -25,7 +25,7 @@ import { DeterministicCompressor } from '../../src/context/deterministicCompress
 import { ContextCompactor, COMPACTION_MARKER } from '../../src/context/contextCompactor.js';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { ModelMessage, ModelPort } from '../../src/ports/model/model.js';
 import type { ToolPort } from '../../src/ports/tool/tool.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';

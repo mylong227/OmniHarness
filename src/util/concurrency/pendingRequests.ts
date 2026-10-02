@@ -28,11 +28,11 @@
  * 唯一的例外由调用方造成且被显式记录：**同一 key 重复登记会覆盖旧条目**（见 {@link register}）。
  */
 
-import type { PendingHandlers } from '../ports/util/pendingHandlers.js';
-import type { PendingTimeout } from '../ports/util/pendingTimeout.js';
+import type { PendingHandlers } from '../../ports/util/pendingHandlers.js';
+import type { PendingTimeout } from '../../ports/util/pendingTimeout.js';
 
-export type { PendingHandlers } from '../ports/util/pendingHandlers.js';
-export type { PendingTimeout } from '../ports/util/pendingTimeout.js';
+export type { PendingHandlers } from '../../ports/util/pendingHandlers.js';
+export type { PendingTimeout } from '../../ports/util/pendingTimeout.js';
 
 /** 表内条目：处理器 + 超时句柄（无超时时缺省）。 */
 interface PendingEntry<T> {

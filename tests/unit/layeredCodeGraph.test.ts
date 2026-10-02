@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 
 import { CodeGraphIndex } from '../../src/context/codeGraphIndex.js';
 import { LayeredCodeGraph } from '../../src/context/layeredCodeGraph.js';
-import type { SymbolNode } from '../../src/context/repoMap.js';
+import type { SymbolNode } from '../../src/context/repoMap/repoMap.js';
 
 /** 构造符号节点的测试夹具。 */
 function sym(file: string, line: number, name: string, signature: string): SymbolNode {

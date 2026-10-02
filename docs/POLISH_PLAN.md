@@ -27,7 +27,7 @@
 在本语料上跑**全网格 + bootstrap CI + repeated 2-fold 留出折**。结论：**无稳健增益，默认 1.5/0.75 已近最优，不翻默认**
 （详见 §3）。这是一次**受控排除**，把「调 BM25 参数」从候选清单划掉，避免后续重复投入。
 
-**已落地（打磨批次）**：**P7 有界均衡并行调度**（`src/util/parallelMap.ts` + 三处串行瓶颈接线，见 §4-P7）；
+**已落地（打磨批次）**：**P7 有界均衡并行调度**（`src/util/concurrency/parallelMap.ts` + 三处串行瓶颈接线，见 §4-P7）；
 **P2 确定性无损收缩接线**（`DeterministicCompressor` 无损子集接进 `ContextCompactor`，实测 JSON 型工具输出 −29%，见 §4-P2）；
 **P1 零依赖词法 reranker**（`FileRerankIndex` + `FileReranker` + `ContentStopWords`；判定档 fileK=14 召回 31.4%→41.0% /
 CI[1.80,18.60]pp 两关全过；**2026-09-17 检索预算 10→14 翻默认后生产档亦两关全过 ⇒ 精排已随预算一并默认开**，见 §4-P1）；
@@ -301,7 +301,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
   ② `TerminalBenchRunner.run` 逐个 `await runOne()`（整套串行）；
   ③ `WorkerOrchestrator.delegateAll` 明确注释「按清单顺序逐个执行，**不并行**」。
   既有并发原语只覆盖子代理（`SubagentOrchestrator`）与 Agent 工具（`ToolScheduler`，热区），**评测/编排层无并发**。
-- **方案**：新增 `src/util/parallelMap.ts`（`ParallelMap`）——**复用 `ConcurrencyLimiter`**（信号量），
+- **方案**：新增 `src/util/concurrency/parallelMap.ts`（`ParallelMap`）——**复用 `ConcurrencyLimiter`**（信号量），
   提供有界并发 + **均衡调度**（槽位完成即移交等待者，先到先服务、无队头阻塞）+ **同序**结果；
   `concurrency=1` **退化为严格串行**（与旧 for-await 逐字节等价，零行为变更）。
   接线三处为**可选并发参数**（默认 1=串行，显式 N 才开启）；CLI `--concurrency N`。

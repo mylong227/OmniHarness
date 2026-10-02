@@ -1,4 +1,4 @@
-import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
 import { Id } from '../util/id.js';
 import { SubagentRunner } from './subagentRunner.js';
 import { WorktreeOps } from './worktreeOps.js';

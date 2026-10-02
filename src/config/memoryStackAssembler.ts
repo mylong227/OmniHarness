@@ -15,7 +15,7 @@ import { QECEncoder } from '../adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
 import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
 import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
 import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
 

@@ -7,7 +7,7 @@ import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import type { EnforcementMode } from '../security/enforcementModeResolver.js';
 import type { TrustTier } from '../security/toolOutputTrust.js';
-import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';

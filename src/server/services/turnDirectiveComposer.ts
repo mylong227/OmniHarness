@@ -1,4 +1,4 @@
-import type { SessionModes } from './sessionModeStore.js';
+import type { SessionModes } from './session/sessionModeStore.js';
 
 /**
  * 回合前置指令合成器：把 UI 的会话模式（目标 / 计划模式 / 绘图模式）翻成一段

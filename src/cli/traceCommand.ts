@@ -12,7 +12,7 @@
  */
 import { join, resolve } from 'node:path';
 import { SessionEventReader } from '../adapters/telemetry/sessionEventReader.js';
-import { SessionTraceService } from '../server/services/sessionTraceService.js';
+import { SessionTraceService } from '../server/services/session/sessionTraceService.js';
 import type {
   TraceEntry,
   TraceReadRequest,

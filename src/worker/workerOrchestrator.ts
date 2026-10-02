@@ -1,4 +1,4 @@
-import { ParallelMap } from '../util/parallelMap.js';
+import { ParallelMap } from '../util/concurrency/parallelMap.js';
 import type { WorkerRegistry } from './workerRegistry.js';
 import type { WorkerResult } from './worker.js';
 

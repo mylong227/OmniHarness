@@ -1,7 +1,7 @@
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ToolPort } from '../ports/tool/tool.js';
 import type { OmniHarnessRuntime } from '../composition/runtime.js';
-import { ConcurrencyLimiter } from '../util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
 import { FilteredToolPort } from '../core/filteredToolPort.js';
 import { MUTATING_TOOLS } from '../core/toolGate.js';
 import { Agent } from '../core/agent.js';

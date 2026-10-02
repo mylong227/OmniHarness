@@ -11,7 +11,7 @@ import { GraphRunRegistry } from './graphRunRegistry.js';
 import { ServerConfigStore } from '../services/serverConfigStore.js';
 import { FsExplorer } from '../services/fsExplorer.js';
 import { WorkspaceTree } from '../services/workspaceTree.js';
-import { SessionArchive } from '../services/sessionArchive.js';
+import { SessionArchive } from '../services/session/sessionArchive.js';
 import { WorkspaceChanges } from '../services/workspaceChanges.js';
 import { ModelCatalogService } from '../services/modelCatalogService.js';
 import { PluginHost } from '../services/pluginHost.js';

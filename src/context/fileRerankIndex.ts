@@ -18,7 +18,7 @@
  */
 
 import { Bm25Index } from '../search/bm25Index.js';
-import type { SymbolNode } from './repoMap.js';
+import type { SymbolNode } from './repoMap/repoMap.js';
 import type { IndexedCorpus } from './contextEngine.js';
 import { ContentStopWords } from './contentStopWords.js';
 

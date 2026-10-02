@@ -10,7 +10,7 @@ import type {
   ApprovalRequest,
 } from '../../ports/runtime/approval.js';
 import type { EventPort } from '../../ports/runtime/eventPort.js';
-import { PendingRequests, type PendingTimeout } from '../../util/pendingRequests.js';
+import { PendingRequests, type PendingTimeout } from '../../util/concurrency/pendingRequests.js';
 
 /** 审批上行缺省等待上限（毫秒）：超时按 deny 兑现（fail-closed）。 */
 const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;

@@ -7,7 +7,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SessionRewindService } from '../../src/server/services/sessionRewindService.js';
+import { SessionRewindService } from '../../src/server/services/session/sessionRewindService.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 造事件。 */

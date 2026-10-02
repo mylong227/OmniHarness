@@ -16,7 +16,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileLock } from '../../src/util/fileLock.js';
+import { FileLock } from '../../src/util/concurrency/fileLock.js';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {

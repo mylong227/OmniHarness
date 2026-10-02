@@ -18,7 +18,7 @@ import type {
   DelegateResult,
 } from './a2aProtocol.js';
 import { A2A_CAPABILITIES_DECLARE, A2A_TASK_DELEGATE } from './a2aProtocol.js';
-import { PendingRequests } from '../util/pendingRequests.js';
+import { PendingRequests } from '../util/concurrency/pendingRequests.js';
 
 /** 委托/声明调用超时（ms）。 */
 const DEFAULT_TIMEOUT_MS = 60_000;

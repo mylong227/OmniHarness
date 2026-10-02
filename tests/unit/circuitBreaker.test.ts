@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CircuitOpenError } from '../../src/errors/circuitOpenError.js';
-import { CircuitBreaker } from '../../src/util/circuitBreaker.js';
+import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.js';
 
 /** 可推进的假时钟（测试禁用真实睡眠）。 */
 function fakeClock(start = 0): { now: () => number; advance: (ms: number) => void } {

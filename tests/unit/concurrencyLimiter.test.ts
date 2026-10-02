@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../../src/util/concurrency/concurrencyLimiter.js';
 
 test('等待者严格 FIFO：先到先得，顺序不乱（槽位链式移交）', async () => {
   const limiter = new ConcurrencyLimiter(1);

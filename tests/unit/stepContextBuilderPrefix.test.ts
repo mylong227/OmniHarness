@@ -12,7 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
 import type { ModelMessage } from '../../src/ports/model/model.js';
 

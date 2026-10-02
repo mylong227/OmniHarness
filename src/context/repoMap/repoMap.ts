@@ -13,7 +13,12 @@
  * RepoMap —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
  */
 export class RepoMap {
-  /** 从单文件内容抽取符号。relPath 用于语言判断与回填。 */
+  /**
+   * 从单文件内容抽取符号。relPath 用于语言判断与回填。
+   * @param relPath 相对仓库根的文件路径（决定走 TS 还是 Python 规则）。
+   * @param content 文件全文。
+   * @returns 抽取出的符号节点列表（按行序）。
+   */
   public static extractSymbols(relPath: string, content: string): SymbolNode[] {
     const lines = content.split('\n');
     const rules = relPath.endsWith('.py') ? PY_RULES : TS_RULES;
@@ -54,7 +59,11 @@ export class RepoMap {
     return nodes;
   }
 
-  /** 生成紧凑结构大纲（按文件分组）。用于作为 repo-map 的「场拓扑」表示。 */
+  /**
+   * 生成紧凑结构大纲（按文件分组）。用于作为 repo-map 的「场拓扑」表示。
+   * @param nodes 符号节点列表。
+   * @returns 按文件分组的纯文本大纲。
+   */
   public static outlineText(nodes: readonly SymbolNode[]): string {
     const byFile = new Map<string, SymbolNode[]>();
     for (const n of nodes) {

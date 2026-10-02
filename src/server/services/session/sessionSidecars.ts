@@ -22,8 +22,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { FileLock } from '../../util/fileLock.js';
-import { log } from '../../util/logger.js';
+import { FileLock } from '../../../util/concurrency/fileLock.js';
+import { log } from '../../../util/logger.js';
 // 排序模型（显式名次 + 新会话置顶）单独成文件：本文件只管侧车文件的读写。
 import { SessionRanking, type OrderDoc } from './sessionRanking.js';
 

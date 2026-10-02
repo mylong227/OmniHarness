@@ -1,4 +1,4 @@
-﻿import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+﻿import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 // Agent loop 审计回归测试（2026-09-08）。
 //
 // 背景：连续多轮「模型 400 / 无结果 / 疑似死循环」的表象修复后，对主循环做一次

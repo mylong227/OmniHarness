@@ -17,7 +17,7 @@
  */
 
 import { endpointDefaults } from '../../util/endpointDefaults.js';
-import { PendingRequests } from '../../util/pendingRequests.js';
+import { PendingRequests } from '../../util/concurrency/pendingRequests.js';
 
 /** 事件监听器。 */
 type EventListener = (params: unknown) => void;

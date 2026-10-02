@@ -22,7 +22,7 @@ import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model
 import type { ToolPort } from '../../src/ports/tool/tool.js';
 import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
 import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };
 const sandboxOk: SandboxPort = { name: 'ok', check: async () => ({ allowed: true }) };

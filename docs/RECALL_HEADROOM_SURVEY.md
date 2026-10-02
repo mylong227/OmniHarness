@@ -228,7 +228,7 @@ node evals/spider-final-ab.mjs            # ⑤ 形态丝 + 对抗/自然口径�
 ### 9.3 真正的收益：把「命中哪些文件」与「注入多少字」解耦
 
 **核心洞察：命中哪些文件由**排序**决定，注入多少字由**呈现**决定。** 由此设计梯度投送
-（`src/context/repoMapPayload.ts`）：
+（`src/context/repoMap/repoMapPayload.ts`）：
 
 - 前 3 个文件 → 完整符号大纲；
 - 第 4..8 个 → 「`📄 路径` + 命中符号名」；

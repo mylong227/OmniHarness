@@ -613,7 +613,7 @@
   **验证**：见看板 §20.15；`check --strict`、`arch:gate`、`audit:config-wiring`（七条不变量＋selftest）、
   `audit:maturity`、`audit:standard --delta`、`lint`、`format:check`、`tsc --noEmit`（含 web）与全量单测全绿。
 
-- cda9a14: **JSON-RPC 在途请求簿记收成单一实现**（用户指定「把其他问题全解决掉」）：新增 `src/util/pendingRequests.ts`，七个站点全部改接，删掉各自的 pending/超时/id 关联拷贝。**未改动任何对外行为**（超时文案、计数契约、幂等语义逐条保真）。
+- cda9a14: **JSON-RPC 在途请求簿记收成单一实现**（用户指定「把其他问题全解决掉」）：新增 `src/util/concurrency/pendingRequests.ts`，七个站点全部改接，删掉各自的 pending/超时/id 关联拷贝。**未改动任何对外行为**（超时文案、计数契约、幂等语义逐条保真）。
 
   - **动机**：审计 §3.5 记「JSON-RPC pending/超时/id 关联重复 6 处」。那份重复里**已经**长出一个真缺陷
     （`mcpClient` 无 reject 通道，传输关闭时在途请求只能等各自超时，调用方表现为「卡住」——已在上一轮单独修掉），
@@ -682,7 +682,7 @@
 
 - 29ceb96: **性能两节收口（审计 §2.4 / §2.5）**：repo-map 结果记忆化、消息级 token 计数缓存（带实测门槛）、SQLite 单事务写入、前端滚动帧派生缓存。**每条先实测再决定**——其中 `all()` 浅拷贝实测为可忽略，明确不修并留档。
 
-  - **repo-map 结果记忆化（§2.4）**：新增 `src/context/repoMapMemo.ts`（单槽位 memo）。
+  - **repo-map 结果记忆化（§2.4）**：新增 `src/context/repoMap/repoMapMemo.ts`（单槽位 memo）。
     键 = `root + 查询 + 生效旋钮指纹`（`layered/fileK/symK/rerank/prf/payloadPlan` 的**env 覆盖后**取值，
     故运行期改 env 不会命中旧键）；失效判据**另加语料实例比对**——`CorpusIndexCache` 重新索引即产出新实例，
     于是「缓存生命期严格不长于语料生命期」，比按 TTL 猜更精确；`clear()` 同步失效。

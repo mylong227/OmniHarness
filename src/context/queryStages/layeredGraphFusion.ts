@@ -8,7 +8,7 @@
  */
 import { CodeGraphIndex, type CodeGraph } from '../codeGraphIndex.js';
 import { LayeredCodeGraph } from '../layeredCodeGraph.js';
-import type { SymbolNode } from '../repoMap.js';
+import type { SymbolNode } from '../repoMap/repoMap.js';
 import type { ScoredId } from './candidateSearch.js';
 
 /** 层化图阶段所需的语料切片（结构化子集）。 */

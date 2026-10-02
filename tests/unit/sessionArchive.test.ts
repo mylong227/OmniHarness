@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionArchive } from '../../src/server/services/sessionArchive.js';
+import { SessionArchive } from '../../src/server/services/session/sessionArchive.js';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {

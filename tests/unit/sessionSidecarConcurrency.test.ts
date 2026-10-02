@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionSidecars } from '../../src/server/services/sessionSidecars.js';
+import { SessionSidecars } from '../../src/server/services/session/sessionSidecars.js';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {

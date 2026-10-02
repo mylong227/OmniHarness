@@ -16,7 +16,7 @@ import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../../src/util/concurrency/concurrencyLimiter.js';
 import { ConfigFactory } from '../../src/config/configFactory.js';
 import { Runtime } from '../../src/composition/runtime.js';
 import { Agent } from '../../src/core/agent.js';

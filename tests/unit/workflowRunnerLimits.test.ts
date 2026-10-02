@@ -20,7 +20,7 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { WorkflowRunner } from '../../src/autonomy/workflowRunner.js';
-import { ConcurrencyLimiter } from '../../src/util/concurrencyLimiter.js';
+import { ConcurrencyLimiter } from '../../src/util/concurrency/concurrencyLimiter.js';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
 import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
 

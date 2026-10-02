@@ -9,7 +9,7 @@
 // 覆盖：v1 兼容解析、三层排序键、稠密名次（未提交但已登记的会话保序接在后面）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SessionRanking } from '../../src/server/services/sessionRanking.js';
+import { SessionRanking } from '../../src/server/services/session/sessionRanking.js';
 
 test('解析：v1 数组 ⇒ 下标即名次，且 at=0（历史会话不会被凭空提到最前）', () => {
   const doc = SessionRanking.parse(['b', 'a']);
