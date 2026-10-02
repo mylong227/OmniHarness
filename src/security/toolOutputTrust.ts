@@ -48,13 +48,35 @@ export class ToolOutputTrust {
     TOOL_NAMES.runCode,
   ]);
 
-  /** 各信任级拦截「弱证据」所需的最低命中数（越低越敏感）。 */
+  /** 各信任级拦截「弱证据」所需的最低命中数（越低越敏感，基线；可被 `setThresholdOverride` 覆盖）。 */
   private static readonly THRESHOLDS: Readonly<Record<TrustTier, number>> = {
     external: 1,
     unknown: 1,
     file: 2,
     local: 3,
   };
+
+  /** 运行期阈值覆盖（部分覆盖；未给的档沿用 `THRESHOLDS` 基线）。由装配层在构造注入护栏时设置。 */
+  private static thresholdOverride: Partial<Record<TrustTier, number>> = {};
+
+  /**
+   * 覆盖各信任级的弱证据阈值（部分覆盖，未给的档沿用基线）。
+   *
+   * @param override 信任级 → 新阈值 的部分映射（值须为正整数）。传 `{}` 即清除覆盖。
+   * @returns 无返回值。
+   */
+  public static setThresholdOverride(override: Readonly<Partial<Record<TrustTier, number>>>): void {
+    ToolOutputTrust.thresholdOverride = { ...override };
+  }
+
+  /**
+   * 清除运行期阈值覆盖，回到内置基线。测试可调用以隔离副作用。
+   *
+   * @returns 无返回值。
+   */
+  public static resetThresholdOverride(): void {
+    ToolOutputTrust.thresholdOverride = {};
+  }
 
   /** 信任级 → 中文标签（可观测 / 审计用）。 */
   private static readonly LABELS: Readonly<Record<TrustTier, string>> = {
@@ -91,7 +113,8 @@ export class ToolOutputTrust {
    * @returns 最低弱证据命中数（`external`/`unknown` = 1、`file` = 2、`local` = 3）。
    */
   public static weakEvidenceThreshold(tier: TrustTier): number {
-    return ToolOutputTrust.THRESHOLDS[tier];
+    const o = ToolOutputTrust.thresholdOverride[tier];
+    return o === undefined ? ToolOutputTrust.THRESHOLDS[tier] : o;
   }
 
   /**

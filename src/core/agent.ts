@@ -461,6 +461,8 @@ export class Agent implements AgentPort {
       hooks: this.runtime.hooks,
       live: this.runtime.live,
       promptInjectionGuard: this.runtime.config.promptInjectionGuard,
+      promptInjectionGuardWeakPolicy: this.runtime.config.promptInjectionGuardWeakPolicy,
+      promptInjectionGuardThresholds: this.runtime.config.promptInjectionGuardThresholds,
       reasoningEffort: this.runtime.config.reasoning,
       // U2：repo-map 上下文注入。默认开；env OMNI_REPO_MAP=0 关闭（不增 config schema，避免破 fail-closed 校验）。
       workspaceRoot: this.runtime.config.workspaceRoot,

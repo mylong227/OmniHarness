@@ -19,6 +19,7 @@ import type { EvolutionController } from '../runtime/evolution.js';
 import type { SelfVerifyConfig } from './selfVerifyConfig.js';
 import type { DecisionEngineConfig } from './decisionEngineConfig.js';
 import type { EnforcementMode } from '../security/enforcementMode.js';
+import type { TrustTier } from '../../security/toolOutputTrust.js';
 import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.js';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.js';
 import type { RuntimeTelemetryPort } from '../runtime/runtimeTelemetry.js';
@@ -187,6 +188,18 @@ export interface OmniHarnessConfig {
     | undefined;
   /** 提示注入护栏（opt-in，默认关）：开启后工具结果进模型上下文前做确定性指令注入扫描，命中即隔离（不喂给模型）。零依赖、纯规则启发式、失败开放（扫描器异常时放行原始结果）。 */
   readonly promptInjectionGuard?: boolean | EnforcementMode | undefined;
+  /**
+   * 注入护栏弱证据处置策略（P4 升档旋钮，可选）：`enforce` 档下弱规则命中（`severity: 'weak'`）
+   * 按本策略决定——`'block'` 隔离、`'observe'` 仅记录不隔离（降误伤）。缺省 undefined 视作 `'block'`，
+   * 保持既有 enforce 语义（强弱都拦）。强规则命中（`severity: 'strong'`）恒隔离，不受本策略影响。
+   */
+  readonly promptInjectionGuardWeakPolicy?: 'block' | 'observe' | undefined;
+  /**
+   * 注入护栏各来源信任级弱证据阈值覆盖（P4 升档旋钮，可选）：`Partial<Record<TrustTier, number>>`，
+   * 未给的档沿用 `ToolOutputTrust` 内置基线（external/unknown=1、file=2、local=3）。改变「弱证据达到
+   * 多少条才判为注入」的灵敏度。
+   */
+  readonly promptInjectionGuardThresholds?: Partial<Record<TrustTier, number>> | undefined;
   /**
    * （P3）自验证回环（opt-in，默认关）：开启后**写类工具改写源码**时自动跑受限测试命令，
    * 把失败摘要回灌到该次工具结果（模型同一步即知「改坏了」），并复用 `SelfChecklist` 做假完成探测。

@@ -22,6 +22,10 @@ import type { SubagentOptions } from '../subagent/subagentTypes.js';
 import { ConfigBuilder } from './configBuilder.js';
 import { ConfigToolRegistry } from './configToolRegistry.js';
 import type { MediaStack } from './mediaStackAssembler.js';
+import { BuiltinDefaults } from '../util/builtinDefaults.js';
+import { mkdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { DecisionEngineResolver } from './decisionEngineResolver.js';
 import { FileDecisionTraceAdapter } from '../adapters/decision/fileDecisionTraceAdapter.js';
@@ -136,10 +140,7 @@ export class ConfigFactory {
       // (D1/D2) 生效模式三态：布尔**原样透传**（`true`=enforce / `false`=off——既有断言与零行为变更均保留）；
       // **字符串必须过白名单校验**：未知取值在此抛错，而不是静默回落成 off——否则「配置写错」会静默
       // 退化成「护栏失效」，与 `src/cli/cliEnums.ts`「安全相关枚举必须显式校验」同一纪律。
-      promptInjectionGuard:
-        typeof partial.promptInjectionGuard === 'string'
-          ? EnforcementModeResolver.modeOf(partial.promptInjectionGuard)
-          : partial.promptInjectionGuard,
+      ...ConfigFactory.buildInjectionGuard(partial),
       runtimeTelemetry: partial.runtimeTelemetry,
       costBudget,
       budgetDegrade,
@@ -163,6 +164,37 @@ export class ConfigFactory {
       ...core.ports,
       ...memory.stack,
       ...skills,
+    };
+  }
+
+  /**
+   * 装配注入护栏相关配置（P4 升档）：三态生效模式 + 弱证据处置策略 + 分级阈值覆盖。
+   *
+   * 从 `build` 抽出：护栏配置是一段「注释 + 条件归一化 + 透传」的独立切片，留在 `build` 字面量里
+   * 会推高其函数体（门禁红线）。抽成 helper 后 `build` 只做编排、不堆字段细节。
+   * （D1/D2）生效模式三态：布尔**原样透传**（`true`=enforce / `false`=off），**字符串必须过白名单校验**——
+   * 未知取值在此抛错，而不是静默回落成 off（否则「配置写错」会静默退化成「护栏失效」）。
+   *
+   * @param partial 未解析的运行配置（读 `promptInjectionGuard` 及其升档旋钮）。
+   * @returns 注入护栏相关配置片段（展开到 `build` 返回字面量）。
+   */
+  private static buildInjectionGuard(
+    partial: OmniHarnessConfig,
+  ): Pick<
+    OmniHarnessConfig,
+    'promptInjectionGuard' | 'promptInjectionGuardWeakPolicy' | 'promptInjectionGuardThresholds'
+  > {
+    return {
+      // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**却**未被本装配字面量透传**，
+      // 导致 `agent` 读到的恒为 `undefined`（第九处「声明未接线」）。此处显式透传；缺省 `undefined` = 默认关。
+      promptInjectionGuard:
+        typeof partial.promptInjectionGuard === 'string'
+          ? EnforcementModeResolver.modeOf(partial.promptInjectionGuard)
+          : partial.promptInjectionGuard,
+      // (P4 升档) 弱证据处置策略 + 分级阈值覆盖：使 `weakPolicy='observe'` 时弱证据只记不隔离（降误伤），
+      // `thresholds` 可整体调「弱证据达几条才判注入」的灵敏度；缺省 undefined = 既有 enforce 语义（强弱都拦）。
+      promptInjectionGuardWeakPolicy: partial.promptInjectionGuardWeakPolicy,
+      promptInjectionGuardThresholds: partial.promptInjectionGuardThresholds,
     };
   }
 
@@ -293,7 +325,37 @@ export class ConfigFactory {
   }
 
   /**
+   * 解析模型权重缓存缺省目录：包根下 `third-party/model-cache`（存在则建目录后返回）。
+   *
+   * 包根经 `BuiltinDefaults.locatePackageRoot`（package.json + defaults/ 双锚点）向上定位，
+   * 对源码仓与 npm 安装形态同一语义。定位失败（异常布局）返回 `undefined`——
+   * 调用方退回 HF 库默认缓存，不让缓存位置问题阻断能力本身。
+   *
+   * @returns 缓存目录绝对路径；包根不可定位时为 `undefined`。
+   */
+  private static defaultModelCacheDir(): string | undefined {
+    try {
+      const moduleDir = dirname(fileURLToPath(import.meta.url));
+      const packageRoot = resolve(BuiltinDefaults.locatePackageRoot(moduleDir), '..');
+      const cacheDir = join(packageRoot, 'third-party', 'model-cache');
+      mkdirSync(cacheDir, { recursive: true });
+      return cacheDir;
+    } catch (error) {
+      log.warn('embedding.cacheDir.resolveFailed', {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  }
+
+  /**
    * 构造语义嵌入端口（U3 混合检索），并按需触发 L5 预热。
+   *
+   * 模型权重缓存缺省收编进包根下 `third-party/model-cache`（2026-10-02 盘点：
+   * 权重属第三方资产，按功能归位；原先未设 env 时落到 HF 家目录默认，
+   * 换机/清理即失效且位置不可预测）。可用 `OMNI_EMBEDDING_CACHE_DIR` 指回任意位置
+   * （如 HF 家目录缓存）。包根定位失败时退回 `undefined`（HF 库默认），不让缓存
+   * 位置问题阻断能力本身。
    *
    * @returns 嵌入端口；`OMNI_SEMANTIC_RECALL !== '1'` 时为 `undefined`（纯 BM25、零开销）。
    */
@@ -302,7 +364,7 @@ export class ConfigFactory {
       return undefined;
     }
     const adapter = new TransformersEmbeddingAdapter({
-      cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR,
+      cacheDir: process.env.OMNI_EMBEDDING_CACHE_DIR ?? ConfigFactory.defaultModelCacheDir(),
       localFilesOnly: process.env.OMNI_EMBEDDING_OFFLINE === '1',
       // 模型下载源：`OMNI_HF_ENDPOINT` 优先、回落 `HF_ENDPOINT`（见 resolveRemoteHostFromEnv）。
       // 此前**只有评测脚本**（evals/recall-*-real.mjs）自行设 `env.remoteHost`，生产装配路径

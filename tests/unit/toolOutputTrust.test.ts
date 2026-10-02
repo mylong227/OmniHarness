@@ -56,3 +56,27 @@ test('isUntrusted：external/unknown 为不可信档', () => {
   assert.strictEqual(ToolOutputTrust.isUntrusted('file'), false);
   assert.strictEqual(ToolOutputTrust.isUntrusted('local'), false);
 });
+
+test('setThresholdOverride：运行时覆盖基线阈值', () => {
+  try {
+    // 把 local 档阈值从 3 降到 1，使原本需 3 条弱证据的本机命令输出变成 1 条即拦。
+    ToolOutputTrust.setThresholdOverride({ local: 1 });
+    assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('local'), 1, '覆盖应生效');
+    assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('external'), 1, '未覆盖档沿用基线');
+    assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('file'), 2, '未覆盖档沿用基线');
+  } finally {
+    ToolOutputTrust.resetThresholdOverride();
+  }
+  assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('local'), 3, '复位后应回基线');
+});
+
+test('setThresholdOverride：部分覆盖只改指定档，不影响其余', () => {
+  try {
+    ToolOutputTrust.setThresholdOverride({ file: 5 });
+    assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('file'), 5);
+    assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('external'), 1, 'external 不受影响');
+    assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('local'), 3, 'local 不受影响');
+  } finally {
+    ToolOutputTrust.resetThresholdOverride();
+  }
+});

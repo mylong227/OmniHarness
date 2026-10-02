@@ -71,6 +71,37 @@ export class EnforcementModeResolver {
   }
 
   /**
+   * 注入命中在给定生效模式下的**处置**（仅影响「弱证据」是否隔离）。
+   *
+   * - 非 `enforce`（含 `off` / `shadow`）：恒返回 `'shadow'`——原样放行、只记录（D1：观测档契约）。
+   * - `enforce` + **强规则命中**：恒返回 `'block'`（高置信，与来源阈值无关，无降级空间）。
+   * - `enforce` + **弱证据命中**：由 `weakPolicy` 决定——`'block'` 隔离、`'observe'` 仅记录不隔离。
+   *
+   * 为什么弱证据可降级为 observe：弱规则按来源阈值累计（日志/文档易误触），强规则才是明确的指令覆盖/
+   * 角色伪造/数据外泄；升档到 `enforce` 时用户可按误报情况选择「只拦强规则」还是「强弱都拦」。
+   * 缺省 `weakPolicy` 视为 `'block'`，**保持既有 `enforce` 语义不变**（全拦），避免静默削弱护栏；
+   * 选择 `'observe'` 以牺牲部分弱证据拦截来换取更低误伤。
+   *
+   * @param mode 生效模式。
+   * @param isStrongHit 命中是否来自强规则（`hits` 中存在 `severity: 'strong'`）。
+   * @param weakPolicy 弱证据策略（`'block'` 隔离 / `'observe'` 仅记录）；缺省按 `'block'`。
+   * @returns 处置：`'block'`（隔离） / `'observe'`（仅记录不隔离） / `'shadow'`（原样放行）。
+   */
+  public static resolveInjectionDisposition(
+    mode: EnforcementMode,
+    isStrongHit: boolean,
+    weakPolicy: 'block' | 'observe' | undefined,
+  ): 'block' | 'observe' | 'shadow' {
+    if (!EnforcementModeResolver.applies(mode)) {
+      return 'shadow';
+    }
+    if (isStrongHit) {
+      return 'block';
+    }
+    return weakPolicy === 'observe' ? 'observe' : 'block';
+  }
+
+  /**
    * 从 CLI 参数归一化护栏生效模式（生产入口默认 `shadow` 观测档常开）。
    *
    * 为什么默认 `shadow` 而非 `off`：护栏的「观测档」只跑检测、记录「本该拦截」的证据，但

@@ -46,6 +46,48 @@ test('observes / applies 真值表', () => {
   assert.strictEqual(EnforcementModeResolver.applies('enforce'), true);
 });
 
+test('resolveInjectionDisposition：注入命中处置真值表（P4 升档旋钮）', () => {
+  // 非 enforce（off/shadow）：恒 'shadow'——只记不改（D1 观测档契约），且无论强弱命中都不隔离。
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('off', false, undefined),
+    'shadow',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('off', true, 'observe'),
+    'shadow',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('shadow', false, undefined),
+    'shadow',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('shadow', true, 'observe'),
+    'shadow',
+  );
+  // enforce + 强规则命中：恒 'block'（高置信，无降级空间），不受 weakPolicy 影响。
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('enforce', true, undefined),
+    'block',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('enforce', true, 'observe'),
+    'block',
+  );
+  // enforce + 弱证据命中：缺省 / 'block' ⇒ 'block'（保持既有全拦语义）；'observe' ⇒ 'observe'（只记不隔离）。
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('enforce', false, undefined),
+    'block',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('enforce', false, 'block'),
+    'block',
+  );
+  assert.strictEqual(
+    EnforcementModeResolver.resolveInjectionDisposition('enforce', false, 'observe'),
+    'observe',
+  );
+});
+
 test('MODES 白名单与三态同源且无重复', () => {
   assert.deepEqual([...EnforcementModeResolver.MODES], ['off', 'shadow', 'enforce']);
   assert.strictEqual(new Set(EnforcementModeResolver.MODES).size, 3);
