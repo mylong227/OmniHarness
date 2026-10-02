@@ -1,0 +1,10 @@
+{
+  "name": "demo-string",
+  "version": "0.1.0",
+  "description": "示例工具插件：字符串处理最小样例",
+  "author": "OmniHarness Samples",
+  "permissions": [],
+  "entry": "index.js",
+  "source": "bundled",
+  "localPath": "examples/plugins/demo-string"
+}

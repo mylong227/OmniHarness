@@ -4515,3 +4515,28 @@ audit:config-wiring ✅。
 - **来源治理**：用户级 skill `omniharness-coding-standard`（每次会话注入）的「零/准入依赖」改为「准入依赖」并明令禁止用「零依赖」拒绝更优依赖。
 - **措辞清理**：全部现行手册与源码注释中的「零依赖/零运行时依赖」改为事实描述（纯 TS / 仅 node:crypto / 运行时无第三方依赖）。**关键论证修正**：fileReranker 拒绝交叉编码器的真实理由是**实测 −1.0pp**（能力不满足「必要且更优」），而非「零依赖铁律」。
 - **不改**：`docs/archive/**`、`docs/agent_evolution_research/**`、`CHANGELOG.md`、本板历史章节——历史快照保持原样（治理铁律 4：过程留档）。
+
+---
+
+## 36. 核心能力提升 + C7 重构 + 孤儿修复（2026-10-02 第二批）
+
+> 触发：用户要求「提升核心功能能力，重构升级项目，提升整体架构，清理孤儿文件」。承接 §35 盘点结论与 10-01 能力审计。
+
+### 36.1 核心能力：C6 Python 符号抽取升级（候选池拓宽）
+
+- `repoMap.ts` PY_RULES：`(?:async\s+)?def`（**此前 `async def` 完全抽不到**）+ `import` / `from X import` / `from . import x` 三条导入规则（`SymbolKind` 新增 `'import'`）。模块名进符号索引 → 查询提到模块名时 Python 文件可入候选池——直击审计 C2 的「45.6% 查询 GT 文件不可达」的池侧根因。TS 通道不变（冻结评测口径）。测试 `repoMapPython.test.ts` 5 例。
+
+### 36.2 重构：C7 `query()` 拆分 + 大纲构建 28× 提速
+
+- `query()` 原 224 行 / 11 职责（审计 C7），拆为 `src/context/queryStages/` 四阶段类（一文件一类，结构化切片入参，**不反向依赖 contextEngine，零新增依赖环**）：
+  `CandidateSearch`（BM25 双路 + PRF，df 缓存随迁）→ `SeedFusion`（共振 ∪ LSA ∪ BM25 → 种子）→ `SymbolFileFusion`（图扩散/基线 → 文件混合分 → 候选池）+ `LayeredGraphFusion`（层化图，含语料级缓存随迁）。
+- `PerFileSymbolView`：大纲构建从「每次查询全量扫符号表」改为语料级分组缓存（审计 C7 的 1.055ms→0.005ms 建议）。实测本仓 939 文件 / 11067 符号：**0.368ms → 0.013ms（28×），`inSetOrder` 与 `symbols.filter(...)` 等价性断言 true**。
+- 行为字节级等价：context 相关 58 测试 + 全量套件 2464/2474（仅 2 个审计已记录的沙箱噪声）。
+
+### 36.3 孤儿文件清理与「拉下来可用」修复（reachScan v4 全仓复扫：src 零真孤儿）
+
+- 删：examples 5 个零引用演示脚本（life/system/plugin-micro/plugin-system/demo-markdown-preview）、recall-diagnose 的无主历史 report 产物（evals 下已无对应脚本）。
+- **修复 5 个「引用已改名模块」的破损 benchmark 脚本**（`npm run selfcheck / longrun:run / longrun:prod / longrun:prod:real` 与 efficiency_benchmark 此前启动即崩，根因是 787deac 上帝类拆分改名未跟随）：confinement→confinementEngine、symmetryBreaking→symmetryBreakingEngine、heatAnnealer→heatEquationAnnealer、naturalGradient/particleFilter→*Belief、evolutionGate→failClosedEvolutionGate、vortexRing→vortexRingPacket、crispr→crisprSkillEditor、skillComposer.composeByTwist→MoireComposer.composeByTwist、bm25→bm25Index、omniharnessConfig→configFactory。
+- `evals/context-efficiency` 复现管线修复（run.sh 的 bm25.ts 失效路径 + bench.mjs 旧版顶层函数 import→ContextEngine 静态方法），接线 `eval:context-efficiency`，`.gitignore` 收编 `.xeval/`；端到端跑通并重生成 RESULTS.json。
+- 补齐 `examples/plugins/demo-text|demo-string` 缺失的 `omni.plugin.json`（其余示例插件均有）。
+- 保留（有依据）：`scripts/git-safe.sh`（本机 .git 损坏防护）、`.omniharness/reachScan.mjs`（docs 引用的审计方法工具）。

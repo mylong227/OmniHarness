@@ -3,6 +3,6 @@
 set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
-./node_modules/.bin/tsc src/search/bm25.ts src/context/repoMap.ts src/context/contextEngine.ts \
+./node_modules/.bin/tsc src/search/bm25Index.ts src/context/repoMap.ts src/context/contextEngine.ts \
   --outDir .xeval --module esnext --target es2022 --moduleResolution bundler --skipLibCheck
 node evals/context-efficiency/bench.mjs src

@@ -26,7 +26,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { ConfigFactory } from '../dist/src/config/omniharnessConfig.js';
+import { ConfigFactory } from '../dist/src/config/configFactory.js';
 import { Runtime } from '../dist/src/composition/runtime.js';
 import { Agent } from '../dist/src/core/agent.js';
 import { ScriptedModel } from '../dist/src/eval/scriptedModel.js';

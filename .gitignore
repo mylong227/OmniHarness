@@ -110,3 +110,6 @@ chrome-hijack-backup/
 third-party/model-cache/
 third-party/vec-cache/
 third-party/swebench-repos/
+
+# 上下文效率基准的临时编译产物（run.sh bash+tsc 管线写入）
+.xeval/
