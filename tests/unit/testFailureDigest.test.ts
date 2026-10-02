@@ -1,5 +1,5 @@
 /**
- * P3 测试失败摘要提取单测（零依赖）。
+ * P3 测试失败摘要提取单测（无第三方依赖）。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

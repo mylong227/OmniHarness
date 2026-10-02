@@ -5,7 +5,7 @@
  * 以及可插拔的传输层抽象。协议与传输解耦：同一套消息既可在内存双端（测试）、
  * 也可在 HTTP/WebSocket（生产）上跑，fail-closed 由两端门禁保证。
  *
- * 零依赖（仅复用 server/jsonRpc 消息类型）。
+ * 无第三方依赖（仅复用 server/jsonRpc 消息类型）。
  */
 
 export type { A2aTransport } from '../ports/a2a/a2aTransport.js';

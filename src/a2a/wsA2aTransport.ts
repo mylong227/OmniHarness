@@ -6,7 +6,7 @@
  * ——HTTP 是「一次 POST 一回包」，WebSocket 是「长连接双向帧」。长连接形态消除了每轮握手的
  * 开销，也可直接穿透只放行 Upgrade 的网关。
  *
- * 零依赖：握手与帧编解码复用 `server/transport/wsConnection`（服务端裸帧 / 客户端掩码帧），
+ * 无第三方依赖：握手与帧编解码复用 `server/transport/wsConnection`（服务端裸帧 / 客户端掩码帧），
  * 不引入任何第三方 WebSocket 库（依赖预算为 0）。
  *
  * 安全：与 HTTP 传输同口径——发送前做 SSRF 字面量拦截（fail-closed，命中即不发帧）。

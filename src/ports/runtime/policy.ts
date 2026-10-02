@@ -1,7 +1,7 @@
 /**
  * 安全策略求值端口（#S34，对标 codex-rs/execpolicy 的「策略规则 → 决策」核心意图）。
  *
- * 不搬完整 Starlark 解释器（那是一个完整 Python 方言、需全语言解释器，违反零依赖铁律且过重）。
+ * 不搬完整 Starlark 解释器（那是一个完整 Python 方言、需全语言解释器，违反无第三方依赖铁律且过重）。
  * 只搬其**可移植内核**：用一组「事实(facts) + 规则(rules: 安全布尔表达式 → allow/deny/ask)」
  * 驱动沙箱/审批决策。求值器为纯递归下降解析、零代码执行（绝无 eval/Function），fail-closed。
  *

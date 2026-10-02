@@ -28,7 +28,7 @@ interface Parities {
  * 多点 corrupt 无法唯一定位 → 标记 uncorrectable（fail-closed，绝不静默接受损坏内容）。
  * 直击灾难性遗忘、抗存储损坏，是向量库/副本记忆在代数上不具备的"可校验纠错"维度。
  *
- * 零运行时依赖；syndrome 落同一记忆端口（topic `__qec_syndrome__`），跨进程重启仍可读回。
+ * 运行时无第三方依赖；syndrome 落同一记忆端口（topic `__qec_syndrome__`），跨进程重启仍可读回。
  *
  * 措辞边界（2026-09-12，见 docs/library/20-physics.md §8）：名称沿用 QEC（Quantum Error
  * Correction），但**不涉及任何量子力学**——本实现只是「**轨迹级校验关系 + 显式冗余**」：

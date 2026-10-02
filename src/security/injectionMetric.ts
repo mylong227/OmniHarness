@@ -1,5 +1,5 @@
 /**
- * A4 离线注入度量（零依赖，实验性 @beta）。
+ * A4 离线注入度量（无第三方依赖，实验性 @beta）。
  *
  * 对「离线 curated 注入用例快照」跑 {@link scanForInjection}，算出
  * 检测率（recall）/ 误报率（false-positive）/ 精度（precision）与按类别、按来源拆分。

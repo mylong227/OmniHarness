@@ -1,5 +1,5 @@
 /**
- * 轻量 OTLP/JSON trace 导出器（零依赖，守依赖准入铁律）。
+ * 轻量 OTLP/JSON trace 导出器（无第三方依赖，守依赖准入铁律）。
  *
  * 不引入 `@opentelemetry/*` SDK，而是直接构造 OTLP 的 `traces` JSON 负载（规范子集：
  * resourceSpans → scopeSpans → spans），经 HTTP POST 到 Collector。无端点时退化为 no-op

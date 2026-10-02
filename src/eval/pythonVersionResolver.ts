@@ -1,5 +1,5 @@
 /**
- * SWE-bench 实例所需 Python 版本解析（纯函数，零 IO、零依赖）。
+ * SWE-bench 实例所需 Python 版本解析（纯函数，零 IO、无第三方依赖）。
  *
  * 用途：原生本地执行器 {@link NativeExecutor} 需要为每题 checkout 出尽量与官方一致的 Python 版本，
  * 再用 `uv` 拉起隔离 venv。本类提供「仓库 + 版本号 → Python 版本」的精选映射，作为官方 harness

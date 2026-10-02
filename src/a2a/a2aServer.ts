@@ -6,7 +6,7 @@
  * - `task.delegate`：转交注入的 `TaskHandler` 执行（如本地起一个子 agent），
  *   回传 `DelegateResult`。未配置 handler 则 fail-closed 报错。
  *
- * 零依赖。
+ * 无第三方依赖。
  */
 import type { RpcMessage } from '../server/core/jsonRpc.js';
 import { jsonRpc } from '../server/core/jsonRpc.js';

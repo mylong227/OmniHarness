@@ -1,4 +1,4 @@
-// web 纯函数单测（node --test，零依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
+// web 纯函数单测（node --test，无第三方依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
 // 回应审计 P0「web 0 测试文件」。运行：npm run web:test（先 web:build 编译到 dist）。
 import test from 'node:test';
 import assert from 'node:assert/strict';

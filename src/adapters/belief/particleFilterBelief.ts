@@ -47,7 +47,7 @@ export interface ParticleFilterOptions {
  * - `naturalStep`：每个粒子沿梯度方向推进一步 + 抖动（粒子版自然梯度上升）。
  *
  * fail-closed：观测离所有粒子极远（似然全溢出）时不崩溃——权值保持均匀、置信记 0、快照仍有效。
- * 零依赖、可复现（种子化 PRNG）。
+ * 无第三方依赖、可复现（种子化 PRNG）。
  */
 export class ParticleFilterBelief implements MetacognitionPort {
   /** 端口名：粒子滤波信念标识，与 MetacognitionPort 契约的命名空间一致。 */

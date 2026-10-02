@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 语义路的两条改进假说，在**与生产同等的第二段精排**基础上做受控对照。
 //
-// 为什么必须带精排做对照：生产默认档 = 第一段 BM25 → 第二段零依赖词法精排（`FileReranker`）。
+// 为什么必须带精排做对照：生产默认档 = 第一段 BM25 → 第二段纯词法精排（`FileReranker`）。
 // 若变体在「无精排」的弱基线上比，就会把**精排本就有的增益**误记成语义路的功劳
 // （实测：无精排基线 66.7% vs 带精排 75.8%——差 9.1pp，全部来自精排）。故本脚本的基线
 // 与全部变体都经同一 `FileReranker`，口径与生产一致。
@@ -43,8 +43,10 @@ const SRC = join(ROOT, 'src');
 const PRESET = process.argv[2] ?? 'e5-small-v2';
 const FILE_K = 20;
 const SYM_K = 24;
-const CACHE_DIR = process.env.OMNI_EMBEDDING_CACHE_DIR ?? 'D:/deepseek/.omni-model-cache';
-const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? 'D:/deepseek/.omni-vec-cache';
+// 模型/向量缓存统一收编进仓库 third-party/（按功能划分，gitignored，可随时重建；
+// 历史 D:/deepseek/.omni-* 硬编码路径已废弃——旧缓存可用 OMNI_EMBEDDING_CACHE_DIR / OMNI_VEC_CACHE 指回）。
+const CACHE_DIR = process.env.OMNI_EMBEDDING_CACHE_DIR ?? join(ROOT, 'third-party', 'model-cache');
+const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? join(ROOT, 'third-party', 'vec-cache');
 
 const corpus = ContextEngine.indexCorpus(SRC, { morph: true, light: true });
 console.log(`语料：${corpus.files.length} 文件 / ${corpus.symbols.length} 符号`);
@@ -138,7 +140,7 @@ function firstStageTokens(tokens) {
   }
   return [...score.entries()].sort((a, b) => b[1] - a[1]).map(([rel]) => rel);
 }
-/** 第二段：生产同款零依赖词法精排。 */
+/** 第二段：生产同款纯词法精排。 */
 function secondStage(candidates, q, k = FILE_K) {
   return reranker.rerank({ corpus, query: q, candidates, fileK: k }).files;
 }

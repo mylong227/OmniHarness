@@ -5,7 +5,7 @@
  * 请求/响应经 JSON-RPC id 关联；可选注入 `AgentIdentityPort` 对委托请求签名，
  * 由对端 fail-closed 验签。
  *
- * 零依赖（仅 server/jsonRpc + a2aProtocol）。
+ * 无第三方依赖（仅 server/jsonRpc + a2aProtocol）。
  */
 import type { RpcMessage } from '../server/core/jsonRpc.js';
 import { jsonRpc } from '../server/core/jsonRpc.js';

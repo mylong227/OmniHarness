@@ -1,7 +1,7 @@
 /**
  * 配置分层归一化与严格校验（#G6，对标 codex merge.rs / profile_toml.rs / strict_config.rs）。
  *
- * 零依赖、纯数据层：操作的是 `FileConfig`（纯可序列化配置），不触及任何端口对象。
+ * 无第三方依赖、纯数据层：操作的是 `FileConfig`（纯可序列化配置），不触及任何端口对象。
  * 分层合并发生在文件配置层，端口对象的装配仍在 ConfigFactory 内进行。
  */
 
@@ -106,13 +106,22 @@ export class ConfigError extends OmniError {
       throw new ConfigError('mcpServers 应为数组');
     }
     for (const [index, server] of servers.entries()) {
-      if (
-        typeof server !== 'object' ||
-        server === null ||
-        typeof (server as Record<string, unknown>).name !== 'string' ||
-        typeof (server as Record<string, unknown>).command !== 'string'
-      ) {
-        throw new ConfigError(`mcpServers[${index}] 需含字符串 name 与 command`);
+      if (typeof server !== 'object' || server === null) {
+        throw new ConfigError(`mcpServers[${index}] 需为对象`);
+      }
+      const record = server as Record<string, unknown>;
+      if (typeof record.name !== 'string') {
+        throw new ConfigError(`mcpServers[${index}] 需含字符串 name`);
+      }
+      // 二形态 fail-closed：stdio 给 command，远端给 http/https url；二者恰好其一。
+      const hasCommand = typeof record.command === 'string';
+      const hasUrl =
+        typeof record.url === 'string' && /^https?:\/\//i.test(record.url) && record.url !== '';
+      if (hasCommand === hasUrl) {
+        throw new ConfigError(
+          `mcpServers[${index}]（${String(record.name)}）需二选一：本地进程给字符串 command，` +
+            '或远端服务器给 http/https 的 url（不可同时给、不可都不给）',
+        );
       }
     }
   }
@@ -550,7 +559,8 @@ const ENV_MAP: Readonly<Record<string, string>> = {
  */
 
 /**
- * 校验 `mcpServers`：数组，每项需含字符串 `name` 与 `command`。
+ * 校验 `mcpServers`：数组，每项需 `name`，且 `command`（本地 stdio）与
+ * `url`（http/https 远端）二选一。
  *
  * @param cfg 已归一化的配置
  * @throws ConfigError 结构不符

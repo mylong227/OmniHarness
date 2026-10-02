@@ -1,7 +1,7 @@
 // 原生内核（FFI 下沉 #65）：Node 进程内直调 Rust 内核（N-API / .node）。
 //
 // 零新增运行时依赖：Node 内置 require() 加载 native/omni_napi.node（GNU 工具链
-// 手写 N-API 插件，无需 MSVC），不引入任何第三方 FFI 库，维持「TS 零运行时依赖」铁律。
+// 手写 N-API 插件，无需 MSVC），不引入任何第三方 FFI 库，维持「TS 运行时无第三方依赖」铁律。
 // 与 omni-wasm 同一套 JSON-RPC 面，但 native 具备完整系统 API（真实时钟/进程/
 // RestrictedToken OS 沙箱/shell.run 真执行）。
 

@@ -18,15 +18,16 @@
 // 用法（免付费、免 LLM key；模型权重可走本地缓存 + hf-mirror 的元数据）：
 //   OMNI_VEC_CACHE=<可写目录> OMNI_HF_ENDPOINT=https://hf-mirror.com node evals/semantic-recall-ab.mjs [preset]
 //   OMNI_EMBEDDING_OFFLINE=1 OMNI_EMBEDDING_CACHE_DIR=<模型缓存> node evals/semantic-recall-ab.mjs
-// ⚠️ `OMNI_VEC_CACHE` **必须可写**：默认值 `D:/deepseek/.omni-vec-cache` 在本仓沙箱下位于 workspace 之外，
+// ⚠️ `OMNI_VEC_CACHE` **必须可写**：历史默认值 `D:/deepseek/.omni-vec-cache` 位于 workspace 之外，
 //    写入被拒（EPERM）→ `SemanticIndexCache.build` 的 catch 吞成「构建失败」→ 引擎静默 fail-closed 回落纯 BM25
-//    ⇒ 全部 Δ=0 且**看不出是环境问题**（2026-09-25 实测踩中，已由脚本末尾守卫 B 拦下）。沙箱内请指到
-//    `./eval-data/vec-cache`（可先把历史缓存文件拷进来复用，省一次全语料编码）。
+//    ⇒ 全部 Δ=0 且**看不出是环境问题**（2026-09-25 实测踩中，已由脚本末尾守卫 B 拦下）。
+//    2026-10-02 起默认已收编进仓库 `third-party/vec-cache`（可写、gitignored）；历史缓存文件
+//    `e5-small-v2-20.{f32,keys}` 拷进来即可复用，省一次全语料编码。
 // 输出：evals/semantic-recall-ab.report.json + 控制台摘要。
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { existsSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -60,12 +61,10 @@ const SYM_K = 24;
 // 位于 workspace 之外，写入被拒（EPERM）→ `CachedEmbeddingPort.flush` 抛错 → 索引构建失败被 catch 吞掉 →
 // 引擎静默 fail-closed 回落纯 BM25 ⇒ 全部 Δ=0 的**假阴性**（2026-09-25 实测踩中）。历史缓存仍可用：
 // 把 `e5-small-v2-20.{f32,keys}` 拷进 `eval-data/vec-cache/` 即复用它，省一次全语料编码。
-const CACHE_DIR =
-  process.env.OMNI_EMBEDDING_CACHE_DIR ??
-  (existsSync('D:/deepseek/.omni-model-cache')
-    ? 'D:/deepseek/.omni-model-cache'
-    : join(ROOT, '.omniharness', 'model-cache'));
-const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? join(ROOT, 'eval-data', 'vec-cache');
+// 模型/向量缓存统一收编进仓库 third-party/（gitignored，可随时重建；历史 D:/deepseek 硬编码已废弃，
+// 旧缓存用 OMNI_EMBEDDING_CACHE_DIR / OMNI_VEC_CACHE 指回即可复用，省一次全语料编码）。
+const CACHE_DIR = process.env.OMNI_EMBEDDING_CACHE_DIR ?? join(ROOT, 'third-party', 'model-cache');
+const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? join(ROOT, 'third-party', 'vec-cache');
 
 console.log(`=== 语义召回 A/B ===`);
 console.log(`preset=${PRESET}  fileK=${FILE_K}  symK=${SYM_K}  cacheDir=${CACHE_DIR}`);

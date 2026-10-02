@@ -32,7 +32,7 @@ const MIN_TRAIN = 4;
  *   二次出现时阈值下调（加速响应，仿免疫记忆）。
  * - **自检**：`selfCheck` 返回自体规模与最近异常；告警经 AuditSink 入链（fail-closed，不擅自改写）。
  *
- * 零运行时依赖；与规则阈值监控在代数上不同——这是学习型自体分布监控（市面唯一）。
+ * 运行时无第三方依赖；与规则阈值监控在代数上不同——这是学习型自体分布监控（市面唯一）。
  */
 export class ImmuneMonitor implements ImmuneMonitorPort {
   /** 端口名：免疫异常监控标识，与 ImmuneMonitorPort 契约的命名空间一致。 */

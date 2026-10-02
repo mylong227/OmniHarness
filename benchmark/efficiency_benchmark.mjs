@@ -114,7 +114,7 @@ console.log(`  加载后 RSS=${memMb} MB（核心模块增量 ${memDeltaMb} MB�
 console.log(`  → 行业空白：竞品均未公布常驻内存基线\n`);
 
 // ══════════ 4. 确定性上下文压缩率 ══════════
-console.log('── 4. 确定性上下文压缩（零依赖，无模型） ──');
+console.log('── 4. 确定性上下文压缩（无第三方依赖，无模型） ──');
 const logBlock = (n, tag) =>
   Array.from(
     { length: n },
@@ -133,7 +133,11 @@ const jsonBlock = JSON.stringify(
   2,
 );
 const corpus = [
-  { key: 'system', kind: 'system', text: 'You are OmniHarness.\n\n\n\n遵守零依赖铁律。   \n' },
+  {
+    key: 'system',
+    kind: 'system',
+    text: 'You are OmniHarness.\n\n\n\n遵守无第三方依赖铁律。   \n',
+  },
   { key: 'tool-json', kind: 'tool-result', text: jsonBlock },
   { key: 'tool-log-1', kind: 'tool-result', text: logBlock(600, 'build') },
   { key: 'tool-log-2', kind: 'tool-result', text: logBlock(320, 'test') },
@@ -159,7 +163,9 @@ console.log(
   `  ${results.compression.originalKb} KB → ${results.compression.compressedKb} KB  省 ${results.compression.savedPct}%`,
 );
 console.log(`  分阶段: ${results.compression.stages.join('  ')}`);
-console.log(`  → 生态位: LLMLingua 20× 需模型权重(零依赖下出局); 本方案纯算法、零幻觉、幂等可证\n`);
+console.log(
+  `  → 生态位: LLMLingua 20× 需模型权重(无第三方依赖下出局); 本方案纯算法、零幻觉、幂等可证\n`,
+);
 
 // ══════════ 5. 前缀缓存复用率 ══════════
 console.log('── 5. 前缀复用率（决定上游 KV 缓存命中率） ──');
@@ -247,7 +253,7 @@ console.log(`  削减 ${results.toolLoading.reductionPct}%`);
 console.log(`  → 收益锚点(Anthropic 实测): 工具定义从 ~77K tokens → ~8.7K(−85%)\n`);
 
 // ══════════ 7. BM25 检索吞吐 ══════════
-console.log('── 7. BM25 检索吞吐（零依赖倒排） ──');
+console.log('── 7. BM25 检索吞吐（无第三方依赖倒排） ──');
 const QN = 2000;
 const t0 = process.hrtime.bigint();
 for (let i = 0; i < QN; i += 1) index.search(tokenize(QUERIES[i % QUERIES.length]), TOP_K);

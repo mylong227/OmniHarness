@@ -5,7 +5,7 @@
 //（+ createRuntime + 内存存储 + 自动审批 + passthrough 沙箱）跑完所有任务，收集工具调用、
 // 步数、耗时，并按期望断言给出 pass/fail。纯 TS、确定性、零外部依赖，可纳入 CI。
 //
-// 铁律：零运行时依赖（仅 node: 内置）；fail-closed——断言缺失即视为「未验证」，不假通过。
+// 铁律：运行时无第三方依赖（仅 node: 内置）；fail-closed——断言缺失即视为「未验证」，不假通过。
 
 import {
   existsSync,

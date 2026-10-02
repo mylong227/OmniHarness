@@ -30,7 +30,7 @@ export interface NaturalGradientOptions {
  *   预处理步进：Δμ = η·σ²·g。这是自然梯度的定义性不变性（对重参数化协变）。
  * - `correct`：贝叶斯高斯更新——给定观测与似然噪声，闭式更新均值与方差（后验更集中）。
  *
- * 每次更新附 KL 分解（均值漂移 / 方差变化 / 逐维明细）+ 重参数化不变性审计。零依赖、fail-closed。
+ * 每次更新附 KL 分解（均值漂移 / 方差变化 / 逐维明细）+ 重参数化不变性审计。无第三方依赖、fail-closed。
  */
 export class NaturalGradientBelief implements MetacognitionPort {
   /** 端口名：自然梯度信念标识，与 MetacognitionPort 契约的命名空间一致。 */

@@ -4472,3 +4472,46 @@ audit:config-wiring ✅。
 - 请求投递（实测修正）：桥默认读 stdin、也支持 `--request-file <path>`（TS 适配器一律走文件，规避 `stdin='ignore'` 丢弃输入 + 本机管道 EBUSY）。两种来源均 `utf-8-sig` 解码容忍 BOM。
 - fail-open 不掩盖：`LayaDecisionEngine#decide` 直接 `return parsed`（桥已带 `available`），**不再** `return { ...parsed, available:true }`——否则桥在测试上下文失败（`available:false` 无 `answers`）会被伪装成成功，静默漏掉真实推理失败。
 - `laya_infer.py` 解码用 `utf-8-sig`（容忍 BOM）；`available:false` 时只回 `{available:false, note}`，不抛错（fail-open）。
+
+### 35.5 依赖政策再纠正：清除「零依赖」残余教义（2026-10-02，用户拍板）
+
+- **口径钉死**：本项目**不是**零依赖项目。政策 = D10「必要且更优即可依赖，同等能力优先成熟第三方」；`ports/`、`core/` 恒第三方-free 是唯一不变的分层底线。拒绝依赖的唯一合法理由是准入标准不满足（无能力增益 / 超预算无正当理由 / 许可证不合规 / 无退出计划）——**「零依赖」本身不是理由**。
+- **权威表述**：`docs/DEPENDENCY_POLICY.md` 新增 §1.3「常见误读（防复发）」；§1 正文改 D10 口径；§6 现状更新（dependencies 2 + optional 2，allowlist 4 条）。`dependency-allowlist.json` notes 同步改写。
+- **来源治理**：用户级 skill `omniharness-coding-standard`（每次会话注入）的「零/准入依赖」改为「准入依赖」并明令禁止用「零依赖」拒绝更优依赖。
+- **措辞清理**：全部现行手册与源码注释中的「零依赖/零运行时依赖」改为事实描述（纯 TS / 仅 node:crypto / 运行时无第三方依赖）。**关键论证修正**：fileReranker 拒绝交叉编码器的真实理由是**实测 −1.0pp**（能力不满足「必要且更优」），而非「零依赖铁律」。
+- **不改**：`docs/archive/**`、`docs/agent_evolution_research/**`、`CHANGELOG.md`、本板历史章节——历史快照保持原样（治理铁律 4：过程留档）。
+
+## 35. 全项目重新盘点：第三方融合 + 缓存收编 + 死文件清理（2026-10-02）
+
+> 触发：用户要求「完全重新盘点——不为最小闭环、接受第三方开源、手搓不如第三方的改进融合、无用文件删除、仓库外依赖收编 third-party/、保证拉下来完整可用」。方法：三路并行深扫（仓库外引用 / 死文件 / 自研 vs 第三方清单）+ 依赖政策 D10（择优依赖优先）逐项裁决 + 门禁实跑验收。
+
+### 35.1 第三方融合（两项，均带手写回退）
+
+1. **view_image 图像缩放接 sharp**（能力缺口闭合）：`view_image` 自述「压缩需要图像库，与零依赖冲突」——>5MiB 图片只能拒绝、大图全尺寸烧 token。新增端口 `ports/media/imageResizer.ts` + 适配器 `adapters/media/sharpImageResizer.ts`（`import type` + 动态 `import()`，sharp 为 optionalDependencies，缺失自动退化历史行为）；`ViewImageTool` 挂端口（长边 1568px + 5MiB 双预算，缩过必如实告知）；`configToolRegistry` 装配。allowlist 登记（Apache-2.0 + libvips 动态链接说明，复制 HF 的 optional 准入先例）。测试 `viewImageResize.test.ts`（sharp 缺失时整组 skip）。
+2. **MCP 客户端方向迁官方 SDK**（协议升级 + 远端能力）：服务端 2026-09-14 已迁 SDK，客户端仍手写 2025-06-18 协议且**完全不支持远端 url 服务器**。抽出 `ports/mcp/mcpClientPort.ts` + `mcpConnectorPort.ts`（协议类型外迁 `ports/mcp/mcpProtocolTypes.ts`，原文件退桶）；新增 `adapters/mcp/sdkMcpClientAdapter.ts`（官方 `Client` 全操作面映射）、`sdkMcpConnector.ts`（stdio + Streamable HTTP/SSE 远端）、`sdkPreferredMcpConnector.ts`（SDK 优先、失败回落手写并打到 stderr，与 `McpServeRunner` 同纪律）；`McpGateway`/`cliMcpCmds`/`cliBuildConfig` 接线；配置支持 `mcpServers[].url`（http/https，校验 fail-closed：command/url 二选一）与 `--mcp-server NAME=URL`。手写 `src/mcp/*` 保留为回退资产（allowlist exitPlan 不变）。测试 `sdkPreferredMcpConnector.test.ts`（三路径 + spec 解析）。
+
+### 35.2 仓库外依赖收编 third-party/（按功能划分，全部 gitignored）
+
+- evals 硬编码 `D:/deepseek/.omni-model-cache` / `.omni-vec-cache` / `.omni-swebench-repos` 全部废弃，改默认 `<repoRoot>/third-party/{model-cache,vec-cache,swebench-repos}`（`OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE` 仍可覆盖；旧缓存拷入即复用）。
+- 生产装配 `configFactory.buildEmbeddingPort` 模型缓存缺省收编包根 `third-party/model-cache`（`BuiltinDefaults.locatePackageRoot` 定位，失败退 HF 库默认不阻断能力）。
+- `THIRD_PARTY_ASSETS.md` 新增「按功能划分」表；`.gitignore` 补 `third-party/{model-cache,vec-cache,swebench-repos}/` 与 `.workbuddy/`。
+
+### 35.3 死文件/垃圾清理
+
+- 删：`src/util/sortingAlgorithms.ts(+bak)`、`tests/unit/sortingAlgorithms.test.ts(+bak)`（TASK_BOARD §26.12/§28 定性的练习草稿，生产零消费者——JS 内建 sort 即等价物）、`examples/games/`（snake 练习产物，与主项目零关联）、3 个 `.bak`、4 个 `_gate_*.log`、`recall-precision-progress.log`、17MB `mylong227-omniharness-0.2.0.tgz`（npm pack 产物）、`.tmpcheck/`（临时探针区）、`.baseline-check/`（孤儿符号链接）。
+- 归档：根目录 `roadmap.md`（180KB，零引用 + 与「状态只认看板」铁律冲突）→ `docs/archive/ROADMAP_2026-09-20.md`（docs/README.md §6 已登记去向）。
+- 修正：`package.json` repository/homepage/bugs 指向误建组织仓 `omniharness/omniharness` → 实际归属仓 `mylong227/OmniHarness`（与 AGENTS.md 推送目标一致）。
+
+### 35.4 验收（门禁实跑，2026-10-02）
+
+- typecheck（含 web）/ lint（0 告警）/ `check --strict`（932 文件零违规）/ arch:gate --strict（0 新增违规）/ audit:maturity / audit:standard:delta（0 新增）/ audit:config-wiring（932 全绿）/ api:check 全部 ✅。
+- 单测：本组新增 9 例全过（viewImageResize 6 + sdkPreferredMcpConnector 4，sharp 真实路径实跑非 skip）；全量套件 2213+ 过、唯一失败为沙箱噪声（runEval EBUSY，审计文档已记录）。
+- ⚠️ 并发会话事故留档：另一 agent 会话在本工作树并行开发，多次 git stash 卷走本批未提交改动并覆盖为旧版；已从悬空提交（git fsck）与 hold stash 全量找回并钉为 refs/omni-backup/* 备份引用。教训：同一工作树严禁两个 agent 并发写。
+
+### 35.5 依赖政策再纠正：清除「零依赖」残余教义（2026-10-02，用户拍板）
+
+- **口径钉死**：本项目**不是**零依赖项目。政策 = D10「必要且更优即可依赖，同等能力优先成熟第三方」；`ports/`、`core/` 恒第三方-free 是唯一不变的分层底线。拒绝依赖的唯一合法理由是准入标准不满足（无能力增益 / 超预算无正当理由 / 许可证不合规 / 无退出计划）——**「零依赖」本身不是理由**。
+- **权威表述**：`docs/DEPENDENCY_POLICY.md` 新增 §1.3「常见误读（防复发）」；§1 正文改 D10 口径；§6 现状更新（dependencies 2 + optional 2，allowlist 4 条）。`dependency-allowlist.json` notes 同步改写。
+- **来源治理**：用户级 skill `omniharness-coding-standard`（每次会话注入）的「零/准入依赖」改为「准入依赖」并明令禁止用「零依赖」拒绝更优依赖。
+- **措辞清理**：全部现行手册与源码注释中的「零依赖/零运行时依赖」改为事实描述（纯 TS / 仅 node:crypto / 运行时无第三方依赖）。**关键论证修正**：fileReranker 拒绝交叉编码器的真实理由是**实测 −1.0pp**（能力不满足「必要且更优」），而非「零依赖铁律」。
+- **不改**：`docs/archive/**`、`docs/agent_evolution_research/**`、`CHANGELOG.md`、本板历史章节——历史快照保持原样（治理铁律 4：过程留档）。

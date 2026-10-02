@@ -28,7 +28,7 @@ import type { Skill } from '../../skill/skill.js';
 import type { LspServerConfig } from '../tool/lsp.js';
 import type { ModelRouterConfig } from './modelRouterConfig.js';
 
-/** OmniHarness运行时配置：端口注入即插即用，核心零依赖具体实现。 */
+/** OmniHarness运行时配置：端口注入即插即用，核心无第三方依赖具体实现。 */
 /**
  * （P3）自验证回环配置：写源码后自动跑受限测试并回灌失败摘要。
  *
@@ -130,7 +130,7 @@ export interface OmniHarnessConfig {
   readonly modelCircuitBreakerThreshold?: number | undefined;
   /** 熔断开路冷却毫秒（默认 30000）。 */
   readonly modelCircuitBreakerOpenMs?: number | undefined;
-  /** Agent 密码学身份配置（#S33，可选）：声明 Ed25519 私钥（PKCS#8 der base64）与 runtime id；不配则每次运行生成临时身份、且不注册 `agent_identity` 工具。零依赖（仅 Node 内置 node:crypto）。 */
+  /** Agent 密码学身份配置（#S33，可选）：声明 Ed25519 私钥（PKCS#8 der base64）与 runtime id；不配则每次运行生成临时身份、且不注册 `agent_identity` 工具。无第三方依赖（仅 Node 内置 node:crypto）。 */
   readonly agentIdentity?: AgentIdentityConfig | undefined;
   /** 回合级变更追踪（#M5，默认开）：写类工具前后取样，回合结束广播 unified diff 事件。 */
   readonly turnDiff?: boolean | undefined;
@@ -156,7 +156,7 @@ export interface OmniHarnessConfig {
   readonly costBudgetSoftRatio?: number | undefined;
   /** 自主目标循环最大迭代次数（#S30，默认 10）：run_goal 工具与 CLI goal 子命令的默认上限。 */
   readonly goalMaxIterations?: number | undefined;
-  /** LSP 代码导航服务器配置（#S32，可选）：声明如何启动外部语言服务器；不配则 LSP 工具不注册。零依赖——服务器由用户自备（如 typescript-language-server）。运行时端口见 `ResolvedConfig.lsp`。 */
+  /** LSP 代码导航服务器配置（#S32，可选）：声明如何启动外部语言服务器；不配则 LSP 工具不注册。无第三方依赖——服务器由用户自备（如 typescript-language-server）。运行时端口见 `ResolvedConfig.lsp`。 */
   readonly lspServer?: LspServerConfig | undefined;
   /** 工具输入实时观察端口（#B3，可选）：注入自定义实时视图（TUI / web）以渐进渲染工具参数；不配则由 createRuntime 默认 ConsoleLiveView（TTY 实时刷新）。 */
   readonly live?: ToolInputSink | undefined;
@@ -186,7 +186,7 @@ export interface OmniHarnessConfig {
         readonly autoRun?: boolean | undefined;
       }
     | undefined;
-  /** 提示注入护栏（opt-in，默认关）：开启后工具结果进模型上下文前做确定性指令注入扫描，命中即隔离（不喂给模型）。零依赖、纯规则启发式、失败开放（扫描器异常时放行原始结果）。 */
+  /** 提示注入护栏（opt-in，默认关）：开启后工具结果进模型上下文前做确定性指令注入扫描，命中即隔离（不喂给模型）。无第三方依赖、纯规则启发式、失败开放（扫描器异常时放行原始结果）。 */
   readonly promptInjectionGuard?: boolean | EnforcementMode | undefined;
   /**
    * 注入护栏弱证据处置策略（P4 升档旋钮，可选）：`enforce` 档下弱规则命中（`severity: 'weak'`）

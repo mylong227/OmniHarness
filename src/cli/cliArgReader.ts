@@ -3,7 +3,7 @@
  * 以**组合**方式供各命令协作者复用（原为 CliBuildConfig 的 protected 方法）。
  *
  * 设计要点：
- *  - 纯读取、零依赖、无副作用，可单测（见 tests/unit/cliArgReader.test.ts）。
+ *  - 纯读取、无第三方依赖、无副作用，可单测（见 tests/unit/cliArgReader.test.ts）。
  *  - CliBuildConfig 的同名方法（flagValue / flagNumber / collectFlags）委托本类，保证**单一实现来源**，
  *    避免两套解析逻辑漂移；继承链上的 89+ 处既有调用点零改动。
  */

@@ -1,7 +1,8 @@
 import type { ToolContext, ToolResult } from '../ports/tool/tool.js';
 import type { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
-import { McpClient } from './mcpClient.js';
-import { mcpConnector, type McpConnection } from './mcpConnector.js';
+import type { McpClientPort } from '../ports/mcp/mcpClientPort.js';
+import type { McpConnectorPort, McpConnectionHandle } from '../ports/mcp/mcpConnectorPort.js';
+import { mcpConnector } from './mcpConnector.js';
 import { mcpToolMapper } from './mcpToolMapper.js';
 import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.js';
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.js';
@@ -33,6 +34,13 @@ export interface McpGatewayOptions {
    * 缺省时读 process.env.OMNI_MCP_ALLOWLIST（逗号分隔）。为空=全部允许。
    */
   readonly allowedServers?: readonly string[];
+  /**
+   * 连接器端口（2026-10-02 端口化）。
+   * 缺省用手写 stdio 连接器（`mcpConnector`）；生产装配注入
+   * 「官方 SDK 优先、手写回退」的偏好连接器（src/adapters/mcp），以获得
+   * 新版协议协商与 Streamable HTTP 远端（url）服务器支持。
+   */
+  readonly connector?: McpConnectorPort | undefined;
 }
 
 /**
@@ -41,9 +49,11 @@ export interface McpGatewayOptions {
  */
 export class McpGateway {
   private readonly bridged: string[] = [];
-  private readonly handles: McpConnection[] = [];
+  private readonly handles: McpConnectionHandle[] = [];
   /** 解析后的 MCP 白名单（undefined=全部允许）。 */
   private readonly allowedServers: readonly string[] | undefined;
+  /** 连接器（构造时收敛，缺省手写实现）。 */
+  private readonly connector: McpConnectorPort;
 
   public constructor(private readonly options: McpGatewayOptions) {
     // 选项优先，其次 env；env 为空串/未设置则回落为「全部允许」。
@@ -53,6 +63,7 @@ export class McpGateway {
     this.allowedServers =
       options.allowedServers ??
       (envAllow !== undefined && envAllow.length > 0 ? envAllow : undefined);
+    this.connector = options.connector ?? mcpConnector;
   }
 
   /** 已桥接的工具名（含服务器前缀）。 */
@@ -80,10 +91,7 @@ export class McpGateway {
       };
     }
     try {
-      const connection = await mcpConnector.connect({
-        ...server,
-        timeoutMs: this.options.timeoutMs,
-      });
+      const connection = await this.connector.connect(server, this.options.timeoutMs);
       this.handles.push(connection);
       const descriptors = await connection.client.listTools();
       const names = this.registerTools(server, descriptors, connection.client);
@@ -97,7 +105,7 @@ export class McpGateway {
   private registerTools(
     server: McpServerConfig,
     descriptors: readonly McpToolDescriptor[],
-    client: McpClient,
+    client: McpClientPort,
   ): readonly string[] {
     const names: string[] = [];
     for (const descriptor of descriptors) {
@@ -117,7 +125,7 @@ export class McpGateway {
 
   /** 转发调用到远端服务器。 */
   private async invoke(
-    client: McpClient,
+    client: McpClientPort,
     remoteName: string,
     callId: string,
     args: Record<string, unknown>,

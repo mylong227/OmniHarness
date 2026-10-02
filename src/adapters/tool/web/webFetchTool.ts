@@ -58,7 +58,7 @@ export interface WebFetchToolOptions {
 }
 
 /**
- * 网页抓取工具（默认注册；内置实现零依赖、零密钥）。
+ * 网页抓取工具（默认注册；内置实现无第三方依赖、零密钥）。
  */
 export class WebFetchTool {
   /** 工具定义。 */

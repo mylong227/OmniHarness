@@ -1,7 +1,7 @@
 import { ArrayAt } from '../../util/arrayAt.js';
 /**
  * LoopGuard（Agent Loop V2 失控检测，对标 OpenHands StuckDetector + agent-loop-guard
- * 品类思想，零依赖）。
+ * 品类思想，无第三方依赖）。
  *
  * 设计要点：
  *  - 「检测后注入纠偏，而非直接杀」（Varpulis additionalContext 模式）：首次触发只产

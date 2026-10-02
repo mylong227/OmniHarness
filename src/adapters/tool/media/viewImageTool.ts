@@ -1,7 +1,7 @@
 /**
  * 图片读取工具（P2-⑬）：`view_image`。
  *
- * 为什么需要：E1 的零依赖 CDP 截图能力此前**只存在于测试里**，没有产品化成工具——
+ * 为什么需要：E1 的纯 TS CDP 截图能力此前**只存在于测试里**，没有产品化成工具——
  * 也就是说模型能"让测试截一张图"，却不能**自己看图**（UI 还原、图表判读、报错截图归因都做不到）。
  *
  * 通道（关键设计）：图片不是塞进 `output` 文本（那只能给模型一段 base64 噪声），
@@ -12,7 +12,8 @@
  * 边界（诚实声明，不粉饰）：
  * - 能否真的"看见"取决于**模型适配器是否支持图像输入**（本仓 openai-compatible / anthropic
  *   适配器均支持 user 消息携带图像）。不支持图像输入的模型只会看到一行文字说明。
- * - 超大图片会被拒绝而不是静默压缩（压缩需要图像库，与"零依赖"冲突）。
+ * - 超大图片：装配了缩放端口（sharp 适配器）时按「长边 + 单图字节」预算收敛后再交付
+ *   （并如实说明缩过）；未装配或缩放不可行时**拒绝而不是静默压缩**。
  */
 import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
 import { readFile } from 'node:fs/promises';
@@ -24,11 +25,16 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import type { FileAttachment } from '../../../ports/model/model.js';
+import type { ImageResizeOutcome, ImageResizerPort } from '../../../ports/media/imageResizer.js';
 import { ImageProbe } from '../../../util/imageProbe.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
 
 /** 单张图片的字节上限：5 MiB（base64 后约 6.7 MiB，是常见端点单图上限之内的保守值）。 */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/** 图片长边上限（像素）：超限即缩放——大图全尺寸进上下文是纯 token 浪费，
+ * 而主流视觉端点在 ~1500px 长边附近已无额外收益。仅在装配了缩放端口时生效。 */
+const MAX_LONG_EDGE = 1568;
 
 /**
  * 图片读取工具：把工作区内的图片作为附件交给模型。
@@ -51,8 +57,12 @@ export class ViewImageTool {
 
   /**
    * @param workspaceRoot 工作区根目录（读取目标必须落在其内，越界即拒绝）。
+   * @param resizer 图片缩放端口（可选；缺省为「无缩放」的历史行为——超限即拒绝）。
    */
-  public constructor(private readonly workspaceRoot: string) {}
+  public constructor(
+    private readonly workspaceRoot: string,
+    private readonly resizer?: ImageResizerPort | undefined,
+  ) {}
 
   /**
    * 读取图片并构造附件结果。
@@ -92,33 +102,103 @@ export class ViewImageTool {
         error: `${relative} 不是可识别的图片（仅支持 png/jpg/gif/webp/bmp/svg/ico）`,
       };
     }
-    if (bytes.byteLength > MAX_IMAGE_BYTES) {
-      return {
-        callId: call.id,
-        ok: false,
-        error:
-          `${relative} 体积 ${String(bytes.byteLength)} 字节，超过单张上限 ${String(MAX_IMAGE_BYTES)} 字节。` +
-          '请先裁剪或缩小该图片再读取（本工具不做有损压缩，以免与「零依赖」冲突）。',
-      };
+    // 缩放通道（可选能力）：有缩放端口且成功 ⇒ 交付收敛后的图（resized 如实告知）；
+    // 端口缺失 / 不认识该图 / 缩无可缩仍超预算 ⇒ undefined ⇒ 走历史行为（超限拒绝）。
+    const outcome =
+      this.resizer === undefined
+        ? undefined
+        : await this.resizer.resize({
+            bytes,
+            mediaType: info.mediaType,
+            maxDimension: MAX_LONG_EDGE,
+            maxBytes: MAX_IMAGE_BYTES,
+          });
+    if (outcome === undefined) {
+      if (bytes.byteLength > MAX_IMAGE_BYTES) {
+        return {
+          callId: call.id,
+          ok: false,
+          error:
+            `${relative} 体积 ${String(bytes.byteLength)} 字节，超过单张上限 ${String(MAX_IMAGE_BYTES)} 字节。` +
+            '请先裁剪或缩小该图片再读取（当前装配无图像缩放能力，无法自动压缩）。',
+        };
+      }
+      return ViewImageTool.deliver(call, relative, info.mediaType, info.width, info.height, bytes);
     }
+    return ViewImageTool.deliver(
+      call,
+      relative,
+      outcome.mediaType,
+      outcome.width,
+      outcome.height,
+      outcome.bytes,
+      outcome.resized
+        ? ViewImageTool.shrinkNote(info.width, info.height, bytes.byteLength, outcome)
+        : undefined,
+    );
+  }
+
+  /**
+   * 构造成功交付结果（元数据输出 + 附件通道）。
+   *
+   * @param call 工具调用（提供 callId）。
+   * @param relative 图片相对路径。
+   * @param mediaType 交付 MIME 类型。
+   * @param width 交付宽度（未知为 undefined）。
+   * @param height 交付高度（未知为 undefined）。
+   * @param bytes 交付字节。
+   * @param shrinkNote 缩放说明（未缩放为 undefined）。
+   * @returns 成功工具结果。
+   */
+  private static deliver(
+    call: ToolCall,
+    relative: string,
+    mediaType: string,
+    width: number | undefined,
+    height: number | undefined,
+    bytes: Buffer,
+    shrinkNote?: string | undefined,
+  ): ToolResult {
     return {
       callId: call.id,
       ok: true,
-      output: ViewImageTool.describe(
-        relative,
-        info.mediaType,
-        info.width,
-        info.height,
-        bytes.byteLength,
-      ),
+      output:
+        ViewImageTool.describe(relative, mediaType, width, height, bytes.byteLength) +
+        (shrinkNote ?? ''),
       files: [
         {
           name: relative.split(/[\\/]/).pop() ?? relative,
-          mediaType: info.mediaType,
+          mediaType,
           data: bytes.toString('base64'),
         } satisfies FileAttachment,
       ],
     };
+  }
+
+  /**
+   * 组织缩放说明（让模型知道「看到的不是原图分辨率 / 体积」）。
+   *
+   * @param originalWidth 原始宽度（未知为 undefined）。
+   * @param originalHeight 原始高度（未知为 undefined）。
+   * @param originalBytes 原始字节数。
+   * @param outcome 缩放结果。
+   * @returns 说明文本（以句号结尾，直接拼接在元数据说明之后）。
+   */
+  private static shrinkNote(
+    originalWidth: number | undefined,
+    originalHeight: number | undefined,
+    originalBytes: number,
+    outcome: ImageResizeOutcome,
+  ): string {
+    const original =
+      originalWidth === undefined || originalHeight === undefined
+        ? `${String(originalBytes)} 字节`
+        : `${String(originalWidth)}×${String(originalHeight)}、${String(originalBytes)} 字节`;
+    return (
+      ` 注意：原图（${original}）已收敛为 ${String(outcome.width)}×` +
+      `${String(outcome.height)}、${String(outcome.bytes.byteLength)} 字节的 ` +
+      `${outcome.mediaType} 版本交付，细节密度低于原图。`
+    );
   }
 
   /**

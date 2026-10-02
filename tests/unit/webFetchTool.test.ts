@@ -1,5 +1,5 @@
 /**
- * web_fetch 单测（P2-⑬，零依赖：注入抓取实现，不碰真实网络）。
+ * web_fetch 单测（P2-⑬，无第三方依赖：注入抓取实现，不碰真实网络）。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

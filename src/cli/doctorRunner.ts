@@ -89,7 +89,7 @@ export class DoctorRunner {
   }
 
   /**
-   * 运行环境诊断（全 node: 内置，零依赖）。
+   * 运行环境诊断（全 node: 内置，无第三方依赖）。
    * @param opts 诊断选项（工作区根与显式配置路径，缺省取 process.cwd()）。
    * @returns 汇总 Node 版本、配置、沙箱、插件目录、权限清单的诊断报告。
    */
@@ -219,7 +219,7 @@ export class DoctorRunner {
   }
 
   /**
-   * 用 which 探测命令是否存在（catch 视为不可用，零依赖）。
+   * 用 which 探测命令是否存在（catch 视为不可用，无第三方依赖）。
    * @param command 待探测的命令名。
    * @returns 命令在 PATH 中可找到为 true，否则 false。
    */

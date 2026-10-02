@@ -208,7 +208,7 @@ export class CliNativeCmds extends CliCompareCmds {
   /**
    * lsp：代码导航（#S32，对标 codex LSP stdio 桥接）。
    * 用法: omniharness lsp <definition|references|hover|status> --file PATH --line N --col N [--lsp "server cmd"]
-   * 语言服务器由用户自备（零依赖铁律下不内嵌），用 --lsp "cmd args" 指定（如 --lsp "typescript-language-server --stdio"）。
+   * 语言服务器由用户自备（无第三方依赖铁律下不内嵌），用 --lsp "cmd args" 指定（如 --lsp "typescript-language-server --stdio"）。
    * @param args 子命令参数（首 token 为子动作，--file/--line/--col 定位，--lsp 指定服务器启动命令）。
    * @returns 进程退出码：用法错误为 2，LSP 未配置或调用失败为 1，成功为 0。
    */

@@ -102,3 +102,11 @@ chrome-hijack-backup/
 
 # 临时探针/提交草稿目录（bad.js 等故意写坏的探针会让 lint 门禁误红）
 .tmpcheck/
+
+# AI 助手会话工作日志（机器本地记忆，不入库）
+.workbuddy/
+
+# 第三方运行缓存（按功能收编进 third-party/，可随时重建，不入库；见 THIRD_PARTY_ASSETS.md）
+third-party/model-cache/
+third-party/vec-cache/
+third-party/swebench-repos/

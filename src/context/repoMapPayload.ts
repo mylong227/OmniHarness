@@ -80,7 +80,7 @@ interface CorpusSymbolView {
 }
 
 /**
- * 梯度投送器：按名次分档装配 repo-map 上下文文本。无状态、确定性、零依赖。
+ * 梯度投送器：按名次分档装配 repo-map 上下文文本。无状态、确定性、无第三方依赖。
  */
 export class RepoMapPayload {
   /** 默认档位计划：3 个完整大纲 + 5 个「路径 + 命中符号名」。 */

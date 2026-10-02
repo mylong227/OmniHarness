@@ -2,7 +2,7 @@
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
-  "updatedAt": "2026-09-14",
+  "updatedAt": "2026-10-02",
   "notes": [
     "必要且更优即可依赖 → 同等能力下优先选择成熟依赖而非自研（D10，2026-09-14 用户拍板；2026-10-02 再次确认并清除「零依赖」残余教义，见 docs/DEPENDENCY_POLICY.md §1.3）；自研仅在依赖不可得/引入伤害架构/性能不达标时保留，保留者一律降格为「资产 + 回退路径」，不构成拒绝更优依赖的理由。",
     "分层隔离不变：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
@@ -51,7 +51,7 @@
     },
     "@modelcontextprotocol/sdk": {
       "reason": "A1 协议兼容性差距闭合：手写 MCP 实现停留在 2025-06-18 握手式协议，自研追平官方 SDK 的协议协商（2025-11-25 最新 + 五版本向后兼容）、Streamable HTTP 传输、OAuth 2.1 资源服务器语义、Tasks 长任务的边际成本不可接受（D10 择优依赖：官方实现即生态标准）。",
-      "capability": "经官方 SDK 把 harness 的 ToolPort 工具集暴露为标准 MCP 服务器（registerTool/工具往返/多版本协商），并与官方 Client 双端互通实测；后续 Streamable HTTP/OAuth 部署形态直接复用 SDK 能力。",
+      "capability": "① 服务端方向（2026-09-14 准入）：经官方 SDK 把 harness 的 ToolPort 工具集暴露为标准 MCP 服务器（registerTool/工具往返/多版本协商），并与官方 Client 双端互通实测。② 客户端方向（2026-10-02 扩展准入）：经官方 Client 连接外部 MCP 服务器（stdio + Streamable HTTP/SSE 远端 url），替代手写 2025-06-18 客户端成为生产首选；手写 src/mcp/* 降级为回退路径。",
       "license": "MIT",
       "approvedAt": "2026-09-14",
       "layer": "src/adapters/mcp",
@@ -70,6 +70,20 @@
       "maxInstallKb": 8000,
       "maxTransitiveDeps": 0,
       "budgetOverrideReason": "实测 7.6MB（zod v4 含多格式支持）；与 SDK 打包为同一准入决策，同进同退。"
+    },
+    "sharp": {
+      "reason": "view_image 的图像缩放是零依赖时代明写的缺口（工具注释自述「压缩需要图像库，与零依赖冲突」）：>5MiB 照片直接拒绝、大图全尺寸进模型上下文烧 token。手搓等价解码/缩放/重编码管线（JPEG/WEBP/EXIF 方向/色彩配置）等于重写 libvips 十年边缘案例，边际成本不可接受（D10 择优依赖）；sharp 已随 @huggingface/transformers 链路 + overrides 锁版本存在于依赖树。",
+      "capability": "view_image 大图收敛：解码（JPEG/WEBP/TIFF/AVIF…）→ EXIF 自动转正 → 长边/字节双预算缩放 → 重编码；经 src/adapters/media/sharpImageResizer.ts 动态 import() 加载，sharp 缺失时自动退化为「不缩放、超限拒绝」历史行为。手搓 GIF/PNG 帧栈（src/media/**）保持回退资产地位不变。",
+      "license": "Apache-2.0",
+      "licenseNote": "npm 包声明 Apache-2.0；libvips 预编译二进制以 LGPL-2.1+ 动态链接形式随包分发，非静态并入本仓产物，符合 LGPL 动态链接条款。",
+      "approvedAt": "2026-10-02",
+      "layer": "src/adapters/media",
+      "exitPlan": "若该包停更，替换为 pngjs + gifuct-js + jpeg-js 组合（纯 JS），仅需重写 src/adapters/media/sharpImageResizer.ts 一个文件；端口 ImageResizerPort 不变，调用方零改动。",
+      "maxInstallKb": 40000,
+      "maxTransitiveDeps": 10,
+      "budgetOverrideReason": "含平台预编译 libvips 二进制约 10–30MB，超默认 2MB 预算；但为 optionalDependencies + 动态 import()（复制 HF 准入先例）：npm i --omit=optional 时体积为 0、能力自动降级，不阻断精简安装路径。",
+      "optional": true,
+      "optionalReason": "仅 view_image 大图收敛这一个增强点使用；缺失时行为完全回退到历史行为，不产生任何硬依赖。"
     }
   },
   "entryTemplate": {

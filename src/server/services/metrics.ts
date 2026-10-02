@@ -29,7 +29,7 @@ export interface TurnStats {
   readonly maxMs: number;
 }
 
-/** 指标：事件计数 + 会话数 + 性能/成本可观测（零依赖）。 */
+/** 指标：事件计数 + 会话数 + 性能/成本可观测（无第三方依赖）。 */
 export class Metrics {
   /** 事件类型 -> 累计次数。 */
   private readonly eventsByType = new Map<string, number>();

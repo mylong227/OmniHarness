@@ -6,7 +6,7 @@
  * 跑到的源文件**强制前置**进检索结果，专攻这一召回缺口（对齐 AutoCodeRover / Agentless 的
  * 「先定位后修复」）。
  *
- * 本模块只含**纯函数**（Ochiai 可疑度 + coverage.json 解析 + 排序），零 IO、零依赖、可单测；
+ * 本模块只含**纯函数**（Ochiai 可疑度 + coverage.json 解析 + 排序），零 IO、无第三方依赖、可单测；
  * 真正跑 `pytest --cov` 的 shell 调用放在预测脚本（best-effort，需 git+uv+网络），与本模块解耦。
  *
  * @maturity L1 — 判据：Ochiai 可疑度与 coverage.json 解析已落单测；端到端 SBFL 提升需在有

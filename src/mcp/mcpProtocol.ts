@@ -1,108 +1,33 @@
 /**
  * @beta
- * MCP 输入 schema（与 OmniHarness ToolParametersSchema 同构）。
+ * MCP 协议类型词汇表（桶再导出）。
+ *
+ * 类型已外迁到 `ports/mcp/mcpProtocolTypes.ts`（2026-10-02，客户端端口化的前置）；
+ * 本文件保留运行时协议常量与消息构造。调用点零改动。
  */
-export interface McpInputSchema {
-  readonly type: 'object';
-  readonly properties: Record<string, unknown>;
-  readonly required?: readonly string[];
-}
+export type {
+  McpInputSchema,
+  McpToolDescriptor,
+  McpTextContent,
+  McpCallToolResult,
+  McpServerInfo,
+  McpResourceDescriptor,
+  McpResourceContent,
+  McpPromptDescriptor,
+  McpCapabilities,
+  McpInitializeResult,
+} from '../ports/mcp/mcpProtocolTypes.js';
+
+import {
+  type McpCallToolResult,
+  type McpInitializeResult,
+  type McpServerInfo,
+  type McpTextContent,
+} from '../ports/mcp/mcpProtocolTypes.js';
 
 /**
  * @beta
- * MCP 工具描述（tools/list 返回项）。
- */
-export interface McpToolDescriptor {
-  readonly name: string;
-  readonly description: string;
-  readonly inputSchema: McpInputSchema;
-}
-
-/**
- * @beta
- * MCP 文本内容块。
- */
-export interface McpTextContent {
-  readonly type: 'text';
-  readonly text: string;
-}
-
-/**
- * @beta
- * MCP 工具调用结果。
- */
-export interface McpCallToolResult {
-  readonly content: readonly McpTextContent[];
-  readonly isError: boolean;
-}
-
-/**
- * @beta
- * MCP 服务端信息。
- */
-export interface McpServerInfo {
-  readonly name: string;
-  readonly version: string;
-}
-
-/**
- * @beta
- * MCP 资源描述（resources/list 返回项）。
- */
-export interface McpResourceDescriptor {
-  readonly uri: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly mimeType?: string;
-}
-
-/**
- * @beta
- * MCP 资源读取结果。
- */
-export interface McpResourceContent {
-  readonly uri: string;
-  readonly mimeType?: string;
-  readonly text: string;
-}
-
-/**
- * @beta
- * MCP 提示模板描述（prompts/list 返回项）。
- */
-export interface McpPromptDescriptor {
-  readonly name: string;
-  readonly description?: string;
-  readonly arguments?: readonly {
-    readonly name: string;
-    readonly description?: string;
-    readonly required?: boolean;
-  }[];
-}
-
-/**
- * @beta
- * MCP 能力声明（2025-06-18：tools / resources / prompts）。
- */
-export interface McpCapabilities {
-  readonly tools?: Record<string, never>;
-  readonly resources?: Record<string, never>;
-  readonly prompts?: Record<string, never>;
-}
-
-/**
- * @beta
- * MCP initialize 结果。
- */
-export interface McpInitializeResult {
-  readonly protocolVersion: string;
-  readonly capabilities: McpCapabilities;
-  readonly serverInfo: McpServerInfo;
-}
-
-/**
- * @beta
- * MCP 协议常量与消息构造（零依赖，JSON-RPC 2.0 承载）。
+ * MCP 协议常量与消息构造（无第三方依赖，JSON-RPC 2.0 承载）。
  *
  * 协议常量（版本号 / 方法名 / 错误码）保持 `static readonly` 命名空间；
  * 纯构造逻辑以实例方法暴露，由组合根单例 `mcpProtocol` 统一装配。

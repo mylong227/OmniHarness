@@ -7,7 +7,7 @@ import type { BudgetDegradeSignal } from '../../ports/model/budgetDegrade.js';
  * 把 `adapters/model` 的预算计量实现桥成 `ports` 层只读端口，使 `core` 消费者
  * （`StepContextBuilder`）只依赖端口类型、不触碰适配器（守住 `core → adapters` 架构红线）。
  *
- * 零依赖、fail-safe：构造时传入的 `CostBudget` 为 undefined（默认部署无预算）时，
+ * 无第三方依赖、fail-safe：构造时传入的 `CostBudget` 为 undefined（默认部署无预算）时，
  * `shouldDegrade` 恒返 false，消费点据此零行为变更。
  */
 export class CostBudgetDegradeAdapter implements BudgetDegradeSignal {

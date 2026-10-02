@@ -1,4 +1,4 @@
-// 组件挂载契约测试（P5.5）：零依赖 DOM 桩——不加载真实 React/ReactDOM，
+// 组件挂载契约测试（P5.5）：无第三方依赖 DOM 桩——不加载真实 React/ReactDOM，
 // 用「预置 window 桩 + createElement 收集」驱动 class 组件的 render()，对元素树做断言。
 // 覆盖面：组件可实例化、render 产出合法 vnode 树、关键 UI 契约（文案/回调接线）不变。
 //

@@ -21,7 +21,7 @@
 //     --payload-shape full --out /tmp/preds.full.jsonl
 //
 // 依赖：需先 `npm run build`（脚本 import dist）。模型凭据从 `.env` 读取。
-// 零依赖（仅 node: 内置 + 本仓库 dist）。
+// 无第三方依赖（仅 node: 内置 + 本仓库 dist）。
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, mkdtempSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -124,7 +124,7 @@ if (!['full', 'tiered', 'degrade'].includes(opts.payloadShape)) {
 }
 
 // ---------- .env ----------
-/** 极简 .env 解析（零依赖；已存在的进程环境变量优先，不覆盖）。
+/** 极简 .env 解析（无第三方依赖；已存在的进程环境变量优先，不覆盖）。
  * @param {string} path .env 路径。
  * @returns {void}
  */

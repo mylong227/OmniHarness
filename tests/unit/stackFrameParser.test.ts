@@ -1,5 +1,5 @@
 /**
- * 堆栈帧定位提取单测（P1-⑩，零依赖）。
+ * 堆栈帧定位提取单测（P1-⑩，无第三方依赖）。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -14,7 +14,7 @@
  * 有意改动这些文案时，用 `OMNI_UI_BASELINE_UPDATE=1` 跑一次集成测试即重写基线（类似 `jest -u`），
  * 并把基线文件一并提交；否则测试会失败并打印逐字段差异，逼你确认「这是有意改动」而不是悄悄放过。
  *
- * 零依赖；只做「采集 + 比较 + 读写」，不碰浏览器启动（那在 `liveUiE2e.test.ts` 里）。
+ * 无第三方依赖；只做「采集 + 比较 + 读写」，不碰浏览器启动（那在 `liveUiE2e.test.ts` 里）。
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 

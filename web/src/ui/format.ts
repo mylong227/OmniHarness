@@ -272,7 +272,7 @@ export function detailSummary(
 }
 
 // =====================================================================
-// 零依赖 Markdown 渲染器（assistant 回复结构化展示用）。
+// 无第三方依赖 Markdown 渲染器（assistant 回复结构化展示用）。
 // 支持：标题（#/##/###）、无序/有序列表、粗体（** / __）、斜体（* / _）、
 //       行内代码（`）、代码块（```）、引用（>）。不使用 innerHTML，安全。
 // =====================================================================
@@ -566,12 +566,12 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
 }
 
 /**
- * 把 Markdown 源码渲染为结构化元素（零依赖解析器，不使用 innerHTML）。
+ * 把 Markdown 源码渲染为结构化元素（无第三方依赖解析器，不使用 innerHTML）。
  * @param src Markdown 源码，空串或空内容时返回 `md-empty` 占位。
  * @returns Markdown 渲染结果元素。
  */
 /**
- * 手写零依赖 Markdown 渲染器（回落实现）。
+ * 手写无第三方依赖 Markdown 渲染器（回落实现）。
  * 仅在成熟依赖（markdown-it / KaTeX / highlight.js）未就绪时使用，保证无回归与离线可用。
  * @param src Markdown 源码。
  * @returns 渲染结果元素（结构化 React 元素，不使用 innerHTML）。

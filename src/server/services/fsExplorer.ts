@@ -259,7 +259,7 @@ export class FsExplorer {
   }
 
   /**
-   * 由文件扩展名推断 mediaType（无 mime-types 依赖；零依赖铁律）。
+   * 由文件扩展名推断 mediaType（无 mime-types 依赖；无第三方依赖铁律）。
    * 覆盖 attach.read 与 browseFs(includeFiles) 的输出。
    * @param name 文件名（含扩展名）
    * @returns 推断出的 MIME 类型；未知扩展名回退 `application/octet-stream`

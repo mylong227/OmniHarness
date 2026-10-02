@@ -5,7 +5,7 @@ import type { BudgetSnapshot } from './budgetSnapshot.js';
  * @beta
  * 会话级成本预算计量端口（#S29 / P5）。
  *
- * 零依赖、进程内、按路由定价累计 token 成本：每次模型调用成功后 `record` 记账，
+ * 无第三方依赖、进程内、按路由定价累计 token 成本：每次模型调用成功后 `record` 记账，
  * 一旦累计花费越过硬预算即置位熔断（`exceeded`），后续 `ensureWithin` 抛错（fail-closed）。
  *
  * 由 `adapters/model/costBudget.ts` 的 `CostBudget` 实现；`ResolvedConfig` 等经本端口持有预算，

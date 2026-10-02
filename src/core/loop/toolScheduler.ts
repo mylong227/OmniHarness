@@ -1,6 +1,6 @@
 /**
  * ToolScheduler（Agent Loop V2 工具并行调度，对标 codex tools/parallel.rs 的
- * 工具级门控 + deepseek-harness tool-calls.ts 的有界池与互斥屏障，零依赖）。
+ * 工具级门控 + deepseek-harness tool-calls.ts 的有界池与互斥屏障，无第三方依赖）。
  *
  * 语义：
  *  - 并行能力是**工具级静态声明**（parallelCapable），不做调用间数据依赖分析

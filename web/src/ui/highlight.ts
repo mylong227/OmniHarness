@@ -1,4 +1,4 @@
-// 轻量语法高亮（零依赖，本地内置）：把源码文本按 token 切成带 class 的 span，
+// 轻量语法高亮（无第三方依赖，本地内置）：把源码文本按 token 切成带 class 的 span，
 // 供右侧文件面板做「编辑器式」分色预览。工程零网络依赖，不引 highlight.js，
 // 只覆盖常见语言（js/ts/json/md/css/html/shell/python/yaml），未识别语言退化为纯文本。
 // 安全：始终先 esc() 再包 span，绝不直接注入原文（与项目「不用 innerHTML」铁律一致）。

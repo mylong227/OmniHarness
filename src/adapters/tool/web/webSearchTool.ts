@@ -1,7 +1,7 @@
 import { TOOL_NAMES } from '../../../ports/tool/toolNames.js'
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../../ports/tool/tool.js';
 
-/** 网络搜索工具选项（注入真实搜索实现，保持零依赖）。 */
+/** 网络搜索工具选项（注入真实搜索实现，保持无第三方依赖）。 */
 export interface WebSearchToolOptions {
   /** 搜索实现：关键词 → 结果摘要；未注入时工具明确报错不静默失败。 */
   readonly search?: (query: string) => Promise<string>;

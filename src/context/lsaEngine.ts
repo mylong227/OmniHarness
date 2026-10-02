@@ -1,5 +1,5 @@
 /**
- * 零依赖潜语义检索（LSA / Latent Semantic Analysis）。
+ * 无第三方依赖潜语义检索（LSA / Latent Semantic Analysis）。
  *
  * 为什么需要它：BM25、频域共振、跨文件引用图**全部只认字面共现**，对「词法错位」型
  * 查询（如 "sandbox policy evaluated" vs 含 `execPolicy` 的文件）集体失效——它们是
@@ -8,11 +8,11 @@
  *
  * 实现：在「符号 × 词项」TF-IDF 矩阵上做截断 SVD（目标秩 k）。
  *   - 随机 SVD（Halko 等 Algorithm 5.1）求近似基 Q；
- *   - 对小型 k×k 矩阵做 Jacobi 特征值分解得奇异值/向量（数值稳定、零依赖）；
+ *   - 对小型 k×k 矩阵做 Jacobi 特征值分解得奇异值/向量（数值稳定、无第三方依赖）；
  *   - 符号潜向量 = V（n×k），查询投影 = Σ⁻¹·Uᵀ·q。
  *
  * 全程标准库，无外部依赖，确定性（RNG 可种子化）。这是静态检索里唯一直接针对
- * 「词法错位」的技术，也是破 61% 天花板的最后一张零依赖牌。
+ * 「词法错位」的技术，也是破 61% 天花板的最后一张无第三方依赖牌。
  *
  * OOP 收口：原模块级纯函数归拢为 `LsaEngine` 类方法；保留 `trainLsa` / `lsaQuery`
  * 同名门面（委托单例）以兼容既有调用点（src/context/contextEngine.ts）。
@@ -38,7 +38,7 @@ export interface LsaModel {
 }
 
 /**
- * 零依赖 LSA 检索引擎。
+ * 无第三方依赖 LSA 检索引擎。
  * 把原 `trainLsa`/`lsaQuery` 及其私有数学辅助函数归拢为类方法；
  * 无模块级可变状态——RNG 种子、词表等全部随 `train` 调用在方法栈内流转。
  */
@@ -51,7 +51,7 @@ export interface LsaCorpusInput {
 }
 
 /**
- * LSA 引擎：符号×词项 TF-IDF 矩阵上的截断 SVD 潜语义检索（零依赖、确定性）。
+ * LSA 引擎：符号×词项 TF-IDF 矩阵上的截断 SVD 潜语义检索（无第三方依赖、确定性）。
  */
 export class LsaEngine {
   /** 可种子化 RNG（mulberry32），保证 SVD 随机基可复现。 */

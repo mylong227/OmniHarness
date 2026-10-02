@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * life-demo.mjs —— 零依赖的康威生命游戏（终端演示版）
+ * life-demo.mjs —— 无第三方依赖的康威生命游戏（终端演示版）
  *
  * 用法：
  *   node examples/life-demo.mjs                随机初始，30 行 x 60 列，跑 60 代

@@ -1,5 +1,5 @@
 /**
- * 微型插件闭环 demo（自包含，零依赖，可直接 node 运行）
+ * 微型插件闭环 demo（自包含，无第三方依赖，可直接 node 运行）
  *
  * 用 30 行模拟 OmniHarness 的插件闭环：
  *   manifest 元信息 → apply 里经 port.tools 注册工具 → 模型可调用 → effect 卸载清理。

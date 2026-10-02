@@ -1,5 +1,5 @@
 /**
- * P5 per-tool token 归因报告（离线、零依赖）。
+ * P5 per-tool token 归因报告（离线、无第三方依赖）。
  *
  * 读一条会话的 append-only JSONL 日志（由真实运行产生：`~/.omniharness/sessions/<id>.jsonl`），
  * 把 `model` 事件的 usage 投影到**工具维度**，打印各工具 token 占比。

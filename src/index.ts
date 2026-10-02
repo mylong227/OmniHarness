@@ -396,7 +396,7 @@ export {
   type Regime,
 } from './genesis/index.js';
 
-// @public 上下文效率层（自研 · 零依赖）：确定性压缩 + 前缀稳定性治理（KV 缓存命中率根因变量）
+// @public 上下文效率层（自研 · 无第三方依赖）：确定性压缩 + 前缀稳定性治理（KV 缓存命中率根因变量）
 export {
   Canonical,
   PrefixStability,

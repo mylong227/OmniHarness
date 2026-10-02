@@ -9,9 +9,14 @@
  *   node evals/semantic-smoke.mjs [model] [cacheDir]
  */
 import { env, pipeline } from '@huggingface/transformers';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** 仓库根（缓存统一收编进 third-party/，gitignored，可随时重建）。 */
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const MODEL = process.argv[2] ?? 'Xenova/e5-small-v2';
-const CACHE = process.argv[3] ?? 'D:/deepseek/.omni-model-cache';
+const CACHE = process.argv[3] ?? join(ROOT, 'third-party', 'model-cache');
 const HOST = process.env.OMNI_HF_ENDPOINT ?? 'https://hf-mirror.com';
 
 env.remoteHost = HOST;

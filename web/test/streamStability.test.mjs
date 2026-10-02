@@ -44,7 +44,7 @@ function readBadge(cdp) {
 }
 
 test('SSE 徽标三态（重连中不闪红）+ .ev 不得再有入场动画', { timeout: 60_000 }, async (t) => {
-  // ③ 源码守卫：先做零依赖的那条（不依赖浏览器）。
+  // ③ 源码守卫：先做无第三方依赖的那条（不依赖浏览器）。
   const css = readFileSync(CHAT_CSS, 'utf8');
   const evRule = /(^|\n)\.ev\s*\{([^}]*)\}/.exec(css);
   assert.ok(evRule !== null, 'chat.css 里找不到 .ev 规则（口径变了，请同步本测试）');

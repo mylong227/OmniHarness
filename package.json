@@ -34,11 +34,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/omniharness/omniharness.git"
+    "url": "git+https://github.com/mylong227/OmniHarness.git"
   },
-  "homepage": "https://github.com/omniharness/omniharness#readme",
+  "homepage": "https://github.com/mylong227/OmniHarness#readme",
   "bugs": {
-    "url": "https://github.com/omniharness/omniharness/issues"
+    "url": "https://github.com/mylong227/OmniHarness/issues"
   },
   "keywords": [
     "agent",
@@ -183,7 +183,8 @@
     "zod": "^4.6.4"
   },
   "optionalDependencies": {
-    "@huggingface/transformers": "^4.2.0"
+    "@huggingface/transformers": "^4.2.0",
+    "sharp": "^0.35.4"
   },
   "overrides": {
     "sharp": "^0.35.4",

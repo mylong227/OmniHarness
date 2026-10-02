@@ -103,7 +103,7 @@ export interface RepoMapContextOptions {
    */
   readonly layered?: boolean;
   /**
-   * 两阶段检索第 2 段：**零依赖词法重排**（见 `FileReranker`）。
+   * 两阶段检索第 2 段：**无第三方依赖词法重排**（见 `FileReranker`）。
    *
    * 默认 **false（2026-09-25 起回关，opt-in）**：51 条新查询经第二方复核修正后，全量 84 条复跑
    * （`evals/rerank-ab.mjs` 改接 fixture）基准档点增益 +2.6pp 但 CI95 [−1.59, +7.59] 跨 0 ⇒

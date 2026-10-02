@@ -5,7 +5,7 @@
  * 每条观测带 `seq`/`prev`/`hash` 哈希链（语义同 `AuditSink`），使中间条目被删/插/改均可检出。
  *
  * 铁律：
- * - 零运行时依赖（仅 Node 内置 `node:fs` / `node:crypto`）。
+ * - 运行时无第三方依赖（仅 Node 内置 `node:fs` / `node:crypto`）。
  * - 数据来源显式标注（`provenance`）：production=真实负载 / seed-bootstrap=已有诚实证据回填 / synthetic-lab=离线仿真。
  *   收紧算法**只认 production**，绝不拿 bootstrap/lab 数据当"真实负载"去调参——这是诚实边界。
  *

@@ -2,7 +2,7 @@
  * policy_eval 工具（#S34）：让模型用安全策略规则集对一组事实求值，得到 allow/deny/ask 决策。
  *
  * 用于把沙箱命令审批、工具调用审批等决策「策略化、可审计、可解释」，而非硬编码。
- * 零依赖：仅依赖注入的 `PolicyPort`（默认 `SafePolicyEvaluator`）。
+ * 无第三方依赖：仅依赖注入的 `PolicyPort`（默认 `SafePolicyEvaluator`）。
  */
 import type {
   ToolCall,

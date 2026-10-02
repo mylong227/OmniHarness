@@ -1,7 +1,7 @@
-// 共享浏览器验证工具（E1 CDP 路线；**零依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
+// 共享浏览器验证工具（E1 CDP 路线；**无第三方依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
 //
 // 与 D3 的 UI e2e（`web/test/e2e.test.mjs`）**同一传输**：复用本机已装 Chrome/Edge，
-// 用零依赖 Node http 静态服务托管 web/，并注入假 /rpc + 假 /events 使前端在确定性假后端下渲染。
+// 用无第三方依赖 Node http 静态服务托管 web/，并注入假 /rpc + 假 /events 使前端在确定性假后端下渲染。
 // 本文件在其上新增 **CDP 路线**：用 Node 22 内置全局 `WebSocket` 直连 Chrome DevTools Protocol，
 // 做「截图 → 视觉核对 → 操作回环」一例（E1 的可证伪验收）。
 //
@@ -57,7 +57,7 @@ const MIME = {
 };
 
 /**
- * 零依赖静态服务（127.0.0.1 随机端口），托管 web/ 目录，并把内存路由注入。
+ * 无第三方依赖静态服务（127.0.0.1 随机端口），托管 web/ 目录，并把内存路由注入。
  * @param {string} root 站点根目录
  * @param {Record<string, string>} memoryRoutes 内存路由（路径 → HTML 文本）
  * @returns {Promise<{port:number, close:()=>Promise<void>}>} 端口与关闭器
@@ -368,7 +368,7 @@ export async function waitForPageWs(port, marker, timeoutMs = 30000) {
 }
 
 /**
- * 零依赖 CDP 会话：用 Node 22 内置全局 `WebSocket` 直连 Chrome DevTools Protocol。
+ * 无第三方依赖 CDP 会话：用 Node 22 内置全局 `WebSocket` 直连 Chrome DevTools Protocol。
  * 仅封装 E1 需要的子集（Page / Runtime / Input）。
  */
 export class CdpSession {

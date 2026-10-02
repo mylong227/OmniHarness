@@ -355,11 +355,11 @@ export class ArgParser {
       result.reasoning = file.reasoning;
     }
     if (file.mcpServers !== undefined) {
-      result.mcpServers = file.mcpServers.map((server) => ({
-        name: server.name,
-        command: server.command,
-        args: server.args ?? [],
-      }));
+      result.mcpServers = file.mcpServers.map((server) =>
+        server.url !== undefined
+          ? { name: server.name, url: server.url }
+          : { name: server.name, command: server.command ?? '', args: server.args ?? [] },
+      );
     }
     // 受种技能池：配置文件内联数组直接进 CLI 参数；`--skills <file.json>` 在装配层追加（同名以旗标为准）。
     if (file.skills !== undefined) {

@@ -1,7 +1,7 @@
 import { ArrayAt } from './arrayAt.js';
 import type { Spectrum } from '../ports/util/spectrum.js';
 /**
- * 频率域本征谱工具（燧-3 共振寻址底座）。零依赖。
+ * 频率域本征谱工具（燧-3 共振寻址底座）。无第三方依赖。
  *
  * 把文本/频率签名映射为归一化频谱：检索不再依靠指针或向量几何距离，
  * 而是"发射频谱探针 → 与其本征模共振的条目自行聚集显现"。同频即显、异频即散。
@@ -17,7 +17,7 @@ export const RESONANCE_BINS = 257;
  * `OOP 收口`（2026-09-11）：原静态方法族改为实例方法，消除 `static`。
  */
 export class EigenSpectrum {
-  /** FNV-1a 32-bit 哈希（与 skillComposer 同源，零依赖）。 */
+  /** FNV-1a 32-bit 哈希（与 skillComposer 同源，无第三方依赖）。 */
   public fnv1a(str: string): number {
     let h = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
@@ -91,7 +91,7 @@ export class EigenSpectrum {
     return dot;
   }
 
-  /** FNV-1a 32-bit 哈希（与 skillComposer 同源，零依赖）。 */
+  /** FNV-1a 32-bit 哈希（与 skillComposer 同源，无第三方依赖）。 */
   public static fnv1a(str: string): number {
     return eigenSpectrumEngine.fnv1a(str);
   }

@@ -2,7 +2,7 @@
  * @beta
  * 启动外部语言服务器的配置。
  * 仅声明「怎么把服务器跑起来」，**不引入任何 npm 运行时依赖**——服务器由用户自备（如 typescript-language-server），
- * harness 通过子进程 stdio 用 LSP 协议与其通信。这是保持「零依赖铁律」前提下的 LSP 接入方式（对标 codex 的 stdio 桥接）。
+ * harness 通过子进程 stdio 用 LSP 协议与其通信。这是保持「无第三方依赖铁律」前提下的 LSP 接入方式（对标 codex 的 stdio 桥接）。
  */
 export interface LspServerConfig {
   /** 启动命令（须在 PATH 或给绝对路径，如 `typescript-language-server`）。 */

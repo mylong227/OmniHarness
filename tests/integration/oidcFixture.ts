@@ -1,8 +1,8 @@
 /**
- * 零依赖本地 OIDC IdP fixture（F4 更优解验证用）。
+ * 无第三方依赖本地 OIDC IdP fixture（F4 更优解验证用）。
  *
  * 设计动机：
- * - `src/enterprise/oidcClient.ts` 的 `OidcClient` / `EnterpriseAuth` 是零依赖、fetch 可注入的
+ * - `src/enterprise/oidcClient.ts` 的 `OidcClient` / `EnterpriseAuth` 是无第三方依赖、fetch 可注入的
  *   纯实现，但"真实接入某 IdP"此前被标为外部设施（keycloak 容器 / 可达网络），导致整条
  *   认证门禁无法端到端验证。
  * - 本 fixture 用 `node:crypto` + `node:http` 起一个**合规最小 IdP**：签发**真实 RS256 JWT**
@@ -10,7 +10,7 @@
  *   走完整真实密码学链路（discovery → JWKS → RS256 验签 → iss/aud/exp 校验），而**不需要
  *   keycloak、不需要 docker、不需要外部网络、不引入任何运行时依赖**。
  * - 这是 `panva/node-oidc-provider`（OpenID 认证的参考实现，已认证 OP Basic/Implicit/Hybrid/
- *   Config/Dynamic）思路的零依赖复刻：我们只复刻验证 `OidcClient` 所必需的子集，把"真实 IdP"
+ *   Config/Dynamic）思路的无第三方依赖复刻：我们只复刻验证 `OidcClient` 所必需的子集，把"真实 IdP"
  *   变成可随单测启动的进程内设施。保真度等价（真实 JWT + 真实 JWKS），效率更高（毫秒级、无容器）。
  *
  * 仅用于测试，不进入生产代码路径。
@@ -28,7 +28,7 @@ interface RsaPublicJwk {
 
 /**
  * @beta
- * 零依赖 OIDC 测试 IdP：签发真实 RS256 id_token，暴露 discovery / JWKS / token 端点。
+ * 无第三方依赖 OIDC 测试 IdP：签发真实 RS256 id_token，暴露 discovery / JWKS / token 端点。
  */
 export class OidcFixture {
   /** 固定 kid（JWKS 与签名共用，便于 `OidcClient` 按 kid 匹配）。 */

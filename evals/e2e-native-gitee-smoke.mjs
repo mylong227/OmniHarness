@@ -47,7 +47,8 @@ const executor = new NativeExecutor({
   repoBaseUrl: 'https://gitee.com/',
   repoMirrors: mirrors.mirrors,
   envPins: pins.pins,
-  repoCacheRoot: 'D:/deepseek/.omni-swebench-repos',
+  // 评测仓库缓存收编进仓库 third-party/（gitignored；历史 D:/deepseek/.omni-swebench-repos 已废弃）。
+  repoCacheRoot: join(ROOT, 'third-party', 'swebench-repos'),
 });
 console.log(`executor = ${executor.describe()}`);
 console.log(`task     = ${task.id}  base=${task.baseCommit}  version=${task.version}`);

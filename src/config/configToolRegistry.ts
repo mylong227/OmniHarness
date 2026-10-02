@@ -23,6 +23,7 @@ import { GrepTool } from '../adapters/tool/fs/grepTool.js';
 import { GlobTool } from '../adapters/tool/fs/globTool.js';
 import { WebFetchTool } from '../adapters/tool/web/webFetchTool.js';
 import { ViewImageTool } from '../adapters/tool/media/viewImageTool.js';
+import { SharpImageResizer } from '../adapters/media/sharpImageResizer.js';
 import { ViewMediaTool } from '../adapters/tool/media/viewMediaTool.js';
 import { BrowserScreenshotTool } from '../adapters/tool/browser/browserScreenshotTool.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
@@ -120,9 +121,9 @@ export class ConfigToolRegistry {
     const grepper = new GrepTool(seed.workspaceRoot);
     const globber = new GlobTool(seed.workspaceRoot);
     // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道；
-    // browser_screenshot 把「看一眼自己做的页面」补上（零依赖 CDP，headless Chrome/Edge）。
+    // browser_screenshot 把「看一眼自己做的页面」补上（纯 TS CDP，headless Chrome/Edge）。
     const fetcher = new WebFetchTool();
-    const viewer = new ViewImageTool(seed.workspaceRoot);
+    const viewer = new ViewImageTool(seed.workspaceRoot, new SharpImageResizer());
     // 逐帧读媒体（动画 GIF / 视频）：与 view_image 分职——后者把整份文件当**一张静态图**，
     // 对动画/视频等于只看首帧。此处复用装配层（`MediaStackAssembler`）装好的**同一份**媒体栈
     // （同一份定位缓存与预算口径，与子智能体工具集共享，不各自 new 一遍）。

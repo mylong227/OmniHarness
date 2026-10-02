@@ -41,7 +41,7 @@ const CEIL = 5;
  * - 共振度 > 阈值的边才保留，剪掉长尾弱耦合，控制重权方向。
  * - 孤立/未强化事实在衰减项下缓慢退向地板 1（自然遗忘），簇内因扩散项抵消衰减而留存。
  *
- * 零运行时依赖：耦合谱复用燧-3 的 eigenSpectrum/resonance。fail-closed：
+ * 运行时无第三方依赖：耦合谱复用燧-3 的 eigenSpectrum/resonance。fail-closed：
  * 事实数 0 或超限时只退火最重要的一批，绝不越界；温度调度与漂移均为纯函数式推导。
  */
 export class HeatEquationAnnealer implements MemoryAnnealer {

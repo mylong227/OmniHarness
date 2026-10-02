@@ -68,7 +68,7 @@ export type {
 export { RunWorkflowTool } from './adapters/tool/workflow/runWorkflowTool.js';
 export { RUN_WORKFLOW_TOOL_NAME } from './autonomy/workflowToolNames.js';
 
-// @beta LSP 代码导航（#S32：外启语言服务器进程走 stdio JSON-RPC，零依赖铁律下唯一合规接入方式）
+// @beta LSP 代码导航（#S32：外启语言服务器进程走 stdio JSON-RPC，无第三方依赖铁律下唯一合规接入方式）
 export type {
   LspPort,
   LspLocation,
@@ -91,7 +91,7 @@ export {
   LSP_STATUS_TOOL_NAME,
 } from './adapters/lsp/lspToolNames.js';
 
-// @beta Agent 密码学身份（#S33：对标 codex-rs/agent-identity 可移植核心，Ed25519 零依赖）
+// @beta Agent 密码学身份（#S33：对标 codex-rs/agent-identity 可移植核心，Ed25519 无第三方依赖）
 export type {
   AgentIdentityPort,
   AgentIdentityConfig,
@@ -103,7 +103,7 @@ export {
   AGENT_IDENTITY_TOOL_NAME,
 } from './adapters/tool/meta/agentIdentityTool.js';
 
-// @beta 安全策略求值（#S34：对标 codex-rs/execpolicy 的「规则 → 决策」意图，安全子集零依赖）
+// @beta 安全策略求值（#S34：对标 codex-rs/execpolicy 的「规则 → 决策」意图，安全子集无第三方依赖）
 export type {
   PolicyPort,
   PolicyRule,
@@ -125,7 +125,7 @@ export type {
 export { ToolOutputTrust } from './security/toolOutputTrust.js';
 export type { TrustTier } from './security/toolOutputTrust.js';
 
-// @beta 零依赖 TUI 终端 UI（#S35：对标 codex-rs/tui 的「会话事件流渲染 + 交互」概念）
+// @beta 无第三方依赖 TUI 终端 UI（#S35：对标 codex-rs/tui 的「会话事件流渲染 + 交互」概念）
 export { TuiRenderer, type TuiEvent, type TuiEventKind } from './tui/tuiRenderer.js';
 export { Interactive, type InteractiveOptions } from './tui/interactive.js';
 

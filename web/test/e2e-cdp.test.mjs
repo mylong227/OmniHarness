@@ -1,8 +1,8 @@
-﻿// E1：浏览器验证 / computer use（CDP 路线，零依赖）。
+﻿// E1：浏览器验证 / computer use（CDP 路线，无第三方依赖）。
 //
 // 可证伪验收（同 board E1 行）：CDP 驱动本机已装浏览器做「截图 → 视觉核对 → 操作回环」一例。
 // 本例用 Node 22 内置 WebSocket 直连 Chrome DevTools Protocol，全程不引入任何浏览器自动化库：
-//   1. 启动零依赖静态服务 + 注入假后端的 stub 页（与 D3 同源）；
+//   1. 启动无第三方依赖静态服务 + 注入假后端的 stub 页（与 D3 同源）；
 //   2. 以 `--remote-debugging-port` 起 headless Chrome，直连 page target 的 CDP WebSocket；
 //   3. 截图（Page.captureScreenshot）作为「视觉核对」首帧；
 //   4. 视觉核对：用 Runtime.evaluate 读取关键 DOM 结构（React 已挂载 / composer / send / #root 内容量）；
@@ -30,7 +30,7 @@ import {
 
 const STUB_NAME = '_e2e-stub-cdp.html';
 
-test('E1 CDP：截图 → 视觉核对 → 操作回环（本机 Chrome，零依赖）', async (t) => {
+test('E1 CDP：截图 → 视觉核对 → 操作回环（本机 Chrome，无第三方依赖）', async (t) => {
   const browser = findBrowser();
   if (!browser) {
     t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
