@@ -1,8 +1,8 @@
 // 成熟依赖加持的 Markdown 渲染器（回复模式 / 会话模式核心展示层）。
 //
-// 设计取舍（回应「不要求零依赖，善用成熟知识代替从零造轮子」）：
+// 设计取舍（回应「不要求无第三方依赖，善用成熟知识代替从零造轮子」）：
 //   - 解析交给 markdown-it（与 deepseek-harness 的 micromark 同代成熟方案），
-//     取代 format.ts 里手写、易踩坑的零依赖解析器；
+//     取代 format.ts 里手写、易踩坑的无第三方依赖解析器；
 //   - 行内/块级数学交给 KaTeX（deepseek-harness 亦用 KaTeX）；
 //   - 代码高亮交给 highlight.js（deepseek-harness 用 Shiki，这里用零构建步骤、
 //     离线可用的 highlight.js，效果同级且更轻）。

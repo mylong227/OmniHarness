@@ -49,7 +49,7 @@ interface GrepOutcome {
 }
 
 /**
- * 内置 `grep` 工具（零依赖，纯 TS）：在工作区里按正则/字面量搜索文件内容。
+ * 内置 `grep` 工具（无第三方依赖，纯 TS）：在工作区里按正则/字面量搜索文件内容。
  *
  * 为什么必须有：原工具集**没有 grep/glob**，模型要查代码只能手写 `shell` 里的 grep，
  * 既不可移植（Windows 无 grep）、也不受工作区边界约束，还得自己处理编码与忽略目录。
@@ -78,7 +78,7 @@ export class GrepTool {
   public readonly definition: ToolDefinition = {
     name: TOOL_NAMES.grep,
     description:
-      '在工作区内按正则搜索文件内容（零依赖、自动忽略 .git/node_modules/构建产物）。' +
+      '在工作区内按正则搜索文件内容（无第三方依赖、自动忽略 .git/node_modules/构建产物）。' +
       '支持 glob 过滤、大小写忽略、字面量模式、上下文行与三种输出模式。',
     parameters: {
       type: 'object',

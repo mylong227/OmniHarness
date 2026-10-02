@@ -1,7 +1,7 @@
 /**
  * 接线完整性门禁的测试包裹。
  *
- * 门禁本体是零依赖脚本 `scripts/auditConfigWiring.mjs`（pre-commit 第 7 关与 CI 都会跑），
+ * 门禁本体是无第三方依赖脚本 `scripts/auditConfigWiring.mjs`（pre-commit 第 7 关与 CI 都会跑），
  * 但「跑 `npm test` 的人」也应立刻看到它——故此处以子进程执行并断言退出码。
  *
  * 断言两条：

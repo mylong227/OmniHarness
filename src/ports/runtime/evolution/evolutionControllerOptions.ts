@@ -11,7 +11,7 @@ export interface EvolutionControllerOptions {
   readonly gate: EvolutionGate;
   /**
    * 晋升回调：候选被门禁晋升后触发（如把技能注册进 SkillRegistry）。
-   * 零依赖、由调用方注入，避免控制器反向依赖具体注册表。
+   * 无第三方依赖、由调用方注入，避免控制器反向依赖具体注册表。
    */
   readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   /** 任务完成后自动跑一轮进化（默认 false，确保零破坏旁路）。 */

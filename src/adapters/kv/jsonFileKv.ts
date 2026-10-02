@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { KvPort } from '../../ports/memory/kv.js';
 
 /**
- * JSON 文件 KV 适配器：单个 JSON 对象持久化到磁盘（零依赖，符合军规）。
+ * JSON 文件 KV 适配器：单个 JSON 对象持久化到磁盘（无第三方依赖，符合军规）。
  * 写操作原子化（先写临时文件再 rename），避免并发读写损坏。
  */
 export class JsonFileKv implements KvPort {

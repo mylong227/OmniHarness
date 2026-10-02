@@ -1,5 +1,5 @@
 /**
- * 零依赖 CDP（Chrome DevTools Protocol）客户端。
+ * 无第三方依赖 CDP（Chrome DevTools Protocol）客户端。
  *
  * 为什么不引库：Node 22 自带全局 `fetch` 与 `WebSocket`，而截图只需要 CDP 的极小子集
  * （Page / Runtime / Target / Emulation）。为此引入 puppeteer 会带来上百个传递依赖

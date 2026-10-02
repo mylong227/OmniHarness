@@ -1,5 +1,5 @@
 /**
- * 图片头解析单测（P2-⑬，零依赖：手工构造最小文件头）。
+ * 图片头解析单测（P2-⑬，无第三方依赖：手工构造最小文件头）。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

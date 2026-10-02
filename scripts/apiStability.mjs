@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 零依赖 API 稳定性契约校验器（OmniHarness 工程化门禁之一）
+// 无第三方依赖 API 稳定性契约校验器（OmniHarness 工程化门禁之一）
 //
 // 策略：公开桶 src/index.ts 的每一段「分区注释」必须声明该区稳定性
 // （// @public / // @beta / // @deprecated），其下所有 export 继承该稳定性。

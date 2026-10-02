@@ -70,7 +70,7 @@ seedObs.push({
   provenance: 'seed-bootstrap',
 });
 
-// 低消耗 —— heatAnnealer（温度单调 + 零依赖）
+// 低消耗 —— heatAnnealer（温度单调 + 无第三方依赖）
 seedObs.push({
   kind: 'backfill-seed',
   operator: 'heatAnnealer',

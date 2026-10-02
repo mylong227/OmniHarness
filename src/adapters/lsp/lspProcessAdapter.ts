@@ -27,7 +27,7 @@ export interface LspProcessAdapterOptions {
  * 进程级 LSP 适配器（对标 codex 的 stdio 桥接）：
  * 外启语言服务器子进程，用 LSP 协议（stdio JSON-RPC）通信。
  *
- * - **零依赖**：仅用 Node 内置模块，不新增任何 npm 包。
+ * - **无第三方依赖**：仅用 Node 内置模块，不新增任何 npm 包。
  * - **懒启动**：首个语义调用时才 spawn 子进程并完成 initialize 握手，避免无谓常驻。
  * - **坐标转换**：工具/CLI 给 1-based 编辑器坐标，本适配器内部转 LSP 0-based，返回时再转回 1-based。
  * - **fail-closed**：握手/请求超时、协议错误、进程异常退出均上抛，由工具层转成可读错误文本。
@@ -41,7 +41,7 @@ export interface LspProcessAdapterOptions {
  * 再等推送**，并如实回报 `fresh` / `stale`——绝不把「没等到推送」说成「没有错误」。
  *
  * 注意：本适配器**不内置任何语言服务器**——具体服务器（typescript-language-server 等）由用户在配置里提供，
- * 这正是零依赖铁律下接入 LSP 的唯一合规方式。
+ * 这正是无第三方依赖铁律下接入 LSP 的唯一合规方式。
  */
 export class LspProcessAdapter implements LspPort {
   /** 端口名（便于调试/状态展示）：固定为 'lsp-process'。 */

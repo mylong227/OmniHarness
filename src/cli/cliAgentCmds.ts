@@ -278,7 +278,7 @@ export class CliAgentCmds extends CliNativeCmds {
   }
 
   /**
-   * 零依赖 TUI（#S35）：交互式会话（需 TTY；非 TTY 优雅降级）。
+   * 无第三方依赖 TUI（#S35）：交互式会话（需 TTY；非 TTY 优雅降级）。
    * @param args 子命令参数（首参数为 demo 时进入演示回声模式）。
    * @returns 进程退出码：非 TTY 或启动失败为 1，正常退出为 0。
    */

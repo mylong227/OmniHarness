@@ -5,7 +5,7 @@ import { OidcClient, type OidcProviderConfig } from '../../src/enterprise/oidcCl
 import { OidcFixture } from './oidcFixture.js';
 
 /**
- * F4 更优解验证套件：用零依赖本地 IdP（`OidcFixture`，真实 HTTP + 真实 RS256）
+ * F4 更优解验证套件：用无第三方依赖本地 IdP（`OidcFixture`，真实 HTTP + 真实 RS256）
  * 端到端验证 `EnterpriseAuth` 的 discovery → JWKS → 验签 → 声明校验全链路，
  * 完全替代「起 keycloak 容器」方案（保真度等价、效率更高、零外部依赖、跨平台一致）。
  */

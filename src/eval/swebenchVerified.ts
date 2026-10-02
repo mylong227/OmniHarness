@@ -7,7 +7,7 @@
 // 模型补丁（predictions）由调用方注入（我们的 live agent 在你侧生成）。
 //
 // 铁律：
-//   - 零运行时依赖（仅 node: 内置）；fail-closed——resolved 只认 pytest 判定，绝不臆造通过。
+//   - 运行时无第三方依赖（仅 node: 内置）；fail-closed——resolved 只认 pytest 判定，绝不臆造通过。
 //   - 缺 git / uv / 网络（克隆或 pip）时**明确报错并返回未通过**，绝不静默假绿。
 //   - 原生执行不等同官方 Docker 镜像（env 由 repo 自述 + uv 重建）；用于本地迭代/自测，
 //     官方 apples-to-apples 分数建议官方 harness。本模块为 code-ready + turnkey。

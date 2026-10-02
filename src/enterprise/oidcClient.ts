@@ -6,10 +6,10 @@ import type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.js';
 import type { AuthState } from '../ports/enterprise/authState.js';
 
 /**
- * 企业级 SSO（OIDC）零依赖实现（D2）。
+ * 企业级 SSO（OIDC）无第三方依赖实现（D2）。
  *
  * 设计约束：
- * - 纯 TypeScript + 仅 `node:` 内置（`crypto`/`fs`/`url`），零运行时依赖，守住项目铁律。
+ * - 纯 TypeScript + 仅 `node:` 内置（`crypto`/`fs`/`url`），运行时无第三方依赖，守住项目铁律。
  * - 仅实现授权码流 + PKCE(S256) + RS256 JWKS 签名校验，覆盖企业接入的最小完备集。
  * - fail-closed：`authenticate()` 任何校验失败一律返回 `null`（视为未认证），绝不静默放行。
  *

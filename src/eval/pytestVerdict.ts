@@ -10,7 +10,7 @@
  *   （`test_create_expand_pow_optimization`，sympy/django 等）。裸名直接当 pytest 参数会被当作路径
  *   ⇒ `collected 0 items` ⇒ 判定恒假（实测连 gold 都判不过），故一律按**叶子名**比对。
  *
- * 零 IO、零依赖。
+ * 零 IO、无第三方依赖。
  */
 export class PytestVerdict {
   /**

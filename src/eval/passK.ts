@@ -176,7 +176,7 @@ export class PassK {
  * 升级为「区间判定」——点阈值在边界会随机红/绿，区间判定给出三态结论
  * （达标 / 显著不达标 / 样本不足），种子固定故同输入恒同结论。
  *
- * 零依赖。
+ * 无第三方依赖。
  *
  * @maturity L1 — Pass@k + 确定性 bootstrap 95% CI（消随机红/绿）；「≥5 次跑」规范化待补
  * @maturityEvidence tests/unit/passK.test.ts

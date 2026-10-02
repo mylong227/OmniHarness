@@ -21,7 +21,7 @@
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -49,12 +49,9 @@ writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 
 const PRESET = process.argv[2] ?? 'e5-small-v2';
 const FILE_K = 14; // 与词法跨仓仪器（recall-crossrepo.mjs）同一判定档
-const CACHE_DIR =
-  process.env.OMNI_EMBEDDING_CACHE_DIR ??
-  (existsSync('D:/deepseek/.omni-model-cache')
-    ? 'D:/deepseek/.omni-model-cache'
-    : join(ROOT, '.omniharness', 'model-cache'));
-const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? join(ROOT, 'eval-data', 'vec-cache');
+// 模型/向量缓存统一收编进仓库 third-party/（gitignored，可随时重建；历史 D:/deepseek 硬编码已废弃）。
+const CACHE_DIR = process.env.OMNI_EMBEDDING_CACHE_DIR ?? join(ROOT, 'third-party', 'model-cache');
+const VEC_CACHE = process.env.OMNI_VEC_CACHE ?? join(ROOT, 'third-party', 'vec-cache');
 mkdirSync(VEC_CACHE, { recursive: true });
 
 log(`preset=${PRESET} fileK=${FILE_K} cacheDir=${CACHE_DIR} vecCache=${VEC_CACHE}`);

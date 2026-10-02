@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
 
 /**
- * Linux 内核命名空间隔离后端（`unshare -rm`，A1 的零依赖替代）。
+ * Linux 内核命名空间隔离后端（`unshare -rm`，A1 的无第三方依赖替代）。
  *
  * ## 为什么需要
  *
@@ -10,7 +10,7 @@ import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/ru
  * 这是声明与实现不符：landlock 是内核态文件路径访问控制，bwrap 是用户态命名空间，
  * 二者不是一回事，把前者偷偷换成后者既误导又会在「以为开了 landlock」时实际拿到 bwrap 语义。
  * 另：本机是 Windows，所有 OS 级后端都跑不起来，必须**明确 fail-closed 且给可执行原因**，
- * 不能假装已隔离。`unshare` 是 Linux 原生的命名空间隔离原语（用户态零依赖，只要内核支持），
+ * 不能假装已隔离。`unshare` 是 Linux 原生的命名空间隔离原语（用户态无第三方依赖，只要内核支持），
  * 作为 OS 级后端补上这一环。
  *
  * ## 隔离语义

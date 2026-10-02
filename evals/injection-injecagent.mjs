@@ -1,5 +1,5 @@
 /**
- * T4.4 真提示注入基准（InjecAgent 官方数据集，离线零依赖）。
+ * T4.4 真提示注入基准（InjecAgent 官方数据集，离线无第三方依赖）。
  *
  * 背景：此前 `metrics:injection` 只对**离线 curated 快照**出数（A4 结项口径自认「非真基准」），
  * 真基准挂起于「数据集不可得」。2026-09-25 经 ghproxy 通道取得 InjecAgent 官方数据

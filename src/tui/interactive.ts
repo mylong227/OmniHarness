@@ -1,5 +1,5 @@
 /**
- * 零依赖 TUI 交互会话（#S35，对标 codex-rs/tui 的交互概念）。
+ * 无第三方依赖 TUI 交互会话（#S35，对标 codex-rs/tui 的交互概念）。
  *
  * 仅用 Node 内置 `node:readline` / `node:tty` / `node:stream`，零外部依赖。把事件流渲染为
  * 终端行（复用 `render.ts`），并读取用户单行输入。适用于交互式 agent 会话的前端。

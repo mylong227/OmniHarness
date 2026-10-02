@@ -359,7 +359,7 @@ export class ContextCompactor {
     return true; // 到头都没找到匹配的前置 assistant → 孤儿
   }
 
-  /** djb2 前缀指纹（零依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */
+  /** djb2 前缀指纹（无第三方依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */
   public static headFingerprint(messages: readonly ModelMessage[]): string {
     let h = 5381;
     for (const m of messages) {

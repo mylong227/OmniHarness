@@ -37,6 +37,7 @@ import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
+import { SdkPreferredMcpConnector } from '../adapters/mcp/sdkPreferredMcpConnector.js';
 import { McpGateway } from '../mcp/mcpGateway.js';
 import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import { modelAdapterRegistry, MOCK_ADAPTER_ID } from '../adapters/model/modelAdapterRegistry.js';
@@ -436,6 +437,8 @@ export class CliBuildConfig {
       registry: tools,
       context: { sessionId: 'mcp-bridge', workspaceRoot: args.workspace },
       servers: args.mcpServers,
+      // 客户端方向走官方 SDK 优先（协议协商 + 远端 url 支持），SDK 失败回落手写并打到 stderr。
+      connector: new SdkPreferredMcpConnector(),
     });
     this.gateway = gateway;
     const results = await gateway.connectAll();

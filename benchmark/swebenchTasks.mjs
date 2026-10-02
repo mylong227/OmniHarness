@@ -8,7 +8,7 @@
 // 统一任务形状 SweTask：{ id, prompt, seedFiles(bug+test), evalCmd, script(replay), goldPatch }。
 // 转 EvalTask 时 expect.run.cmd = evalCmd（FAIL_TO_PASS 判定 = evalCmd 退出码 0）。
 //
-// 零依赖（仅 node: 内置）。
+// 无第三方依赖（仅 node: 内置）。
 
 /**
  * 单条 SWE 风格 bug 修复任务（声明式、自包含）。

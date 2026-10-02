@@ -89,7 +89,7 @@ export class SemanticIndexCache {
    * 召回后由 `corpus.symbols[i].file` 映射回文件——复用与「符号→文件融合」完全相同的映射机制。
    *
    * body 窗口 = 从本符号声明行到同文件下一个符号声明行（或最多 CHUNK_BODY_MAX_LINES 行），
-   * 截到末尾符号则用固定窗口。纯函数、零依赖、可单测。
+   * 截到末尾符号则用固定窗口。纯函数、无第三方依赖、可单测。
    * @param corpus 已索引语料。
    * @returns 分块召回项（含函数体文本）。
    */

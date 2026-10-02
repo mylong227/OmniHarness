@@ -2,7 +2,7 @@
 /**
  * OmniHarness 小系统 Demo —— 插件生命周期系统
  *
- * 自包含（零依赖）迷你插件系统，概念与仓库源码一一对应：
+ * 自包含（无第三方依赖）迷你插件系统，概念与仓库源码一一对应：
  *   - src/plugin/plugin.ts        Plugin：{ meta, apply(context), effect() }
  *   - src/ports/tool.ts           ToolDefinition / ToolCall / ToolResult
  *   - src/adapters/tool/registryToolPort.ts   register(def, handler) 注册表

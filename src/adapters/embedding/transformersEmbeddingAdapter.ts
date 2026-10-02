@@ -358,7 +358,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   }
 
   /**
-   * 纯函数：按前缀模式 + 角色给文本加前缀（零依赖、可单测）。
+   * 纯函数：按前缀模式 + 角色给文本加前缀（无第三方依赖、可单测）。
    * 仅 'e5' 模式注入；'none' 原样返回。供 embed 调用，也便于单测验证前缀注入正确。
    *
    * @param texts 待处理文本列表。
@@ -377,7 +377,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
   }
 
   /**
-   * 归一化模型下载源主机地址（纯函数、零依赖、可单测）。
+   * 归一化模型下载源主机地址（纯函数、无第三方依赖、可单测）。
    *
    * 必须补尾斜杠：该库拼下载 URL 的方式是 `env.remoteHost + env.remotePathTemplate`，
    * 而 `remotePathTemplate` 是相对片段（`"{model}/resolve/{revision}/"`）⇒ host 缺尾斜杠会拼出

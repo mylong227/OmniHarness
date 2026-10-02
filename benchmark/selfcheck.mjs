@@ -18,7 +18,7 @@ import { ElementComposer } from '../dist/src/adapters/skill/elementComposer.js';
 
 const N = 64;
 
-// ---------------- 桩 (零依赖, 仅满足被调算子运行时契约) ----------------
+// ---------------- 桩 (无第三方依赖, 仅满足被调算子运行时契约) ----------------
 class KvStub {
   constructor() {
     this.m = new Map();
@@ -87,7 +87,7 @@ function check(prop, probe, measured, pass, evidence) {
 
 // ============ 2. 低消耗 ============
 
-// 保证机制: 零运行时依赖(铁律) + 记忆税 + 退火(算力沿 -∇T 集中)
+// 保证机制: 运行时无第三方依赖(铁律) + 记忆税 + 退火(算力沿 -∇T 集中)
 {
   const pkgPath = fileURLToPath(new URL('../package.json', import.meta.url));
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
@@ -105,7 +105,7 @@ function check(prop, probe, measured, pass, evidence) {
   const strictlyDown = temps[temps.length - 1] < temps[0];
   check(
     '低消耗',
-    '零运行时依赖 + 退火温度单调下降(算力沿 -∇T 集中)',
+    '运行时无第三方依赖 + 退火温度单调下降(算力沿 -∇T 集中)',
     `zeroRuntimeDeps=${zeroDeps} | T=[${temps.map((t) => t.toFixed(3)).join(', ')}] 单调=${monotonic}`,
     zeroDeps && monotonic && strictlyDown,
     ['scripts/check.mjs', 'costBudget.test.ts', 'budgetedModel.test.ts', 'heatAnnealer.test.ts'],

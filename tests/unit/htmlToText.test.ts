@@ -1,5 +1,5 @@
 /**
- * HTML → 文本单测（web_fetch 的正文提取，零依赖）。
+ * HTML → 文本单测（web_fetch 的正文提取，无第三方依赖）。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -11,7 +11,7 @@ import type { SsrfOptions } from '../ports/security/ssrfOptions.js';
  * web 抓取目标）。若无网段屏蔽，攻击者可让 agent 去请求 `169.254.169.254`（云元数据）、
  * `127.0.0.1:8080`（本机管理端口）或内网服务，形成 SSRF。
  *
- * 零依赖实现（依赖准入铁律）：字面量判定用 `node:net.isIP` + 自实现网段比较，
+ * 无第三方依赖实现（依赖准入铁律）：字面量判定用 `node:net.isIP` + 自实现网段比较，
  * DNS 解析用 `node:dns`。未开启 DNS 解析时只做字面判定（同步、零网络开销）。
  *
  * OOP 收口：原模块级常量与纯函数归拢为 `SsrfGuard` 类（常量挂 private static readonly，

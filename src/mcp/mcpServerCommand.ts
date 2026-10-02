@@ -7,11 +7,14 @@ export class McpServerCommand {
   /**
    * @beta
    * 解析 `NAME=COMMAND [ARGS...]` 形式的 MCP 服务器参数。
+   *
+   * 2026-10-02 起支持远端形态：`=` 后是 http/https 地址时解析为 `url`
+   * （经官方 SDK 连接器走 Streamable HTTP/SSE），否则按 stdio `command [args...]`。
    */
   public static parseMcpServerSpec(value: string): McpServerConfig {
     const separator = value.indexOf('=');
     if (separator <= 0) {
-      throw new Error(`--mcp-server 格式应为 NAME=COMMAND [ARGS...]，实际: ${value}`);
+      throw new Error(`--mcp-server 格式应为 NAME=COMMAND [ARGS...] 或 NAME=URL，实际: ${value}`);
     }
     const name = value.slice(0, separator).trim();
     const parts = value
@@ -21,7 +24,10 @@ export class McpServerCommand {
       .filter((part) => part !== '');
     const command = parts[0];
     if (name === '' || command === undefined) {
-      throw new Error(`--mcp-server 格式应为 NAME=COMMAND [ARGS...]，实际: ${value}`);
+      throw new Error(`--mcp-server 格式应为 NAME=COMMAND [ARGS...] 或 NAME=URL，实际: ${value}`);
+    }
+    if (/^https?:\/\//i.test(command)) {
+      return { name, url: command };
     }
     return { name, command, args: parts.slice(1) };
   }

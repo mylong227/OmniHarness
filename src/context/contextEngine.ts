@@ -1,5 +1,5 @@
 /**
- * 零依赖上下文引擎（repo-map + BM25 检索式上下文）。
+ * 无第三方依赖上下文引擎（repo-map + BM25 检索式上下文）。
  *
  * 与「整文件硬塞」或「裸 grep 整文件」相比：用结构大纲 + 相关符号签名
  * 构成紧凑上下文，在同等相关文件召回下把 token 成本压低一个数量级。
@@ -345,7 +345,7 @@ export class ContextEngine {
     const codeGraph = light
       ? EMPTY_GRAPH
       : CodeGraphIndex.buildCodeGraph({ symbols: allSymbols, fileText });
-    // 潜语义模型：在符号级 TF-IDF 上做截断 SVD（零依赖随机 SVD + Jacobi），训练一次随语料复用。
+    // 潜语义模型：在符号级 TF-IDF 上做截断 SVD（无第三方依赖随机 SVD + Jacobi），训练一次随语料复用。
     // light 模式跳过：LSA 在 morph 之上实测符号精确率腰斩，净负面。
     const lsaModel = light ? EMPTY_LSA : LsaEngine.trainLsa({ symbols: allSymbols, fileText });
 
@@ -371,7 +371,7 @@ export class ContextEngine {
    * 这样既保留文件级语义，又能把「文件级弱命中但含强相关符号」的文件（如 registerTool）
    * 捞回 Top-K，并在固定文件数上限内给出紧凑上下文——召回与压缩兼得。
    *
-   * `opts.rerank: true` 时在上述第一段之后追加**第二段零依赖词法精排**
+   * `opts.rerank: true` 时在上述第一段之后追加**第二段无第三方依赖词法精排**
    * （见 {@link FileReranker}）：按「符号名 IDF 加权覆盖率」重排候选池，取 Top-K。
    * 该阶段只重排已入池文件，不新增候选，故不引入常量偏置。
    *
@@ -397,7 +397,7 @@ export class ContextEngine {
       /** BM25 `b` 的打分期覆盖（调参扫描用）；缺省用索引构造期取值。 */
       bm25B?: number;
       /**
-       * 第二段重排（零依赖词法精排，见 `FileReranker`）。默认 **false**：
+       * 第二段重排（无第三方依赖词法精排，见 `FileReranker`）。默认 **false**：
        * `query()` 的既有调用方（基准脚本 / 单测，冻结过报告口径）零行为变更；
        * 生产入口 `RepoMapContextEngine.getRepoMapContext` 显式传 true。
        */
@@ -438,7 +438,7 @@ export class ContextEngine {
     let bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
     let fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
 
-    // 伪相关反馈（PRF / RM3 风格查询扩展）：突破纯词法召回天花板。零依赖、可测。
+    // 伪相关反馈（PRF / RM3 风格查询扩展）：突破纯词法召回天花板。无第三方依赖、可测。
     // 实现要点（经 evals/recall-precision.mjs 实测校准，复刻该脚本的获胜配方）：
     //  - 取首轮 Top-R 文件（R=20，与基准脚本一致）作为反馈集；
     //  - 反馈集内 TF·IDF 加权选 Top-E 扩展词（E=6——太多引入噪声稀释头部）；

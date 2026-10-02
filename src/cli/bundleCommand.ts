@@ -2,7 +2,7 @@
  * bundle 子命令（BundleCommand）——把命名插件集打成自包含发布单元 `.ohb`，或还原。
  *
  * 从原 CliDataCmds 抽出，行为逐字节等价。
- * `pack` 把命名插件集及其插件源封进 `.ohb`（零依赖 zip + 可选 HMAC 签名）；
+ * `pack` 把命名插件集及其插件源封进 `.ohb`（无第三方依赖 zip + 可选 HMAC 签名）；
  * `unpack` 还原插件到 pluginsDir 并写出补丁层（config 覆盖），使「用户覆盖层叠在 base 之上」真正可用。
  * `createRegistry` 由命令继承链以工厂函数注入，从而本类不依赖继承链。
  *

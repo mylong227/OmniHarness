@@ -1,5 +1,5 @@
 /**
- * A4 离线注入度量 harness（零依赖、离线）。
+ * A4 离线注入度量 harness（无第三方依赖、离线）。
  *
  * 读 `evals/fixtures/injection-snapshot.json`（离线 curated，不联网），
  * 调编译后的 `evaluateSnapshot` 跑 `promptInjectionGuard#scanForInjection`，

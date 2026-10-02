@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 零依赖：把 git core.hooksPath 指向仓库内 scripts/git-hooks，
+// 无第三方依赖：把 git core.hooksPath 指向仓库内 scripts/git-hooks，
 // 使 pre-commit 门禁（铁律自检 + ESLint + Prettier）与 **pre-push 推送目标守卫**在每次操作时自动生效。
 // 用法：node scripts/install-hooks.mjs
 import { execSync } from 'node:child_process';

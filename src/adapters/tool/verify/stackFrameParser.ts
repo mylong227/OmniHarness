@@ -6,7 +6,7 @@
  * 但**不知道自己该去改哪个文件的哪一行** —— 于是还得再翻一遍源码。
  * 本类把输出里的堆栈帧归一化为 `文件:行` 候选清单，直接附在回灌摘要后。
  *
- * 覆盖形态（纯正则、零依赖）：
+ * 覆盖形态（纯正则、无第三方依赖）：
  * - Node / Jest / Vitest：`at fn (src/a.ts:12:34)`、`at src/a.ts:12:34`
  * - Python traceback：`  File "/app/x.py", line 12, in test_x`
  * - pytest 单行：`x.py:12: AssertionError`

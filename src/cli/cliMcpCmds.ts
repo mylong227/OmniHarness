@@ -6,7 +6,7 @@
  */
 
 import { McpServeRunner } from '../adapters/mcp/mcpServeRunner.js';
-import { mcpConnector } from '../mcp/mcpConnector.js';
+import { SdkPreferredMcpConnector } from '../adapters/mcp/sdkPreferredMcpConnector.js';
 import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import { ToolGate } from '../core/toolGate.js';
 import { ArgParser } from './argParser.js';
@@ -86,16 +86,19 @@ export class CliMcpCmds extends CliServerCmds {
 
   /**
    * mcp list：连接外部 MCP 服务器并列出其工具。
-   * @param args 子命令参数（--server NAME=COMMAND 指定目标服务器）。
+   * @param args 子命令参数（--server NAME=COMMAND 或 NAME=URL 指定目标服务器）。
    * @returns 进程退出码：缺 --server 为 2，成功为 0（列毕即关闭连接）。
    */
   protected async runMcpList(args: readonly string[]): Promise<number> {
     const spec = this.flagValue(args, '--server');
     if (spec === undefined) {
-      process.stdout.write('用法: omniharness mcp list --server NAME=COMMAND\n');
+      process.stdout.write('用法: omniharness mcp list --server NAME=COMMAND | NAME=URL\n');
       return 2;
     }
-    const connection = await mcpConnector.connect(McpServerCommand.parseMcpServerSpec(spec));
+    // 客户端方向走官方 SDK 优先（协议协商 + 远端 url 支持）；失败回落手写并打到 stderr。
+    const connection = await new SdkPreferredMcpConnector().connect(
+      McpServerCommand.parseMcpServerSpec(spec),
+    );
     try {
       const tools = await connection.client.listTools();
       const info = connection.info;
@@ -113,7 +116,7 @@ export class CliMcpCmds extends CliServerCmds {
 
   /**
    * mcp call：调用外部 MCP 服务器的指定工具。
-   * @param args 子命令参数（--server / --tool 必填，--args JSON 可选）。
+   * @param args 子命令参数（--server / --tool 必填，--args JSON 可选；--server 支持 NAME=COMMAND 或 NAME=URL）。
    * @returns 进程退出码：缺必填项为 2，工具报错（isError）为 1，成功为 0。
    */
   protected async runMcpCall(args: readonly string[]): Promise<number> {
@@ -121,11 +124,13 @@ export class CliMcpCmds extends CliServerCmds {
     const tool = this.flagValue(args, '--tool');
     if (spec === undefined || tool === undefined) {
       process.stdout.write(
-        '用法: omniharness mcp call --server NAME=COMMAND --tool NAME [--args JSON]\n',
+        '用法: omniharness mcp call --server NAME=COMMAND | NAME=URL --tool NAME [--args JSON]\n',
       );
       return 2;
     }
-    const connection = await mcpConnector.connect(McpServerCommand.parseMcpServerSpec(spec));
+    const connection = await new SdkPreferredMcpConnector().connect(
+      McpServerCommand.parseMcpServerSpec(spec),
+    );
     try {
       const result = await connection.client.callTool(
         tool,

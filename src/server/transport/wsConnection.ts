@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Duplex } from 'node:stream';
 import type { IncomingMessage, Server } from 'node:http';
 
-/** WebSocket 连接：RFC6455 帧编解码（文本帧，零依赖）。 */
+/** WebSocket 连接：RFC6455 帧编解码（文本帧，无第三方依赖）。 */
 export class WsConnection {
   /**
    * 单帧声明长度上限（字节）：8 MiB。

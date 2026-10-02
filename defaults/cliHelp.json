@@ -44,7 +44,7 @@
     },
     {
       "usage": "omniharness bundle pack <profileName> [--key-file K] [--out-dir D] | bundle unpack <path.ohb> [--key-file K]",
-      "description": "Bundle 发布单元（#G-E 5.2/5.3，可 patch 插件叠层 + 零依赖 zip + 可选 HMAC 签名）"
+      "description": "Bundle 发布单元（#G-E 5.2/5.3，可 patch 插件叠层 + 纯 TS zip + 可选 HMAC 签名）"
     },
     {
       "usage": "omniharness native info|ping|tools|approval|session-submit|context|tool-call|bench",
@@ -64,11 +64,11 @@
     },
     {
       "usage": "omniharness identity <generate|show|sign|verify> [--private-key PKCS8_B64] [--runtime-id ID] [--payload STR] [--signature B64]",
-      "description": "Agent 密码学身份（#S33，Ed25519 零依赖；签名/验签会话产物）"
+      "description": "Agent 密码学身份（#S33，Ed25519 仅 node:crypto；签名/验签会话产物）"
     },
     {
       "usage": "omniharness tui [demo]",
-      "description": "零依赖交互式终端 UI（#S35，需 TTY；demo 用回声驱动演示事件流渲染）"
+      "description": "纯 ANSI 交互式终端 UI（#S35，需 TTY；demo 用回声驱动演示事件流渲染）"
     }
   ],
   "optionsTitle": "选项:",

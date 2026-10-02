@@ -1,6 +1,6 @@
 import { ArrayAt } from './arrayAt.js';
 /**
- * 行级 unified diff（零依赖，对标 codex diff 渲染）。
+ * 行级 unified diff（无第三方依赖，对标 codex diff 渲染）。
  *
  * 用 LCS 动态规划求最小编辑脚本，超大规模退化为「整体替换」以避免 O(n·m) 拖垮回合
  * （与 codex 的 `DIFF_TIMEOUT` 同思路，只是把超时换成确定性规模阈值）。

@@ -4,7 +4,7 @@
  * 为什么单列一个类：判分可信度要求「执行设施层异常」与「模型没解出」**严格分流**——
  * 前者不含模型能力信息，必须可单独重试且不进 `resolved` 分母。这条分流规则此前写死在
  * `NativeExecutor` 的 catch 里，既让它继续长（已逼近上帝类代码行阈值），也无法被独立证伪。
- * 抽成纯函数式判定后可零依赖单测（`tests/unit/execFailureClassifier.test.ts`）。
+ * 抽成纯函数式判定后可无第三方依赖单测（`tests/unit/execFailureClassifier.test.ts`）。
  *
  * 两类设施层异常（实测现场）：
  *  1. {@link ENV_BUILD_FAILED} 前缀——仓库/pytest 未装入 venv，该实例根本没进入 pytest 判定；

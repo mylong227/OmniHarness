@@ -1,7 +1,7 @@
 // 环境类型声明：本工程 UI 以 UMD 全局方式本地内置 React / ReactDOM（见 web/vendor/；
 // htm 已于 2026-09-13 全量摘除，UI 一律用 React.createElement 编写），
 // 不安装任何 react npm 包，构建与运行时均零网络依赖。本文件仅声明 UI 实际用到的 React API 子集，
-// 使 TypeScript 在零依赖下仍能对组件进行强类型检查。
+// 使 TypeScript 在无第三方依赖下仍能对组件进行强类型检查。
 
 interface ReactElement {
   type: unknown;
@@ -67,7 +67,7 @@ declare const ReactDOM: ReactDOMApi;
 
 // ---- JSX 类型（tsx 编译为 React.createElement 后仍需元素属性检查）----
 //
-// 说明：本工程零依赖（不装 @types/react），这里自建 JSX 元素类型。
+// 说明：本工程无第三方依赖（不装 @types/react），这里自建 JSX 元素类型。
 // 常用属性显式声明以获得检查，其余走索引签名逃生舱，避免为每个标签维护上百个属性。
 
 interface HtmlAttributes {

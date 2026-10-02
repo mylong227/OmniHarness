@@ -5,7 +5,7 @@
 //      SparkController 落盘）或 'self-driven'（用同源真实引擎自驱负载，见 longrun_run.mjs）。
 //      seed-bootstrap / synthetic-lab 数据【绝不】参与收紧——否则就是把"已有证据"当"真实负载"调参。
 //   2. 收紧方向【只能更严、不能更松】：任何可调参数只可向 floor 之上收紧，绝不降到当前基线以下（fail-closed 不退化）。
-//   3. 结构性安全参数（RSI 红线、零依赖铁律、confinement 群阶 SU(3)）属 LOCKED，数据不可调，仅人工拍板。
+//   3. 结构性安全参数（RSI 红线、无第三方依赖铁律、confinement 群阶 SU(3)）属 LOCKED，数据不可调，仅人工拍板。
 //   4. 样本不足（< MIN_N）一律 INSUFFICIENT_DATA，保持当前参数，不伪造收紧结论。
 //
 // 用法：npm run longrun:tighten   （会先 build；可选参数 --live <path> 指定真实 sink）

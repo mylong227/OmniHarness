@@ -1,12 +1,12 @@
 import { CancelledError, type CancelReason } from './cancelledError.js';
 
 /**
- * CancellationToken（Agent Loop V2，对标 codex CancellationToken 树思想，零依赖）。
+ * CancellationToken（Agent Loop V2，对标 codex CancellationToken 树思想，无第三方依赖）。
  *
  * 为什么不用 AbortController：AbortSignal 只能单向 abort 且无 reason 传播树；
  * 这里补齐 ①子令牌级联取消（父取消→全部子取消）②结构化 reason ③throwIfAborted
  * 便捷断言 ④同步回调注册。语义对齐 Node 18+ AbortSignal 的消费者（signal 可直接
- * 透传给 fetch），同时保持零依赖。
+ * 透传给 fetch），同时保持无第三方依赖。
  */
 
 /** 取消回调（注册后返回解绑函数）。 */
@@ -114,7 +114,7 @@ export class CancellationToken {
 
   /**
    * 兼容桥：转成标准 AbortSignal（供 fetch 等原生消费者直接使用）。
-   * 零依赖实现——用 AbortController 做一次性桥接。
+   * 无第三方依赖实现——用 AbortController 做一次性桥接。
    * @returns 与本令牌取消状态联动的标准 AbortSignal（可直接透传 fetch）。
    */
   public toAbortSignal(): AbortSignal {

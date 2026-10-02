@@ -163,7 +163,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * 手写参数解析（零依赖；defaults 来自配置文件，CLI 参数优先）。
+ * 手写参数解析（无第三方依赖；defaults 来自配置文件，CLI 参数优先）。
  * 各 flag 的处理收归到 FLAG_TABLE，使本函数保持短小（禁大函数铁律）；
  * 每个 flag 的处理闭包自行负责取值与类型化赋值，互不耦合。
  */

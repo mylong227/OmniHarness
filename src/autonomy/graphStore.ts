@@ -26,7 +26,7 @@ export type { GraphSummary } from '../ports/autonomy/graphSummary.js';
  * 图定义持久化存储（对标 codex agent-graph-store）：
  * 把命名 {@link WorkflowDef} 存到 `<workspace>/.omniharness/graphs/<id>.json`。
  *
- * 设计要点（fail-closed + 零依赖）：
+ * 设计要点（fail-closed + 无第三方依赖）：
  * - 解析失败的旧文件在 list 中被跳过（不阻断其余），get 时抛错而非回退脏数据。
  * - id 由 name 归一化而来（仅保留 `[A-Za-z0-9_-]`，其余替换为 `-`），保证文件名安全。
  * - 读盘全部用同步 API（serve 启动/单请求内），无额外运行时依赖。

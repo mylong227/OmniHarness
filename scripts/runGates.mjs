@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 提交门禁的**单一实现**（node 版，零依赖）——`scripts/git-hooks/pre-commit` 只是它的一层薄包装。
+ * 提交门禁的**单一实现**（node 版，无第三方依赖）——`scripts/git-hooks/pre-commit` 只是它的一层薄包装。
  *
  * ## 为什么要有这个文件（2026-09-25 实测事故）
  *
@@ -45,7 +45,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-/** 仓库内 eslint 入口（零依赖：只用本仓 node_modules）。 */
+/** 仓库内 eslint 入口（无第三方依赖：只用本仓 node_modules）。 */
 const ESLINT_BIN = join(ROOT, 'node_modules', 'eslint', 'bin', 'eslint.js');
 /** 仓库内 prettier 入口。 */
 const PRETTIER_BIN = join(ROOT, 'node_modules', 'prettier', 'bin', 'prettier.cjs');

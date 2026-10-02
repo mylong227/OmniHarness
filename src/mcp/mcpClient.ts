@@ -1,14 +1,15 @@
 import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.js';
 import type { Transport } from '../server/transport/lineTransport.js';
-import {
-  McpProtocol,
-  type McpCallToolResult,
-  type McpInitializeResult,
-  type McpToolDescriptor,
-  type McpResourceDescriptor,
-  type McpResourceContent,
-  type McpPromptDescriptor,
-} from './mcpProtocol.js';
+import { McpProtocol } from './mcpProtocol.js';
+import type {
+  McpCallToolResult,
+  McpInitializeResult,
+  McpPromptDescriptor,
+  McpResourceContent,
+  McpResourceDescriptor,
+  McpToolDescriptor,
+} from '../ports/mcp/mcpProtocolTypes.js';
+import type { McpClientPort } from '../ports/mcp/mcpClientPort.js';
 import { log } from '../util/logger.js';
 import { PendingRequests } from '../util/pendingRequests.js';
 
@@ -25,8 +26,11 @@ export interface McpClientOptions {
 /**
  * @beta
  * MCP 客户端：连接单个 MCP 服务器，握手 → 列工具 → 调工具。
+ *
+ * 2026-10-02 起实现 ports 层 {@link McpClientPort}（客户端方向迁官方 SDK 的前置）：
+ * 本类从「网关直接吃的具体类」降级为**手写回退实现**，方法面与语义不变。
  */
-export class McpClient {
+export class McpClient implements McpClientPort {
   private readonly pending = new PendingRequests<number, RpcResponse>();
   private nextId = 1;
   /** 是否已关闭（关闭后拒绝新请求，并立即拒绝全部在途请求）。 */

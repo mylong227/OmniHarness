@@ -233,7 +233,7 @@ class Parser {
 
 /**
  * @beta
- * 零依赖安全策略求值器。
+ * 无第三方依赖安全策略求值器。
  */
 export class SafePolicyEvaluator implements PolicyPort {
   /**

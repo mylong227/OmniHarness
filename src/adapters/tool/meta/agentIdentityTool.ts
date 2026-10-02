@@ -2,7 +2,7 @@
  * agent_identity 工具（#S33）：让模型用本 runtime 的密码学身份对负载签名/验签。
  *
  * 用途：工具结果、事件快照等关键产物可附 Ed25519 签名，下游凭公钥验证「确由本 runtime 出具」。
- * 零依赖：仅依赖注入的 `AgentIdentityPort`。
+ * 无第三方依赖：仅依赖注入的 `AgentIdentityPort`。
  */
 import type {
   ToolCall,

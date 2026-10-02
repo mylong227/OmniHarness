@@ -6,7 +6,7 @@
  * - `HttpA2aServerTransport`：服务端侧，起一个 `node:http` 服务监听 POST `/a2a`，
  *   把请求转交 A2aServer 处理，并据 JSON-RPC id 关联回写响应。
  *
- * 零依赖（仅 node:http / node:fetch）。鉴权由 A2aServer + AgentIdentityPort 负责。
+ * 无第三方依赖（仅 node:http / node:fetch）。鉴权由 A2aServer + AgentIdentityPort 负责。
  */
 import http from 'node:http';
 import type { RpcMessage } from '../server/core/jsonRpc.js';

@@ -21,7 +21,7 @@ import { log } from '../../util/logger.js';
 /**
  * @beta
  * 文件持久化长期记忆（#S28）：JSONL 落盘于 `<workspace>/.omniharness/longterm/memory.jsonl`，
- * 零依赖、Node 20、Windows 可用。进程重启后自动重载；召回复用零依赖 BM25 内核。
+ * 无第三方依赖、Node 20、Windows 可用。进程重启后自动重载；召回复用无第三方依赖 BM25 内核。
  *
  * 写入采用 append-only（每条事实一行），崩溃安全；损坏行启动时跳过不致命。
  * 索引按插入顺序维护，命中 `id` 即事实数组下标，与 BM25 文档下标对齐。

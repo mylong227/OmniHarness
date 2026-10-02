@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 投影层「确定性无损收缩」接线前后对照实测（零依赖 · 无网络 · 可复现）。
+// 投影层「确定性无损收缩」接线前后对照实测（无第三方依赖 · 无网络 · 可复现）。
 //
 // 动机：仓库早就有 DeterministicCompressor（**能力**），但生产链路零调用——典型缺陷形态
 // 「声明未接线」。本轮把它接进 ContextCompactor（`events → 投影 → 压缩 → 发往模型` 的
@@ -47,7 +47,9 @@ const REAL_CORPUS = [
 const skipped = [];
 /** 构造真实消息序列：每条 tool 结果前置一条 assistant(tool_calls)（真实 wire 形状）。 */
 function buildMessages() {
-  const messages = [{ role: 'system', content: 'You are OmniHarness.\n\n\n\n零依赖铁律。  \n' }];
+  const messages = [
+    { role: 'system', content: 'You are OmniHarness.\n\n\n\n无第三方依赖铁律。  \n' },
+  ];
   let index = 0;
   for (const item of REAL_CORPUS) {
     let text;

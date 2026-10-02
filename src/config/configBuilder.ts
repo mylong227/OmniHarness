@@ -186,7 +186,7 @@ export class ConfigBuilder {
 
   /**
    * 装配 LSP 端口（#S32）：仅当配置了 `lsp.serverCommand` 时构造 `LspProcessAdapter`（外启语言服务器子进程）。
-   * 服务器由用户自备——这是零依赖铁律下接入 LSP 的唯一合规方式；不配则端口为 undefined，LSP 工具不注册。
+   * 服务器由用户自备——这是无第三方依赖铁律下接入 LSP 的唯一合规方式；不配则端口为 undefined，LSP 工具不注册。
    * rootUri 缺省用 workspaceRoot 推导的 file:// URI。
    */
   public buildLsp(partial: OmniHarnessConfig): LspPort | undefined {
@@ -202,7 +202,7 @@ export class ConfigBuilder {
 
   /**
    * 装配 Agent 密码学身份端口（#S33）：仅当配置了 `agentIdentity`（私钥或 runtimeId）时构造 `Ed25519AgentIdentity`。
-   * 零依赖（仅 Node 内置 node:crypto）。不配则端口为 undefined，`agent_identity` 工具不注册。
+   * 无第三方依赖（仅 Node 内置 node:crypto）。不配则端口为 undefined，`agent_identity` 工具不注册。
    */
   public buildIdentity(partial: OmniHarnessConfig): AgentIdentityPort | undefined {
     if (partial.agentIdentity === undefined) {

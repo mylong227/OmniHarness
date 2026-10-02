@@ -1,6 +1,6 @@
 // scripts/auditInterfaces.mjs
 //
-// 接口层审计（零依赖：node:fs / node:path / typescript）。
+// 接口层审计（无第三方依赖：node:fs / node:path / typescript）。
 //
 // 目的：把「`export interface X {}` 散落在实现文件里」这件事**机械量化**，并产出一份
 // 「逐文件重构队列」，使重构可按文件推进、每个文件改完即验收。

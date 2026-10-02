@@ -86,7 +86,7 @@ const MAX_READ_BYTES = 64 * 1024 * 1024;
 
 /**
  * @beta
- * 结构化审计日志 sink（JSONL + **哈希链**，零依赖，fail-closed）。
+ * 结构化审计日志 sink（JSONL + **哈希链**，无第三方依赖，fail-closed）。
  *
  * 每条记录带 `seq`/`prev`/`hash`，满足 `hash_n = SHA256(prev_n ‖ canonical(e_n))`。
  * 相比「导出时对整批数据算一次 SHA256」的快照摘要，哈希链能检测出

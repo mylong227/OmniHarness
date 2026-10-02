@@ -26,7 +26,7 @@ import type { EnforcementMode } from '../ports/security/enforcementMode.js';
 export type { EnforcementMode } from '../ports/security/enforcementMode.js';
 
 /**
- * 生效模式解析器（纯函数、无状态、零依赖）。
+ * 生效模式解析器（纯函数、无状态、无第三方依赖）。
  */
 export class EnforcementModeResolver {
   /** 全部合法取值（供 CLI 白名单 / 文档与实现同源）。 */

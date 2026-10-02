@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 首次运行配置脚手架（零依赖，ESM）。
+ * 首次运行配置脚手架（无第三方依赖，ESM）。
  *
  * 用法：
  *   node scripts/init-config.mjs            # 在 cwd 生成 omniharness.json（已存在则跳过）

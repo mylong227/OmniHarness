@@ -14,7 +14,7 @@
 // 退出码：发现「新增（非白名单）」违规 → 1（阻断）；否则 0（即使存在白名单内存量也放行，
 // 便于立刻接入 pre-commit / CI 而不破坏现有树）。--strict 下白名单内存量也阻断（用于白名单清空后）。
 //
-// 零依赖：仅用 node:fs / node:path / typescript（已为 devDependency）。
+// 无第三方依赖：仅用 node:fs / node:path / typescript（已为 devDependency）。
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';

@@ -42,7 +42,7 @@ export interface JsonlRuntimeTelemetryOptions {
 }
 
 /**
- * 长期运行遥测 sink（I-P4-3，零依赖、append-only JSONL + 哈希链、fail-closed）。
+ * 长期运行遥测 sink（I-P4-3，无第三方依赖、append-only JSONL + 哈希链、fail-closed）。
  *
  * 每条记录带 `seq`/`prev`/`hash`，满足 `hash_n = SHA256(prev_n ‖ canonical(e_n))`。
  * 链状态在构造时从文件末尾恢复，跨进程重启可续链。

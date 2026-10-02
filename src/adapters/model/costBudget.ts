@@ -15,7 +15,7 @@ export const DEFAULT_SOFT_RATIO = 0.8;
  * @beta
  * 会话级成本预算计量（#S29 / P5）。
  *
- * 零依赖、进程内、按路由定价累计 token 成本：每次模型调用成功后 `record` 记账，
+ * 无第三方依赖、进程内、按路由定价累计 token 成本：每次模型调用成功后 `record` 记账，
  * 一旦累计花费越过硬预算即置位熔断（`exceeded`），后续 `ensureWithin` 抛
  * `BudgetExceededError`（fail-closed，阻断下一次模型调用，防止失控烧钱）。
  *

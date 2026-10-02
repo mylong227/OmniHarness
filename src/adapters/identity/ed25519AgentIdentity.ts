@@ -1,7 +1,7 @@
 /**
  * Ed25519 Agent 身份适配器（#S33，对标 codex-rs/agent-identity 可移植核心）。
  *
- * 零依赖：仅用 Node 内置 `node:crypto`。Ed25519 由 Node 原生支持，无需任何运行时包。
+ * 无第三方依赖：仅用 Node 内置 `node:crypto`。Ed25519 由 Node 原生支持，无需任何运行时包。
  * 密钥以 PKCS#8 der base64 持久化（与参考 Rust 的 `private_key_pkcs8_base64` 同构），
  * 公钥以 ssh-ed25519 字符串编码（与参考 `encode_ssh_ed25519_public_key` 同构）。
  */

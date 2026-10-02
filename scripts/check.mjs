@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// OmniHarness 项目铁律静态自检（自身零依赖，仅用 node: 内置）。
+// OmniHarness 项目铁律静态自检（自身无第三方依赖，仅用 node: 内置）。
 // 不依赖任何 npm 包，可被 CI 直接调用：发现违规即退出码 1。
 //
 // 依赖政策（2026-09-05 起，见 docs/DEPENDENCY_POLICY.md）：

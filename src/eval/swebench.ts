@@ -1,4 +1,4 @@
-﻿// SWE-bench 风格能力评估 harness（自包含、可离线、零依赖）。
+﻿// SWE-bench 风格能力评估 harness（自包含、可离线、无第三方依赖）。
 //
 // 定位：把"编码能力"变成可机械验证的指标，直接回应报告 #20 的 P3 诚实缺口
 // （"OmniHarness 尚未跑 SWE-bench，能力分数维度暂无 apples-to-apples 对照"）。
@@ -19,7 +19,7 @@
 //   - 阴性对照 runNegativeControl：仅 seed 不修复，评分器必须判不过（证明不假阳）。
 //   二者任一失效即说明任务定义或评分器有误，整套能力分数作废。
 //
-// 铁律：零运行时依赖（仅 node: 内置）；fail-closed——评分只认 evalCmd 退出码，绝不臆造通过。
+// 铁律：运行时无第三方依赖（仅 node: 内置）；fail-closed——评分只认 evalCmd 退出码，绝不臆造通过。
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';

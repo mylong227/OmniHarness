@@ -1,8 +1,8 @@
-﻿// D3：UI e2e 冒烟（零依赖路线，**不引入 playwright**）。
+﻿// D3：UI e2e 冒烟（无第三方依赖路线，**不引入 playwright**）。
 //
 // 依赖准入约束：playwright / puppeteer 体积与传递依赖远超本项目依赖预算（默认 2MB / 20 个传递依赖），
-// 且 E1 已确立「CDP 驱动本机已装浏览器」的零运行时依赖路线。故此处直接复用本机 Chrome/Edge：
-//   1. 零依赖 Node http 静态服务托管 web/（.js 必须回 text/javascript 才能被模块加载）；
+// 且 E1 已确立「CDP 驱动本机已装浏览器」的运行时无第三方依赖路线。故此处直接复用本机 Chrome/Edge：
+//   1. 无第三方依赖 Node http 静态服务托管 web/（.js 必须回 text/javascript 才能被模块加载）；
 //   2. 生成 stub 页：在 app 的 ESM 之前注入 fake fetch(/rpc) 与 fake EventSource(/events)，
 //      使前端在**确定性假后端**下渲染，无需真实模型 / API key；
 //   3. headless Chrome 以 `--remote-debugging-port` 起（CDP 路线），用例直连 DevTools Protocol

@@ -21,7 +21,7 @@
 //   核对「磁盘上的 token 还是不是我的」——**不是就抛 `LockCompromisedError` 并放弃写入**
 //   （宁可这次改动不落地，也不覆盖别人的写入）。
 //
-// 纯 fs、零依赖；同步 API（调用方是同步的读—改—写）。可单测（见 tests/unit/fileLock.test.ts）。
+// 纯 fs、无第三方依赖；同步 API（调用方是同步的读—改—写）。可单测（见 tests/unit/fileLock.test.ts）。
 import {
   existsSync,
   mkdirSync,

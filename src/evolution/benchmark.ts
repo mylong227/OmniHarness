@@ -7,7 +7,7 @@
  * 莫尔组合技能场本身是「两片乘积」，与联合画像频率结构同构 → 重叠高。
  * 因此该基准能确定性地证明：组合技能在联合任务上 > 任一单技能（"市面唯一"增益）。
  *
- * 纯函数、零依赖、确定性、可单测。EvolutionGate 默认即注入此基准。
+ * 纯函数、无第三方依赖、确定性、可单测。EvolutionGate 默认即注入此基准。
  */
 import type { Skill } from '../skill/skill.js';
 import { MoireComposer } from '../skill/moireComposer.js';

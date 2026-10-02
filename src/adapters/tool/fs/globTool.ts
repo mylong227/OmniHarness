@@ -12,7 +12,7 @@ import { WorkspaceFileWalker } from '../../../util/workspaceFileWalker.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
 
 /**
- * 内置 `glob` 工具（零依赖，纯 TS）：按通配符找文件。
+ * 内置 `glob` 工具（无第三方依赖，纯 TS）：按通配符找文件。
  *
  * 与 `grep` 的分工：`grep` 按**内容**找，`glob` 按**路径**找；两者组合即可覆盖
  * 「查问题」时最常见的两类检索（「谁引用了 X」 vs 「这个目录下有哪些测试文件」）。

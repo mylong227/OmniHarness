@@ -1,8 +1,8 @@
-﻿// 响应式溢出探针（零依赖，真实浏览器）：测量 OmniHarness Web UI 在 640px / 1280px 视口下
+﻿// 响应式溢出探针（无第三方依赖，真实浏览器）：测量 OmniHarness Web UI 在 640px / 1280px 视口下
 // 是否出现横向溢出，并给出具体越界元素。
 //
 // 路线与 e2e-cdp.test.mjs 完全同源（复用 ./browserHarness.mjs）：
-//   1. 零依赖静态服务托管 web/ + 注入假后端的 CDP stub 页；
+//   1. 无第三方依赖静态服务托管 web/ + 注入假后端的 CDP stub 页；
 //   2. headless Chrome（--remote-debugging-port）→ Node 22 内置 WebSocket 直连 CDP；
 //   3. 用 Emulation.setDeviceMetricsOverride 精确设定视口宽度；
 //   4. 先注入「有代表性内容」（真实 DOM 容器 + app 自身 CSS 类），再测量：

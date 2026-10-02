@@ -4,7 +4,7 @@ import type { RetrievalHit } from './retrievalHit.js';
 /**
  * @beta
  * 检索端口：对会话历史做全文/语义检索，使模型可跨长对话 recall，
- * 无需把全部历史塞进上下文。零依赖后端用 BM25（#M2，复用 #M1 检索内核）。
+ * 无需把全部历史塞进上下文。无第三方依赖后端用 BM25（#M2，复用 #M1 检索内核）。
  */
 export interface RetrievalPort {
   readonly name: string;

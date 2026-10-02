@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// OmniHarness · Node 引擎门禁（零依赖）。
+// OmniHarness · Node 引擎门禁（无第三方依赖）。
 //
 // 目的：把「本机 Node 统一 22」从「package.json 里声明、npm engine-strict 默认关所以形同虚设」
 // 变成**机器强制**——提交前置 (pre-commit) 与本地自检都会按 engines.node 下限 fail-closed 报错。
