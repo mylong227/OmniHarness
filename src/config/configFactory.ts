@@ -8,6 +8,7 @@ import { log } from '../util/logger.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
 import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
+import { DiskCachedEmbeddingAdapter } from '../adapters/embedding/diskCachedEmbeddingAdapter.js';
 
 import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { ToolPort } from '../ports/tool/tool.js';
@@ -334,14 +335,37 @@ export class ConfigFactory {
    * @returns 缓存目录绝对路径；包根不可定位时为 `undefined`。
    */
   private static defaultModelCacheDir(): string | undefined {
+    return ConfigFactory.defaultThirdPartyDir('model-cache', 'embedding.cacheDir.resolveFailed');
+  }
+
+  /**
+   * 解析**语义向量缓存**缺省目录：包根下 `third-party/vec-cache`。
+   *
+   * 与模型权重分开：权重是「下载来的第三方资产」，向量是「我们算出来的派生数据」，
+   * 二者生命周期与清理策略都不同（前者删了要重新下载，后者删了只需重算）。
+   * `OMNI_VEC_CACHE` 可覆盖到任意可写位置。
+   *
+   * @returns 目录绝对路径；包根不可定位时为 `undefined`（调用方退化为纯内存缓存）。
+   */
+  private static defaultVectorCacheDir(): string | undefined {
+    return ConfigFactory.defaultThirdPartyDir('vec-cache', 'embedding.vecCacheDir.resolveFailed');
+  }
+
+  /**
+   * 解析包根下 `third-party/<name>` 缓存目录并按需创建。
+   * @param name 子目录名（按功能划分，见 `docs/THIRD_PARTY_ASSETS.md`）。
+   * @param warnEvent 定位/创建失败的告警事件名（便于按来源定位）。
+   * @returns 目录绝对路径；包根不可定位或创建失败时为 `undefined`。
+   */
+  private static defaultThirdPartyDir(name: string, warnEvent: string): string | undefined {
     try {
       const moduleDir = dirname(fileURLToPath(import.meta.url));
       const packageRoot = resolve(BuiltinDefaults.locatePackageRoot(moduleDir), '..');
-      const cacheDir = join(packageRoot, 'third-party', 'model-cache');
+      const cacheDir = join(packageRoot, 'third-party', name);
       mkdirSync(cacheDir, { recursive: true });
       return cacheDir;
     } catch (error) {
-      log.warn('embedding.cacheDir.resolveFailed', {
+      log.warn(warnEvent, {
         reason: error instanceof Error ? error.message : String(error),
       });
       return undefined;
@@ -356,6 +380,13 @@ export class ConfigFactory {
    * 换机/清理即失效且位置不可预测）。可用 `OMNI_EMBEDDING_CACHE_DIR` 指回任意位置
    * （如 HF 家目录缓存）。包根定位失败时退回 `undefined`（HF 库默认），不让缓存
    * 位置问题阻断能力本身。
+   *
+   * ## 向量落盘（2026-10 收尾项：语义索引落盘）
+   *
+   * 返回的端口再包一层 {@link DiskCachedEmbeddingAdapter}，把**按文本粒度**的向量持久化到
+   * 包根 `third-party/vec-cache`（`OMNI_VEC_CACHE` 可覆盖）。语义索引本身在本进程内是懒建的，
+   * 而它最贵的部分就是嵌入编码；把向量落盘后，进程重启、换旋钮都不会重付整份编码成本
+   * （符号文本逐字不变 ⇒ 直接命中）。缓存不可写时降级为纯内存，**绝不让缓存问题变成功能故障**。
    *
    * @returns 嵌入端口；`OMNI_SEMANTIC_RECALL !== '1'` 时为 `undefined`（纯 BM25、零开销）。
    */
@@ -379,7 +410,38 @@ export class ConfigFactory {
       // `{ok:false}` 并落观测（契约保证不抛错），可用性判断仍由首次真实 embed 的 fail-closed 决定。
       void adapter.preload();
     }
-    return adapter;
+    const vecCacheDir = ConfigFactory.resolveVectorCacheDir();
+    if (vecCacheDir === undefined) {
+      // 解析不到可写目录 ⇒ 诚实退化为纯内存缓存（本地 .f32 缓存文件更大、更易超配额）。
+      return adapter;
+    }
+    return new DiskCachedEmbeddingAdapter({
+      inner: adapter,
+      cacheDir: vecCacheDir,
+      // 缓存文件按模型分名：同目录下换模型不互相覆盖（键里也含模型身份，双重保险）。
+      cacheName: `embedding-${String(adapter.dim)}`,
+    });
+  }
+
+  /**
+   * 解析向量缓存目录（`OMNI_VEC_CACHE` 覆盖 > 包根 `third-party/vec-cache`）。
+   * @returns 可写目录绝对路径；两者都不可用时为 `undefined`（退化为纯内存缓存）。
+   */
+  private static resolveVectorCacheDir(): string | undefined {
+    const configured = process.env.OMNI_VEC_CACHE;
+    if (configured !== undefined && configured.trim() !== '') {
+      try {
+        mkdirSync(configured, { recursive: true });
+        return configured;
+      } catch (error) {
+        log.warn('embedding.vecCacheDir.configuredUnusable', {
+          dir: configured,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+        return undefined;
+      }
+    }
+    return ConfigFactory.defaultVectorCacheDir();
   }
 }
 

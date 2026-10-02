@@ -234,7 +234,25 @@ test('L5 ⑦b 装配接线：语义路开启 ⇒ 端口暴露 preload（实现�
     const embedding = buildConfig().embedding;
     assert.ok(embedding !== undefined, '语义路开启时应有嵌入端口');
     assert.strictEqual(typeof embedding.preload, 'function', '端口应暴露 preload（L5 接线点）');
-    assert.ok(embedding instanceof TransformersEmbeddingAdapter, '实现应为 transformers 适配器');
+    // 2026-10 起装配层会在 transformers 适配器外面再包一层 DiskCachedEmbeddingAdapter（向量落盘，
+    // 见 `src/adapters/embedding/diskCachedEmbeddingAdapter.ts`）：它实现同一个 EmbeddingPort，
+    // 并把 preload 透传给内层。故此处断言「内层可达」而不是「顶层就是 transformers 适配器」——
+    // 否则一个纯性能优化会被误读成接线断裂。
+    const maybeWrapped = embedding as { readonly inner?: unknown };
+    const inner = maybeWrapped.inner;
+    if (inner === undefined) {
+      assert.ok(embedding instanceof TransformersEmbeddingAdapter, '实现应为 transformers 适配器');
+    } else {
+      assert.ok(
+        inner instanceof TransformersEmbeddingAdapter,
+        '包装层的内层实现应为 transformers 适配器',
+      );
+      assert.strictEqual(
+        typeof (inner as { preload?: unknown }).preload,
+        'function',
+        '内层应实现 preload，包装层负责透传',
+      );
+    }
   } finally {
     if (saved === undefined) delete process.env.OMNI_SEMANTIC_RECALL;
     else process.env.OMNI_SEMANTIC_RECALL = saved;

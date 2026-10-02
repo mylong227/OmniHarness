@@ -15,12 +15,23 @@ import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
 import type { ToolDefinition } from '../../src/ports/tool/tool.js';
 import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import type { SessionEvent } from '../../src/ports/runtime/event/sessionEvent.js';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
 
 /** 造一个工具定义（描述用于区分「目录里的新定义」与「寄存器里的陈旧副本」）。 */
 const def = (name: string, description: string): ToolDefinition => ({
   name,
   description,
   parameters: { type: 'object', properties: {} },
+});
+
+/** 造一条 user 事件（`exposeByRelevance` 的任务文本来源即这类事件）。 */
+const userEvent = (content: string): SessionEvent => ({
+  id: `e-${content}`,
+  type: 'user',
+  sessionId: 's1',
+  timestamp: new Date(0).toISOString(),
+  payload: { content },
 });
 
 /**
@@ -100,4 +111,79 @@ test('D4：目录查询不可用（无 list）时退化为直载 ∪ 发现，�
     fragments: [],
   } as unknown as StepRunnerDeps;
   assert.deepEqual(namesOf(deps), ['alpha', 'beta']);
+});
+
+/**
+ * 构造「带真实 user 事件」的依赖（`OMNI_TOOL_EXPOSURE=plan` 下 `exposeByRelevance` 会读它）。
+ * @param event 最近一条 user 事件。
+ * @returns 可喂给 StepContextBuilder 的依赖契约。
+ */
+const makeDepsWithUser = (event: SessionEvent): StepRunnerDeps => {
+  const tools = [
+    def(TOOL_NAMES.readFile, '文件读'),
+    def(TOOL_NAMES.writeFile, '文件写'),
+    def(TOOL_NAMES.grep, '检索'),
+    def(TOOL_NAMES.webFetch, '抓网页'),
+    def(TOOL_NAMES.viewImage, '看图'),
+    def(TOOL_NAMES.shell, '跑命令'),
+    def(TOOL_NAMES.subagent, '子代理'),
+    def(TOOL_NAMES.toolSearch, '找回工具'),
+    def(TOOL_NAMES.askUser, '澄清'),
+    def(TOOL_NAMES.todoWrite, '写待办'),
+  ];
+  return {
+    tools: { list: () => tools, listDirect: () => tools },
+    discovery: { list: () => [] },
+    recorder: { allEvents: () => [event] },
+    repoMapContext: {} as RepoMapContextEngine,
+    fragments: [],
+  } as unknown as StepRunnerDeps;
+};
+
+test('plan 模式：消费点（effectiveTools）真的按类别裁剪直载集——此前该分支零测试覆盖', () => {
+  const deps = makeDepsWithUser(userEvent('帮我读一下这个文件'));
+  const prev = process.env['OMNI_TOOL_EXPOSURE'];
+  process.env['OMNI_TOOL_EXPOSURE'] = 'plan';
+  try {
+    const names = namesOf(deps);
+    // 命中 files 类别 ⇒ 保留 read/write + 恒可见三通道。
+    assert.ok(names.includes(TOOL_NAMES.readFile), 'files 类别必须保留');
+    assert.ok(names.includes(TOOL_NAMES.writeFile), 'files 类别必须保留');
+    // 恒可见通道不因「任务文本没提」而被藏起来（F18：规划工具是元能力）。
+    assert.ok(names.includes(TOOL_NAMES.toolSearch), '找回通道必须恒可见');
+    assert.ok(names.includes(TOOL_NAMES.askUser), '澄清通道必须恒可见');
+    assert.ok(names.includes(TOOL_NAMES.todoWrite), '规划工具必须恒可见（F18）');
+    // 未命中类别被延迟 ⇒ 直载集必须真的变小（否则「接线了」是假象）。
+    assert.ok(!names.includes(TOOL_NAMES.viewImage), 'visual 类别应被延迟');
+    assert.ok(!names.includes(TOOL_NAMES.subagent), 'delegate 类别应被延迟');
+    assert.ok(!names.includes(TOOL_NAMES.webFetch), 'web 类别应被延迟');
+    assert.ok(names.length < 10, `直载集应小于全集 10，实际 ${String(names.length)}`);
+  } finally {
+    if (prev === undefined) delete process.env['OMNI_TOOL_EXPOSURE'];
+    else process.env['OMNI_TOOL_EXPOSURE'] = prev;
+  }
+});
+
+test('plan 模式：无类别命中时 fail-safe 全量放行（宁多给不少给）', () => {
+  const deps = makeDepsWithUser(userEvent('嗯'));
+  const prev = process.env['OMNI_TOOL_EXPOSURE'];
+  process.env['OMNI_TOOL_EXPOSURE'] = 'plan';
+  try {
+    // 「嗯」不含任何类别关键词 ⇒ 计划层 fail-safe 全放行，直载集必须与全集逐字相同。
+    assert.strictEqual(namesOf(deps).length, 10);
+  } finally {
+    if (prev === undefined) delete process.env['OMNI_TOOL_EXPOSURE'];
+    else process.env['OMNI_TOOL_EXPOSURE'] = prev;
+  }
+});
+
+test('off 模式（默认）：直载集原样返回，零行为变更', () => {
+  const deps = makeDepsWithUser(userEvent('帮我读一下这个文件'));
+  const prev = process.env['OMNI_TOOL_EXPOSURE'];
+  delete process.env['OMNI_TOOL_EXPOSURE'];
+  try {
+    assert.strictEqual(namesOf(deps).length, 10, '默认 off ⇒ 与接线前逐字等价');
+  } finally {
+    if (prev !== undefined) process.env['OMNI_TOOL_EXPOSURE'] = prev;
+  }
 });

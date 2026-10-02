@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 「每会话一次」注入的回归测试（技能 / 长期记忆 primer）。
  *
  * 缺陷背景（2026-09-19 实测）：`resume`/`fork` 会先 hydrate 历史，而注入原先**无条件**执行
@@ -95,9 +95,11 @@ test('技能注入一会话一次：连跑三轮后事件流里只有一份技�
 test('未命中技能时不注入（零噪声），且不影响后续轮次的会话可用性', async () => {
   const { dir, agent } = workspaceWithSkill();
   try {
+    // 注意（2026-10-02 判据翻默认后）：相关性判据是**相对**阈值，任何有词面重叠的提示都会注入
+    // 恰好 1 条，故这里必须选**与技能文本零字面交集**的句子，否则测到的是噪声而不是「无命中」。
     const first = await agent.runTask('把数组按长度排序');
     assert.strictEqual(skillInjectionCount(first.events), 0, '未命中不得注入技能文本');
-    const second = await agent.resume(first.sessionId, '再排一次');
+    const second = await agent.resume(first.sessionId, '继续处理');
     assert.strictEqual(skillInjectionCount(second.events), 0, '后续轮次同样不得凭空注入');
     assert.strictEqual(second.sessionId, first.sessionId, 'resume 必须复用同一会话 id');
   } finally {

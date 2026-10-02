@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 受种技能池（`skills`）的**配置通道**接线单测：配置文件内联数组 + `--skills <file.json>`。
  *
  * 事故口径（TASK_BOARD §15.4 登记的功能缺口）：`OmniHarnessConfig.skills` 一直只有**编程入口**，
@@ -179,9 +179,10 @@ test('端到端：经 ConfigFactory.build 后技能真进 skillRegistry（不是
     ['sql-review'],
     '受种技能必须进入注册表（装配层真的消费了 skills）',
   );
-  // 命中语义：技能名或 tag 出现即注入（这是「受种」的实际效果入口）。
+  // 字面通道保留为精确通道（语义未变），相关性通道是生产注入判据。
   assert.strictEqual(config.skillRegistry.match('请帮我 sql-review 一下').length, 1);
   assert.strictEqual(config.skillRegistry.match('这段数据库迁移有问题').length, 1);
+  assert.strictEqual(config.skillRegistry.selectForPrompt('请帮我 sql-review 一下').length, 1);
 });
 
 test('配置校验缺陷回归：approval: "plan" 必须被文件校验接受（声明支持、校验曾拒绝）', () => {
@@ -212,7 +213,56 @@ test('端到端（真 Agent）：命中技能时把 instructions 渲染为 syste
   );
 });
 
-test('端到端（真 Agent）：未命中技能的会话不注入（零噪声）', async () => {
+/**
+ * 与技能域无关的提示**至多**注入 1 条技能（已量化的代价，不是零噪声）。
+ *
+ * 这里如实钉住一个**实测发现的机制性事实**：相关性判据用的是**相对**阈值（低于最高分一半即丢），
+ * 而任何有词面重叠的提示其「最高分」就是它自己 ⇒ 相对阈值**恒不会把第一名剪掉**，
+ * 于是无关提示几乎总会注入**恰好 1 条**。两条技能起步才体现这一点（单技能语料下相对过滤无从判别）。
+ *
+ * 为什么接受这个代价：真实语料实测的收益是同量级下**压倒性**的——生产档召回 26.9% → 92.3%
+ * （CI95 [46.15, 84.62]pp、留出折 0/40 为负），而代价是噪声 0.04 → 1.46 条/查询、无关提示约 1–3 条。
+ * 「少给 = 能力损伤」在本仓技能场景是明确的坏方向，故宁可多给不可少给。
+ * 完整数字见 `evals/skill-routing-ab.mjs`。
+ */
+test('端到端（真 Agent）：与技能域无关的提示至多注入 1 条技能（噪声有界，非零）', async () => {
+  const other = {
+    name: 'css-layout',
+    description: '修 CSS 布局问题',
+    instructions: '用 flex 或 grid 重排，注意盒子模型。',
+    tags: ['前端', '样式'],
+  };
+  const config = ConfigFactory.build({
+    workspaceRoot: workspace(),
+    maxSteps: 2,
+    model: new MockModel(),
+    storage: new MemoryStorage(),
+    approvals: new AutoApproval(),
+    sandbox: new PassthroughSandbox(),
+    events: new SilentEventPort(),
+    skills: [SKILL, other],
+  });
+  const agent = new Agent(Runtime.createRuntime(config));
+  const result = await agent.runTask('今天天气不错，下午想出去走走顺便买点水果回来');
+  const injected = result.events
+    .filter((event) => event.type === 'system')
+    .map((event) => String((event.payload as { content?: unknown } | undefined)?.content ?? ''))
+    .filter((text) => text.includes('# 技能：'));
+  assert.ok(
+    injected.length <= 1,
+    `无关提示的注入条数必须有界（实测恰好 1 条）；实际 ${String(injected.length)} 条：${JSON.stringify(injected)}`,
+  );
+});
+
+/**
+ * 翻默认（2026-10-02）后的端到端证据：**同义改写**也能把技能注入进去。
+ *
+ * 这是判据从「字面包含」换成「BM25 相关性」的可观测后果——旧判据在这句话上必然漏召
+ * （既无技能名 `sql-review`、也无 tag `数据库`/`审查`），新判据靠 instructions 正文命中。
+ * 判据与三道闸的实测数字见 `evals/skill-routing-ab.mjs`（生产档召回 26.9%→92.3%、
+ * CI95 [46.15, 84.62]pp、留出折 0/40 为负；假阳性分数下限 12.40 < GT 中位数 21.21）。
+ */
+test('端到端（真 Agent）：同义改写经相关性判据注入技能（字面判据在此必然漏召）', async () => {
   const config = ConfigFactory.build({
     workspaceRoot: workspace(),
     maxSteps: 2,
@@ -223,11 +273,19 @@ test('端到端（真 Agent）：未命中技能的会话不注入（零噪声�
     events: new SilentEventPort(),
     skills: [SKILL],
   });
+  // 前置事实：这句话在字面判据下确实命中不了（否则本用例证明不了「判据变了」）。
+  assert.deepStrictEqual(
+    config.skillRegistry.match('迁移脚本上线前我该按什么顺序评估风险'),
+    [],
+    '字面通道不应命中（本用例的前提）',
+  );
   const agent = new Agent(Runtime.createRuntime(config));
-  const result = await agent.runTask('把一个数组按长度排序');
-  const injected = result.events
+  const result = await agent.runTask('迁移脚本上线前我该按什么顺序评估风险');
+  const systemTexts = result.events
     .filter((event) => event.type === 'system')
-    .map((event) => String((event.payload as { content?: unknown } | undefined)?.content ?? ''))
-    .filter((text) => text.includes('sql-review'));
-  assert.deepStrictEqual(injected, [], '未命中时不得注入任何技能文本（避免上下文噪声）');
+    .map((event) => String((event.payload as { content?: unknown } | undefined)?.content ?? ''));
+  assert.ok(
+    systemTexts.some((text) => text.includes('# 技能：sql-review')),
+    `同义改写必须经相关性判据注入；实际 system 事件：${JSON.stringify(systemTexts)}`,
+  );
 });

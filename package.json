@@ -84,6 +84,7 @@
     "eval:chunk-recall": "npm run build && node evals/chunk-recall-ab.mjs 80",
     "eval:skill-routing": "npm run build && node evals/skill-routing-ab.mjs",
     "eval:lsp-probe": "npm run build && node evals/probe-lsp-candidates.mjs",
+    "eval:lsp-ab": "npm run build && node evals/lsp-recall-ab.mjs",
     "eval:ci": "npm run build && node evals/recall-query-audit.mjs && node evals/rank-veto-retro.mjs --gate && node evals/cache-hitrate-probe.mjs 6 && node evals/tool-selection-ab.mjs && node evals/prefix-stability.mjs 8 --min-reuse 0.75",
     "install-hooks": "node scripts/install-hooks.mjs",
     "api:check": "node scripts/apiStability.mjs",
