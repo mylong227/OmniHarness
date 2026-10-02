@@ -41,6 +41,16 @@ export class ModelCatalogService {
   private readonly probeCache = new Map<string, ProviderProbeCacheEntry>();
 
   /**
+   * 探测缓存条目上限（2026-10-02 补齐：原实现**无上限**）。
+   *
+   * 厂商预设清单本身有界，故历史风险低；但若厂商 id 由配置或未来插件动态引入，
+   * `probe()` 每命中一个新 id 就永久留一条 ⇒ 进程常驻只增不删。取 64 作硬上界，
+   * 淘汰最早插入的一条（Map 保持插入顺序）。淘汰只影响「下拉框少一个缓存的可用模型列表」，
+   * 下次探测会重新填充，**不影响任何正确性**。
+   */
+  private static readonly MAX_PROBE_CACHE = 64;
+
+  /**
    * @param deps 配置读取器（生效文件配置 + UI 适配器覆盖）
    */
   public constructor(deps: ModelCatalogDeps) {
@@ -78,9 +88,25 @@ export class ModelCatalogService {
         SsrfPolicy.resolveSsrfPolicy(file.ssrfPolicy),
       );
       results.push(probed);
-      this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
+      this.rememberProbe(preset.id, { ok: probed.ok, models: probed.models });
     }
     return { providers: results };
+  }
+
+  /** 写入探测缓存并在超上限时淘汰最早的一条。
+   * @param id 厂商 preset id。
+   * @param entry 探测结果。
+   * @returns 无返回值。
+   */
+  private rememberProbe(id: string, entry: ProviderProbeCacheEntry): void {
+    this.probeCache.set(id, entry);
+    while (this.probeCache.size > ModelCatalogService.MAX_PROBE_CACHE) {
+      const oldest = this.probeCache.keys().next();
+      if (oldest.done === true) {
+        return;
+      }
+      this.probeCache.delete(oldest.value);
+    }
   }
 
   /**

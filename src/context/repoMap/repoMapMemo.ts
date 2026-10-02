@@ -30,6 +30,9 @@ export interface RepoMapMemoHit {
  * repo-map 结果单槽位 memo（键 = 调用指纹，另按语料实例判失效）。
  */
 export class RepoMapMemo {
+  /** 命中率上报回调（可缺省；缺省即不统计，行为与接入前完全一致）。 */
+  private readonly onSample?: ((hit: boolean) => void) | undefined;
+
   /** 当前槽位：键 + 语料实例 + 结果文本。 */
   private slot: {
     readonly key: string;
@@ -44,6 +47,13 @@ export class RepoMapMemo {
   private misses = 0;
 
   /**
+   * @param onSample 命中率上报回调：每次查询判定后调用（命中=true）。缺省即不统计。
+   */
+  public constructor(onSample?: (hit: boolean) => void) {
+    this.onSample = onSample;
+  }
+
+  /**
    * 查表：键与语料实例都必须一致才算命中。
    * @param key 调用指纹（root + 查询 + 生效旋钮）。
    * @param corpus 本次使用的语料实例（引用比较，用于发现重新索引）。
@@ -52,9 +62,11 @@ export class RepoMapMemo {
   public lookup(key: string, corpus: object): RepoMapMemoHit {
     if (this.slot !== null && this.slot.key === key && this.slot.corpus === corpus) {
       this.hits += 1;
+      this.onSample?.(true);
       return { hit: true, text: this.slot.text };
     }
     this.misses += 1;
+    this.onSample?.(false);
     return { hit: false, text: null };
   }
 
