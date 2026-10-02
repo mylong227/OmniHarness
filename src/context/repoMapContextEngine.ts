@@ -7,7 +7,7 @@
  *  - 任何异常（坏路径 / 空仓 / 索引失败 / 查询失败 / 禁用）→ 返回 null，绝不抛错崩 agent。
  *  - 索引强制 light 模式：仅 morph + 符号/文件双 BM25，跳过频域共振 / 44 万边代码图 / LSA SVD
  *    （三项在 omniharness 语料实测均零增益）。召回配置即基准里 67.0% 那档。
- *  - **两阶段检索（打磨第二批 P1）**：第一段之后追加**零依赖词法精排**
+ *  - **两阶段检索（打磨第二批 P1）**：第一段之后追加**无第三方依赖词法精排**
  *    （`FileReranker`：符号名 IDF 加权覆盖率 + 第一段倒数秩）。**2026-09-17 起默认开；
  *    2026-09-25 起默认回关（opt-in）**——51 条新查询经第二方复核修正后，`evals/rerank-ab.mjs`
  *    改接全量 84 条复跑，基准档 CI 下界 −1.59pp ⇒ 两关未过（见模块头「第三轮」）。
@@ -35,7 +35,7 @@
  *    它改变的是注入的**字面信息量**。回退：`opts.payloadShape='full'` 或 env `OMNI_PAYLOAD=full`。
  *  - **口径边界（诚实登记）**：75.8% 是**对抗口径**——那批查询刻意避开锚点字面词。
  *    同批锚点在**自然口径**（用户直接说出符号名）下命中率 **97% [90.9, 100]**（`evals/spider-final-ab.mjs`），
- *    即生产现实下检索已近饱和；对抗口径的剩余差距主体是**语义鸿沟**，零依赖手段已系统性证伪（见
+ *    即生产现实下检索已近饱和；对抗口径的剩余差距主体是**语义鸿沟**，无第三方依赖手段已系统性证伪（见
  *    `docs/RECALL_HEADROOM_SURVEY.md`「蜘蛛网五形态」节）。另：梯度投送对**下游任务完成率**的影响
  *    **未经验证**，须待 P6 端到端基准——本模块不作承诺（见 `RepoMapPayload` 模块头「诚实边界」）。
  *  - **本轮系统性证伪（勿重复投入）**：多字段 BM25F（雷达四频段）、RRF 多探针融合的**命中率**增益
@@ -69,6 +69,8 @@ import { SemanticIndexCache } from './semanticIndexCache.js';
 import { HybridRanker, type RankedRepoMap } from './hybridRanker.js';
 import { FileReranker } from './fileReranker.js';
 import { RepoMapMemo } from './repoMapMemo.js';
+import { LspCandidateSource, type LspCandidateSourceOptions } from './lspCandidateSource.js';
+import type { LspPort } from '../ports/tool/lsp.js';
 import { log } from '../util/logger.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
@@ -119,13 +121,18 @@ export class RepoMapContextEngine {
   });
   /** 多路召回融合排序器（无状态，可复用）。 */
   private readonly ranker = new HybridRanker();
-  /** 第二段零依赖词法精排（无状态；内部词法视图按语料惰性缓存）。 */
+  /** 第二段无第三方依赖词法精排（无状态；内部词法视图按语料惰性缓存）。 */
   private readonly fileReranker = new FileReranker();
   /**
    * 纯 BM25 路径的**结果 memo**（审计 §2.4）：同一回合内查询逐字相同 ⇒ 第 2..N 步可归零。
    * 失效判据是**语料实例**（重新索引即新实例），故不会读到陈旧 repo-map。
    */
   private readonly memo = new RepoMapMemo();
+  /**
+   * LSP 候选源（opt-in 第四路，仅 `getRepoMapContextWithLsp` 使用；默认同步 BM25 路径完全不触达）。
+   * 无状态、可复用；其 fail-closed 行为见 {@link LspCandidateSource}。
+   */
+  private readonly lspSource = new LspCandidateSource();
   /**
    * 语义路 fail-closed 回落的累计次数（0 = 从未回落）。
    *
@@ -238,7 +245,7 @@ export class RepoMapContextEngine {
         layered: knobs.layered,
         fileK: knobs.fileK,
         symK: knobs.symK,
-        // 第二段零依赖词法重排（打磨第二批 P1）：**2026-09-17 起默认开**。
+        // 第二段无第三方依赖词法重排（打磨第二批 P1）：**2026-09-17 起默认开**。
         // 为什么此刻翻默认：本档与预算档是**耦合**的——精排的增益取决于候选池深度。
         //   · fileK=10（旧默认）：26.9%→33.2% 召回，CI95 [−0.45, 14.74]pp 下界跨 0 ⇒ 未过阈值；
         //   · fileK=14（新默认）：33 条对抗锚点查询命中率 51.5%→69.7%，CI95 [54.5, 84.8] 下界超基线 ⇒ 两关全过。
@@ -380,6 +387,72 @@ export class RepoMapContextEngine {
       } else {
         log.debug(line, { event: 'semantic_fallback', query: q });
       }
+      return this.getRepoMapContext(root, q, opts);
+    }
+  }
+
+  /**
+   * LSP 增强版 repo-map 上下文（BM25 ∪ LSP 引用/定义扩展，opt-in 第四路）。
+   *
+   * 仅在调用方显式传入有效 `LspPort` 时启用；任意 LSP 扩展异常 → 回落纯 BM25（fail-closed），
+   * 绝不因 LSP 层失败拖垮主流程或丢上下文。默认 repo-map（同步 BM25）路径完全不触达本方法
+   * （见文件头「架构」节：编排门面只暴露能力，是否接线由组合根决定）。
+   * @param root workspace 根路径。
+   * @param q 查询文本。
+   * @param lsp 已配置并可达的 LSP 端口（调用方保证其生命周期）。
+   * @param opts 选项（enabled=false 直接跳过）。
+   * @param lspOptions LSP 候选源旋钮（seed 上限 / 超时）。
+   * @returns 上下文文本，或 null（空查询 / 索引失败 / LSP 回落后仍失败）。
+   */
+  public async getRepoMapContextWithLsp(
+    root: string,
+    q: string,
+    lsp: LspPort,
+    opts: RepoMapContextOptions = {},
+    lspOptions: LspCandidateSourceOptions = {},
+  ): Promise<string | null> {
+    if (opts.enabled === false) {
+      return null;
+    }
+    if (root === '' || q.trim() === '') {
+      return null;
+    }
+    const corpus = this.corpusCache.get(root);
+    if (corpus === null) {
+      return null;
+    }
+    try {
+      const knobs = new RecallKnobs(opts);
+      const { bm25SymIds, bm25FileIds } = this.retrieveLexical(corpus, q);
+      const lspCands = await this.lspSource.candidatesFor(q, lsp, corpus, lspOptions);
+      const ranked = this.ranker.rank({
+        root,
+        corpus,
+        knobs,
+        bm25SymIds: [...bm25SymIds, ...lspCands.symIds],
+        bm25FileIds: [...bm25FileIds, ...lspCands.fileIds],
+        semanticHits: [],
+      });
+      const useRerank = opts.rerank ?? process.env.OMNI_RERANK === '1';
+      const files = useRerank
+        ? this.fileReranker.rerank({
+            corpus,
+            query: q,
+            candidates: ranked.allFiles,
+            fileK: knobs.fileK,
+            ...(knobs.rerankFloor !== undefined ? { floor: knobs.rerankFloor } : {}),
+          }).files
+        : ranked.files;
+      return this.formatContext(
+        { files, allFiles: ranked.allFiles, symbols: ranked.symbols },
+        corpus,
+        q,
+        RepoMapContextEngine.payloadPlanOf(knobs.payloadShape),
+      );
+    } catch (error) {
+      // fail-closed：LSP 扩展失败 → 回落纯 BM25 上下文（与 getHybridRepoMapContext 同口径）。
+      const detail = error instanceof Error ? error.message : String(error);
+      log.debug(`LSP 候选源回落纯 BM25：${detail}`, { event: 'lsp_candidate_fallback', query: q });
       return this.getRepoMapContext(root, q, opts);
     }
   }
