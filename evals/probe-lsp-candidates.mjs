@@ -17,7 +17,7 @@
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { writeFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -39,14 +39,18 @@ const ANCHOR_QUERIES = [
   'Bm25Index',
 ];
 
-/** 检测服务器是否可达（PATH 中能否解析命令）。 */
+/**
+ * 检测服务器是否可达（PATH 中能否解析命令）。
+ *
+ * 2026-10-02 修：原实现用 `command -v`，这是 **POSIX shell 内建**，在 Windows 的 cmd.exe 下
+ * **根本不存在** ⇒ 探针在任何 Windows 环境上都恒定 SKIP，即便语言服务器其实可用
+ * （本仓实测 `npx --yes typescript-language-server --version` 可返回 6.0.1）。
+ * 属「声明可用、实则永假」的死旋钮。改用跨平台方式：直接试着跑一次 `--version`，
+ * 只有命令解析失败（ENOENT，`spawnSync` 返回 error）才算不可达。
+ */
 function serverReachable(cmd) {
-  try {
-    execSync(`command -v ${JSON.stringify(cmd)}`, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
+  const probe = spawnSync(cmd, ['--version'], { stdio: 'ignore', shell: true });
+  return probe.error === undefined;
 }
 
 async function main() {

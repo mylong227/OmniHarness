@@ -85,8 +85,15 @@ export class LspJsonRpcConnection {
       return;
     }
     this.started = true;
+    // Windows 上 PATH 里的可执行入口**绝大多数是 `.cmd` 包装**（`npx.cmd` / `tsserver.cmd` 等），
+    // 而 Node 的 `spawn` 在不带 shell 时**不会**去解析这些包装 ⇒ 直接 ENOENT
+    // （2026-10-02 实测：配置 `npx --yes typescript-language-server --stdio` 时 spawn npx ENOENT，
+    // 尽管同一条命令在 shell 里可用）。故仅在 win32 借道 cmd.exe 解析。
+    // Linux/macOS 保持 `shell: false` 不变（零回归、也避免参数被 shell 二次解析）。
+    // 命令与参数来自**用户配置**而非模型输入，借道 shell 不构成新增注入面。
     this.proc = spawn(this.options.command, [...this.options.args], {
       stdio: ['pipe', 'pipe', 'inherit'],
+      ...(process.platform === 'win32' ? { shell: true } : {}),
     });
     // 吞掉断开后的 EPIPE/ENOPIPE：关闭阶段向已退出的子进程写入属正常竞态，不应上抛。
     this.proc.stdin?.on('error', () => undefined);
