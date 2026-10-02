@@ -1136,12 +1136,12 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 
 **动作（全链）**：
 
-| 层   | 文件                                                            | 改动                                                                                                                                                                                                          |
-| ---- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 模型 | `src/core/toolExposurePlanner.ts`（新）                         | 纯函数、零依赖、确定性：`plan()` 按任务文本判**类别相关性**（英文按词边界、中文按子串），产出 `visible`/`deferred`/`matchedCategories`/可读 `reason`；`modeFromEnv()` 解析 `OMNI_TOOL_EXPOSURE`（默认 `off`） |
-| 消费 | `src/core/stepContextBuilder.ts`                                | `effectiveTools()` 增 `exposeByRelevance()`：`plan` 模式下按相关性裁剪**直载**集；**经 `tool_search` 发现的工具无条件保留**                                                                                   |
-| 测试 | `tests/unit/toolExposurePlanner.test.ts`（新）                  | 12 例：三护栏 + 中英命中 + 词边界 + 确定性 + 短路                                                                                                                                                             |
-| 度量 | `evals/tool-exposure-ab.mjs`（新）+ npm `metrics:tool-exposure` | 走生产装配，出前后对照 + 清单核对 + 三护栏回归                                                                                                                                                                |
+| 层   | 文件                                                            | 改动                                                                                                                                                                                                                                                         |
+| ---- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 模型 | `src/core/toolExposurePlanner.ts`（新）                         | 纯函数、零依赖、确定性：`plan()` 按任务文本判**类别相关性**（英文按词边界、中文按子串），产出 `visible`/`deferred`/`matchedCategories`/可读 `reason`；`modeFromEnv()` 解析 `OMNI_TOOL_EXPOSURE`（**落地时默认 `off`；已于 2026-10-02 翻为 `plan`，见 §39**） |
+| 消费 | `src/core/stepContextBuilder.ts`                                | `effectiveTools()` 增 `exposeByRelevance()`：`plan` 模式下按相关性裁剪**直载**集；**经 `tool_search` 发现的工具无条件保留**                                                                                                                                  |
+| 测试 | `tests/unit/toolExposurePlanner.test.ts`（新）                  | 12 例：三护栏 + 中英命中 + 词边界 + 确定性 + 短路                                                                                                                                                                                                            |
+| 度量 | `evals/tool-exposure-ab.mjs`（新）+ npm `metrics:tool-exposure` | 走生产装配，出前后对照 + 清单核对 + 三护栏回归（**该脚本名一度成文档死引用，已于 2026-10-02 重新登记，见 §39.3**）                                                                                                                                           |
 
 **三护栏（安全方向与权限门禁相反，此处必须说清）**：延迟加载**不是安全性质**而是成本权衡，故方向是**宁多给不少给**：
 ① 未登记进任何类别的工具**恒可见**；② `alwaysVisible`（`tool_search`/`ask_user`/`spill_read`，找回/澄清/回读三通道）**恒可见**；
@@ -1150,6 +1150,11 @@ ARIA 基础语义、880px 响应式断点**都已存在**，故没有重复造�
 命中经 `discovery.add()` 使后续回合可见（`toolSearchTool.ts:64-65`）⇒ 隐藏是**可恢复**的，非能力删除。
 
 ### 17.4 可证伪验收（`npm run metrics:tool-exposure`，免网络免模型）
+
+> **⚠️ 本节数字已被 2026-10-02 复跑取代**（工具集增加 `view_media` 等，脚本口径也改为
+> 「条件性注册」精确判定）。**现行数字见 §39.2**；本节保留为落地当次的留档。
+> 另：脚本名 `metrics:tool-exposure` 曾在 `ef2ac0f` 被删、文档未同步（属「文档死引用」），
+> 已于 2026-10-02 重新登记进 `package.json` 并加 `eval:tool-exposure` 别名。
 
 - **清单核对**：类别表登记 30 个工具，**不在真实注册表中的 0 个**（与生产清单零脱节；脚本在不一致时**中止**，防假绿灯）；
 - **覆盖率**：真实 33 个工具中未被类别覆盖的恰为 **3 个**——`spill_read`/`ask_user`/`tool_search`，即**恒可见三通道本身**，属设计内；
@@ -4702,9 +4707,88 @@ mtime 相同 ⇒ 复用**过期**语料，而语料是检索的唯一事实来�
   （skillRetriever、configSkillsWiring、toolCatalogSnapshot、embeddingPreload、agentInjectionIdempotence）。
   全量 **2343 项**：本批引入的 2 例失败（注入零噪声、preload `instanceof`）**已就地修掉并复绿**；
   余 **1 例**失败 `recallQueries ③ 对抗性` 经 `git stash` 同口径复核**在干净树上同样失败** ⇒
-  **存量失败，与本批无关**（已在此登记，待后续批次处置）。
+  **存量失败，与本批无关**（**已于 §39.1 清偿**：那是采集协议违规，改查询而非放宽判定）。
 - 评测：`eval:skill-routing --gate` **exit 0**（三道判据全过）；`evals/tool-exposure-e2e.mjs` **5/5 断言过**；
   `evals/lsp-recall-ab.mjs` 按纪律**判负**（不进 `eval:ci`）。新增 npm 脚本 `eval:lsp-ab`。
 - **诚实留档**：本批 ② 的语料只有 13 条（远低于本仓 n≥80 口径），是按**效应量**下的判；
   ④(a) 的生产路径**未在真实模型上端到端验证**（本机无 ONNX 权重下载条件），
   落盘逻辑由假嵌入端口的 8 例单测覆盖——**不声称「生产语义路已实测加速」**。
+
+---
+
+## 39. 遗留清零：工具按需暴露**翻默认** + 两处真实度量缺陷 + 存量红测清偿（2026-10-02 第五批）
+
+> 触发：用户指令「把剩下的遗留问题解决掉。然后并提交」。
+> §38.5 留了三件：① `OMNI_TOOL_EXPOSURE` 默认仍 `off`（判据未成文）；② 存量失败 `recallQueries ③`；③ 文档引用的 `metrics:tool-exposure` 脚本已不存在。
+> 本批三件全清，**并在过程中挖出两处比遗留项更严重的真实度量缺陷**。
+
+### 39.1 存量红测 `recallQueries ③`：协议违规，改查询而非放宽判定
+
+**根因（不是「阈值太严」）**：该用例要求「新增条目的查询内容词与锚点子词零交集」（采集协议第 2 条），
+而 **1 条**违反：查询 `what reads back how many tokens were served from cache` 与锚点
+`class PromptCacheUsageReader` 共享子词 **`cache`**。
+
+处置：用脚本对**全部 160 条**新增条目复扫（确认只有这 1 处），然后把该条查询改为
+`what reads back how many tokens were served from a reused prefix`——**GT 定位子未动**，
+**判定未放宽**（放宽才是把真问题掩盖掉）。复扫 **0 处**违规。同时在 fixture 模块头补记
+「该约束作用于 extended **与** growth 两档」（原文只写了 extended，与测试实际范围不一致）
+并留档本次 `REPLACE_QUERY` 处置。
+
+### 39.2 挖出的度量缺陷一：`tool-selection-ab` 的**自证循环**（工具全集取自被测者自己）
+
+原实现把工具全集取成 `ToolExposurePlanner.DEFAULT_CATEGORIES ∪ DEFAULT_ALWAYS_VISIBLE`
+——**planner 自己的表**。于是「类别表登记了、但注册表里根本不存在」的工具也会被算成「给到了」，
+**`recall 100%` 可能是关于不存在的工具的**。改为：
+
+- 工具全集取自**生产装配** `ConfigFactory.build(...).tools.list()`；
+- 断言 `listDirect()` 就是被规划的那批；
+- 类别表若登记了「不该缺席」的工具而注册表查无此物 ⇒ **硬红**；
+- 探针的必需工具集里含注册表不存在的工具 ⇒ **硬红**（该探针在默认装配下不可达）。
+
+**这套判定当场抓到两处真问题**：
+
+| 发现                                                                               | 处置                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `delegate` 被类别表登记，但**默认装配里根本没有**                                  | 它是**条件性注册**（只在真有外部 worker 时注册；2026-09-26 审计 F1：默认配置下原名由恒返回假成功的演示桩支撑 ⇒「工具不存在」远好过「工具撒谎」）。故加显式白名单并**报告如实登记**，不算脱节 |
+| 探针 `{q:'delegate this job to a worker', gt:['delegate']}` 在默认装配下**不可达** | GT 改为真实存在的等价委派路径 `subagent`                                                                                                                                                     |
+
+修后实测（**全绿**）：注册表 33 个、类别表登记 34 个（其中 `delegate` 条件性缺席）；**37/37 完全命中**、
+必需工具召回 **100%**、平均可见工具 **33 → 14.4**。同口径修 `tool-exposure-ab` 的清单核对。
+
+### 39.3 挖出的度量缺陷二：`metrics:tool-exposure` 是**文档死引用**
+
+`docs/TASK_BOARD.md`（§17.3/17.4/18.1）、`docs/STATE_AUDIT_2026-09-22.md`、`CHANGELOG.md` **共 6 处**
+引用 `npm run metrics:tool-exposure`，但该脚本在 `ef2ac0f` 删 `eval:*` 时一并消失、文档未同步 ⇒ 照文档敲必然 `Missing script`。
+已重新登记 `metrics:tool-exposure`（保留历史兼容名）+ `eval:tool-exposure` + `eval:tool-exposure-e2e`，并在 §17.4 标注死引用来源。
+
+### 39.4 遗留项一：`OMNI_TOOL_EXPOSURE` **由 `off` 翻为 `plan`**（判据成文 + 可执行）
+
+**为什么 D6「两关」不能直接套**：它是为**排序/检索路**写的（否决器 + 采样 A/B + bootstrap CI + 留出折），
+而工具暴露是**确定性的集合成员属性**——无采样、无 CI、无留出折。故本批把它落成**该场景下的可操作形态**
+（两条，同时绿才翻）：
+
+1. **端到端零能力损伤**（`npm run eval:tool-exposure-e2e` = 本批新加的判据门）：
+   走生产装配 `ConfigFactory → Runtime → Agent.runTask`，检查**模型实际收到的 `request.tools`**。
+   六条硬断言：① 接线生效 ② 直载集真裁小（**33 → 13**）③ ⊆ 计划可见集 ④ 后续步不反悔
+   ⑤ 延迟的 `web_fetch` 经 `tool_search` 后**真的进入下一步工具表**
+   ⑥ **逐场景零能力损伤**（6 个跨类别场景各自真跑一回合，**每一步**都覆盖该场景必需工具；
+   `no-signal` 场景 fail-safe **33/33** 全放行）。
+2. **注册表来源的必需工具召回 100%**（`eval:tool-selection`，**已在 `eval:ci`** ⇒ 常态化门禁而非一次性评测）：
+   37 条标注探针 × 8 类别，**37/37**。
+
+**落地**：`modeFromEnv()` 改为「**仅显式 `off` 才关**，其余（含未设/空串/拼错）一律 `plan`」。
+**回退通道**是 `OMNI_TOOL_EXPOSURE=off`（逃生口，不是「默认关」），该路径由单测逐字钉住零行为变更。
+CI `eval` job 增跑 `eval:tool-exposure-e2e`（免网络免模型，故可进 CI；`eval:lsp-ab` 依赖语言服务器，仍不进）。
+
+**行为变更登记（D7 口径）**：这是**默认行为变更**——未设该环境变量的部署从此走按需暴露。
+代价与收益均已量化：schema token **6491 → 平均 2373（−63.4%）**、平均工具 **33 → 14.0**；
+风险侧由上面两条判据覆盖（零能力损伤 + 100% 必需工具召回 + 可找回）。
+
+### 39.5 验收（门禁实跑，2026-10-02）
+
+- 全量单测 **2344 项：2339 过 / 0 失败 / 5 skipped** —— **含 §38.5 登记的存量红测在内，全库首次全绿**。
+  翻默认只碰红 2 例（`modeFromEnv` 真值表 + `off` 默认行为），均已按新口径改写并**补测「默认即 plan」**。
+- 评测：`eval:tool-exposure-e2e`（--gate）**7/7 判据过**；`eval:tool-selection` **37/37**；
+  `eval:tool-exposure` 三护栏 **10/10**；`eval:skill-routing --gate` exit 0。
+- 门禁：typecheck / lint / `check --strict` / `arch:gate` / `audit:maturity` / `audit:standard:delta` /
+  `audit:config-wiring` / `check:doc-links` 全绿（见提交记录）。

@@ -146,13 +146,26 @@ test('默认类别表覆盖真实工具名，且不产生重复归属', () => {
   }
 });
 
-test('modeFromEnv：仅显式 plan 才生效，其余一律 off（默认关 ⇒ 零行为变更）', () => {
-  assert.strictEqual(ToolExposurePlanner.modeFromEnv({}), 'off');
-  assert.strictEqual(ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: '' }), 'off');
+test('modeFromEnv：默认 plan（2026-10-02 翻默认），仅显式 off 才关闭', () => {
+  assert.strictEqual(ToolExposurePlanner.modeFromEnv({}), 'plan', '未设 ⇒ 默认 plan');
+  assert.strictEqual(
+    ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: '' }),
+    'plan',
+    '空串按未设处理（默认 plan）',
+  );
   assert.strictEqual(ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: 'off' }), 'off');
+  assert.strictEqual(
+    ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: ' OFF ' }),
+    'off',
+    'off 判据大小写/空白不敏感',
+  );
   assert.strictEqual(ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: 'PLAN' }), 'plan');
   assert.strictEqual(ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: ' plan ' }), 'plan');
-  assert.strictEqual(ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: 'yes' }), 'off');
+  assert.strictEqual(
+    ToolExposurePlanner.modeFromEnv({ OMNI_TOOL_EXPOSURE: 'yes' }),
+    'plan',
+    '拼错不退化成 off——「默认开」下，拼错的代价是多给工具（无害侧）',
+  );
 });
 
 /**

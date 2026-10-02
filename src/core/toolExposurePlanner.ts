@@ -327,17 +327,33 @@ export class ToolExposurePlanner {
   ];
 
   /**
-   * 解析工具暴露模式（`OMNI_TOOL_EXPOSURE`，默认 `off`）。
+   * 解析工具暴露模式（`OMNI_TOOL_EXPOSURE`，**默认 `plan`**）。
    *
-   * 与 `OMNI_REPO_MAP` / `OMNI_RERANK` 同一惯例：**默认关 ⇒ 零行为变更**，需显式开启才生效。
+   * ## 默认已于 2026-10-02 由 `off` 翻为 `plan`
+   *
+   * 翻默认的判据（本仓 D6「两关」是为排序/检索路写的，对**确定性的集合成员属性**无操作形态——
+   * 无采样、无 CI、无留出折——故此处落成可执行的两条，两者同时绿才翻）：
+   *
+   *  1. **端到端零能力损伤**（`evals/tool-exposure-e2e.mjs --gate`）：走生产装配
+   *     `ConfigFactory → Runtime → Agent.runTask`，检查**模型实际收到的 `request.tools`**。
+   *     六条硬断言全过——① 接线生效 ② 直载集真裁小（33→13）③ ⊆ 计划可见集 ④ 后续步不反悔
+   *     ⑤ 延迟的 `web_fetch` 经 `tool_search` 后**真的进入下一步工具表**（可找回）
+   *     ⑥ **逐场景零能力损伤**（6 个跨类别场景，每一步的 `request.tools` 都覆盖该场景必需工具）。
+   *  2. **注册表来源的必需工具召回 100%**（`evals/tool-selection-ab.mjs`，**已进 `eval:ci`**，
+   *     故这是**常态化门禁**而非一次性评测）：工具全集取自生产注册表（不再取自 planner 自己的
+   *     类别表——那曾是自证循环），37 条标注探针 × 8 类别，**37/37 完全命中**，平均可见工具
+   *     33 → 14.4。
+   *
+   * **回退通道（逃生口，不是「默认关」）**：`OMNI_TOOL_EXPOSURE=off` 显式关闭，逐字回到
+   * 「全量直载」的历史行为（该路径由单测钉住零行为变更）。
    *
    * @param env 环境变量表（缺省 `process.env`；注入以便单测）。
-   * @returns `'plan'` 仅当显式取值 `plan`，其余（含未设、拼错、空串）一律 `'off'`。
+   * @returns `'off'` 仅当显式取值 `off`（大小写/空白不敏感）；其余一律 `'plan'`。
    */
   public static modeFromEnv(
     env: Record<string, string | undefined> = process.env,
   ): ToolExposureMode {
-    return env['OMNI_TOOL_EXPOSURE']?.trim().toLowerCase() === 'plan' ? 'plan' : 'off';
+    return env['OMNI_TOOL_EXPOSURE']?.trim().toLowerCase() === 'off' ? 'off' : 'plan';
   }
 
   /**

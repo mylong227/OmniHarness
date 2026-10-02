@@ -1,5 +1,5 @@
 ---
-'omniharness': minor
+'@mylong227/omniharness': minor
 ---
 
 移除遗留记忆双引擎（ResonantMemoryEngine / CosmicWebMemoryEngine），统一到 U1 基板

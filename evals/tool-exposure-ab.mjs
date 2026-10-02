@@ -34,6 +34,7 @@ const { MemoryStorage } = await importDist('adapters', 'storage', 'memoryStorage
 const { AutoApproval } = await importDist('adapters', 'approval', 'autoApproval.js');
 const { PassthroughSandbox } = await importDist('adapters', 'sandbox', 'passthroughSandbox.js');
 const { ToolExposurePlanner } = await importDist('core', 'toolExposurePlanner.js');
+const { TOOL_NAMES } = await importDist('ports', 'tool', 'toolNames.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 /** 生产默认装配（与 `promptInjectionWiring.test.ts` 的 base() 同构，去掉无关替身）。 */
@@ -63,12 +64,26 @@ console.log(
   `  工具总数 list()=${allTools.length}  直载 listDirect()=${direct.length}  （默认无一个 deferred）`,
 );
 const categorized = new Set(ToolExposurePlanner.DEFAULT_CATEGORIES.flatMap((c) => c.tools));
-const missingInRegistry = [...categorized].filter((n) => !names.includes(n));
+/**
+ * **条件性注册**的工具：类别表可登记它们，但默认装配里**本就没有**。
+ * `delegate` 只在真有外部 worker 时注册（2026-09-26 审计 F1：默认配置下它由恒返回假成功的
+ * 演示桩支撑 ⇒ 「工具不存在」远好过「工具撒谎」）。故它缺席是**设计**，不是与注册表脱节。
+ */
+const CONDITIONALLY_REGISTERED = new Set([TOOL_NAMES.delegate]);
+const missingInRegistry = [...categorized].filter(
+  (n) => !names.includes(n) && !CONDITIONALLY_REGISTERED.has(n),
+);
+const absentByDesign = [...categorized].filter(
+  (n) => !names.includes(n) && CONDITIONALLY_REGISTERED.has(n),
+);
 const uncovered = names.filter((n) => !categorized.has(n));
 console.log(
   `  类别表登记工具 ${categorized.size} 个；其中**不在真实注册表中**的：${missingInRegistry.length} 个`,
 );
 if (missingInRegistry.length > 0) console.log(`    ❌ ${missingInRegistry.join(', ')}`);
+if (absentByDesign.length > 0) {
+  console.log(`    条件性注册、默认缺席（设计如此）：${absentByDesign.join(', ')}`);
+}
 console.log(`  真实工具中未被任何类别覆盖（⇒ 恒可见，保守代价）：${uncovered.length} 个`);
 console.log(`    ${uncovered.join(', ') || '(无)'}`);
 console.log(`  全量直载 schema token（口径：tokenize）：${allTokens}`);

@@ -26,8 +26,18 @@
 //   ④ 稳定子集：后续步的工具集必须**包含**首步工具集（会话中途不得反悔已给的直载工具）；
 //   ⑤ 可找回（#M1 闭环，端到端版）：经 `tool_search` 找回的工具，必须真的出现在**下一步**
 //      的 `request.tools` 里——这条同时证明「延迟加载不是能力删除」。
+//   ⑥ **零能力损伤**（2026-10-02 加）：多个场景（每类一个真实任务文本）各跑一次真 Agent 回合，
+//      断言**每一步**的 `request.tools` 都覆盖该场景的「必需工具」——即在**真实回合里**逐场景
+//      验证「少给 = 能力损伤」这条护栏不会破。
 //
-// 用法：node evals/tool-exposure-e2e.mjs
+// ## `--gate`（翻默认判据的可执行形态）
+//
+// 本仓 D6 的「两关」是为**排序/检索路**写的（否决器 + 采样 A/B + bootstrap CI），对「工具暴露」
+// 这种**确定性的集合成员属性**没有操作形态（无采样、无 CI、无留出折）。故在此把它落成可执行判据：
+// 本脚本 `--gate` = **零能力损伤的端到端证据**，配套 `tool-selection-ab.mjs`（工具全集取自生产
+// 注册表、37 条必需工具召回，已进 `eval:ci`）——两者同时绿才允许把默认从 `off` 翻为 `plan`。
+//
+// 用法：node evals/tool-exposure-e2e.mjs [--gate]
 // 产物：evals/tool-exposure-e2e.report.json
 // 免网络、免模型、免 API key。
 
@@ -37,6 +47,8 @@ import { writeFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
+/** `--gate`：翻默认判据的可执行形态（不过即 exit 1）。 */
+const GATE = process.argv.includes('--gate');
 
 const { Agent } = await import(new URL('../dist/src/core/agent.js', import.meta.url).href);
 const { Runtime } = await import(
@@ -139,12 +151,15 @@ const SCRIPT = [
 
 /**
  * 跑一臂。
- * @param mode `off` 或 `plan`。
+ *
+ * `off` 臂**显式**置 `OMNI_TOOL_EXPOSURE=off`（翻默认后它已是逃生口，不再是「未设」）；
+ * `plan` 臂**删掉**该变量——测的正是「未设时默认即 plan」这条翻默认结论本身。
+ * @param mode `off` 或 `plan`（后者 = 未设，走默认）。
  * @returns 每步的工具名数组。
  */
 const runArm = async (mode) => {
   const prev = process.env['OMNI_TOOL_EXPOSURE'];
-  if (mode === 'plan') process.env['OMNI_TOOL_EXPOSURE'] = 'plan';
+  if (mode === 'off') process.env['OMNI_TOOL_EXPOSURE'] = 'off';
   else delete process.env['OMNI_TOOL_EXPOSURE'];
   try {
     const model = new RecordingModel(SCRIPT);
@@ -222,11 +237,91 @@ check(
   '⑤ 可找回（端到端）：延迟的 web_fetch 经 tool_search 后进入下一步工具表',
 );
 
+// ── ⑥ 零能力损伤：逐场景在**真实回合**里核对必需工具是否都在 `request.tools` 里 ──────────
+// GT 口径与 `tool-selection-ab.mjs` 一致（「少了它就做不了」的最小集，不标「顺手用一下」的）。
+// 每个场景跑一次真 Agent 回合，断言**每一步**都覆盖 GT——这比只看首个请求更强：
+// 「延迟加载让某步悄悄少了工具」也会被抓到。
+const SCENARIOS = [
+  {
+    name: 'read+shell',
+    q: 'read the config then run the tests to see if anything broke',
+    gt: ['read_file', 'shell'],
+  },
+  { name: 'search+edit', q: '搜索相关代码并把它改掉', gt: ['grep', 'edit'] },
+  {
+    name: 'visual+write',
+    q: 'look at the screenshot, then write the fix into the file',
+    gt: ['browser_screenshot', 'write_file'],
+  },
+  { name: 'memory', q: '记住我们这次选的方案', gt: ['remember'] },
+  { name: 'planning-only', q: '帮我拆一下这个任务的步骤', gt: ['todo_write'] },
+  { name: 'no-signal fail-safe', q: '嗯，继续吧', gt: [] },
+];
+
+/**
+ * 跑一个场景（真 Agent 回合）并返回每步的工具表。
+ * @param text 任务文本。
+ * @returns 每步的工具名数组。
+ */
+const runScenario = async (text) => {
+  const prev = process.env['OMNI_TOOL_EXPOSURE'];
+  process.env['OMNI_TOOL_EXPOSURE'] = 'plan';
+  try {
+    const model = new RecordingModel([{ text: '场景完成' }]);
+    const runtime = Runtime.createRuntime(ConfigFactory.build(base(model)));
+    const agent = new Agent(runtime);
+    await agent.runTask(text);
+    return model.mainRequests();
+  } finally {
+    if (prev === undefined) delete process.env['OMNI_TOOL_EXPOSURE'];
+    else process.env['OMNI_TOOL_EXPOSURE'] = prev;
+  }
+};
+
+console.log('\n=== [3] 零能力损伤（翻默认判据⑥，逐场景真 Agent 回合）===');
+const scenarioRows = [];
+for (const scene of SCENARIOS) {
+  const steps = await runScenario(scene.q);
+  const missingPerStep = steps.map((tools) => {
+    const set = new Set(tools);
+    return scene.gt.filter((t) => !set.has(t));
+  });
+  const missing = [...new Set(missingPerStep.flat())];
+  const ok = missing.length === 0;
+  scenarioRows.push({
+    name: scene.name,
+    q: scene.q,
+    gt: scene.gt,
+    steps: steps.length,
+    stepToolCounts: steps.map((s) => s.length),
+    missing,
+    ok,
+  });
+  console.log(
+    `  ${ok ? '✅' : '❌'} ${scene.name}：必需 [${scene.gt.join(', ') || '（无，fail-safe）'}]` +
+      `｜步数 ${String(steps.length)}｜首步工具数 ${String(steps[0]?.length ?? 0)}` +
+      (ok ? '' : `｜**漏给**: ${missing.join(', ')}`),
+  );
+}
+const lostScenarios = scenarioRows.filter((r) => !r.ok);
+check(
+  lostScenarios.length === 0,
+  '⑥ 零能力损伤：全部场景的每一步都覆盖其必需工具',
+  lostScenarios.length === 0
+    ? `${String(SCENARIOS.length)} 个场景`
+    : `${String(lostScenarios.length)} 个场景漏给必需工具`,
+);
+
 const report = {
   eval: 'tool-exposure-e2e',
   path: 'production: ConfigFactory.build → Runtime.createRuntime → Agent.runTask → request.tools',
   prompt: PROMPT,
-  mode: { switch: 'OMNI_TOOL_EXPOSURE=plan', defaultWhenUnset: 'off' },
+  mode: {
+    switch: 'OMNI_TOOL_EXPOSURE',
+    defaultWhenUnset: 'plan（2026-10-02 翻默认）',
+    offArm: 'OMNI_TOOL_EXPOSURE=off（显式逃生口）',
+    planArm: '未设该变量（即默认）',
+  },
   off: { firstRequestTools: offFirst, steps: offArm.map((s) => s.length) },
   plan: { firstRequestTools: planFirst, steps: planArm.map((s) => s.length) },
   visibleReduction: {
@@ -242,7 +337,13 @@ const report = {
     plannedSubset: unexpected.length === 0,
     stableSubset: stable,
     recoveryWorks: deferredFirst && recoveredAt > 0,
+    zeroCapabilityLoss: lostScenarios.length === 0,
   },
+  scenarios: scenarioRows,
+  flipCriterion:
+    '①–⑤ 端到端断言 + ⑥ 逐场景零能力损伤（本脚本 --gate），' +
+    '配套 tool-selection-ab.mjs 的注册表来源 37 条必需工具召回 100%（进 eval:ci）。' +
+    'D6「两关」是为排序/检索路写的，对确定性的集合成员属性无操作形态，故以此为准。',
   passed: failures.length === 0,
   failures,
   at: new Date().toISOString(),
@@ -257,6 +358,8 @@ if (failures.length > 0) {
   console.log('\n=== 判定：FAIL ===');
   for (const f of failures) console.log(`  ✗ ${f}`);
   process.exitCode = 1;
+} else if (GATE) {
+  console.log('\n=== --gate 判定：PASS（翻默认判据全过）===');
 } else {
-  console.log('\n=== 判定：PASS（两端到端断言全过）===');
+  console.log('\n=== 判定：PASS（端到端断言全过；加 --gate 走翻默认判据）===');
 }

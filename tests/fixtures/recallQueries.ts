@@ -22,10 +22,17 @@
  *    `evals/recall-query-audit.mjs` 机械校验，缺失即中止（防「锚点写错却被当成检索失败」）。
  * 2. **对抗性**：查询文本**刻意避开锚点的全部子词**（camelCase 拆分后的小写词元），
  *    目的是度量「非字面」检索能力，而不是让 BM25 白送分。该约束由
- *    `tests/unit/recallQueries.test.ts` 强制（交集非空即测试失败）。
- *    **范围说明**：该严格约束只作用于 {@link EXTENDED_RECALL_QUERIES}；冻结的
- *    {@link CORE_RECALL_QUERIES} 保留 2026-09-17 的历史措辞（当时的口径是「避开锚点的**定义字面**」，
- *    如 `registerTool` 的查询里允许出现 `tool`），改动它们会使历史数字失去可比性。
+ *    `tests/unit/recallQueries.test.ts` 强制（交集非空即测试失败），作用范围为
+ *    {@link EXTENDED_RECALL_QUERIES} **与** {@link GROWTH_RECALL_QUERIES}（所有「新增」条目）。
+ *    **范围说明**：冻结的 {@link CORE_RECALL_QUERIES} 保留 2026-09-17 的历史措辞
+ *    （当时的口径是「避开锚点的**定义字面**」，如 `registerTool` 的查询里允许出现 `tool`），
+ *    改动它们会使历史数字失去可比性。
+ *
+ *    > **违规处置（2026-10-02）**：以脚本对全部 160 条新增条目复扫，查出 **1 处**违规——
+ *    > 锚点 `class PromptCacheUsageReader` 的查询含 `cache`（子词交集非空）。该条属
+ *    > **协议违规**（而非「阈值太严」），故按本模块既有处置方式改查询措辞
+ *    > （`REPLACE_QUERY`，见该条上方注释），**不放宽判定**。处置后复扫 **0 处**违规。
+ *    > 此前 `③` 长期真红的状态记录见 `docs/TASK_BOARD.md` §38.5 / §39.1。
  * 3. **同一语料与协议**：所有条目共用同一 `src/` 语料、同一 GT 定义（锚点字面量所在文件集合）、
  *    同一 hitRate@K 口径。
  *
@@ -450,7 +457,11 @@ export const GROWTH_RECALL_QUERIES = [
     anchor: 'class AnthropicCacheBreakpoints',
   },
   {
-    q: 'what reads back how many tokens were served from cache',
+    // 2026-10-02 REPLACE_QUERY：原措辞 `what reads back how many tokens were served from cache`
+    // 与锚点子词 `cache` 字面重合（第三条采集协议要求零交集），属**协议违规**且一直让
+    // `tests/unit/recallQueries.test.ts ③` 真红。改为不落任何锚点子词的等价问法；
+    // GT 定位子未动（仍是 `class PromptCacheUsageReader`），故该条的纵向可比性受影响之处仅在查询措辞。
+    q: 'what reads back how many tokens were served from a reused prefix',
     anchor: 'class PromptCacheUsageReader',
   },
   {
