@@ -7,7 +7,7 @@
  *     → cliMcpCmds（mcp serve/list/call）
  *     → cliDataCmds（session/plugin/audit/compare/kv/vault）
  *     → cliNativeCmds（native/lsp）
- *     → cliAgentCmds（execute/goal/workflow/routines/tui/eval）
+ *     → cliAgentCmds（execute/goal/workflow/routines/tui）
  *     → ExecCli（本文件，仅生命周期 + 子命令分发）
  *
  * 冷启动优化（2026-09-04 实测，见 benchmark/efficiency_benchmark.mjs）：
@@ -63,9 +63,6 @@ export class ExecCli extends CliAgentCmds {
     }
     if (argv[0] === 'compare') {
       return this.runCompare(argv.slice(1));
-    }
-    if (argv[0] === 'eval') {
-      return this.runEval(argv.slice(1));
     }
     if (argv[0] === 'mcp') {
       return this.runMcp(argv.slice(1));

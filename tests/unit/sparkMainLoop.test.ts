@@ -22,7 +22,7 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ScriptedModel } from '../../src/eval/scriptedModel.js';
+import { ScriptedModel } from '../../src/core/scriptedModel.js';
 
 /** 测试用内存长期记忆桩（仅满足端口契约）。 */
 class MemLongTermMemory implements LongTermMemoryPort {

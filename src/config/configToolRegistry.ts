@@ -38,7 +38,7 @@ import { ApplyPatchTool } from '../adapters/tool/fs/applyPatchTool.js';
 // web_search 仅当通过 extraTools 注入 search 实现时才注册，默认不暴露未配置的搜索工具，避免模型反复调用导致批量失败。
 import { CodeExecutorTool } from '../adapters/tool/code/codeExecutorTool.js';
 import { ToolGate } from '../core/toolGate.js';
-import { SelfChecklist } from '../eval/selfChecklist.js';
+import { SelfChecklist } from '../core/selfChecklist.js';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
 import { MutationTargets } from '../adapters/tool/verify/mutationTargets.js';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.js';

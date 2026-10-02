@@ -16,7 +16,7 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ScriptedModel } from '../../src/eval/scriptedModel.js';
+import { ScriptedModel } from '../../src/core/scriptedModel.js';
 import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.js';
 
 function buildDefaultRuntime() {

@@ -10,7 +10,7 @@ import { existsSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SelfChecklist } from '../../src/eval/selfChecklist.js';
+import { SelfChecklist } from '../../src/core/selfChecklist.js';
 
 test('① 假完成拦截：占位符残留的"完成报告"必须判负', async () => {
   const checklist = new SelfChecklist().noPlaceholders(

@@ -10,7 +10,7 @@
  * @maturity L1 — 接受概率公式为标准模拟退火 Metropolis 准则；「免费增益」依赖搜索空间，本模块只提供机制
  * @maturityEvidence tests/unit/annealedAcceptance.test.ts
  */
-import { Bootstrap } from '../eval/bootstrap.js';
+import { Bootstrap } from './bootstrap.js';
 
 /** 退火接受选项。 */
 export interface AnnealedAcceptanceOptions {

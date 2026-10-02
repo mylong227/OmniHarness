@@ -40,7 +40,7 @@ const { RankVetoEvaluator, RankVetoOverlap, DEFAULT_VETO_THRESHOLDS } = await im
   'rankVeto',
   'index.js',
 );
-const { Bootstrap } = await importDist('eval', 'bootstrap.js');
+const { Bootstrap } = await importDist('evolution', 'bootstrap.js');
 const { CROSS_REPO_CORPORA } = await import(
   pathToFileURL(join(ROOT, 'dist', 'tests', 'fixtures', 'recallQueriesCrossRepo.js')).href
 );

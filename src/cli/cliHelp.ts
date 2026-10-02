@@ -86,7 +86,7 @@ export class CliHelp {
   private readonly commands: readonly HelpEntry[];
   /** 选项段小标题（`选项:`）。 */
   private readonly optionsTitle: string;
-  /** 选项清单（含命令式条目，如 `eval …` / `daemon start|stop|status`）。 */
+  /** 选项清单（含命令式条目，如 `daemon start|stop|status`）。 */
   private readonly options: readonly HelpEntry[];
   /** 构造期解析占位符时记录到的枚举源名（`enumSources()` 据此作答）。 */
   private readonly referenced = new Set<string>();
