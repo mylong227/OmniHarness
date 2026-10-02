@@ -137,7 +137,8 @@ export class StepContextBuilder {
    * 发给模型的工具集：直载（listDirect，剔除 deferred）∪ 经 tool_search 发现的延迟加载工具。
    * 按名去重：被发现的工具补充进上下文，使其可被模型真正调用（#M1 延迟加载闭环）。
    *
-   * **按需暴露（`OMNI_TOOL_EXPOSURE=plan`，默认关）**：开启后先经 {@link ToolExposurePlanner}
+   * **按需暴露（`OMNI_TOOL_EXPOSURE`，**默认 `plan`**，2026-10-02 起；`off` 为逃生口）**：
+   * 先经 {@link ToolExposurePlanner}
    * 按本轮任务文本判类别相关性，把明显不相关的类别整体降为延迟加载——动机与安全方向见该模块头
    * （Laya 高基数实测：每选项 token 预算即准确率天花板）。三条不可动摇的护栏：
    *   - **被 `tool_search` 发现的工具恒可见**（模型已明确表达需要，不得反悔）；
@@ -185,13 +186,13 @@ export class StepContextBuilder {
   }
 
   /**
-   * 按相关性裁剪直载工具（`OMNI_TOOL_EXPOSURE=plan` 时生效；否则原样返回）。
+   * 按相关性裁剪直载工具（`OMNI_TOOL_EXPOSURE=off` 是显式逃生口；默认 `plan`）。
    *
    * 任务文本复用 repo-map 的同一推导（最近至多 3 条 user 消息），**不额外读状态**，
    * 保证同一回合内 repo-map 与工具暴露看到的是同一个查询。
    *
    * @param direct 直载工具定义列表。
-   * @returns 裁剪后的工具定义列表（默认 `off` 时与入参同一数组，零成本）。
+   * @returns 裁剪后的工具定义列表（`off` 时与入参同一数组，零成本）。
    */
   private exposeByRelevance(direct: readonly ToolDefinition[]): readonly ToolDefinition[] {
     if (ToolExposurePlanner.modeFromEnv() !== 'plan') return direct;

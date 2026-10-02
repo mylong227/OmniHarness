@@ -145,6 +145,15 @@ jobs:
       # 四个脚本当场 fail-closed，而此前它们都不在 CI 里 ⇒ 门禁全绿却评测集已废。
       # 本步把「删代码必须同步改锚点」变成机器判据（免网络免模型，秒级）。
       - run: npm run eval:recall-query-audit
+      # 工具按需暴露的**翻默认判据**（2026-10-02 起 `OMNI_TOOL_EXPOSURE` 默认已是 `plan`）。
+      # 两步都是端到端、免网络免模型：
+      #   ① `eval:tool-exposure-e2e --gate`：走生产装配跑真 Agent 回合，检查模型**实际收到的
+      #      `request.tools`**——接线活性 / 直载集真裁小 / ⊆ 计划可见集 / 后续步不反悔 /
+      #      延迟工具经 `tool_search` 可找回 / **逐场景零能力损伤**（6 个跨类别场景）。
+      #   ② `eval:tool-selection`（已含在 `eval:ci` 内）：工具全集取自**生产注册表**的 37 条
+      #      必需工具召回必须 100%——任一漏给即红（少给 = 能力损伤，不可逆）。
+      # 只因这两步同时绿，默认才允许停在 `plan`；回退通道是 `OMNI_TOOL_EXPOSURE=off`。
+      - run: npm run eval:tool-exposure-e2e
 
   security:
     name: 安全左移（依赖 CVE + secrets + 格式）

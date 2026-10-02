@@ -177,12 +177,30 @@ test('plan 模式：无类别命中时 fail-safe 全量放行（宁多给不少�
   }
 });
 
-test('off 模式（默认）：直载集原样返回，零行为变更', () => {
+test('off 模式（显式逃生口）：直载集原样返回，零行为变更', () => {
+  const deps = makeDepsWithUser(userEvent('帮我读一下这个文件'));
+  const prev = process.env['OMNI_TOOL_EXPOSURE'];
+  // 2026-10-02 翻默认后，「全量直载」不再是默认行为，而是**显式逃生口**——本用例
+  // 钉住该逃生口仍逐字回到历史行为（默认值本身由 toolExposurePlanner.test 的 modeFromEnv 用例钉住）。
+  process.env['OMNI_TOOL_EXPOSURE'] = 'off';
+  try {
+    assert.strictEqual(namesOf(deps).length, 10, 'OMNI_TOOL_EXPOSURE=off ⇒ 与接线前逐字等价');
+  } finally {
+    if (prev === undefined) delete process.env['OMNI_TOOL_EXPOSURE'];
+    else process.env['OMNI_TOOL_EXPOSURE'] = prev;
+  }
+});
+
+test('默认（未设 OMNI_TOOL_EXPOSURE）：走 plan 裁剪，直载集变小', () => {
   const deps = makeDepsWithUser(userEvent('帮我读一下这个文件'));
   const prev = process.env['OMNI_TOOL_EXPOSURE'];
   delete process.env['OMNI_TOOL_EXPOSURE'];
   try {
-    assert.strictEqual(namesOf(deps).length, 10, '默认 off ⇒ 与接线前逐字等价');
+    // 默认即 plan ⇒ 命中 files 类别，visual/delegate/web 被延迟。
+    const names = namesOf(deps);
+    assert.ok(names.includes(TOOL_NAMES.readFile));
+    assert.ok(!names.includes(TOOL_NAMES.viewImage), '默认 plan 下 visual 应被延迟');
+    assert.ok(names.length < 10, `默认应被裁剪，实际 ${String(names.length)}`);
   } finally {
     if (prev !== undefined) process.env['OMNI_TOOL_EXPOSURE'] = prev;
   }

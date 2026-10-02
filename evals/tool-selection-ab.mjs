@@ -15,6 +15,16 @@
 // 用法：node evals/tool-selection-ab.mjs
 // 产物：evals/tool-selection-ab.report.json
 // 免网络、免模型、免 API key、秒级。
+//
+// ## 2026-10-02 修一处**自证循环**（本文件此前最严重的度量缺陷）
+//
+// 原实现的工具全集取自 **planner 自己的类别表**（`DEFAULT_CATEGORIES` + `DEFAULT_ALWAYS_VISIBLE`）
+// ——于是「类别表里登记了但**注册表里根本不存在**的工具」也会被算成「给到了」，recall 100% 可能
+// 是关于**不存在的工具**的。现改为：
+//   ① 工具全集来自**生产装配**（`ConfigFactory.build(...).tools.list()`）；
+//   ② 断言 `listDirect()`（模型真正能直载的那批）就是被规划的那批；
+//   ③ 类别表若登记了注册表里没有的工具 ⇒ **硬红**（`missingInRegistry`）。
+// 这与 `tool-exposure-ab.mjs` 的防假绿灯口径一致（那边早就有这条，本脚本此前漏了）。
 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +35,26 @@ const ROOT = join(__dirname, '..');
 const { ToolExposurePlanner } = await import(
   new URL('../dist/src/core/toolExposurePlanner.js', import.meta.url).href
 );
+const { ConfigFactory } = await import(
+  new URL('../dist/src/config/configFactory.js', import.meta.url).href
+);
+const { MemoryStorage } = await import(
+  new URL('../dist/src/adapters/storage/memoryStorage.js', import.meta.url).href
+);
+const { AutoApproval } = await import(
+  new URL('../dist/src/adapters/approval/autoApproval.js', import.meta.url).href
+);
+const { PassthroughSandbox } = await import(
+  new URL('../dist/src/adapters/sandbox/passthroughSandbox.js', import.meta.url).href
+);
+const { SilentEventPort } = await import(
+  new URL('../dist/src/adapters/event/silentEventPort.js', import.meta.url).href
+);
+const { TOOL_NAMES } = await import(
+  new URL('../dist/src/ports/tool/toolNames.js', import.meta.url).href
+);
+/** 唯一「条件性注册」的工具名常量（见下方 `CONDITIONALLY_REGISTERED`）。 */
+const TOOL_NAMES_DELEGATE = TOOL_NAMES.delegate;
 
 /**
  * 探针集：任务文本 → 完成它**最小必需**的工具集。
@@ -55,7 +85,10 @@ const PROBES = [
   { q: 'look at this image and describe it', gt: ['view_image'] },
   { q: '看一段视频画面判断发生了什么', gt: ['view_media'] },
   { q: 'spawn a subagent to do this in parallel', gt: ['subagent'] },
-  { q: 'delegate this job to a worker', gt: ['delegate'] },
+  // 2026-10-02 修：原 GT 是 `delegate`，但 `delegate` **只在真有外部 worker 时才注册**
+  // （2026-09-26 审计 F1：默认配置下它由恒返回假成功的演示桩支撑 ⇒ 宁可不注册）。
+  // 默认装配下该探针要求的工具**根本不存在** ⇒ 改用真实存在的等价委派路径 `subagent`。
+  { q: 'delegate this job to a worker', gt: ['subagent'] },
   { q: 'run a goal oriented workflow for me', gt: ['run_goal'] },
   { q: 'execute the review workflow', gt: ['run_workflow'] },
   { q: 'remember this decision for later', gt: ['remember'] },
@@ -80,9 +113,76 @@ const PROBES = [
 
 const cats = ToolExposurePlanner.DEFAULT_CATEGORIES;
 const always = ToolExposurePlanner.DEFAULT_ALWAYS_VISIBLE;
-const allTools = [...new Set([...cats.flatMap((c) => c.tools), ...always])];
+/** 类别表登记的全部工具名（用于与**真实注册表**对账）。 */
+const categorized = new Set([...cats.flatMap((c) => c.tools), ...always]);
+
+// —— 工具全集取自生产装配（**不再**取自 planner 自己的表，见文件头「自证循环」）——
+const config = ConfigFactory.build({
+  workspaceRoot: ROOT,
+  maxSteps: 1,
+  model: {
+    name: 'noop',
+    generate: async () => ({ text: '' }),
+    stream: async () => ({ text: '' }),
+  },
+  storage: new MemoryStorage(),
+  approvals: new AutoApproval(),
+  sandbox: new PassthroughSandbox(),
+  events: new SilentEventPort(),
+});
+const registryTools = config.tools.list().map((t) => t.name);
+const directTools = (config.tools.listDirect?.() ?? config.tools.list()).map((t) => t.name);
+const allTools = registryTools;
+const registrySet = new Set(allTools);
+
+/**
+ * **条件性注册**的工具：类别表可以登记它们，但它们**不在默认装配的注册表**里，
+ * 因此不参与本脚本的召回度量（没有它们时相关探针应改用真实存在的等价工具）。
+ *
+ * `delegate`（2026-09-26 审计 F1）：只在真有外部 worker 时注册——默认配置下它原本由演示桩
+ * `SimpleWorker` 支撑，而桩恒返回假成功 ⇒ 「工具不存在」远好过「工具撒谎」。故它可缺席是**设计**，不是脱节。
+ */
+const CONDITIONALLY_REGISTERED = new Set([TOOL_NAMES_DELEGATE]);
+
+/** 类别表登记、且**应在默认装配里存在**、但注册表里查无此物 ⇒ 真脱节，硬红。 */
+const missingInRegistry = [...categorized].filter(
+  (n) => !registrySet.has(n) && !CONDITIONALLY_REGISTERED.has(n),
+);
+/** 条件性注册、本次确实缺席的工具（报告如实登记，不算脱节）。 */
+const absentButDesignIntended = [...categorized].filter(
+  (n) => !registrySet.has(n) && CONDITIONALLY_REGISTERED.has(n),
+);
+/** 注册表里有、但没进任何类别（⇒ 规划层恒可见，属护栏保护范围）的工具。 */
+const uncategorized = allTools.filter((n) => !categorized.has(n));
 
 const pct = (r) => `${(r * 100).toFixed(1)}%`;
+
+console.log(
+  `工具清单：注册表 ${allTools.length} 个（直载 ${directTools.length}）｜类别表登记 ${categorized.size} 个`,
+);
+if (missingInRegistry.length > 0) {
+  console.error(
+    `\n❌ 类别表与真实注册表脱节（登记了不该缺席的工具）：${missingInRegistry.join(', ')}`,
+  );
+  console.error('   本脚本的 recall 口径因此无意义，中止（防假绿灯）。');
+  process.exit(1);
+}
+if (absentButDesignIntended.length > 0) {
+  console.log(`  条件性注册、本次缺席（设计如此）：${absentButDesignIntended.join(', ')}`);
+}
+if (uncategorized.length > 0) {
+  console.log(`  未登记进任何类别（规划层恒可见）：${uncategorized.join(', ')}`);
+}
+// GT 里出现「本次注册表里不存在」的工具 ⇒ 该探针度量的是一条不可达路径，必须硬红
+// （否则「recall 100%」可能是在要求一个不存在的工具）。
+const unreachableGt = [...new Set(PROBES.flatMap((p) => p.gt).filter((t) => !registrySet.has(t)))];
+if (unreachableGt.length > 0) {
+  console.error(
+    `\n❌ 探针的必需工具集里含注册表里不存在的工具：${unreachableGt.join(', ')}` +
+      '\n   该探针在默认装配下不可达（度量无意义），请改用真实存在的等价工具。',
+  );
+  process.exit(1);
+}
 
 const rows = [];
 for (const { q, gt } of PROBES) {
@@ -113,7 +213,6 @@ const planNoise = mean((r) => r.noise);
 const perfect = rows.filter((r) => r.recall === 1).length;
 const directNoise = mean((r) => (allTools.length - r.gt.length) / allTools.length);
 
-console.log(`工具清单：${allTools.length} 个（类别表登记 ${cats.length} 类）`);
 console.log(`探针：${n} 条（含 ${rows.filter((r) => r.gt.length === 0).length} 条无信号任务）\n`);
 
 console.log('=== 必需工具召回（硬指标）===');
@@ -155,7 +254,12 @@ writeFileSync(
   JSON.stringify(
     {
       generatedAt: new Date().toISOString(),
+      toolSource: 'production: ConfigFactory.build(...).tools.list()',
       toolCount: allTools.length,
+      directCount: directTools.length,
+      categorizedCount: categorized.size,
+      missingInRegistry,
+      uncategorized,
       probes: n,
       plan: {
         recall: +planRecall.toFixed(4),
