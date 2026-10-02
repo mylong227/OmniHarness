@@ -25,7 +25,7 @@ const log = (m) => appendFileSync(PLOG, m + '\n');
 
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
-const { RepoMap } = await importDist('context', 'repoMap.js');
+const { RepoMap } = await importDist('context', 'repoMap', 'repoMap.js');
 const { ContentStopWords } = await importDist('context', 'contentStopWords.js');
 const { FileReranker } = await importDist('context', 'fileReranker.js');
 

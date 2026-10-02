@@ -1,18 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSyncAsync } from '../helpers/childProcess.js';
 import { dshWorker } from '../../src/worker/dshWorker.js';
 import { WorkerRegistry } from '../../src/worker/workerRegistry.js';
 import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.js';
 
 /** 真实二进制联调的前置条件：本机装有 dsh。 */
-const dshReady = ((): boolean => {
-  try {
-    return spawnSync('dsh', ['-V'], { encoding: 'utf8', timeout: 30000, shell: true }).status === 0;
-  } catch {
-    return false;
-  }
-})();
+const dshReady =
+  (
+    await spawnSyncAsync('dsh', ['-V'], {
+      encoding: 'utf8',
+      timeout: 30000,
+      shell: true,
+    })
+  ).status === 0;
 
 /** 跳过原因（未装 dsh 时）。 */
 const skipReason = dshReady ? false : '本机未安装 dsh，跳过真实二进制联调';

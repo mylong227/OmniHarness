@@ -16,7 +16,7 @@
  *   `--version` / `--help` 等无需执行引擎的路径不再加载本文件。
  */
 
-import { execFileSync } from 'node:child_process';
+import { AsyncChildProcess } from '../util/asyncChildProcess.js';
 import { Agent } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
@@ -202,14 +202,16 @@ export class ExecCli extends CliAgentCmds {
 */
   private async maybeAutoCommit(finalText: string): Promise<void> {
     try {
-      execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { stdio: 'ignore' });
+      await AsyncChildProcess.execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], {
+        stdio: 'ignore',
+      });
     } catch {
       return;
     }
     try {
-      execFileSync('git', ['add', '-A'], { stdio: 'ignore' });
+      await AsyncChildProcess.execFileAsync('git', ['add', '-A'], { stdio: 'ignore' });
       const message = `OmniHarness: ${finalText.slice(0, 72).replace(/\s+/g, ' ').trim() || 'auto-commit'}`;
-      execFileSync('git', ['commit', '-m', message], { stdio: 'ignore' });
+      await AsyncChildProcess.execFileAsync('git', ['commit', '-m', message], { stdio: 'ignore' });
       process.stderr.write('已自动提交变更（--auto-commit）\n');
     } catch {
       // 无变更可提交或提交被钩子拒绝：忽略

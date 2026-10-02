@@ -23,7 +23,7 @@ function importDist(...segments) {
   return import(pathToFileURL(join(DIST, ...segments)).href);
 }
 
-const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMap', 'repoMapContextEngine.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
 
 /** repo-map 生产接入器实例（原模块级包装函数已随重命名移除）。 */

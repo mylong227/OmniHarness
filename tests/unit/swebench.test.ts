@@ -57,12 +57,12 @@ test('scoreSweResult: 非 0 退出码 → 不通过', () => {
   assert.strictEqual(Swebench.scoreSweResult(7), false);
 });
 
-test('runEval: 退出码 0 如实返回 0', () => {
-  assert.strictEqual(Swebench.runEval('node -e "process.exit(0)"', tmpdir()), 0);
+test('runEval: 退出码 0 如实返回 0', async () => {
+  assert.strictEqual(await Swebench.runEval('node -e "process.exit(0)"', tmpdir()), 0);
 });
 
-test('runEval: 非 0 退出码如实返回状态码', () => {
-  assert.strictEqual(Swebench.runEval('node -e "process.exit(7)"', tmpdir()), 7);
+test('runEval: 非 0 退出码如实返回状态码', async () => {
+  assert.strictEqual(await Swebench.runEval('node -e "process.exit(7)"', tmpdir()), 7);
 });
 
 // ---------- 对照（评分器有效性，fail-closed）----------

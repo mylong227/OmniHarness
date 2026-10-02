@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { execFileSync } from 'node:child_process';
+import { execFileAsync } from '../helpers/childProcess.js';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -198,7 +198,7 @@ test('NativeExecutor：缓存根不存在时自动创建（首次真实跑分不
     const originBase = join(tmp, 'origin');
     const bare = join(originBase, 'local', 'one.git');
     mkdirSync(bare, { recursive: true });
-    execFileSync('git', ['init', '--bare', bare], { stdio: 'ignore' });
+    await execFileAsync('git', ['init', '--bare', bare], { stdio: 'ignore' });
     const cacheRoot = join(tmp, 'fresh-cache'); // 故意不存在：复现首次运行场景
     const exec = new NativeExecutor({
       repoCacheRoot: cacheRoot,

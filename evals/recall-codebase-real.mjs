@@ -20,7 +20,7 @@ const PLOG = join(ROOT, 'recall-progress.log');
 writeFileSync(PLOG, `start ${new Date().toISOString()}\n`);
 const log = (m) => appendFileSync(PLOG, m + '\n');
 
-const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMap', 'repoMapContextEngine.js');
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',

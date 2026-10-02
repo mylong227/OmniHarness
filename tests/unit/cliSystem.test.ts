@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileAsync } from '../helpers/childProcess.js';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -61,31 +61,33 @@ test('ConfigFile：找不到返回 undefined，坏文件返回空配置', () => 
   assert.deepStrictEqual(configFile.load(join(root, 'omniharness.json')), {});
 });
 
-test('session list：列出会话文件', () => {
+test('session list：列出会话文件', async () => {
   const dir = join(tmpdir(), `omniharness-sess-${Date.now()}`);
   const file = join(dir, 'sess_test_1.jsonl');
   const line =
     '{"id":"e1","type":"user","sessionId":"sess_test_1","timestamp":"2026-01-01T00:00:00.000Z","payload":{"content":"x"}}\n';
-  execFileSync(process.execPath, [
+  await execFileAsync(process.execPath, [
     '-e',
     `require('node:fs').mkdirSync(${JSON.stringify(dir)}, { recursive: true }); require('node:fs').writeFileSync(${JSON.stringify(file)}, ${JSON.stringify(line)});`,
   ]);
 
-  const output = execFileSync(
-    process.execPath,
-    [cliPath, 'session', 'list', '--storage-dir', dir],
-    { encoding: 'utf8' },
-  );
+  const output = (
+    await execFileAsync(process.execPath, [cliPath, 'session', 'list', '--storage-dir', dir], {
+      encoding: 'utf8',
+    })
+  ).toString();
   assert.match(output, /sess_test_1/);
   assert.match(output, /1 事件/);
 });
 
-test('doctor：输出诊断报告结构正确', () => {
+test('doctor：输出诊断报告结构正确', async () => {
   let output = '';
   try {
-    output = execFileSync(process.execPath, [cliPath, 'doctor', '--model-adapter', 'mock'], {
-      encoding: 'utf8',
-    });
+    output = (
+      await execFileAsync(process.execPath, [cliPath, 'doctor', '--model-adapter', 'mock'], {
+        encoding: 'utf8',
+      })
+    ).toString();
   } catch (error) {
     output = (error as { stdout?: Buffer | string })?.stdout?.toString() ?? '';
   }
@@ -107,7 +109,7 @@ test('doctor：openai 缺 key 报问题（**环境隔离**：不继承机器本�
   delete env['OMNIHARNESS_API_KEY'];
   let failed = false;
   try {
-    execFileSync(process.execPath, [cliPath, 'doctor', '--model-adapter', 'openai'], {
+    await execFileAsync(process.execPath, [cliPath, 'doctor', '--model-adapter', 'openai'], {
       encoding: 'utf8',
       cwd: dir,
       env,
@@ -118,12 +120,14 @@ test('doctor：openai 缺 key 报问题（**环境隔离**：不继承机器本�
   assert.strictEqual(failed, true, '无 key 时 doctor 必须报问题并以非零退出');
 });
 
-test('compare：两个模型 A/B 对比输出', () => {
-  const output = execFileSync(
-    process.execPath,
-    [cliPath, 'compare', '--prompt', '对比测试', '--adapter-a', 'mock', '--adapter-b', 'mock'],
-    { encoding: 'utf8' },
-  );
+test('compare：两个模型 A/B 对比输出', async () => {
+  const output = (
+    await execFileAsync(
+      process.execPath,
+      [cliPath, 'compare', '--prompt', '对比测试', '--adapter-a', 'mock', '--adapter-b', 'mock'],
+      { encoding: 'utf8' },
+    )
+  ).toString();
   assert.match(output, /=== A\/B 对比 ===/);
   assert.match(output, /模型 A:/);
   assert.match(output, /模型 B:/);

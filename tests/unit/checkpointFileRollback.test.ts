@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileAsync } from '../helpers/childProcess.js';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,12 +11,12 @@ import { GitWorkspaceSnapshot } from '../../src/adapters/workspace/gitWorkspaceS
 /** 在临时目录初始化 git 仓库并提交一个基线文件。 */
 async function initRepo(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'omni-ckpt-'));
-  execFileSync('git', ['init', '-q'], { cwd: root });
-  execFileSync('git', ['config', 'user.email', 't@t'], { cwd: root });
-  execFileSync('git', ['config', 'user.name', 't'], { cwd: root });
+  await execFileAsync('git', ['init', '-q'], { cwd: root });
+  await execFileAsync('git', ['config', 'user.email', 't@t'], { cwd: root });
+  await execFileAsync('git', ['config', 'user.name', 't'], { cwd: root });
   await writeFile(join(root, 'a.txt'), 'v1', 'utf8');
-  execFileSync('git', ['add', 'a.txt'], { cwd: root });
-  execFileSync('git', ['commit', '-q', '-m', 'baseline'], { cwd: root });
+  await execFileAsync('git', ['add', 'a.txt'], { cwd: root });
+  await execFileAsync('git', ['commit', '-q', '-m', 'baseline'], { cwd: root });
   return root;
 }
 
@@ -25,8 +25,8 @@ test('checkpoint 文件回滚：还原快照时刻磁盘内容 + 重建被删文
   try {
     // 再提交一个基线文件 b.txt。
     await writeFile(join(root, 'b.txt'), 'v1', 'utf8');
-    execFileSync('git', ['add', 'b.txt'], { cwd: root });
-    execFileSync('git', ['commit', '-q', '-m', 'b'], { cwd: root });
+    await execFileAsync('git', ['add', 'b.txt'], { cwd: root });
+    await execFileAsync('git', ['commit', '-q', '-m', 'b'], { cwd: root });
 
     const storage = new MemoryStorage();
     const mgr = new CheckpointManager(storage, {

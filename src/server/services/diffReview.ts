@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import type { RepoPathGuard } from './repoPathGuard.js';
+import { AsyncChildProcess } from '../../util/asyncChildProcess.js';
 
 /** DiffReview 构造选项。 */
 export interface DiffReviewOptions {
@@ -27,12 +27,16 @@ export class DiffReview {
    * @returns 工作区根绝对路径。
    * @throws 工作区不是 git 仓库时（stage/revert 前置条件）。
    */
-  public gitRootOrFail(): string {
+  public async gitRootOrFail(): Promise<string> {
     const ws = this.options.workspaceRoot();
-    const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      cwd: ws,
-      encoding: 'utf8',
-    });
+    const inside = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['rev-parse', '--is-inside-work-tree'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
     if (inside.status !== 0 || inside.stdout.trim() !== 'true') {
       throw new Error('当前工作区不是 git 仓库，无法执行 stage/revert');
     }
@@ -45,12 +49,15 @@ export class DiffReview {
    * @returns `{ ok: true }`。
    * @throws path 缺失/非法、工作区非 git 仓库或 `git add` 失败时。
    */
-  public stageFile(params: Record<string, unknown>): unknown {
+  public async stageFile(params: Record<string, unknown>): Promise<unknown> {
     const raw = params['path'];
     if (typeof raw !== 'string') throw new Error('changes.stageFile 需要 path');
-    const ws = this.gitRootOrFail();
+    const ws = await this.gitRootOrFail();
     const rel = this.options.guard.resolve(raw);
-    const add = spawnSync('git', ['add', '--', rel], { cwd: ws, encoding: 'utf8' });
+    const add = await AsyncChildProcess.spawnSyncAsync('git', ['add', '--', rel], {
+      cwd: ws,
+      encoding: 'utf8',
+    });
     if (add.status !== 0) {
       throw new Error('git add 失败：' + (add.stderr || add.stdout).trim());
     }
@@ -63,15 +70,18 @@ export class DiffReview {
    * @returns `{ ok: true }`。
    * @throws 未跟踪文件拒绝服务端删除（防误删）、工作区非 git 仓库或 `git checkout` 失败时。
    */
-  public revertFile(params: Record<string, unknown>): unknown {
+  public async revertFile(params: Record<string, unknown>): Promise<unknown> {
     const raw = params['path'];
     if (typeof raw !== 'string') throw new Error('changes.revertFile 需要 path');
-    const ws = this.gitRootOrFail();
+    const ws = await this.gitRootOrFail();
     const rel = this.options.guard.resolve(raw);
-    if (this.fileStatus(ws, rel) === '??') {
+    if ((await this.fileStatus(ws, rel)) === '??') {
       throw new Error('未跟踪文件不做服务端丢弃（防误删），请手动删除或先 stage');
     }
-    const co = spawnSync('git', ['checkout', '--', rel], { cwd: ws, encoding: 'utf8' });
+    const co = await AsyncChildProcess.spawnSyncAsync('git', ['checkout', '--', rel], {
+      cwd: ws,
+      encoding: 'utf8',
+    });
     if (co.status !== 0) {
       throw new Error('git checkout 失败：' + (co.stderr || co.stdout).trim());
     }
@@ -84,27 +94,34 @@ export class DiffReview {
    * @returns `{ ok: true }`。
    * @throws path/hunk 缺失或非法、工作区非 git 仓库、`git add -N` 或 `git apply --cached` 失败时。
    */
-  public stageHunk(params: Record<string, unknown>): unknown {
+  public async stageHunk(params: Record<string, unknown>): Promise<unknown> {
     const raw = params['path'];
     const hunk = params['hunk'];
     if (typeof raw !== 'string') throw new Error('changes.stageHunk 需要 path');
     if (typeof hunk !== 'string' || hunk.trim() === '') {
       throw new Error('changes.stageHunk 需要 hunk 文本');
     }
-    const ws = this.gitRootOrFail();
+    const ws = await this.gitRootOrFail();
     const rel = this.options.guard.resolve(raw);
     if (params['isNew'] === true) {
       // 未跟踪文件先进 index 意向区（intent-to-add），否则 --cached apply 无目标。
-      const addN = spawnSync('git', ['add', '-N', '--', rel], { cwd: ws, encoding: 'utf8' });
+      const addN = await AsyncChildProcess.spawnSyncAsync('git', ['add', '-N', '--', rel], {
+        cwd: ws,
+        encoding: 'utf8',
+      });
       if (addN.status !== 0) {
         throw new Error('git add -N 失败：' + (addN.stderr || addN.stdout).trim());
       }
     }
-    const apply = spawnSync('git', ['apply', '--cached', '--recount', '--whitespace=nofix', '-'], {
-      cwd: ws,
-      encoding: 'utf8',
-      input: this.hunkPatchText(rel, hunk),
-    });
+    const apply = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['apply', '--cached', '--recount', '--whitespace=nofix', '-'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+        input: this.hunkPatchText(rel, hunk),
+      },
+    );
     if (apply.status !== 0) {
       throw new Error('git apply --cached 失败：' + (apply.stderr || apply.stdout).trim());
     }
@@ -117,20 +134,24 @@ export class DiffReview {
    * @returns `{ ok: true }`。
    * @throws path/hunk 缺失或非法、工作区非 git 仓库或 `git apply -R` 失败时。
    */
-  public revertHunk(params: Record<string, unknown>): unknown {
+  public async revertHunk(params: Record<string, unknown>): Promise<unknown> {
     const raw = params['path'];
     const hunk = params['hunk'];
     if (typeof raw !== 'string') throw new Error('changes.revertHunk 需要 path');
     if (typeof hunk !== 'string' || hunk.trim() === '') {
       throw new Error('changes.revertHunk 需要 hunk 文本');
     }
-    const ws = this.gitRootOrFail();
+    const ws = await this.gitRootOrFail();
     const rel = this.options.guard.resolve(raw);
-    const apply = spawnSync('git', ['apply', '-R', '--recount', '--whitespace=nofix', '-'], {
-      cwd: ws,
-      encoding: 'utf8',
-      input: this.hunkPatchText(rel, hunk),
-    });
+    const apply = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['apply', '-R', '--recount', '--whitespace=nofix', '-'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+        input: this.hunkPatchText(rel, hunk),
+      },
+    );
     if (apply.status !== 0) {
       throw new Error('git apply -R 失败：' + (apply.stderr || apply.stdout).trim());
     }
@@ -155,8 +176,8 @@ export class DiffReview {
    * @param rel 仓库内相对路径。
    * @returns 两字符状态，仓库异常时返回空串。
    */
-  private fileStatus(ws: string, rel: string): string {
-    const st = spawnSync('git', ['status', '--porcelain', '--', rel], {
+  private async fileStatus(ws: string, rel: string): Promise<string> {
+    const st = await AsyncChildProcess.spawnSyncAsync('git', ['status', '--porcelain', '--', rel], {
       cwd: ws,
       encoding: 'utf8',
     });

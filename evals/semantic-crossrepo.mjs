@@ -29,7 +29,7 @@ const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...s) => import(pathToFileURL(join(DIST, ...s)).href);
 
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
-const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMap', 'repoMapContextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',

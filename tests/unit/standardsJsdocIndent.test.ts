@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSyncAsync } from '../helpers/childProcess.js';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,16 +20,16 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '.
  * 跑一次全量编码标准审计。
  * @returns 退出码与标准输出/错误文本。
  */
-const runAudit = (): { status: number; out: string } => {
-  const r = spawnSync(process.execPath, ['scripts/auditStandards.mjs'], {
+const runAudit = async (): Promise<{ status: number; out: string }> => {
+  const r = await spawnSyncAsync(process.execPath, ['scripts/auditStandards.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
   return { status: r.status ?? 1, out: `${r.stdout}${r.stderr}` };
 };
 
-test('JSDoc 缩进规则：度量已接线，且真实仓库违约数为 0', () => {
-  const { status, out } = runAudit();
+test('JSDoc 缩进规则：度量已接线，且真实仓库违约数为 0', async () => {
+  const { status, out } = await runAudit();
   assert.strictEqual(status, 0, `标准审计应通过，实际输出尾部：${out.slice(-400)}`);
   const m = out.match(/JSDoc 续行缩进违约（注释脱块）:\s*(\d+)/);
   assert.ok(m !== null, '审计输出里应包含 JSDoc 缩进度量行（规则已接线）');

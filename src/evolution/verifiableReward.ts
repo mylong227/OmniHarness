@@ -9,8 +9,8 @@
  * @maturity L1 — 可验证奖励结构在；势函数覆盖率未知（T5 待体检）
  * @maturityEvidence tests/unit/rlvr.test.ts
  */
-import { spawnSync } from 'node:child_process';
 import { unlinkSync, writeFileSync } from 'node:fs';
+import { AsyncChildProcess } from '../util/asyncChildProcess.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Candidate } from '../ports/runtime/evolution.js';
@@ -40,7 +40,7 @@ export class VerifiableReward {
       if (cmd === undefined) return 0;
       let status = -1;
       try {
-        const r = spawnSync(cmd, [], {
+        const r = await AsyncChildProcess.spawnSyncAsync(cmd, [], {
           cwd: cwdFor?.(candidate),
           encoding: 'utf8',
           shell: true,
@@ -168,7 +168,7 @@ export class VerifiableReward {
       }
       let status = -1;
       try {
-        const r = spawnSync(command, [], {
+        const r = await AsyncChildProcess.spawnSyncAsync(command, [], {
           cwd: opts.cwdFor?.(candidate),
           encoding: 'utf8',
           shell: true,

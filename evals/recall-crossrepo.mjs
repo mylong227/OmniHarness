@@ -33,7 +33,7 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...s) => import(pathToFileURL(join(DIST, ...s)).href);
 
-const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMap', 'repoMapContextEngine.js');
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
 const { RankVetoEvaluator, RankVetoOverlap, DEFAULT_VETO_THRESHOLDS } = await importDist(
   'context',
