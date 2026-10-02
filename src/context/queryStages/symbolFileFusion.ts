@@ -5,7 +5,7 @@
  * 文件混合分口径：max(文件BM25, 0.7×最强符号分, 0.5×层化图分)。
  */
 import { CodeGraphIndex, type CodeGraph } from '../codeGraphIndex.js';
-import type { SymbolNode } from '../repoMap.js';
+import type { SymbolNode } from '../repoMap/repoMap.js';
 import type { ScoredId } from './candidateSearch.js';
 import { LayeredGraphFusion } from './layeredGraphFusion.js';
 

@@ -19,7 +19,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
 import type { BudgetDegradeSignal } from '../../src/ports/model/budgetDegrade.js';
 import type { EmbeddingPort } from '../../src/ports/model/embedding.js';

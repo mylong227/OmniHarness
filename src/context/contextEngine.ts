@@ -10,7 +10,7 @@
 import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Bm25Index } from '../search/bm25Index.js';
-import { RepoMap, type SymbolNode } from './repoMap.js';
+import { RepoMap, type SymbolNode } from './repoMap/repoMap.js';
 import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.js';
 import { LsaEngine, type LsaModel } from './lsaEngine.js';

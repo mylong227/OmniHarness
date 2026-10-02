@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.js';
 import { HybridRanker } from '../../src/context/hybridRanker.js';
 import { RecallKnobs } from '../../src/context/recallKnobs.js';
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.js';
 
 /** 夹具：搭建临时语料（与 fileReranker.test.ts 同构）。 */

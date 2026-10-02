@@ -15,7 +15,7 @@
  */
 import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ParallelMap } from '../../util/parallelMap.js';
+import { ParallelMap } from '../../util/concurrency/parallelMap.js';
 import type {
   BenchmarkBudget,
   TerminalBenchExecutionBackend,

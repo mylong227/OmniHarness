@@ -90,7 +90,7 @@
 | C3  | **已试杠杆几乎全负**：PRF −7.1pp、图检索/层化图净负（跨查询重合 0.936 = 常量偏置）、LSA 符号精确率腰斩、频域共振零效应、交叉编码器 rerank −1.0pp、蜘蛛网五形态全负                     | `docs/RECALL_HEADROOM_SURVEY.md`                                               |
 | C4  | **前缀复用率唯一在盘报告是修复前的（60.94%）**，文档声称的 80.75% 无报告支撑，且 `eval:prefix` 不在 CI                                                                                 | `evals/prefix-stability.report.json`（2026-09-16，早于修复提交）               | **【已修·第三批】**（`pairAt` 改按回合边界判型 + `--min-reuse` 回归门进 `eval:ci`；实测 8 回合终态 87.11%、跨回合对 7/14 正确识别） |
 | C5  | **索引无增量**：TTL 30s 到期即全量重建，本仓实测 **8.6s/次** 且 `truncated=true`                                                                                                       | 实测 `ContextEngine.indexCorpus`                                               |
-| C6  | **Python 符号抽取只认顶层 `def`/`class`**（`^\s*def`）⇒ 方法、import 全抽不到 —— 这直接解释了跨仓（全是 Python 仓）效果差                                                              | `src/context/repoMap.ts:115`                                                   |
+| C6  | **Python 符号抽取只认顶层 `def`/`class`**（`^\s*def`）⇒ 方法、import 全抽不到 —— 这直接解释了跨仓（全是 Python 仓）效果差                                                              | `src/context/repoMap/repoMap.ts:115`                                           |
 | C7  | `query()` 224 行、11 个职责、6 组无出处的魔法权重 ⇒ 不可单测隔离；每次查询全量扫符号表（可用已有的 per-file 视图，实测 **1.055ms → 0.005ms**）                                         | `contextEngine.ts:385-636`、`:626`                                             |
 | C8  | **AST / 调用图 / 增量索引 / 变更影响分析缺失**，项目自己在 `docs/LANDSCAPE_RESEARCH_2026.md:75` 已承认是「缺口」                                                                       | 同上                                                                           |
 

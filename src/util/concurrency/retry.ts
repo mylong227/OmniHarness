@@ -11,7 +11,12 @@ export class Retry {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /** 计算第 n 次失败后的退避（指数 + 全抖动），封顶 maxDelayMs。 */
+  /**
+   * 计算第 n 次失败后的退避（指数 + 全抖动），封顶 maxDelayMs。
+   * @param attempt 第几次尝试（1-based）。
+   * @param opts 退避参数（baseDelayMs / maxDelayMs / factor）。
+   * @returns 本次退避毫秒数。
+   */
   public static backoffMs(attempt: number, opts: BackoffParams): number {
     const raw = opts.baseDelayMs * Math.pow(opts.factor, attempt - 1);
     const capped = Math.min(raw, opts.maxDelayMs);
@@ -22,6 +27,9 @@ export class Retry {
   /**
    * 对 `fn` 施加重试。所有尝试失败则抛出最后一次错误。
    * fail-closed：非可重试错误立即抛出，不浪费重试预算。
+   * @param fn 待执行的异步操作。
+   * @param options 重试选项（次数 / 退避 / 可重试判定 / 等待钩子）。
+   * @returns `fn` 首次成功时的返回值。
    */
   public static async withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
     const opts = {

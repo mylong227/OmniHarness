@@ -10,7 +10,7 @@
  * - 有回合在跑 ⇒ 拒绝（避免「回合写盘」与「回退写盘」互相覆盖）；
  * - 无需截断（keepEventId 已是末条）⇒ 不写盘，如实回报 `dropped: 0`。
  */
-import type { SessionEvent } from '../../ports/runtime/event.js';
+import type { SessionEvent } from '../../../ports/runtime/event.js';
 
 /** 回退依赖（注入以避免直接持有存储/运行时）。 */
 export interface SessionRewindDeps {

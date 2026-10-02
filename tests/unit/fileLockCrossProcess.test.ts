@@ -85,7 +85,7 @@ test('真·跨进程：拿不到锁的子进程**有界退出**（不无限等�
     const counter = join(dir, 'counter.json');
     writeFileSync(counter, JSON.stringify({ n: 0 }));
     // 先由父进程持锁（模拟「另一个进程正在临界区里」）
-    const { FileLock } = await import('../../src/util/fileLock.js');
+    const { FileLock } = await import('../../src/util/concurrency/fileLock.js');
     const held = new FileLock(counter, { leaseMs: 30_000 });
     assert.strictEqual(held.tryAcquire(), true);
     const child = spawn(

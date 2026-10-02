@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Bm25Index } from '../../src/search/bm25Index.js';

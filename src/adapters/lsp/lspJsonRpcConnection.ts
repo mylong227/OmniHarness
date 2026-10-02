@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { PendingRequests } from '../../util/pendingRequests.js';
+import { PendingRequests } from '../../util/concurrency/pendingRequests.js';
 import { log } from '../../util/logger.js';
 
 /** JSON-RPC 2.0 消息（宽松结构，仅取我们需要的字段）。 */

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
 import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.js';
 

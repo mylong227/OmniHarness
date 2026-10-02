@@ -1,6 +1,6 @@
 import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.js';
 import type { SdkSocket } from './webSocketSdkSocket.js';
-import { PendingRequests } from '../util/pendingRequests.js';
+import { PendingRequests } from '../util/concurrency/pendingRequests.js';
 
 /** SDK 客户端选项。 */
 export interface SdkClientOptions {

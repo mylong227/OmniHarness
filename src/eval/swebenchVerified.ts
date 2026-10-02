@@ -18,7 +18,7 @@
 
 import { execFile, execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { ParallelMap } from '../util/parallelMap.js';
+import { ParallelMap } from '../util/concurrency/parallelMap.js';
 
 /** 官方 Verified 数据集默认 HF id（仅文档/对照引用，原生执行不强制拉取）。 */
 export const DEFAULT_VERIFIED_DATASET = 'princeton-nlp/SWE-bench_Verified';

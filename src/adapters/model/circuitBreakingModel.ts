@@ -4,7 +4,7 @@ import type {
   ModelRequest,
   StreamCallbacks,
 } from '../../ports/model/model.js';
-import type { CircuitBreaker } from '../../util/circuitBreaker.js';
+import type { CircuitBreaker } from '../../util/concurrency/circuitBreaker.js';
 
 /**
  * 模型调用熔断装饰器（F3）：把任意 `ModelPort` 包一层三态熔断。

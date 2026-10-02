@@ -1,4 +1,4 @@
-import { ArrayAt } from './arrayAt.js';
+import { ArrayAt } from '../arrayAt.js';
 
 /**
  * @beta

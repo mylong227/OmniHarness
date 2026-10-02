@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 // StepRunner × 流式路径集成测试（#B3 接线）：验证「live 端口 + model.stream」正确转发
 // 工具参数增量，并在不传 live 或模型不支持 stream 时 fail-closed 退回 generate 路径。
 import { test } from 'node:test';

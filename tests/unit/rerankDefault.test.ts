@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 
 /**
  * 精排敏感语料：`beta.ts` 靠词频堆砌（tool ×3）在首段 BM25 抢到首位，

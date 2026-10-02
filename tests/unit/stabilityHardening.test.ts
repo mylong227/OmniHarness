@@ -10,7 +10,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { PendingRequests } from '../../src/util/pendingRequests.js';
+import { PendingRequests } from '../../src/util/concurrency/pendingRequests.js';
 import { SdkClient } from '../../src/sdk/sdkClient.js';
 import type { SdkSocket } from '../../src/sdk/webSocketSdkSocket.js';
 import { Interactive } from '../../src/tui/interactive.js';

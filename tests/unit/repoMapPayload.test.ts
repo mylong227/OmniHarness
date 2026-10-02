@@ -23,8 +23,8 @@ import { join } from 'node:path';
 
 import { ContextEngine } from '../../src/context/contextEngine.js';
 import type { IndexedCorpus } from '../../src/context/contextEngine.js';
-import { RepoMap } from '../../src/context/repoMap.js';
-import { RepoMapPayload } from '../../src/context/repoMapPayload.js';
+import { RepoMap } from '../../src/context/repoMap/repoMap.js';
+import { RepoMapPayload } from '../../src/context/repoMap/repoMapPayload.js';
 import { Bm25Index } from '../../src/search/bm25Index.js';
 
 /** 夹具：12 个文件，每个声明一个名字含 `alpha` / `widget` 的符号。 */

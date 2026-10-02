@@ -5,7 +5,7 @@ import { RetryingModel } from '../../src/adapters/model/retryingModel.js';
 import { CircuitOpenError } from '../../src/errors/circuitOpenError.js';
 import { ModelCallError } from '../../src/ports/model/model.js';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import { CircuitBreaker } from '../../src/util/circuitBreaker.js';
+import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.js';
 
 /** 可计数、可控抛错的假模型。 */
 class CountingModel implements ModelPort {

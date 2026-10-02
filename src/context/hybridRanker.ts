@@ -16,7 +16,7 @@
  */
 
 import type { IndexedCorpus } from './contextEngine.js';
-import type { SymbolNode } from './repoMap.js';
+import type { SymbolNode } from './repoMap/repoMap.js';
 import { SemanticIndex, type RecallHit } from './semanticIndex.js';
 import { CodeReferenceGraph } from './codeReferenceGraph.js';
 import type { RecallKnobs } from './recallKnobs.js';

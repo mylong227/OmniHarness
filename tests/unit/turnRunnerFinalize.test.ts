@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 // #OBS-9：步数耗尽兜底回归测试。
 //
 // 复现场景（2026-09-08 真机）：模型持续调用工具（探索/检索）而从不输出文本，

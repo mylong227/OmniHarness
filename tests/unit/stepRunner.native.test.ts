@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 // stepRunner × native 后端集成测试（#67）：验证 --approval/--sandbox 门禁在 native 与 JS 路径下行为一致。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

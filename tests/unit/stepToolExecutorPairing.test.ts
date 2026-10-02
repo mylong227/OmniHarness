@@ -28,7 +28,7 @@ import { ContextAssembler } from '../../src/context/contextAssembler.js';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
 import type { ModelPort } from '../../src/ports/model/model.js';
 import type {

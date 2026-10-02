@@ -170,10 +170,10 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
     ④ 提交口径：能力（BM25 旋钮 + 调参脚本 + 报告）与计划文档同属一条链路 → 一笔代码（`src/search`、`src/context/contextEngine.ts`、`evals/bm25-tune.mjs`、报告）＋一笔看板（本节）。
 14. **打磨批次·有界均衡并行调度（P7，2026-09-15，本轮）**：
     ① 用户要求「单线程 → 并行多线程均衡调度，突破原本瓶颈」。只读盘点定位三处**串行**编排：`SwebenchVerified.runVerifiedSuite`（官方 500 题逐个 `await executor.run()`，主要墙钟瓶颈）／`TerminalBenchRunner.run`（整套 TaskBench 串行）／`WorkerOrchestrator.delegateAll`（注释明写「不并行」）。既有并发原语只覆盖子代理（`SubagentOrchestrator`）与 Agent 工具（`ToolScheduler`，位于热区），**评测/编排层无并发**。
-    ② 新增 `src/util/parallelMap.ts`（`ParallelMap`）：**复用 `ConcurrencyLimiter`**（不重复造闸门），有界并发 + 均衡调度（槽位完成即移交等待者，先到先服务、无队头阻塞）+ 结果**严格同序**；`concurrency=1` **退化为严格串行**（与旧 for-await 等价，零行为变更）。三处接线均为**可选参数**（默认 1=串行）；CLI `--concurrency N`。
+    ② 新增 `src/util/concurrency/parallelMap.ts`（`ParallelMap`）：**复用 `ConcurrencyLimiter`**（不重复造闸门），有界并发 + 均衡调度（槽位完成即移交等待者，先到先服务、无队头阻塞）+ 结果**严格同序**；`concurrency=1` **退化为严格串行**（与旧 for-await 等价，零行为变更）。三处接线均为**可选参数**（默认 1=串行）；CLI `--concurrency N`。
     ③ 语义保证配机械测试：同序（完成顺序打乱仍按输入回填）、在飞峰值 = 上界、并发 4 墙钟 < 串行 1/2、`concurrency=1` 峰值恒 1；`runVerifiedSuite` 并发 3 保序且有界（`parallelMap` 6 例 + `swebenchVerified` 增 2 例全绿）。
     ④ **诚实边界**：不做 CPU 并行（Node 单线程；CPU 密集须 `worker_threads`，另议）；本类只面向 **I/O 密集**独立任务。默认并发 1 故**生产行为零变更**，突破瓶颈须显式 `--concurrency N`（原生执行受网络/磁盘限制，跨仓库可更大并发）。
-    ⑤ 提交口径：能力（`src/util/parallelMap.ts` + 三处接线 + CLI + 单测）一笔代码 ＋ 一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P7）。
+    ⑤ 提交口径：能力（`src/util/concurrency/parallelMap.ts` + 三处接线 + CLI + 单测）一笔代码 ＋ 一笔看板/计划（本节 + `docs/POLISH_PLAN.md` P7）。
 15. **打磨批次·第一批（token 效率）·P2 确定性无损收缩接线（2026-09-16，本轮）**：
     ① 批次划分（`docs/POLISH_PLAN.md` §4）：第一批 token 效率（P2 + P5）／第二批 检索命中（P1 reranker）／第三批 准确率（P3 + P4）／第四批 外部解锁（P6）。本轮交付**第一批的 P2**。
     ② 缺口（前批审计实证）：`DeterministicCompressor` 全仓消费方只有 `src/index.ts` 导出态、单测与独立基准脚本，**生产链路零调用**——本仓库最高频缺陷形态「声明未接线」。
@@ -837,7 +837,7 @@ P 系列新结 **15** 项（P0.3 / P1.4 / P2.1–P2.3 / P3.3 / P4.1 / P4.2 / P4.
 | --- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | P1  | 本机无 Rust 工具链 ⇒ N3 无法端到端验证                 | 走**国内镜像**装：`winget` 装 rustup → `RUSTUP_DIST_SERVER=https://rsproxy.cn` 装 `stable-x86_64-pc-windows-gnu`（rustc 1.98.1）+ `rustfmt`/`clippy` 组件 → 复用**仓库自带 `.cargo/config.toml`**（rsproxy sparse + `rust-lld`）；`npm run native:build` 重编成功（29.5s）。我另写的用户级 cargo 配置因「source 重名」报错后**已撤除** | `cargo fmt --check` ✓ / `clippy --workspace --all-targets -- -D warnings` ✓ / `cargo test --workspace` ✓      |
 | P2  | N3 只靠 CI 覆盖                                        | 重编后本机端到端：内核单测 `decode_output_prefers_utf8_and_falls_back_to_oem ... ok`；真机 `native.runTool('echo 别名桥-ok')` 回传 **`别名桥-ok`**（修复前 `鍒悕妗?ok`）；`nativeAliasBridge` **3/3、0 skip**（N6 的过期守卫自动失效 ⇒ 反证产物已新）                                                                                  | 见左列                                                                                                        |
-| P3  | `npm run format:check`（CI 门禁）红：28 文件           | `prettier --write .` 全量格式化 ⇒ `All matched files use Prettier code style!`；其中**本仓 tracked 且当时干净**的两处（`docs/FRONTEND_GAP_SOURCE_AUDIT.md` 折行重排、`src/server/services/sessionArchive.ts` 仅 import 换行）随本笔入库；其余均属并行会话在飞文件（prettier 已就地格式化，随其自身提交入库后 CI 即绿）                 | `format:check` exit 0                                                                                         |
+| P3  | `npm run format:check`（CI 门禁）红：28 文件           | `prettier --write .` 全量格式化 ⇒ `All matched files use Prettier code style!`；其中**本仓 tracked 且当时干净**的两处（`docs/FRONTEND_GAP_SOURCE_AUDIT.md` 折行重排、`src/server/services/session/sessionArchive.ts` 仅 import 换行）随本笔入库；其余均属并行会话在飞文件（prettier 已就地格式化，随其自身提交入库后 CI 即绿）         | `format:check` exit 0                                                                                         |
 | P4  | `npm audit --audit-level=high`（CI 门禁）红：4 个 high | 全部来自可选依赖 `@huggingface/transformers` 的传递依赖；npm `overrides` 钉 `sharp@^0.35.4` + `adm-zip@^0.6.1`（原 0.34.5 / 0.5.x 命中 libvips·libheif 与 adm-zip 的 high 公告）                                                                                                                                                       | `npm audit` **found 0 vulnerabilities**；语义嵌入真机复验（新 sharp）pipeline 0.4s、gap 0.0779「OK 有区分力」 |
 
 **终态（复跑）**：`npm test` **1763 / 1759 通过 / 0 失败 / 4 skip**（4 skip 全为平台性：macOS seatbelt、内核负路径、真机特权、git 不可用降级）；`smoke` / `lint` / `format:check` / `check --strict` / `arch:gate --strict` / `api:check` / `audit:maturity` / `audit:standard` / `audit:metrics` / `audit:config-wiring` 全 exit 0；Rust 侧 `fmt` / `clippy -D warnings` / `test --workspace` 全 exit 0；`npm audit` 0 漏洞。
@@ -1899,7 +1899,7 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 上节 §20.19 里**唯一保留**的一项（七个站点的在途请求簿记重复）。上一轮判断「形态各异、不宜混做」，
 本轮给出正面解法：**差异交给调用方表达，簿记只留一份**。
 
-- **新增 `src/util/pendingRequests.ts`**：`PendingRequests<K, V>` = 登记 / 命中 / 超时 / 一次性收尾。
+- **新增 `src/util/concurrency/pendingRequests.ts`**：`PendingRequests<K, V>` = 登记 / 命中 / 超时 / 一次性收尾。
   三条不变量：① 每个处理器**恰好**收尾一次；② **移出条目的同时清定时器**（eliminates「已兑现但定时器还在、
   稍后又 reject 一次」的双收尾——原先七份实现里只有一部分写到这一点）；③ 一次性收尾**返回条数**。
 - **形态差异的落点**（都不是靠「统一形状」硬抹平）：`reject` 可缺省（`httpBridgeTransport` 只登记成功通道）；
@@ -2012,7 +2012,7 @@ denied to mylong227` + HTTP 403 —— 属账号无写权限（非网络问题�
 
 审计里最后两条待办。**每条先实测、再决定改不改**——其中一条实测为可忽略，明确不修并留档。
 
-- **① §2.4 repo-map 结果零记忆化 → 已修**：新增 `src/context/repoMapMemo.ts`，单槽位 memo，
+- **① §2.4 repo-map 结果零记忆化 → 已修**：新增 `src/context/repoMap/repoMapMemo.ts`，单槽位 memo，
   键 = `root + 查询 + 生效旋钮指纹`（env 覆盖后的值参与键），失效判据**另加语料实例比对**
   （重新索引即新实例）⇒ 缓存生命期严格不长于语料生命期，比按 TTL 猜精确。
   **实测（本仓真实语料）**：memo 未命中（换查询、索引已在）**24.1 ms** → 命中 **0.557 ms/次**。
@@ -3830,7 +3830,7 @@ v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空�
 
 ### 26.23 §26.22 的两条边界也收掉（用户：「一起收掉」）
 
-**① 跨进程文件锁：`mkdir` 互斥 + 陈旧抢占。** 新增 `src/util/fileLock.ts`：锁 = `<file>.lock` 目录
+**① 跨进程文件锁：`mkdir` 互斥 + 陈旧抢占。** 新增 `src/util/concurrency/fileLock.ts`：锁 = `<file>.lock` 目录
 （`mkdir` 在 Windows 与 POSIX 上都是**原子创建、已存在即失败**，零依赖），锁内写 `owner.json`
 （pid + 时间）供排障。`SessionSidecars.updateJson` 现在**先拿锁**：拿到 ⇒ 「读—改—写」不再有人插进来，
 写入**不会放弃**；拿不到（例如别人崩在临界区、还没到陈旧阈值）⇒ `withLock` 返回 false
@@ -3870,7 +3870,7 @@ v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空�
 **fencing token**，让过期持有者的写入被拒（<https://pkg.go.dev/pkt.systems/lockd>、
 <https://pkg.go.dev/github.com/anthony-chaudhary/fak@v0.43.0/internal/servicelease>）。
 
-**实现 ①：锁升级为「租约 + fencing token + 抢占原子化 + 被抢占即放弃写入」**（`src/util/fileLock.ts`）
+**实现 ①：锁升级为「租约 + fencing token + 抢占原子化 + 被抢占即放弃写入」**（`src/util/concurrency/fileLock.ts`）
 
 | 项         | 做法                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -4540,3 +4540,50 @@ audit:config-wiring ✅。
 - `evals/context-efficiency` 复现管线修复（run.sh 的 bm25.ts 失效路径 + bench.mjs 旧版顶层函数 import→ContextEngine 静态方法），接线 `eval:context-efficiency`，`.gitignore` 收编 `.xeval/`；端到端跑通并重生成 RESULTS.json。
 - 补齐 `examples/plugins/demo-text|demo-string` 缺失的 `omni.plugin.json`（其余示例插件均有）。
 - 保留（有依据）：`scripts/git-safe.sh`（本机 .git 损坏防护）、`.omniharness/reachScan.mjs`（docs 引用的审计方法工具）。
+
+### 36.4 验收补记（2026-10-02 第三批补登记）
+
+- 门禁：typecheck（含 web）/ lint（0 告警）/ `check --strict`（938 文件零违规）/ arch:gate / audit:standard:delta / audit:maturity / audit:config-wiring / check:doc-links / check:secrets / api:check / audit:top-level-fn 全绿。
+- 单测：context 相关 58 例全过；全量 2464/2474（2 个为本机沙箱噪声，单独重跑即过）。
+- ⚠️ 遗留：本批把 `queryStages/` 从 `src/context/` 抽出后，`src/context/` 直接 .ts 数达 **31**（架构门禁平铺阈值 >30）——当场登记为后续拆分项，见 §37。
+
+---
+
+## 37. 目录平铺告警清零 + 复现管线再验证（2026-10-02 第三批：尾巴收口）
+
+> 触发：用户要求「继续完成，不要让项目留尾巴」。承接 §36.4 登记的平铺告警，并把上一轮「孤儿扫描代理结果未落板」「§36 缺验收」两处一并结清。
+
+### 37.1 架构：三个平铺超限目录按域收口（告警 3 → 0）
+
+arch:gate 的「直接 .ts > 30」告警此前有 3 个（`context/ 31`、`server/services/ 31`、`util/ 31`）。按**域**而非按数量切分，共迁移 19 个文件、同步 105 处引用：
+
+| 目录                   | 迁出                                                                                                                                                                        | 子域                                                      | 顶层 31 → |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | --------- |
+| `src/context/`         | `repoMap` / `repoMapPayload` / `repoMapMemo` / `repoMapContextEngine`                                                                                                       | `context/repoMap/`（符号抽取 → 大纲载荷 → 记忆化 → 引擎） | 27        |
+| `src/server/services/` | `sessionArchive` / `sessionCheckpoints` / `sessionFileScanner` / `sessionModeStore` / `sessionRanking` / `sessionRewindService` / `sessionSidecars` / `sessionTraceService` | `services/session/`                                       | 23        |
+| `src/util/`            | `circuitBreaker` / `concurrencyLimiter` / `parallelMap` / `retry` / `pendingRequests` / `fileLock` / `lockCompromisedError`                                                 | `util/concurrency/`                                       | 24        |
+
+- **纪律**：纯移动，不改一行行为；同域兄弟导入保持 `./NAME.js`，跨层级导入随深度上调（先按 Windows 分隔符误伤过一次 `repoMapPayload.ts`，已修正并 typecheck 兜住）。
+- **零新增依赖环**：arch:gate 依赖环仍为存量 6 组（新增 0），ports 纯度 0 条。
+
+### 37.2 移动暴露的三类「隐性耦合」（都已就地修掉，未靠 `--update` 基线放行）
+
+1. **门禁把移动文件当新文件**：`audit:standard:delta` 要求新文件完全干净 ⇒ 暴露 `repoMap.ts`（2 方法缺 `@param`/`@returns`）与 `util/concurrency/retry.ts`（2 方法）的 JSDoc 缺口，已补齐（非绕门禁）。
+2. **覆盖率基线按路径冻结**：`scripts/coverageBaseline.json` 的 4+5+4 条键随路径改名（值**原样保留**，棘轮不降）。
+3. **文档死引用**：11 处旧路径提及（TASK_BOARD / 6 份审计与规划文档 / CHANGELOG）同步更新；`check:doc-links` 现为 **死链 0 处**（新增 0、基线 0）。
+4. **复现管线**：`evals/context-efficiency/run.sh` 里 repoMap 的编译路径随迁（旧顶层 `repoMap.ts` → `src/context/repoMap/repoMap.ts`，与上一轮 bm25 同类症），端到端重跑 EXIT=0 并重生成 RESULTS.json。
+
+### 37.3 等价性实证（不是「看着没坏」）
+
+- **语料同值**：用 HEAD 临时 worktree 与本工作树对 `src`（939 文件 / 938 .ts + 1 .py）做同口径符号抽取，**11068 = 11068，逐文件零差**；19 个改名文件前后符号数差 **0**。
+- **指标同值**：RESULTS.json 的 `avg_file_recall_pct`（56.76 / 62.86）与 `avg_symbol_precision_pct`（6.5 / 21.5 / 5）与冻结值**完全一致**；`corpus_symbols` 11067→11068 与 token +250 的差值来自①上一轮冻结值生成早于其最后一次提交（HEAD 实测即 11068），②本轮新增 JSDoc 与更长导入路径的字节数——均非行为变化。
+- **测试**：受影响子集全过（repoMap 组 51/51、session 域 + 并发域 88/88，含此前记录为负载噪声的 `sessionLifecycle`）；全量 2412/2467，失败集与移动前同量级（34）且全部为起子进程的 CLI/元测试（本沙箱环境特征，单独重跑即过）。
+
+### 37.4 门禁实跑（2026-10-02）
+
+typecheck（含 web）/ lint（0 告警）/ `check --strict`（938 文件零违规）/ arch:gate（**目录告警 0 个**）/ audit:standard:delta / audit:maturity / audit:config-wiring（938 全绿）/ check:doc-links（0 死链）/ check:secrets / api:check / audit:top-level-fn —— 全绿。
+
+### 37.5 环境事实（避免下次重复踩）
+
+- 本会话内 `npm test` / `npm run build` 会**先跑 `cleanDist` 清 dist（4064 文件）**，被本机批量删除保护拦截（阈值 50）⇒ 改跑 `npx tsc && node --test "dist/tests/unit/*.test.js"`；**代价是 dist 会残留旧路径产物**，跑 `npm run coverage` 前必须先做一次完整 clean（本轮未跑覆盖率门禁，它不在 pre-commit 清单内）。
+- 全量测试期间有大量 `spawnSync` 型 CLI/元测试失败（configWiring / apiStability / standardsJsdocIndent / doctor / kv / headless 等），**单独重跑全过** ⇒ 判为沙箱并发噪声，与本轮改动无关（移动前同量级 34）。

@@ -4,7 +4,7 @@ import type { ModelPort } from '../ports/model/model.js';
 import { RetryingModel, DEFAULT_RETRY_POLICY } from '../adapters/model/retryingModel.js';
 import { BudgetedModel } from '../adapters/model/budgetedModel.js';
 import { CircuitBreakingModel } from '../adapters/model/circuitBreakingModel.js';
-import { CircuitBreaker } from '../util/circuitBreaker.js';
+import { CircuitBreaker } from '../util/concurrency/circuitBreaker.js';
 import { CostBudget } from '../adapters/model/costBudget.js';
 import { modelAdapterRegistry } from '../adapters/model/modelAdapterRegistry.js';
 import {

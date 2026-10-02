@@ -16,7 +16,7 @@
  */
 
 import { Bm25Index } from '../search/bm25Index.js';
-import type { SymbolNode } from './repoMap.js';
+import type { SymbolNode } from './repoMap/repoMap.js';
 import { ArrayAt } from '../util/arrayAt.js';
 
 /**

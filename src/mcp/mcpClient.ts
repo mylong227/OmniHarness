@@ -11,7 +11,7 @@ import type {
 } from '../ports/mcp/mcpProtocolTypes.js';
 import type { McpClientPort } from '../ports/mcp/mcpClientPort.js';
 import { log } from '../util/logger.js';
-import { PendingRequests } from '../util/pendingRequests.js';
+import { PendingRequests } from '../util/concurrency/pendingRequests.js';
 
 /**
  * @beta

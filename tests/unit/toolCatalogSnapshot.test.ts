@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
 import type { ToolDefinition } from '../../src/ports/tool/tool.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 
 /** 造一个工具定义（描述用于区分「目录里的新定义」与「寄存器里的陈旧副本」）。 */
 const def = (name: string, description: string): ToolDefinition => ({

@@ -7,7 +7,7 @@
  * 输出与 `corpus.symbols.filter(s => fileSet.has(s.file))` **逐字节一致**
  * （filter 保全集序，分组 + 首现序排序重建同一序）。
  */
-import type { SymbolNode } from '../repoMap.js';
+import type { SymbolNode } from '../repoMap/repoMap.js';
 
 /** 视图所需的语料切片（结构化子集）。 */
 export interface SymbolViewCorpus {

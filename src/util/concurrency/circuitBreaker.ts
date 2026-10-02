@@ -1,4 +1,4 @@
-import { CircuitOpenError } from '../errors/circuitOpenError.js';
+import { CircuitOpenError } from '../../errors/circuitOpenError.js';
 
 /**
  * 熔断器状态：`closed` 正常放行 / `open` 开路快速失败 / `half-open` 半开探测。

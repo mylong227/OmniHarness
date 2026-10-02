@@ -15,7 +15,7 @@ import type { SpillPort } from '../memory/spill.js';
 import type { ToolResultSpiller } from '../../context/toolResultSpiller.js';
 import type { ToolDiscovery } from '../../search/toolDiscovery.js';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
-import type { RepoMapContextEngine } from '../../context/repoMapContextEngine.js';
+import type { RepoMapContextEngine } from '../../context/repoMap/repoMapContextEngine.js';
 import type { ScratchpadPort } from '../memory/scratchpad.js';
 import type { MemoryExtractorPort } from '../memory/memoryExtractor.js';
 import type { CostBudgetPort } from '../model/costBudgetPort.js';

@@ -14,7 +14,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionEventReader } from '../../src/adapters/telemetry/sessionEventReader.js';
-import { SessionTraceService } from '../../src/server/services/sessionTraceService.js';
+import { SessionTraceService } from '../../src/server/services/session/sessionTraceService.js';
 import type { TraceReadResult } from '../../src/ports/intelligence/traceIntrospection.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 import type { RpcMessage } from '../../src/server/core/jsonRpc.js';

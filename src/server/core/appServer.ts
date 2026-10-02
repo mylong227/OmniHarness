@@ -16,10 +16,10 @@ import { providerPresets } from '../services/providerPresets.js';
 import { RepoPathGuard } from '../services/repoPathGuard.js';
 import { DiffReview } from '../services/diffReview.js';
 import { DiffCommentStore } from '../services/diffCommentStore.js';
-import { SessionCheckpoints } from '../services/sessionCheckpoints.js';
-import { SessionTraceService } from '../services/sessionTraceService.js';
-import { SessionRewindService } from '../services/sessionRewindService.js';
-import type { SessionRewindOutcome } from '../services/sessionRewindService.js';
+import { SessionCheckpoints } from '../services/session/sessionCheckpoints.js';
+import { SessionTraceService } from '../services/session/sessionTraceService.js';
+import { SessionRewindService } from '../services/session/sessionRewindService.js';
+import type { SessionRewindOutcome } from '../services/session/sessionRewindService.js';
 import type {
   TraceReadRequest,
   TraceReadResult,

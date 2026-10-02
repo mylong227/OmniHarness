@@ -9,7 +9,7 @@ import { ConfigError } from '../../config/configError.js';
 import type { ProviderPreset } from './providerPresets.js';
 import { SsrfGuard } from '../../security/ssrfGuard.js';
 import type { SsrfPolicy } from '../../security/ssrfPolicy.js';
-import { Retry } from '../../util/retry.js';
+import { Retry } from '../../util/concurrency/retry.js';
 
 /**
  * ProviderProbe 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

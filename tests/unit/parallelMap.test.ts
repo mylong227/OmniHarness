@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ParallelMap } from '../../src/util/parallelMap.js';
+import { ParallelMap } from '../../src/util/concurrency/parallelMap.js';
 
 /** 睡眠（模拟 I/O 密集任务）。 */
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

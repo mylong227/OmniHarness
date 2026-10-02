@@ -57,25 +57,25 @@
  * 单例 `repoMapContextEngine` 的薄包装；新调用方应直接用引擎实例。
  */
 
-import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
+import { ContextEngine, type IndexedCorpus } from '../contextEngine.js';
 import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.js';
-import { Bm25Index } from '../search/bm25Index.js';
-import type { RecallItem } from './semanticIndex.js';
-import { CodeReferenceGraph } from './codeReferenceGraph.js';
-import type { EmbeddingPort } from '../ports/model/embedding.js';
-import { RecallKnobs, type RepoMapContextOptions } from './recallKnobs.js';
-import { CorpusIndexCache } from './corpusIndexCache.js';
-import { SemanticIndexCache } from './semanticIndexCache.js';
-import { HybridRanker, type RankedRepoMap } from './hybridRanker.js';
-import { FileReranker } from './fileReranker.js';
+import { Bm25Index } from '../../search/bm25Index.js';
+import type { RecallItem } from '../semanticIndex.js';
+import { CodeReferenceGraph } from '../codeReferenceGraph.js';
+import type { EmbeddingPort } from '../../ports/model/embedding.js';
+import { RecallKnobs, type RepoMapContextOptions } from '../recallKnobs.js';
+import { CorpusIndexCache } from '../corpusIndexCache.js';
+import { SemanticIndexCache } from '../semanticIndexCache.js';
+import { HybridRanker, type RankedRepoMap } from '../hybridRanker.js';
+import { FileReranker } from '../fileReranker.js';
 import { RepoMapMemo } from './repoMapMemo.js';
-import { LspCandidateSource, type LspCandidateSourceOptions } from './lspCandidateSource.js';
-import type { LspPort } from '../ports/tool/lsp.js';
-import { log } from '../util/logger.js';
+import { LspCandidateSource, type LspCandidateSourceOptions } from '../lspCandidateSource.js';
+import type { LspPort } from '../../ports/tool/lsp.js';
+import { log } from '../../util/logger.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
-export type { RepoMapContextOptions } from './recallKnobs.js';
-export { CHUNK_BODY_MAX_LINES } from './semanticIndexCache.js';
+export type { RepoMapContextOptions } from '../recallKnobs.js';
+export { CHUNK_BODY_MAX_LINES } from '../semanticIndexCache.js';
 
 /** BM25 检索的候选数：符号路 / 文件路各取多少再交给融合。 */
 const BM25_SYM_CANDIDATES = 60;
