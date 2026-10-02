@@ -17,6 +17,7 @@ import type { ModelRouterConfig } from './configFile.js';
 import { endpointDefaults } from '../util/endpointDefaults.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
 import type { EscalationPort } from '../ports/runtime/escalation.js';
+import type { PlanPort } from '../ports/runtime/plan.js';
 import { join } from 'node:path';
 import type { SpillPort } from '../ports/memory/spill.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
@@ -233,6 +234,8 @@ export class ConfigBuilder {
     elevatedSandbox: SandboxPort,
     longTermMemory: LongTermMemoryPort,
     costBudget: CostBudget | undefined,
+    plan: PlanPort,
+    planMode: boolean,
   ): SubagentPortSeed {
     return {
       model: this.buildModel(partial, costBudget),
@@ -248,6 +251,10 @@ export class ConfigBuilder {
       elevatedSandbox,
       longTermMemory,
       goalMaxIterations: partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS,
+      // 计划门禁透传（2026-10-01 审计）：子代工具集在装配期就拿不到父级计划状态的话，
+      // `--plan` 只读语义会在 subagent / run_workflow / run_goal 三条委派路径上被绕过。
+      plan,
+      planMode,
       // 媒体抽帧栈（`view_media`）：在此把配置段收敛成一份已装配产物，随种子交给工具装配层。
       // 放在种子里的理由见 `SubagentPortSeed.media` 的注释（主/子工具集共用同一份定位缓存）。
       media: MediaStackAssembler.assemble(partial.media),
@@ -324,6 +331,8 @@ export class ConfigBuilder {
     elevatedSandbox: SandboxPort,
     longTermMemory: LongTermMemoryPort,
     costBudget: CostBudget | undefined,
+    plan: PlanPort,
+    planMode: boolean,
   ): SubagentPortSeed {
     return configBuilder.seedOf(
       partial,
@@ -336,6 +345,8 @@ export class ConfigBuilder {
       elevatedSandbox,
       longTermMemory,
       costBudget,
+      plan,
+      planMode,
     );
   }
 

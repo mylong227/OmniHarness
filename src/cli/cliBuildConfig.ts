@@ -187,18 +187,23 @@ export class CliBuildConfig {
 
   /**
    * 构造审计 sink：--audit-dir / --audit-file 或 env OMNI_AUDIT_DIR 指定落盘位置；未指定则 no-op（不写审计）。
-   * @param args 完整命令行参数列表（读取 --audit-dir / --audit-file）。
-   * @returns 审计 sink；--audit-file 优先于目录级配置。
+   * @param args 完整命令行参数列表（读取 --audit-dir / --audit-file / --audit-hmac-key）。
+   * @returns 审计 sink；--audit-file 优先于目录级配置；`--audit-hmac-key` / env `OMNI_AUDIT_HMAC_KEY`
+   *   给出时链升级为 HMAC 防篡改模式（裸 SHA256 只能检测中间篡改，不能阻止整链重算）。
    */
   protected createAudit(args: readonly string[]): AuditSink {
     const auditDir = this.flagValue(args, '--audit-dir') ?? process.env['OMNI_AUDIT_DIR'];
     const auditFile = this.flagValue(args, '--audit-file');
+    // 密钥只从旗标/环境变量取，绝不落盘（进日志/配置文件会让 HMAC 形同虚设）。
+    // exactOptionalPropertyTypes：未配置时不产出显式 undefined 键。
+    const hmacKey = this.flagValue(args, '--audit-hmac-key') ?? process.env['OMNI_AUDIT_HMAC_KEY'];
+    const withKey = hmacKey !== undefined ? { hmacKey } : {};
     return new AuditSink(
       auditFile !== undefined
-        ? { path: auditFile }
+        ? { path: auditFile, ...withKey }
         : auditDir !== undefined
-          ? { dir: auditDir }
-          : {},
+          ? { dir: auditDir, ...withKey }
+          : withKey,
     );
   }
 

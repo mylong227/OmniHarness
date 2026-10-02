@@ -127,7 +127,15 @@ export class StepRunner {
             '直接给出最终答复与结论；不要再请求调用任何工具，也不要说需要更多信息。',
         },
       ];
-      const request = { messages, tools: [], reasoningEffort: this.deps.reasoningEffort };
+      // 取消信号透传：`finalize` 是「跑满 maxSteps」时的必然路径，恰恰是已经烧完一整轮 token、
+      // 用户最想中断的时刻。原先这里拿不到 signal，也无法经 `RequestStallGuard` 转发外部信号
+      // （2026-10-01 审计），于是「停止」按钮在收尾阶段形同虚设。
+      const request = {
+        messages,
+        tools: [],
+        reasoningEffort: this.deps.reasoningEffort,
+        signal: this.deps.signal,
+      };
       log.info('step.finalize', { messageCount: messages.length });
       const stream = this.deps.model.stream;
       const output =

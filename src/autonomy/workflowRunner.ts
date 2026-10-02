@@ -142,12 +142,28 @@ export class WorkflowRunner {
         if (!out.ok) {
           skipped.add(out.id);
         } else if (out.output !== undefined) {
-          blackboard[out.id] = out.output;
+          // 未完成标注（2026-10-01 审计）：截断/熔断步骤的产出是兜底摘要，若原样注入下游
+          // prompt，「跑满步数」会被下游读成「前序已确认的事实」一路传染。
+          blackboard[out.id] = this.incompletenessPrefixOf(out) + out.output;
         }
       }
     }
 
     return { ok: results.every((entry) => entry.ok), steps: results, blackboard };
+  }
+
+  /** 未完成产出注入下游时的前缀标注（截断 / 熔断步骤的产出不可读作已确认事实）。
+   * @param out 该步执行结果。
+   * @returns 需要标注时返回带换行的前缀文本，已完成时返回空串。
+   */
+  private incompletenessPrefixOf(out: WorkflowStepResult): string {
+    if (out.truncated === true) {
+      return '⚠️【前序步骤未完成：达步数上限，以下为兜底摘要，可能不完整】\n';
+    }
+    if (out.aborted === true) {
+      return '⚠️【前序步骤未完成：被失控熔断/取消，以下为中断时的摘要】\n';
+    }
+    return '';
   }
 
   /**
@@ -222,6 +238,9 @@ export class WorkflowRunner {
         output: outcome.finalText,
         steps: outcome.steps,
         durationMs,
+        // 「步数耗尽」不等于「任务完成」：如实透传，供渲染层与下游注入处标注。
+        truncated: outcome.truncated === true ? true : undefined,
+        aborted: outcome.aborted === true ? true : undefined,
       };
     } catch (error) {
       const durationMs = Date.now() - startedAt;

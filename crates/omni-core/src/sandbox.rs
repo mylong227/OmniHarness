@@ -56,15 +56,31 @@ pub struct DangerousCommands;
 
 impl DangerousCommands {
     /// 默认危险模式（小写、已规范化空白的子串）。
+    ///
+    /// 与 TS `DangerousCommands::defaults()` 逐条对齐（2026-10-01 审计：两份表曾互不为超集，
+    /// 例如 Rust 漏 `rm -r -f`、TS 漏 `cat x | sh`）。规范化后「子串命中」即拒绝，因此这里的
+    /// 每条字面量必须与 TS 侧同一语义；改动任一侧都要同步另一侧。
     pub fn defaults() -> &'static [&'static str] {
         &[
+            // ── 递归 / 强制删除 ────────────────────────────────────────
             "rm -rf",
             "rm -fr",
+            "rm -r -f",
+            // 旧条目 "rm -r f" 保留：normalize 只折叠空白不删 `-`，历史调用可能依赖该形态。
             "rm -r f",
+            "rm --recursive --force",
+            "rm --force --recursive",
             "rmdir /s",
             "rd /s",
             "del /s",
+            "del /f",
+            "del /q",
             "erase /s",
+            // PowerShell 等价物
+            "remove-item -r",
+            "remove-item -recurse",
+            "ri -r",
+            // ── 磁盘 / 系统级破坏 ──────────────────────────────────────
             "format c:",
             "format d:",
             "mkfs",
@@ -73,11 +89,36 @@ impl DangerousCommands {
             "shutdown",
             "reg delete",
             "dd if=",
-            // 下载后直接管道执行（规范化后管道两侧空格已折叠）。
+            // ── 下载后直接管道执行（规范化后管道两侧空格已折叠） ────────
             "|sh",
             "|bash",
+            "|zsh",
+            "|fish",
             "|powershell",
+            "|pwsh",
             "|cmd",
+            // ── 解释器内联执行 ──────────────────────────────────────────
+            "python -c",
+            "python3 -c",
+            "node -e",
+            "node -eval",
+            "perl -e",
+            "ruby -e",
+            "lua -e",
+            "php -r",
+            "powershell -c",
+            "powershell -command",
+            "pwsh -c",
+            "pwsh -command",
+            "invoke-expression",
+            "-encodedcommand",
+            "-enc ",
+            // ── 间接递归删除 ────────────────────────────────────────────
+            "git clean -f",
+            "git clean -fd",
+            "find -delete",
+            "find -exec",
+            "xargs rm",
         ]
     }
 

@@ -26,6 +26,12 @@ export class SubagentPorts {
       longTermMemory: runtime.longTermMemory,
       goalMaxIterations: runtime.config.goalMaxIterations,
       native: runtime.native,
+      // 门禁三件套透传（2026-10-01 审计）：plan + planMode 必须成对继承，supervisor 使子代
+      // 受父级确定性否决约束并向监督内核上报健康信号。三者缺省时子代退回「无 plan 门禁、
+      // 无监督」的老行为，故此处显式投影，避免委派路径成为安全语义的旁路。
+      plan: runtime.config.plan,
+      planMode: runtime.config.planMode,
+      supervisor: runtime.supervisor,
     };
   }
 }

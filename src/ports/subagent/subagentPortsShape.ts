@@ -9,6 +9,8 @@ import type { EscalationPort } from '../runtime/escalation.js';
 import type { NativeToolRunner } from '../../native/nativeBackend.js';
 import type { ToolResultSpiller } from '../../context/toolResultSpiller.js';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
+import type { PlanPort } from '../runtime/plan.js';
+import type { SupervisorPort } from '../runtime/supervisor.js';
 
 /**
  * @beta
@@ -36,4 +38,23 @@ export interface SubagentPortsShape {
   /** 自主目标循环默认最大迭代次数（#S30，供 run_goal 工具读取）。 */
   readonly goalMaxIterations: number;
   readonly native?: NativeToolRunner | undefined;
+  /**
+   * 计划端口（可选）：子代门禁须与父级共用同一计划状态源。
+   *
+   * 存在理由（2026-10-01 审计）：子代原先硬编码 `plan: undefined` + `planMode: false`，
+   * 于是「`--plan` 只读规划模式」在委派路径上被完全绕过 —— 模型只要调一次 `subagent` /
+   * `run_workflow` / `run_goal` 就能落盘，而子代事件走独立 bridge，主会话侧完全静默。
+   * 更隐蔽的是 `ToolGate` 的 plan 拦截要求 `plan !== undefined`，故「只继承 planMode 不继承
+   * plan」同样拦不住，两者必须成对透传。
+   */
+  readonly plan?: PlanPort | undefined;
+  /**
+   * 是否处于计划模式（可选，缺省 false）：父级开启时子代必须继承，否则只读语义失效。
+   */
+  readonly planMode?: boolean | undefined;
+  /**
+   * 航天级监督内核（可选）：父级把它置于审批/沙箱/计划之前做确定性否决；子代原先整体缺省，
+   * 导致 safe/locked 模式下子代工具失败既不进健康监控、也不受确定性否决约束。
+   */
+  readonly supervisor?: SupervisorPort | undefined;
 }

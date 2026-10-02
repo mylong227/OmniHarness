@@ -10,15 +10,44 @@ export interface RestrictedSandboxOptions {
   readonly extraPatterns?: readonly RegExp[];
 }
 
-/** 受限 profile 额外规则：网络外联 + 提权命令（比 policy 更严）。 */
+/**
+ * 受限 profile 额外规则：网络外联 + 提权 + 持久化 + 权限篡改（比 policy 更严）。
+ *
+ * 网络一段原先只封 `curl|wget|nc|ssh|scp`，Windows/macOS 自带的 LOLBIN 下载器与
+ * `powershell Invoke-WebRequest`、`git clone`、`pip` 全部不在表内 —— 「restricted = 断网」
+ * 这一保证因此不成立（2026-10-01 审计）。此处把已知的带外下载通道一并收口。
+ */
 const EXTRA_RESTRICTED: readonly RegExp[] = [
+  // ── 网络外联工具 ────────────────────────────────────────────────────
   /\bcurl\b/i,
   /\bwget\b/i,
   /\bnc\b|\bncat\b/i,
   /\bssh\b/i,
   /\bscp\b/i,
+  /\brsync\b/i,
+  // Windows LOLBIN 下载器：certutil / bitsadmin 是系统标配，绕过 curl 黑名单的正门。
+  /\bcertutil\b/i,
+  /\bbitsadmin\b/i,
+  /\brundll32\b/i,
+  /\bmsiexec\b/i,
+  // PowerShell 下载别名（iwr / Invoke-WebRequest / curl 别名）。
+  /\b(?:iwr|invoke-webrequest|invoke-restmethod)\b/i,
+  // 包管理器与 VCS：postinstall / hook 可携带任意执行，属外联 + 执行双通道。
+  /\bgit\b[\s\S]*?\bclone\b/i,
+  /\b(?:npm|yarn|pnpm|pip|pip3)\b[\s\S]*?\b(?:install|i)\b/i,
+  // ── 提权 ────────────────────────────────────────────────────────────
   /\bsudo\b/i,
-  /\bchmod\s+777\b/i,
+  /\bsu\b[\s\S]*?-\s/i,
+  /\b(?:runas|takeown|icacls|attrib)\b/i,
+  // ── 权限与所有权篡改 ────────────────────────────────────────────────
+  // 原先是 `chmod\s+777`，`chmod -R 777` 中间夹 `-R` 即不命中。
+  /\bchmod\b[\s\S]*?\b777\b/i,
+  /\bchown\b[\s\S]*?-r\b/i,
+  // ── 持久化 / 计划任务 ───────────────────────────────────────────────
+  /\b(?:schtasks|at|sc)\b[\s\S]*?\b(?:create|delete)\b/i,
+  /\breg\b[\s\S]*?\badd\b/i,
+  /\bcrontab\b/i,
+  // ── 资源破坏 ────────────────────────────────────────────────────────
   /:\s*\(\s*\)\s*\{/i, // fork bomb
   /\bmkfs\b/i,
   /\bdd\s+if=/i,

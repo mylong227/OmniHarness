@@ -95,6 +95,8 @@ export class ConfigFactory {
       core.ports.elevatedSandbox,
       memory.stack.longTermMemory,
       costBudget,
+      core.ports.plan,
+      core.ports.planMode,
     );
     const spark = SparkAssembler.assembleSpark(partial, { vortex: core.vortex, memory, skills });
     return {

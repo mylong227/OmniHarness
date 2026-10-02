@@ -40,7 +40,15 @@ export class DelegateTool {
     const worker = String(call.arguments['worker'] ?? '');
     const task = String(call.arguments['task'] ?? '');
     try {
-      const result = await this.orchestrator.delegate({ worker, task }, context.workspaceRoot);
+      // 取消信号透传（2026-10-01 审计）：`WorkerRequest.signal` 字段存在、且 `CliWorker` 的
+      // kill-tree 取消实现是完备的，但父会话的 signal 从未被传进来 —— 于是用户 Ctrl-C /
+      // 会话超时后外部 worker 仍跑到自身 30 分钟超时，而 `delegate` 在调度器里是串行屏障，
+      // 一个挂死的 worker 会永久阻塞整个回合，且退出后子进程可能成孤儿。
+      const result = await this.orchestrator.delegate(
+        { worker, task },
+        context.workspaceRoot,
+        context.signal,
+      );
       // worker 失败时**必须同时给 error**：`ContextAssembler` 对 ok=false 只渲染 `error`
       // （`工具执行失败: ${error ?? '未知错误'}`），把原因塞进 output 等于丢掉——实测 worker
       // 的「退出码 1 + stderr」会变成「未知错误」，模型无从自修（任务拆解能力的真实瓶颈）。

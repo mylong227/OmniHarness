@@ -26,6 +26,10 @@ export default tseslint.config(
       // Terminal-Bench 会在其下留下 .pytest_cache，eslint 走进去即 EPERM 把门禁染红
       // （2026-09-19 实测），与「上游 jQuery 被当成本仓源码 lint」是同一类误伤。
       '.omniharness/**',
+      // 与 .omniharness 同理：.tmpcheck/ 是临时探针与提交信息草稿目录（未被 .gitignore
+      // 追踪过也不该入库），里面的 bad.js 之类故意写坏的探针文件会以 Parsing error
+      // 把 lint 门禁染红（2026-10-02 pre-commit 实测）。不是本仓库维护的源码 ⇒ 显式排除。
+      '.tmpcheck/**',
       '**/*.mjs',
       '**/*.cjs',
     ],

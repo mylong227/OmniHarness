@@ -29,7 +29,8 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Agent } from '../dist/src/core/agent.js';
-import { createRuntime } from '../dist/src/core/runtime.js';
+// createRuntime 已随接口层重构迁至 composition/runtime（原 core/runtime 不存在，2026-10-02 修）。
+import { Runtime } from '../dist/src/composition/runtime.js';
 import { ConfigFactory } from '../dist/src/config/configFactory.js';
 import { MemoryStorage } from '../dist/src/adapters/storage/memoryStorage.js';
 import { AutoApproval } from '../dist/src/adapters/approval/autoApproval.js';
@@ -241,7 +242,7 @@ const buildScript = () => {
 };
 
 const model = new RecordingModel(buildScript());
-const runtime = createRuntime(ConfigFactory.build(base(model)));
+const runtime = Runtime.createRuntime(ConfigFactory.build(base(model)));
 const agent = new Agent(runtime);
 
 /** 逐回合驱动；记录每回合结束时的主请求数量（用于按会话长度截断重算）。 */
@@ -271,10 +272,18 @@ const pairAt = (i) => {
   const prevSegs = leadingSystemSegments(prev);
   const curSegs = leadingSystemSegments(cur);
   const sameHead = prevSegs.length === curSegs.length && prevSegs.every((t, j) => t === curSegs[j]);
+  // 跨回合判定改用**回合边界事实**（2026-10-02 修复）：原判据比较相邻请求的「头部 system
+  // 段是否字节相同」，而头部段（静态 fragments + world_state）跨回合时也几乎总是相同 ⇒
+  // `sameHead` 恒真，`crossTurnCount` 恒 0，「同回合追加 vs 跨回合」对照完全失去区分力
+  // （旧报告 8 次主请求 0 个跨回合对即此缺陷）。现改由 `boundaries`（每回合累计主请求数）
+  // 机械判定：请求 i 是某回合的首个请求 ⇔ 它与上一请求分属不同回合 ⇔ 跨回合。
+  // `sameHead` 仍保留在返回值里，供「头部是否真的稳定」的独立确认。
+  const turnStart = boundaries.includes(i);
   const diverged = locateDivergence(prev, cur);
   return {
     step: i,
-    kind: sameHead ? '同回合追加' : '跨回合',
+    kind: turnStart ? '跨回合' : '同回合追加',
+    headByteIdentical: sameHead,
     prevBytes: prevFlat.length,
     curBytes: curFlat.length,
     reuse: stability.prefixReuse(prevFlat, curFlat),
@@ -403,3 +412,28 @@ lines.push('');
 lines.push(`报告: ${outPath}`);
 
 process.stdout.write(`${lines.join('\n')}\n`);
+
+// ── 回归门（2026-10-02 新增）───────────────────────────────────────────────
+// 动机：本评测此前不在 `eval:ci` 里，前缀复用率没有任何回归保护 —— 「动态段置尾」
+// 治理（stepContextBuilder 的 repo-map 移尾部）修复后的真实数字在盘上无报告支撑。
+// 用法：`node evals/prefix-stability.mjs <回合数> --min-reuse <下界>`，低于下界即 exit 1。
+const minReuseIdx = process.argv.indexOf('--min-reuse');
+if (minReuseIdx !== -1) {
+  const minReuse = Number(process.argv[minReuseIdx + 1]);
+  const final = last.headWeightedReuse;
+  if (!(Number.isFinite(minReuse) && minReuse > 0)) {
+    console.error(`❌ --min-reuse 需要一个正数，收到: ${process.argv[minReuseIdx + 1]}`);
+    process.exitCode = 1;
+  } else if (final < minReuse) {
+    console.error(
+      `❌ 前缀复用率回归：终态 headWeightedReuse=${(final * 100).toFixed(2)}% ` +
+        `< 下界 ${(minReuse * 100).toFixed(2)}%（动态段位置 / 头部易变字节可能被改坏）`,
+    );
+    process.exitCode = 1;
+  } else {
+    console.log(
+      `✅ 前缀复用率门通过：终态 ${(final * 100).toFixed(2)}% ≥ 下界 ` +
+        `${(minReuse * 100).toFixed(2)}%`,
+    );
+  }
+}

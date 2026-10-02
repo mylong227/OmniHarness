@@ -22,6 +22,7 @@ import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatible
 import { CostBudget } from '../../src/adapters/model/costBudget.js';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.js';
 import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
@@ -215,6 +216,8 @@ test('seedOf：透传标量字段并填 goalMaxIterations / subagent 缺省', ()
       new PolicySandbox({ workspaceRoot: root }),
       new FileLongTermMemory(join(root, '.omniharness/longterm/memory.jsonl')),
       undefined,
+      new MemoryPlan(),
+      false,
     );
     assert.strictEqual(seed.workspaceRoot, root);
     assert.strictEqual(seed.maxSteps, 4);
@@ -222,6 +225,9 @@ test('seedOf：透传标量字段并填 goalMaxIterations / subagent 缺省', ()
     assert.deepStrictEqual(seed.subagent, { maxDepth: 3, maxConcurrency: 6, maxSteps: 9 });
     assert.strictEqual(seed.sandbox.name, 'passthrough');
     assert.strictEqual(seed.spill, spill);
+    // 计划门禁透传（2026-10-01 审计）：委派路径须与父级共用同一计划状态源。
+    assert.strictEqual(seed.planMode, false);
+    assert.ok(seed.plan !== undefined, 'seed 必须携带 plan 端口，否则子代 --plan 语义被绕过');
   });
 });
 

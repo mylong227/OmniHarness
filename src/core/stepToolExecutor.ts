@@ -145,21 +145,21 @@ export class StepToolExecutor {
         if (nativeResult !== undefined) {
           await this.recordToolResult(call.name, nativeResult, context.sessionId);
           recorded = true;
-          if (this.deps.hooks !== undefined) {
-            await this.deps.hooks.post(hookContext, nativeResult);
-          }
+          await this.runPostHookSafely(hookContext, call, nativeResult);
           // U4：原生后端路径同样在写类工具成功执行后失效 repo-map 缓存。
           this.maybeInvalidateRepoMap(call, nativeResult);
           return nativeResult.ok;
         }
       }
       const result = await this.deps.tools.execute(call, context);
-      if (this.deps.hooks !== undefined) {
-        await this.deps.hooks.post(hookContext, result);
-      }
-      // 钩子拿到完整结果（持久化/观测无损），入模型上下文前再外溢。
+      // 先记录真实结果、再跑 post 钩子（2026-10-01 审计，与 native 路径对齐）：
+      // 写类/副作用类工具走到这里时**副作用已经落地**（文件已写、命令已跑）；
+      // 若 post 钩子抛错走下方 catch，模型会看到「工具执行异常」并以过时假设重试，
+      // supervisor 也会收到一条假失败信号推动误降级 —— 类头注释「post 失败不影响已成功
+      // 的结果」说的就是这个顺序。
       await this.recordToolResult(call.name, result, context.sessionId);
       recorded = true;
+      await this.runPostHookSafely(hookContext, call, result);
       // U4：写类工具成功执行后主动失效 repo-map 缓存（消除 30s TTL 陈旧窗口）。
       this.maybeInvalidateRepoMap(call, result);
       return result.ok;
@@ -174,6 +174,39 @@ export class StepToolExecutor {
         this.deps.supervisor?.report(call.name, 'failure', text);
       }
       return false;
+    }
+  }
+
+  /**
+   * 跑 post 钩子并隔离其异常（两条执行路径共用，调用方 `await` 保证时序不变）。
+   *
+   * post 钩子抛错时只告警、绝不改写已成功的结果：工具的副作用（文件写 / 命令执行）
+   * 在此之前已经落地，把钩子异常谎报成「工具执行异常」会让模型以过时假设重试、
+   * 并给监督内核一条假失败信号（2026-10-01 审计）。
+   *
+   * @param hookContext 钩子上下文（会话 / 工具名 / 目标 / 实参）。
+   * @param call 工具调用（日志归因用）。
+   * @param result 工具真实结果（原样交给钩子）。
+   * @returns 无返回值（钩子异常被吞掉并留 `tool.hook.post.failed` 观测行）。
+   */
+  private async runPostHookSafely(
+    hookContext: {
+      sessionId: string;
+      toolName: string;
+      target: string;
+      args: Record<string, unknown>;
+    },
+    call: ToolCall,
+    result: ToolResult,
+  ): Promise<void> {
+    if (this.deps.hooks === undefined) {
+      return;
+    }
+    try {
+      await this.deps.hooks.post(hookContext, result);
+    } catch (hookError) {
+      const message = hookError instanceof Error ? hookError.message : String(hookError);
+      log.warn('tool.hook.post.failed', { tool: call.name, callId: call.id, error: message });
     }
   }
 

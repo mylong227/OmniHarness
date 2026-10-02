@@ -65,6 +65,7 @@ export class AgentIdentityTool {
       switch (op) {
         case 'show':
           return AgentIdentityTool.ok(
+            call.id,
             JSON.stringify({
               agent_runtime_id: this.identity.runtimeId(),
               public_key_ssh: this.identity.publicKeySsh(),
@@ -72,18 +73,23 @@ export class AgentIdentityTool {
           );
         case 'sign': {
           const payload = String(call.arguments['payload'] ?? '');
-          return AgentIdentityTool.ok(JSON.stringify({ signature: this.identity.sign(payload) }));
+          return AgentIdentityTool.ok(
+            call.id,
+            JSON.stringify({ signature: this.identity.sign(payload) }),
+          );
         }
         case 'verify': {
           const payload = String(call.arguments['payload'] ?? '');
           const signature = String(call.arguments['signature'] ?? '');
           return AgentIdentityTool.ok(
+            call.id,
             JSON.stringify({ valid: this.identity.verify(payload, signature) }),
           );
         }
         case 'sign_assertion': {
           const taskId = String(call.arguments['task_id'] ?? 'default');
           return AgentIdentityTool.ok(
+            call.id,
             JSON.stringify({
               envelope: this.identity.signAssertion(taskId),
               header: this.identity.authorizationHeader(taskId),
@@ -93,29 +99,31 @@ export class AgentIdentityTool {
         case 'verify_assertion': {
           const envelope = String(call.arguments['envelope'] ?? '');
           const claims = this.identity.verifyAssertion(envelope);
-          return AgentIdentityTool.ok(JSON.stringify({ valid: claims !== null, claims }));
+          return AgentIdentityTool.ok(call.id, JSON.stringify({ valid: claims !== null, claims }));
         }
         default:
-          return AgentIdentityTool.fail(`未知 operation: ${op}`);
+          return AgentIdentityTool.fail(call.id, `未知 operation: ${op}`);
       }
     } catch (err) {
-      return AgentIdentityTool.fail(`agent_identity 失败: ${(err as Error).message}`);
+      return AgentIdentityTool.fail(call.id, `agent_identity 失败: ${(err as Error).message}`);
     }
   }
-  /**
-   * ok (internal helper hoisted into AgentIdentityTool).
-   * @param {string} output
-   * @returns {ToolResult}
+
+  /** 构造成功结果。
+   * @param callId 本次工具调用的权威 id（原实现恒传空串，会破坏 tool_call/tool_result 配对）。
+   * @param output 成功输出文本。
+   * @returns 带权威 callId 的工具结果。
    */
-  private static ok(output: string): ToolResult {
-    return { callId: '', ok: true, output };
+  private static ok(callId: string, output: string): ToolResult {
+    return { callId, ok: true, output };
   }
-  /**
-   * fail (internal helper hoisted into AgentIdentityTool).
-   * @param {string} message
-   * @returns {ToolResult}
+
+  /** 构造失败结果。
+   * @param callId 本次工具调用的权威 id。
+   * @param message 失败原因。
+   * @returns 带权威 callId 的工具结果。
    */
-  private static fail(message: string): ToolResult {
-    return { callId: '', ok: false, error: message };
+  private static fail(callId: string, message: string): ToolResult {
+    return { callId, ok: false, error: message };
   }
 }

@@ -46,6 +46,11 @@ export class SubagentRuntimeFactory {
     // 未注入信号时逐字沿用原模型对象，零行为变更。
     const model =
       signal === undefined ? ports.model : CancellableModel.cancellableModel(ports.model, signal);
+    // 计划门禁继承（2026-10-01 审计）：子代原先硬编码 `plan: undefined` + `planMode: false`，
+    // 使 `--plan` 只读语义在委派路径上被绕过（模型调一次 subagent/run_workflow/run_goal 即可落盘，
+    // 且子代事件走独立 bridge，主会话侧完全静默）。此处与父级共用同一计划状态源。
+    const planMode = ports.planMode ?? false;
+    const plan = ports.plan ?? new MemoryPlan();
     const config: ResolvedConfig = {
       workspaceRoot: ports.workspaceRoot,
       maxSteps,
@@ -60,10 +65,10 @@ export class SubagentRuntimeFactory {
       tools,
       spill: ports.spill,
       spiller: ports.spiller,
-      planMode: false,
+      planMode,
       userResponder: new DefaultUserResponder(),
       todo: new MemoryTodo(),
-      plan: new MemoryPlan(),
+      plan,
       discovery: new ToolDiscovery(),
       retrieval: new Bm25MemoryIndex(),
       longTermMemory: ports.longTermMemory,
@@ -88,15 +93,19 @@ export class SubagentRuntimeFactory {
       gate: new ToolGate(
         ports.approvals,
         ports.sandbox,
-        undefined,
-        false,
+        plan,
+        planMode,
         ports.escalation,
         ports.elevatedSandbox,
+        // 监督内核继承：父级把它置于审批/沙箱/计划之前做确定性否决；未透传时子代既不受
+        // 确定性否决约束，也不向监督内核上报工具健康信号（safe 模式下的降级依据丢失）。
+        ports.supervisor,
       ),
       container: this.containerOf(ports, tools, events, storage, model),
       native: ports.native,
       longTermMemory: ports.longTermMemory,
       memoryExtractor: undefined,
+      supervisor: ports.supervisor,
       // P5 自动降档：子代理不继承父运行时降级信号（隔离决策、避免子代误收敛检索预算）；
       // 恒 undefined ⇒ 子代 repo-map 保持既有口径，零行为变更。（诚实边界：降级仅作用于主循环）
       budgetDegrade: undefined,

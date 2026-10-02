@@ -35,7 +35,10 @@ function withWorkspace<T>(fn: (root: string) => T): T {
 test('基础设施端口：缺省落 fail-closed 最保守实现', () => {
   withWorkspace((root) => {
     const { ports, vortex } = CorePortsAssembler.assembleCorePorts(base(root));
-    assert.strictEqual(ports.sandbox.name, 'passthrough');
+    // 默认沙箱为 policy（fail-closed 最保守侧）。2026-10-01 审计：此前缺省是 passthrough
+    // （零隔离的对照实现），与「所有默认实现取 fail-closed 最保守侧」的装配声明自相矛盾，
+    // 也让未显式注入 sandbox 的编程式调用方在全无门禁的状态下执行 shell/写文件。
+    assert.strictEqual(ports.sandbox.name, 'policy');
     assert.strictEqual(ports.approvals.name, 'auto');
     // 提权复核沙箱默认 policy（收紧），而非 passthrough 全放行。
     assert.strictEqual(ports.elevatedSandbox.name, 'policy');

@@ -96,12 +96,25 @@ export class RunWorkflowTool {
       readonly ok: boolean;
       readonly output?: string | undefined;
       readonly error?: string | undefined;
+      readonly truncated?: boolean | undefined;
+      readonly aborted?: boolean | undefined;
     }[];
   }): string {
     const head = result.ok ? '工作流全部完成' : '工作流存在失败步骤';
-    const lines = result.steps.map((step) =>
-      step.ok ? `[${step.id}] ✅ ${step.output ?? ''}` : `[${step.id}] ❌ ${step.error ?? '失败'}`,
-    );
+    const lines = result.steps.map((step) => {
+      if (!step.ok) {
+        return `[${step.id}] ❌ ${step.error ?? '失败'}`;
+      }
+      // 同 `SubagentTool.render`（2026-10-01 审计对齐）：截断/熔断不是成功，必须显式标注，
+      // 否则模型（与调用方）会把兜底摘要读成该步的真实结论。
+      const status =
+        step.truncated === true
+          ? ' ⚠️ 未完成：达步数上限（结论可能不完整）'
+          : step.aborted === true
+            ? ' ⚠️ 未完成：被失控熔断/取消'
+            : '';
+      return `[${step.id}] ✅${status} ${step.output ?? ''}`;
+    });
     return `${head}\n${lines.join('\n')}`;
   }
 }
