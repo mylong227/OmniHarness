@@ -8,22 +8,16 @@
  *
  * 标准答案（ground truth）用「独立字符串锚点」在语料中定位，不依赖 BM25，避免自证循环。
  */
-import {
-  indexCorpus,
-  query,
-  wholeCorpusTokens,
-  grepTopKWholeFileTokens,
-  grepTopKFiles,
-} from '../../.xeval/context/contextEngine.js';
+import { ContextEngine } from '../../.xeval/context/contextEngine.js';
 
 const ROOT = process.argv[2] || 'src';
 
 // 三配置 A/B：索引两套语料（词形归并关/开），查询侧自动跟随 corpus.morph 保持一致。
 // 本基准要打印 corpus.codeGraph 边数（full 模式独有）⇒ 显式声明 light:false（默认已翻为 light）。
-const corpusBase = indexCorpus(ROOT, { morph: false, light: false }); // Baseline：既有实现原样
-const corpusMorph = indexCorpus(ROOT, { morph: true, light: false }); // + camelCase 拆分 & 词形变体归并
+const corpusBase = ContextEngine.indexCorpus(ROOT, { morph: false, light: false }); // Baseline：既有实现原样
+const corpusMorph = ContextEngine.indexCorpus(ROOT, { morph: true, light: false }); // + camelCase 拆分 & 词形变体归并
 const corpus = corpusMorph; // 对数/语料统计以归并版为准（文件集相同）
-const whole = wholeCorpusTokens(corpus);
+const whole = ContextEngine.wholeCorpusTokens(corpus);
 const edgeCount = corpus.codeGraph.adj.reduce((a, e) => a + e.length, 0);
 console.log(
   `corpus: ${corpus.files.length} files, ${corpus.symbols.length} symbols, graph edges=${edgeCount}`,
@@ -75,20 +69,20 @@ for (const { q, anchor } of QUERIES) {
 
   // 竞品 baseline（Claude Code / ripgrep 类：关键词检索 → 整文件）用其自有分词器（corpusBase）。
   const gram = (k) => {
-    const files = new Set(grepTopKFiles(corpusBase, q, k));
+    const files = new Set(ContextEngine.grepTopKFiles(corpusBase, q, k));
     const hit = [...gt].filter((f) => files.has(f)).length;
     return gt.size > 0 ? hit / gt.size : 1;
   };
   row.grep_recall8 = +(gram(8) * 100).toFixed(1);
   row.grep_recall14 = +(gram(OUR_FILE_BUDGET) * 100).toFixed(1);
-  row.grep = grepTopKWholeFileTokens(corpusBase, q, 8);
-  row.grep14 = grepTopKWholeFileTokens(corpusBase, q, OUR_FILE_BUDGET);
+  row.grep = ContextEngine.grepTopKWholeFileTokens(corpusBase, q, 8);
+  row.grep14 = ContextEngine.grepTopKWholeFileTokens(corpusBase, q, OUR_FILE_BUDGET);
   sumGrepRecall8 += row.grep_recall8;
   sumGrepRecall14 += row.grep_recall14;
   sumGrepTok14 += row.grep14;
 
   for (const cfg of CONFIGS) {
-    const res = query(cfg.corpus, q, cfg.opts);
+    const res = ContextEngine.query(cfg.corpus, q, cfg.opts);
     const files = new Set(res.files);
     const hit = [...gt].filter((f) => files.has(f)).length;
     const recall = gt.size > 0 ? hit / gt.size : 1;

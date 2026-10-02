@@ -1,0 +1,10 @@
+{
+  "name": "demo-text",
+  "version": "0.1.0",
+  "description": "示例工具插件：文本处理类纯计算工具（string/array 双入参形态 + 完整输入校验）",
+  "author": "OmniHarness Samples",
+  "permissions": [],
+  "entry": "index.js",
+  "source": "bundled",
+  "localPath": "examples/plugins/demo-text"
+}

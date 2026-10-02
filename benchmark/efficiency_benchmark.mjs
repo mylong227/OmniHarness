@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { Bm25Index, tokenize } from '../dist/src/search/bm25.js';
+import { Bm25Index } from '../dist/src/search/bm25Index.js';
 import { DeterministicCompressor, PrefixStability } from '../dist/src/context/index.js';
 import { Algebra } from '../dist/src/genesis/algebra.js';
 
@@ -219,7 +219,7 @@ for (const f of readdirSync(toolDir).filter((x) => x.endsWith('.ts'))) {
 }
 const allToolsText = tools.map((t) => `${t.name}: ${t.description}`).join('\n');
 const index = new Bm25Index();
-index.addDocuments(tools.map((t) => tokenize(`${t.name} ${t.description}`)));
+index.addDocuments(tools.map((t) => Bm25Index.tokenize(`${t.name} ${t.description}`)));
 const QUERIES = [
   '读取文件内容',
   '写入文件',
@@ -234,7 +234,7 @@ const TOP_K = 5;
 let selBytes = 0;
 let allBytes = DeterministicCompressor.byteLength(allToolsText);
 for (const q of QUERIES) {
-  const hits = index.search(tokenize(q), TOP_K);
+  const hits = index.search(Bm25Index.tokenize(q), TOP_K);
   const sel = hits.map((h) => `${tools[h.id].name}: ${tools[h.id].description}`).join('\n');
   selBytes += DeterministicCompressor.byteLength(sel);
 }
@@ -256,7 +256,8 @@ console.log(`  → 收益锚点(Anthropic 实测): 工具定义从 ~77K tokens �
 console.log('── 7. BM25 检索吞吐（无第三方依赖倒排） ──');
 const QN = 2000;
 const t0 = process.hrtime.bigint();
-for (let i = 0; i < QN; i += 1) index.search(tokenize(QUERIES[i % QUERIES.length]), TOP_K);
+for (let i = 0; i < QN; i += 1)
+  index.search(Bm25Index.tokenize(QUERIES[i % QUERIES.length]), TOP_K);
 const t1 = process.hrtime.bigint();
 const elapsedMs = Number(t1 - t0) / 1e6;
 results.retrieval = {

@@ -77,7 +77,15 @@ export class RepoMap {
 }
 
 /** 符号种类。 */
-export type SymbolKind = 'function' | 'class' | 'interface' | 'type' | 'const' | 'method';
+export type SymbolKind =
+  | 'function'
+  | 'class'
+  | 'interface'
+  | 'type'
+  | 'const'
+  | 'method'
+  /** import / from-import 声明（Python 路专用）：模块名进符号索引，拓宽候选池。 */
+  | 'import';
 
 /** 单个抽取出的符号节点。 */
 export interface SymbolNode {
@@ -111,9 +119,20 @@ const TS_RULES: readonly KindRule[] = [
   },
 ];
 
+/**
+ * Python 抽取规则（2026-10-02 能力升级，能力审计 C6）：
+ *  - `(?:async\s+)?def`：此前 `async def` **完全抽不到**（现代 Python 协程主力形态）；
+ *  - 缩进允许（`^\s*`）：类方法同 function 通道抽出；
+ *  - `import` / `from X import`：模块名进符号索引——查询提到模块名（如 `models`、`conftest`）
+ *    时文件可入候选池。这是跨仓（Python 仓为主）召回差的直接修复点：审计实测 45.6% 查询的
+ *    GT 文件「任何名次都不可达」，池子缺源头符号是原因之一。
+ */
 const PY_RULES: readonly KindRule[] = [
-  { kind: 'function', pattern: /^\s*def\s+([A-Za-z_][\w]*)\s*\(/ },
+  { kind: 'function', pattern: /^\s*(?:async\s+)?def\s+([A-Za-z_][\w]*)\s*\(/ },
   { kind: 'class', pattern: /^\s*class\s+([A-Za-z_][\w]*)\s*\(?/ },
+  { kind: 'import', pattern: /^\s*import\s+([A-Za-z_][\w.]*)/ },
+  { kind: 'import', pattern: /^\s*from\s+\.?([A-Za-z_][\w.]*)\s+import\s/ },
+  { kind: 'import', pattern: /^\s*from\s+\.+\s+import\s+([A-Za-z_][\w]*)/ },
 ];
 
 const METHOD_RULE =

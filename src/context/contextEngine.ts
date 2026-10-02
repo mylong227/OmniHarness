@@ -13,11 +13,12 @@ import { Bm25Index } from '../search/bm25Index.js';
 import { RepoMap, type SymbolNode } from './repoMap.js';
 import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.js';
-import { LayeredCodeGraph } from './layeredCodeGraph.js';
 import { LsaEngine, type LsaModel } from './lsaEngine.js';
-import { ArrayAt } from '../util/arrayAt.js';
-import { ContentStopWords } from './contentStopWords.js';
 import { FileReranker } from './fileReranker.js';
+import { CandidateSearch } from './queryStages/candidateSearch.js';
+import { SeedFusion } from './queryStages/seedFusion.js';
+import { SymbolFileFusion } from './queryStages/symbolFileFusion.js';
+import { PerFileSymbolView } from './queryStages/perFileSymbolView.js';
 import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
 import { log } from '../util/logger.js';
 
@@ -227,28 +228,6 @@ export class ContextEngine {
   }
 
   /**
-   * 层化图构建缓存：按语料实例 WeakMap 缓存，避免每次查询重扫全仓建边。
-   * E4 深化：层化图作为第三路软融合并入 `query` 的 fileScore（见 `query` 内 useLayered 分支）。
-   */
-  private static readonly layeredGraphCache = new WeakMap<IndexedCorpus, CodeGraph>();
-
-  /**
-   * 取（或构建并缓存）某语料的层化代码图。
-   * @param corpus 已索引语料（含 symbols 与 fileText，满足 GraphSource 视图）
-   * @returns 层化有向带权邻接表
-   */
-  public static getLayeredGraph(corpus: IndexedCorpus): CodeGraph {
-    const cached = ContextEngine.layeredGraphCache.get(corpus);
-    if (cached !== undefined) return cached;
-    const g = LayeredCodeGraph.buildLayeredCodeGraph({
-      symbols: corpus.symbols,
-      fileText: corpus.fileText,
-    });
-    ContextEngine.layeredGraphCache.set(corpus, g);
-    return g;
-  }
-
-  /**
    * 索引某个目录下的源码，构建符号级与文件级双 BM25 索引。
    *
    * **内存有界（2026-09-19 堆爆修复）**：遍历只走 `WorkspaceFileWalker` 的忽略清单
@@ -411,219 +390,56 @@ export class ContextEngine {
       rerankFloor?: number;
     } = {},
   ): QueryResult {
-    // 图检索默认关闭：实测在本语料上净负面。
-    // 根因（evals/rank-veto-retro.mjs 实测，已更正早期「收敛至近均匀」的错误解释）：
-    // 图排序对查询不敏感——Top-14 跨查询重合度 0.936，而 BM25 仅 0.058，
-    // 等于给每条查询塞同一批枢纽文件，构成常量偏置，挤掉真正相关的文件。
-    // 保留模块与 graph:true 开关供稀疏高质量边/语义权重场景使用。
+    // 各路默认关闭的实测依据（graph/layered/lsa）随实现迁入对应阶段类的文件头，
+    // 开关语义与评测口径不变：graph/layered/lsa 均为评测专用，生产默认全关。
     const useGraph = opts.graph === true;
-    // E4 深化：层化图软融合（第三路，非替换）。默认关，仅供评测开启；D6 第二关未达标前不破生产口径。
     const useLayered = opts.layered === true;
-    // LSA 默认关闭：实测在「词形归并」之上叠加 LSA，召回无增益（67.0% 持平），
-    // 但符号精确率从 25.5% 腰斩至 10.5%（潜语义扩展引入噪声，挤掉真相关符号）。
-    // 模块保留（lsa:true 可开启），供后续改用更高秩/稀疏化后重新评估。
     const useLsa = opts.lsa === true;
-    // 第二段重排（打磨第二批 P1）：默认 **false** —— 直接调用 `query()` 的调用方（基准 / 单测）
-    // 行为逐字不变；生产入口 `RepoMapContextEngine.getRepoMapContext` 会显式传 true。
-    // 这样既让生产拿到收益，又不会悄悄改写任何已冻结的评测报告口径。
     const useRerank = opts.rerank === true;
-    const qk = corpus.morph ? Bm25Index.tokenizeExpanded(q) : Bm25Index.tokenize(q);
     const FILE_K = opts.fileK ?? 14;
     const SYM_K = opts.symK ?? 30;
-    // 打分期 BM25 参数覆盖（调参扫描）：索引与 k1/b 无关，故同一语料可零成本重打分。
-    const bm25Args = {
-      ...(opts.bm25K1 !== undefined ? { k1: opts.bm25K1 } : {}),
-      ...(opts.bm25B !== undefined ? { b: opts.bm25B } : {}),
-    };
-    let bm25SymHits = [...corpus.symbolIndex.search(qk, 60, bm25Args)];
-    let fileHits = [...corpus.fileIndex.search(qk, 20, bm25Args)];
 
-    // 伪相关反馈（PRF / RM3 风格查询扩展）：突破纯词法召回天花板。无第三方依赖、可测。
-    // 实现要点（经 evals/recall-precision.mjs 实测校准，复刻该脚本的获胜配方）：
-    //  - 取首轮 Top-R 文件（R=20，与基准脚本一致）作为反馈集；
-    //  - 反馈集内 TF·IDF 加权选 Top-E 扩展词（E=6——太多引入噪声稀释头部）；
-    //  - **重排（替换）而非并集**：扩展查询直接重跑 BM25、取新 Top-K 重排序，
-    //    避免噪声候选挤掉真相关文件（朴素并集会把泛化词命中的文件顶进头部，实测 hitRate 39%→9% 崩塌）。
-    //  IDF 用语料级 docFreq（按 corpus 缓存，避免每次查询重建）。
-    if (opts.prf) {
-      const df = ContextEngine.docFreqOf(corpus);
-      const N = corpus.files.length;
-      const topFiles = fileHits
-        .slice(0, 20)
-        .map((h) => corpus.files[h.id]?.rel)
-        .filter((r): r is string => r !== undefined);
-      const fb = new Map<string, number>();
-      for (const rel of topFiles) {
-        const text = corpus.fileText.get(rel);
-        if (text === undefined) continue;
-        const tf = new Map<string, number>();
-        for (const t of Bm25Index.tokenizeExpanded(text)) {
-          if (!ContentStopWords.isContent(t)) continue;
-          tf.set(t, (tf.get(t) ?? 0) + 1);
-        }
-        const len = Math.max(
-          1,
-          [...tf.values()].reduce((a, b) => a + b, 0),
-        );
-        for (const [t, c] of tf) {
-          const d = df.get(t) ?? 0;
-          const idf = Math.log((N - d + 0.5) / (d + 0.5) + 1);
-          fb.set(t, (fb.get(t) ?? 0) + (c / len) * idf);
-        }
-      }
-      const qTok = new Set(Bm25Index.tokenizeExpanded(q));
-      const extra = [...fb.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 6)
-        .map((e) => e[0])
-        .filter((t) => !qTok.has(t));
-      if (extra.length > 0) {
-        const eqk = Bm25Index.tokenizeExpanded(`${q} ${extra.join(' ')}`);
-        // 重排：扩展查询重跑 BM25，直接替换候选（重排序由 BM25 分数决定），不并集。
-        bm25SymHits = [...corpus.symbolIndex.search(eqk, 60, bm25Args)];
-        fileHits = [...corpus.fileIndex.search(eqk, 20, bm25Args)];
-      }
-    }
+    // 阶段 1：候选搜索（BM25 双路 + PRF 扩展重跑）。
+    const search = CandidateSearch.search(corpus, q, {
+      ...(opts.prf !== undefined ? { prf: opts.prf } : {}),
+      ...(opts.bm25K1 !== undefined ? { bm25K1: opts.bm25K1 } : {}),
+      ...(opts.bm25B !== undefined ? { bm25B: opts.bm25B } : {}),
+    });
+    // 阶段 2：种子融合（BM25 ∪ 频域共振 ∪ LSA → 扩散重启向量）。
+    const fused = SeedFusion.fuse(corpus, q, { lsa: useLsa, symK: SYM_K }, search.bm25SymHits);
+    // 阶段 3：符号-文件融合（图扩散/基线 → 文件混合分 → 完整候选池）。
+    const spread = SymbolFileFusion.fuse(
+      corpus,
+      { graph: useGraph, layered: useLayered },
+      fused.seed,
+      fused.symIdSet,
+      search.fileHits,
+    );
 
-    // 燧-3 频域召回：把查询映射成频谱探针，与每个符号本征谱共振，取 Top-K 符号。
-    // 与 BM25（词袋/时域）代数互补——频率偏移、字符分布差异可被频域捕获。
-    const probe = EigenSpectrum.eigenSpectrum(q, RESONANCE_BINS);
-    const resHits: Array<{ id: number; score: number }> = [];
-    for (let i = 0; i < corpus.symbolSpectra.length; i++) {
-      const sp = corpus.symbolSpectra[i];
-      if (sp === undefined) continue;
-      const sc = EigenSpectrum.resonance(sp, probe);
-      if (sc > 1e-4) resHits.push({ id: i, score: sc });
-    }
-    resHits.sort((a, b) => b.score - a.score);
-    const resSymIds = new Set(resHits.slice(0, SYM_K * 2).map((h) => h.id));
-
-    // 潜语义（LSA）召回：把查询投影到潜空间，召回「概念相关」符号（桥接词法错位）。
-    let lsaHits: Array<{ id: number; score: number }> = [];
-    let lsaMax = 0;
-    if (useLsa && corpus.lsaModel) {
-      lsaHits = LsaEngine.lsaQuery(corpus.lsaModel, q, 60);
-      for (const h of lsaHits) lsaMax = Math.max(lsaMax, Math.abs(h.score));
-    }
-
-    // BM25 符号 ∪ 共振符号 ∪ LSA 符号（并集 → 作为图扩散的种子）。
-    const symIdSet = new Set<number>();
-    for (const h of bm25SymHits) symIdSet.add(h.id);
-    for (const id of resSymIds) symIdSet.add(id);
-    for (const h of lsaHits) symIdSet.add(h.id);
-
-    // 种子分数：BM25 / 共振 / LSA 各自归一化后加权，作为 PageRank 重启向量。
-    let bm25Max = 0;
-    for (const h of bm25SymHits) bm25Max = Math.max(bm25Max, h.score);
-    let resMax = 0;
-    for (const h of resHits) resMax = Math.max(resMax, h.score);
-    const seed = new Map<number, number>();
-    for (const h of bm25SymHits) {
-      if (bm25Max > 0) seed.set(h.id, (h.score / bm25Max) * 0.6);
-    }
-    for (const h of resHits) {
-      const norm = resMax > 0 ? h.score / resMax : 0;
-      const cur = seed.get(h.id) ?? 0;
-      seed.set(h.id, Math.max(cur, norm * 0.4));
-    }
-    for (const h of lsaHits) {
-      const norm = lsaMax > 0 ? Math.abs(h.score) / lsaMax : 0;
-      const cur = seed.get(h.id) ?? 0;
-      seed.set(h.id, Math.max(cur, norm * 0.5));
-    }
-
-    // 图扩散：把种子分数沿代码拓扑图传播，关联符号被抬升（突破纯词法天花板）。
-    let finalScores: Float64Array;
-    if (useGraph) {
-      finalScores = CodeGraphIndex.propagate(corpus.codeGraph, seed, 4, 0.85);
-      let fmax = 0;
-      for (let i = 0; i < finalScores.length; i++)
-        fmax = Math.max(fmax, ArrayAt.at(finalScores, i));
-      const THRESH = 0.12 * (fmax || 1);
-      for (let i = 0; i < finalScores.length; i++) {
-        if ((finalScores[i] ?? 0) >= THRESH) symIdSet.add(i);
-      }
-    } else {
-      // 关图：直接以种子分数聚合，作为可对照的 baseline（= 上一轮 58.5% 配置）。
-      finalScores = new Float64Array(corpus.symbols.length);
-      for (const [id, v] of seed) {
-        if (id >= 0 && id < finalScores.length) finalScores[id] = v;
-      }
-    }
-
-    // 每个文件内最强符号分（用扩散后分值，关联符号被抬升 → 关联文件被捞回）。
-    const bestSymbolScore = new Map<string, number>();
-    for (const id of symIdSet) {
-      const s = corpus.symbols[id];
-      if (s === undefined) continue;
-      const sc = finalScores[id] ?? 0;
-      const cur = bestSymbolScore.get(s.file) ?? 0;
-      if (sc > cur) bestSymbolScore.set(s.file, sc);
-    }
-
-    // E4 深化：层化图作为第三路软融合（非替换），保留文件 BM25 地板。
-    // 根因（evals/layered-recall-ab.mjs 实测）：层化图此前作「替换」BM25 用，丢掉整文件
-    // 词法命中信号 → −9.1pp。改为把图扩散分并入 fileScore 的 max，图只负责「捞回靠关联符号
-    // 但无词法命中」的文件，文件 BM25 始终为地板项（绝不被静默丢弃）。
-    const layeredFileScore = new Map<string, number>();
-    if (useLayered) {
-      const lg = ContextEngine.getLayeredGraph(corpus);
-      const lscores = CodeGraphIndex.propagate(lg, seed, 4, 0.85);
-      let lmax = 0;
-      for (let i = 0; i < lscores.length; i += 1) lmax = Math.max(lmax, lscores[i] ?? 0);
-      const linv = lmax > 0 ? 1 / lmax : 0;
-      for (let i = 0; i < lscores.length; i += 1) {
-        const v = (lscores[i] ?? 0) * linv;
-        if (v <= 0) continue;
-        const s = corpus.symbols[i];
-        if (s === undefined) continue;
-        symIdSet.add(i);
-        const cur = layeredFileScore.get(s.file) ?? 0;
-        if (v > cur) layeredFileScore.set(s.file, v);
-      }
-    }
-
-    // 文件混合分：max(文件BM25, 0.7×符号BM25分, 0.5×层化图分)。
-    const fileScore = new Map<string, number>();
-    for (const h of fileHits) {
-      const f = corpus.files[h.id];
-      if (f === undefined) continue;
-      const sym = bestSymbolScore.get(f.rel) ?? 0;
-      const lay = layeredFileScore.get(f.rel) ?? 0;
-      fileScore.set(f.rel, Math.max(h.score, 0.7 * sym, 0.5 * lay));
-    }
-    for (const [file, sym] of bestSymbolScore) {
-      if (!fileScore.has(file)) fileScore.set(file, 0.7 * sym);
-    }
-    for (const [file, lay] of layeredFileScore) {
-      if (!fileScore.has(file)) fileScore.set(file, 0.5 * lay);
-    }
-    // 第一段候选（**完整** fileScore，不按 FILE_K 截断）：候选池已由「BM25 文件路 ∪ 符号路映射回的文件」
-    // 构成——实测该池在真实语料上已饱和（继续放大池子上界，召回 0 增益），故**不另起候选源**
-    // （新候选源若与查询不敏感即构成常量偏置，见 `rankVetoEvaluator`）。
-    const candidateFiles = [...fileScore.entries()].sort((a, b) => b[1] - a[1]).map(([rel]) => rel);
-    // 第二段：重排（默认关；见上方 useRerank）。重排只重排入池文件，不新增/删除候选。
+    // 第二段：重排（默认关）。重排只重排入池文件，不新增/删除候选。
     const rankedFiles = useRerank
       ? [
           ...fileReranker.rerank({
             corpus,
             query: q,
-            candidates: candidateFiles,
+            candidates: spread.candidateFiles,
             fileK: FILE_K,
             ...(opts.rerankFloor !== undefined ? { floor: opts.rerankFloor } : {}),
           }).files,
         ]
-      : candidateFiles.slice(0, FILE_K);
+      : spread.candidateFiles.slice(0, FILE_K);
 
-    const symbols = [...symIdSet]
-      .map((id) => ({ s: corpus.symbols[id], v: finalScores[id] ?? 0 }))
+    const symbols = [...fused.symIdSet]
+      .map((id) => ({ s: corpus.symbols[id], v: spread.finalScores[id] ?? 0 }))
       .filter((x): x is { s: SymbolNode; v: number } => x.s !== undefined)
       .sort((a, b) => b.v - a.v)
       .slice(0, SYM_K)
       .map((x) => x.s);
-    const fileSet = new Set(rankedFiles);
 
-    const outline = RepoMap.outlineText(corpus.symbols.filter((s) => fileSet.has(s.file)));
+    // 大纲：每文件符号视图按候选集重建（免全量扫符号表；输出与 filter 逐字节一致）。
+    const outline = RepoMap.outlineText(
+      PerFileSymbolView.of(corpus).inSetOrder(new Set(rankedFiles)),
+    );
     const sigLines = symbols.map((s) => `L${s.line} ${s.kind} ${s.name} @ ${s.file}`);
     const context = [
       '# Repo Map (relevant files)',
@@ -633,23 +449,6 @@ export class ContextEngine {
     ].join('\n');
 
     return { context, tokens: Bm25Index.tokenize(context).length, symbols, files: rankedFiles };
-  }
-
-  /**
-   * 语料级文档频率（df）视图，按语料实例缓存（同一语料重复查询零重算）。
-   * @param corpus 已索引语料。
-   * @returns 词元 → 出现该词元的文件数。
-   */
-  public static docFreqOf(corpus: IndexedCorpus): Map<string, number> {
-    const cached = DF_CACHE.get(corpus);
-    if (cached !== undefined) return cached;
-    const df = new Map<string, number>();
-    for (const text of corpus.fileText.values()) {
-      const seen = new Set(Bm25Index.tokenizeExpanded(text));
-      for (const t of seen) df.set(t, (df.get(t) ?? 0) + 1);
-    }
-    DF_CACHE.set(corpus, df);
-    return df;
   }
 
   /** 整语料 token 总量（整文件硬塞 baseline 的上界）。 */
@@ -795,14 +594,5 @@ export interface QueryResult {
   /** 命中的文件（第一段按文件 BM25 排序；开启 `rerank` 时为其上的第二段重排结果）。 */
   readonly files: readonly string[];
 }
-
-/**
- * 语料级文档频率（DF）缓存：PRF 扩展词的 IDF 加权需要语料级 df，按 corpus 缓存避免每次查询重建。
- * 用 WeakMap 让 corpus 被 GC 时自动释放，不泄漏。
- *
- * @param corpus 已索引语料（含 per-file 全文 `fileText`）
- * @returns 词 → 出现该词的文档数（DF）的映射，按 corpus 单例缓存
- */
-const DF_CACHE = new WeakMap<IndexedCorpus, Map<string, number>>();
 
 /** 关键词命中 Top-N 文件的整文件 token 总和（真实竞品 baseline：grep→整文件）。 */

@@ -17,19 +17,19 @@ import { existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { JsonlRuntimeTelemetry } from '../dist/src/adapters/telemetry/jsonlRuntimeTelemetry.js';
-import { HeatEquationAnnealer } from '../dist/src/adapters/memory/heatAnnealer.js';
+import { HeatEquationAnnealer } from '../dist/src/adapters/memory/heatEquationAnnealer.js';
 import { ImmuneMonitor } from '../dist/src/adapters/monitoring/immuneMonitor.js';
-import { NaturalGradientBelief } from '../dist/src/adapters/belief/naturalGradient.js';
-import { ParticleFilterBelief } from '../dist/src/adapters/belief/particleFilter.js';
-import { SymmetryBreakingEngine } from '../dist/src/adapters/monitoring/symmetryBreaking.js';
-import { ConfinementEngine } from '../dist/src/adapters/monitoring/confinement.js';
+import { NaturalGradientBelief } from '../dist/src/adapters/belief/naturalGradientBelief.js';
+import { ParticleFilterBelief } from '../dist/src/adapters/belief/particleFilterBelief.js';
+import { SymmetryBreakingEngine } from '../dist/src/adapters/monitoring/symmetryBreakingEngine.js';
+import { ConfinementEngine } from '../dist/src/adapters/monitoring/confinementEngine.js';
 import { ElementComposer } from '../dist/src/adapters/skill/elementComposer.js';
 import { MemoryKv } from '../dist/src/adapters/kv/memoryKv.js';
-import { FailClosedEvolutionGate } from '../dist/src/evolution/evolutionGate.js';
+import { FailClosedEvolutionGate } from '../dist/src/evolution/failClosedEvolutionGate.js';
 import { SkillRegistry } from '../dist/src/skill/skillRegistry.js';
-import { CRISPRSkillEditor } from '../dist/src/adapters/skill/crispr.js';
+import { CRISPRSkillEditor } from '../dist/src/adapters/skill/crisprSkillEditor.js';
 import { CapabilityCrystallizer } from '../dist/src/adapters/skill/capabilityCrystallizer.js';
-import { composeByTwist } from '../dist/src/skill/skillComposer.js';
+import { MoireComposer } from '../dist/src/skill/moireComposer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LIVE_PATH = join(__dirname, 'runtime-telemetry.log');
@@ -235,7 +235,7 @@ function rec(operator, metrics) {
     const crep = cap.crystallize();
 
     // (skillComposer) 莫尔组合：对两技能做扭转组合，取涌现强度。
-    const composed = composeByTwist({ ...skillA }, { ...skillB });
+    const composed = MoireComposer.composeByTwist({ ...skillA }, { ...skillB });
 
     // ---- 把真实逐算子指标写入实时 sink（provenance=self-driven） ----
     rec('heatAnnealer', { temperature: an.temperature, facts: an.facts, drift: an.drift });

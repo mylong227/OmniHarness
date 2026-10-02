@@ -8,11 +8,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { ConfinementEngine } from '../dist/src/adapters/monitoring/confinement.js';
-import { FailClosedEvolutionGate } from '../dist/src/evolution/evolutionGate.js';
-import { HeatEquationAnnealer } from '../dist/src/adapters/memory/heatAnnealer.js';
-import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRing.js';
-import { composeByTwist } from '../dist/src/skill/skillComposer.js';
+import { ConfinementEngine } from '../dist/src/adapters/monitoring/confinementEngine.js';
+import { FailClosedEvolutionGate } from '../dist/src/evolution/failClosedEvolutionGate.js';
+import { HeatEquationAnnealer } from '../dist/src/adapters/memory/heatEquationAnnealer.js';
+import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRingPacket.js';
+import { MoireComposer } from '../dist/src/skill/moireComposer.js';
 import { BenchmarkFn } from '../dist/src/evolution/benchmark.js';
 import { ElementComposer } from '../dist/src/adapters/skill/elementComposer.js';
 
@@ -127,7 +127,7 @@ function check(prop, probe, measured, pass, evidence) {
     instructions: '执行 推理 任务 推导',
     tags: ['推理'],
   };
-  const composed = composeByTwist(A, B);
+  const composed = MoireComposer.composeByTwist(A, B);
   const emComposed = Benchmark.moireEnergy(composed, N);
   const emA = Benchmark.moireEnergy(A, N);
   const elem = new ElementComposer();
