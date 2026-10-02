@@ -1,6 +1,7 @@
 // 面向对象的服务层：封装与后端的所有 JSON-RPC 2.0 通信与 /metrics 拉取。
 // 组件层只依赖本类，不直接 fetch，便于替换与单测。
 
+import { authToken } from './authToken.js';
 import type {
   Config,
   FileAttachment,
@@ -42,12 +43,26 @@ interface JsonRpcResponse<T> {
 export class ApiClient {
   private nextId = 0;
 
+  /**
+   * 构造请求头：基础 Content-Type 之外，当配置了访问令牌时附带 `Authorization: Bearer <token>`，
+   * 使服务端启用 OMNI_SERVE_TOKEN 门禁后前端仍能正常通信（#A10 修复）。
+   * @returns 合并后的请求头。
+   */
+  private buildHeaders(): Record<string, string> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = authToken.resolve();
+    if (token !== '') {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
   /** 统一的 JSON-RPC 2.0 调用入口；失败时抛出带服务端 message 的 Error。 */
   public async rpc<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = ++this.nextId;
     const res = await fetch('/rpc', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.buildHeaders(),
       body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
     });
     // 归因必须保住：只有「JSON-RPC error **对象**」才当作协议错误读它的 message。
@@ -76,7 +91,7 @@ export class ApiClient {
    * 早期版本误用 res.json() 解析必挂，导致指标面板永远停在「读取中…」。
    */
   public async fetchMetrics(): Promise<Metrics> {
-    const res = await fetch('/metrics');
+    const res = await fetch('/metrics', { headers: this.buildHeaders() });
     if (!res.ok) throw new Error('metrics 请求失败：' + res.status);
     const text = await res.text();
     const metrics: Metrics = { sessions: 0, eventsByType: {} };

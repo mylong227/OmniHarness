@@ -2,6 +2,7 @@
 // 由 App 统一路由到对应的状态更新，避免 vanilla 版散落的隐式耦合。
 
 import type { SseEnvelope } from '../types/models.js';
+import { authToken } from './authToken.js';
 
 export class EventStream {
   private es: EventSource | null = null;
@@ -11,7 +12,11 @@ export class EventStream {
 
   public connect(): void {
     if (this.es) return;
-    const es = new EventSource('/events');
+    // EventSource 不支持自定义请求头，故启用令牌门禁时把 Bearer 令牌经 ?token= 查询参数带上
+    // （服务端 ServerAuthGuard 对该路径额外接受查询参数令牌，#A10 修复）。
+    const token = authToken.resolve();
+    const url = token !== '' ? `/events?token=${encodeURIComponent(token)}` : '/events';
+    const es = new EventSource(url);
     es.onopen = () => this.onOpen?.();
     es.onerror = () => this.onClose?.();
     es.onmessage = (e: MessageEvent) => {

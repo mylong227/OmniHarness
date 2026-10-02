@@ -37,7 +37,7 @@
 | [QUICKSTART.md](QUICKSTART.md)                       | 5 分钟跑通                                                             |
 | [contributing.md](contributing.md)                   | 贡献铁律（一功能一类/一函数一职责）                                    |
 | [CODE_STANDARD.md](CODE_STANDARD.md)                 | 编码标准（含隐喻引擎成熟度声明 L0–L3 规则）                            |
-| [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md)         | 依赖准入政策（零运行时依赖的边界与例外流程）                           |
+| [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md)         | 依赖准入政策（必要且更优即可依赖（D10）；ports/core 恒第三方-free）    |
 | [API_STABILITY.md](API_STABILITY.md)                 | API 稳定性分级契约（@public/@beta/@deprecated）                        |
 | [PORTS_CONTRACT.md](PORTS_CONTRACT.md)               | 端口契约：第三方实现 OmniHarness 端口的口径                            |
 | [integration.md](integration.md)                     | 接入指南（实现端口接口 → 注入配置 → 完成）                             |

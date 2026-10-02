@@ -48,7 +48,7 @@ export interface HealthStatus {
   readonly checks: Readonly<Record<string, boolean>>;
 }
 
-/** HTTP + SSE + WebSocket 服务：静态页 + JSON-RPC + 事件推送（零依赖）。 */
+/** HTTP + SSE + WebSocket 服务：静态页 + JSON-RPC + 事件推送（无第三方依赖）。 */
 export class HttpServer {
   /**
    * 请求体总量上限（字节）：8 MiB。
@@ -160,6 +160,7 @@ export class HttpServer {
    */
   private async route(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = request.url ?? '/';
+    const path = url.split('?')[0] ?? '/';
     const traceId = Logger.nextTraceId(
       typeof request.headers['x-trace-id'] === 'string' ? request.headers['x-trace-id'] : undefined,
     );
@@ -176,17 +177,17 @@ export class HttpServer {
         response.end(JSON.stringify({ error: 'unauthorized' }));
         return;
       }
-      if (request.method === 'GET' && url === '/events') {
+      if (request.method === 'GET' && path === '/events') {
         this.openSse(response);
-      } else if (request.method === 'GET' && url === '/metrics') {
+      } else if (request.method === 'GET' && path === '/metrics') {
         this.serveMetrics(response);
-      } else if (request.method === 'GET' && url === '/healthz') {
+      } else if (request.method === 'GET' && path === '/healthz') {
         this.serveHealth(response, 'live');
-      } else if (request.method === 'GET' && url === '/readyz') {
+      } else if (request.method === 'GET' && path === '/readyz') {
         this.serveHealth(response, 'ready');
-      } else if (request.method === 'POST' && url === '/rpc') {
+      } else if (request.method === 'POST' && path === '/rpc') {
         await this.handleRpc(request, response);
-      } else if (request.method === 'GET' && url.startsWith('/files')) {
+      } else if (request.method === 'GET' && path.startsWith('/files')) {
         // #OBS-11：工作区文件下载（Agent 写出的产物、前端 artifact 卡片 download 走这里）。
         // 路径校验与 RPC fs.read 共用 safeReadFile，fail-closed 越界/缺失统一 403/404。
         await this.serveWorkspaceFile(url, response);

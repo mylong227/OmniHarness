@@ -62,7 +62,7 @@
 
 **对本仓库的影响（推论）**：
 
-- 本仓库铁律是**零运行时依赖**，因此 Node 升级的收益主要是**语言能力**（Temporal 让时间处理不再依赖第三方；对记忆时间维度、审计时间戳友好——直接服务 02 卷的 T1/L1）。
+- 本仓库依赖按 D10 准入（ports/core 恒第三方-free），Node 升级的收益主要是**语言能力**（Temporal 让时间处理不再依赖第三方；对记忆时间维度、审计时间戳友好——直接服务 02 卷的 T1/L1）。
 - 供应链：本仓库依赖极少（仅 `@huggingface/transformers` 与 devDeps），**攻击面天然小**。但应**跟随 install scripts opt-in 趋势**，在 CI 与文档中显式声明 `--ignore-scripts` 可行性。
 - HTTP/3：`src/a2a/httpA2aTransport.ts` 目前走 HTTP/1.1（或 2），**不建议**在实验阶段迁到 `node:quic`。记录为「远期观察」。
 
