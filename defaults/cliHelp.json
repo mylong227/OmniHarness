@@ -78,10 +78,6 @@
       "description": "打印 API 契约版本（API_VERSION）并退出，不执行"
     },
     {
-      "spec": "eval [--suite PATH.json] [--out REPORT.json]",
-      "description": "运行评估套件（质量回归基准，默认内置 smoke）"
-    },
-    {
       "spec": "--model-adapter {{modelAdapters}}",
       "description": "模型端口（默认 mock；responses = OpenAI Responses API 原生通道；llamacpp = 本地 Ollama/llama.cpp 原生 /api/chat）"
     },

@@ -124,12 +124,6 @@ const REGISTRY = [
     'tests/unit/discoveryEngine.test.ts',
   ],
   [
-    'src/eval/passK.ts',
-    'L1',
-    'Pass@k + 确定性 bootstrap 95% CI（消随机红/绿）；「≥5 次跑」规范化待补',
-    'tests/unit/passK.test.ts',
-  ],
-  [
     'src/adapters/monitoring/immuneMonitor.ts',
     'L0',
     '框架在；未与 prompt injection 对抗集（AgentDojo/InjecAgent）接通',

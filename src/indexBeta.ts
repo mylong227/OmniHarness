@@ -21,16 +21,9 @@ export { FileLongTermMemory } from './adapters/memory/fileLongTermMemory.js';
 export { MemoryExtractor } from './adapters/memory/memoryExtractor.js';
 export { RememberTool, RecallTool } from './adapters/tool/memory/longTermMemoryTools.js';
 
-// @beta 评估 / 基准 harness（C3）
-export { EvalHarness, ScriptedModel, SMOKE_SUITE } from './eval/index.js';
-export type {
-  EvalSuite,
-  EvalTask,
-  EvalExpectation,
-  EvalReport,
-  EvalTaskResult,
-  ScriptStep,
-} from './eval/index.js';
+// @beta 确定性测试模型（可重放 ModelPort，零 API Key；核心单测用于驱动真实 Agent 主循环）
+export { ScriptedModel } from './core/scriptedModel.js';
+export type { ScriptStep } from './core/scriptedModel.js';
 
 // @beta 子智能体（#76：进程内独立 Agent 循环，深度限制 + 并发限流 + 父子关系）
 export { SubagentOrchestrator } from './subagent/subagentOrchestrator.js';

@@ -75,7 +75,6 @@ const POLICY_MODULES = [
   'src/adapters/approval/cachedApproval.ts',
   'src/adapters/diff/turnDiffHooks.ts',
   'src/adapters/tool/verify/mutationTargets.ts',
-  'src/eval/builtinSuites.ts',
   'src/adapters/model/mockModel.ts',
   'src/autonomy/workflowRunner.ts',
 ];

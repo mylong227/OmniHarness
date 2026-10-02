@@ -31,11 +31,11 @@
 //   node evals/cache-probe.mjs --simulate                 # 干跑：验证失败路径与退出码（不联网）
 //   node --env-file=.env evals/cache-probe.mjs --allow-zero
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PromptCacheUsageReader } from '../dist/src/adapters/model/promptCacheUsageReader.js';
-import { LiveCredentials } from '../dist/src/eval/liveCredentials.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const READER = new PromptCacheUsageReader();
@@ -66,6 +66,28 @@ function envOf(primary, fallback) {
  */
 function envOne(key) {
   return envOf(key, key);
+}
+
+/**
+ * 回退读取用户级 provider key（凭据分层纪律：仓库树不放密钥）。
+ * 等价于已删除的 `LiveCredentials.readUserProviderKey()`：读
+ * `~/.omniharness/omniharness.json` 的 `providerKeys[provider]`。
+ * @param {string} [provider] provider 名，默认 'deepseek'
+ * @returns {string | undefined} key（缺失/空串视为未配置）
+ */
+function readUserProviderKey(provider = 'deepseek') {
+  const path = join(homedir(), '.omniharness', 'omniharness.json');
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+    const keys = parsed.providerKeys;
+    if (typeof keys !== 'object' || keys === null) return undefined;
+    const value = keys[provider];
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -266,7 +288,7 @@ async function main() {
   const apiKey =
     envOf('DEEPSEEK_API_KEY', 'OMNIHARNESS_API_KEY') ??
     envOf('OPENAI_API_KEY', 'OMNIHARNESS_API_KEY') ??
-    LiveCredentials.readUserProviderKey();
+    readUserProviderKey();
   const baseUrl = envOf('DEEPSEEK_BASE_URL', 'OMNIHARNESS_BASE_URL') ?? 'https://api.deepseek.com';
   const model = envOf('DEEPSEEK_MODEL', 'OMNIHARNESS_MODEL') ?? 'deepseek-chat';
   const url = completionsUrl(baseUrl);

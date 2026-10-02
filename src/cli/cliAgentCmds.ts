@@ -2,13 +2,12 @@
  * cliAgentCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 6/6 层）。
  *
  * 承载「自主 / 编排 / 交互」类子命令：execute（replay/resume/fork/runTask）、goal、workflow、
- * routines（add|list|remove|run）、tui、eval。方法体逐字节等价于原 exec.ts，`private`→`protected`。
+ * routines（add|list|remove|run）、tui。方法体逐字节等价于原 exec.ts，`private`→`protected`。
  * 继承自 CliNativeCmds，为继承链倒数第二层；ExecCli 在其上承接到进程入口。
  */
 
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { writeFileSync } from 'node:fs';
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
@@ -21,7 +20,6 @@ import { RoutineScheduler } from '../daemon/routineScheduler.js';
 import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/routineScheduler.js';
 import { Interactive } from '../tui/interactive.js';
 import type { TuiEvent } from '../tui/tuiRenderer.js';
-import { EvalHarness, SMOKE_SUITE } from '../eval/index.js';
 import { ArgParser, CliDefaults } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import { CliNativeCmds } from './cliNativeCmds.js';
@@ -307,24 +305,5 @@ export class CliAgentCmds extends CliNativeCmds {
       console.error(`TUI 启动失败: ${err instanceof Error ? err.message : String(err)}`);
       return 1;
     }
-  }
-
-  /**
-   * eval：运行评估套件（C3 质量回归基准）。
-   * 用法: omniharness eval [--suite PATH.json] [--out REPORT.json]
-   * @param args 子命令参数（--suite 指定套件 JSON，--out 指定报告落盘路径）。
-   * @returns 进程退出码：存在失败用例为 1，全部通过为 0。
-   */
-  protected async runEval(args: readonly string[]): Promise<number> {
-    const suitePath = this.flagValue(args, '--suite');
-    const suite = suitePath !== undefined ? EvalHarness.loadSuiteFromJson(suitePath) : SMOKE_SUITE;
-    const report = await EvalHarness.runEvalSuite(suite);
-    process.stdout.write(EvalHarness.formatEvalReport(report) + '\n');
-    const outPath = this.flagValue(args, '--out');
-    if (outPath !== undefined) {
-      writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
-      process.stdout.write(`报告已写入: ${outPath}\n`);
-    }
-    return report.failed === 0 ? 0 : 1;
   }
 }

@@ -35,7 +35,7 @@ const { RankVetoEvaluator, RankVetoOverlap, DEFAULT_VETO_THRESHOLDS } = await im
   'rankVeto',
   'index.js',
 );
-const { Bootstrap } = await importDist('eval', 'bootstrap.js');
+const { Bootstrap } = await importDist('evolution', 'bootstrap.js');
 
 const SRC = join(ROOT, 'src');
 const GATE = process.argv.includes('--gate');

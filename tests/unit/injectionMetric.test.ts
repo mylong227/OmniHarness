@@ -38,7 +38,7 @@ test('evaluateSnapshot 在已知内联夹具上数值正确（recall/FP/precisio
 test('离线注入快照文件良构（每例含 id/label/category/text，label 合法）', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const snap = JSON.parse(
-    readFileSync(join(here, '../../../evals/fixtures/injection-snapshot.json'), 'utf8'),
+    readFileSync(join(here, '../../../tests/fixtures/injection-snapshot.json'), 'utf8'),
   );
   assert.ok(Array.isArray(snap.cases));
   assert.ok(snap.cases.length >= 10);
@@ -59,7 +59,7 @@ test('离线注入快照文件良构（每例含 id/label/category/text，label 
 test('真实快照逐例跑护栏不抛错，且产出覆盖全部用例', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const snap = JSON.parse(
-    readFileSync(join(here, '../../../evals/fixtures/injection-snapshot.json'), 'utf8'),
+    readFileSync(join(here, '../../../tests/fixtures/injection-snapshot.json'), 'utf8'),
   );
   const r = InjectionMetric.evaluateSnapshot(snap.cases as InjectionCase[]);
   assert.strictEqual(r.cases.length, snap.cases.length);

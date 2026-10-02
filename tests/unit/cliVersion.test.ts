@@ -34,6 +34,6 @@ test('CLI -V 短选项等价于 --version', async () => {
 
 test('--version 在任何子命令前均早退（不触发配置/Agent 装配）', async () => {
   const cli = new ExecCli();
-  const out = await captureStdout(() => cli.run(['eval', '--version']));
+  const out = await captureStdout(() => cli.run(['execute', '--version']));
   assert.strictEqual(out, `omniharness ${API_VERSION}\n`);
 });

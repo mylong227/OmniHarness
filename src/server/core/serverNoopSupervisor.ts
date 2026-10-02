@@ -6,7 +6,7 @@ import type { HealthSnapshot, SafeMode, SupervisorPort } from '../../ports/runti
  * fail-closed 降级会永久拦截 write_file/shell/apply_patch，与用户终局授权冲突。
  *
  * 其余配置保持原 SupervisorKernel 不动——本类只放行、模式恒 nominal，不修改生产级安全
- * 策略面。eval 端的 NoopSupervisor 在 `src/eval/evalHarness.ts`，不复用避免拉耦。
+ * 策略面。NoopSupervisor 不复用避免拉耦（评分端 supervisor 已随评测模块移除）。
  */
 export class ServerNoopSupervisor implements SupervisorPort {
   /**
