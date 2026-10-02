@@ -42,9 +42,13 @@ test('① 结构完整：字段非空且查询文本不重复', () => {
 
 test('② 规模达标：全量 ≥190 条，冻结子集恰为 33 条、冻结全量恰为 84 条', () => {
   assert.ok(RECALL_QUERIES.length >= 190, `全量仅 ${RECALL_QUERIES.length} 条（目标 ≥190）`);
-  assert.strictEqual(CORE_COUNT, 33, '冻结的历史子集必须恰为 33 条（看板 §17 数字依赖它）');
-  assert.strictEqual(CORE_RECALL_QUERIES.length, 33);
-  assert.strictEqual(FROZEN_COUNT, 84, '冻结全量必须恰为 84 条（看板 §23 数字依赖它）');
+  assert.strictEqual(
+    CORE_COUNT,
+    32,
+    '冻结的历史子集必须恰为 32 条（看板 §17 数字依赖它；已删除死代码 OobleckStore 对应锚点）',
+  );
+  assert.strictEqual(CORE_RECALL_QUERIES.length, 32);
+  assert.strictEqual(FROZEN_COUNT, 83, '冻结全量必须恰为 83 条（看板 §23 数字依赖它）');
   assert.strictEqual(
     RECALL_QUERIES.length,
     CORE_RECALL_QUERIES.length + EXTENDED_RECALL_QUERIES.length + GROWTH_RECALL_QUERIES.length,

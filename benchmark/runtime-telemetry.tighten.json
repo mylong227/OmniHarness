@@ -29,18 +29,6 @@
   ],
   "tunable": [
     {
-      "operator": "oobleck",
-      "param": "yieldStress",
-      "current": 0.6,
-      "floor": 0.6,
-      "ceil": 0.95,
-      "evidence": "catastrophicForget=0.000",
-      "productionN": 64,
-      "status": "EVALUATED",
-      "action": "KEEP",
-      "note": "证据未触发收紧（catastrophicForget=0.000），保持当前 0.6"
-    },
-    {
       "operator": "evolutionGate",
       "param": "minGain",
       "current": 0.05,

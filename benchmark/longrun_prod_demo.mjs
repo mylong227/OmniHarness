@@ -16,7 +16,7 @@
 //   - 落盘的 production 观测携带 cycle() 算出的真实引擎指标（drift / confidencePF / 色荷 exposed
 //     / 组合 validCombo / crispr 应用回滚 / 固化 frozen 等），非伪造；任务间向 longTermMemory 注入
 //     变动事实，构成真实 varied 负载（退火温度单调下降、信念 KL 更新、免疫自体基线采样）。
-//   - crispr/oobleck/evolutionGate/skillComposer 的「带标注对比」观测由 self-driven 负载覆盖
+//   - crispr/evolutionGate/skillComposer 的「带标注对比」观测由 self-driven 负载覆盖
 //     （生产路径下它们靠任务内真实动作触发）；本演示聚焦证明 spark 周期对 7 个引擎的 production 落盘路径。
 //
 // 用法：npm run longrun:prod   （会先 build）

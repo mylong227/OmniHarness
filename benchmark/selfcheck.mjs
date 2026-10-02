@@ -9,7 +9,6 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { ConfinementEngine } from '../dist/src/adapters/monitoring/confinement.js';
-import { OobleckStore } from '../dist/src/adapters/kv/oobleckStore.js';
 import { FailClosedEvolutionGate } from '../dist/src/evolution/evolutionGate.js';
 import { HeatEquationAnnealer } from '../dist/src/adapters/memory/heatAnnealer.js';
 import { VortexRingPacket } from '../dist/src/adapters/spill/vortexRing.js';
@@ -86,23 +85,8 @@ function check(prop, probe, measured, pass, evidence) {
   );
 }
 
-// ============ 2. 不灾难性遗忘 ============
-// 保证机制: 燧-2 固化(冲击重者永存) + 热方程巩固 + 免疫记忆
-{
-  const store = new OobleckStore(new KvStub(), { yieldStress: 0.6 });
-  await store.propose('fact-1', '重大事实: 杏子灰材质版本 v7 为唯一真值', 0.9); // 冲击越过屈服应力 → 涌现冻结
-  const frozen = await store.isFrozen('fact-1');
-  const overwrite = await store.propose('fact-1', '篡改内容', 0.1); // 冻结后任何写入 fail-closed 拒绝
-  check(
-    '不灾难性遗忘',
-    '重大事实冲击冻结后不可变(永存)',
-    `frozen=${frozen} | 冻结后改写.accepted=${overwrite.accepted}`,
-    frozen === true && overwrite.accepted === false,
-    ['oobleckStore.test.ts', 'heatAnnealer.test.ts', 'cosmicWeb.test.ts', 'immuneMonitor.test.ts'],
-  );
-}
+// ============ 2. 低消耗 ============
 
-// ============ 3. 低消耗 ============
 // 保证机制: 零运行时依赖(铁律) + 记忆税 + 退火(算力沿 -∇T 集中)
 {
   const pkgPath = fileURLToPath(new URL('../package.json', import.meta.url));
