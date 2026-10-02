@@ -10,8 +10,8 @@ import { guardianPrompt } from './guardianPrompt.js';
 export interface GuardianApprovalOptions {
   /** 用于 LLM 审查的模型端口（预检未命中时调用）。 */
   readonly model: ModelPort;
-  /** 明确危险的正则白名单（命中即 deny，不送 LLM）。 */
-  readonly preDenyPatterns?: readonly RegExp[];
+  /** 明确危险的预检规则（命中即 deny，不送 LLM）。可为子串短语（来自危险命令单一真源）或正则。 */
+  readonly preDenyPatterns?: readonly (string | RegExp)[];
   /** 明确安全的正则白名单（命中即 allow，不送 LLM）。 */
   readonly preAllowPatterns?: readonly RegExp[];
 }
@@ -23,8 +23,8 @@ export class GuardianApproval implements ApprovalPort {
    */
   public readonly name = 'guardian';
 
-  /** 预检 deny 正则集（命中即拒，省一次 LLM 调用）。 */
-  private readonly preDenyPatterns: readonly RegExp[];
+  /** 预检 deny 规则集（子串短语或正则，命中即拒，省一次 LLM 调用）。 */
+  private readonly preDenyPatterns: readonly (string | RegExp)[];
   /** 预检 allow 正则集（命中即放，省一次 LLM 调用）。 */
   private readonly preAllowPatterns: readonly RegExp[];
 
@@ -50,10 +50,16 @@ export class GuardianApproval implements ApprovalPort {
 
   /** 预检：明确危险即拒，明确安全即放。
    * @param target 请求目标（命令/路径文本）。
-   * @returns 命中预检正则时的直判；两者皆未命中为 undefined（转 LLM 审查）。
+   * @returns 命中预检规则时的直判；两者皆未命中为 undefined（转 LLM 审查）。
    */
   private preCheck(target: string): ApprovalDecision | undefined {
-    if (this.preDenyPatterns.some((pattern) => pattern.test(target))) {
+    // 子串短语按「规范化后子串包含」匹配；正则按原样匹配（与危险命令单一真源口径一致）。
+    const normalized = target.toLowerCase().split(/\s+/).join(' ').replace(/ \| /g, '|');
+    if (
+      this.preDenyPatterns.some((pattern) =>
+        typeof pattern === 'string' ? normalized.includes(pattern) : pattern.test(target),
+      )
+    ) {
       return 'deny';
     }
     if (this.preAllowPatterns.some((pattern) => pattern.test(target))) {

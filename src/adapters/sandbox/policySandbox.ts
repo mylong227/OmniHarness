@@ -17,8 +17,8 @@ export class PolicySandbox implements SandboxPort {
 
   /** 工作区路径守卫（白名单判定委托给它）。 */
   private readonly guard: WorkspaceGuard;
-  /** 危险命令正则集（默认黑名单 + 用户扩展）。 */
-  private readonly patterns: readonly RegExp[];
+  /** 危险命令匹配集（默认黑名单子串短语 + 用户扩展正则）。 */
+  private readonly patterns: readonly (string | RegExp)[];
 
   /**
    * @param options 策略沙箱选项（工作区根目录与额外危险模式）。
@@ -44,11 +44,15 @@ export class PolicySandbox implements SandboxPort {
    * @returns 决策结果（命中时附规则来源与 'command' 类别）。
    */
   private checkCommand(command: string): SandboxDecision {
+    const normalized = dangerousCommands.normalize(command);
     for (const pattern of this.patterns) {
-      if (pattern.test(command)) {
+      const hit =
+        typeof pattern === 'string' ? normalized.includes(pattern) : pattern.test(command);
+      if (hit) {
+        const label = typeof pattern === 'string' ? pattern : pattern.source;
         return {
           allowed: false,
-          reason: `命中危险命令规则: ${pattern.source}`,
+          reason: `命中危险命令规则: ${label}`,
           category: 'command',
         };
       }
