@@ -7,12 +7,12 @@
 
 ## 1. 端口分类与接入门槛
 
-| 级别                         | 端口                                                                                                                                                                                                                                     | 说明                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **核心必选**（嵌入必须提供） | `model`、`tool`、`storage`、`eventPort`、`approval`、`sandbox`、`userResponder`                                                                                                                                                          | 运行一次 turn 的最小闭环；`model` 是唯一必须对接外部 LLM 的端口 |
-| **常用可选**                 | `kv`、`vault`、`checkpointManager`、`longTermMemory`、`resonantField`、`retrieval`、`embedding`、`spill`、`todo`、`plan`、`skill`、`workspaceSnapshot`                                                                                   | 记忆/检索/检查点能力，缺省有内置适配器，可整体替换              |
-| **高级扩展**                 | `agent`、`subagent`、`supervisor`、`confinement`、`policy`、`escalation`、`evolution`、`metacognition`、`immune`、`qec`、`oobleck`、`memoryAnnealing`、`insightEtching`、`symmetryBreaking`、`vortexRing`、`cosmicWeb`、`resonantMemory` | 发明层/治理层机制端口，实现须带 `@maturity` 声明与证据（见 §4） |
-| **回调/钩子**                | `toolHook`、`toolInputSink`、`turnDiffTracker`、`eventFactory`、`memoryExtractor`、`sandboxDenial`                                                                                                                                       | 供宿主监听与注入；实现不得阻塞主循环                            |
+| 级别                         | 端口                                                                                                                                                                                                                          | 说明                                                            |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **核心必选**（嵌入必须提供） | `model`、`tool`、`storage`、`eventPort`、`approval`、`sandbox`、`userResponder`                                                                                                                                               | 运行一次 turn 的最小闭环；`model` 是唯一必须对接外部 LLM 的端口 |
+| **常用可选**                 | `kv`、`vault`、`checkpointManager`、`longTermMemory`、`resonantField`、`retrieval`、`embedding`、`spill`、`todo`、`plan`、`skill`、`workspaceSnapshot`                                                                        | 记忆/检索/检查点能力，缺省有内置适配器，可整体替换              |
+| **高级扩展**                 | `agent`、`subagent`、`supervisor`、`confinement`、`policy`、`escalation`、`evolution`、`metacognition`、`immune`、`qec`、`memoryAnnealing`、`insightEtching`、`symmetryBreaking`、`vortexRing`、`cosmicWeb`、`resonantMemory` | 发明层/治理层机制端口，实现须带 `@maturity` 声明与证据（见 §4） |
+| **回调/钩子**                | `toolHook`、`toolInputSink`、`turnDiffTracker`、`eventFactory`、`memoryExtractor`、`sandboxDenial`                                                                                                                            | 供宿主监听与注入；实现不得阻塞主循环                            |
 
 完整接口清单以 `src/ports/` 目录为准。拆分后约定：**每个接口独占一个 camelCase 文件**（如 `approvalPort.ts`，
 接口符号仍是 PascalCase `ApprovalPort`），原声明文件退化为纯桶再导出（`export type { X } from './…/X.js'`，
@@ -37,7 +37,7 @@
 
 ## 4. 机制端口的成熟度要求（对齐 T0）
 
-以物理/生物/化学概念命名的机制端口实现（如 `qec`、`oobleck`、`resonantField`）必须：
+以物理/生物/化学概念命名的机制端口实现（如 `qec`、`resonantField`）必须：
 
 - 文件头声明 `@maturity L0|L1|L2|L3 — 判据`；
 - L2/L3 必须提供 `@maturityEvidence <测试文件>` 且测试真实 import 该实现；

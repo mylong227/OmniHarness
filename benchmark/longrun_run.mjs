@@ -25,7 +25,6 @@ import { SymmetryBreakingEngine } from '../dist/src/adapters/monitoring/symmetry
 import { ConfinementEngine } from '../dist/src/adapters/monitoring/confinement.js';
 import { ElementComposer } from '../dist/src/adapters/skill/elementComposer.js';
 import { MemoryKv } from '../dist/src/adapters/kv/memoryKv.js';
-import { OobleckStore } from '../dist/src/adapters/kv/oobleckStore.js';
 import { FailClosedEvolutionGate } from '../dist/src/evolution/evolutionGate.js';
 import { SkillRegistry } from '../dist/src/skill/skillRegistry.js';
 import { CRISPRSkillEditor } from '../dist/src/adapters/skill/crispr.js';
@@ -89,11 +88,6 @@ const sym = new SymmetryBreakingEngine({ threshold: 0.7 });
 const conf = new ConfinementEngine({ groupOrder: 3 });
 const elem = new ElementComposer();
 
-// (oobleck) 非牛顿固化存储：包一层内存 KV，屈服应力 0.6（与看板基线一致）。
-const kv = new MemoryKv();
-const oo = new OobleckStore(kv, { yieldStress: 0.6 });
-const OO_KEY = 'memory-cell';
-
 // (evolutionGate) 公平基准：真好候选稳定高分、真差候选稳定低分（不泄漏，fail-closed 应正确拒绝）。
 const gate = new FailClosedEvolutionGate({
   benchmark: (c) => {
@@ -139,7 +133,6 @@ const acc = {
   symmetryBreaking: { rho: 0, trans: 0 },
   confinement: { exposed: 0 },
   elementComposer: { valid: 0 },
-  oobleck: { frozen: 0, forget: 0 },
   evolutionGate: { promoted: 0, spurious: 0 },
   crispr: { applied: 0, rolled: 0 },
   capabilityCrystallizer: { frozen: 0, skipped: 0 },
@@ -160,7 +153,7 @@ function rec(operator, metrics) {
 }
 
 // 所有引擎中 annealer/immune/belief/symmetry/confinement/elementComposer 同步可用；
-// oobleck/evolutionGate/crispr/capabilityCrystallizer 涉及异步（KV/裁决/registry 改写），
+// evolutionGate/crispr/capabilityCrystallizer 涉及异步（KV/裁决/registry 改写），
 // 故把整轮驱动包进 async IIFE，保证 await 语义。
 (async () => {
   for (let i = 0; i < N; i++) {
@@ -220,18 +213,6 @@ function rec(operator, metrics) {
     // (P3) 元素组合：多数轮次合法互补组合，少数单元素（不构成组合）。
     const compound = i % 5 === 0 ? elem.compose(['Na']) : elem.compose(['Na', 'Cl']);
 
-    // (oobleck) 非牛顿固化：1/4 轮次冲击越过屈服应力→冻结；冻结后尝试对抗改写，
-    // 验证"永不可变"——catastrophicForget 应为 0（冻结记录任何改写均被拒）。
-    const willFreeze = i % 4 === 0;
-    const impact = willFreeze ? 0.9 : 0.3;
-    const oores = await oo.propose(OO_KEY, `v-${i}`, impact);
-    let catForget = 0;
-    if (oores.frozen) {
-      const re = await oo.propose(OO_KEY, `ATTACK-${i}`, 1.0);
-      // 若冻结后仍被接受且值不同，才算灾难性遗忘；正确实现下 re.accepted=false → catForget=0。
-      catForget = re.accepted && re.reason !== 'frozen' ? 1 : 0;
-    }
-
     // (evolutionGate) 公平基准裁决：真好候选晋升、真差候选被拒（promotedSpurious 应为 0）。
     const good = i % 3 !== 0;
     const cand = {
@@ -263,11 +244,6 @@ function rec(operator, metrics) {
     rec('symmetryBreaking', { rho: symSnap.orderParameter, falseBreak: trans ? 1 : 0 });
     rec('confinement', { exposed: verdict.exposed ? 1 : 0, confined: verdict.exposed ? 0 : 1 });
     rec('elementComposer', { validCombo: compound ? 1 : 0 });
-    rec('oobleck', {
-      catastrophicForget: catForget,
-      accepted: oores.accepted ? 1 : 0,
-      frozen: oores.frozen ? 1 : 0,
-    });
     rec('evolutionGate', { promotedSpurious, promoted: vd.promoted ? 1 : 0 });
     rec('crispr', { rolledBack: cer.rolledBack ? 1 : 0, applied: cer.applied ? 1 : 0 });
     rec('capabilityCrystallizer', {
@@ -291,8 +267,6 @@ function rec(operator, metrics) {
     acc.symmetryBreaking.trans += trans ? 1 : 0;
     acc.confinement.exposed += verdict.exposed ? 1 : 0;
     acc.elementComposer.valid += compound ? 1 : 0;
-    acc.oobleck.frozen += oores.frozen ? 1 : 0;
-    acc.oobleck.forget += catForget;
     acc.evolutionGate.promoted += vd.promoted ? 1 : 0;
     acc.evolutionGate.spurious += promotedSpurious;
     acc.crispr.applied += cer.applied ? 1 : 0;
@@ -323,9 +297,6 @@ function rec(operator, metrics) {
   );
   console.log(
     `  - elementComposer:  validCombo=${((acc.elementComposer.valid / N) * 100).toFixed(1)}%`,
-  );
-  console.log(
-    `  - oobleck:          frozen=${acc.oobleck.frozen}/${N}  catastrophicForget=${acc.oobleck.forget}（应为 0）`,
   );
   console.log(
     `  - evolutionGate:    promoted=${acc.evolutionGate.promoted}/${N}  promotedSpurious=${acc.evolutionGate.spurious}（应为 0）`,

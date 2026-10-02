@@ -149,10 +149,10 @@
 | `scripts/auditStandards.mjs`                                                                                   | 成熟度门禁两条硬校验：L2/L3 证据须为 `tests/**` 下引用 `node:assert` 的文件；「名义证据」从 log 改为 fail。探针实测：`@maturityEvidence package.json` 现被两条规则同时拦截                        |
 | `src/adapters/memory/insightEtchingEngine.ts` / `skill/elementComposer.ts` / `monitoring/confinementEngine.ts` | 补 `@maturity L0` 诚实声明（原先完全不在门禁视野内）                                                                                                                                              |
 | `src/skill/moireComposer.ts`                                                                                   | 补 `@maturity L1`（结构同构可等式推理）+ 证据指向 `discoveryEngine.test.ts`                                                                                                                       |
-| `src/adapters/kv/oobleckStore.ts`                                                                              | 补 `@maturity L0` + **死代码标注**（src 生产零调用，仅测试与 fixtures 引用；删除与否留待拍板）                                                                                                    |
-| `README.md`                                                                                                    | 口径校准：召回基线改 193 条口径（hitRate@20=44.0% / recall@20=28.5%）、语义跨仓 pooled 0.0pp、rerank 已回关 opt-in、「24 引擎」改「47 引擎（门禁实测 11/22/9/5）」、进化闭环标注 onPromote 已接线 |
+| 奥不列克存储（OobleckStore，已于 2026-10-02 删除死代码）                                                       | 第二批补 `@maturity L0` + 死代码标注；删除与否原留待拍板，本轮拍板删除                                                                                                                            |
+| `README.md`                                                                                                    | 口径校准：召回基线改 193 条口径（hitRate@20=44.0% / recall@20=28.5%）、语义跨仓 pooled 0.0pp、rerank 已回关 opt-in、「24 引擎」改「46 引擎（门禁实测 10/22/9/5）」、进化闭环标注 onPromote 已接线 |
 
-声明数 42 → 47（L0=11 / L1=22 / L2=9 / L3=5），`audit:maturity` 全绿。受影响测试子集（loopGuard / step / tool / worktree / subagent / sandbox / agent）183 项 0 失败。
+声明数 42 → 46（L0=10 / L1=22 / L2=9 / L3=5），`audit:maturity` 全绿。受影响测试子集（loopGuard / step / tool / worktree / subagent / sandbox / agent）183 项 0 失败。
 
 ## 3.2 第三批修复（2026-10-02 再续，3 项）
 

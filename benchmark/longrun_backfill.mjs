@@ -36,7 +36,6 @@ const SUITE = { total: 729, passed: 723, failed: 0, skipped: 6 };
 // 3) 各算子 baking 的默认阈值常量（来自源码构造器，真实）
 const BASELINES = {
   confinement: { groupOrder: 3 },
-  oobleck: { yieldStress: 0.6 },
   heatAnnealer: {
     coupling: 0.15,
     initialTemperature: 1.0,
@@ -67,16 +66,6 @@ seedObs.push({
   operator: 'confinement',
   configSnapshot: BASELINES.confinement,
   metrics: { exposed: 0, confined: 1 },
-  verdict: 'pass',
-  provenance: 'seed-bootstrap',
-});
-
-// 不灾难性遗忘 —— oobleck
-seedObs.push({
-  kind: 'backfill-seed',
-  operator: 'oobleck',
-  configSnapshot: BASELINES.oobleck,
-  metrics: { frozen: 1, acceptedAfterFreeze: 0 },
   verdict: 'pass',
   provenance: 'seed-bootstrap',
 });

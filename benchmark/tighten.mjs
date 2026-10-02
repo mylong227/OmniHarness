@@ -76,15 +76,6 @@ function stddev(metrics, field) {
  */
 const TUNABLE = [
   {
-    operator: 'oobleck',
-    param: 'yieldStress',
-    floor: 0.6,
-    ceil: 0.95,
-    current: 0.6,
-    kpi: (m) => `catastrophicForget=${rate(m, (x) => (x.catastrophicForget ?? 0) > 0).toFixed(3)}`,
-    decide: (m) => (rate(m, (x) => (x.catastrophicForget ?? 0) > 0) > 0.02 ? 'TIGHTEN' : 'KEEP'),
-  },
-  {
     operator: 'evolutionGate',
     param: 'minGain',
     floor: 0.05,

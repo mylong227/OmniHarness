@@ -31,7 +31,6 @@
   "src/adapters/index.js": 100,
   "src/adapters/kv/jsonFileKv.js": 94.35,
   "src/adapters/kv/memoryKv.js": 100,
-  "src/adapters/kv/oobleckStore.js": 94,
   "src/adapters/kv/sqliteKv.js": 100,
   "src/adapters/live/compositeLiveView.js": 100,
   "src/adapters/live/consoleLiveView.js": 100,
