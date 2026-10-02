@@ -17,16 +17,19 @@
  *
  * ## 刻意的设计取舍
  *
- *  - **不改动 `SkillRegistry.match()`**：那是生产默认路径，改它属于行为变更。本类是**可选**
- *    检索器，由调用方显式选用（opt-in），默认行为零变更。
+ *  - **不改变 `SkillRegistry.match()` 的语义**：它保留为**精确通道**（测试、诊断、按名核对），
+ *    逐字未变。生产注入路径改走 `SkillRegistry.selectForPrompt()`——本类做排序，**并**加一道
+ *    相对阈值过滤（原因与实测数字见该方法的 `minScoreRatio` 文档：BM25 对任何查询都给得出排序，
+ *    不过滤会灌噪声）。
  *  - **无状态、确定性**：同输入恒同输出；不持有技能集合，每次由调用方传入（与
  *    `SkillSparsifier` 同构）。
- *  - **只排序不裁剪**：裁剪交给 `SkillSparsifier`（单一职责）。
+ *  - **只排序不裁剪**：裁剪交给调用方或 `SkillSparsifier`（单一职责）。
  *  - **零命中即返回空**：BM25 无命中 ⇒ 真的不相关，**不做兜底全返回**——全返回正是「堆叠噪声」的来源。
  *
- * @maturity L1 — 结构同构：技能文档 → 词袋 → BM25 打分，与文本检索同构；
- *   但「BM25 排序优于子串包含」这一收益**尚未在本仓端到端证明**（缺少足量真实技能），
- *   故保持 opt-in，不替代默认路径。
+ * @maturity L2 — 结构同构（技能文档 → 词袋 → BM25 打分，与文本检索同构）**且已端到端证明**：
+ *   `evals/skill-routing-ab.mjs` 在真实语料上过三道判据（跨查询敏感度 0.235 < 0.6；
+ *   假阳性分数下限 6.26 < GT 中位数 21.21；同预算配对 bootstrap 召回 53.8%→92.3%、
+ *   CI95 [19.23, 57.69]pp、留出折 0/40 为负），据此接入生产注入路径。
  * @maturityEvidence tests/unit/skillRetriever.test.ts
  */
 import { Bm25Index } from '../search/bm25Index.js';
@@ -57,12 +60,18 @@ export class SkillRetriever {
 
   /**
    * 把技能集合渲染成可检索的文档（技能名 + 标签 + 指令正文）。
+   *
+   * 文档侧用 `tokenizeExpandedCounted`（与查询侧 `tokenizeExpanded` **同一函数族的展开口径**，
+   * 但保留词频）。这条对齐是 `src/search/bm25Index.ts` 明写的契约——「文档侧与查询侧使用同一
+   * 函数，两侧同时展开后交集命中」——repo-map 路径即如此。此前本类文档侧用未展开的 `tokenize`，
+   * 于是**含 camelCase 或变形的查询词在文档侧根本没有对应 token**，是静默漏召：
+   * `repoMapContextEngine` 用「展开 + 计数」后实测召回提升，本类没有理由不同口径。
    * @param skill 技能。
-   * @returns 文档 token 数组。
+   * @returns 文档 token 数组（保留词频）。
    */
   public documentOf(skill: Skill): readonly string[] {
     const tags = (skill.tags ?? []).join(' ');
-    return Bm25Index.tokenize(`${skill.name} ${tags} ${skill.instructions ?? ''}`);
+    return Bm25Index.tokenizeExpandedCounted(`${skill.name} ${tags} ${skill.instructions ?? ''}`);
   }
 
   /**

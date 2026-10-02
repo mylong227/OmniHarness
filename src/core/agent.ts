@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
+﻿import type { SessionEvent } from '../ports/runtime/event.js';
 import type { ToolContext } from '../ports/tool/tool.js';
 import type { MemoryFact } from '../ports/memory/longTermMemory.js';
 import type { ImageContent, FileAttachment } from '../ports/model/model.js';
@@ -313,7 +313,21 @@ export class Agent implements AgentPort {
     }
     // T5.4 技能稀疏化：按命中强度保留 top-k（名字命中级强命中豁免），剪标签级弱命中长尾，
     // 降低上下文噪声；预算与豁免判据见 skillSparsifier（确定性，无随机源）。
-    const matched = this.skills.match(prompt);
+    //
+    // 判据于 2026-10-02 由「字面子串」翻为「BM25 相关性」（`selectForPrompt`）。翻默认依据是
+    // `evals/skill-routing-ab.mjs` 的三道判据实测（真实语料 `defaults/skills/harness-core.json`，
+    // 13 条面向本仓领域的技能 × 26 条自然语言改写探针 + 11 条陷阱查询）：
+    //   ① 接线活性 + 跨查询敏感度 0.235 < 0.6（非常量偏置）；
+    //   ② 假阳性分数下限：与正样本**等长同句式**的无关提示，其分数地板最高只到 12.40，
+    //      而真命中得分中位数 21.21、22/26 条 GT 高于地板 ⇒ 地板**低于**真命中区间，不构成混淆
+    //      （这条判据是新增的：没有它，「对什么提示都给技能」也能刷出高召回）；
+    //   ③ 同预算配对 bootstrap + repeated 2-fold×20：**生产档**（即下面这行调用的方法）召回
+    //      **26.9% → 92.3%**、**Δ +65.4pp、CI95 [46.15, 84.62]pp、留出折 0/40 为负**。
+    // 代价已量化并接受：噪声 0.04 → 1.46 条/查询（纯 top-k 是 4.46，故取**相对阈值过滤档**），
+    // 且**任意提示几乎总会注入恰好 1 条**（相对阈值不会剪掉第一名）——实测无关提示 1–3.45 条。
+    // **诚实边界**：判据是路由命中率而非任务成功率；语料 13 条 < 本仓「n≥80 再判」的历史口径，
+    // 本次是按**效应量**（+65.4pp 且 40/40 折一致）而非样本量下的判——口径已登记在看板。
+    const matched = this.skills.selectForPrompt(prompt);
     const sparse = this.skillSparsifier.sparsify(matched, prompt.toLowerCase());
     // 逐条判重（判重点是「保留每回合匹配」而非「一会话只算一次」）：同一条技能文本不重复注入，
     // 但任务转向后新命中的技能仍会注入——任务能力不因判重而丢。

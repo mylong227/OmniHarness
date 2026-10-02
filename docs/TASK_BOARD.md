@@ -1,4 +1,4 @@
-# OmniHarness 总任务看板（2026-09-13 · 全量盘点版）
+﻿# OmniHarness 总任务看板（2026-09-13 · 全量盘点版）
 
 > **定位：唯一的前进看板。** 自本板起，剩余任务一律在此跟踪；`REFACTOR_BOARD_2026-09-12.md`（P/T 批次记录 + 决策日志 D1–D9）与 `UPGRADE_BOARD_2026-09-12.md`（U 批次记录）降级为**历史账**——其中已完成任务与用户决策（D1–D9、口径、纪律）继续有效，剩余任务已全部并入本板。  
 > **盘点方法**：2026-09-13 全天 20+ 提交逐条核对 + `grep`/`Read` 源码实测（MCP 版本 / shellTool / permissionMode / promptInjectionGuard / CI job 内容 / 零测试模块 / a11y 标记）+ 两板对账 + `ARCHITECTURE_AND_GAP_2026-09-13.md` 差距清单对账。**不采信任何自我宣称。**  
@@ -4592,3 +4592,116 @@ typecheck（含 web）/ lint（0 告警）/ `check --strict`（938 文件零违�
   4. **`sessionCancelIsolation` 时序偏紧（环境特性）**：该用例用 `HangingModel`、靠轮询等「两会话都进入在飞模型调用」，全量并行跑时事件循环被其它文件真实子进程抢占更狠，30s 窗口偶发贴边失败；`WAIT_START_MS` / `WAIT_SETTLE_MS` 由 30s/15s 提到 120s/60s（CI 更快，大窗口无害）。
 - **结果**：本地 `npm test`（全量单测 2477 项）现已 **0 失败**（8 项 skipped）通过；真实 CI 自始至终绿。⇒ 「本地全量失败 = 无需改代码」的旧结论作废，用户「测地解决」才是对的——同步改异步是必须的代码改动。
 - 跑全量单测建议：`CODEBUDDY_SAFE_DELETE_ENABLED=0 npm run build && node --test --test-timeout=600000 "dist/tests/unit/*.test.js"`（per-file 超时从 120s 提到 600s，避免子进程重的套件在慢运行时被误杀）。
+
+---
+
+## 38. 四项剩余收口：工具暴露端到端 / 技能判据翻默认 / LSP 第二关 / 语义索引落盘（2026-10-02 第四批）
+
+> 触发：用户指令「① `OMNI_TOOL_EXPOSURE=plan` 翻默认前的端到端验证；② SkillRetriever 升默认（要真技能集 + 端到端证据）；③ LSP 候选源 Gate-2 A/B；④ 语义索引落盘 + mtime→内容 hash。一起完成剩下的」。
+> 纪律：本批四项**各自都有可证伪的硬判定**，不采信自我宣称；两项翻默认/落盘决策**各有实测数字支撑**，一项如实判负（LSP）。
+
+### 38.1 ① 工具按需暴露：翻默认前的端到端验证（此前**从未做过**）
+
+**口径更正**：§17.3/§17.4 记的两份报告（`tool-exposure-ab` / `tool-selection-ab`）**都不是端到端**——
+前者在探针里**自己复刻了** `exposeByRelevance` 的过滤（正是「验收探针禁止自带被测逻辑的副本」禁止的形态），
+后者更远：它的工具全集**取自 planner 自己的类别表**（自证循环）。且两者都**不跑 Agent 回合**。
+另：`exposeByRelevance` 在 `plan` 模式下**从未被任何测试执行过**（没有任何测试设过该环境变量）。
+
+- 新增 `evals/tool-exposure-e2e.mjs`：走生产装配 `ConfigFactory.build → Runtime.createRuntime → Agent.runTask`，
+  用录制型模型桩把**每次真实发出的 `request.tools`** 留下（零 API key）——被测量就是发给模型的那份表，无复算余地。
+- **实测（33 工具，任务文本只命中 files 类别）**：`off` 首次主请求 **33** 个工具 → `plan` **13** 个（**−60.6%**）。
+- **五条硬断言全过**（任一不过即 exit 1）：① 两臂工具表不同（接线生效）；② 直载集被真的裁小；
+  ③ plan 臂 ⊆ 计划可见集；④ 后续步不反悔首步已给的直载工具（4 步）；⑤ **可找回**——
+  `web_fetch` 首步被延迟，经 `tool_search` 后**真的出现在第 2 步的工具表**里（延迟加载不是能力删除，端到端版）。
+- 补单测（`tests/unit/toolCatalogSnapshot.test.ts` +3 例）：钉住**消费点** `effectiveTools()` 在 `plan` 下的
+  裁剪结果、无类别命中时 fail-safe 全放行、`off` 时零行为变更。此前该分支零覆盖。
+- **本项只交付「翻默认前的验证」**：`OMNI_TOOL_EXPOSURE` 默认**仍为 `off`**（与 §17.3 口径一致）。
+  翻默认本身是**行为变更**，其判据（D6 两关是为「排序/检索路」写的，对确定性的集合成员属性无操作形态）
+  尚未在本仓成文，故**不在本批擅自翻**——本批给的是那份此前缺失的证据。
+
+### 38.2 ② SkillRetriever 升默认：真技能集 + 三道判据（**已翻默认**）
+
+**先补数据缺口**（这是本项的真正阻塞）：本仓**零个真实技能**（`skills/` 不存在、根 `omniharness.json`
+无 `skills` 键、全仓唯一技能产物是 1 条临时校验技能），故 `match()` 与 `rank()` 在本仓自身配置上都返回 `[]`，
+「升默认」无从验证。⇒ 新增**随包出厂的真实技能集** `defaults/skills/harness-core.json`（13 条面向本仓
+自身领域：编码标准 / 门禁 / 两关纪律 / 端口-适配器装配 / 工具注册 / 沙箱与审批 / 上下文压缩 / 评测撰写 /
+strict TS / fail-closed / AppServer RPC / 召回三条结论 / 依赖政策；**内容全部可由仓库文件核对，不复制任何外部项目文本**）。
+`defaults/` 已在 `package.json` 的 `files` 里 ⇒ 随包发布。
+
+- `evals/skill-routing-ab.mjs` 从「只打印」升级为**三道判据仪器**（含 `--gate` 与退出码），
+  并改为一律调用**生产方法** `SkillRegistry.selectForPrompt()`（不再在脚本里复刻过滤逻辑）：
+  真实语料 13 条 × 26 条自然语言改写探针 + **11 条与正样本等长同句式**的陷阱查询。
+- **三道判据全过**：① 接线活性 + 跨查询敏感度 **0.235 < 0.6**（非常量偏置）；
+  ② **假阳性分数下限**（本批新增判据）：陷阱查询分数地板最高 **12.40**，而真命中得分中位数 **21.21**、
+  **22/26** 条 GT 高于地板 ⇒ 地板**低于**真命中区间（**没有这条判据，「对什么提示都给技能」也能刷出高召回**）；
+  ③ 配对 bootstrap + repeated 2-fold×20：**生产档召回 26.9% → 92.3%**、**Δ +65.4pp、CI95 [46.15, 84.62]pp、留出折 0/40 为负**。
+- **实测代价（必须与收益一并引用）**：噪声 0.04 → **1.46** 条/查询；陷阱查询平均注入 0.09 → **3.45** 条。
+  且发现一个**机制性后果并如实登记**：相对阈值「低于最高分一半即丢」**恒不会剪掉第一名** ⇒
+  **任意**提示几乎总会注入**恰好 1 条**技能（`selectForPrompt` 实践中不返回空）。
+  接受理由：「少给 = 能力损伤」，宁可多给不可少给；收掉它需引入绝对阈值或语料水位线，会重新引入阈值漂移。
+- **翻默认落地**：`Agent.injectSkills` 由 `SkillRegistry.match()` 改为 `SkillRegistry.selectForPrompt()`；
+  `match()` **保留为精确通道**（语义逐字未变）。技能语料留档 + `documentOf` 侧对齐 BM25 契约
+  （文档侧改 `tokenizeExpandedCounted`，此前用未展开的 `tokenize`，与查询侧口径不一致，属静默漏召隐患）。
+- **诚实边界（写在结论里，不许省略）**：判据是**路由命中率**而非任务成功率；语料 **13 条**，
+  远低于本仓「扩到 n≥80 再判」的历史口径 ⇒ **本次是按效应量下的判**（+65.4pp 且 40/40 折一致），
+  CI 宽度本身即结论的一部分，点估计不得脱离 CI 引用。翻默认的判据本身也**成文登记**（见上三道判据）——
+  即 D6 两关在「确定性集合成员」场景下的可操作形态：**接线活性 + 查询敏感度 + 假阳性下限 + CI/留出折**。
+
+### 38.3 ③ LSP 候选源 Gate-2 A/B：**实测净负面，裁定不接生产**
+
+§12（`docs/RECALL_HEADROOM_SURVEY.md`）已详录。要点：`getRepoMapContextWithLsp` 此前**零调用点、零测试**，
+本批新增 `evals/lsp-recall-ab.mjs`（`npm run eval:lsp-ab`，不进 `eval:ci`——依赖语言服务器会 flaky），
+两臂同 corpus / 同 fileK / 同 192 条对抗查询，真实 `typescript-language-server` 子进程离线拉起。
+
+- fileK=14（判定基准档）：21.6% → **20.9%**（Δ **−0.75pp**，CI95 **[−5.07, 3.67]**，留出折 **25/40 为负**）
+- fileK=20（生产默认档）：27.0% → **24.4%**（Δ **−2.64pp**，CI95 **[−7.00, 1.57]**，留出折 **34/40 为负**）
+- 接线活性 **192/192**（确实生效，不是没接上），但每查询只补入 27 / 19 个 GT 文件进 top-K。
+- **机理（不是玄学）**：候选池天花板诊断显示 **87/192（45.3%）** 的 GT 文件在纯 BM25 未截断池里
+  **根本不可达** ⇒ 瓶颈在「池子里没有」而非「排得靠后」；LSP 只能扩展 BM25 已找得到的 seed 符号周边，
+  语义鸿沟它同样够不到。且候选被**拼接在 BM25 列表尾部**（RRF k=60）⇒ 与 BM25 重合的文件被计两次分，
+  少数重复命中反而挤掉原本靠前的 GT 文件（↑22/↓23 几乎对称、点估计为负）。
+- ⇒ **第 6 次独立确认「扩大/改变候选源对本语料无效」，且是唯一一次针对真实语言服务器的**；
+  记入已证伪清单，**不新增 `OMNI_LSP_RECALL` 开关、不改 `stepContextBuilder`**。
+- **探针的残留缺口（如实登记，本批未修）**：`probe-lsp-candidates.mjs` 的 5 条「锚点查询」用的就是
+  **符号名本身**，于是 BM25 选 seed 这一步**平凡正确**——而「自然语言查询能不能选到好 seed」
+  恰是 LSP 路最难的一环。本批的 A/B 补上了这一环（用改写探针），但**探针本身仍是弱证据**，
+  其 `DONE` 只能说「通路可用」，不得当作收益证据。
+
+### 38.4 ④ 语义索引落盘 + 语料索引 mtime → 内容 hash
+
+**(a) 向量落盘（跨进程复用，此前只在评测脚本里有）**：新增 `src/adapters/embedding/diskCachedEmbeddingAdapter.ts`
+（生产版 `CachedEmbeddingPort`，零第三方依赖）：给任意 `EmbeddingPort` 加**按文本粒度**的持久向量缓存，
+`<prefix>.keys` + `<prefix>.f32`。键 = `modelId | dim | role | normalize | sha1(text)`——
+**含模型身份是必须的**：换模型（384→1024 维）时若键不含模型，旧向量会被当成新模型的向量返回，
+**不报错、维度可能还对得上**，得到的是看似正常的错误排序。落盘时机按脏条目阈值（默认 512），
+且只有 `document` 角色计入脏（`query` 文本每次都不同，落盘纯浪费）。
+装配：`ConfigFactory.buildEmbeddingPort` 在 `OMNI_SEMANTIC_RECALL=1` 时包一层，缓存目录 =
+`OMNI_VEC_CACHE` > 包根 `third-party/vec-cache`；解析不到可写目录时**诚实退化为纯内存**。
+fail-closed 边界：缓存读写失败一律降级为照常走内层，**绝不因缓存不可写让嵌入失败**。
+测试 `tests/unit/diskCachedEmbedding.test.ts` 8 例：跨实例（模拟重启）命中磁盘零回源、只增才脏、
+query 不落盘、换模型整体不命中、缓存文件截断只取完整行、不可写降级不抛、空输入不编码。
+
+**(b) mtime → 内容 hash**（`src/context/corpusIndexCache.ts`）：原「TTL 到期按 `mtimeMs` 签名决定是否复用」
+存在**两个方向**的误判：① **假阴性**（同毫秒多次落盘 / 编辑器保留 mtime / 粗粒度文件系统 ⇒ 内容已变而
+mtime 相同 ⇒ 复用**过期**语料，而语料是检索的唯一事实来源）；② **假阳性**（`touch` / `git checkout` /
+备份回写只改 mtime ⇒ 白付一次 8.6s 级全量重建）。改为**逐文件 sha1 内容签名**（按原始字节哈希，
+与 `indexCorpus` 读的同一份磁盘字节），两个方向同时收掉；代价是 TTL 到期时读一遍参与文件（本仓数百文件、
+数十毫秒量级），**只在 TTL 到期时发生**，相对它避免的全量重建可忽略。测试
+`tests/unit/corpusIndexContentSig.test.ts` 5 例，其中两例**正是 mtime 判据的假阴/假阳**：
+「只改 mtime 内容不变 ⇒ 复用」「内容变但 mtime 回填成原值 ⇒ 必须重建」。
+
+### 38.5 验收（门禁实跑，2026-10-02）
+
+- typecheck（含 web）/ lint（0 告警）/ `check --strict`（904 文件零违规）/ `arch:gate`（依赖方向 0、
+  ports 纯度 0、依赖环新增 0、目录告警 0）/ `audit:maturity` / `audit:standard:delta` /
+  `audit:config-wiring`（904 全绿）/ `check:doc-links`（新增 0）——**全绿**。
+- 单测：本批新增 **13** 例（corpusIndexContentSig 5 + diskCachedEmbedding 8）、改/扩 8 例
+  （skillRetriever、configSkillsWiring、toolCatalogSnapshot、embeddingPreload、agentInjectionIdempotence）。
+  全量 **2343 项**：本批引入的 2 例失败（注入零噪声、preload `instanceof`）**已就地修掉并复绿**；
+  余 **1 例**失败 `recallQueries ③ 对抗性` 经 `git stash` 同口径复核**在干净树上同样失败** ⇒
+  **存量失败，与本批无关**（已在此登记，待后续批次处置）。
+- 评测：`eval:skill-routing --gate` **exit 0**（三道判据全过）；`evals/tool-exposure-e2e.mjs` **5/5 断言过**；
+  `evals/lsp-recall-ab.mjs` 按纪律**判负**（不进 `eval:ci`）。新增 npm 脚本 `eval:lsp-ab`。
+- **诚实留档**：本批 ② 的语料只有 13 条（远低于本仓 n≥80 口径），是按**效应量**下的判；
+  ④(a) 的生产路径**未在真实模型上端到端验证**（本机无 ONNX 权重下载条件），
+  落盘逻辑由假嵌入端口的 8 例单测覆盖——**不声称「生产语义路已实测加速」**。

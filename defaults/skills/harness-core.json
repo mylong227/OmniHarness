@@ -1,0 +1,83 @@
+{
+  "$comment": "随包出厂的真实技能集（`defaults/skills/harness-core.json`）。格式 = `OmniHarnessConfig.skills` / `--skills` 接受的 SkillEntry[] 包装形态；加载方式见 docs/integration.md 与本目录 README.md。这些技能面向**本仓库自身的领域**（编码标准 / 门禁 / 端口-适配器 / 评测纪律 / 工具注册 / 沙箱与审批 / 上下文压缩），内容全部可由仓库内文件核对，不复制任何外部项目的文本。注意：本文件名**不能**叫 omniharness.json——.gitignore 里的裸模式会匹配任意目录下的同名文件，导致它被静默忽略、发布时丢失。",
+  "skills": [
+    {
+      "name": "omniharness-coding-standard",
+      "description": "写这个仓库的 TypeScript 时必须遵守的类模板与硬性禁令：显式成员访问级别、禁 any、一文件一类、公开方法必须有 JSDoc 的 @param/@returns。",
+      "instructions": "每个类成员显式写 public/private/protected（ESLint 强制）。禁止 any，用 unknown 加收窄。禁止 var，优先 const。一个文件至多一个主类，主类名与文件名一致（foo.ts → class Foo）。公开类、公开方法与关键字段必须有 /** */，并给出 @param 与 @returns。单文件 800 行、单类 20 方法为红线，越线要按职责拆。新增代码禁止顶层函数（D9）——要复用就归到一个类里做静态方法或实例方法。依赖一律构造注入，禁止在方法体内 new 具体实现（组合根负责装配）。控制流优先早返回与查表，避免深层 if/else 嵌套。",
+      "tags": ["coding-standard", "typescript", "jsdoc", "类模板", "编码规范"]
+    },
+    {
+      "name": "omniharness-gate-runner",
+      "description": "改动收尾必须跑的完整门禁清单，以及在本机跑全量单测时会踩到的清理与超时两个坑。",
+      "instructions": "收尾必跑：npm run typecheck、npm run lint、npm run check --strict、npm run arch:gate、npm run audit:maturity、npm run audit:standard:delta、npm run api:check、npm run check:doc-links。任一非零即视为未完成，必须就地修掉，不许放宽断言或改基线放行。本机跑 npm test / npm run build 会先执行 cleanDist 删除 dist（四千余文件），会被本机批量删除保护拦截 ⇒ 前置环境变量 CODEBUDDY_SAFE_DELETE_ENABLED=0。全量单测建议 node --test --test-timeout=600000 \"dist/tests/unit/*.test.js\"，per-file 超时过短会把起子进程的套件误杀成失败。提交前 pre-commit 钩子会再跑一遍铁律自检与 ESLint/Prettier/架构/接线/文档死链。",
+      "tags": ["gates", "ci", "typecheck", "lint", "门禁", "提交前自检"]
+    },
+    {
+      "name": "omniharness-two-gate-rule",
+      "description": "本仓库放行一条新排序或新检索路线的判据：第一关否决器加第二关同语料 A/B，只有 bootstrap 置信区间下界大于零且留出折为正才算过。",
+      "instructions": "纪律出处 docs/REFACTOR_BOARD_2026-09-12.md（D6）与 docs/POLISH_PLAN.md。第一关是否决器：毫秒级、免标注，检查新路的候选是否对查询敏感（与基线 Top-K 的平均 Jaccard 重合度过高即为常量偏置，直接否决）。第二关是同语料 A/B：同一份 corpus、同一个预算、开关隔离两臂，按查询配对 bootstrap 出 95% 置信区间，并做 repeated 2-fold 留出折。判定：CI 下界必须大于零，且留出折多数为正。点估计为正但 CI 跨零时，一律判「与噪声不可区分」，不得声称有效、不得翻默认。层化图路由正是过了第一关却在第二关实测负增益，这条规则由此确立。报告要能自证，把判定依据与原始数字一并落盘。",
+      "tags": ["evaluation", "bootstrap", "ab-test", "两关", "评测纪律", "翻默认"]
+    },
+    {
+      "name": "omniharness-port-adapter-wiring",
+      "description": "往这个六边形架构里加一个新能力的标准动作：先在 ports 定义接口，再在 adapters 写实现，最后由组合根装配并登记接线。",
+      "instructions": "顺序不可颠倒。第一步在 src/ports 下按域建接口文件，只放接口与纯类型，禁止引入任何第三方包或具体值。第二步在 src/adapters 下实现该端口，适配器是唯一允许接触外部 IO 与第三方库的层。第三步在组合根（ConfigFactory 与 RuntimeFactory / 相关 Assembler）装配，禁止在业务方法里 new 具体适配器。第四步跑 npm run audit:config-wiring 与 npm run arch:gate，前者核对「声明了却没接线」的键（写进配置却无人读取是反复出现过的缺陷形态），后者拦截 core 反向依赖 adapters。若该能力有配置开关或环境变量，必须从装配一路传到消费点，并在门禁里加一条断言，否则开关会静默失效。",
+      "tags": ["architecture", "hexagonal", "ports", "adapters", "装配", "依赖注入"]
+    },
+    {
+      "name": "omniharness-tool-registration",
+      "description": "新增一个模型工具要同时改的三处注册来源，漏一处就会出现「工具存在但模型看不到」或计划模式误拒。",
+      "instructions": "三处来源：工具实现放进 src/adapters/tool 下对应域、名字常量集中登记在 src/ports/tool/toolNames.ts、实例在 configToolRegistry 组合根注册。只写实现而不登记名字常量，计划模式的类别表与只读白名单都无法识别它。新工具若属于只读，还要加入 planApproval 的只读白名单，否则在 plan 模式会被 fail-closed 误拒；若属于写类，必须同时进 toolGate 的 MUTATING_TOOLS 集合。完成后跑 audit:config-wiring 与 audit:maturity（后者要求新模块带成熟度标注与测试证据），并跑一次默认工具清单探针，确认工具数变化被显式登记而不是靠注释写死。",
+      "tags": ["tools", "registry", "toolNames", "工具注册", "plan-mode", "白名单"]
+    },
+    {
+      "name": "omniharness-sandbox-approval-tiers",
+      "description": "多档权限的三个正交轴，以及为什么默认值改动属于行为变更、必须由权限档位显式驱动而不是顺手翻默认。",
+      "instructions": "三个正交轴：sandbox（工作区可写 / 只读 / 完全访问）、approval（自动放行 / 逐次询问 / 规则裁决）、escalation（提权请求通道）。另有 approval tiers 档位目录与 profile 分层，profile 支持多级 extends，防环与深度上限均 fail-closed。规则面用 commandGlob 做锚定正则匹配，与 commandPrefix 取合取；空模式必须 fail-closed 拒绝。关键纪律：把某个安全开关的默认值从「观测」改成「阻断」属于行为变更，必须由权限档位显式驱动，不得在功能改动里偷偷翻默认。沙箱方向宁可误拒不可误放；与之相反，工具按需暴露这类成本权衡宁可多给不可少给。",
+      "tags": ["security", "sandbox", "approval", "permission", "权限档位", "沙箱"]
+    },
+    {
+      "name": "omniharness-context-compaction",
+      "description": "上下文预算逼近上限时的压缩与载荷投送策略，以及为什么注入的信息量可以和文件集合解耦。",
+      "instructions": "两条独立杠杆。其一是压缩：接近预算上限时按确定性策略裁剪历史事件，游标落进事件流以便恢复，压缩本身不得改变工具结果与审批记录。其二是载荷形态：repo-map 命中哪些文件由排序决定，注入多少字由呈现档位决定；梯度投送把同一批文件的注入 token 压降约七成而文件集合逐字不变，应急档可再压一档，回退用 full 档复现历史口径。跨回合要保前缀稳定以命中提示缓存：稳定的头部系统段不要随查询变化而重排位置，把易变段放在尾部。诊断口径：先看缓存样本数再看命中率，把「从未被调用」误读成「命中率为零」是本仓库反复治理过的假信号。",
+      "tags": ["context", "compaction", "payload", "token-budget", "上下文", "压缩", "前缀稳定"]
+    },
+    {
+      "name": "omniharness-eval-authoring",
+      "description": "写一个可信的评测脚本：硬断言、可复现随机、诚实口径，以及验收探针禁止自带被测逻辑的副本。",
+      "instructions": "每条评测必须有可证伪的硬判定并让退出码反映它（失败即非零），只打印数字而不判定的脚本属于只读报告，不能当作门禁。随机必须种子化（用共享的确定性 bootstrap 助手），否则门禁判定会自己红绿抖动。探针禁止自带被测逻辑的副本：不要在自己的脚本里重实现一遍被测的过滤或装配逻辑，否则装配一变探针立刻失真，应当直接调用生产路径或生产装配。口径要诚实：命中率不等于任务成功率，对抗口径（刻意避开锚点字面词）与自然口径的数字不能混引；锚点失效导致 ground truth 为空时必须跳过并记账，不得静默吞掉也不得崩溃，因为空 GT 会让召回兜底成百分之百。依赖外部服务或模型的脚本不进 eval:ci，否则会 flaky；无前置条件时干净 SKIP 并落状态，不要伪装成通过，也不要把 SKIP 记成「增益为零」。",
+      "tags": ["evaluation", "eval", "bootstrap", "评测", "断言", "可复现"]
+    },
+    {
+      "name": "omniharness-strict-typescript-esm",
+      "description": "本仓 TypeScript 编译选项带来的具体写法约束：NodeNext ESM 导入必须带 .js 后缀、精确可选属性、无未检查索引访问。",
+      "instructions": "module 与 moduleResolution 都是 NodeNext ⇒ 相对导入必须写编译后路径，即带 .js 后缀（import x from './foo.js'），写 './foo' 会编译失败。verbatimModuleSyntax ⇒ 只用于类型的导入必须写 import type，否则会生成多余的运行期 import。exactOptionalPropertyTypes ⇒ 可选属性不能显式赋 undefined，需要按条件展开对象（...(v !== undefined ? { k: v } : {})）。noUncheckedIndexedAccess ⇒ 数组下标与 Map.get 的结果都是可空的，要用显式的越界收窄工具（at 助手）而不是非空断言。noImplicitOverride ⇒ 覆写基类成员必须写 override。改动后用 npm run typecheck 覆盖 src、tests、web 三处。",
+      "tags": ["typescript", "tsconfig", "esm", "strict", "类型", "编译选项"]
+    },
+    {
+      "name": "omniharness-failure-handling",
+      "description": "这个仓库的 fail-closed 与不静默两条纪律：能力不可用时降级而不是崩溃，但降级必须留下可定位的证据。",
+      "instructions": "默认姿态是 fail-closed：解析不出、校验不过、依赖缺失时返回禁用或空结果，绝不把异常抛进主循环。但「静默」是另一回事——降级必须可观测：计数加首次告警（后续降为 debug 防刷屏），日志带上根因与堆栈，让「功能没生效」与「功能本来没用」在日志里长得不一样。历史事故正是静默 catch 把权限错误吞成空结果，导致排查成本极高。另一半是不允许假绿灯：不要返回一个看起来成功但实际未执行的结果（例如工具调用 id 为空、退出码丢失、子进程未真正起来）。缓存类组件是加速层不是正确性层：缓存读写失败必须降级为照常走内层，绝不能因为缓存不可写而让功能调用失败。",
+      "tags": ["reliability", "fail-closed", "error-handling", "降级", "可观测", "日志"]
+    },
+    {
+      "name": "omniharness-app-server-rpc",
+      "description": "Web 工作台与后端之间的 RPC 与事件推送通道：新增一个能力要同时接服务端方法、事件流与前端的加载态。",
+      "instructions": "后端是 AppServer 的 RPC 方法表加一条 SSE 事件流；前端通过 window 注入的启动信息连上同一端口。新增一个能力需要四处对齐：服务端注册 RPC 方法与参数校验、产出的事件类型进入事件类型枚举（否则前端收不到或收到未知类型）、前端派发与 reducer 处理该事件、以及设置面板里可持久化的键必须加入持久化白名单（凭据与工作区路径不回写）。敏感值在返回给前端前必须打码。改完跑 web:build 与 web:test，并跑一次 api:check 确认公共 API 表面没有非预期变更。前端是 createElement 手写，不使用 htm 模板，改动后要用挂载契约测试确认根节点仍然挂载。",
+      "tags": ["web", "rpc", "sse", "app-server", "工作台", "前端", "事件流"]
+    },
+    {
+      "name": "omniharness-repo-map-recall",
+      "description": "检索与 repo-map 召回的三条已经实证的结论，以及为什么扩大候选池这条路别再重复投入。",
+      "instructions": "结论一：预算与精排是耦合的——精排的增益随候选池深度放大，池子先截断会让重排没有余地；基线预算已由梯度投送买单，不要再用「token 太贵」当理由拒绝加预算。结论二：扩大或改变候选源对本语料已被多次独立证伪（池深度、符号切片、图检索、语言服务器引用扩展都测过），瓶颈在排序质量与词法鸿沟，不在池子大小；再提这类方案前先读 docs/RECALL_HEADROOM_SURVEY.md 的已证伪清单。结论三：对抗口径与自然口径必须分开报——对抗查询刻意避开锚点字面词，自然口径下检索已近饱和，混引会得出错误结论。诊断顺序固定：先量候选池天花板（GT 文件在未截断池里最浅排第几），池内不可达比例高就说明是发现能力问题而不是排序问题。",
+      "tags": ["retrieval", "repo-map", "recall", "bm25", "检索", "召回", "已证伪"]
+    },
+    {
+      "name": "omniharness-dependency-policy",
+      "description": "依赖准入政策：必要且更优即可依赖，同等能力优先成熟第三方，而 ports 与 core 恒为第三方-free。",
+      "instructions": "权威表述在 docs/DEPENDENCY_POLICY.md 与 dependency-allowlist.json。政策不是「零依赖」——需要时该用成熟的第三方就用；拒绝依赖的唯一合法理由是不满足准入标准（无能力增益、超体积或传递依赖预算且无正当理由、许可证不合规、无退出计划），「零依赖」本身不构成理由，禁止用它拒绝更优的依赖。两条底线：src/ports 与 src/core 恒为第三方-free，只有 adapters 层可以接触第三方。新增依赖要登记进 allowlist 并写清许可证与退出计划，可选项放进 optionalDependencies 并保留手写回退路径，缺失时自动降级到历史行为。体积与传递依赖有预算（默认约 2MB、20 个传递依赖），超预算必须显式覆写并给出理由。",
+      "tags": ["dependencies", "allowlist", "policy", "依赖", "第三方", "准入"]
+    }
+  ]
+}

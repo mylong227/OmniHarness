@@ -5,8 +5,9 @@
  *  - 单一职责：只负责「把根目录变成可查询语料并缓存」，不含任何检索/融合逻辑。
  *  - **进程级复用**：跨 step 复用同一索引，规避「agent 改文件 → 根 mtime 变 → 每步重索引」的风暴。
  *  - TTL（默认 30s，env OMNI_REPO_MAP_TTL_MS 覆盖）：超时后下次查询触发重索引。
- *  - **mtime 增量复用（2026-10 收尾项 #17）**：TTL 到期不再无条件全量重建，而是先比对文件 mtime
- *    签名；未变则复用既有语料（跳过 8.6s 级全量重建），仅当文件集合 / mtime 真的变化才重建。
+ *  - **内容签名增量复用（2026-10 收尾项 #17；2026-10-02 由 mtime 升级为内容哈希）**：TTL 到期
+ *    不再无条件全量重建，而是先比对「参与索引的文件集合 + 各自**内容哈希**」签名；未变则复用既有
+ *    语料（跳过 8.6s 级全量重建），仅当文件集合或**内容真的变化**才重建。
  *  - LRU 近似驱逐：条目数超上限时淘汰**最早索引**的一条（无第三方依赖、够用），并通过构造时注入的
  *    onEvict 回调通知外部（如语义索引缓存同步失效该 root 的全部变体），保持两类缓存一致。
  *  - 全程 fail-closed：索引失败返回 null，绝不抛错崩主流程；但**不静默**——失败会记 warn 日志
@@ -17,19 +18,23 @@
  *    混入会低估命中率。
  */
 
-import { statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
 import { log } from '../util/logger.js';
 
-/** 缓存条目：语料 + 索引时间戳 + 文件 mtime 签名（用于 TTL 失效与 mtime 增量复用）。 */
+/** 缓存条目：语料 + 索引时间戳 + 文件内容签名（用于 TTL 失效与内容增量复用）。 */
 interface CacheEntry {
   /** 已构建的语料索引。 */
   readonly corpus: IndexedCorpus;
   /** 索引完成时刻（Date.now()）。 */
   readonly indexedAt: number;
-  /** 索引时各参与文件（rel 路径）与其 mtimeMs 拼成的有序签名；TTL 到期时比对以决定是否复用。 */
-  readonly mtimeSig: string;
+  /**
+   * 索引时各参与文件（rel 路径）与其**内容哈希**拼成的有序签名；TTL 到期时比对以决定是否复用。
+   * 文件集合或任一文件内容变化 ⇒ 签名变化 ⇒ 重建。
+   */
+  readonly contentSig: string;
 }
 
 /** 默认最多缓存的工作区数量（多 workspace 会话防内存无限增长）。 */
@@ -82,16 +87,16 @@ export class CorpusIndexCache {
       this.sample(true);
       return existing.corpus;
     }
-    // TTL 已过期（或首次）：先用 mtime 签名判断文件集合是否真的变了。
+    // TTL 已过期（或首次）：先用内容签名判断文件集合与内容是否真的变了。
     // 若未变则直接复用既有语料，跳过 8.6s 级全量重建——这是把「每 30s 一次全量重建」
-    // 改为「按 mtime 增量」的核心：TTL 仅作兜底，文件真变才重建（见 `mtimeSignature`）。
+    // 改为「按内容增量」的核心：TTL 仅作兜底，内容真变才重建（见 `contentSignature`）。
     if (existing !== undefined) {
-      const sig = this.mtimeSignature(root);
-      if (sig !== null && sig === existing.mtimeSig) {
+      const sig = this.contentSignature(root);
+      if (sig !== null && sig === existing.contentSig) {
         this.cache.set(root, {
           corpus: existing.corpus,
           indexedAt: now,
-          mtimeSig: existing.mtimeSig,
+          contentSig: existing.contentSig,
         });
         this.sample(true);
         return existing.corpus;
@@ -102,9 +107,9 @@ export class CorpusIndexCache {
       return null;
     }
     this.sample(false);
-    const sig = this.mtimeSignature(root) ?? '';
+    const sig = this.contentSignature(root) ?? '';
     this.evictIfNeeded();
-    this.cache.set(root, { corpus, indexedAt: now, mtimeSig: sig });
+    this.cache.set(root, { corpus, indexedAt: now, contentSig: sig });
     return corpus;
   }
 
@@ -150,14 +155,33 @@ export class CorpusIndexCache {
   }
 
   /**
-   * 计算某 root 下「参与索引的文件集合 + 各自 mtime」签名。
+   * 计算某 root 下「参与索引的文件集合 + 各自内容哈希」签名。
    *
    * 用 {@link ContextEngine.walk}（与 `indexCorpus` 同一套忽略清单与三道上限）枚举文件，
-   * 再逐文件取 mtimeMs 拼成有序字符串。签名相等 ⇒ 语料无需重建。
+   * 再逐个读取文件内容并哈希。签名相等 ⇒ 语料无需重建。
+   *
+   * ## 为什么是内容哈希而不是 mtime（2026-10-02 升级）
+   *
+   * mtime 是**弱且易脆**的变更信号，两个方向都会误判：
+   *  - **假阴性（真改了却不重建）**：同毫秒内多次落盘、编辑器保留 mtime、粗粒度文件系统
+   *    （FAT 2s / 部分 NFS）——内容已变而 `mtimeMs` 相同 ⇒ 旧实现复用了**已过期**的语料，
+   *    而语料是检索的唯一事实来源，脏语料会被下游当成真实仓库结构。
+   *  - **假阳性（没改却重建）**：`touch`、`git checkout` / `git stash`、备份工具回写都会只改
+   *    mtime 而内容逐字不变 ⇒ 白白付一次 8.6s 级全量重建。
+   *
+   * 内容哈希把两侧同时收掉，且**判据就是语料本身的同一性**（`indexCorpus` 读的也是这些字节），
+   * 不存在「信号与被保护对象不同源」的结构性缝隙。
+   *
+   * ## 代价（如实登记）
+   *
+   * 每次 TTL 到期要做一遍「读全部参与文件 + SHA-1」——本仓 902 文件 / 数 MB 语料实测在**数十毫秒**
+   * 量级，相对它避免的 8.6s 全量重建可忽略；且**只在 TTL 到期时才做**（TTL 内直取零成本）。
+   * 它同时替换掉了原先每文件一次 `statSync`。
+   *
    * @param root workspace 根路径。
-   * @returns 签名串；根不可枚举（坏路径 / 权限）时返回 null（调用方据此退化为全量重建）。
+   * @returns 内容签名串；根不可枚举或任一文件不可读时返回 null（调用方据此退化为全量重建）。
    */
-  private mtimeSignature(root: string): string | null {
+  private contentSignature(root: string): string | null {
     try {
       const rels: string[] = [];
       ContextEngine.walk(root, root, rels, {
@@ -167,12 +191,16 @@ export class CorpusIndexCache {
       });
       const parts: string[] = [];
       for (const rel of rels) {
-        const abs = join(root, rel.split('/').join(sep));
-        const st = statSync(abs);
-        parts.push(`${rel}:${String(st.mtimeMs)}`);
+        // 按**原始字节**哈希（不先转 utf8）：与 `indexCorpus` 读的是同一份磁盘字节，
+        // 且非法 UTF-8 不会被 `readFileSync(..., 'utf8')` 的替换字符抹平成「看起来没变」。
+        const bytes = readFileSync(join(root, rel.split('/').join(sep)));
+        const digest = createHash('sha1').update(bytes).digest('hex');
+        parts.push(`${rel}:${digest}`);
       }
+      // 路径已由 walk 按确定性顺序产出；再排一次序，使签名与遍历顺序解耦（防未来 walk 顺序调整
+      // 造成「同一个仓库两套签名」的伪变更）。
       parts.sort();
-      return parts.join('\n');
+      return createHash('sha1').update(parts.join('\n')).digest('hex');
     } catch {
       return null;
     }

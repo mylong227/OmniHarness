@@ -1,6 +1,7 @@
-import { test } from 'node:test';
+﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SkillRetriever } from '../../src/skill/skillRetriever.js';
+import { SkillRegistry } from '../../src/skill/skillRegistry.js';
 import type { Skill } from '../../src/skill/skill.js';
 
 const skill = (name: string, tags: string[], instructions: string): Skill => ({
@@ -83,8 +84,72 @@ test('SkillRetriever: minScore 可挡住弱相关（不把噪声灌进上下文�
   assert.ok(strict.length >= 1, '最高分那条必须保留');
 });
 
-test('SkillRetriever: 不改动 SkillRegistry.match 的默认语义（本类是 opt-in，零行为变更）', () => {
-  // 仅作契约声明：本文件不涉及 SkillRegistry；若将来把检索接成默认路径，必须同步改这里。
+test('SkillRetriever: 分数地板——只要有任何词面重叠就拿到正分（故生产接线必须带相对阈值）', () => {
   const r = new SkillRetriever();
-  assert.strictEqual(r.rank(CATALOG, 'x').length <= 5, true);
+  // 机理钉（分两层，语料无关）：
+  //  ① 零词面重叠 ⇒ 空（BM25 只返回 score>0 的文档，所以「真的毫无交集」是能被挡住的）；
+  //  ② 只要有一个**仓库域高频词**重叠 ⇒ 每个含该词的技能都拿到正分，哪怕查询与技能域无关。
+  // 真实语料（`defaults/skills/harness-core.json`，13 条中文技能）上②的地板最高到 6.26 分，
+  // 而真命中得分中位数 21.21 ⇒ 地板**低于**真命中区间，故不构成混淆、可以翻默认；
+  // 但地板确实存在，所以生产接线取「相对阈值过滤档」而不是纯 top-k。完整数字见
+  // `evals/skill-routing-ab.mjs` 的 `scoreFloor` 段（打印水位线与 GT 得分分布）。
+  const catalog: readonly Skill[] = [
+    skill('alpha', ['x'], 'Run the pipeline and record the index.'),
+    skill('beta', ['y'], 'Run the migration and record the index.'),
+    skill('gamma', ['z'], 'Run the probe and record the index.'),
+  ];
+  assert.deepEqual(
+    r.rank(catalog, '今天天气不错，出去走走', { topK: 3 }),
+    [],
+    '零词面重叠时必须返回空（不做兜底全返回）',
+  );
+  const floored = r.rank(catalog, 'the index of my favourite album', { topK: 3 });
+  assert.strictEqual(floored.length, 3, '共享高频词 index 时三个技能都拿分——地板由此产生');
+  assert.ok(
+    floored.every((h) => h.score > 0),
+    '地板上的候选都是正分，故无法用「>0」把它们与真命中区分开',
+  );
+});
+
+test('SkillRegistry.selectForPrompt: 空查询与空注册表都不做兜底全返回', () => {
+  const empty = new SkillRegistry();
+  assert.deepEqual(empty.selectForPrompt('任意文本'), []);
+  const registry = new SkillRegistry();
+  for (const s of CATALOG) registry.register(s);
+  assert.deepEqual(registry.selectForPrompt('   '), []);
+});
+
+test('SkillRegistry.selectForPrompt: 服从预算 maxSkills 与确定性（同输入恒同输出）', () => {
+  const registry = new SkillRegistry({ maxSkills: 2, minScoreRatio: 0 });
+  for (const s of CATALOG) registry.register(s);
+  const text = 'review the pipeline and the sql indexes';
+  const first = registry.selectForPrompt(text).map((s) => s.name);
+  assert.ok(first.length <= 2, `预算 2 生效，实际 ${String(first.length)}`);
+  assert.deepEqual(
+    registry.selectForPrompt(text).map((s) => s.name),
+    first,
+  );
+});
+
+test('SkillRegistry.selectForPrompt: 同义改写能召回，而字面 match() 不能（翻默认的核心理由）', () => {
+  const registry = new SkillRegistry();
+  for (const s of CATALOG) registry.register(s);
+  // 不含任何技能名或 tag ⇒ 字面通道必然漏召；但与 workflow-automation **正文**词面重叠
+  // （repeatable / unattended / steps）⇒ 相关性可召回。刻意避开 tag 词 `pipeline`/`automation`。
+  const query = 'set up an unattended repeatable sequence of steps';
+  assert.deepEqual(registry.match(query), [], '字面通道不应命中（同义改写的必然漏召）');
+  assert.strictEqual(registry.selectForPrompt(query)[0]?.name, 'workflow-automation');
+});
+
+test('SkillRegistry: match() 保留为精确通道，语义与翻默认前逐字等价', () => {
+  const registry = new SkillRegistry();
+  for (const s of CATALOG) registry.register(s);
+  assert.deepEqual(
+    registry.match('please run workflow-automation').map((s) => s.name),
+    ['workflow-automation'],
+  );
+  assert.deepEqual(
+    registry.match('an unrelated sentence').map((s) => s.name),
+    [],
+  );
 });
