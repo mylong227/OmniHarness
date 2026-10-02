@@ -17,6 +17,16 @@ export interface WorkflowStepResult {
   readonly steps: number;
   /** 耗时（毫秒）。 */
   readonly durationMs: number;
+  /**
+   * 该步是否**因步数耗尽而截断**（2026-10-01 审计补）。
+   *
+   * 存在理由：`Agent.resultOf` 专门透出 `truncated`/`aborted`，就是为了让调用方不要把
+   * 「跑满预算」读成「任务完成」。`SubagentTool.render` 已按此标注，而工作流步骤原先无条件
+   * `ok: true` —— 于是步数耗尽后返回的兜底摘要会被当成真实产出，沿 DAG 注入下游 prompt。
+   */
+  readonly truncated?: boolean | undefined;
+  /** 该步是否被失控熔断 / 取消（同 `truncated`，不可读成完成）。 */
+  readonly aborted?: boolean | undefined;
 }
 
 /**

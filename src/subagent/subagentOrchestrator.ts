@@ -57,7 +57,13 @@ export class SubagentOrchestrator {
         return this.failure(request, CANCELLED_BY_PARENT_MESSAGE);
       }
       // 每个子智能体独立隔离文件系统（git worktree，失败降级为目录拷贝）。
-      const worktree = await WorktreeOps.createWorktree(this.ports.workspaceRoot, Id.id('wt'));
+      // 取消信号透传：worktree 创建原先是「无超时 + 无取消 + 卡在并发闸门内」的组合，
+      // 一个挂住的创建会把整个回合永久黑洞（2026-10-01 审计）。
+      const worktree = await WorktreeOps.createWorktree(
+        this.ports.workspaceRoot,
+        Id.id('wt'),
+        request.signal,
+      );
       try {
         const isolatedPorts: SubagentPortsShape = { ...this.ports, workspaceRoot: worktree.path };
         const result = await new SubagentRunner(isolatedPorts, this.maxSteps()).run(request);

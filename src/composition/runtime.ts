@@ -20,6 +20,7 @@ import {
 import type { A2aTransport } from '../a2a/a2aProtocol.js';
 import { ServiceKeys } from './serviceKeys.js';
 import { SsrfPolicy } from '../security/ssrfPolicy.js';
+import { log } from '../util/logger.js';
 
 /**
  * Runtime —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -70,6 +71,24 @@ export class Runtime {
             verifyCodeFileExtension: config.evolutionRlvr.verifyCodeFileExtension,
             minGain: config.evolutionRlvr.minGain,
             autoRun: config.evolutionRlvr.autoRun === true,
+            // 晋升回调接线（2026-10-01 审计）：进化闭环的前六环（发现 / RLVR 可验证奖励 /
+            // fail-closed 门禁 / 退火接受 / 多样性保留 / 覆盖率闸）都是真实现，唯独 `onPromote`
+            // 在生产装配里从未传入 —— 于是「评估通过」之后什么都不发生，闭环断在最后一米，
+            // 只写一行 `evolution.cycle` 日志。此处把晋升真正落进技能注册表，使晋升后的技能
+            // 能被主循环的技能稀疏化器（`agent.ts` 的 SkillSparsifier）选中并注入上下文。
+            onPromote: (candidate) => {
+              const registry = config.skillRegistry;
+              if (registry === undefined) {
+                return;
+              }
+              // 用 `replace` 而非 `register`：候选在「莫尔转角组合」阶段可能已入册，
+              // 重复 `register` 会抛「技能重复注册」，反把一次合法晋升变成运行时异常。
+              registry.replace(candidate.skill);
+              log.info('evolution.promoted', {
+                skill: candidate.skill.name,
+                source: candidate.source,
+              });
+            },
           }).controller
         : config.evolution;
     const runtime: OmniHarnessRuntime = {

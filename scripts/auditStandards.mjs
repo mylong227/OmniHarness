@@ -612,6 +612,22 @@ if (process.argv.includes('--maturity')) {
       const missing = evidenceList.filter((p) => !fs.existsSync(path.resolve(process.cwd(), p)));
       if (missing.length > 0) {
         bad.push({ ...rec, why: `证据文件不存在：${missing.join(', ')}` });
+      } else if (level === 'L2' || level === 'L3') {
+        // 2026-10-01 审计加固：原先只做 `fs.existsSync` —— `@maturityEvidence package.json`
+        // 也能让 L3 通过。现在证据必须是**含断言的测试文件**（tests/** 且引用 node:assert），
+        // 否则「说 L3 必须有测试」只是名义约束。
+        const notTests = evidenceList.filter((p) => {
+          const rel = p.split(path.sep).join('/');
+          if (!/(^|\/)tests\//.test(rel)) return true;
+          const text = fs.readFileSync(path.resolve(process.cwd(), p), 'utf8');
+          return !/(from\s+['"]node:assert|require\(['"]node:assert|\bassert\.)/.test(text);
+        });
+        if (notTests.length > 0) {
+          bad.push({
+            ...rec,
+            why: `${level} 证据须是含断言的测试文件（tests/** 且引用 node:assert）：${notTests.join(', ')}`,
+          });
+        }
       }
     }
   }
@@ -653,9 +669,14 @@ if (process.argv.includes('--maturity')) {
     }
     return true;
   });
+  // 2026-10-01 审计加固：「名义证据」原先只 console.log（连形式合规都算不上）。
+  // 测试文件未真正 import 引擎模块 ⇒ 证据不构成覆盖，直接判失败。
   if (nominal.length > 0) {
-    console.log('\n--- 名义证据（测试文件未出现引擎名，建议人工确认）---');
-    for (const d of nominal) console.log(`  ${d.file}  <-  ${d.evidence}`);
+    console.error(
+      '\n❌ 成熟度门禁失败：名义证据（测试文件未真正 import 引擎模块）× ' + nominal.length,
+    );
+    for (const d of nominal) console.error(`  - ${d.file}  <-  ${d.evidence}`);
+    process.exitCode = 1;
   }
 
   if (bad.length > 0) {

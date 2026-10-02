@@ -3,10 +3,9 @@ import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAd
 import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
 import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
 import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { ImmuneMonitorPort, ImmuneSelfReport } from '../ports/intelligence/immune.js';
+import type { ImmuneMonitorPort } from '../ports/intelligence/immune.js';
 import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import type { BeliefUpdateReport } from '../ports/intelligence/metacognition.js';
 import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
 import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
 import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
@@ -102,6 +101,8 @@ export class SparkController {
   private readonly bridge?: GenesisSparkBridge | undefined;
   /** Genesis 控制器工况信号（缺省为低熵基线）。 */
   private readonly genesisSignals: RegimeSignals;
+  /** 上一轮真实运行报告（遥测回流，2026-10-02）：下一轮工况由此提炼而非恒用静态基线。 */
+  private lastReport: SparkCycleReport | undefined;
 
   /**
    * @param opts 燧控制器选项（可选引擎/探针/遥测与开关）
@@ -123,8 +124,36 @@ export class SparkController {
   }
 
   /**
-   * 跑一轮：按启用情况调度各燧能力。
+   * 从上一轮真实运行证据回流工况。
    *
+   * 存在理由（2026-10-01 审计 D4）：原先 `cycle()` 的入参恒为构造时固化的
+   * `genesisSignals`，上一轮 report 除 `log.info` 外零消费者 ⇒ 遥测是**纯观测开销**，
+   * 全开即纯烧 token 而不产生任何反馈价值。现在两个有明确证据的维度回流：
+   * - `successRate` ← CRISPR 编辑成功率（`applied` 占比；与收紧遥测用的 offTargetRate 同源）；
+   * - `entropy` ← 对称破缺序参量 ρ 的补（ρ 越高＝能力越单极，工况熵越低）。
+   * 其余维度（costPressure / modalityCount）无可靠单轮证据，维持基线——宁缺勿造。
+   *
+   * @returns 下一轮 `cycle` 使用的工况信号（首轮或上一轮 `ran:false` 时为构造基线）。
+   */
+  private regimeFromLastReport(): RegimeSignals {
+    const last = this.lastReport;
+    if (last === undefined) {
+      return this.genesisSignals;
+    }
+    // RegimeSignals 字段为 readonly，故用展开覆盖而非属性赋值。
+    const crisprSuccess =
+      last.crispr !== undefined && last.crispr.length > 0
+        ? {
+            successRate: last.crispr.filter((r) => r.applied).length / last.crispr.length,
+          }
+        : {};
+    const symmetryEntropy =
+      last.symmetry !== undefined ? { entropy: 1 - last.symmetry.orderParameter } : {};
+    return { ...this.genesisSignals, ...crisprSuccess, ...symmetryEntropy };
+  }
+
+  /**
+   * 跑一轮：按启用情况调度各燧能力（工况经 {@link SparkController.regimeFromLastReport} 回流）。
    * @returns 本轮报告（无活跃能力时 `{ ran: false }`）
    */
   public async cycle(): Promise<SparkCycleReport> {
@@ -132,8 +161,9 @@ export class SparkController {
     // 桥异常不连累主任务，回落既有 legacy 路径（fail-closed）。
     if (this.bridge !== undefined) {
       try {
-        const r = this.bridge.cycle(this.genesisSignals);
+        const r = this.bridge.cycle(this.regimeFromLastReport());
         this.telemetry.emit(r);
+        this.lastReport = r;
         return r;
       } catch {
         // 回落 legacy
@@ -145,20 +175,15 @@ export class SparkController {
     const anneal = engines.annealer?.anneal();
     const web = engines.web?.consolidate();
     const qec = engines.qec?.repairAll();
-    let immune: ImmuneSelfReport | undefined;
     if (engines.immune !== undefined) {
       const sample = engines.immuneSample?.();
       if (sample !== undefined) engines.immune.observe(sample);
-      immune = engines.immune.selfCheck();
     }
+    const immune = engines.immune?.selfCheck();
     // (P2) 信念支柱：观测"自体"行为向量，两类信念引擎各做一次可审计 KL 分解更新。
-    let ngReport: BeliefUpdateReport | undefined;
-    let pfReport: BeliefUpdateReport | undefined;
     const obs = engines.beliefObservation?.();
-    if (obs !== undefined) {
-      if (engines.naturalGradient !== undefined) ngReport = engines.naturalGradient.correct(obs);
-      if (engines.particleFilter !== undefined) pfReport = engines.particleFilter.correct(obs);
-    }
+    const ngReport = obs !== undefined ? engines.naturalGradient?.correct(obs) : undefined;
+    const pfReport = obs !== undefined ? engines.particleFilter?.correct(obs) : undefined;
     const belief =
       ngReport !== undefined || pfReport !== undefined
         ? { naturalGradient: ngReport, particleFilter: pfReport }
@@ -238,9 +263,9 @@ export class SparkController {
       confinement,
     };
     // (P4, I-P4-3) 长期运行遥测：每轮 cycle 为每个已启用引擎落盘一条 production 观测，
-    // 携带该引擎 cycle() 已算出的真实指标（而非仅 ran:1），使 tighten 能按真实运行证据收紧。
-    // 缺省不采集（telemetry 未配置），零破坏。
+    // 携带该引擎 cycle() 已算出的真实指标（而非仅 ran:1）；缺省不采集，零破坏。
     this.telemetry.emit(report);
+    this.lastReport = report; // 遥测回流（见 regimeFromLastReport）。
     return report;
   }
 }

@@ -4,6 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -141,4 +142,68 @@ test('链断裂时合规报告仍标记为不可信（供 CLI 拒绝流转）', 
     false,
     '断裂状态必须随报告一起交付，不能只给快照哈希',
   );
+});
+
+// ── HMAC 防篡改模式（2026-10-02 审计加固）────────────────────────────────────
+// 裸 SHA256 链只提供完整性检测：改内容后重算整条链 ⇒ verify() 判 ok（攻击者可伪造历史）。
+// 注入密钥后重算整链需要密钥，语义升级为防篡改。三个关键性质在此机械钉死。
+
+test('HMAC 模式：带密钥写入的链，同密钥 verify 通过', () => {
+  const path = tmpFile('hmac-ok');
+  const writer = new AuditSink({ path, hmacKey: 'k1-secret' });
+  writer.record({ type: 'evt1', actor: 'tester', detail: { i: 1 } });
+  writer.record({ type: 'evt2', actor: 'tester', detail: { i: 2 } });
+  // 全新实例（模拟另一进程 / 事后审计）持同密钥验证。
+  const chain = new AuditSink({ path, hmacKey: 'k1-secret' }).verify();
+  assert.strictEqual(chain.ok, true, '同密钥验证必须通过');
+  assert.strictEqual(chain.count, 2);
+});
+
+test('HMAC 模式：改内容并按裸 SHA256 重算整链 ⇒ 同密钥 verify 必须判失败', () => {
+  const path = tmpFile('hmac-tamper');
+  const writer = new AuditSink({ path, hmacKey: 'k1-secret' });
+  writer.record({ type: 'evt1', actor: 'tester', detail: { i: 1 } });
+  writer.record({ type: 'evt2', actor: 'tester', detail: { i: 2 } });
+  // 攻击者改第 1 条内容，并用**裸 SHA256 算法**重算整条链（无密钥时的经典伪造）。
+  // prev 指针同步修正、seq 连续——链在无密钥验证下完全自洽（这正是要堵的攻击）。
+  const lines = linesOf(path);
+  const entries = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+  let prevHash = '0'.repeat(64);
+  const SEP = '\u0000';
+  for (const [index, e] of entries.entries()) {
+    e['type'] = index === 0 ? 'EVIL' : `evt${index + 1}`;
+    const canonical = JSON.stringify({
+      ts: e['ts'],
+      type: e['type'],
+      sessionId: undefined,
+      actor: e['actor'],
+      detail: e['detail'],
+      seq: e['seq'],
+    });
+    e['prev'] = prevHash;
+    e['hash'] = createHash('sha256')
+      .update(String(e['prev']))
+      .update(SEP)
+      .update(canonical)
+      .digest('hex');
+    prevHash = String(e['hash']);
+  }
+  writeFileSync(path, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  const chain = new AuditSink({ path, hmacKey: 'k1-secret' }).verify();
+  assert.strictEqual(chain.ok, false, '无密钥重算的自洽链必须被 HMAC 验出（防篡改语义的核心）');
+  // 对照组：同一份伪造链，用无密钥的裸 SHA256 验证方会「验证通过」——证明伪造确实自洽，
+  // HMAC 判失败是密钥在起作用，而不是伪造链本身不自洽。
+  const bareOk = new AuditSink({ path }).verify();
+  assert.strictEqual(bareOk.ok, true, '伪造链对无密钥验证方必须自洽（否则本测试无区分力）');
+});
+
+test('HMAC 模式：密钥是链的属性——验证方 key 不符 ⇒ 判失败（绝不假验证通过）', () => {
+  const path = tmpFile('hmac-keymismatch');
+  const writer = new AuditSink({ path, hmacKey: 'k1-secret' });
+  writer.record({ type: 'evt1', actor: 'tester', detail: { i: 1 } });
+  const wrongKey = new AuditSink({ path, hmacKey: 'other-key' }).verify();
+  assert.strictEqual(wrongKey.ok, false, '错误密钥必须判失败');
+  // 未配 key 的验证方对 HMAC 链同样 fail-closed。
+  const noKey = new AuditSink({ path }).verify();
+  assert.strictEqual(noKey.ok, false, '未持密钥的验证方不得放行 HMAC 链');
 });

@@ -10,7 +10,6 @@ import type { UserResponder } from '../ports/runtime/userResponder.js';
 
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { TraceExporterAssembly } from '../observability/traceExporterAssembly.js';
-import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
 import { PolicySandbox } from '../adapters/sandbox/policySandbox.js';
 import { DenyEscalation } from '../adapters/escalation/denyEscalation.js';
 import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
@@ -44,7 +43,12 @@ export class CorePortsAssembler {
    * @returns 端口切片 + 涡环包适配器（未启用时为 undefined）。
    */
   public static assembleCorePorts(partial: OmniHarnessConfig): CorePortsAssembly {
-    const sandbox = partial.sandbox ?? new PassthroughSandbox();
+    // 沙箱默认取 **policy** 而非 passthrough：passthrough 是「不做任何隔离」的对照实现，
+    // 把它当缺省会让编程式调用方（`ConfigFactory` 未显式注入 sandbox 时）在全无门禁的状态下
+    // 执行 shell/写文件，与「fail-closed 最保守侧」的装配原则自相矛盾（2026-10-01 审计）。
+    // CLI 侧早已默认 `policy`（`argParser.ts`），此处把组合根对齐到同一最保守侧；
+    // 确需零隔离的调用方仍可显式传入 `new PassthroughSandbox()`。
+    const sandbox = partial.sandbox ?? new PolicySandbox({ workspaceRoot: partial.workspaceRoot });
     const approvals = ConfigBuilder.buildApprovals(partial, sandbox);
     let spill = ConfigBuilder.buildSpill(partial);
     // 燧-4 涡环包（S+）：启用时把外溢端口封成拓扑环包；必须在 spiller 构造前封好，

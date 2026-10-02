@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 
 /**
  * 哈希链的**共享算法**（审计 §3.5「审计哈希链两份同构且已语义分叉」的收口）。
@@ -29,16 +29,28 @@ export class HashChain {
   public static readonly GENESIS = '0'.repeat(64);
 
   /**
-   * 计算链哈希：`SHA256(prev ‖ sep ‖ canonical)` 的 hex。
+   * 计算链哈希：`SHA256(prev ‖ sep ‖ canonical)` 的 hex；注入 `key` 时升级为
+   * `HMAC-SHA256(key, prev ‖ sep ‖ canonical)`。
    *
-   * 拼接顺序固定为「前驱 ‖ 分隔符 ‖ 正文」；`prev` 恒为 64 hex、`sep` 由调用方固定，
-   * 故拼接点无歧义（正文中出现同样的字符也不会造成另一种切分）。
+   * ## HMAC 模式（2026-10-02 审计加固）
+   *
+   * 裸 SHA256 链只提供**完整性检测**：任何拿到日志文件的人都能重算出一条完全自洽的新链
+   * （改内容 + 重放整链 = `verify()` 判 ok），也能删掉尾部任意条目而不留痕。注入密钥后，
+   * 重算整链需要密钥 ⇒ 「完整性检测」升级为**防篡改**（攻击者只能整文件丢弃，无法伪造一段
+   * 看起来连续的历史）。密钥来源由调用方决定（审计链：`OMNI_AUDIT_HMAC_KEY` / `--audit-hmac-key`）；
+   * **key 是链的属性**：写入与验证必须同 key，否则当场验签失败（fail-closed，可接受）。
+   * 无 key 的调用与既有行为逐字节一致（golden 回归钉死），已落盘历史不受影响。
+   *
    * @param prev 前一条记录的哈希（首条传 {@link HashChain.GENESIS}）。
    * @param canonical 该条记录的规范化正文（**不含** prev/hash 自身——它们是被保护对象）。
    * @param sep 分隔符（调用方固定；审计链为 NUL，遥测链为空格，见模块注释）。
+   * @param key HMAC 密钥（可选）：给出即用 HMAC-SHA256，缺省维持裸 SHA256。
    * @returns 64 位十六进制摘要。
    */
-  public static hash(prev: string, canonical: string, sep: string): string {
+  public static hash(prev: string, canonical: string, sep: string, key?: string): string {
+    if (key !== undefined && key !== '') {
+      return createHmac('sha256', key).update(prev).update(sep).update(canonical).digest('hex');
+    }
     return createHash('sha256').update(prev).update(sep).update(canonical).digest('hex');
   }
 }

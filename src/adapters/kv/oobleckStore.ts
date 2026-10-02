@@ -9,6 +9,12 @@
  * - 液态（rig=0）：`propose` 以 `impact < yieldStress` 反复覆盖，状态松弛。
  * - 越过阈值：`propose` 的 `impact >= yieldStress` 时剪切增稠，提交并永久冻结（rig=1）——**冻结是冲击涌现的，非显式调用**。
  * - 冻结后：任何 `propose` / `delete` 均被拒绝（fail-closed，不可变）。
+ *
+ * @maturity L0 — 命名级；「剪切增稠」只是「写满阈值后不可变」的隐喻，无流变学本构关系，
+ * 冻结阈值是显式配置而非应力涌现。**诚实边界（2026-10-01 审计）：src 生产代码零调用
+ * （仅测试与 recall fixtures 引用），当前是死代码**——保留与否见
+ * docs/CORE_CAPABILITY_AUDIT_2026-10-01.md §5-9。
+ * @maturityEvidence tests/unit/oobleckStore.test.ts
  */
 import type { KvPort } from '../../ports/memory/kv.js';
 import type { OobleckPort, OobleckRecord, OobleckWriteResult } from '../../ports/memory/oobleck.js';

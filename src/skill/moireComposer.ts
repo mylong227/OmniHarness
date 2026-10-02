@@ -1,6 +1,11 @@
 /**
  * 燧-1 莫尔转角组合算子（纯函数，零依赖）。
  * 组合算子是莫尔而非加权：两片能力光栅相对旋转 θ，乘积场浮现两片都没有的长波结构。
+ *
+ * @maturity L1 — 结构同构：转角 θ 的移位/平均算子可等式推理（组合序、拍频窗口均有确定代数定义）；
+ * 未建乘积场演化方程，无长波结构的解析预测（那是 L2 的判据）
+ * @maturityEvidence tests/unit/discoveryEngine.test.ts
+ *
  * @beta
  */
 import type { MoireMeta, MoireOptions, Skill } from './skill.js';

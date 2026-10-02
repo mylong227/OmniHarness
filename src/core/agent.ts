@@ -626,7 +626,9 @@ export class Agent implements AgentPort {
    */
   private static buildLoopGuard(): LoopGuard {
     if (process.env.OMNI_LOOPGUARD === '0') {
-      return new LoopGuard({ maxExactRepeats: 0, cycleWindow: 0 });
+      // 全量关闭（2026-10-01 审计）：原先只关 maxExactRepeats/cycleWindow，edit 维度的
+      // 振荡/抖动检测无门控照跑，`OMNI_LOOPGUARD=0` 承诺的「关闭失控检测」并不成立。
+      return new LoopGuard({ maxExactRepeats: 0, cycleWindow: 0, editChecks: false });
     }
     const maxMs = Number(process.env.OMNI_LOOP_MAX_MS);
     return new LoopGuard({

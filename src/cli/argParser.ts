@@ -324,6 +324,27 @@ export class ArgParser {
   }
 
   /**
+   * 长期记忆落盘加密的两个配置键映射（2026-10-01 审计补接线）。
+   *
+   * `FileConfig` 早就声明了 `longTermMemoryEncryption` / `longTermMemoryKeyFile`，但
+   * `configDefaults` 从不映射它们，于是写在 `omniharness.json` 里的
+   * `longTermMemoryEncryption: true` 静默无效 —— 用户以为已加密，实际长期记忆以明文落盘。
+   * 这是「静态加密开关」类配置里最不该静默的一种（此前只有 `--memory-encrypt` 旗标这一条路径生效）。
+   *
+   * @param file 已加载的项目配置文件对象。
+   * @param result 待填充的 CLI 默认值（就地写入）。
+   * @returns 无返回值（就地修改 `result`）。
+   */
+  private static applyMemoryEncryptionDefaults(file: FileConfig, result: Partial<CliArgs>): void {
+    if (file.longTermMemoryEncryption !== undefined) {
+      result.memoryEncrypt = file.longTermMemoryEncryption;
+    }
+    if (file.longTermMemoryKeyFile !== undefined) {
+      result.memoryKeyFile = file.longTermMemoryKeyFile;
+    }
+  }
+
+  /**
    * 配置文件 → CLI 默认参数（仅合并已定义字段）。
    * @param file 已加载的项目配置文件对象。
    * @returns 可覆盖在 CliDefaults 之上的默认值子集（providerKeys 会按适配器补全 apiKey/baseUrl）。
@@ -388,6 +409,7 @@ export class ArgParser {
     if (file.sandbox !== undefined) {
       result.sandbox = file.sandbox;
     }
+    ArgParser.applyMemoryEncryptionDefaults(file, result);
     if (file.escalation !== undefined) {
       result.escalation = file.escalation;
     }

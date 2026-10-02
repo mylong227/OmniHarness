@@ -91,7 +91,13 @@ export class RegistryToolPort implements ToolPort {
       return this.failure(call.id, validationError);
     }
     try {
-      return await entry.handler(call, context);
+      const result = await entry.handler(call, context);
+      // 配对不变量兜底：**以权威的 `call.id` 覆盖工具自报的 callId**。
+      // 存在理由（2026-10-01 审计）：`agentIdentityTool` 恒返回 `callId: ''`，投影层会产出
+      // 「`assistant(tool_calls)` 声明 id=X、紧随的 tool 消息却带 `tool_call_id:''`」的孤儿配对，
+      // OpenAI/DeepSeek 兼容端点直接 HTTP 400；更糟的是事件已落盘，会话 resume 后依旧 400 且不可自愈。
+      // 在此处归一即可让「任何工具都无法破坏该不变量」，而不是逐个工具自查。
+      return { ...result, callId: call.id };
     } catch (error) {
       return this.failure(call.id, this.messageOf(error));
     }

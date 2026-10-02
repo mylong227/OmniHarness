@@ -44,6 +44,16 @@ export interface AuditChainReport {
 export interface AuditSinkOptions {
   readonly dir?: string;
   readonly path?: string;
+  /**
+   * 链哈希的 HMAC 密钥（可选，2026-10-02 审计加固）。
+   *
+   * 给出时链哈希升级为 `HMAC-SHA256(key, …)`：裸 SHA256 链只提供完整性检测，
+   * 拿到文件者可重算出一条完全自洽的新链并删掉尾部任意条目而不留痕（`verify()` 判 ok）；
+   * 注入密钥后重算整链需要密钥，「完整性检测」升级为防篡改。
+   * **key 是链的属性**：写入与验证必须同 key（来源：`OMNI_AUDIT_HMAC_KEY` 环境变量或
+   * `--audit-hmac-key` 旗标），缺省维持裸 SHA256、已落盘历史不受影响。
+   */
+  readonly hmacKey?: string;
 }
 
 /**
@@ -91,12 +101,16 @@ export class AuditSink {
   private seq = 0;
   /** 上一条记录哈希。 */
   private prev = HashChain.GENESIS;
+  /** 链哈希 HMAC 密钥（未配置时为 undefined = 裸 SHA256 模式，与既有日志逐字节兼容）。 */
+  private readonly hmacKey: string | undefined;
 
   /**
    * @param options 落盘目标：`path` 为完整文件路径，`dir` 为目录（固定写 `audit.log`）；两者都缺省时不落盘（record 为 no-op）。
+   *   `hmacKey` 见 {@link AuditSinkOptions.hmacKey}。
    *   构造即建目录、建空文件并从文件末尾恢复链状态，保证跨进程重启可续链。
    */
   public constructor(options: AuditSinkOptions = {}) {
+    this.hmacKey = options.hmacKey;
     if (options.path !== undefined) {
       this.target = options.path;
     } else if (options.dir !== undefined) {
@@ -126,7 +140,7 @@ export class AuditSink {
     const ts = entry.ts || new Date().toISOString();
     const seq = this.seq + 1;
     const prev = this.prev;
-    const hash = HashChain.hash(prev, AuditSink.canonicalOf(ts, entry, seq), SEP);
+    const hash = HashChain.hash(prev, AuditSink.canonicalOf(ts, entry, seq), SEP, this.hmacKey);
     const line = JSON.stringify({
       ts,
       type: entry.type,
@@ -251,7 +265,14 @@ export class AuditSink {
         };
         break;
       }
-      const expected = HashChain.hash(prev, AuditSink.canonicalOf(e.ts ?? '', e, e.seq), SEP);
+      // verify 必须与写入同一把 key：实例未配 key 而日志是 HMAC 链（或反之）都会在这里
+      // 判 hash 不匹配 —— fail-closed，且绝不出现「假验证通过」。
+      const expected = HashChain.hash(
+        prev,
+        AuditSink.canonicalOf(e.ts ?? '', e, e.seq),
+        SEP,
+        this.hmacKey,
+      );
       if (e.hash !== expected) {
         result = {
           ok: false,

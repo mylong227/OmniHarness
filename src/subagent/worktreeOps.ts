@@ -37,17 +37,33 @@ export class WorktreeOps {
   }
   /**
    * C7 收口：原顶层内部函数迁入宿主类。
+   *
+   * 时间上界（2026-10-01 审计）：此处 git 调用原先**无 timeout、无取消** —— 凭证交互提示、
+   * `.git/index.lock` 争用、Windows Defender 扫描等都会让命令阻塞不返回；而调用点位于
+   * 子代理并发闸门**内部**，且 `subagent` 在调度器里是串行屏障，一个挂住的 worktree
+   * 创建会把整个回合永久黑洞。故每条 git 命令一律带 {@link GIT_TIMEOUT_MS} 上界，
+   * 并透传会话取消信号（中止 ⇒ 命令即杀，走目录拷贝降级路径）。
+   *
    * @param repoRoot string
    * @param name string
+   * @param signal AbortSignal | undefined
    * @returns Promise<Worktree>
    */
-  public static async createWorktreeUnsafe(repoRoot: string, name: string): Promise<Worktree> {
+  public static async createWorktreeUnsafe(
+    repoRoot: string,
+    name: string,
+    signal?: AbortSignal | undefined,
+  ): Promise<Worktree> {
     const safe = WorktreeOps.sanitizeName(name);
     const wtPath = join(repoRoot, WORKTREE_DIR, safe);
     const branch = `omni-sub-${safe}`;
 
     try {
-      await execFileAsync('git', ['worktree', 'add', '-b', branch, wtPath], { cwd: repoRoot });
+      await execFileAsync('git', ['worktree', 'add', '-b', branch, wtPath], {
+        cwd: repoRoot,
+        timeout: GIT_TIMEOUT_MS,
+        signal,
+      });
       return {
         path: wtPath,
         isolated: 'worktree',
@@ -58,6 +74,7 @@ export class WorktreeOps {
           await WorktreeOps.withWorktreeLock(repoRoot, async () => {
             await execFileAsync('git', ['worktree', 'remove', '--force', wtPath], {
               cwd: repoRoot,
+              timeout: GIT_TIMEOUT_MS,
             }).catch((error: unknown) => {
               log.warn('worktree.cleanup.failed', {
                 repoRoot,
@@ -66,20 +83,26 @@ export class WorktreeOps {
                 error: String(error),
               });
             });
-            await execFileAsync('git', ['branch', '-D', branch], { cwd: repoRoot }).catch(
-              (error: unknown) => {
-                log.warn('worktree.cleanup.failed', {
-                  repoRoot,
-                  branch,
-                  step: 'branch-delete',
-                  error: String(error),
-                });
-              },
-            );
+            await execFileAsync('git', ['branch', '-D', branch], {
+              cwd: repoRoot,
+              timeout: GIT_TIMEOUT_MS,
+            }).catch((error: unknown) => {
+              log.warn('worktree.cleanup.failed', {
+                repoRoot,
+                branch,
+                step: 'branch-delete',
+                error: String(error),
+              });
+            });
           });
         },
       };
-    } catch {
+    } catch (error) {
+      // 取消与超时都不降级为整目录拷贝：目录拷贝是重 IO（大仓可到 GB 级），取消后再拷
+      // 等于把「用户喊停」变成「更久地不停」；直接向上抛，由调用方转为失败结果。
+      if (signal?.aborted === true) {
+        throw error instanceof Error ? error : new Error(String(error));
+      }
       // fail-closed：目录拷贝隔离，明确非 worktree 隔离。
       // 隔离区放在 repoRoot 之外（os.tmpdir），避免把目录拷进自身子目录而触发
       // ERR_FS_CP_EINVAL 自拷贝错误；同时过滤运行时/依赖目录（.git / .omni-* /
@@ -111,10 +134,18 @@ export class WorktreeOps {
    *
    * 优先使用 git worktree 分支隔离；当 git 不可用或命令失败时，fail-closed
    * 降级为整目录拷贝（绝不静默共享父工作区），并在结果中标记 isolated:'copy'。
+   * @param repoRoot 仓库根目录（worktree 挂载基准）。
+   * @param name 子智能体名（清洗后作分支与目录名）。
+   * @param signal 会话取消信号（可选）：给出时在飞 git 命令随取消中止，不再等其自然完成。
+   * @returns 隔离工作树（含清理回调）。
    */
-  public static async createWorktree(repoRoot: string, name: string): Promise<Worktree> {
+  public static async createWorktree(
+    repoRoot: string,
+    name: string,
+    signal?: AbortSignal | undefined,
+  ): Promise<Worktree> {
     return WorktreeOps.withWorktreeLock(repoRoot, () =>
-      WorktreeOps.createWorktreeUnsafe(repoRoot, name),
+      WorktreeOps.createWorktreeUnsafe(repoRoot, name, signal),
     );
   }
 
@@ -136,6 +167,15 @@ export class WorktreeOps {
 }
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * 单条 git 命令的时间上界（毫秒）。
+ *
+ * 本地 worktree add/remove/branch -D 都是毫秒级操作；30s 已覆盖最慢的
+ * `.git/index.lock` 争用与杀毒扫描，再久必然是挂住（凭证提示 / 死锁）而非慢。
+ * 存在理由见 `createWorktreeUnsafe` 注释（无上界 + 卡在并发闸门内 = 整回合黑洞）。
+ */
+const GIT_TIMEOUT_MS = 30_000;
 
 /**
  * @beta

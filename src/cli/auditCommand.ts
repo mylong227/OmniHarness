@@ -45,17 +45,21 @@ export class AuditCommand {
   /**
    * 构造审计 sink：--audit-file 优先，其次 --audit-dir 或 env OMNI_AUDIT_DIR，均无则 no-op。
    * @param reader 参数读取器（在去掉 `audit export` 后的参数上）。
-   * @returns 审计 sink。
+   * @returns 审计 sink；`--audit-hmac-key` / env `OMNI_AUDIT_HMAC_KEY` 给出时链升级为 HMAC 防篡改模式。
    */
   private buildSink(reader: CliArgReader): AuditSink {
     const auditDir = reader.value('--audit-dir') ?? process.env['OMNI_AUDIT_DIR'];
     const auditFile = reader.value('--audit-file');
+    // 密钥只从旗标/环境变量取，绝不落盘（进日志/配置文件会让 HMAC 形同虚设）。
+    // exactOptionalPropertyTypes：未配置时不产出显式 undefined 键。
+    const hmacKey = reader.value('--audit-hmac-key') ?? process.env['OMNI_AUDIT_HMAC_KEY'];
+    const withKey = hmacKey !== undefined ? { hmacKey } : {};
     return new AuditSink(
       auditFile !== undefined
-        ? { path: auditFile }
+        ? { path: auditFile, ...withKey }
         : auditDir !== undefined
-          ? { dir: auditDir }
-          : {},
+          ? { dir: auditDir, ...withKey }
+          : withKey,
     );
   }
 

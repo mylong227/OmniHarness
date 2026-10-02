@@ -27,8 +27,12 @@ export class WorkerOrchestrator {
    * @param workspaceRoot 子进程工作目录（工作区根）
    * @returns 该 worker 的执行结果（成功含输出与耗时，失败含错误消息）
    */
-  public async delegate(task: DelegateTask, workspaceRoot: string): Promise<WorkerResult> {
-    return this.registry.get(task.worker).run({ task: task.task, workspaceRoot });
+  public async delegate(
+    task: DelegateTask,
+    workspaceRoot: string,
+    signal?: AbortSignal | undefined,
+  ): Promise<WorkerResult> {
+    return this.registry.get(task.worker).run({ task: task.task, workspaceRoot, signal });
   }
 
   /**

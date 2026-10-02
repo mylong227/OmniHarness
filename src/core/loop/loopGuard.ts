@@ -43,6 +43,14 @@ export interface LoopGuardOptions {
   readonly maxDurationMs?: number;
   /** 同一检测连续触发多少次升级为 abort，默认 2。 */
   readonly nudgeLimit?: number;
+  /** 文件维度失控检测（振荡/抖动）开关，默认开。
+   *
+   * 存在理由（2026-10-01 审计）：`OMNI_LOOPGUARD=0` 只关了 `maxExactRepeats` 与
+   * `cycleWindow`，edit 维度检测无门控照跑 —— 文档承诺「关闭失控检测」而实际
+   * `edit-oscillation` / `edit-thrash` 连续 2 次仍会熔断，批量 codemod 场景被误杀且
+   * 用户找不到关闭开关。设为 false 才是真正的全量关闭。
+   */
+  readonly editChecks?: boolean;
 }
 
 const DEFAULTS = {
@@ -108,6 +116,8 @@ export class LoopGuard {
   private readonly maxDurationMs: number;
   /** 同一检测连续触发多少次升级为 abort（此前只 nudge）。 */
   private readonly nudgeLimit: number;
+  /** 文件维度失控检测开关（editChecks=false 时 observeEdits 不跑）。 */
+  private readonly editChecks: boolean;
 
   /** 最近工具调用序列（规范化后），供循环窗口检测。 */
   private readonly callSeq: string[] = [];
@@ -124,6 +134,7 @@ export class LoopGuard {
     this.maxCyclePeriod = options.maxCyclePeriod ?? DEFAULTS.maxCyclePeriod;
     this.maxDurationMs = options.maxDurationMs ?? DEFAULTS.maxDurationMs;
     this.nudgeLimit = options.nudgeLimit ?? DEFAULTS.nudgeLimit;
+    this.editChecks = options.editChecks ?? true;
   }
 
   /**
@@ -154,9 +165,13 @@ export class LoopGuard {
       return this.decide('cycle');
     }
     // 文件维度的失控（A5）：签名级检测看不见「改了 A 又改回 A」这类振荡，必须另看一眼。
-    const editViolation = this.observeEdits(observation.toolCalls);
-    if (editViolation !== undefined) {
-      return this.decide(editViolation);
+    // editChecks=false（`OMNI_LOOPGUARD=0`）时跳过 —— 全量关闭必须是全量，否则批量
+    // codemod 会被 edit 维度误杀且用户找不到关闭开关（2026-10-01 审计）。
+    if (this.editChecks) {
+      const editViolation = this.observeEdits(observation.toolCalls);
+      if (editViolation !== undefined) {
+        return this.decide(editViolation);
+      }
     }
     // 本步观测健康 → 清零全部连续计数（nudge 只认「连续」违规）。
     this.streaks.clear();
