@@ -5,21 +5,27 @@
  *  - 单一职责：只负责「把根目录变成可查询语料并缓存」，不含任何检索/融合逻辑。
  *  - **进程级复用**：跨 step 复用同一索引，规避「agent 改文件 → 根 mtime 变 → 每步重索引」的风暴。
  *  - TTL（默认 30s，env OMNI_REPO_MAP_TTL_MS 覆盖）：超时后下次查询触发重索引。
- *  - LRU 近似驱逐：条目数超上限时淘汰**最早索引**的一条（零依赖、够用），并通过构造时注入的
+ *  - **mtime 增量复用（2026-10 收尾项 #17）**：TTL 到期不再无条件全量重建，而是先比对文件 mtime
+ *    签名；未变则复用既有语料（跳过 8.6s 级全量重建），仅当文件集合 / mtime 真的变化才重建。
+ *  - LRU 近似驱逐：条目数超上限时淘汰**最早索引**的一条（无第三方依赖、够用），并通过构造时注入的
  *    onEvict 回调通知外部（如语义索引缓存同步失效该 root 的全部变体），保持两类缓存一致。
  *  - 全程 fail-closed：索引失败返回 null，绝不抛错崩主流程；但**不静默**——失败会记 warn 日志
  *    （带 root 与堆栈），否则调用方只看到「语料索引失败」而无法定位真因。
  */
 
+import { statSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
 import { log } from '../util/logger.js';
 
-/** 缓存条目：语料 + 索引时间戳（用于 TTL 失效与 LRU 驱逐）。 */
+/** 缓存条目：语料 + 索引时间戳 + 文件 mtime 签名（用于 TTL 失效与 mtime 增量复用）。 */
 interface CacheEntry {
   /** 已构建的语料索引。 */
   readonly corpus: IndexedCorpus;
   /** 索引完成时刻（Date.now()）。 */
   readonly indexedAt: number;
+  /** 索引时各参与文件（rel 路径）与其 mtimeMs 拼成的有序签名；TTL 到期时比对以决定是否复用。 */
+  readonly mtimeSig: string;
 }
 
 /** 默认最多缓存的工作区数量（多 workspace 会话防内存无限增长）。 */
@@ -62,12 +68,27 @@ export class CorpusIndexCache {
     if (existing !== undefined && now - existing.indexedAt < this.ttlMs()) {
       return existing.corpus;
     }
+    // TTL 已过期（或首次）：先用 mtime 签名判断文件集合是否真的变了。
+    // 若未变则直接复用既有语料，跳过 8.6s 级全量重建——这是把「每 30s 一次全量重建」
+    // 改为「按 mtime 增量」的核心：TTL 仅作兜底，文件真变才重建（见 `mtimeSignature`）。
+    if (existing !== undefined) {
+      const sig = this.mtimeSignature(root);
+      if (sig !== null && sig === existing.mtimeSig) {
+        this.cache.set(root, {
+          corpus: existing.corpus,
+          indexedAt: now,
+          mtimeSig: existing.mtimeSig,
+        });
+        return existing.corpus;
+      }
+    }
     const corpus = this.indexRoot(root);
     if (corpus === null) {
       return null;
     }
+    const sig = this.mtimeSignature(root) ?? '';
     this.evictIfNeeded();
-    this.cache.set(root, { corpus, indexedAt: now });
+    this.cache.set(root, { corpus, indexedAt: now, mtimeSig: sig });
     return corpus;
   }
 
@@ -89,6 +110,35 @@ export class CorpusIndexCache {
   private ttlMs(): number {
     const raw = Number(process.env.OMNI_REPO_MAP_TTL_MS);
     return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_TTL_MS;
+  }
+
+  /**
+   * 计算某 root 下「参与索引的文件集合 + 各自 mtime」签名。
+   *
+   * 用 {@link ContextEngine.walk}（与 `indexCorpus` 同一套忽略清单与三道上限）枚举文件，
+   * 再逐文件取 mtimeMs 拼成有序字符串。签名相等 ⇒ 语料无需重建。
+   * @param root workspace 根路径。
+   * @returns 签名串；根不可枚举（坏路径 / 权限）时返回 null（调用方据此退化为全量重建）。
+   */
+  private mtimeSignature(root: string): string | null {
+    try {
+      const rels: string[] = [];
+      ContextEngine.walk(root, root, rels, {
+        maxFiles: ContextEngine.MAX_FILES,
+        maxTotalBytes: ContextEngine.MAX_TOTAL_BYTES,
+        maxFileBytes: ContextEngine.MAX_FILE_BYTES,
+      });
+      const parts: string[] = [];
+      for (const rel of rels) {
+        const abs = join(root, rel.split('/').join(sep));
+        const st = statSync(abs);
+        parts.push(`${rel}:${String(st.mtimeMs)}`);
+      }
+      parts.sort();
+      return parts.join('\n');
+    } catch {
+      return null;
+    }
   }
 
   /**
