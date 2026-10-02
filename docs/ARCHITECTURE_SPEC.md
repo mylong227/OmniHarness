@@ -7,14 +7,14 @@
 
 ## 1. 总体架构原则
 
-| 铁律         | 内容                                                                                                 |
-| ------------ | ---------------------------------------------------------------------------------------------------- |
-| 语言         | TS（前端/编排）+ ESM + strict；Rust（内核 crate）                                                    |
-| 零运行时依赖 | 不引入 tree-sitter / 向量库 / FFI 库；FFI 走宿主 node.exe `GetProcAddress` 解析 napi_*               |
-| 一功能一类   | 禁大函数；TS camelCase，Rust snake_case                                                              |
-| 形态         | 六边形（端口-适配器）：`src/core/` 只依赖接口，实现在 `src/adapters/`                                |
-| 装配         | `Container` + `RuntimeFactory` + `ServiceKeys`；门禁统一 RuntimeFactory 注入（禁 StepRunner 内 new） |
-| fail-closed  | 审批门禁→沙箱门禁→执行→记录；未知枚举抛错不静默回落                                                  |
+| 铁律            | 内容                                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 语言            | TS（前端/编排）+ ESM + strict；Rust（内核 crate）                                                                                                              |
+| 依赖准入（D10） | 必要且更优即可依赖（同等能力优先成熟第三方），经 dependency-allowlist.json 准入；ports/、core/ 恒第三方-free；FFI 走宿主 node.exe `GetProcAddress` 解析 napi_* |
+| 一功能一类      | 禁大函数；TS camelCase，Rust snake_case                                                                                                                        |
+| 形态            | 六边形（端口-适配器）：`src/core/` 只依赖接口，实现在 `src/adapters/`                                                                                          |
+| 装配            | `Container` + `RuntimeFactory` + `ServiceKeys`；门禁统一 RuntimeFactory 注入（禁 StepRunner 内 new）                                                           |
+| fail-closed     | 审批门禁→沙箱门禁→执行→记录；未知枚举抛错不静默回落                                                                                                            |
 
 ---
 
@@ -28,8 +28,8 @@ src/
 ├── adapters/     20 类适配器实现（memory/resonantMemory, memory/cosmicWeb,
 │                 sandbox/*, model/openai, model/anthropic ...）
 ├── core/         仅依赖端口的业务编排（agent 主循环、stepRunner）
-├── context/      【本次新增】repoMap.ts + contextEngine.ts（零依赖上下文引擎）
-├── search/       bm25.ts（零依赖 Okapi BM25）、toolDiscovery、toolIndex
+├── context/      【本次新增】repoMap.ts + contextEngine.ts（纯 TS 上下文引擎）
+├── search/       bm25.ts（纯 TS Okapi BM25）、toolDiscovery、toolIndex
 ├── enterprise/   sso.ts（OIDC PKCE+JWKS）、合规导出、审计哈希链
 ├── util/         workspaceGuard（路径穿越防护）、logger（结构化日志+traeId）
 └── cli/          参数白名单严格校验（非法枚举抛错）
@@ -57,7 +57,7 @@ src/
 | `errors/`        | 公共层   | 跨层错误类型（`ports/model` 迁出物）                                                                                                       | 无                                            |
 | `util/`          | 公共层   | 无业务语义工具（logger/diff/日程/谱工具/**内建默认数据读取 `builtinDefaults` / `endpointDefaults`**）                                      | 无第三方                                      |
 | `schema/`        | 公共层   | 结构化输出/代码生成契约                                                                                                                    | `util/**`                                     |
-| `search/`        | 核心域   | 零依赖检索原语（BM25、toolIndex）                                                                                                          | `util/**`                                     |
+| `search/`        | 核心域   | 纯 TS 检索原语（BM25、toolIndex）                                                                                                          | `util/**`                                     |
 | `eval/`          | 评测域   | Pass@k、bootstrap 置信区间、SWE replay 基建                                                                                                | 无第三方                                      |
 | `evolution/`     | 进化域   | RLVR 可验证奖励、样本回放环                                                                                                                | `ports/**`                                    |
 | `genesis/`       | 发明层   | 模态/算子/ledger 数学基板（L2/L3 声明区）                                                                                                  | `util/**`                                     |
@@ -125,7 +125,7 @@ CLI/Web ──config.update──> ConfigFile.save ──> normalizeConfig(KNOWN
 ### 4.3 双 BM25 检索（search）
 
 - M1 工具检索：`tool_search`（延迟暴露）；M2 会话检索：`memory_search`。
-- 决策：用零依赖 BM25 而非 FTS5（FTS5 依赖 node:sqlite，破 Node 20 兼容）。
+- 决策：用纯 TS BM25 而非 FTS5（FTS5 依赖 node:sqlite，破 Node 20 兼容）。
 - `tokenize()`：ASCII 词 + snake 拆子词 + CJK 单字/二元组（中英混合友好）。
 
 ### 4.4 S+ 发明层（自研原语）
@@ -136,7 +136,7 @@ CLI/Web ──config.update──> ConfigFile.save ──> normalizeConfig(KNOWN
 
 ### 4.5 本次新增：上下文引擎（context）
 
-- `repoMap.extractSymbols(relPath, content)`：零依赖正则抽取 函数/类/接口/类型/常量/方法（TS/JS/Py），产出 `SymbolNode{file,line,kind,name,signature}`。
+- `repoMap.extractSymbols(relPath, content)`：纯 TS 正则抽取 函数/类/接口/类型/常量/方法（TS/JS/Py），产出 `SymbolNode{file,line,kind,name,signature}`。
 - `contextEngine.indexCorpus(root)`：遍历源码 → 建符号级 + 文件级双 BM25 索引。
 - `contextEngine.query(q)`：**混合打分**——文件分 = max(文件BM25分, 0.7×文件内最强符号分)，Top-14 文件大纲 + Top-30 符号签名。
 - 基准（_实测_）：313 文件 / 5022 符号 / 309,433 token 语料，相对 grep 竞品**同等 14 文件预算** token **1/7.95**，相对整语料 **1/114.03**，文件召回 **67.0%**（竞品同预算 60.83%），符号精确率 25.5%。五轮技术尝试中四类（频域共振 / PRF / 44 万边引用图 / LSA）实测无效，采纳词形归并，详见 `docs/U3_CONTEXT_RECALL_EXPERIMENT.md`。
@@ -170,7 +170,7 @@ CLI/Web ──config.update──> ConfigFile.save ──> normalizeConfig(KNOWN
 ## 7. 测试与质量门禁
 
 - 597 用例 / 591 通过 / 6 skip（代码测试比 ~1.98:1）；Rust cargo test 89 + wasm E2E 10 + native E2E 9。
-- `scripts/check.mjs`：零依赖铁律自检（阻断级零违规）。
+- `scripts/check.mjs`：依赖准入自检（allowlist 未登记即阻断）。
 - `tsc --noEmit`：本次新增 `context/*` 通过（已验证 EXIT=0）。
 - API 稳定性：`@beta` 标注实验性导出 293 处；无 `@deprecated`。
 
@@ -187,5 +187,5 @@ CLI/Web ──config.update──> ConfigFile.save ──> normalizeConfig(KNOWN
 
 - `benchmark/capability-swebench.json`：live 段 deepseek-chat **10/10 通过**（64.7s / $0.20）；scripted 段 10/10。
 - `benchmark/efficiency-benchmark.json`：冷启动 p50 86ms、上下文压缩省 80.7%、工具加载减 74.5%、检索 12929 qps、生成代数 1478 万 ops/s、RSS 49.3MB。
-- `benchmark/selfcheck.report.json`：6/6 自检性质通过（fail-closed、不灾难遗忘、零依赖+退火单调等）。
+- `benchmark/selfcheck.report.json`：6/6 自检性质通过（fail-closed、不灾难遗忘、依赖准入合规+退火单调等）。
 - `evals/context-efficiency`：确定性上下文效率基准（114x vs 整语料，7.95x vs grep 竞品同等文件预算，召回 67.0%；含竞品召回对照与三配置 A/B，频域共振/PRF/引用图/LSA 实测见 `docs/U3_CONTEXT_RECALL_EXPERIMENT.md`）。

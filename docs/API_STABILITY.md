@@ -21,7 +21,7 @@
 
 ## 标注规则（机器强制）
 
-校验器 `scripts/apiStability.mjs`（零依赖）扫描 `src/index.ts`：
+校验器 `scripts/apiStability.mjs`（无第三方依赖）扫描 `src/index.ts`：
 
 1. 每个**分区注释**必须以 `// @public` / `// @beta` / `// @deprecated` 声明该区稳定性；
 2. 其下所有 `export` 语句**继承**该分区稳定性；
@@ -47,7 +47,7 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 当前分级（节选）：
 
 - **`@public`**：端口层、核心、配置、适配器、hooks 兼容层、上下文/工具、插件系统、门禁/PTC、Skills、app-server/协议、schema/SDK、worker 编排、MCP 网关、原生内核、企业管控、版本契约。
-- **`@beta`**：工具语义检索(M1)、会话检索(M2)、子智能体(#76)、自主目标循环(S30)、工作流 DAG(S31)、LSP(S32)、Agent 密码学身份(S33)、安全策略求值(S34)、零依赖 TUI(S35)、计划/待办/提问(#77)、评估基准(C3)。
+- **`@beta`**：工具语义检索(M1)、会话检索(M2)、子智能体(#76)、自主目标循环(S30)、工作流 DAG(S31)、LSP(S32)、Agent 密码学身份(S33)、安全策略求值(S34)、纯 ANSI TUI(S35)、计划/待办/提问(#77)、评估基准(C3)。
 - **`@deprecated`**：截至 2026-09-02，**公开桶尚无废弃导出**。本仓库仍处早期快速演进阶段，未积累到需废弃的公开 API——这是健康态，不是缺口。废弃机制（标签 + 校验器 + 版本策略）已就位：一旦某 API 被取代，直接在其分区标注 `// @deprecated` 并给出替代方案即可，校验器不会因此报错。
 
 > **2026-09-24 复核留档（防后人误删）**：审计曾把 `MockModel` / `MemoryStorage` / `PassthroughSandbox`

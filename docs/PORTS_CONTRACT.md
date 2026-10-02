@@ -21,7 +21,7 @@
 
 ## 2. 实现一个端口的标准步骤
 
-1. `npm run check` 确认零依赖预算可用（实现文件只允许在 `adapters/` 或宿主仓库）。
+1. `npm run check` 确认依赖准入合规（实现文件只允许在 `adapters/` 或宿主仓库）。
 2. 新建 `adapters/<域>/<你的实现名>.ts`：`export class YourImpl implements <Port> { ... }`，
    文件名 = 类名（camelCase/PascalCase 对应），一文件一类。
 3. 公开成员显式 `public`/`private`；公开类与方法必须有 JSDoc（含 `@param`/`@returns`）——

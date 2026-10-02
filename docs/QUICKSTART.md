@@ -1,6 +1,6 @@
 # OmniHarness 快速上手
 
-> 零运行时依赖的 TypeScript 端口-适配器 Agent Harness + Rust 硬内核。
+> TypeScript 端口-适配器 Agent Harness + Rust 硬内核（依赖按 D10 准入，ports/core 恒第三方-free）。
 > 本指南让你 5 分钟内跑通 mock、接上真实模型、打开 Web 工作台。
 > 完整架构见 `docs/ARCHITECTURE_SPEC.md`，插件开发见 `docs/PLUGIN_GUIDE.md`。
 
@@ -21,7 +21,7 @@ npm test       # 全量单测（当前 471 通过 / 0 失败 / 3 跳过）
 node dist/src/cli/exec.js serve --mock --port 8787
 ```
 
-浏览器打开 http://localhost:8787 —— 零依赖三栏工作台：
+浏览器打开 http://localhost:8787 —— 纯静态三栏工作台：
 
 - **左**：会话列表 + 工作区文件树
 - **中**：对话 + 实时轨迹流（reasoning / 工具调用树 / DiffBlock）

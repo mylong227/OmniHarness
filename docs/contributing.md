@@ -5,7 +5,7 @@
 - 代码用 TypeScript（`src/`），ESM，严格模式
 - **一个功能一个类**；**一个函数一个职责**；禁止大函数
 - **文件命名一律 camelCase（驼峰），拒绝下划线与连字符**
-- **零运行时依赖**（仅 devDeps: typescript + @types/node）
+- **运行时无第三方依赖**（仅 devDeps: typescript + @types/node；运行时依赖按 D10 准入）
 - 核心只依赖端口接口，不依赖具体实现
 
 ## 开发流程
@@ -13,7 +13,7 @@
 ```bash
 npm install
 npm run build      # tsc 构建
-npm test           # 单元测试（node:test，零依赖）
+npm test           # 单元测试（node:test，无第三方测试框架）
 npm run smoke      # 冒烟（4 组）
 npm run stress     # 压测（内存泄漏检查）
 ```

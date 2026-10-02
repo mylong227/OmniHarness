@@ -87,15 +87,22 @@ export class ServerAuthGuard {
     if (!this.enabled) {
       return true;
     }
-    const path = (request.url ?? '/').split('?')[0] ?? '/';
+    const url = request.url ?? '/';
+    const path = url.split('?')[0] ?? '/';
     if (PUBLIC_PATHS.has(path)) {
       return true;
     }
+    // 优先 Authorization 头（fetch / WS 走这条）；SSE 的 EventSource 无法设头，
+    // 退化为 URL 查询参数 ?token=（同源 Bearer 令牌，值等价，故复用同一 matches）。
     const header = request.headers['authorization'];
-    if (typeof header !== 'string') {
-      return false;
+    if (typeof header === 'string' && ServerAuthGuard.matches(header, this.token)) {
+      return true;
     }
-    return ServerAuthGuard.matches(header, this.token);
+    const queryToken = ServerAuthGuard.tokenFromQuery(url);
+    if (queryToken !== null && ServerAuthGuard.matches(`Bearer ${queryToken}`, this.token)) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -116,5 +123,22 @@ export class ServerAuthGuard {
       return false;
     }
     return timingSafeEqual(provided, expected);
+  }
+
+  /**
+   * 从请求 URL 的查询参数中取 `token`（SSE 鉴权专用：EventSource 无法带 Authorization 头）。
+   * @param url 原始请求 URL（含查询串）。
+   * @returns 令牌原文；不存在或无法解析时返回 null。
+   */
+  private static tokenFromQuery(url: string): string | null {
+    const q = url.indexOf('?');
+    if (q === -1) {
+      return null;
+    }
+    try {
+      return new URLSearchParams(url.slice(q + 1)).get('token');
+    } catch {
+      return null;
+    }
   }
 }

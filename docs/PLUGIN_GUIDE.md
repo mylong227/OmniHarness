@@ -134,7 +134,7 @@ node dist/src/cli/exec.js serve --port 8787 --dir ./my-plugins
 ## 8. 打包发布（Profile + Bundle）
 
 - **Profile（命名插件组合）**：`PluginProfileStore` 存于 `.omniharness/pluginProfiles/<id>.json`，CLI `serve --plugin-profile coding` 一键把运行时插件集收敛为该命名组合。
-- **Bundle（可 patch 发布单元）**：零依赖 store-zip + `BundleManifest` + HMAC-SHA256 签名校验；`bundle.pack` / `bundle.unpack` RPC。补丁层 `config` 覆盖实现配置叠加。
+- **Bundle（可 patch 发布单元）**：纯 TS store-zip + `BundleManifest` + HMAC-SHA256 签名校验；`bundle.pack` / `bundle.unpack` RPC。补丁层 `config` 覆盖实现配置叠加。
 
 ## 9. 校验与 fail-closed
 

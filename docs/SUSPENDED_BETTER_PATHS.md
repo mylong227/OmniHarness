@@ -5,7 +5,7 @@
 > B3 Linux/macOS 真机、F4 keycloak 容器——是否存在**不依赖这些外部设施、
 > 直接验证且保真度一致或更高、效率更优**的开源替代路径？
 >
-> 结论：**B2、B3 与 F4 已在仓库内用零依赖更优解落地结项**；**B1 官方 500 Verified 的真实接线已落地
+> 结论：**B2、B3 与 F4 已在仓库内以准入合规的更优解落地结项**；**B1 官方 500 Verified 的真实接线已落地
 > （`src/eval/swebenchVerified.ts` + `src/eval/nativeExecutor.ts` + `capability_swebench.mjs --verified`，
 > 原生本地执行器 fail-closed），免 Docker、免云、code-ready + turnkey**；执行须你侧具备
 > git + uv + 网络（本地克隆仓库 + pip 安装 + pytest 判定）。
@@ -15,7 +15,7 @@
 | 挂起项                   | 原方案（外部依赖）         | 更优解                                                                                                      | 保真度                                                  | 效率                      | 状态                                                                             |
 | ------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
 | **B3** 跨平台真机        | 自购/自管 Linux·macOS 硬件 | GitHub Actions `matrix.os: [ubuntu/macos/windows-latest]`                                                   | 一致（真实内核）                                        | 更高（零硬件筹备）        | ✅ 已落地 `ci.yml`                                                               |
-| **F4** OIDC 真机         | 起 keycloak 容器（docker） | 零依赖本地 IdP 夹具（`node:crypto` 真实 RS256 + 真实 HTTP）                                                 | 等价（真实 JWT+JWKS）                                   | 更高（毫秒级·零容器）     | ✅ 已落地 `tests/integration/oidcFixture.ts`                                     |
+| **F4** OIDC 真机         | 起 keycloak 容器（docker） | Node 内置实现的本地 IdP 夹具（`node:crypto` 真实 RS256 + 真实 HTTP）                                        | 等价（真实 JWT+JWKS）                                   | 更高（毫秒级·零容器）     | ✅ 已落地 `tests/integration/oidcFixture.ts`                                     |
 | **B1** 官方 500 Verified | 本机 docker + 云(Modal)    | `src/eval/nativeExecutor.ts` + `--verified`（git worktree + uv venv + pytest，免 Docker/免云，fail-closed） | best-effort（env 由 repo 自述 + uv 重建，非官方镜像）   | 本地直接跑，零容器启动    | ✅ 接线落地（原生执行器，免 Docker/免云）+turnkey；执行待 git+uv+网络            |
 | **B2** Terminal-Bench    | 本机 docker 跑任务容器     | `env.json`（容器无关环境契约）+ 宿主 `uv venv/pip`（免 Docker，`dockerfileReader.ts` 已删除）               | best-effort（原生不装系统包、不重放构建步骤，逐条告警） | 更高（无镜像拉取/层解压） | ✅ 已落地（2026-09-19，见 `roadmap.md` 阶段 38 / `TASK_BOARD.md` §12）；出数待跑 |
 
@@ -49,13 +49,13 @@ Windows（原方案根本没考虑）。
 **已落地**：`tests/integration/*`（含 F4 的 OidcFixture 真实 RS256 链路）现随
 `test` job 在三平台真机执行。
 
-## 三、F4：OIDC 真机 → 零依赖本地 IdP 夹具
+## 三、F4：OIDC 真机 → Node 内置实现的本地 IdP 夹具
 
 **原阻塞**：`EnterpriseAuth` 的 RS256 验签门禁要「真实接入某 IdP」才能端到端验证，
 原方案是「起一个 keycloak 容器」（须 docker）。
 
 **更优解**：`src/enterprise/oidcClient.ts` 的 `OidcClient`/`EnterpriseAuth` 本身就是
-零依赖、fetch 可注入的纯实现。`tests/integration/oidcFixture.ts` 用 `node:crypto`
+无第三方依赖、fetch 可注入的纯实现。`tests/integration/oidcFixture.ts` 用 `node:crypto`
 构造一个**真实 RSA 密钥对**，起一个监听 `127.0.0.1:随机端口` 的**真实 HTTP IdP**，
 签发**真实 RS256 id_token**，暴露 discovery / JWKS / token 三个端点。集成测试
 `tests/integration/oidcFixture.test.ts` 走完整真实链路：
@@ -70,7 +70,7 @@ enterpriseAuthFromIssuer(config, globalThis.fetch)   // 真实 discovery fetch�
 连「真实 IdP 的端点结构」都被验证。
 **效率**：进程内生成密钥 + 内存级 HTTP，毫秒级、零容器启动、零网络往返。
 **参考开源**：`panva/node-oidc-provider`（OpenID 认证的参考实现，已认证 OP 全 profile）
-的本地 IdP 思路；本项目零依赖约束下用 `node:crypto` 自实现验证所需最小子集。
+的本地 IdP 思路；本项目按依赖准入政策（引 keycloak 容器不满足「必要且更优」）用 `node:crypto` 自实现验证所需最小子集。
 
 **已落地**：4 个集成测试全绿——真实令牌验过、签名篡改→fail-closed 返回 null、
 过期→null、经 `/token` 端点 `exchangeCode` 换得含真实 id_token 的令牌集。
