@@ -6,6 +6,7 @@ import type { EscalationPort } from '../ports/runtime/escalation.js';
 import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import type { EnforcementMode } from '../security/enforcementModeResolver.js';
+import type { TrustTier } from '../security/toolOutputTrust.js';
 import type { RepoMapContextEngine } from '../context/repoMapContextEngine.js';
 import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
@@ -71,6 +72,21 @@ export interface StepRunnerDeps {
    * 兼容历史二值：`true ⇒ enforce`、`false / undefined ⇒ off`。
    */
   readonly promptInjectionGuard?: boolean | EnforcementMode | undefined;
+  /**
+   * 注入护栏弱证据处置策略（P4 升档旋钮，可选）：`enforce` 档下，弱规则命中（`severity: 'weak'`，
+   * 如日志行 `system:` / `you are now X` / 间接提示注入启发式）按 `weakPolicy` 决定——`'block'` 隔离、
+   * `'observe'` 仅记录不隔离（牺牲部分弱证据拦截换更低误伤）。缺省 undefined 视作 `'block'`，
+   * **保持既有 enforce 语义不变**（强弱都拦），避免静默削弱护栏。强规则命中（`severity: 'strong'`）
+   * 恒隔离，不受本策略影响。
+   */
+  readonly promptInjectionGuardWeakPolicy?: 'block' | 'observe' | undefined;
+  /**
+   * 注入护栏各来源信任级弱证据阈值覆盖（P4 升档旋钮，可选）：`Partial<Record<TrustTier, number>>`，
+   * 未给的档沿用 `ToolOutputTrust` 内置基线（external/unknown=1、file=2、local=3）。
+   * 由 `StepToolExecutor` 构造时经 `ToolOutputTrust.setThresholdOverride` 注入，改变「弱证据达到
+   * 多少条才判为注入」的灵敏度。
+   */
+  readonly promptInjectionGuardThresholds?: Partial<Record<TrustTier, number>> | undefined;
   /** 推理强度（#B6，可选）：透传为模型 reasoning_effort；缺省按模型默认。 */
   readonly reasoningEffort?: string | undefined;
   /**

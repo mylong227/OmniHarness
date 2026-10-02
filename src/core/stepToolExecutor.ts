@@ -50,6 +50,9 @@ export class StepToolExecutor {
         deps.elevatedSandbox,
       );
     this.scheduler = new ToolScheduler();
+    // (P4 升档) 注入护栏阈值覆盖：构造时把装配层透传的阈值注入 `ToolOutputTrust` 静态覆盖，
+    // 使运行期可调「弱证据灵敏度」。缺省 undefined ⇒ 清覆盖回基线（零行为变更）。
+    ToolOutputTrust.setThresholdOverride(deps.promptInjectionGuardThresholds ?? {});
   }
 
   /**
@@ -300,8 +303,27 @@ export class StepToolExecutor {
       if (!guarded.blocked) {
         return guarded;
       }
-      if (!EnforcementModeResolver.applies(mode)) {
+      // (P4 升档) 用「是否强规则命中 + 弱证据策略」解析处置，替代旧版二值 `applies(mode)` 逻辑：
+      //  - 非 enforce（off/shadow）：恒 'shadow'——只记不改（D1 观测档契约）；
+      //  - enforce + 强规则命中：恒 'block'（高置信，无降级空间）；
+      //  - enforce + 弱证据命中：由 weakPolicy 决定（'block' 隔离 / 'observe' 仅记不隔离）。
+      const hasStrongHit = guarded.hits.some((hit) => hit.severity === 'strong');
+      const disposition = EnforcementModeResolver.resolveInjectionDisposition(
+        mode,
+        hasStrongHit,
+        this.deps.promptInjectionGuardWeakPolicy,
+      );
+      if (disposition === 'shadow') {
         log.warn('tool.injection.shadow', {
+          tool: toolName,
+          tier: guarded.tier,
+          hits: guarded.hits.length,
+        });
+        return result;
+      }
+      if (disposition === 'observe') {
+        // 弱证据降级：只记录不隔离（weakPolicy='observe'），牺牲部分弱证据拦截以降误伤。
+        log.warn('tool.injection.observe', {
           tool: toolName,
           tier: guarded.tier,
           hits: guarded.hits.length,

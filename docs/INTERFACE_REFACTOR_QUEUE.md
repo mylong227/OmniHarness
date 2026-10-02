@@ -247,7 +247,7 @@ git commit -m "refactor(iface/pX.Y): <动作>；<实测数字变化>"
 
 动手前先 `git status --short` 复核；截至 2026-09-29 工作区已有改动的文件：
 
-`src/adapters/laya/layaDecisionEngine.ts`、`src/util/sortingAlgorithms.ts`（+ 其测试与 `.bak`）、
+`src/adapters/laya/layaDecisionEngine.ts`、`src/util/sortingAlgorithms`（+ 其测试与 `.bak`）、
 `docs/TASK_BOARD.md`、`docs/ARCHITECTURE_SPEC.md`、`THIRD_PARTY_ASSETS.md`、`.gitignore`。
 
 **纪律**：这些文件在本队列里**不改**，留待各自会话收尾后再回头处理（`ARCHITECTURE_SPEC.md` 的 §2.1

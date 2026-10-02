@@ -3438,7 +3438,7 @@ DOM 里仍有 23 个块）；修复后 **0 / 0**。顺带量到失配在累积�
 
 **顺带修掉一个门禁范围缺陷**：`scripts/auditTopLevelFunctions.mjs` 原先扫**盘上**全部 `src/**/*.ts` ⇒ 任何
 **未跟踪**草稿（用户在工作台里让 agent 生成的练习文件）都会阻断**所有**提交（本次即被
-`src/util/sortingAlgorithms.ts` 拦住，那不是本批改动）。改为**只审 git 索引里的文件**（索引 = 已跟踪 ∪ 已暂存；
+`src/util/sortingAlgorithms` 拦住，那不是本批改动）。改为**只审 git 索引里的文件**（索引 = 已跟踪 ∪ 已暂存；
 CI 全量 checkout 覆盖不变），git 不可用时退化为全量扫描。**验证**：暂存顶层函数探针 ⇒ 红；撤销 ⇒ 绿。
 
 **验收**：`npm run web:test` **260/260 pass / 0 fail**；eslint / `check --strict`（592 文件零违规）/
@@ -4055,7 +4055,7 @@ v1 裸数组兼容、坏文件回落默认、目录未知时全部退化为空�
 ## 28. 2026-09-28 门禁：`stdin` 管道导致的 git 子进程 `EBUSY` —— 两处静默失效（对应代码提交 `eeab7d3`）
 
 本轮在提交 §27 时被 pre-commit 拦下，阻断源**不是**本次改动，而是并行会话留在工作树里的未跟踪草稿
-`src/util/sortingAlgorithms.ts`（顶层 `function` 声明）。查下去发现是**门禁自身的缺陷**。
+`src/util/sortingAlgorithms`（顶层 `function` 声明）。查下去发现是**门禁自身的缺陷**。
 
 ### 28.1 真因（实测纠偏，推翻旧注释的误判）
 
