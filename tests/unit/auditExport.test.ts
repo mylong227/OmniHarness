@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileAsync } from '../helpers/childProcess.js';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -114,13 +114,15 @@ test('CLI：omniharness audit export 按类型过滤并输出 json', async () =>
     // 直接写一份 JSONL 审计日志
     const lines = sample.map((e) => JSON.stringify(e)).join('\n') + '\n';
     await writeFile(file, lines, 'utf8');
-    const out = execFileSync(
-      process.execPath,
-      [cli, 'audit', 'export', '--audit-file', file, '--type', 'tool_call', '--format', 'json'],
-      {
-        encoding: 'utf8',
-      },
-    );
+    const out = (
+      await execFileAsync(
+        process.execPath,
+        [cli, 'audit', 'export', '--audit-file', file, '--type', 'tool_call', '--format', 'json'],
+        {
+          encoding: 'utf8',
+        },
+      )
+    ).toString();
     const parsed = JSON.parse(out) as AuditEvent[];
     assert.strictEqual(parsed.length, 2);
     assert.ok(parsed.every((e) => e.type === 'tool_call'));
@@ -129,11 +131,11 @@ test('CLI：omniharness audit export 按类型过滤并输出 json', async () =>
   }
 });
 
-test('CLI：audit 子命令无 export 动作时给出用法并返回 2', () => {
+test('CLI：audit 子命令无 export 动作时给出用法并返回 2', async () => {
   const cli = join(process.cwd(), 'dist/src/cli/exec.js');
   let code = 0;
   try {
-    execFileSync(process.execPath, [cli, 'audit'], { encoding: 'utf8', stdio: 'pipe' });
+    await execFileAsync(process.execPath, [cli, 'audit'], { encoding: 'utf8', stdio: 'pipe' });
   } catch (error) {
     code = (error as { status?: number }).status ?? 1;
   }

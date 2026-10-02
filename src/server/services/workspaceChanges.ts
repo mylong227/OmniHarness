@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import type { SessionEvent } from '../../ports/runtime/event.js';
+import { AsyncChildProcess } from '../../util/asyncChildProcess.js';
 
 /** 单文件变更统计。 */
 interface ChangeStat {
@@ -53,7 +53,7 @@ export class WorkspaceChanges {
   public async list(params: Record<string, unknown>): Promise<unknown> {
     const ws = this.workspaceRoot();
     const fileParam = typeof params['path'] === 'string' ? params['path'] : undefined;
-    const git = this.gitChanges(ws, fileParam);
+    const git = await this.gitChanges(ws, fileParam);
     if (git !== null) return git;
     return this.sessionChanges(ws, fileParam);
   }
@@ -64,8 +64,8 @@ export class WorkspaceChanges {
    * @param fileParam 单文件路径（传入时返回该文件 patch）。
    * @returns git 来源的变更清单 / 单文件 patch；非 git 工作区返回 null。
    */
-  private gitChanges(ws: string, fileParam: string | undefined): unknown | null {
-    if (!WorkspaceChanges.isGitWorkTree(ws)) return null;
+  private async gitChanges(ws: string, fileParam: string | undefined): Promise<unknown | null> {
+    if (!(await WorkspaceChanges.isGitWorkTree(ws))) return null;
     return fileParam !== undefined ? this.gitFilePatch(ws, fileParam) : this.gitFileList(ws);
   }
 
@@ -75,11 +75,15 @@ export class WorkspaceChanges {
    * @param fileParam 目标文件相对路径。
    * @returns `{ source:'git', patch }` — patch 文本（空串表示无差异）。
    */
-  private gitFilePatch(ws: string, fileParam: string): unknown {
-    const status = spawnSync('git', ['status', '--porcelain', '--', fileParam], {
-      cwd: ws,
-      encoding: 'utf8',
-    });
+  private async gitFilePatch(ws: string, fileParam: string): Promise<unknown> {
+    const status = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['status', '--porcelain', '--', fileParam],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
     if (status.stdout.startsWith('??')) {
       let content = '';
       try {
@@ -93,7 +97,10 @@ export class WorkspaceChanges {
         .join('\n');
       return { source: 'git', patch: `--- /dev/null\n+++ ${fileParam}\n${body}` };
     }
-    const diff = spawnSync('git', ['diff', 'HEAD', '--', fileParam], { cwd: ws, encoding: 'utf8' });
+    const diff = await AsyncChildProcess.spawnSyncAsync('git', ['diff', 'HEAD', '--', fileParam], {
+      cwd: ws,
+      encoding: 'utf8',
+    });
     return { source: 'git', patch: diff.status === 0 ? diff.stdout : '' };
   }
 
@@ -102,14 +109,21 @@ export class WorkspaceChanges {
    * @param ws 工作区根目录。
    * @returns `{ source:'git', branch, files }` — 分支名与变更文件数组。
    */
-  private gitFileList(ws: string): unknown {
-    const branch = WorkspaceChanges.gitLine(ws, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    const status = spawnSync('git', ['status', '--porcelain', '-uall'], {
+  private async gitFileList(ws: string): Promise<unknown> {
+    const branch = await WorkspaceChanges.gitLine(ws, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const status = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['status', '--porcelain', '-uall'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
+    if (status.status !== 0) return { source: 'git', branch, files: [] };
+    const numstat = await AsyncChildProcess.spawnSyncAsync('git', ['diff', '--numstat', 'HEAD'], {
       cwd: ws,
       encoding: 'utf8',
     });
-    if (status.status !== 0) return { source: 'git', branch, files: [] };
-    const numstat = spawnSync('git', ['diff', '--numstat', 'HEAD'], { cwd: ws, encoding: 'utf8' });
     const stats = WorkspaceChanges.parseNumstat(numstat.stdout ?? '');
     const files: ChangeStat[] = status.stdout
       .split('\n')
@@ -164,11 +178,15 @@ export class WorkspaceChanges {
    * @param ws 工作区根目录
    * @returns 是否为 git 工作树
    */
-  private static isGitWorkTree(ws: string): boolean {
-    const inside = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      cwd: ws,
-      encoding: 'utf8',
-    });
+  private static async isGitWorkTree(ws: string): Promise<boolean> {
+    const inside = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['rev-parse', '--is-inside-work-tree'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
     return inside.status === 0 && inside.stdout.trim() === 'true';
   }
 
@@ -178,8 +196,9 @@ export class WorkspaceChanges {
    * @param args git 参数
    * @returns 去除首尾空白的 stdout
    */
-  private static gitLine(cwd: string, args: readonly string[]): string {
-    return spawnSync('git', [...args], { cwd, encoding: 'utf8' }).stdout.trim();
+  private static async gitLine(cwd: string, args: readonly string[]): Promise<string> {
+    const r = await AsyncChildProcess.spawnSyncAsync('git', [...args], { cwd, encoding: 'utf8' });
+    return r.stdout.trim();
   }
 
   /**

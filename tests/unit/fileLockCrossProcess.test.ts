@@ -16,7 +16,15 @@ import { dirname } from 'node:path';
 
 /** 编译产物里的 fileLock 模块 URL（子进程 import 用）。 */
 const LOCK_URL = pathToFileURL(
-  join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'util', 'fileLock.js'),
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    'src',
+    'util',
+    'concurrency',
+    'fileLock.js',
+  ),
 ).href;
 
 /**

@@ -8,11 +8,11 @@ import { EvalHarness, SMOKE_SUITE } from '../../src/eval/index.js';
 
 // ---- 纯函数评分单测（不依赖 Agent，快速、确定） ----
 
-test('scoreTask: 全部期望满足 → 通过', () => {
+test('scoreTask: 全部期望满足 → 通过', async () => {
   const ws = mkdtempSync(join(tmpdir(), 'eval-score-'));
   try {
     writeFileSync(join(ws, 'out.txt'), 'PROCESSED-OK', 'utf8');
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: ['read_file', 'shell', 'write_file'],
       finalText: '结果已写出 PROCESSED-OK',
       expectation: {
@@ -30,10 +30,10 @@ test('scoreTask: 全部期望满足 → 通过', () => {
   }
 });
 
-test('scoreTask: 缺少期望工具 → 失败并记 reason', () => {
+test('scoreTask: 缺少期望工具 → 失败并记 reason', async () => {
   const ws = mkdtempSync(join(tmpdir(), 'eval-score-'));
   try {
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: ['read_file'],
       finalText: 'done',
       expectation: { tools: ['read_file', 'shell'] },
@@ -41,16 +41,16 @@ test('scoreTask: 缺少期望工具 → 失败并记 reason', () => {
       workspaceRoot: ws,
     });
     assert.strictEqual(passed, false);
-    assert.ok(reasons.some((r) => r.includes('shell')));
+    assert.ok(reasons.some((r: string) => r.includes('shell')));
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
 });
 
-test('scoreTask: 终态文本缺失 → 失败', () => {
+test('scoreTask: 终态文本缺失 → 失败', async () => {
   const ws = mkdtempSync(join(tmpdir(), 'eval-score-'));
   try {
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: 'hello',
       expectation: { text: 'world' },
@@ -58,16 +58,16 @@ test('scoreTask: 终态文本缺失 → 失败', () => {
       workspaceRoot: ws,
     });
     assert.strictEqual(passed, false);
-    assert.ok(reasons.some((r) => r.includes('world')));
+    assert.ok(reasons.some((r: string) => r.includes('world')));
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
 });
 
-test('scoreTask: 期望文件不存在 → 失败', () => {
+test('scoreTask: 期望文件不存在 → 失败', async () => {
   const ws = mkdtempSync(join(tmpdir(), 'eval-score-'));
   try {
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: 'done',
       expectation: { files: { 'missing.txt': 'x' } },
@@ -75,16 +75,16 @@ test('scoreTask: 期望文件不存在 → 失败', () => {
       workspaceRoot: ws,
     });
     assert.strictEqual(passed, false);
-    assert.ok(reasons.some((r) => r.includes('不存在')));
+    assert.ok(reasons.some((r: string) => r.includes('不存在')));
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
 });
 
-test('scoreTask: 步数超上限 → 记 reason 且判失败（fail-closed）', () => {
+test('scoreTask: 步数超上限 → 记 reason 且判失败（fail-closed）', async () => {
   const ws = mkdtempSync(join(tmpdir(), 'eval-score-'));
   try {
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: 'done',
       expectation: { maxSteps: 3 },
@@ -93,7 +93,7 @@ test('scoreTask: 步数超上限 → 记 reason 且判失败（fail-closed）', 
     });
     // 步数超额即视为未达预期收敛 → 失败
     assert.strictEqual(passed, false);
-    assert.ok(reasons.some((r) => r.includes('步数')));
+    assert.ok(reasons.some((r: string) => r.includes('步数')));
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }

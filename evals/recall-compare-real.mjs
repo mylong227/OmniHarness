@@ -23,7 +23,7 @@ function importDist(...segments) {
   return import(pathToFileURL(join(DIST, ...segments)).href);
 }
 
-const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMap', 'repoMapContextEngine.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',
   'embedding',

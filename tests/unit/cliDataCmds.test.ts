@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSyncAsync } from '../helpers/childProcess.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -13,34 +13,45 @@ import { join, resolve } from 'node:path';
 const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');
 
 /** 以子进程运行 CLI，返回退出码与 stdout/stderr。 */
-function runCli(args: readonly string[]): { code: number; out: string; err: string } {
-  const r = spawnSync(process.execPath, [cliPath, ...args], { encoding: 'utf8' });
-  return { code: r.status ?? -1, out: r.stdout ?? '', err: r.stderr ?? '' };
+async function runCli(
+  args: readonly string[],
+): Promise<{ code: number; out: string; err: string }> {
+  const r = await spawnSyncAsync(process.execPath, [cliPath, ...args], { encoding: 'utf8' });
+  return { code: r.status ?? -1, out: r.stdout.toString(), err: r.stderr.toString() };
 }
 
 // ── kv 端到端（覆盖 exec 分发 → CliDataCmds → StoreCommand → KvStoreFactory → CliArgReader 全链） ──
 
-test('kv 端到端：set/get/list/del + 未找到（json-file 后端持久化）', () => {
+test('kv 端到端：set/get/list/del + 未找到（json-file 后端持久化）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'omni-kv-'));
   const kvFile = join(dir, 'kv.json');
   try {
-    const set = runCli(['kv', 'set', '--key', 'alpha', '--value', 'one', '--kv-file', kvFile]);
+    const set = await runCli([
+      'kv',
+      'set',
+      '--key',
+      'alpha',
+      '--value',
+      'one',
+      '--kv-file',
+      kvFile,
+    ]);
     assert.strictEqual(set.code, 0);
     assert.match(set.out, /已写入 alpha/);
 
-    const get = runCli(['kv', 'get', '--key', 'alpha', '--kv-file', kvFile]);
+    const get = await runCli(['kv', 'get', '--key', 'alpha', '--kv-file', kvFile]);
     assert.strictEqual(get.code, 0);
     assert.strictEqual(get.out, 'one\n');
 
-    const list = runCli(['kv', 'list', '--kv-file', kvFile]);
+    const list = await runCli(['kv', 'list', '--kv-file', kvFile]);
     assert.strictEqual(list.code, 0);
     assert.match(list.out, /alpha\tone/);
 
-    const del = runCli(['kv', 'del', '--key', 'alpha', '--kv-file', kvFile]);
+    const del = await runCli(['kv', 'del', '--key', 'alpha', '--kv-file', kvFile]);
     assert.strictEqual(del.code, 0);
     assert.match(del.out, /已删除 alpha/);
 
-    const miss = runCli(['kv', 'get', '--key', 'alpha', '--kv-file', kvFile]);
+    const miss = await runCli(['kv', 'get', '--key', 'alpha', '--kv-file', kvFile]);
     assert.strictEqual(miss.code, 1, '未找到应返回退出码 1');
     assert.match(miss.out, /未找到: alpha/);
   } finally {
@@ -48,13 +59,13 @@ test('kv 端到端：set/get/list/del + 未找到（json-file 后端持久化）
   }
 });
 
-test('kv 位置参数回退：set 用 at(1)/at(2)，get 用 at(1)', () => {
+test('kv 位置参数回退：set 用 at(1)/at(2)，get 用 at(1)', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'omni-kv-pos-'));
   const kvFile = join(dir, 'kv.json');
   try {
-    const set = runCli(['kv', 'set', 'beta', 'two', '--kv-file', kvFile]);
+    const set = await runCli(['kv', 'set', 'beta', 'two', '--kv-file', kvFile]);
     assert.strictEqual(set.code, 0);
-    const get = runCli(['kv', 'get', 'beta', '--kv-file', kvFile]);
+    const get = await runCli(['kv', 'get', 'beta', '--kv-file', kvFile]);
     assert.strictEqual(get.out, 'two\n');
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -63,7 +74,7 @@ test('kv 位置参数回退：set 用 at(1)/at(2)，get 用 at(1)', () => {
 
 // ── 各命令用法路径（未知子命令 → 用法提示 + 退出码 2） ──
 
-test('未知子命令一律返回退出码 2 并打印用法提示', () => {
+test('未知子命令一律返回退出码 2 并打印用法提示', async () => {
   const cases: ReadonlyArray<readonly [string[], RegExp]> = [
     [['session', 'bogus'], /用法: omniharness session list/],
     [['kv', 'bogus', '--kv-adapter', 'memory'], /用法: omniharness kv get\|set\|del\|list/],
@@ -73,7 +84,7 @@ test('未知子命令一律返回退出码 2 并打印用法提示', () => {
     [['bundle', 'bogus'], /bundle pack/],
   ];
   for (const [argv, needle] of cases) {
-    const r = runCli(argv);
+    const r = await runCli(argv);
     assert.strictEqual(r.code, 2, `${argv[0]} 未知子命令应返回退出码 2`);
     assert.match(r.out, needle, `${argv[0]} 应输出用法提示`);
   }

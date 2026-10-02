@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileAsync } from '../helpers/childProcess.js';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -57,13 +57,15 @@ test('CLI：audit export --compliance 输出合规报告 JSON', async () => {
   try {
     const lines = sample.map((e) => JSON.stringify(e)).join('\n') + '\n';
     await writeFile(file, lines, 'utf8');
-    const out = execFileSync(
-      process.execPath,
-      [cli, 'audit', 'export', '--audit-file', file, '--compliance'],
-      {
-        encoding: 'utf8',
-      },
-    );
+    const out = (
+      await execFileAsync(
+        process.execPath,
+        [cli, 'audit', 'export', '--audit-file', file, '--compliance'],
+        {
+          encoding: 'utf8',
+        },
+      )
+    ).toString();
     const parsed = JSON.parse(out) as {
       schema: string;
       summary: { total: number; integrityHash: string };

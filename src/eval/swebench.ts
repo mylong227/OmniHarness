@@ -21,7 +21,7 @@
 //
 // 铁律：运行时无第三方依赖（仅 node: 内置）；fail-closed——评分只认 evalCmd 退出码，绝不臆造通过。
 
-import { execFileSync } from 'node:child_process';
+import { AsyncChildProcess } from '../util/asyncChildProcess.js';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -136,6 +136,24 @@ export class Swebench {
   private static readonly EVAL_CMD_TIMEOUT_MS = 300_000;
 
   /**
+   * 剥掉参数最外层一对匹配的引号（shell 在命令行层面会做这件事，但直接 `execFile` 不会）。
+   * `node -e "process.exit(7)"` 经 `split(/\s+/)` 会得到 `"process.exit(7)"`（含字面引号），
+   * 若不处理，node 收到的 `-e` 源码是字符串字面量、不调用、退出 0 ⇒ 退出码被误判为 0。
+   * @param arg 单个命令行参数片段。
+   * @returns 剥掉一层外层引号后的参数（无匹配引号则原样返回）。
+   */
+  private static stripOuterQuotes(arg: string): string {
+    if (arg.length >= 2) {
+      const first = arg.charAt(0);
+      const last = arg.charAt(arg.length - 1);
+      if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+        return arg.slice(1, -1);
+      }
+    }
+    return arg;
+  }
+
+  /**
    * 在给定 cwd 执行命令，返回退出码（异常/超时/非 0 均如实返回非零状态码）。
    *
    * 可移植性修复（本机实测）：`execFileSync` 默认 `stdio` 走管道会触发 `EBUSY`
@@ -147,7 +165,7 @@ export class Swebench {
    * @param cwd 工作区根（绝对路径）。
    * @returns 退出码（0 = 通过）。
    */
-  public static runEval(cmd: string, cwd: string): number {
+  public static async runEval(cmd: string, cwd: string): Promise<number> {
     try {
       const trimmed = cmd.trim();
       const nodeMatch = /^node(?:\.exe)?\b/i.exec(trimmed);
@@ -156,14 +174,15 @@ export class Swebench {
           .slice(nodeMatch[0].length)
           .trim()
           .split(/\s+/)
-          .filter((a: string): boolean => a.length > 0);
-        execFileSync(process.execPath, args, {
+          .filter((a: string): boolean => a.length > 0)
+          .map(Swebench.stripOuterQuotes);
+        await AsyncChildProcess.execFileAsync(process.execPath, args, {
           cwd,
           stdio: ['ignore', 'pipe', 'ignore'],
           timeout: Swebench.EVAL_CMD_TIMEOUT_MS,
         });
       } else {
-        execFileSync(trimmed, {
+        await AsyncChildProcess.execFileAsync(trimmed, [], {
           cwd,
           shell: true,
           stdio: ['ignore', 'pipe', 'ignore'],
@@ -244,7 +263,7 @@ export class Swebench {
       result = await agent.runTask(task.prompt);
     } catch (err) {
       // 单任务运行异常（如模型请求失败）不应拖垮整套餐能评估：记失败原因，继续下一任务。
-      const exit = Swebench.runEval(task.evalCmd, workspaceRoot);
+      const exit = await Swebench.runEval(task.evalCmd, workspaceRoot);
       return {
         id: task.id,
         passed: false,
@@ -258,7 +277,7 @@ export class Swebench {
 
     const after = await Swebench.snapshotFiles(workspaceRoot);
     const driftAlarms = Swebench.recordDrift(opts.driftDetector, before, after);
-    const exit = Swebench.runEval(task.evalCmd, workspaceRoot);
+    const exit = await Swebench.runEval(task.evalCmd, workspaceRoot);
     const passed = Swebench.scoreSweResult(exit);
     return {
       id: task.id,
@@ -336,7 +355,7 @@ export class Swebench {
     }
     const after = await Swebench.snapshotFiles(workspaceRoot);
     const driftAlarms = Swebench.recordDrift(opts.driftDetector, before, after);
-    const exit = Swebench.runEval(task.evalCmd, workspaceRoot);
+    const exit = await Swebench.runEval(task.evalCmd, workspaceRoot);
     const passed = Swebench.scoreSweResult(exit);
     return {
       id: task.id,
@@ -358,7 +377,7 @@ export class Swebench {
     workspaceRoot: string,
   ): Promise<SweTaskResult> {
     Swebench.seedWorkspace(task, workspaceRoot);
-    const exit = Swebench.runEval(task.evalCmd, workspaceRoot);
+    const exit = await Swebench.runEval(task.evalCmd, workspaceRoot);
     const passed = Swebench.scoreSweResult(exit);
     return {
       id: task.id,

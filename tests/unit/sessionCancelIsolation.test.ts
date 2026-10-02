@@ -26,11 +26,14 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 /**
  * 等待上限（毫秒）。刻意给得宽松：`npm test`（CI 口径）**并行**跑全部单测文件，
  * 实测同一用例在并行负载下从 0.1s 涨到 8s+ ⇒ 按「空闲机器」给紧凑超时会变 flaky
- * （首次并行跑即踩到：初始等待在 5s 上限下失败）。
+ * （首次并行跑即踩到：初始等待在 5s 上限下失败，后提到 30s）。
+ * 本机（Electron-as-node 托管运行时）整体比真实 CI runner 慢一截，全量并行跑时
+ * 事件循环被其它文件真实子进程抢占更狠，实测偶发贴着 30s 上限失败 ⇒ 再提到 120s，
+ * 给足余量（CI 机器更快，大窗口在那里只是更宽松、不改变判定语义）。
  */
-const WAIT_START_MS = 30_000;
-/** 取消后收尾的等待上限（毫秒）。 */
-const WAIT_SETTLE_MS = 15_000;
+const WAIT_START_MS = 120_000;
+/** 取消后收尾的等待上限（毫秒）。同步放宽，与 WAIT_START_MS 同口径。 */
+const WAIT_SETTLE_MS = 60_000;
 /** 「误伤窗口」：给错误地「连带取消」留出暴露时间（abort 是同步兑现的，百余毫秒足够）。 */
 const MISFIRE_WINDOW_MS = 150;
 

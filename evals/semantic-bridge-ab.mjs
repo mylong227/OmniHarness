@@ -29,7 +29,7 @@ const { SemanticIndexCache } = await importDist('context', 'semanticIndexCache.j
 const { SemanticIndex } = await importDist('context', 'semanticIndex.js');
 const { RecallKnobs } = await importDist('context', 'recallKnobs.js');
 const { FileReranker } = await importDist('context', 'fileReranker.js');
-const { RepoMapPayload } = await importDist('context', 'repoMapPayload.js');
+const { RepoMapPayload } = await importDist('context', 'repoMap', 'repoMapPayload.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { TransformersEmbeddingAdapter } = await importDist(
   'adapters',

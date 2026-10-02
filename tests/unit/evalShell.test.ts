@@ -9,11 +9,11 @@ function ws() {
   return mkdtempSync(join(tmpdir(), 'omni-eval-shell-'));
 }
 
-test('scoreTask.run: 命令退出码 0 → 通过', () => {
+test('scoreTask.run: 命令退出码 0 → 通过', async () => {
   const root = ws();
   try {
     writeFileSync(join(root, 'ok.mjs'), 'export const x = 1;\n');
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: undefined,
       expectation: { run: { cmd: 'node -e "process.exit(0)"' } },
@@ -27,10 +27,10 @@ test('scoreTask.run: 命令退出码 0 → 通过', () => {
   }
 });
 
-test('scoreTask.run: 命令非零退出 → 失败', () => {
+test('scoreTask.run: 命令非零退出 → 失败', async () => {
   const root = ws();
   try {
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: undefined,
       expectation: { run: { cmd: 'node -e "process.exit(3)"' } },
@@ -38,18 +38,18 @@ test('scoreTask.run: 命令非零退出 → 失败', () => {
       workspaceRoot: root,
     });
     assert.strictEqual(passed, false);
-    assert.ok(reasons.some((r) => r.includes('验证命令') && r.includes('3')));
+    assert.ok(reasons.some((r: string) => r.includes('验证命令') && r.includes('3')));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('scoreTask.run: 文件 + 命令组合校验', () => {
+test('scoreTask.run: 文件 + 命令组合校验', async () => {
   const root = ws();
   try {
     writeFileSync(join(root, 'a.mjs'), 'export function f() { return 1; }\n');
     // 文件存在但命令失败 → 整体失败。
-    const fail = EvalHarness.scoreTask({
+    const fail = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: undefined,
       expectation: {
@@ -61,7 +61,7 @@ test('scoreTask.run: 文件 + 命令组合校验', () => {
     });
     assert.strictEqual(fail.passed, false);
     // 文件 + 命令都通过 → 通过。
-    const ok = EvalHarness.scoreTask({
+    const ok = await EvalHarness.scoreTask({
       toolCalls: [],
       finalText: undefined,
       expectation: {

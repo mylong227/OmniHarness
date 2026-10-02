@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSyncAsync } from '../helpers/childProcess.js';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WorkspaceChanges } from '../../src/server/services/workspaceChanges.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
-const gitAvailable = spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
+const gitAvailable =
+  (await spawnSyncAsync('git', ['--version'], { encoding: 'utf8' })).status === 0;
 const skip = gitAvailable ? false : 'git 不可用，跳过 git 用例';
 
 /** 造一段含单文件增删的 unified diff。 */
@@ -98,7 +99,7 @@ test('WorkspaceChanges：回放抛错时静默跳过该线程', async () => {
 
 test('WorkspaceChanges：git 工作区返回真实变更清单', { skip }, async () => {
   await withTemp(async (ws) => {
-    spawnSync('git', ['init'], { cwd: ws, encoding: 'utf8' });
+    await spawnSyncAsync('git', ['init'], { cwd: ws, encoding: 'utf8' });
     writeFileSync(join(ws, 'fresh.txt'), 'line1\nline2\n');
     const changes = build(ws, [], async () => []);
     const out = (await changes.list({})) as {
@@ -115,7 +116,7 @@ test('WorkspaceChanges：git 工作区返回真实变更清单', { skip }, async
 
 test('WorkspaceChanges：git 工作区指定 path 返回 patch', { skip }, async () => {
   await withTemp(async (ws) => {
-    spawnSync('git', ['init'], { cwd: ws, encoding: 'utf8' });
+    await spawnSyncAsync('git', ['init'], { cwd: ws, encoding: 'utf8' });
     writeFileSync(join(ws, 'added.txt'), 'x\n');
     const changes = build(ws, [], async () => []);
     const out = (await changes.list({ path: 'added.txt' })) as { source: string; patch: string };

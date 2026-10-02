@@ -1,43 +1,39 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { spawnSyncAsync, execFileAsync } from '../helpers/childProcess.js';
 import { mkdtempSync, existsSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WorktreeOps } from '../../src/subagent/worktreeOps.js';
 
 /** 探测 git 是否可用。 */
-function gitAvailable(): boolean {
-  try {
-    execFileSync('git', ['--version'], { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
+const gitAvailable = (await spawnSyncAsync('git', ['--version'], { stdio: 'ignore' })).status === 0;
 
 /** 建一个临时「仓库」目录（可选择性 git init 并打一个空提交）。 */
-function makeRepo(initGit: boolean): string {
+async function makeRepo(initGit: boolean): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), 'omni-wt-'));
   writeFileSync(join(root, 'seed.txt'), 'omni');
   if (initGit) {
-    execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
-    execFileSync('git', ['config', 'user.email', 'test@omni.local'], {
+    await execFileAsync('git', ['init'], { cwd: root, stdio: 'ignore' });
+    await execFileAsync('git', ['config', 'user.email', 'test@omni.local'], {
       cwd: root,
       stdio: 'ignore',
     });
-    execFileSync('git', ['config', 'user.name', 'omni-test'], { cwd: root, stdio: 'ignore' });
-    execFileSync('git', ['add', '.'], { cwd: root, stdio: 'ignore' });
-    execFileSync('git', ['commit', '-m', 'init'], { cwd: root, stdio: 'ignore' });
+    await execFileAsync('git', ['config', 'user.name', 'omni-test'], {
+      cwd: root,
+      stdio: 'ignore',
+    });
+    await execFileAsync('git', ['add', '.'], { cwd: root, stdio: 'ignore' });
+    await execFileAsync('git', ['commit', '-m', 'init'], { cwd: root, stdio: 'ignore' });
   }
   return root;
 }
 
 test(
   'createWorktree 在 git 仓库中创建真实 worktree 并可清理',
-  { skip: !gitAvailable() },
+  { skip: !gitAvailable },
   async () => {
-    const repo = makeRepo(true);
+    const repo = await makeRepo(true);
     try {
       const wt = await WorktreeOps.createWorktree(repo, 'alpha');
       assert.strictEqual(wt.isolated, 'worktree');
@@ -50,8 +46,8 @@ test(
   },
 );
 
-test('createWorktree 在 git 不可用时降级为目录拷贝并可清理', { skip: gitAvailable() }, async () => {
-  const repo = makeRepo(false);
+test('createWorktree 在 git 不可用时降级为目录拷贝并可清理', { skip: gitAvailable }, async () => {
+  const repo = await makeRepo(false);
   try {
     const wt = await WorktreeOps.createWorktree(repo, 'beta');
     assert.strictEqual(wt.isolated, 'copy');
@@ -64,7 +60,7 @@ test('createWorktree 在 git 不可用时降级为目录拷贝并可清理', { s
 });
 
 test('withWorktree 在 fn 抛错时仍执行 cleanup（finally）', async () => {
-  const repo = makeRepo(gitAvailable());
+  const repo = await makeRepo(gitAvailable);
   try {
     let observedPath = '';
     await assert.rejects(
@@ -82,7 +78,7 @@ test('withWorktree 在 fn 抛错时仍执行 cleanup（finally）', async () => 
 });
 
 test('withWorktree 正常返回 fn 结果', async () => {
-  const repo = makeRepo(gitAvailable());
+  const repo = await makeRepo(gitAvailable);
   try {
     const result = await WorktreeOps.withWorktree(repo, 'delta', async (path) => {
       writeFileSync(join(path, 'child.txt'), 'x');

@@ -29,8 +29,8 @@ const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
 const { ContextEngine } = await importDist('context', 'contextEngine.js');
-const { RepoMapContextEngine } = await importDist('context', 'repoMapContextEngine.js');
-const { RepoMapPayload } = await importDist('context', 'repoMapPayload.js');
+const { RepoMapContextEngine } = await importDist('context', 'repoMap', 'repoMapContextEngine.js');
+const { RepoMapPayload } = await importDist('context', 'repoMap', 'repoMapPayload.js');
 const { Bm25Index } = await importDist('search', 'bm25Index.js');
 const { QUERIES } = await import('./lib/query-set.mjs');
 

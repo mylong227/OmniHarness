@@ -18,7 +18,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { AsyncChildProcess } from '../util/asyncChildProcess.js';
 
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
@@ -44,13 +44,13 @@ export class EvalHarness {
    * 纯函数评分：依据期望断言对一次任务结果打分（不依赖 Agent，便于单测）。
    * 任一期望不满足即 fail-closed（记 reason），不假通过。
    */
-  public static scoreTask(params: {
+  public static async scoreTask(params: {
     readonly toolCalls: readonly string[];
     readonly finalText: string | undefined;
     readonly expectation: EvalExpectation;
     readonly steps: number;
     readonly workspaceRoot: string;
-  }): { readonly passed: boolean; readonly reasons: readonly string[] } {
+  }): Promise<{ readonly passed: boolean; readonly reasons: readonly string[] }> {
     const { toolCalls, finalText, expectation, steps, workspaceRoot } = params;
     const reasons: string[] = [];
 
@@ -84,7 +84,7 @@ export class EvalHarness {
       let status = -1;
       let stderr = '';
       try {
-        const r = spawnSync(expectation.run.cmd, [], {
+        const r = await AsyncChildProcess.spawnSyncAsync(expectation.run.cmd, [], {
           cwd: workspaceRoot,
           encoding: 'utf8',
           shell: true,
@@ -204,14 +204,14 @@ export class EvalHarness {
    * @param snapshot 冻结快照
    * @returns 通过与否 + 失败原因
    */
-  public static scoreFrozenSnapshot(
+  public static async scoreFrozenSnapshot(
     task: EvalTask,
     snapshot: Readonly<TaskArtifact>,
-  ): { readonly passed: boolean; readonly reasons: readonly string[] } {
+  ): Promise<{ readonly passed: boolean; readonly reasons: readonly string[] }> {
     const scratch = mkdtempSync(join(tmpdir(), 'omni-eval-snapshot-'));
     try {
       EvalHarness.materializeSnapshot(snapshot, scratch);
-      return EvalHarness.scoreTask({
+      return await EvalHarness.scoreTask({
         toolCalls: snapshot.toolCalls,
         finalText: snapshot.finalText,
         expectation: task.expect ?? {},
@@ -237,7 +237,7 @@ export class EvalHarness {
       undefined,
     );
     const durationMs = Date.now() - t0;
-    const { passed, reasons } = EvalHarness.scoreTask({
+    const { passed, reasons } = await EvalHarness.scoreTask({
       toolCalls: artifact.toolCalls,
       finalText: artifact.finalText,
       expectation: task.expect ?? {},
@@ -289,8 +289,8 @@ export class EvalHarness {
     const evaluator = IsolatedEvaluator.projected<TaskArtifact, TaskArtifact>({
       generate: () => artifact,
       project: (a) => a,
-      evaluate: (snapshot) => {
-        const scored = EvalHarness.scoreFrozenSnapshot(task, snapshot);
+      evaluate: async (snapshot) => {
+        const scored = await EvalHarness.scoreFrozenSnapshot(task, snapshot);
         passed = scored.passed;
         reasons = scored.reasons;
         return scored.passed ? 1 : 0;
