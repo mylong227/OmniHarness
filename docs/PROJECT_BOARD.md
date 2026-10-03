@@ -15,7 +15,11 @@
   包名 `@mylong227/omniharness`，版本 0.2.0，Apache-2.0，要求 Node ≥ 22.14.0。
 - Rust 侧 6 个 crate：`omni-cli` / `omni-core` / `omni-napi` / `omni-sdk` / `omni-sdk-gen` / `omni-wasm`（39 个 .rs 文件）。
 - Web 工作台 `web/src`：111 个 TS 文件（无第三方运行时框架，自绘 React 垫片）。
-- 评测/基准设施：`evals/` 86 个文件（评测脚本 + 落盘报告）、`benchmark/`、SWE-bench 运行器（`python/` + `eval-data/`）。
+- ~~评测/基准设施：`evals/` 86 个文件（评测脚本 + 落盘报告）、`benchmark/`、SWE-bench 运行器（`python/` + `eval-data/`）。~~
+  **2026-10-03 已整体移除**（指令：「跑分不做了、都删掉，只要核心功能与项目完整」）：`benchmark/`、
+  `evals/`、`python/`、`eval-data/`（本机 2.3 GB 级运行产物）、`scripts/*.py`（16 个图像生成基准
+  run/evaluate）、`tests/bench/`、`BENCHMARKS.md` + 5 篇口径文档、`requirements.txt`，
+  共 **87 个入库文件**（见 §7 变更登记）。
 
 ### 代码规模（2026-10-03 第二轮实测；行数口径 = 各文件行数之和）
 
@@ -30,26 +34,34 @@
 | —— cli                                                    | 29              | 6,212                 |
 | —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划）      | 24              | 5,077                 |
 | —— util / config / evolution / genesis / media / 其余     | 约 216          | 约 24,000             |
-| 单元测试 `tests/`                                         | 384 个 .test.ts | 全量 2,446 项断言用例 |
+| 单元测试 `tests/`                                         | 384 个 .test.ts | 全量 2,445 项断言用例 |
 
 > 子区域行数为上一轮 905 文件口径的存量值（本轮只重测了 `src/` 合计与文件数，未逐区域重跑）；
 > 「其余」一行按合计差额回填，故标「约」。所有数字均为本机可复核：文件数 =
 > `(Get-ChildItem src -Recurse -File -Filter *.ts).Count`，行数 = 同名管道 + `Measure-Object -Line`。
 
-## 2. 当前门禁状态（2026-10-03 第二轮实跑；同日先修 §3 全部 6 项 + 官方门禁性能缺陷）
+## 2. 当前门禁状态（2026-10-03 第四轮实跑；跑分/评测子系统已于同日整体移除）
 
-| 门禁           | 命令                                   | 结果                                                                    |
-| -------------- | -------------------------------------- | ----------------------------------------------------------------------- |
-| 类型（含 web） | `npm run typecheck`                    | ✅ 零错误                                                               |
-| 代码规范       | `npm run lint`（--max-warnings=0）     | ✅ 0 告警                                                               |
-| 铁律/体量      | `npm run check -- --strict`            | ✅ 908 文件零违规（存量白名单 13 处冻结）                               |
-| 架构           | `npm run arch:gate`                    | ✅ 依赖方向 0 / ports 纯度 0 / 依赖环新增 0                             |
-| 成熟度         | `npm run audit:maturity`               | ✅ 40 项声明，L2/L3 均有测试证据                                        |
-| 接线完整性     | `npm run audit:config-wiring`          | ✅ 908 源文件全绿                                                       |
-| 文档死链       | `npm run check:doc-links`              | ✅ 新增 0（存量基线冻结）                                               |
-| 原生估算奇偶   | `npm run native:build` + 单测          | ✅ Rust `context.estimate` 与 TS 记账**逐位一致**（0 skip）             |
-| 技能路由       | `npm run eval:skill-routing -- --gate` | ✅ 三关齐过：召回 92.3% / 噪声 1.50 条 / Δ +65.38pp CI95 [46.15, 84.62] |
-| 全量单测       | `npm test`                             | ✅ 2,446 项：2,442 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）     |
+| 门禁           | 命令                               | 结果                                                                |
+| -------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| 类型（含 web） | `npm run typecheck`                | ✅ 零错误                                                           |
+| 代码规范       | `npm run lint`（--max-warnings=0） | ✅ 0 告警                                                           |
+| 铁律/体量      | `npm run check -- --strict`        | ✅ 908 文件零违规（存量白名单 13 处冻结）                           |
+| 架构           | `npm run arch:gate`                | ✅ 依赖方向 0 / ports 纯度 0 / 依赖环新增 0                         |
+| 成熟度         | `npm run audit:maturity`           | ✅ 40 项声明，L2/L3 均有测试证据                                    |
+| 接线完整性     | `npm run audit:config-wiring`      | ✅ 908 源文件全绿                                                   |
+| 文档死链       | `npm run check:doc-links`          | ✅ 新增 0（本轮删除产生的历史引用已冻结进基线，见 §7）              |
+| 规范增量       | `npm run audit:standard:delta`     | ✅ 未新增标准违规                                                   |
+| 全量单测       | `npm test`                         | ✅ 2,445 项：2,441 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0） |
+| Rust 单测      | `npm run rust:test`                | ✅ 全绿                                                             |
+
+> **已移除的门禁**（随跑分子系统一并删除，如实登记）：
+> `eval:ci`（召回锚点 / rank-veto 回溯 / 缓存命中 / 工具选择 / 前缀稳定五件套）、
+> `eval:veto`、`eval:recall-query-audit`、`eval:tool-exposure-e2e`、`eval:skill-routing --gate`、
+> `eval:lsp-*`、`bench*`、`metrics:tool-exposure`。CI 的 `eval` job 已同步删除
+> （**上一次删除 `eval:*` 却漏改 CI 有事故留档，本轮已按要求同步**）。
+> 代价：召回率 / 前缀缓存复用率 / 工具暴露零损伤 / 技能路由三关**从此没有机械判据**，
+> 相关历史数字只能引 git 历史且须标注「脚本已移除、不可复跑」。
 
 依赖政策：`dependency-allowlist.json`（D10：必要且更优即可引入；`src/ports/**` 与 `src/core/**` 恒第三方-free），允许/拒绝许可清单见该文件。
 
@@ -76,6 +88,11 @@
 ## 3. §3 已清偿（2026-10-03 第二轮：原 6 项全部修完，各附回归判据）
 
 > 上一版 §3 列了 6 项「经评估暂缓」的缺陷。本轮全部清偿，逐项留档如下（判据可本机复核）。
+>
+> ⚠️ **2026-10-03 同日追加说明**：本节第 5 项的判据曾用 `evals/skill-routing-ab.mjs --gate`
+> （"三关齐过"），该脚本已随跑分/评测子系统整体删除 ⇒ **那些判据不再可复跑**，本节保留原文
+> 以存史（按本板纪律不许无声改写结论），但引用其数字时必须标注「脚本已移除、不可复跑」。
+> 其余各项的判据都是 `tests/unit/**` 单测，**仍然有效**。
 
 1. **✅ 已修：rollback 不截断内存事件流**（原 P1）。新增 `LiveSessionRewindPort` +
    `LiveSessionRewindRegistry`（进程级登记表）→ `AppendOnlyEventLog.rewindTo`（越界 fail-closed）+
@@ -189,27 +206,30 @@
    - 全仓 `evals/**` 只有 **4 个脚本**用到 full 档，且每个脚本**一次进程内只建一次该配置的语料**
      （`diag-spectrum` / `rank-veto-retro` / `recall-codebase-real` 各 1 次；`context-efficiency/bench`
      2 次但两变体 `morph` 不同、本就是两份不同语料）⇒ 进程级增量缓存对它们**零收益**。
+     （2026-10-03 追加：`evals/` 本身已整体删除，这条「无受益方」的结论因此**更加成立**——
+     full 档现在在仓内**只剩 `light: false` 的零调用点**。用 `Select-String -Path src/**/*.ts
+-Pattern 'light:\s*false'` 复核即可。）
    - 反方向代价明确：频谱 / 代码图 / LSA 都与符号下标强耦合，做增量要把「符号槽位平移」传播到
      三类派生结构，属于「只增耦合、无实测受益」的改动。
 
-   复核方式（本机可重跑）：`rg 'light: ?false' src/ evals/`（PowerShell：
-   `Select-String -Path src/**/*.ts,evals/*.mjs -Pattern 'light:\s*false'`）。
-
 ## 4. 挂起项（有明确外部条件，非「不知道怎么做」）
 
-- **官方跑分**（SWE-bench Verified / Terminal-Bench 官方口径）：依赖付费模型 API key 与
-  Linux/docker 运行环境，本机（Windows、无代理、间歇外网）不可复现。历史非官方口径数字
-  见 `CHANGELOG.md`（如实标注为子集口径）；交接文档 `docs/SWEBENCH_DOCKER_HANDOVER.md` 等。
+- ~~**官方跑分**（SWE-bench Verified / Terminal-Bench 官方口径）：依赖付费模型 API key 与
+  Linux/docker 运行环境，本机（Windows、无代理、间歇外网）不可复现。~~
+  **⛔ 2026-10-03 撤销（不再是挂起项）**：用户指令「跑分不做了、都删掉」。整个跑分/对外评测
+  子系统（含 SWE-bench 容器运行器 `python/` 与 `eval-data/`）已删除，本项目**不再追求官方口径数字**。
+  历史非官方口径数字仍在 `CHANGELOG.md` 与 git 历史里，但**没有可复跑判据，不得当作现状引用**。
 - **注入攻击度量**（T4.4）：等待真实数据集快照；当前护栏为规则式（`promptInjectionGuard`，
   已接线 agent/config/cli 生产路径，enforce/shadow/off 三态）。
+  （原 `eval:injection-*` 度量脚本已随跑分子系统删除，故该项现在**只剩护栏实现，没有度量口径**。）
 - ~~**语义召回生产端到端验证**：向量落盘缓存（`diskCachedEmbeddingAdapter`）由假嵌入端口的
   单测覆盖；真实模型端到端未验证（本机无 ONNX 权重下载条件），不得声称已实测加速。~~
   **✅ 2026-10-03 已实测（推翻旧结论）**：本机权重其实**已就位**
   （`.omniharness/model-cache/Xenova/e5-small-v2`：config + tokenizer + model_quantized.onnx），
   配 `preset: 'e5-small-v2'` + `localFilesOnly: true` 可**完全离线**跑通
-  （实测 dim=384、冷启 713ms、热 11ms、吞吐 180–320 texts/s）。可复现脚本：
-  `npm run eval:semantic-e2e`（`evals/semantic-e2e-real.mjs`，**不改工作区**：语料是复制到临时
-  目录的 `src/` 有界子集，默认 300 文件）。实测（60 文件 / 1108 条待编码）：
+  （实测 dim=384、冷启 713ms、热 11ms、吞吐 180–320 texts/s）。当时的可复现脚本为
+  `evals/semantic-e2e-real.mjs`（**该脚本已于同日随跑分子系统删除**，故下表数字**不再可复跑**，
+  仅作当次实测留档；语料是复制到临时目录的 `src/` 有界子集，60 文件 / 1108 条待编码）：
 
   | 段  | 场景                        | 编码条数 | 耗时  |
   | --- | --------------------------- | -------- | ----- |
@@ -242,8 +262,11 @@
   重合度过高 = 常量偏置，直接判负）② 同语料配对 bootstrap 95% CI 下界 > 0 且留出折多数为正。
   点估计为正但 CI 跨零 ⇒ 判「与噪声不可区分」，不得翻默认。**确定性集合成员**场景（如工具
   暴露）用该判据的可操作形态：接线活性 + 跨查询敏感度 + 假阳性分数地板 + CI/留出折。
+  ⚠️ 2026-10-03：**判据本身保留，但执行它的评测脚手架已删除**（`evals/` 全量）。
+  故该纪律现在只能靠**外部/自建**测量满足——没有脚手架就不得声称「已过两关」。
 - **D7 行为变更登记**：默认行为变更必须量化代价与收益并留档（例：工具暴露翻默认时
   schema token −63.4%、平均可见工具 33→14，配零能力损伤 + 100% 必需召回两道判据）。
+  ⚠️ 同上：上述数字来自已删评测脚本，**引用须标注「脚本已移除、不可复跑」**。
 - **D10 依赖政策**：必要且更优即可引入，同等能力优先成熟第三方；「零依赖」不构成拒绝理由；
   手写实现降格为资产 + 回退路径。权威文件 `docs/DEPENDENCY_POLICY.md`。
 - **随机性必须种子化 / 门禁输出必须干净 / 测试红先分清「测试错」还是「代码错」**：详见
@@ -254,16 +277,60 @@
 ```bash
 npm run build          # tsc + 资产拷贝
 npm test               # 构建 + 全量单测（官方门禁口径）
-npm run eval:ci        # 评测门禁：召回审计 + rank-veto + 缓存命中 + 工具选择 + 前缀稳定
-npm run eval:skill-routing -- --gate   # 技能路由三判据（语料 defaults/skills/harness-core.json，13 条）
-npm run eval:tool-exposure-e2e         # 工具按需暴露端到端（零能力损伤判据）
+npm run typecheck      # tsc --noEmit（含 web）
+npm run lint           # eslint --max-warnings=0
 npm run check -- --strict && npm run arch:gate && npm run audit:maturity   # 标准三闸
+npm run audit:config-wiring && npm run check:doc-links && npm run api:check
+npm run rust:test      # cargo test --workspace
 ```
 
-评测纪律：`eval:lsp-ab` 依赖语言服务器，实测净负已判负、不进 CI；任何评测结论必须连同
-CI 宽度与语料规模（n）一并引用，单独引用点估计视为违规。
+~~评测命令（`eval:ci` / `eval:skill-routing` / `eval:tool-exposure-e2e` 等）~~
+**2026-10-03 全部移除**：跑分/评测子系统已删除，`package.json` 不再有 `eval:*` / `metrics:*` /
+`bench*` 脚本（CI 的 `eval` job 同步删除）。改动检索/排序/压缩默认值时，须用**自建**测量
+（可写一次性脚本，但不入库为门禁），并在看板登记「口径 + 语料规模 n + 是否带 CI」。若引用历史
+评测数字，一律标注「脚本已移除、不可复跑」。
 
-## 7. 本板如何追加条目
+## 7. 变更登记：跑分/评测子系统移除（2026-10-03，第四轮）
+
+**指令**：「跑分的不再做了，直接删除即可，我们只要保证项目核心功能、项目的完整」。
+
+**已删除（87 个入库文件 + 本机 2.3 GB 级运行产物）**：
+
+| 路径                                                                            | 文件数 | 说明                                                                             |
+| ------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| `benchmark/`                                                                    | 6      | 效率基准 / 六属性自检 / 参数收紧闭环 / telemetry 配置                            |
+| `evals/`                                                                        | 51     | 召回、重排、语义桥、爬虫、BM25、工具暴露等测量脚本与报告                         |
+| `python/`                                                                       | 3      | SWE-bench 容器内的 OmniHarness 运行器                                            |
+| `scripts/*.py`                                                                  | 16     | ComfyBench / GenEval / GenEval2 / KRIS-Bench / ReasonEdit / WISE 的 run+evaluate |
+| `tests/bench/`                                                                  | 4      | 该目录下的微基准（compaction / nativeVsJs / tokenEstNative / agentTask）         |
+| `BENCHMARKS.md` + `docs/SWEBENCH_*.md`(4) + `docs/ZERO_COST_CAPABILITY_EVAL.md` | 6      | 对外跑分口径与交接文档                                                           |
+| `requirements.txt`                                                              | 1      | 上述评测栈（含 GenEval2/CUDA 轮子）的 Python 依赖                                |
+| `eval-data/`（**本机，gitignored**）                                            | 0      | SWE-bench/Terminal-bench 运行产物：克隆仓库、testlogs、56.7 MB 向量缓存等        |
+
+**配套同步（缺一即红，逐项已做）**：
+
+1. `package.json`：删除全部 `eval:*` / `metrics:*` / `bench*` 脚本（**注意**：2026-10-02 的
+   `ef2ac0f` 删了 `eval:*` 却漏改 CI，导致 CI job 三步 `Missing script` 恒红——本轮**同步**删了
+   `.github/workflows/ci.yml` 的 `eval` job，避免重犯）。
+2. 活跃文档改写：`README.md`（§2.4 基线段）、`docs/ARCHITECTURE_SPEC.md`（§8 尚缺 + §9 整体重写为
+   「已移除」清单）、`docs/compliance.md` 第 36 行（标注降幅数字无复跑判据）、
+   `docs/MIGRATION_MAP_2026-09.md`、`docs/library/10-math-information-and-optimization.md`
+   （保留实测结论，标注脚本已移除）。
+3. 历史引用**冻结**（不改写历史结论，按 `ef2ac0f` 的既有做法）：新增死链按
+   `scripts/docLinkBaseline.json` 纳入基线，涉及 `RECALL_HEADROOM_SURVEY` / `POLISH_PLAN` /
+   `DEFICIENCY_AUDIT_2026-09-22` / `UPGRADE_PLAN_SYNTHESIS` / `U3_CONTEXT_RECALL_EXPERIMENT` /
+   `TECH_DIRECTION_SYNTHESIS_2026-09-12` / `agent_evolution_research/*` / `CORE_CAPABILITY_AUDIT_2026-10-01`
+   等**存档性审计与研究文档**。
+4. 保留不受影响的部分：`src/`（运行期不读任何被删文件，仅注释/JSDoc 里的历史引用）、
+   `tests/unit/**`（含召回查询夹具——它们是单测数据，不是评测脚本）、Rust crate、Web 工作台、
+   `third-party/`（Laya 与模型权重缓存与跑分无关）。
+
+**代价（如实登记，不得淡化）**：召回率、前缀缓存复用率、工具暴露「零能力损伤」、技能路由三关、
+压缩降幅、SWE-bench 口径数字——**从此都没有机械判据**。看板 §3/§4 相关条目里的数字仍然保留为
+历史记录，但引用时必须写明「脚本已移除、不可复跑」。核心功能与项目完整性由九道门禁 + 全量单测
+（`npm test`）继续守住。
+
+## 8. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。
 2. 推翻旧条目时**保留旧文并划掉**（~~~~），注明推翻依据——不许无声改写历史结论。

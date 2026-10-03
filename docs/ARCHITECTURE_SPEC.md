@@ -179,13 +179,25 @@ CLI/Web ──config.update──> ConfigFile.save ──> normalizeConfig(KNOWN
 ## 8. 尚缺（诚实清单）
 
 - OS 级沙箱后端（bwrap/seatbelt/landlock）仍 fail-closed 占位，待真机验证。
-- **官方 SWE-bench Verified 大规模跑分仍缺**：已有 `benchmark/capability-swebench.json` —— deepseek-chat live **10/10 通过**（$0.20 / 64.7s），但为自研 10 题套件，非官方数据集；U5 扩到官方子集。
 - A2A 互操作客户端未建（U6）。
 - 共振语义层未与 repo-map 融合（U3，召回天花板症结）。
 
-## 9. 已有真实评测基线（更正：非空白）
+## 9. 跑分/对外评测子系统：已移除（2026-10-03，本条推翻旧 §9）
 
-- `benchmark/capability-swebench.json`：live 段 deepseek-chat **10/10 通过**（64.7s / $0.20）；scripted 段 10/10。
-- `benchmark/efficiency-benchmark.json`：冷启动 p50 86ms、上下文压缩省 80.7%、工具加载减 74.5%、检索 12929 qps、生成代数 1478 万 ops/s、RSS 49.3MB。
-- `benchmark/selfcheck.report.json`：6/6 自检性质通过（fail-closed、不灾难遗忘、依赖准入合规+退火单调等）。
-- `evals/context-efficiency`：确定性上下文效率基准（114x vs 整语料，7.95x vs grep 竞品同等文件预算，召回 67.0%；含竞品召回对照与三配置 A/B，频域共振/PRF/引用图/LSA 实测见 `docs/U3_CONTEXT_RECALL_EXPERIMENT.md`）。
+按「只要核心功能与项目完整、不再跑分」的指令，以下内容已整体删除，**不再维护对外评测口径**：
+
+| 已删                               | 原用途                                                                        |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `benchmark/`                       | 效率基准（冷启动 / 压缩降幅 / 检索 qps）、六属性自检、参数收紧闭环            |
+| `evals/`                           | 召回 / 重排 / 语义桥 / 爬虫 / BM25 / 工具暴露等测量脚本与落盘报告             |
+| `python/`                          | SWE-bench 容器内的 OmniHarness 运行器                                         |
+| `scripts/*.py`（16 个）            | ComfyBench / GenEval / GenEval2 / KRIS-Bench / ReasonEdit / WISE run+evaluate |
+| `BENCHMARKS.md` + 5 篇口径文档     | 对外跑分口径与交接说明                                                        |
+| `requirements.txt`、`tests/bench/` | 上述评测栈的依赖与该目录下的微基准                                            |
+
+**影响如实登记**：旧文档里引用这些脚本/报告的**实测数字从此没有可复跑的判据**（含此前的
+「SWE-bench 自研 10 题 10/10」「上下文效率 114×」「召回 67.0%」等）。引用时必须标注
+「脚本已移除、不可复跑」，或直接改引 git 历史。核心能力的机械判据仍在：
+`check` / `typecheck` / `audit:standard(:delta)` / `audit:maturity` / `arch:gate` /
+`check:doc-links` / `audit:config-wiring` 与全量单测（`npm test`）。
+历史审计文档中的相关引用按仓库既有做法**冻结进 `scripts/docLinkBaseline.json`**（不改写历史结论）。
