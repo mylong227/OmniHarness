@@ -12,9 +12,14 @@
  *     闸门是**增强**，不该因为环境问题把正常回合卡死（真正的超时会如实回报为一条提示，让模型知道）。
  *  2. **每回合至多一次**由 `TurnRunner` 保证（它只问一次）。
  *  3. **只在「本回合确实改过文件」时触发**同样由 `TurnRunner` 判断（`kind === 'turn-end'`）。
+ *
+ * 2026-10-03 第五轮补第四道判据（**修 fail-open 漏洞**）：退出码为 0 **不再等于**验证通过——
+ * `node --test` 在 glob 落空时打印 `# tests 0` 却以 0 退出（实测），于是「没跑任何测试」被判成
+ * 「验证通过」。现由 {@link TestCountParser} 识别**显式零测试证据**并拦截（详见 `unverifiedOf`）。
  */
 
 import { SelfVerifyPolicy } from './selfVerifyPolicy.js';
+import { TestCountParser } from './testCountParser.js';
 import { TestFailureDigest } from './testFailureDigest.js';
 import { StackFrameParser } from './stackFrameParser.js';
 import { ShellTestCommandRunner } from './shellTestCommandRunner.js';
@@ -85,10 +90,41 @@ export class TurnEndCompletionGate {
             : `${digest}\n位置候选（文件:行）：${locations.join('、')}`;
         return `[完成闸门] 回合结束验证未通过（exit=${String(outcome.exitCode)}）：${command}\n${withHints}`;
       }
-      return undefined;
+      return this.unverifiedOf(command, outcome.output);
     } catch {
       // fail-open：命令跑不起来（工具链缺失等）不拦收尾 —— 闸门是增强，不是环境检测器。
       return undefined;
     }
+  }
+
+  /**
+   * 退出码为 0 时的**第二道判据**：零测试与"有失败但退出码为 0"都不算通过。
+   *
+   * 为什么必须补这一道（2026-10-03 第五轮）：`node --test` 在 glob 一条都没匹配到时
+   * 打印 `# tests 0` 并**以 0 退出**（实测），本仓 `npm test` 正是
+   * `npm run build && node --test "dist/tests/unit/*.test.js"` ⇒ 一旦路径漂移或构建产物缺失，
+   * "没跑任何测试"会被原判据判成"验证通过"（假完成）。判据只认**显式零测试证据**，
+   * 拿不到汇总行（日志被截断 / 命令不是测试运行器）时**不拦**，避免把增强做成环境检测器。
+   * @param command 实际执行的命令（用于识别运行器）。
+   * @param output 合并后的输出文本。
+   * @returns 拦截文本；无证据时为 undefined（放行）。
+   */
+  private unverifiedOf(command: string, output: string): string | undefined {
+    const counts = TestCountParser.parse(command, output);
+    if (counts.zeroEvidence) {
+      return (
+        `[完成闸门] 回合结束验证命令**一条测试都没跑**（零测试 ≠ 通过，runner=${counts.runner}）：${command}\n` +
+        '请确认验证命令的路径/过滤器没有落空（例如 glob 未匹配到任何测试文件、构建产物缺失），' +
+        '并在结论里如实说明"未验证"或修好路径后重试。'
+      );
+    }
+    if (counts.failed > 0) {
+      return (
+        `[完成闸门] 回合结束验证命令报告了 ${String(counts.failed)} 个失败用例，但退出码为 0：${command}\n` +
+        `（解析：total=${String(counts.total)} passed=${String(counts.passed)} failed=${String(counts.failed)}）` +
+        ' 退出码与计数不一致时以**计数**为准，请先查清为何未以非零退出。'
+      );
+    }
+    return undefined;
   }
 }
