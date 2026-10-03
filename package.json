@@ -98,7 +98,10 @@
     "audit:top-level-fn": "node scripts/auditTopLevelFunctions.mjs",
     "lint:typed": "node scripts/runGates.mjs --tier=typed",
     "gate:typed": "node scripts/runGates.mjs --tier=typed",
-    "gate:budget": "node scripts/gateBudget.mjs"
+    "gate:budget": "node scripts/gateBudget.mjs",
+    "probe:recall": "node tools/probes/recallHitrate.mjs",
+    "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
+    "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
