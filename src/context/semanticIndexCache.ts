@@ -17,6 +17,7 @@ import { EmbeddingContentCache, type EmbeddingCacheStats } from './embeddingCont
 import { CachedEmbeddingPort } from './cachedEmbeddingPort.js';
 import type { RecallKnobs } from './recallKnobs.js';
 import { ArrayAt } from '../util/arrayAt.js';
+import { log } from '../util/logger.js';
 
 /** 全文文件文档最大字符数（约 8K token 内，留余量；ALiBi 可外推但质量在训练窗口内最佳）。 */
 const FULL_FILE_DOC_MAX_CHARS = 8000;
@@ -221,12 +222,26 @@ export class SemanticIndexCache {
           items.push(c);
         }
       }
-      const idx = new SemanticIndex(this.cachedPortFor(embedding));
+      const port = this.cachedPortFor(embedding);
+      const idx = new SemanticIndex(port);
       // 嵌入内容缓存按代际清扫：构建**成功**后丢弃本次没碰过的向量（失败不清扫，
       // 否则会把上一代可用向量一并丢掉，下次重试又要从零嵌入）。见 `EmbeddingContentCache`。
       this.embeddingVectors.beginGeneration();
       await idx.build(items);
       this.embeddingVectors.endGeneration();
+      // 构建后落盘（2026-10-03 修）：带落盘缓存的端口（`DiskCachedEmbeddingAdapter`）默认每
+      // `flushThreshold`（512）条才自动落盘，**尾部不落**；其类文档称「装配层在关停时调用
+      // flush()」，而仓内此前**没有任何调用点** ⇒ 每次构建最多 511 条向量静默丢失，重启后重付。
+      // 这里是「向量刚产生」的时刻，比关停更早且必然发生，故在此落盘。
+      // fail-soft：端口未实现则跳过；实现抛错/失败只告警（缓存问题绝不升级为功能故障）。
+      try {
+        port.flush?.();
+      } catch (error) {
+        log.warn('semanticIndex.flush.failed', {
+          root: corpus.root,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       return idx;
     } catch {
       return null;

@@ -36,10 +36,19 @@ export class CachedEmbeddingPort implements EmbeddingPort {
       const preload = inner.preload.bind(inner);
       this.preload = (): Promise<EmbeddingPreloadOutcome> => preload();
     }
+    // `flush` 同理必须**透传**：落盘缓存（`DiskCachedEmbeddingAdapter`）的向量要经它落盘，
+    // 装饰器若吞掉该方法，`SemanticIndexCache` 的「构建后落盘」就会静默失效。
+    if (inner.flush !== undefined) {
+      const flush = inner.flush.bind(inner);
+      this.flush = (): boolean | void => flush();
+    }
   }
 
   /** 可选预热（仅当内层支持时存在，契约与 `EmbeddingPort.preload` 一致）。 */
   public preload?: () => Promise<EmbeddingPreloadOutcome>;
+
+  /** 可选落盘（仅当内层支持时存在，契约与 `EmbeddingPort.flush` 一致）。 */
+  public flush?: () => boolean | void;
 
   /**
    * 批量嵌入（命中直接复用，未命中才调用内层）。

@@ -24,4 +24,18 @@ export interface EmbeddingPort {
    * 契约：**不得抛错**（失败应以 `{ok:false, error}` 回报）；未实现的端口允许缺省。
    */
   preload?(): Promise<EmbeddingPreloadOutcome>;
+  /**
+   * **可选**：把内部缓冲的向量**持久化**（带落盘缓存的实现提供）。
+   *
+   * 存在理由（2026-10-03 实测缺陷）：`DiskCachedEmbeddingAdapter` 的类文档写明
+   * 「`flush()` 公开给装配层在关停时显式调用」，但仓内**没有任何调用点**——于是每次
+   * 索引构建都有最多 `flushThreshold − 1` 条向量**静默不落盘**，进程重启后重付这段编码。
+   * 实测（真实模型，1108 条语料、阈值 512）：**84 条**丢失。
+   *
+   * 调用契约：`SemanticIndexCache` 在**构建成功后**调用一次（那是向量刚产生的时刻，
+   * 比「关停时」更早且必然发生）；未实现的端口允许缺省，故调用点一律用 `?.`。
+   * @returns 落盘结果（`boolean` 由实现自定语义：false 表示无待落盘或落盘失败，
+   *   实现方须自行留痕）；返回 void 亦合法。
+   */
+  flush?(): boolean | void;
 }
