@@ -1,6 +1,6 @@
 ﻿import { Agent } from '../core/agent.js';
 import type { AgentFactoryPort, AgentPort } from '../ports/runtime/agent.js';
-import type { OmniHarnessRuntime } from '../composition/runtime.js';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
 
 /**
  * Agent 工厂（组合根）：实现 {@link AgentFactoryPort}，按运行时构造 {@link Agent} 实例。

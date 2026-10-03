@@ -1,5 +1,5 @@
 import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.js';
-import type { ResolvedConfig } from '../config/configFactory.js';
+
 import { NativeBackend } from '../native/nativeBackend.js';
 import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.js';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.js';
@@ -166,6 +166,7 @@ export class Runtime {
 // 此处再导出，使 `src/index.ts` 等既有调用点零改动。
 export { ServiceKeys };
 import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 export type { OmniHarnessRuntime };
 
 /** OmniHarness运行时：装配全部端口 + 注册进容器（供自定义扩展查询）。 */

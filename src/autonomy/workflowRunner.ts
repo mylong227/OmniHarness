@@ -1,7 +1,7 @@
 import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkflowCycleError } from './workflowCycleError.js';
 import { WorkflowSpecError } from './workflowSpecError.js';
-import type { SubagentPortsShape } from '../subagent/subagentPorts.js';
+
 import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
 import { Agent } from '../core/agent.js';
 import { log } from '../util/logger.js';
@@ -30,6 +30,7 @@ export const DEFAULT_WORKFLOW_CONCURRENCY = 4;
  */
 
 import type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.js';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
 
 export type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.js';
 

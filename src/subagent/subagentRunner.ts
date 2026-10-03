@@ -5,8 +5,9 @@ import { SubagentEventBridge } from './subagentEventBridge.js';
 import { subagentRuntimeFactory } from './subagentRuntimeFactory.js';
 import { ToolSubset } from './toolSubset.js';
 import { SUBAGENT_TOOL_NAME } from './subagentTypes.js';
-import type { SubagentPortsShape } from './subagentPorts.js';
+
 import type { SubagentRequest, SubagentResult } from './subagentTypes.js';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
 
 /**
  * @beta

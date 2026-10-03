@@ -3,7 +3,7 @@ import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAd
 
 import type { MemoryStackAssembly } from './memoryStackAssembler.js';
 import type { SkillStack } from './skillStackAssembler.js';
-import type { OmniHarnessConfig } from './configFactory.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 
 /**
  * SparkAssembler 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

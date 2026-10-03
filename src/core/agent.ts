@@ -1,7 +1,7 @@
 import type { SessionEvent } from '../ports/runtime/event.js';
 import type { ToolContext } from '../ports/tool/tool.js';
 import type { ImageContent, FileAttachment } from '../ports/model/model.js';
-import type { OmniHarnessRuntime } from '../composition/runtime.js';
+
 import type { EvolutionController, PromotionVerdict } from '../ports/runtime/evolution.js';
 import type { SparkController, SparkCycleReport } from '../spark/sparkController.js';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
@@ -21,6 +21,7 @@ import { CancellationToken } from './loop/cancellationToken.js';
 import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.js';
 import { Id } from '../util/id.js';
 import { log, Logger } from '../util/logger.js';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
 
 /** 默认压缩参数。 */
 const DEFAULT_MAX_TOKENS = 8000;

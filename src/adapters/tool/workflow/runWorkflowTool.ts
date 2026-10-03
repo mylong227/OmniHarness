@@ -4,7 +4,7 @@ import type {
   ToolDefinition,
   ToolResult,
 } from '../../../ports/tool/tool.js';
-import type { SubagentPortsShape } from '../../../subagent/subagentPorts.js';
+
 import {
   WorkflowRunner,
   DEFAULT_WORKFLOW_CONCURRENCY,
@@ -13,6 +13,7 @@ import {
 } from '../../../autonomy/workflowRunner.js';
 import type { WorkflowDef } from '../../../autonomy/workflowTypes.js';
 import { RUN_WORKFLOW_TOOL_NAME } from '../../../autonomy/workflowToolNames.js';
+import type { SubagentPortsShape } from '../../../ports/subagent/subagentPortsShape.js';
 
 /** 模型面 run_workflow 工具：派生一次进程内 DAG 工作流（多步依赖编排）。 */
 export class RunWorkflowTool {

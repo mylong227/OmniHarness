@@ -1,11 +1,12 @@
 import type { ApprovalPort } from '../../ports/runtime/approval.js';
-import type { ResolvedConfig } from '../../config/configFactory.js';
+
 import type { SkillRegistry } from '../../skill/skillRegistry.js';
 import type { PluginRegistry } from '../../plugin/pluginRegistry.js';
 import type { Transport } from '../transport/lineTransport.js';
 import type { Metrics } from '../services/metrics.js';
 import type { AuditSink } from '../services/auditSink.js';
 import type { GraphNodeStatus } from '../../autonomy/workflowRunner.js';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
 
 /** AppServer 选项。 */
 export interface AppServerOptions {

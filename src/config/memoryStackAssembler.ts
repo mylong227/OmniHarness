@@ -19,8 +19,7 @@ import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.
 import type { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
 import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
 import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
-
-import type { OmniHarnessConfig } from './configFactory.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 
 /**
  * MemoryStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

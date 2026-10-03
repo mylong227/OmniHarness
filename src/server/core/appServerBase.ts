@@ -1,4 +1,3 @@
-import type { ResolvedConfig } from '../../config/configFactory.js';
 import { ConfigFactory } from '../../config/configFactory.js';
 import { ConfigRebase } from '../../config/configRebase.js';
 import { SandboxManager, type SandboxProfile } from '../../adapters/sandbox/sandboxManager.js';
@@ -17,6 +16,7 @@ import { ModelCatalogService } from '../services/modelCatalogService.js';
 import { PluginHost } from '../services/pluginHost.js';
 import { ServerEventBridge } from './serverEventBridge.js';
 import { AgentRuntimeHost } from './agentRuntimeHost.js';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
 
 /**
  * AppServer 共享基座：**组合根 + 方法调度**。

@@ -130,29 +130,15 @@ const CYCLE_WL_MEMBERS = new Set([
   'spark/sparkController',
   'spark/sparkCycleTelemetry',
   'spark/sparkEngineSet',
-  // 环⑥ 装配-运行时大环（20）：组合根 / 配置装配 / 子代理 / 工具适配器 / core.agent / a2a 互引。
-  // 本环正是「接口散落在实现文件里」最典型的一处（SubagentPortsShape、OmniHarnessRuntime、
-  // ResolvedConfig 三个跨模块接口都在环内的实现文件里声明），抽到 ports 后应显著收缩。
-  'a2a/a2aTaskExecutor',
-  'adapters/tool/workflow/runGoalTool',
-  'adapters/tool/workflow/runWorkflowTool',
-  'adapters/tool/workflow/subagentTool',
-  'autonomy/workflowRunner',
-  'composition/runtime',
-  'config/agentFactory',
+  // 环⑥（2026-10-03 第十二轮 G25 **已拆解**）：原为 20 成员的「装配-运行时大环」，
+  // 成因之一是「类型已在 src/ports/**、却绕道实现文件导入」——34 处导入改为直连 ports 后，
+  // 该环**消失**，只剩下面 4 个成员的配置子环（SubagentPortSeed/CorePorts/MediaStack 等
+  // 仍声明在实现文件里；把它们移入 ports 需先把 CorePorts.turnDiffTracker 之类字段改成端口类型，
+  // 属**类型契约**级改动，另立 G25-b）。
   'config/configBuilder',
   'config/configFactory',
   'config/configToolRegistry',
   'config/corePortsAssembler',
-  'config/decisionEngineResolver',
-  'config/memoryStackAssembler',
-  'config/skillStackAssembler',
-  'config/sparkAssembler',
-  'core/agent',
-  'subagent/subagentOrchestrator',
-  'subagent/subagentPorts',
-  'subagent/subagentRunner',
-  'subagent/subagentRuntimeFactory',
 ]);
 
 /** Tarjan 强连通分量：返回全部「真环」（size>1，或 size==1 且自环）。 */

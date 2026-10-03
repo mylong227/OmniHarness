@@ -9,7 +9,7 @@
  */
 import type { DecisionEngine } from '../ports/decision/decisionEngine.js';
 import { LayaDecisionEngine } from '../adapters/laya/layaDecisionEngine.js';
-import type { OmniHarnessConfig } from './configFactory.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 
 /**
  * 决策引擎解析器：组合根里「配置 → 决策引擎适配器」的唯一构造点。

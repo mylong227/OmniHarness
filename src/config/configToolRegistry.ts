@@ -74,7 +74,8 @@ import type { UserResponder } from '../ports/runtime/userResponder.js';
 import type { TodoPort } from '../ports/runtime/todo.js';
 import type { PlanPort } from '../ports/runtime/plan.js';
 import type { ToolPort } from '../ports/tool/tool.js';
-import type { ExtraTool, SubagentPortSeed } from './configFactory.js';
+import type { SubagentPortSeed } from './configFactory.js';
+import type { ExtraTool } from '../ports/tool/extraTool.js';
 
 /**
  * ConfigToolRegistry — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

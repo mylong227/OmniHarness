@@ -17,7 +17,7 @@ import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
 
 import type { LspPort } from '../ports/tool/lsp.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
-import type { SubagentPortsShape } from '../subagent/subagentPorts.js';
+
 import type { SubagentOptions } from '../subagent/subagentTypes.js';
 
 import { ConfigBuilder } from './configBuilder.js';
@@ -40,6 +40,7 @@ export type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 export type { SelfVerifyConfig } from '../ports/config/selfVerifyConfig.js';
 export type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
 export type { ResolvedConfig };
 
 /** 子智能体端口种子（缺 tools，待注册表构造完成后回填）。 */

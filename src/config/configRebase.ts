@@ -1,3 +1,5 @@
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 /**
  * 配置重基（组合根资产）：把一份**已解析**配置里的「声明式字段」原样搬到新的工作区根上。
  *
@@ -15,7 +17,6 @@
  * 判据可复核：`grep -n 'workspaceRoot' src/config/corePortsAssembler.ts` —— 凡以 `partial.X` 为
  * 输入、把根路径烘进返回对象的字段，都应进 {@link ConfigRebase.WORKSPACE_COUPLED}。
  */
-import type { OmniHarnessConfig, ResolvedConfig } from './configFactory.js';
 
 /** 配置重基器。 */
 export class ConfigRebase {
