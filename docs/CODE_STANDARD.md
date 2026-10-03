@@ -101,7 +101,9 @@ export class FileName {
 npm run typecheck   # tsc --noEmit（strict）
 npm run build       # tsc 编译
 npm run web:build   # web UI 编译
-npm run lint        # eslint（规范 #1/#6 机械校验）
+npm run lint        # eslint（规范 #1/#6 机械校验；**不含类型信息**）
+npm run gate:typed  # 类型层：tsc --noEmit + 类型感知 eslint（见 §7.1）
+npm run gate:budget # 实测并断言两层耗时预算（见 §7.1）
 npm test            # 全量单测
 npm run api:check   # 公共 API 表面稳定性
 ```
@@ -110,6 +112,30 @@ npm run api:check   # 公共 API 表面稳定性
 - 机械修复：`node scripts/codemod/memberAccessibility.mjs [--dry]`（补全显式 `public`）。
 - 成熟度门禁：`node scripts/auditStandards.mjs --maturity`（见 §8；L2/L3 无测试即阻断，exit 1）。
 - 成熟度标注：`node scripts/codemod/maturityAnnotate.mjs [--apply]`（幂等登记，见 §8）。
+
+### 7.1 门禁分层：按「是否需要类型」分（不换引擎）
+
+门禁不是一锅粥。**需要类型信息**的判定与**不需要**的分成两层，理由是耗时差一个数量级：
+类型感知的 eslint 要为每个文件建 TypeScript 程序，而自研 AST 脚本读一遍文本就够。
+
+| 层                 | 内容                                                                                                                                | 何时跑                                              | 预算（本机实测）        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------- |
+| **快层 `fast`**    | 自研脚本（铁律 / 架构 / 接线 / 死链 / 密钥 / 顶层函数 / 成熟度 / 标准增量）+ `eslint .`（无 `parserOptions.project`）               | 每次提交（pre-commit，`node scripts/runGates.mjs`） | `eslint .` **< 65 s**   |
+| **类型层 `typed`** | `tsc --noEmit` + `eslint src --config eslint.typed.config.mjs`（`no-floating-promises` / `await-thenable` / `no-misused-promises`） | 轮次 / CI 全量核验（`npm run gate:typed`）          | 两项并发**墙钟 ≤ 45 s** |
+
+**规则**（由 `tests/unit/gateTiering.test.ts` 结构判据与 `scripts/gateBudget.mjs` 实测共同强制）：
+
+1. `scripts/runGates.mjs` 里**每条门禁都必须声明 `tier`**——漏声明会静默落错层（提交变慢，或该跑的没人跑）；
+2. 需要类型才判得了的规则**只放类型层**，普通脚本**只放快层**；
+3. 类型层配置**必须**给出 `parserOptions.project`：没有它，类型感知规则会**静默退化成空转**
+   （配置照旧"通过"，实际一条都没查）——这条是本层最危险的失效模式；
+4. 预算由 `scripts/gateBudget.mjs` **实测断言**并打印每一项秒数，超预算即红：
+   目的是让"再加一条 typed 规则"必须先解决耗时，而不是把门禁慢慢拖成没人愿意跑的东西。
+
+**口径说明（耗时按"墙钟"而非"两项相加"）**：报告初稿写的是"tsc 17.0 s + typed eslint 23.1 s ≤ 45 s"。
+本机反复实测发现"相加"这个量对**机器负载**过敏（同一份代码：空载 43.9 s、并发跑测试时 49.5 s / 55.5 s），
+而**开发者实际等待的是墙钟**：两项并发跑，墙钟稳定在 ~32 s。故预算按墙钟断言（≤45 s），
+同时把"相加"值打印出来供对照——**不隐藏口径变更**。
 
 ## 8. 隐喻引擎成熟度声明（命名 ≠ 机制）
 

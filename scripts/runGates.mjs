@@ -52,53 +52,74 @@ const PRETTIER_BIN = join(ROOT, 'node_modules', 'prettier', 'bin', 'prettier.cjs
 
 /**
  * 门禁清单（顺序即执行顺序；与历史 pre-commit 逐条对应）。
- * 每项：`id` 稳定标识、`label` 打印文案、`argv` node 参数数组、`fail` 失败时的可执行提示。
+ *
+ * ## 分层（G27/TS3，2026-10-03 第十六轮）
+ *
+ * 每项带 `tier`：
+ *  - `'fast'`：**不需要类型信息**的判定（自研 AST/文本脚本 + 无 `parserOptions.project` 的 eslint）
+ *    —— 每次提交都跑（pre-commit 默认只跑这一层）；
+ *  - `'typed'`：**需要类型信息**的判定（`tsc --noEmit` + `eslint.typed.config.mjs`）
+ *    —— 由 `npm run gate:typed`（= `--tier=typed`）在轮次/CI 全量核验时跑，预算由
+ *    `scripts/gateBudget.mjs` 实测断言（两者之和 ≤ 45 s）。
+ *
+ * **每项必须声明 tier**（无 tier 项会被 `tests/unit/gateTiering.test.ts` 判红）：避免"新加的判定
+ * 悄悄落进快层、把提交门禁拖慢到没人愿意跑"，或"新加的判定谁都不跑"。
+ *
+ * 每项：`id` 稳定标识、`label` 打印文案、`argv` node 参数数组、`fail` 失败时的可执行提示、`tier` 层。
  */
 const GATES = [
   {
     id: 'node-engine',
+    tier: 'fast',
     label: 'Node 引擎门禁（engines.node 下限，fail-closed）',
     argv: ['scripts/checkNodeEngine.mjs'],
     fail: 'Node 版本不满足 engines.node，提交中止。请切换/安装符合要求的 Node（见 .nvmrc）。',
   },
   {
     id: 'iron-law',
+    tier: 'fast',
     label: '铁律自检（--strict）',
     argv: ['scripts/check.mjs', '--strict'],
     fail: 'check.mjs 铁律校验未通过，提交中止。',
   },
   {
     id: 'maturity',
+    tier: 'fast',
     label: '成熟度门禁（L2/L3 须有测试证据）',
     argv: ['scripts/auditStandards.mjs', '--maturity'],
     fail: '成熟度门禁未通过（L2/L3 须有 @maturityEvidence 指向真实测试），提交中止。',
   },
   {
     id: 'standard-delta',
+    tier: 'fast',
     label: '编码标准增量门禁（禁止本次提交新增违规）',
     argv: ['scripts/auditStandards.mjs', '--delta'],
     fail: '检测到本次提交新增了编码标准违规，提交中止。',
   },
   {
     id: 'arch',
+    tier: 'fast',
     label: '架构门禁（core↔adapters 冻结白名单，新增即红）',
     argv: ['scripts/architectureGate.mjs'],
     fail: '检测到新增架构违规（core↔adapters 不在白名单内或 ports 纯度受损），提交中止。',
   },
   {
     id: 'wiring',
+    tier: 'fast',
     label: '接线完整性门禁（声明→装配→运行时→消费，断链即红）',
     argv: ['scripts/auditConfigWiring.mjs'],
     fail: '检测到未接线字段（本仓最高频缺陷形态「声明未接线」），提交中止。',
   },
   {
     id: 'doc-links',
+    tier: 'fast',
     label: '文档死链门禁（链接目标指向不存在文件即红；存量已冻结）',
     argv: ['scripts/docLinkCheck.mjs'],
     fail: '文档新增死链（指向不存在的文件），提交中止。',
   },
   {
     id: 'secrets',
+    tier: 'fast',
     label: '发布物零密钥门禁（个人凭据不得进版本库）',
     argv: ['scripts/checkSecrets.mjs', '--staged'],
     fail:
@@ -107,15 +128,31 @@ const GATES = [
   },
   {
     id: 'top-level-fn',
+    tier: 'fast',
     label: '顶层 function 门禁（非 UI .ts 必须用 export class 实现）',
     argv: ['scripts/auditTopLevelFunctions.mjs'],
     fail: '非 UI 的 .ts 出现顶层 function 声明（用户口径：一律 export class 实现），提交中止。',
   },
   {
     id: 'eslint',
-    label: 'ESLint（零告警：--max-warnings=0，warn 亦阻断）',
+    tier: 'fast',
+    label: 'ESLint（零告警：--max-warnings=0，warn 亦阻断；**不含类型信息**）',
     argv: [ESLINT_BIN, '.', '--max-warnings=0'],
     fail: 'ESLint 存在 error 或 warning，提交中止（告警预算已归零：静态告警曾编码真实断链）。',
+  },
+  {
+    id: 'tsc',
+    tier: 'typed',
+    label: 'TypeScript 类型检查（tsc --noEmit，类型层）',
+    argv: ['node_modules/typescript/bin/tsc', '--noEmit'],
+    fail: 'TypeScript 类型检查失败（类型层门禁）。',
+  },
+  {
+    id: 'eslint-typed',
+    tier: 'typed',
+    label: 'ESLint 类型感知层（no-floating-promises / await-thenable / no-misused-promises）',
+    argv: [ESLINT_BIN, 'src', '--config', 'eslint.typed.config.mjs', '--max-warnings=0'],
+    fail: 'ESLint 类型感知层失败：悬空 Promise / 对非 Promise await / Promise 用错位置（这些只有类型系统看得见）。',
   },
 ];
 
@@ -185,12 +222,33 @@ const stagedMode = hookMode || process.argv.includes('--staged');
 const skip = idSet('skip') ?? new Set();
 const only = idSet('only');
 
+/**
+ * 解析层选择（G27）：`--tier=fast|typed|all`，缺省 `fast`。
+ *
+ * 缺省 `fast` 是**刻意**的：pre-commit 必须保持"每次提交都愿意跑"的耗时，
+ * 类型层（tsc + 类型感知 eslint）由 `npm run gate:typed` 单独跑。
+ * @returns 选中的层集合。
+ */
+function tierSet() {
+  const raw = flagValue('tier') ?? 'fast';
+  const map = { fast: ['fast'], typed: ['typed'], all: ['fast', 'typed'] };
+  const picked = map[raw];
+  if (picked === undefined) {
+    console.error(`✗ 未知 --tier=${raw}（可选：fast / typed / all）`);
+    process.exit(2);
+  }
+  return new Set(picked);
+}
+
 if (process.argv.includes('--list')) {
-  for (const g of GATES) console.log(`  ${g.id.padEnd(16)} ${g.label}`);
+  for (const g of GATES) console.log(`  ${g.id.padEnd(16)} [${g.tier}] ${g.label}`);
   process.exit(0);
 }
 
-const selected = GATES.filter((g) => (only === undefined ? true : only.has(g.id)));
+const tiers = tierSet();
+const selected = GATES.filter(
+  (g) => tiers.has(g.tier) && (only === undefined ? true : only.has(g.id)),
+);
 const unknown = [...(only ?? [])].filter((id) => !GATES.some((g) => g.id === id));
 if (unknown.length > 0) {
   console.error(`✗ 未知门禁 id：${unknown.join(', ')}（用 --list 看全部）`);
@@ -235,5 +293,8 @@ if (failed === 0 && hookMode) {
 }
 
 if (failed > 0) process.exit(1);
-if (stagedMode || hookMode || only !== undefined) console.log(`[${prefix}] ✓ 门禁通过`);
+if (stagedMode || hookMode || only !== undefined || tiers.size > 0) {
+  const label = [...tiers].join('+');
+  console.log(`[${prefix}] ✓ 门禁通过（层：${label}）`);
+}
 process.exit(0);
