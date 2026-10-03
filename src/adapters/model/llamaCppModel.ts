@@ -1,4 +1,6 @@
 import type {
+  ImageContent,
+  ModelMessage,
   ModelOutput,
   ModelPort,
   ModelRequest,
@@ -182,6 +184,11 @@ export class LlamaCppModel implements ModelPort {
   }
 
   /** 构造请求体。
+   *
+   * 消息按 Ollama `/api/chat` 的 message 契约序列化（见 {@link LlamaCppModel.toOllamaMessages}）：
+   * **不再只透传 `role` + `content`**——那样会把 assistant 的 `tool_calls` 与工具结果的
+   * `tool_name` 全部丢掉，使原生多轮工具对话在这一适配器上不成立（模型看不到自己调用过什么、
+   * 也看不到结果对应的工具）。
    * @param request 模型请求，提供消息与工具规格。
    * @param stream true 表示 NDJSON 流式响应，false 表示一次性 JSON 响应。
    * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal。
@@ -197,10 +204,7 @@ export class LlamaCppModel implements ModelPort {
       request.tools.length > 0 ? request.tools.map((tool) => this.toOllamaTool(tool)) : undefined;
     const body: Record<string, unknown> = {
       model: this.config.model,
-      messages: request.messages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      messages: this.toOllamaMessages(request.messages),
       stream,
     };
     if (tools !== undefined) {
@@ -222,6 +226,101 @@ export class LlamaCppModel implements ModelPort {
           ? { signal: request.signal }
           : {}),
     };
+  }
+
+  /**
+   * 把统一消息序列化为 Ollama `/api/chat` 的 message 对象（多轮工具对话的**请求侧**契约）。
+   *
+   * 依据 `ollama/docs/api.md`（"Generate a chat completion" 的 message 字段表，2026-10-03 取用）：
+   *  - `role` / `content`（必填）；
+   *  - `images`（可选）：**base64 列表**（不带 data URL 前缀）；
+   *  - `tool_calls`（可选）：`[{ function: { name, arguments } }]`——`arguments` 是**对象**
+   *    （与 OpenAI 的 JSON 字符串不同），且**没有 `id` 字段**（Ollama 原生不提供调用 id）；
+   *  - `tool_name`（可选）：工具结果消息用它告诉模型「这条结果来自哪个工具」。
+   *
+   * **为什么 `tool_name` 要靠 id→名映射而不是解析 id 字符串**：本适配器合成的 id 形如
+   * `name` / `name#2`，从字符串反解名字会在「工具名本身含 `#`」时解错。这里从同一请求的
+   * assistant 消息里取精确对应（`toolCallId` → `name`），不猜。
+   *
+   * **诚实边界**：`http(s)://` / `file://` 形式的图片无法在不下载的前提下内联为 base64，
+   * 故不发送（记 debug 日志并在此成文），而不是编一个 Ollama 不认的字段。
+   * @param messages 统一消息列表（事件日志投影的产物）。
+   * @returns 可直接放入 `body.messages` 的 wire 消息数组。
+   */
+  private toOllamaMessages(messages: readonly ModelMessage[]): readonly Record<string, unknown>[] {
+    const nameById = LlamaCppModel.toolNamesById(messages);
+    return messages.map((message) => {
+      const wire: Record<string, unknown> = { role: message.role, content: message.content };
+      const images = LlamaCppModel.base64Images(message.images);
+      if (images.length > 0) {
+        wire['images'] = images;
+      }
+      if (message.toolCalls !== undefined && message.toolCalls.length > 0) {
+        wire['tool_calls'] = message.toolCalls.map((call) => ({
+          function: { name: call.name, arguments: call.arguments },
+        }));
+      }
+      if (message.role === 'tool' && message.toolCallId !== undefined) {
+        const name = nameById.get(message.toolCallId);
+        if (name !== undefined) {
+          wire['tool_name'] = name;
+        }
+      }
+      return wire;
+    });
+  }
+
+  /**
+   * 从本请求的 assistant 消息里建「调用 id → 工具名」映射（供工具结果消息填 `tool_name`）。
+   * @param messages 统一消息列表。
+   * @returns id → 工具名（后出现的同 id 覆盖先前，与「最新一次调用」语义一致）。
+   */
+  private static toolNamesById(messages: readonly ModelMessage[]): ReadonlyMap<string, string> {
+    const out = new Map<string, string>();
+    for (const message of messages) {
+      for (const call of message.toolCalls ?? []) {
+        out.set(call.id, call.name);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 取可用于 Ollama `images` 字段的 base64 载荷（剥掉 data URL 前缀）。
+   * @param images 统一图像内容（`data` 或 `url` 二选一）。
+   * @returns 纯 base64 字符串数组；不可内联的形式（http(s)/file URL、缺载荷）被跳过并记 debug。
+   */
+  private static base64Images(images: readonly ImageContent[] | undefined): string[] {
+    const out: string[] = [];
+    for (const image of images ?? []) {
+      const inline = LlamaCppModel.inlineBase64(image);
+      if (inline !== undefined) {
+        out.push(inline);
+        continue;
+      }
+      log.debug('model.ollama.image_skipped', {
+        reason: '本地 /api/chat 只接受 base64；http(s)/file URL 需先下载为 base64',
+        mediaType: image.mediaType ?? '',
+      });
+    }
+    return out;
+  }
+
+  /**
+   * 把一个统一图像内容转成纯 base64（含 data URL 解包）。
+   * @param image 统一图像内容。
+   * @returns 纯 base64；无法在不下载的前提下内联时返回 undefined。
+   */
+  private static inlineBase64(image: ImageContent): string | undefined {
+    const data = image.data;
+    if (data !== undefined && data !== '') {
+      return data.startsWith('data:') ? (data.split(',')[1] ?? undefined) : data;
+    }
+    const url = image.url;
+    if (url !== undefined && url.startsWith('data:')) {
+      return url.split(',')[1];
+    }
+    return undefined;
   }
 
   /** 工具转 Ollama 原生格式（与 OpenAI 一致，但参数对象原样下发）。

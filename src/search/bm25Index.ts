@@ -79,25 +79,145 @@ export class Bm25Index {
    */
   public addDocuments(documents: readonly (readonly string[])[]): void {
     for (const tokens of documents) {
-      const docId = this.documents.length;
-      this.documents.push([...tokens]);
-      this.totalTokens += tokens.length;
-      // 单趟统计本文件的 tf（同时得到 df：出现在本文件即计 1 次）。
-      const termFrequency = new Map<string, number>();
-      for (const term of tokens) {
-        termFrequency.set(term, (termFrequency.get(term) ?? 0) + 1);
+      this.addDocument(tokens);
+    }
+  }
+
+  /**
+   * 追加单篇已分词文档。
+   * @param tokens 该文档的词项列表（**保留词频**，调用方负责按文档侧口径传入）。
+   * @returns 该文档的槽位（= 追加前的 `documentCount`）。
+   */
+  public addDocument(tokens: readonly string[]): number {
+    const slot = this.documents.length;
+    this.documents.push([...tokens]);
+    this.totalTokens += tokens.length;
+    this.indexTerms(slot, tokens);
+    this.refreshAverageLength();
+    return slot;
+  }
+
+  /**
+   * 就地在**指定槽位**写入或替换一篇文档（增量维护语料时用）。
+   *
+   * 存在理由（2026-10-03，repo-map 写后重索引）：`addDocuments` 全量重建在本仓语料实测
+   * **约 3.0s**（3223 文件 / 33.5 MB 语料：file 索引 2.2s + symbol 索引 0.8s），而写类工具
+   * 之后的改动通常只涉及**一两个文件**。就地替换把代价降到「该文件自身的词项数」：
+   * 旧词项的 df/postings 先摘除，新词项按 docId 升序插回（保持 `search` 的浮点累加顺序不变）。
+   *
+   * 契约：`slot` 必须是已存在槽位或正好等于 `documentCount`（后者等价于追加）。
+   * **槽位不会因替换而增减**，故调用方可以持有稳定的「文件 → 槽位」映射。
+   * @param slot 目标槽位。
+   * @param tokens 该文档的新词项列表（保留词频）。
+   * @returns 无返回值。
+   * @throws Error `slot` 越界（负数或 > documentCount）时抛出——fail-closed，防静默错位。
+   */
+  public setDocument(slot: number, tokens: readonly string[]): void {
+    if (!Number.isInteger(slot) || slot < 0 || slot > this.documents.length) {
+      throw new Error(
+        `BM25 槽位越界：${String(slot)}（合法范围 0..${String(this.documents.length)}）`,
+      );
+    }
+    if (slot === this.documents.length) {
+      this.addDocument(tokens);
+      return;
+    }
+    const previous = this.documents[slot] ?? [];
+    this.totalTokens += tokens.length - previous.length;
+    this.unindexTerms(slot, previous);
+    this.documents[slot] = [...tokens];
+    this.indexTerms(slot, tokens);
+    this.refreshAverageLength();
+  }
+
+  /**
+   * 已用槽位总数（= `documentCount`；替换不改变槽位数，故两者恒等）。
+   * @returns 槽位数。
+   */
+  public get slotCount(): number {
+    return this.documents.length;
+  }
+
+  /** 把一篇文档的词项计入 df 与倒排表（docId 升序插入，保持累加顺序稳定）。
+   * @param docId 文档槽位。
+   * @param tokens 该文档词项（保留词频）。
+   * @returns 无返回值。
+   */
+  private indexTerms(docId: number, tokens: readonly string[]): void {
+    const termFrequency = new Map<string, number>();
+    for (const term of tokens) {
+      termFrequency.set(term, (termFrequency.get(term) ?? 0) + 1);
+    }
+    for (const [term, frequency] of termFrequency) {
+      this.documentFrequency.set(term, (this.documentFrequency.get(term) ?? 0) + 1);
+      const posting = this.postings.get(term);
+      if (posting === undefined) {
+        this.postings.set(term, { ids: [docId], tfs: [frequency] });
+        continue;
       }
-      for (const [term, frequency] of termFrequency) {
-        this.documentFrequency.set(term, (this.documentFrequency.get(term) ?? 0) + 1);
-        const posting = this.postings.get(term);
-        if (posting === undefined) {
-          this.postings.set(term, { ids: [docId], tfs: [frequency] });
+      const at = Bm25Index.lowerBound(posting.ids, docId);
+      posting.ids.splice(at, 0, docId);
+      posting.tfs.splice(at, 0, frequency);
+    }
+  }
+
+  /** 把一篇文档的词项从 df 与倒排表摘除（`setDocument` 的替换前半程）。
+   * @param docId 文档槽位。
+   * @param tokens 该槽位**替换前**的词项。
+   * @returns 无返回值。
+   */
+  private unindexTerms(docId: number, tokens: readonly string[]): void {
+    const termFrequency = new Map<string, number>();
+    for (const term of tokens) {
+      termFrequency.set(term, (termFrequency.get(term) ?? 0) + 1);
+    }
+    for (const term of termFrequency.keys()) {
+      const df = this.documentFrequency.get(term);
+      if (df !== undefined) {
+        if (df <= 1) {
+          this.documentFrequency.delete(term);
         } else {
-          posting.ids.push(docId);
-          posting.tfs.push(frequency);
+          this.documentFrequency.set(term, df - 1);
         }
       }
+      const posting = this.postings.get(term);
+      if (posting === undefined) {
+        continue;
+      }
+      const at = Bm25Index.lowerBound(posting.ids, docId);
+      if (posting.ids[at] === docId) {
+        posting.ids.splice(at, 1);
+        posting.tfs.splice(at, 1);
+      }
+      if (posting.ids.length === 0) {
+        this.postings.delete(term);
+      }
     }
+  }
+
+  /** 二分求首个 ≥ `docId` 的位置（`ids` 恒升序）。
+   * @param ids 升序 docId 数组。
+   * @param docId 目标 docId。
+   * @returns 插入/定位下标。
+   */
+  private static lowerBound(ids: readonly number[], docId: number): number {
+    let lo = 0;
+    let hi = ids.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if ((ids[mid] ?? Number.POSITIVE_INFINITY) < docId) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  /** 重算平均文档长度（`Σ|doc| / N`，跨批与增量替换口径一致）。
+   * @returns 无返回值。
+   */
+  private refreshAverageLength(): void {
     this.averageLength = this.documents.length === 0 ? 0 : this.totalTokens / this.documents.length;
   }
 

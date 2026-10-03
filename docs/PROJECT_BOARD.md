@@ -30,7 +30,7 @@
 | —— cli                                                    | 29              | 6,212                 |
 | —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划）      | 24              | 5,077                 |
 | —— util / config / evolution / genesis / media / 其余     | 约 216          | 约 24,000             |
-| 单元测试 `tests/`                                         | 381 个 .test.ts | 全量 2,423 项断言用例 |
+| 单元测试 `tests/`                                         | 384 个 .test.ts | 全量 2,438 项断言用例 |
 
 > 子区域行数为上一轮 905 文件口径的存量值（本轮只重测了 `src/` 合计与文件数，未逐区域重跑）；
 > 「其余」一行按合计差额回填，故标「约」。所有数字均为本机可复核：文件数 =
@@ -49,7 +49,7 @@
 | 文档死链       | `npm run check:doc-links`              | ✅ 新增 0（存量基线冻结）                                               |
 | 原生估算奇偶   | `npm run native:build` + 单测          | ✅ Rust `context.estimate` 与 TS 记账**逐位一致**（0 skip）             |
 | 技能路由       | `npm run eval:skill-routing -- --gate` | ✅ 三关齐过：召回 92.3% / 噪声 1.50 条 / Δ +65.38pp CI95 [46.15, 84.62] |
-| 全量单测       | `npm test`                             | ✅ 2,423 项：2,419 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）     |
+| 全量单测       | `npm test`                             | ✅ 2,438 项：2,434 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）     |
 
 依赖政策：`dependency-allowlist.json`（D10：必要且更优即可引入；`src/ports/**` 与 `src/core/**` 恒第三方-free），允许/拒绝许可清单见该文件。
 
@@ -111,14 +111,58 @@
    （只把 ENOENT 当不存在）。判据：`tests/unit/patchApplierFuzzy.test.ts` 新增 3 例
    （`.bak` 生成 / 目标 EISDIR 时一个字节都不落盘 / 只读目标写失败时回滚 one.txt）。
 
-### 3.1 仍未修（本轮未触及，如实登记）
+### 3.1 §3.1 两项遗留项已清偿（2026-10-03 第三轮）
 
-- **写类工具后的全量重索引**：软失效把「没真改源码」的常见情形收掉了，但**真改了源码**（如
-  `write_file` 落盘一个 .ts）之后仍要全量重建一次（8.6s 量级）。增量重建（按文件增删更新
-  BM25 与符号表）是独立工程，未做。
-- **Ollama 多轮回传**：`LlamaCppModel.buildRequest` 只透传 `role` + `content`，assistant 的
-  `tool_calls` 与 `tool` 消息的 `tool_call_id`/`tool_name` **都不下发** ⇒ 原生多轮工具对话在
-  该适配器上不成立。修它需要真实后端样本（遵「无样本不改协议解析」），故未动。
+1. **✅ 已修：写类工具后的全量重索引 → 增量重建**（原登记：真改源码后仍全量重建 8.6s 量级）。
+   本机实测拆出三段成本（3227 文件 / 33.5 MB 语料）：遍历 **0.3s** + 读盘/分词/抽符号 **3.9s**
+   - BM25 建索引 **3.0s**（file 2.2s + symbol 0.8s）。据此三处各降一档：
+   * **解析规则单一实现**：新增 `context/corpusFileParser.ts`，全量路径（`indexCorpus`）与增量
+     路径共用它——两处若各写一套，增量与全量结果会**静默**漂移。
+   * **按内容哈希复用产物**：`context/corpusFileArtifact.ts` + `IndexOptions.artifactSink`；
+     产物表随语料缓存条目（LRU 驱逐即释放）。
+   * **BM25 就地替换**：`Bm25Index.setDocument(slot, tokens)`（+ `addDocument` / `slotCount`），
+     只重算变化文件的 df/postings/文档长度，槽位不变（`setDocument` 越界 fail-closed 抛错）。
+   * **签名复核与增量共用一次读盘**：`contentHashes()` 产出的逐文件字节哈希直接喂给增量重建器，
+     只对真的变了的文件再读一次（此前「先签名、后重建」是两次遍历）。
+   * **何时不增量（宁可慢不可错）**：文件集合/顺序变化、缺产物表、`light: false`（full 模式）、
+     文件不可读 ⇒ 返回 `null` 回落全量重建。
+
+   **实测（本仓，`npm run build` 后的 dist，TTL=0 强制复核）**：
+
+   | 场景                       | 修前           | 修后         |
+   | -------------------------- | -------------- | ------------ |
+   | 首次全量建索引             | 9.4s           | 9.4s（不变） |
+   | 无关写后取语料（内容未变） | 0.9s（软失效） | **0.9s**     |
+   | **改 1 个源文件后取语料**  | **9.4s**       | **0.96s**    |
+   | 再改 1 个源文件后取语料    | 9.4s           | **1.10s**    |
+
+   即「真改了源码」这一档 **9.4s → 0.96s（≈10×）**；剩余 ~0.9s 是内容签名复核（读+哈希
+   3227 个文件），它同时是变更判据与增量输入，不再是纯开销。
+   判据：`tests/unit/corpusIncremental.test.ts`（6 例，**与全量重建逐位对拍**：files/symbols/
+   fileText 逐字段相同 + 两套 BM25 在 5 条查询上命中 id 与分数逐位相同；覆盖「符号数不变」
+   「符号数变化」「内容未变须复用同一对象」「文件集合变化须回落」）+ `tests/unit/bm25Incremental.test.ts`
+   （4 例：替换后与全量重建的 id/分数/df/idf 逐位一致、越界抛错、空文档替换无残留）。
+
+2. **✅ 已修：Ollama 多轮回传**（原登记：`buildRequest` 只透传 `role` + `content`）。
+   **先查官方文档再动手**（`ollama/docs/api.md` 的「Generate a chat completion」message 字段表，
+   2026-10-03 取用）：message 支持 `tool_calls`（`[{function:{name,arguments}}]`，**arguments 是
+   对象**、条目**无 `id`**）与 `tool_name`（工具结果消息用）；**Ollama 没有 `tool_call_id`**
+   （原先登记的「tool_call_id/tool_name」有一半是错的，已按文档更正）。改动：
+
+   - assistant 消息回传 `tool_calls`（对象参数、不凭空加 `id`）；
+   - 工具结果消息带 `tool_name`，且由**同请求 assistant 的 id→名映射**精确取值——
+     不解析 id 字符串（本适配器合成的 id 形如 `name#2`，工具名本身含 `#` 时会解错）；
+     映射里查不到就**不发**该字段（缺字段好过假字段）；
+   - `images` 内联为**纯 base64**（剥 data URL 前缀）；`http(s)://` / `file://` 形式无法在不下载
+     的前提下内联，**不发假字段**并记 debug。
+     判据：`tests/unit/llamaCppToolRoundTrip.test.ts`（5 例，stub fetch **断言我们真正发出的请求体**：
+     含「名字本身带 `#`」的用例证明映射优于字符串解析）+ 既有 `llamaCppToolCalls.test.ts` 5 例。
+
+### 3.2 仍未修（如实登记）
+
+- **`CorpusIndexCache` 之上的 embedding 重建**：增量只覆盖 BM25 语料；`SemanticIndexCache`
+  在语料实例变化后仍需重建嵌入（`OMNI_SEMANTIC_RECALL=1` 才启用，默认关）。
+- **full 模式的增量**：频域谱 / 代码图 / LSA 与符号下标强耦合，增量只服务 light 档（生产档）。
 
 ## 4. 挂起项（有明确外部条件，非「不知道怎么做」）
 
