@@ -146,7 +146,7 @@ function renderMentionView(mention: MentionState | null, onPick: (p: string) => 
           aria-selected={i === mention.idx}
           className={'mention-item' + (i === mention.idx ? ' active' : '')}
           title={'@' + p}
-          onMouseDown={(e: MouseEvent) => {
+          onMouseDown={(e: React.MouseEvent) => {
             e.preventDefault();
             onPick(p);
           }}
@@ -324,7 +324,7 @@ export function Composer(props: ComposerProps): ReactElement {
    * @param e 剪贴板事件
    * @returns 无
    */
-  const onPaste = (e: ClipboardEvent): void => {
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>): void => {
     const items = e.clipboardData?.items;
     if (!items || items.length === 0) return;
     const files: File[] = [];
@@ -345,7 +345,7 @@ export function Composer(props: ComposerProps): ReactElement {
    * @param e 拖拽事件
    * @returns 无
    */
-  const onDrop = (e: DragEvent): void => {
+  const onDrop = (e: React.DragEvent): void => {
     e.preventDefault();
     const dt = e.dataTransfer;
     if (dt && dt.files && dt.files.length > 0) void addFiles(dt.files);
@@ -382,7 +382,7 @@ export function Composer(props: ComposerProps): ReactElement {
    * @param e 键盘事件
    * @returns 无
    */
-  const onKeyDown = (e: KeyboardEvent): void => {
+  const onKeyDown = (e: React.KeyboardEvent): void => {
     if (mention !== null && mention.items.length > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -415,7 +415,7 @@ export function Composer(props: ComposerProps): ReactElement {
       className="composer"
       role="region"
       aria-label="任务输入区"
-      onDragOver={(e: DragEvent) => e.preventDefault()}
+      onDragOver={(e: React.DragEvent) => e.preventDefault()}
       onDrop={onDrop}
     >
       {busy === true ? <WorkIndicator activeTool={activeTool ?? null} /> : null}

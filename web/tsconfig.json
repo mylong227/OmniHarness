@@ -20,7 +20,10 @@
     // JSX：零打包器下由 tsc 直接把 JSX 编译为 React.createElement（React 由 UMD 全局经 deps.js 注入）。
     "jsx": "react",
     "jsxFactory": "React.createElement",
-    "jsxFragmentFactory": "React.Fragment"
+    "jsxFragmentFactory": "React.Fragment",
+    // UMD 全局访问：web/src 是 ESM 模块，却引用全局 `React`（运行时由 vendor UMD 提供）。
+    // 官方 @types/react 以 `export as namespace React` 声明该全局，此开关允许在模块内引用它。
+    "allowUmdGlobalAccess": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

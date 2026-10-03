@@ -129,8 +129,8 @@ function renderCreateBar(
           className="fp-input"
           value={state.newName}
           placeholder="文件夹名称"
-          onInput={(e: Event) => hooks.onChange((e.target as HTMLInputElement).value)}
-          onKeyDown={(e: KeyboardEvent) => {
+          onInput={(e: React.SyntheticEvent) => hooks.onChange((e.target as HTMLInputElement).value)}
+          onKeyDown={(e: React.KeyboardEvent) => {
             if (e.key === 'Enter') hooks.onCreate();
           }}
         />
@@ -237,7 +237,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
 
   return (
     <div className="fp-overlay" onClick={onCancel}>
-      <div className="fp-modal" onClick={(e: MouseEvent) => e.stopPropagation()}>
+      <div className="fp-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div className="fp-head">
           <span className="fp-title">选择项目文件夹</span>
           <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>

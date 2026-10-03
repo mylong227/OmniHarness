@@ -72,7 +72,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
    * 点击正文中的文件链接：拦截跳转，改在右侧面板打开。
    * @param e 点击事件
    */
-  const onContentClick = (e: MouseEvent): void => {
+  const onContentClick = (e: React.MouseEvent): void => {
     const target = e.target as HTMLElement | null;
     if (!target || !onOpenFile) return;
     const anchor = target.closest('a[data-file-path]') as HTMLElement | null;
@@ -87,7 +87,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
    * 复制正文（失败静默，由 ClipboardCopier fail-closed 兜底）。
    * @param e 点击事件
    */
-  const onCopy = (e: MouseEvent): void => {
+  const onCopy = (e: React.MouseEvent): void => {
     e.stopPropagation();
     void ClipboardCopier.copy(full);
   };
@@ -103,7 +103,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
             className="msg-act"
             title="重新生成"
             aria-label="重新生成"
-            onClick={(e: MouseEvent) => {
+            onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
               onRegenerate();
             }}

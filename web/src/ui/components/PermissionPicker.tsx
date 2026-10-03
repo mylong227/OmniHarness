@@ -61,7 +61,7 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
    * 触发按钮：阻断冒泡后切换展开态。
    * @param e 点击事件
    */
-  const toggle = (e: MouseEvent): void => {
+  const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
     setOpen((prev) => !prev);
   };
@@ -70,7 +70,7 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
    * 菜单容器：阻断冒泡，避免点击菜单内部被误判为「外部点击」。
    * @param e 点击事件
    */
-  const stopBubble = (e: MouseEvent): void => {
+  const stopBubble = (e: React.MouseEvent): void => {
     e.stopPropagation();
   };
 

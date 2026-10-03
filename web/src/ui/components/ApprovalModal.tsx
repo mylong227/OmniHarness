@@ -57,7 +57,7 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
    * Tab 在三个按钮间循环（简单焦点圈定）。
    * @param e 键盘事件
    */
-  const onKeyDown = (e: KeyboardEvent): void => {
+  const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key !== 'Tab') return;
     e.preventDefault();
     const list = [alwaysRef.current, denyRef.current, allowRef.current];

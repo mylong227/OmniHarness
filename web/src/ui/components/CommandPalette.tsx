@@ -68,7 +68,7 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
    * @param e 键盘事件
    * @returns 无
    */
-  const onKeyDown = (e: KeyboardEvent): void => {
+  const onKeyDown = (e: React.KeyboardEvent): void => {
     const count = filtered.length;
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -90,7 +90,7 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
    * @param e 输入事件
    * @returns 无
    */
-  const onQueryInput = (e: Event): void => {
+  const onQueryInput = (e: React.SyntheticEvent): void => {
     setQuery((e.target as HTMLInputElement | null)?.value ?? '');
     setActive(0);
   };
@@ -105,7 +105,7 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
         role="dialog"
         aria-modal="true"
         aria-label="命令面板"
-        onMouseDown={(e: MouseEvent) => e.stopPropagation()}
+        onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
         <input

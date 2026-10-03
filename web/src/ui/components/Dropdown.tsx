@@ -51,7 +51,7 @@ export function Dropdown(props: DropdownProps): ReactElement {
    * 触发按钮：阻断冒泡后切换展开态（阻断后不会立刻被「外部点击」判定关掉）。
    * @param e 点击事件
    */
-  const toggle = (e: MouseEvent): void => {
+  const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
     setOpen((prev) => !prev);
   };
@@ -60,7 +60,7 @@ export function Dropdown(props: DropdownProps): ReactElement {
    * 菜单容器：阻断冒泡，避免点击菜单内部被误判为「外部点击」。
    * @param e 点击事件
    */
-  const stopBubble = (e: MouseEvent): void => {
+  const stopBubble = (e: React.MouseEvent): void => {
     e.stopPropagation();
   };
 

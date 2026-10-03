@@ -69,7 +69,7 @@ export function Resizer(props: ResizerProps): ReactElement {
    * 按下：记录拖拽起点与起始宽度，并改光标为列宽调整态。
    * @param e 鼠标按下事件
    */
-  const onMouseDown = (e: MouseEvent): void => {
+  const onMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault();
     draggingRef.current = true;
     startXRef.current = e.clientX;

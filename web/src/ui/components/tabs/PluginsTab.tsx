@@ -162,7 +162,7 @@ export function PluginsTab(): ReactElement {
    * 搜索输入：更新受控值并重排防抖任务。
    * @param e 输入事件
    */
-  const onQueryInput = (e: Event): void => {
+  const onQueryInput = (e: React.SyntheticEvent): void => {
     const v = (e.target as HTMLInputElement).value;
     setQuery(v);
     scheduleLoad(v);

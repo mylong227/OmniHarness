@@ -126,7 +126,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   }, [open, api, threadId]);
 
   /** 触发按钮：阻断冒泡后切换展开态（阻断后不会被刚挂的外部点击监听立即关掉）。 */
-  const toggle = (e: MouseEvent): void => {
+  const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
     setOpen((prev) => !prev);
   };
@@ -254,13 +254,13 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     >
       <span className="addmenu-ico">＋</span>
       {open ? (
-        <div className="addmenu-pop" onClick={(e: MouseEvent) => e.stopPropagation()}>
+        <div className="addmenu-pop" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <div className="addmenu-search">
             <input
               className="addmenu-input"
               placeholder="搜索文件或聊天…"
               value={query}
-              onChange={(e: Event) => onQuery((e.target as HTMLInputElement).value)}
+              onChange={(e: React.SyntheticEvent) => onQuery((e.target as HTMLInputElement).value)}
             />
           </div>
           <div className="addmenu-scroll">

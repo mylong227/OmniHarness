@@ -35,7 +35,8 @@
 - Rust 侧 6 个 crate：`omni-cli` / `omni-core` / `omni-napi` / `omni-sdk` / `omni-sdk-gen` / `omni-wasm`（39 个 .rs 文件）。
 - Web 工作台 `web/src`：111 个 TS/TSX 文件（**官方 React 18.3.1 UMD**，由 `index.html` 以 `<script>` 直载
   `web/vendor/react.production.min.js`(10.5KB) + `react-dom.production.min.js`(128.7KB)，**零打包器**
-  （`web/tsconfig.json` 直接 `tsc` 到 ESM）；手写的只是**类型声明** `web/src/types/react-shim.d.ts`。）
+  （`web/tsconfig.json` 直接 `tsc` 到 ESM）；类型层已于**第九轮（G11/W1）**换成官方 `@types/react`
+  ——此前那份手写 React 垫片已删除，只留一份**只做转引**的 `web/src/types/reactGlobals.d.ts`。）
   ⚠️ 口径订正（2026-10-03 第五轮）：此前多处写成"自绘 React 垫片/无第三方运行时框架"，**与事实不符**，已订正。
 - ~~评测/基准设施：`evals/` 86 个文件（评测脚本 + 落盘报告）、`benchmark/`、SWE-bench 运行器（`python/` + `eval-data/`）。~~
   **2026-10-03 已整体移除**（指令：「跑分不做了、都删掉，只要核心功能与项目完整」）：`benchmark/`、

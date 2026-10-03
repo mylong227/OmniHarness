@@ -202,7 +202,7 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
           placeholder="检查点名称（留空自动生成）"
           aria-label="检查点名称"
           value={label}
-          onInput={(e: Event) => setLabel((e.target as HTMLInputElement).value)}
+          onInput={(e: React.SyntheticEvent) => setLabel((e.target as HTMLInputElement).value)}
         />
         <button className="btn primary" disabled={busy} onClick={() => void create()}>
           ⎘ 创建检查点
