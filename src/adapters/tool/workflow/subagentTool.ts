@@ -66,12 +66,16 @@ export class SubagentTool {
     return { callId: call.id, ok: true, output: this.render(result) };
   }
 
-  /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。
+  /**
+   * 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。
    *
    * **必须显式标注「未完成」**（2026-09-26 审计 F10）：子代理被步数截断 / 失控熔断时，
    * 它依然带着一段兜底摘要返回；若不标注，父级会把「跑满预算」读成「已完成」，据此继续往下做。
+   *
+   * **必须显式标注「改动落在隔离工作树里」**（2026-10-03 第六轮修看板 §8.1）：子代理的写入
+   * 不会进主工作区，原先连"改过什么"都不回传 ⇒ 父级会把"子代理说改好了"读成"已经改好了"。
    * @param result 子智能体运行结果。
-   * @returns 首行元信息（会话 ID/步数/耗时 + 未完成标注）+ 输出文本。
+   * @returns 首行元信息（会话 ID/步数/耗时 + 未完成标注 + 改动去向）+ 输出文本。
    */
   private render(result: SubagentResult): string {
     const status =
@@ -81,7 +85,39 @@ export class SubagentTool {
           ? ' ⚠️ 未完成：被失控熔断/取消'
           : '';
     const head = `[子智能体 ${result.sessionId}] ${result.steps} 步 / ${result.durationMs}ms${status}`;
-    return `${head}\n${result.output}`;
+    const writes = this.renderWrites(result);
+    return writes === '' ? `${head}\n${result.output}` : `${head}\n${writes}\n${result.output}`;
+  }
+
+  /**
+   * 渲染"子代理改动的去向"（无改动时返回空串）。
+   * @param result 子智能体运行结果。
+   * @returns 改动提示块（可能多行）。
+   */
+  private renderWrites(result: SubagentResult): string {
+    if (result.writesForbidden === true) {
+      return (
+        'ℹ️ 本次子代理在**无 git 隔离**档（copy 降级）下运行，**写类工具已被禁用**：' +
+        '它无法修改代码，若结论里出现"已修改"请视为不可信，改由主会话执行。'
+      );
+    }
+    if (result.writesUnrecoverable === true) {
+      return (
+        '⚠️ 本次子代理**改动了文件但改动不可取回**（采集失败）。主工作区未被改动；' +
+        '若结论里声称已修改代码，请勿当作已生效——改由主会话重做或重新派发。'
+      );
+    }
+    const files = result.changedFiles ?? [];
+    if (files.length === 0) {
+      return '';
+    }
+    const truncation = result.patchTruncated === true ? '（patch 已截断，清单完整）' : '';
+    const path = result.patchPath ?? '(未落盘)';
+    return (
+      `⚠️ 子代理在**隔离工作树**里改动了 ${String(files.length)} 个文件${truncation}，` +
+      `**主工作区尚未改动**；patch 在 \`${path}\`，采纳请执行 \`git apply ${path}\`（或改由主会话重做）。\n` +
+      `改动文件：${files.slice(0, 20).join('、')}${files.length > 20 ? ` …（共 ${String(files.length)} 个）` : ''}`
+    );
   }
 
   /** 提取可选的工具白名单。

@@ -1,9 +1,9 @@
-﻿import { execFile } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { log } from '../util/logger.js';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { cpSync, mkdirSync, promises as fsp } from 'node:fs';
+import { cpSync, mkdirSync, promises as fsp, writeFileSync } from 'node:fs';
 
 /**
  * WorktreeOps 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -164,6 +164,80 @@ export class WorktreeOps {
       await worktree.cleanup();
     }
   }
+
+  /**
+   * 采集隔离工作树里的**改动**为 unified patch（2026-10-03 第六轮修看板 §8.1）。
+   *
+   * 存在理由：子代理的写入落在隔离工作树里，而 `cleanup()` 是 `git worktree remove --force`
+   * **+ `git branch -D`** ⇒ 改动**静默消失**（父代理仍收到 `ok:true`）。本方法在清理**之前**把改动
+   * 取出来，交给编排层落盘成可 `git apply` 的工件。
+   *
+   * 口径：
+   *  - 先 `git add -A`——否则**未跟踪文件**（子代理最常产出的形态：新建文件）不会进 diff；
+   *  - patch 用 `git diff --cached --binary HEAD`（二进制也标记得出）；
+   *  - 超过 {@link PATCH_MAX_BYTES} 时只保留前一段并置 `truncated`（**不抛错**：采集是增强，
+   *    不得因为一次大改动让子代理结果变成失败）。
+   * @param wtPath 隔离工作树路径。
+   * @returns 改动文件列表 + patch（无改动时两者皆空）。
+   */
+  public static async collectChanges(wtPath: string): Promise<WorktreeChanges> {
+    await execFileAsync('git', ['add', '-A'], { cwd: wtPath, timeout: GIT_TIMEOUT_MS });
+    const status = await execFileAsync('git', ['status', '--porcelain'], {
+      cwd: wtPath,
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: STATUS_MAX_BYTES,
+    });
+    const files = status.stdout
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .filter((line) => line.length > 3)
+      .map((line) => line.slice(3).trim());
+    if (files.length === 0) {
+      return { files: [], patch: '', truncated: false };
+    }
+    try {
+      const diff = await execFileAsync('git', ['diff', '--cached', '--binary', 'HEAD'], {
+        cwd: wtPath,
+        timeout: GIT_TIMEOUT_MS,
+        maxBuffer: PATCH_MAX_BYTES * 2,
+      });
+      if (diff.stdout.length > PATCH_MAX_BYTES) {
+        return { files, patch: diff.stdout.slice(0, PATCH_MAX_BYTES), truncated: true };
+      }
+      return { files, patch: diff.stdout, truncated: false };
+    } catch {
+      // 超大 / 超时 / git 异常：保留文件清单（这部分便宜且足够让调用方知道"有改动"），patch 标为截断。
+      return { files, patch: '', truncated: true };
+    }
+  }
+
+  /**
+   * 把改动 patch 落到工作区内的运行目录（gitignored），返回**工作区相对路径**供 `git apply`。
+   * @param workspaceRoot 工作区根（绝对路径）。
+   * @param sessionId 子会话 ID（文件名）。
+   * @param changes 采集到的改动。
+   * @returns 落盘信息（相对路径在 POSIX 分隔口径下）。
+   */
+  public static async persistChanges(
+    workspaceRoot: string,
+    sessionId: string,
+    changes: WorktreeChanges,
+  ): Promise<{ readonly relativePath: string; readonly bytes: number }> {
+    const dir = join(workspaceRoot, SUBAGENT_PATCH_DIR);
+    mkdirSync(dir, { recursive: true });
+    const name = `${WorktreeOps.sanitizeName(sessionId)}.patch`;
+    const abs = join(dir, name);
+    const body =
+      `${changes.patch}\n` +
+      (changes.truncated
+        ? '# [omni] patch 因超过上限被截断（上方为前一段），完整改动请查子会话轨迹\n'
+        : '');
+    writeFileSync(abs, body, 'utf8');
+    return {
+      relativePath: `${SUBAGENT_PATCH_DIR}/${name}`,
+      bytes: Buffer.byteLength(body, 'utf8'),
+    };
+  }
 }
 
 const execFileAsync = promisify(execFile);
@@ -192,6 +266,28 @@ export interface Worktree {
   readonly isolated: 'worktree' | 'copy';
   /** 释放隔离资源（worktree 模式移除 worktree；copy 模式删除目录）。 */
   cleanup(): Promise<void>;
+}
+
+/** 子代理改动 patch 的落盘目录（工作区内、已被 `.gitignore` 的 `.omniharness/`）。 */
+const SUBAGENT_PATCH_DIR = '.omniharness/subagent-patches';
+
+/** 单个 patch 的字节上限（超过即截断并标注；4 MiB 远大于正常代码改动）。 */
+const PATCH_MAX_BYTES = 4 * 1024 * 1024;
+
+/** `git status --porcelain` 的输出上限（仅文件清单，1 MiB 足够）。 */
+const STATUS_MAX_BYTES = 1024 * 1024;
+
+/**
+ * @beta
+ * 隔离工作树里的改动快照（回并 / 审计用）。
+ */
+export interface WorktreeChanges {
+  /** 改动的相对路径（含未跟踪文件）。 */
+  readonly files: readonly string[];
+  /** 相对 HEAD 的 unified diff（含未跟踪文件；二进制带 `--binary` 标记）。 */
+  readonly patch: string;
+  /** patch 是否因超过上限被截断（`files` 仍然完整）。 */
+  readonly truncated: boolean;
 }
 
 /** 子智能体隔离工作树根目录名。 */
