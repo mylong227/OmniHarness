@@ -235,7 +235,6 @@ export class CorpusIncrementalUpdater {
       symbolSpectra: previous.symbolSpectra,
       fileText: new Map(fileText),
       codeGraph: previous.codeGraph,
-      lsaModel: previous.lsaModel,
       // 文件集未变 ⇒ 截断与超大文件计数按上次沿用（集合或大小真变时 `sameFileSet` 已判否）。
       truncated: previous.truncated,
       skippedLargeFiles: previous.skippedLargeFiles,

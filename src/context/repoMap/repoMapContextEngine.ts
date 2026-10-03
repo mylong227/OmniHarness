@@ -62,6 +62,7 @@ import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.js';
 import { Bm25Index } from '../../search/bm25Index.js';
 import type { RecallItem } from '../semanticIndex.js';
 import { CodeReferenceGraph } from '../codeReferenceGraph.js';
+import { ExperimentalPaths } from '../experimentalPaths.js';
 import type { EmbeddingPort } from '../../ports/model/embedding.js';
 import { RecallKnobs, type RepoMapContextOptions } from '../recallKnobs.js';
 import { CorpusIndexCache } from '../corpusIndexCache.js';
@@ -216,6 +217,16 @@ export class RepoMapContextEngine {
       plan: RepoMapContextEngine.payloadPlanOf(opts.payloadShape),
     };
     const key = RepoMapContextEngine.memoKey(root, q, knobs);
+    // G19（2026-10-03）：有人开启**实验档**检索路径时如实告警（哪一条 + 本仓实测结论）。
+    // 不是禁止开启，而是不让"已被自己证伪的路径"被静默当成生产能力——本仓最贵的教训是
+    // "叙事跑在验证前面"。清单与证据见 `src/context/experimentalPaths.ts`（有判据兜底）。
+    if (knobs.layered || opts.graphSignal === true) {
+      const enabled: string[] = [];
+      if (knobs.layered || opts.graphSignal === true) enabled.push('graph-family');
+      for (const line of ExperimentalPaths.warningsFor(enabled)) {
+        log.warn(line, { event: 'experimental_retrieval_path', query: q });
+      }
+    }
     const memoized = this.memo.lookup(key, corpus);
     if (memoized.hit) {
       return memoized.text;
@@ -265,7 +276,6 @@ export class RepoMapContextEngine {
       // 本处原传的 `BM25_ONLY_CANDIDATES`(=20) 与 `query` 内部固定候选上限（文件 20 / 符号 60）一致，故删除不改变行为。
       const res = ContextEngine.query(corpus, q, {
         graph: false,
-        lsa: false,
         layered: knobs.layered,
         fileK: knobs.fileK,
         symK: knobs.symK,

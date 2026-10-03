@@ -53,6 +53,12 @@
 >
 > **第十六轮（P1）｜G27 ✅（P1 收口）**：**门禁分层**——`runGates.mjs` 每条门禁声明 `tier` 并支持
 > `--tier=fast|typed|all`（pre-commit 仍只跑快层）；新增 `eslint.typed.config.mjs`（`parserOptions.project`）启用三条
+>
+> **第十七轮（P3）｜G19 ✅**：**检索栈收敛（减法第一项）**——LSA 潜语义路**整体删除**（326 行引擎 + 单测 +
+> `lsa` 选项/`lsaModel` 字段/`EMPTY_LSA`/`SeedFusion` 第三路），G1 基线护航对照：**plain 56.3%→56.3% 逐位不变**，
+> rerank 50.0%→53.1%（上升来自语料变小，不声称算法提升）；其余实验档登记 `experimentalPaths.ts`（含**实测证据**与删除边界，
+> 开启即告警）。⚠️ 边界评估纠正两处误判：三条图路共用 stage ⇒ 合并为一个家族边界；`eigenspectrum.ts` 有 9 个非检索消费者 ⇒ 不可随路删。
+> 判据 6 例 **含仪器自证与正对照**（首版因键格式不匹配而**真空通过**，靠变异测试发现）。
 > **必须类型**且存量零的规则（悬空 Promise / 非 Promise await / Promise 用错位置）；新增 `gateBudget.mjs` **实测断言**预算
 > （`eslint .` 26.2s、类型层墙钟 32.2s）。⚠️ 口径变更："两项之和"对负载过敏 ⇒ 改按**并发墙钟**断言，已同步 `docs/CODE_STANDARD.md` §7.1。
 > 归一化收成 `McpContentBlocks` 一处（两条客户端路径共用，防漂移）。判据 5 例走**真 SDK 适配器 + 真 stdio 子进程**，

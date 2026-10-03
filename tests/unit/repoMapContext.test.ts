@@ -68,7 +68,6 @@ test('buildChunkItems：按符号切函数体窗口，chunk 数=符号数、id �
     fileIndex: {},
     symbolSpectra: [],
     codeGraph: {},
-    lsaModel: {},
     fileText: new Map<string, string>([
       [
         'a.ts',

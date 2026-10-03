@@ -476,7 +476,7 @@ export class Bm25Index {
     };
 
     // Unicode 口径与 `tokenize` 对齐（2026-10-03 修）：`expandedTokens` 是**查询侧**
-    // （candidateSearch / grepTopKFiles / lsaEngine.query）与**符号文档侧**
+    // （candidateSearch / grepTopKFiles）与**符号文档侧**
     // （tokenizeExpandedCounted）的共用实现——此前仍用 pre-R9 的 ASCII/汉字区间，
     // 假名/谚文/带音标拉丁词在这里产零 token 或碎片 ⇒ 日韩查询在 morph 默认开的生产
     // 检索路径完全不可检索（R9 只修了 `tokenize`，漏了这条更热的路径）。

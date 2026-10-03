@@ -41,7 +41,6 @@ function makeCorpus(): IndexedCorpus {
     symbolSpectra: [],
     fileText,
     codeGraph: { n: 0, adj: [] },
-    lsaModel: {},
   } as unknown as IndexedCorpus;
 }
 
