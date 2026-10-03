@@ -1,7 +1,7 @@
 # OmniHarness —— 代理/会话须知
 
 本文件由仓库的 projectInstructions 加载器自动读取并注入上下文（`AGENTS.md` 优先于 `CLAUDE.md`）。
-只写「不写就会重复踩坑」的事，不复制进度（进度以 `docs/TASK_BOARD.md` 为准）。
+只写「不写就会重复踩坑」的事，不复制进度（进度以 `docs/PROJECT_BOARD.md` 为准）。
 
 ## 推送目标：只有一个，且已固定
 
