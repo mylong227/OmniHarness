@@ -2,7 +2,7 @@
  * `reasoning` 配置键的接线回归测试（针对第十处「声明未接线」）。
  *
  * 缺陷形态：`reasoning` 在 `FileConfig` / `ENUM_VALUES` / `ENV_ALIASES` 三处都被接受
- * （`docs/archive/ARCHITECTURE_SPEC.md` 亦承诺它「直达模型请求」），**服务端**路径也已透传
+ * （`docs/ARCHITECTURE_SPEC.md` 亦承诺它「直达模型请求」），**服务端**路径也已透传
  * （`appServerBase` 切工作区时 `file.reasoning ?? cfg.reasoning`），但 **CLI 路径**缺少
  * 「配置文件 → CliArgs → partial」两跳 ⇒ `omniharness.json` 的 `reasoning` 与
  * `OMNIHARNESS_REASONING` 在 CLI 上被静默丢弃。由接线完整性门禁的 I5a 不变量实测抓出。

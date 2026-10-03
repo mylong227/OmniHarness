@@ -1,7 +1,7 @@
 # 域垂直切片模板（P8.1 · 新域 30 分钟起）
 
 > 目的：新增一个业务域时，按本模板走完 7 步即可获得「端口-适配器-装配-测试-文档-门禁」全件，
-> 不需要现场发明结构。本模板是 `docs/archive/ARCHITECTURE_SPEC.md` §2.1 归属表的配套操作手册。
+> 不需要现场发明结构。本模板是 `docs/ARCHITECTURE_SPEC.md` §2 归属表的配套操作手册。
 
 ## 切片清单（按序执行，每步有验收）
 
@@ -11,7 +11,7 @@
 | 2   | **写实现**：`src/adapters/<域>/<实现名>.ts`，一文件一类，构造注入依赖                             | 适配器   | 公开成员 JSDoc 齐；`audit:standard:delta` 0 新增违规                                |
 | 3   | **登记装配**：`src/config/` 对应装配函数（如 `memoryStackAssembler`）接入，或新建 `<域>Assembler` | 装配切片 | 唯一 `new` 点在组合根；切片返回值只含 `ResolvedConfig` 字段（防 spread 混入内部件） |
 | 4   | **写测试**：`tests/unit/<域>.test.ts` 用内存/临时目录适配器直测端口契约                           | 契约测试 | `node --test` 绿；不依赖网络/真实凭据                                               |
-| 5   | **登记文档**：`docs/archive/ARCHITECTURE_SPEC.md` §2.1 归属表加一行（目录/层/职责/允许依赖）      | 文档行   | 表与磁盘目录一致                                                                    |
+| 5   | **登记文档**：`docs/ARCHITECTURE_SPEC.md` §2 归属表加一行（目录/层/职责/允许依赖）                | 文档行   | 表与磁盘目录一致                                                                    |
 | 6   | **门禁接线**：若引入新机制引擎 → 文件头 `@maturity` 声明 + 证据；若新增目录 → 目录 `.ts` ≤ 30     | 门禁通过 | `check --strict` / `audit:maturity` / `arch:gate` 全绿                              |
 | 7   | **独立提交**：`feat(<域>): <一句话>`，一次切片一个 commit                                         | 提交     | pre-commit 四闸门自动全绿                                                           |
 

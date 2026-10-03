@@ -25,7 +25,7 @@
 | `AGENT_LOOP_AUDIT_AND_UPGRADE_PLAN_2026-09-09.md` | Agent Loop 审计与升级计划（2026-09-09）                                         |
 | `AGENT_LOOP_V2_REDESIGN.md`                       | Agent Loop V2 重构蓝图（2026-09-09）✅ 已落地                                   |
 | `ARCHITECTURE_AND_GAP_2026-09-13.md`              | OmniHarness 整体架构与同类差距全景报告（2026-09-13）                            |
-| `ARCHITECTURE_SPEC.md`                            | OmniHarness 工程项目架构说明书                                                  |
+| `ARCHITECTURE_SPEC_2026-09.md`                    | OmniHarness 工程项目架构说明书                                                  |
 | `BREAKTHROUGH_SCOUTING_2026-09-05.md`             | 突破侦察报告：代码混合检索天花板（67%→≥80%）                                    |
 | `CODE_STANDARD_REFACTOR_PLAN.md`                  | 全库代码规范重构计划                                                            |
 | `COMPLETION_PLAN.md`                              | OmniHarness 调研差距清单与补全计划（2026-09-01）                                |

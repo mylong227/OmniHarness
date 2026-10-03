@@ -37,6 +37,8 @@ const ROOT_ALLOWLIST: readonly string[] = [
   // SSOT 与当前依据
   'PROJECT_BOARD.md',
   'ARCHITECTURE_UPGRADE_2026-10.md',
+  // G20-b（2026-10-03）：架构说明书按现状**重写**并回到根级 —— 这是显式决定，故白名单加一行。
+  'ARCHITECTURE_SPEC.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',
@@ -169,7 +171,7 @@ test('⑤ 现行文档不得以旧路径引用归档物（引用归档必须带 
 });
 
 test('⑥ 归档横幅内容可复核：含归档日期与现行 SSOT 指向', () => {
-  const sample = readFileSync(join(ARCHIVE, 'ARCHITECTURE_SPEC.md'), 'utf8');
+  const sample = readFileSync(join(ARCHIVE, 'ARCHITECTURE_SPEC_2026-09.md'), 'utf8');
   assert.match(sample, /已归档（\d{4}-\d{2}-\d{2}/, '横幅必须写明归档日期');
   assert.match(sample, /PROJECT_BOARD\.md/, '横幅必须指向现行唯一事实源');
   assert.match(sample, /不再代表现状/, '横幅必须明确"数字不再代表现状"');

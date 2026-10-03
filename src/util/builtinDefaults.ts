@@ -39,7 +39,7 @@ const MAX_UPWARD_LEVELS = 4;
  * 消费方横跨两层：`security/ssrfPolicy.ts`（安全域，架构文档规定其依赖为「无」）与
  * `config/providerPresets.ts`（装配层）。若把加载器放进 `config/`，就会长出
  * `security → config` 的**反向依赖**（域原语依赖装配层）。放在 `util/` 则两条边都指向公共层，
- * 与 `ARCHITECTURE_SPEC.md` §2.1 的目录归属表一致。本模块只依赖 node 内置，无业务语义。
+ * 与 `ARCHITECTURE_SPEC.md` §2 的目录归属表一致。本模块只依赖 node 内置，无业务语义。
  */
 
 /** 内建数据加载器：把 `defaults/*.json` 读成进程内可复用的只读数据（详见类上方说明）。 */

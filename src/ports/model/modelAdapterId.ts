@@ -3,7 +3,7 @@
  *
  * 本文件是纯常量 + 纯类型（无 class、无第三方、无逻辑）。放端口层是因为消费方横跨
  * cli / config / daemon / adapters，而 `daemon/**` 的允许依赖只有 `ports/**`
- * （见 `ARCHITECTURE_SPEC.md` §2.1）⇒ 只有端口层能被所有消费方合法引用。
+ * （见 `ARCHITECTURE_SPEC.md` §2）⇒ 只有端口层能被所有消费方合法引用。
  */
 
 export { MODEL_ADAPTER_IDS } from './modelAdapterId/modelAdapterIds.js';

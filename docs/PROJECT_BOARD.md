@@ -74,6 +74,10 @@
 >
 > **第二十三轮（补登记项）｜G21-b ✅**：工具暴露探针接入**真实 schema**（`ConfigFactory.build()` 离线生产装配）——
 > off 全下发 **5,250 token**（33 个默认注册工具）、plan 命中类别时 **953–1,677 token**（省 **68.1%–81.8%**）、
+>
+> **第二十四轮（补登记项）｜G20-b ✅**：`docs/ARCHITECTURE_SPEC.md` **按现状重写**（旧版自述"311 TS 文件/31500 行"已归档）——
+> 规模数字带**日期 + 口径**；**结构声明逐条与代码交叉核对**（运行时依赖 / 端口 28 目录 / ADR 列表 / 门禁 6 条规则标签 / 两层归属），
+> 判据 8 例、**4 处变异全红**；并在 `docs/README.md` 与 `llms.txt` 登记。
 > 未命中类别时 **0%**（fail-safe 全放行，刻意保留）。判据新增第 ⑦ 例：schema 必须取自真实注册表、
 > 节省量自洽、且 fail-safe 那条不能被"优化"掉；变异"换假 schema" ⇒ ⑦ 红。
 > 开 80%/100%、ΔCI **[50,100]pp**、折负 **0/40**、**随机对照 37.5%** ⇒ 有区分力。判据 6 例可执行；⚠️ 明确声明**不是** LLM 任务增益。
@@ -418,7 +422,7 @@ npm run rust:test      # cargo test --workspace
 1. `package.json`：删除全部 `eval:*` / `metrics:*` / `bench*` 脚本（**注意**：2026-10-02 的
    `ef2ac0f` 删了 `eval:*` 却漏改 CI，导致 CI job 三步 `Missing script` 恒红——本轮**同步**删了
    `.github/workflows/ci.yml` 的 `eval` job，避免重犯）。
-2. 活跃文档改写：`README.md`（§2.4 基线段）、`docs/archive/ARCHITECTURE_SPEC.md`（§8 尚缺 + §9 整体重写为
+2. 活跃文档改写：`README.md`（§2.4 基线段）、`docs/ARCHITECTURE_SPEC.md`（§8 尚缺 + §9 整体重写为
    「已移除」清单）、`docs/archive/compliance.md` 第 36 行（标注降幅数字无复跑判据）、
    `docs/archive/MIGRATION_MAP_2026-09.md`、`docs/archive/library/10-math-information-and-optimization.md`
    （保留实测结论，标注脚本已移除）。

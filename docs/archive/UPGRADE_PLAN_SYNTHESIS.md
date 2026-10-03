@@ -172,7 +172,7 @@
 - 本方案：`docs/archive/UPGRADE_PLAN_SYNTHESIS.md`
 - UCE 框架：`docs/archive/UNITY_FRAMEWORK_UCE.md`
 - 调研总文档：`docs/archive/LANDSCAPE_RESEARCH_2026.md`
-- 架构说明书：`docs/archive/ARCHITECTURE_SPEC.md`
+- 架构说明书：`docs/archive/ARCHITECTURE_SPEC_2026-09.md`
 - 精度看板：已删除（HTML 渲染物与 md 内容重复，2026-09-13 文档整理；指标以 `evals/context-efficiency/RESULTS.json` 为准）
 - 已落地代码：`src/context/repoMap/repoMap.ts`、`src/context/contextEngine.ts`
 - 可复现基准：`evals/context-efficiency/bench.mjs` + `RESULTS.json`（复跑：`npx tsc <三文件> --outDir .xeval ... && node bench.mjs src`）
