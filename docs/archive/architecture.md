@@ -1,5 +1,9 @@
 # OmniHarness 架构文档
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 融合 OpenAI Codex Harness 与 DeepSeek Harness 优点的全能 Agent Harness。
 本架构遵循六条设计军规：**一个功能一个类、一个函数一个职责、无大函数、标准代码、核心零依赖、append-only 事件日志**。
 

@@ -1,5 +1,9 @@
 # 同类优秀产品的代码检索技术路线与参考价值
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 背景：OmniHarness 本地离线混合检索卡在 **minilm + 浓缩身份文档(id) = 62.3%**（BM25 43.3%），KPI「67%→≥80%」未达成。
 > 用户问：同类优秀产品怎么解决的？技术路线是什么？有没有参考价值？
 > 调研日期：2026-09-05。信息来自各产品官方文档 / 技术博客 / HN / 架构拆解文（见末「来源」）。
@@ -138,4 +142,4 @@
 - Continue.dev 开源检索管线（本地 MiniLM + 可定制）
 - neura.market「Code indexing for AI agents」—— 通用范式总结与 Voyage/UniXcoder 基准
 
-> 关联文档：`docs/BREAKTHROUGH_SCOUTING_2026-09-05.md` §7（极限瓶颈与跨学科突破框架）—— 本文 P5 图信号即该节「图论/范畴论 + 化学分子指纹」假设的**同行实证**。
+> 关联文档：`docs/archive/BREAKTHROUGH_SCOUTING_2026-09-05.md` §7（极限瓶颈与跨学科突破框架）—— 本文 P5 图信号即该节「图论/范畴论 + 化学分子指纹」假设的**同行实证**。

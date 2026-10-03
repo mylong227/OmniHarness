@@ -1,5 +1,9 @@
 # src/ 顶层函数 → 类收敛清单
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 盘点日期：2026-09-10 ｜ 实测：`grep -rn "^export function|^function" src --include="*.ts"` = **358 处**（对比 class 232 处）
 > 目的：为「全部代码按 .ts 标准面向对象实现」提供分级收敛清单。本轮 UI 改造先行，后端按本清单分模块推进。
 

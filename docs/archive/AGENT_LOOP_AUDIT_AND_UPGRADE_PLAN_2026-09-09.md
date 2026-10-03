@@ -1,5 +1,9 @@
 # Agent Loop 审计与升级计划（2026-09-09）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 范围：`src/core`（agent/turnRunner/stepRunner/toolGate）+ `src/context`（assembler/compactor/spiller）主循环质量审计。
 > 方法：双代理并行对标 `D:\deepseek\.recycle-bin\.ref-backup\` 下的 codex（Rust）与 deepseek-harness（TS）→ 逐条亲自 Read 源码复核（剔除误报、钉死证据）。
 > 结论一句话：**能力面（S21–S36）已对齐开源第一梯队，但循环的「运行时质量」三处 P0 落后——压缩瞬态重算、零取消零超时、回合级持久化。修这三处的收益大于再抄任何新功能。**

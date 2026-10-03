@@ -185,8 +185,8 @@ import（如把桩数据 `const bm25 = [{id:'b'}]` 当覆盖）的，列为「�
 - 凡以 `joules` / 能量命名的估算值，必须标注「经验系数估算的代理值，非实测物理量」。
 - 引用外部数字（尤其厂商自报）须标注来源与「自报，未独立复现」。
 
-理论与分级依据：`docs/library/README.md` §4（全局映射总表）；升级主线：
-`docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` T0。
+理论与分级依据：`docs/archive/library/README.md` §4（全局映射总表）；升级主线：
+`docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` T0。
 
 ## 9. 门禁强制（always-on）
 

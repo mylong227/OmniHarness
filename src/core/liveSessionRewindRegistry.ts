@@ -20,7 +20,7 @@ import { log } from '../util/logger.js';
  * `unregister` 只在**登记项身份一致**时删除：并发回合若复用同一 sessionId（不该发生，但防御），
  * 先结束的回合不得把后启动回合的登记删掉（那会让后来者的回滚静默失效）。
  *
- * 已登记于 `docs/SINGLETON_REGISTRY.md`。
+ * 已登记于 `docs/archive/SINGLETON_REGISTRY.md`。
  */
 export class LiveSessionRewindRegistry implements LiveSessionRewindPort {
   /** 进程级唯一登记表（懒构造）。 */

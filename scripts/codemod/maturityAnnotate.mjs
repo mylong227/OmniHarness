@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 隐喻引擎成熟度标注器（codemod，幂等）。
 //
-// 背景（T0 · 成熟度治理，见 docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md）：
+// 背景（T0 · 成熟度治理，见 docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md）：
 //   本仓库有 20+ 个以物理/生物/化学命名的引擎（退火、免疫、涡环、QEC、结晶、对称破缺…）。
 //   命名不等于机制。治理的第一步是**把等级写进代码**，让「声称」可被机械校验。
 //
@@ -9,7 +9,7 @@
 //   @maturity L0|L1|L2|L3 — <一句话判据>
 //   @maturityEvidence <测试文件路径>      // L2/L3 必填，且文件必须存在
 //
-// 等级定义（docs/library/README.md 铁律二）：
+// 等级定义（docs/archive/library/README.md 铁律二）：
 //   L0 命名级    只有名字像，算法是普通启发式；换名不影响行为
 //   L1 结构同构  数据结构/组合律与理论对象同构，可等式推理
 //   L2 动力学同构 演化规则与理论方程同构（同一差分/微分形式）
@@ -30,7 +30,7 @@ const APPLY = process.argv.includes('--apply');
 
 /**
  * 成熟度登记册：文件路径 → [等级, 判据, 证据测试]。
- * 等级来自 docs/library/README.md §4 全局映射总表的实测结论，不是目标值。
+ * 等级来自 docs/archive/library/README.md §4 全局映射总表的实测结论，不是目标值。
  */
 const REGISTRY = [
   [

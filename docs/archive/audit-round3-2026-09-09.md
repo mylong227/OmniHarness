@@ -1,5 +1,9 @@
 # OmniHarness 第三轮盘点——两轮 UI 对齐后的剩余升级空间
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 日期：2026-09-09 23:20 ｜ 方法：技能 `codebase-maturity-audit`（双代理扫描因限流 429 未成行 → 主代理按铁律逐项亲自 grep/Read 钉深度）
 > 诚实边界：`src/core/stepRunner.ts`、`src/core/turnRunner.ts`、`src/adapters/live/**`、`src/ports/toolInputSink.ts` 正被 Agent Loop V2 会话并发重写（23:19 仍有写入），**本报告不对热区下结论**。所有数字均实测。
 

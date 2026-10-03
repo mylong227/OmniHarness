@@ -1,5 +1,9 @@
 # 上游源码级差距审计（vs `D:\deepseek\codex` / `D:\deepseek\deepseek-harness`）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > **本篇与 `GAP_ANALYSIS_AND_PLAN.md` 的关系**：既有那篇基于 **2026-08 公开资料**（README/特性页）做能力对标；本篇基于 **本机真实源码树**逐目录通读（`codex/` 3394 个 `.rs`、`deepseek-harness/` 2682 个 `.ts`），定位到**文件与类型级**证据。两者互补：那篇定方向，本篇定实现细节与优先级。
 >
 > 审计时点：#75 落地后（2026-08-30）。

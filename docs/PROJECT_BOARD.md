@@ -56,6 +56,11 @@
 >
 > **第十七轮（P3）｜G19 ✅**：**检索栈收敛（减法第一项）**——LSA 潜语义路**整体删除**（326 行引擎 + 单测 +
 > `lsa` 选项/`lsaModel` 字段/`EMPTY_LSA`/`SeedFusion` 第三路），G1 基线护航对照：**plain 56.3%→56.3% 逐位不变**，
+>
+> **第十八轮（P3）｜G20 ✅**：**文档瘦身**——`docs/` 根 **33 → 13 份**（只留 SSOT + 现行纪律 + 用户文档），
+> 55 份历史材料移入 `docs/archive/` 并**逐份加归档横幅**（"其中的数字与结论不再代表现状"）；重写文档索引与
+> 机器可读 `llms.txt`、新增归档索引；**死链基线 96 → 24（净减 72）**。判据 6 例（含**现行索引自洽**：索引里每个链接必须
+> 指向真实文件），变异三处全红。典型标本：`ARCHITECTURE_SPEC.md` 自述"311 TS 文件"而当时全仓已 900+。
 > rerank 50.0%→53.1%（上升来自语料变小，不声称算法提升）；其余实验档登记 `experimentalPaths.ts`（含**实测证据**与删除边界，
 > 开启即告警）。⚠️ 边界评估纠正两处误判：三条图路共用 stage ⇒ 合并为一个家族边界；`eigenspectrum.ts` 有 9 个非检索消费者 ⇒ 不可随路删。
 > 判据 6 例 **含仪器自证与正对照**（首版因键格式不匹配而**真空通过**，靠变异测试发现）。
@@ -388,9 +393,9 @@ npm run rust:test      # cargo test --workspace
 1. `package.json`：删除全部 `eval:*` / `metrics:*` / `bench*` 脚本（**注意**：2026-10-02 的
    `ef2ac0f` 删了 `eval:*` 却漏改 CI，导致 CI job 三步 `Missing script` 恒红——本轮**同步**删了
    `.github/workflows/ci.yml` 的 `eval` job，避免重犯）。
-2. 活跃文档改写：`README.md`（§2.4 基线段）、`docs/ARCHITECTURE_SPEC.md`（§8 尚缺 + §9 整体重写为
-   「已移除」清单）、`docs/compliance.md` 第 36 行（标注降幅数字无复跑判据）、
-   `docs/MIGRATION_MAP_2026-09.md`、`docs/library/10-math-information-and-optimization.md`
+2. 活跃文档改写：`README.md`（§2.4 基线段）、`docs/archive/ARCHITECTURE_SPEC.md`（§8 尚缺 + §9 整体重写为
+   「已移除」清单）、`docs/archive/compliance.md` 第 36 行（标注降幅数字无复跑判据）、
+   `docs/archive/MIGRATION_MAP_2026-09.md`、`docs/archive/library/10-math-information-and-optimization.md`
    （保留实测结论，标注脚本已移除）。
 3. 历史引用**冻结**（不改写历史结论，按 `ef2ac0f` 的既有做法）：新增死链按
    `scripts/docLinkBaseline.json` 纳入基线，涉及 `RECALL_HEADROOM_SURVEY` / `POLISH_PLAN` /

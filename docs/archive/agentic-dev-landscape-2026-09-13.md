@@ -1,5 +1,9 @@
 # AI Coding-Agent / Agentic-Dev-Tool Landscape — Feature-Gap Analysis (Sept 2026)
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 _Audience: OmniHarness (TypeScript + Rust agent harness for autonomous coding). Sources are GitHub repos and 2026 vendor/community write-ups; vendor-reported benchmark numbers are flagged. Where a 2026 detail is uncertain I say so._
 
 ## (a) Project characterizations

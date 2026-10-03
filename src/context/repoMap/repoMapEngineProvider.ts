@@ -35,7 +35,7 @@ import { RepoMapContextEngine } from './repoMapContextEngine.js';
  * ## 与 SINGLETON_REGISTRY 的关系
  *
  * 本类是「实例类 + 组合根单例」范式的组合根侧持有者，**不引入模块级 `new`**
- * （`audit:metrics` 的模块级 new 清单不受影响），已登记于 `docs/SINGLETON_REGISTRY.md`。
+ * （`audit:metrics` 的模块级 new 清单不受影响），已登记于 `docs/archive/SINGLETON_REGISTRY.md`。
  */
 export class RepoMapEngineProvider {
   /** 进程级共享引擎（懒构造：首次取用时创建，此后恒同实例）。 */

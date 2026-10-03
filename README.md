@@ -99,7 +99,7 @@ CLI / Web 工作台
 - **记忆生命周期**：充能 / 衰减 / 解离三态；触底事实解离出耦合图，外部充能可复活；排序封顶以保可复现。
 - **双 BM25 通道**：M1 工具检索（`tool_search` 延迟暴露）+ M2 会话检索（`memory_search`）。
 
-> **诚实基线（2026-10-02 复跑校准，192 条对抗查询 / 语料 902 文件 · 10183 符号）**：生产默认 BM25 hitRate@20 = **40.1%**（OK 77 / RANKING 67 / LEXICAL 48）。数字低于 2026-10-01 记录的 44.0%，原因是**语料从 590 文件涨到 902 文件**（符号 9837→10183）而非回归——**不同语料规模的数字不可纵向比**，引用前务必核对生成时的语料。第二段精排（rerank）自 2026-09-25 起回关为 **opt-in**（`OMNI_RERANK=1`，193 条口径下 +2.9pp 但 CI 跨 0，按「两关」纪律不配当默认）。语义 Hybrid 的 +15.8pp 是**单仓自证**——跨 5 个外部真实仓库 pooled **0.0pp**，不可外推。当前瓶颈是**候选源**而非排序：本轮 52/192（27.1%）查询的 GT 文件在深层候选池里排位 >200 或完全搜不到，属词法盲区（详见 `docs/CORE_CAPABILITY_AUDIT_2026-10-01.md` §2.3）。基线由 `npm run eval:recall-query-audit` 在 CI 中守护：**任一锚点 GT 为空即红**，避免「删了代码却没改评测集」再次静默发生。
+> **诚实基线（2026-10-02 复跑校准，192 条对抗查询 / 语料 902 文件 · 10183 符号）**：生产默认 BM25 hitRate@20 = **40.1%**（OK 77 / RANKING 67 / LEXICAL 48）。数字低于 2026-10-01 记录的 44.0%，原因是**语料从 590 文件涨到 902 文件**（符号 9837→10183）而非回归——**不同语料规模的数字不可纵向比**，引用前务必核对生成时的语料。第二段精排（rerank）自 2026-09-25 起回关为 **opt-in**（`OMNI_RERANK=1`，193 条口径下 +2.9pp 但 CI 跨 0，按「两关」纪律不配当默认）。语义 Hybrid 的 +15.8pp 是**单仓自证**——跨 5 个外部真实仓库 pooled **0.0pp**，不可外推。当前瓶颈是**候选源**而非排序：本轮 52/192（27.1%）查询的 GT 文件在深层候选池里排位 >200 或完全搜不到，属词法盲区（详见 `docs/archive/CORE_CAPABILITY_AUDIT_2026-10-01.md` §2.3）。基线由 `npm run eval:recall-query-audit` 在 CI 中守护：**任一锚点 GT 为空即红**，避免「删了代码却没改评测集」再次静默发生。
 
 ### 2.3 审计与可观测
 
@@ -167,7 +167,7 @@ src/
 └── config/ util/ errors/ schema/ output/ tui/ observability/ hooksCompat/ …
 ```
 
-> 完整目录归属表（与 `scripts/architectureGate.mjs` 门禁口径一致）见 [`docs/ARCHITECTURE_SPEC.md`](docs/ARCHITECTURE_SPEC.md) §2.1。**新增目录必须先登记该表**。
+> 完整目录归属表（与 `scripts/architectureGate.mjs` 门禁口径一致）见 [`docs/archive/ARCHITECTURE_SPEC.md`](docs/archive/ARCHITECTURE_SPEC.md) §2.1。**新增目录必须先登记该表**。
 
 ### 3.2 Rust：原生内核
 
@@ -555,13 +555,13 @@ npm run web:test               # Web 构建 + 挂载单测
 
 **实测负结果的统一诊断**：项目的实测负结果（LSA 叠加后符号精度 25.5% → 10.5%、PageRank 零增益、频域共振零增益、PRF 有害、层化图路由 −9.1pp）根因统一诊断为**度量错配**——在错误的空间里比较相似。因此升级主轴不是加能力，而是**换到正确的数学空间做同一件事**。
 
-**成熟度与「隐喻税」**：`docs/library/` 九卷理论库把理论对象逐条映射到代码并标注 L0–L3。「读表法」——找 `L0` 最多的列（那是隐喻税最重处），找 `L3` 列（那是可引以为据的护城河）；**升级的最高 ROI 不是补 L0，而是把 L1 升到 L3**（成本低、可信度跃升）。
+**成熟度与「隐喻税」**：`docs/archive/library/` 九卷理论库把理论对象逐条映射到代码并标注 L0–L3。「读表法」——找 `L0` 最多的列（那是隐喻税最重处），找 `L3` 列（那是可引以为据的护城河）；**升级的最高 ROI 不是补 L0，而是把 L1 升到 L3**（成本低、可信度跃升）。
 
 七条主线（T0 成熟度治理 ✅ · T1 表示归一 · T2 度量升级 · T3 记忆生命周期 · T4 验证闭环 · T5 训练信号 · T6 栈升级），**可证伪验收是唯一完成判据**。
 
 **反泡沫清单**（明确不做）：向量数据库 / tree-sitter / microVM 容器 / GPU RL 训练 / 新增隐喻引擎 / 物理量背书 —— 理由：违零依赖底线，且实测证明「换度量」比「换存储」更根本。
 
-> 全文见 [`docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md`](docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md) 与 [`docs/UNITY_FRAMEWORK_UCE.md`](docs/UNITY_FRAMEWORK_UCE.md)；学科底座见 [`docs/library/`](docs/library/README.md)。
+> 全文见 [`docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md`](docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md) 与 [`docs/archive/UNITY_FRAMEWORK_UCE.md`](docs/archive/UNITY_FRAMEWORK_UCE.md)；学科底座见 [`docs/archive/library/`](docs/archive/library/README.md)。
 
 ---
 
@@ -603,4 +603,4 @@ npm run web:test               # Web 构建 + 挂载单测
 
 ---
 
-> **本 README 的依据**：`package.json` / `Cargo.toml` / `src/index.ts` 公开 API 面 / `src/cli/argParser.ts` 用法表 / `docs/ARCHITECTURE_SPEC.md` / `docs/ARCHITECTURE_AND_GAP_2026-09-13.md` / `docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` / `docs/library/README.md` / `.github/workflows/ci.yml` 与本机实测（2026-09-14）。数字如与看板不符，以 [`docs/PROJECT_BOARD.md`](docs/PROJECT_BOARD.md) 为准。
+> **本 README 的依据**：`package.json` / `Cargo.toml` / `src/index.ts` 公开 API 面 / `src/cli/argParser.ts` 用法表 / `docs/archive/ARCHITECTURE_SPEC.md` / `docs/archive/ARCHITECTURE_AND_GAP_2026-09-13.md` / `docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` / `docs/archive/library/README.md` / `.github/workflows/ci.yml` 与本机实测（2026-09-14）。数字如与看板不符，以 [`docs/PROJECT_BOARD.md`](docs/PROJECT_BOARD.md) 为准。

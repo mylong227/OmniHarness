@@ -432,7 +432,7 @@ if (JSON_OUT) {
 if (argv.includes('--queue')) {
   console.log('# 接口层重构队列（自动生成：`node scripts/auditInterfaces.mjs --queue`）');
   console.log('');
-  console.log('> 口径见 `docs/INTERFACE_REFACTOR_QUEUE.md`。所有数字为实测。');
+  console.log('> 口径见 `docs/archive/INTERFACE_REFACTOR_QUEUE.md`。所有数字为实测。');
   console.log('');
   console.log(
     `## Batch A — \`src/ports/**\` 内部拆分（${splitPlan.filter((p) => p.inPorts).length} 文件 / ${splitPlan.filter((p) => p.inPorts).reduce((s, p) => s + p.count, 0)} 接口）`,

@@ -576,7 +576,7 @@ if (process.argv.includes('--jsdoc')) {
 }
 
 if (process.argv.includes('--maturity')) {
-  // T0 · 成熟度治理门禁（docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md）。
+  // T0 · 成熟度治理门禁（docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md）。
   // 契约：@maturity L0|L1|L2|L3 — <判据>   +   @maturityEvidence <测试文件>（L2/L3 必填且须存在）。
   // 目的：把「命名好听」与「有机制/有定理」机械分开——声称 L2/L3 却无测试者，一律阻断。
   const LEVELS = ['L0', 'L1', 'L2', 'L3'];
