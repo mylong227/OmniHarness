@@ -2,8 +2,18 @@ import { accessSync, existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { NetworkEgressGuard } from '../adapters/sandbox/networkEgressGuard.js';
 import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.js';
+import { ToolOutputTrust } from '../security/toolOutputTrust.js';
 import type { SandboxCapabilityEntry } from '../adapters/sandbox/sandboxCapabilityTable.js';
+
+/** 由**内核**强制隔离的 profile（其余为纯 TS 策略类：passthrough / policy / restricted）。 */
+const KERNEL_ENFORCED_PROFILES: ReadonlySet<string> = new Set([
+  'bwrap',
+  'unshare',
+  'landlock',
+  'seatbelt',
+]);
 
 /** 权限清单文件名（企业管控用，缺省位于工作区根；可选存在，存在时须合法 JSON）。 */
 const PERMISSIONS_MANIFEST_NAME = 'omniharness.permissions.json';
@@ -36,6 +46,39 @@ export interface SandboxStatus {
   readonly restrictedToken: boolean;
 }
 
+/**
+ * **安全边界自述**（G5，2026-10-03）：把"当前实际隔离到什么程度"变成可复核的诊断输出。
+ *
+ * 为什么要单列：看板 §8.5 登记的"声明强于实现"三处（默认档是纯 TS 策略、Windows 受限令牌无
+ * restricting SID、网络守卫只包 `fetch`）此前只存在于审计记录里。诊断输出若不转述它们，
+ * 使用者会默认"有沙箱 = 已隔离"。本段的值**全部取自单一事实来源**（能力表 / 网络守卫自述 /
+ * 信任档阈值），不在本文件另写一套声明——否则修了一处、另一处仍在撒谎。
+ */
+export interface SecurityBoundary {
+  /**
+   * 隔离强度档：`L2` ＝ 同用户进程内约束（无内核强制）；`L3` ＝ 内核强制（命名空间/LSM/seatbelt）。
+   *
+   * 判据是"生效档位对应的后端**在本机真机可达**且**内核强制**"，不是"代码里存在这个后端"。
+   */
+  readonly isolationLevel: 'L2' | 'L3';
+  /** 判定依据（人可读，含具体档位与是否内核强制）。 */
+  readonly isolationBasis: string;
+  /** 生效的沙箱档（来自工作区配置；缺省 `policy`）。 */
+  readonly sandboxProfile: string;
+  /** 该档是否由内核强制（`policy` / `restricted` / `passthrough` 为 false）。 */
+  readonly kernelEnforced: boolean;
+  /** 网络守卫**实际**覆盖的外联入口（来自 `NetworkEgressGuard.COVERAGE`）。 */
+  readonly networkGuardSurfaces: readonly string[];
+  /** shell 子进程是否受网络守卫约束（恒 false ⇒ shell 出网不被拦）。 */
+  readonly shellEgressGuarded: boolean;
+  /** 网络守卫自述依据。 */
+  readonly networkGuardBasis: string;
+  /** 提示注入护栏的生效模式（未配置 ⇒ `off`）。 */
+  readonly injectionMode: string;
+  /** 各来源信任级的弱证据阈值（含记忆档，便于肉眼核对收紧是否生效）。 */
+  readonly injectionThresholds: Readonly<Record<string, number>>;
+}
+
 /** doctor 诊断报告。 */
 export interface DoctorReport {
   /** Node 版本。 */
@@ -46,6 +89,8 @@ export interface DoctorReport {
   readonly sandbox: SandboxStatus;
   /** OS 沙箱能力自述（每个后端能否在本机真跑、依据是什么）。 */
   readonly sandboxCapabilities: readonly SandboxCapabilityEntry[];
+  /** 安全边界自述（实际隔离到什么程度；G5）。 */
+  readonly security: SecurityBoundary;
   /** 插件目录是否可读。 */
   readonly pluginsDirReadable: boolean;
   /** 权限清单是否可读（不存在时视为可读，不计入问题）。 */
@@ -139,10 +184,72 @@ export class DoctorRunner {
       config,
       sandbox,
       sandboxCapabilities,
+      security: this.checkSecurityBoundary(workspaceRoot, sandboxCapabilities, sandbox),
       pluginsDirReadable,
       permissionsManifestReadable,
       issues,
     };
+  }
+
+  /**
+   * 汇总**安全边界自述**（G5）：把"实际隔离到什么程度"从审计记录搬进可复核的诊断输出。
+   *
+   * 口径：所有值都取自单一事实来源（能力表 / 网络守卫 `COVERAGE` / 信任档 `thresholds()`），
+   * 本方法**不新写任何声明**，只做转述与判定。
+   * @param workspaceRoot 工作区根（读其中的 `omniharness.json` 取生效档位）。
+   * @param capabilities 已生成的能力自述表。
+   * @param sandbox 沙箱后端可用性（Windows 提权情况）。
+   * @returns 安全边界自述。
+   */
+  private checkSecurityBoundary(
+    workspaceRoot: string,
+    capabilities: readonly SandboxCapabilityEntry[],
+    sandbox: SandboxStatus,
+  ): SecurityBoundary {
+    const sandboxProfile = this.configuredSandboxProfile(workspaceRoot) ?? 'policy';
+    const entry = capabilities.find((item) => item.profile === sandboxProfile);
+    const kernelEnforced = entry?.real === true && KERNEL_ENFORCED_PROFILES.has(sandboxProfile);
+    const windowsNote =
+      process.platform === 'win32' && sandbox.restrictedToken
+        ? '；Windows 受限令牌只削减特权与资源（restricting-SID 计数为 0），**无**文件/网络拒绝语义'
+        : '';
+    return {
+      isolationLevel: kernelEnforced ? 'L3' : 'L2',
+      isolationBasis:
+        `生效档 ${sandboxProfile}；内核强制=${kernelEnforced ? '是' : '否'}；` +
+        `后端真机可达=${entry?.real === true ? '是' : '否'}${windowsNote}`,
+      sandboxProfile,
+      kernelEnforced,
+      networkGuardSurfaces: NetworkEgressGuard.COVERAGE.surfaces,
+      shellEgressGuarded: NetworkEgressGuard.COVERAGE.shellSubprocessGuarded,
+      networkGuardBasis: NetworkEgressGuard.COVERAGE.basis,
+      // 注入护栏只在 CLI 侧开启（`--guard-prompt-injection`），诊断进程看不到调用参数 ⇒ 报缺省值。
+      injectionMode: 'off',
+      injectionThresholds: ToolOutputTrust.thresholds(),
+    };
+  }
+
+  /**
+   * 读工作区配置里的生效沙箱档位（缺省/非法/未声明时为 undefined，由调用方回落 `policy`）。
+   *
+   * 为什么读配置文件而不是猜默认：`sandbox` 是**工作区可配**的（`omniharness.json`），
+   * 诊断若只报默认值，用户改了配置就会看到与实际不符的结论。
+   * @param workspaceRoot 工作区根。
+   * @returns 配置中的档位名；不可得时为 undefined。
+   */
+  private configuredSandboxProfile(workspaceRoot: string): string | undefined {
+    const path = this.findConfig(workspaceRoot);
+    if (path === undefined || !existsSync(path)) {
+      return undefined;
+    }
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+      const value = (parsed as { sandbox?: unknown }).sandbox;
+      return typeof value === 'string' && value.length > 0 ? value : undefined;
+    } catch {
+      // 配置非法已由 checkConfig 记为问题项，此处不重复报错（诊断不该因单个字段解析失败而中断）。
+      return undefined;
+    }
   }
 
   /**
@@ -263,6 +370,17 @@ export class DoctorRunner {
     );
     lines.push(`  插件目录可读      : ${report.pluginsDirReadable ? '是' : '否'}`);
     lines.push(`  权限清单可读      : ${report.permissionsManifestReadable ? '是' : '否'}`);
+    // 安全边界自述（G5）：不写"有沙箱"这种让人误以为已隔离的话，直接报实际强度与覆盖面。
+    const security = report.security;
+    const thresholds = Object.entries(security.injectionThresholds)
+      .map(([tier, value]) => `${tier}=${String(value)}`)
+      .join(' / ');
+    lines.push(`  隔离强度          : ${security.isolationLevel}（${security.isolationBasis}）`);
+    lines.push(
+      `  网络守卫覆盖      : ${security.networkGuardSurfaces.join('、')}；` +
+        `shell 出网被拦=${security.shellEgressGuarded ? '是' : '否'}`,
+    );
+    lines.push(`  注入护栏          : ${security.injectionMode}（弱证据阈值 ${thresholds}）`);
     lines.push('');
     // OS 沙箱能力自述表：区分「实现存在」与「本机真能跑」，避免把无证据当可用。
     lines.push(SandboxCapabilityTable.format(report.sandboxCapabilities));
