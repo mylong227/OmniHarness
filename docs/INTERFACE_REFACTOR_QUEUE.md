@@ -240,7 +240,7 @@ git commit -m "refactor(iface/pX.Y): <动作>；<实测数字变化>"
 ## 6. 进度记账
 
 - 每次跑 `node scripts/auditInterfaces.mjs` 的四个数字就是进度条（跨模块接口 / 多导出类型文件 / 混装 / 环组数）。
-- 已完成条目登记到 `docs/TASK_BOARD.md`（**注意**：该文件可能正被并行会话占用，先确认再写）。
+- 已完成条目登记到 `docs/PROJECT_BOARD.md`（**注意**：该文件可能正被并行会话占用，先确认再写）。
 - 本文件只在**口径、铁律、批次结构**变化时改；队列明细永远由 `--queue` 现生成。
 
 ## 7. 并行会话占用清单（本队列不要碰）
@@ -248,7 +248,7 @@ git commit -m "refactor(iface/pX.Y): <动作>；<实测数字变化>"
 动手前先 `git status --short` 复核；截至 2026-09-29 工作区已有改动的文件：
 
 `src/adapters/laya/layaDecisionEngine.ts`、`src/util/sortingAlgorithms`（+ 其测试与 `.bak`）、
-`docs/TASK_BOARD.md`、`docs/ARCHITECTURE_SPEC.md`、`THIRD_PARTY_ASSETS.md`、`.gitignore`。
+`docs/PROJECT_BOARD.md`、`docs/ARCHITECTURE_SPEC.md`、`THIRD_PARTY_ASSETS.md`、`.gitignore`。
 
 **纪律**：这些文件在本队列里**不改**，留待各自会话收尾后再回头处理（`ARCHITECTURE_SPEC.md` 的 §2.1
 登记是 Batch A 的前置项，需等它空闲时再做）。

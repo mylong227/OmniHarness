@@ -16,7 +16,7 @@
     {
       "name": "omniharness-two-gate-rule",
       "description": "本仓库放行一条新排序或新检索路线的判据：第一关否决器加第二关同语料 A/B，只有 bootstrap 置信区间下界大于零且留出折为正才算过。",
-      "instructions": "纪律出处 docs/REFACTOR_BOARD_2026-09-12.md（D6）与 docs/POLISH_PLAN.md。第一关是否决器：毫秒级、免标注，检查新路的候选是否对查询敏感（与基线 Top-K 的平均 Jaccard 重合度过高即为常量偏置，直接否决）。第二关是同语料 A/B：同一份 corpus、同一个预算、开关隔离两臂，按查询配对 bootstrap 出 95% 置信区间，并做 repeated 2-fold 留出折。判定：CI 下界必须大于零，且留出折多数为正。点估计为正但 CI 跨零时，一律判「与噪声不可区分」，不得声称有效、不得翻默认。层化图路由正是过了第一关却在第二关实测负增益，这条规则由此确立。报告要能自证，把判定依据与原始数字一并落盘。",
+      "instructions": "纪律出处 docs/PROJECT_BOARD.md §5（D6 摘录，原 REFACTOR_BOARD_2026-09-12 已删档见 git 历史）与 docs/POLISH_PLAN.md。第一关是否决器：毫秒级、免标注，检查新路的候选是否对查询敏感（与基线 Top-K 的平均 Jaccard 重合度过高即为常量偏置，直接否决）。第二关是同语料 A/B：同一份 corpus、同一个预算、开关隔离两臂，按查询配对 bootstrap 出 95% 置信区间，并做 repeated 2-fold 留出折。判定：CI 下界必须大于零，且留出折多数为正。点估计为正但 CI 跨零时，一律判「与噪声不可区分」，不得声称有效、不得翻默认。层化图路由正是过了第一关却在第二关实测负增益，这条规则由此确立。报告要能自证，把判定依据与原始数字一并落盘。",
       "tags": ["evaluation", "bootstrap", "ab-test", "两关", "评测纪律", "翻默认"]
     },
     {

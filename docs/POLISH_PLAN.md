@@ -229,7 +229,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
 - **后续更正（2026-09-16）**：本项做的是护栏**判定质量**，但其**开关本身**此前在生产路径上不可达——
   `promptInjectionGuard` 只在 `OmniHarnessConfig` 上声明，`ConfigFactory.build` 的返回字面量未透传，
   `agent` 恒读到 `undefined` ⇒ 护栏不可启用（第九处「声明未接线」，安全相关）。已修复（`0111d41`）
-  并以新增的**接线完整性门禁**（`644143c`）防复发，详见 `docs/TASK_BOARD.md` §5 第 21 条。
+  并以新增的**接线完整性门禁**（`644143c`）防复发，详见 `旧看板 TASK_BOARD.md`（已删档，git show b49d96e^:docs/TASK_BOARD.md 可查） §5 第 21 条。
 
 ### P5 软预算 + per-tool token 归因 — token↓（可观测）【第一批已落地】
 
@@ -291,7 +291,7 @@ FP 16.7% → **8.3%**，见 §4-P4）；
   修法为新增安装阶梯 `pythonEnvPlan.ts`（**仓库自述已 pinned 依赖 → 该仓库额外约束 → 仅缺失时装 pytest**）+ `envPins`
   - `benchmark/swebench-env-pins.json`；③ 修复 `FAIL_TO_PASS` 解析 **fail-open 假绿**缺陷（JSON 字符串被类型断言，
     空清单会使 `[].every()` 恒真）。**真实 500 题出分仍待 predictions（须模型 key）**。
-    详见 `docs/TASK_BOARD.md` §5 第 30 条与 `docs/SUSPENDED_BETTER_PATHS.md` §四·续。
+    详见 `旧看板 TASK_BOARD.md`（已删档，git show b49d96e^:docs/TASK_BOARD.md 可查） §5 第 30 条与 `docs/SUSPENDED_BETTER_PATHS.md` §四·续。
 - **工作量**：外部条件解锁后 ~0.5d。
 
 ### P7 有界均衡并行调度（突破串行瓶颈）— 吞吐·墙钟↓【上一批已落地】

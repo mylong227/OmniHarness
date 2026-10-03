@@ -47,7 +47,7 @@ UCE 已立三公理。本方向**补一条**，并给出每条的可检验形式
 > 与既有看板交叉：`RB` = `REFACTOR_BOARD_2026-09-12` 的 P 编号；`UB` = `UPGRADE_BOARD` 的 U 编号。
 > 「可证伪验收」一列是**唯一的完成判据**；跑不出数字不得声称完成。
 >
-> **执行口径（2026-09-12 v2 起）**：T0–T6 已按 `docs/REFACTOR_BOARD_2026-09-12.md`（v2 整合版）Part B
+> **执行口径（2026-09-12 v2 起）**：T0–T6 已按 `REFACTOR_BOARD_2026-09-12.md`（旧看板已删档，git 历史 b49d96e^ 可查）（v2 整合版）Part B
 > 拆成与 P 系列**同构的任务卡**（现状证据 / 动作 / 可证伪验收 / 状态 / commit），并受同一套门禁约束
 > （新技术零新增违规 D5、两关流程 D6、改口径须留档 D7）。**本文件只保留「为什么」的理论论证，
 > 「做到哪一步」一律以该看板为准**，避免两处状态不一致。
@@ -270,7 +270,7 @@ T2 度量升级 ◄── 独立，最高辨识度（解释全部历史负结果
 - 前沿三卷：`library/01-frontier-harness-engineering.md`、`02-frontier-agent-learning.md`、`03-frontier-stack-2026.md`
 - 学科五卷：`library/10-math-information-and-optimization.md`、`11-math-structure-and-topology.md`、`20-physics.md`、`30-biology.md`、`40-chemistry.md`
 - 本方向：`docs/TECH_DIRECTION_SYNTHESIS_2026-09-12.md`
-- 交叉引用：`docs/UNITY_FRAMEWORK_UCE.md`、`docs/UPGRADE_PLAN_SYNTHESIS.md`、`docs/UPGRADE_BOARD_2026-09-12.md`、`docs/REFACTOR_BOARD_2026-09-12.md`、`docs/LANDSCAPE_RESEARCH_2026.md`
+- 交叉引用：`docs/UNITY_FRAMEWORK_UCE.md`、`docs/UPGRADE_PLAN_SYNTHESIS.md`、`UPGRADE_BOARD_2026-09-12.md`（旧看板已删档，git 历史 b49d96e^ 可查）、`REFACTOR_BOARD_2026-09-12.md`（旧看板已删档，git 历史 b49d96e^ 可查）、`docs/LANDSCAPE_RESEARCH_2026.md`
 
 **本方向的一句话收束**：
 

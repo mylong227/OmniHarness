@@ -29,7 +29,7 @@ OMNI_SKILLS_FILE=/path/to/other.json node evals/skill-routing-ab.mjs   # 换语�
 ## 内容口径（诚实登记）
 
 - 这些技能是**真实可用的**，且每条要点都可由仓库内文件核对（`docs/CODE_STANDARD.md`、
-  `docs/REFACTOR_BOARD_2026-09-12.md`、`docs/POLISH_PLAN.md`、`docs/DEPENDENCY_POLICY.md` 等），
+  `docs/PROJECT_BOARD.md`（§5 纪律摘录）、`docs/POLISH_PLAN.md`、`docs/DEPENDENCY_POLICY.md` 等），
   **不复制任何外部项目的文本**。
 - 语料规模 **13 条**是刻意的下限而非目标：它足以让「字面包含 vs 相关性检索」的差异可测
   （见 `evals/skill-routing-ab.mjs`），但**远低于**本仓「扩到 n≥80 再下统计结论」的历史口径——
