@@ -6,6 +6,24 @@
  * （span 仅本地丢弃，不报错），使可观测性成为可选增强而非硬依赖。
  */
 
+/**
+ * OTLP `AnyValue` 的**属性值**子集（本仓只用到这三种，够用即止）。
+ *
+ * 数值口径（G23，2026-10-03）：整数走 `intValue`、浮点走 `doubleValue`，**不再**把数字塞进 `stringValue`
+ * ——塞字符串会让任何标准 GenAI 后端**无法自动解读**（它们按 AnyValue 的类型分派）。
+ *
+ * `intValue` 为什么是**字符串**：proto3 的 JSON 映射把 int64 编码为字符串（避免 JS 的 53 位精度上限）。
+ * 本仓的计数远小于 2^53，用 number 也能过，但遵循规范的字符串形态可避免下游按 proto 严格解析时踩坑。
+ */
+export interface OtlpAttributeValue {
+  /** 字符串值。 */
+  readonly stringValue?: string;
+  /** 整数值（proto3 JSON 的 int64 形态：字符串）。 */
+  readonly intValue?: string;
+  /** 浮点值。 */
+  readonly doubleValue?: number;
+}
+
 /** 单个 span（OTLP 子集）。 */
 export interface Span {
   readonly traceId: string;
@@ -13,7 +31,7 @@ export interface Span {
   readonly name: string;
   readonly startTimeUnixNano: string;
   readonly endTimeUnixNano: string;
-  readonly attributes?: readonly { key: string; value: { stringValue: string } }[];
+  readonly attributes?: readonly { key: string; value: OtlpAttributeValue }[];
 }
 
 /** trace 导出端口。 */
