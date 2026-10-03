@@ -24,3 +24,4 @@ export type { CompletionGate } from './completionGate/completionGate.js';
 export type { CompletionGateContext } from './completionGate/completionGateContext.js';
 export type { CompletionGateSelfVerifyConfig } from './completionGate/completionGateSelfVerifyConfig.js';
 export type { CompletionGateFactory } from './completionGate/completionGateFactory.js';
+export type { VerificationState } from './completionGate/verificationState.js';

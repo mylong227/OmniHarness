@@ -1,4 +1,5 @@
 import type { SessionEvent } from '../runtime/event.js';
+import type { VerificationState } from '../runtime/completionGate/verificationState.js';
 
 /**
  * @beta
@@ -55,4 +56,11 @@ export interface SubagentResult {
    * 父级据本字段可解释"为什么它说改不了代码"。
    */
   readonly writesForbidden?: boolean | undefined;
+  /**
+   * 子代理本回合的**验证状态**（G3-V2，2026-10-03）：`not-run` / `failed` / `unverified`。
+   *
+   * **`'unverified'` 不得读成通过**：它表示子代理以"未核验通过"收尾（完成闸门每回合至多跑一次，
+   * 二次宣告完成会被放行）。父级据此保留怀疑，而不是把"它说做完了"当成已验证事实继续传播。
+   */
+  readonly verificationState?: VerificationState | undefined;
 }
