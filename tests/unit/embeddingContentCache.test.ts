@@ -224,3 +224,67 @@ test('⑤ 构建失败不代际清扫：模型离线重试时仍能复用既有�
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('⑥ 构建成功后必须调用端口 flush（落盘缓存尾部不丢：修前实测 84/1108 条静默不落盘）', async () => {
+  const root = workspace();
+  try {
+    const inner = new CountingEmbedding();
+    let flushes = 0;
+    const port: EmbeddingPort = {
+      dim: inner.dim,
+      embed: (texts, opts) => inner.embed(texts, opts),
+      flush: () => {
+        flushes += 1;
+        return true;
+      },
+    };
+    const cache = new SemanticIndexCache();
+    await buildIndex(cache, root, corpusOf(root), port);
+    assert.strictEqual(flushes, 1, '构建成功后必须落盘一次');
+    await buildIndex(cache, root, corpusOf(root), port);
+    assert.ok(flushes <= 2, `重复取用不应反复落盘，实得 ${String(flushes)}`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('⑦ 构建失败时不调用 flush（没有新向量可落，且不得掩盖原始失败）', async () => {
+  const root = workspace();
+  try {
+    const inner = new CountingEmbedding();
+    let flushes = 0;
+    const port: EmbeddingPort = {
+      dim: inner.dim,
+      embed: (texts, opts) => inner.embed(texts, opts),
+      flush: () => {
+        flushes += 1;
+        return true;
+      },
+    };
+    inner.failNext = true;
+    const cache = new SemanticIndexCache();
+    await assert.rejects(buildIndex(cache, root, corpusOf(root), port));
+    assert.strictEqual(flushes, 0, '失败路径不得落盘');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('⑧ flush 抛错只告警，不得让构建失败（缓存问题绝不升级为功能故障）', async () => {
+  const root = workspace();
+  try {
+    const inner = new CountingEmbedding();
+    const port: EmbeddingPort = {
+      dim: inner.dim,
+      embed: (texts, opts) => inner.embed(texts, opts),
+      flush: () => {
+        throw new Error('磁盘满');
+      },
+    };
+    const cache = new SemanticIndexCache();
+    const index = await buildIndex(cache, root, corpusOf(root), port);
+    assert.ok(index !== null, 'flush 失败不得让构建失败');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
