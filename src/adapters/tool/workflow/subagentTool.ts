@@ -86,7 +86,12 @@ export class SubagentTool {
           : '';
     const head = `[子智能体 ${result.sessionId}] ${result.steps} 步 / ${result.durationMs}ms${status}`;
     const writes = this.renderWrites(result);
-    return writes === '' ? `${head}\n${result.output}` : `${head}\n${writes}\n${result.output}`;
+    const verification =
+      result.verificationState === 'unverified'
+        ? '⚠️ 该子代理本回合以**未验证**状态收尾（验证曾失败、二次宣告完成时未再核验）：' +
+          '不要把它的"已完成"当作已验证事实。'
+        : '';
+    return [head, verification, writes, result.output].filter((part) => part !== '').join('\n');
   }
 
   /**

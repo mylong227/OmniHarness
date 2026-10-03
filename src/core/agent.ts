@@ -391,6 +391,8 @@ export class Agent implements AgentPort {
       events,
       truncated: outcome.truncated,
       aborted: outcome.aborted,
+      // G3-V2：验证状态如实透传（`unverified` 不得被上层读成"验证通过"）。
+      verificationState: outcome.verificationState,
     };
   }
 

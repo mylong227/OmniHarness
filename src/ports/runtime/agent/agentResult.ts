@@ -1,4 +1,5 @@
 import type { SessionEvent } from '../event.js';
+import type { VerificationState } from '../completionGate/verificationState.js';
 
 /** Agent 单次任务的运行结果。 */
 export interface AgentResult {
@@ -20,4 +21,12 @@ export interface AgentResult {
   readonly truncated?: boolean | undefined;
   /** 是否因**失控熔断 / 取消**而中断（与 truncated 同属「没做完」）。 */
   readonly aborted?: boolean | undefined;
+  /**
+   * 本回合的**验证状态**（G3-V2，2026-10-03）：`not-run` / `failed` / `unverified`。
+   *
+   * 存在理由：完成闸门每回合至多跑一次，模型二次宣告完成会被放行；若不给这个字段，
+   * 上层只能把"放行"读成"验证通过"。**`'unverified'` 不得读成通过**——它表示本回合以
+   * "未核验通过"收尾（语义见 `ports/runtime/completionGate/verificationState.ts`）。
+   */
+  readonly verificationState?: VerificationState | undefined;
 }

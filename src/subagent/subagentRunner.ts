@@ -79,6 +79,10 @@ export class SubagentRunner {
       events: outcome.events.length > 0 ? outcome.events : bridge.events(),
       truncated: outcome.truncated === true,
       aborted: outcome.aborted === true,
+      // G3-V2：验证状态一并回传（`unverified` 不得被父级读成"已验证通过"）。
+      ...(outcome.verificationState !== undefined
+        ? { verificationState: outcome.verificationState }
+        : {}),
     };
   }
 }

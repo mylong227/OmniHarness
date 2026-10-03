@@ -1,5 +1,5 @@
 import type { ToolContext } from '../ports/tool/tool.js';
-import type { CompletionGate } from '../ports/runtime/completionGate.js';
+import type { CompletionGate, VerificationState } from '../ports/runtime/completionGate.js';
 import { BudgetExceededError } from '../ports/model/model.js';
 import type { StepRunner, StepOutcome } from './stepRunner.js';
 import type { SessionRecorder } from './sessionRecorder.js';
@@ -24,11 +24,25 @@ export interface TurnOutcome {
   readonly truncated: boolean;
   /** 是否因**失控熔断**而中断（同属「没做完」）。 */
   readonly aborted: boolean;
+  /**
+   * 本回合的**验证状态**（G3-V2，2026-10-03）：`not-run` / `failed` / `unverified`。
+   *
+   * 存在理由：完成闸门每回合至多跑一次，二次宣告完成会被放行——若不给这个字段，
+   * 上层（子代理 / 工作流 / UI）只能把"放行"读成"验证通过"，正是假完成的落点。
+   * `'unverified'` **不得**读成通过。缺省（undefined）＝ 未上报（兼容既有实现与测试）。
+   */
+  readonly verificationState?: VerificationState | undefined;
+}
+
+interface CompletionClaim {
+  /** 完成闸门是否已用过（有界：每回合至多一次）。 */
+  gated: boolean;
+  /** 本回合的验证状态（G3-V2）；`unverified` 不得读成通过。 */
+  verificationState: VerificationState;
 }
 
 /**
- * 连续空响应（模型既无文本也无工具调用）的重试上限。
- * 设有限值：空响应重试是有界的，避免整份步数预算被空转烧光；
+ * 连续空响应（模型既无文本也无工具调用）的重试上限。 * 设有限值：空响应重试是有界的，避免整份步数预算被空转烧光；
  * 达上限即退出并由兜底总结收尾。
  */
 const MAX_CONSECUTIVE_EMPTY = 3;
@@ -82,8 +96,9 @@ export class TurnRunner {
     let consecutiveEmpty = 0;
     let aborted = false;
     let usageTokens = 0;
-    /** 本回合是否已用过完成闸门（有界：至多一次）。 */
-    let gated = false;
+    /** 本回合的完成判定状态（闸门是否已用过 + 验证状态）；用对象承载以便抽方法传引用。 */
+    /** 本回合的完成判定状态（就地更新；用对象承载以便抽方法传引用）。 */
+    const claim: CompletionClaim = { gated: false, verificationState: 'not-run' };
     while (steps < this.maxSteps) {
       // V2.1：成本预算熔断（B5 补全）——BudgetedModel 抛 BudgetExceededError 时
       // 不再让整回合硬崩（异常冒泡 → 用户颗粒无收），而是记录事件、跳出循环，
@@ -125,18 +140,8 @@ export class TurnRunner {
         continue;
       }
       if (outcome === 'text') {
-        // 完成闸门（A1）：模型说要收尾了，但本会话最近一次对源码改动的验证**没通过** ⇒
-        // 把失败摘要回灌并再给一步（有界：每回合至多一次，且照常消耗步数预算）。
-        const digest = gated ? undefined : await this.completionDigest(context.sessionId);
-        if (digest !== undefined && digest !== '') {
-          gated = true;
-          log.warn('turn.completion_gate.blocked', { steps, sessionId: context.sessionId });
-          this.recorder.user(
-            '【完成闸门】你已声明完成，但本回合对源码的改动**验证未通过**：\n' +
-              `${digest}\n` +
-              '请先修好它再收尾；若你判断该失败与本次改动无关（例如环境缺失/既有失败），' +
-              '请在结论里**逐条说明**是哪一条、依据是什么。',
-          );
+        // 完成闸门（A1 + G3-V2）：抽成方法以守住本函数体上限，语义见其 JSDoc。
+        if ((await this.handleCompletionClaim(claim, context.sessionId, steps)) === 'retry') {
           continue;
         }
         break;
@@ -168,7 +173,52 @@ export class TurnRunner {
         finalText = summary;
       }
     }
-    return this.closeTurn({ steps, usageTokens, aborted, finalText });
+    return this.closeTurn({
+      steps,
+      usageTokens,
+      aborted,
+      finalText,
+      verificationState: claim.verificationState,
+    });
+  }
+
+  /**
+   * 处理「模型宣布完成」这一步：问一次完成闸门，决定回灌重试还是允许收尾。
+   *
+   * 有界性：闸门**每回合至多跑一次**（避免把步数预算烧在反复验证上）。因此二次宣告完成时无法再核验，
+   * 只能放行——**但必须如实记 'unverified'**，否则上层会把"放行"读成"验证通过"（假完成的落点）。
+   * @param claim 本回合的完成判定状态（就地更新）。
+   * @param sessionId 会话 id。
+   * @param steps 当前步数（用于日志）。
+   * @returns 'retry' ＝ 已回灌失败摘要、继续步进；'close' ＝ 允许收尾。
+   */
+  private async handleCompletionClaim(
+    claim: CompletionClaim,
+    sessionId: string,
+    steps: number,
+  ): Promise<'retry' | 'close'> {
+    const digest = claim.gated ? undefined : await this.completionDigest(sessionId);
+    if (digest !== undefined && digest !== '') {
+      claim.gated = true;
+      claim.verificationState = 'failed';
+      log.warn('turn.completion_gate.blocked', { steps, sessionId });
+      this.recorder.user(
+        '【完成闸门】你已声明完成，但本回合对源码的改动**验证未通过**：\n' +
+          `${digest}\n` +
+          '请先修好它再收尾；若你判断该失败与本次改动无关（例如环境缺失/既有失败），' +
+          '请在结论里**逐条说明**是哪一条、依据是什么。',
+      );
+      return 'retry';
+    }
+    if (claim.gated) {
+      claim.verificationState = 'unverified';
+      log.warn('turn.completion_gate.unverified', { steps, sessionId });
+      this.recorder.system(
+        '【完成闸门】本回合以「未验证」状态收尾：验证曾失败一次、失败摘要已回灌，' +
+          '但模型二次宣告完成时**未再核验**。请勿把本回合的"已完成"当作已验证事实。',
+      );
+    }
+    return 'close';
   }
 
   /**
@@ -183,6 +233,8 @@ export class TurnRunner {
     readonly steps: number;
     readonly usageTokens: number;
     readonly aborted: boolean;
+    /** 本回合的验证状态（G3-V2）；`unverified` 不得读成通过。 */
+    readonly verificationState?: VerificationState | undefined;
     readonly finalText: string | undefined;
   }): Promise<TurnOutcome> {
     log.info('turn.end', {
@@ -209,6 +261,8 @@ export class TurnRunner {
       // 「跑满预算」当成「做完了」（2026-09-26 审计 F10）。
       truncated: summary.steps >= this.maxSteps,
       aborted: summary.aborted,
+      // G3-V2：验证状态如实上抛（`unverified` 不得被上层读成"验证通过"）。
+      verificationState: summary.verificationState,
     };
   }
 
