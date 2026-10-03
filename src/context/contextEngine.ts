@@ -7,11 +7,13 @@
  * 这是「上下文效率碾压」这一可证伪命题的真实落地模块，不依赖任何外部服务。
  */
 
-import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Bm25Index } from '../search/bm25Index.js';
 import { RepoMap, type SymbolNode } from './repoMap/repoMap.js';
 import { CorpusFileParser } from './corpusFileParser.js';
+import { CorpusCollector, type CollectedCorpus } from './corpusCollector.js';
+import { EventLoopYield } from '../util/async/eventLoopYield.js';
 import type { CorpusFileArtifact } from './corpusFileArtifact.js';
 import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.js';
@@ -282,16 +284,171 @@ export class ContextEngine {
       parser,
       opts.artifactSink,
     );
+    return ContextEngine.assembleCorpus(root, {
+      opts,
+      light,
+      truncated,
+      skippedLargeFiles,
+      collected: { fileText, fileRecords, fileDocs, allSymbols, symbolDocs },
+    });
+  }
 
-    // exactOptionalPropertyTypes：仅装配显式提供的参数，缺省交由 Bm25Index 自身默认（1.5 / 0.75）。
-    const bm25Init = {
+  /**
+   * **可让出事件循环**的语料索引（G8，2026-10-03）：与 {@link indexCorpus} **逐位相同**的产物，
+   * 但把逐文件解析切成块，每块之间交回宏任务（{@link EventLoopYield.turn}）。
+   *
+   * 为什么需要：实测 `indexCorpus` 在 `src/`（919 文件）上单次约 **1.4 s** 全在同步段里跑完，
+   * 期间定时器/HTTP 回调/日志 flush 全部阻塞（`monitorEventLoopDelay().max` 飙到秒级）——
+   * 交互路径上语料重建会让服务端"卡住一下"。切片后单块约 50 ms。
+   *
+   * 正确性依据：两条路径共用 {@link CorpusCollector}（累积状态与符号编号口径只有一份实现），
+   * 故产物逐位相同（`tests/unit/corpusIndexAsync.test.ts` 对同一子树做深度相等断言）。
+   * @param root 工作区根（绝对路径）。
+   * @param opts 索引选项（与 `indexCorpus` 同）。
+   * @param chunkFiles 每块文件数（缺省 {@link EventLoopYield.DEFAULT_CHUNK}）。
+   * @returns 与 `indexCorpus` 等价的语料。
+   */
+  public static async indexCorpusAsync(
+    root: string,
+    opts: IndexOptions = {},
+    chunkFiles: number = EventLoopYield.DEFAULT_CHUNK,
+  ): Promise<IndexedCorpus> {
+    const parser = new CorpusFileParser(opts.morph !== false);
+    const light = opts.light !== false;
+    const files: string[] = [];
+    const budget =
+      opts.maxTotalBytes ??
+      (light ? ContextEngine.MAX_TOTAL_BYTES : ContextEngine.MAX_TOTAL_BYTES_FULL);
+    const walked = ContextEngine.walk(root, root, files, {
+      ...(opts.maxFiles !== undefined ? { maxFiles: opts.maxFiles } : {}),
+      ...(opts.maxFileBytes !== undefined ? { maxFileBytes: opts.maxFileBytes } : {}),
+      maxTotalBytes: budget,
+    });
+    ContextEngine.assertFullModeBudget(light, walked.truncated, opts);
+    const collector = new CorpusCollector();
+    const chunk = Math.max(1, Math.floor(chunkFiles));
+    for (let start = 0; start < files.length; start += chunk) {
+      for (const rel of files.slice(start, start + chunk)) {
+        collector.addFile(root, rel, parser, opts.artifactSink);
+      }
+      await EventLoopYield.turn();
+    }
+    const collected = collector.result();
+    // 装配段同样要分块：实测 `src/`（922 文件）里"文件级 BM25 建索引"单独就是 **730 ms**
+    // （正文侧文档很长），只切解析段仍会留下一个远超阈值的同步尾巴。
+    const indexes = await ContextEngine.buildBm25Chunked(opts, collected);
+    return ContextEngine.assembleCorpus(root, {
+      opts,
+      light,
+      truncated: walked.truncated,
+      skippedLargeFiles: walked.skippedLargeFiles,
+      collected,
+      indexes,
+    });
+  }
+
+  /**
+   * 分块（可让出事件循环）构建两个 BM25 索引。
+   *
+   * 为什么分块粒度不同：符号文档短（10,631 篇共 89 ms），文件文档长（922 篇共 **730 ms**）
+   * ⇒ 前者每块 256 篇、后者每块 16 篇，使单块耗时都落在十几毫秒量级。
+   * 与同步路径**同产物**：`addDocument` 是**追加**语义（槽位 = 追加前文档数），故分块喂入
+   * 与一次性喂入得到逐位相同的索引状态（`tests/unit/nativeTokenAndYield.test.ts` 断言两路等价）。
+   * @param opts 索引选项（取 k1/b 口径）。
+   * @param collected 已累积的语料件。
+   * @returns 两个已建好的索引（符号级 / 文件级）。
+   */
+  private static async buildBm25Chunked(
+    opts: IndexOptions,
+    collected: CollectedCorpus,
+  ): Promise<{ readonly symbolIndex: Bm25Index; readonly fileIndex: Bm25Index }> {
+    const init = ContextEngine.bm25InitOf(opts);
+    const symbolIndex = new Bm25Index(init);
+    for (let start = 0; start < collected.symbolDocs.length; start += 256) {
+      symbolIndex.addDocuments(collected.symbolDocs.slice(start, start + 256));
+      await EventLoopYield.turn();
+    }
+    const fileIndex = new Bm25Index(init);
+    for (let start = 0; start < collected.fileDocs.length; start += 16) {
+      fileIndex.addDocuments(collected.fileDocs.slice(start, start + 16));
+      await EventLoopYield.turn();
+    }
+    return { symbolIndex, fileIndex };
+  }
+
+  /**
+   * BM25 初始化参数（`exactOptionalPropertyTypes`：仅装配显式提供的参数，缺省交由 `Bm25Index` 自身默认）。
+   *
+   * 抽出的动因：同步与分块两条路径必须用**同一份** k1/b 口径，否则两条路径会建出不同的索引
+   * （而且不会报错，只会让检索结果悄悄分叉）。
+   * @param opts 索引选项。
+   * @returns BM25 构造参数（缺省为空对象，即库默认 1.5 / 0.75）。
+   */
+  private static bm25InitOf(opts: IndexOptions): { k1?: number; b?: number } {
+    return {
       ...(opts.bm25K1 !== undefined ? { k1: opts.bm25K1 } : {}),
       ...(opts.bm25B !== undefined ? { b: opts.bm25B } : {}),
     };
-    const symbolIndex = new Bm25Index(bm25Init);
-    symbolIndex.addDocuments(symbolDocs);
-    const fileIndex = new Bm25Index(bm25Init);
-    fileIndex.addDocuments(fileDocs);
+  }
+
+  /**
+   * full 档的语料预算护栏（同步/异步两条索引路径共用，避免两份判定漂移）。
+   *
+   * full 模式的每字节代价比 light 高一个数量级，大语料必须**拒跑**而不是"静默只索引一半"——
+   * 半份语料会给出错误的对照结论。
+   * @param light 是否 light 档。
+   * @param truncated 遍历是否因预算被截断。
+   * @param opts 索引选项（显式预算时不再拒跑）。
+   * @returns 无返回值；越界时抛错。
+   */
+  private static assertFullModeBudget(
+    light: boolean,
+    truncated: boolean,
+    opts: IndexOptions,
+  ): void {
+    if (light) {
+      return;
+    }
+    const explicitBudget = opts.maxTotalBytes !== undefined;
+    if (truncated && !explicitBudget) {
+      throw new Error(
+        `full 模式语料超过预算（${String(ContextEngine.MAX_TOTAL_BYTES_FULL)} 字节）：` +
+          '生产路径请传 light: true（CorpusIndexCache 已如此）；full 仅用于小语料的对照评测',
+      );
+    }
+  }
+
+  /**
+   * 由累积好的语料件装配索引（BM25 / 频谱 / 代码图 / LSA）。
+   *
+   * 抽出的动因：让**同步**与**可让出的异步**两条索引路径共用同一段"建索引"逻辑——
+   * 否则两份装配一旦漂移，同一份语料会给出不同检索结果（且不报错）。
+   * @param root 工作区根。
+   * @param parts 装配输入（选项、档位、截断标记、累积好的语料件，以及**可选的预建 BM25 索引**）。
+   * @returns 可查询语料。
+   */
+  private static assembleCorpus(
+    root: string,
+    parts: {
+      readonly opts: IndexOptions;
+      readonly light: boolean;
+      readonly truncated: boolean;
+      readonly skippedLargeFiles: number;
+      readonly collected: CollectedCorpus;
+      /** 预建索引（分块路径注入）；缺省则在本次装配里同步建（与之一致）。 */
+      readonly indexes?: { readonly symbolIndex: Bm25Index; readonly fileIndex: Bm25Index };
+    },
+  ): IndexedCorpus {
+    const { opts, light, truncated, skippedLargeFiles, collected, indexes } = parts;
+    const { fileText, fileRecords, fileDocs, allSymbols, symbolDocs } = collected;
+
+    // 索引来源：分块路径注入（已建好，避免再同步建一遍）；同步路径就地建。
+    const symbolIndex = indexes?.symbolIndex ?? new Bm25Index(ContextEngine.bm25InitOf(opts));
+    const fileIndex = indexes?.fileIndex ?? new Bm25Index(ContextEngine.bm25InitOf(opts));
+    if (indexes === undefined) {
+      symbolIndex.addDocuments(symbolDocs);
+      fileIndex.addDocuments(fileDocs);
+    }
 
     // 燧-3 频域索引：每个符号的名/类/签名映射到本征频谱，用于共振召回（与 BM25 时域/词袋互补）。
     // light 模式跳过（2026-09-05 诚实重测：同 corpus「频谱开/关」隔离对照，文件召回 41.4% = 41.4%
@@ -329,10 +486,10 @@ export class ContextEngine {
   }
 
   /**
-   * 逐文件解析并累积语料件（`indexCorpus` 的主循环；抽出以守住其函数体上限）。
+   * 逐文件解析并累积语料件（**同步**驱动；与 {@link indexCorpusAsync} 共用 {@link CorpusCollector}）。
    *
-   * 读**原始字节**再解码（而非直接读 utf8 字符串）：解析要用文本，而产物缓存要用**字节哈希**
-   * ——非法 UTF-8 会被 utf8 解码的替换字符抹平，只有字节哈希才认得出「字节变了」。
+   * 为什么要共用累积器：符号编号是**跨文件连续**的（`artifact()` 需要"我之前的符号总数"）。若让
+   * 异步切片路径另写一份循环，两份实现一旦漂移，同步语料与异步语料会给出**不同的检索结果且不报错**。
    * @param root 工作区根（绝对路径）。
    * @param files 待解析的相对 POSIX 路径（按遍历顺序）。
    * @param parser 单文件解析器（与增量重建器共用同一实现）。
@@ -344,44 +501,12 @@ export class ContextEngine {
     files: readonly string[],
     parser: CorpusFileParser,
     sink: Map<string, CorpusFileArtifact> | undefined,
-  ): {
-    readonly fileText: Map<string, string>;
-    readonly fileRecords: FileRecord[];
-    readonly fileDocs: string[][];
-    readonly allSymbols: SymbolNode[];
-    readonly symbolDocs: string[][];
-  } {
-    const fileText = new Map<string, string>();
-    const allSymbols: SymbolNode[] = [];
-    const fileRecords: FileRecord[] = [];
-    const symbolDocs: string[][] = [];
-    const fileDocs: string[][] = [];
+  ): CollectedCorpus {
+    const collector = new CorpusCollector();
     for (const rel of files) {
-      let bytes: Buffer;
-      try {
-        bytes = readFileSync(join(root, rel));
-      } catch {
-        continue;
-      }
-      const text = bytes.toString('utf8');
-      fileText.set(rel, text);
-      const artifact = parser.artifact(
-        rel,
-        text,
-        allSymbols.length,
-        CorpusFileParser.hashOfBytes(bytes),
-      );
-      fileRecords.push({ rel, tokens: artifact.tokenCount });
-      fileDocs.push(artifact.fileDoc); // 正文侧不做扩展分词（净负面 −6.0pp，见 TASK_BOARD §22.3）
-      for (const s of artifact.symbols) {
-        allSymbols.push(s);
-      }
-      for (const doc of artifact.symbolDocs) {
-        symbolDocs.push(doc);
-      }
-      sink?.set(rel, artifact);
+      collector.addFile(root, rel, parser, sink);
     }
-    return { fileText, fileRecords, fileDocs, allSymbols, symbolDocs };
+    return collector.result();
   }
 
   /**

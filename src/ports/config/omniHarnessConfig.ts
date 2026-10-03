@@ -62,6 +62,22 @@ export interface OmniHarnessConfig {
    * 只裁行尾空白 / 3+ 连续空行 / 整段 JSON 缩进，不删字符级事实；关闭后逐字节回到旧行为。
    */
   readonly compactionDeterministicShrink?: boolean | undefined;
+  /**
+   * 是否把 token 记账下沉到原生内核（G8，2026-10-03；**默认 false ＝ 走 TS**）。
+   *
+   * ## 为什么默认关（而不是"有原生就用"）
+   *
+   * 本机实测（报告 §3.8 发现 1）：同语料 1,108 条 / 775,600 字符，TS 纯计数 **6.12 ms**，
+   * 走 native `context.estimate` **27.8–40.7 ms（慢 4.5–6.7×）**。根因是**封送成本占主导**
+   * （`JSON.stringify` 单项 12.08 ms / 925 KB，占 native 全往返 29.7%），且 Rust 侧无缓存，
+   * 而 TS 侧已有 LRU + 零分配。⇒ "下沉 Rust 即加速"在本路径上是**净亏**。
+   *
+   * ## 为什么翻转默认是安全的
+   *
+   * 两条路径**逐位相同**（既有断言：`native` 估算与 JS 结果一致）⇒ 翻转只去掉了额外延迟，
+   * 不改变任何记账结果。需要原生路径时显式开启（配置或 `OMNI_NATIVE_TOKEN_ACCOUNTING=1`）。
+   */
+  readonly nativeTokenAccounting?: boolean | undefined;
   /** 自定义外溢端口（不传用内置实现）。 */
   readonly spill?: SpillPort | undefined;
   /** 内置外溢后端：file（落盘，跨重启可恢复，默认）| memory（进程内）。 */

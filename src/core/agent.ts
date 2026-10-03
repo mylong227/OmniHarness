@@ -12,6 +12,7 @@ import { TurnRunner } from './turnRunner.js';
 import type { TurnOutcome } from './turnRunner.js';
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.js';
 import { ContextCompactor } from '../context/contextCompactor.js';
+import { NativeTokenAccounting } from './nativeTokenAccounting.js';
 import { ContextWindowCatalog } from '../context/contextWindowCatalog.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
 import { LoopGuard } from './loop/loopGuard.js';
@@ -528,9 +529,18 @@ export class Agent implements AgentPort {
       // 对齐 codex/dsh 的「按窗口百分比触发压缩」策略；未提供时维持固定阈值行为。
       ...(Number.isFinite(envWindow) && envWindow > 0 ? { contextWindowTokens: envWindow } : {}),
     });
-    // 原生内核可用时，token 估算下沉到 Rust（单次 FFI 往返，与 JS 结果逐位一致）。
-    if (this.runtime.native?.estimateTokens !== undefined) {
-      compactor.setNativeEstimator((m) => this.runtime.native!.estimateTokens!(m));
+    // G8（2026-10-03）：token 记账**默认走 TS**，原生下沉改为显式开启。
+    //
+    // 为什么翻转默认：本机实测同语料 1,108 条 / 775,600 字符，TS 纯计数 6.12 ms，走 native
+    // `context.estimate` 27.8–40.7 ms（**慢 4.5–6.7×**）——封送成本占主导（JSON.stringify 单项
+    // 12.08 ms / 925 KB，占 native 全往返 29.7%），且 Rust 侧无缓存而 TS 侧已有 LRU + 零分配。
+    // 原实现是「原生可用即下沉」，等于**在有原生内核的机器上默认变慢**。
+    // 安全性：两条路径逐位相同（既有断言保证）⇒ 翻转只去掉延迟，不改任何记账结果。
+    if (NativeTokenAccounting.enabled(this.runtime.config.nativeTokenAccounting)) {
+      const kernel = this.runtime.native;
+      if (kernel?.estimateTokens !== undefined) {
+        compactor.setNativeEstimator((m) => kernel.estimateTokens!(m));
+      }
     }
     return compactor;
   }
