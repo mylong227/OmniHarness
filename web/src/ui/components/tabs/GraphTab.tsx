@@ -316,7 +316,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
             <input
               type="text"
               value={name}
-              onInput={(e: Event) => setName((e.target as HTMLInputElement).value)}
+              onInput={(e: React.SyntheticEvent) => setName((e.target as HTMLInputElement).value)}
               placeholder="my-pipeline"
             />
           </label>
@@ -327,13 +327,13 @@ export function GraphTab(props: GraphTabProps): ReactElement {
                   className="step-id"
                   placeholder="步骤 id"
                   value={s.id}
-                  onInput={(e: Event) => updateStep(i, 'id', (e.target as HTMLInputElement).value)}
+                  onInput={(e: React.SyntheticEvent) => updateStep(i, 'id', (e.target as HTMLInputElement).value)}
                 />
                 <input
                   className="step-dep"
                   placeholder="依赖(逗号分隔)"
                   value={s.dep}
-                  onInput={(e: Event) => updateStep(i, 'dep', (e.target as HTMLInputElement).value)}
+                  onInput={(e: React.SyntheticEvent) => updateStep(i, 'dep', (e.target as HTMLInputElement).value)}
                 />
                 <button className="ghost step-del" onClick={() => removeStep(i)}>
                   ×
@@ -343,7 +343,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
                   rows={2}
                   placeholder="提示词"
                   value={s.prompt}
-                  onInput={(e: Event) =>
+                  onInput={(e: React.SyntheticEvent) =>
                     updateStep(i, 'prompt', (e.target as HTMLTextAreaElement).value)
                   }
                 ></textarea>

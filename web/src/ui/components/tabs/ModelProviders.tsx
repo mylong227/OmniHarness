@@ -92,7 +92,7 @@ function renderCard(p: ProviderPreset, ctx: CardCtx): ReactElement {
           style={INPUT}
           placeholder={hasKey ? `已保存 ${ctx.maskedKeys[p.id]}，输入新值覆盖` : '输入 API Key'}
           value={ctx.drafts[p.id] ?? ''}
-          onInput={(e: Event) => ctx.onDraft(p.id, (e.target as HTMLInputElement).value)}
+          onInput={(e: React.SyntheticEvent) => ctx.onDraft(p.id, (e.target as HTMLInputElement).value)}
         />
         <button className="ghost" disabled={ctx.busy !== ''} onClick={() => ctx.onSaveKey(p)}>
           保存 Key
@@ -106,7 +106,7 @@ function renderCard(p: ProviderPreset, ctx: CardCtx): ReactElement {
           <select
             style={INPUT}
             value={selectedModel}
-            onChange={(e: Event) => ctx.onModelPick(p.id, (e.target as HTMLSelectElement).value)}
+            onChange={(e: React.SyntheticEvent) => ctx.onModelPick(p.id, (e.target as HTMLSelectElement).value)}
           >
             {models.map((m) => (
               <option key={m} value={m}>

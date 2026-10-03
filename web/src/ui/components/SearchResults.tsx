@@ -82,7 +82,7 @@ export function SearchResults(props: SearchResultsProps): ReactElement | null {
                   role="option"
                   aria-selected={active ? 'true' : 'false'}
                   title={hit.id}
-                  onMouseDown={(e: MouseEvent) => {
+                  onMouseDown={(e: React.MouseEvent) => {
                     e.preventDefault();
                     onPick(hit);
                   }}

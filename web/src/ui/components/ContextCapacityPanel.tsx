@@ -78,7 +78,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
   }, [open, api, threadId, onToast, busy]);
 
   /** 触发按钮：阻断冒泡后切换展开态。 */
-  const toggle = (e: MouseEvent): void => {
+  const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
     setOpen((prev) => !prev);
   };
@@ -119,7 +119,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
       </span>
       <span className="cap-pct">{view !== undefined ? view.percentText : '—'}</span>
       {open ? (
-        <div className="cap-pop" onClick={(e: MouseEvent) => e.stopPropagation()}>
+        <div className="cap-pop" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           {loading && !view ? <div className="cap-loading">加载中…</div> : null}
           {view !== undefined ? (
             <div className="cap-section">

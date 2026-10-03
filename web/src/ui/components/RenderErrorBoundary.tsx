@@ -45,13 +45,15 @@ function remember(error: Error, componentStack: string): void {
 
 /** 渲染错误边界（class 组件：捕获渲染期异常并降级为可读面板）。 */
 export class RenderErrorBoundary extends React.Component<
-  { children?: unknown },
+  // `children` 用官方 `ReactNode`（不再是 `unknown`）：`render` 必须返回 ReactNode，
+  // 而 `unknown` 无法赋给它——旧手写垫片没有这层约束，于是"什么都塞得进去"。
+  { children?: ReactNode },
   RenderErrorBoundaryState
 > {
   /**
    * @param props 子节点
    */
-  public constructor(props: { children?: unknown }) {
+  public constructor(props: { children?: ReactNode }) {
     super(props);
     this.state = { error: null, componentStack: '', copied: false };
   }
@@ -117,9 +119,13 @@ export class RenderErrorBoundary extends React.Component<
 
   /**
    * 正常时渲染子树；捕获到错误时渲染可读降级面板（含组件栈与复制入口）。
+   *
+   * 返回类型必须是 `ReactNode`（不再是 `unknown`）：官方 `Component.render` 如此声明，
+   * 而 `unknown` 会让这个类**不能**作为 `createElement` 的组件类型（App 的最外层边界就是这么用的）。
+   * 旧的手写垫片没有这层约束，于是"返回什么都能过"。
    * @returns React 节点
    */
-  public render(): unknown {
+  public render(): ReactNode {
     const error = this.state.error;
     if (error === null) {
       return this.props.children;

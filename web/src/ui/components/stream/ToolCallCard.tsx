@@ -46,7 +46,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
    * 钻取：阻断冒泡，避免同时触发外层的事件点击。
    * @param e 点击事件
    */
-  const drill = (e: MouseEvent): void => {
+  const drill = (e: React.MouseEvent): void => {
     e.stopPropagation();
     onEventClick(ev);
   };

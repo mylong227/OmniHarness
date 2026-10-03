@@ -74,8 +74,13 @@ export function ChangesTab(): ReactElement {
   const [selected, setSelected] = React.useState<number>(-1);
   /** 快捷键帮助是否展开（渲染镜像）。 */
   const [help, setHelp] = React.useState<boolean>(false);
-  /** 键盘评审的根节点：Tab 落点与 keydown 监听都挂在它上面。 */
-  const rootRef = React.useRef<HTMLElement | null>(null);
+  /**
+   * 键盘评审的根节点：Tab 落点与 keydown 监听都挂在它上面。
+   *
+   * 类型必须是 `HTMLDivElement`（不再是基类 `HTMLElement`）：`ref` 挂在一个 `<div>` 上，
+   * 官方 `RefObject` 对元素类型是**不变**的，基类引用不再被接受——旧手写垫片把它写宽了。
+   */
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
   // 游标跨渲染复用（构造只发生一次，等价 App.ts 的 controllerRef 写法）。
   const cursorRef = React.useRef<ReviewCursor | null>(null);
   if (cursorRef.current === null) cursorRef.current = new ReviewCursor();
@@ -271,7 +276,7 @@ export function ChangesTab(): ReactElement {
    * 键盘评审：把裸键解析成动作，落到「当前条目清单」（收起时＝文件，展开时＝改动块）上。
    * @param e 键盘事件
    */
-  const onReviewKey = (e: KeyboardEvent): void => {
+  const onReviewKey = (e: React.KeyboardEvent): void => {
     const action = ReviewKeyboard.resolve(e as unknown as ReviewKeyLike);
     if (action === 'none') return;
     if (action === 'help') {

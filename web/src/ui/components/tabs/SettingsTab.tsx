@@ -145,15 +145,15 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
    * @param key 配置键
    * @param e 变更事件
    */
-  const onSelectChange = (key: keyof Config, e: Event): void => {
-    save({ [key]: (e.target as HTMLSelectElement).value });
+  const onSelectChange = (key: keyof Config, e: React.ChangeEvent<HTMLSelectElement>): void => {
+    save({ [key]: e.target.value });
   };
 
   /**
    * 模型名变更 → 落盘（留空回落 undefined）。
    * @param e 变更事件
    */
-  const onModelChange = (e: Event): void => {
+  const onModelChange = (e: React.SyntheticEvent): void => {
     const v = (e.target as HTMLInputElement).value.trim();
     save(v ? { model: v } : { model: undefined });
   };
@@ -162,7 +162,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
    * 自动审批开关 → 落盘。
    * @param e 变更事件
    */
-  const onAutoApproveChange = (e: Event): void => {
+  const onAutoApproveChange = (e: React.SyntheticEvent): void => {
     save({ autoApprove: (e.target as HTMLInputElement).checked });
   };
 
@@ -172,7 +172,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
    * 故这里留空发送 `null`——与 `serverConfigStore.update` 的清除语义成对。
    * @param e 变更事件
    */
-  const onBaseUrlChange = (e: Event): void => {
+  const onBaseUrlChange = (e: React.SyntheticEvent): void => {
     const v = (e.target as HTMLInputElement).value.trim();
     setBaseUrl(v);
     save(v ? { baseUrl: v } : { baseUrl: null });
@@ -281,7 +281,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
           切换配置集
           <select
             value=""
-            onChange={(e: Event) => void applyProfile((e.target as HTMLSelectElement).value)}
+            onChange={(e: React.SyntheticEvent) => void applyProfile((e.target as HTMLSelectElement).value)}
           >
             <option value="">选择并应用…</option>
             {profiles.map((p) => (

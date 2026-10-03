@@ -241,7 +241,7 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const selectedCount = selected.size;
   return (
     <div className="fp-overlay" onClick={onCancel}>
-      <div className="fp-modal" onClick={(e: MouseEvent) => e.stopPropagation()}>
+      <div className="fp-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div className="fp-head">
           <span className="fp-title">选择附件文件</span>
           <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>

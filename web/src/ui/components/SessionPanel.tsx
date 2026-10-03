@@ -124,7 +124,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
    * @param e 指针事件
    * @returns 无
    */
-  const onSessionsPointerDown = (e: PointerEvent): void => {
+  const onSessionsPointerDown = (e: React.PointerEvent): void => {
     if (props.onReorder === undefined) return;
     const el = e.target as HTMLElement | null;
     if (el === null) return;
@@ -151,7 +151,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
    * @param e 指针事件
    * @returns 无
    */
-  const onSessionsPointerUp = (e: PointerEvent): void => {
+  const onSessionsPointerUp = (e: React.PointerEvent): void => {
     const cur = touchDragRef.current;
     clearTouchTimer();
     touchDragRef.current = null;
@@ -408,7 +408,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
    * @param e 输入事件
    * @returns 无
    */
-  const onSearchInput = (e: Event): void => {
+  const onSearchInput = (e: React.SyntheticEvent): void => {
     const value = (e.target as HTMLInputElement).value;
     setQuery(value);
     search.setQuery(value);
@@ -419,7 +419,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
    * @param e 键盘事件
    * @returns 无
    */
-  const onSearchKey = (e: KeyboardEvent): void => {
+  const onSearchKey = (e: React.KeyboardEvent): void => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       search.move(e.key === 'ArrowDown' ? 1 : -1);

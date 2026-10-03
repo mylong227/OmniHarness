@@ -37,7 +37,7 @@ export function UserCard(props: UserCardProps): ReactElement {
             className="msg-act"
             title="编辑重发：把这条消息填回输入框，改完回车重发"
             aria-label="编辑重发"
-            onClick={(e: MouseEvent) => {
+            onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
               onEdit();
             }}

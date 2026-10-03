@@ -30,7 +30,7 @@ export function ArtifactCard(props: ArtifactCardProps): ReactElement {
   const { info, onOpen } = props;
   const href = `/files?path=${encodeURIComponent(info.relPath)}`;
   // 打开：阻止默认跳转与冒泡（外层卡片点击会触发钻取），改走右侧面板预览。
-  const handleOpen = (e: MouseEvent): void => {
+  const handleOpen = (e: React.MouseEvent): void => {
     e.preventDefault();
     e.stopPropagation();
     if (onOpen) onOpen(info.relPath);

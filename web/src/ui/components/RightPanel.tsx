@@ -19,8 +19,14 @@ export interface RightPanelProps {
   onSelect: (pane: string) => void;
   /** 右栏是否展开（移动端抽屉态）。 */
   open: boolean;
-  /** 当前面板内容（由 App 按 activePane 选择后注入）。 */
-  children: ReactNode;
+  /**
+   * 当前面板内容（由 App 按 activePane 选择后注入）。
+   *
+   * 为什么是可选：App 以 `React.createElement(RightPanel, props, pane)` 的**第三参数**传子节点
+   * （React 的标准写法），此时 `props` 里本就没有 `children`。旧的手写垫片把 `children` 建成了
+   * 必填，官方类型则按真实调用点如实报错——改为可选即与调用方一致。
+   */
+  children?: ReactNode;
   /** 移动端内联样式覆盖。 */
   style?: Record<string, string>;
 }
@@ -59,7 +65,7 @@ export function RightPanel(props: RightPanelProps): ReactElement {
    * @param i 当前标签下标
    * @returns 无
    */
-  const onTabKey = (e: KeyboardEvent, i: number): void => {
+  const onTabKey = (e: React.KeyboardEvent, i: number): void => {
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault();
       const step = e.key === 'ArrowRight' ? 1 : -1;
@@ -86,7 +92,7 @@ export function RightPanel(props: RightPanelProps): ReactElement {
         aria-controls={PANE_ID}
         tabIndex={active ? 0 : -1}
         onClick={() => onSelect(t.key)}
-        onKeyDown={(e: KeyboardEvent) => onTabKey(e, i)}
+        onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, i)}
       >
         {t.label}
       </div>

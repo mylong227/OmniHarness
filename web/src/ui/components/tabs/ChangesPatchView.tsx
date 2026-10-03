@@ -183,7 +183,7 @@ function renderDraft(i: number, ctx: ReviewCtx): ReactElement {
         placeholder="评论此行（仅自己与团队可见，工作区级持久化）…"
         aria-label="行内评论内容"
         value={ctx.draftText}
-        onInput={(e: Event) => ctx.onDraftText((e.target as HTMLTextAreaElement).value)}
+        onInput={(e: React.SyntheticEvent) => ctx.onDraftText((e.target as HTMLTextAreaElement).value)}
       ></textarea>
       <div className="dd-actions">
         <button

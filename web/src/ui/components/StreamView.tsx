@@ -80,6 +80,14 @@ export interface StreamViewProps {
   /** 当前厂商展示名（模型下拉标题用）。 */
   providerLabel?: string;
   reasoning: string;
+  /**
+   * 当前模型可选的推理强度档位（G11/W1 补：官方类型把"App 传了、这里没声明"这件事故暴露出来了）。
+   *
+   * **修的是真缺陷**：`App` 一直在给 `StreamView` 传 `reasoningOptions`，而这里既没声明、渲染 `Composer`
+   * 时也没转发 ⇒ 会话实际的推理档位清单被**静默丢弃**，Composer 的推理选择器只能退回内置兜底列表。
+   * 旧的手写类型垫片给未知属性留了索引签名逃生舱，于是这件事在类型层完全看不见。
+   */
+  reasoningOptions?: string[];
   permission: string;
   /** 当前会话 id（AddMenu / 上下文容量面板维度）。 */
   threadId?: string | null;
@@ -339,6 +347,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     modelOptions,
     providerLabel,
     reasoning,
+    reasoningOptions,
     permission,
     threadId,
     onToast,
@@ -399,7 +408,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
    * 滚动：记录贴底状态并按真实 scrollTop 重算窗口（virtualization 的唯一驱动源）。
    * @param e 滚动事件（零 DOM 桩下不会被触发）
    */
-  const onScroll = (e: Event): void => {
+  const onScroll = (e: React.SyntheticEvent): void => {
     const el = e.currentTarget as HTMLDivElement | null;
     if (!el) return;
     // 用户自己滚动了 ⇒ 补满修复预算，并把「空洞加渲」复位（位置是用户说了算）。
@@ -574,6 +583,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
         modelOptions={modelOptions}
         providerLabel={providerLabel}
         reasoning={reasoning}
+        reasoningOptions={reasoningOptions}
         permission={permission}
         threadId={threadId}
         seed={composerSeed ?? null}

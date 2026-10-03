@@ -173,7 +173,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
           type="text"
           placeholder="检索长期记忆（自然语言）…"
           value={query}
-          onInput={(e: Event) => setQuery((e.target as HTMLInputElement).value)}
+          onInput={(e: React.SyntheticEvent) => setQuery((e.target as HTMLInputElement).value)}
         />
         <button className="ghost" onClick={() => void search()}>
           检索

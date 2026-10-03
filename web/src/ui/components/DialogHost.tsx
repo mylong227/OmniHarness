@@ -90,7 +90,7 @@ export function DialogHost(props: DialogHostProps): ReactElement {
    * @param e 键盘事件
    * @returns 无
    */
-  const onKeyDown = (e: KeyboardEvent): void => {
+  const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       e.preventDefault();
       dialogSvc.cancel();
@@ -107,7 +107,7 @@ export function DialogHost(props: DialogHostProps): ReactElement {
    * @param e 输入事件
    * @returns 无
    */
-  const onInput = (e: Event): void => {
+  const onInput = (e: React.SyntheticEvent): void => {
     setText((e.target as HTMLInputElement | null)?.value ?? '');
   };
 
@@ -116,7 +116,7 @@ export function DialogHost(props: DialogHostProps): ReactElement {
    * @param e 键盘事件
    * @returns 无
    */
-  const onInputKeyDown = (e: KeyboardEvent): void => {
+  const onInputKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') {
       e.preventDefault();
       dialogSvc.submit(text);

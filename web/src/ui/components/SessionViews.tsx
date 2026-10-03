@@ -235,15 +235,15 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
           draggable={ctx.onDragStart !== undefined}
           onDragStart={() => ctx.onDragStart?.(s.id)}
           onDragEnd={() => ctx.onDragEnd?.()}
-          onDragOver={(e: DragEvent) => {
+          onDragOver={(e: React.DragEvent) => {
             if (ctx.onDropOn !== undefined) e.preventDefault();
           }}
-          onDrop={(e: DragEvent) => {
+          onDrop={(e: React.DragEvent) => {
             e.preventDefault();
             ctx.onDropOn?.(s.id);
           }}
           onClick={() => ctx.onSelect(s.id)}
-          onContextMenu={(e: MouseEvent) => {
+          onContextMenu={(e: React.MouseEvent) => {
             if (ctx.onContextMenu === undefined) return;
             e.preventDefault();
             ctx.onContextMenu(s.id, e.clientX, e.clientY);
@@ -320,15 +320,15 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
                     draggable={ctx.onDragStart !== undefined}
                     onDragStart={() => ctx.onDragStart?.(s.id)}
                     onDragEnd={() => ctx.onDragEnd?.()}
-                    onDragOver={(e: DragEvent) => {
+                    onDragOver={(e: React.DragEvent) => {
                       if (ctx.onDropOn !== undefined) e.preventDefault();
                     }}
-                    onDrop={(e: DragEvent) => {
+                    onDrop={(e: React.DragEvent) => {
                       e.preventDefault();
                       ctx.onDropOn?.(s.id);
                     }}
                     onClick={() => ctx.onSelect(s.id)}
-                    onContextMenu={(e: MouseEvent) => {
+                    onContextMenu={(e: React.MouseEvent) => {
                       if (ctx.onContextMenu === undefined) return;
                       e.preventDefault();
                       ctx.onContextMenu(s.id, e.clientX, e.clientY);
@@ -396,15 +396,15 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
                     draggable={ctx.onDragStart !== undefined}
                     onDragStart={() => ctx.onDragStart?.(s.id)}
                     onDragEnd={() => ctx.onDragEnd?.()}
-                    onDragOver={(e: DragEvent) => {
+                    onDragOver={(e: React.DragEvent) => {
                       if (ctx.onDropOn !== undefined) e.preventDefault();
                     }}
-                    onDrop={(e: DragEvent) => {
+                    onDrop={(e: React.DragEvent) => {
                       e.preventDefault();
                       ctx.onDropOn?.(s.id);
                     }}
                     onClick={() => ctx.onSelect(s.id)}
-                    onContextMenu={(e: MouseEvent) => {
+                    onContextMenu={(e: React.MouseEvent) => {
                       if (ctx.onContextMenu === undefined) return;
                       e.preventDefault();
                       ctx.onContextMenu(s.id, e.clientX, e.clientY);
