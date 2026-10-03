@@ -106,7 +106,9 @@ Node v22.20.0 / TypeScript 5.9.3。
 > 而是**核心价值面（检索质量）从此没有可复现的机械判据**——这与"保证核心功能"目标直接冲突，
 > 也是 §4 里优先级最高的一条（P0-1）。
 
-### 1.4 本轮发现的两处已确证缺陷（详见看板 §8）1. **🔴 P0：子代理文件写入被静默丢弃**（隔离有、回并路径无）。证据：`subagentOrchestrator.ts:62-77`
+### 1.4 本轮发现的已确证缺陷（6 条，详见看板 §8）
+
+1. **🔴 P0：子代理文件写入被静默丢弃**（隔离有、回并路径无）。证据：`subagentOrchestrator.ts:62-77`
 
 建 worktree → `finally` 清理；`worktreeOps.ts:74-97` 的 cleanup = `git worktree remove --force`
 **+ `git branch -D`**；`ports/subagent/subagentResult.ts:9-19` 无 diff/sha 字段；
