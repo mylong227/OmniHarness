@@ -77,6 +77,53 @@ export class SqliteStorage implements StoragePort {
     return rows.map((row) => JSON.parse(row.data) as SessionEvent);
   }
 
+  /**
+   * **追加**会话事件（G7：不再 `DELETE` 全桶 + 逐条重插）。
+   *
+   * 前缀校验用 `SELECT COUNT(*)`（O(1) 级：SQLite 走主键索引计数），与本适配器的写入语义同源。
+   * 校验不符即抛错，由 `EventPersister` 回退全量 `save`——**宁抛勿猜**：错位追加会让历史永久错乱，
+   * 而 `load` 照常返回一堆事件，表面看不出问题。
+   * @param sessionId 会话标识（分桶键）。
+   * @param events 完整事件列表（只插入 `fromCount` 之后的部分）。
+   * @param fromCount 调用方声明的"后端已有条数"。
+   * @returns 无返回值；校验失败或写入失败时抛错（事务回滚）。
+   */
+  public async append(
+    sessionId: string,
+    events: readonly SessionEvent[],
+    fromCount: number,
+  ): Promise<void> {
+    const existing = this.db
+      .prepare('SELECT COUNT(*) AS n FROM events WHERE session_id = ?')
+      .get(sessionId) as { n: number } | undefined;
+    if ((existing?.n ?? 0) !== fromCount) {
+      throw new Error(
+        `sqlite 追加前置校验失败：桶内条数与声明不符（库内=${String(existing?.n ?? 0)}，声明=${String(fromCount)}）`,
+      );
+    }
+    if (events.length <= fromCount) {
+      return;
+    }
+    // 与 `save` 同为单事务；但**不做 DELETE**（这正是写放大来源）。
+    const insert = this.db.prepare(
+      'INSERT OR REPLACE INTO events (session_id, seq, data) VALUES (?, ?, ?)',
+    );
+    this.db.exec('BEGIN');
+    try {
+      for (let index = fromCount; index < events.length; index += 1) {
+        insert.run(sessionId, index, JSON.stringify(events[index]));
+      }
+      this.db.exec('COMMIT');
+    } catch (error) {
+      try {
+        this.db.exec('ROLLBACK');
+      } catch {
+        /* 事务可能已被 SQLite 自动回滚 */
+      }
+      throw error;
+    }
+  }
+
   /** 关闭数据库。
    * @returns 无返回值。
    */
