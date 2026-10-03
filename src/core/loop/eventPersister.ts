@@ -153,6 +153,45 @@ export class EventPersister {
     if (events.length === 0 || (events.length === this.lastSavedCount && !this.forceWrite)) {
       return;
     }
+    await this.write(events);
+  }
+
+  /**
+   * 写一次快照：**优先追加**（G7），失败或不可追加时回退全量 `save`。
+   *
+   * 追加的三条前置（缺一即走全量）：
+   *  1. 后端实现了可选通道 `append`；
+   *  2. 本回合**已有一次成功落盘**（`lastSavedCount > 0`）——否则后端没有可比对的前缀；
+   *  3. 不是回卷重写（`forceWrite`）：回卷是**截断**语义（少写），追加只能表达"多写"，故必须全量覆盖。
+   *
+   * 失败回退的必要性：`append` 的契约是 fail-closed（前缀校验不符即抛）。抛错时盘上历史仍是
+   * **上一次成功的完整快照**，全量 `save` 一定能把当前内存态写正确 ⇒ 追加路径的任何异常都不会
+   * 让历史错乱或丢失，最坏只是白付一次全量写。
+   * @param events 当前事件快照（完整列表）。
+   * @returns 无返回值（失败仅 warn，与 flush 契约一致）。
+   */
+  private async write(events: readonly SessionEvent[]): Promise<void> {
+    const append = this.storage.append;
+    const canAppend =
+      append !== undefined &&
+      !this.forceWrite &&
+      this.lastSavedCount > 0 &&
+      events.length > this.lastSavedCount;
+    if (canAppend) {
+      try {
+        await append.call(this.storage, this.sessionId, events, this.lastSavedCount);
+        this.lastSavedCount = events.length;
+        return;
+      } catch (err) {
+        // 追加失败 ⇒ 回退全量（fail-safe）。这里刻意用 debug 而非 warn：契约明确允许回退，
+        // 「第一次没有可比对前缀」这类正常情形也会走到这里，记 warn 会制造噪声。
+        log.debug('session.persist.append_fallback', {
+          sessionId: this.sessionId,
+          fromCount: this.lastSavedCount,
+          error: String(err),
+        });
+      }
+    }
     try {
       await this.storage.save(this.sessionId, events);
       this.lastSavedCount = events.length;

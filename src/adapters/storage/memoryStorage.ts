@@ -26,4 +26,31 @@ export class MemoryStorage implements StoragePort {
   public async load(sessionId: string): Promise<readonly SessionEvent[]> {
     return this.buckets.get(sessionId) ?? [];
   }
+
+  /**
+   * **追加**会话事件（G7）：只把 `fromCount` 之后的尾部推入桶，不再整桶覆盖。
+   *
+   * 前缀校验：桶内条数必须等于调用方声明。语义**故意不做"尽力追加"**——内存后端看似不会错位，
+   * 但契约一致性比省一次判断重要：若这里悄悄容忍，调用方的 `lastSavedCount` 与实际内容一旦分叉，
+   * 错位会一路带到落盘后端。
+   * @param sessionId 会话标识（桶键）。
+   * @param events 完整事件列表（只追加 `fromCount` 之后的部分）。
+   * @param fromCount 调用方声明的"桶内已有条数"。
+   * @returns 无返回值；校验失败时抛错。
+   */
+  public async append(
+    sessionId: string,
+    events: readonly SessionEvent[],
+    fromCount: number,
+  ): Promise<void> {
+    const bucket = this.buckets.get(sessionId) ?? [];
+    if (bucket.length !== fromCount) {
+      throw new Error(
+        `memory 追加前置校验失败：桶内条数与声明不符（桶内=${String(bucket.length)}，声明=${String(fromCount)}）`,
+      );
+    }
+    for (const event of events.slice(fromCount)) {
+      bucket.push(event);
+    }
+  }
 }

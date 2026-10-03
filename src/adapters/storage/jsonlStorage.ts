@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SessionEvent } from '../../ports/runtime/event.js';
 import type { StoragePort } from '../../ports/memory/storage.js';
@@ -11,6 +11,14 @@ export class JsonlStorage implements StoragePort {
   public readonly name = 'jsonl';
   /** 存储目录位置（每个会话一个 `.jsonl` 文件）。 */
   public readonly location: string;
+
+  /**
+   * 本实例**上次成功写入**的字节数与条数（追加通道的 O(1) 前缀校验基准）。
+   *
+   * 为什么用字节数而不是"读全文数行"：读全文是 O(N)，而本项的全部意义就是消除 O(N) 写放大——
+   * 若校验也 O(N)，收益立刻打回原形。字节数比对能同时抓住三类情形：别人写过、被截断、归档挪走。
+   */
+  private readonly written = new Map<string, { count: number; bytes: number }>();
 
   public constructor(
     /** 存储根目录（自动创建；每个会话写一个 `<sessionId>.jsonl`）。 */
@@ -36,15 +44,18 @@ export class JsonlStorage implements StoragePort {
     // 归档冷存储：主目录没有文件但 `archive/` 有 ⇒ 先挪回来，避免把历史劈成两半（新文件只有新事件）。
     SessionArchiveLayout.ensureMain(this.directory, sessionId);
     const lines = events.map((event) => JSON.stringify(event)).join('\n');
+    const text = `${lines}\n`;
     const tmp = `${file}.tmp`;
     try {
-      await writeFile(tmp, `${lines}\n`, 'utf8');
+      await writeFile(tmp, text, 'utf8');
       await rename(tmp, file);
     } catch (err) {
       // 失败时清掉半成品，避免下次 load 读到 .tmp（它不参与读取，但会一直堆积）。
       await unlink(tmp).catch(() => undefined);
       throw err;
     }
+    // 记下基准：后续 `append` 以"磁盘字节数是否等于这里记录的值"做 O(1) 前缀校验。
+    this.written.set(sessionId, { count: events.length, bytes: Buffer.byteLength(text, 'utf8') });
   }
 
   /**
@@ -74,6 +85,71 @@ export class JsonlStorage implements StoragePort {
       return [];
     }
     return this.parseLines(content, sessionId, file);
+  }
+
+  /**
+   * **追加**会话事件（G7：真追加，不再整文件重写）。
+   *
+   * ## 前缀校验（fail-closed）
+   *
+   * 本适配器只接受"**由本实例上一次成功写过**"的文件，校验方式是比对**字节数**（O(1)，无需读全文）：
+   *  - 从未在本实例写过（冷启动 / 换进程 / 归档挪动）⇒ 抛错，由调用方回退全量 `save`；
+   *  - 磁盘字节数与上次写后记录的不一致（别人改过 / 被截断 / 归档挪走）⇒ 抛错。
+   *
+   * 「宁抛勿猜」是刻意的：一次错位追加会让历史永久错乱，而存档表面看起来仍然正常
+   * （`load` 会照常返回一堆事件）——这正是本仓反复治理的"静默错误"形态。
+   *
+   * ## 原子性口径
+   *
+   * 追加**不是**原子的（一次 `appendFile` 崩溃可能留下半行）。可接受的理由有二：
+   *  1. 撕裂只会落在**最后一行**，而 `load` 对坏行是"跳过并告警"，前面的事件一条不少；
+   *  2. 全量路径的原子性（tmp+rename）代价是 O(N) 重写，正是本项要消除的写放大。
+   * @param sessionId 会话标识（决定目标文件名）。
+   * @param events 完整事件列表（只追加 `fromCount` 之后的部分）。
+   * @param fromCount 调用方声明的"后端已有条数"。
+   * @returns 无返回值；校验失败时抛错。
+   */
+  public async append(
+    sessionId: string,
+    events: readonly SessionEvent[],
+    fromCount: number,
+  ): Promise<void> {
+    const file = this.fileOf(sessionId);
+    const known = this.written.get(sessionId);
+    if (known === undefined || known.count !== fromCount) {
+      throw new Error(
+        `jsonl 追加前置校验失败：本实例未记录该会话的上次写入（known=${String(known?.count)}，声明=${String(fromCount)}）`,
+      );
+    }
+    const size = await this.sizeOf(file);
+    if (size !== known.bytes) {
+      throw new Error(
+        `jsonl 追加前置校验失败：文件字节数已被外部改变（磁盘=${String(size)}，记录=${String(known.bytes)}）`,
+      );
+    }
+    const tail = events.slice(fromCount);
+    if (tail.length === 0) {
+      return;
+    }
+    const text = `${tail.map((event) => JSON.stringify(event)).join('\n')}\n`;
+    await appendFile(file, text, 'utf8');
+    this.written.set(sessionId, {
+      count: events.length,
+      bytes: size + Buffer.byteLength(text, 'utf8'),
+    });
+  }
+
+  /**
+   * 取文件字节数（不存在时为 0）。
+   * @param file 目标文件路径。
+   * @returns 字节数。
+   */
+  private async sizeOf(file: string): Promise<number> {
+    try {
+      return (await stat(file)).size;
+    } catch {
+      return 0;
+    }
   }
 
   /** 会话文件路径。
