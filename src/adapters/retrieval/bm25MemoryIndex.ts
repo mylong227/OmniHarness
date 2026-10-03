@@ -71,6 +71,29 @@ export class Bm25MemoryIndex implements RetrievalPort {
     return this.docs.length;
   }
 
+  /**
+   * 反注册若干文档（检查点回滚后清理「已被撤销」的召回源）。
+   *
+   * 实现说明：`docs` 是数组（下标即 BM25 文档 id），故移除后必须整体重建——不能只标记脏，
+   * 因为 `rebuild()` 用的是数组**当前**下标，过滤后下标自然重排，命中 id 与 `docs[hit.id]`
+   * 仍严格对齐（这正是本类无需 map 的原因）。
+   * @param ids 要移除的文档 id（不存在的 id 静默忽略）。
+   * @returns 实际移除的文档数。
+   */
+  public remove(ids: readonly string[]): number {
+    if (ids.length === 0 || this.docs.length === 0) {
+      return 0;
+    }
+    const drop = new Set(ids);
+    const kept = this.docs.filter((doc) => !drop.has(doc.id));
+    const removed = this.docs.length - kept.length;
+    if (removed > 0) {
+      this.docs = kept;
+      this.dirty = true;
+    }
+    return removed;
+  }
+
   /** 用全量文档重建 BM25 索引（插入顺序即文档下标，与命中 id 对齐）。
    * @returns 无返回值。
    */

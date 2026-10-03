@@ -18,15 +18,21 @@ export const TRACKED_WRITE_TOOLS: ReadonlySet<string> = new Set([
  * 写类工具执行前读一次 baseline、执行后取一次快照，喂给 `TurnDiffTracker`，
  * 使回合结束时能产出完整 unified diff，而无需重扫整个工作区。
  *
+ * **基线只在 tracker 里存一份**（2026-10-03 修，PROJECT_BOARD §3-2）：旧实现让本类自持一张
+ * `Map<path, before>`，而回合结束时 `TurnRunner` 只调 `tracker.reset()`——那张表**从不清理**
+ * 且**只增不减**。后果两层：
+ *  ① 回合 2 再写同一文件时，`baseline.has(path)` 命中回合 1 的记录 ⇒ diff 的 before 侧是
+ *     回合 1 之前的内容，`turn_diff` 事件呈现**跨回合累计差异**；
+ *  ② 长会话里那张表按被触碰过的文件数单调增长。
+ * 现在钩子只负责「本回合是否已为该路径读过盘」（`tracker.hasBaseline`），其余交给 tracker：
+ * 它随 `reset()` 一起清空，跨回合复用**在结构上不可能**发生。
+ *
  * **局限（与 codex 一致）**：只追踪参数带 `path` 的写类工具；shell 直接改文件不在追踪范围，
  * 故 `apply_patch` 省略 `path`（仅靠 patch 头定位）时同样不追踪——宁可不记，也不猜。
  */
 export class TurnDiffHooks {
-  /** 各文件的回合内基线内容（path → 原文；文件不存在记 null，同回合只记首次）。 */
-  private readonly baseline = new Map<string, string | null>();
-
   public constructor(
-    /** 变更追踪端口：baseline/写入结果经它记入回合 diff。 */
+    /** 变更追踪端口：基线/写入结果经它记入回合 diff（**基线的唯一事实源**）。 */
     private readonly tracker: TurnDiffTrackerPort,
     /** 工作区根目录（相对路径拼接基准）。 */
     private readonly workspaceRoot: string,
@@ -42,20 +48,20 @@ export class TurnDiffHooks {
     };
   }
 
-  /** 执行前：首次触碰某文件时读一次原始内容作为 baseline（后续同回合再写不覆盖）。
+  /** 执行前：本回合首次触碰某文件时读一次原始内容并登记为基线（后续同回合再写不覆盖）。
    * @param context 工具钩子上下文（工具名与参数，用于定位目标文件）。
    
    * @returns 无返回值。
    */
   private async captureBaseline(context: ToolHookContext): Promise<void> {
     const path = this.pathOf(context);
-    if (path === undefined || this.baseline.has(path)) {
+    if (path === undefined || this.tracker.hasBaseline(path)) {
       return;
     }
-    this.baseline.set(path, await this.readText(this.absoluteOf(path)));
+    this.tracker.recordBaseline(path, await this.readText(this.absoluteOf(path)));
   }
 
-  /** 执行后：成功才记录；写失败或读不到新内容一律 invalidate（不给不完整的差异）。
+  /** 执行后：成功才记录；读不到新内容一律 invalidate（不给不完整的差异）。
    * @param context 工具钩子上下文（工具名与参数）。
    * @param result 工具执行结果（仅 ok 时记账）。
    
@@ -71,7 +77,7 @@ export class TurnDiffHooks {
       this.tracker.invalidate();
       return;
     }
-    this.tracker.noteWrite(path, this.baseline.get(path) ?? null, after);
+    this.tracker.noteWrite(path, after);
   }
 
   /** 取执行后内容：write_file 直接用入参（省一次 IO），apply_patch 读回磁盘。

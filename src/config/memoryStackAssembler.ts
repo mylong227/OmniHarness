@@ -15,7 +15,8 @@ import { QECEncoder } from '../adapters/memory/qecEncoder.js';
 import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
 import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
 import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
+import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.js';
+import type { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
 import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
 import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
 
@@ -186,7 +187,7 @@ export class MemoryStackAssembler {
         naturalGradient: belief.naturalGradient,
         particleFilter: belief.particleFilter,
         web: memory.web,
-        repoMapContext: new RepoMapContextEngine(),
+        repoMapContext: RepoMapEngineProvider.engine(),
         scratchpad: new FileScratchpad(() => partial.workspaceRoot ?? process.cwd()),
       },
       sparkInput: {

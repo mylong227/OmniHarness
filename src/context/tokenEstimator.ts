@@ -21,10 +21,45 @@ import { TokenCountCache, type TokenCountCacheStats } from './tokenCountCache.js
  */
 const MIN_CACHEABLE_CHARS = 512;
 
+/**
+ * 每条消息的角色/协议固定开销（token）。
+ *
+ * **单一来源**：`TokenEstimator.estimateMessage` 与本文件导出的一切记账共用它；
+ * `ContextBreakdownEstimator` 也从这里取（此前它自带一份同名常量 + 注释「与 +4 保持同口径」，
+ * 两处一旦漂移，面板与压缩阈值就会各说各话）。
+ */
+export const MESSAGE_OVERHEAD_TOKENS = 4;
+
+/** 记账所需的最小消息形状：`ModelMessage` 的结构子集，纯 `{ content }` 也满足。 */
+export interface TokenAccountableMessage {
+  /** 消息正文（wire 层必发）。 */
+  readonly content: string;
+  /** 思考模式回传的推理文本（DeepSeek 思考模式**硬性要求**回传，故确实占请求体）。 */
+  readonly reasoningContent?: string | undefined;
+  /** 助手回合携带的工具调用（id / 名称 / 参数都会序列化进 wire）。 */
+  readonly toolCalls?:
+    | readonly {
+        readonly id?: string | undefined;
+        readonly name: string;
+        readonly arguments: Record<string, unknown>;
+      }[]
+    | undefined;
+  /** 随消息附带的图像（只记**信封**文本，不记二进制载荷，理由见 {@link TokenEstimator.accountableText}）。 */
+  readonly images?: readonly { readonly url?: string; readonly mediaType?: string }[] | undefined;
+  /** 随消息附带的文件附件（同上：只记名称/MIME/URL）。 */
+  readonly files?:
+    | readonly {
+        readonly name?: string;
+        readonly mediaType?: string;
+        readonly url?: string;
+      }[]
+    | undefined;
+}
+
 /** Token 估算器：中文按字数计，其余按 4 字符/token 近似。 */
 export class TokenEstimator {
   /** 原生（Rust 内核）估算器：注入后 estimateMessages 走原生路径（单次 FFI 往返）。 */
-  private nativeEstimator?: (messages: readonly { content: string }[]) => number;
+  private nativeEstimator?: (messages: readonly TokenAccountableMessage[]) => number;
 
   /**
    * 文本 → 计数缓存（审计 §2.4：每步全文记账无前缀缓存）。
@@ -46,7 +81,7 @@ export class TokenEstimator {
   /** 注入原生（Rust 内核）批量估算器；传入则 estimateMessages 优先走原生。
    * @returns 无返回值。
    */
-  public setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
+  public setNativeEstimator(fn: (messages: readonly TokenAccountableMessage[]) => number): void {
     this.nativeEstimator = fn;
   }
 
@@ -64,12 +99,71 @@ export class TokenEstimator {
     return tokens;
   }
 
-  /** 估算消息列表 token 数（含每条角色开销）。 */
-  public estimateMessages(messages: readonly { content: string }[]): number {
+  /**
+   * 估算**单条消息**在真实请求里占用的 token 数（含该消息的全部 wire 载荷 + 角色开销）。
+   *
+   * ## 为什么不能只算 `content`（2026-10-03 清偿 PROJECT_BOARD §3-3）
+   *
+   * 旧实现只对 `content` 计数，于是三类真实占用**完全不入账**：
+   *  - **工具调用参数**：`assistant.tool_calls[].arguments` 会原样序列化进请求体，且长工具链
+   *    会话里它是主体（一次 `write_file` 的参数可能上千 token）；
+   *  - **思考模式回传的 `reasoningContent`**：DeepSeek 思考模式硬性要求回传，同样在请求体里；
+   *  - **附件信封**：附件在 wire 层展开为 `image_url` / 文件说明片段。
+   * 记账系统性偏低 ⇒ 长会话**越过真实窗口才触发压缩**，下一步直接把超窗请求发给上游（fail-open 到 400）。
+   *
+   * ## 二进制载荷为何不计（沿用既有决策，不是遗漏）
+   *
+   * 图片/音视频的**二进制** token 数取决于厂商视觉编码器（分块数 / 分辨率档），无法从 base64
+   * 长度反推——按长度折算会**严重高估**（1 MiB PNG ≈ 数十万字符）。故只计可测的**信封文本**
+   * （URL / MIME / 文件名），与 `ContextBreakdownEstimator` 的既有口径一致。
+   *
+   * @param message 待估算消息（`ModelMessage` 的结构子集）。
+   * @returns 该消息的 token 估算值。
+   */
+  public estimateMessage(message: TokenAccountableMessage): number {
+    return this.estimate(TokenEstimator.accountableText(message)) + MESSAGE_OVERHEAD_TOKENS;
+  }
+
+  /**
+   * 估算消息列表 token 数（每条含全部 wire 载荷与角色开销）。
+   *
+   * 注入原生估算器时整体下沉到 Rust（**契约：两侧逐位一致**，见
+   * `crates/omni-napi/src/handler.rs::handle_context_estimate`）；否则走
+   * {@link TokenEstimator.estimateMessage} 的本地规则——两条路径必须同源，
+   * 否则「原生开 / 关」会给出不同的压缩时机。
+   * @param messages 消息列表。
+   * @returns 估算的 token 总数。
+   */
+  public estimateMessages(messages: readonly TokenAccountableMessage[]): number {
     if (this.nativeEstimator !== undefined) {
       return this.nativeEstimator(messages);
     }
-    return messages.reduce((sum, message) => sum + this.estimate(message.content) + 4, 0);
+    return messages.reduce((sum, message) => sum + this.estimateMessage(message), 0);
+  }
+
+  /**
+   * 把一条消息折叠成「参与记账的文本」（唯一实现：TS 与 Rust 两侧照抄同一规则）。
+   *
+   * 拼装顺序固定（content → reasoning → toolCalls → 附件信封），用 NUL 分隔以免相邻字段
+   * 拼接产生新的词边界而改变计数。分隔符本身也计入（几个码元，可忽略且确定）。
+   * @param message 待折叠消息。
+   * @returns 记账文本（无附加载荷时逐字等于 `content`）。
+   */
+  public static accountableText(message: TokenAccountableMessage): string {
+    const parts: string[] = [message.content];
+    if (message.reasoningContent !== undefined && message.reasoningContent !== '') {
+      parts.push(message.reasoningContent);
+    }
+    if (message.toolCalls !== undefined && message.toolCalls.length > 0) {
+      parts.push(JSON.stringify(message.toolCalls));
+    }
+    for (const image of message.images ?? []) {
+      parts.push([image.url ?? '', image.mediaType ?? ''].join(' '));
+    }
+    for (const file of message.files ?? []) {
+      parts.push([file.name ?? '', file.mediaType ?? '', file.url ?? ''].join(' '));
+    }
+    return parts.length === 1 ? (parts[0] as string) : parts.join('\u0000');
   }
 
   /**

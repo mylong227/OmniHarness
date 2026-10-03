@@ -68,14 +68,35 @@ export class SkillSparsifier {
   /**
    * 技能稀疏化：按命中强度降序保留 top-k；名字命中级（≥ minKeepScore）的强命中永不剪。
    * 语义：预算（maxSkills）约束弱命中长尾，强命中豁免——保证「有用技能不丢、噪声长尾被剪」。
-   * @param matched 已命中的技能（任意顺序）
+   *
+   * ## 两个判据要真的有语义，调用方必须传**未截断**的候选集（2026-10-03 修 §3-5）
+   *
+   * 旧生产路径是 `SkillRegistry.selectForPrompt()`（已截到 5 条）→ 本方法：预算判据
+   * `kept.length < maxSkills` **恒真**、强命中豁免**永不生效**，且排序键（命中强度 → 名称）
+   * 会把 BM25 相关性序整体覆盖成「按名称字典序」。现调用方改走
+   * `SkillRegistry.rankForPrompt()`（比率过滤但**不截断**）+ 本方法的 `relevance` 主序：
+   * 相关性决定取舍与顺序，命中强度只在相关性相同时分先后并触发豁免。
+   * @param matched 已命中/已过滤的技能（**不得预先按 maxSkills 截断**，否则预算与豁免退化）
    * @param textLower 小写化的提示文本
+   * @param relevance 上游相关性分（技能名 → 分，通常来自 BM25）。给了就作**主序**（降序）；
+   *   未给则各条视作同分（退化为「只按命中强度 + 名称」的确定性顺序，与改造前逐字一致）。
    * @returns kept/dropped 与得分表
    */
-  public sparsify(matched: readonly Skill[], textLower: string): SparseResult {
+  public sparsify(
+    matched: readonly Skill[],
+    textLower: string,
+    relevance?: ReadonlyMap<string, number>,
+  ): SparseResult {
     const scored = matched
-      .map((skill) => ({ skill, score: this.hitScore(skill, textLower) }))
-      .sort((a, b) => b.score - a.score || (a.skill.name < b.skill.name ? -1 : 1));
+      .map((skill) => ({
+        skill,
+        score: this.hitScore(skill, textLower),
+        relevance: relevance?.get(skill.name) ?? 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.relevance - a.relevance || b.score - a.score || (a.skill.name < b.skill.name ? -1 : 1),
+      );
 
     const kept: Array<{ skill: Skill; score: number }> = [];
     const dropped: Array<{ skill: Skill; score: number }> = [];
@@ -84,7 +105,7 @@ export class SkillSparsifier {
       scores.set(entry.skill.name, entry.score);
       // 保留判据（二者其一）：① 预算未满（按得分降序取 top-k）；② 强命中豁免（≥ minKeepScore，预算外也不剪）。
       const keep = kept.length < this.maxSkills || entry.score >= this.minKeepScore;
-      (keep ? kept : dropped).push(entry);
+      (keep ? kept : dropped).push({ skill: entry.skill, score: entry.score });
     }
 
     return { kept: kept.map((k) => k.skill), dropped: dropped.map((d) => d.skill), scores };

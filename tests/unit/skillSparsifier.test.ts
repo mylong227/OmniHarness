@@ -89,3 +89,42 @@ test('⑤ 边界：空输入与单元素不抛错', () => {
   assert.strictEqual(one.kept.length, 1);
   assert.strictEqual(one.dropped.length, 0);
 });
+
+test('⑥ 相关性主序：给了 relevance 就按相关性排，命中强度只作同分次序（§3-5 回归判据）', () => {
+  const sp = new SkillSparsifier({ maxSkills: 2, minKeepScore: 3 });
+  // 相关性序把「名字命中、但相关性最低」的 core-z 排在最后：预算 2 先被相关性最高的两条占满。
+  const relevance = new Map([
+    ['weak-b', 30],
+    ['weak-a', 20],
+    ['core-z', 1],
+  ]);
+  const r = sp.sparsify(
+    [skill('core-z'), skill('weak-a', ['t']), skill('weak-b', ['t'])],
+    '请执行 core-z 任务',
+    relevance,
+  );
+  assert.deepStrictEqual(
+    r.kept.map((s) => s.name),
+    ['weak-b', 'weak-a', 'core-z'],
+    '顺序由相关性决定；core-z 因名字命中豁免（score 3）而在预算外仍保留',
+  );
+  assert.deepStrictEqual(r.dropped, [], '强命中豁免生效 ⇒ 无被剪项');
+});
+
+test('⑦ 未给 relevance 时逐字保持旧行为（同分按名称字典序）', () => {
+  const sp = new SkillSparsifier({ maxSkills: 2, minKeepScore: 3 });
+  const r = sp.sparsify([skill('b-x', ['t']), skill('a-x', ['t'])], 't');
+  assert.deepStrictEqual(
+    r.kept.map((s) => s.name),
+    ['a-x', 'b-x'],
+  );
+});
+
+test('⑧ 上游若预先截断，预算与豁免判据必然退化（钉住「不得预截断」这条契约）', () => {
+  const sp = new SkillSparsifier({ maxSkills: 5, minKeepScore: 3 });
+  // 只有 5 条候选（= maxSkills）⇒ 全部保留，豁免分支永远不会被触发。
+  const preTruncated = ['s1', 's2', 's3', 's4', 's5'].map((name) => skill(name));
+  const r = sp.sparsify(preTruncated, '无关提示');
+  assert.strictEqual(r.kept.length, 5);
+  assert.strictEqual(r.dropped.length, 0, '预截断后预算恒不超 ⇒ 稀疏化器退化为恒等变换');
+});

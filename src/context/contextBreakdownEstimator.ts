@@ -40,9 +40,6 @@ const MCP_NAME_SEPARATOR = '__';
 /** 技能注入片段的前缀（与 `SkillRegistry.render` 的首行严格一致）。 */
 const SKILL_MARKER = '# 技能：';
 
-/** 每条消息的角色/协议固定开销（与 `TokenEstimator.estimateMessages` 的 +4 保持同口径）。 */
-const MESSAGE_OVERHEAD_TOKENS = 4;
-
 export type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.js';
 
 /** 估算输入。 */
@@ -191,14 +188,15 @@ export class ContextBreakdownEstimator {
     return message.content.startsWith(SKILL_MARKER) ? 'skills' : 'other';
   }
 
-  /** 单条消息的 token 估算：正文 + 工具调用参数 JSON + 每条固定开销（附件二进制不计）。 */
+  /** 单条消息的 token 估算：**委派给记账的唯一实现** `TokenEstimator.estimateMessage`
+   * （正文 + 思考回传 + 工具调用参数 + 附件信封 + 每条固定开销；附件二进制不计，理由见该方法的 JSDoc）。
+   * 2026-10-03 去重：此前本类自带一份「content + JSON(toolCalls) + 4」，与压缩阈值各算一套——
+   * 两处漂移会让容量面板显示的占用与真正触发压缩的判据不是同一个数。
+   * @param message 模型消息
+   * @returns 该消息的 token 估算值
+   */
   private messageTokens(message: ModelMessage): number {
-    let tokens = this.estimator.estimate(message.content) + MESSAGE_OVERHEAD_TOKENS;
-    const calls = message.toolCalls;
-    if (calls !== undefined && calls.length > 0) {
-      tokens += this.estimator.estimate(JSON.stringify(calls));
-    }
-    return tokens;
+    return this.estimator.estimateMessage(message);
   }
 
   /** 单个工具定义的 token 估算：按真实发给模型的序列化形态（name + description + JSON Schema）计。

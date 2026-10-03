@@ -150,3 +150,61 @@ test('CorpusIndexCache: clear(root) 之后即便内容未变也重建（显式�
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('CorpusIndexCache: invalidate(root) 是**软**失效——内容未变则复用同一语料（写工具后不再白付全量重建）', () => {
+  // 实测背景：`StepToolExecutor.maybeInvalidateRepoMap` 在每个写类工具成功后调用；旧行为走
+  // `clear()` 硬删 ⇒ 下一次组装上下文**必然**全量重建（本仓 902 文件 8.6s 量级），而
+  // `shell` 里跑 `echo` / `git status` / `npm test` 根本不改被索引的源码。
+  const root = workspace();
+  try {
+    write(root, 'src/a_test_x.ts', 'export class AlphaTestX { run(): void {} }\n');
+    withEnv('OMNI_REPO_MAP_TTL_MS', '0', () => {
+      const cache = new CorpusIndexCache({ maxEntries: 4 });
+      const first = cache.get(root);
+      cache.invalidate(root);
+      const second = cache.get(root);
+      assert.strictEqual(second, first, '内容签名未变 ⇒ 复用同一实例（零重建）');
+      assert.strictEqual(cache.stats().misses, 1, '软失效本身不算未命中');
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CorpusIndexCache: invalidate(root) 对**真变化**照样重建（陈旧窗口为零，不是绕过复核）', () => {
+  const root = workspace();
+  try {
+    write(root, 'src/a_test_x.ts', 'export class AlphaTestX { run(): void {} }\n');
+    withEnv('OMNI_REPO_MAP_TTL_MS', '0', () => {
+      const cache = new CorpusIndexCache({ maxEntries: 4 });
+      const first = cache.get(root);
+      write(root, 'src/a_test_x.ts', 'export class BetaTestX { run(): void {} }\n');
+      cache.invalidate(root);
+      const second = cache.get(root);
+      assert.notStrictEqual(second, null);
+      assert.notStrictEqual(second, first, '内容真变 ⇒ 必须重建');
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('CorpusIndexCache: invalidate() 不给 root 时标记全部条目', () => {
+  const one = workspace();
+  const two = workspace();
+  try {
+    write(one, 'src/a_test_x.ts', 'export class AlphaTestX { run(): void {} }\n');
+    write(two, 'src/a_test_x.ts', 'export class AlphaTestX { run(): void {} }\n');
+    withEnv('OMNI_REPO_MAP_TTL_MS', '0', () => {
+      const cache = new CorpusIndexCache({ maxEntries: 4 });
+      const firstOne = cache.get(one);
+      const firstTwo = cache.get(two);
+      cache.invalidate();
+      assert.strictEqual(cache.get(one), firstOne);
+      assert.strictEqual(cache.get(two), firstTwo);
+    });
+  } finally {
+    rmSync(one, { recursive: true, force: true });
+    rmSync(two, { recursive: true, force: true });
+  }
+});

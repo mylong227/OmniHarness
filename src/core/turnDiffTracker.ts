@@ -33,22 +33,51 @@ export class TurnDiffTracker implements TurnDiffTrackerPort {
   }
 
   /**
-   * 记录一次精确写入（before 为 null 表示新建文件；同文件多次写只保留首次 baseline）。
+   * 本回合是否已登记该路径的写入前基线。
+   * @param path 文件路径。
+   * @returns 已登记（含记为 null 的「文件不存在」）时为 true。
+   */
+  public hasBaseline(path: string): boolean {
+    return this.baseline.has(path);
+  }
+
+  /**
+   * 登记写入前基线（工具执行前调用；同回合同路径只记首次）。
+   *
+   * 基线由本类**唯一持有**：工具钩子只负责「读一次盘」，不再自建第二份基线表——两份表若
+   * 生命周期不同步（旧实现里钩子的表在 `reset()` 时不清理），回合 2 的 diff before 侧会是
+   * 回合 1 之前的内容，`turn_diff` 事件呈现跨回合累计差异（PROJECT_BOARD §3-2）。
    * @param path 被写入的文件路径。
    * @param before 写入前内容快照；新建文件为 null。
-   * @param after 写入后的完整内容。
-   
    * @returns 无返回值。
    */
-  public noteWrite(path: string, before: string | null, after: string): void {
+  public recordBaseline(path: string, before: string | null): void {
     // 失效后拒绝写入（2026-10-03 修）：`invalidate()` 的语义是「清空并永久失效」，失效后的
-    // 写入注定进不了 diff（`getUnifiedDiff` 因 `!valid` 返回 undefined），却会把 `changedCount`
+    // 记账注定进不了 diff（`getUnifiedDiff` 因 `!valid` 返回 undefined），却会把 `changedCount`
     // 从 0 抬成非 0——turn-end 完成闸门据此误判「本回合改过文件」而平白跑一次验证。
     if (!this.valid) {
       return;
     }
     if (!this.baseline.has(path)) {
       this.baseline.set(path, before);
+    }
+  }
+
+  /**
+   * 记录一次精确写入（baseline 侧取 {@link TurnDiffTracker.recordBaseline} 登记的值）。
+   * @param path 被写入的文件路径。
+   * @param after 写入后的完整内容。
+   * @returns 无返回值。
+   */
+  public noteWrite(path: string, after: string): void {
+    // 失效后拒绝写入（理由同上）。
+    if (!this.valid) {
+      return;
+    }
+    // 未登记基线 ⇒ 按新建文件处理：与历史口径一致（旧实现 `baseline.get(path) ?? ''` 把
+    // 缺失基线当空串，即「此前不存在」）。已登记则**保持首次值**，同回合多次写只暴露净差异。
+    if (!this.baseline.has(path)) {
+      this.baseline.set(path, null);
     }
     this.current.set(path, after);
   }

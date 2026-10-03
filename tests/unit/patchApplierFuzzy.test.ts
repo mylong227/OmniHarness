@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PatchApplier } from '../../src/adapters/tool/fs/patchApplier.js';
@@ -285,6 +285,92 @@ test('ApplyPatchTool：多文件补丁如实区分「变更」与「无变化」
     assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'a\nB\nc');
     assert.strictEqual(await readFile(join(dir, 'two.txt'), 'utf8'), 'x\ny\nz');
   } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 造一份「两个文件都要改」的补丁。
+ * @returns unified diff 文本（one.txt: x→X，two.txt: y→Y）
+ */
+function twoFilePatch(): string {
+  return [
+    '--- a/one.txt',
+    '+++ b/one.txt',
+    '@@ -1,1 +1,1 @@',
+    '-x',
+    '+X',
+    '--- a/two.txt',
+    '+++ b/two.txt',
+    '@@ -1,1 +1,1 @@',
+    '-y',
+    '+Y',
+  ].join('\n');
+}
+
+test('ApplyPatchTool：覆盖已有文件前生成 .bak 备份（与 write_file / edit 同口径）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-patch-'));
+  try {
+    await writeFile(join(dir, 'one.txt'), 'x', 'utf8');
+    await writeFile(join(dir, 'two.txt'), 'y', 'utf8');
+    const tool = new ApplyPatchTool(dir);
+    const result = await tool.handle(
+      { id: 'c1', name: 'apply_patch', arguments: { patch: twoFilePatch() } },
+      context,
+    );
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(await readFile(join(dir, 'one.txt.bak'), 'utf8'), 'x');
+    assert.strictEqual(await readFile(join(dir, 'two.txt.bak'), 'utf8'), 'y');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ApplyPatchTool：目标不可写时**一个字节都不落盘**（旧实现留下半份补丁，§3-6 回归判据）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-patch-'));
+  try {
+    await writeFile(join(dir, 'one.txt'), 'x', 'utf8');
+    // two.txt 建成**目录**：读取即 EISDIR（非 ENOENT）⇒ 必须在准备阶段就整份拒绝。
+    // 旧实现把读不到的路径当「新建文件」，先写成功 one.txt，再在 two.txt 上失败——用户收到
+    // 「失败」，工作区却已经被改了（类文档承诺「原子」名不副实）。
+    await mkdir(join(dir, 'two.txt'));
+    const tool = new ApplyPatchTool(dir);
+    const result = await tool.handle(
+      { id: 'c1', name: 'apply_patch', arguments: { patch: twoFilePatch() } },
+      context,
+    );
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error ?? '', /two\.txt/);
+    assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'x', '不得留下半份补丁');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ApplyPatchTool：提交阶段写失败时回滚已写文件（工作区保持补丁前状态）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-patch-'));
+  const second = join(dir, 'two.txt');
+  try {
+    await writeFile(join(dir, 'one.txt'), 'x', 'utf8');
+    await writeFile(second, 'y', 'utf8');
+    // 只读属性：Windows / POSIX 都让 writeFile 失败，而 `.bak`（新文件）仍可创建
+    // ⇒ 恰好落在「准备成功、提交中途失败」这一格，正是需要回滚的那一格。
+    await chmod(second, 0o444);
+    const tool = new ApplyPatchTool(dir);
+    const result = await tool.handle(
+      { id: 'c1', name: 'apply_patch', arguments: { patch: twoFilePatch() } },
+      context,
+    );
+    if (result.ok) {
+      // 少数文件系统/权限模型下只读不拦写入（如以 root 运行）：此时断言等价于成功路径，
+      // 不让用例变成假红——真正不可写环境的判据由上一例（EISDIR）保证。
+      assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'X');
+      return;
+    }
+    assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'x', 'one.txt 必须被回滚');
+    assert.match(result.error ?? '', /回滚/);
+  } finally {
+    await chmod(second, 0o666).catch(() => undefined);
     await rm(dir, { recursive: true, force: true });
   }
 });

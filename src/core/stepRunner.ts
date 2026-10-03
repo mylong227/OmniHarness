@@ -167,8 +167,11 @@ export class StepRunner {
    * @returns 模型输出（推理 / 文本 / 工具调用 / 用量）。
    */
   private async requestModel(): Promise<ReturnType<ModelPort['generate']>> {
-    const messages = await this.contextBuilder.buildMessages();
+    // 先算工具集再组装消息：`buildMessages` 要拿它当**每请求固定开销**（工具 schema 与
+    // 消息共用同一 token 预算），否则压缩判据看不到 schema 占用，长会话会越过真实窗口才压缩。
+    // 两件事互不依赖（工具集只读注册表/发现寄存器，不读事件），调序无行为差异。
     const tools = this.contextBuilder.effectiveTools();
+    const messages = await this.contextBuilder.buildMessages({ tools });
     this.lastContext = this.snapshotOf(messages, tools);
     log.debug('model.request', { messageCount: messages.length, toolCount: tools.length });
     const stream = this.deps.model.stream;

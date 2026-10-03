@@ -37,6 +37,59 @@ test('压缩器：未超预算原样返回', async () => {
   assert.strictEqual(result.messages.length, 2);
 });
 
+test('压缩器：每请求固定开销（工具 schema + 尾部文本）挤占同一预算 ⇒ 提前压缩（§3-3 后半）', async () => {
+  // 消息本身远在预算内，但「工具 schema + repo-map 尾段」是同一请求体的恒定占用。
+  // 不入账的后果：记账偏低 ⇒ 越过真实窗口才压缩 ⇒ 超窗请求打到上游（fail-open 400）。
+  const messages = longMessages(3);
+  const tool = {
+    name: 'shell',
+    description: '跑命令',
+    parameters: {
+      type: 'object' as const,
+      properties: { command: { type: 'string' } },
+    },
+  };
+  const roomy = new ContextCompactor(
+    fakeModel(() => ({ text: '摘要' })),
+    {
+      maxTokens: 100000,
+      keepRecent: 2,
+    },
+  );
+  const withoutOverhead = await roomy.compact(messages);
+  assert.strictEqual(withoutOverhead.compacted, false);
+
+  // 同一批消息 + 一份足够大的固定开销 ⇒ 必须触发压缩（此前完全看不到这份占用）。
+  const tight = new ContextCompactor(
+    fakeModel(() => ({ text: '摘要' })),
+    {
+      maxTokens: 200,
+      keepRecent: 2,
+    },
+  );
+  const without = await tight.compact(messages);
+  const withOverhead = await tight.compact(messages, undefined, {
+    tools: [tool],
+    trailingText: 'x'.repeat(4000),
+  });
+  assert.strictEqual(without.compacted, false, '无固定开销时 200 token 预算下消息未超');
+  assert.strictEqual(withOverhead.compacted, true, '计入固定开销后必须提前压缩');
+});
+
+test('压缩器：固定开销超过预算时夹到下限，不得把历史清空（比超窗更糟）', async () => {
+  const compactor = new ContextCompactor(
+    fakeModel(() => ({ text: '摘要' })),
+    {
+      maxTokens: 100,
+      keepRecent: 2,
+    },
+  );
+  const result = await compactor.compact(longMessages(8), undefined, {
+    trailingText: 'y'.repeat(100_000),
+  });
+  assert.ok(result.messages.length >= 2, '至少保留摘要 + 一条消息，不得丢光会话历史');
+});
+
 test('压缩器：超预算用 LLM 摘要折叠历史', async () => {
   const compactor = new ContextCompactor(
     fakeModel(() => ({ text: '历史摘要内容' })),

@@ -1,8 +1,8 @@
-﻿import type { SkillPort, MoireOptions } from '../ports/runtime/skill.js';
+import type { SkillPort, MoireOptions } from '../ports/runtime/skill.js';
 import type { MoireMeta } from './skill.js';
 import type { Skill } from './skill.js';
 import { MoireComposer } from './moireComposer.js';
-import { SkillRetriever } from './skillRetriever.js';
+import { SkillRetriever, type SkillRetrieveHit } from './skillRetriever.js';
 
 /** 相关性选择的预算与阈值（默认值即出厂口径，构造可覆盖）。 */
 export interface SkillSelectOptions {
@@ -29,10 +29,13 @@ export interface SkillSelectOptions {
  * 技能注册表：注册/列举/匹配与**相关性选择**（命中才注入上下文）。
  * 同时实现 SkillPort，提供燧-1 莫尔转角组合算子。
  *
- * ## 两条选择路径，生产走相关性那条（2026-10-02 翻默认）
+ * ## 两条选择路径，生产走相关性那条（2026-10-02 翻默认；2026-10-03 拆出排名入口）
  *
- *  - `selectForPrompt()`——**BM25 相关性**判据（{@link SkillRetriever}）。**这是生产注入路径的判据**
- *    （`Agent.injectSkills`）。
+ *  - `rankForPrompt()`——**BM25 相关性**判据（{@link SkillRetriever}）的**完整**比率过滤排名
+ *    （不截断、带分数）。**这是生产注入路径的第一段**（`Agent.injectSkills`），下游接
+ *    `SkillSparsifier` 做预算与强命中豁免。
+ *  - `selectForPrompt()`——同一判据的**截断版**（top-{@link SkillSelectOptions.maxSkills}），
+ *    保持既有外部契约与评测口径不变；只有「只要前 N 条、不需要稀疏化」的调用方该用它。
  *  - `match()`——**字面子串**判据（文本含技能名或任一 tag）。保留为**精确通道**（测试、诊断、
  *    按名核对、以及需要「只认字面」的场合），语义与翻默认前逐字未变。
  *
@@ -115,7 +118,7 @@ export class SkillRegistry implements SkillPort {
   }
 
   /**
-   * 按**相关性**选择这一轮要注入的技能（**生产注入路径的判据**）。
+   * 按**相关性**选择这一轮要注入的技能（**生产注入路径的第一段判据**）。
    *
    * 三步：BM25 给全部技能打分排序 → 丢掉低于「最高分 × {@link SkillSelectOptions.minScoreRatio}」的
    * 长尾 → 截到 {@link SkillSelectOptions.maxSkills} 条。
@@ -129,6 +132,26 @@ export class SkillRegistry implements SkillPort {
    * @returns 按相关性降序、已过滤并截断的技能列表。
    */
   public selectForPrompt(text: string): readonly Skill[] {
+    return this.rankForPrompt(text)
+      .slice(0, this.selectMax)
+      .map((hit) => hit.skill);
+  }
+
+  /**
+   * 比率过滤后的**完整**相关性排名（BM25 降序，**不截断**）。
+   *
+   * 存在的理由（2026-10-03 修 PROJECT_BOARD §3-5）：生产注入路径是
+   * `selectForPrompt()`（截到 5 条）→ `SkillSparsifier.sparsify()`（预算 5 + 名字命中豁免）。
+   * 上游先截断 ⇒ 稀疏化器拿到的永远 ≤5 条 ⇒ 它的预算判据恒真、**强命中豁免永不生效**，
+   * 且它的排序键（命中强度 / 名称）会把 BM25 相关性序整体覆盖掉（同分时变成按名称字典序）。
+   * 本方法把「比率过滤」与「预算裁剪」拆开：比率过滤属于检索（它知道 BM25 分），
+   * 预算与豁免属于稀疏化（它知道命中强度）——各司其职，稀疏化的两个判据才重新有语义。
+   *
+   * `selectForPrompt` 保持原契约（同分数 + 截断），故既有调用点与评测口径零变化。
+   * @param text 提示文本（用户任务原文）。
+   * @returns 比率过滤后的降序命中（含 BM25 分）；空查询或无技能时为空数组。
+   */
+  public rankForPrompt(text: string): readonly SkillRetrieveHit[] {
     const all = this.list();
     if (all.length === 0 || text.trim() === '') {
       return [];
@@ -139,15 +162,12 @@ export class SkillRegistry implements SkillPort {
     }
     const top = ranked[0]?.score ?? 0;
     const floor = top * this.selectMinRatio;
-    const out: Skill[] = [];
+    const out: SkillRetrieveHit[] = [];
     for (const hit of ranked) {
       if (hit.score < floor) {
         break;
       }
-      out.push(hit.skill);
-      if (out.length >= this.selectMax) {
-        break;
-      }
+      out.push(hit);
     }
     return out;
   }
