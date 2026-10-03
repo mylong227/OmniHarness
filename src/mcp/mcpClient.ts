@@ -1,6 +1,7 @@
 import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.js';
 import type { Transport } from '../server/transport/lineTransport.js';
 import { McpProtocol } from './mcpProtocol.js';
+import { McpContentBlocks } from './mcpContentBlocks.js';
 import type {
   McpCallToolResult,
   McpInitializeResult,
@@ -170,12 +171,23 @@ export class McpClient implements McpClientPort {
     }
   }
 
-  /** 规整调用结果（缺失 content 视为空成功）。 */
+  /**
+   * 规整调用结果（缺失 content 视为空成功）。
+   *
+   * G10/T3（2026-10-03）：内容块走**共用归一化**（{@link McpContentBlocks}）——此前原样透传，而网关
+   * 只读 `.text`，于是图片 / 资源链接在这条**手写回退路径**上变成**空段**（与 SDK 适配器那条路径是
+   * 同一处静默丢块）；`structuredContent` 此前也被直接丢掉。
+   * @param result 远端返回体（未知形状）。
+   * @returns 规整后的调用结果。
+   */
   private asCallResult(result: unknown): McpCallToolResult {
-    const raw = result as Partial<McpCallToolResult> | undefined;
+    const raw = result as { readonly content?: unknown; readonly isError?: unknown } | undefined;
+    const structured = (result as { readonly structuredContent?: unknown } | undefined)
+      ?.structuredContent;
     return {
-      content: raw?.content ?? [],
+      content: McpContentBlocks.normalizeAll(raw?.content),
       isError: raw?.isError === true,
+      ...(structured !== undefined ? { structuredContent: structured } : {}),
     };
   }
 }

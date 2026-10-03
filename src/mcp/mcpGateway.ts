@@ -134,10 +134,37 @@ export class McpGateway {
     return this.toToolResult(callId, result);
   }
 
-  /** MCP 结果 → 本地工具结果（isError 或异常均收敛为 ok:false）。 */
+  /**
+   * MCP 结果 → 本地工具结果（isError 或异常均收敛为 ok:false）。
+   *
+   * G10/T3（2026-10-03）：**结构化输出不再被丢**——`structuredContent` 以带标签的 JSON 追加到文本之后
+   * （模型据此可读到机器可读字段，而不必指望远端同时给了文本块）；非文本块由适配器转述为**非空文本**
+   * （`content.map(c => c.text)` 对文本块与转述块都成立 ⇒ 本方法零改动即受益）。
+   * @param callId 本地工具调用 id。
+   * @param result 远端 MCP 结果。
+   * @returns 本仓工具结果。
+   */
   private toToolResult(callId: string, result: McpCallToolResult): ToolResult {
     const text = result.content.map((entry) => entry.text).join('\n');
-    return result.isError ? { callId, ok: false, error: text } : { callId, ok: true, output: text };
+    const structured =
+      result.structuredContent === undefined
+        ? ''
+        : `\n[结构化输出]\n${McpGateway.renderStructured(result.structuredContent)}`;
+    const body = `${text}${structured}`;
+    return result.isError ? { callId, ok: false, error: body } : { callId, ok: true, output: body };
+  }
+
+  /**
+   * 渲染结构化输出（JSON 文本；不可序列化时回退为字符串描述，**绝不抛错**）。
+   * @param value 结构化输出。
+   * @returns 可读文本。
+   */
+  private static renderStructured(value: unknown): string {
+    try {
+      return JSON.stringify(value, null, 2) ?? String(value);
+    } catch {
+      return String(value);
+    }
   }
 
   /** 生成带前缀的工具名。 */
