@@ -126,15 +126,15 @@ test('TraceSpanBuilder：model 事件产出 model span 并累计 token；drain �
 
   const modelSpan = spans.find((s) => s.name === 'model.deepseek-chat');
   assert.ok(modelSpan !== undefined, '应有 model span');
-  const modelAttrs = new Map(
-    (modelSpan!.attributes ?? []).map((a) => [a.key, a.value.stringValue]),
-  );
+  // 数值属性口径变更（G23/O2，2026-10-03 第十一轮）：数字走 `intValue`（proto3 JSON 的 int64 字符串形态），
+  // **不再**塞 `stringValue`——塞字符串会让标准 GenAI 后端无法按类型分派。
+  const modelAttrs = new Map((modelSpan!.attributes ?? []).map((a) => [a.key, a.value.intValue]));
   assert.strictEqual(modelAttrs.get('tokens.total'), '15');
 
   const sessionSpan = spans.find((s) => s.name === 'session');
   assert.ok(sessionSpan !== undefined, 'drain 应含会话汇总 span');
   const sessionAttrs = new Map(
-    (sessionSpan!.attributes ?? []).map((a) => [a.key, a.value.stringValue]),
+    (sessionSpan!.attributes ?? []).map((a) => [a.key, a.value.intValue]),
   );
   assert.strictEqual(sessionAttrs.get('session.model_calls'), '1');
   assert.strictEqual(sessionAttrs.get('session.tool_calls'), '1');

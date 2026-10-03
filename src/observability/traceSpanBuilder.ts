@@ -14,7 +14,8 @@
  */
 import { randomBytes } from 'node:crypto';
 import type { SessionEvent } from '../ports/runtime/event.js';
-import type { Span } from './otlpTraceExporter.js';
+import type { OtlpAttributeValue, Span } from './otlpTraceExporter.js';
+import { GEN_AI_KEYS, GEN_AI_OPERATIONS, LEGACY_KEYS } from './genAiSemconv.js';
 
 /** 构造器可选项。 */
 export interface TraceSpanBuilderOptions {
@@ -108,10 +109,12 @@ export class TraceSpanBuilder {
         startTimeUnixNano: TraceSpanBuilder.nano(stats.startMs),
         endTimeUnixNano: TraceSpanBuilder.nano(stats.endMs),
         attributes: [
-          TraceSpanBuilder.text('session.id', stats.sessionId),
-          TraceSpanBuilder.number('session.tool_calls', stats.toolCalls),
-          TraceSpanBuilder.number('session.model_calls', stats.modelCalls),
-          TraceSpanBuilder.number('session.tokens', stats.tokens),
+          // 汇总 span 只保留本仓键：semconv 的**会话/对话**键仍在演进（见 genAiSemconv.ts 口径声明第 1 条），
+          // 与其发一个"看起来标准其实是自造"的键，不如不发。
+          TraceSpanBuilder.text(LEGACY_KEYS.sessionId, stats.sessionId),
+          TraceSpanBuilder.number(LEGACY_KEYS.sessionToolCalls, stats.toolCalls),
+          TraceSpanBuilder.number(LEGACY_KEYS.sessionModelCalls, stats.modelCalls),
+          TraceSpanBuilder.number(LEGACY_KEYS.sessionTokens, stats.tokens),
         ],
       });
       // 窗口语义：汇总 span 报告的是「自上次 drain 起」的增量，故计数清零、起点前移；
@@ -181,9 +184,13 @@ export class TraceSpanBuilder {
       startTimeUnixNano: TraceSpanBuilder.nano(open.startMs),
       endTimeUnixNano: TraceSpanBuilder.nano(ts),
       attributes: [
-        TraceSpanBuilder.text('tool.name', open.name),
-        TraceSpanBuilder.text('tool.ok', payload['ok'] === true ? 'true' : 'false'),
-        TraceSpanBuilder.text('session.id', event.sessionId),
+        // semconv 标准键（G23，并行发；键名/版本锚见 genAiSemconv.ts）。
+        TraceSpanBuilder.text(GEN_AI_KEYS.toolName, open.name),
+        TraceSpanBuilder.text(GEN_AI_KEYS.operationName, GEN_AI_OPERATIONS.executeTool),
+        // 过渡键（保留，不改名）：
+        TraceSpanBuilder.text(LEGACY_KEYS.toolName, open.name),
+        TraceSpanBuilder.text(LEGACY_KEYS.toolOk, payload['ok'] === true ? 'true' : 'false'),
+        TraceSpanBuilder.text(LEGACY_KEYS.sessionId, event.sessionId),
       ],
     });
   }
@@ -213,11 +220,19 @@ export class TraceSpanBuilder {
       startTimeUnixNano: TraceSpanBuilder.nano(ts),
       endTimeUnixNano: TraceSpanBuilder.nano(ts),
       attributes: [
-        TraceSpanBuilder.text('model.name', model),
-        TraceSpanBuilder.number('tokens.prompt', prompt),
-        TraceSpanBuilder.number('tokens.completion', completion),
-        TraceSpanBuilder.number('tokens.total', total),
-        TraceSpanBuilder.text('session.id', event.sessionId),
+        // semconv 标准键（G23，并行发）：操作名 + 请求/响应模型 + 用量。
+        // `input_tokens` 发的是**含缓存读**的输入总量（`cache_read` 是它的子集，绝不与它相加）。
+        TraceSpanBuilder.text(GEN_AI_KEYS.operationName, GEN_AI_OPERATIONS.chat),
+        TraceSpanBuilder.text(GEN_AI_KEYS.requestModel, model),
+        TraceSpanBuilder.text(GEN_AI_KEYS.responseModel, model),
+        TraceSpanBuilder.number(GEN_AI_KEYS.usageInputTokens, prompt),
+        TraceSpanBuilder.number(GEN_AI_KEYS.usageOutputTokens, completion),
+        // 过渡键（保留，不改名）：
+        TraceSpanBuilder.text(LEGACY_KEYS.modelName, model),
+        TraceSpanBuilder.number(LEGACY_KEYS.tokensPrompt, prompt),
+        TraceSpanBuilder.number(LEGACY_KEYS.tokensCompletion, completion),
+        TraceSpanBuilder.number(LEGACY_KEYS.tokensTotal, total),
+        TraceSpanBuilder.text(LEGACY_KEYS.sessionId, event.sessionId),
       ],
     });
   }
@@ -272,22 +287,24 @@ export class TraceSpanBuilder {
    * @param value 属性值。
    * @returns OTLP 属性。
    */
-  private static text(key: string, value: string): { key: string; value: { stringValue: string } } {
+  private static text(key: string, value: string): { key: string; value: OtlpAttributeValue } {
     return { key, value: { stringValue: value } };
   }
 
   /**
-   * 构造数值属性（OTLP 子集用字符串承载，去尾零保证确定性）。
+   * 构造**整数**属性（G23：走 `intValue`，不再塞 `stringValue`）。
    *
+   * 为什么必须改：塞字符串会让标准 GenAI 后端**无法按类型分派**（它们读 `intValue`/`doubleValue`），
+   * 于是本仓 trace 里的 token/计数在那些后端上一律读不出来。
+   *
+   * 形态遵循 proto3 的 JSON 映射：int64 编码为**字符串**。本仓现有数值全是整数（计数 / token），
+   * 故只需整数通道；真有浮点时再加 `doubleValue`（不提前造一个没人用的分支）。
    * @param key 属性键。
-   * @param value 数值。
+   * @param value 整数值。
    * @returns OTLP 属性。
    */
-  private static number(
-    key: string,
-    value: number,
-  ): { key: string; value: { stringValue: string } } {
-    return TraceSpanBuilder.text(key, String(value));
+  private static number(key: string, value: number): { key: string; value: OtlpAttributeValue } {
+    return { key, value: { intValue: String(Math.trunc(value)) } };
   }
 
   /**
