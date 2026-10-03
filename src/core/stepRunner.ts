@@ -115,6 +115,7 @@ export class StepRunner {
    *
    * @returns 兜底产出的文本；模型仍无输出或异常时为 undefined。
    */
+
   public async finalize(): Promise<string | undefined> {
     try {
       const base = await this.contextBuilder.buildMessages();
@@ -226,5 +227,12 @@ export class StepRunner {
     if (reasoning !== undefined && reasoning !== '') {
       this.deps.recorder.reasoning(reasoning);
     }
+  }
+  /**
+   * 回滚后重新对齐压缩游标（透传给 {@link StepContextBuilder.rewindCompactionState}）。
+   * @returns 无返回值。
+   */
+  public rewindCompactionState(): void {
+    this.contextBuilder.rewindCompactionState();
   }
 }

@@ -110,15 +110,22 @@ export class Agent implements AgentPort {
    * @param sessionId 会话 ID（登记键）。
    * @param recorder 会话记录器（内存事实源，提供 `rewindTo`）。
    * @param persister 增量持久化器（提供在飞写屏障 + 强制重写）。
+   * @param runnerOf 惰性取"当前回合的 TurnRunner"（用于回卷后重新对齐压缩游标，看板 §8.2）：
+   *   回卷登记发生在 `buildTurnRunner` **之前**，故用取值函数延迟绑定。
    * @returns 登记进去的回卷回调（供结束时的身份一致反注册）。
    */
   private registerRewinder(
     sessionId: string,
     recorder: SessionRecorder,
     persister: EventPersister,
+    runnerOf: () => TurnRunner | undefined,
   ): (size: number) => Promise<void> {
     const rewinder = async (size: number): Promise<void> => {
       recorder.rewindTo(size);
+      // 第四层对齐（2026-10-03 第六轮修）：内存事件流/检索索引/磁盘三层原先都对了，
+      // 但上下文构建器的**压缩游标**没跟着回卷——它会继续引用已被截断的 `OMNI_COMPACTION_V1`
+      // 折叠点（症状：同一进程内不对、重启后对了）。这里在截断之后立即重新对齐。
+      runnerOf()?.rewindCompactionState();
       await persister.rewindTo(size);
     };
     LiveSessionRewindRegistry.sharedRegistry().register(sessionId, rewinder);
@@ -136,6 +143,47 @@ export class Agent implements AgentPort {
    */
   private unregisterRewinder(sessionId: string, rewinder: (size: number) => Promise<void>): void {
     LiveSessionRewindRegistry.sharedRegistry().unregister(sessionId, rewinder);
+  }
+
+  /**
+   * 登记本回合的运行资源：会话级取消令牌 + 增量持久化器 + 回卷回调（2026-10-03 第六轮抽成方法，
+   * 让 `continueSession` 的函数体守住 80 行上限）。
+   *
+   * **为什么要 `bindRunner`**：回卷回调需要在回滚后通知"当前回合的上下文构建器"重新对齐压缩游标
+   * （看板 §8.2），而该构建器要到 `buildTurnRunner` 之后才存在 ⇒ 登记时先用容器占位，
+   * 构建完再绑定。回卷发生在回合之内（`checkpoint` 工具），届时绑定必然已就绪。
+   * @param sessionId 会话 ID。
+   * @param recorder 会话记录器。
+   * @param eventLog 内存事件日志（持久化器按需读它）。
+   * @returns 登记项 + `bindRunner`（在 `buildTurnRunner` 之后调用）。
+   */
+  private openSessionResources(
+    sessionId: string,
+    recorder: SessionRecorder,
+    eventLog: AppendOnlyEventLog,
+  ): {
+    readonly entry: {
+      readonly cancel: CancellationToken;
+      readonly persister: EventPersister;
+      readonly rewinder: (size: number) => Promise<void>;
+    };
+    readonly bindRunner: (runner: TurnRunner) => void;
+  } {
+    const live: { runner?: TurnRunner } = {};
+    const persister = new EventPersister(this.runtime.storage, sessionId, () => eventLog.all());
+    const entry = {
+      cancel: new CancellationToken(),
+      persister,
+      // 检查点回滚的内存侧通路（2026-10-03 修 P1）：没有它，`rollback` 只改磁盘，
+      // 运行中会话的下一步 write-behind 会把回滚原样覆盖回去。
+      rewinder: this.registerRewinder(sessionId, recorder, persister, () => live.runner),
+    };
+    return {
+      entry,
+      bindRunner: (runner: TurnRunner): void => {
+        live.runner = runner;
+      },
+    };
   }
 
   /**
@@ -272,18 +320,13 @@ export class Agent implements AgentPort {
           ? '【续跑】上次任务在此中断。基于上方会话历史与当前工作区状态接着完成剩余工作，不要重复已完成的步骤。'
           : prompt;
       recorder.user(effectivePrompt, images, files);
-      // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind），按 sessionId 登记。
-      const cancel = new CancellationToken();
-      const persister = new EventPersister(this.runtime.storage, sessionId, () => eventLog.all());
-      const sessionEntry = {
-        cancel,
-        persister,
-        // 检查点回滚的内存侧通路（2026-10-03 修 P1）：没有它，`rollback` 只改磁盘，
-        // 运行中会话的下一步 write-behind 会把回滚原样覆盖回去。
-        rewinder: this.registerRewinder(sessionId, recorder, persister),
-      };
+      // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）+ 回卷回调，按 sessionId 登记。
+      const opened = this.openSessionResources(sessionId, recorder, eventLog);
+      const sessionEntry = opened.entry;
+      const persister = sessionEntry.persister;
       this.runningSessions.set(sessionId, sessionEntry);
-      const runner = this.buildTurnRunner(recorder, cancel, persister);
+      const runner = this.buildTurnRunner(recorder, sessionEntry.cancel, persister);
+      opened.bindRunner(runner);
       let outcome: TurnOutcome;
       let persistedAt = 0;
       try {

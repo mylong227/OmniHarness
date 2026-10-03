@@ -381,23 +381,34 @@ npm run rust:test      # cargo test --workspace
 **暂缓理由**：修法②会新增结果字段与落盘产物，属对外可观察的行为变更（可能影响 SDK/API 稳定性门禁），
 需先与用户确认语义；本条目在确认前作为**已确证缺陷**留档，且**在报告与文档里如实标注子代理当前只能安全用于只读**。
 
-### 8.2 🟠 P1：回滚后「压缩游标」未复位（回滚对齐漏了一层）
+### 8.2 ✅ 已修（2026-10-03 第六轮）：回滚后「压缩游标」未复位（回滚对齐漏了第四层）
 
 **现象**：同一进程内 `checkpoint` 回滚后，`StepContextBuilder` 的内存压缩游标仍指向**已被截断移除**的折叠点；
-**重启进程反而正常**（新实例复位），故这是"同进程不对、重启对了"这类最难查的形态。
+**重启进程反而正常**（新实例会重新恢复），故属"同进程不对、重启对了"这类最难查的形态。
 
 **证据（本机复核）**：`src/core/stepContextBuilder.ts:44,46` 定义 `compactionState` / `stateRestored`；
-`stateRestored = ` 在全仓**只有两处**——L46 初始化为 `false`、L102（构造后首次 `buildMessages`）置 `true`，
-**没有任何地方置回 false，也没有 reset()/setter**。而 `SessionRecorder.rewindTo` 会经 `eventsFrom` 把
-那条 `OMNI_COMPACTION_V1` 游标事件从日志移除 ⇒ 游标悬空。
+`stateRestored = ` 全仓**只有两处**——L46 初始化为 `false`、L102（构造后首次 `buildMessages`）置 `true`，
+**没有任何地方置回 false，也没有 reset()/setter**。而 `SessionRecorder.rewindTo` 会经 `eventsFrom` 把那条
+`OMNI_COMPACTION_V1` 游标事件从日志移除 ⇒ 游标悬空。
 
-**注**：三层回滚对齐本身是**做对的**（内存事件流 / 检索索引 / 磁盘 + 在飞写），且端口不支持 `remove` 时
-会显式 `log.warn('session.retrieval.rewind_unsupported')` 而非静默——本缺陷是第四层（上下文游标）漏了。
+**注**：另外三层回滚对齐本身是**做对的**（内存事件流 / 检索索引 / 磁盘 + 在飞写），且端口不支持 `remove` 时
+会显式 `log.warn('session.retrieval.rewind_unsupported')` 而非静默——本缺陷是**第四层**（上下文游标）漏了。
 
-**修法（建议）**：在回卷通路上复位游标（`StepContextBuilder.resetCompactionState()` + 由
-`liveSessionRewindRegistry` / `agent.registerRewinder` 在截断后调用，顺序须与既有"先截内存、再屏障持久化器"一致）；
-**必须只在"回卷到压缩点之前"时复位**，否则每次回滚会多付一次摘要 LLM 调用（正是该文件注释记录的旧缺陷 P0-1）。
-判据：挂在既有 `tests/unit/sessionRewindService.test.ts` 上构造「产游标 → 打检查点 → 再产事件 → 回滚」。
+**修法（已实施）**：新增 `StepContextBuilder.rewindCompactionState()`——**就地重新推导**游标
+（取"截断后日志里的最后一条标记"，没有即 `undefined`）；经 `StepRunner` / `TurnRunner` 透传，
+由 `Agent.registerRewinder` 在 `recorder.rewindTo(size)` **之后**调用（第 4 步接线；
+`activeRunner` 用延迟绑定，因为回卷登记发生在 `buildTurnRunner` 之前）。
+**刻意不把 `stateRestored` 置回 false**：那会让下一次构建走"首次恢复"路径并把 `previous` 当 `undefined`，
+可能多付一次摘要 LLM 调用（正是该文件注释记录的旧缺陷 P0-1）。
+
+**判据**：`tests/unit/contextIntegrityFixes.test.ts` 新增 ⑤——先用真压缩器产出真实游标事件，
+再用记录型压缩器观察每次传入的 `previous`：① 首次构建恢复出游标；② **截断游标事件但不复位** ⇒ 仍复用
+被移除的游标（复现缺陷形态）；③ 调用 `rewindCompactionState()` 后 ⇒ `previous === undefined`
+（承认"截断后的日志里没有游标"，即已完成重新对齐）。
+
+**仍未做（如实登记）**：接线（`Agent → TurnRunner → StepRunner → StepContextBuilder`）目前只有
+类型检查 + 本次单测覆盖语义，**缺一条端到端断言**（真实回合里跑 `checkpoint` 回滚后核对下一次请求的消息）；
+已并入 G1「最小行为回归守卫」的用例清单。
 
 ### 8.3 🟠 P1：事件落盘是「全量快照重写」而非增量追加（写放大随会话长度增长）
 

@@ -266,3 +266,59 @@ test('④ 反向：游标事件确实被 ContextAssembler 之外的消费方保�
     '压缩游标不得投影',
   );
 });
+
+test('⑤ 回滚后压缩游标必须重新对齐（内存游标不得引用已截断的折叠点）', async () => {
+  // 缺陷（看板 §8.2）：`compactionState` 只在构造后首次 buildMessages 时从日志恢复一次；
+  // `checkpoint` 回滚把 `OMNI_COMPACTION_V1` 游标事件从日志截掉后，内存游标悬空 ⇒
+  // 「同一进程内不对、重启后对了」。本用例先复现该状态，再验 `rewindCompactionState()` 修好它。
+  const events: SessionEvent[] = [];
+  for (let i = 0; i < 5; i++) {
+    events.push({
+      id: `u${i}`,
+      type: 'user',
+      sessionId: 's',
+      timestamp: new Date().toISOString(),
+      payload: { content: `u${i} ${'x'.repeat(200)}` },
+    } as SessionEvent);
+  }
+  // 前置：用真压缩器产出一次真实游标事件（不猜 CompactionState 的形状）。
+  const seed = new StepContextBuilder(makeBuilderDeps(events));
+  await seed.buildMessages();
+  const cursorAt = events.findIndex(
+    (e) =>
+      e.type === 'system' &&
+      String((e.payload as { content?: unknown }).content).includes(COMPACTION_MARKER),
+  );
+  assert.ok(cursorAt >= 0, '前置：真压缩器应把游标写回事件日志');
+
+  // 记录型压缩器：观察每次构建时传入的 previous（即内存游标）。
+  const seen: unknown[] = [];
+  const recording = {
+    compact: async (messages: ModelMessage[], previous: unknown) => {
+      seen.push(previous);
+      return { messages, compacted: false };
+    },
+  };
+  const deps = { ...makeBuilderDeps(events), compactor: recording } as unknown as StepRunnerDeps;
+  const builder = new StepContextBuilder(deps);
+
+  await builder.buildMessages();
+  assert.ok(seen[0] !== undefined, '首次构建应从日志恢复出游标');
+
+  // 模拟回滚：把游标事件从日志里截掉（`rewindTo` 之后日志就是这样）。
+  events.splice(cursorAt, 1);
+  await builder.buildMessages();
+  assert.ok(
+    seen[1] !== undefined,
+    '（复现）未重新对齐时，内存游标仍指向已被截断的折叠点——这正是本缺陷的形态',
+  );
+
+  // 修复：回卷通路调用 rewindCompactionState() 就地重新推导。
+  builder.rewindCompactionState();
+  await builder.buildMessages();
+  assert.strictEqual(
+    seen[2],
+    undefined,
+    '重新对齐后必须承认"截断后的日志里没有游标"，而不是继续复用被移除的那一个',
+  );
+});

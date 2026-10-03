@@ -73,6 +73,7 @@ export class TurnRunner {
   }
 
   /** 运行一个回合。 */
+
   public async run(context: ToolContext): Promise<TurnOutcome> {
     log.debug('turn.start', { maxSteps: this.maxSteps });
     // 标记回合起点：finalText 只认本回合产出的 assistant，避免 resume 时串到历史答案（#OBS-10）。
@@ -282,5 +283,13 @@ export class TurnRunner {
     } catch {
       // 蒸馏失败（模型错误/解析失败）不致命：手动 remember 仍可用，跳过本回合自动沉淀。
     }
+  }
+  /**
+   * 回滚后重新对齐压缩游标（透传给 {@link StepRunner.rewindCompactionState}；
+   * 语义与必要性见 {@link StepContextBuilder.rewindCompactionState}）。
+   * @returns 无返回值。
+   */
+  public rewindCompactionState(): void {
+    this.stepRunner.rewindCompactionState();
   }
 }
