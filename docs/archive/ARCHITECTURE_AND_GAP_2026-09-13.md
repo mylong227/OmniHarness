@@ -64,7 +64,7 @@
 | `eval/` + `evolution/`                            | Pass@k bootstrap 置信区间、SWE replay；RLVR 可验证奖励 + fail-closed 进化门                                                                                     |
 | `genesis/` + `spark/`                             | S+ 发明层：模态/算子/ledger 数学基板（L2/L3 声明区）、燧核引擎集                                                                                                |
 
-完整归属表（与 `scripts/architectureGate.mjs` 门禁口径一致）见 `ARCHITECTURE_SPEC.md` §2.1。
+完整归属表（与 `scripts/architectureGate.mjs` 门禁口径一致）见 `ARCHITECTURE_SPEC_2026-09.md` §2.1。
 
 ### 2.3 核心数据流（一次 `turns.run`）
 

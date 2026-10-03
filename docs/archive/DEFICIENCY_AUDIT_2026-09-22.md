@@ -323,7 +323,7 @@ spill 阈值有界 · `Logger` 级别短路在序列化之前。
   架构门禁只判 `core→adapters` / `adapters→core`（这两类经独立复核确为 0），**看不见 ports→core**。
 - **修法（已落地）**：
   ① **迁出核心层**：`src/composition/runtime.ts` → `src/composition/runtime.ts`（新装配层目录，已在
-  `ARCHITECTURE_SPEC.md` §2.1 目录归属表登记）；全仓 42 处 import 说明符同步（含 3 个 benchmark 脚本）。
+  `ARCHITECTURE_SPEC_2026-09.md` §2.1 目录归属表登记）；全仓 42 处 import 说明符同步（含 3 个 benchmark 脚本）。
   ② **打断真值环**：`ServiceKeys` 下沉到 `src/composition/serviceKeys.ts`（纯常量、零依赖），
   子代理工厂改依赖它 ⇒ 组合根→子代理仍为值依赖，**反向只剩 type-only** ⇒ 值级环消失。
   ③ **解端口倒置**：`AgentFactoryPort` 改泛型 `AgentFactoryPort<TRuntime = unknown>`——端口不再 import 任何
@@ -493,7 +493,7 @@ shell 工具族常量各自声明 · 公开面 413+152 符号且泄漏测试替�
 - **改法**：`defaults/endpoints.json`（`modelAdapters` + `services`）+ `src/util/endpointDefaults.ts`
   （严格校验；未知服务标识**抛错**而非给 undefined）。与 §3.7 的加载器同放 `util/`：消费方横跨
   `cli`/`config`/`plugin`/`eval`/`benchmark`/`adapters`，放 `config/` 会让这些层反向依赖装配层
-  （`ARCHITECTURE_SPEC.md` §2.1 的 `adapters` 允许依赖里没有 `config`）。
+  （`ARCHITECTURE_SPEC_2026-09.md` §2.1 的 `adapters` 允许依赖里没有 `config`）。
 - **口径提醒（留档）**：`endpoints.json` 的 `llamacpp` 兜底 `http://localhost:11434`（原生 `/api/chat`）与
   `providers.json` 的 `ollama` 预设 `http://localhost:11434/v1`（OpenAI 兼容层）**看着重复但不是重复**，
   已写进两份数据文件的 `notes` 与 `defaults/README.md`，避免后来者「顺手统一」而打断其中一条协议路径。

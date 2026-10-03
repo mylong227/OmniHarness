@@ -30,7 +30,7 @@
  * 未登记的工具名一律回落 `unknown`（保守阈值）：**新增外部工具「忘了登记」只会更严、不会更松**。
  *
  * 工具名来自 `ports/tool/toolNames.ts`（单一来源）；本模块在 `security/`，故另需 `ports/` 与 `util/`
- * 两个公共层依赖（见 `ARCHITECTURE_SPEC.md` §2.1 的目录归属表）。
+ * 两个公共层依赖（见 `ARCHITECTURE_SPEC.md` §2 的目录归属表）。
  */
 import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 

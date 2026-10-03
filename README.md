@@ -167,7 +167,7 @@ src/
 └── config/ util/ errors/ schema/ output/ tui/ observability/ hooksCompat/ …
 ```
 
-> 完整目录归属表（与 `scripts/architectureGate.mjs` 门禁口径一致）见 [`docs/archive/ARCHITECTURE_SPEC.md`](docs/archive/ARCHITECTURE_SPEC.md) §2.1。**新增目录必须先登记该表**。
+> 完整目录归属表（与 `scripts/architectureGate.mjs` 门禁口径一致）见 [`docs/ARCHITECTURE_SPEC.md`](docs/ARCHITECTURE_SPEC.md) §2。**新增目录必须先登记该表**。
 
 ### 3.2 Rust：原生内核
 
@@ -603,4 +603,4 @@ npm run web:test               # Web 构建 + 挂载单测
 
 ---
 
-> **本 README 的依据**：`package.json` / `Cargo.toml` / `src/index.ts` 公开 API 面 / `src/cli/argParser.ts` 用法表 / `docs/archive/ARCHITECTURE_SPEC.md` / `docs/archive/ARCHITECTURE_AND_GAP_2026-09-13.md` / `docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` / `docs/archive/library/README.md` / `.github/workflows/ci.yml` 与本机实测（2026-09-14）。数字如与看板不符，以 [`docs/PROJECT_BOARD.md`](docs/PROJECT_BOARD.md) 为准。
+> **本 README 的依据**：`package.json` / `Cargo.toml` / `src/index.ts` 公开 API 面 / `src/cli/argParser.ts` 用法表 / `docs/ARCHITECTURE_SPEC.md` / `docs/archive/ARCHITECTURE_AND_GAP_2026-09-13.md` / `docs/archive/TECH_DIRECTION_SYNTHESIS_2026-09-12.md` / `docs/archive/library/README.md` / `.github/workflows/ci.yml` 与本机实测（2026-09-14）。数字如与看板不符，以 [`docs/PROJECT_BOARD.md`](docs/PROJECT_BOARD.md) 为准。

@@ -74,7 +74,7 @@ node scripts/architectureGate.mjs        # 架构门禁：[5] 节即依赖环现
   - **`src/ports/adapters/**` 永不出现**——`ports` 是契约层、`adapters` 是实现层，把「适配器」当成一个契约域
     与六边形方向矛盾。适配器声明的跨模块契约按它**服务的端口域**归位（映射表见 `auditInterfaces.mjs`
     的 `ADAPTER_DOMAIN_MAP`）。
-  - 新增 `ports` 域目录**必须先登记** `docs/archive/ARCHITECTURE_SPEC.md` §2.1 归属表（仓库既有硬规定）。
+  - 新增 `ports` 域目录**必须先登记** `docs/archive/ARCHITECTURE_SPEC_2026-09.md` §2.1 归属表（仓库既有硬规定）。
 - **R6 两处口径必须一致（踩过）。** 归档环时曾出现：审计脚本报 5 组、门禁报 6 组。真因是审计脚本把
   `export { X } from './y'`（**值再导出**）只记进桶表、**没记成依赖边**——而它在运行时确实会加载 `y`。
   **纪律**：任何新写的依赖图工具，都必须把「命名再导出 / `export *` / 动态 `import()`」按值边计入；
@@ -252,9 +252,9 @@ git commit -m "refactor(iface/pX.Y): <动作>；<实测数字变化>"
 动手前先 `git status --short` 复核；截至 2026-09-29 工作区已有改动的文件：
 
 `src/adapters/laya/layaDecisionEngine.ts`、`src/util/sortingAlgorithms`（+ 其测试与 `.bak`）、
-`docs/PROJECT_BOARD.md`、`docs/archive/ARCHITECTURE_SPEC.md`、`THIRD_PARTY_ASSETS.md`、`.gitignore`。
+`docs/PROJECT_BOARD.md`、`docs/archive/ARCHITECTURE_SPEC_2026-09.md`、`THIRD_PARTY_ASSETS.md`、`.gitignore`。
 
-**纪律**：这些文件在本队列里**不改**，留待各自会话收尾后再回头处理（`ARCHITECTURE_SPEC.md` 的 §2.1
+**纪律**：这些文件在本队列里**不改**，留待各自会话收尾后再回头处理（`ARCHITECTURE_SPEC_2026-09.md` 的 §2.1
 登记是 Batch A 的前置项，需等它空闲时再做）。
 
 ## 8. 不要做的事（红线）
