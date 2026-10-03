@@ -17,7 +17,6 @@ import { EventLoopYield } from '../util/async/eventLoopYield.js';
 import type { CorpusFileArtifact } from './corpusFileArtifact.js';
 import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.js';
-import { LsaEngine, type LsaModel } from './lsaEngine.js';
 import { FileReranker } from './fileReranker.js';
 import { CandidateSearch } from './queryStages/candidateSearch.js';
 import { SeedFusion } from './queryStages/seedFusion.js';
@@ -87,7 +86,7 @@ export class ContextEngine {
   /**
    * full 模式（`light !== true`）的**告警**阈值（2 MiB）。
    *
-   * 为什么单列：full 模式要额外建频域谱、代码图与 LSA，**每字节内存代价比 light 高一个数量级**——
+   * 为什么单列：full 模式要额外建频域谱与代码图，**每字节内存代价比 light 高一个数量级**——
    * 2026-09-19 实测本仓 `src/`（533 文件 / 4 MB 语料 / 9,080 符号）在 full 模式下
    * **峰值 RSS 1,522 MB、耗时 83 秒**（light 模式同语料毫秒级、RSS 百 MB 内）。
    * 生产路径（`CorpusIndexCache`）恒传 `light: true`，故这一档只服务评测脚本；
@@ -266,16 +265,13 @@ export class ContextEngine {
         );
       }
       if (walked.totalBytes > (opts.fullModeWarnBytes ?? ContextEngine.FULL_MODE_WARN_BYTES)) {
-        log.warn(
-          'indexCorpus 以 full 模式索引较大语料（频谱 / 代码图 / LSA），峰值内存可达 GB 级',
-          {
-            root,
-            corpusMiB: Number((walked.totalBytes / 1048576).toFixed(2)),
-            budgetMiB: Number((budget / 1048576).toFixed(2)),
-            advice:
-              '生产路径请传 light: true（CorpusIndexCache 已如此）；full 仅用于小语料的对照评测',
-          },
-        );
+        log.warn('indexCorpus 以 full 模式索引较大语料（频谱 / 代码图），峰值内存可达 GB 级', {
+          root,
+          corpusMiB: Number((walked.totalBytes / 1048576).toFixed(2)),
+          budgetMiB: Number((budget / 1048576).toFixed(2)),
+          advice:
+            '生产路径请传 light: true（CorpusIndexCache 已如此）；full 仅用于小语料的对照评测',
+        });
       }
     }
     const { fileText, fileRecords, fileDocs, allSymbols, symbolDocs } = ContextEngine.collectCorpus(
@@ -419,7 +415,7 @@ export class ContextEngine {
   }
 
   /**
-   * 由累积好的语料件装配索引（BM25 / 频谱 / 代码图 / LSA）。
+   * 由累积好的语料件装配索引（BM25 / 频谱 / 代码图）。
    *
    * 抽出的动因：让**同步**与**可让出的异步**两条索引路径共用同一段"建索引"逻辑——
    * 否则两份装配一旦漂移，同一份语料会给出不同检索结果（且不报错）。
@@ -452,7 +448,7 @@ export class ContextEngine {
 
     // 燧-3 频域索引：每个符号的名/类/签名映射到本征频谱，用于共振召回（与 BM25 时域/词袋互补）。
     // light 模式跳过（2026-09-05 诚实重测：同 corpus「频谱开/关」隔离对照，文件召回 41.4% = 41.4%
-    // —— 纯零效应；此前某次「+2.5pp」是 full vs light 两语料混淆对比的假象）。频域共振/图/LSA 三项
+    // —— 纯零效应；此前某次「+2.5pp」是 full vs light 两语料混淆对比的假象）。频域共振/图 两项
     // 在 omniharness 语料上实测均零增益或净负面（详见 evals/validation-2026-09-05.md 第 9 节）。
     const symbolSpectra: Spectrum[] = light
       ? []
@@ -465,10 +461,6 @@ export class ContextEngine {
     const codeGraph = light
       ? EMPTY_GRAPH
       : CodeGraphIndex.buildCodeGraph({ symbols: allSymbols, fileText });
-    // 潜语义模型：在符号级 TF-IDF 上做截断 SVD（无第三方依赖随机 SVD + Jacobi），训练一次随语料复用。
-    // light 模式跳过：LSA 在 morph 之上实测符号精确率腰斩，净负面。
-    const lsaModel = light ? EMPTY_LSA : LsaEngine.trainLsa({ symbols: allSymbols, fileText });
-
     return {
       root,
       morph: opts.morph !== false,
@@ -479,7 +471,6 @@ export class ContextEngine {
       symbolSpectra,
       fileText,
       codeGraph,
-      lsaModel,
       truncated,
       skippedLargeFiles,
     };
@@ -532,7 +523,6 @@ export class ContextEngine {
     opts: {
       prf?: boolean;
       graph?: boolean;
-      lsa?: boolean;
       layered?: boolean;
       fileK?: number;
       symK?: number;
@@ -555,11 +545,11 @@ export class ContextEngine {
       rerankFloor?: number;
     } = {},
   ): QueryResult {
-    // 各路默认关闭的实测依据（graph/layered/lsa）随实现迁入对应阶段类的文件头，
-    // 开关语义与评测口径不变：graph/layered/lsa 均为评测专用，生产默认全关。
+    // 各路默认关闭的实测依据（graph/layered）随实现迁入对应阶段类的文件头，
+    // 开关语义与评测口径不变：graph/layered 均为评测专用，生产默认全关。
+    // LSA 潜语义路已于 G19（2026-10-03）**整体删除**：实测「召回持平 / 无增量」⇒ 不值得继续维护。
     const useGraph = opts.graph === true;
     const useLayered = opts.layered === true;
-    const useLsa = opts.lsa === true;
     const useRerank = opts.rerank === true;
     const FILE_K = opts.fileK ?? 14;
     const SYM_K = opts.symK ?? 30;
@@ -570,8 +560,8 @@ export class ContextEngine {
       ...(opts.bm25K1 !== undefined ? { bm25K1: opts.bm25K1 } : {}),
       ...(opts.bm25B !== undefined ? { bm25B: opts.bm25B } : {}),
     });
-    // 阶段 2：种子融合（BM25 ∪ 频域共振 ∪ LSA → 扩散重启向量）。
-    const fused = SeedFusion.fuse(corpus, q, { lsa: useLsa, symK: SYM_K }, search.bm25SymHits);
+    // 阶段 2：种子融合（BM25 ∪ 频域共振 → 扩散重启向量）。
+    const fused = SeedFusion.fuse(corpus, q, { symK: SYM_K }, search.bm25SymHits);
     // 阶段 3：符号-文件融合（图扩散/基线 → 文件混合分 → 完整候选池）。
     const spread = SymbolFileFusion.fuse(
       corpus,
@@ -659,19 +649,6 @@ export class ContextEngine {
   }
 }
 
-/**
- * 空 LSA 模型（light 模式占位）：k=n=0、所有数组空。
- * `query` 仅在 `lsa:true` 时调用 `lsaQuery`；即便有人误开，n=0 让所有循环空转不崩。
- */
-const EMPTY_LSA: LsaModel = {
-  k: 0,
-  n: 0,
-  termIndex: new Map<string, number>(),
-  symLatent: new Float64Array(0),
-  U: new Float64Array(0),
-  sigma: new Float64Array(0),
-};
-
 /** 空代码拓扑图（light 模式占位）：零节点零边。 */
 const EMPTY_GRAPH: CodeGraph = { n: 0, adj: [] };
 
@@ -696,8 +673,6 @@ export interface IndexedCorpus {
   readonly symbolSpectra: readonly Spectrum[];
   /** 代码拓扑图（HippoRAG 式图检索，跨文件引用边），用于突破纯词法召回天花板。 */
   readonly codeGraph: CodeGraph;
-  /** 潜语义（LSA）模型：把词与符号投影到潜空间，桥接词法错位型查询。 */
-  readonly lsaModel: LsaModel;
   /** 原始文件内容（rel → text），供 baseline 计算整文件 token。 */
   readonly fileText: ReadonlyMap<string, string>;
   /**
@@ -718,16 +693,17 @@ interface FileRecord {
 export interface IndexOptions {
   readonly morph?: boolean;
   /**
-   * light 模式（**默认开**）：跳过频域共振谱、代码图、LSA SVD 三项重索引。
+   * light 模式（**默认开**）：跳过频域共振谱、代码图两项重索引。
    *
    * 默认值口径变更（2026-09-19）：此前默认是 **full**（`opts.light === true` 才 light），
    * 于是「不传 light」的调用方会静默吃到 full 模式一个数量级的内存代价（实测 `src/` 3 MiB
    * 语料 ⇒ 峰值 RSS 1,522 MB）。现改为 **`light !== false`**——安全档为默认，重量档必须显式关。
-   * 真的需要 `corpus.codeGraph` / 频谱 / LSA 的评测脚本请显式传 `light: false`，并受
+   * 真的需要 `corpus.codeGraph` / 频谱的评测脚本请显式传 `light: false`，并受
    * {@link ContextEngine.MAX_TOTAL_BYTES_FULL} 硬预算约束。
    *
    * 2026-09-05 诚实重测：三项在 omniharness 语料上实测均零增益或净负面
-   * （频谱同 corpus 隔离对照纯零效应；graph −3.6pp 确认负；LSA 无增量），故生产保持禁用。
+   * （频谱同 corpus 隔离对照纯零效应；graph −3.6pp 确认负），故生产保持禁用。
+   * LSA 路已于 G19 删除（同一批实测：召回持平、无增量）。
    */
   readonly light?: boolean;
   /**

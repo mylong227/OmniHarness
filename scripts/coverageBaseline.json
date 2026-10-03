@@ -258,7 +258,6 @@
   "src/context/hybridRanker.js": 85.09,
   "src/context/index.js": 100,
   "src/context/layeredCodeGraph.js": 99.55,
-  "src/context/lsaEngine.js": 100,
   "src/context/prefixStability.js": 95.93,
   "src/context/projectInstructions.js": 97.2,
   "src/context/rankVeto/index.js": 100,

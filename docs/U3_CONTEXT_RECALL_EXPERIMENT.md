@@ -102,6 +102,10 @@
   - `IndexedCorpus.morph` 字段保证查询侧分词与索引侧**严格一致**。
   - `grepTopKFiles()` 新增，使竞品 baseline 召回可测（公平对比前提）。
   - 开关实测定值：`morph` 开、`lsa` 关、`graph` 关、`prf` 关。
-- 新增模块（均默认关，**保留为已验证无效路径的证据**，不删除）：`src/context/codeGraphIndex.ts`、`src/context/lsaEngine.ts`。
+- 新增模块（均默认关，**保留为已验证无效路径的证据**，不删除）：`src/context/codeGraphIndex.ts`。
+  - **口径更新（2026-10-03，G19 检索栈收敛）**：当初与图一并"保留作证据"的潜语义模块
+    （`context/lsaEngine`）**已整体删除**——它的证据（召回持平 / 符号精确率腰斩）已经由本文件与
+    `RECALL_HEADROOM_SURVEY.md` 固定下来，再留着实现只是维护面；其余实验档（图家族 / 频域路）的现状与
+    删除边界登记在 `src/context/experimentalPaths.ts`，由 `retrievalStackStatus` 判据兜底。
 - `evals/context-efficiency/bench.mjs`：三配置 A/B（baseline / morph / morph+lsa）+ 竞品召回 + 同等预算对照，落盘 `RESULTS.json`。
 - 项目 `tsc --noEmit` **零错误**（`strict` + `noUncheckedIndexedAccess`）。

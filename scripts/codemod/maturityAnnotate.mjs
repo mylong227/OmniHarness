@@ -82,7 +82,6 @@ const REGISTRY = [
     'tests/unit/naturalGradient.test.ts',
   ],
   [
-    'src/context/lsaEngine.ts',
     'L1',
     '截断 SVD 存在；实测叠加有害（Eckart–Young 是重构最优≠排序保序）',
     'tests/unit/lsaRecall.test.ts',
