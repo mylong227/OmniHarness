@@ -42,6 +42,12 @@
 ② `web/src` 不是"自绘 React 垫片"，运行时是**官方 React 18.3.1 UMD**，手写的只是类型声明；
 ③ 嵌入吞吐"180–320 texts/s"**复现不出**（复测 **26–30 texts/s**，且吞吐随文本长度剧变）；
 ④ 默认嵌入是 **e5-large-v2（1024 维）**，不是我此前以为的 e5-small-v2。
+另有三处口径由调研复核后订正：单文件行数上限是 **810**（非 800）、上帝类判据是 `codeLines>500 或 methods>25`、
+"禁 `any`/显式修饰符"是 **ESLint 原生规则**（非自研脚本），以及 `*Assembler.ts` 只有 **6 个**（非 22 个）。
+
+**专题完成度：11/11**（主循环、检索、记忆、工具/MCP、安全、多代理、可观测性、原生内核、TS 架构、Web 工作台、自验证）。
+各专题的一手原始笔记（含全部 URL 与实测数字，**未入库**，被 `.gitignore` 的 `.omni-*/` 忽略）位于
+`.omni-storage/research/<topic>.md`；本文件只保留经我复核、或有明确一手出处的结论。
 
 ---
 
@@ -163,7 +169,7 @@ Terminal-Bench/评测子系统且**生产代码零引用**（逐名 grep 确认�
 | **R5** | **端口层碎片化（不是死契约）**                 | 342 文件/6,238 行，平均 **18.2 行**、中位 **13 行**，264/342 文件 <20 行；符号级检查**仅 6 个孤儿文件（1.8%）**、310 个导出符号中仅 7 个未被 ports 外引用 ⇒ 契约是"活的但过细"，主要成本是导航/导入与组合根装配                                                                                                                                                                                                                                                                               |
 | **R6** | **Web 工作台：类型垫片与死负载**（口径已订正） | `web/src` 111 文件 / 17,245 行（.ts 66/8,769 + .tsx 45/8,476，逐文件 `(Get-Content).Count` 求和）。**运行时是官方 React 18.3.1 UMD**（`web/vendor/react*.min.js`，`index.html` 直载），**零打包器**（`tsc` 直出 ESM）；手写的是**类型声明** `types/react-shim.d.ts`（≈5.5 KB）⇒ 真实成本是"类型维护税"，不是"自绘框架"。另：`index.html` 仍加载 `vendor/highlight.min.js`（**118.9 KB**）+ 其 CSS，而 `ui/highlight.ts` 已自研分词器（357 行，注释写明不引 highlight.js）⇒ **≈120 KB 死负载** |
 | **R7** | **Windows 主开发机 + 最强隔离不可验证**        | OS 级沙箱后端 fail-closed 占位；本机无法验证 bwrap/seatbelt 路径 ⇒ 沙箱正确性属"写得出、证不了"                                                                                                                                                                                                                                                                                                                                                                                               |
-| **R8** | **近红线文件聚集**                             | appServer **684**、cliBuildConfig 652、contextEngine 646、configError 638、openAiCompatibleModel 635（阈值 800）；方法数 enterprise/oidcClient 邻近 25 —— 新能力常被迫先重构                                                                                                                                                                                                                                                                                                                  |
+| **R8** | **近红线文件聚集**                             | appServer **684**、cliBuildConfig 652、contextEngine 646、configError 638、openAiCompatibleModel 635（阈值是 `check.mjs` 的 **`MAX_FILE_LINES = 810`**，非 800）；**上帝类**另按 `auditStandards` 判据 **`codeLines>500 或 methods>25`**（`enterprise/oidcClient` 邻近 25）—— 新能力常被迫先重构                                                                                                                                                                                              |
 | **R9** | **文档/历史包袱**                              | `docs/` 89 个入库文件，含大量分期审计与已删子系统引用（本轮冻结 89 处死链基线）⇒ 旧数字被误当现状的风险                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ### 2.3 直接回答「是否值得更优升级」
@@ -438,9 +444,59 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 按 A2A v1.0 全量重写 `src/a2a/**`（单人维护、无第三方消费者；**低成本替代**：把文档/命名从"A2A 互操作"改为"私有 JSON-RPC 委托协议"，
 消除虚假互操作承诺）；给子代理加"完整上下文 fork"（作者自评在弱主模型上没跑通，且与本仓隔离+重定位存储冲突）。
 
-### 3.7 可观测性与评测方法学
+### 3.7 可观测性与评测方法学（✅ 已完成）
 
-_（调研进行中）_
+**发现**
+
+1. **OpenTelemetry 的 GenAI 语义约定已迁出主仓**：现址 `open-telemetry/semantic-conventions-genai`
+   （2026-05-05 建、pushed_at 2026-10-02、403 stars、203 open issues）；主仓与 opentelemetry.io 的 gen-ai 页
+   只剩 "Moved" 页；**新仓的 `## Schema URL` 仍是 TODO**。
+2. **GenAI 约定全线 `Development`、没有一个 `Stable`**：9 个文档（spans / agent-spans / metrics / token-metrics /
+   events / exceptions / mcp / openai / anthropic）的 `**Status**` 全为 Development，`gen_ai.operation.name` 的
+   **19 个 well-known 值也全部 Development**；最新版本 **v1.44.0**（发布日期未读到，API 限流）。
+   ⇒ **现在按它硬改名是单向门**，应"加字段不改名"。
+3. **命名口径关键点**：span name SHOULD = `{gen_ai.operation.name} {gen_ai.request.model}`，工具侧
+   `execute_tool {gen_ai.tool.name}`；token 侧**已不是** `gen_ai.client.token.usage`，而是 7 个
+   `gen_ai.client.inference.usage.*`；且原文脚注明确 **`cache_read` 是 `input_tokens` 的子集**
+   ⇒ 缓存读 token **绝不能与输入相加**（本仓 `tokenAttribution.ts:130` 的口径是对的，这点值得记功）。
+4. **本仓 trace 与 semconv 全面不符（读码，带行号）**：`traceSpanBuilder.ts:107/180/212` 发 `session` /
+   `tool.${name}` / `model.${model}`，属性 `tool.*` `tokens.*` `session.*` **无 `gen_ai.` 前缀**；`:286-291`
+   把数值属性塞进 **`stringValue`**（OTLP 有 `intValue`/`doubleValue`）⇒ 任何标准 GenAI 后端都**无法自动解读**；
+   `:253-255` 时间戳解析失败回落 `Date.now()`（**破坏确定性**）；`otlpTraceExporter.ts:102-104` 导出失败
+   `catch {}` **零可见性**；**全仓无指标导出**；`traceCollectingEventPort.ts:61-68` 只在 `session_meta` 冲刷
+   ⇒ 服务端多会话会**串会话**。
+5. **★ "跑分不重要"有了量化依据（本轮最有用的一条外部证据）**：Anthropic 的 Miller（arXiv **2411.00640**）
+   工作示例——δ=0.03、80% power、α=0.05 ⇒ **n≈969 道独立题**，原文结论是"新评测至少应有 1,000 道题"；
+   同文还反直觉地指出"除非采样方案/估计量复杂，**bootstrap 并非必需**"，推荐**题目级配对差值**。
+   可抄的工程口径（Inspect）：二值分数优先 **Wilson 区间**、聚类用 `stderr(cluster=…)`、`bootstrap_stderr()`
+   默认 **1000** 次。
+6. **pass@k 与 pass^k 不是一回事**：pass@k 的无偏估计量含 `C(n−c,k)/C(n,k)`，而 `1−(1−p̂)^k` **有偏**（奖励方差）；
+   **pass^k 的确切出处是 τ-bench（arXiv 2406.12045）**，其 README 实测 Pass^1→Pass^4：retail 0.692→**0.462**、
+   airline 0.460→**0.225**（该 README 同时已告警任务停更、改用 τ³-bench）。
+7. **judge 的可信度是两极的**：GPT-4 judge 与人类一致性 **>80%**（arXiv 2306.05685）；但**仅调换顺序**就能让
+   Vicuna-13B 在 80 题里**赢 66 题**（arXiv 2305.17926）；JudgeBench 里 GPT-4o **仅略优于随机**（arXiv 2410.12784）；
+   self-preference 的机制被定位为**困惑度**而非"自产文本"（arXiv 2410.21819）⇒ **换 judge 模型不解决问题**。
+8. **★ harness 本身是未被控制的巨大变量（与本项目最相关）**：在 Terminal-Bench Pro 的 50 题子集上实测，
+   **harness 选择造成"每解一题 token 数"最多 40× 差异**，而同一模型内配对通过率差异只有 **0–8 个百分点**
+   （95% 配对 bootstrap CI 多含 0）；失败指纹跨模型可复现 ⇒ harness 级偏差基本与模型无关。
+   ⇒ **报通过率必须同时报 token/latency/harness 规格**；这也解释了为什么"跑分"对改进 harness 的信噪比很低。
+   （该结论来自 arXiv 2607.22585；调研员**只读到摘要，未读正文**。）
+
+**提案**
+
+| #   | 提案                                           | 要点                                                                                                                                                                                                                                                         | 判据（离线无 key）                                                                                         | 人日 |
+| --- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ---- |
+| O1  | **最小行为回归守卫**（与 §4 的 G1 同源）       | 复用现有 `src/core/scriptedModel.ts`（确定性、零 key）+ 真实 Agent 主循环，断言**行为不变量而非分数**：工具调用次数与顺序、审批/沙箱是否拒绝、落盘事件条数、`TokenAttribution` 桶和 == 总量；trace 侧注入 `traceIdFactory/spanIdFactory` 做 golden span 快照 | 故意改坏一个工具名，新用例**必红**；`npm test` 必绿                                                        | 1.5  |
+| O2  | **OTLP 属性与 semconv 对齐（加字段、不改名）** | 数值属性改 `intValue`/`doubleValue`；**并行**发 `gen_ai.*` 标准键，保留现有键作过渡                                                                                                                                                                          | 新增 `tests/unit/genAiSemconvConformance.test.ts` 钉住属性名与**依据版本号**（上游一变就红，主动发现漂移） | 2    |
+| O3  | **自观测计数器（把"静默丢弃"变成数字）**       | 丢弃批/span、孤儿 `tool_result`、未闭合调用、串会话计数；**只读字段、不发警告、不改业务分支**（照抄本仓 `cacheHitRateCollector` 的"无样本时给 `samples:0`"范式）                                                                                             | 注入必失败的 `fetchImpl` ⇒ 断言 `droppedSpans` 严格递增且 `flush()` **仍不抛错**                           | 1    |
+| O4  | **一次性离线对账脚本**（不进 CI）              | 读落盘事件 → 跑 `TokenAttribution` → 断言 Σ桶 == Σ(prompt+completion)，并单列 `modelCallsWithoutUsage`（固定"缓存读不计入 total"口径）                                                                                                                       | `node scripts/observabilityReconcile.mjs` 退出码（纯离线）                                                 | 1    |
+
+**不建议采纳**：重新引入重型基准 CI（发现 5/8：要检出 3pp 需 **n≈969**，且 harness 造成 token 差异达 **40×**，
+对"改进 harness"信噪比极低；Terminal-Bench 官方 README 自己标 **beta、约 100 任务**并建议改用新工具）；
+把 LLM-as-judge 当主判据（顺序可操纵、难例近随机、self-preference 源于困惑度；若必须用，须先做人类标签校准并报
+**Cohen's Kappa** 而非 raw agreement，且强制双向顺序对调）；为对齐 semconv 引入 `@opentelemetry/*` SDK（Development 面
+会把上游 breaking 变更变成硬伤，且新增依赖要走 `dependency-allowlist.json` 五件套）；按 semconv **一次性重命名**现有键
+（上游未稳定时改名是单向门，加字段才是双向门）。
 
 ### 3.8 原生内核与性能（Rust / NAPI / WASM / Node）（✅ 已完成，**结论与本仓既有假设相反**）
 
@@ -566,9 +622,49 @@ _（调研进行中）_
 **不建议采纳**：自研 reconciler / 换 Preact 省体积（证据双向反对，且与 42 个 web 测试与 `deps.ts` 冲突）；
 为 diff 引入 Monaco 或整包 shiki（需 worker/静态资源，破坏零打包器与零网络依赖不变量）。
 
-### 3.11 TypeScript 架构与可扩展性
+### 3.11 TypeScript 架构与可扩展性（✅ 已完成，含对本文档若干口径的订正）
 
-_（调研进行中）_
+**口径订正（调研员读码纠正，我采纳）**：① "22 个 assembler 文件"**不成立**——仓内 `*Assembler.ts` 只有 **6 个**，
+`src/config` 恰好 22 个 `.ts`（此前的说法把两者混为一谈）；② 单文件行数上限实为 `check.mjs` 的
+**`MAX_FILE_LINES = 810`**（不是 800），而 `auditStandards` 的**上帝类**判据是 **代码行 >500 或 方法 >25**；
+③ "禁 `any` / 显式访问修饰符"是 **ESLint 原生规则**，**不是自研 AST 脚本**（自研脚本管的是行数/文件名=类名/顶层函数/接线）；
+④ `zod` 在 `src/` 里**只有 1 处 import**（MCP 适配器），且它是 **MCP SDK 的非 optional peer**。
+
+**发现**
+
+1. **组合根现状是"教科书正确"的**：Seemann 的原始定义即"DI Container 只许出现在 Composition Root"，
+   Pure DI 是合法实现 —— <https://blog.ploeh.dk/2011/07/28/CompositionRoot/>；本仓 `src/core/container.ts` 仅 **56 行**、
+   消费者 **11 个文件**、**无 locator 泄漏**（服务定位器反模式未出现）。
+2. **容器路线的真实代价**：NestJS 强制 `reflect-metadata` peer，且官方明写**接口在编译期被擦除、不能作 DI 令牌**
+   （须改 Symbol/抽象类）⇒ 与本仓"端口即 interface"的取向正面冲突。
+3. **Effect-TS 的代价**：`effect@4.0.0` 运行时依赖确实为 0，但 **unpacked 48.4 MB**、**要求 TS ≥5.9**，
+   且 v3→v4 是 `Context.Service`/`Cause`/组合子级重命名迁移，并要求"effect 与所有 `@effect/*` 同版本"。
+4. **门禁耗时实测（本机）**：`eslint .`（无类型信息）**62.3 s**；type-aware（`projectService` + 一条 no-floating-promises，
+   仅 src）**23.1 s**；`tsc --noEmit` **17.0 s**；自研 7 门禁合计 **28.5 s**。官方口径亦印证"typed lint ≈ tsc 耗时"
+   —— <https://typescript-eslint.io/troubleshooting/typed-linting/performance/>。
+5. **能不能用生态规则替代自研脚本**：typescript-eslint 自定义规则**能**拿到完整 `ts.Program`/checker（足以覆盖
+   wiring/架构门禁），代价是门禁从秒级变成 tsc 级；oxc 的 **JS 插件仍是 alpha**，类型感知靠外部 Go `tsgolint` 且
+   要求 **TS 7.0+**；Biome 插件只有 GritQL `register_diagnostic`，官方自述"**只分析同文件内出现的类型**"
+   ⇒ **本仓"自研脚本 + 无类型 eslint"的分层在当前工具生态下是合理选择**，不该整体换引擎。
+6. **运行时校验基准（第三方横评 vs 厂商口径互斥，必须并列引用）**：Moltar 原始数据（node 22.23.3）
+   `parseSafe`：zod **10.51M** ops/s vs valibot **1.21M** vs typia 36.1M，arktype `parseStrict` 2.15M（**慢于 zod**）
+   —— <https://raw.githubusercontent.com/moltar/typescript-runtime-type-benchmarks/master/docs/results/node-22.json>；
+   而 Valibot 官方称"runtime 与 Zod v4 相近"、ArkType 官方宣称 **14 ns / 100× faster than Zod** ⇒ **厂商与横评互斥，
+   本仓无 zod 热路径，故不需要为此改库**。zod 自身 AOT（`new Function`）在大对象上有 5.0×/10.2× 提升，
+   但 CSP/`jitless` 环境不可用 —— <https://zod.dev/compile>。
+
+**提案**
+
+| #   | 提案                                       | 要点                                                                                             | 判据                                                                                                   | 人日 |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ---- |
+| TS1 | **拆掉架构环⑥**（优先于任何 DI 决策）      | 把环内散落的 `SubagentPortsShape` / `OmniHarnessRuntime` / `ResolvedConfig` 抽到 `src/ports/**`  | `node scripts/architectureGate.mjs --strict` 通过且 `CYCLE_WL_MEMBERS` 删掉对应成员                    | 2–4  |
+| TS2 | **`Container.get<T>` 的类型安全原址增强**  | 现为 `value as T`（调用点断言）⇒ 引入泛型令牌 `ServiceKey<T>` 使 `ServiceKeys` 与 `get` 类型对齐 | `architectureGate` + `check` 全绿且 <3 s                                                               | 1–2  |
+| TS3 | **门禁按"是否需要类型"分层，而不是换引擎** | 生态已有的规则继续交给 eslint；自研脚本只管"不需要类型"的部分                                    | 新增一条 typed 规则后：`tsc --noEmit`(17.0s) + typed eslint(23.1s) 之和 ≤45 s 且 `eslint .` 保持 <65 s | 1    |
+
+**不建议采纳**：引入 DI 容器或 Effect-TS（收益已被 6 个 Assembler + 56 行 Container 覆盖，代价是 `reflect-metadata`/
+装饰器语义或 48.4 MB + TS≥5.9 全量迁移；且 `ports/`+`core/` 恒第三方-free 由 `arch:gate` 强制，容器本就只能落在组合根——
+正是现状）；迁移 zod → valibot/arktype/typia（zod 是 MCP SDK 的**非 optional peer**，换库只增不减依赖；
+本仓无 zod 热路径；且厂商宣称与第三方横评互斥、typia 还要求换 `ttsc` + TS7）。
 
 ---
 
@@ -591,13 +687,18 @@ _（调研进行中）_
 
 ### P1：一致性 / 成本 / 安全（有实测依据）
 
-| #   | 目标                                         | 含量化提案 | 判据（离线）                                                                                      | 人日  | 依赖 |
-| --- | -------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------- | ----- | ---- |
-| G7  | **止住落盘写放大**（§8.3，实测 GB 级重写）   | L1         | 追加路径与全量路径 `load()` **逐条深相等**；size 近线性；P95 不随 N 增长                          | 4–6   | 无   |
-| G8  | **把"更慢的原生默认"翻回 TS + 让出事件循环** | U1 + U2    | 记账 ≤6.12 ms；`monitorEventLoopDelay().max ≤100 ms` 且墙钟劣化 ≤10%、向量逐位相同                | 2–2.5 | 无   |
-| G9  | **记忆先判死、再谈增益**                     | M1 → M2+M3 | M1：primer on/off 配对 CI 不跨 0 且留出折同向；M2/M3：去重与信任级单测                            | 1.5+4 | 无   |
-| G10 | **MCP 适配器补齐协议能力**                   | T1 + T3    | SDK 升至 1.32 且协议版本断言不破；假 stdio server 返回 `structuredContent`/image/`isError` 不丢块 | 2     | 无   |
-| G11 | **Web 类型层与死负载清理**                   | W1 + W4    | `tsc -p web/tsconfig.json` 零错误；`web:test` 全绿；`index.html` 不再加载 highlight               | 2–3   | 无   |
+| #   | 目标                                           | 含量化提案 | 判据（离线）                                                                                      | 人日  | 依赖 |
+| --- | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------- | ----- | ---- |
+| G7  | **止住落盘写放大**（§8.3，实测 GB 级重写）     | L1         | 追加路径与全量路径 `load()` **逐条深相等**；size 近线性；P95 不随 N 增长                          | 4–6   | 无   |
+| G8  | **把"更慢的原生默认"翻回 TS + 让出事件循环**   | U1 + U2    | 记账 ≤6.12 ms；`monitorEventLoopDelay().max ≤100 ms` 且墙钟劣化 ≤10%、向量逐位相同                | 2–2.5 | 无   |
+| G9  | **记忆先判死、再谈增益**                       | M1 → M2+M3 | M1：primer on/off 配对 CI 不跨 0 且留出折同向；M2/M3：去重与信任级单测                            | 1.5+4 | 无   |
+| G10 | **MCP 适配器补齐协议能力**                     | T1 + T3    | SDK 升至 1.32 且协议版本断言不破；假 stdio server 返回 `structuredContent`/image/`isError` 不丢块 | 2     | 无   |
+| G11 | **Web 类型层与死负载清理**                     | W1 + W4    | `tsc -p web/tsconfig.json` 零错误；`web:test` 全绿；`index.html` 不再加载 highlight               | 2–3   | 无   |
+| G23 | **OTLP 属性与 semconv 对齐**（加字段、不改名） | O2         | `genAiSemconvConformance` 钉住标准键 + **依据版本号**（上游一变即红）                             | 2     | 无   |
+| G24 | **自观测计数器 + 离线对账**（消灭"静默丢弃"）  | O3 + O4    | 注入必失败 `fetchImpl` ⇒ `droppedSpans` 递增且 `flush()` **不抛错**；对账脚本退出码               | 2     | 无   |
+| G25 | **拆掉架构环⑥**（优先于任何 DI 决策）          | TS1        | `architectureGate --strict` 通过且 `CYCLE_WL_MEMBERS` 删掉对应成员                                | 2–4   | 无   |
+| G26 | **`Container.get<T>` 类型安全原址增强**        | TS2        | `architectureGate` + `check` 全绿且 <3 s                                                          | 1–2   | G25  |
+| G27 | **门禁按"是否需要类型"分层**（不换引擎）       | TS3        | 新增一条 typed 规则后 `tsc`(17.0s)+typed eslint(23.1s) ≤45 s 且 `eslint .` 保持 <65 s             | 1     | 无   |
 
 ### P2：能力提升（**前提是 G1 已落地**，否则无法判断是否真的更好）
 
@@ -648,6 +749,10 @@ worker 线程反效（§3.8）、并行写入型子代理有害（§3.6）——
 | 自研 reconciler / 换 Preact / 引 Monaco·shiki 做 diff | 运行时已是官方 React；shiki 全量 6.4 MB，破坏零打包器与零网络依赖（§3.10）                                     |
 | 自研 OAuth / 跟进 MCP 2026-07-28 整修订重写           | STDIO 规范本就 SHOULD NOT 走 OAuth；整修订级重写对窄客户端面不划算（§3.4）                                     |
 
+| 引入 DI 容器（NestJS 式）或 Effect-TS | 收益已被 6 个 Assembler + 56 行 Container 覆盖；代价是 `reflect-metadata` + 接口不能作 DI 令牌，或 48.4 MB + TS≥5.9 全量迁移（§3.11） |
+| 迁移 zod → valibot / arktype / typia | zod 是 MCP SDK 的**非 optional peer** ⇒ 换库只增不减依赖；`src/` 仅 1 处 import、无热路径；厂商宣称与第三方横评互斥（§3.11） |
+| 把自研门禁脚本整体换成生态规则引擎 | oxc JS 插件仍 **alpha**、类型感知需外部 Go 工具且要求 TS 7.0+；Biome 插件官方自述**只分析同文件内类型** ⇒ 覆盖不了 wiring/架构门禁（§3.11） |
+| 按 semconv 一次性重命名 trace 键 / 引入 `@opentelemetry/*` | GenAI semconv **全 Development**、新仓 Schema URL 仍是 TODO ⇒ 改名是单向门，加字段才是双向门（§3.7） |
 ---
 
 ## 6. 复核方式（本机可重跑）

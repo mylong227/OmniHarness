@@ -11,6 +11,10 @@
 
 ## 1. 项目是什么
 
+> **本轮（第五轮）交付**：`docs/ARCHITECTURE_UPGRADE_2026-10.md` —— 清理后的真实现状核查 +
+> **11 专题外部调研**（学术论文 / 官方规范 / 优质开源，逐条带一手 URL）+ 升级路线图（P0→P3，每项含离线判据）+
+> 反泡沫清单。它同时登记了 §8 的 6 条已确证缺陷与 7 处口径订正，是当前"架构该往哪继续投"的主要依据。
+
 - **通用 Agent Harness**：TypeScript（CLI / Web 工作台 / 编排）+ Rust（原生内核）。
   包名 `@mylong227/omniharness`，版本 0.2.0，Apache-2.0，要求 Node ≥ 22.14.0。
 - Rust 侧 6 个 crate：`omni-cli` / `omni-core` / `omni-napi` / `omni-sdk` / `omni-sdk-gen` / `omni-wasm`（39 个 .rs 文件）。
@@ -437,9 +441,9 @@ reason 均为 `'shutdown'`；`child()` 1000 次后可释放）。**回退**：re
 可达的 L3 只有 AppContainer + 宿主路径 DACL 或 WSL2 内 bubblewrap/landlock 两条路（详见调研报告 §3.5）。
 **用户可感知的行为后果**：模型若被注入说服，`shell` 里的下载/外联命令在本机**不会**被 fetch 守卫拦住。
 
-> **文档死链基线说明（2026-10-03 第五轮）**：基线由 89 处更新为 **96 处**，新增的 6 条全部来自
+> **文档死链基线说明（2026-10-03 第五轮）**：基线由 89 处更新为 **97 处**，新增的 7 条全部来自
 > `docs/ARCHITECTURE_UPGRADE_2026-10.md` 的**升级提案里的待建路径**
-> （`scripts/memoryLiftProbe.mjs`、`tests/unit/{eventPersisterAppend,memoryTrustBoundary,subagentWriteGate,toolSchedulerReadyOrder,testCountParser}.test.ts`）。
+> （`scripts/memoryLiftProbe.mjs`、`tests/unit/{eventPersisterAppend,memoryTrustBoundary,subagentWriteGate,toolSchedulerReadyOrder,testCountParser,genAiSemconvConformance}.test.ts`）。
 > 它们是有意引用（提案的判据落点），按 `docLinkCheck` 的既定流程 `--update` 纳入基线；
 > **实现这些提案后应收紧基线**（`--update` 会同时清掉已存在的路径）。
 
