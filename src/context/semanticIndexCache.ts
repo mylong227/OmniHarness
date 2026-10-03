@@ -13,6 +13,8 @@
 import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { IndexedCorpus } from './contextEngine.js';
 import { SemanticIndex, type RecallItem } from './semanticIndex.js';
+import { EmbeddingContentCache, type EmbeddingCacheStats } from './embeddingContentCache.js';
+import { CachedEmbeddingPort } from './cachedEmbeddingPort.js';
 import type { RecallKnobs } from './recallKnobs.js';
 import { ArrayAt } from '../util/arrayAt.js';
 
@@ -59,6 +61,16 @@ export class SemanticIndexCache {
 
   /** 下一个语料身份号（单调递增）。 */
   private nextCorpusId = 1;
+
+  /**
+   * 嵌入**内容**缓存（跨语料版本复用向量，2026-10-03 修 `PROJECT_BOARD` §3.2）：
+   * 语料实例变化后索引对象仍按身份重建（审计 R3 的正确性要求），但每个文本的向量按内容复用
+   * ⇒ 只改一两个文件时，不必整仓重新嵌入。详见 `EmbeddingContentCache`。
+   */
+  private readonly embeddingVectors = new EmbeddingContentCache();
+
+  /** 内层端口 → 内容复用装饰器（按端口实例隔离，理由见 `cachedPortFor`）。 */
+  private readonly cachedPorts = new WeakMap<EmbeddingPort, CachedEmbeddingPort>();
 
   /** 缓存条目上限（超出即淘汰最早插入的一条；键含语料身份，故旧语料条目不会命中）。 */
   private static readonly MAX_ENTRIES = 16;
@@ -160,6 +172,10 @@ export class SemanticIndexCache {
   public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();
+      // 嵌入内容缓存按**内容**（不含 root）索引，无法按 root 切分 ⇒ 只在全量清空时一并清掉。
+      // 这样「清空全部」语义完整；按 root 清空时残留的内容向量仍只服务于**同一文本**的复用
+      // （同一文本在任何 root 下的向量相同），不构成脏读。
+      this.embeddingVectors.clear();
       return;
     }
     // 缓存键形如 `<chunk|nochunk>|<rep>|<root>`，按 root 失效须清掉该 root 下全部变体。
@@ -205,12 +221,35 @@ export class SemanticIndexCache {
           items.push(c);
         }
       }
-      const idx = new SemanticIndex(embedding);
+      const idx = new SemanticIndex(this.cachedPortFor(embedding));
+      // 嵌入内容缓存按代际清扫：构建**成功**后丢弃本次没碰过的向量（失败不清扫，
+      // 否则会把上一代可用向量一并丢掉，下次重试又要从零嵌入）。见 `EmbeddingContentCache`。
+      this.embeddingVectors.beginGeneration();
       await idx.build(items);
+      this.embeddingVectors.endGeneration();
       return idx;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * 取（或首次构造）某嵌入端口的**内容复用装饰器**。
+   *
+   * 为什么按端口实例缓存装饰器：不同端口的维度/前缀策略可能不同，共用一份内容缓存会把
+   * A 模型的向量喂给 B 模型。按实例隔离后，「同一端口跨语料版本」这一生产形态才是复用面。
+   * 用 `WeakMap` 而非 `Map`：端口被替换后可被回收，不构成泄漏。
+   * @param embedding 内层嵌入端口。
+   * @returns 装饰后的端口。
+   */
+  private cachedPortFor(embedding: EmbeddingPort): CachedEmbeddingPort {
+    const existing = this.cachedPorts.get(embedding);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const wrapped = new CachedEmbeddingPort(embedding, this.embeddingVectors);
+    this.cachedPorts.set(embedding, wrapped);
+    return wrapped;
   }
 
   /**
@@ -283,6 +322,14 @@ export class SemanticIndexCache {
     this.nextCorpusId += 1;
     this.corpusIds.set(corpus, id);
     return id;
+  }
+
+  /**
+   * 嵌入内容缓存的统计（观测/测试用）。
+   * @returns `{ hits, misses, entries }`：复用命中数、真实嵌入数、常驻向量条目数。
+   */
+  public embeddingCacheStats(): EmbeddingCacheStats {
+    return this.embeddingVectors.stats();
   }
 
   /**
