@@ -1,7 +1,7 @@
 # 端口契约（PORTS_CONTRACT · P8.3）
 
 > 目的：让**第三方可以实现 OmniHarness 的端口**（嵌入方、扩展者、评测框架），而不必阅读适配器源码。
-> 口径来源：`src/ports/**`（唯一权威）+ `docs/ARCHITECTURE_SPEC.md` §2.1 归属表。
+> 口径来源：`src/ports/**`（唯一权威）+ `docs/archive/ARCHITECTURE_SPEC.md` §2.1 归属表。
 > 三条硬规则（对实现者同样生效）：
 > ① 端口层零第三方依赖；② 实现须通过对应端口测试（`tests/unit/*` 中的端口契约用例）；③ fail-closed 语义不得放宽。
 

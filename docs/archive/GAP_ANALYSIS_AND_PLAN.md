@@ -1,5 +1,9 @@
 # OmniHarness 对标与补全计划（vs DeepSeek Harness / OpenAI Codex Harness）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 目标：把当前 OmniHarness 与两大开源标杆 **DeepSeek Harness（dsh，TypeScript/MIT，Cordis 插件内核 + Web UI）** 与 **OpenAI Codex Harness（Rust/Apache-2.0，codex-rs 100+ 模块 + app-server）** 做能力对标，定位不足，给出「去 deepseekharness 化」的统一架构与可执行的补全任务步骤。
 > 调研依据（2026-08 公开资料）：dsh `github.com/deepseek-ai/deepseek-harness`（141k★）、Codex `github.com/openai/codex`（117k★）。
 
@@ -146,7 +150,7 @@
 
 ## 6. 自研化数学内核（Genesis，2026-09-04 落地）
 
-在 P0–P5 能力补全之外，本轮把全部调研（GitHub 开源对标 + 物理/数学/生物/化学跨学科论文）收敛为一个**统一数学内核 `src/genesis/`**，使项目从「能力堆砌」升级为「**数学上可推演的自研架构**」。详见 `docs/agent_evolution_research/19_太初数学内核架构.md` 与 `18_自研化最低能耗最高效架构研究报告.md`。
+在 P0–P5 能力补全之外，本轮把全部调研（GitHub 开源对标 + 物理/数学/生物/化学跨学科论文）收敛为一个**统一数学内核 `src/genesis/`**，使项目从「能力堆砌」升级为「**数学上可推演的自研架构**」。详见 `docs/archive/agent_evolution_research/19_太初数学内核架构.md` 与 `18_自研化最低能耗最高效架构研究报告.md`。
 
 - **代数基座（零依赖、严格 TS）**：能耗/成本建模为交换幺半群 `Cost`；多模态 `Modality<A>` 为函子 + 交换融合 + 跨模态余弦对齐；算子 `Operator<S>` 为纯函数 + 组合幺半群；能量账本 `Ledger` 为守恒不变量（Landauer/Toyabe 落地）。
 - **自适应元控制器 `planHarnessRegime`**：按工况（熵/模态数/成本压力/成功率）纯函数重排算子管线；熵为模态派生香农熵、fuse/prune 只减不增 ⇒ 模态数良基递减 ⇒ **可证收敛到不动点**。

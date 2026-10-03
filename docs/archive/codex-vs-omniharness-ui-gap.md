@@ -1,5 +1,9 @@
 # Codex vs OmniHarness —— UI 功能差距盘点与综合建议
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 日期：2026-09-09 ｜ 方法：联网核实 Codex 当前 UI（四形态）→ 主代理 Read 源码逐项核对 OmniHarness Web 现状 → 差距矩阵 + 分阶段建议
 > 诚实边界：Codex 数据来自 2026-09-09 联网检索（OpenAI 官方文档 + 多源评测）；OmniHarness 现状均 `grep`/`Read` 实测，非印象。
 

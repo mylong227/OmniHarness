@@ -1,5 +1,9 @@
 # 全库代码规范重构计划
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > **本文件是分阶段执行账（历史进度），不是独立标准。** 权威规则以 `docs/CODE_STANDARD.md` 为准；
 > 当前进度以 `docs/REFACTOR_BOARD_2026-09-12.md` 为准。自 2026-09-12 起，标准已通过常驻 skill
 > `omniharness-coding-standard` + Git 提交钩子（`scripts/git-hooks/pre-commit`）+ CI 三重强制，

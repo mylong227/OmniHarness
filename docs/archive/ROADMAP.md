@@ -1,5 +1,9 @@
 # OmniHarness 成熟度差距与落地路线图（ROADMAP）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 版本：2026-09-01 初版
 > 目的：把「与成熟 Agent Harness（Codex CLI / Claude Code / OpenHands）的差距」盘点清楚，并拆成**可勾选、可看到完成进度**的落地步骤。
 > 证据口径：所有「现状」均来自 `src/` 实代码 `file:line` 核查（非 README 自述）。
@@ -479,7 +483,7 @@ A4（Windows RestrictedToken 默认启用去 --native 依赖）、A5（网络外
 ### D1 — 分发包硬化（本机可验证）
 
 - `package.json`：加 `publishConfig.access=public`、`prepublishOnly=npm run build`、`files` 增 `examples`/`omniharness.json.example`、`repository`/`homepage`/`bugs`（占位 URL，发布前需替换为真实 org，已在此标注）。
-- `npm pack --dry-run` 验证通过：产物 **716 文件 / ~1.98 MB**，含 `dist/src/index.js`、`dist/src/enterprise/sso.js`、`web/index.html`、`docs/ROADMAP.md`、`README.md`、`LICENSE`、`omniharness.json.example`。即 `npm publish` 可产出合法 tarball。
+- `npm pack --dry-run` 验证通过：产物 **716 文件 / ~1.98 MB**，含 `dist/src/index.js`、`dist/src/enterprise/sso.js`、`web/index.html`、`docs/archive/ROADMAP.md`、`README.md`、`LICENSE`、`omniharness.json.example`。即 `npm publish` 可产出合法 tarball。
 - **诚实边界**：插件 registry 真实分发通道（`RemoteHttpSource` 拉取）与 bundle 签名校验（HMAC 已有）的「外部 registry + 签名证书」仍待外部设施，未变。
 
 ### D2 — SSO OIDC 库 + 合规导出（纯 TS 零依赖，可写可测可验证）

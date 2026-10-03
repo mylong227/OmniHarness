@@ -1,5 +1,9 @@
 # OmniHarness 完善度审计报告
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 审计日期：2026-09-06｜范围：`D:\deepseek\omniharness` + 2026-09 业界基线
 > 口径：**完善度**（能否证明可用、能否对外兼容、工程闭环是否成立），不是功能对对碰。
 > 方法：双代理并行广度扫描 → 人工 Read 复核关键项 → 与业界基线对齐。
@@ -86,7 +90,7 @@
 对新规范 server 的互通性**未验证**。这条是兼容性硬伤。
 
 **④ `AGENTS.md` / `CLAUDE.md` / `llms.txt` 全仓零实现**
-`src/` grep 零命中。全仓只在 `docs/LANDSCAPE_RESEARCH_2026.md:152` 和 `docs/PEER_PRODUCT_ROUTES_2026-09-05.md:48` 提过"可读取并转化为 skill 上下文"——**知道有这回事，从没做**。
+`src/` grep 零命中。全仓只在 `docs/archive/LANDSCAPE_RESEARCH_2026.md:152` 和 `docs/archive/PEER_PRODUCT_ROUTES_2026-09-05.md:48` 提过"可读取并转化为 skill 上下文"——**知道有这回事，从没做**。
 行业现状：6 万+ 仓库、Linux Foundation 治理，Codex/Cursor/Copilot/Gemini CLI/Devin/Aider 全读。
 **定级：P0，修复成本半人日。**
 

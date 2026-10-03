@@ -1,5 +1,9 @@
 # 差距一次性抹平 · 结案报告（2026-09-02）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 标的：`D:\deepseek\omniharness`（自研 TS+Rust Agent Harness）对标成熟 harness（Codex CLI / Claude Code）的剩余差距。
 > 基线盘点见 `2026-09-02.md`「续二十三 · 差距重审」。
 > 原则：所有结论基于**真实跑通的命令**，不估、不假绿；无法在本机验证的边界如实标注。

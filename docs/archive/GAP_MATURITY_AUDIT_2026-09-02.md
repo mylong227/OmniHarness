@@ -1,5 +1,9 @@
 # OmniHarness 成熟度差距审计（2026-09-02）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 标的：`D:\deepseek\omniharness`（自研 TS+Rust Agent Harness）  
 > 对标：OpenAI Codex CLI（主参照）、Claude Code、opencode、aider、DeepSeek harness  
 > 方法：双代理并行广度扫描 → **本人亲自 Read 源码 + 实跑命令深度复核**（推翻误报、揪出漏报）  

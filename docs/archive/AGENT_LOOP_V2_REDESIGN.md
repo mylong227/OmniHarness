@@ -1,5 +1,9 @@
 # Agent Loop V2 重构蓝图（2026-09-09）✅ 已落地
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > **落地状态（2026-09-09 当日完成）**：四个新组件 + 五处改造全部实现并通过验收——
 > typecheck/build 全绿；新增 4 套件 24 测试全绿；全量 987 pass（8 fail 经 HEAD 基线
 > worktree 实证为遗留/环境性网络类测试，与本重构无关）；smoke ✅；Node 20.1.0 冒烟 ✅

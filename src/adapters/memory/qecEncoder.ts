@@ -30,7 +30,7 @@ interface Parities {
  *
  * 运行时无第三方依赖；syndrome 落同一记忆端口（topic `__qec_syndrome__`），跨进程重启仍可读回。
  *
- * 措辞边界（2026-09-12，见 docs/library/20-physics.md §8）：名称沿用 QEC（Quantum Error
+ * 措辞边界（2026-09-12，见 docs/archive/library/20-physics.md §8）：名称沿用 QEC（Quantum Error
  * Correction），但**不涉及任何量子力学**——本实现只是「**轨迹级校验关系 + 显式冗余**」：
  * 用二维奇偶构造校验关系、用 syndrome 事实提供冗余，靠关系数多于未知数来定位错误。
  * 保留 QEC 命名是因为它是社区通名且 API 已稳定；理解时应读作「纠删 / 校验码」。

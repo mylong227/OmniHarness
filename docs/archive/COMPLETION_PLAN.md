@@ -1,5 +1,9 @@
 # OmniHarness 调研差距清单与补全计划（2026-09-01）
 
+> ⚠️ **已归档（2026-10-03，G20 文档瘦身）**：本文是**历史记录**——其中的文件数、测试数、召回率等
+> 数字与结论**均不再代表现状**，请勿据此判断当前实现。现行唯一事实源见 [PROJECT_BOARD.md](../../PROJECT_BOARD.md)，
+> 现行纪律见 [CODE_STANDARD.md](../../CODE_STANDARD.md)；归档索引见 [archive/README.md](../README.md)。
+
 > 依据：本轮对 **DeepSeek Harness（dsh）**、**OpenAI Codex Harness**、**OpenCode / Aider / Goose-Block** 的重新调研与对标。
 > 目标：把"能力已对齐 codex"推进到"像 codex 一样独立可用、且有完整 Web UI 工作台"，并明确 UI 实现路线。
 
