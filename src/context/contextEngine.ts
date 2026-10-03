@@ -11,6 +11,8 @@ import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Bm25Index } from '../search/bm25Index.js';
 import { RepoMap, type SymbolNode } from './repoMap/repoMap.js';
+import { CorpusFileParser } from './corpusFileParser.js';
+import type { CorpusFileArtifact } from './corpusFileArtifact.js';
 import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
 import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.js';
 import { LsaEngine, type LsaModel } from './lsaEngine.js';
@@ -236,9 +238,9 @@ export class ContextEngine {
    * {@link IndexedCorpus.truncated} / {@link IndexedCorpus.skippedLargeFiles} 如实回报。
    */
   public static indexCorpus(root: string, opts: IndexOptions = {}): IndexedCorpus {
-    const tk = opts.morph === false ? Bm25Index.tokenize : Bm25Index.tokenizeExpanded;
-    // R6：文档侧保留词频（去重会让 tf 恒为 1、k1/tf 失效）；查询侧仍去重。
-    const symTk = opts.morph === false ? Bm25Index.tokenize : Bm25Index.tokenizeExpandedCounted;
+    // 解析规则（分词 / 抽符号 / 文档组装）只有一份实现：全量路径与增量重建器共用
+    // `CorpusFileParser`，否则两处一旦漂移，增量语料与全量语料会给出不同检索结果（且不报错）。
+    const parser = new CorpusFileParser(opts.morph !== false);
     const light = opts.light !== false;
     const files: string[] = [];
     const budget =
@@ -274,30 +276,12 @@ export class ContextEngine {
         );
       }
     }
-    const fileText = new Map<string, string>();
-    const allSymbols: SymbolNode[] = [];
-    const fileRecords: FileRecord[] = [];
-    const symbolDocs: string[][] = [];
-    const fileDocs: string[][] = [];
-
-    for (const rel of files) {
-      let text: string;
-      try {
-        text = readFileSync(join(root, rel), 'utf8');
-      } catch {
-        continue;
-      }
-      fileText.set(rel, text);
-      const toks = Bm25Index.tokenize(text);
-      fileRecords.push({ rel, tokens: toks.length });
-      fileDocs.push([...toks, ...tk(rel)]); // 正文侧不做扩展分词（净负面 −6.0pp，见 TASK_BOARD §22.3）
-
-      const syms = RepoMap.extractSymbols(rel, text);
-      for (const s of syms) {
-        allSymbols.push(s);
-        symbolDocs.push(symTk(`${s.name} ${s.kind} ${s.signature} ${s.file}`));
-      }
-    }
+    const { fileText, fileRecords, fileDocs, allSymbols, symbolDocs } = ContextEngine.collectCorpus(
+      root,
+      files,
+      parser,
+      opts.artifactSink,
+    );
 
     // exactOptionalPropertyTypes：仅装配显式提供的参数，缺省交由 Bm25Index 自身默认（1.5 / 0.75）。
     const bm25Init = {
@@ -342,6 +326,62 @@ export class ContextEngine {
       truncated,
       skippedLargeFiles,
     };
+  }
+
+  /**
+   * 逐文件解析并累积语料件（`indexCorpus` 的主循环；抽出以守住其函数体上限）。
+   *
+   * 读**原始字节**再解码（而非直接读 utf8 字符串）：解析要用文本，而产物缓存要用**字节哈希**
+   * ——非法 UTF-8 会被 utf8 解码的替换字符抹平，只有字节哈希才认得出「字节变了」。
+   * @param root 工作区根（绝对路径）。
+   * @param files 待解析的相对 POSIX 路径（按遍历顺序）。
+   * @param parser 单文件解析器（与增量重建器共用同一实现）。
+   * @param sink 产物接收器（可选）。
+   * @returns 累积出的语料件（正文表 / 文件记录 / 两个 BM25 文档集 / 符号表）。
+   */
+  private static collectCorpus(
+    root: string,
+    files: readonly string[],
+    parser: CorpusFileParser,
+    sink: Map<string, CorpusFileArtifact> | undefined,
+  ): {
+    readonly fileText: Map<string, string>;
+    readonly fileRecords: FileRecord[];
+    readonly fileDocs: string[][];
+    readonly allSymbols: SymbolNode[];
+    readonly symbolDocs: string[][];
+  } {
+    const fileText = new Map<string, string>();
+    const allSymbols: SymbolNode[] = [];
+    const fileRecords: FileRecord[] = [];
+    const symbolDocs: string[][] = [];
+    const fileDocs: string[][] = [];
+    for (const rel of files) {
+      let bytes: Buffer;
+      try {
+        bytes = readFileSync(join(root, rel));
+      } catch {
+        continue;
+      }
+      const text = bytes.toString('utf8');
+      fileText.set(rel, text);
+      const artifact = parser.artifact(
+        rel,
+        text,
+        allSymbols.length,
+        CorpusFileParser.hashOfBytes(bytes),
+      );
+      fileRecords.push({ rel, tokens: artifact.tokenCount });
+      fileDocs.push(artifact.fileDoc); // 正文侧不做扩展分词（净负面 −6.0pp，见 TASK_BOARD §22.3）
+      for (const s of artifact.symbols) {
+        allSymbols.push(s);
+      }
+      for (const doc of artifact.symbolDocs) {
+        symbolDocs.push(doc);
+      }
+      sink?.set(rel, artifact);
+    }
+    return { fileText, fileRecords, fileDocs, allSymbols, symbolDocs };
   }
 
   /**
@@ -581,6 +621,14 @@ export interface IndexOptions {
   readonly maxTotalBytes?: number;
   /** full 模式告警阈值覆盖（缺省 {@link ContextEngine.FULL_MODE_WARN_BYTES}；便于单测）。 */
   readonly fullModeWarnBytes?: number;
+  /**
+   * 产物接收器（可选）：全量索引时把**逐文件解析产物**写进这张表，供
+   * `CorpusIncrementalUpdater` 后续增量重建时按内容哈希复用（省掉重复的分词与抽符号）。
+   *
+   * 为什么由调用方传表而不在引擎内缓存：产物的生命期与**语料缓存条目**一致
+   * （`CorpusIndexCache` 的 LRU 条目），引擎自身无状态、不得持有跨调用状态。
+   */
+  readonly artifactSink?: Map<string, CorpusFileArtifact> | undefined;
 }
 
 /** 单次查询结果。 */

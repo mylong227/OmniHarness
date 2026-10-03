@@ -25,6 +25,9 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
+import { CorpusFileParser } from './corpusFileParser.js';
+import { CorpusIncrementalUpdater } from './corpusIncrementalUpdater.js';
+import type { CorpusFileArtifact } from './corpusFileArtifact.js';
 import { log } from '../util/logger.js';
 
 /** 缓存条目：语料 + 索引时间戳 + 文件内容签名（用于 TTL 失效与内容增量复用）。 */
@@ -38,6 +41,11 @@ interface CacheEntry {
    * 文件集合或任一文件内容变化 ⇒ 签名变化 ⇒ 重建。
    */
   readonly contentSig: string;
+  /**
+   * 逐文件解析产物（rel → 产物），供 `CorpusIncrementalUpdater` 按内容哈希复用。
+   * 生命期与本条目一致（LRU 驱逐即释放）；首次全量索引时由 `artifactSink` 写入。
+   */
+  readonly artifacts: ReadonlyMap<string, CorpusFileArtifact>;
 }
 
 /** 默认最多缓存的工作区数量（多 workspace 会话防内存无限增长）。 */
@@ -58,6 +66,11 @@ export interface CorpusIndexCacheOptions {
 export class CorpusIndexCache {
   /** 按 workspace 根路径缓存的语料（TTL 失效 / LRU 驱逐）。 */
   private readonly cache = new Map<string, CacheEntry>();
+  /**
+   * 增量重建器：TTL 到期且内容**真的**变了时，只重建变化文件的词项与 BM25 槽位。
+   * 与全量路径共用 `CorpusFileParser`（解析规则单一实现），且只处理 light 档。
+   */
+  private readonly incremental = new CorpusIncrementalUpdater({ morph: true, light: true });
   /** 缓存条目上限。 */
   private readonly maxEntries: number;
   /** 驱逐回调（可缺省）。 */
@@ -90,30 +103,57 @@ export class CorpusIndexCache {
       this.sample(true);
       return existing.corpus;
     }
-    // TTL 已过期（或首次）：先用内容签名判断文件集合与内容是否真的变了。
-    // 若未变则直接复用既有语料，跳过 8.6s 级全量重建——这是把「每 30s 一次全量重建」
-    // 改为「按内容增量」的核心：TTL 仅作兜底，内容真变才重建（见 `contentSignature`）。
-    if (existing !== undefined) {
-      const sig = this.contentSignature(root);
-      if (sig !== null && sig === existing.contentSig) {
+    // TTL 已过期（或首次）：先用**逐文件内容哈希**判断文件集合与内容是否真的变了。
+    // 若未变则直接复用既有语料（跳过 8.6s 级全量重建），并把这份哈希交给增量重建器复用，
+    // 使「真的变了」的情形也不必二次读盘——见 `CorpusIncrementalUpdater`。
+    const hashes = existing === undefined ? null : this.contentHashes(root);
+    if (existing !== undefined && hashes !== null) {
+      const sig = CorpusIndexCache.signatureOf(hashes);
+      if (sig === existing.contentSig) {
         this.cache.set(root, {
           corpus: existing.corpus,
           indexedAt: now,
           contentSig: existing.contentSig,
+          artifacts: existing.artifacts,
         });
         this.sample(true);
         return existing.corpus;
       }
+      const updated = this.incremental.update(root, existing.corpus, existing.artifacts, hashes);
+      if (updated !== null) {
+        this.sample(updated.reparsed === 0);
+        if (updated.reparsed === 0) {
+          this.cache.set(root, {
+            corpus: updated.corpus,
+            indexedAt: now,
+            contentSig: existing.contentSig,
+            artifacts: updated.artifacts,
+          });
+          return updated.corpus;
+        }
+        this.evictIfNeeded();
+        this.cache.set(root, {
+          corpus: updated.corpus,
+          indexedAt: now,
+          contentSig: sig,
+          artifacts: updated.artifacts,
+        });
+        return updated.corpus;
+      }
     }
-    const corpus = this.indexRoot(root);
-    if (corpus === null) {
+    const built = this.buildFresh(root);
+    if (built === null) {
       return null;
     }
     this.sample(false);
-    const sig = this.contentSignature(root) ?? '';
     this.evictIfNeeded();
-    this.cache.set(root, { corpus, indexedAt: now, contentSig: sig });
-    return corpus;
+    this.cache.set(root, {
+      corpus: built.corpus,
+      indexedAt: now,
+      contentSig: this.contentSignature(root) ?? '',
+      artifacts: built.artifacts,
+    });
+    return built.corpus;
   }
 
   /**
@@ -154,13 +194,23 @@ export class CorpusIndexCache {
   public invalidate(root?: string): void {
     if (root === undefined) {
       for (const [key, entry] of [...this.cache]) {
-        this.cache.set(key, { corpus: entry.corpus, indexedAt: 0, contentSig: entry.contentSig });
+        this.cache.set(key, {
+          corpus: entry.corpus,
+          indexedAt: 0,
+          contentSig: entry.contentSig,
+          artifacts: entry.artifacts,
+        });
       }
       return;
     }
     const entry = this.cache.get(root);
     if (entry !== undefined) {
-      this.cache.set(root, { corpus: entry.corpus, indexedAt: 0, contentSig: entry.contentSig });
+      this.cache.set(root, {
+        corpus: entry.corpus,
+        indexedAt: 0,
+        contentSig: entry.contentSig,
+        artifacts: entry.artifacts,
+      });
     }
   }
 
@@ -209,16 +259,16 @@ export class CorpusIndexCache {
    * 内容哈希把两侧同时收掉，且**判据就是语料本身的同一性**（`indexCorpus` 读的也是这些字节），
    * 不存在「信号与被保护对象不同源」的结构性缝隙。
    *
-   * ## 代价（如实登记）
+   * ## 代价（2026-10-03 更新）
    *
-   * 每次 TTL 到期要做一遍「读全部参与文件 + SHA-1」——本仓 902 文件 / 数 MB 语料实测在**数十毫秒**
-   * 量级，相对它避免的 8.6s 全量重建可忽略；且**只在 TTL 到期时才做**（TTL 内直取零成本）。
-   * 它同时替换掉了原先每文件一次 `statSync`。
+   * 每次 TTL 到期要做一遍「读全部参与文件 + SHA-1」。这份**逐文件哈希表**现在还有第二个用途：
+   * 直接喂给 `CorpusIncrementalUpdater`（它据此只重读真的变了的文件），因此这一步不再是纯开销，
+   * 而是增量重建的输入——「重新索引」与「判断要不要重新索引」共用同一次读盘。
    *
    * @param root workspace 根路径。
-   * @returns 内容签名串；根不可枚举或任一文件不可读时返回 null（调用方据此退化为全量重建）。
+   * @returns `rel → sha1`；根不可枚举或任一文件不可读时返回 null（调用方据此退化为全量重建）。
    */
-  private contentSignature(root: string): string | null {
+  private contentHashes(root: string): ReadonlyMap<string, string> | null {
     try {
       const rels: string[] = [];
       ContextEngine.walk(root, root, rels, {
@@ -226,31 +276,64 @@ export class CorpusIndexCache {
         maxTotalBytes: ContextEngine.MAX_TOTAL_BYTES,
         maxFileBytes: ContextEngine.MAX_FILE_BYTES,
       });
-      const parts: string[] = [];
+      const hashes = new Map<string, string>();
       for (const rel of rels) {
         // 按**原始字节**哈希（不先转 utf8）：与 `indexCorpus` 读的是同一份磁盘字节，
         // 且非法 UTF-8 不会被 `readFileSync(..., 'utf8')` 的替换字符抹平成「看起来没变」。
         const bytes = readFileSync(join(root, rel.split('/').join(sep)));
-        const digest = createHash('sha1').update(bytes).digest('hex');
-        parts.push(`${rel}:${digest}`);
+        hashes.set(rel, CorpusFileParser.hashOfBytes(bytes));
       }
-      // 路径已由 walk 按确定性顺序产出；再排一次序，使签名与遍历顺序解耦（防未来 walk 顺序调整
-      // 造成「同一个仓库两套签名」的伪变更）。
-      parts.sort();
-      return createHash('sha1').update(parts.join('\n')).digest('hex');
+      return hashes;
     } catch {
       return null;
     }
   }
 
   /**
-   * 索引单个根目录（light 模式）。
-   * @param root workspace 根路径。
-   * @returns 语料；失败返回 null（fail-closed）。
+   * 由逐文件哈希表算出整体签名（与上一版的 `contentSignature` 同一口径：`rel:hash` 排序后连接再哈希）。
+   * @param hashes 逐文件哈希表。
+   * @returns 内容签名串。
    */
-  private indexRoot(root: string): IndexedCorpus | null {
+  private static signatureOf(hashes: ReadonlyMap<string, string>): string {
+    const parts: string[] = [];
+    for (const [rel, digest] of hashes) {
+      parts.push(`${rel}:${digest}`);
+    }
+    // 路径已由 walk 按确定性顺序产出；再排一次序，使签名与遍历顺序解耦（防未来 walk 顺序调整
+    // 造成「同一个仓库两套签名」的伪变更）。
+    parts.sort();
+    return createHash('sha1').update(parts.join('\n')).digest('hex');
+  }
+
+  /**
+   * 计算某 root 的整体内容签名（`contentHashes` + `signatureOf` 的组合入口）。
+   * @param root workspace 根路径。
+   * @returns 签名串；根不可枚举或任一文件不可读时返回 null。
+   */
+  private contentSignature(root: string): string | null {
+    const hashes = this.contentHashes(root);
+    return hashes === null ? null : CorpusIndexCache.signatureOf(hashes);
+  }
+
+  /**
+   * 全量建索引（**同时**产出逐文件产物表，供后续增量复用）。
+   * @param root workspace 根路径。
+   * @returns 语料与产物表；失败返回 null（fail-closed）。
+   */
+  private buildFresh(root: string): {
+    readonly corpus: IndexedCorpus;
+    readonly artifacts: Map<string, CorpusFileArtifact>;
+  } | null {
+    const artifacts = new Map<string, CorpusFileArtifact>();
     try {
-      return ContextEngine.indexCorpus(root, { morph: true, light: true });
+      return {
+        corpus: ContextEngine.indexCorpus(root, {
+          morph: true,
+          light: true,
+          artifactSink: artifacts,
+        }),
+        artifacts,
+      };
     } catch (error) {
       // 保持 fail-closed（返回 null 不抛），但必须留下可定位的证据：
       // 2026-09-17 batch_next 25/25「语料索引失败」曾因这里的静默 catch 而把真因
