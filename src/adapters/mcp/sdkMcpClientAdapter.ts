@@ -22,6 +22,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { McpClientPort } from '../../ports/mcp/mcpClientPort.js';
 import type {
   McpCallToolResult,
+  McpContentBlock,
   McpInitializeResult,
   McpInputSchema,
   McpPromptDescriptor,
@@ -29,6 +30,7 @@ import type {
   McpResourceDescriptor,
   McpToolDescriptor,
 } from '../../ports/mcp/mcpProtocolTypes.js';
+import { McpContentBlocks } from '../../mcp/mcpContentBlocks.js';
 import { log } from '../../util/logger.js';
 
 /** 客户端适配器选项。 */
@@ -39,12 +41,6 @@ export interface SdkMcpClientOptions {
   readonly clientVersion: string;
   /** 每个请求的超时（毫秒；缺省由 SDK 决定，当前为 60s）。 */
   readonly timeoutMs?: number | undefined;
-}
-
-/** SDK 内容块的形状（收窄用）。 */
-interface SdkTextContent {
-  readonly type?: string;
-  readonly text?: string;
 }
 
 /**
@@ -142,8 +138,14 @@ export class SdkMcpClientAdapter implements McpClientPort {
     const result = (await this.request(() =>
       this.client.callTool({ name, arguments: args }, undefined, this.requestOptions()),
     )) as { readonly content?: readonly unknown[]; readonly isError?: unknown };
-    const content = (result.content ?? []).map((entry) => SdkMcpClientAdapter.textContentOf(entry));
-    return { content, isError: result.isError === true };
+    const content = (result.content ?? []).map((entry) => SdkMcpClientAdapter.contentOf(entry));
+    const structured = (result as { readonly structuredContent?: unknown }).structuredContent;
+    return {
+      content,
+      isError: result.isError === true,
+      // G10/T3：结构化输出此前被**直接丢弃**；现在原样透出，由网关渲染进工具结果文本。
+      ...(structured !== undefined ? { structuredContent: structured } : {}),
+    };
   }
 
   /**
@@ -176,7 +178,7 @@ export class SdkMcpClientAdapter implements McpClientPort {
     return {
       uri: typeof record.uri === 'string' ? record.uri : uri,
       ...(typeof record.mimeType === 'string' ? { mimeType: record.mimeType } : {}),
-      text: SdkMcpClientAdapter.textContentOf(first).text,
+      text: SdkMcpClientAdapter.contentOf(first).text,
     };
   }
 
@@ -218,7 +220,7 @@ export class SdkMcpClientAdapter implements McpClientPort {
     if (typeof content !== 'object' || content === null) {
       return '';
     }
-    return SdkMcpClientAdapter.textContentOf(content).text;
+    return SdkMcpClientAdapter.contentOf(content).text;
   }
 
   /**
@@ -403,13 +405,16 @@ export class SdkMcpClientAdapter implements McpClientPort {
   }
 
   /**
-   * SDK 内容块 → 本仓文本内容块（非文本块收敛为空文本，绝不丢弃整个结果）。
+   * SDK 内容块 → 本仓内容块：委托给**共用归一化**（{@link McpContentBlocks}）。
    *
+   * 为什么不在本类里自己映射（G10/T3，2026-10-03 第十五轮）：本仓有**两个** MCP 客户端实现
+   * （本适配器 + 手写回退 `src/mcp/mcpClient`），而"非文本块怎么转述"此前在两处**各写一半**——
+   * 适配器把非文本块塌成空文本、手写实现原样透传（网关只读 `.text` ⇒ 结果里同样是空段）。
+   * 两份映射一旦漂移，同一条远端响应会在两条路径下给出不同文本且不报错，故收成一份。
    * @param entry SDK 内容块（未知形状）。
-   * @returns 本仓文本内容块。
+   * @returns 本仓内容块（文本或保真转述）。
    */
-  private static textContentOf(entry: unknown): { readonly type: 'text'; readonly text: string } {
-    const record = entry as SdkTextContent;
-    return { type: 'text', text: typeof record.text === 'string' ? record.text : '' };
+  private static contentOf(entry: unknown): McpContentBlock {
+    return McpContentBlocks.normalize(entry);
   }
 }

@@ -220,7 +220,13 @@ test('MCP 网关：连接真实子进程服务器并桥接工具', async () => {
   try {
     const results = await gateway.connectAll();
     assert.strictEqual(results[0]?.error, undefined);
-    assert.deepStrictEqual(results[0]?.tools, ['test__echo', 'test__boom']);
+    // G10/T3：夹具新增 structured / rich 两个工具（结构化输出与非文本块判据用）。
+    assert.deepStrictEqual(results[0]?.tools, [
+      'test__echo',
+      'test__boom',
+      'test__structured',
+      'test__rich',
+    ]);
     assert.ok(registry.list().some((tool) => tool.name === 'test__echo'));
 
     const result = await registry.execute(

@@ -109,7 +109,7 @@
     "typescript-eslint": "^8.69.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "zod": "^4.6.4"
   },
   "optionalDependencies": {
