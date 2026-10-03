@@ -114,6 +114,9 @@ export class ConfigFactory {
       compactionMaxTokens: partial.compactionMaxTokens,
       compactionKeepRecent: partial.compactionKeepRecent,
       compactionDeterministicShrink: partial.compactionDeterministicShrink,
+      // G8：token 记账是否下沉原生（**默认 false ＝ TS**）。必须在此显式透传，
+      // 否则「配置里写了」而 agent 读不到——本仓已出现过九次同形态的「声明未接线」。
+      nativeTokenAccounting: partial.nativeTokenAccounting,
       fragments: partial.fragments,
       native: partial.native,
       live: partial.live ?? new CompositeLiveView([new ConsoleLiveView()]),

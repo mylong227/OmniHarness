@@ -353,7 +353,9 @@ export class RepoMapContextEngine {
     if (root === '' || q.trim() === '') {
       return null;
     }
-    const corpus = this.corpusCache.get(root);
+    // G8（2026-10-03）：语料取用走**可让出事件循环**的异步档——冷启动的全量重建（本仓实测
+    // `src/` 919 文件 ≈ 1.4 s）改为分块执行，不再把服务端事件循环冻住这么久。
+    const corpus = await this.corpusCache.getAsync(root);
     if (corpus === null) {
       return null;
     }
@@ -441,7 +443,8 @@ export class RepoMapContextEngine {
     if (root === '' || q.trim() === '') {
       return null;
     }
-    const corpus = this.corpusCache.get(root);
+    // G8：同 `getHybridRepoMapContext`——冷启动重建分块让出，避免阻塞事件循环。
+    const corpus = await this.corpusCache.getAsync(root);
     if (corpus === null) {
       return null;
     }

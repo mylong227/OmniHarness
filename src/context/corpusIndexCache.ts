@@ -157,6 +157,45 @@ export class CorpusIndexCache {
   }
 
   /**
+   * **可让出事件循环**地取语料（G8，2026-10-03）。
+   *
+   * ## 只接管"冷启动"这一档，其余原样委托给同步 `get`
+   *
+   * 全量重建是唯一超过百毫秒的同步段（本仓实测 `src/` 919 文件 ≈ **1.4 s**，期间定时器 / HTTP 回调 /
+   * 日志 flush 全部阻塞）。而"已过期但内容没变"与"少量文件变化"两档走的是**内容签名比对**与
+   * **增量重建**（廉价），把它们也搬到异步路径只会让墙钟变差——报告 §4 对 G8 的要求里明确写着
+   * "墙钟劣化 ≤10%"，所以这里**不复制**那套决策序列（复制还会留下两份判定漂移的隐患），
+   * 而是：**没有可用条目时**分块重建并写回，**其余一律**委托同步 `get`。
+   *
+   * ## 正确性
+   *
+   * 写回口径与 `buildFresh` 分支一致（同一 {@link buildFreshAsync} 产物 + 同一 `contentSignature`），
+   * 故 `getAsync` 的返回与"同步 `get` 冷启动"**逐位相同**；`tests/unit/corpusIndexAsync.test.ts`
+   * 对同一子树断言深度相等，并断言第二次调用命中缓存。
+   * @param root workspace 根路径。
+   * @returns 可查询语料；索引不可用时返回 null（fail-closed）。
+   */
+  public async getAsync(root: string): Promise<IndexedCorpus | null> {
+    if (this.cache.get(root) !== undefined) {
+      return this.get(root);
+    }
+    const built = await this.buildFreshAsync(root);
+    if (built === null) {
+      // 构建失败 ⇒ 交给同步路径按既有 fail-closed 语义处理（并留下同样的告警证据）。
+      return this.get(root);
+    }
+    this.sample(false);
+    this.evictIfNeeded();
+    this.cache.set(root, {
+      corpus: built.corpus,
+      indexedAt: Date.now(),
+      contentSig: this.contentSignature(root) ?? '',
+      artifacts: built.artifacts,
+    });
+    return built.corpus;
+  }
+
+  /**
    * 硬失效（清空条目）：下次 `get` **必定**重建，不做内容签名比对。
    *
    * 适用面：调用方**确知**语料已变或需要确定性重建（测试隔离、根目录被替换）。
@@ -340,6 +379,40 @@ export class CorpusIndexCache {
       // （worktree 未物化 → ENOENT）吞成 null，排查成本极高。
       const stack = error instanceof Error ? error.stack : undefined;
       log.warn('corpusIndexCache 索引失败（fail-closed 返回 null）', {
+        root,
+        error: error instanceof Error ? error.message : String(error),
+        ...(stack !== undefined ? { stack } : {}),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 分块（可让出事件循环）的全量重建：与 {@link buildFresh} 同产物、同 fail-closed 语义。
+   *
+   * 为什么产物相同：两条路径共用 `CorpusCollector` 做累积（符号编号口径只有一份实现），
+   * 装配也共用 `ContextEngine.assembleCorpus`。
+   * @param root workspace 根路径。
+   * @returns 语料与产物表；失败时为 null（不抛）。
+   */
+  private async buildFreshAsync(root: string): Promise<{
+    readonly corpus: IndexedCorpus;
+    readonly artifacts: Map<string, CorpusFileArtifact>;
+  } | null> {
+    const artifacts = new Map<string, CorpusFileArtifact>();
+    try {
+      return {
+        corpus: await ContextEngine.indexCorpusAsync(root, {
+          morph: true,
+          light: true,
+          artifactSink: artifacts,
+        }),
+        artifacts,
+      };
+    } catch (error) {
+      // 与同步路径同样的证据要求：静默 catch 曾把真因（worktree 未物化 → ENOENT）吞成 null。
+      const stack = error instanceof Error ? error.stack : undefined;
+      log.warn('corpusIndexCache 异步索引失败（fail-closed 返回 null）', {
         root,
         error: error instanceof Error ? error.message : String(error),
         ...(stack !== undefined ? { stack } : {}),
