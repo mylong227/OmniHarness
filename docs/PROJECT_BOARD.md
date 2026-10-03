@@ -14,46 +14,57 @@
 - **通用 Agent Harness**：TypeScript（CLI / Web 工作台 / 编排）+ Rust（原生内核）。
   包名 `@mylong227/omniharness`，版本 0.2.0，Apache-2.0，要求 Node ≥ 22.14.0。
 - Rust 侧 6 个 crate：`omni-cli` / `omni-core` / `omni-napi` / `omni-sdk` / `omni-sdk-gen` / `omni-wasm`（39 个 .rs 文件）。
-- Web 工作台 `web/src`：111 个 TS 文件（无第三方运行时框架，自绘 React 垫片）。
+- Web 工作台 `web/src`：111 个 TS/TSX 文件（**官方 React 18.3.1 UMD**，由 `index.html` 以 `<script>` 直载
+  `web/vendor/react.production.min.js`(10.5KB) + `react-dom.production.min.js`(128.7KB)，**零打包器**
+  （`web/tsconfig.json` 直接 `tsc` 到 ESM）；手写的只是**类型声明** `web/src/types/react-shim.d.ts`。）
+  ⚠️ 口径订正（2026-10-03 第五轮）：此前多处写成"自绘 React 垫片/无第三方运行时框架"，**与事实不符**，已订正。
 - ~~评测/基准设施：`evals/` 86 个文件（评测脚本 + 落盘报告）、`benchmark/`、SWE-bench 运行器（`python/` + `eval-data/`）。~~
   **2026-10-03 已整体移除**（指令：「跑分不做了、都删掉，只要核心功能与项目完整」）：`benchmark/`、
   `evals/`、`python/`、`eval-data/`（本机 2.3 GB 级运行产物）、`scripts/*.py`（16 个图像生成基准
   run/evaluate）、`tests/bench/`、`BENCHMARKS.md` + 5 篇口径文档、`requirements.txt`，
   共 **87 个入库文件**（见 §7 变更登记）。
 
-### 代码规模（2026-10-03 第二轮实测；行数口径 = 各文件行数之和）
+### 代码规模（2026-10-03 第五轮实测；**计数口径已订正**）
 
-| 区域                                                      | 文件数          | 行数                  |
-| --------------------------------------------------------- | --------------- | --------------------- |
-| `src/` 全部（本轮实测）                                   | 908             | 91,079                |
-| ~~`src/` 全部（上一轮口径，行数对不上，已由本轮值取代）~~ | ~~905~~         | ~~95,448~~            |
-| —— adapters（协议/工具/存储/媒体/沙箱等适配器）           | 211             | 31,685                |
-| —— ports（端口契约 + 组合接口）                           | 341             | 6,165                 |
-| —— server（HTTP/WS 服务与端点）                           | 47              | 9,104                 |
-| —— context（检索/压缩/仓库图/记忆注入）                   | 40              | 8,821                 |
-| —— cli                                                    | 29              | 6,212                 |
-| —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划）      | 24              | 5,077                 |
-| —— util / config / evolution / genesis / media / 其余     | 约 216          | 约 24,000             |
-| 单元测试 `tests/`                                         | 384 个 .test.ts | 全量 2,445 项断言用例 |
+> **口径订正（本轮发现的历史错误）**：此前用 `Get-Content | Measure-Object -Line` 数行数，该 cmdlet
+> **少计空行**——`src/context/contextEngine.ts` 实测 `(Get-Content).Count` = **646** 而行数口径给 609，
+> 单文件就少 37 行。故历轮「91,079 / 92,124 行」等数字系统性偏低（全仓约低 5.6k 行）。
+> **正确口径 = `(Get-Content <file>).Count` 逐文件求和**（等价于 `wc -l` 的「行数」语义）。
 
-> 子区域行数为上一轮 905 文件口径的存量值（本轮只重测了 `src/` 合计与文件数，未逐区域重跑）；
-> 「其余」一行按合计差额回填，故标「约」。所有数字均为本机可复核：文件数 =
-> `(Get-ChildItem src -Recurse -File -Filter *.ts).Count`，行数 = 同名管道 + `Measure-Object -Line`。
+| 区域                                                 | 文件数  | 行数      |
+| ---------------------------------------------------- | ------- | --------- |
+| `src/` 全部                                          | **914** | 97,631    |
+| —— adapters（协议/工具/存储/媒体/沙箱等适配器）      | 211     | 32,033    |
+| —— ports（端口契约 + 组合接口）                      | **342** | 6,238     |
+| —— server（HTTP/WS 服务与端点）                      | 47      | 9,104     |
+| —— context（检索/压缩/仓库图/语料缓存）              | 46      | 9,948     |
+| —— cli                                               | 29      | 6,212     |
+| —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划） | 26      | 5,541     |
+| —— util                                              | 32      | 4,248     |
+| —— config（组合根）                                  | 22      | 4,104     |
+| —— media / plugin / evolution / 其余                 | 约 159  | 约 12,200 |
+| 单元测试 `tests/*.test.ts`                           | 385     | 53,136    |
+| Web 工作台 `web/src`                                 | 111     | 17,245    |
+| Rust `crates/**/*.rs`（6 crate）                     | 39      | 6,143     |
+
+> 所有数字本机可复核：文件数 = `Get-ChildItem <dir> -Recurse -File -Filter <ext> | .Count`，
+> 行数 = 对同一集合逐文件 `(Get-Content $f).Count` 求和。断言用例数 = `npm test` 输出（2,445 项）。
 
 ## 2. 当前门禁状态（2026-10-03 第四轮实跑；跑分/评测子系统已于同日整体移除）
 
-| 门禁           | 命令                               | 结果                                                                |
-| -------------- | ---------------------------------- | ------------------------------------------------------------------- |
-| 类型（含 web） | `npm run typecheck`                | ✅ 零错误                                                           |
-| 代码规范       | `npm run lint`（--max-warnings=0） | ✅ 0 告警                                                           |
-| 铁律/体量      | `npm run check -- --strict`        | ✅ 908 文件零违规（存量白名单 13 处冻结）                           |
-| 架构           | `npm run arch:gate`                | ✅ 依赖方向 0 / ports 纯度 0 / 依赖环新增 0                         |
-| 成熟度         | `npm run audit:maturity`           | ✅ 40 项声明，L2/L3 均有测试证据                                    |
-| 接线完整性     | `npm run audit:config-wiring`      | ✅ 908 源文件全绿                                                   |
-| 文档死链       | `npm run check:doc-links`          | ✅ 新增 0（本轮删除产生的历史引用已冻结进基线，见 §7）              |
-| 规范增量       | `npm run audit:standard:delta`     | ✅ 未新增标准违规                                                   |
-| 全量单测       | `npm test`                         | ✅ 2,445 项：2,441 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0） |
-| Rust 单测      | `npm run rust:test`                | ✅ 全绿                                                             |
+| 门禁           | 命令                               | 结果                                                                                           |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 类型（含 web） | `npm run typecheck`                | ✅ 零错误                                                                                      |
+| 代码规范       | `npm run lint`（--max-warnings=0） | ✅ 0 告警                                                                                      |
+| 铁律/体量      | `npm run check -- --strict`        | ✅ 908 文件零违规（存量白名单 13 处冻结）                                                      |
+| 架构           | `npm run arch:gate`                | ✅ 依赖方向 0 / ports 纯度 0 / 依赖环新增 0                                                    |
+| 成熟度         | `npm run audit:maturity`           | ✅ 40 项声明，L2/L3 均有测试证据                                                               |
+| 接线完整性     | `npm run audit:config-wiring`      | ✅ 908 源文件全绿                                                                              |
+| 文档死链       | `npm run check:doc-links`          | ✅ 新增 0（本轮删除产生的历史引用已冻结进基线，见 §7）                                         |
+| 规范增量       | `npm run audit:standard:delta`     | ✅ 未新增标准违规                                                                              |
+| 全量单测       | `npm test`                         | ✅ 2,445 项：2,441 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）                            |
+| 覆盖率         | `npm run coverage`                 | ✅ **行 90.13% / 分支 83.61% / 函数 87.63%**（第五轮实测；注意"覆盖"≠"有效"，见调研报告 §3.9） |
+| Rust 单测      | `npm run rust:test`                | ✅ 全绿                                                                                        |
 
 > **已移除的门禁**（随跑分子系统一并删除，如实登记）：
 > `eval:ci`（召回锚点 / rank-veto 回溯 / 缓存命中 / 工具选择 / 前缀稳定五件套）、
@@ -226,9 +237,11 @@
   单测覆盖；真实模型端到端未验证（本机无 ONNX 权重下载条件），不得声称已实测加速。~~
   **✅ 2026-10-03 已实测（推翻旧结论）**：本机权重其实**已就位**
   （`.omniharness/model-cache/Xenova/e5-small-v2`：config + tokenizer + model_quantized.onnx），
-  配 `preset: 'e5-small-v2'` + `localFilesOnly: true` 可**完全离线**跑通
-  （实测 dim=384、冷启 713ms、热 11ms、吞吐 180–320 texts/s）。当时的可复现脚本为
-  `evals/semantic-e2e-real.mjs`（**该脚本已于同日随跑分子系统删除**，故下表数字**不再可复跑**，
+  配 `preset: 'e5-small-v2'` + `localFilesOnly: true` 可**完全离线**跑通（实测 dim=384、冷启 713ms、热 11ms）。
+  ⚠️ **吞吐数字已订正（2026-10-03 第五轮复测）**：原写"180–320 texts/s"**复现不出**——用 256 条 ≈90 字符文本、
+  e5-small-v2 量化档、batch 8/32 复测为 **26.1 / 29.7 texts/s**（另有独立调研测得 ~50 texts/s，差异来自文本长度与批构成）。
+  ⇒ **吞吐是文本长度与批的强函数，任何单点数字必须连同方法一并引用**；此前的 180–320 属错误记录。
+  当时的可复现脚本为 `evals/semantic-e2e-real.mjs`（**该脚本已于同日随跑分子系统删除**，故下表数字**不再可复跑**，
   仅作当次实测留档；语料是复制到临时目录的 `src/` 有界子集，60 文件 / 1108 条待编码）：
 
   | 段  | 场景                        | 编码条数 | 耗时  |
@@ -330,7 +343,127 @@ npm run rust:test      # cargo test --workspace
 历史记录，但引用时必须写明「脚本已移除、不可复跑」。核心功能与项目完整性由九道门禁 + 全量单测
 （`npm test`）继续守住。
 
-## 8. 本板如何追加条目
+## 8. 已确证待修缺陷（2026-10-03 第五轮，架构复核 + 外部调研交叉发现）
+
+### 8.1 🔴 P0：子代理的**文件写入被静默丢弃**（隔离有、回并路径无）
+
+**现象**：委派给子代理的「改代码」任务会返回 `ok: true` + 一段声称已完成的总结，但**主仓库零改动**，
+且改动内容不可恢复——工作树与分支都被删掉。等于「假成功 + 静默数据丢失」。
+
+**证据（本机读码，可复核）**：
+
+| 位置                                                | 事实                                                                                                                         |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `src/subagent/subagentOrchestrator.ts:62-68`        | 每个子代理 `WorktreeOps.createWorktree(...)` 建独立工作树，并把 `isolatedPorts.workspaceRoot` 指向它 ⇒ 写入落在工作树        |
+| `src/subagent/subagentOrchestrator.ts:74-77`        | `finally { await worktree.cleanup() }` —— 无论成败都清理                                                                     |
+| `src/subagent/worktreeOps.ts:70-97`                 | `cleanup()` = `git worktree remove --force` **+ `git branch -D omni-sub-<name>`** ⇒ 提交与工作区改动一并销毁                 |
+| `src/subagent/subagentRunner.ts` `toolViewOf`       | 只剔除递归入口（`subagent` / `run_workflow` / `run_goal`），**写类工具（write_file / apply_patch / shell）对子代理全部可用** |
+| `src/subagent/subagentTypes.ts`（`SubagentResult`） | 字段只有 `ok / sessionId / output / steps / durationMs / depth / events / error`，**没有 diff / patch / changedFiles**       |
+| 全仓 grep `merge\|cherry-pick` 于 `src/subagent/**` | 命中 0（命中的是 `configError.mergeConfigs` 配置合并与 `hybridRanker.rrfMerge` 检索融合，均与工作树无关）                    |
+
+**根因**：隔离机制（worktree）与回收机制（merge/patch）**只实现了一半**；`cleanup()` 的注释只关心
+「清理失败别静默」（2026-09-22 审计 P3），从未讨论「清理前要不要把改动交回」。这属于本仓最忌讳的
+「声明/半成品未接线」，且**恰好是唯一没有机械判据的那类缺陷**（评测子系统已删，行为层无人看守）。
+
+**影响面**：`subagent`、`run_workflow`、`run_goal` 三条委派路径上任何写入型子任务；同时白付工作树创建 +
+子代理内索引的 IO 成本。只读型子任务（调研/检索/回答）**不受影响**，故当前正确用法是「子代理只做只读」。
+
+**三个候选修法（待定，见 §9 升级路线与调研报告）**：
+① **显式只读**（子代理工具视图默认剔除写类工具，写需求走主会话）——最小、最诚实，但会砍掉「子代理用文件当草稿」的用法；
+② **交付 patch**（清理前在工作树内取 `git status --porcelain` + `git diff`，把 `changedFiles`/`patch` 放进结果并落到
+`.omniharness/subagent-patches/*.patch`，日志告警）——**纯增量、不砍能力、彻底消除"静默"**，推荐；
+③ **自动回并**（`git cherry-pick`/`git apply` 到主树）——并发写冲突与半成品污染风险高，不推荐默认开。
+
+**暂缓理由**：修法②会新增结果字段与落盘产物，属对外可观察的行为变更（可能影响 SDK/API 稳定性门禁），
+需先与用户确认语义；本条目在确认前作为**已确证缺陷**留档，且**在报告与文档里如实标注子代理当前只能安全用于只读**。
+
+### 8.2 🟠 P1：回滚后「压缩游标」未复位（回滚对齐漏了一层）
+
+**现象**：同一进程内 `checkpoint` 回滚后，`StepContextBuilder` 的内存压缩游标仍指向**已被截断移除**的折叠点；
+**重启进程反而正常**（新实例复位），故这是"同进程不对、重启对了"这类最难查的形态。
+
+**证据（本机复核）**：`src/core/stepContextBuilder.ts:44,46` 定义 `compactionState` / `stateRestored`；
+`stateRestored = ` 在全仓**只有两处**——L46 初始化为 `false`、L102（构造后首次 `buildMessages`）置 `true`，
+**没有任何地方置回 false，也没有 reset()/setter**。而 `SessionRecorder.rewindTo` 会经 `eventsFrom` 把
+那条 `OMNI_COMPACTION_V1` 游标事件从日志移除 ⇒ 游标悬空。
+
+**注**：三层回滚对齐本身是**做对的**（内存事件流 / 检索索引 / 磁盘 + 在飞写），且端口不支持 `remove` 时
+会显式 `log.warn('session.retrieval.rewind_unsupported')` 而非静默——本缺陷是第四层（上下文游标）漏了。
+
+**修法（建议）**：在回卷通路上复位游标（`StepContextBuilder.resetCompactionState()` + 由
+`liveSessionRewindRegistry` / `agent.registerRewinder` 在截断后调用，顺序须与既有"先截内存、再屏障持久化器"一致）；
+**必须只在"回卷到压缩点之前"时复位**，否则每次回滚会多付一次摘要 LLM 调用（正是该文件注释记录的旧缺陷 P0-1）。
+判据：挂在既有 `tests/unit/sessionRewindService.test.ts` 上构造「产游标 → 打检查点 → 再产事件 → 回滚」。
+
+### 8.3 🟠 P1：事件落盘是「全量快照重写」而非增量追加（写放大随会话长度增长）
+
+**证据（本机复核）**：`EventPersister.saveSnapshot` → `storage.save(sessionId, events)`（`eventPersister.ts:139-163`），
+而 `TurnRunner` **每步**调 `schedule()`（`turnRunner.ts:107-108`，默认 200 ms 批量）；三个适配器都**没有 append 通道**：
+`jsonlStorage.ts:33-48` 整文件 tmp+rename；`sqliteStorage.ts:49-67` 一个事务里 **`DELETE` 全桶 + 逐条 `INSERT`**。
+
+**影响**：与"append-only 事件溯源"的架构主张不一致，且长会话后段每次 flush 都在重写 N 条。
+**本机实测（2026-10-03，`JsonlStorage.save` 单次调用成本）**：200 条 ≈ 28 ms / 89 KB；3,200 条 ≈ 41 ms / 1.6 MB；
+**12,800 条 ≈ 139 ms / 6.5 MB** ⇒ 单次成本随 N **线性**，而 flush 每步触发 ⇒ 会话累计写入 ≈ `size_N × 步数 / 2`
+（12,800 事件 × 1,000 步的尾部量级 ≈ **GB 级重写**）。**口径**：这是"实测单次成本 × 线性增长"的**外推**，
+不是端到端实测（仓库现已无 perf 测试）。
+
+**修法（建议）**：`StoragePort` 加**可选** `append?`（明确 fail-closed 契约：只追加不覆盖、写入前校验前缀完整），
+jsonl 走真追加、sqlite 走 `INSERT OR REPLACE` 不 DELETE，`EventPersister` 优先 append、失败回退全量 save。
+**回退方式天然存在**：适配器不实现 `append` 即自动回到现有行为。
+
+### 8.4 🟠 P1：取消原因在级联时被降级（与文档承诺不符，且零测试覆盖）
+
+**证据（本机复核）**：`src/core/loop/cancellationToken.ts` 级联处写作
+`child.cancel(reason === 'parent' ? reason : 'parent')` ⇒ 父以 `'shutdown'`/`'user'` 取消时，**全部后代**的
+`cancelReason` 都变成 `'parent'`，与文件头自称的"结构化 reason"矛盾；
+且 `tests/unit/cancelPropagation.test.ts` 对 `cancelReason` **零断言**（复核：命中 0 处）⇒ 属"没覆盖"而非"已知可接受"。
+另 `children` 是强引用集合、**只在 cancel 时清空，从无 disposable**（长生命周期进程上是潜在泄漏）。
+
+**修法（建议）**：级联透传原始 reason；补 `cancelPropagation.test.ts` 断言（父 `cancel('shutdown')` ⇒ 所有后代
+reason 均为 `'shutdown'`；`child()` 1000 次后可释放）。**回退**：reason 透传是纯增量信息，改回写死 `'parent'` 即恢复旧行为。
+
+### 8.5 🔴 P0：安全面的三处「声明强于实现」（威胁模型必须相应下调）
+
+> 本组是外部调研（Windows 隔离专题）读码 + **我逐条复核**得到的事实。它们不是"待修 bug"而是
+> **当前真实能力边界**——写进威胁模型与文档时必须按此表述，不得声称已隔离。
+
+| #   | 事实                                                                                                                                                                                                                             | 复核状态  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 1   | 默认沙箱档是 `policy`（`appServerBase.ts:245` 的 `file.sandbox ?? 'policy'`），即**纯 TS 黑名单 + 路径白名单**，无内核强制                                                                                                       | ✅ 已复核 |
+| 2   | Windows「OS 级」后端调 `CreateRestrictedToken(..., 0, null, 0, null, 0, null, ...)`——**三个 restricting-SID 计数参数全 0** ⇒ 无文件/网络拒绝语义（只删特权 + Job Object 限额，且未换桌面、未设 UILIMIT）                         | ✅ 已复核 |
+| 3   | `networkEgressGuard` **只包 `globalThis.fetch`** ⇒ shell 子进程（`curl`/`certutil`/原生 socket）完全绕过；记忆/召回类工具被归入 `file` 信任档（阈值 2），比一次性 `external`（阈值 1）**更宽松**，而记忆是**跨会话持久**投毒载体 | ✅ 已复核 |
+
+**结论（可引用口径）**：在不付费、支持 Windows 的前提下，本仓库**当前是 L2（同用户进程内约束）**；
+可达的 L3 只有 AppContainer + 宿主路径 DACL 或 WSL2 内 bubblewrap/landlock 两条路（详见调研报告 §3.5）。
+**用户可感知的行为后果**：模型若被注入说服，`shell` 里的下载/外联命令在本机**不会**被 fetch 守卫拦住。
+
+> **文档死链基线说明（2026-10-03 第五轮）**：基线由 89 处更新为 **96 处**，新增的 6 条全部来自
+> `docs/ARCHITECTURE_UPGRADE_2026-10.md` 的**升级提案里的待建路径**
+> （`scripts/memoryLiftProbe.mjs`、`tests/unit/{eventPersisterAppend,memoryTrustBoundary,subagentWriteGate,toolSchedulerReadyOrder,testCountParser}.test.ts`）。
+> 它们是有意引用（提案的判据落点），按 `docLinkCheck` 的既定流程 `--update` 纳入基线；
+> **实现这些提案后应收紧基线**（`--update` 会同时清掉已存在的路径）。
+
+### 8.6 🔴 P0：完成闸门把「零测试」判成「验证通过」（fail-open 漏洞）
+
+**现象**：回合末验证闸门只看退出码；而"测试命令一条都没匹配到"在 Node 里**是成功退出** ⇒
+"没跑任何测试"会被当成"验证通过"，正好落进本仓最忌讳的**假完成**形态。
+
+**证据（本机复核）**：
+
+- `node --test "dist/tests/unit/__nonexistent__*.test.js"` ⇒ 输出 `# tests 0 / # pass 0 / # fail 0`，**exit = 0**；
+- `src/adapters/tool/verify/turnEndCompletionGate.ts:78` 的判据是 `if (outcome.exitCode !== 0)`，**不看计数**；
+- 本仓 `npm test` = `npm run build && node --test "dist/tests/unit/*.test.js"` ⇒ 一旦 glob 落空（改名/构建产物缺失/路径漂移），
+  闸门会给出"验证通过"。
+
+**外部佐证（一手）**：pytest 官方把"没收集到测试"单列为 **exit 5**（0 的语义是 "collected and passed"）；
+Jest 需显式 `--passWithNoTests` 才允许空跑通过 —— 两个主流工具都刻意区分"零测试"与"通过"。
+
+**修法（建议，1 人日）**：闸门判据改为**计数感知**——解析 `# tests N` / `N passed` / pytest `collected 0 items`，
+`tests == 0` 一律判"**未验证**"（fail-closed 收尾），并对无法解析的输出保守判"未验证"。
+判据：新增 `tests/unit/testCountParser.test.ts` + 用 `ScriptedModel` 的桩回合断言
+「输出 `# tests 0` 且 exit 0 ⇒ 必须拦截；`# tests 12 / # fail 0` ⇒ 必须放行」。
+
+## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。
 2. 推翻旧条目时**保留旧文并划掉**（~~~~），注明推翻依据——不许无声改写历史结论。
