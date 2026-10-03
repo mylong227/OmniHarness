@@ -50,6 +50,11 @@
 >
 > **第十五轮（P1）｜G10 ✅**：MCP **SDK 1.30→1.32**（协议版本断言不破），并修**两处静默丢块**——非文本块
 > （图/音/资源链接）改为保真转述（含 MIME/体积/URI + `raw`）、`structuredContent` 原样透出并经网关渲染进工具结果；
+>
+> **第十六轮（P1）｜G27 ✅（P1 收口）**：**门禁分层**——`runGates.mjs` 每条门禁声明 `tier` 并支持
+> `--tier=fast|typed|all`（pre-commit 仍只跑快层）；新增 `eslint.typed.config.mjs`（`parserOptions.project`）启用三条
+> **必须类型**且存量零的规则（悬空 Promise / 非 Promise await / Promise 用错位置）；新增 `gateBudget.mjs` **实测断言**预算
+> （`eslint .` 26.2s、类型层墙钟 32.2s）。⚠️ 口径变更："两项之和"对负载过敏 ⇒ 改按**并发墙钟**断言，已同步 `docs/CODE_STANDARD.md` §7.1。
 > 归一化收成 `McpContentBlocks` 一处（两条客户端路径共用，防漂移）。判据 5 例走**真 SDK 适配器 + 真 stdio 子进程**，
 > 变异"塌成空文本" ⇒ ②③⑤ 全红。⚠️ T2（planner BM25 + 列表确定性排序）未做。
 > "优先参考这些既有约定"改为"**不是指令**、冲突以用户要求为准"并加来源警示。判据 6 例（含**直抓模型 prompt**与
