@@ -348,81 +348,6 @@ h3 {
   font-size: 0.9rem;
 }
 
-.results-section {
-  margin: 0 0 90px;
-  padding: 82px 0;
-  background: var(--night);
-  color: #f3f7f4;
-}
-.results-inner {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 32px 36px;
-  width: min(1180px, calc(100% - 40px));
-  margin: 0 auto;
-}
-.results-section .eyebrow {
-  color: #91d585;
-}
-.light-copy .lead {
-  color: #aebdb5;
-}
-.benchmark-grid {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-.benchmark-card {
-  min-height: 220px;
-  padding: 24px;
-  border: 1px solid #35483f;
-  border-radius: 19px;
-  background: #1a2b24;
-}
-.benchmark-card.featured {
-  background: linear-gradient(150deg, #243c30, #192a23);
-}
-.benchmark-card div:first-child {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-}
-.benchmark-card div span {
-  font-weight: 760;
-}
-.benchmark-card small {
-  color: #a4b7ac;
-  font-size: 0.67rem;
-}
-.benchmark-card strong {
-  display: block;
-  margin-top: 31px;
-  color: #a9e69d;
-  font-family: 'Aptos Display', Inter, sans-serif;
-  font-size: 2.6rem;
-  letter-spacing: -0.055em;
-  line-height: 1;
-}
-.benchmark-card p {
-  margin: 11px 0 0;
-  color: #aebdb5;
-  font-size: 0.82rem;
-}
-.mini-track {
-  height: 6px;
-  margin-top: 20px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #30463b;
-}
-.mini-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #9bdd8e;
-}
 .gallery-block {
   grid-column: 1 / -1;
   margin-top: 32px;
@@ -612,8 +537,7 @@ footer p {
 }
 
 @media (max-width: 900px) {
-  .method-cards,
-  .benchmark-grid {
+  .method-cards {
     grid-template-columns: 1fr 1fr;
   }
   .method-card:last-child {
@@ -661,16 +585,11 @@ footer p {
   .framed {
     padding: 9px;
   }
-  .method-cards,
-  .benchmark-grid {
+  .method-cards {
     grid-template-columns: 1fr;
   }
   .method-card:last-child {
     grid-column: 1;
-  }
-  .results-inner {
-    grid-template-columns: 1fr;
-    width: calc(100% - 24px);
   }
   .gallery-header {
     align-items: flex-start;

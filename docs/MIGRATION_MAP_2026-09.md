@@ -37,12 +37,12 @@
 
 ### 4. T2.5 新技术合规收口（`689d0a1`，§8 第二批）
 
-| 旧                                                             | 新                                                                                                                               | 门面                                                                                              |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `src/context/rankVeto/index.ts`（503 行上帝类，类名 ≠ 文件名） | `rankVetoOverlap.ts`（重合度量）/ `rankVetoSpectrum.ts`（结构性诊断）/ `rankVetoEvaluator.ts`（阈值+判据编排，`@maturity` 随迁） | `rankVeto.ts` 保留门面再导出，`tests/unit/rankVeto.test.ts` 与 `evals/rank-veto-retro.mjs` 零改动 |
-| `layeredCodeGraph.ts` 112 行主函数                             | `indexByName` / `indexByFile` / `documentFrequency` / `layerWeight` / `pushEdge` / `collectEdges` / `toAdjacency` 7 个助手       | 单文件内拆分，无路径变化                                                                          |
-| `configError.validateConfig`（88 行）                          | 8 个字段族校验器 + `FIELD_VALIDATORS` 注册表                                                                                     | 同文件内拆分                                                                                      |
-| `projectInstructions.loadProjectInstructions`（90 行）         | 三级候选收集 + `mergeCandidates` / `appendLlmsTxt`                                                                               | 同文件内拆分                                                                                      |
+| 旧                                                             | 新                                                                                                                               | 门面                                                                                                                            |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `src/context/rankVeto/index.ts`（503 行上帝类，类名 ≠ 文件名） | `rankVetoOverlap.ts`（重合度量）/ `rankVetoSpectrum.ts`（结构性诊断）/ `rankVetoEvaluator.ts`（阈值+判据编排，`@maturity` 随迁） | `rankVeto.ts` 保留门面再导出，`tests/unit/rankVeto.test.ts` 零改动（原对照脚本 `evals/rank-veto-retro.mjs` 已随跑分子系统移除） |
+| `layeredCodeGraph.ts` 112 行主函数                             | `indexByName` / `indexByFile` / `documentFrequency` / `layerWeight` / `pushEdge` / `collectEdges` / `toAdjacency` 7 个助手       | 单文件内拆分，无路径变化                                                                                                        |
+| `configError.validateConfig`（88 行）                          | 8 个字段族校验器 + `FIELD_VALIDATORS` 注册表                                                                                     | 同文件内拆分                                                                                                                    |
+| `projectInstructions.loadProjectInstructions`（90 行）         | 三级候选收集 + `mergeCandidates` / `appendLlmsTxt`                                                                               | 同文件内拆分                                                                                                                    |
 
 ### 1.5 P3.2 域收敛（2026-09-13，批次十三）
 

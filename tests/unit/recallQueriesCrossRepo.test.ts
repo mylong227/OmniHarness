@@ -4,31 +4,31 @@
  * ## 为什么单测 + 仪器两层，而不是只留仪器
  *
  * 外部语料（`eval-data/repos/**`）**不入库**（`.gitignore` 整目录忽略）⇒ CI 里没有语料，
- * 「锚点 GT 非空 / 锚点出现文件数 ≤3」这类**必须读语料**的协议项只能在语料就位的机器上跑
- * （`evals/recall-crossrepo.mjs` 的 [0] 段，任一违例即 exit 1）。但查询集本身的结构与对抗性
- * **与语料无关**，若不在 CI 里钉住，就会重演仓内查询集的老问题：评测集悄悄退化（删条、重复、
- * 查询里写出锚点字面量）而无人发现，最后把「评测集坏了」读成「检索退步了」。
+ * 「锚点 GT 非空 / 锚点出现文件数 ≤3」这类**必须读语料**的协议项只能在语料就位的机器上跑。
+ * 但查询集本身的结构与对抗性**与语料无关**，若不在 CI 里钉住，就会重演仓内查询集的老问题：
+ * 评测集悄悄退化（删条、重复、查询里写出锚点字面量）而无人发现。
  *
- * 故本测试只覆盖**零语料依赖**的四类不变量，毫秒级、可在 CI 当门禁：
+ * 故本测试只覆盖**零语料依赖**的三类不变量，毫秒级、可在 CI 当门禁：
  *   ① 注册结构：五仓齐全、字段非空、root 是仓内相对路径、查询文本全库唯一、锚点仓内唯一；
  *   ② 对抗性：查询内容词与锚点子词**零交集**（复用仓内 `adversarialOverlap` 单一真相来源）；
- *   ③ 路径词禁令（语料级代理）：查询内容词不得含**包目录名 / 仓名**词元（防「答案写在查询里」）；
- *   ④ 单一真相来源：三份跨仓仪器都必须读本 fixture，且不得各自再硬编码一份语料清单。
+ *   ③ 路径词禁令（语料级代理）：查询内容词不得含**包目录名 / 仓名**词元（防「答案写在查询里」）。
  *
- * **诚实边界**：③ 是「GT 路径词禁令」的可离线代理——真正的禁令按 GT 文件名词干逐条校验，仍由
- * `evals/recall-crossrepo.mjs` 在真实语料上执行。
+ * ## 2026-10-03 状态变更（跑分/评测子系统整体删除）
+ *
+ * `evals/`（含 `recall-crossrepo.mjs` / `semantic-crossrepo.mjs` / `crossrepo-anchor-probe.mjs`
+ * 三份跨仓仪器）与 `eval-data/`（语料）已随跑分/评测子系统一并删除。因此：
+ *  - 原「④ 单一真相来源：三份跨仓仪器都读本 fixture」**已删除**——它断言的对象不存在了，
+ *    留着只会恒红；
+ *  - 本测试现在只校验**夹具数据本身**（①②③），其 `root` 指向的 `eval-data/repos/**`
+ *    已永久不存在（语料相关校验无处可跑，已随仪器消失）；
+ *  - 保留理由：它是**测试数据**（查询集）而非评分设施。若确认不再需要跨仓检索语料，
+ *    可把本文件、`fixtures/recallQueriesCrossRepo.ts` 一并删除。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { CROSS_REPO_CORPORA } from '../fixtures/recallQueriesCrossRepo.js';
 import { adversarialOverlap, contentTokensOf } from '../fixtures/recallQueries.js';
-
-/** 仓库根（编译产物在 `dist/tests/unit/`，故上溯三级）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /** 每仓最少查询条数（当前均为 12；低于此值说明集合被静默削过）。 */
 const MIN_QUERIES_PER_CORPUS = 12;
@@ -111,33 +111,4 @@ test('③ 路径词禁令（离线代理）：查询不得含包目录名 / 仓�
       }
     }
   }
-});
-
-test('④ 单一真相来源：三份跨仓仪器都读本 fixture，且无第二份硬编码语料清单', () => {
-  const harnesses = [
-    'evals/recall-crossrepo.mjs',
-    'evals/semantic-crossrepo.mjs',
-    'evals/crossrepo-anchor-probe.mjs',
-  ];
-  for (const rel of harnesses) {
-    const src = readFileSync(join(REPO_ROOT, rel), 'utf8');
-    assert.match(
-      src,
-      /recallQueriesCrossRepo/,
-      `${rel} 必须从 tests/fixtures/recallQueriesCrossRepo 读取语料（否则会有第二份清单）`,
-    );
-    // 判据只看**代码**（剔除 `//` 行注释）：注释里提到该目录是正当的（说明前置条件），
-    // 而再抄一份语料清单必然出现在代码里。属于启发式，但对本仓写法足够。
-    const code = src
-      .split('\n')
-      .filter((line) => !line.trimStart().startsWith('//'))
-      .join('\n');
-    assert.ok(
-      !code.includes('eval-data/repos/'),
-      `${rel} 的代码里出现了硬编码的语料路径——语料清单必须只存在于 fixture 中`,
-    );
-  }
-  // 反向守卫：探针必须直接复用 fixture 的清单（而不是自己维护一份同形数组）。
-  const probe = readFileSync(join(REPO_ROOT, 'evals/crossrepo-anchor-probe.mjs'), 'utf8');
-  assert.match(probe, /CROSS_REPO_CORPORA/, '探针必须直接复用 fixture 的语料清单');
 });

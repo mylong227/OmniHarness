@@ -60,13 +60,13 @@
 
 ## 4. 实验与审计证据（当前有效）
 
-| 文档                                                               | 内容                                                                                                                            |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| [maturity-audit-2026-09-09.md](maturity-audit-2026-09-09.md)       | 最近一次全量成熟度审计（六维矩阵 + UI 专项对标 + 零测试模块清单）                                                               |
-| [U3_CONTEXT_RECALL_EXPERIMENT.md](U3_CONTEXT_RECALL_EXPERIMENT.md) | 上下文召回实验：负结果全留档（LSA 有害/PageRank 零增益/频域共振无效），采纳词形归并                                             |
-| [EMBEDDING_EVALUATION.md](EMBEDDING_EVALUATION.md)                 | 本地 embedding 依赖评估（破 U3 语义鸿沟的准入分析）                                                                             |
-| [LANDSCAPE_RESEARCH_2026.md](LANDSCAPE_RESEARCH_2026.md)           | 竞品差距·最新技术·开放学术资源完备调研（2026-09-05）                                                                            |
-| `benchmark/` + `evals/`（仓库根）                                  | 能力基准集：capability-swebench（自研 10 题 live 10/10）、efficiency、context-efficiency（可换度量对照框架）、layered-recall-ab |
+| 文档                                                               | 内容                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [maturity-audit-2026-09-09.md](maturity-audit-2026-09-09.md)       | 最近一次全量成熟度审计（六维矩阵 + UI 专项对标 + 零测试模块清单）                                                                                                                                                                      |
+| [U3_CONTEXT_RECALL_EXPERIMENT.md](U3_CONTEXT_RECALL_EXPERIMENT.md) | 上下文召回实验：负结果全留档（LSA 有害/PageRank 零增益/频域共振无效），采纳词形归并                                                                                                                                                    |
+| [EMBEDDING_EVALUATION.md](EMBEDDING_EVALUATION.md)                 | 本地 embedding 依赖评估（破 U3 语义鸿沟的准入分析）                                                                                                                                                                                    |
+| [LANDSCAPE_RESEARCH_2026.md](LANDSCAPE_RESEARCH_2026.md)           | 竞品差距·最新技术·开放学术资源完备调研（2026-09-05）                                                                                                                                                                                   |
+| ~~`benchmark/` + `evals/`（仓库根）~~                              | ~~能力基准集：capability-swebench（自研 10 题 live 10/10）、efficiency、context-efficiency（可换度量对照框架）、layered-recall-ab~~ **2026-10-03 已整体删除**（跑分/评测子系统移除，见 `PROJECT_BOARD.md` §7）；本区只剩审计与研究文档 |
 
 ## 5. 研究资料库
 

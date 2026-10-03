@@ -35,8 +35,9 @@ resources/symbolic_policy/.omniharness.lock
 # Local third-party benchmark material
 # These files remain available to local experiments but are intentionally kept
 # out of Git until their individual redistribution terms are satisfied.
+# （`eval-data/` 一行已于 2026-10-03 删除：该目录随跑分/评测子系统一并移除，不再生成。
+#   ESLint 仍保留同名排除作为防御，见 eslint.config.mjs。）
 bench data/
-eval-data/
 resources/source_image_pool_comfybench/images/
 resources/source_image_pool_gpt/images/
 *.baiduyun.uploading.cfg
