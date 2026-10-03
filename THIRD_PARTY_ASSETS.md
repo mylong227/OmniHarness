@@ -32,14 +32,17 @@ The repository uses the following resources.
 或 HF 家目录），换机即失效且位置不可预测。现按功能统一收编进 `third-party/<功能>/`
 （全部 gitignored，可随时重建；重建方式即首次使用时的自动下载/克隆）：
 
-| 目录                          | 功能                                         | 谁写入 / 谁读取                                                                          | 重建 / 覆盖方式                                                     |
-| ----------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `third-party/laya/`           | laya Python 包源码快照（入库）               | 人工存档                                                                                 | 按 upstream 自取                                                    |
-| `third-party/laya-model/`     | laya 决策引擎权重                            | laya 适配器读取                                                                          | hf-mirror 手动拉取（见上）                                          |
-| `third-party/laya-venv/`      | laya 运行时 Python venv                      | laya 适配器（`LAYA_PYTHON_BIN`）                                                         | `python -m venv` + pip（见上）                                      |
-| `third-party/model-cache/`    | 嵌入模型 ONNX 权重缓存（e5/minilm/gte/jina） | `@huggingface/transformers`（生产 `configFactory.buildEmbeddingPort` 缺省 + evals 缺省） | 自动从 HF/hf-mirror 下载；`OMNI_EMBEDDING_CACHE_DIR` 可指回任意位置 |
-| `third-party/vec-cache/`      | 语义检索向量缓存                             | evals `CachedEmbeddingPort`（`OMNI_VEC_CACHE` 可覆盖）                                   | 随评测自动重建                                                      |
-| `third-party/swebench-repos/` | SWE-bench 评测仓库 git 克隆缓存              | evals `NativeExecutor`（`repoCacheRoot`）                                                | 随评测自动克隆                                                      |
+| 目录                       | 功能                                         | 谁写入 / 谁读取                                                             | 重建 / 覆盖方式                                                     |
+| -------------------------- | -------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `third-party/laya/`        | laya Python 包源码快照（入库）               | 人工存档                                                                    | 按 upstream 自取                                                    |
+| `third-party/laya-model/`  | laya 决策引擎权重                            | laya 适配器读取                                                             | hf-mirror 手动拉取（见上）                                          |
+| `third-party/laya-venv/`   | laya 运行时 Python venv                      | laya 适配器（`LAYA_PYTHON_BIN`）                                            | `python -m venv` + pip（见上）                                      |
+| `third-party/model-cache/` | 嵌入模型 ONNX 权重缓存（e5/minilm/gte/jina） | `@huggingface/transformers`（生产 `configFactory.buildEmbeddingPort` 缺省） | 自动从 HF/hf-mirror 下载；`OMNI_EMBEDDING_CACHE_DIR` 可指回任意位置 |
+| `third-party/vec-cache/`   | 语义检索向量缓存                             | `DiskCachedEmbeddingAdapter`（`OMNI_VEC_CACHE` 可覆盖，生产语义检索路径）   | 随语义索引构建自动重建                                              |
+
+~~`third-party/swebench-repos/`~~（SWE-bench 评测仓库克隆缓存）：**2026-10-03 随跑分/评测
+子系统整体删除**——`eval-data/`、`evals/`、`python/`、`scripts/evaluate_*.py` 与
+`scripts/run_*.py` 全部移除，本项目不再产生该类缓存。
 
 The root Apache-2.0 license applies to OmniHarness code. It does not relicense
 third-party images, model weights, node packages, or benchmark material.
@@ -49,8 +52,8 @@ JSON files identify dependencies.
 
 ## Evaluation Provenance
 
-The six `scripts/evaluate_*.py` files target the benchmark protocols listed in
-[BENCHMARKS.md](BENCHMARKS.md) and record upstream implementation URLs in their
-summaries. KRIS-Bench rubric text is retained in
-`scripts/kris_official_prompts.py` with its upstream attribution. Benchmark
-annotations and generated result media remain outside version control.
+~~The six `scripts/evaluate_*.py` files target the benchmark protocols listed in
+[BENCHMARKS.md](BENCHMARKS.md)~~ —— **2026-10-03 已失效**：这六个评测脚本、`BENCHMARKS.md`
+与 `scripts/kris_official_prompts.py`（KRIS-Bench 评分细则文本及上游署名）**已随跑分/评测
+子系统整体删除**。相关上游署名与许可信息如需追溯，见 git 历史（删除前版本）与
+`docs/PROJECT_BOARD.md` §7 的变更登记；**当前仓库不再包含任何对外评测协议实现**。
