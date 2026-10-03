@@ -1,7 +1,9 @@
 import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
+import { SubagentToolScope } from './subagentToolScope.js';
+import { log } from '../util/logger.js';
 import { Id } from '../util/id.js';
 import { SubagentRunner } from './subagentRunner.js';
-import { WorktreeOps } from './worktreeOps.js';
+import { WorktreeOps, type Worktree } from './worktreeOps.js';
 import type { SubagentPortsShape } from './subagentPorts.js';
 import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
 import {
@@ -64,18 +66,87 @@ export class SubagentOrchestrator {
         Id.id('wt'),
         request.signal,
       );
+      let result: SubagentResult;
       try {
         const isolatedPorts: SubagentPortsShape = { ...this.ports, workspaceRoot: worktree.path };
-        const result = await new SubagentRunner(isolatedPorts, this.maxSteps()).run(request);
+        // copy 模式（git 不可用/失败）：改动**无法**采集为 patch（没有 git 可比），
+        // 故按 fail-closed 直接**禁止写类工具**——宁可让子代理明确说"我改不了代码"，
+        // 也不要让它改完之后改动静默消失（看板 §8.1）。
+        const effective =
+          worktree.isolated === 'copy'
+            ? SubagentToolScope.writeForbidden(
+                request,
+                this.ports.tools.list().map((definition) => definition.name),
+              )
+            : request;
+        result = await new SubagentRunner(isolatedPorts, this.maxSteps()).run(effective);
         this.link(request.parentSessionId, result.sessionId);
-        return result;
+        if (worktree.isolated === 'copy') {
+          result = { ...result, writesForbidden: true };
+        }
       } catch (error) {
-        return this.failure(request, this.messageOf(error));
-      } finally {
-        // 无论成败（含父取消导致的失败）都释放隔离资源，避免工作树/目录泄漏。
-        await worktree.cleanup();
+        result = this.failure(request, this.messageOf(error));
       }
+      // 清理**之前**把改动取出来（看板 §8.1）：`cleanup()` 是 `worktree remove --force` + `branch -D`，
+      // 不先采集就是静默丢弃。采集失败也必须**显式标记**（`writesUnrecoverable`），绝不静默。
+      const withWrites = await this.attachWrites(worktree, result);
+      // 无论成败（含父取消导致的失败）都释放隔离资源，避免工作树/目录泄漏。
+      await worktree.cleanup();
+      return withWrites;
     });
+  }
+
+  /**
+   * 采集隔离工作树里的改动并挂到结果上（清理前的最后一步）。
+   *
+   * 为什么要有它：子代理的写入原先随工作树一起被删掉——父代理收到 `ok:true` 却拿不到任何改动，
+   * 这是"假成功 + 静默数据丢失"。现在把 patch 落到 `.omniharness/subagent-patches/`（gitignored）
+   * 并把文件清单/路径回传，父级或用户可 `git apply` 取回。
+   *
+   * 全部 fail-soft + fail-closed 标记：采集/落盘异常只告警并把 `writesUnrecoverable` 置真
+   * （子任务本身不该因为"取不回改动"而失败，但**必须**让父级知道改动丢了）。
+   *
+   * copy 模式**不做采集**：该模式下写类工具已被 {@link SubagentToolScope.writeForbidden} 禁止，且没有 git 可比，
+   * 若仍去采集会因 `git` 报错而把"本就没改动"误报成"改动丢了"（假警报会稀释真警报）。
+   * @param worktree 隔离工作树。
+   * @param result 子代理结果。
+   * @returns 挂了改动信息的结果（无改动时原样返回）。
+   */
+  private async attachWrites(worktree: Worktree, result: SubagentResult): Promise<SubagentResult> {
+    if (worktree.isolated === 'copy') {
+      return result;
+    }
+    try {
+      const changes = await WorktreeOps.collectChanges(worktree.path);
+      if (changes.files.length === 0) {
+        return result;
+      }
+      const artifact = await WorktreeOps.persistChanges(
+        this.ports.workspaceRoot,
+        result.sessionId,
+        changes,
+      );
+      log.warn('subagent.writes.isolated', {
+        sessionId: result.sessionId,
+        files: changes.files.length,
+        patchPath: artifact.relativePath,
+        hint: '子代理写入落在隔离工作树，主工作区未改动；如需采纳请 git apply 该 patch',
+      });
+      return {
+        ...result,
+        changedFiles: changes.files,
+        patchPath: artifact.relativePath,
+        patchBytes: artifact.bytes,
+        ...(changes.truncated ? { patchTruncated: true } : {}),
+      };
+    } catch (error) {
+      log.warn('subagent.writes.captureFailed', {
+        sessionId: result.sessionId,
+        error: this.messageOf(error),
+        hint: '改动确实存在但取不回来；已把 writesUnrecoverable 置真，绝不静默',
+      });
+      return { ...result, writesUnrecoverable: true };
+    }
   }
 
   /**

@@ -349,37 +349,38 @@ npm run rust:test      # cargo test --workspace
 
 ## 8. 已确证待修缺陷（2026-10-03 第五轮，架构复核 + 外部调研交叉发现）
 
-### 8.1 🔴 P0：子代理的**文件写入被静默丢弃**（隔离有、回并路径无）
+### 8.1 ✅ 已修（2026-10-03 第六轮）：子代理的**文件写入被静默丢弃**（隔离有、回并路径无）
 
 **现象**：委派给子代理的「改代码」任务会返回 `ok: true` + 一段声称已完成的总结，但**主仓库零改动**，
 且改动内容不可恢复——工作树与分支都被删掉。等于「假成功 + 静默数据丢失」。
 
-**证据（本机读码，可复核）**：
+**证据（本机读码，可复核）**：`subagentOrchestrator.ts:62-68` 建独立工作树并把 `workspaceRoot` 指向它；
+`:74-77` 的 `finally { worktree.cleanup() }`；`worktreeOps.ts:74-97` 的 cleanup =
+`git worktree remove --force` **+ `git branch -D`**；`toolViewOf` 只剔递归入口（写类工具对子代理**可用**）；
+`subagentResult.ts` 无 diff/patch 字段；全仓 `WorktreeOps` 仅 2 处引用 ⇒ **无合并路径**。
+另：`run_workflow` 的 `execute()` 自称"隔离"，实际传父级 ports（无 worktree）⇒ **语义与文档相反**。
 
-| 位置                                                | 事实                                                                                                                         |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `src/subagent/subagentOrchestrator.ts:62-68`        | 每个子代理 `WorktreeOps.createWorktree(...)` 建独立工作树，并把 `isolatedPorts.workspaceRoot` 指向它 ⇒ 写入落在工作树        |
-| `src/subagent/subagentOrchestrator.ts:74-77`        | `finally { await worktree.cleanup() }` —— 无论成败都清理                                                                     |
-| `src/subagent/worktreeOps.ts:70-97`                 | `cleanup()` = `git worktree remove --force` **+ `git branch -D omni-sub-<name>`** ⇒ 提交与工作区改动一并销毁                 |
-| `src/subagent/subagentRunner.ts` `toolViewOf`       | 只剔除递归入口（`subagent` / `run_workflow` / `run_goal`），**写类工具（write_file / apply_patch / shell）对子代理全部可用** |
-| `src/subagent/subagentTypes.ts`（`SubagentResult`） | 字段只有 `ok / sessionId / output / steps / durationMs / depth / events / error`，**没有 diff / patch / changedFiles**       |
-| 全仓 grep `merge\|cherry-pick` 于 `src/subagent/**` | 命中 0（命中的是 `configError.mergeConfigs` 配置合并与 `hybridRanker.rrfMerge` 检索融合，均与工作树无关）                    |
+**修法（已实施，两条隔离档都不再静默）**：
 
-**根因**：隔离机制（worktree）与回收机制（merge/patch）**只实现了一半**；`cleanup()` 的注释只关心
-「清理失败别静默」（2026-09-22 审计 P3），从未讨论「清理前要不要把改动交回」。这属于本仓最忌讳的
-「声明/半成品未接线」，且**恰好是唯一没有机械判据的那类缺陷**（评测子系统已删，行为层无人看守）。
+| 档                          | 语义                    | 机制                                                                                                                                                                                                                                                                                                                    |
+| --------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **worktree**（git 可用）    | 改动**可回收**          | `WorktreeOps.collectChanges()`（先 `git add -A` 纳入未跟踪新建文件，再 `git diff --cached --binary HEAD`；>4 MiB 截断标注）+ `persistChanges()` 落盘到 `.omniharness/subagent-patches/<sessionId>.patch`；编排层在 `cleanup()` **之前**采集并挂 `changedFiles`/`patchPath`/`patchBytes`/`patchTruncated`，并 `log.warn` |
+| **copy**（git 不可用/失败） | **禁写（fail-closed）** | `SubagentToolScope.writeForbidden()` 从工具视图剔除全部 `MUTATING_TOOLS`，结果标 `writesForbidden`——没有 git 可比 ⇒ 改动不可能取回，故明确拒绝而不是假装成功                                                                                                                                                            |
 
-**影响面**：`subagent`、`run_workflow`、`run_goal` 三条委派路径上任何写入型子任务；同时白付工作树创建 +
-子代理内索引的 IO 成本。只读型子任务（调研/检索/回答）**不受影响**，故当前正确用法是「子代理只做只读」。
+另：采集失败置 `writesUnrecoverable`（fail-closed 标记，绝不静默）；`SubagentTool.render()` 把上述事实
+**渲染给父模型**（改动清单 + patch 路径 + `git apply` 命令 / 禁写说明），否则"子代理说改好了"仍会被读成"已改好"。
 
-**三个候选修法（待定，见 §9 升级路线与调研报告）**：
-① **显式只读**（子代理工具视图默认剔除写类工具，写需求走主会话）——最小、最诚实，但会砍掉「子代理用文件当草稿」的用法；
-② **交付 patch**（清理前在工作树内取 `git status --porcelain` + `git diff`，把 `changedFiles`/`patch` 放进结果并落到
-`.omniharness/subagent-patches/*.patch`，日志告警）——**纯增量、不砍能力、彻底消除"静默"**，推荐；
-③ **自动回并**（`git cherry-pick`/`git apply` 到主树）——并发写冲突与半成品污染风险高，不推荐默认开。
+**S3（工作流）**：docstring 订正为"构造**共享工作区**的子智能体"（并说明与子代理隔离相反的原因）；
+新增 `WorkflowLayerPolicy`——同层＞1 步且任一步**可能写**（未声明 `tools`＝拿全集，或声明含写类）时
+**该层退化为串行** + `log.warn('workflow.layer.serialized')`，消除并发覆盖同一文件的竞争。
 
-**暂缓理由**：修法②会新增结果字段与落盘产物，属对外可观察的行为变更（可能影响 SDK/API 稳定性门禁），
-需先与用户确认语义；本条目在确认前作为**已确证缺陷**留档，且**在报告与文档里如实标注子代理当前只能安全用于只读**。
+**判据**：`tests/unit/worktree.test.ts` 新增 2 例（修改/新建/删除三形态可采集，patch 落盘后能
+`git apply` 回主仓并真的拿到改动与删除；无改动时采集为空）；新增 `subagentToolScope.test.ts` 4 例
+（收窄不含写类、只读保留、不改原请求、写类清单护栏）；新增 `workflowLayerPolicy.test.ts` 5 例（单步不退化、
+只读层保持并发、未声明必串行、含写类必串行、三态判定）。
+
+**遗留（如实登记）**：工作流同层冲突处理是**保守退化（串行）**而非"按声明精确判冲突"——
+`WorkflowStep` 尚无"我写哪些文件"的声明字段；精确并发需先加声明契约，属独立改动（记入报告 §4 后续项）。
 
 ### 8.2 ✅ 已修（2026-10-03 第六轮）：回滚后「压缩游标」未复位（回滚对齐漏了第四层）
 

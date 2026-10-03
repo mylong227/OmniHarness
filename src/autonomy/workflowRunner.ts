@@ -4,6 +4,8 @@ import { WorkflowSpecError } from './workflowSpecError.js';
 import type { SubagentPortsShape } from '../subagent/subagentPorts.js';
 import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
 import { Agent } from '../core/agent.js';
+import { log } from '../util/logger.js';
+import { WorkflowLayerPolicy } from './workflowLayerPolicy.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
 import { SubagentEventBridge } from '../subagent/subagentEventBridge.js';
 import { ToolSubset } from '../subagent/toolSubset.js';
@@ -131,9 +133,7 @@ export class WorkflowRunner {
         continue;
       }
       const limiter = new ConcurrencyLimiter(maxConcurrency);
-      const outs = await Promise.all(
-        runnable.map((id) => limiter.run(() => this.execute(byId.get(id)!, blackboard))),
-      );
+      const outs = await this.runLayer(runnable, byId, blackboard, limiter);
       for (const out of outs) {
         results.push(out);
         // 失败才阻塞下游；**成功但无产出**（finalText 为 undefined）只是「没有内容可注入下游」，
@@ -203,7 +203,48 @@ export class WorkflowRunner {
   }
 
   /**
-   * 执行单步：构造隔离子智能体，注入前序产出，跑一次回合。
+   * 执行一层（同层步骤互不依赖）。**默认并发**，但有一条例外（2026-10-03 第六轮修看板 §8.1）：
+   *
+   * 工作流步骤**共享父工作区**（本类不建隔离工作树——步骤产出要落在同一工作区供后续步骤使用，
+   * 这也是与 `SubagentOrchestrator` 的 worktree 隔离**语义相反**的原因）。于是同层里若有**多个**
+   * 步骤都可能写文件（工具视图含写类工具，或未声明 `tools` 即拿到全集），并发执行会互相覆盖同一个文件，
+   * 且没有任何冲突检测。这种层一律**退化为串行**：宁可慢一点，也不要产出"结果不可复现"的覆盖竞争。
+   * @param runnable 本层待执行步骤 id（已剔除被跳过的）。
+   * @param byId 步骤索引。
+   * @param blackboard 前序产出黑板（就地写入）。
+   * @param limiter 并发闸门（串行档下每次仍经它计量）。
+   * @returns 本层各步骤结果（顺序与 `runnable` 一致）。
+   */
+  private async runLayer(
+    runnable: readonly string[],
+    byId: ReadonlyMap<string, WorkflowStep>,
+    blackboard: Record<string, string>,
+    limiter: ConcurrencyLimiter,
+  ): Promise<readonly WorkflowStepResult[]> {
+    const steps = runnable
+      .map((id) => byId.get(id)!)
+      .filter((s): s is WorkflowStep => s !== undefined);
+    const parallel = !WorkflowLayerPolicy.shouldSerialize(steps);
+    if (!parallel) {
+      if (runnable.length > 1) {
+        log.warn('workflow.layer.serialized', {
+          steps: [...runnable],
+          hint: '同层存在多个可能写文件的步骤且工作区共享 ⇒ 退化为串行，避免并发覆盖同一文件',
+        });
+      }
+      const serial: WorkflowStepResult[] = [];
+      for (const id of runnable) {
+        serial.push(await limiter.run(() => this.execute(byId.get(id)!, blackboard)));
+      }
+      return serial;
+    }
+    return Promise.all(
+      runnable.map((id) => limiter.run(() => this.execute(byId.get(id)!, blackboard))),
+    );
+  }
+
+  /**
+   * 执行单步：构造**共享工作区**的子智能体，注入前序产出，跑一次回合。
    * @param step 待执行步骤
    * @param blackboard 前序步骤的黑板产出（按步骤 id 索引）
    * @returns 单步结果（输出/状态/耗时）
