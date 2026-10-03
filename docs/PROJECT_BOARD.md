@@ -441,31 +441,37 @@ reason 均为 `'shutdown'`；`child()` 1000 次后可释放）。**回退**：re
 可达的 L3 只有 AppContainer + 宿主路径 DACL 或 WSL2 内 bubblewrap/landlock 两条路（详见调研报告 §3.5）。
 **用户可感知的行为后果**：模型若被注入说服，`shell` 里的下载/外联命令在本机**不会**被 fetch 守卫拦住。
 
-> **文档死链基线说明（2026-10-03 第五轮）**：基线由 89 处更新为 **97 处**，新增的 7 条全部来自
+> **文档死链基线说明（2026-10-03 第五轮）**：基线由 89 处更新为 **96 处**（`testCountParser` 已成真并已收紧），曾新增的 7 条来自
 > `docs/ARCHITECTURE_UPGRADE_2026-10.md` 的**升级提案里的待建路径**
 > （`scripts/memoryLiftProbe.mjs`、`tests/unit/{eventPersisterAppend,memoryTrustBoundary,subagentWriteGate,toolSchedulerReadyOrder,testCountParser,genAiSemconvConformance}.test.ts`）。
 > 它们是有意引用（提案的判据落点），按 `docLinkCheck` 的既定流程 `--update` 纳入基线；
 > **实现这些提案后应收紧基线**（`--update` 会同时清掉已存在的路径）。
 
-### 8.6 🔴 P0：完成闸门把「零测试」判成「验证通过」（fail-open 漏洞）
+### 8.6 ✅ 已修（2026-10-03 第六轮）：完成闸门把「零测试」判成「验证通过」（fail-open 漏洞）
 
 **现象**：回合末验证闸门只看退出码；而"测试命令一条都没匹配到"在 Node 里**是成功退出** ⇒
 "没跑任何测试"会被当成"验证通过"，正好落进本仓最忌讳的**假完成**形态。
 
-**证据（本机复核）**：
+**证据（本机复核）**：`node --test "dist/tests/unit/__nonexistent__*.test.js"` ⇒ 输出
+`# tests 0 / # pass 0 / # fail 0` 且 **exit = 0**；而 `turnEndCompletionGate.ts:78` 的判据只有
+`if (outcome.exitCode !== 0)`。本仓 `npm test` 正是 `npm run build && node --test "dist/tests/unit/*.test.js"`
+⇒ 一旦 glob 落空（改名/构建产物缺失/路径漂移），闸门会给出"验证通过"。
+外部佐证：pytest 把"没收集到测试"单列为 **exit 5**，Jest 需显式 `--passWithNoTests` —— 两个主流工具都刻意区分二者。
 
-- `node --test "dist/tests/unit/__nonexistent__*.test.js"` ⇒ 输出 `# tests 0 / # pass 0 / # fail 0`，**exit = 0**；
-- `src/adapters/tool/verify/turnEndCompletionGate.ts:78` 的判据是 `if (outcome.exitCode !== 0)`，**不看计数**；
-- 本仓 `npm test` = `npm run build && node --test "dist/tests/unit/*.test.js"` ⇒ 一旦 glob 落空（改名/构建产物缺失/路径漂移），
-  闸门会给出"验证通过"。
+**修法（已实施）**：新增 `src/adapters/tool/verify/testCountParser.ts`（`TestCountParser`，识别
+node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit=0 时增补第二道判据——
+**显式零测试证据 ⇒ 拦截**，以及**计数里有失败却以 0 退出 ⇒ 以计数为准拦截**。
+判据刻意不过度 fail-closed：拿不到汇总行（日志被 `maxOutputBytes` 截断）或命令不是测试运行器
+（如 `tsc --noEmit`）⇒ **不拦**（闸门是增强，不是环境检测器）。
 
-**外部佐证（一手）**：pytest 官方把"没收集到测试"单列为 **exit 5**（0 的语义是 "collected and passed"）；
-Jest 需显式 `--passWithNoTests` 才允许空跑通过 —— 两个主流工具都刻意区分"零测试"与"通过"。
+**实施中踩到并修掉的真问题**：首版验证时"**9 个用例全过的真实输出也被判成零测试**"——根因是 node TAP
+会**回显用例名**（`# Subtest: <名>` / `ok 1 - <名>`），而本仓测试名里恰好含 `no tests ran` /
+`collected 0 items` / `No test files found` 字样 ⇒ 子串匹配命中了用例名。现已先剔除逐用例行的用例名回显
+（node TAP / jest `✓✕` / pytest `PASSED|FAILED`）再判读，并补回归用例钉住该形态。
+**这条值得记档：仪器不得把被测对象的名字当成自己的读数。**
 
-**修法（建议，1 人日）**：闸门判据改为**计数感知**——解析 `# tests N` / `N passed` / pytest `collected 0 items`，
-`tests == 0` 一律判"**未验证**"（fail-closed 收尾），并对无法解析的输出保守判"未验证"。
-判据：新增 `tests/unit/testCountParser.test.ts` + 用 `ScriptedModel` 的桩回合断言
-「输出 `# tests 0` 且 exit 0 ⇒ 必须拦截；`# tests 12 / # fail 0` ⇒ 必须放行」。
+**判据**：`tests/unit/testCountParser.test.ts`（12 例）+ `tests/unit/turnEndCompletionGate.test.ts`（新增 4 例）；
+真实命令口径复核（临时探针）：空 glob ⇒ `zeroEvidence: true`；真跑 12 例 ⇒ `total=12 / zeroEvidence=false`。
 
 ## 9. 本板如何追加条目
 

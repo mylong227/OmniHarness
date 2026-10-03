@@ -179,6 +179,76 @@ test('A1 收口：命令根本跑不起来 ⇒ fail-open（不拦收尾，闸门
   assert.strictEqual(await gate.verify('s1'), undefined);
 });
 
+test('第五轮：exit=0 但一条测试都没跑 ⇒ 必须拦截（零测试 ≠ 通过）', async () => {
+  // 实测口径：`node --test "<落空的 glob>"` 打印 `# tests 0` 且 **exit = 0**。
+  const { runner } = runnerStub({
+    exitCode: 0,
+    output: ['# tests 0', '# pass 0', '# fail 0', '# duration_ms 3'].join('\n'),
+    timedOut: false,
+  });
+  const gate = new TurnEndCompletionGate({
+    policy: SelfVerifyPolicy.from({ command: 'node --test "dist/tests/unit/*.test.js"' }),
+    workspaceRoot: process.cwd(),
+    runner,
+  });
+  const digest = await gate.verify('s1');
+  assert.ok(digest !== undefined, '零测试必须被拦下（原判据这里会放行）');
+  assert.match(digest, /一条测试都没跑/);
+  assert.match(digest, /零测试 ≠ 通过/);
+});
+
+test('第五轮：exit=0 且确实跑了测试 ⇒ 放行（不要误杀正常通过）', async () => {
+  const { runner } = runnerStub({
+    exitCode: 0,
+    output: ['# tests 12', '# pass 12', '# fail 0'].join('\n'),
+    timedOut: false,
+  });
+  const gate = new TurnEndCompletionGate({
+    policy: SelfVerifyPolicy.from({ command: 'node --test "dist/tests/unit/*.test.js"' }),
+    workspaceRoot: process.cwd(),
+    runner,
+  });
+  assert.strictEqual(await gate.verify('s1'), undefined);
+});
+
+test('第五轮：exit=0 但计数里有失败用例 ⇒ 以计数为准拦下（退出码与计数不一致）', async () => {
+  const { runner } = runnerStub({
+    exitCode: 0,
+    output: ['# tests 5', '# pass 3', '# fail 2'].join('\n'),
+    timedOut: false,
+  });
+  const gate = new TurnEndCompletionGate({
+    policy: SelfVerifyPolicy.from({ command: 'node --test "dist/tests/unit/*.test.js"' }),
+    workspaceRoot: process.cwd(),
+    runner,
+  });
+  const digest = await gate.verify('s1');
+  assert.ok(digest !== undefined);
+  assert.match(digest, /2 个失败用例/);
+});
+
+test('第五轮：拿不到汇总行（日志被截断 / 非测试命令）⇒ 仍 fail-open，不拦收尾', async () => {
+  const truncated = runnerStub({
+    exitCode: 0,
+    output: '（输出被上限截断，没有汇总行）',
+    timedOut: false,
+  });
+  const gateA = new TurnEndCompletionGate({
+    policy: SelfVerifyPolicy.from({ command: 'node --test "dist/tests/unit/*.test.js"' }),
+    workspaceRoot: process.cwd(),
+    runner: truncated.runner,
+  });
+  assert.strictEqual(await gateA.verify('s1'), undefined, '截断不得被误判成零测试');
+
+  const staticCheck = runnerStub({ exitCode: 0, output: '', timedOut: false });
+  const gateB = new TurnEndCompletionGate({
+    policy: SelfVerifyPolicy.from({ command: 'npx tsc --noEmit' }),
+    workspaceRoot: process.cwd(),
+    runner: staticCheck.runner,
+  });
+  assert.strictEqual(await gateB.verify('s1'), undefined, '静态检查天然没有测试计数，必须放行');
+});
+
 /** 最小模型桩：本组用例只验装配，不跑回合。 */
 const stubModel: ModelPort = {
   name: 'stub-model',

@@ -43,7 +43,6 @@
   "mention: docs/PROJECT_BOARD.md -> docs/ZERO_COST_CAPABILITY_EVAL.md",
   "mention: docs/PROJECT_BOARD.md -> evals/semantic-e2e-real.mjs",
   "mention: docs/PROJECT_BOARD.md -> scripts/memoryLiftProbe.mjs",
-  "mention: docs/PROJECT_BOARD.md -> tests/unit/testCountParser.test.ts",
   "mention: docs/RECALL_HEADROOM_SURVEY.md -> benchmark/swebench-env-pins.json",
   "mention: docs/RECALL_HEADROOM_SURVEY.md -> benchmark/swebench-gitee-mirrors.json",
   "mention: docs/RECALL_HEADROOM_SURVEY.md -> benchmark/swebench_predict.mjs",
