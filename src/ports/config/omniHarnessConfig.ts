@@ -158,6 +158,14 @@ export interface OmniHarnessConfig {
   readonly memoryConsolidate?: boolean | undefined;
   /** 每回合蒸馏最多沉淀事实数（#S28，默认 8）。 */
   readonly memoryConsolidateMaxFacts?: number | undefined;
+  /**
+   * 是否把 `tool_result` 输出并入记忆蒸馏文本（**默认 false ＝ 排除**，G9/M3 投毒闸）。
+   *
+   * 默认关闭是刻意的：工具输出是不可信内容的天然载体，而抽取提示恰恰要"环境事实、踩过的坑"——
+   * 那是指令文本的最佳伪装位，入库后会被 primer 回灌进后续每个会话。
+   * 开启后该回合抽出的事实会被标 `trust: 'untrusted'`，回灌时带来源警示。
+   */
+  readonly memoryIncludeToolOutput?: boolean | undefined;
   /** 长期记忆落盘加密（#4.4 Vault 集成，默认关）：开启后用 AES-256-GCM 逐行加密 memory.jsonl。 */
   readonly longTermMemoryEncryption?: boolean | undefined;
   /** 加密密钥文件路径（#4.4）：缺省为 <workspace>/.omniharness/longterm/memory.key，首次使用自动生成。 */
