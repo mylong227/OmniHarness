@@ -103,15 +103,35 @@ export class CancellableModel {
   }
 
   /**
-   * 取信号的取消原因（AbortSignal.reason 缺省时为 'user'）。
+   * 取信号的取消原因（从 `AbortSignal.reason` 还原结构化原因）。
+   *
+   * **2026-10-03 第六轮修两处**：① 原白名单缺 `'loop-guard'` 与 `{ custom }` ⇒ 这两类原因被
+   * **静默折叠成 `'parent'`**（谎报"父令牌级联"）；② 兜底值与自己的 JSDoc 矛盾——文档写
+   * "缺省时为 'user'"，实现却返回 `'parent'`。现在：认全五类字符串原因与 `{ custom }` 对象，
+   * 兜底按文档取 `'user'`（"有人中断了我但没给结构化原因"，比谎报父级联更诚实）。
    * @param signal 已取消的信号
    * @returns 结构化取消原因
    */
   public static reasonOf(signal: AbortSignal): CancelReason {
     const reason: unknown = signal.reason;
-    return reason === 'user' || reason === 'timeout' || reason === 'shutdown' || reason === 'parent'
-      ? reason
-      : 'parent';
+    if (
+      reason === 'user' ||
+      reason === 'timeout' ||
+      reason === 'loop-guard' ||
+      reason === 'shutdown' ||
+      reason === 'parent'
+    ) {
+      return reason;
+    }
+    if (
+      typeof reason === 'object' &&
+      reason !== null &&
+      'custom' in reason &&
+      typeof (reason as { custom?: unknown }).custom === 'string'
+    ) {
+      return { custom: (reason as { custom: string }).custom };
+    }
+    return 'user';
   }
 }
 

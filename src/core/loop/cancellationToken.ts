@@ -115,15 +115,22 @@ export class CancellationToken {
   /**
    * 兼容桥：转成标准 AbortSignal（供 fetch 等原生消费者直接使用）。
    * 无第三方依赖实现——用 AbortController 做一次性桥接。
+   *
+   * **原因必须一起过桥（2026-10-03 第六轮修）**：原先两处 `controller.abort()` 都**不带 reason**，
+   * 于是 `AbortSignal.reason` 退化成通用的 `AbortError`(DOMException)，而下游
+   * `CancellableModel.reasonOf(signal)` 只认结构化的字符串原因 ⇒ **'user' / 'timeout' / 'shutdown'
+   * 全部被折叠成 'parent'**，`CancelledError.reason` 因此谎报"是父令牌级联取消"。
+   * 现在把本令牌的结构化原因透传（未取消时为 `'user'`，与 `reasonOf` 的既定缺省一致）。
    * @returns 与本令牌取消状态联动的标准 AbortSignal（可直接透传 fetch）。
    */
   public toAbortSignal(): AbortSignal {
     const controller = new AbortController();
+    const reason = this.reason ?? 'user';
     if (this.aborted) {
-      controller.abort();
+      controller.abort(reason);
       return controller.signal;
     }
-    this.listen(() => controller.abort());
+    this.listen(() => controller.abort(this.reason ?? reason));
     return controller.signal;
   }
 

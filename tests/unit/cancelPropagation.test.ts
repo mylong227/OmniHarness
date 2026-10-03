@@ -1,4 +1,4 @@
-﻿// 取消传播探针（线索 3）：父会话 cancelCurrentRun → 子代理 / 工作流 / 目标循环
+// 取消传播探针（线索 3）：父会话 cancelCurrentRun → 子代理 / 工作流 / 目标循环
 // 必须在飞模型请求上观察到中止；否则等于「父已取消，子代仍在烧 token」。
 //
 // 造法：
@@ -38,6 +38,8 @@ interface ChildObservation {
   readonly signal: AbortSignal | undefined;
   /** 该信号是否已中止。 */
   aborted: boolean;
+  /** 中止时的**结构化原因**（第六轮起记录：零断言曾让"原因折叠成 parent"长期无人看守）。 */
+  reason: unknown;
 }
 
 /** 睡眠。 */
@@ -96,6 +98,14 @@ class TreeModel implements ModelPort {
   }
 
   /**
+   * 已观测到的中止原因列表（只含真正收到 abort 的子代）。
+   * @returns 各子代观测到的 `AbortSignal.reason`
+   */
+  public childAbortReasons(): readonly unknown[] {
+    return this.children.filter((child) => child.aborted).map((child) => child.reason);
+  }
+
+  /**
    * 是否见到过某个 prompt（用于断言取消后不再启动后续步骤）。
    * @param marker 要匹配的 prompt 片段
    * @returns 已有子代请求的 prompt 含该片段时为 true
@@ -132,7 +142,11 @@ class TreeModel implements ModelPort {
     if (!prompt.includes(this.childMarker)) {
       return { text: '非目标子步' };
     }
-    const observation: ChildObservation = { signal: request.signal, aborted: false };
+    const observation: ChildObservation = {
+      signal: request.signal,
+      aborted: false,
+      reason: undefined,
+    };
     this.children.push(observation);
     // 只挂起**首次**子代调用：目标循环的后续迭代 prompt 同样含标记，重复挂起会让断言无从收敛。
     if (this.children.length > 1) {
@@ -156,6 +170,7 @@ class TreeModel implements ModelPort {
       }
       if (signal.aborted) {
         observation.aborted = true;
+        observation.reason = signal.reason;
         resolve();
         return;
       }
@@ -163,6 +178,9 @@ class TreeModel implements ModelPort {
         'abort',
         () => {
           observation.aborted = true;
+          // 第六轮起同时记录**结构化原因**：原先这里对 reason 零断言，
+          // 于是 `toAbortSignal()` 丢原因、`reasonOf` 折叠成 'parent' 两个缺陷都无人看守。
+          observation.reason = signal.reason;
           resolve();
         },
         { once: true },
@@ -319,6 +337,11 @@ describe('取消传播（父 cancelCurrentRun → 子代）', () => {
     model.releaseAll();
     await run.catch(() => undefined);
     assert.ok(aborted, '父取消后工作流步骤未收到 abort ⇒ 取消未传播到工作流（步骤仍在跑）');
+    assert.deepStrictEqual(
+      model.childAbortReasons(),
+      ['user'],
+      '中止原因必须保真：结构化 user 不得被折叠成 parent 或通用 AbortError（第六轮修）',
+    );
   });
 
   it('父取消后目标循环的在飞模型请求被中止', async () => {
@@ -335,6 +358,7 @@ describe('取消传播（父 cancelCurrentRun → 子代）', () => {
     model.releaseAll();
     await run.catch(() => undefined);
     assert.ok(aborted, '父取消后目标循环未收到 abort ⇒ 取消未传播到目标循环（仍在跑）');
+    assert.deepStrictEqual(model.childAbortReasons(), ['user'], '中止原因必须保真（第六轮修）');
   });
 
   it('父取消后子代理的在飞模型请求被中止（SubagentRunner 层）', async () => {
@@ -355,6 +379,7 @@ describe('取消传播（父 cancelCurrentRun → 子代）', () => {
     model.releaseAll();
     await run.catch(() => undefined);
     assert.ok(aborted, '父取消后子代理未收到 abort ⇒ 取消未传播到子代理（子代仍在跑）');
+    assert.deepStrictEqual(model.childAbortReasons(), ['user'], '中止原因必须保真（第六轮修）');
   });
 
   it('父取消后子代在飞请求失败即收尾，不再发起新请求', async () => {
