@@ -30,7 +30,7 @@
 | —— cli                                                    | 29              | 6,212                 |
 | —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划）      | 24              | 5,077                 |
 | —— util / config / evolution / genesis / media / 其余     | 约 216          | 约 24,000             |
-| 单元测试 `tests/`                                         | 384 个 .test.ts | 全量 2,438 项断言用例 |
+| 单元测试 `tests/`                                         | 384 个 .test.ts | 全量 2,443 项断言用例 |
 
 > 子区域行数为上一轮 905 文件口径的存量值（本轮只重测了 `src/` 合计与文件数，未逐区域重跑）；
 > 「其余」一行按合计差额回填，故标「约」。所有数字均为本机可复核：文件数 =
@@ -49,7 +49,7 @@
 | 文档死链       | `npm run check:doc-links`              | ✅ 新增 0（存量基线冻结）                                               |
 | 原生估算奇偶   | `npm run native:build` + 单测          | ✅ Rust `context.estimate` 与 TS 记账**逐位一致**（0 skip）             |
 | 技能路由       | `npm run eval:skill-routing -- --gate` | ✅ 三关齐过：召回 92.3% / 噪声 1.50 条 / Δ +65.38pp CI95 [46.15, 84.62] |
-| 全量单测       | `npm test`                             | ✅ 2,438 项：2,434 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）     |
+| 全量单测       | `npm test`                             | ✅ 2,443 项：2,439 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）     |
 
 依赖政策：`dependency-allowlist.json`（D10：必要且更优即可引入；`src/ports/**` 与 `src/core/**` 恒第三方-free），允许/拒绝许可清单见该文件。
 
@@ -158,11 +158,42 @@
      判据：`tests/unit/llamaCppToolRoundTrip.test.ts`（5 例，stub fetch **断言我们真正发出的请求体**：
      含「名字本身带 `#`」的用例证明映射优于字符串解析）+ 既有 `llamaCppToolCalls.test.ts` 5 例。
 
-### 3.2 仍未修（如实登记）
+### 3.2 §3.2 两项登记结论（2026-10-03 第四轮）
 
-- **`CorpusIndexCache` 之上的 embedding 重建**：增量只覆盖 BM25 语料；`SemanticIndexCache`
-  在语料实例变化后仍需重建嵌入（`OMNI_SEMANTIC_RECALL=1` 才启用，默认关）。
-- **full 模式的增量**：频域谱 / 代码图 / LSA 与符号下标强耦合，增量只服务 light 档（生产档）。
+1. **✅ 已修：`CorpusIndexCache` 之上的 embedding 重建**（原登记：语料一变就整仓重新嵌入）。
+   新增 `context/embeddingContentCache.ts`（`EmbeddingContentCache`：按「角色 + 内容哈希」复用向量，
+   **按代际清扫**保证常驻向量 ≈ 一份索引的量级）+ `context/cachedEmbeddingPort.ts`
+   （`CachedEmbeddingPort`：装饰 `EmbeddingPort`，只把未命中文本交给真实模型，返回顺序与长度不变，
+   `preload` 仅在内层支持时透出）；`SemanticIndexCache` 只为构建期包一层，索引仍按语料身份重建
+   （审计 R3 的正确性不变），但**向量按内容复用**。
+
+   **实测（本仓 3229 文件 / 67074 符号 / 一次索引 69773 条待嵌入）**：
+
+   | 场景                                            | 修前          | 修后                      |
+   | ----------------------------------------------- | ------------- | ------------------------- |
+   | 首次建语义索引                                  | 69,773 次嵌入 | 69,773 次（不变）         |
+   | 改 1 个源文件（改动落在**被嵌入窗口内**）       | **69,773 次** | **1 次**（复用 99.9986%） |
+   | 改 1 个源文件（改动落在窗口外，被嵌入文本未变） | 69,773 次     | **0 次**                  |
+
+   判据：`tests/unit/embeddingContentCache.test.ts`（5 例）——① 只重嵌变化条目（计数型假端口）；
+   ② **与冷缓存从零构建的索引在 4 条查询上命中 id 与分数逐位一致**（省的是重复计算，不是正确性）；
+   ③ 角色分离（query 与 document 不互相复用）；④ 代际清扫使条目数不随编辑次数增长；
+   ⑤ **构建失败不清扫**（否则模型离线重试要从零嵌入）。
+   边界如实登记：端口契约无模型标识 ⇒ 缓存假设「同一端口实例生命周期内模型不变」，另加一道
+   维度校验兜住「换不同维度模型」；同维不同模型的极端情形未覆盖。
+
+2. **⛔ 关闭（不实施）：full 模式的增量**（原登记：只服务 light 档）。
+   本轮先查「谁会用」再决定做不做，结论是**没有受益方**，故按「不为模式而模式」关闭：
+
+   - 生产路径 `src/**` 里 `light: false` 出现 **0 次**（唯一一处是 `contextEngine` 的文档注释）；
+   - 全仓 `evals/**` 只有 **4 个脚本**用到 full 档，且每个脚本**一次进程内只建一次该配置的语料**
+     （`diag-spectrum` / `rank-veto-retro` / `recall-codebase-real` 各 1 次；`context-efficiency/bench`
+     2 次但两变体 `morph` 不同、本就是两份不同语料）⇒ 进程级增量缓存对它们**零收益**。
+   - 反方向代价明确：频谱 / 代码图 / LSA 都与符号下标强耦合，做增量要把「符号槽位平移」传播到
+     三类派生结构，属于「只增耦合、无实测受益」的改动。
+
+   复核方式（本机可重跑）：`rg 'light: ?false' src/ evals/`（PowerShell：
+   `Select-String -Path src/**/*.ts,evals/*.mjs -Pattern 'light:\s*false'`）。
 
 ## 4. 挂起项（有明确外部条件，非「不知道怎么做」）
 
