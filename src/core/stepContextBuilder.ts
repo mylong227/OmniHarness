@@ -2,6 +2,7 @@ import type { SessionEvent } from '../ports/runtime/event.js';
 import type { ModelMessage } from '../ports/model/model.js';
 import type { ToolDefinition } from '../ports/tool/tool.js';
 import { ContextAssembler } from '../context/contextAssembler.js';
+import { PrefixStability } from '../context/prefixStability.js';
 import { ProjectInstructions } from '../context/projectInstructions.js';
 import { type CompactionState, ContextCompactor } from '../context/contextCompactor.js';
 import type { RequestOverhead } from '../context/contextCompactor.js';
@@ -44,6 +45,8 @@ export class StepContextBuilder {
   private compactionState: CompactionState | undefined;
   /** 是否已尝试从事件日志恢复压缩游标（懒恢复，只做一次）。 */
   private stateRestored = false;
+  /** 上一次请求的序列化文本（前缀复用率测量的比对基准；G1b-b）。 */
+  private lastSerialized: string | undefined;
 
   /**
    * @param deps 单步依赖契约（此处消费上下文相关字段：recorder / compactor / fragments /
@@ -140,7 +143,35 @@ export class StepContextBuilder {
     if (repoMap !== null) {
       messages.push({ role: 'system', content: repoMap });
     }
+    this.measurePrefixReuse(messages);
     return messages;
+  }
+
+  /**
+   * 量一次**相邻请求的前缀复用率**并记 debug 指标（G1b-b，2026-10-03）。
+   *
+   * 为什么放在这里：前缀缓存能否命中，取决于相邻两次请求的**序列化前缀是否逐字节相同**——
+   * 这是 prompt cache 命中率唯一可离线测量的代理指标；而仓内 `PrefixStability` 这个仪器原先
+   * **只被导出、没有任何生产调用点**（报告 §3.2 发现 6）。本方法把它接进真实请求路径，
+   * 且**不改变任何行为**（只测、只记）。
+   *
+   * 口径：`reuse = |commonPrefix| / |上次序列化| ∈ [0,1]`；首次请求无可比对象，不记录。
+   * @param messages 本轮组装完成、即将发给模型的消息（含尾部动态段）。
+   * @returns 无返回值。
+   */
+  private measurePrefixReuse(messages: readonly ModelMessage[]): void {
+    const current = JSON.stringify(messages);
+    const previous = this.lastSerialized;
+    this.lastSerialized = current;
+    if (previous === undefined) {
+      return;
+    }
+    log.debug('context.prefix_reuse', {
+      reuse: Number(PrefixStability.prefixReuse(previous, current).toFixed(4)),
+      messages: messages.length,
+      previousChars: previous.length,
+      currentChars: current.length,
+    });
   }
 
   /**

@@ -37,36 +37,9 @@ import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
+import { RecordingModel } from '../helpers/recordingModel.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 import type { StepRunner } from '../../src/core/stepRunner.js';
-
-/**
- * 记录每次模型请求的**装饰器**：行为断言需要看到"模型此刻收到了什么"。
- */
-class RecordingModel implements ModelPort {
-  /** 端口名（与内层一致，避免影响按模型名分支的逻辑）。 */
-  public readonly name: string;
-  /** 按调用顺序记录的请求快照（消息数组做浅拷贝，防止后续被就地修改）。 */
-  public readonly requests: ModelRequest[] = [];
-
-  /**
-   * @param inner 被装饰的真实模型（通常是 `ScriptedModel`）。
-   */
-  public constructor(private readonly inner: ModelPort) {
-    this.name = inner.name;
-  }
-
-  /**
-   * 记录请求后转发给内层。
-   * @param request 本次模型请求。
-   * @returns 内层模型的产出。
-   */
-  public async generate(request: ModelRequest): Promise<ModelOutput> {
-    this.requests.push({ ...request, messages: [...request.messages] });
-    return this.inner.generate(request);
-  }
-}
 
 /**
  * 造一个临时工作区。
