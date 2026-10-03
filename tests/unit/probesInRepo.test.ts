@@ -122,3 +122,53 @@ test('⑥ 实跑自证：工具暴露探针真能跑通并给出结构正确的�
     'plan 模式均值不应超过工具总数（否则"降级"没有发生）',
   );
 });
+
+test('⑦ G21-b：schema token 预算取自**真实 schema**且节省量自洽', () => {
+  // 复跑探针（同上），只看新增的 schema 段：它必须来自生产装配入口的真实工具定义，
+  // 而不是人工构造的假 schema（否则"省了多少 token"没有意义）。
+  const out = execFileSync(
+    process.execPath,
+    [
+      join(PROBES_DIR, 'toolExposureBudget.mjs'),
+      '--json=' + join(ROOT, '.omni-storage', 'probeSchemaCheck.json'),
+    ],
+    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  assert.match(out, /schema token 预算/, '未打印 schema 预算段');
+  const report = JSON.parse(
+    readFileSync(join(ROOT, '.omni-storage', 'probeSchemaCheck.json'), 'utf8'),
+  ) as {
+    readonly schemaBudget: {
+      readonly caliber: string;
+      readonly registeredTools: number;
+      readonly offSchemaTokens: number;
+      readonly rows: readonly {
+        readonly visible: number;
+        readonly total: number;
+        readonly visibleSchemaTokens: number;
+        readonly savedTokens: number;
+        readonly savedRatio: number;
+      }[];
+    };
+  };
+  const budget = report.schemaBudget;
+  assert.ok(budget.registeredTools >= 25, `注册工具数异常：${String(budget.registeredTools)}`);
+  assert.ok(budget.offSchemaTokens > 0, 'off 模式 schema token 必须为正（含真实 schema）');
+  assert.match(budget.caliber, /默认配置/, '口径必须写明 schema 来自默认配置的真实注册表');
+  assert.ok(budget.rows.length >= 5, 'schema 预算应有多条任务样本');
+  for (const row of budget.rows) {
+    assert.ok(row.visible <= row.total, '可见工具数不应超过注册数');
+    assert.ok(row.visibleSchemaTokens <= budget.offSchemaTokens, '可见子集 token 不应超过全部');
+    assert.strictEqual(
+      row.savedTokens,
+      budget.offSchemaTokens - row.visibleSchemaTokens,
+      '节省量必须等于"全部 − 可见子集"（自洽性）',
+    );
+    assert.ok(row.savedRatio >= 0 && row.savedRatio <= 1, '节省比例越界');
+  }
+  // **fail-safe 可见**：至少有一条（不命中类别的）任务节省为 0 —— 这是刻意的保守设计，必须留着。
+  assert.ok(
+    budget.rows.some((row) => row.savedTokens === 0),
+    '未命中类别的任务应全放行（节省 0）：这条 fail-safe 行为不能被"优化"掉',
+  );
+});
