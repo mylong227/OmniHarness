@@ -1,0 +1,19 @@
+{
+  "_comment": "检索质量回归基线（G1b，2026-10-03）。这是 floor 不是 target：守卫只判『不许比它差太多』，不判『必须达到它』。",
+  "_lens": {
+    "corpus": "本仓 src/（light 语料：跳过频谱/代码图/LSA）",
+    "queries": "tests/fixtures/recallQueries.ts 的 CORE_RECALL_QUERIES（32 条，锚点为 GT 字面量）",
+    "k": 14,
+    "metric": "recall@K ＝ 命中锚点所在文件的查询占比；MRR ＝ 首个命中位次倒数的均值",
+    "tolerance": {
+      "recallQueries": 3,
+      "mrr": 0.04,
+      "why": "语料随源码演进（新增文件会改变 BM25 竞争），故允许 ≤3 条查询（9.4pp）与 0.04 MRR 的抖动；>此幅度视为真实回归"
+    }
+  },
+  "generatedAt": "2026-10-03",
+  "corpusFiles": 919,
+  "symbols": 10598,
+  "plain": { "recall": 0.5625, "mrr": 0.1978, "hits": 18, "queries": 32 },
+  "rerank": { "recall": 0.5, "mrr": 0.202, "hits": 16, "queries": 32 }
+}
