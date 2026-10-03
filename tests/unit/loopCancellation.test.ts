@@ -70,3 +70,21 @@ test('取消令牌：toAbortSignal 桥接标准 AbortSignal', () => {
   done.cancel('timeout');
   assert.strictEqual(done.toAbortSignal().aborted, true);
 });
+
+test('第六轮：toAbortSignal 必须把**结构化原因**一起过桥（否则下游只能谎报 parent）', () => {
+  // 原实现两处 `controller.abort()` 都不带 reason ⇒ `signal.reason` 退化成通用 AbortError，
+  // 而 CancellableModel.reasonOf 只认结构化原因 ⇒ 'timeout'/'shutdown' 全被折叠成 'parent'。
+  const live = new CancellationToken();
+  const signal = live.toAbortSignal();
+  live.cancel('timeout');
+  assert.strictEqual(signal.reason, 'timeout', '未取消时就注册的桥也必须带上真实原因');
+
+  const pre = new CancellationToken();
+  pre.cancel('shutdown');
+  assert.strictEqual(pre.toAbortSignal().reason, 'shutdown', '已取消令牌的桥同样要带原因');
+
+  const custom = new CancellationToken();
+  const customSignal = custom.toAbortSignal();
+  custom.cancel({ custom: '业务放弃' });
+  assert.deepStrictEqual(customSignal.reason, { custom: '业务放弃' });
+});

@@ -415,16 +415,38 @@ npm run rust:test      # cargo test --workspace
 jsonl 走真追加、sqlite 走 `INSERT OR REPLACE` 不 DELETE，`EventPersister` 优先 append、失败回退全量 save。
 **回退方式天然存在**：适配器不实现 `append` 即自动回到现有行为。
 
-### 8.4 🟠 P1：取消原因在级联时被降级（与文档承诺不符，且零测试覆盖）
+### 8.4 ✅ 已修（2026-10-03 第六轮）：取消原因在 **AbortSignal 桥**上丢失（原诊断已订正）
 
-**证据（本机复核）**：`src/core/loop/cancellationToken.ts` 级联处写作
-`child.cancel(reason === 'parent' ? reason : 'parent')` ⇒ 父以 `'shutdown'`/`'user'` 取消时，**全部后代**的
-`cancelReason` 都变成 `'parent'`，与文件头自称的"结构化 reason"矛盾；
-且 `tests/unit/cancelPropagation.test.ts` 对 `cancelReason` **零断言**（复核：命中 0 处）⇒ 属"没覆盖"而非"已知可接受"。
-另 `children` 是强引用集合、**只在 cancel 时清空，从无 disposable**（长生命周期进程上是潜在泄漏）。
+**原诊断订正（读码复核后）**：本条原写"级联时把 reason 写死成 `'parent'` 与文档矛盾"。复核后：
+`'parent'` 是 `CancelReason` 联合类型里的**一等值**，且 `loopCancellation.test.ts:45` 明确断言
+`child2.cancelReason === 'parent'` ⇒ **级联标 `'parent'` 是有意设计**（表示"我是被父令牌级联取消的"），
+不是缺陷；且 `child()` 在 `src/**` 里**没有任何生产调用点**（仅测试使用）。
 
-**修法（建议）**：级联透传原始 reason；补 `cancelPropagation.test.ts` 断言（父 `cancel('shutdown')` ⇒ 所有后代
-reason 均为 `'shutdown'`；`child()` 1000 次后可释放）。**回退**：reason 透传是纯增量信息，改回写死 `'parent'` 即恢复旧行为。
+**真正的缺陷在两处（读码 + 实测确认）**：
+
+| #   | 位置                                                   | 事实                                                                                                                                                                                                                      |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/core/loop/cancellationToken.ts` `toAbortSignal()` | 两处 `controller.abort()` 都**不带 reason** ⇒ `AbortSignal.reason` 退化成通用 `AbortError`(DOMException)。而 `agent.ts:413` 正是把该 signal 交给模型层 ⇒ 下游**拿不到任何结构化原因**。                                   |
+| 2   | `src/subagent/cancellableModel.ts` `reasonOf()`        | 白名单只有 `'user'\|'timeout'\|'shutdown'\|'parent'` ⇒ **`'loop-guard'`（失控熔断）与 `{custom}` 被静默折叠成 `'parent'`**（谎报"父级联"）；且兜底值返回 `'parent'`，与该函数自己 JSDoc 写的"缺省时为 `'user'`"**矛盾**。 |
+
+**净后果**：生产路径上 `CancelledError.reason` 几乎恒为 `'parent'`——用户中断、超时、关机、失控熔断
+全都被报成"父令牌级联"，而这正是 `CancelReason` 联合类型存在的理由。
+
+**修法（已实施）**：① `toAbortSignal()` 把结构化原因一起过桥（未取消时兜底 `'user'`）；
+② `reasonOf()` 认全五类字符串原因 + `{ custom }` 对象，兜底按文档取 `'user'`。
+
+**判据（本机离线）**：
+
+- 新增 `tests/unit/cancellableModelReason.test.ts` 4 例（五类原因 / `{custom}` / 无原因兜底 / 畸形输入不抛错）；
+- `tests/unit/loopCancellation.test.ts` 增 1 例：`toAbortSignal()` 在"未取消即注册"与"已取消"两条路径上都必须带原因；
+- `tests/unit/cancelPropagation.test.ts`（原先对原因**零断言**）新增 `childAbortReasons()` 观测，
+  并在工作流 / 目标循环 / 子代理三条**真实路径**上断言 `=== ['user']`；
+- 端到端探针（临时，未入库）：`token.cancel(x)` → `toAbortSignal()` → `reasonOf()` 对
+  `user / timeout / shutdown / loop-guard / {custom}` **全部保真**。
+
+**仍未做（如实登记）**：`child()`/`children` 这条父子令牌树在生产路径无调用者（仅测试），
+故"子令牌集合只在 cancel 时清空、无 disposable"目前**不构成实际泄漏**；若将来接入生产，
+需要同时补 dispose 语义。
 
 ### 8.5 🔴 P0：安全面的三处「声明强于实现」（威胁模型必须相应下调）
 

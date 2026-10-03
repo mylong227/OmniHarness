@@ -120,7 +120,9 @@ Node v22.20.0 / TypeScript 5.9.3。
    **无任何复位点** ⇒ 同回合回滚后游标指向已被移除的折叠点（"同进程不对、重启对了"）。
 4. **🟠 P1：事件落盘是全量快照重写**（✅ 机制复核 + **实测**单次成本：12,800 条 ≈ 139 ms / 6.5 MB）⇒
    每步 flush 使累计写入按 `size_N × 步数 / 2` 增长（外推，非端到端实测）。
-5. **🟠 P1：取消原因级联时被降级为 `'parent'`**（✅ 复核）+ `cancelPropagation.test.ts` 对其**零断言**。
+5. **✅ 已修（第六轮）：取消原因在 AbortSignal 桥上丢失**（原诊断"级联降级"经读码**订正**——`'parent'`
+   是一等值且被测试断言，属有意设计；真丢失点是 `toAbortSignal()` 不带 reason + `reasonOf()` 白名单缺
+   `'loop-guard'`/`{custom}`、兜底值与自身 JSDoc 矛盾）⇒ 用户中断/超时/关机/失控熔断全被报成"父级联"。
 6. **🔴 P0：安全面三处"声明强于实现"**（见看板 §8.5）：默认沙箱档 = 纯 TS 策略（无内核强制）；
    Windows"OS 级"后端 `CreateRestrictedToken(..., 0, null, 0, null, 0, null, …)` 三个 restricting-SID 计数为 0
    ⇒ **无文件/网络拒绝语义**；`networkEgressGuard` **只包 `globalThis.fetch`**（shell 子进程完全绕过）。
@@ -215,10 +217,16 @@ Terminal-Bench/评测子系统且**生产代码零引用**（逐名 grep 确认�
    ⇒ 同回合内 `checkpoint` 回滚后，内存游标仍指向**已被 `eventsFrom` 从日志移除**的折叠点；
    症状是"同进程内不对、重启后对了"（重启新实例复位为 false）。三层回滚对齐（内存/检索/磁盘+在飞写）
    本身做对了：`sessionRecorder.rewindTo` 会重算 seq + `dropFromRetrieval`，端口不支持 `remove` 时**显式告警**而非静默。
-3. **取消原因在级联时被降级**（本机复核）：`cancellationToken.ts` 里 `child.cancel(reason === 'parent' ? reason : 'parent')`
-   ⇒ 父以 `'shutdown'`/`'user'` 取消时，全部后代的 `cancelReason` 都变成 `'parent'`，与文件头自称的"结构化 reason"矛盾；
-   且 **`cancelPropagation.test.ts` 对 `cancelReason` 零断言**（复核：命中 0 处）⇒ 属"没覆盖"而非"已知可接受"。
-   对照 codex 用 `tokio::select!` + `handle.abort()` 硬中断，且**中断后仍产出形状合法结果**。
+3. **✅ 已修（第六轮）：取消原因在 AbortSignal 桥上丢失**（原诊断"级联降级"经读码复核后**订正**）：
+   - 原怀疑的 `child.cancel(reason === 'parent' ? reason : 'parent')` **是有意设计**——`'parent'` 是
+     `CancelReason` 的一等值且被 `loopCancellation.test.ts:45` 明确断言，且 `child()` 在 `src/**` 无生产调用点；
+   - **真正的丢失点**：`cancellationToken.toAbortSignal()` 两处 `controller.abort()` 都**不带 reason**，
+     而 `agent.ts:413` 正是把该 signal 交给模型层；同时 `CancellableModel.reasonOf()` 的白名单缺少
+     `'loop-guard'` 与 `{custom}`，兜底值还与自己 JSDoc 写的"缺省为 `'user'`"矛盾（实现返回 `'parent'`）。
+     ⇒ 净后果：用户中断 / 超时 / 关机 / **失控熔断**全被报成"父令牌级联"。
+   - **已修**：桥带上结构化原因；`reasonOf` 认全五类 + `{custom}`、兜底取 `'user'`。判据：新增
+     `tests/unit/cancellableModelReason.test.ts`（4 例）+ `loopCancellation` 增 1 例 + `cancelPropagation`
+     在**真实 agent/workflow/goal/subagent 三条路径**上断言 `childAbortReasons() === ['user']`（原先零断言）。
 4. **工具结果只保 model 顺序，丢了完成顺序**：`toolScheduler.ts:11` 注释直言"结果严格按 model-order 提交"；
    对照 codex 显式分开发 `call_trace::result_ready`（完成顺序）与最终按序收集。
 5. **完成判定是本仓相对强项且有论文支撑**：`TurnOutcome.truncated`（步数耗尽）/`aborted`（失控熔断）是一等字段并如实透传
@@ -763,6 +771,8 @@ worker 线程反效（§3.8）、并行写入型子代理有害（§3.6）——
 | ---------- | ------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-10-03 | **G3-V1 完成判定 fail-closed**  | ✅ 已完成 | 新增 `TestCountParser`（5 类运行器识别）+ 闸门第二道判据；`tests/unit/testCountParser.test.ts` 12 例 + `turnEndCompletionGate.test.ts` 新增 4 例；真实命令复核：空 glob ⇒ `zeroEvidence=true`、真跑 12 例 ⇒ `total=12/false`；`npm test` **2,461 项（2,454 过 / 0 失败）** |
 | 2026-10-03 | G3-V2 `unverified` 一等完成状态 | ⏳ 待做   | 计划：`TurnResult` 增可选 `verificationState`，闸门拦下后模型二次声明完成 ⇒ 记 `unverified` 而非 `passed`                                                                                                                                                                  |
+| 2026-10-03 | **G4-L3 取消原因保真**          | ✅ 已完成 | `toAbortSignal()` 带原因 + `reasonOf()` 认全五类与 `{custom}`、兜底 `user`；新增 `cancellableModelReason.test.ts` 4 例 + `loopCancellation` 1 例 + `cancelPropagation` 在真实三路径断言原因（原零断言）；端到端探针全保真。**原诊断"级联降级"经复核订正为有意设计**        |
+| 2026-10-03 | G4-L4 回滚时复位压缩游标        | ⏳ 待做   | 见看板 §8.2                                                                                                                                                                                                                                                                |
 | —          | G4 回滚/取消补齐                | ⏳ 待做   | 压缩游标复位 + 取消原因保真（看板 §8.2/§8.4）                                                                                                                                                                                                                              |
 | —          | G2 子代理写入语义闭环           | ⏳ 待做   | S1 fail-closed / S2 artifact 可取回 / S3 workflow 隔离语义                                                                                                                                                                                                                 |
 | —          | G1 最小行为回归守卫             | ⏳ 待做   | 复用 `scriptedModel.ts` 断言行为不变量 + 检索/前缀基线                                                                                                                                                                                                                     |
