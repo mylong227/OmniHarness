@@ -186,9 +186,26 @@ export class CircuitBreaker {
       this.recordSuccess();
       return result;
     } catch (error) {
-      this.recordFailure();
+      // 用户取消不是模型健康度信号（2026-10-03 修，审计 D6）：AbortError 是调用方取消/
+      // 超时守卫主动中断，把它计入失败会让交互式会话里连按几次「停止」就把熔断器打成一整段
+      // 冷却期的全拒绝——取消语义与故障语义在此必须分离。
+      if (!CircuitBreaker.isCancellation(error)) {
+        this.recordFailure();
+      }
       throw error;
     }
+  }
+
+  /**
+   * 判定错误是否属于「调用方取消」类（不计入熔断失败）。
+   * @param error 任意抛出值。
+   * @returns AbortError（DOMException/手造同名词）或显式 cancelled 标记时 true。
+   */
+  private static isCancellation(error: unknown): boolean {
+    if (error instanceof Error) {
+      return error.name === 'AbortError' || error.name === 'CancelledError';
+    }
+    return false;
   }
 
   /** 取当前状态快照（读取前同样惰性推进冷却窗口）。

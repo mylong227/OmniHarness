@@ -350,11 +350,19 @@ export class LoopGuard {
     return false;
   }
 
-  /** 序列窗口裁剪：只保留最近 cycleWindow 个签名（内存有界）。
+  /** 序列窗口裁剪：只保留最近窗口个签名（内存有界）。
+   *
+   * cap 必须并入 `maxExactRepeats`（2026-10-03 修）：旧下界 16 与该旋钮无关，把它配成 >16 时
+   * `callSeq` 先被裁到 16，`trailingRepeatsExceed` 的计数永远到不了阈值——重复检测器静默失效。
    * @returns 无返回值。
    */
   private trimSeq(): void {
-    const cap = Math.max(this.cycleWindow * 2, this.maxCyclePeriod * 4, 16);
+    const cap = Math.max(
+      this.cycleWindow * 2,
+      this.maxCyclePeriod * 4,
+      this.maxExactRepeats + 1,
+      16,
+    );
     if (this.callSeq.length > cap) {
       this.callSeq.splice(0, this.callSeq.length - cap);
     }

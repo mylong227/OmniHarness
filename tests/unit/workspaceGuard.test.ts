@@ -40,6 +40,19 @@ test('路径守卫：带前缀的相似路径不算越界', () => {
   assert.strictEqual(guard.isInside('../workspace_evil/x.txt'), false);
 });
 
+test('路径守卫：Windows 上大小写变体不误拒（2026-10-03 修 T4；POSIX 保持敏感）', () => {
+  if (process.platform !== 'win32') {
+    return; // 大小写不敏感是 win32 文件系统语义，POSIX 保持大小写敏感
+  }
+  const guard = new WorkspaceGuard(root);
+  // 模型从 shell 输出/报错拿到的大小写变体绝对路径是**同一文件**（win32 文件系统本身
+  // 大小写不敏感），词法层误拒会让模型在「路径越界」提示下反复试错。
+  assert.strictEqual(guard.isInside('D:/OMNIHARNESS/workspace/src/index.ts'), true);
+  assert.strictEqual(guard.isInside('d:/omniharness/workspace/./src/index.ts'), true);
+  // 大小写归一只放宽前缀比较，越界判定方向不变。
+  assert.strictEqual(guard.isInside('D:/OMNIHARNESS/workspace_evil/x.txt'), false);
+});
+
 test('路径守卫：resolveSafe 对越界路径抛错', () => {
   const guard = new WorkspaceGuard(root);
   assert.throws(() => guard.resolveSafe('../secret.txt'), PathTraversalError);

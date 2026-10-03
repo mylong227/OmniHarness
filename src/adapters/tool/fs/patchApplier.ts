@@ -199,8 +199,12 @@ export class PatchApplier {
         hunks.push(current);
         continue;
       }
-      if (current !== undefined && line !== '') {
-        current.lines.push(line);
+      if (current !== undefined) {
+        // hunk 体内的空行按「空上下文行」处理（2026-10-03 修，审计 T3）：git 生成的 diff
+        // 空上下文行是单个空格，但模型手写/传输层剥行尾空格的 diff 里就是空串——旧实现
+        // 直接丢弃 ⇒ oldSideOf 少一行，对含真实空行的文件必然匹配不上，整份补丁被拒
+        //（多文件补丁时连无辜文件一起失败）。GNU patch 对此是容忍的。
+        current.lines.push(line === '' ? ' ' : line);
       }
     }
     return files;

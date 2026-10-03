@@ -55,11 +55,21 @@ export class FilteredToolPort implements ToolPort {
   }
 
   /**
-   * 延迟加载子集：缺失时回退受限 list。
+   * 延迟加载子集：**同样按放行谓词过滤**（2026-10-03 修授权旁路）。
+   *
+   * 旧实现 `this.base.listDirect?.() ?? this.list()` 在基端口实现 `listDirect` 时直接返回
+   * **未过滤**的全量直载工具——`stepContextBuilder.effectiveTools()` 优先取 `listDirect`，
+   * 于是受限视图（A2A 委托 / 子代）每步看到的模型工具面是全部直载 schema（含 shell / write_file），
+   * 白名单只落在 `execute` 的 fail-closed 上：模型反复尝试调用被禁工具（每次烧一步/turn token），
+   * 并把完整工具清单泄漏给对等委托方。
    * @returns 已放行工具的定义列表（与 {@link FilteredToolPort.list} 同视图）
    */
   public listDirect(): readonly ToolDefinition[] {
-    return this.base.listDirect?.() ?? this.list();
+    const direct = this.base.listDirect?.();
+    if (direct === undefined) {
+      return this.list();
+    }
+    return direct.filter((def) => this.allow(def.name));
   }
 
   /**

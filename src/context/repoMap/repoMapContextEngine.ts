@@ -502,9 +502,12 @@ export class RepoMapContextEngine {
     this.memo.invalidate();
     this.corpusCache.clear(root);
     this.semanticCache.clear(root);
+    // 图信号缓存同步失效（2026-10-03 修不对称：旧代码只在指定 root 时清图，清空全部时
+    // 图缓存残留——图按 workspace 独立缓存没错，但「清空全部」理应连它一起清）。
     if (root !== undefined) {
-      // P5 稀疏引用图按 root 缓存，文件结构剧变须同步失效。
       CodeReferenceGraph.clearGraphSignal(root);
+    } else {
+      CodeReferenceGraph.clearGraphSignal();
     }
   }
 

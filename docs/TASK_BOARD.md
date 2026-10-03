@@ -4792,3 +4792,83 @@ CI `eval` job 增跑 `eval:tool-exposure-e2e`（免网络免模型，故可进 C
   `eval:tool-exposure` 三护栏 **10/10**；`eval:skill-routing --gate` exit 0。
 - 门禁：typecheck / lint / `check --strict` / `arch:gate` / `audit:maturity` / `audit:standard:delta` /
   `audit:config-wiring` / `check:doc-links` 全绿（见提交记录）。
+
+---
+
+## 40. 核心功能深化：四路代码审计 + 25 处实证缺陷清偿（2026-10-03）
+
+> 触发：用户指令「深入严格地提升整体核心功能，从实践代码出发（不看看板）」。
+> 方法：**不采信看板**，直接精读核心链路（agent 循环 / 上下文投影 / 工具执行 / 检索 / 模型适配层 / 工具适配层），
+> 四个并行深审代理 + 逐条人工复核（每项缺陷均在动手前于源码与调用链二次确证），共清偿 **25 处**。
+
+### 40.1 上下文投影与压缩（模型看到的事实被系统性扭曲）
+
+| 缺陷                                 | 根因                                                                                                                                                                                                         | 处置                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **A7 修复实为死代码（P0/P1）**       | `EventFactory.turnDiff` 落 `payload={diff}`，投影读 `payload.content` 恒空串 → 回灌卫语句吞掉 ⇒ 模型**从未**看到过自己的回合 diff；单测用错误形状 `{content}` 构造事件假绿                                   | 投影改读 `payload.diff`；**测试夹具改用生产形状 + 新增 EventFactory 端到端形状测试**                                                     |
+| 压缩边界把工具轮切两半（P1）         | 旧「躲 orphan tool」算法在良构投影上从不移动 ⇒ 边界常态落在 assistant(tool_calls) 与其 tool 结果之间：宽容端点剥 tool_calls（摘要模型看不到该轮调用）、严格端点 400 被 `catch→'[历史已省略]'` 吞成零信息摘要 | 新增 `roundAlignedBoundary`：边界指到 tool / assistant(tool_calls) 一律左移整轮让给 tail；`summarize` 失败留 warn（remote 降级留 debug） |
+| `shrinkLossless` 静默篡改 JSON（P1） | `JSON.stringify(JSON.parse(t))` 对 >2^53 整数 double 舍入（雪片 ID/uint64 被改错值）、重复键丢首值、`1e2`→`100` 字面量改写——却每步作用于每条消息                                                             | 收缩前后**数值字面量多重集逐一比对**，有任何差异整段回退原文（同时覆盖数值精度 + 重复键两类损坏；纯字母重复键为已登记残留）              |
+| 工具附件落在整段对话末尾（P2）       | `pendingAttachments` 只在 build 末尾 flush，第 3 轮的图会落在最后一条 assistant 之后                                                                                                                         | 「下一条非 tool_result 事件」即 flush：附件紧跟其工具轮次，且不破坏 `assistant(tool_calls)↔tool` 配对                                    |
+
+### 40.2 core 会话完整性
+
+| 缺陷                                            | 根因                                                                                                                                                              | 处置                                                                                                        |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **FilteredToolPort.listDirect 授权旁路（P1）**  | 基端口实现 `listDirect` 时直接透传未过滤全量 ⇒ A2A 委托/子代的模型工具面每步看到全部 33 个直载 schema（含 shell/write_file），白名单只落在 execute 的 fail-closed | `listDirect` 同样按放行谓词过滤（与 `list()` 同视图，逐字兑现类 JSDoc 承诺）                                |
+| **checkpoint 回滚可无声清空会话（P1）**         | 索引在、载荷丢/坏时 `load→save([])` 直接用空数组覆盖主日志（三后端对缺失 key 均返回 `[]`，jsonl 坏行全跳）                                                        | 载荷事件数 ≠ `meta.eventCount` 即抛错拒绝回滚（fail-closed）；`eventCount===0` 的纯文件快照合法形态不受影响 |
+| ToolGate 计划门禁 fail-open（P2）               | `planMode=true` 而 `plan` 端口缺省时整段计划门禁静默跳过（正是同文件 `FAIL_CLOSED_ELEVATED_SANDBOX` 要防的手动构造形态）                                          | planMode + 写类 + plan 缺省 ⇒ fail-closed 拒绝并提示修复接线                                                |
+| EventPersister 契约加固（P2）                   | `getEvents()` 在 try 外，闭包抛错会让 flush reject（违反自身 JSDoc），定时器路径成未处理 rejection                                                                | getEvents 纳入 try，失败留 warn                                                                             |
+| LoopGuard 重复检测可被窗口裁剪杀死（P3）        | `trimSeq` cap 不含 `maxExactRepeats`，配 >16 时该检测器静默失效                                                                                                   | cap 并入 `maxExactRepeats + 1`                                                                              |
+| TurnDiffTracker 失效后仍污染 changedCount（P3） | `invalidate()` 后 noteWrite 继续写 current ⇒ turn-end 完成闸门误判「本回合改过文件」平白跑验证                                                                    | `!valid` 早返回；reset 恢复追踪                                                                             |
+| SessionRecorder 广播无隔离（P3）                | `events.emit` 同步直调，监听器抛错让 record() 在 append 之后、索引之前中断                                                                                        | 广播异常逐条隔离只 warn（对齐 CancellationToken 做法）                                                      |
+
+### 40.3 模型适配层（网络鲁棒性 + 计费正确性）
+
+| 缺陷                                                         | 根因                                                                                                                                                                                | 处置                                                                                                                                                    |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Anthropic/Responses 429/5xx 永不重试（P1）**               | 两适配器抛裸 `Error`（无 status/retryable 字段），`isRetryable` 分类失效，而熔断器照常计数——重试缺席、熔断在场                                                                      | 新增共享映射器 `ModelHttpErrors`（status/retryable/Retry-After 解析 + 非 2xx 消费响应体防连接池耗尽）；两适配器全部错误路径接入                         |
+| **Responses 适配器上下文成倍重复（P1）**                     | 每步发全量 input + `previous_response_id` 双通道 ⇒ 服务端把已存对话前置、客户端再发一遍，第二回合起历史在 prompt 里逐回合累积（计费翻倍）；且压缩会改写历史，服务端锚点根本无法表达 | 移除 `previous_response_id` 回传（全量 input 自足是唯一与本 harness 架构自洽的模式）；`store` 默认 false（无锚点消费）；`responseId()` 降级为观测 API   |
+| 流中 error 事件被静默吞掉（P2）                              | Anthropic `event: error` / OpenAI `{"error":…}` / Responses `error`/`response.failed` 三家流中错误都被丢弃 ⇒ 半截文本/半截工具参数 JSON 被当成功                                    | 三适配器流中错误显式上抛 `ModelCallError`（overloaded→529、rate limit→429、timeout→504 可重试）                                                         |
+| 熔断器把「用户取消」计为故障（P2）                           | `recordFailure` 不分异常来源 ⇒ 交互会话连按 5 次「停止」把熔断打成 30s 全拒绝                                                                                                       | AbortError/CancelledError 不计入失败                                                                                                                    |
+| OpenAI 流式同 delta 同发 content+tool_calls 时文本丢失（P3） | tool_calls 分支早退 return                                                                                                                                                          | 去掉早退，content/reasoning/tool_calls 三分支独立处理                                                                                                   |
+| 退避等待不可取消（P3）                                       | `Retry-After` 15s 窗口内按「停止」仍要睡满                                                                                                                                          | 尝试间 + 退避等待全程检查 signal，取消以 AbortError 即时终止                                                                                            |
+| SSE 只认 LF 帧界（P3）                                       | `split('\n\n')` 不认 CRLF/CR（SSE 规范三态行终止）⇒ CRLF 分帧的服务器/代理整条流塌缩 JSON.parse 必炸；读取循环无 finally，异常路径不 cancel reader 耗尽连接池                       | 归一 `\r\n`/`\r`→`\n` 再分帧；`finally { reader.cancel() }` 兜底清理                                                                                    |
+| 工具参数 JSON 非法静默 `{}`（P2 观测）                       | max_tokens 截断/流中断后工具带空参数执行，真实根因零痕迹                                                                                                                            | 三适配器 parseArguments 失败统一留 warn（`model.tool_arguments.invalid_json`，含原文前 200 字符）                                                       |
+| 流式重试重复投递增量（审计 D4，**权衡后保留重试**）          | 已投递增量再失败时重试会让 --stream-text 终端出现「前缀+全文」                                                                                                                      | 判定为**观感缺陷**：核心循环只消费第二次尝试的完整输出，改 fail-fast 会把可恢复瞬态升级成整回合硬失败（能力净倒退）；语义不变，代价如实钉住于测试与注释 |
+
+### 40.4 检索质量
+
+| 缺陷                                 | 根因                                                                                                                                                             | 处置                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 日韩查询在生产检索路径不可达（P2）   | R9 的 Unicode 修复只落在 `tokenize`，**查询侧与符号文档侧共用的 `expandedTokens`** 仍是 pre-R9 ASCII/汉字区间 ⇒ 假名/谚文零 token（morph 默认开 ⇒ 生产路径全灭） | 把 `\p{Script=Latin}\p{N}_` + `\p{Script=Han                                                  | Hiragana | Katakana | Hangul}`口径移植进`expandedTokens` |
+| CJK 扩展区产出孤立代理项 token（P3） | `run[i]`/`slice(i,i+2)` 按 UTF-16 码元切                                                                                                                         | 两处循环改 `Array.from` 码点迭代（单字 + 二元组均为完整码点）                                 |
+| 图信号陈旧下标静默错位（P2）         | `CodeReferenceGraph` 按 root 缓存，语料 TTL 重建（符号数量/顺序可变）后旧图下标索引新符号数组，邻居映射错文件不报错                                              | 缓存值挂语料实例 `{corpus, signal}`，实例不同即重建；`clear()` 无参时同步清图缓存（修不对称） |
+
+### 40.5 工具层
+
+| 缺陷                                                 | 根因                                                                                                                            | 处置                                                                                                                                                                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **read_file 无任何护栏（P1）**                       | 无 stat/无字节上限/无二进制嗅探 ⇒ 单行 20MB+ 的 minified bundle 整读进内存 + 全文进上下文（外溢后 spill_read 豁免名单再放全文） | stat 先行：非常规文件拒、>64 MiB 拒并指向 grep/shell；前 8 KiB NUL 嗅探拒二进制（与 grepTool 同口径）；`FileLineWindow` 增 **512 KiB 窗口字节预算**（超限停行显式标记，首行超预算按码点裁剪，不让单行绕过） |
+| Windows 路径大小写误拒（P2）                         | WorkspaceGuard 前缀比较大小写敏感 ⇒ `D:/DeepSeek/...` 变体被判越界，模型反复试错                                                | win32 上前缀比较大小写归一（POSIX 不变；越界拦截方向不变，只消除假阳性）                                                                                                                                    |
+| 手写补丁空上下文行被吞（P2）                         | patchApplier `line !== ''` 丢弃空行 ⇒ 模型/传输层剥行尾空格的 diff 必然匹配失败                                                 | hunk 体内空行按 `' '` 空上下文行处理（GNU patch 同语义）                                                                                                                                                    |
+| edit 制造混合行尾（P2）                              | 插入文本不继承原文行尾 ⇒ CRLF 文件每次 edit 塞进 LF 行                                                                          | 插入前按原文主导行尾归一（CRLF 主导归 CRLF、LF 主导归 LF，双向）                                                                                                                                            |
+| extraTools 注入工具不可检索（P2）                    | tool_search 索引在 extraTools 注册前构建，`reindex()` 全仓零调用                                                                | `registerAgentTools` 返回索引实例，extras 注册后 `reindex(registry.list())`（端到端测试：注入工具必被 tool_search 检索到）                                                                                  |
+| shell_interactive POSIX 树杀失效 + 永不 settle（P2） | spawn 漏 `detached` ⇒ 负 pid ESRCH 只杀 shell 本身（vim/ssh 成孤儿）；树杀失败时 close 永不触发整回合挂死                       | 补 `detached: platform!=='win32'`（对齐 shellProcessRunner）+ 3s 宽限期兜底强制收尾                                                                                                                         |
+| `@` 开头行被误判 import 吞掉（P2）                   | 任意 `@` 行都解析成路径，读不到即替换成 HTML 注释 ⇒ `@velocity 3`/`@see x.md` 等用户指令无声丢失                                | 目标不可读时**保留原行**（引用语义只在可读时生效）；剥 BOM（BOM 让首行 @import 静默不展开）                                                                                                                 |
+
+### 40.6 验收（门禁实跑，2026-10-03）
+
+- 单测：本批新增 **约 30 例**（turn_diff 生产形状 / 附件时机 / 轮对齐边界 / JSON 护栏 / listDirect 过滤 /
+  checkpoint 载荷校验 / ToolGate fail-closed / persister 契约 / tracker 失效 / ModelHttpErrors×9 /
+  Responses 无锚点 / CRLF 分帧 / 重试取消 / 熔断豁免取消 / expandedTokens Unicode / 代理对 / 图信号重建 /
+  read_file 三护栏 / 窗口字节预算 / patch 空行 / CRLF 归一 / @ 行保留 / BOM / tool_search 端到端）；
+  改写 3 例假绿/钉缺陷行为的既有测试（turn_diff 形状、previous_response_id、listDirect 透传）。
+- 门禁：typecheck（含 web）/ lint（0 告警）/ `check --strict`（905 文件零违规，本批 4 处新增超限函数已就地拆分）/
+  `arch:gate`（0 新增）/ `audit:maturity` / `audit:config-wiring`（905 全绿）/ `check:doc-links`（新增 0）全绿。
+- 全量单测见提交记录（预期 ≥2400 项全绿）。
+- **诚实边界**：① shell_interactive 的 detached/宽限为 POSIX 语义，本机 win32 无法实机复现原缺陷，
+  修复对齐 shellProcessRunner 既有同型实现（该实现有单测）；② 流式重试「重复投递」是保留的观感代价，
+  已用测试钉住语义防止未来误改；③ 审计另发现 6 项**本批未修**（均有明确理由）：
+  rollback 的内存事件流截断（需端口级 redesign，单独批次）、TurnDiffHooks 跨回合 baseline（需端口生命周期）、
+  ollama 工具调用同名合并（需真实后端采样）、SkillSparsifier 空转（需产品决策：给 BM25 分数通道还是删）、
+  压缩阈值 token 记账未含 toolCalls/repo-map（涉及原生 FFI 契约）、apply_patch 多文件非原子（P3）。

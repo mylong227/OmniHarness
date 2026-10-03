@@ -102,7 +102,19 @@ export class EventPersister {
    * @returns 无返回值。
    */
   private async saveSnapshot(): Promise<void> {
-    const events = this.getEvents();
+    // getEvents 也纳入 try（2026-10-03 修）：JSDoc 承诺 flush 不抛错，而 getEvents 是注入闭包
+    // （现实现 eventLog.all() 不会抛，但契约不应依赖这一点）——闭包抛错会让 flush reject，
+    // 定时器路径 `void this.flush()` 进而成为未处理 Promise rejection。
+    let events: readonly SessionEvent[];
+    try {
+      events = this.getEvents();
+    } catch (err) {
+      log.warn('session.persist.get_events.failed', {
+        sessionId: this.sessionId,
+        error: String(err),
+      });
+      return;
+    }
     if (events.length === 0 || events.length === this.lastSavedCount) {
       return;
     }

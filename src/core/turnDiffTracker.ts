@@ -41,7 +41,13 @@ export class TurnDiffTracker implements TurnDiffTrackerPort {
    * @returns 无返回值。
    */
   public noteWrite(path: string, before: string | null, after: string): void {
-    if (!this.valid || !this.baseline.has(path)) {
+    // 失效后拒绝写入（2026-10-03 修）：`invalidate()` 的语义是「清空并永久失效」，失效后的
+    // 写入注定进不了 diff（`getUnifiedDiff` 因 `!valid` 返回 undefined），却会把 `changedCount`
+    // 从 0 抬成非 0——turn-end 完成闸门据此误判「本回合改过文件」而平白跑一次验证。
+    if (!this.valid) {
+      return;
+    }
+    if (!this.baseline.has(path)) {
       this.baseline.set(path, before);
     }
     this.current.set(path, after);

@@ -185,7 +185,8 @@ export class ConfigToolRegistry {
    * @param {{ readonly todo: TodoPort; readonly plan: PlanPort; readonly userResponder: UserResponder; readonly planMode: boolean; }} planning - planning
    * @param {ToolDiscovery} discovery - discovery
    * @param {RetrievalPort} retrieval - retrieval
-   * @returns {void} - result
+   * @returns {ToolIndex} tool_search 背后的工具索引（调用方在 extraTools 注册完后须 reindex，
+   *   否则经 --tool-files / extraTools 注入的自定义工具永远不出现在检索结果里——2026-10-03 修，审计 T6）
    */
   public static registerAgentTools(
     registry: RegistryToolPort,
@@ -198,7 +199,7 @@ export class ConfigToolRegistry {
     },
     discovery: ToolDiscovery,
     retrieval: RetrievalPort,
-  ): void {
+  ): ToolIndex {
     const { subagent: subagentOptions, ...ports } = seed;
     // 三条子代路径（subagent / run_goal / run_workflow）共用同一份子代步数预算：
     // 此前 run_goal / run_workflow 直接读 `ports.maxSteps`（主会话步数），`--subagent-max-steps`
@@ -248,6 +249,7 @@ export class ConfigToolRegistry {
     // #M2 会话检索：memory_search 对会话历史事件做 BM25 检索（事件由记录器索引进 retrieval）。
     const memoryTool = new MemorySearchTool(retrieval);
     registry.register(memoryTool.definition, (call, ctx) => memoryTool.handle(call, ctx));
+    return toolIndex;
   }
 
   /**
@@ -472,7 +474,13 @@ export class ConfigToolRegistry {
   ): ToolPort {
     const registry = new RegistryToolPort();
     ConfigToolRegistry.registerCoreTools(registry, seed, workers, planning);
-    ConfigToolRegistry.registerAgentTools(registry, seed, planning, discovery, retrieval);
+    const toolIndex = ConfigToolRegistry.registerAgentTools(
+      registry,
+      seed,
+      planning,
+      discovery,
+      retrieval,
+    );
     ConfigToolRegistry.registerAuxiliaryTools(registry, seed, longTerm, costBudget, lsp, identity);
     for (const extra of extraTools ?? []) {
       // 显式注入**优先于内置默认**：`web_fetch` / `view_image` 等内置工具允许被调用方整体替换
@@ -480,6 +488,13 @@ export class ConfigToolRegistry {
       // 重名拦截本身不放松——它留在**内置注册**处，专门拦「内置之间互撞」这类真缺陷。
       registry.unregister(extra.definition.name);
       registry.register(extra.definition, extra.handler);
+    }
+    // 2026-10-03 修（审计 T6）：extraTools 注册完成后**必须重建** tool_search 的索引——
+    // 旧实现在 extraTools 注册前建好索引且 `reindex()` 全仓零调用，注入的自定义工具永远
+    // 不可检索；若注入工具还**替换**了内置（如同名 web_fetch），模型检索到的是旧 schema，
+    // 与 effectiveTools 绑定的新定义自相矛盾。
+    if ((extraTools ?? []).length > 0) {
+      toolIndex.reindex(registry.list());
     }
     if (deferredTools !== undefined && deferredTools.length > 0) {
       registry.markDeferred(deferredTools);

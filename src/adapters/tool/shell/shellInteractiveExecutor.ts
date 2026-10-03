@@ -43,6 +43,10 @@ export interface InteractiveRunOutcome {
  * 交互式前台执行器：`spawn` + `stdio: 'inherit'`，只回传退出状态。
  */
 export class ShellInteractiveExecutor {
+  /** 终止后的兜底宽限期（毫秒）：树杀失败时 `close` 永不触发，宽限期到期强制收尾（与
+   *  ShellProcessRunner.TERMINATE_GRACE_MS 同口径，2026-10-03 修，审计 T5 次生问题）。 */
+  private static readonly TERMINATE_GRACE_MS = 3_000;
+
   /**
    * 以前台直通方式执行命令。
    *
@@ -59,43 +63,53 @@ export class ShellInteractiveExecutor {
     return new Promise<InteractiveRunOutcome>((resolve, reject) => {
       let child: ChildProcess;
       try {
-        child = spawn(bin, [...args], {
-          cwd: options.cwd,
-          env: options.env,
-          stdio: 'inherit',
-          // cmd 形态的命令串自带引号（见 ShellInvocation.args），须原样传递（审计 §1.9）。
-          windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(bin),
-        });
+        child = ShellInteractiveExecutor.spawnChild(bin, args, options);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
         return;
       }
       let timedOut = false;
       let settled = false;
-      /** 会话取消时的收尾（与超时同一路径：终止整棵进程树，如实回传 signal）。 */
-      const onAbort = (): void => {
-        if (settled) {
+      /** 终止后宽限期兜底定时器（树杀失败时强制收尾，绝不挂死整个回合）。 */
+      let graceTimer: ReturnType<typeof setTimeout> | undefined;
+      const armGrace = (): void => {
+        if (graceTimer !== undefined) {
           return;
         }
+        graceTimer = setTimeout(() => {
+          finish(null, 'SIGKILL');
+        }, ShellInteractiveExecutor.TERMINATE_GRACE_MS);
+      };
+      /** 树杀而非 `child.kill`（2026-09-26 审计 S12）：交互式会话的载荷是孙进程，
+       *  只杀直接子进程会让「已超时」的命令继续跑（最长到 1 小时上限）。 */
+      const killTree = (): void => {
         ProcessTreeKiller.kill(child);
+        armGrace();
+      };
+      const cleanup = (): void => {
+        clearTimeout(timer);
+        if (graceTimer !== undefined) {
+          clearTimeout(graceTimer);
+          graceTimer = undefined;
+        }
+        options.signal?.removeEventListener('abort', onAbort);
       };
       const finish = (exitCode: number | null, signal: string | null): void => {
         if (settled) {
           return;
         }
         settled = true;
-        clearTimeout(timer);
-        options.signal?.removeEventListener('abort', onAbort);
+        cleanup();
         resolve({ exitCode, signal, timedOut });
       };
       const timer = setTimeout(() => {
         timedOut = true;
-        if (!settled) {
-          // 树杀而非 `child.kill`（2026-09-26 审计 S12）：交互式会话的载荷是孙进程，
-          // 只杀直接子进程会让「已超时」的命令继续跑（最长到 1 小时上限）。
-          ProcessTreeKiller.kill(child);
-        }
+        if (!settled) killTree();
       }, options.timeoutMs);
+      /** 会话取消时的收尾（与超时同一路径：终止整棵进程树，如实回传 signal）。 */
+      const onAbort = (): void => {
+        if (!settled) killTree();
+      };
       // 转发会话取消（前台 shell 早已这么做，交互式这条支路漏了）：不转发时撤销回合也停不下来。
       if (options.signal !== undefined) {
         if (options.signal.aborted) {
@@ -109,13 +123,37 @@ export class ShellInteractiveExecutor {
           return;
         }
         settled = true;
-        clearTimeout(timer);
-        options.signal?.removeEventListener('abort', onAbort);
+        cleanup();
         reject(error);
       });
       child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
         finish(code, signal);
       });
+    });
+  }
+
+  /**
+   * spawn 子进程（配置统一收口）。
+   * @param bin 可执行文件。
+   * @param args argv 数组。
+   * @param options 执行参数。
+   * @returns 子进程实例；spawn 同步失败时抛出。
+   */
+  private static spawnChild(
+    bin: string,
+    args: readonly string[],
+    options: InteractiveRunOptions,
+  ): ChildProcess {
+    return spawn(bin, [...args], {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: 'inherit',
+      // cmd 形态的命令串自带引号（见 ShellInvocation.args），须原样传递（审计 §1.9）。
+      windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(bin),
+      // POSIX 上让子进程自成一组：ProcessTreeKiller 的负 pid 树杀要求进程组长——
+      // 2026-10-03 修（审计 T5）：漏了 detached ⇒ 负 pid ESRCH，只杀到 shell 本身，
+      // vim/ssh 等真载荷成孤儿继续占着终端（与 ShellProcessRunner:122 同一修复）。
+      detached: process.platform !== 'win32',
     });
   }
 }

@@ -80,7 +80,9 @@ export class ProjectInstructions {
     if (depth >= MAX_IMPORT_DEPTH) {
       return body;
     }
-    const lines = body.split('\n');
+    // 剥 BOM（2026-10-03 修，审计 C8 附带项）：`\uFEFF` 不在 `\s` 内，带 BOM 文件的首行
+    // `@import` 会因首字符匹配不上而**静默不展开**。
+    const lines = body.replace(/^\uFEFF/u, '').split('\n');
     const out: string[] = [];
     for (const line of lines) {
       const match = /^\s*@(?:import\s+)?(.+?)\s*$/.exec(line);
@@ -104,7 +106,11 @@ export class ProjectInstructions {
           await ProjectInstructions.expandImports(imported, target, workspaceRoot, read, depth + 1),
         );
       } catch {
-        out.push(`<!-- 已忽略不可读引用: ${raw} -->`);
+        // 目标不可读（不存在 / 非文件）→ **保留原行**（2026-10-03 修，审计 C8）：
+        // 旧实现把原行替换成 `<!-- 已忽略不可读引用 -->`——而 `@` 行匹配的是**任意 @ 开头行**，
+        // `@velocity 3`、`@see docs/x.md` 这类非路径用法也被当 import 解析，用户指令无声消失。
+        // 引用语义只在「目标可读」时生效；不可读时原行照留（不造内容、也不吞指令）。
+        out.push(line);
       }
     }
     return out.join('\n');

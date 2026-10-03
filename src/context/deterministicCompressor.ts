@@ -89,7 +89,18 @@ export class DeterministicCompressor {
       .replace(/\n{3,}/gu, '\n\n');
   }
 
-  /** 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。 */
+  /**
+   * 若整段是合法 JSON，则去缩进紧凑化；否则原样返回。
+   *
+   * **无损护栏（2026-10-03 修）**：`JSON.stringify(JSON.parse(t))` 并非字符级恒等——
+   * 超过 `Number.MAX_SAFE_INTEGER` 的整数被 double 舍入（雪片 ID / uint64 哈希 / 纳秒时间戳
+   * 被静默改错值）、重复键只剩最后一个、`1.0`→`1` / `1e2`→`100` 字面量改写。修复后只有
+   * 「收缩前后**全部数值字面量逐一相同**」才替换，否则整段原样返回（宁可不省也不篡改）。
+   * 该判据同时覆盖重复键丢失（被丢值若含数字则字面量集合必变化；纯字母重复键是
+   * 已知残留，实践中工具/模型产出的 JSON 均为规范化输出，未见此形态）。
+   * @param text 待检查文本。
+   * @returns 紧凑化文本（确认无损时）或原文（非 JSON / 解析失败 / 字面量有变时）。
+   */
   public minifyJsonBlock(text: string): string {
     const trimmed = text.trim();
     const isJsonLike =
@@ -99,10 +110,33 @@ export class DeterministicCompressor {
       return text;
     }
     try {
-      return JSON.stringify(JSON.parse(trimmed) as unknown);
+      const minified = JSON.stringify(JSON.parse(trimmed) as unknown);
+      if (!DeterministicCompressor.sameNumberLiterals(trimmed, minified)) {
+        return text;
+      }
+      return minified;
     } catch {
       return text;
     }
+  }
+
+  /**
+   * 两段文本中的数值字面量多重集是否完全一致（无损判据，见 {@link minifyJsonBlock}）。
+   * 字符串内部的数字在两侧原样保留，天然对齐；正则只求「够宽」不求语法精确——
+   * 误匹配只会让判据更保守（多拦、绝不放过）。
+   * @param before 收缩前文本。
+   * @param after 收缩后文本。
+   * @returns 全部数值字面量（排序后逐一对上）一致时 true。
+   */
+  private static sameNumberLiterals(before: string, after: string): boolean {
+    const pick = (text: string): readonly string[] =>
+      (text.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/gu) ?? []).sort();
+    const beforeLiterals = pick(before);
+    const afterLiterals = pick(after);
+    if (beforeLiterals.length !== afterLiterals.length) {
+      return false;
+    }
+    return beforeLiterals.every((literal, index) => literal === afterLiterals[index]);
   }
 
   /**

@@ -115,3 +115,35 @@ test('extraTools 与内置同名时覆盖内置，而非抛「工具重复注册
 
   assert.strictEqual(result.output, CUSTOM_FETCH_MARK, '调用应落到注入实现，而不是内置实现');
 });
+
+test('extraTools 注入的自定义工具可经 tool_search 检索到（2026-10-03 修 T6：extraTools 注册后重建索引）', async () => {
+  // 旧实现在 extraTools 注册**之前**建好 BM25 索引且 reindex() 全仓零调用 ⇒
+  // 注入的自定义工具永远不出现在 tool_search 结果里（声明可检索、路径上不可达）。
+  const config = ConfigFactory.build(
+    base([
+      {
+        definition: {
+          name: 'custom_stock_quote',
+          description: '查询实时股票行情报价 stock quote ticker price',
+          parameters: { type: 'object', properties: {} },
+        },
+        handler: async (call: ToolCall): Promise<ToolResult> => ({
+          callId: call.id,
+          ok: true,
+          output: 'OK',
+        }),
+      },
+    ]),
+  );
+  const context: ToolContext = { sessionId: 's1', workspaceRoot: tempWorkspace() };
+  const result = await config.tools.execute(
+    { id: 'c2', name: 'tool_search', arguments: { query: 'stock quote ticker price', limit: 5 } },
+    context,
+  );
+  assert.strictEqual(result.ok, true);
+  assert.match(
+    result.output ?? '',
+    /custom_stock_quote/,
+    'tool_search 必须能检索到 extraTools 注入的工具',
+  );
+});

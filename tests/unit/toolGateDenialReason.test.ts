@@ -79,6 +79,22 @@ describe('ToolGate 拒绝原因透传（#OBS-1）', () => {
     assert.strictEqual(await gate.gate(shellCall('echo hi'), 's'), undefined);
   });
 
+  it('plan mode + mutating + plan 端口未注入：fail-closed 拒绝（2026-10-03 修，旧实现静默跳过计划门禁）', async () => {
+    // 第 4 参 planMode=true，但第 3 参 plan 缺省（undefined）——手动/测试构造的漏注入形态。
+    const gate = new ToolGate(new AutoApproval(), new PassthroughSandbox(), undefined, true);
+    const r = await gate.gate(shellCall('echo hi'), 's');
+    assert.ok(r !== undefined, '写类工具必须被拒绝');
+    assert.strictEqual(r?.ok, false);
+    assert.match(r?.error ?? '', /plan mode 已开启但计划端口未注入/);
+    assert.match(r?.error ?? '', /fail-closed/);
+  });
+
+  it('plan mode + 只读工具 + plan 端口未注入：放行（fail-closed 只拦写类）', async () => {
+    const gate = new ToolGate(new AutoApproval(), new PassthroughSandbox(), undefined, true);
+    const readCall: ToolCall = { id: 'c3', name: 'list_dir', arguments: { path: '.' } };
+    assert.strictEqual(await gate.gate(readCall, 's'), undefined);
+  });
+
   it('plan mode + 只读工具（list_dir）：放行（plan 门禁不拦只读）', async () => {
     const gate = new ToolGate(
       new AutoApproval(),

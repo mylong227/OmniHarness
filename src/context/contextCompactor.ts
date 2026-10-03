@@ -146,6 +146,43 @@ export class ContextCompactor {
   }
 
   /**
+   * 游标快路径：状态存在且前缀指纹匹配 → 复用既有摘要（零 LLM 调用），不匹配则返回 undefined
+   * 让调用方走主路径重算（自动失效，绝不复用错误摘要）。
+   * @param messages 全量消息。
+   * @param state 上一步写回的压缩游标。
+   * @returns 复用成功时的结果；无游标 / 游标越界 / 指纹漂移时为 undefined。
+   */
+  private tryReuseState(
+    messages: readonly ModelMessage[],
+    state?: CompactionState,
+  ): CompactionResult | undefined {
+    if (state === undefined || state.compactedUpTo <= 0 || state.compactedUpTo >= messages.length) {
+      return undefined;
+    }
+    const head = messages.slice(0, state.compactedUpTo);
+    if (ContextCompactor.headFingerprint(head) !== state.headHash) {
+      log.debug('compaction.state.stale', {
+        compactedUpTo: state.compactedUpTo,
+        messages: messages.length,
+      });
+      return undefined;
+    }
+    const tail = this.shrink(
+      ToolRoundSanitizer.sanitizeToolRounds(messages.slice(state.compactedUpTo)),
+    );
+    // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
+    // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
+    const composed = this.composeWithinBudget(state.summary, tail.messages);
+    return {
+      messages: composed.messages,
+      compacted: true,
+      summary: state.summary,
+      state,
+      ...(tail.report !== undefined ? { shrink: tail.report } : {}),
+    };
+  }
+
+  /**
    * 按需压缩（V2）：
    *  - 传 `state` 且前缀指纹匹配 → 直接复用既有摘要（零 LLM 调用），
    *    消灭「每步重复摘要」缺陷（审计 P0-1）。
@@ -157,27 +194,9 @@ export class ContextCompactor {
     state?: CompactionState,
   ): Promise<CompactionResult> {
     // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。
-    if (state !== undefined && state.compactedUpTo > 0 && state.compactedUpTo < messages.length) {
-      const head = messages.slice(0, state.compactedUpTo);
-      if (ContextCompactor.headFingerprint(head) === state.headHash) {
-        const tail = this.shrink(
-          ToolRoundSanitizer.sanitizeToolRounds(messages.slice(state.compactedUpTo)),
-        );
-        // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
-        // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
-        const composed = this.composeWithinBudget(state.summary, tail.messages);
-        return {
-          messages: composed.messages,
-          compacted: true,
-          summary: state.summary,
-          state,
-          ...(tail.report !== undefined ? { shrink: tail.report } : {}),
-        };
-      }
-      log.debug('compaction.state.stale', {
-        compactedUpTo: state.compactedUpTo,
-        messages: messages.length,
-      });
+    const reused = this.tryReuseState(messages, state);
+    if (reused !== undefined) {
+      return reused;
     }
     const estimated = this.estimator.estimateMessages(messages);
     if (estimated <= this.threshold) {
@@ -194,16 +213,18 @@ export class ContextCompactor {
       threshold: this.threshold,
       keepRecent: this.options.keepRecent,
     });
-    // 切 tail 时必须保证 boundary 落在合法角色上：
-    // tail 起点若是 tool 消息且没有匹配的前序 assistant.tool_calls.id，就会变成
-    // "orphan tool"，下一次重发时被 DeepSeek/OpenAI HTTP 400 拒收（"Messages with
-    // role 'tool' must be a response to a preceding message with 'tool_calls'"，
-    // 2026-09-08 真机复现）。
-    //
-    // 算法：从 messages.length - keepCount 向左挪，直到 tail 起点不是 orphan tool。
+    // 切 tail 时边界**必须落在工具轮之外**（2026-10-03 修，轮对齐）：
+    // tail 起点若是 tool 消息（其 assistant(tool_calls) 被折进 head），或起点恰是
+    // assistant(tool_calls)（其 tool 结果留在 tail），都会把一个工具轮从中间切开——
+    // summarize 的请求 = head + user 指令 ⇒ 请求以带 tool_calls 却无响应的 assistant 收尾：
+    // 宽容端点（OpenAI 兼容）会剥掉 tool_calls 留一条空 assistant，摘要模型**看不到被切开的
+    // 那一轮调用**；严格端点（Anthropic / llama.cpp）直接 400，被 summarize 的
+    // `catch → '[历史已省略]'` 吞成零信息占位摘要。工具结果在 agent 转录里占绝对多数，
+    // 旧边界算法（只躲 orphan tool）在良构投影上从不移动，切轮是常态而非边缘。
+    // 算法：边界指到 tool ⇒ 左移穿过全部结果到其 assistant，再把整个轮次让给 tail；
+    // 边界指到 assistant(tool_calls) ⇒ 同样左移一位（结果必在其后）。
     const keepCount = Math.min(this.options.keepRecent, messages.length);
-    let headEnd = messages.length - keepCount;
-    while (headEnd > 0 && ContextCompactor.isToolOrphan(messages, headEnd)) headEnd--;
+    const headEnd = ContextCompactor.roundAlignedBoundary(messages, messages.length - keepCount);
     const tail = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0) {
@@ -311,8 +332,11 @@ export class ContextCompactor {
     if (this.options.remoteSummarizer !== undefined) {
       try {
         return await this.options.remoteSummarizer(this.historyText(head));
-      } catch {
-        // 服务端压缩失败，降级本地
+      } catch (error) {
+        // 服务端压缩失败，降级本地（留 debug 痕迹：静默降级曾让「摘要质量塌陷」不可归因）。
+        log.debug('compaction.remote_summarizer.failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
     if (this.model === undefined) {
@@ -330,7 +354,13 @@ export class ContextCompactor {
         tools: [],
       });
       return output.text ?? '[历史已省略]';
-    } catch {
+    } catch (error) {
+      // 2026-10-03 修：此处曾是纯静默 catch——严格端点（Anthropic/llama.cpp）对畸形摘要请求
+      // 回 400 时，整次压缩名义成功、实际拿到零信息占位摘要，事后完全不可归因。留 warn。
+      log.warn('compaction.summarize.failed', {
+        error: error instanceof Error ? error.message : String(error),
+        headMessages: head.length,
+      });
       return '[历史已省略]';
     }
   }
@@ -340,23 +370,32 @@ export class ContextCompactor {
     return head.map((message) => `${message.role}: ${message.content}`).join('\n');
   }
   /**
-   * isToolOrphan — module-level helper moved into ContextCompactor.
-   * @param {readonly ModelMessage[]} messages - messages
-   * @param {number} idx - idx
-   * @returns {boolean} - result
+   * 把候选边界左移到**工具轮之外**：tail 不得从 tool 消息开始（assistant 已进 head），
+   * 也不得从 assistant(tool_calls) 开始（其结果必在 tail）——两者都是把一个工具轮切两半。
+   * @param messages 全量消息（良构投影：tool 消息的配对 assistant 必在其前）。
+   * @param start 初始候选边界（`messages.length - keepCount`，可为负/越界）。
+   * @returns 轮对齐后的边界（≥ 0；0 表示无可折叠 head，走丢弃兜底）。
    */
-  private static isToolOrphan(messages: readonly ModelMessage[], idx: number): boolean {
-    const m = messages[idx];
-    if (m === undefined || m.role !== 'tool') return false;
-    const id = m.toolCallId;
-    if (id === undefined) return true; // 无 toolCallId 的 tool 消息无法被前置调用认领
-    for (let j = idx - 1; j >= 0; j--) {
-      const prev = ArrayAt.at(messages, j);
-      if (prev.role === 'assistant' && prev.toolCalls?.some((c) => c.id === id)) {
-        return false; // 找到匹配的 assistant.tool_calls.id
+  private static roundAlignedBoundary(messages: readonly ModelMessage[], start: number): number {
+    let headEnd = Math.max(0, Math.min(start, messages.length));
+    while (headEnd > 0) {
+      const message = ArrayAt.at(messages, headEnd);
+      if (message === undefined) {
+        break;
       }
+      if (message.role === 'tool') {
+        // 左移穿过结果，去认领其 assistant（下一轮迭代命中下方分支）。
+        headEnd -= 1;
+        continue;
+      }
+      if (message.role === 'assistant' && (message.toolCalls?.length ?? 0) > 0) {
+        // 工具轮整体让给 tail（结果必在该 assistant 之后、全在 tail 侧）。
+        headEnd -= 1;
+        continue;
+      }
+      break;
     }
-    return true; // 到头都没找到匹配的前置 assistant → 孤儿
+    return headEnd;
   }
 
   /** djb2 前缀指纹（无第三方依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */

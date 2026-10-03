@@ -156,3 +156,20 @@ test('EventPersister: schedule 走定时器落盘，dispose 后不再排程也�
   await new Promise((r) => setTimeout(r, 40));
   assert.strictEqual(storage.writes.length, 1, 'dispose 后不得再写入');
 });
+
+test('EventPersister: getEvents 闭包抛错时 flush 不 reject（2026-10-03 契约加固）', async () => {
+  const storage = new RecordingStorage();
+  const persister = new EventPersister(
+    storage,
+    's1',
+    () => {
+      throw new Error('闭包炸了');
+    },
+    { batchDelayMs: 0 },
+  );
+  // 契约：flush 不抛错（失败仅 warn）。旧实现 getEvents 在 try 外，会 reject 且定时器路径
+  // `void this.flush()` 变成未处理 Promise rejection。
+  await persister.flush();
+  assert.strictEqual(storage.writes.length, 0);
+  persister.dispose();
+});

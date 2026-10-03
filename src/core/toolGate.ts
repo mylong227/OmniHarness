@@ -95,7 +95,16 @@ export class ToolGate implements ToolGatePort {
    */
   private async denialReason(call: ToolCall, sessionId: string): Promise<string | undefined> {
     // 计划门禁（最先判：未批准前禁止任何写类工具，哪怕审批/沙箱放行）。
-    if (this.planMode && this.plan !== undefined && MUTATING_TOOLS.has(call.name)) {
+    // fail-closed（2026-10-03 修）：`planMode=true` 而 `plan` 缺省时，写类工具**一律拒绝**——
+    // 旧条件 `this.plan !== undefined` 让「声明了计划模式却没接计划端口」的手动/测试构造
+    // 形态静默退化为无计划门禁（正是本文件 `FAIL_CLOSED_ELEVATED_SANDBOX` 要防的同型漏洞）。
+    if (this.planMode && MUTATING_TOOLS.has(call.name)) {
+      if (this.plan === undefined) {
+        return (
+          `plan mode 已开启但计划端口未注入：写类工具（${call.name}）fail-closed 拒绝` +
+          '（修复计划端口接线，或关闭 plan mode）'
+        );
+      }
       const state = this.plan.get();
       if (state === null) {
         return `plan mode 未提交计划：写类工具（${call.name}）需先 plan_write 提交计划并 plan_present 经用户批准后才能执行`;

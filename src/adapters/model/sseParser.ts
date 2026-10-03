@@ -4,14 +4,21 @@ export interface SseEvent {
   readonly data: string;
 }
 
-/** SSE 解析器：从流式响应逐事件解析（OpenAI / Anthropic 共用）。 */
+/** SSE 解析器：从流式响应逐事件解析（OpenAI / Anthropic / Responses 共用）。 */
 export class SseParser {
   /** 读取流并回调每个事件。
-   * 协议行为：按 SSE 规范以空行（\n\n）分帧；跨块字节数据先经 TextDecoder 流式解码再拼接，
-   * 不完整的事件块留待下一块；流结束后把残余缓冲尽力发出（非空才回调）。
+   * 协议行为：按 SSE 规范以空行分帧；行终止符 LF / CRLF / CR 三态都认（2026-10-03 修：
+   * 旧实现只认 `\n\n`，遇到以 CRLF 分帧的服务器/代理时整条流塌缩成一个块，多事件 data 行
+   * 被拼接后 JSON.parse 必炸）；跨块字节数据先经 TextDecoder 流式解码再拼接，不完整的事件块
+   * 留待下一块；流结束后把残余缓冲尽力发出（非空才回调）。
+   *
+   * 连接清理（2026-10-03 修）：读取循环包 `finally`——正常结束或 `onEvent` 抛错（如适配器
+   * 对流中 error 事件上抛）都取消 reader，释放底层连接；旧实现异常路径既不 cancel 也不
+   * releaseLock，socket 依赖 GC 回收，反复错误下会耗尽连接池。
+   *
    * @param stream 响应体字节流。
    * @param onEvent 每解析出一个完整事件块回调一次（含 event 名与 data 文本）。
-   
+
    * @returns 无返回值。
    */
   public async read(
@@ -21,21 +28,29 @@ export class SseParser {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        // SSE 规范：行终止符可为 LF、CRLF 或裸 CR，统一归一为 LF 再分帧
+        //（残余块可能以半个 CRLF 结尾，归一放在每次拼接后即可，CR 不会横跨 split 边界残留）。
+        buffer = buffer.replace(/\r\n/gu, '\n').replace(/\r/gu, '\n');
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() ?? '';
+        for (const block of blocks) {
+          this.emitBlock(block, onEvent);
+        }
       }
-      buffer += decoder.decode(value, { stream: true });
-      const blocks = buffer.split('\n\n');
-      buffer = blocks.pop() ?? '';
-      for (const block of blocks) {
-        this.emitBlock(block, onEvent);
+      buffer += decoder.decode();
+      if (buffer.trim() !== '') {
+        this.emitBlock(buffer, onEvent);
       }
-    }
-    buffer += decoder.decode();
-    if (buffer.trim() !== '') {
-      this.emitBlock(buffer, onEvent);
+    } finally {
+      // 失败/中断路径也释放连接；正常完成后 cancel 是无害 no-op。取消失败静默（清理兜底）。
+      await reader.cancel().catch(() => undefined);
     }
   }
 

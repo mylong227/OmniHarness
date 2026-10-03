@@ -73,7 +73,13 @@ export class RetryingModel implements ModelPort {
     this.name = inner.name;
     if (inner.stream !== undefined) {
       const innerStream = inner.stream.bind(inner);
-      this.stream = (request, callbacks) => this.run(() => innerStream(request, callbacks));
+      // 流式重试语义（2026-10-03 审计 D4 权衡后**保留重试**）：首次尝试已向 live sink
+      // 投递过增量（onText/onToolInput）再失败时，重试会让终端出现「前缀 + 全文」的重复
+      // 显示——但这是 **--stream-text 观感缺陷**；核心循环只消费最终完整输出（stepRunner
+      // 在 await 之后才记录 assistant 事件），改 fail-fast 会把「可恢复的瞬态断流」升级成
+      // 整回合硬失败，能力上是净倒退。故重试语义不变，观感代价如实登记于此。
+      this.stream = (request, callbacks) =>
+        this.run(() => innerStream(request, callbacks), request.signal);
     }
   }
 
@@ -82,18 +88,21 @@ export class RetryingModel implements ModelPort {
    * @returns 首次成功的输出；不可重试错误或达到最大尝试次数后上抛最后一个错误。
    */
   public generate(request: ModelRequest): Promise<ModelOutput> {
-    return this.run(() => this.inner.generate(request));
+    return this.run(() => this.inner.generate(request), request.signal);
   }
 
   /** 执行 + 重试主循环。
    * @param fn 单次尝试的异步操作（generate 或 stream 的包装）。
+   * @param signal 可选取消信号：尝试间与退避等待期间检查（2026-10-03 修，审计 D10——
+   *   旧实现退避等待不可取消，用户按「停止」后仍要睡满 Retry-After/指数退避窗口）。
    * @returns 首次成功的结果；不可重试或次数耗尽时抛出最后捕获的错误。
    */
-  private async run(fn: () => Promise<ModelOutput>): Promise<ModelOutput> {
+  private async run(fn: () => Promise<ModelOutput>, signal?: AbortSignal): Promise<ModelOutput> {
     let attempt = 0;
     let lastError: unknown = new Error('unreachable');
     while (true) {
       attempt += 1;
+      RetryingModel.assertNotAborted(signal);
       try {
         return await fn();
       } catch (err) {
@@ -101,10 +110,49 @@ export class RetryingModel implements ModelPort {
         if (attempt >= this.policy.maxAttempts || !RetryingModel.isRetryable(err)) {
           break;
         }
-        await this.delay(this.delayFor(err, attempt));
+        await this.waitBackoff(err, attempt, signal);
       }
     }
     throw lastError;
+  }
+
+  /**
+   * 退避等待（可取消）：等待期间信号置位即提前返回，下一轮循环的 assertNotAborted
+   * 会以 AbortError 终止——「停止」在退避窗口内也即时生效。
+   * @param err 刚捕获的错误（决定 Retry-After 优先的等待时长）。
+   * @param attempt 即将进行的尝试序号。
+   * @param signal 可选取消信号。
+   * @returns 等待结束（自然到期或被取消）后的 Promise。
+   */
+  private async waitBackoff(err: unknown, attempt: number, signal?: AbortSignal): Promise<void> {
+    const ms = this.delayFor(err, attempt);
+    if (signal === undefined) {
+      await this.delay(ms);
+      return;
+    }
+    await Promise.race([
+      this.delay(ms),
+      new Promise<void>((resolve) => {
+        if (signal.aborted) {
+          resolve();
+          return;
+        }
+        signal.addEventListener('abort', () => resolve(), { once: true });
+      }),
+    ]);
+  }
+
+  /**
+   * 信号已置位即抛 AbortError（不再发起新尝试；用户取消不是模型健康度事件）。
+   * @param signal 可选取消信号。
+   * @returns 无返回值；已取消时抛出。
+   */
+  private static assertNotAborted(signal?: AbortSignal): void {
+    if (signal !== undefined && signal.aborted) {
+      const abort = new Error('模型调用已被取消（重试前检查到 AbortSignal 已置位）');
+      abort.name = 'AbortError';
+      throw abort;
+    }
   }
 
   /** 计算本次等待毫秒：优先采用 Retry-After，否则指数退避 × 抖动，封顶 maxDelayMs。

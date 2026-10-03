@@ -204,3 +204,59 @@ test('R6：文档侧分词保留词频（查询侧仍去重）——tf 与 k1 �
     'tf 生效后两篇文档分数必须不同（旧实现完全相同）',
   );
 });
+
+// ---- 2026-10-03 审计清偿（C4/C11）：expandedTokens 的 Unicode 口径与代理对 ----
+
+test('expandedTokens：假名/谚文查询产有效 token（R9 修复同步到查询与符号文档共用路径）', () => {
+  // 旧实现 expandedTokens 仍用 pre-R9 的 ASCII/汉字区间：假名产零 token ⇒ 日文查询
+  // 在 morph 默认开的生产检索路径完全不可检索（tokenize 已修、这条更热的路径漏修）。
+  const jp = Bm25Index.tokenizeExpanded('ファイルを読む');
+  assert.ok(jp.length > 0, '日文查询必须产 token');
+  assert.ok(
+    jp.includes('ファ') || jp.includes('フ'),
+    `应含假名 token/二元组：${JSON.stringify(jp)}`,
+  );
+  const kr = Bm25Index.tokenizeExpanded('파일 읽기');
+  assert.ok(kr.length > 0, '谚文查询必须产 token');
+});
+
+test('expandedTokens：带音标拉丁词不再被切碎（与 tokenize 同口径）', () => {
+  const tokens = Bm25Index.tokenizeExpanded('naïve café');
+  assert.ok(tokens.includes('naïve'), `带音标词应整体成词：${JSON.stringify(tokens)}`);
+});
+
+test('tokenize / expandedTokens：星形扩展区字符不产生孤立代理项（C11）', () => {
+  // 孤立代理项判定：高代理后必须紧跟低代理，低代理前必须紧跟高代理；
+  // 合法代理对（一个完整码点）不算孤立项。
+  const hasLoneSurrogate = (s: string): boolean => {
+    for (let i = 0; i < s.length; i += 1) {
+      const c = s.charCodeAt(i);
+      const high = c >= 0xd800 && c <= 0xdbff;
+      const low = c >= 0xdc00 && c <= 0xdfff;
+      const nextPaired =
+        i + 1 < s.length && s.charCodeAt(i + 1) >= 0xdc00 && s.charCodeAt(i + 1) <= 0xdfff;
+      const prevPaired = i > 0 && s.charCodeAt(i - 1) >= 0xd800 && s.charCodeAt(i - 1) <= 0xdbff;
+      if ((high && !nextPaired) || (low && !prevPaired)) return true;
+    }
+    return false;
+  };
+  const astral = '𠀀𠀁'; // CJK Ext B，UTF-16 下每字符为代理对
+  for (const t of Bm25Index.tokenize(astral)) {
+    assert.ok(!hasLoneSurrogate(t), `token 不得含孤立代理项：${JSON.stringify(t)}`);
+  }
+  for (const t of Bm25Index.tokenizeExpanded(astral)) {
+    assert.ok(!hasLoneSurrogate(t), `扩展 token 不得含孤立代理项：${JSON.stringify(t)}`);
+  }
+  // 旧行为对照：`run[i]`/`slice(i,i+2)` 码元切分会产出单代理项 token（此处钉死新行为）。
+  assert.ok(Bm25Index.tokenize(astral).includes('𠀀'), '完整码点应作为单字 token 保留');
+});
+
+test('端到端：日文查询能命中含日文注释的文档（expandedTokens 查询侧 ∪ 文档侧）', () => {
+  const index = new Bm25Index();
+  index.addDocuments([
+    Bm25Index.tokenizeExpandedCounted('function readFile(): ファイルを読み込む'),
+    Bm25Index.tokenizeExpandedCounted('function writeFile(): 書き込む'),
+  ]);
+  const hits = index.search(Bm25Index.tokenizeExpanded('ファイル'), 2);
+  assert.strictEqual(hits[0]?.id, 0, '日文查询必须命中日文文档（旧实现两文档零命中）');
+});

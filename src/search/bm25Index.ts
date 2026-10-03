@@ -232,18 +232,20 @@ export class Bm25Index {
       match = ascii.exec(lower);
     }
     // CJK（含扩展区）+ 日文假名 + 谚文：逐字 + 二元组（与原先对汉字的口径一致）。
+    // 码点迭代而非 UTF-16 码元下标（2026-10-03 修）：`run[i]` 对星形扩展区字符（CJK Ext B 等）
+    // 产出孤立代理项、`slice(i, i+2)` 错位成对——`Array.from` 取完整码点后再组二元组。
     const cjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+/gu;
     match = cjk.exec(lower);
     while (match !== null) {
-      const run = match[0];
-      for (let i = 0; i < run.length; i += 1) {
-        const ch = run[i];
+      const cps = Array.from(match[0]);
+      for (let i = 0; i < cps.length; i += 1) {
+        const ch = cps[i];
+        const next = cps[i + 1];
         if (ch !== undefined) {
           tokens.push(ch);
         }
-        if (i + 1 < run.length) {
-          const bigram = run.slice(i, i + 2);
-          tokens.push(bigram);
+        if (ch !== undefined && next !== undefined) {
+          tokens.push(ch + next);
         }
       }
       match = cjk.exec(lower);
@@ -353,7 +355,12 @@ export class Bm25Index {
       }
     };
 
-    const ascii = /[A-Za-z0-9_]+/g;
+    // Unicode 口径与 `tokenize` 对齐（2026-10-03 修）：`expandedTokens` 是**查询侧**
+    // （candidateSearch / grepTopKFiles / lsaEngine.query）与**符号文档侧**
+    // （tokenizeExpandedCounted）的共用实现——此前仍用 pre-R9 的 ASCII/汉字区间，
+    // 假名/谚文/带音标拉丁词在这里产零 token 或碎片 ⇒ 日韩查询在 morph 默认开的生产
+    // 检索路径完全不可检索（R9 只修了 `tokenize`，漏了这条更热的路径）。
+    const ascii = /[\p{Script=Latin}\p{N}_]+/gu;
     let m = ascii.exec(text);
     while (m !== null) {
       const word = m[0];
@@ -370,21 +377,23 @@ export class Bm25Index {
       m = ascii.exec(text);
     }
 
-    // CJK 沿用单字 + 二元组（无形态变化，不参与归并）。
-    const cjk = /[一-鿿]+/g;
+    // CJK 沿用单字 + 二元组（无形态变化，不参与归并）；码点迭代防孤立代理项（同 tokenize）。
+    const cjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+/gu;
     m = cjk.exec(text);
     while (m !== null) {
-      const run = m[0];
-      for (let i = 0; i < run.length; i += 1) {
-        const ch = run[i];
-        if (ch !== undefined) {
-          if (dedup) out.add(ch);
-          else list.push(ch);
+      const cps = Array.from(m[0]);
+      for (let i = 0; i < cps.length; i += 1) {
+        const ch = cps[i];
+        const next = cps[i + 1];
+        if (ch === undefined) {
+          continue;
         }
-        if (i + 1 < run.length) {
-          const bigram = run.slice(i, i + 2);
-          if (dedup) out.add(bigram);
-          else list.push(bigram);
+        if (dedup) {
+          out.add(ch);
+          if (next !== undefined) out.add(ch + next);
+        } else {
+          list.push(ch);
+          if (next !== undefined) list.push(ch + next);
         }
       }
       m = cjk.exec(text);

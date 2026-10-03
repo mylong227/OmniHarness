@@ -45,8 +45,17 @@ test('StringReplaceEditor：CRLF 与行尾空白差异经空白折叠命中', ()
   const outcome = editor.replace(original, { oldText: 'a\nb', newText: 'A\nB' });
   assert.strictEqual(outcome.ok, true);
   // 折叠匹配把 `a  \r\nb` 整体视作一处（差异空白随被替换段一起消失）。
-  assert.strictEqual(outcome.content, 'A\nB\r\nc\r\n');
+  // 2026-10-03 修（审计 T2）：插入文本继承原文主导行尾（CRLF）——旧实现原样插入 LF，
+  // 每次 edit 都往 CRLF 文件里塞 LF 行，制造混合行尾污染后续 diff/patch。
+  assert.strictEqual(outcome.content, 'A\r\nB\r\nc\r\n');
   assert.strictEqual(outcome.matchKind, 'whitespace');
+});
+
+test('StringReplaceEditor：LF 主导文件的 CRLF 插入同样被归一（反向）', () => {
+  const editor = new StringReplaceEditor();
+  const outcome = editor.replace('x\ny\n', { oldText: 'x\r\ny', newText: 'X\r\nY' });
+  assert.strictEqual(outcome.ok, true);
+  assert.strictEqual(outcome.content, 'X\nY\n');
 });
 
 test('StringReplaceEditor：整段粘贴 read_file 的带行号内容（含前缀）仍能命中', () => {

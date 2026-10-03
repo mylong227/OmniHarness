@@ -180,6 +180,17 @@ export class CheckpointManager implements CheckpointManagerPort {
     const events = await this.storage.load(
       CheckpointManager.checkpointKey(sessionId, target.label),
     );
+    // fail-closed（2026-10-03 修）：索引里有该检查点、但载荷丢失/损坏时，绝不能用残缺快照
+    // 覆盖主会话日志——三个存储后端对缺失 key 都返回 []，jsonl 对坏行跳过并告警，历史上这条
+    // 路径会把全部会话历史无声清空（类文档宣称 fail-closed，实际只挡了「索引里没有」）。
+    // 判据按 meta.eventCount 分档：eventCount>0 而载得 0 条 = 载荷丢失；条数不一致 = 半截载荷。
+    // eventCount===0 的纯文件快照（文件回滚用途，事件为空是合法形态）不受影响。
+    if (events.length !== target.eventCount) {
+      throw new Error(
+        `检查点载荷缺失或损坏: ${target.label}（索引记录 ${String(target.eventCount)} 条事件，` +
+          `实际载得 ${String(events.length)} 条，拒绝用残缺快照覆盖主会话）`,
+      );
+    }
     await this.storage.save(sessionId, events);
     if (target.hasFileSnapshot && this.snapshotter !== undefined) {
       await this.restoreFiles(sessionId, target.label);

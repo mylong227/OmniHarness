@@ -9,6 +9,7 @@ import type {
 } from '../../ports/model/model.js';
 import { ModelCallError } from '../../ports/model/model.js';
 import { ModelRequestGuard } from './modelRequestGuard.js';
+import { log } from '../../util/logger.js';
 import { RequestStallGuard } from './requestStallGuard.js';
 
 /**
@@ -310,6 +311,11 @@ export class LlamaCppModel implements ModelPort {
         ? (parsed as Record<string, unknown>)
         : {};
     } catch {
+      // 静默 {} 会让工具带空参数执行且根因不可归因（审计 D5），必须留痕。
+      log.warn('model.tool_arguments.invalid_json', {
+        raw: raw.slice(0, 200),
+        rawLength: raw.length,
+      });
       return {};
     }
   }

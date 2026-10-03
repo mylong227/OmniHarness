@@ -144,6 +144,41 @@ describe('仓库常驻指令加载', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  it('非路径 @ 行原样保留，不再被误判为 import 并替换成注释（2026-10-03 修 C8）', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'omni-at-'));
+    await writeFile(join(dir, 'AGENTS.md'), '@velocity 3\n@see docs/x.md\n@everyone 请注意\n');
+
+    const result = await ProjectInstructions.loadProjectInstructions({
+      workspaceRoot: dir,
+      home,
+      cwd: dir,
+    });
+
+    assert.notStrictEqual(result, null);
+    // 用户指令必须逐行保留——旧实现把这三行都解析成「import 路径」→ 读不到 → 替换成
+    // `<!-- 已忽略不可读引用 -->`，指令无声丢失。
+    assert.ok(result!.content.includes('@velocity 3'), '@velocity 3 必须原样保留');
+    assert.ok(result!.content.includes('@see docs/x.md'), '@see 行必须原样保留');
+    assert.ok(result!.content.includes('@everyone 请注意'), '@everyone 行必须原样保留');
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('带 BOM 的文件首行 @import 仍能展开（2026-10-03 修 C8 附带项）', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'omni-bom-'));
+    await writeFile(join(dir, 'shared.md'), '共享约定内容');
+    await writeFile(join(dir, 'AGENTS.md'), '\uFEFF@import ./shared.md');
+
+    const result = await ProjectInstructions.loadProjectInstructions({
+      workspaceRoot: dir,
+      home,
+      cwd: dir,
+    });
+
+    assert.notStrictEqual(result, null);
+    assert.ok(result!.content.includes('共享约定内容'), 'BOM 不得阻断首行 import 展开');
+    await rm(dir, { recursive: true, force: true });
+  });
+
   it('超出容量上限时截断并标记 truncated', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'omni-limit-'));
     await writeFile(join(dir, 'AGENTS.md'), 'A'.repeat(1000));
