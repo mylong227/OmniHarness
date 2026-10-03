@@ -13,10 +13,23 @@ test('fromToolName：公网抓取类工具 → external', () => {
   assert.strictEqual(ToolOutputTrust.fromToolName('web_fetch'), 'external');
 });
 
-test('fromToolName：工作区文件 / 记忆检索类工具 → file', () => {
-  for (const name of ['read_file', 'list_dir', 'memory_search', 'recall', 'spill_read']) {
+test('fromToolName：工作区文件类工具 → file（记忆已单列，见下一例）', () => {
+  for (const name of ['read_file', 'list_dir', 'spill_read']) {
     assert.strictEqual(ToolOutputTrust.fromToolName(name), 'file', name);
   }
+});
+
+test('fromToolName：记忆检索 → memory 档（G5 收紧：不与工作区文件同档）', () => {
+  // 理由：记忆**跨会话持久**（一次注入写进去，之后每次召回都带回来）且**来源不可追溯**
+  //（抽取器总结的可能是 web_search / web_fetch 的产物）。持久化的注入面比一次性抓取更危险。
+  for (const name of ['memory_search', 'recall']) {
+    assert.strictEqual(ToolOutputTrust.fromToolName(name), 'memory', name);
+  }
+  assert.strictEqual(
+    ToolOutputTrust.weakEvidenceThreshold('memory'),
+    1,
+    '记忆必须与 external 同档（阈值 1）；放宽只能经 promptInjectionGuardThresholds 显式覆盖',
+  );
 });
 
 test('fromToolName：本机进程执行类工具 → local', () => {
@@ -39,20 +52,23 @@ test('fromToolName：大小写与首尾空白归一', () => {
 test('weakEvidenceThreshold：来源越不可信阈值越低', () => {
   assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('external'), 1);
   assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('unknown'), 1);
+  assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('memory'), 1, '记忆与 external 同档');
   assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('file'), 2);
   assert.strictEqual(ToolOutputTrust.weakEvidenceThreshold('local'), 3);
 });
 
 test('labelOf：返回中文标签', () => {
   assert.strictEqual(ToolOutputTrust.labelOf('external'), '外部抓取');
+  assert.strictEqual(ToolOutputTrust.labelOf('memory'), '长期记忆');
   assert.strictEqual(ToolOutputTrust.labelOf('file'), '文件内容');
   assert.strictEqual(ToolOutputTrust.labelOf('local'), '本机命令');
   assert.strictEqual(ToolOutputTrust.labelOf('unknown'), '未知来源');
 });
 
-test('isUntrusted：external/unknown 为不可信档', () => {
+test('isUntrusted：external/unknown/memory 为不可信档', () => {
   assert.strictEqual(ToolOutputTrust.isUntrusted('external'), true);
   assert.strictEqual(ToolOutputTrust.isUntrusted('unknown'), true);
+  assert.strictEqual(ToolOutputTrust.isUntrusted('memory'), true, '记忆档属不可信（弱证据即拦）');
   assert.strictEqual(ToolOutputTrust.isUntrusted('file'), false);
   assert.strictEqual(ToolOutputTrust.isUntrusted('local'), false);
 });

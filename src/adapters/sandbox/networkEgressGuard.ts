@@ -28,6 +28,25 @@ export type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEg
 
 /** 网络外联策略门。 */
 export class NetworkEgressGuard {
+  /**
+   * 本守卫**实际覆盖**的外联面（G5，2026-10-03：把"守住了什么"变成可读事实，供 `doctor` 如实转述）。
+   *
+   * 为什么要有它：本守卫的实现方式是**包一层 `globalThis.fetch`**（见类头"接入点"），因此它守的是
+   * "Node 进程内经 fetch 发起的外联"。而 `shell` 工具起的子进程（`curl` / `certutil` / 语言运行时的
+   * 原生 socket）**根本不经过这个咽喉**——它们由操作系统直接建连。把这件事写进常量而不是仅写在注释里，
+   * 是为了让诊断输出与声明**同源**：改这里即改声明，不存在两处各说一套。
+   */
+  public static readonly COVERAGE = {
+    /** 真正被拦截的外联入口（实现层清单）。 */
+    surfaces: ['globalThis.fetch'] as readonly string[],
+    /** shell 子进程是否受本守卫约束——**恒为 false**（受约束需要 OS 级网络隔离，见报告 §3.5）。 */
+    shellSubprocessGuarded: false,
+    /** 依据（可复核）。 */
+    basis:
+      '实现为包一层 globalThis.fetch；shell 子进程（curl/certutil/原生 socket）不经此咽喉，' +
+      '故不得声称"已阻断 shell 出网"',
+  } as const;
+
   /** 白名单主机集（已规整为小写主机，按后缀匹配）。 */
   private readonly allowed: ReadonlySet<string>;
   /** 是否拦截私有/链路本地地址（SSRF 防护，默认 true，白名单无法覆盖）。 */
