@@ -19,8 +19,7 @@ import { ConfigFactory } from '../config/configFactory.js';
 import { CliSkillFlags } from './cliSkillFlags.js';
 import { CliSubsystemSections } from './cliSubsystemSections.js';
 import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
-import type { ResolvedConfig } from '../config/configFactory.js';
-import type { ExtraTool } from '../config/configFactory.js';
+
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
@@ -63,6 +62,8 @@ import { KvStoreFactory } from './kvStoreFactory.js';
 import { CredentialResolver } from '../config/credentialResolver.js';
 import { CryptoVault } from '../adapters/vault/cryptoVault.js';
 import type { CliArgs } from './argParser.js';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import type { ExtraTool } from '../ports/tool/extraTool.js';
 
 /**
  * F3 凭据水合的内置默认名列表。

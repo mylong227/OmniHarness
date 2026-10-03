@@ -1,4 +1,3 @@
-import type { ResolvedConfig } from '../../config/configFactory.js';
 import { Container } from '../../core/container.js';
 import { ServiceKeys } from '../../composition/runtime.js';
 import { PluginManager } from '../../plugin/pluginManager.js';
@@ -13,6 +12,7 @@ import {
 import type { PluginRegistry } from '../../plugin/pluginRegistry.js';
 import { jsonRpc } from '../core/jsonRpc.js';
 import type { Transport } from '../transport/lineTransport.js';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
 
 /** 插件宿主依赖。 */
 export interface PluginHostDeps {

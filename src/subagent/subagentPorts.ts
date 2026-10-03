@@ -1,5 +1,5 @@
-﻿import type { OmniHarnessRuntime } from '../composition/runtime.js';
-import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
+﻿import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
 
 /**
  * SubagentPortsShape —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

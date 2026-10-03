@@ -38,8 +38,9 @@ import { LspUri } from '../adapters/lsp/lspUri.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
-import type { OmniHarnessConfig, SubagentPortSeed } from './configFactory.js';
+import type { SubagentPortSeed } from './configFactory.js';
 import { MediaStackAssembler } from './mediaStackAssembler.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 
 /** Spill 默认目录（#74：超大工具输出外溢，避免撑爆上下文）。 */
 const DEFAULT_SPILL_DIR = '.omniharness/spill';

@@ -3,13 +3,12 @@ import { join } from 'node:path';
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ToolPort } from '../ports/tool/tool.js';
 import type { ModelPort } from '../ports/model/model.js';
-import type { ResolvedConfig } from '../config/configFactory.js';
-import type { OmniHarnessRuntime } from '../composition/runtime.js';
+
 import type { StoragePort } from '../ports/memory/storage.js';
 import { Container } from '../core/container.js';
 import { ServiceKeys } from '../composition/serviceKeys.js';
 import { ToolGate } from '../core/toolGate.js';
-import type { SubagentPortsShape } from './subagentPorts.js';
+
 import { ToolDiscovery } from '../search/toolDiscovery.js';
 import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
@@ -21,6 +20,9 @@ import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
 import { JsonlStorage } from '../adapters/storage/jsonlStorage.js';
 import { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
 import { CancellableModel } from './cancellableModel.js';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
 
 /**
  * @beta

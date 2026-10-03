@@ -1,14 +1,16 @@
 import type { EventPort } from '../ports/runtime/eventPort.js';
 import type { ToolPort } from '../ports/tool/tool.js';
-import type { OmniHarnessRuntime } from '../composition/runtime.js';
+
 import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
 import { FilteredToolPort } from '../core/filteredToolPort.js';
 import { MUTATING_TOOLS } from '../core/toolGate.js';
 import { Agent } from '../core/agent.js';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
-import { SubagentPorts, type SubagentPortsShape } from '../subagent/subagentPorts.js';
+import { SubagentPorts } from '../subagent/subagentPorts.js';
 import type { DelegateRequest, DelegateResult } from './a2aProtocol.js';
 import type { TaskHandler } from './a2aServer.js';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
 
 /** A2A 委托处理默认并发上限（对等方可能突发大量委托，需有界闸门避免资源耗尽）。 */
 const DEFAULT_A2A_CONCURRENCY = 4;

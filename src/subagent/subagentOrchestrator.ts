@@ -4,7 +4,7 @@ import { log } from '../util/logger.js';
 import { Id } from '../util/id.js';
 import { SubagentRunner } from './subagentRunner.js';
 import { WorktreeOps, type Worktree } from './worktreeOps.js';
-import type { SubagentPortsShape } from './subagentPorts.js';
+
 import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
 import {
   CANCELLED_BY_PARENT_MESSAGE,
@@ -12,6 +12,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_SUBAGENT_MAX_STEPS,
 } from './subagentTypes.js';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
 
 /**
  * @beta

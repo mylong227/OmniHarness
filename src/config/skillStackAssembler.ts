@@ -5,8 +5,7 @@ import { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js
 import { ElementComposer } from '../adapters/skill/elementComposer.js';
 import { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
 import { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-
-import type { OmniHarnessConfig } from './configFactory.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 
 /**
  * SkillStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

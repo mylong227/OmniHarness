@@ -9,7 +9,7 @@
 import { Agent } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
 import { ConfigFactory } from '../config/configFactory.js';
-import type { ResolvedConfig } from '../config/configFactory.js';
+
 import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
 import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
@@ -17,6 +17,7 @@ import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
 import { CliDefaults, MODEL_ADAPTERS, CliFlagTable } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import { CliDataCmds } from './cliDataCmds.js';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 
 /** A/B 模型对比类子命令。 */
 export class CliCompareCmds extends CliDataCmds {

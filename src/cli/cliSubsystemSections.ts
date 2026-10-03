@@ -21,7 +21,7 @@
  */
 
 import type { CliArgs } from './argParser.js';
-import type { OmniHarnessConfig } from '../config/configFactory.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 
 /** 可选子系统段映射器（无状态，纯函数式）。 */
 export class CliSubsystemSections {
