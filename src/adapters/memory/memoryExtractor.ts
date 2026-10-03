@@ -3,6 +3,7 @@ import type { LongTermMemoryPort, MemoryFact } from '../../ports/memory/longTerm
 import type { ModelPort, ModelRequest } from '../../ports/model/model.js';
 import type { SessionEvent } from '../../ports/runtime/event.js';
 import type { MemoryExtractorPort } from '../../ports/memory/memoryExtractor.js';
+import { log } from '../../util/logger.js';
 
 /**
  * @beta
@@ -80,15 +81,36 @@ export class MemoryExtractor implements MemoryExtractorPort {
     if (transcript.length > 0) {
       const extracted = await this.extract(transcript);
       const max = this.opts.maxFactsPerTurn ?? 8;
-      const existing = new Set(
-        this.store.all().map((fact) => MemoryExtractor.normalize(fact.text)),
-      );
+      // 已有事实的**字符集**指纹（近似判定的输入；每次 consolidate 重建，含本轮刚写入的）。
+      const known = this.store
+        .all()
+        .map((fact) => ({ id: fact.id, ...MemoryExtractor.fingerprintOf(fact.text) }));
       for (const text of extracted) {
         if (added >= max) {
           break;
         }
         const norm = MemoryExtractor.normalize(text);
-        if (norm === '' || existing.has(norm)) {
+        if (norm === '') {
+          continue;
+        }
+        const next = MemoryExtractor.fingerprintOf(text);
+        // G9/M2（2026-10-03）：写入质量三态——**近似重复**（不新增）/ **冲突替代**（旧事实失效）/
+        // **新事实**（入库）。判定全靠本类内的确定性启发式（无模型、可离线判死），细节见
+        // `classifyAgainst` 的 JSDoc 与阈值常量。
+        let superseded: string | undefined;
+        let duplicated = false;
+        for (const prev of known) {
+          const verdict = MemoryExtractor.classifyAgainst(next, prev);
+          if (verdict === 'duplicate') {
+            duplicated = true;
+            break;
+          }
+          if (verdict === 'supersede') {
+            superseded = prev.id;
+            break;
+          }
+        }
+        if (duplicated) {
           continue;
         }
         const fact: MemoryFact = {
@@ -103,7 +125,18 @@ export class MemoryExtractor implements MemoryExtractorPort {
           ...(includeToolOutput ? { trust: 'untrusted' as const } : {}),
         };
         this.store.remember(fact);
-        existing.add(norm);
+        known.push({ id: fact.id, ...next });
+        if (superseded !== undefined) {
+          // **不删除**旧事实：按端口既有语义置 `expiresAt`（到点后 `recall` 不再召回，历史仍可查）。
+          // 记忆的失败方向必须是"留下多余事实"而不是"悄悄删掉真事实"。
+          const nowIso = new Date().toISOString();
+          this.store.update(superseded, { expiresAt: nowIso });
+          log.info(`记忆冲突替代：旧事实 ${superseded} 失效（新事实 ${fact.id} 取而代之）`, {
+            event: 'memory_superseded',
+            oldId: superseded,
+            newId: fact.id,
+          });
+        }
         added += 1;
       }
     }
@@ -228,5 +261,94 @@ export class MemoryExtractor implements MemoryExtractorPort {
       .replace(/[\p{P}\p{S}]/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  /**
+   * 事实指纹（G9/M2，2026-10-03）：拆成**骨架**（非 ASCII 字符集）与**值位**（ASCII 词元）。
+   *
+   * ## 为什么这样拆
+   *
+   * 实测：纯字符相似度抓不到**值位替换**——`沙箱默认档是 policy` 与 `… 是 restricted` 的字符
+   * Dice 只有 **0.64**（被换掉的英文词贡献了大量差异字符），于是"被推翻的旧事实无法替代"这个
+   * 原始缺陷依旧存在。拆开后：骨架 `沙箱默认档是` 完全相同、值位 `{policy}` vs `{restricted}` 不同
+   * ⇒ 一眼可判"骨架没变、值变了"。
+   *
+   * 中英混排 + 中文无分词是拆分的直接理由：ASCII 词元（含数字）当"值"，其余字符当"骨架"。
+   * @param text 原始事实文本。
+   * @returns 骨架字符集与值位词元表。
+   */
+  private static fingerprintOf(text: string): {
+    readonly skeleton: ReadonlySet<string>;
+    readonly values: readonly string[];
+  } {
+    const norm = MemoryExtractor.normalize(text);
+    // **不依赖空格**：中文常把英文词粘在一起（"是policy"、"新事实A"），按空格切会得到空值位
+    // （2026-10-03 实测教训：那会让值位恒为空 ⇒ 一切都被当成"重复"⇒ 新增事实被静默丢弃）。
+    const values = norm.match(/[a-z0-9_]+/g) ?? [];
+    return {
+      skeleton: new Set([...norm.replace(/[a-z0-9_]/g, '').replace(/\s+/g, '')]),
+      values: [...new Set(values)].sort(),
+    };
+  }
+
+  /** 骨架相似度阈值：骨架 Dice ≥ 此值即认为"说的是同一件事（同一骨架）"。 */
+  private static readonly SAME_THING_DICE = 0.85;
+
+  /**
+   * 值位是否逐字相同（两侧都已排序去重 ⇒ 可直接逐位比较）。
+   * @param a 值位 A。
+   * @param b 值位 B。
+   * @returns 相同为 true。
+   */
+  private static valuesEqual(a: readonly string[], b: readonly string[]): boolean {
+    return a.length === b.length && a.every((value, i) => value === b[i]);
+  }
+
+  /**
+   * 判定新事实与**某一条既有事实**的关系（G9/M2 的核心启发式，确定性、无模型、离线可判）。
+   *
+   * ## 三态
+   *
+   * 1. `duplicate`（**不新增**）：骨架 Dice ≥ {@link SAME_THING_DICE} 且**值位相同**
+   *    ⇒ 同一事实的改写（语序/虚词/标点变化，例如"项目用 pnpm 管理依赖" ↔ "项目的依赖用 pnpm 管理"）；
+   *    或任一侧没有值位而骨架高度重合（退化表述，不新增噪声）。
+   * 2. `supersede`（**新事实入库，旧事实置失效**）：骨架 Dice ≥ {@link SAME_THING_DICE}
+   *    且两侧**都有**值位而**不同** ⇒ 骨架没变、值被改写（`policy` → `restricted`；`pnpm` → `npm`）。
+   * 3. `distinct`（**两条都留**）：其余情形。
+   *
+   * ## 为什么第三个分支是"都留"
+   *
+   * 记忆的失败方向必须偏向"留下多余事实"：把两条其实不同的事实并成一条等于**静默丢信息**
+   * （本仓最忌讳的形态）；多留一条只是噪声。故阈值偏保守，替代一律走 `expiresAt` 失效
+   * （**不删除**，历史仍可查）。
+   *
+   * ## 已知边界（无模型时的硬限制，如实登记）
+   *
+   * **纯同义替换**（用词完全不同、骨架不重合）判不出来——例如骨架差异过大的两种说法会各自入库。
+   * 判语义等价必须有模型；M1 的 A/B 判据也覆盖不了这一条（它测的是注入效果，不是语义）。
+   * @param next 新事实的指纹。
+   * @param prev 既有事实的指纹。
+   * @returns 三态判定。
+   */
+  private static classifyAgainst(
+    next: { readonly skeleton: ReadonlySet<string>; readonly values: readonly string[] },
+    prev: { readonly skeleton: ReadonlySet<string>; readonly values: readonly string[] },
+  ): 'duplicate' | 'supersede' | 'distinct' {
+    if (next.skeleton.size === 0 && prev.skeleton.size === 0) {
+      // 纯英文事实：骨架为空 ⇒ 只能用值位判等（相同即重复，不同则并存——无骨架可比，不臆断冲突）。
+      return MemoryExtractor.valuesEqual(next.values, prev.values) ? 'duplicate' : 'distinct';
+    }
+    let shared = 0;
+    for (const ch of next.skeleton) {
+      if (prev.skeleton.has(ch)) shared += 1;
+    }
+    const dice = (2 * shared) / (next.skeleton.size + prev.skeleton.size);
+    if (dice < MemoryExtractor.SAME_THING_DICE) {
+      return 'distinct';
+    }
+    if (next.values.length === 0 || prev.values.length === 0) {
+      return 'duplicate';
+    }
+    return MemoryExtractor.valuesEqual(next.values, prev.values) ? 'duplicate' : 'supersede';
   }
 }
