@@ -64,7 +64,11 @@ export class McpServer {
   /** 列举工具（本地定义 → MCP 描述）。 */
   private async listTools(): Promise<unknown> {
     return {
-      tools: this.options.tools.list().map((definition) => mcpToolMapper.toDescriptor(definition)),
+      // T2（2026-10-03）：`tools/list` **确定性排序**（名字升序）——顺序是 prompt 前缀的一部分，
+      // 客户端重连/重启后顺序漂移会让缓存全部失效。`mcpToolMapper` 保持纯函数，排序在这里做一次。
+      tools: [...this.options.tools.list()]
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+        .map((definition) => mcpToolMapper.toDescriptor(definition)),
     };
   }
 

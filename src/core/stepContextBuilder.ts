@@ -237,9 +237,19 @@ export class StepContextBuilder {
    */
   private exposeByRelevance(direct: readonly ToolDefinition[]): readonly ToolDefinition[] {
     if (ToolExposurePlanner.modeFromEnv() !== 'plan') return direct;
+    // T2（2026-10-03）：把工具的**描述 + schema** 一并交给规划器，BM25 检索路才有语料可检索。
+    // 为什么必须在这里接：规划器只看名字时，"描述相关但类别没登记"的必需工具捞不回来
+    //（判据 ③ 就是钉这件事）。声明了参数却没人传，等于没接线——本仓最高频的缺陷形态。
+    const toolTexts = new Map(
+      direct.map((tool) => [
+        tool.name,
+        `${tool.description ?? ''} ${JSON.stringify(tool.parameters ?? {})}`,
+      ]),
+    );
     const plan = ToolExposurePlanner.plan({
       taskText: this.deriveQueryText(this.deps.recorder.allEvents()),
       tools: direct.map((tool) => tool.name),
+      toolTexts,
     });
     if (plan.deferred.length === 0) return direct;
     const keep = new Set(plan.visible);

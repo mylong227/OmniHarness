@@ -33,7 +33,8 @@ const TOOLS = ['read_file', 'write_file', 'shell', 'run_code', 'orphan_tool', 't
 
 test('无信号（任务文本为空）⇒ 全部可见，零延迟', () => {
   const plan = ToolExposurePlanner.plan({ taskText: '', tools: TOOLS, categories: CATEGORIES });
-  assert.deepEqual([...plan.visible], TOOLS);
+  // T2（2026-10-03）：输出改为**名字升序**（确定性排序，与注册顺序无关）⇒ 这里按集合比较。
+  assert.deepEqual([...plan.visible].sort(), [...TOOLS].sort());
   assert.deepEqual([...plan.deferred], []);
   assert.deepEqual([...plan.matchedCategories], []);
   assert.match(plan.reason, /fail-safe/);
@@ -45,7 +46,7 @@ test('无类别命中 ⇒ 全部可见（fail-safe，不少给）', () => {
     tools: TOOLS,
     categories: CATEGORIES,
   });
-  assert.deepEqual([...plan.visible], TOOLS);
+  assert.deepEqual([...plan.visible].sort(), [...TOOLS].sort());
   assert.deepEqual([...plan.deferred], []);
 });
 
@@ -56,8 +57,8 @@ test('命中单一类别 ⇒ 该类 + 未登记工具 + 恒可见通道保留，
     categories: CATEGORIES,
   });
   assert.deepEqual([...plan.matchedCategories], ['exec']);
-  // exec 的两个 + 未登记的 orphan_tool + 恒可见的 tool_search。
-  assert.deepEqual([...plan.visible], ['shell', 'run_code', 'orphan_tool', 'tool_search']);
+  // exec 的两个 + 未登记的 orphan_tool + 恒可见的 tool_search（T2 后为**名字升序**）。
+  assert.deepEqual([...plan.visible], ['orphan_tool', 'run_code', 'shell', 'tool_search']);
   assert.deepEqual([...plan.deferred], ['read_file', 'write_file']);
 });
 

@@ -53,6 +53,21 @@ export interface ToolExposureInput {
   readonly taskText: string;
   /** 全部已注册工具名。 */
   readonly tools: readonly string[];
+  /**
+   * 工具名 → **可检索文本**（描述 + 关键 schema 字段，T2/2026-10-03）。
+   *
+   * 有它时本规划器会跑一次 **BM25 检索**（"先检索再给模型"的规范处方），把检索命中的工具
+   * **并入可见集**——这是**类别关键词命中**覆盖不到的那部分必需工具（例如任务问"审批"，
+   * 而某工具描述里写着"审批"却没被登记进 `approval` 类别的 `tools` 列表）。
+   * 缺省（undefined）⇒ 与旧行为逐位一致（只按类别 + 恒可见 + 未登记），向后兼容。
+   */
+  readonly toolTexts?: ReadonlyMap<string, string> | undefined;
+  /**
+   * BM25 检索保留名额（缺省 **8**；`0` = 关闭检索路）。
+   *
+   * 语义是"**并集**"而非"替换"：检索只增不减 ⇒ 不会因为检索漏召回而丢掉类别该给的工具。
+   */
+  readonly retrievalTopK?: number | undefined;
   /** 类别表；缺省用 {@link ToolExposurePlanner.DEFAULT_CATEGORIES}。 */
   readonly categories?: readonly ToolCategory[] | undefined;
   /** 恒可见工具名（找回 / 澄清 / 回读通道）；缺省用 {@link ToolExposurePlanner.DEFAULT_ALWAYS_VISIBLE}。 */
@@ -372,7 +387,7 @@ export class ToolExposurePlanner {
     const categories = input.categories ?? ToolExposurePlanner.DEFAULT_CATEGORIES;
     const always = new Set(input.alwaysVisible ?? ToolExposurePlanner.DEFAULT_ALWAYS_VISIBLE);
 
-    // ① 无工具或无类别 ⇒ 无从判定，全部可见。
+    // ① 无工具 ⇒ 无从判定，全部可见。
     if (tools.length === 0) {
       return {
         visible: tools,
@@ -386,9 +401,10 @@ export class ToolExposurePlanner {
     const matched = ToolExposurePlanner.matchCategories(normalized, categories);
 
     // ② fail-safe：无类别命中（含任务文本为空）⇒ 全部可见，不冒能力损伤的风险。
+    //    注意顺序也**排序**（见 §确定性排序）：调用方拿到的 schema 块顺序必须与注册顺序无关。
     if (matched.length === 0) {
       return {
-        visible: tools,
+        visible: ToolExposurePlanner.sorted(tools),
         deferred: [],
         matchedCategories: [],
         reason: `无类别命中 ⇒ 全部 ${tools.length} 个工具可见（fail-safe，不少给）`,
@@ -405,23 +421,140 @@ export class ToolExposurePlanner {
       for (const name of category.tools) registered.add(name);
     }
 
+    // ③ T2（2026-10-03）：**BM25 检索优先**（"先检索再给模型"的规范处方）。
+    //    检索只**增**不减：类别命中没覆盖到、但描述里确实相关的工具，靠这一路捞回来
+    //    （判据要求"必需工具召回 100%"，纯类别关键词命中做不到这一点）。
+    const retrieved = ToolExposurePlanner.retrieve(
+      normalized,
+      tools,
+      input.toolTexts,
+      input.retrievalTopK ?? ToolExposurePlanner.DEFAULT_RETRIEVAL_TOP_K,
+    );
+
     const visible: string[] = [];
     const deferred: string[] = [];
     for (const name of tools) {
-      const keep = matchedTools.has(name) || always.has(name) || !registered.has(name);
+      const keep =
+        matchedTools.has(name) || always.has(name) || !registered.has(name) || retrieved.has(name);
       if (keep) visible.push(name);
       else deferred.push(name);
     }
 
     const ids = matched.map((c) => c.id).join(',');
     return {
-      visible,
-      deferred,
+      // **确定性排序**（T2）：输出顺序 = 名字升序，与注册顺序 / 输入数组顺序**无关**。
+      // 为什么重要：schema 块进的是 prompt 前缀，注册顺序一变（插件装载顺序、条件注册）前缀就变，
+      // prompt cache 全废。排序把"同输入恒同输出"从"碰巧成立"变成"构造保证"。
+      visible: ToolExposurePlanner.sorted(visible),
+      deferred: ToolExposurePlanner.sorted(deferred),
       matchedCategories: matched.map((c) => c.id),
       reason:
         `命中类别 [${ids}] ⇒ 保留 ${visible.length}/${tools.length} 个工具` +
-        `（延迟 ${deferred.length} 个，可经 tool_search 找回）`,
+        `（其中 BM25 检索补入 ${retrieved.size} 个；延迟 ${deferred.length} 个，可经 tool_search 找回）`,
     };
+  }
+
+  /** BM25 检索缺省保留名额。 */
+  private static readonly DEFAULT_RETRIEVAL_TOP_K = 8;
+
+  /**
+   * 名字升序（**确定性**；不依赖 `localeCompare`，避免随 ICU/区域设置变化）。
+   * @param names 名字列表。
+   * @returns 升序新数组。
+   */
+  private static sorted(names: readonly string[]): string[] {
+    return [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  }
+
+  /**
+   * BM25 检索：按任务文本给工具文本打分，返回命中的**工具名集合**（T2）。
+   *
+   * ## 为什么自己实现而不是复用 `search/bm25Index.ts`
+   *
+   * 那个是**会话文档**索引：文档带 `sessionId` / `role` / `seq` / `ts`，检索要按会话过滤与去重，
+   * 语义与本处无关。工具语料只有几十篇、每篇一两句 ⇒ 这里用标准 BM25（k1=1.5、b=0.75）四十行就够，
+   * 且**确定性**（无随机、无 Map 迭代顺序依赖）：把会话索引的语义搬进热路径只会带来无关约束。
+   *
+   * ## 分词
+   *
+   * 小写后按非字母数字切分（含 CJK 连续段）；CJK 段额外产出**二元组**（中文无空格，二元组是
+   * 零依赖下最稳的词法交集）。任务文本与工具文本用**同一套**分词，否则交集恒空。
+   *
+   * @param normalizedTask 已小写 trim 的任务文本。
+   * @param tools 全部工具名（结果只在这些名字里）。
+   * @param toolTexts 工具名 → 可检索文本（缺省 ⇒ 不检索，返回空集）。
+   * @param topK 保留名额（≤0 ⇒ 不检索）。
+   * @returns 命中工具名集合（空集 ⇒ 检索路未启用或无命中）。
+   */
+  private static retrieve(
+    normalizedTask: string,
+    tools: readonly string[],
+    toolTexts: ReadonlyMap<string, string> | undefined,
+    topK: number,
+  ): ReadonlySet<string> {
+    if (toolTexts === undefined || topK <= 0 || normalizedTask === '') {
+      return new Set<string>();
+    }
+    const queryTokens = ToolExposurePlanner.retrievalTokens(normalizedTask);
+    if (queryTokens.size === 0) {
+      return new Set<string>();
+    }
+    // 语料：只为**有文本的工具**建索引（缺文本的工具不参与检索，也就不会被"检索"误伤）。
+    const docs = tools
+      .map((name) => ({
+        name,
+        tokens: ToolExposurePlanner.retrievalTokens(toolTexts.get(name) ?? ''),
+      }))
+      .filter((doc) => doc.tokens.size > 0);
+    if (docs.length === 0) {
+      return new Set<string>();
+    }
+    const df = new Map<string, number>();
+    for (const doc of docs) {
+      for (const token of doc.tokens) df.set(token, (df.get(token) ?? 0) + 1);
+    }
+    const avgLen = docs.reduce((sum, doc) => sum + doc.tokens.size, 0) / docs.length;
+    const k1 = 1.5;
+    const b = 0.75;
+    const scored = docs.map((doc) => {
+      let score = 0;
+      for (const token of queryTokens) {
+        const freq = doc.tokens.has(token) ? 1 : 0;
+        if (freq === 0) continue;
+        const docFreq = df.get(token) ?? 0;
+        const idf = Math.log((docs.length - docFreq + 0.5) / (docFreq + 0.5) + 1);
+        score += idf * ((freq * (k1 + 1)) / (freq + k1 * (1 - b + (b * doc.tokens.size) / avgLen)));
+      }
+      return { name: doc.name, score };
+    });
+    // 只保留**有正分**的，且按分数降序、同分按名字升序（确定性）。
+    return new Set(
+      scored
+        .filter((entry) => entry.score > 0)
+        .sort((a, b2) => b2.score - a.score || (a.name < b2.name ? -1 : 1))
+        .slice(0, topK)
+        .map((entry) => entry.name),
+    );
+  }
+
+  /**
+   * BM25 分词：小写 → 非字母数字切分 → CJK 连续段补二元组。
+   * @param text 原始文本。
+   * @returns 词元集合（去重）。
+   */
+  private static retrievalTokens(text: string): ReadonlySet<string> {
+    const lowered = text.toLowerCase();
+    const tokens = new Set<string>();
+    for (const chunk of lowered.split(/[^a-z0-9\u4e00-\u9fff]+/u)) {
+      if (chunk === '') continue;
+      tokens.add(chunk);
+      if (/^[\u4e00-\u9fff]+$/u.test(chunk) && chunk.length > 1) {
+        for (let i = 0; i + 1 < chunk.length; i += 1) {
+          tokens.add(chunk.slice(i, i + 2));
+        }
+      }
+    }
+    return tokens;
   }
 
   /**
