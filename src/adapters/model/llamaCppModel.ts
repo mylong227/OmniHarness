@@ -81,8 +81,9 @@ export class LlamaCppModel implements ModelPort {
   /** 流式生成：Ollama 以换行分隔的 JSON 对象（NDJSON）推送，末条 done:true 收尾。
    * @param request 模型请求（消息与工具规格）。
    * @param callbacks 流式回调集合：文本增量实时推送；工具调用去重合入后不逐段回调。
-   * @returns 流结束后的完整输出：文本按增量顺序拼接，工具调用跨片段合并（按函数名去重、
-   *          后到覆盖参数），usage 取最后一个含计数字段的片段。响应体缺失时降级为非流式 generate；
+   * @returns 流结束后的完整输出：文本按增量顺序拼接，工具调用跨片段合并（**有 index 按槽位分桶、
+   *          字符串参数按片段累积到流末再解析**，无 index 时按函数名合并——详见 `mergeToolCalls`），
+   *          id 逐条唯一；usage 取最后一个含计数字段的片段。响应体缺失时降级为非流式 generate；
    *          末尾无换行的残余 JSON 片段尽力解析，非法则忽略；非 2xx 时抛出结构化错误。
    */
   public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
@@ -121,7 +122,7 @@ export class LlamaCppModel implements ModelPort {
       return this.generate(request);
     }
     const chunks: string[] = [];
-    const toolCalls: { id: string; name: string; arguments: Record<string, unknown> }[] = [];
+    const toolCalls: PipelineToolCall[] = [];
     let usage: ModelUsage | undefined;
     const decoder = new TextDecoder();
     let buffer = '';
@@ -170,8 +171,9 @@ export class LlamaCppModel implements ModelPort {
     const output: { text?: string; toolCalls?: ModelToolCallRef[]; usage?: ModelUsage } = {
       text: chunks.join(''),
     };
-    if (toolCalls.length > 0) {
-      output.toolCalls = toolCalls as ModelToolCallRef[];
+    const finalized = this.finalizeToolCalls(toolCalls);
+    if (finalized.length > 0) {
+      output.toolCalls = finalized;
     }
     if (usage !== undefined) {
       output.usage = usage;
@@ -249,7 +251,7 @@ export class LlamaCppModel implements ModelPort {
       output.text = message.content;
     }
     if (message?.tool_calls !== undefined && message.tool_calls.length > 0) {
-      output.toolCalls = message.tool_calls.map((call) => this.toToolCallRef(call));
+      output.toolCalls = this.toToolCallRefs(message.tool_calls);
     }
     // Ollama 在响应末返回 prompt_eval_count / eval_count（token 用量）。
     if (body.prompt_eval_count !== undefined || body.eval_count !== undefined) {
@@ -264,40 +266,122 @@ export class LlamaCppModel implements ModelPort {
     return output;
   }
 
-  /** 把 Ollama 工具调用统一为 ModelToolCallRef（Ollama 不给 id，以函数名代替）。
-   * @param call wire 层工具调用（arguments 兼容对象与 JSON 字符串两种形态）。
-   * @returns 统一工具调用引用；字符串参数经解析，非法回退空对象。
+  /** 把 Ollama 工具调用统一为 ModelToolCallRef。
+   *
+   * `id` 必须**唯一**（配对 `tool_call` / `tool_result` 的键），而 Ollama 原生不返回 id，
+   * 故按「函数名 + 第几次同名」合成：首个同名保持裸名（不改单调用场景的既有外观），
+   * 后续同名加 `#n` 后缀。旧实现一律用函数名当 id ⇒ 同批两次 `read_file` 的调用与结果
+   * 两两不可区分（2026-10-03 与流式合并同一批修复）。
+   * @param calls wire 层工具调用集合（arguments 兼容对象与 JSON 字符串两种形态）。
+   * @returns 统一工具调用引用数组（id 唯一；字符串参数经解析，非法回退空对象）。
    */
-  private toToolCallRef(call: OllamaToolCall): ModelToolCallRef {
-    const args =
-      typeof call.function.arguments === 'string'
-        ? this.parseArguments(call.function.arguments)
-        : call.function.arguments;
-    return { id: call.function.name, name: call.function.name, arguments: args };
-  }
-
-  /** 流式工具调用增量合入（按函数名去重，后到覆盖参数）。
-   * @param target 跨片段累积的工具调用列表（就地修改）。
-   * @param calls 当前片段携带的工具调用集合；同名调用覆盖参数，新名追加条目。
-   
- * @returns 无返回值。
-*/
-  private mergeToolCalls(
-    target: { id: string; name: string; arguments: Record<string, unknown> }[],
-    calls: readonly OllamaToolCall[],
-  ): void {
-    for (const call of calls) {
+  private toToolCallRefs(calls: readonly OllamaToolCall[]): ModelToolCallRef[] {
+    const seen = new Map<string, number>();
+    return calls.map((call) => {
+      const name = call.function.name;
+      const count = seen.get(name) ?? 0;
+      seen.set(name, count + 1);
       const args =
         typeof call.function.arguments === 'string'
           ? this.parseArguments(call.function.arguments)
           : call.function.arguments;
-      const existing = target.find((t) => t.name === call.function.name);
-      if (existing !== undefined) {
-        existing.arguments = args;
+      return { id: count === 0 ? name : `${name}#${String(count + 1)}`, name, arguments: args };
+    });
+  }
+
+  /** 流式工具调用增量合入（**按 index 分桶 + 参数片段累积**，无 index 时回退按函数名合并）。
+   *
+   * ## 修的是什么（2026-10-03 清偿 PROJECT_BOARD §3-4）
+   *
+   * 旧实现按**函数名**查找已有条目并**用本片段参数整体覆盖**：
+   *  - 同批**同名**并行调用（如两次 `read_file`）被吞并成一条，先到的参数被后者覆盖；
+   *  - 参数若被拆成多个片段推送（JSON 字符串分片），每片都单独 `JSON.parse` ⇒ 片片非法、
+   *    全部回退 `{}`，调用**带着空参数**发出去（静默错误）。
+   *
+   * 现按三条规则合入，三者都只做「按协议如实累积」，不发明任何协议语义：
+   *  1. **有 `index` 就按 index 分桶**（与 OpenAI 兼容适配器的 `toolBlocks[idx]` 同构）——
+   *     index 是服务端给出的调用槽位标识，同名并行调用因此天然分开；
+   *  2. **字符串型 arguments 按片段拼接**，仅在**流结束时**解析一次（解析失败仍回退 `{}` 并留痕，
+   *     与 `parseArguments` 的既有 fail-soft 口径一致）；对象型 arguments 直接落定（整块到达）；
+   *  3. **无 `index`** 时保持按名合并的既有行为（该形态无法区分「续传同一调用」与「另一次同名调用」，
+   *     无样本不猜——见下）。
+   *
+   * ## 诚实边界（为何不在这里做更多）
+   *
+   * 本机无 ollama 后端，**没有真实流式输出样本**。故：不推断「无 index 的同名第二条究竟是并行调用
+   * 还是参数续传」——按仓内纪律「无样本不改协议解析」，该形态保留为按名合并（旧行为）。
+   * 已覆盖的是**两种 wire 形态都成立**的改进：分片累积与 index 分桶。
+   * @param target 跨片段累积的目标列表（就地修改）。
+   * @param calls 当前片段携带的工具调用集合。
+   * @returns 无返回值。
+   */
+  private mergeToolCalls(target: PipelineToolCall[], calls: readonly OllamaToolCall[]): void {
+    for (const call of calls) {
+      const slot = call.index ?? this.indexOfName(target, call.function.name);
+      const existing = target[slot];
+      if (existing === undefined) {
+        target[slot] = {
+          id: this.uniqueId(target, call.function.name),
+          name: call.function.name,
+          arguments: {},
+          ...(typeof call.function.arguments === 'string'
+            ? { partial: call.function.arguments }
+            : { arguments: call.function.arguments }),
+        };
+        continue;
+      }
+      existing.name = call.function.name;
+      if (typeof call.function.arguments === 'string') {
+        // 分片续传：累积原始文本，流结束时统一解析（逐片解析必然失败）。
+        existing.partial = `${existing.partial ?? ''}${call.function.arguments}`;
       } else {
-        target.push({ id: call.function.name, name: call.function.name, arguments: args });
+        existing.arguments = call.function.arguments;
       }
     }
+  }
+
+  /** 查找同名调用的已有槽位（无 index 时的回退定位）。
+   * @param target 已累积的调用列表。
+   * @param name 函数名。
+   * @returns 首个同名条目下标；无同名条目时返回列表长度（即新槽位）。
+   */
+  private indexOfName(target: readonly PipelineToolCall[], name: string): number {
+    const index = target.findIndex((entry) => entry.name === name);
+    return index >= 0 ? index : target.length;
+  }
+
+  /** 为一次调用合成**唯一** id（同名并行调用不得共用 id）。
+   *
+   * 为什么必须唯一：`id` 是 `tool_call` 与 `tool_result` 的配对键（见 `ModelToolCallRef.id`
+   * 的契约）。旧实现直接把函数名当 id ⇒ 两次 `read_file` 的调用与结果两两不可区分，
+   * 结果为 A 的报文可能被挂到 B 上。Ollama 原生不返回 id，故按「名字」+「第几次同名」合成，
+   * 确定性且可读（首个同名保持裸名，不改变单调用场景的既有外观）。
+   * @param target 已累积的调用列表（用于计同名次数）。
+   * @param name 函数名。
+   * @returns 唯一 id。
+   */
+  private uniqueId(target: readonly PipelineToolCall[], name: string): string {
+    const used = target.filter((entry) => entry.name === name).length;
+    return used === 0 ? name : `${name}#${String(used + 1)}`;
+  }
+
+  /** 收尾：把分片累积的 arguments 解析成形（每个槽位只解析一次）。
+   * @param target 已累积的调用列表（就地修改）。
+   * @returns 去掉中间态后的统一工具调用数组。
+   */
+  private finalizeToolCalls(target: readonly PipelineToolCall[]): ModelToolCallRef[] {
+    const out: ModelToolCallRef[] = [];
+    for (const entry of target) {
+      if (entry === undefined) {
+        continue;
+      }
+      const args =
+        entry.partial === undefined
+          ? entry.arguments
+          : this.parseArguments(entry.partial === '' ? '{}' : entry.partial);
+      out.push({ id: entry.id, name: entry.name, arguments: args });
+    }
+    return out;
   }
 
   /** 解析工具参数 JSON（容错：非法则回退空对象）。
@@ -370,8 +454,25 @@ interface OllamaChatStreamChunk {
   readonly eval_count?: number;
 }
 
+/** 流式累积中的工具调用槽位（`partial` 为尚未解析的参数片段，见 `mergeToolCalls`）。 */
+interface PipelineToolCall {
+  /** 合成 id（唯一；配对 `tool_call` 与 `tool_result`）。 */
+  id: string;
+  /** 函数名。 */
+  name: string;
+  /** 已成形的参数（对象型 arguments 直接落定；用 `partial` 时为初始空对象）。 */
+  arguments: Record<string, unknown>;
+  /** 分片累积的原始参数文本；流结束时只解析一次。 */
+  partial?: string | undefined;
+}
+
 /** Ollama 工具调用（arguments 可为对象或 JSON 字符串，两种都兼容）。 */
 interface OllamaToolCall {
+  /**
+   * 调用槽位下标（部分实现返回；Ollama 原生旧版本不返回 ⇒ 可选）。
+   * 给了就按它分桶，使**同名并行调用**不再互相覆盖。
+   */
+  readonly index?: number | undefined;
   readonly function: {
     readonly name: string;
     readonly arguments: Record<string, unknown> | string;

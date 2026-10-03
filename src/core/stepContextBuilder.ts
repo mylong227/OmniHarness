@@ -4,6 +4,7 @@ import type { ToolDefinition } from '../ports/tool/tool.js';
 import { ContextAssembler } from '../context/contextAssembler.js';
 import { ProjectInstructions } from '../context/projectInstructions.js';
 import { type CompactionState, ContextCompactor } from '../context/contextCompactor.js';
+import type { RequestOverhead } from '../context/contextCompactor.js';
 import type { StepRunnerDeps } from './stepTypes.js';
 import { ToolExposurePlanner } from './toolExposurePlanner.js';
 import { log } from '../util/logger.js';
@@ -62,9 +63,13 @@ export class StepContextBuilder {
    * 从 ~54% 升至 ~81%（受控对照实测，见 `docs/TASK_BOARD.md` 第 22 条）。repo-map 内容不变，
    * 仅从「事件历史之前」移到「之后」——纯缓存优化，零信息损失、默认部署零行为变更。
    *
+   * @param overhead 每请求固定开销（本轮可见工具 schema + repo-map 尾段）。
+   *   **给了才进预算**：不传即与改造前逐字一致（工具/schema 与尾段都不入账）。
+   *   调用方（`StepRunner.requestModel`）先算工具集再调本方法，正是为了把这份开销交进来——
+   *   否则长会话会「越过真实窗口才触发压缩」（fail-open 到上游 400）。
    * @returns 投影 + 压缩后发给模型的消息列表（跨步复用压缩游标）。
    */
-  public async buildMessages(): Promise<readonly ModelMessage[]> {
+  public async buildMessages(overhead?: RequestOverhead): Promise<readonly ModelMessage[]> {
     const events = this.deps.recorder.allEvents();
     const frontFragments: string[] = [];
     // 常驻指令（静态：同一工作区内容稳定）放头部，构成稳定前缀缓存锚点，先于动态派生信息。
@@ -98,7 +103,12 @@ export class StepContextBuilder {
         this.compactionState = this.restoreCompactionState(events);
       }
       const previous = this.compactionState;
-      const result = await compactor.compact(projected, previous);
+      // 固定开销与消息共用同一份预算（工具 schema + **尚未拼入**的 repo-map 尾段）。
+      const requestOverhead: RequestOverhead = {
+        ...(overhead?.tools !== undefined ? { tools: overhead.tools } : {}),
+        ...(repoMap !== null ? { trailingText: repoMap } : {}),
+      };
+      const result = await compactor.compact(projected, previous, requestOverhead);
       if (result.state !== undefined) {
         // 游标持久化：写回事件日志（system 事件），崩溃/重启后可恢复，跨步复用摘要。
         //

@@ -1,10 +1,30 @@
 import type { ModelMessage, ModelPort } from '../ports/model/model.js';
+import type { ToolDefinition } from '../ports/tool/tool.js';
 import type { CompactionState } from '../ports/context/compactionState.js';
-import { TokenEstimator } from './tokenEstimator.js';
+import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.js';
 import { DeterministicCompressor } from './deterministicCompressor.js';
 import { log } from '../util/logger.js';
 import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.js';
 import { ArrayAt } from '../util/arrayAt.js';
+
+/**
+ * 每请求的**固定开销**（不随消息增删变化，但确实占用同一 token 预算）。
+ *
+ * 存在理由（2026-10-03 清偿 PROJECT_BOARD §3-3 的后半）：压缩阈值此前只拿「消息 content 之和」
+ * 与预算比较，而真实请求体还包含两块**恒定占用**——
+ *  - **工具 schema**：本轮可见工具的名称 + 描述 + JSON Schema 会随请求发出（默认档 30+ 工具实测
+ *    可观；`tool_search` 暴露档也一样在请求体里）；
+ *  - **repo-map 尾段**：`StepContextBuilder` 在**压缩之后**才把它追加到消息尾部，于是压缩那一刻
+ *    完全看不到它（生产档约 1.5K token）。
+ * 两者不入账 ⇒ 记账系统性偏低 ⇒ 长会话**越过真实窗口才触发压缩**，下一步直接把超窗请求发给上游
+ * （fail-open 到 400）。把固定开销显式预留进同一预算，判据才与真实请求体同源。
+ */
+export interface RequestOverhead {
+  /** 本轮可见的工具定义（schema 会随请求发出）。 */
+  readonly tools?: readonly ToolDefinition[] | undefined;
+  /** 组装后追加到请求尾部的固定文本（repo-map 动态段；压缩时尚未拼入）。 */
+  readonly trailingText?: string | undefined;
+}
 
 /** 上下文压缩选项。 */
 export interface CompactionOptions {
@@ -23,6 +43,16 @@ export interface CompactionOptions {
    */
   readonly deterministicShrink?: boolean;
 }
+
+/**
+ * 预留固定开销后，仍必须留给消息的预算下限（占基准阈值比例）。
+ *
+ * 为什么需要下限：预留是「工具 schema + repo-map」这类**不可压缩**的占用，若它已超过阈值，
+ * `base - reserved` 会 ≤ 0 ⇒ 压缩会把历史丢到只剩一条（比超窗更糟：用户的历史没了）。
+ * 故夹到 20%——此时如实承认「预算已被固定开销吃满」，宁可让上游看到一次偏大的请求，
+ * 也不静默清空会话。真正的处置是把窗口调大或收窄工具集，不是把账算到历史头上。
+ */
+const MIN_BUDGET_SHARE = 0.2;
 
 /** 确定性无损收缩度量（仅统计可收缩角色：user / assistant / tool）。 */
 export interface ShrinkReport {
@@ -77,6 +107,14 @@ export class ContextCompactor {
   private readonly shrinker = new DeterministicCompressor();
   /** 收缩开关：默认开（选项缺省 undefined 视为开）。 */
   private readonly shrinkEnabled: boolean;
+  /**
+   * 工具定义 → token 数缓存（按对象引用）。
+   *
+   * 为什么：固定开销**每步**都要重算（见 {@link RequestOverhead}），而工具定义在会话内是静态的；
+   * 不缓存就要每步把 30+ 个 schema 重新 `JSON.stringify`（可测出毫秒级浪费）。
+   * 用 WeakMap 而非 Map：注册表热卸载/重载后旧条目可被回收，不构成泄漏。
+   */
+  private readonly toolTokenCache = new WeakMap<ToolDefinition, number>();
 
   public constructor(
     private readonly model: ModelPort | undefined,
@@ -133,7 +171,7 @@ export class ContextCompactor {
   /** 注入原生（Rust 内核）token 估算器：传入后内部估算走原生路径。
    * @returns 无返回值。
    */
-  public setNativeEstimator(fn: (messages: readonly { content: string }[]) => number): void {
+  public setNativeEstimator(fn: (messages: readonly TokenAccountableMessage[]) => number): void {
     this.estimator.setNativeEstimator(fn);
   }
 
@@ -146,15 +184,68 @@ export class ContextCompactor {
   }
 
   /**
+   * 扣除每请求固定开销后的**可用消息预算**（消息估算值与之比较）。
+   *
+   * 见 {@link RequestOverhead}：工具 schema 与 repo-map 尾段与消息同处一份请求体，
+   * 必须一起进预算，否则记账偏低会导致「越过真实窗口才压缩」。
+   * @param overhead 本轮固定开销（缺省即 0，行为与改造前逐字一致）。
+   * @returns 可用预算（最低夹在基准阈值的 {@link MIN_BUDGET_SHARE} 比例以上）。
+   */
+  private effectiveThreshold(overhead?: RequestOverhead): number {
+    const base = this.threshold;
+    const reserved = this.overheadTokens(overhead);
+    if (reserved <= 0) {
+      return base;
+    }
+    const floor = Math.max(1, Math.floor(base * MIN_BUDGET_SHARE));
+    return Math.max(floor, base - reserved);
+  }
+
+  /**
+   * 估算每请求固定开销的 token 数（工具 schema 每条按定义对象缓存 + 尾部文本）。
+   * @param overhead 本轮固定开销（可缺省）。
+   * @returns 固定开销 token 估算值。
+   */
+  private overheadTokens(overhead?: RequestOverhead): number {
+    if (overhead === undefined) {
+      return 0;
+    }
+    let total = 0;
+    for (const tool of overhead.tools ?? []) {
+      const cached = this.toolTokenCache.get(tool);
+      if (cached !== undefined) {
+        total += cached;
+        continue;
+      }
+      const tokens = this.estimator.estimate(
+        JSON.stringify({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        }),
+      );
+      this.toolTokenCache.set(tool, tokens);
+      total += tokens;
+    }
+    const trailing = overhead.trailingText;
+    if (trailing !== undefined && trailing !== '') {
+      total += this.estimator.estimate(trailing);
+    }
+    return total;
+  }
+
+  /**
    * 游标快路径：状态存在且前缀指纹匹配 → 复用既有摘要（零 LLM 调用），不匹配则返回 undefined
    * 让调用方走主路径重算（自动失效，绝不复用错误摘要）。
    * @param messages 全量消息。
    * @param state 上一步写回的压缩游标。
+   * @param budget 扣除固定开销后的可用消息预算（{@link ContextCompactor.effectiveThreshold}）。
    * @returns 复用成功时的结果；无游标 / 游标越界 / 指纹漂移时为 undefined。
    */
   private tryReuseState(
     messages: readonly ModelMessage[],
-    state?: CompactionState,
+    state: CompactionState | undefined,
+    budget: number,
   ): CompactionResult | undefined {
     if (state === undefined || state.compactedUpTo <= 0 || state.compactedUpTo >= messages.length) {
       return undefined;
@@ -172,7 +263,7 @@ export class ContextCompactor {
     );
     // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
     // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
-    const composed = this.composeWithinBudget(state.summary, tail.messages);
+    const composed = this.composeWithinBudget(state.summary, tail.messages, budget);
     return {
       messages: composed.messages,
       compacted: true,
@@ -188,18 +279,27 @@ export class ContextCompactor {
    *    消灭「每步重复摘要」缺陷（审计 P0-1）。
    *  - 指纹不匹配（前缀漂移，如历史被回滚/编辑）→ 自动失效重算，绝不复用错误摘要。
    *  - 不传 state 时行为与旧版逐字节兼容（无游标，每次重算）。
+   *
+   * `overhead` 为每请求固定开销（工具 schema / repo-map 尾段）：给了就与消息共用同一预算，
+   * 判据才与真实请求体同源（见 {@link RequestOverhead}）。**缺省时行为与改造前逐字一致**。
+   * @param messages 待压缩消息（已投影但未追加 repo-map 尾段）。
+   * @param state 上一步写回的压缩游标（可缺省）。
+   * @param overhead 本轮固定开销（可缺省）。
+   * @returns 压缩结果（含是否真的压缩、摘要、写回游标与收缩度量）。
    */
   public async compact(
     messages: readonly ModelMessage[],
     state?: CompactionState,
+    overhead?: RequestOverhead,
   ): Promise<CompactionResult> {
+    const budget = this.effectiveThreshold(overhead);
     // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。
-    const reused = this.tryReuseState(messages, state);
+    const reused = this.tryReuseState(messages, state, budget);
     if (reused !== undefined) {
       return reused;
     }
     const estimated = this.estimator.estimateMessages(messages);
-    if (estimated <= this.threshold) {
+    if (estimated <= budget) {
       // 未达压缩阈值：不折叠历史，但仍施加无损收缩（逐轮可复现 ⇒ 不破坏前缀缓存）。
       const shrunk = this.shrink(messages);
       return {
@@ -210,7 +310,8 @@ export class ContextCompactor {
     }
     log.debug('compaction.triggered', {
       estimated,
-      threshold: this.threshold,
+      threshold: budget,
+      reserved: this.overheadTokens(overhead),
       keepRecent: this.options.keepRecent,
     });
     // 切 tail 时边界**必须落在工具轮之外**（2026-10-03 修，轮对齐）：
@@ -233,7 +334,7 @@ export class ContextCompactor {
       // 输入 4 万字符 → 输出 4 万字符、out===in」，即**假称已压缩、上下文仍超预算**（fail-open：
       // 下一步直接把超窗请求发给端点）。现按真实预算兜底丢弃最旧消息，并如实报告丢弃条数；
       // 若本就在预算内则如实回 `compacted: false`（不谎报）。
-      const bounded = this.dropOldestUntilBudget(tail.messages);
+      const bounded = this.dropOldestUntilBudget(tail.messages, budget);
       log.info('compaction.done', {
         keepRecent: bounded.messages.length,
         hadModel: this.model !== undefined,
@@ -255,7 +356,7 @@ export class ContextCompactor {
     };
     // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
     // 与游标快路径共用同一方法，保证两条路径结果一致。
-    const composed = this.composeWithinBudget(summary, tail.messages);
+    const composed = this.composeWithinBudget(summary, tail.messages, budget);
     const final = composed.messages;
     const extraDropped = composed.dropped;
     log.info('compaction.done', {
@@ -281,15 +382,17 @@ export class ContextCompactor {
    * （实测：首次压缩 2 条、复用游标 3 条），既不自洽也可能超预算。
    * @param summary 摘要文本（作为首条 system）
    * @param tail 最近消息（已收缩并消毒）
+   * @param budget 扣除固定开销后的可用消息预算
    * @returns 预算内的消息数组与**额外丢弃**的条数（0 表示摘要 + 最近消息本就未超预算）
    */
   private composeWithinBudget(
     summary: string,
     tail: readonly ModelMessage[],
+    budget: number,
   ): { readonly messages: readonly ModelMessage[]; readonly dropped: number } {
     let final: readonly ModelMessage[] = [{ role: 'system', content: summary }, ...tail];
     let dropped = 0;
-    while (final.length > 2 && this.estimator.estimateMessages(final) > this.threshold) {
+    while (final.length > 2 && this.estimator.estimateMessages(final) > budget) {
       const before = final.length;
       const summaryMessage = final[0] as ModelMessage;
       // 丢弃下标 1..（较旧的 tail），保留摘要与最新一条；丢弃后重新消毒避免 orphan tool。
@@ -306,15 +409,19 @@ export class ContextCompactor {
    * 这是「无 head 可摘要」时的最后一道防线：宁可丢最旧历史并**如实报告**，
    * 也不能假称已压缩而把超窗请求发出去（旧实现即 fail-open）。
    * @param messages 已折叠/收缩后的候选消息（按时间顺序）
+   * @param budget 扣除固定开销后的可用消息预算
    * @returns 预算内的消息与**实际丢弃**的条数（0 表示本就未超预算）
    */
-  private dropOldestUntilBudget(messages: readonly ModelMessage[]): {
+  private dropOldestUntilBudget(
+    messages: readonly ModelMessage[],
+    budget: number,
+  ): {
     readonly messages: readonly ModelMessage[];
     readonly dropped: number;
   } {
     let current = ToolRoundSanitizer.sanitizeToolRounds(messages);
     let dropped = 0;
-    while (current.length > 1 && this.estimator.estimateMessages(current) > this.threshold) {
+    while (current.length > 1 && this.estimator.estimateMessages(current) > budget) {
       const before = current.length;
       current = ToolRoundSanitizer.sanitizeToolRounds(current.slice(1));
       dropped += before - current.length;

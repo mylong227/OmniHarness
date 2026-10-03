@@ -133,8 +133,13 @@ fn handle_context_render() -> String {
     .to_string()
 }
 
-/// 处理 context.estimate：批量估算消息列表 token 数（对齐 TS TokenEstimator.estimateMessages：
-/// 每条 content 估算 token + 4 角色开销）。单次 FFI 往返，避免逐条调用放大往返成本。
+/// 处理 context.estimate：批量估算消息列表 token 数。
+///
+/// **契约：与 TS `TokenEstimator.estimateMessage` 逐位一致**（单测
+/// `tests/unit/nativeTokenEstimator.test.ts` 钉住）。每条的记账文本由
+/// `accountable_text` 按与 TS 完全相同的顺序拼装：正文 → 思考回传 → 工具调用 JSON →
+/// 附件信封（只记 URL/MIME/名称，**不记二进制载荷**），NUL 分隔；再 +4 角色开销。
+/// 任一侧改动都必须同步另一侧，否则「原生开 / 关」会给出不同的压缩时机。
 fn handle_context_estimate(v: &serde_json::Value) -> String {
     let params = v.get("params").cloned().unwrap_or(json!({}));
     let messages = params
@@ -144,14 +149,53 @@ fn handle_context_estimate(v: &serde_json::Value) -> String {
         .unwrap_or_default();
     let mut total: usize = 0;
     for m in &messages {
-        let content = m
+        total += estimate_text_tokens(&accountable_text(m)) + 4;
+    }
+    json!({ "ok": true, "tokens": total }).to_string()
+}
+
+/// 把一条消息折叠成「参与记账的文本」（对齐 TS `TokenEstimator.accountableText`）。
+fn accountable_text(message: &serde_json::Value) -> String {
+    let mut parts: Vec<String> = vec![
+        message
             .get("content")
             .and_then(|c| c.as_str())
             .unwrap_or("")
-            .to_string();
-        total += estimate_text_tokens(&content) + 4;
+            .to_string(),
+    ];
+    if let Some(reasoning) = message.get("reasoningContent").and_then(|c| c.as_str()) {
+        if !reasoning.is_empty() {
+            parts.push(reasoning.to_string());
+        }
     }
-    json!({ "ok": true, "tokens": total }).to_string()
+    if let Some(calls) = message.get("toolCalls").and_then(|c| c.as_array()) {
+        if !calls.is_empty() {
+            parts.push(serde_json::Value::Array(calls.clone()).to_string());
+        }
+    }
+    for image in array_at(message, "images") {
+        let url = image.get("url").and_then(|u| u.as_str()).unwrap_or("");
+        let media_type = image.get("mediaType").and_then(|u| u.as_str()).unwrap_or("");
+        parts.push(format!("{url} {media_type}"));
+    }
+    for file in array_at(message, "files") {
+        let name = file.get("name").and_then(|u| u.as_str()).unwrap_or("");
+        let media_type = file.get("mediaType").and_then(|u| u.as_str()).unwrap_or("");
+        let url = file.get("url").and_then(|u| u.as_str()).unwrap_or("");
+        parts.push(format!("{name} {media_type} {url}"));
+    }
+    if parts.len() == 1 {
+        return parts.remove(0);
+    }
+    parts.join("\u{0}")
+}
+
+/// 取消息上的某个数组字段（缺失 / 非数组 ⇒ 空切片语义）。
+fn array_at<'a>(message: &'a serde_json::Value, key: &str) -> &'a [serde_json::Value] {
+    match message.get(key).and_then(|v| v.as_array()) {
+        Some(items) => items.as_slice(),
+        None => &[],
+    }
 }
 
 /// 处理 approval.check：对一次工具调用做审批裁决（不改状态）。

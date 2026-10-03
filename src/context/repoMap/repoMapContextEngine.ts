@@ -493,6 +493,27 @@ export class RepoMapContextEngine {
   }
 
   /**
+   * 软失效（**写类工具落盘后的默认路径**）：标记语料待复核，不丢弃内容签名。
+   *
+   * 与 {@link RepoMapContextEngine.clear} 的分工（2026-10-03 修实测缺陷）：
+   *  - `clear()` = 硬删，下次查询**必定**全量重建。适用于「确知语料已变 / 需要确定性重建」。
+   *  - `invalidate()` = 软标记，下次查询先比内容签名，未变则**复用同一语料实例**
+   *    （跳过 8.6s 级全量重建，且语义索引与 memo 因按语料实例判失效而一并保持有效）。
+   *
+   * 为什么这是写类工具后该走的那条：`StepToolExecutor.maybeInvalidateRepoMap` 的语义是
+   * 「刚跑过写类工具，repo-map 可能陈旧了」，而**可能**不等于**已经**——`shell` 里跑
+   * `echo` / `git status` / `npm test` 都不改被索引的源码。此前一律硬删 ⇒ 实测
+   * `sessionLifecycle` 单回合把全仓索引两遍（8.5s + 8.5s）。陈旧窗口不会因此变大：
+   * 判据是**内容签名**而非时间，真变了就重建。
+   * @param root 指定则只标记该工作区；缺省标记全部（不影响语义索引与 memo，二者按语料实例判失效）。
+
+   * @returns 无返回值。
+   */
+  public invalidate(root?: string): void {
+    this.corpusCache.invalidate(root);
+  }
+
+  /**
    * 手动失效缓存（某个 workspace 文件结构剧变时调用，可选）。同时清语义索引缓存与图信号缓存。
    * @param root 指定则只失效该工作区；缺省清空全部（不含图信号，图按 workspace 独立缓存）。
    

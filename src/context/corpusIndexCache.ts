@@ -12,6 +12,9 @@
  *    onEvict 回调通知外部（如语义索引缓存同步失效该 root 的全部变体），保持两类缓存一致。
  *  - 全程 fail-closed：索引失败返回 null，绝不抛错崩主流程；但**不静默**——失败会记 warn 日志
  *    （带 root 与堆栈），否则调用方只看到「语料索引失败」而无法定位真因。
+ *  - **两种失效语义（2026-10-03 分离）**：{@link CorpusIndexCache.clear} 硬删（必定重建），
+ *    {@link CorpusIndexCache.invalidate} 软标记（下次 get 复核内容签名，未变则复用）。写类工具
+ *    落盘后的默认路径走软失效——详见 `invalidate` 的实测依据。
  *  - **命中率埋点（2026-10-02）**：本类是全仓最热的缓存，却长期零命中率观测。现每次 `get`
  *    都判定命中/未命中并上报注入的 `onSample`；「TTL 内直取」与「mtime 未变复用」均计为命中，
  *    只有真正走到 `indexRoot` 才算未命中。索引失败（返回 null）**不计入样本**——它不是缓存语义，
@@ -114,8 +117,12 @@ export class CorpusIndexCache {
   }
 
   /**
-   * 失效缓存。
-   * @param root 指定则只失效该工作区；缺省清空全部。
+   * 硬失效（清空条目）：下次 `get` **必定**重建，不做内容签名比对。
+   *
+   * 适用面：调用方**确知**语料已变或需要确定性重建（测试隔离、根目录被替换）。
+   * 若只是想表达「刚跑过写类工具、请你复核一下」，用 {@link invalidate}——硬删会让
+   * 「其实没变」的常见情形白付一次全量重建（本仓 902 文件实测 8.6s 量级）。
+   * @param root 指定则只清该工作区；缺省清空全部。
 
    * @returns 无返回值。
    */
@@ -124,6 +131,36 @@ export class CorpusIndexCache {
       this.cache.clear();
     } else {
       this.cache.delete(root);
+    }
+  }
+
+  /**
+   * 软失效（标记待复核）：保留条目与**内容签名**，下次 `get` 强制走内容签名比对。
+   *
+   * 存在理由（2026-10-03 实测缺陷）：写类工具（`shell` / `write_file` / `edit` /
+   * `apply_patch` / `checkpoint`…）落盘成功后 `StepToolExecutor.maybeInvalidateRepoMap`
+   * 会失效 repo-map 缓存。此前走的是 `clear()` 硬删 ⇒ **下一次组装上下文必然全量重建**，
+   * 而绝大多数写操作（`echo`、装依赖、跑测试、`git status`）根本没动被索引的源码文件。
+   * 实测代价：`tests/unit/sessionLifecycle.test.ts` 一个回合内被索引**两遍**全仓
+   * （8.5s + 8.5s），单文件 6 个用例耗时 100s（逼近 120s 文件级超时）。
+   *
+   * 软失效把「不知道变没变」如实表达为「请复核」：签名未变则复用同一语料实例
+   * （下游 memo / 语义缓存因**按语料实例判失效**而一并保持有效，不会重建嵌入），
+   * 签名真变则照常重建——**陈旧窗口为零**（判据是内容本身，不是时间）。
+   * @param root 指定则只标记该工作区；缺省标记全部条目。
+
+   * @returns 无返回值。
+   */
+  public invalidate(root?: string): void {
+    if (root === undefined) {
+      for (const [key, entry] of [...this.cache]) {
+        this.cache.set(key, { corpus: entry.corpus, indexedAt: 0, contentSig: entry.contentSig });
+      }
+      return;
+    }
+    const entry = this.cache.get(root);
+    if (entry !== undefined) {
+      this.cache.set(root, { corpus: entry.corpus, indexedAt: 0, contentSig: entry.contentSig });
     }
   }
 

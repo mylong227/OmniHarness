@@ -43,6 +43,13 @@ export class EventPersister {
   private disposed = false;
   /** 上次成功落盘的事件数（增量语义：事件数未变则跳过写入）。 */
   private lastSavedCount = 0;
+  /**
+   * 强制下次落盘标志（**回卷专用**）。
+   *
+   * 为什么不靠长度判脏：事件流回卷后条数可能恰好等于 `lastSavedCount`（回滚到上一次成功落盘的点）
+   * ⇒ 纯长度判据会跳过这次必需的落盘，把回滚后的截断状态留在内存里、盘上仍是全量。
+   */
+  private forceWrite = false;
 
   public constructor(
     /** 存储端口：快照经其 save(sessionId, events) 全量落盘。 */
@@ -95,6 +102,34 @@ export class EventPersister {
   }
 
   /**
+   * 事件流回卷后的对齐（**检查点回滚必须经过这里**，否则回滚会被在飞写覆盖回去）。
+   *
+   * 两个动作，缺一不可：
+   *
+   * 1. **等在飞写落地**（`await this.queue`）：调用方（`CheckpointManager.rollback`）已经在磁盘上
+   *    写好了截断后的事件，但队列里可能还有一次**更早排队**的落盘，它读取的是回卷**之前**的全量
+   *    快照——不等它落地，回滚会被这一次写原样覆盖（2026-10-03 登记的 P1 缺陷的持久化侧）。
+   * 2. **强制立即重写**（`forceWrite` + `flush()`）：等完之后磁盘上很可能是那次旧的全量写，必须由
+   *    我们自己把截断后的快照写回去。**不能只标记脏等下一次 schedule**：下一次 schedule 依赖
+   *    「还有新事件产生」，而回滚后可能整回合再无新事件 ⇒ 陈旧全量快照会一直留在盘上。
+   *
+   * 至于「长度判脏不够用」：回卷后的条数可能恰好等于 `lastSavedCount`（例如回滚到上一次成功落盘
+   * 的点），按长度判会**跳过**这次必需的重写，故用独立的 `forceWrite` 标志（与缺陷 1 的判据同源）。
+   * @param size 回卷后的事件条数（语义与 `AppendOnlyEventLog.rewindTo` 一致）。
+   * @returns 该次对齐完成后的 Promise（不抛错：落盘失败仅 warn，与 flush 契约一致）。
+   */
+  public async rewindTo(size: number): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
+    await this.queue;
+    // 与内存对齐：长度相等时靠 forceWrite 判脏，故此处只需保持「上次落盘条数」语义一致。
+    this.lastSavedCount = size;
+    this.forceWrite = true;
+    await this.flush();
+  }
+
+  /**
    * 落盘一次当前快照（增量语义：事件数未变则跳过）。
    *
    * 失败**降级为 warn**（fail-soft，与 agent.persist 的既有容错一致）：既不上抛打断回合，
@@ -115,12 +150,13 @@ export class EventPersister {
       });
       return;
     }
-    if (events.length === 0 || events.length === this.lastSavedCount) {
+    if (events.length === 0 || (events.length === this.lastSavedCount && !this.forceWrite)) {
       return;
     }
     try {
       await this.storage.save(this.sessionId, events);
       this.lastSavedCount = events.length;
+      this.forceWrite = false;
     } catch (err) {
       log.warn('session.persist.failed', { sessionId: this.sessionId, error: String(err) });
     }

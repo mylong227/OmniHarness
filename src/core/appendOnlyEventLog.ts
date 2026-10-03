@@ -96,6 +96,49 @@ export class AppendOnlyEventLog {
   }
 
   /**
+   * 回卷到指定长度（**本类唯一允许的删减操作**，且只有一条合法调用链）。
+   *
+   * ## 为什么 append-only 的日志仍需要它
+   *
+   * 「只追加」约束的是**已记录事实不得就地篡改**（模型所见即所记），不是「历史不得撤销」。
+   * `CheckpointManager.rollback` 是用户显式要求的**时间旅行**：把会话恢复到某个检查点。
+   * 若只改磁盘而内存日志仍是全量，运行中会话的下一步 write-behind 落盘会把回滚**原样覆盖回去**
+   * （2026-10-03 登记为 P1 缺陷：`CheckpointManager.rollback` 只改磁盘）。
+   * 因此截断必须发生在**内存事实源**上，磁盘与检索索引随之对齐。
+   *
+   * ## 契约（fail-closed）
+   *
+   * - `size` 必须是 `[0, 当前长度]` 内的整数：越界或非整数一律抛错，**不静默夹取**——
+   *   夹取会把「调用方算错了目标长度」伪装成成功回卷（用户以为回到了检查点 A，实际停在别处）。
+   * - `size === 当前长度` 是合法空操作（返回 0）。
+   * - 只能**向后**截断；不存在「恢复被截断事件」的接口（要恢复请重新 hydrate）。
+   * @param size 截断后保留的事件条数（含第 0..size-1 条）。
+   * @returns 被移除的事件条数。
+   * @throws Error `size` 不是 `[0, 当前长度]` 内的整数时。
+   */
+  public rewindTo(size: number): number {
+    if (!Number.isInteger(size) || size < 0 || size > this.events.length) {
+      throw new Error(
+        `事件日志回卷长度非法：${String(size)}（合法范围 0..${String(this.events.length)} 的整数）`,
+      );
+    }
+    const removed = this.events.length - size;
+    if (removed > 0) {
+      this.events.length = size;
+    }
+    return removed;
+  }
+
+  /**
+   * 被移除区间的全部事件（回卷前取出，供检索索引等派生态同步清理）。
+   * @param size 回卷后保留的条数（语义同 {@link AppendOnlyEventLog.rewindTo}）。
+   * @returns 将被移除的事件数组（`size >= 长度` 时为空的只读数组）。
+   */
+  public eventsFrom(size: number): readonly SessionEvent[] {
+    return size >= this.events.length ? [] : this.events.slice(Math.max(0, size));
+  }
+
+  /**
    * 按类型过滤。
    * @param type 事件类型名（如 'assistant'、'tool_call'）。
    * @returns 该类型的全部事件（保持追加顺序）。

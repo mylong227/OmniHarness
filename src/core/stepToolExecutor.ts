@@ -217,6 +217,12 @@ export class StepToolExecutor {
    * U4：写类工具成功执行后主动失效 repo-map 缓存，消除 30s TTL 陈旧窗口。
    * fail-closed：workspaceRoot 未注入 / 工具未成功 / 非写类工具 / 失效抛错，均静默跳过，绝不崩主流程。
    *
+   * 走**软失效**（`invalidate`）而非硬删（`clear`，2026-10-03 修）：这里的语义是「刚跑过写类
+   * 工具，repo-map **可能**陈旧了」，而 `shell`（本集合最大宗成员）里跑 `echo` / `git status` /
+   * `npm test` 都不改被索引的源码。硬删会让下一次组装上下文**必然**全量重建（本仓实测 8.6s），
+   * 旧行为下 `sessionLifecycle` 单回合把全仓索引两遍（8.5s + 8.5s，单文件 100s 逼近超时门限）。
+   * 软失效先比内容签名：未变复用同一语料实例（零重建、零陈旧），真变照常重建。
+   *
    * @param call 已执行的工具调用。
    * @param result 该调用的结果（只读 ok）。
    * @returns 无返回值（失败静默）。
@@ -232,7 +238,7 @@ export class StepToolExecutor {
       return;
     }
     try {
-      this.deps.repoMapContext.clear(this.deps.workspaceRoot);
+      this.deps.repoMapContext.invalidate(this.deps.workspaceRoot);
     } catch {
       // 缓存失效失败不影响主流程
     }

@@ -183,6 +183,90 @@ export class SessionRecorder {
   }
 
   /**
+   * 回卷事件流到指定长度（**检查点回滚的唯一内存侧入口**）。
+   *
+   * 解决什么（2026-10-03 登记的 P1 缺陷）：`CheckpointManager.rollback` 原先只把检查点的
+   * 事件写回**磁盘**，运行中会话的内存日志仍是全量 ⇒ 下一步 write-behind 落盘把回滚原样覆盖，
+   * 用户看到「回滚成功」但历史没变。本方法把内存事实源一并截断，并同步三处**派生态**：
+   *
+   * 1. **回合起点下标** `turnStartIndex`：若它落在被截断区间之后，必须夹回新长度——否则
+   *    `lastAssistantText()` 从越界下标起倒扫，会把**更早回合**的答案当成本回合结果返回
+   *    （正是 #OBS-10 记录过的那类静默错答）。
+   * 2. **检索序号** `seq`：重算为「截断后仍存在的内容事件数」，否则 seq 会带着已被丢弃文档的
+   *    编号继续增长，召回顺序与事件流不再同序（`RetrievalDoc.seq` 的契约是单调且与事件同序）。
+   * 3. **检索索引**：把被截断区间的文档从注入的 `RetrievalPort` 反注册（端口支持时），
+   *    否则模型仍能经 `memory_search` 召回**已被用户撤销**的历史结论。端口不支持
+   *    `remove` 时无法闭合这一层，故**显式告警**而不是静默假装已彻底回滚。
+   *
+   * 不负责磁盘：落盘由调用方（检查点管理器 / 事件持久化器）负责，见
+   * `EventPersister.rewindTo` 的在飞写屏障。
+   * @param size 截断后保留的事件条数（合法范围 0..当前长度，越界即抛错，见 `AppendOnlyEventLog.rewindTo`）。
+   * @returns 被移除的事件条数。
+   */
+  public rewindTo(size: number): number {
+    // 先取出将被移除的区间（截断后拿不到），供检索索引清理。
+    const dropped = [...this.log.eventsFrom(size)];
+    const removed = this.log.rewindTo(size);
+    if (this.turnStartIndex > size) {
+      this.turnStartIndex = size;
+    }
+    this.seq = SessionRecorder.countIndexable(this.log.all());
+    this.dropFromRetrieval(dropped);
+    return removed;
+  }
+
+  /**
+   * 从检索索引反注册被回卷文档。
+   * @param dropped 被截断区间的事件（按原顺序）。
+   
+   * @returns 无返回值。
+   */
+  private dropFromRetrieval(dropped: readonly SessionEvent[]): void {
+    if (this.retrieval === undefined || dropped.length === 0) {
+      return;
+    }
+    const ids = dropped
+      .filter((event) => SessionRecorder.docOf(event, 0) !== undefined)
+      .map((event) => event.id);
+    if (ids.length === 0) {
+      return;
+    }
+    if (this.retrieval.remove === undefined) {
+      // fail-soft 但**不静默**：不能闭合就如实说，避免「已彻底回滚」被当成事实。
+      log.warn('session.retrieval.rewind_unsupported', {
+        sessionId: this.sid,
+        staleDocs: ids.length,
+        backend: this.retrieval.name,
+      });
+      return;
+    }
+    try {
+      this.retrieval.remove(ids);
+    } catch (error) {
+      log.warn('session.retrieval.rewind_failed', {
+        sessionId: this.sid,
+        staleDocs: ids.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * 统计一段事件里「会被索引进检索端口」的条数（与 {@link SessionRecorder.indexToRetrieval} 同判据）。
+   * @param events 待统计的事件序列。
+   * @returns 可索引事件条数（即回卷后 `seq` 应处的值）。
+   */
+  private static countIndexable(events: readonly SessionEvent[]): number {
+    let count = 0;
+    for (const event of events) {
+      if (SessionRecorder.docOf(event, count) !== undefined) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  /**
    * 会话 ID。
    * @returns 本记录器绑定的会话 ID。
    */

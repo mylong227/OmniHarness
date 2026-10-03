@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // 技能路由对照评测（第 2 关仪器）：子串包含（生产默认）vs BM25 相关性检索（候选，待翻默认）。
 //
 // ## 为什么要先做对照而不是直接改默认
@@ -141,12 +141,13 @@ const avg = (xs) => (xs.length === 0 ? 0 : xs.reduce((s, x) => s + x, 0) / xs.le
 
 /**
  * 「全程对齐生产」的保留集：走生产同款 `SkillSparsifier`（top-5 + 强命中豁免）。
- * @param matched 匹配器给出的候选技能（任意顺序）。
+ * @param matched 匹配器给出的候选技能（任意顺序，**不得预先按 top-k 截断**）。
  * @param text 提示文本。
+ * @param relevance 可选：上游相关性分（技能名 → BM25 分）；给了就作稀疏化主序（生产档用）。
  * @returns 实际会被注入的技能名集合。
  */
-const injected = (matched, text) =>
-  new Set(sparsifier.sparsify(matched, text.toLowerCase()).kept.map((s) => s.name));
+const injected = (matched, text, relevance) =>
+  new Set(sparsifier.sparsify(matched, text.toLowerCase(), relevance).kept.map((s) => s.name));
 
 /**
  * 「同等预算」对照臂的打分排名：按稀疏化器的命中强度给**全部**技能排序。
@@ -179,9 +180,17 @@ for (const [q, gt] of PROBES) {
   );
   const bmTopK = new Set(bmRanked.slice(0, TOP_K).map((h) => h.skill.name));
 
-  // 生产档（B'）：**直接走生产方法** `SkillRegistry.selectForPrompt()`，而不是在脚本里复刻它的
-  // 过滤逻辑（「验收探针禁止自带被测逻辑的副本」）。接线活性与噪声都以它为准；B 只作诊断对照。
-  const prodKept = new Set(registry.selectForPrompt(q).map((s) => s.name));
+  // 生产档（B'）：**走生产真实两段管线**——`SkillRegistry.rankForPrompt()`（比率过滤、不截断）
+  // → `SkillSparsifier.sparsify(..., relevance)`（预算 + 强命中豁免）。
+  // 2026-10-03 改：此前这里直接调 `selectForPrompt()`（已截到 top-5），而生产在它之后还接了一层
+  // 稀疏化 ⇒ 「判定档 = 生产方法」只在**成员集相同**时成立；改传完整排名后，豁免判据真的会生效，
+  // 判定档与 `Agent.injectSkills` 逐行同构（不再有隐式假设）。
+  const prodRanked = registry.rankForPrompt(q);
+  const prodKept = injected(
+    prodRanked.map((h) => h.skill),
+    q,
+    new Map(prodRanked.map((h) => [h.skill.name, h.score])),
+  );
 
   // 噪声控制变体（诊断对照）：只保留得分 ≥ 最高分一半的（「宁可少给」在技能场景同样成立——堆叠即噪声）。
   const topScore = bmRanked[0]?.score ?? 0;
@@ -226,7 +235,7 @@ const noiseOf = (arr, countKey, hitKey) =>
 
 const subRecall = rate(positives, 'subHit');
 const bmRecall = rate(positives, 'bmHit');
-/** 生产档：**直接调用** `SkillRegistry.selectForPrompt()` 的召回（判定档）。 */
+/** 生产档：`SkillRegistry.rankForPrompt()` → `SkillSparsifier`（与 `Agent.injectSkills` 逐行同构）的召回（判定档）。 */
 const prodRecall = rate(positives, 'prodHit');
 /** 诊断档：脚本内复刻的「半高阈值 + top-k」变体（仅作对照，不参与判定）。 */
 const fltRecall = rate(positives, 'fltHit');
@@ -333,7 +342,7 @@ if (!corpusOk)
 
 console.log('\n=== 召回（GT 是否留在注入集）===');
 console.log(`  子串包含 match()（生产旧判据）  ${pct(subRecall)}`);
-console.log(`  **生产档** selectForPrompt()   ${pct(prodRecall)}`);
+console.log(`  **生产档** rankForPrompt→Sparsifier ${pct(prodRecall)}`);
 console.log('  —— 以下为诊断对照（非判定档）——');
 console.log(`  BM25 纯 top-5 + Sparsifier     ${pct(bmRecall)}`);
 console.log(`  脚本内复刻的半高阈值变体       ${pct(fltRecall)}`);
@@ -342,7 +351,7 @@ console.log(
 );
 console.log('\n=== 噪声（平均多带回多少条无关技能）===');
 console.log(`  子串包含 match()（生产旧判据）  ${subNoise.toFixed(2)} 条/查询`);
-console.log(`  **生产档** selectForPrompt()   ${prodNoise.toFixed(2)} 条/查询`);
+console.log(`  **生产档** rankForPrompt→Sparsifier ${prodNoise.toFixed(2)} 条/查询`);
 console.log(`  BM25 纯 top-5（诊断）          ${bmNoise.toFixed(2)} 条/查询`);
 console.log(`  脚本内复刻的半高阈值变体       ${fltNoise.toFixed(2)} 条/查询`);
 
@@ -355,9 +364,9 @@ console.log(
 );
 console.log(`  两臂 Top-K 平均重合度：${meanPairOverlap.toFixed(3)}`);
 
-console.log('\n=== 第二关：bootstrap CI + 留出折（判定档 = 生产方法 selectForPrompt）===');
+console.log('\n=== 第二关：bootstrap CI + 留出折（判定档 = 生产管线 rankForPrompt→Sparsifier）===');
 for (const [label, rob] of [
-  ['**生产档** selectForPrompt()', robProd],
+  ['**生产档** rankForPrompt→Sparsifier', robProd],
   ['BM25 纯 top-5（诊断）      ', robTopK],
   ['复刻半高阈值变体（诊断）   ', robFiltered],
 ]) {
@@ -416,7 +425,7 @@ console.log(
 
 console.log('\n=== 裁定（两关齐过才可翻默认：docs/POLISH_PLAN.md「CI 下界 >0 且留出折为正」）===');
 console.log(
-  '  判定档 = **生产方法** `SkillRegistry.selectForPrompt()`（经真实 Agent 注入路径消费）',
+  '  判定档 = **生产管线** `SkillRegistry.rankForPrompt() -> SkillSparsifier`（与 `Agent.injectSkills` 逐行同构）',
 );
 if (!corpusOk) {
   console.log('  ❌ 语料不自洽：探针的 ground truth 技能不在语料里 ⇒ 结果无效。');
@@ -499,7 +508,7 @@ writeFileSync(
       decisionBasis:
         '①接线活性 + 跨查询敏感度 < 0.6；②假阳性分数下限（GT 得分中位数 > 陷阱最高分）；' +
         '③同预算配对 bootstrap CI 下界 > 0 且留出折为正（docs/POLISH_PLAN.md P1；D6 两关）。' +
-        '判定档 = 生产方法 SkillRegistry.selectForPrompt()。',
+        '判定档 = 生产管线 SkillRegistry.rankForPrompt() + SkillSparsifier（与 Agent.injectSkills 同构）。',
       verdict: {
         gate1Wiring: wiringOk,
         gate1Sensitivity: sensitivityOk,
@@ -524,7 +533,7 @@ writeFileSync(
         recall: +prodRecall.toFixed(4),
         noise: +prodNoise.toFixed(3),
         trapsAvgKept: trapNoise.productionAvgKept,
-        path: 'SkillRegistry.selectForPrompt()',
+        path: 'SkillRegistry.rankForPrompt()+SkillSparsifier',
       },
       substring: {
         recall: +subRecall.toFixed(4),

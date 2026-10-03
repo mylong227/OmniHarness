@@ -17,59 +17,108 @@
 - Web 工作台 `web/src`：111 个 TS 文件（无第三方运行时框架，自绘 React 垫片）。
 - 评测/基准设施：`evals/` 86 个文件（评测脚本 + 落盘报告）、`benchmark/`、SWE-bench 运行器（`python/` + `eval-data/`）。
 
-### 代码规模（2026-10-03 实测，`find … | wc -l`）
+### 代码规模（2026-10-03 第二轮实测；行数口径 = 各文件行数之和）
 
-| 区域                                                  | 文件数          | 行数                  |
-| ----------------------------------------------------- | --------------- | --------------------- |
-| `src/` 全部                                           | 905             | 95,448                |
-| —— adapters（协议/工具/存储/媒体/沙箱等适配器）       | 211             | 31,685                |
-| —— ports（端口契约 + 组合接口）                       | 341             | 6,165                 |
-| —— server（HTTP/WS 服务与端点）                       | 47              | 9,104                 |
-| —— context（检索/压缩/仓库图/记忆注入）               | 40              | 8,821                 |
-| —— cli                                                | 29              | 6,212                 |
-| —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划）  | 24              | 5,077                 |
-| —— util / config / evolution / genesis / media / 其余 | 约 213          | 约 28,000             |
-| 单元测试 `tests/`                                     | 378 个 .test.ts | 全量 2,384 项断言用例 |
+| 区域                                                      | 文件数          | 行数                  |
+| --------------------------------------------------------- | --------------- | --------------------- |
+| `src/` 全部（本轮实测）                                   | 908             | 91,079                |
+| ~~`src/` 全部（上一轮口径，行数对不上，已由本轮值取代）~~ | ~~905~~         | ~~95,448~~            |
+| —— adapters（协议/工具/存储/媒体/沙箱等适配器）           | 211             | 31,685                |
+| —— ports（端口契约 + 组合接口）                           | 341             | 6,165                 |
+| —— server（HTTP/WS 服务与端点）                           | 47              | 9,104                 |
+| —— context（检索/压缩/仓库图/记忆注入）                   | 40              | 8,821                 |
+| —— cli                                                    | 29              | 6,212                 |
+| —— core（agent 循环 / 步执行 / 工具门禁 / 暴露规划）      | 24              | 5,077                 |
+| —— util / config / evolution / genesis / media / 其余     | 约 216          | 约 24,000             |
+| 单元测试 `tests/`                                         | 381 个 .test.ts | 全量 2,423 项断言用例 |
 
-## 2. 当前门禁状态（2026-10-03 实跑）
+> 子区域行数为上一轮 905 文件口径的存量值（本轮只重测了 `src/` 合计与文件数，未逐区域重跑）；
+> 「其余」一行按合计差额回填，故标「约」。所有数字均为本机可复核：文件数 =
+> `(Get-ChildItem src -Recurse -File -Filter *.ts).Count`，行数 = 同名管道 + `Measure-Object -Line`。
 
-| 门禁           | 命令                               | 结果                                                   |
-| -------------- | ---------------------------------- | ------------------------------------------------------ |
-| 类型（含 web） | `npm run typecheck`                | ✅ 零错误                                              |
-| 代码规范       | `npm run lint`（--max-warnings=0） | ✅ 0 告警                                              |
-| 铁律/体量      | `npm run check -- --strict`        | ✅ 905 文件零违规（存量白名单 13 处冻结）              |
-| 架构           | `npm run arch:gate`                | ✅ 依赖方向 0 / ports 纯度 0 / 依赖环新增 0            |
-| 成熟度         | `npm run audit:maturity`           | ✅ 40 项声明，L2/L3 均有测试证据                       |
-| 接线完整性     | `npm run audit:config-wiring`      | ✅ 905 文件全绿                                        |
-| 文档死链       | `npm run check:doc-links`          | ✅ 新增 0（存量基线冻结）                              |
-| 全量单测       | `npm test`                         | ✅ 2,384 项：2,374 过 / 0 失败 / 8 skip / 2 cancelled* |
+## 2. 当前门禁状态（2026-10-03 第二轮实跑；同日先修 §3 全部 6 项 + 官方门禁性能缺陷）
 
-\* 2 个 cancelled 是 `sessionLifecycle` / `workflowRunner` 两个文件在**并发全量**跑法下的文件级 120s 超时产物；两文件单独跑分别为 6/6 与 9/9 全绿（官方 gate `npm test` exit 0）。
+| 门禁           | 命令                                   | 结果                                                                    |
+| -------------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| 类型（含 web） | `npm run typecheck`                    | ✅ 零错误                                                               |
+| 代码规范       | `npm run lint`（--max-warnings=0）     | ✅ 0 告警                                                               |
+| 铁律/体量      | `npm run check -- --strict`            | ✅ 908 文件零违规（存量白名单 13 处冻结）                               |
+| 架构           | `npm run arch:gate`                    | ✅ 依赖方向 0 / ports 纯度 0 / 依赖环新增 0                             |
+| 成熟度         | `npm run audit:maturity`               | ✅ 40 项声明，L2/L3 均有测试证据                                        |
+| 接线完整性     | `npm run audit:config-wiring`          | ✅ 908 源文件全绿                                                       |
+| 文档死链       | `npm run check:doc-links`              | ✅ 新增 0（存量基线冻结）                                               |
+| 原生估算奇偶   | `npm run native:build` + 单测          | ✅ Rust `context.estimate` 与 TS 记账**逐位一致**（0 skip）             |
+| 技能路由       | `npm run eval:skill-routing -- --gate` | ✅ 三关齐过：召回 92.3% / 噪声 1.50 条 / Δ +65.38pp CI95 [46.15, 84.62] |
+| 全量单测       | `npm test`                             | ✅ 2,423 项：2,419 过 / **0 失败 / 0 cancelled** / 4 skip（exit 0）     |
 
 依赖政策：`dependency-allowlist.json`（D10：必要且更优即可引入；`src/ports/**` 与 `src/core/**` 恒第三方-free），允许/拒绝许可清单见该文件。
 
-## 3. 已知未修缺陷（2026-10-03 代码审计确证，按修复价值排序）
+### 2.1 修掉的一项**门禁级**性能缺陷（2026-10-03，blocking）
 
-> 来源：当日对 core / context / 模型适配层 / 工具适配层的四路人工审计，25 处已当场清偿
-> （提交 `b49d96e`），以下 6 项经评估**暂缓**并注明理由——
+**现象**：`npm test` 报 `fail 0` 却 **exit 1**——`sessionLifecycle` / `workflowRunner` 两文件在并发
+全量跑法下被 120s 文件级超时 cancelled（旧看板把这 2 个 cancelled 当作「并发产物」记账，实际是
+性能缺陷）。单文件实测 sessionLifecycle **100.4s**。
 
-1. **rollback 不截断内存事件流**（P1）：`CheckpointManager.rollback` 只改磁盘，运行中会话的
-   内存日志仍是全量，下一步 write-behind 持久化会把回滚覆盖回去。修复需要「事件日志截断 +
-   持久化版本化判脏」的端口级改造（EventPersister 的长度判脏也要一并换掉）。定位：
-   `src/core/checkpointManager.ts` / `src/core/loop/eventPersister.ts` / `src/adapters/tool/git/rollbackTool.ts`。
-2. **TurnDiffHooks 的 before 基线跨回合不重置**（P2）：回合 2 再写同一文件时 diff 的 before 侧
-   是回合 1 之前的内容，`turn_diff` 事件呈现跨回合累计差异；且基线 Map 只增不减。修复需要
-   tracker↔hooks 的回合生命周期联动。
-3. **压缩阈值 token 记账系统性偏低**（P2）：`TokenEstimator.estimateMessages` 只计 `content`，
-   toolCalls 参数 / reasoning / 图片 / repo-map 尾段 / 工具 schema 不入账，长工具链会话可能越过
-   窗口才触发压缩（fail-open 到上游 400）。修复涉及原生 FFI 估算器签名同步变更。
-4. **Ollama 流式工具调用按函数名合并**（P3）：同批同名并行调用被吞并、参数片段后到覆盖。
-   需要真实 ollama 后端的输出样本才能安全改（无样本不改协议解析）。
-5. **SkillSparsifier 在 BM25 生产路径上是空转**（P3）：`selectForPrompt` 已截断到预算，稀疏化的
-   预算判据恒真、强命中豁免永不生效——文档与行为脱节。两个方向二选一：删除该调用点，或给它
-   接 BM25 分数通道让豁免判据重新有语义（后者是行为变更，须按 D6 走判据）。
-6. **apply_patch 多文件落盘非原子**（P3）：第 2 个目标写盘失败时第 1 个已落盘且无回滚，
-   与类注释承诺矛盾；也没有 write/edit 都有的 `.bak` 备份。
+**根因**（本机 CPU profile 实测，非推断）：`RepoMapContextEngine` 的全部价值都在进程内长寿命缓存上
+（全仓语料索引，902 文件 **8.6s** 量级），而装配层在每个组合根（`ConfigFactory.build`）与**每个子代理**
+里 `new` 一个实例 ⇒ ① 缓存生命期退化成「一次装配」；② 写类工具成功后走 `clear()` **硬删**，而
+`shell` 里跑 `echo` / `git status` / `npm test` 并不改被索引的源码 ⇒ 单个回合把全仓索引**两遍**。
+
+**改动**：进程级唯一引擎（`context/repoMap/repoMapEngineProvider.ts`）+ 写工具后改走
+**软失效**（`CorpusIndexCache.invalidate`，先复核内容签名，未变即复用）。
+
+| 对象                      | 修前                   | 修后           | 判据                                     |
+| ------------------------- | ---------------------- | -------------- | ---------------------------------------- |
+| `sessionLifecycle` 单文件 | 100.4s（贴 120s 门限） | **14.2s**      | `node --test … sessionLifecycle.test.js` |
+| `workflowRunner` 单文件   | >120s（cancelled）     | **10.5s**      | 同上                                     |
+| 子代理启动的索引成本      | 每子代理一次全仓索引   | 进程内复用一次 | `repoMapEngineProvider.test.ts`          |
+
+## 3. §3 已清偿（2026-10-03 第二轮：原 6 项全部修完，各附回归判据）
+
+> 上一版 §3 列了 6 项「经评估暂缓」的缺陷。本轮全部清偿，逐项留档如下（判据可本机复核）。
+
+1. **✅ 已修：rollback 不截断内存事件流**（原 P1）。新增 `LiveSessionRewindPort` +
+   `LiveSessionRewindRegistry`（进程级登记表）→ `AppendOnlyEventLog.rewindTo`（越界 fail-closed）+
+   `SessionRecorder.rewindTo`（夹回合起点、重算检索 seq、反注册被撤销文档）+
+   `EventPersister.rewindTo`（**先等在飞全量写再强制重写**，长度相等时靠独立 `forceWrite` 判脏）。
+   判据：`tests/unit/liveSessionRewind.test.ts` 11 例（含「回滚后照样 schedule 落盘，历史不复活」）。
+   定位：`src/core/checkpointManager.ts` / `src/core/liveSessionRewindRegistry.ts` /
+   `src/core/loop/eventPersister.ts` / `src/core/appendOnlyEventLog.ts` / `src/core/sessionRecorder.ts`。
+2. **✅ 已修：TurnDiffHooks 基线跨回合不重置**（原 P2）。基线改为**只在 tracker 里存一份**
+   （`hasBaseline` / `recordBaseline`；`noteWrite(path, after)`），钩子不再自持 Map ⇒
+   跨回合复用**在结构上不可能**。判据：`tests/unit/turnDiffTracker.test.ts` 新增
+   「回合边界后基线重置，diff 不跨回合累计」（旧实现该用例必红）。
+3. **✅ 已修：压缩阈值 token 记账系统性偏低**（原 P2）。`TokenEstimator.estimateMessage` +
+   `accountableText` 成为**唯一记账实现**（content → reasoning → toolCalls JSON → 附件信封；
+   二进制载荷仍不计，理由成文）；`ContextBreakdownEstimator` 改为委派；
+   `ContextCompactor.compact(messages, state, overhead)` 把**工具 schema + 未拼入的 repo-map 尾段**
+   作为每请求固定开销并入同一预算（预留超预算时夹 20% 下限，不清空历史）；`StepRunner.requestModel`
+   调序为先算工具集再组装消息。**Rust FFI 同步**（`handle_context_estimate` + `accountable_text`），
+   本机 `npm run native:build` 后富载荷奇偶校验 **0 skip 通过**。
+   判据：`tokenEstimator.test.ts` / `contextCompactor.test.ts` / `nativeTokenEstimator.test.ts`。
+4. **✅ 已修：Ollama 流式工具调用按函数名合并**（原 P3）。有 `index` 按槽位分桶；字符串参数
+   **按片段累积、流末只解析一次**；`id` 逐条唯一（旧实现用函数名当配对键）。无 `index` 保留按名
+   合并——**无真实样本不推断该形态的并行语义**（遵「无样本不改协议解析」）。
+   判据：`tests/unit/llamaCppToolCalls.test.ts` 5 例（脚本化 NDJSON）。
+5. **✅ 已修：SkillSparsifier 在 BM25 生产路径上空转**（原 P3）。`SkillRegistry.rankForPrompt()`
+   拆出**不截断**的比率过滤排名，生产改用它 + `sparsify(..., relevance)`（相关性作主序）；
+   `selectForPrompt()` 契约不变。判定档同步改为生产真实两段管线并重跑
+   `eval:skill-routing --gate`：召回 **92.3%**、噪声 **1.50** 条/查询、Δ **+65.38pp**、
+   CI95 **[46.15, 84.62]pp**、留出折 0/40 为负 ⇒ 三关齐过（exit 0）。
+   判据：`tests/unit/skillSparsifier.test.ts` 新增 3 例（含「上游预截断 ⇒ 判据必然退化」）。
+6. **✅ 已修：apply_patch 多文件落盘非原子**（原 P3）。两阶段提交（准备：建父目录 + 已存在目标写
+   `.bak`；提交：逐个落盘，任一次失败即**回滚**已写文件）＋「不存在」与「空文件」分离
+   （只把 ENOENT 当不存在）。判据：`tests/unit/patchApplierFuzzy.test.ts` 新增 3 例
+   （`.bak` 生成 / 目标 EISDIR 时一个字节都不落盘 / 只读目标写失败时回滚 one.txt）。
+
+### 3.1 仍未修（本轮未触及，如实登记）
+
+- **写类工具后的全量重索引**：软失效把「没真改源码」的常见情形收掉了，但**真改了源码**（如
+  `write_file` 落盘一个 .ts）之后仍要全量重建一次（8.6s 量级）。增量重建（按文件增删更新
+  BM25 与符号表）是独立工程，未做。
+- **Ollama 多轮回传**：`LlamaCppModel.buildRequest` 只透传 `role` + `content`，assistant 的
+  `tool_calls` 与 `tool` 消息的 `tool_call_id`/`tool_name` **都不下发** ⇒ 原生多轮工具对话在
+  该适配器上不成立。修它需要真实后端样本（遵「无样本不改协议解析」），故未动。
 
 ## 4. 挂起项（有明确外部条件，非「不知道怎么做」）
 

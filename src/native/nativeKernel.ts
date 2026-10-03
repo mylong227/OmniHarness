@@ -152,8 +152,17 @@ export class NativeKernel {
   }
 
   /**
-   * 批量估算消息 token 数（对齐 TS TokenEstimator.estimateMessages，单次 FFI 往返）。
-   * @param messages 消息数组（仅需 content 字段参与估算）。
+   * 批量估算消息 token 数（对齐 TS `TokenEstimator.estimateMessages`，单次 FFI 往返）。
+   *
+   * **契约：与 TS 逐位一致**（`tests/unit/nativeTokenEstimator.test.ts` 用富载荷样本钉住）。
+   * 记账覆盖每条消息的全文载荷：`content` + `reasoningContent` + `toolCalls`(JSON) +
+   * `images`/`files` 的**信封文本**（URL/MIME/名称；二进制载荷不计，理由见 TS 侧
+   * `TokenEstimator.accountableText`）。两侧规则必须同步修改，否则「原生开 / 关」会给出
+   * 不同的压缩时机。
+   *
+   * 入参按**结构子集**声明（只承诺读 `content`）：调用方传完整 `ModelMessage` 完全合法，
+   * 且额外字段会随 JSON 原样序列化给内核参与记账——故此处无需（也不该）引入跨层类型依赖。
+   * @param messages 消息数组（完整消息对象亦可，额外字段参与原生记账）。
    * @returns 估算的 token 总数。
    */
   public estimateTokens(messages: readonly { content: string }[]): number {

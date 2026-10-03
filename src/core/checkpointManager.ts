@@ -6,7 +6,9 @@ import {
   type CheckpointMeta,
   type CheckpointManagerPort,
 } from '../ports/runtime/checkpointManager.js';
+import type { LiveSessionRewindPort } from '../ports/runtime/liveSessionRewindPort.js';
 import { SnapshotFileIo } from './snapshotFileIo.js';
+import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.js';
 
 /** 检查点管理器选项。 */
 export interface CheckpointOptions {
@@ -16,6 +18,14 @@ export interface CheckpointOptions {
   readonly workspaceRoot?: string;
   /** 文件快照持久化目录（默认 `<workspaceRoot>/.omni-checkpoints`）。 */
   readonly stateDir?: string;
+  /**
+   * 在跑会话的事件流回卷端口（缺省取进程级登记表 `LiveSessionRewindRegistry`）。
+   *
+   * 为什么必须有（2026-10-03 登记的 P1 缺陷）：回滚只写磁盘时，运行中会话的内存日志仍是全量，
+   * 下一步 write-behind 落盘会把回滚**原样覆盖**——用户看到「已回滚」而历史没变。回卷端口把
+   * 内存事实源与派生态（检索索引 / 事件持久化器）一并对齐。
+   */
+  readonly rewind?: LiveSessionRewindPort | undefined;
 }
 
 /** 索引键前缀：用于在该 session 下登记全部检查点 meta（StoragePort 无 list，故自管索引）。 */
@@ -53,6 +63,8 @@ export class CheckpointManager implements CheckpointManagerPort {
   private readonly workspaceRoot?: string | undefined;
   /** 文件快照落盘目录：缺省为 `<workspaceRoot>/.omni-checkpoints`。 */
   private readonly stateDir?: string | undefined;
+  /** 在跑会话回卷端口：缺省取进程级登记表（见 `CheckpointOptions.rewind`）。 */
+  private readonly rewind: LiveSessionRewindPort;
 
   public constructor(
     /** 存储端口：检查点事件与索引都以合成 key 借其 events 通道落盘。 */
@@ -63,6 +75,7 @@ export class CheckpointManager implements CheckpointManagerPort {
     this.snapshotter = options.snapshotter;
     this.workspaceRoot = options.workspaceRoot;
     this.stateDir = options.stateDir;
+    this.rewind = options.rewind ?? LiveSessionRewindRegistry.sharedRegistry();
   }
 
   /**
@@ -192,6 +205,10 @@ export class CheckpointManager implements CheckpointManagerPort {
       );
     }
     await this.storage.save(sessionId, events);
+    // 内存侧对齐（2026-10-03 修 P1）：**必须**在磁盘写回之后紧接执行，否则运行中会话的
+    // write-behind 会把刚写好的回滚覆盖回全量（旧行为：用户看到「已回滚」而历史没变）。
+    // 未命中在跑会话（false）是合法形态——离线/服务端回滚本就没有内存态要同步，不视为失败。
+    await this.rewind.rewind(sessionId, events.length);
     if (target.hasFileSnapshot && this.snapshotter !== undefined) {
       await this.restoreFiles(sessionId, target.label);
     }

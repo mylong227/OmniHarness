@@ -24,6 +24,50 @@ test('native estimateTokens 与 JS estimateMessages 逐位一致', { skip: nativ
   assert.strictEqual(nativeTokens, jsTokens, 'native 与 JS token 估算应一致');
 });
 
+/**
+ * 富载荷样本（2026-10-03 扩：记账口径加了 reasoning / toolCalls / 附件信封）。
+ * 值刻意用 BMP 字符（ASCII + 中文）：TS 按 UTF-16 码元、Rust 按 `char` 计数，
+ * 星光平面字符上两者本就不同——那是**既有**口径差异，不在本次改动范围内。
+ */
+const richMessages = [
+  { content: '用户提出需求：把上下文记账口径补齐。' },
+  {
+    content: '我来调用工具。',
+    reasoningContent: '先确认文件位置，再决定是否重写。',
+    toolCalls: [
+      {
+        id: 'call_1',
+        name: 'write_file',
+        arguments: { path: 'src/a.ts', content: 'export const x = 1; // 中文注释' },
+      },
+    ],
+  },
+  { content: '', toolCallId: 'call_1' },
+  {
+    content: '截图如下。',
+    images: [{ url: 'https://example.test/a.png', mediaType: 'image/png' }],
+    files: [{ name: '说明.txt', mediaType: 'text/plain' }],
+  },
+];
+
+test(
+  'native 与 JS：富载荷（reasoning/toolCalls/附件信封）记账仍逐位一致',
+  { skip: nativeSkip },
+  () => {
+    const est = new TokenEstimator();
+    const jsTokens = est.estimateMessages(richMessages);
+    const nativeTokens = nativeEstimator!.estimateTokens(richMessages);
+    assert.strictEqual(
+      nativeTokens,
+      jsTokens,
+      'FFI 与 TS 必须同口径（否则原生开关会改变压缩时机）',
+    );
+    // 反证：只算 content 的旧口径必然更小，即本次改动确实把载荷记了进来。
+    const contentOnly = richMessages.reduce((sum, m) => sum + est.estimate(m.content) + 4, 0);
+    assert.ok(jsTokens > contentOnly, '富载荷记账必须严格大于「只算 content」的旧口径');
+  },
+);
+
 test('TokenEstimator.setNativeEstimator 接管 estimateMessages', () => {
   const est = new TokenEstimator();
   let delegated = false;
