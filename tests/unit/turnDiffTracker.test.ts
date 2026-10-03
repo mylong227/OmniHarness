@@ -39,6 +39,27 @@ test('tracker：同文件二次写入只保留首次基线', () => {
   assert.doesNotMatch(diff, /OLD-SHOULD-BE-IGNORED/);
 });
 
+test('tracker：invalidate 后 noteWrite 不再污染 changedCount（2026-10-03 修）', () => {
+  // 旧实现失效后仍写 current ⇒ changedCount 从 0 变非 0，turn-end 完成闸门据此
+  // 误判「本回合改过文件」而平白跑一次验证。
+  const t = new TurnDiffTracker();
+  t.noteWrite('a.txt', 'x\n', 'y\n');
+  t.invalidate();
+  t.noteWrite('b.txt', null, 'z\n');
+  assert.strictEqual(t.changedCount, 0);
+  assert.strictEqual(t.getUnifiedDiff(), undefined);
+});
+
+test('tracker：reset 后恢复追踪能力', () => {
+  const t = new TurnDiffTracker();
+  t.noteWrite('a.txt', 'x\n', 'y\n');
+  t.invalidate();
+  t.reset();
+  t.noteWrite('c.txt', null, 'new\n');
+  assert.strictEqual(t.changedCount, 1);
+  assert.ok(t.getUnifiedDiff() !== undefined);
+});
+
 test('tracker：invalidate 后不再产出任何 diff', () => {
   const t = new TurnDiffTracker();
   t.noteWrite('a.txt', 'old', 'new');

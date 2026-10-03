@@ -115,20 +115,23 @@ export class CodeReferenceGraph {
   }
 
   /**
-   * 构建（或复用按 root 缓存的）稀疏引用图 + 文件中心性。
-   * 任意失败向上抛，由调用方 fail-closed 跳过第四路（不污染主检索）。
+   * 构建稀疏引用边：source → (target → 权重)，只保留 df ≤ {@link MAX_DF_FOR_EDGE} 的罕见共享名。
+   * 跨文件引用边：扫描每个文件文本（tokenize 全小写，与名字索引同归一化），
+   * 找出它真正引用到的、定义在其他文件里的罕见符号。
+   * @param corpus 已索引语料（读 fileText）。
+   * @param symbols 符号数组。
+   * @param nameToIds 小写符号名 → 符号 id 列表。
+   * @param byFile 文件 → 成员符号 id 列表。
+   * @param df 符号名文档频率。
+   * @returns 稀疏边表（双向）。
    */
-  public static getGraphSignal(root: string, corpus: IndexedCorpus): GraphSignal {
-    const existing = cache.get(root);
-    if (existing !== undefined) {
-      return existing;
-    }
-    const symbols = corpus.symbols;
-    const nameToIds = CodeReferenceGraph.buildLowerNameIndex(symbols);
-    const byFile = CodeReferenceGraph.buildFileIndex(symbols);
-    const df = CodeReferenceGraph.buildDocFreq(symbols, byFile);
-
-    // 稀疏引用边：source -> (target -> 权重)，只保留 df ≤ MAX_DF_FOR_EDGE 的罕见共享名。
+  private static buildSparseEdges(
+    corpus: IndexedCorpus,
+    symbols: IndexedCorpus['symbols'],
+    nameToIds: ReadonlyMap<string, readonly number[]>,
+    byFile: ReadonlyMap<string, readonly number[]>,
+    df: ReadonlyMap<string, number>,
+  ): Map<number, Map<number, number>> {
     const edges = new Map<number, Map<number, number>>();
     const addEdge = (a: number, b: number, w: number): void => {
       if (a === b) return;
@@ -140,8 +143,6 @@ export class CodeReferenceGraph {
       const cur = m.get(b) ?? 0;
       if (w > cur) m.set(b, w);
     };
-    // 跨文件引用边：扫描每个文件文本（tokenize 全小写，与名字索引同归一化），
-    // 找出它真正引用到的、定义在其他文件里的罕见符号。
     for (const [rel, text] of corpus.fileText) {
       const localIds = byFile.get(rel);
       if (localIds === undefined || localIds.length === 0) continue;
@@ -165,6 +166,25 @@ export class CodeReferenceGraph {
         }
       }
     }
+    return edges;
+  }
+
+  /**
+   * 构建（或复用按 root 缓存的）稀疏引用图 + 文件中心性。
+   * 任意失败向上抛，由调用方 fail-closed 跳过第四路（不污染主检索）。
+   */
+  public static getGraphSignal(root: string, corpus: IndexedCorpus): GraphSignal {
+    const existing = cache.get(root);
+    // 实例同一性校验（2026-10-03 修，审计 C7）：语料被 TTL 重建后旧图信号的下标语义已漂移，
+    // 必须重建，绝不复用（详见模块尾 cache 的陈旧防护说明）。
+    if (existing !== undefined && existing.corpus === corpus) {
+      return existing.signal;
+    }
+    const symbols = corpus.symbols;
+    const nameToIds = CodeReferenceGraph.buildLowerNameIndex(symbols);
+    const byFile = CodeReferenceGraph.buildFileIndex(symbols);
+    const df = CodeReferenceGraph.buildDocFreq(symbols, byFile);
+    const edges = CodeReferenceGraph.buildSparseEdges(corpus, symbols, nameToIds, byFile, df);
     const adj: Array<Array<readonly [number, number]>> = new Array(symbols.length);
     for (let i = 0; i < symbols.length; i++) {
       const m = edges.get(i);
@@ -194,7 +214,7 @@ export class CodeReferenceGraph {
     }
     const sig: GraphSignal = { graph: sparse, edgeCount, fileCentrality: fileCen };
     CodeReferenceGraph.evictIfFull(root);
-    cache.set(root, sig);
+    cache.set(root, { corpus, signal: sig });
     return sig;
   }
 
@@ -285,8 +305,18 @@ export interface GraphSignal {
  * **有界**（2026-09-19 堆爆审计）：进程级 Map 必须有上限——长驻进程（server / 多工作区）里
  * 每个 root 都会留一份「图 + 文件中心性」，无上限就是同一类无界增长。上限 {@link MAX_CACHED_ROOTS}
  * 按**插入序**淘汰最旧一条（Map 保序），并用 `clearGraphSignal` 提供显式失效。
+ *
+ * **陈旧防护（2026-10-03 修，审计 C7）**：缓存值挂**语料实例**（`{ corpus, signal }`），
+ * 命中时校验实例同一性。此前只按 root 键，而语料缓存（CorpusIndexCache）在 TTL 到期时会
+ * 自动重建新 IndexedCorpus（符号数量与顺序可变），图信号却留着旧实例的符号下标——
+ * `graphNeighborFileRoute` 拿旧下标索引新符号数组，邻居映射静默错文件（越界项被 `?.file` 吞掉），
+ * 检索错而不报。挂实例同一性后，语料重建即自动重建图信号，与语料生命周期严格同步。
  */
-const cache = new Map<string, GraphSignal>();
+interface CachedGraphSignal {
+  readonly corpus: IndexedCorpus;
+  readonly signal: GraphSignal;
+}
+const cache = new Map<string, CachedGraphSignal>();
 
 /** 进程级图信号缓存的最大 root 数（超出按插入序淘汰最旧）。 */
 export const MAX_CACHED_ROOTS = 8;

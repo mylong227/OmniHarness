@@ -45,10 +45,13 @@ export class ContextAssembler {
   /**
    * 工具结果里携带的文件附件（P2-⑬，`view_image` 等）。
    *
-   * 为什么**攒到最后**再发：OpenAI 兼容端点要求每条 `role:'tool'` 消息都必须紧跟在其
-   * 配对的 `assistant(tool_calls)` 之后；若把附件即刻插成一条 user 消息，同一回合的**第二**
-   * 条 tool 消息前面就不再是带 tool_calls 的 assistant ⇒ 直接 HTTP 400。
-   * 因此这里先累积，等全部 tool 消息发完后再作为**一条** user 消息追加。
+   * flush 时机（2026-10-03 修）：**攒到本工具轮结束**（下一条非 `tool_result` 事件到来前）再发。
+   * 不能插进 tool 消息中间：OpenAI 兼容端点要求每条 `role:'tool'` 消息都必须紧跟在其配对的
+   * `assistant(tool_calls)` 之后，同回合第二条 tool 消息前面插入 user 消息即 HTTP 400；
+   * 但也不能像旧实现那样攒到**整段对话投影完**——第 3 轮产生的附件会落在最后一条 assistant
+   * 回复之后，与产生它的请求相隔十几个回合，模型把图片关联到当前问题而非当初请求。
+   * 「下一条非 tool_result 事件」= 本轮工具消息已全部发完、且尚未开启下一轮 ⇒ 附件紧跟其轮次，
+   * 且不破坏 `assistant(tool_calls) ↔ tool` 配对。
    */
   private pendingAttachments: FileAttachment[] = [];
 
@@ -91,6 +94,10 @@ export class ContextAssembler {
    * @returns 无返回值。
    */
   private append(messages: ModelMessage[], event: SessionEvent): void {
+    // 工具轮结束（下一条非 tool_result 事件）即 flush 附件：紧跟其轮次，见 pendingAttachments 说明。
+    if (event.type !== 'tool_result' && this.pendingAttachments.length > 0) {
+      this.flushPendingAttachments(messages);
+    }
     switch (event.type) {
       case 'system': {
         const content = this.contentOf(event);
@@ -116,30 +123,7 @@ export class ContextAssembler {
         break;
       }
       case 'assistant':
-        // 若有挂起的工具调用（极少见：assistant 文本与 tool_calls 分离记录），先 flush 配对 assistant 消息。
-        this.flushPendingAssistant(messages);
-        // 优先用事件自身带的 reasoning（#OBS-5：stepRunner 同步塞进），退到 pendingReasoning
-        // （老路径：独立 reasoning 事件 + 时序假设），二者皆无则不挂该字段。
-        const payloadReasoning =
-          typeof (event as { payload?: { reasoning?: unknown } }).payload?.reasoning === 'string'
-            ? (event as { payload: { reasoning: string } }).payload.reasoning
-            : undefined;
-        const reasoning =
-          payloadReasoning !== undefined && payloadReasoning !== ''
-            ? payloadReasoning
-            : this.pendingReasoning;
-        // 思考模式一致性：一旦此前出现过 reasoning，本消息也必须带 reasoning_content
-        // （真实推理文本或空串占位），缺失会触发 DeepSeek HTTP 400（"must be passed back"）。
-        if (reasoning !== undefined && reasoning !== '') {
-          this.reasoningSeen = true;
-        }
-        const reasoningContent = this.reasoningContentOf(reasoning);
-        messages.push({
-          role: 'assistant',
-          content: this.contentOf(event),
-          ...(reasoningContent !== undefined ? { reasoningContent } : {}),
-        });
-        this.pendingReasoning = undefined;
+        this.appendAssistant(messages, event);
         break;
       case 'reasoning':
         // 思考文本暂存，挂到本回合第一条 assistant 消息（DeepSeek 思考模式回传硬要求）。
@@ -161,12 +145,50 @@ export class ContextAssembler {
         // 模型**必须看到自己改了什么**（2026-09-26 审计 A7）：`turn_diff` 原先只广播给 UI，
         // 投影时被 default 分支丢弃 ⇒ 模型无法复核本回合的实际改动，只能凭记忆断言「已改好」。
         // 这里以 user 消息回灌（带总量上限，避免大 diff 撑爆上下文）。
-        this.appendTurnDiff(messages, this.contentOf(event));
+        //
+        // 2026-10-03 修：字段必须是 `payload.diff`——`EventFactory.turnDiff` 落地的 payload 形状
+        // 就是 `{ diff }`，此前读 `contentOf`（`payload.content`）恒得空串，`appendTurnDiff`
+        // 的空串卫语句直接返回 ⇒ A7 声称的修复实际一条 diff 都没到过模型（单测用错误形状
+        // `{ content }` 构造事件，假绿掩盖了死投影）。
+        this.appendTurnDiff(messages, this.diffOf(event));
         break;
       }
       default:
         break;
     }
+  }
+
+  /**
+   * 追加 assistant 文本消息（含思考模式一致性回传，DeepSeek 硬要求）。
+   * @param messages 已组装的消息序列（原地追加）。
+   * @param event assistant 事件。
+   * @returns 无返回值。
+   */
+  private appendAssistant(messages: ModelMessage[], event: SessionEvent): void {
+    // 若有挂起的工具调用（极少见：assistant 文本与 tool_calls 分离记录），先 flush 配对 assistant 消息。
+    this.flushPendingAssistant(messages);
+    // 优先用事件自身带的 reasoning（#OBS-5：stepRunner 同步塞进），退到 pendingReasoning
+    // （老路径：独立 reasoning 事件 + 时序假设），二者皆无则不挂该字段。
+    const payloadReasoning =
+      typeof (event as { payload?: { reasoning?: unknown } }).payload?.reasoning === 'string'
+        ? (event as { payload: { reasoning: string } }).payload.reasoning
+        : undefined;
+    const reasoning =
+      payloadReasoning !== undefined && payloadReasoning !== ''
+        ? payloadReasoning
+        : this.pendingReasoning;
+    // 思考模式一致性：一旦此前出现过 reasoning，本消息也必须带 reasoning_content
+    // （真实推理文本或空串占位），缺失会触发 DeepSeek HTTP 400（"must be passed back"）。
+    if (reasoning !== undefined && reasoning !== '') {
+      this.reasoningSeen = true;
+    }
+    const reasoningContent = this.reasoningContentOf(reasoning);
+    messages.push({
+      role: 'assistant',
+      content: this.contentOf(event),
+      ...(reasoningContent !== undefined ? { reasoningContent } : {}),
+    });
+    this.pendingReasoning = undefined;
   }
 
   /** 将累积的待发工具调用 flush 为一条 assistant(tool_calls) 消息。
@@ -215,6 +237,16 @@ export class ContextAssembler {
   }
 
   /**
+   * 提取回合 diff（`EventFactory.turnDiff` 落地的 payload 字段是 `diff`，不是 `content`）。
+   * @param event turn_diff 事件。
+   * @returns diff 文本；形状不符（异常持久化数据）时为空串（回灌卫语句会跳过）。
+   */
+  private diffOf(event: SessionEvent): string {
+    const payload = event.payload as { diff?: string };
+    return payload.diff ?? '';
+  }
+
+  /**
    * 把回合 diff 截到上限（保留**头部**：diff 的头部含文件与 hunk 起点，是最需要复核的部分）。
    * @param diff 原始 unified diff。
    * @returns 截断后的文本（超限时附截断说明）。
@@ -254,10 +286,11 @@ export class ContextAssembler {
   }
 
   /**
-   * 把累积的工具结果附件 flush 成**一条** user 消息（在所有 tool 消息之后）。
+   * 把累积的工具结果附件 flush 成**一条** user 消息（本工具轮的全部 tool 消息之后）。
    *
-   * 位置刻意放在末尾而非紧跟各自 tool 消息：见 {@link ContextAssembler.pendingAttachments}
-   * 的说明（插在 tool 消息之间会破坏 `assistant(tool_calls)` ↔ `tool` 的配对，触发 HTTP 400）。
+   * 调用点有两处：① `append` 遇到下一条非 `tool_result` 事件（本轮结束，紧跟其轮次）；
+   * ② `build` 末尾（日志以 tool_result 收尾的会话，兜底 flush）。
+   * 见 {@link ContextAssembler.pendingAttachments} 的时机论证。
    *
    * @param messages 已组装的消息序列（原地追加）。
    * @returns 无返回值（无附件时不产生任何消息）。

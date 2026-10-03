@@ -75,11 +75,22 @@ test('seed 为空时邻域路由返回空列表（fail-closed 友好，不抛不
   assert.deepStrictEqual(route, []);
 });
 
-test('同 root 图信号按缓存复用，不重复构建', () => {
+test('同 root 且同语料实例的图信号按缓存复用，不重复构建', () => {
+  CodeReferenceGraph.clearGraphSignal('fake');
+  const corpus = makeCorpus();
+  const sig1 = CodeReferenceGraph.getGraphSignal('fake', corpus);
+  const sig2 = CodeReferenceGraph.getGraphSignal('fake', corpus);
+  assert.strictEqual(sig1, sig2, '同一语料实例应返回同一缓存实例');
+});
+
+test('语料被重建（新实例）后图信号必须重建，不得复用旧下标（2026-10-03 修 C7 陈旧信号）', () => {
+  // 旧实现只按 root 键：TTL 到期重建语料（符号数量/顺序可变）后，旧图下标索引新符号数组
+  // 静默错位。新契约：缓存值挂语料实例，实例不同即重建。
   CodeReferenceGraph.clearGraphSignal('fake');
   const sig1 = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
   const sig2 = CodeReferenceGraph.getGraphSignal('fake', makeCorpus());
-  assert.strictEqual(sig1, sig2, '同 root 应返回同一缓存实例');
+  assert.notStrictEqual(sig1, sig2, '语料实例不同 ⇒ 必须重建，不得返回陈旧信号');
+  CodeReferenceGraph.clearGraphSignal('fake');
 });
 
 test('图信号缓存有界：超过 MAX_CACHED_ROOTS 时按插入序淘汰最旧（进程级 Map 不得无界增长）', () => {

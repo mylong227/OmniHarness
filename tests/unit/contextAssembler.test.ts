@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ContextAssembler } from '../../src/context/contextAssembler.js';
+import { EventFactory } from '../../src/core/eventFactory.js';
+import type { FileAttachment } from '../../src/ports/model/fileAttachment.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 构造事件。 */
@@ -185,20 +187,29 @@ test('OBS-6：纯非思考对话（全程无 reasoning）绝不注入 reasoning_
   }
 });
 
-test('A7：turn_diff 必须回灌给模型（原先被投影丢弃，模型看不到自己改了什么）', () => {
+test('A7：turn_diff 必须回灌给模型（payload 字段是 diff——2026-10-03 修死投影后夹具改用真实形状）', () => {
   const assembler = new ContextAssembler();
   const diff = ['--- a/x.ts', '+++ b/x.ts', '@@ -1,1 +1,1 @@', '-old', '+new'].join('\n');
-  const messages = assembler.build([event('turn_diff', { content: diff })]);
+  const messages = assembler.build([event('turn_diff', { diff })]);
   assert.strictEqual(messages.length, 1, '应产生一条回灌消息');
   assert.strictEqual(messages[0]?.role, 'user');
   assert.match(messages[0]?.content ?? '', /实际改动 diff/);
   assert.match(messages[0]?.content ?? '', /\+new/, 'diff 正文必须可见');
 });
 
+test('A7：生产事件工厂形状（EventFactory.turnDiff → { diff }）投影后 diff 可见', () => {
+  const assembler = new ContextAssembler();
+  const factory = new EventFactory();
+  const diff = '--- a/y.ts\n+++ b/y.ts\n@@ -1,1 +1,1 @@\n-old\n+new';
+  const messages = assembler.build([factory.turnDiff('sess', diff)]);
+  assert.strictEqual(messages.length, 1, '真实工厂事件必须回灌（旧缺陷：恒空串被卫语句吞掉）');
+  assert.match(messages[0]?.content ?? '', /\+new/);
+});
+
 test('A7：超大 diff 回灌时有上限（保留头部 + 截断说明）', () => {
   const assembler = new ContextAssembler();
   const huge = `--- a/x.ts\n+++ b/x.ts\n${'+x'.repeat(ContextAssembler.MAX_DIFF_CHARS)}\n`;
-  const messages = assembler.build([event('turn_diff', { content: huge })]);
+  const messages = assembler.build([event('turn_diff', { diff: huge })]);
   const content = messages[0]?.content ?? '';
   assert.ok(content.length < huge.length, '必须被截断');
   assert.match(content, /diff 已截断/);
@@ -206,5 +217,26 @@ test('A7：超大 diff 回灌时有上限（保留头部 + 截断说明）', () 
 
 test('A7：空 diff 不产生消息（零噪声）', () => {
   const assembler = new ContextAssembler();
-  assert.deepStrictEqual(assembler.build([event('turn_diff', { content: '   ' })]), []);
+  assert.deepStrictEqual(assembler.build([event('turn_diff', { diff: '   ' })]), []);
+});
+
+test('P2-⑬：工具附件紧跟其工具轮次 flush（不再落到整段对话末尾）', () => {
+  const assembler = new ContextAssembler();
+  const att: FileAttachment = { name: 'a.png', mediaType: 'image/png', data: 'x' };
+  const messages = assembler.build([
+    event('user', { content: '看这张图' }),
+    event('tool_call', { callId: 'c1', name: 'view_image', args: { path: 'a.png' } }),
+    event('tool_result', { callId: 'c1', ok: true, output: 'ok', files: [att] }),
+    // 第 2 步：模型继续对话——附件必须在第 1 轮结束后就 flush，而不是压到最后。
+    event('assistant', { content: '这是图里的内容' }),
+    event('user', { content: '下一问' }),
+    event('assistant', { content: '答' }),
+  ]);
+  const attachIndex = messages.findIndex(
+    (m) => m.role === 'user' && m.content.startsWith('[工具读取的文件附件]'),
+  );
+  const toolIndex = messages.findIndex((m) => m.role === 'tool');
+  const laterAssistant = messages.findIndex((m) => m.role === 'assistant' && m.content === '答');
+  assert.ok(attachIndex > toolIndex, '附件在 tool 消息之后（不破坏配对）');
+  assert.ok(attachIndex < laterAssistant, '附件必须在其产生轮次附近，而非对话末尾');
 });

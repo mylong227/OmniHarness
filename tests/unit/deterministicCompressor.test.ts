@@ -68,6 +68,26 @@ describe('确定性上下文压缩', () => {
     assert.strictEqual(DeterministicCompressor.minifyJsonBlock('just text'), 'just text');
   });
 
+  it('minifyJsonBlock：超过 2^53 的整数不被舍入（2026-10-03 无损护栏）', () => {
+    // JSON.parse 会把 19 位整数舍入成 double：7000000000123456789 → 7000000000123456700。
+    const text = '{"order_id": 7000000000123456789, "nano_ts": 1700000000123456789}';
+    assert.strictEqual(
+      DeterministicCompressor.minifyJsonBlock(text),
+      text,
+      '大整数 JSON 必须整段原样保留，绝不静默改值',
+    );
+  });
+
+  it('minifyJsonBlock：重复键不再静默丢首值（字面量集合变化即回退原文）', () => {
+    const text = '{"a":1,"a":2}';
+    assert.strictEqual(DeterministicCompressor.minifyJsonBlock(text), text);
+  });
+
+  it('minifyJsonBlock：字面量改写形态（1e2 / 1.0）也回退原文（保守宁可不省）', () => {
+    assert.strictEqual(DeterministicCompressor.minifyJsonBlock('{"v": 1e2}'), '{"v": 1e2}');
+    assert.strictEqual(DeterministicCompressor.minifyJsonBlock('{"v": 1.0}'), '{"v": 1.0}');
+  });
+
   it('collapseBlankLines：折叠多余空行与行尾空白', () => {
     assert.strictEqual(DeterministicCompressor.collapseBlankLines('a  \n\n\n\nb'), 'a\n\nb');
   });

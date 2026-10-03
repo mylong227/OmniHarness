@@ -92,3 +92,48 @@ test('ReadFileTool：越界路径拒绝', async () => {
   assert.strictEqual(result.ok, false);
   assert.match(result.error ?? '', /越界/);
 });
+
+test('ReadFileTool：二进制文件拒绝并给出指引（2026-10-03 修 T1）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-read-'));
+  try {
+    await writeFile(join(dir, 'blob.bin'), Buffer.from([0x4f, 0x4b, 0x00, 0x01, 0x02]));
+    const result = await tool.handle(
+      { id: 'c1', name: 'read_file', arguments: { path: 'blob.bin' } },
+      { sessionId: 's1', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error ?? '', /二进制/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ReadFileTool：超过字节上限的文件明确拒绝并指向 grep/shell（2026-10-03 修 T1）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-read-'));
+  try {
+    // 65 MiB 内容即可越过 64 MiB 上限。
+    await writeFile(join(dir, 'huge.log'), Buffer.alloc(65 * 1024 * 1024, 0x61));
+    const result = await tool.handle(
+      { id: 'c1', name: 'read_file', arguments: { path: 'huge.log' } },
+      { sessionId: 's1', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error ?? '', /过大|grep|shell/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ReadFileTool：目录明确拒绝（stat 先于读取）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-read-'));
+  try {
+    const result = await tool.handle(
+      { id: 'c1', name: 'read_file', arguments: { path: '.' } },
+      { sessionId: 's1', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error ?? '', /不是常规文件/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

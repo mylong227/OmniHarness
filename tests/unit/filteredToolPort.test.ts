@@ -6,22 +6,28 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FilteredToolPort } from '../../src/core/filteredToolPort.js';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.js';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
 
 /** 构造含 read/write 两类工具的基端口。 */
 function base(): RegistryToolPort {
   const registry = new RegistryToolPort();
   const blank = { type: 'object', properties: {}, required: [] } as const;
-  registry.register({ name: 'read_file', description: '读', parameters: blank }, async (c: ToolCall): Promise<ToolResult> => ({
-    callId: c.id,
-    ok: true,
-    output: 'read',
-  }));
-  registry.register({ name: 'write_file', description: '写', parameters: blank }, async (c: ToolCall): Promise<ToolResult> => ({
-    callId: c.id,
-    ok: true,
-    output: 'write',
-  }));
+  registry.register(
+    { name: 'read_file', description: '读', parameters: blank },
+    async (c: ToolCall): Promise<ToolResult> => ({
+      callId: c.id,
+      ok: true,
+      output: 'read',
+    }),
+  );
+  registry.register(
+    { name: 'write_file', description: '写', parameters: blank },
+    async (c: ToolCall): Promise<ToolResult> => ({
+      callId: c.id,
+      ok: true,
+      output: 'write',
+    }),
+  );
   return registry;
 }
 
@@ -50,16 +56,39 @@ test('execute()：未放行项 fail-closed 拒绝（不转发基端口）', asyn
   assert.match(res.error ?? '', /受限子集|不在受限/);
 });
 
-test('listDirect()：基端口提供 listDirect 时直接委托（原始未过滤视图）', () => {
+test('listDirect()：与 list() 同视图——按谓词过滤（2026-10-03 修授权旁路，旧实现透传未过滤全量）', () => {
   const port = new FilteredToolPort(base(), (n) => n === 'read_file');
-  // RegistryToolPort 实现 listDirect，故受限端口直接委托基端口（返回基端口原始全量视图）。
+  // RegistryToolPort 实现 listDirect；effectiveTools() 优先取 listDirect，若透传全量，
+  // 受限视图（A2A 委托/子代）的模型工具面会看到被禁工具的完整 schema。
   const direct = port.listDirect();
-  assert.deepStrictEqual(direct.map((d) => d.name).sort(), ['read_file', 'write_file']);
+  assert.deepStrictEqual(
+    direct.map((d) => d.name),
+    ['read_file'],
+  );
+});
+
+test('listDirect()：基端口未实现 listDirect 时回退受限 list（行为不变）', () => {
+  const inner = base();
+  const plain: ToolPort = {
+    name: 'plain',
+    list: () => inner.list().filter((d) => d.name === 'read_file'),
+    async execute(): Promise<ToolResult> {
+      return { callId: 'x', ok: true };
+    },
+  };
+  const port = new FilteredToolPort(plain, (n) => n === 'read_file');
+  assert.deepStrictEqual(
+    port.listDirect().map((d) => d.name),
+    ['read_file'],
+  );
 });
 
 test('unregister()：委托基端口', () => {
   const registry = base();
   const port = new FilteredToolPort(registry, () => true);
   assert.strictEqual(port.unregister('read_file'), true);
-  assert.strictEqual(port.list().some((d) => d.name === 'read_file'), false);
+  assert.strictEqual(
+    port.list().some((d) => d.name === 'read_file'),
+    false,
+  );
 });

@@ -44,6 +44,17 @@ test('PatchApplier：上下文行尾空白差异仍能落位', () => {
   assert.strictEqual(result.newContent, 'a\nB\nc');
 });
 
+test('PatchApplier：hunk 体内空行按空上下文行处理（2026-10-03 修 T3，模型手写 diff 剥行尾空格）', () => {
+  // 目标文件含真实空行；补丁的空上下文行是**空串**（传输层剥掉行尾空格的形态）。
+  // 旧实现直接丢弃空行 ⇒ oldSide 少一行 ⇒ 声明位置 ±200 行都匹配不上，整份补丁被拒。
+  const patch = ['--- a/f.txt', '+++ b/f.txt', '@@ -1,4 +1,4 @@', ' a', ' ', '-b', '+B', ' c'].join(
+    '\n',
+  );
+  const result = new PatchApplier().apply('a\n\nb\nc', patch);
+  assert.strictEqual(result.ok, true, `空上下文行必须被保留：${JSON.stringify(result.error)}`);
+  assert.strictEqual(result.newContent, 'a\n\nB\nc');
+});
+
 test('PatchApplier：上下文误带行号前缀（read_file 输出粘贴）仍能落位', () => {
   const patch = ['--- a/f.txt', '+++ b/f.txt', '@@ -1,3 +1,3 @@', '1→a', '-2→b', '3→c', '+B'].join(
     '\n',

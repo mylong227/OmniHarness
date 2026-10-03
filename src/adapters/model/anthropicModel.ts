@@ -18,6 +18,7 @@ import {
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { ModelRequestGuard } from './modelRequestGuard.js';
 import { RequestStallGuard } from './requestStallGuard.js';
+import { ModelHttpErrors } from './modelHttpErrors.js';
 import { sseParser } from './sseParser.js';
 
 /** Anthropic 模型配置。 */
@@ -68,7 +69,8 @@ export class AnthropicModel implements ModelPort {
       // 响应头到达即算「有进展」：为紧随其后的响应体读取续期。
       guard?.touch();
       if (!response.ok) {
-        throw new Error(`Anthropic 请求失败: HTTP ${response.status}`);
+        // 2026-10-03 修（审计 D1）：裸 `Error` 无 status/retryable 字段，429/5xx 永不重试。
+        throw await ModelHttpErrors.from(response, 'Anthropic 请求失败');
       }
       const body = (await response.json()) as AnthropicResponse;
       return this.parseOutput(body);
@@ -111,7 +113,8 @@ export class AnthropicModel implements ModelPort {
     const response = await fetch(this.endpoint(), this.buildRequest(request, guard));
     guard?.touch();
     if (!response.ok) {
-      throw new Error(`Anthropic 流式请求失败: HTTP ${response.status}`);
+      // 2026-10-03 修（审计 D1）：同 generate 路径，结构化错误让 429/5xx 可重试。
+      throw await ModelHttpErrors.from(response, 'Anthropic 流式请求失败');
     }
     const body = response.body;
     if (body === null) {
@@ -394,6 +397,16 @@ export class AnthropicModel implements ModelPort {
       return;
     }
     const json = JSON.parse(data) as AnthropicStreamEvent;
+    // 流中 error 事件（2026-10-03 修，审计 D3）：Anthropic 规范允许流中途发
+    // `event: error`（如 overloaded_error）；旧实现只处理 content_block 两类事件，
+    // 错误负载被静默丢弃 ⇒ 半截文本/半截工具参数被当成成功输出。
+    if (json.type === 'error') {
+      throw ModelHttpErrors.streamError(
+        'Anthropic',
+        json.error?.type ?? 'unknown',
+        json.error?.message ?? '',
+      );
+    }
     this.observeUsage(json, usageState);
     // #B3 工具调用开始：记录 id/name，先推一次空增量（便于 UI 立即显示「调用中」）。
     if (json.type === 'content_block_start' && json.content_block?.type === 'tool_use') {
@@ -500,4 +513,6 @@ interface AnthropicStreamEvent {
   readonly message?: { readonly usage?: AnthropicUsageWire };
   /** `message_delta` 携带 output 累计量。 */
   readonly usage?: AnthropicUsageWire;
+  /** 流中 error 事件负载（2026-10-03 修 D3；出现即中断流并上抛结构化错误）。 */
+  readonly error?: { readonly type?: string; readonly message?: string };
 }

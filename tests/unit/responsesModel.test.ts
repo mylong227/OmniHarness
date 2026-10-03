@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ResponsesModel } from '../../src/adapters/model/responsesModel.js';
+import { ModelCallError } from '../../src/ports/model/model.js';
 import type { ModelRequest } from '../../src/ports/model/model.js';
 
 /** 把文本包装为流。 */
@@ -61,7 +62,7 @@ test('Responses：请求体用 instructions + 扁平工具 + input 剥离 system
   const body = JSON.parse(String(captured?.init.body)) as Record<string, unknown>;
   assert.strictEqual(body['instructions'], '你是助手');
   assert.strictEqual(body['model'], 'gpt-5');
-  assert.strictEqual(body['store'], true);
+  assert.strictEqual(body['store'], false, '2026-10-03 修 D2：无锚点消费 ⇒ 存储默认关闭');
 
   const input = body['input'] as { role: string }[];
   assert.strictEqual(input.length, 1);
@@ -118,7 +119,7 @@ test('Responses：流式增量回调并以 completed 终态为准', async () => 
   assert.strictEqual(output.text, '流式结果');
 });
 
-test('Responses：previous_response_id 自动续接（服务端持有上下文）', async () => {
+test('Responses：不再回传 previous_response_id / store 默认 false（2026-10-03 修 D2 上下文翻倍）', async () => {
   const target = model();
   const bodies: Record<string, unknown>[] = [];
   await withFetch(
@@ -132,26 +133,13 @@ test('Responses：previous_response_id 自动续接（服务端持有上下文�
     },
   );
 
-  assert.strictEqual(bodies[0]?.['previous_response_id'], undefined, '首次请求无续接');
+  // 调用方每步都发全量 input（自足）；再带续接锚点会让服务端把已存对话前置 ⇒ 历史成倍重复。
+  // 旧实现二次请求带 previous_response_id，是被本批证伪并移除的缺陷行为。
+  assert.strictEqual(bodies[0]?.['previous_response_id'], undefined);
+  assert.strictEqual(bodies[1]?.['previous_response_id'], undefined, '续接锚点已彻底移除');
+  assert.strictEqual(bodies[0]?.['store'], false, '无锚点消费 ⇒ 服务端存储默认关闭');
+  // responseId() 保留为观测 API。
   assert.strictEqual(target.responseId(), 'resp_next');
-  assert.strictEqual(bodies[1]?.['previous_response_id'], 'resp_next', '二次请求应带上续接锚点');
-});
-
-test('Responses：reset 后回到初始锚点', async () => {
-  const target = new ResponsesModel({
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: 'sk-test',
-    model: 'gpt-5',
-    previousResponseId: 'resp_start',
-  });
-  assert.strictEqual(target.responseId(), 'resp_start');
-  await withFetch(
-    async () => new Response(JSON.stringify({ id: 'resp_later', output: [] }), { status: 200 }),
-    () => target.generate(request),
-  );
-  assert.strictEqual(target.responseId(), 'resp_later');
-  target.reset();
-  assert.strictEqual(target.responseId(), 'resp_start');
 });
 
 test('Responses：HTTP 失败抛错', async () => {
@@ -162,5 +150,43 @@ test('Responses：HTTP 失败抛错', async () => {
         () => model().generate(request),
       ),
     /HTTP 500/,
+  );
+});
+
+test('Responses：HTTP 429 抛结构化 ModelCallError 且可重试（2026-10-03 修 D1）', async () => {
+  let captured: unknown;
+  await assert.rejects(
+    () =>
+      withFetch(
+        async () =>
+          new Response('{"error":{"message":"rate limited"}}', {
+            status: 429,
+            headers: { 'retry-after': '2' },
+          }),
+        () => model().generate(request),
+      ),
+    (e: unknown) => {
+      captured = e;
+      return e instanceof ModelCallError;
+    },
+  );
+  const err = captured as ModelCallError;
+  assert.strictEqual(err.retryable, true);
+  assert.strictEqual(err.status, 429);
+  assert.strictEqual(err.retryAfterMs, 2000);
+});
+
+test('Responses：流中 error 事件上抛结构化错误而非静默吞掉（2026-10-03 修 D3）', async () => {
+  const sse = [
+    'event: response.output_text.delta\ndata: {"delta":"半截"}\n\n',
+    'event: error\ndata: {"error":{"code":"server_error","message":"upstream crashed"}}\n\n',
+  ].join('');
+  await assert.rejects(
+    () =>
+      withFetch(
+        async () => new Response(streamOf(sse), { status: 200 }),
+        () => model().stream(request, { onText: () => {} }),
+      ),
+    (e: unknown) => e instanceof ModelCallError && e.retryable,
   );
 });

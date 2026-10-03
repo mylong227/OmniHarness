@@ -10,6 +10,7 @@ import type {
 } from '../../ports/model/model.js';
 import { ModelCallError } from '../../ports/model/model.js';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
+import { ModelHttpErrors } from './modelHttpErrors.js';
 import { sseParser } from './sseParser.js';
 import { RequestStallGuard } from './requestStallGuard.js';
 import {
@@ -458,6 +459,8 @@ export class OpenAiCompatibleModel implements ModelPort {
   /** 解析工具参数 JSON。
    * @param raw wire 层返回的参数 JSON 字符串。
    * @returns 解析出的参数对象；JSON 非法或不是对象时返回空对象（不抛错，保证流不中断）。
+   * 非法时必留 warn（2026-10-03 修，审计 D5）：静默 `{}` 会让工具带空参数执行，
+   * 真实根因（参数被 max_tokens 截断 / 流中断）无任何痕迹。
    */
   private parseArguments(raw: string): Record<string, unknown> {
     try {
@@ -466,6 +469,10 @@ export class OpenAiCompatibleModel implements ModelPort {
         ? (parsed as Record<string, unknown>)
         : {};
     } catch {
+      log.warn('model.tool_arguments.invalid_json', {
+        raw: raw.slice(0, 200),
+        rawLength: raw.length,
+      });
       return {};
     }
   }
@@ -482,6 +489,11 @@ export class OpenAiCompatibleModel implements ModelPort {
       return;
     }
     const json = JSON.parse(data) as ChatCompletionChunk & {
+      readonly error?: {
+        readonly code?: string;
+        readonly type?: string;
+        readonly message?: string;
+      };
       readonly usage?: {
         readonly prompt_tokens: number;
         readonly completion_tokens: number;
@@ -500,7 +512,17 @@ export class OpenAiCompatibleModel implements ModelPort {
         cachedPromptTokens: this.promptCache.readOpenAiCompatible(json.usage),
       };
     }
-    const delta = json.choices[0]?.delta;
+    const delta = json.choices?.[0]?.delta;
+    // 流中错误负载（2026-10-03 修，审计 D3）：`{"error":{…}}` 形式的帧此前因取不到
+    // `choices[0].delta` 被静默忽略（error 帧根本没有 choices，直接读 choices[0] 还会
+    // TypeError）。显式上抛结构化错误中断流。
+    if (delta === undefined && typeof json.error === 'object' && json.error !== null) {
+      throw ModelHttpErrors.streamError(
+        'OpenAI 兼容端点',
+        json.error.code ?? json.error.type ?? 'unknown',
+        json.error.message ?? '',
+      );
+    }
     // #B3 工具调用参数渐进增量（OpenAI 把参数拆成多个 arguments 片段推送）。
     if (delta?.tool_calls !== undefined) {
       for (const tc of delta.tool_calls) {
@@ -515,7 +537,9 @@ export class OpenAiCompatibleModel implements ModelPort {
         if (tc.function?.arguments !== undefined) block.partial += tc.function.arguments;
         callbacks.onToolInput?.({ id: block.id, name: block.name, partialJson: block.partial });
       }
-      return;
+      // 不 early-return（2026-10-03 修，审计 D7）：部分 OpenAI 兼容实现（Gemini 兼容层、
+      // 部分网关）会在**同一 delta** 里同发 content/reasoning 与 tool_calls，早退会让
+      // 该段文本/推理从输出与落盘正文中消失。
     }
     if (delta?.content !== undefined && delta.content !== null && delta.content !== '') {
       callbacks.onText(delta.content);

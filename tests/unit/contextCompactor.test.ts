@@ -218,3 +218,50 @@ test('OBS-8：合法 tail 中含与前序 assistant.tool_calls 匹配的 tool �
     assert.ok(tailFirst.toolCallId === 'c1');
   }
 });
+
+/* ----------------------- 2026-10-03：切分边界按工具轮对齐 ----------------------- */
+
+test('压缩器：assistant(tool_calls) 与其 tool 结果永不被边界切开（旧边界在良构投影上切轮是常态）', async () => {
+  const seen: ModelRequest[] = [];
+  const model: ModelPort = {
+    name: 'fake',
+    async generate(request: ModelRequest): Promise<ModelOutput> {
+      seen.push(request);
+      return { text: '摘要' };
+    },
+  };
+  const messages: ModelMessage[] = [
+    { role: 'user', content: 'u1'.repeat(80) },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'read', arguments: {} }] },
+    { role: 'tool', content: 'r1', toolCallId: 'c1' },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'c2', name: 'read', arguments: {} }] },
+    { role: 'tool', content: 'r2', toolCallId: 'c2' },
+    { role: 'user', content: 'u2'.repeat(80) },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'c3', name: 'read', arguments: {} }] },
+    { role: 'tool', content: 'r3', toolCallId: 'c3' },
+  ];
+  // keepRecent=2 ⇒ 旧边界 = 8-2 = 6，恰落在 assistant(c3) 与 tool(c3) 之间（切轮）。
+  // 修后边界左移到 5（user u2），整个 c3 轮让给 tail。
+  const compactor = new ContextCompactor(model, { maxTokens: 50, keepRecent: 2 });
+  const result = await compactor.compact(messages);
+  assert.strictEqual(result.compacted, true);
+  assert.strictEqual(
+    result.state?.compactedUpTo,
+    5,
+    '边界必须落在 user u2 之后（c3 轮整体在 tail）',
+  );
+  // 摘要请求的 head 不得以 assistant(tool_calls) 收尾——严格端点会 400，宽容端点会剥掉 tool_calls。
+  const request = seen[0];
+  assert.ok(request !== undefined, '必须发起过一次摘要请求');
+  const headLast = request.messages[request.messages.length - 2];
+  assert.ok(
+    headLast !== undefined && headLast.role !== 'assistant',
+    'head 最后一条不得是 assistant',
+  );
+  // tail 必须完整包含 c3 轮：assistant(tool_calls) 在前、其 tool 结果紧随。
+  const tail = result.messages.slice(1);
+  const c3Index = tail.findIndex((m) => m.toolCalls?.some((call) => call.id === 'c3'));
+  const r3Index = tail.findIndex((m) => m.toolCallId === 'c3');
+  assert.ok(c3Index >= 0, 'c3 调用必须在 tail 中');
+  assert.ok(r3Index === c3Index + 1, 'c3 的结果必须紧随其后（轮次完整）');
+});

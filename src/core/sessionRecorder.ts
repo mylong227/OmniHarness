@@ -14,6 +14,7 @@ import type {
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { eventFactory } from './eventFactory.js';
 import { ArrayAt } from '../util/arrayAt.js';
+import { log } from '../util/logger.js';
 
 /** 会话记录器：统一"写入日志 + 广播事件"，保证可观测性不遗漏。 */
 export class SessionRecorder {
@@ -191,12 +192,25 @@ export class SessionRecorder {
 
   /**
    * 写入日志并广播。
+   *
+   * 广播逐次隔离（2026-10-03 修）：`events.emit` 是同步直调，任一监听器抛错（事件总线的
+   * consumer 是外部注入，如 hooksCompat 适配器）会让 record() 在 append 之后、检索索引之前
+   * 中断——事件已入日志却未索引，且异常冒进步执行器打断主流程。日志写入不可回滚，故
+   * 广播异常只告警不传播（对齐 `CancellationToken.cancel` 的逐监听器隔离做法）。
+   *
    * @param event 待记录的会话事件（通常由 eventFactory 构造）。
    * @returns 原样返回该事件（append → emit → 索引 三步完成后）。
    */
   private record(event: SessionEvent): SessionEvent {
     this.log.append(event);
-    this.events.emit(event);
+    try {
+      this.events.emit(event);
+    } catch (error) {
+      log.warn('session.event.emit.failed', {
+        type: event.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     this.indexToRetrieval(event);
     return event;
   }

@@ -49,6 +49,14 @@ export class FileLineWindow {
   public static readonly MAX_LINES = 5000;
 
   /**
+   * 单次返回的**字节**预算（UTF-8，512 KiB；2026-10-03 修，审计 T1）。
+   * 行数上限挡不住「单行 20 MB 的 minified bundle」——5000 行上限对一行式文件形同虚设，
+   * 读一次就是数十 MB 进上下文（外溢后经 `spill_read` 回读仍会整段进模型）。
+   * 超预算即停行，并显式追加截断标记（绝不静默）。
+   */
+  public static readonly MAX_WINDOW_BYTES = 512 * 1024;
+
+  /**
    * 取行窗口。
    *
    * @param content 文件内容。
@@ -77,14 +85,61 @@ export class FileLineWindow {
     const startIndex = offset - 1;
     const endIndex = Math.min(startIndex + limit, totalLines);
     const slice = lines.slice(startIndex, endIndex);
+    // 字节预算截断（2026-10-03 修，审计 T1）：行数上限对「单行 20MB 的 minified bundle」
+    // 形同虚设。逐行累计 UTF-8 字节，超 {@link MAX_WINDOW_BYTES} 即停行并显式标记；
+    // 首行自身超预算时按**码点**裁剪该行（不能让单行文件绕过护栏），同样显式标记。
+    const budgeted: string[] = [];
+    let bytes = 0;
+    let byteTruncated = false;
+    for (let i = 0; i < slice.length; i += 1) {
+      const line = slice[i] ?? '';
+      const lineBytes = Buffer.byteLength(line, 'utf8') + 1;
+      if (bytes + lineBytes > FileLineWindow.MAX_WINDOW_BYTES && budgeted.length > 0) {
+        byteTruncated = true;
+        break;
+      }
+      if (bytes + lineBytes > FileLineWindow.MAX_WINDOW_BYTES && budgeted.length === 0 && i === 0) {
+        budgeted.push(FileLineWindow.clipToByteBudget(line, FileLineWindow.MAX_WINDOW_BYTES));
+        byteTruncated = true;
+        break;
+      }
+      budgeted.push(line);
+      bytes += lineBytes;
+    }
+    const endLine = offset - 1 + budgeted.length;
+    const text = numbered ? FileLineWindow.number(budgeted, offset) : budgeted.join('\n');
+    const marker = byteTruncated
+      ? `\n…[窗口因字节预算（${String(Math.round(FileLineWindow.MAX_WINDOW_BYTES / 1024))} KiB）截断，` +
+        `已返回 ${String(budgeted.length)}/${String(slice.length)} 行；请用 offset 继续分页或用 grep 定位]`
+      : '';
     return {
-      text: numbered ? FileLineWindow.number(slice, offset) : slice.join('\n'),
+      text: text + marker,
       startLine: offset,
-      endLine: endIndex,
+      endLine,
       totalLines,
-      truncated: endIndex < totalLines,
+      truncated: byteTruncated || endIndex < totalLines,
       pastEnd: false,
     };
+  }
+
+  /**
+   * 按码点把单行裁剪到字节预算内（不产生孤立代理项），并附显式截断说明。
+   * @param line 超预算的行。
+   * @param maxBytes 字节上限。
+   * @returns 裁剪后的行（尾部带 `[本行已截断]` 标记）。
+   */
+  private static clipToByteBudget(line: string, maxBytes: number): string {
+    let bytes = 0;
+    let out = '';
+    for (const cp of line) {
+      const width = Buffer.byteLength(cp, 'utf8');
+      if (bytes + width > maxBytes) {
+        return `${out}…[本行已截断]`;
+      }
+      bytes += width;
+      out += cp;
+    }
+    return out;
   }
 
   /**

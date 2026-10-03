@@ -77,6 +77,33 @@ test('无快照 rollback 抛错（fail-closed）', async () => {
   );
 });
 
+// ---- 2026-10-03 回归（审计 P1）：索引在、载荷丢 ⇒ 绝不能用空/残缺快照覆盖主会话 ----
+test('rollback：检查点载荷丢失时抛错且主会话不被清空（fail-closed）', async () => {
+  const storage = new MemoryStorage();
+  const mgr = new CheckpointManager(storage);
+  const sid = 's-lost';
+  await storage.save(sid, events(3, sid));
+  await mgr.snapshot(sid, 'cp1');
+  // 现在主会话继续演进，然后检查点载荷被清（清理脚本/损坏/jsonl 坏行全跳的等价形态）
+  await storage.save(sid, events(7, sid));
+  const current = await storage.load(sid);
+  await storage.save('checkpoint:s-lost:cp1', []);
+  await assert.rejects(() => mgr.rollback(sid), /载荷缺失或损坏/);
+  const after = await storage.load(sid);
+  assert.deepStrictEqual(after, current, '主会话历史必须原样保留');
+});
+
+test('rollback：事件数与 meta 不一致时抛错（半截载荷拒绝覆盖）', async () => {
+  const storage = new MemoryStorage();
+  const mgr = new CheckpointManager(storage);
+  const sid = 's-partial';
+  await storage.save(sid, events(3, sid));
+  await mgr.snapshot(sid, 'cp1');
+  // 载荷被截去一半（jsonl 坏行跳过的等价形态）
+  await storage.save('checkpoint:s-partial:cp1', events(1, 'checkpoint:s-partial:cp1'));
+  await assert.rejects(() => mgr.rollback(sid), /载荷缺失或损坏/);
+});
+
 // ---- 2026-09-22 回归（审计 P2）：label / sessionId 路径穿越必须被拒 ----
 test('checkpoint：非法 label 被拒（路径穿越 fail-closed）', async () => {
   const storage = new MemoryStorage();

@@ -10,7 +10,9 @@ import type {
 import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
 import { ModelRequestGuard } from './modelRequestGuard.js';
 import { RequestStallGuard } from './requestStallGuard.js';
+import { ModelHttpErrors } from './modelHttpErrors.js';
 import { sseParser, type SseEvent } from './sseParser.js';
+import { log } from '../../util/logger.js';
 
 /**
  * @beta
@@ -20,9 +22,14 @@ export interface ResponsesConfig {
   readonly baseUrl: string;
   readonly apiKey: string;
   readonly model: string;
-  /** 起始续接 ID（服务端上下文锚点，缺省开新会话）。 */
+  /**
+   * 起始续接 ID（**已废弃，仅保留 API 兼容**）：2026-10-03 修 D2 后请求体不再回传
+   * `previous_response_id`（全量 input 自足；续接锚点与「每步投影完整历史 + 可压缩」
+   * 的调用方架构不相容，见 `bodyOf` 说明）。字段保留只为既有构造点不破。
+   * @deprecated 不再参与请求构造。
+   */
   readonly previousResponseId?: string;
-  /** 是否让服务端保存上下文（续接前提，默认 true）。 */
+  /** 是否让服务端保存上下文（2026-10-03 修 D2 后默认 **false**；无锚点消费，存储纯属白付费）。 */
   readonly store?: boolean;
   /**
    * 单次请求的**空闲**超时（毫秒，可选）：连续静默超过该值即中止并抛可重试错误。
@@ -44,7 +51,8 @@ interface StreamState {
 export class ResponsesModel implements ModelPort {
   /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
   public readonly name: string;
-  /** 最近一次响应返回的续接 ID（服务端会话锚点；尚未收到任何响应时为 undefined）。 */
+  /** 最近一次响应返回的续接 ID（**仅观测记录**：2026-10-03 修 D2 后不再随请求回传，
+   *  保留它是为了诊断与既有 `responseId()` API；请求体语义见 {@link ResponsesModel.bodyOf}）。 */
   private lastResponseId: string | undefined;
   /** 提示缓存读取器：Responses 用 `input_tokens_details.cached_tokens` 表达命中。 */
   private readonly promptCache = new PromptCacheUsageReader();
@@ -84,7 +92,8 @@ export class ResponsesModel implements ModelPort {
       const response = await fetch(this.endpoint(), this.buildRequest(request, false, guard));
       guard?.touch();
       if (!response.ok) {
-        throw new Error(`模型请求失败: HTTP ${response.status}`);
+        // 2026-10-03 修（审计 D1）：裸 `Error` 无 status/retryable 字段，429/5xx 永不重试。
+        throw await ModelHttpErrors.from(response, '模型请求失败');
       }
       const body = (await response.json()) as ResponsesResponse;
       return this.parseOutput(body);
@@ -127,7 +136,8 @@ export class ResponsesModel implements ModelPort {
     const response = await fetch(this.endpoint(), this.buildRequest(request, true, guard));
     guard?.touch();
     if (!response.ok) {
-      throw new Error(`模型流式请求失败: HTTP ${response.status}`);
+      // 2026-10-03 修（审计 D1）：同 generate 路径，结构化错误让 429/5xx 可重试。
+      throw await ModelHttpErrors.from(response, '模型流式请求失败');
     }
     const streamBody = response.body;
     if (streamBody === null) {
@@ -186,10 +196,19 @@ export class ResponsesModel implements ModelPort {
     };
   }
 
-  /** 请求体。
+  /**
+   * 请求体。
+   *
+   * **不再回传 `previous_response_id`（2026-10-03 修，审计 D2）**：本 harness 的调用方
+   * （stepContextBuilder）每步都投影**完整事件历史**——全量 input 本就自足；此前在
+   * `lastResponseId` 存在时又追加续接锚点，服务端会把已存的对话前置、客户端再原样发一遍，
+   * 自第二回合起历史在 prompt 里成倍重复（输入 token 近乎翻倍，且逐回合累积）。
+   * 且压缩（compaction）会改写投影历史，服务端锚点根本无法表达「历史被折叠」⇒
+   * 全量 input 是与本 harness 架构唯一自洽的模式。`store` 也相应默认 **false**：
+   * 没有锚点消费，服务端存储纯属白付费（可经 config.store 显式开启）。
+   *
    * @param request 模型请求，提供消息与工具规格。
-   * @returns Responses API 请求体：model/input/tools/store，外加 instructions（非空时）
-   *          与 previous_response_id（已有续接锚点时）。
+   * @returns Responses API 请求体：model/input/tools/store，外加 instructions（非空时）。
    */
   private bodyOf(request: ModelRequest): Record<string, unknown> {
     const { instructions, input } = this.splitSystem(request.messages);
@@ -197,13 +216,10 @@ export class ResponsesModel implements ModelPort {
       model: this.config.model,
       input,
       tools: this.toWireTools(request.tools),
-      store: this.config.store ?? true,
+      store: this.config.store ?? false,
     };
     if (instructions !== '') {
       body['instructions'] = instructions;
-    }
-    if (this.lastResponseId !== undefined) {
-      body['previous_response_id'] = this.lastResponseId;
     }
     return body;
   }
@@ -348,6 +364,20 @@ export class ResponsesModel implements ModelPort {
     if (json === undefined) {
       return;
     }
+    // 流中错误事件（2026-10-03 修，审计 D3）：`error` 与 `response.failed` 负载此前被静默
+    // 丢弃，半截输出被当成成功。出现即中断流并上抛结构化错误（overloaded/限流可重试）。
+    if (event.event === 'error' || event.event === 'response.failed') {
+      const err = json['error'];
+      const info =
+        typeof err === 'object' && err !== null
+          ? (err as { code?: string; type?: string; message?: string })
+          : undefined;
+      throw ModelHttpErrors.streamError(
+        'Responses',
+        info?.code ?? info?.type ?? event.event,
+        info?.message ?? '',
+      );
+    }
     if (event.event === 'response.output_text.delta') {
       const delta = this.deltaOf(json);
       if (delta !== '') {
@@ -391,6 +421,8 @@ export class ResponsesModel implements ModelPort {
   /** 解析工具参数 JSON。
    * @param raw wire 层返回的参数 JSON 字符串（可能为 undefined 或空串）。
    * @returns 解析出的参数对象；输入为空、JSON 非法或不是对象时返回空对象（不抛错）。
+   * JSON 非法时**必留 warn**（2026-10-03 修，审计 D5）：参数被截断/流中断是真实根因，
+   * 静默 `{}` 会让工具带着空参数执行、下游只见「工具失败」而无从归因。
    */
   private parseArguments(raw: string | undefined): Record<string, unknown> {
     if (raw === undefined || raw === '') {
@@ -402,6 +434,10 @@ export class ResponsesModel implements ModelPort {
         ? (parsed as Record<string, unknown>)
         : {};
     } catch {
+      log.warn('model.tool_arguments.invalid_json', {
+        raw: raw.slice(0, 200),
+        rawLength: raw.length,
+      });
       return {};
     }
   }

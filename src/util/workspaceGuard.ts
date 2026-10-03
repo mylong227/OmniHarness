@@ -13,9 +13,12 @@ import { resolve, sep, dirname } from 'node:path';
  */
 export class WorkspaceGuard {
   private readonly base: string;
+  /** Windows 文件系统大小写不敏感：前缀比较须大小写归一（2026-10-03 修，审计 T4）。 */
+  private readonly caseInsensitive: boolean;
 
   public constructor(workspaceRoot: string) {
     this.base = resolve(workspaceRoot);
+    this.caseInsensitive = process.platform === 'win32';
   }
 
   /** 相对路径是否落在工作区内（词法 + 真实路径双重判定，拦截 symlink 逃逸）。 */
@@ -34,8 +37,14 @@ export class WorkspaceGuard {
    */
   public resolveSafe(relativePath: string): string {
     const lexical = resolve(this.base, relativePath);
-    // 1) 词法越界直接拒（最快、零 IO）。
-    if (lexical !== this.base && !lexical.startsWith(this.base + sep)) {
+    // 1) 词法越界直接拒（最快、零 IO）。前缀比较大小写归一：Windows 文件系统本身大小写
+    //    不敏感，模型从 shell 输出/报错里拿到的大小写变体（`D:/DeepSeek/...`）是**同一文件**，
+    //    词法层误拒会让模型在「路径越界」的错误提示下反复试错（fail-closed 方向不变，只是
+    //    消除假阳性拒绝）。
+    if (
+      lexical !== this.base &&
+      !WorkspaceGuard.hasPrefix(lexical, this.base, this.caseInsensitive)
+    ) {
       throw new PathTraversalError(`路径词法越界: ${relativePath}`);
     }
     // 2) 真实路径校验：仅当工作区根真实存在时才做——symlink 逃逸需要真实 fs 才能解析。
@@ -47,10 +56,28 @@ export class WorkspaceGuard {
       return lexical;
     }
     const realChild = this.realpathExisting(lexical);
-    if (realChild !== realBase && !realChild.startsWith(realBase + sep)) {
+    if (
+      realChild !== realBase &&
+      !WorkspaceGuard.hasPrefix(realChild, realBase, this.caseInsensitive)
+    ) {
       throw new PathTraversalError(`路径经符号链接逃逸出工作区: ${relativePath}`);
     }
     return lexical;
+  }
+
+  /**
+   * 前缀包含判定（`child === base` 或 `child` 以 `base + sep` 开头）。
+   * @param child 子路径（已 resolve）。
+   * @param base 基准目录（已 resolve）。
+   * @param caseInsensitive true 时两侧统一小写后再比（Windows）。
+   * @returns child 位于 base 内（含等于 base）时 true。
+   */
+  private static hasPrefix(child: string, base: string, caseInsensitive: boolean): boolean {
+    if (caseInsensitive) {
+      child = child.toLowerCase();
+      base = base.toLowerCase();
+    }
+    return child === base || child.startsWith(base + sep);
   }
 
   /** realpath（libuv 版会展开 symlink / Windows junction）；失败（路径不存在 / 无权限）回退原路径。 */

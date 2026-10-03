@@ -284,13 +284,20 @@ export class StringReplaceEditor {
     newText: string,
     matchKind: MatchKind,
   ): StringReplaceOutcome {
+    // 行尾风格继承（2026-10-03 修，审计 T2）：插入文本的行尾统一为**原文的主导行尾**。
+    // 旧实现原样插入 ⇒ CRLF 文件里模型用 `\n` 写 old/new（read_file 的行号输出里 `\r`
+    // 不可见，精确匹配必然失配 → 落入空白折叠模糊路径），每次 edit 都往 CRLF 文件里塞
+    // LF 行，git 全文件 diff、后续 apply_patch 的上下文匹配全被污染成混合行尾。
+    const eol = StringReplaceEditor.dominantEol(original);
+    const inserted =
+      eol === '\r\n' ? newText.replace(/\r?\n/gu, '\r\n') : newText.replace(/\r\n/gu, '\n');
     let content = original;
     for (let i = ranges.length - 1; i >= 0; i -= 1) {
       const range = ranges[i];
       if (range === undefined) {
         continue;
       }
-      content = content.slice(0, range[0]) + newText + content.slice(range[1]);
+      content = content.slice(0, range[0]) + inserted + content.slice(range[1]);
     }
     const first = ranges[0];
     return {
@@ -300,6 +307,17 @@ export class StringReplaceEditor {
       matchKind,
       line: first === undefined ? 1 : StringReplaceEditor.lineOf(original, first[0]),
     };
+  }
+
+  /**
+   * 探测文本的主导行尾（CRLF 出现次数 > 裸 LF 时判 CRLF；否则 LF）。
+   * @param text 原文。
+   * @returns `'\r\n'` 或 `'\n'`。
+   */
+  private static dominantEol(text: string): '\r\n' | '\n' {
+    const crlf = (text.match(/\r\n/gu) ?? []).length;
+    const lf = (text.match(/(?<!\r)\n/gu) ?? []).length;
+    return crlf > lf ? '\r\n' : '\n';
   }
 
   /**
