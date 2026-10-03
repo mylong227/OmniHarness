@@ -243,6 +243,7 @@ export class StepContextBuilder {
    * @param events 会话事件日志。
    * @returns 最近一次压缩游标；不存在或格式不符时为 undefined。
    */
+
   private restoreCompactionState(events: readonly SessionEvent[]): CompactionState | undefined {
     for (let i = events.length - 1; i >= 0; i--) {
       const e = ArrayAt.at(events, i);
@@ -300,5 +301,22 @@ export class StepContextBuilder {
       }
     }
     return engine.getRepoMapContext(root, q);
+  }
+  /**
+   * 回滚后**重新对齐**压缩游标（2026-10-03 第六轮修看板 §8.2）。
+   *
+   * 为什么需要：`compactionState` 是**进程内**状态，只在构造后首次 `buildMessages` 时从事件日志恢复一次
+   * （L101-104）；而 `checkpoint` 回滚会把 `OMNI_COMPACTION_V1` 游标事件从日志里**截掉** ⇒ 内存游标悬空——
+   * 它引用了一个日志中已不存在的折叠点。症状是"同一进程内不对、重启后对了"（重启后新实例会重新恢复），
+   * 属最难查的一类。
+   *
+   * 为什么**不**把 `stateRestored` 置回 false：那会让下一次 `buildMessages` 走"首次恢复"路径并把 `previous`
+   * 当 undefined 处理，可能多付一次摘要 LLM 调用（正是本文件 L100-137 注释记录的旧缺陷 P0-1）。
+   * 这里**就地重新推导**：把游标换成"截断后日志里的最后一条标记"（没有标记即 undefined）。
+   * @returns 无返回值。
+   */
+  public rewindCompactionState(): void {
+    this.stateRestored = true;
+    this.compactionState = this.restoreCompactionState(this.deps.recorder.allEvents());
   }
 }
