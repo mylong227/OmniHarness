@@ -172,6 +172,8 @@ export class MemoryStackAssembler {
       partial.memoryConsolidate !== false && model !== undefined
         ? new MemoryExtractor(model, memory.port, {
             maxFactsPerTurn: partial.memoryConsolidateMaxFacts,
+            // G9/M3：默认排除工具输出（投毒闸）；显式开启时抽出的事实标 untrusted。
+            includeToolOutput: partial.memoryIncludeToolOutput === true,
           })
         : undefined;
     const beliefEnabled =
