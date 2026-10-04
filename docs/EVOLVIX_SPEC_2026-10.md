@@ -288,15 +288,23 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
 ## 10. 诚实清单
 
 - ~~本规格**未实现**：§1–§8 全部为设计产物；唯一"已决策"部分是 Wave A（ADR-0008）。~~
-  **2026-10-04 更新**：**Wave A 与 Wave B 均已落地**（A：7 片 `a7d0354`…`cef1b5c`；B：6 片 `84bc0c7`…，
-  ADR-0009）；**Wave C/D/E 仍未实现**，对应章节（§6 隔离阶梯 / §7 A.5 依赖 / F3 资产安装 / F4 元晋升）
-  继续按设计稿阅读。已落地的判据：J1–J7 全绿，其中 J6（绞杀者等价，逐位对照 + 仪器自证）、
-  J7（未注册类型即拒，注册口 + 第二类型面）为本波新增。进度与数字见 `PROJECT_BOARD.md`。
+  **2026-10-04 更新**：**Wave A / B / D 已落地**（A：7 片 `a7d0354`…`cef1b5c`；B：6 片 `84bc0c7`…`4c5c319`；
+  D：3 片 `20853ed`…`b236b09`；ADR 落 0008 / 0009 / 0011）；**Wave C（隔离阶梯）与 E（元进化）仍未实现**，
+  A.5（依赖准入）亦未开始——§6 隔离阶梯 / §7 A.5 / F4 元晋升 / `crates/omni-wasmrt` 继续按设计稿阅读；
+  **F3（资产安装）已落地**，但其「IsolationPort 内试运行」一步等 Wave C。
+  已落地的判据：**J1–J7、J9 全绿**（J9 = 无签名 / 坏签名 / 验签后篡改三类全拒）；**J8（wasm 越界 / fuel）等 Wave C**。
+  进度与数字见 `PROJECT_BOARD.md` 第三十一 / 三十二 / 三十三轮。
 - §1 契约签名为设计稿，落码时以 ports 纯度门禁与真实调用点为准微调；微调若改变语义须回改本文
-  （Wave A/B 已按此回填：`RewardVerdict` 提升到端口层、`PromotionLedgerAction` 增 `governance`、
-  `capability` 增 `isolationDefaults` 下限语义——三处都属签名微调而**未改语义**）。
+  （Wave A/B/D 已按此回填：`RewardVerdict` 提升到端口层、`PromotionLedgerAction` 增 `governance` / `pack-install`、
+  `CapabilityRegistryPort` 增补偿用 `remove`、`capability` 增 `isolationDefaults` 下限语义
+  ——五处均属签名微调而**未改语义**）。
 - 人日与判据沿看板口径（可能放大 2×）；Wave E 依赖两关显著，可能永不启动（纪律）。
 - 依赖候选的许可证/维护度为 2026-10-04 快照，引入当日以 LICENSE/发布记录为准
-  （Wave A/B 均为**零新依赖**：A.5 的 `openid-client`/`jose`/`croner` 与 C 的 `wasmtime` 尚未准入）。
+  （Wave A/B/D 均为**零新依赖**：D 的签名复用 `node:crypto` 原生 Ed25519，退出答案 = 换签名算法只改 1 个编解码文件；
+  A.5 的 `openid-client`/`jose`/`croner` 与 C 的 `wasmtime` 尚未准入）。
 - 与 `ARCHITECTURE_SPEC.md`（现状权威）冲突处以 SPEC 为准，直到对应代码落地并重写 SPEC
-  （Wave A/B 落地后 `ARCHITECTURE_SPEC.md` 的端口目录 / ADR 索引 / 规模数字已同步复测）。
+  （Wave A/B/D 落地后 `ARCHITECTURE_SPEC.md` 的端口目录 / ADR 索引 / 规模数字已同步复测）。
+- **Wave D 的诚实边界**（比"已落地"更重要）：只做了**签名与安装**——没做远程注册表客户端，
+  也没做 §7 Wave D 判据里的「元数据可被 MCP 客户端消费（loopback）」（**该条未完成**）；
+  `metadataFor` 只落导出、不落发布；包签名覆盖**清单正文**，独立载荷文件尚未纳入摘要
+  （v1 资产是清单内联 JSON 故两者等价；将来引入包内文件时必须先补摘要再签——ADR-0011 已登记）。
