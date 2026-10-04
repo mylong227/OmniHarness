@@ -148,11 +148,13 @@ src/capability/                  # L1 实现
   schemas/skillSchema.ts           # 首个 CapabilitySchema：委托既有 moireEnergy 基准
 src/evolution/                   # L2/L3 实现（Wave A 新增件）
   evolutionSignalCollector.ts               # 遥测 production 行 → 失败签名 / 成功密度
-  candidateArchiveImpl.ts          # 分桶精英 + 冻结/复活
-  promotionLedgerImpl.ts           # JSONL + HashChain + 快照引用（.omniharness/evolution/）
+  bucketedCandidateArchive.ts      # 分桶精英 + 冻结/复活
+  hashChainPromotionLedger.ts      # JSONL + HashChain + 快照引用（.omniharness/evolution/）
   cascadeReward.ts                 # 静态预检 → verifyCommand（快→慢短路）
   coverageBuckets.ts               # BucketedCoverageMeter（最差桶闸）
   evolutionKernel.ts               # 七环编排：ingest→expand→verify→gate→ledger→promote→emit
+  signalIngestor.ts                # ring① 路由策略：failure→挖掘器（有界）/ success→固化器
+  archiveCurator.ts                # ring② 档案纪律：入档→复活早前冻结者→冻结本轮 + 复核上限退役
 src/adapters/…
   enterprise/oidcSdkClient.ts      # A.5：openid-client+jose 适配器（自研 oidcClient.ts 转回退资产）
   daemon/cronerSchedule.ts         # A.5：croner 薄适配（自研解析保留）

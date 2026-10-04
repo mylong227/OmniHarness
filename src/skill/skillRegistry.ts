@@ -99,6 +99,15 @@ export class SkillRegistry implements SkillPort {
     this.skills.set(skill.name, skill);
   }
 
+  /**
+   * 按名移除技能（晋升台账回滚还原用）：移除快照之后新增的技能。
+   * @param name 技能名。
+   * @returns 存在且已移除为 true；不存在为 false（幂等）。
+   */
+  public remove(name: string): boolean {
+    return this.skills.delete(name);
+  }
+
   /** 全部技能。 */
   public list(): readonly Skill[] {
     return [...this.skills.values()];
