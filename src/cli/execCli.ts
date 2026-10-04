@@ -1,4 +1,4 @@
-﻿/**
+/**
  * execImpl.ts —— OmniHarness CLI 命令实现（god-class 拆分后的实体层）。
  *
  * 自续十七→十九 起，原 2152 行 ExecCli 已拆分为继承链：
@@ -24,9 +24,20 @@ import { configFile } from '../config/configFile.js';
 import type { CliArgs } from './argParser.js';
 import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
+import { EvolutionCommand } from './evolutionCommand.js';
+
+/** 可报告体检的进化控制器（Kernel 与 RLVR 控制器都实现 `report()`；`EvolutionController` 端口未声明它）。 */
+interface ReportableController {
+  /** 最近一轮体检报告（未跑过为 undefined）。 */
+  report?(): unknown;
+}
 
 /** OmniHarness CLI 命令入口：omniharness exec / server … */
 export class ExecCli extends CliAgentCmds {
+  /** evolution 子命令（S7）：status/rollback 自持，cycle 经本层注入的钩子执行。 */
+  private readonly evolutionCommand = new EvolutionCommand((request) =>
+    this.runEvolutionCycle(request),
+  );
   /**
    * 执行并返回进程退出码。
    * @param argv 原始命令行参数（不含 node 与脚本入口）。
@@ -108,6 +119,9 @@ export class ExecCli extends CliAgentCmds {
     }
     if (argv[0] === 'auth') {
       return this.runAuth(argv.slice(1));
+    }
+    if (argv[0] === 'evolution') {
+      return this.runEvolution(argv.slice(1));
     }
     let restoreEgress: () => void = () => {};
     try {
@@ -213,6 +227,67 @@ export class ExecCli extends CliAgentCmds {
     } catch {
       // 无变更可提交或提交被钩子拒绝：忽略
     }
+  }
+
+  /**
+   * evolution 子命令入口（S7）。
+   * @param args 子命令参数（已去掉 `evolution`）。
+   * @returns 进程退出码（status/rollback 由 `EvolutionCommand` 决定；cycle 见下）。
+   */
+  private async runEvolution(args: readonly string[]): Promise<number> {
+    return this.evolutionCommand.run(args);
+  }
+
+  /**
+   * `evolution cycle` 的装配钩子（S7）：会话外真跑一轮进化。
+   *
+   * 为什么在本层：只有本层同时持有 `loadDefaults`（私有）与 `buildConfig`，能在不动 `core/` 的前提下
+   * 装出一份运行时并调用 `runtime.evolution.cycle()`——这正是 `Agent.runEvolutionIfEnabled` 在会话内
+   * 做的那一步，此处只是把它搬到 CLI。
+   *
+   * **诚实边界（输出的 `note` 字段）**：晋升落在**本进程内存**的技能表（会话级），随进程退出消失；
+   * 台账（快照/晋升条目）是持久产物。要长期生效，把还原/晋升产物经 `--skills` 接回下一次会话。
+   * @param request 钩子请求（原始旗标 + 输出格式；`--yes` 已由 `EvolutionCommand` 校验）
+   * @returns 0 成功；1 未启用或运行时不可用；2 参数问题
+   */
+  private async runEvolutionCycle(request: {
+    readonly argv: readonly string[];
+    readonly json: boolean;
+  }): Promise<number> {
+    // `ArgParser` 把「无 prompt 且无 replayId」判为无任务；cycle 不跑 agent，故给一条占位 prompt。
+    const argv = request.argv.length > 0 ? request.argv : ['--prompt', 'evolution cycle'];
+    const defaults = this.loadDefaults(argv);
+    const args = ArgParser.parseArgs(argv, defaults);
+    if (args === undefined) {
+      ArgParser.printUsage();
+      return 2;
+    }
+    const config = await this.buildConfig(args);
+    const runtime = Runtime.createRuntime(config);
+    const controller = runtime.evolution;
+    if (controller === undefined) {
+      process.stderr.write(
+        'evolution 未启用（配置 evolutionRlvr.enabled / --evolution-rlvr 未开），无可跑的闭环。\n',
+      );
+      return 1;
+    }
+    const verdicts = await controller.cycle();
+    const report = (controller as unknown as ReportableController).report?.();
+    const summary = {
+      ok: true,
+      autoRun: controller.autoRun,
+      evaluated: verdicts.length,
+      promoted: verdicts.filter((v) => v.promoted).length,
+      report,
+      note: '晋升落在本进程内存技能表（会话级）；台账为持久产物。',
+    };
+    process.stdout.write(
+      request.json
+        ? `${JSON.stringify(summary)}\n`
+        : `进化一轮：评估 ${summary.evaluated} ｜ 晋升 ${summary.promoted}\n` +
+            `  体检：${JSON.stringify(report)}\n  注意：${summary.note}\n`,
+    );
+    return 0;
   }
 
   /**

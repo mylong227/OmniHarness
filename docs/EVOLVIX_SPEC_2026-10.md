@@ -166,7 +166,8 @@ crates/omni-wasmrt/              # Wave C：wasmtime 嵌入（经 omni-napi 暴�
 `composition/runtime.ts`（`evolutionRlvr.kernel===true` ⇒ 装配 Kernel，否则现状逐等价）；
 `config/configError.ts` + `configFactory.ts`（白名单加 `evolutionRlvr.kernel|ledgerDir|archiveMaxPerBucket`
 与新顶层 `capability` 命名空间：`{ sources: {...}, isolationDefaults: {...} }`，拼错即报错）；
-`cli/exec.ts`（新增 `evolution status|cycle|rollback` 与 `capability list|install` 子命令，rollback 需 `--yes`）。
+`cli/exec.ts` + `cli/evolutionCommand.ts`（新增 `evolution status|cycle|rollback` 子命令，rollback / cycle 需 `--yes`；
+`capability list|install` 属 Wave B/D，本片不做）。
 
 **观测行（新增，全部 `log.info/warn` + 可选遥测记录）**：`evolution.kernel.cycle`（七环摘要）、
 `evolution.signal.collected`（kind/count/provenance）、`evolution.archive.bucket`（分桶状态）、
