@@ -199,6 +199,19 @@ export class HashChainPromotionLedger implements PromotionLedgerPort {
   }
 
   /**
+   * 按台账口径**重算**某条目的哈希（**公开**：治理台逐行独立复核要用同一个口径）。
+   *
+   * 为什么公开而不是让调用方自己实现一份：口径复制一份 ⇒ 两处漂移 ⇒ 「独立复核」变成
+   * 两个都错或互相掩盖。这里给的是**同一实现**，独立性体现在"调用方自己决定何时重算、
+   * 与谁比较"（例如逐行比对、与 `prev` 做链式连接检查），而不是重写一遍哈希算法。
+   * @param entry 台账条目
+   * @returns 十六进制哈希
+   */
+  public static hashOf(entry: PromotionLedgerEntry): string {
+    return HashChain.hash(entry.prev, HashChainPromotionLedger.canonicalOf(entry), SEP);
+  }
+
+  /**
    * 入链一条草稿：算 seq/prev/hash → 内存镜像 → 逐条 append 落盘。
    * @param draft 条目草稿
    * @returns 该条目 seq

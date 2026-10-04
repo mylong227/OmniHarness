@@ -1,4 +1,4 @@
-/**
+﻿/**
  * evolution 子命令（S7）：`omniharness evolution status|cycle|rollback`。
  *
  * ## 职责边界（为什么这样切）
@@ -23,6 +23,7 @@
 import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
+import { PromotionHistoryService } from '../governance/promotionHistoryService.js';
 import type { PromotionLedgerEntry, SkillRestorePlan } from '../ports/runtime/evolution.js';
 import { CliArgReader } from './cliArgReader.js';
 
@@ -32,6 +33,7 @@ const DEFAULT_LEDGER_DIR = join('.omniharness', 'evolution');
 /** 用法提示。 */
 const USAGE =
   '用法: omniharness evolution status [--workspace DIR] [--dir REL] [--json]\n' +
+  '      omniharness evolution history [--workspace DIR] [--dir REL] [--json]\n' +
   '      omniharness evolution cycle --yes [其他 CLI 旗标…]\n' +
   '      omniharness evolution rollback --seq N --yes [--out FILE] [--workspace DIR] [--dir REL]\n' +
   '说明: status 只读；cycle / rollback 会改动状态，必须显式 --yes。\n';
@@ -63,6 +65,7 @@ export class EvolutionCommand {
   public async run(args: readonly string[]): Promise<number> {
     const sub = args[0];
     if (sub === 'status') return this.status(args.slice(1));
+    if (sub === 'history') return this.history(args.slice(1));
     if (sub === 'rollback') return this.rollback(args.slice(1));
     if (sub === 'cycle') return this.cycle(args.slice(1));
     process.stdout.write(USAGE);
@@ -107,6 +110,55 @@ export class EvolutionCommand {
       );
     }
     return Promise.resolve(report.ok ? 0 : 1);
+  }
+
+  /**
+   * history（只读，**F2 治理台数据面的 CLI 出口**）：逐行晋升史 + 每行**独立复核** + 可回滚快照锚点。
+   *
+   * 为什么 CLI 也要有：治理台的 Web tab 是产品面，但"每条记录能不能独立复核"是**数据面**问题——
+   * 有 CLI 出口 ⇒ 运维在无浏览器环境（CI / 跳板机）也能核；Web tab 日后消费**同一个**服务。
+   * @param args `history` 之后的旗标
+   * @returns 0 = 每行复核通过；1 = 存在复核失败行或台账不可用
+   */
+  private history(args: readonly string[]): Promise<number> {
+    const reader = new CliArgReader(args);
+    const json = reader.has('--json');
+    const dir = this.ledgerDir(reader);
+    let ledger: HashChainPromotionLedger;
+    try {
+      ledger = new HashChainPromotionLedger({ dir });
+    } catch (err) {
+      return Promise.resolve(this.reportUnusable(dir, err, json));
+    }
+    const view = new PromotionHistoryService(ledger, (entry) =>
+      HashChainPromotionLedger.hashOf(entry),
+    ).view();
+    if (json) {
+      process.stdout.write(`${JSON.stringify({ dir, ...view })}\n`);
+    } else {
+      process.stdout.write(
+        `晋升史：${dir}（共 ${String(view.summary.total)} 条，独立复核通过 ${String(view.summary.verified)} 条）\n`,
+      );
+      for (const row of view.rows) {
+        const who =
+          row.name === undefined
+            ? ''
+            : ` ${row.name}${row.source === undefined ? '' : ` ← ${row.source}`}`;
+        const flag = row.verified ? '✓' : `✗（${row.reason ?? '复核失败'}）`;
+        process.stdout.write(`  #${String(row.seq)} ${row.action}${who} ${flag}\n`);
+      }
+      process.stdout.write(
+        `可回滚快照：${
+          view.rollbackTargets.length === 0
+            ? '（无）'
+            : view.rollbackTargets
+                .map((t) => `#${String(t.seq)}(${String(t.skillCount)} 技能)`)
+                .join(' ｜ ')
+        }\n`,
+      );
+    }
+    const allVerified = view.summary.verified === view.summary.total;
+    return Promise.resolve(allVerified ? 0 : 1);
   }
 
   /**
