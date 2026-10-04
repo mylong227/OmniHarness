@@ -25,6 +25,8 @@ import type { CliArgs } from './argParser.js';
 import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
 import { EvolutionCommand } from './evolutionCommand.js';
+import { CapabilityCommand } from './capabilityCommand.js';
+import type { CapabilityStack } from '../ports/config/capabilityStack.js';
 
 /** 可报告体检的进化控制器（Kernel 与 RLVR 控制器都实现 `report()`；`EvolutionController` 端口未声明它）。 */
 interface ReportableController {
@@ -38,6 +40,8 @@ export class ExecCli extends CliAgentCmds {
   private readonly evolutionCommand = new EvolutionCommand((request) =>
     this.runEvolutionCycle(request),
   );
+  /** capability 子命令（Wave B）：只读 `list`，切片由本层装配后经只读回调交给它。 */
+  private readonly capabilityCommand = new CapabilityCommand(() => this.capabilityStackOf());
   /**
    * 执行并返回进程退出码。
    * @param argv 原始命令行参数（不含 node 与脚本入口）。
@@ -120,9 +124,8 @@ export class ExecCli extends CliAgentCmds {
     if (argv[0] === 'auth') {
       return this.runAuth(argv.slice(1));
     }
-    if (argv[0] === 'evolution') {
-      return this.runEvolution(argv.slice(1));
-    }
+    if (argv[0] === 'evolution') return this.runEvolution(argv.slice(1));
+    if (argv[0] === 'capability') return this.runCapability(argv.slice(1));
     let restoreEgress: () => void = () => {};
     try {
       const defaults = this.loadDefaults(argv);
@@ -236,6 +239,36 @@ export class ExecCli extends CliAgentCmds {
    */
   private async runEvolution(args: readonly string[]): Promise<number> {
     return this.evolutionCommand.run(args);
+  }
+
+  /**
+   * capability 子命令入口（Wave B · ADR-0009）：只读列出资产协议面。
+   *
+   * 装配仍在**本层**（同 `evolution cycle` 的理由：只有本层持有 `loadDefaults` + `buildConfig`），
+   * 命令类只拿一个只读回调 ⇒ 结构性只读（它没有写入口，想写也写不了）。
+   * @param args 子命令参数（已去掉 `capability`）。
+   * @returns 进程退出码（list 见命令类；未启用为 1）。
+   */
+  private async runCapability(args: readonly string[]): Promise<number> {
+    return this.capabilityCommand.run(args);
+  }
+
+  /**
+   * 取资产协议切片（只读；供 `capability list` 用）。
+   *
+   * `capability.enabled !== true` 时返回 undefined（命令类如实报「未启用」而不是打空表）。
+   * 配置装载/装配失败时同样返回 undefined——只读命令不该因为一个坏配置把整个 CLI 打挂。
+   * @returns 资产协议切片或 undefined
+   */
+  private async capabilityStackOf(): Promise<CapabilityStack | undefined> {
+    try {
+      const defaults = this.loadDefaults([]);
+      const args = ArgParser.parseArgs(['--prompt', 'capability list'], defaults);
+      if (args === undefined) return undefined;
+      return (await this.buildConfig(args)).capabilityStack;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
