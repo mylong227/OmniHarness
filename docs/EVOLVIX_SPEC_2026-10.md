@@ -151,7 +151,7 @@ src/evolution/                   # L2/L3 实现（Wave A 新增件）
   bucketedCandidateArchive.ts      # 分桶精英 + 冻结/复活
   hashChainPromotionLedger.ts      # JSONL + HashChain + 快照引用（.omniharness/evolution/）
   cascadeReward.ts                 # 静态预检 → verifyCommand（快→慢短路）
-  coverageBuckets.ts               # BucketedCoverageMeter（最差桶闸）
+  bucketedCoverageMeter.ts         # BucketedCoverageMeter（最差桶闸）
   evolutionKernel.ts               # 七环编排：ingest→expand→verify→gate→ledger→promote→emit
   signalIngestor.ts                # ring① 路由策略：failure→挖掘器（有界）/ success→固化器
   archiveCurator.ts                # ring② 档案纪律：入档→复活早前冻结者→冻结本轮 + 复核上限退役

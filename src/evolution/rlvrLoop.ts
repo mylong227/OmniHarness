@@ -22,15 +22,30 @@ export interface CodeCandidate {
   readonly meta?: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * 采样上下文（S5 分桶口径的工况来源）：把「这个 prompt 属于哪个工况」从候选透传到采样产物。
+ *
+ * 为什么必须显式透传：分桶覆盖率按候选来源算子分桶，而奖励面的对象是采样产物
+ * （`CodeCandidate`）——不把来源带进来，分桶键只能靠猜 prompt 文本（口径漂移）。
+ */
+export interface RlvrSampleContext {
+  /** 候选来源算子（如 `twist:a+b`）；分桶键取其前缀。 */
+  readonly source?: string | undefined;
+}
+
 /** 采样器：对给定 prompt 产出第 index 个候选（返回 undefined = 采样池耗尽）。 */
 export interface RlvrSampler {
   /**
    * 产出第 index 个候选；返回 undefined = 采样池耗尽（停止本轮）。
    * 允许返回 Promise（模型后端异步生成代码候选），`RlvrLoop.run` 会 await。
+   * @param prompt 任务 prompt
+   * @param index 候选序号
+   * @param context 采样上下文（工况来源；实现应写进产物的 `meta`）
    */
   sample(
     prompt: string,
     index: number,
+    context?: RlvrSampleContext,
   ): CodeCandidate | undefined | Promise<CodeCandidate | undefined>;
 }
 
@@ -91,13 +106,14 @@ export class RlvrLoop {
    * 可验证奖励打分，把达标的绿样本推入回放缓冲（minReward>0 取 r≥阈值，否则仅保留
    * r>0）。采样器返回 undefined 即提前结束；单候选打分异常按 0 分处理（不中断本轮）。
    * @param prompt 任务 prompt（透传给采样器）
+   * @param context 采样上下文（工况来源，S5 分桶口径用；缺省则不携带来源）
    * @returns 本轮结果：新增绿样本数 kept、最佳绿样本 best（无绿样本为 undefined）与回放缓冲累计大小
    */
-  public async run(prompt: string): Promise<RlvrRoundResult> {
+  public async run(prompt: string, context?: RlvrSampleContext): Promise<RlvrRoundResult> {
     let kept = 0;
     let best: { candidate: CodeCandidate; reward: number } | undefined;
     for (let i = 0; i < this.samplesPerPrompt; i++) {
-      const candidate = await this.sampler.sample(prompt, i);
+      const candidate = await this.sampler.sample(prompt, i, context);
       if (candidate === undefined) break;
       let r = 0;
       try {

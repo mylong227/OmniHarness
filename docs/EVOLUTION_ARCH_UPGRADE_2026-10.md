@@ -87,7 +87,7 @@ Agent（任务末，core/agent.ts L355–360）
 | `src/evolution/bucketedCandidateArchive.ts`       | **新增实现**             | `BucketedCandidateArchive`：按工况桶保留精英（MAP-Elites 式）；冻结不删除（退出 `elites()`、留档待 `reviveFor`），同桶复现复活                                           |
 | `src/evolution/hashChainPromotionLedger.ts`       | **新增实现**             | `HashChainPromotionLedger`：JSONL 追加（`.omniharness/evolution/ledger.jsonl`）+ seq/prev/hash（复用 `util/hashChain`）；快照 = 技能表全量（name+instructions+tags）     |
 | `src/evolution/cascadeReward.ts`                  | **新增实现**             | `CascadeReward`：静态预检（围栏配平/非空/禁用模式，纯函数）→ verifyCommand；短路即省全量；明细进覆盖率计量                                                               |
-| `src/evolution/coverageBuckets.ts`                | **新增实现**             | `BucketedCoverageMeter`：包 `RewardCoverageMeter`，按桶覆盖率取**最差桶**做闸（防单桶好看整体难看的假象）                                                                |
+| `src/evolution/bucketedCoverageMeter.ts`          | **新增实现**             | `BucketedCoverageMeter`：同一样本记进全局与工况桶，`report().coverage` 取**最差桶**（防单桶好看整体难看的假象）；阈值沿用 `COVERAGE_THRESHOLD`                           |
 | `src/evolution/evolutionKernel.ts`                | **新增实现（编排核心）** | `EvolutionKernel`：七环编排 + `autoRun` 透传 + 全程 try/catch fail-closed；实现 `EvolutionController`；**只编排不持策略**（ring ①/② 的纪律各自拆出，见下两行，防上帝类） |
 | `src/evolution/signalIngestor.ts`                 | **新增实现（ring ①）**   | `SignalIngestor`：信号路由策略——failure 有界累积进失败模式挖掘器、success 组合喂固化器 `observe`；从 Kernel 拆出（可单测、可替换）                                       |
 | `src/evolution/archiveCurator.ts`                 | **新增实现（ring ②）**   | `ArchiveCurator`：档案三段纪律「入档 → 复活早前冻结者 → 冻结本轮裁决」+ 复核次数上限退役；从 Kernel 拆出                                                                 |

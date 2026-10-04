@@ -27,6 +27,43 @@ export interface RewardVerdict {
 export const COVERAGE_THRESHOLD = 0.6;
 
 /**
+ * 覆盖率报告的最小面（全局口径与分桶口径共用）。
+ *
+ * 为什么抽这一层：晋升闸只关心「覆盖率的**保守取值** + 诚实表述」两件事——闸不该知道
+ * 口径是全局还是分桶。分桶口径把 `coverage` 定为**最差桶**覆盖率（见 `bucketedCoverageMeter.ts`），
+ * 因此换口径不需要改闸的一行代码，闸自动变得更保守。
+ */
+export interface CoverageReportSurface {
+  /** 覆盖率（全局口径 = 全体样本；分桶口径 = 最差工况桶）。 */
+  readonly coverage: number;
+  /** 覆盖率诚实表述（低于阈值时为显式降级措辞）。 */
+  readonly honestNote: string;
+  /** 最差工况桶键（全局口径计量器为 undefined）。 */
+  readonly worstBucket?: string | undefined;
+  /** 逐桶覆盖率明细（全局口径计量器为 undefined）。 */
+  readonly bucketCoverage?:
+    | readonly {
+        readonly bucket: string;
+        readonly samples: number;
+        readonly coverage: number;
+      }[]
+    | undefined;
+}
+
+/**
+ * 覆盖率计量面（`RewardCoverageMeter` 与 `BucketedCoverageMeter` 结构性满足）：
+ * 晋升闸只依赖本面，口径可换而闸不变。
+ */
+export interface CoverageMeter {
+  /** 把带明细的探针包成数值奖励（逐样本记账；fail-closed 同原口径）。 */
+  wrap(probe: {
+    verify(candidate: unknown): Promise<RewardVerdict>;
+  }): (candidate: unknown) => Promise<number>;
+  /** 出覆盖率体检报告（口径由实现决定）。 */
+  report(): CoverageReportSurface;
+}
+
+/**
  * 覆盖率计量器：包装带明细的奖励探针，逐样本记账，随时出体检报告。
  */
 export class RewardCoverageMeter {
@@ -42,15 +79,36 @@ export class RewardCoverageMeter {
     verify(candidate: unknown): Promise<RewardVerdict>;
   }): (candidate: unknown) => Promise<number> {
     return async (candidate) => {
-      let verdict: RewardVerdict;
-      try {
-        verdict = await probe.verify(candidate);
-      } catch (err) {
-        verdict = { reward: 0, verifiable: false, reason: `unverifiable:throw:${String(err)}` };
-      }
-      this.outcomes.push(verdict);
+      const verdict = await RewardCoverageMeter.verdictOf(probe, candidate);
+      this.record(verdict);
       return verdict.reward;
     };
+  }
+
+  /**
+   * fail-closed 探针求值（口径单点：`wrap` 与分桶计量器共用同一份异常归口）。
+   * @param probe 带判据明细的探针
+   * @param candidate 候选
+   * @returns 判据明细（探针抛错 → `unverifiable:throw`，绝不外抛）
+   */
+  public static async verdictOf(
+    probe: { verify(candidate: unknown): Promise<RewardVerdict> },
+    candidate: unknown,
+  ): Promise<RewardVerdict> {
+    try {
+      return await probe.verify(candidate);
+    } catch (err) {
+      return { reward: 0, verifiable: false, reason: `unverifiable:throw:${String(err)}` };
+    }
+  }
+
+  /**
+   * 记账一条判据明细（分桶计量器共用：同一探针**只跑一次**，同一结论记进多个计量器）。
+   * @param verdict 判据明细
+   * @returns 无返回值（void）
+   */
+  public record(verdict: RewardVerdict): void {
+    this.outcomes.push(verdict);
   }
 
   /**

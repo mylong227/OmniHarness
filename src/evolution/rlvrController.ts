@@ -36,11 +36,12 @@ import type {
   PromotionVerdict,
 } from '../ports/runtime/evolution.js';
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
-import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
+import type { RlvrSampler, ReplayBuffer, CodeCandidate, RlvrSampleContext } from './rlvrLoop.js';
 import { VerifiableReward } from './verifiableReward.js';
 import { CascadeReward } from './cascadeReward.js';
 import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.js';
-import type { RewardCoverageReport } from './rewardCoverageMeter.js';
+import type { CoverageMeter, CoverageReportSurface } from './rewardCoverageMeter.js';
+import { BucketedCoverageMeter } from './bucketedCoverageMeter.js';
 import { PromotionAdmission } from './promotionAdmission.js';
 import type { AdmissionResult } from './promotionAdmission.js';
 import { log } from '../util/logger.js';
@@ -73,8 +74,14 @@ export class RlvrController {
       sample(
         prompt: string,
         index: number,
+        context?: RlvrSampleContext,
       ): CodeCandidate | undefined | Promise<CodeCandidate | undefined> {
         if (index >= samplesPerPrompt) return undefined;
+        // 工况来源（S5 分桶口径）随产物带走：`BucketedCoverageMeter` 由 `meta.source` 取桶键。
+        const meta: Record<string, unknown> = {
+          prompt,
+          ...(context?.source !== undefined ? { source: context.source } : {}),
+        };
         return (async (): Promise<CodeCandidate> => {
           try {
             const out = await model.generate({
@@ -90,11 +97,11 @@ export class RlvrController {
             return {
               id: `s${index}`,
               code: code.length > 0 ? code : '// empty generation',
-              meta: { prompt },
+              meta,
             };
           } catch {
             // fail-closed：生成失败 → 伪样本（reward 0，不进回放），不中止整轮。
-            return { id: `s${index}`, code: '// generation error', meta: { prompt } };
+            return { id: `s${index}`, code: '// generation error', meta };
           }
         })();
       },
@@ -110,7 +117,9 @@ export class RlvrController {
   public static createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrEvolutionBundle {
     const buffer: ReplayBuffer = new InMemoryReplayBuffer();
     const sampler = RlvrController.modelRlvrSampler(opts.model, opts.samplesPerPrompt ?? 8);
-    const meter = new RewardCoverageMeter();
+    // 覆盖率口径（S5）：分桶取最差桶（缺省关 = 全局口径，与现状逐行为等价）。
+    const meter: CoverageMeter =
+      opts.bucketedCoverage === true ? new BucketedCoverageMeter() : new RewardCoverageMeter();
     // 级联评估（S4）：静态预检（纯函数）先于 verifyCommand——不过即短路，省一次子进程全量验证。
     // 缺省关（现状路径逐行为等价）；Kernel 路径显式开（`cascade: true`）。
     const verdictFor = VerifiableReward.verifiableVerdictForCode(() => opts.verifyCommand, {
@@ -166,6 +175,7 @@ export class RlvrController {
       verifyCommand: opts.verifyCommand !== undefined,
       samplesPerPrompt: opts.samplesPerPrompt ?? 8,
       cascade: cascade !== undefined,
+      bucketedCoverage: opts.bucketedCoverage === true,
     });
     return { controller, buffer, report: () => controller.report(), cascade };
   }
@@ -223,6 +233,12 @@ export interface RlvrEvolutionOptions {
    * 静态否决记 `static-fail:<规则>` 且 `verifiable=false`——真实命令没跑过，不得冒充验过。
    */
   readonly cascade?: boolean | undefined;
+  /**
+   * （GEE Kernel v1 · S5）覆盖率分桶开关（默认 false = 全局口径，逐行为等价）：
+   * 开则覆盖率按工况桶记账、闸取**最差桶**（`BucketedCoverageMeter`）——健康均匀样本集上
+   * 与全局口径同判，拥挤工况不再被平均值掩盖；阈值仍沿用 {@link COVERAGE_THRESHOLD}。
+   */
+  readonly bucketedCoverage?: boolean | undefined;
   /** 晋升回调。 */
   readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   /** 任务末自动进化（默认 false）。 */
@@ -237,10 +253,20 @@ export interface RlvrCycleReport {
   readonly promoted: number;
   /** 本轮候选总数 − 晋升数（含门禁/RLVR/准入/覆盖率各级否决）。 */
   readonly rejected: number;
-  /** 势函数覆盖率（真实可验证判定 / 样本数，0..1）。 */
+  /** 势函数覆盖率（真实可验证判定 / 样本数，0..1）；分桶口径下 = **最差工况桶**覆盖率。 */
   readonly coverage: number;
-  /** 覆盖率诚实表述（低于阈值时为显式降级措辞）。 */
+  /** 覆盖率诚实表述（低于阈值时为显式降级措辞；分桶口径下点名最差桶）。 */
   readonly honestNote: string;
+  /** （S5）最差工况桶键（全局口径下为 undefined）。 */
+  readonly coverageWorstBucket?: string | undefined;
+  /** （S5）逐桶覆盖率明细（全局口径下为 undefined）。 */
+  readonly coverageBuckets?:
+    | readonly {
+        readonly bucket: string;
+        readonly samples: number;
+        readonly coverage: number;
+      }[]
+    | undefined;
   /** 准入后种群去重率。 */
   readonly distinctRatio: number;
   /** 多样性塌缩告警（Echo Trap 风险）。 */
@@ -291,8 +317,8 @@ export class RlvrEvolutionController implements EvolutionController {
   private readonly inner: EvolutionController;
   /** 晋升准入器（多样性闸 + 退火接受 + 失败挖掘）。 */
   private readonly admission: PromotionAdmission;
-  /** 覆盖率计量器（包装 RLVR 可验证奖励，逐样本记判据明细）。 */
-  private readonly meter: RewardCoverageMeter;
+  /** 覆盖率计量器（包装 RLVR 可验证奖励，逐样本记判据明细；口径全局或分桶）。 */
+  private readonly meter: CoverageMeter;
   /** 势函数覆盖率下限（低于即整轮不晋升）。 */
   private readonly minCoverage: number;
   /** 真实晋升回调（仅准入全过者触发）。 */
@@ -301,12 +327,12 @@ export class RlvrEvolutionController implements EvolutionController {
   private lastReport: RlvrCycleReport | undefined;
 
   /**
-   * @param opts 内层控制器 / 准入器 / 覆盖率计量器 / 覆盖率下限 / 晋升回调
+   * @param opts 内层控制器 / 准入器 / 覆盖率计量器（全局或分桶口径）/ 覆盖率下限 / 晋升回调
    */
   public constructor(opts: {
     readonly inner: EvolutionController;
     readonly admission: PromotionAdmission;
-    readonly meter: RewardCoverageMeter;
+    readonly meter: CoverageMeter;
     readonly minCoverage: number;
     readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   }) {
@@ -367,7 +393,7 @@ export class RlvrEvolutionController implements EvolutionController {
    */
   private blockByCoverage(
     verdicts: readonly PromotionVerdict[],
-    coverage: RewardCoverageReport,
+    coverage: CoverageReportSurface,
   ): readonly PromotionVerdict[] {
     return verdicts.map((v) =>
       v.promoted
@@ -392,7 +418,7 @@ export class RlvrEvolutionController implements EvolutionController {
     all: readonly PromotionVerdict[],
     final: readonly PromotionVerdict[],
     admitted: AdmissionResult,
-    coverage: RewardCoverageReport,
+    coverage: CoverageReportSurface,
   ): RlvrCycleReport {
     const promoted = final.filter((v) => v.promoted).length;
     return {
@@ -401,6 +427,8 @@ export class RlvrEvolutionController implements EvolutionController {
       rejected: all.length - promoted,
       coverage: coverage.coverage,
       honestNote: coverage.honestNote,
+      coverageWorstBucket: coverage.worstBucket,
+      coverageBuckets: coverage.bucketCoverage,
       distinctRatio: admitted.distinctRatio,
       collapsed: admitted.collapsed,
       temperature: this.admission.temperature,
