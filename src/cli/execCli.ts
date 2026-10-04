@@ -17,6 +17,7 @@
  */
 
 import { AsyncChildProcess } from '../util/asyncChildProcess.js';
+import { join } from 'node:path';
 import { Agent } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
@@ -26,6 +27,9 @@ import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
 import { EvolutionCommand } from './evolutionCommand.js';
 import { CapabilityCommand } from './capabilityCommand.js';
+import { AssetPackInstaller } from '../asset/assetPackInstaller.js';
+import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
+import type { AssetPackPort } from '../ports/asset.js';
 import type { CapabilityStack } from '../ports/config/capabilityStack.js';
 
 /** 可报告体检的进化控制器（Kernel 与 RLVR 控制器都实现 `report()`；`EvolutionController` 端口未声明它）。 */
@@ -40,8 +44,11 @@ export class ExecCli extends CliAgentCmds {
   private readonly evolutionCommand = new EvolutionCommand((request) =>
     this.runEvolutionCycle(request),
   );
-  /** capability 子命令（Wave B）：只读 `list`，切片由本层装配后经只读回调交给它。 */
-  private readonly capabilityCommand = new CapabilityCommand(() => this.capabilityStackOf());
+  /** capability 子命令（Wave B/D）：只读 list/metadata + 写操作 install（切片与安装器都由本层装配）。 */
+  private readonly capabilityCommand = new CapabilityCommand(
+    () => this.capabilityStackOf(),
+    () => this.assetPackInstallerOf(),
+  );
   /**
    * 执行并返回进程退出码。
    * @param argv 原始命令行参数（不含 node 与脚本入口）。
@@ -266,6 +273,36 @@ export class ExecCli extends CliAgentCmds {
       const args = ArgParser.parseArgs(['--prompt', 'capability list'], defaults);
       if (args === undefined) return undefined;
       return (await this.buildConfig(args)).capabilityStack;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * 造资产包安装器（Wave D · ADR-0011）：在**组合点**把「切片 + 台账」接起来。
+   *
+   * 台账位置与 Kernel 路径同一口径（`<workspace>/<ledgerDir>/ledger.jsonl`，默认 `.omniharness/evolution`）——
+   * 安装事件与晋升/治理事件落在**同一条链**上（无账不生效：台账不可用即拒装，由安装器负责）。
+   * @returns 安装器；`capability.enabled !== true` 或配置不可用时 undefined
+   */
+  private async assetPackInstallerOf(): Promise<AssetPackPort | undefined> {
+    const stack = await this.capabilityStackOf();
+    if (stack === undefined) return undefined;
+    try {
+      const defaults = this.loadDefaults([]);
+      const args = ArgParser.parseArgs(['--prompt', 'capability install'], defaults);
+      if (args === undefined) return undefined;
+      const config = await this.buildConfig(args);
+      const dir = join(
+        config.workspaceRoot,
+        config.evolutionRlvr?.ledgerDir ?? join('.omniharness', 'evolution'),
+      );
+      return new AssetPackInstaller({
+        registry: stack.registry,
+        schemas: stack.schemas,
+        ledger: new HashChainPromotionLedger({ dir }),
+        defaults: stack.defaults,
+      });
     } catch {
       return undefined;
     }

@@ -15,9 +15,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { CapabilityCommand } from '../../src/cli/capabilityCommand.js';
+import { AssetPackCodec } from '../../src/asset/assetPackCodec.js';
+import { AssetPackInstaller } from '../../src/asset/assetPackInstaller.js';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
 import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.js';
 import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
 import { SkillRegistry } from '../../src/skill/skillRegistry.js';
+import type { AssetPackManifest, PackAssetEntry } from '../../src/ports/asset.js';
+import type { CapabilityRegistryPort } from '../../src/ports/capability.js';
 import type { CapabilityStack } from '../../src/ports/config/capabilityStack.js';
 import type { Skill } from '../../src/skill/skill.js';
 
@@ -143,7 +148,185 @@ test('B6 只读（结构性）：跑完技能表与台账文件逐字节不变�
 
 test('B6 未知子命令：打印用法并退出 2（不误当主任务执行）', async () => {
   const command = new CapabilityCommand(() => stackOf());
-  const { out, result } = await capture(() => command.run(['install']));
-  assert.strictEqual(result, 2, 'install 属 Wave D，本波如实报用法错误');
+  const { out, result } = await capture(() => command.run(['bogus']));
+  assert.strictEqual(result, 2);
   assert.match(out, /omniharness capability list/);
+});
+
+// ---- Wave D3：install / metadata ----
+
+/**
+ * 造一条技能资产条目。
+ * @param name 资产名
+ * @returns PackAssetEntry
+ */
+function packSkillEntry(name: string): PackAssetEntry {
+  return {
+    schemaKind: 'skill',
+    name,
+    asset: { name, description: `${name} 描述`, instructions: `${name} 步骤。` },
+  };
+}
+
+/**
+ * 建一套安装环境（切片 + 安装器 + 包文件）。
+ * @param signed 包是否签名
+ * @returns 环境（含包文件路径、注册表、台账与目录）
+ */
+async function installEnv(signed: boolean): Promise<{
+  readonly command: CapabilityCommand;
+  readonly packPath: string;
+  readonly ledger: HashChainPromotionLedger;
+  readonly registry: CapabilityRegistryPort;
+  readonly dir: string;
+}> {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-pack-cli-'));
+  const ledger = new HashChainPromotionLedger({ dir, now: () => '2026-10-04T00:00:00.000Z' });
+  // 与生产同构：安装器用**切片里那份**注册表与类型表（各起一套的话，装完的资产在只读面上看不见——
+  // 片开发期真实踩到，本判据当场变红）。
+  const stack = CapabilityStackAssembler.assemble({
+    skillRegistry: new SkillRegistry(),
+    config: { enabled: true },
+  });
+  assert.ok(stack !== undefined);
+  const installer = new AssetPackInstaller({
+    registry: stack.registry,
+    schemas: stack.schemas,
+    ledger,
+    defaults: stack.defaults,
+    now: () => '2026-10-04T00:00:00.000Z',
+  });
+  const publisher = new Ed25519AgentIdentity({ agentRuntimeId: 'pub-cli' });
+  const base: AssetPackManifest = {
+    format: 'omniharness-asset-pack',
+    version: 1,
+    name: 'cli-pack',
+    publisher: { runtimeId: publisher.runtimeId(), publicKeySsh: publisher.publicKeySsh() },
+    issuedAt: '2026-10-04T00:00:00.000Z',
+    assets: [packSkillEntry('cli-asset')],
+  };
+  const manifest = signed ? AssetPackCodec.sign(base, publisher) : base;
+  const packPath = join(dir, 'pack.ohb');
+  writeFileSync(packPath, AssetPackCodec.encode(manifest));
+  return {
+    command: new CapabilityCommand(
+      () => stack,
+      () => installer,
+    ),
+    packPath,
+    ledger,
+    registry: stack.registry,
+    dir,
+  };
+}
+
+test('D3 install 门禁：缺 --yes 即拒（退出码 2）且零改动', async () => {
+  const env = await installEnv(true);
+  const before = readdirSync(env.dir).sort();
+  const { err, result } = await capture(() => env.command.run(['install', env.packPath]));
+  assert.strictEqual(result, 2);
+  assert.match(err, /必须显式加 --yes/);
+  assert.strictEqual(env.ledger.list().length, 0, '被拒的安装不得入账');
+  assert.deepStrictEqual(readdirSync(env.dir).sort(), before, '被拒的安装不得新增文件');
+});
+
+test('D3 install --yes：签名包入册 + 入账，报告可机读', async () => {
+  const env = await installEnv(true);
+  const { out, result } = await capture(() =>
+    env.command.run(['install', env.packPath, '--yes', '--json']),
+  );
+  assert.strictEqual(result, 0);
+  const report = JSON.parse(out.trim()) as {
+    ok: boolean;
+    installed: number;
+    assets: string[];
+    publisher: string;
+    ledgerSeq: number;
+  };
+  assert.deepStrictEqual(
+    {
+      ok: report.ok,
+      installed: report.installed,
+      assets: report.assets,
+      publisher: report.publisher,
+    },
+    { ok: true, installed: 1, assets: ['cli-asset'], publisher: 'pub-cli' },
+  );
+  assert.strictEqual(report.ledgerSeq, 1);
+  assert.strictEqual(env.registry.recordOf('cli-asset')?.governance.trustTier, 'evolved');
+  assert.strictEqual(env.ledger.list().filter((e) => e.action === 'pack-install').length, 1);
+});
+
+test('D3 install 严格档：无签名包拒装（退出码 1）且原因可读；--allow-unsigned 才收', async () => {
+  const strict = await installEnv(false);
+  const rejected = await capture(() => strict.command.run(['install', strict.packPath, '--yes']));
+  assert.strictEqual(rejected.result, 1);
+  assert.match(rejected.err, /拒装：验签未通过（unsigned）/);
+  assert.strictEqual(strict.ledger.list().length, 0);
+
+  const lenient = await installEnv(false);
+  const accepted = await capture(() =>
+    lenient.command.run(['install', lenient.packPath, '--yes', '--allow-unsigned', '--json']),
+  );
+  assert.strictEqual(accepted.result, 0);
+  const report = JSON.parse(accepted.out.trim()) as { unsigned?: boolean };
+  assert.strictEqual(report.unsigned, true, '未签名必须如实申报');
+  assert.strictEqual(
+    lenient.registry.recordOf('cli-asset')?.governance.trustTier,
+    'external',
+    '未签名包按最不信档起算',
+  );
+});
+
+test('D3 install 未接线 / 包不存在：如实报错（退出码 2 / 1），不假装成功', async () => {
+  const unwired = new CapabilityCommand(() => stackOf());
+  const noInstaller = await capture(() => unwired.run(['install', 'x.ohb', '--yes']));
+  assert.strictEqual(noInstaller.result, 2);
+  assert.match(noInstaller.err, /未接线/);
+
+  const env = await installEnv(true);
+  const missing = await capture(() =>
+    env.command.run(['install', join(env.dir, 'nope.ohb'), '--yes']),
+  );
+  assert.strictEqual(missing.result, 1);
+  assert.match(missing.err, /无法读取资产包/);
+});
+
+test('D3 metadata（只读）：--kind 单类型 / 全类型，且不写任何状态', async () => {
+  const env = await installEnv(true);
+  await env.command.run(['install', env.packPath, '--yes']);
+  const before = readdirSync(env.dir).sort();
+  const ledgerBefore = env.ledger.list().length;
+
+  const one = await capture(() => env.command.run(['metadata', '--kind', 'skill', '--json']));
+  assert.strictEqual(one.result, 0);
+  const metadata = JSON.parse(one.out.trim()) as {
+    kind: string;
+    assets: { name: string }[];
+  }[];
+  assert.strictEqual(metadata.length, 1);
+  assert.strictEqual(metadata[0]?.kind, 'skill');
+  assert.deepStrictEqual(
+    metadata[0]?.assets.map((a) => a.name),
+    ['cli-asset'],
+  );
+  assert.ok(!one.out.includes('步骤'), '元数据不得带 instructions 明文');
+
+  const all = await capture(() => env.command.run(['metadata', '--json']));
+  assert.strictEqual(all.result, 0);
+  assert.strictEqual((JSON.parse(all.out.trim()) as unknown[]).length, 2, '缺省列全类型');
+
+  const unknown = await capture(() => env.command.run(['metadata', '--kind', 'operator']));
+  assert.strictEqual(unknown.result, 1);
+  assert.match(unknown.err, /类型未注册：operator/);
+
+  assert.strictEqual(env.ledger.list().length, ledgerBefore, '只读命令不得入账');
+  assert.deepStrictEqual(readdirSync(env.dir).sort(), before, '只读命令不得新增文件');
+});
+
+test('D3 install 用法：缺包路径 ⇒ 用法 + 退出码 2', async () => {
+  const env = await installEnv(true);
+  const { out, result } = await capture(() => env.command.run(['install', '--yes']));
+  assert.strictEqual(result, 2);
+  assert.match(out, /omniharness capability install/);
 });
