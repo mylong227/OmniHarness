@@ -1,13 +1,3 @@
-import type { ApprovalPort } from '../ports/runtime/approval.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
-import type { SandboxPort } from '../ports/runtime/sandbox.js';
-import type { SpillPort } from '../ports/memory/spill.js';
-import type { RetrievalPort } from '../ports/intelligence/retrieval.js';
-import type { EscalationPort } from '../ports/runtime/escalation.js';
-import type { TodoPort } from '../ports/runtime/todo.js';
-import type { PlanPort } from '../ports/runtime/plan.js';
-import type { UserResponder } from '../ports/runtime/userResponder.js';
-
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
 import { TraceExporterAssembly } from '../observability/traceExporterAssembly.js';
 import { PolicySandbox } from '../adapters/sandbox/policySandbox.js';
@@ -17,7 +7,6 @@ import { MemoryTodo } from '../adapters/todo/memoryTodo.js';
 import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
 import { ToolResultSpiller } from '../context/toolResultSpiller.js';
 import { TurnDiffTracker } from '../core/turnDiffTracker.js';
-import type { ToolHookRunner } from '../core/toolHookRunner.js';
 import { ToolDiscovery } from '../search/toolDiscovery.js';
 import {
   VortexRingPacket,
@@ -27,6 +16,10 @@ import {
 
 import { ConfigBuilder } from './configBuilder.js';
 import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import type { CorePorts } from '../ports/config/corePorts.js';
+
+/** 原 `CorePorts` 声明已搬入 `ports/config/corePorts.ts`（G25 收尾，契约归 ports）；此处桶再导出保持公共 API 面不变。 */
+export type { CorePorts } from '../ports/config/corePorts.js';
 
 /**
  * CorePortsAssembler —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -101,32 +94,6 @@ export class CorePortsAssembler {
 /** Spill 默认参数（#74：超大工具输出外溢，避免撑爆上下文）。 */
 const DEFAULT_SPILL_MAX_INLINE_BYTES = 16384;
 const DEFAULT_SPILL_PREVIEW_BYTES = 2048;
-
-/**
- * 基础设施端口切片：直接并入 `ResolvedConfig` 的字段子集。
- * 均为「会话无关」的通用端口——沙箱/审批/外溢/事件/待办/计划/检索/提权/变更追踪。
- */
-export interface CorePorts {
-  readonly sandbox: SandboxPort;
-  readonly approvals: ApprovalPort;
-  readonly spill: SpillPort;
-  readonly spiller: ToolResultSpiller;
-  readonly events: EventPort;
-  readonly todo: TodoPort;
-  readonly plan: PlanPort;
-  readonly userResponder: UserResponder;
-  readonly planMode: boolean;
-  readonly discovery: ToolDiscovery;
-  readonly retrieval: RetrievalPort;
-  readonly escalation: EscalationPort;
-  readonly elevatedSandbox: SandboxPort;
-  /** 回合级变更追踪开关（#M5，默认开）：关闭时既不追踪也不产事件。 */
-  readonly turnDiff: boolean;
-  /** 回合级变更追踪器（#M5）：`turnDiff` 关闭时为 undefined。 */
-  readonly turnDiffTracker: TurnDiffTracker | undefined;
-  /** 工具钩子运行器（#M5）：无追踪需求时为 undefined。 */
-  readonly hooks: ToolHookRunner | undefined;
-}
 
 /** 基础设施端口的装配结果：切片 + 燧专用内部件。 */
 export interface CorePortsAssembly {

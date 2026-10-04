@@ -9,8 +9,8 @@ import type { ApprovalPort } from '../runtime/approval.js';
 import type { EscalationPort } from '../runtime/escalation.js';
 import type { ToolGatePort } from '../runtime/toolGatePort.js';
 import type { SupervisorPort } from '../runtime/supervisor.js';
-import type { ToolResultSpiller } from '../../context/toolResultSpiller.js';
-import type { ToolDiscovery } from '../../search/toolDiscovery.js';
+import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.js';
+import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.js';
 import type { RetrievalPort } from '../intelligence/retrieval.js';
 import type { TurnDiffTrackerPort } from '../runtime/turnDiffTracker.js';
 import type { ToolHookRunnerPort } from '../tool/toolHookRunnerPort.js';
@@ -60,9 +60,9 @@ export interface OmniHarnessRuntime {
   /** 航天级监督内核（I-P0-3）：健康监控 + Safe mode 分级降级，运行时装配注入主循环。 */
   readonly supervisor?: SupervisorPort | undefined;
   /** 工具结果外溢器（#74）：超大输出落后端，只留有界预览。 */
-  readonly spiller: ToolResultSpiller;
+  readonly spiller: ToolResultSpillerPort;
   /** 工具发现寄存器（#M1）：tool_search 命中后登记，StepRunner 据此装载延迟加载工具。 */
-  readonly discovery: ToolDiscovery;
+  readonly discovery: ToolDiscoveryPort;
   /** 检索端口（#M2）：会话历史事件索引供 memory_search 检索，实现跨长对话 recall。 */
   readonly retrieval: RetrievalPort;
   /** 回合级变更追踪器（#M5）：回合结束时产出 unified diff；关闭时为 undefined。 */

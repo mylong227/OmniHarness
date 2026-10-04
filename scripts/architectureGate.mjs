@@ -89,7 +89,14 @@ for (const { from, to } of edges) {
     (to.startsWith('core/') ||
       to.startsWith('adapters/') ||
       to.startsWith('config/') ||
-      to.startsWith('composition/'))
+      to.startsWith('composition/') ||
+      // 第三十轮（2026-10-04）补漏网层：`context/` 与 `search/` 同为实现层——此前
+      // `ports/config/resolvedConfig.ts` 等长期 `import type` 绑定 `ToolResultSpiller` /
+      // `ToolDiscovery` / `RepoMapContextEngine` 实现类而门禁「看不见」。三个契约已抽到
+      // ports（ToolResultSpillerPort / ToolDiscoveryPort / RepoMapContextEnginePort），
+      // 存量归零 ⇒ 纳入本规则「新增即红」。
+      to.startsWith('context/') ||
+      to.startsWith('search/'))
   ) {
     portsImplViolations.push({ id, whitelisted: PORTS_IMPL_WL.has(id) });
   }

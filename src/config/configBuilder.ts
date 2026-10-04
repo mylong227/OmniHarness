@@ -22,13 +22,13 @@ import { join } from 'node:path';
 import type { SpillPort } from '../ports/memory/spill.js';
 import { AutoApproval } from '../adapters/approval/autoApproval.js';
 import { CachedApproval } from '../adapters/approval/cachedApproval.js';
-import { TurnDiffTracker } from '../core/turnDiffTracker.js';
+import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.js';
 import { TurnDiffHooks } from '../adapters/diff/turnDiffHooks.js';
 import { ToolHookRunner } from '../core/toolHookRunner.js';
 import { FileSpill, DEFAULT_SPILL_MAX_FILES } from '../adapters/spill/fileSpill.js';
 import { MemorySpill } from '../adapters/spill/memorySpill.js';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import { ToolResultSpiller } from '../context/toolResultSpiller.js';
+import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.js';
 import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
 import type { LspPort } from '../ports/tool/lsp.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
@@ -72,7 +72,7 @@ export class ConfigBuilder {
   }
 
   /** 装配工具钩子（#M5）：目前只有变更追踪钩子，后续钩子在此追加注册即可。 */
-  public buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
+  public buildHooks(tracker: TurnDiffTrackerPort, workspaceRoot: string): ToolHookRunner {
     const runner = new ToolHookRunner();
     runner.add(new TurnDiffHooks(tracker, workspaceRoot).hooks());
     return runner;
@@ -230,7 +230,7 @@ export class ConfigBuilder {
     sandbox: SandboxPort,
     events: EventPort,
     spill: SpillPort,
-    spiller: ToolResultSpiller,
+    spiller: ToolResultSpillerPort,
     escalation: EscalationPort,
     elevatedSandbox: SandboxPort,
     longTermMemory: LongTermMemoryPort,
@@ -286,7 +286,7 @@ export class ConfigBuilder {
   }
 
   /** 装配工具钩子（门面：委托默认装配器实例）。 */
-  public static buildHooks(tracker: TurnDiffTracker, workspaceRoot: string): ToolHookRunner {
+  public static buildHooks(tracker: TurnDiffTrackerPort, workspaceRoot: string): ToolHookRunner {
     return configBuilder.buildHooks(tracker, workspaceRoot);
   }
 
@@ -327,7 +327,7 @@ export class ConfigBuilder {
     sandbox: SandboxPort,
     events: EventPort,
     spill: SpillPort,
-    spiller: ToolResultSpiller,
+    spiller: ToolResultSpillerPort,
     escalation: EscalationPort,
     elevatedSandbox: SandboxPort,
     longTermMemory: LongTermMemoryPort,

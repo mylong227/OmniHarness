@@ -7,7 +7,7 @@ import type { SpillPort } from '../memory/spill.js';
 import type { ToolPort } from '../tool/tool.js';
 import type { EscalationPort } from '../runtime/escalation.js';
 import type { NativeToolRunner } from '../../native/nativeBackend.js';
-import type { ToolResultSpiller } from '../../context/toolResultSpiller.js';
+import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.js';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
 import type { PlanPort } from '../runtime/plan.js';
 import type { SupervisorPort } from '../runtime/supervisor.js';
@@ -30,7 +30,7 @@ export interface SubagentPortsShape {
   /** 提权后的复核沙箱（#G3/G4，默认无沙箱）：escalate 裁决后以此复核放行。 */
   readonly elevatedSandbox: SandboxPort;
   readonly spill: SpillPort;
-  readonly spiller: ToolResultSpiller;
+  readonly spiller: ToolResultSpillerPort;
   readonly workspaceRoot: string;
   readonly maxSteps: number;
   /** 长期记忆端口（#S28）：与父共享，使子代继承跨会话持久记忆读写。 */

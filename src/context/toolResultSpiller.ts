@@ -1,4 +1,5 @@
 import type { SpillPort } from '../ports/memory/spill.js';
+import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.js';
 import type { ToolResult } from '../ports/tool/tool.js';
 import { SpillPolicy, type SpillPolicyOptions } from './spillPolicy.js';
 
@@ -17,8 +18,10 @@ const DEFAULT_EXEMPT: readonly string[] = ['spill_read'];
 /**
  * @beta
  * 工具结果外溢器：把超大输出换为「有界预览 + 定位符」，避免撑爆模型上下文。
+ *
+ * 契约声明见 `ports/context/toolResultSpillerPort.ts`（G25 收尾：端口归 ports，本类为其实现）。
  */
-export class ToolResultSpiller {
+export class ToolResultSpiller implements ToolResultSpillerPort {
   private readonly policy: SpillPolicy;
   private readonly exempt: readonly string[];
 

@@ -6,7 +6,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { ToolIndex } from '../../../search/toolIndex.js';
-import { ToolDiscovery } from '../../../search/toolDiscovery.js';
+import type { ToolDiscoveryPort } from '../../../ports/tool/toolDiscoveryPort.js';
 
 /** tool_search 默认返回工具数上限。 */
 const DEFAULT_LIMIT = 5;
@@ -14,7 +14,7 @@ const DEFAULT_LIMIT = 5;
 /**
  * @beta
  * 工具语义检索工具（#M1）：模型用自然语言查询最相关工具 schema，按需「装载」而非全量注入。
- * 命中结果同时登记进 `ToolDiscovery`，使被延迟加载（deferred）的工具在后续回合对模型可见、可被调用。
+ * 命中结果同时登记进 `ToolDiscoveryPort`，使被延迟加载（deferred）的工具在后续回合对模型可见、可被调用。
  */
 export class ToolSearchTool {
   /**
@@ -45,7 +45,7 @@ export class ToolSearchTool {
    */
   public constructor(
     private readonly index: ToolIndex,
-    private readonly discovery: ToolDiscovery,
+    private readonly discovery: ToolDiscoveryPort,
   ) {}
 
   /** 执行检索并登记命中 schema 供后续回合装载。

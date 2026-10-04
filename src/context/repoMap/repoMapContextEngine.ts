@@ -64,7 +64,9 @@ import type { RecallItem } from '../semanticIndex.js';
 import { CodeReferenceGraph } from '../codeReferenceGraph.js';
 import { ExperimentalPaths } from '../experimentalPaths.js';
 import type { EmbeddingPort } from '../../ports/model/embedding.js';
-import { RecallKnobs, type RepoMapContextOptions } from '../recallKnobs.js';
+import { RecallKnobs } from '../recallKnobs.js';
+import type { RepoMapContextOptions } from '../../ports/context/repoMapContextOptions.js';
+import type { RepoMapContextEnginePort } from '../../ports/context/repoMapContextEnginePort.js';
 import { CorpusIndexCache } from '../corpusIndexCache.js';
 import { SemanticIndexCache } from '../semanticIndexCache.js';
 import { HybridRanker, type RankedRepoMap } from '../hybridRanker.js';
@@ -79,7 +81,7 @@ import {
 import { log } from '../../util/logger.js';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
-export type { RepoMapContextOptions } from '../recallKnobs.js';
+export type { RepoMapContextOptions } from '../../ports/context/repoMapContextOptions.js';
 export { CHUNK_BODY_MAX_LINES } from '../semanticIndexCache.js';
 
 /** BM25 检索的候选数：符号路 / 文件路各取多少再交给融合。 */
@@ -114,7 +116,7 @@ interface ResolvedRepoMapKnobs {
  * 组合根：构造时装配 `CorpusIndexCache` / `SemanticIndexCache` / `HybridRanker` 三个协作者，
  * 并把「语料缓存驱逐」与「语义缓存失效」通过回调解耦地连起来。进程级共享单例见文件底部。
  */
-export class RepoMapContextEngine {
+export class RepoMapContextEngine implements RepoMapContextEnginePort {
   /**
    * 缓存命中率聚合器（2026-10-02 补齐：此前全仓 20 处缓存仅 prompt cache 一处有度量）。
    * **必须先于**下面三个缓存字段声明——TS 字段按声明顺序初始化，它们的 `onSample` 闭包引用本字段。

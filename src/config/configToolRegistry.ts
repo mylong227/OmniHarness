@@ -12,7 +12,7 @@ import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot
 import { CheckpointTool } from '../adapters/tool/git/checkpointTool.js';
 import { BudgetStatusTool } from '../adapters/tool/meta/budgetStatusTool.js';
 import { ToolIndex } from '../search/toolIndex.js';
-import { ToolDiscovery } from '../search/toolDiscovery.js';
+import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.js';
 import { TodoWriteTool, TodoReadTool } from '../adapters/tool/plan/todoTool.js';
 import { AskUserTool } from '../adapters/tool/plan/askUserTool.js';
 import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/plan/planTool.js';
@@ -184,7 +184,7 @@ export class ConfigToolRegistry {
    * @param {RegistryToolPort} registry - registry
    * @param {SubagentPortSeed} seed - seed
    * @param {{ readonly todo: TodoPort; readonly plan: PlanPort; readonly userResponder: UserResponder; readonly planMode: boolean; }} planning - planning
-   * @param {ToolDiscovery} discovery - discovery
+   * @param discovery discovery - discovery
    * @param {RetrievalPort} retrieval - retrieval
    * @returns {ToolIndex} tool_search 背后的工具索引（调用方在 extraTools 注册完后须 reindex，
    *   否则经 --tool-files / extraTools 注入的自定义工具永远不出现在检索结果里——2026-10-03 修，审计 T6）
@@ -198,7 +198,7 @@ export class ConfigToolRegistry {
       readonly userResponder: UserResponder;
       readonly planMode: boolean;
     },
-    discovery: ToolDiscovery,
+    discovery: ToolDiscoveryPort,
     retrieval: RetrievalPort,
   ): ToolIndex {
     const { subagent: subagentOptions, ...ports } = seed;
@@ -461,7 +461,7 @@ export class ConfigToolRegistry {
       readonly userResponder: UserResponder;
       readonly planMode: boolean;
     },
-    discovery: ToolDiscovery,
+    discovery: ToolDiscoveryPort,
     retrieval: RetrievalPort,
     deferredTools: readonly string[] | undefined,
     longTerm: LongTermMemoryPort | undefined,

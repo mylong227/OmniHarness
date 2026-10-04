@@ -12,10 +12,10 @@ import type { TurnDiffTrackerPort } from '../runtime/turnDiffTracker.js';
 import type { ToolHookRunnerPort } from '../tool/toolHookRunnerPort.js';
 import type { ToolPort } from '../tool/tool.js';
 import type { SpillPort } from '../memory/spill.js';
-import type { ToolResultSpiller } from '../../context/toolResultSpiller.js';
-import type { ToolDiscovery } from '../../search/toolDiscovery.js';
+import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.js';
+import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.js';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
-import type { RepoMapContextEngine } from '../../context/repoMap/repoMapContextEngine.js';
+import type { RepoMapContextEnginePort } from '../context/repoMapContextEnginePort.js';
 import type { ScratchpadPort } from '../memory/scratchpad.js';
 import type { MemoryExtractorPort } from '../memory/memoryExtractor.js';
 import type { CostBudgetPort } from '../model/costBudgetPort.js';
@@ -60,7 +60,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   /** 记忆封包溢出端口（超阈值记忆经此落盘）。 */
   readonly spill: SpillPort;
   /** 工具结果外溢器（#74）：超大输出落后端，只留有界预览。 */
-  readonly spiller: ToolResultSpiller;
+  readonly spiller: ToolResultSpillerPort;
   /** 是否处于计划模式（plan-only，不执行副作用工具）。 */
   readonly planMode: boolean;
   /** Agent 用户响应端口（进度 / 澄清提问推送）。 */
@@ -70,7 +70,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   /** 计划端口（多步规划态）。 */
   readonly plan: PlanPort;
   /** 工具发现寄存器（#M1）：tool_search 命中后登记，使延迟加载工具后续回合对模型可见。 */
-  readonly discovery: ToolDiscovery;
+  readonly discovery: ToolDiscoveryPort;
   /** 检索端口（#M2）：会话历史事件索引供 memory_search 检索，实现跨长对话 recall。 */
   readonly retrieval: RetrievalPort;
   /** 升级审批端口（#G3/G4）：沙箱拒绝时咨询，决定是否提权重试（fail-closed 默认不提权）。 */
@@ -84,7 +84,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   /** 长期记忆端口（#S28）：跨会话持久 fact 存储，默认文件落盘；recall 工具与回合末蒸馏共用。 */
   readonly longTermMemory: LongTermMemoryPort;
   /** repo-map 上下文引擎（P2.2 单例收敛）：组合根唯一构造点，注入 StepRunnerDeps。 */
-  readonly repoMapContext: RepoMapContextEngine;
+  readonly repoMapContext: RepoMapContextEnginePort;
   /** 跨重置便签（T3.4）：重置后读回交接物恢复任务。 */
   readonly scratchpad: ScratchpadPort;
   /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关 memoryConsolidate 时构造，回合末自动沉淀；否则 undefined（仅支持显式 remember）。 */
