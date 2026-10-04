@@ -4,8 +4,22 @@
     {
       "name": "omniharness-coding-standard",
       "description": "写这个仓库的 TypeScript 时必须遵守的类模板与硬性禁令：显式成员访问级别、禁 any、一文件一类、公开方法必须有 JSDoc 的 @param/@returns。",
-      "instructions": "每个类成员显式写 public/private/protected（ESLint 强制）。禁止 any，用 unknown 加收窄。禁止 var，优先 const。一个文件至多一个主类，主类名与文件名一致（foo.ts → class Foo）。公开类、公开方法与关键字段必须有 /** */，并给出 @param 与 @returns。单文件 800 行、单类 20 方法为红线，越线要按职责拆。新增代码禁止顶层函数（D9）——要复用就归到一个类里做静态方法或实例方法。依赖一律构造注入，禁止在方法体内 new 具体实现（组合根负责装配）。控制流优先早返回与查表，避免深层 if/else 嵌套。",
+      "instructions": "每个类成员显式写 public/private/protected（ESLint 强制）。禁止 any，用 unknown 加收窄。禁止 var，优先 const。一个文件至多一个主类，主类名与文件名一致（foo.ts → class Foo）。公开类、公开方法与关键字段必须有 /** */，并给出 @param 与 @returns。单文件 800 行、单类 20 方法为红线，越线要按职责拆。新增代码禁止顶层函数（D9）——要复用就归到一个类里做静态方法或实例方法。依赖一律构造注入，禁止在方法体内 new 具体实现（组合根负责装配）。控制流优先早返回与查表，避免深层 if/else 嵌套。**形态只是门槛**：交付标准另见 docs/CODE_STANDARD.md §12「生产级实现标准（拒绝 demo 式）」——本节管「长得对不对」，§12 管「做完了没有」，两者都要满足。",
       "tags": ["coding-standard", "typescript", "jsdoc", "类模板", "编码规范"]
+    },
+    {
+      "name": "omniharness-production-grade",
+      "description": "交付标准是「能上线、能被接手、坏了能查」，不是「跑通就行」：七条可判硬指标（完整性/失败面/上限/可观测/可复现幂等/兼容迁移/判据即交付），禁止 demo 式半实现。",
+      "instructions": "纪律出处 docs/CODE_STANDARD.md §12（项目所有者口径）。任何实现按七条判据自检，缺一条要么补上、要么在同一提交里显式标注不做并写明原因与影响面。① 完整性：功能必须含失败路径与边界；未完成必须显式标注不做，不得留占位返回、`TODO`、「以后再补」。② 失败面显式且 fail-closed：每个外部调用（IO/网络/子进程/解析/用户输入）都要有明确失败语义，默认拒绝而不是默认放行；错误要么被处理、要么被上报，禁止空 catch 吞错、禁止 catch 后返回默认值假装成功。③ 边界与资源有硬上限：输入做边界校验（长度/数量/枚举/路径穿越），循环/缓冲/队列/递归一律有上限——无上限即缺陷。④ 可观测：关键状态变化与每一条拒绝路径都要有结构化日志（util/logger 的 log.*）和可机读 reason code；禁止 console.log 调试残留，禁止只写「失败」两字。⑤ 可复现与幂等：时钟/随机/环境依赖必须注入；同一操作重复执行要么幂等、要么显式拒绝（带原因），不得静默覆盖。⑥ 兼容与迁移显式化：改端口签名/落盘格式/配置键/哈希口径必须给兼容路径或显式迁移并写明影响面，不得让老数据不可读、不可验签，也不得「声明未接线」。⑦ 判据即交付：实现与判据同一次提交交付，判据必须能对已知坏输入变红（正对照/仪器自证），变异后仍绿先查变异是否落地；只测 happy path 不算判据。机械兜底：`npm run audit:standard:delta` 的「占位或调试残留」规则对新文件零容忍（TODO/FIXME/XXX/HACK、console.log/debug、debugger、not implemented、裸 @ts-ignore）。评审五问（答不上来就是没做完）：失败路径在哪？上限是多少？谁观测它？重复执行会怎样？判据能变红吗？",
+      "tags": [
+        "production-grade",
+        "completeness",
+        "fail-closed",
+        "observability",
+        "幂等",
+        "生产级",
+        "拒绝demo"
+      ]
     },
     {
       "name": "omniharness-gate-runner",
