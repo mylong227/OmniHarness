@@ -274,7 +274,74 @@ function metricsForSource(text, fileName) {
     paramGap: comment.methodsWithParams - comment.methodsWithParamsParam,
     returnsGap: comment.methodsWithRet - comment.methodsWithRetReturns,
     fieldGap: comment.propsTotal - comment.propsWithJsdoc,
+    // 生产级实现标准（CODE_STANDARD §12）：占位/调试残留计数（只增即红，存量不拦）。
+    placeholderCount: placeholderMarkers(sf, text),
   };
+}
+
+/**
+ * 统计「占位实现 / 调试残留」标记数（CODE_STANDARD §12.2 的机械面）。
+ *
+ * 口径（**只数会被当成"以后再说"的东西**，不数正常注释里的中文说明）：
+ * - 待办标记：`TODO` / `FIXME` / `XXX` / `HACK`（词边界 + 区分大小写，避免 `HACKATHON` / `todoPort` 误伤）；
+ * - 调试残留：`console.log(` / `console.debug(` / `debugger`（本仓有 `log` 与 `process.stdout.write` 两条正道）；
+ * - 占位实现：`not implemented` / `not-implemented`；
+ * - 类型逃逸：裸 `@ts-ignore` / `@ts-expect-error`；
+ * - **注释保留**：`// TODO: 以后再补` 这类真待办正是要数的东西。
+ *
+ * **为什么用 AST 掩码而不是正则剥字符串**（第一版就是正则，当场被自己的判据抓到）：
+ * 正则 `/\`(?:\\.|[^\`\\])*\`/` 遇到**嵌套模板字面量**（模板里再写模板）会提前闭合，
+ * 于是「文档/夹具里提到 TODO」被当成真待办——本仓历史同型教训见 `check.mjs`「由正则启发式改用
+ * TypeScript AST」。故此处按 AST 取字符串/模板/正则字面量的**区间**并整体抹白（保留换行以维持行号），
+ * 注释不是 AST 节点、天然保留。
+ *
+ * **文档口吻 vs 待办口吻（约定）**：注释里**用反引号包裹**的标记 = 在讨论这个概念本身
+ * （如本段与判据里的 `` `TODO` ``），不计；**裸露**的标记 = 真待办（`// TODO: 以后再补`），计。
+ * 这条约定让「写文档/写规则的人」不必为了过门禁而把话说含糊。
+ *
+ * **为什么只做"只增即红"**：存量里可能有正当例外（例如"假完成探测器"自己的注释在讨论这个概念）；
+ * §12 的纪律要求「新增不再产生」，而不是「一夜之间清空历史」。全量计数仍会打印，供跟踪收口。
+ *
+ * @param sf 该文件的 TypeScript SourceFile（复用 `metricsForSource` 已解析的那一份）
+ * @param text 源码文本
+ * @returns 命中次数（0 = 干净）
+ */
+function placeholderMarkers(sf, text) {
+  const chars = [...text];
+  const blank = (from, to) => {
+    for (let i = from; i < to && i < chars.length; i += 1) {
+      if (chars[i] !== '\n') chars[i] = ' ';
+    }
+  };
+  const visit = (node) => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateExpression(node) ||
+      // 正则字面量同理：`/TODO|FIXME/` 是**在描述**标记（写规则/写判据的人必然会写），不是待办。
+      ts.isRegularExpressionLiteral(node)
+    ) {
+      // 整个字面量（含模板里的 `${…}` 表达式）一并抹白：宁可少报，不可误报。
+      blank(node.getStart(sf), node.getEnd());
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  // 注释里被反引号包裹的片段 = 文档口吻（见上方约定）：同样抹白。
+  const code = chars.join('').replace(/`[^`\n]*`/g, (span) => ' '.repeat(span.length));
+  const patterns = [
+    /\b(?:TODO|FIXME|XXX|HACK)\b/g,
+    /\bconsole\.(?:log|debug)\s*\(/g,
+    /\bdebugger\b/g,
+    /\bnot[- ]implemented\b/gi,
+    /@ts-(?:ignore|expect-error)\b/g,
+  ];
+  let hits = 0;
+  for (const re of patterns) {
+    hits += (code.match(re) ?? []).length;
+  }
+  return hits;
 }
 
 /**
@@ -431,6 +498,14 @@ if (process.argv.includes('--delta')) {
       h ? jsdocIndentViolations(headText) : 0,
       'JSDoc 续行缩进 ≠ 注释起始列 + 1（注释脱离所属块）',
     );
+    // 生产级实现标准（CODE_STANDARD §12.2）：占位实现 / 调试残留「只增即红」——
+    // 新文件必须完全干净；存量债务（历史 TODO）不拦，但计数会打印供跟踪收口。
+    cmp(
+      '占位或调试残留',
+      s.placeholderCount,
+      h?.placeholderCount ?? 0,
+      'TODO/FIXME/XXX/HACK、console.log/debug、debugger、not-implemented、裸 @ts-ignore',
+    );
     if (!s.nameMatches && (isNew || h?.nameMatches)) {
       failures.push({ f, item: '文件名≠类名', detail: `主类 ${s.mainClass}` });
     }
@@ -462,7 +537,10 @@ console.log(
     '   any: ' +
     sum(report, 'anyCount') +
     '   static: ' +
-    sum(report, 'staticCount'),
+    sum(report, 'staticCount') +
+    '   占位/调试残留: ' +
+    sum(report, 'placeholderCount') +
+    '（CODE_STANDARD §12.2，只增即红）',
 );
 const totalTopFns = report.reduce((s, r) => s + r.topFns.length, 0);
 const totalExportedFns = report.reduce((s, r) => s + r.topFns.filter((x) => x.exported).length, 0);
