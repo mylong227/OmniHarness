@@ -1,8 +1,9 @@
-import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.js';
+﻿import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.js';
 
 import { NativeBackend } from '../native/nativeBackend.js';
 import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.js';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.js';
+import { RbacPolicy } from '../security/rbacPolicy.js';
 import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 import type { EvolutionController } from '../ports/runtime/evolution.js';
 import { Container } from '../core/container.js';
@@ -58,6 +59,14 @@ export class Runtime {
     container.register(ServiceKeys.approvals, config.approvals);
     const supervisor =
       config.supervisor ?? new SupervisorKernel({ hazardousTools: MUTATING_TOOLS });
+    // (F3 RBAC-lite) 角色门禁（第三道门）：仅在配置显式开启时注入——缺省 undefined ⇒ 完全跳过（零行为变更）。
+    // 配置校验已保证"开了必给 role"，故这里不需要再兜一层"缺角色怎么办"的隐式默认（那是静默提权的来源）。
+    const rolePolicy =
+      config.rbac?.enabled === true
+        ? new RbacPolicy({
+            ...(config.rbac.roles !== undefined ? { roles: config.rbac.roles } : {}),
+          })
+        : undefined;
     const gate = new ToolGate(
       config.approvals,
       config.sandbox,
@@ -66,6 +75,8 @@ export class Runtime {
       config.escalation,
       config.elevatedSandbox,
       supervisor,
+      rolePolicy,
+      config.rbac?.enabled === true ? config.rbac.role : undefined,
     );
     // U4 RLVR 进化闭环：启用时构造「可验证门禁 + RLVR sample-filter-replay」控制器并赋给 runtime.evolution，
     // 取代/补充 config.evolution 注入。发现用 skillRegistry 的燧-1 组合，门禁默认 capabilityCoverage 基准，

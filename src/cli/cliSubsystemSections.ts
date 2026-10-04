@@ -73,6 +73,9 @@ export class CliSubsystemSections {
       // （Wave B · ADR-0009）统一资产协议段：整段透传（结构同一份；字段校验已在配置文件归一化
       // 阶段 fail-closed 完成）。未配置则不出现该段 ⇒ `capability.enabled !== true` ⇒ 零行为变更。
       ...(args.capability !== undefined ? { capability: args.capability } : {}),
+      // （F3 RBAC-lite）角色门禁段：整段透传（结构同一份；严格校验已在配置文件归一化阶段完成）。
+      // 未配置则不出现该段 ⇒ 运行时 `rbac.enabled !== true` ⇒ 不注入角色门禁（零行为变更）。
+      ...(args.rbac !== undefined ? { rbac: args.rbac } : {}),
     };
   }
 }

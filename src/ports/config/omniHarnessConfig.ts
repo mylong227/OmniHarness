@@ -23,6 +23,7 @@ import type { TrustTier } from '../../security/toolOutputTrust.js';
 import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.js';
 import type { CapabilityConfig } from './capabilityConfig.js';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.js';
+import type { RbacConfig } from './rbacConfig.js';
 import type { RuntimeTelemetryPort } from '../runtime/runtimeTelemetry.js';
 import type { RegimeSignals } from '../genesis/regimeSignals.js';
 import type { Skill } from '../../skill/skill.js';
@@ -337,6 +338,13 @@ export interface OmniHarnessConfig {
    * 缺省用内置默认档（与历史行为逐字一致）；消费方用 `security/ssrfPolicy.resolveSsrfPolicy` 解析。
    */
   readonly ssrfPolicy?: SsrfPolicyConfig | undefined;
+  /**
+   * (F3 RBAC-lite) 角色门禁：`{ enabled, role, roles? }`。
+   *
+   * 缺省 / `enabled !== true` ⇒ **零行为变更**（不注入角色策略，`ToolGate` 完全跳过角色门禁）。
+   * 消费方：`Runtime.createRuntime` 构造 `RbacPolicy` 并交给 `ToolGate` 作为**第三道门**。
+   */
+  readonly rbac?: RbacConfig | undefined;
   /** (P2, I-P2-4) CRISPR 精确技能编辑：启用后构造 CRISPRSkillEditor（接 SkillPort），对技能做定点 patch + 差异测试回滚（fail-closed）。缺省关，零破坏。 */
   readonly skillEditing?:
     | {
