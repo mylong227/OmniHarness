@@ -120,7 +120,7 @@
 > **第三十一轮｜GEE Kernel v1（Wave A S1–S7）✅ 全片落地**：按 [EVOLUTION_ARCH_UPGRADE_2026-10.md](EVOLUTION_ARCH_UPGRADE_2026-10.md) §4 的依赖图
 > `S1 → S2 → {S3,S4,S5,S6} → S7` **七片独立提交**（`a7d0354` S1 信号面 / `af07c98` S2 编排装配 / `e3aa514` S3 台账回滚 / `7c1d6f0` S4 级联评估 /
 > `c8ddc17` S5 覆盖率分桶 / `e2c2d88` S6 执行体转正 / S7 CLI+文档+成熟度）。每片过全部门禁（铁律 / 成熟度 / 标准增量 / 架构 / 接线 / 死链 / 密钥 / 顶层函数 / ESLint）
-> 并跑**全量单测**（末次实测 **2672 例，0 失败，4 跳过**）。
+> 并跑**全量单测**（末次 **clean build** 实测 **2665 例，0 失败，4 跳过**）。
 >
 > ① **S1 信号面**：3 端口（信号源 / 候选档案 / 晋升台账）+ `EvolutionSignalCollector`（production 观测行 → 失败签名 / 成功密度，游标有界确定性）。
 > ② **S2 编排**：`EvolutionKernel` 实现**既有** `EvolutionController` 端口（`core/agent.ts` 零改动），`evolutionRlvr.kernel` **默认关**、关时逐行为等价（判据钉死）；
@@ -140,6 +140,11 @@
 > **过程中挖出并修掉的两个既有缺陷**（都不是本片引入）：① `CrisprEditSpec.addressThreshold` **被实现忽略**（端口契约声明了、编辑器只读构造参数）——
 > 「声明未接线」的又一例，已改为规格优先；② `verifiableVerdictForCode` 的临时代码文件**不带 pid**，而 `node --test` 每文件一个进程共用临时目录 ⇒
 > 「验证后无残留」判据会看到别的进程正在写的同前缀文件而**偶发假红**（本轮实测触发一次），已按 pid 收窄。
+>
+> **另一条仪器教训（关于本板这个数字本身）**：S5 把 `coverageBuckets.test.ts` 改名为 `bucketedCoverageMeter.test.ts`，此后各片用 `npx tsc`
+> **增量**编译——`dist/` 里那份旧编译产物**没被清掉**，`dist/tests/unit/*.test.js` 于是把同一批 7 个用例**跑了两遍**，
+> 全量计数一路显示 2672。`npm run build`（内含 `cleanDist`）后真相是 **2665**。
+> **口径**：跨片累计的**测试计数**必须取自 `npm run build` 后的 clean 产物；改名/删除测试文件后尤其如此。
 >
 > **诚实边界**：Kernel **默认关**，增益未经两关统计，不得声称"已实现自我进化"；CLI `cycle` 的晋升落在**本进程内存**技能表（会话级），
 > 只有台账（快照/晋升/回滚条目）是持久产物——命令输出的 `note` 字段如实写明这一点。
