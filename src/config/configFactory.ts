@@ -32,11 +32,14 @@ import type { CorePorts } from './corePortsAssembler.js';
 import { MemoryStackAssembler } from './memoryStackAssembler.js';
 import { SkillStackAssembler } from './skillStackAssembler.js';
 import { SparkAssembler } from './sparkAssembler.js';
+import { CapabilityStackAssembler } from './capabilityStackAssembler.js';
 
 export type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 export type { SelfVerifyConfig } from '../ports/config/selfVerifyConfig.js';
 export type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import type { CapabilityStack } from '../ports/config/capabilityStack.js';
+import type { SkillRegistry } from '../skill/skillRegistry.js';
 export type { ResolvedConfig };
 export type { SubagentPortSeed } from '../ports/config/subagentPortSeed.js';
 import type { SubagentPortSeed } from '../ports/config/subagentPortSeed.js';
@@ -151,6 +154,29 @@ export class ConfigFactory {
       ...core.ports,
       ...memory.stack,
       ...skills,
+      // (Wave B · ADR-0009) 资产协议切片：显式透传（理由同 `a2a` / `evolutionRlvr`——漏透传即「声明未接线」）。
+      ...ConfigFactory.buildCapabilityStack(partial, skills.skillRegistry),
+    };
+  }
+
+  /**
+   * （Wave B · ADR-0009）装配统一资产协议切片。
+   *
+   * 从 `build` 抽出（同 `buildInjectionGuard` 的理由）：`build` 的字面量已贴着函数体红线，
+   * 再加一段条件装配即刻越线；抽成 helper 后 `build` 只做编排。
+   * @param partial 未解析配置（读 `capability` 段）
+   * @param skillRegistry 已装配的技能注册表（**同一份**，绞杀者第一态：加治理面不复制技能表）
+   * @returns `{ capabilityStack }` 片段（展开到 `build` 返回字面量；缺省关时为 undefined）
+   */
+  private static buildCapabilityStack(
+    partial: OmniHarnessConfig,
+    skillRegistry: SkillRegistry,
+  ): { readonly capabilityStack: CapabilityStack | undefined } {
+    return {
+      capabilityStack: CapabilityStackAssembler.assemble({
+        skillRegistry,
+        config: partial.capability,
+      }),
     };
   }
 

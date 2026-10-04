@@ -70,6 +70,9 @@ export class CliSubsystemSections {
           }
         : {}),
       ...(args.media !== undefined ? { media: args.media } : {}),
+      // （Wave B · ADR-0009）统一资产协议段：整段透传（结构同一份；字段校验已在配置文件归一化
+      // 阶段 fail-closed 完成）。未配置则不出现该段 ⇒ `capability.enabled !== true` ⇒ 零行为变更。
+      ...(args.capability !== undefined ? { capability: args.capability } : {}),
     };
   }
 }

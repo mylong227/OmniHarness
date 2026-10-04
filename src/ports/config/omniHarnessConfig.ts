@@ -21,6 +21,7 @@ import type { DecisionEngineConfig } from './decisionEngineConfig.js';
 import type { EnforcementMode } from '../security/enforcementMode.js';
 import type { TrustTier } from '../../security/toolOutputTrust.js';
 import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.js';
+import type { CapabilityConfig } from './capabilityConfig.js';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.js';
 import type { RuntimeTelemetryPort } from '../runtime/runtimeTelemetry.js';
 import type { RegimeSignals } from '../genesis/regimeSignals.js';
@@ -325,6 +326,12 @@ export interface OmniHarnessConfig {
    * 未知子键会被 `ConfigError` 拒绝，避免「写错了却不生效」。
    */
   readonly media?: MediaAnalysisConfig | undefined;
+  /**
+   * 统一资产协议（Wave B · ADR-0009）：启用后装配 L1 资产层——类型注册表（Skill / WorkflowTemplate）
+   * + 绞杀者注册表（内部持既有 `SkillRegistry`，注入路径逐位不变）+ 通用评估器。
+   * 缺省关（`enabled !== true` ⇒ 本切片 undefined，零行为变更）。
+   */
+  readonly capability?: CapabilityConfig | undefined;
   /**
    * SSRF / 出站策略表（2026-09-22 配置化）：元数据主机 / 内网域名后缀 / IPv4 网段。
    * 缺省用内置默认档（与历史行为逐字一致）；消费方用 `security/ssrfPolicy.resolveSsrfPolicy` 解析。

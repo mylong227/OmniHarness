@@ -37,6 +37,7 @@ import type { InsightEtchingPort } from '../memory/insightEtching/insightEtching
 import type { ElementComposerPort } from '../intelligence/elementComposer/elementComposerPort.js';
 import type { SymmetryBreakingPort } from '../intelligence/symmetryBreaking/symmetryBreakingPort.js';
 import type { ConfinementPort } from '../runtime/confinement/confinementPort.js';
+import type { CapabilityStack } from './capabilityStack.js';
 import type { SkillRegistry } from '../../skill/skillRegistry.js';
 
 /**
@@ -137,4 +138,10 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly symmetry?: SymmetryBreakingPort | undefined;
   /** (P3, I-P3-4) 禁闭色荷引擎（confinement.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
   readonly confinementEngine?: ConfinementPort | undefined;
+  /**
+   * （Wave B · ADR-0009）统一资产协议切片：`capability.enabled === true` 时由
+   * `CapabilityStackAssembler` 装配（类型注册表 + 绞杀者注册表 + 通用评估器）。
+   * 缺省 undefined ⇒ L1 层不参与任何既有路径（零行为变更）。
+   */
+  readonly capabilityStack?: CapabilityStack | undefined;
 }
