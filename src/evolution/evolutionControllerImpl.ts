@@ -30,6 +30,13 @@ export interface RlvrStage {
    * 返回 undefined = 跳过该候选的 RLVR 阶段（直接按门禁结果晋升）。
    */
   readonly promptFor: (candidate: Candidate) => string | undefined;
+  /**
+   * **历史失败原因供给器**（E3+ 提案回填）：返回最近若干条失败原因，随采样上下文进入 prompt。
+   *
+   * 数据来源是既有的失败模式挖掘器 / replay buffer（不新造通道）；缺省 = 不回填（行为与既有版本一致）。
+   * 取数失败按"无回填"处理（回填是增益项，不得让它的故障阻断进化主流程）。
+   */
+  readonly failureHints?: (() => readonly string[]) | undefined;
 }
 
 /** 进化控制器实现。 */
@@ -54,7 +61,27 @@ export class EvolutionControllerImpl implements EvolutionController {
     return this.gate.evaluate(candidate);
   }
 
-  /** 跑一轮：取本批候选 → 逐一评估 → (可选)RLVR 阶段 → 晋升者触发 onPromote。 */
+  /**
+   * 取回填用历史失败原因（E3+）：供给器缺省或抛错时按**无回填**处理。
+   * @param provider 失败原因供给器（可缺省）
+   * @returns 采样上下文片段（无回填时为空对象）
+   */
+  private static hintsOf(provider?: (() => readonly string[]) | undefined): {
+    readonly failureReasons?: readonly string[];
+  } {
+    if (provider === undefined) return {};
+    try {
+      const reasons = provider();
+      return reasons.length > 0 ? { failureReasons: reasons } : {};
+    } catch {
+      return {}; // 取数失败不阻断进化主流程（回填是增益项，不是前置条件）。
+    }
+  }
+
+  /**
+   * 跑一轮：取本批候选 → 逐一评估 → (可选)RLVR 阶段 → 晋升者触发 onPromote。
+   * @returns 本轮的晋升裁决列表（未过门禁/被 RLVR 否决者不计入）
+   */
   public async cycle(): Promise<readonly PromotionVerdict[]> {
     const candidates = this.discovery.nextCandidates();
     const verdicts: PromotionVerdict[] = [];
@@ -72,7 +99,11 @@ export class EvolutionControllerImpl implements EvolutionController {
           let reasonSuffix = '';
           try {
             // 采样上下文带上候选来源：S5 分桶覆盖率由 `meta.source` 取工况桶键。
-            const r = await this.rlvr.loop.run(prompt, { source: c.source });
+            const r = await this.rlvr.loop.run(prompt, {
+              source: c.source,
+              // (E3+ 提案回填) 历史失败原因随上下文进入采样 prompt；取数失败按「无回填」处理。
+              ...EvolutionControllerImpl.hintsOf(this.rlvr.failureHints),
+            });
             if (r.best === undefined) {
               blocked = true;
               reasonSuffix = '；RLVR 阶段无绿样本（sample-filter-replay 否决晋升）';
