@@ -195,3 +195,73 @@ test('⑤ getAsync 冷启动等价于 get，且第二次调用命中缓存（语
   assert.deepStrictEqual(cold?.files, syncCold?.files, '异步冷启动与同步冷启动的语料必须逐位相同');
   assert.deepStrictEqual(cold?.symbols, syncCold?.symbols);
 });
+
+test('⑥ G8-c：目录遍历本身也可让出（同产物 + 仪器自证 + 100ms 绝对目标）', async () => {
+  const corpusRoot = join(REPO_ROOT, 'src');
+
+  // ① 产物逐位相同：遍历换成可让出档**不改结果**（闸门与忽略清单共用 `buildWalkState`）。
+  const syncOut: string[] = [];
+  const syncResult = ContextEngine.walk(corpusRoot, corpusRoot, syncOut);
+  const asyncOut: string[] = [];
+  const asyncResult = await ContextEngine.walkAsync(corpusRoot, corpusRoot, asyncOut);
+  assert.deepStrictEqual(asyncOut, syncOut, '可让出遍历的文件列表必须与同步遍历逐位相同');
+  assert.strictEqual(asyncResult.truncated, syncResult.truncated);
+  assert.strictEqual(asyncResult.totalBytes, syncResult.totalBytes);
+  assert.strictEqual(asyncResult.skippedLargeFiles, syncResult.skippedLargeFiles);
+  assert.ok(asyncOut.length > 100, `产物过少（${String(asyncOut.length)}）⇒ 本判据没覆盖真实遍历`);
+
+  // ② 仪器自证：本用例的断言全是"没超过 100ms"，必须先证明探针**看得见**超限。
+  const selfProof = await maxTickGap(async () => {
+    busyWait(200);
+  });
+  assert.ok(
+    selfProof.maxMs >= 100,
+    `探针看不见已知的 200ms 阻塞（实测 ${selfProof.maxMs.toFixed(1)}ms）⇒ 本判据无效`,
+  );
+
+  // ③ 同步遍历基线：**重复 5 次**（不断言，仅作对照与证据打印）。
+  //
+  // 为什么必须重复：心跳间隔是 20ms ⇒ 探针读到的"最长间隔"天然有 ~20–40ms 的地板，
+  // 而 `src/` 单次同步遍历只有 ~46–105ms ⇒ 单次的比值只有 1.4×，**区分不出让出有没有生效**
+  // （首版实测：变异退回同步遍历，判据照样绿）。重复 5 次把同步基线放大到 200ms 以上，
+  // 异步路径因块间让出**不会**被同比拉长 ⇒ 比值稳定在 5–10×。
+  const syncGap = await maxTickGap(() => {
+    for (let i = 0; i < 5; i += 1) {
+      ContextEngine.walk(corpusRoot, corpusRoot, []);
+    }
+    return Promise.resolve();
+  });
+
+  // ④ 可让出遍历：同样重复 5 次。两条判据——
+  //    - **绝对目标 ≤100ms**（报告口径的承诺：把上限收回来）；
+  //    - **相对判据 `best × 3 ≤ 同步`**：这条是对"让出点确实生效"的**有区分力**断言
+  //      （变异实测：把 `walkAsync` 退回同步遍历 ⇒ 比值掉到 ≈1 ⇒ 红）。
+  const asyncChunk = 32;
+  const runs: number[] = [];
+  let ticks = 0;
+  for (let round = 0; round < 2; round += 1) {
+    const measured = await maxTickGap(async () => {
+      for (let i = 0; i < 5; i += 1) {
+        await ContextEngine.walkAsync(corpusRoot, corpusRoot, [], {}, asyncChunk);
+      }
+    });
+    runs.push(measured.maxMs);
+    ticks += measured.ticks;
+  }
+  const best = Math.min(...runs);
+
+  console.log(
+    `[G8-c 遍历] src/ 同步 maxGap=${syncGap.maxMs.toFixed(1)}ms（tick ${String(syncGap.ticks)}，仅作证据）｜` +
+      `可让出（粒度 ${String(asyncChunk)}）两次=${runs.map((v) => v.toFixed(1)).join('/')}ms 取小=${best.toFixed(1)}ms（tick ${String(ticks)}）｜` +
+      `自证 200ms 忙等=${selfProof.maxMs.toFixed(1)}ms｜目标 ≤100ms：${best <= 100 ? '达成' : '未达成'}｜比值 ${(syncGap.maxMs / best).toFixed(1)}×`,
+  );
+  assert.ok(ticks > 0, '可让出遍历窗口内必须有心跳 tick，否则判据空洞（零样本＝假绿）');
+  assert.ok(
+    best <= 100,
+    `可让出遍历的最长阻塞 ${best.toFixed(1)}ms 超过 100ms ⇒ 让出点没覆盖到遍历的重活`,
+  );
+  assert.ok(
+    best * 3 <= syncGap.maxMs,
+    `可让出遍历（${best.toFixed(1)}ms）未明显优于同步（${syncGap.maxMs.toFixed(1)}ms）⇒ 让出点没生效（比值 ${(syncGap.maxMs / best).toFixed(1)}×）`,
+  );
+});
