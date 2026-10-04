@@ -103,6 +103,20 @@
 > 改受控时钟判据——`supersede` 的 `expiresAt` 与"现在"**零余量**，判据在替代前采样墙钟时毫秒跨界即偶发假红；
 > 现在失效边界钉在受控时刻，判据恢复确定性（`api:check` 绿，仅向 `@beta` 选项接口追加可选成员）。
 >
+> **第三十轮（收尾盘点）｜G25 收尾 + G2 收尾 + 账面销账 ✅**：把盘点出的全部尾巴收掉。
+> ① **G25-b 剩余配置契约成员进 ports**（§4 最后一行 ⏳ 销账）——`CorePorts` 声明搬入 `ports/config/corePorts.ts`
+> （原位置桶再导出），四个实现类成员改挂端口契约（`ToolResultSpillerPort` / `ToolDiscoveryPort` / `ToolHookRunnerPort` /
+> `TurnDiffTrackerPort`）；顺带抽 `RepoMapContextEnginePort` + 把 `RepoMapContextOptions` 搬入 ports。**ports→实现层边归零**
+> （原先 `ports/config/resolvedConfig.ts` 等长期 `import type` 绑定 context/search 实现类而门禁 [3.5] 看不见——
+> `context/`、`search/` 是漏网层），[3.5] 规则随之**补上两层**「新增即红」。
+> ② **G2 遗留"工作流精确并发"收口**——`WorkflowStep` 新增可选 `writes` **写集声明**；`WorkflowLayerPolicy` 升级为
+> **声明式精确并发**：全层皆写者 + 全员知情声明（`tools` 显式约束 + `writes` 已声明）+ 写集两两不相交（目录前缀语义，
+> 反斜杠/尾斜杠归一化）⇒ 保持并发；有只读步骤在场（读集未声明 ⇒ 读-写一致性竞争排除不了）或任一写者缺声明 ⇒ 保守串行
+> （第六轮原判据作为缺省完整保留）。判据 ⑥–⑪ 六例新增（含"srcX vs src 不算重叠"反例与空写集语义），
+> **变异**把声明集判定退化成"写者层一律串行" ⇒ ⑥⑦⑪ 红。
+> ③ **账面销账**：看板 §8.3 翻 ✅（G7 早已落地、状态漏翻——与 §8.0 同形态）；升级报告 §8 表 8.2/8.3/8.4 三行、
+> 正文缺陷清单 1–4 条、§4/§5 "G1b-c 回滚端到端断言 ⏳" 行全部对齐实际进度。
+>
 > **至此 `docs/ARCHITECTURE_UPGRADE_2026-10.md` §4 路线图的登记遗留项全部清零**（G1b-c / G8-c / G10-T2 / G20-b / G21-b / G25-b 六项本轮全部落地；
 > 其中 G1b-c 的"L4 显式对齐是否必要"未被独立证明，另立 G1b-c2——**第二十九轮已收口**，机制结论见上）。
 > 判据 ⑥ 四条：产物逐位相同 / 仪器自证 200ms / **绝对目标 ≤100ms 达成**（实测 31.9ms）/ **相对判据**（重复 5 次放大基线：同步 506ms vs
@@ -523,6 +537,8 @@ npm run rust:test      # cargo test --workspace
 
 **遗留（如实登记）**：工作流同层冲突处理是**保守退化（串行）**而非"按声明精确判冲突"——
 `WorkflowStep` 尚无"我写哪些文件"的声明字段；精确并发需先加声明契约，属独立改动（记入报告 §4 后续项）。
+**✅ 已收口（2026-10-04 第三十轮）**：`WorkflowStep.writes` 写集声明 + `WorkflowLayerPolicy` 声明式精确并发落地，
+判据与变异见本轮横幅与 `workflowLayerPolicy.test.ts`。
 
 ### 8.2 ✅ 已修（2026-10-03 第六轮）：回滚后「压缩游标」未复位（回滚对齐漏了第四层）
 
@@ -553,7 +569,7 @@ npm run rust:test      # cargo test --workspace
 类型检查 + 本次单测覆盖语义，**缺一条端到端断言**（真实回合里跑 `checkpoint` 回滚后核对下一次请求的消息）；
 已并入 G1「最小行为回归守卫」的用例清单。
 
-### 8.3 🟠 P1：事件落盘是「全量快照重写」而非增量追加（写放大随会话长度增长）
+### 8.3 ✅ 已修（2026-10-03 第八轮 G7）：事件落盘是「全量快照重写」而非增量追加（写放大随会话长度增长）
 
 **证据（本机复核）**：`EventPersister.saveSnapshot` → `storage.save(sessionId, events)`（`eventPersister.ts:139-163`），
 而 `TurnRunner` **每步**调 `schedule()`（`turnRunner.ts:107-108`，默认 200 ms 批量）；三个适配器都**没有 append 通道**：
@@ -565,9 +581,13 @@ npm run rust:test      # cargo test --workspace
 （12,800 事件 × 1,000 步的尾部量级 ≈ **GB 级重写**）。**口径**：这是"实测单次成本 × 线性增长"的**外推**，
 不是端到端实测（仓库现已无 perf 测试）。
 
-**修法（建议）**：`StoragePort` 加**可选** `append?`（明确 fail-closed 契约：只追加不覆盖、写入前校验前缀完整），
-jsonl 走真追加、sqlite 走 `INSERT OR REPLACE` 不 DELETE，`EventPersister` 优先 append、失败回退全量 save。
-**回退方式天然存在**：适配器不实现 `append` 即自动回到现有行为。
+**修法（已实施，第八轮 G7）**：`StoragePort` 新增**可选** `append?(sessionId, events, fromCount)`——fail-closed 契约
+（写入前校验桶内条数 = 声明的 `fromCount`，不符即抛错）；jsonl 走**真追加**（`appendFile`，磁盘字节数做 O(1) 前缀校验）、
+sqlite 走 `INSERT OR REPLACE`（**不再 DELETE 全桶**）；`EventPersister.write()` 优先 append（前置：后端实现 append、
+本回合已有成功落盘、非回卷重写），任何失败回退全量 `save`；**回卷必全量**（`forceWrite`：追加只能表达"多写"，
+截断语义必须覆盖）。适配器不实现 `append` 即自动回到全量行为。
+**判据**：7 例（两路 `load()` 逐条深相等、写入量 = 新增条数 40 vs 100 等）；**变异**关掉追加 ⇒ ④⑤ 变红。
+**销账注（2026-10-04 第三十轮盘点）**：修复落地后本节状态漏翻——与 §8.0 同为"修了没销账"形态，本轮补记。
 
 ### 8.4 ✅ 已修（2026-10-03 第六轮）：取消原因在 **AbortSignal 桥**上丢失（原诊断已订正）
 

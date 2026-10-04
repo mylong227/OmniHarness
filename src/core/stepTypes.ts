@@ -7,14 +7,14 @@ import type { EmbeddingPort } from '../ports/model/embedding.js';
 import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
 import type { EnforcementMode } from '../security/enforcementModeResolver.js';
 import type { TrustTier } from '../security/toolOutputTrust.js';
-import type { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
-import type { ToolResultSpiller } from '../context/toolResultSpiller.js';
+import type { RepoMapContextEnginePort } from '../ports/context/repoMapContextEnginePort.js';
+import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.js';
 import type { ContextCompactor } from '../context/contextCompactor.js';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
 import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';
 import type { SessionRecorder } from './sessionRecorder.js';
 import type { NativeToolRunner } from '../native/nativeBackend.js';
-import type { ToolDiscovery } from '../search/toolDiscovery.js';
+import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.js';
 import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
 import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 
@@ -46,11 +46,11 @@ export interface StepRunnerDeps {
   /** 工具钩子运行器（可选）：pre/post 拦截与审计。 */
   readonly hooks?: ToolHookRunnerPort | undefined;
   /** 外溢器（#74）：超大工具输出入历史前先落后端，只留有界预览。 */
-  readonly spiller?: ToolResultSpiller | undefined;
+  readonly spiller?: ToolResultSpillerPort | undefined;
   /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核 in-process；内核不可用由 createRuntime 置空以回退 JS。 */
   readonly native?: NativeToolRunner | undefined;
   /** 工具发现寄存器（#M1）：tool_search 命中后登记，使延迟加载工具后续回合对模型可见。 */
-  readonly discovery?: ToolDiscovery | undefined;
+  readonly discovery?: ToolDiscoveryPort | undefined;
   /** 升级审批端口（#G3/G4，可选）：运行时装配应注入 `runtime.escalation`。 */
   readonly escalation?: EscalationPort | undefined;
   /** 提权后的复核沙箱（#G3/G4，可选）：运行时装配应注入 `runtime.elevatedSandbox`。 */
@@ -100,7 +100,7 @@ export interface StepRunnerDeps {
    * repo-map 上下文引擎（P2.2 单例收敛）：组合根（memoryStackAssembler）构造、
    * 经 `ResolvedConfig` 注入；TTL 缓存状态随实例生命周期，不再有模块级单例。
    */
-  readonly repoMapContext: RepoMapContextEngine;
+  readonly repoMapContext: RepoMapContextEnginePort;
   /**
    * 语义嵌入端口（U3 混合检索）：非空时 repo-map 走「BM25 ∪ 语义向量 RRF」混合路径，
    * 补词法盲区。默认不传 → 纯 BM25（零开销、不加载 80MB 模型）。
