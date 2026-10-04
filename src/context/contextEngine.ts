@@ -7,8 +7,6 @@
  * 这是「上下文效率碾压」这一可证伪命题的真实落地模块，不依赖任何外部服务。
  */
 
-import { lstatSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
 import { Bm25Index } from '../search/bm25Index.js';
 import { RepoMap, type SymbolNode } from './repoMap/repoMap.js';
 import { CorpusFileParser } from './corpusFileParser.js';
@@ -22,109 +20,49 @@ import { CandidateSearch } from './queryStages/candidateSearch.js';
 import { SeedFusion } from './queryStages/seedFusion.js';
 import { SymbolFileFusion } from './queryStages/symbolFileFusion.js';
 import { PerFileSymbolView } from './queryStages/perFileSymbolView.js';
-import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
 import { log } from '../util/logger.js';
 
-/** 语料遍历的上限（三个上限共同把索引内存钉死，见 {@link ContextEngine.walk}）。 */
-export interface WalkLimits {
-  /** 最多纳入多少文件（缺省 {@link ContextEngine.MAX_FILES}）。 */
-  readonly maxFiles?: number | undefined;
-  /** 单文件字节上限，超过即**不入符号地图**（缺省 {@link ContextEngine.MAX_FILE_BYTES}）。 */
-  readonly maxFileBytes?: number | undefined;
-  /** 语料总字节预算，超过即截断（缺省 {@link ContextEngine.MAX_TOTAL_BYTES}）。 */
-  readonly maxTotalBytes?: number | undefined;
-}
+export type { WalkLimits, WalkOutcome } from './corpusWalker.js';
 
-/** 遍历结果（如实回报「地图少了一块」的两类原因）。 */
-export interface WalkOutcome {
-  /** 是否因文件数 / 总字节上限被截断。 */
-  readonly truncated: boolean;
-  /** 因单文件超过字节上限而未纳入的文件数。 */
-  readonly skippedLargeFiles: number;
-  /** 纳入文件的字节总数（上限判决与「语料多大」都以此为准）。 */
-  readonly totalBytes: number;
-}
-
-/** 遍历期状态（递归用；`out` 为累积结果）。 */
-interface WalkState {
-  /** 结果累积（相对 POSIX 路径）。 */
-  readonly out: string[];
-  /** 还能纳入多少文件。 */
-  remaining: number;
-  /** 还能纳入多少字节。 */
-  bytesLeft: number;
-  /** 单文件字节上限。 */
-  maxFileBytes: number;
-  /** 是否因文件数 / 总字节上限而截断。 */
-  truncated: boolean;
-  /** 因单文件过大而被排除的文件数（如实回报，不静默）。 */
-  skippedLarge: number;
-  /** 已纳入文件的字节总数。 */
-  bytesTaken: number;
-}
+import { CorpusWalker } from './corpusWalker.js';
+import type { WalkLimits, WalkOutcome } from './corpusWalker.js';
 
 /**
  * ContextEngine 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
  */
 export class ContextEngine {
-  /** 单次索引最多纳入的文件数（与 {@link WorkspaceFileWalker} 同口径，避免两套遍历器各说各话）。 */
-  public static readonly MAX_FILES = WorkspaceFileWalker.DEFAULT_MAX_FILES;
-
   /**
-   * 单文件字节上限（512 KiB）：超过它的源码文件基本是生成物 / 打包产物 / 数据转储，
-   * 对「符号地图」零价值，却会一次性吃掉几十上百 MB 堆——故策略性排除并计数上报。
+   * 语料遍历相关常量与两条路径（同步 / 可让出）的**实现**已抽到 {@link CorpusWalker}（G8-c 拆类）。
+   * 这里保留同名常量与同名静态方法，是为了**不改变本类的公开 API 面**（调用方与 API 快照都不用动）。
    */
-  public static readonly MAX_FILE_BYTES = 512 * 1024;
+  /** 单次索引最多纳入的文件数（转发 {@link CorpusWalker.MAX_FILES}）。 */
+  public static readonly MAX_FILES = CorpusWalker.MAX_FILES;
+
+  /** 单文件字节上限（转发 {@link CorpusWalker.MAX_FILE_BYTES}）。 */
+  public static readonly MAX_FILE_BYTES = CorpusWalker.MAX_FILE_BYTES;
+
+  /** 语料总字节预算（转发 {@link CorpusWalker.MAX_TOTAL_BYTES}）。 */
+  public static readonly MAX_TOTAL_BYTES = CorpusWalker.MAX_TOTAL_BYTES;
+
+  /** 全量模式总字节预算（转发 {@link CorpusWalker.MAX_TOTAL_BYTES_FULL}）。 */
+  public static readonly MAX_TOTAL_BYTES_FULL = CorpusWalker.MAX_TOTAL_BYTES_FULL;
 
   /**
-   * 语料总字节预算（32 MiB）。为什么必须有它：`indexCorpus` 会把每个文件的**全文**
-   * 与分词结果留在内存里（`fileText` + BM25 文档），实测内存约为原始文本的 10~20 倍；
-   * 只限文件数（2 万个 × 512 KiB）最坏仍可达 10 GB ⇒ 必须同时有总量闸。
-   */
-  public static readonly MAX_TOTAL_BYTES = 32 * 1024 * 1024;
-
-  /**
-   * full 模式（`light !== true`）的**告警**阈值（2 MiB）。
+   * full 模式（频谱 / 代码图）的**告警**字节阈值（2 MiB）：超过即在日志里告警。
    *
-   * 为什么单列：full 模式要额外建频域谱与代码图，**每字节内存代价比 light 高一个数量级**——
-   * 2026-09-19 实测本仓 `src/`（533 文件 / 4 MB 语料 / 9,080 符号）在 full 模式下
-   * **峰值 RSS 1,522 MB、耗时 83 秒**（light 模式同语料毫秒级、RSS 百 MB 内）。
-   * 生产路径（`CorpusIndexCache`）恒传 `light: true`，故这一档只服务评测脚本；
+   * 为什么只告警不阻断：生产路径（`CorpusIndexCache`）恒传 `light: true`，故这一档只服务评测脚本；
    * 一旦有人把大语料喂进 full 模式，必须**立刻在日志里看得见**，而不是等它把机器拖进 swap。
    * 这里只告警不改变行为——该档的口径由评测脚本决定，擅改会污染既有对照。
    */
   public static readonly FULL_MODE_WARN_BYTES = 2 * 1024 * 1024;
 
   /**
-   * full 模式的**硬预算**（5 MiB）：超过即拒绝索引（fail-closed，绝不静默部分索引）。
-   *
-   * 定档依据（2026-09-19 实测，非拍脑袋）：full 模式的峰值内存约为语料的 **0.37 GB/MiB**
-   * （本仓 `src/` 3.01 MiB ⇒ 峰值 RSS 1,522 MB、83 秒），故 5 MiB 把峰值钉在 ~1.9 GB 以内；
-   * 同时留出 66% 余量，让现网评测脚本（`rank-veto-retro.mjs` / `context-efficiency/bench.mjs`
-   * 等确实要用 `corpus.codeGraph` 的脚本，语料即本仓 `src/`）继续可跑。
-   * 需要更大 full 语料者必须**显式**传 `maxTotalBytes`（等于承认那份内存代价）。
-   */
-  public static readonly MAX_TOTAL_BYTES_FULL = 5 * 1024 * 1024;
-
-  /**
-   * 收集参与索引的源码文件（同步；供 `indexCorpus` 使用）。
-   *
-   * ## 为什么重写（2026-09-19，堆爆修复）
-   *
-   * 原实现自带一套「只跳过 node_modules / dist / 点目录」的遍历，**与 `WorkspaceFileWalker`
-   * 的忽略清单不一致**，于是 `eval-data/`（2.3 GB、10.4 万个随仓克隆的 `.py`）与
-   * `target/`（2.2 GB Rust 构建产物）会被当成语料全量读进内存 ⇒ `npm run smoke` 跑 7 分钟后
-   * 4 GB 堆爆（同一工作区实测 15.2 万文件 / 4.6 GB）。现在忽略策略只有**一份**
-   * （{@link WorkspaceFileWalker.DEFAULT_IGNORED_DIRS}），并且文件数 / 单文件 / 总字节三道闸
-   * 一起把内存钉死：任何工作区都只会索引「有界的源码子集」，绝不把整机拖进 swap。
-   *
-   * 另外跳过符号链接（`lstatSync`）：链接成环会让遍历永不终止，这是同一类「无界增长」。
-   *
+   * 同步遍历（转发 {@link CorpusWalker.walk}）。
    * @param root 遍历起点（绝对路径）。
    * @param absRoot 计算相对路径的基准（通常等于 root）。
    * @param out 结果累积数组（就地追加相对 POSIX 路径）。
    * @param limits 上限覆盖（缺省取本类常量）。
-   * @returns 截断标记与「因过大被排除的文件数」（调用方须如实转达，不得静默丢弃）。
+   * @returns 截断标记与「因过大被排除的文件数」。
    */
   public static walk(
     root: string,
@@ -132,102 +70,26 @@ export class ContextEngine {
     out: string[],
     limits: WalkLimits = {},
   ): WalkOutcome {
-    // 根不可读 / 不是目录 ⇒ **抛错**（而不是回空语料）：调用方（`CorpusIndexCache`）据此
-    // fail-closed 返回 null，`getRepoMapContext` 随之为 null。若在这里吞成「空语料」，
-    // 坏路径会被伪装成「索引成功但没东西」——正是本仓反复治理的「静默失败」形态。
-    let rootStat: ReturnType<typeof statSync>;
-    try {
-      rootStat = statSync(root);
-    } catch (error) {
-      throw new Error(
-        `语料根不可读：${root}（${error instanceof Error ? error.message : String(error)}）`,
-      );
-    }
-    if (!rootStat.isDirectory()) {
-      throw new Error(`语料根不是目录：${root}`);
-    }
-    const state: WalkState = {
-      out,
-      remaining: limits.maxFiles ?? ContextEngine.MAX_FILES,
-      bytesLeft: limits.maxTotalBytes ?? ContextEngine.MAX_TOTAL_BYTES,
-      maxFileBytes: limits.maxFileBytes ?? ContextEngine.MAX_FILE_BYTES,
-      truncated: false,
-      skippedLarge: 0,
-      bytesTaken: 0,
-    };
-    ContextEngine.walkInto(state, root, absRoot);
-    return {
-      truncated: state.truncated,
-      skippedLargeFiles: state.skippedLarge,
-      totalBytes: state.bytesTaken,
-    };
+    return CorpusWalker.walk(root, absRoot, out, limits);
   }
 
   /**
-   * 递归遍历实现（忽略清单 + 三道上限 + 跳过符号链接）。
-   *
-   * @param state 遍历状态（就地更新）。
-   * @param dir 当前目录。
-   * @param absRoot 相对路径基准。
-   * @returns 无返回值。
+   * **可让出**的目录遍历（转发 {@link CorpusWalker.walkAsync}，G8-c）。
+   * @param root 遍历起点（绝对路径）。
+   * @param absRoot 计算相对路径的基准（通常等于 root）。
+   * @param out 结果累积数组（就地追加相对 POSIX 路径）。
+   * @param limits 上限覆盖（缺省取本类常量）。
+   * @param chunkEntries 让出粒度（跨目录累计的目录项数）。
+   * @returns 截断标记与「因过大被排除的文件数」。
    */
-  private static walkInto(state: WalkState, dir: string, absRoot: string): void {
-    if (state.truncated) {
-      return;
-    }
-    let entries: readonly string[];
-    try {
-      entries = readdirSync(dir).sort();
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (state.truncated) {
-        return;
-      }
-      const abs = join(dir, entry);
-      let st: ReturnType<typeof lstatSync>;
-      try {
-        st = lstatSync(abs);
-      } catch {
-        continue;
-      }
-      if (st.isSymbolicLink()) {
-        continue;
-      }
-      if (st.isDirectory()) {
-        if (entry.startsWith('.') || WorkspaceFileWalker.DEFAULT_IGNORED_DIRS.has(entry)) {
-          continue;
-        }
-        ContextEngine.walkInto(state, abs, absRoot);
-        continue;
-      }
-      if (!st.isFile() || !ContextEngine.isIndexable(entry)) {
-        continue;
-      }
-      if (st.size > state.maxFileBytes) {
-        state.skippedLarge += 1;
-        continue;
-      }
-      if (state.remaining <= 0 || st.size > state.bytesLeft) {
-        state.truncated = true;
-        return;
-      }
-      state.out.push(relative(absRoot, abs).split(sep).join('/'));
-      state.remaining -= 1;
-      state.bytesLeft -= st.size;
-      state.bytesTaken += st.size;
-    }
-  }
-
-  /**
-   * 该文件名是否是本引擎索引的源码类型。
-   *
-   * @param name 文件名。
-   * @returns `.ts` / `.js` / `.py` 之一时为 true。
-   */
-  private static isIndexable(name: string): boolean {
-    return name.endsWith('.ts') || name.endsWith('.js') || name.endsWith('.py');
+  public static async walkAsync(
+    root: string,
+    absRoot: string,
+    out: string[],
+    limits: WalkLimits = {},
+    chunkEntries: number = CorpusWalker.WALK_ASYNC_CHUNK_ENTRIES,
+  ): Promise<WalkOutcome> {
+    return CorpusWalker.walkAsync(root, absRoot, out, limits, chunkEntries);
   }
 
   /**
@@ -315,7 +177,9 @@ export class ContextEngine {
     const budget =
       opts.maxTotalBytes ??
       (light ? ContextEngine.MAX_TOTAL_BYTES : ContextEngine.MAX_TOTAL_BYTES_FULL);
-    const walked = ContextEngine.walk(root, root, files, {
+    // G8-c（2026-10-03）：遍历也走**可让出**档（原先这里是同步 `walk`，`src/` 上实测 54 ms 不让出，
+    // 让"单次不让出超过 100 ms"这个上限收不回来）。状态构造共用 `buildWalkState` ⇒ 闸门口径一致。
+    const walked = await ContextEngine.walkAsync(root, root, files, {
       ...(opts.maxFiles !== undefined ? { maxFiles: opts.maxFiles } : {}),
       ...(opts.maxFileBytes !== undefined ? { maxFileBytes: opts.maxFileBytes } : {}),
       maxTotalBytes: budget,
