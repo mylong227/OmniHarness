@@ -147,7 +147,7 @@ src/capability/                  # L1 实现
   capabilityRegistry.ts            # 统一注册表：内部持有既有 SkillRegistry（绞杀者第一态）
   schemas/skillSchema.ts           # 首个 CapabilitySchema：委托既有 moireEnergy 基准
 src/evolution/                   # L2/L3 实现（Wave A 新增件）
-  signalCollector.ts               # 遥测 production 行 → 失败签名 / 成功密度
+  evolutionSignalCollector.ts               # 遥测 production 行 → 失败签名 / 成功密度
   candidateArchiveImpl.ts          # 分桶精英 + 冻结/复活
   promotionLedgerImpl.ts           # JSONL + HashChain + 快照引用（.omniharness/evolution/）
   cascadeReward.ts                 # 静态预检 → verifyCommand（快→慢短路）
