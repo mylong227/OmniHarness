@@ -12,7 +12,12 @@
  * @maturityEvidence tests/unit/discoveryEngine.test.ts
  */
 import type { Skill, MoireOptions } from '../skill/skill.js';
-import type { Candidate, DiscoveryEngine } from '../ports/runtime/evolution.js';
+import type {
+  Candidate,
+  DiscoveryEngine,
+  EvolutionContext,
+  OperatorPort,
+} from '../ports/runtime/evolution.js';
 import { ArrayAt } from '../util/arrayAt.js';
 
 /** TwistDiscoveryEngine 选项。 */
@@ -31,8 +36,8 @@ export interface TwistDiscoveryOptions {
   readonly fieldSize?: number | undefined;
 }
 
-/** 基于燧-1 莫尔组合的发现引擎。 */
-export class TwistDiscoveryEngine implements DiscoveryEngine {
+/** 基于燧-1 莫尔组合的发现引擎（**同时**实现 `OperatorPort`：Wave B 的算子契约，零休眠代码）。 */
+export class TwistDiscoveryEngine implements DiscoveryEngine, OperatorPort {
   /** 技能源提供者（每轮实读；数组源退化为常量提供者）。 */
   private readonly skillsProvider: () => readonly Skill[];
   private readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
@@ -86,5 +91,25 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
       }
     }
     return out;
+  }
+
+  /**
+   * 算子端口实现（Wave B · `OperatorPort`）：把「按上下文产出候选」接到既有有界发现上。
+   *
+   * 语义**逐位沿用** `nextCandidates()`（同一份配对去重、同一份硬预算），只多两件事：
+   * - 上下文预算已耗尽（`generated ≥ maxCandidates`）⇒ 直接返回空批（不试探、不绕过）；
+   * - `bucketKey` 只被记录进候选来源（`twist:<桶>:a+b`），使下游分桶口径能看见工况——
+   *   缺省不带桶时来源与既有 `twist:a+b` **逐字相同**（零行为变更）。
+   * @param ctx 调度上下文（工况桶键 + 预算）
+   * @returns 候选列表（空数组 = 预算耗尽或配对用尽）
+   */
+  public propose(ctx: EvolutionContext): readonly Candidate[] {
+    if (ctx.budget.generated >= ctx.budget.maxCandidates) return [];
+    const produced = this.nextCandidates();
+    if (ctx.bucketKey === undefined) return produced;
+    return produced.map((candidate) => ({
+      ...candidate,
+      source: candidate.source.replace('twist:', `twist:${ctx.bucketKey}:`),
+    }));
   }
 }

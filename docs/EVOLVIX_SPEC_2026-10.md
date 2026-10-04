@@ -145,7 +145,9 @@ src/ports/…（Wave B/C/D）
 src/capability/                  # L1 实现
   capabilitySchemaRegistry.ts      # 类型注册表（内存 Map + 签名元数据校验）
   capabilityRegistry.ts            # 统一注册表：内部持有既有 SkillRegistry（绞杀者第一态）
+  capabilityEvaluator.ts           # 通用评估器：按类型声明的度量量，诚实分级 verifiable/unverifiable
   schemas/skillSchema.ts           # 首个 CapabilitySchema：委托既有 moireEnergy 基准
+  schemas/workflowTemplateSchema.ts # 第二个类型：依赖满足度（证明协议对类型开放，非 skill 专用）
 src/evolution/                   # L2/L3 实现（Wave A 新增件）
   evolutionSignalCollector.ts               # 遥测 production 行 → 失败签名 / 成功密度
   bucketedCandidateArchive.ts      # 分桶精英 + 冻结/复活
