@@ -74,7 +74,7 @@ import type { UserResponder } from '../ports/runtime/userResponder.js';
 import type { TodoPort } from '../ports/runtime/todo.js';
 import type { PlanPort } from '../ports/runtime/plan.js';
 import type { ToolPort } from '../ports/tool/tool.js';
-import type { SubagentPortSeed } from './configFactory.js';
+import type { SubagentPortSeed } from '../ports/config/subagentPortSeed.js';
 import type { ExtraTool } from '../ports/tool/extraTool.js';
 
 /**
