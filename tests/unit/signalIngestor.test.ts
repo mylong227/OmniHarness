@@ -55,7 +55,9 @@ test('SignalIngestor：载荷缺失不造数 / 成功组合原样喂固化器', 
 
   assert.deepStrictEqual(
     routed,
-    { failures: 1, successes: 1 },
+    // E1+ 双源：路由结果新增 `distilled`（成功侧被蒸馏器接受为观测的条数）。
+    // 本判据未注入蒸馏器 ⇒ 恒 0；成功侧的独立判据见 tests/unit/successPatternDistiller.test.ts。
+    { failures: 1, successes: 1, distilled: 0 },
     '载荷缺失的信号不计入路由（不造数）',
   );
   assert.deepStrictEqual(combinations, [['a', 'b']], '成功组合原样喂固化器（不透传包装）');
