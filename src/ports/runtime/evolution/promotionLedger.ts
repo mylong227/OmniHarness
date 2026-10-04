@@ -1,7 +1,13 @@
 import type { Skill } from '../../../skill/skill.js';
 
-/** 台账条目动作。 */
-export type PromotionLedgerAction = 'snapshot' | 'promote' | 'rollback';
+/**
+ * 台账条目动作。
+ *
+ * - `snapshot`：晋升前全量快照；`promote`：晋升；`rollback`：回滚（Wave A 三型）；
+ * - `governance`：**资产治理状态变更**（信任档/隔离档/生命周期，Wave B ADR-0009）——
+ *   与 `promote` 同链但语义不同：「生效了什么」不等于「改了什么档位」，混记会让追责读不出来。
+ */
+export type PromotionLedgerAction = 'snapshot' | 'promote' | 'rollback' | 'governance';
 
 /**
  * 晋升台账条目（哈希链一环）。
@@ -33,10 +39,17 @@ export interface PromotionLedgerEntry {
 export interface PromotionRecord {
   /** 被晋升的技能名。 */
   readonly name: string;
-  /** 晋升来源（候选 `source`，如 `twist:a+b`）。 */
+  /** 晋升来源（候选 `source`，如 `twist:a+b`；治理变更写 `governance:<state>`）。 */
   readonly source: string;
   /** ISO 时间戳（可选，缺省由台账生成）。 */
   readonly ts?: string | undefined;
+  /**
+   * 条目动作（缺省 `promote`，Wave A 口径逐字不变）。
+   *
+   * 加这个字段而**不改链的规范化形状**：动作本就参与哈希（`canonicalOf` 的 `action`），
+   * 故新动作不需要新字段，既有链的哈希空间**逐字节不变**（老文件仍可验签）。
+   */
+  readonly action?: 'promote' | 'governance' | undefined;
 }
 
 /** 还原计划：`rollback(seq)` 的产出（**不直接改注册表**——apply 由组合根注入的回调执行）。 */

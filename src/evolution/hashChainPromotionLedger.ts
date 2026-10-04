@@ -101,15 +101,18 @@ export class HashChainPromotionLedger implements PromotionLedgerPort {
   }
 
   /**
-   * 追加晋升记录。
-   * @param promotion 晋升记录（技能名 + 来源）
+   * 追加一条记录（晋升或治理变更）。
+   *
+   * 治理变更（`action: 'governance'`）与晋升**同链不同动作**：链的规范化形状不变（动作本就参与哈希），
+   * 故既有链的哈希空间逐字节不变，老台账文件仍可验签。
+   * @param promotion 记录（名 + 来源；`action` 缺省 `promote`）
    * @returns 该条目的 seq
    * @throws 链已断裂时抛错（fail-closed）
    */
   public append(promotion: PromotionRecord): number {
     return this.emit({
       ts: promotion.ts ?? this.now(),
-      action: 'promote',
+      action: promotion.action ?? 'promote',
       promoted: { name: promotion.name, source: promotion.source },
     });
   }
