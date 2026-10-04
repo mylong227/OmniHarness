@@ -49,6 +49,8 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'ARCHITECTURE_TARGET_2026-10.md',
   // Evolvix-Ω 架构规格书（2026-10-04 显式登记）：实现级契约/端口/模块/流程规格，全部为设计产物未实现。
   'EVOLVIX_SPEC_2026-10.md',
+  // A.5 OTel 导出评估：B 级「先测后买」的裁决记录（含复评触发条件），ARCHITECTURE_TARGET §5.3 指向它
+  'OTEL_EXPORT_EVALUATION_2026-10.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',
