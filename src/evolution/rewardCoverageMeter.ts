@@ -13,15 +13,13 @@
  * @maturityEvidence tests/unit/rewardCoverageMeter.test.ts
  */
 
-/** 单个样本的奖励判定明细。 */
-export interface RewardVerdict {
-  /** 奖励值（0..1，与既有 VerifiableRewardFn 同口径）。 */
-  readonly reward: number;
-  /** 是否为「真实可验证判定」：false 表示未能验证（命令缺失/运行异常/空集），并非判负。 */
-  readonly verifiable: boolean;
-  /** 判定来源说明（verified-pass / verified-fail / unverifiable:<原因>）。 */
-  readonly reason: string;
-}
+import type { RewardVerdict } from '../ports/runtime/evolution/rewardVerdict.js';
+
+/**
+ * 单个样本的奖励判定明细（Wave B 起定义在端口层：`ports/runtime/evolution/rewardVerdict.ts`）。
+ * 此处**再导出**，Wave A 的既有调用点与判据零改动。
+ */
+export type { RewardVerdict };
 
 /** 覆盖率达标线（约定值）：低于此线必须使用降级表述。 */
 export const COVERAGE_THRESHOLD = 0.6;

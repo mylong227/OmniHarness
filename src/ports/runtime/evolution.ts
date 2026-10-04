@@ -35,3 +35,6 @@ export type {
   PromotionRecord,
   SkillRestorePlan,
 } from './evolution/promotionLedger.js';
+export type { RewardVerdict } from './evolution/rewardVerdict.js';
+export type { OperatorPort, EvolutionContext } from './evolution/operator.js';
+export type { EvaluatorPort } from './evolution/evaluator.js';
