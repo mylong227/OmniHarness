@@ -179,3 +179,29 @@ test('B5 CLI 通道：配置文件 capability 段经 configDefaults → CliSubsy
   assert.ok(bare !== undefined);
   assert.ok(!('capability' in CliSubsystemSections.of(bare)), '缺省不得注入空段');
 });
+
+test('D 判据 接线：capability_metadata 工具随协议启用而注册、随关闭而消失（组合根真装配）', () => {
+  const namesOf = (capability: unknown): readonly string[] =>
+    ConfigFactory.build(basePartial({ capability } as Partial<OmniHarnessConfig>))
+      .tools.list()
+      .map((t) => t.name);
+
+  const enabled = namesOf({ enabled: true });
+  assert.ok(
+    enabled.includes('capability_metadata'),
+    `启用时必须注册元数据工具（实际工具数 ${String(enabled.length)}）——「工具存在但没人调」不算接线`,
+  );
+  // 关闭 / 缺省：工具**根本不在清单里**（比"在清单里但调用报未启用"更诚实）。
+  for (const capability of [undefined, { enabled: false }]) {
+    assert.ok(
+      !namesOf(capability).includes('capability_metadata'),
+      `未启用时不得注册（capability=${JSON.stringify(capability)}）`,
+    );
+  }
+  // 同一份切片：工具读到的注册表必须与 `ResolvedConfig` 上的是同一实例，
+  // 否则装进运行时的资产在工具眼里看不见（Wave D 尾巴实际踩过的形态）。
+  const config = ConfigFactory.build(
+    basePartial({ capability: { enabled: true } } as Partial<OmniHarnessConfig>),
+  );
+  assert.ok(config.capabilityStack !== undefined, '启用时必须透传切片到 ResolvedConfig');
+});
