@@ -15,6 +15,7 @@ import { providerPresets, type ProviderPreset } from '../server/services/provide
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.js';
 import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
+import type { RbacConfig } from '../ports/config/rbacConfig.js';
 import { cliHelp } from './cliHelp.js';
 
 export * from './cliEnums.js';
@@ -229,6 +230,13 @@ export interface CliArgs {
    * ⇒ 走 CLI 时配置被静默丢弃」（本仓已有十处同形态）。本字段与 `media`/`ssrfPolicy` 同一条路。
    */
   capability?: CapabilityConfig | undefined;
+  /**
+   * （F3 RBAC-lite）角色门禁段（来自配置 `rbac`；整段透传）。
+   *
+   * 与 `capability` 同一条路：**必须在此映射**，否则走 CLI 时 `rbac` 被静默丢弃，
+   * 于是「配置里写了角色、实际没人读」——接线完整性门禁 I5a 专拦这一形态。
+   */
+  rbac?: RbacConfig | undefined;
 }
 
 /** CLI 默认值。 */
@@ -434,6 +442,10 @@ export class ArgParser {
     // 故此处与 `media` 一样显式接线（接线完整性门禁 I5a 会拦下遗漏）。
     if (file.capability !== undefined) {
       result.capability = file.capability;
+    }
+    // 角色门禁段（F3 RBAC-lite）：同上整段透传。**不映射 = CLI 通道丢配置**（接线门禁 I5a 会拦）。
+    if (file.rbac !== undefined) {
+      result.rbac = file.rbac;
     }
     if (file.modelAdapter !== undefined) {
       result.modelAdapter = file.modelAdapter;

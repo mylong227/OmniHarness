@@ -92,7 +92,6 @@ export class ConfigFactory {
       core.ports.planMode,
     );
     const spark = SparkAssembler.assembleSpark(partial, { vortex: core.vortex, memory, skills });
-    // 工具集与资产协议切片**一起**装配（同一份切片实例，见 `buildToolStack`）。
     const toolStack = ConfigFactory.buildToolStack(
       partial,
       seed,
@@ -126,6 +125,7 @@ export class ConfigFactory {
       // 调用方设了 `evolutionRlvr` 也被静默丢弃 ⇒「默认关、端到端未开」的机械根因；此处显式透传。
       evolutionRlvr: partial.evolutionRlvr,
       ssrfPolicy: partial.ssrfPolicy, // 配置化 SSRF 策略表（消费方：组合根 A2A / CLI 出站守卫）
+      rbac: partial.rbac, // (F3) 角色门禁：显式透传（漏了即「配置写了却没人读」——本片判据抓到的就是它）
       // 媒体抽帧配置：**原样透传**（不做二次收敛）。为什么留原始形态而不换成已解析选项：
       //  `ResolvedConfig extends OmniHarnessConfig` ⇒ 消费方（服务端配置页 / 切换工作区重基
       //  `ConfigRebase`）读到的 `config.media` 必须还是**声明式字段**，否则「重基」会把一份

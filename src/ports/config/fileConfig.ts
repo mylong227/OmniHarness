@@ -1,5 +1,6 @@
-import type { ModelAdapterId } from '../model/modelAdapterId.js';
+﻿import type { ModelAdapterId } from '../model/modelAdapterId.js';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.js';
+import type { RbacConfig } from './rbacConfig.js';
 import type { SkillEntry } from '../skill/skillEntry.js';
 import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.js';
 import type { FileMcpServer } from './fileMcpServer.js';
@@ -44,6 +45,11 @@ export interface FileConfig {
   readonly permission?: PermissionConfig;
   /** SSRF / 出站策略表（可配置；缺省用内置默认档）。 */
   readonly ssrfPolicy?: SsrfPolicyConfig;
+  /**
+   * (F3 RBAC-lite) 角色门禁：`{ enabled, role, roles? }`；缺省关（零行为变更）。
+   * 严格校验见 `config/rbacConfigValidator`（未知子键 / 类型不符 / 开了却没给角色都拒绝）。
+   */
+  readonly rbac?: RbacConfig;
   /**
    * 厂商目录覆盖（#模型接入页，用户指令 2026-09-22）：按 `id` **整体替换**内建预设，
    * 新 `id` **追加**。内建目录随包发布于 `defaults/providers.json`（改数据不改代码），

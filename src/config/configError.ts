@@ -16,6 +16,7 @@ import { ssrfPolicyValidator } from './ssrfPolicyValidator.js';
 import { providerPresetValidator } from './providerPresetValidator.js';
 import { mediaConfigValidator } from './mediaConfigValidator.js';
 import { CapabilityConfigValidator } from './capabilityConfigValidator.js';
+import { RbacConfigValidator } from './rbacConfigValidator.js';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -642,6 +643,14 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   // 以为隔离已收紧），故本段与 media 同档严格。
   (cfg: FileConfig): void => {
     const message = CapabilityConfigValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
+  // rbac 段（F3 RBAC-lite）：与 capability 同档严格——写错角色名或把 mutating 写成字符串会让人
+  // 以为「权限已收紧」，而安全档位上的静默忽略代价最高（同 capability 段的理由）。
+  (cfg: FileConfig): void => {
+    const message = RbacConfigValidator.validate(cfg);
     if (message !== undefined) {
       throw new ConfigError(message);
     }
