@@ -35,6 +35,7 @@ import type {
 import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.js';
 import type { Skill } from '../skill/skill.js';
 import { SignalIngestor } from './signalIngestor.js';
+import { SuccessPatternDistiller } from './successPatternDistiller.js';
 import type { SignalRouteOutcome } from './signalIngestor.js';
 import { ArchiveCurator } from './archiveCurator.js';
 import type { ArchiveUpdateOutcome } from './archiveCurator.js';
@@ -53,6 +54,12 @@ export interface EvolutionKernelReport {
   readonly successObservations: number;
   /** 失败模式挖掘产出的改进提案摘要（跨轮累积失败历史聚类，频次降序）。 */
   readonly proposals: readonly string[];
+  /**
+   * 成功侧蒸馏产出的**工作流模板候选**名（E1+ 双源的成功半边；跨轮累积成功历史聚类）。
+   *
+   * 为什么必须进报告：接了却不报等于「声明未接线」——运维看不到这一路是否真在产出。
+   */
+  readonly workflowTemplates: readonly string[];
   /** 本轮评估的候选数。 */
   readonly evaluated: number;
   /** 本轮晋升数（已过内层全部门禁且完成晋升回调）。 */
@@ -102,6 +109,8 @@ export interface EvolutionKernelOptions {
   readonly maxRecheckAttempts?: number | undefined;
   /** 失败记录累积上限（默认 512；透传信号路由器）。 */
   readonly maxFailureRecords?: number | undefined;
+  /** 成功侧蒸馏器（E1+ 双源的成功半边；缺省 = 用默认阈值的新实例）。 */
+  readonly successDistiller?: SuccessPatternDistiller | undefined;
   /**
    * ring ⑥ 执行体转正（休眠执行体：CRISPR 定点改进 + 相变固化越阈冻结）：
    * 组合根注入；缺省 = 两条转正路径不跑（如实申报进 `degraded`）。
@@ -168,6 +177,8 @@ export class EvolutionKernel implements EvolutionController {
       crystallizer: opts.crystallizer,
       failureThreshold: opts.failureThreshold,
       maxFailureRecords: opts.maxFailureRecords,
+      // (E1+ 双源) 成功半边进模板蒸馏器：内核装配即启用（缺省只是少一路候选，不影响其它环）。
+      distiller: opts.successDistiller ?? new SuccessPatternDistiller(),
     });
     this.curator =
       opts.archive !== undefined
@@ -343,6 +354,8 @@ export class EvolutionKernel implements EvolutionController {
       failures: routed.failures,
       successObservations: routed.successes,
       proposals: this.ingestor.proposals().map((p) => p.summary),
+      // (E1+ 双源) 成功侧候选也必须可观测——否则「接了但没人看得见」等于没接。
+      workflowTemplates: this.ingestor.workflowTemplateProposals().map((c) => c.asset.name),
       evaluated: verdicts.length,
       promoted,
       snapshotSeq: this.lastSnapshotSeq,
