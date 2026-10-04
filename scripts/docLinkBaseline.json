@@ -6,7 +6,6 @@
   "mention: docs/ARCHITECTURE_UPGRADE_2026-10.md -> tests/unit/eventPersisterAppend.test.ts",
   "mention: docs/ARCHITECTURE_UPGRADE_2026-10.md -> tests/unit/subagentWriteGate.test.ts",
   "mention: docs/ARCHITECTURE_UPGRADE_2026-10.md -> tests/unit/toolSchedulerReadyOrder.test.ts",
-  "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/evolution/coverageBuckets.ts",
   "mention: docs/EVOLVIX_SPEC_2026-10.md -> src/adapters/daemon/cronerSchedule.ts",
   "mention: docs/EVOLVIX_SPEC_2026-10.md -> src/adapters/enterprise/oidcSdkClient.ts",
   "mention: docs/PROJECT_BOARD.md -> docs/ZERO_COST_CAPABILITY_EVAL.md",

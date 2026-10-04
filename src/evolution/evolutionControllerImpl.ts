@@ -71,7 +71,8 @@ export class EvolutionControllerImpl implements EvolutionController {
           let blocked = false;
           let reasonSuffix = '';
           try {
-            const r = await this.rlvr.loop.run(prompt);
+            // 采样上下文带上候选来源：S5 分桶覆盖率由 `meta.source` 取工况桶键。
+            const r = await this.rlvr.loop.run(prompt, { source: c.source });
             if (r.best === undefined) {
               blocked = true;
               reasonSuffix = '；RLVR 阶段无绿样本（sample-filter-replay 否决晋升）';
