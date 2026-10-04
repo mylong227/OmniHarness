@@ -10,8 +10,10 @@ import { BoundedMediaProcessRunner } from '../adapters/media/boundedMediaProcess
 import { SpawnMediaProcessRunner } from '../adapters/media/spawnMediaProcessRunner.js';
 import { FrameEncoder } from '../media/frameEncoder.js';
 import { MediaConfigResolver } from './mediaConfigResolver.js';
-import type { MediaAnalysisConfig, ResolvedMediaOptions } from './mediaConfigResolver.js';
-import type { MediaFrameExtractor } from '../ports/media/frameExtractor.js';
+import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
+import type { MediaStack } from '../ports/media/mediaStack.js';
+
+export type { MediaStack } from '../ports/media/mediaStack.js';
 import { LimitEnv } from '../util/limitEnv.js';
 
 /** 二进制定位验证超时（毫秒）：`-version` 是毫秒级动作，10s 已是极宽松上界。 */
@@ -19,20 +21,6 @@ const VERIFY_TIMEOUT_MS = 10_000;
 
 /** 单支媒体栈的 ffmpeg 家族进程并发上限（安全闸，非调参旋钮；可由 `OMNI_MEDIA_PROCESS_CONCURRENCY` 覆盖）。 */
 const MAX_CONCURRENT_PROCESSES = LimitEnv.int('OMNI_MEDIA_PROCESS_CONCURRENCY', 4);
-
-/**
- * 媒体抽帧栈：一支「路由提取器」+ 一份已收敛的选项。
- *
- * 为什么把两者绑在一起（而不是各传各的）：`ViewMediaTool` 需要**同一个**预算口径去
- * ① 组装 `FrameSelectionPolicy`（给提取器看）与 ② 在输出文本里回显生效值（给模型看）。
- * 若两者来自不同来源，就必然出现「工具说上限 8 帧、提取器实际按 20 帧做」这类漂移。
- */
-export interface MediaStack {
-  /** 帧提取路由（按媒体大类分发到 GIF 解码或 ffmpeg 抽帧）。 */
-  readonly extractor: MediaFrameExtractor;
-  /** 已收敛的媒体选项（全字段有值）。 */
-  readonly options: ResolvedMediaOptions;
-}
 
 /**
  * 媒体抽帧栈装配器（组合根）。

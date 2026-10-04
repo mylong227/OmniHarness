@@ -38,7 +38,7 @@ import { LspUri } from '../adapters/lsp/lspUri.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.js';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
-import type { SubagentPortSeed } from './configFactory.js';
+import type { SubagentPortSeed } from '../ports/config/subagentPortSeed.js';
 import { MediaStackAssembler } from './mediaStackAssembler.js';
 import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 

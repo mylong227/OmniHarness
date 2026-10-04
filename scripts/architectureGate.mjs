@@ -131,14 +131,12 @@ const CYCLE_WL_MEMBERS = new Set([
   'spark/sparkCycleTelemetry',
   'spark/sparkEngineSet',
   // 环⑥（2026-10-03 第十二轮 G25 **已拆解**）：原为 20 成员的「装配-运行时大环」，
-  // 成因之一是「类型已在 src/ports/**、却绕道实现文件导入」——34 处导入改为直连 ports 后，
-  // 该环**消失**，只剩下面 4 个成员的配置子环（SubagentPortSeed/CorePorts/MediaStack 等
-  // 仍声明在实现文件里；把它们移入 ports 需先把 CorePorts.turnDiffTracker 之类字段改成端口类型，
-  // 属**类型契约**级改动，另立 G25-b）。
-  'config/configBuilder',
-  'config/configFactory',
-  'config/configToolRegistry',
-  'config/corePortsAssembler',
+  // 成因之一是「类型已在 src/ports/**、却绕道实现文件导入」——34 处导入改为直连 ports 后该环消失。
+  // 其残留的 4 成员配置子环（configBuilder ↔ configFactory ↔ configToolRegistry/corePortsAssembler）
+  // 也已于 **G25-b** 拆解：把 `SubagentPortSeed`（引用了 `MediaStack`）从 `configFactory.ts` 搬到
+  // `src/ports/config/subagentPortSeed.ts`、`MediaStack` 搬到 `src/ports/media/mediaStack.ts`，
+  // 于是 configBuilder / configToolRegistry 不再反向 import configFactory ⇒ 依赖方向恢复单向。
+  // 环组数实测 6 → 5；本白名单随之**收紧**（删掉这 4 个成员），不留陈旧豁免。
 ]);
 
 /** Tarjan 强连通分量：返回全部「真环」（size>1，或 size==1 且自环）。 */
