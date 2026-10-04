@@ -5,16 +5,17 @@
 
 ## 索引
 
-| 编号                                         | 标题                                               | 状态   |
-| -------------------------------------------- | -------------------------------------------------- | ------ |
-| [0001](./0001-hexagonal-ports-adapters.md)   | 六边形架构：ports/adapters 分层 + 核心零第三方依赖 | 已接受 |
-| [0002](./0002-dependency-allowlist.md)       | 依赖准入制（allowlist + 四闸门自检）               | 已接受 |
-| [0003](./0003-unified-gate-fail-closed.md)   | 统一门禁：审批→沙箱→执行→记录，fail-closed         | 已接受 |
-| [0004](./0004-audit-hash-chain.md)           | 审计日志 SHA256 哈希链（非快照摘要）               | 已接受 |
-| [0005](./0005-event-stream-single-source.md) | 事件流为唯一真相源（投影出模型消息）               | 已接受 |
-| [0006](./0006-sandbox-honest-degradation.md) | 沙箱多后端与诚实降级（不支持即 fail-closed）       | 已接受 |
-| [0007](./0007-api-stability-annotations.md)  | API 稳定性标注分区（@public/@beta/@deprecated）    | 已接受 |
-| [0008](./0008-governed-evolution-kernel.md)  | 治理化进化内核（EvolutionKernel 一等域升格）       | 已接受 |
+| 编号                                         | 标题                                                | 状态   |
+| -------------------------------------------- | --------------------------------------------------- | ------ |
+| [0001](./0001-hexagonal-ports-adapters.md)   | 六边形架构：ports/adapters 分层 + 核心零第三方依赖  | 已接受 |
+| [0002](./0002-dependency-allowlist.md)       | 依赖准入制（allowlist + 四闸门自检）                | 已接受 |
+| [0003](./0003-unified-gate-fail-closed.md)   | 统一门禁：审批→沙箱→执行→记录，fail-closed          | 已接受 |
+| [0004](./0004-audit-hash-chain.md)           | 审计日志 SHA256 哈希链（非快照摘要）                | 已接受 |
+| [0005](./0005-event-stream-single-source.md) | 事件流为唯一真相源（投影出模型消息）                | 已接受 |
+| [0006](./0006-sandbox-honest-degradation.md) | 沙箱多后端与诚实降级（不支持即 fail-closed）        | 已接受 |
+| [0007](./0007-api-stability-annotations.md)  | API 稳定性标注分区（@public/@beta/@deprecated）     | 已接受 |
+| [0008](./0008-governed-evolution-kernel.md)  | 治理化进化内核（EvolutionKernel 一等域升格）        | 已接受 |
+| [0009](./0009-capability-protocol.md)        | 统一资产协议（CapabilitySchema + 绞杀者迁移注册表） | 已接受 |
 
 ## 何时写新 ADR
 

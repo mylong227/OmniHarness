@@ -25,12 +25,13 @@
 ## 2. 目录归属与依赖方向
 
 ```
-src/ports/**        契约层（28 个子目录 / 344 个 .ts）——纯声明
+src/ports/**        契约层（29 个子目录 / 361 个 .ts）——纯声明
 src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
 src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
 src/composition/**  组合根（Runtime + 装配）
 src/config/**       配置装配（6 个 Assembler + ConfigFactory/ConfigBuilder）
 src/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
+src/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表；ADR-0009）
 src/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
 src/cli/**  src/server/**  （Web 工作台在 web/**）
 ```
@@ -44,9 +45,10 @@ src/cli/**  src/server/**  （Web 工作台在 web/**）
 - `[5] 依赖环（Tarjan SCC）——新增环即红，环缩小放行`
 - `[4] 目录平铺告警（直接 .ts > 30，非阻断）`
 
-**端口子目录（28，与磁盘一致）**：`a2a`、`approval`、`autonomy`、`composition`、`config`、`context`、
-`core`、`daemon`、`decision`、`enterprise`、`genesis`、`intelligence`、`mcp`、`media`、`memory`、`model`、
-`native`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、`subagent`、`tool`、`tui`、`util`。
+**端口子目录（29，与磁盘一致）**：`a2a`、`approval`、`autonomy`、`capability`、`composition`、`config`、
+`context`、`core`、`daemon`、`decision`、`enterprise`、`genesis`、`intelligence`、`mcp`、`media`、`memory`、
+`model`、`native`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、`subagent`、`tool`、
+`tui`、`util`。
 
 ## 3. 核心数据流（一回合）
 
@@ -76,6 +78,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 | 检索   | `ports/intelligence/retrieval.ts`                                                                            | 检索端口（实现见 §6）                                                                                          |
 | 组合   | `ports/composition/omniHarnessRuntime.ts`、`ports/config/resolvedConfig.ts`                                  | 运行时与配置的**类型契约**（G25 后调用点直连端口）                                                             |
 | 进化   | `ports/runtime/evolution/{signalSource,candidateArchive,promotionLedger}.ts`                                 | 信号源 / 候选档案 / 晋升台账（ADR-0008；`EvolutionKernel` 实现**既有** `EvolutionController`，`core/` 零改动） |
+| 资产   | `ports/capability/{capabilitySchema,capabilityRecord,capabilityRegistryPort}.ts`                             | 统一资产协议：类型自描述 + 资产实例 + `SkillPort` 超集注册表（ADR-0009；Wave B 第一态 = 并存不切换）           |
 
 **服务令牌（G26）**：`ServiceKey<T>`（实现类在 `core/serviceKey.ts`，端口只给结构契约
 `ports/runtime/serviceKeyLike.ts`）⇒ 注册**类型不符即编译失败**、取用**零断言**。
@@ -138,13 +141,16 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 （正对照/仪器自证）；变异后判据仍绿时**先查变异是否落地**；**声明即接线**；入库脚本**可移植**
 （无绝对路径、不依赖 gitignored 目录）。
 
-## 10. 规模与依赖（快照 2026-10-03）
+## 10. 规模与依赖（快照 2026-10-04）
 
-| 范围            | 文件    | 行         |
-| --------------- | ------- | ---------- |
-| `src/**/*.ts`   | **925** | **99,921** |
-| `tests/**/*.ts` | **423** | **59,528** |
-| `web/src/**`    | **111** | **17,152** |
+> 2026-10-04 复测（口径同 §0：逐文件 `(Get-Content $f).Count` 求和）：Wave A（GEE Kernel v1，7 片）
+> 与 Wave B1（资产协议契约+类型注册表）落地后的真实数字——旧快照（925/99,921 等）已过期。
+
+| 范围            | 文件    | 行          |
+| --------------- | ------- | ----------- |
+| `src/**/*.ts`   | **956** | **103,743** |
+| `tests/**/*.ts` | **439** | **63,018**  |
+| `web/src/**`    | **111** | **17,152**  |
 
 **运行时依赖（2）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`。
 **可选依赖（2）**：`@huggingface/transformers`（本地嵌入）、`sharp`（图像）。
@@ -154,7 +160,8 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 
 [adr/](adr/README.md)：`0001-hexagonal-ports-adapters`、`0002-dependency-allowlist`、
 `0003-unified-gate-fail-closed`、`0004-audit-hash-chain`、`0005-event-stream-single-source`、
-`0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`。
+`0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`、
+`0009-capability-protocol`。
 
 ## 12. 已知边界与"不做"清单
 
