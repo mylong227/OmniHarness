@@ -11,7 +11,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -173,3 +173,73 @@ test('G2 CLI：用法错误与缺 --source ⇒ 退出码 2', async () => {
   const noSub = await capture(() => command.runBundle([]));
   assert.strictEqual(noSub.code, 2);
 });
+
+test('H1 CLI：grade 对干净包评 A（退出码 0），对未声明能力的包评 C（退出码 1）', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'h1cli-'));
+  // 干净包：入口是纯计算，静态无证据、沙箱跑得通、无声明能力 ⇒ A。
+  // 入口用 **cjs 风格**：沙箱 `vm` 档按脚本语义执行、不认 ESM 的 `export`（已知边界，见下一条判据）。
+  const clean = await packWith(
+    root,
+    'clean',
+    'function run(s) { return s.split("").reverse().join(""); }\nmodule.exports = { run };\n',
+  );
+  const a = await capture(() =>
+    new BundleCommand(() => ({}) as never).runBundle(['grade', clean, '--declare', '']),
+  );
+  assert.strictEqual(a.code, 0, a.out + a.err);
+  assert.match(a.out, /评级 A（可安装）/);
+  assert.match(a.out, /证据：扫过 \d+ 文件/);
+
+  // 危险包：起进程但**不声明** process ⇒ 差异测试一票 C。
+  const risky = await packWith(
+    root,
+    'risky',
+    'const { execSync } = require("node:child_process");\nmodule.exports = { run: () => execSync("ls") };\n',
+  );
+  const c = await capture(() => new BundleCommand(() => ({}) as never).runBundle(['grade', risky]));
+  assert.strictEqual(c.code, 1, 'C 必须非零退出（市场/安装器据此拒绝）');
+  assert.match(c.out, /评级 C（不可安装）/);
+  assert.match(c.out, /存在未声明能力：process/);
+  assert.match(c.out, /未声明 \[process\]/);
+
+  // 同一包声明了 process ⇒ 降为 B（可安装，标注需授权）。
+  const b = await capture(() =>
+    new BundleCommand(() => ({}) as never).runBundle(['grade', risky, '--declare', 'process']),
+  );
+  assert.strictEqual(b.code, 0, b.out + b.err);
+  assert.match(b.out, /评级 B（可安装）/);
+  assert.match(b.out, /已声明的高危能力：process/);
+
+  // 缺参数 ⇒ 用法错误。
+  const usage = await capture(() => new BundleCommand(() => ({}) as never).runBundle(['grade']));
+  assert.strictEqual(usage.code, 2);
+  assert.match(usage.out, /bundle grade/);
+});
+
+/**
+ * 打一个只含 `index.js` 的最小包（H1 分级夹具）。
+ * @param root 根目录
+ * @param name 包名
+ * @param code 入口代码
+ * @returns 包路径
+ */
+async function packWith(root: string, name: string, code: string): Promise<string> {
+  const sourceDir = join(root, `grade-src-${name}`);
+  mkdirSync(sourceDir, { recursive: true });
+  const workspace = join(root, `ws-grade-${name}`);
+  const pluginDir = join(workspace, 'plugins-src', name);
+  mkdirSync(pluginDir, { recursive: true });
+  writeFileSync(join(pluginDir, 'index.js'), code, 'utf8');
+  const result = await new PluginBundler().packBundle({
+    workspaceDir: workspace,
+    profile: { name, plugins: [name], config: {} },
+    registry: {
+      get: () =>
+        Promise.resolve({ name, source: 'path', installFrom: { kind: 'path', path: pluginDir } }),
+      list: () => Promise.resolve([]),
+    } as never,
+    pluginsDir: join(root, 'plugins'),
+    outDir: sourceDir,
+  });
+  return result.path;
+}

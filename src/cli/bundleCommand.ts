@@ -1,4 +1,4 @@
-﻿/**
+/**
  * bundle 子命令（BundleCommand）——把命名插件集打成自包含发布单元 `.ohb`，或还原。
  *
  * 从原 CliDataCmds 抽出，行为逐字节等价。
@@ -14,8 +14,13 @@ import { join } from 'node:path';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
 import { PluginBundler } from '../plugin/pluginBundler.js';
 import { PrivateSkillSource } from '../plugin/privateSkillSource.js';
+import { BundleCodec } from '../plugin/bundleCodec.js';
+import { PackGrader } from '../plugin/packGrader.js';
+import { IsolationLadder } from '../adapters/isolation/isolationLadder.js';
 import { ArgParser } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
+import type { PackCapability } from '../plugin/packStaticScanner.js';
+import type { SandboxLegVerdict } from '../plugin/packGrader.js';
 import type { PluginRegistryFactory } from './pluginCommand.js';
 
 /** bundle 用法提示。 */
@@ -23,6 +28,11 @@ const USAGE =
   '用法: omniharness bundle pack <profileName> [--key-file K] [--out-dir D] [--dir P] | bundle unpack <path.ohb> [--key-file K] [--dir P] | bundle source list|sync --source DIR --trust KEY [--loose]\n';
 
 /** `bundle source` 用法提示（G2 私有技能源）。 */
+/** `bundle grade` 用法提示（H1 分级）。 */
+const GRADE_USAGE =
+  '用法: omniharness bundle grade <path.ohb> [--declare process,fs-write] [--sandbox-level LEVEL]\n' +
+  '说明: 产出 A/B/C 评级（评级即门禁输出）；C ⇒ 退出码 1（不可安装）。\n';
+
 const SOURCE_USAGE =
   '用法: omniharness bundle source list|sync --source DIR --trust <ssh-ed25519 …> [--trust …] [--loose]\n' +
   '说明: 缺省严格档——无 Ed25519 签名的包一律拒；--loose 才收无签名包（标注 community）。\n';
@@ -57,8 +67,128 @@ export class BundleCommand {
     if (sub === 'source') {
       return this.source(reader, wsRoot, pluginsDir);
     }
+    if (sub === 'grade') {
+      return this.grade(reader);
+    }
     process.stdout.write(USAGE);
     return 2;
+  }
+
+  /**
+   * `bundle grade <path.ohb> [--declare a,b] [--sandbox-level L]`：**H1 市场分级**（A/B/C）。
+   *
+   * 三条腿都在这里真跑：① 静态扫描读包内文件文本；② 沙箱腿用 `IsolationLadder` 在受限环境里
+   * 执行包声明的入口（`index.js`）；③ 差异测试比对"声明权限 ⊖ 扫描到的实际能力"。
+   * **评级即门禁输出**：`C` ⇒ 退出码 1（市场/安装器据此拒绝），不是打印个字母就完事。
+   * @param reader 参数读取器（位置参数 1 为 `.ohb` 路径）
+   * @returns 退出码（0 = A/B 可安装；1 = C / 读不出包；2 = 用法错误）
+   */
+  private async grade(reader: CliArgReader): Promise<number> {
+    const path = reader.at(1);
+    if (path === undefined) {
+      process.stdout.write(GRADE_USAGE);
+      return 2;
+    }
+    const read = BundleCodec.readFiles(path);
+    if (!read.ok) {
+      process.stderr.write(`无法读取包：${read.reason}\n`);
+      return 1;
+    }
+    const declared = (reader.value('--declare') ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item !== '') as readonly PackCapability[];
+    const sandbox = await this.sandboxLeg(path, read.files, reader.value('--sandbox-level'));
+    const report = PackGrader.grade({ files: read.files, declared, sandbox });
+    process.stdout.write(
+      `评级 ${report.rating}（${report.installable ? '可安装' : '不可安装'}）｜ ${path}\n`,
+    );
+    for (const reason of report.reasons) process.stdout.write(`  · ${reason}\n`);
+    process.stdout.write(
+      `  证据：扫过 ${String(report.evidence.scan.scannedFiles)} 文件 / 发现 ${String(report.evidence.scan.findings.length)} 条` +
+        `｜实际能力 [${report.evidence.scan.capabilities.join(', ')}]` +
+        `｜未声明 [${report.evidence.diff.undeclared.join(', ')}]\n`,
+    );
+    return report.installable ? 0 : 1;
+  }
+
+  /**
+   * 沙箱腿：把包声明的入口（`index.js`）交给 `IsolationLadder` 在受限环境里执行。
+   *
+   * 为什么"跑通"要算证据：静态扫描只能看**有没有用到**危险 API；跑不起来说明这个包在受限环境里
+   * 根本不成立（粗糙/恶意包常在这里暴露）。执行失败**不抛**——它是证据，不是异常。
+   * @param path 包路径
+   * @param files 包内文件表
+   * @param level 指定隔离层级（缺省交给阶梯自选）
+   * @returns 沙箱腿结论
+   */
+  private async sandboxLeg(
+    path: string,
+    files: ReadonlyMap<string, string>,
+    level: string | undefined,
+  ): Promise<SandboxLegVerdict> {
+    // 入口定位：真实 bundle 把插件放在 `plugins/<name>/index.js`，故按"路径最短优先、同长按字典序"
+    // 从全部 index.js 里确定性挑一个（报出用的是哪个，否则"跑通了哪个文件"无从复核）。
+    const entryPath = [...files.keys()]
+      .filter((name) => /(^|\/)index\.(js|mjs|cjs)$/i.test(name))
+      .sort((a, b) => a.split('/').length - b.split('/').length || (a < b ? -1 : 1))[0];
+    if (entryPath === undefined) {
+      return { ran: false, reason: '包内无 index.js 入口，无法在沙箱中执行（H1 要求可运行验证）' };
+    }
+    const entry = files.get(entryPath) ?? '';
+    const ladder = new IsolationLadder();
+    // 脚本包装：沙箱按**裸脚本**语义执行，不提供 `module`/`exports`，故这里自己包一层 IIFE，
+    // 让常见的 cjs 入口（`module.exports = …`）**真的**能跑起来——否则"沙箱腿"对一切包恒为失败，
+    // 那条腿就等于没有（评级退化成只靠静态扫描，A 永远不可达）。
+    // **不提供 `require`**：这正是沙箱该有的样子（包内不得起进程/引原生模块），
+    // 于是"越权包"会在这里以 `require is not defined` 暴露，而不是被静默放行。
+    const wrapped = `(function (module, exports) {\n${entry}\nreturn module.exports;\n})({ exports: {} }, {})`;
+    // 档位策略（**不 overclaim**）：资产按仓库默认档 `in-process` 声明，然后**先试更严的档**
+    // （缺省 `vm`），更严档不可达时如实回落到 `in-process`——报告里的 `level` 是**实际生效**档位。
+    // 不做"请求 os-sandbox 然后静默降档"：那会让报告声称跑在更强隔离里（阶梯本身也拒这种放松）。
+    const candidates = level !== undefined ? [level, 'in-process'] : ['vm', 'in-process'];
+    let lastReason = '未尝试任何档位';
+    for (const candidate of candidates) {
+      try {
+        const result = await ladder.run({
+          asset: {
+            kind: 'plugin',
+            name: path,
+            version: '1',
+            governance: { isolation: 'in-process' },
+          } as never,
+          payload: { kind: 'js-source', code: wrapped, filename: entryPath },
+          level: candidate as never,
+          timeoutMs: 5_000,
+        });
+        if (result.ok) return { ran: true, level: String(result.level), entry: entryPath };
+        // 失败形状是 `{ ok:false, denied:{ code, reason } }`：透出**分类 + 原因**，
+        // 不压成一句"沙箱失败"——市场页要显示"为什么"（timeout / trap / escape 区别很大）。
+        lastReason = `[${result.denied.code}] ${result.denied.reason}`;
+        // 最小权限模式的**预期**结果：包声明并实际使用宿主能力（`require`）时，沙箱必然拒绝
+        // ——`escape` 分类 + `require is not defined`。这不是包的缺陷，也不是"验证通过"，
+        // 而是**验证能力边界**：交给分级器封顶 B（受限运行），绝不因此放行到 A。
+        if (
+          result.denied.code === 'escape' &&
+          /require is not defined/.test(result.denied.reason)
+        ) {
+          return {
+            ran: false,
+            level: candidate,
+            entry: entryPath,
+            minimalAuthority: true,
+            reason: `沙箱以最小权限运行（不提供 require），该包的实际能力无法动态覆盖：${result.denied.reason}`,
+          };
+        }
+        // 仅"档位不可达"才回落；`trap`/`escape`/`timeout` 是**包的问题**，继续换档没有意义。
+        if (result.denied.code !== 'level-unavailable') {
+          return { ran: false, level: candidate, entry: entryPath, reason: lastReason };
+        }
+      } catch (err) {
+        lastReason = `沙箱执行异常：${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+    return { ran: false, entry: entryPath, reason: lastReason };
   }
 
   /**
