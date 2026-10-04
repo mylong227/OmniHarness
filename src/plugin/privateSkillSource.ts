@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 私有技能源（商业化路线图 **G2**「技能包团队分发」）。
  *
  * ## 它解决什么
@@ -29,10 +29,11 @@
  * @maturity L1 — 严格档无签名拒 / 非信任根拒 / 篡改拒 / 宽松档标注 community / 只装放行集 判据钉死
  * @maturityEvidence tests/unit/privateSkillSource.test.ts
  */
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
 import { PluginBundler } from './pluginBundler.js';
+import { BundleCodec } from './bundleCodec.js';
 import type { BundleManifest } from './pluginBundler.js';
 
 /** 签名档位（**不静默提档**：无签名永远是 community）。 */
@@ -274,33 +275,10 @@ export class PrivateSkillSource {
    * @returns 清单；包内无清单时为 undefined
    */
   private static readManifest(path: string): BundleManifest | undefined {
-    const raw = readFileSync(path);
-    const entry = PrivateSkillSource.findEntry(raw, 'bundle.json');
-    if (entry === undefined) return undefined;
-    return JSON.parse(entry.toString('utf8')) as BundleManifest;
-  }
-
-  /**
-   * 在 zip store 字节流里定位一个条目并返回其内容（只支持 store，与打包器一致）。
-   * @param zip 包字节
-   * @param name 条目名
-   * @returns 条目内容；未找到时为 undefined
-   */
-  private static findEntry(zip: Buffer, name: string): Buffer | undefined {
-    // 本地文件头签名 0x04034b50；解析到目标条目即按长度截取（store 无压缩 ⇒ 内容原样）。
-    let offset = 0;
-    while (offset + 30 <= zip.length) {
-      if (zip.readUInt32LE(offset) !== 0x04034b50) return undefined;
-      const compressedSize = zip.readUInt32LE(offset + 18);
-      const nameLength = zip.readUInt16LE(offset + 26);
-      const extraLength = zip.readUInt16LE(offset + 28);
-      const nameStart = offset + 30;
-      const entryName = zip.subarray(nameStart, nameStart + nameLength).toString('utf8');
-      const dataStart = nameStart + nameLength + extraLength;
-      if (entryName === name) return zip.subarray(dataStart, dataStart + compressedSize);
-      offset = dataStart + compressedSize;
-    }
-    return undefined;
+    // 复用共享读取器（zip-store 解析的唯一出处）；缺清单/畸形包一律返回 undefined，
+    // 由调用方给出可读拒绝原因（不在这里抛，保持"拒绝"与"异常"分离）。
+    const read = BundleCodec.readManifestJson(path);
+    return read.ok ? (read.json as BundleManifest) : undefined;
   }
 
   /**
