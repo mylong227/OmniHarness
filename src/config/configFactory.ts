@@ -33,6 +33,8 @@ import { MemoryStackAssembler } from './memoryStackAssembler.js';
 import { SkillStackAssembler } from './skillStackAssembler.js';
 import { SparkAssembler } from './sparkAssembler.js';
 import { CapabilityStackAssembler } from './capabilityStackAssembler.js';
+import { CapabilityMetadataTool } from '../adapters/tool/capability/capabilityMetadataTool.js';
+import type { ToolCall, ToolContext, ToolResult } from '../ports/tool/tool.js';
 
 export type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
 export type { SelfVerifyConfig } from '../ports/config/selfVerifyConfig.js';
@@ -90,6 +92,17 @@ export class ConfigFactory {
       core.ports.planMode,
     );
     const spark = SparkAssembler.assembleSpark(partial, { vortex: core.vortex, memory, skills });
+    // 工具集与资产协议切片**一起**装配（同一份切片实例，见 `buildToolStack`）。
+    const toolStack = ConfigFactory.buildToolStack(
+      partial,
+      seed,
+      core,
+      memory,
+      skills,
+      costBudget,
+      lsp,
+      identity,
+    );
     return {
       workspaceRoot: partial.workspaceRoot,
       maxSteps: partial.maxSteps,
@@ -109,10 +122,8 @@ export class ConfigFactory {
       // 语义嵌入端口：`OMNI_SEMANTIC_RECALL=1` 才构造（见 buildEmbeddingPort；L5 预热默认关）。
       embedding: ConfigFactory.buildEmbeddingPort(),
       evolution: partial.evolution,
-      // (U4) RLVR 进化闭环：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
-      // 导致调用方即便设置 `evolutionRlvr` 也会在此处被静默丢弃，`createRuntime` 恒读不到
-      // → 「默认关、端到端未开」的机械根因。此处显式透传；`createRuntime` 在 `enabled===true`
-      // 时构造「可验证门禁 + RLVR sample-filter-replay」控制器。
+      // (U4) RLVR 进化闭环：该字段曾被本装配字面量**漏透传**（只在 `OmniHarnessConfig` 上声明），
+      // 调用方设了 `evolutionRlvr` 也被静默丢弃 ⇒「默认关、端到端未开」的机械根因；此处显式透传。
       evolutionRlvr: partial.evolutionRlvr,
       ssrfPolicy: partial.ssrfPolicy, // 配置化 SSRF 策略表（消费方：组合根 A2A / CLI 出站守卫）
       // 媒体抽帧配置：**原样透传**（不做二次收敛）。为什么留原始形态而不换成已解析选项：
@@ -142,20 +153,12 @@ export class ConfigFactory {
       // 导致 `runtime` 的 `if (config.a2a?.enabled === true)` 恒不可达 —— A2A 生产路径整体不可用
       // （U6 回环实测脚本直接 import a2a 模块、绕过了装配层，故长期未暴露）。此处显式透传。
       a2a: partial.a2a,
-      tools: ConfigFactory.resolveTools(
-        partial,
-        seed,
-        core.ports,
-        memory.stack.longTermMemory,
-        costBudget,
-        lsp,
-        identity,
-      ),
+      tools: toolStack.tools,
       ...core.ports,
       ...memory.stack,
       ...skills,
       // (Wave B · ADR-0009) 资产协议切片：显式透传（理由同 `a2a` / `evolutionRlvr`——漏透传即「声明未接线」）。
-      ...ConfigFactory.buildCapabilityStack(partial, skills.skillRegistry),
+      capabilityStack: toolStack.capabilityStack,
     };
   }
 
@@ -212,6 +215,51 @@ export class ConfigFactory {
   }
 
   /**
+   * 装配「工具集 + 资产协议切片」两件套（Wave D 尾巴 · ADR-0011）。
+   *
+   * **为什么这两件事必须一起抽**：`capability_metadata` 只读工具要读**运行时用的那一份**资产注册表，
+   * 而切片同时还要透传给 `ResolvedConfig`。两处各调一次 `buildCapabilityStack` 会得到**两个实例**
+   * ——工具眼里看不到运行时装进去的资产（Wave D 尾巴实际踩过的形态）。把「先建切片、再建工具集」
+   * 收在一个 helper 里，既保证同实例，又不让 `build` 的体量继续逼近函数体红线。
+   *
+   * @param partial 未解析的运行配置
+   * @param seed 子代端口种子
+   * @param core 核心端口装配结果（取 `ports`）
+   * @param memory 记忆栈装配结果（取 `stack.longTermMemory`）
+   * @param skills 技能栈装配结果（取 `skillRegistry`）
+   * @param costBudget 成本预算端口（可缺省）
+   * @param lsp LSP 端口（可缺省）
+   * @param identity 密码学身份端口（可缺省）
+   * @returns `{ tools, capabilityStack }`（切片在 `capability.enabled !== true` 时为 undefined）
+   */
+  private static buildToolStack(
+    partial: OmniHarnessConfig,
+    seed: SubagentPortSeed,
+    core: ReturnType<typeof CorePortsAssembler.assembleCorePorts>,
+    memory: ReturnType<typeof MemoryStackAssembler.assembleMemoryStack>,
+    skills: ReturnType<typeof SkillStackAssembler.assembleSkillStack>,
+    costBudget: CostBudget | undefined,
+    lsp: LspPort | undefined,
+    identity: AgentIdentityPort | undefined,
+  ): { readonly tools: ToolPort; readonly capabilityStack: CapabilityStack | undefined } {
+    const capabilityStack = ConfigFactory.buildCapabilityStack(
+      partial,
+      skills.skillRegistry,
+    ).capabilityStack;
+    const tools = ConfigFactory.resolveTools(
+      partial,
+      seed,
+      core.ports,
+      memory.stack.longTermMemory,
+      costBudget,
+      lsp,
+      identity,
+      capabilityStack,
+    );
+    return { tools, capabilityStack };
+  }
+
+  /**
    * 装配工具端口（`tools` 字段的**唯一构造点**）。
    *
    * 为什么从 `build` 里抽出来：`build` 的职责是「编排」（定装配顺序、拼各切片），而工具端口的
@@ -236,10 +284,28 @@ export class ConfigFactory {
     costBudget: CostBudget | undefined,
     lsp: LspPort | undefined,
     identity: AgentIdentityPort | undefined,
+    capabilityStack: CapabilityStack | undefined,
   ): ToolPort {
     if (partial.tools !== undefined) {
       return partial.tools;
     }
+    // Wave D 尾巴（ADR-0011）：协议启用时追加只读元数据工具；**未启用即不注册**——
+    // 「工具存在但调了报未启用」不如「工具根本不在清单里」诚实（模型看不到就不会去调它）。
+    // 注意 `extraTools` 的既有契约是 `{ definition, handler }`（定制插口），不是工具类实例——
+    // 这里做一次薄适配，执行逻辑仍只有 `CapabilityMetadataTool.handle` 一处。
+    const metadataTool =
+      capabilityStack === undefined ? undefined : new CapabilityMetadataTool(() => capabilityStack);
+    const extraTools =
+      metadataTool === undefined
+        ? partial.extraTools
+        : [
+            ...(partial.extraTools ?? []),
+            {
+              definition: metadataTool.definition,
+              handler: (call: ToolCall, context: ToolContext): Promise<ToolResult> =>
+                metadataTool.handle(call, context),
+            },
+          ];
     // 决策引擎：off/缺省零行为；shadow 仅观测、enforce 回灌 noul 预判（质量信号，全程 fail-open）。
     const decisionEngine = new DecisionEngineResolver().resolve(partial);
     const decisionMode = partial.decisionEngine?.mode;
@@ -254,7 +320,7 @@ export class ConfigFactory {
         : undefined;
     return ConfigToolRegistry.defaultTools(
       seed,
-      partial.extraTools,
+      extraTools,
       partial.workers,
       {
         todo: ports.todo,

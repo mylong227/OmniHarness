@@ -70,6 +70,12 @@ export const TOOL_NAMES = {
   todoWrite: 'todo_write',
   /** 读待办清单。 */
   todoRead: 'todo_read',
+  /**
+   * 读资产协议元数据（Wave D · ADR-0011）：MCP Registry 风格的**公开**元数据导出面
+   * （类型/版本/默认档位/资产名与档位），供 MCP 客户端在回环或远端消费。
+   * **只读**：不进 {@link MUTATING_TOOL_NAMES}（它不落盘、不改事件流）。
+   */
+  capabilityMetadata: 'capability_metadata',
   /** 读计划。 */
   planRead: 'plan_read',
   /** 写计划。 */
