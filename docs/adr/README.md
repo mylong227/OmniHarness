@@ -16,6 +16,7 @@
 | [0007](./0007-api-stability-annotations.md)  | API 稳定性标注分区（@public/@beta/@deprecated）       | 已接受 |
 | [0008](./0008-governed-evolution-kernel.md)  | 治理化进化内核（EvolutionKernel 一等域升格）          | 已接受 |
 | [0009](./0009-capability-protocol.md)        | 统一资产协议（CapabilitySchema + 绞杀者迁移注册表）   | 已接受 |
+| [0010](./0010-isolation-ladder.md)           | 信任-隔离阶梯（档位不可达即拒执行）                   | 已接受 |
 | [0011](./0011-signed-asset-pack.md)          | 签名资产包分发（Ed25519 非对称 + 严格档 fail-closed） | 已接受 |
 
 ## 何时写新 ADR
