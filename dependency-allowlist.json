@@ -94,6 +94,16 @@
       "exitPlan": "若该包停更或行为回归，替换路径：① 换 luxon + 自研字段展开（luxon 提供 IANA 时区换算，字段语义需自写约 150 行并自备 DST 判据）；② 直接实现「固定 UTC 偏移的简化调度」并把时区支持标注为不做（诚实降级，功能面缩窄）。两种替换都只改 src/adapters/schedule/cronerSchedule.ts 一个文件——CronSchedulePort 在 src/ports/daemon/cronSchedule.ts，调用方（RoutineScheduler）只依赖端口。",
       "maxInstallKb": 256,
       "maxTransitiveDeps": 0
+    },
+    "jose": {
+      "reason": "id_token 校验属「不该手写」的安全关键解析（JWT/JWKS/b64url/签名与时间窗语义）。既有的自研实现（src/enterprise/oidcClient.ts）只支持 RS256、无时钟偏移容忍、aud 为多值时未校验 azp，且其校验逻辑需自行维护——按 D10 §1.1「自研边际成本显著高于引入」准入。jose 为纯 JS、**零传递依赖**、实测 206 KB，只替换校验这一层，自研实现保留为回退资产。",
+      "capability": "JWS 全族算法验签（RS/ES/PS，白名单显式排除 none 与 HS*，挡住算法混淆攻击）、远程 JWKS 缓存与未知 kid 自动重取（密钥轮换不误拒）、clockTolerance 时间窗容忍、标准化的 iss/aud/exp/nbf 校验。仅经 src/adapters/enterprise/joseIdTokenVerifier.ts 实现 IdTokenVerifierPort，核心与端口层零第三方。",
+      "license": "MIT",
+      "approvedAt": "2026-10-04",
+      "layer": "src/adapters/enterprise",
+      "exitPlan": "若该包停更或行为回归：删 src/adapters/enterprise/joseIdTokenVerifier.ts，装配切回 LegacyIdTokenVerifier（同 IdTokenVerifierPort，0 个调用点改动）——自研实现本就是保留的回退资产；届时能力面收窄为 RS256 且需自行补 azp/nonce/时钟容忍（判据已把这三条钉死，可直接复用）。",
+      "maxInstallKb": 512,
+      "maxTransitiveDeps": 0
     }
   },
   "entryTemplate": {

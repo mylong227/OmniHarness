@@ -4,6 +4,7 @@ import { ArrayAt } from '../util/arrayAt.js';
 import type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.js';
 import type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.js';
 import type { AuthState } from '../ports/enterprise/authState.js';
+import type { IdTokenVerifierPort } from '../ports/enterprise/idTokenVerifier.js';
 
 /**
  * 企业级 SSO（OIDC）无第三方依赖实现（D2）。
@@ -482,11 +483,15 @@ export class EnterpriseAuth {
    * @param config OIDC 提供方配置（校验 aud 用 clientId）。
    * @param discovery 已拉取的 discovery 文档（校验 iss / 定位 jwks_uri）。
    * @param fetchImpl 注入的 fetch 实现（默认 globalThis.fetch，测试可替换）。
+   * @param verifier 可选的 id_token 校验端口（Wave A.5 · `jose`）。**注入即启用**：
+   *   `authenticate` 改走该实现（多算法面 / 时钟容忍 / azp / 未知 kid 重取）；
+   *   不注入则走本类内既有自研路径（行为逐位不变，回退零改动）。
    */
   public constructor(
     private readonly config: OidcProviderConfig,
     private readonly discovery: OidcDiscovery,
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
+    private readonly verifier?: IdTokenVerifierPort | undefined,
   ) {}
 
   /**
@@ -502,6 +507,21 @@ export class EnterpriseAuth {
     if (m === null) return null;
     const token = ArrayAt.at(m, 1);
     try {
+      // Wave A.5：注入校验端口时改走它（多算法面 + 时钟容忍 + azp + 未知 kid 重取）。
+      // 未注入时保持既有自研路径——两条路径的差分结论由 tests/unit/joseIdTokenVerifier.test.ts 逐条记录。
+      if (this.verifier !== undefined) {
+        if (this.discovery.jwks_uri === undefined) return null;
+        const verdict = await this.verifier.verify({
+          token,
+          jwksUrl: this.discovery.jwks_uri,
+          issuer: this.discovery.issuer,
+          audience: this.config.clientId,
+        });
+        if (!verdict.ok) return null;
+        const sub = verdict.claims['sub'];
+        if (typeof sub !== 'string') return null;
+        return { sub, claims: verdict.claims as Record<string, unknown> };
+      }
       const decoded = OidcClient.decodeJwt(token);
       if (decoded.header['alg'] !== 'RS256') return null;
       if (this.discovery.jwks_uri === undefined) return null;

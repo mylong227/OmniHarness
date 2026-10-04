@@ -117,6 +117,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
     "croner": "10.0.1",
+    "jose": "6.2.12",
     "zod": "^4.6.4"
   },
   "optionalDependencies": {
