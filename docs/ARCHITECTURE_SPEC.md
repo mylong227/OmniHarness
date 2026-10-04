@@ -17,7 +17,7 @@
 | --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | 1   | **六边形端口-适配器** | `src/ports/**` 只声明契约（接口/类型/常量，**无 class、无第三方裸导入**）；实现住 `src/adapters/**`；编排住 `src/core/**` | `architectureGate` `[3]` / `[3.5]`               |
 | 2   | **依赖方向单向**      | `core → adapters` 与 `adapters → core` **均禁止**（白名单为空）；`ports → core/adapters/config` 禁止                      | `architectureGate` `[1]` / `[2]` / `[3.5]`       |
-| 3   | **运行时依赖极简**    | 生产运行时依赖 **2 个**（见 §10）；`ports`/`core` 恒第三方-free                                                           | `audit:config-wiring` + `check --strict`         |
+| 3   | **运行时依赖极简**    | 生产运行时依赖 **3 个**（见 §10）；`ports`/`core` 恒第三方-free                                                           | `audit:config-wiring` + `check --strict`         |
 | 4   | **无依赖环**          | Tarjan SCC 检测，**新增环即红、环缩小放行**；现有 6 组环冻结在**成员白名单（25 个成员）**里                               | `architectureGate` `[5]`                         |
 | 5   | **fail-closed 门禁**  | 判定失败=阻断；基线只许收紧（死链/覆盖率等）                                                                              | `scripts/runGates.mjs`（单一实现，§9）           |
 | 6   | **事件流单源**        | 会话状态以事件流为唯一真相（ADR-0005）；落盘支持追加通道（G7）                                                            | `core/sessionRecorder.ts` + `StoragePort.append` |
@@ -25,7 +25,7 @@
 ## 2. 目录归属与依赖方向
 
 ```
-src/ports/**        契约层（30 个子目录 / 368 个 .ts）——纯声明
+src/ports/**        契约层（30 个子目录 / 370 个 .ts）——纯声明
 src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
 src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
 src/composition/**  组合根（Runtime + 装配）
@@ -70,18 +70,19 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 
 ## 4. 端口面（契约先于实现）
 
-| 关注点 | 端口（示例）                                                                                                 | 说明                                                                                                           |
-| ------ | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| 模型   | `ports/model/model.ts`、`embedding.ts`、`costBudgetPort.ts`                                                  | 多 provider；`reasoning_effort` 透传；嵌入可选                                                                 |
-| 工具   | `ports/tool/tool.ts`、`toolNames.ts`、`toolInputSink.ts`                                                     | 工具名**单一来源**（消费方横跨 core/adapters/security/cli）                                                    |
-| 运行时 | `ports/runtime/{approval,sandbox,eventPort,plan,todo,escalation,supervisor,containerPort,serviceKeyLike}.ts` | 审批/沙箱/事件/计划/待办/提权/监督/容器                                                                        |
-| 记忆   | `ports/memory/{longTermMemory,spill,scratchpad,cosmicWeb,memoryExtractor,memoryAnnealing}.ts`                | 长期记忆 + 溢出 + 知识算子                                                                                     |
-| 检索   | `ports/intelligence/retrieval.ts`                                                                            | 检索端口（实现见 §6）                                                                                          |
-| 组合   | `ports/composition/omniHarnessRuntime.ts`、`ports/config/resolvedConfig.ts`                                  | 运行时与配置的**类型契约**（G25 后调用点直连端口）                                                             |
-| 进化   | `ports/runtime/evolution/{signalSource,candidateArchive,promotionLedger}.ts`                                 | 信号源 / 候选档案 / 晋升台账（ADR-0008；`EvolutionKernel` 实现**既有** `EvolutionController`，`core/` 零改动） |
-| 资产   | `ports/capability/{capabilitySchema,capabilityRecord,capabilityRegistryPort}.ts`                             | 统一资产协议：类型自描述 + 资产实例 + `SkillPort` 超集注册表（ADR-0009；Wave B 第一态 = 并存不切换）           |
-| 分发   | `ports/asset/assetPack.ts`                                                                                   | 签名资产包：`AssetPackPort`（装包 + 元数据导出）+ 严格档 fail-closed（ADR-0011；Ed25519 非对称验签，零新依赖） |
-| 隔离   | `ports/runtime/isolation.ts`                                                                                 | 信任-隔离阶梯执行面（ADR-0010）：档位不可达即拒执行、不静默降档；`wasm` 档如实申报未接入                       |
+| 关注点 | 端口（示例）                                                                                                 | 说明                                                                                                                |
+| ------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| 模型   | `ports/model/model.ts`、`embedding.ts`、`costBudgetPort.ts`                                                  | 多 provider；`reasoning_effort` 透传；嵌入可选                                                                      |
+| 工具   | `ports/tool/tool.ts`、`toolNames.ts`、`toolInputSink.ts`                                                     | 工具名**单一来源**（消费方横跨 core/adapters/security/cli）                                                         |
+| 运行时 | `ports/runtime/{approval,sandbox,eventPort,plan,todo,escalation,supervisor,containerPort,serviceKeyLike}.ts` | 审批/沙箱/事件/计划/待办/提权/监督/容器                                                                             |
+| 记忆   | `ports/memory/{longTermMemory,spill,scratchpad,cosmicWeb,memoryExtractor,memoryAnnealing}.ts`                | 长期记忆 + 溢出 + 知识算子                                                                                          |
+| 检索   | `ports/intelligence/retrieval.ts`                                                                            | 检索端口（实现见 §6）                                                                                               |
+| 组合   | `ports/composition/omniHarnessRuntime.ts`、`ports/config/resolvedConfig.ts`                                  | 运行时与配置的**类型契约**（G25 后调用点直连端口）                                                                  |
+| 进化   | `ports/runtime/evolution/{signalSource,candidateArchive,promotionLedger}.ts`                                 | 信号源 / 候选档案 / 晋升台账（ADR-0008；`EvolutionKernel` 实现**既有** `EvolutionController`，`core/` 零改动）      |
+| 资产   | `ports/capability/{capabilitySchema,capabilityRecord,capabilityRegistryPort}.ts`                             | 统一资产协议：类型自描述 + 资产实例 + `SkillPort` 超集注册表（ADR-0009；Wave B 第一态 = 并存不切换）                |
+| 分发   | `ports/asset/assetPack.ts`                                                                                   | 签名资产包：`AssetPackPort`（装包 + 元数据导出）+ 严格档 fail-closed（ADR-0011；Ed25519 非对称验签，零新依赖）      |
+| 隔离   | `ports/runtime/isolation.ts`                                                                                 | 信任-隔离阶梯执行面（ADR-0010）：档位不可达即拒执行、不静默降档；`wasm` 档如实申报未接入                            |
+| 调度   | `ports/daemon/cronSchedule.ts`                                                                               | cron 求下次触发（A.5 · croner 准入）：缺省恒 UTC、DST 正确顺延、三类失败语义分明（越界/非法 ⇒ 拒，永不匹配 ⇒ null） |
 
 **服务令牌（G26）**：`ServiceKey<T>`（实现类在 `core/serviceKey.ts`，端口只给结构契约
 `ports/runtime/serviceKeyLike.ts`）⇒ 注册**类型不符即编译失败**、取用**零断言**。
@@ -155,7 +156,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 | `tests/**/*.ts` | **439** | **63,018**  |
 | `web/src/**`    | **111** | **17,152**  |
 
-**运行时依赖（2）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`。
+**运行时依赖（3）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`。
 **可选依赖（2）**：`@huggingface/transformers`（本地嵌入）、`sharp`（图像）。
 **原生内核**：Rust crate（可选；**TS 为默认路径**——原生记账实测比 TS 慢 4.5–6.7×，见报告 §3.8）。
 

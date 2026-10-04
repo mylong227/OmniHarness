@@ -116,6 +116,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
+    "croner": "10.0.1",
     "zod": "^4.6.4"
   },
   "optionalDependencies": {

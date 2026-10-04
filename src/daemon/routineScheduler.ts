@@ -1,9 +1,18 @@
 /**
- * 定时任务调度器（D3）：纯 TS、无第三方依赖。
+ * 定时任务调度器（D3）：纯 TS、核心零第三方（Wave A.5 起**可选**注入 `CronSchedulePort` 实现）。
  *
  * 调度支持两种形式：
  * - interval：每 N 分钟跑一次（适合「周期性巡检」）。
  * - cron：5 段标准 cron 表达式（分 时 日 月 周），支持 * , - /（步长）。
+ *
+ * **时区/DST（Wave A.5）**：默认走**本模块自研的字段匹配**（`matchesCron`）——它用**宿主本地时区**的
+ * `getHours/getDate/getDay` 判定（**不是 UTC**，2026-10-04 实测确认），因此：
+ * ① 同一份 routines.json 在不同宿主时区的机器上**触发时刻不同**（环境相关，可复现性缺陷）；
+ * ② 无法表达「按指定 IANA 时区准点触发」，也不处理夏令时跳变（本地 02:30 可能不存在或出现两次）。
+ * 要按明确时区准点触发，在构造时注入 `cron`（`CronerSchedule`）：此时 cron 型任务的到期判定改用
+ * 带 IANA 时区的「上次之后的下一个触发时刻」；interval 型任务与持久化语义**完全不变**。
+ * **不注入 = 行为与既有版本逐位一致**（兼容路径显式保留；既有本地时区语义的迁移见
+ * `docs/PROJECT_BOARD.md` 第三十五轮登记的边界）。
  *
  * 持久化到 routines.json；`runDue(now)` 返回本次应立即执行的任务（按 lastRun 防同分钟重复）。
  * 执行动作（真正跑 Agent）由 CLI 层负责，本模块只负责「何时该跑」的判定与存储。
@@ -14,12 +23,23 @@ import { homedir } from 'node:os';
 import type { Routine } from '../ports/daemon/routine.js';
 import type { RoutineModelAdapter } from '../ports/daemon/routineModelAdapter.js';
 import type { RoutineSchedule } from '../ports/daemon/routineSchedule.js';
+import type { CronSchedulePort } from '../ports/daemon/cronSchedule.js';
 
 /**
  * 定时任务相关契约（唯一声明见 `src/ports/daemon/`：`routine.ts` / `routineModelAdapter.ts` /
  * `routineSchedule.ts`；此处为原路径再导出，调用点零改动）。
  */
 export type { Routine, RoutineModelAdapter, RoutineSchedule };
+
+/**
+ * 调度器装配项（可选能力；不传则全部保持既有行为）。
+ */
+export interface RoutineSchedulerOptions {
+  /** cron 调度实现（Wave A.5）：注入后 cron 型任务按 IANA 时区判定到期。 */
+  readonly cron?: CronSchedulePort | undefined;
+  /** cron 判定所用时区（缺省由 `cron` 实现的确定性默认值决定，本仓为 `UTC`）。 */
+  readonly timezone?: string | undefined;
+}
 
 /** 把单段 cron 字段（如「每5分」「1-3,9」「任意」）展开为命中的数值集合。 */
 
@@ -30,13 +50,31 @@ export type { Routine, RoutineModelAdapter, RoutineSchedule };
 export class RoutineScheduler {
   /** 持久化文件路径（routines.json）。 */
   private readonly storePath: string;
+  /** cron 调度实现（缺省 undefined = 自研 UTC 字段匹配，兼容路径）。 */
+  private readonly cron?: CronSchedulePort | undefined;
+  /** cron 判定时区（缺省交给实现决定）。 */
+  private readonly timezone?: string | undefined;
 
   /**
    * 创建调度器。
    * @param storePath 存储文件路径（缺省 ~/.omniharness/routines.json）
+   * @param opts 可选能力（cron 调度实现 + 时区）；省略即既有行为
    */
-  public constructor(storePath: string = RoutineScheduler.defaultStorePath()) {
+  public constructor(
+    storePath: string = RoutineScheduler.defaultStorePath(),
+    opts: RoutineSchedulerOptions = {},
+  ) {
     this.storePath = storePath;
+    this.cron = opts.cron;
+    this.timezone = opts.timezone;
+  }
+
+  /**
+   * 本调度器是否走带时区的 cron 实现（供 CLI/daemon 如实申报能力边界）。
+   * @returns 注入了 `CronSchedulePort` 为 true
+   */
+  public timezoneAware(): boolean {
+    return this.cron !== undefined;
   }
 
   /**
@@ -111,6 +149,12 @@ export class RoutineScheduler {
 
   /**
    * 单任务判定。
+   *
+   * cron 型任务的到期语义（两条路径**都给确定性结论**，但时区口径不同——已在门面文档写明）：
+   * - 自研路径（未注入 `cron`）：`matchesCron` 用**宿主本地时区**字段匹配「当前这一分钟是否命中」（环境相关，历史行为）；
+   * - 注入路径：取「(上次执行时刻 ?? 一分钟前) 之后的下一个触发时刻」，若 ≤ now 即到期
+   *   —— 这与自研路径在分钟粒度上等价，但**带 IANA 时区与 DST 语义**。
+   *   注意「合法但永不匹配」（如 `0 0 30 2 *`）⇒ `atMs === null` ⇒ 判定为**不到期**（不是错误、不抛）。
    * @param routine 待判定任务。
    * @param now 判定基准时间戳（毫秒）。
    * @returns 到期返回 true（同分钟内不重复触发）。
@@ -123,6 +167,12 @@ export class RoutineScheduler {
       const gap = routine.schedule.minutes * 60_000;
       if (routine.lastRun === undefined) return true;
       return now - routine.lastRun >= gap;
+    }
+    if (this.cron !== undefined) {
+      const anchor = routine.lastRun ?? now - 60_000;
+      const next = this.cron.nextRunAt(routine.schedule.expr, anchor, this.timezone);
+      if (!next.ok) return false; // 表达式/时区非法 ⇒ 不到期（fail-closed，不误触发）。
+      return next.atMs !== null && next.atMs <= now;
     }
     return RoutineScheduler.matchesCron(routine.schedule.expr, new Date(now));
   }
