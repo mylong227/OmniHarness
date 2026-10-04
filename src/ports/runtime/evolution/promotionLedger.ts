@@ -109,4 +109,13 @@ export interface PromotionLedgerPort {
    * @returns 完整性报告
    */
   verify(): PromotionLedgerVerifyReport;
+  /**
+   * 列出全部条目（**注册序**）。
+   *
+   * 为什么要进端口：治理台（F2）必须**逐行**展示并能**独立复核**每条记录——只有整链
+   * `verify()` 的结论抄不动这件事（"第几条坏了"是运维第一问）。清单是只读面，
+   * 不含写入语义，故与 `verify()` 同层。
+   * @returns 台账条目（只读；实现须回传副本，调用方改动不得影响台账内部状态）
+   */
+  list(): readonly PromotionLedgerEntry[];
 }
