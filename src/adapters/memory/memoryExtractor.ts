@@ -27,6 +27,15 @@ export interface MemoryExtractorOptions {
    * 开启后（显式 opt-in）该回合抽出的事实被标 `trust: 'untrusted'`，回灌时带来源警示。
    */
   readonly includeToolOutput?: boolean | undefined;
+  /**
+   * 可替换时钟（毫秒，默认 `Date.now`）：`createdAt` 与冲突替代 `expiresAt` 的时间源。
+   *
+   * 为什么是个缝（PROJECT_BOARD §8.0）：`supersede` 把旧事实的 `expiresAt` 置为**调用时刻**
+   * （零余量），判据若在替代前采样"现在"再用 `expiresAt > now` 过滤，毫秒跨界时"已失效"与
+   * "仍留存"两条断言会互相打架——并行全量跑偶发假红。判据注入受控时钟把失效边界钉到
+   * 固定时刻，判据恢复确定性（偶发假红与偶发假绿同样是缺陷，`CODE_STANDARD.md` §11.3）。
+   */
+  readonly now?: () => number;
 }
 
 /**
@@ -57,6 +66,14 @@ export class MemoryExtractor implements MemoryExtractorPort {
     private readonly store: LongTermMemoryPort,
     private readonly opts: MemoryExtractorOptions = {},
   ) {}
+
+  /**
+   * 当前时刻（毫秒）：`opts.now` 优先，缺省墙钟。
+   * @returns 毫秒时间戳。
+   */
+  private nowMs(): number {
+    return (this.opts.now ?? Date.now)();
+  }
 
   /**
    * 回合末调用：把自上次蒸馏以来的新事件蒸馏为持久事实并沉淀。
@@ -117,7 +134,7 @@ export class MemoryExtractor implements MemoryExtractorPort {
           id: randomUUID(),
           text,
           importance: 3,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(this.nowMs()).toISOString(),
           sessionId,
           source: 'consolidated',
           // 只有"显式把工具输出喂进抽取器"的回合才可能被工具输出里的文本左右 ⇒ 标为未验证。
@@ -129,7 +146,7 @@ export class MemoryExtractor implements MemoryExtractorPort {
         if (superseded !== undefined) {
           // **不删除**旧事实：按端口既有语义置 `expiresAt`（到点后 `recall` 不再召回，历史仍可查）。
           // 记忆的失败方向必须是"留下多余事实"而不是"悄悄删掉真事实"。
-          const nowIso = new Date().toISOString();
+          const nowIso = new Date(this.nowMs()).toISOString();
           this.store.update(superseded, { expiresAt: nowIso });
           log.info(`记忆冲突替代：旧事实 ${superseded} 失效（新事实 ${fact.id} 取而代之）`, {
             event: 'memory_superseded',
