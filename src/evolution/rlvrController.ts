@@ -30,7 +30,11 @@ import { Benchmark } from './benchmark.js';
 
 import { TwistDiscoveryEngine } from './twistDiscoveryEngine.js';
 import { EvolutionControllerImpl } from './evolutionControllerImpl.js';
-import type { EvolutionController, PromotionVerdict } from '../ports/runtime/evolution.js';
+import type {
+  DiscoveryEngine,
+  EvolutionController,
+  PromotionVerdict,
+} from '../ports/runtime/evolution.js';
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
 import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
 import { VerifiableReward } from './verifiableReward.js';
@@ -121,12 +125,14 @@ export class RlvrController {
       samplesPerPrompt: opts.samplesPerPrompt ?? 8,
       minReward: opts.minReward,
     });
-    const discovery = new TwistDiscoveryEngine({
-      skills: opts.skills,
-      compose: opts.compose,
-      maxCandidates: opts.maxCandidates ?? 12,
-      fieldSize: opts.fieldSize,
-    });
+    const discovery =
+      opts.discovery ??
+      new TwistDiscoveryEngine({
+        skills: opts.skills,
+        compose: opts.compose,
+        maxCandidates: opts.maxCandidates ?? 12,
+        fieldSize: opts.fieldSize,
+      });
     const gate = new FailClosedEvolutionGate({
       // 默认门禁基准：候选技能是否携带复合（莫尔）结构（moireEnergy）；缺省安全旁路由调用方注入更针对性基准。
       benchmark:
@@ -162,8 +168,13 @@ export class RlvrController {
 
 /** 构造选项。 */
 export interface RlvrEvolutionOptions {
-  /** 候选技能池（供燧-1 组合发现）。 */
+  /** 候选技能池（供燧-1 组合发现；注入 `discovery` 时仅作回退声明，不参与构造）。 */
   readonly skills: readonly Skill[];
+  /**
+   * （GEE Kernel v1）发现引擎覆盖注入：缺省照旧内部构造 {@link TwistDiscoveryEngine}
+   * （零行为变更）；Kernel 路径注入「精英重入 + 实读技能源」的复合发现引擎。
+   */
+  readonly discovery?: DiscoveryEngine | undefined;
   /** 莫尔组合算子（通常注入 skillRegistry.composeByTwist）。 */
   readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
   /** 代码采样模型（生成 RLVR 候选代码变体）。 */

@@ -208,6 +208,15 @@ export interface OmniHarnessConfig {
         readonly minGain?: number | undefined;
         /** 任务完成后自动进化（默认 false）。 */
         readonly autoRun?: boolean | undefined;
+        /**
+         * （GEE Kernel v1 · ADR-0008）启用 `EvolutionKernel` 七环编排（信号→档案→级联→门禁→
+         * 台账→晋升→观测）。缺省 false = 现状 RLVR 路径，零行为变更；增益未经两关统计前保持缺省关。
+         */
+        readonly kernel?: boolean | undefined;
+        /** （Kernel 路径）晋升台账落盘目录（默认 `.omniharness/evolution`；S3 起生效）。 */
+        readonly ledgerDir?: string | undefined;
+        /** （Kernel 路径）候选档案每工况桶保留精英上限（默认 4）。 */
+        readonly archiveMaxPerBucket?: number | undefined;
       }
     | undefined;
   /** 提示注入护栏（opt-in，默认关）：开启后工具结果进模型上下文前做确定性指令注入扫描，命中即隔离（不喂给模型）。无第三方依赖、纯规则启发式、失败开放（扫描器异常时放行原始结果）。 */

@@ -50,6 +50,12 @@ export class CliSubsystemSections {
               ...(args.rlvrCandidates !== undefined ? { maxCandidates: args.rlvrCandidates } : {}),
               ...(args.rlvrMinGain !== undefined ? { minGain: args.rlvrMinGain } : {}),
               autoRun: args.rlvrAutoRun === true,
+              // （GEE Kernel v1）Kernel 子键透传（缺省不带 = 默认关，零行为变更）。
+              ...(args.evolutionKernel === true ? { kernel: true } : {}),
+              ...(args.rlvrLedgerDir !== undefined ? { ledgerDir: args.rlvrLedgerDir } : {}),
+              ...(args.rlvrArchiveMax !== undefined
+                ? { archiveMaxPerBucket: args.rlvrArchiveMax }
+                : {}),
             },
           }
         : {}),

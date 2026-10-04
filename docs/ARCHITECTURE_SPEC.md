@@ -152,7 +152,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 
 [adr/](adr/README.md)：`0001-hexagonal-ports-adapters`、`0002-dependency-allowlist`、
 `0003-unified-gate-fail-closed`、`0004-audit-hash-chain`、`0005-event-stream-single-source`、
-`0006-sandbox-honest-degradation`、`0007-api-stability-annotations`。
+`0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`。
 
 ## 12. 已知边界与"不做"清单
 

@@ -100,6 +100,15 @@ export interface FileConfig {
     readonly minGain?: number;
     /** 任务末自动跑一轮（默认 false）。 */
     readonly autoRun?: boolean;
+    /**
+     * （GEE Kernel v1 · ADR-0008）启用 `EvolutionKernel` 七环编排。缺省 false = 现状路径；
+     * CLI 旗标 `--evolution-kernel`。
+     */
+    readonly kernel?: boolean;
+    /** （Kernel 路径）晋升台账落盘目录（默认 `.omniharness/evolution`；S3 起生效）。CLI `--rlvr-ledger-dir`。 */
+    readonly ledgerDir?: string;
+    /** （Kernel 路径）候选档案每工况桶保留精英上限（默认 4）。CLI `--rlvr-archive-max`。 */
+    readonly archiveMaxPerBucket?: number;
   };
   /** 提权复核沙箱（#G3/G4）：profile 亦可覆盖，便于 dev/prod 差异配置。 */
   readonly elevatedSandbox?: 'passthrough' | 'policy' | 'restricted';
