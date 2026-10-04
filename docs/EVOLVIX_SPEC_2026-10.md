@@ -304,7 +304,9 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
   A.5 的 `openid-client`/`jose`/`croner` 与 C 的 `wasmtime` 尚未准入）。
 - 与 `ARCHITECTURE_SPEC.md`（现状权威）冲突处以 SPEC 为准，直到对应代码落地并重写 SPEC
   （Wave A/B/D 落地后 `ARCHITECTURE_SPEC.md` 的端口目录 / ADR 索引 / 规模数字已同步复测）。
-- **Wave D 的诚实边界**（比"已落地"更重要）：只做了**签名与安装**——没做远程注册表客户端，
-  也没做 §7 Wave D 判据里的「元数据可被 MCP 客户端消费（loopback）」（**该条未完成**）；
-  `metadataFor` 只落导出、不落发布；包签名覆盖**清单正文**，独立载荷文件尚未纳入摘要
-  （v1 资产是清单内联 JSON 故两者等价；将来引入包内文件时必须先补摘要再签——ADR-0011 已登记）。
+- **Wave D 的诚实边界**（逐条，比"已落地"更重要）：**已落地** = 签名资产包编解码/安装流水线（J9）、
+  注册表元数据**导出**、以及 §7 判据「元数据可被 MCP 客户端消费（loopback）」（第三十八轮：`capability_metadata`
+  只读工具 + SDK Client 经 `InMemoryTransport` 真过协议的判据）。
+  **未做** = ①远程注册表客户端（发包/取包走网络）；②独立「治理台」UI（台账 `verify()` 本身的判据已有）；
+  ③传输栈评估（`fastify`+`ws`，B 级「先测后买」，与 OTel 评估同类）；④包签名只覆盖**清单正文**，
+  独立载荷文件尚未纳入摘要（v1 资产是清单内联 JSON 故两者等价；将来引入包内文件时必须先补摘要再签——ADR-0011 已登记）。
