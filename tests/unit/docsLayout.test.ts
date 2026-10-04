@@ -39,6 +39,16 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'ARCHITECTURE_UPGRADE_2026-10.md',
   // G20-b（2026-10-03）：架构说明书按现状**重写**并回到根级 —— 这是显式决定，故白名单加一行。
   'ARCHITECTURE_SPEC.md',
+  // 自进化商业落地方案研究报告（2026-10-04 显式登记）：带日期快照，市场数字为二手来源须复核。
+  'EVOLUTION_COMMERCIALIZATION_2026-10.md',
+  // 自进化先行研究调研与自研方案（2026-10-04 显式登记）：机制级择优学习表 + GEE 自研设计，外部数字为检索快照。
+  'EVOLUTION_RD_RESEARCH_2026-10.md',
+  // 进化域架构升级方案（2026-10-04 显式登记）：GEE Kernel v1 实施蓝图，配套 ADR-0008，未实现前不得当现状引用。
+  'EVOLUTION_ARCH_UPGRADE_2026-10.md',
+  // 目标架构蓝图（2026-10-04 显式登记）：Evolvix-Ω 终局态，Wave A–E 分波浪路线，未实现前不得当现状引用。
+  'ARCHITECTURE_TARGET_2026-10.md',
+  // Evolvix-Ω 架构规格书（2026-10-04 显式登记）：实现级契约/端口/模块/流程规格，全部为设计产物未实现。
+  'EVOLVIX_SPEC_2026-10.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',

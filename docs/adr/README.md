@@ -14,6 +14,7 @@
 | [0005](./0005-event-stream-single-source.md) | 事件流为唯一真相源（投影出模型消息）               | 已接受 |
 | [0006](./0006-sandbox-honest-degradation.md) | 沙箱多后端与诚实降级（不支持即 fail-closed）       | 已接受 |
 | [0007](./0007-api-stability-annotations.md)  | API 稳定性标注分区（@public/@beta/@deprecated）    | 已接受 |
+| [0008](./0008-governed-evolution-kernel.md)  | 治理化进化内核（EvolutionKernel 一等域升格）       | 已接受 |
 
 ## 何时写新 ADR
 
