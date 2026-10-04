@@ -189,6 +189,9 @@ export class Runtime {
       minGain: rlvr?.minGain,
       autoRun: rlvr?.autoRun === true,
       discovery: reentry,
+      // S4 级联评估：静态预检先于 verifyCommand（成本优化只在 Kernel 路径开；
+      // kernel:off 路径保持逐行为等价——见 RlvrEvolutionOptions.cascade 的「缺省关」口径）。
+      cascade: true,
     });
     // 晋升台账（ring ⑤）：落盘 `<workspace>/<ledgerDir>/ledger.jsonl`（默认 `.omniharness/evolution`）。
     // 载入即全链验签：断链/不可用的台账视同缺失（kernel 对缺台账 fail-closed：无快照不晋升）。
