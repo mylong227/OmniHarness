@@ -25,13 +25,14 @@
 ## 2. 目录归属与依赖方向
 
 ```
-src/ports/**        契约层（29 个子目录 / 361 个 .ts）——纯声明
+src/ports/**        契约层（30 个子目录 / 368 个 .ts）——纯声明
 src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
 src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
 src/composition/**  组合根（Runtime + 装配）
 src/config/**       配置装配（7 个 Assembler + ConfigFactory/ConfigBuilder）
 src/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
 src/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表 + 通用评估器 + 内置两类型；ADR-0009）
+src/asset/**        签名资产包实现（L4：.ohb 编解码 + Ed25519 非对称验签 + 安装流水线；ADR-0011）
 src/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
 src/cli/**  src/server/**  （Web 工作台在 web/**）
 ```
@@ -45,7 +46,7 @@ src/cli/**  src/server/**  （Web 工作台在 web/**）
 - `[5] 依赖环（Tarjan SCC）——新增环即红，环缩小放行`
 - `[4] 目录平铺告警（直接 .ts > 30，非阻断）`
 
-**端口子目录（29，与磁盘一致）**：`a2a`、`approval`、`autonomy`、`capability`、`composition`、`config`、
+**端口子目录（30，与磁盘一致）**：`a2a`、`approval`、`asset`、`autonomy`、`capability`、`composition`、`config`、
 `context`、`core`、`daemon`、`decision`、`enterprise`、`genesis`、`intelligence`、`mcp`、`media`、`memory`、
 `model`、`native`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、`subagent`、`tool`、
 `tui`、`util`。
@@ -161,7 +162,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 [adr/](adr/README.md)：`0001-hexagonal-ports-adapters`、`0002-dependency-allowlist`、
 `0003-unified-gate-fail-closed`、`0004-audit-hash-chain`、`0005-event-stream-single-source`、
 `0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`、
-`0009-capability-protocol`。
+`0009-capability-protocol`、`0011-signed-asset-pack`。
 
 ## 12. 已知边界与"不做"清单
 
