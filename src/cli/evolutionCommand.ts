@@ -20,10 +20,16 @@
  * @maturity L1 — status 只读 / rollback 门禁与产物格式判据钉死；CLI 不持活技能表（诚实边界）
  * @maturityEvidence tests/unit/evolutionCommand.test.ts
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
 import { PromotionHistoryService } from '../governance/promotionHistoryService.js';
+import { ProvenanceIssuer } from '../governance/provenanceIssuer.js';
+import type {
+  ProvenanceCertificate,
+  ProvenanceIssuerIdentity,
+} from '../governance/provenanceIssuer.js';
+import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
 import type { PromotionLedgerEntry, SkillRestorePlan } from '../ports/runtime/evolution.js';
 import { CliArgReader } from './cliArgReader.js';
 
@@ -35,8 +41,10 @@ const USAGE =
   '用法: omniharness evolution status [--workspace DIR] [--dir REL] [--json]\n' +
   '      omniharness evolution history [--workspace DIR] [--dir REL] [--json]\n' +
   '      omniharness evolution cycle --yes [其他 CLI 旗标…]\n' +
+  '      omniharness evolution lineage [--skill A --skill B] [--pack NAME] [--out FILE] [--sign-key FILE] [--json]\n' +
+  '      omniharness evolution lineage --verify FILE [--trust <ssh-ed25519 …>] [--json]\n' +
   '      omniharness evolution rollback --seq N --yes [--out FILE] [--workspace DIR] [--dir REL]\n' +
-  '说明: status 只读；cycle / rollback 会改动状态，必须显式 --yes。\n';
+  '说明: status/history/lineage 只读；cycle / rollback 会改动状态，必须显式 --yes。\n';
 
 /**
  * cycle 执行钩子：由命令链接入（需要配置装载 + 运行时装配能力）。
@@ -66,10 +74,139 @@ export class EvolutionCommand {
     const sub = args[0];
     if (sub === 'status') return this.status(args.slice(1));
     if (sub === 'history') return this.history(args.slice(1));
+    if (sub === 'lineage') return this.lineage(args.slice(1));
     if (sub === 'rollback') return this.rollback(args.slice(1));
     if (sub === 'cycle') return this.cycle(args.slice(1));
     process.stdout.write(USAGE);
     return 2;
+  }
+
+  /**
+   * lineage（H3 进化系谱出证）：为技能**出证**，或**独立复核**一份证书。
+   *
+   * 用法：
+   * - 出证：`evolution lineage [--skill A --skill B] [--pack NAME] [--out FILE] [--json] [--sign-key FILE]`
+   * - 复核：`evolution lineage --verify FILE [--trust <ssh-ed25519 …>] [--json]`
+   *
+   * 默认对**台账里所有已晋升技能**出证（`--skill` 可指定子集）。复核**不访问台账**
+   * （证书自带可重算载荷），这正是"收证方无需信任签发方"的含义。
+   * @param args `lineage` 之后的旗标
+   * @returns 0 = 出证成功 / 复核通过；1 = 台账不可用或复核不合格；2 = 用法错误
+   */
+  private lineage(args: readonly string[]): Promise<number> {
+    const reader = new CliArgReader(args);
+    const json = reader.has('--json');
+    const verifyPath = reader.value('--verify');
+    if (verifyPath !== undefined)
+      return Promise.resolve(this.verifyLineage(reader, verifyPath, json));
+    return Promise.resolve(this.issueLineage(reader, json));
+  }
+
+  /**
+   * 出证路径：读台账 → 逐资产找依据 → 可选出证书文件与签名。
+   * @param reader 参数读取器
+   * @param json 是否 JSON 输出
+   * @returns 退出码（0 成功 / 1 台账不可用 / 2 用法错误）
+   */
+  private issueLineage(reader: CliArgReader, json: boolean): number {
+    const dir = this.ledgerDir(reader);
+    let ledger: HashChainPromotionLedger;
+    try {
+      ledger = new HashChainPromotionLedger({ dir });
+    } catch (err) {
+      return this.reportUnusable(dir, err, json);
+    }
+    const requested = reader.values('--skill');
+    const names =
+      requested.length > 0
+        ? requested
+        : [
+            ...new Set(
+              ledger.list().flatMap((entry) => (entry.promoted ? [entry.promoted.name] : [])),
+            ),
+          ];
+    const identity = this.identityOf(reader);
+    const certificate = new ProvenanceIssuer(ledger).build({
+      packName: reader.value('--pack') ?? 'local-workspace',
+      issuedAt: new Date().toISOString(),
+      assets: names.map((name) => ({ name })),
+      ...(identity !== undefined ? { identity } : {}),
+    });
+    const out = reader.value('--out');
+    if (out !== undefined) {
+      writeFileSync(out, `${JSON.stringify(certificate, null, 2)}\n`, 'utf8');
+    }
+    if (json) {
+      process.stdout.write(`${JSON.stringify(certificate, null, 2)}\n`);
+      return 0;
+    }
+    process.stdout.write(
+      `进化系谱证书：${certificate.pack.name}（${String(certificate.assets.length)} 项资产，链${certificate.chain.verified ? '可信' : '**不可信**'}）\n`,
+    );
+    for (const asset of certificate.assets) {
+      const mark = asset.origin === 'ledger-promotion' ? '✓' : '?';
+      process.stdout.write(
+        `  ${mark} ${asset.name}（${asset.origin}）` +
+          `${asset.source === undefined ? '' : ` ← ${asset.source}`}\n`,
+      );
+      for (const verdict of asset.verdicts) process.stdout.write(`      · ${verdict}\n`);
+      if (asset.unprovenReason !== undefined)
+        process.stdout.write(`      · ${asset.unprovenReason}\n`);
+    }
+    process.stdout.write(
+      `  签名：${certificate.issuer === undefined ? '未签名（哈希链部分仍可独立复核）' : `已签名 ${certificate.issuer.publicKeySsh.slice(0, 32)}…`}\n` +
+        `${out === undefined ? '' : `  已写入：${out}\n`}`,
+    );
+    return 0;
+  }
+
+  /**
+   * 复核路径：读证书文件 → 独立重算（不访问台账）→ 报告结论。
+   * @param reader 参数读取器
+   * @param path 证书文件
+   * @param json 是否 JSON 输出
+   * @returns 退出码（0 合格 / 1 不合格）
+   */
+  private verifyLineage(reader: CliArgReader, path: string, json: boolean): number {
+    let certificate: ProvenanceCertificate;
+    try {
+      certificate = JSON.parse(readFileSync(path, 'utf8')) as ProvenanceCertificate;
+    } catch (err) {
+      process.stderr.write(`无法读取证书 ${path}：${String(err)}\n`);
+      return 1;
+    }
+    const trusted = reader.values('--trust');
+    const verdict = ProvenanceIssuer.verify(certificate, { trustedPublicKeys: trusted });
+    if (json) {
+      process.stdout.write(`${JSON.stringify(verdict, null, 2)}\n`);
+    } else {
+      process.stdout.write(
+        `复核 ${path}：${verdict.ok ? '合格' : '**不合格**'}\n` +
+          `  签名：${verdict.signatureChecked ? '已验签' : trusted.length === 0 ? '未检查（未给 --trust）' : '未签名'}\n`,
+      );
+      for (const asset of verdict.assets) {
+        process.stdout.write(
+          `  ${asset.origin === 'ledger-promotion' ? '✓' : '?'} ${asset.name}（${asset.origin}，重算${asset.recomputed ? '通过' : '未通过'}）\n`,
+        );
+      }
+      for (const problem of verdict.problems) process.stdout.write(`  ✗ ${problem}\n`);
+    }
+    return verdict.ok ? 0 : 1;
+  }
+
+  /**
+   * 取签发身份（`--sign-key <file>` 内容为 base64 PKCS#8 私钥；缺省 = 未签名证书）。
+   * @param reader 参数读取器
+   * @returns 身份；未提供时为 undefined
+   */
+  private identityOf(reader: CliArgReader): ProvenanceIssuerIdentity | undefined {
+    const keyFile = reader.value('--sign-key');
+    if (keyFile === undefined) return undefined;
+    const pem = readFileSync(keyFile, 'utf8').trim();
+    return new Ed25519AgentIdentity({
+      agentRuntimeId: 'lineage-issuer',
+      privateKeyPkcs8Base64: pem,
+    });
   }
 
   /**
