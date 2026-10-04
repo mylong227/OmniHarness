@@ -28,6 +28,7 @@ import { CliAgentCmds } from './cliAgentCmds.js';
 import { EvolutionCommand } from './evolutionCommand.js';
 import { CapabilityCommand } from './capabilityCommand.js';
 import { AssetPackInstaller } from '../asset/assetPackInstaller.js';
+import { IsolationLadder } from '../adapters/isolation/isolationLadder.js';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
 import type { AssetPackPort } from '../ports/asset.js';
 import type { CapabilityStack } from '../ports/config/capabilityStack.js';
@@ -302,6 +303,9 @@ export class ExecCli extends CliAgentCmds {
         schemas: stack.schemas,
         ledger: new HashChainPromotionLedger({ dir }),
         defaults: stack.defaults,
+        // Wave C · ADR-0010：装包前做「档位可达性门禁 + in-process 冒烟」——
+        // 声明了本机不可达档位（如 wasm：wasmtime 未准入）的包一律拒装，绝不降档凑合。
+        isolation: new IsolationLadder(),
       });
     } catch {
       return undefined;

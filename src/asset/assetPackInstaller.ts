@@ -40,6 +40,7 @@ import type {
   TrustTier,
 } from '../ports/capability.js';
 import type { PromotionLedgerPort } from '../ports/runtime/evolution.js';
+import type { IsolationPayload, IsolationPort } from '../ports/runtime/isolation.js';
 
 /** 装配项。 */
 export interface AssetPackInstallerOptions {
@@ -57,6 +58,20 @@ export interface AssetPackInstallerOptions {
     { readonly trustTier: TrustTier; readonly isolation: IsolationLevel } | undefined;
   /** ISO 时间戳注入（记录出生时间；本类不读墙钟）。 */
   readonly now?: (() => string) | undefined;
+  /**
+   * 隔离阶梯（Wave C · ADR-0010）：注入后启用**档位门禁 + 冒烟**（§4 F3 的第四步）。
+   * 缺省 = 不检查（行为与 Wave D2 完全一致，零回归）。
+   */
+  readonly isolation?: IsolationPort | undefined;
+  /**
+   * 档位原生冒烟载荷（可选）：为更严档位（`vm` / `os-sandbox` / `wasm`）提供**该档能跑**的载荷。
+   *
+   * 缺省（不提供）= 更严档位**不冒烟**，理由见文件内注释：「宿主闭包型冒烟」在更严档位上
+   * 本来就跑不了（跨 realm 会得到假隔离），强行跑只会得到一句 `payload-unsupported`；
+   * 而数据型资产没有自带代码——真正要冒烟的是**资产自带的代码**，那要等有代码型资产。
+   */
+  readonly smokePayloadFor?:
+    ((record: CapabilityRecord) => IsolationPayload<unknown> | undefined) | undefined;
 }
 
 /** 预检通过的待装条目（含算好的档位）。 */
@@ -95,9 +110,14 @@ export class AssetPackInstaller implements AssetPackPort {
   };
   /** 时间戳注入。 */
   private readonly now: () => string;
+  /** 隔离阶梯（undefined = 不做档位门禁与冒烟）。 */
+  private readonly isolation?: IsolationPort | undefined;
+  /** 档位原生冒烟载荷提供者。 */
+  private readonly smokePayloadFor?:
+    ((record: CapabilityRecord) => IsolationPayload<unknown> | undefined) | undefined;
 
   /**
-   * @param opts 注册表 / 类型注册表 / 台账 / 档位下限 / 时钟
+   * @param opts 注册表 / 类型注册表 / 台账 / 档位下限 / 时钟 / 隔离阶梯 / 冒烟载荷
    */
   public constructor(opts: AssetPackInstallerOptions) {
     this.registry = opts.registry;
@@ -105,6 +125,8 @@ export class AssetPackInstaller implements AssetPackPort {
     this.ledger = opts.ledger;
     this.defaults = opts.defaults ?? { trustTier: 'evolved', isolation: 'vm' };
     this.now = opts.now ?? ((): string => new Date().toISOString());
+    this.isolation = opts.isolation;
+    this.smokePayloadFor = opts.smokePayloadFor;
   }
 
   /**
@@ -129,6 +151,8 @@ export class AssetPackInstaller implements AssetPackPort {
     }
     const prepared = this.prepare(manifest, verdict.ok);
     if (typeof prepared === 'string') return AssetPackInstaller.reject(prepared);
+    const smoke = await this.smoke(prepared);
+    if (typeof smoke === 'string') return AssetPackInstaller.reject(smoke);
     const installed = this.register(prepared);
     if (typeof installed === 'string') return AssetPackInstaller.reject(installed);
 
@@ -139,6 +163,57 @@ export class AssetPackInstaller implements AssetPackPort {
       publisher: manifest.publisher,
       ledgerSeq: firstSeq,
       ...(verdict.ok ? {} : { unsigned: true }),
+    };
+  }
+
+  /**
+   * 档位门禁 + 冒烟（§4 F3 的第四步；未注入隔离阶梯时整体跳过 = 零回归）。
+   *
+   * 两步的分工（**这两件事不是一回事，混起来会得到假安全**）：
+   * 1. **档位可达性门禁**：资产声明的档位若在本机不可达（如 `wasm`——wasmtime 未准入）⇒ 整包拒。
+   *    理由：装了也跑不了，且**绝不允许**安装时把档位降下来凑合（ADR-0010 决策 2）；
+   * 2. **冒烟评估**：
+   *    - 声明档位是 `in-process` ⇒ 在阶梯内跑一次该类型的度量（宿主闭包载荷，这一档能承载它）；
+   *      抛错/超时 ⇒ 整包拒（把「装完才发现评估就炸」提前到安装时）；
+   *    - 更严档位 ⇒ 默认**不冒烟**（宿主闭包跨 realm 只会得到 `payload-unsupported`；
+   *      数据型资产也没有自带代码可跑）。组合根若提供 `smokePayloadFor`，则按该档原生载荷冒烟。
+   * @param prepared 待装条目
+   * @returns undefined = 通过；字符串 = 拒装原因
+   */
+  private async smoke(prepared: readonly PreparedAsset[]): Promise<string | undefined> {
+    if (this.isolation === undefined) return undefined;
+    for (const item of prepared) {
+      if (!this.isolation.available(item.isolation)) {
+        return `资产 ${item.entry.name} 声明的隔离档 ${item.isolation} 在本机不可达：拒装（不降档；ADR-0010）`;
+      }
+      const record = AssetPackInstaller.recordOf(item, this.now());
+      const payload = this.smokePayload(item, record);
+      if (payload === undefined) continue;
+      const result = await this.isolation.run({ asset: record, payload, level: item.isolation });
+      if (!result.ok) {
+        return `资产 ${item.entry.name} 冒烟未通过（${result.denied.code}）：${result.denied.reason}`;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * 取冒烟载荷：`in-process` 档用「跑一次该类型度量」的宿主闭包；更严档位用注入的原生载荷。
+   * @param item 待装条目
+   * @param record 资产记录（档位已收紧）
+   * @returns 载荷；不适用时为 undefined（= 该资产不冒烟，见 `smoke` 注释）
+   */
+  private smokePayload(
+    item: PreparedAsset,
+    record: CapabilityRecord,
+  ): IsolationPayload<unknown> | undefined {
+    const native = this.smokePayloadFor?.(record);
+    if (native !== undefined) return native;
+    if (item.isolation !== 'in-process') return undefined;
+    const schema = this.schemas.schemaOf(item.entry.schemaKind);
+    return {
+      kind: 'closure',
+      run: () => schema.evalContract({ evaluator: 'install-smoke' })(item.entry.asset),
     };
   }
 
