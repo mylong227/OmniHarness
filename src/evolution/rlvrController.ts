@@ -38,6 +38,7 @@ import type {
 import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
 import type { RlvrSampler, ReplayBuffer, CodeCandidate } from './rlvrLoop.js';
 import { VerifiableReward } from './verifiableReward.js';
+import { CascadeReward } from './cascadeReward.js';
 import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.js';
 import type { RewardCoverageReport } from './rewardCoverageMeter.js';
 import { PromotionAdmission } from './promotionAdmission.js';
@@ -110,14 +111,17 @@ export class RlvrController {
     const buffer: ReplayBuffer = new InMemoryReplayBuffer();
     const sampler = RlvrController.modelRlvrSampler(opts.model, opts.samplesPerPrompt ?? 8);
     const meter = new RewardCoverageMeter();
-    const reward =
-      opts.verifyCommand !== undefined
-        ? meter.wrap({
-            verify: VerifiableReward.verifiableVerdictForCode(() => opts.verifyCommand, {
-              codeFileExtension: opts.verifyCodeFileExtension,
-            }),
-          })
-        : () => Promise.resolve(0);
+    // 级联评估（S4）：静态预检（纯函数）先于 verifyCommand——不过即短路，省一次子进程全量验证。
+    // 缺省关（现状路径逐行为等价）；Kernel 路径显式开（`cascade: true`）。
+    const verdictFor = VerifiableReward.verifiableVerdictForCode(() => opts.verifyCommand, {
+      codeFileExtension: opts.verifyCodeFileExtension,
+    });
+    const cascade = opts.cascade === true ? new CascadeReward({ inner: verdictFor }) : undefined;
+    const probe =
+      cascade !== undefined
+        ? { verify: (c: CodeCandidate) => cascade.verify(c) }
+        : { verify: verdictFor };
+    const reward = opts.verifyCommand !== undefined ? meter.wrap(probe) : () => Promise.resolve(0);
     const loop = new RlvrLoop({
       sampler,
       reward,
@@ -161,8 +165,9 @@ export class RlvrController {
       minCoverage,
       verifyCommand: opts.verifyCommand !== undefined,
       samplesPerPrompt: opts.samplesPerPrompt ?? 8,
+      cascade: cascade !== undefined,
     });
-    return { controller, buffer, report: () => controller.report() };
+    return { controller, buffer, report: () => controller.report(), cascade };
   }
 }
 
@@ -212,6 +217,12 @@ export interface RlvrEvolutionOptions {
    * 该线即**整轮不晋升**（fail-closed 保守处理；诚实降级口径见 `honestNote`）。
    */
   readonly minCoverage?: number | undefined;
+  /**
+   * （GEE Kernel v1 · S4）级联评估开关（默认 false = 现状逐行为等价）：
+   * 开则 RLVR 奖励先过 `CascadeReward` 零成本静态预检，不过即短路（不 spawn verifyCommand）；
+   * 静态否决记 `static-fail:<规则>` 且 `verifiable=false`——真实命令没跑过，不得冒充验过。
+   */
+  readonly cascade?: boolean | undefined;
   /** 晋升回调。 */
   readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   /** 任务末自动进化（默认 false）。 */
@@ -248,6 +259,8 @@ export interface RlvrEvolutionBundle {
   readonly buffer: ReplayBuffer;
   /** 最近一轮闭环体检报告；尚未跑过任何一轮时返回 undefined。 */
   readonly report: () => RlvrCycleReport | undefined;
+  /** （S4）级联评估实例（未开 `cascade` 时为 undefined；`stats()` 供观测短路率）。 */
+  readonly cascade?: CascadeReward | undefined;
 }
 
 /**
