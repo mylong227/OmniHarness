@@ -2,6 +2,7 @@ import type { ApprovalPort } from '../ports/runtime/approval.js';
 import type { SupervisorPort } from '../ports/runtime/supervisor.js';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../ports/runtime/sandbox.js';
 import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.js';
+import type { RolePolicyPort } from '../ports/security/rolePolicy.js';
 /**
  * 提权沙箱默认 fail-closed：未显式注入 elevatedSandbox 时一律拒绝升级，绝不静默全放行
  * （防御性兜底，防止手动/测试构造 ToolGate 漏注入时把提权重试变成沙箱绕过）。
@@ -64,6 +65,13 @@ export class ToolGate implements ToolGatePort {
     private readonly elevatedSandbox: SandboxPort = FAIL_CLOSED_ELEVATED_SANDBOX,
     /** 航天级监督内核（I-P0-3，可选）：最高优先级确定性否决，置于审批/沙箱/计划门禁之前。 */
     private readonly supervisor?: SupervisorPort,
+    /**
+     * 角色策略（F3 RBAC-lite，可选）：**第三道门**，与审批（单次是否放行）/沙箱（OS 层能力）正交。
+     * 缺省 undefined ⇒ 完全跳过（零行为变更）。
+     */
+    private readonly rolePolicy?: RolePolicyPort,
+    /** 当前角色名（与 `rolePolicy` 同时给出才生效；缺省 undefined ⇒ 不判角色）。 */
+    private readonly role?: string,
   ) {}
 
   /**
@@ -88,13 +96,31 @@ export class ToolGate implements ToolGatePort {
   }
 
   /**
+   * 角色门禁（F3）：角色不允许即拒，**且不咨询审批/沙箱**。
+   *
+   * 为什么放在审批之前：角色决定的是**能力边界**（这个角色根本有没有这项能力），
+   * 而审批决定的是"这一次要不要人点确认"。先问审批会让"越权调用"走到弹框那一步——
+   * 既不安全（审批可能被自动规则放行）也浪费一次交互。判据断言审批端口**零调用**。
+   * @param call 待裁决的工具调用
+   * @returns 拒绝原因；角色放行（或未配置角色策略）时为 undefined
+   */
+  private roleDenialReason(call: ToolCall): string | undefined {
+    if (this.rolePolicy === undefined || this.role === undefined) return undefined;
+    const verdict = this.rolePolicy.decide(this.role, call);
+    return verdict.allow ? undefined : verdict.reason;
+  }
+
+  /**
    * 取具体拒绝原因；未拒绝返回 undefined。区分 plan / 审批 / 沙箱三类，便于 UI 归因（G3 可观测性）。
    * @param call 待裁决的工具调用。
    * @param sessionId 发起调用的会话 ID。
    * @returns 拒绝原因文本（含门禁类别）；三道门禁全部放行时为 undefined。
    */
   private async denialReason(call: ToolCall, sessionId: string): Promise<string | undefined> {
-    // 计划门禁（最先判：未批准前禁止任何写类工具，哪怕审批/沙箱放行）。
+    // 角色门禁（F3 RBAC-lite）：**最先判**——角色不允许的工具，连审批都不咨询（判据断言审批零调用）。
+    const roleDenial = this.roleDenialReason(call);
+    if (roleDenial !== undefined) return roleDenial;
+    // 计划门禁（未批准前禁止任何写类工具，哪怕审批/沙箱放行）。
     // fail-closed（2026-10-03 修）：`planMode=true` 而 `plan` 缺省时，写类工具**一律拒绝**——
     // 旧条件 `this.plan !== undefined` 让「声明了计划模式却没接计划端口」的手动/测试构造
     // 形态静默退化为无计划门禁（正是本文件 `FAIL_CLOSED_ELEVATED_SANDBOX` 要防的同型漏洞）。
