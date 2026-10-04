@@ -1,4 +1,4 @@
-﻿/**
+/**
  * cliAgentCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 6/6 层）。
  *
  * 承载「自主 / 编排 / 交互」类子命令：execute（replay/resume/fork/runTask）、goal、workflow、
@@ -21,6 +21,7 @@ import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/ro
 import { Interactive } from '../tui/interactive.js';
 import type { TuiEvent } from '../tui/tuiRenderer.js';
 import { ArgParser, CliDefaults } from './argParser.js';
+import { CronerSchedule } from '../adapters/schedule/cronerSchedule.js';
 import type { CliArgs } from './argParser.js';
 import { CliNativeCmds } from './cliNativeCmds.js';
 
@@ -177,7 +178,9 @@ export class CliAgentCmds extends CliNativeCmds {
    * @returns 进程退出码：用法错误为 2，其余按动作结果为 0。
    */
   protected async runRoutines(routineArgs: readonly string[]): Promise<number> {
-    const scheduler = new RoutineScheduler();
+    // Wave A.5：注入带 IANA 时区的 cron 实现（缺省 UTC，绝不用宿主本地时区——那会让同一配置跨机器行为不同）。
+    // 该端口是可选能力：注入后 cron 型任务按真实时区/DST 判定到期，interval 型与持久化语义不变。
+    const scheduler = new RoutineScheduler(undefined, { cron: new CronerSchedule() });
     const sub = routineArgs[0];
     if (sub === 'list') {
       const all = scheduler.list();
