@@ -173,6 +173,9 @@ export class IsolationLadder implements IsolationPort {
 
   /**
    * `in-process` 档：直接调用（**逐位等价**是这一档的全部承诺）。
+   *
+   * 载荷抛错 ⇒ 归 `trap` 拒因（**绝不把异常透出去**：`run` 的契约是「要么结果、要么拒因」，
+   * 让异常逃逸会让调用方（如装包冒烟）在多资产循环里半途中止，留下不一致状态）。
    * @param payload 载荷（闭包）
    * @returns 执行结果
    */
@@ -180,7 +183,18 @@ export class IsolationLadder implements IsolationPort {
     readonly kind: 'closure';
     readonly run: () => T | Promise<T>;
   }): Promise<IsolationResult<T>> {
-    return { ok: true, value: await payload.run(), level: 'in-process' };
+    try {
+      return { ok: true, value: await payload.run(), level: 'in-process' };
+    } catch (err) {
+      return {
+        ok: false,
+        denied: {
+          code: 'trap',
+          level: 'in-process',
+          reason: `in-process 档载荷抛错：${err instanceof Error ? err.message : String(err)}`,
+        },
+      };
+    }
   }
 
   /**

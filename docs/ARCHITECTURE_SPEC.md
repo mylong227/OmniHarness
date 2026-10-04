@@ -81,6 +81,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 | 进化   | `ports/runtime/evolution/{signalSource,candidateArchive,promotionLedger}.ts`                                 | 信号源 / 候选档案 / 晋升台账（ADR-0008；`EvolutionKernel` 实现**既有** `EvolutionController`，`core/` 零改动） |
 | 资产   | `ports/capability/{capabilitySchema,capabilityRecord,capabilityRegistryPort}.ts`                             | 统一资产协议：类型自描述 + 资产实例 + `SkillPort` 超集注册表（ADR-0009；Wave B 第一态 = 并存不切换）           |
 | 分发   | `ports/asset/assetPack.ts`                                                                                   | 签名资产包：`AssetPackPort`（装包 + 元数据导出）+ 严格档 fail-closed（ADR-0011；Ed25519 非对称验签，零新依赖） |
+| 隔离   | `ports/runtime/isolation.ts`                                                                                 | 信任-隔离阶梯执行面（ADR-0010）：档位不可达即拒执行、不静默降档；`wasm` 档如实申报未接入                       |
 
 **服务令牌（G26）**：`ServiceKey<T>`（实现类在 `core/serviceKey.ts`，端口只给结构契约
 `ports/runtime/serviceKeyLike.ts`）⇒ 注册**类型不符即编译失败**、取用**零断言**。

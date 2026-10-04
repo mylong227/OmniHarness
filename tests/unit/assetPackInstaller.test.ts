@@ -21,9 +21,12 @@ import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaR
 import { SkillSchema } from '../../src/capability/schemas/skillSchema.js';
 import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
 import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
+import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.js';
 import { Zip } from '../../src/plugin/zip.js';
 import { SkillRegistry } from '../../src/skill/skillRegistry.js';
 import type { AssetPackManifest, PackAssetEntry } from '../../src/ports/asset.js';
+import type { CapabilityRegistryPort, IsolationLevel } from '../../src/ports/capability.js';
+import type { IsolationPort } from '../../src/ports/runtime/isolation.js';
 
 /** 固定时钟（确定性）。 */
 const FIXED_NOW = (): string => '2026-10-04T00:00:00.000Z';
@@ -252,4 +255,164 @@ test('D2 容器误读：把插件包/坏字节喂给安装器 ⇒ 如实拒（�
   assert.strictEqual(garbage.ok, false);
   assert.ok((garbage.rejectedReason ?? '').length > 0, '拒装必须给可读原因');
   assert.strictEqual(ledger!.list().length, 0, '误读包不得留下账目');
+});
+
+// ---- Wave C2：档位门禁 + 冒烟（§4 F3 第四步）----
+
+/**
+ * 建一套「带隔离阶梯」的安装环境。
+ * @param opts 档位下限与阶梯注入
+ * @returns 环境
+ */
+function isolatedEnv(opts: {
+  readonly defaultIsolation: IsolationLevel;
+  readonly ladder?: IsolationPort;
+}): {
+  readonly installer: AssetPackInstaller;
+  readonly registry: CapabilityRegistryPort;
+  readonly ledger: HashChainPromotionLedger;
+} {
+  const schemas = new CapabilitySchemaRegistry();
+  schemas.register(new SkillSchema());
+  const ledger = new HashChainPromotionLedger({ now: FIXED_NOW });
+  const registry = new CapabilityRegistry({ schemas, skills: new SkillRegistry(), ledger });
+  const installer = new AssetPackInstaller({
+    registry,
+    schemas,
+    ledger,
+    defaults: { trustTier: 'evolved', isolation: opts.defaultIsolation },
+    now: FIXED_NOW,
+    ...(opts.ladder !== undefined ? { isolation: opts.ladder } : {}),
+  });
+  return { installer, registry, ledger };
+}
+
+test('C2 档位门禁：声明档位不可达（wasm）⇒ 整包拒（不降档），原因点名 wasmtime 未准入', async () => {
+  const { installer, registry, ledger } = isolatedEnv({
+    defaultIsolation: 'in-process',
+    ladder: new IsolationLadder(),
+  });
+  const { bytes } = manifestOf('wasm-asset', [skillEntry('w1', { isolation: 'wasm' })], true);
+  const report = await installer.install({ bytes });
+  assert.strictEqual(report.ok, false);
+  assert.match(report.rejectedReason ?? '', /隔离档 wasm 在本机不可达：拒装（不降档；ADR-0010）/);
+  assert.strictEqual(registry.recordOf('w1'), undefined, '被拒的包不得留资产');
+  assert.strictEqual(ledger.list().length, 0, '被拒的包不得留账目');
+});
+
+test('C2 冒烟：in-process 档真跑一次类型度量（经注入的阶梯），失败 ⇒ 整包拒', async () => {
+  const seen: string[] = [];
+  const spy: IsolationPort = {
+    run: async (request) => {
+      seen.push(`${request.asset.schemaKind}:${request.level ?? 'default'}`);
+      const started = Date.now();
+      const result = await new IsolationLadder().run(request);
+      void started;
+      return result;
+    },
+    available: () => true,
+  };
+  const ok = isolatedEnv({ defaultIsolation: 'in-process', ladder: spy });
+  const passed = await ok.installer.install({
+    bytes: manifestOf('smoke-ok', [skillEntry('s1')], true).bytes,
+  });
+  assert.strictEqual(passed.ok, true);
+  assert.deepStrictEqual(seen, ['skill:in-process'], '冒烟必须真的经阶梯、用资产自己的档位');
+  assert.strictEqual(ok.ledger.list().filter((e) => e.action === 'pack-install').length, 1);
+
+  // 度量抛错 ⇒ in-process 档归 trap ⇒ 整包拒（把「装完才发现评估就炸」提前到安装时）。
+  const schemas = new CapabilitySchemaRegistry();
+  schemas.register({
+    kind: 'boom',
+    version: 1,
+    validate: () => ({ ok: true }),
+    evalContract: () => () => {
+      throw new Error('度量崩了');
+    },
+    defaultTrustTier: 'core',
+    defaultIsolation: 'in-process',
+    ledgerSemantics: { chain: 'promotion', snapshot: 'registry-full' },
+  });
+  const ledger = new HashChainPromotionLedger({ now: FIXED_NOW });
+  const registry = new CapabilityRegistry({ schemas, skills: new SkillRegistry(), ledger });
+  const boomInstaller = new AssetPackInstaller({
+    registry,
+    schemas,
+    ledger,
+    defaults: { trustTier: 'evolved', isolation: 'in-process' },
+    now: FIXED_NOW,
+    isolation: new IsolationLadder(),
+  });
+  const failed = await boomInstaller.install({
+    bytes: manifestOf(
+      'smoke-bad',
+      [{ schemaKind: 'boom', name: 'b1', asset: { name: 'b1' } }],
+      true,
+    ).bytes,
+  });
+  assert.strictEqual(failed.ok, false);
+  assert.match(failed.rejectedReason ?? '', /冒烟未通过（trap）/);
+  assert.match(failed.rejectedReason ?? '', /度量崩了/);
+  assert.strictEqual(ledger.list().length, 0, '冒烟失败不得留账目');
+});
+
+test('C2 更严档位默认不冒烟（宿主闭包跨 realm 会得到假隔离）：可用即装成功', async () => {
+  const { installer, registry, ledger } = isolatedEnv({
+    defaultIsolation: 'vm',
+    ladder: new IsolationLadder(),
+  });
+  assert.strictEqual(new IsolationLadder().available('vm'), true);
+  const report = await installer.install({
+    bytes: manifestOf('vm-asset', [skillEntry('v1')], true).bytes,
+  });
+  assert.strictEqual(report.ok, true, 'vm 档可用且不适用闭包冒烟 ⇒ 装成功');
+  assert.strictEqual(registry.recordOf('v1')?.governance.isolation, 'vm');
+  assert.strictEqual(ledger.list().filter((e) => e.action === 'pack-install').length, 1);
+});
+
+test('C2 档位原生冒烟载荷：注入 smokePayloadFor ⇒ 更严档位也真冒烟且结果参与门禁', async () => {
+  const schemas = new CapabilitySchemaRegistry();
+  schemas.register(new SkillSchema());
+  const ledger = new HashChainPromotionLedger({ now: FIXED_NOW });
+  const registry = new CapabilityRegistry({ schemas, skills: new SkillRegistry(), ledger });
+  const ran: string[] = [];
+  const installer = new AssetPackInstaller({
+    registry,
+    schemas,
+    ledger,
+    defaults: { trustTier: 'evolved', isolation: 'vm' },
+    now: FIXED_NOW,
+    isolation: new IsolationLadder(),
+    smokePayloadFor: (record) => ({
+      kind: 'js-source',
+      code: '(() => "native-smoke-ok")()',
+      filename: `${record.schemaKind}-smoke.js`,
+    }),
+  });
+  const passed = await installer.install({
+    bytes: manifestOf('native', [skillEntry('n1')], true).bytes,
+  });
+  assert.strictEqual(passed.ok, true);
+  ran.push('ok');
+
+  // 原生载荷失败 ⇒ 整包拒（vm 档内触达宿主能力 ⇒ escape）。
+  const bad = new AssetPackInstaller({
+    registry: new CapabilityRegistry({ schemas, skills: new SkillRegistry(), ledger }),
+    schemas,
+    ledger,
+    defaults: { trustTier: 'evolved', isolation: 'vm' },
+    now: FIXED_NOW,
+    isolation: new IsolationLadder(),
+    smokePayloadFor: () => ({
+      kind: 'js-source',
+      code: '(() => require("node:fs"))()',
+      filename: 'escape-smoke.js',
+    }),
+  });
+  const failed = await bad.install({
+    bytes: manifestOf('native-bad', [skillEntry('n2')], true).bytes,
+  });
+  assert.strictEqual(failed.ok, false);
+  assert.match(failed.rejectedReason ?? '', /冒烟未通过（escape）/);
+  assert.strictEqual(registry.recordOf('n2'), undefined);
 });
