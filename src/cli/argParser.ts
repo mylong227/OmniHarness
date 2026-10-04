@@ -177,6 +177,15 @@ export interface CliArgs {
   /** RLVR 门禁最小增益（`--rlvr-min-gain`，默认 0.05）：候选得分须 ≥ 基线 + 该增益才晋升。 */
   rlvrMinGain?: number | undefined;
   /**
+   * （GEE Kernel v1）启用 `EvolutionKernel` 七环编排（`--evolution-kernel`；**默认关**）：
+   * 关 = 现状 RLVR 路径；开 = 信号→档案→级联→门禁→台账→晋升→观测全编排。
+   */
+  evolutionKernel?: boolean | undefined;
+  /** （Kernel 路径）晋升台账落盘目录（`--rlvr-ledger-dir`，默认 `.omniharness/evolution`；S3 起生效）。 */
+  rlvrLedgerDir?: string | undefined;
+  /** （Kernel 路径）候选档案每工况桶精英上限（`--rlvr-archive-max`，默认 4）。 */
+  rlvrArchiveMax?: number | undefined;
+  /**
    * (U6) A2A 互操作开关（`--a2a`；**默认关**）：运行时起 A2aServer 监听并对接 A2aClient，
    * 本端既可被对等委托、也可委托对端（server 侧跑真实子 agent）。缺省关 = 零行为变更。
    */
@@ -345,6 +354,50 @@ export class ArgParser {
   }
 
   /**
+   * （U4/GEE Kernel v1）evolutionRlvr 文件对象形态 → 扁平 CliArgs 字段。
+   * Kernel 子键（kernel/ledgerDir/archiveMaxPerBucket）不映射 = 「声明未接线」（CLI 通道丢配置）。
+   * @param file 已加载的项目配置文件对象（读 `evolutionRlvr`）。
+   * @param result 待填充的 CLI 默认值（就地写入）。
+   * @returns 无返回值（就地修改 `result`）。
+   */
+  private static applyEvolutionRlvrDefaults(file: FileConfig, result: Partial<CliArgs>): void {
+    const rlvr = file.evolutionRlvr;
+    if (rlvr === undefined) {
+      return;
+    }
+    if (rlvr.enabled !== undefined) {
+      result.evolutionRlvr = rlvr.enabled;
+    }
+    if (rlvr.verifyCommand !== undefined) {
+      result.rlvrVerify = rlvr.verifyCommand;
+    }
+    if (rlvr.samplesPerPrompt !== undefined) {
+      result.rlvrSamples = rlvr.samplesPerPrompt;
+    }
+    if (rlvr.minReward !== undefined) {
+      result.rlvrMinReward = rlvr.minReward;
+    }
+    if (rlvr.maxCandidates !== undefined) {
+      result.rlvrCandidates = rlvr.maxCandidates;
+    }
+    if (rlvr.minGain !== undefined) {
+      result.rlvrMinGain = rlvr.minGain;
+    }
+    if (rlvr.autoRun !== undefined) {
+      result.rlvrAutoRun = rlvr.autoRun;
+    }
+    if (rlvr.kernel !== undefined) {
+      result.evolutionKernel = rlvr.kernel;
+    }
+    if (rlvr.ledgerDir !== undefined) {
+      result.rlvrLedgerDir = rlvr.ledgerDir;
+    }
+    if (rlvr.archiveMaxPerBucket !== undefined) {
+      result.rlvrArchiveMax = rlvr.archiveMaxPerBucket;
+    }
+  }
+
+  /**
    * 配置文件 → CLI 默认参数（仅合并已定义字段）。
    * @param file 已加载的项目配置文件对象。
    * @returns 可覆盖在 CliDefaults 之上的默认值子集（providerKeys 会按适配器补全 apiKey/baseUrl）。
@@ -445,29 +498,7 @@ export class ArgParser {
       result.modelRouter = file.modelRouter;
     }
     // (U4) RLVR 进化闭环：文件对象形态 → 扁平 CliArgs 字段（CLI 旗标在更上层继续覆盖）。
-    if (file.evolutionRlvr !== undefined) {
-      if (file.evolutionRlvr.enabled !== undefined) {
-        result.evolutionRlvr = file.evolutionRlvr.enabled;
-      }
-      if (file.evolutionRlvr.verifyCommand !== undefined) {
-        result.rlvrVerify = file.evolutionRlvr.verifyCommand;
-      }
-      if (file.evolutionRlvr.samplesPerPrompt !== undefined) {
-        result.rlvrSamples = file.evolutionRlvr.samplesPerPrompt;
-      }
-      if (file.evolutionRlvr.minReward !== undefined) {
-        result.rlvrMinReward = file.evolutionRlvr.minReward;
-      }
-      if (file.evolutionRlvr.maxCandidates !== undefined) {
-        result.rlvrCandidates = file.evolutionRlvr.maxCandidates;
-      }
-      if (file.evolutionRlvr.minGain !== undefined) {
-        result.rlvrMinGain = file.evolutionRlvr.minGain;
-      }
-      if (file.evolutionRlvr.autoRun !== undefined) {
-        result.rlvrAutoRun = file.evolutionRlvr.autoRun;
-      }
-    }
+    ArgParser.applyEvolutionRlvrDefaults(file, result);
     // (U6) A2A 互操作：文件对象形态 → 扁平 CliArgs 字段（CLI 旗标在更上层继续覆盖）。
     if (file.a2a !== undefined) {
       if (file.a2a.enabled !== undefined) {

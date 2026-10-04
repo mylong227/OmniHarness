@@ -17,8 +17,12 @@ import { ArrayAt } from '../util/arrayAt.js';
 
 /** TwistDiscoveryEngine 选项。 */
 export interface TwistDiscoveryOptions {
-  /** 候选技能池（待组合的基础技能）。 */
-  readonly skills: readonly Skill[];
+  /**
+   * 候选技能池（待组合的基础技能）。
+   * （GEE Kernel v1 改造）支持**技能源提供者**：传函数则每轮 `nextCandidates()` 实读
+   * （修「构造时快照导致运行中注册的新技能不进池」）；传数组则行为与旧快照语义逐位等价。
+   */
+  readonly skills: readonly Skill[] | (() => readonly Skill[]);
   /** 组合算子（通常注入 skillRegistry.composeByTwist，即燧-1）。允许第三个选项参数。 */
   readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
   /** 硬预算：最多生成多少候选（防无限探索 / 防算力逃逸）。 */
@@ -29,27 +33,22 @@ export interface TwistDiscoveryOptions {
 
 /** 基于燧-1 莫尔组合的发现引擎。 */
 export class TwistDiscoveryEngine implements DiscoveryEngine {
-  private readonly skills: readonly Skill[];
+  /** 技能源提供者（每轮实读；数组源退化为常量提供者）。 */
+  private readonly skillsProvider: () => readonly Skill[];
   private readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
   private readonly maxCandidates: number;
   private readonly fieldSize?: number | undefined;
-  private readonly pairs: ReadonlyArray<readonly [number, number]>;
-  private cursor = 0;
+  /** 已消费配对键（`a|b`，名字序）：技能源跨轮变化时避免重复生成同一配对。 */
+  private readonly consumedPairs = new Set<string>();
   private generated = 0;
 
   public constructor(opts: TwistDiscoveryOptions) {
-    this.skills = opts.skills;
+    const source = opts.skills;
+    // 注意：窄化结果先落 const 再进闭包——TS 不保留「属性访问」窄化到闭包内（const 变量才保留）。
+    this.skillsProvider = typeof source === 'function' ? source : (): readonly Skill[] => source;
     this.compose = opts.compose;
     this.maxCandidates = Math.max(0, opts.maxCandidates);
     this.fieldSize = opts.fieldSize;
-    // 所有无序不同配对（i<j），作为探索空间。
-    const pairs: Array<readonly [number, number]> = [];
-    for (let i = 0; i < this.skills.length; i++) {
-      for (let j = i + 1; j < this.skills.length; j++) {
-        pairs.push([i, j]);
-      }
-    }
-    this.pairs = pairs;
   }
 
   /** 当前预算消耗：generated=已生成候选数，maxCandidates=构造时给定的硬上限。 */
@@ -58,28 +57,33 @@ export class TwistDiscoveryEngine implements DiscoveryEngine {
   }
 
   /**
-   * 生成下一批候选：沿构造时预计算的技能无序配对（i<j）逐个游标推进，
+   * 生成下一批候选：**每轮实读技能源**，沿无序配对（i<j，配对键去重跨轮）逐个推进，
    * 每对经燧-1 组合算子产出组合技能，直到触及 maxCandidates 硬预算或配对用尽；
-   * 副作用为推进游标并累计 generated（绝不超出预算）。
+   * 副作用为登记配对键并累计 generated（绝不超出预算）。
    * @returns 新生成的候选列表；空数组 = 预算耗尽或配对空间已用尽
    */
   public nextCandidates(): Candidate[] {
+    const skills = this.skillsProvider();
     const out: Candidate[] = [];
-    while (this.cursor < this.pairs.length && this.generated < this.maxCandidates) {
-      const [i, j] = ArrayAt.at(this.pairs, this.cursor++);
-      const a = ArrayAt.at(this.skills, i);
-      const b = ArrayAt.at(this.skills, j);
-      const composed = this.compose(
-        a,
-        b,
-        this.fieldSize !== undefined ? { fieldSize: this.fieldSize } : undefined,
-      );
-      this.generated++;
-      out.push({
-        skill: composed,
-        source: `twist:${a.name}+${b.name}`,
-        meta: composed.moire as Readonly<Record<string, unknown>> | undefined,
-      });
+    for (let i = 0; i < skills.length && this.generated < this.maxCandidates; i++) {
+      const a = ArrayAt.at(skills, i);
+      for (let j = i + 1; j < skills.length && this.generated < this.maxCandidates; j++) {
+        const b = ArrayAt.at(skills, j);
+        const pairKey = `${a.name}|${b.name}`;
+        if (this.consumedPairs.has(pairKey)) continue;
+        this.consumedPairs.add(pairKey);
+        const composed = this.compose(
+          a,
+          b,
+          this.fieldSize !== undefined ? { fieldSize: this.fieldSize } : undefined,
+        );
+        this.generated++;
+        out.push({
+          skill: composed,
+          source: `twist:${a.name}+${b.name}`,
+          meta: composed.moire as Readonly<Record<string, unknown>> | undefined,
+        });
+      }
     }
     return out;
   }

@@ -158,8 +158,8 @@
       "description": "(P5) 软阈值比例（相对硬预算，0<r≤1，默认 0.8）：达该比例即置位「建议降级」信号"
     },
     {
-      "spec": "--evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run]",
-      "description": "(U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升"
+      "spec": "--evolution-rlvr [--rlvr-verify CMD] [--rlvr-samples N] [--rlvr-min-reward R] [--rlvr-candidates N] [--rlvr-min-gain G] [--rlvr-auto-run] [--evolution-kernel] [--rlvr-ledger-dir DIR] [--rlvr-archive-max N]",
+      "description": "(U4) RLVR 进化闭环（默认关）：StarPO 采样→可验证奖励（CMD 中 %CODE_FILE% 换成候选代码临时文件，退出 0 即绿）→绿样本进回放缓冲，仅绿样本晋升；--evolution-kernel 切 GEE Kernel 七环编排（信号→档案→级联→门禁→台账→晋升→观测，默认关）"
     },
     {
       "spec": "--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport {{a2aTransports}}]",

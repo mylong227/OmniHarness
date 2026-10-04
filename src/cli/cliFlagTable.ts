@@ -152,6 +152,8 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--rlvr-min-reward',
   '--rlvr-candidates',
   '--rlvr-min-gain',
+  '--rlvr-ledger-dir',
+  '--rlvr-archive-max',
   '--a2a-port',
   '--a2a-peer',
   '--a2a-transport',
@@ -490,6 +492,19 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   '--rlvr-auto-run': (a) => {
     a.rlvrAutoRun = true;
     return 0;
+  },
+  // （GEE Kernel v1）Kernel 编排开关与配套子键（默认关 = 现状 RLVR 路径）。
+  '--evolution-kernel': (a) => {
+    a.evolutionKernel = true;
+    return 0;
+  },
+  '--rlvr-ledger-dir': (a, argv, i) => {
+    a.rlvrLedgerDir = CliFlagTable.valueOf(argv, i, '--rlvr-ledger-dir');
+    return 1;
+  },
+  '--rlvr-archive-max': (a, argv, i) => {
+    a.rlvrArchiveMax = Number.parseInt(CliFlagTable.valueOf(argv, i, '--rlvr-archive-max'), 10);
+    return 1;
   },
   '--turn-token-budget': (a, argv, i) => {
     a.turnTokenBudget = Number.parseInt(CliFlagTable.valueOf(argv, i, '--turn-token-budget'), 10);
