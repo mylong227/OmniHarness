@@ -14,6 +14,7 @@ import { ArrayAt } from '../util/arrayAt.js';
 import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.js';
+import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
 import { cliHelp } from './cliHelp.js';
 
 export * from './cliEnums.js';
@@ -221,6 +222,13 @@ export interface CliArgs {
    * 常态用法。整段透传同时保证「配置文件、编程注入」两条路走**同一份结构**（不两套口径）。
    */
   media?: MediaAnalysisConfig | undefined;
+  /**
+   * （Wave B · ADR-0009）统一资产协议段（来自配置 `capability`；整段透传，与编程注入同一份结构）。
+   *
+   * **必须在此映射**：接线完整性门禁 I5a 的实测形态就是「FileConfig 收了字段但 CLI 层零引用
+   * ⇒ 走 CLI 时配置被静默丢弃」（本仓已有十处同形态）。本字段与 `media`/`ssrfPolicy` 同一条路。
+   */
+  capability?: CapabilityConfig | undefined;
 }
 
 /** CLI 默认值。 */
@@ -421,6 +429,11 @@ export class ArgParser {
     // 媒体抽帧配置：整段透传（结构同一份，字段校验已在「配置文件归一化」阶段 fail-closed 完成）。
     if (file.media !== undefined) {
       result.media = file.media;
+    }
+    // 统一资产协议段（Wave B）：同上，整段透传。**不映射 = CLI 通道丢配置**——本仓已十次同形态，
+    // 故此处与 `media` 一样显式接线（接线完整性门禁 I5a 会拦下遗漏）。
+    if (file.capability !== undefined) {
+      result.capability = file.capability;
     }
     if (file.modelAdapter !== undefined) {
       result.modelAdapter = file.modelAdapter;

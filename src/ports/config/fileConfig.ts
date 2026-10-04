@@ -6,6 +6,7 @@ import type { FileMcpServer } from './fileMcpServer.js';
 import type { PermissionConfig } from './permissionConfig.js';
 import type { ProviderPresetConfig } from './providerPresetConfig.js';
 import type { ModelRouterConfig } from './modelRouterConfig.js';
+import type { CapabilityConfig } from './capabilityConfig.js';
 
 /**
  * 配置文件内容（omniharness.json，端口选择）。
@@ -150,6 +151,14 @@ export interface FileConfig {
    * 数值越界则由 `MediaConfigResolver` 收敛并在工具输出回显生效值。
    */
   readonly media?: MediaAnalysisConfig;
+  /**
+   * 统一资产协议段（Wave B · ADR-0009）：启用后装配 L1 资产层（类型注册表 + 绞杀者注册表 + 评估器），
+   * 技能与工作流模板成为同一协议下的资产。缺省关，零行为变更。
+   *
+   * 校验见 `CapabilityConfigValidator`（未知子键 / 类型不符 / 档位枚举越界一律拒绝启动）；
+   * 与 `OmniHarnessConfig.capability` 共用同一份结构。
+   */
+  readonly capability?: CapabilityConfig;
   /** 项目工作区列表（UI「添加项目」维护）：绝对路径数组，供工作区面板分组展示与快速切换。 */
   readonly workspaces?: string[];
   /** 激活的插件集 Profile（#G-E/P5.1）：`omniharness profile use <name>` 落盘，serve 启动时默认应用。 */

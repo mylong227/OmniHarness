@@ -15,6 +15,7 @@ import { permissionConfigValidator } from './permissionConfigValidator.js';
 import { ssrfPolicyValidator } from './ssrfPolicyValidator.js';
 import { providerPresetValidator } from './providerPresetValidator.js';
 import { mediaConfigValidator } from './mediaConfigValidator.js';
+import { CapabilityConfigValidator } from './capabilityConfigValidator.js';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -478,6 +479,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'a2a',
   'skills',
   'media',
+  'capability',
 ]);
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
@@ -631,6 +633,15 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   // （未知 key / 类型不符 / 枚举越界）；数值范围由 `MediaConfigResolver` 收敛并回显。
   (cfg: FileConfig): void => {
     const message = mediaConfigValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
+  // capability 段（Wave B · ADR-0009 统一资产协议）：只拦「写错了」——未知子键 / 类型不符 /
+  // 档位枚举越界。**落在安全档位上的静默忽略代价最高**（写了 `isolationDefault` 少个 s 会让人
+  // 以为隔离已收紧），故本段与 media 同档严格。
+  (cfg: FileConfig): void => {
+    const message = CapabilityConfigValidator.validate(cfg);
     if (message !== undefined) {
       throw new ConfigError(message);
     }
