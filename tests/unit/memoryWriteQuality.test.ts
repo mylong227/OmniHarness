@@ -16,7 +16,7 @@
  * | # | 判据 |
  * | --- | --- |
  * | ① | 语序/虚词改写注入 2 次 ⇒ **可召回事实只 +1**（报告 M2 的原话判据） |
- * | ② | 值位冲突（`policy` → `restricted`）⇒ 新事实可召回、**旧事实失效但仍留存**（不删除） |
+ * | ② | 值位冲突（`policy` → `restricted`）⇒ 新事实可召回、**旧事实失效但仍留存**（不删除）；失效边界用**受控时钟**钉死（看板 §8.0：墙钟零余量 ⇒ 并行全量跑偶发假红） |
  * | ③ | **反例（防误并）**：两条不相关事实必须都保留 |
  * | ④ | 值位冲突的第二种形态：`pnpm` → `npm`（另一条骨架相同、值不同） |
  * | ⑤ | 纯英文事实（骨架为空）不臆断冲突：值不同则**都留** |
@@ -120,12 +120,18 @@ test('① 语序/虚词改写注入 2 次 ⇒ 可召回事实只 +1（报告 M2 
 
 test('② 值位冲突（policy → restricted）⇒ 新的可召回、旧的失效但**仍留存**', async () => {
   const store = stubStore();
+  // 受控时钟（看板 §8.0，2026-10-04 修）：`supersede` 写的 `expiresAt` 与"现在"**零余量**，
+  // 判据若用墙钟在替代前采样再用 `expiresAt > now` 过滤，毫秒跨界时"已失效"与"仍留存"
+  // 两条断言互相打架 ⇒ 并行全量跑偶发假红。注入时钟把失效边界钉到受控时刻，判据恢复确定性。
+  let clockMs = 1_700_000_000_000;
   const extractor = new MemoryExtractor(
     scriptedModel([['沙箱默认档是 policy'], ['沙箱默认档是 restricted']]),
     store,
+    { now: () => clockMs },
   );
   await extractor.consolidate([userEvent('回合一')], 's1');
-  const now = Date.now();
+  clockMs += 60_000; // 时间前进一步再写冲突结论 ⇒ 旧事实恰在受控时刻被置失效
+  const supersedeAt = clockMs;
   await extractor.consolidate([userEvent('回合一'), userEvent('回合二')], 's1');
 
   assert.strictEqual(
@@ -133,14 +139,14 @@ test('② 值位冲突（policy → restricted）⇒ 新的可召回、旧的失
     2,
     '旧事实必须**留存**（不删除）：记忆的失败方向偏向留下多余事实',
   );
-  const live = liveFacts(store, now);
+  const live = liveFacts(store, supersedeAt);
   assert.strictEqual(live.length, 1, '同一骨架下只应有一条可召回事实');
   assert.strictEqual(live[0]!.text, '沙箱默认档是 restricted', '可召回的应是**后写**的结论');
   const old = store.all().find((f) => f.text === '沙箱默认档是 policy');
   assert.ok(old !== undefined, '旧事实仍在 all() 里（历史可查）');
   assert.ok(
-    old.expiresAt !== undefined && Date.parse(old.expiresAt) <= Date.now(),
-    '旧事实必须以 expiresAt 失效（fail-closed：recall 不再召回，但不删除）',
+    old.expiresAt !== undefined && Date.parse(old.expiresAt) <= supersedeAt,
+    '旧事实必须以 expiresAt 失效，且失效时刻 = 替代发生的受控时刻（fail-closed：recall 不再召回，但不删除）',
   );
 });
 
