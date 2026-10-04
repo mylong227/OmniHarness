@@ -11,9 +11,13 @@ import { EvolutionKernel } from '../evolution/evolutionKernel.js';
 import { EvolutionSignalCollector } from '../evolution/evolutionSignalCollector.js';
 import { BucketedCandidateArchive } from '../evolution/bucketedCandidateArchive.js';
 import { EliteReentryDiscovery } from '../evolution/eliteReentryDiscovery.js';
+import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
 import { TwistDiscoveryEngine } from '../evolution/twistDiscoveryEngine.js';
 import { MoireComposer } from '../skill/moireComposer.js';
+import { SkillRegistry } from '../skill/skillRegistry.js';
 import type { Skill, MoireOptions } from '../skill/skill.js';
+import type { PromotionLedgerPort, SkillRestorePlan } from '../ports/runtime/evolution.js';
+import { join } from 'node:path';
 import { A2aTaskExecutor } from '../a2a/a2aTaskExecutor.js';
 import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.js';
 import {
@@ -186,12 +190,31 @@ export class Runtime {
       autoRun: rlvr?.autoRun === true,
       discovery: reentry,
     });
+    // 晋升台账（ring ⑤）：落盘 `<workspace>/<ledgerDir>/ledger.jsonl`（默认 `.omniharness/evolution`）。
+    // 载入即全链验签：断链/不可用的台账视同缺失（kernel 对缺台账 fail-closed：无快照不晋升）。
+    const ledgerDir = join(config.workspaceRoot, rlvr?.ledgerDir ?? '.omniharness/evolution');
+    let ledger: PromotionLedgerPort | undefined;
+    try {
+      const candidate = new HashChainPromotionLedger({ dir: ledgerDir });
+      ledger = candidate.verify().ok ? candidate : undefined;
+    } catch (err) {
+      log.warn('evolution.kernel.ledger.unusable', { dir: ledgerDir, error: String(err) });
+    }
+    if (ledger === undefined) {
+      log.warn('evolution.kernel.ledger.unusable', {
+        dir: ledgerDir,
+        invariant: '断链/不可用台账视同缺失：无快照不晋升（fail-closed）',
+      });
+    }
     return new EvolutionKernel({
       inner: bundle.controller,
       signals: new EvolutionSignalCollector({ telemetry: config.runtimeTelemetry }),
       archive,
       reentry,
       crystallizer: config.crystallizer,
+      ledger,
+      skillsProvider: () => registry.list(),
+      applyRestore: (plan) => Runtime.applySkillRestore(registry, plan),
       onPromote: (candidate) => {
         // 用 `replace` 而非 `register`：候选在组合阶段可能已入册，重复注册会抛运行时异常（口径同现状路径）。
         registry.replace(candidate.skill);
@@ -201,6 +224,26 @@ export class Runtime {
         });
       },
     });
+  }
+
+  /**
+   * （GEE Kernel v1）执行还原计划：技能表恢复为快照态——快照内的技能逐个 replace，
+   * 当前表中快照之外的新增者 remove（`SkillRestorePlan` 的 apply 语义，见端口契约）。
+   * @param registry 受种技能注册表（组合根持有具体实现）
+   * @param plan 台账产出的还原计划
+   * @returns 无返回值（void）
+   */
+  private static applySkillRestore(registry: SkillRegistry, plan: SkillRestorePlan): void {
+    const currentNames = registry.list().map((s) => s.name);
+    const targetNames = new Set(plan.skills.map((s) => s.name));
+    for (const skill of plan.skills) {
+      registry.replace(skill);
+    }
+    for (const name of currentNames) {
+      if (!targetNames.has(name)) {
+        registry.remove(name);
+      }
+    }
   }
 
   /**

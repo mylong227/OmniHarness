@@ -11,7 +11,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,6 +23,7 @@ import { EvolutionKernel } from '../../src/evolution/evolutionKernel.js';
 import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.js';
 import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.js';
 import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.js';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import { ArgParser } from '../../src/cli/argParser.js';
 import { MoireComposer } from '../../src/skill/moireComposer.js';
@@ -274,12 +275,15 @@ test('S2 七环端到端：信号路由 / 档案入桶 / 晋升接管 / 固化�
   });
   const crystallizer = new CapabilityCrystallizer({ skillPort: registry, densityThreshold: 3 });
   const promotedNames: string[] = [];
+  const ledger = new HashChainPromotionLedger({});
   const kernel = new EvolutionKernel({
     inner: bundle.controller,
     signals: new EvolutionSignalCollector({ telemetry: tel }),
     archive,
     reentry,
     crystallizer,
+    ledger,
+    skillsProvider: () => registry.list(),
     onPromote: (c) => {
       registry.replace(c.skill);
       promotedNames.push(c.skill.name);
@@ -350,6 +354,8 @@ test('S2 晋升回调单点失败不连累其余晋升', async () => {
   const promoted: string[] = [];
   const kernel = new EvolutionKernel({
     inner: stubInner(verdicts),
+    ledger: new HashChainPromotionLedger({}),
+    skillsProvider: () => [],
     onPromote: (c) => {
       if (c.skill.name === 's-a') throw new Error('promote boom');
       promoted.push(c.skill.name);
@@ -472,4 +478,112 @@ test('S2 入口（配置文件）：evolutionRlvr 的 kernel 子键映射为 Cli
   assert.strictEqual(mapped.evolutionKernel, true);
   assert.strictEqual(mapped.rlvrLedgerDir, 'ledger/dir');
   assert.strictEqual(mapped.rlvrArchiveMax, 8);
+});
+
+test('S3 晋升前快照：先 snapshotBefore 后晋升，快照携带晋升前全量表且验签绿', async () => {
+  const registry = new SkillRegistry();
+  for (const s of baseSkills()) registry.register(s);
+  const dir = mkdtempSync(join(tmpdir(), 'omni-k3-'));
+  const ledger = new HashChainPromotionLedger({ dir });
+  const bundle = RlvrController.createRlvrEvolutionController({
+    skills: registry.list(),
+    compose: (a, b, o) => MoireComposer.composeByTwist(a, b, o),
+    model: fixedModel(GREEN_CODE),
+    gateBenchmark: () => 1,
+    minReward: 0,
+    verifyCommand: VERIFY_COMMAND,
+    verifyCodeFileExtension: '.js',
+    samplesPerPrompt: 2,
+  });
+  const kernel = new EvolutionKernel({
+    inner: bundle.controller,
+    ledger,
+    skillsProvider: () => registry.list(),
+    onPromote: (c) => registry.replace(c.skill),
+  });
+
+  const verdicts = await kernel.cycle();
+  const promoted = verdicts.filter((v) => v.promoted);
+  assert.ok(promoted.length >= 1, '绿样本候选应晋升');
+  const report = kernel.report();
+  assert.strictEqual(report?.snapshotSeq, 1, '本轮首个晋升者之前应落下快照（seq=1）');
+  assert.strictEqual(ledger.verify().ok, true, '台账链完整');
+  const lines = readFileSync(join(dir, 'ledger.jsonl'), 'utf8')
+    .split('\n')
+    .filter((l) => l.trim().length > 0);
+  const snapshot = JSON.parse(lines[0]!) as { action: string; skills: readonly Skill[] };
+  assert.strictEqual(snapshot.action, 'snapshot');
+  assert.deepStrictEqual(
+    snapshot.skills.map((s) => s.name).sort(),
+    ['skill-a', 'skill-b'],
+    '快照 = 晋升前全量表（不含尚未晋升的候选）',
+  );
+  assert.strictEqual(lines.length, 1 + promoted.length, '每条晋升对应一个 promote 条目');
+});
+
+test('S3 fail-closed：台账缺失 ⇒ 晋升裁决被改写为未晋升，晋升回调绝不触发', async () => {
+  const verdicts = [promotedVerdict('s-a'), promotedVerdict('s-b')];
+  const promoted: string[] = [];
+  const kernel = new EvolutionKernel({
+    inner: stubInner(verdicts),
+    onPromote: (c) => promoted.push(c.skill.name),
+  });
+  const final = await kernel.cycle();
+  assert.strictEqual(
+    final.filter((v) => v.promoted).length,
+    0,
+    '无台账 → 所有晋升裁决 fail-closed 改写为未晋升',
+  );
+  assert.match(final[0]!.reason, /无快照不晋升/);
+  assert.match(final[1]!.reason, /无快照不晋升/);
+  assert.deepStrictEqual(promoted, [], '晋升回调不得触发（不允许无快照晋升）');
+  assert.strictEqual(kernel.report()?.promoted, 0);
+  assert.ok(
+    kernel.report()?.degraded.includes('promotion-ledger:missing'),
+    '台账缺失必须如实申报进降级口径',
+  );
+});
+
+test('S3 回滚端到端：rollback(snapshotSeq) 后技能表与快照逐条深相等（晋升者被移除）', async () => {
+  const registry = new SkillRegistry();
+  for (const s of baseSkills()) registry.register(s);
+  const ledger = new HashChainPromotionLedger({});
+  const bundle = RlvrController.createRlvrEvolutionController({
+    skills: registry.list(),
+    compose: (a, b, o) => MoireComposer.composeByTwist(a, b, o),
+    model: fixedModel(GREEN_CODE),
+    gateBenchmark: () => 1,
+    minReward: 0,
+    verifyCommand: VERIFY_COMMAND,
+    verifyCodeFileExtension: '.js',
+    samplesPerPrompt: 2,
+  });
+  const before = registry.list().map((s) => ({ ...s }));
+  const kernel = new EvolutionKernel({
+    inner: bundle.controller,
+    ledger,
+    skillsProvider: () => registry.list(),
+    applyRestore: (plan) => {
+      const currentNames = registry.list().map((s) => s.name);
+      const targets = new Set(plan.skills.map((s) => s.name));
+      for (const skill of plan.skills) registry.replace(skill);
+      for (const name of currentNames) {
+        if (!targets.has(name)) registry.remove(name);
+      }
+    },
+    onPromote: (c) => registry.replace(c.skill),
+  });
+
+  await kernel.cycle();
+  const afterPromote = registry.list().map((s) => s.name);
+  assert.ok(afterPromote.length > before.length, '晋升后注册表应新增技能');
+  const snapshotSeq = kernel.report()?.snapshotSeq;
+  assert.ok(snapshotSeq !== undefined);
+  kernel.rollback(snapshotSeq!);
+  assert.deepStrictEqual(
+    registry.list(),
+    before,
+    '回滚后技能表与晋升前快照逐条深相等（晋升者被移除）',
+  );
+  assert.strictEqual(ledger.verify().ok, true, '回滚事件入链后链仍完整');
 });

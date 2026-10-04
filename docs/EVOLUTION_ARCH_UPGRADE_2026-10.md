@@ -78,23 +78,25 @@ Agent（任务末，core/agent.ts L355–360）
 
 ## 3. 模块映射（逐文件：新增 / 改造 / 复用）
 
-| 文件                                              | 动作                     | 职责与要点                                                                                                                                                           |
-| ------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/ports/runtime/evolution/signalSource.ts`     | **新增端口**             | `EvolutionSignalSourcePort { collect(): readonly EvolutionSignal }`；`EvolutionSignal { kind:'failure'\|'success', key, evidence, provenance }`                      |
-| `src/ports/runtime/evolution/candidateArchive.ts` | **新增端口**             | `CandidateArchivePort { put(c, bucketKey), elites(bucketKey), freeze(key, reason), reviveFor(bucketKey) }`                                                           |
-| `src/ports/runtime/evolution/promotionLedger.ts`  | **新增端口**             | `PromotionLedgerPort { snapshotBefore(skillList), append(entry), rollback(seq): SkillRestorePlan, verify() }`                                                        |
-| `src/evolution/evolutionSignalCollector.ts`       | **新增实现**             | `EvolutionSignalCollector`：读 `RuntimeTelemetryPort.read()` production 行 + 会话结局 → 失败喂挖掘器 / 成功喂固化器密度；有界缓冲、确定性                            |
-| `src/evolution/candidateArchiveImpl.ts`           | **新增实现**             | `BucketedCandidateArchive`：按工况桶保留精英（MAP-Elites 式）；`expiresAt` 冻结不删除，同桶复现复活                                                                  |
-| `src/evolution/promotionLedgerImpl.ts`            | **新增实现**             | `HashChainPromotionLedger`：JSONL 追加（`.omniharness/evolution/ledger.jsonl`）+ seq/prev/hash（复用 `util/hashChain`）；快照 = 技能表全量（name+instructions+tags） |
-| `src/evolution/cascadeReward.ts`                  | **新增实现**             | `CascadeReward`：静态预检（围栏配平/非空/禁用模式，纯函数）→ verifyCommand；短路即省全量；明细进覆盖率计量                                                           |
-| `src/evolution/coverageBuckets.ts`                | **新增实现**             | `BucketedCoverageMeter`：包 `RewardCoverageMeter`，按桶覆盖率取**最差桶**做闸（防单桶好看整体难看的假象）                                                            |
-| `src/evolution/evolutionKernel.ts`                | **新增实现（编排核心）** | `EvolutionKernel`：七环编排 + `autoRun` 透传 + 全程 try/catch fail-closed；实现 `EvolutionController`                                                                |
-| `src/composition/runtime.ts`                      | **改造**                 | `evolutionRlvr.kernel===true` 时装配 Kernel（注入三端口 + CRISPR + 固化器），否则走现状路径                                                                          |
-| `src/config/*`                                    | **改造**                 | `evolutionRlvr` 增子键：`kernel`（bool，默认 false）、`ledgerDir`（默认 `.omniharness/evolution`）、`archiveMaxPerBucket`；沿现有透传路径，严格校验                  |
-| `src/adapters/skill/crisprSkillEditor.ts`         | **复用（转正）**         | Kernel 周期内为「针对既有技能的提案」产出 `CrisprEditSpec`（differentialTest = 基准不回退）→ `queue()` → `flush()`                                                   |
-| `src/adapters/skill/capabilityCrystallizer.ts`    | **复用（转正）**         | 成功信号提高组合密度 → `observe()`；越阈冻结为原生技能（加法式，与晋升门禁互不越权）                                                                                 |
-| `src/evolution/twistDiscoveryEngine.ts`           | **改造（小）**           | 发现候选源从「构造时快照」改为每轮读 `skillRegistry.list()`（修"新技能不进池"）+ 档案精英并入候选流                                                                  |
-| `src/core/agent.ts`                               | **零改动**               | 触发点不变（Kernel.autoRun 即原语义）                                                                                                                                |
+| 文件                                              | 动作                     | 职责与要点                                                                                                                                                               |
+| ------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/ports/runtime/evolution/signalSource.ts`     | **新增端口**             | `EvolutionSignalSourcePort { collect(): readonly EvolutionSignal }`；`EvolutionSignal { kind:'failure'\|'success', key, evidence, provenance }`                          |
+| `src/ports/runtime/evolution/candidateArchive.ts` | **新增端口**             | `CandidateArchivePort { put(c, bucketKey), elites(bucketKey), freeze(key, reason), reviveFor(bucketKey) }`                                                               |
+| `src/ports/runtime/evolution/promotionLedger.ts`  | **新增端口**             | `PromotionLedgerPort { snapshotBefore(skillList), append(entry), rollback(seq): SkillRestorePlan, verify() }`                                                            |
+| `src/evolution/evolutionSignalCollector.ts`       | **新增实现**             | `EvolutionSignalCollector`：读 `RuntimeTelemetryPort.read()` production 行 + 会话结局 → 失败喂挖掘器 / 成功喂固化器密度；有界缓冲、确定性                                |
+| `src/evolution/bucketedCandidateArchive.ts`       | **新增实现**             | `BucketedCandidateArchive`：按工况桶保留精英（MAP-Elites 式）；冻结不删除（退出 `elites()`、留档待 `reviveFor`），同桶复现复活                                           |
+| `src/evolution/hashChainPromotionLedger.ts`       | **新增实现**             | `HashChainPromotionLedger`：JSONL 追加（`.omniharness/evolution/ledger.jsonl`）+ seq/prev/hash（复用 `util/hashChain`）；快照 = 技能表全量（name+instructions+tags）     |
+| `src/evolution/cascadeReward.ts`                  | **新增实现**             | `CascadeReward`：静态预检（围栏配平/非空/禁用模式，纯函数）→ verifyCommand；短路即省全量；明细进覆盖率计量                                                               |
+| `src/evolution/coverageBuckets.ts`                | **新增实现**             | `BucketedCoverageMeter`：包 `RewardCoverageMeter`，按桶覆盖率取**最差桶**做闸（防单桶好看整体难看的假象）                                                                |
+| `src/evolution/evolutionKernel.ts`                | **新增实现（编排核心）** | `EvolutionKernel`：七环编排 + `autoRun` 透传 + 全程 try/catch fail-closed；实现 `EvolutionController`；**只编排不持策略**（ring ①/② 的纪律各自拆出，见下两行，防上帝类） |
+| `src/evolution/signalIngestor.ts`                 | **新增实现（ring ①）**   | `SignalIngestor`：信号路由策略——failure 有界累积进失败模式挖掘器、success 组合喂固化器 `observe`；从 Kernel 拆出（可单测、可替换）                                       |
+| `src/evolution/archiveCurator.ts`                 | **新增实现（ring ②）**   | `ArchiveCurator`：档案三段纪律「入档 → 复活早前冻结者 → 冻结本轮裁决」+ 复核次数上限退役；从 Kernel 拆出                                                                 |
+| `src/composition/runtime.ts`                      | **改造**                 | `evolutionRlvr.kernel===true` 时装配 Kernel（注入三端口 + CRISPR + 固化器），否则走现状路径                                                                              |
+| `src/config/*`                                    | **改造**                 | `evolutionRlvr` 增子键：`kernel`（bool，默认 false）、`ledgerDir`（默认 `.omniharness/evolution`）、`archiveMaxPerBucket`；沿现有透传路径，严格校验                      |
+| `src/adapters/skill/crisprSkillEditor.ts`         | **复用（转正）**         | Kernel 周期内为「针对既有技能的提案」产出 `CrisprEditSpec`（differentialTest = 基准不回退）→ `queue()` → `flush()`                                                       |
+| `src/adapters/skill/capabilityCrystallizer.ts`    | **复用（转正）**         | 成功信号提高组合密度 → `observe()`；越阈冻结为原生技能（加法式，与晋升门禁互不越权）                                                                                     |
+| `src/evolution/twistDiscoveryEngine.ts`           | **改造（小）**           | 发现候选源从「构造时快照」改为每轮读 `skillRegistry.list()`（修"新技能不进池"）+ 档案精英并入候选流                                                                      |
+| `src/core/agent.ts`                               | **零改动**               | 触发点不变（Kernel.autoRun 即原语义）                                                                                                                                    |
 
 ---
 
