@@ -17,7 +17,7 @@
 | --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | 1   | **六边形端口-适配器** | `src/ports/**` 只声明契约（接口/类型/常量，**无 class、无第三方裸导入**）；实现住 `src/adapters/**`；编排住 `src/core/**` | `architectureGate` `[3]` / `[3.5]`               |
 | 2   | **依赖方向单向**      | `core → adapters` 与 `adapters → core` **均禁止**（白名单为空）；`ports → core/adapters/config` 禁止                      | `architectureGate` `[1]` / `[2]` / `[3.5]`       |
-| 3   | **运行时依赖极简**    | 生产运行时依赖 **3 个**（见 §10）；`ports`/`core` 恒第三方-free                                                           | `audit:config-wiring` + `check --strict`         |
+| 3   | **运行时依赖极简**    | 生产运行时依赖 **4 个**（见 §10）；`ports`/`core` 恒第三方-free                                                           | `audit:config-wiring` + `check --strict`         |
 | 4   | **无依赖环**          | Tarjan SCC 检测，**新增环即红、环缩小放行**；现有 6 组环冻结在**成员白名单（25 个成员）**里                               | `architectureGate` `[5]`                         |
 | 5   | **fail-closed 门禁**  | 判定失败=阻断；基线只许收紧（死链/覆盖率等）                                                                              | `scripts/runGates.mjs`（单一实现，§9）           |
 | 6   | **事件流单源**        | 会话状态以事件流为唯一真相（ADR-0005）；落盘支持追加通道（G7）                                                            | `core/sessionRecorder.ts` + `StoragePort.append` |
@@ -156,7 +156,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 | `tests/**/*.ts` | **439** | **63,018**  |
 | `web/src/**`    | **111** | **17,152**  |
 
-**运行时依赖（3）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`。
+**运行时依赖（4）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`、`jose@6.2.12`。
 **可选依赖（2）**：`@huggingface/transformers`（本地嵌入）、`sharp`（图像）。
 **原生内核**：Rust crate（可选；**TS 为默认路径**——原生记账实测比 TS 慢 4.5–6.7×，见报告 §3.8）。
 

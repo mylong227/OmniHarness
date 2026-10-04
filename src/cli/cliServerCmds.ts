@@ -37,6 +37,7 @@ import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
 import { ArgParser, CliDefaults } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
+import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.js';
 import { CliArgReader } from './cliArgReader.js';
 
 /** 服务端 / 身份 / 后台类子命令。 */
@@ -394,6 +395,41 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
+   * 构造服务端鉴权门禁（`--auth-required`）。
+   *
+   * **为什么单独成方法**：取三个旗标 → 缺一即拒 → 组 discovery → 装校验实现，这段逻辑让 `runServe`
+   * 的函数体越过铁律上限（139 > 80 且超冻结基线 132），按本仓惯例**按职责搬出**而不是放宽阈值。
+   *
+   * Wave A.5：鉴权热路径注入 `jose` 校验实现（多算法面 / 时钟容忍 / `azp` / 未知 kid 重取）。
+   * 回退零改动：去掉第四个实参即回到本仓自研校验（同 `IdTokenVerifierPort`，两者差分已判据化）。
+   * @param serveArgs serve 子命令参数
+   * @returns 门禁实例；旗标缺失时返回退出码 **2**（并已写 stderr）
+   */
+  private enterpriseAuthOf(serveArgs: readonly string[]): EnterpriseAuth | number {
+    const issuer = this.flagValue(serveArgs, '--oidc-issuer');
+    const clientId = this.flagValue(serveArgs, '--oidc-client-id');
+    const jwksUri = this.flagValue(serveArgs, '--oidc-jwks-uri');
+    if (issuer === undefined || clientId === undefined || jwksUri === undefined) {
+      process.stderr.write(
+        '[auth] --auth-required 需同时提供 --oidc-issuer / --oidc-client-id / --oidc-jwks-uri（真实 IdP 的 jwks_uri 端点）\n',
+      );
+      return 2;
+    }
+    const discovery: OidcDiscovery = {
+      issuer,
+      authorization_endpoint: '',
+      token_endpoint: '',
+      jwks_uri: jwksUri,
+    };
+    return new EnterpriseAuth(
+      { issuer, clientId },
+      discovery,
+      globalThis.fetch,
+      new JoseIdTokenVerifier(),
+    );
+  }
+
+  /**
    * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
    * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
@@ -442,88 +478,75 @@ export class CliServerCmds extends CliBuildConfig {
     const restoreEgress = this.applyNetworkGuard(args);
     try {
       const config = await this.buildConfig(args);
-    // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
-    // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
-    let auth: EnterpriseAuth | undefined;
-    if (new CliArgReader(serveArgs).has('--auth-required')) {
-      const issuer = this.flagValue(serveArgs, '--oidc-issuer');
-      const clientId = this.flagValue(serveArgs, '--oidc-client-id');
-      const jwksUri = this.flagValue(serveArgs, '--oidc-jwks-uri');
-      if (issuer === undefined || clientId === undefined || jwksUri === undefined) {
-        process.stderr.write(
-          '[auth] --auth-required 需同时提供 --oidc-issuer / --oidc-client-id / --oidc-jwks-uri（真实 IdP 的 jwks_uri 端点）\n',
-        );
-        return 2;
+      // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
+      // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
+      let auth: EnterpriseAuth | undefined;
+      if (new CliArgReader(serveArgs).has('--auth-required')) {
+        const built = this.enterpriseAuthOf(serveArgs);
+        if (typeof built === 'number') return built;
+        auth = built;
       }
-      const discovery: OidcDiscovery = {
-        issuer,
-        authorization_endpoint: '',
-        token_endpoint: '',
-        jwks_uri: jwksUri,
-      };
-      auth = new EnterpriseAuth({ issuer, clientId }, discovery);
-    }
-    const bridge = new HttpBridgeTransport(auth);
-    const metrics = new Metrics();
-    // serve 模式默认不启用「上行总开关」：默认档走配置的规则审批端口（安全工具自动放行，
-    // 危险工具按规则裁决），避免每次都弹框；「审批」档由 config.update(approval=ask) 经
-    // resolveApprovals 强制上行端口（approvalPort）显式触发弹框，与 uplink 总开关解耦。
-    const uplink = false;
-    const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
-    const pluginsDir =
-      this.flagValue(serveArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
-    // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
-    // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
-    const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
-    const app = new AppServer({
-      config: { ...config, live },
-      transport: bridge,
-      approvalUplink: uplink,
-      metrics,
-      audit: this.createAudit(serveArgs),
-      registry: this.createRegistry(serveArgs, pluginsDir),
-      displayConfig,
-      autoApprove: serveArgs.includes('--auto-approve'),
-      configPath,
-      pluginsDir,
-      workspaceRoot: wsRoot,
-    });
-    await app.loadPlugins();
-    // G-E 5.1：启动后若指定插件集 profile，把运行时插件集收敛为该命名组合。
-    const pluginProfileName =
-      this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile ?? undefined;
-    if (pluginProfileName !== undefined && pluginProfileName.length > 0) {
-      const store = new PluginProfileStore(wsRoot);
-      const profile = store.get(pluginProfileName);
-      if (profile === undefined) {
-        process.stderr.write(`[warn] 未找到插件集 profile: ${pluginProfileName}\n`);
-      } else {
-        await app.applyPluginProfile(profile);
-        process.stdout.write(`已应用插件集 profile: ${pluginProfileName}\n`);
+      const bridge = new HttpBridgeTransport(auth);
+      const metrics = new Metrics();
+      // serve 模式默认不启用「上行总开关」：默认档走配置的规则审批端口（安全工具自动放行，
+      // 危险工具按规则裁决），避免每次都弹框；「审批」档由 config.update(approval=ask) 经
+      // resolveApprovals 强制上行端口（approvalPort）显式触发弹框，与 uplink 总开关解耦。
+      const uplink = false;
+      const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
+      const pluginsDir =
+        this.flagValue(serveArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
+      // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
+      // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
+      const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
+      const app = new AppServer({
+        config: { ...config, live },
+        transport: bridge,
+        approvalUplink: uplink,
+        metrics,
+        audit: this.createAudit(serveArgs),
+        registry: this.createRegistry(serveArgs, pluginsDir),
+        displayConfig,
+        autoApprove: serveArgs.includes('--auto-approve'),
+        configPath,
+        pluginsDir,
+        workspaceRoot: wsRoot,
+      });
+      await app.loadPlugins();
+      // G-E 5.1：启动后若指定插件集 profile，把运行时插件集收敛为该命名组合。
+      const pluginProfileName =
+        this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile ?? undefined;
+      if (pluginProfileName !== undefined && pluginProfileName.length > 0) {
+        const store = new PluginProfileStore(wsRoot);
+        const profile = store.get(pluginProfileName);
+        if (profile === undefined) {
+          process.stderr.write(`[warn] 未找到插件集 profile: ${pluginProfileName}\n`);
+        } else {
+          await app.applyPluginProfile(profile);
+          process.stdout.write(`已应用插件集 profile: ${pluginProfileName}\n`);
+        }
       }
-    }
-    const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
-    // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
-    // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
-    const serveHost =
-      (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
-    const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
-    ServerAuthGuard.assertBindSafe(serveHost, serveToken);
-    const server = new HttpServer({
-      app,
-      bridge,
-      webDir,
-      metrics,
-      workspaceRoot: () => app.effectiveWorkspace(),
-      host: serveHost,
-      authToken: serveToken,
-    });
-    const port = this.flagNumber(serveArgs, '--port') ?? 8787;
-    const actual = await server.start(port);
-    const authNote =
-      serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
-    process.stdout.write(`OmniHarness UI: http://${serveHost}:${actual} ${authNote}\n`);
-    return CliServerCmds.awaitShutdown(server);
+      const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
+      // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
+      // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
+      const serveHost =
+        (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
+      const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
+      ServerAuthGuard.assertBindSafe(serveHost, serveToken);
+      const server = new HttpServer({
+        app,
+        bridge,
+        webDir,
+        metrics,
+        workspaceRoot: () => app.effectiveWorkspace(),
+        host: serveHost,
+        authToken: serveToken,
+      });
+      const port = this.flagNumber(serveArgs, '--port') ?? 8787;
+      const actual = await server.start(port);
+      const authNote =
+        serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
+      process.stdout.write(`OmniHarness UI: http://${serveHost}:${actual} ${authNote}\n`);
+      return CliServerCmds.awaitShutdown(server);
     } finally {
       // 退出（含 Ctrl-C / SIGTERM / 早期 return）复原全局 fetch 包装并关闭 MCP 网关子进程（补齐 serve 路径不变量）。
       restoreEgress();

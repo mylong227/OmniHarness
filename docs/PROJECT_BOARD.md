@@ -249,8 +249,33 @@
 > 本身是缺陷，且无法用配置表达意图；改为确定性 UTC 后才谈得上可复现与可迁移。
 > **尚未做（不假装）**：CLI 还没有 `--timezone` 旋钮（想按本地时间跑的用户暂时只能用自研路径或等下一片），
 > 该旋钮需要走 argParser → 配置 → 装配 → 消费的完整接线，属独立一片。
-> **A.5 其余两项未开始**：`openid-client`+`jose`（替换自研 OIDC/JWT——**安全优先，下一个该做**：
-> 现有 `src/enterprise/oidcClient.ts` 只支持 RS256，且存在「解码 JWT 不校验签名」的路径）与 OTel。
+> **A.5 其余两项未开始**：`openid-client`+`jose` 与 OTel（下一轮补记；当时对其缺口的表述已在下一条更正）。
+>
+> **第三十六轮｜A.5 依赖准入第二项：`jose` 正式准入（id_token 校验迁移）+ 更正上一轮的一处不准确表述 ✅**：
+> **jose 6.2.12 · MIT · 零传递依赖 · 实测 206 KB**（预算 512 KB / 0 传递依赖），登记于 `dependency-allowlist.json`。
+>
+> ① **先更正上一轮的表述（诚实优先）**：上一轮写「`oidcClient.ts` 存在**解码 JWT 不校验签名**的路径」——**不准确**。
+> 实测 `EnterpriseAuth.authenticate` **确实**验签（kid 匹配 + `kty` 校验 + `crypto.verify`），
+> 只有 `decodeJwt` / `verifyIdTokenClaims` 这两个**公开**方法标注「不含签名」（接口面容易被误用，但主路径没问题）。
+> 真实缺口是**窄与手写**，不是「不验签」：只支持 `RS256`、无时钟偏移容忍、`aud` 为多值时未校验 `azp`。
+> ② **准入依据（D10「必要且更优」的可核验形式）**：新增 `IdTokenVerifierPort` + `JoseIdTokenVerifier`，
+> 并把**既有自研实现**适配成同端口的 `LegacyIdTokenVerifier`（回退资产）⇒ 两个实现可**同端口差分对照**。
+> 判据把分歧写成数字：`ES256` 合法令牌 jose 通过 / 自研拒绝；多受众缺 `azp` jose 拒绝 / 自研放行；
+> 过期 5s + 容忍 30s jose 通过 / 自研拒绝。**一致面**（RS256 合法令牌两者都通过）也一并判死——
+> 否则「全拒」也能骗过安全判据。
+> ③ **安全判据（必须拒的都在）**：`alg=none`、**`HS256` 用公钥当密钥（算法混淆）**、篡改 payload、篡改签名、
+> `iss`/`aud`/`nonce` 不匹配、过期、`nbf` 未到、多受众缺/错 `azp`、超体积令牌（>16 KiB）、
+> 非 https 的 JWKS 端点、JWKS 拉取超时。算法面是**白名单**（RS/ES/PS 全族，显式排除 `none` 与 `HS*`）且**可审计**
+> （`allowedAlgorithms()`）。
+> ④ **过程抓到我自己的一个安全缺口**：第一版把 `nonce` 交给 `jose` 的 `jwtVerify`，而它**不认这个选项**——
+> 被静默忽略 ⇒ 「nonce 不匹配的 id_token」会被当成合法令牌接受。判据当场红，已改为**自己实现** `nonce` 校验。
+> ⑤ **导线真接**：`EnterpriseAuth` 增可选第四参（同端口实现）；CLI serve 的 `--auth-required` 热路径已注入
+> `JoseIdTokenVerifier`。判据从对外行为证明接线：同一 ES256 令牌，不注入 ⇒ `null`，注入 ⇒ 认证成功；
+> 且篡改签名/缺头/非 Bearer 在两条路径上都必须 `null`（接线不得放宽负路径）。回退 = 移除一个实参。
+>
+> **未做（不假装）**：**`openid-client` 未准入**——授权码流 + PKCE + discovery/token 交换仍走自研实现。
+> 这一半的缺口更小（协议管道，而非手写密码学），但**尚未**按 A.5 判据「mock IdP 全流程契约测试逐条过」验证；
+> `jose` 只接管了「令牌校验」这一层。OTel 导出评估仍未开始。
 >
 > **至此 `docs/ARCHITECTURE_UPGRADE_2026-10.md` §4 路线图的登记遗留项全部清零**（G1b-c / G8-c / G10-T2 / G20-b / G21-b / G25-b 六项本轮全部落地；
 > 其中 G1b-c 的"L4 显式对齐是否必要"未被独立证明，另立 G1b-c2——**第二十九轮已收口**，机制结论见上）。
