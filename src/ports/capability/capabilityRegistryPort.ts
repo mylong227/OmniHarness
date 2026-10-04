@@ -37,6 +37,16 @@ export interface CapabilityRegistryPort extends SkillPort {
    */
   put(record: CapabilityRecord): void;
   /**
+   * 按名移除资产（本体与记录一并移除）。
+   *
+   * 为什么端口必须声明它：**补偿路径**——批量入册（如签名资产包安装，Wave D）中途失败时要把
+   * 本轮已入册的资产撤回去，否则「整包原子」只是口头承诺。移除**不是**回滚的替代品：
+   * 回滚走台账 `rollback(seq)`（表级还原），本方法只撤销「尚未入账的写入」。
+   * @param name 资产名
+   * @returns 存在且已移除为 true（不存在时 false，幂等）
+   */
+  remove(name: string): boolean;
+  /**
    * 取资产实例。
    * @param name 资产名
    * @returns 资产实例；不存在为 undefined
