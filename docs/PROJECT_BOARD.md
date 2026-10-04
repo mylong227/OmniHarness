@@ -117,6 +117,33 @@
 > ③ **账面销账**：看板 §8.3 翻 ✅（G7 早已落地、状态漏翻——与 §8.0 同形态）；升级报告 §8 表 8.2/8.3/8.4 三行、
 > 正文缺陷清单 1–4 条、§4/§5 "G1b-c 回滚端到端断言 ⏳" 行全部对齐实际进度。
 >
+> **第三十一轮｜GEE Kernel v1（Wave A S1–S7）✅ 全片落地**：按 [EVOLUTION_ARCH_UPGRADE_2026-10.md](EVOLUTION_ARCH_UPGRADE_2026-10.md) §4 的依赖图
+> `S1 → S2 → {S3,S4,S5,S6} → S7` **七片独立提交**（`a7d0354` S1 信号面 / `af07c98` S2 编排装配 / `e3aa514` S3 台账回滚 / `7c1d6f0` S4 级联评估 /
+> `c8ddc17` S5 覆盖率分桶 / `e2c2d88` S6 执行体转正 / S7 CLI+文档+成熟度）。每片过全部门禁（铁律 / 成熟度 / 标准增量 / 架构 / 接线 / 死链 / 密钥 / 顶层函数 / ESLint）
+> 并跑**全量单测**（末次实测 **2672 例，0 失败，4 跳过**）。
+>
+> ① **S1 信号面**：3 端口（信号源 / 候选档案 / 晋升台账）+ `EvolutionSignalCollector`（production 观测行 → 失败签名 / 成功密度，游标有界确定性）。
+> ② **S2 编排**：`EvolutionKernel` 实现**既有** `EvolutionController` 端口（`core/agent.ts` 零改动），`evolutionRlvr.kernel` **默认关**、关时逐行为等价（判据钉死）；
+> 配置子键 `kernel` / `ledgerDir` / `archiveMaxPerBucket` 三处透传（端口契约 + `configError` 白名单 + CLI 旗标 + `cliSubsystemSections`），顺带修好「发现源构造时快照」缺陷。
+> ③ **S3 台账回滚（差异带本体）**：`HashChainPromotionLedger`（JSONL + seq/prev/hash，复用 `util/hashChain`，分隔符 `|` 与审计/遥测链刻意区分）——
+> **无快照不晋升**（台账缺失 ⇒ 晋升裁决 fail-closed 改写为未晋升）、`rollback(seq)` 逐条深相等、**篡改检出**（改中间条目 ⇒ `verify()` 红且断链拒绝写入）、重启续链。
+> ④ **S4 级联评估**：`CascadeReward` 静态预检（非空 / 围栏配平 / 红线模式）先于 `verifyCommand`——**变异判据：静态不过 ⇒ 内层调用次数 = 0**；
+> 静态通过则与 `VerifiableReward` **逐字同判**（只加更早的否决，不加新的通过路径）；静态否决记 `verifiable=false`（不虚增覆盖率）。
+> ⑤ **S5 覆盖率分桶**：`BucketedCoverageMeter` 同一样本记全局与工况桶、闸取**最差桶**；阈值**沿用** `COVERAGE_THRESHOLD`；
+> **变异判据**：单桶拥挤场景全局口径 0.75 放行、最差桶 0 阻断（「去掉分桶即漏放」）。
+> ⑥ **S6 执行体转正**：`DormantExecutorActivation`——失败提案 → `CrisprEditSpec`（**差异测试 = 门禁基准非回退**，与门禁同一把尺 `RlvrController.defaultGateScore`）→ `queue()`/`flush()`；
+> 越阈成功组合 `crystallize()` 冻结为原生能力（加法式，源技能逐字不动、密度归零、重复只计已冻结）。两条路径判据 7 例，含「回滚后原技能一字不动」。
+> ⑦ **S7 CLI + 文档 + 成熟度**：`omniharness evolution status|cycle|rollback`——`status` **只读**（判据：跑完台账逐字节不变、目录零新增），
+> `rollback` / `cycle` **需显式 `--yes`**（缺则退出码 2、零改动）；回滚产物写成 `--skills` 可直接吃回的技能包（CLI 进程没有活着的技能表，这是诚实边界）；
+> 新增引擎全部带 `@maturity` + 真实测试证据（**进化域新增 6 项 L1，全仓 50 项**声明，`audit:maturity` 绿）。
+>
+> **过程中挖出并修掉的两个既有缺陷**（都不是本片引入）：① `CrisprEditSpec.addressThreshold` **被实现忽略**（端口契约声明了、编辑器只读构造参数）——
+> 「声明未接线」的又一例，已改为规格优先；② `verifiableVerdictForCode` 的临时代码文件**不带 pid**，而 `node --test` 每文件一个进程共用临时目录 ⇒
+> 「验证后无残留」判据会看到别的进程正在写的同前缀文件而**偶发假红**（本轮实测触发一次），已按 pid 收窄。
+>
+> **诚实边界**：Kernel **默认关**，增益未经两关统计，不得声称"已实现自我进化"；CLI `cycle` 的晋升落在**本进程内存**技能表（会话级），
+> 只有台账（快照/晋升/回滚条目）是持久产物——命令输出的 `note` 字段如实写明这一点。
+>
 > **至此 `docs/ARCHITECTURE_UPGRADE_2026-10.md` §4 路线图的登记遗留项全部清零**（G1b-c / G8-c / G10-T2 / G20-b / G21-b / G25-b 六项本轮全部落地；
 > 其中 G1b-c 的"L4 显式对齐是否必要"未被独立证明，另立 G1b-c2——**第二十九轮已收口**，机制结论见上）。
 > 判据 ⑥ 四条：产物逐位相同 / 仪器自证 200ms / **绝对目标 ≤100ms 达成**（实测 31.9ms）/ **相对判据**（重复 5 次放大基线：同步 506ms vs

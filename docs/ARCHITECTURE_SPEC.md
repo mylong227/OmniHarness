@@ -31,6 +31,7 @@ src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件
 src/composition/**  组合根（Runtime + 装配）
 src/config/**       配置装配（6 个 Assembler + ConfigFactory/ConfigBuilder）
 src/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
+src/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
 src/cli/**  src/server/**  （Web 工作台在 web/**）
 ```
 
@@ -66,14 +67,15 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 
 ## 4. 端口面（契约先于实现）
 
-| 关注点 | 端口（示例）                                                                                                 | 说明                                                        |
-| ------ | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| 模型   | `ports/model/model.ts`、`embedding.ts`、`costBudgetPort.ts`                                                  | 多 provider；`reasoning_effort` 透传；嵌入可选              |
-| 工具   | `ports/tool/tool.ts`、`toolNames.ts`、`toolInputSink.ts`                                                     | 工具名**单一来源**（消费方横跨 core/adapters/security/cli） |
-| 运行时 | `ports/runtime/{approval,sandbox,eventPort,plan,todo,escalation,supervisor,containerPort,serviceKeyLike}.ts` | 审批/沙箱/事件/计划/待办/提权/监督/容器                     |
-| 记忆   | `ports/memory/{longTermMemory,spill,scratchpad,cosmicWeb,memoryExtractor,memoryAnnealing}.ts`                | 长期记忆 + 溢出 + 知识算子                                  |
-| 检索   | `ports/intelligence/retrieval.ts`                                                                            | 检索端口（实现见 §6）                                       |
-| 组合   | `ports/composition/omniHarnessRuntime.ts`、`ports/config/resolvedConfig.ts`                                  | 运行时与配置的**类型契约**（G25 后调用点直连端口）          |
+| 关注点 | 端口（示例）                                                                                                 | 说明                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| 模型   | `ports/model/model.ts`、`embedding.ts`、`costBudgetPort.ts`                                                  | 多 provider；`reasoning_effort` 透传；嵌入可选                                                                 |
+| 工具   | `ports/tool/tool.ts`、`toolNames.ts`、`toolInputSink.ts`                                                     | 工具名**单一来源**（消费方横跨 core/adapters/security/cli）                                                    |
+| 运行时 | `ports/runtime/{approval,sandbox,eventPort,plan,todo,escalation,supervisor,containerPort,serviceKeyLike}.ts` | 审批/沙箱/事件/计划/待办/提权/监督/容器                                                                        |
+| 记忆   | `ports/memory/{longTermMemory,spill,scratchpad,cosmicWeb,memoryExtractor,memoryAnnealing}.ts`                | 长期记忆 + 溢出 + 知识算子                                                                                     |
+| 检索   | `ports/intelligence/retrieval.ts`                                                                            | 检索端口（实现见 §6）                                                                                          |
+| 组合   | `ports/composition/omniHarnessRuntime.ts`、`ports/config/resolvedConfig.ts`                                  | 运行时与配置的**类型契约**（G25 后调用点直连端口）                                                             |
+| 进化   | `ports/runtime/evolution/{signalSource,candidateArchive,promotionLedger}.ts`                                 | 信号源 / 候选档案 / 晋升台账（ADR-0008；`EvolutionKernel` 实现**既有** `EvolutionController`，`core/` 零改动） |
 
 **服务令牌（G26）**：`ServiceKey<T>`（实现类在 `core/serviceKey.ts`，端口只给结构契约
 `ports/runtime/serviceKeyLike.ts`）⇒ 注册**类型不符即编译失败**、取用**零断言**。

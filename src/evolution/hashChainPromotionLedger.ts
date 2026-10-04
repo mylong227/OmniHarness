@@ -173,6 +173,14 @@ export class HashChainPromotionLedger implements PromotionLedgerPort {
   }
 
   /**
+   * 条目快照（只读副本；`status` 类观测/CLI 报告用——不暴露可变内部态）。
+   * @returns 全链条目（按 seq 升序）
+   */
+  public list(): readonly PromotionLedgerEntry[] {
+    return [...this.entries];
+  }
+
+  /**
    * 规范化正文（固定键序，不含 prev/hash 自身——它们是被保护对象）。
    * @param entry 台账条目
    * @returns 可参与哈希的规范化 JSON 字符串
