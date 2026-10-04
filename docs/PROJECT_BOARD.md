@@ -149,6 +149,34 @@
 > **诚实边界**：Kernel **默认关**，增益未经两关统计，不得声称"已实现自我进化"；CLI `cycle` 的晋升落在**本进程内存**技能表（会话级），
 > 只有台账（快照/晋升/回滚条目）是持久产物——命令输出的 `note` 字段如实写明这一点。
 >
+> **第三十二轮｜Evolvix-Ω Wave B（资产协议泛化）✅ 全片落地**：按 [ARCHITECTURE_TARGET_2026-10.md](ARCHITECTURE_TARGET_2026-10.md) §7
+> 的 Wave B（前置 = Wave A 全绿 + ADR-0009）分 **6 片**独立提交：
+> B1 `84bc0c7`（ADR-0009 + `ports/capability` 六契约 + 类型注册表 + SkillSchema）/ B2 `1b487dc`（`CapabilityRegistry` 绞杀者第一态）/
+> B3 `bedb277`（注册口与治理 fail-closed 判据）/ B4 `dba408a`（第二类型 WorkflowTemplate + 评估器 + Operator/Evaluator 契约 + 端到端）/
+> B5 `530eddf`（`capability` 配置段 + 装配接线）/ B6（CLI `capability list` + 文档）。每片过全部门禁并跑**全量单测**
+> （末次 clean build 实测 **2700 例，0 失败，4 跳过**；成熟度声明 **56 项**）。
+>
+> ① **协议面**：`CapabilitySchema`（类型自描述：校验 + **评估契约** + 默认信任/隔离档 + 台账语义）+
+> `CapabilityRecord`（本体 + 溯源 + 适应度 + 治理状态）+ 两个端口（类型注册表 / **`SkillPort` 超集**注册表）。
+> ② **绞杀者第一态**：`CapabilityRegistry` **内部持同一份 `SkillRegistry`**，`SkillPort` 全量成员与
+> `selectForPrompt`/`rankForPrompt`/`render` 一律委托——**J6 判据**跑「选择→稀疏化→渲染」完整轨迹逐位对照
+> （名字 + 分数 + 顺序 + 渲染文本），并带**仪器自证**（故意反转排名的对照实现必须被判红）；**生产注入路径本波不动**（切换属第二态）。
+> ③ **fail-closed 三条**：未注册类型即拒 + 结构非法即拒（**失败不留痕**）+ 治理变更必须留台账
+> （无台账即拒且状态不变；入链记 `action:'governance'` 并回写 `ledgerSeq`）；档位（信任/隔离）**只可收紧不可放宽**。
+> ④ **对类型开放（上限轴 1）**：第二个类型 `workflow-template` 自带度量（依赖满足度），端到端判据串起
+> 「算子产出 → 新类型入册 → 评估出 fitness → 台账晋升 → 回滚逐条深相等」；`OperatorPort` 由**既有**燧-1 发现引擎实现（**零休眠代码**）。
+> ⑤ **配置与 CLI**：`capability` 段严格校验（未知子键/类型/档位枚举越界一律拒启动——落在安全档位上的静默忽略代价最高）；
+> 缺省关 ⇒ 切片 undefined（零行为变更）；`capability list` **结构性只读**（命令类只拿只读回调）。
+>
+> **过程真问题（门禁自己抓到的）**：B5 首次跑全量单测时，仓库自己的**接线完整性门禁 I5a** 报
+> `FileConfig.capability 被配置文件接受但 CLI 层零引用（写入后静默丢弃）`——即「声明未接线」第 N 次同形态。
+> 已补 `argParser.configDefaults` + `CliSubsystemSections` 两段透传并加判据（配置文件 → CliArgs → partial 闭环）；
+> 另一处是 `ConfigFactory.build` 体量被新切片推过基线（106 > 99），按该文件既有手法抽成 `buildCapabilityStack` 帮手。
+>
+> **诚实边界**：Wave B 是**协议与治理面**的落地，**不改变任何既有行为**（`capability.enabled` 缺省关）；
+> 已注册的类型仍只有 `skill` / `workflow-template` 两个（「类型开放」是能力，不是已有生态）；
+> Wave C（隔离阶梯）/D（分发）/E（元进化）与 A.5（依赖准入）**仍未开始**。
+>
 > **至此 `docs/ARCHITECTURE_UPGRADE_2026-10.md` §4 路线图的登记遗留项全部清零**（G1b-c / G8-c / G10-T2 / G20-b / G21-b / G25-b 六项本轮全部落地；
 > 其中 G1b-c 的"L4 显式对齐是否必要"未被独立证明，另立 G1b-c2——**第二十九轮已收口**，机制结论见上）。
 > 判据 ⑥ 四条：产物逐位相同 / 仪器自证 200ms / **绝对目标 ≤100ms 达成**（实测 31.9ms）/ **相对判据**（重复 5 次放大基线：同步 506ms vs

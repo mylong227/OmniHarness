@@ -29,9 +29,9 @@ src/ports/**        契约层（29 个子目录 / 361 个 .ts）——纯声明
 src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
 src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
 src/composition/**  组合根（Runtime + 装配）
-src/config/**       配置装配（6 个 Assembler + ConfigFactory/ConfigBuilder）
+src/config/**       配置装配（7 个 Assembler + ConfigFactory/ConfigBuilder）
 src/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
-src/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表；ADR-0009）
+src/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表 + 通用评估器 + 内置两类型；ADR-0009）
 src/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
 src/cli/**  src/server/**  （Web 工作台在 web/**）
 ```

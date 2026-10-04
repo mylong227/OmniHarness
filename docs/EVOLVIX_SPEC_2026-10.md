@@ -287,8 +287,16 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
 
 ## 10. 诚实清单
 
-- 本规格**未实现**：§1–§8 全部为设计产物；唯一"已决策"部分是 Wave A（ADR-0008）。
-- §1 契约签名为设计稿，落码时以 ports 纯度门禁与真实调用点为准微调；微调若改变语义须回改本文。
+- ~~本规格**未实现**：§1–§8 全部为设计产物；唯一"已决策"部分是 Wave A（ADR-0008）。~~
+  **2026-10-04 更新**：**Wave A 与 Wave B 均已落地**（A：7 片 `a7d0354`…`cef1b5c`；B：6 片 `84bc0c7`…，
+  ADR-0009）；**Wave C/D/E 仍未实现**，对应章节（§6 隔离阶梯 / §7 A.5 依赖 / F3 资产安装 / F4 元晋升）
+  继续按设计稿阅读。已落地的判据：J1–J7 全绿，其中 J6（绞杀者等价，逐位对照 + 仪器自证）、
+  J7（未注册类型即拒，注册口 + 第二类型面）为本波新增。进度与数字见 `PROJECT_BOARD.md`。
+- §1 契约签名为设计稿，落码时以 ports 纯度门禁与真实调用点为准微调；微调若改变语义须回改本文
+  （Wave A/B 已按此回填：`RewardVerdict` 提升到端口层、`PromotionLedgerAction` 增 `governance`、
+  `capability` 增 `isolationDefaults` 下限语义——三处都属签名微调而**未改语义**）。
 - 人日与判据沿看板口径（可能放大 2×）；Wave E 依赖两关显著，可能永不启动（纪律）。
-- 依赖候选的许可证/维护度为 2026-10-04 快照，引入当日以 LICENSE/发布记录为准。
-- 与 `ARCHITECTURE_SPEC.md`（现状权威）冲突处以 SPEC 为准，直到对应代码落地并重写 SPEC。
+- 依赖候选的许可证/维护度为 2026-10-04 快照，引入当日以 LICENSE/发布记录为准
+  （Wave A/B 均为**零新依赖**：A.5 的 `openid-client`/`jose`/`croner` 与 C 的 `wasmtime` 尚未准入）。
+- 与 `ARCHITECTURE_SPEC.md`（现状权威）冲突处以 SPEC 为准，直到对应代码落地并重写 SPEC
+  （Wave A/B 落地后 `ARCHITECTURE_SPEC.md` 的端口目录 / ADR 索引 / 规模数字已同步复测）。
