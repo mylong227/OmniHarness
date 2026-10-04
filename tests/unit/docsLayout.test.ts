@@ -51,6 +51,7 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'EVOLVIX_SPEC_2026-10.md',
   // A.5 OTel 导出评估：B 级「先测后买」的裁决记录（含复评触发条件），ARCHITECTURE_TARGET §5.3 指向它
   'OTEL_EXPORT_EVALUATION_2026-10.md',
+  'TRANSPORT_STACK_EVALUATION_2026-10.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',

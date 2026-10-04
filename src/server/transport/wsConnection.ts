@@ -1,16 +1,28 @@
-import { createHash, randomBytes } from 'node:crypto';
+﻿import { createHash } from 'node:crypto';
+import { WsFrameCodec } from './wsFrameCodec.js';
+import type { WsParsedFrame } from './wsFrameCodec.js';
 import type { Duplex } from 'node:stream';
 import type { IncomingMessage, Server } from 'node:http';
 
 /** WebSocket 连接：RFC6455 帧编解码（文本帧，无第三方依赖）。 */
 export class WsConnection {
   /**
-   * 单帧声明长度上限（字节）：8 MiB。
+   * 单条消息（分片重组后）字节硬上限。
    *
-   * 依据：本服务的 WS 帧只承载 JSON-RPC 消息与事件推送（正常为 KB 级）；上限存在的意义是
-   * 把「对端声明一个巨大长度后静默不发数据 ⇒ 服务端缓冲无限增长」这条内存耗尽路径封死。
+   * 为什么与帧上限分开：RFC6455 允许把一条消息切成**任意多**帧（每帧都可 ≤ 8 MiB），
+   * 只限帧不限消息 ⇒ 对端用无数小分片就能把重组缓冲撑爆。上限与帧同量级即可
+   * （本服务的消息是 JSON-RPC 与事件推送，KB 级）。
    */
-  public static readonly MAX_FRAME_BYTES = 8 * 1024 * 1024;
+  private static readonly MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+
+  /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
+  private buffer: Buffer = Buffer.alloc(0);
+  /** 分片重组缓冲（FIN=0 的数据帧按序累积，收到 FIN=1 的续帧才交付）。 */
+  private fragments: Buffer[] = [];
+  /** 分片重组已累积字节数（与 {@link WsConnection.MAX_MESSAGE_BYTES} 比对）。 */
+  private fragmentBytes = 0;
+  /** 当前正在重组的分片类型（首帧 opcode：0x1 文本 / 0x2 二进制）。 */
+  private fragmentOpcode: number | undefined;
 
   /**
    * 发送队列字节硬上限（背压兜底）：慢客户端持续积压超过此量即断开连接（fail-closed），
@@ -18,8 +30,8 @@ export class WsConnection {
    */
   private static readonly MAX_QUEUE_BYTES = 16 * 1024 * 1024;
 
-  /** 未消费的字节缓冲（帧跨 TCP 分片时累积解析）。 */
-  private buffer: Buffer = Buffer.alloc(0);
+  /** 是否已发出关闭帧（ail() 发过带状态码的关闭帧后不再补发空关闭帧）。 */
+  private closeFrameSent = false;
   /** 连接是否已关闭（关闭后 send 直接丢弃）。 */
   private closed = false;
   /**
@@ -85,20 +97,11 @@ export class WsConnection {
     if (this.closed) {
       return;
     }
-    const frame = this.buildFrame(Buffer.from(text, 'utf8'));
+    const frame = WsFrameCodec.buildDataFrame(Buffer.from(text, 'utf8'), 0x1, this.role);
     if (this.paused || this.sendQueue.length > 0) {
       this.enqueue(frame);
       return;
     }
-    this.writeFrame(frame);
-  }
-
-  /**
-   * 写出一帧并据返回值更新背压状态。
-   * @param frame 待写出的字节帧。
-   * @returns 无返回值。
-   */
-  private writeFrame(frame: Buffer): void {
     this.paused = !this.socket.write(frame);
   }
 
@@ -132,7 +135,7 @@ export class WsConnection {
       if (frame === undefined) {
         break;
       }
-      this.writeFrame(frame);
+      this.paused = !this.socket.write(frame);
     }
   }
 
@@ -148,16 +151,26 @@ export class WsConnection {
     this.sendQueue.length = 0;
     this.onClose();
     try {
-      this.socket.end(Buffer.from([0x88, 0x00]));
+      // 已经通过 `fail()` 发过带状态码的关闭帧时不再补发——RFC6455 只允许一个关闭帧，
+      // 连发两个会让对端看到「关闭后还有数据」，部分实现会记为协议错误（1002）。
+      this.socket.end(this.closeFrameSent ? Buffer.alloc(0) : Buffer.from([0x88, 0x00]));
     } catch {
       this.socket.destroy();
     }
   }
 
   /**
-   * 累积分片解析帧。
+   * 累积分片解析帧（RFC6455 §5.4：数据帧可分片，控制帧不可分片且 ≤125 字节）。
+   *
+   * 2026-10-04 审计（Wave D ④ 传输栈评估）修掉四处**协议一致性缺陷**——原实现只认 `0x1`/`0x8`：
+   * ① FIN 位被忽略 ⇒ **分片消息被当完整消息提前交付**（且后续续帧被丢弃=数据截断）；
+   * ② 无 ping/pong ⇒ 对端 ping 得不到 pong，第三方客户端会判连接已死；
+   * ③ 文本帧不做 UTF-8 校验 ⇒ 非法序列被静默替换成 U+FFFD（规范要求 1007 关闭）；
+   * ④ 未校验掩码位 ⇒ 客户端**未掩码**的数据帧被照收（规范要求 1002 关闭；掩码是防中间设备
+   *    缓存投毒的一环，放行等于把这条防线交给对端自觉）。
+   * 另补 ⑤ 分片重组上限（只限单帧不限消息 ⇒ 无数小分片可撑爆重组缓冲）。
    * @param chunk 新到的字节分片（追加进缓冲后循环取帧）。
-   * @returns 无返回值（关闭帧触发 close，文本帧触发 onMessage）。
+   * @returns 无返回值（数据帧交付 `onMessage`，控制帧按规范回应或关闭）。
    */
   private consume(chunk: Buffer): void {
     this.buffer = Buffer.concat([this.buffer, chunk]);
@@ -166,131 +179,128 @@ export class WsConnection {
       if (frame === undefined) {
         return;
       }
-      if (frame.opcode === 0x8) {
-        this.close();
+      if (frame.opcode >= 0x8) {
+        this.handleControlFrame(frame);
+        if (this.closed) return;
+        continue;
+      }
+      this.handleDataFrame(frame);
+      if (this.closed) return;
+    }
+  }
+
+  /**
+   * 处理数据帧（含分片重组与**统一交付点**）。
+   *
+   * 交付只有一处（末尾）：这样「单帧完整消息」与「分片重组后的消息」走**完全相同**的校验与交付路径——
+   * 两处各写一遍必然漂移（第一版单帧路径直接交付、完全跳过 UTF-8 校验，就是这个形态）。
+   * @param frame 已解析帧
+   * @returns 无返回值
+   */
+  private handleDataFrame(frame: WsParsedFrame): void {
+    if (frame.opcode === 0x0) {
+      if (this.fragmentOpcode === undefined) {
+        this.fail(1002, '续帧出现在无分片消息时');
         return;
       }
-      if (frame.opcode === 0x1 && frame.payload.length > 0) {
-        this.onMessage(frame.payload.toString('utf8'));
+    } else if (frame.opcode === 0x1 || frame.opcode === 0x2) {
+      if (this.fragmentOpcode !== undefined) {
+        this.fail(1002, '新数据帧出现在未完成的分片消息中');
+        return;
       }
+      this.fragmentOpcode = frame.opcode;
+    } else {
+      this.fail(1003, `不支持的数据帧 opcode 0x${frame.opcode.toString(16)}`);
+      return;
     }
+
+    this.fragments.push(frame.payload);
+    this.fragmentBytes += frame.payload.length;
+    if (this.fragmentBytes > WsConnection.MAX_MESSAGE_BYTES) {
+      this.fail(1009, '分片消息超过重组上限');
+      return;
+    }
+    if (!frame.fin) return;
+
+    const opcode = this.fragmentOpcode ?? 0x1;
+    const payload = Buffer.concat(this.fragments);
+    this.fragments = [];
+    this.fragmentBytes = 0;
+    this.fragmentOpcode = undefined;
+
+    if (opcode !== 0x1) {
+      // 二进制：本服务的 WS 只承载 JSON-RPC/事件（文本）。显式拒绝而不是静默丢弃——
+      // 静默丢弃会让对端一直等一个永不到来的响应（本仓「静默 ≠ 不可见」的同一取向）。
+      this.fail(1003, '本端点只接受文本消息');
+      return;
+    }
+    const decoded = WsFrameCodec.decodeText(payload);
+    if (!decoded.ok) {
+      this.fail(decoded.code, decoded.reason);
+      return;
+    }
+    if (decoded.text.length > 0) this.onMessage(decoded.text);
+  }
+
+  /**
+   * 处理控制帧（关闭 / ping / pong）。
+   * @param frame 已解析帧
+   * @returns 无返回值
+   */
+  private handleControlFrame(frame: WsParsedFrame): void {
+    // 控制帧不得分片且载荷 ≤125 字节（RFC6455 §5.5）。
+    if (!frame.fin || frame.payload.length > 125) {
+      this.fail(1002, '控制帧不得分片且载荷不得超过 125 字节');
+      return;
+    }
+    if (frame.opcode === 0x8) {
+      this.close();
+      return;
+    }
+    if (frame.opcode === 0x9) {
+      // ping ⇒ 必须回 pong（否则对端心跳超时，判定链路已死）。
+      this.sendControl(0xa, frame.payload);
+      return;
+    }
+    if (frame.opcode === 0xa) return; // pong：无需处理。
+    this.fail(1003, `不支持的控制帧 opcode 0x${frame.opcode.toString(16)}`);
+  }
+
+  /**
+   * 按规范以状态码关闭（先发关闭帧再断开）。
+   * @param code 关闭状态码（RFC6455 §7.4.1）
+   * @param reason 关闭原因（≤123 字节）
+   * @returns 无返回值
+   */
+  private fail(code: number, reason: string): void {
+    this.closeFrameSent = true;
+    this.sendControl(0x8, WsFrameCodec.closePayload(code, reason));
+    this.close();
   }
 
   /**
    * 尝试取一帧（数据不足返回 undefined）。
-   * @returns opcode 与载荷；缓冲不足一个完整帧时 undefined。
+   * @returns FIN / opcode / 载荷；缓冲不足一个完整帧时 undefined。
    */
-  private takeFrame(): { opcode: number; payload: Buffer } | undefined {
-    const buffer = this.buffer;
-    if (buffer.length < 2) {
+  private takeFrame(): WsParsedFrame | undefined {
+    const step = WsFrameCodec.parse(this.buffer, this.role);
+    if (step.kind === 'incomplete') return undefined;
+    if (step.kind === 'error') {
+      this.fail(step.code, step.reason);
       return undefined;
     }
-    const opcode = (buffer[0] ?? 0) & 0x0f;
-    const masked = ((buffer[1] ?? 0) & 0x80) !== 0;
-    let length = (buffer[1] ?? 0) & 0x7f;
-    let offset = 2;
-    if (length === 126) {
-      if (buffer.length < offset + 2) {
-        return undefined;
-      }
-      length = buffer.readUInt16BE(offset);
-      offset += 2;
-    } else if (length === 127) {
-      if (buffer.length < offset + 8) {
-        return undefined;
-      }
-      length = Number(buffer.readBigUInt64BE(offset));
-      offset += 8;
-    }
-    let maskKey: Buffer | undefined;
-    if (masked) {
-      if (buffer.length < offset + 4) {
-        return undefined;
-      }
-      maskKey = buffer.subarray(offset, offset + 4);
-      offset += 4;
-    }
-    // 声明长度上限（fail-closed）：WebSocket 头的长度字段是**对端声明**的 64 位数，原实现无条件
-    // 等待 `offset + length` 字节到齐 ⇒ 一个 `Content-Length` 式的大数字 + 静默不发数据，就能让
-    // 缓冲无限增长（内存耗尽）。超限即关闭连接，不再等待（2026-09-26 审计 S21）。
-    if (length > WsConnection.MAX_FRAME_BYTES) {
-      this.close();
-      return undefined;
-    }
-    if (buffer.length < offset + length) {
-      return undefined;
-    }
-    const raw = buffer.subarray(offset, offset + length);
-    const payload = maskKey === undefined ? raw : this.unmask(raw, maskKey);
-    this.buffer = buffer.subarray(offset + length);
-    return { opcode, payload };
+    this.buffer = this.buffer.subarray(step.consumed);
+    return step.frame;
   }
 
   /**
-   * 解客户端掩码。
-   * @param raw 掩码后的载荷。
-   * @param mask 4 字节掩码键。
-   * @returns 异或解掩码后的原始载荷。
+   * 发送控制帧（服务端不掩码；客户端按 §5.1 掩码——角色判定与数据帧共用编解码器）。
+   * @param opcode 控制帧 opcode（0x8/0x9/0xa）
+   * @param payload 载荷（≤125 字节）
+   * @returns 无返回值
    */
-  private unmask(raw: Buffer, mask: Buffer): Buffer {
-    const out = Buffer.alloc(raw.length);
-    for (let index = 0; index < raw.length; index += 1) {
-      out[index] = (raw[index] ?? 0) ^ (mask[index % 4] ?? 0);
-    }
-    return out;
-  }
-
-  /**
-   * 构造文本帧：服务端发裸帧；客户端按 RFC6455 加 4 字节随机掩码。
-   * @param payload 待发送载荷（按长度选 7/16/64 位帧头）。
-   * @returns 完整帧字节（0x81 文本帧头 [+ 掩码键] + 载荷）。
-   */
-  private buildFrame(payload: Buffer): Buffer {
-    if (this.role === 'client') {
-      return this.buildClientFrame(payload);
-    }
-    let header: Buffer;
-    if (payload.length < 126) {
-      header = Buffer.from([0x81, payload.length]);
-    } else if (payload.length < 65536) {
-      header = Buffer.alloc(4);
-      header[0] = 0x81;
-      header[1] = 126;
-      header.writeUInt16BE(payload.length, 2);
-    } else {
-      header = Buffer.alloc(10);
-      header[0] = 0x81;
-      header[1] = 127;
-      header.writeBigUInt64BE(BigInt(payload.length), 2);
-    }
-    return Buffer.concat([header, payload]);
-  }
-
-  /**
-   * 构造客户端文本帧（RFC6455 要求客户端发出的每一帧都掩码）。
-   * @param payload 待发送载荷。
-   * @returns 完整帧字节（带掩码位的帧头 + 4 字节掩码键 + 掩码后载荷）。
-   */
-  private buildClientFrame(payload: Buffer): Buffer {
-    const mask = randomBytes(4);
-    const masked = Buffer.alloc(payload.length);
-    for (let index = 0; index < payload.length; index += 1) {
-      masked[index] = (payload[index] ?? 0) ^ (mask[index % 4] ?? 0);
-    }
-    const short = payload.length < 126;
-    const mid = !short && payload.length < 65536;
-    const header = Buffer.alloc(short ? 2 : mid ? 4 : 10);
-    header[0] = 0x81;
-    if (short) {
-      header[1] = 0x80 | payload.length;
-    } else if (mid) {
-      header[1] = 0x80 | 126;
-      header.writeUInt16BE(payload.length, 2);
-    } else {
-      header[1] = 0x80 | 127;
-      header.writeBigUInt64BE(BigInt(payload.length), 2);
-    }
-    return Buffer.concat([header, mask, masked]);
+  private sendControl(opcode: number, payload: Buffer): void {
+    this.enqueue(WsFrameCodec.buildDataFrame(payload, opcode, this.role));
   }
 
   /** RFC6455 握手 accept 值：base64(sha1(key + 固定 GUID))。
