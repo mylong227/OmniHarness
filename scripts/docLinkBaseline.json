@@ -11,7 +11,7 @@
   "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/evolution/coverageBuckets.ts",
   "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/evolution/evolutionKernel.ts",
   "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/evolution/promotionLedgerImpl.ts",
-  "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/evolution/signalCollector.ts",
+  "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/evolution/evolutionSignalCollector.ts",
   "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/ports/runtime/evolution/candidateArchive.ts",
   "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/ports/runtime/evolution/promotionLedger.ts",
   "mention: docs/EVOLUTION_ARCH_UPGRADE_2026-10.md -> src/ports/runtime/evolution/signalSource.ts",

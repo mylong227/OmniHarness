@@ -11,7 +11,8 @@
  *
  * @beta 属 P1 内核升级子系统，接口仍可能微调。
  *
- * 本文件已退化为桶：6 个接口各自独立成文件于 `./evolution/`，调用点零改动。
+ * 本文件已退化为桶：接口各自独立成文件于 `./evolution/`，调用点零改动。
+ * （GEE Kernel v1 · ADR-0008 新增三契约：信号源 / 候选档案 / 晋升台账。）
  */
 
 export type { Candidate } from './evolution/candidate.js';
@@ -20,3 +21,17 @@ export type { EvolutionGate } from './evolution/evolutionGate.js';
 export type { DiscoveryEngine } from './evolution/discoveryEngine.js';
 export type { EvolutionControllerOptions } from './evolution/evolutionControllerOptions.js';
 export type { EvolutionController } from './evolution/evolutionController.js';
+export type {
+  EvolutionSignal,
+  EvolutionSignalKind,
+  EvolutionSignalSourcePort,
+} from './evolution/signalSource.js';
+export type { CandidateArchivePort, ArchivedCandidate } from './evolution/candidateArchive.js';
+export type {
+  PromotionLedgerPort,
+  PromotionLedgerEntry,
+  PromotionLedgerAction,
+  PromotionLedgerVerifyReport,
+  PromotionRecord,
+  SkillRestorePlan,
+} from './evolution/promotionLedger.js';
