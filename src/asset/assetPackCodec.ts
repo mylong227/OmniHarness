@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 资产包编解码（Wave D · ADR-0011）：`.ohb` 容器读写 + **Ed25519 非对称**签名与验签。
  *
  * ## 为什么是「非对称」而不是沿用插件包的 HMAC
@@ -21,7 +21,8 @@
  * @maturity L1 — 三类验签失败（无签名/坏签名/篡改）与容器误读判据钉死（含变异自证）
  * @maturityEvidence tests/unit/assetPackCodec.test.ts
  */
-import { createPublicKey, verify as cryptoVerify, type KeyObject } from 'node:crypto';
+import { verify as cryptoVerify, type KeyObject } from 'node:crypto';
+import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
 import type { AssetPackManifest, PackPublisher } from '../ports/asset.js';
 import { Zip } from '../plugin/zip.js';
@@ -31,12 +32,6 @@ export const ASSET_PACK_ENTRY = 'asset-pack.json';
 
 /** 格式标识（写包与读包都校验它，防误读）。 */
 const FORMAT = 'omniharness-asset-pack';
-
-/** Ed25519 SPKI der 前缀（RFC 8410：SEQUENCE + AlgorithmIdentifier + BIT STRING 头）。 */
-const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
-
-/** 公钥原始字节长度。 */
-const ED25519_KEY_BYTES = 32;
 
 /** 验签结论（fail-closed：失败必带可行动原因）。 */
 export type PackVerification =
@@ -217,31 +212,8 @@ export class AssetPackCodec {
    * @returns 公钥；格式非法时返回**可读原因**（字符串）
    */
   private static decodePublicKey(publisher: PackPublisher): KeyObject | string {
-    const parts = publisher.publicKeySsh.trim().split(/\s+/);
-    if (parts.length < 2 || parts[0] !== 'ssh-ed25519') {
-      return `不支持的公钥格式："${publisher.publicKeySsh.slice(0, 24)}…"（只支持 ssh-ed25519）`;
-    }
-    let blob: Buffer;
-    try {
-      blob = Buffer.from(parts[1] ?? '', 'base64');
-    } catch {
-      return '公钥 base64 解码失败';
-    }
-    if (blob.length < 4) return '公钥 blob 过短';
-    const nameLength = blob.readUInt32BE(0);
-    const keyOffset = 4 + nameLength + 4;
-    if (nameLength !== 'ssh-ed25519'.length || keyOffset + ED25519_KEY_BYTES > blob.length) {
-      return '公钥 blob 结构非法（长度字段不符）';
-    }
-    const raw = blob.subarray(keyOffset, keyOffset + ED25519_KEY_BYTES);
-    try {
-      return createPublicKey({
-        key: Buffer.concat([ED25519_SPKI_PREFIX, raw]),
-        format: 'der',
-        type: 'spki',
-      });
-    } catch (err) {
-      return `公钥不可用：${err instanceof Error ? err.message : String(err)}`;
-    }
+    // 委托公共工具：同一份 ssh-ed25519 → SPKI 解码被分发层（本文件）与 License 引擎（F1）共用，
+    // 两处各写一份必然漂移——尤其"公钥格式非法"这类 fail-closed 分支。
+    return Ed25519PublicKey.decodeSsh(publisher.publicKeySsh);
   }
 }

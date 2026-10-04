@@ -27,6 +27,7 @@ import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
 import { EvolutionCommand } from './evolutionCommand.js';
 import { CapabilityCommand } from './capabilityCommand.js';
+import { LicenseCommand } from './licenseCommand.js';
 import { AssetPackInstaller } from '../asset/assetPackInstaller.js';
 import { IsolationLadder } from '../adapters/isolation/isolationLadder.js';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
@@ -45,6 +46,8 @@ export class ExecCli extends CliAgentCmds {
   private readonly evolutionCommand = new EvolutionCommand((request) =>
     this.runEvolutionCycle(request),
   );
+  /** license 子命令（F1）：查看本机授权档位（纯校验，无副作用）。 */
+  private readonly licenseCommand = new LicenseCommand();
   /** capability 子命令（Wave B/D）：只读 list/metadata + 写操作 install（切片与安装器都由本层装配）。 */
   private readonly capabilityCommand = new CapabilityCommand(
     () => this.capabilityStackOf(),
@@ -90,6 +93,7 @@ export class ExecCli extends CliAgentCmds {
     if (argv[0] === 'mcp') {
       return this.runMcp(argv.slice(1));
     }
+    if (argv[0] === 'license') return this.licenseCommand.run(argv.slice(1));
     if (argv[0] === 'kv') {
       return this.runKv(argv.slice(1));
     }
