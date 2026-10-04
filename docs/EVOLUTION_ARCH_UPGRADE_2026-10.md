@@ -91,6 +91,7 @@ Agent（任务末，core/agent.ts L355–360）
 | `src/evolution/evolutionKernel.ts`                | **新增实现（编排核心）** | `EvolutionKernel`：七环编排 + `autoRun` 透传 + 全程 try/catch fail-closed；实现 `EvolutionController`；**只编排不持策略**（ring ①/② 的纪律各自拆出，见下两行，防上帝类） |
 | `src/evolution/signalIngestor.ts`                 | **新增实现（ring ①）**   | `SignalIngestor`：信号路由策略——failure 有界累积进失败模式挖掘器、success 组合喂固化器 `observe`；从 Kernel 拆出（可单测、可替换）                                       |
 | `src/evolution/archiveCurator.ts`                 | **新增实现（ring ②）**   | `ArchiveCurator`：档案三段纪律「入档 → 复活早前冻结者 → 冻结本轮裁决」+ 复核次数上限退役；从 Kernel 拆出                                                                 |
+| `src/evolution/dormantExecutorActivation.ts`      | **新增实现（ring ⑥）**   | `DormantExecutorActivation`：失败提案 → `CrisprEditSpec`（差异测试 = 门禁基准非回退）→ `queue()`/`flush()`；越阈成功组合 `crystallize()` 冻结为原生能力（加法式）        |
 | `src/composition/runtime.ts`                      | **改造**                 | `evolutionRlvr.kernel===true` 时装配 Kernel（注入三端口 + CRISPR + 固化器），否则走现状路径                                                                              |
 | `src/config/*`                                    | **改造**                 | `evolutionRlvr` 增子键：`kernel`（bool，默认 false）、`ledgerDir`（默认 `.omniharness/evolution`）、`archiveMaxPerBucket`；沿现有透传路径，严格校验                      |
 | `src/adapters/skill/crisprSkillEditor.ts`         | **复用（转正）**         | Kernel 周期内为「针对既有技能的提案」产出 `CrisprEditSpec`（differentialTest = 基准不回退）→ `queue()` → `flush()`                                                       |

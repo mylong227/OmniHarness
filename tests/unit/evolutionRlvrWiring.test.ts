@@ -1,4 +1,4 @@
-﻿/**
+/**
  * E3：U4 RLVR autoRun 端到端接线测试。
  *
  * 本批修的是一条**此前断裂的链路**（非新增能力）：RLVR 全机器（`RlvrLoop` /
@@ -284,7 +284,11 @@ test('E3 入口（配置文件）：omniharness.json 的 evolutionRlvr 对象映
 });
 
 test('U4 桥：验证临时文件用后即清——绿样本与红样本两条路径都不留 omni-rlvr-* 垃圾', async () => {
-  const before = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-')));
+  // 只认**本进程**的临时文件（名字带 pid）：`node --test` 每个测试文件一个进程、共用系统临时目录，
+  // 不按 pid 收窄时会把别的进程正在写的同前缀文件当成「本用例的残留」而误红（跨进程并发不在判据内）。
+  const before = new Set(
+    readdirSync(tmpdir()).filter((f) => f.startsWith(`omni-rlvr-${process.pid}-`)),
+  );
   const verdictFor = VerifiableReward.verifiableVerdictForCode(() => VERIFY_COMMAND, {
     codeFileExtension: '.js',
   });
@@ -292,13 +296,15 @@ test('U4 桥：验证临时文件用后即清——绿样本与红样本两条�
   const red = await verdictFor({ id: 't-red', code: RED_CODE });
   assert.strictEqual(green.reward, 1, '绿 JS 代码经 node --check 应得满奖励');
   assert.strictEqual(red.reward, 0, '红 JS 代码经 node --check 应得零奖励');
-  const after = readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-'));
+  const after = readdirSync(tmpdir()).filter((f) => f.startsWith(`omni-rlvr-${process.pid}-`));
   const leaked = after.filter((f) => !before.has(f));
   assert.deepStrictEqual(leaked, [], '验证结束后不得遗留任何临时代码文件');
 });
 
 test('U4 桥：临时文件写入失败 → fail-closed 判 0（verifiable=false）且不留垃圾', async () => {
-  const before = new Set(readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-')));
+  const before = new Set(
+    readdirSync(tmpdir()).filter((f) => f.startsWith(`omni-rlvr-${process.pid}-`)),
+  );
   // 扩展名携带不存在的子目录段 → 拼出的临时路径必写失败（Windows/POSIX 一致），
   // 以此触发 write-error 分支，锁死「验证不可达 ≠ 假通过」的 fail-closed 语义。
   const verdictFor = VerifiableReward.verifiableVerdictForCode(() => VERIFY_COMMAND, {
@@ -311,7 +317,7 @@ test('U4 桥：临时文件写入失败 → fail-closed 判 0（verifiable=false
     verdict.reason.startsWith('unverifiable:write-error'),
     `实际 reason: ${verdict.reason}`,
   );
-  const after = readdirSync(tmpdir()).filter((f) => f.startsWith('omni-rlvr-'));
+  const after = readdirSync(tmpdir()).filter((f) => f.startsWith(`omni-rlvr-${process.pid}-`));
   const leaked = after.filter((f) => !before.has(f));
   assert.deepStrictEqual(leaked, [], '写失败路径同样不得遗留垃圾');
 });

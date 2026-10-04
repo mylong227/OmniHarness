@@ -24,6 +24,8 @@ import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCol
 import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.js';
 import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.js';
 import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
+import { DormantExecutorActivation } from '../../src/evolution/dormantExecutorActivation.js';
+import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.js';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
 import { ArgParser } from '../../src/cli/argParser.js';
 import { MoireComposer } from '../../src/skill/moireComposer.js';
@@ -276,6 +278,12 @@ test('S2 七环端到端：信号路由 / 档案入桶 / 晋升接管 / 固化�
   const crystallizer = new CapabilityCrystallizer({ skillPort: registry, densityThreshold: 3 });
   const promotedNames: string[] = [];
   const ledger = new HashChainPromotionLedger({});
+  // 满配装配含 ring ⑥ 执行体（S6）：CRISPR 编辑器 + 固化器缺一即进降级申报。
+  const executors = new DormantExecutorActivation({
+    score: RlvrController.defaultGateScore(),
+    crispr: new CRISPRSkillEditor({ skillPort: registry }),
+    crystallizer,
+  });
   const kernel = new EvolutionKernel({
     inner: bundle.controller,
     signals: new EvolutionSignalCollector({ telemetry: tel }),
@@ -283,6 +291,7 @@ test('S2 七环端到端：信号路由 / 档案入桶 / 晋升接管 / 固化�
     reentry,
     crystallizer,
     ledger,
+    executors,
     skillsProvider: () => registry.list(),
     onPromote: (c) => {
       registry.replace(c.skill);
