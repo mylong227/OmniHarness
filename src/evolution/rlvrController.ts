@@ -179,6 +179,17 @@ export class RlvrController {
     });
     return { controller, buffer, report: () => controller.report(), cascade };
   }
+
+  /**
+   * 默认门禁打分（技能级）：`Benchmark.moireEnergy` @ n=64。
+   *
+   * 单点口径：ring ④ 门禁的默认基准与 ring ⑥ CRISPR 差异测试的「非回退」尺子**同一把**——
+   * 否则「差异测试 = 门禁基准非回退」这句声明会在两个不同空间里各说各话。
+   * @returns 技能 → 基准分（0..1）
+   */
+  public static defaultGateScore(): (skill: Skill) => number {
+    return (skill: Skill): number => Benchmark.moireEnergy(skill, DEFAULT_MOIRE_FIELD_SIZE);
+  }
 }
 
 /** 构造选项。 */

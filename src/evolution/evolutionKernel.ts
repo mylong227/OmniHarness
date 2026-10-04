@@ -38,6 +38,8 @@ import { SignalIngestor } from './signalIngestor.js';
 import type { SignalRouteOutcome } from './signalIngestor.js';
 import { ArchiveCurator } from './archiveCurator.js';
 import type { ArchiveUpdateOutcome } from './archiveCurator.js';
+import type { DormantExecutorActivation } from './dormantExecutorActivation.js';
+import type { ExecutorActivationReport } from './dormantExecutorActivation.js';
 import type { EliteReentryDiscovery } from './eliteReentryDiscovery.js';
 import { log } from '../util/logger.js';
 
@@ -65,6 +67,8 @@ export interface EvolutionKernelReport {
   readonly reentryPending: number;
   /** 降级口径（如信号源缺失 / 档案缺失——装配缺件时如实申报，不静默）。 */
   readonly degraded: readonly string[];
+  /** ring ⑥ 执行体转正明细（CRISPR 改进 + 越阈结晶；未装配执行体时为 undefined）。 */
+  readonly executors?: ExecutorActivationReport | undefined;
 }
 
 /** 进化内核选项。 */
@@ -98,6 +102,11 @@ export interface EvolutionKernelOptions {
   readonly maxRecheckAttempts?: number | undefined;
   /** 失败记录累积上限（默认 512；透传信号路由器）。 */
   readonly maxFailureRecords?: number | undefined;
+  /**
+   * ring ⑥ 执行体转正（休眠执行体：CRISPR 定点改进 + 相变固化越阈冻结）：
+   * 组合根注入；缺省 = 两条转正路径不跑（如实申报进 `degraded`）。
+   */
+  readonly executors?: DormantExecutorActivation | undefined;
 }
 
 /**
@@ -137,10 +146,14 @@ export class EvolutionKernel implements EvolutionController {
   private readonly skillsProvider?: (() => readonly Skill[]) | undefined;
   /** 还原计划执行口。 */
   private readonly applyRestore?: ((plan: SkillRestorePlan) => void) | undefined;
+  /** 执行体转正（ring ⑥；缺省 = 两条转正路径不跑）。 */
+  private readonly executors?: DormantExecutorActivation | undefined;
   /** 装配缺件降级申报（构造时定死；缺什么如实申报什么）。 */
   private readonly degradedBaseline: readonly string[];
   /** 本轮晋升前落下的快照 seq（无晋升 / 台账缺失为 undefined；体检报告数据源）。 */
   private lastSnapshotSeq: number | undefined;
+  /** 本轮执行体转正明细（未装配执行体为 undefined；体检报告数据源）。 */
+  private lastExecutors: ExecutorActivationReport | undefined;
   /** 最近一轮体检报告。 */
   private lastReport: EvolutionKernelReport | undefined;
 
@@ -169,11 +182,13 @@ export class EvolutionKernel implements EvolutionController {
     this.ledger = opts.ledger;
     this.skillsProvider = opts.skillsProvider;
     this.applyRestore = opts.applyRestore;
+    this.executors = opts.executors;
     const degraded: string[] = [];
     if (opts.signals === undefined) degraded.push('signal-source:missing');
     if (opts.archive === undefined) degraded.push('candidate-archive:missing');
     if (opts.reentry === undefined) degraded.push('elite-reentry:missing');
     if (opts.ledger === undefined) degraded.push('promotion-ledger:missing');
+    degraded.push(...(opts.executors?.degraded() ?? ['executors:missing']));
     this.degradedBaseline = degraded;
   }
 
@@ -216,6 +231,9 @@ export class EvolutionKernel implements EvolutionController {
       const verdicts: PromotionVerdict[] = [...(await this.inner.cycle())];
       const promoted = this.applyPromotion(verdicts);
       const archived = this.curator.update(verdicts);
+      // ring ⑥ 尾：执行体转正（CRISPR 针对既有技能的定点改进 + 相变固化越阈冻结）。
+      // 放在晋升/档案之后：改进与冻结都作用于「本轮已定稿的技能表」，不回冲本轮裁决。
+      this.lastExecutors = this.executors?.activate(this.ingestor.proposals());
       const report = this.summarize(
         signals.length,
         routed,
@@ -332,6 +350,7 @@ export class EvolutionKernel implements EvolutionController {
       revived: archived.revived,
       reentryPending,
       degraded: this.degradedBaseline,
+      executors: this.lastExecutors,
     };
   }
 

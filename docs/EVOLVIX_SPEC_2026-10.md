@@ -155,6 +155,7 @@ src/evolution/                   # L2/L3 实现（Wave A 新增件）
   evolutionKernel.ts               # 七环编排：ingest→expand→verify→gate→ledger→promote→emit
   signalIngestor.ts                # ring① 路由策略：failure→挖掘器（有界）/ success→固化器
   archiveCurator.ts                # ring② 档案纪律：入档→复活早前冻结者→冻结本轮 + 复核上限退役
+  dormantExecutorActivation.ts     # ring⑥ 执行体转正：CRISPR 定点改进 + 固化器越阈冻结（加法式）
 src/adapters/…
   enterprise/oidcSdkClient.ts      # A.5：openid-client+jose 适配器（自研 oidcClient.ts 转回退资产）
   daemon/cronerSchedule.ts         # A.5：croner 薄适配（自研解析保留）

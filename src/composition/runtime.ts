@@ -12,6 +12,7 @@ import { EvolutionSignalCollector } from '../evolution/evolutionSignalCollector.
 import { BucketedCandidateArchive } from '../evolution/bucketedCandidateArchive.js';
 import { EliteReentryDiscovery } from '../evolution/eliteReentryDiscovery.js';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
+import { DormantExecutorActivation } from '../evolution/dormantExecutorActivation.js';
 import { TwistDiscoveryEngine } from '../evolution/twistDiscoveryEngine.js';
 import { MoireComposer } from '../skill/moireComposer.js';
 import { SkillRegistry } from '../skill/skillRegistry.js';
@@ -211,6 +212,14 @@ export class Runtime {
         invariant: '断链/不可用台账视同缺失：无快照不晋升（fail-closed）',
       });
     }
+    // ring ⑥ 执行体转正：CRISPR 定点改进（针对既有技能）+ 固化器越阈冻结（加法式）。
+    // 固化器与信号路由器**共用同一实例**：密度由 ring ① 的 `observe()` 累积，本处只负责越阈冻结；
+    // 差异测试的尺子与门禁默认基准同源（`RlvrController.defaultGateScore`），保证「非回退」可比。
+    const executors = new DormantExecutorActivation({
+      score: RlvrController.defaultGateScore(),
+      crispr: config.crispr,
+      crystallizer: config.crystallizer,
+    });
     return new EvolutionKernel({
       inner: bundle.controller,
       signals: new EvolutionSignalCollector({ telemetry: config.runtimeTelemetry }),
@@ -218,6 +227,7 @@ export class Runtime {
       reentry,
       crystallizer: config.crystallizer,
       ledger,
+      executors,
       skillsProvider: () => registry.list(),
       applyRestore: (plan) => Runtime.applySkillRestore(registry, plan),
       onPromote: (candidate) => {

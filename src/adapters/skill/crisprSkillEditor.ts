@@ -98,7 +98,9 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
     let target: Skill | undefined = exact;
     let semantic = false;
     if (target === undefined) {
-      target = this.semanticLocate(spec.target);
+      // 阈值优先级：规格自带 > 编辑器默认（端口契约把 `addressThreshold` 定义在 `CrisprEditSpec` 上，
+      // 每个提案可按目标描述的可辨度自定；不给则沿用编辑器装配值）。
+      target = this.semanticLocate(spec.target, spec.addressThreshold ?? this.addressThreshold);
       semantic = target !== undefined;
     }
     if (target === undefined) {
@@ -165,12 +167,13 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
 
   /** 语义寻址：在技能池里取与目标描述共振最强者（严格高于阈值才命中）。
    * @param desc 目标技能的语义描述文本。
+   * @param threshold 命中阈值（规格自带优先，见 `edit`）。
    * @returns 共振最强的技能；无技能超过阈值时为 undefined。
    */
-  private semanticLocate(desc: string): Skill | undefined {
+  private semanticLocate(desc: string, threshold: number): Skill | undefined {
     const probe: Spectrum = EigenSpectrum.eigenSpectrum(desc, this.bins);
     let best: Skill | undefined;
-    let bestR = this.addressThreshold - 1e-9;
+    let bestR = threshold - 1e-9;
     for (const s of this.port.list()) {
       const r = EigenSpectrum.resonance(
         probe,
@@ -181,7 +184,7 @@ export class CRISPRSkillEditor implements CRISPRSkillEditorPort {
         best = s;
       }
     }
-    return bestR >= this.addressThreshold ? best : undefined;
+    return bestR >= threshold ? best : undefined;
   }
   /**
    * deriveDescription (internal helper hoisted into CRISPRSkillEditor).

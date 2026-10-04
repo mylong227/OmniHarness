@@ -146,9 +146,12 @@ export class VerifiableReward {
       let command = cmd;
       let tmp: string | undefined;
       if (command.includes(token)) {
+        // 文件名带 **pid**：`node --test` 每个测试文件一个进程，共用一个临时目录；
+        // 不带 pid 时「验证后无残留」这类判据会看到别的进程正在写的同名前缀文件而误红
+        // （跨进程并发不是被验证行为的一部分）。
         tmp = join(
           tmpdir(),
-          `omni-rlvr-${Date.now()}-${Math.random().toString(36).slice(2)}${extension}`,
+          `omni-rlvr-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}${extension}`,
         );
         try {
           writeFileSync(tmp, candidate.code, 'utf8');
