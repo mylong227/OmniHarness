@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'node:crypto';
+﻿import { createHmac, randomBytes } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -50,7 +50,21 @@ export interface BundleManifest {
   readonly version: string;
   readonly plugins: readonly BundlePluginRef[];
   readonly patches: readonly BundlePatch[];
+  /** HMAC-SHA256 签名（对称；旧格式与"团队内共享密钥"场景保留）。 */
   readonly signature?: string;
+  /**
+   * 发布者公钥（`ssh-ed25519 …`；G2 非对称签名用）。
+   *
+   * 为什么需要它：HMAC 是**对称**的——能验的客户端也能**伪造**。而"团队私有技能源"必须
+   * 让每个成员都能验、只有发布者能签，故升级为 Ed25519：签名者持私钥，成员只持公钥（信任根）。
+   */
+  readonly publisherPublicKey?: string;
+  /**
+   * Ed25519 签名（base64；对 `canonicalManifest` 的结果签，**不含任何签名字段自身**）。
+   *
+   * 与 `signature`（HMAC）可共存：严格档只认这一条（见 `PrivateSkillSource`）。
+   */
+  readonly signatureEd25519?: string;
 }
 
 /**
@@ -64,6 +78,15 @@ export interface PackBundleOptions {
   readonly pluginsDir: string;
   /** HMAC 签名密钥文件路径（提供则对清单签名；缺省不签名）。 */
   readonly keyFile?: string | undefined;
+  /**
+   * Ed25519 发布者身份（G2）：提供则写入 `publisherPublicKey` + `signatureEd25519`。
+   *
+   * 形状取**方法形态**（`publicKeySsh()`）是为了让 `Ed25519AgentIdentity` **直接可用**：
+   * 若取 `publicKeySsh: string`，每个调用点都要写 `{ publicKeySsh: id.publicKeySsh(), sign: … }`
+   * 这种纯样板适配，而样板正是"接错一处就静默不签名"的温床。
+   */
+  readonly identity?:
+    { readonly publicKeySsh: () => string; readonly sign: (payload: string) => string } | undefined;
   /** 输出目录（缺省 <workspaceDir>/.omniharness/bundles）。 */
   readonly outDir?: string | undefined;
 }
@@ -104,9 +127,29 @@ export interface UnpackBundleResult {
  * 调用点（CLI bundle 子命令）零改动。
  */
 export class PluginBundler {
-  /** 规范化的清单字符串（排除 signature，供签名/校验）。 */
+  /**
+   * 规范化的清单字符串（**排除全部签名字段**，供签名/校验）。
+   *
+   * 必须同时排除 `signatureEd25519` 与 `signature`：把签名纳入被签内容等于让签名覆盖自身
+   * （写完就验不过）。而 `publisherPublicKey` **保留在**被签内容里——公钥不机密，
+   * 纳入反而把"这把公钥"与"这份内容"绑定在一起。
+   * @param manifest 清单
+   * @returns 稳定键序的规范化 JSON
+   */
   private canonicalManifest(manifest: BundleManifest): string {
-    const { signature: _omit, ...rest } = manifest;
+    return PluginBundler.canonicalManifestOf(manifest);
+  }
+
+  /**
+   * 规范化清单（**公开**：私有技能源 G2 要用同一个口径验签）。
+   *
+   * 为什么公开而不是让调用方自己 `JSON.stringify(rest, sortedKeys)`：口径复制一份 ⇒ 两处漂移
+   * ⇒ 打包端签的与验签端算的不是同一串，症状是"自己签的包自己验不过"（极难查）。
+   * @param manifest 清单
+   * @returns 稳定键序的规范化 JSON（不含任何签名字段）
+   */
+  public static canonicalManifestOf(manifest: BundleManifest): string {
+    const { signature: _omit, signatureEd25519: _omitEd, ...rest } = manifest;
     const keys = Object.keys(rest).sort();
     return JSON.stringify(rest, keys);
   }
@@ -208,6 +251,14 @@ export class PluginBundler {
       if (options.keyFile !== undefined) {
         const key = this.resolveKey(options.keyFile);
         (manifest as { signature?: string }).signature = this.signManifest(manifest, key);
+      }
+      if (options.identity !== undefined) {
+        // Ed25519（G2）：先写公钥再签——公钥在**被签内容**里，故必须在签名之前落定。
+        (manifest as { publisherPublicKey?: string }).publisherPublicKey =
+          options.identity.publicKeySsh();
+        (manifest as { signatureEd25519?: string }).signatureEd25519 = options.identity.sign(
+          this.canonicalManifest(manifest),
+        );
       }
 
       writeFileSync(join(staging, 'bundle.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
