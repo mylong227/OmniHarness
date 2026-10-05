@@ -5,7 +5,7 @@
  * 1. `in-process`：**逐位等价**（同一闭包在档内跑出的结果与直接调用完全一致）；
  * 2. `vm`：受限上下文（`require`/`process`/`module` 不可达）+ **同步死循环被 V8 vm timeout 真正中止**；
  * 3. `os-sandbox`：未注入原生执行器 ⇒ `level-unavailable` 拒（不假装有 OS 沙箱）；注入后走注入者；
- * 4. `wasm`：**不可达 ⇒ 拒执行**（wasmtime 未准入），且**绝不静默降档**。
+ * 4. `wasm`：**未注入执行器 ⇒ 拒执行**（本仓内置实现见 `BuiltinWasmRunner`；J8 后该档可用），且**绝不静默降档**。
  *
  * 另四条纪律：
  * - 请求比资产声明更松 ⇒ `downgrade-not-allowed`（默认；显式 `allowDowngrade` 才放行）；
@@ -129,7 +129,9 @@ test('C1 vm 档：载荷未自求值（返回函数）⇒ 拒（跨 realm 调用
 
 test('C1 wasm 档不可达 ⇒ 拒绝执行（绝不静默降档；判据对「假装有 wasm」变红）', async () => {
   const ladder = new IsolationLadder();
-  assert.strictEqual(ladder.available('wasm'), false, '本仓尚无 wasm 运行时 ⇒ 必须如实申报不可达');
+  // J8 落地后 wasm 档**可注入**（内置 BuiltinWasmRunner）；本判据点仍是「绝不假装有档位」，
+  // 只是「不可达」的成因从「本仓没有运行时」变成「本处没注入执行器」。
+  assert.strictEqual(ladder.available('wasm'), false, '未注入执行器 ⇒ wasm 档必须如实申报不可达');
   assert.strictEqual(
     ladder.available('os-sandbox'),
     false,
@@ -145,7 +147,7 @@ test('C1 wasm 档不可达 ⇒ 拒绝执行（绝不静默降档；判据对「�
   assert.strictEqual(result.ok, false);
   if (!result.ok) {
     assert.strictEqual(result.denied.code, 'level-unavailable');
-    assert.match(result.denied.reason, /wasmtime 未按 D10 准入/);
+    assert.match(result.denied.reason, /未注入 wasm 执行器/);
     assert.match(result.denied.reason, /不静默降档/);
   }
 });
