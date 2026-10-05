@@ -17,7 +17,7 @@
     "2026-09-25 凭据分层收口（fba8ae0）后的 providerProbe 基线改写（63.76→57.05，--force 下调）：受控实验定位——providerProbe 的部分分支覆盖此前**来自仓库树 omniharness.json 恰好存在**（含 providerKeys）这一开发机偶然条件；凭据分层迁移删除仓库树个人配置（本就是收口目标）后，这些分支在正常环境下不可达，57.05 连续 4 次全量实测完全一致。实验：放回仓库级配置 → 恢复 63.76 门禁绿；移除 → 57.05 门禁红，可精确复现。此为**旧基线在被个人配置污染的环境下记录**所致，非行为回归——直接改写冻结值（同 mcpClient/httpBridgeTransport 先例）。教训：基线曾依赖「仓库树有真实密钥」这一不应存在的状态。",
     "2026-09-25 补充：pluginLoader.js 反向漂移如期而至（94.06 → 83.17，差 10.89 点）——正是本表 notes 预测的「日后出现反向漂移需按纪律登记」情形。诊断：隔离单跑 pluginLoader.test.js 两次均 83.17（未覆盖 21-22/35-36/63-64/73-74/78-79/91-97 等错误分支），94.06 需特定全量交错才能到达；源码未改动。属文件集合/交错抖动，按下限 82 登记。",
     "2026-09-25 CI 三平台首跑补充：公开仓 + 去 action 化后 coverage:check 在 CI 红于三类**环境差异**（非代码回归）：① nativeExecutionBackend.js 60% vs 86.49（无原生 .node）；② bashAppRootMapper 51.66 vs 下限 70、bashLocator 57.69 vs 73——原下限在「WSL 存根 bash」宿主上校准，真 bash 宿主走向不同分支。处置：coverageEnvDependent 新增 environmentFloors（nativeAbsent / realBash 两组条件化下限，取值=CI 实测再留余量），coverageGate 显式探测环境、打印所用下限来源；有原生/WSL 存根宿主的原门禁语义逐字不变。诊断透明化同步：gate 失败透传改为 trimStart 匹配（嵌套 describe 的内部 not ok 行不再漏报）。",
-    "2026-09-25 CI 第 5 轮补充：三平台阻断清单全量诊断后按纪律登记——nativeAbsent 从 1 文件扩到 7 文件（windows runner 阻断清单即原生家族全集），新增 posix 组（ubuntu/macos 阻断交集，均为平台语义而非回归：lspUri 的 fileURLToPath 在 POSIX 可解析、shellInvocation 的 cmd 形态分支、processTreeKiller/safeRemoveTree 的平台回退分支等）。所有取值均来自公开 CI run 的实测输出。WASM job 的失败为 crates.io 网络抖动（spurious network error，重试后即绿），与代码无关。"
+    "2026-09-25 CI 第 5 轮补充：三平台阻断清单全量诊断后按纪律登记——nativeAbsent 从 1 文件扩到 7 文件（windows runner 阻断清单即原生家族全集），新增 posix 组（ubuntu/macos 阻断交集，均为平台语义而非回归：lspUri 的 fileURLToPath 在 POSIX 可解析、shellInvocation 的 cmd 形态分支、processTreeKiller 的平台回退分支等）。所有取值均来自公开 CI run 的实测输出。WASM job 的失败为 crates.io 网络抖动（spurious network error，重试后即绿），与代码无关。"
   ],
   "environmentFloors": {
     "nativeAbsent": {
@@ -32,14 +32,13 @@
       "files": {}
     },
     "posix": {
-      "reason": "POSIX runner（ubuntu/macos，2026-09-25 实测）：平台语义差异导致部分 Windows 校准的分支不可达（fileURLToPath 成功路径、cmd 形态、进程树语义、safeRemoveTree 回退、doctorRunner 提权探测等）。七文件取 ubuntu/macos 实测最低值再留 ~2 点余量登记；win32 仍走冻结基线棘轮。",
+      "reason": "POSIX runner（ubuntu/macos，2026-09-25 实测）：平台语义差异导致部分 Windows 校准的分支不可达（fileURLToPath 成功路径、cmd 形态、进程树语义、doctorRunner 提权探测等）。六文件取 ubuntu/macos 实测最低值再留 ~2 点余量登记；win32 仍走冻结基线棘轮。",
       "files": {
         "src/adapters/lsp/lspUri.js": 84,
         "src/adapters/tool/shell/processTreeKiller.js": 52,
         "src/adapters/tool/shell/shellInvocation.js": 91,
         "src/adapters/tool/shell/shellProcessRunner.js": 87,
-        "src/cli/doctorRunner.js": 93,
-        "src/util/safeRemoveTree.js": 52
+        "src/cli/doctorRunner.js": 93
       }
     }
   }
