@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RBAC-lite 策略引擎（商业化路线图 **F3** 的实现）。
  *
  * ## 设计取向：**用仓库自己的分类，而不是另立一张工具表**
@@ -30,9 +30,15 @@
  * @maturity L1 — 三角色矩阵 / 未知角色与未登记工具 fail-closed / 拒绝优先 / 原因可读 判据钉死
  * @maturityEvidence tests/unit/rbacPolicy.test.ts
  */
+import { log } from '../util/logger.js';
 import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.js';
 import type { ToolCall } from '../ports/tool/tool.js';
-import type { RoleDecision, RoleName, RolePolicyPort } from '../ports/security/rolePolicy.js';
+import type {
+  RoleDecision,
+  RoleDenialCode,
+  RoleName,
+  RolePolicyPort,
+} from '../ports/security/rolePolicy.js';
 
 /** 角色规格（可被配置覆盖/扩展）。 */
 export interface RoleSpec {
@@ -102,37 +108,62 @@ export class RbacPolicy implements RolePolicyPort {
   public decide(role: RoleName, call: ToolCall): RoleDecision {
     const spec = this.roles[role];
     if (spec === undefined) {
-      return {
-        allow: false,
-        reason: `RBAC：未知角色 "${role}"（可用角色：${Object.keys(this.roles).join(' / ')}）`,
-      };
+      return this.refuse(
+        'unknown-role',
+        role,
+        call.name,
+        `未知角色 "${role}"（可用角色：${Object.keys(this.roles).join(' / ')}）`,
+      );
     }
     if (!this.catalog.has(call.name)) {
-      return {
-        allow: false,
-        reason: `RBAC：工具 "${call.name}" 未登记（角色 ${role} 不得调用未登记工具——先登记再授权）`,
-      };
+      return this.refuse(
+        'tool-not-registered',
+        role,
+        call.name,
+        `工具 "${call.name}" 未登记（角色 ${role} 不得调用未登记工具——先登记再授权）`,
+      );
     }
     // 拒绝优先：治理类与显式 deny 先判，避免"allow: ['*'] 顺手放行"。
     if (RbacPolicy.matchesAny(spec.deny ?? [], call.name)) {
-      return {
-        allow: false,
-        reason: `RBAC：角色 ${role} 无权调用治理类工具 "${call.name}"（仅 admin 可执行：它改的是治理状态本身）`,
-      };
+      return this.refuse(
+        'governance-tool',
+        role,
+        call.name,
+        `角色 ${role} 无权调用治理类工具 "${call.name}"（仅 admin 可执行：它改的是治理状态本身）`,
+      );
     }
     if (spec.mutating === false && this.mutating.has(call.name)) {
-      return {
-        allow: false,
-        reason: `RBAC：角色 ${role} 无写权限（"${call.name}" 属写类工具：会落盘/改事件流/持久化记忆）`,
-      };
+      return this.refuse(
+        'mutating-denied',
+        role,
+        call.name,
+        `角色 ${role} 无写权限（"${call.name}" 属写类工具：会落盘/改事件流/持久化记忆）`,
+      );
     }
     if (!RbacPolicy.matchesAny(spec.allow, call.name)) {
-      return {
-        allow: false,
-        reason: `RBAC：角色 ${role} 的允许清单不含 "${call.name}"（允许：${spec.allow.join(', ')}）`,
-      };
+      return this.refuse(
+        'not-in-allowlist',
+        role,
+        call.name,
+        `角色 ${role} 的允许清单不含 "${call.name}"（允许：${spec.allow.join(', ')}）`,
+      );
     }
     return { allow: true };
+  }
+
+  /**
+   * 造一条拒绝结论，并**在这一处**落结构化日志（§12.1-4：每条拒绝路径都要可查）。
+   *
+   * 为什么集中在一处：拒绝分支散落时，"这条忘了记日志"是必然发生的——而审计最需要的恰恰是被拒的那几条。
+   * @param code 可机读拒因码
+   * @param role 角色名
+   * @param tool 工具名
+   * @param reason 可读原因（不含前缀；前缀由本方法统一加）
+   * @returns 拒绝结论
+   */
+  private refuse(code: RoleDenialCode, role: RoleName, tool: string, reason: string): RoleDecision {
+    log.warn('rbac.denied', { code, role, tool });
+    return { allow: false, code, reason: `RBAC：${reason}` };
   }
 
   /**

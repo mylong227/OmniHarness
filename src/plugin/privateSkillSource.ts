@@ -32,9 +32,24 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
+import { log } from '../util/logger.js';
 import { PluginBundler } from './pluginBundler.js';
 import { BundleCodec } from './bundleCodec.js';
 import type { BundleManifest } from './pluginBundler.js';
+
+/** 私有源拒绝的**可机读拒因码**（§12.1-4）。 */
+export type SkillSourceDenialCode =
+  | 'read-failed'
+  | 'manifest-missing'
+  | 'signature-invalid'
+  | 'untrusted-publisher'
+  | 'unsigned-strict'
+  | 'hmac-not-credential'
+  | 'size-limit'
+  | 'count-limit';
+
+/** 观测回调（缺省写共享 logger；判据注入采集器）。 */
+export type SkillSourceObserver = (event: string, fields: Record<string, unknown>) => void;
 
 /** 签名档位（**不静默提档**：无签名永远是 community）。 */
 export type BundleTrustTier = 'verified' | 'community';
@@ -51,6 +66,8 @@ export interface SkillSourceEntry {
   readonly accepted: boolean;
   /** 信任档（放行时才有意义；拒绝时为 `community`——即"未被证实"）。 */
   readonly tier: BundleTrustTier;
+  /** **可机读**拒因码（放行时为 undefined）。 */
+  readonly code?: SkillSourceDenialCode | undefined;
   /** 拒绝原因（放行时为 undefined；必须可读且可行动）。 */
   readonly reason?: string | undefined;
   /** 签名形态（审计展示用）。 */
@@ -81,6 +98,8 @@ export interface PrivateSkillSourceOptions {
   readonly maxBundles?: number | undefined;
   /** 单包字节上限（缺省 64 MiB）：先 stat 再读，超限**直接拒**而不是读进来再判断。 */
   readonly maxBundleBytes?: number | undefined;
+  /** 观测回调（缺省写共享 logger）。 */
+  readonly observer?: SkillSourceObserver | undefined;
   /** 安装回调（组合根接既有安装路径）；拒绝的包**永不**进入这里。 */
   readonly install: (request: {
     readonly path: string;
@@ -96,6 +115,8 @@ export class PrivateSkillSource {
   private readonly maxBundles: number;
   /** 单包字节上限。 */
   private readonly maxBundleBytes: number;
+  /** 观测回调（缺省走共享 logger）。 */
+  private readonly observe: SkillSourceObserver;
 
   /**
    * @param opts 源目录 / 信任根 / 严格档 / 安装回调
@@ -106,6 +127,7 @@ export class PrivateSkillSource {
     );
     this.maxBundles = Math.max(1, Math.floor(opts.maxBundles ?? 256));
     this.maxBundleBytes = Math.max(1, Math.floor(opts.maxBundleBytes ?? 64 * 1024 * 1024));
+    this.observe = opts.observer ?? ((event, fields) => log.warn(event, fields));
   }
 
   /**
@@ -153,6 +175,7 @@ export class PrivateSkillSource {
         .sort();
       // 上限是**拒绝**而不是"截断到前 N 个"：静默少读会让"同步成功"变成假象。
       if (all.length > this.maxBundles) {
+        this.observe('skill-source.refused', { code: 'count-limit', count: all.length });
         throw new Error(
           `源目录包数超限（${String(all.length)} > ${String(this.maxBundles)}）：上限见 maxBundles`,
         );
@@ -169,6 +192,27 @@ export class PrivateSkillSource {
    * @returns 裁决结论（含解析出的清单，供安装路径复用）
    */
   private judge(
+    file: string,
+  ): SkillSourceEntry & { readonly manifest?: BundleManifest | undefined } {
+    const outcome = this.judgeInner(file);
+    // **出口处统一发事件**（§12.1-4）：拒绝带可机读 code；放行也留一条判定行，
+    // 这样"某个包到底为什么没装上"在日志里一眼可查，而不是只能重跑命令看 stdout。
+    this.observe(outcome.accepted ? 'skill-source.accepted' : 'skill-source.refused', {
+      file: outcome.file,
+      name: outcome.name,
+      tier: outcome.tier,
+      signatureKind: outcome.signatureKind,
+      ...(outcome.code !== undefined ? { code: outcome.code } : {}),
+    });
+    return outcome;
+  }
+
+  /**
+   * 实际裁决（不落日志；日志统一由 {@link PrivateSkillSource.judge} 出口发出）。
+   * @param file 包文件名
+   * @returns 裁决结论
+   */
+  private judgeInner(
     file: string,
   ): SkillSourceEntry & { readonly manifest?: BundleManifest | undefined } {
     const manifest = this.loadOrRefuse(file);
@@ -189,13 +233,17 @@ export class PrivateSkillSource {
   private loadOrRefuse(
     file: string,
   ): BundleManifest | (SkillSourceEntry & { readonly manifest?: undefined }) {
-    const refuse = (reason: string): SkillSourceEntry & { readonly manifest?: undefined } => ({
+    const refuse = (
+      code: SkillSourceDenialCode,
+      reason: string,
+    ): SkillSourceEntry & { readonly manifest?: undefined } => ({
       file,
       name: file,
       version: '?',
       accepted: false,
       tier: 'community',
       signatureKind: 'none',
+      code,
       reason,
     });
     const path = join(this.opts.sourceDir, file);
@@ -204,13 +252,17 @@ export class PrivateSkillSource {
       const size = statSync(path).size;
       if (size > this.maxBundleBytes) {
         return refuse(
+          'size-limit',
           `包体积超限（${String(size)} > ${String(this.maxBundleBytes)} 字节）：上限见 maxBundleBytes`,
         );
       }
       const manifest = PrivateSkillSource.readManifest(path);
-      return manifest ?? refuse('包内缺 bundle.json 清单（不是合法 .ohb）');
+      return manifest ?? refuse('manifest-missing', '包内缺 bundle.json 清单（不是合法 .ohb）');
     } catch (err) {
-      return refuse(`无法读取包清单（${err instanceof Error ? err.message : String(err)}）`);
+      return refuse(
+        'read-failed',
+        `无法读取包清单（${err instanceof Error ? err.message : String(err)}）`,
+      );
     }
   }
 
@@ -238,6 +290,7 @@ export class PrivateSkillSource {
         signatureKind,
         accepted: false,
         tier: 'community',
+        code: 'signature-invalid',
         reason: 'Ed25519 验签未通过（清单被改或签名不匹配）',
       };
     }
@@ -247,6 +300,7 @@ export class PrivateSkillSource {
         signatureKind,
         accepted: false,
         tier: 'community',
+        code: 'untrusted-publisher',
         reason: `签名有效但发布者不在信任根内（${key.slice(0, 32)}…）`,
       };
     }
@@ -274,6 +328,7 @@ export class PrivateSkillSource {
         signatureKind,
         accepted: false,
         tier: 'community',
+        code: signatureKind === 'hmac' ? 'hmac-not-credential' : 'unsigned-strict',
         reason:
           signatureKind === 'hmac'
             ? '严格档要求 Ed25519 签名：HMAC 是对称的（能验者即可伪造），不作为分发凭据'

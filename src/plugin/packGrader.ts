@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 技能包分级器（商业化路线图 **H1**：「静态权限扫描 + 沙箱运行 + 差异测试 ⇒ A/B/C 评级
  * ——**评级即门禁输出，不是人工标签**」）。
  *
@@ -27,8 +27,21 @@
  * @maturity L1 — A/B/C 三档可达 / 未声明能力一票 C / 沙箱失败一票 C / 缺腿 fail-closed / 确定性 判据钉死
  * @maturityEvidence tests/unit/packGrader.test.ts
  */
+import { log } from '../util/logger.js';
 import { PackStaticScanner } from './packStaticScanner.js';
-import type { PackCapability, PackFinding } from './packStaticScanner.js';
+import type { PackCapability, PackFinding, PackScanReport } from './packStaticScanner.js';
+
+/** 评级拒因的**可机读码**（§12.1-4）。 */
+export type PackGradeCode =
+  | 'sandbox-failed'
+  | 'verification-incomplete'
+  | 'undeclared-capability'
+  | 'critical-evidence'
+  | 'declared-high-risk'
+  | 'clean';
+
+/** 观测回调（缺省写共享 logger）。 */
+export type PackGradeObserver = (event: string, fields: Record<string, unknown>) => void;
 
 /** 评级（市场展示用；`A` 最高）。 */
 export type PackRating = 'A' | 'B' | 'C';
@@ -61,6 +74,8 @@ export interface PackGradeInput {
   readonly declared: readonly PackCapability[];
   /** 沙箱腿结论（缺省 ⇒ 视为未跑通，进而 C——fail-closed）。 */
   readonly sandbox: SandboxLegVerdict;
+  /** 观测回调（缺省写共享 logger）。 */
+  readonly observer?: PackGradeObserver | undefined;
 }
 
 /** 分级结论（**这就是门禁输出**：市场页/CLI/安装器都读它）。 */
@@ -86,6 +101,8 @@ export interface PackGradeReport {
   };
   /** 降级/否决原因（每档都给得出，供市场页直接展示）。 */
   readonly reasons: readonly string[];
+  /** **可机读**评级依据码（与 `reasons` 一一对应，供门禁/告警分流）。 */
+  readonly codes: readonly PackGradeCode[];
 }
 
 /** 技能包分级器。 */
@@ -105,15 +122,12 @@ export class PackGrader {
     const declaredUnused = [...declared]
       .filter((capability) => !scan.capabilities.includes(capability))
       .sort();
-    const evidence: PackGradeReport['evidence'] = {
-      scan: {
-        scannedFiles: scan.scannedFiles,
-        findings: scan.findings,
-        capabilities: scan.capabilities,
-      },
-      sandbox: input.sandbox,
-      diff: { declaredUnused, undeclared },
-    };
+    const evidence: PackGradeReport['evidence'] = PackGrader.evidenceOf(
+      scan,
+      input.sandbox,
+      declaredUnused,
+      undeclared,
+    );
     const reasons: string[] = [];
     const critical = scan.findings.filter((f) => f.severity === 'critical');
     const high = scan.findings.filter((f) => f.severity === 'high');
@@ -150,16 +164,23 @@ export class PackGrader {
       undeclared.length > 0 ||
       critical.length > 0
     ) {
-      return { rating: 'C', installable: false, evidence, reasons };
+      const codes: PackGradeCode[] = [];
+      if (!input.sandbox.ran && !verificationIncomplete) codes.push('sandbox-failed');
+      if (undeclared.length > 0) codes.push('undeclared-capability');
+      if (critical.length > 0) codes.push('critical-evidence');
+      return PackGrader.finish('C', false, evidence, reasons, codes, input.observer);
     }
     // B：动态验证不完整（最小权限模式）**或**含已声明高危能力 ⇒ 可装但受限运行、封顶 B。
     if (verificationIncomplete || high.length > 0) {
+      const codes: PackGradeCode[] = [];
+      if (verificationIncomplete) codes.push('verification-incomplete');
       if (high.length > 0) {
+        codes.push('declared-high-risk');
         reasons.push(
           `已声明的高危能力：${[...new Set(high.map((f) => f.capability))].join(', ')}（需声明授权，默认受限运行）`,
         );
       }
-      return { rating: 'B', installable: true, evidence, reasons };
+      return PackGrader.finish('B', true, evidence, reasons, codes, input.observer);
     }
     // A：扫不到高危 + 沙箱跑通 + 声明一致（三条缺一不可）。
     reasons.push(
@@ -170,6 +191,61 @@ export class PackGrader {
     if (declaredUnused.length > 0) {
       reasons.push(`声明了但未扫到（保守声明，不影响评级）：${declaredUnused.join(', ')}`);
     }
-    return { rating: 'A', installable: true, evidence, reasons };
+    return PackGrader.finish('A', true, evidence, reasons, ['clean'], input.observer);
+  }
+
+  /**
+   * 装配"三条腿"证据（纯装配，不做判断）。
+   *
+   * 抽出来的理由：`grade` 的分级逻辑本身就是一屏（四个出口），再把证据装配夹在中间，
+   * 读的人要在"组装数据"和"定档"之间来回切换——函数体铁律（≤80 行）在这里是**信号**而非障碍。
+   * @param scan 静态扫描结论
+   * @param sandbox 沙箱腿结论
+   * @param declaredUnused 声明了但未扫到的能力
+   * @param undeclared 扫到但未声明的能力
+   * @returns 证据块
+   */
+  private static evidenceOf(
+    scan: PackScanReport,
+    sandbox: SandboxLegVerdict,
+    declaredUnused: readonly PackCapability[],
+    undeclared: readonly PackCapability[],
+  ): PackGradeReport['evidence'] {
+    return {
+      scan: {
+        scannedFiles: scan.scannedFiles,
+        findings: scan.findings,
+        capabilities: scan.capabilities,
+      },
+      sandbox,
+      diff: { declaredUnused, undeclared },
+    };
+  }
+
+  /**
+   * 造分级结论并**在这一处**落结构化事件（§12.1-4：判定与拒绝都要可查）。
+   *
+   * 集中一处的理由同 RBAC：分级有四个出口，散着写事件必然漏一个——而市场页/安装器
+   * 恰恰要按 `codes` 分流（"为什么是 C"不该靠解析中文原因）。
+   * @param rating 评级
+   * @param installable 是否可安装
+   * @param evidence 三条腿证据
+   * @param reasons 可读原因
+   * @param codes 可机读依据码
+   * @param observer 观测回调（缺省写共享 logger）
+   * @returns 分级报告
+   */
+  private static finish(
+    rating: PackRating,
+    installable: boolean,
+    evidence: PackGradeReport['evidence'],
+    reasons: readonly string[],
+    codes: readonly PackGradeCode[],
+    observer: PackGradeObserver | undefined,
+  ): PackGradeReport {
+    const emit =
+      observer ?? ((event: string, fields: Record<string, unknown>) => log.warn(event, fields));
+    emit('pack.graded', { rating, installable, codes });
+    return { rating, installable, evidence, reasons, codes };
   }
 }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 进化系谱出证（商业化路线图 **H3**：「技能包附带'进化系谱'——由哪个失败签名演化而来、
  * 门禁裁决记录。**市场里没人能提供这个，因为没人在晋升环节留哈希链**」）。
  *
@@ -20,6 +20,7 @@
  * @maturity L1 — 逐条可重算 / 篡改可检出 / 未证来源如实标注 / 链断即无效 / 无信任根不谎报 判据钉死
  * @maturityEvidence tests/unit/provenanceCertificate.test.ts
  */
+import { log } from '../util/logger.js';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
 import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
 import type { PromotionLedgerEntry, PromotionLedgerPort } from '../ports/runtime/evolution.js';
@@ -78,12 +79,27 @@ export interface ProvenanceCertificate {
     { readonly publicKeySsh: string; readonly signatureEd25519: string } | undefined;
 }
 
+/** 系谱复核问题的**可机读码**（§12.1-4）。 */
+export type ProvenanceProblemCode =
+  | 'chain-broken'
+  | 'evidence-missing'
+  | 'hash-mismatch'
+  | 'chain-link-broken'
+  | 'anchor-mismatch'
+  | 'untrusted-issuer'
+  | 'signature-invalid';
+
+/** 观测回调（缺省写共享 logger）。 */
+export type ProvenanceObserver = (event: string, fields: Record<string, unknown>) => void;
+
 /** 复核结论。 */
 export interface ProvenanceVerification {
   /** 证书是否合格（链可信 + 每条证据可重算 + 有签名时验签通过）。 */
   readonly ok: boolean;
   /** 逐条问题（可读；`ok:true` 时为空）。 */
   readonly problems: readonly string[];
+  /** 与 `problems` **一一对应**的可机读码（门禁/告警按码分流）。 */
+  readonly codes: readonly ProvenanceProblemCode[];
   /** 逐资产复核结果（含 `unproven`，**不隐藏**）。 */
   readonly assets: readonly {
     readonly name: string;
@@ -154,14 +170,19 @@ export class ProvenanceIssuer {
    */
   public static verify(
     certificate: ProvenanceCertificate,
-    opts: { readonly trustedPublicKeys?: readonly string[] | undefined } = {},
+    opts: {
+      readonly trustedPublicKeys?: readonly string[] | undefined;
+      readonly observer?: ProvenanceObserver | undefined;
+    } = {},
   ): ProvenanceVerification {
     const problems: string[] = [];
+    const codes: ProvenanceProblemCode[] = [];
     const assets: { name: string; origin: ProvenanceAsset['origin']; recomputed: boolean }[] = [];
     if (!certificate.chain.verified) {
       problems.push(
         `台账链未通过完整性校验（断裂于 seq=${String(certificate.chain.brokenAt ?? '?')}：${certificate.chain.reason ?? '未说明'}）`,
       );
+      codes.push('chain-broken');
     }
     let previousHash: string | undefined;
     for (const asset of certificate.assets) {
@@ -175,13 +196,26 @@ export class ProvenanceIssuer {
         problems.push(
           `证据起点与证书锚点不一致（首条证据 prev ${asset.evidence.entry.prev.slice(0, 12)}… ≠ 锚点 ${certificate.chain.coverageAnchor.slice(0, 12)}…：条目被删或被换）`,
         );
+        codes.push('anchor-mismatch');
       }
-      const recomputed = ProvenanceIssuer.recompute(asset, previousHash, problems);
+      const recomputed = ProvenanceIssuer.recompute(asset, previousHash, problems, codes);
       assets.push({ name: asset.name, origin: asset.origin, recomputed });
       if (asset.evidence !== undefined) previousHash = asset.evidence.hash;
     }
-    const signatureChecked = ProvenanceIssuer.checkSignature(certificate, opts, problems);
-    return { ok: problems.length === 0, problems, assets, signatureChecked };
+    const signatureChecked = ProvenanceIssuer.checkSignature(certificate, opts, problems, codes);
+    const verdict = { ok: problems.length === 0, problems, codes, assets, signatureChecked };
+    // 结构化事件（§12.1-4）：复核是**出证链路**的判决点，通过与拒绝都要留痕。
+    const emit =
+      opts.observer ??
+      ((event: string, fields: Record<string, unknown>) => {
+        log.warn(event, fields);
+      });
+    emit(verdict.ok ? 'provenance.verified' : 'provenance.verify.failed', {
+      pack: certificate.pack.name,
+      codes,
+      signatureChecked,
+    });
+    return verdict;
   }
 
   /**
@@ -195,6 +229,7 @@ export class ProvenanceIssuer {
     asset: ProvenanceAsset,
     previousHash: string | undefined,
     problems: string[],
+    codes: ProvenanceProblemCode[],
   ): boolean {
     if (asset.origin === 'unproven') {
       // 未证来源**不是**问题：证书如实说了"查无依据"，收证方据此自行判断。
@@ -202,6 +237,7 @@ export class ProvenanceIssuer {
     }
     if (asset.evidence === undefined) {
       problems.push(`资产 ${asset.name} 标为已证但缺证据载荷（证书不完整）`);
+      codes.push('evidence-missing');
       return false;
     }
     const expected = HashChainPromotionLedger.hashOf(asset.evidence.entry);
@@ -209,10 +245,12 @@ export class ProvenanceIssuer {
       problems.push(
         `资产 ${asset.name} 的证据哈希对不上（自算 ${expected.slice(0, 12)}… ≠ 证书 ${asset.evidence.hash.slice(0, 12)}…）`,
       );
+      codes.push('hash-mismatch');
       return false;
     }
     if (previousHash !== undefined && asset.evidence.entry.prev !== previousHash) {
       problems.push(`资产 ${asset.name} 的证据未接上上一条（断链或删条）`);
+      codes.push('chain-link-broken');
       return false;
     }
     return true;
@@ -229,6 +267,7 @@ export class ProvenanceIssuer {
     certificate: ProvenanceCertificate,
     opts: { readonly trustedPublicKeys?: readonly string[] | undefined },
     problems: string[],
+    codes: ProvenanceProblemCode[],
   ): boolean {
     const issuer = certificate.issuer;
     if (issuer === undefined) return false;
@@ -242,10 +281,12 @@ export class ProvenanceIssuer {
     const keyOk = trusted.some((key) => ProvenanceIssuer.sameKey(key, issuer.publicKeySsh));
     if (!keyOk) {
       problems.push(`签发方公钥不在信任根内（${issuer.publicKeySsh.slice(0, 32)}…）`);
+      codes.push('untrusted-issuer');
       return true;
     }
     if (!Ed25519PublicKey.verify(payload, issuer.signatureEd25519, issuer.publicKeySsh)) {
       problems.push('证书验签未通过（正文被改或签名不匹配）');
+      codes.push('signature-invalid');
       return true;
     }
     return true;
