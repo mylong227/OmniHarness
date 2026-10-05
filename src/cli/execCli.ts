@@ -21,7 +21,6 @@ import { join } from 'node:path';
 import { Agent } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
 import { JsonlWriter } from '../output/jsonlWriter.js';
-import { configFile } from '../config/configFile.js';
 import type { CliArgs } from './argParser.js';
 import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
@@ -373,30 +372,5 @@ export class ExecCli extends CliAgentCmds {
             `  体检：${JSON.stringify(report)}\n  注意：${summary.note}\n`,
     );
     return 0;
-  }
-
-  /**
-   * 加载分层配置为默认参数（#G6：用户级 → 项目级 → profile → 环境变量，严格校验）。
-   * 配置存在但非法时 loadLayered 抛 ConfigError，由 run() 的 catch 统一以非零码退出（fail-closed）。
-   * @param argv 原始命令行参数（读取 --config / --profile 显式覆盖）。
-   * @returns 配置文件字段映射出的 CLI 默认值子集；找不到配置文件时使用内置默认（mock 模型）。
-   */
-  private loadDefaults(argv: readonly string[]): Partial<CliArgs> | undefined {
-    const explicitConfig = this.flagValue(argv, '--config');
-    const profile = this.flagValue(argv, '--profile');
-    if (explicitConfig === undefined && configFile.find(process.cwd()) === undefined) {
-      process.stderr.write(
-        '[omniharness] 未找到 omniharness.json，使用内置默认配置（mock 模型）。\n',
-      );
-      process.stderr.write(
-        '              可复制 omniharness.json.example，或运行 node scripts/init-config.mjs 生成。\n',
-      );
-    }
-    const merged = configFile.loadLayered({
-      workspace: process.cwd(),
-      configPath: explicitConfig,
-      profile,
-    });
-    return ArgParser.configDefaults(merged);
   }
 }
