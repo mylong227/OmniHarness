@@ -519,6 +519,31 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第五十三轮｜孤儿清仓 + 闲置资产接线 ✅**：五片提交（`7fac772` 孤儿删除 / `87caa30` 注入自检接 doctor / `0db97f4` TUI 接真实回路 / `9dba6cf` rankVeto 接探针 / `2f3e249` I7 反接线门禁）。用户指令：无用的清理掉，闲置的自研能力用起来，不留浪费代码。
+>
+> **盘点方法（先盘点后动手）**：从三个生产入口（`src/index.ts` / `src/indexBeta.ts` / `src/cli/exec.ts`）做 import 图可达性分析（临时脚本，一次性用后即删），1005 个 src 文件中 994 生产可达；对 fanIn=0 / 仅测试可达的 14 个文件逐一做**字符串引用复核**（Worker 路径加载、spawn 等非 import 引用不算孤儿——`codeSandboxWorker.ts` 即此类假阳性，它由 `codeInterpreter.ts:65` 以 `new Worker(new URL(...))` 真加载，`CodeExecutorTool` 在 configToolRegistry 默认注册）。**真孤儿 6 组 ≈1,340 行**：
+>
+> | 资产                                                       | 行数 | 裁决                  | 理由                                                                 |
+> | ---------------------------------------------------------- | ---- | --------------------- | -------------------------------------------------------------------- |
+> | `util/safeRemoveTree.ts`                                   | 152  | **删**（`7fac772`）   | 全仓零引用（连测试都没有）；使用场景随 benchmark 生态消失            |
+> | `util/flagGuard.ts` + 测试                                 | 79   | **删**（`7fac772`）   | 为已删除的 benchmark 评测子系统设计；判据由旗标表 I4 继续承担        |
+> | `ports/model.ts`                                           | 20   | **删**（`7fac772`）   | 兼容桶无消费方；真身 `ports/model/` 不受影响                         |
+> | `security/injectionMetric` + `injectionSnapshotAggregator` | 306  | **接线**（`87caa30`） | 护栏在产、度量在孤岛——见 ②                                           |
+> | `context/rankVeto` 四件                                    | 681  | **接线**（`9dba6cf`） | 生产栈只在注释里引用——见 ④                                           |
+> | `enterprise/legacyIdTokenVerifier`                         | 107  | **保留**              | jose 版上产后它是差分测试对照（判据仍在 CI）；"回退资产"定位如实保留 |
+>
+> ① **覆盖率基线同步收紧**（`7fac772`）：coverageBaseline 与 coverageEnvDependent（posix 组）删 safeRemoveTree 条目，理由文案同步订正。
+>
+> ② **注入护栏自检接 doctor**（`87caa30`）：`PromptInjectionGuard` 在生产工具路径（`stepToolExecutor`），但 `InjectionMetric` + 32 例 curated 快照只有测试可达——"质量度量没有用户面"。快照迁 `defaults/injection-snapshot.json`（经 `BuiltinDefaults.json('injection-snapshot')` 读取，I6 门禁自动强制随包发布）；新增 `InjectionSelfCheck`（fail-closed 结构校验、评估委托 InjectionMetric 判定单一来源）；`DoctorReport.injectionSelfCheck` 把 doctor 从"护栏开没开、多严"扩到"开了拦不拦得住"——**本机实测 recall 90.0% / FP 8.3% / precision 94.7%（32 例）**；口径注记逐字随行（离线 curated 代理 ≠ 真实攻击统计，真实流量证据靠 enforcement shadow 档攒）。判据净增 6 例（数值与直算逐位一致 / 恶意用例至少拦一例的仪器非恒零断言 / 五类坏输入拒绝 / 注记随行 / 快照规模钉字面量 32）。
+>
+> ③ **TUI 接真实任务回路**（`0db97f4`）：`omniharness tui` 的 send 原是硬编码回声"（未接模型）"——`Interactive` 自注释起就该"调用 Agent 主循环"。新增 `TuiAgentBridge` + `TuiTaskRunner` 端口（Agent 结构性满足零改动）：EventPort 是纯 sink 无订阅 API ⇒ 组合根把**转播端口**（emit → TuiEvent 映射）装配进 `config.events`，core 零改动；首轮 `runTask`、后续 `resume(sessionId,…)` ⇒ 整个 TUI 是**一个**真实会话；错误收成 error 事件不炸循环；mock 适配器打诚实提示。过程修掉两个真缺陷：① `loadDefaults` 在 ExecCli 叶子类而消费方含父类 cliAgentCmds（够不着）——按消费方归位（放 cliBuildConfig 又顶破上帝类红线 26>25）；② 桥首版"任务落定未唤醒 wait() 消费者 ⇒ send 挂死"（判据当场抓到）。判据净增 4 例（多轮衔接 / 错误路径 / 未 attach 必抛 / MockModel 真装配映射全走到 + user 不回显 + sessionId 稳定）。README `tui` 行同步。**诚实边界**：question（审批）只渲染，答复仍走既有 userResponder 装配。
+>
+> ④ **rankVeto 接精排探针**（`9dba6cf`）：接线点取其判据自述归宿——`rerankDiscriminatorAb` 在两关统计前先过**第一关前置否决**。**判据当场抓到的语义错位（值得记档）**：若把"与 V_off 重合≥0.7"当否决依据，同池重排的变体（含生产式 V0）被大面积误判"复读基线"（23–190/191）——重合度判据针对**不同候选源**路由，在共享候选池的受控设计下不适用，降为诊断项；**只有已回溯验证的查询不敏感度参与否决**。本仓 8 变体实测不敏感度 0.049–0.066（比值 0.73–0.99）全部放行，两关结论不变（精排判别器增益不显著，维持原判）。"放行 ≠ 有效"边界写进探针头。**"验证真空"收口第一刀：该资产从"机制单测 + 注释级引用"变成真实工作流的调用点。**
+>
+> ⑤ **I7 反方向接线门禁**（`2f3e249`）：auditConfigWiring 原七条不变量全是"声明即被消费"方向，查不了"装配了但用户面永远点不亮"——实测 13 个 `partial.X?.enabled` 门（belief/resonantField/memoryAnnealing/qec/immuneMonitoring/vortexRing/genesis/skillEditing/capabilityCrystallization/insightEtching/symmetryBreaking/confinement/elementComposer）FileConfig 无键、CLI 无旗标、配置严格校验 ⇒ 连写进去都做不到。I7：装配门键必须在 FileConfig/CliArgs 可达，或显式登记 `PROGRAMMATIC_ONLY_GATES`（仅编程注入是**声明**而非盲区；增益未过两关统计前不假接 CLI——把"未验证的实验"伪装成"可选功能"比明说不支持更危险）。登记失效反向检查。自证净增 2 例（正向 ghostGate 必报 / 反向失效登记必报）；实测基线恰好覆盖（13 键无一为 FileConfig 字段，逐键 grep 复核）。
+>
+> **全量验证**：clean build **2907 例，0 失败，7 跳过**（本轮净增 12 例判据）；门禁电池（lint / 铁律 / 架构 / 死链 / API / 成熟度 / 接线含 I7 自证）全绿。
+
 > **第五十二轮｜F4 档位真上闸 ✅ + 阶段 2–3 剩余项终态裁决**：提交 `acab753`（+ 本文档 §八）。
 
 > **复核发现（这才是"剩下的"内核）**：`FEATURE_TIERS` 早已存在，但 `featureAllowed` **只被 license CLI 用来打印**，
