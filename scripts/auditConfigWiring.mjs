@@ -2,7 +2,7 @@
 //
 // 目的：把本仓最高频缺陷形态「声明未接线」机器化。八批同型（D2/D3/D4/F3/F5/E3/E2/P5），
 // 其共同机械根因都是四段链路（配置 → 装配 → 运行时 → 消费）中**某一段静默断裂**，
-// 而 TypeScript 因字段可选 / 对象字面量展开而**不报错**。本门禁把六条不变量钉死：
+// 而 TypeScript 因字段可选 / 对象字面量展开而**不报错**。本门禁把七条不变量钉死：
 //
 //   I1  声明即被读：`OmniHarnessConfig` 上声明的每个字段，装配层必须真的读它（`partial.X`）。
 //   I2  透传即被消费：`build()` 里逐字透传（`X: partial.X`）的字段，必须有 config 层之外的读取方，
@@ -11,6 +11,8 @@
 //   I4  旗标即被用：CLI 旗标表里解析取值的每个字段，必须真的被消费（`args.X` 或按旗标名取值）。
 //   I5a 文件键即被消费：`FileConfig` 的每个顶层字段必须被 CLI 层引用（否则配置文件/env 写入后静默丢弃）。
 //   I5b 映射即被透传：`configDefaults` 写进 `Partial<CliArgs>` 的每个字段必须被 CLI 装配层消费。
+//   I7  装配门即用户面可达（反方向）：`src/config` 里每个 `partial.X?.enabled` 装配门，X 必须可经
+//       FileConfig/CLI 表达，或显式登记 PROGRAMMATIC_ONLY_GATES（仅编程注入须是声明而非盲区）。
 //   I6  内建数据即随包发布：`builtinDefaults.json('<name>')` 的每个数据名必须有对应的
 //                    `defaults/<name>.json`，且 `package.json#files` 含 `defaults`
 //                    （否则 npm 包缺数据文件 ⇒ 装完启动即 fail-closed 抛错，本仓 2026-09-23 实测形态）。
@@ -193,6 +195,30 @@ const SERVER_ONLY_FIELDS = {
   workspaces:
     '多工作区列表由服务端消费（serverConfigStore.fileConfig().workspaces 的增删与列表），CLI 只认单一 workspaceRoot',
 };
+/**
+ * I7 豁免清单：**仅编程注入可达**的装配门（`partial.X?.enabled`——FileConfig 无键、CLI 无旗标）。
+ *
+ * 这些门在组合根真实装配组件，但从 `omniharness` 主流程不存在任何触发方式（配置文件严格校验
+ * 未知键 ⇒ 连写进去都做不到），只能写代码调 API。现状盘点（2026-10-05，全图可达性审计 + 逐域
+ * 复核）见看板第五十三轮：S+ 隐喻引擎域的 README 口径是「46 个默认关，真正干活的只有 2 个」，
+ * 在增益未过两关统计之前接进 CLI/FileConfig 会把「未验证的实验」伪装成「可选功能」——
+ * 比明说不支持更危险。故显式登记 instead of 假接线；反向检查防登记腐化。
+ */
+const PROGRAMMATIC_ONLY_GATES = {
+  vortexRing: '暗流环溢出包（S+ 隐喻域，L0）：仅编程注入；增益未测，裁决=保持编程注入而非假接 CLI',
+  resonantField: '共振场记忆引擎（S+ 隐喻域，L0）：仅编程注入；同上',
+  memoryAnnealing: '记忆热退火（S+ 隐喻域）：仅编程注入；同上',
+  belief: '信念支柱（信息几何，S+ 隐喻域）：仅编程注入；同上',
+  qec: 'QEC 编码记忆（S+ 隐喻域，L0）：仅编程注入；同上',
+  immuneMonitoring: '免疫监视（S+ 隐喻域）：仅编程注入；同上',
+  genesis: '创世纪算子（genesis 域）：仅编程注入（sparkAssembler enableGenesis）；同上',
+  skillEditing: 'CRISPR 技能编辑（evolution 域）：仅编程注入；同上',
+  capabilityCrystallization: '能力结晶（evolution 域）：仅编程注入；同上',
+  insightEtching: '洞察蚀刻（memory 域，L0）：仅编程注入；同上',
+  symmetryBreaking: '对称破缺决策（S+ 隐喻域，L0）：仅编程注入；同上',
+  confinement: '约束引擎（monitoring 域，L0）：仅编程注入；同上',
+  elementComposer: '元素作曲家（S+ 隐喻域，L0）：仅编程注入；同上',
+};
 
 /**
  * 跑六条不变量。
@@ -367,6 +393,33 @@ export function audit(tree, io = {}) {
     }
   }
 
+  // I7 装配门即用户面可达（反方向，2026-10-05）：src/config 里每个 `partial.X?.enabled` 装配门，
+  // 要么 X 可经 FileConfig / CLI 旗标表达（用户面有路径点亮），要么显式登记进
+  // PROGRAMMATIC_ONLY_GATES（仅编程注入是**声明**而非盲区）。此前 auditConfigWiring 只查
+  // 「FileConfig 有的键必须被消费」方向，管不了反方向——12+ 个隐喻引擎域正是从这个盲区
+  // 装配了却点不亮（看板第五十三轮）。
+  const gatedKeys = new Set();
+  for (const t of configTexts) {
+    for (const m of t.matchAll(/partial\.([A-Za-z0-9_]+)\?\.enabled\b/g)) gatedKeys.add(m[1]);
+  }
+  const cliArgsFields = interfaceFields(argParser, 'CliArgs');
+  for (const k of gatedKeys) {
+    if (fileFields.includes(k) || cliArgsFields.includes(k)) continue;
+    if (PROGRAMMATIC_ONLY_GATES[k] !== undefined) continue;
+    violations.push({
+      id: 'I7',
+      detail: `装配门 partial.${k}?.enabled 既不在 FileConfig/CliArgs（用户面无路径点亮），也未登记 PROGRAMMATIC_ONLY_GATES（仅编程注入未声明）`,
+    });
+  }
+  for (const f of Object.keys(PROGRAMMATIC_ONLY_GATES)) {
+    if (!gatedKeys.has(f)) {
+      violations.push({
+        id: 'I7',
+        detail: `PROGRAMMATIC_ONLY_GATES 豁免「${f}」已失效（src/config 里已无 partial.${f}?.enabled 门），请删除该登记`,
+      });
+    }
+  }
+
   // I6 内建数据即随包发布
   const dataNames = new Set();
   for (const t of tree.values()) {
@@ -437,6 +490,26 @@ function selftest() {
       },
     },
     {
+      // I7 正向：装配门键既不在 FileConfig/CliArgs 也不在豁免清单 ⇒ 必须报。
+      id: 'I7',
+      tree: {
+        'src/config/configFactory.ts': cfg(''),
+        'src/config/memoryStackAssembler.ts':
+          'if (partial.ghostGate?.enabled !== true) return {};\n',
+        'src/config/configFile.ts': 'export interface FileConfig {\n  readonly real?: number;\n}\n',
+        'src/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
+      },
+    },
+    {
+      // I7 反向：真实豁免清单里的键（belief）在合成树里已无对应门 ⇒ 登记必须被判失效。
+      id: 'I7-stale',
+      tree: {
+        'src/config/configFactory.ts': cfg(''),
+        'src/config/configFile.ts': 'export interface FileConfig {\n  readonly real?: number;\n}\n',
+        'src/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
+      },
+    },
+    {
       id: 'I2b',
       tree: {
         'src/config/configFactory.ts': `interface OmniHarnessConfig {\n  readonly runtimeTelemetry: number;\n}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      runtimeTelemetry: partial.runtimeTelemetry,\n    };\n  }\n}\n`,
@@ -455,9 +528,14 @@ function selftest() {
   let pass = true;
   for (const c of cases) {
     const found = audit(new Map(Object.entries(c.tree)), c.io ?? {});
-    // I2b 是**反向**用例：已知的合法豁免必须**不**被报出（防白名单被误用为掩盖真实缺口）。
+    // I2b / I7-stale 是**反向**用例：I2b 要求「合法豁免不被报出」（防白名单误用为掩盖缺口）；
+    // I7-stale 要求「失效登记必须被报」（防豁免腐化）——两个方向都钉。
     const hit =
-      c.id === 'I2b' ? !found.some((v) => v.id === 'I2') : found.some((v) => v.id === c.id);
+      c.id === 'I2b'
+        ? !found.some((v) => v.id === 'I2')
+        : c.id === 'I7-stale'
+          ? found.some((v) => v.id === 'I7' && v.detail.includes('已失效'))
+          : found.some((v) => v.id === c.id);
     if (!hit) pass = false;
     console.log(
       `  selftest ${hit ? '✓' : '✗'} ${c.id} ${hit ? '符合预期' : '**不符合预期（护栏失真）**'}`,
