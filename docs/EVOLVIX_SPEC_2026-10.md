@@ -234,12 +234,12 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
 
 ## 6. 信任-隔离矩阵（L3）
 
-| trustTier             | 默认隔离   | 可执行位置                                                                       | 谁可授予                | 降档条件                        |
-| --------------------- | ---------- | -------------------------------------------------------------------------------- | ----------------------- | ------------------------------- |
-| `core`（内置）        | in-process | 主进程                                                                           | 出厂 / 人工             | 不可降档                        |
-| `signed`（验签包）    | vm         | `node:vm`（现状 best-effort，如实标注）→ Wave C 后可选 isolated-vm（B 级判据）   | 验签通过 + Schema 校验  | 任何逃逸指标 ⇒ 拒执行           |
-| `evolved`（进化产物） | **wasm**   | wasmtime 运行时（omni-wasm 产出的 .wasm 技能模块；fuel metering + 线性内存隔离） | 晋升门禁全过 + 台账在案 | 无快照/验签失败 ⇒ 拒晋升/拒执行 |
-| 外部（MCP/A2A）       | 进程外     | 既有 mcp/a2a 通道 + SSRF/权限门禁                                                | 既有审批                | 既有口径                        |
+| trustTier             | 默认隔离   | 可执行位置                                                                                                                                                                                                                                                               | 谁可授予                | 降档条件                        |
+| --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ------------------------------- |
+| `core`（内置）        | in-process | 主进程                                                                                                                                                                                                                                                                   | 出厂 / 人工             | 不可降档                        |
+| `signed`（验签包）    | vm         | `node:vm`（现状 best-effort，如实标注）→ Wave C 后可选 isolated-vm（B 级判据）                                                                                                                                                                                           | 验签通过 + Schema 校验  | 任何逃逸指标 ⇒ 拒执行           |
+| `evolved`（进化产物） | **wasm**   | **内置 wasm 运行时**（Node `WebAssembly` + Worker 硬超时；零新依赖）跑 `omni-wasm` 产出的 `.wasm` 模块；线性内存隔离 + 默认拒绝全部 import。**无指令级 fuel**（以时间预算等价约束，见 J8 口径段）；**无文件系统**（未接 WASI ⇒ 文件/命令类工具在该档必然失败并如实回报） | 晋升门禁全过 + 台账在案 | 无快照/验签失败 ⇒ 拒晋升/拒执行 |
+| 外部（MCP/A2A）       | 进程外     | 既有 mcp/a2a 通道 + SSRF/权限门禁                                                                                                                                                                                                                                        | 既有审批                | 既有口径                        |
 
 规则：**档位只能收紧不能放宽**（签名元数据 ≤ Schema 默认 ≤ 运行时策略）；IsolationPort 对不可达
 档位**拒绝执行**而非静默降档（沿 ADR-0006 诚实降级口径）。
@@ -300,6 +300,13 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
 等价约束是：① 越界访问抛 `RuntimeError` ⇒ 拒；② 超预算由 Worker 硬超时强制终止 ⇒ 拒；
 ③ **无预算即拒执行**（本档不做无预算执行）——这一条正是"关 fuel metering ⇒ 红"的落点；
 ④ 默认拒绝**全部** import。若日后准入 wasmtime，替换实现即可，`IsolationPort` 语义不变。
+
+**端到端证据（2026-10-04）**：`cargo build --release --target wasm32-unknown-unknown -p omni-wasm`
+产出的 **206 KB** `omni_wasm.wasm`（**零 import**，导出 `memory`/`omni_alloc`/`omni_dealloc`/`omni_init`/`process`）
+经 `IsolationLadderFactory.builtin()` 在 wasm 档应答 JSON-RPC：`ping` / `tools.list`（Rust 侧工具清单跨界回传）/
+`tool_call`（`echo` 成功；文件工具**如实回报**无宿主能力）。判据见 `tests/unit/wasmKernelE2E.test.ts`。
+为此 `wasm-module` 载荷增 `input?` 字段（C-ABI 宿主协议：`omni_alloc` → 入口(ptr,len) → 读回 → `omni_dealloc`）
+——这是 §1 契约的**微调**，按本文开头的约定回改于此。
 进度与数字见 `PROJECT_BOARD.md` 第三十一 / 三十二 / 三十三轮。
 
 - §1 契约签名为设计稿，落码时以 ports 纯度门禁与真实调用点为准微调；微调若改变语义须回改本文
