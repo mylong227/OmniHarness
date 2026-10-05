@@ -29,7 +29,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ContextEngine } from '../../src/context/contextEngine.js';
-import { CORE_RECALL_QUERIES } from '../fixtures/recallQueries.js';
+import { RECALL_QUERIES, CORE_RECALL_QUERIES } from '../fixtures/recallQueries.js';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`，故上溯三级）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -93,6 +93,10 @@ function measure(
 
 /**
  * 建立 anchor → 文件集合（GT 定位）。
+ *
+ * 2026-10-05 扩到**全量**查询（原先只审计冻结 32 条——第五十三轮删掉 `SafeRemoveTree` 后
+ * GROWTH 批次里它的 GT 变空，`tools/probes/recallHitrate.mjs` 当场抛错，而本文件的审计
+ * 因只看 CORE 没拦住；锚点审计必须与评测集同口径，不能留盲区）。
  * @param corpus 已索引语料。
  * @returns 映射与"缺失锚点"列表。
  */
@@ -102,7 +106,7 @@ function anchorsOf(corpus: ReturnType<typeof ContextEngine.indexCorpus>): {
 } {
   const filesWith = new Map<string, string[]>();
   for (const [rel, text] of corpus.fileText) {
-    for (const { anchor } of CORE_RECALL_QUERIES) {
+    for (const { anchor } of RECALL_QUERIES) {
       if (text.includes(anchor)) {
         const list = filesWith.get(anchor) ?? [];
         list.push(rel);
@@ -110,11 +114,11 @@ function anchorsOf(corpus: ReturnType<typeof ContextEngine.indexCorpus>): {
       }
     }
   }
-  const missing = CORE_RECALL_QUERIES.filter((x) => !filesWith.has(x.anchor)).map((x) => x.anchor);
+  const missing = RECALL_QUERIES.filter((x) => !filesWith.has(x.anchor)).map((x) => x.anchor);
   return { filesWith, missing };
 }
 
-test('① 锚点审计：32 条冻结查询的 GT 锚点必须逐条出现在当前语料里', () => {
+test('① 锚点审计：全量查询的 GT 锚点必须逐条出现在当前语料里（不只冻结 32 条）', () => {
   // 恢复随评测子系统丢失的审计：锚点漂移必须**归因到评测集**，不能被读成检索退步。
   const corpus = ContextEngine.indexCorpus(join(REPO_ROOT, 'src'), { light: true });
   const { missing } = anchorsOf(corpus);

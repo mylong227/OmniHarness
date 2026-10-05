@@ -154,10 +154,6 @@ export const EXTENDED_RECALL_QUERIES = [
     q: 'how does an in flight request learn that it should stop early',
     anchor: 'CancellationToken',
   },
-  {
-    q: 'how does cleanup fall back to a child process when bulk deletion is blocked',
-    anchor: 'SafeRemoveTree',
-  },
 
   // —— 服务端 / 传输 ——
   { q: 'how are remote procedure calls framed over a socket', anchor: 'JsonRpc' },
