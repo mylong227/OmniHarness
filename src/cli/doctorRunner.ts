@@ -5,6 +5,10 @@ import { dirname, join } from 'node:path';
 import { NetworkEgressGuard } from '../adapters/sandbox/networkEgressGuard.js';
 import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.js';
 import { ToolOutputTrust } from '../security/toolOutputTrust.js';
+import {
+  InjectionSelfCheck,
+  type InjectionSelfCheckSummary,
+} from '../security/injectionSelfCheck.js';
 import type { SandboxCapabilityEntry } from '../adapters/sandbox/sandboxCapabilityTable.js';
 
 /** 由**内核**强制隔离的 profile（其余为纯 TS 策略类：passthrough / policy / restricted）。 */
@@ -91,6 +95,13 @@ export interface DoctorReport {
   readonly sandboxCapabilities: readonly SandboxCapabilityEntry[];
   /** 安全边界自述（实际隔离到什么程度；G5）。 */
   readonly security: SecurityBoundary;
+  /**
+   * 注入护栏离线自检（curated 代理快照口径）。
+   *
+   * 报的是**质量**（开了拦不拦得住）而非档位；快照缺失/非法时为 undefined 并计入
+   * {@link DoctorReport.issues}——不静默输出空报告冒充检查通过。
+   */
+  readonly injectionSelfCheck: InjectionSelfCheckSummary | undefined;
   /** 插件目录是否可读。 */
   readonly pluginsDirReadable: boolean;
   /** 权限清单是否可读（不存在时视为可读，不计入问题）。 */
@@ -185,10 +196,28 @@ export class DoctorRunner {
       sandbox,
       sandboxCapabilities,
       security: this.checkSecurityBoundary(workspaceRoot, sandboxCapabilities, sandbox),
+      injectionSelfCheck: this.checkInjectionSelfCheck(issues),
       pluginsDirReadable,
       permissionsManifestReadable,
       issues,
     };
+  }
+
+  /**
+   * 注入护栏离线自检（A4 资产接线）：对随包 curated 快照逐例跑生产护栏，产出质量摘要。
+   *
+   * 判定单一来源（`InjectionSelfCheck` → `InjectionMetric` → `PromptInjectionGuard`），
+   * 本方法只负责「读得到就报数、读不到就如实记问题」，不新写任何口径。
+   * @param issues 累积问题的清单（快照缺失/非法时向其追加）。
+   * @returns 自检摘要；快照不可用时 undefined。
+   */
+  private checkInjectionSelfCheck(issues: string[]): InjectionSelfCheckSummary | undefined {
+    try {
+      return InjectionSelfCheck.fromBuiltinSnapshot().summary();
+    } catch (error) {
+      issues.push(`注入护栏自检快照不可用: ${this.messageOf(error)}`);
+      return undefined;
+    }
   }
 
   /**
@@ -381,6 +410,15 @@ export class DoctorRunner {
         `shell 出网被拦=${security.shellEgressGuarded ? '是' : '否'}`,
     );
     lines.push(`  注入护栏          : ${security.injectionMode}（弱证据阈值 ${thresholds}）`);
+    // 注入护栏自检（质量面）：档位与阈值只回答"开没开、多严"，这里回答"开了拦不拦得住"。
+    const selfCheck = report.injectionSelfCheck;
+    lines.push(
+      selfCheck === undefined
+        ? '  注入护栏自检      : 不可用（见问题清单）'
+        : `  注入护栏自检      : recall=${(selfCheck.recall * 100).toFixed(1)}% / ` +
+            `FP=${(selfCheck.falsePositiveRate * 100).toFixed(1)}% / ` +
+            `precision=${(selfCheck.precision * 100).toFixed(1)}%（${selfCheck.cases} 例，${selfCheck.basis}）`,
+    );
     lines.push('');
     // OS 沙箱能力自述表：区分「实现存在」与「本机真能跑」，避免把无证据当可用。
     lines.push(SandboxCapabilityTable.format(report.sandboxCapabilities));
