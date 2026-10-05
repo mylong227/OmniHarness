@@ -8,7 +8,7 @@
  * | `in-process`      | ✅ 可用     | 直接调用（**逐位等价**：同一闭包在档内跑出的结果与直接调用完全一致）                        |
  * | `vm`              | ✅ best-effort | `node:vm` 受限上下文 + **V8 vm timeout**（能真正打断同步死循环）；禁 `require`/`process`/… |
  * | `os-sandbox`      | ⚠️ 需注入   | 由组合根注入档位原生执行器（`osRunner`）；未注入 ⇒ `level-unavailable`（不假装有 OS 沙箱） |
- * | `wasm`            | ❌ 不可达   | 本仓尚无 wasm 运行时（wasmtime 未按 D10 准入）⇒ 一律 `level-unavailable`，**不静默降档**   |
+ * | `wasm`            | ⚠️ 需注入   | 注入 `wasmRunner`（本仓内置实现 `BuiltinWasmRunner`，零新依赖）⇒ 可达；未注入 ⇒ `level-unavailable` |
  *
  * **诚实标注（沿 ADR-0006 与 `plugin/sandbox.ts` 的既有表述）**：`node:vm` **不是**安全边界，
  * 只是「让普通资产代码够不到宿主」的 best-effort 约束；跨过首个 `await` 之后的同步死循环

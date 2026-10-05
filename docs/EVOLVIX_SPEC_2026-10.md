@@ -273,7 +273,7 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
 | J5  | 级联短路：静态失败 ⇒ verify 调用次数 = 0（注入计数器）                                         | A    | 去短路 ⇒ 计数 >0（红）                         |
 | J6  | 绞杀者等价：CapabilityRegistry 上 selectForPrompt→Sparsifier 行为与 SkillRegistry **逐位一致** | B    | 任意差异 ⇒ 红（迁移期间红即禁止合入）          |
 | J7  | 未注册类型即拒：schema 缺失的资产在注册口被拒                                                  | B    | 绕过校验 ⇒ 红                                  |
-| J8  | 隔离逃逸：`evolved` 档 wasm 内越界访问/超 fuel ⇒ 拒执行且 reason 可读                          | C    | 关 fuel metering ⇒ 红                          |
+| J8  | 隔离逃逸：`evolved` 档 wasm 内越界访问/超 fuel ⇒ 拒执行且 reason 可读 ✅（口径见下）           | C    | 关 fuel metering ⇒ 红（无预算即拒执行）        |
 | J9  | 验签链路：无签名/坏签名/验签后篡改三类全拒                                                     | D    | 各变异 ⇒ 红                                    |
 
 ---
@@ -292,8 +292,16 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
   D：3 片 `20853ed`…`b236b09`；ADR 落 0008 / 0009 / 0011）；**Wave C（隔离阶梯）与 E（元进化）仍未实现**，
   A.5（依赖准入）亦未开始——§6 隔离阶梯 / §7 A.5 / F4 元晋升 / `crates/omni-wasmrt` 继续按设计稿阅读；
   **F3（资产安装）已落地**，但其「IsolationPort 内试运行」一步等 Wave C。
-  已落地的判据：**J1–J7、J9 全绿**（J9 = 无签名 / 坏签名 / 验签后篡改三类全拒）；**J8（wasm 越界 / fuel）等 Wave C**。
-  进度与数字见 `PROJECT_BOARD.md` 第三十一 / 三十二 / 三十三轮。
+  已落地的判据：**J1–J9 全绿**（J9 = 无签名 / 坏签名 / 验签后篡改三类全拒；J8 = wasm 越界 / 预算超限 ⇒ 拒执行）。
+
+**J8 的实现口径（必须连着说，不然读者会以为做了指令级 fuel）**：本仓用**内置 wasm 运行时**
+（Node `WebAssembly` + Worker 线程硬超时 + `terminate()`，零新依赖；见 `BuiltinWasmRunner`），
+**不是** wasmtime，也**没有**指令级 fuel metering——V8 不暴露该能力，宿主无法按指令计费。
+等价约束是：① 越界访问抛 `RuntimeError` ⇒ 拒；② 超预算由 Worker 硬超时强制终止 ⇒ 拒；
+③ **无预算即拒执行**（本档不做无预算执行）——这一条正是"关 fuel metering ⇒ 红"的落点；
+④ 默认拒绝**全部** import。若日后准入 wasmtime，替换实现即可，`IsolationPort` 语义不变。
+进度与数字见 `PROJECT_BOARD.md` 第三十一 / 三十二 / 三十三轮。
+
 - §1 契约签名为设计稿，落码时以 ports 纯度门禁与真实调用点为准微调；微调若改变语义须回改本文
   （Wave A/B/D 已按此回填：`RewardVerdict` 提升到端口层、`PromotionLedgerAction` 增 `governance` / `pack-install`、
   `CapabilityRegistryPort` 增补偿用 `remove`、`capability` 增 `isolationDefaults` 下限语义
