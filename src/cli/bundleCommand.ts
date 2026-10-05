@@ -16,7 +16,7 @@ import { PluginBundler } from '../plugin/pluginBundler.js';
 import { PrivateSkillSource } from '../plugin/privateSkillSource.js';
 import { BundleCodec } from '../plugin/bundleCodec.js';
 import { PackGrader } from '../plugin/packGrader.js';
-import { IsolationLadder } from '../adapters/isolation/isolationLadder.js';
+import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.js';
 import { ArgParser } from './argParser.js';
 import { CliArgReader } from './cliArgReader.js';
 import type { PackCapability } from '../plugin/packStaticScanner.js';
@@ -136,7 +136,7 @@ export class BundleCommand {
       return { ran: false, reason: '包内无 index.js 入口，无法在沙箱中执行（H1 要求可运行验证）' };
     }
     const entry = files.get(entryPath) ?? '';
-    const ladder = new IsolationLadder();
+    const ladder = IsolationLadderFactory.builtin();
     // 脚本包装：沙箱按**裸脚本**语义执行，不提供 `module`/`exports`，故这里自己包一层 IIFE，
     // 让常见的 cjs 入口（`module.exports = …`）**真的**能跑起来——否则"沙箱腿"对一切包恒为失败，
     // 那条腿就等于没有（评级退化成只靠静态扫描，A 永远不可达）。

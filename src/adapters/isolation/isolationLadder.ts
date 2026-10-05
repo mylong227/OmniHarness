@@ -39,6 +39,14 @@ const DEFAULT_TIMEOUT_MS = 5_000;
  */
 export type OsSandboxRunner = (request: IsolationRequest<unknown>) => Promise<unknown>;
 
+/**
+ * `wasm` 档执行器签名（注入即该档可达；零依赖实现见 `BuiltinWasmRunner`）。
+ *
+ * 与 `OsSandboxRunner` 的差别：os 执行器只需"把载荷跑起来"，而 wasm 档**必须自己产出完整的
+ * `IsolationResult`**——越界/fuel 超限/import 拒绝都是**档位内部**的判定，阶梯不替它猜。
+ */
+export type WasmRunner = <T>(request: IsolationRequest<T>) => Promise<IsolationResult<T>>;
+
 /** 阶梯装配项。 */
 export interface IsolationLadderOptions {
   /**
@@ -50,6 +58,13 @@ export interface IsolationLadderOptions {
   readonly allowDowngrade?: boolean | undefined;
   /** `os-sandbox` 档的原生执行器（注入即该档可达；缺省不可达）。 */
   readonly osRunner?: OsSandboxRunner | undefined;
+  /**
+   * `wasm` 档的执行器（注入即该档可达；缺省不可达）。
+   *
+   * 为什么是注入而不是内置：档位执行器属**适配器**职责（谁提供 wasm 运行时是部署决策），
+   * 阶梯只负责「按档位裁决 + 不可达即拒」。零依赖实现见 `BuiltinWasmRunner`。
+   */
+  readonly wasmRunner?: WasmRunner | undefined;
   /** 默认超时（毫秒；缺省 5000）。 */
   readonly timeoutMs?: number | undefined;
 }
@@ -60,6 +75,8 @@ export class IsolationLadder implements IsolationPort {
   private readonly allowDowngrade: boolean;
   /** OS 沙箱档的原生执行器。 */
   private readonly osRunner?: OsSandboxRunner | undefined;
+  /** wasm 档的执行器（缺省不可达）。 */
+  private readonly wasmRunner?: WasmRunner | undefined;
   /** 默认超时。 */
   private readonly timeoutMs: number;
 
@@ -69,6 +86,7 @@ export class IsolationLadder implements IsolationPort {
   public constructor(opts: IsolationLadderOptions = {}) {
     this.allowDowngrade = opts.allowDowngrade === true;
     this.osRunner = opts.osRunner;
+    this.wasmRunner = opts.wasmRunner;
     this.timeoutMs = Math.max(1, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   }
 
@@ -80,6 +98,7 @@ export class IsolationLadder implements IsolationPort {
   public available(level: IsolationLevel): boolean {
     if (level === 'in-process' || level === 'vm') return true;
     if (level === 'os-sandbox') return this.osRunner !== undefined;
+    if (level === 'wasm') return this.wasmRunner !== undefined;
     return false;
   }
 
@@ -161,6 +180,7 @@ export class IsolationLadder implements IsolationPort {
     if (level === 'in-process') return this.runInProcess(request.payload as never);
     if (level === 'vm') return this.runInVm(request);
     if (level === 'os-sandbox') return this.runInOsSandbox(level, request);
+    if (level === 'wasm') return this.runInWasm(level, request);
     return {
       ok: false,
       denied: {
@@ -237,6 +257,44 @@ export class IsolationLadder implements IsolationPort {
       return { ok: true, value: value as T, level: 'vm' };
     } catch (err) {
       return { ok: false, denied: IsolationLadder.denialOfVmError(err) };
+    }
+  }
+
+  /**
+   * `wasm` 档：交给注入的执行器（本类不假装自己有 wasm 运行时）。
+   *
+   * 与 os 档的关键差别：执行器**自己产出完整结论**（越界 / 超预算 / import 拒绝都是档位内判定），
+   * 故这里只做"缺件即拒"与"异常兜底"，不替它解释失败原因——替它解释就会掩盖真实拒因。
+   * @param level 生效档位
+   * @param request 请求
+   * @returns 执行结果
+   */
+  private async runInWasm<T>(
+    level: IsolationLevel,
+    request: IsolationRequest<T>,
+  ): Promise<IsolationResult<T>> {
+    if (this.wasmRunner === undefined) {
+      return {
+        ok: false,
+        denied: {
+          code: 'level-unavailable',
+          level,
+          reason:
+            'wasm 档不可达：未注入 wasm 执行器（零依赖实现见 BuiltinWasmRunner），拒绝执行而不静默降档',
+        },
+      };
+    }
+    try {
+      return await this.wasmRunner(request);
+    } catch (err) {
+      return {
+        ok: false,
+        denied: {
+          code: 'trap',
+          level,
+          reason: `wasm 执行器异常：${err instanceof Error ? err.message : String(err)}`,
+        },
+      };
     }
   }
 

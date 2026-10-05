@@ -29,7 +29,7 @@ import { EvolutionCommand } from './evolutionCommand.js';
 import { CapabilityCommand } from './capabilityCommand.js';
 import { LicenseCommand } from './licenseCommand.js';
 import { AssetPackInstaller } from '../asset/assetPackInstaller.js';
-import { IsolationLadder } from '../adapters/isolation/isolationLadder.js';
+import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.js';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
 import type { AssetPackPort } from '../ports/asset.js';
 import type { CapabilityStack } from '../ports/config/capabilityStack.js';
@@ -308,8 +308,10 @@ export class ExecCli extends CliAgentCmds {
         ledger: new HashChainPromotionLedger({ dir }),
         defaults: stack.defaults,
         // Wave C · ADR-0010：装包前做「档位可达性门禁 + in-process 冒烟」——
-        // 声明了本机不可达档位（如 wasm：wasmtime 未准入）的包一律拒装，绝不降档凑合。
-        isolation: new IsolationLadder(),
+        // 声明了本机不可达档位的包一律拒装，绝不降档凑合。
+        // (J8) 用工厂装配：`wasm` 档由内置 `BuiltinWasmRunner` 提供（零新依赖）；
+        // 漏注入会让"声明了 wasm 的包"被静默拒装，症状只是"装不上"，排查方向容易跑偏。
+        isolation: IsolationLadderFactory.builtin(),
       });
     } catch {
       return undefined;
