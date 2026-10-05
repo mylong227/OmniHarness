@@ -5,6 +5,7 @@ import type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.
 import type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.js';
 import type { AuthState } from '../ports/enterprise/authState.js';
 import type { IdTokenVerifierPort } from '../ports/enterprise/idTokenVerifier.js';
+import type { PkcePair, TokenSet } from '../ports/enterprise/oidcFlow.js';
 
 /**
  * 企业级 SSO（OIDC）无第三方依赖实现（D2）。
@@ -29,25 +30,18 @@ export type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.js';
 /**
  * @beta
  * PKCE(S256) 密钥对。
+ *
+ * 已外迁到 ports/enterprise/oidcFlow.ts（A.5 第四项准入引入双实现端口）：原文件退化为纯再导出，调用点零改动。
  */
-export interface PkcePair {
-  readonly verifier: string;
-  readonly challenge: string;
-  readonly method: 'S256';
-}
+export type { PkcePair } from '../ports/enterprise/oidcFlow.js';
 
 /**
  * @beta
  * 授权码换得的令牌集。
+ *
+ * 已外迁到 ports/enterprise/oidcFlow.ts（A.5 第四项准入引入双实现端口）：原文件退化为纯再导出，调用点零改动。
  */
-export interface TokenSet {
-  readonly access_token: string;
-  readonly id_token?: string | undefined;
-  readonly token_type: string;
-  readonly expires_in?: number | undefined;
-  readonly refresh_token?: string | undefined;
-  readonly scope?: string | undefined;
-}
+export type { TokenSet } from '../ports/enterprise/oidcFlow.js';
 
 /**
  * @beta
@@ -197,9 +191,9 @@ export class OidcClient {
     config: OidcProviderConfig,
     params: {
       readonly code: string;
-      readonly codeVerifier?: string;
+      readonly codeVerifier?: string | undefined;
       readonly redirectUri?: string | undefined;
-      readonly fetchImpl?: typeof fetch;
+      readonly fetchImpl?: typeof fetch | undefined;
     },
   ): Promise<TokenSet> {
     const body = new URLSearchParams({

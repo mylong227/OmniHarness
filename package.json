@@ -118,6 +118,7 @@
     "@modelcontextprotocol/sdk": "^1.32.0",
     "croner": "10.0.1",
     "jose": "6.2.12",
+    "openid-client": "^6.8.8",
     "zod": "^4.6.4"
   },
   "optionalDependencies": {

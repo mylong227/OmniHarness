@@ -104,6 +104,16 @@
       "exitPlan": "若该包停更或行为回归：删 src/adapters/enterprise/joseIdTokenVerifier.ts，装配切回 LegacyIdTokenVerifier（同 IdTokenVerifierPort，0 个调用点改动）——自研实现本就是保留的回退资产；届时能力面收窄为 RS256 且需自行补 azp/nonce/时钟容忍（判据已把这三条钉死，可直接复用）。",
       "maxInstallKb": 512,
       "maxTransitiveDeps": 0
+    },
+    "openid-client": {
+      "reason": "OIDC 授权码流（discovery/PKCE/换码）属协议管道：自研版（src/enterprise/oidcClient.ts）issuer 不做严格校验、不强制 https、client 认证与令牌响应校验逐条手搓只能靠单测兜底。按 D10「同等能力优先成熟依赖」准入（A.5 第四项，A.5 收口）：openid-client v6.8.8 · MIT · 本包 221 KB + 传递依赖 oauth4webapi 326 KB（jose ^6.2.12 与既有准入同版本共享）⇒ 新增安装 ≈550 KB / 2 个传递依赖，低于默认预算。生产默认切本实现，自研 LegacyOidcFlow 同端口保留为回退资产（差分判据 tests/unit/oidcFlowContract.test.ts：issuer 不一致拒/透传、http 强制、垃圾 id_token 拒/透传）。",
+      "capability": "标准 OIDC/OAuth 授权码流：discovery（issuer 严格匹配 + https 强制）、PKCE S256 全套、授权 URL 构造（state/nonce 自动生成）、authorizationCodeGrant（client 认证方法族 + 内建 ID-token 校验 + state 一致性检查 + 令牌响应校验），经 src/adapters/enterprise/openIdClientFlow.ts 实现 OidcFlowPort，核心与端口层零第三方。",
+      "license": "MIT",
+      "approvedAt": "2026-10-05",
+      "layer": "src/adapters/enterprise",
+      "exitPlan": "若该包停更或行为回归：CLI 装配点（cliServerCmds auth login/callback）把默认实现 OpenIdClientFlow 换回 LegacyOidcFlow（同 OidcFlowPort，0 个调用点改动）——自研流程族本就是保留的回退资产；届时能力面收窄（无 issuer 严格校验/无内建 ID-token 校验），差分判据已把这些边界钉死可直接复用。",
+      "maxInstallKb": 2048,
+      "maxTransitiveDeps": 20
     }
   },
   "entryTemplate": {
