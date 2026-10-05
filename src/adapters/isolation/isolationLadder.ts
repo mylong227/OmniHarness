@@ -145,7 +145,7 @@ export class IsolationLadder implements IsolationPort {
         level: requested,
         reason:
           requested === 'wasm'
-            ? 'wasm 档不可达：本仓尚未接入 wasm 运行时（wasmtime 未按 D10 准入），拒绝执行而不静默降档'
+            ? 'wasm 档不可达：未注入 wasm 执行器（本仓内置实现见 BuiltinWasmRunner），拒绝执行而不静默降档'
             : `${requested} 档不可达：未注入该档的原生执行器，拒绝执行而不静默降档`,
       };
     }
