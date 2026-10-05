@@ -71,6 +71,8 @@ export interface BuiltinWasmWorkerData {
    * 字符串入参（给出即走 **C-ABI 宿主协议**：`omni_alloc` → 写内存 → 入口(ptr,len) → 读回 → `omni_dealloc`）。
    */
   readonly input?: string | undefined;
+  /** 返回值上限（字节；宿主下传，**读回之前**判定——先分配再检查等于已经吃掉了内存）。 */
+  readonly maxOutputBytes?: number | undefined;
 }
 
 /** worker 回传消息。 */
@@ -128,6 +130,21 @@ export class BuiltinWasmWorker {
     const value = typeof packed === 'bigint' ? packed : BigInt(packed);
     const outPtr = Number(value & 0xffffffffn);
     const outLen = Number((value >> 32n) & 0xffffffffn);
+    // 上限判定放在**读回之前**：模块可以返回任意 (ptr,len)，不设限等于让它决定宿主读多少字节。
+    const cap = data.maxOutputBytes;
+    if (cap !== undefined && outLen > cap) {
+      return {
+        kind: 'trap',
+        reason: `返回值超限（${String(outLen)} > ${String(cap)} 字节）：模块声明的返回长度不可信，拒绝读回`,
+      };
+    }
+    const face = memoryFace as WasmMemoryFace;
+    if (outPtr + outLen > face.buffer.byteLength) {
+      return {
+        kind: 'trap',
+        reason: `返回值越界（ptr ${String(outPtr)} + len ${String(outLen)} > 内存 ${String(face.buffer.byteLength)}）`,
+      };
+    }
     const response = Buffer.from(new Uint8Array(memoryFace.buffer, outPtr, outLen)).toString(
       'utf8',
     );

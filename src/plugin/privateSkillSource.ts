@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 私有技能源（商业化路线图 **G2**「技能包团队分发」）。
  *
  * ## 它解决什么
@@ -29,7 +29,7 @@
  * @maturity L1 — 严格档无签名拒 / 非信任根拒 / 篡改拒 / 宽松档标注 community / 只装放行集 判据钉死
  * @maturityEvidence tests/unit/privateSkillSource.test.ts
  */
-import { readdirSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
 import { PluginBundler } from './pluginBundler.js';
@@ -77,6 +77,10 @@ export interface PrivateSkillSourceOptions {
    * 严格档：`true` ⇒ 只接收 `verified`（无签名一律拒，G2 判据）；`false` ⇒ 接收 `community` 但**如实标注**。
    */
   readonly strict: boolean;
+  /** 单次扫描的包数上限（缺省 256）：源是分发渠道，无上限等于让源目录决定宿主读多少文件。 */
+  readonly maxBundles?: number | undefined;
+  /** 单包字节上限（缺省 64 MiB）：先 stat 再读，超限**直接拒**而不是读进来再判断。 */
+  readonly maxBundleBytes?: number | undefined;
   /** 安装回调（组合根接既有安装路径）；拒绝的包**永不**进入这里。 */
   readonly install: (request: {
     readonly path: string;
@@ -88,6 +92,10 @@ export interface PrivateSkillSourceOptions {
 export class PrivateSkillSource {
   /** 规范化后的信任根指纹集合（比较公钥主体，忽略注释）。 */
   private readonly trusted: ReadonlySet<string>;
+  /** 单次扫描包数上限。 */
+  private readonly maxBundles: number;
+  /** 单包字节上限。 */
+  private readonly maxBundleBytes: number;
 
   /**
    * @param opts 源目录 / 信任根 / 严格档 / 安装回调
@@ -96,6 +104,8 @@ export class PrivateSkillSource {
     this.trusted = new Set(
       opts.trustedPublicKeys.map((key) => PrivateSkillSource.normalizeKey(key)),
     );
+    this.maxBundles = Math.max(1, Math.floor(opts.maxBundles ?? 256));
+    this.maxBundleBytes = Math.max(1, Math.floor(opts.maxBundleBytes ?? 64 * 1024 * 1024));
   }
 
   /**
@@ -138,9 +148,16 @@ export class PrivateSkillSource {
    */
   private bundleFiles(): readonly string[] {
     try {
-      return readdirSync(this.opts.sourceDir)
+      const all = readdirSync(this.opts.sourceDir)
         .filter((name) => name.endsWith('.ohb'))
         .sort();
+      // 上限是**拒绝**而不是"截断到前 N 个"：静默少读会让"同步成功"变成假象。
+      if (all.length > this.maxBundles) {
+        throw new Error(
+          `源目录包数超限（${String(all.length)} > ${String(this.maxBundles)}）：上限见 maxBundles`,
+        );
+      }
+      return all;
     } catch {
       return []; // 源目录尚未建立（新团队）= 空源，不是错误。
     }
@@ -181,8 +198,16 @@ export class PrivateSkillSource {
       signatureKind: 'none',
       reason,
     });
+    const path = join(this.opts.sourceDir, file);
     try {
-      const manifest = PrivateSkillSource.readManifest(join(this.opts.sourceDir, file));
+      // **先 stat 再读**：超限直接拒，而不是"读进来再判断"——后者在大包上已经把内存吃掉了。
+      const size = statSync(path).size;
+      if (size > this.maxBundleBytes) {
+        return refuse(
+          `包体积超限（${String(size)} > ${String(this.maxBundleBytes)} 字节）：上限见 maxBundleBytes`,
+        );
+      }
+      const manifest = PrivateSkillSource.readManifest(path);
       return manifest ?? refuse('包内缺 bundle.json 清单（不是合法 .ohb）');
     } catch (err) {
       return refuse(`无法读取包清单（${err instanceof Error ? err.message : String(err)}）`);

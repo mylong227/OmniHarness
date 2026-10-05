@@ -1,4 +1,4 @@
-# OmniHarness Rust 侧链接器配置。
+﻿# OmniHarness Rust 侧链接器配置。
 # 本机 GNU 工具链的系统 gcc 链接器无法解析 Windows 反斜杠路径，
 # 改用 rustup 自带的 rust-lld（lld 正确处理 Windows 路径）。
 [target.x86_64-pc-windows-gnu]
@@ -13,3 +13,10 @@ registry = "sparse+https://rsproxy.cn/index/"
 
 [net]
 git-fetch-with-cli = true
+
+# wasm 侧**内存硬上限**（Wave C 资源面标准化）：
+# Rust 在 wasm32-unknown-unknown 上默认只声明 `min` 页数、**不给 `max`** ⇒ 模块可无限 `grow`，
+# 而宿主侧的内存门禁（`WasmMemoryLimits`）要求"有上限"才放行 —— 两边必须对边界达成一致。
+# 64 MiB 对内核足够（实测运行 <16 MiB），且远低于宿主缺省上限 256 MiB。
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--max-memory=67108864"]

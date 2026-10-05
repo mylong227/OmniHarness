@@ -1,4 +1,4 @@
-﻿/**
+/**
  * **J8** 判据：`wasm` 档内**越界访问 / 超 fuel ⇒ 拒执行且 reason 可读**（变异：关 fuel metering ⇒ 红）。
  *
  * ## 判据逐条对应（`EVOLVIX_SPEC_2026-10.md` §8 J8）
@@ -132,7 +132,7 @@ test('J8 ②越界访问：拒执行且 reason 可读（越界信息原样透出
     'oob',
     [0x60, 0x00, 0x01, 0x7f],
     [0x00, 0x41, 0xff, 0xff, 0x03, 0x28, 0x02, 0x00, 0x0b],
-    { extraSections: [[section(5, [1, 0x00, 0x01])]] },
+    { extraSections: [[section(5, [1, 0x01, 0x01, 0x01])]] },
   );
   const result = await new BuiltinWasmRunner().run(requestOf(bytes, { fuel: 1000 }));
   const denied = denialOf(result);
@@ -201,8 +201,13 @@ test('J8 ⑥空/畸形输入：拒且原因可读（不是"跑了个空模块"�
   const garbageDenied = denialOf(garbage);
   assert.strictEqual(
     garbageDenied.code,
-    'trap',
-    '非 wasm 字节必须被判为 trap（编译失败），不是"跑通了"',
+    'payload-unsupported',
+    '非 wasm 字节在**预检**阶段被拒（检查顺序：字节/入参上限 → 内存声明预检 → 实例化与执行）',
+  );
+  assert.match(
+    garbageDenied.reason,
+    /魔数不符|不是 wasm|字节过短/,
+    'reason 必须可读（"过短"与"魔数不符"都是预检阶段的合法拒因）',
   );
   assert.ok(garbageDenied.reason.length > 0, 'reason 必须非空');
   // 非 wasm 载荷也拒（档位只接受 wasm-module）。
@@ -218,7 +223,7 @@ test('J8 阶梯集成：未注入执行器 ⇒ wasm 档仍 fail-closed；注入�
     'oob',
     [0x60, 0x00, 0x01, 0x7f],
     [0x00, 0x41, 0xff, 0xff, 0x03, 0x28, 0x02, 0x00, 0x0b],
-    { extraSections: [[section(5, [1, 0x00, 0x01])]] },
+    { extraSections: [[section(5, [1, 0x01, 0x01, 0x01])]] },
   );
   const request = {
     asset: {
@@ -276,7 +281,7 @@ test('J8 生产装配：工厂产出的阶梯 wasm 档可达，且越界/超预�
     'oob',
     [0x60, 0x00, 0x01, 0x7f],
     [0x00, 0x41, 0xff, 0xff, 0x03, 0x28, 0x02, 0x00, 0x0b],
-    { extraSections: [[section(5, [1, 0x00, 0x01])]] },
+    { extraSections: [[section(5, [1, 0x01, 0x01, 0x01])]] },
   );
   const denied = await ladder.run({
     asset,
