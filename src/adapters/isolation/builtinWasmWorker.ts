@@ -40,8 +40,15 @@ interface WasmModuleCtor {
   imports(module: object): readonly { readonly module: string; readonly name: string }[];
 }
 
+/** wasm 线性内存（只用到 `buffer`）。 */
+interface WasmMemoryFace {
+  readonly buffer: ArrayBuffer;
+}
+
 /** `WebAssembly` 全局的最小面。 */
 interface WasmApi {
+  /** `WebAssembly.Memory`（用于 `instanceof` 判定与类型标注）。 */
+  readonly Memory: new (descriptor: { readonly initial: number }) => WasmMemoryFace;
   readonly Module: WasmModuleCtor;
   compile(bytes: Uint8Array): Promise<object>;
   instantiate(
@@ -58,8 +65,12 @@ void (undefined as unknown as WasmModuleFace);
 export interface BuiltinWasmWorkerData {
   /** 模块字节（base64；`Uint8Array` 不便于 `workerData` 往返，故编码传递）。 */
   readonly bytesBase64: string;
-  /** 要调用的导出名（缺省挑第一个函数导出）。 */
+  /** 要调用的导出名（缺省挑第一个函数导出；C-ABI 模式下缺省 `process`）。 */
   readonly entry?: string | undefined;
+  /**
+   * 字符串入参（给出即走 **C-ABI 宿主协议**：`omni_alloc` → 写内存 → 入口(ptr,len) → 读回 → `omni_dealloc`）。
+   */
+  readonly input?: string | undefined;
 }
 
 /** worker 回传消息。 */
@@ -72,6 +83,59 @@ export type BuiltinWasmWorkerMessage =
 /** wasm 执行 worker 主体。 */
 export class BuiltinWasmWorker {
   private constructor() {}
+
+  /**
+   * C-ABI 调用：写内存 → 调入口 → 读回 → 释放（每一步的失败都回可读 `trap`）。
+   *
+   * 协议（与 `crates/omni-wasm` 一致）：`omni_alloc(len) -> ptr`、
+   * 入口 `(ptr, len) -> i64`（低 32 位 ptr / 高 32 位 len）、`omni_dealloc(ptr, len)`。
+   * @param exports 模块导出
+   * @param data worker 入参（含 `input`）
+   * @returns worker 回传消息
+   */
+  private static callWithInput(
+    exports: Record<string, unknown>,
+    data: BuiltinWasmWorkerData,
+  ): BuiltinWasmWorkerMessage {
+    const alloc = exports['omni_alloc'];
+    const dealloc = exports['omni_dealloc'];
+    const entryName = data.entry ?? 'process';
+    const entry = exports[entryName];
+    const memory = exports['memory'];
+    // `memory` 必须是 wasm 线性内存：用**最小类型面**的构造器判定（主 tsconfig 无 DOM lib，
+    // 故不能写 `instanceof WebAssembly.Memory`——那会把 DOM 全局拉进整个 Node 项目）。
+    if (
+      typeof alloc !== 'function' ||
+      typeof entry !== 'function' ||
+      memory === null ||
+      typeof memory !== 'object' ||
+      wasm === undefined ||
+      !(memory instanceof wasm.Memory)
+    ) {
+      return {
+        kind: 'trap',
+        reason:
+          'C-ABI 模式要求模块导出 omni_alloc / omni_dealloc / memory 与入口（默认 process）' +
+          `；实际入口 ${entryName}=${typeof entry}`,
+      };
+    }
+    const bytes = Buffer.from(data.input ?? '', 'utf8');
+    const ptr = (alloc as (len: number) => number)(bytes.length);
+    const memoryFace = memory as WasmMemoryFace;
+    new Uint8Array(memoryFace.buffer, ptr, bytes.length).set(bytes);
+    const packed = (entry as (ptr: number, len: number) => bigint | number)(ptr, bytes.length);
+    // i64 返回：BigInt 与本仓 worker 的 i64 语义一致；低 32 位 ptr / 高 32 位 len。
+    const value = typeof packed === 'bigint' ? packed : BigInt(packed);
+    const outPtr = Number(value & 0xffffffffn);
+    const outLen = Number((value >> 32n) & 0xffffffffn);
+    const response = Buffer.from(new Uint8Array(memoryFace.buffer, outPtr, outLen)).toString(
+      'utf8',
+    );
+    if (typeof dealloc === 'function') {
+      (dealloc as (ptr: number, len: number) => void)(outPtr, outLen);
+    }
+    return { kind: 'ok', value: response };
+  }
 
   /**
    * 执行载荷并回传结果（协议见模块注释）。
@@ -100,6 +164,11 @@ export class BuiltinWasmWorker {
       }
       const instance = await wasm.instantiate(module, {});
       const exports = instance.exports as Record<string, unknown>;
+      // C-ABI 模式（给了入参）：走 omni_alloc/process/dealloc 协议，见 crates/omni-wasm 的 ABI 注释。
+      if (data.input !== undefined) {
+        port.postMessage(BuiltinWasmWorker.callWithInput(exports, data));
+        return;
+      }
       const entry =
         data.entry ?? Object.keys(exports).find((name) => typeof exports[name] === 'function');
       if (entry === undefined || typeof exports[entry] !== 'function') {

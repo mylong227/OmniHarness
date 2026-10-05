@@ -42,6 +42,23 @@ const COMPACTOR_PROMPT_MARK = '对话历史压缩器';
 const SUMMARY_SENTINEL = 'SUMMARY_SENTINEL_ALPHA';
 
 /**
+ * 取"最后一次**任务**请求"（排除压缩器自己的摘要请求）。
+ *
+ * 为什么必须排除：`bodies` 记录模型收到的**每一个**请求，其中包含压缩器的摘要请求；
+ * 而摘要请求的正文就是"待压缩的对话历史"——它**当然**含旧摘要。压缩是异步触发的，
+ * 因此"最后一条被捕获的请求"偶尔会是摘要请求而不是任务请求（本判据原先直接取 `bodies.at(-1)`，
+ * 于是把"压缩器正在摘要旧内容"误读成"回滚没截断"）。
+ *
+ * 诚实边界：本次会话 5 轮全量中观测到 1 次该失败，**8 次隔离 + 3 次加载复现均未命中**。
+ * 故此处的改动消除的是一个**已识别的时序假设**，而**不声称**已证明它就是那次失败的成因。
+ * @param bodies 捕获到的请求体
+ * @returns 最后一次任务请求体（无任务请求时为空串）
+ */
+function lastTaskBody(bodies: readonly string[]): string {
+  return [...bodies].reverse().find((body) => !body.includes(COMPACTOR_PROMPT_MARK)) ?? '';
+}
+
+/**
  * 记录模型实际收到的请求体，并对压缩器的摘要请求返回带序号哨兵的摘要。
  *
  * 哨兵带序号（`_v1`/`_v2`…）是刻意的：恒定哨兵无法区分"复用旧摘要"与"重新算了一遍摘要"
@@ -174,9 +191,11 @@ test('端到端对照：回滚后最后一次请求不再带旧摘要（日志�
     control.bodies.some((body) => body.includes(SUMMARY_SENTINEL)),
     `控制组（不回滚）里从未出现折叠摘要 ⇒ 观测面无效（请求数 ${String(control.bodies.length)}）`,
   );
+  const controlLast = lastTaskBody(control.bodies);
+  assert.ok(controlLast.length > 0, '控制组必须至少有一次任务请求（否则下面的断言是空转）');
   assert.ok(
-    (control.bodies.at(-1) ?? '').includes(SUMMARY_SENTINEL),
-    '控制组的**最后一次**请求里应仍带着折叠摘要（不回滚就没有理由丢掉它）',
+    controlLast.includes(SUMMARY_SENTINEL),
+    '控制组的**最后一次任务请求**里应仍带着折叠摘要（不回滚就没有理由丢掉它）',
   );
 
   // **主判据**：回滚之后，最后一次请求里不得再有折叠摘要。
@@ -184,7 +203,12 @@ test('端到端对照：回滚后最后一次请求不再带旧摘要（日志�
     rolledBack.bodies.some((body) => body.includes(SUMMARY_SENTINEL)),
     '实验组里也出现过折叠摘要（否则"回滚后没有"只是因为压根没压缩过）',
   );
-  const rolledBackLast = rolledBack.bodies.at(-1) ?? '';
+  const rolledBackLast = lastTaskBody(rolledBack.bodies);
+  // **防空转**：若过滤后为空串，下面的 "不包含" 会恒真 —— 那等于判据自己失灵还报绿。
+  assert.ok(
+    rolledBackLast.length > 0,
+    `必须至少有一次任务请求（实际捕获 ${String(rolledBack.bodies.length)} 条，全部是压缩请求？）`,
+  );
   for (const needle of [SUMMARY_SENTINEL, COMPACTION_MARKER]) {
     assert.ok(
       !rolledBackLast.includes(needle),
