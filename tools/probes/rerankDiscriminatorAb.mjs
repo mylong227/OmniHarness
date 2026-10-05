@@ -17,6 +17,19 @@
  * - `V1` 纯覆盖率（去名次项）；`V11` 词项独占；`V12` 认领摊分；`V13` 软独占；
  * - `V6` 确定性 MMR（贪婪，得分 = 基础分 − λ·与已选文件的最大符号名 Jaccard）。
  *
+ * ## 第一关前置否决（RankVetoEvaluator，2026-10-05 接线）
+ *
+ * 每个变体在进两关统计之前，先过 `src/context/rankVeto/` 的**排序前置否决器**：
+ *   ① **查询不敏感度**（唯一否决依据；已回溯验证的主判据）——变体在各查询 Top-K 之间的
+ *      平均两两 Jaccard，≥0.5 判「常量偏置」（无论问什么都返回同一批文件），以 V_off
+ *      的同口径值为基线算比值；
+ *   ② 与 V_off 的重合度**只作诊断不否决**：重排变体与第一段**共享同一候选池**，高重合是
+ *      重排的预期形态而非「复读基线」——否决器的重合度判据（模块头自述「保留待验」）针对
+ *      的是**不同候选源**的路由对比，在本探针的受控设计下不适用。若把 ② 也当否决依据，
+ *      实测会把全部重排变体（含生产式 V0）误判成否决——判据错位即仪式。
+ * 否决 ⇒ 两关数字**不必再看**（结构性不合格）；**放行 ≠ 有效**——有效性仍以两关统计为唯一判定量。
+ * 此前该否决器只有机制单测（「验证真空」），这里是它在真实工作流上的第一个生产调用点。
+ *
  * ## 前置
  *
  * 需要编译产物：先 `npm run build`。
@@ -57,9 +70,11 @@ let ContextEngine;
 let FileRerankIndex;
 let RECALL_QUERIES;
 let CORE_COUNT;
+let RankVetoEvaluator;
 try {
   ({ ContextEngine } = await importDist('context', 'contextEngine.js'));
   ({ FileRerankIndex } = await importDist('context', 'fileRerankIndex.js'));
+  ({ RankVetoEvaluator } = await importDist('context', 'rankVeto', 'index.js'));
   ({ RECALL_QUERIES, CORE_COUNT } = await import(
     pathToFileURL(join(ROOT, 'dist', 'tests', 'fixtures', 'recallQueries.js')).href
   ));
@@ -297,18 +312,67 @@ const baseLists = order(VARIANTS['V0 现生产式（rr+覆盖）']);
 const baseHit = hitVec(baseLists);
 const baseRec = recallVec(baseLists);
 const baseMrr = mrrVec(baseLists);
+// V_off（第一段）同时充当第一关的基线路由：提前到这里（原先在循环后才算）。
+const offLists = order(VARIANTS['V_off 第一段（不重排）']);
+const BASELINE_NAME = 'V_off 第一段（不重排）';
+const veto = new RankVetoEvaluator();
 const results = {};
 console.log(
   `  基线 V0 绝对值：hit@${String(K)} ${String(pct(avg(baseHit)))}% ｜ recall@${String(K)} ${String(pct(avg(baseRec)))}% ｜ MRR ${avg(baseMrr).toFixed(3)}\n`,
 );
 
 /**
- * 汇总一个变体（含两关统计）。
+ * 第一关前置否决（RankVetoEvaluator）：只取已回溯验证的主判据——查询不敏感度。
+ * 与 V_off 的重合度在本探针（同池重排）下是预期形态，只作诊断计数，不参与否决（见文件头）。
+ * @param {string} name 变体名（基线 V_off 自身不否决，只报度量）。
+ * @param {readonly string[][]} lists 变体在各查询下的 Top-K。
+ * @returns {{gate1Vetoed: boolean, text: string, detail: object}} 否决标记、摘要文案与结构化明细。
+ */
+function gate1Of(name, lists) {
+  const report = veto.evaluate({ candidateProbeLists: lists, baselineProbeLists: offLists });
+  let highOverlap = 0;
+  for (let i = 0; i < CASES.length; i += 1) {
+    const perQuery = veto.evaluate({ baselineFiles: offLists[i], candidateFiles: lists[i] });
+    if (perQuery.verdict === 'veto') highOverlap += 1;
+  }
+  const isBaseline = name === BASELINE_NAME;
+  const vetoed = !isBaseline && report.verdict === 'veto';
+  const ins = report.metrics.queryInsensitivity;
+  const base = report.metrics.baselineQueryInsensitivity;
+  const ratio = report.metrics.insensitivityRatio;
+  const text =
+    `gate1 不敏感度=${ins === null ? 'n/a' : ins.toFixed(3)}` +
+    `(基线${base === null ? 'n/a' : base.toFixed(3)}` +
+    `${ratio === null ? '' : `,比值${ratio.toFixed(2)}`})` +
+    ` ⇒ ${isBaseline ? '基线' : vetoed ? '否决' : '放行'}` +
+    `｜诊断:与V_off重合≥0.7 ${String(highOverlap)}/${String(CASES.length)}（同池重排预期，不作否决）`;
+  return {
+    gate1Vetoed: vetoed,
+    text,
+    detail: {
+      queryInsensitivity: ins,
+      baselineQueryInsensitivity: base,
+      insensitivityRatio: ratio,
+      overlapVetoQueries: highOverlap,
+      overlapVetoTotal: CASES.length,
+      vetoed,
+      isBaseline,
+      reasons: report.reasons,
+    },
+  };
+}
+
+/**
+ * 汇总一个变体（第一关 + 两关统计）。
  * @param {string} name 变体名。
  * @param {readonly string[][]} lists 排序结果。
  * @returns {object} 该变体的统计。
  */
 function summarize(name, lists) {
+  const gate1 = gate1Of(name, lists);
+  if (gate1.gate1Vetoed) {
+    console.log(`  ${name.padEnd(22)} 【第一关否决】${gate1.text}`);
+  }
   const hit = hitVec(lists);
   const rec = recallVec(lists);
   const mrr = mrrVec(lists);
@@ -332,6 +396,7 @@ function summarize(name, lists) {
     recallDeltaCI: pairedCI(dRec),
     mrrDeltaCI: pairedCI(dMrr),
     mrrFolds: f,
+    gate1: gate1.detail,
     core: tier('core'),
     ext: tier('ext'),
     hitUpDown: [dHit.filter((x) => x > 0).length, dHit.filter((x) => x < 0).length],
@@ -341,13 +406,17 @@ function summarize(name, lists) {
   console.log(
     `  ${name.padEnd(22)} hit@${String(K)}=${String(r.hitRate).padStart(5)}% ΔCI ${JSON.stringify(r.hitDeltaCI)}pp (↑${String(r.hitUpDown[0])}/↓${String(r.hitUpDown[1])})  ` +
       `recall=${String(r.recall).padStart(5)}% ΔCI ${JSON.stringify(r.recallDeltaCI)}pp  ` +
-      `MRR=${r.mrr.toFixed(3)} ΔCI ${JSON.stringify(r.mrrDeltaCI)}  折负(MRR) ${String(f.neg)}/${String(f.total)}(min ${String(f.min)}pp)`,
+      `MRR=${r.mrr.toFixed(3)} ΔCI ${JSON.stringify(r.mrrDeltaCI)}  折负(MRR) ${String(f.neg)}/${String(f.total)}(min ${String(f.min)}pp)` +
+      (gate1.gate1Vetoed ? '' : `  ${gate1.text}`),
   );
   return r;
 }
 
-/** 判定结论（两关都过才算"有增益"）。 */
+/** 判定结论（第一关否决优先：结构性不合格 ⇒ 两关数字不必再看；放行 ≠ 有效，有效性只看两关）。 */
 function verdictOf(r) {
+  if (r.gate1 !== undefined && r.gate1.vetoed === true) {
+    return '第一关否决（常量偏置/复读基线）——两关数字不作为增益证据';
+  }
   const ci = r.mrrDeltaCI;
   const crossesZero = ci[0] <= 0 && ci[1] >= 0;
   const foldsNegative = r.mrrFolds.neg > 0;
@@ -365,7 +434,7 @@ for (const lambda of [0.25, 0.5]) {
 }
 
 // 第二段净效果（V0 相对「完全不重排」）：本仓「精排是否值得开」的判定量。
-const offLists = order(VARIANTS['V_off 第一段（不重排）']);
+// offLists 已在第一关段提前算出（同为 V_off），此处直接复用。
 const offHit = hitVec(offLists);
 const offRec = recallVec(offLists);
 const offMrr = mrrVec(offLists);
