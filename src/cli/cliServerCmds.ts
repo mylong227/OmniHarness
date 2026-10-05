@@ -27,6 +27,8 @@ import {
   type AuthState,
   type OidcDiscovery,
 } from '../enterprise/index.js';
+import { OpenIdClientFlow } from '../adapters/enterprise/openIdClientFlow.js';
+import type { OidcFlowPort } from '../ports/enterprise/oidcFlow.js';
 import { CodeGenerator } from '../schema/codeGenerator.js';
 import { protocolSchema } from '../schema/protocolSchema.js';
 import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
@@ -174,10 +176,13 @@ export class CliServerCmds extends CliBuildConfig {
       scope: this.flagValue(rest, '--scope'),
     };
     // 真实拉取 discovery（需可达 IdP；本机仅做编译/单测，真实接入需目标 IdP，见 D2 说明）。
-    const discovery = await OidcClient.fetchDiscovery(issuer);
-    const pkce = OidcClient.generatePkcePair();
+    // A.5 第四项：生产默认走第三方实现（openid-client，issuer 严格校验 + https 强制）；
+    // 自研 LegacyOidcFlow 同端口保留为回退资产（差分判据见 tests/unit/oidcFlowContract.test.ts）。
+    const oidcFlow: OidcFlowPort = new OpenIdClientFlow();
+    const discovery = await oidcFlow.discovery(config);
+    const pkce = await oidcFlow.generatePkcePair();
     const state = crypto.randomBytes(16).toString('hex');
-    const authUrl = OidcClient.buildAuthorizationUrl(discovery, config, {
+    const authUrl = oidcFlow.authorizationUrl(discovery, config, {
       state,
       codeChallenge: pkce.challenge,
     });
@@ -230,11 +235,15 @@ export class CliServerCmds extends CliBuildConfig {
       redirectUri: st.redirectUri,
       scope: st.scope,
     };
-    const discovery = await OidcClient.fetchDiscovery(st.issuer);
-    const tokens = await OidcClient.exchangeCode(discovery, config, {
+    // A.5 第四项：与 auth login 同一默认实现（第三方 openid-client）；state 一并传入，
+    // 由实现再做一次回调一致性校验（CLI 侧的比对是第一道，这里是第二道）。
+    const oidcFlow: OidcFlowPort = new OpenIdClientFlow();
+    const discovery = await oidcFlow.discovery(config);
+    const tokens = await oidcFlow.exchangeCode(discovery, config, {
       code,
       codeVerifier: st.codeVerifier,
       redirectUri: st.redirectUri,
+      state: st.state,
     });
     const masked = tokens.access_token.slice(0, 6) + '…' + tokens.access_token.slice(-4);
     process.stdout.write(
