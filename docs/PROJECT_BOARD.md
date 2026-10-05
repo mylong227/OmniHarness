@@ -519,6 +519,31 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第四十七轮｜F2 的 Web 工作台 tab 落地 ✅ + 回环地址缺陷修复**：两片独立提交。
+>
+> ① **F2 前端补齐**（`92bddcc`）：服务端新增**治理处理器层**
+> （`AppServerGovernanceHandlers`，插在 `SurfaceHandlers` 与 `AppServer` 之间——不撑大既有类），
+> 暴露 `governance.history` / `governance.rollbackTargets`；Web 工作台加**第 12 个面板**
+> `GovernanceTab`（逐行 ✓/✗ + 原因、汇总含**首个失败行**、回滚锚点与命令行入口）。
+> 三条 UI 纪律：**坏行必须显眼**（直接显示"第 N 条自算哈希不符"）、**读不出来就直说**
+> （`available:false` + 原因，**不显示空列表**——空列表会被误读成"没有晋升记录"）、
+> **回滚是显式动作**（面板只列锚点，执行仍走 `evolution rollback --yes`，判据断言面板上只有"刷新"一个按钮）。
+> ② **接线判据**：服务端 5 例（逐行复核 / 篡改行标红 / 不可用如实且不抛 / 空台账合法 /
+> `AppServer.prototype instanceof AppServerGovernanceHandlers` 的**装配链断言**）+ web 4 例。
+> ③ **过程抓到的真缺陷（后端到端 e2e 才拦得住）**：`GovernanceTab` 写了 `import * as React from 'react'`——
+> 本仓 web 是**零打包器**（React 由 UMD 全局经 `deps.js` 注入），裸标识符让浏览器**无法解析模块**
+> ⇒ **整页不挂载**（web 测试 300 例中 6 例红：CDP 挂载、e2e、弹层、渲染降级……全部指向同一根因）。
+> 这条纪律已写进组件注释：web 侧不得 `import … from 'react'`。
+> ④ **回环地址缺陷**（`0596995`）：`daemon` 启动提示曾打印 `http://localhost:PORT`，而服务端默认
+> **只绑 `127.0.0.1`**（`ServerAuthGuard.DEFAULT_HOST`）；Windows 上 `localhost` 常先解析到 `::1`
+> ⇒ 用户/脚本**间歇性拒连**（本会话 httpServer 判据就踩过同一坑）。修复：提示报**实际绑定地址**；
+> 判据改连 `127.0.0.1` 字面量（**确定性，不靠重试掩盖**）；新增 `loopbackHost` 回归守卫
+> （本仓服务对外 URL 不得写 `localhost` + 默认绑定常量必须为回环 IPv4；用户自备端点如 Ollama 白名单放行）。
+> ⑤ **诚实边界（未归因的偶发）**：本会话 8 次全量 `dist/tests/unit/*` 中 **2 次**出现加载相关偶发失败
+> （`HTTP：静态页返回 200` 一次、`/readyz`+`/healthz` 一次；隔离运行与其余 6 次全量均绿）。
+> 本次**消除的是 `localhost ⇒ ::1` 这一确定成因**，**剩余方差未归因**——不声称已根治；
+> 已连同此前记录的 `a2aCrossProcess` 偶发一并留在"可复现性待办"里。
+>
 > **至此 `docs/ARCHITECTURE_UPGRADE_2026-10.md` §4 路线图的登记遗留项全部清零**（G1b-c / G8-c / G10-T2 / G20-b / G21-b / G25-b 六项本轮全部落地；
 > 其中 G1b-c 的"L4 显式对齐是否必要"未被独立证明，另立 G1b-c2——**第二十九轮已收口**，机制结论见上）。
 > 判据 ⑥ 四条：产物逐位相同 / 仪器自证 200ms / **绝对目标 ≤100ms 达成**（实测 31.9ms）/ **相对判据**（重复 5 次放大基线：同步 506ms vs
