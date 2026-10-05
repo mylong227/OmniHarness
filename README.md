@@ -416,7 +416,7 @@ export default {
 
 ### 7.3 A2A
 
-跨厂商 agent 互操作协议域：传输 / 服务端已建，**客户端待建**（见 §13）。
+跨厂商 agent 互操作协议域：传输 / 服务端 / 客户端均已建。`a2a.enabled` 时装配 server（收对等委托，受限工具子集 + 并发闸门）**与** client，并注册 **`a2a_delegate` 工具**——本 agent 可把自包含子任务委托给对等 agent 执行并回收结果（对端 fail-closed 验签、工具子集取交集）。
 
 ### 7.4 技能与 Hooks
 
@@ -571,7 +571,7 @@ npm run web:test               # Web 构建 + 挂载单测
 
 - OS 级沙箱后端（landlock / seatbelt / bwrap）**未在真机验证** —— 本机缺失时 fail-closed，无静默放行。
 - **官方 SWE-bench Verified 大规模跑分缺失**：现有 `benchmark/capability-swebench.json` 为自研 10 题套件（deepseek-chat live 10/10，$0.20 / 64.7s），**非官方数据集**。
-- A2A 互操作客户端未建。
+- A2A 委托**真实对端互操作未验证**（协议两端 + `a2a_delegate` 工具面已落地并有 mock/跨进程判据；真实第三方 agent 的互操作属外部设施）。
 - 本地 HF embedding 权重未实测（fail-closed 回退 BM25）；OIDC 仅 mock IdP 验证。
 - repo-map 语义召回（Hybrid）已实现但生产默认仍为纯 BM25，语义路径待模型权重就绪后接入。
 - 浏览器 / computer use 能力**空白**。

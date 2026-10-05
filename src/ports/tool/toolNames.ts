@@ -52,6 +52,8 @@ export const TOOL_NAMES = {
   runCode: 'run_code',
   /** 委派给 worker。 */
   delegate: 'delegate',
+  /** 跨厂商委托：把自包含子任务委托给对等 A2A agent 执行并回收结果（仅 a2a.enabled 时注册）。 */
+  a2aDelegate: 'a2a_delegate',
   /** 派生子智能体。 */
   subagent: 'subagent',
   /** 网页截图落盘。 */
