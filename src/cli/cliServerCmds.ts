@@ -325,7 +325,12 @@ export class CliServerCmds extends CliBuildConfig {
       }
     }
     const pid = controller.start(serveArgs, port);
-    process.stdout.write(`daemon 已启动 (pid ${pid})，UI: http://localhost:${port}\n`);
+    // **必须报实际绑定地址**，不能写 `localhost`：服务端默认只绑 `127.0.0.1`（`ServerAuthGuard.DEFAULT_HOST`，
+    // 见其文件头"默认只绑回环"），而 Windows 上 `localhost` 常先解析到 `::1` ⇒ 用户/脚本拿到这个 URL 会
+    // **间歇性拒连**（本仓 httpServer 判据踩过同一个坑：看着能用、偶发连不上，最难查的一类）。
+    process.stdout.write(
+      `daemon 已启动 (pid ${pid})，UI: http://${ServerAuthGuard.DEFAULT_HOST}:${port}\n`,
+    );
     return 0;
   }
 

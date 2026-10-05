@@ -44,7 +44,10 @@ async function startTestServer(
     metrics: new Metrics(),
   });
   const port = await server.start(0);
-  return { server, port, base: `http://localhost:${port}` };
+  // 连**实际绑定地址**（服务端默认绑 127.0.0.1）：Windows 上 `localhost` 常先解析到 `::1`，
+  // 而服务端只监听 IPv4 ⇒ 满载下偶发拒连（本会话实测复现过一次）。
+  // 用回环 IPv4 字面量让判据**确定性**，而不是加重试把偶发掩盖过去。
+  return { server, port, base: `http://127.0.0.1:${port}` };
 }
 
 /** 发起 RPC。 */
@@ -239,7 +242,7 @@ test('GET /readyz：缺 metrics 仍就绪（可选能力不误判为不可用）
   const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
   const port = await server.start(0);
   try {
-    const response = await fetch(`http://localhost:${port}/readyz`);
+    const response = await fetch(`http://127.0.0.1:${port}/readyz`);
     assert.strictEqual(response.status, 200, 'metrics 是可选能力，缺失不应判为未就绪');
     const body = (await response.json()) as { checks: Record<string, boolean> };
     assert.strictEqual(body.checks.metrics, false, '诊断信息应如实反映缺失');
@@ -264,7 +267,7 @@ test('GET /healthz：存活探针恒 200，不依赖任何可选能力', async (
   const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
   const port = await server.start(0);
   try {
-    const response = await fetch(`http://localhost:${port}/healthz`);
+    const response = await fetch(`http://127.0.0.1:${port}/healthz`);
     assert.strictEqual(response.status, 200, '存活探针恒 200');
     const body = (await response.json()) as { status: string; uptimeSeconds: number };
     assert.strictEqual(body.status, 'ok');
