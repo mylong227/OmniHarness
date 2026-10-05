@@ -46,7 +46,7 @@
 ```ts
 /** 资产类型描述符：一种"可进化对象"的完整自描述（Wave B 落 ports/capability/）。 */
 export interface CapabilitySchema {
-  /** 类型键（如 'skill' / 'workflow-template' / 'insight' / 'operator' / 'task-set'）。 */
+  /** 类型键（如 'skill' / 'workflow-template' / 'wasm-skill' / 'insight' / 'operator' / 'task-set'）。 */
   readonly kind: string;
   /** 契约版本（半自动迁移；跨版本注册须走迁移器）。 */
   readonly version: 1;
