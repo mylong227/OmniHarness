@@ -26,6 +26,7 @@
  * @maturityEvidence tests/unit/licenseEngine.test.ts
  */
 import { createHash } from 'node:crypto';
+import { log } from '../util/logger.js';
 import { arch, cpus, hostname, platform } from 'node:os';
 import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
 
@@ -48,6 +49,18 @@ export interface LicensePayload {
   readonly features?: readonly string[] | undefined;
 }
 
+/** 授权校验的**可机读拒因码**（§12.1-4）。 */
+export type LicenseDenialCode =
+  'malformed' | 'signature-invalid' | 'machine-mismatch' | 'future-issued' | 'expired';
+
+/** 观测回调（缺省写共享 logger；判据注入采集器以钉死事件口径）。 */
+export type LicenseObserver = (event: string, fields: Record<string, unknown>) => void;
+
+/** 缺省观测：走共享 logger。 */
+const defaultObserver: LicenseObserver = (event, fields) => {
+  log.warn(event, fields);
+};
+
 /** 校验结论（**同一形状**：失败也给档位，调用方永远拿得到一个可用的档位）。 */
 export interface LicenseVerdict {
   /** 是否拿到有效授权（`core` 亦为 true —— 开源档不需要 license）。 */
@@ -58,6 +71,8 @@ export interface LicenseVerdict {
   readonly reason: string;
   /** 是否因**过期**而降级（调用方据此提示续期；`false` 表示其它原因或未过期）。 */
   readonly expired: boolean;
+  /** **可机读**拒因码（`ok:true` 时为 undefined）。 */
+  readonly code?: LicenseDenialCode | undefined;
   /** 正文（仅在验签通过时回带；供界面展示到期时间）。 */
   readonly payload?: LicensePayload | undefined;
 }
@@ -74,6 +89,8 @@ export interface LicenseVerifyInput {
   readonly nowMs?: number | undefined;
   /** 签发时刻容差（毫秒；缺省 24 小时）。 */
   readonly issuedSkewMs?: number | undefined;
+  /** 观测回调（缺省写共享 logger）。 */
+  readonly observer?: LicenseObserver | undefined;
 }
 
 /** license 文本头（第一行）。 */
@@ -135,13 +152,21 @@ export class LicenseEngine {
    * @returns 校验结论（含生效档位、原因、是否因过期降级）
    */
   public static verify(input: LicenseVerifyInput): LicenseVerdict {
+    const observe = input.observer ?? defaultObserver;
     const parse = LicenseEngine.parse(input.text);
-    if (typeof parse === 'string') return LicenseEngine.core(parse, false);
+    if (typeof parse === 'string') {
+      return LicenseEngine.core(parse, false, 'malformed', observe);
+    }
 
     // ① 验签（用**授权方公钥**，非本地私钥）：正文被改或签名被换都在这里被挡下。
     const canonical = LicenseEngine.canonicalPayload(parse);
     if (!Ed25519PublicKey.verify(canonical, parse.signatureB64, input.publicKeySsh)) {
-      return LicenseEngine.core('license 验签未通过（正文被篡改或签名不匹配）', false);
+      return LicenseEngine.core(
+        'license 验签未通过（正文被篡改或签名不匹配）',
+        false,
+        'signature-invalid',
+        observe,
+      );
     }
 
     // ② 机器绑定：指纹不符 ⇒ 拒（license 不可跨机复制）。
@@ -150,6 +175,8 @@ export class LicenseEngine {
       return LicenseEngine.core(
         `license 绑定的机器指纹不符（license=${parse.machineFingerprint.slice(0, 8)}… 本机=${expected.slice(0, 8)}…）`,
         false,
+        'machine-mismatch',
+        observe,
       );
     }
 
@@ -157,7 +184,12 @@ export class LicenseEngine {
     const now = input.nowMs ?? Date.now();
     const skew = Math.max(0, input.issuedSkewMs ?? DEFAULT_ISSUED_SKEW_MS);
     if (parse.issuedAtMs > now + skew) {
-      return LicenseEngine.core('license 签发时刻晚于当前时刻（超出容差），拒绝采信', false);
+      return LicenseEngine.core(
+        'license 签发时刻晚于当前时刻（超出容差），拒绝采信',
+        false,
+        'future-issued',
+        observe,
+      );
     }
 
     // ④ 过期 ⇒ **降级为核心功能，不停摆**。
@@ -165,6 +197,8 @@ export class LicenseEngine {
       const verdict = LicenseEngine.core(
         'license 已过期：退回核心档（核心功能照常可用，请续期）',
         true,
+        'expired',
+        observe,
       );
       return { ...verdict, payload: parse };
     }
@@ -263,7 +297,14 @@ export class LicenseEngine {
    * @param expired 是否因过期降级
    * @returns 结论
    */
-  private static core(reason: string, expired: boolean): LicenseVerdict {
-    return { ok: false, tier: 'core', reason, expired };
+  private static core(
+    reason: string,
+    expired: boolean,
+    code: LicenseDenialCode,
+    observe: LicenseObserver,
+  ): LicenseVerdict {
+    // 结构化事件（§12.1-4）：每个拒绝路径都留下**可机读 code**，不只留一句人话。
+    observe('license.verdict.denied', { code, expired });
+    return { ok: false, tier: 'core', reason, expired, code };
   }
 }

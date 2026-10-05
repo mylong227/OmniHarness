@@ -19,12 +19,22 @@ import type { ToolCall } from '../tool/tool.js';
 /** 角色名（实现侧给默认表；字符串便于配置注入自定义角色）。 */
 export type RoleName = string;
 
+/** 角色门禁的**可机读拒因码**（§12.1-4：拒绝路径必须能机读，不能只有一句人话）。 */
+export type RoleDenialCode =
+  | 'unknown-role'
+  | 'tool-not-registered'
+  | 'governance-tool'
+  | 'mutating-denied'
+  | 'not-in-allowlist';
+
 /** 单次裁决结论。 */
 export type RoleDecision =
   | { readonly allow: true }
   | {
       /** 拒绝。 */
       readonly allow: false;
+      /** **可机读**拒因码（日志/告警/门禁据此分流，不靠解析人话）。 */
+      readonly code: RoleDenialCode;
       /** 可读原因（点名角色 / 工具 / 缺什么）。 */
       readonly reason: string;
     };

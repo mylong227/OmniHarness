@@ -31,6 +31,7 @@
  * @maturityEvidence tests/unit/builtinWasmRunner.test.ts
  */
 import { Worker } from 'node:worker_threads';
+import { log } from '../../util/logger.js';
 import { WASM_PAGE_BYTES, WasmMemoryLimits } from './wasmMemoryLimits.js';
 import type {
   IsolationDenial,
@@ -261,6 +262,9 @@ export class BuiltinWasmRunner {
    * @returns 拒绝结论
    */
   private static deny<T>(code: IsolationDenial['code'], reason: string): IsolationResult<T> {
+    // §12.1-4：**每条拒绝路径都要有结构化日志 + 可机读 code**。集中在这一处，
+    // 因为拒绝出口有九条（预算/字节/入参/内存声明/超时/import/入口/输出/陷阱），散着写必漏。
+    log.warn('isolation.wasm.denied', { code, reason });
     // `IsolationDenial` 要求带档位：拒因必须说清「在哪一档被拒」，否则上层归因会误导。
     return { ok: false, denied: { code, level: 'wasm', reason } };
   }
