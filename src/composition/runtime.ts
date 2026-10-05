@@ -21,6 +21,8 @@ import type { Skill, MoireOptions } from '../skill/skill.js';
 import type { PromotionLedgerPort, SkillRestorePlan } from '../ports/runtime/evolution.js';
 import { join } from 'node:path';
 import { A2aTaskExecutor } from '../a2a/a2aTaskExecutor.js';
+import { A2aDelegateTool } from '../a2a/a2aDelegateTool.js';
+import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
 import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.js';
 import {
   A2aServer,
@@ -299,6 +301,14 @@ export class Runtime {
     const executor = new A2aTaskExecutor(runtime);
     server.setTaskHandler(executor);
     void serverTransport.listen(a2aPort);
+    // 委托工具面（2026-10-05 收口）：此前只有「服务端收委托」半边——client 装配进 runtime.a2a
+    // 后在生产路径上零调用点，本 agent 没有任何工具能**发起**委托。就地注册 a2a_delegate：
+    // 仅当工具端口是本仓 RegistryToolPort（支持注册）时挂上；自定义 ToolPort 的嵌入方可经
+    // runtime.a2a.client 自行装配。未挂上不影响 server 照常收委托。
+    if (config.tools instanceof RegistryToolPort) {
+      const delegateTool = new A2aDelegateTool(client);
+      config.tools.register(delegateTool.definition, (call, ctx) => delegateTool.handle(call, ctx));
+    }
     runtime.a2a = { server, client, transport: serverTransport };
   }
 }

@@ -519,6 +519,19 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第五十五轮｜核心能力提升：A2A 委托工具面收口（U6 全边）✅ + 检索天花板复测**：用户指令"不做评分机制，直接提升核心能力"。
+>
+> ① **`a2a_delegate` 工具面**（一片提交）：A2A 域的真实形态是「客户端在、工具面缺」——`a2a.enabled` 时组合根已装配 client 进 `runtime.a2a`，但生产路径**零调用点**（README §7.3「客户端待建」过期；第五十三轮可达性盘点曾据旧文误判）。本片补上发起侧：
+>
+> - `A2aDelegateTool`（`src/a2a/`）：模型经 `a2a_delegate` 把**自包含**子任务委托给对等 agent 并回收结果；taskId = `a2a-{uuid}`、`parentSessionId` 取会话 id 供对端审计关联、`tools` 授权子集透传（非字符串成员剔除）；
+> - **注册在组合根就地完成**（`Runtime.attachA2a`）：client 就绪后 `RegistryToolPort.register`——避免「config 期构造 client / runtime 期重复构造」的时序问题；仅 `a2a.enabled` 时工具存在（不存在 ≠ 撒谎，模型改道 subagent/delegate 真实路径）；自定义 ToolPort 嵌入方可经 `runtime.a2a.client` 自行装配；
+> - 判据净增 4 例（假传输仪器，不发真网络包）：成功转述（含 steps/durationMs）、对端 ok=false 原因进 **error**（ContextAssembler 对失败只渲染 error——原因进 output 等于丢掉，沿 delegate 工具同一教训）、JSON-RPC error 转可读、空任务拒绝且**零请求发出**、tools 透传（含非字符串成员剔除）+ 注册面断言（createRuntime 后工具表出现 `a2a_delegate`，port:0 随机监听、teardown 关 transport）。
+>   连锁订正：README §7.3「客户端待建」→「三件套已建」；§13 诚实边界「A2A 互操作客户端未建」→「真实对端互操作未验证」（协议两端 + 工具面 + mock/跨进程判据在，真实第三方 agent 属外部设施）。
+>
+> ② **检索天花板复测（fresh 口径）**：语料涨到 **1009 文件 / 11856 符号**，hitRate@20 = **40.8%**（CI[34.0%, 48.2%]），对抗子集 159 条 = **35.2%**、core32 = 68.8%——与 2026-10-02 的 40.1%@902 同水位。已试杠杆清单（PRF −7.1pp / 图路由净负 / LSA 负 / 频域零 / 语义混合跨仓 0.0pp）继续有效：**词法盲区是候选源级别瓶颈，既有词法/图/频域路线不产生增量**；未证伪的剩余方向只有「真实代码语义模型接入」（基础设施已就绪，`OMNI_SEMANTIC_RECALL=1`）与端到端任务评测（用户已裁决不建）。
+>
+> **全量验证**：clean build **2915 例，0 失败**（净增 4 例）；门禁电池全绿。
+
 > **第五十四轮｜剩余代码面收口：A.5 第四项 `openid-client` 准入（A.5 收口）✅ + 过期文档订正 + 偶发排查 ✅**：两片提交（`a672b80` 准入迁移 + 本文档与商业化文档订正）。
 >
 > ① **A.5 第四项：`openid-client` v6.8.8 正式准入，OIDC 授权码流切第三方实现**（`a672b80`）——自第三十六轮 jose 准入后剩下的最后半个缺口（"授权码流 + PKCE + discovery/token 交换仍走自研"）就此收口，**A.5 依赖准入四项全部落地**（croner ✅ jose ✅ OTel 裁决维持自研 ✅ openid-client ✅）。
