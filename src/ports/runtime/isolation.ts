@@ -47,6 +47,19 @@ export type IsolationPayload<T> =
       readonly entry?: string | undefined;
       /** fuel 预算（超限即拒执行；0 = 不计量，由档位实现决定是否接受）。 */
       readonly fuel?: number | undefined;
+      /**
+       * 传给入口的**字符串入参**（缺省 = 无参调用）。
+       *
+       * 有它时走 **C-ABI 宿主协议**：模块须导出 `omni_alloc(len) -> ptr`、
+       * 入口 `(ptr, len) -> i64`（低 32 位 ptr、高 32 位 len）与 `omni_dealloc(ptr, len)`；
+       * 宿主负责写内存 → 调用 → 读回 → 释放（协议见 `crates/omni-wasm` 的模块注释，
+       * 那是本仓 wasm 内核的**既有 ABI**）。
+       *
+       * 为什么写进契约而不是让调用方自己拼内存：`wasm-module` 的唯一现实用途就是跑本仓
+       * 编译出来的 wasm 内核，而它的入口签名恒定为 `process(ptr,len)`——不写进契约，
+       * 每个调用方都要自己实现一遍内存读写，而"实现两遍"正是内存越界的来源。
+       */
+      readonly input?: string | undefined;
     };
 
 /** 隔离执行请求。 */

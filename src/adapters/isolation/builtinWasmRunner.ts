@@ -73,7 +73,7 @@ export class BuiltinWasmRunner {
     if (request.payload.kind !== 'wasm-module') {
       return BuiltinWasmRunner.deny('payload-unsupported', 'wasm 档只接受 wasm-module 载荷');
     }
-    const { bytes, fuel, entry } = request.payload;
+    const { bytes, fuel, entry, input } = request.payload;
     // ① 预算门：无预算不执行（"关 fuel metering ⇒ 红"的落点）。
     if (fuel === undefined || fuel <= NO_BUDGET_FUEL) {
       return BuiltinWasmRunner.deny(
@@ -86,7 +86,7 @@ export class BuiltinWasmRunner {
       return BuiltinWasmRunner.deny('payload-unsupported', 'wasm 模块字节为空');
     }
     const timeoutMs = Math.max(1, Math.floor(request.timeoutMs ?? this.timeoutMs));
-    return this.runInWorker<T>(bytes, entry, timeoutMs);
+    return this.runInWorker<T>(bytes, entry, timeoutMs, input);
   }
 
   /**
@@ -100,11 +100,14 @@ export class BuiltinWasmRunner {
     bytes: Uint8Array,
     entry: string | undefined,
     timeoutMs: number,
+    input: string | undefined,
   ): Promise<IsolationResult<T>> {
     const worker = new Worker(new URL('./builtinWasmWorker.js', import.meta.url), {
       workerData: {
         bytesBase64: Buffer.from(bytes).toString('base64'),
         ...(entry !== undefined ? { entry } : {}),
+        // 给了入参 ⇒ worker 走 C-ABI（omni_alloc → 入口(ptr,len) → 读回 → omni_dealloc）。
+        ...(input !== undefined ? { input } : {}),
       },
       resourceLimits: { maxOldGenerationSizeMb: this.maxHeapMb },
     });
