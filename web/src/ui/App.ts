@@ -35,6 +35,7 @@ import { ProfilesTab } from './components/tabs/ProfilesTab.js';
 import { FileTab } from './components/tabs/FileTab.js';
 import { DetailTab } from './components/tabs/DetailTab.js';
 import { RollbackTab } from './components/tabs/RollbackTab.js';
+import { GovernanceTab } from './components/tabs/GovernanceTab.js';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
 type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
@@ -103,6 +104,9 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
       return React.createElement(MetricsTab, null);
     case 'changes':
       return React.createElement(ChangesTab, null);
+    case 'governance':
+      // (F2 治理台) 晋升台账逐行独立复核 + 回滚锚点；不依赖会话（治理数据按工作区取）。
+      return React.createElement(GovernanceTab, null);
     case 'rollback':
       return React.createElement(RollbackTab, { sessionId: s.currentThreadId, onRolledBack: ctrl.sessions.loadThread });
     case 'settings':
@@ -286,3 +290,4 @@ export function mountApp(container: Element): void {
     React.createElement(RenderErrorBoundary, null, React.createElement(App, null)),
   );
 }
+

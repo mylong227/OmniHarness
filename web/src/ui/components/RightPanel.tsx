@@ -1,4 +1,4 @@
-// 右栏容器：标签页入口 + 当前激活面板插槽。各具体面板由 App 根据 activePane 选择后作为 children 注入，
+﻿// 右栏容器：标签页入口 + 当前激活面板插槽。各具体面板由 App 根据 activePane 选择后作为 children 注入，
 // 本组件只负责标签切换与移动端抽屉态，不做业务逻辑。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 //
@@ -41,6 +41,7 @@ const TABS: readonly TabItem[] = [
   { key: 'tools', label: '工具' },
   { key: 'changes', label: '变更' },
   { key: 'rollback', label: '回滚' },
+  { key: 'governance', label: '治理' },
   { key: 'metrics', label: '指标' },
   { key: 'settings', label: '设置' },
   { key: 'plugins', label: '插件' },
@@ -116,3 +117,4 @@ export function RightPanel(props: RightPanelProps): ReactElement {
     </div>
   );
 }
+
