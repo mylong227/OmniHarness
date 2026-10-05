@@ -124,7 +124,12 @@ test('B5 开启即三件齐 + 同一份技能表（绞杀者第一态的实质�
   );
   const stack = config.capabilityStack;
   assert.ok(stack !== undefined, 'enabled:true ⇒ 必须装配切片');
-  assert.deepStrictEqual(stack.schemas.kinds(), ['skill', 'workflow-template'], '内置两类型已注册');
+  // (Wave C) 出厂三类：skill / wasm-skill / workflow-template（按类型名升序）。
+  assert.deepStrictEqual(
+    stack.schemas.kinds(),
+    ['skill', 'wasm-skill', 'workflow-template'],
+    '内置三类型已注册',
+  );
   assert.strictEqual(stack.registry.get('seed-skill'), config.skillRegistry.get('seed-skill'));
 
   // 通过协议注册表写入 ⇒ 既有技能表立刻可见（不是影子副本）。

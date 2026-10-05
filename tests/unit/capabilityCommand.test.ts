@@ -87,9 +87,10 @@ test('B6 capability list（文本）：列类型 / 资产数 / 生效档位，�
   const command = new CapabilityCommand(() => stackOf());
   const first = await capture(() => command.run(['list']));
   assert.strictEqual(first.result, 0);
-  assert.match(first.out, /资产协议：2 个类型/);
+  assert.match(first.out, /资产协议：3 个类型/);
   assert.match(first.out, /skill（v1）：资产 1/);
   assert.match(first.out, /workflow-template（v1）：资产 0/);
+  assert.match(first.out, /wasm-skill（v1）：资产 0 ｜ 默认档 evolved\/wasm/);
   assert.match(first.out, /生效档位下限：evolved\/vm/);
   const second = await capture(() => command.run(['list']));
   assert.strictEqual(second.out, first.out, '同一切片恒同输出（确定性）');
@@ -108,6 +109,8 @@ test('B6 capability list（--json）：结构可机读且与文本同源', async
     parsed.kinds.map((k) => [k.kind, k.assets]),
     [
       ['skill', 1],
+      // (Wave C) wasm 技能类型已出厂注册（本夹具里资产数为 0）。
+      ['wasm-skill', 0],
       ['workflow-template', 0],
     ],
   );
@@ -314,7 +317,8 @@ test('D3 metadata（只读）：--kind 单类型 / 全类型，且不写任何�
 
   const all = await capture(() => env.command.run(['metadata', '--json']));
   assert.strictEqual(all.result, 0);
-  assert.strictEqual((JSON.parse(all.out.trim()) as unknown[]).length, 2, '缺省列全类型');
+  // (Wave C) 出厂三类（skill / wasm-skill / workflow-template）。
+  assert.strictEqual((JSON.parse(all.out.trim()) as unknown[]).length, 3, '缺省列全类型');
 
   const unknown = await capture(() => env.command.run(['metadata', '--kind', 'operator']));
   assert.strictEqual(unknown.result, 1);
