@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
@@ -10,7 +10,7 @@ import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
 import { Id } from '../../util/id.js';
 import { AuditExporter, type AuditQuery } from '../services/auditExporter.js';
 import type { AuditEvent } from '../services/auditSink.js';
-import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
+import { AppServerGovernanceHandlers } from './appServerGovernanceHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
 import { providerPresets } from '../services/providerPresets.js';
 import { RepoPathGuard } from '../services/repoPathGuard.js';
@@ -35,7 +35,7 @@ export type { AppServerOptions } from './appServerState.js';
  * `SessionCheckpoints`（会话检查点）、`RepoPathGuard`（路径安全）。服务在构造期装配一次，
  * 每个 RPC 调用零额外构造开销。
  */
-export class AppServer extends AppServerSurfaceHandlers {
+export class AppServer extends AppServerGovernanceHandlers {
   /** git 差异审查服务：hunk/file 级 stage/revert（changes.* RPC 的后端）。 */
   private readonly diffReview: DiffReview;
   /** 差异行级评论存储：评论的增删查持久化。 */
@@ -178,6 +178,8 @@ export class AppServer extends AppServerSurfaceHandlers {
     this.registerProfileHandlers();
     this.registerBundleHandlers();
     this.registerSurfaceHandlers();
+    // (F2 治理台) 进化晋升台账的只读视图 + 回滚锚点。
+    this.registerGovernanceHandlers();
   }
 
   /**
