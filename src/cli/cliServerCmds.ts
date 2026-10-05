@@ -6,6 +6,7 @@
  * 继承自 CliBuildConfig，可调用其全部共享接线与配置装配助手。
  */
 
+import { LicenseSource } from '../license/licenseSource.js';
 import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -70,6 +71,8 @@ export class CliServerCmds extends CliBuildConfig {
       pluginsDir,
       audit: this.createAudit(serverArgs),
       workspaceRoot: process.cwd(),
+      // (F4) 治理台按档位可用：权益来自本机授权（OMNI_LICENSE*）；无授权 ⇒ core 档。
+      entitlements: LicenseSource.resolve({ env: process.env }),
     });
     await app.loadPlugins();
     return new Promise(() => undefined);
@@ -510,6 +513,8 @@ export class CliServerCmds extends CliBuildConfig {
         metrics,
         audit: this.createAudit(serveArgs),
         registry: this.createRegistry(serveArgs, pluginsDir),
+        // (F4) 治理台（Pro）与审计中台（Team）按档位可用；无授权 ⇒ core 档并给可读拒因。
+        entitlements: LicenseSource.resolve({ env: process.env }),
         displayConfig,
         autoApprove: serveArgs.includes('--auto-approve'),
         configPath,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * G2 CLI 判据（`bundle source list|sync`）：私有技能源必须被**真实路径**消费。
  *
  * ## 判据要钉死什么
@@ -18,6 +18,36 @@ import { join } from 'node:path';
 import { BundleCommand } from '../../src/cli/bundleCommand.js';
 import { PluginBundler } from '../../src/plugin/pluginBundler.js';
 import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+import { FeatureEntitlements } from '../../src/license/featureEntitlements.js';
+import { LicenseEngine } from '../../src/license/licenseEngine.js';
+
+/**
+ * 造 Team 档权益（私有技能源属 Team，§6.1）。
+ *
+ * 为什么判据必须注入：G2 测的是"签名/信任档"语义，不是商业模式；但闸门在入口点上，
+ * 不注入就只会看到"未持授权"——那是**另一条**判据（见文件末尾的闸门用例）。
+ * @returns Team 档权益
+ */
+function teamEntitlements(): FeatureEntitlements {
+  const identity = new Ed25519AgentIdentity({ agentRuntimeId: 'team-ent' });
+  const issuedAtMs = 1_700_000_000_000;
+  const payload = {
+    licenseId: 'lic-team',
+    tier: 'team' as const,
+    licensee: 'Acme',
+    machineFingerprint: 'machine-team',
+    issuedAtMs,
+    expiresAtMs: issuedAtMs + 86_400_000,
+  };
+  const verdict = LicenseEngine.verify({
+    text: LicenseEngine.compose(payload, identity.sign(LicenseEngine.canonicalPayload(payload))),
+    publicKeySsh: identity.publicKeySsh(),
+    machineFingerprint: 'machine-team',
+    nowMs: issuedAtMs + 1000,
+  });
+  assert.strictEqual(verdict.tier, 'team');
+  return new FeatureEntitlements({ verdict });
+}
 
 /** 发布者身份（真密钥）。 */
 const PUBLISHER = new Ed25519AgentIdentity({ agentRuntimeId: 'publisher' });
@@ -96,7 +126,7 @@ test('G2 CLI：严格档 list 对无签名包报 ✗ 且退出码 1，且**不�
   await makeSource(root, 'plain', false);
   const pluginsDir = join(root, 'installed');
   const { out, code } = await capture(() =>
-    new BundleCommand(() => ({}) as never).runBundle([
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle([
       'source',
       'list',
       '--source',
@@ -119,7 +149,7 @@ test('G2 CLI：严格档 sync 只装签名包（真走 unpack），被拒包给�
   await makeSource(root, 'b-plain', false);
   const pluginsDir = join(root, 'installed');
   const { out, err, code } = await capture(() =>
-    new BundleCommand(() => ({}) as never).runBundle([
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle([
       'source',
       'sync',
       '--source',
@@ -144,7 +174,7 @@ test('G2 CLI：--loose 收下无签名包但输出标注 community（不静默�
   await makeSource(root, 'plain', false);
   const pluginsDir = join(root, 'installed');
   const { out, code } = await capture(() =>
-    new BundleCommand(() => ({}) as never).runBundle([
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle([
       'source',
       'list',
       '--source',
@@ -162,7 +192,7 @@ test('G2 CLI：--loose 收下无签名包但输出标注 community（不静默�
 });
 
 test('G2 CLI：用法错误与缺 --source ⇒ 退出码 2', async () => {
-  const command = new BundleCommand(() => ({}) as never);
+  const command = new BundleCommand(() => ({}) as never, teamEntitlements());
   const badAction = await capture(() => command.runBundle(['source', 'purge']));
   assert.strictEqual(badAction.code, 2);
   assert.match(badAction.out, /bundle source list\|sync/);
@@ -184,7 +214,12 @@ test('H1 CLI：grade 对干净包评 A（退出码 0），对未声明能力的�
     'function run(s) { return s.split("").reverse().join(""); }\nmodule.exports = { run };\n',
   );
   const a = await capture(() =>
-    new BundleCommand(() => ({}) as never).runBundle(['grade', clean, '--declare', '']),
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle([
+      'grade',
+      clean,
+      '--declare',
+      '',
+    ]),
   );
   assert.strictEqual(a.code, 0, a.out + a.err);
   assert.match(a.out, /评级 A（可安装）/);
@@ -196,7 +231,9 @@ test('H1 CLI：grade 对干净包评 A（退出码 0），对未声明能力的�
     'risky',
     'const { execSync } = require("node:child_process");\nmodule.exports = { run: () => execSync("ls") };\n',
   );
-  const c = await capture(() => new BundleCommand(() => ({}) as never).runBundle(['grade', risky]));
+  const c = await capture(() =>
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle(['grade', risky]),
+  );
   assert.strictEqual(c.code, 1, 'C 必须非零退出（市场/安装器据此拒绝）');
   assert.match(c.out, /评级 C（不可安装）/);
   assert.match(c.out, /存在未声明能力：process/);
@@ -204,14 +241,21 @@ test('H1 CLI：grade 对干净包评 A（退出码 0），对未声明能力的�
 
   // 同一包声明了 process ⇒ 降为 B（可安装，标注需授权）。
   const b = await capture(() =>
-    new BundleCommand(() => ({}) as never).runBundle(['grade', risky, '--declare', 'process']),
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle([
+      'grade',
+      risky,
+      '--declare',
+      'process',
+    ]),
   );
   assert.strictEqual(b.code, 0, b.out + b.err);
   assert.match(b.out, /评级 B（可安装）/);
   assert.match(b.out, /已声明的高危能力：process/);
 
   // 缺参数 ⇒ 用法错误。
-  const usage = await capture(() => new BundleCommand(() => ({}) as never).runBundle(['grade']));
+  const usage = await capture(() =>
+    new BundleCommand(() => ({}) as never, teamEntitlements()).runBundle(['grade']),
+  );
   assert.strictEqual(usage.code, 2);
   assert.match(usage.out, /bundle grade/);
 });
@@ -243,3 +287,21 @@ async function packWith(root: string, name: string, code: string): Promise<strin
   });
   return result.path;
 }
+
+test('F4 闸门：无 Team 权益 ⇒ 私有源在入口点被拒（退出码 1 + 可读拒因 + 可机读 code）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bundle-gate-'));
+  const out = await capture(() =>
+    new BundleCommand(() => ({}) as never).runBundle([
+      'source',
+      'list',
+      '--source',
+      dir,
+      '--trust',
+      'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB0000000000000000000000000000000000000000',
+    ]),
+  );
+  assert.strictEqual(out.code, 1, '无授权时私有源必须被拒（而不是照常枚举）');
+  assert.match(out.out, /私有技能源不可用（no-license）/);
+  assert.match(out.out, /需要 team 档/);
+  assert.match(out.out, /核心功能不受影响/);
+});

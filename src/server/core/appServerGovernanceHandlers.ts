@@ -23,6 +23,7 @@
  */
 import { join } from 'node:path';
 import { HashChainPromotionLedger } from '../../evolution/hashChainPromotionLedger.js';
+import { FeatureEntitlements } from '../../license/featureEntitlements.js';
 import { PromotionHistoryService } from '../../governance/promotionHistoryService.js';
 import type { PromotionHistoryView } from '../../governance/promotionHistoryService.js';
 import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
@@ -63,7 +64,19 @@ export class AppServerGovernanceHandlers extends AppServerSurfaceHandlers {
    */
   private governanceView():
     | { readonly available: true; readonly view: PromotionHistoryView }
-    | { readonly available: false; readonly reason: string } {
+    | {
+        readonly available: false;
+        readonly reason: string;
+        readonly code?: string | undefined;
+      } {
+    // **F4 闸门（Pro）**：治理台是商业档能力（§6.1），无授权即不可用——但**拒因必须可读且可机读**，
+    // 且**绝不**影响核心功能（台账本身照常写入；`audit verify` 等完整性工具永不上闸）。
+    const entitlement = (this.options.entitlements ?? FeatureEntitlements.core()).demand(
+      'governance-console',
+    );
+    if (!entitlement.allowed) {
+      return { available: false, reason: entitlement.reason, code: entitlement.code };
+    }
     const dir = join(this.configStore.workspace(), LEDGER_DIR);
     try {
       const ledger = new HashChainPromotionLedger({ dir });
