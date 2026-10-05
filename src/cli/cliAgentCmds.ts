@@ -8,6 +8,7 @@
 
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { configFile } from '../config/configFile.js';
 import { Agent } from '../core/agent.js';
 import type { AgentResult } from '../core/agent.js';
 import { Runtime } from '../composition/runtime.js';
@@ -19,6 +20,7 @@ import { SubagentPorts } from '../subagent/subagentPorts.js';
 import { RoutineScheduler } from '../daemon/routineScheduler.js';
 import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/routineScheduler.js';
 import { Interactive } from '../tui/interactive.js';
+import { TuiAgentBridge } from '../tui/tuiAgentBridge.js';
 import type { TuiEvent } from '../tui/tuiRenderer.js';
 import { ArgParser, CliDefaults } from './argParser.js';
 import { CronerSchedule } from '../adapters/schedule/cronerSchedule.js';
@@ -279,9 +281,40 @@ export class CliAgentCmds extends CliNativeCmds {
   }
 
   /**
+   * 加载分层配置为默认参数（#G6：用户级 → 项目级 → profile → 环境变量，严格校验）。
+   * 配置存在但非法时 loadLayered 抛 ConfigError，由调用方的 catch 统一以非零码退出（fail-closed）。
+   * 归位说明：消费方仅本类（tui）与子类 ExecCli；原在 ExecCli 叶子类（本类够不着），
+   * 移 cliBuildConfig 根基类又顶破上帝类红线（26 方法），故按消费方落在本层。
+   * @param argv 原始命令行参数（读取 --config / --profile 显式覆盖）。
+   * @returns 配置文件字段映射出的 CLI 默认值子集；找不到配置文件时使用内置默认（mock 模型）。
+   */
+  protected loadDefaults(argv: readonly string[]): Partial<CliArgs> | undefined {
+    const explicitConfig = this.flagValue(argv, '--config');
+    const profile = this.flagValue(argv, '--profile');
+    if (explicitConfig === undefined && configFile.find(process.cwd()) === undefined) {
+      process.stderr.write(
+        '[omniharness] 未找到 omniharness.json，使用内置默认配置（mock 模型）。\n',
+      );
+      process.stderr.write(
+        '              可复制 omniharness.json.example，或运行 node scripts/init-config.mjs 生成。\n',
+      );
+    }
+    const merged = configFile.loadLayered({
+      workspace: process.cwd(),
+      configPath: explicitConfig,
+      profile,
+    });
+    return ArgParser.configDefaults(merged);
+  }
+
+  /**
    * 无第三方依赖 TUI（#S35）：交互式会话（需 TTY；非 TTY 优雅降级）。
-   * @param args 子命令参数（首参数为 demo 时进入演示回声模式）。
-   * @returns 进程退出码：非 TTY 或启动失败为 1，正常退出为 0。
+   *
+   * 2026-10-05 起接**真实任务回路**：`send` 经 `TuiAgentBridge` 跑 `Agent.runTask`/`resume`
+   * （整个 TUI 会话是一个真实会话，上下文跨轮累积），会话事件经转播端口映射为渲染事件——
+   * 不再是「未接模型」的回声 stub。`demo` 参数保留演示回声模式（不装配运行时）。
+   * @param args 子命令参数（首参数为 demo 时进入演示回声模式；其余按 CLI 旗标解析，如 --model-adapter）。
+   * @returns 进程退出码：非 TTY 或启动失败为 1，正常退出为 0，用法错误为 2。
    */
   protected async runTui(args: readonly string[]): Promise<number> {
     if (!process.stdout.isTTY) {
@@ -290,19 +323,33 @@ export class CliAgentCmds extends CliNativeCmds {
       );
       return 1;
     }
-    const demo = args[0] === 'demo';
-    try {
+    if (args[0] === 'demo') {
       await Interactive.startInteractive({
         send: async function* (input: string): AsyncIterable<TuiEvent> {
-          if (demo) {
-            yield { kind: 'assistant', text: `收到：${input}` };
-            yield { kind: 'tool_call', text: 'echo', meta: 'demo' };
-            yield { kind: 'tool_result', text: input };
-            return;
-          }
-          yield { kind: 'assistant', text: `（未接模型）回声：${input}` };
+          yield { kind: 'assistant', text: `收到：${input}` };
+          yield { kind: 'tool_call', text: 'echo', meta: 'demo' };
+          yield { kind: 'tool_result', text: input };
         },
       });
+      return 0;
+    }
+    try {
+      const defaults = this.loadDefaults(args);
+      const cliArgs = ArgParser.parseArgs(['--prompt', 'tui', ...args], defaults);
+      if (cliArgs === undefined) {
+        ArgParser.printUsage();
+        return 2;
+      }
+      const config = await this.buildConfig(cliArgs);
+      const bridge = new TuiAgentBridge();
+      const agent = new Agent(Runtime.createRuntime({ ...config, events: bridge.port() }));
+      bridge.attach(agent);
+      if (cliArgs.modelAdapter === 'mock') {
+        process.stdout.write(
+          '提示：当前模型适配器为 mock（脚本化响应）。真实对话请用 --model-adapter / --api-key 或 omniharness.json。\n',
+        );
+      }
+      await Interactive.startInteractive({ send: (input: string) => bridge.send(input) });
       return 0;
     } catch (err) {
       console.error(`TUI 启动失败: ${err instanceof Error ? err.message : String(err)}`);

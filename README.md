@@ -287,31 +287,31 @@ node dist/src/cli/exec.js --version     # 打印 API 契约版本（API_VERSION�
 
 **子命令一览：**
 
-| 子命令                                                                                        | 作用                                                               |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `exec`                                                                                        | 单次任务执行（默认路径）                                           |
-| `server`                                                                                      | JSON-RPC stdio 常驻服务                                            |
-| `serve`                                                                                       | HTTP UI 工作台（`--port` / `--auto-approve` / `--mock`）           |
-| `goal "<目标>"`                                                                               | 自主目标循环，多轮推进直到达成或达上限                             |
-| `workflow --file`                                                                             | DAG 工作流编排（多步依赖并发，前序产出注入后续）                   |
-| `tui [demo]`                                                                                  | 零依赖交互式终端 UI                                                |
-| `mcp serve \| list \| call`                                                                   | 暴露本地工具集 / 列出 / 调用外部 MCP 服务器工具                    |
-| `kv get \| set \| del \| list`                                                                | 通用键值存储                                                       |
-| `vault get \| set \| del \| list`                                                             | 凭据保险库（AES-256-GCM）                                          |
-| `profile list \| create \| delete \| use`                                                     | 插件集 Profile（命名插件组合，一条命令切换编码 / 研究模式）        |
-| `bundle pack \| unpack`                                                                       | Bundle 发布单元（可 patch 插件叠层 + 零依赖 zip + 可选 HMAC 签名） |
-| `native info \| ping \| tools \| approval \| session-submit \| context \| tool-call \| bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                  |
-| `lsp <definition \| references \| hover \| status>`                                           | LSP 代码导航（需自备语言服务器）                                   |
-| `identity <generate \| show \| sign \| verify>`                                               | 密码学身份（Ed25519，零依赖）                                      |
-| `session list`                                                                                | 会话列表                                                           |
-| `audit export [--compliance]`                                                                 | 审计日志导出 / 合规报告（含完整性哈希）                            |
-| `daemon start \| stop \| status`                                                              | 常驻后台 serve（PID 文件管理）                                     |
-| `routines add \| list \| remove \| run`                                                       | 定时任务（interval / cron 调度）                                   |
-| `auth login \| callback`                                                                      | 企业 SSO（OIDC 授权码流 + PKCE）                                   |
-| `schema`                                                                                      | 单源 schema 导出（TS / Py / MD）                                   |
-| `plugin load \| list \| search \| install \| remove`                                          | 插件管理                                                           |
-| `compare`                                                                                     | A/B 模型对比                                                       |
-| `eval [--suite PATH.json]`                                                                    | 运行评估套件                                                       |
+| 子命令                                                                                        | 作用                                                                                                            |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `exec`                                                                                        | 单次任务执行（默认路径）                                                                                        |
+| `server`                                                                                      | JSON-RPC stdio 常驻服务                                                                                         |
+| `serve`                                                                                       | HTTP UI 工作台（`--port` / `--auto-approve` / `--mock`）                                                        |
+| `goal "<目标>"`                                                                               | 自主目标循环，多轮推进直到达成或达上限                                                                          |
+| `workflow --file`                                                                             | DAG 工作流编排（多步依赖并发，前序产出注入后续）                                                                |
+| `tui [demo]`                                                                                  | 零依赖交互式终端 UI（接真实任务回路：整个会话一个 `Agent` 会话，多轮经 `resume` 上下文累积；`demo` 为回声演示） |
+| `mcp serve \| list \| call`                                                                   | 暴露本地工具集 / 列出 / 调用外部 MCP 服务器工具                                                                 |
+| `kv get \| set \| del \| list`                                                                | 通用键值存储                                                                                                    |
+| `vault get \| set \| del \| list`                                                             | 凭据保险库（AES-256-GCM）                                                                                       |
+| `profile list \| create \| delete \| use`                                                     | 插件集 Profile（命名插件组合，一条命令切换编码 / 研究模式）                                                     |
+| `bundle pack \| unpack`                                                                       | Bundle 发布单元（可 patch 插件叠层 + 零依赖 zip + 可选 HMAC 签名）                                              |
+| `native info \| ping \| tools \| approval \| session-submit \| context \| tool-call \| bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                                                               |
+| `lsp <definition \| references \| hover \| status>`                                           | LSP 代码导航（需自备语言服务器）                                                                                |
+| `identity <generate \| show \| sign \| verify>`                                               | 密码学身份（Ed25519，零依赖）                                                                                   |
+| `session list`                                                                                | 会话列表                                                                                                        |
+| `audit export [--compliance]`                                                                 | 审计日志导出 / 合规报告（含完整性哈希）                                                                         |
+| `daemon start \| stop \| status`                                                              | 常驻后台 serve（PID 文件管理）                                                                                  |
+| `routines add \| list \| remove \| run`                                                       | 定时任务（interval / cron 调度）                                                                                |
+| `auth login \| callback`                                                                      | 企业 SSO（OIDC 授权码流 + PKCE）                                                                                |
+| `schema`                                                                                      | 单源 schema 导出（TS / Py / MD）                                                                                |
+| `plugin load \| list \| search \| install \| remove`                                          | 插件管理                                                                                                        |
+| `compare`                                                                                     | A/B 模型对比                                                                                                    |
+| `eval [--suite PATH.json]`                                                                    | 运行评估套件                                                                                                    |
 
 **常用全局旗标（节选，完整见 `omniharness exec --help`）：**
 
