@@ -519,8 +519,23 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
-> **第五十三轮｜孤儿清仓 + 闲置资产接线 ✅**：五片提交（`7fac772` 孤儿删除 / `87caa30` 注入自检接 doctor / `0db97f4` TUI 接真实回路 / `9dba6cf` rankVeto 接探针 / `2f3e249` I7 反接线门禁）。用户指令：无用的清理掉，闲置的自研能力用起来，不留浪费代码。
+> **第五十四轮｜剩余代码面收口：A.5 第四项 `openid-client` 准入（A.5 收口）✅ + 过期文档订正 + 偶发排查 ✅**：两片提交（`a672b80` 准入迁移 + 本文档与商业化文档订正）。
 >
+> ① **A.5 第四项：`openid-client` v6.8.8 正式准入，OIDC 授权码流切第三方实现**（`a672b80`）——自第三十六轮 jose 准入后剩下的最后半个缺口（"授权码流 + PKCE + discovery/token 交换仍走自研"）就此收口，**A.5 依赖准入四项全部落地**（croner ✅ jose ✅ OTel 裁决维持自研 ✅ openid-client ✅）。
+> 准入依据（`dependency-allowlist.json` 全字段过 `check.mjs`）：协议管道不该手搓（自研版 issuer 不严格校验/不强制 https/state 只靠 CLI 比对）；本包 221 KB + oauth4webapi 326 KB（jose 同版本共享）⇒ 新增 ≈550 KB / 2 传递依赖，低于默认预算。
+> 落地与 jose 准入同型：`OidcFlowPort`（`ports/enterprise/oidcFlow.ts`，PkcePair/TokenSet 类型随之下沉）+ `OpenIdClientFlow`（第三方，**生产默认**：auth login/callback 已切）+ `LegacyOidcFlow`（自研同端口适配，`OidcClient` 本体逐字节不动）。
+> 判据净增 4 例（mock IdP 全流程，**服务端真校验 PKCE**）：契约面两实现逐条一致（discovery/PKCE 自洽/授权 URL 八参数/全流程换码/三类失败路径）+ 差分面三条如实记录（issuer 不一致拒/透传、http 强制、垃圾 id_token 第三方拒——内建 ID-token 校验是**收紧**不是回归）。
+> 过程真实缺陷：checks 字段名是 `pkceCodeVerifier`（首版误写 `codeVerifier` ⇒ token 请求不带 verifier，被 mock IdP 服务端校验当场拦下——仪器真的在工作）。
+> **连锁**：`architectureSpec.test.ts` ② 判据当场红（SPEC 声明 4 个运行时依赖 ≠ package.json 5 个）⇒ SPEC §10 与 §2.3 同步（**这正是该交叉核对判据存在的意义**）。
+>
+> ② **过期文档订正（保留旧文）**：`COMMERCIALIZATION_GAPS_2026-10.md` 的 F2 行"Web tab 未做"自**第四十七轮**（`92bddcc` 落地 `GovernanceTab`，判据 9 例）起不再成立——本轮在 F2 行与 §二 加更新横幅（旧文保留备查）；`ARCHITECTURE_SPEC.md` 运行时依赖 4→5。
+>
+> ③ **未归因测试偶发排查（第五十二轮遗留）**：全量套件连跑 3 次（约 8,700 例观察），此前 2 次偶发（`HTTP：静态页返回 200`、`/readyz+/healthz`）与 `a2aCrossProcess` **均未复现**；3 次中唯一的失败是**确定性**的 SPEC 依赖声明漏同步（见 ①连锁）——即"看似随机的失败"里混进来的其实是真缺陷，已修。偶发本身维持"未归因、未根治"的如实登记（累计观察 11 次全量：9 次全绿）。
+>
+> **全量验证**：clean build **2911 例，0 失败**（净增 4 例契约判据）；门禁电池全绿。**至此"剩余代码面"清单为空**：F2 Web tab（第 47 轮已落地）与 openid-client（本轮）两项之外，剩余全部为纪律性阻塞（Wave E 预注册规则）与非代码项（F4/G1/G3/G4/H2，前置是人与钱与决策）。
+
+> **第五十三轮｜孤儿清仓 + 闲置资产接线 ✅**：五片提交（`7fac772` 孤儿删除 / `87caa30` 注入自检接 doctor / `0db97f4` TUI 接真实回路 / `9dba6cf` rankVeto 接探针 / `2f3e249` I7 反接线门禁）。用户指令：无用的清理掉，闲置的自研能力用起来，不留浪费代码。
+
 > **盘点方法（先盘点后动手）**：从三个生产入口（`src/index.ts` / `src/indexBeta.ts` / `src/cli/exec.ts`）做 import 图可达性分析（临时脚本，一次性用后即删），1005 个 src 文件中 994 生产可达；对 fanIn=0 / 仅测试可达的 14 个文件逐一做**字符串引用复核**（Worker 路径加载、spawn 等非 import 引用不算孤儿——`codeSandboxWorker.ts` 即此类假阳性，它由 `codeInterpreter.ts:65` 以 `new Worker(new URL(...))` 真加载，`CodeExecutorTool` 在 configToolRegistry 默认注册）。**真孤儿 6 组 ≈1,340 行**：
 >
 > | 资产                                                       | 行数 | 裁决                  | 理由                                                                 |
