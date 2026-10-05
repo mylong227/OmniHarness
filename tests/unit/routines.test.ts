@@ -21,29 +21,30 @@ function routine(over: Partial<Routine> = {}): Routine {
   };
 }
 
+/**
+ * 造一个 **UTC** 瞬时（判据必须用显式时区语义，不能按宿主本地时间构造）。
+ *
+ * 原判据用 `utcAt(10, 0)`（本地时间构造）：`matchesCron` 改为显式时区后，
+ * 同一日历字段在不同宿主上对应不同瞬时 ⇒ 判据必须显式声明"我要的是 UTC 的这几个字段"。
+ * @param hour 时
+ * @param minute 分
+ * @param day 日（缺省 1）
+ * @returns UTC 瞬时
+ */
+function utcAt(hour: number, minute: number, day = 1): Date {
+  return new Date(Date.UTC(2026, 0, day, hour, minute, 0));
+}
 test('matchesCron：解析 * / 范围 / 列表 / 步长', () => {
   // 每 5 分钟：0,5,10,... 命中
-  assert.strictEqual(
-    RoutineScheduler.matchesCron('*/5 * * * *', new Date(2026, 0, 1, 10, 0)),
-    true,
-  );
-  assert.strictEqual(
-    RoutineScheduler.matchesCron('*/5 * * * *', new Date(2026, 0, 1, 10, 3)),
-    false,
-  );
+  assert.strictEqual(RoutineScheduler.matchesCron('*/5 * * * *', utcAt(10, 0)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('*/5 * * * *', utcAt(10, 3)), false);
   // 指定分/时/日；周与日取并集（此处日命中）
-  assert.strictEqual(RoutineScheduler.matchesCron('0 9 1 * *', new Date(2026, 0, 1, 9, 0)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 1 * *', utcAt(9, 0)), true);
   // 列表
-  assert.strictEqual(
-    RoutineScheduler.matchesCron('0,30 * * * *', new Date(2026, 0, 1, 9, 30)),
-    true,
-  );
+  assert.strictEqual(RoutineScheduler.matchesCron('0,30 * * * *', utcAt(9, 30)), true);
   // 范围
-  assert.strictEqual(RoutineScheduler.matchesCron('1-3 * * * *', new Date(2026, 0, 1, 9, 2)), true);
-  assert.strictEqual(
-    RoutineScheduler.matchesCron('1-3 * * * *', new Date(2026, 0, 1, 9, 4)),
-    false,
-  );
+  assert.strictEqual(RoutineScheduler.matchesCron('1-3 * * * *', utcAt(9, 2)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('1-3 * * * *', utcAt(9, 4)), false);
 });
 
 test('RoutineScheduler：interval 到期判定与 lastRun 防重复', () => {

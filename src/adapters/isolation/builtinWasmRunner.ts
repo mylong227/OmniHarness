@@ -31,6 +31,7 @@
  * @maturityEvidence tests/unit/builtinWasmRunner.test.ts
  */
 import { Worker } from 'node:worker_threads';
+import { WASM_PAGE_BYTES, WasmMemoryLimits } from './wasmMemoryLimits.js';
 import type {
   IsolationDenial,
   IsolationRequest,
@@ -42,12 +43,43 @@ import type { BuiltinWasmWorkerMessage } from './builtinWasmWorker.js';
 export interface BuiltinWasmRunnerOptions {
   /** 缺省超时（毫秒；缺省 2000）。**这是本档真正生效的预算形式**（见模块注释的差别说明）。 */
   readonly timeoutMs?: number | undefined;
-  /** worker 堆上限（MiB；缺省 64）。wasm 线性内存的巨量申请会在这里被挡下。 */
+  /** worker 堆上限（MiB；缺省 64）。 */
   readonly maxHeapMb?: number | undefined;
+  /** 模块字节上限（缺省 16 MiB）。 */
+  readonly maxModuleBytes?: number | undefined;
+  /** C-ABI 入参上限（缺省 1 MiB）。 */
+  readonly maxInputBytes?: number | undefined;
+  /** 返回值上限（缺省 8 MiB）。 */
+  readonly maxOutputBytes?: number | undefined;
+  /**
+   * 模块**线性内存**上限（MiB；缺省 256）。
+   *
+   * 与 `maxHeapMb` 的区别很重要：后者只约束 **V8 堆**，而 **wasm 线性内存不占 V8 堆**
+   * ——只设堆上限挡不住"声明 4 GiB 内存"的模块。故这里在**实例化之前**读模块的 memory 段
+   * （`WasmMemoryLimits`）：**未声明上限**（可无限 grow）或超出本值 ⇒ 直接拒执行。
+   */
+  readonly maxMemoryMb?: number | undefined;
 }
 
 /** 判定为"无预算"的 `fuel` 取值（`0` 按端口契约即"不计量"，本档**不接受**不计量执行）。 */
 const NO_BUDGET_FUEL = 0;
+
+/**
+ * 模块字节上限（缺省 16 MiB）：本仓真内核 206 KB，留两个数量级余量。
+ *
+ * 为什么必须有：`WebAssembly.compile` 会在 worker 里按模块规模分配，一个 1 GiB 的"模块"
+ * 能在预算耗尽前就把进程拖垮——**上限属于"边界与资源硬上限"（§12.1-3），不是优化**。
+ */
+export const DEFAULT_MAX_MODULE_BYTES = 16 * 1024 * 1024;
+
+/** C-ABI 入参上限（缺省 1 MiB）：入参要**写进 wasm 线性内存**，无上限等于把内存交给调用方。 */
+const DEFAULT_MAX_INPUT_BYTES = 1024 * 1024;
+
+/** 返回值上限（缺省 8 MiB）：模块可以返回任意 (ptr,len)，无上限等于让它决定宿主读多少。 */
+const DEFAULT_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
+
+/** 模块线性内存上限（缺省 256 MiB）：**不占 V8 堆**，故必须单独卡（见 `WasmMemoryLimits`）。 */
+const DEFAULT_MAX_MEMORY_MB = 256;
 
 /** 内置 wasm 执行器（可注入 `IsolationLadder` 的 `wasmRunner`）。 */
 export class BuiltinWasmRunner {
@@ -55,6 +87,14 @@ export class BuiltinWasmRunner {
   private readonly timeoutMs: number;
   /** worker 堆上限（MiB）。 */
   private readonly maxHeapMb: number;
+  /** 模块字节上限。 */
+  private readonly maxModuleBytes: number;
+  /** C-ABI 入参上限。 */
+  private readonly maxInputBytes: number;
+  /** 返回值上限。 */
+  private readonly maxOutputBytes: number;
+  /** 模块线性内存上限（字节）。 */
+  private readonly maxMemoryBytes: number;
 
   /**
    * @param opts 缺省超时与堆上限
@@ -62,6 +102,11 @@ export class BuiltinWasmRunner {
   public constructor(opts: BuiltinWasmRunnerOptions = {}) {
     this.timeoutMs = Math.max(1, Math.floor(opts.timeoutMs ?? 2000));
     this.maxHeapMb = Math.max(8, Math.floor(opts.maxHeapMb ?? 64));
+    this.maxModuleBytes = Math.max(1, Math.floor(opts.maxModuleBytes ?? DEFAULT_MAX_MODULE_BYTES));
+    this.maxInputBytes = Math.max(1, Math.floor(opts.maxInputBytes ?? DEFAULT_MAX_INPUT_BYTES));
+    this.maxOutputBytes = Math.max(1, Math.floor(opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES));
+    this.maxMemoryBytes =
+      Math.max(1, Math.floor(opts.maxMemoryMb ?? DEFAULT_MAX_MEMORY_MB)) * 1024 * 1024;
   }
 
   /**
@@ -84,6 +129,46 @@ export class BuiltinWasmRunner {
     }
     if (bytes.length === 0) {
       return BuiltinWasmRunner.deny('payload-unsupported', 'wasm 模块字节为空');
+    }
+    // ② 模块字节上限（§12.1-3 边界与资源硬上限）：编译期就会按规模分配，无上限等于把进程交给调用方。
+    if (bytes.length > this.maxModuleBytes) {
+      return BuiltinWasmRunner.deny(
+        'payload-unsupported',
+        `模块字节超限（${String(bytes.length)} > ${String(this.maxModuleBytes)}）：上限见 BuiltinWasmRunnerOptions.maxModuleBytes`,
+      );
+    }
+    // ③ 入参上限：入参要写进 wasm 线性内存，无上限等于让调用方决定模块吃多少内存。
+    if (input !== undefined && Buffer.byteLength(input, 'utf8') > this.maxInputBytes) {
+      return BuiltinWasmRunner.deny(
+        'payload-unsupported',
+        `入参超限（${String(Buffer.byteLength(input, 'utf8'))} > ${String(this.maxInputBytes)} 字节）：上限见 maxInputBytes`,
+      );
+    }
+    // ④ **线性内存声明**检查（实例化**之前**）：V8 堆上限挡不住 wasm 内存 —— 它不占堆。
+    //    未声明上限（可无限 grow）同样拒：把"能长多大"交给模块自己决定，等于没有上限。
+    const memoryScan = WasmMemoryLimits.scan(bytes);
+    if (!memoryScan.ok) {
+      return BuiltinWasmRunner.deny(
+        'payload-unsupported',
+        `模块内存声明不可解析：${memoryScan.reason}`,
+      );
+    }
+    const declared = memoryScan.memories.find((memory) => memory.maxPages === undefined);
+    if (declared !== undefined) {
+      return BuiltinWasmRunner.deny(
+        'payload-unsupported',
+        '模块声明了**无上限**线性内存（limits 未给 max ⇒ 可无限 grow）：本档要求内存有上限，拒绝执行',
+      );
+    }
+    const worst = memoryScan.memories.reduce(
+      (bytesMax, memory) => Math.max(bytesMax, (memory.maxPages ?? 0) * WASM_PAGE_BYTES),
+      0,
+    );
+    if (worst > this.maxMemoryBytes) {
+      return BuiltinWasmRunner.deny(
+        'payload-unsupported',
+        `模块声明内存超限（${String(worst)} > ${String(this.maxMemoryBytes)} 字节）：上限见 maxMemoryMb`,
+      );
     }
     const timeoutMs = Math.max(1, Math.floor(request.timeoutMs ?? this.timeoutMs));
     return this.runInWorker<T>(bytes, entry, timeoutMs, input);
@@ -108,6 +193,8 @@ export class BuiltinWasmRunner {
         ...(entry !== undefined ? { entry } : {}),
         // 给了入参 ⇒ worker 走 C-ABI（omni_alloc → 入口(ptr,len) → 读回 → omni_dealloc）。
         ...(input !== undefined ? { input } : {}),
+        // 返回值上限下传 worker：读回**之前**判定（否则"先分配再检查"已经吃掉了内存）。
+        maxOutputBytes: this.maxOutputBytes,
       },
       resourceLimits: { maxOldGenerationSizeMb: this.maxHeapMb },
     });

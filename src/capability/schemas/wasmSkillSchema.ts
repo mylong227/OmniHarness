@@ -42,6 +42,15 @@ export interface WasmSkillAsset {
   readonly fuel?: number | undefined;
 }
 
+/**
+ * 模块字节上限（16 MiB，与 `BuiltinWasmRunner` 的执行期上限**同值**）。
+ *
+ * 为什么这里也要卡：执行期上限只在"要执行时"生效，而资产可能**只被装进来、从不执行**——
+ * 一个 500 MB 的资产会一直占着注册表与台账。校验期拒绝才是"边界与资源硬上限"的完整落点。
+ * 两个常量的一致性由判据钉死（`wasmSkillPack.test.ts`），避免各写一份漂移。
+ */
+export const MAX_WASM_SKILL_MODULE_BYTES = 16 * 1024 * 1024;
+
 /** wasm 魔数（`\0asm`）。 */
 const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d];
 
@@ -89,6 +98,14 @@ export class WasmSkillSchema implements CapabilitySchema {
     }
     if (bytes.length < 8 || !WASM_MAGIC.every((byte, index) => bytes[index] === byte)) {
       return { ok: false, reason: 'moduleBase64 解出的字节不是 wasm 模块（魔数不符）' };
+    }
+    if (bytes.length > MAX_WASM_SKILL_MODULE_BYTES) {
+      return {
+        ok: false,
+        reason:
+          `模块字节超限（${String(bytes.length)} > ${String(MAX_WASM_SKILL_MODULE_BYTES)}）：` +
+          '上限见 MAX_WASM_SKILL_MODULE_BYTES（与执行期同值）',
+      };
     }
     if (
       record.entry !== undefined &&

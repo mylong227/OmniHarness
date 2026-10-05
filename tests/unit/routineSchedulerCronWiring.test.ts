@@ -85,23 +85,66 @@ test('A.5 接线：注入后 cron 型任务的到期判定随时区改变（证�
   assert.deepStrictEqual(byDefault.runDue(instant), utc.runDue(instant));
 });
 
-test('A.5 实测：自研路径用的是**宿主本地**时区（不是 UTC）——环境相关缺陷已登记', () => {
-  // 用「本地时间构造」的瞬时：它在任何宿主上都代表本地 09:00。
-  const localNine = new Date(2026, 9, 4, 9, 0, 30);
-  assert.strictEqual(
-    RoutineScheduler.matchesCron('0 9 * * *', localNine),
-    true,
-    '自研 matchesCron 命中「本地 09:00」——证明它读的是本地字段（getHours 等），不是 UTC',
-  );
-  // 反证：UTC 09:00 的瞬时是否命中**完全取决于宿主偏移**（本机 Asia/Shanghai 下不命中）。
+test('A.5 修正后实测：自研路径用**显式时区**（缺省 UTC），且与宿主时区无关', () => {
+  // 2026-10-04 **行为修正**：此前 `matchesCron` 用 `date.getHours()` 等宿主本地字段判定，
+  // 同一表达式在时区不同的机器上会在**不同时刻**触发（调度器唯一要保证的事）。现在字段值经
+  // `Intl.DateTimeFormat` 在**指定时区**下求取，缺省 UTC ⇒ 环境无关（迁移方式见其 JSDoc）。
   const utcNine = new Date(Date.parse('2026-10-04T09:00:30.000Z'));
-  const hostOffsetMinutes = utcNine.getTimezoneOffset();
   assert.strictEqual(
     RoutineScheduler.matchesCron('0 9 * * *', utcNine),
-    hostOffsetMinutes === 0,
-    `宿主偏移 ${hostOffsetMinutes} 分钟：UTC 09:00 是否命中取决于宿主时区（可复现性缺陷）`,
+    true,
+    '缺省时区是 UTC ⇒ UTC 09:00 必须命中（不再取决于宿主偏移）',
   );
-  // 注入路径与宿主时区无关：同一瞬时的结论由显式时区唯一确定。
+  const nyInstant = Date.parse('2026-10-04T13:00:30.000Z'); // 纽约 09:00（EDT）
+  assert.strictEqual(
+    RoutineScheduler.matchesCron('0 9 * * *', new Date(nyInstant), 'America/New_York'),
+    true,
+    '显式给纽约时区 ⇒ 该时区的 09:00 命中',
+  );
+  assert.strictEqual(
+    RoutineScheduler.matchesCron('0 9 * * *', new Date(nyInstant)),
+    false,
+    '同一瞬时在缺省 UTC 下**不**命中（证明时区真的参与判定，而不是"总是命中"）',
+  );
+
+  // **环境无关性自证**：临时改宿主 TZ，同一瞬时 + 同一显式时区必须得到同一结论。
+  const priorTz = process.env.TZ;
+  try {
+    process.env.TZ = 'UTC';
+    const asUtcHost = RoutineScheduler.matchesCron('0 9 * * *', utcNine, 'UTC');
+    process.env.TZ = 'America/New_York';
+    const asNyHost = RoutineScheduler.matchesCron('0 9 * * *', utcNine, 'UTC');
+    assert.strictEqual(
+      asUtcHost,
+      asNyHost,
+      '宿主时区改变不得影响显式时区下的判定（这正是修正前的缺陷）',
+    );
+    assert.strictEqual(asNyHost, true);
+    // 星期字段同样按指定时区的日历求取（跨日边界最容易错）。
+    assert.strictEqual(
+      RoutineScheduler.matchesCron(
+        '30 0 * * 0',
+        new Date(Date.parse('2026-10-04T00:30:00.000Z')),
+        'UTC',
+      ),
+      true,
+      'UTC 周日 00:30 命中 `30 0 * * 0`（星期按 UTC 日历求取）',
+    );
+    assert.strictEqual(
+      RoutineScheduler.matchesCron(
+        '30 0 * * 0',
+        new Date(Date.parse('2026-10-04T04:30:00.000Z')),
+        'America/New_York',
+      ),
+      true,
+      '纽约周日 00:30 同样命中（证明星期不是按 UTC 硬算的）',
+    );
+  } finally {
+    if (priorTz === undefined) delete process.env.TZ;
+    else process.env.TZ = priorTz;
+  }
+
+  // 注入路径与自研路径**同口径**：显式时区下结论唯一确定。
   const schedule = new CronerSchedule();
   const sameInstant = Date.parse('2026-10-04T09:00:30.000Z');
   assert.deepStrictEqual(

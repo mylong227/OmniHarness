@@ -174,7 +174,13 @@ export class RoutineScheduler {
       if (!next.ok) return false; // 表达式/时区非法 ⇒ 不到期（fail-closed，不误触发）。
       return next.atMs !== null && next.atMs <= now;
     }
-    return RoutineScheduler.matchesCron(routine.schedule.expr, new Date(now));
+    // 与上面的 `croner` 路径同口径：**显式时区**（缺省 UTC），不再读宿主本地时间——
+    // 否则同一 routine 在时区不同的机器上会在不同时刻触发（见 `matchesCron` 的迁移说明）。
+    return RoutineScheduler.matchesCron(
+      routine.schedule.expr,
+      new Date(now),
+      this.timezone ?? 'UTC',
+    );
   }
 
   /**
@@ -272,25 +278,92 @@ export class RoutineScheduler {
   /**
    * @beta
    * 判定 cron 表达式是否命中给定时间（同分钟只算一次）。
+   *
+   * **时区是显式参数**（缺省 `UTC`）——这是 2026-10-04 的**行为修正**：此前用
+   * `date.getHours()` 等**宿主本地**取值判定（同一表达式在时区不同的机器上会在**不同时刻**触发，
+   * 而"什么时候跑"恰恰是调度器唯一要保证的事）。现在字段值一律经 `Intl.DateTimeFormat`
+   * 在**指定时区**下求取，与宿主环境无关；注入 `croner` 路径本就带时区，两侧口径至此一致。
+   *
+   * 迁移说明（§12.1-6 兼容与迁移显式化）：默认从「宿主本地」变为 `UTC`。要保留原来的本地语义，
+   * 显式传 `Intl.DateTimeFormat().resolvedOptions().timeZone` 即可——**不做隐式回退**，
+   * 因为"看起来还是本地时间"正是这条缺陷当初难以察觉的原因。
    * @param expr 5 段标准 cron 表达式（分 时 日 月 周）。
-   * @param date 待判定的本地时间。
-   * @returns 命中返回 true（表达式非法返回 false）。
+   * @param date 待判定的时刻（绝对时间；字段值按 `timezone` 求取）。
+   * @param timezone IANA 时区名（缺省 `UTC`；非法时区名按不命中处理，不抛）。
+   * @returns 命中返回 true（表达式非法或时区非法返回 false）。
    */
-  public static matchesCron(expr: string, date: Date): boolean {
+  public static matchesCron(expr: string, date: Date, timezone = 'UTC'): boolean {
     const fields = expr.trim().split(/\s+/);
     if (fields.length !== 5) return false;
+    const parts = RoutineScheduler.zonedParts(date, timezone);
+    if (parts === undefined) return false;
     const minute = RoutineScheduler.expandField(fields[0] ?? '*', 0, 59);
     const hour = RoutineScheduler.expandField(fields[1] ?? '*', 0, 23);
     const dom = RoutineScheduler.expandField(fields[2] ?? '*', 1, 31);
     const month = RoutineScheduler.expandField(fields[3] ?? '*', 1, 12);
     const dow = RoutineScheduler.expandField(fields[4] ?? '*', 0, 6);
-    if (!minute.has(date.getMinutes())) return false;
-    if (!hour.has(date.getHours())) return false;
-    if (!month.has(date.getMonth() + 1)) return false;
+    if (!minute.has(parts.minute)) return false;
+    if (!hour.has(parts.hour)) return false;
+    if (!month.has(parts.month)) return false;
     // 日/周：cron 约定「日或周命中即触发」（取并集）。
-    const domHit = dom.has(date.getDate());
-    const dowHit = dow.has(date.getDay());
+    const domHit = dom.has(parts.day);
+    const dowHit = dow.has(parts.weekday);
     if (!domHit && !dowHit) return false;
     return true;
+  }
+
+  /**
+   * 取某时刻在指定时区下的**日历字段**（cron 判定用的那一组）。
+   *
+   * 用 `Intl.DateTimeFormat` 而不是自己加偏移：夏令时切换日的偏移并非常量，
+   * 手算偏移会在一小时里给出错误字段（而 cron 的日/周字段恰恰按**当地日历**定义）。
+   * @param date 时刻
+   * @param timezone IANA 时区名
+   * @returns 字段值；时区名非法时 undefined（调用方按不命中处理）
+   */
+  private static zonedParts(
+    date: Date,
+    timezone: string,
+  ):
+    | {
+        readonly minute: number;
+        readonly hour: number;
+        readonly day: number;
+        readonly month: number;
+        readonly weekday: number;
+      }
+    | undefined {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour12: false,
+        minute: '2-digit',
+        hour: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        weekday: 'short',
+      });
+      const parts = formatter.formatToParts(date);
+      const value = (type: string): string | undefined =>
+        parts.find((part) => part.type === type)?.value;
+      const weekdayName = value('weekday') ?? '';
+      const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekdayName);
+      const minute = Number(value('minute'));
+      const hour = Number(value('hour'));
+      const day = Number(value('day'));
+      const month = Number(value('month'));
+      if (
+        weekday < 0 ||
+        !Number.isFinite(minute) ||
+        !Number.isFinite(hour) ||
+        !Number.isFinite(day) ||
+        !Number.isFinite(month)
+      ) {
+        return undefined;
+      }
+      return { minute, hour, day, month, weekday };
+    } catch {
+      return undefined; // 非法时区名 ⇒ 不命中（fail-closed：不猜"用户想的是哪个时区"）。
+    }
   }
 }
