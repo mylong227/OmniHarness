@@ -12,6 +12,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
+import { FeatureEntitlements } from '../license/featureEntitlements.js';
+import type { EntitlementPort } from '../ports/license/entitlement.js';
 import { PluginBundler } from '../plugin/pluginBundler.js';
 import { PrivateSkillSource } from '../plugin/privateSkillSource.js';
 import { BundleCodec } from '../plugin/bundleCodec.js';
@@ -40,12 +42,15 @@ const SOURCE_USAGE =
 export class BundleCommand {
   /** 注入的注册表工厂（打包时用于解析插件源）。 */
   private readonly createRegistry: PluginRegistryFactory;
+  /** (F4) 功能权益：私有源等商业档能力按此裁决（缺省 = core ⇒ 如实拒绝）。 */
+  private readonly entitlements: EntitlementPort | undefined;
 
   /**
    * @param createRegistry 注册表工厂（打包时用于解析插件源）。
    */
-  public constructor(createRegistry: PluginRegistryFactory) {
+  public constructor(createRegistry: PluginRegistryFactory, entitlements?: EntitlementPort) {
     this.createRegistry = createRegistry;
+    this.entitlements = entitlements;
   }
 
   /**
@@ -140,7 +145,7 @@ export class BundleCommand {
     // 脚本包装：沙箱按**裸脚本**语义执行，不提供 `module`/`exports`，故这里自己包一层 IIFE，
     // 让常见的 cjs 入口（`module.exports = …`）**真的**能跑起来——否则"沙箱腿"对一切包恒为失败，
     // 那条腿就等于没有（评级退化成只靠静态扫描，A 永远不可达）。
-    // **不提供 `require`**：这正是沙箱该有的样子（包内不得起进程/引原生模块），
+    // **不提供 `demand`**：这正是沙箱该有的样子（包内不得起进程/引原生模块），
     // 于是"越权包"会在这里以 `require is not defined` 暴露，而不是被静默放行。
     const wrapped = `(function (module, exports) {\n${entry}\nreturn module.exports;\n})({ exports: {} }, {})`;
     // 档位策略（**不 overclaim**）：资产按仓库默认档 `in-process` 声明，然后**先试更严的档**
@@ -165,7 +170,7 @@ export class BundleCommand {
         // 失败形状是 `{ ok:false, denied:{ code, reason } }`：透出**分类 + 原因**，
         // 不压成一句"沙箱失败"——市场页要显示"为什么"（timeout / trap / escape 区别很大）。
         lastReason = `[${result.denied.code}] ${result.denied.reason}`;
-        // 最小权限模式的**预期**结果：包声明并实际使用宿主能力（`require`）时，沙箱必然拒绝
+        // 最小权限模式的**预期**结果：包声明并实际使用宿主能力（`demand`）时，沙箱必然拒绝
         // ——`escape` 分类 + `require is not defined`。这不是包的缺陷，也不是"验证通过"，
         // 而是**验证能力边界**：交给分级器封顶 B（受限运行），绝不因此放行到 A。
         if (
@@ -217,6 +222,18 @@ export class BundleCommand {
     if (sourceDir === undefined) {
       process.stdout.write(SOURCE_USAGE);
       return 2;
+    }
+    // **F4 闸门（Team）**：私有技能源是 Team 档能力（§6.1）。闸门放在**入口点**而不是域类里：
+    // 域类不该知道商业模式，且"哪些入口要收费"是产品决策、会变。
+    const entitlement = (this.entitlements ?? FeatureEntitlements.core()).demand(
+      'private-skill-source',
+    );
+    if (!entitlement.allowed) {
+      process.stdout.write(
+        `私有技能源不可用（${entitlement.code}）：${entitlement.reason}\n` +
+          '说明: 该能力属 Team 档；未持授权时请改用本地目录直接安装（核心功能不受影响）。\n',
+      );
+      return 1;
     }
     const strict = !reader.has('--loose');
     const skillSource = new PrivateSkillSource({

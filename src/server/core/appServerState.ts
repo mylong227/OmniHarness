@@ -1,4 +1,5 @@
 import type { ApprovalPort } from '../../ports/runtime/approval.js';
+import type { EntitlementPort } from '../../ports/license/entitlement.js';
 
 import type { SkillRegistry } from '../../skill/skillRegistry.js';
 import type { PluginRegistry } from '../../plugin/pluginRegistry.js';
@@ -15,6 +16,13 @@ export interface AppServerOptions {
   readonly skills?: SkillRegistry | undefined;
   readonly approvalUplink?: boolean | undefined;
   readonly metrics?: Metrics | undefined;
+  /**
+   * (F4) 功能权益：治理台等商业档能力按此裁决可用性。
+   *
+   * 缺省故意**不**给"全开"——没配授权就是没买，闸门必须如实反映；
+   * 注入真实权益由组合根负责（`LicenseSource.resolve`）。
+   */
+  readonly entitlements?: EntitlementPort | undefined;
   /** 插件注册表（注入后暴露 plugins.list / plugins.search，供 UI 市场视图）。 */
   readonly registry?: PluginRegistry | undefined;
   /** 插件安装目录（注入后启动时自动加载已安装插件进 Agent 工具表；闭环 G-B）。 */

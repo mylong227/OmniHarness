@@ -17,6 +17,7 @@ import { CliMcpCmds } from './cliMcpCmds.js';
 import { SessionCommand } from './sessionCommand.js';
 import { PluginCommand } from './pluginCommand.js';
 import { ProfileCommand } from './profileCommand.js';
+import { LicenseSource } from '../license/licenseSource.js';
 import { BundleCommand } from './bundleCommand.js';
 import { AuditCommand } from './auditCommand.js';
 import { StoreCommand } from './storeCommand.js';
@@ -34,8 +35,11 @@ export class CliDataCmds extends CliMcpCmds {
   /** profile 子命令（list/create/delete/use）。 */
   private readonly profileCommand = new ProfileCommand();
   /** bundle 子命令（pack/unpack）。 */
-  private readonly bundleCommand = new BundleCommand((args, pluginsDir) =>
-    this.createRegistry(args, pluginsDir),
+  private readonly bundleCommand = new BundleCommand(
+    (args, pluginsDir) => this.createRegistry(args, pluginsDir),
+    // (F4) 功能权益来自本机授权（`OMNI_LICENSE*` 环境变量）；没有授权就是 core 档，
+    // 私有源等 Team 能力**如实拒绝**并给出可读拒因——闸门必须反映真实档位，不给隐式全开。
+    LicenseSource.resolve({ env: process.env }),
   );
   /** audit 子命令（导出 / 合规报告）。 */
   private readonly auditCommand = new AuditCommand();

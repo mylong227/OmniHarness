@@ -1,4 +1,4 @@
-/**
+﻿/**
  * F2 服务端判据（`governance.history` / `governance.rollbackTargets`）。
  *
  * ## 判据要钉死什么
@@ -26,11 +26,52 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
 import type { Skill } from '../../src/ports/skill/skill.js';
+import { FeatureEntitlements } from '../../src/license/featureEntitlements.js';
+import { LicenseEngine } from '../../src/license/licenseEngine.js';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+
+/**
+ * 造一份**真实签名**的 Pro 授权权益（治理台属 Pro，§6.1）。
+ *
+ * 为什么判据必须注入权益而不是"默认全开"：治理台是商业档能力，缺省就该**不可用并给出拒因**；
+ * 若判据靠"默认全开"通过，等于把闸门本身测没了——本文件正是要证明闸门存在。
+ * @returns Pro 档权益
+ */
+function proEntitlements(): FeatureEntitlements {
+  const identity = new Ed25519AgentIdentity({ agentRuntimeId: 'gov-pro' });
+  const issuedAtMs = 1_700_000_000_000;
+  const payload = {
+    licenseId: 'lic-gov',
+    tier: 'pro' as const,
+    licensee: 'Acme',
+    machineFingerprint: 'machine-gov',
+    issuedAtMs,
+    expiresAtMs: issuedAtMs + 86_400_000,
+  };
+  const text = LicenseEngine.compose(
+    payload,
+    identity.sign(LicenseEngine.canonicalPayload(payload)),
+  );
+  const verdict = LicenseEngine.verify({
+    text,
+    publicKeySsh: identity.publicKeySsh(),
+    machineFingerprint: 'machine-gov',
+    nowMs: issuedAtMs + 1000,
+  });
+  assert.strictEqual(
+    verdict.tier,
+    'pro',
+    `夹具授权必须是 pro 档（否则判据测的不是治理台闸门）：${verdict.reason}`,
+  );
+  return new FeatureEntitlements({ verdict });
+}
 
 /** 治理视图的返回形状（只取断言用到的字段）。 */
 interface GovernanceResult {
   readonly available: boolean;
   readonly reason?: string;
+  /** (F4) 档位不足时的**可机读拒因码**（与 `reason` 同时给出）。 */
+  readonly code?: string;
   /** `governance.rollbackTargets` 的专用形状（只给锚点，不给整份视图）。 */
   readonly targets?: readonly { seq: number; skillCount: number }[];
   readonly view?: {
@@ -55,7 +96,9 @@ function skillOf(name: string): Skill {
  * @returns 服务端与台账文件路径
  */
 function buildServer(
-  opts: { readonly ledger: boolean; readonly blocked?: boolean } = { ledger: true },
+  opts: { readonly ledger: boolean; readonly blocked?: boolean; readonly noLicense?: boolean } = {
+    ledger: true,
+  },
 ): {
   readonly server: AppServer;
   readonly ledgerFile: string;
@@ -91,6 +134,8 @@ function buildServer(
     // 工作区经 displayConfig['workspace'] 注入——**与生产同一口径**（CliServerCmds.displayConfigOf）；
     // 不注入时服务端回落到 process.cwd()，判据会读到另一个空台账（第一版就是这么错的）。
     displayConfig: { workspace },
+    // F4：治理台需 Pro 权益；`noLicense` 时**不注入**（= core 档）以验证闸门确实在拦。
+    ...(opts.noLicense === true ? {} : { entitlements: proEntitlements() }),
   });
   return { server, ledgerFile };
 }
@@ -193,4 +238,23 @@ test('F2 装配链：治理层确实在 AppServer 的继承链上（不是摆设
     'function',
     '治理层必须提供注册方法（装配点唯一）',
   );
+});
+
+test('F4 闸门：无 Pro 权益 ⇒ 治理台按档位不可用，且拒因可读可机读', async () => {
+  const { server } = buildServer({ ledger: true, noLicense: true });
+  const history = await call(server, 'governance.history');
+  assert.strictEqual(history.available, false, '无 Pro 权益时治理台必须不可用（而不是照常展示）');
+  if (!history.available) {
+    assert.strictEqual(history.code, 'no-license', '拒因必须可机读');
+    assert.match(history.reason ?? '', /governance-console/);
+    assert.match(history.reason ?? '', /需要 pro 档/);
+  }
+  const targets = await call(server, 'governance.rollbackTargets');
+  assert.strictEqual(targets.available, false, '回滚入口同样按档位不可用');
+});
+
+test('F4 闸门：持有 Pro 权益 ⇒ 治理台照常可用（闸门不是「一律拒绝」）', async () => {
+  const { server } = buildServer({ ledger: true });
+  const history = await call(server, 'governance.history');
+  assert.strictEqual(history.available, true, 'Pro 用户必须照常用得上（否则闸门等于把功能锁死）');
 });

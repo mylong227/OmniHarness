@@ -25,7 +25,7 @@
 ## 2. 目录归属与依赖方向
 
 ```
-src/ports/**        契约层（30 个子目录 / 370 个 .ts）——纯声明
+src/ports/**        契约层（31 个子目录 / 375 个 .ts）——纯声明
 src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
 src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
 src/composition/**  组合根（Runtime + 装配）
@@ -46,10 +46,10 @@ src/cli/**  src/server/**  （Web 工作台在 web/**）
 - `[5] 依赖环（Tarjan SCC）——新增环即红，环缩小放行`
 - `[4] 目录平铺告警（直接 .ts > 30，非阻断）`
 
-**端口子目录（30，与磁盘一致）**：`a2a`、`approval`、`asset`、`autonomy`、`capability`、`composition`、`config`、
-`context`、`core`、`daemon`、`decision`、`enterprise`、`genesis`、`intelligence`、`mcp`、`media`、`memory`、
-`model`、`native`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、`subagent`、`tool`、
-`tui`、`util`。
+**端口子目录（31，与磁盘一致）**：`a2a`、`approval`、`asset`、`autonomy`、`capability`、`composition`、`config`、
+`context`、`core`、`daemon`、`decision`、`enterprise`、`genesis`、`intelligence`、`license`、`mcp`、`media`、
+`memory`、`model`、`native`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、`subagent`、
+`tool`、`tui`、`util`。
 
 ## 3. 核心数据流（一回合）
 
