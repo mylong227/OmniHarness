@@ -1,4 +1,4 @@
-/**
+﻿/**
  * execImpl.ts —— OmniHarness CLI 命令实现（god-class 拆分后的实体层）。
  *
  * 自续十七→十九 起，原 2152 行 ExecCli 已拆分为继承链：
@@ -30,6 +30,7 @@ import { CapabilityCommand } from './capabilityCommand.js';
 import { LicenseCommand } from './licenseCommand.js';
 import { AssetPackInstaller } from '../asset/assetPackInstaller.js';
 import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.js';
+import { WasmSkillPack } from '../asset/wasmSkillPack.js';
 import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
 import type { AssetPackPort } from '../ports/asset.js';
 import type { CapabilityStack } from '../ports/config/capabilityStack.js';
@@ -312,6 +313,10 @@ export class ExecCli extends CliAgentCmds {
         // (J8) 用工厂装配：`wasm` 档由内置 `BuiltinWasmRunner` 提供（零新依赖）；
         // 漏注入会让"声明了 wasm 的包"被静默拒装，症状只是"装不上"，排查方向容易跑偏。
         isolation: IsolationLadderFactory.builtin(),
+        // (Wave C) 更严档位的冒烟载荷：`wasm-skill` 资产自带 wasm 模块 ⇒ 装包时**真在 wasm 档跑一次**。
+        // 不注入的话，"跑不起来的模块"会因拿不到该档载荷而**不冒烟**，被静默装进注册表
+        // ——那正是这一步要挡的东西。
+        smokePayloadFor: (record) => WasmSkillPack.smokePayloadFor(record),
       });
     } catch {
       return undefined;

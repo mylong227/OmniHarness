@@ -24,6 +24,7 @@ import { CapabilityRegistry } from '../capability/capabilityRegistry.js';
 import { CapabilitySchemaRegistry } from '../capability/capabilitySchemaRegistry.js';
 import { SkillSchema } from '../capability/schemas/skillSchema.js';
 import { WorkflowTemplateSchema } from '../capability/schemas/workflowTemplateSchema.js';
+import { WasmSkillSchema } from '../capability/schemas/wasmSkillSchema.js';
 import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.js';
 import type { IsolationLevel, TrustTier } from '../ports/capability.js';
 import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
@@ -54,6 +55,8 @@ export class CapabilityStackAssembler {
     const schemas = new CapabilitySchemaRegistry();
     schemas.register(new SkillSchema());
     schemas.register(new WorkflowTemplateSchema());
+    // (Wave C) wasm 技能：进化产物的 wasm 载体（默认 evolved + wasm 档）。
+    schemas.register(new WasmSkillSchema());
     const registry = new CapabilityRegistry({ schemas, skills: opts.skillRegistry });
     const evaluator = new CapabilityEvaluator({ schemas });
     return {
