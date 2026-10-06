@@ -197,6 +197,15 @@ export function Composer(props: ComposerProps): ReactElement {
   const [attachments, setAttachments] = React.useState<AttachmentDraft[]>([]);
   const [filePickerOpen, setFilePickerOpen] = React.useState<boolean>(false);
   const [pickerErr, setPickerErr] = React.useState<string | null>(null);
+  /**
+   * 稳定引用的轻提示回调：**不要**在 JSX 里写 `(m,k) => onToast?.(m,k)`——
+   * 那会让每次渲染都产生新函数身份，把子组件（如上下文容量面板）里"按依赖取数"的 effect
+   * 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc、界面卡在「加载中…」）。
+   */
+  const toastStable = React.useCallback(
+    (m: string, k?: 'info' | 'err') => onToast?.(m, k),
+    [onToast],
+  );
   const [mention, setMention] = React.useState<MentionState | null>(null);
   /** 文件路径缓存（@mention 数据源，首次触发时拉取一次）。 */
   const [fileCache, setFileCache] = React.useState<string[] | null>(null);
@@ -448,7 +457,9 @@ export function Composer(props: ComposerProps): ReactElement {
           threadId={threadId ?? ''}
           api={api}
           busy={busy === true}
-          onToast={(m, k) => onToast?.(m, k)}
+          // 用 useCallback 稳定引用：内联箭头会让**每次父渲染都是新函数**，把子组件里"按依赖取数"的
+          // effect 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc）。
+          onToast={toastStable}
         />
         <AddMenu
           threadId={threadId ?? ''}
