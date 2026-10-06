@@ -554,6 +554,27 @@ if (process.argv.includes('--selftest')) {
 }
 
 const tree = readTree(walkTs(join(ROOT, 'src')));
+// **关键输入缺席即阻断**（2026-10-06 排查修正）：`audit()` 用 `tree.get(...) ?? ''` 取这几份文件，
+// 少一份就等于那条不变式**从不被评估**——而输出仍是「✓ 接线完整性全绿（N 个源文件）」，
+// N 还照样是全仓文件数（看不出"少评估了一条规则"）。历史已因此吃到过同形缺陷
+// （`FileConfig` 字段零引用要靠 I5a 抓；I5a 自己不评估就没人抓了）。
+// 守卫放在**驱动层**而非 `audit()` 内：`audit()` 要保持纯函数以便 `--selftest` 注入合成树。
+const REQUIRED_INPUTS = [
+  'src/config/configFactory.ts',
+  'src/config/configError.ts',
+  'src/ports/config/fileConfig.ts',
+  'src/cli/cliFlagTable.ts',
+  'src/cli/argParser.ts',
+];
+const missingInputs = REQUIRED_INPUTS.filter((p) => !tree.has(p));
+if (missingInputs.length > 0) {
+  console.error(`[auditConfigWiring] ✗ 关键输入缺失 ⇒ 对应不变式无法评估，门禁中止：`);
+  for (const p of missingInputs) console.error(`    ${p}`);
+  console.error(
+    '[auditConfigWiring] 说明：这些文件是 I2/I3/I4/I5a/I5b 的扫描基准，改名/搬家须同步本清单。',
+  );
+  process.exit(1);
+}
 const violations = audit(tree);
 if (violations.length === 0) {
   console.log(`[auditConfigWiring] ✓ 接线完整性全绿（${tree.size} 个源文件）`);

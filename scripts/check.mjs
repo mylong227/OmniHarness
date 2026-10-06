@@ -485,6 +485,14 @@ function main() {
     for (const line of funcBaselineHits) console.log(`  - ${line}`);
   }
 
+  // 「扫 0 个文件 = 零违规 = 通过」是假绿（2026-10-06 排查登记后修正）：`src/` 被整体改名/搬家
+  // （如全改 `.mts`/`.tsx`）时，`walk(SRC).filter(f => f.endsWith('.ts'))` 会是空集，而汇总照样
+  // 打印"✅ 零违规"。门禁的判据必须至少覆盖"确有待审对象"。
+  if (files.length === 0) {
+    console.error(`✗ 铁律自检扫描到 0 个 TS 文件（${SRC}）——判据无从成立，按失败处理。`);
+    console.error('  若确实改了扩展名/目录布局，请同步本脚本的扫描口径（而不是让它空转）。');
+    process.exit(1);
+  }
   if (violations.length === 0) {
     console.log(`✅ 铁律自检通过：扫描 ${files.length} 个 TS 文件，零违规。`);
     process.exit(0);

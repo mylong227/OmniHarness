@@ -254,13 +254,36 @@ if (unknown.length > 0) {
   console.error(`✗ 未知门禁 id：${unknown.join(', ')}（用 --list 看全部）`);
   process.exit(2);
 }
+// `--only=<别的层的 id>` 曾**零门禁 + 打印通过**（2026-10-06 实测复现：`--only=tsc` ⇒
+// "[gates] ✓ 门禁通过（层：fast）"，exit 0）：tier 过滤先于 only 生效，而上面的未知 id 检查
+// 只认"id 不存在"，且 `tiers.size > 0` 恒真 ⇒ 没有任何"跑了 0 条"的守卫。
+// 注意要**逐条**核对而不是只看"选中集为空"：`--only=iron-law,tsc` 会跑 iron-law 而把 tsc
+// 静默丢掉——"少跑几条还算通过"与"零门禁通过"是同一个病。
+if (only !== undefined) {
+  const selectedIds = new Set(selected.map((g) => g.id));
+  const dropped = [...only].filter((id) => !selectedIds.has(id));
+  if (dropped.length > 0) {
+    const otherTier = GATES.filter((g) => dropped.includes(g.id)).map(
+      (g) => `${g.id}[${g.tier}层]`,
+    );
+    console.error(
+      `✗ --only 里有 ${String(dropped.length)} 条门禁在当前层（${[...tiers].join('+')}）不会跑，` +
+        `已中止而不是"少跑几条也算通过"。` +
+        (otherTier.length > 0 ? `你点的 ${otherTier.join(', ')} 在其它层，请加 --tier=all。` : ''),
+    );
+    process.exit(2);
+  }
+}
 const prefix = hookMode ? 'pre-commit' : 'gates';
 let failed = 0;
+/** 被 `--skip=` 显式跳过的门禁数（仅用于如实打印"实跑了几条"）。 */
+let skipped = 0;
 for (const gate of selected) {
   if (skip.has(gate.id)) {
     console.error(
       `[${prefix}] ⚠️ 已按 --skip=${gate.id} 跳过「${gate.label}」——须在放宽环境补跑。`,
     );
+    skipped += 1;
     continue;
   }
   console.log(`[${prefix}] ${gate.label}...`);
@@ -295,6 +318,9 @@ if (failed === 0 && hookMode) {
 if (failed > 0) process.exit(1);
 if (stagedMode || hookMode || only !== undefined || tiers.size > 0) {
   const label = [...tiers].join('+');
-  console.log(`[${prefix}] ✓ 门禁通过（层：${label}）`);
+  // 打印**实际跑了几条**：只写"门禁通过"在 `--only` 选空的历史缺陷下曾等于零信息（见上方守卫）。
+  console.log(
+    `[${prefix}] ✓ 门禁通过（层：${label} ｜ 实跑 ${String(selected.length - skipped)}/${String(GATES.length)} 条）`,
+  );
 }
 process.exit(0);

@@ -60,11 +60,28 @@ const BACKTICK_PATH_RE = new RegExp(
   'g',
 );
 
-/** 逐文件找出解析不到的死链（markdown 链接 + 反引号路径提及）。 */
+/**
+ * 逐文件找出解析不到的死链（markdown 链接 + 反引号路径提及）。
+ *
+ * 输入缺失/扫描范围塌缩一律**阻断**（2026-10-06 排查修正）：此前用 `.filter(existsSync)`
+ * 静默丢文件 ⇒「README 不见了」会表现为"死链减少（已清偿）"而不是失败。
+ * @returns `{ dead, scanned }`（scanned = 实际扫描的 markdown 文件数，用于汇总行如实报出）。
+ */
 function findDeadLinks() {
-  const files = [join(ROOT, 'README.md'), ...collectMarkdown(join(ROOT, 'docs'))].filter((f) =>
-    existsSync(f),
-  );
+  const readme = join(ROOT, 'README.md');
+  if (!existsSync(readme)) {
+    console.error(`✗ 缺少 ${readme}：文档死链门禁的必需输入，缺了无法判定（不等于"零死链"）。`);
+    process.exit(1);
+  }
+  const docsDir = join(ROOT, 'docs');
+  const docs = existsSync(docsDir) ? collectMarkdown(docsDir) : [];
+  if (docs.length === 0) {
+    console.error(
+      `✗ ${docsDir} 下没扫到任何 markdown：扫描范围塌缩，按失败处理（不等于"零死链"）。`,
+    );
+    process.exit(1);
+  }
+  const files = [readme, ...docs];
   const dead = [];
   for (const file of files) {
     const relFile = relative(ROOT, file).split(sep).join('/');
@@ -98,17 +115,17 @@ function findDeadLinks() {
       }
     });
   }
-  return dead;
+  return { dead, scanned: files.length };
 }
 
-const dead = findDeadLinks();
+const { dead, scanned } = findDeadLinks();
 /** 唯一键（同一「文件 → 目标」在多行重复时只记一次；基线按唯一键冻结）。 */
 const uniqueKeys = [...new Set(dead.map((d) => d.key))].sort();
 const occurrenceCount = dead.length;
 
 if (args.includes('--list')) {
   console.log(
-    `死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处（link = markdown 链接目标；mention = 反引号路径提及）：`,
+    `扫描 ${scanned} 份 markdown ｜ 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处（link = markdown 链接目标；mention = 反引号路径提及）：`,
   );
   for (const entry of dead) console.log(`  ${entry.file}:${entry.line}  ${entry.key}`);
   process.exit(0);
@@ -130,7 +147,7 @@ const fixed = [...baseline].filter((key) => !uniqueKeys.includes(key));
 const newLinks = added.filter((key) => key.startsWith('link:')).length;
 
 console.log(
-  `[docLinkCheck] 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处` +
+  `[docLinkCheck] 扫描 ${scanned} 份 markdown ｜ 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处` +
     `（基线 ${baseline.size} ｜ 新增 ${added.length}（其中链接 ${newLinks}）｜ 已清偿 ${fixed.length}）`,
 );
 if (fixed.length > 0) {

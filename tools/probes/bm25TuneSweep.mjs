@@ -34,21 +34,15 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) => import(pathToFileURL(join(ROOT, 'dist', ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-const arg = (name, dflt) => {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
-};
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
+const a = probeArgs({ values: { json: '' } });
+const JSON_OUT = String(a.json);
 
 let ContextEngine;
 let RECALL_QUERIES;
@@ -179,7 +173,6 @@ console.log(
     : `\n判定：存在过两关组合 ${JSON.stringify(winners)}——改默认前需在 core/ext 分层复核并更新检索基线。`,
 );
 
-const JSON_OUT = arg('json', '');
 if (JSON_OUT !== '') {
   const out = JSON_OUT;
   writeFileSync(

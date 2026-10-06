@@ -26,8 +26,14 @@
  * ## 用法
  *
  * ```bash
- * node tools/probes/semanticHybridRecall.mjs [--fileK=20] [--json=out.json]
+ * node tools/probes/semanticHybridRecall.mjs \
+ *   [--fileK=20] [--chunks=1] [--rerank=1] [--preset=minilm] [--json=out.json]
  * ```
+ *
+ * `--chunks=1` / `--rerank=1` 是**变体旗标**（默认关；读数见 README 第 7 号探针的「变体实测」行）；
+ * `--preset=` 取 `TransformersEmbeddingAdapter.listModelPresets()` 之一（默认 minilm）。
+ * 旗标只接受 `--name=value` 形式，空格形式与未知旗标一律**当场退出码 2**（`_args.mjs`）；
+ * `--list-knobs` 打印本探针认识的旋钮名。
  *
  * ## 诚实边界
  *
@@ -37,38 +43,35 @@
  * - 渲染文本路径解析可能重复计入（同文件多次出现）——命中判定是集合语义，不受影响；
  * - **生效旋钮随行打印**（fileK/preset/chunks/rerank）：本探针的 `arg()` 曾被打坏成
  *   `startsWith()`（漏传参数 ⇒ 永不匹配 ⇒ 旗标静默失效），变体读数与基线逐位相同才暴露——
- *   仪器必须回显自己的生效配置，否则「旗标没生效」与「旋钮无效果」不可区分。
+ *   仪器必须回显自己的生效配置，否则「旗标没生效」与「旋钮无效果」不可区分。该回显已上收到
+ *   共享的 `_args.mjs`（全部探针一致），并附加了未知旗标 / 空格形式的 fail-closed 拒绝。
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) => import(pathToFileURL(join(ROOT, 'dist', ...segments)).href);
 
-/**
- * 读命令行 --name=value。
- * @param {string} name 参数名（不含 --）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-const arg = (name, dflt) => {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
-};
-
-const FILE_K = Number(arg('fileK', '20'));
-const CHUNKS = arg('chunks', '0') === '1';
-const RERANK = arg('rerank', '0') === '1';
-const PRESET = arg('preset', 'minilm');
-if (!Number.isFinite(FILE_K) || FILE_K <= 0) {
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs`）。`_args.mjs` 同时负责
+// **随行回显生效旋钮**——本探针的 `arg()` 曾被打坏成 `startsWith()`（漏传参数 ⇒ 永不匹配），
+// `--chunks/--rerank/--preset/--json` 全部静默失效；回显是区分「旗标没生效」与「旋钮无效果」
+// 的唯一手段。
+const a = probeArgs({
+  values: { fileK: '20', preset: 'minilm', json: '' },
+  flags: { chunks: false, rerank: false },
+});
+const FILE_K = Number(a.fileK);
+const CHUNKS = a.chunks === true;
+const RERANK = a.rerank === true;
+const PRESET = String(a.preset);
+const JSON_OUT = String(a.json);
+if (!Number.isInteger(FILE_K) || FILE_K <= 0) {
   console.error('✗ --fileK 必须是正整数');
   process.exit(2);
 }
-console.log(
-  `生效旋钮：fileK=${String(FILE_K)} preset=${PRESET} chunks=${String(CHUNKS)} rerank=${String(RERANK)}`,
-);
 let ContextEngine;
 let RepoMapContextEngine;
 let TransformersEmbeddingAdapter;
@@ -155,8 +158,8 @@ function filesInText(text) {
 }
 
 const inner = new TransformersEmbeddingAdapter({
-  preset: arg('preset', 'minilm'),
-  cacheDir: join(VEC_CACHE, 'models', arg('preset', 'minilm')),
+  preset: PRESET,
+  cacheDir: join(VEC_CACHE, 'models', PRESET),
   // 与生产装配同一 env 解析（OMNI_HF_ENDPOINT / HF_ENDPOINT）：漏传会把下载打到
   // huggingface.co——在境内网络即模型加载失败 ⇒ 引擎整段吞错回落纯 BM25（上一轮
   // 191/191 全回落、耗时一晚的根因，正是本行缺失）。
@@ -222,7 +225,6 @@ console.log(
   `\n耗时 ${String(elapsed)}s ｜ 语义回落次数 ${String(engine.semanticFallbackTotal())}（>0 说明有查询静默退化成纯 BM25，数字含水分）`,
 );
 
-const JSON_OUT = arg('json', '');
 if (JSON_OUT !== '') {
   const out = JSON_OUT;
   writeFileSync(

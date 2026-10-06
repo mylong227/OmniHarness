@@ -37,8 +37,11 @@
  * ## 用法
  *
  * ```bash
- * node tools/probes/rerankDiscriminatorAb.mjs [K] [--pool N] [--json=out.json]
+ * node tools/probes/rerankDiscriminatorAb.mjs [K] [--pool=400] [--only=V12,V13] [--json=out.json]
  * ```
+ *
+ * 旗标只接受 `--name=value` 形式（`--pool 400` 这类空格形式会被**当场拒绝**而非静默取默认值）；
+ * `K` 是位置参数，缺省 20。`--list-knobs` 打印本探针认识的旋钮名。
  *
  * ## 诚实边界
  *
@@ -48,6 +51,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
@@ -55,15 +59,22 @@ const ROOT = join(HERE, '..', '..');
 const DIST = join(ROOT, 'dist', 'src');
 const importDist = (...segments) => import(pathToFileURL(join(DIST, ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-function arg(name, dflt) {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
+// 参数解析排在 dist 动态 import **之前**：旗标写错时即使缺编译产物也该报"旗标错"，
+// 而不是被"缺少编译产物"盖住（理由见 `_args.mjs` 头注释）。
+const a = probeArgs({ values: { pool: '400', only: '', json: '' } }, { positional: ['K'] });
+const K = Number(a.K ?? 20);
+const POOL = Number(a.pool);
+const ONLY = String(a.only);
+const JSON_OUT = String(a.json);
+// 位置参数与旗标同现曾让 K 变成 NaN（`Number('--pool')`）⇒ 探针照常打印一份"全 0%"报表、
+// 基线表头写 `K=NaN`、**退出码仍为 0**（2026-10-06 实测复现）——这是仪器说谎，故 fail-closed。
+if (!Number.isInteger(K) || K <= 0) {
+  console.error('✗ K 必须是正整数（位置参数，例：node tools/probes/rerankDiscriminatorAb.mjs 14）');
+  process.exit(2);
+}
+if (!Number.isFinite(POOL) || POOL <= 0) {
+  console.error('✗ --pool 必须是正整数（例：--pool=400）');
+  process.exit(2);
 }
 
 let ContextEngine;
@@ -85,11 +96,6 @@ try {
   );
   process.exit(2);
 }
-
-const K = Number(process.argv[2] ?? 20);
-const POOL = Number(arg('pool', '400'));
-const ONLY = arg('only', '');
-const JSON_OUT = arg('json', '');
 
 const corpus = ContextEngine.indexCorpus(join(ROOT, 'src'), { morph: true, light: true });
 const idx = new FileRerankIndex();
@@ -461,6 +467,9 @@ if (JSON_OUT !== '') {
         probe: 'rerankDiscriminatorAb',
         K,
         POOL,
+        // `--only=` 只过滤变体循环（MMR 诊断与第二段净效果恒算恒打）⇒ 必须落盘，
+        // 否则输出无法区分"按要求只跑了 V12"与"跑了全部"。
+        only: ONLY,
         queries: CASES.length,
         baseline: {
           hit: pct(avg(baseHit)),

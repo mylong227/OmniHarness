@@ -23,6 +23,7 @@
  * ```bash
  * node tools/probes/recallHitrate.mjs                       # fileK=20，不精排
  * node tools/probes/recallHitrate.mjs --rerank              # 开精排（生产路径同款）
+ * node tools/probes/recallHitrate.mjs --rerank=1            # 同上（两种写法等价，见 _args.mjs）
  * node tools/probes/recallHitrate.mjs --fileK=14 --json=out.json
  * ```
  *
@@ -35,6 +36,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
@@ -42,15 +44,16 @@ const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
   import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-function arg(name, dflt) {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释：旗标错不该被
+// "缺少编译产物"盖住）。`--rerank` 既接受裸开关也接受 `--rerank=1`——两种写法历史上
+// 分属本目录不同探针，混用曾让 `--rerank=1` 在这里**静默不生效**。
+const a = probeArgs({ values: { fileK: '20', json: '' }, flags: { rerank: false } });
+const FILE_K = Number(a.fileK);
+const RERANK = a.rerank === true;
+const JSON_OUT = String(a.json);
+if (!Number.isInteger(FILE_K) || FILE_K <= 0) {
+  console.error('✗ --fileK 必须是正整数（例：--fileK=14）');
+  process.exit(2);
 }
 
 let RECALL_QUERIES;
@@ -68,10 +71,6 @@ try {
   );
   process.exit(2);
 }
-
-const FILE_K = Number(arg('fileK', '20'));
-const RERANK = process.argv.includes('--rerank');
-const JSON_OUT = arg('json', '');
 
 const corpus = ContextEngine.indexCorpus(join(ROOT, 'src'), { morph: true, light: true });
 

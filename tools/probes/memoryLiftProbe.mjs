@@ -45,6 +45,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
@@ -52,16 +53,8 @@ const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
   import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-function arg(name, dflt) {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
-}
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
+const a = probeArgs({ values: { k: '5', json: '' } });
 
 let FileLongTermMemory;
 let TokenEstimator;
@@ -76,8 +69,12 @@ try {
   process.exit(2);
 }
 
-const K = Number(arg('k', '5'));
-const JSON_OUT = arg('json', '');
+const K = Number(a.k);
+const JSON_OUT = String(a.json);
+if (!Number.isInteger(K) || K <= 0) {
+  console.error('✗ --k 必须是正整数（例：--k=5）');
+  process.exit(2);
+}
 /** 与生产一致的 primer 名额（`sessionInjector.injectMemoryPrimer` 用 5）。 */
 const PRIMER_BUDGET = K;
 

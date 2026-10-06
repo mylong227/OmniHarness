@@ -39,21 +39,20 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) => import(pathToFileURL(join(ROOT, 'dist', ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-const arg = (name, dflt) => {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
-};
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
+const a = probeArgs({ values: { fileK: '20', json: '' } });
+const FILE_K = Number(a.fileK);
+const JSON_OUT = String(a.json);
+if (!Number.isInteger(FILE_K) || FILE_K <= 0) {
+  console.error('✗ --fileK 必须是正整数（例：--fileK=20）');
+  process.exit(2);
+}
 
 let ContextEngine;
 let RepoMapContextEngine;
@@ -88,7 +87,6 @@ try {
   process.exit(2);
 }
 
-const FILE_K = Number(arg('fileK', '20'));
 const EVAL_DATA = join(ROOT, 'eval-data');
 const VEC_CACHE =
   process.env.OMNI_EMBEDDING_CACHE_DIR ?? join(ROOT, '.cache', 'omni-embed-vectors');
@@ -229,8 +227,8 @@ console.log(
     : `判定：未过两关 ⇒ 「跨仓不外推」的诚实边界**维持**（本测量与旧结论同向或不可判定）`,
 );
 
-if (arg('json', '') !== '') {
-  const out = arg('json', '');
+if (JSON_OUT !== '') {
+  const out = JSON_OUT;
   writeFileSync(
     out,
     `${JSON.stringify(

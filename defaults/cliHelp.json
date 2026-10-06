@@ -82,6 +82,10 @@
       "description": "模型端口（默认 mock；responses = OpenAI Responses API 原生通道；llamacpp = 本地 Ollama/llama.cpp 原生 /api/chat）"
     },
     {
+      "spec": "--mock",
+      "description": "等价于 --model-adapter mock（脚本化响应，离线可跑演示）；与 --model-adapter 同时给出时以 argv 中后出现者为准"
+    },
+    {
       "spec": "--base-url URL  --api-key KEY",
       "description": "OpenAI 兼容端点"
     },
@@ -167,7 +171,7 @@
     },
     {
       "spec": "--approval {{approvals}}",
-      "description": "审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具）"
+      "description": "审批端口（默认 rules：read 放行、rm/del 拒绝、其余按 --approval-ask；plan=只读规划模式仅放行读类工具；**ask 仅 `serve` 支持**——单跑路径无 AskApproval 实现，会 fail-closed 报错而不是静默全放行）"
     },
     {
       "spec": "--approval-ask {{approvalAsks}}",
@@ -223,7 +227,7 @@
     },
     {
       "spec": "--plugin-profile NAME",
-      "description": "插件集 profile（G-E）：serve/run 启动后把运行时插件集收敛为该命名组合（由 profile.save 创建）"
+      "description": "插件集 profile（G-E）：**仅 `serve`** 启动后把运行时插件集收敛为该命名组合（由 profile save 创建）。单跑（run）路径没有收敛点，传了会 fail-closed 报错（2026-10-06 订正：此前帮助写作 serve/run，实际 run 上零消费者）"
     },
     {
       "spec": "--spill-adapter {{spillAdapters}}",
@@ -263,7 +267,7 @@
     },
     {
       "spec": "--guard-prompt-injection-mode {{enforcementModes}}",
-      "description": "护栏生效模式（默认 off）。shadow=跑但不改行为、只记录「本该拦截」，用于在生产流量上攒真实误报/漏报（D1）"
+      "description": "护栏生效模式（**未显式传任何护栏旗标时默认 shadow 观测档常开**；off=完全关、shadow=跑但不改行为只记录「本该拦截」、enforce=真拦）。--guard-prompt-injection-mode off 可显式关回"
     },
     {
       "spec": "--defer-tools LIST",

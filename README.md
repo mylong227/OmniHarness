@@ -258,6 +258,10 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 ```
 
 > `-p/--print` 会拦截交互审批：`--approval ask` 在无 stdin 的 CI 中会**永久挂起**，故显式报错而非静默卡死（fail-closed）。
+>
+> **`--approval ask` 只在 `serve` 生效**（交互通道由 Web UI 的审批上行提供）。单跑（exec/run）路径上
+> 仓内**没有** AskApproval 实现，若按缺省分支走会**静默降级为全放行**，故 2026-10-06 起在该路径上
+> **fail-closed 直接报错**（而不是"批准一次都不用"）。需要每次问人请用 `omniharness serve`。
 
 ---
 
@@ -317,27 +321,27 @@ node dist/src/cli/exec.js --version     # 打印 API 契约版本（API_VERSION�
 
 **常用全局旗标（节选，完整见 `omniharness exec --help`）：**
 
-| 旗标                                                                       | 说明                                                      |
-| -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `--model-adapter mock\|openai\|anthropic\|responses\|llamacpp`             | 模型端口（默认 mock）                                     |
-| `--base-url` / `--api-key` / `--model`                                     | OpenAI 兼容端点与凭据                                     |
-| `--approval auto\|deny\|rules\|guardian\|plan\|ask`                        | 审批策略（默认 rules）                                    |
-| `--sandbox passthrough\|policy\|restricted\|landlock\|seatbelt\|bwrap`     | 沙箱后端（默认 policy）                                   |
-| `--network-allow host1,host2`                                              | 网络外联白名单（设置即 fail-closed）                      |
-| `--escalation deny\|ask\|auto` / `--elevated-sandbox`                      | 升级审批与提权复核沙箱                                    |
-| `--workspace DIR`                                                          | 工作区根目录（工具读写边界）                              |
-| `-p, --print` / `--output-format text\|json`                               | headless 执行与输出格式                                   |
-| `--config PATH` / `--profile NAME` / `--plugin-profile NAME`               | 配置分层与插件集 profile                                  |
-| `--resume ID` / `--fork ID` / `--replay ID`                                | 续跑 / 分叉 / 回放历史会话                                |
-| `--spill-adapter memory\|file` / `--spill-bytes` / `--spill-preview`       | 大输出外溢策略                                            |
-| `--subagent-max-depth` / `--subagent-concurrency` / `--subagent-max-steps` | 子代理编排上限                                            |
-| `--tool FILE`                                                              | 加载自定义工具模块（可重复）                              |
-| `--mcp-server NAME=COMMAND`                                                | 桥接外部 MCP 服务器（可重复）                             |
-| `--defer-tools web_search,delegate`                                        | 延迟加载工具（经 `tool_search` 发现）                     |
-| `--plan`                                                                   | 计划模式：未批准计划前拦截写类工具                        |
-| `--memory-encrypt` / `--memory-key-file`                                   | 长期记忆加密落盘                                          |
-| `--native`                                                                 | 启用 FFI 原生后端（Rust 内核 in-process，不可用自动回退） |
-| `--auto-commit`                                                            | 执行后 git 自动提交（对标 Aider 的 git 安全网，opt-in）   |
+| 旗标                                                                       | 说明                                                                             |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `--model-adapter mock\|openai\|anthropic\|responses\|llamacpp`             | 模型端口（默认 mock）                                                            |
+| `--base-url` / `--api-key` / `--model`                                     | OpenAI 兼容端点与凭据                                                            |
+| `--approval auto\|deny\|rules\|guardian\|plan\|ask`                        | 审批策略（默认 rules；**`ask` 仅 `serve` 支持**，单跑路径上会 fail-closed 报错） |
+| `--sandbox passthrough\|policy\|restricted\|landlock\|seatbelt\|bwrap`     | 沙箱后端（默认 policy）                                                          |
+| `--network-allow host1,host2`                                              | 网络外联白名单（设置即 fail-closed）                                             |
+| `--escalation deny\|ask\|auto` / `--elevated-sandbox`                      | 升级审批与提权复核沙箱                                                           |
+| `--workspace DIR`                                                          | 工作区根目录（工具读写边界）                                                     |
+| `-p, --print` / `--output-format text\|json`                               | headless 执行与输出格式                                                          |
+| `--config PATH` / `--profile NAME` / `--plugin-profile NAME`               | 配置分层与插件集 profile                                                         |
+| `--resume ID` / `--fork ID` / `--replay ID`                                | 续跑 / 分叉 / 回放历史会话                                                       |
+| `--spill-adapter memory\|file` / `--spill-bytes` / `--spill-preview`       | 大输出外溢策略                                                                   |
+| `--subagent-max-depth` / `--subagent-concurrency` / `--subagent-max-steps` | 子代理编排上限                                                                   |
+| `--tool FILE`                                                              | 加载自定义工具模块（可重复）                                                     |
+| `--mcp-server NAME=COMMAND`                                                | 桥接外部 MCP 服务器（可重复）                                                    |
+| `--defer-tools web_search,delegate`                                        | 延迟加载工具（经 `tool_search` 发现）                                            |
+| `--plan`                                                                   | 计划模式：未批准计划前拦截写类工具                                               |
+| `--memory-encrypt` / `--memory-key-file`                                   | 长期记忆加密落盘                                                                 |
+| `--native`                                                                 | 启用 FFI 原生后端（Rust 内核 in-process，不可用自动回退）                        |
+| `--auto-commit`                                                            | 执行后 git 自动提交（对标 Aider 的 git 安全网，opt-in）                          |
 
 ---
 
