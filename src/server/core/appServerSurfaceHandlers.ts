@@ -186,7 +186,9 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     workspace?: string;
     updatedAt: string;
   }[] {
-    const listed = this.sessionArchive.list() as {
+    // `'*'`：检索面要看**全量**会话（`search.all` 跨项目可搜），按当前工作区过滤会把搜索结果
+    // 静默缩小到一个项目（见 SessionArchive.list 的作用域语义）。
+    const listed = this.sessionArchive.list(true, '*') as {
       sessions?: readonly {
         sessionId: string;
         label: string;

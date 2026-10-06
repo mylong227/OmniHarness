@@ -7,6 +7,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>OmniHarness 工作台</title>
+  <!-- 站点图标：内联 SVG（Ω 标识），零额外请求、零网络依赖。
+       为什么必须有它：不声明 favicon 时浏览器会回退请求 `/favicon.ico`，而 serve 没有该路由 ⇒
+       每次加载都在控制台留一条 404 错误（2026-10-06 真机 CDP 跑测实测），把"控制台零错误"
+       这条前端健康判据逼成假红。 -->
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26' fill='%237c9cff'%3E%CE%A9%3C/text%3E%3C/svg%3E"
+  >
   <!--
     React 工作台宿主页。架构：原生 ES Module，零打包器、零网络依赖。
       - web/vendor/  React / ReactDOM（UMD，本地内置，离线可用；htm 已不再使用）

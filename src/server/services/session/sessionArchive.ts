@@ -1,4 +1,4 @@
-﻿import {
+import {
   appendFileSync,
   copyFileSync,
   existsSync,
@@ -141,9 +141,21 @@ export class SessionArchive {
    * 用户显式排过的按名次、升级前的历史会话垫后；另一个客户端新建的会话因此不会被丢到列表底部。
    * @param includeArchived 是否连归档会话一起读（缺省 true，保持既有调用方行为；UI 的「已归档」组
    *   按需请求，日常列表可传 false 从而**跳过归档文件的逐个扫描**）
+   * @param workspace 工作区作用域（**宽松入参**：RPC 参数是 `unknown`，此处自行窄化）：
+   *   **缺省 / 空串 = 当前工作区**（`deps.workspaceRoot()`）；传 `'*'` 表示不过滤
+   *   （跨项目视图 / `sessionExists` / `search.all` 等要看全量的调用方）。
+   *
+   *   **为什么需要它**（2026-10-06 第六十二轮真机 UI 跑测实测）：存储目录是**全局**的
+   *   （`~/.omniharness/sessions`），于是新建一个工作区打开 Web UI，侧栏会把**其它项目**的上千条
+   *   会话全列在当前项目节点下（实测：全新工作区里显示 1181 条，含其它项目的真实对话标题）——
+   *   既有误导性（看起来像本项目的历史），也让每次刷新白搬上千行。
+   *   归属标记取自 `session_meta.payload.workspace`；**无标记的历史会话（undefined）一律保留**：
+   *   它们无法归因，隐藏等于让用户永远够不到自己的旧数据。
    * @returns `{ dir: string|undefined; sessions: SessionInfo[] }`
    */
-  public list(includeArchived = true): unknown {
+  public list(includeArchived = true, workspace?: unknown): unknown {
+    const requested = typeof workspace === 'string' ? workspace : undefined;
+    const scope = requested === '*' ? undefined : (requested ?? '') || this.workspaceRoot();
     const dir = this.storageLocation();
     if (dir === undefined || !existsSync(dir) || !statSync(dir).isDirectory()) {
       return { dir, sessions: [] };
@@ -162,6 +174,11 @@ export class SessionArchive {
     const push = (file: string, id: string, archived: boolean): void => {
       const parsed = this.scanSessionFile(file);
       if (parsed === undefined) return;
+      // 工作区过滤：有明确归属且不等于作用域 ⇒ 该会话属于别的项目，不进本项目的列表。
+      // 无归属标记（undefined）的历史会话一律保留（见 list 的 JSDoc）。
+      if (scope !== undefined && parsed.workspace !== undefined && parsed.workspace !== scope) {
+        return;
+      }
       const t = titles[id];
       sessions.push({
         sessionId: id,

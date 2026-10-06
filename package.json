@@ -103,7 +103,8 @@
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
     "smoke:real": "node scripts/realRunSmoke.mjs --phase=all",
-    "smoke:model": "node scripts/realModelComplexTest.mjs"
+    "smoke:model": "node scripts/realModelComplexTest.mjs",
+    "smoke:ui": "node scripts/realUiScenario.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
