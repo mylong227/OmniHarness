@@ -99,7 +99,9 @@ CLI / Web 工作台
 - **记忆生命周期**：充能 / 衰减 / 解离三态；触底事实解离出耦合图，外部充能可复活；排序封顶以保可复现。
 - **双 BM25 通道**：M1 工具检索（`tool_search` 延迟暴露）+ M2 会话检索（`memory_search`）。
 
-> **诚实基线（2026-10-02 复跑校准，192 条对抗查询 / 语料 902 文件 · 10183 符号）**：生产默认 BM25 hitRate@20 = **40.1%**（OK 77 / RANKING 67 / LEXICAL 48）。数字低于 2026-10-01 记录的 44.0%，原因是**语料从 590 文件涨到 902 文件**（符号 9837→10183）而非回归——**不同语料规模的数字不可纵向比**，引用前务必核对生成时的语料。第二段精排（rerank）自 2026-09-25 起回关为 **opt-in**（`OMNI_RERANK=1`，193 条口径下 +2.9pp 但 CI 跨 0，按「两关」纪律不配当默认）。语义 Hybrid 的 +15.8pp 是**单仓自证**——跨 5 个外部真实仓库 pooled **0.0pp**，不可外推。当前瓶颈是**候选源**而非排序：本轮 52/192（27.1%）查询的 GT 文件在深层候选池里排位 >200 或完全搜不到，属词法盲区（详见 `docs/archive/CORE_CAPABILITY_AUDIT_2026-10-01.md` §2.3）。基线由 `npm run eval:recall-query-audit` 在 CI 中守护：**任一锚点 GT 为空即红**，避免「删了代码却没改评测集」再次静默发生。
+> **诚实基线（2026-10-05 实测，191 条对抗查询 / 语料 1010 文件 · 11864 符号，`tools/probes/recallHitrate.mjs` 可复现）**：纯 BM25 hitRate@20 = **40.8%**（core 68.8% / 对抗子集 35.2%）。BM25 k1/b 网格 24 组合扫描（`tools/probes/bm25TuneSweep.mjs`）：**无一过两关 ⇒ 教科书默认 k1=1.5/b=0.75 即本语料实测最优**，调参线关闭。第二段精排（rerank）保持 **opt-in**（判别器对照净效果 CI 跨 0，不配当默认）。
+>
+> **语义混合检索已实测并设为 CLI 默认（2026-10-05，第五十六轮）**：真实嵌入模型（minilm 384 维，HF 镜像拉取 + 向量落盘缓存）接入后，全量 191 条 **hitRate@20 = 55.5%（Δ=+14.7pp，CI95[7.85, 21.99]，折负 0/40 —— 两关通过）**，对抗子集 **35.2% → 50.3%（+15.1pp）**、core 68.8% → 81.3%（`tools/probes/semanticHybridRecall.mjs` 可复现，零回落）。安全垫：引擎对嵌入/索引异常 **fail-closed 回落纯 BM25**（回落计数可见），离线/下载失败只退回旧行为；库直用默认仍关（保测试确定性）；显式 `OMNI_SEMANTIC_RECALL=0` 可关。一次性成本：首次 ~23MB 权重（境内设 `OMNI_HF_ENDPOINT=https://hf-mirror.com`）+ 首次语义索引（千文件 ≈3.5min，之后向量缓存零重付）。**跨仓泛化仍未验证**（外部真实仓库 pooled 0.0pp 的历史结论未被本轮推翻——本轮只测了本仓语料）。BM25 词法盲区（此前 27.1% 查询 GT 不可达）由语义路直接补位。锚点守护已由 `tests/unit/retrievalBaseline.test.ts` ①扩到**全量查询**（评测集漂移必红）。
 
 ### 2.3 审计与可观测
 
@@ -572,8 +574,8 @@ npm run web:test               # Web 构建 + 挂载单测
 - OS 级沙箱后端（landlock / seatbelt / bwrap）**未在真机验证** —— 本机缺失时 fail-closed，无静默放行。
 - **官方 SWE-bench Verified 大规模跑分缺失**：现有 `benchmark/capability-swebench.json` 为自研 10 题套件（deepseek-chat live 10/10，$0.20 / 64.7s），**非官方数据集**。
 - A2A 委托**真实对端互操作未验证**（协议两端 + `a2a_delegate` 工具面已落地并有 mock/跨进程判据；真实第三方 agent 的互操作属外部设施）。
-- 本地 HF embedding 权重未实测（fail-closed 回退 BM25）；OIDC 仅 mock IdP 验证。
-- repo-map 语义召回（Hybrid）已实现但生产默认仍为纯 BM25，语义路径待模型权重就绪后接入。
+- 本地 HF embedding 权重已实测可用（minilm 384 维，镜像拉取 + 落盘缓存，混合检索本仓 +14.7pp 两关过）；OIDC 仅 mock IdP 验证。
+- repo-map 语义召回（Hybrid）：本仓语料已实测并 **CLI 默认开启**（`OMNI_SEMANTIC_RECALL=0` 可关）；**跨仓泛化未验证**（外部仓库 pooled 0.0pp 的历史结论未被推翻——只对本仓语料负责）。
 - 浏览器 / computer use 能力**空白**。
 
 **已有真实评测基线**（非空白）—— 见 §2.4。

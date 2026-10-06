@@ -59,6 +59,7 @@ export class ExecCli extends CliAgentCmds {
    * @returns 进程退出码：子命令各自决定；exec 主路径成功 0、用法错误 2、执行异常 1。
    */
   public async run(argv: readonly string[]): Promise<number> {
+    this.applyCliRetrievalDefaults();
     if (argv.includes('--version') || argv.includes('-V')) {
       process.stdout.write(`omniharness ${(await import('../version.js')).API_VERSION}\n`);
       return 0;
@@ -152,9 +153,7 @@ export class ExecCli extends CliAgentCmds {
         return 0;
       }
       const config = await this.buildConfig(args);
-      if (args.print === true) {
-        this.assertHeadlessSafe(args);
-      }
+      if (args.print === true) this.assertHeadlessSafe(args);
       const agent = new Agent(Runtime.createRuntime(config));
       const result = await this.execute(agent, args);
       if (args.output !== undefined) {
@@ -192,6 +191,22 @@ export class ExecCli extends CliAgentCmds {
       restoreEgress();
       this.closeGateway();
     }
+  }
+
+  /**
+   * CLI 检索能力默认档（2026-10-05，第五十六轮）：语义混合检索 **CLI 默认开**。
+   *
+   * 依据：全量 191 条两关判定 Δ=+14.7pp，CI95[7.85, 21.99]，折负 0/40
+   * （`tools/probes/semanticHybridRecall.mjs` 可复现）。三重安全垫：
+   * ① 引擎对嵌入/索引异常 **fail-closed 回落纯 BM25**（回落计数可见）——离线/下载失败只是
+   *    退回旧行为，绝不更差；② 库直用（`ConfigFactory` 直配，含全部单测）默认仍关 ⇒ 测试
+   *    确定性不受网络影响（本方法只在 CLI 进程入口生效）；③ 显式 `OMNI_SEMANTIC_RECALL=0`
+   *    永远可关（`??=` 尊重用户已设值）。首次使用一次性成本：下载 ~23MB 权重（境内设
+   *    `OMNI_HF_ENDPOINT` 指向镜像）+ 首次语义索引（千文件 ≈3.5min，之后向量缓存零重付）。
+   * @returns 无返回值。
+   */
+  private applyCliRetrievalDefaults(): void {
+    process.env.OMNI_SEMANTIC_RECALL ??= '1';
   }
 
   /**
