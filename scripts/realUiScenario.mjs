@@ -118,10 +118,18 @@ async function freePort(harness) {
 async function startServe(harness, ws, args) {
   const port = await freePort(harness);
   let text = '';
-  const proc = spawn(process.execPath, [CLI, 'serve', '--port', String(port), ...args], {
-    cwd: ws,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  // **必须显式给 `--workspace ws`**（2026-10-06）：serve 的根解析链是
+  // `--workspace` > 本机固定项目（用户级 `~/.omniharness/omniharness.json` 的 `workspace`）> 启动目录。
+  // 只靠 `cwd: ws` 会被"本机固定项目"接手 ⇒ 本电池实际跑在**开发者真实项目**上：
+  // 既污染真实项目，也让 F 判据（会话应归属本工作区）假红——实测「本工作区会话 0 条」正是这个。
+  const proc = spawn(
+    process.execPath,
+    [CLI, 'serve', '--port', String(port), '--workspace', ws, ...args],
+    {
+      cwd: ws,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   proc.stdout?.on('data', (chunk) => (text += String(chunk)));
   proc.stderr?.on('data', (chunk) => (text += String(chunk)));
   const ready = await until(() => /OmniHarness UI: http/.test(text), 90_000);
@@ -422,6 +430,33 @@ async function main() {
       const usage = await rpc(serve.base, 'usage.stats', {});
       const calls = Number(usage?.total?.calls ?? 0);
       record('H', 'usage.stats 报出真实 token 计数', calls > 0, `calls=${String(calls)}`);
+    }
+
+    // ---- J 宿主 API 不得被当方法调用（真机崩溃回归） ----
+    // 2026-10-06 用户截图：「界面渲染出错 / Illegal invocation / at AssistantCard」。
+    // 根因：`TextRevealer.tick()` 里 `this.schedule(fn, ms)`——注入的是浏览器宿主函数 `setTimeout`，
+    // 以实例为 receiver 调用 ⇒ WebIDL 抛 Illegal invocation（触发条件：回合进行中 + 该助手消息未走过
+    // 流式 + 正文 > 240 字）。node 里 setTimeout 不做 receiver 校验，故**只有在真浏览器里**才能测到；
+    // 这正是本判据必须留在真机电池里的原因（用页面里**已发布**的模块跑一遍动画路径）。
+    if (on('J')) {
+      const reveal = await cdp.evaluate(`(async function(){
+        try {
+          var m = await import('/dist/ui/models/TextRevealer.js?v=' + Date.now());
+          var frames = 0;
+          var r = new m.TextRevealer(function(){ frames += 1; }, setTimeout);
+          r.start('x'.repeat(500), true);
+          await new Promise(function(res){ setTimeout(res, 150); });
+          var running = r.running;
+          r.stop();
+          return { ok: true, frames: frames, running: running };
+        } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+      })()`);
+      record(
+        'J',
+        '渐进揭示器在真浏览器里不抛 Illegal invocation（宿主调度器必须裸调用）',
+        reveal?.ok === true && Number(reveal.frames) >= 2,
+        `ok=${String(reveal?.ok)}｜帧数=${String(reveal?.frames)}｜错误=${String(reveal?.error ?? '')}`,
+      );
     }
   } catch (error) {
     record(

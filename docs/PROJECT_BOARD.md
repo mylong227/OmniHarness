@@ -519,6 +519,43 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第六十六轮｜用户截图「界面渲染出错 / Illegal invocation / at AssistantCard」——宿主 API 被当方法调用（真机崩溃；已修 + 双层判据锁死），并顺手修掉真机电池自身的隔离洞**：
+> 现场（用户截图）：打开会话（`#pane=tools&thread=…`）后整页落进渲染错误边界，错误 `Illegal invocation`，位置 `at AssistantCard`。
+>
+> **定位过程（两次复现失败才转向机制层）**：先按用户路径开页面——不崩。原因是用户的标签页是 long-lived 的，
+> 而我的复现窗口里 SSE 还在"重连中"、线程并未真正渲染出 `AssistantCard`。于是改用**对照实验**在真页面里问机制：
+> `const t = setTimeout; t(fn,0)` ⇒ **ok**；`setTimeout.call({}, fn, 0)` ⇒ **Illegal invocation**；
+> `obj.schedule = setTimeout; obj.schedule(fn,0)` ⇒ **Illegal invocation**。
+>
+> **根因**：`TextRevealer.tick()` 写的是 `this.schedule(fn, ms)`——一次**以揭示器实例为 receiver 的方法调用**；
+> `AssistantCard` 传的是 `schedule ?? setTimeout`，而 `StreamView` 渲染该卡片时**没有**传 `schedule`（读代码确认）
+> ⇒ 注入的正是浏览器宿主函数 `setTimeout`。触发条件三者同时成立：**回合进行中（busy）+ 该助手消息未走过流式
+> （animate）+ 正文 > 240 字**（`SHORT_TEXT`）⇒ 揭示动画**第一帧**即抛，整页落进错误边界。
+> 用页面里**已发布**的模块直接复现：`new TextRevealer(cb, setTimeout).start('x'.repeat(500), true)` ⇒ `Illegal invocation`。
+>
+> **修法（两处，目标都是"注入方传什么都安全"）**：① `TextRevealer` 构造函数把调度器**包一层裸调用**
+> （`this.schedule = (fn, ms) => raw(fn, ms)`），receiver 不再是实例；② `AssistantCard` 不再在组件里兜
+> `?? setTimeout`，缺省交给 `TextRevealer` 处理。
+>
+> **判据（两层，且都自证有牙）**：
+>
+> - Node 层 `web/test/textRevealerScheduler.test.mjs`（3 例）：**不断言"不抛错"**——node 的 `setTimeout` 不做
+>   receiver 校验，那样会**假绿**；改为断言**调度器被调用时的 receiver**。自证：把实现改回老写法，判据当场红并打印
+>   「调度器被当方法调用了（receiver=[object Object]）⇒ 浏览器会抛 Illegal invocation」；改回则 3 例绿。
+> - 真机层 `smoke:ui` 新增判据 **J**：在真 Chrome 里 import **已发布**的模块跑一遍动画路径（长文本 + 全局
+>   `setTimeout` + 等待多帧），断言不抛且确实推进 ≥2 帧；`--only=J` 与全量跑各验一次。
+>   **为什么必须放真机电池**：这个 bug 在 node 里根本触发不了——只有浏览器做 receiver 校验。
+>
+> **顺手修掉真机电池自己的隔离洞（F 判据变红的真因）**：`smoke:ui` 与 `smoke:real` 起 serve 时只设了 `cwd: 临时工作区`、
+> **没给 `--workspace`**；第六十三轮引入"本机固定项目"后，**用户级配置里的项目会接手** ⇒ 整个电池实际跑在
+> **开发者真实项目**上（既污染真实项目，也让 F 判据「会话应归属本工作区」假红：实测"本工作区会话 0 条 / 全量 1 条"）。
+> 两个 harness 都改为显式 `--workspace <临时工作区>`（与 `liveUiE2e` 早先的同类修法一致）。
+> **可推广的经验**：凡是"替用户起 serve"的脚本/测试，都必须显式指定工作区——`cwd` 不再是充分条件。
+>
+> **验证**：`web:test` **317/317**；`smoke:ui` **12/12**（含 J 与修好的 F）；`smoke:real` 见其报告。
+> 另记一条诚实边界：`smoke:ui` 首次全量跑曾出现 `B 挂载超时`的假红，原因是**我把 317 例 web 测试与它并行跑**（CPU 抢占），
+> 单独复跑即绿——重活不要并行跑，这条也写进了本轮经验。
+>
 > **第六十五轮｜文档体系整体复测 + 一键启动规范化：新增 `npm start` / `npm run dev`，重写 README，修掉一个"文档写着却早已失效"的真旗标（`--auto-approve`）与三处门禁洞**：
 > 用户指令："请更新当前项目的全部文档，特别是重新写 readme，然后给出整个项目的一件启动描述使用规范，最快最简单的前后端一起启动的方式方法。"
 >
