@@ -91,6 +91,12 @@ export interface StreamViewProps {
   permission: string;
   /** 当前会话 id（AddMenu / 上下文容量面板维度）。 */
   threadId?: string | null;
+  /** 应用会话模式（转发给 Composer → AddMenu；控制器决定立即落盘还是暂存）。 */
+  onApplyMode?: (patch: {
+    goal?: string;
+    planMode?: boolean;
+    sketchMode?: boolean;
+  }) => Promise<'applied' | 'deferred'>;
   /** 轻提示（AddMenu / 容量面板加载失败等）。 */
   onToast?: (msg: string, kind?: 'info' | 'err') => void;
   /** 跳到右侧某面板（AddMenu 点插件时打开「插件」页）。 */
@@ -351,6 +357,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     permission,
     threadId,
     onToast,
+    onApplyMode,
     onOpenTab,
     onLoadThread,
     busy,
@@ -588,6 +595,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
         threadId={threadId}
         seed={composerSeed ?? null}
         onToast={onToast}
+        onApplyMode={onApplyMode}
         onOpenTab={onOpenTab}
         onOpenFile={onOpenFile}
         onLoadThread={onLoadThread}

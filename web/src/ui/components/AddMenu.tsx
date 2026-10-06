@@ -11,6 +11,7 @@
 import { React } from '../deps.js';
 import { useApp } from '../context.js';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.js';
+import { PendingModes } from '../models/PendingModes.js';
 import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
@@ -24,6 +25,17 @@ export interface AddMenuProps {
   api: ApiClient;
   /** 打开文件选择器（复用 Composer 现有 FilePicker）。 */
   onAttach: () => void;
+  /**
+   * 应用会话模式（目标 / 计划 / 绘图）。
+   *
+   * 由控制器决定"立即落盘"还是"暂存到会话创建"（会话是惰性创建的，建会话前没有可写的 threadId）。
+   * 缺省时不动作（单测/嵌入场景可省）。
+   */
+  onApplyMode?: (patch: {
+    goal?: string;
+    planMode?: boolean;
+    sketchMode?: boolean;
+  }) => Promise<'applied' | 'deferred'>;
   /** 轻提示（加载失败 / 选择智能体等）。 */
   onToast: (msg: string, kind?: 'info' | 'err') => void;
   /** 跳到右侧某面板（点插件时打开「插件」页）。 */
@@ -71,6 +83,7 @@ function renderSection(section: AddMenuSection, onItem: (id: string) => void): R
  */
 export function AddMenu(props: AddMenuProps): ReactElement {
   const { threadId, api, onAttach, onToast, onOpenTab, onOpenFile, onLoadThread } = props;
+  const applyMode = props.onApplyMode;
   const { dialog } = useApp();
   const [open, setOpen] = React.useState<boolean>(false);
   const [goal, setGoal] = React.useState<string>('');
@@ -92,14 +105,17 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     if (!open) return undefined;
     const close = (): void => setOpen(false);
     window.addEventListener('click', close);
-    void api
-      .modesGet(threadId)
-      .then((m: SessionModes) => {
-        setGoal(m.goal);
-        setPlanMode(m.planMode);
-        setSketchMode(m.sketchMode);
-      })
-      .catch(() => {});
+    // 没有会话时不发 `modes.get`：模式按会话持久化，此时服务端必然拒（省掉一次注定失败的 RPC）。
+    if (threadId !== '') {
+      void api
+        .modesGet(threadId)
+        .then((m: SessionModes) => {
+          setGoal(m.goal);
+          setPlanMode(m.planMode);
+          setSketchMode(m.sketchMode);
+        })
+        .catch(() => {});
+    }
     setPluginsLoading(true);
     api
       .listPlugins()
@@ -132,16 +148,29 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   };
 
   /**
-   * 切换会话模式（目标 / 计划 / 绘图），调 modes.set 持久化。
+   * 切换会话模式（目标 / 计划 / 绘图）。
+   *
+   * **不再直接调 `modes.set`**（2026-10-06 真机报错）：会话是惰性创建的，建会话前 `threadId` 为空，
+   * 直调就弹出「模式切换失败：modes.set 需要 threadId」。改由控制器决策：有会话 ⇒ 立刻落盘；
+   * 没会话 ⇒ **暂存**，等会话一出现自动落盘，并如实告诉用户"发送第一条消息后生效"。
    * @param patch 模式补丁
    * @returns 无
    */
-  const toggleMode = async (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }): Promise<void> => {
+  const toggleMode = async (patch: {
+    goal?: string;
+    planMode?: boolean;
+    sketchMode?: boolean;
+  }): Promise<void> => {
+    // 先**乐观**更新本地开关：暂存档下没有服务端回执，但用户的点击必须即时可见。
+    if (patch.planMode !== undefined) setPlanMode(patch.planMode);
+    if (patch.sketchMode !== undefined) setSketchMode(patch.sketchMode);
+    if (patch.goal !== undefined) setGoal(patch.goal);
     try {
-      const next = await api.modesSet(threadId, patch);
-      setGoal(next.goal);
-      setPlanMode(next.planMode);
-      setSketchMode(next.sketchMode);
+      const outcome =
+        props.onApplyMode === undefined
+          ? 'applied'
+          : await props.onApplyMode(patch);
+      if (outcome === 'deferred') onToast(PendingModes.deferredHint(), 'info');
     } catch (e) {
       onToast('模式切换失败：' + (e as Error).message, 'err');
     }

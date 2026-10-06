@@ -59,6 +59,12 @@ export interface ComposerProps {
    * 组件保持非受控，回填由 effect 直接写 DOM 值（见 ComposerDraft）。
    */
   seed?: ComposerSeed | null;
+  /** 应用会话模式（转发给 AddMenu；控制器决定立即落盘还是暂存）。 */
+  onApplyMode?: (patch: {
+    goal?: string;
+    planMode?: boolean;
+    sketchMode?: boolean;
+  }) => Promise<'applied' | 'deferred'>;
   /** 轻提示（AddMenu / 容量面板加载失败等）。 */
   onToast?: (msg: string, kind?: 'info' | 'err') => void;
   /** 跳到右侧某面板（AddMenu 点插件时打开「插件」页）。 */
@@ -174,6 +180,7 @@ export function Composer(props: ComposerProps): ReactElement {
     threadId,
     seed,
     onToast,
+    onApplyMode,
     onOpenTab,
     onOpenFile,
     onLoadThread,
@@ -451,6 +458,7 @@ export function Composer(props: ComposerProps): ReactElement {
             setFilePickerOpen(true);
           }}
           onToast={(m, k) => onToast?.(m, k)}
+          onApplyMode={onApplyMode}
           onOpenTab={(key) => onOpenTab?.(key)}
           onOpenFile={(p) => onOpenFile?.(p)}
           onLoadThread={(id) => onLoadThread?.(id)}
