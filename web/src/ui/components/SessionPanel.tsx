@@ -50,6 +50,10 @@ export interface SessionPanelProps {
   onReorder?: (ordered: SessionEntry[]) => void | Promise<void>;
   /** 切换项目成功后回调（App 刷新会话列表等）。 */
   onWorkspaceSwitched?: () => void;
+  /** 会话列表是否显示**全部项目**（缺省只看当前项目，见 SessionsScope）。 */
+  scopeAll?: boolean;
+  /** 翻转显示范围（当前项目 ⇄ 全部项目）。 */
+  onToggleScope?: () => void;
   open: boolean;
   style?: Record<string, string>;
   /** 远端搜索防抖调度注入点（单测传「立即执行」以获得确定性，缺省走 setTimeout）。 */
@@ -72,6 +76,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onDelete,
     onFork,
     onWorkspaceSwitched,
+    scopeAll,
+    onToggleScope,
     open,
     style,
   } = props;
@@ -587,6 +593,20 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             <button className="btn primary" onClick={onNew}>
               + 新建
             </button>
+            {onToggleScope === undefined ? null : (
+              <button
+                className={'btn scope-toggle' + (scopeAll === true ? ' active' : '')}
+                title={
+                  scopeAll === true
+                    ? '当前显示**全部项目**的会话（点击只看本项目）'
+                    : '当前只显示**本项目**的会话（点击看全部项目）'
+                }
+                aria-pressed={scopeAll === true ? 'true' : 'false'}
+                onClick={onToggleScope}
+              >
+                {scopeAll === true ? '全部项目' : '本项目'}
+              </button>
+            )}
           </div>
           <SearchResults
             groups={groups}

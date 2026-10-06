@@ -71,6 +71,8 @@ export interface AppState {
   activeTool: string | null;
   toastState: ToastState;
   paletteOpen: boolean;
+  /** 会话列表是否显示**全部项目**（默认只显示当前项目；一键切换，见 SessionController.toggleSessionsScope）。 */
+  sessionsScopeAll: boolean;
   /** 应用内对话框状态（替代 window.confirm / window.prompt）。 */
   dialog: DialogState;
   /** 本回合已累积的流式正文（`thread.text_delta` 增量拼接）。 */

@@ -196,6 +196,8 @@ export class ApiClient {
    */
   public listSessions(opts?: {
     includeArchived?: boolean;
+    /** 工作区作用域：`'*'` = 全部项目；缺省＝服务端按当前项目过滤。 */
+    workspace?: string;
   }): Promise<{
     dir: string;
     sessions: {
@@ -208,7 +210,11 @@ export class ApiClient {
       archived?: boolean;
     }[];
   }> {
-    return this.rpc('sessions.list', { includeArchived: opts?.includeArchived !== false });
+    return this.rpc('sessions.list', {
+      includeArchived: opts?.includeArchived !== false,
+      // `workspace` 只在显式给出时下发：`'*'` = 全部项目（跨项目视图），缺省＝服务端按当前项目过滤。
+      ...(opts?.workspace !== undefined ? { workspace: opts.workspace } : {}),
+    });
   }
   /**
    * 归档 / 取消归档会话（只写侧车，不动事件流）。
