@@ -87,6 +87,14 @@ export class ComposerController {
       if (this.abortRequested) return;
       if (res.threadId) {
         this.host.patch({ currentThreadId: res.threadId });
+        // 会话刚出现：把用户在建会话前就点下的模式（目标/计划/绘图）落盘——见 SessionController.applyModes。
+        // **必须包在 try 里**：模式是增强，任何失败（含协作者未实现该方法的嵌入场景）都不许把回合判成失败
+        // ——实测漏包会在对话流里冒出「运行失败」提示事件，把一次成功的回合说成失败。
+        try {
+          void this.sessions.modes.flush(res.threadId);
+        } catch {
+          /* 模式落盘失败不影响回合 */
+        }
         this.host.patch((s) => {
           if (s.sessions.some((x) => x.id === res.threadId)) return s;
           const next = [{ id: res.threadId, label: prompt || (files[0] ? '📎 ' + files[0].name : '') }, ...s.sessions];

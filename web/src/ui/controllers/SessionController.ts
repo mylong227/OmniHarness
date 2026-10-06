@@ -8,6 +8,8 @@ import type { SessionEntry, ToolItem } from '../shared.js';
 import { langOf } from '../highlight.js';
 import { StreamThrottle } from '../models/StreamThrottle.js';
 import { SessionsScope } from '../models/SessionsScope.js';
+import { DeferredModes } from '../models/DeferredModes.js';
+import type { SessionModePatch } from '../models/PendingModes.js';
 import { MethodBinder } from './methodBinder.js';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
@@ -16,6 +18,8 @@ export class SessionController {
   private readonly host: AppHost;
   /** 共享服务。 */
   private readonly services: AppServices;
+  /** 会话模式协作者：有会话立刻落盘、没会话先暂存（构造时注入 API 落盘口）。 */
+  public readonly modes: DeferredModes;
   /**
    * 本回合的流式增量节流器（无回合进行中时为 null）。
    *
@@ -32,6 +36,7 @@ export class SessionController {
   public constructor(host: AppHost, services: AppServices) {
     this.host = host;
     this.services = services;
+    this.modes = new DeferredModes((id, patch) => services.api.modesSet(id, patch));
     // 一次绑定**全部**原型方法（见 MethodBinder：手写清单曾漏掉 rename/delete/fork ⇒「删除无效」）。
     MethodBinder.bindAll(this);
   }
@@ -175,6 +180,18 @@ export class SessionController {
     await this.refreshSessions();
   }
 
+  /**
+   * 应用会话模式（目标 / 计划 / 绘图）。
+   *
+   * 有没有"当前会话"由协作者 {@link DeferredModes} 决策（会话是惰性创建的）：有 ⇒ 立刻落盘；
+   * 没有 ⇒ 暂存，等会话出现再落盘——否则用户在建会话前点「计划模式」只会看到
+   * 「模式切换失败：modes.set 需要 threadId」（2026-10-06 真机截图）。
+   * @param patch 模式补丁。
+   * @returns `'applied'` 已落盘；`'deferred'` 已暂存（等会话创建）。
+   */
+  public async applyModes(patch: SessionModePatch): Promise<'applied' | 'deferred'> {
+    return this.modes.apply(this.host.getState().currentThreadId, patch);
+  }
   /**
    * 加载历史会话并重置回合态。
    * @param id 会话 id

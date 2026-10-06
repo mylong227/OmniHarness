@@ -203,6 +203,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         permission: s.permission,
         threadId: s.currentThreadId,
         onToast: ctrl.showToast,
+        onApplyMode: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) =>
+          ctrl.sessions.applyModes(patch),
         onOpenTab: ctrl.openPane,
         onLoadThread: ctrl.sessions.loadThread,
         onModelChange: ctrl.composer.changeModel,
