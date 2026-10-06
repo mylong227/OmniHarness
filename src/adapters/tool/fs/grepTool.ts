@@ -140,6 +140,18 @@ export class GrepTool {
       mode: GrepTool.outputMode(call.arguments['output_mode']),
     };
     const walk = await GrepTool.candidateFiles(root, scope);
+    // **截断 + 零候选 ⇒ 结果不可信，必须 fail-loud**（2026-10-06 真实 API 跑测实测，与 glob 同因）：
+    // 遍历在 `third-party/` 撞满上限、没走到 `src/` 时，旧行为返回 `ok:true` + "扫描 0 个文件"，
+    // 模型会把它读成"这段代码不存在"。截断标记留在输出里不够——结论本身必须降级为错误。
+    if (walk.truncated && walk.files.length === 0) {
+      return {
+        callId: call.id,
+        ok: false,
+        error:
+          '文件遍历被上限截断，本次范围内一个候选文件都没走到 ⇒ "0 命中"不可信。' +
+          '请用更具体的 path / glob 缩小范围（可先 list_dir 确认路径）。',
+      };
+    }
     const outcome = await this.scan(
       root,
       walk.files,
