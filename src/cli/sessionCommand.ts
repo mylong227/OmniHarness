@@ -4,10 +4,10 @@
  * 从原 CliDataCmds 抽出，行为逐字节等价；只依赖 CliArgReader，不依赖命令继承链，可单测。
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { CliArgReader } from './cliArgReader.js';
+import { SessionStorageLocation } from '../util/sessionStorageLocation.js';
 
 /** session 子命令：列出工作区会话日志文件（session list），输出 id / 事件数 / 修改时间摘要。 */
 export class SessionCommand {
@@ -21,8 +21,11 @@ export class SessionCommand {
       process.stdout.write('用法: omniharness session list [--storage-dir DIR]\n');
       return 2;
     }
-    const dir =
-      new CliArgReader(args).value('--storage-dir') ?? join(homedir(), '.omniharness', 'sessions');
+    // 与写入方同源（不再自己写一份 `homedir()` 拼接；见 SessionStorageLocation 的实测事故说明）。
+    const dir = SessionStorageLocation.resolve(
+      process.cwd(),
+      new CliArgReader(args).value('--storage-dir'),
+    );
     const names = (await readdir(dir)).filter((name) => name.endsWith('.jsonl'));
     if (names.length === 0) {
       process.stdout.write('（无会话文件）\n');

@@ -40,6 +40,13 @@ interface ReportableController {
   report?(): unknown;
 }
 
+/**
+ * 只在 `serve` / `server` 装配的**审计 sink** 旗标（单跑路径上 fail-closed，见
+ * `assertExecPathSupported`）。它们不在 `CliArgs` 里（由 `CliBuildConfig.createAudit` 直接扫 argv），
+ * 故这里按字面量判定。
+ */
+const AUDIT_FLAGS: readonly string[] = ['--audit-dir', '--audit-file', '--audit-hmac-key'];
+
 /** OmniHarness CLI 命令入口：omniharness exec / server … */
 export class ExecCli extends CliAgentCmds {
   /** evolution 子命令（S7）：status/rollback 自持，cycle 经本层注入的钩子执行。 */
@@ -156,7 +163,7 @@ export class ExecCli extends CliAgentCmds {
       // 绝不"按缺省分支"静默降级（见方法注释）。
       // 顺序讲究：headless 的专属提示（"交互审批会挂起"）更具体，故对 `-p` 先判它。
       if (args.print === true) this.assertHeadlessSafe(args);
-      this.assertExecPathSupported(args);
+      this.assertExecPathSupported(args, argv);
       const config = await this.buildConfig(args);
       const agent = new Agent(Runtime.createRuntime(config));
       const result = await this.execute(agent, args);
@@ -249,10 +256,16 @@ export class ExecCli extends CliAgentCmds {
    *
    * `--plugin-profile` 同理（`declared but not wired`）：插件集收敛点 `applyPluginProfile` 只存在于
    * AppServer，单跑路径上 `args.pluginProfile` **零消费者**，传了等于没传。
+   *
+   * `--audit-dir` / `--audit-file` / `--audit-hmac-key` 是 2026-10-06 第五十九轮**真实跑测**抓到的同类：
+   * 审计 sink 只在 `serve` / `server` 装配（`CliBuildConfig.createAudit` 的两个调用点都在那里），
+   * 单跑路径上它们**接受却不消费**——实测「带 `--audit-dir` 跑一次、再 `audit export` 读回」得到 `[]`，
+   * 而用户以为自己有了审计链。故同样 fail-closed；"把审计链接进单跑路径"登记为独立工程项。
    * @param args 解析后的 CLI 参数。
+   * @param argv 原始 argv（审计旗标不在 `CliArgs` 里，只能按字面量判定）。
    * @returns 无返回值；不满足即抛错（由 `run()` 的 catch 统一转非零退出）。
    */
-  private assertExecPathSupported(args: CliArgs): void {
+  private assertExecPathSupported(args: CliArgs, argv: readonly string[]): void {
     if (args.approval === 'ask') {
       throw new Error(
         '单跑（exec）路径没有交互审批通道：`--approval ask` 在本路径上无对应实现，' +
@@ -266,6 +279,14 @@ export class ExecCli extends CliAgentCmds {
           '单跑路径上它零消费者，传了等于没传，故此处 fail-closed。',
       );
     }
+    const auditFlag = AUDIT_FLAGS.find((flag) => argv.includes(flag));
+    if (auditFlag !== undefined) {
+      throw new Error(
+        `审计 sink 只在 \`omniharness serve\` / \`server\` 装配；单跑（exec）路径上 \`${auditFlag}\` ` +
+          '会被接受但**不产生任何审计条目**（实测：带它跑一次再 `audit export` 得到空数组），故此处 fail-closed。' +
+          '需要审计链请用 `omniharness serve --audit-dir …`，再用 `audit export` 读取。',
+      );
+    }
   }
 
   /**
@@ -275,9 +296,8 @@ export class ExecCli extends CliAgentCmds {
    * `approval=ask` / `escalation=ask` 在没有 stdin 的流水线里会一直等待人输入，
    * 表现为「任务卡住」而非报错，极难排查。此处 fail-closed 显式失败并给出可自愈的提示。
    * @param args 解析后的 CLI 参数（检查 approval / escalation 是否为 ask）。
-   
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private assertHeadlessSafe(args: CliArgs): void {
     const interactive: string[] = [];
     if (args.approval === 'ask') {

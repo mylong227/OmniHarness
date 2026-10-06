@@ -64,7 +64,8 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--key-file',
   '--out-dir',
   '--out',
-  // 审计 / 追溯 / sdk
+  // 审计 / 追溯 / sdk（`--audit-dir` / `--audit-file` / `--audit-hmac-key` **在 VALUE_FLAGS**：
+  // 它们取值为路径/密钥，必须走取值型清单以免取值被当成 prompt；判据②会拒绝重复登记）
   '--actor',
   '--since',
   '--until',
@@ -72,9 +73,6 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--session',
   '--limit',
   '--format',
-  '--audit-dir',
-  '--audit-file',
-  '--audit-hmac-key',
   '--server',
   '--args',
   '--url',

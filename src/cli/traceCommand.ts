@@ -10,8 +10,8 @@
  * 存储后端说明：读的是 jsonl 存档（与 `session list --storage-dir` 同一口径）；memory/sqlite
  * 后端不落该目录时如实报告「会话未找到或无 trace」，不伪造条目。
  */
-import { join, resolve } from 'node:path';
 import { SessionEventReader } from '../adapters/telemetry/sessionEventReader.js';
+import { SessionStorageLocation } from '../util/sessionStorageLocation.js';
 import { SessionTraceService } from '../server/services/session/sessionTraceService.js';
 import type {
   TraceEntry,
@@ -25,8 +25,12 @@ const USAGE =
   '用法: omniharness trace read --session ID [--limit N] [--kind K] ' +
   '[--storage-dir DIR] [--json]\n';
 
-/** 默认会话存档子目录（相对工作区；与存储层 jsonl 后端缺省一致）。 */
-const DEFAULT_SESSIONS_DIR = join('.omniharness', 'sessions');
+/**
+ * 默认会话存档目录：**与写入方同源**（`SessionStorageLocation`，用户级 `~/.omniharness/sessions`）。
+ *
+ * 2026-10-06 贴条：此前这里写的是"相对工作区（与存储层 jsonl 后端缺省一致）"——那句话是**错的**，
+ * 存储层的缺省来自 `CliDefaults.storageDir`（用户级），于是默认跑一次再 `trace read` 必然找不到会话。
+ */
 
 /** TraceCommand 依赖（缺省实现直接读会话存档）。 */
 export interface TraceCommandDeps {
@@ -78,10 +82,9 @@ export class TraceCommand {
       return 2;
     }
     const workspace = this.workspace;
-    const storageDirArg = reader.value('--storage-dir') ?? DEFAULT_SESSIONS_DIR;
-    // 用 resolve 而非 join：`join` 不认右侧的绝对路径（会把盘符再拼一次），
-    // 而 `--storage-dir D:\sessions` 这类显式绝对路径必须原样生效。
-    const storageDir = resolve(workspace, storageDirArg);
+    // 默认目录与**写入方**（`CliDefaults.storageDir`）同源（2026-10-06 第五十九轮实测修正）：
+    // 此前这里默认工作区相对、写入方默认用户级 ⇒ 默认跑一次再 `trace read` **必然找不到会话**。
+    const storageDir = SessionStorageLocation.resolve(workspace, reader.value('--storage-dir'));
     const source = this.createReader(storageDir);
     const service = new SessionTraceService({
       replay: (id) => source.load(id),
