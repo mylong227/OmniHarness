@@ -34,7 +34,10 @@
  * - 开跑前有**嵌入自检**（真嵌一条并核维度）：模型加载/下载/落盘任一环节不通当场 exit 3
  *   ——绝不重演「长跑一晚、191/191 静默回落、数字全是纯 BM25」的水分形态（首版踩过）；
  * - 语义回落计数（`engine.semanticFallbackTotal()`）随行打印：>0 即有查询退化成纯 BM25，数字含水分；
- * - 渲染文本路径解析可能重复计入（同文件多次出现）——命中判定是集合语义，不受影响。
+ * - 渲染文本路径解析可能重复计入（同文件多次出现）——命中判定是集合语义，不受影响；
+ * - **生效旋钮随行打印**（fileK/preset/chunks/rerank）：本探针的 `arg()` 曾被打坏成
+ *   `startsWith()`（漏传参数 ⇒ 永不匹配 ⇒ 旗标静默失效），变体读数与基线逐位相同才暴露——
+ *   仪器必须回显自己的生效配置，否则「旗标没生效」与「旋钮无效果」不可区分。
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -51,10 +54,21 @@ const importDist = (...segments) => import(pathToFileURL(join(ROOT, 'dist', ...s
  * @returns {string} 值。
  */
 const arg = (name, dflt) => {
-  const hit = process.argv.find((a) => a.startsWith());
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   return hit === undefined ? dflt : hit.slice(name.length + 3);
 };
 
+const FILE_K = Number(arg('fileK', '20'));
+const CHUNKS = arg('chunks', '0') === '1';
+const RERANK = arg('rerank', '0') === '1';
+const PRESET = arg('preset', 'minilm');
+if (!Number.isFinite(FILE_K) || FILE_K <= 0) {
+  console.error('✗ --fileK 必须是正整数');
+  process.exit(2);
+}
+console.log(
+  `生效旋钮：fileK=${String(FILE_K)} preset=${PRESET} chunks=${String(CHUNKS)} rerank=${String(RERANK)}`,
+);
 let ContextEngine;
 let RepoMapContextEngine;
 let TransformersEmbeddingAdapter;
@@ -85,11 +99,15 @@ try {
     pathToFileURL(join(ROOT, 'dist', 'tests', 'fixtures', 'recallQueries.js')).href
   ));
 } catch (error) {
-  console.error('✗ 缺少编译产物。请先运行 `npm run build`。');
+  // 不吞真实错误：import 失败可能是「编译产物缺失」之外的形态（如模块加载期依赖 CWD 的副作用）。
+  console.error(
+    `✗ 初始化失败（先确认已 \`npm run build\`；若产物在，则看下方真实原因）：${
+      error instanceof Error ? (error.stack ?? error.message) : String(error)
+    }`,
+  );
   process.exit(2);
 }
 
-const FILE_K = Number(arg('fileK', '20'));
 if (!Number.isFinite(FILE_K) || FILE_K <= 0) {
   console.error('✗ --fileK 必须是正整数');
   process.exit(2);
@@ -169,9 +187,6 @@ try {
 
 // 变体旋钮（2026-10-05 扩展）：chunks=函数体分块召回（生产默认关）、rerank=第二段词法精排
 // （生产默认关）。本探针负责在**全量 191 条**口径上实测它们叠在混合检索上的净效果。
-const CHUNKS = arg('chunks', '0') === '1';
-const RERANK = arg('rerank', '0') === '1';
-const PRESET = arg('preset', 'minilm');
 const hybridHit = [];
 const t0 = Date.now();
 for (const [i, { q, gt }] of CASES.entries()) {
