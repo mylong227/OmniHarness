@@ -43,6 +43,19 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
   const [quota, setQuota] = React.useState<QuotaStatus | undefined>(undefined);
   const [loading, setLoading] = React.useState<boolean>(false);
 
+  // **取数 effect 的依赖只允许语义相关的量**（2026-10-06 实测的"上下文重复刷"）：
+  // 老实现把 `api` / `onToast` / `busy` 一起写进依赖数组，而父组件 Composer 传的是
+  // **内联箭头** `onToast={(m,k) => onToast?.(m,k)}` ⇒ 父组件每渲染一次就产生一个新身份 ⇒
+  // effect 被判定"依赖变了" ⇒ 重新 `context.usage` + `quota.get` 两个 RPC，再 `setUsage/setQuota`
+  // （新对象）⇒ 面板重渲染 ⇒ …… 实测**面板打开后 6 秒内打了 23 次 /rpc**，界面一直停在「加载中…」。
+  // 回调与 api **不该**是"数据源"：它们只被调用，不参与判断"要不要重新取数"，故放进 ref。
+  const apiRef = React.useRef(api);
+  apiRef.current = api;
+  const toastRef = React.useRef(onToast);
+  toastRef.current = onToast;
+  /** 本次展开是否已经报过取数失败（防"失败 ⇒ toast ⇒ 父重渲染 ⇒ 再取数"再次成环）。 */
+  const reportedRef = React.useRef<boolean>(false);
+
   // 展开期间才挂外部点击监听；收起或卸载即摘除（H3 清理对称，deps 只有 open）。
   React.useEffect(() => {
     if (!open) return undefined;
@@ -51,14 +64,16 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     return () => window.removeEventListener('click', close);
   }, [open]);
 
-  // 展开时拉取容量与配额；卸载或收起即置 alive=false，杜绝迟到回写。
+  // 展开时拉取容量与配额；收起 / 切换会话 / 回合忙闲变化时重新拉（`busy` 是**刷新信号**：
+  // 用量快照在回合推进中才产生）。卸载或收起即置 alive=false，杜绝迟到回写。
   React.useEffect(() => {
     if (!open) return undefined;
+    reportedRef.current = false;
     let alive = true;
     const run = async (): Promise<void> => {
       setLoading(true);
       try {
-        const [u, q] = await Promise.all([api.contextUsage(threadId), api.quotaGet()]);
+        const [u, q] = await Promise.all([apiRef.current.contextUsage(threadId), apiRef.current.quotaGet()]);
         if (alive) {
           setUsage(u);
           setQuota(q);
@@ -67,7 +82,11 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
       } catch (e) {
         if (alive) {
           setLoading(false);
-          onToast('容量数据加载失败：' + (e as Error).message, 'err');
+          // 每次展开只报一次：否则「失败 ⇒ toast ⇒ 父重渲染 ⇒ 再取数」会自己转起来。
+          if (!reportedRef.current) {
+            reportedRef.current = true;
+            toastRef.current('容量数据加载失败：' + (e as Error).message, 'err');
+          }
         }
       }
     };
@@ -75,7 +94,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     return () => {
       alive = false;
     };
-  }, [open, api, threadId, onToast, busy]);
+  }, [open, threadId, busy]);
 
   /** 触发按钮：阻断冒泡后切换展开态。 */
   const toggle = (e: React.MouseEvent): void => {

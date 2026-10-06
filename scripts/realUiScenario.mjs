@@ -458,6 +458,40 @@ async function main() {
         `ok=${String(reveal?.ok)}｜帧数=${String(reveal?.frames)}｜错误=${String(reveal?.error ?? '')}`,
       );
     }
+
+    // ---- K 上下文容量面板：**父组件重渲染时不得变成"每渲染重拉一次"的放大器** ----
+    // 2026-10-06 用户报「死循环，上下文重复刷」：面板取数 effect 的依赖里含父组件传的**内联箭头**
+    // （`onToast={(m,k) => onToast?.(m,k)}`）⇒ 父组件每渲染就产生新函数身份 ⇒ effect 判定"依赖变了" ⇒
+    // 重打 `context.usage` + `quota.get` ⇒ `setUsage`（新对象）⇒ 再渲染…… 实测**打开后 6 秒内 23 次 /rpc**，
+    // 界面永远停在「加载中…」。用户是在**回合进行中**（流式增量让父组件持续重渲染）撞上的。
+    //
+    // 判据必须**显式注入重渲染**才复现得了：空转 6 秒时父组件根本不渲染 ⇒ 老代码也是绿的（假绿）。
+    // 这里用「点 5 次主题按钮」注入 5 次父组件重渲染（App 状态变），再数 /rpc：
+    // 修复后应≈2 次（打开时的两次），修复前是 2×N 次。
+    if (on('K')) {
+      await cdp.evaluate("(function(){var b=document.querySelector('.cap'); if(b) b.click();})()");
+      await new Promise((r) => setTimeout(r, 900)); // 让首次取数落地
+      cdp.clearDiagnostics();
+      // 注入 5 次**父组件重渲染**且**不关闭面板**：切右栏面板（hashchange ⇒ 路由 ⇒ App 状态变 ⇒ 重渲染；
+      // 不点按钮，避免命中面板"外部点击即关闭"的监听）。threadId 不变 ⇒ 修复后不该有重取数。
+      const panes = ['metrics', 'tools', 'plugins', 'memory', 'tools'];
+      for (const pane of panes) {
+        await cdp.evaluate(`(function(){ location.hash = '#pane=${pane}'; })()`);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+      const diag = cdp.diagnostics();
+      const rpcCalls = diag.responses.filter((r) => /\/rpc$/.test(String(r.url))).length;
+      const stuck = await cdp.evaluate(
+        "(function(){return !!document.querySelector('.cap-loading');})()",
+      );
+      record(
+        'K',
+        '上下文容量面板：父组件重渲染 5 次时不自激（/rpc 次数有界、不停在「加载中…」）',
+        rpcCalls <= 6 && stuck === false,
+        `5 次重渲染期间 /rpc=${String(rpcCalls)} 次（修复前为 2×N 次）｜卡在加载中=${String(stuck)}`,
+      );
+    }
   } catch (error) {
     record(
       'X',
