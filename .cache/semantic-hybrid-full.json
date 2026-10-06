@@ -1,0 +1,1160 @@
+{
+  "probe": "semanticHybridRecall",
+  "fileK": 20,
+  "corpus": {
+    "files": 1010,
+    "symbols": 11864
+  },
+  "baseline": 0.4083769633507853,
+  "hybrid": 0.5549738219895288,
+  "perQuery": [
+    {
+      "q": "where is tool registration handled",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how does sandbox denial escalate to approval",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what does ContextAssembler project events into",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are images attached to model messages",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where is reasoning_effort sent to the openai model",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how does BM25 tokenize CJK text",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the resonant memory probe mapped from text",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where is the sandbox policy evaluated",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "how are tool results spilled out of context",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which component remembers decisions the operator already blessed",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is a signed claim from an agent packaged",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "tuning knobs for the graph that links distant memories",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "settings for the planner that gradually cools down",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "options controlling what gets pulled out of conversations",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "knobs for the parity based error correction layer",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what signals that a parity check has failed",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "where is the remaining spend captured at a point in time",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is a chain of thought persisted to disk",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what normalizes text before it is compared",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how long is a prior yes remembered before asking again",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "settings for the belief updater that follows curvature",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "tunables for the sampler tracking many hypotheses at once",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the local vector model configured",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where are ed25519 signing credentials created",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are orphaned tool call identifiers tracked",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the chat completion provider configured",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where do language server error reports come from",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how many characters of a conversation are retained",
+      "tier": "core",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what does a delegated child task return",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what represents one entry in a multi stage plan",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where are capabilities discovered and registered",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which component gates dangerous tool calls at runtime",
+      "tier": "core",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are the five permission levels described to the operator",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how are allow and deny outcomes derived from configured criteria",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which component decides whether an elevated action may proceed",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how are rule expressions judged without executing any code",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are equivalent shell invocations reduced to a single canonical form",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which isolation backends actually work on this machine",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "is an interactive terminal available on this host",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where is the growing run history kept in memory",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is the parsed repository reused between searches",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are vector lookups reused across successive queries",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which dials tune the retrieval behaviour",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how are candidates reordered in a second pass",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how much of the outline is injected for each hit",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are the lexical and vector rankings fused",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "when does a large tool result get written to a side file",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is markup stripped before counting characters",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how are outbound requests filtered against private address ranges",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the reliability of fetched content graded",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are hostile instructions inside fetched text isolated",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how does an in flight request learn that it should stop early",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how are remote procedure calls framed over a socket",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are messages delimited when sent down a pipe",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the local dashboard protected from other machines",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where are past conversations stored for later listing",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how can an operator return a conversation to an earlier point",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how are file modifications collected for review",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how can reviewed hunks be staged or reverted",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are daily token budgets reported per model",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "where are extensions loaded and isolated at runtime",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are available vendors discovered from the endpoint",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "where do tamper evident records get written",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how are nested timing records assembled for export",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is spend assigned back to the individual calls",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is the reusable prefix ratio monitored",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how does reinforcement from verified outcomes drive promotion",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how are near duplicate candidates rejected",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how does a cooling schedule decide whether to take a worse candidate",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the share of reachable outcomes measured",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are recurring breakdown signatures extracted from runs",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the injected capability list trimmed",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what pulls durable facts out of a conversation",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how are repeated identical actions detected and stopped",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "where are long running shell commands tracked",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are per agent git checkouts created and removed",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are wildcard patterns turned into regular expressions",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are picture dimensions read without decoding them",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is the number of simultaneous tasks capped",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are many similar items processed at once with a bound",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how are transient failures attempted again with growing delays",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is a patch rendered as readable hunks",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which numeric codes are handed back for a rejected or unknown call",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is raw input broken into runnable segments or a refusal",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what must the composition root supply to check code after a save",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what pieces come back after a remote page is retrieved",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what gets injected to build the check that runs as a reply finishes",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how many times may the check command fire in one conversation",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which slice of rows can be requested when opening a document",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how closely must text agree before a swap is accepted",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is a risky request rendered for a model to judge",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "where are repeated identical permission verdicts kept in memory",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what does a terminal session report once its process exits",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is drift spotted before a stored copy is overwritten",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how are the escape characters kept out of pattern expansion",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which surface of a third party model package does the wrapper consume",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which stateless helpers sit beside the resonance simulation code",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "a durable store kept as one growing append only journal",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "which ceiling governs how many latest jottings survive",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "how many degrees of temperature a diffusion step applies per connection",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "at most how many engraved results are kept before the oldest is dropped",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is a note laid out in a grid with row and column parity",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "a candidate paired with its relevance number before ageing is applied",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how many warning lines are drawn for one file at most",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what an attached terminal reports about this host",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how is an unresponsive build command given a ceiling",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "tunables for the capability that downloads a page",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "callback shape used to notice an unfinished stub after a write",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is a live capture hook supplied when taking a picture",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what outcome comes back when a change bundle is applied across documents",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what can be undone once a saved point exists",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is a stored command managed while it is still running",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which confinement backends were detected as usable on this host",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what collaborators are injected into the kit bridge",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "one row describing an available switch in the manual",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "a canned bundle of settings for a known vendor",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what inputs are needed to materialize secrets for the runtime",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "a reference to one of the interchangeable record backends",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "what marks how much of a chat was already folded away",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what bounds how many hops a neighborhood scan may take",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which artifact carries the sparse adjacency plus normalized importance",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how many characters of a symbol body may a slice retain",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how often the memoized measurements were reused",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what a remembered lookup reports back plus a nullable payload",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "when is a big output swapped for a bounded preview and a locator",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "identifiers whose output must never be offloaded",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "which category keys and window size are handed to the size auditor",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which knob list and share of identical leading bytes are reported",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what the first pass produced alongside the tuning knobs",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how many citations point at a node and how uneven they are",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which numeric cut offs decide if a ranking route is discarded",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what trims a long transcript back under the window",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "where is the size of a piece of text remembered",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "which marks tell one provider what may be reused",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what reads back how many tokens were served from a reused prefix",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "what reorders the shortlist after the first pass",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "the overall outcome of grading against a list of criteria",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "the outcome telling whether a worse candidate was taken",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what change was taken on board after a flaw was found",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "why was a candidate turned away before being merged",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what comes back after one pass of reinforced sampling",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what each step hands back to the driver",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "the lookup translating each stage label into a key",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "the running picture of budget and consumed work",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "the shape of the compiled addon this process loads",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is a label from our side rewritten for the inner dialect",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which settings point at the collector and name the service",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "dials controlling how spans are gathered from the bus",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what flags a moment when too little of the prompt prefix was reused",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is an extension pulled in by dynamically loading its entry module",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "what an immutable base unit lists besides its group and tags",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how can two symbols be joined when their valences cancel out",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how many normal samples trained the detector and what it last flagged",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how far a data point sits from the learned normal band",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "the four speaker kinds a stored utterance may belong to",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "where a promoted skill is written down and what it came from",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "a named slice of divergence computed for one axis instead of the total",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "a call that may only look, naming a chat and a cap on rows",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is a passage sealed into a compact packet and opened again",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 0
+    },
+    {
+      "q": "one observation of how much a skill was leaned on",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "which pluggable backend keeps a log of sessions for later reading",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how do we learn whether the warm up succeeded and how long it took",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what a scored slot in the inverted list hands back",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "how many picks can the lookup table score the same way",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "where a plain text request is matched against known schemas",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is a one way notice delivered without awaiting a reply",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what comes back when a long workflow starts and can be aborted later",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which preferences survive a restart and get written back",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what extra fields travel with a generated regulatory filing",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "tunables for keeping operator remarks about proposed changes",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "which plan is chosen when no subscription was picked",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "what value stands in when nothing has been toggled yet",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "possible results of moving an exchange backwards in time",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what comes back when a bounded workspace fetch succeeds or fails",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what the dashboard reports for an external uptime checker",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how long each exchange took at the lowest and highest",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what snapshot does the status call hand back about a workflow",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "payload carrying a numeric fault code back to the caller",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "how is the loopback listener configured together with an access credential",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "how is a sliding average applied to a grid of numbers",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "the bundle of subsystem handles handed to each round",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "where per round readings are pushed to the sink",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "a handle that relays an outside abort to an inner request",
+      "tier": "ext",
+      "base": 1,
+      "hybrid": 1
+    },
+    {
+      "q": "the role description that shapes how a helper behaves",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what tracks the recent pass or fail record of each executable",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "the split of divergence into two additive parts",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "a reading of how many recent calls failed plus the open instant",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "what comes back from scanning every path in a tree",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "callbacks stored while an answer is still awaited",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    },
+    {
+      "q": "fallback vendor settings used when nothing was configured",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 0
+    },
+    {
+      "q": "raised when a relative route escapes its root",
+      "tier": "ext",
+      "base": 0,
+      "hybrid": 1
+    }
+  ],
+  "elapsedSec": 206,
+  "semanticFallbacks": 0
+}

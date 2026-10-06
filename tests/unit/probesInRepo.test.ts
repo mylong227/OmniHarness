@@ -60,7 +60,9 @@ test('③ 可移植：无绝对路径、不依赖 gitignored 的 .omniharness/',
   for (const name of probeFiles()) {
     const text = readFileSync(join(PROBES_DIR, name), 'utf8');
     // 绝对路径（Windows 盘符 / POSIX 用户目录）会让干净克隆直接跑不了。
-    assert.ok(!/[A-Za-z]:[\\/]/.test(text), `${name} 含 Windows 绝对路径`);
+    // 盘符 = 「前面**不是字母**的单字母 + 冒号 + 斜杠」：URL scheme（如 https://）里的
+    // 「s:/」前面有字母，不属盘符——2026-10-05 语义探针的注释 URL 误触过本正则（假阳性）。
+    assert.ok(!/(?<![A-Za-z])[A-Za-z]:[\\/]/.test(text), `${name} 含 Windows 绝对路径`);
     assert.ok(!text.includes('/home/'), `${name} 含 POSIX 绝对路径`);
     // `.omniharness/` 是 gitignored 的运行时目录：依赖它 = 干净克隆没这份数据。
     assert.ok(

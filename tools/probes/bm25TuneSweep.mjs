@@ -15,11 +15,21 @@
  *   + repeated 2-fold 折负统计——与本仓「两关」纪律同款；
  * - **改动默认必须**：最优组合过两关 **且** 比默认高出 ≥1.5pp（低于判据宽度的增益不值得动生产）。
  *
+ * ## 前置
+ *
+ * 需要编译产物：先 `npm run build`。
+ *
  * ## 用法
  *
  * ```bash
  * node tools/probes/bm25TuneSweep.mjs [--json=out.json]
  * ```
+ *
+ * ## 诚实边界
+ *
+ * - 单语料结论：参数最优性只对**当前语料**负责，语料剧变后应重扫（探针可复现）；
+ * - hitRate@20 是文件级命中，不测符号级与排序质量；网格外的参数空间未探索（k1>2.1 / b<0.3 不在格内）；
+ * - 实测结论（2026-10-05，语料 1010 文件）：24 组合无一过两关，默认保持——本文件把该结论固化。
  */
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -28,6 +38,17 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) => import(pathToFileURL(join(ROOT, 'dist', ...segments)).href);
+
+/**
+ * 读命令行 `--name=value`。
+ * @param {string} name 参数名（不含 `--`）。
+ * @param {string} dflt 缺省值。
+ * @returns {string} 值。
+ */
+const arg = (name, dflt) => {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return hit === undefined ? dflt : hit.slice(name.length + 3);
+};
 
 let ContextEngine;
 let RECALL_QUERIES;
@@ -158,8 +179,9 @@ console.log(
     : `\n判定：存在过两关组合 ${JSON.stringify(winners)}——改默认前需在 core/ext 分层复核并更新检索基线。`,
 );
 
-if (process.argv.find((a) => a.startsWith('--json='))) {
-  const out = process.argv.find((a) => a.startsWith('--json=')).slice(7);
+const JSON_OUT = arg('json', '');
+if (JSON_OUT !== '') {
+  const out = JSON_OUT;
   writeFileSync(
     out,
     `${JSON.stringify({ probe: 'bm25TuneSweep', defaults: DEFAULTS, baseRate: +baseRate.toFixed(1), results, winners }, null, 2)}\n`,
