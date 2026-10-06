@@ -137,8 +137,8 @@ function filesInText(text) {
 }
 
 const inner = new TransformersEmbeddingAdapter({
-  preset: 'minilm',
-  cacheDir: join(VEC_CACHE, 'models'),
+  preset: arg('preset', 'minilm'),
+  cacheDir: join(VEC_CACHE, 'models', arg('preset', 'minilm')),
   // 与生产装配同一 env 解析（OMNI_HF_ENDPOINT / HF_ENDPOINT）：漏传会把下载打到
   // huggingface.co——在境内网络即模型加载失败 ⇒ 引擎整段吞错回落纯 BM25（上一轮
   // 191/191 全回落、耗时一晚的根因，正是本行缺失）。
@@ -167,10 +167,19 @@ try {
   process.exit(3);
 }
 
+// 变体旋钮（2026-10-05 扩展）：chunks=函数体分块召回（生产默认关）、rerank=第二段词法精排
+// （生产默认关）。本探针负责在**全量 191 条**口径上实测它们叠在混合检索上的净效果。
+const CHUNKS = arg('chunks', '0') === '1';
+const RERANK = arg('rerank', '0') === '1';
+const PRESET = arg('preset', 'minilm');
 const hybridHit = [];
 const t0 = Date.now();
 for (const [i, { q, gt }] of CASES.entries()) {
-  const text = await engine.getHybridRepoMapContext(SRC_ROOT, q, embedding, { fileK: FILE_K });
+  const text = await engine.getHybridRepoMapContext(SRC_ROOT, q, embedding, {
+    fileK: FILE_K,
+    ...(CHUNKS ? { chunkRecall: true } : {}),
+    ...(RERANK ? { rerank: true } : {}),
+  });
   const found = text === null ? [] : filesInText(text);
   hybridHit.push(found.some((f) => gt.has(f)) ? 1 : 0);
   if ((i + 1) % 40 === 0) {
@@ -206,6 +215,9 @@ if (JSON_OUT !== '') {
     `${JSON.stringify(
       {
         probe: 'semanticHybridRecall',
+        preset: PRESET,
+        chunks: CHUNKS,
+        rerank: RERANK,
         fileK: FILE_K,
         corpus: { files: corpus.files.length, symbols: corpus.symbols.length },
         baseline: baseHit.reduce((a, b) => a + b, 0) / baseHit.length,
