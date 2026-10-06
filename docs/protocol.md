@@ -1,6 +1,24 @@
 # OmniHarness 协议文档（2.0）
 
 > 由单源 schema 自动生成（勿手改）。传输：stdio（行式 JSON）/ HTTP+SSE / WebSocket。
+>
+> **重新生成命令**：`node dist/src/cli/exec.js schema --out-md docs/protocol.md`
+> （`schema` 子命令走 `src/schema/codeGenerator.ts` 的 `CodeGenerator.generateDocs`；旗标用法以
+> `node dist/src/cli/exec.js --help` 为准。手改本文件会在下次生成时被覆盖——要改口径请改 schema 或生成器。）
+>
+> **版本口径（别混）**：标题里的 **2.0 是协议版本**（JSON-RPC `jsonrpc: '2.0'`，即单源 schema 的
+> `protocolSchema.jsonrpc`）——**不是** `src/version.ts` 的 `API_VERSION`（当前 `0.1.0`，那是公开 API 的
+> 契约版本），也不是 `package.json` 的包版本；三者各自演进。
+>
+> **传输实现与命名（以代码为准）**：stdio = `LineTransport`（`src/server/transport/lineTransport.ts`，
+> 行式 JSON 帧）；HTTP = `POST /rpc` + `GET /events`（SSE，`src/server/transport/httpServer.ts`）；
+> WebSocket = **帧层**（`wsFrameCodec` / `wsConnection`，同在 `src/server/transport/` 下）。文档旧口径里
+> 「HTTP+SSE」指的就是这一对端点，别再另起名字。
+>
+> **覆盖面提示**：本文件只覆盖**核心 turn / approval 面**（下方 7 个方法与 `thread.event` 通知）。
+> UI/工作台侧的 RPC——如 `modes.set`、`sessions.list` 的 `workspace` 过滤、`plugins.reload`、
+> `config.get`——由 `src/server/core/` 下的处理器文件（`appServer.ts`、`appServerHandlers.ts`、
+> `appServerSurfaceHandlers.ts`）直接注册，**不在**本文件与单源 schema 内；查它们请直读注册处或 Web 侧调用点。
 
 ## 方法一览
 

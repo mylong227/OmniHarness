@@ -12,7 +12,11 @@ my-plugin/
 └── index.js           # 入口（默认；可由 manifest.entry 改）
 ```
 
-## 2. 清单字段（`src/plugin/manifest.ts` 的 `PluginManifest`）
+## 2. 清单字段（权威声明：`src/ports/plugin/pluginManifest.ts` 的 `PluginManifest`）
+
+> **为什么这一行要写清路径**：清单**类型**的权威声明在**端口层** `src/ports/plugin/pluginManifest.ts`
+> （六边形铁律：契约住端口）；`src/plugin/manifest.ts` 里那句 `export type { PluginManifest }` 只是**再导出**
+> （它自己只剩 `PluginDescriptor` 与 `Manifest` 权限校验），**不是**声明处——照旧路径去改类型会改错文件。
 
 | 字段          | 必填 | 说明                                                      |
 | ------------- | ---- | --------------------------------------------------------- |
@@ -111,6 +115,10 @@ node dist/src/cli/exec.js serve --port 8787 --dir ./my-plugins
 ```
 
 远程源（由 catalog 提供的插件）走 `node:vm` 受限上下文隔离加载（best-effort；彻底不可信代码应放独立进程/Worker + OS 级沙箱）。
+
+> **隔离阶梯的完整口径**（`core` → `signed`(`node:vm`) → `evolved`(wasm) → OS 沙箱：**档位不可达即拒执行、
+> 不静默降档**，`wasm` 档如实申报未接入）见 [adr/0010-isolation-ladder.md](adr/0010-isolation-ladder.md)
+> 与端口声明 `src/ports/runtime/isolation.ts`——本节只讲插件加载这一格，别在此处另立一套档位说法。
 
 ## 7. registry / catalog 接入
 

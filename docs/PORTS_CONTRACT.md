@@ -1,9 +1,11 @@
 # 端口契约（PORTS_CONTRACT · P8.3）
 
 > 目的：让**第三方可以实现 OmniHarness 的端口**（嵌入方、扩展者、评测框架），而不必阅读适配器源码。
-> 口径来源：`src/ports/**`（唯一权威）+ `docs/ARCHITECTURE_SPEC.md` §2 归属表。
+> 口径来源：`src/ports/**`（唯一权威）+ `docs/ARCHITECTURE_SPEC.md` §2「目录归属与依赖方向」。
 > 三条硬规则（对实现者同样生效）：
-> ① 端口层零第三方依赖；② 实现须通过对应端口测试（`tests/unit/*` 中的端口契约用例）；③ fail-closed 语义不得放宽。
+> ① 端口层零第三方依赖；② 实现须通过对应端口契约测试（如 `tests/unit/oidcFlowContract.test.ts`
+> 就是"两实现逐条过同一契约面 + 差异逐条记录"的范式，`tests/unit/corePortsAssembler.test.ts`
+> 覆盖端口装配面）；③ fail-closed 语义不得放宽。
 
 ## 1. 端口分类与接入门槛
 
@@ -14,7 +16,8 @@
 | **高级扩展**                 | `agent`、`subagent`、`supervisor`、`confinement`、`policy`、`escalation`、`evolution`、`metacognition`、`immune`、`qec`、`memoryAnnealing`、`insightEtching`、`symmetryBreaking`、`vortexRing`、`cosmicWeb`、`resonantMemory` | 发明层/治理层机制端口，实现须带 `@maturity` 声明与证据（见 §4） |
 | **回调/钩子**                | `toolHook`、`toolInputSink`、`turnDiffTracker`、`eventFactory`、`memoryExtractor`、`sandboxDenial`                                                                                                                            | 供宿主监听与注入；实现不得阻塞主循环                            |
 
-完整接口清单以 `src/ports/` 目录为准。拆分后约定：**每个接口独占一个 camelCase 文件**（如 `approvalPort.ts`，
+完整接口清单**以 `src/ports/**` 为准**（31 个子目录 / 376 个 `.ts`，抽查日期 2026-10-06；
+不要抄第二份清单——它一定会漂）。拆分后约定：**每个接口独占一个 camelCase 文件**（如 `approvalPort.ts`，
 接口符号仍是 PascalCase `ApprovalPort`），原声明文件退化为纯桶再导出（`export type { X } from './…/X.js'`，
 调用点零改动），桶文件内不残留任何类型声明。文件名小驼峰是为兼容铁律 `check.mjs` 规则6
 （`src/**/*.ts` 基名须匹配 `^[a-z][a-zA-Z0-9]*$`，仓库内 `src/ports` 零 PascalCase 先例）。
@@ -28,7 +31,8 @@
    `audit:standard:delta` 会对新文件全量拦截（无历史债务豁免）。
 4. 在组合根（`config/` 装配函数或嵌入方的 `ConfigFactory` 调用处）替换默认适配器；
    **禁止在实现内部 `new` 其他具体实现**（构造注入）。
-5. 跑端口契约测试 + 四闸门（typecheck / test / lint / check --strict）。
+5. 跑端口契约测试 + 门禁：`node scripts/runGates.mjs`（**门禁的单一实现**：`fast` 层 10 项 + `typed` 层 2 项；
+   `npm run gate:typed` 单跑类型层，`--tier=all` 两层都跑）。
 
 ## 3. 稳定性与废弃（对接 `docs/API_STABILITY.md`）
 

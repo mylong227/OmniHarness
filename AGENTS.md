@@ -37,6 +37,39 @@
 
 ## 提交与门禁
 
-- 提交走 `scripts/git-hooks/pre-commit`（铁律自检 / 编码标准增量 / ESLint / Prettier / 架构 / 接线 / 文档死链）。
+- 门禁清单**只认唯一实现 `scripts/runGates.mjs`**（`fast` 层 10 项 + `typed` 层 2 项），本文件**不再复述**——
+  这里曾抄过一份清单，抄的时候就漂了（写着已不在清单里的 Prettier）。
+  `pre-commit` 只是它的薄包装（`exec node scripts/runGates.mjs --hook`）；类型层（`tsc --noEmit` + 类型感知 ESLint）另跑 `npm run gate:typed`。
+  要加/改门禁只改那一份文件与其 `GATES` 数组，别再往文档里抄第二份清单。
 - 钩子在**远端连接之后、传输之前**执行 `pre-push`：对不可达的远端（如 403 的误建仓）会先连接失败，
   因此「钩子没打印拦截文案」不等于钩子失效——用本地 bare 仓库才能端到端验证。
+
+## 一键启动与前端构建形态
+
+- `npm start`（`scripts/startAll.mjs`）= **构建服务端 + 构建前端 + 起 HTTP UI**，一步到位；
+  参数透传：`npm start -- --port 9000`。
+- `npm run dev`（`scripts/devAll.mjs`）= 构建一次后 serve + 前端 `tsc --watch`（改前端不必重启 serve）。
+- 前端**没有打包器、也没有 dev server**：`web/index.html` 用原生 ES Module 直接加载 `web/dist/main.js`
+  （由 `npm run web:build` 产出，URL 带时间戳防旧缓存）。
+  ⇒ **只 `npm run build` 而漏 `npm run web:build`，页面必定白屏**——不是「样式没生效」，是入口文件根本不存在；
+  排查白屏第一步：看 `web/dist/main.js` 在不在。
+
+## 本机配置与工作区解析
+
+- **工作区根解析链**：`--workspace` > **本机固定项目**（用户级 `~/.omniharness/omniharness.json` 的 `workspace`）
+  > 启动目录；命中哪一级由 serve 横幅打印（实现 `src/cli/serveWorkspace.ts`）——「换个目录启动就看到别的项目」通常不是 bug。
+- **配置分层链**：内置默认 → 用户级 → 项目级 `omniharness.json` → `--profile` → bundle 补丁 → 环境变量 → CLI。
+- `workspace` / `workspaces` **只写用户级**（项目级文件里不该出现）；家目录下的路径写回时压成 `~/…`。
+- 配置文件解析**容忍 UTF-8 BOM**（`src/config/configFile.ts`）——别把「配置没生效」先归因到 BOM。
+- **会话存档在 `~/.omniharness/sessions/`（全局）**，归属按 `session_meta.payload.workspace` 标记：
+  `sessions.list` 缺省只回当前项目，`workspace:'*'` 才回全部——「别的项目的会话去哪了」先查这条。
+- serve **默认只绑 `127.0.0.1`**：示例 URL 写 `http://127.0.0.1:8787`，别写 `localhost`（解析到 `::1` 时连不上）。
+
+## CLI 旗标必须登记（否则被静默打死）
+
+- **新增任何 CLI 旗标都要登记进 `src/cli/knownFlags.ts`**。真实教训：`--auto-approve` 是 serve 的真旗标
+  （`cliServerCmds.ts` 用 `args.includes('--auto-approve')` 读），却**从未登记**，于是被「未知旗标 fail-closed」打死——
+  `serve --auto-approve` 直接报未知旗标退出，而 `--help` 与文档都还写着它（2026-10-06 修）。
+  同一轮还揪出 `--version` / `--compliance` / `--allow-all`。
+- 判据在 `tests/unit/knownFlags.test.ts`：扫描面已从「reader 式读取」扩到 `Array.includes(`，并附一条**实跑正对照**；
+  改了旗标解析就重跑它——只登记不实跑仍可能漏。

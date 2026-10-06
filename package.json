@@ -53,6 +53,8 @@
     "omniharness": "dist/src/cli/exec.js"
   },
   "scripts": {
+    "start": "node scripts/startAll.mjs",
+    "dev": "node scripts/devAll.mjs",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
     "build": "node scripts/cleanDist.mjs dist && tsc && node scripts/copyAssets.mjs",
     "web:build": "node scripts/cleanDist.mjs web/dist && tsc -p web/tsconfig.json",

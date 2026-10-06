@@ -34,6 +34,18 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--dir',
   '--allow',
   '--catalog',
+  // serve：`cliServerCmds.ts` 用 `serveArgs.includes('--auto-approve')` 读取（**不是** reader 式读取）。
+  // 2026-10-06 实测发现它从未登记 ⇒ 第五十七轮的"未知旗标 fail-closed"把它**打死了**：
+  // `serve --auto-approve` 直接报「未知旗标」退出，而 `--help` 与 README 都还写着它——文档说的功能其实已失效。
+  // 门禁为什么没抓到：`knownFlags.test.ts` 的扫描正则只认 `.value(`/`.has(` 等 reader 式读取，漏了 `.includes(`。
+  // 现已同时修两头（本行 + 判据①③的扫描面 + 判据⑥的实跑正对照）。
+  '--auto-approve',
+  // 同类（2026-10-06 拓宽判据扫描面后一次揪出）：这四个都由**绕过 `ArgParser.parseArgs`** 的子命令
+  // 路径直接读取（`audit export` / `plugin install` / 进程入口的版本短路），故**今天仍能用**——
+  // 但从未登记，一旦某天走进解析器就会像 `--auto-approve` 一样被打死。登记即上保险。
+  '--version',
+  '--compliance',
+  '--allow-all',
   // 凭据 / 身份 / 授权码流
   '--client-id',
   '--client-secret',

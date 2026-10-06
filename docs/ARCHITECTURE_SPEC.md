@@ -5,7 +5,7 @@
 > 是"旧数字被当现状"的标本；归档副本改名带日期，以免与新现行版**同名产生歧义**）。
 > **口径**：本文所有**规模数字**均为**日期快照**，按 `CODE_STANDARD.md` §11.1 的口径测量
 > （逐文件 `(Get-Content $f).Count` 求和，**不是** `Measure-Object -Line`——后者少计空行）。
-> **快照日期**：**2026-10-03**。
+> **快照日期**：**2026-10-06**。
 > **结构声明**（依赖清单 / 端口目录 / ADR / 门禁规则标签）不是"约等于"，而是**逐条与代码核对**：
 > `tests/unit/architectureSpec.test.ts` 会交叉核对，改了代码不同步本文即红。
 
@@ -25,7 +25,7 @@
 ## 2. 目录归属与依赖方向
 
 ```
-src/ports/**        契约层（31 个子目录 / 375 个 .ts）——纯声明
+src/ports/**        契约层（31 个子目录 / 376 个 .ts）——纯声明
 src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
 src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
 src/composition/**  组合根（Runtime + 装配）
@@ -34,6 +34,10 @@ src/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
 src/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表 + 通用评估器 + 内置两类型；ADR-0009）
 src/asset/**        签名资产包实现（L4：.ohb 编解码 + Ed25519 非对称验签 + 安装流水线；ADR-0011）
 src/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
+src/governance/**   治理服务（晋升历史查询 + 进化系谱出证，H3：证书自带可重算载荷）
+src/license/**      本机授权与功能权益（LicenseEngine / LicenseSource / FeatureEntitlements；无授权 ⇒ core 档）
+src/media/**        媒体处理（GIF 帧栈解码/编码 + ffprobe/ffmpeg 输出解析；sharp 缺失时的回退资产）
+src/sdk/**          SDK 运行时客户端（SdkClient + WebSocket socket 实现，与 `schema` 子命令生成的文本不同）
 src/cli/**  src/server/**  （Web 工作台在 web/**）
 ```
 
@@ -145,16 +149,16 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 （正对照/仪器自证）；变异后判据仍绿时**先查变异是否落地**；**声明即接线**；入库脚本**可移植**
 （无绝对路径、不依赖 gitignored 目录）。
 
-## 10. 规模与依赖（快照 2026-10-04）
+## 10. 规模与依赖（快照 2026-10-06）
 
-> 2026-10-04 复测（口径同 §0：逐文件 `(Get-Content $f).Count` 求和）：Wave A（GEE Kernel v1，7 片）
-> 与 Wave B1（资产协议契约+类型注册表）落地后的真实数字——旧快照（925/99,921 等）已过期。
+> 2026-10-06 复测（口径同文首声明：逐文件 `(Get-Content $f).Count` 求和）：当前真实数字——
+> 旧快照（956 / 103,743 等）已过期。
 
-| 范围            | 文件    | 行          |
-| --------------- | ------- | ----------- |
-| `src/**/*.ts`   | **956** | **103,743** |
-| `tests/**/*.ts` | **439** | **63,018**  |
-| `web/src/**`    | **111** | **17,152**  |
+| 范围            | 文件     | 行          |
+| --------------- | -------- | ----------- |
+| `src/**/*.ts`   | **1014** | **114,234** |
+| `tests/**/*.ts` | **501**  | **75,400**  |
+| `web/src/**`    | **115**  | **17,648**  |
 
 **运行时依赖（5）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`、`jose@6.2.12`、`openid-client@^6.8.8`（A.5 第四项 · 2026-10-05 准入：OIDC 授权码流，2 传递依赖 ≈550 KB，自研 `LegacyOidcFlow` 同端口回退，见看板第五十三/五十四轮）。
 **可选依赖（2）**：`@huggingface/transformers`（本地嵌入）、`sharp`（图像）。
@@ -176,3 +180,32 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 - **反泡沫清单**（明确不做）：向量库 / 图数据库 / 移植外部记忆系统 / worker 线程"加速" / 更多记账下沉 Rust /
   并行写入型子代理 / 把 verifier 当完成判据 …——完整版与理由见
   [ARCHITECTURE_UPGRADE_2026-10.md](ARCHITECTURE_UPGRADE_2026-10.md) §5。
+
+## 13. 本机运行态与配置分层（2026-10-06 增补）
+
+> 这一节记的是"同一份代码在不同机器上跑出不同结果"的那几个旋钮。**为什么单列一节**：它们都**不在仓库里**
+> （落在用户级家目录），既不会被 `git status` 看见，也不会被任何"文档与磁盘一致"的判据拦住——只能靠写清楚。
+
+**① 配置分层链（后者覆盖前者）**：内置默认 → 用户级 `~/.omniharness/omniharness.json` → 项目级
+`omniharness.json` → `--profile` → **bundle 补丁层**（`bundle` 里的 `config` 覆盖实现配置叠加）→ 环境变量 → 显式 CLI。
+**私密键（`providerKeys` 等凭据）只放用户级**：项目级文件是要进版本库的，写进去等于把密钥提交上去。
+
+**② serve 的工作区根解析（新行为）**：`--workspace` > **本机固定项目**（用户级 `omniharness.json` 的
+`workspace`）> **启动目录**；命中哪一级由启动横幅打印（`工作区: …（来源）`）。实现住在
+`src/cli/serveWorkspace.ts` 的类 `ServeWorkspace`（`serveRootOf` / `describeRootSource` / `explicitWorkspaceOf` /
+`announceServeWorkspace`）——**不在** `CliServerCmds.serveRootOf`（该方法已外迁）。"换个目录启动就看到别的项目"
+多半正是命中了第二级，不是 bug。
+
+**③ 本机运行态只落用户级**：`workspace` / `workspaces` **只写用户级配置**，项目级文件里不出现；
+写回时家目录下的路径压成 `~/…` 形式（可移植路径，`src/util/portablePath.ts`，避免把作者的家目录路径带进版本库）。
+`storageDir` 缺省是用户级 `~/.omniharness/sessions`（**不是** `.omniharness/sessions`，也不是相对路径 `sessions`）。
+
+**④ 配置解析容忍 UTF-8 BOM**：`src/config/configFile.ts` 在 parse 前剥掉开头 BOM（`EF BB BF`）——
+BOM 是**编码层**标记而非内容，Windows 上常见写入方都会带它。**剥 BOM 之后其余一切照旧 fail-closed**：
+真正的语法错误仍然报错。⇒ "配置没生效"别先归因到 BOM。
+
+**⑤ 会话存档是全局的**：`~/.omniharness/sessions/*.jsonl`，归属按 `session_meta.payload.workspace` 标记；
+`sessions.list` **缺省只回当前项目**，`workspace:'*'` 才回全部——"别的项目的会话去哪了"先查这条。
+
+**⑥ serve 默认只绑 `127.0.0.1`**：文档与示例 URL 一律写 `http://127.0.0.1:8787`，**不写 `localhost`**——
+Windows 上 `localhost` 可能先解析到 `::1`（IPv6），而服务只监听 IPv4，于是"服务明明起着却连不上"。

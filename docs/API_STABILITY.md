@@ -6,7 +6,8 @@
 ## 为什么需要
 
 没有稳定性标注，调用方无法区分「写进合同、承诺不破」的 API 与「我写着玩、下个版本可能就没了」的 API。
-本仓库公开桶 `src/index.ts` 是唯一的外部契约面，因此要求其中**每一项 export 都必须显式标注稳定性**。
+本仓库公开面是**两个桶**：`src/index.ts`（稳定，包根导入）与 `src/indexBeta.ts`（实验，`omniharness/beta` 子路径导入），
+因此要求其中**每一项 export 都必须显式标注稳定性**。
 
 ## 四级标签
 
@@ -47,7 +48,7 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 当前分级（节选）：
 
 - **`@public`**：端口层、核心、配置、适配器、hooks 兼容层、上下文/工具、插件系统、门禁/PTC、Skills、app-server/协议、schema/SDK、worker 编排、MCP 网关、原生内核、企业管控、版本契约。
-- **`@beta`**：工具语义检索(M1)、会话检索(M2)、子智能体(#76)、自主目标循环(S30)、工作流 DAG(S31)、LSP(S32)、Agent 密码学身份(S33)、安全策略求值(S34)、纯 ANSI TUI(S35)、计划/待办/提问(#77)、评估基准(C3)。
+- **`@beta`**：工具语义检索(M1)、会话检索(M2)、子智能体(#76)、自主目标循环(S30)、工作流 DAG(S31)、LSP(S32)、Agent 密码学身份(S33)、安全策略求值(S34)、纯 ANSI TUI(S35)、计划/待办/提问(#77)。
 - **`@deprecated`**：截至 2026-09-02，**公开桶尚无废弃导出**。本仓库仍处早期快速演进阶段，未积累到需废弃的公开 API——这是健康态，不是缺口。废弃机制（标签 + 校验器 + 版本策略）已就位：一旦某 API 被取代，直接在其分区标注 `// @deprecated` 并给出替代方案即可，校验器不会因此报错。
 
 > **2026-09-24 复核留档（防后人误删）**：审计曾把 `MockModel` / `MemoryStorage` / `PassthroughSandbox`
@@ -57,7 +58,7 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 > - `MockModel`：`CliDefaults.modelAdapter` 的默认值（`src/cli/argParser.ts`），且是
 >   `adapters/model/modelAdapterRegistry.ts` 里 `mock` 那一行的实现；
 > - `MemoryStorage`：可选存储后端 `--storage-adapter memory` 的实现（`src/cli/storageFactory.ts`），
->   评测/对比命令也直接使用（`src/eval/evalHarness.ts`、`src/cli/cliCompareCmds.ts`）；
+>   评测/对比命令也直接使用（`src/cli/cliCompareCmds.ts`）；
 > - `PassthroughSandbox`：沙箱档位 `passthrough` 的注册实现（`src/adapters/sandbox/sandboxManager.ts`
 >   的 `register('passthrough', …)`），且 `sandbox` 枚举里就含 `passthrough`。
 >
@@ -77,6 +78,11 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 ## 版本锚点
 
 `src/version.ts` 导出 `API_VERSION`（当前 `0.1.0`），作为合同版本号锚点，随 `@public` API 演进 bump。
+
+> **别把两个版本号混为一谈**：`API_VERSION = 0.1.0` 是**契约版本**（`@public` API 表面的兼容承诺），
+> 而 `package.json` 的 `"version": "0.2.0"` 是**包发布版本**（npm 上的 `@mylong227/omniharness`）。
+> 两者**各自演进、可以不同**：包版本会因内部重构、文档、构建调整而走，契约版本只在公开 API 变化时走。
+> 引用"当前版本"时**必须说明是哪一个**——历史上两者被当成同一个数，导致"API 变了但版本号没动"的误判。
 
 ## 本地校验
 

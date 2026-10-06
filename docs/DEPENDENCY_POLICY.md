@@ -18,7 +18,7 @@
 
 ### 1.2 三条不可妥协的底线
 
-1. **分层隔离**：第三方依赖**只能**出现在 `src/adapters/**`、`src/tools/**`、`src/cli/**`、`src/tui/**`、`src/util/**`、`src/search/**`、`src/context/**`。
+1. **分层隔离**：第三方依赖**只能**出现在 `src/adapters/**`、`src/cli/**`、`src/tui/**`、`src/util/**`、`src/search/**`、`src/context/**`。
    **`src/ports/**` 与 `src/core/**` 恒为第三方-free**——端口与核心只认接口，第三方永远进不来。
    这条保证：依赖可换、架构不塌。
 2. **准入登记**：任何 `dependencies` 条目、任何第三方裸导入，**必须**先登记进 `dependency-allowlist.json` 并写明理由。未登记 = 阻断（exit 1）。
@@ -28,9 +28,9 @@
 
 以下误读在盘点与评审中反复出现，特此钉死：
 
-1. **「本项目是零依赖项目」——错。** 依赖政策自 2026-09-05 起就是「准入制」，2026-09-14 经 D10 进一步定为「必要且更优即可依赖、同等能力优先成熟第三方」。`dependencies` 里有 `@modelcontextprotocol/sdk` 与 `zod`，`optionalDependencies` 里有 `@huggingface/transformers` 与 `sharp`——这是**政策使然**，不是违规。
+1. **「本项目是零依赖项目」——错。** 依赖政策自 2026-09-05 起就是「准入制」，2026-09-14 经 D10 进一步定为「必要且更优即可依赖、同等能力优先成熟第三方」。**当前 `dependencies` 有 5 个**：`@modelcontextprotocol/sdk`（MCP 双端官方 SDK）、`croner`（带 IANA 时区的 cron）、`jose`（id_token 验签）、`openid-client`（OIDC 授权码流）、`zod`（schema 校验）；**`optionalDependencies` 有 2 个**：`@huggingface/transformers`（本地语义嵌入）、`sharp`（view_image 大图收敛）——这是**政策使然**，不是违规。
 2. **「因为零依赖所以不能引 X」——无效论证。** 拒绝一个依赖的唯一合法理由是 §2 的准入标准不满足（无能力增益 / 体积或依赖树超预算且无正当理由 / 许可证不合规 / 无法写出退出计划），**「零依赖」本身不是理由**。
-3. **「手写实现 = 必须保留使用」——错。** 手写实现保留为**回退路径与资产**；当成熟第三方被准入后，生产路径应切换到第三方实现（如 MCP 双端迁官方 SDK、view_image 缩放接 sharp）。
+3. **「手写实现 = 必须保留使用」——错。** 手写实现保留为**回退路径与资产**；成熟第三方准入后，生产路径**已按此切换**：MCP 双端生产首选官方 SDK（`src/adapters/mcp/sdkPreferredMcpConnector.ts` 等，手写 `src/mcp/*` 降级为回退），`view_image` 大图缩放接 sharp（`src/adapters/media/sharpImageResizer.ts` 动态 `import()`，缺包时自动退化为「不缩放、超限拒绝」）。
 4. 文档与注释中的「纯 TS」「仅 Node 内置」「无外部二进制」等表述描述的是**某实现的技术事实**，不构成任何依赖限制。
 
 ## 2. 准入标准（六项，全部须满足）
@@ -98,7 +98,7 @@
 
 ## 6. 现状
 
-- `dependencies`：`@modelcontextprotocol/sdk`、`zod`（MCP 双端 + schema 校验）。
-- `optionalDependencies`：`@huggingface/transformers`（本地语义嵌入）、`sharp`（view_image 大图收敛）——均动态 `import()`，`--omit=optional` 时能力自动降级、体积为 0。
-- allowlist：4 条登记（含理由 / 能力 / 许可 / 退出计划 / 预算）。
-- 手写实现（BM25 / RFC6455 / Ed25519 格式层 / N-API FFI / LCS diff / 手写 MCP）保留为**回退路径与资产**，生产路径按 D10 优先已准入的成熟第三方。
+- `dependencies`（**5 个**，以 `package.json` 为准）：`@modelcontextprotocol/sdk`（MCP 双端官方 SDK）、`croner`（IANA 时区 cron）、`jose`（id_token 验签）、`openid-client`（OIDC 授权码流）、`zod`（schema 校验）。
+- `optionalDependencies`（**2 个**）：`@huggingface/transformers`（本地语义嵌入）、`sharp`（view_image 大图收敛）——均动态 `import()`，`--omit=optional` 时能力自动降级、体积为 0。
+- allowlist：**7 条登记**（`@huggingface/transformers`、`@modelcontextprotocol/sdk`、`zod`、`sharp`、`croner`、`jose`、`openid-client`；每条含理由 / 能力 / 许可 / 退出计划 / 预算）。**条数与字段以 [`dependency-allowlist.json`](../dependency-allowlist.json) 为准**——文档只报数，不另存一份清单。
+- 手写实现（BM25 / RFC6455 / Ed25519 格式层 / N-API FFI / LCS diff / 手写 MCP）保留为**回退路径与资产**，生产路径按 D10 优先已准入的成熟第三方（见 §1.3 第 3 条的两处实际切换）。
