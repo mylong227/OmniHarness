@@ -41,7 +41,10 @@
 ① 行数口径 `Measure-Object -Line` **少计空行**（`src` 实为 **97,631** 行，非 92,124）；
 ② `web/src` 不是"自绘 React 垫片"，运行时是**官方 React 18.3.1 UMD**，手写的只是类型声明；
 ③ 嵌入吞吐"180–320 texts/s"**复现不出**（复测 **26–30 texts/s**，且吞吐随文本长度剧变）；
-④ 默认嵌入是 **e5-large-v2（1024 维）**，不是我此前以为的 e5-small-v2。
+④ ~~默认嵌入是 **e5-large-v2（1024 维）**，不是我此前以为的 e5-small-v2。~~
+**2026-10-06 订正**：`DEFAULT_EMBEDDING_MODEL` 当时确实写着 e5-large-v2，**但它无人引用，而构造缺省是
+minilm**（`opts.preset ?? DEFAULT_EMBEDDING_PRESET`）——生产语义检索（CLI 默认开）实际跑的是 minilm 384 维。
+两个常量与构造缺省现已单一事实源化；生产口径与实测依据见 `docs/PROJECT_BOARD.md` 第五十七轮。
 另有三处口径由调研复核后订正：单文件行数上限是 **810**（非 800）、上帝类判据是 `codeLines>500 或 methods>25`、
 "禁 `any`/显式修饰符"是 **ESLint 原生规则**（非自研脚本），以及 `*Assembler.ts` 只有 **6 个**（非 22 个）。
 
@@ -263,21 +266,27 @@ Terminal-Bench/评测子系统且**生产代码零引用**（逐名 grep 确认�
 1. **RRF 早已实现、不是缺口**：`SemanticIndex.rrfMerge`（k=60 + 每路权重）+ `HybridRanker` 4–5 路融合
    （`semanticIndex.ts:130-152`、`hybridRanker.ts:82-107`）；本仓自证多探针 RRF 增益 n=33 **不显著**（+0pp [−12.12, 12.12]，
    `repoMapContextEngine.ts:41-43`）。
-2. **默认嵌入是 `e5-large-v2`（1024 维），不是 e5-small-v2**（`transformersEmbeddingAdapter.ts:10-13`）
+   ~~2. **默认嵌入是 `e5-large-v2`（1024 维），不是 e5-small-v2**（`transformersEmbeddingAdapter.ts:10-13`）~~
+   **2026-10-06 订正**：当时读的是常量 `DEFAULT_EMBEDDING_MODEL`，而**构造缺省是 minilm**
+   （`opts.preset ?? DEFAULT_EMBEDDING_PRESET`，且 `tests/unit/transformersEmbedding.test.ts` 一直钉着
+   「默认 = minilm」）——即那句结论与代码自相矛盾。三个符号现已**单一事实源化**
+   （`DEFAULT_EMBEDDING_PRESET` → `DEFAULT_EMBEDDING_MODEL` / 构造缺省），文件头与
+   `docs/PROJECT_BOARD.md` 第五十七轮同步订正。
+   （保留下文原始记录）
    —— 这条纠正了此前假设；混合 + 词法精排使召回 75.8% → **81.8%** 且注入 token **−16.8%**。
-3. **词法二段精排证据分裂**（维持 opt-in 是对的）：@14 **+9.6pp CI[1.80,18.60]** ✅；@10 **+6.3pp CI[−0.45,14.74]** ❌
+2. **词法二段精排证据分裂**（维持 opt-in 是对的）：@14 **+9.6pp CI[1.80,18.60]** ✅；@10 **+6.3pp CI[−0.45,14.74]** ❌
    （`fileReranker.ts:41-47`）；**通用** cross-encoder 曾试 **−1.0pp** 已归档，**代码专用 CE 未测**。
-4. **无 tree-sitter / SCIP / tantivy / zoekt**（914 个 .ts 全搜确认）：符号抽取是**逐行正则**（`repoMap.ts:22-59`，文件头明写不引 tree-sitter）；
+3. **无 tree-sitter / SCIP / tantivy / zoekt**（914 个 .ts 全搜确认）：符号抽取是**逐行正则**（`repoMap.ts:22-59`，文件头明写不引 tree-sitter）；
    `grep` 是进程内 JS 正则、无索引（`grepTool.ts:66-75` + `workspaceFileWalker.ts:63`）。
-5. **token 记账无 BPE**：`ceil(CJK + 其余/4)`（`tokenEstimator.ts:182-186`）——压缩阈值与固定开销预留都建在这个近似上，
+4. **token 记账无 BPE**：`ceil(CJK + 其余/4)`（`tokenEstimator.ts:182-186`）——压缩阈值与固定开销预留都建在这个近似上，
    偏差会直接导致越窗；对照 repomix 用 `o200k_base` 精确计数。
-6. **前缀缓存排序已做对**（这是省钱的真实来源）：repo-map 作为**尾部 system 消息**，命中率 ~54% → **81%**
+5. **前缀缓存排序已做对**（这是省钱的真实来源）：repo-map 作为**尾部 system 消息**，命中率 ~54% → **81%**
    （`stepContextBuilder.ts:59-63,138-141`）；DeepSeek 机制是 **cache prefix unit、须整段完全匹配**。
    但 `PrefixStability`（前缀复用率测量器，`prefixStability.ts`）**只从 `src/index.ts` 公开导出、生产路径零引用**
    （✅ 我已复核全仓引用）⇒ 仪器在，但**没有接入请求路径**，这正是 §1.3"前缀复用率无判据"的代码层证据。
-7. **Anthropic 一手（contextual retrieval）**：chunk 前置 50–100 token 上下文 ⇒ 检索失败率 **−35%**，叠加 BM25 **−49%**，
+6. **Anthropic 一手（contextual retrieval）**：chunk 前置 50–100 token 上下文 ⇒ 检索失败率 **−35%**，叠加 BM25 **−49%**，
    再叠 rerank **−67%**（5.7% → 3.7% → 2.9% → 1.9%）—— <https://www.anthropic.com/engineering/contextual-retrieval>。
-8. **Lost in the Middle**（arXiv 2307.03172）：相关点在**首/尾**最好、**中间**显著退化，长上下文模型同样；
+7. **Lost in the Middle**（arXiv 2307.03172）：相关点在**首/尾**最好、**中间**显著退化，长上下文模型同样；
    **CodeRAG-Bench**（arXiv 2406.14497）：低词法重叠时检索器仍差，且**上下文受限时生成器不获益**。
    —— 注意：任务书里给的 RepoBench 编号 2306.10119 实为天体物理论文，正确为 **2306.03091**。
 
