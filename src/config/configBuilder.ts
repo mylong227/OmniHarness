@@ -13,6 +13,7 @@ import {
   type RouterStrategy,
 } from '../adapters/model/modelRouter.js';
 import { ConfigError } from './configError.js';
+import { DefaultPromptFragments } from './defaultPromptFragments.js';
 import type { ModelRouterConfig } from './configFile.js';
 import { endpointDefaults } from '../util/endpointDefaults.js';
 import type { SandboxPort } from '../ports/runtime/sandbox.js';
@@ -259,6 +260,11 @@ export class ConfigBuilder {
       // 媒体抽帧栈（`view_media`）：在此把配置段收敛成一份已装配产物，随种子交给工具装配层。
       // 放在种子里的理由见 `SubagentPortSeed.media` 的注释（主/子工具集共用同一份定位缓存）。
       media: MediaStackAssembler.assemble(partial.media),
+      // 子代系统提示（2026-10-06 第六十一轮真实模型跑测）：只给**运行环境段**。
+      // 子代原先 fragments 缺省 ⇒ `systemPrompt` 实测 0 token，于是按 POSIX 假设在 cmd.exe 上试错，
+      // 并把「不是内部或外部命令」误判成「隔离 shell 不可用」回传主代理（主代理照抄进最终答复）。
+      // 只给环境段而不是整段编码 SOP：子代工具集是裁剪过的，整段 SOP 会指向它没有的工具。
+      fragments: DefaultPromptFragments.environmentFragment(),
       subagent: {
         maxDepth: partial.subagentMaxDepth,
         maxConcurrency: partial.subagentConcurrency,

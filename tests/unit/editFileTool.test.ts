@@ -5,7 +5,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.js';
 
-const context = { sessionId: 's1', workspaceRoot: process.cwd() };
+/**
+ * fs 工具上下文：根**必须与工具自身的根一致**。
+ *
+ * 2026-10-06（第六十一轮真实模型跑测）：fs 工具族统一为「运行时 ctx 优先」（`ToolWorkspaceRoot`）。
+ * 此前本文件的 ctx 用 `process.cwd()`、工具根用临时目录，却断言文件落在临时目录——那等于
+ * **把「装配根优先」这一旧行为钉成契约**，而它正是子智能体隔离失效（写进主工作区）的根因。
+ */
+const ctxOf = (dir: string): { sessionId: string; workspaceRoot: string } => ({
+  sessionId: 's1',
+  workspaceRoot: dir,
+});
 
 test('EditFileTool：按内容替换并保留 .bak 备份', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'omniharness-edit-'));
@@ -18,7 +28,7 @@ test('EditFileTool：按内容替换并保留 .bak 备份', async () => {
         name: 'edit',
         arguments: { path: 'a.ts', old_string: 'const a = 1;', new_string: 'const a = 2;' },
       },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true);
     assert.match(result.output ?? '', /已替换 1 处/);
@@ -40,7 +50,7 @@ test('EditFileTool：命中歧义时拒绝且不改动文件', async () => {
         name: 'edit',
         arguments: { path: 'a.ts', old_string: 'const a = 1;', new_string: 'x' },
       },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, false);
     assert.match(result.error ?? '', /出现 2 次/);
@@ -65,7 +75,7 @@ test('EditFileTool：整段粘贴 read_file 带行号内容时仍能替换', asy
           new_string: 'const a = 10;\nconst b = 20;',
         },
       },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true);
     assert.match(result.output ?? '', /行号前缀剥离匹配/);
@@ -81,7 +91,7 @@ test('EditFileTool：文件不存在时提示改用 write_file', async () => {
     const tool = new EditFileTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'edit', arguments: { path: 'nope.ts', old_string: 'a', new_string: 'b' } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, false);
     assert.match(result.error ?? '', /write_file/);
@@ -100,7 +110,7 @@ test('EditFileTool：越界路径拒绝', async () => {
         name: 'edit',
         arguments: { path: '../evil.ts', old_string: 'a', new_string: 'b' },
       },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, false);
     assert.match(result.error ?? '', /越界/);
@@ -123,7 +133,7 @@ test('EditFileTool：new_string 与 old_string 等价时空操作必须如实回
         name: 'edit',
         arguments: { path: 'a.ts', old_string: 'const a = 1;', new_string: 'const a = 1;' },
       },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true, '工具本身没有失败');
     assert.match(result.output ?? '', /无变化/);

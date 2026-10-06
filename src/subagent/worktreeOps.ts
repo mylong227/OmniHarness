@@ -166,6 +166,34 @@ export class WorktreeOps {
   }
 
   /**
+   * 采集改动时**必须排除**的运行期目录（相对隔离树根）。
+   *
+   * 为什么必须有它：子会话的存储被重定位到隔离工作树内（`SubagentRuntimeFactory`），
+   * 于是 `.omni-storage/<子会话>.jsonl` 天然出现在 `git status` 里。不排除的实测后果
+   * （2026-10-06 真实模型跑测）：两个子代理的 patch 各是 **24–32 KB 的会话日志**，
+   * 改动清单只报「`.omni-storage/sess_xxx.jsonl`」这**一个**文件——主代理收到的是
+   * 「有改动 + 一份日志」，据此**把噪声当业务改动**，而真正的源码改动在哪一无所知。
+   *
+   * 与 `.gitignore` 的分工：这**不能**只靠用户的 `.gitignore`——它未必覆盖 `.omni-storage/`
+   * （本仓 `.gitignore` 就只写了 `.omniharness/`），而采集是对**任意用户工作区**都要成立的机制。
+   */
+  private static readonly RUNTIME_EXCLUDE: readonly string[] = [
+    '.omni-storage',
+    '.omniharness',
+    '.omni-worktrees',
+    'node_modules',
+  ];
+
+  /**
+   * git pathspec 的「递归通配」后缀。
+   *
+   * 为什么拆成常量：审计规则 `scripts/auditStandards.mjs` 的「JSDoc 续行缩进」检查用 TS scanner
+   * 逐个 token 扫，遇到**模板字面量里的**注释起始符号会误判成注释起点、把后面的真 JSDoc 一起吞掉
+   * （该规则已修，见 `jsdocIndentViolations` 的模板分支）；这里同时用常量拼接，让后缀只有一处定义。
+   */
+  private static readonly PATHSPEC_GLOB = `/${'**'}`;
+
+  /**
    * 采集隔离工作树里的**改动**为 unified patch（2026-10-03 第六轮修看板 §8.1）。
    *
    * 存在理由：子代理的写入落在隔离工作树里，而 `cleanup()` 是 `git worktree remove --force`
@@ -174,6 +202,9 @@ export class WorktreeOps {
    *
    * 口径：
    *  - 先 `git add -A`——否则**未跟踪文件**（子代理最常产出的形态：新建文件）不会进 diff；
+   *  - **排除运行期目录**（{@link RUNTIME_EXCLUDE}）：子会话自己的会话存储（`.omni-storage/*.jsonl`）
+   *    就落在隔离树里，若不排除，patch 会变成几十 KB 的会话日志、改动清单只剩那一个文件，
+   *    主代理据此**把噪声当成业务改动**（2026-10-06 真实模型跑测实测的误导性证据）；
    *  - patch 用 `git diff --cached --binary HEAD`（二进制也标记得出）；
    *  - 超过 {@link PATCH_MAX_BYTES} 时只保留前一段并置 `truncated`（**不抛错**：采集是增强，
    *    不得因为一次大改动让子代理结果变成失败）。
@@ -181,8 +212,14 @@ export class WorktreeOps {
    * @returns 改动文件列表 + patch（无改动时两者皆空）。
    */
   public static async collectChanges(wtPath: string): Promise<WorktreeChanges> {
-    await execFileAsync('git', ['add', '-A'], { cwd: wtPath, timeout: GIT_TIMEOUT_MS });
-    const status = await execFileAsync('git', ['status', '--porcelain'], {
+    const exclude = WorktreeOps.RUNTIME_EXCLUDE.map(
+      (dir) => `:(exclude)${dir}${WorktreeOps.PATHSPEC_GLOB}`,
+    );
+    await execFileAsync('git', ['add', '-A', '--', '.', ...exclude], {
+      cwd: wtPath,
+      timeout: GIT_TIMEOUT_MS,
+    });
+    const status = await execFileAsync('git', ['status', '--porcelain', '--', '.', ...exclude], {
       cwd: wtPath,
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: STATUS_MAX_BYTES,
@@ -273,7 +310,6 @@ const SUBAGENT_PATCH_DIR = '.omniharness/subagent-patches';
 
 /** 单个 patch 的字节上限（超过即截断并标注；4 MiB 远大于正常代码改动）。 */
 const PATCH_MAX_BYTES = 4 * 1024 * 1024;
-
 /** `git status --porcelain` 的输出上限（仅文件清单，1 MiB 足够）。 */
 const STATUS_MAX_BYTES = 1024 * 1024;
 

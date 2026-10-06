@@ -150,8 +150,8 @@ export class PluginRegistry {
    * 导致 `export default` 语法报错；补一个 {"type":"module"} 标记即可。
    * 源目录若自带 package.json 则原样保留，不覆盖其配置。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private ensureEsmMarker(dir: string): void {
     const markerPath = join(dir, 'package.json');
     if (existsSync(markerPath)) {

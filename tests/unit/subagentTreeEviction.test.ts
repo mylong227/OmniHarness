@@ -12,11 +12,7 @@ function maxTreeEntries(): number {
 }
 
 /** 调用 private link（仅做关系记录，不触发真实子代理运行）。 */
-function link(
-  orch: SubagentOrchestrator,
-  parent: string,
-  child: string,
-): void {
+function link(orch: SubagentOrchestrator, parent: string, child: string): void {
   (orch as unknown as { link(p: string, c: string): void }).link(parent, child);
 }
 

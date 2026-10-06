@@ -326,8 +326,8 @@ export class LspProcessAdapter implements LspPort {
   /** 首次见到某文件时发 didOpen（读盘失败则发空文本，让服务器自行解析）。
    * @param file 要打开的文件绝对路径（转 URI 后随 languageId/version/text 一起下发）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async didOpen(file: string): Promise<void> {
     if (this.opened.has(file)) {
       return;

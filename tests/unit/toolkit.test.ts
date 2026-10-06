@@ -9,15 +9,27 @@ import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.js';
 import { WebSearchTool } from '../../src/adapters/tool/web/webSearchTool.js';
 import { PatchApplier } from '../../src/adapters/tool/fs/patchApplier.js';
 
-/** 测试上下文。 */
+/** 测试上下文（非文件工具用；它们不看 workspaceRoot）。 */
 const context = { sessionId: 's1', workspaceRoot: process.cwd() };
+
+/**
+ * fs 工具的上下文：**必须与工具自身的工作区根一致**。
+ *
+ * 2026-10-06：fs 工具族统一为「运行时 ctx 优先」（`ToolWorkspaceRoot`）。此前 ctx 用 `process.cwd()`、
+ * 工具根用临时目录，却断言文件落在临时目录——那是在**钉住装配根优先的旧行为**（真机后果：
+ * 子智能体的写会落到主工作区、隔离失效）。现在两者一致，判据表达的是真正的契约。
+ */
+const ctxOf = (dir: string): { sessionId: string; workspaceRoot: string } => ({
+  sessionId: 's1',
+  workspaceRoot: dir,
+});
 
 test('WriteFileTool：写入新文件', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'omniharness-'));
   const tool = new WriteFileTool(dir);
   const result = await tool.handle(
     { id: 'c1', name: 'write_file', arguments: { path: 'a.txt', content: 'hello' } },
-    context,
+    ctxOf(dir),
   );
   assert.strictEqual(result.ok, true);
   assert.strictEqual(await readFile(join(dir, 'a.txt'), 'utf8'), 'hello');
@@ -30,7 +42,7 @@ test('WriteFileTool：覆盖时生成 .bak 备份', async () => {
   const tool = new WriteFileTool(dir);
   const result = await tool.handle(
     { id: 'c1', name: 'write_file', arguments: { path: 'a.txt', content: 'new' } },
-    context,
+    ctxOf(dir),
   );
   assert.strictEqual(result.ok, true);
   assert.strictEqual(await readFile(join(dir, 'a.txt'), 'utf8'), 'new');
@@ -43,7 +55,7 @@ test('WriteFileTool：越界路径拒绝', async () => {
   const tool = new WriteFileTool(dir);
   const result = await tool.handle(
     { id: 'c1', name: 'write_file', arguments: { path: '../evil.txt', content: 'x' } },
-    context,
+    ctxOf(dir),
   );
   assert.strictEqual(result.ok, false);
   assert.match(result.error ?? '', /越界/);
@@ -55,7 +67,7 @@ test('ListDirTool：列出目录条目', async () => {
   await writeFile(join(dir, 'a.ts'), 'x', 'utf8');
   await rm(join(dir, 'a.ts'), { force: true });
   const tool = new ListDirTool(dir);
-  const result = await tool.handle({ id: 'c1', name: 'list_dir', arguments: {} }, context);
+  const result = await tool.handle({ id: 'c1', name: 'list_dir', arguments: {} }, ctxOf(dir));
   assert.strictEqual(result.ok, true);
   await rm(dir, { recursive: true, force: true });
 });
@@ -65,7 +77,7 @@ test('ListDirTool：越界拒绝', async () => {
   const tool = new ListDirTool(dir);
   const result = await tool.handle(
     { id: 'c1', name: 'list_dir', arguments: { path: '..' } },
-    context,
+    ctxOf(dir),
   );
   assert.strictEqual(result.ok, false);
   await rm(dir, { recursive: true, force: true });
@@ -105,7 +117,7 @@ test('ApplyPatchTool：应用到工作区文件', async () => {
   );
   const result = await tool.handle(
     { id: 'c1', name: 'apply_patch', arguments: { patch } },
-    context,
+    ctxOf(dir),
   );
   assert.strictEqual(result.ok, true);
   assert.strictEqual(await readFile(join(dir, 'f.txt'), 'utf8'), 'a\nB\nc');
@@ -119,7 +131,7 @@ test('ApplyPatchTool：失败不改动原文件', async () => {
   const patch = ['--- a/f.txt', '+++ b/f.txt', '@@ -1,1 +1,1 @@', '-nope', '+yes'].join('\n');
   const result = await tool.handle(
     { id: 'c1', name: 'apply_patch', arguments: { patch } },
-    context,
+    ctxOf(dir),
   );
   assert.strictEqual(result.ok, false);
   assert.strictEqual(await readFile(join(dir, 'f.txt'), 'utf8'), 'original');

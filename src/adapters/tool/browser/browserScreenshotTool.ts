@@ -37,6 +37,7 @@ import type {
   BrowserAvailabilityReport,
 } from '../../browser/browserAvailability.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 
 /** 会话接缝：只暴露本工具要用的两个方法，便于测试注入假实现（不真起浏览器）。 */
 export interface ScreenshotSession {
@@ -137,10 +138,10 @@ export class BrowserScreenshotTool {
    * 执行 browser_screenshot。
    *
    * @param call 工具调用（实参含 url 及可选的落盘路径 / 视口 / 等待）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 成功时 `output` 为元数据、`files` 为 PNG 附件；参数非法或截图失败时 ok:false。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const url = String(call.arguments['url'] ?? '').trim();
     const schemeError = BrowserScreenshotTool.checkScheme(url);
     if (schemeError !== '') {
@@ -163,7 +164,10 @@ export class BrowserScreenshotTool {
         BrowserScreenshotTool.MAX_WAIT_MS,
       ),
     };
-    const target = this.resolveOutputPath(call.arguments['output_path']);
+    const target = this.resolveOutputPath(
+      call.arguments['output_path'],
+      ToolWorkspaceRoot.of(this.workspaceRoot, context),
+    );
     if ('error' in target) {
       return { callId: call.id, ok: false, error: target.error };
     }
@@ -248,31 +252,33 @@ export class BrowserScreenshotTool {
    * 解析落盘路径：缺省给时间戳文件；给了路径则必须落在工作区内。
    *
    * @param raw 模型给的 output_path（可为缺省）。
+   * @param root 本次调用解析出的工作区根（运行时 ctx 优先，见 `ToolWorkspaceRoot`）。
    * @returns 绝对路径与相对路径；越界时为错误文案。
    */
   private resolveOutputPath(
     raw: unknown,
+    root: string,
   ): { readonly absolute: string; readonly relative: string } | { readonly error: string } {
     const requested = typeof raw === 'string' ? raw.trim() : '';
     if (requested === '') {
       const name = `screenshots/${String(Date.now())}.png`;
       return {
-        absolute: resolve(this.workspaceRoot, '.omniharness', name),
+        absolute: resolve(root, '.omniharness', name),
         relative: `.omniharness/${name}`,
       };
     }
     if (isAbsolute(requested)) {
       return { error: `output_path 必须是相对工作区的路径，收到绝对路径: ${requested}` };
     }
-    if (!new WorkspaceGuard(this.workspaceRoot).isInside(requested)) {
+    if (!new WorkspaceGuard(root).isInside(requested)) {
       return {
-        error: `路径越界: "${requested}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，请改用相对此根目录的路径。`,
+        error: `路径越界: "${requested}" 不在工作区内。工作区根目录为 ${root}，请改用相对此根目录的路径。`,
       };
     }
-    const absolute = resolve(this.workspaceRoot, requested);
+    const absolute = resolve(root, requested);
     return {
       absolute,
-      relative: relative(this.workspaceRoot, absolute).replace(/\\/g, '/') || requested,
+      relative: relative(root, absolute).replace(/\\/g, '/') || requested,
     };
   }
 

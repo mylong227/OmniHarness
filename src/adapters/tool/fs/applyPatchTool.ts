@@ -8,6 +8,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 import { log } from '../../../util/logger.js';
 import { FileContentLedger } from './fileContentLedger.js';
 import { PatchApplier } from './patchApplier.js';
@@ -63,10 +64,10 @@ export class ApplyPatchTool {
    * 应用补丁。
    *
    * @param call 工具调用（实参含 patch，可选 path）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 执行结果：解析失败 / 路径越界 / 任一段应用失败都返回失败且不写任何文件；成功写入全部目标。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const patch = String(call.arguments['patch'] ?? '');
     const parsed = this.applier.parseFiles(patch);
     if (!parsed.ok) {
@@ -80,14 +81,15 @@ export class ApplyPatchTool {
         error: 'patch 缺少目标文件（请提供 path 参数或 +++ 头）',
       };
     }
-    const guard = new WorkspaceGuard(this.workspaceRoot);
+    const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
+    const guard = new WorkspaceGuard(root);
     const originals = new Map<string, string>();
     this.existing.clear();
     for (const target of targets) {
       if (!guard.isInside(target)) {
         return { callId: call.id, ok: false, error: `路径越界: ${target}` };
       }
-      const absolute = resolve(this.workspaceRoot, target);
+      const absolute = resolve(root, target);
       try {
         const before = await this.readExisting(absolute, target);
         // S1 冲突保护：账本有记录且已背离 ⇒ 拒绝整份补丁（原子语义：一个字节都不写）。
@@ -106,7 +108,7 @@ export class ApplyPatchTool {
     if (!result.ok) {
       return { callId: call.id, ok: false, error: `补丁应用失败: ${result.error}` };
     }
-    return this.writeAll(call.id, result.outputs, originals);
+    return this.writeAll(call.id, result.outputs, originals, root);
   }
 
   /**
@@ -173,12 +175,14 @@ export class ApplyPatchTool {
    * @param callId 工具调用 ID。
    * @param outputs 各目标的新内容。
    * @param originals 各目标应用前的内容（不存在的目标为空串）。
+   * @param root 本次调用解析出的工作区根（运行时 ctx 优先，见 `ToolWorkspaceRoot`）。
    * @returns 成功结果（附变更清单）；准备或提交失败时返回失败（提交失败时附回滚情况）。
    */
   private async writeAll(
     callId: string,
     outputs: readonly { readonly targetFile: string; readonly content: string }[],
     originals: ReadonlyMap<string, string>,
+    root: string,
   ): Promise<ToolResult> {
     const pending = outputs.filter(
       (output) => (originals.get(output.targetFile) ?? '') !== output.content,
@@ -187,18 +191,18 @@ export class ApplyPatchTool {
       .map((output) => output.targetFile)
       .filter((target) => !pending.some((output) => output.targetFile === target));
     try {
-      await this.prepare(pending, originals);
+      await this.prepare(pending, originals, root);
     } catch (error) {
       return { callId, ok: false, error: `补丁未落盘（准备阶段失败）: ${this.messageOf(error)}` };
     }
     const written: string[] = [];
     for (const output of pending) {
-      const absolute = resolve(this.workspaceRoot, output.targetFile);
+      const absolute = resolve(root, output.targetFile);
       try {
         await writeFile(absolute, output.content, 'utf8');
         written.push(output.targetFile);
       } catch (error) {
-        const rolled = await this.rollback(written, originals);
+        const rolled = await this.rollback(written, originals, root);
         return {
           callId,
           ok: false,
@@ -209,7 +213,7 @@ export class ApplyPatchTool {
       }
     }
     for (const output of pending) {
-      this.ledger?.remember(resolve(this.workspaceRoot, output.targetFile), output.content);
+      this.ledger?.remember(resolve(root, output.targetFile), output.content);
     }
     return {
       callId,
@@ -225,14 +229,16 @@ export class ApplyPatchTool {
    * 提交前准备：建父目录，并为**已存在**的目标生成 `.bak`（与 `write_file` / `edit` 同口径）。
    * @param pending 内容确实会变化的目标（顺序即落盘顺序）。
    * @param originals 各目标应用前的内容。
+   * @param root 本次调用解析出的工作区根。
    * @returns 准备完成后的 Promise；任一目标准备失败即抛出（调用方据此在**未写任何文件**时返回）。
    */
   private async prepare(
     pending: readonly { readonly targetFile: string; readonly content: string }[],
     originals: ReadonlyMap<string, string>,
+    root: string,
   ): Promise<void> {
     for (const output of pending) {
-      const absolute = resolve(this.workspaceRoot, output.targetFile);
+      const absolute = resolve(root, output.targetFile);
       await mkdir(dirname(absolute), { recursive: true });
       if (this.existing.has(output.targetFile)) {
         await writeFile(`${absolute}.bak`, originals.get(output.targetFile) ?? '', 'utf8');
@@ -244,15 +250,17 @@ export class ApplyPatchTool {
    * 回滚已落盘的目标到补丁前状态（fail-soft：单件回滚失败只告警并计数，不掩盖原始写错误）。
    * @param written 已成功写入的相对路径（按落盘顺序）。
    * @param originals 各目标应用前的内容。
+   * @param root 本次调用解析出的工作区根。
    * @returns 成功回滚的文件数。
    */
   private async rollback(
     written: readonly string[],
     originals: ReadonlyMap<string, string>,
+    root: string,
   ): Promise<number> {
     let rolled = 0;
     for (const target of [...written].reverse()) {
-      const absolute = resolve(this.workspaceRoot, target);
+      const absolute = resolve(root, target);
       try {
         if (this.existing.has(target)) {
           await writeFile(absolute, originals.get(target) ?? '', 'utf8');

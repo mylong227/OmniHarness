@@ -57,4 +57,16 @@ export interface SubagentPortsShape {
    * 导致 safe/locked 模式下子代工具失败既不进健康监控、也不受确定性否决约束。
    */
   readonly supervisor?: SupervisorPort | undefined;
+  /**
+   * 子代系统提示片段（可选，缺省无）。
+   *
+   * 存在理由（2026-10-06 第六十一轮真实模型跑测实测）：`SubagentRuntimeFactory` 原先把子代
+   * `fragments` 留空，于是子代**没有任何系统提示**——事件里的 `context.tokens.systemPrompt`
+   * 实测为 **0**（同一台机上主会话是 740）。后果不是"少点风格"，而是**少掉运行环境**：子代在
+   * Windows 上照着训练语料的 POSIX 假设连发 `pwd` / `ls -la`，被 `cmd.exe` 回「不是内部或外部命令」，
+   * 于是**把"命令不存在"误判成"隔离环境 shell 不可用"**，并把这条错误结论回传给主代理
+   * （主代理照抄进了最终答复）。故由组合根注入**运行环境那一段**（不是主会话的整段编码 SOP——
+   * 子代工具集是裁剪过的，整段 SOP 会指向它没有的工具）。
+   */
+  readonly fragments?: readonly string[] | undefined;
 }

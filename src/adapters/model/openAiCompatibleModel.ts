@@ -482,8 +482,8 @@ export class OpenAiCompatibleModel implements ModelPort {
    * @param callbacks 流式回调集合：文本增量经 onText、工具参数增量经 onToolInput 推出。
    * @param state 跨事件共享的累积状态：文本块、推理块、按 index 分桶的工具调用块与末块 usage。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private handleStreamEvent(data: string, callbacks: StreamCallbacks, state: StreamState): void {
     if (data === '[DONE]') {
       return;

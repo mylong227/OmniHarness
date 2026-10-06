@@ -36,7 +36,9 @@ export class McpToolMapper {
     for (const pattern of MCP_INJECTION_PATTERNS) {
       const hit = pattern.exec(description);
       if (hit !== null) {
-        throw new Error(`工具 description 含提示注入特征，拒绝透传（匹配片段: ${hit[0].slice(0, 40)}）`);
+        throw new Error(
+          `工具 description 含提示注入特征，拒绝透传（匹配片段: ${hit[0].slice(0, 40)}）`,
+        );
       }
     }
   }

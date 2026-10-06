@@ -354,8 +354,8 @@ export class ResponsesModel implements ModelPort {
    *              [DONE] 标记与无法解析的 JSON 直接忽略；仅响应
    *              response.output_text.delta 与 response.completed 两类事件。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private handleStreamEvent(event: SseEvent, callbacks: StreamCallbacks, state: StreamState): void {
     if (event.data === '[DONE]') {
       return;

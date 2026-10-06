@@ -8,6 +8,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 import { FileContentLedger } from './fileContentLedger.js';
 import { StringReplaceEditor } from './stringReplaceEditor.js';
 import type { StringReplaceOutcome } from './stringReplaceEditor.js';
@@ -69,24 +70,25 @@ export class EditFileTool {
    * 执行内容替换。
    *
    * @param call 工具调用（实参含 path / old_string / new_string，可选 replace_all、fuzzy）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 成功时附替换处数与目标片段预览；路径越界 / 文件不存在 / 匹配歧义均返回失败且不写盘。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
     const oldText = String(call.arguments['old_string'] ?? '');
     const newText = String(call.arguments['new_string'] ?? '');
-    const guard = new WorkspaceGuard(this.workspaceRoot);
+    const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
+    const guard = new WorkspaceGuard(root);
     if (!guard.isInside(relative)) {
       return {
         callId: call.id,
         ok: false,
         error:
-          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，` +
+          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${root}，` +
           '请改用相对此根目录的路径。',
       };
     }
-    const absolute = resolve(this.workspaceRoot, relative);
+    const absolute = resolve(root, relative);
     try {
       const original = await readFile(absolute, 'utf8');
       // S1 冲突保护：账本有记录且磁盘内容已变 ⇒ 外部改过，先让模型重读再改。

@@ -8,6 +8,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 
 /** 列目录工具：仅限工作区内，列出条目（名称 + 类型）。 */
 export class ListDirTool {
@@ -30,17 +31,18 @@ export class ListDirTool {
 
   /** 列出目录。
    * @param call 工具调用（实参可选 path，默认根目录）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 执行结果：成功附条目列表（`[d]`/`[f]` 前缀）；越界或读取失败返回失败。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '.');
-    const guard = new WorkspaceGuard(this.workspaceRoot);
+    const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
+    const guard = new WorkspaceGuard(root);
     if (!guard.isInside(relative)) {
       return { callId: call.id, ok: false, error: `路径越界: ${relative}` };
     }
     try {
-      const entries = await readdir(resolve(this.workspaceRoot, relative), { withFileTypes: true });
+      const entries = await readdir(resolve(root, relative), { withFileTypes: true });
       const lines = entries.map((entry) => `${entry.isDirectory() ? '[d]' : '[f]'} ${entry.name}`);
       return { callId: call.id, ok: true, output: lines.join('\n') };
     } catch (error) {

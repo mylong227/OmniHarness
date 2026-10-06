@@ -33,8 +33,11 @@ test('load：合法 JSON 原样返回', () => {
 test('load：非法 JSON 抛 ConfigError（不再静默回退 {} 掩盖错误）', () => {
   const path = tmpFile('bad.json');
   writeFileSync(path, '{ "model": "gpt-4o", ', 'utf8'); // 截断的非法 JSON
-  assert.throws(() => configFile.load(path), (err: unknown) => {
-    return err instanceof ConfigError && /配置文件解析失败/.test(err.message);
-  });
+  assert.throws(
+    () => configFile.load(path),
+    (err: unknown) => {
+      return err instanceof ConfigError && /配置文件解析失败/.test(err.message);
+    },
+  );
   rmSync(join(path, '..'), { recursive: true, force: true });
 });

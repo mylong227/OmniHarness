@@ -168,8 +168,8 @@ export class SemanticIndexCache {
    * 失效缓存。
    * @param root 指定则只失效该 root 下的全部配置变体；缺省清空全部。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();
