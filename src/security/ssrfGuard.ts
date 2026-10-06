@@ -117,8 +117,8 @@ export class SsrfGuard {
    * SSRF 校验：命中即抛错（fail-closed）。
    * 解析失败、协议非 http/https、URL 非法一律按拦截处理——宁可拒绝也不放行。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public async assertNotSsrf(rawUrl: string, options: SsrfOptions = {}): Promise<void> {
     let url: URL;
     try {

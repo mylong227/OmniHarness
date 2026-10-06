@@ -367,7 +367,36 @@ function jsdocIndentViolations(text) {
     text,
   );
   let count = 0;
+  // 模板字面量栈：每层记录该模板当前 `${…}` 内的花括号深度。
+  //
+  // 为什么需要它（2026-10-06 第六十一轮实测的**假红**）：裸 `scanner` 不是 parser，走到 `}` 时
+  // 不会自动 `reScanTemplateToken`，于是**模板文本里的** `/**` 被当成注释起点，扫描一路吞到
+  // 下一个真注释的 `*/` 才结束——那一整段真 JSDoc 于是被判成「脱块」。实测一份
+  // `:(exclude)${dir}/**` 让紧随其后 6 行完全合规的 JSDoc 集体变红。上面「不误伤字符串/模板」
+  // 的声明此前并不成立：字符串字面量确实没事，模板字面量会炸。
+  const templateStack = [];
   for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
+    if (templateStack.length > 0) {
+      if (kind === ts.SyntaxKind.TemplateHead) {
+        templateStack.push(0); // 模板里再套模板
+      } else if (kind === ts.SyntaxKind.OpenBraceToken) {
+        templateStack[templateStack.length - 1] += 1;
+      } else if (kind === ts.SyntaxKind.CloseBraceToken) {
+        if (templateStack[templateStack.length - 1] === 0) {
+          // 这个 `}` 关闭 `${…}`：重扫为模板中段/尾段，模板内文本不再当注释看。
+          if (scanner.reScanTemplateToken(false) === ts.SyntaxKind.TemplateTail) {
+            templateStack.pop();
+          }
+        } else {
+          templateStack[templateStack.length - 1] -= 1;
+        }
+      }
+      continue;
+    }
+    if (kind === ts.SyntaxKind.TemplateHead) {
+      templateStack.push(0);
+      continue;
+    }
     if (kind !== ts.SyntaxKind.MultiLineCommentTrivia) continue;
     const start = scanner.getTokenStart();
     const raw = text.slice(start, scanner.getTokenEnd());
@@ -385,6 +414,56 @@ function jsdocIndentViolations(text) {
     }
   }
   return count;
+}
+
+// `--self-check-jsdoc`：规则自证（正例 + 反例成对）。
+//
+// 存在理由（2026-10-06 第六十一轮实测的**假红**）：模板字面量里的注释起始符号曾被当成注释起点，
+// 把紧随其后的 6 行完全合规的 JSDoc 判成「脱块」。**反例**不过 ⇒ 规则失灵（真违约漏网）；
+// **正例**不过 ⇒ 规则又在误伤，而误伤会逼着人把合规代码改坏。两者都必须钉住。
+// 自证不进全量扫描路径（放在 `const report` 之前早退），故 `npm test` 调它几乎零开销。
+if (process.argv.includes('--self-check-jsdoc')) {
+  const cases = [
+    {
+      name: '模板里的注释符号 + 其后合规 JSDoc（旧假红）',
+      text: 'const a = `:(exclude)${dir}/**`;\n  /**\n   * ok\n   */\nconst b = 1;\n',
+      want: 0,
+    },
+    {
+      name: '模板里的注释符号 + 其后**真违约** JSDoc（必须仍被抓）',
+      text: 'const a = `:(exclude)${dir}/**`;\n/**\n* broken\n*/\nconst b = 1;\n',
+      want: 2,
+    },
+    {
+      name: '嵌套模板 + 其后合规 JSDoc',
+      text: 'const a = `x${`y${z}/**`}`;\n  /**\n   * ok\n   */\nconst b = 1;\n',
+      want: 0,
+    },
+    {
+      name: '`${}` 里有对象字面量与注释符号 + 其后合规 JSDoc',
+      text: 'const a = `x${JSON.stringify({ k: 1 })}/**`;\n  /**\n   * ok\n   */\nconst b = 1;\n',
+      want: 0,
+    },
+    {
+      name: '普通字符串里的注释符号 + 其后合规 JSDoc',
+      text: "const a = '/**';\n  /**\n   * ok\n   */\n",
+      want: 0,
+    },
+    {
+      name: '无模板的真违约 JSDoc（基线，防规则整体失灵）',
+      text: '/**\n* broken\n*/\nconst b = 1;\n',
+      want: 2,
+    },
+  ];
+  let selfCheckFailures = 0;
+  for (const c of cases) {
+    const got = jsdocIndentViolations(c.text);
+    const ok = got === c.want;
+    if (!ok) selfCheckFailures += 1;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${c.name}: got=${got} want=${c.want}`);
+  }
+  console.log(`jsdocIndent self-check: ${cases.length - selfCheckFailures}/${cases.length} 例通过`);
+  process.exit(selfCheckFailures === 0 ? 0 : 1);
 }
 
 const report = [];

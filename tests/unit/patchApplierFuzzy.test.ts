@@ -6,7 +6,17 @@ import { join } from 'node:path';
 import { PatchApplier } from '../../src/adapters/tool/fs/patchApplier.js';
 import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.js';
 
-const context = { sessionId: 's1', workspaceRoot: process.cwd() };
+/**
+ * fs 工具上下文：根**必须与工具自身的根一致**。
+ *
+ * 2026-10-06（第六十一轮真实模型跑测）：fs 工具族统一为「运行时 ctx 优先」（`ToolWorkspaceRoot`）。
+ * 此前本文件的 ctx 用 `process.cwd()`、工具根用临时目录，却断言补丁落在临时目录——那等于
+ * **把「装配根优先」这一旧行为钉成契约**，而它正是子智能体隔离失效（补丁写进主工作区）的根因。
+ */
+const ctxOf = (dir: string): { sessionId: string; workspaceRoot: string } => ({
+  sessionId: 's1',
+  workspaceRoot: dir,
+});
 
 /** 单文件补丁（上下文 3 行，把 b 改成 B）。 */
 function patchOf(oldStart: number): string {
@@ -168,7 +178,7 @@ test('ApplyPatchTool：一个补丁原子写入多个文件', async () => {
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true);
     assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'X');
@@ -198,7 +208,7 @@ test('ApplyPatchTool：任一段失败时两个文件都保持原样', async () 
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, false);
     assert.strictEqual(await readFile(join(dir, 'one.txt'), 'utf8'), 'x');
@@ -224,7 +234,7 @@ test('ApplyPatchTool：单文件补丁仍可用 path 覆盖 +++ 头目标', asyn
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch, path: 'real.txt' } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true);
     assert.strictEqual(await readFile(join(dir, 'real.txt'), 'utf8'), 'a\nB\nc');
@@ -244,7 +254,7 @@ test('ApplyPatchTool：hunk 无增删行（纯上下文）时必须回报「未�
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true, '补丁本身可解析、可落位，不算工具失败');
     assert.match(result.output ?? '', /未改变任何文件/);
@@ -277,7 +287,7 @@ test('ApplyPatchTool：多文件补丁如实区分「变更」与「无变化」
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true);
     assert.match(result.output ?? '', /变更 1 个文件: one\.txt/);
@@ -316,7 +326,7 @@ test('ApplyPatchTool：覆盖已有文件前生成 .bak 备份（与 write_file 
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch: twoFilePatch() } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, true);
     assert.strictEqual(await readFile(join(dir, 'one.txt.bak'), 'utf8'), 'x');
@@ -337,7 +347,7 @@ test('ApplyPatchTool：目标不可写时**一个字节都不落盘**（旧实�
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch: twoFilePatch() } },
-      context,
+      ctxOf(dir),
     );
     assert.strictEqual(result.ok, false);
     assert.match(result.error ?? '', /two\.txt/);
@@ -359,7 +369,7 @@ test('ApplyPatchTool：提交阶段写失败时回滚已写文件（工作区保
     const tool = new ApplyPatchTool(dir);
     const result = await tool.handle(
       { id: 'c1', name: 'apply_patch', arguments: { patch: twoFilePatch() } },
-      context,
+      ctxOf(dir),
     );
     if (result.ok) {
       // 少数文件系统/权限模型下只读不拦写入（如以 root 运行）：此时断言等价于成功路径，

@@ -19,6 +19,7 @@ import type {
 } from '../../../ports/media/mediaTypes.js';
 import type { ResolvedMediaOptions } from '../../../config/mediaConfigResolver.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 
 /** 嗅探所需的文件头字节数（足以覆盖所有魔数与图片头）。 */
 const HEAD_BYTES = 64 * 1024;
@@ -95,18 +96,19 @@ export class ViewMediaTool {
    * 抽帧并把帧作为附件交付。
    *
    * @param call 工具调用（实参含 path / start_ms / end_ms / max_frames / strategy）。
-   * @param context 工具上下文（提供会话取消信号）。
+   * @param context 工具上下文（提供会话取消信号；其 workspaceRoot 优先，子智能体据此落到隔离工作树）。
    * @returns 成功时 `output` 为逐帧清单、`files` 为帧附件；失败时 `ok:false` 且 `error` 可行动。
    */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
-    const guard = new WorkspaceGuard(this.options.workspaceRoot);
+    const root = ToolWorkspaceRoot.of(this.options.workspaceRoot, context);
+    const guard = new WorkspaceGuard(root);
     if (!guard.isInside(relative)) {
       return {
         callId: call.id,
         ok: false,
         error:
-          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.options.workspaceRoot}，` +
+          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${root}，` +
           '请改用相对此根目录的路径。',
       };
     }

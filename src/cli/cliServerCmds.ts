@@ -120,8 +120,8 @@ export class CliServerCmds extends CliBuildConfig {
    * @param filePath 目标文件路径（父目录不存在时递归创建）。
    * @param content 待写入的 UTF-8 文本。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   protected async writeSdk(filePath: string, content: string): Promise<void> {
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, content, 'utf8');

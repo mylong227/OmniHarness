@@ -8,6 +8,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 import { FileContentLedger } from './fileContentLedger.js';
 
 /** 写文件工具：仅限工作区内，覆盖前自动备份 .bak（可审计）。 */
@@ -37,24 +38,25 @@ export class WriteFileTool {
 
   /** 写入文件。
    * @param call 工具调用（实参含 path 与 content）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 执行结果：路径越界或写入失败返回失败；成功覆盖前生成 .bak 备份。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
     const content = String(call.arguments['content'] ?? '');
-    const guard = new WorkspaceGuard(this.workspaceRoot);
+    const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
+    const guard = new WorkspaceGuard(root);
     if (!guard.isInside(relative)) {
       return {
         callId: call.id,
         ok: false,
         // 报错做人话：给出当前可写根目录，模型据此改写为相对路径，避免反复试错触发 supervisor 降级。
         error:
-          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，` +
+          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${root}，` +
           `请改用相对此根目录的路径（例如 examples/plugins/demo-string/index.js）`,
       };
     }
-    const absolute = resolve(this.workspaceRoot, relative);
+    const absolute = resolve(root, relative);
     try {
       const existing = await this.readIfExists(absolute);
       // S1 冲突保护：账本里有该文件、且磁盘内容已背离 ⇒ 改动来自本工具链之外，拒绝覆盖。

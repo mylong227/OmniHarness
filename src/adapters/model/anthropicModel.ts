@@ -379,8 +379,8 @@ export class AnthropicModel implements ModelPort {
    * @param toolBlocks 跨事件累积的工具调用块（按流中顺序入栈，就地更新 partial）。
    * @param usageState 跨事件累积的用量状态（经 observeUsage 原地覆盖写）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private handleEvent(
     data: string,
     callbacks: StreamCallbacks,
@@ -447,8 +447,8 @@ export class AnthropicModel implements ModelPort {
    * @param event 单个流式事件（最小子集类型）
    * @param state 跨事件累积的用量状态（原地更新）
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private observeUsage(event: AnthropicStreamEvent, state: AnthropicUsageState): void {
     const start = event.message?.usage;
     if (start !== undefined) {

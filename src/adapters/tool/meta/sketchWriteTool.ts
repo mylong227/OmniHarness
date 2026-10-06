@@ -8,6 +8,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 
 /** 草图目录（相对工作区，与 `.omniharness/sessions` 同约定）。 */
 const SKETCH_DIR = '.omniharness/sketches';
@@ -64,10 +65,10 @@ export class SketchWriteTool {
   /**
    * 执行 sketch_write：校验参数 → 拼路径 → 落盘。
    * @param call 模型传入的工具调用（name / content / format）
-   * @param _context 工具上下文（本工具不需要，路径基准是构造期注入的工作区根）
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）
    * @returns 成功时给出相对路径与字节数；参数非法 / 写盘失败时 ok=false 并附原因
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const name = typeof call.arguments['name'] === 'string' ? call.arguments['name'].trim() : '';
     const content = typeof call.arguments['content'] === 'string' ? call.arguments['content'] : '';
     const rawFormat = call.arguments['format'];
@@ -87,10 +88,11 @@ export class SketchWriteTool {
       return { callId: call.id, ok: false, error: 'content 不能为空（不写空草图）' };
     }
     const relative = join(SKETCH_DIR, `${this.stamp()}-${this.slug(name)}.${extension}`);
-    if (!new WorkspaceGuard(this.workspaceRoot).isInside(relative)) {
+    const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
+    if (!new WorkspaceGuard(root).isInside(relative)) {
       return { callId: call.id, ok: false, error: `草图路径越界: ${relative}` };
     }
-    const absolute = resolve(this.workspaceRoot, relative);
+    const absolute = resolve(root, relative);
     try {
       await mkdir(dirname(absolute), { recursive: true });
       await writeFile(absolute, content, 'utf8');

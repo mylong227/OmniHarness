@@ -78,6 +78,10 @@ export class SubagentRuntimeFactory {
       scratchpad: new FileScratchpad(() => ports.workspaceRoot),
       memoryExtractor: undefined,
       skillRegistry: new SkillRegistry(),
+      // 子代系统提示（2026-10-06 第六十一轮）：原先整体缺省 ⇒ 子代 `systemPrompt` 实测为 0 token，
+      // 连"自己在什么平台、shell 是 cmd 还是 bash"都不知道，于是按 POSIX 试错并把"命令不存在"
+      // 误判成"隔离 shell 不可用"回传主代理。这里只透传组合根给的**运行环境段**（见端口注释）。
+      fragments: ports.fragments,
     };
     return {
       config,

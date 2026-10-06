@@ -28,6 +28,7 @@ import type { FileAttachment } from '../../../ports/model/model.js';
 import type { ImageResizeOutcome, ImageResizerPort } from '../../../ports/media/imageResizer.js';
 import { ImageProbe } from '../../../util/imageProbe.js';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
 
 /** 单张图片的字节上限：5 MiB（base64 后约 6.7 MiB，是常见端点单图上限之内的保守值）。 */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -68,22 +69,23 @@ export class ViewImageTool {
    * 读取图片并构造附件结果。
    *
    * @param call 工具调用（实参含 path）。
-   * @param _context 工具上下文（本工具未使用，忽略）。
+   * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 成功时 `output` 为元数据、`files` 为图片附件；越界 / 非图片 / 读取失败时 ok:false。
    */
-  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const relative = String(call.arguments['path'] ?? '');
-    const guard = new WorkspaceGuard(this.workspaceRoot);
+    const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
+    const guard = new WorkspaceGuard(root);
     if (!guard.isInside(relative)) {
       return {
         callId: call.id,
         ok: false,
         error:
-          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${this.workspaceRoot}，` +
+          `路径越界: "${relative}" 不在工作区内。工作区根目录为 ${root}，` +
           '请改用相对此根目录的路径。',
       };
     }
-    const absolute = resolve(this.workspaceRoot, relative);
+    const absolute = resolve(root, relative);
     let bytes: Buffer;
     try {
       bytes = await readFile(absolute);

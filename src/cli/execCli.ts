@@ -350,8 +350,8 @@ export class ExecCli extends CliAgentCmds {
    * Aider 式安全网：执行后若处于 git 仓库则自动提交变更（opt-in；失败静默，不破坏主流程退出码）。
    * @param finalText 本次执行的最终答复文本（截断 72 字符作为提交信息）。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   private async maybeAutoCommit(finalText: string): Promise<void> {
     try {
       await AsyncChildProcess.execFileAsync('git', ['rev-parse', '--is-inside-work-tree'], {

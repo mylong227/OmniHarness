@@ -381,8 +381,8 @@ export class DoctorRunner {
    * 把报告以人类可读摘要打到 stdout。
    * @param report 待输出的诊断报告。
    
- * @returns 无返回值。
-*/
+   * @returns 无返回值。
+   */
   public printDoctor(report: DoctorReport): void {
     const lines: string[] = [];
     lines.push('OmniHarness 诊断报告');
