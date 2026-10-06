@@ -1,5 +1,3 @@
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 import type { McpServerConfig } from '../mcp/mcpGateway.js';
 import type { SkillEntry } from '../skill/skill.js';
 import type {
@@ -10,6 +8,7 @@ import type {
   SsrfPolicyConfig,
 } from '../config/configFile.js';
 import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
+import { SessionStorageLocation } from '../util/sessionStorageLocation.js';
 import { ArrayAt } from '../util/arrayAt.js';
 import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
@@ -251,7 +250,9 @@ export const CliDefaults: CliArgs = {
   modelAdapter: 'mock',
   model: 'deepseek-v4-flash',
   storageAdapter: 'jsonl',
-  storageDir: join(homedir(), '.omniharness', 'sessions'),
+  // 单一事实源：`trace` / `session` 等独立读取方**必须**用同一个 `SessionStorageLocation`
+  // （2026-10-06 第五十九轮：此前四处各写一份，默认跑一次再 `trace read` 必然找不到会话）。
+  storageDir: SessionStorageLocation.defaultDir(),
   approval: 'rules',
   approvalAsk: 'allow',
   sandbox: 'policy',

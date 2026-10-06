@@ -205,6 +205,13 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--events',
   '--model-circuit-breaker-threshold',
   '--model-circuit-breaker-open-ms',
+  // 审计 sink 三旗标（2026-10-06 第五十九轮：真实跑测发现它们**只在 serve/server 被消费**，
+  // 且当时既不在 FLAG_TABLE 也不在 VALUE_FLAGS ⇒ 取值会被 `collectPositional` 当成 prompt
+  // （`omniharness --audit-dir /tmp/a` 会把 `/tmp/a` 当任务跑）。它们是**取值型**旗标，必须在此登记；
+  // 单跑路径上的"接受却不消费"由 `ExecCli.assertExecPathSupported` fail-closed 兜住。
+  '--audit-dir',
+  '--audit-file',
+  '--audit-hmac-key',
 ]);
 
 /**

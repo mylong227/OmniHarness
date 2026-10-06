@@ -101,7 +101,8 @@
     "gate:budget": "node scripts/gateBudget.mjs",
     "probe:recall": "node tools/probes/recallHitrate.mjs",
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
-    "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs"
+    "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
+    "smoke:real": "node scripts/realRunSmoke.mjs --phase=all"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

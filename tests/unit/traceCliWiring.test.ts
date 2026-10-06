@@ -4,14 +4,19 @@
  * 事故口径（2026-09-19 入口可达性审计）：只读自省 trace 在生产入口不可达。本文件钉住 CLI 侧入口：
  *   ① 真读会话存档并输出稳定 seq 的条目（TSV 与 --json 两种形态）；
  *   ② --kind / --limit 过滤；
- *   ③ 用法错误（缺 --session / 未知子动作）退出码 2；会话不存在退出码 1 且错误如实打到 stderr。
+ *   ③ 用法错误（缺 --session / 未知子动作）退出码 2；会话不存在退出码 1 且错误如实打到 stderr；
+ *   ④ **缺省目录必须与写入方同源**（2026-10-06 第五十九轮实测修正：此前的判据把"工作区相对"当成
+ *      正确缺省并标注"与存储层缺省一致"——而写入方用的是用户级目录 ⇒ 默认写入 + 默认读取
+ *      **必然找不到会话**。判据自己保护了错误行为，这正是"真实跑测"才能暴露的一类问题）。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TraceCommand } from '../../src/cli/traceCommand.js';
+import { CliDefaults } from '../../src/cli/argParser.js';
+import { SessionStorageLocation } from '../../src/util/sessionStorageLocation.js';
 import type { SessionEvent } from '../../src/ports/runtime/event.js';
 
 /** 造一条会话事件。 */
@@ -54,23 +59,37 @@ test('trace read：真读存档并输出稳定 seq 的条目（TSV）', async ()
   assert.ok(text.indexOf('assistant') < text.indexOf('tool_call'), '新在前');
 });
 
-test('trace read：缺省存储目录为工作区下 .omniharness/sessions（与存储层缺省一致）', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'omni-trace-cli-default-'));
-  const defaultDir = join(root, '.omniharness', 'sessions');
-  await mkdir(defaultDir, { recursive: true });
-  const events: readonly SessionEvent[] = [
-    ev('user', { content: '默认目录' }, '2026-09-19T11:00:00.000Z'),
-  ];
-  await writeFile(
-    join(defaultDir, 's-default.jsonl'),
-    events.map((event) => JSON.stringify(event)).join('\n'),
-    'utf8',
+test('④ 缺省存储目录 == 写入方默认（单一事实源；修复前两边不一致 ⇒ 默认写+默认读必失败）', async () => {
+  // 一致性地判据本身：`CliDefaults.storageDir`（写入方）必须等于 `SessionStorageLocation.defaultDir()`。
+  assert.strictEqual(
+    CliDefaults.storageDir,
+    SessionStorageLocation.defaultDir(),
+    '写入方默认目录与 SessionStorageLocation 分家了',
   );
-  const out: string[] = [];
-  const command = new TraceCommand({ write: (text) => out.push(text), workspace: root });
-  const code = await command.run(['read', '--session', 's-default']);
-  assert.strictEqual(code, 0);
-  assert.match(out.join(''), /session\ts-default\t1 条/);
+  // 行为面：把会话放到**默认目录**里，不给 --storage-dir，trace read 必须读得到。
+  // 为不污染真实用户目录，用 OMNI_SESSIONS_DIR 把"默认目录"指到临时目录——这正是该环境变量的用途：
+  // 一个旋钮同时移动写入方与所有读取方。
+  const dir = await mkdtemp(join(tmpdir(), 'omni-trace-default-'));
+  const previous = process.env[SessionStorageLocation.ENV_DIR];
+  process.env[SessionStorageLocation.ENV_DIR] = dir;
+  try {
+    const events: readonly SessionEvent[] = [
+      ev('user', { content: '默认目录' }, '2026-09-19T11:00:00.000Z'),
+    ];
+    await writeFile(
+      join(dir, 's-default.jsonl'),
+      events.map((event) => JSON.stringify(event)).join('\n'),
+      'utf8',
+    );
+    const out: string[] = [];
+    const command = new TraceCommand({ write: (text) => out.push(text), workspace: dir });
+    const code = await command.run(['read', '--session', 's-default']);
+    assert.strictEqual(code, 0, `缺省目录下应读到会话：${out.join('')}`);
+    assert.match(out.join(''), /session\ts-default\t1 条/);
+  } finally {
+    if (previous === undefined) delete process.env[SessionStorageLocation.ENV_DIR];
+    else process.env[SessionStorageLocation.ENV_DIR] = previous;
+  }
 });
 
 test('trace read --json --kind --limit：JSON 输出 + 过滤生效', async () => {
