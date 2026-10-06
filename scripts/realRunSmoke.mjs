@@ -471,7 +471,8 @@ async function phaseServe(ws) {
   const auditDir = join(ws, 'audit-serve');
   const child = spawn(
     process.execPath,
-    [CLI, 'serve', '--port', String(port), '--audit-dir', auditDir],
+    // 显式 `--workspace ws`：否则本机固定项目（用户级配置）会接手工作区（见 realUiScenario 同处注释）。
+    [CLI, 'serve', '--port', String(port), '--workspace', ws, '--audit-dir', auditDir],
     {
       cwd: ws,
       env: { ...process.env, OMNI_SEMANTIC_RECALL: '0' },

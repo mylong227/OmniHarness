@@ -55,9 +55,12 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
   const full = (ev.payload?.content as string) || '';
 
   // 揭示器跨渲染复用（构造只发生一次，等价原 class 的「生命周期内复用」）。
+  // **不在这里兜 `schedule ?? setTimeout`**：把宿主函数直接塞进去会诱发
+  // 「宿主 API 被当方法调用」的 `Illegal invocation`（真机崩溃原委见 TextRevealer 构造函数注释）；
+  // 缺省调度由 TextRevealer 自己以裸调用方式包装。
   const revealerRef = React.useRef<TextRevealer | null>(null);
   if (revealerRef.current === null) {
-    revealerRef.current = new TextRevealer((next) => setShown(next), schedule ?? setTimeout);
+    revealerRef.current = new TextRevealer((next) => setShown(next), schedule);
   }
 
   // 文本 / busy / animate 任一变化即重启揭示（依赖写全；不比对 prev）。

@@ -16,13 +16,29 @@ export class TextRevealer {
   private current = '';
 
   /**
+   * 调度器：**永远以裸函数调用**（见构造函数里的包装说明）。
+   */
+  private readonly schedule: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
+
+  /**
    * @param onUpdate 每次推进的回调（收到当前应显示的子串）。
-   * @param schedule 定时器注入点（默认 setTimeout；单测可换成手动时钟）。
+   * @param schedule 定时器注入点（缺省用全局 `setTimeout`；单测可换成手动时钟）。
    */
   public constructor(
     private readonly onUpdate: (shown: string) => void,
-    private readonly schedule: (fn: () => void, ms: number) => ReturnType<typeof setTimeout> = setTimeout,
-  ) {}
+    schedule?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
+  ) {
+    // **为什么必须包一层（2026-10-06 真机崩溃，`Illegal invocation`）**：
+    // 老实现直接把它存成实例字段，再在 `tick()` 里写 `this.schedule(fn, ms)`——那是一次
+    // **以揭示器实例为 receiver 的方法调用**。当注入的是浏览器宿主函数（`setTimeout`）时，
+    // WebIDL 会校验 receiver 并抛 `TypeError: Illegal invocation`（真 Chrome 实测：
+    // `obj.schedule = setTimeout; obj.schedule(fn, 0)` ⇒ Illegal invocation；裸调 `t(fn,0)` ⇒ 正常）。
+    // 症状：回合进行中（busy）+ 该助手消息未走过流式（animate）+ 正文 >240 字 ⇒ **第一帧就崩**、
+    // 整个界面落进渲染错误边界（用户截图：`at AssistantCard … Illegal invocation`）。
+    // 包一层之后，注入方**传什么都安全**（哪怕直接把全局 `setTimeout` 传进来），receiver 不再是实例。
+    const raw = schedule ?? ((fn, ms) => setTimeout(fn, ms));
+    this.schedule = (fn, ms) => raw(fn, ms);
+  }
 
   /** 当前已揭示的子串。 */
   public get shown(): string {
