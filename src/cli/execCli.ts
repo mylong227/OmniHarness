@@ -1,4 +1,4 @@
-﻿/**
+/**
  * execImpl.ts —— OmniHarness CLI 命令实现（god-class 拆分后的实体层）。
  *
  * 自续十七→十九 起，原 2152 行 ExecCli 已拆分为继承链：
@@ -152,37 +152,15 @@ export class ExecCli extends CliAgentCmds {
         process.stdout.write(`${JSON.stringify(args, null, 2)}\n`);
         return 0;
       }
-      const config = await this.buildConfig(args);
+      // 能力真实性校验排在装配**之前**：单跑路径上无实现的取值必须当场拒绝，
+      // 绝不"按缺省分支"静默降级（见方法注释）。
+      // 顺序讲究：headless 的专属提示（"交互审批会挂起"）更具体，故对 `-p` 先判它。
       if (args.print === true) this.assertHeadlessSafe(args);
+      this.assertExecPathSupported(args);
+      const config = await this.buildConfig(args);
       const agent = new Agent(Runtime.createRuntime(config));
       const result = await this.execute(agent, args);
-      if (args.output !== undefined) {
-        const writer = new JsonlWriter(args.output);
-        await writer.writeAll(result.events);
-      }
-      const summary = result.summary as {
-        finalText?: string;
-        sessionId?: string;
-        steps?: number;
-      };
-      if (args.outputFormat === 'json') {
-        process.stdout.write(
-          `${JSON.stringify({
-            ok: true,
-            sessionId: summary.sessionId,
-            steps: summary.steps,
-            finalText: summary.finalText ?? '',
-          })}\n`,
-        );
-      } else if (args.streamText === true) {
-        // V2.1（A1）：正文已随流式增量打到 stdout，这里只收尾换行，避免重复打印。
-        process.stdout.write('\n');
-      } else {
-        process.stdout.write(`${summary.finalText ?? JSON.stringify(result.summary)}\n`);
-      }
-      if (args.autoCommit) {
-        await this.maybeAutoCommit(summary.finalText ?? '');
-      }
+      await this.emitRunOutcome(result, args);
       return 0;
     } catch (error) {
       console.error(`OmniHarness执行失败: ${ArgParser.messageOf(error)}`);
@@ -207,6 +185,87 @@ export class ExecCli extends CliAgentCmds {
    */
   private applyCliRetrievalDefaults(): void {
     process.env.OMNI_SEMANTIC_RECALL ??= '1';
+  }
+
+  /**
+   * 收尾：落盘事件流、按 `--output-format` / `--stream-text` 输出结果、必要时自动提交。
+   *
+   * 从 `run()` 里抽出（2026-10-06）：铁律「函数体行数上限」当场抓到 `run` 体涨到 138 行
+   * （基线 135）——本仓的惯例是**抽帮手**而不是放宽阈值。抽出的同时把"单跑收尾"这件事独立成
+   * 一个可读单元（`run()` 只留分发与编排）。
+   * @param result `execute()` 的产物（会话事件 + 结果摘要）。
+   * @param args 解析后的 CLI 参数（读取 output / outputFormat / streamText / autoCommit）。
+   * @returns 无返回值。
+   */
+  private async emitRunOutcome(
+    result: {
+      readonly events: readonly import('../ports/runtime/event.js').SessionEvent[];
+      readonly summary: unknown;
+    },
+    args: CliArgs,
+  ): Promise<void> {
+    if (args.output !== undefined) {
+      const writer = new JsonlWriter(args.output);
+      await writer.writeAll(result.events);
+    }
+    const summary = result.summary as {
+      finalText?: string;
+      sessionId?: string;
+      steps?: number;
+    };
+    if (args.outputFormat === 'json') {
+      process.stdout.write(
+        `${JSON.stringify({
+          ok: true,
+          sessionId: summary.sessionId,
+          steps: summary.steps,
+          finalText: summary.finalText ?? '',
+        })}\n`,
+      );
+    } else if (args.streamText === true) {
+      // V2.1（A1）：正文已随流式增量打到 stdout，这里只收尾换行，避免重复打印。
+      process.stdout.write('\n');
+    } else {
+      process.stdout.write(`${summary.finalText ?? JSON.stringify(result.summary)}\n`);
+    }
+    if (args.autoCommit) {
+      await this.maybeAutoCommit(summary.finalText ?? '');
+    }
+  }
+
+  /**
+   * 单跑（exec）路径的**能力真实性校验**（fail-closed）。
+   *
+   * 为什么必须有这一层（2026-10-06 排查发现，此前无任何判据覆盖）：
+   * `approval` 的合法取值里有 `ask`（`APPROVALS` 枚举 + 帮助 + README 都列了它），但仓内
+   * **不存在 AskApproval 适配器**——`CliBuildConfig.buildApproval` 的分支只覆盖
+   * deny/rules/guardian/plan，其余一律落到 `AutoApproval`（**全放行**）。于是
+   * `omniharness --approval ask --prompt …` 会**静默变成"一次都不问"**：用户以为每次写盘都要批准，
+   * 实际全部自动放行——这比拒绝启动危险得多（fail-open 且无提示）。
+   *
+   * 为什么不在 `buildApproval` 里直接抛：`serve` / `server`（AppServer，带审批上行通道）也走同一份
+   * `buildConfig`，`ask` 在那里是**有意义**的（由 Web UI 的 `approvalPort` 显式触发弹框），
+   * 在那里拒绝会把正常功能一起打掉。故判断放在**单跑入口**这一处。
+   *
+   * `--plugin-profile` 同理（`declared but not wired`）：插件集收敛点 `applyPluginProfile` 只存在于
+   * AppServer，单跑路径上 `args.pluginProfile` **零消费者**，传了等于没传。
+   * @param args 解析后的 CLI 参数。
+   * @returns 无返回值；不满足即抛错（由 `run()` 的 catch 统一转非零退出）。
+   */
+  private assertExecPathSupported(args: CliArgs): void {
+    if (args.approval === 'ask') {
+      throw new Error(
+        '单跑（exec）路径没有交互审批通道：`--approval ask` 在本路径上无对应实现，' +
+          '缺省分支会**静默降级为全放行**，故此处 fail-closed。' +
+          '请改用 `--approval rules|guardian|plan|deny`；需要"每次问人"请用 `omniharness serve`（由 Web UI 提供审批通道）。',
+      );
+    }
+    if (args.pluginProfile !== undefined && args.pluginProfile.length > 0) {
+      throw new Error(
+        '`--plugin-profile` 只在 `omniharness serve` 生效（插件集收敛点 applyPluginProfile 属 AppServer）；' +
+          '单跑路径上它零消费者，传了等于没传，故此处 fail-closed。',
+      );
+    }
   }
 
   /**

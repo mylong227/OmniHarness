@@ -16,12 +16,14 @@
  * | ⑤ | 类型感知层的规则集**逐字**等于策略清单（`TYPED_ONLY_RULES`）——多一条普通规则、少一条真需要类型的规则都算漂移 |
  * | ⑥ | 预算常量就是报告口径（65 s / 45 s），且被 `gateBudget.mjs` 引用（不是两处各写一份） |
  * | ⑦ | 基础 eslint 配置**不含**类型信息（快层之所以快的前提） |
+ * | ⑧ | `--only` 点到的门禁**必须真的会跑**：跨层（或任何原因）被静默丢弃即红——`--only=tsc` 曾**零门禁 + 打印通过**、`--only=iron-law,tsc` 曾静默丢掉 tsc |
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 /** 仓库根（测试固定从仓库根运行；编译产物在 `dist/` 下，故必须按根算绝对路径）。 */
 const ROOT = process.cwd();
@@ -187,4 +189,26 @@ test('⑦ 基础 eslint 配置不含类型信息（快层之所以快的前提�
       '基础配置项引入了 projectService ⇒ 快层不再快',
     );
   }
+});
+
+test('⑧ --only 点到的门禁必须真的会跑（跨层静默丢弃即红）', () => {
+  // 实跑 `runGates.mjs`：历史缺陷是**零门禁 + 打印通过**（`--only=tsc`，exit 0）与
+  // **静默丢一半**（`--only=iron-law,tsc` 只跑 iron-law）。两者都是"少跑几条还算通过"。
+  const run = (arg: string): { readonly status: number | null; readonly out: string } => {
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', 'runGates.mjs'), arg], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+  };
+  for (const arg of ['--only=tsc', '--only=iron-law,tsc']) {
+    const r = run(arg);
+    assert.notStrictEqual(r.status, 0, `${arg} 必须非零退出（跨层 id 不得被静默丢弃）`);
+    assert.match(r.out, /--only/, `${arg} 未给出可读原因`);
+  }
+  // 正对照：合法 id 必须**真跑**并如实报出条数——否则"拒绝一切"也能骗过上面的断言。
+  const ok = run('--only=node-engine');
+  assert.strictEqual(ok.status, 0, `--only=node-engine 应通过：${ok.out}`);
+  assert.match(ok.out, /实跑 1\//, '通过行必须如实报出实跑条数（历史缺陷下"通过"曾是零信息）');
 });

@@ -53,3 +53,23 @@ test('headless 安全网：approval=ask 在无 stdin 环境会永久挂起，必
   assert.strictEqual(failed, true, 'approval=ask 的 headless 必须显式报错而非挂起');
   assert.match(stderr, /headless|挂起|stdin/i, '错误信息应点明交互审批会挂起');
 });
+
+test('单跑路径的 --approval ask 必须 fail-closed（此前会静默降级为全放行）', async () => {
+  // 2026-10-06 排查发现：仓内**没有** AskApproval 适配器，`buildApproval` 的缺省分支是
+  // `AutoApproval`（全放行）⇒ 非 headless 的 `--approval ask` 会"一次都不问"（fail-open 且无提示）。
+  // 现在单跑入口直接拒绝；`ask` 仅在 `serve`（Web UI 提供审批上行）有意义。
+  let failed = false;
+  let stderr = '';
+  try {
+    await execFileAsync(
+      process.execPath,
+      [cliPath, '--prompt', 'hi', '--model-adapter', 'mock', '--approval', 'ask'],
+      { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+  } catch (error) {
+    failed = true;
+    stderr = (error as { stderr?: string })?.stderr ?? '';
+  }
+  assert.strictEqual(failed, true, '单跑路径的 approval=ask 必须非零退出');
+  assert.match(stderr, /单跑|交互审批通道/, '错误信息应点明"本路径没有交互审批通道"');
+});

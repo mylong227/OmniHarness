@@ -74,6 +74,17 @@ const PORTS_CLASS_WL = new Set([]);
 // 存量归零 ⇒ 本规则同样「新增即红」。
 const PORTS_IMPL_WL = new Set([]);
 
+/**
+ * 本规则认定的「实现层」——**显式枚举**，不是"除 ports 外的一切"。
+ *
+ * 2026-10-06 复核登记的**能力边界**（别把它读成"ports 不再依赖任何实现层"）：新增目录**不会**
+ * 自动纳入；已知未被覆盖、且**现存** ports→实现层 边的层有 `spark/` `skill/` `security/`
+ * `server/` `evolution/` `util/` `subagent/` `mcp/` `worker/`（逐条 file:line 见
+ * `docs/PROJECT_BOARD.md` 第五十七轮 ④）。未一次性纳入的原因：那会把存量边全部判红，
+ * 须先做一轮 ports 依赖收口（属独立一片）。本规则当前保证的是**已枚举层**的存量归零 + 新增即红。
+ */
+const IMPL_LAYERS = ['core/', 'adapters/', 'config/', 'composition/', 'context/', 'search/'];
+
 // ---- 4. 判定 ----
 const caViolations = [];
 const acViolations = [];
@@ -84,20 +95,7 @@ for (const { from, to } of edges) {
     caViolations.push({ id, whitelisted: CORE_TO_ADAPTERS_WL.has(id) });
   } else if (from.startsWith('adapters/') && to.startsWith('core/')) {
     acViolations.push({ id, whitelisted: ADAPTERS_TO_CORE_WL.has(id) });
-  } else if (
-    from.startsWith('ports/') &&
-    (to.startsWith('core/') ||
-      to.startsWith('adapters/') ||
-      to.startsWith('config/') ||
-      to.startsWith('composition/') ||
-      // 第三十轮（2026-10-04）补漏网层：`context/` 与 `search/` 同为实现层——此前
-      // `ports/config/resolvedConfig.ts` 等长期 `import type` 绑定 `ToolResultSpiller` /
-      // `ToolDiscovery` / `RepoMapContextEngine` 实现类而门禁「看不见」。三个契约已抽到
-      // ports（ToolResultSpillerPort / ToolDiscoveryPort / RepoMapContextEnginePort），
-      // 存量归零 ⇒ 纳入本规则「新增即红」。
-      to.startsWith('context/') ||
-      to.startsWith('search/'))
-  ) {
+  } else if (from.startsWith('ports/') && IMPL_LAYERS.some((layer) => to.startsWith(layer))) {
     portsImplViolations.push({ id, whitelisted: PORTS_IMPL_WL.has(id) });
   }
 }

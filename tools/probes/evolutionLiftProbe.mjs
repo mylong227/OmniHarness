@@ -47,7 +47,8 @@
  * ## 用法
  *
  * ```bash
- * node tools/probes/evolutionLiftProbe.mjs [--buckets=48] [--rounds=3] [--json=out.json]
+ * node tools/probes/evolutionLiftProbe.mjs [--buckets=48] [--rounds=3] [--skills=16] \
+ *   [--gate=0.02] [--lift=0.01] [--json=out.json]
  * ```
  *
  * 退出码：`0` 报告已出（gain / not-significant 都算成功交付）｜`2` 缺编译产物｜`3` 判据无区分力｜`4` 纪律违规。
@@ -61,6 +62,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
@@ -68,16 +70,12 @@ const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
   import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-function arg(name, dflt) {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
-}
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
+// `--gate` / `--lift` / `--skills` 此前**能生效但没登记**在用法块里（只读头注释的人以为不存在），
+// 现已一并登记；严格解析同时保证拼错的名字不再静默取默认值。
+const a = probeArgs({
+  values: { gate: '0.02', lift: '0.01', buckets: '48', rounds: '3', skills: '16', json: '' },
+});
 
 let MoireComposer;
 let SkillSchema;
@@ -99,16 +97,30 @@ const SEED = 20261004;
 /** val 桶占比（其余为 test）。 */
 const VAL_RATIO = 0.6;
 /** 晋升门禁：门禁分数下限（真实标尺的取值范围内的保守阈值）。 */
-const GATE_MIN_ENERGY = Number(arg('gate', '0.02'));
+const GATE_MIN_ENERGY = Number(a.gate);
 /** 桶增益阈值（**预注册**）：候选必须把该桶的 val 适配度提升这么多才被接受。 */
-const LIFT_EPS = Number(arg('lift', '0.01'));
+const LIFT_EPS = Number(a.lift);
 /** 敏感性分析用的临时覆盖（undefined = 用预注册值）；**不是**生产配置。 */
 let LIFT_EPS_OVERRIDE;
 
-const BUCKETS = Number(arg('buckets', '48'));
-const ROUNDS = Number(arg('rounds', '3'));
-const SEED_SKILLS = Number(arg('skills', '16'));
-const JSON_OUT = arg('json', '');
+const BUCKETS = Number(a.buckets);
+const ROUNDS = Number(a.rounds);
+const SEED_SKILLS = Number(a.skills);
+const JSON_OUT = String(a.json);
+if (!Number.isFinite(GATE_MIN_ENERGY) || !Number.isFinite(LIFT_EPS)) {
+  console.error('✗ --gate / --lift 必须是有限数（例：--gate=0.02 --lift=0.01）');
+  process.exit(2);
+}
+for (const [name, value] of [
+  ['--buckets', BUCKETS],
+  ['--rounds', ROUNDS],
+  ['--skills', SEED_SKILLS],
+]) {
+  if (!Number.isInteger(value) || value <= 0) {
+    console.error(`✗ ${name} 必须是正整数`);
+    process.exit(2);
+  }
+}
 
 /**
  * mulberry32：确定性 PRNG（探针禁用 `Math.random`——那会让数字不可复现）。

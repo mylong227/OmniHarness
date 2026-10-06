@@ -39,6 +39,7 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
@@ -46,16 +47,8 @@ const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
   import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
 
-/**
- * 读命令行 `--name=value`。
- * @param {string} name 参数名（不含 `--`）。
- * @param {string} dflt 缺省值。
- * @returns {string} 值。
- */
-function arg(name, dflt) {
-  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return hit === undefined ? dflt : hit.slice(name.length + 3);
-}
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
+const a = probeArgs({ values: { task: '', json: '' } });
 
 let ToolExposurePlanner;
 let TOOL_NAMES;
@@ -144,7 +137,7 @@ function planOf(taskText) {
   };
 }
 
-const only = arg('task', '');
+const only = String(a.task);
 const rows = (only === '' ? TASKS : [only]).map((task) => planOf(task));
 
 // ---- G21-b：接**真实 schema** 的 token 预算（离线；schema 取自默认配置的生产注册表）----
@@ -226,7 +219,7 @@ console.log(
     '只含工具的 name/description/parameters，不含工具结果；③ 任务文本不命中任何类别时按 fail-safe 全放行。',
 );
 
-const JSON_OUT = arg('json', '');
+const JSON_OUT = String(a.json);
 if (JSON_OUT !== '') {
   writeFileSync(JSON_OUT, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`已写出 ${JSON_OUT}`);

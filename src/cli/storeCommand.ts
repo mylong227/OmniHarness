@@ -102,8 +102,14 @@ export class StoreCommand {
    */
   private async buildVault(args: readonly string[]): Promise<VaultPort> {
     const reader = new CliArgReader(args);
-    if ((reader.value('--vault-backend') ?? 'crypto') === 'env') {
+    // 枚举值**显式校验**（2026-10-06 排查修正）：此前 `=== 'env'` 之外的**任何**取值（含拼错的
+    // `enc`）都静默走 crypto 后端——与 `cliEnums.ts` 自述的"安全相关枚举必须 fail-closed"相矛盾。
+    const backend = reader.value('--vault-backend') ?? 'crypto';
+    if (backend === 'env') {
       return new EnvVault();
+    }
+    if (backend !== 'crypto') {
+      throw new Error(`非法 --vault-backend：${backend}（可选: crypto | env）`);
     }
     const keyFile = reader.value('--vault-key-file');
     const kv = await this.kvFactory.create(args);

@@ -103,11 +103,15 @@ function loadReport() {
       stdio: ['ignore', 'pipe', 'inherit'],
     });
   } catch (e) {
-    // 测试失败时 npm 非零退出，但覆盖率表仍在 stdout —— 仍按「测试未全绿」处理。
-    // 2026-09-25 增补：TAP 失败行默认只在被捕获的 stdout 里（stderr 为空），不透传则
+    // 分类而非一律归因：**测试没跑起来**（npm 不在 PATH / spawn 失败 / OOM / 汇总前崩溃）
+    // 与**用例失败**是两件事。此前两者共用一句"测试运行未全绿"，把运维故障伪装成用例失败
+    // （2026-10-06 排查发现，与探针"谎报缺少编译产物"同一形态）。TAP 失败行只在**跑起来且有用例失败**
+    // 时才会出现 ⇒ 一行都没有时如实报"可能根本没跑起来"，并透出退出码/信号/真实原因/stderr。
+    //
+    // 2026-09-25 增补（保留）：TAP 失败行默认只在被捕获的 stdout 里（stderr 为空），不透传则
     // CI 日志只有一句「未全绿」而无从定位（ubuntu 首跑实测踩坑）。此处显式提取 not ok 行。
-    console.error('✗ 测试运行未全绿，覆盖率门禁终止。失败用例：');
     const out = e && typeof e.stdout === 'string' ? e.stdout : '';
+    const err = e && typeof e.stderr === 'string' ? e.stderr : '';
     const lines = out.split('\n');
     const printed = [];
     for (let i = 0; i < lines.length && printed.length < 60; i += 1) {
@@ -123,8 +127,22 @@ function loadReport() {
         i = j;
       }
     }
-    if (printed.length > 0) for (const l of printed) console.error('  ' + l);
-    else console.error('  （被捕获输出中无 TAP not ok 行——测试可能在汇总前崩溃，见上方 stderr）');
+    if (printed.length === 0) {
+      console.error(
+        '✗ 覆盖率门禁终止：**测试可能根本没跑起来**（被捕获输出里没有任何 TAP 失败行）。',
+      );
+      console.error(
+        `  退出码=${String((e && e.status) ?? '(无)')}｜信号=${String((e && e.signal) ?? '(无)')}｜` +
+          `原因=${String((e && e.message) ?? e).slice(0, 300)}`,
+      );
+      if (err.trim() !== '') {
+        console.error('  子进程 stderr（前 20 行）：');
+        for (const l of err.split('\n').slice(0, 20)) console.error(`    ${l}`);
+      }
+      process.exit(1);
+    }
+    console.error('✗ 测试运行未全绿，覆盖率门禁终止。失败用例：');
+    for (const l of printed) console.error('  ' + l);
     process.exit(1);
   }
 }
@@ -173,7 +191,15 @@ function parseCoverage(text) {
 }
 
 const { all, files } = parseCoverage(loadReport());
-const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : {};
+// 基线**缺失即阻断**：静默退化成 `{}` 会让逐文件棘轮消失（只剩"新文件 30% 下限"）⇒
+// 所有存量回归一次性合法化，而输出仍是「✓ 覆盖率达标」。本仓纪律与此一致：
+// `check.mjs` 对白名单缺失是阻断级、`docLinkCheck` 的基线缺失也 fail-closed（2026-10-06 排查修正）。
+if (!existsSync(baselinePath)) {
+  console.error(`✗ 缺覆盖率基线：${baselinePath}`);
+  console.error('  没有基线就没有"逐文件只升不降"的棘轮，门禁会静默退化 ⇒ 此处 fail-closed。');
+  process.exit(1);
+}
+const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
 // 宿主相关的覆盖率下限（见 scripts/coverageEnvDependent.json 的 reason/notes）：
 // 这些文件的被覆盖分支取决于本机能否发现 POSIX bash，按**下限**校验以避免换机器假红。
 const envDependentRaw = existsSync(envDependentPath)
@@ -192,6 +218,26 @@ if (files.size === 0) {
     '  coverage 脚本引号（Windows npm 走 cmd.exe，单引号是字面量，须用双引号）后重跑。',
   );
   process.exit(1);
+}
+
+// 聚合值守卫：表里没有 `# all files` 行、或该行不是数字时，`all` 会是 undefined/NaN，而
+// `all < threshold` 对 NaN **恒为 false** ⇒ 门禁静默通过并打印「聚合 undefined% ≥ 80%」。
+// 可达路径包括文档化的 `--from-file`（喂手剪过的报告）与 reporter 变更（2026-10-06 排查修正）。
+if (!Number.isFinite(all)) {
+  console.error(`✗ 覆盖率报告缺 'all files' 聚合行（或该行非数字）：all=${String(all)}。`);
+  console.error('  阈值判定无法进行 ⇒ fail-closed（不再打印"达标"）。');
+  process.exit(1);
+}
+for (const [name, value] of [
+  ['MIN_LINE_COVERAGE', threshold],
+  ['MIN_NEW_FILE_COVERAGE', newFileFloor],
+]) {
+  if (!Number.isFinite(value)) {
+    console.error(
+      `✗ 环境变量 ${name} 不是数字（收到 "${String(process.env[name])}"）⇒ 阈值无法判定。`,
+    );
+    process.exit(1);
+  }
 }
 
 if (args.includes('--dump-baseline')) {

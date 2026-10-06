@@ -434,36 +434,71 @@ if (process.argv.includes('--delta')) {
       if (f && /\.ts$/.test(f) && !f.endsWith('.d.ts')) staged.push(f);
     }
   } catch (error) {
-    // 只有「连 git 都不存在」才是可跳过的情形；其余一律把真实原因打出来，
-    // 避免「静默跳过 + exit 0」把一次真实的读取失败伪装成通过。
+    // 只有「连 git 都不存在」才是可跳过的情形；其余一律**阻断提交**并打印真实原因。
+    // 2026-10-06 复核发现：此处此前无论什么原因都 `exit(0)`（上方注释声称已修，实际只改了文案）——
+    // 于是 index.lock 占用 / EBUSY / dubious ownership 这类**真实读取失败**被伪装成"通过"。
     const code = error && typeof error === 'object' ? error.code : undefined;
     if (code === 'ENOENT') {
       console.error('[delta] 未找到 git 可执行文件，跳过增量门禁（该环境无法做 HEAD/暂存比对）。');
       process.exit(0);
     }
-    console.error(`[delta] 无法获取暂存文件，跳过增量门禁：${String(error).slice(0, 400)}`);
-    process.exit(0);
+    console.error(
+      `[delta] 无法获取暂存文件，增量门禁**中止**（fail-closed）：${String(error).slice(0, 400)}`,
+    );
+    process.exit(1);
   }
   if (staged.length === 0) {
     console.log('[delta] 无暂存 .ts 文件，增量门禁通过。');
     process.exit(0);
   }
-  const readGit = async (revFile) => {
+  // 仓库根：`git diff --name-only` 的输出**恒为仓库根相对路径**，与本进程 cwd 无关
+  // （实测：在 scripts/ 下运行同样打印 `docs/…`）。此前用 `path.resolve(process.cwd(), f)`
+  // ⇒ cwd≠仓库根时每个文件都"不可见" ⇒ 全被跳过 ⇒ 零违规通过（2026-10-06 复核发现）。
+  let repoRoot = process.cwd();
+  try {
+    repoRoot = (await runGit(['rev-parse', '--show-toplevel'])).trim() || process.cwd();
+  } catch (error) {
+    console.error(
+      `[delta] 无法解析仓库根（git rev-parse --show-toplevel 失败）：${String(error).slice(0, 200)}，门禁中止。`,
+    );
+    process.exit(1);
+  }
+  /**
+   * 读 HEAD 版本；新建文件在 HEAD 不存在 ⇒ 返回 `''`（交给 `isNew` 分支，属**预期**路径）。
+   * @param f 仓库根相对路径。
+   * @returns HEAD 版正文；不存在时为空串。
+   */
+  const readHead = async (f) => {
     try {
-      // stderr 静默：新文件在 HEAD 不存在时 `git show HEAD:<f>` 会打印 fatal，
-      // 但那是预期路径（返回 '' 交由 isNew 分支处理），不应污染门禁输出。
+      // stderr 静默：`git show HEAD:<f>` 在新文件上会打印 fatal。
       // `HEAD:src/a b.ts` 这类含空格的 rev 作为**单个 argv** 传递，无需转义。
-      return await runGit(['show', revFile]);
+      return await runGit(['show', `HEAD:${f}`]);
     } catch {
       return '';
     }
   };
   const failures = [];
   for (const f of staged) {
-    const abs = path.resolve(process.cwd(), f);
-    if (!fs.existsSync(abs)) continue; // 删除文件：无新增违规
-    const stagedText = (await readGit(`:${f}`)) || fs.readFileSync(abs, 'utf8');
-    const headText = await readGit(`HEAD:${f}`);
+    const abs = path.resolve(repoRoot, f);
+    if (!fs.existsSync(abs)) {
+      // `--diff-filter=ACMR` 已排除删除 ⇒ 仍缺席只能是**路径口径不对**（见上方 cwd 注释）。
+      console.error(
+        `[delta] 暂存文件在工作区不可见：${f}（解析为 ${abs}）——路径口径异常，门禁中止。`,
+      );
+      process.exit(1);
+    }
+    // 暂存内容**只认 index**：此前 `git show :f` 失败会**回落到工作区文件**去判定 ⇒
+    // 「暂存一份违规、再把工作区改干净」即可骗过增量门禁。读 index 失败一律中止。
+    let stagedText;
+    try {
+      stagedText = await runGit(['show', `:${f}`]);
+    } catch (error) {
+      console.error(
+        `[delta] 无法读取暂存内容 :${f}（${String(error).slice(0, 200)}）——不回落到工作区文件，门禁中止。`,
+      );
+      process.exit(1);
+    }
+    const headText = await readHead(f);
     if (isHot(abs)) continue; // 热区豁免（与全量审计一致）
     const s = metricsForSource(stagedText, abs);
     const h = headText ? metricsForSource(headText, abs) : null;

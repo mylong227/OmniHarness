@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ArgParser } from '../../src/cli/argParser.js';
+import { KvStoreFactory } from '../../src/cli/kvStoreFactory.js';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
 import type { SandboxProfile } from '../../src/adapters/sandbox/sandboxManager.js';
 
@@ -121,4 +122,62 @@ test('SandboxManager 合法 profile 仍映射到对应后端（回归）', () =>
   assert.strictEqual(manager.build('passthrough').name, 'passthrough');
   assert.strictEqual(manager.build('policy').name, 'policy');
   assert.strictEqual(manager.build('restricted').name, 'restricted');
+});
+
+test('非法数字参数抛错，绝不静默变成 NaN（"上限消失"是一种 fail-open）', () => {
+  // 2026-10-06 排查发现：这些旗标此前用裸 `Number.parseInt` ⇒ `abc` 变 `NaN` ⇒
+  // `--subagent-max-depth` 的深度闸 `depth >= maxDepth()` **恒为 false**（上限静默消失）、
+  // `--cost-budget-usd` 让整段成本硬预算被丢掉（`NaN > 0` 为 false）。
+  const cases: ReadonlyArray<readonly [string, string]> = [
+    ['--subagent-max-depth', 'abc'],
+    ['--subagent-concurrency', 'many'],
+    ['--cost-budget-usd', 'cheap'],
+    ['--cost-budget-soft-ratio', ''],
+    ['--compaction-max', '1e'],
+  ];
+  for (const [flag, value] of cases) {
+    assert.throws(
+      () => ArgParser.parseArgs(['--prompt', 'hi', flag, value]),
+      /必须是有限数字/,
+      `${flag} 应拒绝非数字 ${value}（静默 NaN = 上限失效）`,
+    );
+  }
+  // 正对照：合法数字照常解析（小数与科学计数法都算数字）。
+  const ok = ArgParser.parseArgs([
+    '--prompt',
+    'hi',
+    '--subagent-max-depth',
+    '3',
+    '--cost-budget-usd',
+    '1.5',
+  ]);
+  assert.strictEqual(ok?.subagentMaxDepth, 3);
+  assert.strictEqual(ok?.costBudgetUsd, 1.5);
+});
+
+test('--kv-adapter 未知值抛错（此前静默回落到 json-file ⇒ 数据落错地方）', async () => {
+  const factory = new KvStoreFactory();
+  await assert.rejects(
+    () => factory.createFor('sqlite3', join(tmpdir(), 'omni-kv-should-not-exist.json')),
+    /非法 --kv-adapter/,
+    '拼错的 KV 后端必须报错，不能静默读写 JSON 文件',
+  );
+  // 正对照 1：**省略**是文档化的默认（json-file），必须仍然可用——"拼错了"与"没传"是两件事。
+  const defaulted = await factory.createFor(undefined, join(tmpdir(), 'omni-kv-default.json'));
+  assert.ok(typeof defaulted.get === 'function' && typeof defaulted.set === 'function');
+  // 正对照 2：合法枚举照常。
+  const memory = await factory.createFor('memory', undefined);
+  assert.ok(typeof memory.get === 'function');
+});
+
+test('--mock 是真实旗标（README 的 quick start 一直这么写，此前无人解析）', () => {
+  // 修复前 `--mock` 不在 FLAG_TABLE，靠 `parseArgs` 对未知旗标静默 continue 才"看起来能用"
+  // （因为缺省适配器本来就是 mock）——文档宣称的旗标必须真的存在。
+  const args = ArgParser.parseArgs(['--prompt', 'hi', '--mock']);
+  assert.strictEqual(args?.modelAdapter, 'mock');
+  // 与 --model-adapter 同时给出时按 argv 顺序后者生效（可预测，不靠"谁先注册"）。
+  const after = ArgParser.parseArgs(['--prompt', 'hi', '--mock', '--model-adapter', 'llamacpp']);
+  assert.strictEqual(after?.modelAdapter, 'llamacpp');
+  const before = ArgParser.parseArgs(['--prompt', 'hi', '--model-adapter', 'llamacpp', '--mock']);
+  assert.strictEqual(before?.modelAdapter, 'mock');
 });

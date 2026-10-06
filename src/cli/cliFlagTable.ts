@@ -89,6 +89,29 @@ export class CliFlagTable {
     }
     return value as T;
   }
+
+  /**
+   * 取下一个参数值并解析为数字（**fail-closed**：非数字即抛错）。
+   *
+   * 为什么不能裸 `Number.parseInt`（2026-10-06 排查发现）：`--subagent-max-depth abc` ⇒ `NaN` ⇒
+   * 一路透传到 `SubagentOrchestrator`（`depth >= maxDepth()` 因 NaN **恒为 false**）⇒
+   * **派生子代理的深度上限静默消失**；`--cost-budget-usd abc` ⇒ `NaN` ⇒ 整个成本硬预算分支被丢掉
+   * （`args.costBudgetUsd > 0` 为 false）。同族里 `--subagent-concurrency` 因下游 `ConcurrencyLimiter`
+   * 自带 RangeError 而恰好 fail-closed——依赖"下游碰巧会拦"不可靠，故在**解析处**统一拦。
+   * @param argv 完整 argv。
+   * @param index 旗标下标（值在 index+1）。
+   * @param flag 旗标名（用于报错）。
+   * @returns 解析出的有限数字。
+   */
+  public static numberOf(argv: readonly string[], index: number, flag: string): number {
+    const raw = CliFlagTable.valueOf(argv, index, flag);
+    const trimmed = raw.trim();
+    const value = Number(trimmed);
+    if (trimmed === '' || !Number.isFinite(value)) {
+      throw new Error(`非法参数值: ${flag} = ${raw}（必须是有限数字）`);
+    }
+    return value;
+  }
 }
 
 /** 消费值的长选项集合（用于位置参数识别：其紧跟的值不视为 prompt）。 */
@@ -176,6 +199,14 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.modelAdapter = CliFlagTable.enumOf(argv, i, '--model-adapter', MODEL_ADAPTERS);
     return 1;
   },
+  // README 的 Quick start / serve 段一直宣传 `serve --mock`，但仓内**没有任何地方解析它**
+  // （`parseArgs` 对未知旗标静默 continue ⇒ 该旗标"能用"只是因为缺省适配器本来就是 mock）。
+  // 2026-10-06 排查把它补成真实旗标（等价 `--model-adapter mock`，与后者按 argv 顺序后出现者生效），
+  // 而不是把文档改掉——显式声明 mock 对"跑演示/离线跑通"是必要的可读性。
+  '--mock': (a) => {
+    a.modelAdapter = 'mock';
+    return 0;
+  },
   '--base-url': (a, argv, i) => {
     a.baseUrl = CliFlagTable.valueOf(argv, i, '--base-url');
     return 1;
@@ -221,7 +252,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--compaction-max': (a, argv, i) => {
-    a.compactionMax = Number.parseInt(CliFlagTable.valueOf(argv, i, '--compaction-max'), 10);
+    a.compactionMax = CliFlagTable.numberOf(argv, i, '--compaction-max');
     return 1;
   },
   '--memory-encrypt': (a) => {
@@ -262,11 +293,11 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--spill-bytes': (a, argv, i) => {
-    a.spillMax = Number.parseInt(CliFlagTable.valueOf(argv, i, '--spill-bytes'), 10);
+    a.spillMax = CliFlagTable.numberOf(argv, i, '--spill-bytes');
     return 1;
   },
   '--spill-preview': (a, argv, i) => {
-    a.spillPreview = Number.parseInt(CliFlagTable.valueOf(argv, i, '--spill-preview'), 10);
+    a.spillPreview = CliFlagTable.numberOf(argv, i, '--spill-preview');
     return 1;
   },
   '--plan': (a) => {
@@ -282,18 +313,15 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--subagent-max-depth': (a, argv, i) => {
-    a.subagentMaxDepth = Number.parseInt(CliFlagTable.valueOf(argv, i, '--subagent-max-depth'), 10);
+    a.subagentMaxDepth = CliFlagTable.numberOf(argv, i, '--subagent-max-depth');
     return 1;
   },
   '--subagent-concurrency': (a, argv, i) => {
-    a.subagentConcurrency = Number.parseInt(
-      CliFlagTable.valueOf(argv, i, '--subagent-concurrency'),
-      10,
-    );
+    a.subagentConcurrency = CliFlagTable.numberOf(argv, i, '--subagent-concurrency');
     return 1;
   },
   '--subagent-max-steps': (a, argv, i) => {
-    a.subagentMaxSteps = Number.parseInt(CliFlagTable.valueOf(argv, i, '--subagent-max-steps'), 10);
+    a.subagentMaxSteps = CliFlagTable.numberOf(argv, i, '--subagent-max-steps');
     return 1;
   },
   '--events': (a, argv, i) => {
@@ -377,7 +405,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--context-window': (a, argv, i) => {
-    a.contextWindow = Number.parseInt(CliFlagTable.valueOf(argv, i, '--context-window'), 10);
+    a.contextWindow = CliFlagTable.numberOf(argv, i, '--context-window');
     return 1;
   },
   '--plugin-profile': (a, argv, i) => {
@@ -405,17 +433,15 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--model-circuit-breaker-threshold': (a, argv, i) => {
-    a.modelCircuitBreakerThreshold = Number.parseInt(
-      CliFlagTable.valueOf(argv, i, '--model-circuit-breaker-threshold'),
-      10,
+    a.modelCircuitBreakerThreshold = CliFlagTable.numberOf(
+      argv,
+      i,
+      '--model-circuit-breaker-threshold',
     );
     return 1;
   },
   '--model-circuit-breaker-open-ms': (a, argv, i) => {
-    a.modelCircuitBreakerOpenMs = Number.parseInt(
-      CliFlagTable.valueOf(argv, i, '--model-circuit-breaker-open-ms'),
-      10,
-    );
+    a.modelCircuitBreakerOpenMs = CliFlagTable.numberOf(argv, i, '--model-circuit-breaker-open-ms');
     return 1;
   },
   '--stream-text': (a) => {
@@ -454,7 +480,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 0;
   },
   '--a2a-port': (a, argv, i) => {
-    a.a2aPort = Number.parseInt(CliFlagTable.valueOf(argv, i, '--a2a-port'), 10);
+    a.a2aPort = CliFlagTable.numberOf(argv, i, '--a2a-port');
     return 1;
   },
   '--a2a-peer': (a, argv, i) => {
@@ -474,19 +500,19 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--rlvr-samples': (a, argv, i) => {
-    a.rlvrSamples = Number.parseInt(CliFlagTable.valueOf(argv, i, '--rlvr-samples'), 10);
+    a.rlvrSamples = CliFlagTable.numberOf(argv, i, '--rlvr-samples');
     return 1;
   },
   '--rlvr-min-reward': (a, argv, i) => {
-    a.rlvrMinReward = Number.parseFloat(CliFlagTable.valueOf(argv, i, '--rlvr-min-reward'));
+    a.rlvrMinReward = CliFlagTable.numberOf(argv, i, '--rlvr-min-reward');
     return 1;
   },
   '--rlvr-candidates': (a, argv, i) => {
-    a.rlvrCandidates = Number.parseInt(CliFlagTable.valueOf(argv, i, '--rlvr-candidates'), 10);
+    a.rlvrCandidates = CliFlagTable.numberOf(argv, i, '--rlvr-candidates');
     return 1;
   },
   '--rlvr-min-gain': (a, argv, i) => {
-    a.rlvrMinGain = Number.parseFloat(CliFlagTable.valueOf(argv, i, '--rlvr-min-gain'));
+    a.rlvrMinGain = CliFlagTable.numberOf(argv, i, '--rlvr-min-gain');
     return 1;
   },
   '--rlvr-auto-run': (a) => {
@@ -503,16 +529,16 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--rlvr-archive-max': (a, argv, i) => {
-    a.rlvrArchiveMax = Number.parseInt(CliFlagTable.valueOf(argv, i, '--rlvr-archive-max'), 10);
+    a.rlvrArchiveMax = CliFlagTable.numberOf(argv, i, '--rlvr-archive-max');
     return 1;
   },
   '--turn-token-budget': (a, argv, i) => {
-    a.turnTokenBudget = Number.parseInt(CliFlagTable.valueOf(argv, i, '--turn-token-budget'), 10);
+    a.turnTokenBudget = CliFlagTable.numberOf(argv, i, '--turn-token-budget');
     return 1;
   },
   // (P5) 成本预算：USD 上限 / 耗尽行为 / 软阈值比例。
   '--cost-budget-usd': (a, argv, i) => {
-    a.costBudgetUsd = Number.parseFloat(CliFlagTable.valueOf(argv, i, '--cost-budget-usd'));
+    a.costBudgetUsd = CliFlagTable.numberOf(argv, i, '--cost-budget-usd');
     return 1;
   },
   '--cost-budget-on-exceed': (a, argv, i) => {
@@ -525,9 +551,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     return 1;
   },
   '--cost-budget-soft-ratio': (a, argv, i) => {
-    a.costBudgetSoftRatio = Number.parseFloat(
-      CliFlagTable.valueOf(argv, i, '--cost-budget-soft-ratio'),
-    );
+    a.costBudgetSoftRatio = CliFlagTable.numberOf(argv, i, '--cost-budget-soft-ratio');
     return 1;
   },
   // D2 服务端鉴权门禁的 OIDC 配置（仅 serve 消费，不进入 CliArgs 通用字段）。
