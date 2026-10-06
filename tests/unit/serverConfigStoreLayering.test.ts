@@ -130,6 +130,28 @@ test('④ config.get() 摘要：凭据必须打码，原文绝不回传 UI', () 
   }
 });
 
+test('⑥ 本机运行态写回**可移植形态**（家目录下的项目压成 `~/…`）', () => {
+  const { home, project, store } = fixture();
+  const configPath = join(project, 'omniharness.json');
+  try {
+    writeFileSync(configPath, JSON.stringify({ approval: 'rules' }), 'utf8');
+    const inHome = join(home, 'work', 'proj');
+    mkdirSync(inHome, { recursive: true });
+    store.commitWorkspaceSwitch(inHome, project);
+    const local = JSON.parse(
+      readFileSync(join(home, '.omniharness', 'omniharness.json'), 'utf8'),
+    ) as { workspace?: string; workspaces?: string[] };
+    assert.strictEqual(local.workspace, '~/work/proj', '家目录下的项目必须以可移植形态落盘');
+    assert.ok(
+      (local.workspaces ?? []).includes('~/work/proj'),
+      '项目列表里同样要可移植（否则换机器列表里冒出幽灵路径）',
+    );
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 test('⑤ 摘要里的 workspace 必须是**实际运行根**，不被项目文件里持久化的值带偏', () => {
   // 2026-10-06 真机实测：serve 起在仓库目录，`config.get` 却回 `D:\work\新项目`（项目
   // omniharness.json 里落盘的"上次选中工作区"）⇒ 界面显示的当前工作区与实际运行的不是同一个。

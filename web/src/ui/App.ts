@@ -36,6 +36,7 @@ import { FileTab } from './components/tabs/FileTab.js';
 import { DetailTab } from './components/tabs/DetailTab.js';
 import { RollbackTab } from './components/tabs/RollbackTab.js';
 import { GovernanceTab } from './components/tabs/GovernanceTab.js';
+import { SessionsScope } from './models/SessionsScope.js';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
 type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
@@ -72,6 +73,7 @@ function initialState(): AppState {
     activeTool: null,
     toastState: { message: '', kind: 'info', visible: false },
     paletteOpen: false,
+    sessionsScopeAll: SessionsScope.read() === 'all',
     dialog: { request: null },
     streamText: '',
     finalizedStreamText: '',
@@ -168,6 +170,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         onArchive: ctrl.sessions.archiveSession,
         onReorder: ctrl.sessions.reorderSessions,
         onWorkspaceSwitched: () => ctrl.sessions.refreshSessions(),
+        scopeAll: s.sessionsScopeAll,
+        onToggleScope: () => ctrl.sessions.toggleSessionsScope(),
         open: s.leftOpen,
         style: { width: s.leftWidth + 'px' },
       }),

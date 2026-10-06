@@ -7,16 +7,28 @@ import { ServerConfigStore } from '../../src/server/services/serverConfigStore.j
 import { configFile } from '../../src/config/configFile.js';
 import { ProviderPresets } from '../../src/server/services/providerPresets.js';
 
-/** 在临时工作区内构造配置存储并执行。 */
+/**
+ * 在临时工作区内构造配置存储并执行。
+ *
+ * 必须注入隔离的 `userHomedir`（2026-10-06）：`workspace`/`workspaces` 属**本机运行态**，只落
+ * 用户级配置；不注入就会读写**真实**的 `~/.omniharness/omniharness.json`——既污染开发机，
+ * 也让断言被真实配置里的项目列表带偏（非封闭测试）。
+ */
 function withStore<T>(fn: (ws: string, store: ServerConfigStore) => T | Promise<T>): Promise<T> {
   const ws = mkdtempSync(join(tmpdir(), 'cfg-store-'));
+  const home = mkdtempSync(join(tmpdir(), 'cfg-store-home-'));
   const store = new ServerConfigStore({
     displayConfig: { workspace: ws },
+    configPath: join(ws, 'omniharness.json'),
     autoApprove: false,
     probeProvider: async () => {},
     onChanged: () => {},
+    userHomedir: home,
   });
-  return Promise.resolve(fn(ws, store)).finally(() => rmSync(ws, { recursive: true, force: true }));
+  return Promise.resolve(fn(ws, store)).finally(() => {
+    rmSync(ws, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  });
 }
 
 test('ServerConfigStore.get：合并展示字段与 autoApprove', async () => {

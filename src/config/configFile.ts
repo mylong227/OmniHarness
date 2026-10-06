@@ -66,6 +66,12 @@ export class ConfigFile {
    * - 文件不存在 → 返回空配置 `{}`（合法空配置，调用方与 `cliSystem.test` 依赖此语义）；
    * - 文件存在但解析失败（非法 JSON / 编码错误）→ 抛 `ConfigError` 暴露，不再静默回退 `{}`
    *   掩盖错误（否则生产环境配置写坏也无症状，且 UI 覆盖会悄悄覆盖掉整份文件）。
+   *
+   * **BOM 例外（2026-10-06 真机踩到）**：开头若有 UTF-8 BOM（`EF BB BF`）先剥掉再 parse。
+   * 为什么不能算语法错误：BOM 是**编码层**标记而非内容，而 Windows 上极常见的写入方都会带它
+   * （PowerShell `Set-Content -Encoding UTF8`、记事本"另存为 UTF-8"、部分编辑器），实测它会让
+   * 本仓**所有**入口 fail-closed（serve 直接启动失败），用户看到的是"配置明明是对的却起不来"。
+   * 剥 BOM 之后**其余一切照旧严格**：真正的语法错误仍然 fail-closed 报错。
    * @param filePath 配置文件路径
    * @returns 解析后的配置；文件不存在为空配置
    */
@@ -74,12 +80,21 @@ export class ConfigFile {
       return {};
     }
     try {
-      const raw = readFileSync(filePath, 'utf8');
+      const raw = ConfigFile.stripBom(readFileSync(filePath, 'utf8'));
       return JSON.parse(raw) as FileConfig;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new ConfigError(`配置文件解析失败: ${filePath} —— ${reason}`);
     }
+  }
+
+  /**
+   * 剥掉开头的 UTF-8 BOM（`\uFEFF`）。见 {@link ConfigFile.load} 的 BOM 例外说明。
+   * @param text 原始文本。
+   * @returns 去掉起始 BOM 的文本（无 BOM 时原样）。
+   */
+  private static stripBom(text: string): string {
+    return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   }
 
   /**
@@ -143,7 +158,8 @@ export class ConfigFile {
   private readStrict(filePath: string): FileConfig {
     let raw: string;
     try {
-      raw = readFileSync(filePath, 'utf8');
+      // 与 ConfigFile.load 同一条 BOM 例外（两层入口必须一致，否则「单文件能读、分层读不了」）。
+      raw = ConfigFile.stripBom(readFileSync(filePath, 'utf8'));
     } catch (err) {
       throw new ConfigError(`无法读取配置文件 ${filePath}: ${(err as Error).message}`);
     }

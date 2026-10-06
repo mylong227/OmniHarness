@@ -42,6 +42,7 @@ import type { CliArgs } from './argParser.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
 import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.js';
 import { CliArgReader } from './cliArgReader.js';
+import { ServeWorkspace } from './serveWorkspace.js';
 
 /** 服务端 / 身份 / 后台类子命令。 */
 export class CliServerCmds extends CliBuildConfig {
@@ -458,18 +459,23 @@ export class CliServerCmds extends CliBuildConfig {
       ArgParser.printUsage();
       return 2;
     }
-    const wsRoot = ArgParser.toWindowsPath(preArgs.workspace ?? process.cwd());
+    const wsRoot = ServeWorkspace.announceServeWorkspace(serveArgs, process.cwd());
     const explicitConfig = this.flagValue(serveArgs, '--config');
     const foundConfig =
       explicitConfig !== undefined
         ? ArgParser.toWindowsPath(explicitConfig)
         : configFile.find(wsRoot);
     if (explicitConfig === undefined && foundConfig === undefined) {
+      // 旧文案说"将使用内置默认配置（mock 模型）"——**误导**（2026-10-06 实测）：用户级配置同样是
+      // 合法配置层，本机实测此时仍在跑真模型（openai/deepseek），而横幅却让人以为退回了 mock。
+      // 只如实说"没有项目级配置"，不再替用户断言模型。
       process.stderr.write(
-        '[omniharness] 未找到 omniharness.json，serve 将使用内置默认配置（mock 模型）。\n',
+        `[omniharness] 未在 ${wsRoot} 找到项目级 omniharness.json；` +
+          '将只用用户级（~/.omniharness/omniharness.json）与内置默认。\n',
       );
       process.stderr.write(
-        '              可复制 omniharness.json.example，或运行 node scripts/init-config.mjs 生成。\n',
+        '              可在项目里放一份 omniharness.json（模板见 omniharness.json.example，' +
+          '或运行 node scripts/init-config.mjs）。\n',
       );
     }
     const configPath = foundConfig ?? join(wsRoot, configFile.FILE_NAME);

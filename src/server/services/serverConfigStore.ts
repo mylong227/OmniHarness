@@ -1,9 +1,11 @@
 import { existsSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { configFile, type FileConfig } from '../../config/configFile.js';
 import { ConfigError } from '../../config/configError.js';
 import { PERSISTABLE_KEYS } from '../core/appServerState.js';
 import { ProviderPresets, type ProviderPreset } from './providerPresets.js';
+import { PortablePath } from '../../util/portablePath.js';
 
 /** 配置存储依赖。 */
 export interface ServerConfigStoreDeps {
@@ -35,6 +37,11 @@ export interface ServerConfigStoreDeps {
  * 保持「配置」与「模型」两个域的边界。
  */
 export class ServerConfigStore {
+  /**
+   * **本机运行态**键：只落用户级配置，绝不写进项目文件（私密/易变，见 {@link persistLocalState}）。
+   */
+  private static readonly LOCAL_STATE_KEYS: readonly string[] = ['workspace', 'workspaces'];
+
   /** 存储依赖（摘要 / 初始路径 / autoApprove / 探测与变更回调）。 */
   private readonly deps: ServerConfigStoreDeps;
   /** UI 经 config.update 写入的字段覆盖（落盘 + 实时合并进 fileConfig）。 */
@@ -244,7 +251,7 @@ export class ServerConfigStore {
    */
   public addWorkspace(raw: unknown): unknown {
     const root = this.requireDirectory(raw);
-    const list = this.persistedConfig().workspaces ?? [];
+    const list = this.localState().workspaces ?? this.persistedConfig().workspaces ?? [];
     if (!list.includes(root)) {
       this.overrides = { ...this.overrides, workspaces: [...list, root] };
       this.persist();
@@ -263,7 +270,8 @@ export class ServerConfigStore {
     root: string,
     previous: string,
   ): { current: string; workspaces: string[] } {
-    const saved = this.persistedConfig().workspaces ?? [];
+    // 写基取**本机运行态**那份（用户级）：项目文件不再承载项目列表，若拿它当基会把列表写回项目文件。
+    const saved = this.localState().workspaces ?? this.persistedConfig().workspaces ?? [];
     this.overrides = {
       ...this.overrides,
       workspace: root,
@@ -280,14 +288,83 @@ export class ServerConfigStore {
   public persist(): void {
     const path = this.configFilePath();
     const existing = configFile.load(path);
-    const merged = ConfigError.mergeConfigs(existing, this.overrides) as Record<string, unknown>;
+    // 项目文件**只收项目级设置**：本机运行态（当前项目 / 项目列表）走 persistLocalState（见其注释）。
+    const projectOverrides = Object.fromEntries(
+      Object.entries(this.overrides).filter(
+        ([key]) => !ServerConfigStore.LOCAL_STATE_KEYS.includes(key),
+      ),
+    );
+    const merged = ConfigError.mergeConfigs(existing, projectOverrides) as Record<string, unknown>;
     // 被显式清除的键必须从**落盘结果**里删掉：`mergeConfigs` 只做覆盖不做删除，
     // 否则「清除 base-url」会被旧文件里的值悄悄复活（UI 显示清了、实际没清）。
     for (const key of this.clearedKeys) {
       delete merged[key];
     }
+    // 自愈：旧版本把「当前项目 / 项目列表」写进过项目文件（本机运行态被当成项目设置）。既然它不属于
+    // 项目，落盘时一律剔除——既避免随项目上传，也避免换机后指向幽灵路径。
+    for (const key of ServerConfigStore.LOCAL_STATE_KEYS) {
+      delete merged[key];
+    }
     configFile.save(path, merged as Partial<FileConfig>);
     this.path = path;
+    this.persistLocalState();
+  }
+
+  /**
+   * 把「当前项目 / 项目列表」写进**用户级**配置（`~/.omniharness/omniharness.json`）。
+   *
+   * **为什么必须与项目文件分开写**（2026-10-06 用户口径）：`workspace` 是"我上次在用哪个项目"的
+   * **本机运行态**，不是项目自身的设置。它一旦写进项目里的 `omniharness.json`：
+   * ① 会随项目**上传/提交**出去（用户在别的机器上 clone 后会被带到别人的项目路径上）；
+   * ② 换台机器/换个启动目录就指向不存在的路径。
+   * 用户的要求是「私密配置落本地、不随项目上传；无论从哪启动都读得到项目」——故本机运行态一律落
+   * 用户级文件，项目文件里**不再出现** `workspace` / `workspaces`。
+   * @returns 无返回值。
+   */
+  private persistLocalState(): void {
+    const keys = ServerConfigStore.LOCAL_STATE_KEYS;
+    const home = this.deps.userHomedir ?? homedir();
+    const patch: Record<string, unknown> = {};
+    for (const key of keys) {
+      const value = (this.overrides as Record<string, unknown>)[key];
+      if (value === undefined) continue;
+      // 写回**可移植形态**：家目录下的路径压成 `~/…`（用户口径："无论何时何地何种机器都能正确读取
+      // 为一套配置"）。家目录之外的保持绝对路径——绝不臆造一个在别处不成立的路径。
+      patch[key] = Array.isArray(value)
+        ? value.map((entry) =>
+            typeof entry === 'string' ? PortablePath.compact(entry, home) : entry,
+          )
+        : typeof value === 'string'
+          ? PortablePath.compact(value, home)
+          : value;
+    }
+    if (Object.keys(patch).length === 0 && !keys.some((k) => this.clearedKeys.includes(k))) {
+      return;
+    }
+    const path = this.localStatePath();
+    const existing = configFile.load(path);
+    const merged = { ...existing, ...patch } as Record<string, unknown>;
+    // `null` = 显式清除（与项目文件的 clearedKeys 同口径：merge 只覆盖不删除）。
+    for (const key of this.clearedKeys) {
+      if (keys.includes(key)) delete merged[key];
+    }
+    configFile.save(path, merged as Partial<FileConfig>);
+  }
+
+  /**
+   * 用户级配置路径（本机运行态的家）。
+   * @returns 用户级 `omniharness.json` 的绝对路径。
+   */
+  private localStatePath(): string {
+    return join(this.deps.userHomedir ?? homedir(), '.omniharness', configFile.FILE_NAME);
+  }
+
+  /**
+   * 用户级配置内容（本机运行态：当前项目 / 项目列表）。
+   * @returns 用户级配置（文件不存在时为空配置）。
+   */
+  private localState(): FileConfig {
+    return configFile.load(this.localStatePath());
   }
 
   /**

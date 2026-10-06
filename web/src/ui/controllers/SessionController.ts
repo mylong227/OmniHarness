@@ -7,6 +7,7 @@ import type { ThreadEvent } from '../../types/models.js';
 import type { SessionEntry, ToolItem } from '../shared.js';
 import { langOf } from '../highlight.js';
 import { StreamThrottle } from '../models/StreamThrottle.js';
+import { SessionsScope } from '../models/SessionsScope.js';
 import { MethodBinder } from './methodBinder.js';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
@@ -137,7 +138,14 @@ export class SessionController {
    */
   public async refreshSessions(includeArchived = false): Promise<void> {
     try {
-      const r = await this.services.api.listSessions({ includeArchived });
+      // 显示范围来自本机偏好（当前项目 / 全部项目）：服务端据此过滤或全量返回。
+      const scope = SessionsScope.read();
+      const r = await this.services.api.listSessions({
+        includeArchived,
+        ...(SessionsScope.workspaceParam(scope) !== undefined
+          ? { workspace: SessionsScope.workspaceParam(scope) }
+          : {}),
+      });
       const fromDisk: SessionEntry[] = r.sessions.map((s) => ({
         id: s.sessionId,
         label: s.label || s.sessionId,
@@ -151,6 +159,20 @@ export class SessionController {
     } catch {
       /* 静默：列表不可用时保留内存态 */
     }
+  }
+
+  /**
+   * 翻转会话列表的显示范围（当前项目 ⇄ 全部项目）并立即重取。
+   *
+   * 为什么要有它：存档是全局的、按项目标记归属，缺省只显示当前项目；没有这个开关，用户在别的
+   * 启动目录下就会以为"项目数据读不到"（2026-10-06 用户实测反馈）。
+   * @returns 异步完成
+   */
+  public async toggleSessionsScope(): Promise<void> {
+    const next = SessionsScope.toggle(SessionsScope.read());
+    SessionsScope.write(next);
+    this.host.patch({ sessionsScopeAll: next === 'all' });
+    await this.refreshSessions();
   }
 
   /**

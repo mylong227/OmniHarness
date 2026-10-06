@@ -8,12 +8,16 @@
  * `SPA → POST /rpc turns.run → Agent → SSE thread.event → UI 渲染`，并把 HTTP 面（`/healthz`、`/`、
  * `/metrics`、`/rpc`）一并钉住。两者互补：前者防前端回归，后者防「拼起来不工作」。
  *
- * ## 隔离与零副作用（两个刻意的选择）
+ * ## 隔离与零副作用（三个刻意的选择）
  *
- * 1. **cwd = 临时工作区**：`serve` 以 cwd 为 workspaceRoot 并向上找 `omniharness.json`。若在仓库根起，
+ * 1. **显式 `--workspace` = 临时工作区**（2026-10-06 补）：serve 的根解析是
+ *    `--workspace` > 本机固定项目（`~/.omniharness/omniharness.json` 的 `workspace`）> 启动目录。
+ *    只把 cwd 设成临时目录**挡不住**"本机固定项目"——开发机上一旦固定过项目，本测试就会被改道到
+ *    那个真实项目（实测：空态基线漂移，且等于拿用户项目当测试场地）。故必须**显式**给 `--workspace`。
+ * 2. **cwd 也设成临时工作区**：项目级 `omniharness.json` 在这里向上查找；若在仓库根起，
  *    仓库自己的配置（openai + providerKeys）会**覆盖** `--model-adapter mock` ⇒ 变成真实模型回合
  *    （实测：真跑出 12 步、在仓库里写了 `src/hello.ts` 与单测）。隔离后零额度、零副作用、可复现。
- * 2. **storage 目录也指向临时目录**：不污染 `~/.omniharness/sessions`。
+ * 3. **storage 目录也指向临时目录**：不污染 `~/.omniharness/sessions`。
  *
  * ## 生物级前提与跳过语义
  *
@@ -146,6 +150,9 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
         'auto',
         '--storage-dir',
         storageDir,
+        // 显式指定工作区：否则"本机固定项目"（用户级配置）会把本测试改道到**真实项目**上（见文件头 §1）。
+        '--workspace',
+        workspaceDir,
       ],
       // cwd = 临时工作区：既隔离配置（否则仓库 omniharness.json 会覆盖 mock 适配器），也不污染仓库。
       { cwd: workspaceDir, stdio: ['ignore', 'pipe', 'pipe'] },
