@@ -155,6 +155,7 @@ export class ExecCli extends CliAgentCmds {
         return 2;
       }
       restoreEgress = this.applyNetworkGuard(args);
+      this.applyExecWorkspace(args, argv);
       if (args.dumpConfig) {
         process.stdout.write(`${JSON.stringify(args, null, 2)}\n`);
         return 0;
@@ -238,6 +239,37 @@ export class ExecCli extends CliAgentCmds {
     if (args.autoCommit) {
       await this.maybeAutoCommit(summary.finalText ?? '');
     }
+  }
+
+  /**
+   * 单跑路径的**工作区恒等规则**：`--workspace` 显式给定 > 启动目录（`process.cwd()`）。
+   *
+   * 为什么（2026-10-06 第五十九轮**真实 API key 跑测**发现，属"只有真跑才暴露"的一类）：
+   * 配置里的 `workspace` 字段是 **Web UI 的「当前选中工作区」运行时状态**（`omniharness.json`
+   * 里被 `profile use` / UI 切换持久化）。本机那份写着 `D:\work\新项目`，于是我在仓库目录里跑
+   * `omniharness -p …` 时**运行时工作区是另一个项目**——实测后果：同一会话里
+   * `read_file`/`list_dir` 走启动目录，而 `glob`/`grep`/`run_code` 内桥走那个持久化工作区
+   * ⇒ **同一相对路径在不同工具下指向不同项目**（递归列出 `src` 下 `.ts` 的 glob 命中 0、
+   * `grep path=src` 报"路径不存在: src"，而 `list_dir src` 正常）。
+   * 这与 `serve` 早已确立的规则一致（"工作区必须恒等于启动时的真实目录，绝不从持久化的
+   * 「当前工作区」状态反推"），故此处对齐；被忽略时**显式告警**，不静默改语义。
+   * @param args 解析后的 CLI 参数（就地改写 `workspace`）。
+   * @param argv 原始 argv（判定用户是否显式给了 `--workspace`）。
+   * @returns 无返回值。
+   */
+  private applyExecWorkspace(args: CliArgs, argv: readonly string[]): void {
+    // 两种形态都认（**来自一次真实 API 跑测里模型对我这处改动提出的风险点**）：今天解析器只支持
+    // `--workspace <dir>`（空格形式；`--workspace=dir` 会因"未知旗标"被 fail-closed 拦下），
+    // 但判定若只写 `includes('--workspace')`，将来有人给 `=` 形式加支持时，用户显式指定的目录
+    // 会被本函数**静默覆盖成 cwd**——防御性写成前缀匹配，代价一行。
+    if (argv.includes('--workspace') || argv.some((a) => a.startsWith('--workspace='))) return;
+    const cwd = process.cwd();
+    if (args.workspace === cwd) return;
+    console.error(
+      `[omniharness] 已忽略配置里持久化的 workspace（${args.workspace}）：单跑路径的工作区恒等于启动目录` +
+        `（${cwd}）。需要别的目录请显式传 --workspace <dir>。`,
+    );
+    args.workspace = cwd;
   }
 
   /**

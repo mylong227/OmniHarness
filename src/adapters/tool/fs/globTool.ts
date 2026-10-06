@@ -88,6 +88,19 @@ export class GlobTool {
     const matched = walk.files.filter(
       (file) => matcher.test(file) && (scope === '' || file.startsWith(`${scope}/`)),
     );
+    // **截断 + 零命中 ⇒ 结果不可信，必须 fail-loud**（2026-10-06 真实 API 跑测实测）：
+    // 遍历在 `third-party/`（近 2 万文件）撞满上限、根本没走到 `src/` 时，旧行为仍返回
+    // `ok:true` + "（无命中）"，模型据此断定"文件不存在"并开始瞎试（实测浪费 16 步）。
+    // 截断本身已在输出里标注，但"0 命中"这个结论必须降级为错误，否则仍是静默误导。
+    if (walk.truncated && matched.length === 0) {
+      return {
+        callId: call.id,
+        ok: false,
+        error:
+          `文件遍历在 ${String(walk.files.length)} 个文件处被上限截断，未走完整个工作区 ⇒ ` +
+          '本次"0 命中"不可信。请用更具体的目录/模式缩小范围（例如先 list_dir 确认路径）。',
+      };
+    }
     return {
       callId: call.id,
       ok: true,

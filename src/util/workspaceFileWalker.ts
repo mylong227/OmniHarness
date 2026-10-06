@@ -57,6 +57,12 @@ export class WorkspaceFileWalker {
     '.omniharness',
     '.omni-worktrees',
     'eval-data',
+    // **本仓自己的第三方资产/权重缓存目录**（`configFactory` 把模型权重与向量缓存落在
+    // `third-party/model-cache`、`third-party/vec-cache`）。2026-10-06 真实 API 跑测实测：
+    // 本机该目录有 **19770 个文件**，会一次吃满 `DEFAULT_MAX_FILES = 20000` 的预算，
+    // 导致遍历**永远走不到 `src/`** ⇒ `glob src/**/*.ts` 命中 0、`grep path=src` 报"路径不存在"
+    // （而 `list_dir src` 正常）。它是与源码无关的二进制资产，和 `.cache` 同类，故一并忽略。
+    'third-party',
   ]);
 
   /** 默认文件数上限。 */
