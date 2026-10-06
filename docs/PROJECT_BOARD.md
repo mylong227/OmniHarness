@@ -604,6 +604,18 @@
 > `runGates --only=tsc` / `--only=iron-law,tsc` 实测 **exit 2**、正对照 `--only=node-engine` 打印
 > **"实跑 1/12 条"**；覆盖率门禁在"缺基线"与"缺 all files 行"两种构造输入下实测 **exit 1**。
 >
+> ⑥ **同轮补记（自查时又抓到一条，属同一类：常量/文档宣称与实现相反）**：
+> `transformersEmbeddingAdapter.ts` 的 `DEFAULT_EMBEDDING_MODEL` 常量写着 `e5-large-v2`，
+> 注释还称它是"**实测最高值方案，2026-09-05 冻结**"，文件头也写"多模型支持：默认 e5-large-v2"；
+> 而**构造缺省是 minilm**（`opts.preset ?? DEFAULT_EMBEDDING_PRESET`），且
+> `tests/unit/transformersEmbedding.test.ts` 的判据一直钉着「默认 = minilm」——**该常量全仓无人引用**
+> （死导出 + 假声明），`ARCHITECTURE_UPGRADE_2026-10.md` §1④ 与 §7.2 又引用了同一处错句。
+> 处置：① 三者**单一事实源化**（`DEFAULT_EMBEDDING_PRESET = 'minilm'` → `DEFAULT_EMBEDDING_MODEL`
+> 与构造缺省都从它派生）；② 文件头与两处文档按"保留旧文划掉"订正；③ 新增判据钉死
+> 「无参构造必须等于显式传默认预设」＋「默认预设被改则判据红」。
+> **生产影响：无行为变更**——`ConfigFactory.buildEmbeddingPort()` 本就不传 preset，CLI 默认开的语义检索
+> 一直跑 minilm 384 维；这是**声明纠错**，不是能力改动。
+>
 > **与上一轮 ⑦ 的关系**：⑦ 里旧结论的划掉（~~首两次运行读数…~~ 该结论作废）**已在 `a24c1b3` 完成**，
 > 本轮复核该纪律**在位**；本轮补的是"同目录里**另外两个探针**也有同类缺陷"以及"**已登记的读数未被污染**"。
 

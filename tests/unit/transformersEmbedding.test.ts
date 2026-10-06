@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_EMBEDDING_PRESET,
   MODEL_PRESETS,
   TransformersEmbeddingAdapter,
 } from '../../src/adapters/embedding/transformersEmbeddingAdapter.js';
@@ -41,6 +43,23 @@ test('构造器按 preset 解析 id / dim / 前缀模式（不触发模型下载
   const c = new TransformersEmbeddingAdapter();
   assert.strictEqual(c.modelId, 'Xenova/all-MiniLM-L6-v2');
   assert.strictEqual(c.dim, 384);
+});
+
+test('默认嵌入"单一事实源"：常量与构造缺省不得再分家（2026-10-06 订正）', () => {
+  // 修复前的形态：常量 `DEFAULT_EMBEDDING_MODEL` 写着 e5-large-v2（且**无人引用**），
+  // 而构造缺省是 minilm —— 文件头据此宣称"默认 e5-large-v2"，两句自相矛盾。
+  // 判据把三者钉死成一条链：preset 常量 → id 常量 → 无参构造。
+  assert.strictEqual(
+    DEFAULT_EMBEDDING_PRESET,
+    'minilm',
+    '默认预设被改动了？那请同步实测证据与文档',
+  );
+  assert.strictEqual(DEFAULT_EMBEDDING_MODEL, MODEL_PRESETS[DEFAULT_EMBEDDING_PRESET].id);
+  const byDefault = new TransformersEmbeddingAdapter();
+  const explicit = new TransformersEmbeddingAdapter({ preset: DEFAULT_EMBEDDING_PRESET });
+  assert.strictEqual(byDefault.modelId, explicit.modelId, '无参构造必须等于显式传默认预设');
+  assert.strictEqual(byDefault.dim, explicit.dim);
+  assert.strictEqual(byDefault.dim, MODEL_PRESETS[DEFAULT_EMBEDDING_PRESET].dim);
 });
 
 test('model 覆盖 preset，且自定义 id 无法预知前缀（默认 none）', () => {

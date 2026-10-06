@@ -7,9 +7,13 @@
  *    模型缺失/离线时抛错由调用方 fail-closed 回退 BM25-only。
  *  - 已登记于 dependency-allowlist.json（Apache-2.0，预算超限已显式审批）。
  *
- * 多模型支持：默认 **e5-large-v2**（检索级 1024 维，真实代码库混合召回 64.8% 实测最优；
- * 代价 321MB 权重 + 约 23.6min 索引构建税，模型缺失时 fail-closed 回落 BM25-only）；
- * minilm 留作轻量可选预设（22MB/81s）；可选 e5 家族
+ * 多模型支持：默认 **minilm**（384 维，≈22MB 权重 / 首次索引 ≈81s）——与
+ * {@link DEFAULT_EMBEDDING_PRESET} **单一事实源**同步。e5-large-v2（检索级 1024 维）在本仓实测
+ * 混合召回更高（64.8%），但代价是 321MB 权重 + 约 23.6min 索引构建税（17.5×），且本地 ONNX 上曾静默崩溃
+ * ⇒ **不进默认档，仅作可选项**。⚠️ 2026-10-06 订正：本节此前把 e5-large-v2 写作"默认"，与构造缺省
+ * `opts.preset ?? DEFAULT_EMBEDDING_PRESET`（= minilm）及 `tests/unit/transformersEmbedding.test.ts`
+ * 的判据「默认 = minilm」**自相矛盾**（同文件里那个"默认"常量当时还无人引用）。
+ * 另有可选 e5 家族
  * （代码检索级，MTEB 检索榜前列，需 query/passage 前缀）；可选 gte 家族
  * （对称、无前缀、容量更大，Xenova/gte-large 为 1024 维 MTEB 强模型，用于测「模型容量」
  * 这一单一变量）。unixcoder 等需要 ONNX 转换的模型当前不可用
@@ -74,14 +78,25 @@ export const MODEL_PRESETS: Readonly<Record<EmbeddingModelPreset, ModelSpec>> = 
 };
 
 /**
- * 默认语义模型（**实测最高值方案，2026-09-05 冻结**）：
- * 从通用句向量 minilm(384) 升级为检索级 e5-large-v2(1024)。
- * 实测在真实代码库混合检索上把语义天花板从 ~44.6% 推到 63.2%（+18.6pp），
- * 且 e5 在 hf-mirror 有现成 ONNX 权重、可离线跑；模型缺失时由调用方 fail-closed 回落 BM25-only。
- * 当初 minilm 是「保持历史行为」的占位默认，并非最优——已据受控消融翻案。
+ * 默认语义模型**预设**（单一事实源，2026-10-06 订正）：
+ * `TransformersEmbeddingAdapter` 的构造缺省与下面两个导出常量都从它派生，
+ * 因此"默认是什么"只写得下一遍。
+ *
+ * 为什么是 minilm（而不是 2026-09-05 曾写死的 e5-large-v2）：本仓实测（见 `docs/PROJECT_BOARD.md`
+ * 第五十六/五十七轮与 `tools/probes/semanticHybridRecall.mjs`）——e5-large 在本地 ONNX 上有
+ * 17.5× 构建税且曾静默崩溃，属于存档里的"本地容量墙"；e5-base-v2 相对 minilm 只有
+ * **+1.05pp 且 CI 跨 0（不显著）**、冷启动 18min（minilm 的 5 倍）⇒ **minilm 保持默认**。
+ * 该结论也被 `tests/unit/transformersEmbedding.test.ts` 的"默认 = minilm"钉住。
  */
-export const DEFAULT_EMBEDDING_MODEL = MODEL_PRESETS['e5-large-v2'].id;
-/** 默认维度（e5-large-v2 = 1024）。换默认模型需同步调整本常量与上方 id。 */
+export const DEFAULT_EMBEDDING_PRESET: EmbeddingModelPreset = 'minilm';
+/** 默认语义模型 id（由 {@link DEFAULT_EMBEDDING_PRESET} 派生，勿单独改）。 */
+export const DEFAULT_EMBEDDING_MODEL = MODEL_PRESETS[DEFAULT_EMBEDDING_PRESET].id;
+/**
+ * 自定义模型 id（`opts.model`）**未给 dim** 时的兜底维度。
+ *
+ * 注意它不是"默认模型的维度"（那是 384）：这里只是"猜不准时给个大一点的保守值"，
+ * 因为维度用错只会表现为下游报错，而不是静默错误的结果集大小。**新代码请显式传 `dim`。**
+ */
 export const DEFAULT_EMBEDDING_DIM = MODEL_PRESETS['e5-large-v2'].dim;
 
 /**
@@ -209,7 +224,7 @@ export class TransformersEmbeddingAdapter implements EmbeddingPort {
     if (opts.model !== undefined) {
       spec = { id: opts.model, dim: opts.dim ?? DEFAULT_EMBEDDING_DIM };
     } else {
-      const preset = opts.preset ?? 'minilm';
+      const preset = opts.preset ?? DEFAULT_EMBEDDING_PRESET;
       const found = MODEL_PRESETS[preset];
       if (found === undefined) {
         throw new Error(
