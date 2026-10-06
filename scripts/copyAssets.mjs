@@ -60,7 +60,10 @@ function mirror(dir, rel) {
   }
 }
 
-if (!statSync(SRC, { throwIfNoError: false })?.isDirectory()) {
+// 2026-10-06（第五十七轮 ④）订正：原写法是 `statSync(SRC, { throwIfNoError: false })` ——
+// **没有这个选项名**（真名是 `throwIfNoEntry`）⇒ statSync 直接抛 ENOENT，下面这段"友好跳过"
+// 与它的 `exit(0)` **永远不可达**（死分支）。用真名并显式处理 undefined。
+if (statSync(SRC, { throwIfNoEntry: false }) === undefined) {
   console.error(`[copyAssets] 跳过：src 不存在（${SRC}）`);
   process.exit(0);
 }

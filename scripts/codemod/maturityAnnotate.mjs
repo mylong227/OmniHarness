@@ -250,7 +250,14 @@ console.log(
   `\n合计：登记 ${REGISTRY.length} 项，${APPLY ? '已写入' : '待写入'} ${changed}，无变化 ${skipped}。`,
 );
 if (problems.length > 0) {
-  console.error('\n❌ 登记册自身有问题（未改动任何文件）：');
+  // **不许谎报"未改动任何文件"**（2026-10-06 第五十七轮 ④）：写入发生在上面那个循环里，
+  // 登记册问题是在循环**之后**才汇总的 ⇒ `--apply` 时前面的条目**早已落盘**。
+  // 原来的文案会让使用者以为"什么都没动，改完登记册再跑一遍就行"。
+  console.error(
+    APPLY
+      ? `\n❌ 登记册自身有问题（**注意：已写入 ${changed} 个文件**，回滚请用 git checkout —— 修正登记册后重跑）`
+      : '\n❌ 登记册自身有问题（未改动任何文件：本次是 dry-run）',
+  );
   for (const p of problems) console.error('  - ' + p);
   process.exit(1);
 }

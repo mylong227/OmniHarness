@@ -279,6 +279,14 @@ console.log(
     ` ｜ 依赖环：${cycleViolations.length} 组（新增 ${cycleViolations.filter((v) => !v.whitelisted).length}）` +
     ` ｜ 目录告警：${dirWarnings.length} 个`,
 );
+// **扫描面必须打印**（2026-10-06 第五十七轮 ③）：所有规则都是"在 collected 集合上判空"，
+// 扫描范围塌缩（`src/` 改名/搬家/解析全失败）时五条规则会**同时空转而输出一模一样的"通过"**。
+// 打印"扫了几个文件、几条边"之后，"零违规"与"零输入"在输出上就能分开。
+console.log(`扫描面：${files.length} 个源文件 ｜ ${edges.length} 条相对导入边`);
+if (files.length === 0) {
+  console.error('❌ 架构门禁失败：扫描到 0 个源文件 ⇒ 五条规则全部无从判定（不是"零违规"）。');
+  process.exit(1);
+}
 
 let exitCode = 0;
 if (newCount > 0) {

@@ -206,6 +206,17 @@ mkdirSync(dirname(node), { recursive: true });
 try {
   copyFileSync(dll, node);
 } catch (copyErr) {
+  // **先判真因**（2026-10-06 第五十七轮 ④）：本节此前无论什么原因都归因到"可能被其他进程锁定"，
+  // 于是「cargo 产物压根没生成 / 产物路径变了」这种最常见的失败，会被伪装成文件锁问题，
+  // 让人去杀进程而不是去看 cargo 输出。
+  if (!existsSync(dll)) {
+    throw new Error(
+      `[native:build] 找不到 cargo 产物 ${dll}——` +
+        `多半是构建没有产出该目标（profile/target-dir 变了？）或 cargo 静默跳过；` +
+        `请先看上方的 cargo 输出，而不是"文件被锁"。原始错误：` +
+        (copyErr instanceof Error ? copyErr.message : String(copyErr)),
+    );
+  }
   // Windows 下 .node 一旦被进程 require 会加共享锁，直接覆盖会报 EBUSY。
   // 兜底：把旧 .node 改名挪开释放锁，再拷入新产物。
   const old = join(root, 'native', 'omni_napi.old.node');
@@ -223,7 +234,7 @@ try {
     copyFileSync(dll, node);
   } catch (e2) {
     throw new Error(
-      `[native:build] 拷贝 ${dll} -> ${node} 失败（可能被其他进程锁定）：` +
+      `[native:build] 拷贝 ${dll} -> ${node} 失败（产物存在 ⇒ 大概率是旧 .node 仍被进程占用）：` +
         (e2 instanceof Error ? e2.message : String(e2)),
     );
   }

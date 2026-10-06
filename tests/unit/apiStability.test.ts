@@ -69,3 +69,17 @@ test('api:check 对带 @deprecated 分区的桶零违规', async () => {
     rmSync(tmp, { force: true });
   }
 });
+
+test('api:check 对"一条 export 都没有"的桶必须失败（扫描面塌缩不是零违规）', async () => {
+  // 2026-10-06 第五十七轮 ③：修复前该输入会打印 "✅ … 0 条 export 已落在带标注的分区内" 并 exit 0——
+  // 一个空文件/被搬空的桶能"通过"公开 API 稳定性门禁，而它的全部结论都建立在"找到了 export"之上。
+  const tmp = join(tmpdir(), `omni_api_probe4_${process.pid}.ts`);
+  writeFileSync(tmp, '// @public\n// 只有分区标注，没有任何 export\n', 'utf8');
+  try {
+    const { ok, out } = await runChecker(tmp);
+    assert.ok(!ok, `无 export 的桶必须失败，实际通过：\n${out}`);
+    assert.match(out, /没有解析到任何 export/, '失败原因必须点明"没解析到 export"');
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+});

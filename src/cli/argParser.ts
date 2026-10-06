@@ -9,7 +9,7 @@ import type {
   PermissionRuleDecision,
   SsrfPolicyConfig,
 } from '../config/configFile.js';
-import { FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
+import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
 import { ArrayAt } from '../util/arrayAt.js';
 import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
 import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
@@ -109,8 +109,15 @@ export interface CliArgs {
   selfVerify?: boolean | undefined;
   /** 延迟加载工具名清单（#M1，逗号分隔）：这些工具默认不进模型上下文，需经 tool_search 发现。 */
   deferTools?: string | undefined;
-  /** 选中的配置 profile 名（#G6，--profile）：在 profiles/ 下查找并覆盖项目默认。 */
-  profile?: string | undefined;
+  /**
+   * **（已删除）** `profile?: string` 字段（2026-10-06 第五十七轮 ⑤）。
+   *
+   * 原声明是"选中的配置 profile 名（#G6，--profile）"，但它**从未被赋值**（FLAG_TABLE 里没有
+   * `--profile` 处理器），也**从未被任何代码读取**——`--profile` 实际由**装配层自行扫描 argv**
+   * （`cliAgentCmds.loadDefaults` / `cliServerCmds.runServe` → `configFile.loadLayered({profile})`），
+   * 在 `CliArgs` 里留一个同名字段只会让下一个人以为"值在这"（`--dump-config` 也从来不含它）。
+   * 空声明比没有声明更坏：它是"声明未接线"的一种，且没有任何门禁会报它（I4 只扫被赋值的字段）。
+   */
   /** LSP 服务器启动命令（#S32，--lsp "cmd args"）：仅 `lsp` 子命令与配置了 LSP 的代码导航需要；不传则 LSP 不可用。 */
   lsp?: string | undefined;
   /** dump-config：仅打印生效配置（含默认值与配置文件合并结果）并退出，不执行。 */
@@ -326,10 +333,30 @@ export class ArgParser {
       if (arg === '--help') {
         return undefined;
       }
+      if (arg === '--') {
+        // 显式选项结束符：其后的 token 一律按位置参数处理（由 `collectPositional` 统一收集），
+        // 便于把以 `-` 开头的 prompt 原样传入而不触发下面的未知旗标判定。
+        break;
+      }
       const handler = FLAG_TABLE[arg];
       if (handler !== undefined) {
         i += handler(args, argv, i);
         continue;
+      }
+      if (arg.startsWith('-') && arg !== '-') {
+        // **未知旗标 fail-closed**（2026-10-06 第五十七轮 ⑥）：修复前这里什么都不做（静默 `continue`），
+        // 于是①拼错的旗标**无声无效**；②它的取值还会被 `collectPositional` 当成 prompt
+        // （`--porad x` ⇒ prompt 变成 `x`）——这是本板"拼错 = 没生效"反复出现的共同放大器。
+        // 认识的旗标 = FLAG_TABLE ∪ VALUE_FLAGS ∪ 子命令/装配层自解析清单（`KNOWN_EXTRA_FLAGS`，
+        // 由 `tests/unit/knownFlags.test.ts` 与源码里的读取点机械对齐）。
+        if (CliFlagTable.isKnownFlag(arg)) {
+          // 子命令 / 装配层自解析的旗标：本层不消费（其读取器在各自子命令里），但**认识**它。
+          continue;
+        }
+        throw new Error(
+          `未知旗标 ${arg}（本 CLI 不认识它；用 --help 查看全部旗标。` +
+            `若 prompt 本身以 - 开头，请用 --prompt 传递或写在 \`--\` 之后）`,
+        );
       }
     }
     const positional = this.collectPositional(argv);
