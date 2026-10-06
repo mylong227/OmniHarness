@@ -12,6 +12,12 @@
 - `scripts/git-hooks/pre-push`（经 `core.hooksPath` 激活）会**硬拦**推往该误建仓库的尝试；
   推往其它非本账号仓库默认只告警。确需临时放行：`OMNI_ALLOW_FOREIGN_PUSH=1 git push ...`；
   要连非本账号目标一起硬拦：`OMNI_STRICT_PUSH=1`。
+- **镜像 TLS 故障时的推送旁路（2026-10-06 实测有效）**：ghproxy 偶发证书错误
+  （`SEC_E_CERT_EXPIRED` / `SEC_E_WRONG_PRINCIPAL`，隔几分钟可能自愈）。镜像证书是
+  「隔几分钟可能自愈」级别的故障，故只旁路不改配置——直连 github.com 历史 1/3 成功率，
+  重试即可。**不能**用 `git -c url...insteadOf` 旁路：remote.origin.pushurl 本身就是镜像 URL
+  （不参与重写），且 pushInsteadOf 优先于 insteadOf。有效写法是**最长前缀身份重写 + 显式 URL**：
+  `git -c url."https://github.com/mylong227".pushInsteadOf=https://github.com/mylong227 push https://github.com/mylong227/OmniHarness.git main`
 - **提交前自检**：`git remote -v` 应只看到 `origin → mylong227/OmniHarness`。看不到别的远程属正常（已清理）。
 
 ## 本机网络与凭据（实测，别再重复探测）
