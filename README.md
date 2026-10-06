@@ -575,7 +575,7 @@ npm run web:test               # Web 构建 + 挂载单测
 - **官方 SWE-bench Verified 大规模跑分缺失**：现有 `benchmark/capability-swebench.json` 为自研 10 题套件（deepseek-chat live 10/10，$0.20 / 64.7s），**非官方数据集**。
 - A2A 委托**真实对端互操作未验证**（协议两端 + `a2a_delegate` 工具面已落地并有 mock/跨进程判据；真实第三方 agent 的互操作属外部设施）。
 - 本地 HF embedding 权重已实测可用（minilm 384 维，镜像拉取 + 落盘缓存，混合检索本仓 +14.7pp 两关过）；OIDC 仅 mock IdP 验证。
-- repo-map 语义召回（Hybrid）：本仓语料已实测并 **CLI 默认开启**（`OMNI_SEMANTIC_RECALL=0` 可关）；**跨仓泛化未验证**（外部仓库 pooled 0.0pp 的历史结论未被推翻——只对本仓语料负责）。
+- repo-map 语义召回（Hybrid）：本仓语料 +14.7pp（两关过）并 **CLI 默认开启**（`OMNI_SEMANTIC_RECALL=0` 可关）。**跨仓复测（2026-10-05，5 外部 Python 仓 59 条，`tools/probes/semanticCrossRepo.mjs`）**：方向为正——pooled +8.5pp（81.4%→89.8%），4/5 仓提升（pytest +27.3 / django +16.7 / sphinx +8.3pp），但 CI[-1.69, 20.34] 跨 0 **两关不可判定** ⇒ 旧「0.0pp」结论被**方向性推翻**，「跨仓增益不做量级承诺」的纪律维持。
 - 浏览器 / computer use 能力**空白**。
 
 **已有真实评测基线**（非空白）—— 见 §2.4。
