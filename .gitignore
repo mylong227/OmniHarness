@@ -35,12 +35,17 @@ resources/symbolic_policy/.omniharness.lock
 # Local third-party benchmark material
 # These files remain available to local experiments but are intentionally kept
 # out of Git until their individual redistribution terms are satisfied.
-# （`eval-data/` 一行已于 2026-10-03 删除：该目录随跑分/评测子系统一并移除，不再生成。
-#   ESLint 仍保留同名排除作为防御，见 eslint.config.mjs。）
+# （`eval-data/` 一行于 2026-10-05 恢复：跨仓语义复测探针（第五十六轮补记）重新生成了该目录
+#   ——5 个外部仓库的浅克隆属第三方物料，不入库。ESLint 仍保留同名排除作为防御。）
+eval-data/
 bench data/
 resources/source_image_pool_comfybench/images/
 resources/source_image_pool_gpt/images/
 *.baiduyun.uploading.cfg
+
+# 嵌入权重与向量缓存（2026-10-05）：`.cache/` 是探针的本地缓存（模型 ONNX / 向量落盘），
+# 属可再生二进制，绝不入库——`01a98c0` 曾误提交 23MB ONNX（已 untrack，历史中留存待清理）。
+.cache/
 
 # Node / Rust build outputs and dependencies (never commit)
 node_modules/
