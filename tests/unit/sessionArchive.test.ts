@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionArchive } from '../../src/server/services/session/sessionArchive.js';
 
+// 本文件考的是**扫描 / 排序 / 归档 / 用量**，与工作区作用域无关 —— 故所有 `list` 调用显式传 `'*'`
+// （缺省作用域是"当前工作区"，这些夹具的 workspaceRoot 与 fixture 的 workspace 标记并不相同）。
+// 作用域本身的判据在 `sessionArchiveWorkspaceScope.test.ts`。
+
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {
   const dir = mkdtempSync(join(tmpdir(), 'session-archive-'));
@@ -114,7 +118,7 @@ test('SessionArchive.list：提取工作区标记与首条用户消息，按 mti
       storageLocation: () => dir,
       configuredStorageDir: () => undefined,
     });
-    const out = load.list() as {
+    const out = load.list(true, '*') as {
       sessions: { sessionId: string; workspace?: string; label: string; turns: number }[];
     };
     assert.deepEqual(
@@ -146,7 +150,7 @@ test('SessionArchive.list：updatedAt 取**最后一条事件的时间**，不�
       storageLocation: () => dir,
       configuredStorageDir: () => undefined,
     });
-    const out = load.list() as { sessions: { updatedAt: string }[] };
+    const out = load.list(true, '*') as { sessions: { updatedAt: string }[] };
     assert.strictEqual(out.sessions[0]?.updatedAt, '2026-09-03T08:30:00.000Z');
   });
 });
@@ -161,7 +165,7 @@ test('SessionArchive：归档侧车只写名单、不动事件流；列表带 ar
       configuredStorageDir: () => undefined,
     });
     assert.deepEqual(load.setArchived('a', true), { ok: true });
-    const out = load.list() as {
+    const out = load.list(true, '*') as {
       sessions: { sessionId: string; archived: boolean; label: string }[];
     };
     const byId = new Map(out.sessions.map((s) => [s.sessionId, s]));
@@ -170,7 +174,9 @@ test('SessionArchive：归档侧车只写名单、不动事件流；列表带 ar
     assert.strictEqual(byId.get('a')?.label, '甲', '归档不得影响标签');
     // 取消归档：名单里移除
     assert.deepEqual(load.setArchived('a', false), { ok: true });
-    const after = load.list() as { sessions: { sessionId: string; archived: boolean }[] };
+    const after = load.list(true, '*') as {
+      sessions: { sessionId: string; archived: boolean }[];
+    };
     assert.strictEqual(
       after.sessions.every((s) => !s.archived),
       true,
@@ -207,7 +213,7 @@ test('SessionArchive：reorder 登记的用户顺序优先，未登记的按 mti
       configuredStorageDir: () => undefined,
     });
     assert.deepEqual(load.reorder(['c', 'a']), { ok: true });
-    const out = load.list() as { sessions: { sessionId: string }[] };
+    const out = load.list(true, '*') as { sessions: { sessionId: string }[] };
     assert.deepEqual(
       out.sessions.map((s) => s.sessionId),
       ['c', 'a', 'b'],
@@ -232,7 +238,7 @@ test('SessionArchive：排序 v2 —— 另一个客户端新建的会话置顶�
     // 另一个客户端此刻新建了会话 c（mtime 晚于上次排序时刻）
     writeFileSync(join(dir, 'c.jsonl'), line('user', { content: '丙' }));
     utimesSync(join(dir, 'c.jsonl'), new Date('2030-01-01'), new Date('2030-01-01'));
-    const out = load.list() as { sessions: { sessionId: string }[] };
+    const out = load.list(true, '*') as { sessions: { sessionId: string }[] };
     assert.deepEqual(
       out.sessions.map((s) => s.sessionId),
       ['c', 'a', 'b'],
@@ -251,13 +257,13 @@ test('SessionArchive：includeArchived=false 时归档会话整个跳过（不�
       configuredStorageDir: () => undefined,
     });
     load.setArchived('a', true);
-    const fast = load.list(false) as { sessions: { sessionId: string }[] };
+    const fast = load.list(false, '*') as { sessions: { sessionId: string }[] };
     assert.deepEqual(
       fast.sessions.map((s) => s.sessionId),
       ['b'],
       '快速路径不得包含归档会话',
     );
-    const full = load.list(true) as { sessions: { sessionId: string; archived: boolean }[] };
+    const full = load.list(true, '*') as { sessions: { sessionId: string; archived: boolean }[] };
     const byId = new Map(full.sessions.map((s) => [s.sessionId, s]));
     assert.strictEqual(byId.get('a')?.archived, true, '带归档的读取仍要能拿到归档行（可恢复）');
   });
@@ -270,7 +276,7 @@ test('SessionArchive.list：storageLocation 缺省返回空列表', () => {
       storageLocation: () => undefined,
       configuredStorageDir: () => undefined,
     });
-    const out = load.list() as { dir: string | undefined; sessions: unknown[] };
+    const out = load.list(true, '*') as { dir: string | undefined; sessions: unknown[] };
     assert.strictEqual(out.dir, undefined);
     assert.deepEqual(out.sessions, []);
   });

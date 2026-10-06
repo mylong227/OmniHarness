@@ -381,6 +381,11 @@ export class CdpSession {
     this._pending = new Map();
     this._queue = [];
     this._open = false;
+    // 诊断收集（2026-10-06 第六十二轮）：真实场景跑测最需要的三件仪器——控制台错误、未捕获异常、
+    // 网络失败/非 2xx。前端缺陷绝大多数先在控制台留痕，而"页面看起来没崩"不等于没问题。
+    // 默认关闭（startDiagnostics 才开域），对既有用例零行为变更。
+    this._diag = { console: [], exceptions: [], failedRequests: [], responses: [] };
+    this._diagOn = false;
     this._ws.addEventListener('open', () => {
       this._open = true;
       for (const m of this._queue) this._ws.send(m);
@@ -389,6 +394,70 @@ export class CdpSession {
     this._ws.addEventListener('message', (ev) => this._onMessage(ev.data ?? ev));
     this._ws.addEventListener('error', () => this._failAll(new Error('CDP WebSocket 错误')));
     this._ws.addEventListener('close', () => this._failAll(new Error('CDP WebSocket 已关闭')));
+  }
+
+  /**
+   * 打开诊断域（Runtime / Log / Network / Page）并开始收集。
+   *
+   * 为什么必须显式开：CDP 只在域启用后推送事件；不开域就断言"没有控制台错误"是**假绿**。
+   * @returns 无返回值。
+   */
+  async startDiagnostics() {
+    await this.send('Page.enable');
+    await this.send('Runtime.enable');
+    await this.send('Log.enable');
+    await this.send('Network.enable');
+    this._diagOn = true;
+  }
+
+  /** 清空已收集的诊断（用于"某段操作期间零错误"的精确断言）。 */
+  clearDiagnostics() {
+    this._diag = { console: [], exceptions: [], failedRequests: [], responses: [] };
+  }
+
+  /** 取诊断快照（深拷贝，调用方不会改到内部状态）。 */
+  diagnostics() {
+    return JSON.parse(JSON.stringify(this._diag));
+  }
+
+  /**
+   * 收集诊断条目（按域事件）。
+   * @param msg 一条 CDP 消息。
+   * @returns 无返回值。
+   */
+  _collect(msg) {
+    if (!this._diagOn) return;
+    const p = msg.params ?? {};
+    if (msg.method === 'Runtime.consoleAPICalled') {
+      const text = (p.args ?? [])
+        .map((a) => (a.value !== undefined ? String(a.value) : (a.description ?? a.type)))
+        .join(' ');
+      this._diag.console.push({ type: p.type, text: text.slice(0, 500) });
+    } else if (msg.method === 'Runtime.exceptionThrown') {
+      const d = p.exceptionDetails ?? {};
+      this._diag.exceptions.push({
+        text: String(d.exception?.description ?? d.text ?? '').slice(0, 500),
+        url: d.url,
+        line: d.lineNumber,
+      });
+    } else if (msg.method === 'Log.entryAdded') {
+      const e = p.entry ?? {};
+      if (e.level === 'error' || e.level === 'warning') {
+        this._diag.console.push({ type: `log.${e.level}`, text: `${e.text ?? ''}`.slice(0, 500) });
+      }
+    } else if (msg.method === 'Network.responseReceived') {
+      const r = p.response ?? {};
+      this._diag.responses.push({ url: r.url, status: r.status });
+      if (typeof r.status === 'number' && r.status >= 400) {
+        this._diag.failedRequests.push({ url: r.url, status: r.status });
+      }
+    } else if (msg.method === 'Network.loadingFailed') {
+      // `net::ERR_ABORTED` 常由页面自身取消（导航/SSE 重连）引起，不算缺陷；其余（404/连接拒绝）算。
+      const err = String(p.errorText ?? '');
+      if (!/ERR_ABORTED/.test(err)) {
+        this._diag.failedRequests.push({ url: String(p.documentURL ?? ''), status: err });
+      }
+    }
   }
 
   _failAll(err) {
@@ -404,7 +473,9 @@ export class CdpSession {
       this._pending.delete(msg.id);
       if (msg.error) reject(new Error(msg.error.message));
       else resolve(msg.result);
+      return;
     }
+    if (msg.method !== undefined) this._collect(msg);
   }
 
   /** 发送一条 CDP 命令并返回 result（Promise）。 */
@@ -484,6 +555,34 @@ export class CdpSession {
   /** 通过假后端钩子推送一条 SSE 事件（驱动流式 / 工具结果）。 */
   async push(env) {
     await this.evaluate('window.__PUSH__(' + JSON.stringify(env) + ')');
+  }
+
+  /**
+   * 真实按键（含组合键）：走 CDP Input，与 `type()` 同一条真实输入通路。
+   *
+   * 存在理由：快捷键（如 Ctrl+K 命令面板）用 `type()` 送不出——它只发 `text` 字符事件，
+   * 不带修饰键与虚拟键码，页面上的组合键监听收不到。
+   * @param key 键名（CDP 口径：'k' / 'Escape' / 'Enter' …）。
+   * @param options 可选 `{ modifiers, code, keyCode }`；modifiers 为位掩码（Ctrl=2、Shift=8、Alt=1、Meta=4）。
+   * @returns 无返回值。
+   */
+  async press(key, options = {}) {
+    const modifiers = options.modifiers ?? 0;
+    const upper = key.length === 1 ? key.toUpperCase() : key;
+    const keyCode = options.keyCode ?? (key.length === 1 ? upper.charCodeAt(0) : 0);
+    const base = {
+      key: upper,
+      code: options.code ?? (key.length === 1 ? `Key${upper}` : key),
+      windowsVirtualKeyCode: keyCode,
+      nativeVirtualKeyCode: keyCode,
+      modifiers,
+    };
+    await this.send('Input.dispatchKeyEvent', {
+      type: modifiers === 0 ? 'keyDown' : 'rawKeyDown',
+      ...base,
+      ...(modifiers === 0 && key.length === 1 ? { text: key } : {}),
+    });
+    await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
   }
 
   /** 关闭底层 WebSocket。 */

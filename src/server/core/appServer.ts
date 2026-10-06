@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
@@ -192,7 +192,10 @@ export class AppServer extends AppServerGovernanceHandlers {
   protected registerSessionHandlers(): void {
     this.handlers.set('sessions.list', async (params) => {
       const includeArchived = params['includeArchived'] !== false;
-      const r = (await this.sessionArchive.list(includeArchived)) as {
+      // 工作区收敛（2026-10-06 第六十二轮真机 UI 跑测）：作用域解析收在 `SessionArchive.list` 里
+      // （缺省 = 当前工作区；`'*'` = 全部），此处**只透传** params。为什么不在本层算：本类已贴着
+      // 「上帝类」的代码行阈值，多出的实现行会被增量门禁拦下（实测过一次）。
+      const r = (await this.sessionArchive.list(includeArchived, params['workspace'])) as {
         dir: string;
         sessions: { sessionId: string; running?: boolean }[];
       };
@@ -572,7 +575,9 @@ export class AppServer extends AppServerGovernanceHandlers {
     }
     // 存档目录 / sqlite 库能枚举会话：以归档列表为唯一判据（file 后端读 .jsonl，sqlite 读库内行）。
     if (this.options.config.storage.location !== undefined) {
-      const list = await this.sessionArchive.list();
+      // `'*'`：存在性判定必须看**全量**存档——会话可能属于别的工作区，按当前工作区过滤会让
+      // "按 id 打开历史会话"在跨项目时 404（见 SessionArchive.list 的作用域语义）。
+      const list = await this.sessionArchive.list(true, '*');
       const sessions = (list as { sessions?: readonly { sessionId: string }[] }).sessions ?? [];
       return sessions.some((entry) => entry.sessionId === sessionId);
     }

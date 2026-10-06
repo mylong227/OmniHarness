@@ -17,6 +17,13 @@ export interface ServerConfigStoreDeps {
   readonly probeProvider: (preset: ProviderPreset, key: string | undefined) => Promise<void>;
   /** 配置变更后回调（用于重建 Agent）。 */
   readonly onChanged: () => void;
+  /**
+   * 用户级配置的家目录覆盖（缺省 `os.homedir()`）。
+   *
+   * 存在理由：`fileConfig()` 现在走**分层加载**（见该方法注释），单测必须能在临时目录里造出
+   * 「用户级 providerKeys + 项目级 model」两层，否则断言会渗进真实机器上的 `~/.omniharness/`。
+   */
+  readonly userHomedir?: string | undefined;
 }
 
 /**
@@ -82,6 +89,13 @@ export class ServerConfigStore {
       ...this.overrides,
       autoApprove: this.auto,
     };
+    // 工作区必须报**实际运行根**（2026-10-06 第六十二轮真机 UI 跑测实测）：项目配置文件里落盘的
+    // `workspace` 是 UI「上次选中工作区」的运行时状态，它会在上面的合并里**盖掉** displayConfig 的
+    // 真实根 ⇒ 界面显示的"当前工作区"与实际跑的不是同一个（本机实测：serve 起在仓库，
+    // config.get 却回 `D:\work\新项目`）。运行根本身早已被 runServe 钉死（那是第六十轮的修复），
+    // 这里补的是**显示侧**——"显示 ≠ 实际"是本仓反复踩过的一类缺陷（2026-09-27 的
+    // modelAdapter / reasoning 各一次）。UI 显式切换工作区仍以 overrides 优先（见 `workspace()`）。
+    merged['workspace'] = this.workspace();
     if (typeof merged['apiKey'] === 'string' && merged['apiKey'] !== '') {
       merged['apiKey'] = ProviderPresets.maskKey(merged['apiKey']);
     }
@@ -97,11 +111,40 @@ export class ServerConfigStore {
   }
 
   /**
-   * 生效的文件级配置：已落盘文件 + UI 覆盖（探测/摘要共用，避免两处取值漂移）。
+   * 生效的文件级配置：**分层加载**（用户级 → 项目级 → profile → bundle → 环境变量）+ UI 覆盖。
+   *
+   * **为什么要分层（2026-10-06 第六十二轮真机 UI 跑测实测的缺陷）**：本方法原先只读**项目级那一份**
+   * （`configFile.load(configPath)`），于是用户级 `~/.omniharness/omniharness.json` 里的
+   * `providerKeys` 在 RPC 面**完全不可见** ⇒ `model.probe` 与 `ModelCatalogService.resolveOverride()`
+   * 在「用户级配 Key、项目级配 model」这种**最常见**的配置下抛
+   * 「厂商 DeepSeek 未配置 API Key，无法启用（fail-closed）」，Web UI 一发真模型回合就在流里报错；
+   * 而 `dsh exec`（`execCli.loadDefaults`）与 serve 启动路径（`loadServeConfig`）都走分层、一切正常
+   * —— 于是表现为「命令行能用、Web UI 不能用」。
+   *
+   * 这与 2026-09-27 修过的是**同一类**「用户级被静默忽略」，只是换了条通路（那次修的是启动路径，
+   * 这次是 RPC 面）。回归判据见 `tests/unit/serverConfigStoreLayering.test.ts`。
+   *
    * @returns 合并后的文件级配置。
    */
   public fileConfig(): FileConfig {
-    return ConfigError.mergeConfigs(configFile.load(this.configFilePath()), this.overrides);
+    const layered = configFile.loadLayered({
+      workspace: this.workspace(),
+      configPath: this.configFilePath(),
+      ...(this.deps.userHomedir !== undefined ? { userHomedir: this.deps.userHomedir } : {}),
+    });
+    return ConfigError.mergeConfigs(layered, this.overrides);
+  }
+
+  /**
+   * **持久化层**的配置：只读项目级那一份（`persist()` / 写路径的合并基准）。
+   *
+   * 为什么读与写必须分开：`fileConfig()` 现在含用户级内容，若拿它当**写基准**，用户级凭据会在
+   * 任何一次 `config.update` 时被**复制进项目文件**（用户把 Key 放用户级，正是为了不落到项目里）。
+   * 故写路径一律以本方法为基准：只合并「项目文件 + UI 覆盖」。
+   * @returns 项目级配置（文件不存在为空配置）。
+   */
+  private persistedConfig(): FileConfig {
+    return configFile.load(this.configFilePath());
   }
 
   /**
@@ -201,7 +244,7 @@ export class ServerConfigStore {
    */
   public addWorkspace(raw: unknown): unknown {
     const root = this.requireDirectory(raw);
-    const list = this.fileConfig().workspaces ?? [];
+    const list = this.persistedConfig().workspaces ?? [];
     if (!list.includes(root)) {
       this.overrides = { ...this.overrides, workspaces: [...list, root] };
       this.persist();
@@ -220,7 +263,7 @@ export class ServerConfigStore {
     root: string,
     previous: string,
   ): { current: string; workspaces: string[] } {
-    const saved = this.fileConfig().workspaces ?? [];
+    const saved = this.persistedConfig().workspaces ?? [];
     this.overrides = {
       ...this.overrides,
       workspace: root,
@@ -276,7 +319,7 @@ export class ServerConfigStore {
       ProviderPresets.providerPresetOf(vendor, this.fileConfig().providerPresets) === undefined
     )
       return;
-    const merged = { ...this.fileConfig().providerKeys };
+    const merged = { ...this.persistedConfig().providerKeys };
     if (typeof key === 'string' && key.length > 0) {
       merged[vendor] = key;
     } else {
