@@ -1,7 +1,4 @@
 [
-  "mention: README.md -> benchmark/capability-swebench.json",
-  "mention: README.md -> src/eval/liveCredentials.ts",
-  "mention: docs/API_STABILITY.md -> src/eval/evalHarness.ts",
   "mention: docs/ARCHITECTURE_UPGRADE_2026-10.md -> tests/unit/eventPersisterAppend.test.ts",
   "mention: docs/ARCHITECTURE_UPGRADE_2026-10.md -> tests/unit/subagentWriteGate.test.ts",
   "mention: docs/ARCHITECTURE_UPGRADE_2026-10.md -> tests/unit/toolSchedulerReadyOrder.test.ts",

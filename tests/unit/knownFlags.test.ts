@@ -38,17 +38,30 @@ function cliSources(): readonly { readonly name: string; readonly text: string }
 
 /**
  * 抽出源文本里所有"读取器 + 字面旗标名"的读取点。
+ *
+ * **2026-10-06 补洞（真实缺陷）**：原正则只认 `.has(`/`.value(`/`flagValue(` 这类**读取器**写法，
+ * 于是 `serveArgs.includes('--auto-approve')`（`cliServerCmds.ts` 里的真实读取点）**完全扫不到** ⇒
+ * 该旗标从未登记，而第五十七轮的"未知旗标 fail-closed"把它打死了：`serve --auto-approve` 报未知旗标退出，
+ * 而 `--help`/README 都还写着它。判据扫不到的读取点 = 判据给不出保护，故把 `.includes(` 一并纳入。
  * @param text 源文本。
  * @returns 旗标名数组（去重）。
  */
 function readFlags(text: string): readonly string[] {
   const found = new Set<string>();
-  for (const m of text.matchAll(
-    /(?:\.has\(|\.value\(|\.values\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'/g,
-  )) {
+  for (const m of text.matchAll(flagReadPattern())) {
     if (m[1] !== undefined) found.add(m[1]);
   }
   return [...found];
+}
+
+/**
+ * 「源码读取旗标」的统一识别式：reader 式（`.has(`/`.value(`/`flagValue(`…）**与** `Array.includes(`。
+ * 每次返回**新**正则（避免 `/g` 共享 `lastIndex` 造成的状态串味），供判据①与③共用——
+ * 两处各写一份正是上一轮漏掉 `.includes(` 的成因。
+ * @returns 带 `g` 标志的新正则。
+ */
+function flagReadPattern(): RegExp {
+  return /(?:\.has\(|\.value\(|\.values\(|\.includes\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'/g;
 }
 
 test('① 源码里每个旗标读取点都必须被 isKnownFlag 接受（漏登记 ⇒ 打掉真实功能）', () => {
@@ -80,18 +93,32 @@ test('③ KNOWN_EXTRA_FLAGS 每一项都真的被读取（防白名单腐化成"
   const allText = cliSources()
     .map((s) => s.text)
     .join('\n');
-  const unread = [...KNOWN_EXTRA_FLAGS].filter(
-    // 只认"作为读取器参数"的出现，避免被文档字符串误判为已使用。
-    (flag) =>
-      !new RegExp(
-        `(?:\\.has\\(|\\.value\\(|\\.values\\(|flagValue\\(|flagNumber\\(|enumOf\\(|valueOf\\()[^)]*'${flag}'`,
-      ).test(allText),
-  );
+  const unread = [...KNOWN_EXTRA_FLAGS].filter((flag) => {
+    // 只认"出现在读取器/includes 参数位置"的字面量，避免被文档字符串误判为已使用。
+    const atReader = new RegExp(
+      `(?:\\.has\\(|\\.value\\(|\\.values\\(|\\.includes\\(|flagValue\\(|flagNumber\\(|enumOf\\(|valueOf\\()[^)]*'${flag}'`,
+    );
+    return !atReader.test(allText);
+  });
   assert.deepStrictEqual(
     unread,
     [],
     `这些旗标登记为"子命令自解析"但全仓没人读 ⇒ 白名单腐化：${unread.join(', ')}`,
   );
+});
+
+test('⑥ 实跑正对照：文档/`--help` 写着的子命令旗标必须真被接受（`--auto-approve` 曾被打死）', () => {
+  // 2026-10-06 真实缺陷：`serve --auto-approve`（`--help` 与 README 都写着、代码里也真的读它）
+  // 因从未登记进认识面，被"未知旗标 fail-closed"直接打死。这里用**短命进程**做正对照：
+  // 同时给一个真未知旗标 ⇒ 报错必须指向它，而**不能**指向 --auto-approve（后者被接受、只是随后失败）。
+  const r = spawnSync(
+    process.execPath,
+    [CLI_ENTRY, 'serve', '--auto-approve', '--definitely-not-a-flag'],
+    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  assert.match(out, /未知旗标 --definitely-not-a-flag/, '真未知旗标必须被指名报出');
+  assert.doesNotMatch(out, /未知旗标 --auto-approve/, '--auto-approve 是合法旗标，不得被判未知');
 });
 
 test('④ 实跑：未知旗标必须非零退出且给出可读原因（修复前静默通过）', () => {

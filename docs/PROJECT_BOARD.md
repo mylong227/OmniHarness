@@ -519,6 +519,69 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第六十五轮｜文档体系整体复测 + 一键启动规范化：新增 `npm start` / `npm run dev`，重写 README，修掉一个"文档写着却早已失效"的真旗标（`--auto-approve`）与三处门禁洞**：
+> 用户指令："请更新当前项目的全部文档，特别是重新写 readme，然后给出整个项目的一件启动描述使用规范，最快最简单的前后端一起启动的方式方法。"
+>
+> **① 一键启动（新增，实测）**：`npm start` = **构建服务端 + 构建前端 + 起 HTTP 工作台**一步到位（`scripts/startAll.mjs`），
+> 参数原样透传（`npm start -- --port 9000` / `--mock` / `--workspace ~/work/proj`）；`npm run dev` = 构建一次后
+> serve + 前端 `tsc --watch`（`scripts/devAll.mjs`，改前端刷新即见）。**为什么必须固化**：本仓前端零打包器、
+> 无 dev server，`web/index.html` 直接加载 `web/dist/main.js`，于是"跑起来"必然是三件事（编服务端 / 编前端 / 起 serve），
+> 少一步的典型症状是**白屏**——那种"看起来像 bug 的缺失构建"最耗时。实测：`npm start -- --port 21999 --mock` → HTTP 200；
+> `npm run dev -- --port 21998 --mock` → serve + `tsc --watch`（Found 0 errors）双起、HTTP 200。
+> **过程中自己的脚本被实测打回一次**：Windows 上 `spawnSync('npm.cmd')` 被 Node 的 `.cmd` 防护挡下
+> （`status: null`、零输出），第一版 `npm start` 只打印"失败（退出码 null）"就中止 ⇒ 改为 `shell: true` 并打印真实原因。
+>
+> **② 真旗标被打死（修）**：`serve --auto-approve` —— `--help` 与 README **都写着**、`cliServerCmds.ts:534` 也**真的读它**
+> （`serveArgs.includes('--auto-approve')`），却**从未登记**进 `src/cli/knownFlags.ts` 的"子命令自解析旗标表"。
+> 第五十七轮把未知旗标改成 fail-closed 后，它**被当场打死**：`serve --auto-approve` 直接报"未知旗标"退出（实测复现）。
+> **门禁为什么没抓到**：`tests/unit/knownFlags.test.ts` 的扫描正则只认 `.value(`/`.has(` 等 **reader 式**读取，漏了 `Array.includes(`。
+> 已两头修：登记旗标 + 把判据扫描面（①与③）扩到 `Array.includes(`，并新增**实跑正对照**判据⑥（给一个真未知旗标，
+> 报错必须指向它而**不能**指向 `--auto-approve`）。**扫描面一拓宽，当场又揪出 3 个同类未登记旗标**：
+> `--version` / `--compliance` / `--allow-all`（它们今天仍能用，只因其子命令**绕过 `parseArgs`**；一旦走进解析器就会同样暴毙）⇒ 一并登记上保险。
+>
+> **③ 文档整体复测（一次完整审计 + 分头修补）**：对 17 份文档逐条对照**实际代码 / package.json / 文件系统**（不按文档自称），
+> 结论是"事实 1–6（本机固定项目、配置分层、`~/…` 压缩、BOM 容忍、会话全局与 `workspace:'*'`、UI 模式暂存）
+> 在整个文档体系里只出现在看板"——这是最大的单点问题。本轮：
+>
+> - **重写 `README.md`**：从 47KB 的"百科全书"改为**门面 + 精准导航**（一键启动置于最前、配置分层"谁存在哪谁是权威"、
+>   安全默认、门禁与验证层次、诚实清单），把完整命令/旗标表移出为 `docs/CLI_REFERENCE.md`；
+>   修正事实性错误：Node **≥22.14.0**（原写 22.18）、**依赖准入制 5+2**（原写"零依赖"，与 `DEPENDENCY_POLICY` 明文冲突）、
+>   删掉已不存在的 `evals/`、`benchmark/`、`assets/`、`src/eval/**`、`src/tools/**` 引用、`storageDir` 改为用户级、
+>   分层链补 **bundle 补丁层**、示例地址由 `localhost` 改 `127.0.0.1`（只绑回环）。
+> - **新增 `docs/STARTUP.md`**（本次的"使用规范"）：前置条件 / 为什么必须一键 / 三种启动方式 / **判定起没起来**（横幅两行 + 探活命令）/
+>   停止重启 / 数据与配置落点 / 安全默认对照表 / **Do·Don't 规范** / 故障排查表 / 可复制验收清单。
+> - **重写 `docs/QUICKSTART.md`**：修掉 3 个**不存在的命令**（`workflow run ./my-flow.yaml` → 实际是 `workflow --file workflow.json`；
+>   不存在的 `ralph`；Node "20+"），去掉必然漂移的硬编码测试计数。
+> - 卫星文档分头精修（`CODE_STANDARD` / `ARCHITECTURE_SPEC` / `API_STABILITY` / `integration` / `contributing` / `PORTS_CONTRACT` /
+>   `PLUGIN_GUIDE` / `DOMAIN_SLICE_TEMPLATE` / `protocol` / `DEPENDENCY_POLICY` / `docs/README` / `llms.txt` / `AGENTS.md`），
+>   并把 `docs/index.html`（另一份 Python 论文的落地页，与 Agent Harness **同名不同物**）加上醒目横幅，避免 `docs/` 站点根误导访客。
+> - `AGENTS.md` 新增三节（一键启动与前端构建形态 / 本机配置与工作区解析 / **CLI 旗标必须登记**），并把门禁清单改为**引用** `runGates.mjs` 而不再抄第二份。
+>
+> **④ 顺手清偿死链**：README 重写 + `API_STABILITY` 修正共**清偿 3 处历史死链**，按"基线只许收紧"的纪律跑
+> `docLinkCheck --update` 把基线从 **11 → 9 处**。门禁复核：`✓ 无新增死链`（扫描 37 份 markdown）。
+>
+> **诚实边界**：文档里"能用"的每条命令都实测过（`npm start` / `npm run dev` / `--auto-approve` / `--memory-encrypt` /
+> `audit export --compliance`）；但**未**逐条实跑 27 个子命令的全部用法，`CLI_REFERENCE.md` 顶部已明确"权威来源是 `--help`/代码"。
+> 规模数字（1014 文件 / 114,234 行）为 2026-10-06 本机实测快照，会漂移，以看板为准。
+>
+> **本轮顺带查出、但**未**修的缺口（登记在案，避免遗忘）**：`storageDir` 与 `workspace` 的路径语义**不一致**——
+> `workspace` 走 `PortablePath.expand`（支持 `~/…` / `$VAR` / `%VAR%`），而 `storageDir` 只做原样透传
+> （`argParser.ts` → `SessionStorageLocation.resolve()` 用 `resolve(workspace, explicit)`），**不展开 `~`**。
+> 于是把 `"storageDir": "~/.omniharness/sessions"` 写进配置会得到一个**字面 `~` 目录**。文档侧已如实写明
+> （`integration.md`：缺省即用户级目录，要改给绝对路径），代码侧的统一留给后续一轮（牵动存储路径解析，需单独判据）。
+>
+> **⑤ 顺手把一条"假红"判据修成确定性判据（本轮实测根因）**：文档改完后 `npm test` 出现 2 红，逐个查清：
+>
+> - `docsLayout ①`：`docs/` 根白名单要求**显式登记**新文档 ⇒ 把 `STARTUP.md` / `CLI_REFERENCE.md` 登记进判据白名单
+>   （这正是本仓"新文档必须决定去向"的机械牙齿，属于**门禁按设计工作**）。
+> - `subagentStepBudget ②`（**真正的发现**）：同一份 `dist`、**只改文档**就会红。二分定位到 **`AGENTS.md` 的体积**——
+>   子代会把工作区里的 `AGENTS.md` 当**项目指令**载入上下文，本轮给它加了三节（6.1KB → 9.1KB）后，
+>   子代上下文**跨过压缩阈值 ⇒ 多出一次压缩用的模型调用**（`childCalls` 13 → 14）。
+>   **即该判据的结果取决于仓库自身文档的大小**——任何文档增长都会让它假红（实测：把 `AGENTS.md` 缩到 1 行，
+>   同一份 dist 立刻回到 13）。修法：工作区从 `process.cwd()`（仓库根）改为**临时空目录**，让子代上下文与仓库内容
+>   解耦（断言仍是精确值 `DEFAULT_SUBAGENT_MAX_STEPS + 1`，判据的牙齿不松）。
+>   **可推广的经验**：凡"派生 agent + 计数断言"的判据都必须隔离工作区，否则判据会随文档/代码体积漂移。
+>
 > **第六十四轮｜用户截图报错「模式切换失败：modes.set 需要 threadId」——建会话前的模式开关应当**暂存**，不是报错**：
 > 现场（用户截图）：还没发过消息时点「+ → 计划模式 / 目标」，输入区上方弹出红字「模式切换失败：modes.set 需要 threadId」。
 > 根因：会话是**惰性创建**的（发第一条消息时 `turns.run` 才建会话），而「目标 / 计划模式 / 绘图」都**按会话持久化**

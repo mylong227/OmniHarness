@@ -1,4 +1,4 @@
-﻿/**
+/**
  * **文档布局**判据（G20 文档瘦身，2026-10-03 第十八轮）。
  *
  * ## 它锁的是什么
@@ -61,7 +61,11 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'PORTS_CONTRACT.md',
   // 用户/第三方文档
   'README.md',
+  // 一键启动与运行规范（2026-10-06 显式登记）：整体启动的**唯一规范**（前置条件/探活/停止重启/故障排查/验收）
+  'STARTUP.md',
   'QUICKSTART.md',
+  // CLI 参考（2026-10-06 显式登记）：从 47KB 的根 README 里拆出的子命令与旗标速查（权威来源仍是 --help）
+  'CLI_REFERENCE.md',
   'PLUGIN_GUIDE.md',
   'contributing.md',
   'integration.md',

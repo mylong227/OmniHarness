@@ -17,6 +17,7 @@
 - [自进化先行研究调研与自研方案](EVOLUTION_RD_RESEARCH_2026-10.md): 开源+学术机制级择优学习表（采纳/改造/拒绝）/ 分类法对位 / 自研进化环 2.0（GEE）设计与判据
 - [进化域架构升级方案](EVOLUTION_ARCH_UPGRADE_2026-10.md): GEE Kernel v1 实施蓝图（现状实读 / 目标架构 / 模块映射 / S1–S7 切片与判据），配套 ADR-0008
 - [快速开始](QUICKSTART.md): 5 分钟跑通
+- [一键启动与运行规范](STARTUP.md): `npm start` 一键起（服务端 + 前端 + HTTP UI）/ 起没起来的判定 / 停止重启 / 数据与配置落点 / 故障排查
 
 ## 契约与指南
 
@@ -25,14 +26,14 @@
 - [协议文档](protocol.md): 单源 schema 自动生成（stdio / HTTP+SSE / WebSocket），勿手改
 - [API 稳定性](API_STABILITY.md): `@public` / `@beta` / `@deprecated` 分级契约
 - [插件开发指南](PLUGIN_GUIDE.md): 插件包结构与装载流程
-- [依赖政策](DEPENDENCY_POLICY.md): 零运行时依赖边界与例外流程
+- [依赖政策](DEPENDENCY_POLICY.md): 依赖准入制（D10）：必要且更优即可依赖；`ports`/`core` 恒第三方-free
 - [贡献铁律](contributing.md): 提交与评审要求
 - [垂直切片模板](DOMAIN_SLICE_TEMPLATE.md): 新增业务域的 7 步模板
 
 ## 架构决策记录（ADR）
 
-- [ADR 索引](adr/README.md): 六边形架构 / 依赖白名单 / 统一门禁 fail-closed / 审计哈希链 / 事件流单源 / 沙箱诚实降级 / API 稳定标注 / 治理化进化内核
+- [ADR 索引](adr/README.md): 六边形架构 / 依赖白名单 / 统一门禁 fail-closed / 审计哈希链 / 事件流单源 / 沙箱诚实降级 / API 稳定标注 / 治理化进化内核 / 统一资产协议（0009）/ 信任-隔离阶梯（0010）/ 签名资产包分发（0011）
 
 ## Optional
 
-- [历史存档](archive/README.md): 55 份被取代的审计 / 计划 / 路线图 / 调研（**只读**，每份带归档横幅，其中的数字与结论不代表现状）
+- [历史存档](archive/README.md): 56 份被取代的审计 / 计划 / 路线图 / 调研（**只读**，每份带归档横幅，其中的数字与结论不代表现状；份数随时间增长，以目录为准）

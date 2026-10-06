@@ -18,7 +18,7 @@ export class MyModel implements ModelPort {
 ```
 
 ```ts
-import { ConfigFactory, createRuntime, Agent, MemoryStorage } from 'omniharness';
+import { ConfigFactory, Runtime, Agent, MemoryStorage } from 'omniharness';
 
 const config = ConfigFactory.build({
   workspaceRoot: process.cwd(),
@@ -26,8 +26,12 @@ const config = ConfigFactory.build({
   model: new MyModel(), // ← 你的模型即插即用
   storage: new MemoryStorage(),
 });
-const agent = new Agent(createRuntime.create(config));
+const agent = new Agent(Runtime.createRuntime(config));
 ```
+
+> `Runtime.createRuntime` 是组合根上的**静态工厂**（`src/composition/runtime.ts`），与 CLI 自己走的
+> 装配点一致（`src/cli/execCli.ts` 里就是 `new Agent(Runtime.createRuntime(config))`）——
+> 接入方不必自造装配顺序，也不该绕过它去 `new` 具体适配器。
 
 内置备选：`MockModel`（离线）、`OpenAiCompatibleModel`（任意兼容端点）、`AnthropicModel`。
 
@@ -133,10 +137,8 @@ omniharness plugin load --file plugin.js        # 动态加载插件
 {
   "modelAdapter": "openai",
   "baseUrl": "https://api.deepseek.com",
-  "apiKey": "sk-xxx",
   "model": "deepseek-chat",
   "storageAdapter": "jsonl",
-  "storageDir": "sessions",
   "approval": "guardian",
   "sandbox": "policy",
   "maxSteps": 32,
@@ -151,7 +153,19 @@ omniharness plugin load --file plugin.js        # 动态加载插件
 }
 ```
 
-配置文件在 cwd 向上逐级查找；CLI 参数优先于配置。
+**配置分层链（后者覆盖前者）**：内置默认 → 用户级 `~/.omniharness/omniharness.json` → 项目级
+`omniharness.json` → `--profile` → bundle 补丁层 → 环境变量 → 显式 CLI。**不是"在 cwd 向上逐级查找"**——
+只有这两级文件（用户级固定路径 + 项目级 `omniharness.json`），环境变量与 CLI 在其后覆盖。
+
+**凭据只放用户级 `providerKeys`，别写进项目文件**：项目级 `omniharness.json` 是要进版本库的，
+把 `apiKey` / `providerKeys` 写进去等于把密钥提交上去（上例因此**刻意不含** `apiKey`）。
+用户级写法是 `"providerKeys": { "deepseek": "sk-…" }`，CLI 会按 `modelAdapter` 命中的厂商自动补全
+顶层 `apiKey` / `baseUrl`。
+
+**`storageDir` 缺省即用户级 `~/.omniharness/sessions`**（不是工作区下的 `.omniharness/sessions`，
+也不是相对路径 `sessions`）——会话是"用户的历史"，不随启动目录漂移。要改就显式给**绝对路径**：
+配置里的 `storageDir` 只做原样透传（**不展开 `~`**），相对路径按工作区解析；测试隔离/便携部署用
+环境变量 `OMNI_SESSIONS_DIR`（同一个旋钮同时移动写入方与全部读取方）。
 
 ### 6.1 受种技能（skills）
 

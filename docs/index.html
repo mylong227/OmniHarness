@@ -41,6 +41,48 @@
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
+    <!--
+      同名不同物口径横幅（纯 HTML + 内联样式，不引外部资源）。
+      为什么必须放最上面：本页是另一份 Python 视觉生成研究论文（Symbolic Policy Learning）的落地页，
+      与本仓的 TypeScript Agent Harness 同名不同物；而其配套 Python 资产
+      （scripts/run_*.py / requirements.txt / BENCHMARKS.md）已从仓库删除，只剩 resources/。
+      不加此横幅，任何访问 docs/ 站点根的人都会对「OmniHarness 是什么」得到完全错误的印象。
+    -->
+    <div
+      role="note"
+      aria-label="Scope notice: this page is a historical research artifact, not OmniHarness documentation"
+      style="
+        margin: 0;
+        padding: 14px 18px;
+        background: #fff4e5;
+        border-bottom: 3px solid #b45309;
+        color: #3f2a10;
+        font:
+          15px/1.65 system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      "
+    >
+      <p style="margin: 0 0 6px">
+        <strong>⚠ 口径声明：</strong>本页描述的是本仓库
+        <code>resources/</code> 目录下的<strong>历史研究资产</strong>——一篇 Python 视觉生成研究论文
+        （<em
+          >OmniHarness: Harnessing Generalizable Visual Generation via Symbolic Policy Learning</em
+        >）， <strong>不是</strong> OmniHarness（TypeScript Agent Harness）的文档。该论文配套的
+        <code>scripts/run_*.py</code>、<code>requirements.txt</code>、<code>BENCHMARKS.md</code>
+        已从本仓库删除，仅研究资产保留在 <code>resources/</code>。
+      </p>
+      <p style="margin: 0">
+        项目文档入口：<a href="./README.md">docs/README.md</a>（文档索引）。<br />
+        <span lang="en"
+          >This page documents a historical research artifact (a Python visual-generation paper)
+          kept under <code>resources/</code>; it is <strong>not</strong> documentation for
+          OmniHarness, the TypeScript agent harness. Start at
+          <a href="./README.md">docs/README.md</a>.</span
+        >
+      </p>
+    </div>
     <header class="site-header">
       <a class="wordmark" href="#top" aria-label="OmniHarness home"
         ><span class="wordmark-mark" aria-hidden="true">OH</span><span>OmniHarness</span></a
