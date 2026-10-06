@@ -1,6 +1,7 @@
 import type { CliArgs } from './argParser.js';
 import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
+import { KNOWN_EXTRA_FLAGS } from './knownFlags.js';
 import {
   MODEL_ADAPTERS,
   STORAGE_ADAPTERS,
@@ -111,6 +112,25 @@ export class CliFlagTable {
       throw new Error(`非法参数值: ${flag} = ${raw}（必须是有限数字）`);
     }
     return value;
+  }
+
+  /**
+   * 本 CLI 是否**认识**这个 token（不看它是否由本层消费）。
+   *
+   * 三个来源：`FLAG_TABLE`（本层消费）、`VALUE_FLAGS`（取值型，含装配层自解析的 `--config`/
+   * `--profile`）、`KNOWN_EXTRA_FLAGS`（子命令/装配层自解析）。用途：`ArgParser.parseArgs`
+   * 对不认识 `-` 开头的 token **fail-closed**，从而把"拼错的旗标"从"无声无效"变成当场报错。
+   * @param token 原始 token（含 `--` 前缀）。
+   * @returns 认识为 true。
+   */
+  public static isKnownFlag(token: string): boolean {
+    return (
+      FLAG_TABLE[token] !== undefined ||
+      VALUE_FLAGS.has(token) ||
+      KNOWN_EXTRA_FLAGS.has(token) ||
+      token === '--help' ||
+      token === '-h'
+    );
   }
 }
 
@@ -560,4 +580,4 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   '--oidc-jwks-uri': () => 1,
 };
 
-export { VALUE_FLAGS, FLAG_TABLE };
+export { VALUE_FLAGS, FLAG_TABLE, KNOWN_EXTRA_FLAGS };

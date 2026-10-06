@@ -27,7 +27,13 @@
 //   node scripts/auditInterfaces.mjs --top 60      # 调整 TOP 条数
 //   node scripts/auditInterfaces.mjs --json out.json
 //
-// 退出码：审计模式恒为 0（本脚本只报事实，不做阻断；阻断由后续的 `--gate` 承担）。
+// 退出码：审计模式恒为 0（本脚本只报事实，不做阻断）。
+//
+// 2026-10-06 订正：原文写「阻断由后续的 `--gate` 承担」——**该模式在本脚本与全仓都不存在**
+// （`evals/*.mjs --gate` 那批脚本已随跑分/评测子系统整体删除，见 docs/ARCHITECTURE_UPGRADE_2026-10.md）。
+// 事实是：本审计**当前没有阻断面**，它的产出是"逐文件重构队列"；接口散落的**新增**由
+// `scripts/auditTopLevelFunctions.mjs`（顶层 function）与 `scripts/auditConfigWiring.mjs`（接线）
+// 分别把关。别再把"有人会拦"当成本审计的护栏。
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';

@@ -796,6 +796,15 @@ if (process.argv.includes('--maturity')) {
     console.error('\n❌ 成熟度门禁失败（' + bad.length + ' 处）：');
     for (const b of bad) console.error(`  - ${b.file}: ${b.why}`);
     process.exitCode = 1;
+  } else if (decls.length === 0) {
+    // **0 项声明 = 通过** 是假绿（2026-10-06 第五十七轮 ③）：本门禁是"存量冻结 + L2/L3 有证据"，
+    // 解析口径一旦失效（注释格式变了、扫描目录挪了），`decls` 为空会让它无条件报"通过"，
+    // 而输出里的句子还是写死的"L2/L3 均有存在性证据"。
+    console.error(
+      '\n❌ 成熟度门禁失败：0 项声明 ⇒ 解析口径失效（不是"没有引擎需要声明"）。' +
+        ' 本仓当前应有 85 项左右；若确实全部删除，请同步修订本门禁。',
+    );
+    process.exitCode = 1;
   } else {
     console.log('\n✅ 成熟度门禁通过：' + decls.length + ' 项声明，L2/L3 均有存在性证据。');
   }

@@ -59,7 +59,15 @@ if (isMain) {
   for (const target of targets) {
     const source = readFileSync(target, 'utf8');
     const { violations, tagged } = checkApiStability(source);
-    if (violations.length === 0) {
+    if (violations.length === 0 && tagged === 0) {
+      // **0 条 export = 通过** 是假绿（2026-10-06 第五十七轮 ③）：本校验器的结论完全建立在
+      // "在这个文件里找到了 export" 之上；文件被搬空/清空/口径失效时它会**无条件**报通过，
+      // 而输出句子还写着"0 条 export 已落在带标注的分区内"（读起来像成功）。
+      totalViolations += 1;
+      console.error(
+        `❌ ${target}: 文件里**没有解析到任何 export** ⇒ 本校验器无从判定（不是"零违规"）。`,
+      );
+    } else if (violations.length === 0) {
       console.log(`✅ ${target}: ${tagged} 条 export 已落在带标注的分区内。`);
     } else {
       totalViolations += violations.length;

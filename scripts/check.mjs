@@ -269,14 +269,48 @@ function walk(dir) {
 }
 
 // ---- 准入制第三方导入检查：适配层须登记，核心/端口层一律禁止 ----
+/**
+ * 该行是否为注释行（避免把注释里的示例当真实导入）。
+ * @param src 源文本。
+ * @param index 匹配起点。
+ * @returns 注释行为 true。
+ */
+function isCommentLine(src, index) {
+  const start = src.lastIndexOf('\n', index) + 1;
+  const end = src.indexOf('\n', index);
+  const line = src.slice(start, end === -1 ? undefined : end).trimStart();
+  return line.startsWith('//') || line.startsWith('*') || line.startsWith('/*');
+}
+
+/**
+ * 说明符是否形如**包名**（用于过滤注释/文档里的占位写法，如 `'<pkg>'`）。
+ *
+ * 只做**去噪**不做校验：允许子路径（`@scope/pkg/server/stdio.js` 这种深导入必须照常计入
+ * "已导入"，否则「未使用的已装依赖」会误报——首版就因为要求整串是包名，把
+ * `@modelcontextprotocol/sdk` 判成了"未见任何导入"）。
+ * @param spec 导入说明符。
+ * @returns 形如包名为 true。
+ */
+function looksLikePackageName(spec) {
+  return !/[<>{}*\s]/.test(spec) && /^@?[a-z0-9]/i.test(spec);
+}
+
 function checkImports(file, src) {
-  const re = /(?:import\s+(?:[^'"]*?\s+from\s+)?|require\()\s*['"]([^'"]+)['"]/g;
+  // 2026-10-06（第五十七轮 ④）：补 `import(...)` **动态导入**分支——修复前该规则只认
+  // `import x from` / `import 'x'` / `require('x')`，而 `await import('pkg')` **匹配不到**
+  // ⇒ 「第三方导入须准入 / 核心与端口层零第三方」这两条阻断规则对动态导入**永远无法失败**
+  // （`architectureGate` 的正则却匹配 `import(`，两个脚本口径还互相矛盾）。
+  // 同时加两道去噪：① 注释行跳过（文档里的示例 `import('<pkg>')` 不算导入）；
+  // ② 说明符须形如包名（`'<pkg>'`、`'{X}'` 这类占位写法直接不认）。
+  const re = /(?:import\s+(?:[^'"]*?\s+from\s+)?|\brequire\s*\(|\bimport\s*\()\s*['"]([^'"]+)['"]/g;
   let m;
   while ((m = re.exec(src)) !== null) {
     const spec = m[1];
     const isRelative = spec.startsWith('.') || spec.startsWith('/');
     const isNodeBuiltin = spec.startsWith('node:') || NODE_BUILTINS.has(spec);
     if (isRelative || isNodeBuiltin) continue; // 相对路径 / node: 内置一律放行
+    if (isCommentLine(src, m.index)) continue; // 注释里的示例不算导入
+    if (!looksLikePackageName(spec)) continue; // 占位写法（如 `<pkg>`）不算导入
 
     const pkg = pkgNameOf(spec);
 
