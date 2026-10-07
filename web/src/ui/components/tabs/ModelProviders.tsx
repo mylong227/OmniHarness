@@ -33,7 +33,15 @@ const ROW: Record<string, string> = {
   flexWrap: 'wrap',
 };
 const INPUT: Record<string, string> = { flex: '1', minWidth: '180px' };
-const HINT: Record<string, string> = { fontSize: '12px', opacity: '0.65' };
+/**
+ * 说明文字（厂商 baseUrl / 状态 / Key 提示）。
+ *
+ * `overflowWrap:anywhere` 是必需的：`baseUrl` 是**不可断的长串**（如
+ * `https://generativelanguage.googleapis.com/v1beta/openai`），没有断行机会时它的 min-content
+ * 宽度就是整串长度 ⇒ 把卡片（乃至整个右栏）撑出可视区，真机上表现为「API Key 输入框与地址被
+ * 右边界切掉」（2026-10-07 用户截图）。
+ */
+const HINT: Record<string, string> = { fontSize: '12px', opacity: '0.65', minWidth: '0', overflowWrap: 'anywhere' };
 const ACTIVE_TAG: Record<string, string> = { color: '#3fb950', fontSize: '12px' };
 
 /** 卡片渲染所需的上下文与回调。 */

@@ -614,3 +614,68 @@ export class CdpSession {
 
 /** 默认站点根（供测试引用）。 */
 export const WEB_ROOT_PATH = WEB_ROOT;
+
+/**
+ * 起一次「真 Chrome + stub 页（真前端 + 假后端）」会话（CDP 用例共用入口）。
+ *
+ * 收尾对称：无论成败都关掉浏览器整树、静态服务与临时 profile；环境不可用（本机无 Chrome/Edge，
+ * 或 Node 无全局 WebSocket）时**显式 skip** 并返回 null —— 绝不伪装通过。
+ * @param {object} t node:test 上下文（不可用时用于 skip）
+ * @param {{stub?: string, html?: string, width?: number, height?: number, waitFor?: string, hash?: string}} [options]
+ *   入口路径名 / 自定义页面（如带 `__RPC_OVERRIDES__` 的桩） / 视口尺寸 / 挂载判据选择器
+ * @returns {Promise<{cdp: object, close: () => Promise<void>} | null>} 会话；不可用返回 null
+ */
+export async function openStubSession(t, options = {}) {
+  const browser = findBrowser();
+  if (browser === null) {
+    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
+    return null;
+  }
+  if (typeof globalThis.WebSocket !== 'function') {
+    t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
+    return null;
+  }
+  const stub = options.stub ?? '_cdp-stub.html';
+  const html = options.html ?? stubHtmlCdp();
+  const width = options.width ?? 1000;
+  const height = options.height ?? 700;
+  const waitFor = options.waitFor ?? '.composer-input textarea';
+  const hash = options.hash ?? '';
+  const server = await serveStatic(WEB_ROOT, { [`/${stub}`]: html });
+  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-cdp-'));
+  const cdpPort = await getFreePort();
+  const proc = launchChromeForCdp(browser, `http://127.0.0.1:${server.port}/${stub}`, userDataDir, cdpPort);
+  /** 收干净：浏览器整树 + 静态服务 + 临时 profile。 @returns {Promise<void>} 无 */
+  const cleanup = async () => {
+    killChromeTree(proc, userDataDir);
+    await server.close();
+    try {
+      rmSync(userDataDir, { recursive: true, force: true });
+    } catch {
+      /* 锁未释放，交由 OS 回收 */
+    }
+  };
+  let cdp;
+  try {
+    cdp = new CdpSession(await waitForPageWs(cdpPort, stub));
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await cdp.navigate(`http://127.0.0.1:${server.port}/${stub}${hash}`);
+    await cdp.waitFor(`!!document.querySelector('${waitFor}')`, 2000);
+  } catch (err) {
+    if (cdp !== undefined) cdp.close();
+    await cleanup();
+    throw err;
+  }
+  return {
+    cdp,
+    async close() {
+      cdp.close();
+      await cleanup();
+    },
+  };
+}

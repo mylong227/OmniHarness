@@ -1,5 +1,9 @@
-// 输入区下拉选项构建：模型清单 / 推理档位 / 权限提示。
+// 输入区下拉选项构建：模型清单 / 推理档位。
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
+//
+// 权限说明**不在这里**（2026-10-07 删除）：它原本在这里再存一份「档位 → 一句话」的映射表，与后端
+// `ApprovalTierCatalog`、`PermissionTierModel` 的兜底表构成同一句话的第三份副本。现在悬浮提示
+// 直接读档位表的 `description`（见 `PermissionPicker`）。
 
 /** 下拉项。 */
 export interface OptionItem {
@@ -38,13 +42,6 @@ const REASONING_LABELS: Readonly<Record<string, string>> = {
   max: '极致',
 };
 
-/** 权限等级提示文案（映射后端 approval 枚举）。 */
-const PERMISSION_HINTS: Readonly<Record<string, string>> = {
-  ask: '每次工具调用都需确认',
-  rules: '按规则自动放行安全工具',
-  auto: '工具全部自动放行',
-};
-
 /** 输入区选项构建器。 */
 export class ComposerOptions {
   /**
@@ -76,10 +73,5 @@ export class ComposerOptions {
       out.unshift({ value: current, label: REASONING_LABELS[current] ?? current });
     }
     return out;
-  }
-
-  /** 权限提示文案；未知等级返回 undefined（不显示提示，而不是显示错误文案）。 */
-  public static permissionHint(value: string): string | undefined {
-    return PERMISSION_HINTS[value];
   }
 }

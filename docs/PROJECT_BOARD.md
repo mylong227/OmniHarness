@@ -519,6 +519,38 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第七十三轮｜用户截图三条：① 左栏「收不起来」② 品牌字标误用上游名 ③ 输入区权限长文案占地方（均已修 + 真机判据）✅**：
+>
+> ① **「左侧工作区一列不能收起来」——按钮没坏，是被挤出了列**：品牌行是 `Ω + deepseek HARNESS + ⌘ + «`
+> 四个不可收缩的 flex 子项，总宽 **284px > 列宽 248px** ⇒「收起»」落在列外（实测 `rect.right = 284`），
+> `elementFromPoint` 在它中心命中的是**隔壁中栏**的 `chat-title`：看得见摸不着，点了没反应。
+> 这里有个判据教训值得记档：`querySelector('.rail-toggle').click()` 这类脚本点击**照样绿**（DOM 里有它，
+> 程序化点击不要求可见）——**只有「落在可视区内 + 中心点命中测试」才抓得到这类"按钮被挤出去"**，
+> 这也正是旧判据漏掉它的原因。修法：字标改本产品名（顺带变短）+ 样式层让字标可收缩
+> （`.side-wordmark { min-width:0; overflow:hidden; text-overflow:ellipsis }`，按钮 `flex:none`）。
+>
+> ② 字标 `deepseek HARNESS` → **`OmniHarness`**（用户明示）。项目自己的 `docs/archive/ROADMAP_2026-09-20.md`
+> 早就写着「视觉参考 dsh Web UI 版式但**完全重品牌为 OmniHarness**（自有 Ω 标识与配色）」——这条纪律此前
+> 只落在配色与 Ω 标识上，字标漏了；`.side-badge` 规则随之删除（唯一消费者已消失）。
+>
+> ③ 输入区控制行常驻的权限说明（`.ctl-hint`「按规则自动放行安全工具」）**删除**，说明改由权限 chip 的
+> `title`/`aria-label` 悬浮提示承载，文字取**档位表自身的 `description`**（后端 `ApprovalTierCatalog` 同源）：
+> 顺手删掉 `ComposerOptions` 里那份第三份文案副本（同一句权限说明存三处，是这块最容易漂的形态）。
+>
+> ④ 顺带（同一次真机目视，用户截图里可见）：右栏「模型接入」卡片被**不可断的长 baseUrl** 撑出右边界
+> （API Key 输入框与「检测」被切）⇒ `HINT` 加 `overflowWrap:anywhere` + `minWidth:0`，卡片回到栏内、按钮不再换行。
+>
+> **判据**：新增 `web/test/shellDensity.test.mjs` 2 例——真 Chrome 1624×1044 下量「收起按钮必须落在左栏可视区内、
+> 中心点必须命中它自己、点击后左栏 ≤60px 且中栏变宽 ≥150px、再点能展开回原宽」；源码守卫「输入区不得再有常驻
+> 长文案、悬浮说明必须取档位表 description」。`mount.test.mjs` 的 PermissionPicker 契约按新语义改写
+> （title 与 aria-label 同源、含档位名与说明，长说明不得常驻 chip）。
+> **可证伪性已实跑**：把 `SidebarHeader.tsx` + `shell.css` checkout 回修复前重建 ⇒ 判据当场红
+> （实测 `toggleInsideCol=false`、中心点命中 `chat-title`）；给 `Composer.tsx` 加一行 `ctl-hint` 注释 ⇒ 守卫当场红。
+> 另把 CDP 会话样板抽到 `browserHarness.openStubSession`（两条浏览器判据共用一份实现，不各写一套）。
+>
+> **验证**：`web:test` **343/343**（+2）；`npm test` **2976 例 / 0 失败 / 4 跳过**；`runGates` fast 10/10 + typed 2/2；
+> 真机截图目视：品牌行 `Ω OmniHarness ⌘ «`（按钮回到列内且可点）、输入区控制行不再有长文案、右栏卡片完整落在栏内。
+>
 > **第七十二轮｜用户两条报障：① 会话流滚动「大面积空白」；② 压缩摘要「历史为空」害得 agent 说"完全完成不了这样的任务"（均已修 + 可证伪判据）✅**：
 >
 > **① 滚动空白 —— 根因在「块的来源」，不在窗口算术**：`session_meta` / `model`（每步一条）/ 已被调用卡内联的

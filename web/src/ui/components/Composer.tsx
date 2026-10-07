@@ -426,7 +426,6 @@ export function Composer(props: ComposerProps): ReactElement {
     }
   };
 
-  const hint = ComposerOptions.permissionHint(permission);
   return (
     <div
       className="composer"
@@ -482,7 +481,6 @@ export function Composer(props: ComposerProps): ReactElement {
               {icon('paperclip', { size: 15 })}
             </button>
             <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
-            {hint ? <span className="ctl-hint">{hint}</span> : null}
           </div>
           <div className="composer-bar-right">
             <ContextCapacityPanel

@@ -125,15 +125,20 @@ test('ContextCapacityPanel：容量面板 title/aria 契约 + 注入用量不抛
   assert.ok(vnode, '注入用量后 render 仍须返回元素树');
 });
 
-test('PermissionPicker：档位标签映射与 aria 契约（rules→默认）', () => {
+test('PermissionPicker：档位标签映射 + 说明只走悬浮提示（rules→默认，2026-10-07 用户「不要占地方」）', () => {
   const seen = [];
   const vnode = renderOf(PermissionPicker, {
     permission: 'rules',
     onPick: (v) => seen.push(v),
     api: {},
   });
-  assert.strictEqual(vnode.props['aria-label'], 'AI 权限等级');
+  // chip 上只留短档位名（「默认」），完整说明进 title / aria-label：既不占输入区版面，又能悬浮查阅。
+  const tip = String(vnode.props['title']);
+  assert.strictEqual(vnode.props['aria-label'], tip, '悬浮提示与无障碍名必须同源，不得各写一套');
+  assert.match(tip, /^AI 权限等级｜默认：/, `悬浮提示必须写明档位名与说明：${tip}`);
+  assert.match(tip, /按规则自动放行安全操作/, '说明文字取档位表 description（单一事实源）');
   assert.match(texts(vnode).join(''), /默认/);
+  assert.doesNotMatch(texts(vnode).join(''), /按规则自动放行安全操作/, '长说明不得常驻在 chip 上');
   assert.strictEqual(seen.length, 0, '未交互不触发 onPick');
 });
 

@@ -87,14 +87,20 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
   const model = new PermissionTierModel(tiers);
   const active = model.active(permission);
   const fullAccess = model.isFullAccess(permission);
+  // 档位说明只走**悬浮提示**，不常驻占输入区版面（2026-10-07 用户：「进行简单文字描述或者去掉，
+  // 进行悬浮冒泡提示即可，不要占地方」）。说明文字取档位表自身的 description——它与后端
+  // `ApprovalTierCatalog` 同源，不再另存一份提示表（旧 `ComposerOptions.permissionHint` 已删：
+  // 同一句权限说明存三处是这个仓库最容易漂的地方）。
+  const baseTitle = title ?? 'AI 权限等级';
+  const tip = `${baseTitle}｜${active.label}：${active.description}`;
   return (
     <div
       className={'dd perm' + (fullAccess ? ' danger' : '')}
-      title={title ?? 'AI 权限等级'}
+      title={tip}
       role="button"
       aria-haspopup="listbox"
       aria-expanded={open ? 'true' : 'false'}
-      aria-label={title ?? 'AI 权限等级'}
+      aria-label={tip}
       onClick={toggle}
     >
       <span className="dd-ico">{icon('shield', { size: 14 })}</span>
