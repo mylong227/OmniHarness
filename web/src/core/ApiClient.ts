@@ -302,6 +302,19 @@ export class ApiClient {
   public switchWorkspace(path: string): Promise<{ ok: boolean; workspace: string }> {
     return this.rpc('workspace.switch', { path });
   }
+  /**
+   * 把一条会话**归入指定项目**（侧栏右键「归入当前项目」）：服务端只改存档首行
+   * `session_meta.payload.workspace`（归一值），历史事件逐字不动。
+   * @param sessionId 会话 id
+   * @param workspace 目标项目路径（服务端会校验目录存在）
+   * @returns `{ ok, workspace }`：生效后的归一工作区路径
+   */
+  public setSessionWorkspace(
+    sessionId: string,
+    workspace: string,
+  ): Promise<{ ok: boolean; workspace?: string }> {
+    return this.rpc('sessions.setWorkspace', { sessionId, workspace });
+  }
   public respondApproval(requestId: string, decision: string): Promise<unknown> {
     return this.rpc('approval.respond', { requestId, decision });
   }
