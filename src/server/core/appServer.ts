@@ -491,6 +491,9 @@ export class AppServer extends AppServerGovernanceHandlers {
     const prompt = String(params['prompt'] ?? '');
     const images = params['images'] as readonly ImageContent[] | undefined;
     const files = params['files'] as readonly FileAttachment[] | undefined;
+    // 不串项目（2026-10-07 用户：「应该各自分离不要出现串项目」）：见 AppServerBase.alignRuntimeWorkspace
+    // —— 工具用运行时根、UI/`fs.*` 用显示根，两者分叉即回合前重基（逐回合留痕见该方法内的日志）。
+    this.alignRuntimeWorkspace(threadId);
     // 会话模式（UI「+」菜单的目标 / 计划 / 绘图）在此合成前置指令：
     // 只改本回合的用户消息文本，不动系统提示词（系统提示词被缓存，改它会整体失效）。
     // 无模式时 compose 原样返回 prompt，行为与旧版逐字节一致。
