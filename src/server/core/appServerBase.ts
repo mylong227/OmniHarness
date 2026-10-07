@@ -204,6 +204,26 @@ export class AppServerBase {
   }
 
   /**
+   * 「切换项目」是否可以走「没变」的早退分支（**必须两份根都是目标根**）。
+   *
+   * 为什么不能只看显示根：`configStore.workspace()` 是**显示/持久化**根（UI 用、`fs.*` RPC 用），
+   * 而工具与系统提示用的是运行时根 `options.config.workspaceRoot`。两者分离时（历史 bug 家族的
+   * 典型形态：UI 已显示新项目、agent 还在启动目录那棵树里干活），只比显示根就会误判「没变」，
+   * 从而跳过 {@link ConfigRebase} 重基 ⇒ **工具永远留在旧根**，且症状会伪装成「打开文件 404」。
+   * @param requested 目标工作区根。
+   * @param displayRoot 显示/持久化根（`configStore.workspace()`）。
+   * @param runtimeRoot 运行时根（`options.config.workspaceRoot`）。
+   * @returns 两份根都等于目标根时为 true（只有这时才是真的没变）。
+   */
+  public static isWorkspaceSwitchNoop(
+    requested: string,
+    displayRoot: string,
+    runtimeRoot: string,
+  ): boolean {
+    return requested === displayRoot && requested === runtimeRoot;
+  }
+
+  /**
    * 当前生效的工作区根（#OBS-11）：HTTP /files 路由与 RPC fs.read 共用。
    * public：HTTP 路由需要直接读取以注入到 HttpServerOptions.workspaceRoot。
    * @returns 当前工作区根目录路径。
@@ -237,7 +257,13 @@ export class AppServerBase {
   protected switchWorkspace(raw: unknown): unknown {
     const root = this.configStore.requireDirectory(raw);
     const previous = this.configStore.workspace();
-    if (root === previous) {
+    // 早退判据必须**同时**看运行时根（`options.config.workspaceRoot` —— 工具与系统提示真正使用的那份）：
+    // 只看「显示/持久化根」时，两者一旦分离（本仓反复出现的「显示 ≠ 实际运行根」家族），切换会被判成
+    // 「没变」而**跳过重基**，工具与提示永远留在旧根上。2026-10-07 真机实测（用户报「打开文件报
+    // ENOENT」）：会话里 `read_file AGENTS.md` 读回的是**启动目录那棵树**的 AGENTS.md，而 UI 的「打开」
+    // 按显示根解析 ⇒ `ENOENT ... D:\Download\work_001\AGENTS.md`。判据见
+    // {@link AppServerBase.isWorkspaceSwitchNoop}。
+    if (AppServerBase.isWorkspaceSwitchNoop(root, previous, this.options.config.workspaceRoot)) {
       return { ok: true, workspace: root, unchanged: true };
     }
     const cfg = this.options.config;

@@ -17,6 +17,7 @@ import { spawn } from 'node:child_process';
 import { closeSync, fstatSync, mkdirSync, openSync, readSync } from 'node:fs';
 import { join } from 'node:path';
 import { ShellInvocation } from './shellInvocation.js';
+import { ShellProcessRunner } from './shellProcessRunner.js';
 import { ProcessTreeKiller } from './processTreeKiller.js';
 import { log } from '../../../util/logger.js';
 
@@ -92,7 +93,10 @@ export class BackgroundJobRegistry {
         cwd: this.workRoot,
         env,
         detached: true,
-        windowsHide: true,
+        // 受限令牌沙箱下 `CREATE_NO_WINDOW` 子进程会死在 DLL 初始化（0xC0000142，见
+        // `ShellProcessRunner.isDllInitFailure`）。前台执行器学到该事实后这里一并改口径——
+        // 后台作业是脱离父进程跑的，等不到「重试一次」的机会，只能一次就起对。
+        windowsHide: !ShellProcessRunner.needsConsoleInheritance(),
         // 与前台同一口径：cmd 形态的命令串自带引号，须原样传递（审计 §1.9）。
         windowsVerbatimArguments: ShellInvocation.needsVerbatimArgs(shell),
         stdio: ['ignore', fd, fd],

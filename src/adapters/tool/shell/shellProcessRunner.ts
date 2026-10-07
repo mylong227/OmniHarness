@@ -57,6 +57,14 @@ export interface ShellRunOutcome {
   readonly overflowed: boolean;
   /** 是否因会话取消信号被终止（与超时区分，便于上层给出不同文案）。 */
   readonly aborted: boolean;
+  /**
+   * 本次结果是否来自「继承控制台」的回退启动（见 {@link ShellProcessRunner.isDllInitFailure}）。
+   *
+   * `true` = 首次带 `CREATE_NO_WINDOW` 的启动在 DLL 初始化阶段就死了（STATUS_DLL_INIT_FAILED），
+   * 本结果由**第二次**（不加该标志、改为继承父进程控制台）的启动产出。诚实上报：调用方据此知道
+   * 「命令实际跑过两次」这一事实（首次不可能产生副作用——它连 DLL 都没加载起来）。
+   */
+  readonly consoleFallback?: boolean;
 }
 
 /** 输出累积器。 */
@@ -97,13 +105,92 @@ export class ShellProcessRunner {
   private static readonly TERMINATE_GRACE_MS = 3_000;
 
   /**
+   * STATUS_DLL_INIT_FAILED（`0xC0000142`）：受限令牌下 `CREATE_NO_WINDOW` / `CREATE_NEW_CONSOLE`
+   * 子进程的典型死法。Node 在 Windows 上把退出码作为**有符号** 32 位回传（`-1073741502`），
+   * 但不同 Node 版本/调用方也可能拿到无符号形态，故两种都认。
+   *
+   * 依据（2026-10-07 用户报「我的 agent 一条命令都跑不了」）：他把 `omniharness serve` 起在
+   * **DSH 的 Windows ACL 受限令牌沙箱**里（`dsh-sandbox-windows-acl`），而该沙箱的文档明写
+   * 「CREATE_NO_WINDOW / CREATE_NEW_CONSOLE children die with STATUS_DLL_INIT_FAILED under the
+   * restriction —— console isolation is unavailable」，DSH 自己的进程创建器为此**刻意不加**这两个
+   * 标志。本执行器此前恒传 `windowsHide: true`（Node 据此加 `CREATE_NO_WINDOW`）⇒ 在这种父进程下
+   * 连 `echo hi` 都拿不到，工具层只能回一句 `exit -1073741502`。
+   */
+  private static readonly DLL_INIT_FAILED_CODES: readonly number[] = [-1073741502, 3221225794];
+
+  /**
+   * 本进程内**一次性学习**到的环境事实：带着 `CREATE_NO_WINDOW` 启动的子进程会死在 DLL 初始化。
+   *
+   * 学到之后不再每次都先失败一遍（先失败一遍的代价是每条命令都要多起一次进程），也让
+   * 后台作业注册表（同一父进程下）能直接按正确形态启动。正常环境恒为 `false` ⇒ 零行为变更。
+   */
+  private static consoleInheritRequired = false;
+
+  /**
+   * 是否已证实本进程必须用「继承控制台」的形态启动子进程（见 {@link isDllInitFailure}）。
+   * @returns 需要继承控制台为 true。
+   */
+  public static needsConsoleInheritance(): boolean {
+    return ShellProcessRunner.consoleInheritRequired;
+  }
+
+  /**
+   * 本次结果是否正是「加上 `CREATE_NO_WINDOW` 后死在 DLL 初始化」这一形态。
+   *
+   * 判据刻意收得很紧（**只有在首次启动、且确定没跑过用户代码时才允许重试**）：退出码命中、
+   * 两路输出全空、且不是超时/取消/截断。命令真跑过就一定有输出或非该退出码，故重试不会重复副作用。
+   * @param outcome 一次执行结果。
+   * @returns 命中该形态为 true。
+   */
+  public static isDllInitFailure(outcome: ShellRunOutcome): boolean {
+    return (
+      outcome.exitCode !== null &&
+      ShellProcessRunner.DLL_INIT_FAILED_CODES.includes(outcome.exitCode) &&
+      outcome.stdout.length === 0 &&
+      outcome.stderr.length === 0 &&
+      !outcome.timedOut &&
+      !outcome.aborted &&
+      !outcome.overflowed
+    );
+  }
+
+  /**
    * 执行命令。
+   *
+   * 两段式：先按 `windowsHide: true`（隐藏控制台窗口）执行；**仅当**子进程死在 DLL 初始化
+   * （见 {@link isDllInitFailure}）时，不带该标志再执行一次——后者不加 `CREATE_NO_WINDOW`，
+   * 子进程继承父进程控制台，因此能在受限令牌沙箱里活下来（同上依据）。
+   * 正常环境（绝大多数）下第二段永不发生，行为与改造前逐字一致。
    *
    * @param command 命令文本（调用方已完成校验与策略裁决）。
    * @param options 执行参数（cwd / env / 超时 / 缓冲上限 / 可选会话取消信号）。
    * @returns 执行结果；`spawn` 自身失败（如 shell 不存在）时 reject。
    */
-  public run(command: string, options: ShellRunOptions): Promise<ShellRunOutcome> {
+  public async run(command: string, options: ShellRunOptions): Promise<ShellRunOutcome> {
+    if (ShellProcessRunner.consoleInheritRequired) {
+      return this.spawnOnce(command, options, false);
+    }
+    const first = await this.spawnOnce(command, options, true);
+    if (!ShellProcessRunner.isDllInitFailure(first)) {
+      return first;
+    }
+    ShellProcessRunner.consoleInheritRequired = true;
+    const retry = await this.spawnOnce(command, options, false);
+    return { ...retry, consoleFallback: true };
+  }
+
+  /**
+   * 单次 spawn 执行（`windowsHide` 由调用方决定：true = 加 `CREATE_NO_WINDOW`）。
+   * @param command 命令文本。
+   * @param options 执行参数。
+   * @param windowsHide 是否隐藏子进程控制台窗口。
+   * @returns 执行结果。
+   */
+  private spawnOnce(
+    command: string,
+    options: ShellRunOptions,
+    windowsHide: boolean,
+  ): Promise<ShellRunOutcome> {
     return new Promise<ShellRunOutcome>((resolve, reject) => {
       let child: ChildProcess;
       try {
@@ -111,7 +198,7 @@ export class ShellProcessRunner {
         child = spawn(invocation.bin, invocation.args, {
           cwd: options.cwd,
           env: options.env,
-          windowsHide: true,
+          windowsHide,
           stdio: ['ignore', 'pipe', 'pipe'],
           // cmd 形态下命令串自带引号（见 ShellInvocation.args），必须原样传递，
           // 否则 Node 的常规转义会与 cmd 的解析叠加，把带引号参数粘成一个（审计 §1.9）。

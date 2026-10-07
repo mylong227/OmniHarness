@@ -519,6 +519,53 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第七十四轮｜用户 App 内 agent「一条命令都跑不了」+「打开文件 ENOENT」——查清两类根分离缺陷并修掉（真机证据 + 变异自证）✅**：
+>
+> **现象（用户报障原文 + 截图）**：他在 127.0.0.1:8787 的 OmniHarness 里让 agent 干活，agent 连 `echo hi`
+> 都拿不到结果，工具层只回 `exit -1073741502`，于是如实宣告「一切需要执行命令的工作全部阻塞…依旧无法实现」；
+> 截图另标注一个红色报错：`打开失败: 读取失败: ENOENT: no such file or directory, stat 'D:\Download\work_001\AGENTS.md'`。
+>
+> **① shell 全灭 = STATUS_DLL_INIT_FAILED，根因在**启动方式**不在命令**：`0xC0000142`。实测进程树：
+> `DSH 宿主(42420) → npm start(21356) → … → serve(38760)`——**这台 serve 是从 DSH 的 agent shell 里起的**，
+> 于是整棵树跑在 **DSH 的 Windows ACL 受限令牌沙箱**下；而 `dsh-sandbox-windows-acl` 的文档明写
+> 「CREATE_NO_WINDOW / CREATE_NEW_CONSOLE children die with STATUS_DLL_INIT_FAILED under the restriction
+> （console isolation is unavailable）」，DSH 自己的进程创建器为此刻意不加这两个标志。OmniHarness 的
+> `ShellProcessRunner` 此前**恒传 `windowsHide: true`**（Node 据此加 `CREATE_NO_WINDOW`）⇒ 在这种父进程下
+> 连 `echo` 都起不来。对照实验（同机、同工作目录）：不加该标志时命令正常 `exit 0`。
+>
+> **修法**：两段式——先按原样执行；**仅当**「退出码命中 `0xC0000142`（有符号 `-1073741502` / 无符号
+> `3221225794` 都认）**且两路输出全空** 且非超时/取消/截断」时，才改用**继承控制台**的形态重跑一次
+> （首次死在 DLL 初始化 ⇒ 连用户代码都没进，重试不可能重复副作用），并把 `consoleFallback` **如实回传**
+> （工具输出追加一行说明 + 日志，不假装只跑过一次）。学到该环境事实后记住，后续命令不再先失败一遍；
+> 后台作业注册表（脱离父进程、等不到重试机会）据此一次起对。正常环境恒不加这一跳 ⇒ 零行为变更。
+>
+> **判据 + 变异自证**：`tests/unit/shellProcessRunner.test.ts` 新增 2 例（形态真值表：有输出/超时/取消/
+> 截断/普通非零码一律**不得**触发重试；端到端：首跑按该码退出、次跑成功 ⇒ `consoleFallback=true` 且
+> `exitCode=0`）。把 `isDllInitFailure` 强制改为 false 后该例当场红，并打印出机器上的真实码
+> `3221225794`——**判据有牙，且这台机器确实复现该码**。
+>
+> **② 「打开文件 ENOENT」= 工具根与显示根分离**：会话 `sess_muxo8f8a_1`（workspace 标记
+> `D:\Download\work_001`）里，agent 的 `read_file AGENTS.md` / `list_dir "."` 读回的是**启动目录那棵树**
+> （OmniHarness 仓库根：`.cache/.cargo/.changeset/.git…`），而 UI「打开」按**显示根**解析同一相对路径
+> ⇒ ENOENT（本机 RPC 复现：`fs.read {path:'AGENTS.md'}` 当场回同一句 ENOENT）。代码根因：
+> `appServerBase.switchWorkspace` 的**早退分支只比显示/持久化根**（`configStore.workspace()`），而工具与
+> 系统提示用的是**运行时根**（`options.config.workspaceRoot`）——两者分离时（本仓反复出现的「显示 ≠ 实际
+> 运行根」家族）切换被判成「没变」⇒ **跳过 `ConfigRebase` 重基**⇒ 工具永远留在旧根，症状伪装成「文件不存在」。
+> 修法：新增 `AppServerBase.isWorkspaceSwitchNoop(requested, displayRoot, runtimeRoot)`（**两份根都是目标根**
+> 才允许早退），`switchWorkspace` 改用它。判据 `tests/unit/workspaceSwitchRebase.test.ts`：真值表 3 例
+> （其中「显示=目标、运行时=旧根」这一格正是线上形态，旧实现在这格会误判为「没变」）+ 接线守卫 1 例。
+>
+> **同轮登记的两条遗留（诚实边界，未改）**：
+> ① `ServeWorkspace.serveRootOf` 对**显式 `--workspace` 不做存在性校验**（`local` 档做了）⇒ 打错/编码坏的路径
+> 会原样成为根；用户级配置的 `workspaces` 里就躺着一条编码损伤产物 `D:\work\æ°é¡¹ç®`。要改需与「启动横幅 +
+> 失败即拒启」一起定口径（本轮不动）。
+> ② **该实例运行时根为何是启动目录（而非命令行里的 `--workspace D:\work\新项目`）尚未钉死**：当时用户级固定
+> 项目可能正是仓库，两条线索都需要用**可控实例**（随机端口 + mock 模型 + 单回合）复现收敛——本轮只修掉了
+> 「一旦分离就永远分离」的那道早退闸。
+>
+> **验证**：`npm test` **2982 例 / 0 失败 / 4 跳过**（+6）；`runGates` fast 10/10 + typed 2/2。**用户侧生效方式**：
+> 重启 serve（dist 已重建；当前那个 8787 进程跑的是旧产物）。
+>
 > **第七十三轮｜用户截图三条：① 左栏「收不起来」② 品牌字标误用上游名 ③ 输入区权限长文案占地方（均已修 + 真机判据）✅**：
 >
 > ① **「左侧工作区一列不能收起来」——按钮没坏，是被挤出了列**：品牌行是 `Ω + deepseek HARNESS + ⌘ + «`
