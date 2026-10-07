@@ -7,6 +7,7 @@
 
 import { React } from '../deps.js';
 import { PathJoiner } from '../models/PathJoiner.js';
+import { icon } from '../models/Icon.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
 /** fs.browse 的两级返回形态。 */
@@ -68,12 +69,12 @@ function renderDrives(browse: BrowseState, onLoad: (path?: string) => void): Rea
   return (
     <>
       <div className="fp-item fp-home" onClick={() => onLoad(home)}>
-        <span className="fp-icon">🏠</span>
+        <span className="fp-icon">{icon('home', { size: 15 })}</span>
         <span className="fp-name">{home}（用户目录）</span>
       </div>
       {roots.map((r) => (
         <div key={r} className="fp-item" onClick={() => onLoad(r)}>
-          <span className="fp-icon">💾</span>
+          <span className="fp-icon">{icon('drive', { size: 15 })}</span>
           <span className="fp-name">{r}</span>
         </div>
       ))}
@@ -94,14 +95,14 @@ function renderDirs(browse: BrowseState, onLoad: (path?: string) => void): React
     <>
       {parent !== undefined ? (
         <div className="fp-item fp-up" onClick={() => onLoad(parent)}>
-          <span className="fp-icon">↩️</span>
+          <span className="fp-icon">{icon('undo', { size: 15 })}</span>
           <span className="fp-name">..（上级目录）</span>
         </div>
       ) : null}
       {dirs.length === 0 && parent !== undefined ? <div className="fp-empty">（空目录）</div> : null}
       {dirs.map((d) => (
         <div key={d} className="fp-item" onClick={() => onLoad(PathJoiner.join(cur, d))}>
-          <span className="fp-icon">📁</span>
+          <span className="fp-icon">{icon('folder', { size: 15 })}</span>
           <span className="fp-name">{d}</span>
         </div>
       ))}
@@ -164,16 +165,31 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
 
   /**
    * 浏览目录：不传 path 时列盘符层。
+   *
+   * **形状即契约**（2026-10-07 真机实测教训）：`fs.browse` 的回包形状不对（旧版服务端没有该方法时
+   * 前端假后端回落成 `{}`）会走进 `dir` 分支，把 `undefined` 灌进 `dirs` ⇒ 渲染期读
+   * `dirs.length` 直接抛错，`RenderErrorBoundary` 接住后**整棵工作台被卸载**（用户看到"界面渲染出错"，
+   * 而不是"这个选择器打不开"）。所以每个字段都要显式校验：不合法就**当作加载失败**如实提示，
+   * 让故障停在选择器这一层（与 QuotaView 那次"形状不符卸整页"的修复同一口径）。
    * @param path 目标目录（缺省列盘符）
+   * @returns 异步完成
    */
   const loadDir = async (path?: string): Promise<void> => {
     setLoad({ loading: true, error: null });
     try {
       const r: BrowseResult = await api.browseFs(path);
       if (r.level === 'drives') {
-        setBrowse({ roots: r.roots, home: r.home, cur: null, dirs: [], parent: undefined });
-      } else {
+        setBrowse({
+          roots: Array.isArray(r.roots) ? r.roots : [],
+          home: typeof r.home === 'string' ? r.home : '',
+          cur: null,
+          dirs: [],
+          parent: undefined,
+        });
+      } else if (r.level === 'dir' && Array.isArray(r.dirs)) {
         setBrowse((prev) => ({ ...prev, cur: r.path, dirs: r.dirs, parent: r.parent }));
+      } else {
+        setLoad((prev) => ({ ...prev, error: '目录列表返回格式异常（fs.browse）' }));
       }
     } catch (e) {
       setLoad((prev) => ({ ...prev, error: (e as Error).message }));
@@ -241,7 +257,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
         <div className="fp-head">
           <span className="fp-title">选择项目文件夹</span>
           <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>
-            ✕
+            {icon('x', { size: 14 })}
           </button>
         </div>
 
@@ -259,7 +275,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
             disabled={cur === null || loading}
             onClick={startCreate}
           >
-            📂 新建文件夹
+            新建文件夹
           </button>
         </div>
 

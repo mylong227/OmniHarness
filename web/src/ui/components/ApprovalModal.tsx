@@ -11,6 +11,7 @@
 
 import { React } from '../deps.js';
 import { jsonView } from '../format.js';
+import { icon } from '../models/Icon.js';
 import type { ApprovalRequest } from '../../types/models.js';
 
 /** ApprovalModal 组件的入参。 */
@@ -78,7 +79,9 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
         aria-labelledby="ap-title"
         aria-describedby="ap-desc"
       >
-        <h3 id="ap-title">🔐 工具审批请求</h3>
+        <h3 id="ap-title">
+          {icon('shield-alert', { size: 16 })} 工具审批请求
+        </h3>
         <div className="meta">工具：{approval.toolName || '?'}</div>
         <div className="meta">目标：{approval.target || '—'}</div>
         <pre id="ap-desc">{args}</pre>

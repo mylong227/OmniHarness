@@ -235,7 +235,7 @@ export function ModelProviders(): ReactElement {
       setProbes((prev) => ({ ...prev, [p.id]: result }));
       if (result.ok) {
         toast(
-          `${p.label} 连通 ✅（${result.models.length} 个模型，来源 ${result.source}）`,
+          `${p.label} 连通（${result.models.length} 个模型，来源 ${result.source}）`,
           'ok',
         );
         const keep =

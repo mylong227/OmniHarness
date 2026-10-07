@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 治理台面板（**F2** 的 Web 工作台 tab）：把晋升台账的**逐行独立复核**结果渲染出来。
  *
  * ## 这一屏回答什么
@@ -23,6 +23,7 @@
 // 整页会因模块解析失败而完全不挂载；web e2e 正是靠这一条把这类错误挡在提交前）。
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
+import { icon } from '../../models/Icon.js';
 import type { ReactElement } from 'react';
 
 /** 治理台一行的形状（与服务端 `PromotionHistoryRow` 同形）。 */
@@ -140,7 +141,9 @@ export function GovernanceTab(): ReactElement {
                   {row.source === undefined ? '' : ` ← ${row.source}`}
                 </span>
               )}
-              <span className={row.verified ? 'ok' : 'err'}>{row.verified ? '✓' : '✗'}</span>
+              <span className={row.verified ? 'ok' : 'err'}>
+                {icon(row.verified ? 'check' : 'x', { size: 12 })}
+              </span>
               {row.reason === undefined ? null : <span className="reason">{row.reason}</span>}
               <span className="hash" title={`prev ${row.prev}`}>
                 {row.hash.slice(0, 12)}…

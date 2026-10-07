@@ -1,4 +1,4 @@
-// 插件集 Profile + Bundle：列出 / 应用 / 删除配置集，保存当前运行时为配置集，打包 / 解包发布单元。
+﻿// 插件集 Profile + Bundle：列出 / 应用 / 删除配置集，保存当前运行时为配置集，打包 / 解包发布单元。
 //
 // 函数组件范式：配置集列表与当前激活插件集各一个 useState；表单三处输入为非受控（useRef 读写）；
 // 「挂载装载 + reloadKey 变化重载」合为一个依赖 reloadKey 的 effect；行渲染下沉为模块级函数。
@@ -6,6 +6,7 @@
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { emptyState } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import type { Profile, ActivePlugins } from '../../../types/models.js';
 
 /** ProfilesTab 组件的入参。 */
@@ -199,7 +200,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
               renderRow(p, { onApply: (id) => void applyProfile(id), onDelete: (id) => void delProfile(id) }),
             )
           : emptyState(
-              '📦',
+              icon('package', { size: 20 }),
               '暂无配置集',
               '在下方「保存当前为配置集」创建，或用 CLI --plugin-profile 指定。',
             )}

@@ -44,7 +44,7 @@ const { AddMenu } = await import('../dist/ui/components/AddMenu.js');
 const { ContextCapacityPanel } = await import('../dist/ui/components/ContextCapacityPanel.js');
 const { PermissionPicker } = await import('../dist/ui/components/PermissionPicker.js');
 const { TreeNode } = await import('../dist/ui/components/TreeNode.js');
-const { NavRail } = await import('../dist/ui/components/NavRail.js');
+const { PanelPicker } = await import('../dist/ui/components/PanelPicker.js');
 const { Toast } = await import('../dist/ui/components/Toast.js');
 const { WorkIndicator } = await import('../dist/ui/components/WorkIndicator.js');
 const { ApprovalModal } = await import('../dist/ui/components/ApprovalModal.js');
@@ -172,15 +172,44 @@ function collect(vnode, pred, out = []) {
 
 const isTag = (name) => (n) => n.type === name;
 
-test('NavRail：aria-current 唯一落在当前面板，图标装饰对辅助技术隐藏', () => {
-  const vnode = renderOf(NavRail, { activePane: 'memory', onSelect: () => {} });
-  assert.strictEqual(vnode.props['aria-label'], '主导航');
-  const btns = collect(vnode, isTag('button'));
-  assert.strictEqual(btns.length, 9, '9 个导航项');
-  const current = btns.filter((b) => b.props['aria-current'] === 'page');
-  assert.strictEqual(current.length, 1, 'aria-current 必须有且仅有 1 个');
-  assert.strictEqual(current[0].props['aria-label'], '记忆');
-  assert.strictEqual(btns.filter((b) => b.props['aria-current'] === undefined).length, 8);
+test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 12 个面板', () => {
+  // 2026-10-07 壳层重构：原 NavRail（9 常驻图标 + 「更多面板」兜底）收编为右栏的 PanelPicker
+  // ——12 个功能面板不再常驻占位，全部收进这一个菜单（截图式三栏壳的"收起来"）。
+  const closed = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} });
+  const closedBtns = collect(closed, isTag('button'));
+  assert.strictEqual(closedBtns.length, 1, '闭合态必须只有 1 个触发按钮');
+  assert.strictEqual(closedBtns[0].props['aria-haspopup'], 'menu');
+  assert.strictEqual(closedBtns[0].props['aria-expanded'], 'false');
+  assert.strictEqual(closedBtns[0].props['aria-label'], '全部面板');
+
+  // 函数组件：第 0 个 hook 即 useState(open)，预设 true 渲染展开态。
+  const open = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} }, { 0: true });
+  const items = collect(open, (n) => n.props.role === 'menuitem');
+  assert.strictEqual(items.length, 12, '菜单必须罗列注册表全部 12 个面板');
+  const labels = items.map((b) => b.props['aria-label'] ?? collect(b, isTag('span')).map((s) => s.children).flat().join(''));
+  for (const l of ['工具', '指标', '设置', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件']) {
+    assert.ok(collect(open, isTag('span')).some((s) => (s.children ?? []).includes(l)), `菜单应含面板：${l}`);
+  }
+});
+
+test('PanelPicker：激活面板在菜单中高亮（active class 唯一）', () => {
+  const open = renderOf(PanelPicker, { activePane: 'memory', onPick: () => {} }, { 0: true });
+  const items = collect(open, (n) => n.props.role === 'menuitem');
+  const actives = items.filter((b) => String(b.props.className).includes('active'));
+  assert.strictEqual(actives.length, 1, 'active class 必须有且仅有 1 个');
+});
+
+test('面板注册表：12 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {
+  // 2026-10-07 壳层重构后，注册表是 12 个面板的唯一事实源：PanelPicker 菜单渲染 PANELS 全集，
+  // Router 的合法 pane 集合与它对齐 ⇒ "任何面板都必须有入口"由本用例机械核对。
+  const { PANELS, panelOf } = await import('../dist/ui/models/PanelRegistry.js');
+  assert.strictEqual(PANELS.length, 12, '注册表必须是 12 个面板');
+  const keys = PANELS.map((p) => p.key);
+  assert.strictEqual(new Set(keys).size, keys.length, 'key 不得重复');
+  for (const p of PANELS) {
+    assert.ok(p.label.length > 0 && p.icon.length > 0, `${p.key} 必须同时有标签与图标`);
+    assert.ok(panelOf(p.key) === p, `${p.key} 必须能被 panelOf 查到（菜单高亮据此判定）`);
+  }
 });
 
 test('Toast：role=status + aria-live=polite + aria-atomic（异步提示不打断朗读）', () => {

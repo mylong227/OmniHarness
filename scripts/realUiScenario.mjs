@@ -492,6 +492,56 @@ async function main() {
         `5 次重渲染期间 /rpc=${String(rpcCalls)} 次（修复前为 2×N 次）｜卡在加载中=${String(stuck)}`,
       );
     }
+
+    // ---- L 回合进行中点「+ 新建」：视图必须保持为空（真机"新建无反应"的回归） ----
+    // 现场（2026-10-06 用户截图「新建会话无反应」）：回合进行中点新建，视图确实清空了，
+    // 但几秒后 `send` 的收尾把 currentThreadId/hash 又写回旧会话，同时 SSE 继续推该回合的事件
+    // ⇒ 看起来"点了没反应"。判据就照这条路走一遍：发送 → 在跑 → 点新建 → 等回合结束 → 视图必须仍为空。
+    if (on('L')) {
+      await cdp.type('.composer-input textarea', '只回复 ok 两个字，不要调用任何工具');
+      await cdp.click('button.send');
+      let inFlight = false;
+      for (let i = 0; i < 60; i += 1) {
+        const work = await cdp.evaluate(
+          "(function(){return document.querySelectorAll('[class*=work]').length;})()",
+        );
+        if (Number(work) > 0) {
+          inFlight = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      const clicked = await cdp.evaluate(`(function(){
+        var b=[].slice.call(document.querySelectorAll('button')).find(function(x){return /新建/.test(x.innerText||'');});
+        if(!b) return 'no-btn';
+        b.click(); return 'clicked';
+      })()`);
+      // 等回合真的结束（不再有 work 标记），再多给几秒让迟到的收尾/事件有机会"拽回"视图。
+      await until(
+        async () =>
+          Number(
+            await cdp.evaluate(
+              "(function(){return document.querySelectorAll('[class*=work]').length;})()",
+            ),
+          ) === 0,
+        60_000,
+      );
+      await new Promise((r) => setTimeout(r, 4000));
+      const after = await cdp.evaluate(`(function(){
+        return {
+          hash: location.hash,
+          assistants: document.querySelectorAll('.ev.assistant').length,
+          emptyHint: /等待任务|还没有会话|新建会话/.test(document.body.innerText)
+        };
+      })()`);
+      const hashClean = !/thread=/.test(String(after.hash));
+      record(
+        'L',
+        '回合进行中点「+ 新建」：回合结束后视图仍为空（不被旧会话拽回）',
+        inFlight && clicked === 'clicked' && hashClean && Number(after.assistants) === 0,
+        `在跑=${String(inFlight)}｜点击=${clicked}｜hash=${String(after.hash)}｜助手卡片=${String(after.assistants)}`,
+      );
+    }
   } catch (error) {
     record(
       'X',

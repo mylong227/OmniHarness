@@ -4,6 +4,8 @@
 
 import { React } from '../../deps.js';
 import { esc } from '../../format.js';
+import { icon } from '../../models/Icon.js';
+import type { IconName } from '../../models/Icon.js';
 import type { ArtifactInfo, ArtifactKind } from '../../models/ArtifactResolver.js';
 
 /** ArtifactCard 组件的入参。 */
@@ -14,11 +16,11 @@ export interface ArtifactCardProps {
   onOpen?: (path: string) => void;
 }
 
-/** 产物类型 → 图标（未知类型回落普通文件图标）。 */
-const KIND_ICONS: Readonly<Record<ArtifactKind, string>> = {
-  file: '📄',
-  patch: '🩹',
-  sketch: '✏️',
+/** 产物类型 → 图标名（未知类型回落普通文件图标）。 */
+const KIND_ICONS: Readonly<Record<ArtifactKind, IconName>> = {
+  file: 'file',
+  patch: 'pencil',
+  sketch: 'image',
 };
 
 /**
@@ -37,7 +39,7 @@ export function ArtifactCard(props: ArtifactCardProps): ReactElement {
   };
   return (
     <div className="artifact-card">
-      <span className="artifact-icon">{KIND_ICONS[info.kind] || KIND_ICONS.file}</span>
+      <span className="artifact-icon">{icon(KIND_ICONS[info.kind] || KIND_ICONS.file, { size: 15 })}</span>
       <div className="artifact-meta">
         <a
           className="artifact-name"
@@ -50,15 +52,16 @@ export function ArtifactCard(props: ArtifactCardProps): ReactElement {
         <div className="artifact-path">{esc(info.relPath)}</div>
       </div>
       <a className="artifact-open" href="#" onClick={handleOpen} title="在右侧面板打开">
-        👁 打开
+        {icon('eye', { size: 13 })} 打开
       </a>
       <a
         className="artifact-download"
         href={href}
         download={esc(info.name)}
         title="下载到本地"
+        aria-label="下载产物"
       >
-        ⬇
+        {icon('download', { size: 13 })}
       </a>
     </div>
   );

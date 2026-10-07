@@ -14,7 +14,7 @@ export class ComposerController {
   private readonly host: AppHost;
   /** 共享服务。 */
   private readonly services: AppServices;
-  /** 会话控制器（send 兜底分支需刷新会话列表）。 */
+  /** 会话控制器（send 兜底分支需刷新会话列表；视图代数也经它取——见 SessionController.viewAttachment）。 */
   private readonly sessions: SessionController;
   /** 用户主动点「停止」后本次 send 的拒绝按中断处理（写系统提示而非错误 toast）。 */
   private abortRequested = false;
@@ -79,12 +79,24 @@ export class ComposerController {
     this.inFlight = true;
     this.abortRequested = false;
     this.abortNoted = false;
+    // 记下"这一回合属于哪个视图"：用户若在回合进行中点「+ 新建」或切走，代数会变，
+    // 收尾就不得把旧会话拽回视图（真机实测："新建会话无反应"就是这个原因）。
+    // 视图状态对象归 SessionController 所有（摘 / 挂同源，避免两处各改一半），这里只借代数比对。
+    const epoch = this.sessions.viewAttachment.attach();
+    // 新回合：开一份干净的流式缓冲（上一个回合的残留在 flushStream/discard 时已释放）。
+    this.sessions.openStream();
     this.host.patch({ busy: true, activeTool: null, streamText: '', finalizedStreamText: '' });
     try {
       const res = await this.services.api.runTurn(params);
       // 用户已中止：即使后端以正常响应收尾（取消在飞请求后的回落），也不再补最终文本，
       // 统一走 finally 的中止收口，避免「停了又冒出一条回复」。
       if (this.abortRequested) return;
+      // 视图在这一回合期间被换掉（按了「新建」/ 切了别的会话）：**只收干净忙碌态**，
+      // 内容（currentThreadId / 会话列表 / hash / 最终文本）一律不写——那属于用户已经离开的视图。
+      if (this.sessions.viewAttachment.epoch() !== epoch) {
+        this.host.patch({ busy: false, streamText: '', finalizedStreamText: '' });
+        return;
+      }
       if (res.threadId) {
         this.host.patch({ currentThreadId: res.threadId });
         // 会话刚出现：把用户在建会话前就点下的模式（目标/计划/绘图）落盘——见 SessionController.applyModes。
@@ -97,7 +109,9 @@ export class ComposerController {
         }
         this.host.patch((s) => {
           if (s.sessions.some((x) => x.id === res.threadId)) return s;
-          const next = [{ id: res.threadId, label: prompt || (files[0] ? '📎 ' + files[0].name : '') }, ...s.sessions];
+          // 会话标签就是纯文本：不再用 `📎 ` 前缀（emoji 当图标已废弃，见 models/Icon.ts），
+          // 附件信息由会话里的附件 chip 表达。
+          const next = [{ id: res.threadId, label: prompt || files[0]?.name || '' }, ...s.sessions];
           return { sessions: next };
         });
         void this.sessions.refreshSessions();
@@ -114,7 +128,8 @@ export class ComposerController {
       );
     } catch (e) {
       // 用户主动中断已由 stop() 即时收口（含「已中止」提示），此处不再重复报错。
-      if (!this.abortRequested) {
+      // 视图已换掉时也不写错误提示：那条报错属于用户已离开的回合，写进去只会让新视图莫名多出一条 system 事件。
+      if (!this.abortRequested && this.sessions.viewAttachment.epoch() === epoch) {
         const msg = (e as Error).message || '未知错误';
         // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。
         this.services.toast('运行失败：' + msg, 'err');

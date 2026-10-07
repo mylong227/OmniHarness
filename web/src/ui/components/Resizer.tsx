@@ -32,7 +32,8 @@ function restoreCursor(): void {
  * @returns 分隔条节点
  */
 export function Resizer(props: ResizerProps): ReactElement {
-  const { side, width, onChange, min = 180, max = 600 } = props;
+  // 右栏（代码查看器）放宽到 760：截图式三栏下它是主工作面之一，360 太窄。
+  const { side, width, onChange, min = 180, max = side === 'right' ? 760 : 600 } = props;
   const draggingRef = React.useRef<boolean>(false);
   const startXRef = React.useRef<number>(0);
   const startWidthRef = React.useRef<number>(0);

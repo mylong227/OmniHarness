@@ -1,9 +1,10 @@
-// 工具面板：展示本次会话触发的工具调用清单（名称 + 状态点），点击定位到事件流中的对应卡片。
+﻿// 工具面板：展示本次会话触发的工具调用清单（名称 + 状态点），点击定位到事件流中的对应卡片。
 // 纯展示组件（函数组件范式）：列表数据由 props 注入，无内部状态、无副作用。
 // 「状态 → 中文」的纯映射下沉为模块级函数（零 React 依赖，可单测）。
 
 import { React } from '../../deps.js';
 import { emptyState } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import type { ToolItem } from '../../shared.js';
 
 /** ToolsTab 组件的入参。 */
@@ -34,7 +35,7 @@ export function ToolsTab(props: ToolsTabProps): ReactElement {
   const { toolItems, onShowTool } = props;
   if (toolItems.length === 0) {
     return emptyState(
-      '🛠️',
+      icon('wrench', { size: 20 }),
       '暂无工具调用',
       '模型执行读文件、运行命令、搜索等工具时，调用与结果会在此汇总。',
     );

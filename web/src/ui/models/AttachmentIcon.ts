@@ -1,6 +1,7 @@
 // 附件图标与草稿构建：Composer 附件区用（与文件浏览器的图标语义略有差异，故独立成类）。
 
 import type { FileAttachment } from '../../types/models.js';
+import type { IconName } from './Icon.js';
 
 /** 本地草稿附件（含预览 URL，仅前端使用）。 */
 export interface AttachmentDraft extends FileAttachment {
@@ -21,16 +22,24 @@ export interface RemoteFile {
 
 /** 附件图标解析器（文件类附件展示用）。 */
 export class AttachmentIcon {
-  /** 按媒体类型给图标；未知回落回形针。 */
-  public static of(mediaType: string): string {
+  /**
+   * 按媒体类型给**自研线性图标名**。
+   *
+   * 为什么不返回 emoji（曾有 `of()` 方法，2026-10-07 删除）：emoji 不跟随 `currentColor`
+   * （hover / 选中态无法与文字同色）、字形随系统字体变、尺寸与基线不受控。
+   * 口径由 `web/test/iconPolicy.test.mjs` 机械把守。
+   * @param mediaType 媒体类型（MIME）
+   * @returns 图标名（喂给 models/Icon.js 的 `icon()`）
+   */
+  public static iconName(mediaType: string): IconName {
     const t = (mediaType || '').toLowerCase();
-    if (t.startsWith('video/')) return '🎬';
-    if (t.startsWith('audio/')) return '🎵';
-    if (t.startsWith('image/')) return '🖼';
-    if (t.includes('pdf')) return '📕';
-    if (t.includes('zip') || t.includes('tar')) return '🗜';
-    if (t.includes('json') || t.includes('javascript') || t.includes('typescript')) return '📜';
-    return '📎';
+    if (t.startsWith('video/')) return 'video';
+    if (t.startsWith('audio/')) return 'audio';
+    if (t.startsWith('image/')) return 'image';
+    if (t.includes('pdf')) return 'book';
+    if (t.includes('zip') || t.includes('tar')) return 'archive';
+    if (t.includes('json') || t.includes('javascript') || t.includes('typescript')) return 'file';
+    return 'paperclip';
   }
 }
 

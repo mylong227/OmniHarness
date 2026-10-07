@@ -7,6 +7,7 @@
 
 import { React } from '../deps.js';
 import { PermissionTierModel } from '../models/PermissionTierModel.js';
+import { icon } from '../models/Icon.js';
 import type { ApprovalTier } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
@@ -96,9 +97,16 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
       aria-label={title ?? 'AI 权限等级'}
       onClick={toggle}
     >
-      <span className="dd-ico">🛡</span>
+      <span className="dd-ico">{icon('shield', { size: 14 })}</span>
       <span className="dd-label">{active.label}</span>
-      {fullAccess ? <span className="perm-badge" title="完全访问：AI 可不受限制地访问你的文件和互联网">⚠</span> : null}
+      {fullAccess ? (
+        <span
+          className="perm-badge"
+          title="完全访问：AI 可不受限制地访问你的文件和互联网"
+        >
+          {icon('alert', { size: 12 })} 完全访问
+        </span>
+      ) : null}
       <span className="dd-caret">▾</span>
       {open ? (
         <div className="dd-menu wide" onClick={stopBubble}>
@@ -115,7 +123,9 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
             >
               <div className="perm-row">
                 <span className="perm-name">{tier.label}</span>
-                {tier.fullAccess ? <span className="perm-badge">⚠ 完全访问</span> : null}
+                {tier.fullAccess ? (
+                  <span className="perm-badge">{icon('alert', { size: 11 })} 完全访问</span>
+                ) : null}
               </div>
               <div className="perm-desc">{tier.description}</div>
             </div>

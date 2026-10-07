@@ -1,4 +1,4 @@
-// 多 Agent 编排：列出 / 打开 / 删除 DAG 图，可视化编辑步骤（id / 依赖 / 提示词），保存 / 运行，
+﻿// 多 Agent 编排：列出 / 打开 / 删除 DAG 图，可视化编辑步骤（id / 依赖 / 提示词），保存 / 运行，
 // 并实时展示运行态（节点状态 + blackboard）。运行态由 App 经 SSE 汇总后通过 graphRuns 注入。
 //
 // 函数组件范式：图列表 / 图名 / 步骤草稿各一个 useState；步骤增删改走函数式 updater
@@ -9,6 +9,7 @@ import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { GraphDefBuilder, type StepDraft } from '../../models/GraphDefBuilder.js';
 import { emptyState } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import type { GraphRunState, GraphSummary } from '../../../types/models.js';
 
 /** React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
@@ -55,7 +56,7 @@ function renderRun(r: GraphRunState): ReactElement {
     </span>
   ));
   const foot = r.done ? (
-    <div className="saved">{r.ok ? '✓ 全部完成' : '✗ 存在失败步骤'}</div>
+    <div className="saved">{icon(r.ok ? 'check' : 'x', { size: 12 })}{r.ok ? ' 全部完成' : ' 存在失败步骤'}</div>
   ) : (
     <div className="saved">运行中…</div>
   );
@@ -273,7 +274,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
   return (
     <div>
       <div className="graph-guide">
-        <div className="gg-title">🕸️ 什么是 DAG 编排？</div>
+        <div className="gg-title">{icon('columns', { size: 14 })} 什么是 DAG 编排？</div>
         <div className="gg-text">
           把一个大任务拆成多个<strong>步骤</strong>，每个步骤是一条独立提示词，AI 按依赖关系并行执行：
           <b>步骤 id</b> 是步骤名字（如 <code>plan</code>）；<b>依赖</b>填它依赖的步骤 id（如{' '}
@@ -299,7 +300,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
       <div className="pm-section">
         <div className="pm-title">已存图</div>
         {graphs.length === 0
-          ? emptyState('🕸️', '暂无已存图', '点「载入示例」或「新建」创建一个 DAG 编排。')
+          ? emptyState(icon('columns', { size: 20 }), '暂无已存图', '点「载入示例」或「新建」创建一个 DAG 编排。')
           : graphs.map((g) =>
               renderStoredGraph(g, {
                 onRun: (id, gname) => void runById(id, gname),

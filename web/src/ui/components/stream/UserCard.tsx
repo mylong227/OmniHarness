@@ -5,6 +5,7 @@
 
 import { React } from '../../deps.js';
 import { badge, timeOf, esc } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';
 
 /** UserCard 组件的入参。 */
@@ -42,7 +43,7 @@ export function UserCard(props: UserCardProps): ReactElement {
               onEdit();
             }}
           >
-            ✎ 编辑重发
+            {icon('pencil', { size: 12 })} 编辑重发
           </button>
         ) : null}
       </div>

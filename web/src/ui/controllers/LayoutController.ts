@@ -50,7 +50,7 @@ export class LayoutController {
       const cachedLeft = Number(localStorage.getItem('omni-left-width'));
       const cachedRight = Number(localStorage.getItem('omni-right-width'));
       if (cachedLeft >= 180 && cachedLeft <= 600) this.host.patch({ leftWidth: cachedLeft });
-      if (cachedRight >= 180 && cachedRight <= 600) this.host.patch({ rightWidth: cachedRight });
+      if (cachedRight >= 180 && cachedRight <= 760) this.host.patch({ rightWidth: cachedRight });
     } catch {
       /* 忽略 */
     }

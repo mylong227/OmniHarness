@@ -11,6 +11,8 @@
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { statusBadge } from '../../textUtils.js';
+import { icon } from '../../models/Icon.js';
+import { emptyNote, emptyState } from '../../format.js';
 import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.js';
 import { ReviewCursor } from '../../models/ReviewCursor.js';
 import { ReviewKeyboard } from '../../models/ReviewKeyboard.js';
@@ -335,11 +337,11 @@ export function ChangesTab(): ReactElement {
     else if (action === 'reject') void revertHunk(openFile.path, hunkText, idx);
   };
 
-  if (!loaded && data === null) return <div className="empty">读取中…</div>;
+  if (!loaded && data === null) return emptyNote('读取中…', { icon: 'rewind' });
   if (error !== null) {
     return (
-      <div className="empty">
-        变更读取失败：{error}
+      <div>
+        {emptyState(icon('alert', { size: 20 }), '变更读取失败：' + error, undefined, 'err')}
         <div style={RETRY_BOX}>
           <button className="btn" onClick={() => void refresh()}>
             重试
@@ -408,7 +410,7 @@ export function ChangesTab(): ReactElement {
         </div>
       ) : null}
       {files.length === 0 ? (
-        <div className="empty">✨ 没有变更——工作区很干净。改点东西再来看。</div>
+        <div className="empty">{icon('check', { size: 14 })} 没有变更——工作区很干净。改点东西再来看。</div>
       ) : (
         <div className="changes-list">
           {files.map((f) => {

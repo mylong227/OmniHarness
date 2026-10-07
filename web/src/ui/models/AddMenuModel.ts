@@ -2,13 +2,25 @@
 // 零 React 依赖，node 环境可直接单测。
 
 import type { AgentCatalogEntry, PluginManifest, SearchHit } from '../../types/models.js';
+// 图标名的**唯一事实源**在 models/Icon.ts（`IconName`）；这里只 import 类型（`import type` 编译期即擦除，
+// 不会把 Icon.ts 的运行时依赖（deps.js 的 UMD 全局 React）拖进模型层，单测仍可在纯 node 下直接跑）。
+import type { IconName } from './Icon.js';
+
+/**
+ * 菜单图标名（= 图标集里的合法名字，见 models/Icon.ts）。
+ *
+ * 为什么字段存字符串而不是 ReactElement：本文件是「零 React 依赖、node 环境可直接单测」的展示模型；
+ * 存元素就等于把模型层绑死在组件运行时上。字符串在组件层（AddMenu.tsx）映射到 `icon()`，
+ * 模型与图标集各自可独立演进，且拼错图标名是**编译期**错误而不是运行时空白。
+ */
+export type AddMenuIcon = IconName;
 
 /** 菜单项（纯描述，不含回调——回调由组件按 id 分派，便于单测断言结构）。 */
 export interface AddMenuItem {
   /** 稳定 id（组件据此分派动作；`loading` 类项不可点）。 */
   readonly id: string;
-  /** 前置图标（emoji，与仓库既有风格一致）。 */
-  readonly icon: string;
+  /** 前置图标名（由组件层映射到自研线性 SVG 图标；模型层零 React 依赖）。 */
+  readonly icon: AddMenuIcon;
   /** 主文案。 */
   readonly label: string;
   /** 次要说明（可为空）。 */
@@ -81,10 +93,10 @@ export class AddMenuModel {
       id: 'add',
       title: '添加',
       items: [
-        this.item('attach', '📎', '文件和文件夹', '', false),
+        this.item('attach', 'paperclip', '文件和文件夹', '', false),
         this.itemFromGoal(),
-        this.toggle('plan', '💡', '计划模式', '开启计划模式', this.state.planMode),
-        this.toggle('sketch', '📐', '绘图', '绘制草图', this.state.sketchMode),
+        this.toggle('plan', 'bulb', '计划模式', '开启计划模式', this.state.planMode),
+        this.toggle('sketch', 'ruler', '绘图', '绘制草图', this.state.sketchMode),
       ],
     };
   }
@@ -94,7 +106,7 @@ export class AddMenuModel {
     const goal = this.state.goal.trim();
     return {
       id: 'goal',
-      icon: '🎯',
+      icon: 'goal',
       label: '目标',
       hint: goal === '' ? '设置要持续追求的目标' : goal,
       active: goal !== '',
@@ -115,7 +127,7 @@ export class AddMenuModel {
       title: '插件',
       items: this.state.plugins.map((plugin) => ({
         id: 'plugin:' + plugin.name,
-        icon: plugin.loaded === true ? '🧩' : '📦',
+        icon: plugin.loaded === true ? 'plug' : 'package',
         label: plugin.name,
         hint: plugin.description ?? `v${plugin.version}`,
         active: plugin.loaded === true,
@@ -164,7 +176,7 @@ export class AddMenuModel {
       title: '文件和聊天',
       items: hits.map((hit) => ({
         id: (hit.kind === 'file' ? 'file:' : 'chat:') + hit.id,
-        icon: hit.kind === 'file' ? '📄' : '💬',
+        icon: hit.kind === 'file' ? 'file' : 'message',
         label: hit.label,
         hint: hit.hint,
         active: false,
@@ -174,12 +186,12 @@ export class AddMenuModel {
   }
 
   /** 构造普通菜单项。 */
-  private item(id: string, icon: string, label: string, hint: string, active: boolean): AddMenuItem {
+  private item(id: string, icon: AddMenuIcon, label: string, hint: string, active: boolean): AddMenuItem {
     return { id, icon, label, hint, active, disabled: false };
   }
 
   /** 构造开关类菜单项（右侧显示开 / 关）。 */
-  private toggle(id: string, icon: string, label: string, hint: string, on: boolean): AddMenuItem {
+  private toggle(id: string, icon: AddMenuIcon, label: string, hint: string, on: boolean): AddMenuItem {
     return {
       id,
       icon,
@@ -192,13 +204,13 @@ export class AddMenuModel {
 
   /** 构造占位项（不可点）。 */
   private placeholder(id: string, label: string): AddMenuItem {
-    return { id, icon: '…', label, hint: '', active: false, disabled: true };
+    return { id, icon: 'ellipsis', label, hint: '', active: false, disabled: true };
   }
 
   /** 智能体来源图标。 */
-  private agentIcon(kind: AgentCatalogEntry['kind']): string {
-    if (kind === 'graph') return '🕸';
-    if (kind === 'plugin') return '🧩';
-    return '🤖';
+  private agentIcon(kind: AgentCatalogEntry['kind']): AddMenuIcon {
+    if (kind === 'graph') return 'columns';
+    if (kind === 'plugin') return 'plug';
+    return 'robot';
   }
 }

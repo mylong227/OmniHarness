@@ -24,6 +24,7 @@ import { ComposerOptions } from '../models/ComposerOptions.js';
 import { ComposerDraft } from '../models/ComposerDraft.js';
 import { FileTreeFlattener } from '../models/FileTreeFlattener.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
+import { icon } from '../models/Icon.js';
 import {
   SpeechRecognitionFactory,
   SpeechTranscript,
@@ -121,7 +122,7 @@ function renderAttachmentsView(
           ) : null}
           {a.kind === 'file' ? (
             <div className="att-file">
-              <span className="att-ico">{AttachmentIcon.of(a.mediaType)}</span>
+              <span className="att-ico">{icon(AttachmentIcon.iconName(a.mediaType), { size: 15 })}</span>
               <span className="att-name">{a.name}</span>
             </div>
           ) : null}
@@ -435,99 +436,105 @@ export function Composer(props: ComposerProps): ReactElement {
       onDrop={onDrop}
     >
       {busy === true ? <WorkIndicator activeTool={activeTool ?? null} /> : null}
-      <div className="composer-bar">
-        <Dropdown
-          title={providerLabel ? `模型 · ${providerLabel}` : '模型'}
-          icon="🧠"
-          value={model}
-          options={ComposerOptions.models(model, modelOptions).map((m) => ({ value: m, label: m }))}
-          onChange={onModelChange}
-        />
-        <Dropdown
-          title="推理强度"
-          icon="🔥"
-          value={reasoning}
-          options={[{ value: '', label: '推理强度' }, ...ComposerOptions.reasoning(reasoning, reasoningOptions)]}
-          onChange={onReasoningChange}
-        />
-        <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
-        {hint ? <span className="ctl-hint">{hint}</span> : null}
-        {/* `busy` 是**刷新信号**：用量快照在回合推进中才产生，不随 busy 变化重拉就会一直显示回合前的空快照。 */}
-        <ContextCapacityPanel
-          threadId={threadId ?? ''}
-          api={api}
-          busy={busy === true}
-          // 用 useCallback 稳定引用：内联箭头会让**每次父渲染都是新函数**，把子组件里"按依赖取数"的
-          // effect 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc）。
-          onToast={toastStable}
-        />
-        <AddMenu
-          threadId={threadId ?? ''}
-          api={api}
-          onAttach={() => {
-            setPickerErr(null);
-            setFilePickerOpen(true);
-          }}
-          onToast={(m, k) => onToast?.(m, k)}
-          onApplyMode={onApplyMode}
-          onOpenTab={(key) => onOpenTab?.(key)}
-          onOpenFile={(p) => onOpenFile?.(p)}
-          onLoadThread={(id) => onLoadThread?.(id)}
-        />
-        <button
-          className="iconbtn attach"
-          title="粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）"
-          aria-label="附加图片、视频或文件"
-          onClick={() => {
-            setPickerErr(null);
-            setFilePickerOpen(true);
-          }}
-        >
-          📎
-        </button>
-        {SpeechRecognitionFactory.supported() ? (
-          <button
-            className={'iconbtn mic' + (listening ? ' listening' : '')}
-            title={listening ? '停止语音输入' : '语音输入（中文）'}
-            aria-label={listening ? '停止语音输入' : '开始语音输入'}
-            onClick={toggleVoice}
-          >
-            {listening ? '⏹' : '🎙'}
-          </button>
-        ) : null}
-      </div>
+      {/* 输入卡片：正文在上、控制行在下（截图式 Composer 的版式）。 */}
+      <div className="composer-box">
+        <div className="composer-input">
+          {renderMentionView(mention, applyMention)}
+          <textarea
+            id="prompt"
+            rows={2}
+            ref={taRef}
+            aria-label="任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件"
+            placeholder="发消息或创建任务，/ 调用指令，@ 文件或对话"
+            onPaste={onPaste}
+            onInput={refreshMention}
+            onClick={refreshMention}
+            onKeyDown={onKeyDown}
+          ></textarea>
+        </div>
 
-      {renderAttachmentsView(attachments, removeAt)}
+        {renderAttachmentsView(attachments, removeAt)}
 
-      <div className="composer-input">
-        {renderMentionView(mention, applyMention)}
-        <textarea
-          id="prompt"
-          rows={2}
-          ref={taRef}
-          aria-label="任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件"
-          placeholder="输入任务，Enter 发送（Shift+Enter 换行）…  可粘贴/拖拽/📎 附件，@ 引用文件，🎙 语音输入"
-          onPaste={onPaste}
-          onInput={refreshMention}
-          onClick={refreshMention}
-          onKeyDown={onKeyDown}
-        ></textarea>
-        {busy === true ? (
-          <button
-            className="stop"
-            aria-label="停止生成"
-            title="停止生成"
-            onClick={() => {
-              onStop?.();
-            }}
-          >
-            ■ 停止
-          </button>
-        ) : (
-          <button className="send" disabled={disabled} aria-label="发送任务" onClick={handleSend}>
-            发送
-          </button>
-        )}
+        <div className="composer-bar">
+          <div className="composer-bar-left">
+            <AddMenu
+              threadId={threadId ?? ''}
+              api={api}
+              onAttach={() => {
+                setPickerErr(null);
+                setFilePickerOpen(true);
+              }}
+              onToast={(m, k) => onToast?.(m, k)}
+              onApplyMode={onApplyMode}
+              onOpenTab={(key) => onOpenTab?.(key)}
+              onOpenFile={(p) => onOpenFile?.(p)}
+              onLoadThread={(id) => onLoadThread?.(id)}
+            />
+            <button
+              className="iconbtn attach"
+              title="粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）"
+              aria-label="附加图片、视频或文件"
+              onClick={() => {
+                setPickerErr(null);
+                setFilePickerOpen(true);
+              }}
+            >
+              {icon('paperclip', { size: 15 })}
+            </button>
+            <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
+            {hint ? <span className="ctl-hint">{hint}</span> : null}
+          </div>
+          <div className="composer-bar-right">
+            <ContextCapacityPanel
+              threadId={threadId ?? ''}
+              api={api}
+              busy={busy === true}
+              // 用 useCallback 稳定引用：内联箭头会让**每次父渲染都是新函数**，把子组件里"按依赖取数"的
+              // effect 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc）。
+              onToast={toastStable}
+            />
+            <Dropdown
+              title="推理强度"
+              icon={icon('flame', { size: 14 })}
+              value={reasoning}
+              options={[{ value: '', label: '推理强度' }, ...ComposerOptions.reasoning(reasoning, reasoningOptions)]}
+              onChange={onReasoningChange}
+            />
+            <Dropdown
+              title={providerLabel ? `模型 · ${providerLabel}` : '模型'}
+              icon={icon('brain', { size: 14 })}
+              value={model}
+              options={ComposerOptions.models(model, modelOptions).map((m) => ({ value: m, label: m }))}
+              onChange={onModelChange}
+            />
+            {SpeechRecognitionFactory.supported() ? (
+              <button
+                className={'iconbtn mic' + (listening ? ' listening' : '')}
+                title={listening ? '停止语音输入' : '语音输入（中文）'}
+                aria-label={listening ? '停止语音输入' : '开始语音输入'}
+                onClick={toggleVoice}
+              >
+                {icon(listening ? 'x' : 'mic', { size: 15 })}
+              </button>
+            ) : null}
+            {busy === true ? (
+              <button
+                className="stop round"
+                aria-label="停止生成"
+                title="停止生成"
+                onClick={() => {
+                  onStop?.();
+                }}
+              >
+                ■
+              </button>
+            ) : (
+              <button className="send round" disabled={disabled} aria-label="发送任务" title="发送（Enter）" onClick={handleSend}>
+                ↑
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {pickerErr ? (

@@ -13,6 +13,8 @@ import { useApp } from '../../context.js';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CheckpointNamer } from '../../models/checkpoint.js';
 import { CheckpointTimeline } from '../../models/CheckpointTimeline.js';
+import { icon } from '../../models/Icon.js';
+import { emptyNote, emptyState } from '../../format.js';
 import type { CheckpointMeta } from '../../models/checkpoint.js';
 import type { TimelineDay, TimelineEntry } from '../../models/CheckpointTimeline.js';
 
@@ -187,9 +189,11 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
 
   if (!sessionId) {
     return (
-      <div className="empty">
-        ⌹ 回滚面板 · 先选择一个会话（左侧）再操作。没有会话时无从打点或回滚。
-      </div>
+      emptyState(
+        icon('rewind', { size: 20 }),
+        '先选择一个会话',
+        '回滚是按会话打的检查点：从左侧选一个会话，再创建或回滚到检查点。',
+      )
     );
   }
 
@@ -211,12 +215,14 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
           ↻ 刷新
         </button>
       </div>
-      {loading ? <div className="empty">读取中…</div> : null}
-      {error !== null ? <div className="empty">检查点读取失败：{error}</div> : null}
+      {loading ? emptyNote('读取中…', { icon: 'rewind' }) : null}
+      {error !== null ? emptyNote('检查点读取失败：' + error, { kind: 'err', icon: 'alert' }) : null}
       {!loading && error === null && list.length === 0 ? (
-        <div className="empty">
-          ✨ 暂无检查点。点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。
-        </div>
+        emptyState(
+          icon('rewind', { size: 20 }),
+          '还没有检查点',
+          '点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。',
+        )
       ) : null}
       {!loading && list.length > 0
         ? renderTimeline(CheckpointTimeline.build(list, new Date()), busy, (l) => void rollback(l))

@@ -43,6 +43,18 @@ const TOKEN_PAIRS = [
   ['ok', 'bg'],
   ['err', 'bg'],
   ['warn', 'bg'],
+  // 打磨层（web/styles/polish.css）新增的语义色：品牌强调与 diff 增删。
+  // 为什么必须进这张表：它们才是"真正被当成文字用"的颜色——brand 用于链接与选中态标签、
+  // add/del 用于 diff 行的 `+`/`-` 内容。只测 --ok/--err 会漏掉它们（曾靠这条才发现要单列）。
+  ['brand', 'bg'],
+  ['brand', 'panel'],
+  ['brand', 'panel-2'],
+  ['add', 'bg'],
+  ['add', 'panel'],
+  ['del', 'bg'],
+  ['del', 'panel'],
+  ['info', 'bg'],
+  ['info', 'panel'],
 ];
 
 /** 读一份 CSS 并剥掉注释。 */
@@ -65,7 +77,9 @@ function parseRules(css) {
     }
     if (selector.startsWith('@') || selector === '') continue;
     // 主题前缀 → 该规则只在该主题生效，logical 为去掉前缀后的选择器。
-    const themeScoped = /^\[data-theme="(dark|light)"\]\s+(.*)$/.exec(selector);
+    // 引号口径同 parseThemes：单/双引号等价，不再写死双引号（否则单引号写的主题覆盖
+    // 会被当成"通用规则"，把浅色专用色拿去算深色对比度 ⇒ 假红）。
+    const themeScoped = /^\[data-theme=['"]?(dark|light)['"]?\]\s+(.*)$/.exec(selector);
     out.push({
       selector,
       theme: themeScoped ? themeScoped[1] : 'both',
@@ -76,15 +90,23 @@ function parseRules(css) {
   return out;
 }
 
-/** 解析主题 token 块：返回 { dark:{}, light:{} }。 */
+/**
+ * 解析主题 token 块：返回 { dark:{}, light:{} }。
+ *
+ * 引号口径（2026-10 修复）：选择器一律按 `data-theme=light` 判**主题名**，不再写死双引号。
+ * 为什么必须修：CSS 里 `[data-theme='light']`（单引号）与 `[data-theme="light"]`（双引号）
+ * 完全等价，而原实现只认双引号 ⇒ 单引号写法的新样式表会被**静默**归进 dark（light 表反而为空）。
+ * 这不是放宽口径：主题判定更准了，检查的门槛（4.5:1）与范围都没变；加 `:root` 与主题名的
+ * 同时出现（`:root, [data-theme='dark']`）也照旧归 dark——与浏览器"暗色为默认"一致。
+ * @param rules parseRules 的产物
+ * @returns 两套主题的 token 表
+ */
 function parseThemes(rules) {
   const themes = { dark: {}, light: {} };
   for (const { selector, decls } of rules) {
-    const target = selector.includes('data-theme="light"')
-      ? themes.light
-      : selector.includes('data-theme="dark"') || selector === ':root'
-        ? themes.dark
-        : null;
+    const isLight = /data-theme\s*=\s*['"]?light['"]?/.test(selector);
+    const isDark = /data-theme\s*=\s*['"]?dark['"]?/.test(selector);
+    const target = isLight ? themes.light : isDark || selector === ':root' ? themes.dark : null;
     if (!target) continue;
     for (const [k, v] of Object.entries(decls)) {
       if (k.startsWith('--')) target[k.slice(2)] = v;
@@ -148,7 +170,24 @@ function baseSelector(selector) {
 
 const FILES = readdirSync(STYLE_DIR).filter((f) => f.endsWith('.css'));
 const ALL_RULES = FILES.flatMap((f) => parseRules(readCss(f)));
-const THEMES = parseThemes(parseRules(readCss('theme.css')));
+/**
+ * 主题 token 表：`theme.css`（基础 token）+ `polish.css`（打磨层新增的语义色）。
+ *
+ * 为什么要合并两份：token 现在分两处定义——theme.css 管底色/文字/状态色，polish.css 管
+ * 品牌色与 diff 语义色（`--brand` / `--add` / `--del` / `--info`）。若只读 theme.css，
+ * 这些新 token 会被判成"未定义"而**假红**（反过来只读 polish.css 则会漏掉底色）。
+ * 合并是"后者补前者"语义：同名 token 以加载更晚的 polish.css 为准，与浏览器级联一致。
+ */
+const THEMES = (() => {
+  const merged = { dark: {}, light: {} };
+  for (const file of ['theme.css', 'polish.css']) {
+    if (!FILES.includes(file)) continue;
+    const parsed = parseThemes(parseRules(readCss(file)));
+    Object.assign(merged.dark, parsed.dark);
+    Object.assign(merged.light, parsed.light);
+  }
+  return merged;
+})();
 
 /**
  * 取某主题下「逻辑选择器」的有效声明：主题前缀覆盖优先于通用规则。
@@ -185,6 +224,8 @@ test('主题 token 自查：dark / light 两套都齐备且为 6 位 hex', () =>
   const required = [
     'text', 'dim', 'ok', 'err', 'warn', 'on-ok', 'on-err', 'on-danger', 'toast-ok', 'toast-err',
     'toast-ok-border', 'toast-err-border', 'bg', 'bg-elev', 'panel', 'panel-2',
+    // 打磨层新增的语义色（定义在 web/styles/polish.css 的主题块里）。
+    'brand', 'add', 'del', 'info',
   ];
   for (const [name, tokens] of Object.entries(THEMES)) {
     assert.ok(Object.keys(tokens).length > 15, `${name} 主题 token 数量异常`);

@@ -7,6 +7,8 @@
 // 「已保存」提示由 state 驱动 + useRef 持有的定时器自动消隐（卸载时清理对称）。
 
 import { React } from '../../deps.js';
+import { icon } from '../../models/Icon.js';
+import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';
 import type { Config, Profile } from '../../../types/models.js';
 import { ModelProviders } from './ModelProviders.js';
@@ -131,7 +133,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
     api
       .updateConfig(patch)
       .then(async () => {
-        setSavedHint('✓ 已保存');
+        setSavedHint('已保存');
         if (hintRef.current !== null) clearTimeout(hintRef.current);
         hintRef.current = setTimeout(() => setSavedHint(''), HINT_MS);
         await reload();
@@ -211,7 +213,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
             <span className="v">{cfg.workspace || '—'}</span>
           </div>
         ) : (
-          <div className="empty">读取中…</div>
+          emptyNote('读取中…', { kind: 'note' })
         )}
       </div>
       <div style={SPACER}></div>

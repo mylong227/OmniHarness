@@ -33,6 +33,7 @@ import { formatProfilePluginToast } from '../notify.js';
 import { SessionController } from './SessionController.js';
 import { ComposerController } from './ComposerController.js';
 import { GraphController } from './GraphController.js';
+import { FileController } from './FileController.js';
 import { ShortcutActions } from './ShortcutActions.js';
 
 /** 应用根组件的全部 UI 状态（原 useAppController 的各 useState 合集）。 */
@@ -61,6 +62,11 @@ export interface AppState {
   detailEvent: ThreadEvent | null;
   approval: ApprovalRequest | null;
   fileView: FileView | null;
+  /**
+   * 代码查看器已打开的文件标签集合（`openFile` 追加、`closeOpenFile` 移除；
+   * 合并 / 关闭规则见 `models/FileTabs.ts`）。`fileView` 永远指向其中激活的一个（或 null）。
+   */
+  openFiles: FileView[];
   theme: 'dark' | 'light';
   leftOpen: boolean;
   rightOpen: boolean;
@@ -123,6 +129,8 @@ export class AppController {
     sessions: SessionController;
     composer: ComposerController;
     graph: GraphController;
+    /** 文件预览 / 代码查看器控制器（打开 / 切换 / 关闭文件标签）。 */
+    files: FileController;
     /** 布局 / 主题偏好控制器（主题切换、面板开合、宽度持久化）。 */
     layout: LayoutController;
     /** 全局快捷键解析器（无状态）。 */
@@ -161,6 +169,11 @@ export class AppController {
     return this.children.graph;
   }
 
+  /** 文件预览 / 代码查看器子控制器（只读暴露给视图层）。 */
+  public get files(): FileController {
+    return this.children.files;
+  }
+
   /** 布局 / 主题偏好控制器（只读暴露给视图层）。 */
   public get layout(): LayoutController {
     return this.children.layout;
@@ -176,7 +189,8 @@ export class AppController {
    * @param host 视图（App class 组件）实现的状态宿主
    */
   public constructor(host: AppHost) {
-    this.host = host;    this.services = {
+    this.host = host;
+    this.services = {
       api: new ApiClient(),
       stream: new EventStream(),
       toastSvc: new ToastService(),
@@ -188,11 +202,13 @@ export class AppController {
     const sessions = new SessionController(this.host, this.services);
     const graph = new GraphController(this.host, this.services);
     const composer = new ComposerController(this.host, this.services, sessions);
+    const files = new FileController(this.host, this.services);
     const layout = new LayoutController(this.host);
     this.children = {
       sessions,
       composer,
       graph,
+      files,
       layout,
       keyBindings: new KeyboardShortcuts(),
       shortcuts: new ShortcutActions({
@@ -394,7 +410,7 @@ export class AppController {
   }
 
   /**
-   * 设置当前激活面板（NavRail / RightPanel 复用；F8：同步写入 hash）。
+   * 设置当前激活面板（PanelPicker / RightPanel 复用；F8：同步写入 hash）。
    * @param key 面板标识
    * @returns 无
    */

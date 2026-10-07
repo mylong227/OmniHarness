@@ -1,4 +1,4 @@
-// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
+﻿// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
 //
 // 事件按类型渲染，工具调用卡片聚合 args 与 result；点击任意事件卡触发钻取。
 // 回合内「过程类」事件（reasoning/tool_call/tool_result）默认折叠成 <details>，
@@ -18,6 +18,10 @@
 // 可断言信号：根节点 data-virtual / data-rendered-count / data-total-count / data-event-count。
 
 import { React } from '../deps.js';
+import { icon } from '../models/Icon.js';
+import { ChatHeader } from './ChatHeader.js';
+import type { ChatViewKind } from './ChatHeader.js';
+import { TraceView } from './TraceView.js';
 import {
   badge,
   jsonView,
@@ -113,6 +117,16 @@ export interface StreamViewProps {
   onReasoningChange: (v: string) => void;
   onPermissionChange: (v: string) => void;
   disabled?: boolean;
+  /** 当前会话标题（中栏头；空串显示「新会话」）。 */
+  sessionTitle?: string;
+  /** SSE 三态（透传给状态栏的连接口径；缺省不显示状态栏右段）。 */
+  streamState?: 'open' | 'connecting' | 'closed';
+  /** 模型适配器摘要（状态栏左段，如 `openai · gpt-4o`）。 */
+  adapter?: string;
+  /** 打开左栏抽屉（仅窄屏渲染的汉堡按钮）。 */
+  onToggleLeft?: () => void;
+  /** 打开右栏抽屉（仅窄屏渲染的面板按钮）。 */
+  onToggleRight?: () => void;
 }
 
 /** 单事件渲染所需的上下文（从 props 收拢，供模块级分派函数复用）。 */
@@ -209,7 +223,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
         <details className="ev tool_result standalone" key={ev.id}>
           <summary className="tc-line dim">
             <span className="tc-chevron">▸</span>
-            <span className="tc-icon">↳</span>
+            <span className="tc-icon">{icon('undo', { size: 14 })}</span>
             <span className="tc-summary">工具结果（独立事件）</span>
           </summary>
           <div className="tc-detail">
@@ -287,7 +301,7 @@ function renderLiveInputRow(li: LiveInput): ReactElement {
     <div className="ev" key={li.id}>
       <div className="tc-line">
         <span className="tc-chevron">▸</span>
-        <span className="tc-icon">🔧</span>
+        <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
         <span className="tc-summary tc-action">{esc(describeToolCall(li.name, partialArgs))}</span>
         <span className="tool-status pending">进行中…</span>
       </div>
@@ -367,7 +381,14 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onReasoningChange,
     onPermissionChange,
     disabled,
+    sessionTitle,
+    streamState,
+    adapter,
+    onToggleLeft,
+    onToggleRight,
   } = props;
+  /** 中栏视图：对话流 / 工具轨迹（头部标签切换；默认对话）。 */
+  const [view, setView] = React.useState<ChatViewKind>('chat');
   const streamRef = React.useRef<HTMLDivElement | null>(null);
   /** 上一次滚动 / 提交时的贴底状态：仅在底部才自动贴底，用户上滚后不强制拉回。 */
   const stickyRef = React.useRef<boolean>(true);
@@ -531,60 +552,72 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const totalCount = blocks.length + tailCount;
   return (
     <div className="col center">
-      <div
-        className="stream"
-        role="log"
-        aria-live="polite"
-        aria-relevant="additions"
-        aria-label="对话事件流"
-        data-virtual="1"
-        data-rendered-count={String(renderedCount)}
-        data-total-count={String(totalCount)}
-        data-event-count={String(events.length)}
-        ref={streamRef}
-        onScroll={onScroll}
-      >
-        {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
-          emptyState('💬', '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
-        ) : (
-          <div className="stream-inner">
-            {win.padTop > 0 ? (
-              <div
-                key="stream-pad-top"
-                className="stream-pad"
-                style={{ height: win.padTop + 'px' }}
-                aria-hidden="true"
-              />
-            ) : null}
-            {visibleBlocks.map((b) => {
-              const k = blockKeyOf(b);
-              return (
+      <ChatHeader
+        title={sessionTitle ?? ''}
+        busy={busy === true}
+        view={view}
+        onView={setView}
+        onToggleLeft={onToggleLeft}
+        onToggleRight={onToggleRight}
+      />
+      {view === 'trace' ? (
+        <TraceView events={events} liveInputs={liveInputs} toolResults={toolResults} />
+      ) : (
+        <div
+          className="stream"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="对话事件流"
+          data-virtual="1"
+          data-rendered-count={String(renderedCount)}
+          data-total-count={String(totalCount)}
+          data-event-count={String(events.length)}
+          ref={streamRef}
+          onScroll={onScroll}
+        >
+          {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
+            emptyState(icon('message', { size: 20 }), '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
+          ) : (
+            <div className="stream-inner">
+              {win.padTop > 0 ? (
                 <div
-                  className="sw-block"
-                  data-sw-key={k}
-                  key={'sw-' + k}
-                  ref={(el: HTMLDivElement | null) => {
-                    if (el) blockElsRef.current.set(k, el);
-                    else blockElsRef.current.delete(k);
-                  }}
-                >
-                  {renderBlockNode(b, ctx)}
-                </div>
-              );
-            })}
-            {win.padBottom > 0 ? (
-              <div
-                key="stream-pad-bottom"
-                className="stream-pad"
-                style={{ height: win.padBottom + 'px' }}
-                aria-hidden="true"
-              />
-            ) : null}
-            {liveInputs.map((li) => renderLiveInputRow(li))}
-            {streaming !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streaming} /> : null}
-          </div>
-        )}
-      </div>
+                  key="stream-pad-top"
+                  className="stream-pad"
+                  style={{ height: win.padTop + 'px' }}
+                  aria-hidden="true"
+                />
+              ) : null}
+              {visibleBlocks.map((b) => {
+                const k = blockKeyOf(b);
+                return (
+                  <div
+                    className="sw-block"
+                    data-sw-key={k}
+                    key={'sw-' + k}
+                    ref={(el: HTMLDivElement | null) => {
+                      if (el) blockElsRef.current.set(k, el);
+                      else blockElsRef.current.delete(k);
+                    }}
+                  >
+                    {renderBlockNode(b, ctx)}
+                  </div>
+                );
+              })}
+              {win.padBottom > 0 ? (
+                <div
+                  key="stream-pad-bottom"
+                  className="stream-pad"
+                  style={{ height: win.padBottom + 'px' }}
+                  aria-hidden="true"
+                />
+              ) : null}
+              {liveInputs.map((li) => renderLiveInputRow(li))}
+              {streaming !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streaming} /> : null}
+            </div>
+          )}
+        </div>
+      )}
       <Composer
         model={model}
         modelOptions={modelOptions}
@@ -609,6 +642,17 @@ export function StreamView(props: StreamViewProps): ReactElement {
         api={api}
         onStop={onStop}
       />
+      {/* 状态栏：只显示真实可得的口径（适配器摘要 / 会话事件数 / 连接态），不虚构 token 速率。 */}
+      <div className="chat-status">
+        <span className="cs-item">{adapter === undefined || adapter === '' ? '…' : adapter}</span>
+        <span className="flex-spacer" aria-hidden="true"></span>
+        <span className="cs-item">{String(events.length)} 条事件</span>
+        {streamState === undefined ? null : (
+          <span className={'cs-item cs-conn ' + streamState}>
+            {streamState === 'open' ? '已连接' : streamState === 'connecting' ? '重连中' : '断开'}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -20,8 +20,13 @@ export interface DropdownOption {
 export interface DropdownProps {
   /** 无障碍标题（同时作 title 属性）。 */
   title: string;
-  /** 触发按钮左侧图标。 */
-  icon: string;
+  /**
+   * 触发按钮左侧图标。
+   *
+   * 类型是 `ReactNode` 而不是 `string`：图标由自研线性 SVG 集（`models/Icon.ts`）提供，
+   * 传字符串只用于历史兼容。**不要**再塞 emoji——字形随系统字体变、不跟随 `currentColor`。
+   */
+  icon: ReactNode;
   /** 当前选中值。 */
   value: string;
   /** 候选项清单。 */

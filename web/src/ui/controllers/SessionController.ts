@@ -5,10 +5,10 @@
 import type { AppHost, AppServices } from './AppController.js';
 import type { ThreadEvent } from '../../types/models.js';
 import type { SessionEntry, ToolItem } from '../shared.js';
-import { langOf } from '../highlight.js';
-import { StreamThrottle } from '../models/StreamThrottle.js';
+import { TurnStreamBuffer } from '../models/TurnStreamBuffer.js';
 import { SessionsScope } from '../models/SessionsScope.js';
 import { DeferredModes } from '../models/DeferredModes.js';
+import { ViewAttachment } from '../models/ViewAttachment.js';
 import type { SessionModePatch } from '../models/PendingModes.js';
 import { MethodBinder } from './methodBinder.js';
 
@@ -21,12 +21,12 @@ export class SessionController {
   /** 会话模式协作者：有会话立刻落盘、没会话先暂存（构造时注入 API 落盘口）。 */
   public readonly modes: DeferredModes;
   /**
-   * 本回合的流式增量节流器（无回合进行中时为 null）。
-   *
-   * 一个回合一个实例：回合结束（或用户中断）时 `flush()` 后 `dispose()`，之后迟到的增量一律无效。
-   * 这样既把高频 setState 压到有界频率，又不会让「停止」之后被迟到 delta 重新点亮流式卡片。
+   * 视图挂载状态（**视图代数**）：摘（`newSession`）与挂（`loadThread`）都发生在本控制器，同源才不会
+   * 两处各改一半；兄弟控制器经 `sessions.viewAttachment` 读。语义见 `models/ViewAttachment.ts`。
    */
-  private throttle: StreamThrottle | null = null;
+  public readonly viewAttachment: ViewAttachment;
+  /** 本回合的流式缓冲（节流 + 生命周期）：语义见 `models/TurnStreamBuffer.ts`。 */
+  private readonly stream: TurnStreamBuffer;
 
   /**
    * 构造并绑定对外回调。
@@ -37,6 +37,13 @@ export class SessionController {
     this.host = host;
     this.services = services;
     this.modes = new DeferredModes((id, patch) => services.api.modesSet(id, patch));
+    // 默认**挂载**：刷新 / 深链 / 全新控制器都要能收流式事件，只有点「新建」才摘。
+    this.viewAttachment = new ViewAttachment();
+    this.stream = new TurnStreamBuffer((text) => {
+      this.host.patch((s) => ({
+        streamText: this.services.reducers.appendTextDelta(s.streamText, text),
+      }));
+    });
     // 一次绑定**全部**原型方法（见 MethodBinder：手写清单曾漏掉 rename/delete/fork ⇒「删除无效」）。
     MethodBinder.bindAll(this);
   }
@@ -48,6 +55,8 @@ export class SessionController {
    * @returns 无
    */
   public handleEvent(ev: ThreadEvent): void {
+    // 已摘视图（用户点了「新建」或切走）：迟到事件属于上一回合，不得写进当前视图。
+    if (this.viewAttachment.detached) return;
     const p = ev.payload || {};
     if (ev.type === 'tool_call') {
       const callId = (p.callId as string) || ev.id;
@@ -71,23 +80,27 @@ export class SessionController {
   /**
    * 累积一条模型正文增量（`thread.text_delta` 通知），驱动流式助手卡片逐字渲染。
    *
-   * 增量**先过 `StreamThrottle` 再进状态**：长回答的 `text_delta` 可达数千条，逐条 setState 会让
-   * 整棵中栏重渲染 ⇒ 掉帧。节流器把刷新压到 ≤1 次/50ms，累计文本与逐条拼接完全一致（收尾 flush 兜底）。
-   *
-   * 仅在回合进行中（busy）累积：回合已结束 / 已被用户中断后到达的迟到增量一律丢弃，
-   * 否则「停止」之后流式卡片会被迟到 delta 重新点亮（留下 streaming 残留）。
+   * 增量先过 `TurnStreamBuffer`（节流）再进状态：长回答的 `text_delta` 可达数千条，逐条 setState
+   * 会让整棵中栏重渲染 ⇒ 掉帧；累计文本与逐条拼接完全一致（收尾 flush 兜底）。
+   * 仅在回合进行中（busy）累积——否则「停止」之后流式卡片会被迟到 delta 重新点亮。
    * @param params 增量载荷（含 text 增量片段）
    * @returns 无
    */
   public appendTextDelta(params: Record<string, unknown>): void {
+    // 已摘视图：迟到增量属于上一回合，连缓冲都不该进（见 ViewAttachment）。
+    if (this.viewAttachment.detached) return;
     if (!this.host.getState().busy) {
-      // 非忙碌态：顺手释放节流器，让此后任何迟到增量连缓冲都进不去（与既有 busy 护栏同向叠加）。
-      this.disposeThrottle();
+      // 非忙碌态：顺手丢弃缓冲，让此后任何迟到增量连缓冲都进不去（与既有 busy 护栏同向叠加）。
+      this.stream.discard();
       return;
     }
     const text = typeof params.text === 'string' ? params.text : '';
-    if (text === '') return;
-    this.throttleFor().push(text);
+    this.stream.push(text);
+  }
+
+  /** 新回合开始：开一份干净的流式缓冲（每个回合一份，见 TurnStreamBuffer）。 @returns 无 */
+  public openStream(): void {
+    this.stream.open();
   }
 
   /**
@@ -98,32 +111,7 @@ export class SessionController {
    * @returns 无
    */
   public flushStream(): void {
-    this.throttle?.flush();
-    this.disposeThrottle();
-  }
-
-  /**
-   * 取本回合节流器（惰性创建）。
-   * @returns 节流器实例
-   */
-  private throttleFor(): StreamThrottle {
-    if (this.throttle === null) {
-      this.throttle = new StreamThrottle((text) => {
-        this.host.patch((s) => ({
-          streamText: this.services.reducers.appendTextDelta(s.streamText, text),
-        }));
-      });
-    }
-    return this.throttle;
-  }
-
-  /**
-   * 释放节流器（幂等）。
-   * @returns 无
-   */
-  private disposeThrottle(): void {
-    this.throttle?.dispose();
-    this.throttle = null;
+    this.stream.flush();
   }
 
   /**
@@ -132,6 +120,7 @@ export class SessionController {
    * @returns 无
    */
   public updateToolInput(params: Record<string, unknown>): void {
+    if (this.viewAttachment.detached) return;
     this.host.patch((s) => ({ liveInputs: this.services.reducers.mergeToolInput(s.liveInputs, params) }));
   }
 
@@ -198,6 +187,8 @@ export class SessionController {
    * @returns 异步完成
    */
   public async loadThread(id: string): Promise<void> {
+    // 挂到这条会话上（不是摘掉）：刷新 / 深链 / 点会话都要能继续收它的流式事件。
+    this.viewAttachment.attach();
     try {
       const r = await this.services.api.getThread(id);
       this.host.patch({
@@ -221,6 +212,8 @@ export class SessionController {
 
   /** 新建会话：清空线程与回合态。 @returns 无 */
   public newSession(): void {
+    // 立刻摘视图：此后该回合迟到的收尾 / 流式事件都不该回到这个新视图（见 ViewAttachment）。
+    this.viewAttachment.detach();
     this.host.patch({
       currentThreadId: null,
       events: [],
@@ -337,32 +330,6 @@ export class SessionController {
       this.services.toast(r.newSessionId ? '已复制为 ' + r.newSessionId : '已复制会话', 'ok');
     } catch (e) {
       this.services.toast('复制失败：' + (e as Error).message, 'err');
-    }
-  }
-
-  /**
-   * 在右侧文件面板打开一个路径（含语法高亮语言推断）。
-   * F8：面板经路由写入 hash，刷新 / 前进后退可还原「正在看哪个文件」这一视图。
-   * @param path 文件路径
-   * @returns 异步完成
-   */
-  public async openFile(path: string): Promise<void> {
-    try {
-      const r = await this.services.api.readFs(path);
-      const meta = (r.isBinary ? '二进制文件' : r.truncated ? '已截断（>200KB）' : '') + ' · ' + (r.size ?? 0) + ' 字节';
-      this.host.patch({
-        fileView: {
-          title: '📄 ' + r.path,
-          meta: meta.trim(),
-          content: r.isBinary ? '（二进制文件，无法预览）' : r.content || '',
-          // 依据路径推断语言做语法高亮；二进制不参与。
-          lang: r.isBinary ? '' : langOf(r.path),
-        },
-      });
-      // 展开右栏与激活面板由路由收口（RouteBinding.apply），避免两处状态各写一遍。
-      this.services.navigate({ pane: 'file' });
-    } catch (e) {
-      this.services.toast('打开失败：' + (e as Error).message, 'err');
     }
   }
 

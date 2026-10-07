@@ -3,6 +3,8 @@
 
 import { React } from './deps.js';
 import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.js';
+import { icon } from './models/Icon.js';
+import type { IconName } from './models/Icon.js';
 import type { ThreadEvent } from '../types/models.js';
 
 /**
@@ -65,19 +67,57 @@ export function timeOf(ts?: number): string {
 }
 
 /**
- * 空状态插画占位（图标 + 主文案 + 副提示）。
- * @param icon 图标字符或短文本。
- * @param text 主文案。
- * @param hint 副提示文案。
- * @returns 空状态元素。
+ * 空状态插画占位（图标 + 主文案 + 可选副提示）。
+ *
+ * `icon` 接受**字符串或元素**：字符串是为历史调用点保留的兼容形态（也能放短文本），
+ * 新代码一律传 `icon('<图标名>')`（见 models/Icon.ts）——emoji 的字形随系统字体变、
+ * 尺寸不受控、且不跟随 `currentColor`，不适合当图标用。
+ *
+ * `hint` 可省略：只有主文案时也走同一套版式（图标槽 + 主文案），避免"有的空态有图标、
+ * 有的只有一行灰字"这种同一产品里两套语言（分工见 `emptyNote` 的说明）。
+ * @param icon 图标元素或字符
+ * @param text 主文案
+ * @param hint 可选副提示（指引下一步做什么）
+ * @param kind 传 `'err'` 时按**加载失败**呈现（红色 + 警示图标），与"没有内容"区分开
+ * @returns 空状态元素
  */
-export function emptyState(icon: string, text: string, hint: string): ReactElement {
+export function emptyState(
+  icon: string | ReactElement,
+  text: string,
+  hint?: string,
+  kind?: 'err',
+): ReactElement {
   return React.createElement(
     'div',
-    { className: 'empty illu' },
+    { className: 'empty illu' + (kind === 'err' ? ' err' : '') },
     React.createElement('div', { className: 'illu-icon' }, icon),
     React.createElement('div', { className: 'illu-text' }, text),
-    React.createElement('div', { className: 'illu-hint' }, hint),
+    hint === undefined ? null : React.createElement('div', { className: 'illu-hint' }, hint),
+  );
+}
+
+/**
+ * 行内说明（**不是空态**）：例如"读取中…"这类过程提示、"工作区很干净"这类状态结论。
+ *
+ * 与 `emptyState` 的分工（2026-10-07 统一口径，三种态视觉上必须能一眼分开）：
+ *   · `.empty.illu`（= `emptyState`）：**列表里没有内容，且需要指引** —— 图标槽 + 主文案 + 指引。
+ *   · `.empty.note`（= 本函数）：**内容稍后就有 / 结论本身就是全部信息** —— 一行灰字 + 小图标。
+ *   · `.empty.err`：**加载失败** —— 红色 + 警示图标。原先它与"没有内容"都只是灰字，
+ *     用户分不清"这里没数据"和"数据读挂了"。
+ * @param text 文案
+ * @param opts `icon` 小图标名；`kind` 取 `'note'`（默认）或 `'err'`
+ * @returns 行内说明元素
+ */
+export function emptyNote(
+  text: string,
+  opts: { icon?: IconName; kind?: 'note' | 'err' } = {},
+): ReactElement {
+  const kind = opts.kind ?? 'note';
+  return React.createElement(
+    'div',
+    { className: 'empty ' + kind },
+    opts.icon === undefined ? null : icon(opts.icon, { size: 13 }),
+    esc(text),
   );
 }
 
