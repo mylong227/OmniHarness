@@ -135,6 +135,50 @@ test('appendFinalText：去重 + 空/空白跳过（send 兜底分支）', () =>
   assert.strictEqual(r.appendFinalText(prev, '   '), prev);
 });
 
+// 2026-10-07 用户实测：「原本会话下继续发一条话后，滚轮从下向上滚，渲染内容就会重复变越来越多」。
+// 事件流是**至少一次**投递（SSE 重连补发 / resume 回放 / 双订阅都会重投同一条 id），
+// 归约器此前无条件追加 ⇒ 重复事件越堆越多（虚拟化滚动才逐段显形，所以症状是"往上滚越来越多"）。
+test('appendEvent：同一 id 重投必须被忽略（否则重复事件越堆越多）', () => {
+  const ev = { id: 'evt_1', type: 'tool_call', timestamp: 1, payload: {} };
+  const prev = [ev];
+  assert.strictEqual(r.appendEvent(prev, { ...ev }), prev, '同 id 重投 ⇒ 原样返回（引用不变）');
+  const fresh = { id: 'evt_2', type: 'assistant', timestamp: 2, payload: {} };
+  assert.strictEqual(r.appendEvent(prev, fresh).length, 2, '新 id 照常追加');
+  // id 缺失无法判定 ⇒ 仍按新事件追加（不静默丢事件）
+  assert.strictEqual(r.appendEvent(prev, { type: 'assistant', timestamp: 3, payload: {} }).length, 2);
+});
+
+test('ingestEvent：同 id 重投不得清空流式缓冲 / 覆盖收口标记', () => {
+  const ev = { id: 'evt_a', type: 'assistant', timestamp: 1, payload: { content: 'x' } };
+  const prev = { events: [ev], streamText: '正在生成', finalizedStreamText: '上一段' };
+  const next = r.ingestEvent(prev, { ...ev });
+  assert.strictEqual(next.events, prev.events, 'events 引用不变（不重渲染）');
+  assert.strictEqual(next.streamText, '正在生成', '重投不得把流式文本清空');
+  assert.strictEqual(next.finalizedStreamText, '上一段', '重投不得覆盖收口标记');
+  const appended = r.ingestEvent(prev, { id: 'evt_b', type: 'assistant', timestamp: 2, payload: {} });
+  assert.strictEqual(appended.events.length, 2, '新 id 照常并入并收口流式文本');
+  assert.strictEqual(appended.streamText, '');
+  assert.strictEqual(appended.finalizedStreamText, '正在生成');
+});
+
+test('appendFinalText：只与最后一条 assistant 比（更早同文不得吞掉本条，末条差空白不得重复）', () => {
+  const prev = [
+    { id: 'a1', type: 'assistant', timestamp: 0, payload: { content: '同文' } },
+    { id: 'a2', type: 'assistant', timestamp: 1, payload: { content: '另一段' } },
+  ];
+  assert.strictEqual(
+    r.appendFinalText(prev, '同文').length,
+    3,
+    '更早的 assistant 同文 ⇒ 仍必须追加（旧实现会吞掉本条 = 内容丢失）',
+  );
+  const tailSame = [{ id: 'a', type: 'assistant', timestamp: 0, payload: { content: '总结\n' } }];
+  assert.strictEqual(
+    r.appendFinalText(tailSame, '总结'),
+    tailSame,
+    '末条只差首尾空白 ⇒ 视为同一条，不再重复落一条',
+  );
+});
+
 test('appendTextDelta：增量拼接，不覆盖既有内容', () => {
   assert.strictEqual(r.appendTextDelta('', '你'), '你');
   assert.strictEqual(r.appendTextDelta('你', '好'), '你好');

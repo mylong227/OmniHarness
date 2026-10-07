@@ -32,13 +32,32 @@ export class AppReducers {
   private readonly shortcuts = new KeyboardShortcuts();
 
   /**
-   * 向事件流追加一条事件。
+   * 向事件流追加一条事件（**同一 id 只认第一次**）。
+   *
+   * 为什么必须按 id 去重（2026-10-07 用户实测：「原本会话下继续发一条话后，滚轮从下向上滚，渲染内容
+   * 就会重复变越来越多」）：事件流的投递是**至少一次**语义——SSE 重连补发、resume 回放、双订阅都可能
+   * 把同一条事件再投一次，而这里此前是无条件追加 ⇒ 重复事件在中栏里越堆越多（虚拟化滚动时才逐段显形，
+   * 于是症状是"往上滚就越来越多"），右下角事件数也一起涨。事件 id 由服务端生成且全局唯一，
+   * 按 id 去重不会误伤任何正常事件。
    * @param prev 既有事件流
    * @param ev 待追加的事件
-   * @returns 追加后的事件流
+   * @returns 追加后的事件流（重复 id 时原样返回，引用不变 ⇒ 不触发无谓重渲染）
    */
   public appendEvent(prev: ThreadEvent[], ev: ThreadEvent): ThreadEvent[] {
+    if (AppReducers.alreadyIngested(prev, ev)) return prev;
     return [...prev, ev];
+  }
+
+  /**
+   * 该事件是否已在流里（按 id）。
+   * @param prev 既有事件流
+   * @param ev 待判定事件
+   * @returns 已存在返回 true（id 缺失/空串时视为"无法判定" ⇒ false）
+   */
+  private static alreadyIngested(prev: readonly ThreadEvent[], ev: ThreadEvent): boolean {
+    const id = ev.id;
+    if (typeof id !== 'string' || id === '') return false;
+    return prev.some((e) => e.id === id);
   }
 
   /**
@@ -72,6 +91,11 @@ export class AppReducers {
     prev: { events: ThreadEvent[]; streamText: string; finalizedStreamText: string },
     ev: ThreadEvent,
   ): { events: ThreadEvent[]; streamText: string; finalizedStreamText: string } {
+    // 与 appendEvent 同一条去重纪律（同一 id 只认第一次）：重投的 assistant 事件若照收，还会顺带把
+    // streamText 清空、finalizedStreamText 覆盖，让正在流的那段正文的收口判断一起错位。
+    if (AppReducers.alreadyIngested(prev.events, ev)) {
+      return { events: prev.events, streamText: prev.streamText, finalizedStreamText: prev.finalizedStreamText };
+    }
     const events = [...prev.events, ev];
     if (ev.type === 'assistant' && prev.streamText !== '') {
       return { events, streamText: '', finalizedStreamText: prev.streamText };
@@ -265,8 +289,13 @@ export class AppReducers {
    */
   public appendFinalText(prev: ThreadEvent[], finalText: string | undefined): ThreadEvent[] {
     if (finalText === undefined || finalText.trim() === '') return prev;
-    const alreadyShown = prev.some((e) => e.type === 'assistant' && (e.payload?.content as string) === finalText);
-    if (alreadyShown) return prev;
+    // 只与**最后一条 assistant** 比（trim 归一）：比"任意历史 assistant 是否同文"会误伤——上一回合
+    // 恰好同文时，本回合的兜底事件会被吞掉（**内容丢失**）；而比最后一条就足以判定"流里已经有过这条
+    // 回复"。归一化掉首尾空白，避免模型最终文本与事件正文差一个换行就重复落一条（用户实测的"重复"）。
+    const lastAssistant = AppReducers.lastAssistantOf(prev);
+    if (lastAssistant !== undefined && String(lastAssistant.payload?.content ?? '').trim() === finalText.trim()) {
+      return prev;
+    }
     return [
       ...prev,
       {
@@ -276,6 +305,19 @@ export class AppReducers {
         payload: { content: finalText },
       } as ThreadEvent,
     ];
+  }
+
+  /**
+   * 取事件流里最后一条 assistant 事件。
+   * @param events 事件流
+   * @returns 最后一条 assistant 事件；没有则 undefined
+   */
+  private static lastAssistantOf(events: readonly ThreadEvent[]): ThreadEvent | undefined {
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+      const ev = events[i];
+      if (ev !== undefined && ev.type === 'assistant') return ev;
+    }
+    return undefined;
   }
 
   /**
