@@ -7,6 +7,7 @@
 
 import { React } from '../deps.js';
 import { PathJoiner } from '../models/PathJoiner.js';
+import { PickerKeys } from '../models/PickerKeys.js';
 import { icon } from '../models/Icon.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
@@ -130,9 +131,16 @@ function renderCreateBar(
           className="fp-input"
           value={state.newName}
           placeholder="文件夹名称"
+          autoFocus
+          onFocus={(e: React.FocusEvent<HTMLInputElement>) => e.currentTarget.select()}
           onInput={(e: React.SyntheticEvent) => hooks.onChange((e.target as HTMLInputElement).value)}
           onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === 'Enter') hooks.onCreate();
+            const composing = (e.nativeEvent as KeyboardEvent).isComposing === true;
+            const action = PickerKeys.resolve(e.key, { creating: true, composing });
+            if (action === 'confirm-create') {
+              e.preventDefault();
+              hooks.onCreate();
+            }
           }}
         />
         <button className="fp-btn fp-primary" onClick={hooks.onCreate}>
@@ -203,14 +211,18 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     void loadDir();
   }, []);
 
-  // Esc 关闭；若在新建态则先退出新建（就近取消，避免误关整个弹窗）。依赖 creation 态以读最新值。
+  // Esc 语义：新建态先退新建（就近取消），浏览态才关整个弹窗；其余按键**一律放行**——
+  // 旧版新建态分支忘了判断按键，用户在命名框里敲的每个字母都被这里当成「退出新建」
+  // （2026-10-07 用户报「输入就直接退出了新建文件夹」的根因）。判定规则见 models/PickerKeys。
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (create.creating) {
+      const action = PickerKeys.resolve(e.key, { creating: create.creating, composing: e.isComposing });
+      if (action === 'exit-create') {
+        e.preventDefault();
         setCreate((prev) => ({ ...prev, creating: false, creatingErr: null }));
         return;
       }
-      if (e.key === 'Escape') onCancel();
+      if (action === 'close-picker') onCancel();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
