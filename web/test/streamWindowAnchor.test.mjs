@@ -14,7 +14,16 @@
 //    8% / 36%，一往上拖就被推回去（实测 236→569、463→1411）。
 // ③ **本版：不改位置，只多渲染**（两侧各多渲染若干块）。用户的滚动位置全程不动 ⇒ 这两类症状在
 //    设计上不可能发生。故 `anchorDelta`（写回用的校正量）已**删除**，只保留「覆盖率」与「要不要修」
-//    两个纯判据；写回相关的预算仍保留（修复会 setState，仍需上界，见 scrollRepairBudget.test.mjs）。
+//    两个纯判据。
+//
+// ## ④ 2026-10-07：把「滚动预算」闸也删掉（同一次删掉 `models/ScrollRepairBudget.ts`）
+//
+// 预算（每次用户滚动补 2 次、`take()` 消耗）本意是给「修复会 setState」一个可证上界。真机实测
+// （用户报「会话流滚动时出现大面积空白」）它反成了病灶：**测量引发的布局效应也会消耗预算**，长滚动
+// 序列里预算耗尽后该修的洞就修不了（13 档抽样里两档覆盖率只剩 46% / 59%）。终止性改由 StreamView
+// 里的**结构性单次迁移**保证：`holeBoost` 只做 0 → HOLE_BOOST_BLOCKS 一次迁移，置位后守卫短路、
+// 同值 setState bail，且本路径**从不写 scrollTop** ⇒ `render → effect → setState` 循环在结构上
+// 不可自我续期（原 #185 来自已删除的「写回」变体）。下方接线守卫钉死这一契约。
 //
 // 直跑：node --test web/test/streamWindowAnchor.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
@@ -102,7 +111,7 @@ test('接线守卫：修复**不得**再写回 scrollTop（两类用户报障的
   );
 });
 
-test('接线守卫：空洞修复必须是「多渲染」且带预算（防 React #185）', async () => {
+test('接线守卫：空洞修复必须是「多渲染」且终止性为结构性单次迁移（防 React #185）', async () => {
   const { readFileSync } = await import('node:fs');
   const { dirname, join } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
@@ -117,15 +126,19 @@ test('接线守卫：空洞修复必须是「多渲染」且带预算（防 Reac
     /StreamWindow\.needsAnchorRepair\(/,
     '加渲必须由「视口基本没内容」触发，不得无条件加渲',
   );
+  // 2026-10-07 移除「滚动预算」闸（预算每滚动只补 2 次，测量引发的布局效应会把它耗尽，
+  // 真机实测长滚动序列里该修的洞修不了——用户报「滚动出现大面积空白」）。终止性改由
+  // 结构性守卫保证：holeBoost 只做 0→N 的单次迁移，已置位即短路 + 同值 bail，
+  // render→effect→setState 循环在结构上不可自我续期。
   assert.match(
     condition,
-    /repairBudgetRef\.current!\.take\(\)/,
-    '加渲必须先申请预算（否则反复 setState 可致 React #185）',
+    /holeBoost\s*<\s*HOLE_BOOST_BLOCKS/,
+    '加渲必须受「单次迁移」守卫（已加渲后不得再次 setState）',
   );
   assert.doesNotMatch(
-    condition,
-    /\|\|\s*true|\?\?\s*true/,
-    '不得用 `|| true` 之类短路把预算抹掉',
+    src,
+    /repairBudgetRef/,
+    '预算闸已删（见上），不得复活半吊子的旧机制',
   );
 });
 

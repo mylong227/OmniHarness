@@ -30,6 +30,7 @@
 | `CODE_STANDARD_REFACTOR_PLAN.md`                  | 全库代码规范重构计划                                                            |
 | `COMPLETION_PLAN.md`                              | OmniHarness 调研差距清单与补全计划（2026-09-01）                                |
 | `CORE_CAPABILITY_AUDIT_2026-10-01.md`             | OmniHarness 核心能力排查与提升（2026-10-01）                                    |
+| `ui-polish-probe-2026-10-07.md`                   | Web 工作台视觉打磨真机探针报告（2026-10-07；现行规范见根级 DESIGN_SYSTEM.md）   |
 | `DEFICIENCY_AUDIT_2026-09-22.md`                  | OmniHarness 不足审计：逻辑 / 性能 / 架构 / 召回（2026-09-22）                   |
 | `EMBEDDING_EVALUATION.md`                         | 本地 Embedding 依赖评估（破 U3 语义鸿沟）                                       |
 | `FRONTEND_GAP_SOURCE_AUDIT.md`                    | 前端全功能页面对标审计（vs `deepseek-harness` Web / `codex`）                   |

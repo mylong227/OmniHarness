@@ -15,12 +15,23 @@
 // 修复点：`StreamWindow.anchorDelta` + `StreamView` 的锚定自愈校正（把「最接近视口顶的已渲染块」的
 // 真实偏移对齐到模型偏移）。
 //
-// ## 诚实边界（这条是**烟雾检测**，不是那个缺陷的复现器）
+// ## 第二形态（2026-10-07 用户报「会话流滚动时出现大面积空白」）：**零高空块**
 //
-// 实测：**合成流不复现**该缺陷 —— 逐条/批量推事件与「从服务端 batch 载入真实会话」在测量时序与
-// 估算/实测失配量上都不同（真实会话跳转滚动每轮 2–4 处空白、最差覆盖率 0%，合成流始终 ≥96%）。
-// 故本用例只挡「整屏都渲染不出来」这类**粗**回归；**算术层**由 `streamWindowAnchor.test.mjs` 钉死
-// （7 例，含接线守卫），那才是该缺陷的可证伪门禁。
+// 上面那条合成流（长块为主）**不复现**本形态 —— 逐条/批量推事件与「从服务端 batch 载入真实会话」
+// 在测量时序与估算/实测失配量上都不同（真实会话跳转滚动每轮 2–4 处空白，长块合成流始终 ≥96%）。
+//
+// 真成因是**块构建把「渲染为 null 的事件」也当成块**：`session_meta` / `model`（每步一条）/ 已被
+// 调用卡内联的 `tool_result` 在渲染层返回 null（真实高度 0），旧块构建却给它们分配 key 与 88px 估算。
+// 于是 `BlockHeightIndex` 永远测不到这些块（测量循环 `h > 0` 跳过 0 高），索引与真实 DOM **系统性
+// 漂移**：一个窗口里十几~三十几个空块 ⇒ padBottom 把视口顶满 ⇒ 一屏空白。
+//
+// 故本文件第二条用例专门喂这种混杂流（大量 `model` + 少量短消息），并同时钉两条判据：
+// ① 任何一档覆盖率 ≥ 60%；② **DOM 里不得存在 0 高的 `.sw-block`**（= 空块没有进入块列表）。
+//
+// 可证伪性（2026-10-07 实测，隔离变量 = 只把 `isRenderedEvent` 改成恒 true，其余代码不变）：
+// 同一混合流 13 档里 5 档覆盖率 **0%**、DOM 里 31 个 0 高块；修复后 13 档全 100%、0 高块 0 个。
+// 真会话复核（`sess_mujefco0_1`，152 事件 / 35 条 model）：修复前最低 **42%**（最多 32 个 0 高块），
+// 修复后 13 档全 100%。
 //
 // 直跑：node --test web/test/streamScrollCoverage.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
@@ -70,9 +81,9 @@ async function seedLongStream(cdp) {
 }
 
 /**
- * 按比例跳转滚动，返回每档的视口覆盖率。
+ * 按比例跳转滚动，返回每档的视口覆盖率与「0 高空块」计数。
  * @param {object} cdp CDP 会话。
- * @returns {Promise<{samples:Array<{ratio:number, pos:number, nodes:number}>, max:number, total:string}>} 度量。
+ * @returns {Promise<{samples:Array<{ratio:number, pos:number, nodes:number, zeroH:number}>, max:number, total:string}>} 度量。
  */
 function sampleCoverage(cdp) {
   return cdp.evaluate(`(async function(){
@@ -87,43 +98,104 @@ function sampleCoverage(cdp) {
       await new Promise(function(r){ setTimeout(r, 250); }); // 等测量 / 锚定校正收敛
       var vTop = s.getBoundingClientRect().top, vBottom = vTop + s.clientHeight;
       var covered = 0;
+      var zeroH = 0;
       var nodes = s.querySelectorAll('.sw-block');
       for (var i = 0; i < nodes.length; i++) {
         var r = nodes[i].getBoundingClientRect();
+        if (r.height === 0) zeroH += 1;                    // 渲染为 null 的事件不该出现在这里
         var top = Math.max(r.top, vTop), bottom = Math.min(r.bottom, vBottom);
         if (bottom > top) covered += (bottom - top);
       }
-      samples.push({ ratio: Math.round((covered / s.clientHeight) * 100), pos: s.scrollTop, nodes: nodes.length });
+      samples.push({ ratio: Math.round((covered / s.clientHeight) * 100), pos: s.scrollTop, nodes: nodes.length, zeroH: zeroH });
     }
     return { samples: samples, max: max, total: s.getAttribute('data-total-count') };
   })()`);
 }
 
-test('跳转滚动不得出现「视口全是占位」的空洞', { timeout: 120_000 }, async (t) => {
+/**
+ * 造一条「零高空块混杂」的流：1 条 session_meta + 30 条 model + 10 条短消息。
+ *
+ * `model` 与 `session_meta` 在渲染层返回 null（真实高度 0）。修复前它们会被算成 88px 的块，
+ * 30 个空块 = 2640px 幽灵高度，把真实内容只有 ~450px 的流算成三千多像素高 ⇒ 跳转滚动后视口
+ * 落进 padBottom（实测 5 档覆盖率 0%）。
+ * @param {object} cdp CDP 会话。
+ * @returns {Promise<void>} 无
+ */
+async function seedNullRenderedMix(cdp) {
+  const events = [];
+  let t = 0;
+  events.push({ id: `m${t}`, type: 'session_meta', timestamp: t++, payload: { workspace: 'D:\\tmp' } });
+  for (let i = 0; i < 30; i++) events.push({ id: `model${t}`, type: 'model', timestamp: t++, payload: { model: 'x' } });
+  for (let i = 0; i < 10; i++) {
+    events.push({ id: `a${t}`, type: 'assistant', timestamp: t++, payload: { content: `好的，我来处理这一步（第 ${i} 步）。` } });
+  }
+  // 分批推（每批 20 条）：与真实装载/流式的到达形态一致。
+  for (let i = 0; i < events.length; i += 20) {
+    const envs = events.slice(i, i + 20).map((e) => ({ method: 'thread.event', params: { event: e } }));
+    await cdp.evaluate(`(function(){ var a=${JSON.stringify(envs)}; for (var k=0;k<a.length;k++) window.__PUSH__(a[k]); return true; })()`);
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  await new Promise((r) => setTimeout(r, 1200));
+}
+
+/**
+ * 起一次「真 Chrome + stub 页（真前端 + 假后端）」会话。
+ * @param {object} t node:test 上下文（环境不可用时用于显式 skip）。
+ * @returns {Promise<{cdp:object, close:()=>Promise<void>}|null>} 会话；不可用返回 null（已 skip）。
+ */
+async function openStubSession(t) {
   const browser = findBrowser();
   if (browser === null) {
     t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
-    return;
+    return null;
   }
   if (typeof globalThis.WebSocket !== 'function') {
     t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
-    return;
+    return null;
   }
   const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB}`]: stubHtmlCdp() });
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-scrollcov-'));
   const cdpPort = await getFreePort();
   const proc = launchChromeForCdp(browser, `http://127.0.0.1:${server.port}/${STUB}`, userDataDir, cdpPort);
+  /** 无论成败都收干净：浏览器整树 + 静态服务 + 临时 profile。 @returns {Promise<void>} 无 */
+  const cleanup = async () => {
+    killChromeTree(proc, userDataDir);
+    await server.close();
+    try {
+      rmSync(userDataDir, { recursive: true, force: true });
+    } catch {
+      /* 锁未释放，交由 OS 回收 */
+    }
+  };
   let cdp;
   try {
     cdp = new CdpSession(await waitForPageWs(cdpPort, STUB));
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 700, deviceScaleFactor: 1, mobile: false });
     await cdp.navigate(`http://127.0.0.1:${server.port}/${STUB}`);
     await cdp.waitFor("!!document.querySelector('.composer-input textarea')", 1200);
-    await seedLongStream(cdp);
+  } catch (err) {
+    if (cdp !== undefined) cdp.close();
+    await cleanup();
+    throw err;
+  }
+  return {
+    cdp,
+    async close() {
+      cdp.close();
+      await cleanup();
+    },
+  };
+}
+
+test('① 长块流：跳转滚动不得出现「视口全是占位」的空洞', { timeout: 120_000 }, async (t) => {
+  const page = await openStubSession(t);
+  if (page === null) return;
+  try {
+    await seedLongStream(page.cdp);
 
     // 两轮：第一轮索引尚冷（多为估算），第二轮索引已热身 —— 两轮都不得出现空洞。
     for (const round of [1, 2]) {
-      const res = await sampleCoverage(cdp);
+      const res = await sampleCoverage(page.cdp);
       assert.ok(res.samples !== undefined, `第 ${round} 轮取样失败：${JSON.stringify(res)}`);
       assert.ok(res.samples.length > 0, '未取到任何滚动样本');
       const bad = res.samples.filter((s) => s.ratio < MIN_COVERAGE);
@@ -134,13 +206,35 @@ test('跳转滚动不得出现「视口全是占位」的空洞', { timeout: 120
       );
     }
   } finally {
-    if (cdp !== undefined) cdp.close();
-    killChromeTree(proc, userDataDir);
-    await server.close();
-    try {
-      rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      /* 锁未释放，交由 OS 回收 */
+    await page.close();
+  }
+});
+
+test('② 零高空块混杂流：跳转滚动不得空白，且 DOM 里不得有 0 高的块', { timeout: 120_000 }, async (t) => {
+  const page = await openStubSession(t);
+  if (page === null) return;
+  try {
+    await seedNullRenderedMix(page.cdp);
+    for (const round of [1, 2]) {
+      const res = await sampleCoverage(page.cdp);
+      assert.ok(res.samples !== undefined, `第 ${round} 轮取样失败：${JSON.stringify(res)}`);
+      assert.ok(res.samples.length > 0, '未取到任何滚动样本');
+      const blank = res.samples.filter((s) => s.ratio < MIN_COVERAGE);
+      assert.deepStrictEqual(
+        blank,
+        [],
+        `第 ${round} 轮出现空白视口（覆盖 < ${MIN_COVERAGE}%）：${JSON.stringify(blank)}（总块 ${res.total}）`,
+      );
+      // 根因判据：`session_meta` / `model` 在渲染层返回 null，**不得**作为 `.sw-block` 出现在 DOM 里
+      // （它们的 88px 估算就是索引漂移的来源）。这一条对已知坏输入变红：旧块构建 31 个 0 高块。
+      const empty = res.samples.filter((s) => s.zeroH > 0);
+      assert.deepStrictEqual(
+        empty,
+        [],
+        `第 ${round} 轮 DOM 里出现 0 高的 .sw-block（渲染为 null 的事件被算成了块）：${JSON.stringify(empty)}`,
+      );
     }
+  } finally {
+    await page.close();
   }
 });

@@ -66,6 +66,8 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'QUICKSTART.md',
   // CLI 参考（2026-10-06 显式登记）：从 47KB 的根 README 里拆出的子命令与旗标速查（权威来源仍是 --help）
   'CLI_REFERENCE.md',
+  // Web 设计系统规范（2026-10-07 显式登记）：web/styles 打磨层与壳层的 token/层级/交互态唯一规范
+  'DESIGN_SYSTEM.md',
   'PLUGIN_GUIDE.md',
   'contributing.md',
   'integration.md',
