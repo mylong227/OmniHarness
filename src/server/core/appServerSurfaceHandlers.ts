@@ -71,12 +71,29 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
   }
 
   /**
+   * `context.usage` 的目标会话：请求里给了就用它，**没给就回落到正在跑的会话**。
+   *
+   * 为什么必须回落（2026-10-07 用户实测「不会实时计算显示刷新容量面板上的数据」）：
+   * 新会话的 `threadId` 要等 `turns.run` 返回之后客户端才知道，而容量面板在**第一回合进行中**
+   * 就已经打开了（用户就是在这时候看的）——此时客户端只能传空串，服务端原样返回全零报告
+   * （`source: 'empty'`），面板于是整段时间显示 `0/12.8万`。回合进行中服务端**本来就知道**
+   * 真正的会话 id（`Agent.runningSessionIds()`，插入序 ⇒ 末条最新），回落即可给出真实数字。
+   * @param requested 请求里的 threadId（可能为空串）。
+   * @returns 用于取数的会话 id（可能仍为空串：确实没有任何在跑会话时）。
+   */
+  protected usageThreadId(requested: string): string {
+    if (requested !== '') return requested;
+    const running = this.runtime.agent().runningSessionIds();
+    return running.length === 0 ? '' : running[running.length - 1]!;
+  }
+
+  /**
    * 注册上下文容量 / 配额 / 模式 / 检索 / 档位表 / 智能体目录 RPC。
    * @returns 无返回值。
    */
   protected registerSurfaceHandlers(): void {
     this.handlers.set('context.usage', async (params) =>
-      this.contextUsage.usage(this.stringParam(params, 'threadId')),
+      this.contextUsage.usage(this.usageThreadId(this.stringParam(params, 'threadId'))),
     );
     this.handlers.set('quota.get', async () => this.quota.status());
     this.handlers.set('quota.set', async (params) => {
