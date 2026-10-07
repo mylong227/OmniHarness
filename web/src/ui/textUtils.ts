@@ -155,6 +155,20 @@ export function isRenderedEvent(ev: ThreadEvent, toolCallIds: ReadonlySet<string
   return true;
 }
 
+/** 产物类工具调用（会在卡片里带出 ArtifactCard 的那些，口径同 `ArtifactResolver` 的工具表）。 */
+const ARTIFACT_TOOLS: ReadonlySet<string> = new Set(['write_file', 'apply_patch', 'sketch_write']);
+
+/**
+ * 该事件是不是「产出物的调用」（写文件 / 打补丁 / 出草图）。
+ * @param ev 事件
+ * @returns 是产物类工具调用为 true
+ */
+export function isArtifactCall(ev: ThreadEvent): boolean {
+  if (ev.type !== 'tool_call') return false;
+  const name = ev.payload?.name;
+  return typeof name === 'string' && ARTIFACT_TOOLS.has(name);
+}
+
 /**
  * 把 events 拆成可视块：**先剔除不会渲染的事件**（见 {@link isRenderedEvent}），
  * busy=true 时单 event 不折叠；busy=false 时把过程类打包成 process 块。
@@ -177,7 +191,12 @@ export function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean
     buf = [];
   };
   for (const ev of visible) {
-    if (PROCESS_TYPES.has(ev.type)) {
+    // **产物单独成块**（2026-10-07 用户截图口径：「结果不应该被收进过程中，应该单独的显示出来」）：
+    // 写文件/改文件的调用会在卡片里带出**产物卡**（ArtifactCard：文件名 + 打开/下载），那是这一轮的
+    // *结果*而不是*过程*。此前它和其他工具调用一起被折进「执行过程」折叠块里 ⇒ 用户得展开过程才看得到
+    // 自己刚拿到的东西。故把产物类调用（write_file / apply_patch）**跳出过程缓冲**单独成块：
+    // 顺序不变、折叠块语义不变（其余工具/思考仍照旧聚合）。
+    if (PROCESS_TYPES.has(ev.type) && !isArtifactCall(ev)) {
       buf.push(ev);
     } else {
       flush();
