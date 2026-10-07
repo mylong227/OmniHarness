@@ -296,10 +296,20 @@ export class ShellTool {
    * @returns 工具结果（取消/非零退出/超时都会保留已产生的输出）。
    */
   private toResult(callId: string, outcome: ShellRunOutcome, timeoutMs: number): ToolResult {
-    const output = this.composeOutput(
+    let output = this.composeOutput(
       this.decoder.decode(outcome.stdout),
       this.decoder.decode(outcome.stderr),
     );
+    if (outcome.consoleFallback === true) {
+      // 诚实上报（2026-10-07）：命令**实际启动了两次**——首次带 CREATE_NO_WINDOW 的启动在受限
+      // 令牌沙箱里死在 DLL 初始化（连用户代码都没进），故不可能产生副作用；这里把事实说出来，
+      // 而不是让调用方以为它只跑了一次。
+      log.warn('shell.consoleFallback', {
+        reason:
+          'CREATE_NO_WINDOW 子进程在受限令牌下 DLL 初始化失败（0xC0000142），已改用继承控制台启动',
+      });
+      output = `${output}\n[omniharness] 首次启动在 DLL 初始化阶段失败（0xC0000142），已改用继承控制台的方式重新执行`;
+    }
     if (outcome.aborted) {
       return this.exitFailure(callId, '命令被会话取消（已终止整棵进程树）', output);
     }
