@@ -229,6 +229,17 @@ export class SessionController {
   }
 
   /**
+   * 工作区切换后的收口：旧项目的当前会话与事件流不再属于当前上下文——
+   * 摘视图（清空事件流 / 当前会话 / 流式缓冲，hash 去掉 threadId）并重取会话列表
+   * （服务端按新工作区过滤）。否则用户切了项目，中栏还挂着上一个项目的对话。
+   * @returns 无
+   */
+  public onWorkspaceSwitched(): void {
+    this.newSession();
+    void this.refreshSessions();
+  }
+
+  /**
    * 重命名会话（自定义标题）：写入服务端侧车后刷新列表（列表回落优先显示自定义标题）。
    * @param id 会话 id
    * @param title 新标题

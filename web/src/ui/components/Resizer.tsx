@@ -79,5 +79,5 @@ export function Resizer(props: ResizerProps): ReactElement {
     document.body.style.userSelect = 'none';
   };
 
-  return <div className="resizer" title="拖拽调整宽度" onMouseDown={onMouseDown} />;
+  return <div className={'resizer resizer-' + side} title="拖拽调整宽度" onMouseDown={onMouseDown} />;
 }

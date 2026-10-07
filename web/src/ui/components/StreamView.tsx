@@ -125,8 +125,10 @@ export interface StreamViewProps {
   adapter?: string;
   /** 打开左栏抽屉（仅窄屏渲染的汉堡按钮）。 */
   onToggleLeft?: () => void;
-  /** 打开右栏抽屉（仅窄屏渲染的面板按钮）。 */
+  /** 切换右栏（桌面=收起/展开面板；移动=抽屉）。 */
   onToggleRight?: () => void;
+  /** 右栏当前是否收起（中栏头切换按钮的高亮态）。 */
+  rightCollapsed?: boolean;
 }
 
 /** 单事件渲染所需的上下文（从 props 收拢，供模块级分派函数复用）。 */
@@ -386,6 +388,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     adapter,
     onToggleLeft,
     onToggleRight,
+    rightCollapsed,
   } = props;
   /** 中栏视图：对话流 / 工具轨迹（头部标签切换；默认对话）。 */
   const [view, setView] = React.useState<ChatViewKind>('chat');
@@ -559,6 +562,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
         onView={setView}
         onToggleLeft={onToggleLeft}
         onToggleRight={onToggleRight}
+        rightCollapsed={rightCollapsed}
       />
       {view === 'trace' ? (
         <TraceView events={events} liveInputs={liveInputs} toolResults={toolResults} />

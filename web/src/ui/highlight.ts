@@ -115,7 +115,15 @@ function tokenize(src: string, lang: string): Tok[] {
         }
         j++;
       }
-      out.push({ t: 'string', v: src.slice(i, j) });
+      // JSON 键值分色（用户实测「代码显示区色彩没有区分」的主因：键和值同为字符串全蓝一片）：
+      // 字符串之后（跳过空白）紧跟冒号 ⇒ 它是对象键，标为 prop 与字符串值区分。
+      let isKey = false;
+      if (lang === 'json') {
+        let k = j;
+        while (k < n && /\s/.test(src[k]!)) k++;
+        isKey = src[k] === ':';
+      }
+      out.push({ t: isKey ? 'prop' : 'string', v: src.slice(i, j) });
       i = j;
       continue;
     }

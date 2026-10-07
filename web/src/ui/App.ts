@@ -65,6 +65,8 @@ function initialState(): AppState {
     theme: 'dark',
     leftOpen: false,
     rightOpen: false,
+    // 桌面右栏收起态的本机偏好在 LayoutController.initTheme 里恢复；首屏先展开。
+    rightCollapsed: false,
     memoryReloadKey: 0,
     profilesReloadKey: 0,
     graphRuns: {},
@@ -159,7 +161,7 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
     { className: 'app' },
     React.createElement(
       'div',
-      { className: 'body' },
+      { className: 'body' + (s.rightCollapsed ? ' rcollapsed' : '') },
       React.createElement(SessionPanel, {
         sessions: s.sessions,
         currentThreadId: s.currentThreadId,
@@ -171,7 +173,7 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         onFork: ctrl.sessions.forkSession,
         onArchive: ctrl.sessions.archiveSession,
         onReorder: ctrl.sessions.reorderSessions,
-        onWorkspaceSwitched: () => ctrl.sessions.refreshSessions(),
+        onWorkspaceSwitched: () => ctrl.sessions.onWorkspaceSwitched(),
         scopeAll: s.sessionsScopeAll,
         onToggleScope: () => ctrl.sessions.toggleSessionsScope(),
         activePane: s.activePane,
@@ -225,6 +227,7 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         adapter: s.adapter,
         onToggleLeft: () => ctrl.layout.toggleLeft(),
         onToggleRight: () => ctrl.layout.toggleRight(),
+        rightCollapsed: s.rightCollapsed,
       }),
       React.createElement(Resizer, {
         side: 'right',
@@ -241,6 +244,7 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
           activeFileTitle: s.fileView?.title ?? null,
           onShowFile: ctrl.files.showOpenFile,
           onCloseFile: ctrl.files.closeOpenFile,
+          onCollapse: () => ctrl.layout.toggleRight(),
           style: { width: s.rightWidth + 'px' },
         },
         pane,

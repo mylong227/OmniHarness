@@ -780,14 +780,12 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           </button>
         </div>
       ) : null}
-      {/* 页脚：连接状态 + 主题 + 设置（原 TopBar 的状态 / 主题职责收编于此）。 */}
+      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */}
       <SidebarFooter
         connected={connected ?? true}
         streamState={streamState}
         theme={theme ?? 'dark'}
         onToggleTheme={onToggleTheme}
-        onOpenSettings={onOpenPane === undefined ? undefined : () => onOpenPane('settings')}
-        settingsActive={activePane === 'settings'}
       />
     </div>
   );

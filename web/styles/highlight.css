@@ -26,14 +26,15 @@
 /* 行号 / 收尾空隙不参与着色 */
 .hl-code code { display: block; min-height: 1em; }
 
-/* ---- Token 主题色（暗色默认） ---- */
+/* ---- Token 主题色（暗色默认）。键(prop)=蓝、字符串值=绿、数字=琥珀——
+        2026-10-07 用户实测「代码显示区色彩没有区分」后重调：原键值同为蓝色一片。 ---- */
 [data-theme="dark"], :root {
   --tok-comment: #6a737d;
-  --tok-string: #9ecbff;
+  --tok-string: #a5d6a1;
   --tok-kw: #ff7b72;
-  --tok-num: #79c0ff;
+  --tok-num: #f0b466;
   --tok-fn: #d2a8ff;
-  --tok-type: #7ee787;
+  --tok-type: #56d4bc;
   --tok-prop: #79c0ff;
   --tok-punct: #8b949e;
   --tok-plain: #e6edf3;

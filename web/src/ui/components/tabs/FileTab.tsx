@@ -1,17 +1,19 @@
-// 文件面板：点击文件树节点 / 产物卡片 / markdown 文件链接后，在右侧显示文件内容。
-// #OBS-14：代码类文件用内置 tokenizer 做语法高亮（分颜色，参考 WorkBuddy 点文件在
-// 编辑器里查看）。
-// #OBS-15：markdown 文件用 renderMarkdown 渲染成真 Markdown（标题/列表/代码块/链接/表格），
-// 不再退化成纯文本；json 也进高亮。其余（txt/未知）纯文本展示。
+// 文件面板：点击文件树节点 / 产物卡片 / markdown 文件链接后，在右栏代码查看器显示内容。
+// #OBS-14：代码类文件用内置 tokenizer 做语法高亮 + 行号 gutter（CodeSurface）。
+// #OBS-15：markdown 文件用 renderMarkdown 渲染成真 Markdown；json 键值分色；其余纯文本。
 //
-// 函数组件范式：折叠态用 useState；「按语言渲染正文」下沉为模块级函数（纯渲染分支）；
-// 「语言分类」判据继续复用 FileKindClassifier（零 React，可单测）。
+// 2026-10-07 用户实测反馈后重塑：去掉组件自带的「可折叠标题行」（路径栏已显示同名信息，
+// 双重标题是冗余）；正文改为**填满面板高度**（原先内容下方是一大块空白，观感是"断了的页面"）。
+//
+// 函数组件范式：「按语言渲染正文」下沉为模块级函数（纯渲染分支）；
+// 「语言分类」判据复用 FileKindClassifier（零 React，可单测）。
 
 import { React } from '../../deps.js';
 import { highlightCode, langOf } from '../../highlight.js';
 import { renderMarkdown, emptyState } from '../../format.js';
 import type { FileView } from '../../shared.js';
 import { FileKindClassifier } from '../../models/FileKindClassifier.js';
+import { CodeSurface } from '../CodeSurface.js';
 import { icon } from '../../models/Icon.js';
 
 /** FileTab 组件的入参。 */
@@ -24,7 +26,7 @@ export interface FileTabProps {
 const MAX_PREVIEW = 40000;
 
 /**
- * 按语言渲染正文：代码走高亮，markdown 走渲染器，其余纯文本。
+ * 按语言渲染正文：代码走 CodeSurface（高亮 + 行号），markdown 走渲染器，其余纯文本。
  * @param fileView 文件视图（含内容与语言）
  * @returns 正文节点；内容为空时返回 null
  */
@@ -33,7 +35,7 @@ function renderBody(fileView: FileView): ReactElement | null {
   const lang = fileView.lang || langOf(fileView.title);
   const clipped = fileView.content.slice(0, MAX_PREVIEW);
   if (FileKindClassifier.isCode(lang)) {
-    return highlightCode(clipped, lang);
+    return <CodeSurface content={clipped} lang={lang} />;
   }
   if (FileKindClassifier.isMarkdown(lang)) {
     return (
@@ -50,16 +52,12 @@ function renderBody(fileView: FileView): ReactElement | null {
 }
 
 /**
- * 文件面板：可折叠的文件内容预览（标题行点击切换展开 / 收起）。
+ * 文件面板：填满面板高度的文件内容预览（标题 / 元信息由代码查看器的路径栏呈现）。
  * @param props 组件入参
  * @returns 文件面板节点（无文件时为引导文案）
  */
 export function FileTab(props: FileTabProps): ReactElement {
   const { fileView } = props;
-  const [open, setOpen] = React.useState<boolean>(true);
-  /** 切换展开 / 收起。 */
-  const toggle = (): void => setOpen((prev) => !prev);
-
   if (!fileView) {
     return (
       emptyState(
@@ -69,18 +67,5 @@ export function FileTab(props: FileTabProps): ReactElement {
       )
     );
   }
-  return (
-    <div className="file-pane">
-      <div
-        className="file-row"
-        onClick={toggle}
-        title={open ? '收起' : '展开查看内容'}
-      >
-        <span className="file-caret">{open ? '▾' : '▸'}</span>
-        <span className="file-name">{fileView.title}</span>
-        <span className="file-meta">{fileView.meta}</span>
-      </div>
-      {open ? renderBody(fileView) : null}
-    </div>
-  );
+  return <div className="file-pane">{renderBody(fileView)}</div>;
 }
