@@ -1,4 +1,4 @@
-// 会话 / 事件 / 文件相关控制器（C3 拆分，标准 class 方式）。
+﻿// 会话 / 事件 / 文件相关控制器（C3 拆分，标准 class 方式）。
 // 承接原 useAppController 中与会话、事件流、工具结果、文件预览、钻取、抽屉相关的回调，
 // 一律经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
@@ -9,6 +9,7 @@ import { TurnStreamBuffer } from '../models/TurnStreamBuffer.js';
 import { SessionsScope } from '../models/SessionsScope.js';
 import { DeferredModes } from '../models/DeferredModes.js';
 import { ViewAttachment } from '../models/ViewAttachment.js';
+import { SessionProjectBinding } from '../models/SessionProjectBinding.js';
 import type { SessionModePatch } from '../models/PendingModes.js';
 import { MethodBinder } from './methodBinder.js';
 
@@ -190,6 +191,10 @@ export class SessionController {
     // 挂到这条会话上（不是摘掉）：刷新 / 深链 / 点会话都要能继续收它的流式事件。
     this.viewAttachment.attach();
     try {
+      // 会话**跟着项目走**（2026-10-07 用户：「在 A 项目下的会话，去 B 项目打开，会话会自己串过来」）：
+      // 打开前对齐归属项目、必要时先切项目——策略与判据见 `models/SessionProjectBinding`。
+      const owner = { api: this.services.api, host: this.host, toast: this.services.toast };
+      if (await SessionProjectBinding.ensure(owner, id)) await this.refreshSessions();
       const r = await this.services.api.getThread(id);
       this.host.patch({
         currentThreadId: id,

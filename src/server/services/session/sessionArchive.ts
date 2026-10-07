@@ -16,6 +16,7 @@ import { SessionRanking } from './sessionRanking.js';
 import { SessionArchiveLayout } from '../../../util/sessionArchiveLayout.js';
 import { log } from '../../../util/logger.js';
 import { SessionFileScanner } from './sessionFileScanner.js';
+import { WorkspaceIdentity } from '../../../util/workspaceIdentity.js';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';
@@ -174,9 +175,15 @@ export class SessionArchive {
     const push = (file: string, id: string, archived: boolean): void => {
       const parsed = this.scanSessionFile(file);
       if (parsed === undefined) return;
-      // 工作区过滤：有明确归属且不等于作用域 ⇒ 该会话属于别的项目，不进本项目的列表。
+      // 工作区过滤：有明确归属且**不指向同一个项目** ⇒ 该会话属于别的项目，不进本项目的列表。
+      // 比较走 `WorkspaceIdentity`（归一拼写）：本机实测同一项目曾以 `D:\x` / `D:/x` / 跑测子目录
+      // 三种拼写存在，字面量相等会把它们判成不同项目（用户报「没有按所属项目归类」）。
       // 无归属标记（undefined）的历史会话一律保留（见 list 的 JSDoc）。
-      if (scope !== undefined && parsed.workspace !== undefined && parsed.workspace !== scope) {
+      if (
+        scope !== undefined &&
+        parsed.workspace !== undefined &&
+        !WorkspaceIdentity.same(parsed.workspace, scope)
+      ) {
         return;
       }
       const t = titles[id];
