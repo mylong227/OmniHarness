@@ -45,6 +45,8 @@ export interface RightPanelProps {
   onShowFile?: (title: string) => void;
   /** 关闭文件标签（若是当前文件，上层自动回落到相邻标签）。 */
   onCloseFile?: (title: string) => void;
+  /** 收起整个右栏（桌面端；移动端走抽屉）。未提供则不渲染收起按钮。 */
+  onCollapse?: () => void;
   /**
    * 当前面板内容（由 App 按 activePane 选择后注入）。
    *
@@ -91,8 +93,18 @@ function buildTabs(props: RightPanelProps): TabItem[] {
  * @returns 右栏节点
  */
 export function RightPanel(props: RightPanelProps): ReactElement {
-  const { activePane, onSelect, open, openFiles, activeFileTitle, onShowFile, onCloseFile, children, style } =
-    props;
+  const {
+    activePane,
+    onSelect,
+    open,
+    openFiles,
+    activeFileTitle,
+    onShowFile,
+    onCloseFile,
+    onCollapse,
+    children,
+    style,
+  } = props;
   const items = buildTabs(props);
   /** roving tabindex 的当前下标（激活项进 Tab 序列，其余 -1）。 */
   const activeIdx = items.findIndex((t) => t.active);
@@ -187,6 +199,16 @@ const renderTab = (t: TabItem, i: number): ReactElement => (
         {items.map((t, i) => renderTab(t, i))}
         <span className="flex-spacer" aria-hidden="true"></span>
         <PanelPicker activePane={activePane} onPick={onSelect} />
+        {onCollapse === undefined ? null : (
+          <button
+            className="iconbtn rv-collapse"
+            title="收起功能面板（Ctrl/Cmd+Shift+E）"
+            aria-label="收起功能面板"
+            onClick={onCollapse}
+          >
+            »
+          </button>
+        )}
       </div>
       <div className="rv-pathbar">
         <span className="rv-path" title={pathText}>

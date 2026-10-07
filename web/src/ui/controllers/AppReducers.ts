@@ -220,14 +220,22 @@ export class AppReducers {
   }
 
   /**
-   * 合并磁盘会话列表到内存态（保留在册未落盘的会话）。
-   * @param prev 内存态会话列表
-   * @param fromDisk 磁盘会话列表
-   * @returns 合并后的会话列表
+   * 以磁盘响应为准合并会话列表：同 id 覆盖；**消失的 id 一律移除**，唯一例外是
+   * 「已归档」（快速刷新路径不扫归档目录，见 `refreshSessions`，靠本规则保住「已归档」组）。
+   *
+   * 为什么不能「保留在册未落盘的会话」（旧契约，2026-10-07 推翻）：服务端 `sessions.list`
+   * 按当前工作区过滤——切到别的项目后，旧项目的会话正好「不在响应里」，旧契约会把它们
+   * 永久留在内存列表 ⇒ 用户报「切换工作区，会话列表还显示之前的会话」。真正只存在内存
+   * 的会话并不存在（会话由服务端创建、先落盘后返回 id）；删除路径也已改为本地先摘行
+   * （见 `sessionDeleteRefresh.test.mjs` 的三条判据）。
+   * @param prev 当前内存列表
+   * @param fromDisk 服务端响应（线格式已映射为 SessionEntry）
+   * @returns 合并后的新列表
    */
   public mergeSessions(prev: SessionEntry[], fromDisk: SessionEntry[]): SessionEntry[] {
     const ids = new Set(fromDisk.map((s) => s.id));
-    return [...prev.filter((s) => !ids.has(s.id)), ...fromDisk];
+    const keptArchived = prev.filter((s) => !ids.has(s.id) && s.archived === true);
+    return [...keptArchived, ...fromDisk];
   }
 
   /**

@@ -70,6 +70,11 @@ export interface AppState {
   theme: 'dark' | 'light';
   leftOpen: boolean;
   rightOpen: boolean;
+  /**
+   * 右栏（代码查看器）在**桌面端**是否收起（窄屏不走它，走 `rightOpen` 抽屉）。
+   * 本机偏好持久化在 localStorage `omni-right-collapsed`（见 LayoutController）。
+   */
+  rightCollapsed: boolean;
   memoryReloadKey: number;
   profilesReloadKey: number;
   graphRuns: Record<string, GraphRunState>;

@@ -21,8 +21,10 @@ export interface ChatHeaderProps {
   onView: (v: ChatViewKind) => void;
   /** 打开左栏抽屉（仅窄屏渲染）。 */
   onToggleLeft?: () => void;
-  /** 打开右栏抽屉（仅窄屏渲染）。 */
+  /** 切换右栏（桌面=收起/展开面板；移动=抽屉）。未提供则不渲染。 */
   onToggleRight?: () => void;
+  /** 右栏当前是否处于收起态（切换按钮的高亮/文案）。 */
+  rightCollapsed?: boolean;
 }
 
 /** 「对话 / 轨迹」两个视图的静态清单（渲染顺序即展示顺序）。 */
@@ -37,7 +39,7 @@ const VIEWS: readonly { key: ChatViewKind; label: string }[] = [
  * @returns 中栏头节点
  */
 export function ChatHeader(props: ChatHeaderProps): ReactElement {
-  const { title, busy, view, onView, onToggleLeft, onToggleRight } = props;
+  const { title, busy, view, onView, onToggleLeft, onToggleRight, rightCollapsed } = props;
   return (
     <div className="chat-head">
       {onToggleLeft === undefined ? null : (
@@ -75,9 +77,10 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       <span className="flex-spacer" aria-hidden="true"></span>
       {onToggleRight === undefined ? null : (
         <button
-          className="iconbtn mob-only"
-          title="功能面板"
-          aria-label="打开功能面板"
+          className={'iconbtn' + (rightCollapsed ? '' : ' active')}
+          title={rightCollapsed ? '展开功能面板（Ctrl/Cmd+Shift+E）' : '收起功能面板（Ctrl/Cmd+Shift+E）'}
+          aria-label={rightCollapsed ? '展开功能面板' : '收起功能面板'}
+          aria-pressed={rightCollapsed ? 'false' : 'true'}
           onClick={onToggleRight}
         >
           {icon('columns', { size: 16 })}

@@ -89,15 +89,23 @@ test('applyGraphStatus：轮询快照合并进 run（含节点合并）', () => 
   assert.strictEqual(next.r1.nodes.length, 1);
 });
 
-test('mergeSessions：磁盘列表覆盖同 id，保留在册未落盘的会话', () => {
-  const prev = [{ id: 'mem-only', label: '内存会话' }, { id: 'a', label: '旧a' }];
+test('mergeSessions：磁盘列表覆盖同 id；消失的 id 移除（已归档例外）', () => {
+  // 2026-10-07 推翻旧契约「保留在册未落盘的会话」：服务端 sessions.list 按工作区过滤，
+  // 切项目后旧会话正好不在响应里——旧契约把它们永久留在内存 ⇒ 用户报「切工作区还显示之前的会话」。
+  // 现契约：消失即移除；唯一例外是已归档（快速刷新不扫归档目录，靠本规则保住「已归档」组）。
+  const prev = [
+    { id: 'mem-only', label: '内存会话', archived: false },
+    { id: 'arch', label: '归档会话', archived: true },
+    { id: 'a', label: '旧a' },
+  ];
   const disk = [{ id: 'a', label: '新a' }, { id: 'b', label: 'b' }];
   const next = r.mergeSessions(prev, disk);
   assert.deepStrictEqual(
     next.map((s) => s.id),
-    ['mem-only', 'a', 'b'],
-    '在册未落盘的会话应保留，磁盘的同 id 应覆盖',
+    ['arch', 'a', 'b'],
+    '未落盘且未归档的会话必须移除（切工作区不再残留）；已归档保留；磁盘同 id 覆盖',
   );
+  assert.strictEqual(next[0].archived, true, '保留的归档行不得丢失归档标记');
 });
 
 test('buildToolItems：tool_call 聚合状态，非 tool_call 跳过', () => {

@@ -132,16 +132,43 @@
 .side-sec-head .ws-add:hover { background: var(--panel-2); color: var(--text); }
 .side-sec-head .ws-add.active { color: var(--accent); }
 
-/* 收成图标条（`[`）：只留图标 */
+/* 收成图标条（`[` / 品牌「«」）：只留图标，会话列表与文件树整体隐藏，点任意入口展开。 */
 .col.left.side.rail { width: 52px !important; min-width: 52px; }
-.col.left.side.rail .side-brand { padding: 12px 0 8px; justify-content: center; flex-wrap: wrap; }
-.col.left.side.rail .side-brand .rail-toggle { display: none; }
-.col.left.side.rail .new-chat,
-.col.left.side.rail .side-item,
-.col.left.side.rail .ws-switch-btn { justify-content: center; }
-.col.left.side.rail .side-sec-head { justify-content: center; }
+.col.left.side.rail .side-brand {
+  padding: 10px 0 4px;
+  flex-direction: column;
+  gap: 6px;
+}
+.col.left.side.rail .side-brand .side-wordmark,
+.col.left.side.rail .side-brand .flex-spacer { display: none; }
+.col.left.side.rail .side-brand .iconbtn { margin: 0; }
+.col.left.side.rail .new-chat.compact,
+.col.left.side.rail .side-item { margin: 0 8px; padding: 8px 0; justify-content: center; }
+.col.left.side.rail .ws-switch { padding: 4px 8px; }
+.col.left.side.rail .ws-switch-btn { justify-content: center; padding: 6px 0; }
+.col.left.side.rail .ws-switch-name,
+.col.left.side.rail .ws-caret { display: none; }
+.col.left.side.rail .side-sec-head { justify-content: center; margin-top: 8px; }
 .col.left.side.rail .ssh-label,
 .col.left.side.rail .flex-spacer { display: none; }
+/* 列表 / 搜索框 / 文件树在图标条态整体退场（宽度只有 52px，挤着显示等于不可用）。 */
+.col.left.side.rail #sessions,
+.col.left.side.rail .session-toolbar,
+.col.left.side.rail .section.tree,
+.col.left.side.rail .col-head { display: none; }
+
+/* 会话列表占满剩余空间并可滚；文件树可收缩（展开的长树不得把会话列表挤成 0 高——
+   2026-10-07 真机实测：树展开后会话区被压没，根因是重构后 #sessions 丢了旧 .section 的弹性）。 */
+.col.left.side #sessions {
+  flex: 1 1 auto;
+  min-height: 72px;
+  overflow: auto;
+}
+.col.left.side .section.tree {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
 
 /* 侧栏页脚 */
 .side-foot {
@@ -149,12 +176,24 @@
   border-top: 1px solid var(--border);
   padding: 8px 12px 10px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 6px;
+  min-height: 24px;
 }
-.side-foot-row { display: flex; align-items: center; gap: 6px; min-height: 24px; }
 .side-foot .pill { font-size: 11.5px; }
-.side-foot .side-item { margin: 0; }
+
+/* ---------- 面板划分（用户实测"面板要能进行划分"）：三栏各用一层底色 + 发丝线分隔 ---------- */
+.col.left.side { background: var(--panel); }
+.col.center { background: var(--bg); }
+.col.right { background: var(--bg-elev); }
+
+/* 桌面端收起右栏（面板菜单旁的「»」或中栏头的面板按钮 / Ctrl+Cmd+Shift+E）；窄屏抽屉不受影响。 */
+@media (min-width: 881px) {
+  .body.rcollapsed .col.right,
+  .body.rcollapsed .resizer-right { display: none; }
+}
+.rv-collapse { color: var(--dim); font-weight: 700; }
+.rv-collapse:hover { color: var(--text); background: var(--panel-2); }
 
 /* ---------- 中栏：头部 / 状态栏 ---------- */
 .chat-head {
@@ -207,6 +246,7 @@
   border-radius: 2px;
   background: var(--brand);
 }
+.chat-head .iconbtn.active { color: var(--brand); background: var(--panel-2); }
 
 .chat-status {
   display: flex;
@@ -349,6 +389,65 @@
   flex: none;
 }
 .rv-meta { white-space: nowrap; flex: none; }
+
+/* ---------- 面板内容区：代码查看器要填满高度（用户实测"底下空了一块、没有顶底边"） ---------- */
+.col.right .pane:has(> .file-pane) { display: flex; flex-direction: column; }
+.file-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 0;
+}
+/* 代码表面：gutter + 高亮正文装在同一个滚动容器里（两列同流 ⇒ 行号天然同步）。 */
+.code-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  align-items: stretch;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.code-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  padding: 10px 0 10px 10px;
+  min-width: 34px;
+  text-align: right;
+  color: var(--dim);
+  background: inherit;
+  user-select: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.code-scroll .hl-code {
+  flex: 1;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  max-height: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+/* markdown / 纯文本正文同样填满并自持滚动（卡片化与代码表面一致）。 */
+.file-md-scroll,
+.file-pane .file-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 14px;
+}
 
 /* ---------- 「全部面板」菜单（12 个功能面板的收起入口） ---------- */
 .pp-wrap { position: relative; display: inline-flex; flex: none; }

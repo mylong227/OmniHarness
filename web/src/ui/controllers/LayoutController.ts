@@ -51,6 +51,8 @@ export class LayoutController {
       const cachedRight = Number(localStorage.getItem('omni-right-width'));
       if (cachedLeft >= 180 && cachedLeft <= 600) this.host.patch({ leftWidth: cachedLeft });
       if (cachedRight >= 180 && cachedRight <= 760) this.host.patch({ rightWidth: cachedRight });
+      // 右栏收起态也是本机偏好：上次收着，这次就别再撑开（2026-10-07 用户反馈「右栏也要可收起」）。
+      this.host.patch({ rightCollapsed: localStorage.getItem('omni-right-collapsed') === '1' });
     } catch {
       /* 忽略 */
     }
@@ -76,9 +78,23 @@ export class LayoutController {
     this.host.patch((s) => ({ leftOpen: !s.leftOpen, rightOpen: false }));
   }
 
-  /** 切换右侧工具面板（互斥关闭左侧）。 @returns 无 */
+  /**
+   * 切换右侧面板：桌面端 = 收起 / 展开整栏（持久化本机偏好）；窄屏（≤880px）= 抽屉（互斥关闭左栏）。
+   * 2026-10-07 用户反馈「右侧栏也要可以收起来」前的行为只有抽屉一态，桌面端 12 面板常驻占宽。
+   * @returns 无
+   */
   public toggleRight(): void {
-    this.host.patch((s) => ({ rightOpen: !s.rightOpen, leftOpen: false }));
+    if (window.innerWidth <= 880) {
+      this.host.patch((s) => ({ rightOpen: !s.rightOpen, leftOpen: false }));
+      return;
+    }
+    const next = !this.host.getState().rightCollapsed;
+    try {
+      localStorage.setItem('omni-right-collapsed', next ? '1' : '');
+    } catch {
+      /* 忽略 */
+    }
+    this.host.patch({ rightCollapsed: next });
   }
 
   /**
