@@ -1,4 +1,4 @@
-/**
+﻿/**
  * **文档布局**判据（G20 文档瘦身，2026-10-03 第十八轮）。
  *
  * ## 它锁的是什么
@@ -68,6 +68,9 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'CLI_REFERENCE.md',
   // Web 设计系统规范（2026-10-07 显式登记）：web/styles 打磨层与壳层的 token/层级/交互态唯一规范
   'DESIGN_SYSTEM.md',
+  // 用户自备材料（2026-10-07 显式登记）：用户放进 docs/ 根的报告，去向待作者本人确认（归档 or 保留）。
+  // 登记而不是替他搬动/改写：这是**用户的内容**，未确认前不动它一个字节。
+  '近视眼调查报告.md',
   'PLUGIN_GUIDE.md',
   'contributing.md',
   'integration.md',

@@ -1,4 +1,4 @@
-﻿// 左栏：会话列表 + 新建会话 + 工作区文件树。
+// 左栏：会话列表 + 新建会话 + 工作区文件树。
 //
 // 面向对象改造：
 // - 服务经 useApp() 取用（替代旧基类访问器），十三份 state 收敛为字段级 useState；
@@ -316,6 +316,29 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
    * @param path 目录路径
    * @returns 无
    */
+  /**
+   * 把某条会话**归入当前项目**（右键菜单项；服务端只改首行 `session_meta.workspace`）。
+   *
+   * 存在的理由（2026-10-07 用户口径）：历史上有一批会话**没有归属标记**（本机 32 条），按既有口径
+   * 它们不丢弃、但要单列「未归属（未标记项目）」组——本动作就是给用户一个把它们**指认到项目**的入口，
+   * 指认后它们归入当前项目组，侧栏不再有"谁都不认"的行。
+   * @param sessionId 会话 id
+   * @returns 无返回值（成功/失败都只提示，不抛）
+   */
+  const assignToCurrentProject = async (sessionId: string): Promise<void> => {
+    if (wsPath === '') {
+      toast('当前项目未知，无法归入', 'err');
+      return;
+    }
+    try {
+      await api.setSessionWorkspace(sessionId, wsPath);
+      toast('已归入当前项目');
+      onWorkspaceSwitched?.();
+    } catch (e) {
+      toast('归入失败：' + (e as Error).message, 'err');
+    }
+  };
+
   const pickProject = async (path: string): Promise<void> => {
     setPicking(false);
     try {
@@ -767,6 +790,18 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             }}
           >
             移到底部
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              // 归入当前项目（2026-10-07 用户口径「各自分离不要出现串项目」）：只对**没有归属或归属别家**
+              // 的会话显示（当前项目自己的会话点了没意义）。改的是存档首行 session_meta 的 workspace
+              // （归一值），历史事件逐字不动；落盘后刷新列表即可看到它换组。
+              void assignToCurrentProject(menu.id);
+            }}
+          >
+            归入当前项目
           </button>
           <button
             role="menuitem"

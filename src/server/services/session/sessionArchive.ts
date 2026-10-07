@@ -1,4 +1,4 @@
-import {
+﻿import {
   appendFileSync,
   copyFileSync,
   existsSync,
@@ -328,6 +328,9 @@ export class SessionArchive {
     });
     appendFileSync(dest, '\n' + meta, 'utf8');
     return { ok: true, newSessionId: newId };
+  }
+
+  /**
   }
 
   /**

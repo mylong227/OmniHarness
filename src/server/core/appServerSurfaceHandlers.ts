@@ -1,9 +1,10 @@
-import type { ToolDefinition } from '../../ports/tool/tool.js';
+﻿import type { ToolDefinition } from '../../ports/tool/tool.js';
 import { AppServerHandlers } from './appServerHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
 import { ApprovalTierCatalog } from '../services/approvalTierCatalog.js';
 import { AgentCatalogService } from '../services/agentCatalogService.js';
 import { ContextUsageService } from '../services/contextUsageService.js';
+import { SessionWorkspaceAssigner } from '../services/session/sessionWorkspaceAssigner.js';
 import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
 import { QuotaService } from '../services/quotaService.js';
 import { QuotaStore } from '../services/quotaStore.js';
@@ -124,6 +125,15 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
       if (threadId === '') throw new Error('modes.clear 需要 threadId');
       return this.modes.clear(threadId);
     });
+    // 把会话**归入指定项目**（侧栏右键「归入当前项目」）：只改存档首行 session_meta.workspace；
+    // 目标目录先经 configStore 校验存在（fail-closed），运行中的会话由存档的 runningChecker 拒绝。
+    this.handlers.set('sessions.setWorkspace', async (params) =>
+      SessionWorkspaceAssigner.assign(
+        this.options.config.storage.location ?? '',
+        this.stringParam(params, 'sessionId'),
+        this.configStore.requireDirectory(this.stringParam(params, 'workspace')),
+      ),
+    );
     this.handlers.set('approval.tiers', async () => ({ tiers: this.approvalTiers.all() }));
     this.handlers.set('agents.list', async () => this.agents.list());
     this.handlers.set('search.all', async (params) => {
