@@ -417,7 +417,7 @@
   left: 0;
   z-index: 1;
   flex: none;
-  padding: 10px 0 10px 10px;
+  padding: 10px 0 5px 10px;
   min-width: 34px;
   text-align: right;
   color: var(--dim);
@@ -434,7 +434,9 @@
   border-radius: 0;
   background: transparent;
   max-height: none;
-  padding: 10px 12px;
+  /* 显示区底部**只留 5px**（2026-10-07 用户截图口径）：原来 10px 在长文档末尾会多出一条空带，
+     而 gutter 同步 5px，行号与正文不会错行。 */
+  padding: 10px 12px 5px;
   font-size: 12px;
   line-height: 1.6;
 }

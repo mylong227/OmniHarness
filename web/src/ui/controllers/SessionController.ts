@@ -58,6 +58,16 @@ export class SessionController {
   public handleEvent(ev: ThreadEvent): void {
     // 已摘视图（用户点了「新建」或切走）：迟到事件属于上一回合，不得写进当前视图。
     if (this.viewAttachment.detached) return;
+    // **别家会话的事件一律不进本视图**（2026-10-07 用户截图：「非本会话的信息，却因为我切换会话就
+    // 显示过来了」）：SSE 的 `thread.event` 载荷带 sessionId，而这里此前**不看它**——于是切会话后仍
+    // 在跑的另一个会话（或上一会话的收尾事件）会被追加进当前视图，表现为"凭空冒出一条进行中的工具卡"，
+    // 且它永远等不到自己的 tool_result（那条结果属于别的会话）⇒ 卡片永久停在「进行中…」。
+    // 只在两侧都有值时才判定：缺 sessionId 的事件（老服务端）保持既有行为，绝不因宿主升级而丢事件。
+    const sid = (ev as { sessionId?: unknown }).sessionId;
+    const current = this.host.getState().currentThreadId;
+    if (typeof sid === 'string' && sid !== '' && current !== null && current !== '' && sid !== current) {
+      return;
+    }
     const p = ev.payload || {};
     if (ev.type === 'tool_call') {
       const callId = (p.callId as string) || ev.id;
@@ -196,10 +206,20 @@ export class SessionController {
       const owner = { api: this.services.api, host: this.host, toast: this.services.toast };
       if (await SessionProjectBinding.ensure(owner, id)) await this.refreshSessions();
       const r = await this.services.api.getThread(id);
+      const items = r.items || [];
+      // 历史会话的**工具结果**必须从事件里重建：卡片状态只来自实时 `tool_result` 通知，而加载历史时
+      // 那些通知早就过去了 ⇒ 否则旧工具卡永远停在「进行中…」（2026-10-07 用户截图「结果卡住了」）。
+      const results: Record<string, { text: string; ok: boolean }> = {};
+      for (const ev of items) {
+        const callId = ev.type === 'tool_result' ? (ev.payload?.callId as string | undefined) : undefined;
+        if (callId !== undefined && callId !== '') {
+          results[callId] = this.services.reducers.mergeToolResult({}, callId, ev.payload || {})[callId]!;
+        }
+      }
       this.host.patch({
         currentThreadId: id,
-        events: r.items || [],
-        toolResults: {},
+        events: items,
+        toolResults: results,
         liveInputs: [],
         streamText: '',
         finalizedStreamText: '',
