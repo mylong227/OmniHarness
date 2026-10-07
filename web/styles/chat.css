@@ -127,7 +127,8 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 }
 .ctl-sel:focus { outline:none; }
 .ctl-sel option { background:var(--panel); color:var(--text); }
-.ctl-hint { color:var(--dim); font-size:12px; }
+/* 控制行不再有常驻长文案（2026-10-07 用户：「不要占地方」）：权限说明改走悬浮提示
+   （PermissionPicker 的 title），故 `.ctl-hint` 规则一并删除。 */
 .iconbtn.attach { margin-left:auto; font-size:15px; padding:5px 9px; }
 
 .attachments { display:flex; gap:8px; flex-wrap:wrap; padding-top:2px; }

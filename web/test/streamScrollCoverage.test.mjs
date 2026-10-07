@@ -36,22 +36,8 @@
 // 直跑：node --test web/test/streamScrollCoverage.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import {
-  findBrowser,
-  serveStatic,
-  stubHtmlCdp,
-  getFreePort,
-  launchChromeForCdp,
-  killChromeTree,
-  waitForPageWs,
-  CdpSession,
-  WEB_ROOT_PATH,
-} from './browserHarness.mjs';
+import { openStubSession } from './browserHarness.mjs';
 
-const STUB = '_scroll-coverage.html';
 /** 长块正文（约 720 字）：制造「估算 88px vs 真实几百 px」的高度失配。 */
 const LONG_TEXT = '这是一段很长的推理内容，用来把单块高度撑到远超估算值。'.repeat(30);
 /** 覆盖比例下限（%）：低于此值视为「视口落进占位区」。 */
@@ -136,55 +122,6 @@ async function seedNullRenderedMix(cdp) {
     await new Promise((r) => setTimeout(r, 150));
   }
   await new Promise((r) => setTimeout(r, 1200));
-}
-
-/**
- * 起一次「真 Chrome + stub 页（真前端 + 假后端）」会话。
- * @param {object} t node:test 上下文（环境不可用时用于显式 skip）。
- * @returns {Promise<{cdp:object, close:()=>Promise<void>}|null>} 会话；不可用返回 null（已 skip）。
- */
-async function openStubSession(t) {
-  const browser = findBrowser();
-  if (browser === null) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
-    return null;
-  }
-  if (typeof globalThis.WebSocket !== 'function') {
-    t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
-    return null;
-  }
-  const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB}`]: stubHtmlCdp() });
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-scrollcov-'));
-  const cdpPort = await getFreePort();
-  const proc = launchChromeForCdp(browser, `http://127.0.0.1:${server.port}/${STUB}`, userDataDir, cdpPort);
-  /** 无论成败都收干净：浏览器整树 + 静态服务 + 临时 profile。 @returns {Promise<void>} 无 */
-  const cleanup = async () => {
-    killChromeTree(proc, userDataDir);
-    await server.close();
-    try {
-      rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      /* 锁未释放，交由 OS 回收 */
-    }
-  };
-  let cdp;
-  try {
-    cdp = new CdpSession(await waitForPageWs(cdpPort, STUB));
-    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 700, deviceScaleFactor: 1, mobile: false });
-    await cdp.navigate(`http://127.0.0.1:${server.port}/${STUB}`);
-    await cdp.waitFor("!!document.querySelector('.composer-input textarea')", 1200);
-  } catch (err) {
-    if (cdp !== undefined) cdp.close();
-    await cleanup();
-    throw err;
-  }
-  return {
-    cdp,
-    async close() {
-      cdp.close();
-      await cleanup();
-    },
-  };
 }
 
 test('① 长块流：跳转滚动不得出现「视口全是占位」的空洞', { timeout: 120_000 }, async (t) => {
