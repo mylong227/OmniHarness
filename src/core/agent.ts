@@ -20,6 +20,7 @@ import { EventPersister } from './loop/eventPersister.js';
 import { CancellationToken } from './loop/cancellationToken.js';
 import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.js';
 import { Id } from '../util/id.js';
+import { WorkspaceIdentity } from '../util/workspaceIdentity.js';
 import { log, Logger } from '../util/logger.js';
 import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
 
@@ -211,7 +212,9 @@ export class Agent implements AgentPort {
   ): void {
     this.injector.open(recorder, eventLog, prompt, sessionId);
     if (mode === 'run') {
-      recorder.sessionMeta(this.runtime.config.workspaceRoot);
+      // 归属标记**写归一值**：会话存档是全局的，归属只靠这个字符串；本机实测同一项目曾被写成
+      // `D:\x` / `D:/x` / 跑测子目录三种拼写，导致侧栏按项目归类失准（2026-10-07 用户报）。
+      recorder.sessionMeta(WorkspaceIdentity.normalize(this.runtime.config.workspaceRoot));
     }
   }
 
