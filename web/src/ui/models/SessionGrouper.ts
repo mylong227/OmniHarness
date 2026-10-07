@@ -1,7 +1,7 @@
-// 会话分组：把扁平会话列表按「所属工作区」折叠成分组，并决定分组展示顺序。
+﻿// 会话分组：把扁平会话列表按「所属工作区」折叠成分组，并决定分组展示顺序。
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
 
-import { PathJoiner } from './PathJoiner.js';
+import { WorkspacePath } from './WorkspacePath.js';
 
 /** 无工作区标记的历史会话归入此键（升级前创建的会话）。 */
 export const EARLY_KEY = '__early__';
@@ -57,10 +57,10 @@ export class SessionGrouper {
    * 未标记工作区的会话一律归入 EARLY_KEY（fail-closed 到可见分组，而非丢弃）。
    */
   public static group<T extends WorkspaceTagged>(sessions: readonly T[], currentWsPath: string): SessionGroup<T>[] {
-    const currentKey = PathJoiner.normalize(currentWsPath);
+    const currentKey = WorkspacePath.normalize(currentWsPath);
     const byKey = new Map<string, T[]>();
     for (const s of sessions) {
-      const key = s.workspace ? PathJoiner.normalize(s.workspace) : EARLY_KEY;
+      const key = s.workspace ? WorkspacePath.normalize(s.workspace) : EARLY_KEY;
       const list = byKey.get(key);
       if (list) list.push(s);
       else byKey.set(key, [s]);
@@ -73,7 +73,7 @@ export class SessionGrouper {
     if (byKey.has(EARLY_KEY)) orderedKeys.push(EARLY_KEY);
     return orderedKeys.map((key) => ({
       key,
-      name: key === EARLY_KEY ? '更早会话（未标记项目）' : PathJoiner.basename(key),
+      name: key === EARLY_KEY ? '未归属（未标记项目）' : WorkspacePath.label(key),
       items: byKey.get(key) ?? [],
     }));
   }

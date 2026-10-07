@@ -1,4 +1,4 @@
-// 左栏「按时间分组」（Codex 式：今天 / 昨天 / 更早）的算术门禁（零 DOM、确定性）。
+﻿// 左栏「按时间分组」（Codex 式：今天 / 昨天 / 更早）的算术门禁（零 DOM、确定性）。
 //
 // 口径：按**本地日历日**分桶；`updatedAt` 缺失或解析失败一律进「更早」（fail-closed 到可见分组，
 // 不丢行）；组内保持输入顺序；空桶不产出。
@@ -87,14 +87,18 @@ test('桶边界：本地零点归「今天」，其前一毫秒归「昨天」',
   );
 });
 
-test('接线守卫：左栏必须用时间分组视图（默认视图），且右键菜单已接上', async () => {
+// 默认视图 2026-10-07 由「时间分组」改为「按项目分组」：用户报「会话没有按所属项目归类，切了新项目
+// 还显示旧项目的会话」——按项目分组是这件事的正面回答（时间分组仍在三态循环里，一键可回）。
+test('接线守卫：左栏默认按**项目**分组，且右键菜单已接上', async () => {
   const { readFileSync } = await import('node:fs');
   const { dirname, join } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const here = dirname(fileURLToPath(import.meta.url));
   const panel = readFileSync(join(here, '..', 'src', 'ui', 'components', 'SessionPanel.tsx'), 'utf8');
   assert.match(panel, /renderTimeGroupsView\(listCtx\)/, '左栏必须渲染时间分组视图');
-  assert.match(panel, /useState<'time' \| 'ws' \| 'cards'>\('time'\)/, '默认视图必须是时间分组');
+  assert.match(panel, /useState<'time' \| 'ws' \| 'cards'>\('ws'\)/, '默认视图必须按项目分组');
+  assert.match(panel, /renderGroupsView\(listCtx\)/, '默认视图必须真的渲染按项目分组');
+  assert.match(panel, /renderTimeGroupsView\(listCtx\)/, '时间分组仍须保留（三态循环里可切回）');
   assert.match(panel, /onContextMenu: \(id: string, x: number, y: number\)/, '行右键菜单必须接线');
   assert.match(panel, /className="row-menu"/, '右键菜单必须渲染');
   assert.match(panel, /e\.key === '\['/, '`[` 快捷键必须收起/展开左栏');
