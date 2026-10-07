@@ -1,4 +1,4 @@
-// 左栏的模块级渲染函数：会话行 / 任务卡视图 / 分组列表视图 / 项目条 / 文件树。
+﻿// 左栏的模块级渲染函数：会话行 / 任务卡视图 / 分组列表视图 / 项目条 / 文件树。
 //
 // 从 SessionPanel 抽出（原文件 457 行实现逼近 500 行上限，且这里全是纯渲染、无状态）：
 // 每个函数只吃一个 ctx（状态 + 回调），不持有任何状态、不发任何请求，故可被 SessionPanel
@@ -11,6 +11,7 @@ import { PathJoiner } from '../models/PathJoiner.js';
 import type { FsNode } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
 import { emptyState } from '../format.js';
+import { icon } from '../models/Icon.js';
 import { timeAgo } from '../textUtils.js';
 
 /** 每组默认展示条数。 */
@@ -120,7 +121,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
             ctx.onCancelRename();
           }}
         >
-          ✕
+          {icon('x', { size: 12 })}
         </button>
       </span>
     );
@@ -167,7 +168,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
             ctx.onStartRename(s);
           }}
         >
-          ✎
+          {icon('pencil', { size: 12 })}
         </button>
         <button
           className="session-act"
@@ -178,7 +179,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
             ctx.onFork(s.id);
           }}
         >
-          ⧉
+          {icon('copy', { size: 12 })}
         </button>
         <button
           className="session-act danger"
@@ -189,7 +190,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
             ctx.onAskDelete(s.id);
           }}
         >
-          🗑
+          {icon('trash', { size: 12 })}
         </button>
         {ctx.onArchive === undefined ? null : (
           <button
@@ -201,7 +202,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
               ctx.onArchive?.(s.id, s.archived !== true);
             }}
           >
-            {s.archived === true ? '↩' : '📥'}
+            {icon(s.archived === true ? 'undo' : 'inbox', { size: 12 })}
           </button>
         )}
       </span>
@@ -217,7 +218,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
 export function renderCardsView(ctx: ListCtx): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
-    return emptyState('🗂️', '暂无会话', '新建会话后，任务卡会显示在这里。');
+    return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，任务卡会显示在这里。');
   }
   return (
     <div className="session-cards">
@@ -284,7 +285,7 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
 export function renderGroupsView(ctx: ListCtx): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
-    return emptyState('🗂️', '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
+    return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
   }
   return (
     <>
@@ -303,7 +304,7 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
               onClick={() => ctx.onToggleGroup(g.key, isCollapsed)}
             >
               <span className="ws-caret">{isCollapsed ? '▸' : '▾'}</span>
-              <span>{g.key === PathJoiner.normalize(ctx.wsPath) ? '🟢' : '📁'}</span>
+              <span>{icon(g.key === PathJoiner.normalize(ctx.wsPath) ? 'check' : 'folder', { size: 12 })}</span>
               <span className="ws-name">{g.name}</span>
               <span className="ws-count">{g.items.length}</span>
             </div>
@@ -366,7 +367,7 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
 export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
-    return emptyState('🗂️', '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
+    return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
   }
   return (
     <>
@@ -475,10 +476,10 @@ export function renderTreeView(
   onOpenFile: (path: string) => void,
 ): ReactElement {
   if (treeError != null) {
-    return emptyState('📁', '文件树不可用', '当前工作区无法读取，或 serve 未在工作区内启动。');
+    return emptyState(icon('folder', { size: 20 }), '文件树不可用', '当前工作区无法读取，或 serve 未在工作区内启动。');
   }
   if (!treeLoaded) return <div className="empty">读取中…</div>;
-  if (tree.length === 0) return emptyState('📁', '空工作区', '这个目录还没有文件。');
+  if (tree.length === 0) return emptyState(icon('folder', { size: 20 }), '空工作区', '这个目录还没有文件。');
   return (
     <div className="tree">
       {tree.map((n) => (

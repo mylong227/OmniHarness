@@ -165,14 +165,22 @@ test('F2 面板：rpc 抛错 ⇒ 可读错误 + 重试按钮（不整页白屏�
   assert.ok(retry.length >= 1, '必须给出重试入口');
 });
 
-test('F2 注册：RightPanel 的 tab 列表含 governance，Router 认可该 pane', () => {
+test('F2 注册：激活 governance 时 RightPanel 出现其标签，Router 认可该 pane', () => {
+  // 2026-10-07 壳层重构：右栏标签条不再常驻 12 个面板（收进 PanelPicker 菜单），
+  // 但激活某面板时它必须以标签形式出现——这里钉住「治理激活 ⇒ 有治理标签」这条契约。
   const panel = renderOf(RightPanel, { activePane: 'governance', onSelect: () => {}, open: true });
   const tabs = collect(panel, (node) => node.props.role === 'tab');
   assert.ok(
-    tabs.some((tab) => tab.props.id === 'tab-governance'),
-    'RightPanel 必须注册治理面板（漏注册则该 tab 永远选不中）',
+    tabs.some((tab) => tab.props.id === 'tab-pane-governance'),
+    '激活治理面板时 RightPanel 必须渲染其标签（漏注册则永远选不中）',
   );
-  assert.ok(tabs.length >= 12, `面板数量应随治理台增至 12，实际 ${String(tabs.length)}`);
+  // 全部面板仍可一步到达：标签条右端常驻「全部面板」菜单（renderOf 不下钻子组件，按类型断言）。
+  assert.strictEqual(
+    collect(panel, (node) => typeof node.type === 'function' && node.type.name === 'PanelPicker')
+      .length,
+    1,
+    '右栏必须常驻「全部面板」入口',
+  );
   const route = parseHash.call(null);
   assert.strictEqual(typeof route, 'object', 'parseHash 可用');
   // `#pane=governance` 必须被认作合法 pane（否则静默落回默认面板）。

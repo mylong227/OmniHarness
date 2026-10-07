@@ -7,6 +7,8 @@
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { ImportanceStars } from '../../models/ImportanceStars.js';
+import { icon } from '../../models/Icon.js';
+import { emptyState } from '../../format.js';
 import type { MemoryFact } from '../../../types/models.js';
 
 /** MemoryTab 组件的入参。 */
@@ -236,9 +238,11 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
       <div className="pm-section">
         <div className="pm-title">已存记忆（{count}）</div>
         {facts.length === 0 ? (
-          <div className="empty">
-            暂无记忆。上方填入事实后点「保存」，或在会话中由模型自动沉淀。
-          </div>
+          emptyState(
+            icon('brain', { size: 20 }),
+            '暂无记忆',
+            '上方填入事实后点「保存」，或在会话中由模型自动沉淀。',
+          )
         ) : (
           facts.map((f) =>
             renderRow(f, { onEdit: startEdit, onDelete: (id) => void del(id) }),

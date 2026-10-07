@@ -44,11 +44,13 @@ test('PathJoiner 兼容 Windows 与 POSIX 且不产生双分隔符', () => {
   assert.equal(PathJoiner.join('', 'a.ts'), 'a.ts');
 });
 
-test('FileIconResolver 按媒体类型给图标，未知回落', () => {
-  assert.equal(FileIconResolver.emoji('image/png'), '🖼');
-  assert.equal(FileIconResolver.emoji('video/mp4'), '🎬');
-  assert.equal(FileIconResolver.emoji('application/pdf'), '📕');
-  assert.equal(FileIconResolver.emoji('application/x-未知'), '📎');
+test('FileIconResolver 按媒体类型给图标名（线性图标集），未知回落', () => {
+  // 断言的是**图标名**而不是 emoji：emoji 形态已于 2026-10-07 删除（口径见 web/test/iconPolicy.test.mjs）。
+  assert.equal(FileIconResolver.iconName('image/png'), 'image');
+  assert.equal(FileIconResolver.iconName('video/mp4'), 'video');
+  assert.equal(FileIconResolver.iconName('application/pdf'), 'book');
+  assert.equal(FileIconResolver.iconName('application/x-未知'), 'paperclip');
+  assert.equal(FileIconResolver.iconName(''), 'paperclip', '空 MIME 也必须 fail-closed 到中性图标');
 });
 
 test('FileSizeFormatter 体积格式化', () => {

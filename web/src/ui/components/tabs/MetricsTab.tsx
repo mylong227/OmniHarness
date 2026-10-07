@@ -6,6 +6,7 @@
 // 数字缩写继续复用 NumberFormatter（零 React，可单测）。
 
 import { React } from '../../deps.js';
+import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';
 import { NumberFormatter } from '../../models/NumberFormatter.js';
 import type { Metrics } from '../../../types/models.js';
@@ -68,7 +69,7 @@ export function MetricsTab(): ReactElement {
     };
   }, [api]);
 
-  if (!metrics) return <div className="empty">读取中…</div>;
+  if (!metrics) return emptyNote('读取中…', { kind: 'note' });
 
   const et = metrics.eventsByType || {};
   const total = Object.values(et).reduce<number>((a, b) => a + (b as number), 0);

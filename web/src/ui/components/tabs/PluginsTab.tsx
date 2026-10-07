@@ -7,6 +7,7 @@
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { permChip, emptyState } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import type { PluginManifest, PluginSearchEntry } from '../../../types/models.js';
 
 /** 搜索输入防抖延迟（ms）。 */
@@ -53,7 +54,7 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
         ) : null}
         {actions.isInstalled ? (
           <>
-            <span className="pc-installed">✓ 已安装</span>
+            <span className="pc-installed">{icon('check', { size: 12 })} 已安装</span>
             <button
               className="btn-remove"
               disabled={disabled}
@@ -195,13 +196,13 @@ export function PluginsTab(): ReactElement {
         <div className="pm-title">已安装</div>
         {installed.length
           ? installed.map((m) => renderCard(m, cardActions(m.source || 'local', true)))
-          : emptyState('🧩', '尚未安装任何插件', '在下方「可获取」中一键安装内置或远程插件。')}
+          : emptyState(icon('package', { size: 20 }), '尚未安装任何插件', '在下方「可获取」中一键安装内置或远程插件。')}
       </div>
       <div className="pm-section">
         <div className="pm-title">可获取（本地 / 内置 / 远程）</div>
         {available.length
           ? available.map((d) => renderCard(d.manifest, cardActions(d.source, false)))
-          : emptyState('🔌', '暂无可获取插件', '远程 registry 可能离线；内置示例插件始终可用。')}
+          : emptyState(icon('plug', { size: 20 }), '暂无可获取插件', '远程 registry 可能离线；内置示例插件始终可用。')}
       </div>
     </div>
   );

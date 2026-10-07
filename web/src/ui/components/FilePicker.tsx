@@ -11,6 +11,7 @@ import { React } from '../deps.js';
 import { PathJoiner } from '../models/PathJoiner.js';
 import { FileIconResolver } from '../models/FileIconResolver.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
+import { icon } from '../models/Icon.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
 /** 目录中的单个文件条目。 */
@@ -82,12 +83,12 @@ function renderDrives(browse: BrowseState, onNavigate: (path: string) => void): 
   return (
     <>
       <div className="fp-item fp-home" onClick={() => onNavigate(home)}>
-        <span className="fp-icon">🏠</span>
+        <span className="fp-icon">{icon('home', { size: 15 })}</span>
         <span className="fp-name">{home}（用户目录）</span>
       </div>
       {roots.map((r) => (
         <div key={r} className="fp-item" onClick={() => onNavigate(r)}>
-          <span className="fp-icon">💾</span>
+          <span className="fp-icon">{icon('drive', { size: 15 })}</span>
           <span className="fp-name">{r}</span>
         </div>
       ))}
@@ -116,7 +117,7 @@ function renderDirBody(
     <>
       {parent !== undefined ? (
         <div className="fp-item fp-up" onClick={() => onNavigate(parent)}>
-          <span className="fp-icon">↩️</span>
+          <span className="fp-icon">{icon('undo', { size: 15 })}</span>
           <span className="fp-name">..（上级目录）</span>
         </div>
       ) : null}
@@ -129,7 +130,7 @@ function renderDirBody(
           className="fp-item fp-dir"
           onClick={() => onNavigate(PathJoiner.join(cur, d))}
         >
-          <span className="fp-icon">📁</span>
+          <span className="fp-icon">{icon('folder', { size: 15 })}</span>
           <span className="fp-name">{d}</span>
         </div>
       ))}
@@ -143,10 +144,10 @@ function renderDirBody(
             title={`${f.name} · ${f.mediaType} · ${FileSizeFormatter.human(f.size)}`}
             onClick={() => onToggle(full)}
           >
-            <span className="fp-icon">{FileIconResolver.emoji(f.mediaType)}</span>
+            <span className="fp-icon">{icon(FileIconResolver.iconName(f.mediaType), { size: 15 })}</span>
             <span className="fp-name">{f.name}</span>
             <span className="fp-size">{FileSizeFormatter.human(f.size)}</span>
-            <span className="fp-check">{sel ? '✓' : ''}</span>
+            <span className="fp-check">{sel ? icon('check', { size: 12 }) : null}</span>
           </div>
         );
       })}
@@ -168,7 +169,12 @@ export function FilePicker(props: FilePickerProps): ReactElement {
 
   /**
    * 浏览目录（含文件）：不传 path 时列盘符层。
+   *
+   * 形状校验的理由与 `FolderPicker.loadDir` 逐字相同（见该处注释）：形状不对时若把 `undefined`
+   * 灌进 `dirs` / `files`，渲染期读 `.length` 会抛错并被错误边界接住 ⇒ **整棵工作台卸载**。
+   * 这里显式校验，把故障停在选择器这一层。
    * @param path 目标目录（缺省列盘符）
+   * @returns 异步完成
    */
   const loadDir = async (path?: string): Promise<void> => {
     setLoad({ loading: true, error: null });
@@ -176,21 +182,23 @@ export function FilePicker(props: FilePickerProps): ReactElement {
       const r: BrowseResult = await api.browseFs(path, true);
       if (r.level === 'drives') {
         setBrowse({
-          roots: r.roots,
-          home: r.home,
+          roots: Array.isArray(r.roots) ? r.roots : [],
+          home: typeof r.home === 'string' ? r.home : '',
           cur: null,
           dirs: [],
           files: [],
           parent: undefined,
         });
-      } else {
+      } else if (r.level === 'dir' && Array.isArray(r.dirs)) {
         setBrowse((prev) => ({
           ...prev,
           cur: r.path,
           dirs: r.dirs,
-          files: r.files ?? [],
+          files: Array.isArray(r.files) ? r.files : [],
           parent: r.parent,
         }));
+      } else {
+        setLoad((prev) => ({ ...prev, error: '文件列表返回格式异常（fs.browse）' }));
       }
     } catch (e) {
       setLoad((prev) => ({ ...prev, error: (e as Error).message }));
@@ -245,7 +253,7 @@ export function FilePicker(props: FilePickerProps): ReactElement {
         <div className="fp-head">
           <span className="fp-title">选择附件文件</span>
           <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>
-            ✕
+            {icon('x', { size: 14 })}
           </button>
         </div>
 

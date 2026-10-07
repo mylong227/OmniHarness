@@ -13,6 +13,8 @@
 import { React } from '../deps.js';
 import { useApp } from '../context.js';
 import { FolderPicker } from './FolderPicker.js';
+import { SidebarHeader } from './SidebarHeader.js';
+import { SidebarFooter } from './SidebarFooter.js';
 import { SearchResults, SEARCH_LIST_ID } from './SearchResults.js';
 import { SessionSearch } from '../models/SessionSearch.js';
 import type { SearchGroup } from '../models/SearchHitGrouper.js';
@@ -27,6 +29,7 @@ import type { ListCtx, RowCtx } from './SessionViews.js';
 import { PathJoiner } from '../models/PathJoiner.js';
 import { MenuPlacement } from '../models/MenuPlacement.js';
 import { SessionOrder } from '../models/SessionOrder.js';
+import { icon } from '../models/Icon.js';
 import type { FsNode } from '../../types/models.js';
 import type { SearchHit } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
@@ -54,6 +57,20 @@ export interface SessionPanelProps {
   scopeAll?: boolean;
   /** 翻转显示范围（当前项目 ⇄ 全部项目）。 */
   onToggleScope?: () => void;
+  /** 当前激活的右栏面板 key（「插件 / 设置」入口的高亮态）。 */
+  activePane?: string;
+  /** 打开右栏某面板（插件 / 设置入口与页脚设置行走这里）。 */
+  onOpenPane?: (key: string) => void;
+  /** 打开命令面板（品牌头的入口按钮；快捷键 Ctrl/Cmd+P 仍可用）。 */
+  onOpenPalette?: () => void;
+  /** SSE 是否已连接（页脚徽标；单测缺省按已连接渲染）。 */
+  connected?: boolean;
+  /** SSE 三态（页脚徽标文案 / 配色，见 SidebarFooter）。 */
+  streamState?: 'open' | 'connecting' | 'closed';
+  /** 当前主题（页脚主题按钮图标）。 */
+  theme?: 'dark' | 'light';
+  /** 切换主题（未提供则页脚不渲染主题按钮）。 */
+  onToggleTheme?: () => void;
   open: boolean;
   style?: Record<string, string>;
   /** 远端搜索防抖调度注入点（单测传「立即执行」以获得确定性，缺省走 setTimeout）。 */
@@ -78,6 +95,13 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onWorkspaceSwitched,
     scopeAll,
     onToggleScope,
+    activePane,
+    onOpenPane,
+    onOpenPalette,
+    connected,
+    streamState,
+    theme,
+    onToggleTheme,
     open,
     style,
   } = props;
@@ -94,9 +118,10 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [query, setQuery] = React.useState<string>('');
   /** 顶部工作区切换器是否展开（Codex 式：项目是一等入口，占据左栏最上方）。 */
   const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
-  /** 两个区块是否展开（会话 / 文件），可按需收起，让另一块占满左栏。 */
-  const [sessionsOpen, setSessionsOpen] = React.useState<boolean>(true);
-  const [treeOpen, setTreeOpen] = React.useState<boolean>(true);
+  /** 搜索框是否展开（截图式侧栏不常驻搜索框，由「工作区」头的放大镜唤出）。 */
+  const [searchOpen, setSearchOpen] = React.useState<boolean>(false);
+  /** 文件树区块是否展开（截图式侧栏不常驻文件树；点「文件」区块标题展开 / 收起）。 */
+  const [treeOpen, setTreeOpen] = React.useState<boolean>(false);
   /** 左栏是否收成图标条（Codex 式可折叠侧栏；快捷键 `[`）。 */
   const [rail, setRail] = React.useState<boolean>(false);
   /** 行右键菜单（会话 id + 视口坐标；null 表示未打开）。 */
@@ -347,9 +372,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     void props.onReorder(SessionOrder.move(sessions, id, anchor.id));
   };
 
-  /** 视图按钮文案（同时作为 aria-label，见下）。 @returns 中文字样 */
-  const viewLabel = (): string => (view === 'time' ? '时间' : view === 'ws' ? '工作区' : '任务卡');
-  /** 下一个视图的提示文案。 @returns 中文字样 */
+  /** 下一个视图的提示文案（同时作为 aria-label）。 @returns 中文字样 */
   const nextViewTitle = (): string =>
     view === 'time' ? '切换到按工作区分组' : view === 'ws' ? '切换到任务卡视图' : '切换到时间分组';
 
@@ -489,8 +512,57 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const listOpen = query.trim() !== '';
   const wsName = wsPath === '' ? '未选择项目' : PathJoiner.basename(wsPath);
   const menuSession = menu === null ? undefined : sessions.find((s) => s.id === menu.id);
+
+  /**
+   * 唤出 / 收起搜索框：收起时清掉本地关键字与在途远端搜索，展开时聚焦输入框。
+   * @returns 无
+   */
+  const toggleSearch = (): void => {
+    const next = !searchOpen;
+    setSearchOpen(next);
+    if (!next) {
+      setQuery('');
+      search.setQuery('');
+      return;
+    }
+    setRail(false);
+    // 宿主无 rAF（node 测试桩）时跳过聚焦即可，不能让「唤出搜索框」本身抛错。
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    }
+  };
+
   return (
-    <div className={'col left' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
+    <div className={'col left side' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
+      {/* 品牌头：Ω + deepseek HARNESS + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
+      <SidebarHeader
+        rail={rail}
+        onToggleRail={() => setRail((v) => !v)}
+        onOpenPalette={onOpenPalette}
+      />
+      {/* 新会话：截图式一等按钮；收成图标条时退化为紧凑图标钮。 */}
+      <button
+        className={rail ? 'new-chat compact' : 'new-chat'}
+        onClick={onNew}
+        title="新建会话"
+        aria-label="新建会话"
+      >
+        <span className="nc-ico" aria-hidden="true">
+          {icon('plus', { size: 15 })}
+        </span>
+        {rail ? null : <span>新会话</span>}
+      </button>
+      {/* 插件：截图式侧栏的一等导航项（打开右栏插件面板）。 */}
+      <button
+        className={'side-item' + (activePane === 'plugins' ? ' active' : '')}
+        onClick={() => onOpenPane?.('plugins')}
+        aria-label={activePane === 'plugins' ? '插件（当前页）' : '插件'}
+      >
+        <span className="si-ico" aria-hidden="true">
+          {icon('plug', { size: 16 })}
+        </span>
+        {rail ? null : <span>插件</span>}
+      </button>
       {/* 顶部：工作区/项目切换器（Codex 式一等入口）。收成图标条时只留这一个按钮。 */}
       <div className="ws-switch">
         <button
@@ -500,7 +572,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           aria-expanded={wsMenuOpen ? 'true' : 'false'}
           onClick={() => setWsMenuOpen((v) => !v)}
         >
-          <span className="ws-switch-icon">📁</span>
+          <span className="ws-switch-icon">{icon('folder', { size: 14 })}</span>
           {rail ? null : <span className="ws-switch-name">{wsName}</span>}
           {rail ? null : <span className="ws-caret">▾</span>}
         </button>
@@ -522,123 +594,101 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           </div>
         ) : null}
       </div>
-      <div className="col-head">
-        <button
-          className="sec-toggle"
-          aria-expanded={sessionsOpen ? 'true' : 'false'}
-          onClick={() => {
-            // 收成图标条时，点区块标题的语义是「展开左栏并进入该区块」（否则点了没反应）。
-            if (rail) {
-              setRail(false);
-              setSessionsOpen(true);
-              return;
-            }
-            setSessionsOpen((v) => !v);
-          }}
-        >
-          <span className="ws-caret">{sessionsOpen ? '▾' : '▸'}</span>
-          {rail ? null : <span>会话</span>}
-        </button>
-        {rail ? (
+      {/* 工作区区块头：标题 + 图标簇（搜索 / 范围 / 视图 / 新增项目）；图标条态只留搜索。 */}
+      <div className="side-sec-head">
+        <span className="ssh-label">{rail ? null : '工作区'}</span>
+        <span className="flex-spacer" aria-hidden="true"></span>
+        <span className="ssh-actions">
           <button
-            className="ws-add"
-            title="搜索会话（展开左栏并聚焦搜索框）"
-            aria-label="搜索会话"
-            onClick={() => {
-              setRail(false);
-              setSessionsOpen(true);
-              window.requestAnimationFrame(() => searchInputRef.current?.focus());
-            }}
+            className={'ws-add' + (searchOpen ? ' active' : '')}
+            title={searchOpen ? '收起搜索' : '搜索会话与文件'}
+            aria-label={searchOpen ? '收起搜索' : '搜索会话与文件'}
+            aria-expanded={searchOpen ? 'true' : 'false'}
+            onClick={toggleSearch}
           >
-            🔍
+            {icon('search', { size: 14 })}
           </button>
-        ) : null}
-        {rail ? null : (
-          <button
-            className="ws-add"
-            title={nextViewTitle()}
-            aria-label={nextViewTitle()}
-            onClick={toggleView}
-          >
-            {viewLabel()}
-          </button>
-        )}
-        <button
-          className="ws-add rail-toggle"
-          title={rail ? '展开左栏（[）' : '收起左栏（[）'}
-          aria-label={rail ? '展开左栏' : '收起左栏'}
-          onClick={() => setRail((v) => !v)}
-        >
-          {rail ? '»' : '«'}
-        </button>
-      </div>
-      {sessionsOpen ? (
-        <div className="section">
-          <div className="session-toolbar">
-            <input
-              className="session-search"
-              ref={searchInputRef}
-              placeholder="搜索会话…"
-              value={query}
-              spellCheck={false}
-              role="combobox"
-              aria-label="搜索会话与文件"
-              aria-autocomplete="list"
-              aria-expanded={listOpen ? 'true' : 'false'}
-              aria-controls={SEARCH_LIST_ID}
-              aria-activedescendant={hitIndex >= 0 ? 'sr-opt-' + String(hitIndex) : undefined}
-              onChange={onSearchInput}
-              onKeyDown={onSearchKey}
-            />
-            <button className="btn primary" onClick={onNew}>
-              + 新建
-            </button>
-            {onToggleScope === undefined ? null : (
+          {rail ? null : (
+            <>
+              {onToggleScope === undefined ? null : (
+                <button
+                  className={'ws-add' + (scopeAll === true ? ' active' : '')}
+                  title={
+                    scopeAll === true
+                      ? '当前显示**全部项目**的会话（点击只看本项目）'
+                      : '当前只显示**本项目**的会话（点击看全部项目）'
+                  }
+                  aria-label={scopeAll === true ? '切换为只看本项目' : '切换为看全部项目'}
+                  aria-pressed={scopeAll === true ? 'true' : 'false'}
+                  onClick={onToggleScope}
+                >
+                  {icon('sliders', { size: 14 })}
+                </button>
+              )}
               <button
-                className={'btn scope-toggle' + (scopeAll === true ? ' active' : '')}
-                title={
-                  scopeAll === true
-                    ? '当前显示**全部项目**的会话（点击只看本项目）'
-                    : '当前只显示**本项目**的会话（点击看全部项目）'
-                }
-                aria-pressed={scopeAll === true ? 'true' : 'false'}
-                onClick={onToggleScope}
+                className="ws-add"
+                title={nextViewTitle()}
+                aria-label={nextViewTitle()}
+                onClick={toggleView}
               >
-                {scopeAll === true ? '全部项目' : '本项目'}
+                {icon('columns', { size: 14 })}
               </button>
-            )}
-          </div>
-          <SearchResults
-            groups={groups}
-            selectedIndex={hitIndex}
-            query={query}
-            loading={searching}
-            onPick={openHit}
+              <button className="ws-add" title="添加项目" aria-label="添加项目" onClick={addProject}>
+                {icon('plus', { size: 14 })}
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+      {searchOpen && !rail ? (
+        <div className="session-toolbar">
+          <input
+            className="session-search"
+            ref={searchInputRef}
+            placeholder="搜索会话…"
+            value={query}
+            spellCheck={false}
+            role="combobox"
+            aria-label="搜索会话与文件"
+            aria-autocomplete="list"
+            aria-expanded={listOpen ? 'true' : 'false'}
+            aria-controls={SEARCH_LIST_ID}
+            aria-activedescendant={hitIndex >= 0 ? 'sr-opt-' + String(hitIndex) : undefined}
+            onChange={onSearchInput}
+            onKeyDown={onSearchKey}
           />
-          <div
-            id="sessions"
-            className={draggingId === null ? undefined : 'touch-drag'}
-            onPointerDown={onSessionsPointerDown}
-            onPointerUp={onSessionsPointerUp}
-            onPointerCancel={() => {
-              clearTouchTimer();
-              touchDragRef.current = null;
-              setDraggingId(null);
-            }}
-          >
-            {view === 'cards'
-              ? renderCardsView(listCtx)
-              : view === 'ws'
-                ? renderGroupsView(listCtx)
-                : renderTimeGroupsView(listCtx)}
-          </div>
         </div>
       ) : null}
+      <SearchResults
+        groups={groups}
+        selectedIndex={hitIndex}
+        query={query}
+        loading={searching}
+        onPick={openHit}
+      />
+      <div
+        id="sessions"
+        className={draggingId === null ? undefined : 'touch-drag'}
+        onPointerDown={onSessionsPointerDown}
+        onPointerUp={onSessionsPointerUp}
+        onPointerCancel={() => {
+          clearTouchTimer();
+          touchDragRef.current = null;
+          setDraggingId(null);
+        }}
+      >
+        {view === 'cards'
+          ? renderCardsView(listCtx)
+          : view === 'ws'
+            ? renderGroupsView(listCtx)
+            : renderTimeGroupsView(listCtx)}
+      </div>
       <div className="col-head">
         <button
           className="sec-toggle"
           aria-expanded={treeOpen ? 'true' : 'false'}
           onClick={() => {
+            // 收成图标条时，点区块标题的语义是「展开侧栏并进入该区块」（否则点了没反应）。
             if (rail) {
               setRail(false);
               setTreeOpen(true);
@@ -730,6 +780,15 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           </button>
         </div>
       ) : null}
+      {/* 页脚：连接状态 + 主题 + 设置（原 TopBar 的状态 / 主题职责收编于此）。 */}
+      <SidebarFooter
+        connected={connected ?? true}
+        streamState={streamState}
+        theme={theme ?? 'dark'}
+        onToggleTheme={onToggleTheme}
+        onOpenSettings={onOpenPane === undefined ? undefined : () => onOpenPane('settings')}
+        settingsActive={activePane === 'settings'}
+      />
     </div>
   );
 }

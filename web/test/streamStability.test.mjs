@@ -38,7 +38,7 @@ const STUB = '_stream-stability.html';
 /** 读徽标文案与配色类。 @param {object} cdp CDP 会话。 @returns {Promise<object>} 度量。 */
 function readBadge(cdp) {
   return cdp.evaluate(`(function(){
-    var pill = document.querySelector('.topbar .pill');
+    var pill = document.querySelector('.side-foot .pill');
     return pill ? { text: pill.textContent.trim(), cls: pill.className, sources: (window.__SOURCES__||[]).length } : null;
   })()`);
 }
@@ -73,7 +73,7 @@ test('SSE 徽标三态（重连中不闪红）+ .ev 不得再有入场动画', {
     await cdp.waitFor("!!document.querySelector('.composer-input textarea')", 1200);
     // ① 首次连接成功 → 已连接（绿）
     assert.ok(
-      await cdp.waitFor("((document.querySelector('.topbar .pill')||{}).textContent||'').trim() === '已连接'", 600),
+      await cdp.waitFor("((document.querySelector('.side-foot .pill')||{}).textContent||'').trim() === '已连接'", 600),
       'SSE 打开后徽标应为「已连接」',
     );
     const open = await readBadge(cdp);
@@ -81,7 +81,7 @@ test('SSE 徽标三态（重连中不闪红）+ .ev 不得再有入场动画', {
 
     // ② 瞬时抖动：先「重连中」（黄），绝不立刻变「断开」
     await cdp.evaluate("(function(){ var es=(window.__SOURCES__||[])[0]; if(!es) return 'no-source'; es.onerror({}); return 'ok'; })()");
-    const transient = await cdp.waitFor("((document.querySelector('.topbar .pill')||{}).textContent||'').trim() === '重连中'", 200);
+    const transient = await cdp.waitFor("((document.querySelector('.side-foot .pill')||{}).textContent||'').trim() === '重连中'", 200);
     assert.ok(transient, '瞬时抖动后徽标应为「重连中」');
     const mid = await readBadge(cdp);
     assert.match(mid.cls, /pill warn/, '重连中时 pill 应带 warn 类（黄）');
@@ -90,7 +90,7 @@ test('SSE 徽标三态（重连中不闪红）+ .ev 不得再有入场动画', {
     // ③ 宽限期内重连成功 → 回到「已连接」，且此后不会因旧定时器再刷成「断开」
     await cdp.evaluate("(function(){ var es=(window.__SOURCES__||[])[0]; es.readyState = 1; if (es.onopen) es.onopen({}); return true; })()");
     assert.ok(
-      await cdp.waitFor("((document.querySelector('.topbar .pill')||{}).textContent||'').trim() === '已连接'", 200),
+      await cdp.waitFor("((document.querySelector('.side-foot .pill')||{}).textContent||'').trim() === '已连接'", 200),
       '重连成功后徽标应回到「已连接」',
     );
     await new Promise((r) => setTimeout(r, 4500)); // 越过 4s 宽限期：旧定时器必须已被清掉
@@ -100,7 +100,7 @@ test('SSE 徽标三态（重连中不闪红）+ .ev 不得再有入场动画', {
     // ④ 真断线：抖动后再不恢复 → 宽限期到点后落成「断开」（证明三态不是「永远重连中」）
     await cdp.evaluate("(function(){ var es=(window.__SOURCES__||[])[0]; es.readyState = 0; es.onerror({}); return true; })()");
     assert.ok(
-      await cdp.waitFor("((document.querySelector('.topbar .pill')||{}).textContent||'').trim() === '断开'", 1200),
+      await cdp.waitFor("((document.querySelector('.side-foot .pill')||{}).textContent||'').trim() === '断开'", 1200),
       '宽限期内未恢复应落成「断开」',
     );
   } finally {

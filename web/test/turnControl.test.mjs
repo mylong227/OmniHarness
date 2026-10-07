@@ -68,7 +68,18 @@ function makeController(host, api) {
     dialogSvc: {},
     navigate: () => {},
   };
-  const sessions = { async refreshSessions() {}, flushStream() {} };
+  // 会话协作者桩：`viewAttachment` 是**视图代数**契约（2026-10-06 起 ComposerController 靠它判断
+  // "这一回合还属不属于当前视图"——见 web/src/ui/models/ViewAttachment.ts）。
+  // 为什么挂在 sessions 上而不是 services：摘 / 挂两件事都发生在 SessionController（newSession 摘、
+  // loadThread 挂），状态与改动同源；ComposerController 只借用代数做比对。
+  const sessions = {
+    async refreshSessions() {},
+    flushStream() {},
+    // 新回合开一份干净的流式缓冲（真实现见 models/TurnStreamBuffer.ts）
+    openStream() {},
+    // 视图代数契约（2026-10-06）：见 web/src/ui/models/ViewAttachment.ts
+    viewAttachment: { attach: () => 0, epoch: () => 0, detached: false },
+  };
   return new ComposerController(host, services, sessions);
 }
 
@@ -371,3 +382,59 @@ test('SessionController.appendTextDelta：回合结束后到达的迟到增量�
   sessions.appendTextDelta({ text: '迟到' });
   assert.equal(state.streamText, '', '回合结束后不得再累积增量');
 });
+
+test('回合进行中点「新建」：收尾不得把旧会话拽回视图（真机"新建无反应"的回归判据）', async () => {
+  // 现场（2026-10-06 用户截图）：回合进行中点「+ 新建」→ 视图确实清空了，**几秒后又被拽回来**
+  // （hash 回到 thread=…、助手卡片重新出现）⇒ 用户看到的是"新建无反应"。
+  // 根因：`send` 收尾**无条件**写回 currentThreadId + navigate，而 SSE 仍在推该回合的事件
+  // （事件不带 threadId，客户端无从分辨）。
+  globalThis.window = globalThis.window ?? { React: { createElement: () => ({}) } };
+  const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
+  const { host, state } = makeHost([{ id: 'u1', type: 'user', payload: { content: '旧' } }], {
+    currentThreadId: 't-old',
+    busy: true,
+  });
+  const navigated = [];
+  const services = {
+    api: { async runTurn() { return { threadId: 't-new', finalText: '旧回合的答复' }; } },
+    toast: () => {},
+    reducers: { appendFinalText: (events) => events, ingestEvent: (s) => s },
+    stream: {},
+    toastSvc: {},
+    dialogSvc: {},
+    navigate: (r) => navigated.push(r),
+  };
+  const sessions = new SessionController(host, services);
+  const ctrl = makeController(host, services.api);
+  // 让 ComposerController 用真 SessionController（才走得上代数契约）
+  const real = new (await import('../dist/ui/controllers/ComposerController.js')).ComposerController(
+    host,
+    services,
+    sessions,
+  );
+
+  const sendPromise = real.send('hi', [], []);
+  // 回合进行中：用户点「新建」
+  sessions.newSession();
+  assert.equal(state.currentThreadId, null, '点新建后必须立刻清空当前会话');
+  await sendPromise;
+
+  assert.equal(
+    state.currentThreadId,
+    null,
+    '收尾不得把已被用户放弃的旧会话写回 currentThreadId（否则就是"新建无反应"）',
+  );
+  assert.deepEqual(
+    navigated.filter((r) => r.threadId !== null && r.threadId !== undefined),
+    [],
+    '收尾不得把 hash 导航回旧会话',
+  );
+  // 迟到的事件也不得写进新视图
+  const before = state.events.length;
+  sessions.handleEvent({ id: 'a-late', type: 'assistant', payload: { content: '迟到' } });
+  sessions.appendTextDelta({ text: '迟到增量' });
+  assert.equal(state.events.length, before, '视图已摘：迟到事件不得写进新视图');
+  assert.equal(state.streamText, '', '视图已摘：迟到增量不得进缓冲');
+  void ctrl;
+});
+

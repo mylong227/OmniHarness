@@ -5,6 +5,7 @@
 
 import { React } from '../../deps.js';
 import { esc } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import { hostOf } from '../../textUtils.js';
 
 /** ExternalLinkCards 组件的入参。 */
@@ -23,7 +24,9 @@ export function ExternalLinkCards(props: ExternalLinkCardsProps): ReactElement |
   if (urls.length === 0) return null;
   return (
     <div className="link-cards">
-      <div className="link-cards-head">🔗 外部链接 · {urls.length}</div>
+      <div className="link-cards-head">
+        {icon('link', { size: 12 })} 外部链接 · {urls.length}
+      </div>
       {urls.map((u) => (
         <a className="link-card" href={u} target="_blank" rel="noopener noreferrer" key={u}>
           <span className="link-card-host">{esc(hostOf(u))}</span>

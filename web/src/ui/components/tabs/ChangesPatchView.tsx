@@ -10,6 +10,8 @@
 import { React } from '../../deps.js';
 import { parseDiffRows, type DiffRow } from '../../textUtils.js';
 import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.js';
+import { icon } from '../../models/Icon.js';
+import { emptyNote } from '../../format.js';
 
 /** 单文件变更行。 */
 export interface ChangeFile {
@@ -136,7 +138,7 @@ function renderRow(row: DiffRow, i: number, ctx: ReviewCtx): ReactElement {
           aria-label={'评论第 ' + String(line) + ' 行'}
           onClick={() => ctx.onStartDraft({ path: ctx.f.path, side, line })}
         >
-          💬
+          {icon('message', { size: 12 })}
         </button>
       ) : null}
     </div>
@@ -153,7 +155,7 @@ function renderComment(c: DiffComment, ctx: ReviewCtx): ReactElement {
   return (
     <div key={'c' + c.id} className="diff-comment">
       <span className="dc-mark">
-        💬 {c.side === 'new' ? '新' : '旧'} L{c.line}
+        {icon('message', { size: 12 })} {c.side === 'new' ? '新' : '旧'} L{c.line}
       </span>
       <span className="dc-text">{c.text}</span>
       <button
@@ -207,9 +209,9 @@ function renderDraft(i: number, ctx: ReviewCtx): ReactElement {
  * @returns 变更内容节点
  */
 export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
-  if (ctx.patchLoading) return <div className="empty">读取中…</div>;
+  if (ctx.patchLoading) return emptyNote('读取中…', { icon: 'rewind' });
   if (ctx.patch === '')
-    return <div className="empty">无 diff 内容（可能是二进制文件或模式变更）</div>;
+    return emptyNote('无 diff 内容（可能是二进制文件或模式变更）', { icon: 'file' });
 
   const isNewFile = !ctx.patch.includes('@@') || ctx.f.status === '??';
   const hunks = DiffHunkSplitter.split(ctx.patch);
@@ -252,7 +254,7 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
                   ctx.onStageHunk(ctx.f.path, DiffHunkSplitter.text(h), isNewFile, idx)
                 }
               >
-                ＋ stage
+                {icon('plus', { size: 12 })} stage
               </button>
               <button
                 className="hunk-btn danger"
@@ -260,7 +262,7 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
                 title="丢弃该改动块（git apply -R，不可恢复）"
                 onClick={() => ctx.onRevertHunk(ctx.f.path, DiffHunkSplitter.text(h), idx)}
               >
-                ↩ 丢弃
+                {icon('undo', { size: 12 })} 丢弃
               </button>
             </span>
           ) : null}
@@ -291,7 +293,7 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
         title="stage 整个文件（git add）"
         onClick={() => ctx.onStageFile(ctx.f.path)}
       >
-        ＋ stage 文件
+        {icon('plus', { size: 12 })} stage 文件
       </button>
       <button
         className="hunk-btn danger"
@@ -299,7 +301,7 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
         title="丢弃整个文件的工作区改动（不可恢复）"
         onClick={() => ctx.onRevertFile(ctx.f.path)}
       >
-        ↩ 丢弃文件
+        {icon('undo', { size: 12 })} 丢弃文件
       </button>
     </div>
   ) : null;

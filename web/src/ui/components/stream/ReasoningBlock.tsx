@@ -1,8 +1,9 @@
-// 思考过程行：默认折叠为一行「💭 思考过程」，点开看全文——thinking 有提示但不刷屏。
+// 思考过程行：默认折叠为一行「思考过程」，点开看全文——thinking 有提示但不刷屏。
 // 函数组件范式：仅一个展开态，用 useState 承接。
 
 import { React } from '../../deps.js';
 import { esc } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';
 
 /** ReasoningBlock 组件的入参。 */
@@ -31,7 +32,7 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
         title={open ? '收起' : '点击查看思考内容'}
       >
         <span className="tc-chevron">{open ? '▾' : '▸'}</span>
-        <span className="tc-icon">💭</span>
+        <span className="tc-icon">{icon('thinking', { size: 14 })}</span>
         <span className="tc-summary">思考过程 · {content.length} 字</span>
       </div>
       {open ? (

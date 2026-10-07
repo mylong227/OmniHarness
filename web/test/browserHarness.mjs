@@ -136,6 +136,11 @@ function injectedBody() {
     "    'approval.respond': { ok:true },",
     "    'turns.run': { pending:true }",
     '  };',
+    // 运行期结果覆盖（**纯增量**，不影响任何既有用例）：页面可在本脚本之前先挂
+    // `window.__RPC_OVERRIDES__ = { '方法名': 结果 }`，用真实业务形状的数据驱动界面，
+    // 例如视觉探针要看到"有会话/有变更/有指标"的完整工作台。缺省路径逐字不变。
+    '  var OVERRIDES = window.__RPC_OVERRIDES__ || {};',
+    '  for (var ok in OVERRIDES) { if (Object.prototype.hasOwnProperty.call(OVERRIDES, ok)) results[ok] = OVERRIDES[ok]; }',
     '  window.fetch = function(url, opts){',
     "    var u = String(url);",
     "    var method = '';",
@@ -521,9 +526,21 @@ export class CdpSession {
     );
   }
 
-  /** 截图保存为 PNG，返回字节数。 */
+  /**
+   * 截图保存为 PNG，返回字节数。
+   *
+   * `captureBeyondViewport: false` 是**有意**的（2026-10-07 实测）：默认值会让 Chrome 在多帧合成
+   * 路径上截"超出视口"的画面，此时 `backdrop-filter` 的模糊层会呈现为"顶部一条未模糊的带"——
+   * 而我们用同一页做了三组对照（无浮层基线 / 有浮层后的逐行亮度 / backdrop 与 app 的 rect 完全相同）
+   * 证明**真实视口里模糊是满覆盖的**，那条带纯属捕获伪影。截图是给人眼复核用的，必须与真人看到的一致。
+   * @param path 目标文件路径
+   * @returns 写入字节数
+   */
   async screenshot(path) {
-    const r = await this.send('Page.captureScreenshot', { format: 'png' });
+    const r = await this.send('Page.captureScreenshot', {
+      format: 'png',
+      captureBeyondViewport: false,
+    });
     const buf = Buffer.from(r.data, 'base64');
     writeFileSync(path, buf);
     return buf.length;

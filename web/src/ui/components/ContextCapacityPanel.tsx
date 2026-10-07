@@ -1,4 +1,4 @@
-// 上下文容量面板（输入区「📊」入口点开）：展示当前会话上下文构成（六类 token 分解 + 窗口占比 +
+// 上下文容量面板（输入区的图表入口点开）：展示当前会话上下文构成（六类 token 分解 + 窗口占比 +
 // 提示缓存命中率）与「今日余额」各模型配额。数据来自 context.usage / context.window / quota.get。
 //
 // 面向对象：展示逻辑下沉到 ContextUsageView / QuotaView（零 React 依赖，可单测）；
@@ -11,6 +11,7 @@
 import { React } from '../deps.js';
 import { ContextUsageView } from '../models/ContextUsageView.js';
 import { QuotaView } from '../models/QuotaView.js';
+import { icon } from '../models/Icon.js';
 import type { ContextUsageReport, QuotaStatus } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
@@ -132,7 +133,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
       title="上下文容量与今日余额"
       onClick={toggle}
     >
-      <span className="cap-ico">📊</span>
+      <span className="cap-ico">{icon('chart', { size: 14 })}</span>
       <span className="cap-bar">
         <span className="cap-bar-fill" style={{ width: percent + '%' }} />
       </span>

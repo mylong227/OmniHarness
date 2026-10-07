@@ -13,7 +13,7 @@
        这条前端健康判据逼成假红。 -->
   <link
     rel="icon"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26' fill='%237c9cff'%3E%CE%A9%3C/text%3E%3C/svg%3E"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101114'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,serif' text-anchor='middle' fill='%237aa2f7'%3E%CE%A9%3C/text%3E%3C/svg%3E"
   >
   <!--
     React 工作台宿主页。架构：原生 ES Module，零打包器、零网络依赖。
@@ -28,6 +28,12 @@
   <link rel="stylesheet" href="./styles/components.css?v=5">
   <link rel="stylesheet" href="./styles/chat.css?v=6">
   <link rel="stylesheet" href="./styles/highlight.css?v=4">
+  <!-- 打磨层：必须在上面五份之后（同权重靠后生效），承载设计 token、层级、发丝线、焦点与微交互。
+       设计依据见 docs/DESIGN_SYSTEM.md；去掉这一行即回到打磨前的观感（回滚成本 = 一行）。 -->
+  <link rel="stylesheet" href="./styles/polish.css?v=1">
+  <!-- 壳层重构（截图式三栏）：会话侧栏 / 对话（含轨迹视图与状态栏）/ 代码查看器。
+       只在 polish 之后追加同权重规则；去掉这一行即回到重构前的壳（回滚成本 = 一行）。 -->
+  <link rel="stylesheet" href="./styles/shell.css?v=1">
   <!-- 成熟依赖（离线内置，零网络）：KaTeX 数学排版 + highlight.js 代码高亮。
        与 React 同以 UMD 全局方式注入，由 markdown.ts 在渲染回复时消费。 -->
   <link rel="stylesheet" href="./vendor/katex.min.css?v=1">

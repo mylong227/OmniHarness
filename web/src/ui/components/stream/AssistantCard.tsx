@@ -6,6 +6,7 @@
 
 import { React } from '../../deps.js';
 import { badge, timeOf, esc, renderMarkdown } from '../../format.js';
+import { icon } from '../../models/Icon.js';
 import { extractUrls } from '../../textUtils.js';
 import { TextRevealer } from '../../models/TextRevealer.js';
 import { ClipboardCopier } from '../../models/ClipboardCopier.js';
@@ -122,7 +123,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
         <AttachmentChips files={p.files as FileAttachment[] | undefined} />
         <ExternalLinkCards urls={extractUrls(full)} />
         <button className="copy-btn" title="复制结果" style={COPY_BTN} onClick={onCopy}>
-          📋 复制
+          {icon('copy', { size: 13 })} 复制
         </button>
       </div>
     </>

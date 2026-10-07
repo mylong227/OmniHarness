@@ -12,12 +12,10 @@ import { AppContext } from './context.js';
 import { AppController } from './controllers/AppController.js';
 import type { AppHost, AppState } from './controllers/AppController.js';
 
-import { TopBar } from './components/TopBar.js';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary.js';
 import { SessionPanel } from './components/SessionPanel.js';
 import { StreamView } from './components/StreamView.js';
 import { RightPanel } from './components/RightPanel.js';
-import { NavRail } from './components/NavRail.js';
 import { ApprovalModal } from './components/ApprovalModal.js';
 import { CommandPalette } from './components/CommandPalette.js';
 import { Toast } from './components/Toast.js';
@@ -45,7 +43,7 @@ type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
 function initialState(): AppState {
   return {
     connected: false,
-    // 首屏是「连接中」而不是「断开」：还没连上就报红色断开是假故障（徽标文案见 TopBar）。
+    // 首屏是「连接中」而不是「断开」：还没连上就报红色断开是假故障（徽标文案见 SidebarFooter）。
     streamState: 'connecting',
     adapter: '',
     activePane: 'tools',
@@ -63,6 +61,7 @@ function initialState(): AppState {
     detailEvent: null,
     approval: null,
     fileView: null,
+    openFiles: [],
     theme: 'dark',
     leftOpen: false,
     rightOpen: false,
@@ -79,7 +78,7 @@ function initialState(): AppState {
     finalizedStreamText: '',
     composerSeed: null,
     leftWidth: 248,
-    rightWidth: 360,
+    rightWidth: 420,
   };
 }
 
@@ -135,7 +134,20 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
 }
 
 /**
- * 装配顶层 DOM 树（顶栏 + 三栏主体 + 审批弹窗 + 抽屉遮罩 + 命令面板 + toast）。
+ * 当前会话标题：优先自定义标签，未命名会话显示 id 前缀，再退化为空串（中栏头兜底「新会话」）。
+ * @param s 当前状态
+ * @returns 标题文案
+ */
+function sessionTitleOf(s: AppState): string {
+  const cur = s.sessions.find((x) => x.id === s.currentThreadId);
+  if (cur !== undefined && cur.label !== '') return cur.label;
+  return s.currentThreadId === null ? '' : s.currentThreadId;
+}
+
+/**
+ * 装配顶层 DOM 树（三栏主体 + 审批弹窗 + 抽屉遮罩 + 命令面板 + toast）。
+ * 壳层为截图式三栏：会话侧栏（品牌 / 新会话 / 插件 / 工作区 / 设置）+ 中栏对话 + 右栏代码查看器；
+ * 无全局顶栏——品牌在侧栏头，连接状态在侧栏页脚，12 个功能面板收进右栏的「全部面板」菜单。
  * @param ctrl 根控制器
  * @param s 当前状态
  * @param pane 右侧内容面板节点
@@ -145,25 +157,15 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
   return React.createElement(
     'div',
     { className: 'app' },
-    React.createElement(TopBar, {
-      connected: s.connected,
-      streamState: s.streamState,
-      adapter: s.adapter,
-      onToggleTheme: () => ctrl.layout.toggleTheme(),
-      onToggleLeft: () => ctrl.layout.toggleLeft(),
-      onToggleRight: () => ctrl.layout.toggleRight(),
-      onCommandPalette: ctrl.openPalette,
-    }),
     React.createElement(
       'div',
       { className: 'body' },
-      React.createElement(NavRail, { activePane: s.activePane, onSelect: ctrl.setActivePane }),
       React.createElement(SessionPanel, {
         sessions: s.sessions,
         currentThreadId: s.currentThreadId,
         onSelect: ctrl.sessions.loadThread,
         onNew: ctrl.sessions.newSession,
-        onOpenFile: ctrl.sessions.openFile,
+        onOpenFile: ctrl.files.openFile,
         onRename: ctrl.sessions.renameSession,
         onDelete: ctrl.sessions.deleteSession,
         onFork: ctrl.sessions.forkSession,
@@ -172,6 +174,13 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         onWorkspaceSwitched: () => ctrl.sessions.refreshSessions(),
         scopeAll: s.sessionsScopeAll,
         onToggleScope: () => ctrl.sessions.toggleSessionsScope(),
+        activePane: s.activePane,
+        onOpenPane: (key: string) => ctrl.setActivePane(key),
+        onOpenPalette: () => ctrl.openPalette(),
+        connected: s.connected,
+        streamState: s.streamState,
+        theme: s.theme,
+        onToggleTheme: () => ctrl.layout.toggleTheme(),
         open: s.leftOpen,
         style: { width: s.leftWidth + 'px' },
       }),
@@ -188,7 +197,7 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         finalizedStreamText: s.finalizedStreamText,
         composerSeed: s.composerSeed,
         onEventClick: ctrl.sessions.showDetail,
-        onOpenFile: ctrl.sessions.openFile,
+        onOpenFile: ctrl.files.openFile,
         onSend: ctrl.composer.send,
         busy: s.busy,
         activeTool: s.activeTool,
@@ -211,6 +220,11 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         onReasoningChange: ctrl.composer.changeReasoning,
         onPermissionChange: ctrl.composer.changePermission,
         api: ctrl.api,
+        sessionTitle: sessionTitleOf(s),
+        streamState: s.streamState,
+        adapter: s.adapter,
+        onToggleLeft: () => ctrl.layout.toggleLeft(),
+        onToggleRight: () => ctrl.layout.toggleRight(),
       }),
       React.createElement(Resizer, {
         side: 'right',
@@ -223,6 +237,10 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
           activePane: s.activePane,
           onSelect: ctrl.setActivePane,
           open: s.rightOpen,
+          openFiles: s.openFiles,
+          activeFileTitle: s.fileView?.title ?? null,
+          onShowFile: ctrl.files.showOpenFile,
+          onCloseFile: ctrl.files.closeOpenFile,
           style: { width: s.rightWidth + 'px' },
         },
         pane,

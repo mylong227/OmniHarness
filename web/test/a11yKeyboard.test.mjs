@@ -15,8 +15,10 @@ const runtime = createRuntime();
 runtime.install();
 
 const { RightPanel } = await import('../dist/ui/components/RightPanel.js');
-const { NavRail } = await import('../dist/ui/components/NavRail.js');
-const { TopBar } = await import('../dist/ui/components/TopBar.js');
+const { PanelPicker } = await import('../dist/ui/components/PanelPicker.js');
+const { SidebarHeader } = await import('../dist/ui/components/SidebarHeader.js');
+const { SidebarFooter } = await import('../dist/ui/components/SidebarFooter.js');
+const { ChatHeader } = await import('../dist/ui/components/ChatHeader.js');
 const { FileModal } = await import('../dist/ui/components/FileModal.js');
 const { StreamingAssistantCard } =
   await import('../dist/ui/components/stream/StreamingAssistantCard.js');
@@ -80,26 +82,31 @@ function texts(vnode, out = []) {
 
 // ---- 右栏标签：WAI-ARIA Tabs 三件套 ----
 
+/** 造一份已打开文件（代码查看器标签条的渲染源）。 */
+const fileOf = (title) => ({ title, meta: '测试文件', content: 'x', lang: 'ts' });
+
 test('RightPanel：tablist/tab/tabpanel 成套，aria-selected 唯一为 true，roving tabindex', () => {
+  // 2026-10-07 壳层重构：右栏改为代码查看器（文件标签 + 激活面板标签），12 个功能面板收进
+  // PanelPicker 菜单——标签条不再常驻 12 项，但 Tabs 语义契约原样保留。
   const vnode = renderOf(RightPanel, {
     activePane: 'changes',
     onSelect: () => {},
     open: true,
+    openFiles: [fileOf('a.ts'), fileOf('b.ts')],
+    activeFileTitle: 'a.ts',
+    onShowFile: () => {},
+    onCloseFile: () => {},
     children: 'panel-body',
   });
   const tablist = collect(vnode, (n) => n.props.role === 'tablist');
   assert.strictEqual(tablist.length, 1);
-  assert.strictEqual(tablist[0].props['aria-label'], '右侧面板');
+  assert.strictEqual(tablist[0].props['aria-label'], '文件与面板');
 
   const tabs = collect(vnode, (n) => n.props.role === 'tab');
-  assert.ok(tabs.length >= 10, '标签数量异常：' + String(tabs.length));
-  assert.ok(
-    tabs.some((t) => t.props.id === 'tab-rollback'),
-    '窄屏（rail 隐藏）必须能切到「回滚」——否则该面板在 <880px 下不可达',
-  );
+  assert.strictEqual(tabs.length, 3, '2 个文件标签 + 1 个激活面板标签（变更）');
   const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
   assert.strictEqual(selected.length, 1, 'aria-selected 必须有且仅有 1 个 true');
-  assert.strictEqual(selected[0].props.id, 'tab-changes');
+  assert.strictEqual(selected[0].props.id, 'tab-pane-changes', '非 file 视图时激活的是面板标签');
   assert.deepStrictEqual(
     tabs.filter((t) => t.props['aria-selected'] !== 'true' && t.props['aria-selected'] !== 'false'),
     [],
@@ -110,9 +117,9 @@ test('RightPanel：tablist/tab/tabpanel 成套，aria-selected 唯一为 true，
 
   const panel = collect(vnode, (n) => n.props.role === 'tabpanel');
   assert.strictEqual(panel.length, 1);
-  assert.strictEqual(panel[0].props['aria-labelledby'], 'tab-changes');
+  assert.strictEqual(panel[0].props['aria-labelledby'], 'tab-pane-changes');
   assert.strictEqual(
-    byId(vnode, 'tab-changes').length,
+    byId(vnode, 'tab-pane-changes').length,
     1,
     'aria-labelledby 必须指向真实存在的元素',
   );
@@ -121,21 +128,53 @@ test('RightPanel：tablist/tab/tabpanel 成套，aria-selected 唯一为 true，
   assert.strictEqual(texts(panel[0]).join(''), 'panel-body');
 });
 
+test('RightPanel：file 视图时激活对应文件标签；全部面板可经 PanelPicker 到达', () => {
+  const vnode = renderOf(RightPanel, {
+    activePane: 'file',
+    onSelect: () => {},
+    open: true,
+    openFiles: [fileOf('a.ts'), fileOf('rollback.ts')],
+    activeFileTitle: 'rollback.ts',
+    onShowFile: () => {},
+    onCloseFile: () => {},
+    children: null,
+  });
+  const tabs = collect(vnode, (n) => n.props.role === 'tab');
+  const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
+  assert.strictEqual(selected.length, 1);
+  assert.match(String(selected[0].props.id), /^tab-file-/, 'file 视图激活的是文件标签');
+  assert.match(texts(selected[0]).join(''), /rollback\.ts/);
+  // 12 个功能面板仍可一步到达：菜单（PanelPicker 子组件）在标签条右端常驻（原 NavRail 的职责收编于此）。
+  // 注意：本文件的 renderOf 不下钻子组件函数体，故按组件类型断言存在性（其内部契约由 mount.test 钉住）。
+  assert.strictEqual(
+    collect(vnode, (n) => typeof n.type === 'function' && n.type.name === 'PanelPicker').length,
+    1,
+    '右栏必须常驻「全部面板」入口',
+  );
+});
+
 test('RightPanel：←/→ 在标签间移动并激活，Enter/Space 激活当前标签', () => {
   const seen = [];
+  const shown = [];
   const vnode = renderOf(RightPanel, {
     activePane: 'changes',
     onSelect: (k) => seen.push(k),
     open: true,
+    openFiles: [fileOf('a.ts'), fileOf('b.ts')],
+    activeFileTitle: 'a.ts',
+    onShowFile: (t) => shown.push(t),
+    onCloseFile: () => {},
     children: null,
   });
   const tabs = collect(vnode, (n) => n.props.role === 'tab');
   const active = tabs.filter((t) => t.props['aria-selected'] === 'true')[0];
+  // 标签顺序：a.ts(0) → b.ts(1) → 变更(2)；本用例的手写键盘事件**不会**让 React 重渲染，
+  // 故 `active` 始终是同一节点（变更，下标 2）——每条断言都以"从变更出发"计算。
   const key = (k) => ({ key: k, preventDefault() {} });
   active.props.onKeyDown(key('ArrowRight'));
-  assert.deepStrictEqual(seen, ['rollback'], '右方向键切到下一个标签（回滚）');
+  assert.deepStrictEqual(shown, ['a.ts'], '右方向键回绕到第一个文件标签（变更 → a.ts）');
   active.props.onKeyDown(key('ArrowLeft'));
-  assert.deepStrictEqual(seen, ['rollback', 'tools'], '左方向键切到上一个标签（回滚 → 工具）');
+  assert.deepStrictEqual(shown, ['a.ts', 'b.ts'], '左方向键切到上一个文件标签（变更 → b.ts）');
   active.props.onKeyDown(key('Enter'));
   assert.deepStrictEqual(seen.at(-1), 'changes', 'Enter 激活当前标签');
   active.props.onKeyDown(key(' '));
@@ -144,35 +183,39 @@ test('RightPanel：←/→ 在标签间移动并激活，Enter/Space 激活当�
 
 // ---- 纯图标按钮必须有可读名字 ----
 
-test('NavRail / TopBar：纯图标按钮都有 aria-label（不能只靠 title/emoji）', () => {
-  const rail = renderOf(NavRail, { activePane: 'tools', onSelect: () => {} });
-  const railBtns = collect(rail, (n) => n.type === 'button');
-  assert.strictEqual(railBtns.length, 9);
-  assert.deepStrictEqual(
-    railBtns.filter(
-      (b) => typeof b.props['aria-label'] !== 'string' || b.props['aria-label'] === '',
-    ),
-    [],
-  );
-  assert.strictEqual(collect(rail, (n) => n.props['aria-hidden'] === 'true').length >= 9, true);
-
-  const bar = renderOf(TopBar, {
-    connected: true,
-    adapter: 'mock · m',
-    onToggleTheme: () => {},
-    onToggleLeft: () => {},
-    onToggleRight: () => {},
-    onCommandPalette: () => {},
-  });
-  const barBtns = collect(bar, (n) => n.type === 'button');
-  assert.ok(barBtns.length >= 4);
-  assert.deepStrictEqual(
-    barBtns.filter(
-      (b) => typeof b.props['aria-label'] !== 'string' || b.props['aria-label'] === '',
-    ),
-    [],
-  );
-  assert.strictEqual(collect(bar, (n) => n.props.role === 'banner').length, 1);
+test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/emoji）', () => {
+  // 2026-10-07 壳层重构：NavRail / TopBar 收编为 SidebarHeader / SidebarFooter / PanelPicker。
+  const trees = [
+    renderOf(SidebarHeader, { rail: false, onToggleRail: () => {}, onOpenPalette: () => {} }),
+    renderOf(SidebarFooter, {
+      connected: true,
+      theme: 'dark',
+      onToggleTheme: () => {},
+      onOpenSettings: () => {},
+    }),
+    renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} }),
+    renderOf(ChatHeader, {
+      title: 't',
+      busy: false,
+      view: 'chat',
+      onView: () => {},
+      onToggleLeft: () => {},
+      onToggleRight: () => {},
+    }),
+  ];
+  for (const tree of trees) {
+    const btns = collect(tree, (n) => n.type === 'button');
+    assert.ok(btns.length >= 1, '每个壳组件至少渲染一个按钮');
+    assert.deepStrictEqual(
+      btns.filter(
+        (b) =>
+          // 带可见文本的按钮不需要 aria-label（对话/轨迹/新会话/设置/插件）。
+          texts(b).join('').trim() !== '' ? false : true,
+      ).filter((b) => typeof b.props['aria-label'] !== 'string' || b.props['aria-label'] === ''),
+      [],
+      '纯图标按钮必须有 aria-label',
+    );
+  }
 });
 
 // ---- 模态：dialog 语义成套 ----
@@ -280,7 +323,7 @@ test('SearchResults：listbox↔option 成套，aria-selected 唯一，结果条
 
 test('SessionPanel：搜索框是 combobox 并显式 aria-label / aria-controls / activedescendant', () => {
   runtime.appContext.api = { searchAll: async () => ({ files: [], chats: [] }) };
-  const vnode = renderOf(SessionPanel, {
+  const props = {
     sessions: [{ id: 's-1', label: 'x', workspace: '' }],
     currentThreadId: 's-1',
     onSelect: () => {},
@@ -291,7 +334,13 @@ test('SessionPanel：搜索框是 combobox 并显式 aria-label / aria-controls 
     onFork: () => {},
     open: true,
     style: {},
-  });
+  };
+  // 截图式侧栏不常驻搜索框：先点「工作区」头的放大镜唤出，再断言 combobox 语义。
+  const opened = renderOf(SessionPanel, props);
+  const toggle = collect(opened, (n) => n.props['aria-label'] === '搜索会话与文件')[0];
+  assert.ok(toggle, '必须渲染搜索唤出按钮');
+  toggle.props.onClick();
+  const vnode = renderOf(SessionPanel, props);
   const input = collect(vnode, (n) => n.props.className === 'session-search')[0];
   assert.strictEqual(input.props.role, 'combobox');
   assert.strictEqual(input.props['aria-label'], '搜索会话与文件');
@@ -335,14 +384,21 @@ test('ChangesTab：键盘评审容器是可聚焦 region，且带 aria-label 说
 test('汇总：跨组件渲染树的可访问性属性计数达到下限', () => {
   const trees = [
     renderOf(RightPanel, { activePane: 'changes', onSelect: () => {}, open: true, children: null }),
-    renderOf(NavRail, { activePane: 'tools', onSelect: () => {} }),
-    renderOf(TopBar, {
+    renderOf(SidebarHeader, { rail: false, onToggleRail: () => {}, onOpenPalette: () => {} }),
+    renderOf(SidebarFooter, {
       connected: true,
-      adapter: 'mock',
+      theme: 'dark',
       onToggleTheme: () => {},
+      onOpenSettings: () => {},
+    }),
+    renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} }),
+    renderOf(ChatHeader, {
+      title: 't',
+      busy: false,
+      view: 'chat',
+      onView: () => {},
       onToggleLeft: () => {},
       onToggleRight: () => {},
-      onCommandPalette: () => {},
     }),
     renderOf(FileModal, {
       fileView: { title: 'a.ts', meta: 'ts', content: 'x' },
@@ -362,9 +418,11 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
   };
   // 数字同时打印进 TAP 输出，作为「实测覆盖率」证据留在日志里。
   console.log('a11y 计数（5 棵渲染树）:', JSON.stringify(numbered));
-  assert.ok(numbered.role >= 15, 'role 数量偏低：' + JSON.stringify(numbered));
-  assert.ok(numbered.ariaLabel >= 15, 'aria-label 数量偏低：' + JSON.stringify(numbered));
+  // 2026-10-07 壳层重构后：右栏标签条 = 已打开文件 + 激活面板（不再是常驻 12 项），
+  // 绝对数量阈值随之收窄；属性「逐个显式给出」的契约由上面各用例分别钉住。
+  assert.ok(numbered.role >= 8, 'role 数量偏低：' + JSON.stringify(numbered));
+  assert.ok(numbered.ariaLabel >= 10, 'aria-label 数量偏低：' + JSON.stringify(numbered));
   assert.ok(numbered.ariaLive >= 1, '必须有 polite 播报区');
-  assert.ok(numbered.ariaSelected >= 10, '标签页必须逐个带 aria-selected');
-  assert.ok(numbered.tabIndex >= 10, 'roving tabindex / 可聚焦容器必须存在');
+  assert.ok(numbered.ariaSelected >= 3, '标签页必须逐个带 aria-selected');
+  assert.ok(numbered.tabIndex >= 3, 'roving tabindex / 可聚焦容器必须存在');
 });

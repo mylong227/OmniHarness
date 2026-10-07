@@ -10,7 +10,7 @@ export interface AppRoute {
   threadId: string | null;
 }
 
-/** 合法面板标识（与 NavRail / RightPanel 的 TABS 单一来源保持一致）。 */
+/** 合法面板标识（与 PanelRegistry / RightPanel 的单一来源保持一致）。 */
 const VALID_PANES: ReadonlySet<string> = new Set([
   'tools',
   'metrics',

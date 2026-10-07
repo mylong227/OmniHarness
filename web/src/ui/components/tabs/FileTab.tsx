@@ -9,9 +9,10 @@
 
 import { React } from '../../deps.js';
 import { highlightCode, langOf } from '../../highlight.js';
-import { renderMarkdown } from '../../format.js';
+import { renderMarkdown, emptyState } from '../../format.js';
 import type { FileView } from '../../shared.js';
 import { FileKindClassifier } from '../../models/FileKindClassifier.js';
+import { icon } from '../../models/Icon.js';
 
 /** FileTab 组件的入参。 */
 export interface FileTabProps {
@@ -61,9 +62,11 @@ export function FileTab(props: FileTabProps): ReactElement {
 
   if (!fileView) {
     return (
-      <div className="empty">
-        在左侧文件树点击文件、或点击产物卡片的「打开」即可在此查看内容。
-      </div>
+      emptyState(
+        icon('file', { size: 20 }),
+        '还没有打开文件',
+        '在左侧文件树点击文件、或点产物卡片的「打开」，内容会显示在这里。',
+      )
     );
   }
   return (

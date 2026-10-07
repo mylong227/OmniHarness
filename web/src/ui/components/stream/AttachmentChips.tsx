@@ -1,9 +1,10 @@
-// 附件 chip：用户/助手消息携带的文件以内联 chip 展示。
+﻿// 附件 chip：用户/助手消息携带的文件以内联 chip 展示。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
 import { React } from '../../deps.js';
 import { esc } from '../../format.js';
 import { FileIconResolver } from '../../models/FileIconResolver.js';
+import { icon } from '../../models/Icon.js';
 import type { FileAttachment } from '../../../types/models.js';
 
 /** AttachmentChips 组件的入参。 */
@@ -24,7 +25,7 @@ export function AttachmentChips(props: AttachmentChipsProps): ReactElement | nul
     <div className="ev-attachments">
       {files.map((f) => (
         <span className="ev-chip" key={f.name + (f.data ?? f.url ?? '').slice(0, 10)}>
-          <span className="ev-chip-ico">{FileIconResolver.emoji(f.mediaType)}</span>
+          <span className="ev-chip-ico">{icon(FileIconResolver.iconName(f.mediaType), { size: 14 })}</span>
           <span className="ev-chip-name">{esc(f.name)}</span>
         </span>
       ))}

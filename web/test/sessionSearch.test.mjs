@@ -258,6 +258,20 @@ function searchInput(vnode) {
 }
 
 /**
+ * 唤出搜索框并渲染（2026-10-07 壳层重构：截图式侧栏不常驻搜索框，
+ * 由「工作区」区块头的放大镜按钮唤出——本帮助函数模拟那一次点击）。
+ */
+function openSearch(props) {
+  const vnode = renderPanel(props);
+  const toggle = collect(vnode, (n) => n.props['aria-label'] === '搜索会话与文件')[0];
+  assert.ok(toggle, '必须渲染搜索唤出按钮（工作区头的放大镜）');
+  toggle.props.onClick();
+  const next = renderPanel(props);
+  assert.ok(searchInput(next), '唤出后必须渲染搜索框');
+  return next;
+}
+
+/**
  * 装配 SessionPanel 桩环境。
  * @returns 渲染/调用记录句柄
  */
@@ -302,9 +316,8 @@ function setupPanel() {
 }
 
 test('SessionPanel：无输入（含纯空白）时一次远端搜索都不发', async () => {
-  const { vnode, calls, props } = setupPanel();
-  const input = searchInput(vnode);
-  assert.ok(input, '必须渲染搜索框');
+  const { calls, props } = setupPanel();
+  const input = searchInput(openSearch(props));
   assert.strictEqual(input.props.role, 'combobox');
   assert.strictEqual(input.props['aria-expanded'], 'false', '无关键字时不展开结果');
   input.props.onChange({ target: { value: '' } });
@@ -320,8 +333,8 @@ function hasClass(node, name) {
 }
 
 test('SessionPanel：有关键字即打 search.all，并把分组结果交给 SearchResults', async () => {
-  const { vnode, calls, props } = setupPanel();
-  searchInput(vnode).props.onChange({ target: { value: 'app' } });
+  const { calls, props } = setupPanel();
+  searchInput(openSearch(props)).props.onChange({ target: { value: 'app' } });
   await flush();
   assert.deepStrictEqual(calls.searchAll, ['app'], '有输入必须打一次远端搜索');
 
@@ -412,8 +425,8 @@ test('SessionPanel：本地即时过滤保留（无输入也生效，且与远�
 });
 
 test('SessionPanel：↑/↓ 移动选中、Enter 打开会话、再 Enter 打开文件', async () => {
-  const { vnode, calls, props } = setupPanel();
-  searchInput(vnode).props.onChange({ target: { value: 'app' } });
+  const { calls, props } = setupPanel();
+  searchInput(openSearch(props)).props.onChange({ target: { value: 'app' } });
   await flush();
 
   let next = renderPanel(props);
@@ -455,8 +468,8 @@ test('SessionPanel：↑/↓ 移动选中、Enter 打开会话、再 Enter 打�
 });
 
 test('SessionPanel：Esc 清空关键字并收起结果（不再打远端）', async () => {
-  const { vnode, calls, props } = setupPanel();
-  searchInput(vnode).props.onChange({ target: { value: 'app' } });
+  const { calls, props } = setupPanel();
+  searchInput(openSearch(props)).props.onChange({ target: { value: 'app' } });
   await flush();
   let next = renderPanel(props);
   assert.strictEqual(collect(next, (n) => n.type === SearchResults).length, 1);

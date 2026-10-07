@@ -9,6 +9,7 @@
 // 随 effect 清理（H3 对称）。
 
 import { React } from '../deps.js';
+import { icon } from '../models/Icon.js';
 import { useApp } from '../context.js';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.js';
 import { PendingModes } from '../models/PendingModes.js';
@@ -64,7 +65,7 @@ function renderSection(section: AddMenuSection, onItem: (id: string) => void): R
             if (!item.disabled) onItem(item.id);
           }}
         >
-          <span className="addmenu-item-ico">{item.icon}</span>
+          <span className="addmenu-item-ico">{icon(item.icon, { size: 16 })}</span>
           <span className="addmenu-item-body">
             <span className="addmenu-item-label">{item.label}</span>
             {item.hint ? <span className="addmenu-item-hint">{item.hint}</span> : null}

@@ -37,6 +37,7 @@ const GROUPS = {
   sessions: 'SessionController.ts',
   composer: 'ComposerController.ts',
   graph: 'GraphController.ts',
+  files: 'FileController.ts',
   layout: 'LayoutController.ts',
 };
 
@@ -131,6 +132,37 @@ test('② 行为：会话控制器的删除/改名/复制脱离实例调用也�
     ],
     '三个方法都必须真的到达 api（`this` 丢失时它们会静默失败）',
   );
+});
+
+test('②-b 行为：文件控制器的 openFile 脱离实例调用也必须到达 api 并写回视图（async 裸引用高危类）', async () => {
+  const calls = [];
+  const services = {
+    api: {
+      readFs: async (path) => {
+        calls.push(['readFs', path]);
+        return { path, content: 'export {}', size: 10, isBinary: false, truncated: false };
+      },
+    },
+    toast: (message) => calls.push(['toast', message]),
+    navigate: (partial) => calls.push(['navigate', partial.pane]),
+    reducers: {},
+  };
+  const state = { fileView: null, openFiles: [], activePane: 'tools' };
+  const host = {
+    patch(action) {
+      Object.assign(state, typeof action === 'function' ? action(state) : action);
+    },
+    getState: () => state,
+  };
+  const { FileController } = await import('../dist/ui/controllers/FileController.js');
+  const ctrl = new FileController(host, services);
+  const openFile = ctrl.openFile; // 脱离实例（等价于把裸引用交给子组件后由它调用）
+  await openFile('src/a.ts');
+
+  assert.deepStrictEqual(calls[0], ['readFs', 'src/a.ts'], '必须真的到达 api.readFs');
+  assert.strictEqual(state.fileView.title, 'src/a.ts', '读取结果必须写回 fileView');
+  assert.strictEqual(state.openFiles.length, 1, '文件标签集合必须收入新文件');
+  assert.ok(calls.some((c) => c[0] === 'navigate' && c[1] === 'file'), '必须路由到 file 面板');
 });
 
 test('③ 行为：布局控制器的主题/抽屉切换脱离实例调用也必须改到宿主状态', () => {

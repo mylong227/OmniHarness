@@ -519,6 +519,59 @@
 > **E1+–H3 全部工程项已落地**；`wasmtime`（J8）与 Wave E（前置为"两关显著"，实测不显著）是**纪律性阻塞**；
 > F4 / G1 / G3 / G4 / H2 属**运营与计费面**；F2 的 Web tab 属**产品面**（数据契约已稳定，做与不做不返工）。
 >
+> **第六十九轮｜截图式三栏壳层重构（会话侧栏 / 对话 / 代码查看器）——12 个功能面板收进「全部面板」菜单 ✅**：
+> 用户指令：先装一份 DeepSeek 侧的前端美化 skill 再按截图重构前端面板、其余面板收起来。已把 `~/.dsh/skills` 的
+> `ui-ux-pro-max` / `web-design-engineer` / `web-design-engineer-core` 复制进 `~/.zcode/skills/`（改写内部绝对路径），
+> 之后按其「Redesign · Preserve」流程执行：壳层重排，**全部面板功能与回调契约保留**。
+>
+> **结构变化**：删除全局 `TopBar` 与 `NavRail`（品牌→侧栏头 `SidebarHeader`；连接徽标/主题/设置→侧栏页脚
+> `SidebarFooter`；12 面板入口→右栏 `PanelPicker` 菜单，`PanelRegistry` 收敛为唯一事实源、`rail` 位随 NavRail 移除）；
+> 中栏新增 `ChatHeader`（会话标题 + 忙碌徽标 + **对话/轨迹**双视图，`TraceView` 把工具调用压成一行一条）与底部状态栏
+> （只显示真实口径：适配器 / 事件数 / 连接态，不虚构 token 速率）；`Composer` 版式翻转（正文在上、控制行在下、圆形发送钮）；
+> 右栏改**代码查看器**：文件标签页（`models/FileTabs.ts` 纯逻辑：去重/上限淘汰/关闭回落）+ 路径栏 + 语言徽标，
+> `SessionController.openFile` 维护 `openFiles`，新增 `showOpenFile` / `closeOpenFile`。样式进**新分层** `web/styles/shell.css`
+> （polish 之后追加，回滚 = index.html 一行）；`.app` 网格 48px+1fr → 1fr（顶栏已不存在）。
+>
+> **真机验收抓到并修掉的 4 处**（全部有复现路径）：① `PanelPicker` 下拉被 `.rv-tabs` 的 `overflow-x:auto` 整块裁掉
+> （菜单开着但不可见）→ 改 `position:fixed` 按按钮实测矩形定位，滚动/改尺寸即收起；② 顶栏删除后 `.app` 仍按两行网格
+> 分配 ⇒ 主体被塞进 48px 行（e2e 弹层越界假红的真成因）→ `grid-template-rows:1fr`；③ 多文件标签在窄右栏相互重叠
+> → `.tab` 不收缩 + 标签省略号；④ `TraceView` 对历史会话把已完成调用标「进行中」（历史回放时结果走独立
+> `tool_result` 事件、`toolResults` 未必填充）→ 完成判据并集两路来源。另把「新会话」提为侧栏一等大按钮——真机复测
+> 第六十八轮的 L 判据路径（回合外点新建）响应正常。
+>
+> **验证**：`web:test` **339/339**（新增 mount 的 PanelPicker 契约、RightPanel 文件标签 Tabs 语义、sessionSearch
+> 「放大镜唤出」路径；renderErrorBoundary 的崩溃夹具从 TopBar 换到 SessionPanel）；`runGates` fast 10/10 + typed 2/2、
+> `check --strict`、`audit:maturity`（85 项）、`audit:standard:delta` 全绿；真机 Chrome 1440×900 截图对比截图稿：
+> 三栏结构 / 会话联动 / 轨迹视图 / 面板菜单 / 多文件标签 / 浅色主题逐项目视核对通过。
+>
+> **第六十八轮｜用户截图「新建会话无反应」——回合进行中点「新建」被自己的收尾拽回旧会话（已修 + 双层判据）**：
+> 现象：回合进行中点「+ 新建」，视图确实清空了，**几秒后又被拽回来**（hash 回到 `thread=…`、助手卡片重新出现）⇒ 看起来"点了没反应"。
+>
+> **真机复现（先量化）**：探针在真浏览器按用户路径走一遍——
+> `回合进行中（work=1）→ 点新建 → 0.8s 后 hash=#pane=tools、空态 ✓ → 再过 6s：hash=#pane=tools&thread=sess_…、助手卡片=1 ✗`。
+>
+> **根因**：`ComposerController.send` 拿到 `res.threadId` 后**无条件**写回 `currentThreadId` 并 `navigate`，
+> 同时 SSE 仍在推该回合的 `thread.event` / `thread.text_delta` / `thread.tool_input`——而这三类事件**不带 threadId**，
+> 客户端无从分辨，于是被用户放弃的回合把视图"复活"了。
+>
+> **修法（视图代数）**：`SessionController` 增加 `viewEpoch` + `detached`：`newSession()` / `loadThread()` 时**摘视图**
+> （代数 +1、此后迟到事件一律不进视图），`send` 前 `attachView()` 记下代数，收尾时比对——**代数不一致就只收干净忙碌态**，
+> 不写 currentThreadId / 会话列表 / hash / 最终文本，错误提示也不写（那属于用户已离开的回合）。
+> 修复实测：同一探针 6 秒后仍是 `hash=#pane=tools`、助手卡片 0、空态保留 ✓。
+>
+> **判据（两层，都有牙）**：① Node 层 `web/test/turnControl.test.mjs` 新增用例：`send` 在飞时调 `newSession()`，
+> 再让 `runTurn` 解析 ⇒ `currentThreadId` 必须仍为 null、不得 navigate 回旧会话、迟到事件/增量不得进视图
+> （自证：去掉守卫即红，报「收尾不得把已被用户放弃的旧会话写回 currentThreadId」；恢复即 13/13 绿）。
+> ② 真机层 `smoke:ui` 新增判据 **L**：真模型回合进行中点新建 ⇒ 回合结束后视图仍为空。
+>
+> **本轮撞到的并发风险（如实记录）**：同一工作区里**有另一份 UI 打磨工作在并行编辑**（`docs/DESIGN_SYSTEM.md`、
+> `web/src/ui/models/Icon.ts`、`web/styles/polish.css` 三个未跟踪文件不是本轮产物；我的一次 `web:build` 还撞上它的
+> `cleanDist` 窗口）。更实际的影响是：**上一轮的面板修复（第六十七轮）被那次并行编辑按旧内容写回了工作区**，
+> 于是本轮全量电池里 K 判据当场红（`/rpc=14`）——**判据抓到了"修复被回退"**，`git checkout HEAD --` 恢复后 14/14 全绿。
+> 教训：提交只加自己改过的文件（本轮不用 `git add -A`），并且**判据是并发编辑下唯一能发现"修复被悄悄覆盖"的手段**。
+>
+> **验证**：`smoke:ui` **14/14**（含 J/K/L）；`web:test` **318/318**（一次 CDP 用例在并行争抢下假红，单独跑与复跑均绿）。
+>
 > **第六十七轮｜用户截图「出现死循环，导致上下文重复刷」——上下文容量面板把"父组件重渲染"放大成请求风暴（已修 + 真机判据 K 锁死）**：
 > 现场（用户截图 + 说明"点开上下文余量，就触发上述问题"）：面板打开后一直停在「加载中…」，同一段回复在视野里重复出现。
 >

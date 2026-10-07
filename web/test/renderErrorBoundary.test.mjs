@@ -8,9 +8,9 @@
 //
 // ## 判据（真浏览器 + CDP）
 //
-// 用内存路由把构建产物里的 `TopBar.js` 换成一进函数就抛错的版本（**只改测试夹具，不改产品代码**）：
+// 用内存路由把构建产物里的 `SessionPanel.js` 换成一进函数就抛错的版本（**只改测试夹具，不改产品代码**）：
 //   ① `#root` 必须非空（页面不空白）；② 必须出现 `.crash-panel`，且含「界面渲染出错」+ 注入消息 +
-//   **组件栈（位置：… TopBar …）**；③ 现场必须写进 `sessionStorage['omni-last-render-error']`；
+//   **组件栈（位置：… SessionPanel …）**；③ 现场必须写进 `sessionStorage['omni-last-render-error']`；
 //   ④ 点「重试」后仍在降级面板（不白屏）。对照组（未注入）：边界不得误报，输入区正常挂载。
 //
 // **性能约束**：`npm run web:test` 并行跑 23 个文件，真机 CDP 用例一多就会互相争抢（实测本文件
@@ -37,21 +37,21 @@ import {
 } from './browserHarness.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TOPBAR_JS = join(HERE, '..', 'dist', 'ui', 'components', 'TopBar.js');
+const CRASH_JS = join(HERE, '..', 'dist', 'ui', 'components', 'SessionPanel.js');
 const OK_PAGE = '_boundary-ok.html';
 const CRASH_PAGE = '_boundary-crash.html';
-const NEEDLE = 'export function TopBar(props) {';
+const NEEDLE = 'export function SessionPanel(props) {';
 const INJECTED = '注入的渲染错误（错误边界用例）';
 
 /**
- * 造一个「一渲染就抛错」的 TopBar 模块源码。
+ * 造一个「一渲染就抛错」的 SessionPanel 模块源码。
  * @returns {string} 打过补丁的模块源码。
  */
-function patchedTopBar() {
-  const src = readFileSync(TOPBAR_JS, 'utf8');
+function patchedCrashModule() {
+  const src = readFileSync(CRASH_JS, 'utf8');
   assert.ok(
     src.includes(NEEDLE),
-    `夹具失效：${TOPBAR_JS} 里找不到锚点「${NEEDLE}」（构建产物形态变了，请同步本测试）`,
+    `夹具失效：${CRASH_JS} 里找不到锚点「${NEEDLE}」（构建产物形态变了，请同步本测试）`,
   );
   return src.replace(NEEDLE, `${NEEDLE}\n    throw new Error('${INJECTED}');`);
 }
@@ -86,16 +86,16 @@ test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白
     return;
   }
 
-  // 两个静态服务器（对照组用未打补丁的产物、注入组用打补丁的 TopBar），但**只起一次 Chrome**：
+  // 两个静态服务器（对照组用未打补丁的产物、注入组用打补丁的 SessionPanel），但**只起一次 Chrome**：
   // 服务器很便宜，Chrome 启动才是并行档里的瓶颈（实测两 Chrome → 被挤过 30s 预算）。
   const html = stubHtmlCdp();
   const controlServer = await serveStatic(WEB_ROOT_PATH, {
     [`/${OK_PAGE}`]: html,
-    '/dist/ui/components/TopBar.js': readFileSync(TOPBAR_JS, 'utf8'),
+    '/dist/ui/components/SessionPanel.js': readFileSync(CRASH_JS, 'utf8'),
   });
   const crashServer = await serveStatic(WEB_ROOT_PATH, {
     [`/${CRASH_PAGE}`]: html,
-    '/dist/ui/components/TopBar.js': patchedTopBar(),
+    '/dist/ui/components/SessionPanel.js': patchedCrashModule(),
   });
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-crash-'));
   const port = await getFreePort();
@@ -115,7 +115,7 @@ test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白
     assert.ok(normal.mounted, '对照组：输入区应正常挂载');
     assert.ok(!normal.hasPanel, '对照组：不得误报渲染错误');
 
-    // ② 注入组：同一浏览器导航到「TopBar 会抛错」的页面
+    // ② 注入组：同一浏览器导航到「SessionPanel 会抛错」的页面
     await cdp.navigate(`http://127.0.0.1:${crashServer.port}/${CRASH_PAGE}`);
     const seen = await cdp.waitFor("!!document.querySelector('.crash-panel')", 1200);
     await cdp.waitFor("!!document.querySelector('.crash-where')", 200);
@@ -126,7 +126,7 @@ test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白
     assert.ok(m.text.includes(INJECTED), '降级面板必须显示真实错误消息');
     // 组件栈必须**显示在面板上**：`Illegal invocation` 这类消息本身不含位置，只有组件栈能定位。
     assert.ok(m.text.includes('位置：'), '降级面板必须显示出错位置（组件栈）');
-    assert.ok(m.text.includes('TopBar'), `组件栈必须指到抛错组件（实测：${m.text.slice(0, 200)}）`);
+    assert.ok(m.text.includes('SessionPanel'), `组件栈必须指到抛错组件（实测：${m.text.slice(0, 200)}）`);
     assert.ok(m.hasReload && m.hasCopy, '降级面板必须提供「重新加载」与「复制详情」出口');
     assert.ok(typeof m.stored === 'string' && m.stored.includes(INJECTED), '现场必须写进 sessionStorage');
 

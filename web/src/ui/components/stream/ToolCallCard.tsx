@@ -6,6 +6,7 @@ import { React } from '../../deps.js';
 import { jsonView, timeOf, esc } from '../../format.js';
 import { truncate, describeToolCall } from '../../textUtils.js';
 import { ArtifactResolver } from '../../models/ArtifactResolver.js';
+import { icon } from '../../models/Icon.js';
 import { ArtifactCard } from './ArtifactCard.js';
 import type { ThreadEvent } from '../../../types/models.js';
 import type { ToolResultView } from '../StreamView.js';
@@ -59,7 +60,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
         title={open ? '收起详情' : '点击查看调用详情'}
       >
         <span className="tc-chevron">{open ? '▾' : '▸'}</span>
-        <span className="tc-icon">🔧</span>
+        <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
         <span className="tc-summary tc-action" title={esc(toolName)}>
           {esc(description)}
         </span>
@@ -68,7 +69,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
       </div>
       {errText ? (
         <div className="tc-error" title={esc(errText)}>
-          ⚠ {esc(truncate(errText, 160))}
+          {icon('alert', { size: 13 })} {esc(truncate(errText, 160))}
         </div>
       ) : null}
       {artifact ? <ArtifactCard info={artifact} onOpen={onOpenFile} /> : null}
