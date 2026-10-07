@@ -121,10 +121,48 @@ export interface ProcessBlock {
 }
 export type DisplayBlock = SingleBlock | ProcessBlock;
 
-/** 把 events 拆成可视块：busy=true 时单 event 不折叠；busy=false 时把过程类打包成 process 块。 */
+/** 收集「已被调用卡内联结果」的工具调用 id 集合（tool_result 隐藏判据的单一来源）。 */
+export function collectToolCallIds(events: readonly ThreadEvent[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const e of events) {
+    if (e.type !== 'tool_call') continue;
+    const p = e.payload || {};
+    ids.add((p.callId as string) || e.id);
+  }
+  return ids;
+}
+
+/**
+ * 该事件是否会在对话流里渲染出可见内容（`renderEventNode` 返回 null 的判据，两侧必须同源）。
+ *
+ * ## 为什么块构建必须先过这道筛（2026-10-07 用户报「滚动出现大面积空白」的真机定位）
+ *
+ * `session_meta` / `model` / 已被调用卡内联的 `tool_result` 在渲染层返回 null——但旧版块构建
+ * 仍把它们计进 keys 并包一层 `.sw-block`（真实高度 0）。虚拟窗口的高度索引拿不到 0 高实测
+ * （测量循环跳过 0），只能按 88px 估算 ⇒ 索引与真实布局**系统性漂移**：一个 27 块的窗口里有
+ * 十几个这种空块时，padBottom 把视口下半截顶成占位空白（真机实测视口覆盖率跌到 46%）。
+ * 在块构建阶段剔除，keys 与真实 DOM 一一对应，高度索引不再有「永远测不到的块」。
+ * @param ev 事件
+ * @param toolCallIds 已被内联的工具调用 id 集合（`collectToolCallIds`）
+ * @returns 会渲染出可见内容为 true
+ */
+export function isRenderedEvent(ev: ThreadEvent, toolCallIds: ReadonlySet<string>): boolean {
+  if (ev.type === 'session_meta' || ev.type === 'model') return false;
+  if (ev.type === 'tool_result') {
+    const p = ev.payload || {};
+    return !toolCallIds.has((p.callId as string) || '');
+  }
+  return true;
+}
+
+/**
+ * 把 events 拆成可视块：**先剔除不会渲染的事件**（见 {@link isRenderedEvent}），
+ * busy=true 时单 event 不折叠；busy=false 时把过程类打包成 process 块。
+ */
 export function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean | undefined): DisplayBlock[] {
+  const visible = events.filter((e) => isRenderedEvent(e, collectToolCallIds(events)));
   if (busy === true) {
-    return events.map((e) => ({ kind: 'single', event: e } as SingleBlock));
+    return visible.map((e) => ({ kind: 'single', event: e } as SingleBlock));
   }
   const blocks: DisplayBlock[] = [];
   let buf: ThreadEvent[] = [];
@@ -138,7 +176,7 @@ export function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean
     } as ProcessBlock);
     buf = [];
   };
-  for (const ev of events) {
+  for (const ev of visible) {
     if (PROCESS_TYPES.has(ev.type)) {
       buf.push(ev);
     } else {

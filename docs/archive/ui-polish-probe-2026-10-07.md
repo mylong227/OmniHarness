@@ -1,6 +1,6 @@
 # Web 工作台视觉打磨 —— 真机探针报告（2026-10-07）
 
-> **已归档**：这是**一轮工作的记录**，不是现行规范。现行规范见 [../DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md)；
+> **已归档（2026-10-07）**：这是**一轮工作的记录**，不是现行规范。现行规范见 [../DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md)；
 > 进度以 [../PROJECT_BOARD.md](../PROJECT_BOARD.md) 为准。截图本身不入库（`.gitignore` 忽略
 > `web/archive/*.png`），随时可用下面的命令重新生成。
 

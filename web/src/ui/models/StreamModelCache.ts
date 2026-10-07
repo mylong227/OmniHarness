@@ -1,5 +1,5 @@
 import type { ThreadEvent } from '../../types/models.js';
-import { buildDisplayBlocks, type DisplayBlock } from '../textUtils.js';
+import { buildDisplayBlocks, collectToolCallIds, type DisplayBlock } from '../textUtils.js';
 
 /**
  * 事件流的**渲染输入模型**（块 / 键 / 末条 id / 本轮工具调用 id）。
@@ -100,15 +100,12 @@ export class StreamModelCache {
     const keys = blocks.map((b) => (b.kind === 'process' ? b.key : b.event.id));
     let lastUserId = '';
     let lastAssistantId = '';
-    const toolCallIds = new Set<string>();
     for (const e of events) {
       if (e.type === 'user') lastUserId = e.id;
       else if (e.type === 'assistant') lastAssistantId = e.id;
-      else if (e.type === 'tool_call') {
-        const p = e.payload || {};
-        toolCallIds.add((p.callId as string) || e.id);
-      }
     }
+    // 与 buildDisplayBlocks 同一份判据（isRenderedEvent 用它隐藏已内联的 tool_result）。
+    const toolCallIds = collectToolCallIds(events);
     return { blocks, keys, lastUserId, lastAssistantId, toolCallIds };
   }
 }

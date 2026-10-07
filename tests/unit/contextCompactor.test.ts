@@ -318,3 +318,68 @@ test('压缩器：assistant(tool_calls) 与其 tool 结果永不被边界切开�
   assert.ok(c3Index >= 0, 'c3 调用必须在 tail 中');
   assert.ok(r3Index === c3Index + 1, 'c3 的结果必须紧随其后（轮次完整）');
 });
+
+test('压缩器：head 只剩 system（无对话可折）时不得调摘要模型，也不得写游标（真机「历史为空」垃圾摘要回归判据）', async () => {
+  // 2026-10-07 真机实测（新项目 sess_muxj2kcl_1）：首次压缩边界恰好落在 1，head=[system 提示]
+  // 被送去摘要，模型如实答「任务目标：无（历史为空…）」——零信息摘要被写成 OMNI_COMPACTION_V1
+  // 游标注入后续每步，模型据此宣称「完全完成不了这样的任务」。
+  // 判据：这条路径必须走「如实丢弃兜底」，摘要模型一次都不被调用、不产生游标。
+  const seen: ModelRequest[] = [];
+  const spy: ModelPort = {
+    name: 'spy',
+    async generate(request: ModelRequest): Promise<ModelOutput> {
+      seen.push(request);
+      return { text: '不应被调用的摘要' };
+    },
+  };
+  const compactor = new ContextCompactor(spy, { maxTokens: 60, keepRecent: 3 });
+  // projected 首条是 harness 的 system 提示（真实请求形态）；keepRecent=3 ⇒ 边界=1，head=[system]。
+  const messages: ModelMessage[] = [
+    { role: 'system', content: '你是 OmniHarness 工作台代理。'.repeat(10) },
+    { role: 'user', content: '完成一个小游戏程序'.repeat(30) },
+    { role: 'assistant', content: '好的，开始分析需求'.repeat(30) },
+    { role: 'user', content: '继续'.repeat(30) },
+  ];
+  const result = await compactor.compact(messages);
+  assert.deepStrictEqual(seen, [], 'head 无对话内容时不得发起任何摘要请求');
+  assert.strictEqual(result.state, undefined, '不得写压缩游标（没有值得折叠的对话）');
+  for (const m of result.messages) {
+    assert.ok(!m.content.includes('不应被调用的摘要'), '零信息摘要不得进入请求上下文');
+  }
+  // 最新一条用户消息必须保留（兜底丢最旧、保最新）。
+  const last = result.messages[result.messages.length - 1];
+  assert.ok(last !== undefined && last.content.includes('继续'), '兜底不得丢最新一条消息');
+  // 若确实丢弃了消息，摘要必须是如实的占位文本而不是模型编的内容。
+  if (result.compacted) {
+    assert.match(result.summary ?? '', /^\[最早 \d+ 条历史已省略\]$/, '摘要必须是如实占位');
+  }
+});
+
+test('压缩器：head 只剩 system 且超预算 ⇒ 走丢弃兜底并如实报 compacted（不产摘要）', async () => {
+  const seen: ModelRequest[] = [];
+  const spy: ModelPort = {
+    name: 'spy',
+    async generate(request: ModelRequest): Promise<ModelOutput> {
+      seen.push(request);
+      return { text: '不应被调用的摘要' };
+    },
+  };
+  const compactor = new ContextCompactor(spy, { maxTokens: 40, keepRecent: 2 });
+  const messages: ModelMessage[] = [
+    { role: 'system', content: '系统提示'.repeat(5) },
+    { role: 'user', content: 'u1'.repeat(200) },
+    { role: 'assistant', content: 'a1'.repeat(200) },
+  ];
+  const result = await compactor.compact(messages);
+  assert.deepStrictEqual(seen, [], '仍不得调摘要模型');
+  assert.strictEqual(result.state, undefined);
+  // keepRecent=2、head=[system]：兜底丢弃最旧直到入预算，被丢的消息如实计数。
+  assert.ok(
+    result.messages.length < messages.length || result.compacted === false,
+    '要么丢弃了最旧消息（compacted=true + 摘要占位），要么本就在预算内',
+  );
+  // system 提示不得因为"所在段不可折叠"而被优先丢出上下文（保序丢最旧时它在最前，
+  // 但最新一条必须留）。
+  const last = result.messages[result.messages.length - 1];
+  assert.ok(last !== undefined && last.content.includes('a1'), '兜底不得丢最新一条消息');
+});

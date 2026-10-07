@@ -34,7 +34,6 @@ import {
 } from '../format.js';
 import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
-import { ScrollRepairBudget } from '../models/ScrollRepairBudget.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
@@ -409,19 +408,17 @@ export function StreamView(props: StreamViewProps): ReactElement {
   /** 测量回填计数器：索引变化后置位触发一次重渲染，随后实测稳定即停。 */
   const [measureTick, setMeasureTick] = React.useState<number>(0);
   /**
-   * 空洞修复预算（**防 React #185 的硬上界**）：因修复而 setState 的次数被限死在「每次用户滚动 N 次」，
-   * 且只有用户自己滚动才补充 ⇒「render → layoutEffect → setState → render」的同步死循环在结构上
-   * 不可能成立。见 {@link ScrollRepairBudget} 的模块头（真机 #185 实测）。
-   */
-  const repairBudgetRef = React.useRef<ScrollRepairBudget | null>(null);
-  if (repairBudgetRef.current === null) repairBudgetRef.current = new ScrollRepairBudget();
-  /**
    * 空洞修复的方式：**多渲染块，绝不移动用户的滚动位置**（粘性，直到用户下次滚动才复位）。
    *
    * 为什么不是「写回 scrollTop」（2026-09-27 用户两次报障的最终结论）：
    * ① 写回会把用户拖到的位置推回去（「滚动被回退」）；② 写回发生在布局效应里，可能形成同步更新
-   * 循环（React #185）。而空洞的**真实成因**是「模型高估了区块高度 ⇒ 渲染窗口装不满一屏」，
+   * 循环（React #185）。而空洞的**真实成因**是「索引高度与真实布局漂移 ⇒ 渲染窗口装不满一屏」，
    * 正确解法是**多渲染几块**把视口填满 —— 用户的滚动位置从头到尾不用改。
+   *
+   * 终止性（为什么不需要旧版的「滚动预算」闸）：`holeBoost` 只做 0 → HOLE_BOOST_BLOCKS 的**单次
+   * 迁移**——已置位后守卫短路、`setHoleBoost(24)` 同值 bail，循环在结构上不可自我续期；且本路径
+   * 从不写 scrollTop（旧 #185 来自已被删除的「写回」变体）。2026-10-07 移除预算闸：真机实测它会在
+   * 长滚动序列里耗尽（每次滚动只补 2 次，而测量引发的多次布局效应都会消耗它），让该修的洞修不了。
    */
   const [holeBoost, setHoleBoost] = React.useState<number>(0);
 
@@ -442,8 +439,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const onScroll = (e: React.SyntheticEvent): void => {
     const el = e.currentTarget as HTMLDivElement | null;
     if (!el) return;
-    // 用户自己滚动了 ⇒ 补满修复预算，并把「空洞加渲」复位（位置是用户说了算）。
-    repairBudgetRef.current!.noteScroll();
+    // 用户滚动了 ⇒ 把「空洞加渲」复位（位置是用户说了算，新位置重新按需修复）。
     if (holeBoost !== 0) setHoleBoost(0);
     stickyRef.current = StreamWindow.atBottom(el);
     if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
@@ -536,14 +532,10 @@ export function StreamView(props: StreamViewProps): ReactElement {
         const rect = node.getBoundingClientRect();
         anchors.push({ index: i, top: rect.top, bottom: rect.bottom });
       }
-      // **必须有硬上界**：修复会 setState ⇒ 本布局效应可能再次运行；若「修完仍不达标」一直成立就
-      // 形成同步死循环（真机实测 React #185「Maximum update depth exceeded」）。故先申请一次预算：
-      // 预算只在用户自己滚动时补充 ⇒ 循环无法自我续期。{@link ScrollRepairBudget}
-      if (
-        holeBoost < HOLE_BOOST_BLOCKS &&
-        StreamWindow.needsAnchorRepair(viewportTop, el.clientHeight, anchors) &&
-        repairBudgetRef.current!.take()
-      ) {
+      // **必须有硬上界**：修复会 setState ⇒ 本布局效应可能再次运行。终止性由状态机的单次迁移保证：
+      // holeBoost 0→24 后守卫短路、同值 bail（见 holeBoost 的 JSDoc）——不需要旧版的「滚动预算」闸，
+      // 预算在长滚动序列里会被测量引发的布局效应耗尽，让该修的洞修不了（2026-10-07 真机实测）。
+      if (holeBoost < HOLE_BOOST_BLOCKS && StreamWindow.needsAnchorRepair(viewportTop, el.clientHeight, anchors)) {
         setHoleBoost(HOLE_BOOST_BLOCKS);
       }
     }

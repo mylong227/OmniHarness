@@ -133,6 +133,20 @@ export class ContextCompactor {
   }
 
   /**
+   * head 里是否有**值得折叠的对话内容**（至少一条非空 user / assistant 消息）。
+   *
+   * head = [system]（边界落在 1）时拿去调摘要模型，只会得到「任务目标：无（历史为空…）」的
+   * 零信息摘要还被当成正式折叠结果（2026-10-07 真机实测）——摘要的前提是**有对话可摘**。
+   * @param head 候选折叠段。
+   * @returns 存在可折叠对话为 true。
+   */
+  private static hasFoldableConversation(head: readonly ModelMessage[]): boolean {
+    return head.some(
+      (m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim() !== '',
+    );
+  }
+
+  /**
    * 对消息施加**确定性无损收缩**：只改 `content`，不动 toolCalls / reasoningContent /
    * images / files / toolCallId（这些是 wire 层结构与思考模式回传硬要求）。
    * @param messages 待收缩的消息列表。
@@ -328,24 +342,33 @@ export class ContextCompactor {
     const headEnd = ContextCompactor.roundAlignedBoundary(messages, messages.length - keepCount);
     const tail = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
-    if (head.length === 0) {
-      // 无 head 可折叠（keepRecent ≥ 总条数）⇒ 没有摘要可生成，但**绝不能原样透传**：
-      // 旧实现在这里返回 tail 却报 `compacted: true` + summary '[历史已省略]'，实测「阈值 100、
-      // 输入 4 万字符 → 输出 4 万字符、out===in」，即**假称已压缩、上下文仍超预算**（fail-open：
-      // 下一步直接把超窗请求发给端点）。现按真实预算兜底丢弃最旧消息，并如实报告丢弃条数；
-      // 若本就在预算内则如实回 `compacted: false`（不谎报）。
-      const bounded = this.dropOldestUntilBudget(tail.messages, budget);
+    if (head.length === 0 || !ContextCompactor.hasFoldableConversation(head)) {
+      // 无 head 可折叠（keepRecent ≥ 总条数），或 head 里**只剩 system 提示、没有任何对话内容**
+      // ⇒ 没有摘要可生成，但**绝不能原样透传**：旧实现在这里返回 tail 却报 `compacted: true` +
+      // summary '[历史已省略]'，实测「阈值 100、输入 4 万字符 → 输出 4 万字符、out===in」，即
+      // **假称已压缩、上下文仍超预算**（fail-open：下一步直接把超窗请求发给端点）。现按真实预算
+      // 兜底丢弃最旧消息，并如实报告丢弃条数；若本就在预算内则如实回 `compacted: false`（不谎报）。
+      //
+      // 「head 只剩 system」这一支是 2026-10-07 用户实测补的：真机会话（新项目 sess_muxj2kcl_1）
+      // 首次压缩的边界恰好落在 1，拿**光秃秃的 system 提示**去调摘要模型，模型如实答
+      // 「任务目标：无（历史为空…）」——这份零信息摘要随后被写成 OMNI_COMPACTION_V1 游标并
+      // 注入后续每一步请求，模型据此认为自己「完全完成不了这样的任务」。没有对话可折叠就
+      // 如实走丢弃兜底，**兜底作用在全部消息上**——head 里的 system 提示不能因为"所在段
+      // 不可折叠"而被丢出上下文（它本该一直保留）。
+      const all = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages));
+      const bounded = this.dropOldestUntilBudget(all.messages, budget);
       log.info('compaction.done', {
         keepRecent: bounded.messages.length,
         hadModel: this.model !== undefined,
         droppedMessages: bounded.dropped,
         summaryLen: 0,
+        headWithoutConversation: head.length > 0,
       });
       return {
         messages: bounded.messages,
         compacted: bounded.dropped > 0,
         ...(bounded.dropped > 0 ? { summary: `[最早 ${bounded.dropped} 条历史已省略]` } : {}),
-        ...(tail.report !== undefined ? { shrink: tail.report } : {}),
+        ...(all.report !== undefined ? { shrink: all.report } : {}),
       };
     }
     const summary = await this.summarize(head);
