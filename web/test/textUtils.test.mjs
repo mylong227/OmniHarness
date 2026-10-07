@@ -1,4 +1,4 @@
-// web 纯函数单测（node --test，无第三方依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
+﻿// web 纯函数单测（node --test，无第三方依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
 // 回应审计 P0「web 0 测试文件」。运行：npm run web:test（先 web:build 编译到 dist）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -148,4 +148,30 @@ test('timeAgo 相对时间', () => {
   assert.equal(timeAgo(now), '刚刚');
   assert.equal(timeAgo(undefined), '');
   assert.equal(timeAgo('not-a-date'), '');
+});
+
+// 2026-10-07 用户截图：「结果不应该被收进过程中，应该单独的显示出来」——写文件/打补丁的调用会带出
+// 产物卡（ArtifactCard），那是这一轮的**结果**；此前它和其他工具调用一起被折进「执行过程」折叠块。
+test('buildDisplayBlocks：产物类调用单独成块（不折进「执行过程」）', () => {
+  const events = [
+    { id: 'r1', type: 'reasoning', timestamp: 1, payload: { content: '想一下' } },
+    { id: 'c1', type: 'tool_call', timestamp: 2, payload: { callId: 'k1', name: 'read_file', args: { path: 'a.ts' } } },
+    { id: 'x1', type: 'tool_result', timestamp: 3, payload: { callId: 'k1', ok: true, output: 'ok' } },
+    { id: 'c2', type: 'tool_call', timestamp: 4, payload: { callId: 'k2', name: 'write_file', args: { path: 'docs/x.md' } } },
+    { id: 'x2', type: 'tool_result', timestamp: 5, payload: { callId: 'k2', ok: true, output: '已写入' } },
+    { id: 'c3', type: 'tool_call', timestamp: 6, payload: { callId: 'k3', name: 'shell', args: { command: 'ls' } } },
+    { id: 'x3', type: 'tool_result', timestamp: 7, payload: { callId: 'k3', ok: true, output: 'a.ts' } },
+  ];
+  const blocks = buildDisplayBlocks(events, false);
+  const writes = blocks.filter((b) => b.kind === 'single' && b.event.payload?.name === 'write_file');
+  assert.strictEqual(writes.length, 1, 'write_file 必须单独成块（结果不被收进过程）');
+  const inProcess = blocks.some(
+    (b) => b.kind === 'process' && b.events.some((e) => e.payload?.name === 'write_file'),
+  );
+  assert.strictEqual(inProcess, false, 'write_file 不得出现在任何「执行过程」折叠块里');
+  // 其余工具/思考仍照旧聚合（本次只动产物类）
+  const process = blocks.filter((b) => b.kind === 'process');
+  assert.ok(process.length >= 1, '读文件与 shell 仍应聚合为过程块');
+  const names = process.flatMap((b) => b.events.map((e) => e.payload?.name)).filter(Boolean);
+  assert.ok(names.includes('read_file') && names.includes('shell'), '过程块仍含读文件与 shell');
 });
