@@ -29,6 +29,8 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const PANEL = join(REPO_ROOT, 'web', 'src', 'ui', 'components', 'ContextCapacityPanel.tsx');
 const HANDLERS = join(REPO_ROOT, 'src', 'server', 'core', 'appServerSurfaceHandlers.ts');
+const APP_SERVER = join(REPO_ROOT, 'src', 'server', 'core', 'appServer.ts');
+const APP_SERVER_BASE = join(REPO_ROOT, 'src', 'server', 'core', 'appServerBase.ts');
 
 describe('容量面板：回合进行中必须实时刷新（用户报「不会实时计算显示刷新」）', () => {
   const src = readFileSync(PANEL, 'utf8');
@@ -73,6 +75,46 @@ describe('容量面板：空 threadId 回落到正在跑的会话（新会话第
       src,
       /running\[running\.length - 1\]/,
       '并发回合时取最新登记的那个（插入序末条），避免把面板钉在旧会话上',
+    );
+  });
+});
+
+describe('不串项目：回合开始前运行时根必须对齐当前项目（用户：「应该各自分离不要出现串项目」）', () => {
+  const entry = readFileSync(APP_SERVER, 'utf8');
+  const base = readFileSync(APP_SERVER_BASE, 'utf8');
+
+  it('回合入口必须调对齐（否则工具会去读另一个项目的树）', () => {
+    assert.match(
+      entry,
+      /this\.alignRuntimeWorkspace\(threadId\);/,
+      'runTurn 必须调用对齐：真机症状 = agent 读 A 项目、UI 打开 B 项目 ⇒ ENOENT',
+    );
+  });
+
+  it('每回合如实记录两份根（runtimeRoot / displayRoot），分叉可见', () => {
+    assert.match(
+      base,
+      /log\.info\('turn\.workspaceRoot', \{/,
+      '两份根必须逐回合留痕，否则只能靠猜',
+    );
+    assert.match(base, /runtimeRoot,/, '必须记录运行时根');
+    assert.match(base, /displayRoot,/, '必须记录显示根');
+  });
+
+  it('分叉时**重基**到当前项目，而不是带着分叉继续跑', () => {
+    assert.match(
+      base,
+      /log\.warn\('turn\.workspaceRootDrift', \{ threadId, runtimeRoot, displayRoot \}\);[\s\S]{0,120}this\.switchWorkspace\(displayRoot\);/,
+      '分叉必须回合前重基（走 switchWorkspace：按新根重造 tools/spill/longTermMemory）',
+    );
+  });
+
+  it('触发条件必须收窄到「显示层**显式**给了工作区」（否则会把运行时推去启动目录）', () => {
+    assert.match(
+      base,
+      /\(this\.displayConfig\['workspace'\] \?\? ''\) === '' \|\| runtimeRoot === displayRoot/,
+      '没有 displayConfig.workspace 时 configStore.workspace() 会回落到 process.cwd()（启动目录）——' +
+        '把它当权威正是「串项目」的成因；过宽的初版当场被 appServer.test.js 抓红',
     );
   });
 });

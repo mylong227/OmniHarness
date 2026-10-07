@@ -17,6 +17,7 @@ import { PluginHost } from '../services/pluginHost.js';
 import { ServerEventBridge } from './serverEventBridge.js';
 import { AgentRuntimeHost } from './agentRuntimeHost.js';
 import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
+import { log } from '../../util/logger.js';
 
 /**
  * AppServer 共享基座：**组合根 + 方法调度**。
@@ -221,6 +222,36 @@ export class AppServerBase {
     runtimeRoot: string,
   ): boolean {
     return requested === displayRoot && requested === runtimeRoot;
+  }
+
+  /**
+   * 回合开始前把**运行时根**对齐到当前项目（用户口径：「应该各自分离不要出现串项目」）。
+   *
+   * 工具与系统提示用的是运行时根（`options.config.workspaceRoot`），而 UI / `fs.*` 用的是显示根
+   * （`configStore.workspace()`）。两者一旦分叉，症状是 agent 去读**另一个项目**的树（真机：
+   * 读到启动目录的 AGENTS.md / tsconfig.json，UI 按当前项目打开同名文件 ⇒ ENOENT），且此前没有任何
+   * 一处记录过每回合实际用了哪个根 ⇒ 只能靠猜。故：**逐回合留痕** + **分叉即重基**。
+   *
+   * 触发条件收窄到「显示层**显式**给了工作区」（serve 由 UI 写入）：没有这一层时
+   * `configStore.workspace()` 会回落到 `process.cwd()`（启动目录），认它权威正是本缺陷的成因
+   * （过宽初版被 `appServer.test.js` 当场抓红）。
+   * @param threadId 目标会话 id（仅用于日志）。
+   * @returns 无返回值。
+   */
+  protected alignRuntimeWorkspace(threadId: string): void {
+    const runtimeRoot = this.options.config.workspaceRoot;
+    const displayRoot = this.configStore.workspace();
+    log.info('turn.workspaceRoot', {
+      threadId,
+      runtimeRoot,
+      displayRoot,
+      sameRoot: runtimeRoot === displayRoot,
+    });
+    if ((this.displayConfig['workspace'] ?? '') === '' || runtimeRoot === displayRoot) {
+      return;
+    }
+    log.warn('turn.workspaceRootDrift', { threadId, runtimeRoot, displayRoot });
+    this.switchWorkspace(displayRoot);
   }
 
   /**
