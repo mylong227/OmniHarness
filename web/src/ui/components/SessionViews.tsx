@@ -8,6 +8,7 @@ import { React } from '../deps.js';
 import { TreeNode } from './TreeNode.js';
 import { SessionGrouper } from '../models/SessionGrouper.js';
 import { PathJoiner } from '../models/PathJoiner.js';
+import { WorkspacePath } from '../models/WorkspacePath.js';
 import type { FsNode } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
 import { emptyState } from '../format.js';
@@ -292,7 +293,7 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
       {SessionGrouper.group(all, ctx.wsPath).map((g) => {
         const isCollapsed =
           ctx.collapsed[g.key] ??
-          (g.key !== PathJoiner.normalize(ctx.wsPath) && g.key !== '__early__');
+          (g.key !== WorkspacePath.normalize(ctx.wsPath) && g.key !== '__early__');
         const limit = ctx.limits[g.key] ?? PAGE;
         const shown = isCollapsed ? [] : g.items.slice(0, limit);
         const rest = g.items.length - shown.length;
@@ -304,7 +305,7 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
               onClick={() => ctx.onToggleGroup(g.key, isCollapsed)}
             >
               <span className="ws-caret">{isCollapsed ? '▸' : '▾'}</span>
-              <span>{icon(g.key === PathJoiner.normalize(ctx.wsPath) ? 'check' : 'folder', { size: 12 })}</span>
+              <span>{icon(g.key === WorkspacePath.normalize(ctx.wsPath) ? 'check' : 'folder', { size: 12 })}</span>
               <span className="ws-name">{g.name}</span>
               <span className="ws-count">{g.items.length}</span>
             </div>

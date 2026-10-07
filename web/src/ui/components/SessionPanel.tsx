@@ -1,4 +1,4 @@
-// 左栏：会话列表 + 新建会话 + 工作区文件树。
+﻿// 左栏：会话列表 + 新建会话 + 工作区文件树。
 //
 // 面向对象改造：
 // - 服务经 useApp() 取用（替代旧基类访问器），十三份 state 收敛为字段级 useState；
@@ -114,7 +114,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [wsPath, setWsPath] = React.useState<string>('');
   const [projects, setProjects] = React.useState<string[]>([]);
   const [picking, setPicking] = React.useState<boolean>(false);
-  const [view, setView] = React.useState<'time' | 'ws' | 'cards'>('time');
+  const [view, setView] = React.useState<'time' | 'ws' | 'cards'>('ws');
   const [query, setQuery] = React.useState<string>('');
   /** 顶部工作区切换器是否展开（Codex 式：项目是一等入口，占据左栏最上方）。 */
   const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
