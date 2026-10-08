@@ -22,6 +22,7 @@ import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
 import { CliServerCmds } from '../../src/cli/cliServerCmds.js';
 import { ArgParser } from '../../src/cli/argParser.js';
 import type { ModelOutput, ModelPort } from '../../src/ports/model/model.js';
+import type { EventPort } from '../../src/ports/runtime/eventPort.js';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -122,10 +123,15 @@ class AskFirstModel implements ModelPort {
 }
 
 /**
- * 建一台带提问上行的 AppServer（与 `runServe` 同形：桥先行 + `userResponder` 注入 + 桥实例复用）。
+ * 建一台带提问上行的 AppServer（与 `runServe` 同形：桥先行 + `userResponder`/`events` 注入 + 桥实例复用）。
+ * @param toolEvents 工具侧事件端口（缺省 = 新接线：走服务端桥；传 `SilentEventPort` 即复现旧缺陷）。
  * @returns server、传输与上行桥
  */
-function buildServer(): { server: AppServer; transport: TestTransport; events: ServerEventBridge } {
+function buildServer(toolEvents?: EventPort): {
+  server: AppServer;
+  transport: TestTransport;
+  events: ServerEventBridge;
+} {
   const transport = new TestTransport();
   const events = new ServerEventBridge({ transport, questionTimeoutMs: 60_000 });
   const config = ConfigFactory.build({
@@ -135,7 +141,7 @@ function buildServer(): { server: AppServer; transport: TestTransport; events: S
     storage: new MemoryStorage(),
     approvals: new AutoApproval(),
     sandbox: new PassthroughSandbox(),
-    events: new SilentEventPort(),
+    events: toolEvents ?? events.eventPort(),
     userResponder: events.questionPort(),
   });
   const server = new AppServer({
@@ -161,6 +167,31 @@ async function waitFor<T>(probe: () => T | undefined, timeoutMs = 8000): Promise
     await sleep(5);
   }
   throw new Error('等待条件超时');
+}
+
+/**
+ * 跑一次「模型提问 → 客户端作答」的完整回合。
+ * @param transport 测试传输
+ * @returns 本回合收到的 thread.event 类型列表（按到达顺序）
+ */
+async function runAskTurn(transport: TestTransport): Promise<string[]> {
+  const run = transport.receive('turns.run', { prompt: '问我一个问题' }, 1);
+  const params = (await waitFor(() => {
+    const hit = transport.notifications('question.request')[0];
+    return hit === undefined ? undefined : (hit as { params: Record<string, unknown> }).params;
+  })) as { requestId: string };
+  (await transport.receive(
+    'question.respond',
+    { requestId: params.requestId, answers: [{ id: 'scope', selected: ['全做'] }] },
+    2,
+  )) as { result: { ok: boolean } };
+  await run;
+  return transport
+    .notifications('thread.event')
+    .map(
+      (message) =>
+        (message as unknown as { params: { event: { type: string } } }).params.event.type,
+    );
 }
 
 test('接线：turns.run 触发 question.request，question.respond 的作答进入工具结果并让回合继续', async () => {
@@ -209,6 +240,25 @@ test('接线：turns.run 触发 question.request，question.respond 的作答进
     '用户所选标签必须作为工具结果回灌给模型',
   );
   assert.strictEqual(events.pendingQuestionCount(), 0, '作答后不得残留挂起提问');
+  // 事件接线（2026-10-08 修）：`ask_user` 在 `ConfigFactory.build` 期捕获的事件端口必须是本桥，
+  // 否则对话流里那块「提问」根本到不了客户端（旧装配给的是 `SilentEventPort`）。
+  const types = transport
+    .notifications('thread.event')
+    .map(
+      (message) =>
+        (message as unknown as { params: { event: { type: string } } }).params.event.type,
+    );
+  assert.ok(types.includes('question'), '工具发出的 question 事件必须到达客户端');
+});
+
+test('事件接线反例：工具侧事件端口不接客户端 ⇒ 客户端收不到 question 事件', async () => {
+  // 修前形态的判据：`events` 只给控制台/静默（旧 serve 装配 = `args.events` 缺省的 console 出口），
+  // 同一回合里 `tool_result` 照常到达，而 `question` 事件**永久缺席**（对话流里那块「提问」没了）。
+  // 这条反例说明前一条判据为什么会红/绿——避免「零件都在、没人接线」这类缺陷再次静默通过。
+  const { transport } = buildServer(new SilentEventPort());
+  const types = await runAskTurn(transport);
+  assert.ok(types.includes('tool_result'), '反例里工具结果仍应到达（否则判据不成立）');
+  assert.ok(!types.includes('question'), '未接客户端时 question 事件不得出现（这就是被修的缺陷）');
 });
 
 test('接线：serve 的配置里回答器必须是提问上行端口（而不是控制台/放弃作答）', async () => {
@@ -227,6 +277,17 @@ test('接线：serve 的配置里回答器必须是提问上行端口（而不�
   const upstream = await cmds.buildServeUpstream(args, undefined, undefined);
   const responder = upstream.config.userResponder;
   assert.strictEqual(responder.name, 'server', 'serve 必须把提问接到上行端口');
+  // 事件端口：`--events` 缺省就是 controller console，故 serve 下应是 console 与桥的**组合**
+  // （控制台可读 + 客户端实时流）；要点是**桥必须在其中**——旧装配根本没有它。
+  assert.match(
+    upstream.config.events.name,
+    /(^|\+)server$/,
+    'serve 必须把工具侧事件接到上行桥（旧装配只有控制台/静默，UI 看不到 question/todo/plan）',
+  );
+  assert.ok(
+    !upstream.config.events.name.includes('silent'),
+    'serve 不得让工具侧事件只进静默端口（那等于客户端永远收不到）',
+  );
 
   // 行为指纹：经「配置里的回答器」发起提问 ⇒ 桥里必须真的出现一条挂起提问（同一实例）。
   const pending = responder.ask([{ id: 'q1', question: '选哪个？' }], { sessionId: 's1' });

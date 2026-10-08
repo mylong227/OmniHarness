@@ -21,8 +21,6 @@ import { CliSubsystemSections } from './cliSubsystemSections.js';
 import { CliDecisionEngineFlags } from './cliDecisionEngineFlags.js';
 import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
 
-import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
-import { SilentEventPort } from '../adapters/event/silentEventPort.js';
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
 import { PluginRegistry } from '../plugin/pluginRegistry.js';
 import { AuditSink } from '../server/services/auditSink.js';
@@ -59,6 +57,7 @@ import type { ModelRouterConfig } from '../config/configFile.js';
 import type { LspServerConfig } from '../ports/tool/lsp.js';
 import { ToolLoader } from './toolLoader.js';
 import { CliArgReader } from './cliArgReader.js';
+import { CliEventPort } from './cliEventPort.js';
 import { KvStoreFactory } from './kvStoreFactory.js';
 import { CredentialResolver } from '../config/credentialResolver.js';
 import { CryptoVault } from '../adapters/vault/cryptoVault.js';
@@ -66,6 +65,7 @@ import type { CliArgs } from './argParser.js';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 import type { ExtraTool } from '../ports/tool/extraTool.js';
 import type { UserResponder } from '../ports/runtime/userResponder.js';
+import type { EventPort } from '../ports/runtime/eventPort.js';
 
 /**
  * F3 凭据水合的内置默认名列表。
@@ -275,13 +275,16 @@ export class CliBuildConfig {
   /**
    * 装配运行时配置（端口即插即用）。
    * @param args 解析后的 CLI 参数。
-   * @param overrides 组合根注入的端口覆盖（当前只有 `userResponder`：serve 要把「提问」接到
-   *   Web 上行通道，而该通道的桥持有传输、**只能在配置构建之后/之外**存在——故由调用方传入）。
+   * @param overrides 组合根注入的端口覆盖：
+   *   `userResponder` —— serve 要把「提问」接到 Web 上行通道（`ask_user` / `plan_present` 在
+   *     `ConfigFactory.build` 期就捕获了回答器，晚一步注不进去）；
+   *   `events` —— serve 要把**工具侧**发出的事件（`question` / `todo` / `plan`）送到客户端；
+   *   两者都由调用方传入，因为承载它们的桥持有传输、只能在配置构建之外先建好。
    * @returns 已完成全部端口装配（模型 / 存储 / 审批 / 沙箱 / MCP 桥接等）的解析配置。
    */
   protected async buildConfig(
     args: CliArgs,
-    overrides: { readonly userResponder?: UserResponder } = {},
+    overrides: { readonly userResponder?: UserResponder; readonly events?: EventPort } = {},
   ): Promise<ResolvedConfig> {
     if (args.native && !new NativeKernel().available()) {
       process.stderr.write(
@@ -353,7 +356,7 @@ export class CliBuildConfig {
       sandbox: this.buildSandbox(args),
       escalation: this.buildEscalation(args),
       elevatedSandbox: this.buildElevatedSandbox(args),
-      events: args.events === 'console' ? new ConsoleEventPort() : new SilentEventPort(),
+      events: CliEventPort.of(args, overrides.events),
       extraTools: await this.loadCustomTools(args.toolFiles),
       compactionMaxTokens:
         args.compactionMax ??
