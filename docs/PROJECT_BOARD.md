@@ -2083,3 +2083,42 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
 3. **门禁**：判据钉**字面量**而非间接常量；新判据必须能对**已知坏输入**变红（正对照/仪器自证）；
    变异后判据仍绿时**先查变异是否落地**；耗时预算按**并发墙钟**或相对量，别用绝对秒数。
 4. **基线**：冻结基线（死链/覆盖率）**只许收紧**；`--update` 仅用于**迁移类改动**并写明理由。
+
+## 10. LangGraph 对等性：按价值分诊后的落地（2026-10-08）
+
+**背景**：用户问「本仓是否有 LangGraph 的等价实现」。逐项对照后（本仓 `WorkflowRunner` 静态 DAG + `GraphStore` 图定义 + `GoalRunner` 循环 + 会话/工作区检查点 + 工具级审批 + 子代理/A2A），
+结论是**功能等价子集**而非同一编程模型：缺条件边、图内循环、typed state/reducer、superstep 级 checkpoint、图内 `interrupt`、子图。
+按用户口径「无价值的就不引入，有价值的按商业式标准完成」，分诊如下。
+
+### 10.1 判定为**无价值 / 负价值 → 明确不引入**（留档理由，避免下次重复讨论）
+
+| 缺口                                                         | 不引入的理由                                                                                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 图内循环（成环）                                             | 迭代需求由 `run_goal` 承担；环会破坏分层调度与 token 预算的可预测性，故 `WorkflowCycleError` **继续拒绝**（不是缺口，是约束） |
+| typed state + reducer / `Send` 动态 map-reduce               | 静态同层 fan-out + blackboard 注入已覆盖现有需求；引入等于把 DAG 图灵完备化，换来的是不可预测的调度与更大的维护面             |
+| 子图嵌套                                                     | 步骤默认工具白名单**排除** `run_workflow/run_goal/subagent`（`toolViewOf`）是有意的递归防护                                   |
+| 每 superstep 全量快照 checkpointer / `update_state` 就地回滚 | 已在 `ARCHITECTURE_UPGRADE_2026-10.md` §3.1 记「不建议采纳」（写放大 + 无界增长；且会毁掉 `rewindTo` 的 fail-closed 语义）    |
+| 图内可跨进程续跑的 `interrupt()`                             | 本轮不新建挂起/恢复协议——**半成品的人机回路比没有更危险**；工具级审批 + `--plan` 已是生产口径，待需要时再评估                 |
+
+### 10.2 判定为**有价值 → 按商业级标准实现**（两项，均已落地）
+
+1. **受控条件执行（`step.when`）**：静态 DAG 之上的分支/补救表达力，**不改拓扑、不引入环**。
+   - 端口：`ports/autonomy/workflowStepGuard.ts` + `workflowStep.ts` 的 `when`；
+   - 校验（规格期 fail-closed）：引用不存在 / 未在 `dependsOn` 声明 / 自引用 / 非法终态 / 非 `done` 却带 `outputMatches` / 正则不可编译 —— **一律抛 `WorkflowSpecError`**（`autonomy/workflowGuard.ts`）；
+   - 裁决（运行期）：`when` 命中才执行；**先条件裁决、后失败传播**（写反会让「失败才补救」这一步被上游拖死而静默失效）；
+   - 终态五值（`ports/autonomy/workflowStepStatus.ts` + `autonomy/workflowStepStatuses.ts`）：`done / failed / skipped / blocked / cancelled`。
+     **`skipped`（设计内跳过）不阻断下游、整体可判成功**；`failed / blocked / cancelled` 阻断下游（fail-closed）。只看 `ok` 布尔无法区分这两类，而事后处置完全相反。
+2. **运行状态持久化 + 断点续跑**：`autonomy/workflowRunLog.ts`（append-only JSONL，`<workspace>/.omniharness/graph-runs/<runId>.jsonl`）。
+   - 崩溃语义**有界诚实**：末行半截（进程被杀）容忍；**中间行损坏拒绝加载**（静默跳过会把「丢了一步」伪装成「那轮没跑过」）；首行内嵌 spec 与 `specHash` 自校验，外部改动即拒；
+   - `resume`：**只复用 `done`** 的产出，失败/中断/跳过一律重跑并留下 `attempt` 级留痕；规格哈希与日志不一致 ⇒ **拒绝续跑**；同 runId 再次 create 会**覆盖**旧档（不继承旧状态）；
+   - 库级默认 `persist:false`（零写盘），三处**生产入口**显式开启：模型工具 `run_workflow`、CLI `workflow [--file|--resume-run]`、serve 的 `graph.run`（用台账 runId 做存档 id，使 `graph.status` 的 id 与可续跑 id 一致）。
+
+### 10.3 判据与实测
+
+- **新增三份判据**：`tests/unit/workflowGuard.test.ts`（校验负例 8 + 裁决 4）、`workflowRunLog.test.ts`（8：追加折叠 / 末行容忍 / 中间损坏拒绝 / 自校验 / runId 安全 / 同 id 覆盖 / 哈希口径 / 零写盘）、
+  `workflowControlledRun.test.ts`（12：条件命中/不命中/补救模式/blocked 措辞/outputMatches/取消 + 续跑 5 类）。
+- **复跑**：`node --test dist/tests/unit/{workflowGuard,workflowRunLog,workflowControlledRun,workflowRunner,workflowRunnerLimits,runWorkflowToolContract}.test.js` ⇒ **52 例全绿**；
+  `knownFlags` + `cliFlagValueRegistry` 亦绿（新增旗标 `--resume-run` 已登记且被 `flagValue` 真实读取）。
+- **门禁**：`--tier=typed` 2/2 ✓；`architectureGate` ✓（本轮**自己踩过一次**：把带方法的 `WorkflowStepStatuses` 放进 `src/ports/**` 被判「ports 纯度」违规 ⇒ 已把实现移到 `autonomy/`，端口层只留类型）。
+- **诚实边界（已知未做）**：serve 侧目前只**写**存档，未提供 `graph.resume` RPC（恢复入口在 CLI 与模型工具；重复入口需先定 UI 交互）；
+  续跑会重跑未完成步骤 ⇒ **有副作用的步骤可能重复执行**，作者需自行声明 `writes` 并判断重跑是否安全（本类不做幂等推断）。

@@ -55,8 +55,8 @@
       "description": "自主目标循环（#S30，多轮自主推进直到达成或达上限）"
     },
     {
-      "usage": "omniharness workflow --file workflow.json",
-      "description": "DAG 工作流编排（#S31，多步依赖并发，前序产出注入后续）"
+      "usage": "omniharness workflow --file workflow.json [--resume-run <runId>]",
+      "description": "DAG 工作流编排（#S31，多步依赖并发，前序产出注入后续；步骤可用 when 声明受控条件；运行落盘 <workspace>/.omniharness/graph-runs/，--resume-run 续跑：已完成步骤复用产出、其余重跑）"
     },
     {
       "usage": "omniharness lsp <definition|references|hover|status> --file PATH --line N --col N [--lsp \"server cmd\"]",

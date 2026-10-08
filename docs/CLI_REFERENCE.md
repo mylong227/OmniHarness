@@ -36,13 +36,14 @@
 
 ### 执行与编排
 
-| 子命令                            | 作用                                         |
-| --------------------------------- | -------------------------------------------- |
-| `exec`（默认）                    | 单次任务执行；`-p/--print` = headless（CI）  |
-| `goal "<目标>"`                   | 自主目标循环（多轮推进直到达成或达上限）     |
-| `workflow --file workflow.json`   | DAG 工作流（多步依赖并发，前序产出注入后续） |
-| `routines add\|list\|remove\|run` | 定时任务（interval / cron）                  |
-| `tui [demo]`                      | 纯 ANSI 交互式终端 UI（需 TTY）              |
+| 子命令                            | 作用                                                                                                |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `exec`（默认）                    | 单次任务执行；`-p/--print` = headless（CI）                                                         |
+| `goal "<目标>"`                   | 自主目标循环（多轮推进直到达成或达上限）                                                            |
+| `workflow --file workflow.json`   | DAG 工作流（多步依赖并发，前序产出注入后续；步骤可用 `when` 声明受控条件）                          |
+| `workflow --resume-run <runId>`   | 续跑工作流运行（复用已完成步骤的产出，其余重跑；运行日志在 `<workspace>/.omniharness/graph-runs/`） |
+| `routines add\|list\|remove\|run` | 定时任务（interval / cron）                                                                         |
+| `tui [demo]`                      | 纯 ANSI 交互式终端 UI（需 TTY）                                                                     |
 
 ### 扩展与集成
 

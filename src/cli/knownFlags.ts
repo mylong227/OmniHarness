@@ -101,6 +101,10 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--goal',
   '--goal-max-iterations',
   '--file',
+  // `workflow` 子命令的续跑入口（2026-10-08）：由 `cliAgentCmds.runWorkflow` 用 `flagValue` 直读，
+  // 不经 FLAG_TABLE（语义与 `--file` 同类）。**不复用全局 `--resume`**——那个是「续跑会话」，
+  // 与「续跑工作流运行」是两件事，共用一个名字必然导致其中之一被误解。
+  '--resume-run',
   '--every',
   '--cron',
   '--iterations',
