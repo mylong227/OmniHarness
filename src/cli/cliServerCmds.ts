@@ -451,23 +451,26 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
-   * serve 的上行前置装配：传输 → 指标 → 上行桥 → 配置（把**提问上行端口**注入 `userResponder`）。
+   * serve 的上行前置装配：传输 → 指标 → 上行桥 → 配置（把**提问上行端口**注入 `userResponder`、
+   * 把**工具侧事件出口**注入 `events`）。
    *
    * 为什么这几步必须绑在一起、且必须在配置构建**之前**：`ask_user` / `plan_present` 在
-   * `ConfigFactory.build` 期就捕获了 `userResponder`（`registerAgentTools`），而提问上行端口由
-   * 本桥提供。顺序反了（或干脆不接），serve 的提问只会落到 `ConsoleUserResponder`（在服务端终端里
-   * 问人）或 `DefaultUserResponder`（直接放弃作答）——**Web 端无论哪种都答不了**：
-   * 用户看得见提问卡、却没有任何提交入口，回合只能干等（2026-10-08 用户报障）。
+   * `ConfigFactory.build` 期就捕获了 `userResponder` 与事件端口（`registerAgentTools`），而提问
+   * 上行端口与客户端事件出口都由本桥提供。顺序反了（或干脆不接），serve 的提问只会落到
+   * `ConsoleUserResponder`（在服务端终端里问人）或 `DefaultUserResponder`（直接放弃作答）——
+   * **Web 端无论哪种都答不了**；工具侧事件则会落进静默端口，UI 里连「提问」那块都看不见
+   * （2026-10-08 用户报障；详见 `buildConfig` 的 `events` 覆盖说明）。
    *
    * 为什么单独成方法：`runServe` 的函数体已贴铁律上限（`check.mjs` 体量闸），按本仓惯例
    * **按职责搬出**而不是放宽阈值。
    *
    * public 而非 protected：**供单测直接断言接线**（配置里的回答器必须是本桥的提问端口，而不是
-   * `ConsoleUserResponder`/`DefaultUserResponder`）——与 `displayConfigOf` 同一取舍。
+   * `ConsoleUserResponder`/`DefaultUserResponder`；事件端口必须是服务端桥，而不是静默端口）
+   * ——与 `displayConfigOf` 同一取舍。
    * @param args 解析后的 CLI 参数（配置装配用；workspace 已定为启动目录）
    * @param auth 已装配的服务端鉴权门禁（undefined 表示不开鉴权）
    * @param audit 审计 sink（与本方法返回的桥共用同一实例，避免两处各自开一份）
-   * @returns 传输、指标、上行桥与已注入提问端口的解析配置
+   * @returns 传输、指标、上行桥与已注入提问端口/事件端口的解析配置
    */
   public async buildServeUpstream(
     args: CliArgs,
@@ -482,7 +485,14 @@ export class CliServerCmds extends CliBuildConfig {
     const bridge = new HttpBridgeTransport(auth);
     const metrics = new Metrics();
     const events = new ServerEventBridge({ transport: bridge, metrics, audit });
-    const config = await this.buildConfig(args, { userResponder: events.questionPort() });
+    const config = await this.buildConfig(args, {
+      userResponder: events.questionPort(),
+      // 工具侧事件也要到客户端：`ask_user` 的 `question`（对话流里那块「提问」）、`todo_write` 的
+      // `todo`、`plan_write` 的 `plan` 都在 `ConfigFactory.build` 期捕获事件端口。不给这一份，
+      // serve 里它们只走控制台（`args.events` 缺省 'console'）——**客户端收不到**，2026-10-08 修
+      // （此前只在切换过工作区后才偶然搭上服务端端口）。
+      events: events.eventPort(),
+    });
     return { bridge, metrics, events, config };
   }
 
