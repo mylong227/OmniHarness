@@ -51,14 +51,17 @@ export class GraphRunRegistry {
    * @param def 图定义（调用方保证 `steps` 非空）。
    * @param defId 已存图 id（内联定义时为 undefined）。
    * @param owner 归属会话 id（无归属时 undefined）。
+   * @param reuseRunId **续跑**时复用的运行 id（2026-10-08）：使台账 id 与运行存档 id 一致，
+   *   从而 `graph.status` / 通知里的 id 与「可续跑的 runId」是同一个；缺省新生成。
    * @returns 该次运行的句柄（runId / 可变状态 / 取消信号）。
    */
   public begin(
     def: WorkflowDef,
     defId: string | undefined,
     owner: string | undefined,
+    reuseRunId?: string,
   ): GraphRunHandle {
-    const runId = Id.id('run');
+    const runId = reuseRunId ?? Id.id('run');
     const state: GraphRunState = {
       runId,
       defId,
@@ -95,6 +98,39 @@ export class GraphRunRegistry {
    */
   public get(runId: string): GraphRunState | undefined {
     return this.runs.get(runId);
+  }
+
+  /**
+   * 运行态视图（`graph.status` 的塑形落在这里，而不是留在 `AppServer`）。
+   *
+   * 存在的理由：`AppServer` 已贴着上帝类红线（710 行），而「把运行态投影成 UI 视图」本就是台账的职责
+   * ——它持有 `GraphRunState`，没必要让 RPC 分发层再抄一遍字段。未找到即抛（fail-closed，不返回空视图）。
+   * @param runId 运行标识。
+   * @returns 供 UI 消费的视图（节点数组 + 汇总）。
+   * @throws Error 未知或已被淘汰的 runId。
+   */
+  public describe(runId: string): {
+    readonly runId: string;
+    readonly defId: string | undefined;
+    readonly defName: string | undefined;
+    readonly done: boolean;
+    readonly ok: boolean | undefined;
+    readonly nodes: readonly GraphRunState['nodes'][string][];
+    readonly blackboard: Readonly<Record<string, string>> | undefined;
+  } {
+    const run = this.runs.get(runId);
+    if (run === undefined) {
+      throw new Error('未找到运行: ' + runId);
+    }
+    return {
+      runId: run.runId,
+      defId: run.defId,
+      defName: run.defName,
+      done: run.done,
+      ok: run.ok,
+      nodes: Object.values(run.nodes),
+      blackboard: run.blackboard,
+    };
   }
 
   /**

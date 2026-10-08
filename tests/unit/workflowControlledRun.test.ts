@@ -319,14 +319,17 @@ describe('断点续跑（persist + resume）', () => {
     });
   });
 
-  it('中断点（有 start 无 end）在 resume 时被重跑', async () => {
+  it('中断点（有 start 无 end）在 resume 时被重跑（新尝试作废旧终态）', async () => {
     await withWorkspace(async (root) => {
       const model = new SwitchableModel();
       const first = await new WorkflowRunner(makePorts(model, root), { persist: true }).run(DEF);
       assert.strictEqual(first.ok, true);
       // 模拟「B 跑到一半进程被杀」：手工追加一条 B 的 start 行（无 end）。
+      // 语义要点：B 此前已 done，但**新的一次尝试已经开始且结果未知** ⇒ 续跑必须重跑 B，
+      // 而不是复用那次旧产出（旧产出是上一次尝试的结论，可能已被这次重跑改写）。
       const log = new WorkflowRunLog(root);
       log.appendStepStart(first.runId, 'B', 2);
+      const promptsBefore = model.prompts.length;
       const resumed = await new WorkflowRunner(makePorts(model, root), { persist: true }).resume(
         first.runId,
       );
@@ -335,6 +338,13 @@ describe('断点续跑（persist + resume）', () => {
         resumed.steps.map((step) => step.status),
         ['done', 'done'],
       );
+      assert.strictEqual(
+        model.prompts.length,
+        promptsBefore + 1,
+        '中断的 B 必须真的重跑一次（不得复用旧终态）',
+      );
+      const text = readFileSync(log.pathOf(first.runId), 'utf8');
+      assert.match(text, /"id":"B","status":"done","attempt":3/, '重跑记为第 3 次尝试');
     });
   });
 

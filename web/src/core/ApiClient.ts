@@ -483,6 +483,19 @@ export class ApiClient {
   public graphStatus(runId: string): Promise<GraphStatusResult> {
     return this.rpc('graph.status', { runId });
   }
+  /**
+   * 续跑既有图运行（`graph.resume`）：服务端从该运行的存档读回规格与已完成步骤，
+   * **已完成步骤复用产出、其余重跑**。返回与首跑同型的 `{ runId, nodeCount }`
+   * （沿用同一个 runId ⇒ 后续 `graph.progress` / `graph.done` / `graphStatus` 的 id 不变）。
+   *
+   * 存在的意义：客户端此前只有 `runGraph`（能发起）而没有续跑（跑坏了没法接着跑），
+   * 服务端 2026-10-08 已提供该 RPC ⇒ 客户端补上同型方法，避免「半边接线」。
+   * @param runId 上次 `graph.run` 返回的运行 ID（续跑的定义取自该运行的存档首行）
+   * @returns 该次续跑的 `{ runId, nodeCount }`（runId 与传入值相同）
+   */
+  public resumeGraph(runId: string): Promise<GraphRunResult> {
+    return this.rpc('graph.resume', { runId });
+  }
 
   // ---- 工作台界面能力（上下文容量 / 配额 / 会话模式 / 权限档位 / 检索） ----
   // 一组 RPC 支撑三块 UI：上下文容量面板、输入区「+」添加菜单、权限档位面板。

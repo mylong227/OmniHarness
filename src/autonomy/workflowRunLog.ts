@@ -1,4 +1,4 @@
-﻿import {
+import {
   appendFileSync,
   existsSync,
   mkdirSync,
@@ -323,6 +323,12 @@ export class WorkflowRunLog {
       if (line.t === 'step.start') {
         attempts.set(line.id, Math.max(attempts.get(line.id) ?? 0, line.attempt));
         interrupted.add(line.id);
+        // **新的尝试作废上一次终态**（2026-10-08 判据抓到的真缺陷）：某步先 `done`、随后又出现一条
+        // `step.start`（= 又跑了一次且结果未知）时，续跑若仍复用旧产出，就是把「上一次尝试的结论」
+        // 当成「当前事实」——而那次重跑可能已经改过工作区。故 start 到达即清掉该步的终态与产出，
+        // 交给本次运行重跑；可信的终态只认**最后一条** `step.end`。
+        statuses.delete(line.id);
+        outputs.delete(line.id);
         continue;
       }
       if (line.t === 'step.end') {

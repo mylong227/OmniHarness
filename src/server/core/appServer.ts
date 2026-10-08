@@ -4,6 +4,7 @@ import type {
   MemoryFactPatch,
 } from '../../ports/memory/longTermMemory.js';
 import { WorkflowRunner } from '../../autonomy/workflowRunner.js';
+import { WorkflowRunLog } from '../../autonomy/workflowRunLog.js';
 import type { WorkflowDef } from '../../autonomy/workflowTypes.js';
 import { jsonRpc } from './jsonRpc.js';
 import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
@@ -271,24 +272,30 @@ export class AppServer extends AppServerGovernanceHandlers {
       return { ok: this.runtime.graphStore().delete(idParam) };
     });
     this.handlers.set('graph.run', async (params) => this.runGraph(params));
+    // 续跑入口（2026-10-08）：自 `graph.run` 的运行存档读回规格与已完成步骤，交给同一条落地管道。
+    // 规格来自**存档首行**（不取调用方传入的定义）——这样「续跑哪一份定义」没有歧义；
+    // 存档缺失 / 损坏 / 自校验失败一律作为 RPC 错误上抛（fail-closed，绝不新建一次「看着像续跑」的运行）。
+    this.handlers.set('graph.resume', async (params) => {
+      const runId = params['runId'];
+      if (typeof runId !== 'string' || runId.length === 0) {
+        throw new Error('graph.resume 需要 runId（来自上次 graph.run 的返回值）');
+      }
+      const threadId = params['threadId'];
+      const owner = typeof threadId === 'string' && threadId.length > 0 ? threadId : undefined;
+      // 存档根必须与**图运行落盘时用的那一个**同源：`WorkflowRunner` 写的是
+      // `graphPorts().workspaceRoot`（配置根），而 `effectiveWorkspace()` 是「UI 当前工作区」
+      // （可随会话切换）。实测两套根会分叉：用后者读会报「找不到运行日志」，而文件其实就在前者下面。
+      const replay = new WorkflowRunLog(this.runtime.graphPorts().workspaceRoot).read(runId);
+      return this.startGraphRun(replay.header.spec, undefined, owner, runId);
+    });
     this.handlers.set('graph.status', async (params) => {
       const runId = params['runId'];
       if (typeof runId !== 'string') {
         throw new Error('graph.status 需要 runId');
       }
-      const run = this.graphRuns.get(runId);
-      if (run === undefined) {
-        throw new Error('未找到运行: ' + runId);
-      }
-      return {
-        runId: run.runId,
-        defId: run.defId,
-        defName: run.defName,
-        done: run.done,
-        ok: run.ok,
-        nodes: Object.values(run.nodes),
-        blackboard: run.blackboard,
-      };
+      // 视图塑形下沉到台账（`GraphRunRegistry.describe`）：AppServer 已贴上帝类红线，且「运行态 → UI 视图」
+      // 本就是台账职责。
+      return this.graphRuns.describe(runId);
     });
   }
 
@@ -644,11 +651,12 @@ export class AppServer extends AppServerGovernanceHandlers {
     def: WorkflowDef,
     idParam: string | undefined,
     owner: string | undefined,
+    resumeRunId?: string,
   ): { runId: string; nodeCount: number } {
-    const handle = this.graphRuns.begin(def, idParam, owner);
+    const handle = this.graphRuns.begin(def, idParam, owner, resumeRunId);
     const { runId, state } = handle;
     const ports = this.runtime.graphPorts();
-    void new WorkflowRunner(ports, {
+    const runner = new WorkflowRunner(ports, {
       maxConcurrency: def.maxConcurrency,
       signal: handle.signal,
       // 运行存档（2026-10-08）：serve 发起的图运行同样落盘到
@@ -666,8 +674,11 @@ export class AppServer extends AppServerGovernanceHandlers {
         }
         this.options.transport.send(jsonRpc.notify('graph.progress', { runId, ...update }));
       },
-    })
-      .run(def)
+    });
+    // 续跑（`graph.resume`）与首跑走同一条落地管道：唯一的差别是交给 runner 的是 `resume(runId)`
+    // 而不是 `run(def)`——这样进度通知、`graph.done`、台账释放三项行为不会出现两套实现。
+    const started = resumeRunId === undefined ? runner.run(def) : runner.resume(resumeRunId);
+    void started
       .then((result) => {
         state.done = true;
         state.ok = result.ok;
