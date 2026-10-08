@@ -2115,10 +2115,31 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
 
 ### 10.3 判据与实测
 
-- **新增三份判据**：`tests/unit/workflowGuard.test.ts`（校验负例 8 + 裁决 4）、`workflowRunLog.test.ts`（8：追加折叠 / 末行容忍 / 中间损坏拒绝 / 自校验 / runId 安全 / 同 id 覆盖 / 哈希口径 / 零写盘）、
-  `workflowControlledRun.test.ts`（12：条件命中/不命中/补救模式/blocked 措辞/outputMatches/取消 + 续跑 5 类）。
-- **复跑**：`node --test dist/tests/unit/{workflowGuard,workflowRunLog,workflowControlledRun,workflowRunner,workflowRunnerLimits,runWorkflowToolContract}.test.js` ⇒ **52 例全绿**；
-  `knownFlags` + `cliFlagValueRegistry` 亦绿（新增旗标 `--resume-run` 已登记且被 `flagValue` 真实读取）。
-- **门禁**：`--tier=typed` 2/2 ✓；`architectureGate` ✓（本轮**自己踩过一次**：把带方法的 `WorkflowStepStatuses` 放进 `src/ports/**` 被判「ports 纯度」违规 ⇒ 已把实现移到 `autonomy/`，端口层只留类型）。
-- **诚实边界（已知未做）**：serve 侧目前只**写**存档，未提供 `graph.resume` RPC（恢复入口在 CLI 与模型工具；重复入口需先定 UI 交互）；
-  续跑会重跑未完成步骤 ⇒ **有副作用的步骤可能重复执行**，作者需自行声明 `writes` 并判断重跑是否安全（本类不做幂等推断）。
+- **判据清单**：`tests/unit/workflowGuard.test.ts`（校验负例 8 + 裁决 4）、`workflowRunLog.test.ts`（追加折叠 / 末行容忍 / 中间损坏拒绝 / 自校验 / runId 安全 / 同 id 覆盖 / 哈希口径 / 零写盘）、
+  `workflowControlledRun.test.ts`（条件命中/不命中/补救模式/blocked 措辞/outputMatches/取消 + 续跑各类，含中断点重跑）、
+  `workflowResumeTool.test.ts`（**模型面** `resume` 参数：复用不重跑 / 规格不一致拒绝 / 三类参数校验 / 中断点重跑并记 attempt）、
+  `workflowCliResume.test.ts`（**真 CLI 两趟**：首跑落盘并回报 runId ⇒ `--resume-run` 复用；既无 `--file` 也无 `--resume-run` ⇒ exit 2）、
+  `graphResumeRpc.test.ts`（**serve RPC** `graph.resume`：中断步骤重跑 / attempt 递增 / 规格取自存档首行 / 不新写 run.start / 缺失与不存在 fail-closed）。
+- **复跑**：上述 workflow 判据 + 既有 `workflowRunner`/`workflowRunnerLimits`/`runWorkflowToolContract`/`workflowLayerPolicy` + 旗标判据（`knownFlags`/`cliFlagValueRegistry`）全绿；
+  `graphRunPersist`（serve 侧落盘，并行会话补）亦绿。
+- **门禁**：`--tier=typed` 2/2 ✓；`architectureGate` ✓（本轮**自己踩过一次**：把带方法的 `WorkflowStepStatuses` 放进 `src/ports/**` 被判「ports 纯度」违规 ⇒ 已把实现移到 `autonomy/`，端口层只留类型）；
+  标准增量门禁 ✓；接线完整性 ✓。
+
+#### 10.3.1 续跑入口的三条缝（本轮补齐）与两个实测坑
+
+- **三条缝**：模型工具 `run_workflow({resume})`、CLI `workflow --resume-run`、serve RPC `graph.resume`。
+  第三条此前**只有写存档没有恢复入口**（Web 端图跑坏了没法续）⇒ 本轮实现：`graphRunRegistry.begin` 支持**复用 runId**
+  （使台账 id = 存档 id），`appServer.startGraphRun` 增加可选 `resumeRunId`（续跑与首跑共用同一条落地管道：进度通知 / `graph.done` / 台账释放不会出现两套实现），
+  `registerGraphHandlers` 里的 `graph.resume` **从存档首行读回规格**（不取调用方传入的定义 ⇒ 「续跑哪一份定义」无歧义）。
+- **坑 ①（判据当场抓到）**：`graph.resume` 最初用 `effectiveWorkspace()` 读存档——那是「UI 当前工作区」，而 `WorkflowRunner` 落盘用的是
+  `graphPorts().workspaceRoot`（配置根）。两者**会分叉**，表现是「找不到运行日志，而文件其实就在旁边」⇒ 已改为与落盘同源。
+- **坑 ②（判据当场抓到的真语义缺陷）**：若某步先 `done`、随后又有一条 `step.start`（= 又跑了一次且结果未知），
+  原 `fold` 仍把该步当 `done` **复用旧产出**——那是把「上一次尝试的结论」当成「当前事实」，而那次重跑可能已经改过工作区。
+  已修：**新的 `step.start` 作废该步此前的终态与产出**，续跑必须重跑；可信终态只认最后一条 `step.end`。
+
+#### 10.3.2 仍存的诚实边界
+
+- **续跑会重跑未完成步骤 ⇒ 有副作用的步骤可能重复执行**：作者需自行声明 `writes` 并判断重跑是否安全（本层不做幂等推断，也无法从工具契约推出）。
+- **前端仍无图界面**（2026-10-08 实测）：`web/src/core/ApiClient.ts` 有 `runGraph`/`runGraphById`/`graphStatus`，本轮又补上 `resumeGraph`（含 `web/test/graphResumeClient.test.mjs` 判据），
+  但**没有任何组件调用它们**（全仓 `web/src` 里搜不到消费者）⇒ 终端用户在 Web 上既不能发起图运行、也不能续跑。要可用得先建图面板（属**新功能**，不是补一条缝），本轮未做、也未声称可用。
+- **`docs/protocol.md` 未列 `graph.*`**：该文档整体不含图相关 RPC（既有 `graph.run`/`graph.status` 也不在），本轮未单方面补 `graph.resume` 以免造成「只登记一个」的新不一致。
