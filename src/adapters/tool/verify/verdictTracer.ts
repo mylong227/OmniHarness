@@ -64,6 +64,15 @@ export class VerdictTracer {
   }
 
   /**
+   * 决策引擎是否已注入（供装配判据断言「配置真的抵达了消费点」）。
+   *
+   * @returns 已注入为 true。
+   */
+  public get hasPredictor(): boolean {
+    return this.predictor !== undefined;
+  }
+
+  /**
    * 跑测试前做一次 Laya noul 预判，并把 shadow 档观测交给 observer。
    *
    * 决策引擎不可用 / 抛错时静默返回 `{ noul: undefined, available: false }`（fail-open）。

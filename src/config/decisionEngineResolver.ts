@@ -32,6 +32,13 @@ export class DecisionEngineResolver {
     return new LayaDecisionEngine({
       ...(cfg.repo !== undefined ? { repo: cfg.repo } : {}),
       ...(cfg.pythonPath !== undefined ? { pythonPath: cfg.pythonPath } : {}),
+      // 以下四项此前**根本没被透传**（解析器只搬了 repo/pythonPath）：`modelDir` 静默丢弃意味着
+      // 「显式指定的权重目录不生效」，`warm` 丢弃意味着「关不掉常驻热进程」，`timeoutMs` 丢弃意味着
+      // 「调了超时没用」。同型缺陷在本仓反复出现，故此处逐字段显式透传（缺省即不写，保持
+      // exactOptionalPropertyTypes 语义）。
+      ...(cfg.modelDir !== undefined ? { modelDir: cfg.modelDir } : {}),
+      ...(cfg.warm !== undefined ? { warm: cfg.warm } : {}),
+      ...(cfg.timeoutMs !== undefined ? { timeoutMs: cfg.timeoutMs } : {}),
     });
   }
 }

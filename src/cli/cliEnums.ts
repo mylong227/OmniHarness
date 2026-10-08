@@ -79,3 +79,14 @@ export const ENFORCEMENT_MODES = [
   'shadow',
   'enforce',
 ] as const satisfies readonly NonNullable<CliArgs['guardPromptInjectionMode']>[];
+/**
+ * （Laya 战略线）决策引擎生效模式白名单。与 `DecisionEngineConfig['mode']` 同源取值
+ * （`satisfies` 保证漂移即编译报错）：写错档位的语义差别极大——`enforce` 会把 System-1
+ * 预判回灌进工具结果、`shadow` 只观测、`off` 则根本不装配引擎；一个拼写错误不该在
+ * 这三者之间静默漂移。
+ */
+export const DECISION_ENGINE_MODES = [
+  'off',
+  'shadow',
+  'enforce',
+] as const satisfies readonly NonNullable<CliArgs['decisionEngineMode']>[];

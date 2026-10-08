@@ -4,6 +4,7 @@ import {
   APPROVAL_ASKS,
   APPROVALS,
   BUDGET_ON_EXCEED,
+  DECISION_ENGINE_MODES,
   ELEVATED_SANDBOXES,
   ENFORCEMENT_MODES,
   ESCALATIONS,
@@ -37,6 +38,7 @@ export const HELP_ENUM_SOURCES: Readonly<Record<string, readonly string[]>> = {
   a2aTransports: A2A_TRANSPORTS,
   budgetOnExceed: BUDGET_ON_EXCEED,
   enforcementModes: ENFORCEMENT_MODES,
+  decisionEngineModes: DECISION_ENGINE_MODES,
 };
 
 /** 描述列的起始列（命令段与选项段共用；不足补空白，超出留 `MIN_GAP` 个空格）。 */

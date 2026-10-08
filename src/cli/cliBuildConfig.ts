@@ -18,6 +18,7 @@ import { NativeKernel } from '../native/nativeKernel.js';
 import { ConfigFactory } from '../config/configFactory.js';
 import { CliSkillFlags } from './cliSkillFlags.js';
 import { CliSubsystemSections } from './cliSubsystemSections.js';
+import { CliDecisionEngineFlags } from './cliDecisionEngineFlags.js';
 import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
 
 import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
@@ -372,6 +373,16 @@ export class CliBuildConfig {
       // 之所以在**生产入口**默认开而不是改 ConfigFactory：库级默认保持"不装配即零行为"，
       // 单测与嵌入方不受影响（也避免 harness 跑自己的测试时递归触发 npm test）。
       selfVerify: args.selfVerify === false ? { enabled: false } : { enabled: true },
+      // （Laya 战略线）决策引擎：**生产入口默认 shadow**（跑、记、不改行为），与
+      // `promptInjectionGuard` / `selfVerify` 同一口径——库级默认仍是 off（不装配零行为），
+      // 只有生产入口给「观测档常开」。`--no-decision-engine` / `--decision-engine off` 关回；
+      // 解释器与权重目录由适配器零配置解析（`LAYA_PYTHON_BIN` → 项目内 venv → `python3`）。
+      // 之所以做成显式默认而不是留在配置文件里：这段此前**没有任何用户面入口**，
+      // 于是项目内 1.7GB 的 venv + 权重在真实运行里零调用（2026-10 实测）。
+      ...(() => {
+        const decisionEngine = CliDecisionEngineFlags.resolve(args);
+        return decisionEngine === undefined ? {} : { decisionEngine };
+      })(),
       deferredTools: args.deferTools
         ?.split(',')
         .map((entry) => entry.trim())

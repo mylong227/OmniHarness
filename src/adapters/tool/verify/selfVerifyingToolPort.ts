@@ -241,6 +241,27 @@ export class SelfVerifyingToolPort implements ToolPort {
   }
 
   /**
+   * verdict 决策引擎的生效模式（`shadow` / `enforce` / undefined 表示未接）。
+   *
+   * 读出口存在的意义是**可断言**：本仓最高频缺陷形态是「配置声明了、装配层静默丢弃」，
+   * 而「决策引擎到底有没有抵达自验证回环」在修补前只能靠读代码猜（2026-10 实测：CLI 与
+   * 配置文件都没有引擎入口 ⇒ 恒不装配，1.7GB 权重零调用）。装配判据见
+   * `tests/unit/decisionEngineWiring.test.ts`。
+   * @returns 生效模式；未接 verdict 时为 undefined。
+   */
+  public get verdictMode(): 'shadow' | 'enforce' | undefined {
+    return this.tracer.mode;
+  }
+
+  /**
+   * 决策引擎是否真的抵达本装饰器（即 `verdictPredictor` 已注入）。
+   * @returns 已注入为 true。
+   */
+  public get verdictReady(): boolean {
+    return this.tracer.hasPredictor;
+  }
+
+  /**
    * 在受控预算内跑测试命令，失败/超时时产出回灌文本。
    *
    * 定向能力（P1-⑨ 后半）：本会话**上次**失败所指向的文件会被记住，本次改用

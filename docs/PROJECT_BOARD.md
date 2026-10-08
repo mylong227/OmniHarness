@@ -1963,6 +1963,109 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
 **判据**：`tests/unit/testCountParser.test.ts`（12 例）+ `tests/unit/turnEndCompletionGate.test.ts`（新增 4 例）；
 真实命令口径复核（临时探针）：空 glob ⇒ `zeroEvidence: true`；真跑 12 例 ⇒ `total=12 / zeroEvidence=false`。
 
+### 8.7 ✅ 已修（2026-10-07）：第三方 Laya「装了但从未被调用」——四处断点
+
+**现象（用户口径）**：项目里引入了第三方 Laya（`third-party/laya-venv` + `laya-model`，合计 1.7GB），
+但它在真实运行中**没有起到任何作用**。复核结论：不是后端坏了，而是**链路上四处断点**，任一处都足以让它零调用；
+且全程 fail-open ⇒ 门禁全绿、日志无声。
+
+**四处断点（均为本机实测）**：
+
+| #   | 断点                                                                                                                                                                                                                                                                                                                                                           | 证据                                                                                       |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | **装配开关从未打开**：`decisionEngine.mode` 默认 `off`，而 `omniharness.json`/示例/用户级配置/`defaults` 里**都没有这个键**；`git log -S decisionEngine -- omniharness.json omniharness.json.example config.example.yaml` 为空（历史上也从未有过）。提交 `cab0c94` 标题写「升 mode 至 enforce」，但该提交**没有改任何配置文件**。                              | `tests/unit/layaWiring.test.ts`（新判据）                                                  |
+| 2   | **解释器默认值错**：适配器 `pythonPath ?? 'python3'`，**从不读** `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/adapters/laya/` 为空）；本机 `python3` = Python 3.14.8（无 laya/torch）。实测 `isAvailable()===false` ⇒ `decide` 恒返回 `{available:false}`。而 `THIRD_PARTY_ASSETS.md` 却宣称「默认指向项目内 venv」——**文档是假的**（已订正并留痕）。 | `node -e "…new LayaDecisionEngine().isAvailable()"` ⇒ false；显式指向 venv ⇒ true（312ms） |
+| 3   | **超时低于冷启耗时**：默认 30s，而单发路径每次重载权重实测**冷启 62.4s / 暖盘 18–19s** ⇒ 真实使用大概率超时并被静默吞掉。                                                                                                                                                                                                                                      | 计时实测（见 §8.7 修复后的对照）                                                           |
+| 4   | **消费面单点且静默**：唯一消费点是自验证回环的 verdict 预判；不可用/超时/失败一律只返回 `undefined`，不告警、不落 trace（trace 也要 `mode≠off`）。                                                                                                                                                                                                             | `verdictTracer.ts` 读取                                                                    |
+
+**修复（零配置可用 + 真正用得起 + 可见）**：
+
+1. **零配置解析**：新增 `src/adapters/laya/layaPaths.ts`——解释器 `decisionEngine.pythonPath` → `LAYA_PYTHON_BIN` →
+   项目内 `third-party/laya-venv/Scripts/python.exe` → **平台兜底名**（Windows `python` / 其它 `python3`，2026-10-07 评审订正）；
+   权重 `modelDir` → `LAYA_MODEL_DIR` → 项目内 `third-party/laya-model`（**存在才用**）。
+   判据 `tests/unit/layaPaths.test.ts`（9 例）。
+2. **热进程复用（把「用不起」变成「用得起」）**：`laya_infer.py --serve`（JSONL over stdio、懒加载、协议 stdout 与库噪声隔离）
+   - `src/adapters/laya/layaWarmWorker.ts`（长驻子进程、按在途请求切换事件循环存活性、
+     空闲回收、崩溃即在途 fail-open 并自动重启）。实测：端到端探测 **0.58–0.71s**（冷启 1.65s；探测预算 5s）/
+     首次含加载 **12.7–24s** / 其后每次 **0.4–1.3s**（对照单发 18–62s）。
+     判据 `tests/unit/layaWarmWorker.test.ts`（7 例，用同构协议的 Node 替身进程；含「加载帧永不回来」的解卡判据）。
+3. **预算分档 + 不再隐形**：权重未就绪时**决策立即跳过（0 延迟、不排队推理）**、加载继续在后台，就绪后走
+   `requestTimeoutMs`（默认 15s，与 `timeoutMs` 取较小者）；单发上限默认抬到 120s、加载帧有独立 3 分钟预算。
+   冷启动跳过一次落**一条 warn**；加载失败另落一条并如实报原因。新增 `warmUp(timeoutMs)` 供「愿意付一次加载代价」的调用方。
+   订正过程：最初实现让冷启动请求带 1.5s 预算投出去 ⇒ 超时后该请求仍在 Python 队列里被**无人读取地**执行，
+   实测连续 3 次冷请求把「就绪」从 ~13s 拖到 ~24s、每次都让回合白等 1.5s（临时探针实测：改前 1501/1516/1515ms
+   三次白等，改后 **1/0/0/1ms** 立即返回、就绪后 910ms 拿到真值）。
+4. **配置面打通（此前两处都无入口）**：`FileConfig.decisionEngine` + 严格校验
+   `DecisionEngineConfigValidator` + CLI `--decision-engine <mode>` / `--no-decision-engine` /
+   `--decision-engine-python <path>`；**生产入口默认 `shadow`**（跑、记、不改行为），库级默认仍 `off`。
+5. **顺手抓出的两处新「声明未接线」**（同一缺陷形态，均由新判据当场变红后修掉）：
+   `DecisionEngineResolver` 只透传 `repo`/`pythonPath`，`modelDir`/`warm`/`timeoutMs` 被丢弃；
+   `ConfigFactory.build` 的逐字段字面量**根本没有 `decisionEngine`** ⇒ `ResolvedConfig.decisionEngine` 恒 undefined
+   （构造点读 `partial`、消费点读 `ResolvedConfig`，两处都得有）。后者按该文件惯例抽成 `passthroughSections`
+   （把 `media`/`rbac`/`a2a`/`decisionEngine` 四段原样透传集中一处，同时把 `build` 体量从 105 行压回 **90 行**，
+   回到铁律基线 99 之内）。
+6. **评审驱动的二次修复**（对第一版做对抗式复评后当场修掉的真缺陷）：
+   - **探测负结果曾永久缓存**：探测预算原为 1.5s，而端到端探测实测 0.58–0.71s、冷启 1.65s（余量仅约 2×）
+     ⇒ 一次抖动即把整个进程的 Laya 判死，连 `warmUp()` 都救不回。现改为：**正结果永久缓存、负结果 60s 过期自动重探**，
+     探测预算抬到 5s；判据 `decisionEngine.test.ts` 用**探针进程计数**锁死（原先「第二次更快」的判据是假判据：
+     探针本身只要 5–26ms，无缓存也能过）。
+   - **单发超时形同虚设**：Node 的 `spawn` 不支持 `timeout`（只有 `exec`/`execFile` 支持），而旧实现把它交给
+     `AsyncChildProcess`（内部就是 `spawn`、也不设计时器）⇒ 在线 Router 网络卡住或 Python 挂死时 `decide`
+     **永不返回**。现改用 `execFile` + `killSignal: 'SIGKILL'`，并以「永不回帧的替身解释器」钉死有界返回。
+   - **子进程回调缺身份校验**：迟到的旧进程 `exit`/`error` 会清掉新进程的 `ready`、冲掉分帧缓冲并失败其在途请求
+     （表现为「明明已热却随机跳过」）。现按 `source` 校验身份。
+   - **加载失败被谎报为「仍在加载」**：`preload()` 的失败原先被 `.catch(() => undefined)` 丢掉 ⇒ 解释器写错
+     （ENOENT）也被报成「稍等就好」。现记 `loadError` 并如实上报；绝对路径不存在时**同步**判定、首次决策即可见。
+   - **`timeoutMs` 对热路径无效**（文档却称其为「单次决策上限」）：现取 `min(requestTimeoutMs, timeoutMs)` 真正生效；
+     Windows 兜底解释器名也从写死的 `python3` 改为 `python`（官方安装器/conda 提供的是 `python.exe`）。
+7. **评审驱动的三轮修复（二轮复评抓出的是「第一轮修复自己引入的新缺陷」）**：
+   - **加载帧改「无超时」造出永久卡死态**：子进程活着却永不回 `warmup` 帧时，`loading` 永久为真（`preload` 永不重投）、
+     `loadError` 永久为空（每个 decide 都报「仍在加载」），且在途帧 ref 住事件循环 ⇒ **父进程都退不出去**。
+     现引入独立的**加载预算** `loadTimeoutMs`（默认 3 分钟；本机加载实测 12.7–24s），到点即回收该进程并把原因写入
+     `loadError`；判据 `layaWarmWorker.test.ts`「加载帧永不回来时，加载预算到点即解卡」。
+   - **`.bat` / `.cmd` 解释器经 `shell: true` 会断掉协议**：常驻模式靠 **stdin 管道**送帧，而 `cmd.exe` 不转发 stdin ⇒
+     Python 立刻 EOF 退出，报出的却是「热进程已退出」这种与真因无关的 note（且我在资产表里把它写成了「支持」）。
+     现**明确拒绝** `.bat`/`.cmd` 并给出「请指向 python.exe」的可执行建议（单发桥同样拒绝），文档同步订正。
+   - 复评同时纠正了三处判据薄弱点：负缓存窗口只在 `retryMs=0` 下被测过（现补 120ms 窗口 + 正结果只探一次的计数判据）、
+     「裸命令名不在 PATH」这条异步 ENOENT 分支无判据（现补）、`min(requestTimeoutMs, timeoutMs)` 只写在文档里
+     （现把它暴露进 `resolution()` 并由判据断言）。
+
+**判据与实测**：
+
+- 单测：`node --test dist/tests/unit/{layaPaths,layaWarmWorker,layaWiring,decisionEngine,decisionEngineWiring}.test.js` ⇒ **35 例全绿**
+  （其中 `decisionEngineWiring.test.ts` 钉住「配置 → 装配 → 消费」贯通，修补前为红）。
+- 全链路真跑探针（临时脚本，未入库；默认 CLI 段 → 组合根 → 真实 `write_file` → 自验证回环 → Laya 预判 → 配对 trace）：
+  `ResolvedConfig.decisionEngine = {"mode":"shadow"}`；`tools instanceof SelfVerifyingToolPort = true`、
+  `verdictMode = shadow`、`verdictReady = true`；写源码后 `.omniharness/decision-traces/<date>.jsonl` 落
+  **2 条 `available:true` 样本**；日志出现「Laya 决策引擎后端已就绪（pythonPath=项目内 venv、modelDir=项目内权重）」
+  与一条「仍在加载权重，本次决策跳过」的 warn（改前这两条日志都不存在——装了没生效是无声的）。
+- 全量单测：`npm test` ⇒ **3028 例（3024 过 / 0 失败 / 0 cancelled / 4 skip，exit 0）**（三轮修复落地后的复跑）。
+  首轮（第一版修复）曾出现 3021 例里的 2 例 cancelled，原样复跑即消失——与本板第五十四轮登记的形态一致，各轮 `fail` 均为 0。
+- 集成（真跑 torch 前向）：`node --test dist/tests/integration/layaBackend.test.js` ⇒ **5 例全绿 / 21–29s**
+  （其中 12.7–24s 是权重加载）；noul/choice/score 三原语真实数值，热路径单次 0.7–1.3s（判据：连续三次都 < 5s）。
+  **该文件不再要求手工设 `LAYA_PYTHON_BIN`**（旧版「需外部 venv 就 skip」正是缺陷长期隐形的原因之一）。
+- 门禁：`node scripts/runGates.mjs --staged`（fast 10/12）+ `--tier=typed` 全绿；`auditConfigWiring` 接线门禁全绿。
+- `npm run test:integration` 的其他文件：15 过 / 1 失败——失败项是
+  `liveUiE2e.test.js`「真 serve + 真 SPA + 真 Chrome」的 **UI 结构基线漂移**（页签/空态文案/图标与
+  `tests/integration/uiBaseline.json` 不一致），与本次改动无关（未触碰 `web/` 与任何 UI 代码，`web/dist` 也未重建）。
+- 后端事实（记档）：上游 checkpoint 自带部分非法校准温度，`laya` 在 stderr 告警
+  「treat confidence from the affected entries as uncalibrated」⇒ noul/score 在受影响项上**未校准**，只可当序信号用。
+
+**遗留（诚实登记）**：
+
+1. 进程启动后的权重加载期（本机 12.7–24s）内，verdict 预判按设计跳过（0 延迟、不拖住回合），
+   故会话首个源码写入通常拿不到 Laya 信号、之后的写入才有。若要「首个信号也不缺席」，调用方应显式
+   `warmUp()`（或换成更小的 checkpoint）。
+2. 常驻进程约 2GB 内存（torch 2.14 CPU + 421MB 参数），空闲 10 分钟自动回收；父进程退出后**无残留进程**
+   （实测）。但注意：加载进行中时那个在途帧会 ref 住事件循环——正常加载（12.7–24s）期间父进程会等它，
+   卡死场景由加载预算（3 分钟）兜住（见第 7 条）。
+3. **在线 Router 分支（`modelDir` 为空）无任何测试覆盖**：本机 `huggingface.co` 不可达、权重只能离线放置，
+   故集成测试在缺权重时整文件 skip —— 那条分支（`laya_infer.py` 的 `Router().predict`）只有代码审查，没有实证。
+4. `ResolvedConfig.decisionEngine` 目前**没有消费方**（唯一消费点读 `partial.decisionEngine`）；透传是为了与
+   `media`/`rbac`/`a2a` 同构、让未来的消费点读得到，其判据价值有限（这一条经评审指出后如实登记，不当成「已接线」证据）。
+5. 单发路径超时杀进程**只保证杀掉直接子进程**：`execFile` 的 `timeout` + `SIGKILL` 不会级联到 Python 若自行
+   `detach` 出去的孙进程（评审尝试构造该场景未能观测到，故此处记为**未验证**，不宣称已覆盖）。
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。

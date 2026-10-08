@@ -17,6 +17,7 @@ import { providerPresetValidator } from './providerPresetValidator.js';
 import { mediaConfigValidator } from './mediaConfigValidator.js';
 import { CapabilityConfigValidator } from './capabilityConfigValidator.js';
 import { RbacConfigValidator } from './rbacConfigValidator.js';
+import { decisionEngineConfigValidator } from './decisionEngineConfigValidator.js';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -481,6 +482,10 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'skills',
   'media',
   'capability',
+  // decisionEngine 段（Laya 战略线）：本地 System-1 类型化决策。此前该 key **不在白名单**，
+  // 也没有 `FileConfig` 字段 ⇒ 写进 omniharness.json 会被「未知配置项」直接拒绝（无用户面入口），
+  // 只能编程注入；而编程注入的部署里 mode 从没被打开过 ⇒ 引擎恒不构造。这一段补齐配置面。
+  'decisionEngine',
 ]);
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
@@ -651,6 +656,15 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   // 以为「权限已收紧」，而安全档位上的静默忽略代价最高（同 capability 段的理由）。
   (cfg: FileConfig): void => {
     const message = RbacConfigValidator.validate(cfg);
+    if (message !== undefined) {
+      throw new ConfigError(message);
+    }
+  },
+  // decisionEngine 段（Laya 战略线）：只拦「写错了」（未知 key / 类型 / 模式枚举）。
+  // 这一段尤其不能静默忽略：它是本仓「声明未接线」事故的原点——配置写错 = 引擎恒不构造，
+  // 而引擎全程 fail-open ⇒ 连一行告警都不会有。
+  (cfg: FileConfig): void => {
+    const message = decisionEngineConfigValidator.validate(cfg);
     if (message !== undefined) {
       throw new ConfigError(message);
     }
