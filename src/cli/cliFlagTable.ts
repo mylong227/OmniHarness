@@ -1,7 +1,8 @@
-import type { CliArgs } from './argParser.js';
+﻿import type { CliArgs } from './argParser.js';
 import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import type { ModelRouterConfig } from '../config/configFile.js';
 import { KNOWN_EXTRA_FLAGS } from './knownFlags.js';
+import { VALUE_FLAGS } from './cliValueFlags.js';
 import {
   MODEL_ADAPTERS,
   STORAGE_ADAPTERS,
@@ -17,6 +18,7 @@ import {
   A2A_TRANSPORTS,
   BUDGET_ON_EXCEED,
   ENFORCEMENT_MODES,
+  DECISION_ENGINE_MODES,
 } from './cliEnums.js';
 
 /**
@@ -35,6 +37,7 @@ export const FLAG_ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   '--escalation': ESCALATIONS,
   '--elevated-sandbox': ELEVATED_SANDBOXES,
   '--guard-prompt-injection-mode': ENFORCEMENT_MODES,
+  '--decision-engine': DECISION_ENGINE_MODES,
   '--spill-adapter': SPILL_ADAPTERS,
   '--events': EVENT_PORTS,
   '--kv-adapter': KV_ADAPTERS,
@@ -134,86 +137,6 @@ export class CliFlagTable {
   }
 }
 
-/** 消费值的长选项集合（用于位置参数识别：其紧跟的值不视为 prompt）。 */
-const VALUE_FLAGS: ReadonlySet<string> = new Set([
-  '--config',
-  '--profile',
-  '--model-adapter',
-  '--base-url',
-  '--api-key',
-  '--model',
-  '--storage-adapter',
-  '--storage-dir',
-  '--approval',
-  '--approval-ask',
-  '--sandbox',
-  '--escalation',
-  '--elevated-sandbox',
-  '--compaction-max',
-  '--spill-adapter',
-  '--spill-bytes',
-  '--spill-preview',
-  '--defer-tools',
-  '--guard-prompt-injection-mode',
-  '--lsp',
-  '--subagent-max-depth',
-  '--subagent-concurrency',
-  '--subagent-max-steps',
-  '--tool',
-  '--skills',
-  '--workspace',
-  '--output',
-  '--resume',
-  '--fork',
-  '--replay',
-  '--prompt',
-  '--mcp-server',
-  '--worker-dsh',
-  '--plugin-profile',
-  '--memory-encrypt',
-  '--memory-key-file',
-  '--context-window',
-  '--output-format',
-  '--model-router',
-  '--model-router-file',
-  '--turn-token-budget',
-  // (P5) 成本预算三旗标（取值 → 必须登记，否则取值会被 collectPositional 并入 prompt）。
-  '--cost-budget-usd',
-  '--cost-budget-on-exceed',
-  '--cost-budget-soft-ratio',
-  '--vault-hydrate-names',
-  '--vault-key-file',
-  '--kv-adapter',
-  '--kv-file',
-  '--oidc-issuer',
-  '--oidc-client-id',
-  '--oidc-jwks-uri',
-  // (E2 顺带修) E3 新增的 RLVR 取值旗标此前漏登记 → `collectPositional` 会把它们的取值
-  // 误判为位置参数（prompt），此处补齐；并由 `cliFlagValueRegistry.test.ts` 机器兜底。
-  '--rlvr-verify',
-  '--rlvr-samples',
-  '--rlvr-min-reward',
-  '--rlvr-candidates',
-  '--rlvr-min-gain',
-  '--rlvr-ledger-dir',
-  '--rlvr-archive-max',
-  '--a2a-port',
-  '--a2a-peer',
-  '--a2a-transport',
-  // 以下 4 项由 `cliFlagValueRegistry.test.ts` 护栏抓出（同为历史漏登记，取值会被并入 prompt）。
-  '--network-allow',
-  '--events',
-  '--model-circuit-breaker-threshold',
-  '--model-circuit-breaker-open-ms',
-  // 审计 sink 三旗标（2026-10-06 第五十九轮：真实跑测发现它们**只在 serve/server 被消费**，
-  // 且当时既不在 FLAG_TABLE 也不在 VALUE_FLAGS ⇒ 取值会被 `collectPositional` 当成 prompt
-  // （`omniharness --audit-dir /tmp/a` 会把 `/tmp/a` 当任务跑）。它们是**取值型**旗标，必须在此登记；
-  // 单跑路径上的"接受却不消费"由 `ExecCli.assertExecPathSupported` fail-closed 兜住。
-  '--audit-dir',
-  '--audit-file',
-  '--audit-hmac-key',
-]);
-
 /**
  * 手写参数解析（无第三方依赖；defaults 来自配置文件，CLI 参数优先）。
  * 各 flag 的处理收归到 FLAG_TABLE，使本函数保持短小（禁大函数铁律）；
@@ -310,6 +233,22 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   '--no-self-verify': (a) => {
     a.selfVerify = false;
     return 0;
+  },
+  // （Laya 战略线）决策引擎三旗标。生产入口默认 `shadow`（跑、记、不改行为），故与
+  // `--self-verify` 同形：给一个显式档位选择 + 一个显式关闭口，并允许指定解释器。
+  '--decision-engine': (a, argv, i) => {
+    a.decisionEngineMode = CliFlagTable.enumOf(argv, i, '--decision-engine', DECISION_ENGINE_MODES);
+    return 1;
+  },
+  '--no-decision-engine': (a) => {
+    a.decisionEngineMode = 'off';
+    return 0;
+  },
+  // 解释器覆盖：本机 `/usr/bin/python3` 与项目内 venv 可能装的是不同的包集合
+  // （实测系统 python3 没有 laya/torch ⇒ 引擎静默 fail-open），故此口是排查与多环境部署的关键。
+  '--decision-engine-python': (a, argv, i) => {
+    a.decisionEnginePython = CliFlagTable.valueOf(argv, i, '--decision-engine-python');
+    return 1;
   },
   '--memory-key-file': (a, argv, i) => {
     a.memoryKeyFile = CliFlagTable.valueOf(argv, i, '--memory-key-file');

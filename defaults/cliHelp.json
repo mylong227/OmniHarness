@@ -262,6 +262,18 @@
       "description": "写源码后自动跑受限测试并把失败摘要回灌（P3；生产入口默认开，用 --no-self-verify 关闭）"
     },
     {
+      "spec": "--decision-engine {{decisionEngineModes}}",
+      "description": "Laya 本地决策引擎生效模式（生产入口默认 shadow 观测档常开：跑、记、不改行为；off=不装配、shadow=只观测、enforce=把 System-1 预判回灌进工具结果）。解释器与权重零配置解析：LAYA_PYTHON_BIN → 项目内 third-party/laya-venv → python3"
+    },
+    {
+      "spec": "--no-decision-engine",
+      "description": "关闭 Laya 决策引擎（等价 --decision-engine off；不装配即零行为）"
+    },
+    {
+      "spec": "--decision-engine-python PATH",
+      "description": "指定决策引擎的 Python 解释器（须装有 laya/torch；覆盖配置文件与自动探测）"
+    },
+    {
       "spec": "--guard-prompt-injection",
       "description": "开启提示注入护栏（工具结果进上下文前扫描并隔离命中项）；等价于 --guard-prompt-injection-mode enforce"
     },

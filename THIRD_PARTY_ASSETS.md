@@ -24,7 +24,30 @@ The repository uses the following resources.
 
 - `third-party/laya/` 存档 laya 开源 Python 包（Apache-2.0，上游 github.com/NandhaKishorM/laya，v0.3.21）的**源码快照**与 `licenses/LICENSE` + `METADATA`，仅作溯源 / 离线审查。运行时仍由 `third-party/laya-venv/` 内 pip 安装的 `laya` 提供，不从此目录加载（避免重复维护两份）。
 - `third-party/laya-model/` 含本地决策引擎权重（`convaiinnovations/laya` checkpoint：`model.safetensors` 842MB + `rl_agent_config.json` + `tokenizer/` + `encoder/`）。**不入库**（gitignore，仓库政策不 bundled 权重）；离线获取：本机 `huggingface.co` 不可达，统一走 `HF_ENDPOINT=https://hf-mirror.com` 镜像，纯 urllib 直连 `hf-mirror.com/resolve/main/<file>` 手动拉取（小文件普通 GET、大文件带 Range 头触发 206；可断点续传），绕开 huggingface_hub 在本机 Windows 的 safe-delete 死结（Xet CAS 经镜像 401）。
-- `third-party/laya-venv/` 为 laya 运行时的 Python venv（torch 2.14+cpu + transformers 5.17 + huggingface_hub 1.33 + laya 0.3.21）。**不入库**（gitignore，机器相关 + 大体积）；重建：`python -m venv third-party/laya-venv` 后 `pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu transformers==5.17 huggingface_hub==1.33 laya==0.3.21`。适配器默认 `LAYA_PYTHON_BIN` 指向 `third-party/laya-venv/Scripts/python.exe`、`LAYA_MODEL_DIR` 指向 `third-party/laya-model`（均可用环境变量覆盖）。
+- `third-party/laya-venv/` 为 laya 运行时的 Python venv（torch 2.14+cpu + transformers 5.17 + huggingface_hub 1.33 + laya 0.3.21）。**不入库**（gitignore，机器相关 + 大体积）；重建：`python -m venv third-party/laya-venv` 后 `pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu transformers==5.17 huggingface_hub==1.33 laya==0.3.21`。
+
+  > **2026-10-07 订正（原文曾是错的，留痕以免再犯）**：此处原写「适配器默认 `LAYA_PYTHON_BIN` 指向
+  > `third-party/laya-venv/Scripts/python.exe`、`LAYA_MODEL_DIR` 指向 `third-party/laya-model`」——
+  > **只有后半句是真的**：适配器从来没有读过 `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/adapters/laya/` 为空），
+  > 解释器默认值恒为系统 `python3`（本机 3.14.8，无 laya/torch/transformers）⇒ `isAvailable()` 恒 false、
+  > `decide` 恒 fail-open，**而 fail-open 不写任何告警**。加上 `decisionEngine.mode` 从未被任何配置源打开
+  > （配置文件与 CLI 都没有入口），结果是这 1.7GB 的 venv + 权重在真实运行里**零调用**。
+  > 现在解释器同样零配置可用，解析顺序（显式 → 环境变量 → 项目内 → 兜底）由
+  > `src/adapters/laya/layaPaths.ts` 单点决定，判据在 `tests/unit/layaPaths.test.ts` 与集成测试
+  > `tests/integration/layaBackend.test.ts`（它不再要求手工设环境变量）。
+
+## Laya 运行时的实际接线（2026-10-07 实测，供排查）
+
+| 事实         | 值 / 做法                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 零配置解析链 | 解释器：`decisionEngine.pythonPath` → `LAYA_PYTHON_BIN` → `third-party/laya-venv/Scripts/python.exe` → 平台兜底名（Windows `python` / 其它 `python3`）。**`.bat`/`.cmd` 包装被明确拒绝**（常驻模式靠 stdin 管道送协议帧，`cmd.exe` 经 `shell` 起时不会转发 ⇒ 必然 EOF 退出）；权重：`decisionEngine.modelDir` → `LAYA_MODEL_DIR` → `third-party/laya-model` → 空（走在线 Router） |
+| 用户面入口   | `omniharness.json` 的 `decisionEngine` 段（`mode`/`repo`/`pythonPath`/`modelDir`/`warm`/`timeoutMs`/`trace`，严格校验）+ CLI `--decision-engine <mode>` / `--no-decision-engine` / `--decision-engine-python <path>`；**生产入口默认 `shadow`**（跑、记、不改行为），库级默认仍是 `off`                                                                                           |
+| 热进程       | 适配器以 `laya_infer.py --serve` 起**常驻**子进程（JSONL over stdio，一次加载多次前向）。实测：端到端探测 0.58–0.71s（冷启 1.65s；探测预算 5s）/ 首次含加载 842MB 权重 **12.7–24s**（视磁盘缓存）/ 其后每次 **0.4–1.3s**；单发路径每次重载 ⇒ 冷启 62.4s、暖盘 18–19s                                                                                                              |
+| 冷启动窗口   | 权重未就绪时**决策立即跳过（0 延迟、不排队推理）**，加载继续在后台；就绪后走 `requestTimeoutMs`（默认 15s，与 `timeoutMs` 取较小者）。加载帧另受 `loadTimeoutMs`（默认 3 分钟）约束——**必须有界**，否则「活着但永不回帧」会让加载态永久卡死。跳过落一条 warn；**加载失败**另落一条并如实报原因                                                                                    |
+| 探测缓存     | **正结果永久缓存；负结果 60s 过期自动重探**（`availabilityRetryMs`，适配器选项）。理由：一次探测抖动不得把整个进程的 Laya 判死（原实现永久缓存 `false`，连 `warmUp()` 都救不回）                                                                                                                                                                                                  |
+| 资源成本     | 常驻进程持有约 2GB 内存（torch 2.14 CPU + 421MB 参数）；空闲 `idleShutdownMs`（默认 10 分钟）自动回收，下次请求重启。空闲时对父进程事件循环**不设引用**（父进程退出即释放，不留孤儿——实测无残留进程）                                                                                                                                                                             |
+| 加速/排障    | `--no-decision-engine` 关闭；`warm:false` 走单发（不占常驻内存，代价是每次 18–62s；单发超时经 `execFile` + `SIGKILL` 真正生效）；想立刻要真信号用适配器的 `warmUp(timeoutMs)`（集成测试即用它）                                                                                                                                                                                   |
+| 已知后端事实 | 上游 checkpoint 自带部分非法校准温度，`laya` 会在 stderr 告警「treat confidence from the affected entries as uncalibrated」——**noul/score 的置信度在受影响项上未校准**，只可当作序信号用                                                                                                                                                                                          |
 
 ## 第三方目录按功能划分（2026-10-02 盘点收编）
 
@@ -36,7 +59,7 @@ The repository uses the following resources.
 | -------------------------- | -------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `third-party/laya/`        | laya Python 包源码快照（入库）               | 人工存档                                                                    | 按 upstream 自取                                                    |
 | `third-party/laya-model/`  | laya 决策引擎权重                            | laya 适配器读取                                                             | hf-mirror 手动拉取（见上）                                          |
-| `third-party/laya-venv/`   | laya 运行时 Python venv                      | laya 适配器（`LAYA_PYTHON_BIN`）                                            | `python -m venv` + pip（见上）                                      |
+| `third-party/laya-venv/`   | laya 运行时 Python venv                      | laya 适配器（零配置探测该路径；`LAYA_PYTHON_BIN` 可覆盖）                   | `python -m venv` + pip（见上）                                      |
 | `third-party/model-cache/` | 嵌入模型 ONNX 权重缓存（e5/minilm/gte/jina） | `@huggingface/transformers`（生产 `configFactory.buildEmbeddingPort` 缺省） | 自动从 HF/hf-mirror 下载；`OMNI_EMBEDDING_CACHE_DIR` 可指回任意位置 |
 | `third-party/vec-cache/`   | 语义检索向量缓存                             | `DiskCachedEmbeddingAdapter`（`OMNI_VEC_CACHE` 可覆盖，生产语义检索路径）   | 随语义索引构建自动重建                                              |
 

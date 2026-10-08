@@ -15,6 +15,7 @@ import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
 import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.js';
 import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
 import type { RbacConfig } from '../ports/config/rbacConfig.js';
+import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
 import { cliHelp } from './cliHelp.js';
 
 export * from './cliEnums.js';
@@ -243,6 +244,22 @@ export interface CliArgs {
    * 于是「配置里写了角色、实际没人读」——接线完整性门禁 I5a 专拦这一形态。
    */
   rbac?: RbacConfig | undefined;
+  /**
+   * （Laya 战略线）决策引擎段（来自配置文件 `decisionEngine`；整段透传，与编程注入同一份结构）。
+   *
+   * **必须在此映射**：这段此前**两条路都不通**——`FileConfig` 里没有这个 key（写进
+   * omniharness.json 会被「未知配置项」拒绝），CLI 也没有旗标 ⇒ 生产部署下引擎恒不构造，
+   * 项目内 1.7GB 的 venv + 权重零调用。接线完整性门禁 I5a 专拦「FileConfig 收了字段但 CLI
+   * 层零引用」这一形态，本字段与 `media` / `capability` / `rbac` 同一条路。
+   */
+  decisionEngine?: DecisionEngineConfig | undefined;
+  /**
+   * （Laya 战略线）决策引擎模式旗标取值（`--decision-engine <mode>`；`--no-decision-engine`
+   * 等价 `off`）。与配置文件段合并解析，见 `CliDecisionEngineFlags.resolve`。
+   */
+  decisionEngineMode?: 'off' | 'shadow' | 'enforce' | undefined;
+  /** （Laya 战略线）解释器路径旗标取值（`--decision-engine-python <path>`；覆盖配置文件与自动探测）。 */
+  decisionEnginePython?: string | undefined;
 }
 
 /** CLI 默认值。 */
@@ -474,6 +491,11 @@ export class ArgParser {
     // 角色门禁段（F3 RBAC-lite）：同上整段透传。**不映射 = CLI 通道丢配置**（接线门禁 I5a 会拦）。
     if (file.rbac !== undefined) {
       result.rbac = file.rbac;
+    }
+    // （Laya 战略线）决策引擎段：同上整段透传。**不映射 = CLI 通道丢配置**——而这一段丢掉的
+    // 后果是「引擎恒不构造、1.7GB 权重零调用且全程无告警」，故与 media/capability/rbac 同一条路。
+    if (file.decisionEngine !== undefined) {
+      result.decisionEngine = file.decisionEngine;
     }
     if (file.modelAdapter !== undefined) {
       result.modelAdapter = file.modelAdapter;

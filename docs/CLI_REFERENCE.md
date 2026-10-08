@@ -133,6 +133,8 @@
 | `--native`                                                                       | 启用 FFI 原生后端（默认开启；不可用自动回退 TS）                   |
 | `--subagent-max-depth N` / `--subagent-concurrency N` / `--subagent-max-steps N` | 子智能体编排上限                                                   |
 | `--self-verify` / `--no-self-verify`                                             | 写源码后自动跑受限测试并回灌失败摘要（默认开）                     |
+| `--decision-engine off\|shadow\|enforce` / `--no-decision-engine`                | Laya 本地决策引擎（默认 `shadow` 观测档）；解释器与权重零配置解析  |
+| `--decision-engine-python PATH`                                                  | 决策引擎的 Python 解释器（须装有 `laya`/`torch`；覆盖自动探测）    |
 | `--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http\|ws]`               | A2A 互操作（默认关）                                               |
 | `--evolution-rlvr …` / `--evolution-kernel`                                      | RLVR 进化闭环 / GEE Kernel 编排（默认关）                          |
 | `--version, -V`                                                                  | 打印 `API_VERSION` 并退出                                          |

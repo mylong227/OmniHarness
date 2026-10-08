@@ -125,14 +125,10 @@ export class ConfigFactory {
       // 调用方设了 `evolutionRlvr` 也被静默丢弃 ⇒「默认关、端到端未开」的机械根因；此处显式透传。
       evolutionRlvr: partial.evolutionRlvr,
       ssrfPolicy: partial.ssrfPolicy, // 配置化 SSRF 策略表（消费方：组合根 A2A / CLI 出站守卫）
-      rbac: partial.rbac, // (F3) 角色门禁：显式透传（漏了即「配置写了却没人读」——本片判据抓到的就是它）
-      // 媒体抽帧配置：**原样透传**（不做二次收敛）。为什么留原始形态而不换成已解析选项：
-      //  `ResolvedConfig extends OmniHarnessConfig` ⇒ 消费方（服务端配置页 / 切换工作区重基
-      //  `ConfigRebase`）读到的 `config.media` 必须还是**声明式字段**，否则「重基」会把一份
-      //  烘死了旧环境的解析结果搬到新工作区；已解析的产物（提取路由 + 收敛值）随种子进入工具集，
-      //  不在此重复暴露。若此处漏透传，`config.media` 恒为 `undefined` 而 TS 不报错
-      //  （字段可选）—— 正是本仓高频的「声明未接线」形态（同 `a2a` / `evolutionRlvr`）。
-      media: partial.media,
+      // 「声明式原样透传」的可选段（媒体 / RBAC / A2A / 决策引擎）：语义同构，集中一处见注释。
+      // 这些段此前各自被漏透传过（`media` / `a2a` / `decisionEngine` 都真出过事），故显式成组。
+      ...ConfigFactory.passthroughSections(partial),
+      tools: toolStack.tools,
       // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**（第 220 行）却**未被本
       // 装配字面量透传**；而 `ResolvedConfig extends OmniHarnessConfig` 且该字段可选 ⇒ TS 不报错、
       // 值被静默丢弃，`agent` 读到的 `config.promptInjectionGuard` 恒为 `undefined`
@@ -149,16 +145,53 @@ export class ConfigFactory {
       lsp,
       identity,
       spark,
-      // (U6) A2A 互操作：此前该字段只在 `OmniHarnessConfig` 上声明、**未被本装配字面量透传**，
-      // 导致 `runtime` 的 `if (config.a2a?.enabled === true)` 恒不可达 —— A2A 生产路径整体不可用
-      // （U6 回环实测脚本直接 import a2a 模块、绕过了装配层，故长期未暴露）。此处显式透传。
-      a2a: partial.a2a,
-      tools: toolStack.tools,
       ...core.ports,
       ...memory.stack,
       ...skills,
       // (Wave B · ADR-0009) 资产协议切片：显式透传（理由同 `a2a` / `evolutionRlvr`——漏透传即「声明未接线」）。
       capabilityStack: toolStack.capabilityStack,
+    };
+  }
+
+  /**
+   * 「声明式原样透传」的可选配置段：媒体抽帧 / RBAC / A2A / 决策引擎。
+   *
+   * ## 为什么必须在装配字面量里出现
+   *
+   * `build` 返回的是**逐字段列举**的字面量，而 `ResolvedConfig extends OmniHarnessConfig`
+   * 且这些字段都是**可选**的 ⇒ 漏写不报错、值被静默丢弃，消费方读到的恒为 `undefined`。
+   * 本仓已有多次同型事故：`a2a`（`runtime` 的 `a2a?.enabled` 恒不可达）、`evolutionRlvr`、
+   * `promptInjectionGuard`，以及 2026-10 的 `decisionEngine`（见
+   * `tests/unit/decisionEngineWiring.test.ts`——那条判据修补前为红）。故这四段集中在一处并**成组透传**。
+   *
+   * ## 为什么抽成 helper
+   *
+   * `build` 的函数体已贴着体量红线（`scripts/check.mjs` 的 80 行 + `checkFuncBaseline` 存量基线），
+   * 再加一行即越线（2026-10-07 实测：加 6 行后 105 > 基线 99 被铁律阻断）。抽成 helper 后
+   * `build` 只做编排，与 `buildCapabilityStack` / `buildInjectionGuard` 同一处置。
+   *
+   * ## 各段为什么要「原样」而非换成已解析形态
+   *
+   * 以 `media` 为例：消费方（服务端配置页 / 切换工作区重基 `ConfigRebase`）读到的 `config.media`
+   * 必须还是**声明式字段**，否则「重基」会把一份烘死了旧环境的解析结果搬到新工作区；已解析的产物
+   * （提取路由 + 收敛值）随种子进入工具集，不在此重复暴露。RBAC / A2A / 决策引擎同理。
+   *
+   * @param partial 未解析的运行配置。
+   * @returns 需原样透传的段（缺省即 `undefined`，不构造任何运行时件 = 零行为变更）。
+   */
+  private static passthroughSections(partial: OmniHarnessConfig): Partial<OmniHarnessConfig> {
+    return {
+      media: partial.media,
+      // (F3 RBAC-lite) 角色门禁：显式透传（漏了即「配置写了却没人读」——本片判据抓到的就是它）。
+      rbac: partial.rbac,
+      // (U6 A2A) 此前该字段只在 `OmniHarnessConfig` 上声明、未被装配字面量透传，导致 `runtime` 的
+      // `if (config.a2a?.enabled === true)` 恒不可达 ⇒ A2A 生产路径整体不可用（U6 回环实测脚本直接
+      // import a2a 模块、绕过了装配层，故长期未暴露）。
+      a2a: partial.a2a,
+      // （Laya 战略线）决策引擎：2026-10 实测的原始缺陷之一就是「引擎恒不构造且无告警」。
+      // 注意：构造点在 `resolveTools(partial, …)`（读 partial），而**消费点读 ResolvedConfig**——
+      // 两处都要有，缺一个就会出现「装配了但读不到配置」的半接线形态。
+      decisionEngine: partial.decisionEngine,
     };
   }
 

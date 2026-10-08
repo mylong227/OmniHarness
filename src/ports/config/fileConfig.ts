@@ -8,6 +8,7 @@ import type { PermissionConfig } from './permissionConfig.js';
 import type { ProviderPresetConfig } from './providerPresetConfig.js';
 import type { ModelRouterConfig } from './modelRouterConfig.js';
 import type { CapabilityConfig } from './capabilityConfig.js';
+import type { DecisionEngineConfig } from './decisionEngineConfig.js';
 
 /**
  * 配置文件内容（omniharness.json，端口选择）。
@@ -176,6 +177,16 @@ export interface FileConfig {
   readonly longTermMemoryKeyFile?: string;
   /** 智能模型路由（#B4）：按策略在多个底层模型适配器间路由，fail-closed 严格校验。 */
   readonly modelRouter?: ModelRouterConfig;
+  /**
+   * （Laya 战略线）决策引擎段：本地 System-1 类型化决策（noul / choice / score）。
+   *
+   * **必须在此声明**：此前 `decisionEngine` 只有编程入口（`OmniHarnessConfig.decisionEngine`），
+   * 配置文件与 CLI 都写不进去 ⇒ 生产部署下引擎恒不被构造，1.7GB 的 venv + 权重零调用
+   * （2026-10 实测：连"打开开关"这件事本身都没有用户面入口）。CLI 侧对应
+   * `--decision-engine <mode>` / `--no-decision-engine` / `--decision-engine-python <path>`，
+   * 校验见 `DecisionEngineConfigValidator`。
+   */
+  readonly decisionEngine?: DecisionEngineConfig;
   /**
    * 各厂商 API Key 集合（#模型接入页）：厂商标识 → Key。
    * 仅落盘本地配置文件；config.get 回传时一律打码，凭据原文不出服务端。
