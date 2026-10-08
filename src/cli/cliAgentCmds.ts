@@ -144,34 +144,54 @@ export class CliAgentCmds extends CliNativeCmds {
 
   /**
    * workflow：DAG 工作流编排（#S31，对标 dsh agent-team / workflow DAG）。
-   * 用法: omniharness workflow --file workflow.json [--model-adapter ...]（并发闸门见 spec 的 maxConcurrency 字段）
-   * @param args 子命令参数（--file 指定工作流 JSON 定义）。
-   * @returns 进程退出码：缺 --file 为 2，文件读取/解析失败为 1，工作流失败为 1，成功为 0。
+   * 用法: omniharness workflow --file workflow.json [--resume-run <runId>] [--model-adapter ...]
+   * （并发闸门见 spec 的 maxConcurrency 字段；运行日志落在 <workspace>/.omniharness/graph-runs/）
+   * @param args 子命令参数（--file 指定工作流 JSON 定义；--resume-run 续跑既有运行）。
+   * @returns 进程退出码：既无 --file 也无 --resume-run 为 2，文件读取/解析失败为 1，工作流失败为 1，成功为 0。
    */
   protected async runWorkflow(args: readonly string[]): Promise<number> {
+    const resumeRun = this.flagValue(args, '--resume-run');
     const file = this.flagValue(args, '--file');
-    if (file === undefined) {
+    if (file === undefined && resumeRun === undefined) {
       process.stdout.write(
-        '用法: omniharness workflow --file workflow.json [--model-adapter ...]\n',
+        '用法: omniharness workflow --file workflow.json [--resume-run <runId>] [--model-adapter ...]\n',
       );
       return 2;
     }
-    let def: WorkflowDef;
-    try {
-      def = JSON.parse(await readFile(resolve(file), 'utf8')) as WorkflowDef;
-    } catch (error) {
-      console.error(`工作流文件读取/解析失败: ${ArgParser.messageOf(error)}`);
-      return 1;
+    let def: WorkflowDef | undefined;
+    if (file !== undefined) {
+      try {
+        def = JSON.parse(await readFile(resolve(file), 'utf8')) as WorkflowDef;
+      } catch (error) {
+        console.error(`工作流文件读取/解析失败: ${ArgParser.messageOf(error)}`);
+        return 1;
+      }
     }
     const cliArgs =
       ArgParser.parseArgs(['--prompt', 'workflow-placeholder', ...args]) ?? CliDefaults;
     const config = await this.buildConfig(cliArgs);
     const runtime = Runtime.createRuntime(config);
-    const result = await new WorkflowRunner(SubagentPorts.portsOf(runtime)).run(def);
-    process.stdout.write(
-      `${JSON.stringify({ ok: result.ok, steps: result.steps, blackboard: result.blackboard })}\n`,
-    );
-    return result.ok ? 0 : 1;
+    // 生产入口开启运行存档（库级默认 false＝零写盘）：这是 `--resume-run` 与事后审计的前提。
+    const runner = new WorkflowRunner(SubagentPorts.portsOf(runtime), { persist: true });
+    try {
+      // 续跑时定义从运行日志读回（`def` 可省）；同时把手上这份定义交给 runner 做一致性校验。
+      const result =
+        resumeRun !== undefined ? await runner.resume(resumeRun, def) : await runner.run(def!);
+      process.stdout.write(
+        `${JSON.stringify({
+          ok: result.ok,
+          runId: result.runId,
+          resumed: result.resumed,
+          steps: result.steps,
+          blackboard: result.blackboard,
+        })}\n`,
+      );
+      return result.ok ? 0 : 1;
+    } catch (error) {
+      // 规格非法 / 运行日志缺失或损坏 / 与 runId 记录不一致：fail-closed，给可读原因而非堆栈。
+      console.error(`工作流执行失败: ${ArgParser.messageOf(error)}`);
+      return 1;
+    }
   }
 
   /**
