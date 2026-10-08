@@ -255,6 +255,44 @@ export interface ApprovalRequest {
   args?: unknown;
 }
 
+/** 提问的一个选项（后端 `AskOption` 的线上形态）。 */
+export interface AskQuestionOption {
+  label: string;
+  description?: string;
+}
+
+/** 一道待作答的问题（后端 `AskQuestion` 的线上形态）。 */
+export interface AskQuestionItem {
+  id: string;
+  question: string;
+  header?: string;
+  options?: AskQuestionOption[];
+  /** true 时渲染复选框（可多选）；缺省/ false 为单选。 */
+  multiSelect?: boolean;
+}
+
+/**
+ * 服务端提问上行（SSE 通知 `question.request`）的载荷。
+ *
+ * 这是 Web 端**唯一**的「有提问待作答」事实源：提问卡的作答入口由它驱动，
+ * 而不是靠解析对话流里的 `question` 事件（后者可能因事件端口装配而缺席）。
+ */
+export interface QuestionRequest {
+  requestId: string;
+  /** 提问所属会话 id（缺省/ null 表示服务端未声明归属）。 */
+  sessionId?: string | null;
+  questions: AskQuestionItem[];
+  /** 等待上限（毫秒；0 表示不限时）；UI 据此显示倒计时，到点服务端会按「未作答」继续。 */
+  timeoutMs?: number;
+}
+
+/** 提交给服务端的一道答案（后端 `AskAnswer` 的线上形态）。 */
+export interface QuestionAnswerSubmission {
+  id: string;
+  selected: string[];
+  custom?: string;
+}
+
 export interface SseEnvelope {
   method: string;
   params: unknown;

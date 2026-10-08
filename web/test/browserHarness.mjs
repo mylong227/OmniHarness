@@ -134,6 +134,9 @@ function injectedBody() {
     "    'agents.list': { agents: [] },",
     "    'modes.get': { goal:'', planMode:false, sketchMode:false },",
     "    'approval.respond': { ok:true },",
+    // 提问上行（2026-10-08）：与 approval.respond 同形——缺了它，提问卡的提交流程会拿到 `{}`，
+    // 而 `ok` 缺失按「被拒」处理（挂起保留、卡片不收起），于是**任何**提问类的浏览器验收都会假红。
+    "    'question.respond': { ok:true },",
     "    'turns.run': { pending:true }",
     '  };',
     // 运行期结果覆盖（**纯增量**，不影响任何既有用例）：页面可在本脚本之前先挂

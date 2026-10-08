@@ -47,17 +47,20 @@ export class PlanPresentTool {
     }
     this.plan.present();
     this.events?.emit(this.eventFactory.plan(ctx.sessionId, this.plan.get()));
-    const answers = await this.responder.ask([
-      {
-        id: 'plan_decision',
-        header: '计划审批',
-        question: '是否批准以上计划开始执行？',
-        options: [
-          { label: 'approve', description: '批准并执行' },
-          { label: 'reject', description: '驳回，重新规划' },
-        ],
-      },
-    ]);
+    const answers = await this.responder.ask(
+      [
+        {
+          id: 'plan_decision',
+          header: '计划审批',
+          question: '是否批准以上计划开始执行？',
+          options: [
+            { label: 'approve', description: '批准并执行' },
+            { label: 'reject', description: '驳回，重新规划' },
+          ],
+        },
+      ],
+      { sessionId: ctx.sessionId },
+    );
     const answer = answers[0];
     if (answer === undefined) {
       return { callId: call.id, ok: false, error: '用户回答缺失' };

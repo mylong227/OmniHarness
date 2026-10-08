@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { CodeGenerator } from '../../src/schema/codeGenerator.js';
 import { protocolSchema } from '../../src/schema/protocolSchema.js';
 
-test('schema：方法集完整（7 个原语，含 threads.rewind）', () => {
-  assert.strictEqual(protocolSchema.methods.length, 7);
+test('schema：方法集完整（8 个原语，含 threads.rewind / question.respond）', () => {
+  assert.strictEqual(protocolSchema.methods.length, 8);
   const names = protocolSchema.methods.map((method) => method.name);
   assert.ok(names.includes('threads.create'));
   assert.ok(names.includes('threads.get'));
@@ -12,6 +12,8 @@ test('schema：方法集完整（7 个原语，含 threads.rewind）', () => {
   assert.ok(names.includes('threads.rewind'));
   assert.ok(names.includes('turns.run'));
   assert.ok(names.includes('approval.respond'));
+  // 提问上行：Web 提问卡的提交入口（缺席 ⇒ 用户看得见问题却答不了）。
+  assert.ok(names.includes('question.respond'));
 });
 
 test('TS 生成：包含全部方法与请求方法名', () => {

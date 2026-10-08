@@ -8,6 +8,7 @@ import type { Metrics } from '../services/metrics.js';
 import type { AuditSink } from '../services/auditSink.js';
 import type { GraphNodeStatus } from '../../autonomy/workflowRunner.js';
 import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
+import type { ServerEventBridge } from './serverEventBridge.js';
 
 /** AppServer 选项。 */
 export interface AppServerOptions {
@@ -15,6 +16,14 @@ export interface AppServerOptions {
   readonly transport: Transport;
   readonly skills?: SkillRegistry | undefined;
   readonly approvalUplink?: boolean | undefined;
+  /**
+   * 事件/上行桥（可注入）。
+   *
+   * 为什么允许注入：组合根要在**构造 AppServer 之前**把「提问上行端口」塞进配置
+   * （`userResponder`，工具在 `ConfigFactory.build` 期就捕获了它），而桥本身持有传输。
+   * 缺省时由 AppServerBase 自建（嵌入方与单测零改动）。
+   */
+  readonly eventBridge?: ServerEventBridge | undefined;
   readonly metrics?: Metrics | undefined;
   /**
    * (F4) 功能权益：治理台等商业档能力按此裁决可用性。

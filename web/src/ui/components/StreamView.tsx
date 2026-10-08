@@ -1,4 +1,4 @@
-﻿// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
+// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
 //
 // 事件按类型渲染，工具调用卡片聚合 args 与 result；点击任意事件卡触发钻取。
 // 回合内「过程类」事件（reasoning/tool_call/tool_result）默认折叠成 <details>，
@@ -37,13 +37,14 @@ import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
+import { QuestionCard } from './QuestionCard.js';
 import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
 import { ProcessCluster } from './stream/ProcessCluster.js';
 import { AssistantCard } from './stream/AssistantCard.js';
 import { UserCard } from './stream/UserCard.js';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
-import type { ThreadEvent, FileAttachment } from '../../types/models.js';
+import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission } from '../../types/models.js';
 import type { ComposerSeed, LiveInput } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 import type { ToolResultView } from '../shared.js';
@@ -110,6 +111,17 @@ export interface StreamViewProps {
   busy?: boolean;
   /** 当前正在调用的工具名（无则显示"思考中"），透传给 Composer 状态条。 */
   activeTool?: string | null;
+  /**
+   * 待作答的提问（服务端 `question.request` 上行）：渲染在输入框正上方的可作答提问卡。
+   *
+   * 为什么挂在输入框上方而不是塞进对话流：提问是「要用户现在做一件事」，必须与输入框
+   * 同屏（对话流可能被滚走、也可能根本没有对应的 question 事件）。
+   */
+  question?: QuestionRequest | null;
+  /** 提交提问作答（透传给 QuestionCard → AppController.answerQuestion）。 */
+  onAnswerQuestion?: (answers: QuestionAnswerSubmission[]) => Promise<void>;
+  /** 提问等待到期（透传给 QuestionCard；服务端会按「未作答」继续）。 */
+  onQuestionExpired?: (requestId: string) => void;
   /** ApiClient（给 Composer 附件 FilePicker 走 attach.read 用）。 */
   api: ApiClient;
   onModelChange: (v: string) => void;
@@ -146,6 +158,8 @@ interface EventCtx {
   finalizedStreamText: string;
   /** 本回合出现过的工具调用 id（只读：仅用于 `has` 判定）。 */
   toolCallIds: ReadonlySet<string>;
+  /** 是否正有提问等待作答（对话流里的提问卡据此给出「去下方提问卡作答」的指引）。 */
+  questionPending: boolean;
 }
 
 /**
@@ -256,7 +270,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
       return node(
         <>
           <div className="head">{badge('question')}</div>
-          <div className="card">{questionView((p.questions as unknown) || p)}</div>
+          <div className="card">{questionView((p.questions as unknown) || p, { pending: ctx.questionPending })}</div>
         </>,
       );
     case 'turn_diff':
@@ -377,6 +391,9 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onLoadThread,
     busy,
     activeTool,
+    question,
+    onAnswerQuestion,
+    onQuestionExpired,
     api,
     onModelChange,
     onReasoningChange,
@@ -462,6 +479,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onRegenerate,
     finalizedStreamText: finalizedStreamText ?? '',
     toolCallIds,
+    questionPending: question != null,
   };
   const streaming = streamText ?? '';
   // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。
@@ -613,6 +631,13 @@ export function StreamView(props: StreamViewProps): ReactElement {
             </div>
           )}
         </div>
+      )}
+      {question == null || onAnswerQuestion === undefined || onQuestionExpired === undefined ? null : (
+        <QuestionCard
+          request={question}
+          onSubmit={onAnswerQuestion}
+          onExpire={onQuestionExpired}
+        />
       )}
       <Composer
         model={model}

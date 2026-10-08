@@ -25,6 +25,7 @@ import type {
   BundleUnpackResult,
   ThreadGetResult,
   TurnRunResult,
+  QuestionAnswerSubmission,
 } from '../types/models.js';
 
 interface JsonRpcError {
@@ -317,6 +318,22 @@ export class ApiClient {
   }
   public respondApproval(requestId: string, decision: string): Promise<unknown> {
     return this.rpc('approval.respond', { requestId, decision });
+  }
+
+  /**
+   * 提交提问作答（`question.respond`）：把用户在提问卡上的选择送回等待中的 `ask_user`。
+   *
+   * 服务端对答案做严格校验（题 id / 选项标签 / 单选多选 / 长度），不合法时返回
+   * `{ ok: false, error }` 且**保留挂起**——故调用方必须看 `ok` 而不是只看「有没有抛错」。
+   * @param requestId 提问请求 id（来自 `question.request` 通知）
+   * @param answers 逐题作答（`selected` 必须是该题提供过的选项标签）
+   * @returns 服务端受理结果
+   */
+  public respondQuestion(
+    requestId: string,
+    answers: readonly QuestionAnswerSubmission[],
+  ): Promise<{ ok: boolean; error?: string }> {
+    return this.rpc('question.respond', { requestId, answers });
   }
 
   /** 列出某会话的全部检查点（label/时间/事件数/是否含文件快照）。 */

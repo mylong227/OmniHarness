@@ -112,7 +112,7 @@ export class AskUserTool {
       return q as AskQuestion;
     });
     this.events?.emit(this.eventFactory.question(ctx.sessionId, questions));
-    const answers = await this.responder.ask(questions);
+    const answers = await this.responder.ask(questions, { sessionId: ctx.sessionId });
     return {
       callId: call.id,
       ok: true,
